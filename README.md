@@ -60,7 +60,7 @@ Lokal unter dem Pages-Pfad testen:
 
 ```bash
 npm run build
-node scripts/serve-pages.mjs            # http://localhost:4174/schadstellen-aufmass/
+node scripts/serve-pages.mjs            # http://localhost:4174/baupad/
 PAGES=1 npm run test:e2e                # alle Ende-zu-Ende-Tests unter diesem Pfad
 ```
 

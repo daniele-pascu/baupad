@@ -1,13 +1,13 @@
 // Statischer Server, der GitHub Pages nachbildet: dist/ wird unter /<repo>/ ausgeliefert,
 // mit den MIME-Typen von GitHub Pages; alle anderen Pfade liefern 404.
-// Aufruf: node scripts/serve-pages.mjs [port] [basis] [verzeichnis]   (Standard: 4174 /schadstellen-aufmass/ dist)
+// Aufruf: node scripts/serve-pages.mjs [port] [basis] [verzeichnis]   (Standard: 4174 /baupad/ dist)
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const port = Number(process.argv[2] ?? 4174);
-const base = process.argv[3] ?? '/schadstellen-aufmass/';
+const base = process.argv[3] ?? '/baupad/';
 const root = join(fileURLToPath(new URL('..', import.meta.url)), process.argv[4] ?? 'dist');
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
