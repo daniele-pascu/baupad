@@ -219,6 +219,8 @@ export function handlePosition(r: Rect, h: string): Point {
 export interface LabelInput {
   id: string;
   bounds: Rect;
+  /** Form der Markierung – für eine genaue Verbindungslinie und Mehrdeutigkeitsprüfung */
+  shape?: Shape;
   /** Breite und Höhe des Beschriftungsfelds */
   w: number;
   h: number;
@@ -226,49 +228,203 @@ export interface LabelInput {
   offset: { dx: number; dy: number } | null;
 }
 
+export interface LabelOptions {
+  /** Bereich, in dem die Beschriftungen liegen sollen (z. B. Planausschnitt) */
+  area?: Rect;
+}
+
+const overlapArea = (a: Rect, b: Rect) =>
+  Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)) *
+  Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
+
+/** Abstand eines Punktes zu einem Rechteck (0, wenn innerhalb). */
+export function distToRect(p: Point, r: Rect): number {
+  const dx = Math.max(r.x - p.x, 0, p.x - (r.x + r.w));
+  const dy = Math.max(r.y - p.y, 0, p.y - (r.y + r.h));
+  return Math.hypot(dx, dy);
+}
+
+/** Abstand zwischen zwei Rechtecken (0, wenn sie sich berühren oder überlappen). */
+function rectGap(a: Rect, b: Rect): number {
+  const dx = Math.max(b.x - (a.x + a.w), 0, a.x - (b.x + b.w));
+  const dy = Math.max(b.y - (a.y + a.h), 0, a.y - (b.y + b.h));
+  return Math.hypot(dx, dy);
+}
+
 /**
- * Ordnet die Schadstellennummern neben den Markierungen an und vermeidet dabei
- * Überlappungen, soweit möglich. Funktioniert in beliebigen Koordinaten (Bildschirm
- * oder PDF), damit Ansicht und Export identisch beschriftet werden.
- * Gibt die linke obere Ecke jedes Beschriftungsfelds zurück.
+ * Ordnet die Schadstellennummern so an, dass
+ * 1. keine Nummer eine andere verdeckt,
+ * 2. keine Nummer auf einer fremden Schadstelle liegt,
+ * 3. jede Nummer eindeutig näher an ihrer eigenen Schadstelle steht als an einer anderen,
+ * 4. die Nummer möglichst dicht an der Schadstelle steht (bevorzugt oben rechts).
+ *
+ * Jede mögliche Position wird bewertet; gewählt wird die beste. Eng beieinander liegende
+ * Schadstellen werden zuerst platziert, danach wird zweimal nachgebessert.
+ * Funktioniert in beliebigen Koordinaten (Bildschirm oder PDF), damit Ansicht und Export
+ * gleich beschriftet werden. Gibt das Beschriftungsfeld jeder Schadstelle zurück.
  */
-export function layoutLabels(items: LabelInput[], gap: number): Map<string, Rect> {
-  const placed: Rect[] = [];
+export function layoutLabels(items: LabelInput[], gap: number, opts: LabelOptions = {}): Map<string, Rect> {
   const result = new Map<string, Rect>();
-  // Manuell verschobene Beschriftungen zuerst – sie sind fest.
-  const sorted = [...items].sort((a, b) => Number(!!b.offset) - Number(!!a.offset));
-  for (const it of sorted) {
+  if (!items.length) return result;
+  const maxH = Math.max(...items.map((i) => i.h));
+  const reach = maxH * 6 + gap * 4;
+
+  // Nachbarn je Schadstelle (nur diese können sich gegenseitig stören)
+  const neighbours = items.map((a) =>
+    items.filter((b) => b !== a && rectGap(a.bounds, b.bounds) <= reach * 2 + Math.max(a.w, b.w) * 2),
+  );
+  const indexOf = new Map(items.map((it, i) => [it, i]));
+
+  // Manuell verschobene Beschriftungen sind fest
+  for (const it of items) {
+    if (!it.offset) continue;
     const b = it.bounds;
-    const defaultPos = { x: b.x + b.w + gap, y: b.y - it.h - gap };
-    if (it.offset) {
-      const r = { x: b.x + b.w + it.offset.dx, y: b.y + it.offset.dy - it.h, w: it.w, h: it.h };
-      placed.push(r);
-      result.set(it.id, r);
-      continue;
+    result.set(it.id, { x: b.x + b.w + it.offset.dx, y: b.y + it.offset.dy - it.h, w: it.w, h: it.h });
+  }
+
+  const candidates = (it: LabelInput): { r: Rect; pref: number; inside: boolean }[] => {
+    const b = it.bounds;
+    const { w, h } = it;
+    const list: { r: Rect; pref: number; inside: boolean }[] = [];
+    const rings = [gap, gap + h * 0.9, gap + h * 2, gap + h * 3.5, gap + h * 5.5];
+    rings.forEach((d, ring) => {
+      const pos: [number, number, number][] = [
+        [b.x + b.w + d, b.y - h - d, 0], // oben rechts
+        [b.x - w - d, b.y - h - d, 1], // oben links
+        [b.x + b.w + d, b.y + b.h + d, 1.4], // unten rechts
+        [b.x - w - d, b.y + b.h + d, 1.8], // unten links
+        [b.x + b.w + d, b.y + b.h / 2 - h / 2, 1.2], // rechts
+        [b.x - w - d, b.y + b.h / 2 - h / 2, 1.6], // links
+        [b.x + b.w / 2 - w / 2, b.y - h - d, 1.3], // oben
+        [b.x + b.w / 2 - w / 2, b.y + b.h + d, 1.9], // unten
+        [b.x + b.w + d, b.y, 0.8], // rechts, oben bündig
+        [b.x + b.w - w, b.y - h - d, 0.6], // oben, rechts bündig
+      ];
+      for (const [x, y, p] of pos) list.push({ r: { x, y, w, h }, pref: p + ring * 4, inside: false });
+    });
+    // Innerhalb großer Markierungen ist die Zuordnung eindeutig
+    if (b.w >= w * 1.8 && b.h >= h * 1.8) {
+      list.push({ r: { x: b.x + b.w / 2 - w / 2, y: b.y + b.h / 2 - h / 2, w, h }, pref: 2.5, inside: true });
     }
-    const candidates: Point[] = [
-      defaultPos, // oben rechts
-      { x: b.x - it.w - gap, y: b.y - it.h - gap }, // oben links
-      { x: b.x + b.w + gap, y: b.y + b.h + gap }, // unten rechts
-      { x: b.x - it.w - gap, y: b.y + b.h + gap }, // unten links
-      { x: b.x + b.w + gap, y: b.y + b.h / 2 - it.h / 2 }, // rechts
-      { x: b.x - it.w - gap, y: b.y + b.h / 2 - it.h / 2 }, // links
-      { x: b.x + b.w / 2 - it.w / 2, y: b.y - it.h - gap }, // oben
-      { x: b.x + b.w / 2 - it.w / 2, y: b.y + b.h + gap }, // unten
-    ];
-    let chosen = candidates[0];
-    for (const c of candidates) {
-      const r = { x: c.x, y: c.y, w: it.w, h: it.h };
-      if (!placed.some((q) => rectsOverlap(q, r))) {
-        chosen = c;
-        break;
+    return list;
+  };
+
+  const score = (it: LabelInput, c: { r: Rect; pref: number; inside: boolean }, others: LabelInput[]): number => {
+    const r = c.r;
+    const la = r.w * r.h;
+    let s = c.pref;
+    const center = { x: r.x + r.w / 2, y: r.y + r.h / 2 };
+    // 1. andere Nummern verdecken: praktisch ausgeschlossen
+    for (const o of others) {
+      const q = result.get(o.id);
+      if (q) {
+        const ov = overlapArea(r, q);
+        if (ov > 0) s += 10000 + (ov / la) * 10000;
       }
     }
-    const r = { x: chosen.x, y: chosen.y, w: it.w, h: it.h };
-    placed.push(r);
-    result.set(it.id, r);
+    // 2. fremde Schadstellen verdecken
+    let nearestOther = Infinity;
+    for (const o of others) {
+      const ov = overlapArea(r, o.bounds);
+      if (ov > 0) s += 600 + (ov / la) * 600;
+      nearestOther = Math.min(nearestOther, distToRect(center, o.bounds));
+    }
+    // eigene Schadstelle nicht verdecken (außer bewusst innerhalb)
+    if (!c.inside) {
+      const ov = overlapArea(r, it.bounds);
+      if (ov > 0) s += 40 + (ov / la) * 200;
+    }
+    // 3. Eindeutigkeit: Nummer muss deutlich näher an der eigenen Schadstelle stehen
+    const own = distToRect(center, it.bounds);
+    if (nearestOther < Infinity) {
+      if (nearestOther <= own) s += 400;
+      else if (nearestOther < own + it.h) s += 80 * (1 - (nearestOther - own) / it.h);
+    }
+    // Bereich verlassen (z. B. außerhalb des Planausschnitts)
+    if (opts.area) {
+      const a = opts.area;
+      const inside = overlapArea(r, a);
+      if (inside < la) s += 300 * (1 - inside / la);
+    }
+    return s;
+  };
+
+  const auto = items.filter((i) => !i.offset);
+  // Eng beieinander liegende Schadstellen zuerst
+  const crowd = (it: LabelInput) =>
+    neighbours[indexOf.get(it)!].filter((o) => rectGap(it.bounds, o.bounds) <= reach).length;
+  const order = [...auto].sort((a, b) => crowd(b) - crowd(a) || a.bounds.w * a.bounds.h - b.bounds.w * b.bounds.h);
+
+  const place = (it: LabelInput) => {
+    const others = neighbours[indexOf.get(it)!];
+    let best: Rect | null = null;
+    let bestScore = Infinity;
+    for (const c of candidates(it)) {
+      const sc = score(it, c, others);
+      if (sc < bestScore) {
+        bestScore = sc;
+        best = c.r;
+      }
+    }
+    result.set(it.id, best!);
+  };
+
+  for (const it of order) place(it);
+  // Nachbessern: jede Nummer mit Kenntnis aller anderen neu platzieren
+  for (let pass = 0; pass < 2; pass++) {
+    for (const it of order) {
+      result.delete(it.id);
+      place(it);
+    }
   }
   return result;
+}
+
+/** Punkt auf dem Umriss einer Form, der dem Punkt `p` am nächsten liegt (Ellipse: Richtung zum Mittelpunkt). */
+export function outlinePointToward(shape: Shape, p: Point): Point {
+  const b = shapeBounds(shape);
+  if (shape.type === 'ellipse') {
+    const cx = b.x + b.w / 2;
+    const cy = b.y + b.h / 2;
+    const a = Math.atan2((p.y - cy) / (b.h / 2 || 1), (p.x - cx) / (b.w / 2 || 1));
+    return { x: cx + (b.w / 2) * Math.cos(a), y: cy + (b.h / 2) * Math.sin(a) };
+  }
+  if (shape.type === 'freehand') {
+    const pts = freehandPoints(shape);
+    let best = pts[0] ?? p;
+    let bestD = Infinity;
+    for (let i = 0; i < pts.length; i++) {
+      const q = nearestOnSegment(p, pts[i], pts[(i + 1) % pts.length]);
+      const d = Math.hypot(q.x - p.x, q.y - p.y);
+      if (d < bestD) {
+        bestD = d;
+        best = q;
+      }
+    }
+    return best;
+  }
+  return nearestPointOnRect(b, p);
+}
+
+function nearestOnSegment(p: Point, a: Point, b: Point): Point {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len2 = dx * dx + dy * dy;
+  const t = len2 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2)) : 0;
+  return { x: a.x + t * dx, y: a.y + t * dy };
+}
+
+/**
+ * Verbindungslinie zwischen Beschriftung und Markierung, wenn die Nummer nicht direkt am
+ * Umriss steht. Gemessen wird zum tatsächlichen Umriss (Kreis, Freihand, Rechteck) –
+ * nicht zum umgebenden Rechteck, sonst fehlt die Linie z. B. an der Ecke eines Kreises.
+ */
+export function leaderLine(shape: Shape, label: Rect, minGap: number): { from: Point; to: Point } | null {
+  const lc = { x: label.x + label.w / 2, y: label.y + label.h / 2 };
+  const to = outlinePointToward(shape, lc);
+  const from = nearestPointOnRect(label, to);
+  if (Math.hypot(from.x - to.x, from.y - to.y) <= minGap) return null;
+  return { from, to };
 }
 
 /** Ankerpunkt (für die Verbindungslinie) einer Beschriftung: nächstgelegener Punkt des Begrenzungsrechtecks. */

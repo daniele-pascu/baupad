@@ -4,9 +4,8 @@ import { damagesOf, planTitle, safeFileName, type ExportFile } from './aufmass';
 import { getBlob } from './db';
 import {
   layoutLabels,
-  nearestPointOnRect,
+  leaderLine,
   pathToSvg,
-  rectsOverlap,
   shapeBounds,
   shapePath,
   type Point,
@@ -296,24 +295,22 @@ function drawDamages(ctx: Ctx, t: Target, region: Rect, damages: Damage[]) {
     damages.map((d) => ({
       id: d.id,
       bounds: shapeBounds(d.shape),
+      shape: d.shape,
       w: ctx.bold.widthOfTextAtSize(String(d.number), fs) * u + 2 * padX,
       h: boxH,
       offset: d.labelOffset,
     })),
     fs * 0.25 * u,
+    { area: region },
   );
+  // Verbindungslinien zuerst, damit sie unter den Nummern liegen
+  for (const d of damages) {
+    const line = leaderLine(d.shape, labels.get(d.id)!, fs * 0.4 * u);
+    if (line) t.page.drawLine({ start: t.map(line.from), end: t.map(line.to), thickness: stroke * 0.7, color: hexToRgb(d.color), opacity: 0.95 });
+  }
   for (const d of damages) {
     const r = labels.get(d.id)!;
     const color = hexToRgb(d.color);
-    const b = shapeBounds(d.shape);
-    const grown = { x: b.x - fs * u, y: b.y - fs * u, w: b.w + 2 * fs * u, h: b.h + 2 * fs * u };
-    if (!rectsOverlap(grown, r)) {
-      // Verbindungslinie zu weiter entfernter Beschriftung
-      const c = { x: r.x + r.w / 2, y: r.y + r.h / 2 };
-      const a = t.map(nearestPointOnRect(r, nearestPointOnRect(b, c)));
-      const e = t.map(nearestPointOnRect(b, c));
-      t.page.drawLine({ start: a, end: e, thickness: stroke * 0.6, color, opacity: 0.9 });
-    }
     drawRectMapped(t, r, { color: rgb(1, 1, 1), borderColor: color, borderWidth: stroke * 0.8, opacity: 0.92 });
     drawTextMapped(t, String(d.number), { x: r.x + padX, y: r.y + boxH * 0.73 }, fs, ctx.bold);
   }

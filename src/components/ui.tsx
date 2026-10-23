@@ -71,7 +71,8 @@ export function promptDialog(opts: { title: string; label: string; value?: strin
 let toastId = 0;
 export function toast(message: string, kind: Toast['kind'] = 'info', ms = 3500) {
   const t = { id: ++toastId, message, kind };
-  toasts = [...toasts, t];
+  // höchstens 3 Hinweise gleichzeitig – ältere werden ersetzt
+  toasts = [...toasts.slice(-2), t];
   update();
   setTimeout(() => {
     toasts = toasts.filter((x) => x !== t);

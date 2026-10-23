@@ -7,11 +7,10 @@ import {
   handlePosition,
   hitShape,
   layoutLabels,
-  nearestPointOnRect,
+  leaderLine,
   normalizeRect,
   pathToSvg,
   rectContains,
-  rectsOverlap,
   resizeShape,
   shapeBounds,
   shapePath,
@@ -315,25 +314,38 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   // ---------------------------------------------------------------------------
   // Beschriftungen (Bildschirmkoordinaten)
 
-  const labelFont = view ? Math.max(10, Math.min(14, 11 * Math.pow(view.scale / fitScale, 0.2))) : 11;
-  const labels = useMemo(() => {
-    if (!view) return new Map<string, Rect>();
-    const h = labelFont * 1.5;
+  // Die Anordnung wird in Seitenkoordinaten je Zoomstufe (ca. 12 %) berechnet – beim
+  // Verschieben bleibt sie unverändert, beim Zoomen wird nicht bei jedem Bild neu gerechnet.
+  const qScale = view ? Math.pow(2, Math.round(Math.log2(view.scale) * 6) / 6) : 1;
+  const labelFont = Math.max(10, Math.min(14, 11 * Math.pow(qScale / fitScale, 0.2)));
+  const labelLayout = useMemo(() => {
+    const k = 1.08 / qScale; // Bildschirmpixel → Seiteneinheiten, mit Reserve für Zwischenstufen
     return layoutLabels(
-      damages.map((d) => {
-        const b = shapeBounds(d.shape);
-        const p = toScreen(view, b);
-        return {
-          id: d.id,
-          bounds: { x: p.x, y: p.y, w: b.w * view.scale, h: b.h * view.scale },
-          w: String(d.number).length * labelFont * 0.62 + labelFont * 0.8,
-          h,
-          offset: d.labelOffset ? { dx: d.labelOffset.dx * view.scale, dy: d.labelOffset.dy * view.scale } : null,
-        };
-      }),
-      3,
+      damages.map((d) => ({
+        id: d.id,
+        bounds: shapeBounds(d.shape),
+        shape: d.shape,
+        w: (String(d.number).length * labelFont * 0.62 + labelFont * 0.8) * k,
+        h: labelFont * 1.5 * k,
+        offset: d.labelOffset,
+      })),
+      3 / qScale,
+      { area: region },
     );
-  }, [damages, view, labelFont]);
+  }, [damages, qScale, labelFont, region]);
+  const labels = useMemo(() => {
+    const out = new Map<string, Rect>();
+    if (!view) return out;
+    const h = labelFont * 1.5;
+    for (const d of damages) {
+      const r = labelLayout.get(d.id);
+      if (!r) continue;
+      const w = String(d.number).length * labelFont * 0.62 + labelFont * 0.8;
+      const c = toScreen(view, { x: r.x + r.w / 2, y: r.y + r.h / 2 });
+      out.set(d.id, { x: c.x - w / 2, y: c.y - h / 2, w, h });
+    }
+    return out;
+  }, [labelLayout, damages, view, labelFont]);
 
   // ---------------------------------------------------------------------------
   // Zeigerereignisse
@@ -648,22 +660,32 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
           {damages.map((d) => renderShape(d.shape, d.color, { selected: d.id === selectedId, key: d.id, id: d.id }))}
           {pending && renderShape(pending.shape, pending.color, { dashed: true, key: 'pending' })}
           {drawPreview && renderShape(drawPreview, color, { dashed: true, key: 'draw' })}
+          {/* Verbindungslinien zuerst, damit sie unter den Nummern liegen */}
           {damages.map((d) => {
             const r = labels.get(d.id);
             if (!r) return null;
-            const b = shapeBounds(d.shape);
-            const sb = { ...toScreen(view, b), w: b.w * view.scale, h: b.h * view.scale };
-            const grown = { x: sb.x - 10, y: sb.y - 10, w: sb.w + 20, h: sb.h + 20 };
-            const center = { x: r.x + r.w / 2, y: r.y + r.h / 2 };
-            const onShape = nearestPointOnRect(sb, center);
-            const onLabel = nearestPointOnRect(r, onShape);
+            const screenShape = { ...d.shape, ...toScreen(view, d.shape), w: d.shape.w * view.scale, h: d.shape.h * view.scale };
+            const line = leaderLine(screenShape, r, 5);
+            return line ? (
+              <line
+                key={`ll-${d.id}`}
+                className="leader"
+                x1={line.from.x}
+                y1={line.from.y}
+                x2={line.to.x}
+                y2={line.to.y}
+                stroke={d.color}
+                strokeWidth={1.4}
+              />
+            ) : null;
+          })}
+          {damages.map((d) => {
+            const r = labels.get(d.id);
+            if (!r) return null;
             const sel = d.id === selectedId;
             return (
               <g key={`l-${d.id}`} className={`damage-label${sel ? ' selected' : ''}`} data-label={d.number}>
-                {!rectsOverlap(grown, r) && (
-                  <line x1={onLabel.x} y1={onLabel.y} x2={onShape.x} y2={onShape.y} stroke={d.color} strokeWidth={1.2} />
-                )}
-                <rect x={r.x} y={r.y} width={r.w} height={r.h} rx={3} fill="#fff" fillOpacity={0.92} stroke={d.color} strokeWidth={sel ? 2 : 1.2} />
+                <rect x={r.x} y={r.y} width={r.w} height={r.h} rx={3} fill="#fff" fillOpacity={0.95} stroke={d.color} strokeWidth={sel ? 2.4 : 1.4} />
                 <text x={r.x + r.w / 2} y={r.y + r.h / 2} fontSize={labelFont} textAnchor="middle" dominantBaseline="central">
                   {d.number}
                 </text>
