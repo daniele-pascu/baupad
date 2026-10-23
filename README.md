@@ -49,6 +49,21 @@ npm run preview    # Produktionsversion lokal unter http://localhost:4173 testen
 Unterordner. HTTPS ist Pflicht, damit Offline-Betrieb und Speicherung funktionieren. Ein Server-Backend
 ist nicht nötig – Pläne und Aufmaßdaten verlassen das Gerät nicht.
 
+### GitHub Pages
+
+Der Workflow `.github/workflows/deploy-pages.yml` baut, testet und veröffentlicht die App bei jedem
+Push auf `main`. Einmalig im Repository einstellen: **Settings → Pages → Build and deployment →
+Source: „GitHub Actions“**. Die App ist danach unter `https://<benutzername>.github.io/<repository>/`
+erreichbar. Alle Pfade sind relativ, der Repository-Name ist daher frei wählbar.
+
+Lokal unter dem Pages-Pfad testen:
+
+```bash
+npm run build
+node scripts/serve-pages.mjs            # http://localhost:4174/schadstellen-aufmass/
+PAGES=1 npm run test:e2e                # alle Ende-zu-Ende-Tests unter diesem Pfad
+```
+
 **iPhone/iPad:** Seite in Safari öffnen → „Teilen“ → „Zum Home-Bildschirm“. Danach startet die App
 wie eine normale App und funktioniert offline. Ohne diesen Schritt kann Safari die Daten von Websites,
 die mehrere Wochen nicht genutzt wurden, löschen. Projekte daher zusätzlich regelmäßig über

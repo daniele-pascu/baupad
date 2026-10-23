@@ -5,6 +5,10 @@ const iPhoneUA =
 const iPadUA =
   'Mozilla/5.0 (iPad; CPU OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
 
+// PAGES=1: Test unter dem GitHub-Pages-Pfad /schadstellen-aufmass/ (statischer Server wie GitHub Pages)
+const pages = !!process.env.PAGES;
+const baseURL = pages ? 'http://localhost:4174/schadstellen-aufmass/' : 'http://localhost:4173/';
+
 export default defineConfig({
   testDir: 'tests/e2e',
   outputDir: 'test-results',
@@ -14,7 +18,7 @@ export default defineConfig({
   workers: 1,
   reporter: [['list']],
   use: {
-    baseURL: 'http://localhost:4173/',
+    baseURL,
     browserName: 'chromium',
     launchOptions: { executablePath: process.env.CHROMIUM_PATH || undefined },
     acceptDownloads: true,
@@ -36,8 +40,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npx vite preview --port 4173 --strictPort',
-    url: 'http://localhost:4173/',
+    command: pages ? 'node scripts/serve-pages.mjs 4174 /schadstellen-aufmass/' : 'npx vite preview --port 4173 --strictPort',
+    url: baseURL,
     reuseExistingServer: true,
     timeout: 60_000,
   },
