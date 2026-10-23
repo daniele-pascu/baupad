@@ -626,21 +626,6 @@ textarea {
   font-size: 0.8rem;
   pointer-events: none;
 }
-.update-banner {
-  position: fixed;
-  left: 50%;
-  bottom: calc(16px + var(--safe-bottom));
-  transform: translateX(-50%);
-  z-index: 300;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: var(--shadow-lg);
-}
-
 .save-status {
   display: inline-flex;
   align-items: center;

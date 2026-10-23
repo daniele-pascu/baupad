@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { DialogHost, toast } from './components/ui';
 import { Icon } from './components/Icon';
 import { parseRoute, paths, useHash } from './lib/router';
-import { openProject, useAppState } from './lib/store';
+import { flush, openProject, useAppState } from './lib/store';
 import { HomePage } from './pages/HomePage';
 import { ProjectPage } from './pages/ProjectPage';
 import { CostCenterPage } from './pages/CostCenterPage';
@@ -11,6 +11,16 @@ import { PlanEditorPage } from './pages/PlanEditorPage';
 export function App() {
   const route = parseRoute(useHash());
   useServiceWorker();
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem('justUpdated')) {
+        sessionStorage.removeItem('justUpdated');
+        toast('BauPad wurde auf die neueste Version aktualisiert.', 'success');
+      }
+    } catch {
+      /* optional */
+    }
+  }, []);
 
   let content: ReactNode;
   switch (route.name) {
@@ -101,38 +111,56 @@ function OfflineBadge() {
   );
 }
 
+/**
+ * Service Worker (Offline-Betrieb) mit automatischer Aktualisierung:
+ * - sucht beim Start, beim Zurückkehren in die App und alle 30 Minuten nach einer neuen Version,
+ * - übernimmt sie selbstständig, sobald kein Eingabefenster offen ist und alles gespeichert wurde.
+ */
 function useServiceWorker() {
   useEffect(() => {
     if (!('serviceWorker' in navigator) || import.meta.env.DEV) return;
     let cancelled = false;
+    let registration: ServiceWorkerRegistration | undefined;
+    const check = () => {
+      if (navigator.onLine) void registration?.update().catch(() => {});
+    };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') check();
+    };
     import('virtual:pwa-register')
       .then(({ registerSW }) => {
         if (cancelled) return;
         const updateSW = registerSW({
           immediate: true,
+          onRegisteredSW(_url, r) {
+            registration = r;
+            setInterval(check, 30 * 60 * 1000);
+          },
           onOfflineReady() {
-            toast('Die App ist jetzt auch offline verfügbar.', 'success');
+            toast('BauPad ist jetzt auch offline verfügbar.', 'success');
           },
           onNeedRefresh() {
-            showUpdateBanner(() => void updateSW(true));
+            void applyUpdateWhenIdle(() => updateSW(true));
           },
         });
       })
       .catch((e) => console.warn('Service Worker nicht verfügbar', e));
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
       cancelled = true;
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, []);
 }
 
-function showUpdateBanner(apply: () => void) {
-  const el = document.createElement('div');
-  el.className = 'update-banner';
-  el.innerHTML = '<span>Eine neue Version der App ist verfügbar.</span>';
-  const btn = document.createElement('button');
-  btn.className = 'btn btn-sm btn-primary';
-  btn.textContent = 'Jetzt aktualisieren';
-  btn.onclick = apply;
-  el.appendChild(btn);
-  document.body.appendChild(el);
+/** Neue Version übernehmen, sobald kein Dialog offen ist; vorher alles speichern. */
+async function applyUpdateWhenIdle(apply: () => Promise<void>) {
+  while (document.querySelector('.modal')) await new Promise((r) => setTimeout(r, 2000));
+  await flush();
+  try {
+    sessionStorage.setItem('justUpdated', '1');
+  } catch {
+    /* optional */
+  }
+  await apply();
 }

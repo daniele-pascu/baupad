@@ -240,6 +240,9 @@ export function HomePage() {
           )}
           <li>Sichern Sie Projekte regelmäßig als Datei („Sichern“), um sie zu archivieren oder auf ein anderes Gerät zu übertragen.</li>
         </ul>
+        <p className="muted small" data-testid="app-version">
+          BauPad Version {__APP_VERSION__}
+        </p>
         {storage && (
           <p className="muted small">
             Belegter Speicher: {(storage.usage / 1024 / 1024).toFixed(1)} MB
