@@ -1,0 +1,234 @@
+import { strToU8, zipSync } from 'fflate';
+
+/**
+ * Minimaler, abhängigkeitsfreier XLSX-Schreiber (Office Open XML).
+ *
+ * Zahlen werden als echte numerische Zellen mit Zahlenformat geschrieben – Excel zeigt sie
+ * dann je nach Ländereinstellung mit Dezimalkomma an, und man kann direkt weiterrechnen.
+ */
+
+export type CellStyle = 'header' | 'text' | 'measure' | 'area' | 'int' | 'boldText' | 'boldArea' | 'title' | 'label';
+
+export type Cell =
+  | null
+  | { t: 'str'; v: string; s?: CellStyle }
+  | { t: 'num'; v: number; s?: CellStyle }
+  | { t: 'formula'; f: string; v: number; s?: CellStyle };
+
+export interface Sheet {
+  name: string;
+  rows: Cell[][];
+  /** Spaltenbreiten in Zeichen */
+  widths: number[];
+  /** Erste Zeile fixieren und als Drucktitel wiederholen */
+  freezeHeader?: boolean;
+  /** Autofilter-Bereich, z. B. "A1:F20" */
+  autoFilter?: string;
+}
+
+const STYLE_INDEX: Record<CellStyle, number> = {
+  header: 1,
+  text: 2,
+  measure: 3,
+  area: 4,
+  int: 5,
+  boldText: 6,
+  boldArea: 7,
+  title: 8,
+  label: 9,
+};
+
+export const str = (v: string, s: CellStyle = 'text'): Cell => ({ t: 'str', v, s });
+export const num = (v: number, s: CellStyle): Cell => ({ t: 'num', v, s });
+
+export function colName(i: number): string {
+  let s = '';
+  let n = i + 1;
+  while (n > 0) {
+    const m = (n - 1) % 26;
+    s = String.fromCharCode(65 + m) + s;
+    n = Math.floor((n - 1) / 26);
+  }
+  return s;
+}
+
+function esc(s: string): string {
+  return s
+    // in XML 1.0 unzulässige Steuerzeichen entfernen
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/g, '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/** Gültiger, eindeutiger Tabellenblattname (max. 31 Zeichen, ohne []:*?/\). */
+export function sheetName(name: string, used: Set<string>): string {
+  const base = (name.replace(/[[\]:*?/\\]/g, ' ').replace(/^'+|'+$/g, '').trim() || 'Tabelle').slice(0, 31);
+  let candidate = base;
+  let i = 2;
+  while (used.has(candidate.toLowerCase())) {
+    const suffix = ` (${i++})`;
+    candidate = base.slice(0, 31 - suffix.length) + suffix;
+  }
+  used.add(candidate.toLowerCase());
+  return candidate;
+}
+
+function numberToXml(v: number): string {
+  if (!Number.isFinite(v)) return '0';
+  // Kürzeste exakte Darstellung mit Punkt (XML-Format ist immer sprachunabhängig)
+  return String(v);
+}
+
+function sheetXml(sheet: Sheet): string {
+  const rows = sheet.rows
+    .map((row, r) => {
+      const cells = row
+        .map((cell, c) => {
+          if (!cell) return '';
+          const ref = `${colName(c)}${r + 1}`;
+          const s = STYLE_INDEX[cell.s ?? 'text'];
+          if (cell.t === 'str') return `<c r="${ref}" s="${s}" t="inlineStr"><is><t xml:space="preserve">${esc(cell.v)}</t></is></c>`;
+          if (cell.t === 'num') return `<c r="${ref}" s="${s}"><v>${numberToXml(cell.v)}</v></c>`;
+          return `<c r="${ref}" s="${s}"><f>${esc(cell.f)}</f><v>${numberToXml(cell.v)}</v></c>`;
+        })
+        .join('');
+      return `<row r="${r + 1}">${cells}</row>`;
+    })
+    .join('');
+  const maxCols = Math.max(1, sheet.widths.length, ...sheet.rows.map((r) => r.length));
+  const dim = `A1:${colName(maxCols - 1)}${Math.max(1, sheet.rows.length)}`;
+  const pane = sheet.freezeHeader
+    ? '<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A2" sqref="A2"/>'
+    : '';
+  const cols = sheet.widths.length
+    ? `<cols>${sheet.widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('')}</cols>`
+    : '';
+  return (
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+    '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
+    `<dimension ref="${dim}"/>` +
+    `<sheetViews><sheetView workbookViewId="0">${pane}</sheetView></sheetViews>` +
+    '<sheetFormatPr defaultRowHeight="15"/>' +
+    cols +
+    `<sheetData>${rows}</sheetData>` +
+    (sheet.autoFilter ? `<autoFilter ref="${sheet.autoFilter}"/>` : '') +
+    '<pageMargins left="0.7" right="0.7" top="0.78740157499999996" bottom="0.78740157499999996" header="0.3" footer="0.3"/>' +
+    '<pageSetup paperSize="9" orientation="portrait"/>' +
+    '</worksheet>'
+  );
+}
+
+const STYLES_XML =
+  '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+  '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+  '<numFmts count="1"><numFmt numFmtId="164" formatCode="0.00#"/></numFmts>' +
+  '<fonts count="3">' +
+  '<font><sz val="11"/><color theme="1"/><name val="Calibri"/><family val="2"/><scheme val="minor"/></font>' +
+  '<font><b/><sz val="11"/><color theme="1"/><name val="Calibri"/><family val="2"/><scheme val="minor"/></font>' +
+  '<font><b/><sz val="14"/><color theme="1"/><name val="Calibri"/><family val="2"/><scheme val="minor"/></font>' +
+  '</fonts>' +
+  '<fills count="3">' +
+  '<fill><patternFill patternType="none"/></fill>' +
+  '<fill><patternFill patternType="gray125"/></fill>' +
+  '<fill><patternFill patternType="solid"><fgColor rgb="FFDCE6F1"/><bgColor indexed="64"/></patternFill></fill>' +
+  '</fills>' +
+  '<borders count="3">' +
+  '<border><left/><right/><top/><bottom/><diagonal/></border>' +
+  '<border><left/><right/><top/><bottom style="thin"><color auto="1"/></bottom><diagonal/></border>' +
+  '<border><left/><right/><top style="thin"><color auto="1"/></top><bottom style="double"><color auto="1"/></bottom><diagonal/></border>' +
+  '</borders>' +
+  '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+  '<cellXfs count="10">' +
+  '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' + // 0 Standard
+  '<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment wrapText="1" vertical="center"/></xf>' + // 1 Kopf
+  '<xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>' + // 2 Text
+  '<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>' + // 3 Maß
+  '<xf numFmtId="4" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>' + // 4 Fläche
+  '<xf numFmtId="1" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>' + // 5 Ganzzahl
+  '<xf numFmtId="0" fontId="1" fillId="0" borderId="2" xfId="0" applyFont="1" applyBorder="1"/>' + // 6 Summe Text
+  '<xf numFmtId="4" fontId="1" fillId="0" borderId="2" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1"/>' + // 7 Summe Fläche
+  '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>' + // 8 Titel
+  '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>' + // 9 Beschriftung
+  '</cellXfs>' +
+  '<cellStyles count="1"><cellStyle name="Standard" xfId="0" builtinId="0"/></cellStyles>' +
+  '</styleSheet>';
+
+export function buildXlsx(sheets: Sheet[]): Uint8Array {
+  if (!sheets.length) throw new Error('Keine Tabellenblätter');
+  const files: Record<string, Uint8Array> = {};
+  files['[Content_Types].xml'] = strToU8(
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+      '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+      '<Default Extension="xml" ContentType="application/xml"/>' +
+      '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+      '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
+      sheets
+        .map(
+          (_, i) =>
+            `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`,
+        )
+        .join('') +
+      '<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>' +
+      '<Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>' +
+      '</Types>',
+  );
+  files['_rels/.rels'] = strToU8(
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>' +
+      '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>' +
+      '<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>' +
+      '</Relationships>',
+  );
+  const now = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+  files['docProps/core.xml'] = strToU8(
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+      '<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">' +
+      '<dc:title>Schadstellen-Aufmaß</dc:title><dc:creator>Schadstellen-Aufmaß</dc:creator>' +
+      `<dcterms:created xsi:type="dcterms:W3CDTF">${now}</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">${now}</dcterms:modified>` +
+      '</cp:coreProperties>',
+  );
+  files['docProps/app.xml'] = strToU8(
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+      '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>Schadstellen-Aufmaß</Application></Properties>',
+  );
+  const definedNames: string[] = [];
+  sheets.forEach((s, i) => {
+    const quoted = `'${s.name.replace(/'/g, "''")}'`;
+    if (s.autoFilter) {
+      const [a, b] = s.autoFilter.split(':');
+      const abs = (ref: string) => ref.replace(/^([A-Z]+)(\d+)$/, '$$$1$$$2');
+      definedNames.push(
+        `<definedName name="_xlnm._FilterDatabase" localSheetId="${i}" hidden="1">${esc(`${quoted}!${abs(a)}:${abs(b)}`)}</definedName>`,
+      );
+    }
+    if (s.freezeHeader) definedNames.push(`<definedName name="_xlnm.Print_Titles" localSheetId="${i}">${esc(`${quoted}!$1:$1`)}</definedName>`);
+  });
+  files['xl/workbook.xml'] = strToU8(
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+      '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
+      '<bookViews><workbookView activeTab="0"/></bookViews>' +
+      `<sheets>${sheets.map((s, i) => `<sheet name="${esc(s.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')}</sheets>` +
+      (definedNames.length ? `<definedNames>${definedNames.join('')}</definedNames>` : '') +
+      '<calcPr calcId="191029" fullCalcOnLoad="1"/>' +
+      '</workbook>',
+  );
+  files['xl/_rels/workbook.xml.rels'] = strToU8(
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      sheets
+        .map(
+          (_, i) =>
+            `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`,
+        )
+        .join('') +
+      `<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>` +
+      '</Relationships>',
+  );
+  files['xl/styles.xml'] = strToU8(STYLES_XML);
+  sheets.forEach((s, i) => (files[`xl/worksheets/sheet${i + 1}.xml`] = strToU8(sheetXml(s))));
+  return zipSync(files, { level: 6 });
+}
