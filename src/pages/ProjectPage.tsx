@@ -7,7 +7,7 @@ import { confirmDialog, offerFile, promptDialog, showError, toast } from '../com
 import { costCentersOf, damagesOf, exportXlsx, plansOf, sumArea } from '../lib/aufmass';
 import { exportProjectBackup } from '../lib/backup';
 import { formatArea, formatDate } from '../lib/numbers';
-import { paths } from '../lib/router';
+import { navigate, paths } from '../lib/router';
 import { flush, newMeta, putRecord, softDelete, updateProject, useAppState, type ProjectState } from '../lib/store';
 import type { CostCenter } from '../lib/types';
 
@@ -32,6 +32,8 @@ export function ProjectPage() {
       sortIndex: ccs.length ? Math.max(...ccs.map((c) => c.sortIndex)) + 1 : 0,
     };
     putRecord('costCenters', cc);
+    // Direkt in die neue Kostenstelle wechseln – dort werden die Pläne importiert
+    navigate(paths.costCenter(project.id, cc.id));
   };
 
   const renameCostCenter = async (cc: CostCenter) => {
@@ -137,7 +139,13 @@ export function ProjectPage() {
         {!ccs.length && (
           <div className="empty">
             <p>Noch keine Kostenstellen angelegt.</p>
-            <p className="muted">Beispiele: Tiefgarage, Stiege 1, Parkdeck, Fassade Nord.</p>
+            <p className="muted">
+              Pläne (PDF, Fotos) werden in einer Kostenstelle importiert. Legen Sie zuerst eine Kostenstelle an, z. B.
+              Tiefgarage, Stiege 1, Parkdeck oder Fassade Nord.
+            </p>
+            <button type="button" className="btn btn-primary btn-lg" onClick={() => void addCostCenter()}>
+              <Icon name="plus" /> Erste Kostenstelle anlegen
+            </button>
           </div>
         )}
         <ul className="card-list">

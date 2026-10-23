@@ -219,3 +219,36 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
     await page.screenshot({ path: join(OUT, 'ipad-quer-editor.png') });
   }
 });
+
+test('Erstnutzer: vom neuen Projekt bis zum importierten PDF', async ({ page }) => {
+  await freshStart(page);
+  // Startseite erklärt, wo Pläne importiert werden
+  await expect(page.locator('.home-hint')).toContainText('Kostenstelle öffnen → „Plan importieren“');
+  await createProjectOnly(page);
+  await page.getByRole('button', { name: 'Erste Kostenstelle anlegen' }).tap();
+  await page.getByTestId('prompt-dialog').locator('input').fill('Tiefgarage');
+  await page.getByTestId('prompt-dialog').getByRole('button', { name: 'Anlegen' }).tap();
+  // Neue Kostenstelle öffnet sich direkt
+  await expect(page.getByTestId('cost-center-title')).toHaveText('Tiefgarage');
+  const [chooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.getByRole('button', { name: 'PDF oder Foto auswählen' }).tap(),
+  ]);
+  expect(await chooser.element().getAttribute('accept')).toContain('application/pdf');
+  await chooser.setFiles(join(FIXTURES, 'plaene.pdf'));
+  const wiz = page.getByTestId('import-wizard');
+  await wiz.getByTestId('page-tile').nth(1).tap();
+  await wiz.getByTestId('pages-next').tap();
+  await wiz.getByTestId('areas-next').tap();
+  await wiz.locator('[data-field="planNumber"]').fill('A-101');
+  await wiz.getByTestId('import-save').tap();
+  await waitForPlan(page);
+  await expect(page.getByTestId('plan-select')).toContainText('A-101');
+});
+
+async function createProjectOnly(page: import('@playwright/test').Page) {
+  await page.getByTestId('new-project').tap();
+  await page.getByTestId('project-form').locator('input[name="name"]').fill('Erster Test');
+  await page.getByTestId('project-form').getByRole('button', { name: 'Projekt anlegen' }).tap();
+  await expect(page.getByTestId('project-title')).toHaveText('Erster Test');
+}

@@ -165,7 +165,7 @@ export function HomePage() {
           <Icon name="plus" /> Neues Projekt
         </button>
         <button type="button" className="btn btn-lg" onClick={() => importRef.current?.click()}>
-          <Icon name="upload" /> Projekt importieren
+          <Icon name="upload" /> Projektsicherung öffnen (.zip)
         </button>
         <input
           ref={importRef}
@@ -180,6 +180,10 @@ export function HomePage() {
           }}
         />
       </div>
+
+      <p className="muted small home-hint">
+        Pläne (PDF, Fotos) importieren Sie innerhalb eines Projekts: Projekt öffnen → Kostenstelle öffnen → „Plan importieren“.
+      </p>
 
       <section>
         <h2 className="section-title">Projekte</h2>

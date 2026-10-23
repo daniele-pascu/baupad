@@ -233,6 +233,12 @@ a {
   font-size: 1.4rem;
 }
 
+.home-hint {
+  margin: 10px 0 0;
+}
+.empty .btn {
+  margin-top: 10px;
+}
 .home-actions {
   display: flex;
   flex-wrap: wrap;

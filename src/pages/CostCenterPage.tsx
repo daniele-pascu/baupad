@@ -114,6 +114,9 @@ export function CostCenterPage({ costCenterId }: { costCenterId: string }) {
             <div className="empty">
               <p>Noch keine Pläne in dieser Kostenstelle.</p>
               <p className="muted">Importieren Sie einen Plan als PDF, JPG oder PNG – auf iPhone/iPad aus „Dateien“ oder der Fotomediathek.</p>
+              <button type="button" className="btn btn-primary btn-lg" onClick={() => fileRef.current?.click()}>
+                <Icon name="upload" /> PDF oder Foto auswählen
+              </button>
             </div>
           )}
           <ul className="plan-grid">

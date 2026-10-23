@@ -33,6 +33,9 @@ export async function createCostCenter(page: Page, name: string) {
   const dlg = page.getByTestId('prompt-dialog');
   await dlg.locator('input').fill(name);
   await dlg.getByRole('button', { name: 'Anlegen' }).click();
+  // Die neue Kostenstelle wird direkt geöffnet
+  await expect(page.getByTestId('cost-center-title')).toHaveText(name);
+  await page.getByRole('link', { name: 'Zum Projekt' }).click();
   await expect(page.getByTestId('cost-center-card').filter({ hasText: name })).toBeVisible();
 }
 
