@@ -1,27 +1,27 @@
-# Schadstellen-Aufmaß
+# BauPad
 
-Web-App zur digitalen Erfassung, Vermessung, Nummerierung und Dokumentation von Schadstellen bei der
-Betoninstandsetzung. Läuft im Browser auf iPhone, iPad, PC und Laptop – auch ohne Internetverbindung.
+**BauPad** – Web-App zur digitalen Erfassung, Vermessung, Nummerierung und Dokumentation von Schadstellen
+bei der Betoninstandsetzung. Läuft im Browser auf iPhone, iPad, PC und Laptop – auch ohne Internetverbindung.
 
 ## Funktionsumfang (Version 1)
 
 | Bereich | Umgesetzt |
 |---|---|
-| Projekte | Anlegen (Projektname, Baustelle, Adresse, Auftraggeber, Bearbeiter, Datum, Bemerkungen), öffnen, umbenennen, bearbeiten, löschen mit Sicherheitsabfrage, Datum der letzten Bearbeitung |
+| Projekte | Anlegen zusammen mit einer oder mehreren Kostenstellen in einem Schritt (Projektname, Baustelle, Kostenstelle(n), Adresse, Auftraggeber, Bearbeiter, Datum, Bemerkungen), öffnen, umbenennen, bearbeiten, löschen mit Sicherheitsabfrage, Datum der letzten Bearbeitung |
 | Kostenstellen | Anlegen, umbenennen, öffnen, löschen; je Kostenstelle beliebig viele Pläne |
 | Planimport | PDF, JPG, PNG; auf iPhone/iPad aus „Dateien“ oder der Fotomediathek; EXIF-Ausrichtung von Fotos wird berücksichtigt |
 | Mehrseitige PDFs | Seitenvorschau, Auswahl einzelner Seiten; jede Seite wird ein eigener Plan mit Verweis auf Originaldatei und Originalseite |
 | Layoutbereiche | Automatische Erkennung mehrerer Planfelder auf einer Seite als **Vorschlag**, der bestätigt, angepasst oder verworfen werden muss; manuelles Aufziehen; ganze Seite bleibt immer verwendbar; Ausschnitt nachträglich änderbar |
 | Planbeschreibung | Plannummer (Pflicht, im Projekt eindeutig), Planname, Geschoss, Planbereich, Beschreibung – jederzeit änderbar |
 | Planansicht | Zoom über +/−, Mausrad und zwei Finger; Verschieben; Doppeltipp-Zoom; „Gesamten Plan anzeigen“; „Vorherige Ansicht“; Wechsel zwischen Plänen; scharfe Darstellung auch bei starkem Zoom (Detail-Nachrendern) |
-| Markierungen | Kreis, Rechteck, Freihand; 6 Farben; verschieben, Größe ändern (Anfasser), Form/Farbe ändern, löschen; Antippen erzeugt Markierung in Standardgröße |
-| Nummerierung | Automatisch je Plan ab 0 (Startnummer je Plan einstellbar); Nummer änderbar; doppelte Nummern werden verhindert – Auswahl „Nummern tauschen“ oder „ab Nr. X alle um 1 erhöhen“; Löschen nummeriert nichts unbemerkt um; optional „Lückenlos neu nummerieren“ mit Rückfrage |
-| Beschriftung | Nummer neben der Markierung, ca. 11 px, passt sich leicht dem Zoom an, weicht Überlappungen aus, separat verschiebbar (mit Verbindungslinie) |
+| Markierungen | Kreis, Rechteck, Freihand; 6 Farben; nachträglich verschieben, drehen (Dreh-Anfasser, rastet bei 15°-Schritten ein) und in der Größe ändern; Form/Farbe ändern, löschen; Antippen erzeugt Markierung in Standardgröße. Freihand bleibt exakt wie gezeichnet (keine Glättung); endet die Linie am Startpunkt, wird sie eine Fläche, sonst bleibt sie eine offene Linie (z. B. Riss) |
+| Nummerierung | Automatisch je Plan ab 1 (Startnummer je Plan einstellbar); Nummer änderbar; doppelte Nummern werden verhindert – Auswahl „Nummern tauschen“ oder „ab Nr. X alle um 1 erhöhen“; Löschen nummeriert nichts unbemerkt um; optional „Lückenlos neu nummerieren“ (ab 1) mit Rückfrage |
+| Beschriftung | Nummer neben bzw. in der Markierung, ca. 11 px; bewertete Platzierung: keine Überlappung mit anderen Nummern oder fremden Schadstellen, Nummer steht immer am nächsten an der eigenen Schadstelle; bei Abstand Verbindungslinie in Schadstellenfarbe; separat verschiebbar |
 | Maßeingabe | Öffnet automatisch nach dem Einzeichnen; Zahlentastatur (`inputmode="decimal"`); Komma oder Punkt; Enter/Weiter springt zum nächsten Feld; Prüfung auf positive Zahlen; Abbrechen verwirft die neue Markierung |
 | Fläche | `Fläche (m²) = Länge × Breite`, sofort aktualisiert; Tiefe wird dokumentiert, aber nicht eingerechnet; intern ungerundet gespeichert, Anzeige mit 2 Nachkommastellen |
 | Aufmaß-Tabelle | Je Plan und je Kostenstelle; sortiert nach Plannummer und Schadstellennummer; Zeile antippen → Schadstelle wird im Plan gezeigt; Bearbeiten/Löschen aus der Tabelle; Summenzeile |
 | Excel-Export | XLSX je Plan, Kostenstelle oder Gesamtprojekt (ein Blatt je Kostenstelle); Spalten A–F exakt wie gefordert; echte Zahlen mit Zahlenformat; Summenformel; Blatt „Projektdaten“ mit Zuordnung Kostenstelle ↔ Plan ↔ Originalseite |
-| PDF-Export | Einzelner Plan oder Auswahl mehrerer Pläne; Originalinhalt bleibt vektoriell erhalten; Markierungen, Nummern, Farben, Plannummer und Planbezeichnung (Kopfstreifen, verdeckt keinen Planinhalt); gedrehte PDF-Seiten und Planausschnitte werden korrekt behandelt; Originaldatei bleibt unverändert |
+| PDF-Export | Einzelner Plan oder Auswahl mehrerer Pläne; Originalinhalt bleibt vektoriell erhalten; Markierungen, Nummern, Farben; Kopfzeile „Aufmaßplan <Plannummer>“ (verdeckt keinen Planinhalt); gedrehte PDF-Seiten und Planausschnitte werden korrekt behandelt; Originaldatei bleibt unverändert |
 | Speichern | Automatisch nach jeder Änderung, sichtbarer Status („Änderungen werden gespeichert …“, „Gespeichert“, „Speichern fehlgeschlagen“), Warnung beim Schließen mit ungespeicherten Änderungen, zuletzt verwendete Planansicht wird gemerkt |
 | Sicherung | Gesamtes Projekt inkl. Originaldateien als ZIP exportieren und auf demselben oder einem anderen Gerät importieren; bei bereits vorhandenem Projekt Wahl zwischen „Ersetzen“ und „Als Kopie importieren“ |
 | Offline | Service Worker hält die gesamte App inkl. PDF-Engine, Schriften und Decoder vor; alle Daten liegen lokal in IndexedDB |

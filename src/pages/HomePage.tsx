@@ -8,7 +8,7 @@ import { isIOS } from '../lib/download';
 import { getDeviceId } from '../lib/ids';
 import { formatDate, formatDateTime } from '../lib/numbers';
 import { navigate, paths } from '../lib/router';
-import { closeProject, createProjectRecord } from '../lib/store';
+import { closeProject, createProjectWithCostCenters } from '../lib/store';
 import type { Project } from '../lib/types';
 
 interface Row {
@@ -50,15 +50,16 @@ export function HomePage() {
     void load();
   }, []);
 
-  const create = async (fields: ProjectFields) => {
+  const create = async (fields: ProjectFields, costCenterNames: string[]) => {
     // Dauerhafte Speicherung anfordern, damit der Browser die Daten nicht automatisch löscht
     try {
       await navigator.storage?.persist?.();
     } catch {
       /* optional */
     }
-    const p = await createProjectRecord(fields);
-    navigate(paths.project(p.id));
+    const { project, costCenters } = await createProjectWithCostCenters(fields, costCenterNames);
+    // Bei einer Kostenstelle direkt dorthin – dort wird der erste Plan importiert
+    navigate(costCenters.length === 1 ? paths.costCenter(project.id, costCenters[0].id) : paths.project(project.id));
   };
 
   const rename = async (p: Project) => {
@@ -155,8 +156,8 @@ export function HomePage() {
     <div className="page home">
       <header className="topbar">
         <div className="brand">
-          <img src="./icons/icon.svg" alt="" width={32} height={32} />
-          <h1>Schadstellen-Aufmaß</h1>
+          <img src="./icons/logo-header.png" alt="BauPad" className="brand-logo" height={36} />
+          <h1 className="sr-only">BauPad</h1>
         </div>
       </header>
 
@@ -253,9 +254,10 @@ export function HomePage() {
           title="Neues Projekt"
           submitLabel="Projekt anlegen"
           onClose={() => setCreating(false)}
-          onSubmit={async (fields) => {
+          withCostCenters
+          onSubmit={async (fields, costCenterNames) => {
             try {
-              await create(fields);
+              await create(fields, costCenterNames);
             } catch (e) {
               showError(e, 'Projekt konnte nicht angelegt werden');
             }

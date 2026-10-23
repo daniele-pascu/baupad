@@ -16,16 +16,26 @@ export async function freshStart(page: Page) {
   });
   await page.goto('./#/');
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Schadstellen-Aufmaß' })).toBeVisible();
+  await expect(page).toHaveTitle('BauPad');
+  await expect(page.getByRole('img', { name: 'BauPad' })).toBeVisible();
 }
 
-export async function createProject(page: Page, name: string, extra: Record<string, string> = {}) {
+/**
+ * Legt ein Projekt samt Kostenstelle(n) in einem Schritt an. Bei genau einer Kostenstelle
+ * öffnet die App diese direkt, bei mehreren die Projektseite.
+ */
+export async function createProject(page: Page, name: string, extra: Record<string, string> = {}, costCenters: string[] = ['Tiefgarage']) {
   await page.getByTestId('new-project').click();
   const form = page.getByTestId('project-form');
   await form.locator('input[name="name"]').fill(name);
   for (const [k, v] of Object.entries(extra)) await form.locator(`[name="${k}"]`).fill(v);
+  for (let i = 0; i < costCenters.length; i++) {
+    if (i > 0) await form.getByRole('button', { name: '+ Weitere Kostenstelle' }).click();
+    await form.getByTestId('cost-center-input').nth(i).fill(costCenters[i]);
+  }
   await form.getByRole('button', { name: 'Projekt anlegen' }).click();
-  await expect(page.getByTestId('project-title')).toHaveText(name);
+  if (costCenters.length === 1) await expect(page.getByTestId('cost-center-title')).toHaveText(costCenters[0]);
+  else await expect(page.getByTestId('project-title')).toHaveText(name);
 }
 
 export async function createCostCenter(page: Page, name: string) {

@@ -1,4 +1,5 @@
 import { useId, useState } from 'react';
+import { planNumberStart } from '../lib/numbering';
 import { alive, putRecord, type ProjectState } from '../lib/store';
 import type { Plan } from '../lib/types';
 import { Modal } from './Modal';
@@ -66,7 +67,7 @@ export function PlanDetailsDialog({ plan, data, onClose }: { plan: Plan; data: P
     area: plan.area,
     description: plan.description,
   });
-  const [start, setStart] = useState(String(plan.numberStart));
+  const [start, setStart] = useState(String(planNumberStart(plan)));
   const [show, setShow] = useState(false);
   const n = v.planNumber.trim().toLowerCase();
   const error = !n
@@ -74,7 +75,7 @@ export function PlanDetailsDialog({ plan, data, onClose }: { plan: Plan; data: P
     : alive(data.plans).some((p) => p.id !== plan.id && p.planNumber.trim().toLowerCase() === n)
       ? 'Diese Plannummer ist im Projekt bereits vergeben.'
       : null;
-  const startOk = /^\d{1,6}$/.test(start.trim());
+  const startOk = /^\d{1,6}$/.test(start.trim()) && Number(start.trim()) >= 1;
 
   return (
     <Modal
@@ -114,8 +115,8 @@ export function PlanDetailsDialog({ plan, data, onClose }: { plan: Plan; data: P
       <label className="field">
         <span>Startnummer für neue Schadstellen</span>
         <input value={start} onChange={(e) => setStart(e.target.value)} inputMode="numeric" pattern="[0-9]*" />
-        <small className="muted">Standard: 0. Bestehende Nummern werden dadurch nicht verändert.</small>
-        {show && !startOk && <small className="error">Bitte eine ganze Zahl ≥ 0 eingeben.</small>}
+        <small className="muted">Standard: 1. Bestehende Nummern werden dadurch nicht verändert.</small>
+        {show && !startOk && <small className="error">Bitte eine ganze Zahl ab 1 eingeben.</small>}
       </label>
       <p className="muted small">
         Originaldatei: {data.files[plan.fileId]?.name ?? '–'}

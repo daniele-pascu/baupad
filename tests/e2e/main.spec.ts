@@ -37,25 +37,40 @@ test.beforeAll(async ({ browser }) => {
 
 const sorted = (rows: string[][]) => rows.map((r) => [r[0], r[1], r[2], r[3], r[4]]);
 
-test('1. Projekt erstellen und wieder öffnen', async () => {
+test('1. Projekt mit Kostenstellen in einem Schritt erstellen und wieder öffnen', async () => {
   await freshStart(page);
-  await createProject(page, 'Wohnanlage Süd', { site: 'Tiefgarage Musterstraße', address: 'Musterstraße 1, Wien', client: 'Hausverwaltung X', editor: 'D. Pascu' });
+  // Ohne Kostenstelle lässt sich kein Projekt anlegen
+  await page.getByTestId('new-project').click();
+  const form = page.getByTestId('project-form');
+  await form.locator('input[name="name"]').fill('Test');
+  await form.getByRole('button', { name: 'Projekt anlegen' }).click();
+  await expect(form).toContainText('Bitte mindestens eine Kostenstelle eingeben');
+  await form.getByRole('button', { name: 'Abbrechen' }).click();
+
+  await createProject(
+    page,
+    'Wohnanlage Süd',
+    { site: 'Tiefgarage Musterstraße', address: 'Musterstraße 1, Wien', client: 'Hausverwaltung X', editor: 'D. Pascu' },
+    ['Tiefgarage', 'Stiege 1'],
+  );
+  await expect(page.getByTestId('cost-center-card')).toHaveCount(2);
   await page.getByRole('link', { name: 'Zur Startseite' }).click();
   const card = page.getByTestId('project-card').filter({ hasText: 'Wohnanlage Süd' });
   await expect(card).toContainText('Tiefgarage Musterstraße');
+  await expect(card).toContainText('2 Kostenst.');
   await expect(card).toContainText('Zuletzt bearbeitet');
   await card.click();
   await expect(page.getByTestId('project-title')).toHaveText('Wohnanlage Süd');
   await expect(page.locator('.project-info')).toContainText('Hausverwaltung X');
 });
 
-test('2. Kostenstelle erstellen und umbenennen', async () => {
-  await createCostCenter(page, 'Tiefgarag');
-  await page.getByTestId('cost-center-card').filter({ hasText: 'Tiefgarag' }).locator('..').getByRole('button', { name: 'Umbenennen' }).click();
-  await page.getByTestId('prompt-dialog').locator('input').fill('Tiefgarage');
+test('2. Weitere Kostenstelle erstellen und umbenennen', async () => {
+  await createCostCenter(page, 'Fassad');
+  await page.getByTestId('cost-center-card').filter({ hasText: 'Fassad' }).locator('..').getByRole('button', { name: 'Umbenennen' }).click();
+  await page.getByTestId('prompt-dialog').locator('input').fill('Fassade Nord');
   await page.getByTestId('prompt-dialog').getByRole('button', { name: 'Speichern' }).click();
-  await createCostCenter(page, 'Stiege 1');
-  await expect(page.getByTestId('cost-center-card')).toHaveCount(2);
+  await expect(page.getByTestId('cost-center-card')).toHaveCount(3);
+  await expect(page.getByTestId('cost-center-card').filter({ hasText: 'Fassade Nord' })).toBeVisible();
   await waitSaved(page);
 });
 
@@ -148,7 +163,7 @@ test('5.–7. Schadstellen einzeichnen, automatisch nummerieren, Maße eingeben,
   await drawRect(page, box.x + box.width * 0.2, box.y + box.height * 0.3, box.x + box.width * 0.3, box.y + box.height * 0.42);
   const dlg = page.getByTestId('damage-dialog');
   await expect(dlg).toBeVisible();
-  await expect(dlg.getByTestId('input-number')).toHaveValue('0');
+  await expect(dlg.getByTestId('input-number')).toHaveValue('1');
   await expect(dlg.getByTestId('input-length')).toHaveAttribute('inputmode', 'decimal');
   // Ungültige Eingaben werden nicht gespeichert
   await dlg.getByTestId('input-length').fill('abc');
@@ -164,7 +179,7 @@ test('5.–7. Schadstellen einzeichnen, automatisch nummerieren, Maße eingeben,
   expect(await tableRows(page)).toHaveLength(0);
 
   await drawRect(page, box.x + box.width * 0.2, box.y + box.height * 0.3, box.x + box.width * 0.3, box.y + box.height * 0.42);
-  await expect(dlg.getByTestId('input-number')).toHaveValue('0');
+  await expect(dlg.getByTestId('input-number')).toHaveValue('1');
   await dlg.getByTestId('input-length').fill('1,5');
   await dlg.getByTestId('input-width').fill('0,8');
   await expect(dlg.getByTestId('area-result')).toContainText('1,20 m²'); // sofortige Aktualisierung
@@ -176,7 +191,7 @@ test('5.–7. Schadstellen einzeichnen, automatisch nummerieren, Maße eingeben,
 
   await page.getByTestId('tool-ellipse').click();
   await drawRect(page, box.x + box.width * 0.5, box.y + box.height * 0.5, box.x + box.width * 0.62, box.y + box.height * 0.6);
-  await expect(dlg.getByTestId('input-number')).toHaveValue('1');
+  await expect(dlg.getByTestId('input-number')).toHaveValue('2');
   await fillMeasures(page, '2', '1.25', '0,1');
 
   await page.getByTestId('tool-freehand').click();
@@ -186,27 +201,27 @@ test('5.–7. Schadstellen einzeichnen, automatisch nummerieren, Maße eingeben,
   await page.mouse.down();
   for (const [dx, dy] of [[40, -10], [80, 10], [90, 50], [50, 70], [10, 50], [0, 5]]) await page.mouse.move(fx + dx, fy + dy, { steps: 5 });
   await page.mouse.up();
-  await expect(dlg.getByTestId('input-number')).toHaveValue('2');
+  await expect(dlg.getByTestId('input-number')).toHaveValue('3');
   await fillMeasures(page, '0,6', '0,4', '0,03', false);
 
   await waitSaved(page);
   expect(sorted(await tableRows(page))).toEqual([
-    ['0', '1,50', '0,80', '0,05', '1,20'],
-    ['1', '2,00', '1,25', '0,10', '2,50'],
-    ['2', '0,60', '0,40', '0,03', '0,24'],
+    ['1', '1,50', '0,80', '0,05', '1,20'],
+    ['2', '2,00', '1,25', '0,10', '2,50'],
+    ['3', '0,60', '0,40', '0,03', '0,24'],
   ]);
   await expect(page.getByTestId('sum-area')).toHaveText('3,94');
   // Nummern stehen im Plan
   await expect(page.locator('.damage-label')).toHaveCount(3);
-  await expect(page.locator('.damage-label text')).toHaveText(['0', '1', '2']);
+  await expect(page.locator('.damage-label text')).toHaveText(['1', '2', '3']);
 });
 
 test('Markierungen bleiben beim Zoomen und Verschieben an ihrer Position', async () => {
   await page.getByTestId('tool-select').click();
-  const before = await markerRelPos(page, 0);
+  const before = await markerRelPos(page, 1);
   await page.getByRole('button', { name: 'Vergrößern' }).click();
   await page.getByRole('button', { name: 'Vergrößern' }).click();
-  const afterZoom = await markerRelPos(page, 0);
+  const afterZoom = await markerRelPos(page, 1);
   for (const k of ['x', 'y', 'w', 'h'] as const) expect(Math.abs(afterZoom[k] - before[k])).toBeLessThan(0.003);
   // Mausrad-Zoom und Verschieben
   const box = await page.getByTestId('plan-viewer').boundingBox();
@@ -216,7 +231,7 @@ test('Markierungen bleiben beim Zoomen und Verschieben an ihrer Position', async
   await page.mouse.down();
   await page.mouse.move(box!.x + 250, box!.y + 180, { steps: 5 });
   await page.mouse.up();
-  const afterPan = await markerRelPos(page, 0);
+  const afterPan = await markerRelPos(page, 1);
   for (const k of ['x', 'y', 'w', 'h'] as const) expect(Math.abs(afterPan[k] - before[k])).toBeLessThan(0.003);
   await page.getByRole('button', { name: 'Gesamten Plan anzeigen' }).click();
   await page.getByRole('button', { name: 'Zur vorherigen Ansicht' }).click();
@@ -225,33 +240,33 @@ test('Markierungen bleiben beim Zoomen und Verschieben an ihrer Position', async
 
 test('8./9. Schadstelle bearbeiten, Nummer ändern, löschen – Plan und Tabelle synchron', async () => {
   // Bearbeiten über die Tabelle
-  await page.locator('[data-testid="aufmass-row"][data-number="1"]').getByRole('button', { name: /bearbeiten/ }).click();
+  await page.locator('[data-testid="aufmass-row"][data-number="2"]').getByRole('button', { name: /bearbeiten/ }).click();
   const dlg = page.getByTestId('damage-dialog');
   await dlg.getByTestId('input-length').fill('3');
   await expect(dlg.getByTestId('area-result')).toContainText('3,75 m²');
   await dlg.getByTestId('damage-save').click();
-  await expect(page.locator('[data-testid="aufmass-row"][data-number="1"] [data-testid="row-area"]')).toHaveText('3,75');
+  await expect(page.locator('[data-testid="aufmass-row"][data-number="2"] [data-testid="row-area"]')).toHaveText('3,75');
   await expect(page.getByTestId('sum-area')).toHaveText('5,19');
 
   // Nummer bereits vergeben → Tausch
-  await page.locator('[data-testid="aufmass-row"][data-number="2"]').getByRole('button', { name: /bearbeiten/ }).click();
-  await dlg.getByTestId('input-number').fill('0');
+  await page.locator('[data-testid="aufmass-row"][data-number="3"]').getByRole('button', { name: /bearbeiten/ }).click();
+  await dlg.getByTestId('input-number').fill('1');
   await dlg.getByTestId('damage-save').click();
   await expect(dlg.getByTestId('number-conflict')).toContainText('bereits vergeben');
   await dlg.getByTestId('renumber-swap').click();
   await expect(dlg).toBeHidden();
   expect(sorted(await tableRows(page)).map((r) => [r[0], r[4]])).toEqual([
-    ['0', '0,24'],
-    ['1', '3,75'],
-    ['2', '1,20'],
+    ['1', '0,24'],
+    ['2', '3,75'],
+    ['3', '1,20'],
   ]);
 
   // Neue Schadstelle mit vergebener Nummer → nachfolgende verschieben
   await page.getByTestId('tool-rect').click();
   const box = await planBox(page);
   await drawRect(page, box.x + box.width * 0.35, box.y + box.height * 0.7, box.x + box.width * 0.42, box.y + box.height * 0.8);
-  await expect(dlg.getByTestId('input-number')).toHaveValue('3');
-  await dlg.getByTestId('input-number').fill('1');
+  await expect(dlg.getByTestId('input-number')).toHaveValue('4');
+  await dlg.getByTestId('input-number').fill('2');
   await dlg.getByTestId('input-length').fill('1');
   await dlg.getByTestId('input-width').fill('1');
   await dlg.getByTestId('input-depth').fill('0,02');
@@ -259,21 +274,21 @@ test('8./9. Schadstelle bearbeiten, Nummer ändern, löschen – Plan und Tabell
   await dlg.getByTestId('renumber-shift').click();
   await expect(dlg).toBeHidden();
   expect(sorted(await tableRows(page)).map((r) => [r[0], r[4]])).toEqual([
-    ['0', '0,24'],
-    ['1', '1,00'],
-    ['2', '3,75'],
-    ['3', '1,20'],
+    ['1', '0,24'],
+    ['2', '1,00'],
+    ['3', '3,75'],
+    ['4', '1,20'],
   ]);
-  await expect(page.locator('.damage-label text')).toHaveText(['0', '1', '2', '3']);
+  await expect(page.locator('.damage-label text')).toHaveText(['1', '2', '3', '4']);
 
   // Auswahl über die Tabelle markiert die Schadstelle im Plan
   await page.getByTestId('tool-select').click();
-  await page.locator('[data-testid="aufmass-row"][data-number="2"]').click();
-  await expect(page.getByTestId('selection-bar')).toContainText('Nr. 2');
-  await expect(page.locator('.damage-label.selected text')).toHaveText('2');
+  await page.locator('[data-testid="aufmass-row"][data-number="3"]').click();
+  await expect(page.getByTestId('selection-bar')).toContainText('Nr. 3');
+  await expect(page.locator('.damage-label.selected text')).toHaveText('3');
 
   // Löschen mit Sicherheitsabfrage – andere Nummern bleiben unverändert
-  await page.locator('[data-testid="aufmass-row"][data-number="1"]').click();
+  await page.locator('[data-testid="aufmass-row"][data-number="2"]').click();
   await page.getByTestId('delete-selected').click();
   const confirm = page.getByTestId('confirm-dialog');
   await expect(confirm).toContainText('Die Nummern der übrigen Schadstellen bleiben unverändert');
@@ -281,29 +296,29 @@ test('8./9. Schadstelle bearbeiten, Nummer ändern, löschen – Plan und Tabell
   expect(await tableRows(page)).toHaveLength(4);
   await page.getByTestId('delete-selected').click();
   await confirm.getByRole('button', { name: 'Löschen' }).click();
-  expect(sorted(await tableRows(page)).map((r) => r[0])).toEqual(['0', '2', '3']);
+  expect(sorted(await tableRows(page)).map((r) => r[0])).toEqual(['1', '3', '4']);
   await expect(page.locator('.damage-label')).toHaveCount(3);
 
   // Nächste neue Schadstelle erhält die nächsthöhere Nummer
   await page.getByTestId('tool-ellipse').click();
   await drawRect(page, box.x + box.width * 0.8, box.y + box.height * 0.7, box.x + box.width * 0.86, box.y + box.height * 0.8);
-  await expect(dlg.getByTestId('input-number')).toHaveValue('4');
+  await expect(dlg.getByTestId('input-number')).toHaveValue('5');
   await fillMeasures(page, '0,5', '0,5', '0,04');
   expect(sorted(await tableRows(page)).map((r) => [r[0], r[4]])).toEqual([
-    ['0', '0,24'],
-    ['2', '3,75'],
-    ['3', '1,20'],
-    ['4', '0,25'],
+    ['1', '0,24'],
+    ['3', '3,75'],
+    ['4', '1,20'],
+    ['5', '0,25'],
   ]);
   await expect(page.getByTestId('sum-area')).toHaveText('5,44');
 });
 
 test('Markierung verschieben, Größe ändern, Beschriftung verschieben, Farbe ändern', async () => {
   await page.getByTestId('tool-select').click();
-  await page.locator('[data-testid="aufmass-row"][data-number="3"]').click();
-  const before = await markerRelPos(page, 3);
+  await page.locator('[data-testid="aufmass-row"][data-number="4"]').click();
+  const before = await markerRelPos(page, 4);
   const path = page.locator('.viewer-overlay path[data-damage]').nth(
-    await page.locator('.damage-label').evaluateAll((ls) => ls.findIndex((l) => l.getAttribute('data-label') === '3')),
+    await page.locator('.damage-label').evaluateAll((ls) => ls.findIndex((l) => l.getAttribute('data-label') === '4')),
   );
   const pb = (await path.boundingBox())!;
   // verschieben
@@ -311,7 +326,7 @@ test('Markierung verschieben, Größe ändern, Beschriftung verschieben, Farbe �
   await page.mouse.down();
   await page.mouse.move(pb.x + pb.width / 2 + 60, pb.y + pb.height / 2 + 40, { steps: 6 });
   await page.mouse.up();
-  const moved = await markerRelPos(page, 3);
+  const moved = await markerRelPos(page, 4);
   expect(moved.x).toBeGreaterThan(before.x + 0.01);
   expect(Math.abs(moved.w - before.w)).toBeLessThan(0.002);
   // Größe über Anfasser (unten rechts) ändern
@@ -321,10 +336,10 @@ test('Markierung verschieben, Größe ändern, Beschriftung verschieben, Farbe �
   await page.mouse.down();
   await page.mouse.move(se.x + 50, se.y + 30, { steps: 6 });
   await page.mouse.up();
-  const resized = await markerRelPos(page, 3);
+  const resized = await markerRelPos(page, 4);
   expect(resized.w).toBeGreaterThan(moved.w + 0.01);
   // Beschriftung verschieben, ohne die Markierung zu verändern
-  const label = page.locator('.damage-label[data-label="3"] rect');
+  const label = page.locator('.damage-label[data-label="4"] rect');
   const lb = (await label.boundingBox())!;
   await page.mouse.move(lb.x + lb.width / 2, lb.y + lb.height / 2);
   await page.mouse.down();
@@ -332,11 +347,11 @@ test('Markierung verschieben, Größe ändern, Beschriftung verschieben, Farbe �
   await page.mouse.up();
   const lb2 = (await label.boundingBox())!;
   expect(lb2.x).toBeGreaterThan(lb.x + 40);
-  const afterLabel = await markerRelPos(page, 3);
+  const afterLabel = await markerRelPos(page, 4);
   for (const k of ['x', 'y', 'w', 'h'] as const) expect(Math.abs(afterLabel[k] - resized[k])).toBeLessThan(0.001);
   // Farbe ändern
   await page.getByRole('button', { name: 'Farbe Blau' }).click();
-  await expect(page.locator('[data-testid="aufmass-row"][data-number="3"] .color-dot')).toHaveAttribute('style', /28, 126, 214|#1c7ed6/);
+  await expect(page.locator('[data-testid="aufmass-row"][data-number="4"] .color-dot')).toHaveAttribute('style', /28, 126, 214|#1c7ed6/);
   await waitSaved(page);
 });
 
@@ -349,10 +364,10 @@ test('10. Excel-Export (Plan) mit echten Zahlenwerten', async () => {
   expect(ws[0].map((c) => c?.v)).toEqual(['Plannummer', 'Schadstellennummer', 'Länge (m)', 'Breite (m)', 'Tiefe (m)', 'Fläche (m²)']);
   const data = ws.slice(1, 5).map((r) => r.map((c) => c?.v));
   expect(data).toEqual([
-    ['A-101', 0, 0.6, 0.4, 0.03, 0.24],
-    ['A-101', 2, 3, 1.25, 0.1, 3.75],
-    ['A-101', 3, 1.5, 0.8, 0.05, 1.2],
-    ['A-101', 4, 0.5, 0.5, 0.04, 0.25],
+    ['A-101', 1, 0.6, 0.4, 0.03, 0.24],
+    ['A-101', 3, 3, 1.25, 0.1, 3.75],
+    ['A-101', 4, 1.5, 0.8, 0.05, 1.2],
+    ['A-101', 5, 0.5, 0.5, 0.04, 0.25],
   ]);
   // Zahlen sind numerisch (Typ „n“), nicht Text
   for (const r of ws.slice(1, 5)) for (const c of r.slice(1, 6)) expect(c?.t).toBe('n');
@@ -364,7 +379,7 @@ test('10. Excel-Export (Plan) mit echten Zahlenwerten', async () => {
   execFileSync('soffice', ['--headless', '--convert-to', 'csv:Text - txt - csv (StarCalc):59,34,76,1,,1031', '--outdir', OUT, file], { timeout: 90_000 });
   const csv = execFileSync('cat', [file.replace(/\.xlsx$/, '.csv')], { encoding: 'utf8' });
   // Dezimaltrennzeichen hängt von der Ländereinstellung des Programms ab
-  expect(csv).toMatch(/A-101;0;0[.,]60;0[.,]40;0[.,]03;0[.,]24/);
+  expect(csv).toMatch(/A-101;1;0[.,]60;0[.,]40;0[.,]03;0[.,]24/);
   expect(csv).toMatch(/Summe;;;;;5[.,]44/); // Summenformel wird berechnet
 });
 
@@ -378,8 +393,8 @@ test('11. Bearbeiteten Plan als PDF exportieren', async () => {
   const info = execFileSync('pdfinfo', [file], { encoding: 'utf8' });
   expect(info).toMatch(/Pages:\s+1/);
   const text = execFileSync('pdftotext', ['-layout', file, '-'], { encoding: 'utf8' });
-  expect(text).toContain('Plan A-101 - Untergeschoss');
-  expect(text).toContain('Kostenstelle: Tiefgarage');
+  expect(text).toContain('Aufmaßplan A-101');
+  expect(text).not.toContain('Kostenstelle:'); // nur noch die Plannummer im Kopf
   expect(text).toContain('A-101 Untergeschoss'); // Original-Planinhalt (Vektor) erhalten
   execFileSync('pdftoppm', ['-png', '-r', '60', file, join(OUT, 'export-a101')]);
 });
@@ -393,7 +408,7 @@ test('Weitere Pläne: gedrehte Seite und Planbereich – PDF-Export mehrerer Pl�
     await page.getByTestId('tool-rect').click();
     await drawRect(page, box.x + box.width * 0.1, box.y + box.height * 0.1, box.x + box.width * 0.25, box.y + box.height * 0.2);
     // Nummerierung beginnt je Plan wieder bei 0
-    await expect(page.getByTestId('damage-dialog').getByTestId('input-number')).toHaveValue('0');
+    await expect(page.getByTestId('damage-dialog').getByTestId('input-number')).toHaveValue('1');
     await fillMeasures(page, '1', '2', '0,05');
   }
   await waitSaved(page);
@@ -413,12 +428,12 @@ test('10b. Excel-Export Kostenstelle und Gesamtprojekt', async () => {
   const wb = readXlsx(await saveDownload(dl));
   const rows = wb['Tiefgarage'].slice(1).filter((r) => r[1] && typeof r[1].v === 'number').map((r) => [r[0]?.v, r[1]?.v, r[5]?.v]);
   expect(rows).toEqual([
-    ['A-101', 0, 0.24],
-    ['A-101', 2, 3.75],
-    ['A-101', 3, 1.2],
-    ['A-101', 4, 0.25],
-    ['A-102', 0, 2],
-    ['B-204', 0, 2],
+    ['A-101', 1, 0.24],
+    ['A-101', 3, 3.75],
+    ['A-101', 4, 1.2],
+    ['A-101', 5, 0.25],
+    ['A-102', 1, 2],
+    ['B-204', 1, 2],
   ]);
   const info = wb['Projektdaten'];
   expect(info.some((r) => r[0]?.v === 'Projekt' && r[1]?.v === 'Wohnanlage Süd')).toBe(true);
@@ -427,7 +442,7 @@ test('10b. Excel-Export Kostenstelle und Gesamtprojekt', async () => {
   const dl2 = await catchDownload(page, () => page.getByTestId('export-xlsx-project').click());
   expect(dl2.suggestedFilename()).toBe('Wohnanlage_Sued_Aufmass.xlsx');
   const wb2 = readXlsx(await saveDownload(dl2));
-  expect(Object.keys(wb2)).toEqual(['Tiefgarage', 'Stiege 1', 'Projektdaten']);
+  expect(Object.keys(wb2)).toEqual(['Tiefgarage', 'Stiege 1', 'Fassade Nord', 'Projektdaten']);
 });
 
 test('12. Projekt speichern, schließen und vollständig wiederherstellen', async () => {
@@ -436,7 +451,7 @@ test('12. Projekt speichern, schließen und vollständig wiederherstellen', asyn
   await page.getByTestId('cost-center-card').filter({ hasText: 'Tiefgarage' }).click();
   await page.getByTestId('plan-card').filter({ hasText: 'A-101' }).click();
   await waitForPlan(page);
-  expect((await tableRows(page)).map((r) => r[0])).toEqual(['0', '2', '3', '4']);
+  expect((await tableRows(page)).map((r) => r[0])).toEqual(['1', '3', '4', '5']);
   await page.getByRole('link', { name: 'Zur Kostenstelle' }).click();
   await page.getByRole('link', { name: 'Zum Projekt' }).click();
 
@@ -464,10 +479,10 @@ test('12. Projekt speichern, schließen und vollständig wiederherstellen', asyn
   await page.getByTestId('plan-card').filter({ hasText: 'A-101' }).click();
   await waitForPlan(page);
   expect(sorted(await tableRows(page))).toEqual([
-    ['0', '0,60', '0,40', '0,03', '0,24'],
-    ['2', '3,00', '1,25', '0,10', '3,75'],
-    ['3', '1,50', '0,80', '0,05', '1,20'],
-    ['4', '0,50', '0,50', '0,04', '0,25'],
+    ['1', '0,60', '0,40', '0,03', '0,24'],
+    ['3', '3,00', '1,25', '0,10', '3,75'],
+    ['4', '1,50', '0,80', '0,05', '1,20'],
+    ['5', '0,50', '0,50', '0,04', '0,25'],
   ]);
   await expect(page.locator('.damage-label')).toHaveCount(4);
 

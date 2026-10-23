@@ -1,13 +1,11 @@
 import { expect, test } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { FIXTURES, OUT, catchDownload, createCostCenter, createProject, fillMeasures, freshStart, planBox, saveDownload, waitForPlan, waitSaved } from './helpers';
+import { FIXTURES, OUT, catchDownload, createProject, fillMeasures, freshStart, planBox, saveDownload, waitForPlan, waitSaved } from './helpers';
 test('Nummern dicht nebeneinander liegender Schadstellen überlappen nicht (Ansicht und PDF)', async ({ page }) => {
   test.setTimeout(180000);
   await freshStart(page);
-  await createProject(page, 'Cluster');
-  await createCostCenter(page, 'TG');
-  await page.getByTestId('cost-center-card').click();
+  await createProject(page, 'Cluster', {}, ['TG']);
   await page.getByTestId('plan-file-input').setInputFiles(join(FIXTURES, 'plaene.pdf'));
   const wiz = page.getByTestId('import-wizard');
   await wiz.getByTestId('page-tile').nth(1).click();
@@ -48,6 +46,6 @@ test('Nummern dicht nebeneinander liegender Schadstellen überlappen nicht (Ansi
   const pdf = await saveDownload(dl, 'cluster.pdf');
   // Im PDF: alle Nummern vorhanden
   const text = execFileSync('pdftotext', [pdf, '-'], { encoding: 'utf8' });
-  for (let n = 0; n <= 8; n++) expect(text).toMatch(new RegExp(`(^|\\s)${n}(\\s|$)`));
+  for (let n = 1; n <= 9; n++) expect(text).toMatch(new RegExp(`(^|\\s)${n}(\\s|$)`));
   execFileSync('pdftoppm', ['-png', '-r', '220', '-x', '700', '-y', '1150', '-W', '1100', '-H', '650', pdf, join(OUT, 'cluster-pdf')]);
 });

@@ -9,7 +9,7 @@ import { SaveErrorBanner, SaveStatus } from '../components/SaveStatus';
 import { confirmDialog, offerFile, showError, toast } from '../components/ui';
 import { damagesOf, exportXlsx, planTitle, plansOf, sumArea } from '../lib/aufmass';
 import { computeArea, formatArea, formatMeasure } from '../lib/numbers';
-import { compactNumbers, duplicateNumbers, nextNumber, shiftNumbers, swapNumbers } from '../lib/numbering';
+import { compactNumbers, duplicateNumbers, nextNumber, planNumberStart, shiftNumbers, swapNumbers } from '../lib/numbering';
 import { navigate, paths } from '../lib/router';
 import { newMeta, putRecord, putRecords, softDelete, useAppState, type ProjectState } from '../lib/store';
 import { COLORS, SHAPE_LABELS, type Damage, type Shape, type ShapeType } from '../lib/types';
@@ -142,7 +142,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     const area = computeArea(v.length, v.width);
     if (dialog.mode === 'new') {
       const shape: Shape =
-        v.shapeType === dialog.shape.type ? dialog.shape : { type: v.shapeType, x: dialog.shape.x, y: dialog.shape.y, w: dialog.shape.w, h: dialog.shape.h };
+        v.shapeType === dialog.shape.type ? dialog.shape : { type: v.shapeType, x: dialog.shape.x, y: dialog.shape.y, w: dialog.shape.w, h: dialog.shape.h, rotation: dialog.shape.rotation };
       const dmg: Damage = {
         ...newMeta(),
         projectId: plan.projectId,
@@ -172,7 +172,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       toast(`Schadstelle ${v.number} gespeichert (${formatArea(area)} m²).`, 'success', 2500);
     } else {
       const d = data.damages[dialog.id];
-      const shape: Shape = v.shapeType === d.shape.type ? d.shape : { type: v.shapeType, x: d.shape.x, y: d.shape.y, w: d.shape.w, h: d.shape.h };
+      const shape: Shape = v.shapeType === d.shape.type ? d.shape : { type: v.shapeType, x: d.shape.x, y: d.shape.y, w: d.shape.w, h: d.shape.h, rotation: d.shape.rotation };
       const patch = {
         id: d.id,
         length: v.length,
@@ -212,7 +212,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   };
 
   const compact = async () => {
-    const changes = compactNumbers(stored, plan.numberStart);
+    const changes = compactNumbers(stored, planNumberStart(plan));
     if (!changes.size) {
       toast('Die Nummerierung ist bereits lückenlos.');
       return;
@@ -221,7 +221,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       title: 'Lückenlos neu nummerieren?',
       message: (
         <p>
-          {changes.size} Schadstelle(n) erhalten eine neue Nummer (Reihenfolge bleibt erhalten, Start bei {plan.numberStart}). Bereits
+          {changes.size} Schadstelle(n) erhalten eine neue Nummer (Reihenfolge bleibt erhalten, Start bei {planNumberStart(plan)}). Bereits
           ausgedruckte oder notierte Nummern stimmen danach nicht mehr überein.
         </p>
       ),
@@ -326,7 +326,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               color={color}
               pending={dialog?.mode === 'new' ? { shape: dialog.shape, color } : null}
               onSelect={(id) => select(id)}
-              onCreate={(shape) => setDialog({ mode: 'new', shape, number: nextNumber(stored, plan.numberStart) })}
+              onCreate={(shape) => setDialog({ mode: 'new', shape, number: nextNumber(stored, planNumberStart(plan)) })}
               onShapeChange={(id, shape, commit) => {
                 if (commit) {
                   setOverrides(({ [id]: _, ...rest }) => rest);
@@ -378,7 +378,15 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                   <strong>{formatArea(selected.area)} m²</strong>
                 </span>
               </div>
+              {tool === 'select' ? (
+                <div className="selection-hint muted small">Ziehen = verschieben · ⟳ oben = drehen · Ecken = Größe</div>
+              ) : null}
               <div className="row gap">
+                {tool !== 'select' && (
+                  <button type="button" className="btn btn-sm" onClick={() => setTool('select')} data-testid="adjust-selected">
+                    <Icon name="select" size={18} /> Verschieben / Drehen
+                  </button>
+                )}
                 <button type="button" className="btn btn-sm btn-primary" onClick={() => setDialog({ mode: 'edit', id: selected.id })} data-testid="edit-selected">
                   <Icon name="edit" size={18} /> Bearbeiten
                 </button>

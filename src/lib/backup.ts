@@ -27,7 +27,7 @@ export async function exportProjectBackup(projectId: string): Promise<ExportFile
   const data = await loadProjectData(projectId);
   if (!data) throw new Error('Projekt nicht gefunden.');
   const zipFiles: Record<string, Uint8Array> = {};
-  const manifest = { format: FORMAT, version: VERSION, exportedAt: Date.now(), deviceId: getDeviceId(), app: 'Schadstellen-Aufmaß' };
+  const manifest = { format: FORMAT, version: VERSION, exportedAt: Date.now(), deviceId: getDeviceId(), app: 'BauPad' };
   zipFiles['manifest.json'] = strToU8(JSON.stringify(manifest, null, 2));
   zipFiles['projekt.json'] = strToU8(
     JSON.stringify(
@@ -59,7 +59,7 @@ export async function readProjectBackup(file: Blob): Promise<BackupContent> {
     throw new Error('Die Datei ist keine gültige Projektsicherung (ZIP-Datei erwartet).');
   }
   if (!entries['manifest.json'] || !entries['projekt.json']) {
-    throw new Error('Die Datei ist keine Projektsicherung des Schadstellen-Aufmaßes.');
+    throw new Error('Die Datei ist keine Projektsicherung von BauPad.');
   }
   const manifest = JSON.parse(strFromU8(entries['manifest.json']));
   if (manifest.format !== FORMAT) throw new Error('Unbekanntes Dateiformat.');

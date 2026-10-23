@@ -78,7 +78,7 @@ export interface Plan extends SyncMeta {
   floor: string;
   area: string;
   description: string;
-  /** Startnummer der Schadstellennummerierung dieses Plans */
+  /** Startnummer der Schadstellennummerierung dieses Plans (mindestens 1) */
   numberStart: number;
   sortIndex: number;
 }
@@ -94,6 +94,10 @@ export interface Shape {
   h: number;
   /** Nur Freihand: Punkte relativ zum Begrenzungsrechteck (0..1) */
   points?: [number, number][];
+  /** Nur Freihand: geschlossene Fläche (Standard) oder offene Linie, z. B. ein Riss */
+  closed?: boolean;
+  /** Drehung in Grad im Uhrzeigersinn um die Mitte des Begrenzungsrechtecks (Standard 0) */
+  rotation?: number;
 }
 
 export interface Damage extends SyncMeta {

@@ -9,12 +9,14 @@ interface Props {
   title: string;
   initial?: Partial<ProjectFields>;
   submitLabel: string;
-  onSubmit: (fields: ProjectFields) => void | Promise<void>;
+  /** Beim Anlegen: Kostenstellen gleich mit erfassen */
+  withCostCenters?: boolean;
+  onSubmit: (fields: ProjectFields, costCenters: string[]) => void | Promise<void>;
   onClose: () => void;
 }
 
 /** Eingabe der Projektdaten (neues Projekt oder Bearbeiten). */
-export function ProjectForm({ title, initial, submitLabel, onSubmit, onClose }: Props) {
+export function ProjectForm({ title, initial, submitLabel, withCostCenters, onSubmit, onClose }: Props) {
   const [f, setF] = useState<ProjectFields>({
     name: '',
     site: '',
@@ -29,6 +31,15 @@ export function ProjectForm({ title, initial, submitLabel, onSubmit, onClose }: 
   const [busy, setBusy] = useState(false);
   const set = (k: keyof ProjectFields) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
   const nameMissing = !f.name.trim();
+  const [ccs, setCcs] = useState<string[]>(['']);
+  const ccNames = ccs.map((c) => c.trim()).filter(Boolean);
+  const ccError = !withCostCenters
+    ? null
+    : !ccNames.length
+      ? 'Bitte mindestens eine Kostenstelle eingeben (z. B. Tiefgarage).'
+      : new Set(ccNames.map((c) => c.toLowerCase())).size !== ccNames.length
+        ? 'Jede Kostenstelle darf nur einmal vorkommen.'
+        : null;
 
   return (
     <Modal
@@ -53,11 +64,11 @@ export function ProjectForm({ title, initial, submitLabel, onSubmit, onClose }: 
         onSubmit={async (e) => {
           e.preventDefault();
           setTouched(true);
-          if (nameMissing) return;
+          if (nameMissing || ccError) return;
           setBusy(true);
           try {
             if (f.editor) localStorage.setItem('lastEditor', f.editor);
-            await onSubmit({ ...f, name: f.name.trim(), site: f.site.trim() });
+            await onSubmit({ ...f, name: f.name.trim(), site: f.site.trim() }, ccNames);
           } finally {
             setBusy(false);
           }
@@ -72,6 +83,40 @@ export function ProjectForm({ title, initial, submitLabel, onSubmit, onClose }: 
           <span>Baustelle / Bauvorhaben</span>
           <input value={f.site} onChange={set('site')} name="site" autoComplete="off" enterKeyHint="next" />
         </label>
+        {withCostCenters && (
+          <div className="field span-2 cc-fields">
+            <span>Kostenstelle *</span>
+            {ccs.map((c, i) => (
+              <div key={i} className="row gap">
+                <input
+                  value={c}
+                  onChange={(e) => setCcs(ccs.map((x, j) => (j === i ? e.target.value : x)))}
+                  name={`costCenter${i}`}
+                  data-testid="cost-center-input"
+                  placeholder={i === 0 ? 'z. B. Tiefgarage, Stiege 1, Parkdeck' : 'weitere Kostenstelle'}
+                  autoComplete="off"
+                  enterKeyHint="next"
+                  aria-label={`Kostenstelle ${i + 1}`}
+                  aria-invalid={touched && !!ccError}
+                />
+                {ccs.length > 1 && (
+                  <button
+                    type="button"
+                    className="icon-btn icon-btn-sm"
+                    onClick={() => setCcs(ccs.filter((_, j) => j !== i))}
+                    aria-label={`Kostenstelle ${i + 1} entfernen`}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            ))}
+            <button type="button" className="btn btn-sm cc-add" onClick={() => setCcs([...ccs, ''])}>
+              + Weitere Kostenstelle
+            </button>
+            {touched && ccError && <small className="error">{ccError}</small>}
+          </div>
+        )}
         <label className="field span-2">
           <span>Adresse oder Standort (optional)</span>
           <input value={f.address} onChange={set('address')} name="address" autoComplete="street-address" enterKeyHint="next" />

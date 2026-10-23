@@ -76,7 +76,7 @@ export function aufmassSheet(name: string, rows: AufmassRow[]): Omit<Sheet, 'nam
 function infoSheet(data: ProjectState, costCenters: CostCenter[], plans: Plan[], used: Set<string>): Sheet {
   const p = data.project;
   const rows: Cell[][] = [
-    [str('Schadstellen-Aufmaß', 'title')],
+    [str('BauPad – Aufmaß', 'title')],
     [],
     [str('Projekt', 'label'), str(p.name)],
     [str('Baustelle', 'label'), str(p.site)],

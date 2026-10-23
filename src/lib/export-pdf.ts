@@ -6,11 +6,11 @@ import {
   layoutLabels,
   leaderLine,
   pathToSvg,
-  shapeBounds,
+  isOpenShape,
+  shapeAABB,
   shapePath,
   type Point,
 } from './geometry';
-import { formatDate } from './numbers';
 import { canvasToBlob, closePdf, clampRenderScale, imageToCanvas, loadImageBitmap, openPdf, renderPdfRegion } from './pdf';
 import type { ProjectState } from './store';
 import type { Damage, Plan, Rect } from './types';
@@ -70,9 +70,9 @@ export interface PdfExportOptions {
 
 export async function exportPlansPdf(data: ProjectState, opts: PdfExportOptions): Promise<ExportFile> {
   const out = await PDFDocument.create();
-  out.setTitle('Schadstellen-Aufmaß');
-  out.setCreator('Schadstellen-Aufmaß');
-  out.setProducer('Schadstellen-Aufmaß');
+  out.setTitle('Aufmaßplan');
+  out.setCreator('BauPad');
+  out.setProducer('BauPad');
   const font = await out.embedFont(StandardFonts.Helvetica);
   const bold = await out.embedFont(StandardFonts.HelveticaBold);
   const ctx: Ctx = {
@@ -157,7 +157,7 @@ async function addPlanPage(ctx: Ctx, data: ProjectState, plan: Plan) {
         page.setBleedBox(box.x, box.y, box.w, box.h);
         page.setArtBox(box.x, box.y, box.w, box.h);
         const target: Target = { page, map, textRotation: page.getRotation().angle, ptPerUnit: 1 };
-        drawHeader(ctx, data, plan, target, region, header);
+        drawHeader(ctx, plan, target, region, header);
         drawDamages(ctx, target, region, damages);
         return;
       } catch (e) {
@@ -170,7 +170,7 @@ async function addPlanPage(ctx: Ctx, data: ProjectState, plan: Plan) {
     const scale = clampRenderScale(region.w, region.h, 200 / 72);
     const canvas = document.createElement('canvas');
     await renderPdfRegion(jsPage, canvas, region, scale).promise;
-    await addRasterPage(ctx, data, plan, region, damages, canvas, 1);
+    await addRasterPage(ctx, plan, region, damages, canvas, 1);
     return;
   }
 
@@ -180,7 +180,7 @@ async function addPlanPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   try {
     const canvas = imageToCanvas(bitmap, 8192, region);
     // Bildpixel als 150 dpi interpretieren
-    await addRasterPage(ctx, data, plan, region, damages, canvas, 72 / 150);
+    await addRasterPage(ctx, plan, region, damages, canvas, 72 / 150);
   } finally {
     bitmap.close();
   }
@@ -188,7 +188,6 @@ async function addPlanPage(ctx: Ctx, data: ProjectState, plan: Plan) {
 
 async function addRasterPage(
   ctx: Ctx,
-  data: ProjectState,
   plan: Plan,
   region: Rect,
   damages: Damage[],
@@ -204,7 +203,7 @@ async function addRasterPage(
   page.drawImage(img, { x: 0, y: 0, width: w, height: region.h * ptPerUnit });
   const map = (p: Point): Point => ({ x: (p.x - region.x) * ptPerUnit, y: h - (p.y - (region.y - header)) * ptPerUnit });
   const target: Target = { page, map, textRotation: 0, ptPerUnit };
-  drawHeader(ctx, data, plan, target, region, header);
+  drawHeader(ctx, plan, target, region, header);
   drawDamages(ctx, target, region, damages);
 }
 
@@ -216,7 +215,7 @@ function labelFontPt(region: Rect, ptPerUnit: number): number {
 
 /** Höhe des Kopfstreifens in Seiteneinheiten. */
 function headerHeight(region: Rect, ptPerUnit: number): number {
-  return (labelFontPt(region, ptPerUnit) * 3.2) / ptPerUnit;
+  return (labelFontPt(region, ptPerUnit) * 2.4) / ptPerUnit;
 }
 
 function drawRectMapped(t: Target, r: Rect, opts: { color?: ReturnType<typeof rgb>; borderColor?: ReturnType<typeof rgb>; borderWidth?: number; opacity?: number }) {
@@ -239,32 +238,16 @@ function drawTextMapped(t: Target, text: string, at: Point, size: number, font: 
   t.page.drawText(text, { x: p.x, y: p.y, size, font, color, rotate: degrees(t.textRotation) });
 }
 
-function drawHeader(ctx: Ctx, data: ProjectState, plan: Plan, t: Target, region: Rect, header: number) {
+/** Kopfstreifen: nur „Aufmaßplan <Plannummer>“. */
+function drawHeader(ctx: Ctx, plan: Plan, t: Target, region: Rect, header: number) {
   const u = 1 / t.ptPerUnit; // Seiteneinheiten je Punkt
   const fs = labelFontPt(region, t.ptPerUnit);
   const strip = { x: region.x, y: region.y - header, w: region.w, h: header };
   drawRectMapped(t, strip, { color: rgb(1, 1, 1) });
-  drawRectMapped(t, { x: region.x, y: region.y - 0.6 * u, w: region.w, h: 0.6 * u }, { color: rgb(0.12, 0.31, 0.47) });
-  const pad = fs * 0.8 * u;
-  const titleSize = fs * 1.25;
-  const cc = data.costCenters[plan.costCenterId];
-  const title = clean(ctx, `Plan ${planTitle(plan)}`);
-  const details = clean(
-    ctx,
-    [
-      plan.floor && `Geschoss: ${plan.floor}`,
-      plan.area && `Bereich: ${plan.area}`,
-      cc && `Kostenstelle: ${cc.name}`,
-      `Projekt: ${data.project.name}`,
-      data.project.site && `Baustelle: ${data.project.site}`,
-      `Stand: ${formatDate(new Date().toISOString().slice(0, 10))}`,
-    ]
-      .filter(Boolean)
-      .join('   |   '),
-  );
+  const titleSize = fs * 1.3;
+  const title = clean(ctx, `Aufmaßplan ${plan.planNumber || plan.planName}`.trim());
   const maxW = region.w * t.ptPerUnit - 2 * fs * 0.8;
-  drawTextMapped(t, fitText(ctx.bold, title, titleSize, maxW), { x: region.x + pad, y: strip.y + fs * 1.45 * u }, titleSize, ctx.bold);
-  drawTextMapped(t, fitText(ctx.font, details, fs * 0.85, maxW), { x: region.x + pad, y: strip.y + fs * 2.6 * u }, fs * 0.85, ctx.font, rgb(0.3, 0.32, 0.36));
+  drawTextMapped(t, fitText(ctx.bold, title, titleSize, maxW), { x: region.x + fs * 0.8 * u, y: strip.y + fs * 1.65 * u }, titleSize, ctx.bold);
 }
 
 function drawDamages(ctx: Ctx, t: Target, region: Rect, damages: Damage[]) {
@@ -281,7 +264,7 @@ function drawDamages(ctx: Ctx, t: Target, region: Rect, damages: Damage[]) {
     t.page.drawSvgPath(svg, {
       x: 0,
       y: 0,
-      color,
+      color: isOpenShape(d.shape) ? undefined : color,
       opacity: 0.12,
       borderColor: color,
       borderWidth: stroke,
@@ -294,7 +277,7 @@ function drawDamages(ctx: Ctx, t: Target, region: Rect, damages: Damage[]) {
   const labels = layoutLabels(
     damages.map((d) => ({
       id: d.id,
-      bounds: shapeBounds(d.shape),
+      bounds: shapeAABB(d.shape),
       shape: d.shape,
       w: ctx.bold.widthOfTextAtSize(String(d.number), fs) * u + 2 * padX,
       h: boxH,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { checkMeasure, computeArea, formatArea, formatMeasure, parseDecimal } from '../../src/lib/numbers';
-import { compactNumbers, duplicateNumbers, nextNumber, shiftNumbers, swapNumbers } from '../../src/lib/numbering';
+import { compactNumbers, duplicateNumbers, nextNumber, parseDamageNumber, planNumberStart, shiftNumbers, swapNumbers } from '../../src/lib/numbering';
 import { fitView, freehandShape, hitShape, layoutLabels, rectsOverlap, resizeShape, toPage, toScreen, zoomAt } from '../../src/lib/geometry';
 import { colName, sheetName } from '../../src/lib/xlsx';
 import { safeFileName } from '../../src/lib/aufmass';
@@ -39,14 +39,20 @@ describe('Flächenberechnung', () => {
 
 describe('Nummerierung', () => {
   const d = (id: string, number: number) => ({ id, number });
-  it('beginnt bei 0 und zählt hoch', () => {
-    expect(nextNumber([])).toBe(0);
-    expect(nextNumber([d('a', 0), d('b', 1)])).toBe(2);
+  it('beginnt bei 1 und zählt hoch', () => {
+    expect(nextNumber([])).toBe(1);
+    expect(nextNumber([d('a', 1), d('b', 2)])).toBe(3);
     expect(nextNumber([], 5)).toBe(5);
   });
+  it('ältere Pläne mit Startnummer 0 beginnen ebenfalls bei 1', () => {
+    expect(planNumberStart({ numberStart: 0 })).toBe(1);
+    expect(planNumberStart({ numberStart: 10 })).toBe(10);
+    expect(parseDamageNumber('0')).toBeNull();
+    expect(parseDamageNumber('7')).toBe(7);
+  });
   it('nummeriert beim Löschen nicht automatisch um', () => {
-    // Nr. 1 gelöscht → Nummern 0 und 2 bleiben, nächste ist 3
-    expect(nextNumber([d('a', 0), d('c', 2)])).toBe(3);
+    // Nr. 2 gelöscht → Nummern 1 und 3 bleiben, nächste ist 4
+    expect(nextNumber([d('a', 1), d('c', 3)])).toBe(4);
   });
   it('tauscht Nummern', () => {
     const list = [d('a', 0), d('b', 1), d('c', 2)];
@@ -62,9 +68,9 @@ describe('Nummerierung', () => {
     const after = list.map((i) => ({ ...i, number: ch.get(i.id) ?? i.number }));
     expect(duplicateNumbers(after)).toEqual([]);
   });
-  it('nummeriert lückenlos neu', () => {
+  it('nummeriert lückenlos neu – immer ab 1', () => {
     const ch = compactNumbers([d('a', 0), d('c', 2), d('e', 5)]);
-    expect(Object.fromEntries(ch)).toEqual({ c: 1, e: 2 });
+    expect(Object.fromEntries(ch)).toEqual({ a: 1, e: 3 }); // c behält die 2
   });
   it('erkennt doppelte Nummern', () => {
     expect(duplicateNumbers([d('a', 1), d('b', 1), d('c', 2)])).toEqual([1]);
@@ -100,9 +106,12 @@ describe('Geometrie', () => {
         { x: 50, y: 12 },
         { x: 60, y: 40 },
         { x: 20, y: 45 },
+        { x: 11, y: 12 },
       ],
       0.5,
+      5,
     )!;
+    expect(s.closed).toBe(true);
     expect(s.x).toBe(10);
     expect(s.points!.every(([u, v]) => u >= 0 && u <= 1 && v >= 0 && v <= 1)).toBe(true);
     const r = resizeShape(s, 'se', { x: 110, y: 85 }, 1);

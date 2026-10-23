@@ -229,6 +229,11 @@ a {
   align-items: center;
   gap: 10px;
 }
+.brand-logo {
+  display: block;
+  height: 36px;
+  width: auto;
+}
 .brand h1 {
   font-size: 1.4rem;
 }
@@ -430,6 +435,15 @@ a {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+}
+.cc-fields {
+  gap: 8px;
+}
+.cc-fields input {
+  flex: 1;
+}
+.cc-add {
+  align-self: flex-start;
 }
 .span-2 {
   grid-column: 1 / -1;
@@ -985,6 +999,20 @@ textarea {
   stroke-width: 1;
   stroke-dasharray: 4 3;
 }
+.rot-line {
+  stroke: #1c2129;
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+.rot-handle circle {
+  fill: #fff;
+  stroke: #1c2129;
+  stroke-width: 1.5;
+  cursor: grab;
+}
+.rot-handle path {
+  stroke: #1c2129;
+}
 .handle {
   fill: #fff;
   stroke: #1c2129;
@@ -1094,6 +1122,10 @@ textarea {
   box-shadow: var(--shadow-lg);
   max-width: calc(100% - 20px);
   font-size: 0.92rem;
+}
+.selection-hint {
+  width: 100%;
+  text-align: center;
 }
 .selection-info {
   display: flex;

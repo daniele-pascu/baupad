@@ -216,7 +216,7 @@ export function ImportWizard({ file, data, costCenterId, onClose, onDone }: Prop
           floor: d.floor.trim(),
           area: d.area.trim(),
           description: d.description.trim(),
-          numberStart: 0,
+          numberStart: 1,
           sortIndex: sortIndex++,
         };
       });

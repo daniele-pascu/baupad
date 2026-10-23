@@ -306,6 +306,26 @@ export async function createProjectRecord(fields: Omit<Project, keyof ReturnType
   return project;
 }
 
+/** Legt ein Projekt zusammen mit seinen Kostenstellen in einem Schritt an. */
+export async function createProjectWithCostCenters(
+  fields: Omit<Project, keyof ReturnType<typeof newMeta>>,
+  costCenterNames: string[],
+): Promise<{ project: Project; costCenters: CostCenter[] }> {
+  const project: Project = { ...newMeta(), ...fields, rev: 1 };
+  const costCenters: CostCenter[] = costCenterNames.map((name, i) => ({
+    ...newMeta(),
+    rev: 1,
+    projectId: project.id,
+    name,
+    sortIndex: i,
+  }));
+  await writeRecords([
+    { store: 'projects', record: project, baseRev: 0 },
+    ...costCenters.map((record) => ({ store: 'costCenters' as const, record, baseRev: 0 })),
+  ]);
+  return { project, costCenters };
+}
+
 // ---------------------------------------------------------------------------
 // Abfragen
 

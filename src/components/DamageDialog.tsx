@@ -44,14 +44,15 @@ export function DamageDialog({ mode, damage, others, onSave, onCancel, onDelete 
   const [showErrors, setShowErrors] = useState(false);
   const refs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  const num = parseDamageNumber(v.number);
+  // Eine unveränderte bestehende Nummer (auch eine ältere 0) bleibt gültig; neue Nummern ab 1
+  const num = v.number.trim() === String(damage.number) ? damage.number : parseDamageNumber(v.number);
   const L = checkMeasure(v.length, 'Länge');
   const B = checkMeasure(v.width, 'Breite');
   const T = checkMeasure(v.depth, 'Tiefe');
   const area = L.ok && B.ok ? computeArea(L.value, B.value) : null;
   const conflict = num !== null ? findByNumber(others, num, damage.id) : undefined;
   const errors = {
-    number: num === null ? 'Bitte eine ganze Zahl ≥ 0 eingeben.' : null,
+    number: num === null ? 'Bitte eine ganze Zahl ab 1 eingeben.' : null,
     length: L.ok ? null : L.error,
     width: B.ok ? null : B.error,
     depth: T.ok ? null : T.error,

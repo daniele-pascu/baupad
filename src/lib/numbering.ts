@@ -3,10 +3,17 @@ import type { Damage } from './types';
 /**
  * Schadstellennummerierung – getrennt je Plan.
  *
- * Neue Schadstellen erhalten die nächsthöhere Nummer (Start standardmäßig 0). Beim Löschen
- * wird nichts automatisch umnummeriert, damit bereits notierte Nummern gültig bleiben.
+ * Neue Schadstellen erhalten die nächsthöhere Nummer (Start immer mindestens bei 1). Beim
+ * Löschen wird nichts automatisch umnummeriert, damit bereits notierte Nummern gültig bleiben.
  */
-export function nextNumber(damages: Pick<Damage, 'number'>[], numberStart = 0): number {
+export const MIN_NUMBER = 1;
+
+/** Startnummer eines Plans; ältere Pläne mit Startnummer 0 beginnen ebenfalls bei 1. */
+export function planNumberStart(plan: { numberStart?: number }): number {
+  return Math.max(MIN_NUMBER, plan.numberStart ?? MIN_NUMBER);
+}
+
+export function nextNumber(damages: Pick<Damage, 'number'>[], numberStart = MIN_NUMBER): number {
   if (!damages.length) return numberStart;
   return Math.max(numberStart - 1, ...damages.map((d) => d.number)) + 1;
 }
@@ -22,7 +29,8 @@ export function findByNumber<T extends Pick<Damage, 'id' | 'number'>>(
 export function parseDamageNumber(input: string): number | null {
   const s = input.trim();
   if (!/^\d{1,6}$/.test(s)) return null;
-  return Number(s);
+  const n = Number(s);
+  return n >= MIN_NUMBER ? n : null;
 }
 
 /**
@@ -65,7 +73,7 @@ export function swapNumbers<T extends Pick<Damage, 'id' | 'number'>>(
 /** Lückenlose Neunummerierung in bestehender Reihenfolge ab Startnummer. */
 export function compactNumbers<T extends Pick<Damage, 'id' | 'number'>>(
   damages: T[],
-  start = 0,
+  start = MIN_NUMBER,
 ): Map<string, number> {
   const changes = new Map<string, number>();
   [...damages]

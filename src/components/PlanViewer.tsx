@@ -11,8 +11,13 @@ import {
   normalizeRect,
   pathToSvg,
   rectContains,
-  resizeShape,
+  isOpenShape,
+  normalizeRotation,
+  resizeRotatedShape,
+  rotatePoint,
+  shapeAABB,
   shapeBounds,
+  shapeCenter,
   shapePath,
   toPage,
   toScreen,
@@ -58,6 +63,7 @@ type Gesture =
   | { kind: 'draw'; tool: ShapeType; start: Point; current: Point; points: Point[] }
   | { kind: 'move'; id: string; start: Point; orig: Shape; moved: boolean }
   | { kind: 'resize'; id: string; handle: string; orig: Shape }
+  | { kind: 'rotate'; id: string; orig: Shape; startAngle: number }
   | { kind: 'label'; id: string; start: Point; orig: Rect; moved: boolean }
   | { kind: 'ignore' };
 
@@ -292,7 +298,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     focus: (id: string) => {
       const d = propsRef.current.damages.find((x) => x.id === id);
       if (!d || !size || !viewRef.current) return;
-      const b = shapeBounds(d.shape);
+      const b = shapeAABB(d.shape);
       const cur = viewRef.current;
       const sb = { ...toScreen(cur, b), w: b.w * cur.scale, h: b.h * cur.scale };
       const visible = sb.x >= 40 && sb.y >= 40 && sb.x + sb.w <= size.w - 40 && sb.y + sb.h <= size.h - 40;
@@ -323,7 +329,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     return layoutLabels(
       damages.map((d) => ({
         id: d.id,
-        bounds: shapeBounds(d.shape),
+        bounds: shapeAABB(d.shape),
         shape: d.shape,
         w: (String(d.number).length * labelFont * 0.62 + labelFont * 0.8) * k,
         h: labelFont * 1.5 * k,
@@ -378,10 +384,17 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     const sel = propsRef.current.damages.find((d) => d.id === propsRef.current.selectedId);
     if (!sel) return null;
     const tol = isCoarse() ? 22 : 10;
+    // nächstgelegener Anfasser innerhalb der Toleranz
+    let best: string | null = null;
+    let bestD = Infinity;
     for (const { h, p: hp } of screenHandles(sel.shape, viewRef.current!)) {
-      if (Math.abs(hp.x - p.x) <= tol && Math.abs(hp.y - p.y) <= tol) return h;
+      const d = Math.max(Math.abs(hp.x - p.x), Math.abs(hp.y - p.y));
+      if (d <= tol && d < bestD) {
+        bestD = d;
+        best = h;
+      }
     }
-    return null;
+    return best;
   };
 
   const startPinch = () => {
@@ -425,7 +438,11 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       const handle = hitHandle(p);
       if (handle) {
         const sel = propsRef.current.damages.find((d) => d.id === propsRef.current.selectedId)!;
-        gesture.current = { kind: 'resize', id: sel.id, handle, orig: sel.shape };
+        if (handle === 'rot') {
+          const c = shapeCenter(sel.shape);
+          const pp = toPage(v, p);
+          gesture.current = { kind: 'rotate', id: sel.id, orig: sel.shape, startAngle: (Math.atan2(pp.y - c.y, pp.x - c.x) * 180) / Math.PI };
+        } else gesture.current = { kind: 'resize', id: sel.id, handle, orig: sel.shape };
         return;
       }
       const labelId = hitLabel(p);
@@ -478,8 +495,14 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         const pp = toPage(v, p);
         g.current = pp;
         if (g.tool === 'freehand') {
-          const last = g.points[g.points.length - 1];
-          if (Math.hypot(pp.x - last.x, pp.y - last.y) * v.scale >= 2) g.points.push(pp);
+          // Alle Zwischenpunkte übernehmen, damit die Linie genau dem Finger folgt
+          const native = e.nativeEvent as PointerEvent;
+          const events = native.getCoalescedEvents?.() ?? [];
+          const samples = events.length ? events.map((ev) => toPage(v, localPoint(ev))) : [pp];
+          for (const q of samples) {
+            const last = g.points[g.points.length - 1];
+            if (Math.hypot(q.x - last.x, q.y - last.y) * v.scale >= 1) g.points.push(q);
+          }
         }
         forceRender((n) => n + 1);
         return;
@@ -495,7 +518,15 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       }
       case 'resize': {
         const pp = toPage(v, p);
-        propsRef.current.onShapeChange(g.id, resizeShape(g.orig, g.handle, pp, 6 / v.scale), false);
+        propsRef.current.onShapeChange(g.id, resizeRotatedShape(g.orig, g.handle, pp, 6 / v.scale), false);
+        return;
+      }
+      case 'rotate': {
+        const pp = toPage(v, p);
+        const c = shapeCenter(g.orig);
+        const angle = (Math.atan2(pp.y - c.y, pp.x - c.x) * 180) / Math.PI;
+        const rotation = normalizeRotation((g.orig.rotation ?? 0) + angle - g.startAngle);
+        propsRef.current.onShapeChange(g.id, { ...g.orig, rotation }, false);
         return;
       }
       case 'label': {
@@ -557,7 +588,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         if (d) propsRef.current.onShapeChange(g.id, cancelled ? g.orig : d.shape, true);
         return;
       }
-      case 'resize': {
+      case 'resize':
+      case 'rotate': {
         const d = propsRef.current.damages.find((x) => x.id === g.id);
         if (d) propsRef.current.onShapeChange(g.id, cancelled ? g.orig : d.shape, true);
         return;
@@ -612,12 +644,13 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       <path
         key={opts.key}
         d={d}
-        fill={col}
+        fill={isOpenShape(shape) ? 'none' : col}
         fillOpacity={opts.selected ? 0.2 : 0.12}
         stroke={col}
         strokeWidth={opts.selected ? strokeW + 1.5 : strokeW}
         strokeDasharray={opts.dashed ? '6 4' : undefined}
         strokeLinejoin="round"
+        strokeLinecap="round"
         data-damage={opts.id}
       />
     );
@@ -696,11 +729,37 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
             <g className="handles">
               {(() => {
                 const b = shapeBounds(selected.shape);
-                const p1 = toScreen(view, b);
-                return <rect x={p1.x} y={p1.y} width={b.w * view.scale} height={b.h * view.scale} className="sel-box" />;
+                const c = shapeCenter(b);
+                const rot = selected.shape.rotation ?? 0;
+                const corners = [
+                  { x: b.x, y: b.y },
+                  { x: b.x + b.w, y: b.y },
+                  { x: b.x + b.w, y: b.y + b.h },
+                  { x: b.x, y: b.y + b.h },
+                ].map((q) => toScreen(view, rotatePoint(q, c, rot)));
+                const hs = screenHandles(selected.shape, view);
+                const rh = hs.find((x) => x.h === 'rot')!;
+                const topMid = toScreen(view, rotatePoint({ x: c.x, y: b.y }, c, rot));
+                return (
+                  <>
+                    <polygon points={corners.map((q) => `${q.x},${q.y}`).join(' ')} className="sel-box" />
+                    <line x1={topMid.x} y1={topMid.y} x2={rh.p.x} y2={rh.p.y} className="rot-line" />
+                  </>
+                );
               })()}
               {screenHandles(selected.shape, view).map(({ h, p }) => {
                 const s = isCoarse() ? 14 : 10;
+                if (h === 'rot')
+                  return (
+                    <g key={h} className="rot-handle" data-testid="rotate-handle">
+                      <circle cx={p.x} cy={p.y} r={s * 0.9} />
+                      <path
+                        d={`M${p.x - s * 0.4} ${p.y - s * 0.1} a ${s * 0.42} ${s * 0.42} 0 1 1 ${s * 0.15} ${s * 0.45}`}
+                        fill="none"
+                        strokeWidth={1.6}
+                      />
+                    </g>
+                  );
                 return <rect key={h} x={p.x - s / 2} y={p.y - s / 2} width={s} height={s} className="handle" />;
               })}
             </g>
@@ -714,29 +773,33 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
 });
 
 /**
- * Anfasser in Bildschirmkoordinaten. Bei kleinen Markierungen nur die vier Ecken, leicht
- * nach außen versetzt, damit die Form selbst sichtbar und verschiebbar bleibt.
+ * Anfasser in Bildschirmkoordinaten (mit Drehung der Form). Bei kleinen Markierungen nur
+ * die vier Ecken, leicht nach außen versetzt, damit die Form selbst sichtbar und
+ * verschiebbar bleibt. Dazu der Dreh-Anfasser „rot“ über der Oberkante.
  */
 function screenHandles(shape: Shape, v: View): { h: string; p: Point }[] {
   const b = shapeBounds(shape);
+  const c = shapeCenter(b);
+  const rot = shape.rotation ?? 0;
   const small = Math.min(b.w, b.h) * v.scale < 64;
   const list = small ? HANDLES.filter((h) => h.length === 2) : HANDLES;
-  const off = small ? 8 : 0;
-  return list.map((h) => {
-    const p = toScreen(v, handlePosition(b, h));
-    return {
-      h,
-      p: {
-        x: p.x + (h.includes('w') ? -off : h.includes('e') ? off : 0),
-        y: p.y + (h.includes('n') ? -off : h.includes('s') ? off : 0),
-      },
+  const off = (small ? 8 : 0) / v.scale;
+  const out = list.map((h) => {
+    const q = handlePosition(b, h);
+    const local = {
+      x: q.x + (h.includes('w') ? -off : h.includes('e') ? off : 0),
+      y: q.y + (h.includes('n') ? -off : h.includes('s') ? off : 0),
     };
+    return { h: h as string, p: toScreen(v, rotatePoint(local, c, rot)) };
   });
+  const rotDist = (isCoarse() ? 40 : 30) / v.scale;
+  out.push({ h: 'rot', p: toScreen(v, rotatePoint({ x: c.x, y: b.y - off - rotDist }, c, rot)) });
+  return out;
 }
 
 /** Berechnet die gespeicherte Beschriftungsverschiebung (Seiteneinheiten) aus einer Bildschirmposition. */
 function labelOffsetFor(d: Damage, r: Rect, v: View) {
-  const b = shapeBounds(d.shape);
+  const b = shapeAABB(d.shape);
   const tr = toScreen(v, { x: b.x + b.w, y: b.y });
   return { dx: (r.x - tr.x) / v.scale, dy: (r.y + r.h - tr.y) / v.scale };
 }
@@ -767,9 +830,11 @@ function shapeFromDraw(g: Extract<Gesture, { kind: 'draw' }>, v: View, preview =
       const y = Math.min(...ys);
       const w = Math.max(...xs) - x || 1e-6;
       const h = Math.max(...ys) - y || 1e-6;
-      return { type: 'freehand', x, y, w, h, points: pts.map((p) => [(p.x - x) / w, (p.y - y) / h]) };
+      return { type: 'freehand', x, y, w, h, closed: false, points: pts.map((p) => [(p.x - x) / w, (p.y - y) / h]) };
     }
-    return freehandShape(g.points, 1.5 / v.scale) ?? { type: 'ellipse', ...r };
+    // Genau wie gezeichnet; nahe am Startpunkt beendet → geschlossene Fläche
+    const closeDist = Math.max(18 / v.scale, 0.08 * Math.hypot(r.w, r.h));
+    return freehandShape(g.points, 0.5 / v.scale, closeDist) ?? { type: 'ellipse', ...r };
   }
   return { type: g.tool, ...r };
 }

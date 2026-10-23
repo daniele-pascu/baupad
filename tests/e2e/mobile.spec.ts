@@ -5,7 +5,6 @@ import {
   FIXTURES,
   OUT,
   catchDownload,
-  createCostCenter,
   createProject,
   freshStart,
   markerRelPos,
@@ -64,10 +63,10 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   page.on('pageerror', (e) => console.log('PAGE ERROR', e.message));
   await freshStart(page);
   await noHorizontalScroll(page);
-  await createProject(page, 'Parkhaus Nord', { site: 'Parkdeck 2' });
+  await createProject(page, 'Parkhaus Nord', { site: 'Parkdeck 2' }, ['Parkdeck']);
   await noHorizontalScroll(page);
-  await createCostCenter(page, 'Parkdeck');
-  await page.getByTestId('cost-center-card').click();
+
+
 
   // Foto mit EXIF-Ausrichtung (Hochformat) importieren
   await page.getByTestId('plan-file-input').setInputFiles(join(FIXTURES, 'foto.jpg'));
@@ -105,7 +104,7 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   await page.touchscreen.tap(box.x + box.width * 0.3, box.y + box.height * 0.4);
   const dlg = page.getByTestId('damage-dialog');
   await expect(dlg).toBeVisible();
-  await expect(dlg.getByTestId('input-number')).toHaveValue('0');
+  await expect(dlg.getByTestId('input-number')).toHaveValue('1');
   await expect(dlg.getByTestId('input-length')).toHaveAttribute('inputmode', 'decimal');
   await expect(dlg.getByTestId('input-number')).toHaveAttribute('inputmode', 'numeric');
   await expect(dlg.getByTestId('input-depth')).toHaveAttribute('enterkeyhint', 'done');
@@ -125,7 +124,7 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   await page.getByTestId('tool-rect').tap();
   await touchDrag(cdp, { x: box.x + box.width * 0.55, y: box.y + box.height * 0.5 }, { x: box.x + box.width * 0.75, y: box.y + box.height * 0.65 });
   await expect(dlg).toBeVisible();
-  await expect(dlg.getByTestId('input-number')).toHaveValue('1');
+  await expect(dlg.getByTestId('input-number')).toHaveValue('2');
   await dlg.getByTestId('input-length').fill('2,4');
   await dlg.getByTestId('input-width').fill('1,1');
   await dlg.getByTestId('input-depth').fill('0,06');
@@ -134,13 +133,13 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   await waitSaved(page);
 
   // 3) Pinch-Zoom mit zwei Fingern – Markierungen bleiben exakt an ihrer Planposition
-  const before = await markerRelPos(page, 1);
+  const before = await markerRelPos(page, 2);
   const scale0 = Number(await page.getByTestId('plan-viewer').getAttribute('data-scale'));
   const vb = (await page.getByTestId('plan-viewer').boundingBox())!;
   await pinch(cdp, { x: vb.x + vb.width / 2, y: vb.y + vb.height / 2 }, 80, 240);
   const scale1 = Number(await page.getByTestId('plan-viewer').getAttribute('data-scale'));
   expect(scale1).toBeGreaterThan(scale0 * 2);
-  const after = await markerRelPos(page, 1);
+  const after = await markerRelPos(page, 2);
   for (const k of ['x', 'y', 'w', 'h'] as const) expect(Math.abs(after[k] - before[k])).toBeLessThan(0.003);
   // Zwei Finger erzeugen keine Markierung
   expect(await page.locator('.damage-label').count()).toBe(2);
@@ -149,19 +148,19 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   // 4) Verschieben mit einem Finger im Auswahlmodus
   await page.getByTestId('tool-select').tap();
   await touchDrag(cdp, { x: vb.x + 60, y: vb.y + 80 }, { x: vb.x + 160, y: vb.y + 150 });
-  const afterPan = await markerRelPos(page, 1);
+  const afterPan = await markerRelPos(page, 2);
   for (const k of ['x', 'y', 'w', 'h'] as const) expect(Math.abs(afterPan[k] - before[k])).toBeLessThan(0.003);
   await page.getByRole('button', { name: 'Gesamten Plan anzeigen' }).tap();
 
   // 5) Tabelle
   await page.getByTestId('mobile-tab-table').tap();
   expect((await tableRows(page)).map((r) => [r[0], r[4]])).toEqual([
-    ['0', '0,50'],
-    ['1', '2,64'],
+    ['1', '0,50'],
+    ['2', '2,64'],
   ]);
-  await page.locator('[data-testid="aufmass-row"][data-number="1"]').tap();
+  await page.locator('[data-testid="aufmass-row"][data-number="2"]').tap();
   await expect(page.getByTestId('plan-viewer')).toBeVisible();
-  await expect(page.getByTestId('selection-bar')).toContainText('Nr. 1');
+  await expect(page.getByTestId('selection-bar')).toContainText('Nr. 2');
   await noHorizontalScroll(page);
 
   // 6) Bearbeiten über die Auswahlleiste
@@ -174,8 +173,8 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   const dl = await catchDownload(page, () => page.getByTestId('export-xlsx-plan').tap());
   const wb = readXlsx(await saveDownload(dl, `${info.project.name}-plan.xlsx`));
   expect(wb['C-301'].slice(1, 3).map((r) => r.map((c) => c?.v))).toEqual([
-    ['C-301', 0, 1.25, 0.4, 0.03, 0.5],
-    ['C-301', 1, 2.4, 1.5, 0.06, 3.6],
+    ['C-301', 1, 1.25, 0.4, 0.03, 0.5],
+    ['C-301', 2, 2.4, 1.5, 0.06, 3.6],
   ]);
 
   // 8) PDF-Export beider Bildpläne
@@ -213,8 +212,8 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
     await expect(page.getByTestId('mobile-tab-table')).toBeHidden();
     await expect(page.getByTestId('aufmass-table')).toBeVisible();
     await expect(page.getByTestId('plan-viewer')).toBeVisible();
-    await page.locator('[data-testid="aufmass-row"][data-number="0"]').tap();
-    await expect(page.getByTestId('selection-bar')).toContainText('Nr. 0');
+    await page.locator('[data-testid="aufmass-row"][data-number="1"]').tap();
+    await expect(page.getByTestId('selection-bar')).toContainText('Nr. 1');
     await noHorizontalScroll(page);
     await page.screenshot({ path: join(OUT, 'ipad-quer-editor.png') });
   }
@@ -224,10 +223,12 @@ test('Erstnutzer: vom neuen Projekt bis zum importierten PDF', async ({ page }) 
   await freshStart(page);
   // Startseite erklärt, wo Pläne importiert werden
   await expect(page.locator('.home-hint')).toContainText('Kostenstelle öffnen → „Plan importieren“');
-  await createProjectOnly(page);
-  await page.getByRole('button', { name: 'Erste Kostenstelle anlegen' }).tap();
-  await page.getByTestId('prompt-dialog').locator('input').fill('Tiefgarage');
-  await page.getByTestId('prompt-dialog').getByRole('button', { name: 'Anlegen' }).tap();
+  // Projekt und Kostenstelle in einem Schritt
+  await page.getByTestId('new-project').tap();
+  const form = page.getByTestId('project-form');
+  await form.locator('input[name="name"]').fill('Erster Test');
+  await form.getByTestId('cost-center-input').fill('Tiefgarage');
+  await form.getByRole('button', { name: 'Projekt anlegen' }).tap();
   // Neue Kostenstelle öffnet sich direkt
   await expect(page.getByTestId('cost-center-title')).toHaveText('Tiefgarage');
   const [chooser] = await Promise.all([
@@ -245,10 +246,3 @@ test('Erstnutzer: vom neuen Projekt bis zum importierten PDF', async ({ page }) 
   await waitForPlan(page);
   await expect(page.getByTestId('plan-select')).toContainText('A-101');
 });
-
-async function createProjectOnly(page: import('@playwright/test').Page) {
-  await page.getByTestId('new-project').tap();
-  await page.getByTestId('project-form').locator('input[name="name"]').fill('Erster Test');
-  await page.getByTestId('project-form').getByRole('button', { name: 'Projekt anlegen' }).tap();
-  await expect(page.getByTestId('project-title')).toHaveText('Erster Test');
-}

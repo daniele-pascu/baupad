@@ -4,7 +4,6 @@ import { join } from 'node:path';
 import {
   FIXTURES,
   catchDownload,
-  createCostCenter,
   createProject,
   drawRect,
   fillMeasures,
@@ -33,18 +32,16 @@ test('Offline: Projekt anlegen, PDF importieren, Schadstellen erfassen, exportie
   });
   await page.reload();
   await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
-  await expect(page.getByRole('heading', { name: 'Schadstellen-Aufmaß' })).toBeVisible();
+  await expect(page.getByRole('img', { name: 'BauPad' })).toBeVisible();
 
   // Ab jetzt ohne Netzwerk
   await context.setOffline(true);
   page.on('requestfailed', (r) => failed.push(`${r.url()} ${r.failure()?.errorText}`));
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Schadstellen-Aufmaß' })).toBeVisible();
+  await expect(page.getByRole('img', { name: 'BauPad' })).toBeVisible();
   await expect(page.getByTestId('offline-badge')).toBeVisible();
 
-  await createProject(page, 'Offline-Baustelle');
-  await createCostCenter(page, 'Untergeschoss');
-  await page.getByTestId('cost-center-card').click();
+  await createProject(page, 'Offline-Baustelle', {}, ['Untergeschoss']);
   await page.getByTestId('plan-file-input').setInputFiles(join(FIXTURES, 'plaene.pdf'));
   const wiz = page.getByTestId('import-wizard');
   await expect(wiz.getByTestId('page-tile')).toHaveCount(4);
@@ -73,7 +70,7 @@ test('Offline: Projekt anlegen, PDF importieren, Schadstellen erfassen, exportie
 
   const x = await catchDownload(page, () => page.getByTestId('export-xlsx-plan').click());
   const wb = readXlsx(await saveDownload(x, 'offline.xlsx'));
-  expect(wb['A-101'][1].map((c) => c?.v)).toEqual(['A-101', 0, 1.5, 0.8, 0.05, 1.2]);
+  expect(wb['A-101'][1].map((c) => c?.v)).toEqual(['A-101', 1, 1.5, 0.8, 0.05, 1.2]);
 
   const p = await catchDownload(page, async () => {
     await page.getByTestId('export-pdf-plan').click();

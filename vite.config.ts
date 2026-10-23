@@ -10,11 +10,11 @@ export default defineConfig({
     VitePWA({
       registerType: 'prompt',
       injectRegister: false,
-      includeAssets: ['icons/*.png', 'icons/*.svg'],
+      includeAssets: ['icons/*.png'],
       manifest: {
-        name: 'Schadstellen-Aufmaß',
-        short_name: 'Aufmaß',
-        description: 'Digitale Erfassung von Schadstellen bei der Betoninstandsetzung',
+        name: 'BauPad',
+        short_name: 'BauPad',
+        description: 'BauPad – digitales Aufmaß von Schadstellen bei der Betoninstandsetzung',
         lang: 'de',
         start_url: './',
         scope: './',
@@ -25,7 +25,7 @@ export default defineConfig({
         icons: [
           { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
-          { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: 'icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
       workbox: {

@@ -44,9 +44,60 @@ export function rectsOverlap(a: Rect, b: Rect): boolean {
   return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 }
 
+/** Ungedrehtes Begrenzungsrechteck (Bezugssystem der Form, für Anfasser und Größenänderung). */
 export function shapeBounds(s: Shape): Rect {
   return { x: s.x, y: s.y, w: s.w, h: s.h };
 }
+
+export const shapeCenter = (s: Rect): Point => ({ x: s.x + s.w / 2, y: s.y + s.h / 2 });
+
+/** Dreht einen Punkt um `c` (Grad, im Uhrzeigersinn bei y nach unten). */
+export function rotatePoint(p: Point, c: Point, deg: number): Point {
+  if (!deg) return p;
+  const a = (deg * Math.PI) / 180;
+  const cos = Math.cos(a);
+  const sin = Math.sin(a);
+  const dx = p.x - c.x;
+  const dy = p.y - c.y;
+  return { x: c.x + dx * cos - dy * sin, y: c.y + dx * sin + dy * cos };
+}
+
+/** Punkt aus Seitenkoordinaten in das (ungedrehte) Bezugssystem der Form. */
+export const toShapeLocal = (s: Shape, p: Point): Point => rotatePoint(p, shapeCenter(s), -(s.rotation ?? 0));
+/** Punkt aus dem Bezugssystem der Form in Seitenkoordinaten. */
+export const fromShapeLocal = (s: Shape, p: Point): Point => rotatePoint(p, shapeCenter(s), s.rotation ?? 0);
+
+/** Achsparalleles Begrenzungsrechteck der (ggf. gedrehten) Form in Seitenkoordinaten. */
+export function shapeAABB(s: Shape): Rect {
+  const rot = s.rotation ?? 0;
+  if (!rot) return shapeBounds(s);
+  const c = shapeCenter(s);
+  let pts: Point[];
+  if (s.type === 'ellipse') {
+    const a = (rot * Math.PI) / 180;
+    const rx = s.w / 2;
+    const ry = s.h / 2;
+    const hw = Math.hypot(rx * Math.cos(a), ry * Math.sin(a));
+    const hh = Math.hypot(rx * Math.sin(a), ry * Math.cos(a));
+    return { x: c.x - hw, y: c.y - hh, w: 2 * hw, h: 2 * hh };
+  } else if (s.type === 'freehand') {
+    pts = freehandPoints(s).map((p) => rotatePoint(p, c, rot));
+  } else {
+    pts = [
+      { x: s.x, y: s.y },
+      { x: s.x + s.w, y: s.y },
+      { x: s.x + s.w, y: s.y + s.h },
+      { x: s.x, y: s.y + s.h },
+    ].map((p) => rotatePoint(p, c, rot));
+  }
+  const xs = pts.map((p) => p.x);
+  const ys = pts.map((p) => p.y);
+  const x = Math.min(...xs);
+  const y = Math.min(...ys);
+  return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
+}
+
+export const isOpenShape = (s: Shape) => s.type === 'freehand' && s.closed === false;
 
 /** Freihand-Punkte in Seitenkoordinaten. */
 export function freehandPoints(s: Shape): Point[] {
@@ -54,7 +105,8 @@ export function freehandPoints(s: Shape): Point[] {
 }
 
 /** Prüft, ob ein Seitenpunkt eine Form trifft (tol in Seiteneinheiten). */
-export function hitShape(s: Shape, p: Point, tol: number): boolean {
+export function hitShape(s: Shape, pWorld: Point, tol: number): boolean {
+  const p = toShapeLocal(s, pWorld);
   if (!rectContains(s, p, tol)) return false;
   if (s.type === 'rect') return true;
   if (s.type === 'ellipse') {
@@ -65,6 +117,7 @@ export function hitShape(s: Shape, p: Point, tol: number): boolean {
     return (dx * dx) / (rx * rx) + (dy * dy) / (ry * ry) <= 1;
   }
   const pts = freehandPoints(s);
+  if (isOpenShape(s)) return distanceToPolyline(p, pts, false) <= tol;
   return pointInPolygon(p, pts) || distanceToPolyline(p, pts, true) <= tol;
 }
 
@@ -93,28 +146,24 @@ export function distanceToPolyline(p: Point, pts: Point[], closed: boolean): num
   return d;
 }
 
-/** Vereinfacht eine Punktfolge (Ramer-Douglas-Peucker). */
-export function simplify(pts: Point[], tol: number): Point[] {
-  if (pts.length < 3) return pts;
-  let maxD = 0;
-  let idx = 0;
-  const a = pts[0];
-  const b = pts[pts.length - 1];
-  for (let i = 1; i < pts.length - 1; i++) {
-    const d = distToSegment(pts[i], a, b);
-    if (d > maxD) {
-      maxD = d;
-      idx = i;
-    }
+/**
+ * Erzeugt eine Freihandform aus Seitenpunkten – genau so, wie gezeichnet: keine Glättung,
+ * nur doppelte Punkte (Abstand < `minDist`) entfallen. Endet die Linie nahe ihrem Anfang
+ * (`closeDist`), wird sie zur geschlossenen Fläche, sonst bleibt sie eine offene Linie.
+ */
+export function freehandShape(pts: Point[], minDist: number, closeDist: number): Shape | null {
+  const kept: Point[] = [];
+  for (const p of pts) {
+    const last = kept[kept.length - 1];
+    if (!last || Math.hypot(p.x - last.x, p.y - last.y) >= minDist) kept.push(p);
   }
-  if (maxD <= tol) return [a, b];
-  return [...simplify(pts.slice(0, idx + 1), tol).slice(0, -1), ...simplify(pts.slice(idx), tol)];
-}
-
-/** Erzeugt eine Freihandform aus Seitenpunkten. */
-export function freehandShape(pts: Point[], tol: number): Shape | null {
-  const simple = simplify(pts, tol);
-  if (simple.length < 3) return null;
+  const lastPt = pts[pts.length - 1];
+  if (lastPt && kept[kept.length - 1] !== lastPt) kept.push(lastPt);
+  if (kept.length < 2) return null;
+  const first = kept[0];
+  const end = kept[kept.length - 1];
+  const closed = kept.length >= 3 && Math.hypot(end.x - first.x, end.y - first.y) <= closeDist;
+  const simple = kept;
   const xs = simple.map((p) => p.x);
   const ys = simple.map((p) => p.y);
   const x = Math.min(...xs);
@@ -128,6 +177,7 @@ export function freehandShape(pts: Point[], tol: number): Shape | null {
     w,
     h,
     points: simple.map((p) => [round6((p.x - x) / w), round6((p.y - y) / h)] as [number, number]),
+    closed,
   };
 }
 
@@ -140,7 +190,17 @@ export type PathCmd =
   | { c: 'C'; p1: Point; p2: Point; p: Point }
   | { c: 'Z' };
 
+/** Pfad der Form in Seitenkoordinaten (Drehung angewendet). */
 export function shapePath(s: Shape): PathCmd[] {
+  const cmds = localShapePath(s);
+  const rot = s.rotation ?? 0;
+  if (!rot) return cmds;
+  const c = shapeCenter(s);
+  const r = (p: Point) => rotatePoint(p, c, rot);
+  return cmds.map((m) => (m.c === 'Z' ? m : m.c === 'C' ? { c: 'C', p1: r(m.p1), p2: r(m.p2), p: r(m.p) } : { c: m.c, p: r(m.p) }));
+}
+
+function localShapePath(s: Shape): PathCmd[] {
   if (s.type === 'rect') {
     return [
       { c: 'M', p: { x: s.x, y: s.y } },
@@ -166,7 +226,8 @@ export function shapePath(s: Shape): PathCmd[] {
     ];
   }
   const pts = freehandPoints(s);
-  return [...pts.map((p, i) => ({ c: i ? 'L' : 'M', p }) as PathCmd), { c: 'Z' }];
+  const line = pts.map((p, i) => ({ c: i ? 'L' : 'M', p }) as PathCmd);
+  return isOpenShape(s) ? line : [...line, { c: 'Z' }];
 }
 
 /** Wandelt Pfadsegmente mit einer Punktabbildung in einen SVG-Pfad-String um. */
@@ -203,6 +264,28 @@ export function resizeShape(s: Shape, handle: string, p: Point, minSize: number)
   if (handle.includes('n')) y1 = Math.min(p.y, y2 - minSize);
   if (handle.includes('s')) y2 = Math.max(p.y, y1 + minSize);
   return { ...s, x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+}
+
+/**
+ * Größenänderung einer gedrehten Form: Der Zeiger wird ins Bezugssystem der Form
+ * umgerechnet, und die gegenüberliegende Seite bleibt auf dem Plan fest stehen.
+ */
+export function resizeRotatedShape(s: Shape, handle: string, pWorld: Point, minSize: number): Shape {
+  const rot = s.rotation ?? 0;
+  const local = rotatePoint(pWorld, shapeCenter(s), -rot);
+  const r = resizeShape(s, handle, local, minSize);
+  if (!rot) return r;
+  const newCenter = shapeCenter(r);
+  const worldCenter = rotatePoint(newCenter, shapeCenter(s), rot);
+  return { ...r, x: r.x + worldCenter.x - newCenter.x, y: r.y + worldCenter.y - newCenter.y };
+}
+
+/** Drehwinkel auf 0–360° bringen und nahe 15°-Schritten einrasten. */
+export function normalizeRotation(deg: number, snap = 4): number {
+  let d = ((deg % 360) + 360) % 360;
+  const nearest = Math.round(d / 15) * 15;
+  if (Math.abs(d - nearest) <= snap) d = nearest % 360;
+  return Math.round(d * 10) / 10;
 }
 
 export const HANDLES = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'] as const;
@@ -381,7 +464,11 @@ export function layoutLabels(items: LabelInput[], gap: number, opts: LabelOption
 }
 
 /** Punkt auf dem Umriss einer Form, der dem Punkt `p` am nächsten liegt (Ellipse: Richtung zum Mittelpunkt). */
-export function outlinePointToward(shape: Shape, p: Point): Point {
+export function outlinePointToward(shape: Shape, pWorld: Point): Point {
+  return fromShapeLocal(shape, localOutlinePointToward(shape, toShapeLocal(shape, pWorld)));
+}
+
+function localOutlinePointToward(shape: Shape, p: Point): Point {
   const b = shapeBounds(shape);
   if (shape.type === 'ellipse') {
     const cx = b.x + b.w / 2;
@@ -394,6 +481,7 @@ export function outlinePointToward(shape: Shape, p: Point): Point {
     let best = pts[0] ?? p;
     let bestD = Infinity;
     for (let i = 0; i < pts.length; i++) {
+      if (isOpenShape(shape) && i === pts.length - 1) break;
       const q = nearestOnSegment(p, pts[i], pts[(i + 1) % pts.length]);
       const d = Math.hypot(q.x - p.x, q.y - p.y);
       if (d < bestD) {
