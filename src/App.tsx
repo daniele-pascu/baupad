@@ -181,5 +181,16 @@ async function applyUpdateWhenIdle(apply: () => Promise<void>) {
   } catch {
     /* optional */
   }
-  await apply();
+  try {
+    await apply();
+  } catch (e) {
+    // Update fehlgeschlagen (z. B. Verbindung abgebrochen): die bisherige Version läuft weiter,
+    // beim nächsten Start wird es erneut versucht. Es geht nichts verloren (vorher gespeichert).
+    console.warn('Update fehlgeschlagen', e);
+    try {
+      sessionStorage.removeItem('justUpdated');
+    } catch {
+      /* optional */
+    }
+  }
 }

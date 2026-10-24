@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActionMenu } from '../components/ActionMenu';
 import { AreaEditor } from '../components/AreaEditor';
 import { AufmassTable } from '../components/AufmassTable';
@@ -12,9 +12,9 @@ import { ProjectForm, type CostCenterInput } from '../components/ProjectForm';
 import { SaveErrorBanner, SaveStatus } from '../components/SaveStatus';
 import { confirmDialog, offerFile, promptDialog, showError, toast } from '../components/ui';
 import { aufmassRows, componentsOf, findPosition, costCenterLabel, costCentersOf, damagesOf, elementsOf, exportXlsx, planTitle, plansOf } from '../lib/aufmass';
-import { exportProjectBackup } from '../lib/backup';
+import { BACKUP_REMIND_DAYS, backupStatus, exportProjectBackup, type BackupStatus } from '../lib/backup';
 import { isDrawingPlan } from '../lib/drawing';
-import { formatDate } from '../lib/numbers';
+import { formatDate, formatDateTime } from '../lib/numbers';
 import { navigate, paths } from '../lib/router';
 import { flush, newMeta, putRecord, putRecords, softDelete, updateProject, useAppState, type ProjectState } from '../lib/store';
 import { renderSource } from '../lib/thumbs';
@@ -38,6 +38,17 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
   const [cropping, setCropping] = useState<{ plan: Plan; image: HTMLCanvasElement } | null>(null);
   const [tab, setTab] = useState<'plans' | 'table' | 'lv'>('plans');
   const [drawingNew, setDrawingNew] = useState(false);
+  const [backupInfo, setBackupInfo] = useState<BackupStatus | null>(null);
+  const [reminderHidden, setReminderHidden] = useState(() => {
+    try {
+      return sessionStorage.getItem(`backupLater:${data.project.id}`) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const refreshBackup = () => void backupStatus(project).then(setBackupInfo).catch(() => {});
+  // Sicherungsstand beim Öffnen prüfen
+  useEffect(refreshBackup, [project.id]);
 
   const plans = active ? plansOf(data, active.id) : [];
   const rows = aufmassRows(data, plans);
@@ -169,6 +180,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
     try {
       await flush();
       await offerFile(await exportProjectBackup(project.id));
+      refreshBackup();
     } catch (e) {
       showError(e, 'Sicherung fehlgeschlagen');
     }
@@ -187,6 +199,35 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
         <SaveStatus />
       </header>
       <SaveErrorBanner />
+      {backupInfo?.due && !reminderHidden && (
+        <div className="banner banner-warn backup-reminder" role="status" data-testid="backup-reminder">
+          <p>
+            <strong>Sicherung empfohlen:</strong> Das Projekt wurde seit der letzten Sicherung (
+            {backupInfo.lastBackup ? formatDateTime(backupInfo.lastBackup) : 'noch nie'}) geändert. Der Speicher im Browser ist keine
+            garantierte Datensicherung – bitte die Sicherungsdatei z. B. in „Dateien“ oder einer Cloud ablegen. Erinnerung nach{' '}
+            {BACKUP_REMIND_DAYS} Tagen.
+          </p>
+          <div className="row gap wrap">
+            <button type="button" className="btn btn-sm btn-primary" onClick={() => void backup()} data-testid="backup-now">
+              <Icon name="download" size={18} /> Jetzt sichern
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={() => {
+                setReminderHidden(true);
+                try {
+                  sessionStorage.setItem(`backupLater:${project.id}`, '1');
+                } catch {
+                  /* optional */
+                }
+              }}
+            >
+              Später
+            </button>
+          </div>
+        </div>
+      )}
 
       <section className="project-info card" data-testid="project-info">
         <dl className="info-grid">

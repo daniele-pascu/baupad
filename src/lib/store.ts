@@ -98,7 +98,6 @@ const queue = new Map<string, PendingWrite>();
 const baseRevs = new Map<string, number>();
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
 let flushing: Promise<void> | null = null;
-let lastEditMarked = 0;
 
 const keyOf = (store: EntityStore, id: string) => `${store}:${id}`;
 
@@ -133,11 +132,9 @@ export async function flush(): Promise<void> {
     try {
       await writeRecords(batch);
       for (const w of batch) baseRevs.set(keyOf(w.store, w.record.id), w.record.rev);
+      // Zeitpunkt der letzten Änderung (für „Zuletzt bearbeitet“ und die Sicherungs-Erinnerung)
       const projectId = state.projectId;
-      if (projectId && Date.now() - lastEditMarked > 2000) {
-        lastEditMarked = Date.now();
-        await setMeta(`lastEdit:${projectId}`, Date.now());
-      }
+      if (projectId) await setMeta(`lastEdit:${projectId}`, Date.now());
       setSave({ status: queue.size ? 'pending' : 'saved', error: null, lastSaved: Date.now() });
     } catch (e) {
       // Nicht gespeicherte Änderungen zurück in die Warteschlange (neuere behalten Vorrang)

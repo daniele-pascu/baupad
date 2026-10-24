@@ -87,6 +87,34 @@ test('Offline: Projekt anlegen, PDF importieren, Schadstellen erfassen, exportie
   await waitForPlan(page);
   expect((await tableRows(page)).map((r) => r[4])).toEqual(['1,20']);
 
+  // Offline: Plan selbst zeichnen (Rechteck über Maßeingabe)
+  await page.getByRole('link', { name: 'Zurück zur Planliste' }).click();
+  await page.getByTestId('draw-plan').click();
+  await page.getByTestId('new-drawing').locator('[data-field="planNumber"]').fill('Z-1');
+  await page.getByTestId('new-drawing-save').click();
+  await page.getByTestId('draw-rect').click();
+  await page.getByTestId('insert-length').fill('5');
+  await page.getByTestId('insert-width').fill('3,65');
+  await page.getByTestId('insert-submit').click();
+  await expect(page.locator('.dims [data-dim="3,65 m"]')).toBeVisible();
+  await waitSaved(page);
+
+  // Offline: LV aus PDF lesen (pdf.js-Textebene aus dem Offline-Speicher), Messung zuordnen
+  await page.getByRole('link', { name: 'Zurück zur Planliste' }).click();
+  await page.getByTestId('tab-lv').click();
+  await page.getByTestId('lv-file-input').setInputFiles(join(FIXTURES, 'lv-beispiel.pdf'));
+  await expect(page.getByTestId('lv-review-summary')).toContainText('4 Positionen');
+  await page.getByTestId('lv-review-save').click();
+  await expect(page.getByTestId('lv-row')).toHaveCount(4);
+  await page.getByTestId('lv-search').fill('Sperr');
+  await expect(page.getByTestId('lv-row')).toHaveCount(1);
+
+  // Offline: Excel (neues Layout mit LV-Auswertung) für die Kostenstelle
+  const xc = await catchDownload(page, () => page.getByTestId('export-xlsx-cc').click());
+  const wbc = readXlsx(await saveDownload(xc, 'offline-cc.xlsx'));
+  expect(Object.keys(wbc)).toEqual(expect.arrayContaining(['Übersicht', 'A-101', 'Z-1', 'Projektdaten']));
+  expect(Object.keys(wbc).some((n) => n.startsWith('LV '))).toBe(true);
+
   // Keine fehlgeschlagenen Anfragen (alles kam aus dem Offline-Speicher)
   expect(failed).toEqual([]);
 

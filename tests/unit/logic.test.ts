@@ -5,6 +5,7 @@ import { fitView, freehandShape, hitShape, layoutLabels, rectsOverlap, resizeSha
 import { colName, sheetName } from '../../src/lib/xlsx';
 import { safeFileName } from '../../src/lib/aufmass';
 import { quantityFor } from '../../src/lib/measure';
+import { isBackupDue } from '../../src/lib/backup';
 
 describe('Zahleneingabe', () => {
   it('akzeptiert Komma und Punkt', () => {
@@ -161,5 +162,19 @@ describe('Mengen je LV-Einheit', () => {
   });
   it('PA, h, Wo sind nicht aus Messungen ableitbar', () => {
     expect(quantityFor('PA', ds).value).toBeNull();
+  });
+});
+
+describe('Sicherungs-Erinnerung', () => {
+  const day = 86_400_000;
+  const now = 100 * day;
+  it('fällig, wenn seit der Sicherung geändert und diese älter als 3 Tage ist', () => {
+    expect(isBackupDue(now - day, now - 5 * day, 0, now)).toBe(true);
+    expect(isBackupDue(now - day, now - 2 * day, 0, now)).toBe(false); // Sicherung noch frisch
+    expect(isBackupDue(now - 6 * day, now - 5 * day, 0, now)).toBe(false); // seitdem nichts geändert
+  });
+  it('nie gesichert: Frist ab Anlage des Projekts', () => {
+    expect(isBackupDue(now, null, now - 4 * day, now)).toBe(true);
+    expect(isBackupDue(now, null, now - day, now)).toBe(false);
   });
 });

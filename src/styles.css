@@ -299,6 +299,13 @@ a {
   color: var(--muted);
   font-size: 0.92rem;
 }
+.backup-due {
+  color: #b45309;
+  font-weight: 600;
+}
+.backup-reminder p {
+  margin: 0 0 8px;
+}
 .card-meta {
   display: flex;
   flex-wrap: wrap;

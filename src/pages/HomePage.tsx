@@ -3,7 +3,7 @@ import { Icon } from '../components/Icon';
 import { ProjectForm, type CostCenterInput, type ProjectFields } from '../components/ProjectForm';
 import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, offerFile, promptDialog, showError, toast } from '../components/ui';
-import { exportProjectBackup, findExistingProject, importProjectBackup, readProjectBackup } from '../lib/backup';
+import { backupStatus, exportProjectBackup, findExistingProject, importProjectBackup, readProjectBackup, type BackupStatus } from '../lib/backup';
 import { deleteProjectCompletely, getMeta, listProjects, projectStats, setMeta, writeRecords } from '../lib/db';
 import { isIOS } from '../lib/download';
 import { getDeviceId } from '../lib/ids';
@@ -15,6 +15,7 @@ import type { Project } from '../lib/types';
 interface Row {
   project: Project;
   lastEdit: number;
+  backup: BackupStatus;
   stats: { costCenters: number; plans: number; damages: number };
 }
 
@@ -29,11 +30,10 @@ export function HomePage() {
     try {
       const projects = await listProjects();
       const result = await Promise.all(
-        projects.map(async (project) => ({
-          project,
-          lastEdit: Math.max(project.updatedAt, (await getMeta<number>(`lastEdit:${project.id}`)) ?? 0),
-          stats: await projectStats(project.id),
-        })),
+        projects.map(async (project) => {
+          const backup = await backupStatus(project);
+          return { project, lastEdit: backup.lastEdit, backup, stats: await projectStats(project.id) };
+        }),
       );
       setRows(result.sort((a, b) => b.lastEdit - a.lastEdit));
     } catch (e) {
@@ -105,6 +105,7 @@ export function HomePage() {
   const backup = async (p: Project) => {
     try {
       await offerFile(await exportProjectBackup(p.id));
+      void load();
     } catch (e) {
       showError(e, 'Sicherung fehlgeschlagen');
     }
@@ -232,6 +233,10 @@ export function HomePage() {
                     {r.stats.costCenters} Kostenst. · {r.stats.plans} Pläne · {r.stats.damages} Schadst.
                   </span>
                   <span>Zuletzt bearbeitet: {formatDateTime(r.lastEdit)}</span>
+                  <span className={r.backup.due ? 'backup-due' : undefined} data-testid="backup-info">
+                    Letzte Sicherung: {r.backup.lastBackup ? formatDateTime(r.backup.lastBackup) : 'noch nie'}
+                    {r.backup.due && ' – Sicherung empfohlen'}
+                  </span>
                 </div>
               </a>
               <div className="card-actions">

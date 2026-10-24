@@ -1,5 +1,5 @@
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
-import { deleteProjectCompletely, getBlob, getDB, loadProjectData } from './db';
+import { deleteProjectCompletely, getBlob, getDB, getMeta, loadProjectData, setMeta } from './db';
 import { getDeviceId, uuid } from './ids';
 import { safeFileName, type ExportFile } from './aufmass';
 import { todayIso } from './numbers';
@@ -59,6 +59,7 @@ export async function exportProjectBackup(projectId: string): Promise<ExportFile
   }
   // Originaldateien (PDF/JPG/PNG) sind bereits komprimiert
   const zipped = zipSync(zipFiles, { level: 0 });
+  await setMeta(`lastBackup:${projectId}`, Date.now());
   return {
     name: `${safeFileName(data.project.name, 'Sicherung', todayIso())}.zip`,
     data: zipped,
@@ -152,4 +153,28 @@ export async function importProjectBackup(content: BackupContent, mode: 'replace
   }
   await tx.done;
   return project.id;
+}
+
+// ---------------------------------------------------------------------------
+// Sicherungs-Erinnerung (Browser-Speicher ist keine garantierte Datensicherung)
+
+/** Nach so vielen Tagen ohne Sicherung wird bei geänderten Projekten erinnert. */
+export const BACKUP_REMIND_DAYS = 3;
+
+/** Erinnerung fällig: seit der letzten Sicherung geändert und diese älter als die Frist (bzw. nie gesichert). */
+export function isBackupDue(lastEdit: number, lastBackup: number | null, createdAt: number, now = Date.now()): boolean {
+  if (lastBackup !== null && lastEdit <= lastBackup) return false;
+  return now - (lastBackup ?? createdAt) > BACKUP_REMIND_DAYS * 86_400_000;
+}
+
+export interface BackupStatus {
+  lastBackup: number | null;
+  lastEdit: number;
+  due: boolean;
+}
+
+export async function backupStatus(project: Pick<Project, 'id' | 'createdAt' | 'updatedAt'>): Promise<BackupStatus> {
+  const lastBackup = (await getMeta<number>(`lastBackup:${project.id}`)) ?? null;
+  const lastEdit = Math.max(project.updatedAt, (await getMeta<number>(`lastEdit:${project.id}`)) ?? 0);
+  return { lastBackup, lastEdit, due: isBackupDue(lastEdit, lastBackup, project.createdAt) };
 }
