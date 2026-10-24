@@ -317,6 +317,78 @@ export function normalizeRotation(deg: number, snap = 4): number {
   return Math.round(d * 10) / 10;
 }
 
+// ---------------------------------------------------------------------------
+// Eckpunkte, Vielecke und Begrenzung auf den Planbereich
+
+/** Eckpunkte einer Form in Seitenkoordinaten (mit Drehung): Rechteck 4, Linie 2, Dreieck 3, Vieleck n. */
+export function shapeVertices(s: Shape): Point[] {
+  const local =
+    s.type === 'rect'
+      ? [
+          { x: s.x, y: s.y },
+          { x: s.x + s.w, y: s.y },
+          { x: s.x + s.w, y: s.y + s.h },
+          { x: s.x, y: s.y + s.h },
+        ]
+      : isPointShape(s)
+        ? freehandPoints(s)
+        : [];
+  return local.map((p) => fromShapeLocal(s, p));
+}
+
+/** Eckpunkte bearbeitbar? (Ellipsen nicht; sehr feine Freihandzüge nur über den Rahmen) */
+export const hasEditableVertices = (s: Shape) => s.type === 'rect' || s.type === 'line' || s.type === 'triangle' || (s.type === 'freehand' && (s.points?.length ?? 0) <= 40);
+
+/**
+ * Form aus Eckpunkten (Seitenkoordinaten) neu aufbauen – ungedreht, Rahmen = Umriss.
+ * Ein Rechteck wird dabei zum geschlossenen Vieleck (Typ „freehand“, geschlossen).
+ */
+export function shapeFromVertices(s: Shape, pts: Point[]): Shape {
+  const type = s.type === 'rect' ? 'freehand' : s.type;
+  const xs = pts.map((p) => p.x);
+  const ys = pts.map((p) => p.y);
+  const x = Math.min(...xs);
+  const y = Math.min(...ys);
+  const w = Math.max(...xs) - x || 1e-6;
+  const h = Math.max(...ys) - y || 1e-6;
+  const out: Shape = { type, x, y, w, h, points: pts.map((p) => [round6((p.x - x) / w), round6((p.y - y) / h)] as [number, number]) };
+  if (type === 'freehand') out.closed = s.type === 'rect' ? true : s.closed;
+  return out;
+}
+
+/** Einen Eckpunkt verschieben. */
+export function moveVertex(s: Shape, index: number, p: Point): Shape {
+  const pts = shapeVertices(s);
+  pts[index] = p;
+  return shapeFromVertices(s, pts);
+}
+
+/** Geschlossenes Vieleck aus nacheinander gesetzten Punkten. */
+export function polygonShape(pts: Point[]): Shape {
+  return shapeFromVertices({ type: 'freehand', x: 0, y: 0, w: 0, h: 0, closed: true }, pts);
+}
+
+/** Fläche eines Vielecks (Gaußsche Trapezformel), Einheit² der Punkte. */
+export function polygonArea(pts: Point[]): number {
+  let a = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i];
+    const q = pts[(i + 1) % pts.length];
+    a += p.x * q.y - q.x * p.y;
+  }
+  return Math.abs(a) / 2;
+}
+
+/** Punkt auf ein Rechteck begrenzen. */
+export const clampPoint = (p: Point, r: Rect): Point => ({ x: Math.min(r.x + r.w, Math.max(r.x, p.x)), y: Math.min(r.y + r.h, Math.max(r.y, p.y)) });
+
+/** Verschiebung so begrenzen, dass das Rechteck `box` innerhalb von `r` bleibt. */
+export function clampDelta(box: Rect, dx: number, dy: number, r: Rect): { dx: number; dy: number } {
+  const lim = (d: number, lo: number, len: number, rlo: number, rlen: number) =>
+    len > rlen ? d : Math.min(rlo + rlen - (lo + len), Math.max(rlo - lo, d));
+  return { dx: lim(dx, box.x, box.w, r.x, r.w), dy: lim(dy, box.y, box.h, r.y, r.h) };
+}
+
 export const HANDLES = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'] as const;
 
 export function handlePosition(r: Rect, h: string): Point {

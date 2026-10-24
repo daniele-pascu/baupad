@@ -414,6 +414,33 @@ a {
     padding: 4px 6px;
   }
 }
+.sheet-chip {
+  font-size: 0.8rem;
+}
+@media (max-width: 519px) {
+  .sheet-chip {
+    display: none;
+  }
+}
+.warn-text {
+  color: #b45309;
+  font-weight: 600;
+}
+.vertex-handle {
+  fill: #fff;
+  stroke: #1f5fbf;
+  stroke-width: 2;
+}
+.poly-point {
+  fill: #fff;
+  stroke: #1c2129;
+  stroke-width: 1.5;
+}
+.poly-first {
+  fill: #fff;
+  stroke: #1f5fbf;
+  stroke-width: 2.5;
+}
 .backup-due {
   color: #b45309;
   font-weight: 600;
@@ -2348,5 +2375,21 @@ tr.lv-flagged td {
   }
   .history-btns .icon-btn {
     width: 32px;
+  }
+  /* Moduszeile: Symbole statt Text, damit „Weiter“ vollständig sichtbar bleibt */
+  .mode-bar .mode-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .mode-bar {
+    gap: 6px;
+  }
+  .mode-bar .btn {
+    padding-left: 10px;
+    padding-right: 10px;
   }
 }

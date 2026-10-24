@@ -38,6 +38,8 @@ const PATHS: Record<string, string> = {
   dimension: 'M4 7v10M20 7v10M4 12h16M7.5 9.5L4 12l3.5 2.5M16.5 9.5L20 12l-3.5 2.5',
   text: 'M5 7V5h14v2M12 5v14M9 19h6',
   grid: 'M4 4h16v16H4zM4 9.33h16M4 14.67h16M9.33 4v16M14.67 4v16',
+  snap: 'M12 2v5M12 17v5M2 12h5M17 12h5M12 15a3 3 0 100-6 3 3 0 000 6z',
+  polygon: 'M5 18L4 8l8-5 8 6-3 10z',
   drawPlan: 'M3 21l3.5-1 11-11-2.5-2.5-11 11L3 21zM14 6.5l2.5 2.5M3 3h7M3 3v7',
 };
 

@@ -13,6 +13,12 @@ import {
   rotatePoint,
   shapeAABB,
   shapePath,
+  shapeVertices,
+  moveVertex,
+  polygonShape,
+  polygonArea,
+  clampPoint,
+  clampDelta,
 } from '../../src/lib/geometry';
 import type { Shape } from '../../src/lib/types';
 
@@ -132,5 +138,42 @@ describe('Linie und Dreieck', () => {
     const t = convertShape(r, 'triangle');
     expect(t).toMatchObject({ type: 'triangle', x: 10, y: 20, w: 30, h: 40, rotation: 30 });
     expect(t.points).toHaveLength(3);
+  });
+});
+
+describe('Eckpunkte, Vielecke, Begrenzung', () => {
+  it('Rechteck-Ecke verschieben → unregelmäßiges Viereck', () => {
+    const r: Shape = { type: 'rect', x: 0, y: 0, w: 4, h: 2 };
+    expect(shapeVertices(r)).toEqual([{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 2 }, { x: 0, y: 2 }]);
+    const q = moveVertex(r, 2, { x: 5, y: 3 });
+    expect(q.type).toBe('freehand');
+    expect(q.closed).toBe(true);
+    const r4 = (n: number) => Math.round(n * 1e4) / 1e4;
+    expect(shapeVertices(q).map((p) => ({ x: r4(p.x), y: r4(p.y) }))).toEqual([{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 5, y: 3 }, { x: 0, y: 2 }]);
+  });
+  it('Linienendpunkt verschieben, anderer Endpunkt bleibt', () => {
+    const l = lineShape({ x: 1, y: 1 }, { x: 4, y: 1 });
+    const m = moveVertex(l, 1, { x: 4, y: 5 });
+    expect(m.type).toBe('line');
+    const [a, b] = shapeVertices(m);
+    expect(a).toEqual({ x: 1, y: 1 });
+    expect(b.x).toBeCloseTo(4, 6);
+    expect(b.y).toBeCloseTo(5, 6);
+  });
+  it('Dreieck mit drei unterschiedlichen Seiten', () => {
+    const t = triangleShape({ x: 0, y: 0, w: 4, h: 3 });
+    const u = moveVertex(t, 0, { x: 0, y: 0 }); // Spitze über die linke Ecke → rechtwinklig 3-4-5
+    expect(u.type).toBe('triangle');
+    expect(polygonArea(shapeVertices(u))).toBeCloseTo(6, 6);
+  });
+  it('Vieleck aus Punkten und Fläche', () => {
+    const p = polygonShape([{ x: 0, y: 0 }, { x: 3, y: 0 }, { x: 3, y: 2 }, { x: 0, y: 2 }]);
+    expect(p).toMatchObject({ type: 'freehand', closed: true, x: 0, y: 0, w: 3, h: 2 });
+    expect(polygonArea(shapeVertices(p))).toBe(6);
+  });
+  it('Begrenzung auf den Planbereich', () => {
+    const r = { x: 0, y: 0, w: 10, h: 5 };
+    expect(clampPoint({ x: -2, y: 7 }, r)).toEqual({ x: 0, y: 5 });
+    expect(clampDelta({ x: 8, y: 1, w: 1, h: 1 }, 5, -3, r)).toEqual({ dx: 1, dy: -1 });
   });
 });

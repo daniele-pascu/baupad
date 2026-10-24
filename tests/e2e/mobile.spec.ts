@@ -339,12 +339,12 @@ test('Plan zeichnen per Finger: Raum über Maßeingabe, Bemaßung sichtbar, Weit
   await expect(page.getByTestId('element-bar')).toBeVisible();
   // Leisten und Werkzeuge passen auf den Bildschirm
   const vw = page.viewportSize()!.width;
-  for (const id of ['element-bar', 'draw-toolbar', 'mode-bar']) {
+  for (const id of ['element-bar', 'draw-toolbar', 'mode-bar', 'mode-measure', 'grid-toggle']) {
     const b = (await page.getByTestId(id).boundingBox())!;
     expect(b.x).toBeGreaterThanOrEqual(-0.5);
     expect(b.x + b.width).toBeLessThanOrEqual(vw + 0.5);
   }
-  for (const t of ['select', 'line', 'rect', 'ellipse', 'triangle', 'freehand', 'dimension', 'text']) {
+  for (const t of ['select', 'line', 'rect', 'ellipse', 'triangle', 'polygon', 'freehand', 'dimension', 'text']) {
     expect((await page.getByTestId(`draw-${t}`).boundingBox())!.height).toBeGreaterThanOrEqual(44);
   }
   await noHorizontalScroll(page);

@@ -24,6 +24,12 @@ import {
   toPage,
   toScreen,
   zoomAt,
+  clampDelta,
+  clampPoint,
+  hasEditableVertices,
+  moveVertex,
+  polygonShape,
+  shapeVertices,
   type Point,
   type View,
 } from '../lib/geometry';
@@ -32,7 +38,7 @@ import { getView, putView } from '../lib/db';
 import type { Component, Damage, Plan, Rect, Shape, ShapeType, SourceFile } from '../lib/types';
 
 /** Werkzeuge: Auswahl, Formen, Bauteilbuchstabe setzen; bei gezeichneten Plänen zusätzlich Maßlinie und Text */
-export type Tool = 'select' | ShapeType | 'component' | 'dimension' | 'text';
+export type Tool = 'select' | ShapeType | 'component' | 'dimension' | 'text' | 'polygon';
 
 /** Werkzeuge, die eine Stelle antippen statt eine Form zu zeichnen */
 const PLACE_TOOLS = new Set<Tool>(['component', 'text']);
@@ -61,6 +67,9 @@ export interface PlanViewerHandle {
   focus(id: string): void;
   /** Mittelpunkt der Ansicht in Seitenkoordinaten */
   center(): Point | null;
+  /** Werkzeug „Fläche (Punkte)“: gesetzte Punkte als Fläche abschließen bzw. verwerfen */
+  finishPolygon(): void;
+  cancelPolygon(): void;
   /** Bildschirmpixel je Seiteneinheit */
   scale(): number;
 }
@@ -98,6 +107,12 @@ interface Props {
   overlay?(view: View, preview: Shape | null): ReactNode;
   /** Einrasten an Raster und Fangpunkten (nur gezeichnete Pläne) */
   snap?: SnapFn;
+  /** Gültiger Planbereich (Seitenkoordinaten): Neue Formen und Verschiebungen bleiben darin */
+  bounds?: Rect;
+  /** Eckpunkte einzeln bearbeiten (Rechteck → Vieleck, Dreieck, Vieleck) */
+  vertexEdit?: boolean;
+  /** Werkzeug „Fläche (Punkte)“: Anzahl gesetzter Punkte (0 = keine Fläche im Aufbau) */
+  onPolygonChange?(points: number): void;
 }
 
 type Gesture =
@@ -107,6 +122,8 @@ type Gesture =
   | { kind: 'draw'; tool: ShapeType | 'dimension'; start: Point; current: Point; points: Point[] }
   | { kind: 'move'; id: string; start: Point; orig: Shape; moved: boolean; ref: Point }
   | { kind: 'resize'; id: string; handle: string; orig: Shape }
+  | { kind: 'vertex'; id: string; index: number; orig: Shape }
+  | { kind: 'polytap'; start: Point; view: View; moved: boolean }
   | { kind: 'rotate'; id: string; orig: Shape; startAngle: number }
   | { kind: 'label'; id: string; start: Point; orig: Rect; moved: boolean }
   | { kind: 'component'; id: string; start: Point; orig: Point; moved: boolean }
@@ -149,6 +166,10 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   const lastTap = useRef<{ t: number; p: Point } | null>(null);
   const propsRef = useRef(props);
   propsRef.current = props;
+  /** Werkzeug „Fläche (Punkte)“: bisher gesetzte Punkte und Mauszeigerposition für die Vorschau */
+  const poly = useRef<Point[]>([]);
+  const polyHover = useRef<Point | null>(null);
+  const clampP = (p: Point) => (propsRef.current.bounds ? clampPoint(p, propsRef.current.bounds) : p);
 
   const setView = useCallback((v: View) => {
     viewRef.current = v;
@@ -163,6 +184,15 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     },
     [region, size],
   );
+
+  // Werkzeugwechsel verwirft eine angefangene Fläche
+  useEffect(() => {
+    if (tool !== 'polygon' && poly.current.length) {
+      poly.current = [];
+      polyHover.current = null;
+      propsRef.current.onPolygonChange?.(0);
+    }
+  }, [tool]);
 
   // Containergröße beobachten
   useLayoutEffect(() => {
@@ -353,6 +383,12 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     },
     canGoBack: () => history.current.length > 0,
     center: () => (viewRef.current && size ? toPage(viewRef.current, { x: size.w / 2, y: size.h / 2 }) : null),
+    finishPolygon: () => finishPolygon(),
+    cancelPolygon: () => {
+      poly.current = [];
+      propsRef.current.onPolygonChange?.(0);
+      forceRender((n) => n + 1);
+    },
     scale: () => viewRef.current?.scale ?? 1,
     focus: (id: string) => {
       const d = propsRef.current.damages.find((x) => x.id === id);
@@ -458,7 +494,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     // nächstgelegener Anfasser innerhalb der Toleranz
     let best: string | null = null;
     let bestD = Infinity;
-    for (const { h, p: hp } of screenHandles(sel.shape, viewRef.current!)) {
+    for (const { h, p: hp } of screenHandles(sel.shape, viewRef.current!, !!propsRef.current.vertexEdit)) {
       const d = Math.max(Math.abs(hp.x - p.x), Math.abs(hp.y - p.y));
       if (d <= tol && d < bestD) {
         bestD = d;
@@ -506,6 +542,10 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       return;
     }
     const currentTool = propsRef.current.tool;
+    if (currentTool === 'polygon') {
+      gesture.current = { kind: 'polytap', start: p, view: v, moved: false };
+      return;
+    }
     if (PLACE_TOOLS.has(currentTool)) {
       gesture.current = { kind: 'place', start: p, view: v, moved: false };
       return;
@@ -519,6 +559,10 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       const handle = hitHandle(p);
       if (handle) {
         const sel = propsRef.current.damages.find((d) => d.id === propsRef.current.selectedId)!;
+        if (handle.startsWith('v')) {
+          gesture.current = { kind: 'vertex', id: sel.id, index: Number(handle.slice(1)), orig: sel.shape };
+          return;
+        }
         if (handle === 'rot') {
           const c = shapeCenter(sel.shape);
           const pp = toPage(v, p);
@@ -541,9 +585,9 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       gesture.current = { kind: 'pan', start: p, view: v, moved: false, tapTarget: hit?.id ?? null };
       return;
     }
-    const raw = toPage(v, p);
+    const raw = clampP(toPage(v, p));
     const snap = propsRef.current.snap;
-    const pp = snap && currentTool !== 'freehand' ? snap(raw, { tool: currentTool, scale: v.scale }) : raw;
+    const pp = clampP(snap && currentTool !== 'freehand' ? snap(raw, { tool: currentTool, scale: v.scale }) : raw);
     gesture.current = { kind: 'draw', tool: currentTool as ShapeType | 'dimension', start: pp, current: pp, points: [pp] };
     forceRender((n) => n + 1);
   };
@@ -566,6 +610,11 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   const onPointerMove = (e: React.PointerEvent) => {
     if (!pointers.current.has(e.pointerId)) {
       if (e.pointerType === 'mouse') hoverCursor(localPoint(e));
+      // Vorschau der nächsten Kante beim Setzen von Flächenpunkten
+      if (propsRef.current.tool === 'polygon' && poly.current.length && viewRef.current) {
+        polyHover.current = clampP(toPage(viewRef.current, localPoint(e)));
+        forceRender((n) => n + 1);
+      }
       return;
     }
     const p = localPoint(e);
@@ -586,6 +635,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         return;
       }
       case 'pan':
+      case 'polytap':
       case 'place': {
         const dx = p.x - g.start.x;
         const dy = p.y - g.start.y;
@@ -605,15 +655,15 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         return;
       }
       case 'draw': {
-        const raw = toPage(v, p);
+        const raw = clampP(toPage(v, p));
         const snap = propsRef.current.snap;
-        const pp = snap && g.tool !== 'freehand' ? snap(raw, { from: g.start, tool: g.tool, scale: v.scale }) : raw;
+        const pp = clampP(snap && g.tool !== 'freehand' ? snap(raw, { from: g.start, tool: g.tool, scale: v.scale }) : raw);
         g.current = pp;
         if (g.tool === 'freehand') {
           // Alle Zwischenpunkte übernehmen, damit die Linie genau dem Finger folgt
           const native = e.nativeEvent as PointerEvent;
           const events = native.getCoalescedEvents?.() ?? [];
-          const samples = events.length ? events.map((ev) => toPage(v, localPoint(ev))) : [raw];
+          const samples = events.length ? events.map((ev) => clampP(toPage(v, localPoint(ev)))) : [raw];
           for (const q of samples) {
             const last = g.points[g.points.length - 1];
             if (Math.hypot(q.x - last.x, q.y - last.y) * v.scale >= 1) g.points.push(q);
@@ -637,11 +687,23 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
           mx = t.x - g.ref.x;
           my = t.y - g.ref.y;
         }
+        const bounds = propsRef.current.bounds;
+        if (bounds) ({ dx: mx, dy: my } = clampDelta(shapeAABB(g.orig), mx, my, bounds));
         propsRef.current.onShapeChange(g.id, { ...g.orig, x: g.orig.x + mx, y: g.orig.y + my }, false);
         return;
       }
+      case 'vertex': {
+        const raw = clampP(toPage(v, p));
+        const vs = shapeVertices(g.orig);
+        const isLine = g.orig.type === 'line';
+        const other = isLine ? vs[1 - g.index] : undefined;
+        const snap = propsRef.current.snap;
+        const pp = clampP(snap ? snap(raw, { scale: v.scale, movingId: g.id, from: other, tool: isLine ? 'line' : undefined }) : raw);
+        propsRef.current.onShapeChange(g.id, moveVertex(g.orig, g.index, pp), false);
+        return;
+      }
       case 'resize': {
-        const raw = toPage(v, p);
+        const raw = clampP(toPage(v, p));
         const pp = propsRef.current.snap ? propsRef.current.snap(raw, { scale: v.scale, movingId: g.id }) : raw;
         propsRef.current.onShapeChange(g.id, resizeRotatedShape(g.orig, g.handle, pp, 6 / v.scale), false);
         return;
@@ -700,9 +762,9 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         return;
       case 'place':
         if (!g.moved && !cancelled) {
-          const raw = toPage(v, p);
+          const raw = clampP(toPage(v, p));
           const snap = propsRef.current.snap;
-          propsRef.current.onPlace(snap ? snap(raw, { tool: propsRef.current.tool, scale: v.scale }) : raw);
+          propsRef.current.onPlace(clampP(snap ? snap(raw, { tool: propsRef.current.tool, scale: v.scale }) : raw));
         }
         return;
       case 'component': {
@@ -733,6 +795,29 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         if (d) propsRef.current.onShapeChange(g.id, cancelled ? g.orig : d.shape, true);
         return;
       }
+      case 'polytap': {
+        if (g.moved || cancelled) return;
+        const raw = clampP(toPage(v, p));
+        const snap = propsRef.current.snap;
+        const pp = clampP(snap ? snap(raw, { scale: v.scale }) : raw);
+        const pts = poly.current;
+        const first = pts[0];
+        const now = Date.now();
+        const lt = lastTap.current;
+        const dbl = lt && now - lt.t < 320 && Math.hypot(lt.p.x - p.x, lt.p.y - p.y) < 30;
+        lastTap.current = { t: now, p };
+        // Tippen auf den ersten Punkt bzw. Doppeltippen schließt die Fläche
+        if (pts.length >= 3 && (dbl || Math.hypot((first.x - pp.x) * v.scale, (first.y - pp.y) * v.scale) < (isCoarse() ? 22 : 12))) {
+          finishPolygon();
+          return;
+        }
+        if (dbl) return;
+        poly.current = [...pts, pp];
+        propsRef.current.onPolygonChange?.(poly.current.length);
+        forceRender((n) => n + 1);
+        return;
+      }
+      case 'vertex':
       case 'resize':
       case 'rotate': {
         const d = propsRef.current.damages.find((x) => x.id === g.id);
@@ -746,6 +831,16 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       }
     }
   };
+
+  /** Gesetzte Punkte als geschlossene Fläche übernehmen (mindestens 3 Punkte). */
+  function finishPolygon() {
+    const pts = poly.current;
+    poly.current = [];
+    polyHover.current = null;
+    propsRef.current.onPolygonChange?.(0);
+    forceRender((n) => n + 1);
+    if (pts.length >= 3) propsRef.current.onCreate(polygonShape(pts));
+  }
 
   // Mausrad / Trackpad
   useEffect(() => {
@@ -846,6 +941,21 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
           })}
           {pending && renderShape(pending.shape, pending.color, { dashed: true, key: 'pending' })}
           {drawPreview && renderShape(drawPreview, color, { dashed: true, key: 'draw' })}
+          {tool === 'polygon' && poly.current.length > 0 && (
+            <g className="poly-preview" data-testid="polygon-preview">
+              <polyline
+                points={[...poly.current, ...(polyHover.current ? [polyHover.current] : [])].map((q) => { const s2 = toScreen(view, q); return `${s2.x},${s2.y}`; }).join(' ')}
+                fill="none"
+                stroke={visibleStroke(color)}
+                strokeWidth={2}
+                strokeDasharray="6 4"
+              />
+              {poly.current.map((q, i) => {
+                const s2 = toScreen(view, q);
+                return <circle key={i} cx={s2.x} cy={s2.y} r={i === 0 ? 7 : 4} className={i === 0 ? 'poly-first' : 'poly-point'} />;
+              })}
+            </g>
+          )}
           {props.overlay?.(view, drawPreview)}
           {/* Verbindungslinien zuerst, damit sie unter den Nummern liegen */}
           {damages.map((d) => {
@@ -896,7 +1006,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
           })}
           {selected && tool === 'select' && (
             <g className="handles">
-              {(() => {
+              {selected.shape.type !== 'line' && (() => {
                 const b = shapeBounds(selected.shape);
                 const c = shapeCenter(b);
                 const rot = selected.shape.rotation ?? 0;
@@ -916,8 +1026,9 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
                   </>
                 );
               })()}
-              {screenHandles(selected.shape, view).map(({ h, p }) => {
+              {screenHandles(selected.shape, view, !!props.vertexEdit).map(({ h, p }) => {
                 const s = isCoarse() ? 14 : 10;
+                if (h.startsWith('v')) return <circle key={h} cx={p.x} cy={p.y} r={s * 0.55} className="vertex-handle" data-testid={`vertex-${h.slice(1)}`} />;
                 if (h === 'rot')
                   return (
                     <g key={h} className="rot-handle" data-testid="rotate-handle">
@@ -946,12 +1057,16 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
  * die vier Ecken, leicht nach außen versetzt, damit die Form selbst sichtbar und
  * verschiebbar bleibt. Dazu der Dreh-Anfasser „rot“ über der Oberkante.
  */
-function screenHandles(shape: Shape, v: View): { h: string; p: Point }[] {
+function screenHandles(shape: Shape, v: View, vertexEdit = false): { h: string; p: Point }[] {
+  // Linie: nur die beiden Endpunkte (eigenständiges 2D-Objekt, kein schmales Rechteck)
+  if (shape.type === 'line') return shapeVertices(shape).map((p, i) => ({ h: `v${i}`, p: toScreen(v, p) }));
+  const verts = vertexEdit && hasEditableVertices(shape) ? shapeVertices(shape).map((p, i) => ({ h: `v${i}`, p: toScreen(v, p) })) : null;
   const b = shapeBounds(shape);
   const c = shapeCenter(b);
   const rot = shape.rotation ?? 0;
   const small = Math.min(b.w, b.h) * v.scale < 64;
-  const list = small ? HANDLES.filter((h) => h.length === 2) : HANDLES;
+  // Mit Eckpunkten: Ecken über die Punkte, Größe über die Seitenmitten (nicht bei Vielecken)
+  const list = verts ? (shape.type === 'freehand' ? [] : HANDLES.filter((h) => h.length === 1)) : small ? HANDLES.filter((h) => h.length === 2) : HANDLES;
   const off = (small ? 8 : 0) / v.scale;
   const out = list.map((h) => {
     const q = handlePosition(b, h);
@@ -963,7 +1078,7 @@ function screenHandles(shape: Shape, v: View): { h: string; p: Point }[] {
   });
   const rotDist = (isCoarse() ? 40 : 30) / v.scale;
   out.push({ h: 'rot', p: toScreen(v, rotatePoint({ x: c.x, y: b.y - off - rotDist }, c, rot)) });
-  return out;
+  return verts ? [...verts, ...out] : out;
 }
 
 /** Berechnet die gespeicherte Beschriftungsverschiebung (Seiteneinheiten) aus einer Bildschirmposition. */

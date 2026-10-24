@@ -1,6 +1,6 @@
-import { fromShapeLocal, freehandPoints, lineShape, shapeAABB, shapeCenter, type Point } from './geometry';
+import { fromShapeLocal, freehandPoints, lineShape, polygonArea, shapeAABB, shapeCenter, shapeVertices, type Point } from './geometry';
 import { formatMeasure } from './numbers';
-import type { Damage, DrawElement, DrawingInfo, Plan, Rect, Shape } from './types';
+import type { Damage, DrawElement, DrawingInfo, PaperFormat, Plan, Rect, Shape } from './types';
 
 /**
  * Maßsystem selbst gezeichneter Pläne.
@@ -15,6 +15,37 @@ export const UNITS_PER_M = 100;
 export const DRAWING_INFO: DrawingInfo = { unit: 'm', unitsPerMeter: UNITS_PER_M };
 /** Standardgröße der Zeichenfläche in m (wächst bei Bedarf mit dem Inhalt) */
 export const DEFAULT_SHEET = { w: 20, h: 14 };
+
+/** Papierformate (mm) für gezeichnete Pläne */
+export const PAPER: Record<PaperFormat, { w: number; h: number; label: string }> = {
+  'A4-hoch': { w: 210, h: 297, label: 'A4 Hochformat' },
+  'A4-quer': { w: 297, h: 210, label: 'A4 Querformat' },
+  'A3-hoch': { w: 297, h: 420, label: 'A3 Hochformat' },
+  'A3-quer': { w: 420, h: 297, label: 'A3 Querformat' },
+};
+export const PAPER_FORMATS = Object.keys(PAPER) as PaperFormat[];
+/** Übliche Maßstäbe 1:n */
+export const SCALES = [20, 25, 50, 75, 100, 200, 250, 500, 1000];
+/** Druckränder und Kopfzeile in mm – das Zeichenblatt ist der Bereich innerhalb davon */
+export const PRINT_MARGIN_MM = 10;
+export const PRINT_HEADER_MM = 14;
+
+/** Zeichenblatt in realen Metern für Papierformat und Maßstab (bedruckbarer Bereich × Maßstab). */
+export function sheetMeters(paper: PaperFormat, scale: number): { w: number; h: number } {
+  const p = PAPER[paper];
+  return {
+    w: roundM(((p.w - 2 * PRINT_MARGIN_MM) / 1000) * scale),
+    h: roundM(((p.h - 2 * PRINT_MARGIN_MM - PRINT_HEADER_MM) / 1000) * scale),
+  };
+}
+
+/** Planfelder für ein Zeichenblatt (Maßsystem, Format, Maßstab, Blattgröße in Seiteneinheiten). */
+export function sheetFields(paper: PaperFormat, scale: number): Pick<Plan, 'drawing' | 'pageWidth' | 'pageHeight'> {
+  const m = sheetMeters(paper, scale);
+  return { drawing: { ...DRAWING_INFO, paper, scale }, pageWidth: Math.round(m.w * UNITS_PER_M), pageHeight: Math.round(m.h * UNITS_PER_M) };
+}
+
+export const paperLabel = (d: Plan['drawing']) => (d?.paper ? `${PAPER[d.paper].label} · 1:${d.scale ?? 100}` : '');
 
 export const isDrawingPlan = (p: Pick<Plan, 'source'> | null | undefined) => p?.source === 'drawing';
 
@@ -74,6 +105,23 @@ export function apexOf(s: Shape): Apex {
   return u < 0.25 ? 'left' : u > 0.75 ? 'right' : 'center';
 }
 
+/** Dreieck in Grundform (Spitze oben, Grundlinie unten) – dann über Grundseite und Höhe bemaßbar. */
+export function isRegularTriangle(s: Shape): boolean {
+  const p = s.points ?? [];
+  return p.length === 3 && p[0][1] === 0 && p[1][0] === 1 && p[1][1] === 1 && p[2][0] === 0 && p[2][1] === 1;
+}
+
+/** Kontrollmaße einer Fläche aus ihren Eckpunkten (m bzw. m²): Seitenlängen, Umfang, Fläche. */
+export function shapeInfo(e: Pick<DrawElement, 'type' | 'shape'>): { sides: number[]; perimeter: number; area: number | null } | null {
+  const s = e.shape;
+  if (e.type === 'rect') return { sides: [s.w, s.h, s.w, s.h], perimeter: 2 * (s.w + s.h), area: s.w * s.h };
+  if (e.type === 'ellipse') return { sides: [], perimeter: Math.PI * (s.w + s.h) / 2, area: (Math.PI * s.w * s.h) / 4 };
+  if (e.type !== 'triangle' && !(e.type === 'freehand' && s.closed !== false)) return null;
+  const v = shapeVertices(s);
+  const sides = v.map((a, i) => dist(a, v[(i + 1) % v.length]));
+  return { sides, perimeter: sides.reduce((x, y) => x + y, 0), area: polygonArea(v) };
+}
+
 /** Endpunkte einer Linie bzw. Maßlinie (mit Drehung). */
 export function lineEnds(s: Shape): [Point, Point] {
   const pts = freehandPoints(s).map((p) => fromShapeLocal(s, p));
@@ -131,7 +179,8 @@ export function measuresOf(e: Pick<DrawElement, 'type' | 'shape'>): Measures {
     case 'ellipse':
       return Math.abs(s.w - s.h) < 1e-6 ? { diameter: s.w } : { length: s.w, width: s.h, rotation };
     case 'triangle':
-      return { base: s.w, height: s.h, rotation };
+      // Nach dem Verschieben einzelner Ecken: Seiten und Fläche nur zur Kontrolle (siehe shapeInfo)
+      return isRegularTriangle(s) ? { base: s.w, height: s.h, rotation } : { rotation };
     case 'text':
       return { textHeight: s.h, rotation };
     default:
@@ -301,6 +350,15 @@ export function annotationsOf(e: Pick<DrawElement, 'type' | 'shape' | 'showDims'
     return { dims, labels };
   }
   if (e.showDims === false) return { dims, labels };
+  // Unregelmäßiges Dreieck bzw. Vieleck: jede Seite mit ihrer Länge (aus den Eckpunkten berechnet)
+  if ((e.type === 'triangle' && !isRegularTriangle(s)) || (e.type === 'freehand' && s.closed !== false && (s.points?.length ?? 0) <= 12)) {
+    const v = shapeVertices(s);
+    v.forEach((a, i) => {
+      const b = v[(i + 1) % v.length];
+      dims.push({ a, b, side: -1, text: formatM(dist(a, b)), inline: true });
+    });
+    return { dims, labels };
+  }
   const L = (p: Point) => fromShapeLocal(s, p);
   switch (e.type) {
     case 'rect':
@@ -354,6 +412,14 @@ export function dimGeometry(a: Point, b: Point, side: 1 | -1, off: number) {
 
 // ---------------------------------------------------------------------------
 // Planbereich und Vorschläge
+
+/**
+ * Zeichenblatt eines gezeichneten Plans (Seitenkoordinaten), sofern ein Papierformat gewählt
+ * wurde; ältere gezeichnete Pläne ohne Format haben eine mitwachsende Zeichenfläche (undefined).
+ */
+export function drawingSheet(plan: Pick<Plan, 'pageWidth' | 'pageHeight' | 'drawing'>): Rect | undefined {
+  return plan.drawing?.paper ? { x: 0, y: 0, w: plan.pageWidth, h: plan.pageHeight } : undefined;
+}
 
 /** Darzustellender Bereich eines gezeichneten Plans in Seitenkoordinaten. */
 export function drawingRegion(plan: Pick<Plan, 'pageWidth' | 'pageHeight' | 'drawing'>, elements: Pick<DrawElement, 'shape'>[], damages: Pick<Damage, 'shape'>[] = []): Rect {

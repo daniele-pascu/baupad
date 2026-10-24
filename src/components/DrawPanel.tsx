@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { apexOf, measuresOf, type Apex, type Measures } from '../lib/drawing';
-import { checkMeasure, parseDecimal } from '../lib/numbers';
+import { apexOf, isRegularTriangle, measuresOf, shapeInfo, type Apex, type Measures } from '../lib/drawing';
+import { checkMeasure, formatArea, formatMeasure, parseDecimal } from '../lib/numbers';
 import type { DrawElement, DrawElementType } from '../lib/types';
 import { Icon } from './Icon';
 
@@ -14,6 +14,10 @@ export const ELEMENT_LABELS: Record<DrawElementType, string> = {
   dimension: 'Maßlinie',
   text: 'Text',
 };
+
+/** Bezeichnung eines Objekts (geschlossener Freihandzug bzw. Punkt-Fläche = „Fläche“) */
+export const elementLabel = (e: Pick<DrawElement, 'type' | 'shape'>) =>
+  e.type === 'freehand' && e.shape.closed !== false ? 'Fläche' : ELEMENT_LABELS[e.type];
 
 type Field = keyof Measures;
 const FIELDS: Record<Field, { label: string; unit: string; degrees?: boolean }> = {
@@ -181,6 +185,7 @@ export function ElementBar({
   onClose(): void;
 }) {
   const current = measuresOf(element);
+  const info = shapeInfo(element);
   const fields = (Object.keys(current) as Field[]).filter((f) => element.type !== 'freehand' || f === 'rotation');
   const fmt = (f: Field, n: number | undefined) =>
     n === undefined ? '' : FIELDS[f].degrees ? String(Math.round(n * 100) / 100).replace('.', ',') : meterInput(n);
@@ -208,7 +213,7 @@ export function ElementBar({
 
   return (
     <div className="draw-bar element-bar" data-testid="element-bar">
-      <strong className="draw-bar-title">{ELEMENT_LABELS[element.type]}</strong>
+      <strong className="draw-bar-title">{elementLabel(element)}</strong>
       {element.type === 'text' && (
         <label className="draw-field draw-field-wide">
           <span>Text</span>
@@ -250,7 +255,13 @@ export function ElementBar({
           <span>Maße anzeigen</span>
         </label>
       )}
-      {element.type === 'triangle' && <span className="muted small">Spitze {APEX_LABELS[apexOf(element.shape)]}</span>}
+      {element.type === 'triangle' && isRegularTriangle(element.shape) && <span className="muted small">Spitze {APEX_LABELS[apexOf(element.shape)]}</span>}
+      {info && (element.type === 'triangle' || element.type === 'freehand' || element.type === 'rect') && (
+        <span className="small element-info" data-testid="element-info">
+          {info.sides.length > 0 && element.type !== 'rect' && <>Seiten {info.sides.map((x) => formatMeasure(x)).join(' · ')} m · </>}
+          Umfang {formatMeasure(info.perimeter)} m{info.area !== null && <> · Fläche {formatArea(info.area)} m²</>}
+        </span>
+      )}
       <span className="row gap">
         <button type="button" className="btn btn-sm btn-danger-text" onClick={onDelete} data-testid="element-delete">
           <Icon name="trash" size={18} />

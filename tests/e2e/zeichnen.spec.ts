@@ -148,6 +148,8 @@ test('Linien mit Länge und Richtung schließen aneinander an; Kreis, Dreieck, M
   // Maßlinie durch Ziehen (rastet am Raster ein) – Länge wird angezeigt
   await deselect();
   await page.getByTestId('draw-dimension').click();
+  await page.getByTestId('grid-toggle').click(); // Raster nur auf Wunsch (Standard: aus)
+  await expect(page.getByTestId('grid-toggle')).toHaveAttribute('aria-pressed', 'true');
   const sb = (await sheet().boundingBox())!;
   await page.mouse.move(sb.x + sb.width * 0.1, sb.y + sb.height * 0.85);
   await page.mouse.down();
@@ -160,6 +162,7 @@ test('Linien mit Länge und Richtung schließen aneinander an; Kreis, Dreieck, M
   const dimEl = (await stored(page, 'elements')).find((e) => e.type === 'dimension')!;
   expect(dimEl.shape.h).toBeLessThan(0.001); // waagerecht eingerastet
   expect(Math.abs(dimEl.shape.w * 100 - Math.round(dimEl.shape.w * 100))).toBeLessThan(1e-6); // Rasterwert
+  await page.getByTestId('grid-toggle').click(); // wieder aus
 
   // Text
   await deselect();
@@ -242,7 +245,7 @@ test('Nach dem Neuladen ist alles da; PDF-Export mit Maßstab; Sicherung und Wie
   const pdf = await saveDownload(dl, 'gezeichnet.pdf');
   const text = execFileSync('pdftotext', [pdf, '-'], { encoding: 'utf8' });
   expect(text).toContain('Aufmaßplan Z-1');
-  expect(text).toMatch(/Maßstab 1:\d+ \(A3\)/);
+  expect(text).toMatch(/Maßstab 1:100 \(A3 Quer\)/);
   expect(text).toContain('6,20 m');
   expect(text).toContain('Kellerraum 1');
   expect(execFileSync('pdfinfo', [pdf], { encoding: 'utf8' })).toMatch(/Page size:\s+1190\.55 x 841\.89/);

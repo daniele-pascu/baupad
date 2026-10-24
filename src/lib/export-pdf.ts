@@ -1,7 +1,7 @@
 import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { componentsOf, costCenterLabel, damagesOf, elementsOf, planTitle, safeFileName, type ExportFile } from './aufmass';
-import { annotationsOf, contentRegion, dimGeometry, isDrawingPlan, printScale, shapeToPage, unitsPerMeter } from './drawing';
+import { annotationsOf, contentRegion, dimGeometry, drawingSheet, isDrawingPlan, PAPER, PRINT_HEADER_MM, PRINT_MARGIN_MM, printScale, shapeToPage, unitsPerMeter } from './drawing';
 import { getBlob } from './db';
 import {
   layoutLabels,
@@ -359,14 +359,18 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   const damages = damagesOf(data, plan.id);
   // Bauteilbuchstaben werden nicht mehr verwendet (Daten bleiben gespeichert, erscheinen aber nicht im Export)
   const components: ReturnType<typeof componentsOf> = [];
-  const region = contentRegion(plan, elements, damages);
-  const portrait = region.h > region.w;
-  const W = portrait ? A3.hPt : A3.wPt;
-  const H = portrait ? A3.wPt : A3.hPt;
-  const margin = 12 * MM;
-  const headerPt = 16 * MM;
+  // Mit Papierformat: genau das Zeichenblatt im gewählten Maßstab; sonst (ältere Pläne) Inhalt
+  // auf A3 mit passendem Normmaßstab
+  const sheet = drawingSheet(plan);
+  const paperFmt = plan.drawing?.paper ? PAPER[plan.drawing.paper] : null;
+  const region = sheet ?? contentRegion(plan, elements, damages);
+  const portrait = paperFmt ? paperFmt.h > paperFmt.w : region.h > region.w;
+  const W = paperFmt ? paperFmt.w * MM : portrait ? A3.hPt : A3.wPt;
+  const H = paperFmt ? paperFmt.h * MM : portrait ? A3.wPt : A3.hPt;
+  const margin = (paperFmt ? PRINT_MARGIN_MM : 12) * MM;
+  const headerPt = (paperFmt ? PRINT_HEADER_MM : 16) * MM;
   const avail = { w: (W - 2 * margin) / MM, h: (H - 2 * margin - headerPt) / MM };
-  const scaleN = printScale({ w: region.w / k, h: region.h / k }, avail);
+  const scaleN = paperFmt ? (plan.drawing?.scale ?? 100) : printScale({ w: region.w / k, h: region.h / k }, avail);
   // Seiteneinheit (1/k m) → Punkte auf dem Papier
   const u = (1000 / k / scaleN) * MM;
   const ox = (W - region.w * u) / 2;
@@ -381,7 +385,7 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   // Kopf: „Aufmaßplan <Nr.>“ und Maßstab
   const title = clean(ctx, `Aufmaßplan ${plan.planNumber || plan.planName}`.trim());
   page.drawText(fitText(ctx.bold, title, 16, W - 2 * margin - 160), { x: margin, y: H - margin - 16, size: 16, font: ctx.bold, color: rgb(0.1, 0.1, 0.12) });
-  const scaleText = `Maßstab 1:${scaleN} (A3)`;
+  const scaleText = `Maßstab 1:${scaleN} (${paperFmt ? paperFmt.label.replace('format', '') : 'A3'})`;
   page.drawText(clean(ctx, scaleText), {
     x: W - margin - ctx.font.widthOfTextAtSize(scaleText, 10),
     y: H - margin - 14,
@@ -447,4 +451,16 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   }
   // Messungen und Bauteilbuchstaben darüber
   drawDamages(ctx, target, region, damages, components);
+  // Maßstabsleiste unten links im Rand: runde Länge, ca. 40–60 mm auf dem Papier
+  const nice = [0.5, 1, 2, 5, 10, 20, 50, 100, 200];
+  const barM = nice.find((m) => (m * 1000) / scaleN >= 35) ?? 200;
+  const barPt = ((barM * 1000) / scaleN) * MM;
+  const bx = margin;
+  const by = margin * 0.45;
+  const seg = 4;
+  for (let i = 0; i < seg; i++)
+    page.drawRectangle({ x: bx + (barPt / seg) * i, y: by, width: barPt / seg, height: 3, color: i % 2 ? rgb(1, 1, 1) : rgb(0.15, 0.15, 0.17), borderColor: rgb(0.15, 0.15, 0.17), borderWidth: 0.5 });
+  page.drawText('0', { x: bx - 2, y: by + 5, size: 6.5, font: ctx.font, color: rgb(0.3, 0.33, 0.38) });
+  const lbl = `${String(barM).replace('.', ',')} m`;
+  page.drawText(lbl, { x: bx + barPt - ctx.font.widthOfTextAtSize(lbl, 6.5) / 2, y: by + 5, size: 6.5, font: ctx.font, color: rgb(0.3, 0.33, 0.38) });
 }

@@ -9,7 +9,7 @@ import { PlanViewer, type PlanViewerHandle, type Tool } from '../components/Plan
 import { SaveErrorBanner, SaveStatus } from '../components/SaveStatus';
 import { confirmDialog, offerFile, showError, toast } from '../components/ui';
 import { costCenterLabel, damagesOf, elementsOf, exportXlsx, findPosition, lvDocLabel, lvDocsOf, plansOf, planTitle, positionRef, sumArea } from '../lib/aufmass';
-import { drawingRegion, isDrawingPlan, suggestMeasures, unitsPerMeter } from '../lib/drawing';
+import { drawingRegion, drawingSheet, isDrawingPlan, paperLabel, suggestMeasures, unitsPerMeter } from '../lib/drawing';
 import { convertShape } from '../lib/geometry';
 import { countKind, defaultKindFor, hasArea, KIND_LABELS, KINDS, kindOf, sumLengths } from '../lib/measure';
 import { computeArea, formatArea, formatMeasure } from '../lib/numbers';
@@ -27,6 +27,7 @@ const TOOLS: { id: Tool; label: string; short?: string; icon: string; key: strin
   { id: 'rect', label: SHAPE_LABELS.rect, icon: 'rect', key: 'r' },
   { id: 'ellipse', label: SHAPE_LABELS.ellipse, icon: 'ellipse', key: 'k' },
   { id: 'triangle', label: SHAPE_LABELS.triangle, icon: 'triangle', key: 'd' },
+  { id: 'polygon', label: 'Fläche: Eckpunkte nacheinander setzen', short: 'Fläche', icon: 'polygon', key: 'p' },
   { id: 'freehand', label: SHAPE_LABELS.freehand, icon: 'freehand', key: 'f' },
 ];
 
@@ -62,6 +63,27 @@ function measureSummary(d: Pick<Damage, 'kind' | 'length' | 'width' | 'depth' | 
   return `${formatMeasure(d.length)} × ${formatMeasure(d.width)} m${depth} = ${formatArea(d.area)} m²`;
 }
 
+/**
+ * Gezeichnete Pläne: Maße der Markierung laut Plan (Maßstab bekannt) zur Kontrolle; weichen sie
+ * mehr als 5 % von den eingetragenen Werten ab (z. B. nach Formänderung), wird gewarnt.
+ */
+function MeasureCheck({ damage, k }: { damage: Damage; k: number }) {
+  const s = suggestMeasures(damage.shape, k);
+  const off = (a: number, b: number | null) => b !== null && b > 0 && Math.abs(a - b) / b > 0.05;
+  // Reihenfolge von Länge und Breite ist frei – längere mit längerer Seite vergleichen
+  const area = hasArea(kindOf(damage)) && damage.width !== null && s.width !== null;
+  const bad = area
+    ? off(Math.max(damage.length, damage.width!), s.length) || off(Math.min(damage.length, damage.width!), s.width)
+    : off(damage.length, s.length);
+  const text = s.width !== null && hasArea(kindOf(damage)) ? `${formatMeasure(s.length)} × ${formatMeasure(s.width)} m` : `${formatMeasure(s.length)} m`;
+  return (
+    <span className={`small ${bad ? 'warn-text' : 'muted'}`} data-testid="measure-check">
+      Plan: {text}
+      {bad && ' – Maße prüfen'}
+    </span>
+  );
+}
+
 function loadLastPosition(planId: string): string {
   try {
     return localStorage.getItem(`lastPosition:${planId}`) ?? '';
@@ -90,6 +112,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const [overrides, setOverrides] = useState<Record<string, Partial<Damage>>>({});
   const [mobileTab, setMobileTab] = useState<'plan' | 'table'>('plan');
   const [detailsOpen, setDetailsOpen] = useState(false);
+  /** Werkzeug „Fläche“: Anzahl bereits gesetzter Eckpunkte */
+  const [polyCount, setPolyCount] = useState(0);
   /** Leistung für neue Messungen: bleibt bis zur nächsten Änderung aktiv ('' = ohne Leistungszuordnung) */
   const [lastPosition, setLastPositionState] = useState(() => loadLastPosition(planId));
   const setLastPosition = (ref: string) => {
@@ -136,6 +160,10 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     [plan, drawingPlan, drawing.elements, stored],
   );
 
+  /** Gültiger Bereich für neue Formen: Zeichenblatt bzw. Planausschnitt (Seitenkoordinaten) */
+  const sheetBounds = plan && drawingPlan ? drawingSheet(plan) : undefined;
+  const markerBounds = !plan ? undefined : drawingPlan ? sheetBounds : (plan.crop ?? { x: 0, y: 0, w: plan.pageWidth, h: plan.pageHeight });
+
   const switchMode = (m: 'draw' | 'measure') => {
     setMode(m);
     setSelectedId(null);
@@ -174,6 +202,13 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       const target = e.target as HTMLElement;
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || document.querySelector('.modal')) return;
       const key = e.key.toLowerCase();
+      // Fläche aus Punkten: Enter schließt ab, Escape verwirft
+      if (polyCount && (e.key === 'Enter' || e.key === 'Escape')) {
+        e.preventDefault();
+        if (e.key === 'Enter') viewer.current?.finishPolygon();
+        else viewer.current?.cancelPolygon();
+        return;
+      }
       if ((e.ctrlKey || e.metaKey) && !e.altKey && (key === 'z' || key === 'y')) {
         e.preventDefault();
         if (key === 'y' || e.shiftKey) doRedo();
@@ -468,12 +503,17 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           <div className="segmented" role="tablist" aria-label="Ansicht">
             <button type="button" role="tab" aria-selected={drawMode} onClick={() => switchMode('draw')} data-testid="mode-draw">
               <Icon name="drawPlan" size={18} /> <span className="hide-sm">Plan bearbeiten</span>
-              <span className="show-sm">Zeichnen</span>
+              <span className="show-sm mode-label">Zeichnen</span>
             </button>
             <button type="button" role="tab" aria-selected={!drawMode} onClick={() => switchMode('measure')} data-testid="mode-measure-tab">
-              <Icon name="table" size={18} /> Aufmaß
+              <Icon name="table" size={18} /> <span className="mode-label">Aufmaß</span>
             </button>
           </div>
+          {plan.drawing?.paper && (
+            <button type="button" className="btn btn-sm sheet-chip" onClick={() => setDetailsOpen(true)} title="Papierformat und Maßstab ändern" data-testid="sheet-label">
+              {paperLabel(plan.drawing)}
+            </button>
+          )}
           {drawMode && (
             <>
               <button
@@ -482,10 +522,21 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 onClick={() => drawing.setSnapOn(!drawing.snapOn)}
                 aria-pressed={drawing.snapOn}
                 aria-label="Einrasten"
-                title="Am Raster und an Eck-/Endpunkten einrasten"
+                title="An Eck-/Endpunkten anderer Objekte und an 15°-Richtungen einrasten"
                 data-testid="snap-toggle"
               >
-                <Icon name="grid" size={18} /> <span className="hide-sm">Einrasten {drawing.snapOn ? 'ein' : 'aus'}</span>
+                <Icon name="snap" size={18} /> <span className="hide-sm">Einrasten {drawing.snapOn ? 'ein' : 'aus'}</span>
+              </button>
+              <button
+                type="button"
+                className={`btn btn-sm${drawing.gridOn ? ' active-toggle' : ''}`}
+                onClick={() => drawing.setGridOn(!drawing.gridOn)}
+                aria-pressed={drawing.gridOn}
+                aria-label="Am Raster einrasten"
+                title="Am Raster einrasten (aus = Maße frei, z. B. 1,38 m)"
+                data-testid="grid-toggle"
+              >
+                <Icon name="grid" size={18} /> <span className="hide-sm">Raster {drawing.gridOn ? 'ein' : 'aus'}</span>
               </button>
               <button type="button" className="btn btn-sm btn-primary mode-next" onClick={() => switchMode('measure')} data-testid="mode-measure">
                 Weiter<span className="hide-sm"> zum Aufmaß</span> <Icon name="next" size={18} />
@@ -537,7 +588,10 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               renderItem={drawing.renderItem}
               underlay={region ? drawing.drawUnderlay(region) : undefined}
               overlay={drawing.drawOverlay}
-              snap={drawing.snapOn ? drawing.snap : undefined}
+              snap={drawing.snapOn || drawing.gridOn ? drawing.snap : undefined}
+              bounds={sheetBounds}
+              vertexEdit
+              onPolygonChange={setPolyCount}
             />
           ) : file || drawingPlan ? (
             <PlanViewer
@@ -547,6 +601,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               file={file}
               region={region}
               underlay={drawingPlan && region ? drawing.measureUnderlay(region) : undefined}
+              bounds={markerBounds}
+              onPolygonChange={setPolyCount}
               damages={damages}
               selectedId={selectedId}
               tool={tool}
@@ -635,13 +691,31 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 onDelete={() => void drawing.remove(drawing.selected!)}
                 onClose={() => drawing.setSelectedId(null)}
               />
-            ) : drawing.tool !== 'select' && drawing.tool !== 'component' ? (
+            ) : drawing.tool !== 'select' && drawing.tool !== 'component' && drawing.tool !== 'polygon' ? (
               <InsertBar
                 tool={drawing.tool as DrawElementType}
                 onInsert={drawing.insert}
                 continues={drawing.tool === 'line' && !!drawing.lastLineEnd}
               />
             ) : null)}
+
+          {(drawMode ? drawing.tool === 'polygon' && !drawing.selected : tool === 'polygon' && !selected) && !dialog && (
+            <div className="draw-bar" data-testid="polygon-bar">
+              {polyCount === 0 ? (
+                <span className="muted small">Fläche: Eckpunkte nacheinander antippen. Zum Abschließen den ersten Punkt antippen, doppelt tippen oder „Fläche schließen“.</span>
+              ) : (
+                <>
+                  <strong className="draw-bar-title">{polyCount} Punkt{polyCount === 1 ? '' : 'e'} gesetzt</strong>
+                  <button type="button" className="btn btn-sm btn-primary" onClick={() => viewer.current?.finishPolygon()} disabled={polyCount < 3} data-testid="polygon-finish">
+                    <Icon name="check" size={18} /> Fläche schließen
+                  </button>
+                  <button type="button" className="btn btn-sm" onClick={() => viewer.current?.cancelPolygon()} data-testid="polygon-cancel">
+                    Abbrechen
+                  </button>
+                </>
+              )}
+            </div>
+          )}
 
           {!drawMode && selected && !dialog && (
             <div className="selection-bar" data-testid="selection-bar">
@@ -651,6 +725,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                   {kindOf(selected) === 'damage' ? '' : `${KIND_LABELS[kindOf(selected)]} `}Nr. {selected.number}
                 </strong>
                 <span>{measureSummary(selected)}</span>
+                {drawingPlan && <MeasureCheck damage={selected} k={unitsPerMeter(plan)} />}
               </div>
               {tool === 'select' ? (
                 <div className="selection-hint muted small">Ziehen = verschieben · ⟳ oben = drehen · Ecken = Größe</div>

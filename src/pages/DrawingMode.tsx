@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { ELEMENT_LABELS } from '../components/DrawPanel';
+import { elementLabel } from '../components/DrawPanel';
 import { renderDims, renderElement, renderPreviewDims, renderSheet } from '../components/DrawingLayer';
 import type { PlanViewerHandle, SnapFn, Tool, ViewerItem } from '../components/PlanViewer';
 import { confirmDialog, promptDialog, toast } from '../components/ui';
@@ -36,6 +36,7 @@ export const DRAW_TOOLS: { id: Tool; label: string; short?: string; icon: string
   { id: 'rect', label: 'Rechteck (z. B. Raum)', short: 'Rechteck', icon: 'rect', key: 'r' },
   { id: 'ellipse', label: 'Kreis', short: 'Kreis', icon: 'ellipse', key: 'k' },
   { id: 'triangle', label: 'Dreieck', short: 'Dreieck', icon: 'triangle', key: 'd' },
+  { id: 'polygon', label: 'Fläche: Eckpunkte nacheinander setzen', short: 'Fläche', icon: 'polygon', key: 'p' },
   { id: 'freehand', label: 'Freihand', short: 'Freihand', icon: 'freehand', key: 'f' },
   { id: 'dimension', label: 'Maßlinie', short: 'Maß', icon: 'dimension', key: 'm' },
   { id: 'text', label: 'Text / Beschriftung', short: 'Text', icon: 'text', key: 't' },
@@ -78,6 +79,8 @@ export function useDrawing(opts: { plan: Plan | undefined; data: ProjectState; d
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [overrides, setOverrides] = useState<Record<string, Shape>>({});
   const [snapOn, setSnapOnState] = useState(() => pref('snap', '1') !== '0');
+  /** Raster-Einrasten (Standard: aus – Formen folgen genau der Bewegung, Maße frei wählbar) */
+  const [gridOn, setGridOnState] = useState(() => pref('gridSnap', '0') === '1');
   /** Ende der zuletzt eingefügten Linie – die nächste Linie schließt dort an (Wände) */
   const [lastLineEnd, setLastLineEnd] = useState<Point | null>(null);
 
@@ -93,6 +96,10 @@ export function useDrawing(opts: { plan: Plan | undefined; data: ProjectState; d
     setSnapOnState(on);
     storePref('snap', on ? '1' : '0');
   };
+  const setGridOn = (on: boolean) => {
+    setGridOnState(on);
+    storePref('gridSnap', on ? '1' : '0');
+  };
 
   const stored = useMemo(() => (plan ? elementsOf(data, plan.id) : []), [data, plan]);
   const elements = useMemo(() => stored.map((e) => (overrides[e.id] ? { ...e, shape: overrides[e.id] } : e)), [stored, overrides]);
@@ -104,25 +111,26 @@ export function useDrawing(opts: { plan: Plan | undefined; data: ProjectState; d
   const selected = selectedId ? (byId.get(selectedId) ?? null) : null;
 
   // -------------------------------------------------------------------------
-  // Einrasten: Fangpunkte anderer Objekte, sonst Raster; Linien zusätzlich auf 15°-Schritte
+  // Einrasten: Fangpunkte anderer Objekte und 15°-Richtungen (abschaltbar); Raster nur, wenn
+  // ausdrücklich eingeschaltet – sonst folgen Formen genau der Bewegung (keine erzwungene Rundung)
 
   const snap: SnapFn = (p, ctx) => {
-    if (!snapOn) return p;
+    if (!snapOn && !gridOn) return p;
     const pm = { x: p.x / k, y: p.y / k };
     const pxPerM = ctx.scale * k;
     const tol = (isCoarse() ? 16 : 9) / pxPerM;
-    const hit = nearestSnap(pm, snapPoints(stored, ctx.movingId), tol);
-    let q: Point;
+    const hit = snapOn ? nearestSnap(pm, snapPoints(stored, ctx.movingId), tol) : null;
+    let q: Point = pm;
     if (hit) q = hit;
     else {
       const step = gridStep(pxPerM, 14);
       if (ctx.from && (ctx.tool === 'line' || ctx.tool === 'dimension')) {
         const from = { x: ctx.from.x / k, y: ctx.from.y / k };
-        const dir = snapAngle(from, pm);
+        const dir = snapOn ? snapAngle(from, pm) : pm;
         const len = Math.hypot(dir.x - from.x, dir.y - from.y);
-        const L = Math.round(len / step) * step;
+        const L = gridOn ? Math.round(len / step) * step : len;
         q = len > 1e-9 ? { x: from.x + ((dir.x - from.x) / len) * L, y: from.y + ((dir.y - from.y) / len) * L } : dir;
-      } else q = snapToGrid(pm, step);
+      } else if (gridOn) q = snapToGrid(pm, step);
     }
     return { x: q.x * k, y: q.y * k };
   };
@@ -152,7 +160,9 @@ export function useDrawing(opts: { plan: Plan | undefined; data: ProjectState; d
     }
     setOverrides(({ [id]: _, ...rest }) => rest);
     const e = data.elements[id];
-    if (e && JSON.stringify(e.shape) !== JSON.stringify(shape)) putRecord('elements', { ...e, shape });
+    // Rechteck, dessen Ecke einzeln verschoben wurde, ist danach eine (Vieleck-)Fläche
+    const type = e?.type === 'rect' && shape.type === 'freehand' ? 'freehand' : e?.type;
+    if (e && type && JSON.stringify(e.shape) !== JSON.stringify(shape)) putRecord('elements', { ...e, type, shape });
   };
 
   const textHeightNow = () => {
@@ -213,7 +223,7 @@ export function useDrawing(opts: { plan: Plan | undefined; data: ProjectState; d
     const over = overlapping(e);
     if (over.length) {
       const ok = await confirmDialog({
-        title: `${ELEMENT_LABELS[e.type]} löschen?`,
+        title: `${elementLabel(e)} löschen?`,
         message: (
           <p>
             Auf diesem Objekt liegen <strong>{over.length} Messung(en)</strong> (Nr. {over.map((d) => d.number).join(', ')}). Die Messungen und
@@ -227,7 +237,7 @@ export function useDrawing(opts: { plan: Plan | undefined; data: ProjectState; d
     }
     softDelete({ elements: [data.elements[e.id]] });
     if (selectedId === e.id) setSelectedId(null);
-    toast(`${ELEMENT_LABELS[e.type]} gelöscht.`, 'info', 2000);
+    toast(`${elementLabel(e)} gelöscht.`, 'info', 2000);
   };
 
   // -------------------------------------------------------------------------
@@ -266,7 +276,8 @@ export function useDrawing(opts: { plan: Plan | undefined; data: ProjectState; d
   );
 
   const drawOverlay = (view: View, preview: Shape | null) => {
-    const previewType: DrawElementType | null = tool === 'select' || tool === 'component' || tool === 'text' ? null : tool === 'dimension' ? 'dimension' : (tool as DrawElementType);
+    const previewType: DrawElementType | null =
+      tool === 'select' || tool === 'component' || tool === 'text' || tool === 'polygon' ? null : tool === 'dimension' ? 'dimension' : (tool as DrawElementType);
     return (
       <>
         {renderDims(view, elements, k)}
@@ -285,6 +296,8 @@ export function useDrawing(opts: { plan: Plan | undefined; data: ProjectState; d
     setColor,
     snapOn,
     setSnapOn,
+    gridOn,
+    setGridOn,
     elements,
     items,
     selected,

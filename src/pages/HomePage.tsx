@@ -7,7 +7,7 @@ import { backupStatus, exportProjectBackup, findExistingProject, importProjectBa
 import { deleteProjectCompletely, getMeta, listProjects, projectStats, setMeta, writeRecords } from '../lib/db';
 import { isIOS } from '../lib/download';
 import { getDeviceId } from '../lib/ids';
-import { formatDate, formatDateTime, naturalCompare } from '../lib/numbers';
+import { formatDateTime, naturalCompare } from '../lib/numbers';
 import { navigate, paths } from '../lib/router';
 import { closeProject, createProjectWithCostCenters } from '../lib/store';
 import type { Project } from '../lib/types';
@@ -333,7 +333,6 @@ export function HomePage() {
                     .join(' · ') || 'Keine Baustelle angegeben'}
                 </div>
                 <div className="card-meta">
-                  <span>{formatDate(r.project.date)}</span>
                   <span>
                     {r.stats.costCenters} Kostenst. · {r.stats.plans} Pläne · {r.stats.damages} Messungen
                   </span>

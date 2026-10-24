@@ -106,7 +106,13 @@ export interface Plan extends SyncMeta {
 export interface DrawingInfo {
   unit: 'm';
   unitsPerMeter: number;
+  /** Papierformat des Zeichenblatts (fehlt bei älteren Plänen: Zeichenfläche wächst mit) */
+  paper?: PaperFormat;
+  /** Maßstab 1:n des Zeichenblatts, z. B. 100 */
+  scale?: number;
 }
+
+export type PaperFormat = 'A4-hoch' | 'A4-quer' | 'A3-hoch' | 'A3-quer';
 
 export type ShapeType = 'ellipse' | 'rect' | 'freehand' | 'line' | 'triangle';
 
