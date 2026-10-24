@@ -106,7 +106,8 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   await expect(dlg).toBeVisible();
   await expect(dlg.getByTestId('input-number')).toHaveValue('1');
   await expect(dlg.getByTestId('input-length')).toHaveAttribute('inputmode', 'decimal');
-  await expect(dlg.getByTestId('input-number')).toHaveAttribute('inputmode', 'numeric');
+  // Nr. erlaubt Zahlen und Buchstaben (z. B. 12a) – Texttastatur, Buchstaben groß
+  await expect(dlg.getByTestId('input-number')).toHaveAttribute('inputmode', 'text');
   await expect(dlg.getByTestId('input-depth')).toHaveAttribute('enterkeyhint', 'done');
   if (isPhone) {
     // Dialog erscheint als Bottom-Sheet am unteren Rand (Einhandbedienung)
