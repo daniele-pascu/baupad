@@ -31,8 +31,37 @@ test('Website: Startseite, Über BauPad, Kontakt, Anmelden und Logo', async ({ p
   await nav.getByRole('link', { name: 'BauPad – zur Startseite' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Dein Aufmaß. Direkt im Plan.');
 
-  // „Anmelden“ führt (noch ohne Benutzerkonten) zur Projektverwaltung
+  // „Anmelden“: Anmeldeseite – Konten sind noch nicht eingerichtet, es wird nichts vorgetäuscht
   await nav.getByRole('link', { name: 'Anmelden' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Anmelden');
+  await expect(page).toHaveTitle('Anmelden – BauPad');
+  await expect(page.getByTestId('login-provider')).toHaveCount(3);
+  for (const b of await page.getByTestId('login-provider').all()) await expect(b).toBeDisabled();
+  await expect(page.getByTestId('login-provider').nth(1)).toContainText('Mit Google anmelden');
+  await page.getByTestId('login-email').fill('test@example.com');
+  await page.getByTestId('login-password').fill('geheim');
+  await page.getByTestId('login-submit').click();
+  await expect(page.getByTestId('login-unavailable')).toContainText('Die Anmeldung ist noch nicht eingerichtet.');
+  expect(page.url()).toContain('#/anmelden'); // keine Weiterleitung, kein „angemeldet“
+  await page.screenshot({ path: join(OUT, 'anmelden.png'), fullPage: true });
+  await page.getByTestId('login-unavailable').getByRole('link', { name: 'Weiter zur Projektverwaltung' }).click();
+  await expect(page.getByTestId('projects-title')).toHaveText('Projektverwaltung');
+
+  // Einstellungen: Kontobereich als Vorschau, alle Bereiche inaktiv
+  await page.getByTestId('account-link').click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Konto und Einstellungen');
+  await expect(page.getByTestId('account-preview')).toContainText('nicht angemeldet');
+  await expect(page.getByTestId('account-section')).toHaveText([
+    /Persönliche Daten/,
+    /E-Mail und Konto/,
+    /Passwort und Anmeldemethoden/,
+    /Abonnement und Zahlung/,
+    /Firmeninformationen/,
+    /Weitere Einstellungen/,
+  ]);
+  await expect(page.getByTestId('account-logout')).toBeDisabled();
+  await page.screenshot({ path: join(OUT, 'konto.png'), fullPage: true });
+  await page.getByRole('link', { name: 'Zur Projektverwaltung' }).click();
   await expect(page.getByTestId('projects-title')).toHaveText('Projektverwaltung');
 
   await page.goto('./');

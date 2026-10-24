@@ -3,7 +3,7 @@ import { SiteFooter, SiteNav } from '../components/SiteNav';
 import { site } from '../content/site';
 import { paths } from '../lib/router';
 
-function usePageTitle(title: string) {
+export function usePageTitle(title: string) {
   useEffect(() => {
     document.title = title;
     return () => {

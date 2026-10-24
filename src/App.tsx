@@ -7,6 +7,7 @@ import { HomePage } from './pages/HomePage';
 import { ProjectPage } from './pages/ProjectPage';
 import { PlanEditorPage } from './pages/PlanEditorPage';
 import { AboutPage, ContactPage, LandingPage } from './pages/SitePages';
+import { AccountPage, LoginPage } from './pages/AccountPages';
 
 /** Als App vom Home-Bildschirm gestartet (iOS/Android/Desktop-PWA)? */
 const isInstalledApp = () =>
@@ -45,6 +46,12 @@ export function App() {
       break;
     case 'projects':
       content = <HomePage />;
+      break;
+    case 'login':
+      content = <LoginPage />;
+      break;
+    case 'account':
+      content = <AccountPage />;
       break;
     case 'project':
       content = (

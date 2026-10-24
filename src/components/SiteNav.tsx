@@ -27,8 +27,7 @@ export function SiteNav() {
           </a>
         </nav>
         <div className="site-actions">
-          {/* Noch ohne Benutzerkonten: „Anmelden“ führt zur Projektverwaltung */}
-          <a href={paths.projects()} className="site-login" aria-current={current(paths.projects())}>
+          <a href={paths.login()} className="site-login" aria-current={current(paths.login())}>
             Anmelden
           </a>
           <button

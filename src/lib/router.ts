@@ -7,6 +7,8 @@ export type Route =
   | { name: 'about' }
   | { name: 'contact' }
   | { name: 'projects' }
+  | { name: 'login' }
+  | { name: 'account' }
   | { name: 'project'; projectId: string }
   | { name: 'costCenter'; projectId: string; costCenterId: string }
   | { name: 'plan'; projectId: string; planId: string; damageId: string | null }
@@ -20,6 +22,8 @@ export function parseRoute(hash: string): Route {
   if (parts[0] === 'ueber' && parts.length === 1) return { name: 'about' };
   if (parts[0] === 'kontakt' && parts.length === 1) return { name: 'contact' };
   if (parts[0] === 'projekte' && parts.length === 1) return { name: 'projects' };
+  if (parts[0] === 'anmelden' && parts.length === 1) return { name: 'login' };
+  if (parts[0] === 'konto' && parts.length === 1) return { name: 'account' };
   if (parts[0] === 'p' && parts.length === 2) return { name: 'project', projectId: parts[1] };
   if (parts[0] === 'p' && parts[2] === 'k' && parts.length === 4)
     return { name: 'costCenter', projectId: parts[1], costCenterId: parts[3] };
@@ -32,8 +36,12 @@ export const paths = {
   landing: () => '#/',
   about: () => '#/ueber',
   contact: () => '#/kontakt',
-  /** Projektverwaltung (auch Ziel von „Anmelden“, solange es keine Benutzerkonten gibt) */
+  /** Projektverwaltung */
   projects: () => '#/projekte',
+  /** Anmeldeseite (Benutzerkonten noch nicht eingerichtet) */
+  login: () => '#/anmelden',
+  /** Konto und Einstellungen (Vorschau der geplanten Bereiche) */
+  account: () => '#/konto',
   project: (pid: string) => `#/p/${pid}`,
   costCenter: (pid: string, cid: string) => `#/p/${pid}/k/${cid}`,
   plan: (pid: string, planId: string, damageId?: string) => `#/p/${pid}/plan/${planId}${damageId ? `?d=${damageId}` : ''}`,

@@ -2393,3 +2393,108 @@ tr.lv-flagged td {
     padding-right: 10px;
   }
 }
+
+/* ---------- Anmelden / Konto (Oberfläche, Konten noch nicht eingerichtet) ---------- */
+.auth {
+  max-width: 520px;
+  padding-top: clamp(40px, 8vh, 80px);
+  padding-bottom: 64px;
+}
+.auth .site-title {
+  margin-bottom: 20px;
+}
+.auth-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  background: var(--surface);
+  border: 1px solid #e8e8ed;
+  border-radius: 14px;
+}
+.auth-submit {
+  width: 100%;
+  justify-content: center;
+}
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #86868b;
+  font-size: 0.85rem;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid #e8e8ed;
+}
+.auth-provider {
+  width: 100%;
+  justify-content: space-between;
+}
+.auth-soon {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f0f0f3;
+  color: #6e6e73;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+.auth-note {
+  margin-top: 16px;
+  color: #6e6e73;
+  font-size: 0.92rem;
+}
+.auth-note a {
+  color: #0066cc;
+}
+.account-list {
+  list-style: none;
+  margin: 16px 0 20px;
+  padding: 0;
+  border: 1px solid #e8e8ed;
+  border-radius: 14px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.account-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #e8e8ed;
+  opacity: 0.75;
+}
+.account-item:last-child {
+  border-bottom: 0;
+}
+.account-item > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.account-item .muted {
+  font-size: 0.88rem;
+}
+.page-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.icon-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch);
+  height: var(--touch);
+  border-radius: 50%;
+  color: var(--muted);
+}
+.icon-link:hover {
+  background: #e8e8ed;
+  color: var(--text);
+}
