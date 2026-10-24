@@ -1,5 +1,5 @@
 import { isDrawingPlan } from '../lib/drawing';
-import { damagesOf, sumArea } from '../lib/aufmass';
+import { damagesOf, positionsOfPlan, sumArea } from '../lib/aufmass';
 import { formatArea } from '../lib/numbers';
 import { navigate, paths } from '../lib/router';
 import type { ProjectState } from '../lib/store';
@@ -40,6 +40,7 @@ export function PlanList({ data, plans, onEdit, onRename, onCrop, onDelete }: Pr
       </div>
       {plans.map((plan) => {
         const damages = damagesOf(data, plan.id);
+        const services = positionsOfPlan(data, plan.id);
         const href = paths.plan(data.project.id, plan.id);
         const title = plan.planNumber || plan.planName || 'Ohne Nummer';
         return (
@@ -67,8 +68,14 @@ export function PlanList({ data, plans, onEdit, onRename, onCrop, onDelete }: Pr
             <span role="cell" className="pl-note" data-testid="plan-note">
               {plan.description || <span className="muted pl-empty">–</span>}
             </span>
-            <span role="cell" className="pl-services muted">
-              Keine Leistungszuordnung
+            <span role="cell" className={`pl-services${services.length ? '' : ' muted'}`} data-testid="plan-services">
+              {services.length
+                ? services.map(({ pos }) => (
+                    <span key={pos.id} className="pl-service" title={pos.shortText}>
+                      {pos.number} {pos.shortText}
+                    </span>
+                  ))
+                : 'Keine Leistungszuordnung'}
             </span>
             <span role="cell" className="pl-count num" data-testid="plan-count">
               {damages.length}

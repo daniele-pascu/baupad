@@ -16,6 +16,7 @@ export interface DamageValues {
   color: string;
   shapeType: ShapeType;
   componentId: string | null;
+  positionRef: string | null;
   resetLabel: boolean;
 }
 
@@ -24,10 +25,12 @@ export type Renumber = 'none' | 'swap' | 'shift';
 interface Props {
   mode: 'new' | 'edit';
   damage: Pick<Damage, 'id' | 'number' | 'color' | 'labelOffset'> &
-    Partial<Pick<Damage, 'length' | 'width' | 'depth' | 'componentId'>> & { shapeType: ShapeType; kind: MeasureKind };
+    Partial<Pick<Damage, 'length' | 'width' | 'depth' | 'componentId' | 'positionRef'>> & { shapeType: ShapeType; kind: MeasureKind };
   others: Pick<Damage, 'id' | 'number' | 'area'>[];
   /** Bauteilkennzeichnungen des Plans für die optionale Zuordnung */
   components: Pick<Component, 'id' | 'letter' | 'name'>[];
+  /** Leistungspositionen (LV/MFK) für die optionale Zuordnung */
+  positions?: { ref: string; label: string; doc: string }[];
   /** Gezeichnete Pläne: Maße aus der Markierung (Maßstab bekannt) als Vorschlag */
   suggestion?: { length: number; width: number | null } | null;
   onSave: (v: DamageValues, renumber: Renumber) => void;
@@ -41,7 +44,7 @@ type Field = 'number' | 'length' | 'width' | 'depth';
  * Eingabe einer Messung bzw. Schadstelle. Öffnet sich automatisch nach dem Einzeichnen.
  * Enter/Weiter springt zum nächsten Feld; im letzten Feld wird gespeichert.
  */
-export function DamageDialog({ mode, damage, others, components, suggestion, onSave, onCancel, onDelete }: Props) {
+export function DamageDialog({ mode, damage, others, components, positions = [], suggestion, onSave, onCancel, onDelete }: Props) {
   const [v, setV] = useState({
     number: String(damage.number),
     length: toInputValue(damage.length),
@@ -52,6 +55,7 @@ export function DamageDialog({ mode, damage, others, components, suggestion, onS
   const [color, setColor] = useState(damage.color);
   const [shapeType, setShapeType] = useState<ShapeType>(damage.shapeType);
   const [componentId, setComponentId] = useState<string | null>(damage.componentId ?? null);
+  const [positionRef, setPositionRef] = useState<string | null>(damage.positionRef ?? null);
   const [resetLabel, setResetLabel] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const refs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -93,6 +97,7 @@ export function DamageDialog({ mode, damage, others, components, suggestion, onS
         color,
         shapeType,
         componentId,
+        positionRef,
         resetLabel,
       },
       renumber,
@@ -246,6 +251,25 @@ export function DamageDialog({ mode, damage, others, components, suggestion, onS
                 <option key={c.id} value={c.id}>
                   {c.name ? `${c.letter} – ${c.name}` : c.letter}
                 </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {positions.length > 0 && (
+          <label className="field">
+            <span>Leistungsposition (optional)</span>
+            <select value={positionRef ?? ''} onChange={(e) => setPositionRef(e.target.value || null)} data-testid="input-position">
+              <option value="">– keine Leistungszuordnung –</option>
+              {[...new Set(positions.map((p) => p.doc))].map((doc) => (
+                <optgroup key={doc} label={doc}>
+                  {positions
+                    .filter((p) => p.doc === doc)
+                    .map((p) => (
+                      <option key={p.ref} value={p.ref}>
+                        {p.label}
+                      </option>
+                    ))}
+                </optgroup>
               ))}
             </select>
           </label>

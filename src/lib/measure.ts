@@ -39,3 +39,34 @@ export function sumLengths(damages: Pick<Damage, 'kind' | 'length'>[]): number {
 }
 
 export const countKind = (damages: Pick<Damage, 'kind'>[], k: MeasureKind) => damages.filter((d) => kindOf(d) === k).length;
+
+/** Art der Mengenermittlung je LV-Einheit */
+export type QuantityBasis = 'area' | 'length' | 'volume' | 'count' | null;
+
+/** Welche Messgröße zur Einheit einer Leistungsposition passt. */
+export function quantityBasis(unit: string): QuantityBasis {
+  const u = unit.trim().toLowerCase().replace(/\s/g, '');
+  if (['m²', 'm2', 'qm'].includes(u)) return 'area';
+  if (['m', 'lfm', 'lm', 'lfdm'].includes(u)) return 'length';
+  if (['m³', 'm3', 'cbm'].includes(u)) return 'volume';
+  if (['stk', 'st', 'stück', 'stueck'].includes(u)) return 'count';
+  return null; // z. B. PA, h, Wo – nicht aus Messungen ableitbar
+}
+
+/**
+ * Aufmaßmenge einer Position aus den zugeordneten Messungen:
+ * m² = Summe der Flächen, m = Summe der Längen, m³ = Fläche × Tiefe (nur mit Tiefe),
+ * Stk = Anzahl. Bei anderen Einheiten null (nicht automatisch berechenbar).
+ */
+export function quantityFor(unit: string, damages: Pick<Damage, 'kind' | 'length' | 'area' | 'depth'>[]): { value: number | null; missing: number } {
+  const basis = quantityBasis(unit);
+  if (!basis) return { value: null, missing: 0 };
+  if (basis === 'count') return { value: damages.length, missing: 0 };
+  if (basis === 'length') return { value: clean(damages.reduce((s, d) => s + d.length, 0)), missing: 0 };
+  if (basis === 'area') {
+    const withArea = damages.filter((d) => hasArea(kindOf(d)) && d.area !== null);
+    return { value: sumAreas(withArea), missing: damages.length - withArea.length };
+  }
+  const withDepth = damages.filter((d) => hasArea(kindOf(d)) && d.area !== null && d.depth !== null);
+  return { value: clean(withDepth.reduce((s, d) => s + d.area! * d.depth!, 0)), missing: damages.length - withDepth.length };
+}

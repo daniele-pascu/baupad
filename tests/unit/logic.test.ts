@@ -4,6 +4,7 @@ import { compactNumbers, duplicateNumbers, nextNumber, parseDamageNumber, planNu
 import { fitView, freehandShape, hitShape, layoutLabels, rectsOverlap, resizeShape, toPage, toScreen, zoomAt } from '../../src/lib/geometry';
 import { colName, sheetName } from '../../src/lib/xlsx';
 import { safeFileName } from '../../src/lib/aufmass';
+import { quantityFor } from '../../src/lib/measure';
 
 describe('Zahleneingabe', () => {
   it('akzeptiert Komma und Punkt', () => {
@@ -141,5 +142,24 @@ describe('Export-Hilfen', () => {
   it('Dateinamen', () => {
     expect(safeFileName('Wohnanlage Süd', 'Tiefgarage', 'Aufmass')).toBe('Wohnanlage_Sued_Tiefgarage_Aufmass');
     expect(safeFileName('A/B: C?', '', 'Plan')).toBe('A-B-_C_Plan');
+  });
+});
+
+describe('Mengen je LV-Einheit', () => {
+  const ds = [
+    { kind: 'area' as const, length: 2, area: 3, depth: 0.1 },
+    { kind: 'line' as const, length: 4, area: null, depth: null },
+    { kind: 'damage' as const, length: 1, area: 0.5, depth: null },
+  ];
+  it('m² summiert nur Flächen, Linien werden als fehlend gezählt', () => {
+    expect(quantityFor('m²', ds)).toEqual({ value: 3.5, missing: 1 });
+  });
+  it('m summiert Längen, Stk zählt, m³ nur mit Tiefe', () => {
+    expect(quantityFor('m', ds).value).toBe(7);
+    expect(quantityFor('Stk', ds).value).toBe(3);
+    expect(quantityFor('m³', ds)).toEqual({ value: 0.3, missing: 2 });
+  });
+  it('PA, h, Wo sind nicht aus Messungen ableitbar', () => {
+    expect(quantityFor('PA', ds).value).toBeNull();
   });
 });

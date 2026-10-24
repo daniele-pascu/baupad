@@ -2,7 +2,7 @@ import { sumAreas } from './measure';
 import { formatDate, naturalCompare } from './numbers';
 import type { ProjectState } from './store';
 import { alive } from './store';
-import type { Component, CostCenter, Damage, DrawElement, Plan } from './types';
+import type { Component, CostCenter, Damage, DrawElement, LvDocument, LvPosition, Plan } from './types';
 import { buildXlsx, num, sheetName, str, type Cell, type Sheet } from './xlsx';
 
 /** Pläne einer Kostenstelle, sortiert nach Plannummer. */
@@ -31,6 +31,43 @@ export function elementsOf(data: ProjectState, planId: string): DrawElement[] {
   return alive(data.elements ?? {})
     .filter((e) => e.planId === planId)
     .sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id));
+}
+
+/** LV und MFK des Projekts: zuerst LV, dann MFK nach Nummer. */
+export function lvDocsOf(data: ProjectState): LvDocument[] {
+  return alive(data.lvDocs ?? {}).sort(
+    (a, b) => (a.kind === b.kind ? 0 : a.kind === 'lv' ? -1 : 1) || naturalCompare(a.number, b.number) || a.createdAt - b.createdAt,
+  );
+}
+
+export const lvDocLabel = (d: Pick<LvDocument, 'kind' | 'name' | 'number'>) =>
+  [d.kind === 'lv' ? 'LV' : 'MFK', d.number, d.name ? `– ${d.name}` : ''].filter(Boolean).join(' ');
+
+export const positionRef = (docId: string, posId: string) => `${docId}:${posId}`;
+
+/** Position zu einem Verweis „Dokument:Position“ (null, wenn gelöscht). */
+export function findPosition(data: ProjectState, ref: string | null | undefined): { doc: LvDocument; pos: LvPosition } | null {
+  if (!ref) return null;
+  const [docId, posId] = ref.split(':');
+  const doc = data.lvDocs?.[docId];
+  if (!doc || doc.deletedAt) return null;
+  const pos = doc.positions.find((p) => p.id === posId);
+  return pos ? { doc, pos } : null;
+}
+
+/** Alle Messungen des Projekts, die einer Position zugeordnet sind. */
+export function damagesForPosition(data: ProjectState, ref: string): Damage[] {
+  const livePlans = new Set(alive(data.plans).map((p) => p.id));
+  return alive(data.damages).filter((d) => d.positionRef === ref && livePlans.has(d.planId));
+}
+
+/** Zugeordnete Positionen eines Plans (eindeutig, nach Positionsnummer). */
+export function positionsOfPlan(data: ProjectState, planId: string): { doc: LvDocument; pos: LvPosition }[] {
+  const refs = new Set(damagesOf(data, planId).map((d) => d.positionRef).filter(Boolean) as string[]);
+  return [...refs]
+    .map((r) => findPosition(data, r))
+    .filter((x): x is { doc: LvDocument; pos: LvPosition } => !!x)
+    .sort((a, b) => naturalCompare(a.pos.number, b.pos.number));
 }
 
 export function costCentersOf(data: ProjectState): CostCenter[] {

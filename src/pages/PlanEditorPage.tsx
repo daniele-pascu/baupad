@@ -9,7 +9,7 @@ import { PlanDetailsDialog } from '../components/PlanFields';
 import { PlanViewer, type PlanViewerHandle, type Tool } from '../components/PlanViewer';
 import { SaveErrorBanner, SaveStatus } from '../components/SaveStatus';
 import { confirmDialog, offerFile, showError, toast } from '../components/ui';
-import { componentsOf, costCenterLabel, damagesOf, elementsOf, exportXlsx, plansOf, planTitle, sumArea } from '../lib/aufmass';
+import { componentsOf, costCenterLabel, damagesOf, elementsOf, exportXlsx, findPosition, lvDocLabel, lvDocsOf, plansOf, planTitle, positionRef, sumArea } from '../lib/aufmass';
 import { drawingRegion, isDrawingPlan, suggestMeasures, unitsPerMeter } from '../lib/drawing';
 import { convertShape, type Point } from '../lib/geometry';
 import { countKind, defaultKindFor, hasArea, KIND_LABELS, KINDS, kindOf, sumLengths } from '../lib/measure';
@@ -258,6 +258,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       depth: hasArea(v.kind) ? v.depth : null,
       area,
       componentId: v.componentId,
+      positionRef: v.positionRef,
     };
     storePref('measureKind', v.kind);
     if (dialog.mode === 'new') {
@@ -434,6 +435,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const rows = damages.map((damage) => ({ plan, damage }));
   const lineCount = countKind(damages, 'line');
   const componentOptions = storedComponents.map(({ id, letter, name }) => ({ id, letter, name }));
+  const positionOptions = lvDocsOf(data).flatMap((doc) =>
+    doc.positions.map((p) => ({ ref: positionRef(doc.id, p.id), doc: lvDocLabel(doc), label: `${p.number} ${p.shortText} (${p.unit || '–'})` })),
+  );
 
   return (
     <div className="editor">
@@ -865,6 +869,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             selectedId={selectedId}
             duplicates={dupIds}
             components={data.components}
+            positionLabel={(ref) => findPosition(data, ref)?.pos.number ?? null}
             onSelect={(r) => {
               select(r.damage.id, true);
               setMobileTab('plan');
@@ -887,6 +892,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           suggestion={drawingPlan ? suggestMeasures(dialog.shape, unitsPerMeter(plan)) : null}
           others={stored}
           components={componentOptions}
+          positions={positionOptions}
           onSave={save}
           onCancel={() => setDialog(null)}
         />
@@ -898,6 +904,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           suggestion={drawingPlan ? suggestMeasures(dialogDamage.shape, unitsPerMeter(plan)) : null}
           others={stored}
           components={componentOptions}
+          positions={positionOptions}
           onSave={save}
           onCancel={() => setDialog(null)}
           onDelete={() => void removeDamage(dialogDamage)}

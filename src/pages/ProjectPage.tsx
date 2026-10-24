@@ -4,13 +4,14 @@ import { AreaEditor } from '../components/AreaEditor';
 import { AufmassTable } from '../components/AufmassTable';
 import { Icon } from '../components/Icon';
 import { ImportWizard } from '../components/ImportWizard';
+import { LvPanel } from '../components/LvPanel';
 import { PdfExportDialog } from '../components/PdfExportDialog';
 import { NewDrawingDialog, PlanDetailsDialog } from '../components/PlanFields';
 import { PlanList } from '../components/PlanList';
 import { ProjectForm, type CostCenterInput } from '../components/ProjectForm';
 import { SaveErrorBanner, SaveStatus } from '../components/SaveStatus';
 import { confirmDialog, offerFile, promptDialog, showError, toast } from '../components/ui';
-import { aufmassRows, componentsOf, costCenterLabel, costCentersOf, damagesOf, elementsOf, exportXlsx, planTitle, plansOf } from '../lib/aufmass';
+import { aufmassRows, componentsOf, findPosition, costCenterLabel, costCentersOf, damagesOf, elementsOf, exportXlsx, planTitle, plansOf } from '../lib/aufmass';
 import { exportProjectBackup } from '../lib/backup';
 import { isDrawingPlan } from '../lib/drawing';
 import { formatDate } from '../lib/numbers';
@@ -35,7 +36,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
   const [importFile, setImportFile] = useState<File | null>(null);
   const [details, setDetails] = useState<Plan | null>(null);
   const [cropping, setCropping] = useState<{ plan: Plan; image: HTMLCanvasElement } | null>(null);
-  const [tab, setTab] = useState<'plans' | 'table'>('plans');
+  const [tab, setTab] = useState<'plans' | 'table' | 'lv'>('plans');
   const [drawingNew, setDrawingNew] = useState(false);
 
   const plans = active ? plansOf(data, active.id) : [];
@@ -284,6 +285,9 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
                 <button type="button" role="tab" aria-selected={tab === 'table'} onClick={() => setTab('table')} data-testid="tab-table">
                   <Icon name="table" size={18} /> Aufmaß ({rows.length})
                 </button>
+                <button type="button" role="tab" aria-selected={tab === 'lv'} onClick={() => setTab('lv')} data-testid="tab-lv">
+                  <Icon name="file" size={18} /> LV / MFK
+                </button>
               </div>
               <button type="button" className="btn btn-primary" onClick={() => fileRef.current?.click()} data-testid="import-plan">
                 <Icon name="upload" /> Plan importieren
@@ -331,7 +335,8 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
               </div>
             ))}
 
-          {tab === 'table' && <AufmassTable rows={rows} showPlan components={data.components} onSelect={(r) => navigate(paths.plan(project.id, r.plan.id, r.damage.id))} />}
+          {tab === 'lv' && <LvPanel data={data} />}
+          {tab === 'table' && <AufmassTable rows={rows} showPlan components={data.components} positionLabel={(ref) => findPosition(data, ref)?.pos.number ?? null} onSelect={(r) => navigate(paths.plan(project.id, r.plan.id, r.damage.id))} />}
         </section>
       )}
 

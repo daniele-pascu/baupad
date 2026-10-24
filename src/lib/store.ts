@@ -7,7 +7,7 @@ import {
   type PendingWrite,
 } from './db';
 import { getDeviceId, uuid } from './ids';
-import type { Component, CostCenter, Damage, DrawElement, EntityMap, EntityStore, Plan, Project, SourceFile } from './types';
+import type { Component, CostCenter, Damage, DrawElement, EntityMap, EntityStore, LvDocument, Plan, Project, SourceFile } from './types';
 
 /**
  * Zentraler Zustand des geöffneten Projekts mit automatischer Speicherung.
@@ -28,6 +28,8 @@ export interface ProjectState {
   components: Record<string, Component>;
   /** Zeichnungsobjekte selbst gezeichneter Pläne */
   elements: Record<string, DrawElement>;
+  /** Leistungsverzeichnisse und Mehrkostenforderungen */
+  lvDocs: Record<string, LvDocument>;
 }
 
 interface AppState {
@@ -219,6 +221,7 @@ export async function openProject(projectId: string): Promise<void> {
         damages: toRecord(data.damages, 'damages'),
         components: toRecord(data.components ?? [], 'components'),
         elements: toRecord(data.elements ?? [], 'elements'),
+        lvDocs: toRecord(data.lvDocs ?? [], 'lvDocs'),
       },
       save: { status: 'saved', error: null, lastSaved: null },
     });
@@ -251,6 +254,7 @@ const collection = {
   damages: 'damages',
   components: 'components',
   elements: 'elements',
+  lvDocs: 'lvDocs',
 } as const;
 
 type ChildStore = keyof typeof collection;

@@ -1420,6 +1420,96 @@ textarea {
   display: none;
 }
 
+/* ---------- LV / MFK ---------- */
+
+.lv-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.lv-docs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.lv-doc-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+.lv-doc-head h3 {
+  margin: 0 0 2px;
+}
+.lv-search {
+  width: 100%;
+  height: 44px;
+  margin: 8px 0;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font: inherit;
+  font-size: 16px;
+}
+.lv-table .lv-text {
+  white-space: normal;
+  min-width: 180px;
+}
+.lv-table .nowrap,
+.lv-review-table .nowrap {
+  white-space: nowrap;
+}
+.lv-review-table {
+  max-height: 46vh;
+  margin-top: 10px;
+}
+.lv-review-table .lv-text {
+  white-space: normal;
+}
+.lv-group td {
+  background: #eef2f7;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+tr.lv-flagged td {
+  background: var(--warn-soft);
+}
+.lv-warn {
+  color: #b45309;
+}
+.lv-detail td {
+  white-space: normal;
+  background: #fafbfd;
+}
+.lv-longtext {
+  max-width: 70ch;
+  font-size: 0.88rem;
+}
+.lv-measures {
+  margin: 4px 0 8px;
+  padding-left: 18px;
+}
+.pos-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.pl-service {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.85rem;
+}
+
 /* ---------- Kleine Bildschirme (iPhone) ---------- */
 
 @media (max-width: 899px) {

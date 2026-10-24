@@ -151,6 +151,8 @@ export interface Damage extends SyncMeta {
   area: number | null;
   /** Zugeordnetes Bauteil (Buchstabe), optional */
   componentId?: string | null;
+  /** Zugeordnete Leistungsposition „<LV-Dokument-ID>:<Positions-ID>“, optional */
+  positionRef?: string | null;
 }
 
 /** Bauteilkennzeichnung im Plan, z. B. „A – Wand“. */
@@ -195,7 +197,42 @@ export interface DrawElement extends SyncMeta {
   offset?: number;
 }
 
-export type EntityStore = 'projects' | 'costCenters' | 'files' | 'plans' | 'damages' | 'components' | 'elements';
+/** Leistungsposition eines LV bzw. einer MFK */
+export interface LvPosition {
+  id: string;
+  /** Positionsnummer, z. B. „92 01 01 B1“ */
+  number: string;
+  shortText: string;
+  longText: string;
+  /** Einheit, z. B. „m“, „m²“, „Stk“ */
+  unit: string;
+  /** Menge laut LV (null = nicht angegeben) */
+  quantity: number | null;
+  /** Einheitspreis in EUR (null = nicht angegeben) */
+  unitPrice: number | null;
+  /** Positionspreis in EUR laut Dokument */
+  totalPrice: number | null;
+  /** Untergruppe, z. B. „92 01“ */
+  group: string;
+  /** Beim Import nicht sicher erkannte Angaben; leer = geprüft */
+  issues: string[];
+}
+
+/** Leistungsverzeichnis (LV) oder Mehrkostenforderung (MFK) eines Projekts. */
+export interface LvDocument extends SyncMeta {
+  projectId: string;
+  kind: 'lv' | 'mfk';
+  /** Bezeichnung, z. B. „Markierungsarbeiten“ */
+  name: string;
+  /** Nummer, z. B. MFK-Nummer (optional) */
+  number: string;
+  /** Name der importierten Datei ('' = manuell angelegt) */
+  fileName: string;
+  groups: { number: string; title: string }[];
+  positions: LvPosition[];
+}
+
+export type EntityStore = 'projects' | 'costCenters' | 'files' | 'plans' | 'damages' | 'components' | 'elements' | 'lvDocs';
 
 export interface EntityMap {
   projects: Project;
@@ -205,6 +242,7 @@ export interface EntityMap {
   damages: Damage;
   components: Component;
   elements: DrawElement;
+  lvDocs: LvDocument;
 }
 
 export const COLORS: { value: string; name: string }[] = [

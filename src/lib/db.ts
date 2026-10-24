@@ -1,5 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import type { Component, CostCenter, Damage, DrawElement, EntityMap, EntityStore, Plan, Project, SourceFile } from './types';
+import type { Component, CostCenter, Damage, DrawElement, EntityMap, EntityStore, LvDocument, Plan, Project, SourceFile } from './types';
 
 /**
  * Lokale Datenbank (IndexedDB). Sie funktioniert ohne Internetverbindung und hält
@@ -28,6 +28,8 @@ interface AufmassDB extends DBSchema {
   outbox: { key: string; value: OutboxEntry; indexes: { projectId: string } };
   /** ab Version 3: Zeichnungsobjekte selbst gezeichneter Pläne (Maße in m) */
   elements: { key: string; value: DrawElement; indexes: { projectId: string } };
+  /** ab Version 4: Leistungsverzeichnisse und Mehrkostenforderungen */
+  lvDocs: { key: string; value: LvDocument; indexes: { projectId: string } };
 }
 
 export interface OutboxEntry {
@@ -43,10 +45,10 @@ export interface OutboxEntry {
 const DB_NAME = 'schadstellen-aufmass';
 /**
  * Version 1: Grundversion. Version 2: Bauteile und Änderungs-Warteschlange.
- * Version 3: Zeichnungsobjekte selbst gezeichneter Pläne.
+ * Version 3: Zeichnungsobjekte selbst gezeichneter Pläne. Version 4: LV und MFK.
  * Upgrades legen ausschließlich neue Speicherbereiche an; vorhandene Daten bleiben unverändert.
  */
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 let dbPromise: Promise<IDBPDatabase<AufmassDB>> | null = null;
 
@@ -68,6 +70,9 @@ export function getDB(): Promise<IDBPDatabase<AufmassDB>> {
         }
         if (oldVersion < 3) {
           db.createObjectStore('elements', { keyPath: 'id' }).createIndex('projectId', 'projectId');
+        }
+        if (oldVersion < 4) {
+          db.createObjectStore('lvDocs', { keyPath: 'id' }).createIndex('projectId', 'projectId');
         }
         // Hinweis für die Projektverwaltung, dass die Datenbank erweitert wurde
         if (oldVersion >= 1) void tx.objectStore('meta').put({ key: 'upgradedFrom', value: oldVersion });
@@ -106,24 +111,26 @@ export interface ProjectData {
   damages: Damage[];
   components: Component[];
   elements: DrawElement[];
+  lvDocs: LvDocument[];
 }
 
 /** Lädt alle Datensätze eines Projekts (inklusive Grabsteine). */
 export async function loadProjectData(projectId: string): Promise<ProjectData | null> {
   const db = await getDB();
-  const tx = db.transaction(['projects', 'costCenters', 'files', 'plans', 'damages', 'components', 'elements'], 'readonly');
+  const tx = db.transaction(['projects', 'costCenters', 'files', 'plans', 'damages', 'components', 'elements', 'lvDocs'], 'readonly');
   const project = await tx.objectStore('projects').get(projectId);
   if (!project || project.deletedAt) return null;
-  const [costCenters, files, plans, damages, components, elements] = await Promise.all([
+  const [costCenters, files, plans, damages, components, elements, lvDocs] = await Promise.all([
     tx.objectStore('costCenters').index('projectId').getAll(projectId),
     tx.objectStore('files').index('projectId').getAll(projectId),
     tx.objectStore('plans').index('projectId').getAll(projectId),
     tx.objectStore('damages').index('projectId').getAll(projectId),
     tx.objectStore('components').index('projectId').getAll(projectId),
     tx.objectStore('elements').index('projectId').getAll(projectId),
+    tx.objectStore('lvDocs').index('projectId').getAll(projectId),
   ]);
   await tx.done;
-  return { project, costCenters, files, plans, damages, components, elements };
+  return { project, costCenters, files, plans, damages, components, elements, lvDocs };
 }
 
 export class ConflictError extends Error {
@@ -224,7 +231,7 @@ export async function putView(view: { id: string; projectId: string; scale: numb
 /** Löscht ein Projekt mit allen zugehörigen Daten endgültig von diesem Gerät. */
 export async function deleteProjectCompletely(projectId: string): Promise<void> {
   const db = await getDB();
-  const storeNames = ['costCenters', 'files', 'blobs', 'plans', 'damages', 'components', 'elements', 'outbox', 'thumbs', 'views'] as const;
+  const storeNames = ['costCenters', 'files', 'blobs', 'plans', 'damages', 'components', 'elements', 'lvDocs', 'outbox', 'thumbs', 'views'] as const;
   const tx = db.transaction(['projects', ...storeNames], 'readwrite');
   for (const name of storeNames) {
     const store = tx.objectStore(name);

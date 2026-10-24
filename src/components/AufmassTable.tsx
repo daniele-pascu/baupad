@@ -18,10 +18,12 @@ interface Props {
   duplicates?: Set<string>;
   /** Bauteilkennzeichnungen (id → Bauteil) für die Spalte „Art / Bauteil“ */
   components?: Record<string, Pick<Component, 'letter' | 'name' | 'deletedAt'>>;
+  /** Positionsnummer zu einem Leistungsverweis (für die Spalte „Art“) */
+  positionLabel?: (ref: string) => string | null;
 }
 
 /** Aufmaß-Tabelle: Plannummer, Nummer, Länge, Breite, Tiefe, Fläche, Art (Symbol) und Bauteil. */
-export function AufmassTable({ rows, showPlan, selectedId, onSelect, onEdit, onDelete, duplicates, components }: Props) {
+export function AufmassTable({ rows, showPlan, selectedId, onSelect, onEdit, onDelete, duplicates, components, positionLabel }: Props) {
   const selRef = useRef<HTMLTableRowElement>(null);
   useEffect(() => {
     selRef.current?.scrollIntoView({ block: 'nearest' });
@@ -87,6 +89,11 @@ export function AufmassTable({ rows, showPlan, selectedId, onSelect, onEdit, onD
                   {comp && !comp.deletedAt && (
                     <span className="component-tag">
                       {comp.letter}
+                    </span>
+                  )}
+                  {r.damage.positionRef && positionLabel?.(r.damage.positionRef) && (
+                    <span className="pos-tag" data-testid="row-position">
+                      {positionLabel(r.damage.positionRef)}
                     </span>
                   )}
                 </td>
