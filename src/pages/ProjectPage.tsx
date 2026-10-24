@@ -5,13 +5,14 @@ import { AufmassTable } from '../components/AufmassTable';
 import { Icon } from '../components/Icon';
 import { ImportWizard } from '../components/ImportWizard';
 import { PdfExportDialog } from '../components/PdfExportDialog';
-import { PlanDetailsDialog } from '../components/PlanFields';
+import { NewDrawingDialog, PlanDetailsDialog } from '../components/PlanFields';
 import { PlanList } from '../components/PlanList';
 import { ProjectForm, type CostCenterInput } from '../components/ProjectForm';
 import { SaveErrorBanner, SaveStatus } from '../components/SaveStatus';
 import { confirmDialog, offerFile, promptDialog, showError, toast } from '../components/ui';
-import { aufmassRows, costCenterLabel, costCentersOf, damagesOf, exportXlsx, planTitle, plansOf } from '../lib/aufmass';
+import { aufmassRows, componentsOf, costCenterLabel, costCentersOf, damagesOf, elementsOf, exportXlsx, planTitle, plansOf } from '../lib/aufmass';
 import { exportProjectBackup } from '../lib/backup';
+import { isDrawingPlan } from '../lib/drawing';
 import { formatDate } from '../lib/numbers';
 import { navigate, paths } from '../lib/router';
 import { flush, newMeta, putRecord, putRecords, softDelete, updateProject, useAppState, type ProjectState } from '../lib/store';
@@ -35,6 +36,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
   const [details, setDetails] = useState<Plan | null>(null);
   const [cropping, setCropping] = useState<{ plan: Plan; image: HTMLCanvasElement } | null>(null);
   const [tab, setTab] = useState<'plans' | 'table'>('plans');
+  const [drawingNew, setDrawingNew] = useState(false);
 
   const plans = active ? plansOf(data, active.id) : [];
   const rows = aufmassRows(data, plans);
@@ -85,7 +87,9 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
       danger: true,
     });
     if (!ok) return;
-    softDelete({ costCenters: [cc], plans: ccPlans, damages });
+    const elements = ccPlans.flatMap((p) => elementsOf(data, p.id));
+    const components = ccPlans.flatMap((p) => componentsOf(data, p.id));
+    softDelete({ costCenters: [cc], plans: ccPlans, damages, elements, components });
     toast('Kostenstelle gelöscht.');
     navigate(paths.project(project.id), true);
   };
@@ -95,8 +99,11 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
 
   const deletePlan = async (plan: Plan) => {
     const damages = damagesOf(data, plan.id);
-    const others = Object.values(data.plans).filter((p) => !p.deletedAt && p.fileId === plan.fileId && p.id !== plan.id);
-    const file = data.files[plan.fileId];
+    const elements = elementsOf(data, plan.id);
+    const components = componentsOf(data, plan.id);
+    const drawn = isDrawingPlan(plan);
+    const others = drawn ? [] : Object.values(data.plans).filter((p) => !p.deletedAt && p.fileId === plan.fileId && p.id !== plan.id);
+    const file = drawn ? undefined : data.files[plan.fileId];
     const ok = await confirmDialog({
       title: 'Plan löschen?',
       message: (
@@ -107,11 +114,15 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
           <ul data-testid="delete-summary">
             <li>{damages.length} Messung(en) bzw. Schadstelle(n) mit ihren Maßen</li>
             <li>{damages.length} Markierung(en) im Plan</li>
+            {components.length > 0 && <li>{components.length} Bauteilkennzeichnung(en)</li>}
+            {drawn && <li>{elements.length} Zeichnungsobjekt(e) des selbst gezeichneten Plans</li>}
             <li>Keine Leistungszuordnungen</li>
             {plan.description && <li>Die Bemerkung zum Plan</li>}
           </ul>
           <p className="muted">
-            {others.length
+            {drawn
+              ? ''
+              : others.length
               ? `Die Originaldatei „${file?.name ?? ''}“ bleibt erhalten, weil sie von ${others.length} weiteren Plan/Plänen verwendet wird.`
               : `Die Originaldatei „${file?.name ?? ''}“ wird ebenfalls entfernt.`}{' '}
             Tipp: Vorher über „Projekt sichern“ eine Sicherung anlegen.
@@ -122,7 +133,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
       danger: true,
     });
     if (!ok) return;
-    softDelete({ plans: [plan], damages, ...(others.length || !file ? {} : { files: [file] }) });
+    softDelete({ plans: [plan], damages, elements, components, ...(others.length || !file ? {} : { files: [file] }) });
     toast('Plan gelöscht.');
   };
 
@@ -277,6 +288,9 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
               <button type="button" className="btn btn-primary" onClick={() => fileRef.current?.click()} data-testid="import-plan">
                 <Icon name="upload" /> Plan importieren
               </button>
+              <button type="button" className="btn" onClick={() => setDrawingNew(true)} data-testid="draw-plan">
+                <Icon name="drawPlan" /> Plan zeichnen
+              </button>
             </div>
             <input
               ref={fileRef}
@@ -306,9 +320,14 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
               <div className="empty">
                 <p>Noch keine Pläne{ccs.length > 1 ? ' in dieser Kostenstelle' : ''}.</p>
                 <p className="muted">Importieren Sie einen Plan als PDF, JPG oder PNG – auf iPhone/iPad aus „Dateien“ oder der Fotomediathek.</p>
-                <button type="button" className="btn btn-primary btn-lg" onClick={() => fileRef.current?.click()}>
-                  <Icon name="upload" /> PDF oder Foto auswählen
-                </button>
+                <div className="row gap wrap center">
+                  <button type="button" className="btn btn-primary btn-lg" onClick={() => fileRef.current?.click()}>
+                    <Icon name="upload" /> PDF oder Foto auswählen
+                  </button>
+                  <button type="button" className="btn btn-lg" onClick={() => setDrawingNew(true)}>
+                    <Icon name="drawPlan" /> Neuen Plan zeichnen
+                  </button>
+                </div>
               </div>
             ))}
 
@@ -357,6 +376,17 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
           onDone={(ids) => {
             setImportFile(null);
             if (ids.length === 1) navigate(paths.plan(project.id, ids[0]));
+          }}
+        />
+      )}
+      {drawingNew && active && (
+        <NewDrawingDialog
+          data={data}
+          costCenterId={active.id}
+          onClose={() => setDrawingNew(false)}
+          onCreated={(id) => {
+            setDrawingNew(false);
+            navigate(paths.plan(project.id, id));
           }}
         />
       )}

@@ -1,6 +1,7 @@
 import { useId, useState } from 'react';
+import { DEFAULT_SHEET, DRAWING_INFO, isDrawingPlan, UNITS_PER_M } from '../lib/drawing';
 import { planNumberStart } from '../lib/numbering';
-import { alive, putRecord, type ProjectState } from '../lib/store';
+import { alive, newMeta, putRecord, type ProjectState } from '../lib/store';
 import type { Plan } from '../lib/types';
 import { Modal } from './Modal';
 
@@ -118,11 +119,101 @@ export function PlanDetailsDialog({ plan, data, onClose }: { plan: Plan; data: P
         <small className="muted">Standard: 1. Bestehende Nummern werden dadurch nicht verändert.</small>
         {show && !startOk && <small className="error">Bitte eine ganze Zahl ab 1 eingeben.</small>}
       </label>
-      <p className="muted small">
-        Originaldatei: {data.files[plan.fileId]?.name ?? '–'}
-        {(data.files[plan.fileId]?.pageCount ?? 1) > 1 && `, Seite ${plan.pageIndex + 1}`}
-        {plan.crop && ', Planbereich'}
-      </p>
+      {isDrawingPlan(plan) ? (
+        <p className="muted small">Selbst gezeichneter Plan (Maße in Metern).</p>
+      ) : (
+        <p className="muted small">
+          Originaldatei: {data.files[plan.fileId]?.name ?? '–'}
+          {(data.files[plan.fileId]?.pageCount ?? 1) > 1 && `, Seite ${plan.pageIndex + 1}`}
+          {plan.crop && ', Planbereich'}
+        </p>
+      )}
+    </Modal>
+  );
+}
+
+/** Plannummer prüfen: Pflichtfeld und im Projekt eindeutig */
+function planNumberError(data: ProjectState, value: string, exceptId?: string): string | null {
+  const n = value.trim().toLowerCase();
+  if (!n) return 'Bitte eine Plannummer eingeben.';
+  if (alive(data.plans).some((p) => p.id !== exceptId && p.planNumber.trim().toLowerCase() === n)) return 'Diese Plannummer ist im Projekt bereits vergeben.';
+  return null;
+}
+
+/**
+ * Neuen Plan selbst zeichnen: Planangaben erfassen und eine leere, maßhaltige Zeichenfläche
+ * anlegen. Die Zeichenfläche wächst automatisch mit dem Inhalt.
+ */
+export function NewDrawingDialog({
+  data,
+  costCenterId,
+  onClose,
+  onCreated,
+}: {
+  data: ProjectState;
+  costCenterId: string;
+  onClose: () => void;
+  onCreated: (planId: string) => void;
+}) {
+  const [v, setV] = useState<PlanFieldValues>({ planNumber: '', planName: '', floor: '', area: '', description: '' });
+  const [show, setShow] = useState(false);
+  const error = planNumberError(data, v.planNumber);
+  const submit = () => {
+    setShow(true);
+    if (error) return;
+    const siblings = alive(data.plans).filter((p) => p.costCenterId === costCenterId);
+    const plan: Plan = {
+      ...newMeta(),
+      projectId: data.project.id,
+      costCenterId,
+      source: 'drawing',
+      drawing: DRAWING_INFO,
+      fileId: '',
+      pageIndex: 0,
+      pageWidth: DEFAULT_SHEET.w * UNITS_PER_M,
+      pageHeight: DEFAULT_SHEET.h * UNITS_PER_M,
+      crop: null,
+      planNumber: v.planNumber.trim(),
+      planName: v.planName.trim(),
+      floor: v.floor.trim(),
+      area: v.area.trim(),
+      description: v.description.trim(),
+      numberStart: 1,
+      sortIndex: siblings.length ? Math.max(...siblings.map((p) => p.sortIndex)) + 1 : 0,
+    };
+    putRecord('plans', plan);
+    onCreated(plan.id);
+  };
+  return (
+    <Modal
+      title="Neuen Plan zeichnen"
+      onClose={onClose}
+      persistent
+      testId="new-drawing"
+      footer={
+        <>
+          <button type="button" className="btn" onClick={onClose}>
+            Abbrechen
+          </button>
+          <button type="button" className="btn btn-primary" onClick={submit} data-testid="new-drawing-save">
+            Zeichenfläche öffnen
+          </button>
+        </>
+      }
+    >
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          submit();
+        }}
+      >
+        <PlanFields value={v} onChange={(p) => setV({ ...v, ...p })} error={show ? error : null} />
+        <p className="muted small">
+          Sie zeichnen maßstäblich in Metern: z. B. Rechteck wählen, 5,00 × 3,65 m eingeben, einfügen. Danach geht es mit „Weiter“ zum
+          Aufmaß.
+        </p>
+        <button type="submit" hidden />
+      </form>
     </Modal>
   );
 }

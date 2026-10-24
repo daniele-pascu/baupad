@@ -189,7 +189,7 @@ export function HomePage() {
       {upgraded && (
         <div className="banner banner-info" role="status" data-testid="upgrade-banner">
           <p>
-            <strong>BauPad wurde erweitert</strong> (Messarten, Bauteilbuchstaben, Rückgängig). Ihre Projekte wurden dabei
+            <strong>BauPad wurde erweitert</strong> (Messarten, Bauteilbuchstaben, Rückgängig, selbst gezeichnete Pläne). Ihre Projekte wurden dabei
             nicht verändert. Tipp: Sichern Sie wichtige Projekte regelmäßig über „Sichern“ als Datei.
           </p>
           <button

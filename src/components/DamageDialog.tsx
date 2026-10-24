@@ -28,6 +28,8 @@ interface Props {
   others: Pick<Damage, 'id' | 'number' | 'area'>[];
   /** Bauteilkennzeichnungen des Plans für die optionale Zuordnung */
   components: Pick<Component, 'id' | 'letter' | 'name'>[];
+  /** Gezeichnete Pläne: Maße aus der Markierung (Maßstab bekannt) als Vorschlag */
+  suggestion?: { length: number; width: number | null } | null;
   onSave: (v: DamageValues, renumber: Renumber) => void;
   onCancel: () => void;
   onDelete?: () => void;
@@ -39,7 +41,7 @@ type Field = 'number' | 'length' | 'width' | 'depth';
  * Eingabe einer Messung bzw. Schadstelle. Öffnet sich automatisch nach dem Einzeichnen.
  * Enter/Weiter springt zum nächsten Feld; im letzten Feld wird gespeichert.
  */
-export function DamageDialog({ mode, damage, others, components, onSave, onCancel, onDelete }: Props) {
+export function DamageDialog({ mode, damage, others, components, suggestion, onSave, onCancel, onDelete }: Props) {
   const [v, setV] = useState({
     number: String(damage.number),
     length: toInputValue(damage.length),
@@ -187,6 +189,25 @@ export function DamageDialog({ mode, damage, others, components, onSave, onCance
           {withArea && field('width', 'Breite', 'm')}
           {withArea && field('depth', 'Tiefe (optional)', 'm')}
         </div>
+        {suggestion && (
+          <button
+            type="button"
+            className="btn btn-sm suggest-btn"
+            onClick={() =>
+              setV({
+                ...v,
+                length: toInputValue(suggestion.length),
+                width: withArea && suggestion.width !== null ? toInputValue(suggestion.width) : v.width,
+              })
+            }
+            data-testid="use-suggestion"
+          >
+            Maße aus Plan übernehmen:{' '}
+            {withArea && suggestion.width !== null
+              ? `${formatArea(suggestion.length)} × ${formatArea(suggestion.width)} m`
+              : `${formatArea(suggestion.length)} m`}
+          </button>
+        )}
         <div className="area-result" data-testid="area-result">
           {withArea ? (
             <>

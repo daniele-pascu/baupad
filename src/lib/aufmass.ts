@@ -2,7 +2,7 @@ import { sumAreas } from './measure';
 import { formatDate, naturalCompare } from './numbers';
 import type { ProjectState } from './store';
 import { alive } from './store';
-import type { Component, CostCenter, Damage, Plan } from './types';
+import type { Component, CostCenter, Damage, DrawElement, Plan } from './types';
 import { buildXlsx, num, sheetName, str, type Cell, type Sheet } from './xlsx';
 
 /** Pläne einer Kostenstelle, sortiert nach Plannummer. */
@@ -24,6 +24,13 @@ export function componentsOf(data: ProjectState, planId: string): Component[] {
   return alive(data.components ?? {})
     .filter((c) => c.planId === planId)
     .sort((a, b) => naturalCompare(a.letter, b.letter));
+}
+
+/** Zeichnungsobjekte eines selbst gezeichneten Plans in Zeichenreihenfolge. */
+export function elementsOf(data: ProjectState, planId: string): DrawElement[] {
+  return alive(data.elements ?? {})
+    .filter((e) => e.planId === planId)
+    .sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id));
 }
 
 export function costCentersOf(data: ProjectState): CostCenter[] {
@@ -116,8 +123,8 @@ function infoSheet(data: ProjectState, costCenters: CostCenter[], plans: Plan[],
         str(plan.planName),
         str(plan.floor),
         str(plan.area),
-        str(data.files[plan.fileId]?.name ?? ''),
-        num(plan.pageIndex + 1, 'int'),
+        str(plan.source === 'drawing' ? 'selbst gezeichnet' : (data.files[plan.fileId]?.name ?? '')),
+        plan.source === 'drawing' ? null : num(plan.pageIndex + 1, 'int'),
         num(damages.length, 'int'),
         num(sumArea(damages), 'area'),
       ]);

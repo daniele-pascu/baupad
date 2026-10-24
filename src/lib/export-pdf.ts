@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
-import { componentsOf, costCenterLabel, damagesOf, planTitle, safeFileName, type ExportFile } from './aufmass';
+import { componentsOf, costCenterLabel, damagesOf, elementsOf, planTitle, safeFileName, type ExportFile } from './aufmass';
+import { annotationsOf, contentRegion, dimGeometry, isDrawingPlan, printScale, shapeToPage, unitsPerMeter } from './drawing';
 import { getBlob } from './db';
 import {
   layoutLabels,
@@ -105,6 +106,10 @@ export async function exportPlansPdf(data: ProjectState, opts: PdfExportOptions)
 }
 
 async function addPlanPage(ctx: Ctx, data: ProjectState, plan: Plan) {
+  if (isDrawingPlan(plan)) {
+    addDrawingPage(ctx, data, plan);
+    return;
+  }
   const file = data.files[plan.fileId];
   if (!file) throw new Error(`Originaldatei zu Plan ${planTitle(plan)} fehlt.`);
   const region: Rect = plan.crop ?? { x: 0, y: 0, w: plan.pageWidth, h: plan.pageHeight };
@@ -334,4 +339,110 @@ function drawDamages(ctx: Ctx, t: Target, region: Rect, damages: Damage[], compo
       white ? rgb(1, 1, 1) : hexToRgb(visibleHex(c.color)),
     );
   }
+}
+
+// ---------------------------------------------------------------------------
+// Selbst gezeichnete Pläne
+
+/** A3 in PDF-Punkten und Millimetern */
+const A3 = { wPt: 1190.55, hPt: 841.89, wMm: 420, hMm: 297 };
+const MM = 72 / 25.4;
+
+/**
+ * Gezeichneter Plan als Vektorseite im Format A3 mit Normmaßstab (z. B. 1:100).
+ * Zeichnungsobjekte, Maßketten, Messungen und Bauteilbuchstaben werden als Vektoren gezeichnet.
+ */
+function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
+  const k = unitsPerMeter(plan);
+  const elements = elementsOf(data, plan.id);
+  const damages = damagesOf(data, plan.id);
+  const components = componentsOf(data, plan.id);
+  const region = contentRegion(plan, elements, damages);
+  const portrait = region.h > region.w;
+  const W = portrait ? A3.hPt : A3.wPt;
+  const H = portrait ? A3.wPt : A3.hPt;
+  const margin = 12 * MM;
+  const headerPt = 16 * MM;
+  const avail = { w: (W - 2 * margin) / MM, h: (H - 2 * margin - headerPt) / MM };
+  const scaleN = printScale({ w: region.w / k, h: region.h / k }, avail);
+  // Seiteneinheit (1/k m) → Punkte auf dem Papier
+  const u = (1000 / k / scaleN) * MM;
+  const ox = (W - region.w * u) / 2;
+  const oy = margin + headerPt + (H - 2 * margin - headerPt - region.h * u) / 2;
+  const page = ctx.out.addPage([W, H]);
+  /** Papierkoordinaten (pt, y nach unten) → PDF */
+  const pdf = (q: Point): Point => ({ x: q.x, y: H - q.y });
+  const paper = (p: Point): Point => ({ x: ox + (p.x - region.x) * u, y: oy + (p.y - region.y) * u });
+  const map = (p: Point): Point => pdf(paper(p));
+  const target: Target = { page, map, textRotation: 0, ptPerUnit: u };
+
+  // Kopf: „Aufmaßplan <Nr.>“ und Maßstab
+  const title = clean(ctx, `Aufmaßplan ${plan.planNumber || plan.planName}`.trim());
+  page.drawText(fitText(ctx.bold, title, 16, W - 2 * margin - 160), { x: margin, y: H - margin - 16, size: 16, font: ctx.bold, color: rgb(0.1, 0.1, 0.12) });
+  const scaleText = `Maßstab 1:${scaleN} (A3)`;
+  page.drawText(clean(ctx, scaleText), {
+    x: W - margin - ctx.font.widthOfTextAtSize(scaleText, 10),
+    y: H - margin - 14,
+    size: 10,
+    font: ctx.font,
+    color: rgb(0.3, 0.33, 0.38),
+  });
+  page.drawLine({ start: { x: margin, y: H - margin - headerPt + 6 }, end: { x: W - margin, y: H - margin - headerPt + 6 }, thickness: 0.5, color: rgb(0.8, 0.82, 0.85) });
+
+  // Zeichnungsobjekte
+  const dimColor = rgb(0.16, 0.3, 0.5);
+  for (const e of elements) {
+    const shape = shapeToPage(e.shape, k);
+    const color = hexToRgb(visibleHex(e.color));
+    if (e.type === 'text') {
+      const size = shape.h * u;
+      const at = map({ x: shape.x, y: shape.y + shape.h * 0.82 });
+      page.drawText(clean(ctx, e.text ?? ''), { x: at.x, y: at.y, size, font: ctx.font, color, rotate: degrees(-(shape.rotation ?? 0)) });
+      continue;
+    }
+    const svg = pathToSvg(shapePath(shape), (p) => {
+      const q = map(p);
+      return { x: q.x, y: -q.y };
+    });
+    page.drawSvgPath(svg, { x: 0, y: 0, borderColor: color, borderWidth: e.type === 'dimension' ? 0.6 : 1.1 });
+  }
+  // Maßketten
+  const fs = 7.5;
+  const drawRotatedText = (text: string, center: Point, angle: number) => {
+    const t = clean(ctx, text);
+    const w = ctx.bold.widthOfTextAtSize(t, fs);
+    const a = (angle * Math.PI) / 180;
+    const d = { x: Math.cos(a), y: Math.sin(a) };
+    const down = { x: -Math.sin(a), y: Math.cos(a) };
+    const start = pdf({ x: center.x - (d.x * w) / 2 + down.x * fs * 0.35, y: center.y - (d.y * w) / 2 + down.y * fs * 0.35 });
+    page.drawText(t, { x: start.x, y: start.y, size: fs, font: ctx.bold, color: dimColor, rotate: degrees(-angle) });
+  };
+  for (const e of elements) {
+    const { dims, labels } = annotationsOf(e);
+    for (const dm of dims) {
+      const a = paper({ x: dm.a.x * k, y: dm.a.y * k });
+      const b = paper({ x: dm.b.x * k, y: dm.b.y * k });
+      if (Math.hypot(b.x - a.x, b.y - a.y) < 12) continue;
+      const off = dm.inline ? 0 : 9;
+      const g = dimGeometry(a, b, dm.side, off);
+      if (!dm.inline) {
+        const ext = (p: Point, q: Point) =>
+          page.drawLine({ start: pdf({ x: p.x + g.nx * 2, y: p.y + g.ny * 2 }), end: pdf({ x: q.x + g.nx * 2.5, y: q.y + g.ny * 2.5 }), thickness: 0.35, color: dimColor });
+        ext(a, g.a2);
+        ext(b, g.b2);
+        page.drawLine({ start: pdf(g.a2), end: pdf(g.b2), thickness: 0.45, color: dimColor });
+        const ang = Math.atan2(g.b2.y - g.a2.y, g.b2.x - g.a2.x) + Math.PI / 4;
+        for (const p of [g.a2, g.b2]) {
+          const tx = Math.cos(ang) * 2.2;
+          const ty = Math.sin(ang) * 2.2;
+          page.drawLine({ start: pdf({ x: p.x - tx, y: p.y - ty }), end: pdf({ x: p.x + tx, y: p.y + ty }), thickness: 0.8, color: dimColor });
+        }
+      }
+      const textOff = dm.inline ? 5 : 4;
+      drawRotatedText(dm.text, { x: g.mid.x + g.nx * textOff, y: g.mid.y + g.ny * textOff }, g.angle);
+    }
+    for (const l of labels) drawRotatedText(l.text, paper({ x: l.at.x * k, y: l.at.y * k }), 0);
+  }
+  // Messungen und Bauteilbuchstaben darüber
+  drawDamages(ctx, target, region, damages, components);
 }

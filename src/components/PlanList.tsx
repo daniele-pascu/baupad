@@ -1,3 +1,4 @@
+import { isDrawingPlan } from '../lib/drawing';
 import { damagesOf, sumArea } from '../lib/aufmass';
 import { formatArea } from '../lib/numbers';
 import { navigate, paths } from '../lib/router';
@@ -84,7 +85,7 @@ export function PlanList({ data, plans, onEdit, onRename, onCrop, onDelete }: Pr
                   { label: 'Öffnen', icon: 'map', onSelect: () => navigate(href), testId: 'action-open' },
                   { label: 'Angaben bearbeiten', icon: 'edit', onSelect: () => onEdit(plan), testId: 'action-edit' },
                   { label: 'Umbenennen', icon: 'hash', onSelect: () => onRename(plan), testId: 'action-rename' },
-                  { label: 'Ausschnitt', icon: 'crop', onSelect: () => onCrop(plan), testId: 'action-crop' },
+                  ...(isDrawingPlan(plan) ? [] : [{ label: 'Ausschnitt', icon: 'crop', onSelect: () => onCrop(plan), testId: 'action-crop' }]),
                   { label: 'Löschen', icon: 'trash', onSelect: () => onDelete(plan), danger: true, testId: 'action-delete' },
                 ]}
               />

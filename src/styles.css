@@ -1303,6 +1303,123 @@ textarea {
   color: #fff;
 }
 
+/* ---------- Selbst gezeichnete Pläne ---------- */
+
+.viewer-world.no-file {
+  display: none;
+}
+.mode-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.mode-bar .mode-next {
+  margin-left: auto;
+}
+.btn.active-toggle {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+.draw-bar {
+  position: absolute;
+  left: 50%;
+  bottom: calc(82px + var(--safe-bottom));
+  transform: translateX(-50%);
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 10px;
+  padding: 8px 12px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  width: max-content;
+  max-width: calc(100% - 20px);
+  font-size: 0.9rem;
+  z-index: 2;
+}
+.draw-bar-title {
+  align-self: center;
+}
+.draw-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.draw-field input {
+  width: 86px;
+  height: 40px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 16px;
+  color: var(--text);
+  background: #fff;
+}
+.draw-field-wide input {
+  width: 180px;
+}
+.draw-field .unit {
+  min-width: 28px;
+  padding: 0 6px;
+  font-size: 0.85rem;
+}
+.dir-btns {
+  display: inline-flex;
+  gap: 4px;
+  align-self: center;
+}
+.dir-btns .chip {
+  min-width: 40px;
+  min-height: 40px;
+  padding: 4px 10px;
+}
+.draw-bar .span-all {
+  flex-basis: 100%;
+  text-align: center;
+}
+.dim-text {
+  font-size: 12px;
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: #fff;
+  stroke-width: 3.5px;
+  stroke-linejoin: round;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.drawing-text {
+  font-family: Helvetica, Arial, sans-serif;
+  paint-order: stroke;
+  stroke: #fff;
+  stroke-width: 2px;
+}
+.dims,
+.drawing-grid,
+.faded-markers {
+  pointer-events: none;
+}
+.suggest-btn {
+  width: 100%;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+.row.center {
+  justify-content: center;
+}
+.show-sm {
+  display: none;
+}
+
 /* ---------- Kleine Bildschirme (iPhone) ---------- */
 
 @media (max-width: 899px) {
@@ -1386,6 +1503,25 @@ textarea {
   }
   .selection-bar {
     bottom: calc(126px + var(--safe-bottom));
+  }
+  .draw-bar {
+    bottom: calc(126px + var(--safe-bottom));
+    padding: 6px 8px;
+    gap: 6px 8px;
+  }
+  .draw-field input {
+    width: 72px;
+  }
+  .show-sm {
+    display: inline;
+  }
+  .mode-bar {
+    flex-wrap: nowrap;
+    padding: 4px 8px;
+  }
+  .mode-bar .segmented button {
+    min-height: 36px;
+    padding: 4px 10px;
   }
   .topbar-actions .btn {
     padding: 6px 8px;

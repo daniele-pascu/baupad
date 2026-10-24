@@ -2,20 +2,23 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AufmassTable } from '../components/AufmassTable';
 import { ComponentDialog, nextLetter, type ComponentValues } from '../components/ComponentDialog';
 import { DamageDialog, type DamageValues, type Renumber } from '../components/DamageDialog';
+import { ElementBar, InsertBar } from '../components/DrawPanel';
 import { Icon } from '../components/Icon';
 import { PdfExportDialog } from '../components/PdfExportDialog';
 import { PlanDetailsDialog } from '../components/PlanFields';
 import { PlanViewer, type PlanViewerHandle, type Tool } from '../components/PlanViewer';
 import { SaveErrorBanner, SaveStatus } from '../components/SaveStatus';
 import { confirmDialog, offerFile, showError, toast } from '../components/ui';
-import { componentsOf, costCenterLabel, damagesOf, exportXlsx, plansOf, planTitle, sumArea } from '../lib/aufmass';
+import { componentsOf, costCenterLabel, damagesOf, elementsOf, exportXlsx, plansOf, planTitle, sumArea } from '../lib/aufmass';
+import { drawingRegion, isDrawingPlan, suggestMeasures, unitsPerMeter } from '../lib/drawing';
 import { convertShape, type Point } from '../lib/geometry';
 import { countKind, defaultKindFor, hasArea, KIND_LABELS, KINDS, kindOf, sumLengths } from '../lib/measure';
 import { computeArea, formatArea, formatMeasure } from '../lib/numbers';
 import { compactNumbers, duplicateNumbers, nextNumber, planNumberStart, shiftNumbers, swapNumbers } from '../lib/numbering';
 import { navigate, paths } from '../lib/router';
 import { clearHistory, newMeta, putRecord, putRecords, redo, softDelete, undo, useAppState, type ProjectState } from '../lib/store';
-import { COLORS, SHAPE_LABELS, type Component, type Damage, type MeasureKind, type Shape, type ShapeType } from '../lib/types';
+import { COLORS, SHAPE_LABELS, type Component, type Damage, type DrawElementType, type MeasureKind, type Shape, type ShapeType } from '../lib/types';
+import { DRAW_TOOLS, useDrawing } from './DrawingMode';
 
 type DialogState = { mode: 'new'; shape: Shape; number: number; kind: MeasureKind } | { mode: 'edit'; id: string } | null;
 type ComponentDialogState = { mode: 'new'; at: Point } | { mode: 'edit'; id: string } | null;
@@ -89,6 +92,11 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const [sideWidth, setSideWidth] = useState(loadSideWidth);
   const [, setHistoryTick] = useState(0);
   const viewer = useRef<PlanViewerHandle>(null);
+  const drawingPlan = isDrawingPlan(plan);
+  /** Gezeichnete Pläne: Planbearbeitung („draw“) oder Aufmaß („measure“) */
+  const initialMode = () => (isDrawingPlan(data.plans[planId]) && !elementsOf(data, planId).length ? 'draw' : 'measure');
+  const [mode, setMode] = useState<'draw' | 'measure'>(initialMode);
+  const drawMode = drawingPlan && mode === 'draw';
 
   const setTool = (t: Tool) => {
     setToolState(t);
@@ -102,6 +110,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   // Rückgängig/Wiederholen gilt je geöffnetem Plan
   useEffect(() => {
     clearHistory();
+    setMode(initialMode());
     return () => clearHistory();
   }, [planId]);
 
@@ -118,6 +127,18 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   }, [stored]);
   const selected = damages.find((d) => d.id === selectedId) ?? null;
   const selectedComponent = components.find((c) => c.id === selectedComponentId) ?? null;
+  const drawing = useDrawing({ plan, data, damages, viewer });
+  const region = useMemo(
+    () => (plan && drawingPlan ? drawingRegion(plan, drawing.elements, stored) : undefined),
+    [plan, drawingPlan, drawing.elements, stored],
+  );
+
+  const switchMode = (m: 'draw' | 'measure') => {
+    setMode(m);
+    setSelectedId(null);
+    setSelectedComponentId(null);
+    drawing.setSelectedId(null);
+  };
 
   // Schadstelle aus der Tabelle (andere Seite) anzeigen
   useEffect(() => {
@@ -135,12 +156,14 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     if (!undo()) return;
     setOverrides({});
     setComponentOverrides({});
+    drawing.resetOverrides();
     toast('Rückgängig gemacht.', 'info', 1500);
   };
   const doRedo = () => {
     if (!redo()) return;
     setOverrides({});
     setComponentOverrides({});
+    drawing.resetOverrides();
     toast('Wiederhergestellt.', 'info', 1500);
   };
 
@@ -158,8 +181,19 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         return;
       }
       if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (drawMode) {
+        const dt = DRAW_TOOLS.find((x) => x.key === key);
+        if (dt) drawing.setTool(dt.id);
+        else if (e.key === 'Escape') drawing.setSelectedId(null);
+        else if ((e.key === 'Delete' || e.key === 'Backspace') && drawing.selected) void drawing.remove(drawing.selected);
+        else if (!['+', '=', '-', '0'].includes(e.key)) return;
+        if (dt || e.key === 'Escape' || e.key === 'Delete' || e.key === 'Backspace') {
+          e.preventDefault();
+          return;
+        }
+      }
       const t = TOOLS.find((x) => x.key === key);
-      if (t) setTool(t.id);
+      if (t && !drawMode) setTool(t.id);
       else if (e.key === '+' || e.key === '=') viewer.current?.zoomIn();
       else if (e.key === '-') viewer.current?.zoomOut();
       else if (e.key === '0') viewer.current?.fit();
@@ -189,7 +223,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       </div>
     );
   }
-  const file = data.files[plan.fileId];
+  const file = drawingPlan ? null : data.files[plan.fileId];
   const cc = data.costCenters[plan.costCenterId];
   const siblings = plansOf(data, plan.costCenterId);
   const idx = siblings.findIndex((p) => p.id === plan.id);
@@ -482,6 +516,37 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         </div>
       </header>
       <SaveErrorBanner />
+      {drawingPlan && (
+        <div className={`mode-bar${drawMode ? ' drawing' : ''}`} data-testid="mode-bar">
+          <div className="segmented" role="tablist" aria-label="Ansicht">
+            <button type="button" role="tab" aria-selected={drawMode} onClick={() => switchMode('draw')} data-testid="mode-draw">
+              <Icon name="drawPlan" size={18} /> <span className="hide-sm">Plan bearbeiten</span>
+              <span className="show-sm">Zeichnen</span>
+            </button>
+            <button type="button" role="tab" aria-selected={!drawMode} onClick={() => switchMode('measure')} data-testid="mode-measure-tab">
+              <Icon name="table" size={18} /> Aufmaß
+            </button>
+          </div>
+          {drawMode && (
+            <>
+              <button
+                type="button"
+                className={`btn btn-sm${drawing.snapOn ? ' active-toggle' : ''}`}
+                onClick={() => drawing.setSnapOn(!drawing.snapOn)}
+                aria-pressed={drawing.snapOn}
+                aria-label="Einrasten"
+                title="Am Raster und an Eck-/Endpunkten einrasten"
+                data-testid="snap-toggle"
+              >
+                <Icon name="grid" size={18} /> <span className="hide-sm">Einrasten {drawing.snapOn ? 'ein' : 'aus'}</span>
+              </button>
+              <button type="button" className="btn btn-sm btn-primary mode-next" onClick={() => switchMode('measure')} data-testid="mode-measure">
+                Weiter<span className="hide-sm"> zum Aufmaß</span> <Icon name="next" size={18} />
+              </button>
+            </>
+          )}
+        </div>
+      )}
       {dupIds.size > 0 && (
         <div className="banner banner-warn">
           Achtung: In diesem Plan sind Nummern doppelt vergeben (markiert). Bitte korrigieren oder „Lückenlos neu nummerieren“.
@@ -499,11 +564,42 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
 
       <div className={`editor-main show-${mobileTab}`} style={{ '--side-w': `${sideWidth}px` } as React.CSSProperties}>
         <div className="editor-plan">
-          {file ? (
+          {drawMode ? (
             <PlanViewer
+              key="draw"
+              ref={viewer}
+              plan={plan}
+              file={null}
+              region={region}
+              damages={drawing.items}
+              selectedId={drawing.selectedId}
+              tool={drawing.tool}
+              color={drawing.color}
+              pending={null}
+              onSelect={(id) => drawing.setSelectedId(id)}
+              onCreate={drawing.onCreate}
+              onShapeChange={drawing.onShapeChange}
+              onLabelChange={() => {}}
+              onHistoryChange={() => setHistoryTick((n) => n + 1)}
+              components={[]}
+              selectedComponentId={null}
+              onSelectComponent={() => {}}
+              onComponentMove={() => {}}
+              onPlace={drawing.onPlace}
+              showLabels={false}
+              renderItem={drawing.renderItem}
+              underlay={region ? drawing.drawUnderlay(region) : undefined}
+              overlay={drawing.drawOverlay}
+              snap={drawing.snapOn ? drawing.snap : undefined}
+            />
+          ) : file || drawingPlan ? (
+            <PlanViewer
+              key="measure"
               ref={viewer}
               plan={plan}
               file={file}
+              region={region}
+              underlay={drawingPlan && region ? drawing.measureUnderlay(region) : undefined}
               damages={damages}
               selectedId={selectedId}
               tool={tool}
@@ -542,7 +638,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                   if (c.x !== x || c.y !== y) putRecord('components', { ...c, x, y });
                 } else setComponentOverrides((o) => ({ ...o, [id]: { x, y } }));
               }}
-              onPlaceComponent={(at) => setComponentDialog({ mode: 'new', at })}
+              onPlace={(at) => setComponentDialog({ mode: 'new', at })}
             />
           ) : (
             <div className="viewer-msg error">Originaldatei fehlt.</div>
@@ -570,7 +666,27 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             </button>
           </div>
 
-          {selected && !dialog && (
+          {drawMode &&
+            (drawing.selected ? (
+              <ElementBar
+                key={drawing.selected.id}
+                element={drawing.selected}
+                overlapping={drawing.overlapping(drawing.selected).length}
+                onApply={(m) => drawing.apply(drawing.selected!.id, m)}
+                onText={(t) => drawing.setText(drawing.selected!.id, t)}
+                onShowDims={(v) => drawing.setShowDims(drawing.selected!.id, v)}
+                onDelete={() => void drawing.remove(drawing.selected!)}
+                onClose={() => drawing.setSelectedId(null)}
+              />
+            ) : drawing.tool !== 'select' && drawing.tool !== 'component' ? (
+              <InsertBar
+                tool={drawing.tool as DrawElementType}
+                onInsert={drawing.insert}
+                continues={drawing.tool === 'line' && !!drawing.lastLineEnd}
+              />
+            ) : null)}
+
+          {!drawMode && selected && !dialog && (
             <div className="selection-bar" data-testid="selection-bar">
               <div className="selection-info">
                 <span className="color-dot" style={{ background: selected.color }} />
@@ -602,7 +718,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             </div>
           )}
 
-          {selectedComponent && !componentDialog && !selected && (
+          {!drawMode && selectedComponent && !componentDialog && !selected && (
             <div className="selection-bar" data-testid="component-selection-bar">
               <div className="selection-info">
                 <span className="component-tag" style={{ background: selectedComponent.color }}>
@@ -633,6 +749,43 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             </div>
           )}
 
+          {drawMode ? (
+            <div className="toolbar" role="toolbar" aria-label="Zeichenwerkzeuge" data-testid="draw-toolbar">
+              <div className="tool-group">
+                {DRAW_TOOLS.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    className={`tool-btn${drawing.tool === t.id ? ' active' : ''}`}
+                    onClick={() => drawing.setTool(t.id)}
+                    aria-pressed={drawing.tool === t.id}
+                    title={`${t.label} (${t.key.toUpperCase()})`}
+                    data-testid={`draw-${t.id}`}
+                  >
+                    <Icon name={t.icon} />
+                    <span>{t.short ?? t.label}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="tool-group colors">
+                {COLORS.map((c) => (
+                  <button
+                    key={c.value}
+                    type="button"
+                    className={`swatch${drawing.color === c.value ? ' active' : ''}`}
+                    style={{ background: c.value }}
+                    onClick={() => {
+                      drawing.setColor(c.value);
+                      if (drawing.selected) drawing.recolor(drawing.selected.id, c.value);
+                    }}
+                    aria-label={`Farbe ${c.name}`}
+                    aria-pressed={drawing.color === c.value}
+                    title={drawing.selected ? `Farbe ${c.name} (auch für das ausgewählte Objekt)` : `Farbe ${c.name}`}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : (
           <div className="toolbar" role="toolbar" aria-label="Werkzeuge">
             <div className="tool-group">
               {TOOLS.map((t) => (
@@ -675,6 +828,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               ))}
             </div>
           </div>
+          )}
         </div>
 
         <div
@@ -730,6 +884,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         <DamageDialog
           mode="new"
           damage={{ id: '', number: dialog.number, color, labelOffset: null, shapeType: dialog.shape.type, kind: dialog.kind }}
+          suggestion={drawingPlan ? suggestMeasures(dialog.shape, unitsPerMeter(plan)) : null}
           others={stored}
           components={componentOptions}
           onSave={save}
@@ -740,6 +895,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         <DamageDialog
           mode="edit"
           damage={{ ...dialogDamage, shapeType: dialogDamage.shape.type as ShapeType, kind: kindOf(dialogDamage) }}
+          suggestion={drawingPlan ? suggestMeasures(dialogDamage.shape, unitsPerMeter(plan)) : null}
           others={stored}
           components={componentOptions}
           onSave={save}

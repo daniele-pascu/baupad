@@ -7,7 +7,7 @@ import {
   type PendingWrite,
 } from './db';
 import { getDeviceId, uuid } from './ids';
-import type { Component, CostCenter, Damage, EntityMap, EntityStore, Plan, Project, SourceFile } from './types';
+import type { Component, CostCenter, Damage, DrawElement, EntityMap, EntityStore, Plan, Project, SourceFile } from './types';
 
 /**
  * Zentraler Zustand des geöffneten Projekts mit automatischer Speicherung.
@@ -26,6 +26,8 @@ export interface ProjectState {
   plans: Record<string, Plan>;
   damages: Record<string, Damage>;
   components: Record<string, Component>;
+  /** Zeichnungsobjekte selbst gezeichneter Pläne */
+  elements: Record<string, DrawElement>;
 }
 
 interface AppState {
@@ -216,6 +218,7 @@ export async function openProject(projectId: string): Promise<void> {
         plans: toRecord(data.plans, 'plans'),
         damages: toRecord(data.damages, 'damages'),
         components: toRecord(data.components ?? [], 'components'),
+        elements: toRecord(data.elements ?? [], 'elements'),
       },
       save: { status: 'saved', error: null, lastSaved: null },
     });
@@ -247,6 +250,7 @@ const collection = {
   plans: 'plans',
   damages: 'damages',
   components: 'components',
+  elements: 'elements',
 } as const;
 
 type ChildStore = keyof typeof collection;
@@ -294,7 +298,7 @@ export function putRecords(items: { [S in ChildStore]?: EntityMap[S][] }, opts: 
 }
 
 // ---------------------------------------------------------------------------
-// Rückgängig / Wiederholen (Messungen und Bauteile des geöffneten Plans)
+// Rückgängig / Wiederholen (Messungen, Bauteile und Zeichnungsobjekte des geöffneten Plans)
 
 type HistoryRecord = EntityMap[ChildStore];
 interface HistoryEntry {
@@ -304,7 +308,7 @@ interface HistoryEntry {
   before: HistoryRecord | undefined;
   after: HistoryRecord;
 }
-const HISTORY_STORES = new Set<ChildStore>(['damages', 'components']);
+const HISTORY_STORES = new Set<ChildStore>(['damages', 'components', 'elements']);
 const undoStack: HistoryEntry[][] = [];
 const redoStack: HistoryEntry[][] = [];
 

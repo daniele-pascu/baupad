@@ -3,7 +3,7 @@ import { deleteProjectCompletely, getBlob, getDB, loadProjectData } from './db';
 import { getDeviceId, uuid } from './ids';
 import { safeFileName, type ExportFile } from './aufmass';
 import { todayIso } from './numbers';
-import type { Component, CostCenter, Damage, Plan, Project, SourceFile } from './types';
+import type { Component, CostCenter, Damage, DrawElement, Plan, Project, SourceFile } from './types';
 
 /**
  * Projektsicherung als ZIP-Datei: vollständiger Projektstand inklusive Originaldateien.
@@ -22,6 +22,8 @@ export interface BackupContent {
   damages: Damage[];
   /** ab BauPad-Datenbankversion 2; fehlt in älteren Sicherungen */
   components: Component[];
+  /** ab BauPad-Datenbankversion 3 (gezeichnete Pläne); fehlt in älteren Sicherungen */
+  elements: DrawElement[];
   blobs: Map<string, Uint8Array>;
 }
 
@@ -40,6 +42,7 @@ export async function exportProjectBackup(projectId: string): Promise<ExportFile
         plans: data.plans,
         damages: data.damages,
         components: data.components,
+        elements: data.elements,
       },
       null,
       1,
@@ -99,6 +102,7 @@ export async function findExistingProject(id: string): Promise<Project | undefin
 export async function importProjectBackup(content: BackupContent, mode: 'replace' | 'copy'): Promise<string> {
   let { project, costCenters, files, plans, damages } = content;
   let components = content.components ?? [];
+  let elements = content.elements ?? [];
   let blobs = content.blobs;
   if (mode === 'copy') {
     const ids = new Map<string, string>();
@@ -110,7 +114,9 @@ export async function importProjectBackup(content: BackupContent, mode: 'replace
     project = { ...project, id: remap(project.id), name: `${project.name} (Kopie)`, rev: 1, updatedAt: Date.now() };
     costCenters = costCenters.map((c) => ({ ...c, id: remap(c.id), projectId: project.id }));
     files = files.map((f) => ({ ...f, id: remap(f.id), projectId: project.id }));
-    plans = plans.map((p) => ({ ...p, id: remap(p.id), projectId: project.id, costCenterId: remap(p.costCenterId), fileId: remap(p.fileId) }));
+    // Gezeichnete Pläne haben keine Datei (fileId = '') – leere Kennung nicht umschreiben
+    plans = plans.map((p) => ({ ...p, id: remap(p.id), projectId: project.id, costCenterId: remap(p.costCenterId), fileId: p.fileId ? remap(p.fileId) : p.fileId }));
+    elements = elements.map((e) => ({ ...e, id: remap(e.id), projectId: project.id, planId: remap(e.planId) }));
     components = components.map((c) => ({ ...c, id: remap(c.id), projectId: project.id, planId: remap(c.planId) }));
     damages = damages.map((d) => ({
       ...d,
@@ -124,13 +130,14 @@ export async function importProjectBackup(content: BackupContent, mode: 'replace
     await deleteProjectCompletely(project.id);
   }
   const db = await getDB();
-  const tx = db.transaction(['projects', 'costCenters', 'files', 'blobs', 'plans', 'damages', 'components'], 'readwrite');
+  const tx = db.transaction(['projects', 'costCenters', 'files', 'blobs', 'plans', 'damages', 'components', 'elements'], 'readwrite');
   await tx.objectStore('projects').put(project);
   for (const c of costCenters) await tx.objectStore('costCenters').put(c);
   for (const f of files) await tx.objectStore('files').put(f);
   for (const p of plans) await tx.objectStore('plans').put(p);
   for (const d of damages) await tx.objectStore('damages').put(d);
   for (const c of components) await tx.objectStore('components').put(c);
+  for (const e of elements) await tx.objectStore('elements').put(e);
   for (const [id, data] of blobs) {
     const buf = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
     await tx.objectStore('blobs').put({ id, projectId: project.id, data: buf });

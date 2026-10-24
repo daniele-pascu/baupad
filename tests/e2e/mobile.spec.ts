@@ -321,3 +321,38 @@ test('Website und Planliste auf Smartphone/Tablet: Menü, keine Überbreite, Akt
   await page.getByTestId('action-open').tap();
   await waitForPlan(page);
 });
+
+test('Plan zeichnen per Finger: Raum über Maßeingabe, Bemaßung sichtbar, Weiter zum Aufmaß', async ({ page }, info) => {
+  await freshStart(page);
+  await createProject(page, 'Skizze', {}, ['Keller']);
+  await page.getByTestId('draw-plan').tap();
+  const nd = page.getByTestId('new-drawing');
+  await nd.locator('[data-field="planNumber"]').fill('S-1');
+  await nd.getByTestId('new-drawing-save').tap();
+  await expect(page.getByTestId('drawing-sheet')).toBeVisible();
+  await page.getByTestId('draw-rect').tap();
+  await page.getByTestId('insert-length').fill('5');
+  await page.getByTestId('insert-width').fill('3,65');
+  await page.getByTestId('insert-submit').tap();
+  await expect(page.locator('.dims [data-dim="5,00 m"]')).toBeVisible();
+  await expect(page.locator('.dims [data-dim="3,65 m"]')).toBeVisible();
+  await expect(page.getByTestId('element-bar')).toBeVisible();
+  // Leisten und Werkzeuge passen auf den Bildschirm
+  const vw = page.viewportSize()!.width;
+  for (const id of ['element-bar', 'draw-toolbar', 'mode-bar']) {
+    const b = (await page.getByTestId(id).boundingBox())!;
+    expect(b.x).toBeGreaterThanOrEqual(-0.5);
+    expect(b.x + b.width).toBeLessThanOrEqual(vw + 0.5);
+  }
+  for (const t of ['select', 'line', 'rect', 'ellipse', 'triangle', 'freehand', 'dimension', 'text']) {
+    expect((await page.getByTestId(`draw-${t}`).boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  }
+  await noHorizontalScroll(page);
+  await page.screenshot({ path: join(OUT, `${info.project.name}-zeichnen.png`) });
+  // Weiter zum Aufmaß: Zeichnung bleibt, Markierungswerkzeuge erscheinen
+  await page.getByTestId('mode-measure').tap();
+  await expect(page.getByTestId('tool-rect')).toBeVisible();
+  await expect(page.locator('[data-element="rect"]')).toHaveCount(1);
+  await waitSaved(page);
+  await noHorizontalScroll(page);
+});

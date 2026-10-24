@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { PDFPageProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import {
   HANDLES,
@@ -31,8 +31,17 @@ import { clampRenderScale, getImageBitmap, getPdfDocument, renderPdfRegion, type
 import { getView, putView } from '../lib/db';
 import type { Component, Damage, Plan, Rect, Shape, ShapeType, SourceFile } from '../lib/types';
 
-/** Werkzeuge: Auswahl, Formen und Bauteilbuchstabe setzen */
-export type Tool = 'select' | ShapeType | 'component';
+/** Werkzeuge: Auswahl, Formen, Bauteilbuchstabe setzen; bei gezeichneten Plänen zusätzlich Maßlinie und Text */
+export type Tool = 'select' | ShapeType | 'component' | 'dimension' | 'text';
+
+/** Werkzeuge, die eine Stelle antippen statt eine Form zu zeichnen */
+const PLACE_TOOLS = new Set<Tool>(['component', 'text']);
+
+/** Bearbeitbares Objekt der Planansicht (Messung bzw. Zeichnungsobjekt in Seitenkoordinaten). */
+export type ViewerItem = Pick<Damage, 'id' | 'number' | 'shape' | 'color' | 'labelOffset'>;
+
+/** Einrasten: liefert den eingerasteten Punkt (Seitenkoordinaten). */
+export type SnapFn = (p: Point, ctx: { from?: Point; tool?: Tool; scale: number; movingId?: string }) => Point;
 
 /** Gut sichtbare Strichfarbe (Weiß wäre auf weißem Plan unsichtbar). */
 export const visibleStroke = (color: string) => (color.toLowerCase() === '#ffffff' ? '#8e8e93' : color);
@@ -50,12 +59,19 @@ export interface PlanViewerHandle {
   back(): void;
   canGoBack(): boolean;
   focus(id: string): void;
+  /** Mittelpunkt der Ansicht in Seitenkoordinaten */
+  center(): Point | null;
+  /** Bildschirmpixel je Seiteneinheit */
+  scale(): number;
 }
 
 interface Props {
   plan: Plan;
-  file: SourceFile;
-  damages: Damage[];
+  /** Originaldatei; null bei selbst gezeichneten Plänen (kein Hintergrundbild) */
+  file: SourceFile | null;
+  /** Darzustellender Bereich (Standard: Planausschnitt bzw. ganze Seite) */
+  region?: Rect;
+  damages: ViewerItem[];
   selectedId: string | null;
   tool: Tool;
   color: string;
@@ -71,16 +87,25 @@ interface Props {
   selectedComponentId: string | null;
   onSelectComponent(id: string | null): void;
   onComponentMove(id: string, x: number, y: number, commit: boolean): void;
-  /** Werkzeug „Bauteil“: Stelle im Plan angetippt */
-  onPlaceComponent(p: Point): void;
+  /** Werkzeug „Bauteil“ bzw. „Text“: Stelle im Plan angetippt */
+  onPlace(p: Point): void;
+  /** Nummernschilder der Objekte anzeigen (Standard: ja) */
+  showLabels?: boolean;
+  /** Eigene Darstellung eines Objekts (undefined = Standard-Markierung) */
+  renderItem?(item: ViewerItem, view: View, selected: boolean): ReactNode | undefined;
+  /** Zusätzliche Ebene unter bzw. über den Objekten (Bildschirmkoordinaten) */
+  underlay?(view: View, size: { w: number; h: number }): ReactNode;
+  overlay?(view: View, preview: Shape | null): ReactNode;
+  /** Einrasten an Raster und Fangpunkten (nur gezeichnete Pläne) */
+  snap?: SnapFn;
 }
 
 type Gesture =
   | { kind: 'none' }
   | { kind: 'pan'; start: Point; view: View; moved: boolean; tapTarget: string | null }
   | { kind: 'pinch'; dist: number; mid: Point; view: View }
-  | { kind: 'draw'; tool: ShapeType; start: Point; current: Point; points: Point[] }
-  | { kind: 'move'; id: string; start: Point; orig: Shape; moved: boolean }
+  | { kind: 'draw'; tool: ShapeType | 'dimension'; start: Point; current: Point; points: Point[] }
+  | { kind: 'move'; id: string; start: Point; orig: Shape; moved: boolean; ref: Point }
   | { kind: 'resize'; id: string; handle: string; orig: Shape }
   | { kind: 'rotate'; id: string; orig: Shape; startAngle: number }
   | { kind: 'label'; id: string; start: Point; orig: Rect; moved: boolean }
@@ -101,9 +126,11 @@ const isCoarse = () => matchMedia('(pointer: coarse)').matches;
  */
 export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewer(props, ref) {
   const { plan, file, damages, selectedId, tool, color, pending, components, selectedComponentId } = props;
+  const showLabels = props.showLabels !== false;
+  const regionProp = props.region;
   const region: Rect = useMemo(
-    () => plan.crop ?? { x: 0, y: 0, w: plan.pageWidth, h: plan.pageHeight },
-    [plan.crop, plan.pageWidth, plan.pageHeight],
+    () => regionProp ?? plan.crop ?? { x: 0, y: 0, w: plan.pageWidth, h: plan.pageHeight },
+    [regionProp?.x, regionProp?.y, regionProp?.w, regionProp?.h, plan.crop, plan.pageWidth, plan.pageHeight],
   );
   const containerRef = useRef<HTMLDivElement>(null);
   const worldRef = useRef<HTMLDivElement>(null);
@@ -188,16 +215,25 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   // Quelle laden (PDF-Seite oder Bild)
   const source = useRef<{ page?: PDFPageProxy; bitmap?: ImageBitmap } | null>(null);
   const baseScale = useRef(1);
+  const fileId = file?.id ?? null;
+  const fileKind = file?.kind;
+  const fileMime = file?.mimeType ?? '';
   useEffect(() => {
     let cancelled = false;
     let job: RenderJob | null = null;
+    if (!fileId) {
+      // Selbst gezeichneter Plan: kein Hintergrund zu laden
+      source.current = null;
+      setStatus('ready');
+      return;
+    }
     setStatus('loading');
     (async () => {
       const canvas = baseCanvasRef.current!;
       const maxSide = isCoarse() ? 3072 : 4096;
       const k = clampRenderScale(region.w, region.h, maxSide / Math.max(region.w, region.h));
-      if (file.kind === 'pdf') {
-        const doc = await getPdfDocument(file.id);
+      if (fileKind === 'pdf') {
+        const doc = await getPdfDocument(fileId);
         const page = await doc.getPage(plan.pageIndex + 1);
         if (cancelled) return;
         source.current = { page };
@@ -205,7 +241,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         job = renderPdfRegion(page, canvas, region, k);
         await job.promise;
       } else {
-        const bitmap = await getImageBitmap(file.id, file.mimeType);
+        const bitmap = await getImageBitmap(fileId, fileMime);
         if (cancelled) return;
         source.current = { bitmap };
         const s = Math.min(1, k);
@@ -229,11 +265,11 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       cancelled = true;
       job?.cancel();
     };
-  }, [file.id, file.kind, file.mimeType, plan.pageIndex, region]);
+  }, [fileId, fileKind, fileMime, plan.pageIndex, region]);
 
   // Detailebene nachrendern, wenn stark hineingezoomt ist
   useEffect(() => {
-    if (status !== 'ready' || !view || !size) return;
+    if (status !== 'ready' || !view || !size || !fileId) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
     const needed = view.scale * dpr;
     if (needed <= baseScale.current * 1.15) {
@@ -283,7 +319,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       clearTimeout(t);
       job?.cancel();
     };
-  }, [view, size, status, region]);
+  }, [view, size, status, region, fileId]);
 
   // ---------------------------------------------------------------------------
   // Ansicht steuern
@@ -316,6 +352,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       propsRef.current.onHistoryChange?.();
     },
     canGoBack: () => history.current.length > 0,
+    center: () => (viewRef.current && size ? toPage(viewRef.current, { x: size.w / 2, y: size.h / 2 }) : null),
+    scale: () => viewRef.current?.scale ?? 1,
     focus: (id: string) => {
       const d = propsRef.current.damages.find((x) => x.id === id);
       if (!d || !size || !viewRef.current) return;
@@ -362,7 +400,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   }, [damages, qScale, labelFont, region]);
   const labels = useMemo(() => {
     const out = new Map<string, Rect>();
-    if (!view) return out;
+    if (!view || !showLabels) return out;
     const h = labelFont * 1.5;
     for (const d of damages) {
       const r = labelLayout.get(d.id);
@@ -372,7 +410,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       out.set(d.id, { x: c.x - w / 2, y: c.y - h / 2, w, h });
     }
     return out;
-  }, [labelLayout, damages, view, labelFont]);
+  }, [labelLayout, damages, view, labelFont, showLabels]);
 
   // ---------------------------------------------------------------------------
   // Zeigerereignisse
@@ -384,7 +422,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
 
   const hitTol = () => (isCoarse() ? 14 : 7);
 
-  const hitDamage = (p: Point): Damage | null => {
+  const hitDamage = (p: Point): ViewerItem | null => {
     const v = viewRef.current!;
     const pp = toPage(v, p);
     const tol = hitTol() / v.scale;
@@ -468,7 +506,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       return;
     }
     const currentTool = propsRef.current.tool;
-    if (currentTool === 'component') {
+    if (PLACE_TOOLS.has(currentTool)) {
       gesture.current = { kind: 'place', start: p, view: v, moved: false };
       return;
     }
@@ -496,14 +534,17 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       }
       const hit = hitDamage(p);
       if (hit && hit.id === propsRef.current.selectedId) {
-        gesture.current = { kind: 'move', id: hit.id, start: toPage(v, p), orig: hit.shape, moved: false };
+        const b = shapeAABB(hit.shape);
+        gesture.current = { kind: 'move', id: hit.id, start: toPage(v, p), orig: hit.shape, moved: false, ref: { x: b.x, y: b.y } };
         return;
       }
       gesture.current = { kind: 'pan', start: p, view: v, moved: false, tapTarget: hit?.id ?? null };
       return;
     }
-    const pp = toPage(v, p);
-    gesture.current = { kind: 'draw', tool: currentTool, start: pp, current: pp, points: [pp] };
+    const raw = toPage(v, p);
+    const snap = propsRef.current.snap;
+    const pp = snap && currentTool !== 'freehand' ? snap(raw, { tool: currentTool, scale: v.scale }) : raw;
+    gesture.current = { kind: 'draw', tool: currentTool as ShapeType | 'dimension', start: pp, current: pp, points: [pp] };
     forceRender((n) => n + 1);
   };
 
@@ -545,13 +586,15 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         return;
       }
       case 'draw': {
-        const pp = toPage(v, p);
+        const raw = toPage(v, p);
+        const snap = propsRef.current.snap;
+        const pp = snap && g.tool !== 'freehand' ? snap(raw, { from: g.start, tool: g.tool, scale: v.scale }) : raw;
         g.current = pp;
         if (g.tool === 'freehand') {
           // Alle Zwischenpunkte übernehmen, damit die Linie genau dem Finger folgt
           const native = e.nativeEvent as PointerEvent;
           const events = native.getCoalescedEvents?.() ?? [];
-          const samples = events.length ? events.map((ev) => toPage(v, localPoint(ev))) : [pp];
+          const samples = events.length ? events.map((ev) => toPage(v, localPoint(ev))) : [raw];
           for (const q of samples) {
             const last = g.points[g.points.length - 1];
             if (Math.hypot(q.x - last.x, q.y - last.y) * v.scale >= 1) g.points.push(q);
@@ -566,11 +609,21 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         const dy = pp.y - g.start.y;
         if (!g.moved && Math.hypot(dx, dy) * v.scale < 4) return;
         g.moved = true;
-        propsRef.current.onShapeChange(g.id, { ...g.orig, x: g.orig.x + dx, y: g.orig.y + dy }, false);
+        let mx = dx;
+        let my = dy;
+        const snap = propsRef.current.snap;
+        if (snap) {
+          // Bezugsecke einrasten, damit das Objekt am Raster bzw. an anderen Objekten anliegt
+          const t = snap({ x: g.ref.x + dx, y: g.ref.y + dy }, { scale: v.scale, movingId: g.id });
+          mx = t.x - g.ref.x;
+          my = t.y - g.ref.y;
+        }
+        propsRef.current.onShapeChange(g.id, { ...g.orig, x: g.orig.x + mx, y: g.orig.y + my }, false);
         return;
       }
       case 'resize': {
-        const pp = toPage(v, p);
+        const raw = toPage(v, p);
+        const pp = propsRef.current.snap ? propsRef.current.snap(raw, { scale: v.scale, movingId: g.id }) : raw;
         propsRef.current.onShapeChange(g.id, resizeRotatedShape(g.orig, g.handle, pp, 6 / v.scale), false);
         return;
       }
@@ -626,7 +679,11 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         }
         return;
       case 'place':
-        if (!g.moved && !cancelled) propsRef.current.onPlaceComponent(toPage(v, p));
+        if (!g.moved && !cancelled) {
+          const raw = toPage(v, p);
+          const snap = propsRef.current.snap;
+          propsRef.current.onPlace(snap ? snap(raw, { tool: propsRef.current.tool, scale: v.scale }) : raw);
+        }
         return;
       case 'component': {
         if (!g.moved) {
@@ -742,7 +799,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     >
       <div
         ref={worldRef}
-        className="viewer-world"
+        className={`viewer-world${fileId ? '' : ' no-file'}`}
         style={view ? { transform: `translate(${view.tx}px, ${view.ty}px) scale(${view.scale})` } : { visibility: 'hidden' }}
       >
         <canvas
@@ -762,9 +819,14 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       </div>
       {view && size && (
         <svg className="viewer-overlay" width={size.w} height={size.h}>
-          {damages.map((d) => renderShape(d.shape, d.color, { selected: d.id === selectedId, key: d.id, id: d.id }))}
+          {props.underlay?.(view, size)}
+          {damages.map((d) => {
+            const custom = props.renderItem?.(d, view, d.id === selectedId);
+            return custom !== undefined ? <g key={d.id}>{custom}</g> : renderShape(d.shape, d.color, { selected: d.id === selectedId, key: d.id, id: d.id });
+          })}
           {pending && renderShape(pending.shape, pending.color, { dashed: true, key: 'pending' })}
           {drawPreview && renderShape(drawPreview, color, { dashed: true, key: 'draw' })}
+          {props.overlay?.(view, drawPreview)}
           {/* Verbindungslinien zuerst, damit sie unter den Nummern liegen */}
           {damages.map((d) => {
             const r = labels.get(d.id);
@@ -885,7 +947,7 @@ function screenHandles(shape: Shape, v: View): { h: string; p: Point }[] {
 }
 
 /** Berechnet die gespeicherte Beschriftungsverschiebung (Seiteneinheiten) aus einer Bildschirmposition. */
-function labelOffsetFor(d: Damage, r: Rect, v: View) {
+function labelOffsetFor(d: ViewerItem, r: Rect, v: View) {
   const b = shapeAABB(d.shape);
   const tr = toScreen(v, { x: b.x + b.w, y: b.y });
   return { dx: (r.x - tr.x) / v.scale, dy: (r.y + r.h - tr.y) / v.scale };
@@ -899,7 +961,7 @@ function shapeFromDraw(g: Extract<Gesture, { kind: 'draw' }>, v: View, preview =
     // Antippen: Markierung in Standardgröße anlegen
     const s = 36 / v.scale;
     const base = { x: g.start.x - s / 2, y: g.start.y - s / 2, w: s, h: s };
-    if (g.tool === 'line') return lineShape({ x: g.start.x - s / 2, y: g.start.y }, { x: g.start.x + s / 2, y: g.start.y });
+    if (g.tool === 'line' || g.tool === 'dimension') return lineShape({ x: g.start.x - s / 2, y: g.start.y }, { x: g.start.x + s / 2, y: g.start.y });
     if (g.tool === 'triangle') return triangleShape(base);
     if (g.tool === 'freehand') {
       const pts = Array.from({ length: 10 }, (_, i) => {
@@ -908,7 +970,7 @@ function shapeFromDraw(g: Extract<Gesture, { kind: 'draw' }>, v: View, preview =
       });
       return { type: 'freehand', ...base, points: pts };
     }
-    return { type: g.tool, ...base };
+    return { type: g.tool as ShapeType, ...base };
   }
   if (g.tool === 'freehand') {
     if (preview) {
@@ -925,7 +987,7 @@ function shapeFromDraw(g: Extract<Gesture, { kind: 'draw' }>, v: View, preview =
     const closeDist = Math.max(18 / v.scale, 0.08 * Math.hypot(r.w, r.h));
     return freehandShape(g.points, 0.5 / v.scale, closeDist) ?? { type: 'ellipse', ...r };
   }
-  if (g.tool === 'line') return lineShape(g.start, g.current);
+  if (g.tool === 'line' || g.tool === 'dimension') return lineShape(g.start, g.current);
   if (g.tool === 'triangle') return triangleShape(r);
   return { type: g.tool, ...r };
 }

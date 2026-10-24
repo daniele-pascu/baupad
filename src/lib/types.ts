@@ -69,6 +69,13 @@ export interface Rect {
 export interface Plan extends SyncMeta {
   projectId: string;
   costCenterId: string;
+  /**
+   * Herkunft: importierte Datei (Standard, fehlt bei älteren Plänen) oder selbst gezeichnet.
+   * Gezeichnete Pläne haben keine Datei (fileId = '').
+   */
+  source?: 'file' | 'drawing';
+  /** Nur gezeichnete Pläne: Maßsystem (siehe DrawElement) */
+  drawing?: DrawingInfo;
   fileId: string;
   /** 0-basierter Seitenindex in der Originaldatei */
   pageIndex: number;
@@ -84,6 +91,19 @@ export interface Plan extends SyncMeta {
   /** Startnummer der Schadstellennummerierung dieses Plans (mindestens 1) */
   numberStart: number;
   sortIndex: number;
+}
+
+/**
+ * Maßsystem gezeichneter Pläne.
+ *
+ * Reale Maße der Zeichnungsobjekte werden in Metern gespeichert (unit = 'm'). Für die
+ * Planansicht und die Markierungen gelten wie bei importierten Plänen Seitenkoordinaten;
+ * eine Seiteneinheit entspricht dort 1/unitsPerMeter m (1 cm). Zoom, Verschieben und
+ * Bildschirmgröße ändern weder Seitenkoordinaten noch reale Maße.
+ */
+export interface DrawingInfo {
+  unit: 'm';
+  unitsPerMeter: number;
 }
 
 export type ShapeType = 'ellipse' | 'rect' | 'freehand' | 'line' | 'triangle';
@@ -147,7 +167,35 @@ export interface Component extends SyncMeta {
   y: number;
 }
 
-export type EntityStore = 'projects' | 'costCenters' | 'files' | 'plans' | 'damages' | 'components';
+/** Objektart eines gezeichneten Plans */
+export type DrawElementType = ShapeType | 'dimension' | 'text';
+
+/**
+ * Zeichnungsobjekt eines selbst gezeichneten Plans (eigener Datensatz je Objekt).
+ *
+ * Alle Koordinaten und Maße in Metern (Einheit m), Ursprung oben links, y nach unten.
+ * - Rechteck: shape.w = Länge, shape.h = Breite
+ * - Linie und Maßlinie: Endpunkte über shape.points (relativ zum Begrenzungsrechteck)
+ * - Kreis: shape.w = shape.h = Durchmesser (Ellipse bei w ≠ h)
+ * - Dreieck: shape.w = Grundseite, shape.h = Höhe, Spitze über points
+ * - Text: Begrenzungsrechteck; shape.h = Schrifthöhe
+ */
+export interface DrawElement extends SyncMeta {
+  projectId: string;
+  planId: string;
+  type: DrawElementType;
+  /** Geometrie in Metern */
+  shape: Shape;
+  color: string;
+  /** Text (nur Textobjekte) */
+  text?: string;
+  /** Maße am Objekt anzeigen (Standard: ja) */
+  showDims?: boolean;
+  /** Maßlinie: Abstand der Maßlinie von der gemessenen Strecke in m (Vorzeichen = Seite) */
+  offset?: number;
+}
+
+export type EntityStore = 'projects' | 'costCenters' | 'files' | 'plans' | 'damages' | 'components' | 'elements';
 
 export interface EntityMap {
   projects: Project;
@@ -156,6 +204,7 @@ export interface EntityMap {
   plans: Plan;
   damages: Damage;
   components: Component;
+  elements: DrawElement;
 }
 
 export const COLORS: { value: string; name: string }[] = [
