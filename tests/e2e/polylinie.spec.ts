@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { createProject, freshStart, waitSaved } from './helpers';
+import { createProject, freshStart, waitSaved, pickTool } from './helpers';
 
 /**
  * Paket G: Werkzeugleiste wie in CAD-Programmen, Polylinie offen/geschlossen, Eckpunkte
@@ -70,7 +70,7 @@ test('Werkzeugleiste: Gruppen Auswahl, Zeichnen, Beschriften, Bearbeiten', async
 });
 
 test('Offene Polylinie: Enter beendet, nur Länge (keine Fläche); schließen/öffnen umschaltbar', async () => {
-  await page.getByTestId('draw-polyline').click();
+  await pickTool(page, 'draw-polyline');
   const sb = (await sheet().boundingBox())!;
   const s = await scale();
   const ox = sb.x + 80;
@@ -113,7 +113,7 @@ test('Offene Polylinie: Enter beendet, nur Länge (keine Fläche); schließen/ö
 
 test('Polylinie: Doppelklick beendet offen, Klick auf Startpunkt schließt', async () => {
   await deselect();
-  await page.getByTestId('draw-polyline').click();
+  await pickTool(page, 'draw-polyline');
   const sb = (await sheet().boundingBox())!;
   const ox = sb.x + 450;
   const oy = sb.y + 120;
@@ -128,7 +128,7 @@ test('Polylinie: Doppelklick beendet offen, Klick auf Startpunkt schließt', asy
 
   // Unregelmäßige geschlossene Fläche mit 6 Punkten
   await deselect();
-  await page.getByTestId('draw-polyline').click();
+  await pickTool(page, 'draw-polyline');
   const px = sb.x + 120;
   const py = sb.y + 300;
   const pts = [[0, 0], [160, -20], [220, 60], [150, 140], [60, 120], [-20, 60]];
@@ -153,7 +153,7 @@ test('Polylinie: Doppelklick beendet offen, Klick auf Startpunkt schließt', asy
 
 test('Eckpunkte: auswählen und entfernen, per Doppelklick auf eine Kante einfügen', async () => {
   // Die zuletzt gezeichnete Fläche (6 Punkte) ist ausgewählt
-  await page.getByTestId('draw-select').click();
+  await pickTool(page, 'draw-select');
   const el = page.getByTestId('element-bar');
   const areaBefore = await infoValue(/Fläche ([\d.,]+) m²/);
   await expect(page.locator('circle[data-testid^="vertex-"]')).toHaveCount(6);
@@ -186,7 +186,7 @@ test('Eckpunkte: auswählen und entfernen, per Doppelklick auf eine Kante einfü
   await expect(page.locator('circle[data-testid^="vertex-"]')).toHaveCount(5);
   await expect(el).toBeVisible();
   // Rückgängig stellt den Punkt wieder her
-  await page.getByTestId('draw-undo').click();
+  await pickTool(page, 'draw-undo');
   await expect(page.locator('circle[data-testid^="vertex-"]')).toHaveCount(6);
   await waitSaved(page);
 
@@ -195,7 +195,7 @@ test('Eckpunkte: auswählen und entfernen, per Doppelklick auf eine Kante einfü
   await page.reload();
   await expect(sheet()).toBeVisible();
   await page.getByTestId('mode-draw').click();
-  await page.getByTestId('draw-select').click();
+  await pickTool(page, 'draw-select');
   const pb = (await page.locator(`[data-element-id="${id}"]`).boundingBox())!;
   await page.mouse.click(pb.x + pb.width / 2, pb.y + pb.height / 2);
   await expect(page.locator('circle[data-testid^="vertex-"]')).toHaveCount(6);
@@ -203,7 +203,7 @@ test('Eckpunkte: auswählen und entfernen, per Doppelklick auf eine Kante einfü
 
 test('Linie mit eingefügtem Punkt wird zur offenen Polylinie; Mindestpunktzahl bleibt erhalten', async () => {
   await deselect();
-  await page.getByTestId('draw-line').click();
+  await pickTool(page, 'draw-line');
   const sb = (await sheet().boundingBox())!;
   const x = sb.x + 450;
   const y = sb.y + 330;
@@ -212,7 +212,7 @@ test('Linie mit eingefügtem Punkt wird zur offenen Polylinie; Mindestpunktzahl 
   await page.mouse.move(x + 100, y, { steps: 4 });
   await page.mouse.move(x + 200, y, { steps: 4 });
   await page.mouse.up();
-  await page.getByTestId('draw-select').click();
+  await pickTool(page, 'draw-select');
   await expect(page.getByTestId('element-bar')).toContainText('Linie');
   await page.mouse.dblclick(x + 100, y);
   await expect(page.getByTestId('element-bar')).toContainText('Polylinie');
@@ -233,7 +233,7 @@ test('Linie mit eingefügtem Punkt wird zur offenen Polylinie; Mindestpunktzahl 
 test('Aufmaß: offene Polylinie = Linienmessung mit Länge, geschlossene = Fläche', async () => {
   await deselect();
   await page.getByTestId('mode-measure').click();
-  await page.getByTestId('tool-polyline').click();
+  await pickTool(page, 'tool-polyline');
   const sb = (await sheet().boundingBox())!;
   const s = await scale();
   const x = sb.x + 600;
@@ -250,6 +250,7 @@ test('Aufmaß: offene Polylinie = Linienmessung mit Länge, geschlossene = Fläc
   await dlg.getByTestId('damage-save').click();
   await expect(page.locator('[data-testid="aufmass-row"]')).toHaveCount(1);
 
+  await pickTool(page, 'tool-polyline');
   for (const [dx, dy] of [[0, 120], [150, 120], [150, 200], [0, 200]]) await page.mouse.click(x + dx, y + dy);
   await page.getByTestId('polygon-finish').click();
   await expect(dlg.getByTestId('kind-line')).toHaveAttribute('aria-checked', 'false');

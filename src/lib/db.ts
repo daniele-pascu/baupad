@@ -255,7 +255,8 @@ export async function projectStats(projectId: string) {
     /** Kostenstellennummern bzw. -bezeichnungen (für Suche, Sortierung und Anzeige) */
     costCenterNumbers: liveCc.map((c) => c.number?.trim() ?? '').filter(Boolean),
     costCenterNames: liveCc.map((c) => c.name.trim()).filter(Boolean),
-    costCenters: liveCc.length,
+    // leere Kostenstelle (Projekt ohne Kostenstelle) zählt nicht mit
+    costCenters: liveCc.filter((c) => c.number?.trim() || c.name.trim()).length,
     plans: plans.filter((x) => !x.deletedAt).length,
     damages: damages.filter((x) => !x.deletedAt).length,
   };

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { catchDownload, createProject, drawRect, FIXTURES, fillMeasures, freshStart, OUT, planBox, saveDownload, tableRows, waitForPlan, waitSaved } from './helpers';
+import { catchDownload, createProject, drawRect, FIXTURES, fillMeasures, freshStart, OUT, planBox, saveDownload, tableRows, waitForPlan, waitSaved, pickTool } from './helpers';
 
 /**
  * Paket H/I: Jeder exportierte Plan hat A4 oder A3 (hoch/quer); der Plan wird proportional
@@ -69,7 +69,7 @@ test('Import: Format wählbar (Standard A4 passend), Überschrift, PDF genau A3 
   await wiz.getByTestId('import-save').click();
   await waitForPlan(page);
   const box = await planBox(page);
-  await page.getByTestId('tool-rect').click();
+  await pickTool(page, 'tool-rect');
   await drawRect(page, box.x + box.width * 0.2, box.y + box.height * 0.2, box.x + box.width * 0.4, box.y + box.height * 0.35);
   await fillMeasures(page, '18', '2,5', '');
   await waitSaved(page);

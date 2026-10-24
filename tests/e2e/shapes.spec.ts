@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { FIXTURES, OUT, catchDownload, createProject, drawRect, fillMeasures, freshStart, planBox, saveDownload, waitForPlan, waitSaved } from './helpers';
+import { FIXTURES, OUT, catchDownload, createProject, drawRect, fillMeasures, freshStart, planBox, saveDownload, waitForPlan, waitSaved, pickTool } from './helpers';
 
 const pathOf = (page: import('@playwright/test').Page, n: number) =>
   page.evaluate((num) => {
@@ -24,7 +24,7 @@ test('Offene Polylinie (Riss) bleibt offen; Schadstellen nachträglich drehen un
   const box = await planBox(page);
 
   // 1) Offene Polylinie (Riss): Zickzack von links nach rechts, Enter beendet offen
-  await page.getByTestId('tool-polyline').click();
+  await pickTool(page, 'tool-polyline');
   const x0 = box.x + box.width * 0.15;
   const y0 = box.y + box.height * 0.3;
   for (let i = 0; i <= 8; i++) await page.mouse.click(x0 + i * 36, y0 + (i % 2 ? 14 : 0));
@@ -44,12 +44,11 @@ test('Offene Polylinie (Riss) bleibt offen; Schadstellen nachträglich drehen un
   expect((crack.d.match(/L/g) ?? []).length).toBe(8); // alle 9 Punkte erhalten, keine Schlusskante
 
   // 2) Rechteck zeichnen
-  await page.getByTestId('tool-rect').click();
+  await pickTool(page, 'tool-rect');
   await drawRect(page, box.x + box.width * 0.5, box.y + box.height * 0.6, box.x + box.width * 0.7, box.y + box.height * 0.65);
   await fillMeasures(page, '4', '1', '0,05');
-  // Im Zeichenmodus bietet die Auswahlleiste „Verschieben / Drehen“ an
-  await page.getByTestId('adjust-selected').click();
-  await expect(page.getByTestId('tool-select')).toHaveAttribute('aria-pressed', 'true');
+  // Nach dem Speichern ist wieder „Auswahl“ aktiv: Verschieben/Drehen direkt möglich
+  await expect(page.getByTestId('tools-open')).toBeVisible(); // Leiste zugeklappt
   await expect(page.getByTestId('selection-bar')).toContainText('drehen');
 
   // 3) Über den Dreh-Anfasser um 90° drehen

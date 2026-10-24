@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
-import { catchDownload, createProject, freshStart, saveDownload, waitSaved } from './helpers';
+import { catchDownload, createProject, freshStart, saveDownload, waitSaved, pickTool } from './helpers';
 
 /**
  * Präzises Zeichnen (Paket B) und Papierformat/Maßstab (Paket C): freie Maße ohne Rastern,
@@ -71,7 +71,7 @@ test('Papierformat wählen: A4 hoch 1:50 – Blattgröße, Anzeige und gespeiche
 test('Freie Maße ohne Raster; Formen bleiben auf dem Blatt', async () => {
   // Raster ist standardmäßig aus
   await expect(page.getByTestId('grid-toggle')).toHaveAttribute('aria-pressed', 'false');
-  await page.getByTestId('draw-rect').click();
+  await pickTool(page, 'draw-rect');
   const sb = (await sheet().boundingBox())!;
   const s = await scale();
   const x1 = sb.x + 41;
@@ -89,7 +89,7 @@ test('Freie Maße ohne Raster; Formen bleiben auf dem Blatt', async () => {
 
   // Über den Blattrand hinaus ziehen → Form endet am Rand (9,50 × 13,15 m)
   await deselect();
-  await page.getByTestId('draw-rect').click();
+  await pickTool(page, 'draw-rect');
   await drag(sb.x + sb.width - 60, sb.y + sb.height - 60, sb.x + sb.width + 150, sb.y + sb.height + 150);
   await waitSaved(page);
   const edge = (await stored('elements'))[1];
@@ -100,12 +100,12 @@ test('Freie Maße ohne Raster; Formen bleiben auf dem Blatt', async () => {
 
 test('Linie: Endpunkte einzeln verschieben, Länge bleibt bearbeitbar', async () => {
   await deselect();
-  await page.getByTestId('draw-line').click();
+  await pickTool(page, 'draw-line');
   await page.getByTestId('insert-length').fill('3');
   await page.getByRole('button', { name: 'Richtung nach rechts' }).click();
   await page.getByTestId('insert-submit').click();
   await expect(page.getByTestId('element-bar')).toContainText('Linie');
-  await page.getByTestId('draw-select').click();
+  await pickTool(page, 'draw-select');
   // Eine Linie hat genau zwei Anfasser – ihre Endpunkte (kein Rahmen wie bei einem Rechteck)
   await expect(page.locator('.vertex-handle')).toHaveCount(2);
   await expect(page.locator('.handles .handle')).toHaveCount(0);
@@ -147,7 +147,7 @@ test('Rechteck über Eckpunkte zum unregelmäßigen Viereck; Fläche aus Punkten
 
   // Werkzeug „Fläche“: Punkte setzen, mit dem ersten Punkt abschließen
   await deselect();
-  await page.getByTestId('draw-polygon').click();
+  await pickTool(page, 'draw-polygon');
   const sb = (await sheet().boundingBox())!;
   const s = await scale();
   const ox = sb.x + 60;
@@ -169,7 +169,7 @@ test('Rechteck über Eckpunkte zum unregelmäßigen Viereck; Fläche aus Punkten
 
 test('Mauszeiger: Pfeil im Auswahlmodus, „Verschieben“ nur über dem ausgewählten Objekt', async () => {
   await deselect();
-  await page.getByTestId('draw-select').click();
+  await pickTool(page, 'draw-select');
   const viewer = page.getByTestId('plan-viewer');
   const sb = (await sheet().boundingBox())!;
   await page.mouse.move(sb.x + sb.width / 2, sb.y + 10);
@@ -184,7 +184,7 @@ test('Mauszeiger: Pfeil im Auswahlmodus, „Verschieben“ nur über dem ausgew�
 test('Aufmaß: Fläche aus Punkten als Messung; Markierung bleibt auf dem Blatt', async () => {
   await deselect();
   await page.getByTestId('mode-measure').click();
-  await page.getByTestId('tool-polygon').click();
+  await pickTool(page, 'tool-polygon');
   const sb = (await sheet().boundingBox())!;
   for (const [dx, dy] of [[150, 150], [260, 150], [210, 230]]) await page.mouse.click(sb.x + dx, sb.y + dy);
   await page.getByTestId('polygon-finish').click();
@@ -195,7 +195,7 @@ test('Aufmaß: Fläche aus Punkten als Messung; Markierung bleibt auf dem Blatt'
   await dlg.getByTestId('damage-save').click();
   await expect(page.locator('[data-testid="aufmass-row"]')).toHaveCount(1);
   // Markierung über den Blattrand hinaus → endet am Rand
-  await page.getByTestId('tool-rect').click();
+  await pickTool(page, 'tool-rect');
   await drag(sb.x + sb.width - 40, sb.y + 300, sb.x + sb.width + 200, sb.y + 360);
   await dlg.getByTestId('input-length').fill('1');
   await dlg.getByTestId('input-width').fill('1');

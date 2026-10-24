@@ -15,6 +15,8 @@ import {
   saveDownload,
   waitForPlan,
   waitSaved,
+  pickTool,
+  openTools,
 } from './helpers';
 
 /** Phase 3a: Messarten, neue Formen, Farben, Bauteile, Rückgängig/Wiederholen, Messleiste. */
@@ -70,7 +72,7 @@ test('Messarten Linie, Schadstelle, Fläche: Linien zählen nicht zur Fläche, l
   await expect(page.getByRole('button', { name: 'Farbe Weiß' })).toBeVisible();
 
   // 1) Linie: nur Länge
-  await page.getByTestId('tool-line').click();
+  await pickTool(page, 'tool-line');
   await drawRect(page, box.x + box.width * 0.1, box.y + box.height * 0.2, box.x + box.width * 0.35, box.y + box.height * 0.3);
   await expect(dlg).toBeVisible();
   await expect(dlg.getByTestId('kind-line')).toHaveAttribute('aria-checked', 'true');
@@ -86,8 +88,9 @@ test('Messarten Linie, Schadstelle, Fläche: Linien zählen nicht zur Fläche, l
   await expect(page.getByTestId('sum-length')).toHaveText('3,50 m');
 
   // 2) Dreieck in Schwarz als Schadstelle ohne Tiefe
+  await openTools(page); // Leiste klappt nach jeder Messung zu
   await page.getByRole('button', { name: 'Farbe Schwarz' }).click();
-  await page.getByTestId('tool-triangle').click();
+  await pickTool(page, 'tool-triangle');
   await drawRect(page, box.x + box.width * 0.45, box.y + box.height * 0.2, box.x + box.width * 0.6, box.y + box.height * 0.4);
   await expect(dlg.getByTestId('kind-damage')).toHaveAttribute('aria-checked', 'true');
   await expect(dlg.getByTestId('input-number')).toHaveValue('2');
@@ -101,8 +104,9 @@ test('Messarten Linie, Schadstelle, Fläche: Linien zählen nicht zur Fläche, l
 
   // 3) Rechteck in Weiß als Fläche mit Tiefe (Auswahl vorher aufheben – sonst würde Nr. 2 umgefärbt)
   await page.getByRole('button', { name: 'Auswahl aufheben' }).click();
+  await openTools(page);
   await page.getByRole('button', { name: 'Farbe Weiß' }).click();
-  await page.getByTestId('tool-rect').click();
+  await pickTool(page, 'tool-rect');
   await drawRect(page, box.x + box.width * 0.2, box.y + box.height * 0.55, box.x + box.width * 0.4, box.y + box.height * 0.7);
   await dlg.getByTestId('kind-area').click();
   await expect(dlg).toContainText('Neue Fläche');
@@ -174,7 +178,7 @@ test('Rückgängig und Wiederholen: Anlegen, Verschieben, per Schaltfläche und 
   await expect.poll(rowCount).toBe(3);
 
   // Verschieben zurücknehmen
-  await page.getByTestId('tool-select').click();
+  await pickTool(page, 'tool-select');
   await row(3).click();
   const before = await markerRelPos(page, 3);
   const box = await planBox(page);
@@ -235,7 +239,7 @@ test('Bauteile sind ausgeblendet; vorhandene Bauteil-Daten bleiben erhalten', as
 });
 
 test('Messleiste verstellbar: Grenzen, gespeichert, Markierungen und Daten unverändert', async () => {
-  await page.getByTestId('tool-select').click();
+  await pickTool(page, 'tool-select');
   const side = page.getByTestId('editor-side');
   const w0 = (await side.boundingBox())!.width;
   expect(Math.abs(w0 - 440)).toBeLessThan(2);

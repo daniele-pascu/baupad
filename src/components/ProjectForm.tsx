@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { todayIso } from '../lib/numbers';
 import type { Project } from '../lib/types';
 import { Modal } from './Modal';
 
@@ -32,8 +31,9 @@ export function ProjectForm({ title, initial, costCenters, submitLabel, onSubmit
     site: '',
     address: '',
     client: '',
-    editor: localStorage.getItem('lastEditor') ?? '',
-    date: todayIso(),
+    editor: '',
+    // Baubeginn: nur wenn eingetragen (kein automatisches Datum)
+    date: '',
     notes: '',
     ...initial,
   });
@@ -43,15 +43,11 @@ export function ProjectForm({ title, initial, costCenters, submitLabel, onSubmit
   const set = (k: keyof ProjectFields) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
   const nameMissing = !f.name.trim();
 
-  // Leere neue Zeilen werden ignoriert; bestehende Kostenstellen brauchen Nummer oder Bezeichnung
+  // Kostenstellen sind optional: leere neue Zeilen werden ignoriert, bestehende bleiben erhalten
+  // (auch leer – dort liegen die Pläne eines Projekts ohne Kostenstelle)
   const filled = ccs.filter((c) => c.id || c.number.trim() || c.name.trim());
-  const ccError = !filled.length
-    ? 'Bitte eine Kostenstelle eingeben (Nummer und/oder Bezeichnung).'
-    : filled.some((c) => !c.number.trim() && !c.name.trim())
-      ? 'Eine Kostenstelle braucht eine Nummer oder eine Bezeichnung.'
-      : new Set(filled.map(ccKey)).size !== filled.length
-        ? 'Jede Kostenstelle darf nur einmal vorkommen.'
-        : null;
+  const named = filled.filter((c) => c.number.trim() || c.name.trim());
+  const ccError = new Set(named.map(ccKey)).size !== named.length ? 'Jede Kostenstelle darf nur einmal vorkommen.' : null;
   const setCc = (i: number, patch: Partial<CostCenterInput>) => setCcs(ccs.map((c, j) => (j === i ? { ...c, ...patch } : c)));
 
   return (
@@ -80,7 +76,6 @@ export function ProjectForm({ title, initial, costCenters, submitLabel, onSubmit
           if (nameMissing || ccError) return;
           setBusy(true);
           try {
-            if (f.editor) localStorage.setItem('lastEditor', f.editor);
             await onSubmit(
               { ...f, name: f.name.trim(), number: (f.number ?? '').trim(), site: f.site.trim() },
               filled.map((c) => ({ ...c, number: c.number.trim(), name: c.name.trim() })),
@@ -95,17 +90,8 @@ export function ProjectForm({ title, initial, costCenters, submitLabel, onSubmit
           <input value={f.name} onChange={set('name')} name="name" autoComplete="off" enterKeyHint="next" aria-invalid={touched && nameMissing} />
           {touched && nameMissing && <small className="error">Bitte einen Projektnamen eingeben.</small>}
         </label>
-        <label className="field">
-          <span>Projektnummer</span>
-          <input value={f.number ?? ''} onChange={set('number')} name="number" autoComplete="off" enterKeyHint="next" placeholder="optional" />
-        </label>
-        <label className="field">
-          <span>Baustelle / Bauvorhaben</span>
-          <input value={f.site} onChange={set('site')} name="site" autoComplete="off" enterKeyHint="next" />
-        </label>
-
         <div className="field span-2 cc-fields">
-          <span>Kostenstelle *</span>
+          <span>Kostenstelle(n) (optional)</span>
           {ccs.map((c, i) => (
             <div key={c.id ?? `new-${i}`} className="cc-row">
               <input
@@ -126,7 +112,7 @@ export function ProjectForm({ title, initial, costCenters, submitLabel, onSubmit
                 onChange={(e) => setCc(i, { name: e.target.value })}
                 name={`costCenter${i}`}
                 data-testid="cost-center-input"
-                placeholder={i === 0 ? 'Bezeichnung, z. B. Tiefgarage' : 'Bezeichnung'}
+                placeholder={i === 0 ? 'Hauptkostenstelle, z. B. Tiefgarage' : 'Bezeichnung'}
                 autoComplete="off"
                 enterKeyHint="next"
                 aria-label={`Kostenstelle ${i + 1} Bezeichnung`}
@@ -151,7 +137,11 @@ export function ProjectForm({ title, initial, costCenters, submitLabel, onSubmit
         </div>
 
         <label className="field span-2">
-          <span>Adresse oder Standort (optional)</span>
+          <span>Projektnummer (optional)</span>
+          <input value={f.number ?? ''} onChange={set('number')} name="number" autoComplete="off" enterKeyHint="next" />
+        </label>
+        <label className="field span-2">
+          <span>Adresse (optional)</span>
           <input value={f.address} onChange={set('address')} name="address" autoComplete="street-address" enterKeyHint="next" />
         </label>
         <label className="field">
@@ -159,15 +149,11 @@ export function ProjectForm({ title, initial, costCenters, submitLabel, onSubmit
           <input value={f.client} onChange={set('client')} name="client" autoComplete="organization" enterKeyHint="next" />
         </label>
         <label className="field">
-          <span>Bearbeiter (optional)</span>
-          <input value={f.editor} onChange={set('editor')} name="editor" autoComplete="name" enterKeyHint="next" />
-        </label>
-        <label className="field">
-          <span>Datum</span>
-          <input type="date" value={f.date} onChange={set('date')} name="date" />
+          <span>Baubeginn (optional)</span>
+          <input type="date" value={f.date} onChange={set('date')} name="date" data-testid="project-start" />
         </label>
         <label className="field span-2">
-          <span>Bemerkungen (optional)</span>
+          <span>Bemerkung (optional)</span>
           <textarea value={f.notes} onChange={set('notes')} name="notes" rows={3} />
         </label>
       </form>

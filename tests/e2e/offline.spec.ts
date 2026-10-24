@@ -13,6 +13,7 @@ import {
   tableRows,
   waitForPlan,
   waitSaved,
+  pickTool,
 } from './helpers';
 
 /**
@@ -66,7 +67,7 @@ test('Offline: Projekt anlegen, PDF importieren, Schadstellen erfassen, exportie
   expect(inked).toBeGreaterThan(1000);
 
   const box = await planBox(page);
-  await page.getByTestId('tool-rect').click();
+  await pickTool(page, 'tool-rect');
   await drawRect(page, box.x + box.width * 0.3, box.y + box.height * 0.3, box.x + box.width * 0.4, box.y + box.height * 0.4);
   await fillMeasures(page, '1,5', '0,8', '0,05');
   await waitSaved(page);
@@ -92,7 +93,7 @@ test('Offline: Projekt anlegen, PDF importieren, Schadstellen erfassen, exportie
   await page.getByTestId('draw-plan').click();
   await page.getByTestId('new-drawing').locator('[data-field="planNumber"]').fill('Z-1');
   await page.getByTestId('new-drawing-save').click();
-  await page.getByTestId('draw-rect').click();
+  await pickTool(page, 'draw-rect');
   await page.getByTestId('insert-length').fill('5');
   await page.getByTestId('insert-width').fill('3,65');
   await page.getByTestId('insert-submit').click();

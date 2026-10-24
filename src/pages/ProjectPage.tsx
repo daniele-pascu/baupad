@@ -11,7 +11,7 @@ import { PlanList } from '../components/PlanList';
 import { ProjectForm, type CostCenterInput } from '../components/ProjectForm';
 import { SaveErrorBanner, SaveStatus } from '../components/SaveStatus';
 import { confirmDialog, offerFile, promptDialog, showError, toast } from '../components/ui';
-import { aufmassRows, componentsOf, findPosition, costCenterLabel, costCentersOf, damagesOf, elementsOf, exportXlsx, lvDocsOf, planTitle, plansOf, type XlsxLayout } from '../lib/aufmass';
+import { aufmassRows, componentsOf, findPosition, costCenterLabel, costCenterName, costCentersOf, damagesOf, elementsOf, exportXlsx, lvDocsOf, planTitle, plansOf, type XlsxLayout } from '../lib/aufmass';
 import { BACKUP_REMIND_DAYS, backupStatus, exportProjectBackup, type BackupStatus } from '../lib/backup';
 import { isDrawingPlan } from '../lib/drawing';
 import { exportPaper } from '../lib/sheet-layout';
@@ -31,6 +31,11 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
   const project = data.project;
   const ccs = costCentersOf(data);
   const active: CostCenter | null = ccs.find((c) => c.id === costCenterId) ?? ccs[0] ?? null;
+  // Projekt ohne Kostenstelle: Die Pläne liegen in einer leeren Kostenstelle (ohne Nummer und
+  // Bezeichnung); sie wird bei Bedarf angelegt und später einfach ausgefüllt.
+  useEffect(() => {
+    if (!ccs.length) putRecords({ costCenters: [{ ...newMeta(), projectId: project.id, number: '', name: '', sortIndex: 0 }] }, { history: false });
+  }, [ccs.length, project.id]);
   const fileRef = useRef<HTMLInputElement>(null);
   const [editing, setEditing] = useState(false);
   const [pdfOpen, setPdfOpen] = useState(false);
@@ -87,7 +92,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
       message: (
         <>
           <p>
-            Die Kostenstelle <strong>„{costCenterLabel(cc)}“</strong> wird gelöscht.
+            Die Kostenstelle <strong>„{costCenterName(cc)}“</strong> wird gelöscht.
           </p>
           <ul>
             <li>{ccPlans.length} Plan/Pläne</li>
@@ -233,8 +238,8 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
       <section className="project-info card" data-testid="project-info">
         <dl className="info-grid">
           <div>
-            <dt>{ccs.length > 1 ? 'Kostenstellen' : 'Kostenstelle'}</dt>
-            <dd data-testid="project-cost-centers">{ccs.length ? ccs.map((c) => costCenterLabel(c)).join(', ') : '–'}</dd>
+            <dt>{ccs.filter((c) => costCenterLabel(c)).length > 1 ? 'Kostenstellen' : 'Kostenstelle'}</dt>
+            <dd data-testid="project-cost-centers">{ccs.map((c) => costCenterLabel(c)).filter(Boolean).join(', ') || '–'}</dd>
           </div>
           {project.number && (
             <div>
@@ -243,28 +248,20 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
             </div>
           )}
           <div>
-            <dt>Baustelle</dt>
-            <dd>{project.site || '–'}</dd>
-          </div>
-          <div>
-            <dt>Adresse / Standort</dt>
-            <dd>{project.address || '–'}</dd>
+            <dt>Adresse</dt>
+            <dd>{project.address || project.site || '–'}</dd>
           </div>
           <div>
             <dt>Auftraggeber</dt>
             <dd>{project.client || '–'}</dd>
           </div>
           <div>
-            <dt>Bearbeiter</dt>
-            <dd>{project.editor || '–'}</dd>
-          </div>
-          <div>
-            <dt>Datum</dt>
-            <dd>{formatDate(project.date)}</dd>
+            <dt>Baubeginn</dt>
+            <dd data-testid="project-start">{project.date ? formatDate(project.date) : '–'}</dd>
           </div>
           {project.notes && (
             <div className="span-all">
-              <dt>Bemerkungen</dt>
+              <dt>Bemerkung</dt>
               <dd className="pre">{project.notes}</dd>
             </div>
           )}
@@ -285,13 +282,13 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
           >
             {ccs.map((c) => (
               <option key={c.id} value={c.id}>
-                {costCenterLabel(c)} ({plansOf(data, c.id).length})
+                {costCenterName(c)} ({plansOf(data, c.id).length})
               </option>
             ))}
           </select>
           {active && (
             <ActionMenu
-              label={`Aktionen für Kostenstelle ${costCenterLabel(active)}`}
+              label={`Aktionen für Kostenstelle ${costCenterName(active)}`}
               testId="cost-center-actions"
               actions={[
                 { label: 'Kostenstellen bearbeiten', icon: 'edit', onSelect: () => setEditing(true) },
@@ -317,7 +314,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
               {ccs.length > 1 ? (
                 <>
                   <span className="muted"> · </span>
-                  <span data-testid="cost-center-title">{costCenterLabel(active)}</span>
+                  <span data-testid="cost-center-title">{costCenterName(active)}</span>
                 </>
               ) : (
                 <span className="sr-only" data-testid="cost-center-title">

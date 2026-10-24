@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { catchDownload, createProject, freshStart, OUT, saveDownload, waitSaved } from './helpers';
+import { catchDownload, createProject, freshStart, OUT, saveDownload, waitSaved, pickTool } from './helpers';
 
 /** Phase 3b: Pläne selbst zeichnen – maßhaltig, mit Maßeingabe, Bemaßung, Aufmaß und Export. */
 
@@ -69,7 +69,7 @@ test('Plan zeichnen: Raum 5,00 × 3,65 m über Maßeingabe, Maß ändern, Zoom �
   await expect(page.getByTestId('mode-draw')).toHaveAttribute('aria-selected', 'true');
 
   // Rechteck: Maße eingeben und einfügen
-  await page.getByTestId('draw-rect').click();
+  await pickTool(page, 'draw-rect');
   await page.getByTestId('insert-length').fill('5');
   await page.getByTestId('insert-width').fill('3,65');
   await page.getByTestId('insert-submit').click();
@@ -106,7 +106,7 @@ test('Plan zeichnen: Raum 5,00 × 3,65 m über Maßeingabe, Maß ändern, Zoom �
 
 test('Linien mit Länge und Richtung schließen aneinander an; Kreis, Dreieck, Maßlinie, Text', async () => {
   await deselect();
-  await page.getByTestId('draw-line').click();
+  await pickTool(page, 'draw-line');
   await page.getByTestId('insert-length').fill('3');
   await page.getByRole('button', { name: 'Richtung nach unten' }).click();
   await page.getByTestId('insert-submit').click();
@@ -130,12 +130,12 @@ test('Linien mit Länge und Richtung schließen aneinander an; Kreis, Dreieck, M
 
   // Kreis über Durchmesser, Dreieck über Grundseite und Höhe
   await deselect();
-  await page.getByTestId('draw-ellipse').click();
+  await pickTool(page, 'draw-ellipse');
   await page.getByTestId('insert-diameter').fill('1,2');
   await page.getByTestId('insert-submit').click();
   await expect(dim('Ø 1,20 m')).toBeVisible();
   await deselect();
-  await page.getByTestId('draw-triangle').click();
+  await pickTool(page, 'draw-triangle');
   await page.getByTestId('insert-base').fill('2');
   await page.getByTestId('insert-height').fill('1,5');
   await page.getByTestId('insert-submit').click();
@@ -147,7 +147,7 @@ test('Linien mit Länge und Richtung schließen aneinander an; Kreis, Dreieck, M
 
   // Maßlinie durch Ziehen (rastet am Raster ein) – Länge wird angezeigt
   await deselect();
-  await page.getByTestId('draw-dimension').click();
+  await pickTool(page, 'draw-dimension');
   await page.getByTestId('grid-toggle').click(); // Raster nur auf Wunsch (Standard: aus)
   await expect(page.getByTestId('grid-toggle')).toHaveAttribute('aria-pressed', 'true');
   const sb = (await sheet().boundingBox())!;
@@ -166,7 +166,7 @@ test('Linien mit Länge und Richtung schließen aneinander an; Kreis, Dreieck, M
 
   // Text
   await deselect();
-  await page.getByTestId('draw-text').click();
+  await pickTool(page, 'draw-text');
   await page.mouse.click(sb.x + sb.width * 0.6, sb.y + sb.height * 0.15);
   const pd = page.getByTestId('prompt-dialog');
   await pd.locator('input').fill('Kellerraum 1');
@@ -188,7 +188,7 @@ test('Weiter zum Aufmaß: Messung auf gezeichnetem Plan, Maßvorschlag; Planänd
   await expect(page.locator('[data-element="rect"]')).toHaveCount(1); // Zeichnung bleibt sichtbar
 
   // Markierung exakt über den Raum ziehen: Ecken des Rechtecks am Bildschirm
-  await page.getByTestId('tool-rect').click();
+  await pickTool(page, 'tool-rect');
   const r = (await page.locator('[data-element="rect"] path:last-child').boundingBox())!;
   await page.mouse.move(r.x + r.width * 0.25, r.y + r.height * 0.25);
   await page.mouse.down();
@@ -214,7 +214,7 @@ test('Weiter zum Aufmaß: Messung auf gezeichnetem Plan, Maßvorschlag; Planänd
   // Zurück zur Planbearbeitung, Raum ändern: Messung bleibt unverändert
   await page.getByTestId('mode-draw').click();
   await expect(page.getByTestId('draw-toolbar')).toBeVisible();
-  await page.getByTestId('draw-select').click();
+  await pickTool(page, 'draw-select');
   const r2 = (await page.locator('[data-element="rect"] path:last-child').boundingBox())!;
   await page.mouse.click(r2.x + 3, r2.y + r2.height / 2); // linke Kante
   await expect(page.getByTestId('element-bar')).toContainText('Rechteck');

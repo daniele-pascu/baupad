@@ -1,5 +1,5 @@
 import { countKind, KIND_LABELS, kindOf, quantityBasis, quantityFor, sumAreas, sumLengths } from './measure';
-import { formatDate, naturalCompare } from './numbers';
+import { naturalCompare } from './numbers';
 import type { ProjectState } from './store';
 import { alive } from './store';
 import type { Component, CostCenter, Damage, DrawElement, LvDocument, LvPosition, Plan } from './types';
@@ -74,11 +74,17 @@ export function costCentersOf(data: ProjectState): CostCenter[] {
   return alive(data.costCenters).sort((a, b) => a.sortIndex - b.sortIndex || naturalCompare(a.name, b.name));
 }
 
-/** Anzeige einer Kostenstelle: „4711 – Tiefgarage“, nur Nummer oder nur Bezeichnung. */
+/**
+ * Anzeige einer Kostenstelle: „4711 – Tiefgarage“, nur Nummer oder nur Bezeichnung.
+ * Leer bei einem Projekt ohne Kostenstelle (die Pläne liegen dann in einer leeren Kostenstelle).
+ */
 export function costCenterLabel(cc: Pick<CostCenter, 'number' | 'name'> | undefined): string {
   if (!cc) return '';
-  return [cc.number?.trim(), cc.name.trim()].filter(Boolean).join(' – ') || 'Kostenstelle';
+  return [cc.number?.trim(), cc.name.trim()].filter(Boolean).join(' – ');
 }
+
+/** Wie costCenterLabel, für Überschriften und Auswahllisten mit Ersatztext */
+export const costCenterName = (cc: Pick<CostCenter, 'number' | 'name'> | undefined) => costCenterLabel(cc) || 'Ohne Kostenstelle';
 
 export function planTitle(p: Plan): string {
   return [p.planNumber, p.planName].filter(Boolean).join(' – ') || 'Plan ohne Bezeichnung';
@@ -139,12 +145,14 @@ function infoSheet(data: ProjectState, costCenters: CostCenter[], plans: Plan[],
     [str('BauPad – Aufmaß', 'title')],
     [],
     [str('Projekt', 'label'), str(p.name)],
-    [str('Baustelle', 'label'), str(p.site)],
-    [str('Adresse / Standort', 'label'), str(p.address)],
+    // Reihenfolge wie in den Projektinformationen; Baubeginn erscheint nur dort (nicht im Export)
+    [str('Kostenstelle(n)', 'label'), str(costCenters.map((c) => costCenterLabel(c)).filter(Boolean).join(', '))],
+    [str('Projektnummer', 'label'), str(p.number ?? '')],
+    [str('Adresse', 'label'), str(p.address)],
     [str('Auftraggeber', 'label'), str(p.client)],
-    [str('Bearbeiter', 'label'), str(p.editor)],
-    [str('Datum', 'label'), str(formatDate(p.date))],
-    [str('Kostenstelle(n)', 'label'), str(costCenters.map((c) => costCenterLabel(c)).join(', '))],
+    // ältere Angaben (Felder werden nicht mehr erfasst) nur, wenn vorhanden
+    ...(p.site ? [[str('Baustelle', 'label'), str(p.site)]] : []),
+    ...(p.editor ? [[str('Bearbeiter', 'label'), str(p.editor)]] : []),
     [str('Exportiert am', 'label'), str(new Date().toLocaleString('de-DE'))],
     [],
     ['Kostenstelle', 'Plannummer', 'Planname', 'Geschoss', 'Planbereich', 'Originaldatei', 'Seite', 'Anzahl Schadstellen', 'Fläche gesamt (m²)'].map(
@@ -234,7 +242,7 @@ function exportClassic(data: ProjectState, scope: XlsxScope): ExportFile {
   if (scope.kind === 'costCenter') {
     const cc = data.costCenters[scope.costCenterId];
     const plans = plansOf(data, cc.id);
-    const sheet = aufmassSheet(sheetName(costCenterLabel(cc), used), aufmassRows(data, plans));
+    const sheet = aufmassSheet(sheetName(costCenterLabel(cc) || 'Aufmaß', used), aufmassRows(data, plans));
     return {
       name: `${safeFileName(data.project.name, costCenterLabel(cc), 'Aufmass')}.xlsx`,
       data: buildXlsx([sheet, infoSheet(data, [cc], plans, used)]),
@@ -247,7 +255,7 @@ function exportClassic(data: ProjectState, scope: XlsxScope): ExportFile {
   for (const cc of ccs) {
     const plans = plansOf(data, cc.id);
     allPlans.push(...plans);
-    sheets.push(aufmassSheet(sheetName(costCenterLabel(cc), used), aufmassRows(data, plans)));
+    sheets.push(aufmassSheet(sheetName(costCenterLabel(cc) || 'Aufmaß', used), aufmassRows(data, plans)));
   }
   if (!sheets.length) sheets.push(aufmassSheet(sheetName('Aufmaß', used), []));
   sheets.push(infoSheet(data, ccs, allPlans, used));
@@ -471,7 +479,7 @@ function exportStandard(data: ProjectState, scope: XlsxScope): ExportFile {
     plans = plansOf(data, cc.id);
     ccList = [cc];
     name = safeFileName(data.project.name, costCenterLabel(cc), 'Aufmass');
-    title = `Aufmaß ${data.project.name} – ${costCenterLabel(cc)}`;
+    title = [`Aufmaß ${data.project.name}`, costCenterLabel(cc)].filter(Boolean).join(' – ');
   } else {
     plans = ccs.flatMap((cc) => plansOf(data, cc.id));
     ccList = ccs;

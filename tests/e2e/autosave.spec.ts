@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { join } from 'node:path';
-import { FIXTURES, createProject, drawRect, fillMeasures, freshStart, planBox, waitForPlan, waitSaved } from './helpers';
+import { FIXTURES, createProject, drawRect, fillMeasures, freshStart, planBox, waitForPlan, waitSaved, pickTool } from './helpers';
 
 /**
  * Autospeichern unter Last: Viele schnelle Änderungen am selben Datensatz – auch während eine
@@ -17,10 +17,10 @@ test('Schnelle Folgeänderungen an derselben Schadstelle werden ohne Fehlkonflik
   await wiz.getByTestId('import-save').click();
   await waitForPlan(page);
   const box = await planBox(page);
-  await page.getByTestId('tool-rect').click();
+  await pickTool(page, 'tool-rect');
   await drawRect(page, box.x + box.width * 0.3, box.y + box.height * 0.3, box.x + box.width * 0.45, box.y + box.height * 0.45);
   await fillMeasures(page, '1', '1', '0,02');
-  await page.getByTestId('tool-select').click();
+  await pickTool(page, 'tool-select');
   await page.locator('[data-testid="aufmass-row"][data-number="1"]').click();
 
   // Farbwechsel in unregelmäßigen Abständen rund um die Speicherverzögerung (250 ms)

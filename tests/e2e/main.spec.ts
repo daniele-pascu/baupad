@@ -20,6 +20,7 @@ import {
   tableRows,
   waitForPlan,
   waitSaved,
+  pickTool,
 } from './helpers';
 
 /**
@@ -42,18 +43,10 @@ const sorted = (rows: string[][]) => rows.map((r) => [r[0], r[1], r[2], r[3], r[
 
 test('1. Projekt mit Kostenstellen in einem Schritt erstellen und wieder öffnen', async () => {
   await freshStart(page);
-  // Ohne Kostenstelle lässt sich kein Projekt anlegen
-  await page.getByTestId('new-project').click();
-  const form = page.getByTestId('project-form');
-  await form.locator('input[name="name"]').fill('Test');
-  await form.getByRole('button', { name: 'Projekt anlegen' }).click();
-  await expect(form).toContainText('Bitte eine Kostenstelle eingeben');
-  await form.getByRole('button', { name: 'Abbrechen' }).click();
-
   await createProject(
     page,
     'Wohnanlage Süd',
-    { site: 'Tiefgarage Musterstraße', address: 'Musterstraße 1, Wien', client: 'Hausverwaltung X', editor: 'D. Pascu' },
+    { address: 'Musterstraße 1, Wien', client: 'Hausverwaltung X' },
     ['Tiefgarage', 'Stiege 1'],
   );
   // Projektinfos zeigen beide Kostenstellen, die Auswahl erscheint nur bei mehreren
@@ -61,7 +54,7 @@ test('1. Projekt mit Kostenstellen in einem Schritt erstellen und wieder öffnen
   await expect(page.getByTestId('cost-center-select').locator('option')).toHaveCount(2);
   await page.getByRole('link', { name: 'Zur Projektverwaltung' }).click();
   const card = page.getByTestId('project-card').filter({ hasText: 'Wohnanlage Süd' });
-  await expect(card).toContainText('Tiefgarage Musterstraße');
+  await expect(card).toContainText('Musterstraße 1, Wien');
   await expect(card).toContainText('2 Kostenst.');
   await expect(card).toContainText('Zuletzt bearbeitet');
   await card.click();
@@ -169,7 +162,7 @@ test('5.–7. Schadstellen einzeichnen, automatisch nummerieren, Maße eingeben,
   await openPlan(page, 'A-101');
   await waitForPlan(page);
   const box = await planBox(page);
-  await page.getByTestId('tool-rect').click();
+  await pickTool(page, 'tool-rect');
   await drawRect(page, box.x + box.width * 0.2, box.y + box.height * 0.3, box.x + box.width * 0.3, box.y + box.height * 0.42);
   const dlg = page.getByTestId('damage-dialog');
   await expect(dlg).toBeVisible();
@@ -180,7 +173,7 @@ test('5.–7. Schadstellen einzeichnen, automatisch nummerieren, Maße eingeben,
   await dlg.getByTestId('input-width').fill('0');
   await dlg.getByTestId('damage-save').click();
   await expect(dlg).toContainText('ist keine gültige Zahl');
-  await expect(dlg).toContainText('Breite muss größer als 0 sein');
+  await expect(dlg).toContainText('Breite/Höhe muss größer als 0 sein');
   await expect(dlg).not.toContainText('Tiefe fehlt'); // Tiefe ist optional
   await expect(dlg.getByTestId('area-result')).toContainText('–');
   // Abbrechen verwirft die neue Markierung
@@ -199,13 +192,13 @@ test('5.–7. Schadstellen einzeichnen, automatisch nummerieren, Maße eingeben,
   await page.keyboard.press('Enter');
   await expect(dlg).toBeHidden();
 
-  await page.getByTestId('tool-ellipse').click();
+  await pickTool(page, 'tool-ellipse');
   await drawRect(page, box.x + box.width * 0.5, box.y + box.height * 0.5, box.x + box.width * 0.62, box.y + box.height * 0.6);
   await expect(dlg.getByTestId('input-number')).toHaveValue('2');
   await fillMeasures(page, '2', '1.25', '0,1');
 
   // Polylinie: Eckpunkte nacheinander anklicken, Klick auf den Startpunkt schließt die Fläche
-  await page.getByTestId('tool-polyline').click();
+  await pickTool(page, 'tool-polyline');
   const fx = box.x + box.width * 0.7;
   const fy = box.y + box.height * 0.25;
   for (const [dx, dy] of [[0, 0], [40, -10], [80, 10], [90, 50], [50, 70], [10, 50], [0, 2]]) await page.mouse.click(fx + dx, fy + dy);
@@ -225,7 +218,7 @@ test('5.–7. Schadstellen einzeichnen, automatisch nummerieren, Maße eingeben,
 });
 
 test('Markierungen bleiben beim Zoomen und Verschieben an ihrer Position', async () => {
-  await page.getByTestId('tool-select').click();
+  await pickTool(page, 'tool-select');
   const before = await markerRelPos(page, 1);
   await page.getByRole('button', { name: 'Vergrößern' }).click();
   await page.getByRole('button', { name: 'Vergrößern' }).click();
@@ -270,7 +263,7 @@ test('8./9. Schadstelle bearbeiten, Nummer ändern, löschen – Plan und Tabell
   ]);
 
   // Neue Schadstelle mit vergebener Nummer → nachfolgende verschieben
-  await page.getByTestId('tool-rect').click();
+  await pickTool(page, 'tool-rect');
   const box = await planBox(page);
   await drawRect(page, box.x + box.width * 0.35, box.y + box.height * 0.7, box.x + box.width * 0.42, box.y + box.height * 0.8);
   await expect(dlg.getByTestId('input-number')).toHaveValue('4');
@@ -290,7 +283,7 @@ test('8./9. Schadstelle bearbeiten, Nummer ändern, löschen – Plan und Tabell
   await expect(page.locator('.damage-label text')).toHaveText(['1', '2', '3', '4']);
 
   // Auswahl über die Tabelle markiert die Schadstelle im Plan
-  await page.getByTestId('tool-select').click();
+  await pickTool(page, 'tool-select');
   await page.locator('[data-testid="aufmass-row"][data-number="3"]').click();
   await expect(page.getByTestId('selection-bar')).toContainText('Nr. 3');
   await expect(page.locator('.damage-label.selected text')).toHaveText('3');
@@ -308,7 +301,7 @@ test('8./9. Schadstelle bearbeiten, Nummer ändern, löschen – Plan und Tabell
   await expect(page.locator('.damage-label')).toHaveCount(3);
 
   // Nächste neue Schadstelle erhält die nächsthöhere Nummer
-  await page.getByTestId('tool-ellipse').click();
+  await pickTool(page, 'tool-ellipse');
   await drawRect(page, box.x + box.width * 0.8, box.y + box.height * 0.7, box.x + box.width * 0.86, box.y + box.height * 0.8);
   await expect(dlg.getByTestId('input-number')).toHaveValue('5');
   await fillMeasures(page, '0,5', '0,5', '0,04');
@@ -322,7 +315,7 @@ test('8./9. Schadstelle bearbeiten, Nummer ändern, löschen – Plan und Tabell
 });
 
 test('Markierung verschieben, Größe ändern, Beschriftung verschieben, Farbe ändern', async () => {
-  await page.getByTestId('tool-select').click();
+  await pickTool(page, 'tool-select');
   await page.locator('[data-testid="aufmass-row"][data-number="4"]').click();
   const before = await markerRelPos(page, 4);
   const path = page.locator('.viewer-overlay path[data-damage]').nth(
@@ -423,7 +416,7 @@ test('Weitere Pläne: gedrehte Seite und Planbereich – PDF-Export mehrerer Pl�
     await waitForPlan(page);
     await expect(page.locator('.damage-label')).toHaveCount(0);
     const box = await planBox(page);
-    await page.getByTestId('tool-rect').click();
+    await pickTool(page, 'tool-rect');
     await drawRect(page, box.x + box.width * 0.1, box.y + box.height * 0.1, box.x + box.width * 0.25, box.y + box.height * 0.2);
     // Nummerierung beginnt je Plan wieder bei 0
     await expect(page.getByTestId('damage-dialog').getByTestId('input-number')).toHaveValue('1');
@@ -542,7 +535,7 @@ test('Fehlerfälle: nicht unterstütztes Dateiformat, Konflikt zwischen zwei Tab
   const other = await page.context().newPage();
   await other.goto(url.replace(/#.*/, '') + '#/p/' + url.split('#/p/')[1].split('/')[0]);
   await other.getByTestId('edit-project').click();
-  await other.getByTestId('project-form').locator('input[name="site"]').fill('Geändert in Tab 2');
+  await other.getByTestId('project-form').locator('input[name="address"]').fill('Geändert in Tab 2');
   await other.getByTestId('project-form').getByRole('button', { name: 'Speichern' }).click();
   await expect(other.getByTestId('save-status')).toHaveAttribute('data-status', 'saved');
   await other.close();

@@ -6,7 +6,7 @@ test('Projekte suchen und sortieren', async ({ page }) => {
   await freshStart(page);
   await createProject(page, 'Bahnhof Nord', { number: 'P-2', client: 'Stadtwerke' }, [{ number: '4711', name: 'Tiefgarage' }]);
   await page.goto('./#/projekte');
-  await createProject(page, 'Arena Süd', { number: 'P-10', site: 'Musterstraße 5' }, [{ number: '1200', name: 'Dach' }]);
+  await createProject(page, 'Arena Süd', { number: 'P-10', address: 'Musterstraße 5' }, [{ number: '1200', name: 'Dach' }]);
   await page.goto('./#/projekte');
   await createProject(page, 'Carport West', {}, [{ number: '9000', name: 'Hof' }]);
   await expect(page.getByTestId('project-number')).toHaveCount(0); // ohne Projektnummer

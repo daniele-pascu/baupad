@@ -14,6 +14,8 @@ import {
   tableRows,
   waitForPlan,
   waitSaved,
+  pickTool,
+  openTools,
 } from './helpers';
 
 /**
@@ -63,7 +65,7 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   page.on('pageerror', (e) => console.log('PAGE ERROR', e.message));
   await freshStart(page);
   await noHorizontalScroll(page);
-  await createProject(page, 'Parkhaus Nord', { site: 'Parkdeck 2' }, ['Parkdeck']);
+  await createProject(page, 'Parkhaus Nord', { address: 'Parkdeck 2' }, ['Parkdeck']);
   await noHorizontalScroll(page);
 
 
@@ -100,7 +102,7 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   const box = await planBox(page);
 
   // 1) Antippen mit dem Kreis-Werkzeug erzeugt eine Markierung in Standardgröße
-  await page.getByTestId('tool-ellipse').tap();
+  await pickTool(page, 'tool-ellipse', 'tap');
   await page.touchscreen.tap(box.x + box.width * 0.3, box.y + box.height * 0.4);
   const dlg = page.getByTestId('damage-dialog');
   await expect(dlg).toBeVisible();
@@ -122,7 +124,7 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   await expect(dlg).toBeHidden();
 
   // 2) Rechteck mit dem Finger aufziehen
-  await page.getByTestId('tool-rect').tap();
+  await pickTool(page, 'tool-rect', 'tap');
   await touchDrag(cdp, { x: box.x + box.width * 0.55, y: box.y + box.height * 0.5 }, { x: box.x + box.width * 0.75, y: box.y + box.height * 0.65 });
   await expect(dlg).toBeVisible();
   await expect(dlg.getByTestId('input-number')).toHaveValue('2');
@@ -147,7 +149,7 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   await expect(dlg).toBeHidden();
 
   // 4) Verschieben mit einem Finger im Auswahlmodus
-  await page.getByTestId('tool-select').tap();
+  await pickTool(page, 'tool-select', 'tap');
   await touchDrag(cdp, { x: vb.x + 60, y: vb.y + 80 }, { x: vb.x + 160, y: vb.y + 150 });
   const afterPan = await markerRelPos(page, 2);
   for (const k of ['x', 'y', 'w', 'h'] as const) expect(Math.abs(afterPan[k] - before[k])).toBeLessThan(0.003);
@@ -331,13 +333,16 @@ test('Plan zeichnen per Finger: Raum über Maßeingabe, Bemaßung sichtbar, Weit
   await nd.locator('[data-field="planNumber"]').fill('S-1');
   await nd.getByTestId('new-drawing-save').tap();
   await expect(page.getByTestId('drawing-sheet')).toBeVisible();
-  await page.getByTestId('draw-rect').tap();
+  await pickTool(page, 'draw-rect', 'tap');
   await page.getByTestId('insert-length').fill('5');
   await page.getByTestId('insert-width').fill('3,65');
   await page.getByTestId('insert-submit').tap();
   await expect(page.locator('.dims [data-dim="5,00 m"]')).toBeVisible();
   await expect(page.locator('.dims [data-dim="3,65 m"]')).toBeVisible();
   await expect(page.getByTestId('element-bar')).toBeVisible();
+  // Nach dem Einfügen klappt die Leiste zu (Plan bleibt frei) und lässt sich wieder öffnen
+  await expect(page.getByTestId('tools-open')).toBeVisible();
+  await openTools(page, 'tap');
   // Leisten und Werkzeuge passen auf den Bildschirm
   const vw = page.viewportSize()!.width;
   for (const id of ['element-bar', 'draw-toolbar', 'mode-bar', 'mode-measure', 'grid-toggle']) {

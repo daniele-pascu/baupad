@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { join } from 'node:path';
-import { catchDownload, createProject, drawRect, FIXTURES, freshStart, planBox, readXlsx, readXlsxPrint, saveDownload, waitForPlan, waitSaved } from './helpers';
+import { catchDownload, createProject, drawRect, FIXTURES, freshStart, planBox, readXlsx, readXlsxPrint, saveDownload, waitForPlan, waitSaved, pickTool } from './helpers';
 
 /** Phase 4: LV/MFK aus PDF importieren, prüfen, durchsuchen, Messungen zuordnen, Mengen. */
 test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen', async ({ page }) => {
@@ -45,7 +45,7 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   const box = await planBox(page);
   const dlg = page.getByTestId('damage-dialog');
   await expect(page.getByTestId('current-position')).toContainText('ohne Leistungszuordnung');
-  await page.getByTestId('tool-rect').click();
+  await pickTool(page, 'tool-rect');
   await drawRect(page, box.x + box.width * 0.2, box.y + box.height * 0.3, box.x + box.width * 0.35, box.y + box.height * 0.45);
   await dlg.getByTestId('input-length').fill('4');
   await dlg.getByTestId('input-width').fill('2,5');
@@ -53,7 +53,7 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   await dlg.getByTestId('damage-save').click();
   await expect(page.locator('[data-testid="aufmass-row"][data-number="1"] [data-testid="row-position"]')).toHaveText('92 01 01 B');
   await expect(page.getByTestId('current-position')).toContainText('92 01 01 B');
-  await page.getByTestId('tool-line').click();
+  await pickTool(page, 'tool-line');
   await drawRect(page, box.x + box.width * 0.5, box.y + box.height * 0.3, box.x + box.width * 0.7, box.y + box.height * 0.35);
   await dlg.getByTestId('input-length').fill('12');
   // Zuletzt gewählte Leistung wird für die nächste Messung übernommen und im Plan angezeigt
@@ -65,7 +65,7 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   // „Ohne Leistungszuordnung“ bleibt ebenfalls bis zur nächsten Änderung aktiv
   await page.getByRole('button', { name: 'Leistungszuordnung für neue Messungen aufheben' }).click();
   await expect(page.getByTestId('current-position')).toContainText('ohne Leistungszuordnung');
-  await page.getByTestId('tool-rect').click();
+  await pickTool(page, 'tool-rect');
   await drawRect(page, box.x + box.width * 0.6, box.y + box.height * 0.6, box.x + box.width * 0.7, box.y + box.height * 0.7);
   await expect(dlg.getByTestId('input-position')).toHaveValue('');
   await dlg.getByTestId('damage-cancel').click();
@@ -107,12 +107,12 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   await page.getByTestId('plan-open').first().click();
   await waitForPlan(page);
   await expect(page.getByTestId('current-position')).toContainText('ohne Leistungszuordnung');
-  await page.getByTestId('tool-rect').click();
+  await pickTool(page, 'tool-rect');
   await drawRect(page, box.x + box.width * 0.6, box.y + box.height * 0.6, box.x + box.width * 0.7, box.y + box.height * 0.7);
   await dlg.getByTestId('input-length').fill('3');
   await dlg.getByTestId('input-width').fill('2');
   await dlg.getByTestId('damage-save').click();
-  await page.getByTestId('tool-line').click();
+  await pickTool(page, 'tool-line');
   await drawRect(page, box.x + box.width * 0.2, box.y + box.height * 0.8, box.x + box.width * 0.4, box.y + box.height * 0.85);
   await dlg.getByTestId('input-length').fill('5,5');
   await dlg.getByTestId('damage-save').click();

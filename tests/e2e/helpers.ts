@@ -177,3 +177,19 @@ for ws in wb.worksheets:
 print(json.dumps(out))`;
   return JSON.parse(execFileSync('python3', ['-c', script, path], { encoding: 'utf8' }));
 }
+
+/** Werkzeug wählen – die Werkzeugleiste klappt nach dem Zeichnen zu und wird bei Bedarf geöffnet. */
+export async function pickTool(page: Page, testId: string, how: 'click' | 'tap' = 'click') {
+  const btn = page.getByTestId(testId);
+  if (!(await btn.isVisible())) {
+    const open = page.getByTestId('tools-open');
+    if (await open.isVisible()) await (how === 'tap' ? open.tap() : open.click());
+  }
+  await (how === 'tap' ? btn.tap() : btn.click());
+}
+
+/** Zugeklappte Werkzeugleiste öffnen (z. B. für die Farbwahl). */
+export async function openTools(page: Page, how: 'click' | 'tap' = 'click') {
+  const open = page.getByTestId('tools-open');
+  if (await open.isVisible()) await (how === 'tap' ? open.tap() : open.click());
+}

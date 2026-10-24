@@ -78,6 +78,24 @@ function PolylineBar({ polyline, count, viewer }: { polyline: boolean; count: nu
   );
 }
 
+/** Zugeklappte Werkzeugleiste: ein Knopf mit dem aktuellen Werkzeug öffnet sie wieder */
+function ToolsOpenButton({ tool, onOpen }: { tool?: { icon: string; label: string; short?: string }; onOpen: () => void }) {
+  return (
+    <button type="button" className="tool-btn tools-open" onClick={onOpen} aria-expanded={false} title="Werkzeugleiste öffnen" data-testid="tools-open">
+      <Icon name={tool?.icon ?? 'select'} />
+      <span>Werkzeuge</span>
+    </button>
+  );
+}
+
+function ToolsCloseButton({ onClose }: { onClose: () => void }) {
+  return (
+    <button type="button" className="icon-btn icon-btn-sm tools-close" onClick={onClose} aria-label="Werkzeugleiste ausblenden" title="Werkzeugleiste ausblenden" data-testid="tools-close">
+      <Icon name="close" size={18} />
+    </button>
+  );
+}
+
 /** Breite der Messleiste (PC/Tablet quer): Grenzen in Pixeln */
 export const SIDE_MIN = 280;
 export const SIDE_MAX = 720;
@@ -107,6 +125,8 @@ function storePref(key: string, value: string) {
 function measureSummary(d: Pick<Damage, 'kind' | 'length' | 'width' | 'depth' | 'area'>): string {
   if (!hasArea(kindOf(d))) return `L ${formatMeasure(d.length)} m`;
   const depth = d.depth !== null ? ` · T ${formatMeasure(d.depth)} m` : '';
+  // ohne Breite/Höhe: nur die Länge, keine Fläche
+  if (d.width === null || d.area === null) return `L ${formatMeasure(d.length)} m${depth}`;
   return `${formatMeasure(d.length)} × ${formatMeasure(d.width)} m${depth} = ${formatArea(d.area)} m²`;
 }
 
@@ -177,6 +197,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const initialMode = () => (isDrawingPlan(data.plans[planId]) && !elementsOf(data, planId).length ? 'draw' : 'measure');
   const [mode, setMode] = useState<'draw' | 'measure'>(initialMode);
   const drawMode = drawingPlan && mode === 'draw';
+  /** Werkzeugleiste aufgeklappt (klappt nach dem Zeichnen zu, damit der Plan frei bleibt) */
+  const [toolsOpen, setToolsOpen] = useState(true);
   /** Farbauswahl der Zeichenleiste aufgeklappt */
   const [colorsOpen, setColorsOpen] = useState(false);
   // Höhe der Werkzeugleiste (kann umbrechen) – Leisten darüber werden passend versetzt
@@ -184,7 +206,10 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     const host = planRef.current;
     const bar = host?.querySelector('.toolbar');
     if (!host || !bar) return;
-    const ro = new ResizeObserver(() => host.style.setProperty('--toolbar-h', `${Math.round(bar.getBoundingClientRect().height)}px`));
+    // Abstand von der Oberkante der Leiste bis zum unteren Rand der Planfläche
+    const ro = new ResizeObserver(() =>
+      host.style.setProperty('--toolbar-h', `${Math.round(host.getBoundingClientRect().bottom - bar.getBoundingClientRect().top)}px`),
+    );
     ro.observe(bar);
     return () => ro.disconnect();
   }, [drawMode]);
@@ -212,7 +237,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     return duplicateIds(stored);
   }, [stored]);
   const selected = damages.find((d) => d.id === selectedId) ?? null;
-  const drawing = useDrawing({ plan, data, damages, viewer });
+  const drawing = useDrawing({ plan, data, damages, viewer, onCreated: () => setToolsOpen(false) });
   const region = useMemo(
     () => (plan && drawingPlan ? drawingRegion(plan, drawing.elements, stored) : undefined),
     [plan, drawingPlan, drawing.elements, stored],
@@ -224,6 +249,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
 
   const switchMode = (m: 'draw' | 'measure') => {
     setMode(m);
+    setToolsOpen(true);
     setSelectedId(null);
     drawing.setSelectedId(null);
   };
@@ -386,6 +412,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       }
       if (v.color !== color) setColor(v.color);
       setSelectedId(dmg.id);
+      // Fertig: zurück zur Auswahl (Messung bleibt ausgewählt und bearbeitbar), Leiste zuklappen
+      setTool('select');
+      setToolsOpen(false);
       const amount = area !== null ? `${formatArea(area)} m²` : `${formatMeasure(v.length)} m`;
       toast(`${KIND_LABELS[v.kind]} ${shown} gespeichert (${amount}).`, 'success', 2500);
     } else {
@@ -500,7 +529,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         </a>
         <div className="topbar-title">
           <small>
-            {data.project.name} · {costCenterLabel(cc)}
+            {[data.project.name, costCenterLabel(cc)].filter(Boolean).join(' · ')}
           </small>
           <div className="plan-switch">
             <button
@@ -818,7 +847,11 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           )}
 
           {drawMode ? (
-            <div className="toolbar draw-toolbar" role="toolbar" aria-label="Zeichenwerkzeuge" data-testid="draw-toolbar">
+            <div className={`toolbar draw-toolbar${toolsOpen ? '' : ' toolbar-collapsed'}`} role="toolbar" aria-label="Zeichenwerkzeuge" data-testid="draw-toolbar">
+              {!toolsOpen ? (
+                <ToolsOpenButton tool={DRAW_TOOLS.find((t) => t.id === drawing.tool)} onOpen={() => setToolsOpen(true)} />
+              ) : (
+              <>
               {(['select', 'draw', 'annotate'] as const).map((g) => (
                 <div key={g} className="tool-group" role="group" aria-label={TOOL_GROUP_LABELS[g]}>
                   {DRAW_TOOLS.filter((t) => t.group === g).map((t) => (
@@ -891,9 +924,16 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                   </div>
                 )}
               </div>
+              <ToolsCloseButton onClose={() => setToolsOpen(false)} />
+              </>
+              )}
             </div>
           ) : (
-          <div className="toolbar" role="toolbar" aria-label="Werkzeuge">
+          <div className={`toolbar${toolsOpen ? '' : ' toolbar-collapsed'}`} role="toolbar" aria-label="Werkzeuge">
+            {!toolsOpen ? (
+              <ToolsOpenButton tool={TOOLS.find((t) => t.id === tool)} onOpen={() => setToolsOpen(true)} />
+            ) : (
+            <>
             <div className="tool-group">
               {TOOLS.map((t) => (
                 <button
@@ -929,6 +969,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 />
               ))}
             </div>
+            <ToolsCloseButton onClose={() => setToolsOpen(false)} />
+            </>
+            )}
           </div>
           )}
         </div>

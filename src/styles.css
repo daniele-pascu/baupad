@@ -1353,7 +1353,7 @@ textarea {
 .selection-bar {
   position: absolute;
   left: 50%;
-  bottom: calc(var(--toolbar-h, 62px) + 20px + var(--safe-bottom));
+  bottom: calc(var(--toolbar-h, 72px) + 10px);
   transform: translateX(-50%);
   display: flex;
   align-items: center;
@@ -1475,7 +1475,7 @@ textarea {
 .draw-bar {
   position: absolute;
   left: 50%;
-  bottom: calc(var(--toolbar-h, 62px) + 20px + var(--safe-bottom));
+  bottom: calc(var(--toolbar-h, 72px) + 10px);
   transform: translateX(-50%);
   display: flex;
   align-items: flex-end;
@@ -2554,5 +2554,35 @@ tr.lv-flagged td {
   }
   .draw-toolbar .tool-group:not(.colors) {
     display: contents;
+  }
+}
+
+/* ---------- Werkzeugleiste zugeklappt (nach dem Zeichnen) ---------- */
+.tools-close {
+  align-self: center;
+}
+.toolbar.toolbar-collapsed {
+  width: auto;
+  padding: 4px;
+}
+.tools-open {
+  min-width: 84px;
+}
+@media (max-width: 600px) {
+  .toolbar.toolbar-collapsed,
+  .toolbar.draw-toolbar.toolbar-collapsed {
+    display: flex;
+    left: auto;
+    right: 10px;
+    bottom: calc(10px + var(--safe-bottom));
+    border-radius: 14px;
+    padding: 4px;
+  }
+  .toolbar-collapsed .tools-open {
+    flex: none;
+    min-width: 84px;
+  }
+  .draw-toolbar .tools-close {
+    grid-column: 8;
   }
 }

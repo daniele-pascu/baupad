@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { PAPER } from '../lib/drawing';
 import { exportPaper } from '../lib/sheet-layout';
-import { costCenterLabel, costCentersOf, damagesOf, planTitle, plansOf } from '../lib/aufmass';
+import { costCenterName, costCentersOf, damagesOf, planTitle, plansOf } from '../lib/aufmass';
 import type { OverviewCorner } from '../lib/export-pdf';
 import type { ProjectState } from '../lib/store';
 import { Modal } from './Modal';
@@ -88,7 +88,7 @@ export function PdfExportDialog({ data, costCenterId, initial, onClose }: Props)
       </div>
       {groups.map(({ cc, plans }) => (
         <fieldset key={cc.id} className="check-group">
-          <legend>{costCenterLabel(cc)}</legend>
+          <legend>{costCenterName(cc)}</legend>
           {plans.map((p) => (
             <label key={p.id} className="check-row">
               <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggle(p.id)} />

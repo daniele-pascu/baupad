@@ -74,8 +74,9 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const label = !isNumeric && raw ? raw : null;
   const labelTaken = label ? others.find((o) => o.id !== damage.id && damageNo(o).toLowerCase() === label.toLowerCase()) : undefined;
   const L = checkMeasure(v.length, 'Länge');
-  const B = withArea ? checkMeasure(v.width, 'Breite') : null;
-  // Tiefe ist optional: leer bleibt leer (null), eine Eingabe muss aber gültig sein
+  // Nur die Länge ist Pflicht. Breite/Höhe und Tiefe sind optional: leer bleibt leer (null,
+  // nicht 0), eine Eingabe muss aber gültig sein
+  const B = withArea && v.width.trim() ? checkMeasure(v.width, 'Breite/Höhe') : null;
   const T = withArea && v.depth.trim() ? checkMeasure(v.depth, 'Tiefe') : null;
   const area = withArea && L.ok && B?.ok ? computeArea(L.value, B.value) : null;
   // Nummernkonflikte nur unter reinen Nummern (Kennzeichnungen haben eine eigene Prüfung)
@@ -150,7 +151,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
           autoCapitalize={name === 'number' ? 'characters' : undefined}
           enterKeyHint={fields[fields.length - 1] === name ? 'done' : 'next'}
           autoComplete="off"
-          placeholder={name === 'depth' ? 'optional' : undefined}
+          placeholder={name === 'depth' || name === 'width' ? 'optional' : undefined}
           aria-invalid={showErrors && !!errors[name]}
           data-autofocus={mode === 'new' && name === 'length' ? '' : undefined}
           data-testid={`input-${name}`}
@@ -209,8 +210,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
         </div>
         <div className="measure-grid">
           {field('number', 'Nr. / Kennz.', 'Nr.')}
-          {field('length', 'Länge', 'm')}
-          {withArea && field('width', 'Breite', 'm')}
+          {field('length', 'Länge *', 'm')}
+          {withArea && field('width', 'Breite / Höhe (optional)', 'm')}
           {withArea && field('depth', 'Tiefe (optional)', 'm')}
         </div>
         {suggestion && (
@@ -235,8 +236,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
         <div className="area-result" data-testid="area-result">
           {withArea ? (
             <>
-              <span>Fläche (Länge × Breite)</span>
-              <strong>{area !== null ? `${formatArea(area)} m²` : '–'}</strong>
+              <span>{area !== null || !lengthValue ? 'Fläche (Länge × Breite/Höhe)' : 'Nur Länge – Fläche erst mit Breite/Höhe'}</span>
+              <strong>{area !== null ? `${formatArea(area)} m²` : lengthValue && lengthValue > 0 && !v.width.trim() ? `${formatArea(lengthValue)} m` : '–'}</strong>
             </>
           ) : (
             <>

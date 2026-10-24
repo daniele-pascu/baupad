@@ -115,7 +115,8 @@ export function HomePage() {
     } catch {
       /* optional */
     }
-    const { project } = await createProjectWithCostCenters(fields, costCenters);
+    // ohne Kostenstelle: eine leere Kostenstelle nimmt die Pläne auf (später ausfüllbar)
+    const { project } = await createProjectWithCostCenters(fields, costCenters.length ? costCenters : [{ number: '', name: '' }]);
     // Projektseite mit Projektinfos, Kostenstelle und Planliste – dort wird der erste Plan importiert
     navigate(paths.project(project.id));
   };

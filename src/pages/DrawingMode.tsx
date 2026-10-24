@@ -72,8 +72,15 @@ const roundShape = (s: Shape): Shape => ({ ...s, x: roundM(s.x), y: roundM(s.y),
  * Zustand und Bedienlogik der Planbearbeitung für selbst gezeichnete Pläne.
  * Die Zeichnungsobjekte sind eigene Datensätze in Metern; Messungen bleiben davon unberührt.
  */
-export function useDrawing(opts: { plan: Plan | undefined; data: ProjectState; damages: Damage[]; viewer: React.RefObject<PlanViewerHandle | null> }) {
-  const { plan, data, damages, viewer } = opts;
+export function useDrawing(opts: {
+  plan: Plan | undefined;
+  data: ProjectState;
+  damages: Damage[];
+  viewer: React.RefObject<PlanViewerHandle | null>;
+  /** Objekt fertig gezeichnet bzw. eingefügt (z. B. Werkzeugleiste zuklappen) */
+  onCreated?: () => void;
+}) {
+  const { plan, data, damages, viewer, onCreated } = opts;
   const k = plan ? unitsPerMeter(plan) : 100;
   const [tool, setToolState] = useState<Tool>(() => {
     const t = pref('drawTool', 'rect') as Tool;
@@ -148,12 +155,18 @@ export function useDrawing(opts: { plan: Plan | undefined; data: ProjectState; d
   // -------------------------------------------------------------------------
   // Anlegen und Ändern
 
-  const create = (type: DrawElementType, shape: Shape, extra: Partial<DrawElement> = {}) => {
+  /**
+   * Objekt speichern und auswählen. Danach gilt wieder „Auswahl“ (das Objekt ist sofort
+   * bearbeitbar) – außer bei Linien aus der Maßeingabe: Die nächste Linie schließt an (Wände).
+   */
+  const create = (type: DrawElementType, shape: Shape, extra: Partial<DrawElement> = {}, keepTool = false) => {
     if (!plan) return;
     const rec: DrawElement = { ...newMeta(), projectId: plan.projectId, planId: plan.id, type, shape: roundShape(shape), color, ...extra };
     putRecord('elements', rec);
     setSelectedId(rec.id);
     setLastLineEnd(type === 'line' ? lineEnds(rec.shape)[1] : null);
+    if (!keepTool) setTool('select');
+    onCreated?.();
   };
 
   /** Im Plan gezogene Form übernehmen (Seitenkoordinaten → Meter) */
@@ -194,7 +207,7 @@ export function useDrawing(opts: { plan: Plan | undefined; data: ProjectState; d
     const c = viewer.current?.center();
     const center = c ? { x: c.x / k, y: c.y / k } : { x: 1, y: 1 };
     const grid = (p: Point) => snapToGrid(p, 0.05);
-    if (tool === 'line' && m.length) create('line', lineFromMeasures(lastLineEnd ?? grid(center), m.length, m.angle ?? 0));
+    if (tool === 'line' && m.length) create('line', lineFromMeasures(lastLineEnd ?? grid(center), m.length, m.angle ?? 0), {}, true);
     else if (tool === 'rect' && m.length && m.width) create('rect', rectFromMeasures(grid({ x: center.x - m.length / 2, y: center.y - m.width / 2 }), m.length, m.width));
     else if (tool === 'ellipse' && m.diameter) create('ellipse', circleFromMeasures(grid(center), m.diameter));
     else if (tool === 'triangle' && m.base && m.height)

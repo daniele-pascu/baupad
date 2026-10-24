@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { FIXTURES, OUT, catchDownload, createProject, fillMeasures, freshStart, planBox, saveDownload, waitForPlan, waitSaved } from './helpers';
+import { FIXTURES, OUT, catchDownload, createProject, fillMeasures, freshStart, planBox, saveDownload, waitForPlan, waitSaved, pickTool } from './helpers';
 test('Nummern dicht nebeneinander liegender Schadstellen überlappen nicht (Ansicht und PDF)', async ({ page }) => {
   test.setTimeout(180000);
   await freshStart(page);
@@ -15,16 +15,17 @@ test('Nummern dicht nebeneinander liegender Schadstellen überlappen nicht (Ansi
   await wiz.getByTestId('import-save').click();
   await waitForPlan(page);
   const box = await planBox(page);
-  await page.getByTestId('tool-ellipse').click();
+  await pickTool(page, 'tool-ellipse');
   const pts: [number, number][] = [];
   for (let i = 0; i < 6; i++) pts.push([0.30 + i * 0.035, 0.45]); // Reihe dicht nebeneinander
   pts.push([0.30, 0.52], [0.335, 0.52], [0.37, 0.52]); // zweite Reihe direkt darunter
   for (const [fx, fy] of pts) {
+    await pickTool(page, 'tool-ellipse'); // nach jeder Messung ist wieder „Auswahl“ aktiv
     await page.mouse.click(box.x + box.width * fx, box.y + box.height * fy);
     await fillMeasures(page, '1', '1', '0,02', false);
   }
   await waitSaved(page);
-  await page.getByTestId('tool-select').click();
+  await pickTool(page, 'tool-select');
   await page.mouse.click(box.x + 5, box.y + box.height - 5);
   const v = (await page.getByTestId('plan-viewer').boundingBox())!;
   await page.screenshot({ path: join(OUT, 'cluster-ansicht.png'), clip: { x: box.x + box.width * 0.22, y: box.y + box.height * 0.33, width: box.width * 0.38, height: box.height * 0.3 } });

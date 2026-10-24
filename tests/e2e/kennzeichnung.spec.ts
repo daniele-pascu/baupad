@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { join } from 'node:path';
-import { catchDownload, createProject, drawRect, FIXTURES, freshStart, planBox, readXlsx, saveDownload, waitForPlan, waitSaved } from './helpers';
+import { catchDownload, createProject, drawRect, FIXTURES, freshStart, planBox, readXlsx, saveDownload, waitForPlan, waitSaved, pickTool } from './helpers';
 
 /** Paket D: Nummern und Buchstaben kombinieren, Schema wird fortgesetzt. */
 test('Kennzeichnungen A, B, C, „Wand A“ und Zahlen – Fortsetzung, Doppelprüfung, Export', async ({ page }) => {
@@ -19,6 +19,7 @@ test('Kennzeichnungen A, B, C, „Wand A“ und Zahlen – Fortsetzung, Doppelpr
     const x = box.x + box.width * (0.1 + (i % 5) * 0.15);
     const y = box.y + box.height * (0.15 + Math.floor(i / 5) * 0.3);
     i++;
+    await pickTool(page, 'tool-rect'); // nach jeder Messung ist wieder „Auswahl“ aktiv
     await drawRect(page, x, y, x + box.width * 0.08, y + box.height * 0.1);
     await expect(dlg).toBeVisible();
   };
@@ -29,7 +30,7 @@ test('Kennzeichnungen A, B, C, „Wand A“ und Zahlen – Fortsetzung, Doppelpr
     await dlg.getByTestId('damage-save').click();
     await expect(dlg).toBeHidden();
   };
-  await page.getByTestId('tool-rect').click();
+  await pickTool(page, 'tool-rect');
 
   // Erste Messung: Vorschlag 1, stattdessen „A“
   await draw();
