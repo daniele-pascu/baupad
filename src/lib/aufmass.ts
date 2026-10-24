@@ -261,7 +261,8 @@ function exportClassic(data: ProjectState, scope: XlsxScope): ExportFile {
 export function planSheet(data: ProjectState, plan: Plan, used: Set<string>): Sheet {
   const damages = damagesOf(data, plan.id);
   const showKind = damages.some((d) => kindOf(d) !== 'damage');
-  const showComp = damages.some((d) => d.componentId && data.components?.[d.componentId] && !data.components[d.componentId].deletedAt);
+  // Bauteilbuchstaben werden in der Oberfläche nicht mehr verwendet – im Export ausgeblendet
+  const showComp = false;
   const showPos = damages.some((d) => findPosition(data, d.positionRef));
   const headers = ['Nr.', 'Länge (m)', 'Breite (m)', 'Tiefe (m)', 'Fläche (m²)'];
   if (showKind) headers.push('Messart');

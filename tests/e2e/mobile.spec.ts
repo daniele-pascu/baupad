@@ -170,7 +170,7 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   await expect(page.getByTestId('selection-bar')).toContainText('3,60 m²');
   // Alle Werkzeuge und Rückgängig/Wiederholen sind per Finger erreichbar, nichts ragt über den Rand
   const vw = page.viewportSize()!.width;
-  for (const t of ['select', 'line', 'rect', 'ellipse', 'triangle', 'freehand', 'component']) {
+  for (const t of ['select', 'line', 'rect', 'ellipse', 'triangle', 'freehand']) {
     const b = (await page.getByTestId(`tool-${t}`).boundingBox())!;
     expect(b.x).toBeGreaterThanOrEqual(0);
     expect(b.x + b.width).toBeLessThanOrEqual(vw + 0.5);

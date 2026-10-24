@@ -21,6 +21,8 @@ export interface SyncMeta {
 
 export interface Project extends SyncMeta {
   name: string;
+  /** Projektnummer (optional; ältere Projekte haben keine) */
+  number?: string;
   site: string;
   address: string;
   client: string;

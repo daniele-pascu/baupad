@@ -250,8 +250,12 @@ export async function projectStats(projectId: string) {
     db.getAllFromIndex('plans', 'projectId', projectId),
     db.getAllFromIndex('damages', 'projectId', projectId),
   ]);
+  const liveCc = cc.filter((x) => !x.deletedAt).sort((a, b) => a.sortIndex - b.sortIndex);
   return {
-    costCenters: cc.filter((x) => !x.deletedAt).length,
+    /** Kostenstellennummern bzw. -bezeichnungen (für Suche, Sortierung und Anzeige) */
+    costCenterNumbers: liveCc.map((c) => c.number?.trim() ?? '').filter(Boolean),
+    costCenterNames: liveCc.map((c) => c.name.trim()).filter(Boolean),
+    costCenters: liveCc.length,
     plans: plans.filter((x) => !x.deletedAt).length,
     damages: damages.filter((x) => !x.deletedAt).length,
   };

@@ -44,6 +44,7 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   await waitForPlan(page);
   const box = await planBox(page);
   const dlg = page.getByTestId('damage-dialog');
+  await expect(page.getByTestId('current-position')).toContainText('ohne Leistungszuordnung');
   await page.getByTestId('tool-rect').click();
   await drawRect(page, box.x + box.width * 0.2, box.y + box.height * 0.3, box.x + box.width * 0.35, box.y + box.height * 0.45);
   await dlg.getByTestId('input-length').fill('4');
@@ -51,12 +52,23 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   await dlg.getByTestId('input-position').selectOption({ label: '92 01 01 B Sperrflaeche (m²)' });
   await dlg.getByTestId('damage-save').click();
   await expect(page.locator('[data-testid="aufmass-row"][data-number="1"] [data-testid="row-position"]')).toHaveText('92 01 01 B');
+  await expect(page.getByTestId('current-position')).toContainText('92 01 01 B');
   await page.getByTestId('tool-line').click();
   await drawRect(page, box.x + box.width * 0.5, box.y + box.height * 0.3, box.x + box.width * 0.7, box.y + box.height * 0.35);
   await dlg.getByTestId('input-length').fill('12');
+  // Zuletzt gewählte Leistung wird für die nächste Messung übernommen und im Plan angezeigt
+  await expect(dlg.getByTestId('input-position').locator('option:checked')).toHaveText('92 01 01 B Sperrflaeche (m²)');
   await dlg.getByTestId('input-position').selectOption({ label: '92 01 01 A Linienmarkierung weiss (m)' });
   await dlg.getByTestId('damage-save').click();
   await waitSaved(page);
+  await expect(page.getByTestId('current-position')).toContainText('92 01 01 A');
+  // „Ohne Leistungszuordnung“ bleibt ebenfalls bis zur nächsten Änderung aktiv
+  await page.getByRole('button', { name: 'Leistungszuordnung für neue Messungen aufheben' }).click();
+  await expect(page.getByTestId('current-position')).toContainText('ohne Leistungszuordnung');
+  await page.getByTestId('tool-rect').click();
+  await drawRect(page, box.x + box.width * 0.6, box.y + box.height * 0.6, box.x + box.width * 0.7, box.y + box.height * 0.7);
+  await expect(dlg.getByTestId('input-position')).toHaveValue('');
+  await dlg.getByTestId('damage-cancel').click();
 
   // Planliste zeigt die Leistungen, LV die Aufmaßmengen: 10 m² × 25 € + 12 m × 3 € = 286 €
   await page.getByRole('link', { name: 'Zurück zur Planliste' }).click();

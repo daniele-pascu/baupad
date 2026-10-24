@@ -299,6 +299,121 @@ a {
   color: var(--muted);
   font-size: 0.92rem;
 }
+/* Plan: aktuelle Leistung für neue Messungen */
+.position-chip {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: calc(100% - 90px);
+  padding: 4px 6px 4px 10px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+.position-chip.active {
+  border-color: var(--primary);
+}
+.position-chip-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* Projektverwaltung: Suche, Sortierung, kompakte Karten */
+.project-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.project-search {
+  flex: 1 1 260px;
+  min-width: 0;
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font: inherit;
+  font-size: 16px;
+  background: var(--surface);
+}
+.project-tools select {
+  height: 42px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font: inherit;
+  font-size: 16px;
+  background: var(--surface);
+}
+.project-tools .btn {
+  height: 42px;
+}
+.card-list:has(.project-card) {
+  gap: 8px;
+}
+.project-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.project-card .card-main {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 12px;
+}
+.project-card .card-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 1rem;
+  line-height: 1.3;
+}
+.project-no {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+.project-card .card-sub {
+  font-size: 0.86rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.project-card .card-meta {
+  margin-top: 3px;
+  gap: 2px 12px;
+  font-size: 0.78rem;
+}
+.project-card .card-actions {
+  flex-shrink: 0;
+  padding: 0 10px 0 0;
+  gap: 4px;
+}
+@media (max-width: 700px) {
+  .project-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+  }
+  .project-card .card-actions {
+    padding: 0 8px 8px;
+  }
+  .project-card .card-actions .btn {
+    flex: 1;
+    justify-content: center;
+    min-height: 36px;
+    padding: 4px 6px;
+  }
+}
 .backup-due {
   color: #b45309;
   font-weight: 600;
@@ -1066,11 +1181,10 @@ textarea {
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
-  cursor: grab;
+  /* Auswahlmodus: normaler Pfeil; andere Zeiger nur bei Anfassern, Verschieben und Ziehen */
+  cursor: default;
 }
-.viewer.tool-ellipse,
-.viewer.tool-rect,
-.viewer.tool-freehand {
+.viewer:not(.tool-select) {
   cursor: crosshair;
 }
 .viewer-world {
@@ -1095,7 +1209,7 @@ textarea {
   font-family: inherit;
 }
 .damage-label {
-  cursor: move;
+  cursor: default;
 }
 .sel-box {
   fill: none;
@@ -1112,7 +1226,6 @@ textarea {
   fill: #fff;
   stroke: #1c2129;
   stroke-width: 1.5;
-  cursor: grab;
 }
 .rot-handle path {
   stroke: #1c2129;

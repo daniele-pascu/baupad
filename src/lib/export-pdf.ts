@@ -114,7 +114,8 @@ async function addPlanPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   if (!file) throw new Error(`Originaldatei zu Plan ${planTitle(plan)} fehlt.`);
   const region: Rect = plan.crop ?? { x: 0, y: 0, w: plan.pageWidth, h: plan.pageHeight };
   const damages = damagesOf(data, plan.id);
-  const components = componentsOf(data, plan.id);
+  // Bauteilbuchstaben werden nicht mehr verwendet (Daten bleiben gespeichert, erscheinen aber nicht im Export)
+  const components: ReturnType<typeof componentsOf> = [];
 
   if (file.kind === 'pdf') {
     const bytes = await getBlob(file.id);
@@ -356,7 +357,8 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   const k = unitsPerMeter(plan);
   const elements = elementsOf(data, plan.id);
   const damages = damagesOf(data, plan.id);
-  const components = componentsOf(data, plan.id);
+  // Bauteilbuchstaben werden nicht mehr verwendet (Daten bleiben gespeichert, erscheinen aber nicht im Export)
+  const components: ReturnType<typeof componentsOf> = [];
   const region = contentRegion(plan, elements, damages);
   const portrait = region.h > region.w;
   const W = portrait ? A3.hPt : A3.wPt;

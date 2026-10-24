@@ -548,8 +548,26 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     forceRender((n) => n + 1);
   };
 
+  /** Mauszeiger im Auswahlmodus: Pfeil, nur über Anfassern bzw. verschiebbaren Objekten ein anderer Zeiger */
+  const HANDLE_CURSOR: Record<string, string> = { n: 'ns-resize', s: 'ns-resize', e: 'ew-resize', w: 'ew-resize', nw: 'nwse-resize', se: 'nwse-resize', ne: 'nesw-resize', sw: 'nesw-resize', rot: 'grab' };
+  const setCursor = (c: string) => {
+    const el = containerRef.current;
+    if (el && el.style.cursor !== c) el.style.cursor = c;
+  };
+  const hoverCursor = (p: Point) => {
+    if (propsRef.current.tool !== 'select' || !viewRef.current) return setCursor('');
+    const h = hitHandle(p);
+    if (h) return setCursor(HANDLE_CURSOR[h.replace(/^v/, '')] ?? 'move');
+    if (hitComponent(p) || hitLabel(p)) return setCursor('move');
+    const hit = hitDamage(p);
+    setCursor(hit && hit.id === propsRef.current.selectedId ? 'move' : hit ? 'pointer' : '');
+  };
+
   const onPointerMove = (e: React.PointerEvent) => {
-    if (!pointers.current.has(e.pointerId)) return;
+    if (!pointers.current.has(e.pointerId)) {
+      if (e.pointerType === 'mouse') hoverCursor(localPoint(e));
+      return;
+    }
     const p = localPoint(e);
     pointers.current.set(e.pointerId, p);
     const g = gesture.current;
@@ -573,6 +591,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         const dy = p.y - g.start.y;
         if (!g.moved && Math.hypot(dx, dy) < 6) return;
         g.moved = true;
+        setCursor('grabbing');
         setView({ ...g.view, tx: g.view.tx + dx, ty: g.view.ty + dy });
         return;
       }
@@ -660,6 +679,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     }
     if (pointers.current.size) return;
     gesture.current = { kind: 'none' };
+    setCursor('');
     if (!v) return;
     const p = localPoint(e);
     switch (g.kind) {

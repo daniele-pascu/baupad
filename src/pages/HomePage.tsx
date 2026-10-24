@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '../components/Icon';
 import { ProjectForm, type CostCenterInput, type ProjectFields } from '../components/ProjectForm';
 import { SiteNav } from '../components/SiteNav';
@@ -7,7 +7,7 @@ import { backupStatus, exportProjectBackup, findExistingProject, importProjectBa
 import { deleteProjectCompletely, getMeta, listProjects, projectStats, setMeta, writeRecords } from '../lib/db';
 import { isIOS } from '../lib/download';
 import { getDeviceId } from '../lib/ids';
-import { formatDate, formatDateTime } from '../lib/numbers';
+import { formatDate, formatDateTime, naturalCompare } from '../lib/numbers';
 import { navigate, paths } from '../lib/router';
 import { closeProject, createProjectWithCostCenters } from '../lib/store';
 import type { Project } from '../lib/types';
@@ -16,7 +16,48 @@ interface Row {
   project: Project;
   lastEdit: number;
   backup: BackupStatus;
-  stats: { costCenters: number; plans: number; damages: number };
+  stats: Awaited<ReturnType<typeof projectStats>>;
+}
+
+type SortKey = 'changed' | 'created' | 'name' | 'number' | 'costCenter';
+const SORT_LABELS: Record<SortKey, string> = {
+  changed: 'Letzte Änderung',
+  created: 'Erstellungsdatum',
+  name: 'Projektname',
+  number: 'Projektnummer',
+  costCenter: 'Kostenstellennummer',
+};
+
+function loadSort(): { key: SortKey; dir: 'asc' | 'desc' } {
+  try {
+    const s = JSON.parse(localStorage.getItem('projectSort') ?? 'null');
+    if (s && s.key in SORT_LABELS && (s.dir === 'asc' || s.dir === 'desc')) return s;
+  } catch {
+    /* Standard */
+  }
+  return { key: 'changed', dir: 'desc' };
+}
+
+/** Projekte nach Suchbegriff filtern und sortieren (leere Werte stehen immer am Ende). */
+function filterAndSort(rows: Row[], query: string, sort: { key: SortKey; dir: 'asc' | 'desc' }): Row[] {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const hay = (r: Row) =>
+    [r.project.name, r.project.number, r.project.site, r.project.address, r.project.client, ...r.stats.costCenterNumbers, ...r.stats.costCenterNames]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+  const found = words.length ? rows.filter((r) => words.every((w) => hay(r).includes(w))) : rows;
+  const text = (r: Row): string =>
+    sort.key === 'name' ? r.project.name : sort.key === 'number' ? (r.project.number ?? '') : sort.key === 'costCenter' ? (r.stats.costCenterNumbers[0] ?? '') : '';
+  const sign = sort.dir === 'asc' ? 1 : -1;
+  return [...found].sort((a, b) => {
+    if (sort.key === 'changed') return sign * (a.lastEdit - b.lastEdit);
+    if (sort.key === 'created') return sign * (a.project.createdAt - b.project.createdAt);
+    const ta = text(a);
+    const tb = text(b);
+    if (!ta || !tb) return ta ? -1 : tb ? 1 : 0;
+    return sign * naturalCompare(ta, tb);
+  });
 }
 
 export function HomePage() {
@@ -24,6 +65,18 @@ export function HomePage() {
   const [creating, setCreating] = useState(false);
   const [storage, setStorage] = useState<{ usage: number; quota: number; persisted: boolean } | null>(null);
   const [upgraded, setUpgraded] = useState(false);
+  const [query, setQuery] = useState('');
+  const [sort, setSortState] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>(loadSort);
+  const setSort = (s: { key: SortKey; dir: 'asc' | 'desc' }) => {
+    setSortState(s);
+    try {
+      localStorage.setItem('projectSort', JSON.stringify(s));
+    } catch {
+      /* optional */
+    }
+  };
+  // Suche und Sortierung ändern nur die Anzeige, nie die Projektdaten
+  const visible = useMemo(() => filterAndSort(rows ?? [], query, sort), [rows, query, sort]);
   const importRef = useRef<HTMLInputElement>(null);
 
   const load = async () => {
@@ -219,18 +272,70 @@ export function HomePage() {
             <p className="muted">Legen Sie ein neues Projekt an oder importieren Sie eine Projektsicherung.</p>
           </div>
         )}
+        {!!rows?.length && (
+          <div className="project-tools" data-testid="project-tools">
+            <input
+              type="search"
+              className="project-search"
+              placeholder="Suchen: Name, Projekt-Nr., Kostenstelle, Baustelle, Auftraggeber"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              aria-label="Projekte suchen"
+              data-testid="project-search"
+            />
+            <div className="row gap">
+              <select
+                value={sort.key}
+                onChange={(e) => {
+                  const key = e.target.value as SortKey;
+                  // Texte zunächst A→Z, Datumsangaben zunächst neueste zuerst
+                  setSort({ key, dir: key === 'changed' || key === 'created' ? 'desc' : 'asc' });
+                }}
+                aria-label="Sortieren nach"
+                data-testid="project-sort"
+              >
+                {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
+                  <option key={k} value={k}>
+                    {SORT_LABELS[k]}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={() => setSort({ ...sort, dir: sort.dir === 'asc' ? 'desc' : 'asc' })}
+                aria-label={sort.dir === 'asc' ? 'Aufsteigend sortiert – umschalten' : 'Absteigend sortiert – umschalten'}
+                title="Sortierrichtung umschalten"
+                data-testid="project-sort-dir"
+              >
+                {sort.dir === 'asc' ? '↑ Aufsteigend' : '↓ Absteigend'}
+              </button>
+            </div>
+          </div>
+        )}
+        {!!rows?.length && query && !visible.length && <p className="muted">Kein Projekt gefunden.</p>}
         <ul className="card-list" data-testid="project-list">
-          {rows?.map((r) => (
-            <li key={r.project.id} className="card">
+          {visible.map((r) => (
+            <li key={r.project.id} className="card project-card">
               <a className="card-main" href={paths.project(r.project.id)} data-testid="project-card">
-                <div className="card-title">{r.project.name}</div>
+                <div className="card-title">
+                  {r.project.name}
+                  {r.project.number && <span className="project-no">Nr. {r.project.number}</span>}
+                </div>
                 <div className="card-sub">
-                  {[r.project.site, r.project.address].filter(Boolean).join(' · ') || 'Keine Baustelle angegeben'}
+                  {[
+                    r.stats.costCenterNumbers.length ? `KSt. ${r.stats.costCenterNumbers.join(', ')}` : '',
+                    r.project.site,
+                    r.project.address,
+                    r.project.client,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ') || 'Keine Baustelle angegeben'}
                 </div>
                 <div className="card-meta">
                   <span>{formatDate(r.project.date)}</span>
                   <span>
-                    {r.stats.costCenters} Kostenst. · {r.stats.plans} Pläne · {r.stats.damages} Schadst.
+                    {r.stats.costCenters} Kostenst. · {r.stats.plans} Pläne · {r.stats.damages} Messungen
                   </span>
                   <span>Zuletzt bearbeitet: {formatDateTime(r.lastEdit)}</span>
                   <span className={r.backup.due ? 'backup-due' : undefined} data-testid="backup-info">

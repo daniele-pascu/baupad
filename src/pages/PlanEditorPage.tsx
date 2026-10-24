@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AufmassTable } from '../components/AufmassTable';
-import { ComponentDialog, nextLetter, type ComponentValues } from '../components/ComponentDialog';
 import { DamageDialog, type DamageValues, type Renumber } from '../components/DamageDialog';
 import { ElementBar, InsertBar } from '../components/DrawPanel';
 import { Icon } from '../components/Icon';
@@ -9,19 +8,18 @@ import { PlanDetailsDialog } from '../components/PlanFields';
 import { PlanViewer, type PlanViewerHandle, type Tool } from '../components/PlanViewer';
 import { SaveErrorBanner, SaveStatus } from '../components/SaveStatus';
 import { confirmDialog, offerFile, showError, toast } from '../components/ui';
-import { componentsOf, costCenterLabel, damagesOf, elementsOf, exportXlsx, findPosition, lvDocLabel, lvDocsOf, plansOf, planTitle, positionRef, sumArea } from '../lib/aufmass';
+import { costCenterLabel, damagesOf, elementsOf, exportXlsx, findPosition, lvDocLabel, lvDocsOf, plansOf, planTitle, positionRef, sumArea } from '../lib/aufmass';
 import { drawingRegion, isDrawingPlan, suggestMeasures, unitsPerMeter } from '../lib/drawing';
-import { convertShape, type Point } from '../lib/geometry';
+import { convertShape } from '../lib/geometry';
 import { countKind, defaultKindFor, hasArea, KIND_LABELS, KINDS, kindOf, sumLengths } from '../lib/measure';
 import { computeArea, formatArea, formatMeasure } from '../lib/numbers';
 import { compactNumbers, duplicateNumbers, nextNumber, planNumberStart, shiftNumbers, swapNumbers } from '../lib/numbering';
 import { navigate, paths } from '../lib/router';
 import { clearHistory, newMeta, putRecord, putRecords, redo, softDelete, undo, useAppState, type ProjectState } from '../lib/store';
-import { COLORS, SHAPE_LABELS, type Component, type Damage, type DrawElementType, type MeasureKind, type Shape, type ShapeType } from '../lib/types';
+import { COLORS, SHAPE_LABELS, type Damage, type DrawElementType, type MeasureKind, type Shape, type ShapeType } from '../lib/types';
 import { DRAW_TOOLS, useDrawing } from './DrawingMode';
 
 type DialogState = { mode: 'new'; shape: Shape; number: number; kind: MeasureKind } | { mode: 'edit'; id: string } | null;
-type ComponentDialogState = { mode: 'new'; at: Point } | { mode: 'edit'; id: string } | null;
 
 const TOOLS: { id: Tool; label: string; short?: string; icon: string; key: string }[] = [
   { id: 'select', label: 'Auswählen / Verschieben', short: 'Auswahl', icon: 'select', key: 'v' },
@@ -30,7 +28,6 @@ const TOOLS: { id: Tool; label: string; short?: string; icon: string; key: strin
   { id: 'ellipse', label: SHAPE_LABELS.ellipse, icon: 'ellipse', key: 'k' },
   { id: 'triangle', label: SHAPE_LABELS.triangle, icon: 'triangle', key: 'd' },
   { id: 'freehand', label: SHAPE_LABELS.freehand, icon: 'freehand', key: 'f' },
-  { id: 'component', label: 'Bauteil kennzeichnen (A, B, C …)', short: 'Bauteil', icon: 'component', key: 'b' },
 ];
 
 /** Breite der Messleiste (PC/Tablet quer): Grenzen in Pixeln */
@@ -65,6 +62,14 @@ function measureSummary(d: Pick<Damage, 'kind' | 'length' | 'width' | 'depth' | 
   return `${formatMeasure(d.length)} × ${formatMeasure(d.width)} m${depth} = ${formatArea(d.area)} m²`;
 }
 
+function loadLastPosition(planId: string): string {
+  try {
+    return localStorage.getItem(`lastPosition:${planId}`) ?? '';
+  } catch {
+    return '';
+  }
+}
+
 function loadPref<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
   try {
     const v = localStorage.getItem(key) as T | null;
@@ -81,13 +86,16 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const [tool, setToolState] = useState<Tool>(() => loadPref('tool', TOOLS.map((t) => t.id), 'ellipse'));
   const [color, setColorState] = useState(() => loadPref('color', COLORS.map((c) => c.value), DEFAULT_COLOR));
   const [selectedId, setSelectedId] = useState<string | null>(focusDamageId);
-  const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogState>(null);
-  const [componentDialog, setComponentDialog] = useState<ComponentDialogState>(null);
   const [overrides, setOverrides] = useState<Record<string, Partial<Damage>>>({});
-  const [componentOverrides, setComponentOverrides] = useState<Record<string, Point>>({});
   const [mobileTab, setMobileTab] = useState<'plan' | 'table'>('plan');
   const [detailsOpen, setDetailsOpen] = useState(false);
+  /** Leistung für neue Messungen: bleibt bis zur nächsten Änderung aktiv ('' = ohne Leistungszuordnung) */
+  const [lastPosition, setLastPositionState] = useState(() => loadLastPosition(planId));
+  const setLastPosition = (ref: string) => {
+    setLastPositionState(ref);
+    storePref(`lastPosition:${planId}`, ref);
+  };
   const [pdfOpen, setPdfOpen] = useState(false);
   const [sideWidth, setSideWidth] = useState(loadSideWidth);
   const [, setHistoryTick] = useState(0);
@@ -111,22 +119,17 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   useEffect(() => {
     clearHistory();
     setMode(initialMode());
+    setLastPositionState(loadLastPosition(planId));
     return () => clearHistory();
   }, [planId]);
 
   const stored = useMemo(() => (plan ? damagesOf(data, plan.id) : []), [data, plan]);
   const damages = useMemo(() => stored.map((d) => (overrides[d.id] ? { ...d, ...overrides[d.id] } : d)), [stored, overrides]);
-  const storedComponents = useMemo(() => (plan ? componentsOf(data, plan.id) : []), [data, plan]);
-  const components = useMemo(
-    () => storedComponents.map((c) => (componentOverrides[c.id] ? { ...c, ...componentOverrides[c.id] } : c)),
-    [storedComponents, componentOverrides],
-  );
   const dupIds = useMemo(() => {
     const dups = new Set(duplicateNumbers(stored));
     return new Set(stored.filter((d) => dups.has(d.number)).map((d) => d.id));
   }, [stored]);
   const selected = damages.find((d) => d.id === selectedId) ?? null;
-  const selectedComponent = components.find((c) => c.id === selectedComponentId) ?? null;
   const drawing = useDrawing({ plan, data, damages, viewer });
   const region = useMemo(
     () => (plan && drawingPlan ? drawingRegion(plan, drawing.elements, stored) : undefined),
@@ -136,7 +139,6 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const switchMode = (m: 'draw' | 'measure') => {
     setMode(m);
     setSelectedId(null);
-    setSelectedComponentId(null);
     drawing.setSelectedId(null);
   };
 
@@ -155,14 +157,12 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const doUndo = () => {
     if (!undo()) return;
     setOverrides({});
-    setComponentOverrides({});
     drawing.resetOverrides();
     toast('Rückgängig gemacht.', 'info', 1500);
   };
   const doRedo = () => {
     if (!redo()) return;
     setOverrides({});
-    setComponentOverrides({});
     drawing.resetOverrides();
     toast('Wiederhergestellt.', 'info', 1500);
   };
@@ -170,7 +170,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   // Tastaturkürzel (PC)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (dialog || componentDialog || detailsOpen || pdfOpen) return;
+      if (dialog || detailsOpen || pdfOpen) return;
       const target = e.target as HTMLElement;
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || document.querySelector('.modal')) return;
       const key = e.key.toLowerCase();
@@ -197,15 +197,11 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       else if (e.key === '+' || e.key === '=') viewer.current?.zoomIn();
       else if (e.key === '-') viewer.current?.zoomOut();
       else if (e.key === '0') viewer.current?.fit();
-      else if (e.key === 'Escape') {
-        setSelectedId(null);
-        setSelectedComponentId(null);
-      } else if ((e.key === 'Delete' || e.key === 'Backspace') && (selected || selectedComponent)) {
+      else if (e.key === 'Escape') setSelectedId(null);
+      else if ((e.key === 'Delete' || e.key === 'Backspace') && selected) {
         e.preventDefault();
-        if (selected) void removeDamage(selected);
-        else if (selectedComponent) void removeComponent(selectedComponent);
+        void removeDamage(selected);
       } else if (e.key === 'Enter' && selected) setDialog({ mode: 'edit', id: selected.id });
-      else if (e.key === 'Enter' && selectedComponent) setComponentDialog({ mode: 'edit', id: selectedComponent.id });
       else return;
       e.preventDefault();
     };
@@ -230,12 +226,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
 
   const select = (id: string | null, focus = false) => {
     setSelectedId(id);
-    if (id) setSelectedComponentId(null);
     if (id && focus) viewer.current?.focus(id);
-  };
-  const selectComponent = (id: string | null) => {
-    setSelectedComponentId(id);
-    if (id) setSelectedId(null);
   };
 
   const applyRenumber = (changes: Map<string, number>, extra?: Partial<Damage> & { id: string }) => {
@@ -261,6 +252,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       positionRef: v.positionRef,
     };
     storePref('measureKind', v.kind);
+    setLastPosition(v.positionRef ?? '');
     if (dialog.mode === 'new') {
       const dmg: Damage = {
         ...newMeta(),
@@ -285,7 +277,6 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       }
       if (v.color !== color) setColor(v.color);
       setSelectedId(dmg.id);
-      setSelectedComponentId(null);
       const amount = area !== null ? `${formatArea(area)} m²` : `${formatMeasure(v.length)} m`;
       toast(`${KIND_LABELS[v.kind]} ${v.number} gespeichert (${amount}).`, 'success', 2500);
     } else {
@@ -326,53 +317,6 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     toast(`${label} gelöscht.`);
   };
 
-  const linkedTo = (componentId: string) => stored.filter((d) => d.componentId === componentId);
-
-  const saveComponent = (v: ComponentValues) => {
-    if (!componentDialog) return;
-    if (componentDialog.mode === 'new') {
-      const rec: Component = {
-        ...newMeta(),
-        projectId: plan.projectId,
-        planId: plan.id,
-        letter: v.letter,
-        name: v.name,
-        color: v.color,
-        x: componentDialog.at.x,
-        y: componentDialog.at.y,
-      };
-      putRecord('components', rec);
-      selectComponent(rec.id);
-      toast(`Bauteil ${v.letter} angelegt.`, 'success', 2000);
-    } else {
-      putRecord('components', { ...data.components[componentDialog.id], ...v });
-    }
-    setComponentDialog(null);
-  };
-
-  const removeComponent = async (c: Component) => {
-    const linked = linkedTo(c.id);
-    const ok = await confirmDialog({
-      title: `Bauteil ${c.letter} löschen?`,
-      message: (
-        <p>
-          Die Kennzeichnung <strong>{c.name ? `${c.letter} – ${c.name}` : c.letter}</strong> wird aus dem Plan entfernt.
-          {linked.length > 0 && ` ${linked.length} zugeordnete Messung(en) bleiben erhalten, verlieren aber die Zuordnung.`}
-        </p>
-      ),
-      confirmLabel: 'Löschen',
-      danger: true,
-    });
-    if (!ok) return;
-    // Ein Schritt für „Rückgängig“: Bauteil und Zuordnungen gemeinsam
-    putRecords({
-      components: [{ ...data.components[c.id], deletedAt: Date.now() }],
-      damages: linked.map((d) => ({ ...d, componentId: null })),
-    });
-    if (selectedComponentId === c.id) setSelectedComponentId(null);
-    setComponentDialog(null);
-    toast(`Bauteil ${c.letter} gelöscht.`);
-  };
 
   const compact = async () => {
     const changes = compactNumbers(stored, planNumberStart(plan));
@@ -431,10 +375,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   };
 
   const dialogDamage = dialog?.mode === 'edit' ? data.damages[dialog.id] : null;
-  const dialogComponent = componentDialog?.mode === 'edit' ? data.components[componentDialog.id] : null;
   const rows = damages.map((damage) => ({ plan, damage }));
   const lineCount = countKind(damages, 'line');
-  const componentOptions = storedComponents.map(({ id, letter, name }) => ({ id, letter, name }));
+  const activePosition = findPosition(data, lastPosition);
   const positionOptions = lvDocsOf(data).flatMap((doc) =>
     doc.positions.map((p) => ({ ref: positionRef(doc.id, p.id), doc: lvDocLabel(doc), label: `${p.number} ${p.shortText} (${p.unit || '–'})` })),
   );
@@ -632,20 +575,30 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 } else setOverrides((o) => ({ ...o, [id]: { ...o[id], labelOffset: offset } }));
               }}
               onHistoryChange={() => setHistoryTick((n) => n + 1)}
-              components={components}
-              selectedComponentId={selectedComponentId}
-              onSelectComponent={selectComponent}
-              onComponentMove={(id, x, y, commit) => {
-                if (commit) {
-                  setComponentOverrides(({ [id]: _, ...rest }) => rest);
-                  const c = data.components[id];
-                  if (c.x !== x || c.y !== y) putRecord('components', { ...c, x, y });
-                } else setComponentOverrides((o) => ({ ...o, [id]: { x, y } }));
-              }}
-              onPlace={(at) => setComponentDialog({ mode: 'new', at })}
+              components={[]}
+              selectedComponentId={null}
+              onSelectComponent={() => {}}
+              onComponentMove={() => {}}
+              onPlace={() => {}}
             />
           ) : (
             <div className="viewer-msg error">Originaldatei fehlt.</div>
+          )}
+
+          {!drawMode && positionOptions.length > 0 && (
+            <div className={`position-chip${activePosition ? ' active' : ''}`} data-testid="current-position" title="Leistung, die neue Messungen automatisch erhalten">
+              <span className="muted">Neue Messungen:</span>{' '}
+              {activePosition ? (
+                <>
+                  <strong>{activePosition.pos.number}</strong> <span className="position-chip-text">{activePosition.pos.shortText}</span>
+                  <button type="button" className="icon-btn icon-btn-sm" onClick={() => setLastPosition('')} aria-label="Leistungszuordnung für neue Messungen aufheben">
+                    <Icon name="close" size={16} />
+                  </button>
+                </>
+              ) : (
+                <strong>ohne Leistungszuordnung</strong>
+              )}
+            </div>
           )}
 
           <div className="zoom-controls">
@@ -722,37 +675,6 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             </div>
           )}
 
-          {!drawMode && selectedComponent && !componentDialog && !selected && (
-            <div className="selection-bar" data-testid="component-selection-bar">
-              <div className="selection-info">
-                <span className="component-tag" style={{ background: selectedComponent.color }}>
-                  {selectedComponent.letter}
-                </span>
-                <strong>Bauteil {selectedComponent.letter}</strong>
-                {selectedComponent.name && <span>{selectedComponent.name}</span>}
-                <span className="muted">· {linkedTo(selectedComponent.id).length} Messung(en)</span>
-              </div>
-              {tool === 'select' ? <div className="selection-hint muted small">Ziehen = verschieben</div> : null}
-              <div className="row gap">
-                <button
-                  type="button"
-                  className="btn btn-sm btn-primary"
-                  onClick={() => setComponentDialog({ mode: 'edit', id: selectedComponent.id })}
-                  data-testid="edit-component"
-                >
-                  <Icon name="edit" size={18} /> Bearbeiten
-                </button>
-                <button type="button" className="btn btn-sm btn-danger-text" onClick={() => void removeComponent(selectedComponent)} data-testid="delete-component">
-                  <Icon name="trash" size={18} />
-                  <span className="sr-only">Bauteil löschen</span>
-                </button>
-                <button type="button" className="icon-btn icon-btn-sm" onClick={() => setSelectedComponentId(null)} aria-label="Auswahl aufheben">
-                  <Icon name="close" size={18} />
-                </button>
-              </div>
-            </div>
-          )}
-
           {drawMode ? (
             <div className="toolbar" role="toolbar" aria-label="Zeichenwerkzeuge" data-testid="draw-toolbar">
               <div className="tool-group">
@@ -817,16 +739,11 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                   onClick={() => {
                     setColor(c.value);
                     if (selected) putRecord('damages', { ...data.damages[selected.id], color: c.value });
-                    else if (selectedComponent) putRecord('components', { ...data.components[selectedComponent.id], color: c.value });
                   }}
                   aria-label={`Farbe ${c.name}`}
                   aria-pressed={color === c.value}
                   title={
-                    selected
-                      ? `Farbe ${c.name} (auch für Nr. ${selected.number})`
-                      : selectedComponent
-                        ? `Farbe ${c.name} (auch für Bauteil ${selectedComponent.letter})`
-                        : `Farbe ${c.name}`
+                    selected ? `Farbe ${c.name} (auch für Nr. ${selected.number})` : `Farbe ${c.name}`
                   }
                 />
               ))}
@@ -868,7 +785,6 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             rows={rows}
             selectedId={selectedId}
             duplicates={dupIds}
-            components={data.components}
             positionLabel={(ref) => findPosition(data, ref)?.pos.number ?? null}
             onSelect={(r) => {
               select(r.damage.id, true);
@@ -888,10 +804,18 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       {dialog?.mode === 'new' && (
         <DamageDialog
           mode="new"
-          damage={{ id: '', number: dialog.number, color, labelOffset: null, shapeType: dialog.shape.type, kind: dialog.kind }}
+          damage={{
+            id: '',
+            number: dialog.number,
+            color,
+            labelOffset: null,
+            shapeType: dialog.shape.type,
+            kind: dialog.kind,
+            positionRef: activePosition ? lastPosition : null,
+          }}
           suggestion={drawingPlan ? suggestMeasures(dialog.shape, unitsPerMeter(plan)) : null}
           others={stored}
-          components={componentOptions}
+          components={[]}
           positions={positionOptions}
           onSave={save}
           onCancel={() => setDialog(null)}
@@ -903,31 +827,11 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           damage={{ ...dialogDamage, shapeType: dialogDamage.shape.type as ShapeType, kind: kindOf(dialogDamage) }}
           suggestion={drawingPlan ? suggestMeasures(dialogDamage.shape, unitsPerMeter(plan)) : null}
           others={stored}
-          components={componentOptions}
+          components={[]}
           positions={positionOptions}
           onSave={save}
           onCancel={() => setDialog(null)}
           onDelete={() => void removeDamage(dialogDamage)}
-        />
-      )}
-      {componentDialog?.mode === 'new' && (
-        <ComponentDialog
-          mode="new"
-          initial={{ letter: nextLetter(storedComponents.map((c) => c.letter)), name: '', color }}
-          usedLetters={storedComponents.map((c) => c.letter)}
-          onSave={saveComponent}
-          onCancel={() => setComponentDialog(null)}
-        />
-      )}
-      {dialogComponent && (
-        <ComponentDialog
-          mode="edit"
-          initial={{ letter: dialogComponent.letter, name: dialogComponent.name, color: dialogComponent.color }}
-          usedLetters={storedComponents.filter((c) => c.id !== dialogComponent.id).map((c) => c.letter)}
-          measurements={linkedTo(dialogComponent.id).length}
-          onSave={saveComponent}
-          onCancel={() => setComponentDialog(null)}
-          onDelete={() => void removeComponent(dialogComponent)}
         />
       )}
       {detailsOpen && <PlanDetailsDialog plan={plan} data={data} onClose={() => setDetailsOpen(false)} />}

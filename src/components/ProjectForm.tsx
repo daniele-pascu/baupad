@@ -3,7 +3,7 @@ import { todayIso } from '../lib/numbers';
 import type { Project } from '../lib/types';
 import { Modal } from './Modal';
 
-export type ProjectFields = Pick<Project, 'name' | 'site' | 'address' | 'client' | 'editor' | 'date' | 'notes'>;
+export type ProjectFields = Pick<Project, 'name' | 'number' | 'site' | 'address' | 'client' | 'editor' | 'date' | 'notes'>;
 
 /** Kostenstelle im Formular; `id` ist bei bereits gespeicherten Kostenstellen gesetzt. */
 export interface CostCenterInput {
@@ -28,6 +28,7 @@ const ccKey = (c: CostCenterInput) => `${c.number.trim()}|${c.name.trim()}`.toLo
 export function ProjectForm({ title, initial, costCenters, submitLabel, onSubmit, onClose }: Props) {
   const [f, setF] = useState<ProjectFields>({
     name: '',
+    number: '',
     site: '',
     address: '',
     client: '',
@@ -81,7 +82,7 @@ export function ProjectForm({ title, initial, costCenters, submitLabel, onSubmit
           try {
             if (f.editor) localStorage.setItem('lastEditor', f.editor);
             await onSubmit(
-              { ...f, name: f.name.trim(), site: f.site.trim() },
+              { ...f, name: f.name.trim(), number: (f.number ?? '').trim(), site: f.site.trim() },
               filled.map((c) => ({ ...c, number: c.number.trim(), name: c.name.trim() })),
             );
           } finally {
@@ -94,7 +95,11 @@ export function ProjectForm({ title, initial, costCenters, submitLabel, onSubmit
           <input value={f.name} onChange={set('name')} name="name" autoComplete="off" enterKeyHint="next" aria-invalid={touched && nameMissing} />
           {touched && nameMissing && <small className="error">Bitte einen Projektnamen eingeben.</small>}
         </label>
-        <label className="field span-2">
+        <label className="field">
+          <span>Projektnummer</span>
+          <input value={f.number ?? ''} onChange={set('number')} name="number" autoComplete="off" enterKeyHint="next" placeholder="optional" />
+        </label>
+        <label className="field">
           <span>Baustelle / Bauvorhaben</span>
           <input value={f.site} onChange={set('site')} name="site" autoComplete="off" enterKeyHint="next" />
         </label>

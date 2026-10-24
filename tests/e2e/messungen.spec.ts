@@ -65,7 +65,7 @@ test('Messarten Linie, Schadstelle, Fläche: Linien zählen nicht zur Fläche, l
   const dlg = page.getByTestId('damage-dialog');
 
   // Neue Werkzeuge und Farben sind vorhanden
-  for (const t of ['select', 'line', 'rect', 'ellipse', 'triangle', 'freehand', 'component']) await expect(page.getByTestId(`tool-${t}`)).toBeVisible();
+  for (const t of ['select', 'line', 'rect', 'ellipse', 'triangle', 'freehand']) await expect(page.getByTestId(`tool-${t}`)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Farbe Schwarz' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Farbe Weiß' })).toBeVisible();
 
@@ -193,78 +193,45 @@ test('Rückgängig und Wiederholen: Anlegen, Verschieben, per Schaltfläche und 
   await waitSaved(page);
 });
 
-test('Bauteilbuchstaben A, B: setzen, zuordnen, bearbeiten, löschen (rückgängig machbar)', async () => {
-  const box = await planBox(page);
-  await page.getByTestId('tool-component').click();
-  await page.mouse.click(box.x + box.width * 0.75, box.y + box.height * 0.2);
-  const cd = page.getByTestId('component-dialog');
-  await expect(cd).toBeVisible();
-  await expect(cd.getByTestId('component-letter')).toHaveValue('A');
-  await cd.getByTestId('component-name').fill('Wand');
-  await cd.getByTestId('component-save').click();
-  await expect(cd).toBeHidden();
-  await expect(page.locator('[data-component="A"]')).toBeVisible();
-  await expect(page.getByTestId('component-selection-bar')).toContainText('Bauteil A');
-
-  // Nächster Buchstabe wird vorgeschlagen, doppelte Buchstaben werden abgelehnt
-  await page.mouse.click(box.x + box.width * 0.75, box.y + box.height * 0.6);
-  await expect(cd.getByTestId('component-letter')).toHaveValue('B');
-  await cd.getByTestId('component-letter').fill('A');
-  await cd.getByTestId('component-save').click();
-  await expect(cd).toContainText('bereits vergeben');
-  await cd.getByTestId('component-letter').fill('B');
-  await cd.getByTestId('component-name').fill('Decke');
-  await cd.getByTestId('component-save').click();
-  await expect(page.locator('[data-component]')).toHaveCount(2);
-
-  // Messung 2 dem Bauteil A zuordnen
-  await row(2).getByRole('button', { name: 'Schadstelle 2 bearbeiten' }).click();
-  const dlg = page.getByTestId('damage-dialog');
-  await expect(dlg).toContainText('Schadstelle 2 bearbeiten');
-  await dlg.getByTestId('input-component').selectOption({ label: 'A – Wand' });
-  await dlg.getByTestId('damage-save').click();
-  await expect(dlg).toBeHidden();
-  await expect(row(2).getByTestId('row-kind')).toHaveText('SchadstelleA');
-
-  // Bauteil auswählen (Auswahlwerkzeug) und umbenennen
-  await page.getByTestId('tool-select').click();
-  const badge = (await page.locator('[data-component="A"] circle').last().boundingBox())!;
-  await page.mouse.click(badge.x + badge.width / 2, badge.y + badge.height / 2);
-  await expect(page.getByTestId('component-selection-bar')).toContainText('1 Messung');
-  await page.getByTestId('edit-component').click();
-  await cd.getByTestId('component-name').fill('Wand Nord');
-  await cd.getByTestId('component-save').click();
-  await expect(page.getByTestId('component-selection-bar')).toContainText('Wand Nord');
-
-  // Löschen entfernt die Zuordnung, Messung bleibt
-  await page.getByTestId('delete-component').click();
-  const confirm = page.getByTestId('confirm-dialog');
-  await expect(confirm).toContainText('verlieren aber die Zuordnung');
-  await confirm.getByRole('button', { name: 'Löschen' }).click();
-  await expect(page.locator('[data-component="A"]')).toHaveCount(0);
-  await expect(row(2).getByTestId('row-kind')).toHaveText('Schadstelle');
-  await expect.poll(rowCount).toBe(3);
-  // Ein Schritt „Rückgängig“ stellt Bauteil und Zuordnung wieder her
-  await page.getByTestId('undo').click();
-  await expect(page.locator('[data-component="A"]')).toHaveCount(1);
-  await expect(row(2).getByTestId('row-kind')).toHaveText('SchadstelleA');
-  await waitSaved(page);
-
-  // Nach dem Neuladen bleibt alles erhalten
+test('Bauteile sind ausgeblendet; vorhandene Bauteil-Daten bleiben erhalten', async () => {
+  await expect(page.getByTestId('tool-component')).toHaveCount(0);
+  await page.keyboard.press('b'); // früheres Tastenkürzel ohne Wirkung
+  await expect(page.getByTestId('component-dialog')).toHaveCount(0);
+  // Bestehende Zuordnung (Daten aus älteren Versionen) bleibt beim Bearbeiten unverändert erhalten
+  const projectId = page.url().split('#/p/')[1].split('/')[0];
+  await page.evaluate(async (pid) => {
+    await new Promise<void>((resolve) => {
+      const req = indexedDB.open('schadstellen-aufmass');
+      req.onsuccess = () => {
+        const db = req.result;
+        const tx = db.transaction(['components', 'damages'], 'readwrite');
+        const all = tx.objectStore('damages').getAll();
+        all.onsuccess = () => {
+          const d = (all.result as { number: number; deletedAt: number | null; planId: string; componentId?: string; rev: number }[]).find((x) => x.number === 2 && !x.deletedAt)!;
+          const meta = { createdAt: 1, updatedAt: 1, rev: 1, deviceId: 'alt', deletedAt: null };
+          tx.objectStore('components').put({ id: 'comp-alt', projectId: pid, planId: d.planId, letter: 'A', name: 'Wand', color: '#e03131', x: 10, y: 10, ...meta });
+          tx.objectStore('damages').put({ ...d, componentId: 'comp-alt', rev: d.rev + 1 });
+        };
+        tx.oncomplete = () => {
+          db.close();
+          resolve();
+        };
+      };
+    });
+  }, projectId);
   await page.reload();
   await waitForPlan(page);
-  await expect(page.locator('[data-component]')).toHaveCount(2);
-  await expect(row(2).getByTestId('row-kind')).toHaveText('SchadstelleA');
-  await expect(row(1)).toHaveAttribute('data-kind', 'line');
-  // PDF-Export enthält die Bauteilbuchstaben
-  const dl = await catchDownload(page, async () => {
-    await page.getByTestId('export-pdf-plan').click();
-    await page.getByTestId('pdf-export-run').click();
-  });
-  const pdf = await saveDownload(dl, 'messarten.pdf');
-  const text = execFileSync('pdftotext', [pdf, '-'], { encoding: 'utf8' });
-  expect(text).toContain('Aufmaßplan M-1');
-  execFileSync('pdftoppm', ['-png', '-r', '60', pdf, join(OUT, 'messarten')]);
+  await expect(page.locator('[data-component]')).toHaveCount(0); // nicht mehr im Plan angezeigt
+  await row(2).getByRole('button', { name: 'Schadstelle 2 bearbeiten' }).click();
+  const dlg = page.getByTestId('damage-dialog');
+  await expect(dlg.getByTestId('input-component')).toHaveCount(0);
+  await dlg.getByTestId('input-length').fill('2,5');
+  await dlg.getByTestId('damage-save').click();
+  await waitSaved(page);
+  const d2 = (await storedDamages(page)).find((d) => d.number === 2)!;
+  expect(d2.componentId).toBe('comp-alt');
+  await page.reload(); // Rückgängig-Verlauf für den nächsten Test leeren
+  await waitForPlan(page);
 });
 
 test('Messleiste verstellbar: Grenzen, gespeichert, Markierungen und Daten unverändert', async () => {

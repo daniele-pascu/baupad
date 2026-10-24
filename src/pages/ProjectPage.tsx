@@ -235,6 +235,12 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
             <dt>{ccs.length > 1 ? 'Kostenstellen' : 'Kostenstelle'}</dt>
             <dd data-testid="project-cost-centers">{ccs.length ? ccs.map((c) => costCenterLabel(c)).join(', ') : '–'}</dd>
           </div>
+          {project.number && (
+            <div>
+              <dt>Projektnummer</dt>
+              <dd data-testid="project-number">{project.number}</dd>
+            </div>
+          )}
           <div>
             <dt>Baustelle</dt>
             <dd>{project.site || '–'}</dd>
