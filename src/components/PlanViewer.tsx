@@ -11,7 +11,6 @@ import {
   normalizeRect,
   pathToSvg,
   rectContains,
-  isOpenShape,
   lineShape,
   triangleShape,
   normalizeRotation,
@@ -38,7 +37,8 @@ import {
 } from '../lib/geometry';
 import { clampRenderScale, getImageBitmap, getPdfDocument, renderPdfRegion, type RenderJob } from '../lib/pdf';
 import { getView, putView } from '../lib/db';
-import type { Component, Damage, Plan, Rect, Shape, ShapeType, SourceFile } from '../lib/types';
+import { DEFAULT_TRANSPARENCY, fillOf, PX_PER_PT, strokeGeometry } from '../lib/style';
+import type { Component, Damage, Plan, Rect, Shape, ShapeStyle, ShapeType, SourceFile } from '../lib/types';
 
 /** Werkzeuge: Auswahl, Formen, Bauteilbuchstabe setzen; bei gezeichneten Plänen zusätzlich Maßlinie und Text */
 export type Tool = 'select' | ShapeType | 'component' | 'dimension' | 'text' | 'polygon' | 'polyline';
@@ -50,7 +50,7 @@ const isPointTool = (t: Tool) => t === 'polygon' || t === 'polyline';
 const PLACE_TOOLS = new Set<Tool>(['component', 'text']);
 
 /** Bearbeitbares Objekt der Planansicht (Messung bzw. Zeichnungsobjekt in Seitenkoordinaten). */
-export type ViewerItem = Pick<Damage, 'id' | 'number' | 'shape' | 'color' | 'labelOffset'> & Partial<Pick<Damage, 'label'>>;
+export type ViewerItem = Pick<Damage, 'id' | 'number' | 'shape' | 'color' | 'labelOffset'> & Partial<Pick<Damage, 'label' | 'style'>>;
 /** Angezeigte Nummer bzw. Kennzeichnung */
 const noOf = (d: ViewerItem) => d.label?.trim() || String(d.number);
 
@@ -931,24 +931,41 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   const selected = damages.find((d) => d.id === selectedId) ?? null;
 
   const strokeW = isCoarse() ? 2.5 : 2;
-  const renderShape = (shape: Shape, col: string, opts: { selected?: boolean; dashed?: boolean; key?: string; id?: string }) => {
+  const renderShape = (shape: Shape, col: string, opts: { selected?: boolean; dashed?: boolean; key?: string; id?: string; style?: ShapeStyle }) => {
     if (!view) return null;
-    const d = pathToSvg(shapePath(shape), (p) => toScreen(view, p));
-    const w = opts.selected ? strokeW + 1.5 : strokeW;
+    const st = opts.style;
+    const toS = (p: Point) => toScreen(view, p);
+    const base = st?.lineWidth ? Math.max(1, st.lineWidth * PX_PER_PT) : strokeW;
+    const w = opts.selected ? base + 1.5 : base;
+    // Umrandung (Linientyp) und Füllung getrennt; die Füllung folgt immer der eigentlichen Form
+    const line = strokeGeometry(shape, toS, opts.dashed ? 'dashed' : st?.lineType, w);
+    const fill = fillOf(shape, col, st, DEFAULT_TRANSPARENCY.damage);
     return (
       <g key={opts.key}>
+        {fill && (
+          <path d={pathToSvg(shapePath(shape), toS)} fill={fill.color} fillOpacity={opts.selected && !st?.fillTransparency ? Math.min(1, fill.opacity + 0.08) : fill.opacity} stroke="none" />
+        )}
         {/* Kontur für gute Sichtbarkeit auf hellen und dunklen Planbereichen */}
-        <path d={d} fill="none" stroke={haloColor(col)} strokeOpacity={0.75} strokeWidth={w + 2.5} strokeLinejoin="round" strokeLinecap="round" />
         <path
-          d={d}
-          fill={isOpenShape(shape) ? 'none' : col}
-          fillOpacity={opts.selected ? 0.2 : 0.12}
+          d={line.d}
+          fill="none"
+          stroke={haloColor(col)}
+          strokeOpacity={0.75}
+          strokeWidth={w + 2.5}
+          strokeDasharray={line.dash?.join(' ')}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+        <path
+          d={line.d}
+          fill="none"
           stroke={col}
           strokeWidth={w}
-          strokeDasharray={opts.dashed ? '6 4' : undefined}
+          strokeDasharray={line.dash?.join(' ')}
           strokeLinejoin="round"
           strokeLinecap="round"
           data-damage={opts.id}
+          data-line-type={st?.lineType ?? 'solid'}
         />
       </g>
     );
@@ -991,7 +1008,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
           {props.underlay?.(view, size)}
           {damages.map((d) => {
             const custom = props.renderItem?.(d, view, d.id === selectedId);
-            return custom !== undefined ? <g key={d.id}>{custom}</g> : renderShape(d.shape, d.color, { selected: d.id === selectedId, key: d.id, id: d.id });
+            return custom !== undefined ? <g key={d.id}>{custom}</g> : renderShape(d.shape, d.color, { selected: d.id === selectedId, key: d.id, id: d.id, style: d.style });
           })}
           {pending && renderShape(pending.shape, pending.color, { dashed: true, key: 'pending' })}
           {drawPreview && renderShape(drawPreview, color, { dashed: true, key: 'draw' })}

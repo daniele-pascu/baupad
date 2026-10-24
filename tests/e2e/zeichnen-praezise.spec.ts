@@ -214,7 +214,7 @@ test('Aufmaß: Fläche aus Punkten als Messung; Markierung bleibt auf dem Blatt'
   for (const d of dm) expect(d.shape.x + d.shape.w).toBeLessThanOrEqual(950 + 1e-6);
 });
 
-test('Format ändern und PDF im gewählten Format mit Maßstab', async () => {
+test('Format ändern und PDF im gewählten Format; Format/Maßstab nur auf Wunsch im Plan', async () => {
   let dl = await catchDownload(page, async () => {
     await page.getByTestId('export-pdf-plan').click();
     await page.getByTestId('pdf-export-run').click();
@@ -222,9 +222,11 @@ test('Format ändern und PDF im gewählten Format mit Maßstab', async () => {
   let pdf = await saveDownload(dl, 'format-a4.pdf');
   expect(execFileSync('pdfinfo', [pdf], { encoding: 'utf8' })).toMatch(/Page size:\s+595\.2\d* x 841\.8\d*/);
   let text = execFileSync('pdftotext', [pdf, '-'], { encoding: 'utf8' });
-  expect(text).toContain('Maßstab 1:50 (A4 Hoch)');
+  // Standard: weder Format noch Maßstab auf dem Plan
+  expect(text).not.toMatch(/Maßstab|1:50|A4|Hochformat/);
+  expect(text).not.toMatch(/^2\s?m$/m); // keine Maßstabsleiste
+  expect(text).toContain('Plannummer F-1 | Aufmaßplan');
   expect(text).toContain('4,25 m'); // reale Maße, nicht Papiermaße
-  expect(text).toMatch(/^2\s?m$/m); // Maßstabsleiste
 
   // Format nachträglich ändern: A3 quer 1:100
   await page.getByTestId('sheet-label').click();
@@ -232,6 +234,11 @@ test('Format ändern und PDF im gewählten Format mit Maßstab', async () => {
   await pd.getByTestId('sheet-paper').selectOption('A3-quer');
   await pd.getByTestId('sheet-scale').selectOption('100');
   await expect(pd.getByTestId('sheet-size')).toContainText('40,00 × 26,30 m');
+  // Format und Maßstab ausdrücklich im Plan anzeigen
+  await expect(pd.getByTestId('show-paper')).not.toBeChecked();
+  await expect(pd.getByTestId('show-scale')).not.toBeChecked();
+  await pd.getByTestId('show-paper').check();
+  await pd.getByTestId('show-scale').check();
   await pd.getByRole('button', { name: 'Speichern' }).click();
   await expect(page.getByTestId('sheet-label')).toHaveText('A3 Querformat · 1:100');
   await waitSaved(page);
@@ -242,7 +249,8 @@ test('Format ändern und PDF im gewählten Format mit Maßstab', async () => {
   pdf = await saveDownload(dl, 'format-a3.pdf');
   expect(execFileSync('pdfinfo', [pdf], { encoding: 'utf8' })).toMatch(/Page size:\s+1190\.5\d* x 841\.8\d*/);
   text = execFileSync('pdftotext', [pdf, '-'], { encoding: 'utf8' });
-  expect(text).toContain('Maßstab 1:100 (A3 Quer)');
+  expect(text).toContain('A3 Querformat · Maßstab 1:100');
+  expect(text).toMatch(/^5\s?m$/m); // Maßstabsleiste
   expect(text).toContain('4,25 m');
   execFileSync('pdftoppm', ['-png', '-r', '50', pdf, 'tests/output/format-a3']);
 });

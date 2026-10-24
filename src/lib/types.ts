@@ -98,8 +98,12 @@ export interface Plan extends SyncMeta {
    * zur Ausrichtung). Gezeichnete Pläne verwenden das Format des Zeichenblatts (drawing.paper).
    */
   paper?: PaperFormat;
-  /** Überschrift im PDF (leer bzw. fehlend = „Aufmaßplan <Plannummer>“) */
+  /** Titel im PDF-Kopf neben der Plannummer (leer bzw. fehlend = „Aufmaßplan“) */
   title?: string;
+  /** Im PDF anzeigen: Bemerkung (description), Papierformat, Maßstab – Standard: nein */
+  showNote?: boolean;
+  showPaper?: boolean;
+  showScale?: boolean;
 }
 
 /**
@@ -173,6 +177,27 @@ export interface Damage extends SyncMeta {
   componentId?: string | null;
   /** Zugeordnete Leistungsposition „<LV-Dokument-ID>:<Positions-ID>“, optional */
   positionRef?: string | null;
+  /** Darstellung (Linientyp, -stärke, Füllung); fehlt = Standarddarstellung. Farbe = `color` */
+  style?: ShapeStyle;
+}
+
+/** Linientypen (wie in CAD-Programmen); Wellen- und Zickzacklinie sind reine Darstellung */
+export type LineType = 'solid' | 'dashed' | 'dotted' | 'dashdot' | 'dashdotdot' | 'wave' | 'zigzag';
+
+/**
+ * Darstellung einer Linie bzw. Form – ändert weder Geometrie noch Messwerte.
+ * Die Linienfarbe ist `color` des Objekts; Füllung nur bei geschlossenen Formen.
+ */
+export interface ShapeStyle {
+  lineType?: LineType;
+  /** Linienstärke in Punkt (im PDF); fehlt = Standard */
+  lineWidth?: number;
+  /** Füllfarbe; fehlt = Linienfarbe */
+  fillColor?: string;
+  /** Transparenz der Füllung in % (0 = deckend, 100 = durchsichtig); fehlt = Standard */
+  fillTransparency?: number;
+  /** Keine Füllung (nur Umrandung) */
+  noFill?: boolean;
 }
 
 /** Bauteilkennzeichnung im Plan, z. B. „A – Wand“. */
@@ -215,6 +240,8 @@ export interface DrawElement extends SyncMeta {
   showDims?: boolean;
   /** Maßlinie: Abstand der Maßlinie von der gemessenen Strecke in m (Vorzeichen = Seite) */
   offset?: number;
+  /** Darstellung (Linientyp, -stärke, Füllung); fehlt = Standarddarstellung */
+  style?: ShapeStyle;
 }
 
 /** Leistungsposition eines LV bzw. einer MFK */

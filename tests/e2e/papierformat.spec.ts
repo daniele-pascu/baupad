@@ -64,8 +64,10 @@ test('Import: Format wählbar (Standard A4 passend), Überschrift, PDF genau A3 
   await expect(wiz.getByTestId('export-paper')).toHaveValue('A4-quer');
   await wiz.getByTestId('export-paper').selectOption('A3-hoch');
   await wiz.locator('[data-field="planNumber"]').fill('F-1');
-  await expect(wiz.locator('[data-field="title"]')).toHaveAttribute('placeholder', 'Aufmaßplan F-1');
-  await wiz.locator('[data-field="title"]').fill('Aufmaßplan 01');
+  await expect(wiz.locator('[data-field="title"]')).toHaveAttribute('placeholder', 'Aufmaßplan');
+  await expect(wiz.getByTestId('heading-preview')).toContainText('Plannummer F-1 | Aufmaßplan');
+  await wiz.locator('[data-field="title"]').fill('Aufmaßplan Tiefgarage');
+  await wiz.getByTestId('show-paper').check(); // Format ausdrücklich im Plan anzeigen
   await wiz.getByTestId('import-save').click();
   await waitForPlan(page);
   const box = await planBox(page);
@@ -77,7 +79,7 @@ test('Import: Format wählbar (Standard A4 passend), Überschrift, PDF genau A3 
 
   const r = await exportPdf(page, 'format-a3-hoch');
   expect(r.info).toMatch(new RegExp(`Page size:\\s+${A3} pts`)); // Format nicht durch den Plan verändert
-  expect(r.text).toContain('Aufmaßplan 01');
+  expect(r.text).toContain('Plannummer F-1 | Aufmaßplan Tiefgarage');
   expect(r.text).toContain('A3 Hochformat');
   expect(r.text).toContain('Technik'); // Originalinhalt vektoriell erhalten
   expect(borderInk(r.png)).toBe(0); // nichts im 1-cm-Rand
@@ -97,7 +99,8 @@ test('Plandetails: Format und Überschrift ändern, nach Neuladen erhalten', asy
   await waitForPlan(page);
   let r = await exportPdf(page, 'format-standard');
   expect(r.info).toMatch(new RegExp(`Page size:\\s+(${A4}|${A4Q}) pts`)); // Standard A4
-  expect(r.text).toContain('Aufmaßplan P-7');
+  expect(r.text).toContain('Plannummer P-7 | Aufmaßplan');
+  expect(r.text).not.toMatch(/A4|Hochformat|Querformat/); // Format standardmäßig nicht im Plan
   expect(borderInk(r.png)).toBe(0);
 
   await page.getByRole('link', { name: 'Zurück zur Planliste' }).click();
@@ -105,19 +108,23 @@ test('Plandetails: Format und Überschrift ändern, nach Neuladen erhalten', asy
   await page.getByTestId('action-edit').click();
   const det = page.getByTestId('plan-details');
   await det.getByTestId('export-paper').selectOption('A4-hoch');
-  await det.locator('[data-field="title"]').fill('Aufmaßplan 12 – Hof');
+  await det.locator('[data-field="title"]').fill('Aufmaß Hof');
+  await det.locator('[data-field="description"]').fill('Nur Bereich Nord');
+  await det.getByTestId('show-note').check();
   await det.getByRole('button', { name: 'Speichern' }).click();
   await page.reload();
   await page.getByTestId('plan-actions').click();
   await page.getByTestId('action-edit').click();
   await expect(det.getByTestId('export-paper')).toHaveValue('A4-hoch');
-  await expect(det.locator('[data-field="title"]')).toHaveValue('Aufmaßplan 12 – Hof');
+  await expect(det.locator('[data-field="title"]')).toHaveValue('Aufmaß Hof');
+  await expect(det.getByTestId('show-note')).toBeChecked();
   await det.getByRole('button', { name: 'Abbrechen' }).click();
   await page.getByTestId('plan-open').click();
   await waitForPlan(page);
   r = await exportPdf(page, 'format-a4-hoch');
   expect(r.info).toMatch(new RegExp(`Page size:\\s+${A4} pts`));
-  expect(r.text).toMatch(/Aufmaßplan 12 . Hof/);
+  expect(r.text).toContain('Plannummer P-7 | Aufmaß Hof');
+  expect(r.text).toContain('Nur Bereich Nord'); // Bemerkung, weil „Im Plan anzeigen“ gewählt
   expect(borderInk(r.png)).toBe(0);
   await page.screenshot({ path: join(OUT, 'format-editor.png') });
 });
@@ -127,13 +134,22 @@ test('Gezeichneter Plan: Überschrift frei wählbar, Format des Zeichenblatts', 
   await createProject(page, 'Format 3', {}, ['Keller']);
   await page.getByTestId('draw-plan').click();
   const nd = page.getByTestId('new-drawing');
+  // Vereinfachte Eingabe: nur Plannummer, Titel, Bemerkung, Format, Maßstab
+  await expect(nd.locator('[data-field="planName"], [data-field="floor"], [data-field="area"]')).toHaveCount(0);
+  await expect(nd.getByTestId('show-paper')).not.toBeChecked();
+  await expect(nd.getByTestId('show-scale')).not.toBeChecked();
+  await expect(nd.getByTestId('show-note')).not.toBeChecked();
   await nd.locator('[data-field="planNumber"]').fill('Z-9');
-  await nd.locator('[data-field="title"]').fill('Aufmaßplan 03');
+  await nd.locator('[data-field="title"]').fill('Aufmaßplan');
+  await nd.locator('[data-field="planNumber"]').fill('067');
+  await nd.locator('[data-field="description"]').fill('Interne Notiz');
   await nd.getByTestId('sheet-paper').selectOption('A4-quer');
   await nd.getByTestId('new-drawing-save').click();
   await expect(page.getByTestId('drawing-sheet')).toBeVisible();
   const r = await exportPdf(page, 'format-zeichnung');
   expect(r.info).toMatch(new RegExp(`Page size:\\s+${A4Q} pts`));
-  expect(r.text).toContain('Aufmaßplan 03');
+  expect(r.text).toContain('Plannummer 067 | Aufmaßplan');
+  expect(r.text).not.toContain('Interne Notiz'); // Bemerkung nur auf Wunsch im Plan
+  expect(r.text).not.toMatch(/Maßstab|A4/);
   expect(borderInk(r.png)).toBe(0);
 });

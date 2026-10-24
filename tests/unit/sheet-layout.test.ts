@@ -88,9 +88,10 @@ describe('Format und Überschrift', () => {
     expect(exportPaper(plan({ paper: 'A3-quer', crop: { x: 0, y: 0, w: 100, h: 500 } }))).toBe('A3-quer');
     expect(exportPaper(plan({ paper: 'A3-quer', drawing: { unit: 'm', unitsPerMeter: 100, paper: 'A4-hoch', scale: 50 } }))).toBe('A4-hoch');
   });
-  it('Überschrift: eigene oder „Aufmaßplan <Nr.>“', () => {
-    expect(planHeading(plan({}))).toBe('Aufmaßplan 12');
-    expect(planHeading(plan({ title: '  Aufmaßplan 01 ' }))).toBe('Aufmaßplan 01');
-    expect(planHeading(plan({ title: '' }))).toBe('Aufmaßplan 12');
+  it('Überschrift: „Plannummer <Nr.> | <Titel>“, Titel Standard „Aufmaßplan“', () => {
+    expect(planHeading(plan({}))).toBe('Plannummer 12 | Aufmaßplan');
+    expect(planHeading(plan({ title: '  Bestandsaufnahme ' }))).toBe('Plannummer 12 | Bestandsaufnahme');
+    expect(planHeading(plan({ title: '', planNumber: '067' }))).toBe('Plannummer 067 | Aufmaßplan');
+    expect(planHeading(plan({ planNumber: '' }))).toBe('Aufmaßplan');
   });
 });

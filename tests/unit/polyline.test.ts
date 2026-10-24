@@ -82,3 +82,31 @@ describe('Eckpunkte einfügen/entfernen', () => {
     close(shapeInfo({ type: 'freehand', shape: rect })!.area!, 2);
   });
 });
+
+describe('Linienstile (nur Darstellung)', async () => {
+  const { dashArray, wavyPoints, fillOf } = await import('../../src/lib/style');
+  it('Strichmuster skalieren mit der Linienstärke', () => {
+    expect(dashArray('solid', 2)).toBeUndefined();
+    expect(dashArray('dashed', 2)).toEqual([12, 7]);
+    expect(dashArray('dashdotdot', 1)).toEqual([7, 2.5, 0, 2.5, 0, 2.5]);
+  });
+  it('Zickzack/Welle bleiben im Abstand der Amplitude um die Linie, Länge der Geometrie unverändert', () => {
+    const base = [P(0, 0), P(100, 0)];
+    for (const t of ['zigzag', 'wave'] as const) {
+      const pts = wavyPoints(base, false, t, 3, 10);
+      expect(Math.max(...pts.map((p) => Math.abs(p.y)))).toBeLessThanOrEqual(3 + 1e-9);
+      expect(Math.max(...pts.map((p) => Math.abs(p.y)))).toBeGreaterThan(2.9);
+      expect(pts[0].x).toBe(0);
+      expect(pts.at(-1)!.x).toBeCloseTo(100, 9);
+    }
+    close(pathLength(polygonShape(base, false)), 100);
+  });
+  it('Füllung: offen nie, „Keine Füllung“, Transparenz', () => {
+    const sq = polygonShape([P(0, 0), P(1, 0), P(1, 1)]);
+    expect(fillOf(polygonShape([P(0, 0), P(1, 0)], false), '#000', {}, 88)).toBeNull();
+    expect(fillOf(sq, '#000', { noFill: true }, 88)).toBeNull();
+    expect(fillOf(sq, '#000', { fillTransparency: 0, fillColor: '#f00' }, 88)).toEqual({ color: '#f00', opacity: 1 });
+    expect(fillOf(sq, '#000', {}, 88)!.opacity).toBeCloseTo(0.12, 9);
+    expect(fillOf(sq, '#000', { fillTransparency: 100 }, 88)!.opacity).toBe(0);
+  });
+});

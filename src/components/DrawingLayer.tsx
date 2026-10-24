@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { annotationsOf, dimGeometry, gridStep, majorStep, shapeToMeters } from '../lib/drawing';
 import { pathToSvg, shapeCenter, shapePath, toPage, toScreen, type Point, type View } from '../lib/geometry';
+import { DEFAULT_TRANSPARENCY, fillOf, PX_PER_PT, strokeGeometry } from '../lib/style';
 import type { DrawElement, DrawElementType, Rect, Shape } from '../lib/types';
 import { visibleStroke } from './PlanViewer';
 
@@ -61,9 +62,9 @@ export function renderSheet(view: View, size: { w: number; h: number }, region: 
 }
 
 /** Zeichnungsobjekt in Bildschirmkoordinaten (shape in Seitenkoordinaten). */
-export function renderElement(e: Pick<DrawElement, 'id' | 'type' | 'color' | 'text'>, pageShape: Shape, view: View, selected: boolean, faded = false): ReactNode {
+export function renderElement(e: Pick<DrawElement, 'id' | 'type' | 'color' | 'text' | 'style'>, pageShape: Shape, view: View, selected: boolean, faded = false): ReactNode {
   const stroke = visibleStroke(e.color);
-  const w = selected ? 3 : 2;
+  const w = e.style?.lineWidth && e.type !== 'dimension' ? Math.max(1, e.style.lineWidth * PX_PER_PT) : selected ? 3 : 2;
   if (e.type === 'text') {
     const fs = pageShape.h * view.scale;
     const c = toScreen(view, shapeCenter(pageShape));
@@ -101,12 +102,24 @@ export function renderElement(e: Pick<DrawElement, 'id' | 'type' | 'color' | 'te
       </g>
     );
   }
-  const d = pathToSvg(shapePath(pageShape), (p) => toScreen(view, p));
-  const open = e.type === 'line' || (e.type === 'freehand' && pageShape.closed === false);
+  const toS = (p: Point) => toScreen(view, p);
+  // Füllung (unveränderte Form) und Umrandung (Linientyp) getrennt
+  const line = strokeGeometry(pageShape, toS, e.style?.lineType, w);
+  const fill = fillOf(pageShape, e.color, e.style, DEFAULT_TRANSPARENCY.element);
   return (
     <g data-element={e.type} data-element-id={e.id} opacity={faded ? 0.55 : 1}>
-      {selected && <path d={d} fill="none" stroke="#9cc0f5" strokeWidth={w + 5} strokeLinejoin="round" strokeLinecap="round" />}
-      <path d={d} fill={open ? 'none' : stroke} fillOpacity={0.04} stroke={stroke} strokeWidth={w} strokeLinejoin="round" strokeLinecap="round" />
+      {fill && <path d={pathToSvg(shapePath(pageShape), toS)} fill={fill.color} fillOpacity={fill.opacity} stroke="none" data-fill />}
+      {selected && <path d={line.d} fill="none" stroke="#9cc0f5" strokeWidth={w + 5} strokeLinejoin="round" strokeLinecap="round" />}
+      <path
+        d={line.d}
+        fill="none"
+        stroke={stroke}
+        strokeWidth={w}
+        strokeDasharray={line.dash?.join(' ')}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        data-line-type={e.style?.lineType ?? 'solid'}
+      />
     </g>
   );
 }

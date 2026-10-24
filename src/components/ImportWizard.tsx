@@ -27,6 +27,8 @@ interface Draft extends PlanFieldValues {
   crop: Rect | null;
   /** Papierformat für den PDF-Export (Standard: A4 passend zur Ausrichtung) */
   paper: PaperFormat;
+  /** Format im PDF anzeigen (Standard: nein) */
+  showPaper: boolean;
 }
 
 type Step = 'loading' | 'pages' | 'areas' | 'describe' | 'saving';
@@ -154,6 +156,7 @@ export function ImportWizard({ file, data, costCenterId, onClose, onDone }: Prop
             key,
             pageIndex: page,
             crop,
+            showPaper: false,
             paper: defaultPaper(crop ?? { w: pageSizes.get(page)!.width, h: pageSizes.get(page)!.height }),
             planNumber: '',
             planName: suffix ? `${baseName} (${suffix})` : baseName,
@@ -222,6 +225,8 @@ export function ImportWizard({ file, data, costCenterId, onClose, onDone }: Prop
           area: d.area.trim(),
           description: d.description.trim(),
           title: d.title?.trim() ?? '',
+          showNote: !!d.showNote,
+          showPaper: d.showPaper,
           paper: d.paper,
           numberStart: 1,
           sortIndex: sortIndex++,
@@ -352,7 +357,12 @@ export function ImportWizard({ file, data, costCenterId, onClose, onDone }: Prop
                 error={showErrors ? draftErrors[i] : null}
                 onChange={(v) => setDrafts(drafts.map((x, j) => (j === i ? { ...x, ...v } : x)))}
               />
-              <ExportPaperField value={d.paper} onChange={(paper) => setDrafts(drafts.map((x, j) => (j === i ? { ...x, paper } : x)))} />
+              <ExportPaperField
+                value={d.paper}
+                onChange={(paper) => setDrafts(drafts.map((x, j) => (j === i ? { ...x, paper } : x)))}
+                show={d.showPaper}
+                onShow={(showPaper) => setDrafts(drafts.map((x, j) => (j === i ? { ...x, showPaper } : x)))}
+              />
             </div>
           ))}
         </div>

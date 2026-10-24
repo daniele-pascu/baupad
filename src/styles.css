@@ -2586,3 +2586,127 @@ tr.lv-flagged td {
     grid-column: 8;
   }
 }
+
+/* ---------- Darstellung (Linientyp, Stärke, Füllung) ---------- */
+.style-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  width: 100%;
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.style-group {
+  flex: 1 1 260px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.style-group legend {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+.style-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+}
+.style-row > span:first-child {
+  flex: none;
+  width: 86px;
+  color: #3a4452;
+}
+.style-row select {
+  flex: 1;
+  min-height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 8px;
+  background: #fff;
+}
+.style-row input[type='range'] {
+  flex: 1;
+  min-width: 80px;
+}
+.style-value {
+  flex: none;
+  min-width: 52px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.style-colors {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.swatch.swatch-sm {
+  width: 24px;
+  height: 24px;
+  border-width: 2px;
+}
+.style-colors input[type='color'] {
+  width: 30px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+}
+.color-pop.style-pop {
+  display: block;
+  width: min(340px, calc(100vw - 32px));
+}
+.pop-swatches {
+  display: grid;
+  grid-template-columns: repeat(8, 30px);
+  gap: 4px;
+}
+.pop-swatches .swatch {
+  width: 30px;
+  height: 30px;
+}
+.pop-title {
+  margin-top: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.style-pop .style-panel {
+  border-top: none;
+  margin-top: 0;
+}
+.btn.active {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+}
+.selection-bar:has(.style-panel),
+.draw-bar:has(.style-panel) {
+  width: min(680px, calc(100% - 20px));
+}
+.field-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: #3a4452;
+}
+.show-in-plan {
+  font-weight: 400;
+  color: var(--muted);
+  min-height: 0;
+}
+.heading-preview {
+  margin: -4px 0 0;
+}

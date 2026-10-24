@@ -251,7 +251,7 @@ test('Aufmaß: offene Polylinie = Linienmessung mit Länge, geschlossene = Fläc
   await expect(page.locator('[data-testid="aufmass-row"]')).toHaveCount(1);
 
   await pickTool(page, 'tool-polyline');
-  for (const [dx, dy] of [[0, 120], [150, 120], [150, 200], [0, 200]]) await page.mouse.click(x + dx, y + dy);
+  for (const [dx, dy] of [[-260, -40], [-160, -40], [-160, 40], [-260, 40]]) await page.mouse.click(x + dx, y + dy);
   await page.getByTestId('polygon-finish').click();
   await expect(dlg.getByTestId('kind-line')).toHaveAttribute('aria-checked', 'false');
   await expect(dlg.getByTestId('input-width')).toBeVisible();

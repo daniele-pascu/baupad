@@ -28,7 +28,7 @@ import {
 } from '../lib/drawing';
 import { pathToSvg, rectsOverlap, removeVertex, setPolylineClosed, shapeAABB, shapePath, toScreen, type Point, type View } from '../lib/geometry';
 import { newMeta, putRecord, softDelete, type ProjectState } from '../lib/store';
-import type { Damage, DrawElement, DrawElementType, Plan, Rect, Shape } from '../lib/types';
+import type { Damage, DrawElement, DrawElementType, Plan, Rect, Shape, ShapeStyle } from '../lib/types';
 
 /** Werkzeuge der Planbearbeitung (selbst gezeichnete Pläne) */
 /** Gruppen der Werkzeugleiste (wie in CAD-Programmen) */
@@ -65,6 +65,16 @@ function storePref(key: string, value: string) {
   }
 }
 
+/** Gespeicherte Darstellung für neue Objekte lesen */
+export function readStyle(key: string): ShapeStyle {
+  try {
+    const v = JSON.parse(localStorage.getItem(key) ?? '{}');
+    return v && typeof v === 'object' ? (v as ShapeStyle) : {};
+  } catch {
+    return {};
+  }
+}
+
 /** Geometrie gerundet auf 0,1 mm speichern (keine Gleitkommareste aus der Bildschirmumrechnung) */
 const roundShape = (s: Shape): Shape => ({ ...s, x: roundM(s.x), y: roundM(s.y), w: roundM(s.w), h: roundM(s.h) });
 
@@ -87,6 +97,8 @@ export function useDrawing(opts: {
     return DRAW_TOOLS.some((x) => x.id === t) ? t : 'rect';
   });
   const [color, setColorState] = useState(() => pref('drawColor', DRAW_DEFAULT_COLOR));
+  /** Darstellung für neue Objekte (Linientyp, -stärke, Füllung) – vor dem Zeichnen einstellbar */
+  const [defaultStyle, setDefaultStyleState] = useState<ShapeStyle>(() => readStyle('drawStyle'));
   const [selectedId, setSelectedIdState] = useState<string | null>(null);
   /** Ausgewählter Eckpunkt des ausgewählten Objekts (zum Entfernen) */
   const [vertex, setVertex] = useState<number | null>(null);
@@ -108,6 +120,11 @@ export function useDrawing(opts: {
   const setColor = (c: string) => {
     setColorState(c);
     storePref('drawColor', c);
+  };
+  const setDefaultStyle = (patch: Partial<ShapeStyle>) => {
+    const next = { ...defaultStyle, ...patch };
+    setDefaultStyleState(next);
+    storePref('drawStyle', JSON.stringify(next));
   };
   const setSnapOn = (on: boolean) => {
     setSnapOnState(on);
@@ -161,7 +178,17 @@ export function useDrawing(opts: {
    */
   const create = (type: DrawElementType, shape: Shape, extra: Partial<DrawElement> = {}, keepTool = false) => {
     if (!plan) return;
-    const rec: DrawElement = { ...newMeta(), projectId: plan.projectId, planId: plan.id, type, shape: roundShape(shape), color, ...extra };
+    const styled = type !== 'text' && type !== 'dimension' && Object.keys(defaultStyle).length > 0;
+    const rec: DrawElement = {
+      ...newMeta(),
+      projectId: plan.projectId,
+      planId: plan.id,
+      type,
+      shape: roundShape(shape),
+      color,
+      ...(styled ? { style: { ...defaultStyle } } : {}),
+      ...extra,
+    };
     putRecord('elements', rec);
     setSelectedId(rec.id);
     setLastLineEnd(type === 'line' ? lineEnds(rec.shape)[1] : null);
@@ -250,6 +277,12 @@ export function useDrawing(opts: {
   const recolor = (id: string, c: string) => {
     const e = data.elements[id];
     if (e) putRecord('elements', { ...e, color: c });
+  };
+
+  /** Darstellung nur dieses Objekts ändern – Geometrie und Maße bleiben unverändert */
+  const restyle = (id: string, patch: Partial<ShapeStyle>) => {
+    const e = data.elements[id];
+    if (e) putRecord('elements', { ...e, style: { ...e.style, ...patch } });
   };
 
   /** Messungen, deren Markierung das Objekt überlappt */
@@ -358,6 +391,9 @@ export function useDrawing(opts: {
     setText,
     setShowDims,
     recolor,
+    restyle,
+    defaultStyle,
+    setDefaultStyle,
     overlapping,
     remove,
     renderItem,

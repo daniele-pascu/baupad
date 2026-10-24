@@ -10,14 +10,15 @@ import { SaveErrorBanner, SaveStatus } from '../components/SaveStatus';
 import { confirmDialog, offerFile, showError, toast } from '../components/ui';
 import { costCenterLabel, damagesOf, elementsOf, exportXlsx, findPosition, lvDocLabel, lvDocsOf, plansOf, planTitle, positionRef, sumArea } from '../lib/aufmass';
 import { drawingRegion, drawingSheet, isDrawingPlan, paperLabel, suggestMeasures, unitsPerMeter } from '../lib/drawing';
-import { convertShape } from '../lib/geometry';
+import { convertShape, isOpenShape } from '../lib/geometry';
 import { countKind, defaultKindFor, hasArea, KIND_LABELS, KINDS, kindOf, sumLengths } from '../lib/measure';
 import { computeArea, formatArea, formatMeasure } from '../lib/numbers';
 import { compactNumbers, damageNo, duplicateIds, nextNumber, planNumberStart, shiftNumbers, suggestNext, swapNumbers } from '../lib/numbering';
 import { navigate, paths } from '../lib/router';
 import { clearHistory, newMeta, putRecord, putRecords, redo, softDelete, undo, useAppState, type ProjectState } from '../lib/store';
-import { COLORS, SHAPE_LABELS, type Damage, type DrawElementType, type MeasureKind, type Shape, type ShapeType } from '../lib/types';
-import { DRAW_TOOLS, useDrawing, type ToolGroup } from './DrawingMode';
+import { COLORS, SHAPE_LABELS, type Damage, type DrawElementType, type MeasureKind, type Shape, type ShapeStyle, type ShapeType } from '../lib/types';
+import { DRAW_TOOLS, readStyle, useDrawing, type ToolGroup } from './DrawingMode';
+import { StylePanel } from '../components/StylePanel';
 
 type DialogState = { mode: 'new'; shape: Shape; number: number; label: string | null; kind: MeasureKind } | { mode: 'edit'; id: string } | null;
 
@@ -197,6 +198,15 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const initialMode = () => (isDrawingPlan(data.plans[planId]) && !elementsOf(data, planId).length ? 'draw' : 'measure');
   const [mode, setMode] = useState<'draw' | 'measure'>(initialMode);
   const drawMode = drawingPlan && mode === 'draw';
+  /** Darstellung: Bedienfeld der ausgewählten Messung bzw. Voreinstellung für neue Messungen */
+  const [styleOpen, setStyleOpen] = useState(false);
+  const [stylePopOpen, setStylePopOpen] = useState(false);
+  const [measureStyle, setMeasureStyleState] = useState<ShapeStyle>(() => readStyle('measureStyle'));
+  const setMeasureStyle = (patch: Partial<ShapeStyle>) => {
+    const next = { ...measureStyle, ...patch };
+    setMeasureStyleState(next);
+    storePref('measureStyle', JSON.stringify(next));
+  };
   /** Werkzeugleiste aufgeklappt (klappt nach dem Zeichnen zu, damit der Plan frei bleibt) */
   const [toolsOpen, setToolsOpen] = useState(true);
   /** Farbauswahl der Zeichenleiste aufgeklappt */
@@ -397,6 +407,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         shape: convertShape(dialog.shape, v.shapeType),
         color: v.color,
         labelOffset: null,
+        ...(Object.keys(measureStyle).length ? { style: { ...measureStyle } } : {}),
         ...measures,
       };
       if (renumber !== 'none' && !v.label) {
@@ -798,6 +809,10 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 canRemoveVertex={drawing.canRemoveVertex}
                 onRemoveVertex={() => drawing.removeSelectedVertex()}
                 onSetClosed={(c) => drawing.setClosed(drawing.selected!.id, c)}
+                onStyle={(patch) => drawing.restyle(drawing.selected!.id, patch)}
+                styleOpen={styleOpen}
+                onToggleStyle={() => setStyleOpen(!styleOpen)}
+                onColor={(c) => drawing.recolor(drawing.selected!.id, c)}
                 onDelete={() => void drawing.remove(drawing.selected!)}
                 onClose={() => drawing.setSelectedId(null)}
               />
@@ -835,6 +850,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 <button type="button" className="btn btn-sm btn-primary" onClick={() => setDialog({ mode: 'edit', id: selected.id })} data-testid="edit-selected">
                   <Icon name="edit" size={18} /> Bearbeiten
                 </button>
+                <button type="button" className={`btn btn-sm${styleOpen ? ' active' : ''}`} onClick={() => setStyleOpen(!styleOpen)} aria-expanded={styleOpen} data-testid="style-toggle">
+                  Darstellung
+                </button>
                 <button type="button" className="btn btn-sm btn-danger-text" onClick={() => void removeDamage(selected)} data-testid="delete-selected">
                   <Icon name="trash" size={18} />
                   <span className="sr-only">Löschen</span>
@@ -843,6 +861,20 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                   <Icon name="close" size={18} />
                 </button>
               </div>
+              {styleOpen && (
+                <StylePanel
+                  color={selected.color}
+                  style={selected.style}
+                  open={isOpenShape(selected.shape)}
+                  defaultWidth={1}
+                  kind="damage"
+                  onColor={(c) => putRecord('damages', { ...data.damages[selected.id], color: c })}
+                  onStyle={(patch) => {
+                    const d = data.damages[selected.id];
+                    putRecord('damages', { ...d, style: { ...d.style, ...patch } });
+                  }}
+                />
+              )}
             </div>
           )}
 
@@ -904,7 +936,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                   <span>Farbe</span>
                 </button>
                 {colorsOpen && (
-                  <div className="color-pop" role="group" aria-label="Farben">
+                  <div className="color-pop style-pop" data-testid="default-style">
+                    <div className="pop-swatches" role="group" aria-label="Farben">
                     {COLORS.map((c) => (
                       <button
                         key={c.value}
@@ -921,6 +954,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                         title={drawing.selected ? `Farbe ${c.name} (auch für das ausgewählte Objekt)` : `Farbe ${c.name}`}
                       />
                     ))}
+                    </div>
+                    <div className="pop-title">Darstellung neuer Objekte</div>
+                    <StylePanel color={drawing.color} style={drawing.defaultStyle} open={false} defaultWidth={1.1} kind="element" hideColor onColor={drawing.setColor} onStyle={drawing.setDefaultStyle} />
                   </div>
                 )}
               </div>
@@ -968,6 +1004,25 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                   }
                 />
               ))}
+            </div>
+            <div className="tool-group color-pick">
+              <button
+                type="button"
+                className={`tool-btn${stylePopOpen ? ' active' : ''}`}
+                onClick={() => setStylePopOpen(!stylePopOpen)}
+                aria-expanded={stylePopOpen}
+                title="Darstellung neuer Messungen (Linientyp, Stärke, Füllung)"
+                data-testid="tool-style"
+              >
+                <Icon name="layers" />
+                <span>Stil</span>
+              </button>
+              {stylePopOpen && (
+                <div className="color-pop style-pop" data-testid="default-style">
+                  <div className="pop-title">Darstellung neuer Messungen</div>
+                  <StylePanel color={color} style={measureStyle} open={false} defaultWidth={1} kind="damage" hideColor onColor={setColor} onStyle={setMeasureStyle} />
+                </div>
+              )}
             </div>
             <ToolsCloseButton onClose={() => setToolsOpen(false)} />
             </>

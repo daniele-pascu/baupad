@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { apexOf, isRegularTriangle, measuresOf, pathLength, shapeInfo, type Apex, type Measures } from '../lib/drawing';
 import { canEditVertexCount, shapeVertices } from '../lib/geometry';
 import { checkMeasure, formatArea, formatMeasure, parseDecimal } from '../lib/numbers';
-import type { DrawElement, DrawElementType } from '../lib/types';
+import type { DrawElement, DrawElementType, ShapeStyle } from '../lib/types';
+import { StylePanel } from './StylePanel';
 import { Icon } from './Icon';
 
 /** Bezeichnungen der Zeichnungsobjekte */
@@ -178,8 +179,18 @@ export function ElementBar({
   canRemoveVertex = false,
   onRemoveVertex,
   onSetClosed,
+  onStyle,
+  onColor,
+  styleOpen = false,
+  onToggleStyle,
 }: {
   element: DrawElement;
+  /** Darstellungsfeld geöffnet (bleibt beim Wechsel der Auswahl offen) */
+  styleOpen?: boolean;
+  onToggleStyle?(): void;
+  /** Darstellung ändern (Linientyp, -stärke, Füllung) bzw. Linienfarbe */
+  onStyle?(patch: Partial<ShapeStyle>): void;
+  onColor?(color: string): void;
   /** ausgewählter Eckpunkt (Index) */
   vertex?: number | null;
   canRemoveVertex?: boolean;
@@ -202,6 +213,7 @@ export function ElementBar({
   const [values, setValues] = useState<Record<string, string>>({});
   const [text, setText] = useState(element.text ?? '');
   const [error, setError] = useState<string | null>(null);
+  const styled = element.type !== 'text' && element.type !== 'dimension' && !!onStyle && !!onColor && !!onToggleStyle;
   // Werte neu übernehmen, wenn sich das Objekt ändert (Ziehen, Rückgängig …)
   const key = `${element.id}:${element.rev}`;
   useEffect(() => {
@@ -304,6 +316,11 @@ export function ElementBar({
         </span>
       )}
       <span className="row gap">
+        {styled && (
+          <button type="button" className={`btn btn-sm${styleOpen ? ' active' : ''}`} onClick={onToggleStyle} aria-expanded={styleOpen} data-testid="style-toggle">
+            Darstellung
+          </button>
+        )}
         <button type="button" className="btn btn-sm btn-danger-text" onClick={onDelete} data-testid="element-delete">
           <Icon name="trash" size={18} />
           <span className="sr-only">Objekt löschen</span>
@@ -312,6 +329,19 @@ export function ElementBar({
           <Icon name="close" size={18} />
         </button>
       </span>
+      {styled && styleOpen && (
+        <div className="span-all">
+          <StylePanel
+            color={element.color}
+            style={element.style}
+            open={element.type === 'line' || (element.type === 'freehand' && element.shape.closed === false)}
+            defaultWidth={1.1}
+            kind="element"
+            onColor={onColor!}
+            onStyle={onStyle!}
+          />
+        </div>
+      )}
       {overlapping > 0 && (
         <small className="muted span-all" data-testid="element-overlap">
           Auf diesem Objekt liegen {overlapping} Messung(en). Sie bleiben beim Ändern unverändert.

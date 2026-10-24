@@ -60,7 +60,6 @@ test('Plan zeichnen: Raum 5,00 × 3,65 m über Maßeingabe, Maß ändern, Zoom �
   await page.getByTestId('draw-plan').click();
   const nd = page.getByTestId('new-drawing');
   await nd.locator('[data-field="planNumber"]').fill('Z-1');
-  await nd.locator('[data-field="planName"]').fill('Kellerraum');
   await nd.getByTestId('new-drawing-save').click();
 
   // Leere Zeichenfläche, Planbearbeitung aktiv
@@ -244,8 +243,8 @@ test('Nach dem Neuladen ist alles da; PDF-Export mit Maßstab; Sicherung und Wie
   });
   const pdf = await saveDownload(dl, 'gezeichnet.pdf');
   const text = execFileSync('pdftotext', [pdf, '-'], { encoding: 'utf8' });
-  expect(text).toContain('Aufmaßplan Z-1');
-  expect(text).toMatch(/Maßstab 1:100 \(A3 Quer\)/);
+  expect(text).toContain('Plannummer Z-1 | Aufmaßplan');
+  expect(text).not.toMatch(/Maßstab|A3/); // nur auf Wunsch im Plan
   expect(text).toContain('6,20 m');
   expect(text).toContain('Kellerraum 1');
   expect(execFileSync('pdfinfo', [pdf], { encoding: 'utf8' })).toMatch(/Page size:\s+1190\.55 x 841\.89/);

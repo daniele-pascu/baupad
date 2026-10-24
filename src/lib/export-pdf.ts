@@ -1,4 +1,4 @@
-import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFImage, type PDFPage } from 'pdf-lib';
+import { LineCapStyle, PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFImage, type PDFPage } from 'pdf-lib';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { componentsOf, costCenterLabel, damagesOf, elementsOf, planTitle, safeFileName, type ExportFile } from './aufmass';
 import { annotationsOf, contentRegion, dimGeometry, drawingSheet, isDrawingPlan, PAPER, PRINT_HEADER_MM, PRINT_MARGIN_MM, printScale, shapeToPage, unitsPerMeter } from './drawing';
@@ -8,7 +8,6 @@ import {
   layoutLabels,
   leaderLine,
   pathToSvg,
-  isOpenShape,
   shapeAABB,
   shapePath,
   type Point,
@@ -16,7 +15,8 @@ import {
 import { canvasToBlob, closePdf, clampRenderScale, imageToCanvas, loadImageBitmap, openPdf, renderPdfRegion, renderPdfToCanvas } from './pdf';
 import type { ProjectState } from './store';
 import { exportPaper, layoutSheet, planHeading, type OverviewCorner, type SheetLayout } from './sheet-layout';
-import type { Component, Damage, Plan, Rect } from './types';
+import { DEFAULT_TRANSPARENCY, fillOf, strokeGeometry } from './style';
+import type { Component, Damage, Plan, Rect, Shape, ShapeStyle } from './types';
 
 /**
  * PDF-Export bearbeiteter Pläne.
@@ -214,20 +214,26 @@ async function addRasterSheet(ctx: Ctx, plan: Plan, L: SheetLayout, region: Rect
 async function finishSheet(ctx: Ctx, page: PDFPage, plan: Plan, L: SheetLayout, region: Rect, damages: Damage[], full: HTMLCanvasElement | null) {
   const map = (p: Point): Point => ({ x: L.plan.x + (p.x - region.x) * L.u, y: L.h - (L.plan.y + (p.y - region.y) * L.u) });
   const target: Target = { page, map, textRotation: 0, ptPerUnit: L.u };
-  drawSheetHeader(ctx, page, L, planHeading(plan), PAPER[exportPaper(plan)].label);
+  drawSheetHeader(ctx, page, L.h, L.header, plan, plan.showPaper ? [PAPER[exportPaper(plan)].label] : []);
   drawDamages(ctx, target, region, damages, []);
   if (L.overview && full && plan.crop) await drawOverview(ctx, page, L, plan, L.overview, full);
 }
 
-/** Überschrift links im Kopfbereich, rechts klein das Format bzw. der Maßstab; Trennlinie darunter. */
-function drawSheetHeader(ctx: Ctx, page: PDFPage, L: SheetLayout, title: string, right: string) {
-  const size = 16;
-  const rightText = clean(ctx, right);
-  const rw = ctx.font.widthOfTextAtSize(rightText, 10);
-  page.drawText(fitText(ctx.bold, clean(ctx, title), size, L.header.w - rw - 16), { x: L.header.x, y: L.h - L.header.y - size, size, font: ctx.bold, color: rgb(0.1, 0.1, 0.12) });
-  page.drawText(rightText, { x: L.header.x + L.header.w - rw, y: L.h - L.header.y - 14, size: 10, font: ctx.font, color: rgb(0.3, 0.33, 0.38) });
-  const ly = L.h - (L.header.y + L.header.h) + 6;
-  page.drawLine({ start: { x: L.header.x, y: ly }, end: { x: L.header.x + L.header.w, y: ly }, thickness: 0.5, color: rgb(0.8, 0.82, 0.85) });
+/**
+ * Kopfzeile: links „Plannummer 067 | Aufmaßplan“, darunter optional die Bemerkung; rechts nur
+ * die ausdrücklich eingeschalteten Angaben (Format, Maßstab). Trennlinie darunter.
+ */
+function drawSheetHeader(ctx: Ctx, page: PDFPage, pageH: number, header: Rect, plan: Plan, right: string[], reserveRight = 0) {
+  const size = 15;
+  const rightText = clean(ctx, right.join(' · '));
+  const rw = rightText ? ctx.font.widthOfTextAtSize(rightText, 10) : 0;
+  const maxW = header.w - Math.max(rw, reserveRight) - (rw || reserveRight ? 16 : 0);
+  page.drawText(fitText(ctx.bold, clean(ctx, planHeading(plan)), size, maxW), { x: header.x, y: pageH - header.y - size, size, font: ctx.bold, color: rgb(0.1, 0.1, 0.12) });
+  const note = plan.showNote ? plan.description.trim().replace(/\s+/g, ' ') : '';
+  if (note) page.drawText(fitText(ctx.font, clean(ctx, note), 8, maxW), { x: header.x, y: pageH - header.y - size - 11, size: 8, font: ctx.font, color: rgb(0.3, 0.33, 0.38) });
+  if (rightText) page.drawText(rightText, { x: header.x + header.w - rw, y: pageH - header.y - 14, size: 10, font: ctx.font, color: rgb(0.3, 0.33, 0.38) });
+  const ly = pageH - (header.y + header.h) + 6;
+  page.drawLine({ start: { x: header.x, y: ly }, end: { x: header.x + header.w, y: ly }, thickness: 0.5, color: rgb(0.8, 0.82, 0.85) });
 }
 
 // ---------------------------------------------------------------------------
@@ -274,6 +280,33 @@ function drawTextMapped(t: Target, text: string, at: Point, size: number, font: 
   t.page.drawText(text, { x: p.x, y: p.y, size, font, color, rotate: degrees(t.textRotation) });
 }
 
+/**
+ * Form mit ihrer Darstellung zeichnen: Füllung aus der unveränderten Form, Umrandung mit
+ * Linientyp und -stärke (Wellen-/Zickzacklinie nur als Darstellung), optional mit Kontur.
+ */
+function drawStyledShape(
+  page: PDFPage,
+  map: (p: Point) => Point,
+  shape: Shape,
+  color: string,
+  style: ShapeStyle | undefined,
+  width: number,
+  defaultTransparency: number,
+  halo: ReturnType<typeof rgb> | null,
+) {
+  // drawSvgPath erwartet y nach unten
+  const svgMap = (p: Point) => {
+    const q = map(p);
+    return { x: q.x, y: -q.y };
+  };
+  const fill = fillOf(shape, color, style, defaultTransparency);
+  if (fill && fill.opacity > 0) page.drawSvgPath(pathToSvg(shapePath(shape), svgMap), { x: 0, y: 0, color: hexToRgb(fill.color), opacity: fill.opacity });
+  const line = strokeGeometry(shape, svgMap, style?.lineType, width);
+  const common = { x: 0, y: 0, borderDashArray: line.dash, borderLineCap: LineCapStyle.Round };
+  if (halo) page.drawSvgPath(line.d, { ...common, borderColor: halo, borderWidth: width + 1.6, borderOpacity: 0.75 });
+  page.drawSvgPath(line.d, { ...common, borderColor: hexToRgb(color), borderWidth: width, borderOpacity: 1 });
+}
+
 /** Gut sichtbare Strichfarbe (Weiß wäre auf weißem Plan unsichtbar) */
 const visibleHex = (hex: string) => (hex.toLowerCase() === '#ffffff' ? '#8e8e93' : hex);
 /** Kontur: hell unter dunklen, dunkel unter hellen Farben */
@@ -289,21 +322,8 @@ function drawDamages(ctx: Ctx, t: Target, region: Rect, damages: Damage[], compo
   const stroke = Math.max(0.8, fs * 0.14);
   // Formen
   for (const d of damages) {
-    const color = hexToRgb(d.color);
-    const svg = pathToSvg(shapePath(d.shape), (p) => {
-      const q = t.map(p);
-      return { x: q.x, y: -q.y };
-    });
-    t.page.drawSvgPath(svg, { x: 0, y: 0, borderColor: haloRgb(d.color), borderWidth: stroke + 1.6, borderOpacity: 0.75 });
-    t.page.drawSvgPath(svg, {
-      x: 0,
-      y: 0,
-      color: isOpenShape(d.shape) ? undefined : color,
-      opacity: 0.12,
-      borderColor: color,
-      borderWidth: stroke,
-      borderOpacity: 1,
-    });
+    const width = d.style?.lineWidth ?? stroke;
+    drawStyledShape(t.page, (p) => t.map(p), d.shape, d.color, d.style, width, DEFAULT_TRANSPARENCY.damage, haloRgb(d.color));
   }
   // Nummern
   const padX = fs * 0.35 * u;
@@ -398,18 +418,19 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   const map = (p: Point): Point => pdf(paper(p));
   const target: Target = { page, map, textRotation: 0, ptPerUnit: u };
 
-  // Kopf: „Aufmaßplan <Nr.>“ und Maßstab
-  const title = clean(ctx, planHeading(plan));
-  page.drawText(fitText(ctx.bold, title, 16, W - 2 * margin - 160), { x: margin, y: H - margin - 16, size: 16, font: ctx.bold, color: rgb(0.1, 0.1, 0.12) });
-  const scaleText = `Maßstab 1:${scaleN} (${paperFmt ? paperFmt.label.replace('format', '') : 'A3'})`;
-  page.drawText(clean(ctx, scaleText), {
-    x: W - margin - ctx.font.widthOfTextAtSize(scaleText, 10),
-    y: H - margin - 14,
-    size: 10,
-    font: ctx.font,
-    color: rgb(0.3, 0.33, 0.38),
-  });
-  page.drawLine({ start: { x: margin, y: H - margin - headerPt + 6 }, end: { x: W - margin, y: H - margin - headerPt + 6 }, thickness: 0.5, color: rgb(0.8, 0.82, 0.85) });
+  // Kopf: Plannummer | Titel; Format und Maßstab nur, wenn ausdrücklich eingeschaltet
+  const fmtLabel = paperFmt ? paperFmt.label : portrait ? 'A3 Hochformat' : 'A3 Querformat';
+  const barM = [0.5, 1, 2, 5, 10, 20, 50, 100, 200].find((m) => (m * 1000) / scaleN >= 35) ?? 200;
+  const barPt = ((barM * 1000) / scaleN) * MM;
+  drawSheetHeader(
+    ctx,
+    page,
+    H,
+    { x: margin, y: margin, w: W - 2 * margin, h: headerPt },
+    plan,
+    [plan.showPaper ? fmtLabel : '', plan.showScale ? `Maßstab 1:${scaleN}` : ''].filter(Boolean),
+    plan.showScale ? barPt + 12 : 0,
+  );
 
   // Zeichnungsobjekte
   const dimColor = rgb(0.16, 0.3, 0.5);
@@ -422,11 +443,15 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
       page.drawText(clean(ctx, e.text ?? ''), { x: at.x, y: at.y, size, font: ctx.font, color, rotate: degrees(-(shape.rotation ?? 0)) });
       continue;
     }
-    const svg = pathToSvg(shapePath(shape), (p) => {
-      const q = map(p);
-      return { x: q.x, y: -q.y };
-    });
-    page.drawSvgPath(svg, { x: 0, y: 0, borderColor: color, borderWidth: e.type === 'dimension' ? 0.6 : 1.1 });
+    if (e.type === 'dimension') {
+      const svg = pathToSvg(shapePath(shape), (p) => {
+        const q = map(p);
+        return { x: q.x, y: -q.y };
+      });
+      page.drawSvgPath(svg, { x: 0, y: 0, borderColor: color, borderWidth: 0.6 });
+      continue;
+    }
+    drawStyledShape(page, map, shape, visibleHex(e.color), e.style, e.style?.lineWidth ?? 1.1, DEFAULT_TRANSPARENCY.element, null);
   }
   // Maßketten
   const fs = 7.5;
@@ -467,10 +492,8 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   }
   // Messungen und Bauteilbuchstaben darüber
   drawDamages(ctx, target, region, damages, components);
-  // Maßstabsleiste rechts im Kopfbereich (nicht im 1-cm-Rand): runde Länge, ca. 35–60 mm
-  const nice = [0.5, 1, 2, 5, 10, 20, 50, 100, 200];
-  const barM = nice.find((m) => (m * 1000) / scaleN >= 35) ?? 200;
-  const barPt = ((barM * 1000) / scaleN) * MM;
+  // Maßstabsleiste rechts im Kopfbereich (nur wenn der Maßstab angezeigt werden soll)
+  if (!plan.showScale) return;
   const lblW = ctx.font.widthOfTextAtSize(`${String(barM).replace('.', ',')} m`, 6.5);
   const bx = W - margin - barPt - lblW / 2;
   const by = H - margin - 28;

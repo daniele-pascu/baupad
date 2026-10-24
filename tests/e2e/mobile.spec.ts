@@ -362,3 +362,30 @@ test('Plan zeichnen per Finger: Raum über Maßeingabe, Bemaßung sichtbar, Weit
   await waitSaved(page);
   await noHorizontalScroll(page);
 });
+
+test('Darstellung einer Messung per Finger: Bedienfeld passt auf den Bildschirm', async ({ page }, info) => {
+  await freshStart(page);
+  await createProject(page, 'Stil mobil', {}, ['Hof']);
+  await page.getByTestId('plan-file-input').setInputFiles(join(FIXTURES, 'parkdeck.png'));
+  const wiz = page.getByTestId('import-wizard');
+  await wiz.getByTestId('areas-next').tap();
+  await wiz.locator('[data-field="planNumber"]').fill('M-1');
+  await wiz.getByTestId('import-save').tap();
+  await waitForPlan(page);
+  const box = await planBox(page);
+  await pickTool(page, 'tool-ellipse', 'tap');
+  await page.touchscreen.tap(box.x + box.width * 0.4, box.y + box.height * 0.3);
+  const dlg = page.getByTestId('damage-dialog');
+  await dlg.getByTestId('input-length').fill('2');
+  await dlg.getByTestId('damage-save').tap();
+  await page.getByTestId('style-toggle').tap();
+  const panel = page.getByTestId('style-panel');
+  await panel.getByTestId('style-line-type').selectOption('dashdot');
+  await panel.getByRole('button', { name: 'Füllfarbe Gelb' }).tap();
+  const vw = page.viewportSize()!.width;
+  const b = (await page.getByTestId('selection-bar').boundingBox())!;
+  expect(b.x).toBeGreaterThanOrEqual(-0.5);
+  expect(b.x + b.width).toBeLessThanOrEqual(vw + 0.5);
+  await noHorizontalScroll(page);
+  await page.screenshot({ path: join(OUT, `${info.project.name}-darstellung.png`) });
+});
