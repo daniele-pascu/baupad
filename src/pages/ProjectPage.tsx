@@ -157,9 +157,9 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
   // ---------------------------------------------------------------------------
   // Export
 
-  const xlsx = (scope: 'cc' | 'project') => {
+  const xlsx = (scope: 'cc' | 'project', layout: 'standard' | 'classic' = 'standard') => {
     try {
-      void offerFile(exportXlsx(data, scope === 'cc' && active ? { kind: 'costCenter', costCenterId: active.id } : { kind: 'project' }));
+      void offerFile(exportXlsx(data, scope === 'cc' && active ? { kind: 'costCenter', costCenterId: active.id } : { kind: 'project' }, layout));
     } catch (e) {
       showError(e, 'Excel-Export fehlgeschlagen');
     }
@@ -353,6 +353,15 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
               <Icon name="excel" /> Excel – gesamtes Projekt
             </button>
           )}
+          <button
+            type="button"
+            className="btn"
+            onClick={() => xlsx(ccs.length > 1 ? 'project' : 'cc', 'classic')}
+            title="Bisheriges Format: eine Tabelle je Kostenstelle, Plannummer in Spalte A"
+            data-testid="export-xlsx-classic"
+          >
+            <Icon name="excel" /> Excel – klassisch
+          </button>
           <button type="button" className="btn" onClick={() => setPdfOpen(true)} disabled={!plans.length}>
             <Icon name="pdf" /> PDF – Pläne auswählen
           </button>

@@ -160,3 +160,20 @@ export async function tableRows(page: Page) {
     rows.map((r) => [...r.querySelectorAll('td')].map((td) => td.textContent?.trim() ?? '')),
   );
 }
+
+export type XlsxPrint = { orientation: string; fitToPage: boolean; fitToWidth: number; fitToHeight: number; titleRows: string | null; printArea: string | null; footer: string };
+/** Druckeinstellungen je Tabellenblatt (über openpyxl gelesen) */
+export function readXlsxPrint(path: string): Record<string, XlsxPrint> {
+  const script = `
+import json, sys, openpyxl
+wb = openpyxl.load_workbook(sys.argv[1])
+out = {}
+for ws in wb.worksheets:
+    ps = ws.page_setup
+    pr = ws.sheet_properties.pageSetUpPr
+    out[ws.title] = {"orientation": ps.orientation, "fitToPage": bool(pr and pr.fitToPage), "fitToWidth": ps.fitToWidth, "fitToHeight": ps.fitToHeight,
+      "titleRows": ws.print_title_rows, "printArea": ws.print_area if isinstance(ws.print_area, str) else (ws.print_area[0] if ws.print_area else None),
+      "footer": ws.oddFooter.right.text or ""}
+print(json.dumps(out))`;
+  return JSON.parse(execFileSync('python3', ['-c', script, path], { encoding: 'utf8' }));
+}

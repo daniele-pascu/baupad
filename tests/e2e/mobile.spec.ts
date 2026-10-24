@@ -185,9 +185,9 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   // 7) Excel-Export über den Dialog „Datei bereit“
   const dl = await catchDownload(page, () => page.getByTestId('export-xlsx-plan').tap());
   const wb = readXlsx(await saveDownload(dl, `${info.project.name}-plan.xlsx`));
-  expect(wb['C-301'].slice(1, 3).map((r) => r.map((c) => c?.v))).toEqual([
-    ['C-301', 1, 1.25, 0.4, 0.03, 0.5],
-    ['C-301', 2, 2.4, 1.5, 0.06, 3.6],
+  expect(wb['C-301'].slice(2, 4).map((r) => r.map((c) => c?.v))).toEqual([
+    [1, 1.25, 0.4, 0.03, 0.5],
+    [2, 2.4, 1.5, 0.06, 3.6],
   ]);
 
   // 8) PDF-Export beider Bildpläne

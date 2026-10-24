@@ -141,16 +141,18 @@ test('Messarten Linie, Schadstelle, Fläche: Linien zählen nicht zur Fläche, l
   const dl = await catchDownload(page, () => page.getByTestId('export-xlsx-plan').click());
   const file = await saveDownload(dl, 'messarten.xlsx');
   const ws = readXlsx(file)['M-1'];
-  expect(ws.slice(1, 4).map((r) => r.map((c) => c?.v ?? null))).toEqual([
-    ['M-1', 1, 3.5, null, null, null],
-    ['M-1', 2, 2, 1, null, 2],
-    ['M-1', 3, 1, 0.5, 0.1, 0.5],
+  expect(ws[1].map((c) => c?.v)).toEqual(['Nr.', 'Länge (m)', 'Breite (m)', 'Tiefe (m)', 'Fläche (m²)', 'Messart']);
+  expect(ws.slice(2, 5).map((r) => r.map((c) => c?.v ?? null))).toEqual([
+    [1, 3.5, null, null, null, 'Linie'],
+    [2, 2, 1, null, 2, 'Schadstelle'],
+    [3, 1, 0.5, 0.1, 0.5, 'Fläche'],
   ]);
   execFileSync('soffice', ['--headless', '--convert-to', 'csv:Text - txt - csv (StarCalc):59,34,76,1,,1031', '--outdir', OUT, file], { timeout: 90_000 });
   const csv = readFileSync(file.replace(/\.xlsx$/, '.csv'), 'utf8');
-  expect(csv).toMatch(/^M-1;1;3[.,]50;;;$/m); // Linie: Breite, Tiefe, Fläche leer
-  expect(csv).toMatch(/^M-1;2;2[.,]00;1[.,]00;;2[.,]00$/m); // Tiefe leer, nicht 0
-  expect(csv).toMatch(/Summe;;;;;2[.,]5/);
+  expect(csv).toMatch(/^1;3[.,]50;;;;Linie$/m); // Linie: Breite, Tiefe, Fläche leer
+  expect(csv).toMatch(/^2;2[.,]00;1[.,]00;;2[.,]00;Schadstelle$/m); // Tiefe leer, nicht 0
+  expect(csv).toMatch(/Summe Fläche \(m²\);;;;2[.,]5/); // Linie zählt nicht zur Fläche
+  expect(csv).toMatch(/Summe Länge Linien \(m\);3[.,]5/); // Linien getrennt summiert
 });
 
 test('Rückgängig und Wiederholen: Anlegen, Verschieben, per Schaltfläche und Tastatur', async () => {

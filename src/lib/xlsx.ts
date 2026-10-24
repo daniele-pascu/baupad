@@ -7,13 +7,28 @@ import { strToU8, zipSync } from 'fflate';
  * dann je nach Ländereinstellung mit Dezimalkomma an, und man kann direkt weiterrechnen.
  */
 
-export type CellStyle = 'header' | 'text' | 'measure' | 'area' | 'int' | 'boldText' | 'boldArea' | 'title' | 'label';
+export type CellStyle =
+  | 'header'
+  | 'text'
+  | 'measure'
+  | 'area'
+  | 'int'
+  | 'boldText'
+  | 'boldArea'
+  | 'title'
+  | 'label'
+  | 'money'
+  | 'boldMoney'
+  | 'wrap'
+  | 'note';
 
 export type Cell =
   | null
   | { t: 'str'; v: string; s?: CellStyle }
   | { t: 'num'; v: number; s?: CellStyle }
-  | { t: 'formula'; f: string; v: number; s?: CellStyle };
+  | { t: 'formula'; f: string; v: number; s?: CellStyle }
+  /** leere Zelle, nur mit Formatierung (z. B. Rahmen) */
+  | { t: 'blank'; s?: CellStyle };
 
 export interface Sheet {
   name: string;
@@ -24,6 +39,12 @@ export interface Sheet {
   freezeHeader?: boolean;
   /** Autofilter-Bereich, z. B. "A1:F20" */
   autoFilter?: string;
+  /** Anzahl fixierter Kopfzeilen (überschreibt freezeHeader), die auch auf jeder Druckseite wiederholt werden */
+  headerRows?: number;
+  /** Druck: Querformat */
+  landscape?: boolean;
+  /** Druck: Tabellenbreite auf eine Seite anpassen; Druckbereich = genutzte Zellen; Seitenzahlen */
+  print?: boolean;
 }
 
 const STYLE_INDEX: Record<CellStyle, number> = {
@@ -36,10 +57,15 @@ const STYLE_INDEX: Record<CellStyle, number> = {
   boldArea: 7,
   title: 8,
   label: 9,
+  money: 10,
+  boldMoney: 11,
+  wrap: 12,
+  note: 13,
 };
 
 export const str = (v: string, s: CellStyle = 'text'): Cell => ({ t: 'str', v, s });
 export const num = (v: number, s: CellStyle): Cell => ({ t: 'num', v, s });
+export const blank = (s: CellStyle = 'text'): Cell => ({ t: 'blank', s });
 
 export function colName(i: number): string {
   let s = '';
@@ -90,6 +116,7 @@ function sheetXml(sheet: Sheet): string {
           const ref = `${colName(c)}${r + 1}`;
           const s = STYLE_INDEX[cell.s ?? 'text'];
           if (cell.t === 'str') return `<c r="${ref}" s="${s}" t="inlineStr"><is><t xml:space="preserve">${esc(cell.v)}</t></is></c>`;
+          if (cell.t === 'blank') return `<c r="${ref}" s="${s}"/>`;
           if (cell.t === 'num') return `<c r="${ref}" s="${s}"><v>${numberToXml(cell.v)}</v></c>`;
           return `<c r="${ref}" s="${s}"><f>${esc(cell.f)}</f><v>${numberToXml(cell.v)}</v></c>`;
         })
@@ -99,8 +126,9 @@ function sheetXml(sheet: Sheet): string {
     .join('');
   const maxCols = Math.max(1, sheet.widths.length, ...sheet.rows.map((r) => r.length));
   const dim = `A1:${colName(maxCols - 1)}${Math.max(1, sheet.rows.length)}`;
-  const pane = sheet.freezeHeader
-    ? '<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A2" sqref="A2"/>'
+  const frozen = sheet.headerRows ?? (sheet.freezeHeader ? 1 : 0);
+  const pane = frozen
+    ? `<pane ySplit="${frozen}" topLeftCell="A${frozen + 1}" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A${frozen + 1}" sqref="A${frozen + 1}"/>`
     : '';
   const cols = sheet.widths.length
     ? `<cols>${sheet.widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('')}</cols>`
@@ -108,14 +136,21 @@ function sheetXml(sheet: Sheet): string {
   return (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
     '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
+    (sheet.print ? '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>' : '') +
     `<dimension ref="${dim}"/>` +
     `<sheetViews><sheetView workbookViewId="0">${pane}</sheetView></sheetViews>` +
     '<sheetFormatPr defaultRowHeight="15"/>' +
     cols +
     `<sheetData>${rows}</sheetData>` +
     (sheet.autoFilter ? `<autoFilter ref="${sheet.autoFilter}"/>` : '') +
-    '<pageMargins left="0.7" right="0.7" top="0.78740157499999996" bottom="0.78740157499999996" header="0.3" footer="0.3"/>' +
-    '<pageSetup paperSize="9" orientation="portrait"/>' +
+    (sheet.print
+      ? // A4, schmale Ränder (cm → Zoll), auf Seitenbreite skaliert, Höhe beliebig; Seitenzahlen in der Fußzeile
+        '<printOptions horizontalCentered="1"/>' +
+        '<pageMargins left="0.59" right="0.59" top="0.71" bottom="0.71" header="0.3" footer="0.3"/>' +
+        `<pageSetup paperSize="9" orientation="${sheet.landscape ? 'landscape' : 'portrait'}" fitToWidth="1" fitToHeight="0"/>` +
+        '<headerFooter><oddFooter>&amp;L&amp;8BauPad&amp;R&amp;8Seite &amp;P von &amp;N</oddFooter></headerFooter>'
+      : '<pageMargins left="0.7" right="0.7" top="0.78740157499999996" bottom="0.78740157499999996" header="0.3" footer="0.3"/>' +
+        '<pageSetup paperSize="9" orientation="portrait"/>') +
     '</worksheet>'
   );
 }
@@ -123,34 +158,40 @@ function sheetXml(sheet: Sheet): string {
 const STYLES_XML =
   '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
   '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
-  '<numFmts count="1"><numFmt numFmtId="164" formatCode="0.00#"/></numFmts>' +
-  '<fonts count="3">' +
+  '<numFmts count="2"><numFmt numFmtId="164" formatCode="0.00#"/><numFmt numFmtId="165" formatCode="#,##0.00\\ &quot;€&quot;"/></numFmts>' +
+  '<fonts count="4">' +
   '<font><sz val="11"/><color theme="1"/><name val="Calibri"/><family val="2"/><scheme val="minor"/></font>' +
   '<font><b/><sz val="11"/><color theme="1"/><name val="Calibri"/><family val="2"/><scheme val="minor"/></font>' +
   '<font><b/><sz val="14"/><color theme="1"/><name val="Calibri"/><family val="2"/><scheme val="minor"/></font>' +
+  '<font><i/><sz val="10"/><color rgb="FF7A7A7A"/><name val="Calibri"/><family val="2"/><scheme val="minor"/></font>' +
   '</fonts>' +
   '<fills count="3">' +
   '<fill><patternFill patternType="none"/></fill>' +
   '<fill><patternFill patternType="gray125"/></fill>' +
   '<fill><patternFill patternType="solid"><fgColor rgb="FFDCE6F1"/><bgColor indexed="64"/></patternFill></fill>' +
   '</fills>' +
-  '<borders count="3">' +
+  '<borders count="4">' +
   '<border><left/><right/><top/><bottom/><diagonal/></border>' +
   '<border><left/><right/><top/><bottom style="thin"><color auto="1"/></bottom><diagonal/></border>' +
   '<border><left/><right/><top style="thin"><color auto="1"/></top><bottom style="double"><color auto="1"/></bottom><diagonal/></border>' +
+  '<border><left/><right/><top/><bottom style="thin"><color rgb="FFD9DEE5"/></bottom><diagonal/></border>' + // 3 dezente Zeilenlinie
   '</borders>' +
   '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
-  '<cellXfs count="10">' +
+  '<cellXfs count="14">' +
   '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' + // 0 Standard
   '<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment wrapText="1" vertical="center"/></xf>' + // 1 Kopf
-  '<xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>' + // 2 Text
-  '<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>' + // 3 Maß
-  '<xf numFmtId="4" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>' + // 4 Fläche
-  '<xf numFmtId="1" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>' + // 5 Ganzzahl
+  '<xf numFmtId="49" fontId="0" fillId="0" borderId="3" xfId="0" applyNumberFormat="1" applyBorder="1"/>' + // 2 Text
+  '<xf numFmtId="164" fontId="0" fillId="0" borderId="3" xfId="0" applyNumberFormat="1" applyBorder="1"/>' + // 3 Maß
+  '<xf numFmtId="4" fontId="0" fillId="0" borderId="3" xfId="0" applyNumberFormat="1" applyBorder="1"/>' + // 4 Fläche
+  '<xf numFmtId="1" fontId="0" fillId="0" borderId="3" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left"/></xf>' + // 5 Ganzzahl
   '<xf numFmtId="0" fontId="1" fillId="0" borderId="2" xfId="0" applyFont="1" applyBorder="1"/>' + // 6 Summe Text
   '<xf numFmtId="4" fontId="1" fillId="0" borderId="2" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1"/>' + // 7 Summe Fläche
   '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>' + // 8 Titel
   '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>' + // 9 Beschriftung
+  '<xf numFmtId="165" fontId="0" fillId="0" borderId="3" xfId="0" applyNumberFormat="1" applyBorder="1"/>' + // 10 Betrag
+  '<xf numFmtId="165" fontId="1" fillId="0" borderId="2" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1"/>' + // 11 Summe Betrag
+  '<xf numFmtId="49" fontId="0" fillId="0" borderId="3" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf>' + // 12 Text mit Umbruch
+  '<xf numFmtId="49" fontId="3" fillId="0" borderId="3" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf>' + // 13 Hinweis
   '</cellXfs>' +
   '<cellStyles count="1"><cellStyle name="Standard" xfId="0" builtinId="0"/></cellStyles>' +
   '</styleSheet>';
@@ -205,7 +246,14 @@ export function buildXlsx(sheets: Sheet[]): Uint8Array {
         `<definedName name="_xlnm._FilterDatabase" localSheetId="${i}" hidden="1">${esc(`${quoted}!${abs(a)}:${abs(b)}`)}</definedName>`,
       );
     }
-    if (s.freezeHeader) definedNames.push(`<definedName name="_xlnm.Print_Titles" localSheetId="${i}">${esc(`${quoted}!$1:$1`)}</definedName>`);
+    const titleRows = s.headerRows ?? (s.freezeHeader ? 1 : 0);
+    if (titleRows) definedNames.push(`<definedName name="_xlnm.Print_Titles" localSheetId="${i}">${esc(`${quoted}!$1:$${titleRows}`)}</definedName>`);
+    if (s.print) {
+      const cols = Math.max(1, s.widths.length, ...s.rows.map((r) => r.length));
+      definedNames.push(
+        `<definedName name="_xlnm.Print_Area" localSheetId="${i}">${esc(`${quoted}!$A$1:$${colName(cols - 1)}$${Math.max(1, s.rows.length)}`)}</definedName>`,
+      );
+    }
   });
   files['xl/workbook.xml'] = strToU8(
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +

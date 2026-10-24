@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { join } from 'node:path';
-import { createProject, drawRect, FIXTURES, freshStart, planBox, waitForPlan, waitSaved } from './helpers';
+import { catchDownload, createProject, drawRect, FIXTURES, freshStart, planBox, readXlsx, readXlsxPrint, saveDownload, waitForPlan, waitSaved } from './helpers';
 
 /** Phase 4: LV/MFK aus PDF importieren, prüfen, durchsuchen, Messungen zuordnen, Mengen. */
 test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen', async ({ page }) => {
@@ -66,6 +66,22 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   await expect(page.locator('[data-testid="lv-row"][data-number="92 01 01 B"] [data-testid="lv-measured"]')).toHaveText('10,00');
   await expect(page.locator('[data-testid="lv-row"][data-number="92 01 01 A"] [data-testid="lv-measured"]')).toHaveText('12,00');
   await expect(page.getByTestId('lv-measured-total')).toHaveText('286,00 €');
+
+  // Excel: LV-Auswertung mit LV-Menge und Aufmaß-Menge getrennt, Beträge als Formeln
+  const dl = await catchDownload(page, () => page.getByTestId('export-xlsx-cc').click());
+  const file = await saveDownload(dl, 'lv-auswertung.xlsx');
+  const wb = readXlsx(file);
+  const lvName = Object.keys(wb).find((n) => n.startsWith('LV '))!;
+  expect(lvName).toBeTruthy();
+  const lv = wb[lvName];
+  expect(lv[1].map((c) => c?.v)).toEqual(['Pos.-Nr.', 'Kurztext', 'EH', 'LV-Menge', 'Aufmaß-Menge', 'Differenz', 'EP (€)', 'GP LV (€)', 'GP Aufmaß (€)', 'Hinweis']);
+  const b = lv.find((r) => r[0]?.v === '92 01 01 B')!;
+  const rowNo = lv.indexOf(b) + 1;
+  expect(b.slice(0, 9).map((c) => c?.v ?? null)).toEqual(['92 01 01 B', 'Sperrflaeche', 'm²', 120, 10, `=E${rowNo}-D${rowNo}`, 25, 3000, `=E${rowNo}*G${rowNo}`]);
+  const c = lv.find((r) => r[0]?.v === '01 11 01 C')!;
+  expect(c[4]?.v ?? null).toBeNull(); // keine Messung → keine erfundene Menge
+  expect(readXlsxPrint(file)[lvName]).toMatchObject({ orientation: 'landscape', fitToWidth: 1, titleRows: '$1:$2' });
+  expect(Object.keys(wb)).not.toContain('Ohne Leistung'); // alle Messungen zugeordnet
 
   // Nach dem Neuladen bleibt alles erhalten
   await page.reload();

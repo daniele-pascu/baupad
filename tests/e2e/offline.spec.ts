@@ -73,7 +73,7 @@ test('Offline: Projekt anlegen, PDF importieren, Schadstellen erfassen, exportie
 
   const x = await catchDownload(page, () => page.getByTestId('export-xlsx-plan').click());
   const wb = readXlsx(await saveDownload(x, 'offline.xlsx'));
-  expect(wb['A-101'][1].map((c) => c?.v)).toEqual(['A-101', 1, 1.5, 0.8, 0.05, 1.2]);
+  expect(wb['A-101'][2].map((c) => c?.v)).toEqual([1, 1.5, 0.8, 0.05, 1.2]);
 
   const p = await catchDownload(page, async () => {
     await page.getByTestId('export-pdf-plan').click();

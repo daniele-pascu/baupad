@@ -15,6 +15,7 @@ import {
   markerRelPos,
   planBox,
   readXlsx,
+  readXlsxPrint,
   saveDownload,
   tableRows,
   waitForPlan,
@@ -370,26 +371,36 @@ test('10. Excel-Export (Plan) mit echten Zahlenwerten', async () => {
   const file = await saveDownload(dl);
   const wb = readXlsx(file);
   const ws = wb['A-101'];
-  expect(ws[0].map((c) => c?.v)).toEqual(['Plannummer', 'Schadstellennummer', 'Länge (m)', 'Breite (m)', 'Tiefe (m)', 'Fläche (m²)']);
-  const data = ws.slice(1, 5).map((r) => r.map((c) => c?.v));
+  // Neues Layout: A1 = Plan, Zeile 2 = Überschriften, ab Zeile 3 die Messungen
+  expect(String(ws[0][0]?.v)).toMatch(/^Plan A-101/);
+  expect(ws[1].map((c) => c?.v)).toEqual(['Nr.', 'Länge (m)', 'Breite (m)', 'Tiefe (m)', 'Fläche (m²)']);
+  const data = ws.slice(2, 6).map((r) => r.map((c) => c?.v));
   expect(data).toEqual([
-    ['A-101', 1, 0.6, 0.4, 0.03, 0.24],
-    ['A-101', 3, 3, 1.25, 0.1, 3.75],
-    ['A-101', 4, 1.5, 0.8, 0.05, 1.2],
-    ['A-101', 5, 0.5, 0.5, 0.04, 0.25],
+    [1, 0.6, 0.4, 0.03, 0.24],
+    [3, 3, 1.25, 0.1, 3.75],
+    [4, 1.5, 0.8, 0.05, 1.2],
+    [5, 0.5, 0.5, 0.04, 0.25],
   ]);
   // Zahlen sind numerisch (Typ „n“), nicht Text
-  for (const r of ws.slice(1, 5)) for (const c of r.slice(1, 6)) expect(c?.t).toBe('n');
-  expect(ws[1][5]?.fmt).toBe('#,##0.00');
-  const sumRow = ws.find((r) => r[0]?.v === 'Summe')!;
-  expect(sumRow[5]?.v).toBe('=SUM(F2:F5)');
+  for (const r of ws.slice(2, 6)) for (const c of r.slice(0, 5)) expect(c?.t).toBe('n');
+  expect(ws[2][4]?.fmt).toBe('#,##0.00');
+  const sumRow = ws.find((r) => r[0]?.v === 'Summe Fläche (m²)')!;
+  expect(sumRow[4]?.v).toBe('=SUM(E3:E6)');
   expect(Object.keys(wb)).toEqual(['A-101', 'Projektdaten']);
+  // Druck: auf Seitenbreite angepasst, Kopf (Zeilen 1–2) wiederholt, Druckbereich, Seitenzahlen
+  const pr = readXlsxPrint(file)['A-101'];
+  expect(pr).toMatchObject({ orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0, titleRows: '$1:$2' });
+  expect(pr.printArea).toMatch(/\$A\$1:\$E\$8$/);
+  expect(pr.footer).toContain('Seite &P von &N');
   // Datei lässt sich mit einem kompatiblen Tabellenprogramm (LibreOffice) öffnen
   execFileSync('soffice', ['--headless', '--convert-to', 'csv:Text - txt - csv (StarCalc):59,34,76,1,,1031', '--outdir', OUT, file], { timeout: 90_000 });
   const csv = execFileSync('cat', [file.replace(/\.xlsx$/, '.csv')], { encoding: 'utf8' });
   // Dezimaltrennzeichen hängt von der Ländereinstellung des Programms ab
-  expect(csv).toMatch(/A-101;1;0[.,]60;0[.,]40;0[.,]03;0[.,]24/);
-  expect(csv).toMatch(/Summe;;;;;5[.,]44/); // Summenformel wird berechnet
+  expect(csv).toMatch(/^1;0[.,]60;0[.,]40;0[.,]03;0[.,]24$/m);
+  expect(csv).toMatch(/Summe Fläche \(m²\);;;;5[.,]44/); // Summenformel wird berechnet
+  // Ausdruck (LibreOffice → PDF): eine Seite
+  execFileSync('soffice', ['--headless', '--convert-to', 'pdf', '--outdir', join(OUT, 'xlsx-pdf'), file], { timeout: 90_000 });
+  expect(execFileSync('pdfinfo', [join(OUT, 'xlsx-pdf', 'Wohnanlage_Sued_Tiefgarage_A-101_Aufmass.pdf')], { encoding: 'utf8' })).toMatch(/Pages:\s+2/);
 });
 
 test('11. Bearbeiteten Plan als PDF exportieren', async () => {
@@ -435,7 +446,21 @@ test('10b. Excel-Export Kostenstelle und Gesamtprojekt', async () => {
   const dl = await catchDownload(page, () => page.getByTestId('export-xlsx-cc').click());
   expect(dl.suggestedFilename()).toBe('Wohnanlage_Sued_Tiefgarage_Aufmass.xlsx');
   const wb = readXlsx(await saveDownload(dl));
-  const rows = wb['Tiefgarage'].slice(1).filter((r) => r[1] && typeof r[1].v === 'number').map((r) => [r[0]?.v, r[1]?.v, r[5]?.v]);
+  // Neues Layout: Übersicht, je Plan ein Blatt, Projektdaten
+  const names = Object.keys(wb);
+  expect(names[0]).toBe('Übersicht');
+  expect(names).toEqual(expect.arrayContaining(['A-101', 'A-102', 'B-204']));
+  expect(names[names.length - 1]).toBe('Projektdaten');
+  const ov = wb['Übersicht'].find((r) => r[1]?.v === 'A-101')!;
+  expect([ov[3]?.v, ov[4]?.v]).toEqual([4, 5.44]);
+  expect(wb['A-102'].slice(2, 3).map((r) => r.map((c) => c?.v))).toEqual([[1, 1, 2, 0.05, 2]]);
+
+  // Klassisches Layout bleibt verfügbar (eine Tabelle je Kostenstelle, Plannummer in Spalte A)
+  const dlc = await catchDownload(page, () => page.getByTestId('export-xlsx-classic').click());
+  const wbc = readXlsx(await saveDownload(dlc, 'klassisch.xlsx'));
+  expect(Object.keys(wbc)).toEqual(['Tiefgarage', 'Stiege 1', 'Fassade Nord', 'Projektdaten']);
+  expect(wbc['Tiefgarage'][0].map((c) => c?.v)).toEqual(['Plannummer', 'Schadstellennummer', 'Länge (m)', 'Breite (m)', 'Tiefe (m)', 'Fläche (m²)']);
+  const rows = wbc['Tiefgarage'].slice(1).filter((r) => r[1] && typeof r[1].v === 'number').map((r) => [r[0]?.v, r[1]?.v, r[5]?.v]);
   expect(rows).toEqual([
     ['A-101', 1, 0.24],
     ['A-101', 3, 3.75],
@@ -449,8 +474,11 @@ test('10b. Excel-Export Kostenstelle und Gesamtprojekt', async () => {
 
   const dl2 = await catchDownload(page, () => page.getByTestId('export-xlsx-project').click());
   expect(dl2.suggestedFilename()).toBe('Wohnanlage_Sued_Aufmass.xlsx');
-  const wb2 = readXlsx(await saveDownload(dl2));
-  expect(Object.keys(wb2)).toEqual(['Tiefgarage', 'Stiege 1', 'Fassade Nord', 'Projektdaten']);
+  const f2 = await saveDownload(dl2);
+  const wb2 = readXlsx(f2);
+  expect(Object.keys(wb2)[0]).toBe('Übersicht');
+  expect(Object.keys(wb2)).toContain('Projektdaten');
+  expect(readXlsxPrint(f2)['Übersicht']).toMatchObject({ orientation: 'landscape', fitToWidth: 1, titleRows: '$1:$2' });
 });
 
 test('12. Projekt speichern, schließen und vollständig wiederherstellen', async () => {
