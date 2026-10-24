@@ -11,7 +11,7 @@ import { PlanList } from '../components/PlanList';
 import { ProjectForm, type CostCenterInput } from '../components/ProjectForm';
 import { SaveErrorBanner, SaveStatus } from '../components/SaveStatus';
 import { confirmDialog, offerFile, promptDialog, showError, toast } from '../components/ui';
-import { aufmassRows, componentsOf, findPosition, costCenterLabel, costCentersOf, damagesOf, elementsOf, exportXlsx, planTitle, plansOf } from '../lib/aufmass';
+import { aufmassRows, componentsOf, findPosition, costCenterLabel, costCentersOf, damagesOf, elementsOf, exportXlsx, lvDocsOf, planTitle, plansOf, type XlsxLayout } from '../lib/aufmass';
 import { BACKUP_REMIND_DAYS, backupStatus, exportProjectBackup, type BackupStatus } from '../lib/backup';
 import { isDrawingPlan } from '../lib/drawing';
 import { formatDate, formatDateTime } from '../lib/numbers';
@@ -168,7 +168,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
   // ---------------------------------------------------------------------------
   // Export
 
-  const xlsx = (scope: 'cc' | 'project', layout: 'standard' | 'classic' = 'standard') => {
+  const xlsx = (scope: 'cc' | 'project', layout: XlsxLayout = 'standard') => {
     try {
       void offerFile(exportXlsx(data, scope === 'cc' && active ? { kind: 'costCenter', costCenterId: active.id } : { kind: 'project' }, layout));
     } catch (e) {
@@ -409,6 +409,17 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
           >
             <Icon name="excel" /> Excel – klassisch
           </button>
+          {lvDocsOf(data).length > 0 && (
+            <button
+              type="button"
+              className="btn"
+              onClick={() => xlsx(ccs.length > 1 ? 'project' : 'cc', 'positions')}
+              title="Je LV/MFK-Position ein Tabellenblatt, dazu freie Messungen"
+              data-testid="export-xlsx-positions"
+            >
+              <Icon name="excel" /> Excel – nach Leistungen
+            </button>
+          )}
           <button type="button" className="btn" onClick={() => setPdfOpen(true)} disabled={!plans.length}>
             <Icon name="pdf" /> PDF – Pläne auswählen
           </button>

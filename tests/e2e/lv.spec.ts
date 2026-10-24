@@ -101,4 +101,48 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   await expect(page.getByTestId('lv-row')).toHaveCount(4);
   await expect(page.getByTestId('lv-measured-total')).toHaveText('286,00 €');
   await page.screenshot({ path: join(process.cwd(), 'tests', 'output', 'lv-pc.png'), fullPage: true });
+
+  // Freie Messungen (ohne Leistung): eine Fläche und eine Linie
+  await page.getByRole('tab', { name: /Liste/ }).click();
+  await page.getByTestId('plan-open').first().click();
+  await waitForPlan(page);
+  await expect(page.getByTestId('current-position')).toContainText('ohne Leistungszuordnung');
+  await page.getByTestId('tool-rect').click();
+  await drawRect(page, box.x + box.width * 0.6, box.y + box.height * 0.6, box.x + box.width * 0.7, box.y + box.height * 0.7);
+  await dlg.getByTestId('input-length').fill('3');
+  await dlg.getByTestId('input-width').fill('2');
+  await dlg.getByTestId('damage-save').click();
+  await page.getByTestId('tool-line').click();
+  await drawRect(page, box.x + box.width * 0.2, box.y + box.height * 0.8, box.x + box.width * 0.4, box.y + box.height * 0.85);
+  await dlg.getByTestId('input-length').fill('5,5');
+  await dlg.getByTestId('damage-save').click();
+  await waitSaved(page);
+  await page.getByRole('link', { name: 'Zurück zur Planliste' }).click();
+
+  // Excel nach Leistungen: Übersicht, je Position ein Blatt, freie Messungen getrennt
+  const dl2 = await catchDownload(page, () => page.getByTestId('export-xlsx-positions').click());
+  const file2 = await saveDownload(dl2, 'nach-leistungen.xlsx');
+  const wb2 = readXlsx(file2);
+  expect(Object.keys(wb2)).toEqual(['Leistungen', 'Pos 92 01 01 A', 'Pos 92 01 01 B', 'Freie Messungen', 'Projektdaten']);
+  const sum = wb2['Leistungen'];
+  expect(sum[1].map((c) => c?.v)).toEqual(['Pos.-Nr.', 'Kurztext', 'LV / MFK', 'EH', 'Messungen', 'Menge', 'EP (€)', 'Betrag (€)', 'Blatt']);
+  const sb = sum.find((r) => r[0]?.v === '92 01 01 B')!;
+  const sr = sum.indexOf(sb) + 1;
+  expect([sb[3]?.v, sb[4]?.v, sb[5]?.v, sb[6]?.v, sb[7]?.v]).toEqual(['m²', 1, "='Pos 92 01 01 B'!G7", 25, `=F${sr}*G${sr}`]);
+  const posB = wb2['Pos 92 01 01 B'];
+  expect(posB[0][0]?.v).toMatch(/^Pos\. 92 01 01 B – /);
+  expect(posB[3].map((c) => c?.v)).toEqual(['Plan', 'Nr.', 'Messart', 'Länge (m)', 'Breite (m)', 'Tiefe (m)', 'Menge (m²)', 'Hinweis']);
+  expect(posB[4].slice(0, 7).map((c) => c?.v ?? null)).toEqual(['P-1', 1, 'Schadstelle', 4, 2.5, null, 10]);
+  expect(posB[6].slice(0, 7).map((c) => c?.v ?? null)).toEqual(['Summe Menge (m²)', null, null, null, null, null, '=SUM(G5:G5)']);
+  expect(posB[7][6]?.v).toBe(25);
+  expect(posB[8][6]?.v).toBe('=G7*G8');
+  const posA = wb2['Pos 92 01 01 A'];
+  expect(posA[4][6]?.v).toBe(12); // Linie in m
+  const free = wb2['Freie Messungen'];
+  expect(free.slice(2, 4).map((r) => [r[2]?.v, r[3]?.v, r[6]?.v ?? null])).toEqual([['Schadstelle', 3, 6], ['Linie', 5.5, null]]);
+  expect(free.find((r) => r[0]?.v === 'Summe Fläche (m²)')![6]?.v).toBe('=SUM(G3:G4)');
+  expect(free.find((r) => r[0]?.v === 'Summe Länge Linien (m)')![3]?.v).toBe('=SUMIF(C3:C4,"Linie",D3:D4)');
+  const pr = readXlsxPrint(file2);
+  expect(pr['Pos 92 01 01 B']).toMatchObject({ orientation: 'landscape', fitToWidth: 1, titleRows: '$1:$4' });
+  expect(pr['Leistungen']).toMatchObject({ orientation: 'landscape', titleRows: '$1:$2' });
 });

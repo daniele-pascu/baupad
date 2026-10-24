@@ -204,13 +204,17 @@ const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.s
 
 export type XlsxScope = { kind: 'plan'; planId: string } | { kind: 'costCenter'; costCenterId: string } | { kind: 'project' };
 
+/** 'positions': zusätzlicher Export, nach LV/MFK-Positionen gruppiert */
+export type XlsxLayout = 'standard' | 'classic' | 'positions';
+
 /**
  * Excel-Export.
  * - 'standard' (Neu, Standard): je Plan ein druckfertiges Blatt (A1 = Plan, Zeile 2 = Überschriften),
  *   dazu Übersicht, LV/MFK-Auswertung und nicht zugeordnete Messungen.
  * - 'classic': bisheriger Export – eine Tabelle je Kostenstelle mit Plannummer in Spalte A.
  */
-export function exportXlsx(data: ProjectState, scope: XlsxScope, layout: 'standard' | 'classic' = 'standard'): ExportFile {
+export function exportXlsx(data: ProjectState, scope: XlsxScope, layout: XlsxLayout = 'standard'): ExportFile {
+  if (layout === 'positions') return exportByPositions(data, scope);
   return layout === 'classic' ? exportClassic(data, scope) : exportStandard(data, scope);
 }
 
@@ -490,4 +494,191 @@ function exportStandard(data: ProjectState, scope: XlsxScope): ExportFile {
   }
   sheets.push(infoSheet(data, ccList, plans, used));
   return { name: `${name}.xlsx`, data: buildXlsx(sheets), mimeType: XLSX_MIME };
+}
+
+// ---------------------------------------------------------------------------
+// Excel nach Leistungen: je LV/MFK-Position ein Blatt, dazu freie Messungen
+
+const quoteSheet = (name: string) => `'${name.replace(/'/g, "''")}'`;
+
+/** Menge einer einzelnen Messung in der Einheit der Position (null = passt nicht/nicht ableitbar) */
+function measurementQuantity(unit: string, d: Damage): { value: number | null; note: string } {
+  const basis = quantityBasis(unit);
+  if (!basis) return { value: null, note: '' };
+  const q = quantityFor(unit, [d]);
+  if (q.value !== null && !q.missing) return { value: q.value, note: '' };
+  if (basis === 'volume') return { value: null, note: hasAreaKind(d) ? 'ohne Tiefe – nicht in m³ berechenbar' : 'Linie – kein Volumen' };
+  return { value: null, note: `${KIND_LABELS[kindOf(d)]} – keine Fläche` };
+}
+const hasAreaKind = (d: Damage) => kindOf(d) !== 'line' && d.area !== null;
+
+const measureCols = (d: Damage): Cell[] => [
+  num(d.length, 'measure'),
+  d.width === null ? blank() : num(d.width, 'measure'),
+  d.depth === null ? blank() : num(d.depth, 'measure'),
+];
+
+/** Blatt einer Position: Kopf mit LV-Angaben, je Messung eine Zeile, Summe und Betrag als Formeln. */
+function positionSheet(doc: LvDocument, p: LvPosition, items: { plan: Plan; d: Damage }[], used: Set<string>) {
+  const basis = quantityBasis(p.unit);
+  const unit = p.unit || 'EH';
+  const style = basis === 'count' ? 'int' : 'measure';
+  const first = 5;
+  const body: Cell[][] = items.map(({ plan, d }) => {
+    const q = measurementQuantity(p.unit, d);
+    return [
+      str(plan.planNumber || plan.planName),
+      d.label ? str(d.label) : num(d.number, 'int'),
+      str(KIND_LABELS[kindOf(d)]),
+      ...measureCols(d),
+      q.value === null ? blank() : num(q.value, style),
+      str(q.note, 'note'),
+    ];
+  });
+  const last = Math.max(first, first + items.length - 1);
+  const total = basis ? quantityFor(p.unit, items.map((x) => x.d)).value : null;
+  const sumRow = first + items.length + 1;
+  const amount = total !== null && p.unitPrice !== null ? Math.round(total * p.unitPrice * 100) / 100 : null;
+  const footer: Cell[][] = [
+    [str(`Summe Menge (${unit})`, 'label'), null, null, null, null, null, total === null ? blank() : { t: 'formula', f: `SUM(G${first}:G${last})`, v: total, s: 'boldArea' }],
+  ];
+  if (p.unitPrice !== null) footer.push([str('EP (€)', 'label'), null, null, null, null, null, num(p.unitPrice, 'money')]);
+  if (amount !== null) footer.push([str('Betrag (€)', 'label'), null, null, null, null, null, { t: 'formula', f: `G${sumRow}*G${sumRow + 1}`, v: amount, s: 'boldMoney' }]);
+  if (!basis) footer.push([str(`Einheit „${p.unit}“ ist nicht aus Messungen ableitbar – Menge bitte manuell ermitteln.`)]);
+  const name = sheetName(`Pos ${p.number}`, used);
+  return {
+    sheet: {
+      name,
+      rows: [
+        [str(`Pos. ${p.number} – ${lvDocLabel(doc)}`, 'title')],
+        [str('Kurztext', 'label'), str(p.shortText)],
+        [
+          str('Einheit', 'label'),
+          str(p.unit),
+          str('EP (€)', 'label'),
+          p.unitPrice === null ? str('–') : num(p.unitPrice, 'money'),
+          str('LV-Menge', 'label'),
+          p.quantity === null ? str('–') : num(p.quantity, 'measure'),
+        ],
+        ['Plan', 'Nr.', 'Messart', 'Länge (m)', 'Breite (m)', 'Tiefe (m)', `Menge (${unit})`, 'Hinweis'].map((h) => str(h, 'header')),
+        ...body,
+        [],
+        ...footer,
+        [str('Beträge netto; Mengen aus den zugeordneten Messungen.')],
+      ],
+      widths: [14, 8, 13, 12, 12, 12, 14, 32],
+      headerRows: 4,
+      landscape: true,
+      print: true,
+    } satisfies Sheet,
+    total,
+    amount,
+    sumCell: total === null ? null : `${quoteSheet(name)}!G${sumRow}`,
+  };
+}
+
+/** Messungen ohne Leistung, Flächen und Linien getrennt summiert. */
+function freeSheet(items: { plan: Plan; d: Damage }[], title: string, used: Set<string>): Sheet {
+  const first = 3;
+  const last = Math.max(first, first + items.length - 1);
+  const ds = items.map((x) => x.d);
+  return {
+    name: sheetName('Freie Messungen', used),
+    rows: [
+      [str(title, 'title')],
+      ['Plan', 'Nr.', 'Messart', 'Länge (m)', 'Breite (m)', 'Tiefe (m)', 'Fläche (m²)'].map((h) => str(h, 'header')),
+      ...items.map(({ plan, d }) => [
+        str(plan.planNumber || plan.planName),
+        d.label ? str(d.label) : num(d.number, 'int'),
+        str(KIND_LABELS[kindOf(d)]),
+        ...measureCols(d),
+        d.area === null ? blank() : num(d.area, 'area'),
+      ]),
+      [],
+      [str('Summe Fläche (m²)', 'label'), null, null, null, null, null, { t: 'formula', f: `SUM(G${first}:G${last})`, v: sumAreas(ds), s: 'boldArea' }],
+      [str('Summe Länge Linien (m)', 'label'), null, null, { t: 'formula', f: `SUMIF(C${first}:C${last},"Linie",D${first}:D${last})`, v: sumLengths(ds), s: 'boldArea' }],
+    ],
+    widths: [14, 8, 13, 12, 12, 12, 13],
+    headerRows: 2,
+    print: true,
+  };
+}
+
+function exportByPositions(data: ProjectState, scope: XlsxScope): ExportFile {
+  const used = new Set<string>();
+  let plans: Plan[];
+  let ccList: CostCenter[];
+  let label: string;
+  if (scope.kind === 'plan') {
+    const plan = data.plans[scope.planId];
+    plans = [plan];
+    ccList = data.costCenters[plan.costCenterId] ? [data.costCenters[plan.costCenterId]] : [];
+    label = plan.planNumber || plan.planName;
+  } else if (scope.kind === 'costCenter') {
+    const cc = data.costCenters[scope.costCenterId];
+    plans = plansOf(data, cc.id);
+    ccList = [cc];
+    label = costCenterLabel(cc);
+  } else {
+    ccList = costCentersOf(data);
+    plans = ccList.flatMap((cc) => plansOf(data, cc.id));
+    label = '';
+  }
+  const items = plans.flatMap((plan) => damagesOf(data, plan.id).map((d) => ({ plan, d })));
+  const title = ['Aufmaß nach Leistungen', data.project.name, label].filter(Boolean).join(' – ');
+
+  // Positionen in LV-Reihenfolge, nur mit zugeordneten Messungen
+  const posSheets: Sheet[] = [];
+  const summary: Cell[][] = [];
+  let amountSum = 0;
+  for (const doc of lvDocsOf(data)) {
+    for (const p of doc.positions) {
+      const ref = positionRef(doc.id, p.id);
+      const own = items.filter((x) => x.d.positionRef === ref);
+      if (!own.length) continue;
+      const r = summary.length + 3;
+      const ps = positionSheet(doc, p, own, used);
+      posSheets.push(ps.sheet);
+      amountSum += ps.amount ?? 0;
+      summary.push([
+        str(p.number),
+        str(p.shortText, 'wrap'),
+        str(lvDocLabel(doc)),
+        str(p.unit),
+        num(own.length, 'int'),
+        ps.sumCell === null ? blank() : { t: 'formula', f: ps.sumCell, v: ps.total!, s: quantityBasis(p.unit) === 'count' ? 'int' : 'measure' },
+        p.unitPrice === null ? blank() : num(p.unitPrice, 'money'),
+        ps.amount === null ? blank() : { t: 'formula', f: `F${r}*G${r}`, v: ps.amount, s: 'money' },
+        str(ps.sheet.name, 'note'),
+      ]);
+    }
+  }
+  const free = items.filter((x) => !findPosition(data, x.d.positionRef));
+  const last = Math.max(3, summary.length + 2);
+  const sheets: Sheet[] = [
+    {
+      name: sheetName('Leistungen', used),
+      rows: [
+        [str(title, 'title')],
+        ['Pos.-Nr.', 'Kurztext', 'LV / MFK', 'EH', 'Messungen', 'Menge', 'EP (€)', 'Betrag (€)', 'Blatt'].map((h) => str(h, 'header')),
+        ...(summary.length ? summary : [[str('Keine Messungen mit Leistungszuordnung', 'note')]]),
+        [],
+        [str('Summe', 'label'), null, null, null, null, null, null, { t: 'formula', f: `SUM(H3:H${last})`, v: Math.round(amountSum * 100) / 100, s: 'boldMoney' }],
+        [str(`Freie Messungen (ohne Leistung): ${free.length}`)],
+        [str('Beträge netto, nur bei vorhandenem Einheitspreis und ableitbarer Einheit.')],
+      ],
+      widths: [14, 44, 22, 6, 11, 12, 11, 13, 14],
+      headerRows: 2,
+      landscape: true,
+      print: true,
+    },
+    ...posSheets,
+  ];
+  if (free.length) sheets.push(freeSheet(free, 'Freie Messungen (ohne Leistungszuordnung)', used));
+  sheets.push(infoSheet(data, ccList, plans, used));
+  return {
+    name: `${safeFileName(data.project.name, label, 'Aufmass nach Leistungen')}.xlsx`,
+    data: buildXlsx(sheets),
+    mimeType: XLSX_MIME,
+  };
 }
