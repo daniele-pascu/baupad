@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '../components/Icon';
-import { ProjectForm, type ProjectFields } from '../components/ProjectForm';
+import { ProjectForm, type CostCenterInput, type ProjectFields } from '../components/ProjectForm';
+import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, offerFile, promptDialog, showError, toast } from '../components/ui';
 import { exportProjectBackup, findExistingProject, importProjectBackup, readProjectBackup } from '../lib/backup';
 import { deleteProjectCompletely, getMeta, listProjects, projectStats, writeRecords } from '../lib/db';
@@ -50,16 +51,16 @@ export function HomePage() {
     void load();
   }, []);
 
-  const create = async (fields: ProjectFields, costCenterNames: string[]) => {
+  const create = async (fields: ProjectFields, costCenters: CostCenterInput[]) => {
     // Dauerhafte Speicherung anfordern, damit der Browser die Daten nicht automatisch löscht
     try {
       await navigator.storage?.persist?.();
     } catch {
       /* optional */
     }
-    const { project, costCenters } = await createProjectWithCostCenters(fields, costCenterNames);
-    // Bei einer Kostenstelle direkt dorthin – dort wird der erste Plan importiert
-    navigate(costCenters.length === 1 ? paths.costCenter(project.id, costCenters[0].id) : paths.project(project.id));
+    const { project } = await createProjectWithCostCenters(fields, costCenters);
+    // Projektseite mit Projektinfos, Kostenstelle und Planliste – dort wird der erste Plan importiert
+    navigate(paths.project(project.id));
   };
 
   const rename = async (p: Project) => {
@@ -153,12 +154,11 @@ export function HomePage() {
   };
 
   return (
+    <>
+    <SiteNav />
     <div className="page home">
-      <header className="topbar">
-        <div className="brand">
-          <img src="./icons/logo-header.png" alt="BauPad" className="brand-logo" height={36} />
-          <h1 className="sr-only">BauPad</h1>
-        </div>
+      <header className="page-head">
+        <h1 data-testid="projects-title">Projektverwaltung</h1>
       </header>
 
       <div className="home-actions">
@@ -183,7 +183,7 @@ export function HomePage() {
       </div>
 
       <p className="muted small home-hint">
-        Pläne (PDF, Fotos) importieren Sie innerhalb eines Projekts: Projekt öffnen → Kostenstelle öffnen → „Plan importieren“.
+        Pläne (PDF, Fotos) importieren Sie im Projekt: Projekt öffnen → „Plan importieren“.
       </p>
 
       <section>
@@ -257,10 +257,9 @@ export function HomePage() {
           title="Neues Projekt"
           submitLabel="Projekt anlegen"
           onClose={() => setCreating(false)}
-          withCostCenters
-          onSubmit={async (fields, costCenterNames) => {
+          onSubmit={async (fields, costCenters) => {
             try {
-              await create(fields, costCenterNames);
+              await create(fields, costCenters);
             } catch (e) {
               showError(e, 'Projekt konnte nicht angelegt werden');
             }
@@ -268,5 +267,6 @@ export function HomePage() {
         />
       )}
     </div>
+    </>
   );
 }

@@ -1,12 +1,22 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { DialogHost, toast } from './components/ui';
 import { Icon } from './components/Icon';
-import { parseRoute, paths, useHash } from './lib/router';
+import { navigate, parseRoute, paths, useHash } from './lib/router';
 import { flush, openProject, useAppState } from './lib/store';
 import { HomePage } from './pages/HomePage';
 import { ProjectPage } from './pages/ProjectPage';
-import { CostCenterPage } from './pages/CostCenterPage';
 import { PlanEditorPage } from './pages/PlanEditorPage';
+import { AboutPage, ContactPage, LandingPage } from './pages/SitePages';
+
+/** Als App vom Home-Bildschirm gestartet (iOS/Android/Desktop-PWA)? */
+const isInstalledApp = () =>
+  matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+
+// Die installierte App startet direkt in der Projektverwaltung – auch Symbole, die vor der
+// neuen Startseite angelegt wurden (diese starten noch mit der Adresse „./“).
+if (typeof window !== 'undefined' && isInstalledApp() && parseRoute(location.hash).name === 'landing') {
+  navigate(paths.projects(), true);
+}
 
 export function App() {
   const route = parseRoute(useHash());
@@ -24,7 +34,16 @@ export function App() {
 
   let content: ReactNode;
   switch (route.name) {
-    case 'home':
+    case 'landing':
+      content = <LandingPage />;
+      break;
+    case 'about':
+      content = <AboutPage />;
+      break;
+    case 'contact':
+      content = <ContactPage />;
+      break;
+    case 'projects':
       content = <HomePage />;
       break;
     case 'project':
@@ -37,7 +56,7 @@ export function App() {
     case 'costCenter':
       content = (
         <ProjectGate projectId={route.projectId}>
-          <CostCenterPage costCenterId={route.costCenterId} />
+          <ProjectPage costCenterId={route.costCenterId} />
         </ProjectGate>
       );
       break;
@@ -52,7 +71,7 @@ export function App() {
       content = (
         <div className="page">
           <p>Seite nicht gefunden.</p>
-          <a className="btn" href={paths.home()}>
+          <a className="btn" href={paths.projects()}>
             Zur Startseite
           </a>
         </div>
@@ -82,7 +101,7 @@ function ProjectGate({ projectId, children }: { projectId: string; children: Rea
     return (
       <div className="page">
         <div className="banner banner-error">{error}</div>
-        <a className="btn" href={paths.home()}>
+        <a className="btn" href={paths.projects()}>
           Zur Startseite
         </a>
       </div>

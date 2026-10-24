@@ -6,6 +6,8 @@ import {
   OUT,
   catchDownload,
   createCostCenter,
+  openPlan,
+  selectCostCenter,
   createProject,
   drawRect,
   fillMeasures,
@@ -44,7 +46,7 @@ test('1. Projekt mit Kostenstellen in einem Schritt erstellen und wieder öffnen
   const form = page.getByTestId('project-form');
   await form.locator('input[name="name"]').fill('Test');
   await form.getByRole('button', { name: 'Projekt anlegen' }).click();
-  await expect(form).toContainText('Bitte mindestens eine Kostenstelle eingeben');
+  await expect(form).toContainText('Bitte eine Kostenstelle eingeben');
   await form.getByRole('button', { name: 'Abbrechen' }).click();
 
   await createProject(
@@ -53,8 +55,10 @@ test('1. Projekt mit Kostenstellen in einem Schritt erstellen und wieder öffnen
     { site: 'Tiefgarage Musterstraße', address: 'Musterstraße 1, Wien', client: 'Hausverwaltung X', editor: 'D. Pascu' },
     ['Tiefgarage', 'Stiege 1'],
   );
-  await expect(page.getByTestId('cost-center-card')).toHaveCount(2);
-  await page.getByRole('link', { name: 'Zur Startseite' }).click();
+  // Projektinfos zeigen beide Kostenstellen, die Auswahl erscheint nur bei mehreren
+  await expect(page.getByTestId('project-cost-centers')).toHaveText('Tiefgarage, Stiege 1');
+  await expect(page.getByTestId('cost-center-select').locator('option')).toHaveCount(2);
+  await page.getByRole('link', { name: 'Zur Projektverwaltung' }).click();
   const card = page.getByTestId('project-card').filter({ hasText: 'Wohnanlage Süd' });
   await expect(card).toContainText('Tiefgarage Musterstraße');
   await expect(card).toContainText('2 Kostenst.');
@@ -66,17 +70,19 @@ test('1. Projekt mit Kostenstellen in einem Schritt erstellen und wieder öffnen
 
 test('2. Weitere Kostenstelle erstellen und umbenennen', async () => {
   await createCostCenter(page, 'Fassad');
-  await page.getByTestId('cost-center-card').filter({ hasText: 'Fassad' }).locator('..').getByRole('button', { name: 'Umbenennen' }).click();
-  await page.getByTestId('prompt-dialog').locator('input').fill('Fassade Nord');
-  await page.getByTestId('prompt-dialog').getByRole('button', { name: 'Speichern' }).click();
-  await expect(page.getByTestId('cost-center-card')).toHaveCount(3);
-  await expect(page.getByTestId('cost-center-card').filter({ hasText: 'Fassade Nord' })).toBeVisible();
+  // Umbenennen gemeinsam mit den Projektangaben
+  await page.getByTestId('edit-project').click();
+  const form = page.getByTestId('project-form');
+  await form.getByTestId('cost-center-input').nth(2).fill('Fassade Nord');
+  await form.getByTestId('cost-center-number').nth(2).fill('');
+  await form.getByRole('button', { name: 'Speichern' }).click();
+  await expect(page.getByTestId('cost-center-select').locator('option')).toHaveCount(3);
+  await expect(page.getByTestId('project-cost-centers')).toHaveText('Tiefgarage, Stiege 1, Fassade Nord');
   await waitSaved(page);
 });
 
 test('3./4. Mehrseitiges PDF importieren, Seiten und Layoutbereiche auswählen', async () => {
-  await page.getByTestId('cost-center-card').filter({ hasText: 'Tiefgarage' }).click();
-  await expect(page.getByTestId('cost-center-title')).toHaveText('Tiefgarage');
+  await selectCostCenter(page, 'Tiefgarage');
   await page.getByTestId('plan-file-input').setInputFiles(join(FIXTURES, 'plaene.pdf'));
   const wiz = page.getByTestId('import-wizard');
   await expect(wiz).toContainText('4 Seiten');
@@ -124,9 +130,12 @@ test('3./4. Mehrseitiges PDF importieren, Seiten und Layoutbereiche auswählen',
   }
   await wiz.getByTestId('import-save').click();
   await expect(wiz).toBeHidden();
-  await expect(page.getByTestId('plan-card')).toHaveCount(4);
-  await expect(page.getByTestId('plan-card').first()).toContainText('A-101 – Untergeschoss');
-  await expect(page.locator('.thumb img')).toHaveCount(4, { timeout: 30_000 });
+  await expect(page.getByTestId('plan-row')).toHaveCount(4);
+  const first = page.getByTestId('plan-row').first();
+  await expect(first).toContainText('A-101');
+  await expect(first).toContainText('Untergeschoss');
+  await expect(first).toContainText('UG');
+  await expect(first).toContainText('Keine Leistungszuordnung');
 
   // Zuordnung zur Originalseite und erkannte Bereiche prüfen
   await waitSaved(page);
@@ -156,7 +165,7 @@ test('3./4. Mehrseitiges PDF importieren, Seiten und Layoutbereiche auswählen',
 });
 
 test('5.–7. Schadstellen einzeichnen, automatisch nummerieren, Maße eingeben, Fläche berechnen', async () => {
-  await page.getByTestId('plan-card').filter({ hasText: 'A-101' }).click();
+  await openPlan(page, 'A-101');
   await waitForPlan(page);
   const box = await planBox(page);
   await page.getByTestId('tool-rect').click();
@@ -412,7 +421,7 @@ test('Weitere Pläne: gedrehte Seite und Planbereich – PDF-Export mehrerer Pl�
     await fillMeasures(page, '1', '2', '0,05');
   }
   await waitSaved(page);
-  await page.getByRole('link', { name: 'Zur Kostenstelle' }).click();
+  await page.getByRole('link', { name: 'Zurück zur Planliste' }).click();
   const dl = await catchDownload(page, async () => {
     await page.getByRole('button', { name: 'PDF – Pläne auswählen' }).click();
     await page.getByTestId('pdf-export-run').click();
@@ -438,7 +447,6 @@ test('10b. Excel-Export Kostenstelle und Gesamtprojekt', async () => {
   const info = wb['Projektdaten'];
   expect(info.some((r) => r[0]?.v === 'Projekt' && r[1]?.v === 'Wohnanlage Süd')).toBe(true);
 
-  await page.getByRole('link', { name: 'Zum Projekt' }).click();
   const dl2 = await catchDownload(page, () => page.getByTestId('export-xlsx-project').click());
   expect(dl2.suggestedFilename()).toBe('Wohnanlage_Sued_Aufmass.xlsx');
   const wb2 = readXlsx(await saveDownload(dl2));
@@ -448,12 +456,11 @@ test('10b. Excel-Export Kostenstelle und Gesamtprojekt', async () => {
 test('12. Projekt speichern, schließen und vollständig wiederherstellen', async () => {
   // Neu laden: alle Daten sind noch da
   await page.reload();
-  await page.getByTestId('cost-center-card').filter({ hasText: 'Tiefgarage' }).click();
-  await page.getByTestId('plan-card').filter({ hasText: 'A-101' }).click();
+  await selectCostCenter(page, 'Tiefgarage');
+  await openPlan(page, 'A-101');
   await waitForPlan(page);
   expect((await tableRows(page)).map((r) => r[0])).toEqual(['1', '3', '4', '5']);
-  await page.getByRole('link', { name: 'Zur Kostenstelle' }).click();
-  await page.getByRole('link', { name: 'Zum Projekt' }).click();
+  await page.getByRole('link', { name: 'Zurück zur Planliste' }).click();
 
   // Sicherung exportieren
   const dl = await catchDownload(page, () => page.getByTestId('backup-project').click());
@@ -461,7 +468,7 @@ test('12. Projekt speichern, schließen und vollständig wiederherstellen', asyn
   const backup = await saveDownload(dl, 'sicherung.zip');
 
   // Projekt löschen (mit Sicherheitsabfrage)
-  await page.getByRole('link', { name: 'Zur Startseite' }).click();
+  await page.getByRole('link', { name: 'Zur Projektverwaltung' }).click();
   await page.getByRole('button', { name: 'Löschen' }).click();
   await expect(page.getByTestId('confirm-dialog')).toContainText('endgültig');
   await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Endgültig löschen' }).click();
@@ -474,9 +481,9 @@ test('12. Projekt speichern, schließen und vollständig wiederherstellen', asyn
   // Wiederherstellen
   await page.getByTestId('import-project-input').setInputFiles(backup);
   await expect(page.getByTestId('project-title')).toHaveText('Wohnanlage Süd');
-  await page.getByTestId('cost-center-card').filter({ hasText: 'Tiefgarage' }).click();
-  await expect(page.getByTestId('plan-card')).toHaveCount(4);
-  await page.getByTestId('plan-card').filter({ hasText: 'A-101' }).click();
+  await selectCostCenter(page, 'Tiefgarage');
+  await expect(page.getByTestId('plan-row')).toHaveCount(4);
+  await openPlan(page, 'A-101');
   await waitForPlan(page);
   expect(sorted(await tableRows(page))).toEqual([
     ['1', '0,60', '0,40', '0,03', '0,24'],
@@ -487,19 +494,19 @@ test('12. Projekt speichern, schließen und vollständig wiederherstellen', asyn
   await expect(page.locator('.damage-label')).toHaveCount(4);
 
   // Erneuter Import derselben Sicherung → Konflikt wird erkannt, Import als Kopie
-  await page.goto('./#/');
+  await page.goto('./#/projekte');
   await page.getByTestId('import-project-input').setInputFiles(backup);
   await expect(page.getByTestId('confirm-dialog')).toContainText('bereits vorhanden');
   await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Abbrechen' }).click();
   await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Als Kopie importieren' }).click();
   await expect(page.getByTestId('project-title')).toHaveText('Wohnanlage Süd (Kopie)');
-  await page.goto('./#/');
+  await page.goto('./#/projekte');
   await expect(page.getByTestId('project-card')).toHaveCount(2);
 });
 
 test('Fehlerfälle: nicht unterstütztes Dateiformat, Konflikt zwischen zwei Tabs', async () => {
   await page.getByTestId('project-card').filter({ hasText: 'Wohnanlage Süd (Kopie)' }).click();
-  await page.getByTestId('cost-center-card').filter({ hasText: 'Stiege 1' }).click();
+  await selectCostCenter(page, 'Stiege 1');
   await page.getByTestId('plan-file-input').setInputFiles({ name: 'plan.dwg', mimeType: 'application/octet-stream', buffer: Buffer.from('xyz') });
   await expect(page.getByTestId('import-wizard')).toContainText('nicht unterstützt');
   await page.getByTestId('import-wizard').getByRole('button', { name: 'Schließen' }).last().click();
@@ -508,13 +515,12 @@ test('Fehlerfälle: nicht unterstütztes Dateiformat, Konflikt zwischen zwei Tab
   const url = page.url();
   const other = await page.context().newPage();
   await other.goto(url.replace(/#.*/, '') + '#/p/' + url.split('#/p/')[1].split('/')[0]);
-  await other.getByRole('button', { name: 'Projektdaten bearbeiten' }).click();
+  await other.getByTestId('edit-project').click();
   await other.getByTestId('project-form').locator('input[name="site"]').fill('Geändert in Tab 2');
   await other.getByTestId('project-form').getByRole('button', { name: 'Speichern' }).click();
   await expect(other.getByTestId('save-status')).toHaveAttribute('data-status', 'saved');
   await other.close();
-  await page.getByRole('link', { name: 'Zum Projekt' }).click();
-  await page.getByRole('button', { name: 'Projektdaten bearbeiten' }).click();
+  await page.getByTestId('edit-project').click();
   await page.getByTestId('project-form').locator('input[name="client"]').fill('Änderung in Tab 1');
   await page.getByTestId('project-form').getByRole('button', { name: 'Speichern' }).click();
   await expect(page.getByTestId('save-status')).toHaveAttribute('data-status', 'conflict');

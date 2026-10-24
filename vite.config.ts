@@ -34,7 +34,7 @@ export default defineConfig({
         short_name: 'BauPad',
         description: 'BauPad – digitales Aufmaß von Schadstellen bei der Betoninstandsetzung',
         lang: 'de',
-        start_url: './',
+        start_url: './#/projekte',
         scope: './',
         display: 'standalone',
         orientation: 'any',

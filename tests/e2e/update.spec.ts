@@ -36,7 +36,7 @@ test.afterAll(() => {
 });
 
 test('Neue Version wird automatisch übernommen, offene Eingaben werden nicht unterbrochen', async ({ page }) => {
-  await page.goto('http://localhost:4175/baupad/');
+  await page.goto('http://localhost:4175/baupad/#/projekte');
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready;
   });

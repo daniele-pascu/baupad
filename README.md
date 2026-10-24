@@ -7,8 +7,10 @@ bei der Betoninstandsetzung. Läuft im Browser auf iPhone, iPad, PC und Laptop �
 
 | Bereich | Umgesetzt |
 |---|---|
-| Projekte | Anlegen zusammen mit einer oder mehreren Kostenstellen in einem Schritt (Projektname, Baustelle, Kostenstelle(n), Adresse, Auftraggeber, Bearbeiter, Datum, Bemerkungen), öffnen, umbenennen, bearbeiten, löschen mit Sicherheitsabfrage, Datum der letzten Bearbeitung |
-| Kostenstellen | Anlegen, umbenennen, öffnen, löschen; je Kostenstelle beliebig viele Pläne |
+| Website | Öffentliche Startseite, „Über BauPad“ und „Kontakt“ mit schwarzer Navigationsleiste; Texte und Kontaktdaten in `src/content/site.ts` änderbar; „Anmelden“ führt (noch ohne Benutzerkonten) zur Projektverwaltung; die installierte App startet direkt in der Projektverwaltung |
+| Projekte | Anlegen zusammen mit Kostenstelle(n) in einem Schritt (Projektname, Baustelle, Kostenstellennummer und -bezeichnung, Adresse, Auftraggeber, Bearbeiter, Datum, Bemerkungen); alle Angaben gemeinsam bearbeitbar; löschen mit Sicherheitsabfrage, Datum der letzten Bearbeitung |
+| Kostenstellen | Teil der Projektinformationen (Nummer und Bezeichnung); hat ein Projekt mehrere, erscheint über der Planliste eine Auswahl; löschen mit Anzeige der betroffenen Pläne und Messungen |
+| Planliste | Kompakte Liste: Plannummer, Bezeichnung/Ebene, Bemerkung, Leistungszuordnung, Anzahl der Messungen, Flächensumme; Aktionen Öffnen, Angaben bearbeiten, Umbenennen, Ausschnitt, Löschen (mit Übersicht der betroffenen Daten); am Smartphone zweizeilig ohne seitliches Scrollen |
 | Planimport | PDF, JPG, PNG; auf iPhone/iPad aus „Dateien“ oder der Fotomediathek; EXIF-Ausrichtung von Fotos wird berücksichtigt |
 | Mehrseitige PDFs | Seitenvorschau, Auswahl einzelner Seiten; jede Seite wird ein eigener Plan mit Verweis auf Originaldatei und Originalseite |
 | Layoutbereiche | Automatische Erkennung mehrerer Planfelder auf einer Seite als **Vorschlag**, der bestätigt, angepasst oder verworfen werden muss; manuelles Aufziehen; ganze Seite bleibt immer verwendbar; Ausschnitt nachträglich änderbar |
@@ -71,14 +73,14 @@ die mehrere Wochen nicht genutzt wurden, löschen. Projekte daher zusätzlich re
 
 ## Bedienung in Kürze
 
-1. **Neues Projekt** anlegen → **Neue Kostenstelle** (z. B. „Tiefgarage“).
-2. In der Kostenstelle **Plan importieren** → bei mehrseitigen PDFs Seiten wählen → optional
+1. Startseite → **Zur Projektverwaltung** → **Neues Projekt** mit Kostenstelle (Nummer und Bezeichnung) anlegen.
+2. In der Projektseite **Plan importieren** → bei mehrseitigen PDFs Seiten wählen → optional
    **Bereiche …** (automatische Erkennung oder selbst aufziehen) → Plannummer und Angaben eintragen.
 3. Plan öffnen, Werkzeug (Kreis, Rechteck, Freihand) und Farbe wählen, Schadstelle aufziehen oder
    antippen → Länge, Breite, Tiefe eingeben → Speichern. Die Fläche wird automatisch berechnet.
 4. **Auswahl**-Werkzeug: Markierung antippen zum Auswählen, ausgewählte Markierung ziehen zum
    Verschieben, Anfasser ziehen zum Ändern der Größe, Nummer ziehen zum Verschieben der Beschriftung.
-5. Export über **Excel** / **PDF** im Plan, in der Kostenstelle oder im Projekt.
+5. Export über **Excel** / **PDF** im Plan oder in der Projektseite. Planaktionen über **⋯** in der Planliste.
 
 Tastenkürzel am PC: `V` Auswahl, `K` Kreis, `R` Rechteck, `F` Freihand, `+`/`−` Zoom, `0` ganzer
 Plan, `Enter` ausgewählte Schadstelle bearbeiten, `Entf` löschen, `Esc` Auswahl aufheben.

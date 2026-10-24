@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { costCentersOf, damagesOf, planTitle, plansOf } from '../lib/aufmass';
+import { costCenterLabel, costCentersOf, damagesOf, planTitle, plansOf } from '../lib/aufmass';
 import type { ProjectState } from '../lib/store';
 import { Modal } from './Modal';
 import { offerFile, showError } from './ui';
@@ -78,7 +78,7 @@ export function PdfExportDialog({ data, costCenterId, initial, onClose }: Props)
       </div>
       {groups.map(({ cc, plans }) => (
         <fieldset key={cc.id} className="check-group">
-          <legend>{cc.name}</legend>
+          <legend>{costCenterLabel(cc)}</legend>
           {plans.map((p) => (
             <label key={p.id} className="check-row">
               <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggle(p.id)} />

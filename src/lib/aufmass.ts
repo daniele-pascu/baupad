@@ -22,6 +22,12 @@ export function costCentersOf(data: ProjectState): CostCenter[] {
   return alive(data.costCenters).sort((a, b) => a.sortIndex - b.sortIndex || naturalCompare(a.name, b.name));
 }
 
+/** Anzeige einer Kostenstelle: „4711 – Tiefgarage“, nur Nummer oder nur Bezeichnung. */
+export function costCenterLabel(cc: Pick<CostCenter, 'number' | 'name'> | undefined): string {
+  if (!cc) return '';
+  return [cc.number?.trim(), cc.name.trim()].filter(Boolean).join(' – ') || 'Kostenstelle';
+}
+
 export function planTitle(p: Plan): string {
   return [p.planNumber, p.planName].filter(Boolean).join(' – ') || 'Plan ohne Bezeichnung';
 }
@@ -84,7 +90,7 @@ function infoSheet(data: ProjectState, costCenters: CostCenter[], plans: Plan[],
     [str('Auftraggeber', 'label'), str(p.client)],
     [str('Bearbeiter', 'label'), str(p.editor)],
     [str('Datum', 'label'), str(formatDate(p.date))],
-    [str('Kostenstelle(n)', 'label'), str(costCenters.map((c) => c.name).join(', '))],
+    [str('Kostenstelle(n)', 'label'), str(costCenters.map((c) => costCenterLabel(c)).join(', '))],
     [str('Exportiert am', 'label'), str(new Date().toLocaleString('de-DE'))],
     [],
     ['Kostenstelle', 'Plannummer', 'Planname', 'Geschoss', 'Planbereich', 'Originaldatei', 'Seite', 'Anzahl Schadstellen', 'Fläche gesamt (m²)'].map(
@@ -95,7 +101,7 @@ function infoSheet(data: ProjectState, costCenters: CostCenter[], plans: Plan[],
     for (const plan of plans.filter((x) => x.costCenterId === cc.id)) {
       const damages = damagesOf(data, plan.id);
       rows.push([
-        str(cc.name),
+        str(costCenterLabel(cc)),
         str(plan.planNumber),
         str(plan.planName),
         str(plan.floor),
@@ -152,7 +158,7 @@ export function exportXlsx(data: ProjectState, scope: XlsxScope): ExportFile {
     const cc = data.costCenters[plan.costCenterId];
     const sheet = aufmassSheet(sheetName(plan.planNumber || 'Aufmaß', used), aufmassRows(data, [plan]));
     return {
-      name: `${safeFileName(data.project.name, cc?.name ?? '', plan.planNumber || plan.planName, 'Aufmass')}.xlsx`,
+      name: `${safeFileName(data.project.name, costCenterLabel(cc), plan.planNumber || plan.planName, 'Aufmass')}.xlsx`,
       data: buildXlsx([sheet, infoSheet(data, cc ? [cc] : [], [plan], used)]),
       mimeType: XLSX_MIME,
     };
@@ -160,9 +166,9 @@ export function exportXlsx(data: ProjectState, scope: XlsxScope): ExportFile {
   if (scope.kind === 'costCenter') {
     const cc = data.costCenters[scope.costCenterId];
     const plans = plansOf(data, cc.id);
-    const sheet = aufmassSheet(sheetName(cc.name, used), aufmassRows(data, plans));
+    const sheet = aufmassSheet(sheetName(costCenterLabel(cc), used), aufmassRows(data, plans));
     return {
-      name: `${safeFileName(data.project.name, cc.name, 'Aufmass')}.xlsx`,
+      name: `${safeFileName(data.project.name, costCenterLabel(cc), 'Aufmass')}.xlsx`,
       data: buildXlsx([sheet, infoSheet(data, [cc], plans, used)]),
       mimeType: XLSX_MIME,
     };
@@ -173,7 +179,7 @@ export function exportXlsx(data: ProjectState, scope: XlsxScope): ExportFile {
   for (const cc of ccs) {
     const plans = plansOf(data, cc.id);
     allPlans.push(...plans);
-    sheets.push(aufmassSheet(sheetName(cc.name, used), aufmassRows(data, plans)));
+    sheets.push(aufmassSheet(sheetName(costCenterLabel(cc), used), aufmassRows(data, plans)));
   }
   if (!sheets.length) sheets.push(aufmassSheet(sheetName('Aufmaß', used), []));
   sheets.push(infoSheet(data, ccs, allPlans, used));

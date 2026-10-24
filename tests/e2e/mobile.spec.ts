@@ -77,7 +77,7 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   await wiz.getByTestId('import-save').click();
   // Ein einzelner Plan wird direkt geöffnet
   await waitForPlan(page);
-  await page.getByRole('link', { name: 'Zur Kostenstelle' }).click();
+  await page.getByRole('link', { name: 'Zurück zur Planliste' }).click();
 
   await page.getByTestId('plan-file-input').setInputFiles(join(FIXTURES, 'parkdeck.png'));
   await wiz.getByTestId('areas-next').click();
@@ -178,7 +178,7 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   ]);
 
   // 8) PDF-Export beider Bildpläne
-  await page.getByRole('link', { name: 'Zur Kostenstelle' }).tap();
+  await page.getByRole('link', { name: 'Zurück zur Planliste' }).tap();
   const dl2 = await catchDownload(page, async () => {
     await page.getByRole('button', { name: 'PDF – Pläne auswählen' }).tap();
     await page.getByTestId('pdf-export-run').tap();
@@ -207,7 +207,7 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   if (!isPhone) {
     // iPad quer: Plan und Tabelle nebeneinander
     await page.setViewportSize({ width: 1180, height: 820 });
-    await page.getByTestId('plan-card').filter({ hasText: 'C-301' }).tap();
+    await page.getByTestId('plan-row').filter({ hasText: 'C-301' }).getByTestId('plan-open').tap();
     await waitForPlan(page);
     await expect(page.getByTestId('mobile-tab-table')).toBeHidden();
     await expect(page.getByTestId('aufmass-table')).toBeVisible();
@@ -222,15 +222,16 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
 test('Erstnutzer: vom neuen Projekt bis zum importierten PDF', async ({ page }) => {
   await freshStart(page);
   // Startseite erklärt, wo Pläne importiert werden
-  await expect(page.locator('.home-hint')).toContainText('Kostenstelle öffnen → „Plan importieren“');
+  await expect(page.locator('.home-hint')).toContainText('Projekt öffnen → „Plan importieren“');
   // Projekt und Kostenstelle in einem Schritt
   await page.getByTestId('new-project').tap();
   const form = page.getByTestId('project-form');
   await form.locator('input[name="name"]').fill('Erster Test');
   await form.getByTestId('cost-center-input').fill('Tiefgarage');
   await form.getByRole('button', { name: 'Projekt anlegen' }).tap();
-  // Neue Kostenstelle öffnet sich direkt
-  await expect(page.getByTestId('cost-center-title')).toHaveText('Tiefgarage');
+  // Projektseite mit Kostenstelle und (leerer) Planliste öffnet sich direkt
+  await expect(page.getByTestId('project-cost-centers')).toHaveText('Tiefgarage');
+  await expect(page.getByTestId('cost-center-switch')).toHaveCount(0); // nur eine Kostenstelle → keine Auswahl
   const [chooser] = await Promise.all([
     page.waitForEvent('filechooser'),
     page.getByRole('button', { name: 'PDF oder Foto auswählen' }).tap(),
@@ -245,4 +246,65 @@ test('Erstnutzer: vom neuen Projekt bis zum importierten PDF', async ({ page }) 
   await wiz.getByTestId('import-save').tap();
   await waitForPlan(page);
   await expect(page.getByTestId('plan-select')).toContainText('A-101');
+});
+
+test('Website und Planliste auf Smartphone/Tablet: Menü, keine Überbreite, Aktionen per Finger', async ({ page }, info) => {
+  const isPhone = info.project.name === 'iphone';
+  await page.goto('./');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Dein Aufmaß. Direkt im Plan.');
+  await noHorizontalScroll(page);
+  const nav = page.getByTestId('site-nav');
+  if (isPhone) {
+    // „Über BauPad“ und „Kontakt“ liegen im ausklappbaren Menü
+    await expect(nav.getByRole('link', { name: 'Kontakt' })).toBeHidden();
+    await nav.getByRole('button', { name: 'Menü öffnen' }).tap();
+    await expect(nav.getByRole('link', { name: 'Kontakt' })).toBeVisible();
+    await nav.getByRole('link', { name: 'Kontakt' }).tap();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Kontakt');
+    await expect(nav.getByRole('link', { name: 'Kontakt' })).toBeHidden(); // Menü schließt sich
+  } else {
+    await nav.getByRole('link', { name: 'Kontakt' }).tap();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Kontakt');
+  }
+  await noHorizontalScroll(page);
+  await expect(nav.getByRole('link', { name: 'Anmelden' })).toBeVisible();
+  await page.screenshot({ path: join(OUT, `${info.project.name}-kontakt.png`) });
+
+  // Planliste mit langer Bemerkung
+  await freshStart(page);
+  await createProject(page, 'Liste', {}, [{ number: '4711', name: 'Tiefgarage' }]);
+  for (const [no, note] of [
+    ['067', 'Bereich Tiefgarage Nord mit sehr langer Bemerkung, die auf dem Smartphone umbrechen muss'],
+    ['068', ''],
+  ]) {
+    await page.getByTestId('plan-file-input').setInputFiles(join(FIXTURES, 'parkdeck.png'));
+    const wiz = page.getByTestId('import-wizard');
+    await wiz.getByTestId('areas-next').tap();
+    await wiz.locator('[data-field="planNumber"]').fill(no);
+    await wiz.locator('[data-field="planName"]').fill('Untergeschoss');
+    await wiz.locator('[data-field="floor"]').fill('UG2');
+    await wiz.locator('[data-field="description"]').fill(note);
+    await wiz.getByTestId('import-save').tap();
+    await waitForPlan(page);
+    await page.getByRole('link', { name: 'Zurück zur Planliste' }).tap();
+  }
+  await expect(page.getByTestId('plan-row')).toHaveCount(2);
+  await noHorizontalScroll(page);
+  // Liste bleibt kompakt (keine großen Karten)
+  const h = (await page.getByTestId('plan-row').first().boundingBox())!.height;
+  expect(h).toBeLessThan(isPhone ? 170 : 90);
+  // Aktionsmenü per Finger bedienbar und vollständig im Bild
+  await page.getByTestId('plan-row').last().getByTestId('plan-actions').tap();
+  const menu = page.locator('.action-menu');
+  await expect(menu).toBeVisible();
+  const mb = (await menu.boundingBox())!;
+  const vp = page.viewportSize()!;
+  expect(mb.x).toBeGreaterThanOrEqual(0);
+  expect(mb.x + mb.width).toBeLessThanOrEqual(vp.width);
+  expect(mb.y + mb.height).toBeLessThanOrEqual(vp.height);
+  // 44 px Mindesthöhe (Toleranz für Rundung durch die Bildschirmskalierung)
+  for (const item of await menu.getByRole('menuitem').all()) expect((await item.boundingBox())!.height).toBeGreaterThanOrEqual(43.5);
+  await page.screenshot({ path: join(OUT, `${info.project.name}-planliste.png`) });
+  await page.getByTestId('action-open').tap();
+  await waitForPlan(page);
 });

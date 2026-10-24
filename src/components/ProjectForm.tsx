@@ -5,18 +5,27 @@ import { Modal } from './Modal';
 
 export type ProjectFields = Pick<Project, 'name' | 'site' | 'address' | 'client' | 'editor' | 'date' | 'notes'>;
 
+/** Kostenstelle im Formular; `id` ist bei bereits gespeicherten Kostenstellen gesetzt. */
+export interface CostCenterInput {
+  id?: string;
+  number: string;
+  name: string;
+}
+
 interface Props {
   title: string;
   initial?: Partial<ProjectFields>;
+  /** Kostenstellen, die zusammen mit den Projektangaben bearbeitet werden */
+  costCenters?: CostCenterInput[];
   submitLabel: string;
-  /** Beim Anlegen: Kostenstellen gleich mit erfassen */
-  withCostCenters?: boolean;
-  onSubmit: (fields: ProjectFields, costCenters: string[]) => void | Promise<void>;
+  onSubmit: (fields: ProjectFields, costCenters: CostCenterInput[]) => void | Promise<void>;
   onClose: () => void;
 }
 
-/** Eingabe der Projektdaten (neues Projekt oder Bearbeiten). */
-export function ProjectForm({ title, initial, submitLabel, withCostCenters, onSubmit, onClose }: Props) {
+const ccKey = (c: CostCenterInput) => `${c.number.trim()}|${c.name.trim()}`.toLowerCase();
+
+/** Projektangaben einschließlich Kostenstelle(n) – beim Anlegen und beim Bearbeiten. */
+export function ProjectForm({ title, initial, costCenters, submitLabel, onSubmit, onClose }: Props) {
   const [f, setF] = useState<ProjectFields>({
     name: '',
     site: '',
@@ -27,19 +36,22 @@ export function ProjectForm({ title, initial, submitLabel, withCostCenters, onSu
     notes: '',
     ...initial,
   });
+  const [ccs, setCcs] = useState<CostCenterInput[]>(costCenters?.length ? costCenters : [{ number: '', name: '' }]);
   const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const set = (k: keyof ProjectFields) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
   const nameMissing = !f.name.trim();
-  const [ccs, setCcs] = useState<string[]>(['']);
-  const ccNames = ccs.map((c) => c.trim()).filter(Boolean);
-  const ccError = !withCostCenters
-    ? null
-    : !ccNames.length
-      ? 'Bitte mindestens eine Kostenstelle eingeben (z. B. Tiefgarage).'
-      : new Set(ccNames.map((c) => c.toLowerCase())).size !== ccNames.length
+
+  // Leere neue Zeilen werden ignoriert; bestehende Kostenstellen brauchen Nummer oder Bezeichnung
+  const filled = ccs.filter((c) => c.id || c.number.trim() || c.name.trim());
+  const ccError = !filled.length
+    ? 'Bitte eine Kostenstelle eingeben (Nummer und/oder Bezeichnung).'
+    : filled.some((c) => !c.number.trim() && !c.name.trim())
+      ? 'Eine Kostenstelle braucht eine Nummer oder eine Bezeichnung.'
+      : new Set(filled.map(ccKey)).size !== filled.length
         ? 'Jede Kostenstelle darf nur einmal vorkommen.'
         : null;
+  const setCc = (i: number, patch: Partial<CostCenterInput>) => setCcs(ccs.map((c, j) => (j === i ? { ...c, ...patch } : c)));
 
   return (
     <Modal
@@ -68,7 +80,10 @@ export function ProjectForm({ title, initial, submitLabel, withCostCenters, onSu
           setBusy(true);
           try {
             if (f.editor) localStorage.setItem('lastEditor', f.editor);
-            await onSubmit({ ...f, name: f.name.trim(), site: f.site.trim() }, ccNames);
+            await onSubmit(
+              { ...f, name: f.name.trim(), site: f.site.trim() },
+              filled.map((c) => ({ ...c, number: c.number.trim(), name: c.name.trim() })),
+            );
           } finally {
             setBusy(false);
           }
@@ -83,40 +98,53 @@ export function ProjectForm({ title, initial, submitLabel, withCostCenters, onSu
           <span>Baustelle / Bauvorhaben</span>
           <input value={f.site} onChange={set('site')} name="site" autoComplete="off" enterKeyHint="next" />
         </label>
-        {withCostCenters && (
-          <div className="field span-2 cc-fields">
-            <span>Kostenstelle *</span>
-            {ccs.map((c, i) => (
-              <div key={i} className="row gap">
-                <input
-                  value={c}
-                  onChange={(e) => setCcs(ccs.map((x, j) => (j === i ? e.target.value : x)))}
-                  name={`costCenter${i}`}
-                  data-testid="cost-center-input"
-                  placeholder={i === 0 ? 'z. B. Tiefgarage, Stiege 1, Parkdeck' : 'weitere Kostenstelle'}
-                  autoComplete="off"
-                  enterKeyHint="next"
-                  aria-label={`Kostenstelle ${i + 1}`}
-                  aria-invalid={touched && !!ccError}
-                />
-                {ccs.length > 1 && (
-                  <button
-                    type="button"
-                    className="icon-btn icon-btn-sm"
-                    onClick={() => setCcs(ccs.filter((_, j) => j !== i))}
-                    aria-label={`Kostenstelle ${i + 1} entfernen`}
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-            ))}
-            <button type="button" className="btn btn-sm cc-add" onClick={() => setCcs([...ccs, ''])}>
-              + Weitere Kostenstelle
-            </button>
-            {touched && ccError && <small className="error">{ccError}</small>}
-          </div>
-        )}
+
+        <div className="field span-2 cc-fields">
+          <span>Kostenstelle *</span>
+          {ccs.map((c, i) => (
+            <div key={c.id ?? `new-${i}`} className="cc-row">
+              <input
+                className="cc-number"
+                value={c.number}
+                onChange={(e) => setCc(i, { number: e.target.value })}
+                name={`costCenterNumber${i}`}
+                data-testid="cost-center-number"
+                placeholder="Nr."
+                autoComplete="off"
+                enterKeyHint="next"
+                aria-label={`Kostenstellennummer ${i + 1}`}
+                aria-invalid={touched && !!ccError}
+              />
+              <input
+                className="cc-name"
+                value={c.name}
+                onChange={(e) => setCc(i, { name: e.target.value })}
+                name={`costCenter${i}`}
+                data-testid="cost-center-input"
+                placeholder={i === 0 ? 'Bezeichnung, z. B. Tiefgarage' : 'Bezeichnung'}
+                autoComplete="off"
+                enterKeyHint="next"
+                aria-label={`Kostenstelle ${i + 1} Bezeichnung`}
+                aria-invalid={touched && !!ccError}
+              />
+              {!c.id && ccs.length > 1 && (
+                <button
+                  type="button"
+                  className="icon-btn icon-btn-sm"
+                  onClick={() => setCcs(ccs.filter((_, j) => j !== i))}
+                  aria-label={`Kostenstelle ${i + 1} entfernen`}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          ))}
+          <button type="button" className="btn btn-sm cc-add" onClick={() => setCcs([...ccs, { number: '', name: '' }])}>
+            + Weitere Kostenstelle
+          </button>
+          {touched && ccError && <small className="error">{ccError}</small>}
+        </div>
+
         <label className="field span-2">
           <span>Adresse oder Standort (optional)</span>
           <input value={f.address} onChange={set('address')} name="address" autoComplete="street-address" enterKeyHint="next" />

@@ -7,7 +7,7 @@ import { PlanDetailsDialog } from '../components/PlanFields';
 import { PlanViewer, type PlanViewerHandle, type Tool } from '../components/PlanViewer';
 import { SaveErrorBanner, SaveStatus } from '../components/SaveStatus';
 import { confirmDialog, offerFile, showError, toast } from '../components/ui';
-import { damagesOf, exportXlsx, planTitle, plansOf, sumArea } from '../lib/aufmass';
+import { costCenterLabel, damagesOf, exportXlsx, plansOf, planTitle, sumArea } from '../lib/aufmass';
 import { computeArea, formatArea, formatMeasure } from '../lib/numbers';
 import { compactNumbers, duplicateNumbers, nextNumber, planNumberStart, shiftNumbers, swapNumbers } from '../lib/numbering';
 import { navigate, paths } from '../lib/router';
@@ -244,12 +244,12 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   return (
     <div className="editor">
       <header className="topbar editor-topbar">
-        <a className="icon-btn" href={paths.costCenter(data.project.id, plan.costCenterId)} aria-label="Zur Kostenstelle">
+        <a className="icon-btn" href={paths.costCenter(data.project.id, plan.costCenterId)} aria-label="Zurück zur Planliste">
           <Icon name="back" />
         </a>
         <div className="topbar-title">
           <small>
-            {data.project.name} · {cc?.name}
+            {data.project.name} · {costCenterLabel(cc)}
           </small>
           <div className="plan-switch">
             <button

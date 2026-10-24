@@ -39,20 +39,20 @@ export function PlanFields({
         {error && <small className="error">{error}</small>}
       </label>
       <label className="field">
-        <span>Planname</span>
+        <span>Planbezeichnung</span>
         <input value={value.planName} onChange={(e) => onChange({ planName: e.target.value })} placeholder="z. B. Untergeschoss" data-field="planName" autoComplete="off" enterKeyHint="next" />
       </label>
       <label className="field">
-        <span>Geschoss / Stockwerk</span>
-        <input value={value.floor} onChange={(e) => onChange({ floor: e.target.value })} placeholder="z. B. UG, EG, 1. OG" data-field="floor" autoComplete="off" enterKeyHint="next" />
+        <span>Ebene / Geschoss</span>
+        <input value={value.floor} onChange={(e) => onChange({ floor: e.target.value })} placeholder="z. B. UG2, EG, 1. OG" data-field="floor" autoComplete="off" enterKeyHint="next" />
       </label>
       <label className="field">
         <span>Planbereich</span>
         <input value={value.area} onChange={(e) => onChange({ area: e.target.value })} placeholder="z. B. Decke, Wand Nord" data-field="area" autoComplete="off" enterKeyHint="next" />
       </label>
       <label className="field span-2">
-        <span>Planbeschreibung (optional)</span>
-        <textarea value={value.description} onChange={(e) => onChange({ description: e.target.value })} rows={2} data-field="description" />
+        <span>Bemerkungen (optional)</span>
+        <textarea value={value.description} onChange={(e) => onChange({ description: e.target.value })} rows={2} data-field="description" placeholder="z. B. Bereich Tiefgarage Nord" />
       </label>
     </div>
   );

@@ -3,7 +3,10 @@ import { useSyncExternalStore } from 'react';
 /** Einfacher Hash-Router – funktioniert auf jedem statischen Webspace und offline. */
 
 export type Route =
-  | { name: 'home' }
+  | { name: 'landing' }
+  | { name: 'about' }
+  | { name: 'contact' }
+  | { name: 'projects' }
   | { name: 'project'; projectId: string }
   | { name: 'costCenter'; projectId: string; costCenterId: string }
   | { name: 'plan'; projectId: string; planId: string; damageId: string | null }
@@ -13,7 +16,10 @@ export function parseRoute(hash: string): Route {
   const [path, query = ''] = hash.replace(/^#/, '').split('?');
   const parts = path.split('/').filter(Boolean).map(decodeURIComponent);
   const params = new URLSearchParams(query);
-  if (parts.length === 0) return { name: 'home' };
+  if (parts.length === 0) return { name: 'landing' };
+  if (parts[0] === 'ueber' && parts.length === 1) return { name: 'about' };
+  if (parts[0] === 'kontakt' && parts.length === 1) return { name: 'contact' };
+  if (parts[0] === 'projekte' && parts.length === 1) return { name: 'projects' };
   if (parts[0] === 'p' && parts.length === 2) return { name: 'project', projectId: parts[1] };
   if (parts[0] === 'p' && parts[2] === 'k' && parts.length === 4)
     return { name: 'costCenter', projectId: parts[1], costCenterId: parts[3] };
@@ -23,7 +29,11 @@ export function parseRoute(hash: string): Route {
 }
 
 export const paths = {
-  home: () => '#/',
+  landing: () => '#/',
+  about: () => '#/ueber',
+  contact: () => '#/kontakt',
+  /** Projektverwaltung (auch Ziel von „Anmelden“, solange es keine Benutzerkonten gibt) */
+  projects: () => '#/projekte',
   project: (pid: string) => `#/p/${pid}`,
   costCenter: (pid: string, cid: string) => `#/p/${pid}/k/${cid}`,
   plan: (pid: string, planId: string, damageId?: string) => `#/p/${pid}/plan/${planId}${damageId ? `?d=${damageId}` : ''}`,

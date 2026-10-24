@@ -32,6 +32,9 @@ export interface Project extends SyncMeta {
 
 export interface CostCenter extends SyncMeta {
   projectId: string;
+  /** Kostenstellennummer (optional; ältere Datensätze haben keine) */
+  number?: string;
+  /** Bezeichnung, z. B. „Tiefgarage“ */
   name: string;
   sortIndex: number;
 }

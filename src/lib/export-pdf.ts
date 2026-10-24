@@ -1,6 +1,6 @@
 import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
-import { damagesOf, planTitle, safeFileName, type ExportFile } from './aufmass';
+import { costCenterLabel, damagesOf, planTitle, safeFileName, type ExportFile } from './aufmass';
 import { getBlob } from './db';
 import {
   layoutLabels,
@@ -99,8 +99,8 @@ export async function exportPlansPdf(data: ProjectState, opts: PdfExportOptions)
   const sameCc = plans.every((p) => p.costCenterId === plans[0]?.costCenterId);
   const name =
     plans.length === 1
-      ? safeFileName(data.project.name, cc?.name ?? '', plans[0].planNumber || plans[0].planName, 'Plan')
-      : safeFileName(data.project.name, sameCc ? (cc?.name ?? '') : '', 'Plaene');
+      ? safeFileName(data.project.name, costCenterLabel(cc), plans[0].planNumber || plans[0].planName, 'Plan')
+      : safeFileName(data.project.name, sameCc ? (costCenterLabel(cc)) : '', 'Plaene');
   return { name: `${name}.pdf`, data: bytes, mimeType: 'application/pdf' };
 }
 

@@ -115,7 +115,10 @@ export async function flush(): Promise<void> {
   }
   if (!queue.size) return;
   if (state.save.status === 'conflict') return;
-  const batch = [...queue.values()];
+  // Erwartete Revision erst jetzt bestimmen: Eine vorherige Speicherung desselben Datensatzes
+  // ist hier sicher abgeschlossen (siehe oben). Beim Einreihen ermittelt, wäre sie veraltet,
+  // wenn die Änderung während einer laufenden Speicherung entstanden ist (Fehlkonflikt).
+  const batch = [...queue.values()].map((w) => ({ ...w, baseRev: baseRevs.get(keyOf(w.store, w.record.id)) ?? 0 }));
   queue.clear();
   setSave({ status: 'saving' });
   flushing = (async () => {
@@ -252,7 +255,7 @@ function bump<T extends { rev: number }>(rec: T): T {
 
 function enqueue<S extends EntityStore>(store: S, record: EntityMap[S]) {
   const k = keyOf(store, record.id);
-  queue.set(k, { store, record, baseRev: baseRevs.get(k) ?? 0 });
+  queue.set(k, { store, record, baseRev: 0 }); // baseRev wird in flush() gesetzt
   if (state.save.status !== 'conflict') setSave({ status: 'pending' });
   scheduleFlush();
 }
@@ -309,14 +312,15 @@ export async function createProjectRecord(fields: Omit<Project, keyof ReturnType
 /** Legt ein Projekt zusammen mit seinen Kostenstellen in einem Schritt an. */
 export async function createProjectWithCostCenters(
   fields: Omit<Project, keyof ReturnType<typeof newMeta>>,
-  costCenterNames: string[],
+  costCenterInputs: { number: string; name: string }[],
 ): Promise<{ project: Project; costCenters: CostCenter[] }> {
   const project: Project = { ...newMeta(), ...fields, rev: 1 };
-  const costCenters: CostCenter[] = costCenterNames.map((name, i) => ({
+  const costCenters: CostCenter[] = costCenterInputs.map((c, i) => ({
     ...newMeta(),
     rev: 1,
     projectId: project.id,
-    name,
+    number: c.number,
+    name: c.name,
     sortIndex: i,
   }));
   await writeRecords([

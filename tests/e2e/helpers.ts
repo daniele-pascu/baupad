@@ -14,39 +14,57 @@ export async function freshStart(page: Page) {
     for (const d of dbs ?? []) if (d.name) indexedDB.deleteDatabase(d.name);
     localStorage.clear();
   });
-  await page.goto('./#/');
+  await page.goto('./#/projekte');
   await page.reload();
   await expect(page).toHaveTitle('BauPad');
+  await expect(page.getByTestId('projects-title')).toHaveText('Projektverwaltung');
   await expect(page.getByRole('img', { name: 'BauPad' })).toBeVisible();
 }
 
+export type CostCenterSpec = string | { number: string; name: string };
+
 /**
- * Legt ein Projekt samt Kostenstelle(n) in einem Schritt an. Bei genau einer Kostenstelle
- * öffnet die App diese direkt, bei mehreren die Projektseite.
+ * Legt ein Projekt samt Kostenstelle(n) in einem Schritt an und öffnet die Projektseite
+ * (Projektinfos, Kostenstelle und Planliste).
  */
-export async function createProject(page: Page, name: string, extra: Record<string, string> = {}, costCenters: string[] = ['Tiefgarage']) {
+export async function createProject(page: Page, name: string, extra: Record<string, string> = {}, costCenters: CostCenterSpec[] = ['Tiefgarage']) {
   await page.getByTestId('new-project').click();
   const form = page.getByTestId('project-form');
   await form.locator('input[name="name"]').fill(name);
   for (const [k, v] of Object.entries(extra)) await form.locator(`[name="${k}"]`).fill(v);
   for (let i = 0; i < costCenters.length; i++) {
     if (i > 0) await form.getByRole('button', { name: '+ Weitere Kostenstelle' }).click();
-    await form.getByTestId('cost-center-input').nth(i).fill(costCenters[i]);
+    const cc = costCenters[i];
+    if (typeof cc !== 'string') await form.getByTestId('cost-center-number').nth(i).fill(cc.number);
+    await form.getByTestId('cost-center-input').nth(i).fill(typeof cc === 'string' ? cc : cc.name);
   }
   await form.getByRole('button', { name: 'Projekt anlegen' }).click();
-  if (costCenters.length === 1) await expect(page.getByTestId('cost-center-title')).toHaveText(costCenters[0]);
-  else await expect(page.getByTestId('project-title')).toHaveText(name);
+  await expect(page.getByTestId('project-title')).toHaveText(name);
 }
 
-export async function createCostCenter(page: Page, name: string) {
-  await page.getByTestId('new-cost-center').click();
-  const dlg = page.getByTestId('prompt-dialog');
-  await dlg.locator('input').fill(name);
-  await dlg.getByRole('button', { name: 'Anlegen' }).click();
-  // Die neue Kostenstelle wird direkt geöffnet
-  await expect(page.getByTestId('cost-center-title')).toHaveText(name);
-  await page.getByRole('link', { name: 'Zum Projekt' }).click();
-  await expect(page.getByTestId('cost-center-card').filter({ hasText: name })).toBeVisible();
+/** Weitere Kostenstelle über „Projektangaben bearbeiten“ hinzufügen. */
+export async function createCostCenter(page: Page, name: string, number = '') {
+  await page.getByTestId('edit-project').click();
+  const form = page.getByTestId('project-form');
+  await form.getByRole('button', { name: '+ Weitere Kostenstelle' }).click();
+  await form.getByTestId('cost-center-input').last().fill(name);
+  if (number) await form.getByTestId('cost-center-number').last().fill(number);
+  await form.getByRole('button', { name: 'Speichern' }).click();
+  await expect(form).toBeHidden();
+  await expect(page.getByTestId('project-cost-centers')).toContainText(name);
+}
+
+/** Kostenstelle auswählen (nur sichtbar, wenn ein Projekt mehrere hat). */
+export async function selectCostCenter(page: Page, label: string) {
+  const select = page.getByTestId('cost-center-select');
+  const value = await select.locator('option').filter({ hasText: label }).first().getAttribute('value');
+  await select.selectOption(value!);
+  await expect(page.getByTestId('cost-center-title')).toHaveText(label);
+}
+
+/** Plan in der Planliste öffnen. */
+export async function openPlan(page: Page, planNumber: string) {
+  await page.getByTestId('plan-row').filter({ hasText: planNumber }).first().getByTestId('plan-open').click();
 }
 
 /** Wartet auf eine Datei – direkt (PC) oder über den Dialog „Datei bereit“ (Touch-Geräte). */
