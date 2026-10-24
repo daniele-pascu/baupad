@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { AufmassTable } from '../components/AufmassTable';
 import { DamageDialog, type DamageValues, type Renumber } from '../components/DamageDialog';
 import { ElementBar, InsertBar } from '../components/DrawPanel';
@@ -17,7 +17,7 @@ import { compactNumbers, damageNo, duplicateIds, nextNumber, planNumberStart, sh
 import { navigate, paths } from '../lib/router';
 import { clearHistory, newMeta, putRecord, putRecords, redo, softDelete, undo, useAppState, type ProjectState } from '../lib/store';
 import { COLORS, SHAPE_LABELS, type Damage, type DrawElementType, type MeasureKind, type Shape, type ShapeType } from '../lib/types';
-import { DRAW_TOOLS, useDrawing } from './DrawingMode';
+import { DRAW_TOOLS, useDrawing, type ToolGroup } from './DrawingMode';
 
 type DialogState = { mode: 'new'; shape: Shape; number: number; label: string | null; kind: MeasureKind } | { mode: 'edit'; id: string } | null;
 
@@ -28,8 +28,55 @@ const TOOLS: { id: Tool; label: string; short?: string; icon: string; key: strin
   { id: 'ellipse', label: SHAPE_LABELS.ellipse, icon: 'ellipse', key: 'k' },
   { id: 'triangle', label: SHAPE_LABELS.triangle, icon: 'triangle', key: 'd' },
   { id: 'polygon', label: 'Fläche: Eckpunkte nacheinander setzen', short: 'Fläche', icon: 'polygon', key: 'p' },
-  { id: 'freehand', label: SHAPE_LABELS.freehand, icon: 'freehand', key: 'f' },
+  { id: 'polyline', label: 'Polylinie: Punkte nacheinander setzen – offen (Länge) oder geschlossen (Fläche)', short: 'Polylinie', icon: 'polyline', key: 'f' },
 ];
+
+const TOOL_GROUP_LABELS: Record<ToolGroup, string> = { select: 'Auswahl', draw: 'Zeichnen', annotate: 'Beschriften' };
+
+/** Werkzeuge, die Punkt für Punkt gesetzt werden */
+const isPointTool = (t: Tool) => t === 'polygon' || t === 'polyline';
+
+/** Leiste beim Setzen von Punkten: Polylinie offen beenden oder schließen, Polygon schließen */
+function PolylineBar({ polyline, count, viewer }: { polyline: boolean; count: number; viewer: React.RefObject<PlanViewerHandle | null> }) {
+  const name = polyline ? 'Polylinie' : 'Fläche';
+  return (
+    <div className="draw-bar" data-testid="polygon-bar">
+      {count === 0 ? (
+        <span className="muted small">
+          {polyline
+            ? 'Polylinie: Punkte nacheinander antippen. Doppelklick oder Enter beendet sie offen (Länge), Antippen des Startpunkts oder „Schließen“ ergibt eine Fläche.'
+            : 'Fläche: Eckpunkte nacheinander antippen. Zum Abschließen den ersten Punkt antippen, doppelt tippen oder „Fläche schließen“.'}
+        </span>
+      ) : (
+        <>
+          <strong className="draw-bar-title">
+            {name}: {count} Punkt{count === 1 ? '' : 'e'}
+          </strong>
+          {polyline && (
+            <button type="button" className="btn btn-sm btn-primary" onClick={() => viewer.current?.finishPolygon(false)} disabled={count < 2} data-testid="polyline-open">
+              <Icon name="check" size={18} /> Offen beenden
+            </button>
+          )}
+          <button
+            type="button"
+            className={`btn btn-sm${polyline ? '' : ' btn-primary'}`}
+            onClick={() => viewer.current?.finishPolygon(true)}
+            disabled={count < 3}
+            data-testid="polygon-finish"
+          >
+            {!polyline && <Icon name="check" size={18} />} {polyline ? 'Schließen (Fläche)' : 'Fläche schließen'}
+          </button>
+          <button type="button" className="btn btn-sm" onClick={() => viewer.current?.undoPolygonPoint()} title="Letzten Punkt entfernen (Rücktaste)" data-testid="polygon-undo-point">
+            <Icon name="undo" size={18} /> Punkt
+          </button>
+          <button type="button" className="btn btn-sm" onClick={() => viewer.current?.cancelPolygon()} data-testid="polygon-cancel">
+            Abbrechen
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
 
 /** Breite der Messleiste (PC/Tablet quer): Grenzen in Pixeln */
 export const SIDE_MIN = 280;
@@ -124,11 +171,23 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const [sideWidth, setSideWidth] = useState(loadSideWidth);
   const [, setHistoryTick] = useState(0);
   const viewer = useRef<PlanViewerHandle>(null);
+  const planRef = useRef<HTMLDivElement>(null);
   const drawingPlan = isDrawingPlan(plan);
   /** Gezeichnete Pläne: Planbearbeitung („draw“) oder Aufmaß („measure“) */
   const initialMode = () => (isDrawingPlan(data.plans[planId]) && !elementsOf(data, planId).length ? 'draw' : 'measure');
   const [mode, setMode] = useState<'draw' | 'measure'>(initialMode);
   const drawMode = drawingPlan && mode === 'draw';
+  /** Farbauswahl der Zeichenleiste aufgeklappt */
+  const [colorsOpen, setColorsOpen] = useState(false);
+  // Höhe der Werkzeugleiste (kann umbrechen) – Leisten darüber werden passend versetzt
+  useLayoutEffect(() => {
+    const host = planRef.current;
+    const bar = host?.querySelector('.toolbar');
+    if (!host || !bar) return;
+    const ro = new ResizeObserver(() => host.style.setProperty('--toolbar-h', `${Math.round(bar.getBoundingClientRect().height)}px`));
+    ro.observe(bar);
+    return () => ro.disconnect();
+  }, [drawMode]);
 
   const setTool = (t: Tool) => {
     setToolState(t);
@@ -201,10 +260,13 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       const target = e.target as HTMLElement;
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || document.querySelector('.modal')) return;
       const key = e.key.toLowerCase();
-      // Fläche aus Punkten: Enter schließt ab, Escape verwirft
-      if (polyCount && (e.key === 'Enter' || e.key === 'Escape')) {
+      // Punktwerkzeuge: Enter beendet (Polylinie offen, Polygon geschlossen), C schließt,
+      // Rücktaste nimmt den letzten Punkt zurück, Escape verwirft
+      if (polyCount && ['Enter', 'Escape', 'Backspace'].includes(e.key) || (polyCount && key === 'c' && !e.ctrlKey && !e.metaKey)) {
         e.preventDefault();
         if (e.key === 'Enter') viewer.current?.finishPolygon();
+        else if (key === 'c') viewer.current?.finishPolygon(true);
+        else if (e.key === 'Backspace') viewer.current?.undoPolygonPoint();
         else viewer.current?.cancelPolygon();
         return;
       }
@@ -219,7 +281,10 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         const dt = DRAW_TOOLS.find((x) => x.key === key);
         if (dt) drawing.setTool(dt.id);
         else if (e.key === 'Escape') drawing.setSelectedId(null);
-        else if ((e.key === 'Delete' || e.key === 'Backspace') && drawing.selected) void drawing.remove(drawing.selected);
+        else if ((e.key === 'Delete' || e.key === 'Backspace') && drawing.selected) {
+          // ausgewählter Eckpunkt zuerst, sonst das ganze Objekt
+          if (!drawing.removeSelectedVertex()) void drawing.remove(drawing.selected);
+        }
         else if (!['+', '=', '-', '0'].includes(e.key)) return;
         if (dt || e.key === 'Escape' || e.key === 'Delete' || e.key === 'Backspace') {
           e.preventDefault();
@@ -571,7 +636,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       </div>
 
       <div className={`editor-main show-${mobileTab}`} style={{ '--side-w': `${sideWidth}px` } as React.CSSProperties}>
-        <div className="editor-plan">
+        <div className="editor-plan" ref={planRef}>
           {drawMode ? (
             <PlanViewer
               key="draw"
@@ -601,6 +666,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               snap={drawing.snapOn || drawing.gridOn ? drawing.snap : undefined}
               bounds={sheetBounds}
               vertexEdit
+              selectedVertex={drawing.vertex}
+              onVertexSelect={drawing.setVertex}
               onPolygonChange={setPolyCount}
             />
           ) : file || drawingPlan ? (
@@ -690,7 +757,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           </div>
 
           {drawMode &&
-            (drawing.selected ? (
+            (drawing.selected && !polyCount ? (
               <ElementBar
                 key={drawing.selected.id}
                 element={drawing.selected}
@@ -698,10 +765,14 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 onApply={(m) => drawing.apply(drawing.selected!.id, m)}
                 onText={(t) => drawing.setText(drawing.selected!.id, t)}
                 onShowDims={(v) => drawing.setShowDims(drawing.selected!.id, v)}
+                vertex={drawing.vertex}
+                canRemoveVertex={drawing.canRemoveVertex}
+                onRemoveVertex={() => drawing.removeSelectedVertex()}
+                onSetClosed={(c) => drawing.setClosed(drawing.selected!.id, c)}
                 onDelete={() => void drawing.remove(drawing.selected!)}
                 onClose={() => drawing.setSelectedId(null)}
               />
-            ) : drawing.tool !== 'select' && drawing.tool !== 'component' && drawing.tool !== 'polygon' ? (
+            ) : drawing.tool !== 'select' && drawing.tool !== 'component' && drawing.tool !== 'polygon' && drawing.tool !== 'polyline' ? (
               <InsertBar
                 tool={drawing.tool as DrawElementType}
                 onInsert={drawing.insert}
@@ -709,25 +780,11 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               />
             ) : null)}
 
-          {(drawMode ? drawing.tool === 'polygon' && !drawing.selected : tool === 'polygon' && !selected) && !dialog && (
-            <div className="draw-bar" data-testid="polygon-bar">
-              {polyCount === 0 ? (
-                <span className="muted small">Fläche: Eckpunkte nacheinander antippen. Zum Abschließen den ersten Punkt antippen, doppelt tippen oder „Fläche schließen“.</span>
-              ) : (
-                <>
-                  <strong className="draw-bar-title">{polyCount} Punkt{polyCount === 1 ? '' : 'e'} gesetzt</strong>
-                  <button type="button" className="btn btn-sm btn-primary" onClick={() => viewer.current?.finishPolygon()} disabled={polyCount < 3} data-testid="polygon-finish">
-                    <Icon name="check" size={18} /> Fläche schließen
-                  </button>
-                  <button type="button" className="btn btn-sm" onClick={() => viewer.current?.cancelPolygon()} data-testid="polygon-cancel">
-                    Abbrechen
-                  </button>
-                </>
-              )}
-            </div>
+          {(drawMode ? isPointTool(drawing.tool) && (polyCount > 0 || !drawing.selected) : isPointTool(tool) && (polyCount > 0 || !selected)) && !dialog && (
+            <PolylineBar polyline={(drawMode ? drawing.tool : tool) === 'polyline'} count={polyCount} viewer={viewer} />
           )}
 
-          {!drawMode && selected && !dialog && (
+          {!drawMode && selected && !dialog && !polyCount && (
             <div className="selection-bar" data-testid="selection-bar">
               <div className="selection-info">
                 <span className="color-dot" style={{ background: selected.color }} />
@@ -761,39 +818,78 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           )}
 
           {drawMode ? (
-            <div className="toolbar" role="toolbar" aria-label="Zeichenwerkzeuge" data-testid="draw-toolbar">
-              <div className="tool-group">
-                {DRAW_TOOLS.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    className={`tool-btn${drawing.tool === t.id ? ' active' : ''}`}
-                    onClick={() => drawing.setTool(t.id)}
-                    aria-pressed={drawing.tool === t.id}
-                    title={`${t.label} (${t.key.toUpperCase()})`}
-                    data-testid={`draw-${t.id}`}
-                  >
-                    <Icon name={t.icon} />
-                    <span>{t.short ?? t.label}</span>
-                  </button>
-                ))}
+            <div className="toolbar draw-toolbar" role="toolbar" aria-label="Zeichenwerkzeuge" data-testid="draw-toolbar">
+              {(['select', 'draw', 'annotate'] as const).map((g) => (
+                <div key={g} className="tool-group" role="group" aria-label={TOOL_GROUP_LABELS[g]}>
+                  {DRAW_TOOLS.filter((t) => t.group === g).map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      className={`tool-btn${drawing.tool === t.id ? ' active' : ''}`}
+                      onClick={() => drawing.setTool(t.id)}
+                      aria-pressed={drawing.tool === t.id}
+                      title={`${t.label} (${t.key.toUpperCase()})`}
+                      data-testid={`draw-${t.id}`}
+                    >
+                      <Icon name={t.icon} />
+                      <span>{t.short ?? t.label}</span>
+                    </button>
+                  ))}
+                </div>
+              ))}
+              <div className="tool-group" role="group" aria-label="Bearbeiten">
+                <button
+                  type="button"
+                  className="tool-btn"
+                  onClick={() => drawing.selected && !drawing.removeSelectedVertex() && void drawing.remove(drawing.selected)}
+                  disabled={!drawing.selected}
+                  title={drawing.vertex !== null ? 'Ausgewählten Eckpunkt löschen (Entf)' : 'Ausgewähltes Objekt löschen (Entf)'}
+                  data-testid="draw-delete"
+                >
+                  <Icon name="trash" />
+                  <span>Löschen</span>
+                </button>
+                <button type="button" className="tool-btn" onClick={doUndo} disabled={!history.undo} title="Rückgängig (Strg+Z)" data-testid="draw-undo">
+                  <Icon name="undo" />
+                  <span>Zurück</span>
+                </button>
+                <button type="button" className="tool-btn" onClick={doRedo} disabled={!history.redo} title="Wiederholen (Strg+Umschalt+Z)" data-testid="draw-redo">
+                  <Icon name="redo" />
+                  <span>Vor</span>
+                </button>
               </div>
-              <div className="tool-group colors">
-                {COLORS.map((c) => (
-                  <button
-                    key={c.value}
-                    type="button"
-                    className={`swatch${drawing.color === c.value ? ' active' : ''}`}
-                    style={{ background: c.value }}
-                    onClick={() => {
-                      drawing.setColor(c.value);
-                      if (drawing.selected) drawing.recolor(drawing.selected.id, c.value);
-                    }}
-                    aria-label={`Farbe ${c.name}`}
-                    aria-pressed={drawing.color === c.value}
-                    title={drawing.selected ? `Farbe ${c.name} (auch für das ausgewählte Objekt)` : `Farbe ${c.name}`}
-                  />
-                ))}
+              <div className="tool-group color-pick">
+                <button
+                  type="button"
+                  className={`tool-btn${colorsOpen ? ' active' : ''}`}
+                  onClick={() => setColorsOpen(!colorsOpen)}
+                  aria-expanded={colorsOpen}
+                  title="Farbe wählen"
+                  data-testid="draw-color"
+                >
+                  <span className="color-dot color-dot-lg" style={{ background: drawing.color }} />
+                  <span>Farbe</span>
+                </button>
+                {colorsOpen && (
+                  <div className="color-pop" role="group" aria-label="Farben">
+                    {COLORS.map((c) => (
+                      <button
+                        key={c.value}
+                        type="button"
+                        className={`swatch${drawing.color === c.value ? ' active' : ''}`}
+                        style={{ background: c.value }}
+                        onClick={() => {
+                          drawing.setColor(c.value);
+                          if (drawing.selected) drawing.recolor(drawing.selected.id, c.value);
+                          setColorsOpen(false);
+                        }}
+                        aria-label={`Farbe ${c.name}`}
+                        aria-pressed={drawing.color === c.value}
+                        title={drawing.selected ? `Farbe ${c.name} (auch für das ausgewählte Objekt)` : `Farbe ${c.name}`}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           ) : (

@@ -26,21 +26,24 @@ import {
   type Apex,
   type Measures,
 } from '../lib/drawing';
-import { pathToSvg, rectsOverlap, shapeAABB, shapePath, toScreen, type Point, type View } from '../lib/geometry';
+import { pathToSvg, rectsOverlap, removeVertex, setPolylineClosed, shapeAABB, shapePath, toScreen, type Point, type View } from '../lib/geometry';
 import { newMeta, putRecord, softDelete, type ProjectState } from '../lib/store';
 import type { Damage, DrawElement, DrawElementType, Plan, Rect, Shape } from '../lib/types';
 
 /** Werkzeuge der Planbearbeitung (selbst gezeichnete Pläne) */
-export const DRAW_TOOLS: { id: Tool; label: string; short?: string; icon: string; key: string }[] = [
-  { id: 'select', label: 'Auswählen / Verschieben', short: 'Auswahl', icon: 'select', key: 'v' },
-  { id: 'line', label: 'Linie (z. B. Wand)', short: 'Linie', icon: 'line', key: 'l' },
-  { id: 'rect', label: 'Rechteck (z. B. Raum)', short: 'Rechteck', icon: 'rect', key: 'r' },
-  { id: 'ellipse', label: 'Kreis', short: 'Kreis', icon: 'ellipse', key: 'k' },
-  { id: 'triangle', label: 'Dreieck', short: 'Dreieck', icon: 'triangle', key: 'd' },
-  { id: 'polygon', label: 'Fläche: Eckpunkte nacheinander setzen', short: 'Fläche', icon: 'polygon', key: 'p' },
-  { id: 'freehand', label: 'Freihand', short: 'Freihand', icon: 'freehand', key: 'f' },
-  { id: 'dimension', label: 'Maßlinie', short: 'Maß', icon: 'dimension', key: 'm' },
-  { id: 'text', label: 'Text / Beschriftung', short: 'Text', icon: 'text', key: 't' },
+/** Gruppen der Werkzeugleiste (wie in CAD-Programmen) */
+export type ToolGroup = 'select' | 'draw' | 'annotate';
+
+export const DRAW_TOOLS: { id: Tool; label: string; short?: string; icon: string; key: string; group: ToolGroup }[] = [
+  { id: 'select', label: 'Auswahl: Objekte verschieben, Eckpunkte bearbeiten', short: 'Auswahl', icon: 'select', key: 'v', group: 'select' },
+  { id: 'line', label: 'Linie (z. B. Wand)', short: 'Linie', icon: 'line', key: 'l', group: 'draw' },
+  { id: 'polyline', label: 'Polylinie: Punkte nacheinander setzen – offen (Länge) oder geschlossen (Fläche)', short: 'Polylinie', icon: 'polyline', key: 'f', group: 'draw' },
+  { id: 'rect', label: 'Rechteck (z. B. Raum)', short: 'Rechteck', icon: 'rect', key: 'r', group: 'draw' },
+  { id: 'ellipse', label: 'Kreis', short: 'Kreis', icon: 'ellipse', key: 'k', group: 'draw' },
+  { id: 'triangle', label: 'Dreieck', short: 'Dreieck', icon: 'triangle', key: 'd', group: 'draw' },
+  { id: 'polygon', label: 'Polygon: geschlossene Fläche aus Eckpunkten', short: 'Polygon', icon: 'polygon', key: 'p', group: 'draw' },
+  { id: 'dimension', label: 'Maßlinie', short: 'Maß', icon: 'dimension', key: 'm', group: 'annotate' },
+  { id: 'text', label: 'Text / Beschriftung', short: 'Text', icon: 'text', key: 't', group: 'annotate' },
 ];
 
 export const DRAW_DEFAULT_COLOR = '#1c1c1e';
@@ -77,7 +80,13 @@ export function useDrawing(opts: { plan: Plan | undefined; data: ProjectState; d
     return DRAW_TOOLS.some((x) => x.id === t) ? t : 'rect';
   });
   const [color, setColorState] = useState(() => pref('drawColor', DRAW_DEFAULT_COLOR));
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedIdState] = useState<string | null>(null);
+  /** Ausgewählter Eckpunkt des ausgewählten Objekts (zum Entfernen) */
+  const [vertex, setVertex] = useState<number | null>(null);
+  const setSelectedId = (id: string | null) => {
+    setSelectedIdState(id);
+    if (id !== selectedId) setVertex(null);
+  };
   const [overrides, setOverrides] = useState<Record<string, Shape>>({});
   const [snapOn, setSnapOnState] = useState(() => pref('snap', '1') !== '0');
   /** Raster-Einrasten (Standard: aus – Formen folgen genau der Bewegung, Maße frei wählbar) */
@@ -161,8 +170,9 @@ export function useDrawing(opts: { plan: Plan | undefined; data: ProjectState; d
     }
     setOverrides(({ [id]: _, ...rest }) => rest);
     const e = data.elements[id];
-    // Rechteck, dessen Ecke einzeln verschoben wurde, ist danach eine (Vieleck-)Fläche
-    const type = e?.type === 'rect' && shape.type === 'freehand' ? 'freehand' : e?.type;
+    // Rechteck/Dreieck mit verschobener, eingefügter oder entfernter Ecke ist danach eine Polylinie
+    // (geschlossen = Fläche); eine Linie mit eingefügtem Punkt eine offene Polylinie
+    const type = e && e.type !== 'dimension' && shape.type === 'freehand' ? 'freehand' : e?.type;
     if (e && type && JSON.stringify(e.shape) !== JSON.stringify(shape)) putRecord('elements', { ...e, type, shape });
   };
 
@@ -202,6 +212,22 @@ export function useDrawing(opts: { plan: Plan | undefined; data: ProjectState; d
     if (!e) return;
     putRecord('elements', { ...e, text, shape: { ...e.shape, w: textWidth(text, e.shape.h) } });
   };
+
+  /** Ausgewählten Eckpunkt entfernen bzw. Polylinie öffnen/schließen */
+  const changeVertices = (id: string, change: (s: Shape) => Shape | null) => {
+    const e = data.elements[id];
+    const next = e ? change(e.shape) : null;
+    if (!e || !next) return false;
+    putRecord('elements', { ...e, type: 'freehand', shape: roundShape(next) });
+    return true;
+  };
+  const removeSelectedVertex = () => {
+    if (!selectedId || vertex === null) return false;
+    const ok = changeVertices(selectedId, (s) => removeVertex(s, vertex));
+    if (ok) setVertex(null);
+    return ok;
+  };
+  const setClosed = (id: string, closed: boolean) => changeVertices(id, (s) => setPolylineClosed(s, closed));
 
   const setShowDims = (id: string, show: boolean) => {
     const e = data.elements[id];
@@ -278,7 +304,7 @@ export function useDrawing(opts: { plan: Plan | undefined; data: ProjectState; d
 
   const drawOverlay = (view: View, preview: Shape | null) => {
     const previewType: DrawElementType | null =
-      tool === 'select' || tool === 'component' || tool === 'text' || tool === 'polygon' ? null : tool === 'dimension' ? 'dimension' : (tool as DrawElementType);
+      tool === 'select' || tool === 'component' || tool === 'text' || tool === 'polygon' || tool === 'polyline' ? null : tool === 'dimension' ? 'dimension' : (tool as DrawElementType);
     return (
       <>
         {renderDims(view, elements, k)}
@@ -304,6 +330,11 @@ export function useDrawing(opts: { plan: Plan | undefined; data: ProjectState; d
     selected,
     selectedId,
     setSelectedId,
+    vertex,
+    setVertex,
+    removeSelectedVertex,
+    canRemoveVertex: !!selected && vertex !== null && removeVertex(selected.shape, vertex) !== null,
+    setClosed,
     lastLineEnd,
     snap,
     onCreate,

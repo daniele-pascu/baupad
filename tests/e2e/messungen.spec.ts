@@ -65,7 +65,7 @@ test('Messarten Linie, Schadstelle, Fläche: Linien zählen nicht zur Fläche, l
   const dlg = page.getByTestId('damage-dialog');
 
   // Neue Werkzeuge und Farben sind vorhanden
-  for (const t of ['select', 'line', 'rect', 'ellipse', 'triangle', 'freehand']) await expect(page.getByTestId(`tool-${t}`)).toBeVisible();
+  for (const t of ['select', 'line', 'rect', 'ellipse', 'triangle', 'polyline']) await expect(page.getByTestId(`tool-${t}`)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Farbe Schwarz' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Farbe Weiß' })).toBeVisible();
 

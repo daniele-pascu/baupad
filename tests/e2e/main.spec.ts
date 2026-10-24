@@ -204,13 +204,11 @@ test('5.–7. Schadstellen einzeichnen, automatisch nummerieren, Maße eingeben,
   await expect(dlg.getByTestId('input-number')).toHaveValue('2');
   await fillMeasures(page, '2', '1.25', '0,1');
 
-  await page.getByTestId('tool-freehand').click();
+  // Polylinie: Eckpunkte nacheinander anklicken, Klick auf den Startpunkt schließt die Fläche
+  await page.getByTestId('tool-polyline').click();
   const fx = box.x + box.width * 0.7;
   const fy = box.y + box.height * 0.25;
-  await page.mouse.move(fx, fy);
-  await page.mouse.down();
-  for (const [dx, dy] of [[40, -10], [80, 10], [90, 50], [50, 70], [10, 50], [0, 5]]) await page.mouse.move(fx + dx, fy + dy, { steps: 5 });
-  await page.mouse.up();
+  for (const [dx, dy] of [[0, 0], [40, -10], [80, 10], [90, 50], [50, 70], [10, 50], [0, 2]]) await page.mouse.click(fx + dx, fy + dy);
   await expect(dlg.getByTestId('input-number')).toHaveValue('3');
   await fillMeasures(page, '0,6', '0,4', '0,03', false);
 

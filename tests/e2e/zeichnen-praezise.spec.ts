@@ -153,7 +153,7 @@ test('Rechteck über Eckpunkte zum unregelmäßigen Viereck; Fläche aus Punkten
   const ox = sb.x + 60;
   const oy = sb.y + sb.height - 200;
   for (const [dx, dy] of [[0, 0], [100, 0], [100, 60], [0, 60]]) await page.mouse.click(ox + dx, oy + dy);
-  await expect(page.getByTestId('polygon-bar')).toContainText('4 Punkte gesetzt');
+  await expect(page.getByTestId('polygon-bar')).toContainText('4 Punkte');
   await expect(page.getByTestId('polygon-preview')).toBeVisible();
   await page.mouse.click(ox + 1, oy + 1); // erster Punkt → schließen
   await expect(page.getByTestId('element-bar')).toContainText('Fläche');

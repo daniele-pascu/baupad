@@ -29,6 +29,9 @@ import {
   hasEditableVertices,
   moveVertex,
   polygonShape,
+  canEditVertexCount,
+  insertVertex,
+  nearestEdge,
   shapeVertices,
   type Point,
   type View,
@@ -38,7 +41,10 @@ import { getView, putView } from '../lib/db';
 import type { Component, Damage, Plan, Rect, Shape, ShapeType, SourceFile } from '../lib/types';
 
 /** Werkzeuge: Auswahl, Formen, Bauteilbuchstabe setzen; bei gezeichneten Plänen zusätzlich Maßlinie und Text */
-export type Tool = 'select' | ShapeType | 'component' | 'dimension' | 'text' | 'polygon';
+export type Tool = 'select' | ShapeType | 'component' | 'dimension' | 'text' | 'polygon' | 'polyline';
+
+/** Werkzeuge, die Punkt für Punkt gesetzt werden (Polygon = immer geschlossen, Polylinie = offen oder geschlossen) */
+const isPointTool = (t: Tool) => t === 'polygon' || t === 'polyline';
 
 /** Werkzeuge, die eine Stelle antippen statt eine Form zu zeichnen */
 const PLACE_TOOLS = new Set<Tool>(['component', 'text']);
@@ -69,9 +75,14 @@ export interface PlanViewerHandle {
   focus(id: string): void;
   /** Mittelpunkt der Ansicht in Seitenkoordinaten */
   center(): Point | null;
-  /** Werkzeug „Fläche (Punkte)“: gesetzte Punkte als Fläche abschließen bzw. verwerfen */
-  finishPolygon(): void;
+  /**
+   * Punktwerkzeuge: gesetzte Punkte übernehmen. closed = true schließt die Form (Fläche),
+   * false lässt sie offen (Polylinie); ohne Angabe: Polygon geschlossen, Polylinie offen.
+   */
+  finishPolygon(closed?: boolean): void;
   cancelPolygon(): void;
+  /** Zuletzt gesetzten Punkt entfernen */
+  undoPolygonPoint(): void;
   /** Bildschirmpixel je Seiteneinheit */
   scale(): number;
 }
@@ -113,8 +124,11 @@ interface Props {
   bounds?: Rect;
   /** Eckpunkte einzeln bearbeiten (Rechteck → Vieleck, Dreieck, Vieleck) */
   vertexEdit?: boolean;
-  /** Werkzeug „Fläche (Punkte)“: Anzahl gesetzter Punkte (0 = keine Fläche im Aufbau) */
+  /** Punktwerkzeuge: Anzahl gesetzter Punkte (0 = keine Form im Aufbau) */
   onPolygonChange?(points: number): void;
+  /** Ausgewählter Eckpunkt (nur mit vertexEdit) – z. B. zum Entfernen */
+  selectedVertex?: number | null;
+  onVertexSelect?(index: number | null): void;
 }
 
 type Gesture =
@@ -124,7 +138,7 @@ type Gesture =
   | { kind: 'draw'; tool: ShapeType | 'dimension'; start: Point; current: Point; points: Point[] }
   | { kind: 'move'; id: string; start: Point; orig: Shape; moved: boolean; ref: Point }
   | { kind: 'resize'; id: string; handle: string; orig: Shape }
-  | { kind: 'vertex'; id: string; index: number; orig: Shape }
+  | { kind: 'vertex'; id: string; index: number; orig: Shape; start: Point; moved: boolean }
   | { kind: 'polytap'; start: Point; view: View; moved: boolean }
   | { kind: 'rotate'; id: string; orig: Shape; startAngle: number }
   | { kind: 'label'; id: string; start: Point; orig: Rect; moved: boolean }
@@ -165,7 +179,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   const pointers = useRef(new Map<number, Point>());
   const gesture = useRef<Gesture>({ kind: 'none' });
   const [, forceRender] = useState(0);
-  const lastTap = useRef<{ t: number; p: Point } | null>(null);
+  const lastTap = useRef<{ t: number; p: Point; moveId?: string } | null>(null);
   const propsRef = useRef(props);
   propsRef.current = props;
   /** Werkzeug „Fläche (Punkte)“: bisher gesetzte Punkte und Mauszeigerposition für die Vorschau */
@@ -189,7 +203,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
 
   // Werkzeugwechsel verwirft eine angefangene Fläche
   useEffect(() => {
-    if (tool !== 'polygon' && poly.current.length) {
+    if (poly.current.length) {
       poly.current = [];
       polyHover.current = null;
       propsRef.current.onPolygonChange?.(0);
@@ -385,7 +399,12 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     },
     canGoBack: () => history.current.length > 0,
     center: () => (viewRef.current && size ? toPage(viewRef.current, { x: size.w / 2, y: size.h / 2 }) : null),
-    finishPolygon: () => finishPolygon(),
+    finishPolygon: (closed?: boolean) => finishPolygon(closed),
+    undoPolygonPoint: () => {
+      poly.current = poly.current.slice(0, -1);
+      propsRef.current.onPolygonChange?.(poly.current.length);
+      forceRender((n) => n + 1);
+    },
     cancelPolygon: () => {
       poly.current = [];
       propsRef.current.onPolygonChange?.(0);
@@ -544,7 +563,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       return;
     }
     const currentTool = propsRef.current.tool;
-    if (currentTool === 'polygon') {
+    if (isPointTool(currentTool)) {
       gesture.current = { kind: 'polytap', start: p, view: v, moved: false };
       return;
     }
@@ -562,7 +581,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       if (handle) {
         const sel = propsRef.current.damages.find((d) => d.id === propsRef.current.selectedId)!;
         if (handle.startsWith('v')) {
-          gesture.current = { kind: 'vertex', id: sel.id, index: Number(handle.slice(1)), orig: sel.shape };
+          gesture.current = { kind: 'vertex', id: sel.id, index: Number(handle.slice(1)), orig: sel.shape, start: p, moved: false };
           return;
         }
         if (handle === 'rot') {
@@ -613,7 +632,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     if (!pointers.current.has(e.pointerId)) {
       if (e.pointerType === 'mouse') hoverCursor(localPoint(e));
       // Vorschau der nächsten Kante beim Setzen von Flächenpunkten
-      if (propsRef.current.tool === 'polygon' && poly.current.length && viewRef.current) {
+      if (isPointTool(propsRef.current.tool) && poly.current.length && viewRef.current) {
         polyHover.current = clampP(toPage(viewRef.current, localPoint(e)));
         forceRender((n) => n + 1);
       }
@@ -696,6 +715,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       }
       case 'vertex': {
         const raw = clampP(toPage(v, p));
+        if (!g.moved && Math.hypot(p.x - g.start.x, p.y - g.start.y) < 4) return;
+        g.moved = true;
         const vs = shapeVertices(g.orig);
         const isLine = g.orig.type === 'line';
         const other = isLine ? vs[1 - g.index] : undefined;
@@ -790,7 +811,21 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       }
       case 'move': {
         if (!g.moved) {
-          lastTap.current = { t: Date.now(), p };
+          const now = Date.now();
+          const lt = lastTap.current;
+          // Doppelklick auf eine Kante des ausgewählten Objekts: Eckpunkt einfügen
+          if (!cancelled && propsRef.current.vertexEdit && lt?.moveId === g.id && now - lt.t < 320 && Math.hypot(lt.p.x - p.x, lt.p.y - p.y) < 30) {
+            lastTap.current = null;
+            if (canEditVertexCount(g.orig)) {
+              const near = nearestEdge(g.orig, toPage(v, p));
+              if (near && near.dist * v.scale <= (isCoarse() ? 22 : 12)) {
+                propsRef.current.onShapeChange(g.id, insertVertex(g.orig, near.edge, near.point), true);
+                propsRef.current.onVertexSelect?.(near.edge + 1);
+              }
+            }
+            return;
+          }
+          lastTap.current = { t: now, p, moveId: g.id };
           return;
         }
         const d = propsRef.current.damages.find((x) => x.id === g.id);
@@ -808,18 +843,30 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         const lt = lastTap.current;
         const dbl = lt && now - lt.t < 320 && Math.hypot(lt.p.x - p.x, lt.p.y - p.y) < 30;
         lastTap.current = { t: now, p };
-        // Tippen auf den ersten Punkt bzw. Doppeltippen schließt die Fläche
-        if (pts.length >= 3 && (dbl || Math.hypot((first.x - pp.x) * v.scale, (first.y - pp.y) * v.scale) < (isCoarse() ? 22 : 12))) {
+        // Tippen auf den ersten Punkt schließt die Form; Doppeltippen beendet sie
+        // (Polygon: geschlossen, Polylinie: offen)
+        const onFirst = pts.length >= 3 && Math.hypot((first.x - pp.x) * v.scale, (first.y - pp.y) * v.scale) < (isCoarse() ? 22 : 12);
+        if (onFirst) {
+          finishPolygon(true);
+          return;
+        }
+        if (dbl) {
           finishPolygon();
           return;
         }
-        if (dbl) return;
         poly.current = [...pts, pp];
         propsRef.current.onPolygonChange?.(poly.current.length);
         forceRender((n) => n + 1);
         return;
       }
-      case 'vertex':
+      case 'vertex': {
+        // Eckpunkt angetippt oder verschoben: ausgewählt (z. B. zum Entfernen)
+        propsRef.current.onVertexSelect?.(cancelled && !g.moved ? null : g.index);
+        if (!g.moved) return;
+        const d = propsRef.current.damages.find((x) => x.id === g.id);
+        if (d) propsRef.current.onShapeChange(g.id, cancelled ? g.orig : d.shape, true);
+        return;
+      }
       case 'resize':
       case 'rotate': {
         const d = propsRef.current.damages.find((x) => x.id === g.id);
@@ -834,14 +881,19 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     }
   };
 
-  /** Gesetzte Punkte als geschlossene Fläche übernehmen (mindestens 3 Punkte). */
-  function finishPolygon() {
+  /**
+   * Gesetzte Punkte übernehmen: geschlossen als Fläche (mindestens 3 Punkte) oder offen als
+   * Polylinie (mindestens 2 Punkte). Zu wenige Punkte: weitersetzen.
+   */
+  function finishPolygon(closed?: boolean) {
     const pts = poly.current;
+    const close = closed ?? propsRef.current.tool !== 'polyline';
+    if (pts.length < (close ? 3 : 2)) return;
     poly.current = [];
     polyHover.current = null;
     propsRef.current.onPolygonChange?.(0);
     forceRender((n) => n + 1);
-    if (pts.length >= 3) propsRef.current.onCreate(polygonShape(pts));
+    propsRef.current.onCreate(polygonShape(pts, close));
   }
 
   // Mausrad / Trackpad
@@ -943,7 +995,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
           })}
           {pending && renderShape(pending.shape, pending.color, { dashed: true, key: 'pending' })}
           {drawPreview && renderShape(drawPreview, color, { dashed: true, key: 'draw' })}
-          {tool === 'polygon' && poly.current.length > 0 && (
+          {isPointTool(tool) && poly.current.length > 0 && (
             <g className="poly-preview" data-testid="polygon-preview">
               <polyline
                 points={[...poly.current, ...(polyHover.current ? [polyHover.current] : [])].map((q) => { const s2 = toScreen(view, q); return `${s2.x},${s2.y}`; }).join(' ')}
@@ -1030,7 +1082,10 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
               })()}
               {screenHandles(selected.shape, view, !!props.vertexEdit).map(({ h, p }) => {
                 const s = isCoarse() ? 14 : 10;
-                if (h.startsWith('v')) return <circle key={h} cx={p.x} cy={p.y} r={s * 0.55} className="vertex-handle" data-testid={`vertex-${h.slice(1)}`} />;
+                if (h.startsWith('v')) {
+                  const active = props.selectedVertex === Number(h.slice(1));
+                  return <circle key={h} cx={p.x} cy={p.y} r={s * (active ? 0.75 : 0.55)} className={`vertex-handle${active ? ' active' : ''}`} data-testid={`vertex-${h.slice(1)}`} />;
+                }
                 if (h === 'rot')
                   return (
                     <g key={h} className="rot-handle" data-testid="rotate-handle">

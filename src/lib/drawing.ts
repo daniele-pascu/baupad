@@ -350,13 +350,16 @@ export function annotationsOf(e: Pick<DrawElement, 'type' | 'shape' | 'showDims'
     return { dims, labels };
   }
   if (e.showDims === false) return { dims, labels };
-  // Unregelmäßiges Dreieck bzw. Vieleck: jede Seite mit ihrer Länge (aus den Eckpunkten berechnet)
-  if ((e.type === 'triangle' && !isRegularTriangle(s)) || (e.type === 'freehand' && s.closed !== false && (s.points?.length ?? 0) <= 12)) {
+  // Unregelmäßiges Dreieck bzw. Polylinie: jede Seite mit ihrer Länge (aus den Eckpunkten berechnet);
+  // offene Polylinie ohne Schlusskante
+  if ((e.type === 'triangle' && !isRegularTriangle(s)) || (e.type === 'freehand' && (s.points?.length ?? 0) <= 12)) {
     const v = shapeVertices(s);
-    v.forEach((a, i) => {
+    const edges = e.type === 'freehand' && s.closed === false ? v.length - 1 : v.length;
+    for (let i = 0; i < edges; i++) {
+      const a = v[i];
       const b = v[(i + 1) % v.length];
       dims.push({ a, b, side: -1, text: formatM(dist(a, b)), inline: true });
-    });
+    }
     return { dims, labels };
   }
   const L = (p: Point) => fromShapeLocal(s, p);

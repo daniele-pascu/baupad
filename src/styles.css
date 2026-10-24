@@ -1353,7 +1353,7 @@ textarea {
 .selection-bar {
   position: absolute;
   left: 50%;
-  bottom: calc(82px + var(--safe-bottom));
+  bottom: calc(var(--toolbar-h, 62px) + 20px + var(--safe-bottom));
   transform: translateX(-50%);
   display: flex;
   align-items: center;
@@ -1475,7 +1475,7 @@ textarea {
 .draw-bar {
   position: absolute;
   left: 50%;
-  bottom: calc(82px + var(--safe-bottom));
+  bottom: calc(var(--toolbar-h, 62px) + 20px + var(--safe-bottom));
   transform: translateX(-50%);
   display: flex;
   align-items: flex-end;
@@ -1739,10 +1739,10 @@ tr.lv-flagged td {
     padding-left: 0;
   }
   .selection-bar {
-    bottom: calc(126px + var(--safe-bottom));
+    bottom: calc(var(--toolbar-h, 116px) + 10px);
   }
   .draw-bar {
-    bottom: calc(126px + var(--safe-bottom));
+    bottom: calc(var(--toolbar-h, 116px) + 10px);
     padding: 6px 8px;
     gap: 6px 8px;
   }
@@ -2497,4 +2497,62 @@ tr.lv-flagged td {
 .icon-link:hover {
   background: #e8e8ed;
   color: var(--text);
+}
+
+/* ---------- Zeichenwerkzeuge: Gruppen wie in CAD-Programmen ---------- */
+.draw-toolbar {
+  /* volle Breite nutzen (sonst begrenzt left: 50 % die Breite auf die halbe Fläche) */
+  width: max-content;
+  flex-wrap: wrap;
+  justify-content: center;
+  row-gap: 4px;
+}
+.draw-toolbar .tool-group + .tool-group:not(.colors) {
+  padding-left: 6px;
+  border-left: 1px solid var(--border);
+}
+.draw-toolbar .tool-btn {
+  min-width: 50px;
+}
+.tool-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.vertex-handle.active {
+  fill: #1f5fbf;
+  stroke: #fff;
+}
+.color-pick {
+  position: relative;
+}
+.color-dot-lg {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px var(--border);
+}
+.color-pop {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+  display: grid;
+  grid-template-columns: repeat(4, 36px);
+  gap: 6px;
+  padding: 8px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  z-index: 5;
+}
+@media (max-width: 600px) {
+  /* Smartphone: Werkzeuge gleichmäßig in Zeilen */
+  .toolbar.draw-toolbar {
+    width: auto;
+    display: grid;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    gap: 2px 0;
+  }
+  .draw-toolbar .tool-group:not(.colors) {
+    display: contents;
+  }
 }

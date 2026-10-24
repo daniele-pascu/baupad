@@ -88,7 +88,7 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   await noHorizontalScroll(page);
 
   // Bedienelemente groß genug für Touch
-  for (const id of ['tool-select', 'tool-ellipse', 'tool-rect', 'tool-freehand']) {
+  for (const id of ['tool-select', 'tool-ellipse', 'tool-rect', 'tool-polyline']) {
     const b = await page.getByTestId(id).boundingBox();
     expect(b!.height).toBeGreaterThanOrEqual(44);
     expect(b!.width).toBeGreaterThanOrEqual(44);
@@ -171,7 +171,7 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   await expect(page.getByTestId('selection-bar')).toContainText('3,60 m²');
   // Alle Werkzeuge und Rückgängig/Wiederholen sind per Finger erreichbar, nichts ragt über den Rand
   const vw = page.viewportSize()!.width;
-  for (const t of ['select', 'line', 'rect', 'ellipse', 'triangle', 'freehand']) {
+  for (const t of ['select', 'line', 'rect', 'ellipse', 'triangle', 'polyline']) {
     const b = (await page.getByTestId(`tool-${t}`).boundingBox())!;
     expect(b.x).toBeGreaterThanOrEqual(0);
     expect(b.x + b.width).toBeLessThanOrEqual(vw + 0.5);
@@ -345,7 +345,7 @@ test('Plan zeichnen per Finger: Raum über Maßeingabe, Bemaßung sichtbar, Weit
     expect(b.x).toBeGreaterThanOrEqual(-0.5);
     expect(b.x + b.width).toBeLessThanOrEqual(vw + 0.5);
   }
-  for (const t of ['select', 'line', 'rect', 'ellipse', 'triangle', 'polygon', 'freehand', 'dimension', 'text']) {
+  for (const t of ['select', 'line', 'polyline', 'rect', 'ellipse', 'triangle', 'polygon', 'dimension', 'text', 'delete', 'undo', 'redo', 'color']) {
     expect((await page.getByTestId(`draw-${t}`).boundingBox())!.height).toBeGreaterThanOrEqual(44);
   }
   await noHorizontalScroll(page);

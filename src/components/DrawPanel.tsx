@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { apexOf, isRegularTriangle, measuresOf, shapeInfo, type Apex, type Measures } from '../lib/drawing';
+import { apexOf, isRegularTriangle, measuresOf, pathLength, shapeInfo, type Apex, type Measures } from '../lib/drawing';
+import { canEditVertexCount, shapeVertices } from '../lib/geometry';
 import { checkMeasure, formatArea, formatMeasure, parseDecimal } from '../lib/numbers';
 import type { DrawElement, DrawElementType } from '../lib/types';
 import { Icon } from './Icon';
@@ -10,12 +11,12 @@ export const ELEMENT_LABELS: Record<DrawElementType, string> = {
   rect: 'Rechteck',
   ellipse: 'Kreis',
   triangle: 'Dreieck',
-  freehand: 'Freihand',
+  freehand: 'Polylinie',
   dimension: 'Maßlinie',
   text: 'Text',
 };
 
-/** Bezeichnung eines Objekts (geschlossener Freihandzug bzw. Punkt-Fläche = „Fläche“) */
+/** Bezeichnung eines Objekts (geschlossene Polylinie = „Fläche“, offene = „Polylinie“) */
 export const elementLabel = (e: Pick<DrawElement, 'type' | 'shape'>) =>
   e.type === 'freehand' && e.shape.closed !== false ? 'Fläche' : ELEMENT_LABELS[e.type];
 
@@ -64,7 +65,6 @@ const INSERT_FIELDS: Partial<Record<DrawElementType, Field[]>> = {
 const HINTS: Partial<Record<DrawElementType, string>> = {
   dimension: 'Maßlinie: von Punkt zu Punkt ziehen – die Länge wird automatisch angezeigt.',
   text: 'Text: Stelle im Plan antippen.',
-  freehand: 'Freihand: mit Finger oder Maus zeichnen.',
 };
 
 /**
@@ -174,8 +174,18 @@ export function ElementBar({
   onShowDims,
   onDelete,
   onClose,
+  vertex = null,
+  canRemoveVertex = false,
+  onRemoveVertex,
+  onSetClosed,
 }: {
   element: DrawElement;
+  /** ausgewählter Eckpunkt (Index) */
+  vertex?: number | null;
+  canRemoveVertex?: boolean;
+  onRemoveVertex?(): void;
+  /** Polylinie öffnen (nur Länge) bzw. schließen (Fläche) */
+  onSetClosed?(closed: boolean): void;
   /** Anzahl Messungen, die auf dem Objekt liegen (nur Hinweis) */
   overlapping: number;
   onApply(m: Measures): void;
@@ -249,13 +259,44 @@ export function ElementBar({
           </span>
         </label>
       ))}
-      {element.type !== 'text' && element.type !== 'dimension' && element.type !== 'freehand' && (
+      {element.type !== 'text' && element.type !== 'dimension' && (
         <label className="check-row small">
           <input type="checkbox" checked={element.showDims !== false} onChange={(e) => onShowDims(e.target.checked)} data-testid="element-showdims" />
           <span>Maße anzeigen</span>
         </label>
       )}
       {element.type === 'triangle' && isRegularTriangle(element.shape) && <span className="muted small">Spitze {APEX_LABELS[apexOf(element.shape)]}</span>}
+      {element.type === 'freehand' && element.shape.closed === false && (
+        <span className="small element-info" data-testid="element-info">
+          Länge gesamt {formatMeasure(pathLength(element.shape))} m · {shapeVertices(element.shape).length} Punkte · keine Fläche
+        </span>
+      )}
+      {element.type === 'freehand' && onSetClosed && (
+        <button
+          type="button"
+          className="btn btn-sm"
+          onClick={() => onSetClosed(element.shape.closed === false)}
+          disabled={element.shape.closed === false && shapeVertices(element.shape).length < 3}
+          data-testid="element-toggle-closed"
+        >
+          {element.shape.closed === false ? 'Schließen (Fläche)' : 'Öffnen (nur Linie)'}
+        </button>
+      )}
+      {vertex !== null && onRemoveVertex && (
+        <button
+          type="button"
+          className="btn btn-sm"
+          onClick={onRemoveVertex}
+          disabled={!canRemoveVertex}
+          title={canRemoveVertex ? 'Ausgewählten Eckpunkt entfernen (Entf)' : 'Zu wenige Eckpunkte zum Entfernen'}
+          data-testid="vertex-remove"
+        >
+          <Icon name="trash" size={16} /> Eckpunkt {vertex + 1}
+        </button>
+      )}
+      {canEditVertexCount(element.shape) && element.type !== 'line' && vertex === null && (
+        <span className="muted small hide-sm">Eckpunkt anklicken zum Auswählen · Doppelklick auf eine Kante fügt einen Punkt ein</span>
+      )}
       {info && (element.type === 'triangle' || element.type === 'freehand' || element.type === 'rect') && (
         <span className="small element-info" data-testid="element-info">
           {info.sides.length > 0 && element.type !== 'rect' && <>Seiten {info.sides.map((x) => formatMeasure(x)).join(' · ')} m · </>}

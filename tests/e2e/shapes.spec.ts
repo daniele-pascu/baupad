@@ -12,7 +12,7 @@ const pathOf = (page: import('@playwright/test').Page, n: number) =>
     return { d: p.getAttribute('d')!, fill: p.getAttribute('fill'), x: r.x, y: r.y, w: r.width, h: r.height };
   }, n);
 
-test('Freihand bleibt wie gezeichnet; Schadstellen nachträglich drehen und verschieben', async ({ page }) => {
+test('Offene Polylinie (Riss) bleibt offen; Schadstellen nachträglich drehen und verschieben', async ({ page }) => {
   await freshStart(page);
   await createProject(page, 'Formen', {}, ['Wand']);
   await page.getByTestId('plan-file-input').setInputFiles(join(FIXTURES, 'parkdeck.png'));
@@ -23,14 +23,13 @@ test('Freihand bleibt wie gezeichnet; Schadstellen nachträglich drehen und vers
   await waitForPlan(page);
   const box = await planBox(page);
 
-  // 1) Offene Freihandlinie (Riss): Zickzack von links nach rechts
-  await page.getByTestId('tool-freehand').click();
+  // 1) Offene Polylinie (Riss): Zickzack von links nach rechts, Enter beendet offen
+  await page.getByTestId('tool-polyline').click();
   const x0 = box.x + box.width * 0.15;
   const y0 = box.y + box.height * 0.3;
-  await page.mouse.move(x0, y0);
-  await page.mouse.down();
-  for (let i = 1; i <= 16; i++) await page.mouse.move(x0 + i * 18, y0 + (i % 2 ? 14 : 0), { steps: 3 });
-  await page.mouse.up();
+  for (let i = 0; i <= 8; i++) await page.mouse.click(x0 + i * 36, y0 + (i % 2 ? 14 : 0));
+  await expect(page.getByTestId('polygon-bar')).toContainText('9 Punkte');
+  await page.keyboard.press('Enter');
   const dlg = page.getByTestId('damage-dialog');
   await expect(dlg.getByTestId('input-number')).toHaveValue('1');
   // Offene Linie → automatisch Linienmessung (nur Länge, keine Fläche)
@@ -42,7 +41,7 @@ test('Freihand bleibt wie gezeichnet; Schadstellen nachträglich drehen und vers
   const crack = await pathOf(page, 1);
   expect(crack.d).not.toContain('Z'); // nicht automatisch geschlossen
   expect(crack.fill).toBe('none'); // keine Fläche
-  expect((crack.d.match(/L/g) ?? []).length).toBeGreaterThanOrEqual(30); // alle Punkte erhalten, nicht geglättet
+  expect((crack.d.match(/L/g) ?? []).length).toBe(8); // alle 9 Punkte erhalten, keine Schlusskante
 
   // 2) Rechteck zeichnen
   await page.getByTestId('tool-rect').click();

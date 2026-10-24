@@ -363,9 +363,59 @@ export function moveVertex(s: Shape, index: number, p: Point): Shape {
   return shapeFromVertices(s, pts);
 }
 
-/** Geschlossenes Vieleck aus nacheinander gesetzten Punkten. */
-export function polygonShape(pts: Point[]): Shape {
-  return shapeFromVertices({ type: 'freehand', x: 0, y: 0, w: 0, h: 0, closed: true }, pts);
+/** Polylinie aus nacheinander gesetzten Punkten: geschlossen (Fläche) oder offen (nur Länge). */
+export function polygonShape(pts: Point[], closed = true): Shape {
+  return shapeFromVertices({ type: 'freehand', x: 0, y: 0, w: 0, h: 0, closed }, pts);
+}
+
+/** Eckpunkte einfügen/entfernen möglich? (Linie, Rechteck, Dreieck, Polylinie) */
+export const canEditVertexCount = (s: Shape) => s.type !== 'ellipse' && hasEditableVertices(s);
+
+/** Mindestzahl der Eckpunkte: offene Polylinie 2, geschlossene Fläche 3 */
+const minVertices = (s: Shape) => (isOpenShape(s) ? 2 : 3);
+
+/**
+ * Eckpunkt nach Kante `edge` einfügen. Linie → offene Polylinie, Rechteck/Dreieck →
+ * geschlossene Polylinie (Fläche).
+ */
+export function insertVertex(s: Shape, edge: number, p: Point): Shape {
+  const pts = shapeVertices(s);
+  pts.splice(edge + 1, 0, p);
+  return shapeFromVertices({ ...s, type: 'freehand', closed: !isOpenShape(s) }, pts);
+}
+
+/** Eckpunkt entfernen (null, wenn sonst zu wenige Punkte übrig blieben). */
+export function removeVertex(s: Shape, index: number): Shape | null {
+  const pts = shapeVertices(s);
+  if (!canEditVertexCount(s) || pts.length <= minVertices(s) || index < 0 || index >= pts.length) return null;
+  pts.splice(index, 1);
+  return shapeFromVertices({ ...s, type: 'freehand', closed: !isOpenShape(s) }, pts);
+}
+
+/** Polylinie öffnen bzw. schließen (null, wenn nicht möglich). */
+export function setPolylineClosed(s: Shape, closed: boolean): Shape | null {
+  if (s.type !== 'freehand' || (closed && shapeVertices(s).length < 3)) return null;
+  return { ...s, closed };
+}
+
+/** Nächste Kante einer Form zu einem Punkt: Index der Kante, Fußpunkt und Abstand. */
+export function nearestEdge(s: Shape, p: Point): { edge: number; point: Point; dist: number } | null {
+  const pts = shapeVertices(s);
+  const n = pts.length;
+  if (n < 2) return null;
+  let best: { edge: number; point: Point; dist: number } | null = null;
+  for (let i = 0; i < n - (isOpenShape(s) ? 1 : 0); i++) {
+    const a = pts[i];
+    const b = pts[(i + 1) % n];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len2 = dx * dx + dy * dy;
+    const t = len2 ? Math.min(1, Math.max(0, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2)) : 0;
+    const q = { x: a.x + t * dx, y: a.y + t * dy };
+    const d = Math.hypot(p.x - q.x, p.y - q.y);
+    if (!best || d < best.dist) best = { edge: i, point: q, dist: d };
+  }
+  return best;
 }
 
 /** Fläche eines Vielecks (Gaußsche Trapezformel), Einheit² der Punkte. */
