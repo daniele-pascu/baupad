@@ -86,7 +86,7 @@ export interface Plan extends SyncMeta {
   sortIndex: number;
 }
 
-export type ShapeType = 'ellipse' | 'rect' | 'freehand';
+export type ShapeType = 'ellipse' | 'rect' | 'freehand' | 'line' | 'triangle';
 
 export interface Shape {
   type: ShapeType;
@@ -95,7 +95,7 @@ export interface Shape {
   y: number;
   w: number;
   h: number;
-  /** Nur Freihand: Punkte relativ zum Begrenzungsrechteck (0..1) */
+  /** Freihand, Linie, Dreieck: Punkte relativ zum Begrenzungsrechteck (0..1) */
   points?: [number, number][];
   /** Nur Freihand: geschlossene Fläche (Standard) oder offene Linie, z. B. ein Riss */
   closed?: boolean;
@@ -103,25 +103,51 @@ export interface Shape {
   rotation?: number;
 }
 
+/**
+ * Messart:
+ * - 'damage' Schadstelle (Länge × Breite, Tiefe optional) – Standard für ältere Einträge
+ * - 'area'   Flächenmessung (Länge × Breite, Tiefe optional), z. B. Malerarbeiten
+ * - 'line'   Linienmessung (nur Länge, keine Fläche)
+ */
+export type MeasureKind = 'damage' | 'area' | 'line';
+
+/** Messung bzw. Schadstelle (Name „Damage“ aus Version 1 beibehalten). */
 export interface Damage extends SyncMeta {
   projectId: string;
   planId: string;
   number: number;
+  /** Messart; fehlt bei älteren Einträgen und gilt dann als Schadstelle */
+  kind?: MeasureKind;
   shape: Shape;
   color: string;
-  /** Manuelle Verschiebung der Beschriftung in Seitenkoordinaten; null = automatisch */
   labelOffset: { dx: number; dy: number } | null;
   /** Länge in m */
   length: number;
-  /** Breite in m */
-  width: number;
-  /** Tiefe in m */
-  depth: number;
-  /** Fläche in m² = Länge × Breite (ungerundet gespeichert) */
-  area: number;
+  /** Breite in m (bei Linienmessungen null) */
+  width: number | null;
+  /** Tiefe in m – optional; null = nicht gemessen (nicht 0!) */
+  depth: number | null;
+  /** Fläche in m² = Länge × Breite; null, wenn keine Fläche (Linie) */
+  area: number | null;
+  /** Zugeordnetes Bauteil (Buchstabe), optional */
+  componentId?: string | null;
 }
 
-export type EntityStore = 'projects' | 'costCenters' | 'files' | 'plans' | 'damages';
+/** Bauteilkennzeichnung im Plan, z. B. „A – Wand“. */
+export interface Component extends SyncMeta {
+  projectId: string;
+  planId: string;
+  /** Buchstabe, z. B. „A“ (max. 3 Zeichen) */
+  letter: string;
+  /** Bezeichnung, z. B. „Wand“, „Decke“ (optional) */
+  name: string;
+  color: string;
+  /** Position der Kennzeichnung in Seitenkoordinaten */
+  x: number;
+  y: number;
+}
+
+export type EntityStore = 'projects' | 'costCenters' | 'files' | 'plans' | 'damages' | 'components';
 
 export interface EntityMap {
   projects: Project;
@@ -129,9 +155,12 @@ export interface EntityMap {
   files: SourceFile;
   plans: Plan;
   damages: Damage;
+  components: Component;
 }
 
 export const COLORS: { value: string; name: string }[] = [
+  { value: '#1c1c1e', name: 'Schwarz' },
+  { value: '#ffffff', name: 'Weiß' },
   { value: '#e03131', name: 'Rot' },
   { value: '#1c7ed6', name: 'Blau' },
   { value: '#2f9e44', name: 'Grün' },
@@ -141,7 +170,9 @@ export const COLORS: { value: string; name: string }[] = [
 ];
 
 export const SHAPE_LABELS: Record<ShapeType, string> = {
-  ellipse: 'Kreis',
+  line: 'Linie',
   rect: 'Rechteck',
+  ellipse: 'Kreis',
+  triangle: 'Dreieck',
   freehand: 'Freihand',
 };

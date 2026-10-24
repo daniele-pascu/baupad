@@ -312,7 +312,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
               </div>
             ))}
 
-          {tab === 'table' && <AufmassTable rows={rows} showPlan onSelect={(r) => navigate(paths.plan(project.id, r.plan.id, r.damage.id))} />}
+          {tab === 'table' && <AufmassTable rows={rows} showPlan components={data.components} onSelect={(r) => navigate(paths.plan(project.id, r.plan.id, r.damage.id))} />}
         </section>
       )}
 

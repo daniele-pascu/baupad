@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  convertShape,
   freehandPoints,
   freehandShape,
   hitShape,
+  isOpenShape,
+  lineShape,
+  triangleShape,
   normalizeRotation,
   pathToSvg,
   resizeRotatedShape,
@@ -97,5 +101,36 @@ describe('Drehen', () => {
     const b = shapeAABB(e);
     expect(b.w).toBeCloseTo(20, 6);
     expect(b.h).toBeCloseTo(100, 6);
+  });
+});
+
+describe('Linie und Dreieck', () => {
+  it('Linie: offen, Treffer nur entlang der Strecke, auch waagrecht', () => {
+    const l = lineShape({ x: 0, y: 50 }, { x: 100, y: 50 });
+    expect(isOpenShape(l)).toBe(true);
+    expect(pathToSvg(shapePath(l))).not.toContain('Z');
+    expect(hitShape(l, { x: 50, y: 52 }, 3)).toBe(true);
+    expect(hitShape(l, { x: 50, y: 60 }, 3)).toBe(false);
+    const b = shapeAABB(l);
+    expect(b.w).toBeCloseTo(100, 6);
+  });
+  it('Linie behält Richtung (von unten links nach oben rechts)', () => {
+    const l = lineShape({ x: 0, y: 100 }, { x: 80, y: 20 });
+    const [a, b] = freehandPoints(l);
+    expect(a).toEqual({ x: 0, y: 100 });
+    expect(b.x).toBeCloseTo(80, 4);
+    expect(b.y).toBeCloseTo(20, 4);
+  });
+  it('Dreieck: geschlossen, Treffer innen, außerhalb der Ecken nicht', () => {
+    const t = triangleShape({ x: 0, y: 0, w: 100, h: 100 });
+    expect(isOpenShape(t)).toBe(false);
+    expect(hitShape(t, { x: 50, y: 70 }, 0)).toBe(true);
+    expect(hitShape(t, { x: 5, y: 5 }, 0)).toBe(false);
+  });
+  it('Umwandeln behält Rahmen und Drehung', () => {
+    const r = { type: 'rect' as const, x: 10, y: 20, w: 30, h: 40, rotation: 30 };
+    const t = convertShape(r, 'triangle');
+    expect(t).toMatchObject({ type: 'triangle', x: 10, y: 20, w: 30, h: 40, rotation: 30 });
+    expect(t.points).toHaveLength(3);
   });
 });

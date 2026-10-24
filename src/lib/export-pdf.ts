@@ -1,6 +1,6 @@
 import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
-import { costCenterLabel, damagesOf, planTitle, safeFileName, type ExportFile } from './aufmass';
+import { componentsOf, costCenterLabel, damagesOf, planTitle, safeFileName, type ExportFile } from './aufmass';
 import { getBlob } from './db';
 import {
   layoutLabels,
@@ -13,7 +13,7 @@ import {
 } from './geometry';
 import { canvasToBlob, closePdf, clampRenderScale, imageToCanvas, loadImageBitmap, openPdf, renderPdfRegion } from './pdf';
 import type { ProjectState } from './store';
-import type { Damage, Plan, Rect } from './types';
+import type { Component, Damage, Plan, Rect } from './types';
 
 /**
  * PDF-Export bearbeiteter Pläne.
@@ -109,6 +109,7 @@ async function addPlanPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   if (!file) throw new Error(`Originaldatei zu Plan ${planTitle(plan)} fehlt.`);
   const region: Rect = plan.crop ?? { x: 0, y: 0, w: plan.pageWidth, h: plan.pageHeight };
   const damages = damagesOf(data, plan.id);
+  const components = componentsOf(data, plan.id);
 
   if (file.kind === 'pdf') {
     const bytes = await getBlob(file.id);
@@ -158,7 +159,7 @@ async function addPlanPage(ctx: Ctx, data: ProjectState, plan: Plan) {
         page.setArtBox(box.x, box.y, box.w, box.h);
         const target: Target = { page, map, textRotation: page.getRotation().angle, ptPerUnit: 1 };
         drawHeader(ctx, plan, target, region, header);
-        drawDamages(ctx, target, region, damages);
+        drawDamages(ctx, target, region, damages, components);
         return;
       } catch (e) {
         console.warn('Vektor-Export nicht möglich, verwende Bild-Export', e);
@@ -170,7 +171,7 @@ async function addPlanPage(ctx: Ctx, data: ProjectState, plan: Plan) {
     const scale = clampRenderScale(region.w, region.h, 200 / 72);
     const canvas = document.createElement('canvas');
     await renderPdfRegion(jsPage, canvas, region, scale).promise;
-    await addRasterPage(ctx, plan, region, damages, canvas, 1);
+    await addRasterPage(ctx, plan, region, damages, components, canvas, 1);
     return;
   }
 
@@ -180,7 +181,7 @@ async function addPlanPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   try {
     const canvas = imageToCanvas(bitmap, 8192, region);
     // Bildpixel als 150 dpi interpretieren
-    await addRasterPage(ctx, plan, region, damages, canvas, 72 / 150);
+    await addRasterPage(ctx, plan, region, damages, components, canvas, 72 / 150);
   } finally {
     bitmap.close();
   }
@@ -191,6 +192,7 @@ async function addRasterPage(
   plan: Plan,
   region: Rect,
   damages: Damage[],
+  components: Component[],
   canvas: HTMLCanvasElement,
   ptPerUnit: number,
 ) {
@@ -204,7 +206,7 @@ async function addRasterPage(
   const map = (p: Point): Point => ({ x: (p.x - region.x) * ptPerUnit, y: h - (p.y - (region.y - header)) * ptPerUnit });
   const target: Target = { page, map, textRotation: 0, ptPerUnit };
   drawHeader(ctx, plan, target, region, header);
-  drawDamages(ctx, target, region, damages);
+  drawDamages(ctx, target, region, damages, components);
 }
 
 /** Schriftgröße der Nummern in PDF-Punkten, abhängig von der Plangröße. */
@@ -250,7 +252,16 @@ function drawHeader(ctx: Ctx, plan: Plan, t: Target, region: Rect, header: numbe
   drawTextMapped(t, fitText(ctx.bold, title, titleSize, maxW), { x: region.x + fs * 0.8 * u, y: strip.y + fs * 1.65 * u }, titleSize, ctx.bold);
 }
 
-function drawDamages(ctx: Ctx, t: Target, region: Rect, damages: Damage[]) {
+/** Gut sichtbare Strichfarbe (Weiß wäre auf weißem Plan unsichtbar) */
+const visibleHex = (hex: string) => (hex.toLowerCase() === '#ffffff' ? '#8e8e93' : hex);
+/** Kontur: hell unter dunklen, dunkel unter hellen Farben */
+function haloRgb(hex: string) {
+  const n = parseInt(hex.replace('#', ''), 16);
+  const lum = 0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255);
+  return lum > 170 ? rgb(0.11, 0.11, 0.12) : rgb(1, 1, 1);
+}
+
+function drawDamages(ctx: Ctx, t: Target, region: Rect, damages: Damage[], components: Component[]) {
   const u = 1 / t.ptPerUnit;
   const fs = labelFontPt(region, t.ptPerUnit);
   const stroke = Math.max(0.8, fs * 0.14);
@@ -261,6 +272,7 @@ function drawDamages(ctx: Ctx, t: Target, region: Rect, damages: Damage[]) {
       const q = t.map(p);
       return { x: q.x, y: -q.y };
     });
+    t.page.drawSvgPath(svg, { x: 0, y: 0, borderColor: haloRgb(d.color), borderWidth: stroke + 1.6, borderOpacity: 0.75 });
     t.page.drawSvgPath(svg, {
       x: 0,
       y: 0,
@@ -293,8 +305,33 @@ function drawDamages(ctx: Ctx, t: Target, region: Rect, damages: Damage[]) {
   }
   for (const d of damages) {
     const r = labels.get(d.id)!;
-    const color = hexToRgb(d.color);
+    const color = hexToRgb(visibleHex(d.color));
     drawRectMapped(t, r, { color: rgb(1, 1, 1), borderColor: color, borderWidth: stroke * 0.8, opacity: 0.92 });
     drawTextMapped(t, String(d.number), { x: r.x + padX, y: r.y + boxH * 0.73 }, fs, ctx.bold);
+  }
+  // Bauteilkennzeichnungen (A, B, C …) als Kreis mit Buchstabe
+  for (const c of components) {
+    const radius = fs * 0.95; // in Punkten
+    const center = t.map({ x: c.x, y: c.y });
+    const white = c.color.toLowerCase() === '#ffffff';
+    t.page.drawCircle({
+      x: center.x,
+      y: center.y,
+      size: radius,
+      color: white ? rgb(0.11, 0.11, 0.12) : rgb(1, 1, 1),
+      borderColor: hexToRgb(visibleHex(c.color)),
+      borderWidth: stroke * 1.3,
+    });
+    const letter = clean(ctx, c.letter);
+    const size = fs * (letter.length > 1 ? 0.8 : 1.05);
+    const tw = ctx.bold.widthOfTextAtSize(letter, size) * u;
+    drawTextMapped(
+      t,
+      letter,
+      { x: c.x - tw / 2, y: c.y + size * 0.36 * u },
+      size,
+      ctx.bold,
+      white ? rgb(1, 1, 1) : hexToRgb(visibleHex(c.color)),
+    );
   }
 }

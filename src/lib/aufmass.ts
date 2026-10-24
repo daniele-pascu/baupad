@@ -1,7 +1,8 @@
+import { sumAreas } from './measure';
 import { formatDate, naturalCompare } from './numbers';
 import type { ProjectState } from './store';
 import { alive } from './store';
-import type { CostCenter, Damage, Plan } from './types';
+import type { Component, CostCenter, Damage, Plan } from './types';
 import { buildXlsx, num, sheetName, str, type Cell, type Sheet } from './xlsx';
 
 /** Pläne einer Kostenstelle, sortiert nach Plannummer. */
@@ -18,6 +19,13 @@ export function damagesOf(data: ProjectState, planId: string): Damage[] {
     .sort((a, b) => a.number - b.number || a.createdAt - b.createdAt);
 }
 
+/** Bauteilkennzeichnungen eines Plans, sortiert nach Buchstabe. */
+export function componentsOf(data: ProjectState, planId: string): Component[] {
+  return alive(data.components ?? {})
+    .filter((c) => c.planId === planId)
+    .sort((a, b) => naturalCompare(a.letter, b.letter));
+}
+
 export function costCentersOf(data: ProjectState): CostCenter[] {
   return alive(data.costCenters).sort((a, b) => a.sortIndex - b.sortIndex || naturalCompare(a.name, b.name));
 }
@@ -32,8 +40,9 @@ export function planTitle(p: Plan): string {
   return [p.planNumber, p.planName].filter(Boolean).join(' – ') || 'Plan ohne Bezeichnung';
 }
 
+/** Flächensumme (m²) – Linienmessungen zählen nicht mit. */
 export function sumArea(damages: Damage[]): number {
-  return Math.round(damages.reduce((s, d) => s + d.area, 0) * 1e9) / 1e9;
+  return sumAreas(damages);
 }
 
 export interface AufmassRow {
@@ -56,9 +65,10 @@ export function aufmassSheet(name: string, rows: AufmassRow[]): Omit<Sheet, 'nam
     str(plan.planNumber || plan.planName || ''),
     num(damage.number, 'int'),
     num(damage.length, 'measure'),
-    num(damage.width, 'measure'),
-    num(damage.depth, 'measure'),
-    num(damage.area, 'area'),
+    // Leere Werte bleiben leere Zellen (keine 0): Linien haben keine Breite/Fläche, Tiefe ist optional
+    damage.width === null ? null : num(damage.width, 'measure'),
+    damage.depth === null ? null : num(damage.depth, 'measure'),
+    damage.area === null ? null : num(damage.area, 'area'),
   ]);
   const last = rows.length + 1;
   const total = sumArea(rows.map((r) => r.damage));

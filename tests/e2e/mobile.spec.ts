@@ -168,6 +168,19 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   await dlg.getByTestId('input-width').fill('1,5');
   await dlg.getByTestId('damage-save').tap();
   await expect(page.getByTestId('selection-bar')).toContainText('3,60 m²');
+  // Alle Werkzeuge und Rückgängig/Wiederholen sind per Finger erreichbar, nichts ragt über den Rand
+  const vw = page.viewportSize()!.width;
+  for (const t of ['select', 'line', 'rect', 'ellipse', 'triangle', 'freehand', 'component']) {
+    const b = (await page.getByTestId(`tool-${t}`).boundingBox())!;
+    expect(b.x).toBeGreaterThanOrEqual(0);
+    expect(b.x + b.width).toBeLessThanOrEqual(vw + 0.5);
+    expect(b.height).toBeGreaterThanOrEqual(44);
+  }
+  await expect(page.getByTestId('undo')).toBeVisible();
+  // Plannummer bleibt in der Kopfzeile lesbar
+  expect((await page.getByTestId('plan-select').boundingBox())!.width).toBeGreaterThanOrEqual(70);
+  await noHorizontalScroll(page);
+  await page.screenshot({ path: join(OUT, `${info.project.name}-editor.png`) });
 
   // 7) Excel-Export über den Dialog „Datei bereit“
   const dl = await catchDownload(page, () => page.getByTestId('export-xlsx-plan').tap());

@@ -80,7 +80,7 @@ export function shapeAABB(s: Shape): Rect {
     const hw = Math.hypot(rx * Math.cos(a), ry * Math.sin(a));
     const hh = Math.hypot(rx * Math.sin(a), ry * Math.cos(a));
     return { x: c.x - hw, y: c.y - hh, w: 2 * hw, h: 2 * hh };
-  } else if (s.type === 'freehand') {
+  } else if (isPointShape(s)) {
     pts = freehandPoints(s).map((p) => rotatePoint(p, c, rot));
   } else {
     pts = [
@@ -97,11 +97,40 @@ export function shapeAABB(s: Shape): Rect {
   return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
 }
 
-export const isOpenShape = (s: Shape) => s.type === 'freehand' && s.closed === false;
+/** Offene Formen haben keine Fläche: Linie und offene Freihandlinie. */
+export const isOpenShape = (s: Shape) => s.type === 'line' || (s.type === 'freehand' && s.closed === false);
 
-/** Freihand-Punkte in Seitenkoordinaten. */
+/** Formen, deren Umriss aus Eckpunkten besteht (relativ zum Begrenzungsrechteck gespeichert). */
+export const isPointShape = (s: Pick<Shape, 'type'>) => s.type === 'freehand' || s.type === 'line' || s.type === 'triangle';
+
+/** Eckpunkte (Freihand, Linie, Dreieck) in Seitenkoordinaten, ohne Drehung. */
 export function freehandPoints(s: Shape): Point[] {
   return (s.points ?? []).map(([u, v]) => ({ x: s.x + u * s.w, y: s.y + v * s.h }));
+}
+
+/** Linie von a nach b. */
+export function lineShape(a: Point, b: Point): Shape {
+  const x = Math.min(a.x, b.x);
+  const y = Math.min(a.y, b.y);
+  const w = Math.abs(a.x - b.x) || 1e-6;
+  const h = Math.abs(a.y - b.y) || 1e-6;
+  const norm = (p: Point) => [round6((p.x - x) / w), round6((p.y - y) / h)] as [number, number];
+  return { type: 'line', x, y, w, h, points: [norm(a), norm(b)] };
+}
+
+/** Gleichschenkliges Dreieck im Rechteck r (Spitze oben). */
+export function triangleShape(r: Rect): Shape {
+  return { type: 'triangle', x: r.x, y: r.y, w: r.w, h: r.h, points: [[0.5, 0], [1, 1], [0, 1]] };
+}
+
+/** Form in eine andere Formart umwandeln (Rahmen und Drehung bleiben erhalten). */
+export function convertShape(s: Shape, type: Shape['type']): Shape {
+  if (s.type === type) return s;
+  const base = { x: s.x, y: s.y, w: s.w, h: s.h, rotation: s.rotation };
+  if (type === 'line') return { type, ...base, points: [[0, 1], [1, 0]] };
+  if (type === 'triangle') return { type, ...base, points: [[0.5, 0], [1, 1], [0, 1]] };
+  if (type === 'freehand') return { type, ...base, points: s.points ?? [[0, 0], [1, 0], [1, 1], [0, 1]], closed: true };
+  return { type, ...base };
 }
 
 /** Prüft, ob ein Seitenpunkt eine Form trifft (tol in Seiteneinheiten). */
@@ -476,7 +505,7 @@ function localOutlinePointToward(shape: Shape, p: Point): Point {
     const a = Math.atan2((p.y - cy) / (b.h / 2 || 1), (p.x - cx) / (b.w / 2 || 1));
     return { x: cx + (b.w / 2) * Math.cos(a), y: cy + (b.h / 2) * Math.sin(a) };
   }
-  if (shape.type === 'freehand') {
+  if (isPointShape(shape)) {
     const pts = freehandPoints(shape);
     let best = pts[0] ?? p;
     let bestD = Infinity;

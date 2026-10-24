@@ -180,7 +180,7 @@ test('5.–7. Schadstellen einzeichnen, automatisch nummerieren, Maße eingeben,
   await dlg.getByTestId('damage-save').click();
   await expect(dlg).toContainText('ist keine gültige Zahl');
   await expect(dlg).toContainText('Breite muss größer als 0 sein');
-  await expect(dlg).toContainText('Tiefe fehlt');
+  await expect(dlg).not.toContainText('Tiefe fehlt'); // Tiefe ist optional
   await expect(dlg.getByTestId('area-result')).toContainText('–');
   // Abbrechen verwirft die neue Markierung
   await dlg.getByTestId('damage-cancel').click();
@@ -300,7 +300,7 @@ test('8./9. Schadstelle bearbeiten, Nummer ändern, löschen – Plan und Tabell
   await page.locator('[data-testid="aufmass-row"][data-number="2"]').click();
   await page.getByTestId('delete-selected').click();
   const confirm = page.getByTestId('confirm-dialog');
-  await expect(confirm).toContainText('Die Nummern der übrigen Schadstellen bleiben unverändert');
+  await expect(confirm).toContainText('Die Nummern der übrigen Messungen bleiben unverändert');
   await confirm.getByRole('button', { name: 'Abbrechen' }).click();
   expect(await tableRows(page)).toHaveLength(4);
   await page.getByTestId('delete-selected').click();

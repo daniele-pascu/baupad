@@ -1,8 +1,12 @@
 import { useEffect, useRef } from 'react';
 import type { AufmassRow } from '../lib/aufmass';
 import { sumArea } from '../lib/aufmass';
+import { countKind, KIND_LABELS, kindOf, sumLengths } from '../lib/measure';
 import { formatArea, formatMeasure } from '../lib/numbers';
+import type { Component } from '../lib/types';
 import { Icon } from './Icon';
+
+const KIND_ICONS = { damage: 'ellipse', area: 'rect', line: 'line' } as const;
 
 interface Props {
   rows: AufmassRow[];
@@ -12,15 +16,22 @@ interface Props {
   onEdit?: (row: AufmassRow) => void;
   onDelete?: (row: AufmassRow) => void;
   duplicates?: Set<string>;
+  /** Bauteilkennzeichnungen (id → Bauteil) für die Spalte „Art / Bauteil“ */
+  components?: Record<string, Pick<Component, 'letter' | 'name' | 'deletedAt'>>;
 }
 
-/** Aufmaß-Tabelle: Plannummer, Schadstellennummer, Länge, Breite, Tiefe, Fläche. */
-export function AufmassTable({ rows, showPlan, selectedId, onSelect, onEdit, onDelete, duplicates }: Props) {
+/** Aufmaß-Tabelle: Plannummer, Nummer, Länge, Breite, Tiefe, Fläche, Art (Symbol) und Bauteil. */
+export function AufmassTable({ rows, showPlan, selectedId, onSelect, onEdit, onDelete, duplicates, components }: Props) {
   const selRef = useRef<HTMLTableRowElement>(null);
   useEffect(() => {
     selRef.current?.scrollIntoView({ block: 'nearest' });
   }, [selectedId]);
-  const total = sumArea(rows.map((r) => r.damage));
+  const damages = rows.map((r) => r.damage);
+  const total = sumArea(damages);
+  const lines = countKind(damages, 'line');
+  const actions = !!(onEdit || onDelete);
+  const before = showPlan ? 5 : 4; // Spalten vor „Fläche“
+  const after = 1 + (actions ? 1 : 0); // Spalten nach „Fläche“
   return (
     <div className="table-wrap">
       <table className="aufmass-table" data-testid="aufmass-table">
@@ -28,16 +39,28 @@ export function AufmassTable({ rows, showPlan, selectedId, onSelect, onEdit, onD
           <tr>
             {showPlan && <th>Plannr.</th>}
             <th className="num">Nr.</th>
-            <th className="num">Länge (m)</th>
-            <th className="num">Breite (m)</th>
-            <th className="num">Tiefe (m)</th>
-            <th className="num">Fläche (m²)</th>
-            {(onEdit || onDelete) && <th className="actions-col"><span className="sr-only">Aktionen</span></th>}
+            <th className="num">
+              Länge <span className="unit-h">(m)</span>
+            </th>
+            <th className="num">
+              Breite <span className="unit-h">(m)</span>
+            </th>
+            <th className="num">
+              Tiefe <span className="unit-h">(m)</span>
+            </th>
+            <th className="num">
+              Fläche <span className="unit-h">(m²)</span>
+            </th>
+            <th title="Messart und Bauteil">Art</th>
+            {actions && <th className="actions-col"><span className="sr-only">Aktionen</span></th>}
           </tr>
         </thead>
         <tbody>
           {rows.map((r) => {
             const sel = r.damage.id === selectedId;
+            const kind = kindOf(r.damage);
+            const comp = r.damage.componentId ? components?.[r.damage.componentId] : undefined;
+            const label = `${KIND_LABELS[kind]} ${r.damage.number}`;
             return (
               <tr
                 key={r.damage.id}
@@ -46,6 +69,7 @@ export function AufmassTable({ rows, showPlan, selectedId, onSelect, onEdit, onD
                 onClick={() => onSelect?.(r)}
                 data-testid="aufmass-row"
                 data-number={r.damage.number}
+                data-kind={kind}
               >
                 {showPlan && <td>{r.plan.planNumber}</td>}
                 <td className="num">
@@ -57,13 +81,22 @@ export function AufmassTable({ rows, showPlan, selectedId, onSelect, onEdit, onD
                 <td className="num" data-testid="row-area">
                   {formatArea(r.damage.area)}
                 </td>
-                {(onEdit || onDelete) && (
+                <td className="kind-cell" data-testid="row-kind" title={comp ? `${KIND_LABELS[kind]} · Bauteil ${comp.letter}${comp.name ? ` – ${comp.name}` : ''}` : KIND_LABELS[kind]}>
+                  <Icon name={KIND_ICONS[kind]} size={16} />
+                  <span className="sr-only">{KIND_LABELS[kind]}</span>
+                  {comp && !comp.deletedAt && (
+                    <span className="component-tag">
+                      {comp.letter}
+                    </span>
+                  )}
+                </td>
+                {actions && (
                   <td className="actions-col">
                     {onEdit && (
                       <button
                         type="button"
                         className="icon-btn icon-btn-sm"
-                        aria-label={`Schadstelle ${r.damage.number} bearbeiten`}
+                        aria-label={`${label} bearbeiten`}
                         onClick={(e) => {
                           e.stopPropagation();
                           onEdit(r);
@@ -76,7 +109,7 @@ export function AufmassTable({ rows, showPlan, selectedId, onSelect, onEdit, onD
                       <button
                         type="button"
                         className="icon-btn icon-btn-sm danger"
-                        aria-label={`Schadstelle ${r.damage.number} löschen`}
+                        aria-label={`${label} löschen`}
                         onClick={(e) => {
                           e.stopPropagation();
                           onDelete(r);
@@ -92,22 +125,33 @@ export function AufmassTable({ rows, showPlan, selectedId, onSelect, onEdit, onD
           })}
           {!rows.length && (
             <tr>
-              <td colSpan={showPlan ? 7 : 6} className="muted empty-cell">
-                Noch keine Schadstellen erfasst.
+              <td colSpan={before + 1 + after} className="muted empty-cell">
+                Noch keine Messungen erfasst.
               </td>
             </tr>
           )}
         </tbody>
         <tfoot>
           <tr>
-            <td colSpan={showPlan ? 5 : 4}>
-              Summe ({rows.length} Schadstelle{rows.length === 1 ? '' : 'n'})
+            <td colSpan={before}>
+              Summe Fläche
             </td>
             <td className="num" data-testid="sum-area">
               {formatArea(total)}
             </td>
-            {(onEdit || onDelete) && <td />}
+            <td colSpan={after} />
           </tr>
+          {lines > 0 && (
+            <tr className="sum-lines">
+              <td colSpan={before} title="Linienlängen werden getrennt summiert und nicht zur Fläche gezählt">
+                Summe Linien
+              </td>
+              <td className="num" data-testid="sum-length">
+                {formatMeasure(sumLengths(damages))} m
+              </td>
+              <td colSpan={after} />
+            </tr>
+          )}
         </tfoot>
       </table>
     </div>

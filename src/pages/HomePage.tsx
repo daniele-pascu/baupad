@@ -4,7 +4,7 @@ import { ProjectForm, type CostCenterInput, type ProjectFields } from '../compon
 import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, offerFile, promptDialog, showError, toast } from '../components/ui';
 import { exportProjectBackup, findExistingProject, importProjectBackup, readProjectBackup } from '../lib/backup';
-import { deleteProjectCompletely, getMeta, listProjects, projectStats, writeRecords } from '../lib/db';
+import { deleteProjectCompletely, getMeta, listProjects, projectStats, setMeta, writeRecords } from '../lib/db';
 import { isIOS } from '../lib/download';
 import { getDeviceId } from '../lib/ids';
 import { formatDate, formatDateTime } from '../lib/numbers';
@@ -22,6 +22,7 @@ export function HomePage() {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [creating, setCreating] = useState(false);
   const [storage, setStorage] = useState<{ usage: number; quota: number; persisted: boolean } | null>(null);
+  const [upgraded, setUpgraded] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
 
   const load = async () => {
@@ -49,6 +50,9 @@ export function HomePage() {
   useEffect(() => {
     void closeProject();
     void load();
+    getMeta<number>('upgradedFrom')
+      .then((v) => setUpgraded(!!v))
+      .catch(() => {});
   }, []);
 
   const create = async (fields: ProjectFields, costCenters: CostCenterInput[]) => {
@@ -181,6 +185,25 @@ export function HomePage() {
           }}
         />
       </div>
+
+      {upgraded && (
+        <div className="banner banner-info" role="status" data-testid="upgrade-banner">
+          <p>
+            <strong>BauPad wurde erweitert</strong> (Messarten, Bauteilbuchstaben, Rückgängig). Ihre Projekte wurden dabei
+            nicht verändert. Tipp: Sichern Sie wichtige Projekte regelmäßig über „Sichern“ als Datei.
+          </p>
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={() => {
+              setUpgraded(false);
+              void setMeta('upgradedFrom', null);
+            }}
+          >
+            Verstanden
+          </button>
+        </div>
+      )}
 
       <p className="muted small home-hint">
         Pläne (PDF, Fotos) importieren Sie im Projekt: Projekt öffnen → „Plan importieren“.

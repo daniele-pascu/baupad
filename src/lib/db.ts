@@ -1,5 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import type { CostCenter, Damage, EntityMap, EntityStore, Plan, Project, SourceFile } from './types';
+import type { Component, CostCenter, Damage, EntityMap, EntityStore, Plan, Project, SourceFile } from './types';
 
 /**
  * Lokale Datenbank (IndexedDB). Sie funktioniert ohne Internetverbindung und hält
@@ -18,23 +18,53 @@ interface AufmassDB extends DBSchema {
   /** Nur lokal: zuletzt verwendete Planansicht */
   views: { key: string; value: { id: string; projectId: string; scale: number; cx: number; cy: number }; indexes: { projectId: string } };
   meta: { key: string; value: { key: string; value: unknown } };
+  /** ab Version 2: Bauteilkennzeichnungen (A, B, C …) */
+  components: { key: string; value: Component; indexes: { projectId: string } };
+  /**
+   * ab Version 2: dauerhafte Änderungs-Warteschlange für die spätere Synchronisierung.
+   * Ein Eintrag je geändertem Datensatz (der neueste Stand zählt) – wiederholtes Übertragen
+   * legt daher keine Doppel an.
+   */
+  outbox: { key: string; value: OutboxEntry; indexes: { projectId: string } };
+}
+
+export interface OutboxEntry {
+  /** „store:id“ */
+  id: string;
+  projectId: string;
+  store: EntityStore;
+  recordId: string;
+  rev: number;
+  updatedAt: number;
 }
 
 const DB_NAME = 'schadstellen-aufmass';
-const DB_VERSION = 1;
+/**
+ * Version 1: Grundversion. Version 2: Bauteile und Änderungs-Warteschlange.
+ * Upgrades legen ausschließlich neue Speicherbereiche an; vorhandene Daten bleiben unverändert.
+ */
+const DB_VERSION = 2;
 
 let dbPromise: Promise<IDBPDatabase<AufmassDB>> | null = null;
 
 export function getDB(): Promise<IDBPDatabase<AufmassDB>> {
   if (!dbPromise) {
     dbPromise = openDB<AufmassDB>(DB_NAME, DB_VERSION, {
-      upgrade(db) {
-        db.createObjectStore('projects', { keyPath: 'id' });
-        for (const name of ['costCenters', 'files', 'blobs', 'plans', 'damages', 'thumbs', 'views'] as const) {
-          const store = db.createObjectStore(name, { keyPath: 'id' });
-          store.createIndex('projectId', 'projectId');
+      upgrade(db, oldVersion, _newVersion, tx) {
+        if (oldVersion < 1) {
+          db.createObjectStore('projects', { keyPath: 'id' });
+          for (const name of ['costCenters', 'files', 'blobs', 'plans', 'damages', 'thumbs', 'views'] as const) {
+            const store = db.createObjectStore(name, { keyPath: 'id' });
+            store.createIndex('projectId', 'projectId');
+          }
+          db.createObjectStore('meta', { keyPath: 'key' });
         }
-        db.createObjectStore('meta', { keyPath: 'key' });
+        if (oldVersion < 2) {
+          db.createObjectStore('components', { keyPath: 'id' }).createIndex('projectId', 'projectId');
+          db.createObjectStore('outbox', { keyPath: 'id' }).createIndex('projectId', 'projectId');
+          // Hinweis für die Projektverwaltung, dass die Datenbank erweitert wurde
+          if (oldVersion >= 1) void tx.objectStore('meta').put({ key: 'upgradedFrom', value: oldVersion });
+        }
       },
       blocking() {
         // Eine neuere Version der App wurde in einem anderen Tab geöffnet.
@@ -68,22 +98,24 @@ export interface ProjectData {
   files: SourceFile[];
   plans: Plan[];
   damages: Damage[];
+  components: Component[];
 }
 
 /** Lädt alle Datensätze eines Projekts (inklusive Grabsteine). */
 export async function loadProjectData(projectId: string): Promise<ProjectData | null> {
   const db = await getDB();
-  const tx = db.transaction(['projects', 'costCenters', 'files', 'plans', 'damages'], 'readonly');
+  const tx = db.transaction(['projects', 'costCenters', 'files', 'plans', 'damages', 'components'], 'readonly');
   const project = await tx.objectStore('projects').get(projectId);
   if (!project || project.deletedAt) return null;
-  const [costCenters, files, plans, damages] = await Promise.all([
+  const [costCenters, files, plans, damages, components] = await Promise.all([
     tx.objectStore('costCenters').index('projectId').getAll(projectId),
     tx.objectStore('files').index('projectId').getAll(projectId),
     tx.objectStore('plans').index('projectId').getAll(projectId),
     tx.objectStore('damages').index('projectId').getAll(projectId),
+    tx.objectStore('components').index('projectId').getAll(projectId),
   ]);
   await tx.done;
-  return { project, costCenters, files, plans, damages };
+  return { project, costCenters, files, plans, damages, components };
 }
 
 export class ConflictError extends Error {
@@ -111,7 +143,7 @@ export interface PendingWrite<S extends EntityStore = EntityStore> {
 export async function writeRecords(writes: PendingWrite[]): Promise<void> {
   if (!writes.length) return;
   const db = await getDB();
-  const stores = [...new Set(writes.map((w) => w.store))];
+  const stores: (EntityStore | 'outbox')[] = [...new Set(writes.map((w) => w.store)), 'outbox'];
   const tx = db.transaction(stores, 'readwrite');
   // Bei Abbruch (Konflikt) lehnt tx.done ab – das ist hier erwartet und wird über den catch-Block gemeldet.
   tx.done.catch(() => {});
@@ -124,6 +156,16 @@ export async function writeRecords(writes: PendingWrite[]): Promise<void> {
         throw new ConflictError(w.store, w.record.id);
       }
       await store.put(w.record as never);
+      // Änderung für die spätere Synchronisierung vormerken (gleiche Transaktion → nie verloren)
+      const projectId = w.store === 'projects' ? w.record.id : (w.record as { projectId: string }).projectId;
+      await tx.objectStore('outbox').put({
+        id: `${w.store}:${w.record.id}`,
+        projectId,
+        store: w.store,
+        recordId: w.record.id,
+        rev: w.record.rev,
+        updatedAt: w.record.updatedAt,
+      });
     }
     await tx.done;
   } catch (e) {
@@ -174,7 +216,7 @@ export async function putView(view: { id: string; projectId: string; scale: numb
 /** Löscht ein Projekt mit allen zugehörigen Daten endgültig von diesem Gerät. */
 export async function deleteProjectCompletely(projectId: string): Promise<void> {
   const db = await getDB();
-  const storeNames = ['costCenters', 'files', 'blobs', 'plans', 'damages', 'thumbs', 'views'] as const;
+  const storeNames = ['costCenters', 'files', 'blobs', 'plans', 'damages', 'components', 'outbox', 'thumbs', 'views'] as const;
   const tx = db.transaction(['projects', ...storeNames], 'readwrite');
   for (const name of storeNames) {
     const store = tx.objectStore(name);

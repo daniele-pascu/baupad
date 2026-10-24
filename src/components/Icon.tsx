@@ -30,6 +30,11 @@ const PATHS: Record<string, string> = {
   share: 'M12 3v12M7 8l5-5 5 5M5 13v6a2 2 0 002 2h10a2 2 0 002-2v-6',
   wifiOff: 'M2 2l20 20M8.5 16.5a5 5 0 017 0M5 12.5a10 10 0 015.2-2.8M19 12.5a10 10 0 00-2.1-1.6M2 8.8a15 15 0 014.2-2.6M22 8.8A15 15 0 0011.5 5M12 20h.01',
   hash: 'M5 9h14M5 15h14M10 3L8 21M16 3l-2 18',
+  line: 'M5 19L19 5',
+  triangle: 'M12 4l9 16H3z',
+  component: 'M12 21a9 9 0 100-18 9 9 0 000 18zM8.6 16.2L12 7.5l3.4 8.7M9.9 13.2h4.2',
+  undo: 'M9 14L4 9l5-5M4 9h11a5 5 0 010 10h-4',
+  redo: 'M15 14l5-5-5-5M20 9H9a5 5 0 000 10h4',
 };
 
 export function Icon({ name, size = 22, className }: { name: keyof typeof PATHS | string; size?: number; className?: string }) {

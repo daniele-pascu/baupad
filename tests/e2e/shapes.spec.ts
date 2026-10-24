@@ -31,8 +31,14 @@ test('Freihand bleibt wie gezeichnet; Schadstellen nachträglich drehen und vers
   await page.mouse.down();
   for (let i = 1; i <= 16; i++) await page.mouse.move(x0 + i * 18, y0 + (i % 2 ? 14 : 0), { steps: 3 });
   await page.mouse.up();
-  await expect(page.getByTestId('damage-dialog').getByTestId('input-number')).toHaveValue('1');
-  await fillMeasures(page, '2,9', '0,05', '0,02');
+  const dlg = page.getByTestId('damage-dialog');
+  await expect(dlg.getByTestId('input-number')).toHaveValue('1');
+  // Offene Linie → automatisch Linienmessung (nur Länge, keine Fläche)
+  await expect(dlg.getByTestId('kind-line')).toHaveAttribute('aria-checked', 'true');
+  await expect(dlg.getByTestId('input-width')).toHaveCount(0);
+  await dlg.getByTestId('input-length').fill('2,9');
+  await dlg.getByTestId('input-length').press('Enter');
+  await expect(dlg).toBeHidden();
   const crack = await pathOf(page, 1);
   expect(crack.d).not.toContain('Z'); // nicht automatisch geschlossen
   expect(crack.fill).toBe('none'); // keine Fläche

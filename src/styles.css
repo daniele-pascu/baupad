@@ -424,6 +424,10 @@ a {
   color: #8a1c1c;
   border: 1px solid #f3b7b7;
 }
+.banner-info {
+  background: #eef4fb;
+  border: 1px solid #c5d9ef;
+}
 .banner-warn {
   background: var(--warn-soft);
   border: 1px solid var(--warn-border);
@@ -858,6 +862,17 @@ textarea {
   height: 10px;
   border-radius: 50%;
   vertical-align: middle;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3);
+}
+.editor-side .aufmass-table th,
+.editor-side .aufmass-table td {
+  padding-left: 7px;
+  padding-right: 7px;
+}
+.editor-side .aufmass-table thead th {
+  white-space: normal;
+  line-height: 1.2;
+  vertical-align: bottom;
 }
 
 /* ---------- Planeditor ---------- */
@@ -921,9 +936,106 @@ textarea {
 .editor-side {
   display: flex;
   flex-direction: column;
-  width: 400px;
-  border-left: 1px solid var(--border);
+  width: var(--side-w, 440px);
+  flex-shrink: 0;
   background: var(--bg);
+}
+/* Ziehgriff zwischen Plan und Messleiste */
+.side-resizer {
+  position: relative;
+  flex: 0 0 8px;
+  margin: 0 -4px;
+  z-index: 3;
+  cursor: col-resize;
+  touch-action: none;
+  background: transparent;
+}
+.side-resizer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3.5px;
+  width: 1px;
+  background: var(--border);
+}
+.side-resizer::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 1.5px;
+  width: 5px;
+  height: 36px;
+  margin-top: -18px;
+  border-radius: 3px;
+  background: #c3c9d1;
+}
+.side-resizer:hover::before,
+.side-resizer:focus-visible::before {
+  left: 2.5px;
+  width: 3px;
+  background: var(--primary);
+}
+.side-resizer:focus-visible {
+  outline: none;
+}
+.history-btns {
+  display: inline-flex;
+  gap: 2px;
+}
+.history-btns .icon-btn:disabled {
+  opacity: 0.35;
+}
+.component-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 11px;
+  background: #1c1c1e;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.selection-info .component-tag {
+  margin-left: 0;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.6);
+}
+.kind-cell {
+  white-space: nowrap;
+  color: var(--muted);
+}
+.kind-cell svg {
+  vertical-align: middle;
+}
+.kind-cell .component-tag {
+  margin-left: 4px;
+  min-width: 20px;
+  height: 20px;
+}
+.aufmass-table tr[data-kind='line'] td.num:nth-child(n + 3) {
+  color: var(--muted);
+}
+.aufmass-table tfoot td:first-child {
+  white-space: normal;
+}
+.sum-lines td {
+  font-weight: 500;
+  color: var(--muted);
+}
+.kind-switch {
+  display: flex;
+  width: 100%;
+  margin-bottom: 12px;
+}
+.kind-switch button {
+  flex: 1;
+  justify-content: center;
 }
 .side-head {
   padding: 10px 12px 8px;
@@ -1198,6 +1310,9 @@ textarea {
     width: auto;
     border-left: none;
   }
+  .side-resizer {
+    display: none;
+  }
   .mobile-tabs {
     display: flex;
     margin: 6px 8px;
@@ -1252,6 +1367,18 @@ textarea {
   }
   .tool-btn {
     flex: 1;
+    min-width: 0;
+    padding: 2px 1px;
+    font-size: 0.66rem;
+  }
+  .tool-btn span {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .history-btns .icon-btn {
+    width: 36px;
   }
   .colors {
     border-left: none;
@@ -1851,5 +1978,29 @@ textarea {
   .cc-row .cc-number {
     flex-basis: 84px;
     width: 84px;
+  }
+}
+
+/* Sehr schmale Displays (iPhone hochkant): Plannummer bleibt neben Rückgängig/Wiederholen lesbar */
+@media (max-width: 519px) {
+  .plan-switch .icon-btn {
+    display: none;
+  }
+  .plan-switch select {
+    flex: 1;
+    min-width: 72px;
+    padding: 0 2px;
+  }
+  .editor-topbar {
+    gap: 4px;
+  }
+  .editor-topbar .topbar-actions {
+    gap: 4px;
+  }
+  .editor-topbar .topbar-actions .btn {
+    padding: 6px;
+  }
+  .history-btns .icon-btn {
+    width: 32px;
   }
 }

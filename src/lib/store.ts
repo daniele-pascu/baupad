@@ -7,7 +7,7 @@ import {
   type PendingWrite,
 } from './db';
 import { getDeviceId, uuid } from './ids';
-import type { CostCenter, Damage, EntityMap, EntityStore, Plan, Project, SourceFile } from './types';
+import type { Component, CostCenter, Damage, EntityMap, EntityStore, Plan, Project, SourceFile } from './types';
 
 /**
  * Zentraler Zustand des geöffneten Projekts mit automatischer Speicherung.
@@ -25,6 +25,7 @@ export interface ProjectState {
   files: Record<string, SourceFile>;
   plans: Record<string, Plan>;
   damages: Record<string, Damage>;
+  components: Record<string, Component>;
 }
 
 interface AppState {
@@ -33,6 +34,8 @@ interface AppState {
   loading: boolean;
   loadError: string | null;
   save: { status: SaveStatus; error: string | null; lastSaved: number | null };
+  /** Anzahl der Schritte für Rückgängig/Wiederholen */
+  history: { undo: number; redo: number };
 }
 
 let state: AppState = {
@@ -41,6 +44,7 @@ let state: AppState = {
   loading: false,
   loadError: null,
   save: { status: 'saved', error: null, lastSaved: null },
+  history: { undo: 0, redo: 0 },
 };
 
 const listeners = new Set<() => void>();
@@ -194,6 +198,7 @@ export async function openProject(projectId: string): Promise<void> {
       return;
     }
     baseRevs.clear();
+    clearHistory();
     const toRecord = <T extends { id: string }>(arr: T[], store: EntityStore) =>
       Object.fromEntries(
         arr.map((x) => {
@@ -210,6 +215,7 @@ export async function openProject(projectId: string): Promise<void> {
         files: toRecord(data.files, 'files'),
         plans: toRecord(data.plans, 'plans'),
         damages: toRecord(data.damages, 'damages'),
+        components: toRecord(data.components ?? [], 'components'),
       },
       save: { status: 'saved', error: null, lastSaved: null },
     });
@@ -240,6 +246,7 @@ const collection = {
   files: 'files',
   plans: 'plans',
   damages: 'damages',
+  components: 'components',
 } as const;
 
 type ChildStore = keyof typeof collection;
@@ -261,22 +268,84 @@ function enqueue<S extends EntityStore>(store: S, record: EntityMap[S]) {
 }
 
 /** Legt mehrere Datensätze an bzw. aktualisiert sie (Revision wird erhöht). */
-export function putRecords(items: { [S in ChildStore]?: EntityMap[S][] }): void {
+export function putRecords(items: { [S in ChildStore]?: EntityMap[S][] }, opts: { history?: boolean } = {}): void {
   const data = state.data;
   if (!data) throw new Error('Kein Projekt geöffnet');
   const next: ProjectState = { ...data };
+  const step: HistoryEntry[] = [];
   for (const store of Object.keys(items) as ChildStore[]) {
     const recs = items[store] as EntityMap[ChildStore][];
     if (!recs?.length) continue;
     const map = { ...(next[store] as Record<string, EntityMap[ChildStore]>) };
     for (const rec of recs) {
       const bumped = bump(rec);
+      if (HISTORY_STORES.has(store)) step.push({ store, id: rec.id, before: map[rec.id], after: bumped });
       map[rec.id] = bumped;
       enqueue(store, bumped);
     }
     (next as unknown as Record<string, unknown>)[store] = map;
   }
-  setState({ data: next });
+  if (step.length && opts.history !== false) {
+    undoStack.push(step);
+    if (undoStack.length > 100) undoStack.shift();
+    redoStack.length = 0;
+  }
+  setState({ data: next, history: { undo: undoStack.length, redo: redoStack.length } });
+}
+
+// ---------------------------------------------------------------------------
+// Rückgängig / Wiederholen (Messungen und Bauteile des geöffneten Plans)
+
+type HistoryRecord = EntityMap[ChildStore];
+interface HistoryEntry {
+  store: ChildStore;
+  id: string;
+  /** Stand vorher; undefined = Datensatz wurde neu angelegt */
+  before: HistoryRecord | undefined;
+  after: HistoryRecord;
+}
+const HISTORY_STORES = new Set<ChildStore>(['damages', 'components']);
+const undoStack: HistoryEntry[][] = [];
+const redoStack: HistoryEntry[][] = [];
+
+export function clearHistory(): void {
+  undoStack.length = 0;
+  redoStack.length = 0;
+  if (state.history.undo || state.history.redo) setState({ history: { undo: 0, redo: 0 } });
+}
+
+/** Stellt für jeden Eintrag den gewünschten Stand her – als neue Revision (nie rückwärts). */
+function applyStates(entries: HistoryEntry[], pick: (e: HistoryEntry) => HistoryRecord | undefined) {
+  const data = state.data;
+  if (!data) return;
+  const items: { [S in ChildStore]?: EntityMap[S][] } = {};
+  for (const e of entries) {
+    const current = (data[e.store] as Record<string, HistoryRecord>)[e.id];
+    if (!current) continue;
+    const target = pick(e);
+    // Ziel „nicht vorhanden“ → als gelöscht markieren (Grabstein)
+    const rec = target ? { ...target, rev: current.rev } : { ...current, deletedAt: Date.now() };
+    ((items[e.store] ??= []) as HistoryRecord[]).push(rec);
+  }
+  putRecords(items, { history: false });
+}
+
+export function undo(): boolean {
+  const step = undoStack.pop();
+  if (!step) return false;
+  applyStates(step, (e) => e.before);
+  redoStack.push(step);
+  setState({ history: { undo: undoStack.length, redo: redoStack.length } });
+  return true;
+}
+
+export function redo(): boolean {
+  const step = redoStack.pop();
+  if (!step) return false;
+  applyStates(step, (e) => e.after);
+  undoStack.push(step);
+  setState({ history: { undo: undoStack.length, redo: redoStack.length } });
+  return true;
 }
 
 export function putRecord<S extends ChildStore>(store: S, rec: EntityMap[S]): EntityMap[S] {

@@ -12,6 +12,8 @@ import {
   pathToSvg,
   rectContains,
   isOpenShape,
+  lineShape,
+  triangleShape,
   normalizeRotation,
   resizeRotatedShape,
   rotatePoint,
@@ -27,9 +29,19 @@ import {
 } from '../lib/geometry';
 import { clampRenderScale, getImageBitmap, getPdfDocument, renderPdfRegion, type RenderJob } from '../lib/pdf';
 import { getView, putView } from '../lib/db';
-import type { Damage, Plan, Rect, Shape, ShapeType, SourceFile } from '../lib/types';
+import type { Component, Damage, Plan, Rect, Shape, ShapeType, SourceFile } from '../lib/types';
 
-export type Tool = 'select' | ShapeType;
+/** Werkzeuge: Auswahl, Formen und Bauteilbuchstabe setzen */
+export type Tool = 'select' | ShapeType | 'component';
+
+/** Gut sichtbare Strichfarbe (Weiß wäre auf weißem Plan unsichtbar). */
+export const visibleStroke = (color: string) => (color.toLowerCase() === '#ffffff' ? '#8e8e93' : color);
+/** Kontur unter jeder Markierung: hell unter dunklen Farben, dunkel unter hellen. */
+function haloColor(color: string): string {
+  const n = parseInt(color.replace('#', ''), 16);
+  const lum = 0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255);
+  return lum > 170 ? '#1c1c1e' : '#ffffff';
+}
 
 export interface PlanViewerHandle {
   zoomIn(): void;
@@ -54,6 +66,13 @@ interface Props {
   onShapeChange(id: string, shape: Shape, commit: boolean): void;
   onLabelChange(id: string, offset: { dx: number; dy: number }, commit: boolean): void;
   onHistoryChange?(): void;
+  /** Bauteilkennzeichnungen (A, B, C …) dieses Plans */
+  components: Component[];
+  selectedComponentId: string | null;
+  onSelectComponent(id: string | null): void;
+  onComponentMove(id: string, x: number, y: number, commit: boolean): void;
+  /** Werkzeug „Bauteil“: Stelle im Plan angetippt */
+  onPlaceComponent(p: Point): void;
 }
 
 type Gesture =
@@ -65,6 +84,8 @@ type Gesture =
   | { kind: 'resize'; id: string; handle: string; orig: Shape }
   | { kind: 'rotate'; id: string; orig: Shape; startAngle: number }
   | { kind: 'label'; id: string; start: Point; orig: Rect; moved: boolean }
+  | { kind: 'component'; id: string; start: Point; orig: Point; moved: boolean }
+  | { kind: 'place'; start: Point; view: View; moved: boolean }
   | { kind: 'ignore' };
 
 const isCoarse = () => matchMedia('(pointer: coarse)').matches;
@@ -79,7 +100,7 @@ const isCoarse = () => matchMedia('(pointer: coarse)').matches;
  * in Seitenkoordinaten gespeichert.
  */
 export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewer(props, ref) {
-  const { plan, file, damages, selectedId, tool, color, pending } = props;
+  const { plan, file, damages, selectedId, tool, color, pending, components, selectedComponentId } = props;
   const region: Rect = useMemo(
     () => plan.crop ?? { x: 0, y: 0, w: plan.pageWidth, h: plan.pageHeight },
     [plan.crop, plan.pageWidth, plan.pageHeight],
@@ -375,6 +396,18 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     return null;
   };
 
+  /** Bauteilkennzeichnung unter dem Finger (Kreis mit festem Bildschirmradius) */
+  const hitComponent = (p: Point): Component | null => {
+    const v = viewRef.current!;
+    const r = badgeRadius() + (isCoarse() ? 8 : 3);
+    const list = propsRef.current.components;
+    for (let i = list.length - 1; i >= 0; i--) {
+      const c = toScreen(v, list[i]);
+      if (Math.hypot(c.x - p.x, c.y - p.y) <= r) return list[i];
+    }
+    return null;
+  };
+
   const hitLabel = (p: Point): string | null => {
     for (const [id, r] of labels) if (rectContains(r, p, isCoarse() ? 6 : 2)) return id;
     return null;
@@ -421,6 +454,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         const d = propsRef.current.damages.find((x) => x.id === g.id);
         if (d) propsRef.current.onLabelChange(g.id, d.labelOffset ?? { dx: 0, dy: 0 }, false);
       }
+      if (g.kind === 'component') propsRef.current.onComponentMove(g.id, g.orig.x, g.orig.y, false);
       startPinch();
       return;
     }
@@ -434,7 +468,16 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       return;
     }
     const currentTool = propsRef.current.tool;
+    if (currentTool === 'component') {
+      gesture.current = { kind: 'place', start: p, view: v, moved: false };
+      return;
+    }
     if (currentTool === 'select') {
+      const comp = hitComponent(p);
+      if (comp) {
+        gesture.current = { kind: 'component', id: comp.id, start: toPage(v, p), orig: { x: comp.x, y: comp.y }, moved: false };
+        return;
+      }
       const handle = hitHandle(p);
       if (handle) {
         const sel = propsRef.current.damages.find((d) => d.id === propsRef.current.selectedId)!;
@@ -483,12 +526,22 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         setView({ scale, tx: mid.x - (g.mid.x - g.view.tx) * f, ty: mid.y - (g.mid.y - g.view.ty) * f });
         return;
       }
-      case 'pan': {
+      case 'pan':
+      case 'place': {
         const dx = p.x - g.start.x;
         const dy = p.y - g.start.y;
         if (!g.moved && Math.hypot(dx, dy) < 6) return;
         g.moved = true;
         setView({ ...g.view, tx: g.view.tx + dx, ty: g.view.ty + dy });
+        return;
+      }
+      case 'component': {
+        const pp = toPage(v, p);
+        const dx = pp.x - g.start.x;
+        const dy = pp.y - g.start.y;
+        if (!g.moved && Math.hypot(dx, dy) * v.scale < 4) return;
+        g.moved = true;
+        propsRef.current.onComponentMove(g.id, g.orig.x + dx, g.orig.y + dy, false);
         return;
       }
       case 'draw': {
@@ -572,6 +625,21 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
           }
         }
         return;
+      case 'place':
+        if (!g.moved && !cancelled) propsRef.current.onPlaceComponent(toPage(v, p));
+        return;
+      case 'component': {
+        if (!g.moved) {
+          propsRef.current.onSelectComponent(g.id);
+          return;
+        }
+        const c = propsRef.current.components.find((x) => x.id === g.id);
+        if (c) {
+          if (cancelled) propsRef.current.onComponentMove(g.id, g.orig.x, g.orig.y, true);
+          else propsRef.current.onComponentMove(g.id, c.x, c.y, true);
+        }
+        return;
+      }
       case 'draw': {
         forceRender((n) => n + 1);
         if (cancelled) return;
@@ -640,19 +708,23 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   const renderShape = (shape: Shape, col: string, opts: { selected?: boolean; dashed?: boolean; key?: string; id?: string }) => {
     if (!view) return null;
     const d = pathToSvg(shapePath(shape), (p) => toScreen(view, p));
+    const w = opts.selected ? strokeW + 1.5 : strokeW;
     return (
-      <path
-        key={opts.key}
-        d={d}
-        fill={isOpenShape(shape) ? 'none' : col}
-        fillOpacity={opts.selected ? 0.2 : 0.12}
-        stroke={col}
-        strokeWidth={opts.selected ? strokeW + 1.5 : strokeW}
-        strokeDasharray={opts.dashed ? '6 4' : undefined}
-        strokeLinejoin="round"
-        strokeLinecap="round"
-        data-damage={opts.id}
-      />
+      <g key={opts.key}>
+        {/* Kontur für gute Sichtbarkeit auf hellen und dunklen Planbereichen */}
+        <path d={d} fill="none" stroke={haloColor(col)} strokeOpacity={0.75} strokeWidth={w + 2.5} strokeLinejoin="round" strokeLinecap="round" />
+        <path
+          d={d}
+          fill={isOpenShape(shape) ? 'none' : col}
+          fillOpacity={opts.selected ? 0.2 : 0.12}
+          stroke={col}
+          strokeWidth={w}
+          strokeDasharray={opts.dashed ? '6 4' : undefined}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          data-damage={opts.id}
+        />
+      </g>
     );
   };
 
@@ -718,9 +790,24 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
             const sel = d.id === selectedId;
             return (
               <g key={`l-${d.id}`} className={`damage-label${sel ? ' selected' : ''}`} data-label={d.number}>
-                <rect x={r.x} y={r.y} width={r.w} height={r.h} rx={3} fill="#fff" fillOpacity={0.95} stroke={d.color} strokeWidth={sel ? 2.4 : 1.4} />
+                <rect x={r.x} y={r.y} width={r.w} height={r.h} rx={3} fill="#fff" fillOpacity={0.95} stroke={visibleStroke(d.color)} strokeWidth={sel ? 2.4 : 1.4} />
                 <text x={r.x + r.w / 2} y={r.y + r.h / 2} fontSize={labelFont} textAnchor="middle" dominantBaseline="central">
                   {d.number}
+                </text>
+              </g>
+            );
+          })}
+          {components.map((c) => {
+            const p = toScreen(view, c);
+            const r = badgeRadius();
+            const sel = c.id === selectedComponentId;
+            return (
+              <g key={`c-${c.id}`} className={`component-badge${sel ? ' selected' : ''}`} data-component={c.letter}>
+                <title>{c.name ? `${c.letter} – ${c.name}` : c.letter}</title>
+                {sel && <circle cx={p.x} cy={p.y} r={r + 5} className="component-ring" />}
+                <circle cx={p.x} cy={p.y} r={r} fill={c.color.toLowerCase() === '#ffffff' ? '#1c1c1e' : '#fff'} stroke={visibleStroke(c.color)} strokeWidth={sel ? 3.5 : 2.5} />
+                <text x={p.x} y={p.y} textAnchor="middle" dominantBaseline="central" fill={c.color.toLowerCase() === '#ffffff' ? '#fff' : visibleStroke(c.color)} fontSize={r * (c.letter.length > 1 ? 0.8 : 1.05)}>
+                  {c.letter}
                 </text>
               </g>
             );
@@ -812,6 +899,8 @@ function shapeFromDraw(g: Extract<Gesture, { kind: 'draw' }>, v: View, preview =
     // Antippen: Markierung in Standardgröße anlegen
     const s = 36 / v.scale;
     const base = { x: g.start.x - s / 2, y: g.start.y - s / 2, w: s, h: s };
+    if (g.tool === 'line') return lineShape({ x: g.start.x - s / 2, y: g.start.y }, { x: g.start.x + s / 2, y: g.start.y });
+    if (g.tool === 'triangle') return triangleShape(base);
     if (g.tool === 'freehand') {
       const pts = Array.from({ length: 10 }, (_, i) => {
         const a = (i / 10) * Math.PI * 2;
@@ -836,5 +925,10 @@ function shapeFromDraw(g: Extract<Gesture, { kind: 'draw' }>, v: View, preview =
     const closeDist = Math.max(18 / v.scale, 0.08 * Math.hypot(r.w, r.h));
     return freehandShape(g.points, 0.5 / v.scale, closeDist) ?? { type: 'ellipse', ...r };
   }
+  if (g.tool === 'line') return lineShape(g.start, g.current);
+  if (g.tool === 'triangle') return triangleShape(r);
   return { type: g.tool, ...r };
 }
+
+/** Bildschirmradius der Bauteilkennzeichnung */
+const badgeRadius = () => (isCoarse() ? 15 : 13);
