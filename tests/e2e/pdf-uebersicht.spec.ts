@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { catchDownload, createProject, FIXTURES, freshStart, OUT, saveDownload, waitForPlan, waitSaved } from './helpers';
 
-/** Paket E1: Übersicht des Gesamtplans mit rot markiertem Ausschnitt im PDF. */
+/** Übersicht des Gesamtplans mit rot markiertem Ausschnitt im PDF (im freien Platz des A4/A3-Blatts). */
 
 /** Ausschnitt direkt setzen (entspricht „Ausschnitt“ im Planmenü) */
 async function setCrop(page: Page, planNumber: string, frac: { x: number; y: number; w: number; h: number }) {
@@ -79,7 +79,10 @@ test('PDF-Plan mit Ausschnitt: Übersicht ein/aus, Position wählbar, Ausschnitt
   expect(off.text).not.toContain('Gesamtplan');
   const tr = await exportPdf(page, 'uebersicht-or', { overview: true, corner: 'tr' });
   expect(tr.text).toMatch(/Gesamtplan . Ausschnitt rot/);
-  expect(width(tr.info)).toBeGreaterThan(width(off.info) * 1.15); // Seite um den Randstreifen erweitert
+  // Format bleibt A4 quer – die Übersicht sitzt im freien Platz neben dem Plan
+  expect(off.info).toMatch(/Page size:\s+841\.89 x 595\.27\d* pts/);
+  expect(tr.info).toMatch(/Page size:\s+841\.89 x 595\.27\d* pts/);
+  expect(width(tr.info)).toBeCloseTo(width(off.info), 3);
   // Rote Ausschnittsmarkierung rechts im Randstreifen, nicht im Plan
   expect(redShare(tr.png, 0.8, 1)).toBeGreaterThan(0.002);
   const bl = await exportPdf(page, 'uebersicht-ul', { overview: true, corner: 'bl' });

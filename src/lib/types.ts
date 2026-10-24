@@ -93,6 +93,13 @@ export interface Plan extends SyncMeta {
   /** Startnummer der Schadstellennummerierung dieses Plans (mindestens 1) */
   numberStart: number;
   sortIndex: number;
+  /**
+   * Importierte Pläne: Papierformat für den PDF-Export (fehlt bei älteren Plänen → A4 passend
+   * zur Ausrichtung). Gezeichnete Pläne verwenden das Format des Zeichenblatts (drawing.paper).
+   */
+  paper?: PaperFormat;
+  /** Überschrift im PDF (leer bzw. fehlend = „Aufmaßplan <Plannummer>“) */
+  title?: string;
 }
 
 /**

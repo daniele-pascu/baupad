@@ -15,14 +15,16 @@ import {
 } from './geometry';
 import { canvasToBlob, closePdf, clampRenderScale, imageToCanvas, loadImageBitmap, openPdf, renderPdfRegion, renderPdfToCanvas } from './pdf';
 import type { ProjectState } from './store';
+import { exportPaper, layoutSheet, planHeading, type OverviewCorner, type SheetLayout } from './sheet-layout';
 import type { Component, Damage, Plan, Rect } from './types';
 
 /**
  * PDF-Export bearbeiteter Pläne.
  *
- * PDF-Pläne: Die Originalseite wird unverändert (vektoriell) übernommen; Markierungen,
- * Nummern und Plankopf werden als Vektorgrafik darübergelegt. Die Seite wird oben um einen
- * Streifen für den Plankopf erweitert, damit kein Planinhalt verdeckt wird.
+ * Jede Seite hat genau das Papierformat des Plans (A4/A3, hoch/quer). Der Plan bzw. Ausschnitt
+ * wird proportional und zentriert in den Druckbereich (1 cm Rand, Kopfzeile) eingepasst.
+ * PDF-Pläne: Die Originalseite wird vektoriell eingebettet (nur der Planbereich); Markierungen,
+ * Nummern und Kopfzeile werden als Vektorgrafik darübergelegt.
  * Bildpläne (und PDFs, die sich nicht verändern lassen, z. B. verschlüsselte) werden als
  * hochauflösendes Bild eingebettet.
  * Die Originaldateien bleiben unverändert.
@@ -67,11 +69,11 @@ interface Target {
   ptPerUnit: number;
 }
 
-export type OverviewCorner = 'tr' | 'tl' | 'br' | 'bl';
+export type { OverviewCorner } from './sheet-layout';
 
 export interface PdfExportOptions {
   planIds: string[];
-  /** Übersicht des Gesamtplans bei Planausschnitten (in einem Randstreifen, verdeckt nichts) */
+  /** Übersicht des Gesamtplans bei Planausschnitten (im freien Platz des Blatts, verdeckt nichts) */
   overview?: { enabled: boolean; corner: OverviewCorner };
 }
 
@@ -121,8 +123,11 @@ async function addPlanPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   if (!file) throw new Error(`Originaldatei zu Plan ${planTitle(plan)} fehlt.`);
   const region: Rect = plan.crop ?? { x: 0, y: 0, w: plan.pageWidth, h: plan.pageHeight };
   const damages = damagesOf(data, plan.id);
-  // Bauteilbuchstaben werden nicht mehr verwendet (Daten bleiben gespeichert, erscheinen aber nicht im Export)
-  const components: ReturnType<typeof componentsOf> = [];
+  // Blatt A4/A3: Plan(ausschnitt) proportional und zentriert eingepasst, Übersicht im freien Platz
+  const withOverview = !!(ctx.overview?.enabled && plan.crop);
+  const L = layoutSheet(exportPaper(plan), region, {
+    overview: withOverview ? { aspect: plan.pageWidth / plan.pageHeight, corner: ctx.overview!.corner } : null,
+  });
 
   if (file.kind === 'pdf') {
     const bytes = await getBlob(file.id);
@@ -143,51 +148,45 @@ async function addPlanPage(ctx: Ctx, data: ProjectState, plan: Plan) {
       ctx.libDocs.set(file.id, libDoc);
     }
     const libDoc = ctx.libDocs.get(file.id);
+    const full = withOverview ? await renderPdfToCanvas(jsPage, 900) : null;
     if (libDoc) {
-      const before = ctx.out.getPageCount();
       try {
-        const [page] = await ctx.out.copyPages(libDoc, [plan.pageIndex]);
-        ctx.out.addPage(page);
+        // Originalseite vektoriell einbetten: nur der Planbereich (BBox), skaliert und ggf. gedreht
+        // auf die Planfläche des Blatts (Matrix aus der Ansichtstransformation von pdf.js)
         const viewport = jsPage.getViewport({ scale: 1 });
-        const header = headerHeight(region, 1);
-        const map = (p: Point): Point => {
-          const [x, y] = viewport.convertToPdfPoint(p.x, p.y);
-          return { x, y };
-        };
-        const ov = overviewLayout(ctx, plan, region, header);
-        // Sichtbaren Bereich auf Planausschnitt + Kopfstreifen (+ Streifen für die Übersicht) setzen
-        const corners = [
-          map({ x: Math.min(region.x, ov?.strip.x ?? Infinity), y: region.y - header }),
-          map({ x: Math.max(region.x + region.w, ov ? ov.strip.x + ov.strip.w : -Infinity), y: region.y + region.h }),
+        const [a, b, c, d, e, f] = viewport.transform as number[];
+        const pts = [
+          [region.x, region.y],
+          [region.x + region.w, region.y],
+          [region.x, region.y + region.h],
+          [region.x + region.w, region.y + region.h],
+        ].map(([x, y]) => viewport.convertToPdfPoint(x, y) as number[]);
+        const xs = pts.map((q) => q[0]);
+        const ys = pts.map((q) => q[1]);
+        const bbox = { left: Math.min(...xs), bottom: Math.min(...ys), right: Math.max(...xs), top: Math.max(...ys) };
+        const u = L.u;
+        const matrix: [number, number, number, number, number, number] = [
+          u * a,
+          -u * b,
+          u * c,
+          -u * d,
+          L.plan.x + (e - region.x) * u,
+          L.h - L.plan.y - (f - region.y) * u,
         ];
-        const box = {
-          x: Math.min(corners[0].x, corners[1].x),
-          y: Math.min(corners[0].y, corners[1].y),
-          w: Math.abs(corners[0].x - corners[1].x),
-          h: Math.abs(corners[0].y - corners[1].y),
-        };
-        page.setMediaBox(box.x, box.y, box.w, box.h);
-        page.setCropBox(box.x, box.y, box.w, box.h);
-        page.setTrimBox(box.x, box.y, box.w, box.h);
-        page.setBleedBox(box.x, box.y, box.w, box.h);
-        page.setArtBox(box.x, box.y, box.w, box.h);
-        const target: Target = { page, map, textRotation: page.getRotation().angle, ptPerUnit: 1 };
-        drawHeader(ctx, plan, target, region, header);
-        drawDamages(ctx, target, region, damages, components);
-        if (ov) await drawOverview(ctx, target, plan, ov, await renderPdfToCanvas(jsPage, 900));
+        const embedded = await ctx.out.embedPage(libDoc.getPage(plan.pageIndex), bbox, matrix);
+        const page = ctx.out.addPage([L.w, L.h]);
+        page.drawPage(embedded);
+        await finishSheet(ctx, page, plan, L, region, damages, full);
         return;
       } catch (e) {
         console.warn('Vektor-Export nicht möglich, verwende Bild-Export', e);
-        // eine evtl. bereits hinzugefügte, unvollständige Seite entfernen
-        if (ctx.out.getPageCount() > before) ctx.out.removePage(before);
       }
     }
-    // Bild-Export für nicht veränderbare PDFs: 200 dpi
-    const scale = clampRenderScale(region.w, region.h, 200 / 72);
+    // Bild-Export für nicht veränderbare PDFs: etwa 200 dpi auf dem Papier
+    const scale = clampRenderScale(region.w, region.h, Math.max(1, (L.u * 200) / 72));
     const canvas = document.createElement('canvas');
     await renderPdfRegion(jsPage, canvas, region, scale).promise;
-    const full = overviewLayout(ctx, plan, region, headerHeight(region, 1)) ? await renderPdfToCanvas(jsPage, 900) : null;
-    await addRasterPage(ctx, plan, region, damages, components, canvas, 1, full);
+    await addRasterSheet(ctx, plan, L, region, damages, canvas, full);
     return;
   }
 
@@ -196,107 +195,63 @@ async function addPlanPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   const bitmap = await loadImageBitmap(bytes, file.mimeType);
   try {
     const canvas = imageToCanvas(bitmap, 8192, region);
-    const full = overviewLayout(ctx, plan, region, headerHeight(region, 72 / 150)) ? imageToCanvas(bitmap, 900, null) : null;
-    // Bildpixel als 150 dpi interpretieren
-    await addRasterPage(ctx, plan, region, damages, components, canvas, 72 / 150, full);
+    const full = withOverview ? imageToCanvas(bitmap, 900, null) : null;
+    await addRasterSheet(ctx, plan, L, region, damages, canvas, full);
   } finally {
     bitmap.close();
   }
 }
 
-async function addRasterPage(
-  ctx: Ctx,
-  plan: Plan,
-  region: Rect,
-  damages: Damage[],
-  components: Component[],
-  canvas: HTMLCanvasElement,
-  ptPerUnit: number,
-  fullPage: HTMLCanvasElement | null = null,
-) {
+async function addRasterSheet(ctx: Ctx, plan: Plan, L: SheetLayout, region: Rect, damages: Damage[], canvas: HTMLCanvasElement, full: HTMLCanvasElement | null) {
   const blob = await canvasToBlob(canvas, 'image/jpeg', 0.92);
   const img = await ctx.out.embedJpg(await blob.arrayBuffer());
-  const header = headerHeight(region, ptPerUnit);
-  const ov = fullPage ? overviewLayout(ctx, plan, region, header) : null;
-  const x0 = Math.min(region.x, ov?.strip.x ?? Infinity);
-  const x1 = Math.max(region.x + region.w, ov ? ov.strip.x + ov.strip.w : -Infinity);
-  const w = (x1 - x0) * ptPerUnit;
-  const h = (region.h + header) * ptPerUnit;
-  const page = ctx.out.addPage([w, h]);
-  page.drawImage(img, { x: (region.x - x0) * ptPerUnit, y: 0, width: region.w * ptPerUnit, height: region.h * ptPerUnit });
-  const map = (p: Point): Point => ({ x: (p.x - x0) * ptPerUnit, y: h - (p.y - (region.y - header)) * ptPerUnit });
-  const target: Target = { page, map, textRotation: 0, ptPerUnit };
-  drawHeader(ctx, plan, target, region, header);
-  drawDamages(ctx, target, region, damages, components);
-  if (ov && fullPage) await drawOverview(ctx, target, plan, ov, fullPage);
+  const page = ctx.out.addPage([L.w, L.h]);
+  page.drawImage(img, { x: L.plan.x, y: L.h - L.plan.y - L.plan.h, width: L.plan.w, height: L.plan.h });
+  await finishSheet(ctx, page, plan, L, region, damages, full);
+}
+
+/** Kopfzeile, Markierungen mit Nummern und ggf. Übersicht auf das Blatt zeichnen. */
+async function finishSheet(ctx: Ctx, page: PDFPage, plan: Plan, L: SheetLayout, region: Rect, damages: Damage[], full: HTMLCanvasElement | null) {
+  const map = (p: Point): Point => ({ x: L.plan.x + (p.x - region.x) * L.u, y: L.h - (L.plan.y + (p.y - region.y) * L.u) });
+  const target: Target = { page, map, textRotation: 0, ptPerUnit: L.u };
+  drawSheetHeader(ctx, page, L, planHeading(plan), PAPER[exportPaper(plan)].label);
+  drawDamages(ctx, target, region, damages, []);
+  if (L.overview && full && plan.crop) await drawOverview(ctx, page, L, plan, L.overview, full);
+}
+
+/** Überschrift links im Kopfbereich, rechts klein das Format bzw. der Maßstab; Trennlinie darunter. */
+function drawSheetHeader(ctx: Ctx, page: PDFPage, L: SheetLayout, title: string, right: string) {
+  const size = 16;
+  const rightText = clean(ctx, right);
+  const rw = ctx.font.widthOfTextAtSize(rightText, 10);
+  page.drawText(fitText(ctx.bold, clean(ctx, title), size, L.header.w - rw - 16), { x: L.header.x, y: L.h - L.header.y - size, size, font: ctx.bold, color: rgb(0.1, 0.1, 0.12) });
+  page.drawText(rightText, { x: L.header.x + L.header.w - rw, y: L.h - L.header.y - 14, size: 10, font: ctx.font, color: rgb(0.3, 0.33, 0.38) });
+  const ly = L.h - (L.header.y + L.header.h) + 6;
+  page.drawLine({ start: { x: L.header.x, y: ly }, end: { x: L.header.x + L.header.w, y: ly }, thickness: 0.5, color: rgb(0.8, 0.82, 0.85) });
 }
 
 // ---------------------------------------------------------------------------
 // Übersicht des Gesamtplans bei Planausschnitten
 
-interface OverviewLayout {
-  /** Randstreifen neben dem Ausschnitt (Seitenkoordinaten), über die ganze Höhe */
-  strip: Rect;
-  /** Position der verkleinerten Gesamtseite im Streifen */
-  inset: Rect;
-  /** x der Trennlinie zwischen Plan und Streifen */
-  edgeX: number;
-}
-
-/** Lage der Übersicht – nur für Pläne mit Ausschnitt und wenn eingeschaltet. */
-function overviewLayout(ctx: Ctx, plan: Plan, region: Rect, header: number): OverviewLayout | null {
-  if (!ctx.overview?.enabled || !plan.crop) return null;
-  const corner = ctx.overview.corner;
-  const fullW = plan.pageWidth;
-  const fullH = plan.pageHeight;
-  const avail = region.h + header;
-  const pad = Math.max(region.w, region.h) * 0.02;
-  // Etwa ein Viertel der Ausschnittsgröße, höchstens so hoch wie die Seite
-  let iw = Math.max(region.w, region.h) * 0.26;
-  let ih = (iw * fullH) / fullW;
-  if (ih > avail - 2 * pad - header) {
-    ih = Math.max(avail - 2 * pad - header, avail * 0.3);
-    iw = (ih * fullW) / fullH;
-  }
-  const strip: Rect = {
-    x: corner.endsWith('l') ? region.x - iw - 2 * pad : region.x + region.w,
-    y: region.y - header,
-    w: iw + 2 * pad,
-    h: avail,
-  };
-  const top = corner.startsWith('t');
-  const inset: Rect = { x: strip.x + pad, y: top ? region.y + pad * 1.5 : region.y + region.h - pad - ih, w: iw, h: ih };
-  return { strip, inset, edgeX: corner.endsWith('l') ? region.x : region.x + region.w };
-}
-
-async function drawOverview(ctx: Ctx, t: Target, plan: Plan, ov: OverviewLayout, fullPage: HTMLCanvasElement) {
-  const u = 1 / t.ptPerUnit;
-  // Streifen weiß abdecken (bei PDF-Seiten läge dort sonst der übrige Originalplan)
-  drawRectMapped(t, ov.strip, { color: rgb(1, 1, 1) });
-  t.page.drawLine({ start: t.map({ x: ov.edgeX, y: ov.strip.y }), end: t.map({ x: ov.edgeX, y: ov.strip.y + ov.strip.h }), thickness: 0.5, color: rgb(0.8, 0.82, 0.85) });
-  const blob = await canvasToBlob(fullPage, 'image/jpeg', 0.85);
+async function drawOverview(ctx: Ctx, page: PDFPage, L: SheetLayout, plan: Plan, o: Rect, full: HTMLCanvasElement) {
+  const blob = await canvasToBlob(full, 'image/jpeg', 0.85);
   const img: PDFImage = await ctx.out.embedJpg(await blob.arrayBuffer());
-  const anchor = t.map({ x: ov.inset.x, y: ov.inset.y + ov.inset.h });
-  t.page.drawImage(img, { x: anchor.x, y: anchor.y, width: ov.inset.w * t.ptPerUnit, height: ov.inset.h * t.ptPerUnit, rotate: degrees(t.textRotation) });
-  drawRectMapped(t, ov.inset, { borderColor: rgb(0.45, 0.48, 0.52), borderWidth: 0.6 });
+  const y = (top: number, hgt: number) => L.h - top - hgt;
+  page.drawImage(img, { x: o.x, y: y(o.y, o.h), width: o.w, height: o.h });
+  page.drawRectangle({ x: o.x, y: y(o.y, o.h), width: o.w, height: o.h, borderColor: rgb(0.45, 0.48, 0.52), borderWidth: 0.6 });
   // Verwendeter Ausschnitt rot umrandet (maßstäblich zur Gesamtseite)
   const c = plan.crop!;
-  const sx = ov.inset.w / plan.pageWidth;
-  const sy = ov.inset.h / plan.pageHeight;
-  drawRectMapped(t, { x: ov.inset.x + c.x * sx, y: ov.inset.y + c.y * sy, w: c.w * sx, h: c.h * sy }, { borderColor: rgb(0.86, 0.1, 0.1), borderWidth: 1.6 });
-  const fs = Math.max(6, Math.min(10, ov.inset.w * t.ptPerUnit * 0.06));
-  drawTextMapped(t, clean(ctx, fitText(ctx.font, 'Gesamtplan – Ausschnitt rot', fs, ov.inset.w * t.ptPerUnit)), { x: ov.inset.x, y: ov.inset.y - fs * 0.5 * u }, fs, ctx.font, rgb(0.35, 0.38, 0.42));
+  const sx = o.w / plan.pageWidth;
+  const sy = o.h / plan.pageHeight;
+  page.drawRectangle({ x: o.x + c.x * sx, y: y(o.y + c.y * sy, c.h * sy), width: c.w * sx, height: c.h * sy, borderColor: rgb(0.86, 0.1, 0.1), borderWidth: 1.6 });
+  const fs = 7;
+  page.drawText(clean(ctx, fitText(ctx.font, 'Gesamtplan – Ausschnitt rot', fs, o.w)), { x: o.x, y: L.h - (o.y + o.h) - fs - 2, size: fs, font: ctx.font, color: rgb(0.35, 0.38, 0.42) });
 }
 
-/** Schriftgröße der Nummern in PDF-Punkten, abhängig von der Plangröße. */
+/** Schriftgröße der Nummern in PDF-Punkten, abhängig von der Plangröße auf dem Papier. */
 function labelFontPt(region: Rect, ptPerUnit: number): number {
   const minSide = Math.min(region.w, region.h) * ptPerUnit;
-  return Math.max(6, Math.min(16, minSide * 0.011));
-}
-
-/** Höhe des Kopfstreifens in Seiteneinheiten. */
-function headerHeight(region: Rect, ptPerUnit: number): number {
-  return (labelFontPt(region, ptPerUnit) * 2.4) / ptPerUnit;
+  return Math.max(7, Math.min(16, minSide * 0.011));
 }
 
 function drawRectMapped(t: Target, r: Rect, opts: { color?: ReturnType<typeof rgb>; borderColor?: ReturnType<typeof rgb>; borderWidth?: number; opacity?: number }) {
@@ -317,18 +272,6 @@ function drawRectMapped(t: Target, r: Rect, opts: { color?: ReturnType<typeof rg
 function drawTextMapped(t: Target, text: string, at: Point, size: number, font: PDFFont, color = rgb(0.1, 0.1, 0.12)) {
   const p = t.map(at);
   t.page.drawText(text, { x: p.x, y: p.y, size, font, color, rotate: degrees(t.textRotation) });
-}
-
-/** Kopfstreifen: nur „Aufmaßplan <Plannummer>“. */
-function drawHeader(ctx: Ctx, plan: Plan, t: Target, region: Rect, header: number) {
-  const u = 1 / t.ptPerUnit; // Seiteneinheiten je Punkt
-  const fs = labelFontPt(region, t.ptPerUnit);
-  const strip = { x: region.x, y: region.y - header, w: region.w, h: header };
-  drawRectMapped(t, strip, { color: rgb(1, 1, 1) });
-  const titleSize = fs * 1.3;
-  const title = clean(ctx, `Aufmaßplan ${plan.planNumber || plan.planName}`.trim());
-  const maxW = region.w * t.ptPerUnit - 2 * fs * 0.8;
-  drawTextMapped(t, fitText(ctx.bold, title, titleSize, maxW), { x: region.x + fs * 0.8 * u, y: strip.y + fs * 1.65 * u }, titleSize, ctx.bold);
 }
 
 /** Gut sichtbare Strichfarbe (Weiß wäre auf weißem Plan unsichtbar) */
@@ -456,7 +399,7 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   const target: Target = { page, map, textRotation: 0, ptPerUnit: u };
 
   // Kopf: „Aufmaßplan <Nr.>“ und Maßstab
-  const title = clean(ctx, `Aufmaßplan ${plan.planNumber || plan.planName}`.trim());
+  const title = clean(ctx, planHeading(plan));
   page.drawText(fitText(ctx.bold, title, 16, W - 2 * margin - 160), { x: margin, y: H - margin - 16, size: 16, font: ctx.bold, color: rgb(0.1, 0.1, 0.12) });
   const scaleText = `Maßstab 1:${scaleN} (${paperFmt ? paperFmt.label.replace('format', '') : 'A3'})`;
   page.drawText(clean(ctx, scaleText), {
@@ -524,12 +467,13 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   }
   // Messungen und Bauteilbuchstaben darüber
   drawDamages(ctx, target, region, damages, components);
-  // Maßstabsleiste unten links im Rand: runde Länge, ca. 40–60 mm auf dem Papier
+  // Maßstabsleiste rechts im Kopfbereich (nicht im 1-cm-Rand): runde Länge, ca. 35–60 mm
   const nice = [0.5, 1, 2, 5, 10, 20, 50, 100, 200];
   const barM = nice.find((m) => (m * 1000) / scaleN >= 35) ?? 200;
   const barPt = ((barM * 1000) / scaleN) * MM;
-  const bx = margin;
-  const by = margin * 0.45;
+  const lblW = ctx.font.widthOfTextAtSize(`${String(barM).replace('.', ',')} m`, 6.5);
+  const bx = W - margin - barPt - lblW / 2;
+  const by = H - margin - 28;
   const seg = 4;
   for (let i = 0; i < seg; i++)
     page.drawRectangle({ x: bx + (barPt / seg) * i, y: by, width: barPt / seg, height: 3, color: i % 2 ? rgb(1, 1, 1) : rgb(0.15, 0.15, 0.17), borderColor: rgb(0.15, 0.15, 0.17), borderWidth: 0.5 });

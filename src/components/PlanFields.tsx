@@ -4,6 +4,7 @@ import { formatMeasure } from '../lib/numbers';
 import { elementsOf } from '../lib/aufmass';
 import { planNumberStart } from '../lib/numbering';
 import { alive, newMeta, putRecord, type ProjectState } from '../lib/store';
+import { exportPaper, planHeading } from '../lib/sheet-layout';
 import type { PaperFormat, Plan } from '../lib/types';
 import { Modal } from './Modal';
 
@@ -13,6 +14,8 @@ export interface PlanFieldValues {
   floor: string;
   area: string;
   description: string;
+  /** Überschrift im PDF (leer = „Aufmaßplan <Plannummer>“) */
+  title?: string;
 }
 
 export function PlanFields({
@@ -54,6 +57,19 @@ export function PlanFields({
         <input value={value.area} onChange={(e) => onChange({ area: e.target.value })} placeholder="z. B. Decke, Wand Nord" data-field="area" autoComplete="off" enterKeyHint="next" />
       </label>
       <label className="field span-2">
+        <span>Überschrift im PDF</span>
+        <input
+          value={value.title ?? ''}
+          onChange={(e) => onChange({ title: e.target.value })}
+          placeholder={planHeading({ planNumber: value.planNumber.trim(), planName: value.planName.trim() })}
+          data-field="title"
+          autoComplete="off"
+          enterKeyHint="next"
+          maxLength={120}
+        />
+        <small className="muted">Leer lassen für „Aufmaßplan“ mit Plannummer.</small>
+      </label>
+      <label className="field span-2">
         <span>Bemerkungen (optional)</span>
         <textarea value={value.description} onChange={(e) => onChange({ description: e.target.value })} rows={2} data-field="description" placeholder="z. B. Bereich Tiefgarage Nord" />
       </label>
@@ -69,7 +85,10 @@ export function PlanDetailsDialog({ plan, data, onClose }: { plan: Plan; data: P
     floor: plan.floor,
     area: plan.area,
     description: plan.description,
+    title: plan.title ?? '',
   });
+  /** Importierte Pläne: Papierformat für den PDF-Export */
+  const [exportFmt, setExportFmt] = useState<PaperFormat>(() => exportPaper(plan));
   const [start, setStart] = useState(String(planNumberStart(plan)));
   const [paper, setPaper] = useState<PaperFormat | ''>(plan.drawing?.paper ?? '');
   const [scale, setScale] = useState(plan.drawing?.scale ?? 100);
@@ -107,7 +126,8 @@ export function PlanDetailsDialog({ plan, data, onClose }: { plan: Plan; data: P
                 area: v.area.trim(),
                 description: v.description.trim(),
                 numberStart: Number(start.trim()),
-                ...(isDrawingPlan(plan) && paper ? sheetFields(paper, scale) : {}),
+                title: v.title?.trim() ?? '',
+                ...(isDrawingPlan(plan) ? (paper ? sheetFields(paper, scale) : {}) : { paper: exportFmt }),
               });
               onClose();
             }}
@@ -131,11 +151,14 @@ export function PlanDetailsDialog({ plan, data, onClose }: { plan: Plan; data: P
           <p className="muted small">Selbst gezeichneter Plan (Maße in Metern).</p>
         </>
       ) : (
+        <>
+        <ExportPaperField value={exportFmt} onChange={setExportFmt} />
         <p className="muted small">
           Originaldatei: {data.files[plan.fileId]?.name ?? '–'}
           {(data.files[plan.fileId]?.pageCount ?? 1) > 1 && `, Seite ${plan.pageIndex + 1}`}
           {plan.crop && ', Planbereich'}
         </p>
+        </>
       )}
     </Modal>
   );
@@ -187,6 +210,7 @@ export function NewDrawingDialog({
       floor: v.floor.trim(),
       area: v.area.trim(),
       description: v.description.trim(),
+      title: v.title?.trim() ?? '',
       numberStart: 1,
       sortIndex: siblings.length ? Math.max(...siblings.map((p) => p.sortIndex)) + 1 : 0,
     };
@@ -231,6 +255,25 @@ export function NewDrawingDialog({
         <button type="submit" hidden />
       </form>
     </Modal>
+  );
+}
+
+/**
+ * Papierformat für den PDF-Export importierter Pläne. Der Plan bzw. Ausschnitt wird darin
+ * proportional und zentriert eingepasst; das Format ändert sich dabei nie von selbst.
+ */
+export function ExportPaperField({ value, onChange }: { value: PaperFormat; onChange: (p: PaperFormat) => void }) {
+  return (
+    <label className="field">
+      <span>Papierformat (PDF)</span>
+      <select value={value} onChange={(e) => onChange(e.target.value as PaperFormat)} data-testid="export-paper">
+        {PAPER_FORMATS.map((f) => (
+          <option key={f} value={f}>
+            {PAPER[f].label}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 

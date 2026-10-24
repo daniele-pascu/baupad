@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+import { PAPER } from '../lib/drawing';
+import { exportPaper } from '../lib/sheet-layout';
 import { costCenterLabel, costCentersOf, damagesOf, planTitle, plansOf } from '../lib/aufmass';
 import type { OverviewCorner } from '../lib/export-pdf';
 import type { ProjectState } from '../lib/store';
@@ -72,8 +74,9 @@ export function PdfExportDialog({ data, costCenterId, initial, onClose }: Props)
       }
     >
       <p className="muted">
-        Jeder ausgewählte Plan wird als eigene Seite mit allen Markierungen, Nummern, Plannummer und Planbezeichnung
-        ausgegeben. Die Originaldateien bleiben unverändert.
+        Jeder ausgewählte Plan wird als eigene Seite im gewählten Papierformat (A4/A3) mit allen Markierungen und Nummern
+        ausgegeben – proportional eingepasst, mit 1 cm Rand. Das Format lässt sich in den Planangaben ändern. Die
+        Originaldateien bleiben unverändert.
       </p>
       <div className="row gap">
         <button type="button" className="btn btn-sm" onClick={() => setSelected(new Set(allIds))}>
@@ -90,7 +93,10 @@ export function PdfExportDialog({ data, costCenterId, initial, onClose }: Props)
             <label key={p.id} className="check-row">
               <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggle(p.id)} />
               <span>
-                {planTitle(p)} <span className="muted">· {damagesOf(data, p.id).length} Schadstellen</span>
+                {planTitle(p)}{' '}
+                <span className="muted">
+                  · {damagesOf(data, p.id).length} Schadstellen · <span data-testid="pdf-plan-paper">{PAPER[exportPaper(p)].label}</span>
+                </span>
               </span>
             </label>
           ))}

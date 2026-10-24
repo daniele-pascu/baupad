@@ -5,11 +5,12 @@ import { uuid } from '../lib/ids';
 import { naturalCompare } from '../lib/numbers';
 import { closePdf, imageToCanvas, loadImageBitmap, openPdf, pageSize, renderPdfToCanvas } from '../lib/pdf';
 import { alive, newMeta, putRecords, type ProjectState } from '../lib/store';
-import type { Plan, Rect, SourceFile } from '../lib/types';
+import type { PaperFormat, Plan, Rect, SourceFile } from '../lib/types';
+import { defaultPaper } from '../lib/sheet-layout';
 import { AreaEditor } from './AreaEditor';
 import { Icon } from './Icon';
 import { Modal } from './Modal';
-import { PlanFields, type PlanFieldValues } from './PlanFields';
+import { ExportPaperField, PlanFields, type PlanFieldValues } from './PlanFields';
 import { showError, toast } from './ui';
 
 interface Props {
@@ -24,6 +25,8 @@ interface Draft extends PlanFieldValues {
   key: string;
   pageIndex: number;
   crop: Rect | null;
+  /** Papierformat für den PDF-Export (Standard: A4 passend zur Ausrichtung) */
+  paper: PaperFormat;
 }
 
 type Step = 'loading' | 'pages' | 'areas' | 'describe' | 'saving';
@@ -135,7 +138,8 @@ export function ImportWizard({ file, data, costCenterId, onClose, onDone }: Prop
   };
 
   const goDescribe = async () => {
-    for (const p of sortedPages) await getSize(p);
+    const pageSizes = new Map<number, { width: number; height: number }>();
+    for (const p of sortedPages) pageSizes.set(p, await getSize(p));
     const prev = new Map(drafts.map((d) => [d.key, d]));
     const next: Draft[] = [];
     for (const page of sortedPages) {
@@ -150,6 +154,7 @@ export function ImportWizard({ file, data, costCenterId, onClose, onDone }: Prop
             key,
             pageIndex: page,
             crop,
+            paper: defaultPaper(crop ?? { w: pageSizes.get(page)!.width, h: pageSizes.get(page)!.height }),
             planNumber: '',
             planName: suffix ? `${baseName} (${suffix})` : baseName,
             floor: '',
@@ -216,6 +221,8 @@ export function ImportWizard({ file, data, costCenterId, onClose, onDone }: Prop
           floor: d.floor.trim(),
           area: d.area.trim(),
           description: d.description.trim(),
+          title: d.title?.trim() ?? '',
+          paper: d.paper,
           numberStart: 1,
           sortIndex: sortIndex++,
         };
@@ -345,6 +352,7 @@ export function ImportWizard({ file, data, costCenterId, onClose, onDone }: Prop
                 error={showErrors ? draftErrors[i] : null}
                 onChange={(v) => setDrafts(drafts.map((x, j) => (j === i ? { ...x, ...v } : x)))}
               />
+              <ExportPaperField value={d.paper} onChange={(paper) => setDrafts(drafts.map((x, j) => (j === i ? { ...x, paper } : x)))} />
             </div>
           ))}
         </div>

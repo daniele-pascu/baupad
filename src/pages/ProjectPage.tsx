@@ -14,6 +14,7 @@ import { confirmDialog, offerFile, promptDialog, showError, toast } from '../com
 import { aufmassRows, componentsOf, findPosition, costCenterLabel, costCentersOf, damagesOf, elementsOf, exportXlsx, lvDocsOf, planTitle, plansOf, type XlsxLayout } from '../lib/aufmass';
 import { BACKUP_REMIND_DAYS, backupStatus, exportProjectBackup, type BackupStatus } from '../lib/backup';
 import { isDrawingPlan } from '../lib/drawing';
+import { exportPaper } from '../lib/sheet-layout';
 import { formatDate, formatDateTime } from '../lib/numbers';
 import { navigate, paths } from '../lib/router';
 import { flush, newMeta, putRecord, putRecords, softDelete, updateProject, useAppState, type ProjectState } from '../lib/store';
@@ -474,7 +475,8 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
           onClose={() => setCropping(null)}
           onDone={(areas) => {
             const plan = data.plans[cropping.plan.id];
-            putRecord('plans', { ...plan, crop: areas[0] ?? null });
+            // Papierformat bleibt erhalten (ältere Pläne: bisheriges automatisches Format festhalten)
+            putRecord('plans', { ...plan, paper: plan.paper ?? exportPaper(plan), crop: areas[0] ?? null });
             setCropping(null);
             toast('Planausschnitt geändert. Die Schadstellen behalten ihre Position auf der Seite.');
           }}
