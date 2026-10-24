@@ -44,7 +44,9 @@ export type Tool = 'select' | ShapeType | 'component' | 'dimension' | 'text' | '
 const PLACE_TOOLS = new Set<Tool>(['component', 'text']);
 
 /** Bearbeitbares Objekt der Planansicht (Messung bzw. Zeichnungsobjekt in Seitenkoordinaten). */
-export type ViewerItem = Pick<Damage, 'id' | 'number' | 'shape' | 'color' | 'labelOffset'>;
+export type ViewerItem = Pick<Damage, 'id' | 'number' | 'shape' | 'color' | 'labelOffset'> & Partial<Pick<Damage, 'label'>>;
+/** Angezeigte Nummer bzw. Kennzeichnung */
+const noOf = (d: ViewerItem) => d.label?.trim() || String(d.number);
 
 /** Einrasten: liefert den eingerasteten Punkt (Seitenkoordinaten). */
 export type SnapFn = (p: Point, ctx: { from?: Point; tool?: Tool; scale: number; movingId?: string }) => Point;
@@ -426,7 +428,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         id: d.id,
         bounds: shapeAABB(d.shape),
         shape: d.shape,
-        w: (String(d.number).length * labelFont * 0.62 + labelFont * 0.8) * k,
+        w: (noOf(d).length * labelFont * 0.62 + labelFont * 0.8) * k,
         h: labelFont * 1.5 * k,
         offset: d.labelOffset,
       })),
@@ -441,7 +443,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     for (const d of damages) {
       const r = labelLayout.get(d.id);
       if (!r) continue;
-      const w = String(d.number).length * labelFont * 0.62 + labelFont * 0.8;
+      const w = noOf(d).length * labelFont * 0.62 + labelFont * 0.8;
       const c = toScreen(view, { x: r.x + r.w / 2, y: r.y + r.h / 2 });
       out.set(d.id, { x: c.x - w / 2, y: c.y - h / 2, w, h });
     }
@@ -981,10 +983,10 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
             if (!r) return null;
             const sel = d.id === selectedId;
             return (
-              <g key={`l-${d.id}`} className={`damage-label${sel ? ' selected' : ''}`} data-label={d.number}>
+              <g key={`l-${d.id}`} className={`damage-label${sel ? ' selected' : ''}`} data-label={noOf(d)}>
                 <rect x={r.x} y={r.y} width={r.w} height={r.h} rx={3} fill="#fff" fillOpacity={0.95} stroke={visibleStroke(d.color)} strokeWidth={sel ? 2.4 : 1.4} />
                 <text x={r.x + r.w / 2} y={r.y + r.h / 2} fontSize={labelFont} textAnchor="middle" dominantBaseline="central">
-                  {d.number}
+                  {noOf(d)}
                 </text>
               </g>
             );

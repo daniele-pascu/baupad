@@ -107,7 +107,7 @@ export function aufmassSheet(name: string, rows: AufmassRow[]): Omit<Sheet, 'nam
   const header: Cell[] = XLSX_HEADERS.map((h) => str(h, 'header'));
   const body: Cell[][] = rows.map(({ plan, damage }) => [
     str(plan.planNumber || plan.planName || ''),
-    num(damage.number, 'int'),
+    (damage.label ? str(damage.label) : num(damage.number, 'int')),
     num(damage.length, 'measure'),
     // Leere Werte bleiben leere Zellen (keine 0): Linien haben keine Breite/Fläche, Tiefe ist optional
     damage.width === null ? null : num(damage.width, 'measure'),
@@ -271,7 +271,7 @@ export function planSheet(data: ProjectState, plan: Plan, used: Set<string>): Sh
   const kindCol = headers.indexOf('Messart');
   const body: Cell[][] = damages.map((d) => {
     const row: Cell[] = [
-      num(d.number, 'int'),
+      (d.label ? str(d.label) : num(d.number, 'int')),
       num(d.length, 'measure'),
       d.width === null ? blank() : num(d.width, 'measure'),
       // leere Tiefe bleibt leer (nicht 0)
@@ -434,7 +434,7 @@ function unassignedSheet(data: ProjectState, plans: Plan[], used: Set<string>): 
       ['Plan', 'Nr.', 'Messart', 'Länge (m)', 'Breite (m)', 'Tiefe (m)', 'Fläche (m²)'].map((h) => str(h, 'header')),
       ...rows.map(({ p, d }) => [
         str(p.planNumber),
-        num(d.number, 'int'),
+        (d.label ? str(d.label) : num(d.number, 'int')),
         str(KIND_LABELS[kindOf(d)]),
         num(d.length, 'measure'),
         d.width === null ? blank() : num(d.width, 'measure'),

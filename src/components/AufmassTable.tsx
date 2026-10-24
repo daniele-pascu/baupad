@@ -3,6 +3,7 @@ import type { AufmassRow } from '../lib/aufmass';
 import { sumArea } from '../lib/aufmass';
 import { countKind, KIND_LABELS, kindOf, sumLengths } from '../lib/measure';
 import { formatArea, formatMeasure } from '../lib/numbers';
+import { damageNo } from '../lib/numbering';
 import type { Component } from '../lib/types';
 import { Icon } from './Icon';
 
@@ -62,7 +63,7 @@ export function AufmassTable({ rows, showPlan, selectedId, onSelect, onEdit, onD
             const sel = r.damage.id === selectedId;
             const kind = kindOf(r.damage);
             const comp = r.damage.componentId ? components?.[r.damage.componentId] : undefined;
-            const label = `${KIND_LABELS[kind]} ${r.damage.number}`;
+            const label = `${KIND_LABELS[kind]} ${damageNo(r.damage)}`;
             return (
               <tr
                 key={r.damage.id}
@@ -70,12 +71,12 @@ export function AufmassTable({ rows, showPlan, selectedId, onSelect, onEdit, onD
                 className={`${sel ? 'selected' : ''}${duplicates?.has(r.damage.id) ? ' duplicate' : ''}`}
                 onClick={() => onSelect?.(r)}
                 data-testid="aufmass-row"
-                data-number={r.damage.number}
+                data-number={damageNo(r.damage)}
                 data-kind={kind}
               >
                 {showPlan && <td>{r.plan.planNumber}</td>}
                 <td className="num">
-                  <span className="color-dot" style={{ background: r.damage.color }} /> {r.damage.number}
+                  <span className="color-dot" style={{ background: r.damage.color }} /> {damageNo(r.damage)}
                 </td>
                 <td className="num">{formatMeasure(r.damage.length)}</td>
                 <td className="num">{formatMeasure(r.damage.width)}</td>

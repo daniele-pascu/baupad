@@ -94,3 +94,77 @@ export function duplicateNumbers(damages: Pick<Damage, 'number'>[]): number[] {
   }
   return [...dup].sort((a, b) => a - b);
 }
+
+// ---------------------------------------------------------------------------
+// Kennzeichnungen aus Zahlen und Buchstaben (z. B. „A“, „Wand B“, „1A“)
+
+/** Angezeigte Nummer bzw. Kennzeichnung einer Messung. */
+export const damageNo = (d: Pick<Damage, 'number' | 'label'>): string => d.label?.trim() || String(d.number);
+
+const nextLetters = (s: string): string => {
+  // A → B, Z → AA, AZ → BA (Groß-/Kleinschreibung bleibt erhalten)
+  const upper = s === s.toUpperCase();
+  const chars = s.toUpperCase().split('');
+  let i = chars.length - 1;
+  while (i >= 0) {
+    if (chars[i] !== 'Z') {
+      chars[i] = String.fromCharCode(chars[i].charCodeAt(0) + 1);
+      break;
+    }
+    chars[i] = 'A';
+    i--;
+  }
+  const out = (i < 0 ? 'A' : '') + chars.join('');
+  return upper ? out : out.toLowerCase();
+};
+
+/**
+ * Nächste Kennzeichnung nach einem eindeutigen Schema – sonst null (dann manuelle Eingabe):
+ * „12“ → „13“, „A“ → „B“, „Z“ → „AA“, „Wand A“ → „Wand B“, „1A“ → „1B“, „A1“ → „A2“, „P-09“ → „P-10“.
+ * Nicht eindeutig sind z. B. „Wand“ (Wort ohne Zähler) oder Kennzeichnungen ohne Buchstaben/Ziffern am Ende.
+ */
+export function nextLabel(prev: string): string | null {
+  const s = prev.trim();
+  const digits = /^(.*?)(\d+)$/.exec(s);
+  if (digits) {
+    const [, head, n] = digits;
+    const next = String(Number(n) + 1).padStart(n.length, '0');
+    return head + next;
+  }
+  // Am Ende 1–2 Buchstaben (gleiche Schreibweise), davor Anfang, Leerzeichen, Ziffer oder Zeichen
+  const letters = /^(.*?)([A-Za-z]{1,2})$/.exec(s);
+  if (letters) {
+    const [, head, l] = letters;
+    if (l !== l.toUpperCase() && l !== l.toLowerCase()) return null;
+    if (head && /[A-Za-zÄÖÜäöüß]$/.test(head)) return null; // Teil eines Wortes, z. B. „Wand“
+    return head + nextLetters(l);
+  }
+  return null;
+}
+
+/**
+ * Vorschlag für die nächste Messung eines Plans: Das Schema der zuletzt angelegten Messung wird
+ * fortgesetzt (Zahl bzw. Kennzeichnung). Ist es nicht eindeutig, bleibt die Kennzeichnung leer.
+ */
+export function suggestNext(
+  damages: Pick<Damage, 'id' | 'number' | 'label' | 'createdAt'>[],
+  numberStart = MIN_NUMBER,
+): { number: number; label: string | null } {
+  const plain = damages.filter((d) => !d.label?.trim());
+  const last = [...damages].sort((a, b) => b.createdAt - a.createdAt)[0];
+  if (!last || !last.label?.trim()) return { number: nextNumber(plain, numberStart), label: null };
+  const used = new Set(damages.map((d) => damageNo(d).toLowerCase()));
+  let cand = nextLabel(last.label);
+  for (let i = 0; cand && used.has(cand.toLowerCase()) && i < 200; i++) cand = nextLabel(cand);
+  return { number: nextNumber(damages, numberStart), label: cand && !used.has(cand.toLowerCase()) ? cand : '' };
+}
+
+/** Messungen mit doppelt vergebener Nummer bzw. Kennzeichnung (Groß-/Kleinschreibung egal). */
+export function duplicateIds(damages: Pick<Damage, 'id' | 'number' | 'label'>[]): Set<string> {
+  const byKey = new Map<string, string[]>();
+  for (const d of damages) {
+    const k = damageNo(d).toLowerCase();
+    byKey.set(k, [...(byKey.get(k) ?? []), d.id]);
+  }
+  return new Set([...byKey.values()].filter((ids) => ids.length > 1).flat());
+}

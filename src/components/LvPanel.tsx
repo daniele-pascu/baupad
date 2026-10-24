@@ -1,6 +1,7 @@
 import { Fragment, useMemo, useRef, useState } from 'react';
 import { damagesForPosition, lvDocLabel, lvDocsOf, planTitle, positionRef } from '../lib/aufmass';
 import { uuid } from '../lib/ids';
+import { damageNo } from '../lib/numbering';
 import { readLvFromPdf } from '../lib/lv-import';
 import { sumPositions, type ParsedLv } from '../lib/lv-parse';
 import { quantityBasis, quantityFor } from '../lib/measure';
@@ -395,7 +396,7 @@ function LvDocView({ data, doc, onEdit, onDelete }: { data: ProjectState; doc: L
                               return (
                                 <li key={d.id}>
                                   <a href={paths.plan(data.project.id, d.planId, d.id)}>
-                                    {plan ? planTitle(plan) : 'Plan'} · Nr. {d.number}
+                                    {plan ? planTitle(plan) : 'Plan'} · Nr. {damageNo(d)}
                                   </a>{' '}
                                   <span className="muted">
                                     {formatMeasure(d.length)} m{d.area !== null ? ` · ${formatArea(d.area)} m²` : ''}

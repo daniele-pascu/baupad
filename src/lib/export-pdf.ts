@@ -3,6 +3,7 @@ import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { componentsOf, costCenterLabel, damagesOf, elementsOf, planTitle, safeFileName, type ExportFile } from './aufmass';
 import { annotationsOf, contentRegion, dimGeometry, drawingSheet, isDrawingPlan, PAPER, PRINT_HEADER_MM, PRINT_MARGIN_MM, printScale, shapeToPage, unitsPerMeter } from './drawing';
 import { getBlob } from './db';
+import { damageNo } from './numbering';
 import {
   layoutLabels,
   leaderLine,
@@ -297,7 +298,7 @@ function drawDamages(ctx: Ctx, t: Target, region: Rect, damages: Damage[], compo
       id: d.id,
       bounds: shapeAABB(d.shape),
       shape: d.shape,
-      w: ctx.bold.widthOfTextAtSize(String(d.number), fs) * u + 2 * padX,
+      w: ctx.bold.widthOfTextAtSize(clean(ctx, damageNo(d)), fs) * u + 2 * padX,
       h: boxH,
       offset: d.labelOffset,
     })),
@@ -313,7 +314,7 @@ function drawDamages(ctx: Ctx, t: Target, region: Rect, damages: Damage[], compo
     const r = labels.get(d.id)!;
     const color = hexToRgb(visibleHex(d.color));
     drawRectMapped(t, r, { color: rgb(1, 1, 1), borderColor: color, borderWidth: stroke * 0.8, opacity: 0.92 });
-    drawTextMapped(t, String(d.number), { x: r.x + padX, y: r.y + boxH * 0.73 }, fs, ctx.bold);
+    drawTextMapped(t, clean(ctx, damageNo(d)), { x: r.x + padX, y: r.y + boxH * 0.73 }, fs, ctx.bold);
   }
   // Bauteilkennzeichnungen (A, B, C …) als Kreis mit Buchstabe
   for (const c of components) {

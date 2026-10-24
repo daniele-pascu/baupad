@@ -144,6 +144,11 @@ export interface Damage extends SyncMeta {
   projectId: string;
   planId: string;
   number: number;
+  /**
+   * Kennzeichnung aus Buchstaben bzw. Zahl und Buchstaben, z. B. „A“, „Wand B“, „1A“ (optional).
+   * Fehlt sie, wird die Nummer angezeigt. `number` bleibt für die Reihenfolge erhalten.
+   */
+  label?: string | null;
   /** Messart; fehlt bei älteren Einträgen und gilt dann als Schadstelle */
   kind?: MeasureKind;
   shape: Shape;

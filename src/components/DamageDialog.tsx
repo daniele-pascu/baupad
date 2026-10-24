@@ -1,12 +1,15 @@
 import { useRef, useState } from 'react';
 import { hasArea, KIND_LABELS, KINDS } from '../lib/measure';
 import { checkMeasure, computeArea, formatArea, parseDecimal, toInputValue } from '../lib/numbers';
-import { findByNumber, parseDamageNumber } from '../lib/numbering';
+import { damageNo, findByNumber, parseDamageNumber } from '../lib/numbering';
 import { COLORS, SHAPE_LABELS, type Component, type Damage, type MeasureKind, type ShapeType } from '../lib/types';
 import { Modal } from './Modal';
 
 export interface DamageValues {
+  /** Nummer (bei einer Kennzeichnung aus Buchstaben: bisherige Nummer bzw. 0 = neu vergeben) */
   number: number;
+  /** Kennzeichnung, z. B. „A“, „Wand B“ – null, wenn eine reine Zahl eingegeben wurde */
+  label: string | null;
   kind: MeasureKind;
   length: number;
   /** null bei Linienmessungen */
@@ -25,8 +28,8 @@ export type Renumber = 'none' | 'swap' | 'shift';
 interface Props {
   mode: 'new' | 'edit';
   damage: Pick<Damage, 'id' | 'number' | 'color' | 'labelOffset'> &
-    Partial<Pick<Damage, 'length' | 'width' | 'depth' | 'componentId' | 'positionRef'>> & { shapeType: ShapeType; kind: MeasureKind };
-  others: Pick<Damage, 'id' | 'number' | 'area'>[];
+    Partial<Pick<Damage, 'length' | 'width' | 'depth' | 'componentId' | 'positionRef' | 'label'>> & { shapeType: ShapeType; kind: MeasureKind };
+  others: Pick<Damage, 'id' | 'number' | 'area' | 'label'>[];
   /** Bauteilkennzeichnungen des Plans für die optionale Zuordnung */
   components: Pick<Component, 'id' | 'letter' | 'name'>[];
   /** Leistungspositionen (LV/MFK) für die optionale Zuordnung */
@@ -46,7 +49,7 @@ type Field = 'number' | 'length' | 'width' | 'depth';
  */
 export function DamageDialog({ mode, damage, others, components, positions = [], suggestion, onSave, onCancel, onDelete }: Props) {
   const [v, setV] = useState({
-    number: String(damage.number),
+    number: damage.label ?? String(damage.number),
     length: toInputValue(damage.length),
     width: toInputValue(damage.width),
     depth: toInputValue(damage.depth),
@@ -63,16 +66,30 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const withArea = hasArea(kind);
   const fields: Field[] = withArea ? ['number', 'length', 'width', 'depth'] : ['number', 'length'];
 
+  // Reine Zahl = Nummer; sonst Kennzeichnung aus Buchstaben (z. B. „A“, „Wand B“, „1A“).
   // Eine unveränderte bestehende Nummer (auch eine ältere 0) bleibt gültig; neue Nummern ab 1
-  const num = v.number.trim() === String(damage.number) ? damage.number : parseDamageNumber(v.number);
+  const raw = v.number.trim();
+  const isNumeric = /^\d+$/.test(raw);
+  const num = isNumeric ? (!damage.label && raw === String(damage.number) ? damage.number : parseDamageNumber(raw)) : null;
+  const label = !isNumeric && raw ? raw : null;
+  const labelTaken = label ? others.find((o) => o.id !== damage.id && damageNo(o).toLowerCase() === label.toLowerCase()) : undefined;
   const L = checkMeasure(v.length, 'Länge');
   const B = withArea ? checkMeasure(v.width, 'Breite') : null;
   // Tiefe ist optional: leer bleibt leer (null), eine Eingabe muss aber gültig sein
   const T = withArea && v.depth.trim() ? checkMeasure(v.depth, 'Tiefe') : null;
   const area = withArea && L.ok && B?.ok ? computeArea(L.value, B.value) : null;
-  const conflict = num !== null ? findByNumber(others, num, damage.id) : undefined;
+  // Nummernkonflikte nur unter reinen Nummern (Kennzeichnungen haben eine eigene Prüfung)
+  const conflict = num !== null ? findByNumber(others.filter((o) => !o.label), num, damage.id) : undefined;
   const errors: Record<Field, string | null> = {
-    number: num === null ? 'Bitte eine ganze Zahl ab 1 eingeben.' : null,
+    number: !raw
+      ? 'Bitte eine Nummer oder Kennzeichnung eingeben (z. B. 1, A, Wand A).'
+      : isNumeric && num === null
+        ? 'Bitte eine ganze Zahl ab 1 eingeben.'
+        : label && label.length > 12
+          ? 'Kennzeichnung: höchstens 12 Zeichen.'
+          : labelTaken
+            ? `„${label}“ ist in diesem Plan bereits vergeben.`
+            : null,
     length: L.ok ? null : L.error,
     width: B && !B.ok ? B.error : null,
     depth: T && !T.ok ? T.error : null,
@@ -81,7 +98,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
 
   const submit = (renumber: Renumber = 'none') => {
     setShowErrors(true);
-    if (!valid || num === null || !L.ok) {
+    if (!valid || (num === null && !label) || !L.ok) {
       const first = fields.find((f) => errors[f]);
       if (first) refs.current[first]?.focus();
       return;
@@ -89,7 +106,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
     if (conflict && renumber === 'none') return; // Hinweis wird angezeigt
     onSave(
       {
-        number: num,
+        number: num ?? (damage.label ? damage.number : 0),
+        label,
         kind,
         length: L.value,
         width: B?.ok ? B.value : null,
@@ -128,7 +146,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
           onChange={(e) => setV({ ...v, [name]: e.target.value })}
           onKeyDown={onKeyDown(name)}
           onFocus={(e) => e.target.select()}
-          inputMode={name === 'number' ? 'numeric' : 'decimal'}
+          inputMode={name === 'number' ? 'text' : 'decimal'}
+          autoCapitalize={name === 'number' ? 'characters' : undefined}
           enterKeyHint={fields[fields.length - 1] === name ? 'done' : 'next'}
           autoComplete="off"
           placeholder={name === 'depth' ? 'optional' : undefined}
@@ -146,7 +165,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
 
   return (
     <Modal
-      title={mode === 'new' ? `Neue ${KIND_LABELS[kind]}` : `${KIND_LABELS[kind]} ${damage.number} bearbeiten`}
+      title={mode === 'new' ? `Neue ${KIND_LABELS[kind]}` : `${KIND_LABELS[kind]} ${damageNo(damage)} bearbeiten`}
       onClose={onCancel}
       persistent
       testId="damage-dialog"
@@ -189,7 +208,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
           ))}
         </div>
         <div className="measure-grid">
-          {field('number', 'Nummer', 'Nr.')}
+          {field('number', 'Nr. / Kennz.', 'Nr.')}
           {field('length', 'Länge', 'm')}
           {withArea && field('width', 'Breite', 'm')}
           {withArea && field('depth', 'Tiefe (optional)', 'm')}

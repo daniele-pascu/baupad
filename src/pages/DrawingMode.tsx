@@ -4,6 +4,7 @@ import { renderDims, renderElement, renderPreviewDims, renderSheet } from '../co
 import type { PlanViewerHandle, SnapFn, Tool, ViewerItem } from '../components/PlanViewer';
 import { confirmDialog, promptDialog, toast } from '../components/ui';
 import { elementsOf } from '../lib/aufmass';
+import { damageNo } from '../lib/numbering';
 import {
   applyMeasures,
   circleFromMeasures,
@@ -226,7 +227,7 @@ export function useDrawing(opts: { plan: Plan | undefined; data: ProjectState; d
         title: `${elementLabel(e)} löschen?`,
         message: (
           <p>
-            Auf diesem Objekt liegen <strong>{over.length} Messung(en)</strong> (Nr. {over.map((d) => d.number).join(', ')}). Die Messungen und
+            Auf diesem Objekt liegen <strong>{over.length} Messung(en)</strong> (Nr. {over.map((d) => damageNo(d)).join(', ')}). Die Messungen und
             ihre Maße bleiben erhalten – nur das Zeichnungsobjekt wird entfernt. Mit „Rückgängig“ lässt es sich wiederherstellen.
           </p>
         ),

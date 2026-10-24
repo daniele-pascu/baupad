@@ -13,13 +13,13 @@ import { drawingRegion, drawingSheet, isDrawingPlan, paperLabel, suggestMeasures
 import { convertShape } from '../lib/geometry';
 import { countKind, defaultKindFor, hasArea, KIND_LABELS, KINDS, kindOf, sumLengths } from '../lib/measure';
 import { computeArea, formatArea, formatMeasure } from '../lib/numbers';
-import { compactNumbers, duplicateNumbers, nextNumber, planNumberStart, shiftNumbers, swapNumbers } from '../lib/numbering';
+import { compactNumbers, damageNo, duplicateIds, nextNumber, planNumberStart, shiftNumbers, suggestNext, swapNumbers } from '../lib/numbering';
 import { navigate, paths } from '../lib/router';
 import { clearHistory, newMeta, putRecord, putRecords, redo, softDelete, undo, useAppState, type ProjectState } from '../lib/store';
 import { COLORS, SHAPE_LABELS, type Damage, type DrawElementType, type MeasureKind, type Shape, type ShapeType } from '../lib/types';
 import { DRAW_TOOLS, useDrawing } from './DrawingMode';
 
-type DialogState = { mode: 'new'; shape: Shape; number: number; kind: MeasureKind } | { mode: 'edit'; id: string } | null;
+type DialogState = { mode: 'new'; shape: Shape; number: number; label: string | null; kind: MeasureKind } | { mode: 'edit'; id: string } | null;
 
 const TOOLS: { id: Tool; label: string; short?: string; icon: string; key: string }[] = [
   { id: 'select', label: 'Auswählen / Verschieben', short: 'Auswahl', icon: 'select', key: 'v' },
@@ -150,8 +150,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const stored = useMemo(() => (plan ? damagesOf(data, plan.id) : []), [data, plan]);
   const damages = useMemo(() => stored.map((d) => (overrides[d.id] ? { ...d, ...overrides[d.id] } : d)), [stored, overrides]);
   const dupIds = useMemo(() => {
-    const dups = new Set(duplicateNumbers(stored));
-    return new Set(stored.filter((d) => dups.has(d.number)).map((d) => d.id));
+    return duplicateIds(stored);
   }, [stored]);
   const selected = damages.find((d) => d.id === selectedId) ?? null;
   const drawing = useDrawing({ plan, data, damages, viewer });
@@ -285,7 +284,17 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       area,
       componentId: v.componentId,
       positionRef: v.positionRef,
+      label: v.label,
     };
+    // Kennzeichnung (z. B. „A“): Die Nummer dient nur der Reihenfolge – bestehende bleibt, neue ans Ende
+    const number = v.label
+      ? dialog.mode === 'edit'
+        ? data.damages[dialog.id].number
+        : nextNumber(stored, planNumberStart(plan))
+      : v.number;
+    // Umnummerieren betrifft nur Messungen mit reiner Nummer
+    const plain = stored.filter((d) => !d.label);
+    const shown = v.label ?? String(v.number);
     storePref('measureKind', v.kind);
     setLastPosition(v.positionRef ?? '');
     if (dialog.mode === 'new') {
@@ -293,17 +302,17 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         ...newMeta(),
         projectId: plan.projectId,
         planId: plan.id,
-        number: v.number,
+        number,
         shape: convertShape(dialog.shape, v.shapeType),
         color: v.color,
         labelOffset: null,
         ...measures,
       };
-      if (renumber !== 'none') {
+      if (renumber !== 'none' && !v.label) {
         // Kontrollierte Umnummerierung; beim Tausch erhält die bisherige Schadstelle die
         // automatisch vorgeschlagene Nummer der neuen.
         const base = { ...dmg, number: dialog.number };
-        const all = [...stored, base];
+        const all = [...plain, base];
         const changes = renumber === 'swap' ? swapNumbers(all, base.id, v.number) : shiftNumbers(all, base.id, v.number);
         const recs = [...changes].map(([id, n]) => (id === base.id ? { ...base, number: n } : { ...data.damages[id], number: n }));
         putRecords({ damages: recs });
@@ -313,7 +322,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       if (v.color !== color) setColor(v.color);
       setSelectedId(dmg.id);
       const amount = area !== null ? `${formatArea(area)} m²` : `${formatMeasure(v.length)} m`;
-      toast(`${KIND_LABELS[v.kind]} ${v.number} gespeichert (${amount}).`, 'success', 2500);
+      toast(`${KIND_LABELS[v.kind]} ${shown} gespeichert (${amount}).`, 'success', 2500);
     } else {
       const d = data.damages[dialog.id];
       const patch = {
@@ -323,9 +332,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         shape: convertShape(d.shape, v.shapeType),
         labelOffset: v.resetLabel ? null : d.labelOffset,
       };
-      if (renumber === 'none') putRecord('damages', { ...d, ...patch, number: v.number });
+      if (renumber === 'none' || v.label) putRecord('damages', { ...d, ...patch, number });
       else {
-        const changes = renumber === 'swap' ? swapNumbers(stored, d.id, v.number) : shiftNumbers(stored, d.id, v.number);
+        const changes = renumber === 'swap' ? swapNumbers([...plain.filter((x) => x.id !== d.id), d], d.id, v.number) : shiftNumbers([...plain.filter((x) => x.id !== d.id), d], d.id, v.number);
         applyRenumber(changes, patch);
       }
     }
@@ -333,7 +342,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   };
 
   const removeDamage = async (d: Damage) => {
-    const label = `${KIND_LABELS[kindOf(d)]} ${d.number}`;
+    const label = `${KIND_LABELS[kindOf(d)]} ${damageNo(d)}`;
     const ok = await confirmDialog({
       title: `${label} löschen?`,
       message: (
@@ -354,7 +363,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
 
 
   const compact = async () => {
-    const changes = compactNumbers(stored, planNumberStart(plan));
+    // Nur reine Nummern werden lückenlos gemacht; Kennzeichnungen (A, B …) bleiben unverändert
+    const changes = compactNumbers(stored.filter((d) => !d.label), planNumberStart(plan));
     if (!changes.size) {
       toast('Die Nummerierung ist bereits lückenlos.');
       return;
@@ -613,7 +623,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 setDialog({
                   mode: 'new',
                   shape,
-                  number: nextNumber(stored, planNumberStart(plan)),
+                  ...suggestNext(stored, planNumberStart(plan)),
                   kind: defaultKindFor(shape, loadPref('measureKind', KINDS, 'damage')),
                 })
               }
@@ -722,7 +732,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               <div className="selection-info">
                 <span className="color-dot" style={{ background: selected.color }} />
                 <strong>
-                  {kindOf(selected) === 'damage' ? '' : `${KIND_LABELS[kindOf(selected)]} `}Nr. {selected.number}
+                  {kindOf(selected) === 'damage' ? '' : `${KIND_LABELS[kindOf(selected)]} `}Nr. {damageNo(selected)}
                 </strong>
                 <span>{measureSummary(selected)}</span>
                 {drawingPlan && <MeasureCheck damage={selected} k={unitsPerMeter(plan)} />}
@@ -818,7 +828,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                   aria-label={`Farbe ${c.name}`}
                   aria-pressed={color === c.value}
                   title={
-                    selected ? `Farbe ${c.name} (auch für Nr. ${selected.number})` : `Farbe ${c.name}`
+                    selected ? `Farbe ${c.name} (auch für Nr. ${damageNo(selected)})` : `Farbe ${c.name}`
                   }
                 />
               ))}
@@ -882,6 +892,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           damage={{
             id: '',
             number: dialog.number,
+            label: dialog.label,
             color,
             labelOffset: null,
             shapeType: dialog.shape.type,

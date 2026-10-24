@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { checkMeasure, computeArea, formatArea, formatMeasure, parseDecimal } from '../../src/lib/numbers';
-import { compactNumbers, duplicateNumbers, nextNumber, parseDamageNumber, planNumberStart, shiftNumbers, swapNumbers } from '../../src/lib/numbering';
+import { compactNumbers, duplicateIds, duplicateNumbers, nextLabel, nextNumber, parseDamageNumber, planNumberStart, shiftNumbers, suggestNext, swapNumbers } from '../../src/lib/numbering';
 import { fitView, freehandShape, hitShape, layoutLabels, rectsOverlap, resizeShape, toPage, toScreen, zoomAt } from '../../src/lib/geometry';
 import { colName, sheetName } from '../../src/lib/xlsx';
 import { safeFileName } from '../../src/lib/aufmass';
@@ -176,5 +176,36 @@ describe('Sicherungs-Erinnerung', () => {
   it('nie gesichert: Frist ab Anlage des Projekts', () => {
     expect(isBackupDue(now, null, now - 4 * day, now)).toBe(true);
     expect(isBackupDue(now, null, now - day, now)).toBe(false);
+  });
+});
+
+describe('Kennzeichnung aus Zahlen und Buchstaben', () => {
+  it('setzt eindeutige Schemata fort', () => {
+    expect(nextLabel('1')).toBe('2');
+    expect(nextLabel('A')).toBe('B');
+    expect(nextLabel('Z')).toBe('AA');
+    expect(nextLabel('AZ')).toBe('BA');
+    expect(nextLabel('b')).toBe('c');
+    expect(nextLabel('Wand A')).toBe('Wand B');
+    expect(nextLabel('1A')).toBe('1B');
+    expect(nextLabel('A1')).toBe('A2');
+    expect(nextLabel('P-09')).toBe('P-10');
+  });
+  it('bei nicht eindeutigem Schema kein Vorschlag', () => {
+    expect(nextLabel('Wand')).toBeNull();
+    expect(nextLabel('Stütze-')).toBeNull();
+    expect(nextLabel('Ab')).toBeNull();
+  });
+  it('Vorschlag nach der zuletzt angelegten Messung, ohne Doppel', () => {
+    const d = (id: string, number: number, label: string | null, createdAt: number) => ({ id, number, label, createdAt });
+    expect(suggestNext([])).toEqual({ number: 1, label: null });
+    expect(suggestNext([d('1', 1, null, 1), d('2', 2, null, 2)])).toEqual({ number: 3, label: null });
+    expect(suggestNext([d('1', 1, 'A', 1)])).toEqual({ number: 2, label: 'B' });
+    expect(suggestNext([d('1', 1, 'A', 1), d('2', 2, 'C', 2), d('3', 3, 'B', 3)]).label).toBe('D'); // C existiert schon
+    expect(suggestNext([d('1', 1, 'Wand', 1)]).label).toBe(''); // nicht eindeutig → leer
+    expect(suggestNext([d('1', 5, 'A', 1), d('2', 1, null, 2)])).toEqual({ number: 2, label: null }); // zuletzt Zahl
+  });
+  it('doppelte Kennzeichnungen werden erkannt', () => {
+    expect(duplicateIds([{ id: 'a', number: 1, label: 'A' }, { id: 'b', number: 2, label: 'a' }, { id: 'c', number: 1, label: null }])).toEqual(new Set(['a', 'b']));
   });
 });
