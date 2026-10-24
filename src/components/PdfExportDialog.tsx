@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { costCenterLabel, costCentersOf, damagesOf, planTitle, plansOf } from '../lib/aufmass';
+import type { OverviewCorner } from '../lib/export-pdf';
 import type { ProjectState } from '../lib/store';
 import { Modal } from './Modal';
 import { offerFile, showError } from './ui';
@@ -25,6 +26,10 @@ export function PdfExportDialog({ data, costCenterId, initial, onClose }: Props)
   );
   const [selected, setSelected] = useState<Set<string>>(new Set(initial));
   const [busy, setBusy] = useState(false);
+  // Übersicht des Gesamtplans (nur bei Plänen mit Ausschnitt); Einstellung wird gemerkt
+  const [overview, setOverview] = useState(() => readPref('pdfOverview', '1') === '1');
+  const [corner, setCorner] = useState<OverviewCorner>(() => (readPref('pdfOverviewCorner', 'tr') as OverviewCorner));
+  const anyCrop = [...selected].some((id) => data.plans[id]?.crop && data.plans[id]?.source !== 'drawing');
   const allIds = groups.flatMap((g) => g.plans.map((p) => p.id));
   const toggle = (id: string) => {
     const s = new Set(selected);
@@ -38,7 +43,9 @@ export function PdfExportDialog({ data, costCenterId, initial, onClose }: Props)
     try {
       const { exportPlansPdf } = await import('../lib/export-pdf');
       const ordered = allIds.filter((id) => selected.has(id));
-      const file = await exportPlansPdf(data, { planIds: ordered });
+      writePref('pdfOverview', overview ? '1' : '0');
+      writePref('pdfOverviewCorner', corner);
+      const file = await exportPlansPdf(data, { planIds: ordered, overview: { enabled: overview, corner } });
       onClose();
       await offerFile(file);
     } catch (e) {
@@ -90,6 +97,41 @@ export function PdfExportDialog({ data, costCenterId, initial, onClose }: Props)
         </fieldset>
       ))}
       {!groups.length && <p>Keine Pläne vorhanden.</p>}
+      {anyCrop && (
+        <fieldset className="check-group" data-testid="pdf-overview-options">
+          <legend>Planausschnitte</legend>
+          <label className="check-row">
+            <input type="checkbox" checked={overview} onChange={(e) => setOverview(e.target.checked)} data-testid="pdf-overview" />
+            <span>Kleine Übersicht des Gesamtplans mit rot markiertem Ausschnitt (im Seitenrand, verdeckt nichts)</span>
+          </label>
+          {overview && (
+            <label className="field">
+              <span>Position</span>
+              <select value={corner} onChange={(e) => setCorner(e.target.value as OverviewCorner)} data-testid="pdf-overview-corner">
+                <option value="tr">oben rechts</option>
+                <option value="br">unten rechts</option>
+                <option value="tl">oben links</option>
+                <option value="bl">unten links</option>
+              </select>
+            </label>
+          )}
+        </fieldset>
+      )}
     </Modal>
   );
+}
+
+function readPref(key: string, fallback: string): string {
+  try {
+    return localStorage.getItem(key) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+function writePref(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* optional */
+  }
 }
