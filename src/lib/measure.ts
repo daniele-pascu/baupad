@@ -4,7 +4,8 @@ import type { Damage, MeasureKind, Shape } from './types';
  * Messarten und Mengen.
  *
  * Grundregeln: Linienlängen fließen nie in Flächensummen; eine Fläche entsteht nur aus
- * Länge × Breite; eine leere Tiefe bleibt leer (null) und wird nie zu 0.
+ * Länge × Breite oder – auf kalibrierten bzw. gezeichneten Plänen – aus der Form selbst
+ * (areaFromShape); eine leere Tiefe bleibt leer (null) und wird nie zu 0.
  */
 
 export const KIND_LABELS: Record<MeasureKind, string> = {
@@ -39,6 +40,12 @@ export function sumLengths(damages: Pick<Damage, 'kind' | 'length'>[]): number {
 }
 
 export const countKind = (damages: Pick<Damage, 'kind'>[], k: MeasureKind) => damages.filter((d) => kindOf(d) === k).length;
+
+/** Summe der Volumen (m³) – nur Messungen mit Fläche und Tiefe; fehlende Werte zählen nicht als 0. */
+export function sumVolumes(damages: Pick<Damage, 'kind' | 'area' | 'depth'>[]): number {
+  return clean(damages.reduce((s, d) => (hasArea(kindOf(d)) && d.area !== null && d.depth !== null ? s + d.area * d.depth : s), 0));
+}
+export const hasVolume = (damages: Pick<Damage, 'kind' | 'area' | 'depth'>[]) => damages.some((d) => hasArea(kindOf(d)) && d.area !== null && d.depth !== null);
 
 /** Art der Mengenermittlung je LV-Einheit */
 export type QuantityBasis = 'area' | 'length' | 'volume' | 'count' | null;

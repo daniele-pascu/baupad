@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { PAPER } from '../lib/drawing';
+import { hiddenLayerNames } from '../lib/layers';
 import { exportPaper } from '../lib/sheet-layout';
 import { costCenterName, costCentersOf, damagesOf, planTitle, plansOf } from '../lib/aufmass';
 import type { OverviewCorner } from '../lib/export-pdf';
@@ -96,6 +97,12 @@ export function PdfExportDialog({ data, costCenterId, initial, onClose }: Props)
                 {planTitle(p)}{' '}
                 <span className="muted">
                   · {damagesOf(data, p.id).length} Schadstellen · <span data-testid="pdf-plan-paper">{PAPER[exportPaper(p)].label}</span>
+                  {hiddenLayerNames(p).length > 0 && (
+                    <span className="warn-text" data-testid="pdf-hidden-layers">
+                      {' '}
+                      · ausgeblendet: {hiddenLayerNames(p).join(', ')}
+                    </span>
+                  )}
                 </span>
               </span>
             </label>

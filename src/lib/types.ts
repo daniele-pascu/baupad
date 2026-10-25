@@ -110,7 +110,12 @@ export interface Plan extends SyncMeta {
   showNote?: boolean;
   showPaper?: boolean;
   showScale?: boolean;
+  /** Ausgeblendete Ebenen (Ansicht und PDF); fehlt = alle sichtbar */
+  hiddenLayers?: LayerId[];
 }
+
+/** Ebenen eines Plans (siehe layers.ts) */
+export type LayerId = 'drawing' | 'dims' | 'text' | 'measures';
 
 /**
  * Maßsystem gezeichneter Pläne.
@@ -185,6 +190,11 @@ export interface Damage extends SyncMeta {
   positionRef?: string | null;
   /** Darstellung (Linientyp, -stärke, Füllung); fehlt = Standarddarstellung. Farbe = `color` */
   style?: ShapeStyle;
+  /**
+   * Fläche und Umfang aus der Plangeometrie (kalibrierter bzw. gezeichneter Plan): `area` ist
+   * die Fläche der Form, `length` ihr Umfang, `width` leer. Wird bei Formänderung nachgeführt.
+   */
+  areaFromShape?: boolean;
 }
 
 /** Linientypen (wie in CAD-Programmen); Wellen- und Zickzacklinie sind reine Darstellung */
@@ -204,7 +214,13 @@ export interface ShapeStyle {
   fillTransparency?: number;
   /** Keine Füllung (nur Umrandung) */
   noFill?: boolean;
+  /** Art der Füllung: Vollton (Standard) oder Schraffur */
+  fillType?: 'solid' | 'hatch';
+  /** Schraffur: Muster, Winkel in Grad, Linienabstand in Punkt */
+  hatch?: { pattern: HatchPattern; angle: number; spacing: number };
 }
+
+export type HatchPattern = 'lines' | 'cross' | 'dots';
 
 /** Bauteilkennzeichnung im Plan, z. B. „A – Wand“. */
 export interface Component extends SyncMeta {

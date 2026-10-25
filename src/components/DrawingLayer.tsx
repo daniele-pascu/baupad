@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
 import { annotationsOf, dimGeometry, gridStep, majorStep, shapeToMeters } from '../lib/drawing';
-import { pathToSvg, shapeCenter, shapePath, toPage, toScreen, type Point, type View } from '../lib/geometry';
+import { shapeCenter, shapePath, toPage, toScreen, type Point, type View } from '../lib/geometry';
 import { DEFAULT_TRANSPARENCY, fillOf, PX_PER_PT, strokeGeometry } from '../lib/style';
 import type { DrawElement, DrawElementType, Rect, Shape } from '../lib/types';
-import { visibleStroke } from './PlanViewer';
+import { FillPaths, visibleStroke } from './PlanViewer';
 
 /**
  * Darstellung selbst gezeichneter Pläne in Bildschirmkoordinaten: Zeichenfläche mit Raster,
@@ -108,7 +108,7 @@ export function renderElement(e: Pick<DrawElement, 'id' | 'type' | 'color' | 'te
   const fill = fillOf(pageShape, e.color, e.style, DEFAULT_TRANSPARENCY.element);
   return (
     <g data-element={e.type} data-element-id={e.id} opacity={faded ? 0.55 : 1}>
-      {fill && <path d={pathToSvg(shapePath(pageShape), toS)} fill={fill.color} fillOpacity={fill.opacity} stroke="none" data-fill />}
+      {fill && <FillPaths shape={pageShape} map={toS} fill={fill} />}
       {selected && <path d={line.d} fill="none" stroke="#9cc0f5" strokeWidth={w + 5} strokeLinejoin="round" strokeLinecap="round" />}
       <path
         d={line.d}

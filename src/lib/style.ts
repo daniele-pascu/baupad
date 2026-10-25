@@ -1,5 +1,5 @@
 import { isOpenShape, pathToSvg, shapePath, shapeVertices, type Point } from './geometry';
-import type { LineType, Shape, ShapeStyle } from './types';
+import type { HatchPattern, LineType, Shape, ShapeStyle } from './types';
 
 /**
  * Darstellung von Linien und Formen (Bildschirm und PDF gleich): Linientyp, Linienstärke,
@@ -42,11 +42,82 @@ export function dashArray(type: LineType | undefined, width: number): number[] |
 /** Wellen- und Zickzacklinie: Umriss wird nur für die Darstellung verformt */
 export const isWavy = (t: LineType | undefined) => t === 'wave' || t === 'zigzag';
 
+export const HATCH_PATTERNS: { id: HatchPattern; label: string }[] = [
+  { id: 'lines', label: 'Linien' },
+  { id: 'cross', label: 'Kreuzschraffur' },
+  { id: 'dots', label: 'Punkte' },
+];
+export const DEFAULT_HATCH = { pattern: 'lines' as HatchPattern, angle: 45, spacing: 6 };
+
+export interface Fill {
+  color: string;
+  opacity: number;
+  /** Schraffur statt Vollton */
+  hatch?: { pattern: HatchPattern; angle: number; spacing: number };
+}
+
 /** Füllung einer Form (null = keine Füllung, offene Linien nie) */
-export function fillOf(shape: Shape, color: string, style: ShapeStyle | undefined, defaultTransparency: number): { color: string; opacity: number } | null {
+export function fillOf(shape: Shape, color: string, style: ShapeStyle | undefined, defaultTransparency: number): Fill | null {
   if (isOpenShape(shape) || style?.noFill) return null;
-  const t = Math.min(100, Math.max(0, style?.fillTransparency ?? defaultTransparency));
-  return { color: style?.fillColor ?? color, opacity: 1 - t / 100 };
+  const hatch = style?.fillType === 'hatch' ? { ...DEFAULT_HATCH, ...style.hatch } : undefined;
+  // Schraffurlinien sind ohne eigene Angabe deckend (sonst kaum sichtbar)
+  const t = Math.min(100, Math.max(0, style?.fillTransparency ?? (hatch ? 0 : defaultTransparency)));
+  return { color: style?.fillColor ?? color, opacity: 1 - t / 100, ...(hatch ? { hatch } : {}) };
+}
+
+/** höchstens so viele Schraffurlinien je Form (Schutz bei sehr großen Flächen) */
+const MAX_HATCH_LINES = 1500;
+
+/**
+ * Schraffur einer Fläche in Ausgabekoordinaten: parallele Linien im Winkel (Kreuzschraffur:
+ * zusätzlich um 90° gedreht) bzw. Punkte im Raster, auf die Fläche beschnitten (gerade-ungerade-Regel).
+ * Nur Darstellung – die Geometrie der Form bleibt unverändert.
+ */
+export function hatchGeometry(poly: Point[], pattern: HatchPattern, angle: number, spacing: number): { segments: [Point, Point][]; dots: Point[] } {
+  const segments: [Point, Point][] = [];
+  const dots: Point[] = [];
+  if (poly.length < 3 || !(spacing > 0)) return { segments, dots };
+  const run = (deg: number, asDots: boolean) => {
+    const a = (deg * Math.PI) / 180;
+    const cos = Math.cos(a);
+    const sin = Math.sin(a);
+    // Fläche so drehen, dass die Schraffur waagrecht verläuft
+    const rot = poly.map((p) => ({ x: p.x * cos + p.y * sin, y: -p.x * sin + p.y * cos }));
+    const back = (x: number, y: number): Point => ({ x: x * cos - y * sin, y: x * sin + y * cos });
+    const ys = rot.map((p) => p.y);
+    const y0 = Math.ceil(Math.min(...ys) / spacing) * spacing;
+    const y1 = Math.max(...ys);
+    let count = 0;
+    for (let y = y0; y <= y1 && count < MAX_HATCH_LINES; y += spacing, count++) {
+      const xs: number[] = [];
+      for (let i = 0; i < rot.length; i++) {
+        const p = rot[i];
+        const q = rot[(i + 1) % rot.length];
+        if ((p.y <= y && q.y > y) || (q.y <= y && p.y > y)) xs.push(p.x + ((y - p.y) / (q.y - p.y)) * (q.x - p.x));
+      }
+      xs.sort((u, v) => u - v);
+      for (let i = 0; i + 1 < xs.length; i += 2) {
+        if (asDots) {
+          for (let x = Math.ceil(xs[i] / spacing) * spacing; x <= xs[i + 1]; x += spacing) dots.push(back(x, y));
+        } else segments.push([back(xs[i], y), back(xs[i + 1], y)]);
+      }
+    }
+  };
+  if (pattern === 'dots') run(angle, true);
+  else {
+    run(angle, false);
+    if (pattern === 'cross') run(angle + 90, false);
+  }
+  return { segments, dots };
+}
+
+/** Schraffur als SVG-Pfad (Punkte als sehr kurze Striche mit runden Enden) */
+export function hatchSvg(h: { segments: [Point, Point][]; dots: Point[] }): string {
+  const f = (n: number) => n.toFixed(2);
+  return (
+    h.segments.map(([a, b]) => `M${f(a.x)} ${f(a.y)}L${f(b.x)} ${f(b.y)}`).join('') +
+    h.dots.map((p) => `M${f(p.x)} ${f(p.y)}l0.01 0`).join('')
+  );
 }
 
 /** Umriss als Punktfolge (Seitenkoordinaten); Kreise werden fein angenähert. */
@@ -118,4 +189,16 @@ export function strokeGeometry(shape: Shape, map: (p: Point) => Point, type: Lin
     return { d: pointsToSvg(wavyPoints(points.map(map), closed, type, amp, period)) };
   }
   return { d: pathToSvg(shapePath(shape), map), dash: dashArray(type, width) };
+}
+
+/**
+ * Füllung als Pfade in Ausgabekoordinaten: Vollton als Fläche (`solid`) bzw. Schraffur als
+ * Linien (`hatch`, Strichstärke `hatchWidth`). `unit` = Ausgabeeinheiten je Punkt (Bildschirm: PX_PER_PT).
+ */
+export function fillPaths(shape: Shape, map: (p: Point) => Point, fill: Fill, unit: number): { solid?: string; hatch?: string; hatchWidth: number } {
+  if (!fill.hatch) return { solid: pathToSvg(shapePath(shape), map), hatchWidth: 0 };
+  const poly = outlinePoints(shape).points.map(map);
+  const h = fill.hatch;
+  const geo = hatchGeometry(poly, h.pattern, h.angle, Math.max(1.5, h.spacing) * unit);
+  return { hatch: hatchSvg(geo), hatchWidth: (h.pattern === 'dots' ? 1.6 : 0.6) * unit };
 }

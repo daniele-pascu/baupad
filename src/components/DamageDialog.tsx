@@ -21,6 +21,10 @@ export interface DamageValues {
   componentId: string | null;
   positionRef: string | null;
   resetLabel: boolean;
+  /** Fläche/Umfang aus der Plangeometrie: `area` = Fläche der Form, `length` = Umfang */
+  areaFromShape: boolean;
+  /** Fläche aus der Geometrie (nur mit areaFromShape) */
+  area: number | null;
 }
 
 export type Renumber = 'none' | 'swap' | 'shift';
@@ -28,7 +32,7 @@ export type Renumber = 'none' | 'swap' | 'shift';
 interface Props {
   mode: 'new' | 'edit';
   damage: Pick<Damage, 'id' | 'number' | 'color' | 'labelOffset'> &
-    Partial<Pick<Damage, 'length' | 'width' | 'depth' | 'componentId' | 'positionRef' | 'label'>> & { shapeType: ShapeType; kind: MeasureKind };
+    Partial<Pick<Damage, 'length' | 'width' | 'depth' | 'componentId' | 'positionRef' | 'label' | 'areaFromShape'>> & { shapeType: ShapeType; kind: MeasureKind };
   others: Pick<Damage, 'id' | 'number' | 'area' | 'label'>[];
   /** Bauteilkennzeichnungen des Plans für die optionale Zuordnung */
   components: Pick<Component, 'id' | 'letter' | 'name'>[];
@@ -36,6 +40,8 @@ interface Props {
   positions?: { ref: string; label: string; doc: string }[];
   /** Gezeichnete Pläne: Maße aus der Markierung (Maßstab bekannt) als Vorschlag */
   suggestion?: { length: number; width: number | null } | null;
+  /** Kalibrierter bzw. gezeichneter Plan, geschlossene Form: Fläche und Umfang aus der Geometrie */
+  geometry?: { area: number; perimeter: number; formula: string } | null;
   onSave: (v: DamageValues, renumber: Renumber) => void;
   onCancel: () => void;
   onDelete?: () => void;
@@ -47,7 +53,9 @@ type Field = 'number' | 'length' | 'width' | 'depth';
  * Eingabe einer Messung bzw. Schadstelle. Öffnet sich automatisch nach dem Einzeichnen.
  * Enter/Weiter springt zum nächsten Feld; im letzten Feld wird gespeichert.
  */
-export function DamageDialog({ mode, damage, others, components, positions = [], suggestion, onSave, onCancel, onDelete }: Props) {
+export function DamageDialog({ mode, damage, others, components, positions = [], suggestion, geometry, onSave, onCancel, onDelete }: Props) {
+  /** Fläche und Umfang aus dem Plan übernehmen (nur bei Flächen-Messarten) */
+  const [fromShape, setFromShape] = useState(!!damage.areaFromShape && !!geometry);
   const [v, setV] = useState({
     number: damage.label ?? String(damage.number),
     length: toInputValue(damage.length),
@@ -64,7 +72,9 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const refs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const withArea = hasArea(kind);
-  const fields: Field[] = withArea ? ['number', 'length', 'width', 'depth'] : ['number', 'length'];
+  // Aus der Geometrie: Fläche und Umfang kommen aus der Form, nur Nummer und Tiefe sind einzugeben
+  const geo = withArea && fromShape && geometry ? geometry : null;
+  const fields: Field[] = geo ? ['number', 'depth'] : withArea ? ['number', 'length', 'width', 'depth'] : ['number', 'length'];
 
   // Reine Zahl = Nummer; sonst Kennzeichnung aus Buchstaben (z. B. „A“, „Wand B“, „1A“).
   // Eine unveränderte bestehende Nummer (auch eine ältere 0) bleibt gültig; neue Nummern ab 1
@@ -73,12 +83,12 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const num = isNumeric ? (!damage.label && raw === String(damage.number) ? damage.number : parseDamageNumber(raw)) : null;
   const label = !isNumeric && raw ? raw : null;
   const labelTaken = label ? others.find((o) => o.id !== damage.id && damageNo(o).toLowerCase() === label.toLowerCase()) : undefined;
-  const L = checkMeasure(v.length, 'Länge');
+  const L = geo ? ({ ok: true, value: geo.perimeter } as const) : checkMeasure(v.length, 'Länge');
   // Nur die Länge ist Pflicht. Breite/Höhe und Tiefe sind optional: leer bleibt leer (null,
   // nicht 0), eine Eingabe muss aber gültig sein
-  const B = withArea && v.width.trim() ? checkMeasure(v.width, 'Breite/Höhe') : null;
+  const B = withArea && !geo && v.width.trim() ? checkMeasure(v.width, 'Breite/Höhe') : null;
   const T = withArea && v.depth.trim() ? checkMeasure(v.depth, 'Tiefe') : null;
-  const area = withArea && L.ok && B?.ok ? computeArea(L.value, B.value) : null;
+  const area = geo ? geo.area : withArea && L.ok && B?.ok ? computeArea(L.value, B.value) : null;
   // Nummernkonflikte nur unter reinen Nummern (Kennzeichnungen haben eine eigene Prüfung)
   const conflict = num !== null ? findByNumber(others.filter((o) => !o.label), num, damage.id) : undefined;
   const errors: Record<Field, string | null> = {
@@ -118,6 +128,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
         componentId,
         positionRef,
         resetLabel,
+        areaFromShape: !!geo,
+        area: geo ? geo.area : null,
       },
       renumber,
     );
@@ -210,11 +222,32 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
         </div>
         <div className="measure-grid">
           {field('number', 'Nr. / Kennz.', 'Nr.')}
-          {field('length', 'Länge *', 'm')}
-          {withArea && field('width', 'Breite / Höhe (optional)', 'm')}
+          {geo ? (
+            <label className="field measure-field">
+              <span>Umfang (aus Plan)</span>
+              <div className="input-unit">
+                <input value={formatArea(geo.perimeter)} readOnly tabIndex={-1} data-testid="geometry-perimeter" />
+                <span className="unit">m</span>
+              </div>
+            </label>
+          ) : (
+            field('length', 'Länge *', 'm')
+          )}
+          {withArea && !geo && field('width', 'Breite / Höhe (optional)', 'm')}
           {withArea && field('depth', 'Tiefe (optional)', 'm')}
         </div>
-        {suggestion && (
+        {withArea && geometry && (
+          <button
+            type="button"
+            className={`btn btn-sm suggest-btn${geo ? ' active' : ''}`}
+            onClick={() => setFromShape(!geo)}
+            aria-pressed={!!geo}
+            data-testid="use-geometry"
+          >
+            {geo ? 'Maße wieder von Hand eingeben' : `Fläche aus Plan übernehmen: ${formatArea(geometry.area)} m²`}
+          </button>
+        )}
+        {suggestion && !geo && (
           <button
             type="button"
             className="btn btn-sm suggest-btn"
@@ -234,7 +267,12 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
           </button>
         )}
         <div className="area-result" data-testid="area-result">
-          {withArea ? (
+          {geo ? (
+            <>
+              <span>Fläche aus Plan ({geo.formula}) – wird bei Formänderung nachgeführt</span>
+              <strong>{formatArea(geo.area)} m²</strong>
+            </>
+          ) : withArea ? (
             <>
               <span>{area !== null || !lengthValue ? 'Fläche (Länge × Breite/Höhe)' : 'Nur Länge – Fläche erst mit Breite/Höhe'}</span>
               <strong>{area !== null ? `${formatArea(area)} m²` : lengthValue && lengthValue > 0 && !v.width.trim() ? `${formatArea(lengthValue)} m` : '–'}</strong>

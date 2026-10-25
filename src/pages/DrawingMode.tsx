@@ -26,6 +26,7 @@ import {
 } from '../lib/drawing';
 import { extendLine, rotateShapeBy, scaleShape, stretchShape, translateShape, trimLine } from '../lib/cad';
 import { findSnap, type SnapKind } from '../lib/snap';
+import { dimsVisible, visibleDamages, visibleElements } from '../lib/layers';
 import { distToSegment, pathToSvg, rectsOverlap, removeVertex, setPolylineClosed, shapeAABB, shapePath, toScreen, type Point, type View } from '../lib/geometry';
 import { newMeta, putRecord, putRecords, softDelete, type ProjectState } from '../lib/store';
 import type { Damage, DrawElement, DrawElementType, Plan, Rect, Shape, ShapeStyle } from '../lib/types';
@@ -155,7 +156,11 @@ export function useDrawing(opts: {
     storePref('gridSnap', on ? '1' : '0');
   };
 
-  const stored = useMemo(() => (plan ? elementsOf(data, plan.id) : []), [data, plan]);
+  const allStored = useMemo(() => (plan ? elementsOf(data, plan.id) : []), [data, plan]);
+  // Ausgeblendete Ebenen: nicht sichtbar, nicht fang-, auswähl- oder veränderbar
+  const stored = useMemo(() => visibleElements(plan, allStored), [plan, allStored]);
+  const showDims = dimsVisible(plan);
+  const shownDamages = visibleDamages(plan, damages);
   const elements = useMemo(() => stored.map((e) => (overrides[e.id] ? { ...e, shape: overrides[e.id] } : e)), [stored, overrides]);
   const byId = useMemo(() => new Map(elements.map((e) => [e.id, e])), [elements]);
   const items: ViewerItem[] = useMemo(
@@ -443,7 +448,7 @@ export function useDrawing(opts: {
 
   const markerPaths = (view: View) => (
     <g className="faded-markers" opacity={0.35} key="faded">
-      {damages.map((d) => (
+      {shownDamages.map((d) => (
         <path key={d.id} d={pathToSvg(shapePath(d.shape), (p) => toScreen(view, p))} fill="none" stroke={d.color} strokeWidth={2} strokeDasharray="5 4" />
       ))}
     </g>
@@ -464,7 +469,7 @@ export function useDrawing(opts: {
       {elements.map((e) => (
         <g key={e.id}>{renderElement(e, shapeToPage(e.shape, k), view, false)}</g>
       ))}
-      {renderDims(view, elements, k, { color: '#5b6b80' })}
+      {showDims && renderDims(view, elements, k, { color: '#5b6b80' })}
     </>
   );
 
@@ -487,7 +492,7 @@ export function useDrawing(opts: {
     }
     return (
       <>
-        {renderDims(view, elements, k)}
+        {showDims && renderDims(view, elements, k)}
         {renderPreviewDims(view, preview, previewType, k)}
         {stretchWin && (
           <path
@@ -514,6 +519,7 @@ export function useDrawing(opts: {
     gridOn,
     setGridOn,
     elements,
+    allElements: allStored,
     items,
     selected,
     selectedId,

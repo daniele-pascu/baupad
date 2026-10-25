@@ -1,6 +1,7 @@
 import { LineCapStyle, PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFImage, type PDFPage } from 'pdf-lib';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { componentsOf, costCenterLabel, damagesOf, elementsOf, planTitle, safeFileName, type ExportFile } from './aufmass';
+import { dimsVisible, visibleDamages, visibleElements } from './layers';
 import { annotationsOf, contentRegion, dimGeometry, drawingSheet, isDrawingPlan, PAPER, PRINT_HEADER_MM, PRINT_MARGIN_MM, printScale, shapeToPage, unitsPerMeter } from './drawing';
 import { getBlob } from './db';
 import { damageNo } from './numbering';
@@ -15,7 +16,7 @@ import {
 import { canvasToBlob, closePdf, clampRenderScale, imageToCanvas, loadImageBitmap, openPdf, renderPdfRegion, renderPdfToCanvas } from './pdf';
 import type { ProjectState } from './store';
 import { exportPaper, layoutSheet, planHeading, type OverviewCorner, type SheetLayout } from './sheet-layout';
-import { DEFAULT_TRANSPARENCY, fillOf, strokeGeometry } from './style';
+import { DEFAULT_TRANSPARENCY, fillOf, fillPaths, strokeGeometry } from './style';
 import type { Component, Damage, Plan, Rect, Shape, ShapeStyle } from './types';
 
 /**
@@ -122,7 +123,7 @@ async function addPlanPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   const file = data.files[plan.fileId];
   if (!file) throw new Error(`Originaldatei zu Plan ${planTitle(plan)} fehlt.`);
   const region: Rect = plan.crop ?? { x: 0, y: 0, w: plan.pageWidth, h: plan.pageHeight };
-  const damages = damagesOf(data, plan.id);
+  const damages = visibleDamages(plan, damagesOf(data, plan.id));
   // Blatt A4/A3: Plan(ausschnitt) proportional und zentriert eingepasst, Übersicht im freien Platz
   const withOverview = !!(ctx.overview?.enabled && plan.crop);
   const L = layoutSheet(exportPaper(plan), region, {
@@ -300,7 +301,12 @@ function drawStyledShape(
     return { x: q.x, y: -q.y };
   };
   const fill = fillOf(shape, color, style, defaultTransparency);
-  if (fill && fill.opacity > 0) page.drawSvgPath(pathToSvg(shapePath(shape), svgMap), { x: 0, y: 0, color: hexToRgb(fill.color), opacity: fill.opacity });
+  if (fill && fill.opacity > 0) {
+    const f = fillPaths(shape, svgMap, fill, 1);
+    if (f.solid) page.drawSvgPath(f.solid, { x: 0, y: 0, color: hexToRgb(fill.color), opacity: fill.opacity });
+    else if (f.hatch)
+      page.drawSvgPath(f.hatch, { x: 0, y: 0, borderColor: hexToRgb(fill.color), borderWidth: f.hatchWidth, borderOpacity: fill.opacity, borderLineCap: LineCapStyle.Round });
+  }
   const line = strokeGeometry(shape, svgMap, style?.lineType, width);
   const common = { x: 0, y: 0, borderDashArray: line.dash, borderLineCap: LineCapStyle.Round };
   if (halo) page.drawSvgPath(line.d, { ...common, borderColor: halo, borderWidth: width + 1.6, borderOpacity: 0.75 });
@@ -391,15 +397,18 @@ const MM = 72 / 25.4;
  */
 function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   const k = unitsPerMeter(plan);
-  const elements = elementsOf(data, plan.id);
-  const damages = damagesOf(data, plan.id);
+  // Ausgeblendete Ebenen werden nicht gedruckt; der Blattausschnitt folgt dem gesamten Inhalt
+  const allElements = elementsOf(data, plan.id);
+  const allDamages = damagesOf(data, plan.id);
+  const elements = visibleElements(plan, allElements);
+  const damages = visibleDamages(plan, allDamages);
   // Bauteilbuchstaben werden nicht mehr verwendet (Daten bleiben gespeichert, erscheinen aber nicht im Export)
   const components: ReturnType<typeof componentsOf> = [];
   // Mit Papierformat: genau das Zeichenblatt im gewählten Maßstab; sonst (ältere Pläne) Inhalt
   // auf A3 mit passendem Normmaßstab
   const sheet = drawingSheet(plan);
   const paperFmt = plan.drawing?.paper ? PAPER[plan.drawing.paper] : null;
-  const region = sheet ?? contentRegion(plan, elements, damages);
+  const region = sheet ?? contentRegion(plan, allElements, allDamages);
   const portrait = paperFmt ? paperFmt.h > paperFmt.w : region.h > region.w;
   const W = paperFmt ? paperFmt.w * MM : portrait ? A3.hPt : A3.wPt;
   const H = paperFmt ? paperFmt.h * MM : portrait ? A3.wPt : A3.hPt;
@@ -464,7 +473,7 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
     const start = pdf({ x: center.x - (d.x * w) / 2 + down.x * fs * 0.35, y: center.y - (d.y * w) / 2 + down.y * fs * 0.35 });
     page.drawText(t, { x: start.x, y: start.y, size: fs, font: ctx.bold, color: dimColor, rotate: degrees(-angle) });
   };
-  for (const e of elements) {
+  for (const e of dimsVisible(plan) ? elements : []) {
     const { dims, labels } = annotationsOf(e);
     for (const dm of dims) {
       const a = paper({ x: dm.a.x * k, y: dm.a.y * k });

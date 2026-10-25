@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { DEFAULT_TRANSPARENCY, LINE_TYPES, LINE_WIDTH_MAX, LINE_WIDTH_MIN } from '../lib/style';
-import { COLORS, type LineType, type ShapeStyle } from '../lib/types';
+import { DEFAULT_HATCH, DEFAULT_TRANSPARENCY, HATCH_PATTERNS, LINE_TYPES, LINE_WIDTH_MAX, LINE_WIDTH_MIN } from '../lib/style';
+import { COLORS, type HatchPattern, type LineType, type ShapeStyle } from '../lib/types';
 
 /**
  * Darstellung einer Linie bzw. Form: Linientyp, Linienstärke, Linienfarbe und – nur bei
@@ -31,7 +31,10 @@ export function StylePanel({
   onStyle(patch: Partial<ShapeStyle>): void;
 }) {
   const width = style.lineWidth ?? defaultWidth;
-  const transparency = style.fillTransparency ?? DEFAULT_TRANSPARENCY[kind];
+  const hatchOn = style.fillType === 'hatch';
+  const hatch = { ...DEFAULT_HATCH, ...style.hatch };
+  // Schraffur ohne eigene Angabe: deckende Linien
+  const transparency = style.fillTransparency ?? (hatchOn ? 0 : DEFAULT_TRANSPARENCY[kind]);
   // Schieberegler: Wert sofort anzeigen, beim Loslassen speichern (ein Rückgängig-Schritt)
   const [w, setW] = useState(width);
   const [t, setT] = useState(transparency);
@@ -39,6 +42,9 @@ export function StylePanel({
   useEffect(() => setT(transparency), [transparency]);
   const commitW = () => w !== width && onStyle({ lineWidth: w });
   const commitT = () => t !== transparency && onStyle({ fillTransparency: t });
+  const [sp, setSp] = useState(hatch.spacing);
+  useEffect(() => setSp(hatch.spacing), [hatch.spacing]);
+  const commitSp = () => sp !== hatch.spacing && onStyle({ hatch: { ...hatch, spacing: sp } });
 
   return (
     <div className="style-panel" data-testid="style-panel">
@@ -81,7 +87,54 @@ export function StylePanel({
           </label>
           {!style.noFill && (
             <>
-              <ColorRow label="Füllfarbe" value={style.fillColor ?? color} onChange={(c) => onStyle({ fillColor: c })} testId="style-fill-color" />
+              <label className="style-row">
+                <span>Füllart</span>
+                <select value={hatchOn ? 'hatch' : 'solid'} onChange={(e) => onStyle({ fillType: e.target.value as 'solid' | 'hatch' })} data-testid="style-fill-type">
+                  <option value="solid">Vollton</option>
+                  <option value="hatch">Schraffur</option>
+                </select>
+              </label>
+              {hatchOn && (
+                <>
+                  <label className="style-row">
+                    <span>Muster</span>
+                    <select value={hatch.pattern} onChange={(e) => onStyle({ hatch: { ...hatch, pattern: e.target.value as HatchPattern } })} data-testid="style-hatch-pattern">
+                      {HATCH_PATTERNS.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="style-row">
+                    <span>Winkel</span>
+                    <select value={hatch.angle} onChange={(e) => onStyle({ hatch: { ...hatch, angle: Number(e.target.value) } })} data-testid="style-hatch-angle">
+                      {[0, 15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165].map((a) => (
+                        <option key={a} value={a}>
+                          {a}°
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="style-row">
+                    <span>Abstand</span>
+                    <input
+                      type="range"
+                      min={2}
+                      max={20}
+                      step={1}
+                      value={sp}
+                      onChange={(e) => setSp(Number(e.target.value))}
+                      onPointerUp={commitSp}
+                      onKeyUp={commitSp}
+                      onBlur={commitSp}
+                      data-testid="style-hatch-spacing"
+                    />
+                    <output className="style-value">{sp} pt</output>
+                  </label>
+                </>
+              )}
+              <ColorRow label={hatchOn ? 'Schraffurfarbe' : 'Füllfarbe'} value={style.fillColor ?? color} onChange={(c) => onStyle({ fillColor: c })} testId="style-fill-color" />
               <label className="style-row">
                 <span>Transparenz</span>
                 <input

@@ -9,7 +9,6 @@ import {
   layoutLabels,
   leaderLine,
   normalizeRect,
-  pathToSvg,
   rectContains,
   lineShape,
   triangleShape,
@@ -19,7 +18,6 @@ import {
   shapeAABB,
   shapeBounds,
   shapeCenter,
-  shapePath,
   toPage,
   toScreen,
   zoomAt,
@@ -39,7 +37,7 @@ import { clampRenderScale, getImageBitmap, getPdfDocument, renderPdfRegion, type
 import { getView, putView } from '../lib/db';
 import { arcShape } from '../lib/cad';
 import { SNAP_LABELS, type SnapKind } from '../lib/snap';
-import { DEFAULT_TRANSPARENCY, fillOf, PX_PER_PT, strokeGeometry } from '../lib/style';
+import { DEFAULT_TRANSPARENCY, fillOf, fillPaths, PX_PER_PT, strokeGeometry, type Fill } from '../lib/style';
 import type { Component, Damage, Plan, Rect, Shape, ShapeStyle, ShapeType, SourceFile } from '../lib/types';
 
 /** Werkzeuge: Auswahl, Formen, Bauteilbuchstabe setzen; bei gezeichneten Plänen zusätzlich Maßlinie und Text */
@@ -1006,9 +1004,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     const fill = fillOf(shape, col, st, DEFAULT_TRANSPARENCY.damage);
     return (
       <g key={opts.key}>
-        {fill && (
-          <path d={pathToSvg(shapePath(shape), toS)} fill={fill.color} fillOpacity={opts.selected && !st?.fillTransparency ? Math.min(1, fill.opacity + 0.08) : fill.opacity} stroke="none" />
-        )}
+        {fill && <FillPaths shape={shape} map={toS} fill={fill} boost={opts.selected && st?.fillTransparency === undefined && !fill.hatch} />}
         {/* Kontur für gute Sichtbarkeit auf hellen und dunklen Planbereichen */}
         <path
           d={line.d}
@@ -1194,6 +1190,15 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     </div>
   );
 });
+
+/** Füllung am Bildschirm: Vollton bzw. Schraffur (gleiche Berechnung wie im PDF) */
+export function FillPaths({ shape, map, fill, boost = false }: { shape: Shape; map: (p: Point) => Point; fill: Fill; boost?: boolean }) {
+  const f = fillPaths(shape, map, fill, PX_PER_PT);
+  if (f.solid) return <path d={f.solid} fill={fill.color} fillOpacity={boost ? Math.min(1, fill.opacity + 0.08) : fill.opacity} stroke="none" data-fill="solid" />;
+  return (
+    <path d={f.hatch} fill="none" stroke={fill.color} strokeOpacity={fill.opacity} strokeWidth={f.hatchWidth} strokeLinecap="round" data-fill="hatch" />
+  );
+}
 
 /** Fangpunkt: Form je Art (wie in CAD-Programmen) mit kurzer Beschriftung */
 function SnapMarker({ view, mark }: { view: View; mark: { p: Point; kind: SnapKind } }) {

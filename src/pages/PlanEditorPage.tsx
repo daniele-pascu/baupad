@@ -9,7 +9,9 @@ import { PlanViewer, type PlanViewerHandle, type SnapFn, type Tool } from '../co
 import { SaveErrorBanner, SaveStatus } from '../components/SaveStatus';
 import { confirmDialog, offerFile, promptDialog, showError, toast } from '../components/ui';
 import { costCenterLabel, damagesOf, elementsOf, exportXlsx, findPosition, lvDocLabel, lvDocsOf, plansOf, planTitle, positionRef, sumArea } from '../lib/aufmass';
-import { planUnitsPerMeter } from '../lib/calibration';
+import { geometryMeasures, planUnitsPerMeter } from '../lib/calibration';
+import { visibleDamages } from '../lib/layers';
+import { LayerMenu } from '../components/LayerMenu';
 import { drawingRegion, drawingSheet, isDrawingPlan, lineEnds, paperLabel, shapeToPage, suggestMeasures, unitsPerMeter } from '../lib/drawing';
 import { convertShape, isOpenShape, toScreen, type View } from '../lib/geometry';
 import { countKind, defaultKindFor, hasArea, KIND_LABELS, KINDS, kindOf, sumLengths } from '../lib/measure';
@@ -155,10 +157,21 @@ function storePref(key: string, value: string) {
   }
 }
 
+/**
+ * Messung mit Fläche aus der Plangeometrie: Fläche und Umfang aus der (geänderten) Form
+ * neu berechnen. Ohne Ergebnis (z. B. offene Form, kein Maßstab) bleiben die Werte stehen.
+ */
+function withShapeMeasures<T extends Pick<Damage, 'areaFromShape' | 'kind' | 'length' | 'area' | 'width'>>(d: T, shape: Shape, k: number | null): T {
+  if (!d.areaFromShape || !hasArea(kindOf(d))) return d;
+  const g = geometryMeasures(shape, k);
+  return g ? { ...d, length: g.perimeter, width: null, area: g.area } : d;
+}
+
 /** Kurzbeschreibung der Maße je Messart */
-function measureSummary(d: Pick<Damage, 'kind' | 'length' | 'width' | 'depth' | 'area'>): string {
+function measureSummary(d: Pick<Damage, 'kind' | 'length' | 'width' | 'depth' | 'area' | 'areaFromShape'>): string {
   if (!hasArea(kindOf(d))) return `L ${formatMeasure(d.length)} m`;
   const depth = d.depth !== null ? ` · T ${formatMeasure(d.depth)} m` : '';
+  if (d.areaFromShape && d.area !== null) return `${formatArea(d.area)} m² aus Plan · U ${formatMeasure(d.length)} m${depth}`;
   // ohne Breite/Höhe: nur die Länge, keine Fläche
   if (d.width === null || d.area === null) return `L ${formatMeasure(d.length)} m${depth}`;
   return `${formatMeasure(d.length)} × ${formatMeasure(d.width)} m${depth} = ${formatArea(d.area)} m²`;
@@ -169,6 +182,13 @@ function measureSummary(d: Pick<Damage, 'kind' | 'length' | 'width' | 'depth' | 
  * mehr als 5 % von den eingetragenen Werten ab (z. B. nach Formänderung), wird gewarnt.
  */
 function MeasureCheck({ damage, k }: { damage: Damage; k: number }) {
+  if (damage.areaFromShape) {
+    return (
+      <span className="small muted" data-testid="measure-check">
+        Fläche und Umfang werden aus der Form berechnet
+      </span>
+    );
+  }
   const s = suggestMeasures(damage.shape, k);
   const off = (a: number, b: number | null) => b !== null && b > 0 && Math.abs(a - b) / b > 0.05;
   // Reihenfolge von Länge und Breite ist frei – längere mit längerer Seite vergleichen
@@ -280,14 +300,16 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
 
   const stored = useMemo(() => (plan ? damagesOf(data, plan.id) : []), [data, plan]);
   const damages = useMemo(() => stored.map((d) => (overrides[d.id] ? { ...d, ...overrides[d.id] } : d)), [stored, overrides]);
+  // Ebene „Messungen“ ausgeblendet: nicht im Plan (die Tabelle bleibt vollständig)
+  const shownDamages = useMemo(() => visibleDamages(plan, damages), [plan, damages]);
   const dupIds = useMemo(() => {
     return duplicateIds(stored);
   }, [stored]);
   const selected = damages.find((d) => d.id === selectedId) ?? null;
   const drawing = useDrawing({ plan, data, damages, viewer, onCreated: () => setToolsOpen(false) });
   const region = useMemo(
-    () => (plan && drawingPlan ? drawingRegion(plan, drawing.elements, stored) : undefined),
-    [plan, drawingPlan, drawing.elements, stored],
+    () => (plan && drawingPlan ? drawingRegion(plan, drawing.allElements, stored) : undefined),
+    [plan, drawingPlan, drawing.allElements, stored],
   );
 
   /** Gültiger Bereich für neue Formen: Zeichenblatt bzw. Planausschnitt (Seitenkoordinaten) */
@@ -302,7 +324,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
    */
   const measureSnap: SnapFn = (p, ctx) => {
     const shapes = [
-      ...damages.filter((d) => d.id !== ctx.movingId).map((d) => d.shape),
+      ...shownDamages.filter((d) => d.id !== ctx.movingId).map((d) => d.shape),
       ...(drawingPlan ? drawing.elements.filter((e) => e.type !== 'text').map((e) => shapeToPage(e.shape, unitsPerMeter(plan!))) : []),
     ];
     const hit = findSnap(p, shapes, (matchMedia('(pointer: coarse)').matches ? 16 : 9) / ctx.scale);
@@ -461,13 +483,17 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
 
   const save = (v: DamageValues, renumber: Renumber) => {
     if (!dialog) return;
-    const area = hasArea(v.kind) && v.width !== null ? computeArea(v.length, v.width) : null;
+    // Fläche aus der Geometrie: aus der endgültigen Form (auch nach einem Formwechsel) berechnen
+    const finalShape = convertShape(dialog.mode === 'new' ? dialog.shape : data.damages[dialog.id].shape, v.shapeType);
+    const geo = v.areaFromShape && hasArea(v.kind) ? geometryMeasures(finalShape, k) : null;
+    const area = geo ? geo.area : hasArea(v.kind) && v.width !== null ? computeArea(v.length, v.width) : null;
     const measures = {
       kind: v.kind,
-      length: v.length,
-      width: hasArea(v.kind) ? v.width : null,
+      length: geo ? geo.perimeter : v.length,
+      width: hasArea(v.kind) && !geo ? v.width : null,
       depth: hasArea(v.kind) ? v.depth : null,
       area,
+      areaFromShape: geo ? true : undefined,
       componentId: v.componentId,
       positionRef: v.positionRef,
       label: v.label,
@@ -805,7 +831,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               underlay={drawingPlan && region ? drawing.measureUnderlay(region) : undefined}
               bounds={markerBounds}
               onPolygonChange={setPolyCount}
-              damages={damages}
+              damages={shownDamages}
               selectedId={selectedId}
               tool={tool}
               color={color}
@@ -827,7 +853,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 if (commit) {
                   setOverrides(({ [id]: _, ...rest }) => rest);
                   const d = data.damages[id];
-                  if (JSON.stringify(d.shape) !== JSON.stringify(shape)) putRecord('damages', { ...d, shape });
+                  if (JSON.stringify(d.shape) !== JSON.stringify(shape)) putRecord('damages', withShapeMeasures({ ...d, shape }, shape, k));
                 } else setOverrides((o) => ({ ...o, [id]: { ...o[id], shape } }));
               }}
               onLabelChange={(id, offset, commit) => {
@@ -864,6 +890,15 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           )}
 
           <div className="zoom-controls">
+            <LayerMenu
+              hidden={plan.hiddenLayers ?? []}
+              layers={drawingPlan ? undefined : ['measures']}
+              onChange={(hidden) => {
+                const { hiddenLayers: _, ...rest } = data.plans[plan.id];
+                putRecord('plans', hidden.length ? { ...rest, hiddenLayers: hidden } : rest);
+                if (selectedId && hidden.includes('measures')) select(null);
+              }}
+            />
             <button type="button" className="icon-btn" onClick={() => viewer.current?.zoomIn()} aria-label="Vergrößern" title="Vergrößern (+)">
               <Icon name="plus" />
             </button>
@@ -1174,6 +1209,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             positionRef: activePosition ? lastPosition : null,
           }}
           suggestion={k ? suggestMeasures(dialog.shape, k) : null}
+          geometry={geometryMeasures(dialog.shape, k)}
           others={stored}
           components={[]}
           positions={positionOptions}
@@ -1186,6 +1222,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           mode="edit"
           damage={{ ...dialogDamage, shapeType: dialogDamage.shape.type as ShapeType, kind: kindOf(dialogDamage) }}
           suggestion={k ? suggestMeasures(dialogDamage.shape, k) : null}
+          geometry={geometryMeasures(dialogDamage.shape, k)}
           others={stored}
           components={[]}
           positions={positionOptions}
