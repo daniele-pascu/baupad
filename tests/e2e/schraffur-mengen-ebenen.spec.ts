@@ -37,8 +37,9 @@ function pdfOps(pdf: string): string {
 import re, sys, zlib
 data = open(sys.argv[1], 'rb').read()
 out = []
-for m in re.finditer(rb'stream\\r?\\n(.*?)\\r?\\nendstream', data, re.S):
-    raw = m.group(1)
+# Länge aus dem Strom-Wörterbuch (ein Suchmuster bis „endstream“ schneidet Ströme ab, die auf \\r enden)
+for m in re.finditer(rb'/Length (\\d+)(?![\\d ]*R)[^>]*>>\\s*stream\\r?\\n', data):
+    raw = data[m.end():m.end() + int(m.group(1))]
     try:
         out.append(zlib.decompress(raw).decode('latin-1'))
     except Exception:

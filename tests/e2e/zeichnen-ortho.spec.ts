@@ -269,7 +269,7 @@ test('Linientypen fein: kleine Welle/Zickzack (zoomunabhängig), gleichmäßige 
     await page.getByTestId('pdf-export-run').click();
   });
   const pdf = await saveDownload(dl, 'ortho-linientypen.pdf');
-  const ops = execFileSync('python3', ['-c', "import re,sys,zlib\nd=open(sys.argv[1],'rb').read()\nfor m in re.finditer(rb'stream\\r?\\n(.*?)\\r?\\nendstream', d, re.S):\n  try: print(zlib.decompress(m.group(1)).decode('latin-1'))\n  except Exception: pass", pdf], { encoding: 'utf8' });
+  const ops = execFileSync('python3', ['-c', "import re,sys,zlib\nd=open(sys.argv[1],'rb').read()\nfor m in re.finditer(rb'/Length (\\d+)(?![\\d ]*R)[^>]*>>\\s*stream\\r?\\n', d):\n  try: print(zlib.decompress(d[m.end():m.end()+int(m.group(1))]).decode('latin-1'))\n  except Exception: pass", pdf], { encoding: 'utf8' });
   expect(ops).toMatch(/\[\s*[\d.]+\s+[\d.]+\s*\]\s+0\s+d/);
   execFileSync('pdftoppm', ['-png', '-r', '110', '-singlefile', pdf, join('tests', 'output', 'ortho-linientypen')]);
 });

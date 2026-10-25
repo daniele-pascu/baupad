@@ -20,7 +20,13 @@ export type CellStyle =
   | 'money'
   | 'boldMoney'
   | 'wrap'
-  | 'note';
+  | 'note'
+  /** Tabellenkopf mit Rahmen, zentriert (Aufmaßblatt nach Vorlage) */
+  | 'tableHead'
+  /** zentrierter Text (z. B. Plannummer) */
+  | 'center'
+  /** ohne Rahmen und Format */
+  | 'plain';
 
 export type Cell =
   | null
@@ -45,7 +51,22 @@ export interface Sheet {
   landscape?: boolean;
   /** Druck: Tabellenbreite auf eine Seite anpassen; Druckbereich = genutzte Zellen; Seitenzahlen */
   print?: boolean;
+  /** Kopfzeile (nur mit print): links z. B. Projekt / Kostenstelle; Mitte: Seitenzahl; rechts: Firmenlogo */
+  headerLeft?: string;
+  /** Öffnen in der Seitenlayout-Ansicht (Kopfzeile mit Logo sichtbar), ohne fixierte Zeilen */
+  pageLayout?: boolean;
 }
+
+/** Bild für die Kopfzeile rechts (Firmenlogo), Größe in Punkt */
+export interface HeaderImage {
+  bytes: Uint8Array;
+  type: 'png' | 'jpeg';
+  width: number;
+  height: number;
+}
+
+/** Text für Excel-Kopfzeilen: „&“ ist dort ein Steuerzeichen und wird verdoppelt */
+const hfText = (s: string) => s.replace(/&/g, '&&').slice(0, 200);
 
 const STYLE_INDEX: Record<CellStyle, number> = {
   header: 1,
@@ -61,6 +82,9 @@ const STYLE_INDEX: Record<CellStyle, number> = {
   boldMoney: 11,
   wrap: 12,
   note: 13,
+  tableHead: 14,
+  center: 15,
+  plain: 0,
 };
 
 export const str = (v: string, s: CellStyle = 'text'): Cell => ({ t: 'str', v, s });
@@ -107,7 +131,7 @@ function numberToXml(v: number): string {
   return String(v);
 }
 
-function sheetXml(sheet: Sheet): string {
+function sheetXml(sheet: Sheet, logo?: HeaderImage): string {
   const rows = sheet.rows
     .map((row, r) => {
       const cells = row
@@ -126,7 +150,8 @@ function sheetXml(sheet: Sheet): string {
     .join('');
   const maxCols = Math.max(1, sheet.widths.length, ...sheet.rows.map((r) => r.length));
   const dim = `A1:${colName(maxCols - 1)}${Math.max(1, sheet.rows.length)}`;
-  const frozen = sheet.headerRows ?? (sheet.freezeHeader ? 1 : 0);
+  // Seitenlayout-Ansicht verträgt keine fixierten Zeilen (Drucktitel bleiben)
+  const frozen = sheet.pageLayout ? 0 : (sheet.headerRows ?? (sheet.freezeHeader ? 1 : 0));
   const pane = frozen
     ? `<pane ySplit="${frozen}" topLeftCell="A${frozen + 1}" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A${frozen + 1}" sqref="A${frozen + 1}"/>`
     : '';
@@ -138,17 +163,19 @@ function sheetXml(sheet: Sheet): string {
     '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
     (sheet.print ? '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>' : '') +
     `<dimension ref="${dim}"/>` +
-    `<sheetViews><sheetView workbookViewId="0">${pane}</sheetView></sheetViews>` +
+    `<sheetViews><sheetView workbookViewId="0"${sheet.pageLayout ? ' view="pageLayout"' : ''}>${pane}</sheetView></sheetViews>` +
     '<sheetFormatPr defaultRowHeight="15"/>' +
     cols +
     `<sheetData>${rows}</sheetData>` +
     (sheet.autoFilter ? `<autoFilter ref="${sheet.autoFilter}"/>` : '') +
     (sheet.print
-      ? // A4, schmale Ränder (cm → Zoll), auf Seitenbreite skaliert, Höhe beliebig; Seitenzahlen in der Fußzeile
+      ? // A4, schmale Ränder (cm → Zoll), auf Seitenbreite skaliert, Höhe beliebig; Kopfzeile: links
+        // Projekt/Kostenstelle, Mitte Seitenzahl, rechts Firmenlogo (Platz oben passend zur Logohöhe)
         '<printOptions horizontalCentered="1"/>' +
-        '<pageMargins left="0.59" right="0.59" top="0.71" bottom="0.71" header="0.3" footer="0.3"/>' +
+        `<pageMargins left="0.59" right="0.59" top="${logo ? Math.max(0.71, 0.3 + logo.height / 72 + 0.2).toFixed(2) : '0.71'}" bottom="0.71" header="0.3" footer="0.3"/>` +
         `<pageSetup paperSize="9" orientation="${sheet.landscape ? 'landscape' : 'portrait'}" fitToWidth="1" fitToHeight="0"/>` +
-        '<headerFooter><oddFooter>&amp;L&amp;8BauPad&amp;R&amp;8Seite &amp;P von &amp;N</oddFooter></headerFooter>'
+        `<headerFooter><oddHeader>${esc(`${sheet.headerLeft ? `&L&9${hfText(sheet.headerLeft)}` : ''}&C&9Seite &P von &N${logo ? '&R&G' : ''}`)}</oddHeader></headerFooter>` +
+        (logo ? '<legacyDrawingHF r:id="rIdHF"/>' : '')
       : '<pageMargins left="0.7" right="0.7" top="0.78740157499999996" bottom="0.78740157499999996" header="0.3" footer="0.3"/>' +
         '<pageSetup paperSize="9" orientation="portrait"/>') +
     '</worksheet>'
@@ -170,14 +197,15 @@ const STYLES_XML =
   '<fill><patternFill patternType="gray125"/></fill>' +
   '<fill><patternFill patternType="solid"><fgColor rgb="FFDCE6F1"/><bgColor indexed="64"/></patternFill></fill>' +
   '</fills>' +
-  '<borders count="4">' +
+  '<borders count="5">' +
   '<border><left/><right/><top/><bottom/><diagonal/></border>' +
   '<border><left/><right/><top/><bottom style="thin"><color auto="1"/></bottom><diagonal/></border>' +
   '<border><left/><right/><top style="thin"><color auto="1"/></top><bottom style="double"><color auto="1"/></bottom><diagonal/></border>' +
   '<border><left/><right/><top/><bottom style="thin"><color rgb="FFD9DEE5"/></bottom><diagonal/></border>' + // 3 dezente Zeilenlinie
+  '<border><left style="thin"><color auto="1"/></left><right style="thin"><color auto="1"/></right><top style="thin"><color auto="1"/></top><bottom style="thin"><color auto="1"/></bottom><diagonal/></border>' + // 4 Rahmen
   '</borders>' +
   '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
-  '<cellXfs count="14">' +
+  '<cellXfs count="16">' +
   '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' + // 0 Standard
   '<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment wrapText="1" vertical="center"/></xf>' + // 1 Kopf
   '<xf numFmtId="49" fontId="0" fillId="0" borderId="3" xfId="0" applyNumberFormat="1" applyBorder="1"/>' + // 2 Text
@@ -192,18 +220,41 @@ const STYLES_XML =
   '<xf numFmtId="165" fontId="1" fillId="0" borderId="2" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1"/>' + // 11 Summe Betrag
   '<xf numFmtId="49" fontId="0" fillId="0" borderId="3" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf>' + // 12 Text mit Umbruch
   '<xf numFmtId="49" fontId="3" fillId="0" borderId="3" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf>' + // 13 Hinweis
+  '<xf numFmtId="0" fontId="1" fillId="0" borderId="4" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>' + // 14 Tabellenkopf mit Rahmen
+  '<xf numFmtId="49" fontId="0" fillId="0" borderId="3" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf>' + // 15 zentriert
   '</cellXfs>' +
   '<cellStyles count="1"><cellStyle name="Standard" xfId="0" builtinId="0"/></cellStyles>' +
   '</styleSheet>';
 
-export function buildXlsx(sheets: Sheet[]): Uint8Array {
+/** VML-Zeichnung für ein Kopfzeilenbild (rechts, „RH“) – so legt Excel Kopfzeilenbilder ab */
+function headerVml(logo: HeaderImage): string {
+  return (
+    '<xml xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">' +
+    '<o:shapelayout v:ext="edit"><o:idmap v:ext="edit" data="1"/></o:shapelayout>' +
+    '<v:shapetype id="_x0000_t75" coordsize="21600,21600" o:spt="75" o:preferrelative="t" path="m@4@5l@4@11@9@11@9@5xe" filled="f" stroked="f">' +
+    '<v:stroke joinstyle="miter"/><v:formulas><v:f eqn="if lineDrawn pixelLineWidth 0"/><v:f eqn="sum @0 1 0"/><v:f eqn="sum 0 0 @1"/>' +
+    '<v:f eqn="prod @2 1 2"/><v:f eqn="prod @3 21600 pixelWidth"/><v:f eqn="prod @3 21600 pixelHeight"/><v:f eqn="sum @0 0 1"/>' +
+    '<v:f eqn="prod @6 1 2"/><v:f eqn="prod @7 21600 pixelWidth"/><v:f eqn="sum @8 21600 0"/><v:f eqn="prod @7 21600 pixelHeight"/>' +
+    '<v:f eqn="sum @10 21600 0"/></v:formulas><v:path o:extrusionok="f" gradientshapeok="t" o:connecttype="rect"/>' +
+    '<o:lock v:ext="edit" aspectratio="t"/></v:shapetype>' +
+    `<v:shape id="RH" o:spid="_x0000_s1025" type="#_x0000_t75" style="position:absolute;margin-left:0;margin-top:0;width:${logo.width}pt;height:${logo.height}pt;z-index:1">` +
+    '<v:imagedata o:relid="rId1" o:title="Firmenlogo"/><o:lock v:ext="edit" rotation="t"/></v:shape></xml>'
+  );
+}
+
+export function buildXlsx(sheets: Sheet[], opts: { logo?: HeaderImage | null } = {}): Uint8Array {
   if (!sheets.length) throw new Error('Keine Tabellenblätter');
+  const logo = opts.logo ?? undefined;
   const files: Record<string, Uint8Array> = {};
   files['[Content_Types].xml'] = strToU8(
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
       '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
       '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
       '<Default Extension="xml" ContentType="application/xml"/>' +
+      (logo
+        ? '<Default Extension="vml" ContentType="application/vnd.openxmlformats-officedocument.vmlDrawing"/>' +
+          (logo.type === 'png' ? '<Default Extension="png" ContentType="image/png"/>' : '<Default Extension="jpeg" ContentType="image/jpeg"/>')
+        : '') +
       '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
       '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
       sheets
@@ -277,6 +328,25 @@ export function buildXlsx(sheets: Sheet[]): Uint8Array {
       '</Relationships>',
   );
   files['xl/styles.xml'] = strToU8(STYLES_XML);
-  sheets.forEach((s, i) => (files[`xl/worksheets/sheet${i + 1}.xml`] = strToU8(sheetXml(s))));
+  sheets.forEach((s, i) => {
+    const withLogo = logo && s.print ? logo : undefined;
+    files[`xl/worksheets/sheet${i + 1}.xml`] = strToU8(sheetXml(s, withLogo));
+    if (!withLogo) return;
+    // Kopfzeilenbild: Blatt → VML-Zeichnung → Bild (ein Bild für alle Blätter)
+    files[`xl/worksheets/_rels/sheet${i + 1}.xml.rels`] = strToU8(
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+        `<Relationship Id="rIdHF" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/vmlDrawing" Target="../drawings/vmlDrawingHF${i + 1}.vml"/>` +
+        '</Relationships>',
+    );
+    files[`xl/drawings/vmlDrawingHF${i + 1}.vml`] = strToU8(headerVml(withLogo));
+    files[`xl/drawings/_rels/vmlDrawingHF${i + 1}.vml.rels`] = strToU8(
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+        `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/logo.${withLogo.type}"/>` +
+        '</Relationships>',
+    );
+  });
+  if (logo && sheets.some((s) => s.print)) files[`xl/media/logo.${logo.type}`] = logo.bytes;
   return zipSync(files, { level: 6 });
 }

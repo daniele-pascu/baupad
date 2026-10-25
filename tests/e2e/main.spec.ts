@@ -377,21 +377,24 @@ test('10. Excel-Export (Plan) mit echten Zahlenwerten', async () => {
   expect(ws[2][4]?.fmt).toBe('#,##0.00');
   const sumRow = ws.find((r) => r[0]?.v === 'Summe Fläche (m²)')!;
   expect(sumRow[4]?.v).toBe('=SUM(E3:E6)');
-  expect(Object.keys(wb)).toEqual(['A-101', 'Projektdaten']);
+  expect(Object.keys(wb)).toEqual(['Aufmaß', 'A-101', 'Projektdaten']); // zuerst das Aufmaß nach Vorlage
   // Druck: auf Seitenbreite angepasst, Kopf (Zeilen 1–2) wiederholt, Druckbereich, Seitenzahlen
   const pr = readXlsxPrint(file)['A-101'];
   expect(pr).toMatchObject({ orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0, titleRows: '$1:$2' });
   expect(pr.printArea).toMatch(/\$A\$1:\$E\$8$/);
-  expect(pr.footer).toContain('Seite &P von &N');
+  // Kopfzeile: links Projekt / Kostenstelle, Mitte Seitenzahl (rechts Platz für das Firmenlogo)
+  expect(pr.header.center).toContain('Seite &P von &N');
+  expect(pr.header.left).not.toBe('');
   // Datei lässt sich mit einem kompatiblen Tabellenprogramm (LibreOffice) öffnen
-  execFileSync('soffice', ['--headless', '--convert-to', 'csv:Text - txt - csv (StarCalc):59,34,76,1,,1031', '--outdir', OUT, file], { timeout: 90_000 });
-  const csv = execFileSync('cat', [file.replace(/\.xlsx$/, '.csv')], { encoding: 'utf8' });
+  // Planblatt (2. Blatt, nach dem Aufmaß nach Vorlage)
+  execFileSync('soffice', ['--headless', '--convert-to', 'csv:Text - txt - csv (StarCalc):59,34,76,1,,1031,false,false,true,false,false,2', '--outdir', OUT, file], { timeout: 90_000 });
+  const csv = execFileSync('cat', [file.replace(/\.xlsx$/, '-A-101.csv')], { encoding: 'utf8' });
   // Dezimaltrennzeichen hängt von der Ländereinstellung des Programms ab
   expect(csv).toMatch(/^1;0[.,]60;0[.,]40;0[.,]03;0[.,]24$/m);
   expect(csv).toMatch(/Summe Fläche \(m²\);;;;5[.,]44/); // Summenformel wird berechnet
   // Ausdruck (LibreOffice → PDF): eine Seite
   execFileSync('soffice', ['--headless', '--convert-to', 'pdf', '--outdir', join(OUT, 'xlsx-pdf'), file], { timeout: 90_000 });
-  expect(execFileSync('pdfinfo', [join(OUT, 'xlsx-pdf', 'Wohnanlage_Sued_Tiefgarage_A-101_Aufmass.pdf')], { encoding: 'utf8' })).toMatch(/Pages:\s+2/);
+  expect(execFileSync('pdfinfo', [join(OUT, 'xlsx-pdf', 'Wohnanlage_Sued_Tiefgarage_A-101_Aufmass.pdf')], { encoding: 'utf8' })).toMatch(/Pages:\s+3/); // Aufmaß, Plan, Projektdaten
 });
 
 test('11. Bearbeiteten Plan als PDF exportieren', async () => {
@@ -437,9 +440,15 @@ test('10b. Excel-Export Kostenstelle und Gesamtprojekt', async () => {
   const dl = await catchDownload(page, () => page.getByTestId('export-xlsx-cc').click());
   expect(dl.suggestedFilename()).toBe('Wohnanlage_Sued_Tiefgarage_Aufmass.xlsx');
   const wb = readXlsx(await saveDownload(dl));
-  // Neues Layout: Übersicht, je Plan ein Blatt, Projektdaten
+  // Layout: Aufmaß nach Vorlage, Übersicht, je Plan ein Blatt, Projektdaten
   const names = Object.keys(wb);
-  expect(names[0]).toBe('Übersicht');
+  expect(names.slice(0, 2)).toEqual(['Aufmaß', 'Übersicht']);
+  // Aufmaß nach Vorlage: Flächenblock mit allen Messungen der Kostenstelle und Summe
+  const am = wb['Aufmaß'];
+  expect(am[0][0]?.v).toBe('Flächen');
+  expect(am[2].map((c) => c?.v ?? null).slice(0, 3)).toEqual(['Plan', 'Nr.', 'Länge (m)']);
+  const amSum = am.find((r) => r[4]?.v === 'Summe')!;
+  expect(amSum[5]?.v).toMatch(/^=SUM\(F4:F\d+\)$/);
   expect(names).toEqual(expect.arrayContaining(['A-101', 'A-102', 'B-204']));
   expect(names[names.length - 1]).toBe('Projektdaten');
   const ov = wb['Übersicht'].find((r) => r[1]?.v === 'A-101')!;
@@ -467,7 +476,7 @@ test('10b. Excel-Export Kostenstelle und Gesamtprojekt', async () => {
   expect(dl2.suggestedFilename()).toBe('Wohnanlage_Sued_Aufmass.xlsx');
   const f2 = await saveDownload(dl2);
   const wb2 = readXlsx(f2);
-  expect(Object.keys(wb2)[0]).toBe('Übersicht');
+  expect(Object.keys(wb2).slice(0, 2)).toEqual(['Aufmaß', 'Übersicht']);
   expect(Object.keys(wb2)).toContain('Projektdaten');
   expect(readXlsxPrint(f2)['Übersicht']).toMatchObject({ orientation: 'landscape', fitToWidth: 1, titleRows: '$1:$2' });
 });

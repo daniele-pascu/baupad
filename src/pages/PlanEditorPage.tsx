@@ -10,6 +10,8 @@ import { SaveErrorBanner, SaveStatus } from '../components/SaveStatus';
 import { confirmDialog, offerFile, promptDialog, showError, toast } from '../components/ui';
 import { costCenterLabel, damagesOf, elementsOf, exportXlsx, findPosition, lvDocLabel, lvDocsOf, plansOf, planTitle, positionRef, sumArea } from '../lib/aufmass';
 import { geometryMeasures, planUnitsPerMeter } from '../lib/calibration';
+import { cachedExcelLogo } from '../lib/company';
+import { calibrationFrom, detectScale, SOURCE_LABELS } from '../lib/scale-detect';
 import { visibleDamages } from '../lib/layers';
 import { LayerMenu } from '../components/LayerMenu';
 import { drawingRegion, drawingSheet, isDrawingPlan, lineEnds, paperLabel, shapeToPage, suggestMeasures, unitsPerMeter } from '../lib/drawing';
@@ -357,6 +359,24 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     toast(`Plan kalibriert: Strecke = ${formatMeasure(r.value)} m. Gespeicherte Messwerte bleiben unverändert.`, 'success', 4000);
   };
 
+  /** Maßstab nachträglich aus dem Plan erkennen (PDF mit Text) */
+  const detectFromPlan = async () => {
+    if (!plan || !file || file.kind !== 'pdf') return;
+    try {
+      const { getPdfDocument, readPageText } = await import('../lib/pdf');
+      const page = await (await getPdfDocument(plan.fileId)).getPage(plan.pageIndex + 1);
+      const det = detectScale(await readPageText(page), plan.crop ?? { x: 0, y: 0, w: plan.pageWidth, h: plan.pageHeight });
+      if (!det) {
+        toast('Im Plan wurde kein eindeutiger Maßstab gefunden – bitte an einer bekannten Strecke kalibrieren.', 'info', 5000);
+        return;
+      }
+      putRecord('plans', { ...data.plans[plan.id], calibration: calibrationFrom(det) });
+      toast(`Maßstab ${det.label} erkannt (${SOURCE_LABELS[det.source]}). Gespeicherte Messwerte bleiben unverändert.`, 'success', 5000);
+    } catch (e) {
+      showError(e, 'Maßstab konnte nicht erkannt werden');
+    }
+  };
+
   const switchMode = (m: 'draw' | 'measure') => {
     setMode(m);
     setToolsOpen(true);
@@ -607,7 +627,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
 
   const exportExcel = () => {
     try {
-      void offerFile(exportXlsx(data, { kind: 'plan', planId: plan.id }));
+      const logo = cachedExcelLogo();
+      void offerFile(exportXlsx(data, { kind: 'plan', planId: plan.id }, 'standard', { logo }));
     } catch (e) {
       showError(e, 'Excel-Export fehlgeschlagen');
     }
@@ -777,6 +798,31 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               </button>
             </>
           )}
+        </div>
+      )}
+      {!drawMode && !drawingPlan && plan.calibration?.auto && (
+        <div className={`banner ${plan.calibration.auto.warning ? 'banner-warn' : 'banner-info'} scale-banner`} data-testid="scale-detected">
+          <p>
+            <strong>Maßstab {plan.calibration.auto.label}</strong> automatisch erkannt ({SOURCE_LABELS[plan.calibration.auto.source]}). Maßvorschläge und Flächen
+            aus dem Plan nutzen diesen Maßstab – bitte einmal an einer bekannten Strecke prüfen.
+            {plan.calibration.auto.warning && <> {plan.calibration.auto.warning}</>}
+          </p>
+          <div className="row gap wrap">
+            <button
+              type="button"
+              className="btn btn-sm btn-primary"
+              onClick={() => {
+                const { auto: _, ...rest } = data.plans[plan.id].calibration!;
+                putRecord('plans', { ...data.plans[plan.id], calibration: rest });
+              }}
+              data-testid="scale-confirm"
+            >
+              Passt
+            </button>
+            <button type="button" className="btn btn-sm" onClick={() => setTool('calibrate')} data-testid="scale-recalibrate">
+              Selbst kalibrieren
+            </button>
+          </div>
         </div>
       )}
       {dupIds.size > 0 && (
@@ -1010,10 +1056,15 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               <span className="muted small">
                 Kalibrieren: Strecke bekannter Länge im Plan ziehen (z. B. eine bemaßte Wand), danach die reale Länge eingeben.
               </span>
+              {file?.kind === 'pdf' && (
+                <button type="button" className="btn btn-sm" onClick={() => void detectFromPlan()} data-testid="calibration-detect" title="Maßstabsangabe und Maßketten im Plan auswerten">
+                  Automatisch erkennen
+                </button>
+              )}
               {plan.calibration ? (
                 <>
                   <strong className="small" data-testid="calibration-info">
-                    Kalibriert: Referenz {formatMeasure(plan.calibration.meters)} m
+                    {plan.calibration.auto ? `Erkannt: ${plan.calibration.auto.label}` : `Kalibriert: Referenz ${formatMeasure(plan.calibration.meters)} m`}
                   </strong>
                   <button type="button" className="btn btn-sm" onClick={() => putRecord('plans', { ...data.plans[plan.id], calibration: undefined })} data-testid="calibration-remove">
                     Kalibrierung entfernen

@@ -105,7 +105,13 @@ export interface Plan extends SyncMeta {
    * `meters` lang). Daraus folgt der Maßstab für Maßvorschläge; gespeicherte Messwerte
    * werden dadurch nie verändert.
    */
-  calibration?: { a: { x: number; y: number }; b: { x: number; y: number }; meters: number };
+  calibration?: {
+    a: { x: number; y: number };
+    b: { x: number; y: number };
+    meters: number;
+    /** automatisch beim Import erkannt (bis zur Bestätigung bzw. eigenen Kalibrierung) */
+    auto?: { source: 'scale' | 'dims' | 'scale+dims'; label: string; warning?: string };
+  };
   /** Im PDF anzeigen: Bemerkung (description), Papierformat, Maßstab – Standard: nein */
   showNote?: boolean;
   showPaper?: boolean;

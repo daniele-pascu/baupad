@@ -1,3 +1,4 @@
+import { preloadExcelLogo } from './lib/company';
 import { useEffect, useState, type ReactNode } from 'react';
 import { DialogHost, toast } from './components/ui';
 import { Icon } from './components/Icon';
@@ -22,6 +23,8 @@ if (typeof window !== 'undefined' && isInstalledApp() && parseRoute(location.has
 export function App() {
   const route = parseRoute(useHash());
   useServiceWorker();
+  // Firmenlogo für Excel-Exporte vorab laden (Export bleibt synchron im Klick)
+  useEffect(preloadExcelLogo, []);
   useEffect(() => {
     try {
       if (sessionStorage.getItem('justUpdated')) {

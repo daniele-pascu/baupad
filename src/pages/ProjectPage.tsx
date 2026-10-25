@@ -11,6 +11,7 @@ import { PlanList } from '../components/PlanList';
 import { ProjectForm, type CostCenterInput } from '../components/ProjectForm';
 import { SaveErrorBanner, SaveStatus } from '../components/SaveStatus';
 import { confirmDialog, offerFile, promptDialog, showError, toast } from '../components/ui';
+import { cachedExcelLogo } from '../lib/company';
 import { aufmassRows, componentsOf, findPosition, costCenterLabel, costCenterName, costCentersOf, damagesOf, elementsOf, exportXlsx, lvDocsOf, planTitle, plansOf, type XlsxLayout } from '../lib/aufmass';
 import { BACKUP_REMIND_DAYS, backupStatus, exportProjectBackup, type BackupStatus } from '../lib/backup';
 import { isDrawingPlan } from '../lib/drawing';
@@ -176,7 +177,9 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
 
   const xlsx = (scope: 'cc' | 'project', layout: XlsxLayout = 'standard') => {
     try {
-      void offerFile(exportXlsx(data, scope === 'cc' && active ? { kind: 'costCenter', costCenterId: active.id } : { kind: 'project' }, layout));
+      // Firmenlogo (Konto → Einstellungen) kommt automatisch in die Kopfzeile
+      const logo = cachedExcelLogo();
+      void offerFile(exportXlsx(data, scope === 'cc' && active ? { kind: 'costCenter', costCenterId: active.id } : { kind: 'project' }, layout, { logo }));
     } catch (e) {
       showError(e, 'Excel-Export fehlgeschlagen');
     }

@@ -3449,3 +3449,44 @@ tr.lv-flagged td {
     border-left: none;
   }
 }
+
+/* Konto: Firmenlogo */
+.logo-settings {
+  margin: 16px 0 0;
+  padding: 16px;
+  border: 1px solid #e8e8ed;
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.logo-settings-head > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.logo-settings-head .muted {
+  font-size: 0.88rem;
+}
+.logo-settings-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin-top: 12px;
+}
+.logo-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 180px;
+  height: 64px;
+  padding: 6px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 12px;
+  background: #fff;
+}
+.logo-preview img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}

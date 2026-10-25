@@ -161,7 +161,7 @@ export async function tableRows(page: Page) {
   );
 }
 
-export type XlsxPrint = { orientation: string; fitToPage: boolean; fitToWidth: number; fitToHeight: number; titleRows: string | null; printArea: string | null; footer: string };
+export type XlsxPrint = { orientation: string; fitToPage: boolean; fitToWidth: number; fitToHeight: number; titleRows: string | null; printArea: string | null; footer: string; header: { left: string; center: string; right: string } };
 /** Druckeinstellungen je Tabellenblatt (über openpyxl gelesen) */
 export function readXlsxPrint(path: string): Record<string, XlsxPrint> {
   const script = `
@@ -173,7 +173,8 @@ for ws in wb.worksheets:
     pr = ws.sheet_properties.pageSetUpPr
     out[ws.title] = {"orientation": ps.orientation, "fitToPage": bool(pr and pr.fitToPage), "fitToWidth": ps.fitToWidth, "fitToHeight": ps.fitToHeight,
       "titleRows": ws.print_title_rows, "printArea": ws.print_area if isinstance(ws.print_area, str) else (ws.print_area[0] if ws.print_area else None),
-      "footer": ws.oddFooter.right.text or ""}
+      "footer": ws.oddFooter.right.text or "",
+      "header": {"left": ws.oddHeader.left.text or "", "center": ws.oddHeader.center.text or "", "right": ws.oddHeader.right.text or ""}}
 print(json.dumps(out))`;
   return JSON.parse(execFileSync('python3', ['-c', script, path], { encoding: 'utf8' }));
 }

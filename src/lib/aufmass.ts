@@ -3,7 +3,7 @@ import { naturalCompare } from './numbers';
 import type { ProjectState } from './store';
 import { alive } from './store';
 import type { Component, CostCenter, Damage, DrawElement, LvDocument, LvPosition, Plan } from './types';
-import { blank, buildXlsx, colName, num, sheetName, str, type Cell, type Sheet } from './xlsx';
+import { blank, buildXlsx, colName, num, sheetName, str, type Cell, type HeaderImage, type Sheet } from './xlsx';
 
 /** Pläne einer Kostenstelle, sortiert nach Plannummer. */
 export function plansOf(data: ProjectState, costCenterId: string): Plan[] {
@@ -221,12 +221,31 @@ export type XlsxLayout = 'standard' | 'classic' | 'positions';
  *   dazu Übersicht, LV/MFK-Auswertung und nicht zugeordnete Messungen.
  * - 'classic': bisheriger Export – eine Tabelle je Kostenstelle mit Plannummer in Spalte A.
  */
-export function exportXlsx(data: ProjectState, scope: XlsxScope, layout: XlsxLayout = 'standard'): ExportFile {
-  if (layout === 'positions') return exportByPositions(data, scope);
-  return layout === 'classic' ? exportClassic(data, scope) : exportStandard(data, scope);
+export function exportXlsx(data: ProjectState, scope: XlsxScope, layout: XlsxLayout = 'standard', opts: XlsxOptions = {}): ExportFile {
+  const out: BuildOut = (sheets) =>
+    buildXlsx(
+      sheets.map((sh) => (sh.print && !sh.headerLeft ? { ...sh, headerLeft: headerLeftFor(data, scope) } : sh)),
+      { logo: opts.logo },
+    );
+  return layout === 'positions' ? exportByPositions(data, scope, out) : layout === 'classic' ? exportClassic(data, scope, out) : exportStandard(data, scope, out);
 }
 
-function exportClassic(data: ProjectState, scope: XlsxScope): ExportFile {
+/** Arbeitsmappe bauen (mit Kopfzeile und Firmenlogo) */
+type BuildOut = (sheets: Sheet[]) => Uint8Array;
+
+/** Firmenlogo (Kopfzeile rechts) für alle Excel-Exporte */
+export interface XlsxOptions {
+  logo?: HeaderImage | null;
+}
+
+/** Kopfzeile links: Projektname / Kostenstelle (bzw. nur Projekt bei Gesamtexport) */
+function headerLeftFor(data: ProjectState, scope: XlsxScope): string {
+  const cc =
+    scope.kind === 'plan' ? data.costCenters[data.plans[scope.planId]?.costCenterId] : scope.kind === 'costCenter' ? data.costCenters[scope.costCenterId] : undefined;
+  return [data.project.name, costCenterLabel(cc)].filter(Boolean).join(' / ');
+}
+
+function exportClassic(data: ProjectState, scope: XlsxScope, out: BuildOut): ExportFile {
   const used = new Set<string>();
   const ccs = costCentersOf(data);
   if (scope.kind === 'plan') {
@@ -235,7 +254,7 @@ function exportClassic(data: ProjectState, scope: XlsxScope): ExportFile {
     const sheet = aufmassSheet(sheetName(plan.planNumber || 'Aufmaß', used), aufmassRows(data, [plan]));
     return {
       name: `${safeFileName(data.project.name, costCenterLabel(cc), plan.planNumber || plan.planName, 'Aufmass')}.xlsx`,
-      data: buildXlsx([sheet, infoSheet(data, cc ? [cc] : [], [plan], used)]),
+      data: out([sheet, infoSheet(data, cc ? [cc] : [], [plan], used)]),
       mimeType: XLSX_MIME,
     };
   }
@@ -245,7 +264,7 @@ function exportClassic(data: ProjectState, scope: XlsxScope): ExportFile {
     const sheet = aufmassSheet(sheetName(costCenterLabel(cc) || 'Aufmaß', used), aufmassRows(data, plans));
     return {
       name: `${safeFileName(data.project.name, costCenterLabel(cc), 'Aufmass')}.xlsx`,
-      data: buildXlsx([sheet, infoSheet(data, [cc], plans, used)]),
+      data: out([sheet, infoSheet(data, [cc], plans, used)]),
       mimeType: XLSX_MIME,
     };
   }
@@ -261,7 +280,7 @@ function exportClassic(data: ProjectState, scope: XlsxScope): ExportFile {
   sheets.push(infoSheet(data, ccs, allPlans, used));
   return {
     name: `${safeFileName(data.project.name, 'Aufmass')}.xlsx`,
-    data: buildXlsx(sheets),
+    data: out(sheets),
     mimeType: XLSX_MIME,
   };
 }
@@ -460,7 +479,114 @@ function unassignedSheet(data: ProjectState, plans: Plan[], used: Set<string>): 
   };
 }
 
-function exportStandard(data: ProjectState, scope: XlsxScope): ExportFile {
+/** Einheit für die Anzeige (m2 → m², m3 → m³) */
+const unitLabel = (u: string) => u.replace(/^m2$/i, 'm²').replace(/^m3$/i, 'm³').replace(/^qm$/i, 'm²').replace(/^cbm$/i, 'm³');
+
+/**
+ * Aufmaßblatt im Layout der BauPad-Vorlage: je Leistung ein Block – Leistung, Tabelle
+ * (Plan, Nr., Länge, Breite, Tiefe, m²/m), Summe mit Einheit, genaue Position und die Zeile
+ * Menge · Einheit · Preis/Einheit · € · Summe gesamte Leistung · € (Formeln). Messungen ohne
+ * Leistung folgen getrennt nach Flächen und Linien. Breite/Tiefe erscheinen nur mit Werten.
+ */
+export function aufmassBlocksSheet(data: ProjectState, plans: Plan[], used: Set<string>): Sheet {
+  const items = aufmassRows(data, plans).map(({ plan, damage }) => ({ plan, d: damage }));
+  const rows: Cell[][] = [];
+  const totals: string[] = [];
+  let money = 0;
+  const pushBlock = (
+    title: string,
+    position: string | null,
+    unit: string,
+    list: { plan: Plan; d: Damage; q: number | null }[],
+    price: number | null,
+  ) => {
+    const showW = list.some((x) => x.d.width !== null);
+    const showT = list.some((x) => x.d.depth !== null);
+    rows.push([str(title, 'label')]);
+    rows.push([]);
+    rows.push([
+      str('Plan', 'tableHead'),
+      str('Nr.', 'tableHead'),
+      str('Länge (m)', 'tableHead'),
+      showW ? str('Breite (m)', 'tableHead') : blank('plain'),
+      showT ? str('Tiefe (m)', 'tableHead') : blank('plain'),
+      str(unitLabel(unit), 'tableHead'),
+    ]);
+    const first = rows.length + 1;
+    for (const { plan, d, q } of list) {
+      rows.push([
+        str(plan.planNumber || plan.planName, 'center'),
+        d.label ? str(d.label, 'center') : num(d.number, 'int'),
+        num(d.length, 'measure'),
+        showW ? (d.width === null ? blank() : num(d.width, 'measure')) : blank('plain'),
+        showT ? (d.depth === null ? blank() : num(d.depth, 'measure')) : blank('plain'),
+        q === null ? blank() : num(q, unit === 'Stk' || /^st/i.test(unit) ? 'int' : 'area'),
+      ]);
+    }
+    const last = Math.max(first, rows.length);
+    const total = list.reduce((a, x) => a + (x.q ?? 0), 0);
+    rows.push([null, null, null, null, str('Summe', 'label'), { t: 'formula', f: `SUM(F${first}:F${last})`, v: Math.round(total * 10000) / 10000, s: 'boldArea' }, str(unitLabel(unit), 'plain')]);
+    const sumRef = `F${rows.length}`;
+    rows.push([]);
+    rows.push([]);
+    // Messungen ohne Leistung: keine Preiszeile (kein Einheitspreis vorhanden)
+    if (!position && price === null) return;
+    if (position) rows.push([str(position, 'plain')]);
+    const r = rows.length + 1;
+    const amount = price !== null ? Math.round(total * price * 100) / 100 : null;
+    rows.push([
+      null,
+      null,
+      { t: 'formula', f: sumRef, v: Math.round(total * 10000) / 10000, s: 'boldArea' },
+      str(unitLabel(unit), 'plain'),
+      str('Preis/Einheit', 'label'),
+      price === null ? blank('money') : num(price, 'money'),
+      str('Summe gesamte Leistung', 'label'),
+      amount === null ? blank('boldMoney') : { t: 'formula', f: `C${r}*F${r}`, v: amount, s: 'boldMoney' },
+    ]);
+    if (amount !== null) {
+      totals.push(`H${r}`);
+      money += amount;
+    }
+    rows.push([]);
+    rows.push([]);
+  };
+
+  // Leistungen in LV-Reihenfolge, nur mit zugeordneten Messungen
+  for (const doc of lvDocsOf(data)) {
+    for (const p of doc.positions) {
+      const own = items.filter((x) => x.d.positionRef === positionRef(doc.id, p.id));
+      if (!own.length) continue;
+      const unit = p.unit || 'EH';
+      pushBlock(
+        p.shortText || `Position ${p.number}`,
+        [`Pos. ${p.number}`, lvDocLabel(doc), p.longText && p.longText !== p.shortText ? p.longText.slice(0, 250) : ''].filter(Boolean).join(' – '),
+        unit,
+        own.map((x) => ({ ...x, q: measurementQuantity(p.unit, x.d).value })),
+        p.unitPrice,
+      );
+    }
+  }
+  // Ohne Leistung: Flächen (m²) und Linien (m) getrennt – nie zusammengezählt
+  const free = items.filter((x) => !findPosition(data, x.d.positionRef));
+  const freeLines = free.filter((x) => kindOf(x.d) === 'line');
+  const freeAreas = free.filter((x) => kindOf(x.d) !== 'line');
+  const withoutPos = free.length < items.length;
+  if (freeAreas.length) pushBlock(withoutPos ? 'Flächen ohne Leistung' : 'Flächen', null, 'm²', freeAreas.map((x) => ({ ...x, q: x.d.area })), null);
+  if (freeLines.length) pushBlock(withoutPos ? 'Linien ohne Leistung' : 'Linien', null, 'm', freeLines.map((x) => ({ ...x, q: x.d.length })), null);
+  if (!items.length) rows.push([str('Noch keine Messungen erfasst.', 'note')]);
+  if (totals.length > 1)
+    rows.push([null, null, null, null, null, null, str('Summe aller Leistungen', 'label'), { t: 'formula', f: totals.join('+'), v: Math.round(money * 100) / 100, s: 'boldMoney' }]);
+  return {
+    name: sheetName('Aufmaß', used),
+    rows,
+    widths: [10, 8, 11, 12, 12, 13, 22, 14],
+    print: true,
+    pageLayout: true,
+  };
+}
+
+function exportStandard(data: ProjectState, scope: XlsxScope, out: BuildOut): ExportFile {
   const used = new Set<string>();
   const ccs = costCentersOf(data);
   let plans: Plan[];
@@ -486,7 +612,8 @@ function exportStandard(data: ProjectState, scope: XlsxScope): ExportFile {
     name = safeFileName(data.project.name, 'Aufmass');
     title = `Aufmaß ${data.project.name}`;
   }
-  const sheets: Sheet[] = [];
+  // Erstes Blatt: Aufmaß im Layout der Vorlage (Blöcke je Leistung); danach die Detailblätter
+  const sheets: Sheet[] = [aufmassBlocksSheet(data, plans, used)];
   if (scope.kind !== 'plan') sheets.push(overviewSheet(data, plans, title, used));
   for (const p of plans) sheets.push(planSheet(data, p, used));
   if (!plans.length) sheets.push({ name: sheetName('Aufmaß', used), rows: [[str('Keine Pläne', 'title')]], widths: [20] });
@@ -501,7 +628,7 @@ function exportStandard(data: ProjectState, scope: XlsxScope): ExportFile {
     }
   }
   sheets.push(infoSheet(data, ccList, plans, used));
-  return { name: `${name}.xlsx`, data: buildXlsx(sheets), mimeType: XLSX_MIME };
+  return { name: `${name}.xlsx`, data: out(sheets), mimeType: XLSX_MIME };
 }
 
 // ---------------------------------------------------------------------------
@@ -612,7 +739,7 @@ function freeSheet(items: { plan: Plan; d: Damage }[], title: string, used: Set<
   };
 }
 
-function exportByPositions(data: ProjectState, scope: XlsxScope): ExportFile {
+function exportByPositions(data: ProjectState, scope: XlsxScope, out: BuildOut): ExportFile {
   const used = new Set<string>();
   let plans: Plan[];
   let ccList: CostCenter[];
@@ -686,7 +813,7 @@ function exportByPositions(data: ProjectState, scope: XlsxScope): ExportFile {
   sheets.push(infoSheet(data, ccList, plans, used));
   return {
     name: `${safeFileName(data.project.name, label, 'Aufmass nach Leistungen')}.xlsx`,
-    data: buildXlsx(sheets),
+    data: out(sheets),
     mimeType: XLSX_MIME,
   };
 }

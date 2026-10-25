@@ -3,7 +3,8 @@ import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { putBlob } from '../lib/db';
 import { uuid } from '../lib/ids';
 import { naturalCompare } from '../lib/numbers';
-import { closePdf, imageToCanvas, loadImageBitmap, openPdf, pageSize, renderPdfToCanvas } from '../lib/pdf';
+import { closePdf, imageToCanvas, loadImageBitmap, openPdf, pageSize, readPageText, renderPdfToCanvas } from '../lib/pdf';
+import { calibrationFrom, detectScale, type PageText, type ScaleDetection } from '../lib/scale-detect';
 import { alive, newMeta, putRecords, type ProjectState } from '../lib/store';
 import type { PaperFormat, Plan, Rect, SourceFile } from '../lib/types';
 import { defaultPaper } from '../lib/sheet-layout';
@@ -208,8 +209,23 @@ export function ImportWizard({ file, data, costCenterId, onClose, onDone }: Prop
       };
       const existing = alive(data.plans).filter((p) => p.costCenterId === costCenterId);
       let sortIndex = existing.length ? Math.max(...existing.map((p) => p.sortIndex)) + 1 : 0;
-      const plans: Plan[] = drafts.map((d) => {
+      // Maßstab automatisch erkennen (nur PDF mit Text): Maßstabsangabe und Maßketten im Ausschnitt
+      const detected = new Map<number, ScaleDetection | null>();
+      if (kind === 'pdf' && doc) {
+        const texts = new Map<number, PageText[]>();
+        for (const [i, d] of drafts.entries()) {
+          try {
+            if (!texts.has(d.pageIndex)) texts.set(d.pageIndex, await readPageText(await doc.getPage(d.pageIndex + 1)));
+            const size = sizes.get(d.pageIndex)!;
+            detected.set(i, detectScale(texts.get(d.pageIndex)!, d.crop ?? { x: 0, y: 0, w: size.width, h: size.height }));
+          } catch {
+            detected.set(i, null); // Erkennung ist optional – Import geht immer weiter
+          }
+        }
+      }
+      const plans: Plan[] = drafts.map((d, i) => {
         const size = sizes.get(d.pageIndex)!;
+        const det = detected.get(i);
         return {
           ...newMeta(),
           projectId: data.project.id,
@@ -230,10 +246,17 @@ export function ImportWizard({ file, data, costCenterId, onClose, onDone }: Prop
           paper: d.paper,
           numberStart: 1,
           sortIndex: sortIndex++,
+          ...(det ? { calibration: calibrationFrom(det) } : {}),
         };
       });
       putRecords({ files: [sf], plans });
-      toast(`${plans.length} Plan/Pläne importiert.`, 'success');
+      const scaled = plans.filter((p) => p.calibration?.auto);
+      toast(
+        `${plans.length} Plan/Pläne importiert.` +
+          (scaled.length ? ` Maßstab erkannt: ${scaled.map((p) => `${p.planNumber} ${p.calibration!.auto!.label}`).join(', ')}.` : kind === 'pdf' ? ' Kein Maßstab im Plan gefunden – bei Bedarf kalibrieren.' : ''),
+        'success',
+        scaled.length ? 6000 : undefined,
+      );
       onDone(plans.sort((a, b) => naturalCompare(a.planNumber, b.planNumber)).map((p) => p.id));
     } catch (e) {
       showError(e, 'Import fehlgeschlagen');

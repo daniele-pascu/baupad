@@ -151,8 +151,16 @@ test('Messarten Linie, Schadstelle, Fläche: Linien zählen nicht zur Fläche, l
     [2, 2, 1, null, 2, 'Schadstelle'],
     [3, 1, 0.5, 0.1, 0.5, 'Fläche'],
   ]);
-  execFileSync('soffice', ['--headless', '--convert-to', 'csv:Text - txt - csv (StarCalc):59,34,76,1,,1031', '--outdir', OUT, file], { timeout: 90_000 });
-  const csv = readFileSync(file.replace(/\.xlsx$/, '.csv'), 'utf8');
+  // Aufmaß nach Vorlage (erstes Blatt): Flächen und Linien in getrennten Blöcken
+  const blocks = readXlsx(file)['Aufmaß'].map((r) => r.map((c) => c?.v ?? null));
+  const areaHead = blocks.findIndex((r) => r[0] === 'Flächen');
+  const lineHead = blocks.findIndex((r) => r[0] === 'Linien');
+  expect(areaHead).toBeGreaterThanOrEqual(0);
+  expect(lineHead).toBeGreaterThan(areaHead);
+  expect(blocks[lineHead + 3].slice(0, 3)).toEqual(['M-1', 1, 3.5]);
+  // Planblatt (2. Blatt) als CSV
+  execFileSync('soffice', ['--headless', '--convert-to', 'csv:Text - txt - csv (StarCalc):59,34,76,1,,1031,false,false,true,false,false,2', '--outdir', OUT, file], { timeout: 90_000 });
+  const csv = readFileSync(file.replace(/\.xlsx$/, '-M-1.csv'), 'utf8');
   expect(csv).toMatch(/^1;3[.,]50;;;;Linie$/m); // Linie: Breite, Tiefe, Fläche leer
   expect(csv).toMatch(/^2;2[.,]00;1[.,]00;;2[.,]00;Schadstelle$/m); // Tiefe leer, nicht 0
   expect(csv).toMatch(/Summe Fläche \(m²\);;;;2[.,]5/); // Linie zählt nicht zur Fläche

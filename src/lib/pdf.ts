@@ -182,3 +182,34 @@ export function imageToCanvas(bitmap: ImageBitmap, maxSide: number, region?: Rec
   ctx.drawImage(bitmap, r.x, r.y, r.w, r.h, 0, 0, canvas.width, canvas.height);
   return canvas;
 }
+
+/**
+ * Text einer PDF-Seite in Seitenkoordinaten (wie die Planansicht: PDF-Punkte, Ursprung oben
+ * links, Seitendrehung berücksichtigt) – für die automatische Maßstabserkennung.
+ */
+export async function readPageText(page: PDFPageProxy): Promise<import('./scale-detect').PageText[]> {
+  const vp = page.getViewport({ scale: 1 });
+  const content = await page.getTextContent();
+  const out: import('./scale-detect').PageText[] = [];
+  for (const it of content.items) {
+    if (!('str' in it) || !it.str.trim()) continue;
+    const [a, b, c, d, e, f] = it.transform as number[];
+    const ang = Math.atan2(b, a);
+    const fh = Math.hypot(c, d) || 1;
+    const w = it.width || 0;
+    const p0 = vp.convertToViewportPoint(e, f);
+    const p1 = vp.convertToViewportPoint(e + Math.cos(ang) * w, f + Math.sin(ang) * w);
+    const pu = vp.convertToViewportPoint(e - Math.sin(ang) * fh * 0.7, f + Math.cos(ang) * fh * 0.7);
+    const x = (p0[0] + p1[0]) / 2 + (pu[0] - p0[0]) / 2;
+    const y = (p0[1] + p1[1]) / 2 + (pu[1] - p0[1]) / 2;
+    out.push({
+      str: it.str,
+      x,
+      y,
+      angle: (Math.atan2(p1[1] - p0[1], p1[0] - p0[0]) * 180) / Math.PI,
+      width: Math.hypot(p1[0] - p0[0], p1[1] - p0[1]),
+      height: fh,
+    });
+  }
+  return out;
+}
