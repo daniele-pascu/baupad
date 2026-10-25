@@ -114,6 +114,7 @@ test('Plandetails: Format und Überschrift ändern, nach Neuladen erhalten', asy
   await det.locator('[data-field="description"]').fill('Nur Bereich Nord');
   await det.getByTestId('show-note').check();
   await det.getByRole('button', { name: 'Speichern' }).click();
+  await waitSaved(page); // erst nach dem Speichern neu laden (sonst fragt der Browser nach)
   await page.reload();
   await page.getByTestId('plan-actions').click();
   await page.getByTestId('action-edit').click();

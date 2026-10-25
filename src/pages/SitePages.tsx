@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { Icon } from '../components/Icon';
 import { SiteFooter, SiteNav } from '../components/SiteNav';
 import { site } from '../content/site';
 import { paths } from '../lib/router';
@@ -21,23 +22,38 @@ export function LandingPage() {
       <SiteNav />
       <main className="site-main">
         <section className="hero">
+          <p className="hero-eyebrow fade-in">{t.eyebrow}</p>
           <h1 className="hero-title fade-in">{t.title}</h1>
           <p className="hero-lead fade-in delay-1">{t.lead}</p>
-          <div className="fade-in delay-2">
+          <div className="hero-actions fade-in delay-2">
             <a href={paths.projects()} className="site-cta" data-testid="cta-projects">
               {t.cta}
               <span aria-hidden="true"> →</span>
+            </a>
+            <a href={paths.about()} className="site-cta site-cta-secondary">
+              {t.secondary}
             </a>
           </div>
         </section>
         <section className="highlights fade-in delay-3" aria-label="Funktionen">
           {t.highlights.map((h) => (
             <div key={h.title} className="highlight">
+              <span className="highlight-icon" aria-hidden="true">
+                <Icon name={h.icon} size={22} />
+              </span>
               <h2>{h.title}</h2>
               <p>{h.text}</p>
             </div>
           ))}
         </section>
+        <ul className="site-facts fade-in delay-3" aria-label="Eigenschaften">
+          {t.facts.map((f) => (
+            <li key={f}>
+              <Icon name="check" size={16} />
+              {f}
+            </li>
+          ))}
+        </ul>
       </main>
       <SiteFooter />
     </div>

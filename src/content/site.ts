@@ -12,12 +12,18 @@ export const site = {
       'Mit BauPad erfasst du Schadstellen und Oberflächen direkt im Bauplan. Erstelle Messungen, verwalte deine ' +
       'Projekte und bereite deine Aufmaßdaten übersichtlich für die weitere Bearbeitung auf.',
     cta: 'Zur Projektverwaltung',
+    /** Kleine Zeile über der Überschrift */
+    eyebrow: 'Digitales Aufmaß für die Baustelle',
+    secondary: 'Mehr erfahren',
     /** Kurze Übersicht – beschreibt nur Funktionen, die BauPad bereits hat */
     highlights: [
-      { title: 'Im Plan markieren', text: 'PDF oder Foto des Plans öffnen und Schadstellen direkt einzeichnen.' },
-      { title: 'Automatisch berechnet', text: 'Länge und Breite eingeben – die Fläche rechnet BauPad aus.' },
-      { title: 'Excel und PDF', text: 'Aufmaß als Excel-Tabelle und Pläne mit Markierungen als PDF exportieren.' },
+      { icon: 'map', title: 'Im Plan markieren', text: 'PDF oder Foto des Plans öffnen und Schadstellen direkt einzeichnen.' },
+      { icon: 'drawPlan', title: 'Pläne zeichnen', text: 'Räume und Flächen maßstäblich skizzieren – mit Fang, Bemaßung und Schraffur.' },
+      { icon: 'calibrate', title: 'Automatisch berechnet', text: 'Länge und Breite eingeben oder Fläche direkt aus dem Plan übernehmen.' },
+      { icon: 'pdf', title: 'Excel und PDF', text: 'Aufmaß als Excel-Tabelle und Pläne mit Markierungen als PDF exportieren.' },
     ],
+    /** Hinweise unter den Funktionen */
+    facts: ['Funktioniert offline', 'Daten bleiben auf dem Gerät', 'iPhone, iPad und PC'],
   },
   about: {
     title: 'Über BauPad',
