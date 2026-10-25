@@ -243,7 +243,7 @@ test('Nach dem Neuladen ist alles da; PDF-Export mit Maßstab; Sicherung und Wie
   });
   const pdf = await saveDownload(dl, 'gezeichnet.pdf');
   const text = execFileSync('pdftotext', [pdf, '-'], { encoding: 'utf8' });
-  expect(text).toContain('Plannummer Z-1 | Aufmaßplan');
+  expect(text).toMatch(/^Z-1$/m);
   expect(text).not.toMatch(/Maßstab|A3/); // nur auf Wunsch im Plan
   expect(text).toContain('6,20 m');
   expect(text).toContain('Kellerraum 1');

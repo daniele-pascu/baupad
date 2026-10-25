@@ -100,6 +100,12 @@ export interface Plan extends SyncMeta {
   paper?: PaperFormat;
   /** Titel im PDF-Kopf neben der Plannummer (leer bzw. fehlend = „Aufmaßplan“) */
   title?: string;
+  /**
+   * Importierte Pläne: Kalibrierung über eine bekannte Strecke (Seitenkoordinaten a–b ist
+   * `meters` lang). Daraus folgt der Maßstab für Maßvorschläge; gespeicherte Messwerte
+   * werden dadurch nie verändert.
+   */
+  calibration?: { a: { x: number; y: number }; b: { x: number; y: number }; meters: number };
   /** Im PDF anzeigen: Bemerkung (description), Papierformat, Maßstab – Standard: nein */
   showNote?: boolean;
   showPaper?: boolean;

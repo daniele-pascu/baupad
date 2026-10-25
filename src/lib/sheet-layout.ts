@@ -42,12 +42,11 @@ export function exportPaper(plan: Plan): PaperFormat {
 /** Standard: A4, Ausrichtung passend zum Plan(ausschnitt). */
 export const defaultPaper = (r: { w: number; h: number }): PaperFormat => (r.w > r.h ? 'A4-quer' : 'A4-hoch');
 
-/** Titel im PDF-Kopf (Standard „Aufmaßplan“) */
-export const planTitleText = (plan: Pick<Plan, 'title'>) => plan.title?.trim() || 'Aufmaßplan';
-
-/** Überschrift des Plans im PDF: „Plannummer 067 | Aufmaßplan“ */
-export const planHeading = (plan: Pick<Plan, 'title' | 'planNumber'>) =>
-  plan.planNumber.trim() ? `Plannummer ${plan.planNumber.trim()} | ${planTitleText(plan)}` : planTitleText(plan);
+/**
+ * Überschrift des Plans im PDF: optionaler Titel vor der (Pflicht-)Plannummer, sonst nichts –
+ * z. B. „Aufmaßplan 067“ bzw. nur „067“.
+ */
+export const planHeading = (plan: Pick<Plan, 'title' | 'planNumber'>) => [plan.title?.trim(), plan.planNumber.trim()].filter(Boolean).join(' ');
 
 const fit = (r: { w: number; h: number }, box: { w: number; h: number }) => Math.min(box.w / r.w, box.h / r.h);
 

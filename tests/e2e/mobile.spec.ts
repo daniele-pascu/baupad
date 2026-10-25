@@ -319,7 +319,8 @@ test('Website und Planliste auf Smartphone/Tablet: Menü, keine Überbreite, Akt
   expect(mb.x + mb.width).toBeLessThanOrEqual(vp.width);
   expect(mb.y + mb.height).toBeLessThanOrEqual(vp.height);
   // 44 px Mindesthöhe (Toleranz für Rundung durch die Bildschirmskalierung)
-  for (const item of await menu.getByRole('menuitem').all()) expect((await item.boundingBox())!.height).toBeGreaterThanOrEqual(43.5);
+  // (nach dem Aufklappen gemessen – während der Animation ist das Menü kurz kleiner)
+  for (const item of await menu.getByRole('menuitem').all()) await expect.poll(async () => (await item.boundingBox())!.height).toBeGreaterThanOrEqual(43.5);
   await page.screenshot({ path: join(OUT, `${info.project.name}-planliste.png`) });
   await page.getByTestId('action-open').tap();
   await waitForPlan(page);

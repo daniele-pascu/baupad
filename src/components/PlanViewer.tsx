@@ -37,11 +37,12 @@ import {
 } from '../lib/geometry';
 import { clampRenderScale, getImageBitmap, getPdfDocument, renderPdfRegion, type RenderJob } from '../lib/pdf';
 import { getView, putView } from '../lib/db';
+import { SNAP_LABELS, type SnapKind } from '../lib/snap';
 import { DEFAULT_TRANSPARENCY, fillOf, PX_PER_PT, strokeGeometry } from '../lib/style';
 import type { Component, Damage, Plan, Rect, Shape, ShapeStyle, ShapeType, SourceFile } from '../lib/types';
 
 /** Werkzeuge: Auswahl, Formen, Bauteilbuchstabe setzen; bei gezeichneten Plänen zusätzlich Maßlinie und Text */
-export type Tool = 'select' | ShapeType | 'component' | 'dimension' | 'text' | 'polygon' | 'polyline';
+export type Tool = 'select' | ShapeType | 'component' | 'dimension' | 'text' | 'polygon' | 'polyline' | 'calibrate';
 
 /** Werkzeuge, die Punkt für Punkt gesetzt werden (Polygon = immer geschlossen, Polylinie = offen oder geschlossen) */
 const isPointTool = (t: Tool) => t === 'polygon' || t === 'polyline';
@@ -55,7 +56,7 @@ export type ViewerItem = Pick<Damage, 'id' | 'number' | 'shape' | 'color' | 'lab
 const noOf = (d: ViewerItem) => d.label?.trim() || String(d.number);
 
 /** Einrasten: liefert den eingerasteten Punkt (Seitenkoordinaten). */
-export type SnapFn = (p: Point, ctx: { from?: Point; tool?: Tool; scale: number; movingId?: string }) => Point;
+export type SnapFn = (p: Point, ctx: { from?: Point; tool?: Tool; scale: number; movingId?: string }) => Point & { kind?: SnapKind };
 
 /** Gut sichtbare Strichfarbe (Weiß wäre auf weißem Plan unsichtbar). */
 export const visibleStroke = (color: string) => (color.toLowerCase() === '#ffffff' ? '#8e8e93' : color);
@@ -85,6 +86,8 @@ export interface PlanViewerHandle {
   undoPolygonPoint(): void;
   /** Bildschirmpixel je Seiteneinheit */
   scale(): number;
+  /** Ausgewähltes Objekt formatfüllend anzeigen („Zoom auf Auswahl“) */
+  zoomTo(id: string): void;
 }
 
 interface Props {
@@ -135,7 +138,7 @@ type Gesture =
   | { kind: 'none' }
   | { kind: 'pan'; start: Point; view: View; moved: boolean; tapTarget: string | null }
   | { kind: 'pinch'; dist: number; mid: Point; view: View }
-  | { kind: 'draw'; tool: ShapeType | 'dimension'; start: Point; current: Point; points: Point[] }
+  | { kind: 'draw'; tool: ShapeType | 'dimension' | 'calibrate'; start: Point; current: Point; points: Point[] }
   | { kind: 'move'; id: string; start: Point; orig: Shape; moved: boolean; ref: Point }
   | { kind: 'resize'; id: string; handle: string; orig: Shape }
   | { kind: 'vertex'; id: string; index: number; orig: Shape; start: Point; moved: boolean }
@@ -186,6 +189,13 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   const poly = useRef<Point[]>([]);
   const polyHover = useRef<Point | null>(null);
   const clampP = (p: Point) => (propsRef.current.bounds ? clampPoint(p, propsRef.current.bounds) : p);
+  /** Zuletzt gefangener Punkt (Markierung mit Art des Fangpunkts) */
+  const snapMark = useRef<{ p: Point; kind: SnapKind } | null>(null);
+  const snapAt: SnapFn = (raw, ctx) => {
+    const r: Point & { kind?: SnapKind } = propsRef.current.snap ? propsRef.current.snap(raw, ctx) : raw;
+    snapMark.current = r.kind ? { p: { x: r.x, y: r.y }, kind: r.kind } : null;
+    return r;
+  };
 
   const setView = useCallback((v: View) => {
     viewRef.current = v;
@@ -411,6 +421,16 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       forceRender((n) => n + 1);
     },
     scale: () => viewRef.current?.scale ?? 1,
+    zoomTo: (id: string) => {
+      const d = propsRef.current.damages.find((x) => x.id === id);
+      if (!d || !size || !viewRef.current) return;
+      const b = shapeAABB(d.shape);
+      pushHistory();
+      const { min, max } = limits();
+      const scale = Math.min(max, Math.max(min, Math.min((size.w * 0.6) / Math.max(b.w, 1e-3), (size.h * 0.6) / Math.max(b.h, 1e-3))));
+      setView({ scale, tx: size.w / 2 - (b.x + b.w / 2) * scale, ty: size.h / 2 - (b.y + b.h / 2) * scale });
+      propsRef.current.onHistoryChange?.();
+    },
     focus: (id: string) => {
       const d = propsRef.current.damages.find((x) => x.id === id);
       if (!d || !size || !viewRef.current) return;
@@ -608,8 +628,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     }
     const raw = clampP(toPage(v, p));
     const snap = propsRef.current.snap;
-    const pp = clampP(snap && currentTool !== 'freehand' ? snap(raw, { tool: currentTool, scale: v.scale }) : raw);
-    gesture.current = { kind: 'draw', tool: currentTool as ShapeType | 'dimension', start: pp, current: pp, points: [pp] };
+    const pp = clampP(snap && currentTool !== 'freehand' ? snapAt(raw, { tool: currentTool, scale: v.scale }) : raw);
+    gesture.current = { kind: 'draw', tool: currentTool as ShapeType | 'dimension' | 'calibrate', start: pp, current: pp, points: [pp] };
     forceRender((n) => n + 1);
   };
 
@@ -631,6 +651,14 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   const onPointerMove = (e: React.PointerEvent) => {
     if (!pointers.current.has(e.pointerId)) {
       if (e.pointerType === 'mouse') hoverCursor(localPoint(e));
+      // Fangpunkt schon vor dem Klicken anzeigen (Zeichenwerkzeuge)
+      const t = propsRef.current.tool;
+      if (e.pointerType === 'mouse' && propsRef.current.snap && t !== 'select' && viewRef.current) {
+        const before = snapMark.current;
+        const last = poly.current[poly.current.length - 1];
+        snapAt(clampP(toPage(viewRef.current, localPoint(e))), { tool: t, scale: viewRef.current.scale, from: last });
+        if (before?.kind !== snapMark.current?.kind || before?.p.x !== snapMark.current?.p.x || before?.p.y !== snapMark.current?.p.y) forceRender((n) => n + 1);
+      }
       // Vorschau der nächsten Kante beim Setzen von Flächenpunkten
       if (isPointTool(propsRef.current.tool) && poly.current.length && viewRef.current) {
         polyHover.current = clampP(toPage(viewRef.current, localPoint(e)));
@@ -678,7 +706,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       case 'draw': {
         const raw = clampP(toPage(v, p));
         const snap = propsRef.current.snap;
-        const pp = clampP(snap && g.tool !== 'freehand' ? snap(raw, { from: g.start, tool: g.tool, scale: v.scale }) : raw);
+        const pp = clampP(snap && g.tool !== 'freehand' ? snapAt(raw, { from: g.start, tool: g.tool, scale: v.scale }) : raw);
         g.current = pp;
         if (g.tool === 'freehand') {
           // Alle Zwischenpunkte übernehmen, damit die Linie genau dem Finger folgt
@@ -704,7 +732,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         const snap = propsRef.current.snap;
         if (snap) {
           // Bezugsecke einrasten, damit das Objekt am Raster bzw. an anderen Objekten anliegt
-          const t = snap({ x: g.ref.x + dx, y: g.ref.y + dy }, { scale: v.scale, movingId: g.id });
+          const t = snapAt({ x: g.ref.x + dx, y: g.ref.y + dy }, { scale: v.scale, movingId: g.id });
           mx = t.x - g.ref.x;
           my = t.y - g.ref.y;
         }
@@ -721,13 +749,13 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         const isLine = g.orig.type === 'line';
         const other = isLine ? vs[1 - g.index] : undefined;
         const snap = propsRef.current.snap;
-        const pp = clampP(snap ? snap(raw, { scale: v.scale, movingId: g.id, from: other, tool: isLine ? 'line' : undefined }) : raw);
+        const pp = clampP(snap ? snapAt(raw, { scale: v.scale, movingId: g.id, from: other, tool: isLine ? 'line' : undefined }) : raw);
         propsRef.current.onShapeChange(g.id, moveVertex(g.orig, g.index, pp), false);
         return;
       }
       case 'resize': {
         const raw = clampP(toPage(v, p));
-        const pp = propsRef.current.snap ? propsRef.current.snap(raw, { scale: v.scale, movingId: g.id }) : raw;
+        const pp = propsRef.current.snap ? snapAt(raw, { scale: v.scale, movingId: g.id }) : raw;
         propsRef.current.onShapeChange(g.id, resizeRotatedShape(g.orig, g.handle, pp, 6 / v.scale), false);
         return;
       }
@@ -765,6 +793,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     if (pointers.current.size) return;
     gesture.current = { kind: 'none' };
     setCursor('');
+    if (e.pointerType !== 'mouse') snapMark.current = null;
     if (!v) return;
     const p = localPoint(e);
     switch (g.kind) {
@@ -787,7 +816,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         if (!g.moved && !cancelled) {
           const raw = clampP(toPage(v, p));
           const snap = propsRef.current.snap;
-          propsRef.current.onPlace(clampP(snap ? snap(raw, { tool: propsRef.current.tool, scale: v.scale }) : raw));
+          propsRef.current.onPlace(clampP(snap ? snapAt(raw, { tool: propsRef.current.tool, scale: v.scale }) : raw));
         }
         return;
       case 'component': {
@@ -836,7 +865,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         if (g.moved || cancelled) return;
         const raw = clampP(toPage(v, p));
         const snap = propsRef.current.snap;
-        const pp = clampP(snap ? snap(raw, { scale: v.scale }) : raw);
+        const pp = clampP(snap ? snapAt(raw, { scale: v.scale }) : raw);
         const pts = poly.current;
         const first = pts[0];
         const now = Date.now();
@@ -1027,6 +1056,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
               })}
             </g>
           )}
+          {snapMark.current && props.snap && (tool !== 'select' || g.kind === 'vertex' || g.kind === 'move' || g.kind === 'resize') && <SnapMarker view={view} mark={snapMark.current} />}
           {props.overlay?.(view, drawPreview)}
           {/* Verbindungslinien zuerst, damit sie unter den Nummern liegen */}
           {damages.map((d) => {
@@ -1126,6 +1156,34 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   );
 });
 
+/** Fangpunkt: Form je Art (wie in CAD-Programmen) mit kurzer Beschriftung */
+function SnapMarker({ view, mark }: { view: View; mark: { p: Point; kind: SnapKind } }) {
+  const c = toScreen(view, mark.p);
+  const r = 6;
+  const shape =
+    mark.kind === 'end' ? (
+      <rect x={c.x - r} y={c.y - r} width={2 * r} height={2 * r} />
+    ) : mark.kind === 'mid' ? (
+      <path d={`M${c.x} ${c.y - r}L${c.x + r} ${c.y + r * 0.8}L${c.x - r} ${c.y + r * 0.8}Z`} />
+    ) : mark.kind === 'intersection' ? (
+      <path d={`M${c.x - r} ${c.y - r}L${c.x + r} ${c.y + r}M${c.x + r} ${c.y - r}L${c.x - r} ${c.y + r}`} />
+    ) : mark.kind === 'center' ? (
+      <circle cx={c.x} cy={c.y} r={r} />
+    ) : mark.kind === 'nearest' ? (
+      <path d={`M${c.x - r} ${c.y - r}H${c.x + r}L${c.x - r} ${c.y + r}H${c.x + r}Z`} />
+    ) : (
+      <path d={`M${c.x - r} ${c.y}H${c.x + r}M${c.x} ${c.y - r}V${c.y + r}`} />
+    );
+  return (
+    <g className="snap-marker" data-testid="snap-marker" data-kind={mark.kind} pointerEvents="none">
+      {shape}
+      <text x={c.x + r + 4} y={c.y - r - 2}>
+        {SNAP_LABELS[mark.kind]}
+      </text>
+    </g>
+  );
+}
+
 /**
  * Anfasser in Bildschirmkoordinaten (mit Drehung der Form). Bei kleinen Markierungen nur
  * die vier Ecken, leicht nach außen versetzt, damit die Form selbst sichtbar und
@@ -1166,7 +1224,8 @@ function shapeFromDraw(g: Extract<Gesture, { kind: 'draw' }>, v: View, preview =
   const r = normalizeRect(g.start, g.current);
   const tiny = Math.max(r.w, r.h) * v.scale < 8;
   if (tiny) {
-    if (preview) return null;
+    // Kalibrieren braucht eine echte Strecke
+    if (preview || g.tool === 'calibrate') return null;
     // Antippen: Markierung in Standardgröße anlegen
     const s = 36 / v.scale;
     const base = { x: g.start.x - s / 2, y: g.start.y - s / 2, w: s, h: s };
@@ -1196,7 +1255,7 @@ function shapeFromDraw(g: Extract<Gesture, { kind: 'draw' }>, v: View, preview =
     const closeDist = Math.max(18 / v.scale, 0.08 * Math.hypot(r.w, r.h));
     return freehandShape(g.points, 0.5 / v.scale, closeDist) ?? { type: 'ellipse', ...r };
   }
-  if (g.tool === 'line' || g.tool === 'dimension') return lineShape(g.start, g.current);
+  if (g.tool === 'line' || g.tool === 'dimension' || g.tool === 'calibrate') return lineShape(g.start, g.current);
   if (g.tool === 'triangle') return triangleShape(r);
   return { type: g.tool, ...r };
 }

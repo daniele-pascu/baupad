@@ -2710,3 +2710,79 @@ tr.lv-flagged td {
 .heading-preview {
   margin: -4px 0 0;
 }
+
+/* ---------- Punktfang und Kalibrierung ---------- */
+.snap-marker rect,
+.snap-marker path,
+.snap-marker circle {
+  fill: none;
+  stroke: #0b8f4e;
+  stroke-width: 2;
+}
+.snap-marker text {
+  font-size: 11px;
+  font-weight: 600;
+  fill: #0b8f4e;
+  paint-order: stroke;
+  stroke: #fff;
+  stroke-width: 3px;
+}
+.calibration-line line {
+  stroke: #7048e8;
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+}
+.calibration-line circle {
+  fill: #fff;
+  stroke: #7048e8;
+  stroke-width: 2;
+}
+.calibration-line text {
+  font-size: 12px;
+  font-weight: 700;
+  fill: #7048e8;
+  paint-order: stroke;
+  stroke: #fff;
+  stroke-width: 3px;
+}
+.icon-btn.active-toggle {
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+@media (max-width: 600px) {
+  /* Aufmaß-Werkzeuge (inkl. Kalibrieren) in einer Zeile, jedes mindestens 44 px breit */
+  .toolbar:not(.draw-toolbar) > .tool-group:first-child {
+    gap: 2px;
+  }
+}
+@media (max-width: 600px) {
+  /* Aufmaß-Leiste: Werkzeuge oben, darunter Farben + Stil + Ausblenden in einer Zeile */
+  .toolbar:not(.draw-toolbar):not(.toolbar-collapsed) {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    row-gap: 6px;
+    column-gap: 4px;
+  }
+  .toolbar:not(.draw-toolbar) > .tool-group:first-child {
+    flex: 1 1 100%;
+  }
+  .toolbar:not(.draw-toolbar) > .tool-group.colors {
+    width: auto;
+    flex: 1 1 auto;
+    justify-content: space-between;
+    gap: 3px;
+  }
+  .toolbar:not(.draw-toolbar) > .tool-group.colors .swatch {
+    width: 32px;
+    height: 32px;
+  }
+  .toolbar:not(.draw-toolbar) > .tool-group.color-pick {
+    width: auto;
+    flex: none;
+  }
+  .toolbar:not(.draw-toolbar) > .tool-group.color-pick .tool-btn {
+    flex: none;
+    min-width: 46px;
+  }
+}

@@ -11,13 +11,11 @@ import {
   gridStep,
   lineEnds,
   lineFromMeasures,
-  nearestSnap,
   rectFromMeasures,
   roundM,
   shapeToMeters,
   shapeToPage,
   snapAngle,
-  snapPoints,
   snapToGrid,
   textShape,
   textWidth,
@@ -26,6 +24,7 @@ import {
   type Apex,
   type Measures,
 } from '../lib/drawing';
+import { findSnap, type SnapKind } from '../lib/snap';
 import { pathToSvg, rectsOverlap, removeVertex, setPolylineClosed, shapeAABB, shapePath, toScreen, type Point, type View } from '../lib/geometry';
 import { newMeta, putRecord, softDelete, type ProjectState } from '../lib/store';
 import type { Damage, DrawElement, DrawElementType, Plan, Rect, Shape, ShapeStyle } from '../lib/types';
@@ -153,10 +152,15 @@ export function useDrawing(opts: {
     const pm = { x: p.x / k, y: p.y / k };
     const pxPerM = ctx.scale * k;
     const tol = (isCoarse() ? 16 : 9) / pxPerM;
-    const hit = snapOn ? nearestSnap(pm, snapPoints(stored, ctx.movingId), tol) : null;
+    // Fangpunkte: End-/Eckpunkte, Schnittpunkte, Mittelpunkte, nächster Punkt auf Linien
+    const others = stored.filter((e) => e.id !== ctx.movingId && e.type !== 'text').map((e) => e.shape);
+    const hit = snapOn ? findSnap(pm, others, tol) : null;
     let q: Point = pm;
-    if (hit) q = hit;
-    else {
+    let kind: SnapKind | undefined;
+    if (hit) {
+      q = hit.point;
+      kind = hit.kind;
+    } else {
       const step = gridStep(pxPerM, 14);
       if (ctx.from && (ctx.tool === 'line' || ctx.tool === 'dimension')) {
         const from = { x: ctx.from.x / k, y: ctx.from.y / k };
@@ -164,9 +168,12 @@ export function useDrawing(opts: {
         const len = Math.hypot(dir.x - from.x, dir.y - from.y);
         const L = gridOn ? Math.round(len / step) * step : len;
         q = len > 1e-9 ? { x: from.x + ((dir.x - from.x) / len) * L, y: from.y + ((dir.y - from.y) / len) * L } : dir;
-      } else if (gridOn) q = snapToGrid(pm, step);
+      } else if (gridOn) {
+        q = snapToGrid(pm, step);
+        kind = 'grid';
+      }
     }
-    return { x: q.x * k, y: q.y * k };
+    return { x: q.x * k, y: q.y * k, kind };
   };
 
   // -------------------------------------------------------------------------

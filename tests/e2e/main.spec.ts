@@ -404,7 +404,7 @@ test('11. Bearbeiteten Plan als PDF exportieren', async () => {
   const info = execFileSync('pdfinfo', [file], { encoding: 'utf8' });
   expect(info).toMatch(/Pages:\s+1/);
   const text = execFileSync('pdftotext', ['-layout', file, '-'], { encoding: 'utf8' });
-  expect(text).toContain('Plannummer A-101 | Aufmaßplan');
+  expect(text).toMatch(/^A-101$/m); // ohne Titel steht nur die Plannummer im Kopf
   expect(text).not.toContain('Kostenstelle:'); // nur noch die Plannummer im Kopf
   expect(text).toContain('A-101 Untergeschoss'); // Original-Planinhalt (Vektor) erhalten
   execFileSync('pdftoppm', ['-png', '-r', '60', file, join(OUT, 'export-a101')]);

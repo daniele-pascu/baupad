@@ -67,7 +67,7 @@ export function PlanFields({
         <input
           value={value.title ?? ''}
           onChange={(e) => onChange({ title: e.target.value })}
-          placeholder="Aufmaßplan"
+          placeholder="optional, z. B. Aufmaßplan"
           data-field="title"
           autoComplete="off"
           enterKeyHint="next"

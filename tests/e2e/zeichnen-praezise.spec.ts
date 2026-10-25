@@ -225,7 +225,7 @@ test('Format ändern und PDF im gewählten Format; Format/Maßstab nur auf Wunsc
   // Standard: weder Format noch Maßstab auf dem Plan
   expect(text).not.toMatch(/Maßstab|1:50|A4|Hochformat/);
   expect(text).not.toMatch(/^2\s?m$/m); // keine Maßstabsleiste
-  expect(text).toContain('Plannummer F-1 | Aufmaßplan');
+  expect(text).toMatch(/^F-1$/m);
   expect(text).toContain('4,25 m'); // reale Maße, nicht Papiermaße
 
   // Format nachträglich ändern: A3 quer 1:100

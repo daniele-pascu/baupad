@@ -5,18 +5,20 @@ import { ElementBar, InsertBar } from '../components/DrawPanel';
 import { Icon } from '../components/Icon';
 import { PdfExportDialog } from '../components/PdfExportDialog';
 import { PlanDetailsDialog } from '../components/PlanFields';
-import { PlanViewer, type PlanViewerHandle, type Tool } from '../components/PlanViewer';
+import { PlanViewer, type PlanViewerHandle, type SnapFn, type Tool } from '../components/PlanViewer';
 import { SaveErrorBanner, SaveStatus } from '../components/SaveStatus';
-import { confirmDialog, offerFile, showError, toast } from '../components/ui';
+import { confirmDialog, offerFile, promptDialog, showError, toast } from '../components/ui';
 import { costCenterLabel, damagesOf, elementsOf, exportXlsx, findPosition, lvDocLabel, lvDocsOf, plansOf, planTitle, positionRef, sumArea } from '../lib/aufmass';
-import { drawingRegion, drawingSheet, isDrawingPlan, paperLabel, suggestMeasures, unitsPerMeter } from '../lib/drawing';
-import { convertShape, isOpenShape } from '../lib/geometry';
+import { planUnitsPerMeter } from '../lib/calibration';
+import { drawingRegion, drawingSheet, isDrawingPlan, lineEnds, paperLabel, shapeToPage, suggestMeasures, unitsPerMeter } from '../lib/drawing';
+import { convertShape, isOpenShape, toScreen, type View } from '../lib/geometry';
 import { countKind, defaultKindFor, hasArea, KIND_LABELS, KINDS, kindOf, sumLengths } from '../lib/measure';
-import { computeArea, formatArea, formatMeasure } from '../lib/numbers';
+import { checkMeasure, computeArea, formatArea, formatMeasure, toInputValue } from '../lib/numbers';
 import { compactNumbers, damageNo, duplicateIds, nextNumber, planNumberStart, shiftNumbers, suggestNext, swapNumbers } from '../lib/numbering';
 import { navigate, paths } from '../lib/router';
+import { findSnap } from '../lib/snap';
 import { clearHistory, newMeta, putRecord, putRecords, redo, softDelete, undo, useAppState, type ProjectState } from '../lib/store';
-import { COLORS, SHAPE_LABELS, type Damage, type DrawElementType, type MeasureKind, type Shape, type ShapeStyle, type ShapeType } from '../lib/types';
+import { COLORS, SHAPE_LABELS, type Damage, type DrawElementType, type MeasureKind, type Plan, type Shape, type ShapeStyle, type ShapeType } from '../lib/types';
 import { DRAW_TOOLS, readStyle, useDrawing, type ToolGroup } from './DrawingMode';
 import { StylePanel } from '../components/StylePanel';
 
@@ -30,6 +32,8 @@ const TOOLS: { id: Tool; label: string; short?: string; icon: string; key: strin
   { id: 'triangle', label: SHAPE_LABELS.triangle, icon: 'triangle', key: 'd' },
   { id: 'polygon', label: 'Fläche: Eckpunkte nacheinander setzen', short: 'Fläche', icon: 'polygon', key: 'p' },
   { id: 'polyline', label: 'Polylinie: Punkte nacheinander setzen – offen (Länge) oder geschlossen (Fläche)', short: 'Polylinie', icon: 'polyline', key: 'f' },
+  // nur importierte Pläne (gezeichnete haben ihren Maßstab bereits)
+  { id: 'calibrate', label: 'Maßstab kalibrieren: Strecke bekannter Länge im Plan ziehen', short: 'Kalibrieren', icon: 'calibrate', key: 'm' },
 ];
 
 const TOOL_GROUP_LABELS: Record<ToolGroup, string> = { select: 'Auswahl', draw: 'Zeichnen', annotate: 'Beschriften' };
@@ -76,6 +80,22 @@ function PolylineBar({ polyline, count, viewer }: { polyline: boolean; count: nu
         </>
       )}
     </div>
+  );
+}
+
+/** Referenzstrecke der Kalibrierung (nur beim Kalibrieren sichtbar) */
+function CalibrationLine({ view, c }: { view: View; c: NonNullable<Plan['calibration']> }) {
+  const a = toScreen(view, c.a);
+  const b = toScreen(view, c.b);
+  return (
+    <g className="calibration-line" data-testid="calibration-line" pointerEvents="none">
+      <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} />
+      <circle cx={a.x} cy={a.y} r={4} />
+      <circle cx={b.x} cy={b.y} r={4} />
+      <text x={(a.x + b.x) / 2} y={(a.y + b.y) / 2 - 8} textAnchor="middle">
+        {formatMeasure(c.meters)} m
+      </text>
+    </g>
   );
 }
 
@@ -256,6 +276,47 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   /** Gültiger Bereich für neue Formen: Zeichenblatt bzw. Planausschnitt (Seitenkoordinaten) */
   const sheetBounds = plan && drawingPlan ? drawingSheet(plan) : undefined;
   const markerBounds = !plan ? undefined : drawingPlan ? sheetBounds : (plan.crop ?? { x: 0, y: 0, w: plan.pageWidth, h: plan.pageHeight });
+  /** Maßstab (Seiteneinheiten je m): gezeichnete Pläne immer, importierte nach Kalibrierung */
+  const k = plan ? planUnitsPerMeter(plan) : null;
+
+  /**
+   * Punktfang im Aufmaß: an Markierungen (und bei gezeichneten Plänen an Zeichnungsobjekten) –
+   * End-/Eckpunkte, Schnittpunkte, Mittelpunkte, nächster Punkt auf Linien.
+   */
+  const measureSnap: SnapFn = (p, ctx) => {
+    const shapes = [
+      ...damages.filter((d) => d.id !== ctx.movingId).map((d) => d.shape),
+      ...(drawingPlan ? drawing.elements.filter((e) => e.type !== 'text').map((e) => shapeToPage(e.shape, unitsPerMeter(plan!))) : []),
+    ];
+    const hit = findSnap(p, shapes, (matchMedia('(pointer: coarse)').matches ? 16 : 9) / ctx.scale);
+    return hit ? { ...hit.point, kind: hit.kind } : p;
+  };
+
+  // Gezeichnete Pläne haben ihren Maßstab – dort gibt es kein Kalibrieren
+  useEffect(() => {
+    if (drawingPlan && tool === 'calibrate') setTool('select');
+  });
+
+  /** Kalibrieren: gezogene Strecke + reale Länge → Maßstab des Plans (Messwerte bleiben) */
+  const calibrate = async (shape: Shape) => {
+    if (!plan || drawingPlan) return;
+    const [a, b] = lineEnds(shape);
+    const input = await promptDialog({
+      title: 'Maßstab kalibrieren',
+      label: 'Reale Länge der gezogenen Strecke (m)',
+      value: plan.calibration ? toInputValue(plan.calibration.meters) : '',
+      confirmLabel: 'Kalibrieren',
+    });
+    if (input === null) return;
+    const r = checkMeasure(input, 'Länge');
+    if (!r.ok) {
+      toast(r.error, 'error');
+      return;
+    }
+    putRecord('plans', { ...data.plans[plan.id], calibration: { a, b, meters: r.value } });
+    setTool('select');
+    toast(`Plan kalibriert: Strecke = ${formatMeasure(r.value)} m. Gespeicherte Messwerte bleiben unverändert.`, 'success', 4000);
+  };
 
   const switchMode = (m: 'draw' | 'measure') => {
     setMode(m);
@@ -313,6 +374,13 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         return;
       }
       if (e.ctrlKey || e.metaKey || e.altKey) return;
+      // X: Punktfang ein/aus (wie in CAD-Programmen)
+      if (key === 'x') {
+        e.preventDefault();
+        drawing.setSnapOn(!drawing.snapOn);
+        toast(`Punktfang ${drawing.snapOn ? 'aus' : 'ein'}`, 'info', 1500);
+        return;
+      }
       if (drawMode) {
         const dt = DRAW_TOOLS.find((x) => x.key === key);
         if (dt) drawing.setTool(dt.id);
@@ -727,13 +795,17 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               pending={dialog?.mode === 'new' ? { shape: dialog.shape, color } : null}
               onSelect={(id) => select(id)}
               onCreate={(shape) =>
-                setDialog({
-                  mode: 'new',
-                  shape,
-                  ...suggestNext(stored, planNumberStart(plan)),
-                  kind: defaultKindFor(shape, loadPref('measureKind', KINDS, 'damage')),
-                })
+                tool === 'calibrate'
+                  ? void calibrate(shape)
+                  : setDialog({
+                      mode: 'new',
+                      shape,
+                      ...suggestNext(stored, planNumberStart(plan)),
+                      kind: defaultKindFor(shape, loadPref('measureKind', KINDS, 'damage')),
+                    })
               }
+              snap={drawing.snapOn ? measureSnap : undefined}
+              overlay={tool === 'calibrate' && plan.calibration ? (view) => <CalibrationLine view={view} c={plan.calibration!} /> : undefined}
               onShapeChange={(id, shape, commit) => {
                 if (commit) {
                   setOverrides(({ [id]: _, ...rest }) => rest);
@@ -787,6 +859,33 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             <button
               type="button"
               className="icon-btn"
+              onClick={() => {
+                const id = drawMode ? drawing.selectedId : selectedId;
+                if (id) viewer.current?.zoomTo(id);
+              }}
+              disabled={!(drawMode ? drawing.selectedId : selectedId)}
+              aria-label="Zoom auf Auswahl"
+              title="Zoom auf Auswahl"
+              data-testid="zoom-selection"
+            >
+              <Icon name="zoomSel" />
+            </button>
+            {!drawMode && (
+              <button
+                type="button"
+                className={`icon-btn${drawing.snapOn ? ' active-toggle' : ''}`}
+                onClick={() => drawing.setSnapOn(!drawing.snapOn)}
+                aria-pressed={drawing.snapOn}
+                aria-label="Punktfang"
+                title={`Punktfang ${drawing.snapOn ? 'ein' : 'aus'} (X): End-, Schnitt-, Mittelpunkte und Linien`}
+                data-testid="snap-toggle-measure"
+              >
+                <Icon name="snap" />
+              </button>
+            )}
+            <button
+              type="button"
+              className="icon-btn"
               onClick={() => viewer.current?.back()}
               disabled={!viewer.current?.canGoBack()}
               aria-label="Zur vorherigen Ansicht"
@@ -828,7 +927,29 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             <PolylineBar polyline={(drawMode ? drawing.tool : tool) === 'polyline'} count={polyCount} viewer={viewer} />
           )}
 
-          {!drawMode && selected && !dialog && !polyCount && (
+          {!drawMode && tool === 'calibrate' && !dialog && (
+            <div className="draw-bar" data-testid="calibrate-bar">
+              <span className="muted small">
+                Kalibrieren: Strecke bekannter Länge im Plan ziehen (z. B. eine bemaßte Wand), danach die reale Länge eingeben.
+              </span>
+              {plan.calibration ? (
+                <>
+                  <strong className="small" data-testid="calibration-info">
+                    Kalibriert: Referenz {formatMeasure(plan.calibration.meters)} m
+                  </strong>
+                  <button type="button" className="btn btn-sm" onClick={() => putRecord('plans', { ...data.plans[plan.id], calibration: undefined })} data-testid="calibration-remove">
+                    Kalibrierung entfernen
+                  </button>
+                </>
+              ) : (
+                <strong className="small" data-testid="calibration-info">
+                  Noch nicht kalibriert
+                </strong>
+              )}
+            </div>
+          )}
+
+          {!drawMode && selected && !dialog && !polyCount && tool !== 'calibrate' && (
             <div className="selection-bar" data-testid="selection-bar">
               <div className="selection-info">
                 <span className="color-dot" style={{ background: selected.color }} />
@@ -836,7 +957,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                   {kindOf(selected) === 'damage' ? '' : `${KIND_LABELS[kindOf(selected)]} `}Nr. {damageNo(selected)}
                 </strong>
                 <span>{measureSummary(selected)}</span>
-                {drawingPlan && <MeasureCheck damage={selected} k={unitsPerMeter(plan)} />}
+                {k && <MeasureCheck damage={selected} k={k} />}
               </div>
               {tool === 'select' ? (
                 <div className="selection-hint muted small">Ziehen = verschieben · ⟳ oben = drehen · Ecken = Größe</div>
@@ -971,7 +1092,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             ) : (
             <>
             <div className="tool-group">
-              {TOOLS.map((t) => (
+              {TOOLS.filter((t) => t.id !== 'calibrate' || !drawingPlan).map((t) => (
                 <button
                   key={t.id}
                   type="button"
@@ -1093,7 +1214,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             kind: dialog.kind,
             positionRef: activePosition ? lastPosition : null,
           }}
-          suggestion={drawingPlan ? suggestMeasures(dialog.shape, unitsPerMeter(plan)) : null}
+          suggestion={k ? suggestMeasures(dialog.shape, k) : null}
           others={stored}
           components={[]}
           positions={positionOptions}
@@ -1105,7 +1226,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         <DamageDialog
           mode="edit"
           damage={{ ...dialogDamage, shapeType: dialogDamage.shape.type as ShapeType, kind: kindOf(dialogDamage) }}
-          suggestion={drawingPlan ? suggestMeasures(dialogDamage.shape, unitsPerMeter(plan)) : null}
+          suggestion={k ? suggestMeasures(dialogDamage.shape, k) : null}
           others={stored}
           components={[]}
           positions={positionOptions}

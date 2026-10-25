@@ -64,9 +64,10 @@ test('Import: Format wählbar (Standard A4 passend), Überschrift, PDF genau A3 
   await expect(wiz.getByTestId('export-paper')).toHaveValue('A4-quer');
   await wiz.getByTestId('export-paper').selectOption('A3-hoch');
   await wiz.locator('[data-field="planNumber"]').fill('F-1');
-  await expect(wiz.locator('[data-field="title"]')).toHaveAttribute('placeholder', 'Aufmaßplan');
-  await expect(wiz.getByTestId('heading-preview')).toContainText('Plannummer F-1 | Aufmaßplan');
+  await expect(wiz.locator('[data-field="title"]')).toHaveAttribute('placeholder', 'optional, z. B. Aufmaßplan');
+  await expect(wiz.getByTestId('heading-preview')).toHaveText('Überschrift im PDF: F-1'); // ohne Titel nur die Nummer
   await wiz.locator('[data-field="title"]').fill('Aufmaßplan Tiefgarage');
+  await expect(wiz.getByTestId('heading-preview')).toHaveText('Überschrift im PDF: Aufmaßplan Tiefgarage F-1');
   await wiz.getByTestId('show-paper').check(); // Format ausdrücklich im Plan anzeigen
   await wiz.getByTestId('import-save').click();
   await waitForPlan(page);
@@ -79,7 +80,7 @@ test('Import: Format wählbar (Standard A4 passend), Überschrift, PDF genau A3 
 
   const r = await exportPdf(page, 'format-a3-hoch');
   expect(r.info).toMatch(new RegExp(`Page size:\\s+${A3} pts`)); // Format nicht durch den Plan verändert
-  expect(r.text).toContain('Plannummer F-1 | Aufmaßplan Tiefgarage');
+  expect(r.text).toContain('Aufmaßplan Tiefgarage F-1');
   expect(r.text).toContain('A3 Hochformat');
   expect(r.text).toContain('Technik'); // Originalinhalt vektoriell erhalten
   expect(borderInk(r.png)).toBe(0); // nichts im 1-cm-Rand
@@ -99,7 +100,8 @@ test('Plandetails: Format und Überschrift ändern, nach Neuladen erhalten', asy
   await waitForPlan(page);
   let r = await exportPdf(page, 'format-standard');
   expect(r.info).toMatch(new RegExp(`Page size:\\s+(${A4}|${A4Q}) pts`)); // Standard A4
-  expect(r.text).toContain('Plannummer P-7 | Aufmaßplan');
+  expect(r.text).toMatch(/^P-7$/m);
+  expect(r.text).not.toContain('Aufmaßplan');
   expect(r.text).not.toMatch(/A4|Hochformat|Querformat/); // Format standardmäßig nicht im Plan
   expect(borderInk(r.png)).toBe(0);
 
@@ -123,7 +125,7 @@ test('Plandetails: Format und Überschrift ändern, nach Neuladen erhalten', asy
   await waitForPlan(page);
   r = await exportPdf(page, 'format-a4-hoch');
   expect(r.info).toMatch(new RegExp(`Page size:\\s+${A4} pts`));
-  expect(r.text).toContain('Plannummer P-7 | Aufmaß Hof');
+  expect(r.text).toContain('Aufmaß Hof P-7');
   expect(r.text).toContain('Nur Bereich Nord'); // Bemerkung, weil „Im Plan anzeigen“ gewählt
   expect(borderInk(r.png)).toBe(0);
   await page.screenshot({ path: join(OUT, 'format-editor.png') });
@@ -148,7 +150,8 @@ test('Gezeichneter Plan: Überschrift frei wählbar, Format des Zeichenblatts', 
   await expect(page.getByTestId('drawing-sheet')).toBeVisible();
   const r = await exportPdf(page, 'format-zeichnung');
   expect(r.info).toMatch(new RegExp(`Page size:\\s+${A4Q} pts`));
-  expect(r.text).toContain('Plannummer 067 | Aufmaßplan');
+  expect(r.text).toContain('Aufmaßplan 067'); // Titel + Nummer, sonst nichts
+  expect(r.text).not.toContain('Plannummer');
   expect(r.text).not.toContain('Interne Notiz'); // Bemerkung nur auf Wunsch im Plan
   expect(r.text).not.toMatch(/Maßstab|A4/);
   expect(borderInk(r.png)).toBe(0);
