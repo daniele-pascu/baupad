@@ -157,7 +157,9 @@ test('Messarten Linie, Schadstelle, Fläche: Linien zählen nicht zur Fläche, l
   const lineHead = blocks.findIndex((r) => r[0] === 'Linien');
   expect(areaHead).toBeGreaterThanOrEqual(0);
   expect(lineHead).toBeGreaterThan(areaHead);
-  expect(blocks[lineHead + 3].slice(0, 3)).toEqual(['M-1', 1, 3.5]);
+  // lückenlos: Linien nur mit Plan, Nr., Länge, Menge
+  expect(blocks[lineHead + 1].slice(0, 6)).toEqual(['Plan', 'Nr.', 'Länge (m)', 'Menge (m)', null, null]);
+  expect(blocks[lineHead + 2].slice(0, 6)).toEqual(['M-1', 1, 3.5, 3.5, null, null]);
   // Planblatt (2. Blatt) als CSV
   execFileSync('soffice', ['--headless', '--convert-to', 'csv:Text - txt - csv (StarCalc):59,34,76,1,,1031,false,false,true,false,false,2', '--outdir', OUT, file], { timeout: 90_000 });
   const csv = readFileSync(file.replace(/\.xlsx$/, '-M-1.csv'), 'utf8');

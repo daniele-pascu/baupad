@@ -26,7 +26,22 @@ export type CellStyle =
   /** zentrierter Text (z. B. Plannummer) */
   | 'center'
   /** ohne Rahmen und Format */
-  | 'plain';
+  | 'plain'
+  // Aufmaßblatt (Vorlage): Gitter mit feinem Rahmen, Summen- und Preisfelder
+  | 'blockTitle'
+  | 'gridHead'
+  | 'gridText'
+  | 'gridInt'
+  | 'gridMeasure'
+  | 'gridArea'
+  | 'sumLabel'
+  | 'sumValue'
+  | 'kvLabel'
+  | 'kvMoney'
+  | 'kvMoneyBold'
+  | 'subtitle'
+  /** Summe mit bis zu 3 Nachkommastellen (z. B. m³) */
+  | 'sumMeasure';
 
 export type Cell =
   | null
@@ -55,6 +70,8 @@ export interface Sheet {
   headerLeft?: string;
   /** Öffnen in der Seitenlayout-Ansicht (Kopfzeile mit Logo sichtbar), ohne fixierte Zeilen */
   pageLayout?: boolean;
+  /** Druck: alles auf eine Seite (Breite und Höhe) */
+  onePage?: boolean;
 }
 
 /** Bild für die Kopfzeile rechts (Firmenlogo), Größe in Punkt */
@@ -85,6 +102,19 @@ const STYLE_INDEX: Record<CellStyle, number> = {
   tableHead: 14,
   center: 15,
   plain: 0,
+  blockTitle: 16,
+  gridHead: 17,
+  gridText: 18,
+  gridInt: 19,
+  gridMeasure: 20,
+  gridArea: 21,
+  sumLabel: 22,
+  sumValue: 23,
+  kvLabel: 24,
+  kvMoney: 25,
+  kvMoneyBold: 26,
+  subtitle: 27,
+  sumMeasure: 28,
 };
 
 export const str = (v: string, s: CellStyle = 'text'): Cell => ({ t: 'str', v, s });
@@ -173,7 +203,7 @@ function sheetXml(sheet: Sheet, logo?: HeaderImage): string {
         // Projekt/Kostenstelle, Mitte Seitenzahl, rechts Firmenlogo (Platz oben passend zur Logohöhe)
         '<printOptions horizontalCentered="1"/>' +
         `<pageMargins left="0.59" right="0.59" top="${logo ? Math.max(0.71, 0.3 + logo.height / 72 + 0.2).toFixed(2) : '0.71'}" bottom="0.71" header="0.3" footer="0.3"/>` +
-        `<pageSetup paperSize="9" orientation="${sheet.landscape ? 'landscape' : 'portrait'}" fitToWidth="1" fitToHeight="0"/>` +
+        `<pageSetup paperSize="9" orientation="${sheet.landscape ? 'landscape' : 'portrait'}" fitToWidth="1" fitToHeight="${sheet.onePage ? 1 : 0}"/>` +
         `<headerFooter><oddHeader>${esc(`${sheet.headerLeft ? `&L&9${hfText(sheet.headerLeft)}` : ''}&C&9Seite &P von &N${logo ? '&R&G' : ''}`)}</oddHeader></headerFooter>` +
         (logo ? '<legacyDrawingHF r:id="rIdHF"/>' : '')
       : '<pageMargins left="0.7" right="0.7" top="0.78740157499999996" bottom="0.78740157499999996" header="0.3" footer="0.3"/>' +
@@ -192,20 +222,22 @@ const STYLES_XML =
   '<font><b/><sz val="14"/><color theme="1"/><name val="Calibri"/><family val="2"/><scheme val="minor"/></font>' +
   '<font><i/><sz val="10"/><color rgb="FF7A7A7A"/><name val="Calibri"/><family val="2"/><scheme val="minor"/></font>' +
   '</fonts>' +
-  '<fills count="3">' +
+  '<fills count="4">' +
   '<fill><patternFill patternType="none"/></fill>' +
   '<fill><patternFill patternType="gray125"/></fill>' +
   '<fill><patternFill patternType="solid"><fgColor rgb="FFDCE6F1"/><bgColor indexed="64"/></patternFill></fill>' +
+  '<fill><patternFill patternType="solid"><fgColor rgb="FFF2F2F2"/><bgColor indexed="64"/></patternFill></fill>' + // 3 hellgrau
   '</fills>' +
-  '<borders count="5">' +
+  '<borders count="6">' +
   '<border><left/><right/><top/><bottom/><diagonal/></border>' +
   '<border><left/><right/><top/><bottom style="thin"><color auto="1"/></bottom><diagonal/></border>' +
   '<border><left/><right/><top style="thin"><color auto="1"/></top><bottom style="double"><color auto="1"/></bottom><diagonal/></border>' +
   '<border><left/><right/><top/><bottom style="thin"><color rgb="FFD9DEE5"/></bottom><diagonal/></border>' + // 3 dezente Zeilenlinie
   '<border><left style="thin"><color auto="1"/></left><right style="thin"><color auto="1"/></right><top style="thin"><color auto="1"/></top><bottom style="thin"><color auto="1"/></bottom><diagonal/></border>' + // 4 Rahmen
+  '<border><left style="thin"><color rgb="FFB4B4B4"/></left><right style="thin"><color rgb="FFB4B4B4"/></right><top style="thin"><color rgb="FFB4B4B4"/></top><bottom style="thin"><color rgb="FFB4B4B4"/></bottom><diagonal/></border>' + // 5 feines Gitter
   '</borders>' +
   '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
-  '<cellXfs count="16">' +
+  '<cellXfs count="29">' +
   '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' + // 0 Standard
   '<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment wrapText="1" vertical="center"/></xf>' + // 1 Kopf
   '<xf numFmtId="49" fontId="0" fillId="0" borderId="3" xfId="0" applyNumberFormat="1" applyBorder="1"/>' + // 2 Text
@@ -222,6 +254,19 @@ const STYLES_XML =
   '<xf numFmtId="49" fontId="3" fillId="0" borderId="3" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf>' + // 13 Hinweis
   '<xf numFmtId="0" fontId="1" fillId="0" borderId="4" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>' + // 14 Tabellenkopf mit Rahmen
   '<xf numFmtId="49" fontId="0" fillId="0" borderId="3" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf>' + // 15 zentriert
+  '<xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>' + // 16 Blocktitel
+  '<xf numFmtId="0" fontId="1" fillId="3" borderId="5" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>' + // 17 Gitter Kopf
+  '<xf numFmtId="49" fontId="0" fillId="0" borderId="5" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf>' + // 18 Gitter Text
+  '<xf numFmtId="1" fontId="0" fillId="0" borderId="5" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf>' + // 19 Gitter Ganzzahl
+  '<xf numFmtId="164" fontId="0" fillId="0" borderId="5" xfId="0" applyNumberFormat="1" applyBorder="1"/>' + // 20 Gitter Maß
+  '<xf numFmtId="4" fontId="0" fillId="0" borderId="5" xfId="0" applyNumberFormat="1" applyBorder="1"/>' + // 21 Gitter Menge
+  '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="right"/></xf>' + // 22 Summe Text
+  '<xf numFmtId="4" fontId="1" fillId="0" borderId="2" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1"/>' + // 23 Summe Wert
+  '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="right"/></xf>' + // 24 Beschriftung rechts
+  '<xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>' + // 25 Betrag
+  '<xf numFmtId="165" fontId="1" fillId="0" borderId="2" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1"/>' + // 26 Betrag fett
+  '<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1"/>' + // 27 Untertitel
+  '<xf numFmtId="164" fontId="1" fillId="0" borderId="2" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1"/>' + // 28 Summe Maß
   '</cellXfs>' +
   '<cellStyles count="1"><cellStyle name="Standard" xfId="0" builtinId="0"/></cellStyles>' +
   '</styleSheet>';

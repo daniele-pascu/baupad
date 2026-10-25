@@ -439,16 +439,21 @@ test('Weitere Pläne: gedrehte Seite und Planbereich – PDF-Export mehrerer Pl�
 test('10b. Excel-Export Kostenstelle und Gesamtprojekt', async () => {
   const dl = await catchDownload(page, () => page.getByTestId('export-xlsx-cc').click());
   expect(dl.suggestedFilename()).toBe('Wohnanlage_Sued_Tiefgarage_Aufmass.xlsx');
-  const wb = readXlsx(await saveDownload(dl));
+  const file1 = await saveDownload(dl);
+  const wb = readXlsx(file1);
   // Layout: Aufmaß nach Vorlage, Übersicht, je Plan ein Blatt, Projektdaten
   const names = Object.keys(wb);
   expect(names.slice(0, 2)).toEqual(['Aufmaß', 'Übersicht']);
   // Aufmaß nach Vorlage: Flächenblock mit allen Messungen der Kostenstelle und Summe
   const am = wb['Aufmaß'];
-  expect(am[0][0]?.v).toBe('Flächen');
-  expect(am[2].map((c) => c?.v ?? null).slice(0, 3)).toEqual(['Plan', 'Nr.', 'Länge (m)']);
-  const amSum = am.find((r) => r[4]?.v === 'Summe')!;
-  expect(amSum[5]?.v).toMatch(/^=SUM\(F4:F\d+\)$/);
+  expect(am[0][0]?.v).toBe('Aufmaß');
+  const fl = am.findIndex((r) => r[0]?.v === 'Flächen');
+  expect(fl).toBeGreaterThan(0);
+  // lückenlos: nur Spalten mit Werten (hier mit Breite und Tiefe)
+  expect(am[fl + 1].map((c) => c?.v ?? null).slice(0, 6)).toEqual(['Plan', 'Nr.', 'Länge (m)', 'Breite (m)', 'Tiefe (m)', 'Menge (m²)']);
+  const amSum = am.find((r) => r[4]?.v === 'Summe m²')!;
+  expect(amSum[5]?.v).toMatch(new RegExp(`^=SUM\\(F${fl + 3}:F\\d+\\)$`));
+  expect(readXlsxPrint(file1)['Aufmaß']).toMatchObject({ fitToPage: true, fitToWidth: 1, fitToHeight: 1 }); // eine Seite
   expect(names).toEqual(expect.arrayContaining(['A-101', 'A-102', 'B-204']));
   expect(names[names.length - 1]).toBe('Projektdaten');
   const ov = wb['Übersicht'].find((r) => r[1]?.v === 'A-101')!;

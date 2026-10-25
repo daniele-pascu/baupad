@@ -37,30 +37,29 @@ const data = {
 } as unknown as ProjectState;
 
 describe('Excel nach Vorlage', () => {
-  it('Block je Leistung: Leistung, Kopf, Messungen, Summe, Position, Preiszeile mit Formeln; Linien getrennt', () => {
-    const sh = aufmassBlocksSheet(data, [plan], new Set());
+  it('Block je Leistung: Pos. + Kurztext, lückenlose Tabelle, Summe, Einheits- und Gesamtpreis (Formeln); Linien getrennt; eine Seite', () => {
+    const sh = aufmassBlocksSheet(data, [plan], new Set(), 'Tiefgarage · 91092');
     const text = (c: unknown) => (c && typeof c === 'object' && 'v' in c ? (c as { v: unknown }).v : null);
     const rows = sh.rows.map((r) => r.map(text));
-    expect(rows[0][0]).toBe('Betonausbruch');
-    expect(rows[2]).toEqual(['Plan', 'Nr.', 'Länge (m)', 'Breite (m)', null, 'm²']); // Tiefe ohne Werte → leer
-    expect(rows[3]).toEqual(['064', 1, 2, 3, null, 6]);
-    expect(rows[4]).toEqual(['064', 2, 2, 1, null, 2]);
-    const sum = sh.rows[5];
-    expect(sum[5]).toMatchObject({ t: 'formula', f: 'SUM(F4:F5)', v: 8 });
-    expect(text(sum[6])).toBe('m²');
-    expect(String(rows[8][0])).toContain('Pos. 01.01');
-    const price = sh.rows[9];
-    expect(price[2]).toMatchObject({ t: 'formula', f: 'F6', v: 8 });
-    expect(text(price[4])).toBe('Preis/Einheit');
-    expect(text(price[5])).toBe(50);
-    expect(text(price[6])).toBe('Summe gesamte Leistung');
-    expect(price[7]).toMatchObject({ t: 'formula', f: 'C10*F10', v: 400 });
-    // Linie ohne Leistung eigener Block in m, nicht in der Fläche
+    expect(rows[0][0]).toBe('Aufmaß');
+    expect(rows[1][0]).toBe('Tiefgarage · 91092');
+    expect(rows[3][0]).toBe('Pos. 01.01  Betonausbruch'); // nur Kurztext, kein Langtext
+    expect(rows.flat().some((v) => typeof v === 'string' && v.includes('bis 3 cm'))).toBe(false);
+    // Tiefe ohne Werte → keine Spalte (keine leeren Kästen)
+    expect(rows[4]).toEqual(['Plan', 'Nr.', 'Länge (m)', 'Breite (m)', 'Menge (m²)']);
+    expect(rows[5]).toEqual(['064', 1, 2, 3, 6]);
+    expect(rows[6]).toEqual(['064', 2, 2, 1, 2]);
+    expect(sh.rows[7][4]).toMatchObject({ t: 'formula', f: 'SUM(E6:E7)', v: 8 });
+    expect(rows[7][3]).toBe('Summe m²');
+    expect(rows[8].slice(3)).toEqual(['Einheitspreis (€/m²)', 50]);
+    expect(rows[9][3]).toBe('Summe gesamte Leistung');
+    expect(sh.rows[9][4]).toMatchObject({ t: 'formula', f: 'E8*E9', v: 400 });
+    // Linie ohne Leistung: eigener Block nur mit Plan, Nr., Länge, Menge (m)
     const lineTitle = rows.findIndex((r) => r[0] === 'Linien ohne Leistung');
     expect(lineTitle).toBeGreaterThan(9);
-    expect(rows[lineTitle + 2][5]).toBe('m');
-    expect(rows[lineTitle + 3][5]).toBe(4.5);
-    expect(sh.pageLayout).toBe(true);
+    expect(rows[lineTitle + 1]).toEqual(['Plan', 'Nr.', 'Länge (m)', 'Menge (m)']);
+    expect(rows[lineTitle + 2]).toEqual(['064', 3, 4.5, 4.5]);
+    expect(sh).toMatchObject({ pageLayout: true, onePage: true, print: true });
   });
 
   it('Kopfzeile: links Projekt / Kostenstelle, Mitte Seite, rechts Logo (Bild in der Datei)', () => {
@@ -69,6 +68,7 @@ describe('Excel nach Vorlage', () => {
     const z = unzipSync(f.data);
     const sheet1 = strFromU8(z['xl/worksheets/sheet1.xml']);
     expect(sheet1).toContain('view="pageLayout"');
+    expect(sheet1).toContain('fitToWidth="1" fitToHeight="1"'); // alles auf einer Seite
     expect(sheet1).toContain('<oddHeader>&amp;L&amp;9Tiefgarage &amp;&amp; Co / 91092 – Ebene 1&amp;C&amp;9Seite &amp;P von &amp;N&amp;R&amp;G</oddHeader>');
     expect(sheet1).toContain('<legacyDrawingHF r:id="rIdHF"/>');
     expect(strFromU8(z['xl/worksheets/_rels/sheet1.xml.rels'])).toContain('vmlDrawingHF1.vml');
