@@ -176,16 +176,22 @@ export function DrawRibbon({
                 onStyle={(p) => drawing.restyle(sel.id, p)}
               />
             ) : (
+              // Voreinstellung nur für die Linie: neue Formen sind immer ohne Füllung
               <StylePanel
                 compact
                 color={drawing.color}
-                style={{ ...drawing.defaultStyle, noFill: drawing.defaultStyle.noFill ?? true }}
-                open={false}
+                style={drawing.defaultStyle}
+                open
                 defaultWidth={1.1}
                 kind="element"
                 onColor={drawing.setColor}
                 onStyle={drawing.setDefaultStyle}
               />
+            )}
+            {!styled && (
+              <span className="ribbon-hint" data-testid="ribbon-no-fill-hint">
+                Neue Formen: keine Füllung
+              </span>
             )}
           </div>
         )}

@@ -80,8 +80,15 @@ test('Einheitliche Werkzeugleiste: alle Registerkarten gleich hoch, Darstellung 
   // Darstellung: alle Einstellungen vorhanden, Standard „Keine Füllung“
   await bar.getByTestId('ribbon-tab-style').click();
   const st = bar.getByTestId('ribbon-style');
-  for (const id of ['style-line-type', 'style-line-width', 'style-fill-type']) await expect(st.getByTestId(id)).toBeVisible();
-  await expect(st.getByTestId('style-fill-type')).toHaveValue('none');
+  for (const id of ['style-line-type', 'style-line-width']) await expect(st.getByTestId(id)).toBeVisible();
+  // Voreinstellung ohne Füllungswahl: neue Formen sind beim Zeichnen immer ungefüllt
+  await expect(st.getByTestId('style-fill-type')).toHaveCount(0);
+  await expect(st.getByTestId('ribbon-no-fill-hint')).toBeVisible();
+  // so niedrig wie „Ändern“
+  await bar.getByTestId('ribbon-tab-modify').click();
+  const hModify = (await bar.boundingBox())!.height;
+  await bar.getByTestId('ribbon-tab-style').click();
+  expect(Math.abs((await bar.boundingBox())!.height - hModify)).toBeLessThanOrEqual(1);
   await bar.getByTestId('ribbon-tab-draw').click();
 });
 
@@ -265,4 +272,17 @@ test('Linientypen fein: kleine Welle/Zickzack (zoomunabhängig), gleichmäßige 
   const ops = execFileSync('python3', ['-c', "import re,sys,zlib\nd=open(sys.argv[1],'rb').read()\nfor m in re.finditer(rb'stream\\r?\\n(.*?)\\r?\\nendstream', d, re.S):\n  try: print(zlib.decompress(m.group(1)).decode('latin-1'))\n  except Exception: pass", pdf], { encoding: 'utf8' });
   expect(ops).toMatch(/\[\s*[\d.]+\s+[\d.]+\s*\]\s+0\s+d/);
   execFileSync('pdftoppm', ['-png', '-r', '110', '-singlefile', pdf, join('tests', 'output', 'ortho-linientypen')]);
+});
+
+test('Aufmaß unverändert: Messungen werden weiterhin leicht gefüllt dargestellt', async () => {
+  await deselect();
+  await page.getByTestId('mode-measure').click();
+  await pickTool(page, 'tool-rect');
+  const sb = (await sheet().boundingBox())!;
+  await drag(sb.x + 100, sb.y + 700, sb.x + 260, sb.y + 800);
+  const dlg = page.getByTestId('damage-dialog');
+  await dlg.getByTestId('input-length').fill('2');
+  await dlg.getByTestId('damage-save').click();
+  await waitSaved(page);
+  await expect(page.locator('g:has(> path[data-damage]) > path[data-fill="solid"]')).toHaveCount(1);
 });

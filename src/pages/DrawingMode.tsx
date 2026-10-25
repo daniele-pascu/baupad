@@ -95,6 +95,14 @@ export const ORTHO_DIR_LABELS: Record<OrthoDir, string> = { auto: 'Richtung auto
 /** Werkzeuge mit Ausgangspunkt, für die der 90°-Modus gilt (auch Endpunkte ziehen und Vektoren) */
 const ORTHO_TOOLS = new Set<string>(['line', 'dimension', 'polyline', 'polygon', 'vector']);
 
+/**
+ * Darstellung eines neu gezeichneten Objekts: nur Linientyp und -stärke aus der Voreinstellung,
+ * immer „Keine Füllung“ (eigene Einstellung). Gefüllt wird nur nachträglich über „Darstellung“.
+ */
+export function newElementStyle(d: ShapeStyle): ShapeStyle {
+  return { ...(d.lineType ? { lineType: d.lineType } : {}), ...(d.lineWidth ? { lineWidth: d.lineWidth } : {}), noFill: true };
+}
+
 /** Geometrie gerundet auf 0,1 mm speichern (keine Gleitkommareste aus der Bildschirmumrechnung) */
 const roundShape = (s: Shape): Shape => ({ ...s, x: roundM(s.x), y: roundM(s.y), w: roundM(s.w), h: roundM(s.h) });
 
@@ -253,7 +261,7 @@ export function useDrawing(opts: {
    */
   const create = (type: DrawElementType, shape: Shape, extra: Partial<DrawElement> = {}, keepTool = false) => {
     if (!plan) return;
-    // Formen: Darstellung für neue Objekte, ohne ausdrückliche Wahl immer ohne Füllung
+    // Formen: Linientyp/-stärke der Voreinstellung, immer ohne Füllung (Füllung nur nachträglich)
     const styled = type !== 'text' && type !== 'dimension';
     const rec: DrawElement = {
       ...newMeta(),
@@ -262,7 +270,7 @@ export function useDrawing(opts: {
       type,
       shape: roundShape(shape),
       color,
-      ...(styled ? { style: { ...defaultStyle, noFill: defaultStyle.noFill ?? true } } : {}),
+      ...(styled ? { style: newElementStyle(defaultStyle) } : {}),
       ...extra,
     };
     putRecord('elements', rec);

@@ -3300,6 +3300,13 @@ tr.lv-flagged td {
   width: 20px;
   height: 20px;
 }
+.ribbon-hint {
+  flex: none;
+  align-self: center;
+  color: var(--muted);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
 .ribbon-context {
   flex: none;
   align-self: center;
