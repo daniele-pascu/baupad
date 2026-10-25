@@ -19,7 +19,9 @@ import { navigate, paths } from '../lib/router';
 import { findSnap } from '../lib/snap';
 import { clearHistory, newMeta, putRecord, putRecords, redo, softDelete, undo, useAppState, type ProjectState } from '../lib/store';
 import { COLORS, SHAPE_LABELS, type Damage, type DrawElementType, type MeasureKind, type Plan, type Shape, type ShapeStyle, type ShapeType } from '../lib/types';
-import { DRAW_TOOLS, readStyle, useDrawing, type ToolGroup } from './DrawingMode';
+import { DRAW_TOOLS, readStyle, useDrawing, type DrawTool } from './DrawingMode';
+import { DrawRibbon } from '../components/DrawRibbon';
+import { elementLabel } from '../components/DrawPanel';
 import { StylePanel } from '../components/StylePanel';
 
 type DialogState = { mode: 'new'; shape: Shape; number: number; label: string | null; kind: MeasureKind } | { mode: 'edit'; id: string } | null;
@@ -36,7 +38,18 @@ const TOOLS: { id: Tool; label: string; short?: string; icon: string; key: strin
   { id: 'calibrate', label: 'Maßstab kalibrieren: Strecke bekannter Länge im Plan ziehen', short: 'Kalibrieren', icon: 'calibrate', key: 'm' },
 ];
 
-const TOOL_GROUP_LABELS: Record<ToolGroup, string> = { select: 'Auswahl', draw: 'Zeichnen', annotate: 'Beschriften' };
+/** Werkzeuge mit Maßeingabe bzw. Hinweis vor dem Einfügen */
+const INSERT_TOOLS = new Set<DrawTool>(['line', 'rect', 'ellipse', 'triangle', 'dimension', 'text']);
+
+/** Hinweise zu den Befehlen im Zeichenmodus */
+const OP_HINTS: Partial<Record<DrawTool, string>> = {
+  arc: 'Anfangspunkt, einen Punkt auf dem Bogen und den Endpunkt antippen.',
+  move: 'Objekt auswählen, dann vom Basispunkt zum Zielpunkt ziehen (Fang nutzt Ecken und Endpunkte).',
+  copy: 'Objekt auswählen, dann vom Basispunkt zum Zielpunkt ziehen – die Kopie wird dort eingefügt.',
+  stretch: '1. Fenster über die Eckpunkte ziehen, die sich bewegen sollen.',
+  trim: 'Den Linienabschnitt anklicken, der bis zur nächsten Kante entfernt werden soll.',
+  extend: 'Die Linie nahe dem Ende anklicken, das bis zur nächsten Kante verlängert werden soll.',
+};
 
 /** Werkzeuge, die Punkt für Punkt gesetzt werden */
 const isPointTool = (t: Tool) => t === 'polygon' || t === 'polyline';
@@ -229,18 +242,22 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   };
   /** Werkzeugleiste aufgeklappt (klappt nach dem Zeichnen zu, damit der Plan frei bleibt) */
   const [toolsOpen, setToolsOpen] = useState(true);
-  /** Farbauswahl der Zeichenleiste aufgeklappt */
-  const [colorsOpen, setColorsOpen] = useState(false);
   // Höhe der Werkzeugleiste (kann umbrechen) – Leisten darüber werden passend versetzt
+  // Zeichenmodus: Registerkarten-Leiste oben – die Planfläche beginnt darunter
   useLayoutEffect(() => {
     const host = planRef.current;
-    const bar = host?.querySelector('.toolbar');
-    if (!host || !bar) return;
-    // Abstand von der Oberkante der Leiste bis zum unteren Rand der Planfläche
-    const ro = new ResizeObserver(() =>
-      host.style.setProperty('--toolbar-h', `${Math.round(host.getBoundingClientRect().bottom - bar.getBoundingClientRect().top)}px`),
-    );
-    ro.observe(bar);
+    if (!host) return;
+    const bar = host.querySelector('.toolbar');
+    const ribbon = host.querySelector('.ribbon');
+    // Abstand von der Oberkante der unteren Leiste bis zum unteren Rand der Planfläche
+    const update = () => {
+      host.style.setProperty('--toolbar-h', bar ? `${Math.round(host.getBoundingClientRect().bottom - bar.getBoundingClientRect().top)}px` : '0px');
+      host.style.setProperty('--ribbon-h', ribbon ? `${Math.round(ribbon.getBoundingClientRect().height)}px` : '0px');
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    if (bar) ro.observe(bar);
+    if (ribbon) ro.observe(ribbon);
     return () => ro.disconnect();
   }, [drawMode]);
 
@@ -754,7 +771,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               region={region}
               damages={drawing.items}
               selectedId={drawing.selectedId}
-              tool={drawing.tool}
+              tool={drawing.viewerTool}
               color={drawing.color}
               pending={null}
               onSelect={(id) => drawing.setSelectedId(id)}
@@ -895,7 +912,25 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             </button>
           </div>
 
-          {drawMode &&
+          {drawMode && OP_HINTS[drawing.tool] && !dialog && (
+            <div className="draw-bar" data-testid="op-bar">
+              <strong className="draw-bar-title">{DRAW_TOOLS.find((t) => t.id === drawing.tool)?.short}</strong>
+              <span className="muted small" data-testid="op-hint">
+                {drawing.tool === 'stretch' && drawing.stretchWin
+                  ? '2. Basispunkt zum Zielpunkt ziehen – die Punkte im Fenster werden verschoben.'
+                  : drawing.tool === 'arc' && polyCount
+                    ? `${polyCount} von 3 Punkten gesetzt`
+                    : OP_HINTS[drawing.tool]}
+              </span>
+              {drawing.selected && (drawing.tool === 'copy' || drawing.tool === 'move') && (
+                <span className="small">Ausgewählt: {elementLabel(drawing.selected)}</span>
+              )}
+              <button type="button" className="btn btn-sm" onClick={() => drawing.setTool('select')} data-testid="op-cancel">
+                Fertig
+              </button>
+            </div>
+          )}
+          {drawMode && !OP_HINTS[drawing.tool] &&
             (drawing.selected && !polyCount ? (
               <ElementBar
                 key={drawing.selected.id}
@@ -915,7 +950,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 onDelete={() => void drawing.remove(drawing.selected!)}
                 onClose={() => drawing.setSelectedId(null)}
               />
-            ) : drawing.tool !== 'select' && drawing.tool !== 'component' && drawing.tool !== 'polygon' && drawing.tool !== 'polyline' ? (
+            ) : INSERT_TOOLS.has(drawing.tool) ? (
               <InsertBar
                 tool={drawing.tool as DrawElementType}
                 onInsert={drawing.insert}
@@ -923,7 +958,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               />
             ) : null)}
 
-          {(drawMode ? isPointTool(drawing.tool) && (polyCount > 0 || !drawing.selected) : isPointTool(tool) && (polyCount > 0 || !selected)) && !dialog && (
+          {(drawMode ? isPointTool(drawing.viewerTool) && (polyCount > 0 || !drawing.selected) : isPointTool(tool) && (polyCount > 0 || !selected)) && !dialog && (
             <PolylineBar polyline={(drawMode ? drawing.tool : tool) === 'polyline'} count={polyCount} viewer={viewer} />
           )}
 
@@ -1000,91 +1035,15 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           )}
 
           {drawMode ? (
-            <div className={`toolbar draw-toolbar${toolsOpen ? '' : ' toolbar-collapsed'}`} role="toolbar" aria-label="Zeichenwerkzeuge" data-testid="draw-toolbar">
-              {!toolsOpen ? (
-                <ToolsOpenButton tool={DRAW_TOOLS.find((t) => t.id === drawing.tool)} onOpen={() => setToolsOpen(true)} />
-              ) : (
-              <>
-              {(['select', 'draw', 'annotate'] as const).map((g) => (
-                <div key={g} className="tool-group" role="group" aria-label={TOOL_GROUP_LABELS[g]}>
-                  {DRAW_TOOLS.filter((t) => t.group === g).map((t) => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      className={`tool-btn${drawing.tool === t.id ? ' active' : ''}`}
-                      onClick={() => drawing.setTool(t.id)}
-                      aria-pressed={drawing.tool === t.id}
-                      title={`${t.label} (${t.key.toUpperCase()})`}
-                      data-testid={`draw-${t.id}`}
-                    >
-                      <Icon name={t.icon} />
-                      <span>{t.short ?? t.label}</span>
-                    </button>
-                  ))}
-                </div>
-              ))}
-              <div className="tool-group" role="group" aria-label="Bearbeiten">
-                <button
-                  type="button"
-                  className="tool-btn"
-                  onClick={() => drawing.selected && !drawing.removeSelectedVertex() && void drawing.remove(drawing.selected)}
-                  disabled={!drawing.selected}
-                  title={drawing.vertex !== null ? 'Ausgewählten Eckpunkt löschen (Entf)' : 'Ausgewähltes Objekt löschen (Entf)'}
-                  data-testid="draw-delete"
-                >
-                  <Icon name="trash" />
-                  <span>Löschen</span>
-                </button>
-                <button type="button" className="tool-btn" onClick={doUndo} disabled={!history.undo} title="Rückgängig (Strg+Z)" data-testid="draw-undo">
-                  <Icon name="undo" />
-                  <span>Zurück</span>
-                </button>
-                <button type="button" className="tool-btn" onClick={doRedo} disabled={!history.redo} title="Wiederholen (Strg+Umschalt+Z)" data-testid="draw-redo">
-                  <Icon name="redo" />
-                  <span>Vor</span>
-                </button>
-              </div>
-              <div className="tool-group color-pick">
-                <button
-                  type="button"
-                  className={`tool-btn${colorsOpen ? ' active' : ''}`}
-                  onClick={() => setColorsOpen(!colorsOpen)}
-                  aria-expanded={colorsOpen}
-                  title="Farbe wählen"
-                  data-testid="draw-color"
-                >
-                  <span className="color-dot color-dot-lg" style={{ background: drawing.color }} />
-                  <span>Farbe</span>
-                </button>
-                {colorsOpen && (
-                  <div className="color-pop style-pop" data-testid="default-style">
-                    <div className="pop-swatches" role="group" aria-label="Farben">
-                    {COLORS.map((c) => (
-                      <button
-                        key={c.value}
-                        type="button"
-                        className={`swatch${drawing.color === c.value ? ' active' : ''}`}
-                        style={{ background: c.value }}
-                        onClick={() => {
-                          drawing.setColor(c.value);
-                          if (drawing.selected) drawing.recolor(drawing.selected.id, c.value);
-                          setColorsOpen(false);
-                        }}
-                        aria-label={`Farbe ${c.name}`}
-                        aria-pressed={drawing.color === c.value}
-                        title={drawing.selected ? `Farbe ${c.name} (auch für das ausgewählte Objekt)` : `Farbe ${c.name}`}
-                      />
-                    ))}
-                    </div>
-                    <div className="pop-title">Darstellung neuer Objekte</div>
-                    <StylePanel color={drawing.color} style={drawing.defaultStyle} open={false} defaultWidth={1.1} kind="element" hideColor onColor={drawing.setColor} onStyle={drawing.setDefaultStyle} />
-                  </div>
-                )}
-              </div>
-              <ToolsCloseButton onClose={() => setToolsOpen(false)} />
-              </>
-              )}
-            </div>
+            <DrawRibbon
+              drawing={drawing}
+              viewer={viewer}
+              canUndo={history.undo > 0}
+              canRedo={history.redo > 0}
+              onUndo={doUndo}
+              onRedo={doRedo}
+              onMeasure={() => switchMode('measure')}
+            />
           ) : (
           <div className={`toolbar${toolsOpen ? '' : ' toolbar-collapsed'}`} role="toolbar" aria-label="Werkzeuge">
             {!toolsOpen ? (

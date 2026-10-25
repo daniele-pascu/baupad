@@ -207,19 +207,17 @@ test('Zeichenmodus: nach dem Zeichnen Auswahl aktiv, Objekt bearbeitbar, Leiste 
   await page.mouse.move(sb.x + 160, sb.y + 120, { steps: 5 });
   await page.mouse.up();
   await expect(page.getByTestId('element-bar')).toContainText('Rechteck');
-  await expect(page.getByTestId('tools-open')).toBeVisible();
+  // Nach dem Zeichnen ist wieder „Auswahl“ aktiv (obere Leiste bleibt sichtbar, verdeckt den Plan nicht)
+  await expect(page.getByTestId('draw-select')).toHaveAttribute('aria-pressed', 'true');
   // Objekt bleibt bearbeitbar (exakte Maße)
   await page.getByTestId('element-length').fill('2,5');
   await page.getByTestId('element-length').press('Enter');
   await expect(page.locator('.dims [data-dim="2,50 m"]').first()).toBeVisible();
-  await page.getByTestId('tools-open').click();
-  await expect(page.getByTestId('draw-select')).toHaveAttribute('aria-pressed', 'true');
   // Linien über die Maßeingabe schließen weiterhin aneinander an (Werkzeug bleibt aktiv)
   await page.locator('.side-head h2').click();
   await page.keyboard.press('Escape');
   await page.getByTestId('draw-line').click();
   await page.getByTestId('insert-length').fill('3');
   await page.getByTestId('insert-submit').click();
-  await page.getByTestId('tools-open').click();
   await expect(page.getByTestId('draw-line')).toHaveAttribute('aria-pressed', 'true');
 });

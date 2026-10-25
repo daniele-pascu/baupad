@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { apexOf, isRegularTriangle, measuresOf, pathLength, shapeInfo, type Apex, type Measures } from '../lib/drawing';
+import { arcRadius } from '../lib/cad';
 import { canEditVertexCount, shapeVertices } from '../lib/geometry';
 import { checkMeasure, formatArea, formatMeasure, parseDecimal } from '../lib/numbers';
 import type { DrawElement, DrawElementType, ShapeStyle } from '../lib/types';
@@ -13,6 +14,7 @@ export const ELEMENT_LABELS: Record<DrawElementType, string> = {
   ellipse: 'Kreis',
   triangle: 'Dreieck',
   freehand: 'Polylinie',
+  arc: 'Bogen',
   dimension: 'Maßlinie',
   text: 'Text',
 };
@@ -278,6 +280,11 @@ export function ElementBar({
         </label>
       )}
       {element.type === 'triangle' && isRegularTriangle(element.shape) && <span className="muted small">Spitze {APEX_LABELS[apexOf(element.shape)]}</span>}
+      {element.type === 'arc' && (
+        <span className="small element-info" data-testid="element-info">
+          Bogenlänge {formatMeasure(pathLength(element.shape))} m · Radius {formatMeasure(arcRadius(element.shape) ?? 0)} m
+        </span>
+      )}
       {element.type === 'freehand' && element.shape.closed === false && (
         <span className="small element-info" data-testid="element-info">
           Länge gesamt {formatMeasure(pathLength(element.shape))} m · {shapeVertices(element.shape).length} Punkte · keine Fläche
@@ -306,7 +313,7 @@ export function ElementBar({
           <Icon name="trash" size={16} /> Eckpunkt {vertex + 1}
         </button>
       )}
-      {canEditVertexCount(element.shape) && element.type !== 'line' && vertex === null && (
+      {canEditVertexCount(element.shape) && element.type !== 'line' && element.type !== 'arc' && vertex === null && (
         <span className="muted small hide-sm">Eckpunkt anklicken zum Auswählen · Doppelklick auf eine Kante fügt einen Punkt ein</span>
       )}
       {info && (element.type === 'triangle' || element.type === 'freehand' || element.type === 'rect') && (

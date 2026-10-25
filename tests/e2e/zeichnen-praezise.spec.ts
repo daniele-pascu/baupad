@@ -90,7 +90,7 @@ test('Freie Maße ohne Raster; Formen bleiben auf dem Blatt', async () => {
   // Über den Blattrand hinaus ziehen → Form endet am Rand (9,50 × 13,15 m)
   await deselect();
   await pickTool(page, 'draw-rect');
-  await drag(sb.x + sb.width - 60, sb.y + sb.height - 60, sb.x + sb.width + 150, sb.y + sb.height + 150);
+  await drag(sb.x + sb.width - 60, sb.y + sb.height - 140, sb.x + sb.width + 150, sb.y + sb.height + 150);
   await waitSaved(page);
   const edge = (await stored('elements'))[1];
   expect(edge.shape.x + edge.shape.w).toBeLessThanOrEqual(9.5 + 1e-6);

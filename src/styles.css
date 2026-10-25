@@ -2786,3 +2786,96 @@ tr.lv-flagged td {
     min-width: 46px;
   }
 }
+
+/* ---------- Zeichenmodus: obere Werkzeugleiste mit Registerkarten (Mini-CAD) ---------- */
+.ribbon {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 4;
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.08);
+}
+.editor-plan:has(> .ribbon) .viewer {
+  top: var(--ribbon-h, 96px);
+}
+.editor-plan:has(> .ribbon) .zoom-controls {
+  top: calc(var(--ribbon-h, 96px) + 10px);
+}
+.ribbon-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 4px 8px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: 1px solid #eef0f3;
+}
+.ribbon-tabs button {
+  flex: none;
+  padding: 6px 12px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+.ribbon-tabs button[aria-selected='true'] {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+  font-weight: 600;
+}
+.ribbon-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.ribbon-row .tool-group {
+  flex: none;
+}
+.ribbon-row .tool-group + .tool-group {
+  padding-left: 8px;
+  border-left: 1px solid var(--border);
+}
+.ribbon-row .tool-btn {
+  flex: none;
+  min-width: 52px;
+  height: 50px;
+}
+.ribbon-style {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  width: 100%;
+}
+.ribbon-style .style-panel {
+  flex: 1 1 100%;
+  border-top: none;
+  margin-top: 0;
+  padding-top: 0;
+}
+.cad-ghost path {
+  fill: none;
+  stroke: #1f5fbf;
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+}
+.cad-window {
+  fill: rgba(31, 95, 191, 0.06);
+  stroke: #1f5fbf;
+  stroke-width: 1.2;
+  stroke-dasharray: 6 3;
+}
+@media (max-width: 600px) {
+  .ribbon-row .tool-btn {
+    min-width: 48px;
+    height: 48px;
+  }
+}

@@ -24,30 +24,46 @@ import {
   type Apex,
   type Measures,
 } from '../lib/drawing';
+import { extendLine, rotateShapeBy, scaleShape, stretchShape, translateShape, trimLine } from '../lib/cad';
 import { findSnap, type SnapKind } from '../lib/snap';
-import { pathToSvg, rectsOverlap, removeVertex, setPolylineClosed, shapeAABB, shapePath, toScreen, type Point, type View } from '../lib/geometry';
-import { newMeta, putRecord, softDelete, type ProjectState } from '../lib/store';
+import { distToSegment, pathToSvg, rectsOverlap, removeVertex, setPolylineClosed, shapeAABB, shapePath, toScreen, type Point, type View } from '../lib/geometry';
+import { newMeta, putRecord, putRecords, softDelete, type ProjectState } from '../lib/store';
 import type { Damage, DrawElement, DrawElementType, Plan, Rect, Shape, ShapeStyle } from '../lib/types';
 
 /** Werkzeuge der Planbearbeitung (selbst gezeichnete Pläne) */
 /** Gruppen der Werkzeugleiste (wie in CAD-Programmen) */
-export type ToolGroup = 'select' | 'draw' | 'annotate';
+export type ToolGroup = 'select' | 'draw' | 'annotate' | 'modify';
 
-export const DRAW_TOOLS: { id: Tool; label: string; short?: string; icon: string; key: string; group: ToolGroup }[] = [
+/** Werkzeuge des Zeichenmodus: Zeichnen sowie Ändern (Kopieren, Verschieben, Strecken …) */
+export type DrawTool = Tool | 'copy' | 'move' | 'stretch';
+
+/** Befehle, die ein ausgewähltes Objekt brauchen */
+export const NEEDS_SELECTION = new Set<DrawTool>(['copy', 'move']);
+
+export const DRAW_TOOLS: { id: DrawTool; label: string; short?: string; icon: string; key: string; group: ToolGroup }[] = [
   { id: 'select', label: 'Auswahl: Objekte verschieben, Eckpunkte bearbeiten', short: 'Auswahl', icon: 'select', key: 'v', group: 'select' },
   { id: 'line', label: 'Linie (z. B. Wand)', short: 'Linie', icon: 'line', key: 'l', group: 'draw' },
   { id: 'polyline', label: 'Polylinie: Punkte nacheinander setzen – offen (Länge) oder geschlossen (Fläche)', short: 'Polylinie', icon: 'polyline', key: 'f', group: 'draw' },
   { id: 'rect', label: 'Rechteck (z. B. Raum)', short: 'Rechteck', icon: 'rect', key: 'r', group: 'draw' },
   { id: 'ellipse', label: 'Kreis', short: 'Kreis', icon: 'ellipse', key: 'k', group: 'draw' },
+  { id: 'arc', label: 'Bogen: Anfangspunkt, Punkt auf dem Bogen, Endpunkt', short: 'Bogen', icon: 'arc', key: 'b', group: 'draw' },
   { id: 'triangle', label: 'Dreieck', short: 'Dreieck', icon: 'triangle', key: 'd', group: 'draw' },
   { id: 'polygon', label: 'Polygon: geschlossene Fläche aus Eckpunkten', short: 'Polygon', icon: 'polygon', key: 'p', group: 'draw' },
   { id: 'dimension', label: 'Maßlinie', short: 'Maß', icon: 'dimension', key: 'm', group: 'annotate' },
   { id: 'text', label: 'Text / Beschriftung', short: 'Text', icon: 'text', key: 't', group: 'annotate' },
+  { id: 'move', label: 'Verschieben: Basispunkt zum Zielpunkt ziehen (mit Fang)', short: 'Verschieben', icon: 'move', key: 'g', group: 'modify' },
+  { id: 'copy', label: 'Kopieren: Basispunkt zum Zielpunkt ziehen (mit Fang)', short: 'Kopieren', icon: 'copy', key: 'c', group: 'modify' },
+  { id: 'stretch', label: 'Strecken: Fenster über Eckpunkte ziehen, dann Verschiebung ziehen', short: 'Strecken', icon: 'stretch', key: 's', group: 'modify' },
+  { id: 'trim', label: 'Trimmen: Linienabschnitt bis zur nächsten Kante entfernen', short: 'Trimmen', icon: 'trim', key: 'z', group: 'modify' },
+  { id: 'extend', label: 'Verlängern: Linie bis zur nächsten Kante verlängern', short: 'Verlängern', icon: 'extend', key: 'e', group: 'modify' },
 ];
 
 export const DRAW_DEFAULT_COLOR = '#1c1c1e';
 
 const isCoarse = () => matchMedia('(pointer: coarse)').matches;
+
+/** Werkzeuge, deren Vorschau Maße zeigt (Form wird gezogen) */
+const DRAW_SHAPE_TOOLS = new Set<DrawTool>(['line', 'rect', 'ellipse', 'triangle', 'dimension']);
 
 function pref(key: string, fallback: string): string {
   try {
@@ -91,10 +107,12 @@ export function useDrawing(opts: {
 }) {
   const { plan, data, damages, viewer, onCreated } = opts;
   const k = plan ? unitsPerMeter(plan) : 100;
-  const [tool, setToolState] = useState<Tool>(() => {
-    const t = pref('drawTool', 'rect') as Tool;
-    return DRAW_TOOLS.some((x) => x.id === t) ? t : 'rect';
+  const [tool, setToolState] = useState<DrawTool>(() => {
+    const t = pref('drawTool', 'rect') as DrawTool;
+    return DRAW_TOOLS.some((x) => x.id === t) && !NEEDS_SELECTION.has(t) && t !== 'stretch' ? t : 'rect';
   });
+  /** Strecken: zuerst Fenster (Meter), dann Verschiebung */
+  const [stretchWin, setStretchWin] = useState<Rect | null>(null);
   const [color, setColorState] = useState(() => pref('drawColor', DRAW_DEFAULT_COLOR));
   /** Darstellung für neue Objekte (Linientyp, -stärke, Füllung) – vor dem Zeichnen einstellbar */
   const [defaultStyle, setDefaultStyleState] = useState<ShapeStyle>(() => readStyle('drawStyle'));
@@ -112,10 +130,13 @@ export function useDrawing(opts: {
   /** Ende der zuletzt eingefügten Linie – die nächste Linie schließt dort an (Wände) */
   const [lastLineEnd, setLastLineEnd] = useState<Point | null>(null);
 
-  const setTool = (t: Tool) => {
+  const setTool = (t: DrawTool) => {
     setToolState(t);
+    setStretchWin(null);
     storePref('drawTool', t);
   };
+  /** Werkzeug der Planansicht: Befehle nutzen Vektor (Basis → Ziel) bzw. Fenster */
+  const viewerTool: Tool = tool === 'copy' || tool === 'move' ? 'vector' : tool === 'stretch' ? (stretchWin ? 'vector' : 'window') : tool;
   const setColor = (c: string) => {
     setColorState(c);
     storePref('drawColor', c);
@@ -138,7 +159,7 @@ export function useDrawing(opts: {
   const elements = useMemo(() => stored.map((e) => (overrides[e.id] ? { ...e, shape: overrides[e.id] } : e)), [stored, overrides]);
   const byId = useMemo(() => new Map(elements.map((e) => [e.id, e])), [elements]);
   const items: ViewerItem[] = useMemo(
-    () => elements.map((e) => ({ id: e.id, number: 0, shape: shapeToPage(e.shape, k), color: e.color, labelOffset: null })),
+    () => elements.map((e) => ({ id: e.id, number: 0, shape: shapeToPage(e.shape, k), color: e.color, labelOffset: null, noVertexEdit: e.type === 'arc' })),
     [elements, k],
   );
   const selected = selectedId ? (byId.get(selectedId) ?? null) : null;
@@ -203,10 +224,98 @@ export function useDrawing(opts: {
     onCreated?.();
   };
 
-  /** Im Plan gezogene Form übernehmen (Seitenkoordinaten → Meter) */
+  /** Im Plan gezogene Form übernehmen (Seitenkoordinaten → Meter) bzw. Befehl ausführen */
   const onCreate = (pageShape: Shape) => {
-    const type: DrawElementType = tool === 'dimension' ? 'dimension' : pageShape.type;
-    create(type, shapeToMeters(pageShape, k));
+    const shape = shapeToMeters(pageShape, k);
+    if (tool === 'copy' || tool === 'move' || tool === 'stretch') {
+      if (tool === 'stretch' && !stretchWin) {
+        setStretchWin({ x: shape.x, y: shape.y, w: shape.w, h: shape.h });
+        return;
+      }
+      const [a, b] = lineEnds(shape);
+      runVector(b.x - a.x, b.y - a.y);
+      return;
+    }
+    const type: DrawElementType = tool === 'dimension' ? 'dimension' : tool === 'arc' ? 'arc' : pageShape.type;
+    create(type, shape);
+  };
+
+  /** Kopieren, Verschieben bzw. Strecken um den gezogenen Vektor (in m) */
+  const runVector = (dx: number, dy: number) => {
+    if (tool === 'stretch' && stretchWin) {
+      const changed: DrawElement[] = [];
+      for (const e of stored) {
+        const next = stretchShape(e.shape, stretchWin, dx, dy);
+        if (!next) continue;
+        const type = e.type !== 'dimension' && e.type !== 'arc' && next.type === 'freehand' ? 'freehand' : e.type;
+        changed.push({ ...e, type, shape: roundShape(next) });
+      }
+      setStretchWin(null);
+      if (!changed.length) {
+        toast('Im Fenster liegen keine Eckpunkte.', 'info');
+        return;
+      }
+      putRecords({ elements: changed }); // ein Rückgängig-Schritt
+      toast(`${changed.length} Objekt(e) gestreckt.`, 'success', 2000);
+      return;
+    }
+    const e = selected ? data.elements[selected.id] : undefined;
+    if (!e) {
+      toast('Bitte zuerst ein Objekt auswählen.', 'info');
+      return;
+    }
+    const shape = roundShape(translateShape(e.shape, dx, dy));
+    if (tool === 'copy') {
+      const rec: DrawElement = { ...e, ...newMeta(), shape };
+      putRecord('elements', rec);
+      setSelectedId(rec.id);
+      toast(`${elementLabel(e)} kopiert.`, 'success', 2000);
+    } else {
+      putRecord('elements', { ...e, shape });
+    }
+  };
+
+  /** Drehen bzw. Skalieren des ausgewählten Objekts um seinen Mittelpunkt */
+  const transformSelected = (kind: 'rotate' | 'scale', value: number) => {
+    const e = selected ? data.elements[selected.id] : undefined;
+    if (!e) return;
+    let shape = kind === 'rotate' ? rotateShapeBy(e.shape, value) : scaleShape(e.shape, value);
+    // Text: Breite folgt der Schrifthöhe
+    if (e.type === 'text' && kind === 'scale') shape = { ...shape, w: textWidth(e.text ?? '', shape.h) };
+    putRecord('elements', { ...e, shape: roundShape(shape) });
+  };
+
+  /** Trimmen/Verlängern: angeklickte Linie gegen alle anderen Objekte */
+  const trimOrExtend = (p: Point) => {
+    const pm = { x: p.x / k, y: p.y / k };
+    const pxPerM = (viewer.current?.scale() ?? 1) * k;
+    const tol = (isCoarse() ? 18 : 10) / pxPerM;
+    let best: { e: DrawElement; d: number } | null = null;
+    for (const e of stored) {
+      if (e.type !== 'line') continue;
+      const [a, b] = lineEnds(e.shape);
+      const d = distToSegment(pm, a, b);
+      if (d <= tol && (!best || d < best.d)) best = { e, d };
+    }
+    if (!best) {
+      toast(tool === 'trim' ? 'Bitte eine Linie anklicken (Trimmen gilt für Linien).' : 'Bitte eine Linie nahe dem zu verlängernden Ende anklicken.', 'info');
+      return;
+    }
+    const line = best.e;
+    const others = stored.filter((x) => x.id !== line.id && x.type !== 'text').map((x) => x.shape);
+    if (tool === 'extend') {
+      const next = extendLine(line.shape, pm, others);
+      if (!next) toast('In dieser Richtung gibt es keine Kante zum Verlängern.', 'info');
+      else putRecord('elements', { ...line, shape: roundShape(next) });
+      return;
+    }
+    const parts = trimLine(line.shape, pm, others);
+    if (!parts) {
+      toast('Die Linie schneidet keine andere Kante.', 'info');
+      return;
+    }
+    if (!parts.length) softDelete({ elements: [line] });
+    else putRecords({ elements: [{ ...line, shape: roundShape(parts[0]) }, ...parts.slice(1).map((sh) => ({ ...line, ...newMeta(), shape: roundShape(sh) }))] });
   };
 
   const onShapeChange = (id: string, pageShape: Shape, commit: boolean) => {
@@ -219,7 +328,7 @@ export function useDrawing(opts: {
     const e = data.elements[id];
     // Rechteck/Dreieck mit verschobener, eingefügter oder entfernter Ecke ist danach eine Polylinie
     // (geschlossen = Fläche); eine Linie mit eingefügtem Punkt eine offene Polylinie
-    const type = e && e.type !== 'dimension' && shape.type === 'freehand' ? 'freehand' : e?.type;
+    const type = e && e.type !== 'dimension' && e.type !== 'arc' && shape.type === 'freehand' ? 'freehand' : e?.type;
     if (e && type && JSON.stringify(e.shape) !== JSON.stringify(shape)) putRecord('elements', { ...e, type, shape });
   };
 
@@ -230,6 +339,10 @@ export function useDrawing(opts: {
 
   /** Werkzeug „Text“: Stelle angetippt */
   const onPlace = async (p: Point) => {
+    if (tool === 'trim' || tool === 'extend') {
+      trimOrExtend(p);
+      return;
+    }
     if (tool !== 'text') return;
     const text = await promptDialog({ title: 'Text einfügen', label: 'Text', confirmLabel: 'Einfügen' });
     if (!text?.trim()) return;
@@ -356,12 +469,34 @@ export function useDrawing(opts: {
   );
 
   const drawOverlay = (view: View, preview: Shape | null) => {
-    const previewType: DrawElementType | null =
-      tool === 'select' || tool === 'component' || tool === 'text' || tool === 'polygon' || tool === 'polyline' ? null : tool === 'dimension' ? 'dimension' : (tool as DrawElementType);
+    const previewType: DrawElementType | null = DRAW_SHAPE_TOOLS.has(tool) ? (tool as DrawElementType) : null;
+    // Kopieren/Verschieben/Strecken: Vorschau des Ergebnisses (gestrichelt)
+    let ghost: ReactNode = null;
+    if (preview && (tool === 'copy' || tool === 'move' || (tool === 'stretch' && stretchWin))) {
+      const [a, b] = lineEnds(shapeToMeters(preview, k));
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const targets = tool === 'stretch' ? stored.map((e) => stretchShape(e.shape, stretchWin!, dx, dy)).filter((x): x is Shape => !!x) : selected ? [translateShape(selected.shape, dx, dy)] : [];
+      ghost = (
+        <g className="cad-ghost" data-testid="cad-ghost">
+          {targets.map((t, i) => (
+            <path key={i} d={pathToSvg(shapePath(shapeToPage(t, k)), (p) => toScreen(view, p))} />
+          ))}
+        </g>
+      );
+    }
     return (
       <>
         {renderDims(view, elements, k)}
         {renderPreviewDims(view, preview, previewType, k)}
+        {stretchWin && (
+          <path
+            className="cad-window"
+            data-testid="stretch-window"
+            d={pathToSvg(shapePath(shapeToPage({ type: 'rect', ...stretchWin }, k)), (p) => toScreen(view, p))}
+          />
+        )}
+        {ghost}
       </>
     );
   };
@@ -383,6 +518,9 @@ export function useDrawing(opts: {
     selected,
     selectedId,
     setSelectedId,
+    viewerTool,
+    stretchWin,
+    transformSelected,
     vertex,
     setVertex,
     removeSelectedVertex,

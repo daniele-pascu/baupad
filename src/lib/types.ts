@@ -221,7 +221,8 @@ export interface Component extends SyncMeta {
 }
 
 /** Objektart eines gezeichneten Plans */
-export type DrawElementType = ShapeType | 'dimension' | 'text';
+/** 'arc': Bogen aus drei Punkten, gespeichert als fein unterteilte offene Polylinie */
+export type DrawElementType = ShapeType | 'dimension' | 'text' | 'arc';
 
 /**
  * Zeichnungsobjekt eines selbst gezeichneten Plans (eigener Datensatz je Objekt).

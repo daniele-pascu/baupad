@@ -341,9 +341,6 @@ test('Plan zeichnen per Finger: Raum über Maßeingabe, Bemaßung sichtbar, Weit
   await expect(page.locator('.dims [data-dim="5,00 m"]')).toBeVisible();
   await expect(page.locator('.dims [data-dim="3,65 m"]')).toBeVisible();
   await expect(page.getByTestId('element-bar')).toBeVisible();
-  // Nach dem Einfügen klappt die Leiste zu (Plan bleibt frei) und lässt sich wieder öffnen
-  await expect(page.getByTestId('tools-open')).toBeVisible();
-  await openTools(page, 'tap');
   // Leisten und Werkzeuge passen auf den Bildschirm
   const vw = page.viewportSize()!.width;
   for (const id of ['element-bar', 'draw-toolbar', 'mode-bar', 'mode-measure', 'grid-toggle']) {
@@ -351,9 +348,20 @@ test('Plan zeichnen per Finger: Raum über Maßeingabe, Bemaßung sichtbar, Weit
     expect(b.x).toBeGreaterThanOrEqual(-0.5);
     expect(b.x + b.width).toBeLessThanOrEqual(vw + 0.5);
   }
-  for (const t of ['select', 'line', 'polyline', 'rect', 'ellipse', 'triangle', 'polygon', 'dimension', 'text', 'delete', 'undo', 'redo', 'color']) {
-    expect((await page.getByTestId(`draw-${t}`).boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  // Registerkarten der oberen Leiste: jede Zeile per Finger wischbar, Knöpfe mindestens 44 px
+  for (const [tab, ids] of [
+    ['draw', ['select', 'line', 'polyline', 'rect', 'ellipse', 'arc', 'triangle', 'polygon', 'text', 'delete', 'undo', 'redo']],
+    ['modify', ['move', 'copy', 'rotate', 'scale', 'stretch', 'trim', 'extend']],
+    ['measure', ['dimension']],
+  ] as const) {
+    await page.getByTestId(`ribbon-tab-${tab}`).tap();
+    for (const t of ids) {
+      const b = page.getByTestId(`draw-${t}`);
+      await b.scrollIntoViewIfNeeded();
+      expect((await b.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    }
   }
+  await page.getByTestId('ribbon-tab-draw').tap();
   await noHorizontalScroll(page);
   await page.screenshot({ path: join(OUT, `${info.project.name}-zeichnen.png`) });
   // Weiter zum Aufmaß: Zeichnung bleibt, Markierungswerkzeuge erscheinen

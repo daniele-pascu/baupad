@@ -37,21 +37,42 @@ import {
 } from '../lib/geometry';
 import { clampRenderScale, getImageBitmap, getPdfDocument, renderPdfRegion, type RenderJob } from '../lib/pdf';
 import { getView, putView } from '../lib/db';
+import { arcShape } from '../lib/cad';
 import { SNAP_LABELS, type SnapKind } from '../lib/snap';
 import { DEFAULT_TRANSPARENCY, fillOf, PX_PER_PT, strokeGeometry } from '../lib/style';
 import type { Component, Damage, Plan, Rect, Shape, ShapeStyle, ShapeType, SourceFile } from '../lib/types';
 
 /** Werkzeuge: Auswahl, Formen, Bauteilbuchstabe setzen; bei gezeichneten Plänen zusätzlich Maßlinie und Text */
-export type Tool = 'select' | ShapeType | 'component' | 'dimension' | 'text' | 'polygon' | 'polyline' | 'calibrate';
+export type Tool =
+  | 'select'
+  | ShapeType
+  | 'component'
+  | 'dimension'
+  | 'text'
+  | 'polygon'
+  | 'polyline'
+  | 'calibrate'
+  /** Bogen aus drei Punkten */
+  | 'arc'
+  /** Fenster aufziehen (z. B. Strecken) bzw. Vektor von Basis- zu Zielpunkt (Kopieren, Verschieben) */
+  | 'window'
+  | 'vector'
+  /** Linie anklicken: Trimmen bzw. Verlängern */
+  | 'trim'
+  | 'extend';
 
 /** Werkzeuge, die Punkt für Punkt gesetzt werden (Polygon = immer geschlossen, Polylinie = offen oder geschlossen) */
-const isPointTool = (t: Tool) => t === 'polygon' || t === 'polyline';
+const isPointTool = (t: Tool) => t === 'polygon' || t === 'polyline' || t === 'arc';
 
 /** Werkzeuge, die eine Stelle antippen statt eine Form zu zeichnen */
-const PLACE_TOOLS = new Set<Tool>(['component', 'text']);
+const PLACE_TOOLS = new Set<Tool>(['component', 'text', 'trim', 'extend']);
 
 /** Bearbeitbares Objekt der Planansicht (Messung bzw. Zeichnungsobjekt in Seitenkoordinaten). */
-export type ViewerItem = Pick<Damage, 'id' | 'number' | 'shape' | 'color' | 'labelOffset'> & Partial<Pick<Damage, 'label' | 'style'>>;
+export type ViewerItem = Pick<Damage, 'id' | 'number' | 'shape' | 'color' | 'labelOffset'> &
+  Partial<Pick<Damage, 'label' | 'style'>> & {
+    /** Eckpunkte nicht einzeln bearbeiten (z. B. Bogen) */
+    noVertexEdit?: boolean;
+  };
 /** Angezeigte Nummer bzw. Kennzeichnung */
 const noOf = (d: ViewerItem) => d.label?.trim() || String(d.number);
 
@@ -138,7 +159,7 @@ type Gesture =
   | { kind: 'none' }
   | { kind: 'pan'; start: Point; view: View; moved: boolean; tapTarget: string | null }
   | { kind: 'pinch'; dist: number; mid: Point; view: View }
-  | { kind: 'draw'; tool: ShapeType | 'dimension' | 'calibrate'; start: Point; current: Point; points: Point[] }
+  | { kind: 'draw'; tool: DrawGestureTool; start: Point; current: Point; points: Point[] }
   | { kind: 'move'; id: string; start: Point; orig: Shape; moved: boolean; ref: Point }
   | { kind: 'resize'; id: string; handle: string; orig: Shape }
   | { kind: 'vertex'; id: string; index: number; orig: Shape; start: Point; moved: boolean }
@@ -150,6 +171,9 @@ type Gesture =
   | { kind: 'ignore' };
 
 const isCoarse = () => matchMedia('(pointer: coarse)').matches;
+
+/** Werkzeuge, die durch Ziehen eine Form erzeugen */
+type DrawGestureTool = ShapeType | 'dimension' | 'calibrate' | 'window' | 'vector';
 
 /**
  * Planansicht mit Zoom (Schaltflächen, Mausrad, zwei Finger), Verschieben und Markierungen.
@@ -535,7 +559,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     // nächstgelegener Anfasser innerhalb der Toleranz
     let best: string | null = null;
     let bestD = Infinity;
-    for (const { h, p: hp } of screenHandles(sel.shape, viewRef.current!, !!propsRef.current.vertexEdit)) {
+    for (const { h, p: hp } of screenHandles(sel.shape, viewRef.current!, !!propsRef.current.vertexEdit && !sel.noVertexEdit, !!sel.noVertexEdit)) {
       const d = Math.max(Math.abs(hp.x - p.x), Math.abs(hp.y - p.y));
       if (d <= tol && d < bestD) {
         bestD = d;
@@ -629,7 +653,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     const raw = clampP(toPage(v, p));
     const snap = propsRef.current.snap;
     const pp = clampP(snap && currentTool !== 'freehand' ? snapAt(raw, { tool: currentTool, scale: v.scale }) : raw);
-    gesture.current = { kind: 'draw', tool: currentTool as ShapeType | 'dimension' | 'calibrate', start: pp, current: pp, points: [pp] };
+    gesture.current = { kind: 'draw', tool: currentTool as DrawGestureTool, start: pp, current: pp, points: [pp] };
     forceRender((n) => n + 1);
   };
 
@@ -845,7 +869,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
           // Doppelklick auf eine Kante des ausgewählten Objekts: Eckpunkt einfügen
           if (!cancelled && propsRef.current.vertexEdit && lt?.moveId === g.id && now - lt.t < 320 && Math.hypot(lt.p.x - p.x, lt.p.y - p.y) < 30) {
             lastTap.current = null;
-            if (canEditVertexCount(g.orig)) {
+            if (canEditVertexCount(g.orig) && !propsRef.current.damages.find((x) => x.id === g.id)?.noVertexEdit) {
               const near = nearestEdge(g.orig, toPage(v, p));
               if (near && near.dist * v.scale <= (isCoarse() ? 22 : 12)) {
                 propsRef.current.onShapeChange(g.id, insertVertex(g.orig, near.edge, near.point), true);
@@ -884,6 +908,17 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
           return;
         }
         poly.current = [...pts, pp];
+        if (propsRef.current.tool === 'arc' && poly.current.length === 3) {
+          // Bogen: Anfangspunkt, Punkt auf dem Bogen, Endpunkt
+          const [p1, p2, p3] = poly.current;
+          poly.current = [];
+          polyHover.current = null;
+          propsRef.current.onPolygonChange?.(0);
+          forceRender((n) => n + 1);
+          const arc = arcShape(p1, p2, p3);
+          if (arc) propsRef.current.onCreate(arc);
+          return;
+        }
         propsRef.current.onPolygonChange?.(poly.current.length);
         forceRender((n) => n + 1);
         return;
@@ -1041,6 +1076,10 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
           })}
           {pending && renderShape(pending.shape, pending.color, { dashed: true, key: 'pending' })}
           {drawPreview && renderShape(drawPreview, color, { dashed: true, key: 'draw' })}
+          {tool === 'arc' && poly.current.length === 2 && polyHover.current && (() => {
+            const a = arcShape(poly.current[0], poly.current[1], polyHover.current);
+            return a ? renderShape(a, color, { dashed: true, key: 'arc-preview' }) : null;
+          })()}
           {isPointTool(tool) && poly.current.length > 0 && (
             <g className="poly-preview" data-testid="polygon-preview">
               <polyline
@@ -1127,7 +1166,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
                   </>
                 );
               })()}
-              {screenHandles(selected.shape, view, !!props.vertexEdit).map(({ h, p }) => {
+              {screenHandles(selected.shape, view, !!props.vertexEdit && !selected.noVertexEdit, !!selected.noVertexEdit).map(({ h, p }) => {
                 const s = isCoarse() ? 14 : 10;
                 if (h.startsWith('v')) {
                   const active = props.selectedVertex === Number(h.slice(1));
@@ -1189,7 +1228,7 @@ function SnapMarker({ view, mark }: { view: View; mark: { p: Point; kind: SnapKi
  * die vier Ecken, leicht nach außen versetzt, damit die Form selbst sichtbar und
  * verschiebbar bleibt. Dazu der Dreh-Anfasser „rot“ über der Oberkante.
  */
-function screenHandles(shape: Shape, v: View, vertexEdit = false): { h: string; p: Point }[] {
+function screenHandles(shape: Shape, v: View, vertexEdit = false, fixedShape = false): { h: string; p: Point }[] {
   // Linie: nur die beiden Endpunkte (eigenständiges 2D-Objekt, kein schmales Rechteck)
   if (shape.type === 'line') return shapeVertices(shape).map((p, i) => ({ h: `v${i}`, p: toScreen(v, p) }));
   const verts = vertexEdit && hasEditableVertices(shape) ? shapeVertices(shape).map((p, i) => ({ h: `v${i}`, p: toScreen(v, p) })) : null;
@@ -1198,7 +1237,8 @@ function screenHandles(shape: Shape, v: View, vertexEdit = false): { h: string; 
   const rot = shape.rotation ?? 0;
   const small = Math.min(b.w, b.h) * v.scale < 64;
   // Mit Eckpunkten: Ecken über die Punkte, Größe über die Seitenmitten (nicht bei Vielecken)
-  const list = verts ? (shape.type === 'freehand' ? [] : HANDLES.filter((h) => h.length === 1)) : small ? HANDLES.filter((h) => h.length === 2) : HANDLES;
+  // Form mit fester Geometrie (z. B. Bogen): nur Drehen, keine Größenänderung (würde sie verzerren)
+  const list = fixedShape ? [] : verts ? (shape.type === 'freehand' ? [] : HANDLES.filter((h) => h.length === 1)) : small ? HANDLES.filter((h) => h.length === 2) : HANDLES;
   const off = (small ? 8 : 0) / v.scale;
   const out = list.map((h) => {
     const q = handlePosition(b, h);
@@ -1224,8 +1264,8 @@ function shapeFromDraw(g: Extract<Gesture, { kind: 'draw' }>, v: View, preview =
   const r = normalizeRect(g.start, g.current);
   const tiny = Math.max(r.w, r.h) * v.scale < 8;
   if (tiny) {
-    // Kalibrieren braucht eine echte Strecke
-    if (preview || g.tool === 'calibrate') return null;
+    // Kalibrieren, Fenster und Vektor brauchen eine echte Strecke
+    if (preview || g.tool === 'calibrate' || g.tool === 'window' || g.tool === 'vector') return null;
     // Antippen: Markierung in Standardgröße anlegen
     const s = 36 / v.scale;
     const base = { x: g.start.x - s / 2, y: g.start.y - s / 2, w: s, h: s };
@@ -1255,7 +1295,8 @@ function shapeFromDraw(g: Extract<Gesture, { kind: 'draw' }>, v: View, preview =
     const closeDist = Math.max(18 / v.scale, 0.08 * Math.hypot(r.w, r.h));
     return freehandShape(g.points, 0.5 / v.scale, closeDist) ?? { type: 'ellipse', ...r };
   }
-  if (g.tool === 'line' || g.tool === 'dimension' || g.tool === 'calibrate') return lineShape(g.start, g.current);
+  if (g.tool === 'line' || g.tool === 'dimension' || g.tool === 'calibrate' || g.tool === 'vector') return lineShape(g.start, g.current);
+  if (g.tool === 'window') return { type: 'rect', ...r };
   if (g.tool === 'triangle') return triangleShape(r);
   return { type: g.tool, ...r };
 }

@@ -29,7 +29,7 @@ const RANK: Record<SnapKind, number> = { end: 0, intersection: 1, mid: 2, center
 type Seg = [Point, Point];
 
 /** Kanten einer Form (Kreise fein angenähert, nur für Schnitt- und Linienpunkte) */
-function edgesOf(s: Shape): Seg[] {
+export function edgesOf(s: Shape): Seg[] {
   let pts: Point[];
   let closed: boolean;
   if (s.type === 'ellipse') {

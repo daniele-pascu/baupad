@@ -44,7 +44,7 @@ async function deselect() {
   await page.keyboard.press('Escape');
 }
 
-test('Werkzeugleiste: Gruppen Auswahl, Zeichnen, Beschriften, Bearbeiten', async () => {
+test('Obere Werkzeugleiste: Registerkarten Zeichnen, Ändern, Darstellung, Messen, Ansicht', async () => {
   await freshStart(page);
   await createProject(page, 'Polylinie', {}, ['Halle']);
   await page.getByTestId('draw-plan').click();
@@ -55,15 +55,23 @@ test('Werkzeugleiste: Gruppen Auswahl, Zeichnen, Beschriften, Bearbeiten', async
   await nd.getByTestId('new-drawing-save').click();
   await expect(sheet()).toBeVisible();
   const bar = page.getByTestId('draw-toolbar');
-  for (const [group, ids] of [
-    ['Auswahl', ['draw-select']],
-    ['Zeichnen', ['draw-line', 'draw-polyline', 'draw-rect', 'draw-ellipse', 'draw-triangle', 'draw-polygon']],
-    ['Beschriften', ['draw-dimension', 'draw-text']],
-    ['Bearbeiten', ['draw-delete', 'draw-undo', 'draw-redo']],
+  // Leiste liegt oben, die Planfläche beginnt darunter
+  const bb = (await bar.boundingBox())!;
+  expect(bb.y + bb.height).toBeLessThanOrEqual((await sheet().boundingBox())!.y + 1);
+  for (const [tab, ids] of [
+    ['draw', ['draw-select', 'draw-line', 'draw-polyline', 'draw-rect', 'draw-ellipse', 'draw-arc', 'draw-triangle', 'draw-polygon', 'draw-text', 'draw-delete', 'draw-undo', 'draw-redo']],
+    ['modify', ['draw-move', 'draw-copy', 'draw-rotate', 'draw-scale', 'draw-stretch', 'draw-trim', 'draw-extend']],
+    ['style', ['ribbon-style']],
+    ['measure', ['draw-dimension', 'ribbon-measure']],
+    ['view', ['view-zoom-in', 'view-zoom-out', 'view-fit', 'view-zoom-sel', 'view-grid', 'view-snap']],
   ] as const) {
-    const g = bar.getByRole('group', { name: group });
-    for (const id of ids) await expect(g.getByTestId(id)).toBeVisible();
+    await bar.getByTestId(`ribbon-tab-${tab}`).click();
+    for (const id of ids) await expect(bar.getByTestId(id)).toBeVisible();
   }
+  await bar.getByTestId('ribbon-tab-modify').click();
+  await expect(bar.getByTestId('draw-copy')).toBeDisabled(); // nichts ausgewählt
+  await expect(bar.getByTestId('draw-rotate')).toBeDisabled();
+  await bar.getByTestId('ribbon-tab-draw').click();
   await expect(bar.getByTestId('draw-freehand')).toHaveCount(0); // Freihand durch Polylinie ersetzt
   await expect(bar.getByTestId('draw-delete')).toBeDisabled(); // nichts ausgewählt
   await page.screenshot({ path: 'tests/output/werkzeugleiste.png' });

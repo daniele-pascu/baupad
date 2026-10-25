@@ -181,11 +181,19 @@ print(json.dumps(out))`;
 /** Werkzeug wählen – die Werkzeugleiste klappt nach dem Zeichnen zu und wird bei Bedarf geöffnet. */
 export async function pickTool(page: Page, testId: string, how: 'click' | 'tap' = 'click') {
   const btn = page.getByTestId(testId);
+  const press = (l: ReturnType<Page['getByTestId']>) => (how === 'tap' ? l.tap() : l.click());
   if (!(await btn.isVisible())) {
     const open = page.getByTestId('tools-open');
-    if (await open.isVisible()) await (how === 'tap' ? open.tap() : open.click());
+    if (await open.isVisible()) await press(open);
   }
-  await (how === 'tap' ? btn.tap() : btn.click());
+  // Zeichenmodus: Werkzeug ggf. auf einer anderen Registerkarte der oberen Leiste
+  if (!(await btn.isVisible())) {
+    for (const tab of await page.locator('[data-testid^="ribbon-tab-"]').all()) {
+      await press(tab);
+      if (await btn.isVisible()) break;
+    }
+  }
+  await press(btn);
 }
 
 /** Zugeklappte Werkzeugleiste öffnen (z. B. für die Farbwahl). */
