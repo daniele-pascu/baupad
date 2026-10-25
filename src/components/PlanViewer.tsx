@@ -681,9 +681,11 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         snapAt(clampP(toPage(viewRef.current, localPoint(e))), { tool: t, scale: viewRef.current.scale, from: last });
         if (before?.kind !== snapMark.current?.kind || before?.p.x !== snapMark.current?.p.x || before?.p.y !== snapMark.current?.p.y) forceRender((n) => n + 1);
       }
-      // Vorschau der nächsten Kante beim Setzen von Flächenpunkten
+      // Vorschau der nächsten Kante beim Setzen von Flächenpunkten (mit Fang bzw. 90°, wie der Klick)
       if (isPointTool(propsRef.current.tool) && poly.current.length && viewRef.current) {
-        polyHover.current = clampP(toPage(viewRef.current, localPoint(e)));
+        const hp = clampP(toPage(viewRef.current, localPoint(e)));
+        const last = poly.current[poly.current.length - 1];
+        polyHover.current = e.pointerType === 'mouse' && propsRef.current.snap ? clampP(snapAt(hp, { tool: t, scale: viewRef.current.scale, from: last })) : hp;
         forceRender((n) => n + 1);
       }
       return;
@@ -887,8 +889,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         if (g.moved || cancelled) return;
         const raw = clampP(toPage(v, p));
         const snap = propsRef.current.snap;
-        const pp = clampP(snap ? snapAt(raw, { scale: v.scale }) : raw);
         const pts = poly.current;
+        const pp = clampP(snap ? snapAt(raw, { scale: v.scale, tool: propsRef.current.tool, from: pts[pts.length - 1] }) : raw);
         const first = pts[0];
         const now = Date.now();
         const lt = lastTap.current;
@@ -896,7 +898,9 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         lastTap.current = { t: now, p };
         // Tippen auf den ersten Punkt schließt die Form; Doppeltippen beendet sie
         // (Polygon: geschlossen, Polylinie: offen)
-        const onFirst = pts.length >= 3 && Math.hypot((first.x - pp.x) * v.scale, (first.y - pp.y) * v.scale) < (isCoarse() ? 22 : 12);
+        // (auch im 90°-Modus: maßgeblich ist der angetippte Punkt)
+        const nearFirst = (q: Point) => Math.hypot((first.x - q.x) * v.scale, (first.y - q.y) * v.scale) < (isCoarse() ? 22 : 12);
+        const onFirst = pts.length >= 3 && (nearFirst(pp) || nearFirst(raw));
         if (onFirst) {
           finishPolygon(true);
           return;

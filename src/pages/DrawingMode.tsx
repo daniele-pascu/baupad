@@ -24,7 +24,7 @@ import {
   type Apex,
   type Measures,
 } from '../lib/drawing';
-import { extendLine, rotateShapeBy, scaleShape, stretchShape, translateShape, trimLine } from '../lib/cad';
+import { type OrthoDir, extendLine, ORTHO_DIRS, orthoPoint, rotateShapeBy, scaleShape, stretchShape, translateShape, trimLine } from '../lib/cad';
 import { findSnap, type SnapKind } from '../lib/snap';
 import { dimsVisible, visibleDamages, visibleElements } from '../lib/layers';
 import { distToSegment, pathToSvg, rectsOverlap, removeVertex, setPolylineClosed, shapeAABB, shapePath, toScreen, type Point, type View } from '../lib/geometry';
@@ -91,6 +91,10 @@ export function readStyle(key: string): ShapeStyle {
   }
 }
 
+export const ORTHO_DIR_LABELS: Record<OrthoDir, string> = { auto: 'Richtung automatisch', h: 'Nur waagrecht', v: 'Nur senkrecht' };
+/** Werkzeuge mit Ausgangspunkt, für die der 90°-Modus gilt (auch Endpunkte ziehen und Vektoren) */
+const ORTHO_TOOLS = new Set<string>(['line', 'dimension', 'polyline', 'polygon', 'vector']);
+
 /** Geometrie gerundet auf 0,1 mm speichern (keine Gleitkommareste aus der Bildschirmumrechnung) */
 const roundShape = (s: Shape): Shape => ({ ...s, x: roundM(s.x), y: roundM(s.y), w: roundM(s.w), h: roundM(s.h) });
 
@@ -115,8 +119,15 @@ export function useDrawing(opts: {
   /** Strecken: zuerst Fenster (Meter), dann Verschiebung */
   const [stretchWin, setStretchWin] = useState<Rect | null>(null);
   const [color, setColorState] = useState(() => pref('drawColor', DRAW_DEFAULT_COLOR));
-  /** Darstellung für neue Objekte (Linientyp, -stärke, Füllung) – vor dem Zeichnen einstellbar */
-  const [defaultStyle, setDefaultStyleState] = useState<ShapeStyle>(() => readStyle('drawStyle'));
+  /**
+   * Darstellung für neue Objekte (Linientyp, -stärke, Füllung) – vor dem Zeichnen einstellbar.
+   * Neue Formen sind ohne Füllung, solange die Füllung hier nicht ausdrücklich gewählt wurde
+   * (eigene Einstellung „Keine Füllung“; eine früher gewählte Füllfarbe füllt nicht ungefragt).
+   */
+  const [defaultStyle, setDefaultStyleState] = useState<ShapeStyle>(() => {
+    // einmalige Übernahme der bisherigen Voreinstellung, dabei „Keine Füllung“ setzen
+    return pref('drawStyle2', '') ? readStyle('drawStyle2') : { ...readStyle('drawStyle'), noFill: true };
+  });
   const [selectedId, setSelectedIdState] = useState<string | null>(null);
   /** Ausgewählter Eckpunkt des ausgewählten Objekts (zum Entfernen) */
   const [vertex, setVertex] = useState<number | null>(null);
@@ -128,6 +139,13 @@ export function useDrawing(opts: {
   const [snapOn, setSnapOnState] = useState(() => pref('snap', '1') !== '0');
   /** Raster-Einrasten (Standard: aus – Formen folgen genau der Bewegung, Maße frei wählbar) */
   const [gridOn, setGridOnState] = useState(() => pref('gridSnap', '0') === '1');
+  /** 90° / Orthogonal (F8): Linien, Polylinien, Maßlinien und Vektoren nur waagrecht/senkrecht */
+  const [orthoOn, setOrthoOnState] = useState(() => pref('ortho', '0') === '1');
+  /** Richtung im Orthogonalmodus: automatisch (nach der Mausbewegung), waagrecht oder senkrecht */
+  const [orthoDir, setOrthoDirState] = useState<OrthoDir>(() => {
+    const d = pref('orthoDir', 'auto') as OrthoDir;
+    return ORTHO_DIRS.includes(d) ? d : 'auto';
+  });
   /** Ende der zuletzt eingefügten Linie – die nächste Linie schließt dort an (Wände) */
   const [lastLineEnd, setLastLineEnd] = useState<Point | null>(null);
 
@@ -145,7 +163,7 @@ export function useDrawing(opts: {
   const setDefaultStyle = (patch: Partial<ShapeStyle>) => {
     const next = { ...defaultStyle, ...patch };
     setDefaultStyleState(next);
-    storePref('drawStyle', JSON.stringify(next));
+    storePref('drawStyle2', JSON.stringify(next));
   };
   const setSnapOn = (on: boolean) => {
     setSnapOnState(on);
@@ -154,6 +172,14 @@ export function useDrawing(opts: {
   const setGridOn = (on: boolean) => {
     setGridOnState(on);
     storePref('gridSnap', on ? '1' : '0');
+  };
+  const setOrthoOn = (on: boolean) => {
+    setOrthoOnState(on);
+    storePref('ortho', on ? '1' : '0');
+  };
+  const setOrthoDir = (d: OrthoDir) => {
+    setOrthoDirState(d);
+    storePref('orthoDir', d);
   };
 
   const allStored = useMemo(() => (plan ? elementsOf(data, plan.id) : []), [data, plan]);
@@ -174,7 +200,7 @@ export function useDrawing(opts: {
   // ausdrücklich eingeschaltet – sonst folgen Formen genau der Bewegung (keine erzwungene Rundung)
 
   const snap: SnapFn = (p, ctx) => {
-    if (!snapOn && !gridOn) return p;
+    if (!snapOn && !gridOn && !orthoOn) return p;
     const pm = { x: p.x / k, y: p.y / k };
     const pxPerM = ctx.scale * k;
     const tol = (isCoarse() ? 16 : 9) / pxPerM;
@@ -183,6 +209,22 @@ export function useDrawing(opts: {
     const hit = snapOn ? findSnap(pm, others, tol) : null;
     let q: Point = pm;
     let kind: SnapKind | undefined;
+    if (orthoOn && ctx.from && ctx.tool && ORTHO_TOOLS.has(ctx.tool)) {
+      // 90°: vom letzten Punkt nur waagrecht oder senkrecht; ein Fangpunkt bestimmt nur die
+      // Länge (Projektion auf die Achse) – der rechte Winkel bleibt immer exakt
+      const from = { x: ctx.from.x / k, y: ctx.from.y / k };
+      const target = hit ? hit.point : pm;
+      const o = orthoPoint(from, target, orthoDir);
+      if (!hit && gridOn) {
+        const step = gridStep(pxPerM, 14);
+        const len = o.x === from.x ? o.y - from.y : o.x - from.x;
+        const L = Math.round(len / step) * step;
+        q = o.x === from.x ? { x: from.x, y: from.y + L } : { x: from.x + L, y: from.y };
+      } else q = o;
+      if (hit && Math.hypot(q.x - hit.point.x, q.y - hit.point.y) < 1e-9) kind = hit.kind;
+      return { x: q.x * k, y: q.y * k, kind };
+    }
+    if (!snapOn && !gridOn) return p;
     if (hit) {
       q = hit.point;
       kind = hit.kind;
@@ -211,7 +253,8 @@ export function useDrawing(opts: {
    */
   const create = (type: DrawElementType, shape: Shape, extra: Partial<DrawElement> = {}, keepTool = false) => {
     if (!plan) return;
-    const styled = type !== 'text' && type !== 'dimension' && Object.keys(defaultStyle).length > 0;
+    // Formen: Darstellung für neue Objekte, ohne ausdrückliche Wahl immer ohne Füllung
+    const styled = type !== 'text' && type !== 'dimension';
     const rec: DrawElement = {
       ...newMeta(),
       projectId: plan.projectId,
@@ -219,7 +262,7 @@ export function useDrawing(opts: {
       type,
       shape: roundShape(shape),
       color,
-      ...(styled ? { style: { ...defaultStyle } } : {}),
+      ...(styled ? { style: { ...defaultStyle, noFill: defaultStyle.noFill ?? true } } : {}),
       ...extra,
     };
     putRecord('elements', rec);
@@ -518,6 +561,10 @@ export function useDrawing(opts: {
     setSnapOn,
     gridOn,
     setGridOn,
+    orthoOn,
+    setOrthoOn,
+    orthoDir,
+    setOrthoDir,
     elements,
     allElements: allStored,
     items,

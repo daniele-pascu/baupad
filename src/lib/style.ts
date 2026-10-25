@@ -24,12 +24,15 @@ export const LINE_WIDTH_MAX = 6;
 /** Standard: Messungen leicht gefüllt, Zeichnungsobjekte kaum (bisherige Darstellung) */
 export const DEFAULT_TRANSPARENCY = { damage: 88, element: 96 } as const;
 
-/** Strichmuster als Vielfache der Linienstärke (gepunktet: Punkte durch runde Enden) */
+/**
+ * Strichmuster als Vielfache der Linienstärke (gepunktet: Punkte durch runde Enden). Lücken
+ * sind etwas größer gewählt, weil die runden Linienenden jeden Strich um eine Stärke verlängern.
+ */
 const PATTERNS: Partial<Record<LineType, number[]>> = {
-  dashed: [6, 3.5],
-  dotted: [0, 2.5],
-  dashdot: [7, 2.5, 0, 2.5],
-  dashdotdot: [7, 2.5, 0, 2.5, 0, 2.5],
+  dashed: [5, 3],
+  dotted: [0, 2.4],
+  dashdot: [8, 2.6, 0, 2.6],
+  dashdotdot: [8, 2.6, 0, 2.6, 0, 2.6],
 };
 
 /** Strichmuster für eine Linienstärke (in derselben Einheit); undefined = durchgezogen bzw. Welle/Zickzack */
@@ -37,6 +40,29 @@ export function dashArray(type: LineType | undefined, width: number): number[] |
   const p = type ? PATTERNS[type] : undefined;
   const unit = Math.max(width, 1);
   return p?.map((v) => v * unit);
+}
+
+/**
+ * Strichmuster gleichmäßig auf eine Linie verteilen: Das Muster wird leicht gestreckt bzw.
+ * gestaucht (höchstens ± ½ Wiederholung), damit es ganzzahlig aufgeht – offene Linien beginnen
+ * und enden mit einem Strich, geschlossene Formen schließen nahtlos. Nur Darstellung.
+ */
+export function fitDash(dash: number[], length: number, closed: boolean): number[] {
+  const period = dash.reduce((a, b) => a + b, 0);
+  if (!(period > 0) || !(length > 0)) return dash;
+  // offen: n Wiederholungen + abschließender erster Strich (beide werden gleich skaliert)
+  const tail = closed ? 0 : dash[0];
+  const n = Math.max(1, Math.round((length - tail) / period));
+  const f = length / (n * period + tail);
+  return f > 0.5 && f < 2 ? dash.map((v) => v * f) : dash;
+}
+
+/** Länge einer Punktfolge (Ausgabekoordinaten) */
+function polyLength(points: Point[], closed: boolean): number {
+  let l = 0;
+  for (let i = 1; i < points.length; i++) l += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
+  if (closed && points.length > 1) l += Math.hypot(points[0].x - points[points.length - 1].x, points[0].y - points[points.length - 1].y);
+  return l;
 }
 
 /** Wellen- und Zickzacklinie: Umriss wird nur für die Darstellung verformt */
@@ -144,6 +170,9 @@ export function outlinePoints(shape: Shape): { points: Point[]; closed: boolean 
  */
 export function wavyPoints(points: Point[], closed: boolean, type: 'wave' | 'zigzag', amplitude: number, period: number): Point[] {
   const pts = closed ? [...points, points[0]] : points;
+  // Periode so anpassen, dass das Muster ganzzahlig aufgeht (sauberes Ende, nahtlos geschlossen)
+  const total = polyLength(points, closed);
+  if (total > 0 && period > 0) period = total / Math.max(1, Math.round(total / period));
   const offset = (d: number) => {
     const f = d / period - Math.floor(d / period);
     if (type === 'wave') return Math.sin(f * Math.PI * 2) * amplitude;
@@ -174,6 +203,15 @@ export function wavyPoints(points: Point[], closed: boolean, type: 'wave' | 'zig
 export const pointsToSvg = (pts: Point[], closed = false) =>
   pts.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join('') + (closed ? 'Z' : '');
 
+/**
+ * Ausschlag und Wiederholung von Welle/Zickzack zur Linienstärke (Ausgabeeinheit wie `width`,
+ * Bildschirm: Pixel, PDF: Punkt) – unabhängig von Zoom und Messlänge.
+ */
+export function wavyMetrics(type: 'wave' | 'zigzag', width: number): { amp: number; period: number } {
+  const w = Math.max(width, 0.5);
+  return type === 'wave' ? { amp: 0.8 + w * 0.55, period: 5 + w * 2.6 } : { amp: 0.8 + w * 0.5, period: 3.6 + w * 2 };
+}
+
 /** Bildschirm: Pixel je Punkt Linienstärke (Linien bleiben beim Zoomen gleich dick) */
 export const PX_PER_PT = 1.6;
 
@@ -181,14 +219,24 @@ export const PX_PER_PT = 1.6;
  * Pfad der Umrandung in Ausgabekoordinaten (`map`) samt Strichmuster. Wellen-/Zickzacklinien
  * werden als verformter Pfad ausgegeben; die Füllung nutzt immer die unveränderte Form.
  */
-export function strokeGeometry(shape: Shape, map: (p: Point) => Point, type: LineType | undefined, width: number): { d: string; dash?: number[] } {
+export function strokeGeometry(
+  shape: Shape,
+  map: (p: Point) => Point,
+  type: LineType | undefined,
+  width: number,
+  /** Stärke, nach der sich das Muster richtet (z. B. ohne Auswahl-Hervorhebung) */
+  patternWidth = width,
+): { d: string; dash?: number[] } {
   if (type === 'wave' || type === 'zigzag') {
     const { points, closed } = outlinePoints(shape);
-    const amp = 1.2 + width * 1.4;
-    const period = 5 + width * 5;
+    // fein und ruhig: kleiner Ausschlag, kurze Wiederholung (Zickzack etwas enger)
+    const { amp, period } = wavyMetrics(type, patternWidth);
     return { d: pointsToSvg(wavyPoints(points.map(map), closed, type, amp, period)) };
   }
-  return { d: pathToSvg(shapePath(shape), map), dash: dashArray(type, width) };
+  const dash = dashArray(type, patternWidth);
+  if (!dash) return { d: pathToSvg(shapePath(shape), map) };
+  const { points, closed } = outlinePoints(shape);
+  return { d: pathToSvg(shapePath(shape), map), dash: fitDash(dash, polyLength(points.map(map), closed), closed) };
 }
 
 /**

@@ -76,3 +76,13 @@ describe('Bogen aus drei Punkten', () => {
     expect(arcShape(P(0, 0), P(1, 0), P(2, 0))).toBeNull();
   });
 });
+
+describe('90° / Orthogonal', async () => {
+  const { orthoPoint } = await import('../../src/lib/cad');
+  it('automatisch: größere Bewegungsrichtung; fest: waagrecht bzw. senkrecht', () => {
+    expect(orthoPoint({ x: 1, y: 1 }, { x: 4, y: 2 })).toEqual({ x: 4, y: 1 });
+    expect(orthoPoint({ x: 1, y: 1 }, { x: 2, y: -5 })).toEqual({ x: 1, y: -5 });
+    expect(orthoPoint({ x: 1, y: 1 }, { x: 2, y: -5 }, 'h')).toEqual({ x: 2, y: 1 });
+    expect(orthoPoint({ x: 1, y: 1 }, { x: 4, y: 2 }, 'v')).toEqual({ x: 1, y: 2 });
+  });
+});

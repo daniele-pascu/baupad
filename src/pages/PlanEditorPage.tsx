@@ -22,7 +22,7 @@ import { findSnap } from '../lib/snap';
 import { clearHistory, newMeta, putRecord, putRecords, redo, softDelete, undo, useAppState, type ProjectState } from '../lib/store';
 import { COLORS, SHAPE_LABELS, type Damage, type DrawElementType, type MeasureKind, type Plan, type Shape, type ShapeStyle, type ShapeType } from '../lib/types';
 import { DRAW_TOOLS, readStyle, useDrawing, type DrawTool } from './DrawingMode';
-import { DrawRibbon } from '../components/DrawRibbon';
+import { DrawRibbon, OrthoButtons } from '../components/DrawRibbon';
 import { elementLabel } from '../components/DrawPanel';
 import { StylePanel } from '../components/StylePanel';
 
@@ -414,6 +414,13 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       }
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       // X: Punktfang ein/aus (wie in CAD-Programmen)
+      // F8 wie in CAD-Programmen: 90° / Orthogonal ein/aus (nur beim Zeichnen)
+      if (e.key === 'F8' && drawMode) {
+        e.preventDefault();
+        drawing.setOrthoOn(!drawing.orthoOn);
+        toast(`90° / Orthogonal ${drawing.orthoOn ? 'aus' : 'ein'}`, 'info', 1500);
+        return;
+      }
       if (key === 'x') {
         e.preventDefault();
         drawing.setSnapOn(!drawing.snapOn);
@@ -764,6 +771,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               >
                 <Icon name="grid" size={18} /> <span className="hide-sm">Raster {drawing.gridOn ? 'ein' : 'aus'}</span>
               </button>
+              <OrthoButtons drawing={drawing} />
               <button type="button" className="btn btn-sm btn-primary mode-next" onClick={() => switchMode('measure')} data-testid="mode-measure">
                 Weiter<span className="hide-sm"> zum Aufmaß</span> <Icon name="next" size={18} />
               </button>
@@ -814,7 +822,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               renderItem={drawing.renderItem}
               underlay={region ? drawing.drawUnderlay(region) : undefined}
               overlay={drawing.drawOverlay}
-              snap={drawing.snapOn || drawing.gridOn ? drawing.snap : undefined}
+              snap={drawing.snapOn || drawing.gridOn || drawing.orthoOn ? drawing.snap : undefined}
               bounds={sheetBounds}
               vertexEdit
               selectedVertex={drawing.vertex}

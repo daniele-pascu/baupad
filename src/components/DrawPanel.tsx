@@ -339,9 +339,10 @@ export function ElementBar({
       {styled && styleOpen && (
         <div className="span-all">
           <StylePanel
+            compact
             color={element.color}
             style={element.style}
-            open={element.type === 'line' || (element.type === 'freehand' && element.shape.closed === false)}
+            open={element.type === 'line' || element.type === 'arc' || (element.type === 'freehand' && element.shape.closed === false)}
             defaultWidth={1.1}
             kind="element"
             onColor={onColor!}

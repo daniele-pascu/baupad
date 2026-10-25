@@ -147,3 +147,16 @@ export function arcRadius(s: Shape): number | null {
   if (v.length < 3) return null;
   return circleThrough(v[0], v[Math.floor(v.length / 2)], v[v.length - 1])?.r ?? null;
 }
+
+/** 90°-Modus: automatisch (größere Bewegungsrichtung), nur waagrecht oder nur senkrecht */
+export type OrthoDir = 'auto' | 'h' | 'v';
+export const ORTHO_DIRS: OrthoDir[] = ['auto', 'h', 'v'];
+
+/**
+ * Orthogonalpunkt: `to` waagrecht bzw. senkrecht zu `from` ausgerichtet (Plankoordinaten,
+ * unabhängig von Zoom und Verschiebung).
+ */
+export function orthoPoint(from: Point, to: Point, dir: OrthoDir = 'auto'): Point {
+  const horiz = dir === 'h' || (dir === 'auto' && Math.abs(to.x - from.x) >= Math.abs(to.y - from.y));
+  return horiz ? { x: to.x, y: from.y } : { x: from.x, y: to.y };
+}

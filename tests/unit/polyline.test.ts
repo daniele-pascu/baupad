@@ -84,11 +84,36 @@ describe('Eckpunkte einfügen/entfernen', () => {
 });
 
 describe('Linienstile (nur Darstellung)', async () => {
-  const { dashArray, wavyPoints, fillOf } = await import('../../src/lib/style');
+  const { dashArray, wavyPoints, fillOf, fitDash, strokeGeometry, wavyMetrics } = await import('../../src/lib/style');
   it('Strichmuster skalieren mit der Linienstärke', () => {
     expect(dashArray('solid', 2)).toBeUndefined();
-    expect(dashArray('dashed', 2)).toEqual([12, 7]);
-    expect(dashArray('dashdotdot', 1)).toEqual([7, 2.5, 0, 2.5, 0, 2.5]);
+    expect(dashArray('dashed', 2)).toEqual([10, 6]);
+    expect(dashArray('dashdotdot', 1)).toEqual([8, 2.6, 0, 2.6, 0, 2.6]);
+  });
+  it('Strichmuster gehen auf der Linie ganzzahlig auf (offen: Strich am Anfang und Ende)', () => {
+    const d = fitDash([10, 6], 100, false);
+    const period = d[0] + d[1];
+    const n = (100 - d[0]) / period;
+    close(n, Math.round(n));
+    expect(Math.abs(d[0] - 10)).toBeLessThan(5);
+    // geschlossen: nahtlos
+    const c = fitDash([10, 6], 150, true);
+    close(150 / (c[0] + c[1]), Math.round(150 / (c[0] + c[1])));
+    // Geometrie unverändert: der Pfad der Linie ist derselbe, nur das Muster passt sich an
+    const line = polygonShape([P(0, 0), P(100, 0)], false);
+    const g = strokeGeometry(line, (p) => p, 'dashed', 2);
+    expect(g.d).toBe('M0 0L100 0');
+    expect(g.dash).toHaveLength(2);
+  });
+  it('Welle/Zickzack fein: kleiner Ausschlag, Muster endet sauber auf der Linie', () => {
+    for (const t of ['wave', 'zigzag'] as const) {
+      const m = wavyMetrics(t, 1.76); // Standardstärke am Bildschirm (1,1 pt)
+      expect(m.amp).toBeLessThan(2.2);
+      expect(m.period).toBeLessThan(10.5);
+      const pts = wavyPoints([P(0, 0), P(97, 0)], false, t, m.amp, m.period);
+      expect(Math.abs(pts.at(-1)!.y)).toBeLessThan(1e-6); // ganzzahlige Wiederholungen: Ende auf der Linie
+      expect(pts.at(-1)!.x).toBeCloseTo(97, 9);
+    }
   });
   it('Zickzack/Welle bleiben im Abstand der Amplitude um die Linie, Länge der Geometrie unverändert', () => {
     const base = [P(0, 0), P(100, 0)];

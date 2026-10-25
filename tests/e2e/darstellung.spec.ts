@@ -204,13 +204,18 @@ test('Gezeichneter Plan: Linie und Fläche mit eigenem Stil, PDF', async ({ page
   await page.mouse.move(sb.x + 300, sb.y + 300, { steps: 6 });
   await page.mouse.up();
   await expect(bar.getByTestId('style-panel')).toBeVisible(); // bleibt geöffnet
+  // Neue Formen: standardmäßig „Keine Füllung“ (eigene Einstellung), Füllung nur auf Wunsch
+  await expect(bar.getByTestId('style-fill-type')).toHaveValue('none');
+  await expect(page.locator('[data-element="rect"] path[data-fill]')).toHaveCount(0);
+  await expect(bar.getByTestId('style-fill-transparency')).toHaveCount(0);
   await bar.getByTestId('style-line-type').selectOption('wave');
+  await bar.getByTestId('style-fill-type').selectOption('solid');
   await setRange(page, 'style-fill-transparency', '30');
   await expect(page.locator('[data-element="rect"] path[data-line-type="wave"]')).toHaveCount(1);
   await waitSaved(page);
   const els = await stored(page, 'elements');
   expect(els[0].style).toMatchObject({ lineType: 'dashdotdot', lineWidth: 2.5 });
-  expect(els[1].style).toMatchObject({ lineType: 'wave', fillTransparency: 30 });
+  expect(els[1].style).toMatchObject({ lineType: 'wave', fillTransparency: 30, noFill: false });
   // Fläche/Länge aus der Geometrie: Rechteck bleibt Rechteck
   expect((els[1].shape as { type: string }).type).toBe('rect');
   await expect(page.getByTestId('element-info')).toContainText('Fläche');

@@ -3194,16 +3194,10 @@ tr.lv-flagged td {
 }
 .ribbon-style {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 6px 12px;
-  width: 100%;
-}
-.ribbon-style .style-panel {
-  flex: 1 1 100%;
-  border-top: none;
-  margin-top: 0;
-  padding-top: 0;
+  gap: 10px;
+  flex: none;
 }
 .cad-ghost path {
   fill: none;
@@ -3288,5 +3282,163 @@ tr.lv-flagged td {
   }
   .empty .row.center {
     flex-direction: column;
+  }
+}
+
+/* ---------- Zeichnen: einheitlich kompakte Leisten (wie in CAD-Programmen) ---------- */
+.ribbon-row {
+  min-height: 54px;
+}
+.ribbon-row .tool-btn {
+  height: 46px;
+  min-width: 50px;
+  padding: 2px 5px;
+  font-size: 0.7rem;
+  border-radius: 12px;
+}
+.ribbon-row .tool-btn svg {
+  width: 20px;
+  height: 20px;
+}
+.ribbon-context {
+  flex: none;
+  align-self: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+/* kompakte Darstellung: eine Zeile, beschriftete Felder in der Höhe der Werkzeugknöpfe */
+.style-panel.style-compact {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  gap: 12px;
+  width: auto;
+  margin: 0;
+  padding: 0;
+  border-top: none;
+}
+.sc-group {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex: none;
+}
+.sc-group + .sc-group {
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
+}
+.sc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: none;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--muted);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.sc-field select {
+  height: 30px;
+  max-width: 150px;
+  padding: 0 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.sc-field select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: var(--ring);
+}
+.sc-range {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 30px;
+}
+.sc-range input[type='range'] {
+  width: 84px;
+}
+.sc-range .style-value {
+  min-width: 42px;
+  font-size: 0.76rem;
+  color: var(--text);
+}
+.sc-colors {
+  display: grid;
+  grid-template-columns: repeat(5, 14px);
+  grid-auto-rows: 14px;
+  gap: 2px 3px;
+  height: 30px;
+  align-content: center;
+}
+.swatch.swatch-xs {
+  width: 14px;
+  height: 14px;
+  border-width: 1.5px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.18);
+}
+.swatch.swatch-xs.active {
+  box-shadow: 0 0 0 1.5px var(--text);
+}
+.swatch.swatch-xs:hover {
+  transform: scale(1.15);
+}
+.sc-colors input[type='color'] {
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+}
+/* Objektleiste unten: kompakte Darstellung darf umbrechen */
+.draw-bar .style-panel.style-compact {
+  flex-wrap: wrap;
+  justify-content: center;
+  row-gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.draw-bar .style-compact .sc-group {
+  flex-wrap: wrap;
+}
+.draw-bar:has(.style-compact) {
+  width: max-content;
+}
+/* obere Moduszeile im Zeichenmodus: gleich hohe, kompakte Schalter */
+.mode-bar .segmented button {
+  min-height: 34px;
+  padding: 4px 12px;
+}
+.mode-bar .btn {
+  min-height: 36px;
+}
+.ortho-btns {
+  display: inline-flex;
+  gap: 4px;
+}
+.ortho-dir {
+  min-width: 36px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+@media (max-width: 600px) {
+  .sc-range input[type='range'] {
+    width: 70px;
+  }
+  .draw-bar .style-compact .sc-group + .sc-group {
+    padding-left: 0;
+    border-left: none;
   }
 }

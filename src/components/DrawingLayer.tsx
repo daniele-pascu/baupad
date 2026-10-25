@@ -104,7 +104,9 @@ export function renderElement(e: Pick<DrawElement, 'id' | 'type' | 'color' | 'te
   }
   const toS = (p: Point) => toScreen(view, p);
   // Füllung (unveränderte Form) und Umrandung (Linientyp) getrennt
-  const line = strokeGeometry(pageShape, toS, e.style?.lineType, w);
+  // Muster nach der normalen Stärke: beim Auswählen bleibt es gleich (Hervorhebung nur dicker)
+  const base = e.style?.lineWidth ? w : 2;
+  const line = strokeGeometry(pageShape, toS, e.style?.lineType, w, base);
   const fill = fillOf(pageShape, e.color, e.style, DEFAULT_TRANSPARENCY.element);
   return (
     <g data-element={e.type} data-element-id={e.id} opacity={faded ? 0.55 : 1}>

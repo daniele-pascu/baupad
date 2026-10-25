@@ -14,9 +14,15 @@ export function StylePanel({
   defaultWidth,
   kind,
   hideColor = false,
+  compact = false,
   onColor,
   onStyle,
 }: {
+  /**
+   * Kompakte Leiste (Zeichnen): alle Einstellungen in einer Zeile mit kleiner Beschriftung,
+   * Füllung als Auswahl „Keine / Vollton / Schraffur“
+   */
+  compact?: boolean;
   /** Linienfarbe nicht anzeigen (z. B. wenn die Farbfelder daneben stehen) */
   hideColor?: boolean;
   /** Linienfarbe */
@@ -45,6 +51,129 @@ export function StylePanel({
   const [sp, setSp] = useState(hatch.spacing);
   useEffect(() => setSp(hatch.spacing), [hatch.spacing]);
   const commitSp = () => sp !== hatch.spacing && onStyle({ hatch: { ...hatch, spacing: sp } });
+
+  if (compact) {
+    const fillMode = style.noFill ? 'none' : hatchOn ? 'hatch' : 'solid';
+    return (
+      <div className="style-panel style-compact" data-testid="style-panel">
+        <div className="sc-group" role="group" aria-label={open ? 'Linie' : 'Umrandung'}>
+          <label className="sc-field">
+            <span>Linientyp</span>
+            <select value={style.lineType ?? 'solid'} onChange={(e) => onStyle({ lineType: e.target.value as LineType })} data-testid="style-line-type">
+              {LINE_TYPES.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="sc-field">
+            <span>Stärke</span>
+            <span className="sc-range">
+              <input
+                type="range"
+                min={LINE_WIDTH_MIN}
+                max={LINE_WIDTH_MAX}
+                step={0.25}
+                value={w}
+                onChange={(e) => setW(Number(e.target.value))}
+                onPointerUp={commitW}
+                onKeyUp={commitW}
+                onBlur={commitW}
+                data-testid="style-line-width"
+              />
+              <output className="style-value">{w.toLocaleString('de-DE', { minimumFractionDigits: 2 })} pt</output>
+            </span>
+          </label>
+          {!hideColor && <MiniColors label={open ? 'Farbe' : 'Linienfarbe'} name="Farbe" value={color} onChange={onColor} testId="style-line-color" />}
+        </div>
+        {!open && (
+          <div className="sc-group" role="group" aria-label="Füllung">
+            <label className="sc-field">
+              <span>Füllung</span>
+              <select
+                value={fillMode}
+                onChange={(e) => {
+                  const m = e.target.value;
+                  onStyle(m === 'none' ? { noFill: true } : { noFill: false, fillType: m as 'solid' | 'hatch' });
+                }}
+                data-testid="style-fill-type"
+              >
+                <option value="none">Keine Füllung</option>
+                <option value="solid">Vollton</option>
+                <option value="hatch">Schraffur</option>
+              </select>
+            </label>
+            {hatchOn && !style.noFill && (
+              <>
+                <label className="sc-field">
+                  <span>Muster</span>
+                  <select value={hatch.pattern} onChange={(e) => onStyle({ hatch: { ...hatch, pattern: e.target.value as HatchPattern } })} data-testid="style-hatch-pattern">
+                    {HATCH_PATTERNS.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="sc-field">
+                  <span>Winkel</span>
+                  <select value={hatch.angle} onChange={(e) => onStyle({ hatch: { ...hatch, angle: Number(e.target.value) } })} data-testid="style-hatch-angle">
+                    {[0, 15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165].map((a) => (
+                      <option key={a} value={a}>
+                        {a}°
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="sc-field">
+                  <span>Abstand</span>
+                  <span className="sc-range">
+                    <input
+                      type="range"
+                      min={2}
+                      max={20}
+                      step={1}
+                      value={sp}
+                      onChange={(e) => setSp(Number(e.target.value))}
+                      onPointerUp={commitSp}
+                      onKeyUp={commitSp}
+                      onBlur={commitSp}
+                      data-testid="style-hatch-spacing"
+                    />
+                    <output className="style-value">{sp} pt</output>
+                  </span>
+                </label>
+              </>
+            )}
+            {!style.noFill && (
+              <>
+                <MiniColors label={hatchOn ? 'Schraffurfarbe' : 'Füllfarbe'} name={hatchOn ? 'Schraffurfarbe' : 'Füllfarbe'} value={style.fillColor ?? color} onChange={(c) => onStyle({ fillColor: c })} testId="style-fill-color" />
+                <label className="sc-field">
+                  <span>Transparenz</span>
+                  <span className="sc-range">
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={5}
+                      value={t}
+                      onChange={(e) => setT(Number(e.target.value))}
+                      onPointerUp={commitT}
+                      onKeyUp={commitT}
+                      onBlur={commitT}
+                      data-testid="style-fill-transparency"
+                    />
+                    <output className="style-value">{t} %</output>
+                  </span>
+                </label>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="style-panel" data-testid="style-panel">
@@ -177,6 +306,30 @@ function ColorRow({ label, value, onChange, testId }: { label: string; value: st
           />
         ))}
         <input type="color" value={value} onChange={(e) => onChange(e.target.value)} aria-label={`${label} frei wählen`} title="Farbe frei wählen" data-testid={testId} />
+      </span>
+    </div>
+  );
+}
+
+/** Kompakte Farbwahl: kleine Farbfelder in zwei Reihen plus freie Farbe */
+function MiniColors({ label, name, value, onChange, testId }: { label: string; name: string; value: string; onChange(c: string): void; testId: string }) {
+  return (
+    <div className="sc-field">
+      <span>{label}</span>
+      <span className="sc-colors" role="group" aria-label={label}>
+        {COLORS.map((c) => (
+          <button
+            key={c.value}
+            type="button"
+            className={`swatch swatch-xs${value.toLowerCase() === c.value ? ' active' : ''}`}
+            style={{ background: c.value }}
+            onClick={() => onChange(c.value)}
+            aria-label={`${name} ${c.name}`}
+            aria-pressed={value.toLowerCase() === c.value}
+            title={`${name} ${c.name}`}
+          />
+        ))}
+        <input type="color" value={value} onChange={(e) => onChange(e.target.value)} aria-label={`${name} frei wählen`} title="Farbe frei wählen" data-testid={testId} />
       </span>
     </div>
   );

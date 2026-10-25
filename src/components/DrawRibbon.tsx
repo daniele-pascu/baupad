@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { DRAW_TOOLS, NEEDS_SELECTION, type DrawTool, type useDrawing } from '../pages/DrawingMode';
-import { COLORS } from '../lib/types';
+import { DRAW_TOOLS, NEEDS_SELECTION, ORTHO_DIR_LABELS, type DrawTool, type useDrawing } from '../pages/DrawingMode';
+import { ORTHO_DIRS } from '../lib/cad';
 import { Icon } from './Icon';
 import type { PlanViewerHandle } from './PlanViewer';
 import { StylePanel } from './StylePanel';
@@ -158,37 +158,34 @@ export function DrawRibbon({
         )}
         {tab === 'style' && (
           <div className="ribbon-style" data-testid="ribbon-style">
-            <div className="pop-swatches" role="group" aria-label="Farben">
-              {COLORS.map((c) => (
-                <button
-                  key={c.value}
-                  type="button"
-                  className={`swatch${drawing.color === c.value ? ' active' : ''}`}
-                  style={{ background: c.value }}
-                  onClick={() => {
-                    drawing.setColor(c.value);
-                    if (sel) drawing.recolor(sel.id, c.value);
-                  }}
-                  aria-label={`Farbe ${c.name}`}
-                  aria-pressed={drawing.color === c.value}
-                  title={sel ? `Farbe ${c.name} (auch für das ausgewählte Objekt)` : `Farbe ${c.name}`}
-                />
-              ))}
-            </div>
-            <div className="pop-title">{styled ? 'Ausgewähltes Objekt' : 'Darstellung neuer Objekte'}</div>
+            <span className="ribbon-context" title={styled ? 'Einstellungen des ausgewählten Objekts' : 'Einstellungen für neue Objekte'}>
+              {styled ? 'Auswahl' : 'Neue Objekte'}
+            </span>
             {styled ? (
               <StylePanel
+                compact
                 color={sel.color}
                 style={sel.style}
                 open={sel.type === 'line' || sel.type === 'arc' || (sel.type === 'freehand' && sel.shape.closed === false)}
                 defaultWidth={1.1}
                 kind="element"
-                hideColor
-                onColor={(c) => drawing.recolor(sel.id, c)}
+                onColor={(c) => {
+                  drawing.setColor(c);
+                  drawing.recolor(sel.id, c);
+                }}
                 onStyle={(p) => drawing.restyle(sel.id, p)}
               />
             ) : (
-              <StylePanel color={drawing.color} style={drawing.defaultStyle} open={false} defaultWidth={1.1} kind="element" hideColor onColor={drawing.setColor} onStyle={drawing.setDefaultStyle} />
+              <StylePanel
+                compact
+                color={drawing.color}
+                style={{ ...drawing.defaultStyle, noFill: drawing.defaultStyle.noFill ?? true }}
+                open={false}
+                defaultWidth={1.1}
+                kind="element"
+                onColor={drawing.setColor}
+                onStyle={drawing.setDefaultStyle}
+              />
             )}
           </div>
         )}
@@ -207,9 +204,49 @@ export function DrawRibbon({
             {btn('view-back', 'undoView', 'Vorherige', () => viewer.current?.back(), { title: 'Zur vorherigen Ansicht' })}
             {btn('view-grid', 'grid', 'Raster', () => drawing.setGridOn(!drawing.gridOn), { pressed: drawing.gridOn, title: 'Am Raster einrasten' })}
             {btn('view-snap', 'snap', 'Fang', () => drawing.setSnapOn(!drawing.snapOn), { pressed: drawing.snapOn, title: 'Punktfang (X)' })}
+            {btn('view-ortho', 'ortho', '90°', () => drawing.setOrthoOn(!drawing.orthoOn), { pressed: drawing.orthoOn, title: '90° / Orthogonal: nur waagrecht und senkrecht zeichnen (F8)' })}
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+const ORTHO_DIR_ICONS = { auto: 'orthoAuto', h: 'orthoH', v: 'orthoV' } as const;
+
+/**
+ * 90° / Orthogonal (wie ORTHO in AutoCAD, Taste F8): ein/aus und – solange eingeschaltet –
+ * Richtung automatisch, nur waagrecht oder nur senkrecht (Antippen wechselt).
+ */
+export function OrthoButtons({ drawing }: { drawing: ReturnType<typeof useDrawing> }) {
+  const d = drawing.orthoDir;
+  const next = ORTHO_DIRS[(ORTHO_DIRS.indexOf(d) + 1) % ORTHO_DIRS.length];
+  return (
+    <span className="ortho-btns">
+      <button
+        type="button"
+        className={`btn btn-sm${drawing.orthoOn ? ' active-toggle' : ''}`}
+        onClick={() => drawing.setOrthoOn(!drawing.orthoOn)}
+        aria-pressed={drawing.orthoOn}
+        aria-label="90° / Orthogonal"
+        title={`90° / Orthogonal ${drawing.orthoOn ? 'ein' : 'aus'}: Linien und Polylinien nur waagrecht und senkrecht (F8)`}
+        data-testid="ortho-toggle"
+      >
+        <Icon name="ortho" size={18} /> <span className="hide-sm">90° {drawing.orthoOn ? 'ein' : 'aus'}</span>
+      </button>
+      {drawing.orthoOn && (
+        <button
+          type="button"
+          className="btn btn-sm ortho-dir"
+          onClick={() => drawing.setOrthoDir(next)}
+          aria-label={`${ORTHO_DIR_LABELS[d]} – wechseln zu: ${ORTHO_DIR_LABELS[next]}`}
+          title={`${ORTHO_DIR_LABELS[d]} (antippen: ${ORTHO_DIR_LABELS[next]})`}
+          data-testid="ortho-dir"
+          data-dir={d}
+        >
+          <Icon name={ORTHO_DIR_ICONS[d]} size={18} />
+        </button>
+      )}
+    </span>
   );
 }
