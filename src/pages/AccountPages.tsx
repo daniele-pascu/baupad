@@ -4,6 +4,7 @@ import { SiteFooter, SiteNav } from '../components/SiteNav';
 import { getCompanyLogo, removeCompanyLogo, saveCompanyLogo, type CompanyLogo } from '../lib/company';
 import { paths } from '../lib/router';
 import { confirmDialog, showError, toast } from '../components/ui';
+import { AppStorageSettings } from '../components/InstallApp';
 import { usePageTitle } from './SitePages';
 
 /*
@@ -95,10 +96,11 @@ export function AccountPage() {
         <h1 className="site-title">Konto und Einstellungen</h1>
         <div className="banner banner-info" role="status" data-testid="account-preview">
           <p>
-            <strong>Vorschau:</strong> Sie sind nicht angemeldet – Benutzerkonten sind noch nicht eingerichtet. Das Firmenlogo funktioniert bereits
-            (auf diesem Gerät); die übrigen Bereiche sind geplant und noch nicht aktiv.
+            <strong>Vorschau:</strong> Sie sind nicht angemeldet – Benutzerkonten sind noch nicht eingerichtet. App, Speicher und Firmenlogo
+            funktionieren bereits (auf diesem Gerät); die übrigen Bereiche sind geplant und noch nicht aktiv.
           </p>
         </div>
+        <AppStorageSettings />
         <LogoSettings />
         <ul className="account-list">
           {SECTIONS.map(([title, text]) => (

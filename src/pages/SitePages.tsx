@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Icon } from '../components/Icon';
+import { InstallButton } from '../components/InstallApp';
 import { SiteFooter, SiteNav } from '../components/SiteNav';
 import { site } from '../content/site';
 import { paths } from '../lib/router';
@@ -33,6 +34,9 @@ export function LandingPage() {
             <a href={paths.about()} className="site-cta site-cta-secondary">
               {t.secondary}
             </a>
+          </div>
+          <div className="hero-install fade-in delay-2">
+            <InstallButton variant="link" />
           </div>
         </section>
         <section className="highlights fade-in delay-3" aria-label="Funktionen">

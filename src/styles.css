@@ -3490,3 +3490,129 @@ tr.lv-flagged td {
   max-height: 100%;
   object-fit: contain;
 }
+
+/* App installieren */
+.hero-install {
+  margin-top: 18px;
+}
+.install-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 999px;
+  background: none;
+  color: #424245;
+  font: inherit;
+  font-size: 0.92rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.install-link:hover {
+  color: #000;
+  background: rgba(0, 0, 0, 0.04);
+}
+.modal {
+  text-align: left;
+}
+.install-tabs {
+  display: flex;
+  width: 100%;
+  margin-bottom: 14px;
+}
+.install-tabs button {
+  flex: 1;
+  padding-left: 4px;
+  padding-right: 4px;
+  white-space: nowrap;
+  font-size: 0.88rem;
+}
+.install-steps {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.install-step {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-2);
+}
+.install-step > span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.install-step-pic {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid var(--border);
+  color: #0a84ff;
+}
+.install-step-no {
+  position: absolute;
+  top: -7px;
+  left: -7px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.app-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+}
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #f0f0f3;
+  color: #3a3a3c;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+.status-pill::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #8e8e93;
+}
+.status-pill.ok::before {
+  background: var(--success);
+}
+.status-pill.warn {
+  background: var(--warn-soft);
+}
+.status-pill.warn::before {
+  background: #e8a200;
+}
+.app-hint {
+  margin: 0 0 12px;
+  color: #6b4e00;
+}
