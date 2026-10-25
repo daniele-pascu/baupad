@@ -39,3 +39,41 @@ export async function shareFile(f: ExportFile): Promise<void> {
     throw e;
   }
 }
+
+// ---------------------------------------------------------------------------
+// „Speichern unter …“ mit Ordnerwahl (Chrome/Edge am PC; Safari/Firefox/iOS: nicht verfügbar)
+
+type SaveHandle = { createWritable(): Promise<{ write(d: Blob): Promise<void>; close(): Promise<void> }> };
+type SavePicker = (o: {
+  suggestedName: string;
+  startIn?: unknown;
+  types?: { description: string; accept: Record<string, string[]> }[];
+}) => Promise<SaveHandle>;
+
+export const canSaveAs = () => typeof window !== 'undefined' && typeof (window as unknown as { showSaveFilePicker?: SavePicker }).showSaveFilePicker === 'function';
+
+/**
+ * Datei über „Speichern unter …“ ablegen: Ordner und Namen wählt man selbst; der zuletzt
+ * gewählte Ordner wird gemerkt (nur auf diesem Gerät). 'cancel' = abgebrochen.
+ */
+export async function saveFileAs(f: ExportFile, lastHandle?: unknown): Promise<{ result: 'saved' | 'cancel'; handle?: unknown }> {
+  const picker = (window as unknown as { showSaveFilePicker: SavePicker }).showSaveFilePicker;
+  const ext = f.name.split('.').pop() ?? '';
+  const pick = (startIn?: unknown) =>
+    picker({ suggestedName: f.name, ...(startIn ? { startIn } : {}), types: [{ description: ext.toUpperCase() || 'Datei', accept: { [f.mimeType]: ext ? [`.${ext}`] : [] } }] });
+  let handle: SaveHandle;
+  try {
+    handle = await pick(lastHandle).catch((e) => {
+      // gemerkter Ordner nicht mehr verfügbar → ohne Vorgabe erneut
+      if ((e as Error).name !== 'AbortError' && lastHandle) return pick();
+      throw e;
+    });
+  } catch (e) {
+    if ((e as Error).name === 'AbortError') return { result: 'cancel' };
+    throw e;
+  }
+  const w = await handle.createWritable();
+  await w.write(new Blob([f.data as BlobPart], { type: f.mimeType }));
+  await w.close();
+  return { result: 'saved', handle };
+}

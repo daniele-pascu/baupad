@@ -70,15 +70,21 @@ export async function openPlan(page: Page, planNumber: string) {
 /** Wartet auf eine Datei – direkt (PC) oder über den Dialog „Datei bereit“ (Touch-Geräte). */
 export async function catchDownload(page: Page, trigger: () => Promise<unknown>): Promise<Download> {
   const isTouch = await page.evaluate(() => navigator.maxTouchPoints > 0 || 'ontouchstart' in window);
-  if (!isTouch) {
-    const [dl] = await Promise.all([page.waitForEvent('download'), trigger()]);
-    return dl;
-  }
+  const download = page.waitForEvent('download', { timeout: 120_000 });
   await trigger();
-  const dlg = page.getByTestId('file-dialog');
-  await expect(dlg).toBeVisible({ timeout: 60_000 });
-  const [dl] = await Promise.all([page.waitForEvent('download'), dlg.getByRole('button', { name: 'Herunterladen' }).click()]);
-  return dl;
+  // PDF: erst Vorschau, dort „Herunterladen“; sonst (Touch) Dialog „Datei bereit“; am PC direkt
+  const preview = page.getByTestId('pdf-preview');
+  const fileDlg = page.getByTestId('file-dialog');
+  const which = await Promise.race([
+    download.then(() => 'download' as const),
+    preview.waitFor({ state: 'visible', timeout: 90_000 }).then(() => 'preview' as const),
+    ...(isTouch ? [fileDlg.waitFor({ state: 'visible', timeout: 90_000 }).then(() => 'file' as const)] : []),
+  ]);
+  if (which === 'preview') {
+    await expect(preview.getByTestId('preview-page').first()).toBeVisible({ timeout: 60_000 });
+    await preview.getByTestId('preview-download').click();
+  } else if (which === 'file') await fileDlg.getByRole('button', { name: 'Herunterladen' }).click();
+  return download;
 }
 
 export async function saveDownload(dl: Download, name?: string): Promise<string> {

@@ -2,11 +2,12 @@ import { useMemo, useState } from 'react';
 import { PAPER } from '../lib/drawing';
 import { hiddenLayerNames } from '../lib/layers';
 import { exportPaper } from '../lib/sheet-layout';
-import { costCenterName, costCentersOf, damagesOf, planTitle, plansOf } from '../lib/aufmass';
+import { costCenterName, costCentersOf, damagesOf, planTitle, plansOf, type ExportFile } from '../lib/aufmass';
 import type { OverviewCorner } from '../lib/export-pdf';
 import type { ProjectState } from '../lib/store';
 import { Modal } from './Modal';
-import { offerFile, showError } from './ui';
+import { showError } from './ui';
+import { PdfPreview } from './PdfPreview';
 
 interface Props {
   data: ProjectState;
@@ -29,6 +30,7 @@ export function PdfExportDialog({ data, costCenterId, initial, onClose }: Props)
   );
   const [selected, setSelected] = useState<Set<string>>(new Set(initial));
   const [busy, setBusy] = useState(false);
+  const [preview, setPreview] = useState<ExportFile | null>(null);
   // Übersicht des Gesamtplans (nur bei Plänen mit Ausschnitt); Einstellung wird gemerkt
   const [overview, setOverview] = useState(() => readPref('pdfOverview', '1') === '1');
   const [corner, setCorner] = useState<OverviewCorner>(() => (readPref('pdfOverviewCorner', 'tr') as OverviewCorner));
@@ -48,9 +50,8 @@ export function PdfExportDialog({ data, costCenterId, initial, onClose }: Props)
       const ordered = allIds.filter((id) => selected.has(id));
       writePref('pdfOverview', overview ? '1' : '0');
       writePref('pdfOverviewCorner', corner);
-      const file = await exportPlansPdf(data, { planIds: ordered, overview: { enabled: overview, corner } });
-      onClose();
-      await offerFile(file);
+      // erst Vorschau, dort speichern (Ordner wählen, teilen oder herunterladen)
+      setPreview(await exportPlansPdf(data, { planIds: ordered, overview: { enabled: overview, corner } }));
     } catch (e) {
       showError(e, 'PDF-Export fehlgeschlagen');
     } finally {
@@ -58,6 +59,7 @@ export function PdfExportDialog({ data, costCenterId, initial, onClose }: Props)
     }
   };
 
+  if (preview) return <PdfPreview file={preview} onBack={() => setPreview(null)} onClose={onClose} />;
   return (
     <Modal
       title="Pläne als PDF exportieren"
@@ -69,7 +71,7 @@ export function PdfExportDialog({ data, costCenterId, initial, onClose }: Props)
             Abbrechen
           </button>
           <button type="button" className="btn btn-primary" disabled={busy || !selected.size} onClick={() => void run()} data-testid="pdf-export-run">
-            {busy ? 'PDF wird erstellt …' : `${selected.size} Plan/Pläne exportieren`}
+            {busy ? 'PDF wird erstellt …' : `${selected.size} Plan/Pläne – Vorschau`}
           </button>
         </>
       }
