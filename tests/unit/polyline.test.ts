@@ -110,3 +110,36 @@ describe('Linienstile (nur Darstellung)', async () => {
     expect(fillOf(sq, '#000', { fillTransparency: 100 }, 88)!.opacity).toBe(0);
   });
 });
+
+describe('Schraffur (nur Darstellung)', async () => {
+  const { hatchGeometry, fillOf } = await import('../../src/lib/style');
+  const sq = [P(0, 0), P(100, 0), P(100, 100), P(0, 100)];
+  it('waagrechte Linien im Abstand, auf die Fläche beschnitten', () => {
+    const h = hatchGeometry(sq, 'lines', 0, 10);
+    expect(h.segments).toHaveLength(10); // y = 0, 10 … 90 (Oberkante 100 liegt auf dem Rand)
+    for (const [a, b] of h.segments) {
+      close(a.x, 0);
+      close(b.x, 100);
+    }
+  });
+  it('45°-Linien bleiben innerhalb, Kreuzschraffur doppelt so viele, Punkte im Raster', () => {
+    const h = hatchGeometry(sq, 'lines', 45, 10);
+    for (const [a, b] of h.segments) for (const p of [a, b]) expect(p.x >= -1e-6 && p.x <= 100 + 1e-6 && p.y >= -1e-6 && p.y <= 100 + 1e-6).toBe(true);
+    const cross = hatchGeometry(sq, 'cross', 0, 10).segments.length;
+    expect(cross).toBeGreaterThanOrEqual(20); // je Richtung 10 (eine Randlinie kann durch Rundung dazukommen)
+    expect(cross).toBeLessThanOrEqual(22);
+    expect(hatchGeometry(sq, 'dots', 0, 10).dots.length).toBe(110); // 10 Zeilen × 11 Punkte
+  });
+  it('L-Form: Linien über der Aussparung werden geteilt (gerade-ungerade-Regel)', () => {
+    const L = [P(0, 0), P(100, 0), P(100, 40), P(40, 40), P(40, 100), P(0, 100)];
+    const h = hatchGeometry(L, 'lines', 90, 10); // senkrechte Linien
+    const total = h.segments.reduce((s, [a, b]) => s + Math.hypot(b.x - a.x, b.y - a.y), 0);
+    expect(total).toBeGreaterThan(0);
+    for (const [a, b] of h.segments) expect(Math.max(a.y, b.y) <= 100 + 1e-6).toBe(true);
+  });
+  it('Schraffur ohne eigene Transparenz ist deckend', () => {
+    const f = fillOf(polygonShape(sq), '#000', { fillType: 'hatch' }, 88)!;
+    expect(f.opacity).toBe(1);
+    expect(f.hatch).toMatchObject({ pattern: 'lines', angle: 45 });
+  });
+});
