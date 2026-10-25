@@ -947,6 +947,17 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             <LayerMenu
               hidden={plan.hiddenLayers ?? []}
               layers={drawingPlan ? undefined : ['measures']}
+              planColor={
+                drawingPlan
+                  ? undefined
+                  : {
+                      on: !!plan.planColor,
+                      onChange: (on) => {
+                        const { planColor: _, ...rest } = data.plans[plan.id];
+                        putRecord('plans', on ? { ...rest, planColor: true } : rest);
+                      },
+                    }
+              }
               onChange={(hidden) => {
                 const { hiddenLayers: _, ...rest } = data.plans[plan.id];
                 putRecord('plans', hidden.length ? { ...rest, hiddenLayers: hidden } : rest);

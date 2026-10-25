@@ -6,7 +6,18 @@ import { Icon } from './Icon';
  * Ebenen ein-/ausblenden (Knopf in der Zoomleiste mit Auswahlliste). Wirkt auf Ansicht, Fang
  * und PDF des Plans; die Daten bleiben unverändert.
  */
-export function LayerMenu({ hidden, onChange, layers = LAYERS.map((l) => l.id) }: { hidden: LayerId[]; onChange(hidden: LayerId[]): void; layers?: LayerId[] }) {
+export function LayerMenu({
+  hidden,
+  onChange,
+  layers = LAYERS.map((l) => l.id),
+  planColor,
+}: {
+  hidden: LayerId[];
+  onChange(hidden: LayerId[]): void;
+  layers?: LayerId[];
+  /** importierte Pläne: Planunterlage farbig statt schwarz-weiß */
+  planColor?: { on: boolean; onChange(on: boolean): void };
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -44,6 +55,15 @@ export function LayerMenu({ hidden, onChange, layers = LAYERS.map((l) => l.id) }
             </label>
           ))}
           <p className="small muted">Ausgeblendete Ebenen erscheinen nicht im PDF und lassen sich nicht bearbeiten.</p>
+          {planColor && (
+            <>
+              <div className="pop-title">Planunterlage</div>
+              <label className="check-row" title="Standard: schwarz-weiß – farbige Markierungen sind besser zu sehen (Ansicht und PDF)">
+                <input type="checkbox" checked={planColor.on} onChange={(e) => planColor.onChange(e.target.checked)} data-testid="plan-color" />
+                <span>Plan farbig anzeigen</span>
+              </label>
+            </>
+          )}
         </div>
       )}
     </div>

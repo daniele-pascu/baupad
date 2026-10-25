@@ -116,6 +116,11 @@ export interface Plan extends SyncMeta {
   showNote?: boolean;
   showPaper?: boolean;
   showScale?: boolean;
+  /**
+   * Importierte Pläne: Planunterlage farbig anzeigen. Standard (fehlt) = Schwarz-Weiß, damit die
+   * farbigen Aufmaß-Markierungen besser zu sehen sind (Ansicht und PDF; die Originaldatei bleibt).
+   */
+  planColor?: boolean;
   /** Ausgeblendete Ebenen (Ansicht und PDF); fehlt = alle sichtbar */
   hiddenLayers?: LayerId[];
 }

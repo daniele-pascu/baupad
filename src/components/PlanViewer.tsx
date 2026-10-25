@@ -1049,7 +1049,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     >
       <div
         ref={worldRef}
-        className={`viewer-world${fileId ? '' : ' no-file'}`}
+        className={`viewer-world${fileId ? '' : ' no-file'}${props.plan.planColor ? '' : ' plan-gray'}`}
         style={view ? { transform: `translate(${view.tx}px, ${view.ty}px) scale(${view.scale})` } : { visibility: 'hidden' }}
       >
         <canvas

@@ -1366,6 +1366,10 @@ input[type='range'] {
   background: #fff;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
 }
+/* Planunterlage schwarz-weiß (Standard): farbige Markierungen heben sich besser ab */
+.viewer-world.plan-gray .viewer-canvas {
+  filter: grayscale(1);
+}
 .viewer-overlay {
   position: absolute;
   inset: 0;

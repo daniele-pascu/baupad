@@ -1,4 +1,20 @@
-import { LineCapStyle, PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFImage, type PDFPage } from 'pdf-lib';
+import {
+  LineCapStyle,
+  PDFDocument,
+  PDFName,
+  StandardFonts,
+  degrees,
+  fill,
+  popGraphicsState,
+  pushGraphicsState,
+  rectangle,
+  rgb,
+  setFillingGrayscaleColor,
+  setGraphicsState,
+  type PDFFont,
+  type PDFImage,
+  type PDFPage,
+} from 'pdf-lib';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { componentsOf, costCenterLabel, damagesOf, elementsOf, planTitle, safeFileName, type ExportFile } from './aufmass';
 import { dimsVisible, visibleDamages, visibleElements } from './layers';
@@ -176,7 +192,10 @@ async function addPlanPage(ctx: Ctx, data: ProjectState, plan: Plan) {
         ];
         const embedded = await ctx.out.embedPage(libDoc.getPage(plan.pageIndex), bbox, matrix);
         const page = ctx.out.addPage([L.w, L.h]);
+        // weißer Untergrund: der Mischmodus braucht einen deckenden Hintergrund (sonst grau in manchen Betrachtern)
+        if (!plan.planColor) page.drawRectangle({ x: L.plan.x, y: L.h - L.plan.y - L.plan.h, width: L.plan.w, height: L.plan.h, color: rgb(1, 1, 1) });
         page.drawPage(embedded);
+        if (!plan.planColor) grayOut(ctx, page, { x: L.plan.x, y: L.h - L.plan.y - L.plan.h, w: L.plan.w, h: L.plan.h });
         await finishSheet(ctx, page, plan, L, region, damages, full);
         return;
       } catch (e) {
@@ -203,7 +222,34 @@ async function addPlanPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   }
 }
 
+/**
+ * Planunterlage schwarz-weiß (Vektor bleibt Vektor): graue Fläche mit Mischmodus „Sättigung“
+ * über den Plan – übernimmt die Helligkeit des Plans, entfernt nur die Farbe. Die Markierungen
+ * werden danach farbig darübergezeichnet.
+ */
+function grayOut(ctx: Ctx, page: PDFPage, r: { x: number; y: number; w: number; h: number }) {
+  const gs = page.node.newExtGState('GSGray', ctx.out.context.obj({ Type: 'ExtGState', BM: PDFName.of('Saturation') }));
+  page.pushOperators(pushGraphicsState(), setGraphicsState(gs), setFillingGrayscaleColor(0.5), rectangle(r.x, r.y, r.w, r.h), fill(), popGraphicsState());
+}
+
+/** Bild in Graustufen (Planunterlage schwarz-weiß), in place */
+function grayscaleCanvas(canvas: HTMLCanvasElement) {
+  const c2d = canvas.getContext('2d', { willReadFrequently: true });
+  if (!c2d || !canvas.width || !canvas.height) return;
+  const img = c2d.getImageData(0, 0, canvas.width, canvas.height);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const y = 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+    d[i] = d[i + 1] = d[i + 2] = y;
+  }
+  c2d.putImageData(img, 0, 0);
+}
+
 async function addRasterSheet(ctx: Ctx, plan: Plan, L: SheetLayout, region: Rect, damages: Damage[], canvas: HTMLCanvasElement, full: HTMLCanvasElement | null) {
+  if (!plan.planColor) {
+    grayscaleCanvas(canvas);
+    if (full) grayscaleCanvas(full);
+  }
   const blob = await canvasToBlob(canvas, 'image/jpeg', 0.92);
   const img = await ctx.out.embedJpg(await blob.arrayBuffer());
   const page = ctx.out.addPage([L.w, L.h]);
