@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { join } from 'node:path';
-import { createProject, drawRect, FIXTURES, freshStart, pickTool, planBox, waitForPlan, waitSaved } from './helpers';
+import { createProject, drawRect, FIXTURES, freshStart, OUT, pickTool, planBox, waitForPlan, waitSaved } from './helpers';
 
 /**
  * Punktfang auf den Linien des PDF-Plans (Vektor-PDF): Rechteck von Ecke zu Ecke des
@@ -74,4 +74,69 @@ test('Vektor-PDF: Ecken des Grundrisses werden exakt gefangen, Fläche aus dem P
   await page.keyboard.press('x');
   await page.mouse.move(c.x + 1, c.y);
   await expect(page.getByTestId('snap-marker')).toBeVisible(); // Anfang der Maßlinie
+});
+
+/** Fang-Lupe: grüner (aktiver) Fangpunkt bzw. nächster roter Punkt zum Mauszeiger – Bildschirmposition */
+async function nearestLupePoint(page: Page, at: { x: number; y: number }) {
+  const box = (await page.getByTestId('plan-viewer').boundingBox())!;
+  const pts = await page.getByTestId('lupe-points').locator('circle').evaluateAll((els) => els.map((e) => ({ x: Number(e.getAttribute('cx')), y: Number(e.getAttribute('cy')) })));
+  const abs = pts.map((p) => ({ x: box.x + p.x, y: box.y + p.y }));
+  return abs.reduce((m, p) => (Math.hypot(p.x - at.x, p.y - at.y) < Math.hypot(m.x - at.x, m.y - at.y) ? p : m));
+}
+
+test('Fang-Lupe (X): Fläche Ecke für Ecke – zoomt hinein, Punkt grün, Ansicht zurück, Punkte bleiben exakt', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'Lupe', {}, ['Keller']);
+  await page.getByTestId('plan-file-input').setInputFiles(join(FIXTURES, 'massketten.pdf'));
+  const wiz = page.getByTestId('import-wizard');
+  await wiz.getByTestId('areas-next').click();
+  await wiz.locator('[data-field="planNumber"]').fill('K-1');
+  await wiz.getByTestId('import-save').click();
+  await waitForPlan(page);
+  await waitSaved(page);
+  const viewer = page.getByTestId('plan-viewer');
+  const scale0 = Number(await viewer.getAttribute('data-scale'));
+  const box = await planBox(page);
+  const s = box.width / 1191;
+  const scr = (x: number, y: number) => ({ x: box.x + x * s, y: box.y + y * s });
+  await pickTool(page, 'tool-polygon');
+
+  const corners = [
+    [ROOM.x1, ROOM.y2],
+    [ROOM.x2, ROOM.y2],
+    [ROOM.x2, ROOM.y1],
+    [ROOM.x1, ROOM.y1],
+  ];
+  for (const [i, [x, y]] of corners.entries()) {
+    const near = scr(x + 6 / s, y - 5 / s); // grob daneben
+    await page.mouse.move(near.x, near.y);
+    await page.keyboard.press('x');
+    await expect(page.getByTestId('lupe-hint')).toBeVisible();
+    expect(Number(await viewer.getAttribute('data-scale'))).toBeGreaterThan(scale0 * 4); // hineingezoomt
+    expect(await page.locator('.lupe-pt').count()).toBeGreaterThan(0); // Fangpunkte angezeigt (rot bzw. grün)
+    // die Umgebung des Mauszeigers liegt jetzt in der Bildmitte
+    const vb = (await viewer.boundingBox())!;
+    const target = await nearestLupePoint(page, { x: vb.x + vb.width / 2, y: vb.y + vb.height / 2 });
+    await page.mouse.move(target.x, target.y);
+    await expect(page.getByTestId('lupe-pt-active')).toHaveCount(1); // grün unter dem Mauszeiger
+    if (i === 2) await page.screenshot({ path: join(OUT, 'fang-lupe.png') });
+    await page.mouse.down();
+    await page.mouse.up();
+    // zurück zur vorherigen Ansicht, Punkt gesetzt (grün gefüllt), Zeichnen läuft weiter
+    await expect(page.getByTestId('lupe-hint')).toHaveCount(0);
+    expect(Number(await viewer.getAttribute('data-scale'))).toBeCloseTo(scale0, 6);
+    await expect(page.getByTestId('polygon-bar')).toContainText(`${i + 1} Punkt`);
+    await expect(page.locator('.poly-preview circle')).toHaveCount(i + 1);
+  }
+  // Esc schließt eine offene Lupe ohne Punkt
+  await page.keyboard.press('x');
+  await expect(page.getByTestId('lupe-hint')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('lupe-hint')).toHaveCount(0);
+  await expect(page.getByTestId('polygon-bar')).toContainText('4 Punkte');
+
+  await page.getByTestId('polygon-finish').click();
+  const dlg = page.getByTestId('damage-dialog');
+  await expect(dlg.getByTestId('use-geometry')).toContainText('116,66 m²'); // exakt die Raumecken
+  await dlg.getByTestId('damage-cancel').click();
 });

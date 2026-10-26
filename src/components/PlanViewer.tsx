@@ -36,7 +36,7 @@ import {
 import { clampRenderScale, drawImageRegion, getImageBitmap, getPdfDocument, renderPdfRegion, type RenderJob } from '../lib/pdf';
 import { getView, putView } from '../lib/db';
 import { arcShape } from '../lib/cad';
-import { SNAP_LABELS, type SnapKind } from '../lib/snap';
+import { SNAP_LABELS, type SnapHit, type SnapKind } from '../lib/snap';
 import { DEFAULT_TRANSPARENCY, fillOf, fillPaths, PX_PER_PT, strokeGeometry, type Fill } from '../lib/style';
 import type { Component, Damage, Plan, Rect, Shape, ShapeStyle, ShapeType, SourceFile } from '../lib/types';
 
@@ -107,6 +107,13 @@ export interface PlanViewerHandle {
   scale(): number;
   /** Ausgewähltes Objekt formatfüllend anzeigen („Zoom auf Auswahl“) */
   zoomTo(id: string): void;
+  /**
+   * Fang-Lupe (Taste X bei Punktwerkzeugen): Bereich um den Mauszeiger vergrößern und alle
+   * Fangpunkte zeigen; nach dem nächsten Punkt kehrt die vorherige Ansicht zurück. Erneut
+   * aufrufen schließt die Lupe ohne Punkt.
+   */
+  toggleLupe(): void;
+  lupeActive(): boolean;
 }
 
 interface Props {
@@ -142,6 +149,10 @@ interface Props {
   overlay?(view: View, preview: Shape | null): ReactNode;
   /** Einrasten an Raster und Fangpunkten (nur gezeichnete Pläne) */
   snap?: SnapFn;
+  /** Alle Fangpunkte in einem Bereich (Seitenkoordinaten) – Anzeige in der Fang-Lupe */
+  snapPoints?: (area: Rect) => SnapHit[];
+  /** Fang-Lupe geöffnet bzw. geschlossen */
+  onLupeChange?: (active: boolean) => void;
   /** Gültiger Planbereich (Seitenkoordinaten): Neue Formen und Verschiebungen bleiben darin */
   bounds?: Rect;
   /** Eckpunkte einzeln bearbeiten (Rechteck → Vieleck, Dreieck, Vieleck) */
@@ -213,6 +224,36 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   const clampP = (p: Point) => (propsRef.current.bounds ? clampPoint(p, propsRef.current.bounds) : p);
   /** Zuletzt gefangener Punkt (Markierung mit Art des Fangpunkts) */
   const snapMark = useRef<{ p: Point; kind: SnapKind } | null>(null);
+  /** Fang-Lupe: Ansicht vor dem Hineinzoomen; letzte Mausposition (Bildschirm) */
+  const lupe = useRef<{ prev: View } | null>(null);
+  const lastHover = useRef<Point | null>(null);
+  const endLupe = () => {
+    const l = lupe.current;
+    if (!l) return;
+    lupe.current = null;
+    // Ansicht zurück – gesetzte Punkte liegen in Plankoordinaten und bleiben exakt
+    setView(l.prev);
+    propsRef.current.onLupeChange?.(false);
+  };
+  /** Fangpunkte im sichtbaren Bereich (je Ansicht einmal berechnet) */
+  const lupeCache = useRef<{ key: string; pts: SnapHit[] } | null>(null);
+  const lupePoints = (v: View): SnapHit[] => {
+    const el = containerRef.current;
+    const fn = propsRef.current.snapPoints;
+    if (!el || !fn) return [];
+    const key = `${v.scale}:${v.tx}:${v.ty}`;
+    if (lupeCache.current?.key === key) return lupeCache.current.pts;
+    const a = toPage(v, { x: 0, y: 0 });
+    const b = toPage(v, { x: el.clientWidth, y: el.clientHeight });
+    const pts = fn({ x: a.x, y: a.y, w: b.x - a.x, h: b.y - a.y });
+    lupeCache.current = { key, pts };
+    return pts;
+  };
+  // Werkzeugwechsel schließt die Fang-Lupe
+  useEffect(() => {
+    if (lupe.current) endLupe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.tool]);
   const snapAt: SnapFn = (raw, ctx) => {
     const r: Point & { kind?: SnapKind } = propsRef.current.snap ? propsRef.current.snap(raw, ctx) : raw;
     snapMark.current = r.kind ? { p: { x: r.x, y: r.y }, kind: r.kind } : null;
@@ -439,11 +480,27 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       forceRender((n) => n + 1);
     },
     cancelPolygon: () => {
+      endLupe();
       poly.current = [];
       propsRef.current.onPolygonChange?.(0);
       forceRender((n) => n + 1);
     },
     scale: () => viewRef.current?.scale ?? 1,
+    toggleLupe: () => {
+      if (lupe.current) return endLupe();
+      const v = viewRef.current;
+      if (!v || !size) return;
+      // um den Mauszeiger (sonst Bildmitte) etwa 5-fach vergrößern, mindestens so, dass ca. 120 Planeinheiten die Breite füllen
+      const at = lastHover.current ?? { x: size.w / 2, y: size.h / 2 };
+      const { min, max } = limits();
+      const target = Math.min(max, Math.max(min, v.scale * 5, Math.min(size.w, size.h) / 120));
+      lupe.current = { prev: v };
+      // Punkt unter dem Mauszeiger in die Bildmitte – so liegt die Umgebung frei (nicht unter Leisten am Rand)
+      const c = toPage(v, at);
+      setView({ scale: target, tx: size.w / 2 - c.x * target, ty: size.h / 2 - c.y * target });
+      propsRef.current.onLupeChange?.(true);
+    },
+    lupeActive: () => !!lupe.current,
     zoomTo: (id: string) => {
       const d = propsRef.current.damages.find((x) => x.id === id);
       if (!d || !size || !viewRef.current) return;
@@ -673,7 +730,10 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
 
   const onPointerMove = (e: React.PointerEvent) => {
     if (!pointers.current.has(e.pointerId)) {
-      if (e.pointerType === 'mouse') hoverCursor(localPoint(e));
+      if (e.pointerType === 'mouse') {
+        hoverCursor(localPoint(e));
+        lastHover.current = localPoint(e);
+      }
       // Fangpunkt schon vor dem Klicken anzeigen (Zeichenwerkzeuge)
       const t = propsRef.current.tool;
       if (e.pointerType === 'mouse' && propsRef.current.snap && t !== 'select' && viewRef.current) {
@@ -895,8 +955,10 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         const first = pts[0];
         const now = Date.now();
         const lt = lastTap.current;
-        const dbl = lt && now - lt.t < 320 && Math.hypot(lt.p.x - p.x, lt.p.y - p.y) < 30;
-        lastTap.current = { t: now, p };
+        const dbl = !lupe.current && lt && now - lt.t < 320 && Math.hypot(lt.p.x - p.x, lt.p.y - p.y) < 30;
+        lastTap.current = lupe.current ? null : { t: now, p };
+        // Fang-Lupe: Punkt übernommen → vorherige Ansicht (Zeichnen geht weiter)
+        endLupe();
         // Tippen auf den ersten Punkt schließt die Form; Doppeltippen beendet sie
         // (Polygon: geschlossen, Polylinie: offen)
         // (auch im 90°-Modus: maßgeblich ist der angetippte Punkt)
@@ -1096,6 +1158,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
               })}
             </g>
           )}
+          {lupe.current && props.snapPoints && <LupePoints view={view} points={lupePoints(view)} active={snapMark.current?.p ?? null} />}
           {snapMark.current && props.snap && (tool !== 'select' || g.kind === 'vertex' || g.kind === 'move' || g.kind === 'resize') && <SnapMarker view={view} mark={snapMark.current} />}
           {props.overlay?.(view, drawPreview)}
           {/* Verbindungslinien zuerst, damit sie unter den Nummern liegen */}
@@ -1202,6 +1265,22 @@ export function FillPaths({ shape, map, fill, boost = false }: { shape: Shape; m
   if (f.solid) return <path d={f.solid} fill={fill.color} fillOpacity={boost ? Math.min(1, fill.opacity + 0.08) : fill.opacity} stroke="none" data-fill="solid" />;
   return (
     <path d={f.hatch} fill="none" stroke={fill.color} strokeOpacity={fill.opacity} strokeWidth={f.hatchWidth} strokeLinecap="round" data-fill="hatch" />
+  );
+}
+
+/**
+ * Fangpunkte in der Fang-Lupe (Ampel): rot mit weißer Füllung = möglicher Punkt, grün = unter
+ * dem Mauszeiger (wird beim Klick übernommen). Nur Anzeige – ändert keine Objektfarben.
+ */
+function LupePoints({ view, points, active }: { view: View; points: SnapHit[]; active: Point | null }) {
+  return (
+    <g className="lupe-points" data-testid="lupe-points" pointerEvents="none">
+      {points.map((h, i) => {
+        const c = toScreen(view, h.point);
+        const on = !!active && Math.abs(active.x - h.point.x) < 1e-6 && Math.abs(active.y - h.point.y) < 1e-6;
+        return <circle key={i} cx={c.x} cy={c.y} r={on ? 8 : 6} className={`lupe-pt${on ? ' active' : ''}`} data-kind={h.kind} data-testid={on ? 'lupe-pt-active' : 'lupe-pt'} />;
+      })}
+    </g>
   );
 }
 

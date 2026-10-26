@@ -484,13 +484,15 @@ a {
   stroke: #1f5fbf;
   stroke-width: 2;
 }
+/* gesetzte (bestätigte) Punkte: grün gefüllt, weißer Rand – auf hellen und dunklen Plänen sichtbar */
 .poly-point {
-  fill: #fff;
-  stroke: #1c2129;
-  stroke-width: 1.5;
+  fill: #12a150;
+  stroke: #fff;
+  stroke-width: 2;
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.8));
 }
 .poly-first {
-  fill: #fff;
+  fill: #12a150;
   stroke: #1f5fbf;
   stroke-width: 2.5;
 }
@@ -3852,4 +3854,34 @@ button.status-pill:hover {
 }
 .report-note {
   margin-top: 14px;
+}
+
+/* Fang-Lupe: mögliche Fangpunkte rot mit weißer Füllung, Punkt unter dem Mauszeiger grün */
+.lupe-pt {
+  fill: #fff;
+  stroke: #e0202b;
+  stroke-width: 2.5;
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.85));
+}
+.lupe-pt.active {
+  fill: #fff;
+  stroke: #12a150;
+  stroke-width: 3.5;
+}
+.lupe-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.lupe-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #e0202b;
+}
+.lupe-dot.on {
+  border-color: #12a150;
 }

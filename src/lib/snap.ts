@@ -132,3 +132,44 @@ export function findSnap(p: Point, shapes: Shape[], tol: number, planSegs: PlanS
   }
   return best;
 }
+
+/**
+ * Alle Fangpunkte in einem Bereich (für die Fang-Lupe): Eck-/Endpunkte, Mittelpunkte,
+ * Kreismitten und Schnittpunkte – von Aufmaßobjekten und Planlinien. Punkte an derselben
+ * Stelle werden zusammengefasst (der „stärkere“ Typ bleibt). Höchstens `max` Punkte.
+ */
+export function listSnapPoints(area: { x: number; y: number; w: number; h: number }, shapes: Shape[], planSegs: PlanSeg[] = [], max = 400): SnapHit[] {
+  const inside = (q: Point) => q.x >= area.x && q.x <= area.x + area.w && q.y >= area.y && q.y <= area.y + area.h;
+  const cands: SnapHit[] = [];
+  for (const s of shapes) for (const h of pointsOf(s)) if (inside(h.point)) cands.push(h);
+  const segs: { seg: Seg; owner: number; index: number }[] = [];
+  const touches = ([a, b]: Seg) =>
+    !(Math.max(a.x, b.x) < area.x || Math.min(a.x, b.x) > area.x + area.w || Math.max(a.y, b.y) < area.y || Math.min(a.y, b.y) > area.y + area.h);
+  shapes.forEach((s, owner) => edgesOf(s).forEach((seg, index) => touches(seg) && segs.push({ seg, owner, index })));
+  for (const s of planSegs) {
+    if (s.ends & 1 && inside(s.a)) cands.push({ point: s.a, kind: 'end' });
+    if (s.ends & 2 && inside(s.b)) cands.push({ point: s.b, kind: 'end' });
+    const m = { x: (s.a.x + s.b.x) / 2, y: (s.a.y + s.b.y) / 2 };
+    if (s.straight && inside(m)) cands.push({ point: m, kind: 'mid' });
+    if (touches([s.a, s.b])) segs.push({ seg: [s.a, s.b], owner: shapes.length + s.path, index: s.index });
+  }
+  // Schnittpunkte (bei sehr dichten Bereichen begrenzt)
+  const n = Math.min(segs.length, 600);
+  for (let i = 0; i < n; i++)
+    for (let j = i + 1; j < n; j++) {
+      const A = segs[i];
+      const B = segs[j];
+      if (A.owner === B.owner && Math.abs(A.index - B.index) <= 1) continue;
+      const x = segmentIntersection(A.seg, B.seg);
+      if (x && inside(x)) cands.push({ point: x, kind: 'intersection' });
+    }
+  // gleiche Stelle zusammenfassen
+  const eps = Math.max(area.w, area.h) * 1e-4;
+  const out: SnapHit[] = [];
+  for (const c of cands.sort((a, b) => RANK[a.kind] - RANK[b.kind])) {
+    if (out.some((o) => Math.abs(o.point.x - c.point.x) <= eps && Math.abs(o.point.y - c.point.y) <= eps)) continue;
+    out.push(c);
+    if (out.length >= max) break;
+  }
+  return out;
+}

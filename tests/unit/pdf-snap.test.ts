@@ -56,3 +56,24 @@ describe('Punktfang auf Planlinien', () => {
     expect(near[0].a).toEqual({ x: 100, y: 200 });
   });
 });
+
+describe('Fang-Lupe: alle Fangpunkte im Bereich', () => {
+  it('Ecken, Mittelpunkte und Schnittpunkte von Planlinien und Aufmaßobjekten, ohne Doppelte', async () => {
+    const { listSnapPoints } = await import('../../src/lib/snap');
+    const { lineShape } = await import('../../src/lib/geometry');
+    const out: PlanSeg[] = [];
+    pathSegments([0, 100, 100, 1, 300, 100, 1, 300, 200, 1, 100, 200, 4], I, 0, out, null); // Raum
+    // Aufmaßlinie quer durch den Raum
+    const pts = listSnapPoints({ x: 0, y: 0, w: 400, h: 300 }, [lineShape({ x: 200, y: 50 }, { x: 200, y: 250 })], out);
+    const has = (x: number, y: number, kind: string) => pts.some((p) => Math.abs(p.point.x - x) < 1e-6 && Math.abs(p.point.y - y) < 1e-6 && p.kind === kind);
+    expect(has(100, 100, 'end')).toBe(true);
+    expect(has(300, 200, 'end')).toBe(true);
+    expect(has(300, 150, 'mid')).toBe(true);
+    expect(has(200, 50, 'end')).toBe(true); // Ende der Aufmaßlinie
+    // Schnittpunkte Aufmaßlinie × Wände fallen mit den Wandmitten zusammen → einmal, als Schnittpunkt
+    expect(has(200, 100, 'intersection')).toBe(true);
+    expect(pts.filter((p) => Math.abs(p.point.x - 200) < 1e-6 && Math.abs(p.point.y - 100) < 1e-6)).toHaveLength(1);
+    // Bereich begrenzt
+    expect(listSnapPoints({ x: 250, y: 150, w: 100, h: 100 }, [], out).every((p) => p.point.x >= 250 && p.point.y >= 150)).toBe(true);
+  });
+});

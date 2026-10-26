@@ -21,10 +21,10 @@ import { countKind, defaultKindFor, hasArea, KIND_LABELS, KINDS, kindOf, sumLeng
 import { checkMeasure, computeArea, formatArea, formatMeasure, toInputValue } from '../lib/numbers';
 import { compactNumbers, damageNo, duplicateIds, nextNumber, planNumberStart, shiftNumbers, suggestNext, swapNumbers } from '../lib/numbering';
 import { navigate, paths } from '../lib/router';
-import { findSnap } from '../lib/snap';
+import { findSnap, listSnapPoints } from '../lib/snap';
 import { SegIndex } from '../lib/pdf-snap';
 import { clearHistory, newMeta, putRecord, putRecords, redo, softDelete, undo, useAppState, type ProjectState } from '../lib/store';
-import { COLORS, SHAPE_LABELS, type Damage, type DrawElementType, type MeasureKind, type Plan, type Shape, type ShapeStyle, type ShapeType } from '../lib/types';
+import { COLORS, SHAPE_LABELS, type Damage, type DrawElementType, type MeasureKind, type Plan, type Rect, type Shape, type ShapeStyle, type ShapeType } from '../lib/types';
 import { DRAW_TOOLS, readStyle, useDrawing, type DrawTool } from './DrawingMode';
 import { DrawRibbon, OrthoButtons } from '../components/DrawRibbon';
 import { elementLabel } from '../components/DrawPanel';
@@ -61,10 +61,25 @@ const OP_HINTS: Partial<Record<DrawTool, string>> = {
 const isPointTool = (t: Tool) => t === 'polygon' || t === 'polyline';
 
 /** Leiste beim Setzen von Punkten: Polylinie offen beenden oder schließen, Polygon schließen */
-function PolylineBar({ polyline, count, viewer }: { polyline: boolean; count: number; viewer: React.RefObject<PlanViewerHandle | null> }) {
+function PolylineBar({ polyline, count, viewer, lupe }: { polyline: boolean; count: number; viewer: React.RefObject<PlanViewerHandle | null>; lupe: boolean }) {
   const name = polyline ? 'Polylinie' : 'Fläche';
   return (
     <div className="draw-bar" data-testid="polygon-bar">
+      <button
+        type="button"
+        className={`btn btn-sm${lupe ? ' btn-primary' : ''}`}
+        onClick={() => viewer.current?.toggleLupe()}
+        aria-pressed={lupe}
+        title="Fang-Lupe (X): Bereich vergrößern und Fangpunkte zeigen – nach dem Punkt zurück zur Ansicht"
+        data-testid="snap-lupe"
+      >
+        <Icon name="zoomSel" size={18} /> Lupe
+      </button>
+      {lupe && (
+        <span className="small lupe-hint" data-testid="lupe-hint">
+          Punkt wählen: <span className="lupe-dot" /> möglich · <span className="lupe-dot on" /> wird übernommen · Esc/X zurück
+        </span>
+      )}
       {count === 0 ? (
         <span className="muted small">
           {polyline
@@ -355,6 +370,17 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     const hit = findSnap(p, shapes, tol, planLines?.index.near(p, tol) ?? []);
     return hit ? { ...hit.point, kind: hit.kind } : p;
   };
+  /** Fang-Lupe: alle Fangpunkte im Bereich (Aufmaßobjekte, Zeichnung, Planlinien) */
+  const measureSnapPoints = (area: Rect) =>
+    listSnapPoints(
+      area,
+      [
+        ...shownDamages.map((d) => d.shape),
+        ...(drawingPlan ? drawing.elements.filter((e) => e.type !== 'text').map((e) => shapeToPage(e.shape, unitsPerMeter(plan!))) : []),
+      ],
+      planLines?.index.inRect(area) ?? [],
+    );
+  const [lupeOn, setLupeOn] = useState(false);
   /** Linien des PDF-Plans für den Punktfang (einmal je Plan eingelesen) */
   const [planLines, setPlanLines] = useState<{ key: string; index: SegIndex } | null>(null);
 
@@ -480,6 +506,12 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       const target = e.target as HTMLElement;
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || document.querySelector('.modal')) return;
       const key = e.key.toLowerCase();
+      // Fang-Lupe offen: Esc bzw. X kehrt zur vorherigen Ansicht zurück (gesetzte Punkte bleiben)
+      if (viewer.current?.lupeActive() && (e.key === 'Escape' || (key === 'x' && !e.ctrlKey && !e.metaKey && !e.altKey))) {
+        e.preventDefault();
+        viewer.current.toggleLupe();
+        return;
+      }
       // Punktwerkzeuge: Enter beendet (Polylinie offen, Polygon geschlossen), C schließt,
       // Rücktaste nimmt den letzten Punkt zurück, Escape verwirft
       if (polyCount && ['Enter', 'Escape', 'Backspace'].includes(e.key) || (polyCount && key === 'c' && !e.ctrlKey && !e.metaKey)) {
@@ -503,6 +535,13 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         e.preventDefault();
         drawing.setOrthoOn(!drawing.orthoOn);
         toast(`90° / Orthogonal ${drawing.orthoOn ? 'aus' : 'ein'}`, 'info', 1500);
+        return;
+      }
+      // X bei Fläche/Polylinie: Fang-Lupe (Punktfang wird dafür eingeschaltet)
+      if (key === 'x' && isPointTool(drawMode ? drawing.viewerTool : tool)) {
+        e.preventDefault();
+        if (!drawing.snapOn) drawing.setSnapOn(true);
+        viewer.current?.toggleLupe();
         return;
       }
       if (key === 'x') {
@@ -970,6 +1009,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               underlay={region ? drawing.drawUnderlay(region) : undefined}
               overlay={drawing.drawOverlay}
               snap={drawing.snapOn || drawing.gridOn || drawing.orthoOn ? drawing.snap : undefined}
+              snapPoints={drawing.snapOn ? measureSnapPoints : undefined}
+              onLupeChange={setLupeOn}
               bounds={sheetBounds}
               vertexEdit
               selectedVertex={drawing.vertex}
@@ -1003,6 +1044,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                     })
               }
               snap={drawing.snapOn ? measureSnap : undefined}
+              snapPoints={drawing.snapOn ? measureSnapPoints : undefined}
+              onLupeChange={setLupeOn}
               overlay={
                 tool === 'calibrate' && plan.calibration
                   ? (view) => (
@@ -1169,7 +1212,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             ) : null)}
 
           {(drawMode ? isPointTool(drawing.viewerTool) && (polyCount > 0 || !drawing.selected) : isPointTool(tool) && (polyCount > 0 || !selected)) && !dialog && (
-            <PolylineBar polyline={(drawMode ? drawing.tool : tool) === 'polyline'} count={polyCount} viewer={viewer} />
+            <PolylineBar polyline={(drawMode ? drawing.tool : tool) === 'polyline'} count={polyCount} viewer={viewer} lupe={lupeOn} />
           )}
 
           {!drawMode && tool === 'calibrate' && !dialog && (
