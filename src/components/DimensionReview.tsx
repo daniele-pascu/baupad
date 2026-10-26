@@ -93,10 +93,10 @@ export function DimensionReview({ data, plan, file, onClose }: { data: ProjectSt
             <label className="field dims-unit">
               <span>Einheit der Maßzahlen</span>
               <select value={unit} onChange={(e) => setUnit(e.target.value as DimUnit | 'auto')} data-testid="dims-unit">
-                <option value="auto">Automatisch ({an.unit})</option>
-                <option value="m">Meter (5,155)</option>
-                <option value="cm">Zentimeter (515,5)</option>
-                <option value="mm">Millimeter (5155)</option>
+                <option value="auto">Automatisch: cm (420 = 4,20 m), „4,20“ = m</option>
+                <option value="cm">Alle Zentimeter (420 = 4,20 m)</option>
+                <option value="m">Alle Meter (4,20 = 4,20 m)</option>
+                <option value="mm">Alle Millimeter (4200 = 4,20 m)</option>
               </select>
             </label>
             <p className="small" data-testid="dims-summary">
@@ -173,7 +173,9 @@ export function DimensionReview({ data, plan, file, onClose }: { data: ProjectSt
             </table>
           </div>
           <p className="muted small report-note">
-            Gelesen werden nur Zahlen, die mittig über einer gezeichneten Maßlinie stehen; die Länge im Plan reicht von Begrenzung zu Begrenzung. Maße, die
+            Zahlen ohne Einheit gelten wie in Bauplänen üblich als Zentimeter (420 = 4,20 m · 5 = 0,05 m · 1245 = 12,45 m), Zahlen mit zwei
+            Nachkommastellen als Meter (4,20). Gelesen werden nur Zahlen, die mittig über einer gezeichneten Maßlinie stehen; die Länge im Plan reicht von
+            Begrenzung zu Begrenzung. Maße, die
             nicht zum gemeinsamen Maßstab passen, werden nicht verwendet. Die Genauigkeit hängt vom Plan ab – BauPad garantiert keine Maßhaltigkeit.
           </p>
         </>

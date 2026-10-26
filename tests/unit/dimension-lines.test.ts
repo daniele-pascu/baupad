@@ -4,14 +4,15 @@ import { pathSegments, type PlanSeg } from '../../src/lib/pdf-snap';
 import { PT_PER_M, type PageText } from '../../src/lib/scale-detect';
 
 describe('Maßtext lesen', () => {
-  it('Zahl und mögliche Einheiten', () => {
-    expect(parseDimText('5,00')).toMatchObject({ value: 5, units: ['m'] });
-    expect(parseDimText('515,5')).toMatchObject({ value: 515.5, units: ['cm'] }); // 515,5 cm = 5,155 m
+  it('Zahlen ohne Einheit sind cm (420 = 4,20 m, 5 = 0,05 m, 1245 = 12,45 m), zwei Nachkommastellen m', () => {
+    expect(parseDimText('420')).toMatchObject({ value: 420, units: ['cm'] });
+    expect(parseDimText('5')).toMatchObject({ value: 5, units: ['cm'] });
+    expect(parseDimText('1245')).toMatchObject({ value: 1245, units: ['cm'] });
+    expect(parseDimText('515,5')).toMatchObject({ value: 515.5, units: ['cm'] });
     expect(parseDimText('515⁵')).toMatchObject({ value: 515.5, units: ['cm'] }); // hochgestellte mm
-    expect(parseDimText('365')).toMatchObject({ value: 365, units: ['cm', 'mm'] });
+    expect(parseDimText('4,20')).toMatchObject({ value: 4.2, units: ['m'] });
     expect(parseDimText('5,155 m')).toMatchObject({ value: 5.155, units: ['m'] });
-    expect(parseDimText('5155 mm')).toMatchObject({ value: 5155, units: ['mm'] });
-    expect(parseDimText('2,5')).toMatchObject({ units: ['cm', 'm'] });
+    expect(parseDimText('4200 mm')).toMatchObject({ value: 4200, units: ['mm'] });
   });
   it('keine Maße: Text, Datum, Maßstab, Fläche', () => {
     for (const s of ['Raum 101', '25.10.2026', '1:50', '12,50 m²', 'A-101', '']) expect(parseDimText(s)).toBeNull();
@@ -60,12 +61,21 @@ describe('Maßlinien zuordnen und Maßstab bestimmen', () => {
     expect(a.rows.find((r) => r.match.text === '380')!.deviation!).toBeLessThan(-0.03);
     expect(PT_PER_M / a.k!).toBeCloseTo(50, 6);
   });
-  it('Einheit vorgeben: mm statt cm → anderer Maßstab (1:5)', () => {
+  it('Einheit vorgeben: alle als mm → anderer Maßstab (1:5)', () => {
     const { segs, texts } = plan([515.5, 365, 240]);
     const a = analyzeDimensions(matchDimensionLines(texts, segs, null), 'mm');
     expect(a.unit).toBe('mm');
-    expect(a.okCount).toBe(2); // 515,5 hat Nachkommastelle – nicht als mm gelesen
+    expect(a.okCount).toBe(3);
+    expect(a.rows[1].meters).toBeCloseTo(0.365, 9);
     expect(PT_PER_M / a.k!).toBeCloseTo(5, 6);
+  });
+  it('Kette in m („5,00“): Einheit m, 1:50', () => {
+    const { segs, texts } = plan([500, 365, 240]);
+    const asMeters = texts.map((t, i) => (i < 3 ? { ...t, str: (Number(t.str) / 100).toFixed(2).replace('.', ',') } : t));
+    const a = analyzeDimensions(matchDimensionLines(asMeters, segs, null));
+    expect(a.unit).toBe('m');
+    expect(a.okCount).toBe(3);
+    expect(PT_PER_M / a.k!).toBeCloseTo(50, 6);
   });
   it('nur ein Maß: kein Maßstab (keine Kontrolle möglich)', () => {
     const { segs, texts } = plan([515.5]);

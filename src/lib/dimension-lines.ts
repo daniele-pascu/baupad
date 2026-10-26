@@ -18,8 +18,10 @@ export const UNIT_FACTOR: Record<DimUnit, number> = { m: 1, cm: 0.01, mm: 0.001 
 const SUP: Record<string, string> = { '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9' };
 
 /**
- * Maßtext lesen: „5,00“, „3.65“, „365“, „515,5“, „515⁵“ (hochgestellte mm), „5,155 m“, „515 cm“.
- * Liefert die Zahl wie geschrieben und die möglichen Einheiten (feste Einheit, wenn angegeben).
+ * Maßtext lesen: „420“, „5“, „1245“, „515,5“, „515⁵“ (hochgestellte mm), „4,20“, „5,155 m“.
+ * Zahlen ohne Einheit sind wie in den meisten Bauplänen Zentimeter (420 = 4,20 m, 5 = 0,05 m,
+ * 1245 = 12,45 m, 515,5 = 5,155 m); mit zwei oder drei Nachkommastellen Meter (4,20 m).
+ * Millimeter nur mit „mm“ im Plan oder wenn im Dialog so gewählt.
  */
 export function parseDimText(s: string): { value: number; units: DimUnit[]; text: string } | null {
   let t = s.trim().replace(/\s+/g, ' ');
@@ -33,15 +35,9 @@ export function parseDimText(s: string): { value: number; units: DimUnit[]; text
   if (!(value > 0)) return null;
   if (unit) return { value, units: [unit], text: s.trim() };
   const decimals = /[.,](\d+)$/.exec(t)?.[1].length ?? 0;
-  const units: DimUnit[] = [];
-  // Meter: mit Komma und plausibler Größe (z. B. 5,00 · 12,365)
-  if (decimals >= 2 && value < 1000) units.push('m');
-  // Zentimeter: ganze Zahl oder eine Nachkommastelle (515,5 = 5,155 m)
-  if (decimals <= 1 && value >= 1) units.push('cm');
-  // Millimeter: ganze Zahl
-  if (decimals === 0 && value >= 10) units.push('mm');
-  if (decimals === 1 && value < 100 && !units.includes('m')) units.push('m'); // 2,5 (m)
-  return units.length ? { value, units, text: s.trim() } : null;
+  // Zentimeter: ganze Zahl oder eine Nachkommastelle; Meter: zwei/drei Nachkommastellen
+  const units: DimUnit[] = decimals >= 2 ? ['m'] : ['cm'];
+  return { value, units, text: s.trim() };
 }
 
 export interface DimMatch {
@@ -171,23 +167,30 @@ function cluster(ks: number[]): { k: number; members: number[] } | null {
 }
 
 /**
- * Maßstab aus den Maßlinien: je Einheit (m/cm/mm, ohne Vorgabe automatisch die Einheit, bei der
- * die meisten Maße übereinstimmen) die größte Gruppe übereinstimmender Maße. Mindestens zwei
+ * Maßstab aus den Maßlinien: die größte Gruppe übereinstimmender Maße (Zahlen ohne Einheit als
+ * cm, mit zwei Nachkommastellen als m; mit `forced` alle in dieser Einheit). Mindestens zwei
  * Maße müssen passen – ein einzelnes Maß ist keine Kontrolle.
  */
 export function analyzeDimensions(matches: DimMatch[], forced?: DimUnit): DimAnalysis {
-  const units: DimUnit[] = forced ? [forced] : ['cm', 'm', 'mm'];
+  // ohne Vorgabe: jede Zahl in ihrer Einheit (ganze Zahlen cm, „4,20“ m); mit Vorgabe alle Zahlen in dieser Einheit
+  const unitOf = (m: DimMatch) => forced ?? m.units[0];
+  const units: DimUnit[] = forced ? [forced] : ['cm'];
   let best: { unit: DimUnit; k: number | null; members: Set<number>; ks: (number | null)[] } | null = null;
   for (const unit of units) {
-    const ks = matches.map((m) => (m.units.includes(unit) ? m.length / (m.value * UNIT_FACTOR[unit]) : null));
+    const ks = matches.map((m) => m.length / (m.value * UNIT_FACTOR[unitOf(m)]));
     const idx = ks.map((k, i) => (k !== null ? i : -1)).filter((i) => i >= 0);
     const c = cluster(idx.map((i) => ks[i]!));
     const members = new Set(c ? c.members.map((j) => idx[j]) : []);
     if (!best || members.size > best.members.size) best = { unit, k: c && members.size >= 2 ? c.k : null, members, ks };
   }
   const b = best!;
+  // angezeigte Einheit: die der meisten passenden Maße (z. B. „5,00“-Ketten → m)
+  if (!forced) {
+    const count = (u: DimUnit) => [...b.members].filter((i) => unitOf(matches[i]) === u).length;
+    b.unit = count('m') > count('cm') ? 'm' : 'cm';
+  }
   const rows: DimRow[] = matches.map((m, i) => {
-    const meters = m.units.includes(b.unit) ? m.value * UNIT_FACTOR[b.unit] : null;
+    const meters = m.value * UNIT_FACTOR[unitOf(m)];
     const measured = b.k && meters !== null ? m.length / b.k : null;
     const deviation = measured !== null && meters ? measured / meters - 1 : null;
     return { match: m, meters, measured, deviation, ok: b.k !== null && b.members.has(i) };
