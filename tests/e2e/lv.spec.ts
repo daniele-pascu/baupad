@@ -128,13 +128,13 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   const q = ws[pb + 1];
   expect([q[3]?.v, q[4]?.v, q[5]?.v, q[6]?.v, q[7]?.v]).toEqual(['m²', 25, '€', `=E${pb + 2}*C${pb + 2}`, '€']);
   const th = pb + 3;
-  expect(ws[th].slice(0, 6).map((c) => c?.v ?? null)).toEqual(['Plan', 'Nr.', 'Länge', 'Breite', 'm²', 'Bemerkung']);
+  expect(ws[th].map((c) => c?.v ?? null).filter((x) => x !== null)).toEqual(['Plan', 'Nr.', 'Länge', 'Breite', 'm²']); // ohne Bemerkung keine Spalte „Bemerkung“
   expect(ws[th + 1].slice(0, 5).map((c) => c?.v ?? null)).toEqual(['P-1', 1, 4, 2.5, `=C${th + 2}*D${th + 2}`]);
   expect(ws[th + 2].slice(4, 6).map((c) => c?.v ?? null)).toEqual([`=SUM(E${th + 2}:E${th + 2})`, 'm²']);
   expect(q[2]?.v).toBe(`=E${th + 3}`); // Menge verweist auf die Summe
   // Position A (m): Plan | Nr. | m
   const pa = rowOf('92 01 01 A');
-  expect(ws[pa + 3].slice(0, 4).map((c) => c?.v ?? null)).toEqual(['Plan', 'Nr.', 'm', 'Bemerkung']);
+  expect(ws[pa + 3].map((c) => c?.v ?? null).filter((x) => x !== null)).toEqual(['Plan', 'Nr.', 'm']);
   expect(ws[pa + 4].slice(0, 3).map((c) => c?.v ?? null)).toEqual(['P-1', 2, 12]);
   // Zusammenstellung und Gesamtpreis (Formeln)
   const boxRow = rowOf('Zusammenstellung (EUR)');

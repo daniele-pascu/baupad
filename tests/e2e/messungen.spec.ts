@@ -144,14 +144,15 @@ test('Messarten Linie, Schadstelle, Fläche: Linien zählen nicht zur Fläche, l
   // Excel: leere Zellen statt 0; Summe nur Flächen
   const dl = await catchDownload(page, () => excelExport(page, 'export-xlsx-plan'));
   const file = await saveDownload(dl, 'messarten.xlsx');
-  // Aufmaßblatt: Flächen und Linien in getrennten Tabellen, Messart als Bemerkung
+  // Aufmaßblatt: Flächen und Linien in getrennten Tabellen; nichts zu bemerken → keine Spalte „Bemerkung“
   const wb = readXlsx(file);
   const ml = blattRows(wb, 'M-1');
   expect(ml.map((r) => [r.nr, r.values, r.note])).toEqual([
-    [2, { Länge: 2, Breite: 1, Tiefe: null, 'm²': 2 }, 'Schadstelle'], // Tiefe leer, nicht 0
-    [3, { Länge: 1, Breite: 0.5, Tiefe: 0.1, 'm²': 0.5 }, 'Fläche'],
-    [1, { m: 3.5 }, 'Linie'], // Linie: nur Länge
+    [2, { Länge: 2, Breite: 1, Tiefe: null, 'm²': 2 }, null], // Tiefe leer, nicht 0
+    [3, { Länge: 1, Breite: 0.5, Tiefe: 0.1, 'm²': 0.5 }, null],
+    [1, { m: 3.5 }, null], // Linie: nur Länge
   ]);
+  for (const r of ml) expect(r.head).not.toContain('Bemerkung');
   const ws = wb[Object.keys(wb)[0]].map((r) => r.map((c) => c?.v ?? null));
   const areaHead = ws.findIndex((r) => r[0] === 'Flächen');
   const lineHead = ws.findIndex((r) => r[0] === 'Linien und Längen');

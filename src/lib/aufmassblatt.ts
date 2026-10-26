@@ -1,5 +1,5 @@
 import { aufmassRows, costCenterLabel, costCentersOf, lvDocsOf, plansOf, positionRef, safeFileName, type ExportFile, type XlsxScope } from './aufmass';
-import { hasArea, KIND_LABELS, kindOf, quantityBasis, quantityFor } from './measure';
+import { hasArea, kindOf, quantityBasis, quantityFor } from './measure';
 import type { ProjectState } from './store';
 import type { Damage, LvDocument, LvPosition, Plan } from './types';
 import { A4_HEIGHT_IN, BLATT_BOTTOM_IN, blank, blattTopMargin, buildXlsx, num, str, type Cell, type HeaderImage, type Sheet } from './xlsx';
@@ -109,12 +109,12 @@ export function exportAufmassblatt(data: ProjectState, scope: XlsxScope, info: B
     const lines = free.filter((x) => !(hasArea(kindOf(x.d)) && x.d.area !== null));
     if (areas.length) {
       add([str('Flächen', 'amPos')]);
-      table(areas, areas.some((x) => x.d.depth !== null) ? 'areaDepth' : 'area', true);
+      table(areas, areas.some((x) => x.d.depth !== null) ? 'areaDepth' : 'area');
       add();
     }
     if (lines.length) {
       add([str('Linien und Längen', 'amPos')]);
-      table(lines, 'length', true);
+      table(lines, 'length');
       add();
     }
   }
@@ -139,7 +139,7 @@ export function exportAufmassblatt(data: ProjectState, scope: XlsxScope, info: B
       // Menge verweist auf die Summe der Tabelle (Zeile wird nachgetragen)
       const qtyRow = add([]);
       add();
-      const sumRef = table(list, kindOfUnit(pos.unit), false, pos.unit);
+      const sumRef = table(list, kindOfUnit(pos.unit), pos.unit);
       rows[qtyRow - 1] = [
         null,
         null,
@@ -182,21 +182,23 @@ export function exportAufmassblatt(data: ProjectState, scope: XlsxScope, info: B
 
   /**
    * Messtabelle passend zur Einheit; liefert die Summenzelle (für die Menge der Position).
-   * Stk./m/l: Plan | Nr. | Menge | Bemerkung · m²: Plan | Nr. | Länge | Breite | m² | Bemerkung ·
-   * m³: Plan | Nr. | Länge | Breite | Tiefe | m³ | Bemerkung.
+   * Stk./m/l: Plan | Nr. | Menge · m²: Plan | Nr. | Länge | Breite | m² · m³: Plan | Nr. | Länge | Breite | Tiefe | m³;
+   * Spalte „Bemerkung“ nur, wenn es in der Tabelle etwas zu bemerken gibt.
    */
-  function table(list: Item[], kind: Kind, free: boolean, unit = ''): { ref: string; value: number } | null {
+  function table(list: Item[], kind: Kind, unit = ''): { ref: string; value: number } | null {
     const qtyCol = kind === 'area' ? 4 : kind === 'volume' || kind === 'areaDepth' ? 5 : 2;
     const valueHead =
       kind === 'area' ? ['Länge', 'Breite', 'm²'] : kind === 'areaDepth' ? ['Länge', 'Breite', 'Tiefe', 'm²'] : kind === 'volume' ? ['Länge', 'Breite', 'Tiefe', 'm³'] : [kind === 'other' ? unitText(unit) : unitText(kind === 'count' ? 'Stk' : kind === 'liter' ? 'l' : 'm')];
-    const head: Cell[] = [str('Plan', 'amTh'), str('Nr.', 'amTh'), ...valueHead.map((h) => str(h, 'amTh')), str('Bemerkung', 'amThNote')];
+    const notes = list.map(({ d }) => remark(d, kind));
+    const head: Cell[] = [str('Plan', 'amTh'), str('Nr.', 'amTh'), ...valueHead.map((h) => str(h, 'amTh'))];
+    if (notes.some(Boolean)) head.push(str('Bemerkung', 'amThNote'));
     add(head);
     const first = rows.length + 1;
     let total = 0;
     list.forEach(({ plan, d }, i) => {
       const last = i === list.length - 1;
       const r = rows.length + 1;
-      const note = remark(d, kind, free);
+      const note = notes[i];
       let cells: Cell[];
       if (kind === 'area') {
         const v = d.area ?? 0;
@@ -284,10 +286,9 @@ function liters(d: Damage): number | null {
   return hasArea(kindOf(d)) && d.area !== null && d.depth !== null ? Math.round(d.area * d.depth * 1000 * 100) / 100 : null;
 }
 
-/** Bemerkung: Kennzeichnung bzw. Messart (ohne Position), Hinweise bei fehlenden Werten */
-function remark(d: Damage, kind: Kind, free: boolean): string {
+/** Bemerkung: nur Hinweise (Fläche aus dem Plan, fehlende Werte) – sonst leer */
+function remark(d: Damage, kind: Kind): string {
   const parts: string[] = [];
-  if (free) parts.push(KIND_LABELS[kindOf(d)]);
   if (d.areaFromShape) parts.push('Fläche aus Plan');
   if ((kind === 'volume' || kind === 'liter') && d.depth === null) parts.push('ohne Tiefe');
   if (kind === 'area' && d.area === null) parts.push('keine Fläche');

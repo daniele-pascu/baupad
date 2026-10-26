@@ -34,6 +34,15 @@ describe('Aufmaßblatt (Firmenvorlage)', () => {
     for (const t of ['Aufmaßblatt 007', 'Bauvorhaben X', '91092 – Ebene 1', '01.10.2026', 'Aufmaß', 'Flächen', 'Linien und Längen']) expect(sheet).toContain(`>${t}<`);
     expect(sheet).toContain('<f>C11*D11</f>'); // m² = Länge × Breite als Formel
     expect(sheet).toMatch(/<f>SUM\(C\d+:C\d+\)<\/f>/); // Summe Linien
+    // nichts zu bemerken → keine Spalte „Bemerkung“, keine Messart
+    expect(sheet).not.toContain('>Bemerkung<');
+    expect(sheet).not.toContain('>Schadstelle<');
+  });
+  it('Spalte „Bemerkung“ nur mit Hinweis (z. B. Fläche aus dem Plan)', () => {
+    const withNote = { ...data, damages: { ...data.damages, d1: dmg('d1', 1, { areaFromShape: true }) } } as unknown as ProjectState;
+    const ws = strFromU8(unzipSync(exportAufmassblatt(withNote, { kind: 'plan', planId: 'p1' }, { no: '010', period: '' }).data)['xl/worksheets/sheet1.xml']);
+    expect(ws.match(/>Bemerkung</g)).toHaveLength(1); // nur in der Flächentabelle, nicht bei den Linien
+    expect(ws).toContain('>Fläche aus Plan<');
   });
 
   it('jede LV/MFK und das Aufmaß ohne Position beginnt auf einer neuen Seite; fester Zoom, damit die Umbrüche gelten', () => {
