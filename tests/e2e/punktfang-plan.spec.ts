@@ -63,10 +63,15 @@ test('Vektor-PDF: Ecken des Grundrisses werden exakt gefangen, Fläche aus dem P
   expect(d1.shape.y + d1.shape.h).toBeCloseTo(ROOM.y2, 1);
 
   // Fang aus (X): Punkt bleibt, wo geklickt wurde
+  // (an einer anderen Ecke, die noch nicht markiert ist: Linie der Maßkette oben)
+  await pickTool(page, 'tool-rect');
+  const c = scr(ROOM.x1 + 4 / s, ROOM.y1 - 30 - 4 / s);
+  await page.mouse.move(c.x, c.y);
+  await expect(page.getByTestId('snap-marker')).toBeVisible();
   await page.keyboard.press('x');
-  await drawRect(page, a.x, a.y, b.x, b.y);
-  await expect(dlg.getByTestId('use-geometry')).toBeVisible();
-  await expect(dlg.getByTestId('use-geometry')).not.toContainText('116,66 m²'); // ca. 8 px kleiner
-  await dlg.getByTestId('damage-cancel').click();
+  await page.mouse.move(c.x - 1, c.y);
+  await expect(page.getByTestId('snap-marker')).toHaveCount(0);
   await page.keyboard.press('x');
+  await page.mouse.move(c.x + 1, c.y);
+  await expect(page.getByTestId('snap-marker')).toBeVisible(); // Anfang der Maßlinie
 });
