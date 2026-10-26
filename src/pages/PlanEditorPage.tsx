@@ -1210,8 +1210,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 {checking
                   ? 'Prüfstrecke: eine andere bemaßte Strecke im Plan ziehen, danach ihre bekannte Länge eingeben – der Maßstab bleibt unverändert.'
                   : file?.kind === 'image'
-                    ? 'Bild/Foto: Maßstab kann nicht gelesen werden. Möglichst lange bemaßte Strecke ziehen (z. B. ganze Wand), danach die reale Länge eingeben.'
-                    : 'Kalibrieren: Strecke bekannter Länge im Plan ziehen (z. B. eine bemaßte Wand), danach die reale Länge eingeben.'}
+                    ? 'Bild/Foto: Maßstab kann nicht gelesen werden. Möglichst lange bemaßte Strecke wählen (z. B. ganze Wand): Punkt A und B anklicken oder ziehen, danach die reale Länge eingeben.'
+                    : 'Kalibrieren: Punkt A und Punkt B einer bemaßten Strecke anklicken (X halten = vergrößern) oder die Strecke ziehen, danach die reale Länge eingeben.'}
               </span>
               {file?.kind === 'pdf' && (
                 <button type="button" className="btn btn-sm" onClick={() => void detectFromPlan()} data-testid="calibration-detect" title="Maßstabsangabe und Maßketten im Plan auswerten">

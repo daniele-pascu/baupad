@@ -156,3 +156,73 @@ test('X gedrückt halten: vergrößert an der Maus, Fangpunkt rot, Klick setzt g
   await expect(page.getByTestId('lupe-hint')).toHaveCount(0);
   expect(Number(await viewer.getAttribute('data-scale'))).toBeCloseTo(near, 6);
 });
+
+test('Kalibrieren und Linie per Klick, Klick: Punkt A, X halten, Punkt B – exakt an den Ecken', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'Klick', {}, ['Keller']);
+  await page.getByTestId('plan-file-input').setInputFiles(join(FIXTURES, 'massketten.pdf'));
+  const wiz = page.getByTestId('import-wizard');
+  await wiz.getByTestId('areas-next').click();
+  await wiz.locator('[data-field="planNumber"]').fill('K-1');
+  await wiz.getByTestId('import-save').click();
+  await waitForPlan(page);
+  await waitSaved(page);
+  const viewer = page.getByTestId('plan-viewer');
+  await viewer.hover({ position: { x: 300, y: 200 } });
+  await page.keyboard.press('-');
+  await page.waitForTimeout(300);
+  const scale0 = Number(await viewer.getAttribute('data-scale'));
+
+  /** Ecke mit gehaltener X-Taste anklicken (Lage des Plans jedes Mal neu messen – Hinweisleisten verschieben ihn) */
+  const pickCorner = async (x: number, y: number) => {
+    const box = await planBox(page);
+    const s = box.width / 1191;
+    const corner = { x: box.x + x * s, y: box.y + y * s };
+    const near = { x: corner.x + (x < 500 ? 6 : -6), y: corner.y + 5 };
+    await page.mouse.move(near.x, near.y);
+    await page.keyboard.down('x');
+    const k = Number(await viewer.getAttribute('data-scale')) / scale0;
+    await page.mouse.move(near.x + (corner.x - near.x) * k, near.y + (corner.y - near.y) * k);
+    await expect(page.getByTestId('snap-hover')).toBeVisible();
+    await page.mouse.down();
+    await page.mouse.up();
+    await page.keyboard.up('x');
+  };
+
+  // Kalibrieren: obere Wand von Ecke zu Ecke (15,15 m)
+  await pickTool(page, 'tool-calibrate');
+  await pickCorner(ROOM.x1, ROOM.y1);
+  await expect(page.getByTestId('click-line-preview')).toBeVisible(); // Punkt A gesetzt, Vorschau zur Maus
+  await pickCorner(ROOM.x2, ROOM.y1);
+  const dlg = page.getByTestId('prompt-dialog');
+  await dlg.locator('input').fill('15,15');
+  await dlg.getByRole('button', { name: 'Kalibrieren' }).click();
+  await waitSaved(page);
+  const cal = await page.evaluate(
+    () =>
+      new Promise<{ a: { x: number; y: number }; b: { x: number; y: number }; meters: number }>((resolve) => {
+        const req = indexedDB.open('schadstellen-aufmass');
+        req.onsuccess = () => {
+          const all = req.result.transaction('plans').objectStore('plans').getAll();
+          all.onsuccess = () => {
+            req.result.close();
+            resolve(all.result[0].calibration);
+          };
+        };
+      }),
+  );
+  expect(cal.a.x).toBeCloseTo(ROOM.x1, 1);
+  expect(cal.b.x).toBeCloseTo(ROOM.x2, 1);
+  expect(Math.hypot(cal.b.x - cal.a.x, cal.b.y - cal.a.y) / cal.meters).toBeCloseTo(K, 2); // genau 1:50
+
+  // Linie per Klick, Klick: linke Wand (7,70 m) – Länge aus dem Plan
+  await pickTool(page, 'tool-line');
+  await pickCorner(ROOM.x1, ROOM.y1);
+  await page.keyboard.press('Escape'); // Esc verwirft Punkt A
+  await expect(page.getByTestId('click-line-preview')).toHaveCount(0);
+  await pickCorner(ROOM.x1, ROOM.y1);
+  await pickCorner(ROOM.x1, ROOM.y2);
+  const dd = page.getByTestId('damage-dialog');
+  await expect(dd.getByTestId('use-suggestion')).toContainText('7,70');
+  await dd.getByTestId('damage-cancel').click();
+});

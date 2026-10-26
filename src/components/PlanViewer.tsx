@@ -61,6 +61,8 @@ export type Tool =
 
 /** Werkzeuge, die Punkt für Punkt gesetzt werden (Polygon = immer geschlossen, Polylinie = offen oder geschlossen) */
 const isPointTool = (t: Tool) => t === 'polygon' || t === 'polyline' || t === 'arc';
+/** Strecken auch per Klick, Klick (Punkt A, Punkt B) – dazwischen z. B. mit X zoomen */
+const CLICK_LINE = new Set<string>(['line', 'calibrate']);
 
 /** Werkzeuge, die eine Stelle antippen statt eine Form zu zeichnen */
 const PLACE_TOOLS = new Set<Tool>(['component', 'text', 'trim', 'extend']);
@@ -218,6 +220,14 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   propsRef.current = props;
   /** Werkzeug „Fläche (Punkte)“: bisher gesetzte Punkte und Mauszeigerposition für die Vorschau */
   const poly = useRef<Point[]>([]);
+  /** Linie/Kalibrieren per Klick: gesetzter Punkt A (wartet auf Punkt B) */
+  const clickStart = useRef<Point | null>(null);
+  const clearClickStart = () => {
+    if (!clickStart.current) return;
+    clickStart.current = null;
+    polyHover.current = null;
+    propsRef.current.onPolygonChange?.(0);
+  };
   const polyHover = useRef<Point | null>(null);
   const clampP = (p: Point) => (propsRef.current.bounds ? clampPoint(p, propsRef.current.bounds) : p);
   /** Zuletzt gefangener Punkt (Markierung mit Art des Fangpunkts) */
@@ -234,8 +244,9 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     else forceRender((n) => n + 1);
     propsRef.current.onLupeChange?.(false);
   };
-  // Werkzeugwechsel beendet die Vergrößerung (X)
+  // Werkzeugwechsel beendet die Vergrößerung (X) und einen angefangenen Klick-Klick-Strich
   useEffect(() => {
+    clearClickStart();
     if (lupe.current) endLupe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.tool]);
@@ -460,12 +471,14 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     center: () => (viewRef.current && size ? toPage(viewRef.current, { x: size.w / 2, y: size.h / 2 }) : null),
     finishPolygon: (closed?: boolean) => finishPolygon(closed),
     undoPolygonPoint: () => {
+      if (clickStart.current) return clearClickStart();
       poly.current = poly.current.slice(0, -1);
       propsRef.current.onPolygonChange?.(poly.current.length);
       forceRender((n) => n + 1);
     },
     cancelPolygon: () => {
       endLupe();
+      clearClickStart();
       poly.current = [];
       propsRef.current.onPolygonChange?.(0);
       forceRender((n) => n + 1);
@@ -733,6 +746,12 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         snapAt(clampP(toPage(viewRef.current, localPoint(e))), { tool: t, scale: viewRef.current.scale, from: last });
         if (before?.kind !== snapMark.current?.kind || before?.p.x !== snapMark.current?.p.x || before?.p.y !== snapMark.current?.p.y) forceRender((n) => n + 1);
       }
+      // Klick-Klick-Strich: Vorschau von Punkt A zur Maus (mit Fang wie der Klick)
+      if (clickStart.current && viewRef.current) {
+        const hp = clampP(toPage(viewRef.current, localPoint(e)));
+        polyHover.current = e.pointerType === 'mouse' && propsRef.current.snap ? clampP(snapAt(hp, { tool: t, scale: viewRef.current.scale, from: clickStart.current })) : hp;
+        forceRender((n) => n + 1);
+      }
       // Vorschau der nächsten Kante beim Setzen von Flächenpunkten (mit Fang bzw. 90°, wie der Klick)
       if (isPointTool(propsRef.current.tool) && poly.current.length && viewRef.current) {
         const hp = clampP(toPage(viewRef.current, localPoint(e)));
@@ -910,6 +929,20 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       case 'draw': {
         forceRender((n) => n + 1);
         if (cancelled) return;
+        // Linie/Kalibrieren angetippt: Punkt A setzen bzw. mit Punkt B abschließen
+        const r0 = normalizeRect(g.start, g.current);
+        if (CLICK_LINE.has(g.tool) && Math.max(r0.w, r0.h) * v.scale < 8) {
+          const a = clickStart.current;
+          if (!a) {
+            clickStart.current = g.start;
+            propsRef.current.onPolygonChange?.(1);
+            return;
+          }
+          clearClickStart();
+          if (Math.hypot(a.x - g.start.x, a.y - g.start.y) * v.scale >= 4) propsRef.current.onCreate(lineShape(a, g.start));
+          return;
+        }
+        clearClickStart(); // gezogen: wie bisher
         const shape = shapeFromDraw(g, v);
         if (shape) propsRef.current.onCreate(shape);
         return;
@@ -1131,6 +1164,16 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
           {tool === 'arc' && poly.current.length === 2 && polyHover.current && (() => {
             const a = arcShape(poly.current[0], poly.current[1], polyHover.current);
             return a ? renderShape(a, color, { dashed: true, key: 'arc-preview' }) : null;
+          })()}
+          {clickStart.current && (() => {
+            const a = toScreen(view, clickStart.current);
+            const b = polyHover.current ? toScreen(view, polyHover.current) : a;
+            return (
+              <g className="poly-preview" data-testid="click-line-preview">
+                <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={visibleStroke(color)} strokeWidth={2} strokeDasharray="6 4" />
+                <circle cx={a.x} cy={a.y} r={5} className="poly-point" />
+              </g>
+            );
           })()}
           {isPointTool(tool) && poly.current.length > 0 && (
             <g className="poly-preview" data-testid="polygon-preview">
