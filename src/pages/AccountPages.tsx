@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Icon } from '../components/Icon';
 import { SiteFooter, SiteNav } from '../components/SiteNav';
-import { getCompanyLogo, removeCompanyLogo, saveCompanyLogo, type CompanyLogo } from '../lib/company';
+import { getCompanyLogo, logoHeaderSize, removeCompanyLogo, saveCompanyLogo, type CompanyLogo } from '../lib/company';
 import { paths } from '../lib/router';
 import { confirmDialog, showError, toast } from '../components/ui';
 import { AppStorageSettings } from '../components/InstallApp';
@@ -128,8 +128,8 @@ export function AccountPage() {
 }
 
 /**
- * Firmenlogo (schon aktiv, ohne Konto): wird auf diesem Gerät gespeichert und automatisch
- * rechts oben in die Kopfzeile jeder exportierten Excel-Datei eingefügt.
+ * Firmenlogo (schon aktiv, ohne Konto): wird auf diesem Gerät gespeichert und automatisch in
+ * die Kopfzeile jeder exportierten Excel-Datei eingefügt (Aufmaßblatt: links oben).
  */
 function LogoSettings() {
   const [logo, setLogo] = useState<CompanyLogo | null | undefined>(undefined);
@@ -164,13 +164,27 @@ function LogoSettings() {
       <div className="logo-settings-head">
         <div>
           <strong>Firmenlogo</strong>
-          <span className="muted">Erscheint automatisch rechts oben in der Kopfzeile jeder exportierten Excel-Datei. Wird nur auf diesem Gerät gespeichert.</span>
+          <span className="muted">
+            Erscheint automatisch in der Kopfzeile jeder exportierten Excel-Datei (Aufmaßblatt: links oben). Leere Ränder werden abgeschnitten und die
+            Größe passend zum Logo gewählt – breite Logos flach, quadratische höher. Wird nur auf diesem Gerät gespeichert.
+          </span>
         </div>
       </div>
       <div className="logo-settings-body">
         <div className="logo-preview" data-testid="logo-preview">
           {url ? <img src={url} alt="Firmenlogo" data-testid="logo-image" /> : <span className="muted small">{logo === undefined ? '…' : 'Kein Logo'}</span>}
         </div>
+        {logo && url && (
+          <div className="logo-header-preview" data-testid="logo-header-preview" aria-label="Vorschau Kopfzeile">
+            {(() => {
+              const s = logoHeaderSize(logo);
+              // Punkt → Bildschirmpixel (1 pt ≈ 1,33 px)
+              return <img src={url} alt="" style={{ width: s.width * 1.333, height: s.height * 1.333 }} />;
+            })()}
+            <span className="muted small">1 von 2</span>
+            <span className="logo-header-caption muted small">So erscheint es in der Kopfzeile des Aufmaßblatts</span>
+          </div>
+        )}
         <div className="row gap wrap">
           <button type="button" className="btn btn-primary" onClick={() => input.current?.click()} disabled={busy} data-testid="logo-pick">
             <Icon name="upload" /> {logo ? 'Logo ersetzen' : 'Logo auswählen'}

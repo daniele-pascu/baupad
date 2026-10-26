@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { excelExport, catchDownload, createProject, drawRect, FIXTURES, fillMeasures, freshStart, pickTool, planBox, readXlsxPrint, saveDownload, waitForPlan, waitSaved } from './helpers';
 
-/** Firmenlogo in Konto → Einstellungen: wird auf dem Gerät gespeichert und in jede Excel-Kopfzeile (rechts) übernommen */
+/** Firmenlogo in Konto → Einstellungen: wird auf dem Gerät gespeichert und in jede Excel-Kopfzeile übernommen (Aufmaßblatt links, sonst rechts) */
 
 const unzipList = (file: string) => execFileSync('python3', ['-c', 'import sys,zipfile; print("\\n".join(zipfile.ZipFile(sys.argv[1]).namelist()))', file], { encoding: 'utf8' });
 const unzipRead = (file: string, name: string) =>
@@ -17,6 +17,10 @@ test('Logo hochladen, in der Excel-Kopfzeile rechts; Projekt/Kostenstelle links,
   await page.getByTestId('logo-input').setInputFiles(join(FIXTURES, 'firmenlogo.png'));
   await expect(page.getByTestId('logo-image')).toBeVisible();
   await expect(page.getByTestId('logo-pick')).toHaveText(/Logo ersetzen/);
+  // Vorschau der Kopfzeile: Logo in passender Größe (höchstens 42 pt hoch, 170 pt breit)
+  const prev = await page.getByTestId('logo-header-preview').locator('img').boundingBox();
+  expect(prev!.height).toBeLessThanOrEqual(42 * 1.333 + 1);
+  expect(prev!.width).toBeLessThanOrEqual(170 * 1.333 + 1);
   // bleibt nach dem Neuladen erhalten
   await page.reload();
   await expect(page.getByTestId('logo-image')).toBeVisible();
@@ -47,6 +51,19 @@ test('Logo hochladen, in der Excel-Kopfzeile rechts; Projekt/Kostenstelle links,
   expect(pr.header.center).toContain('Seite &P von &N');
   expect(pr.header.right).toContain('&G');
   expect(unzipRead(file, 'xl/worksheets/sheet1.xml')).toContain('view="pageLayout"');
+
+  // Aufmaßblatt: dasselbe Logo links in der Kopfzeile, rechts „Seite von Seiten“
+  const dlb = await catchDownload(page, () => excelExport(page, 'export-xlsx-plan', 'blatt-export'));
+  const fileB = await saveDownload(dlb, 'logo-blatt.xlsx');
+  expect(unzipList(fileB)).toContain('xl/media/logo.png');
+  const vmlB = unzipRead(fileB, 'xl/drawings/vmlDrawingHF1.vml');
+  expect(vmlB).toContain('id="LH"'); // linke Kopfzeile
+  const [, w, h] = /width:([\d.]+)pt;height:([\d.]+)pt/.exec(vmlB)!.map(Number);
+  expect(h).toBeLessThanOrEqual(42);
+  expect(w).toBeLessThanOrEqual(170);
+  const prB = readXlsxPrint(fileB)['Aufmaßblatt 001'];
+  expect(prB.header.left).toBe('&G');
+  expect(prB.header.right).toBe('&P von &N');
 
   // Logo entfernen → Export ohne Bild
   await page.goto('./#/konto');

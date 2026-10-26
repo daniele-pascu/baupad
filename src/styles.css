@@ -3929,3 +3929,28 @@ button.status-pill:hover {
   padding-top: 12px;
   border-top: 1px solid var(--border);
 }
+
+/* Firmenlogo: Vorschau der Kopfzeile (A4-Ausschnitt) */
+.logo-header-preview {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  width: min(100%, 420px);
+  padding: 14px 18px 26px;
+  margin: 4px 0 12px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: var(--shadow);
+}
+.logo-header-preview img {
+  display: block;
+  object-fit: contain;
+}
+.logo-header-caption {
+  position: absolute;
+  left: 18px;
+  bottom: 6px;
+}
