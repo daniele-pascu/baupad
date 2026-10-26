@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { catchDownload, drawRect, FIXTURES, freshStart, OUT, pickTool, planBox, readXlsx, saveDownload, waitForPlan, waitSaved } from './helpers';
+import { catchDownload, drawRect, FIXTURES, freshStart, OUT, pickTool, planBox, messliste, readXlsx, saveDownload, waitForPlan, waitSaved } from './helpers';
 
 /**
  * Paket J: Werkzeugleiste klappt nach dem Zeichnen zu (zurück zur Auswahl); nur die Länge ist
@@ -181,10 +181,9 @@ test('Messung: nur Länge Pflicht, Breite/Höhe und Tiefe optional; Werkzeugleis
   await expect(page.getByTestId('sum-area')).toHaveText('14,00');
   // Excel: leere Zellen statt 0
   const xdl = await catchDownload(page, () => page.getByTestId('export-xlsx-plan').click());
-  // Planblatt (erstes Blatt ist das Aufmaß nach Vorlage)
-  const ws = Object.entries(readXlsx(await saveDownload(xdl, 'optional.xlsx'))).find(([n]) => n !== 'Aufmaß')![1];
-  const rows = ws.filter((r) => typeof r[0]?.v === 'number');
-  expect(rows.map((r) => [r[1]?.v ?? null, r[2]?.v ?? null, r[3]?.v ?? null, r[4]?.v ?? null])).toEqual([
+  // Messliste: leere Zellen statt 0
+  const rows = messliste(readXlsx(await saveDownload(xdl, 'optional.xlsx')));
+  expect(rows.map((r) => r.values.slice(1))).toEqual([
     [4.2, null, null, null],
     [3, null, 0.1, null],
     [5, 2.8, null, 14],

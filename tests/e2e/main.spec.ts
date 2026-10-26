@@ -14,6 +14,7 @@ import {
   freshStart,
   markerRelPos,
   planBox,
+  messliste,
   readXlsx,
   readXlsxPrint,
   saveDownload,
@@ -361,11 +362,12 @@ test('10. Excel-Export (Plan) mit echten Zahlenwerten', async () => {
   expect(dl.suggestedFilename()).toBe('Wohnanlage_Sued_Tiefgarage_A-101_Aufmass.xlsx');
   const file = await saveDownload(dl);
   const wb = readXlsx(file);
-  const ws = wb['A-101'];
-  // Neues Layout: A1 = Plan, Zeile 2 = Überschriften, ab Zeile 3 die Messungen
-  expect(String(ws[0][0]?.v)).toMatch(/^Plan A-101/);
-  expect(ws[1].map((c) => c?.v)).toEqual(['Nr.', 'Länge (m)', 'Breite (m)', 'Tiefe (m)', 'Fläche (m²)']);
-  const data = ws.slice(2, 6).map((r) => r.map((c) => c?.v));
+  // Aufbau: Übersicht, Aufmaß nach Leistungen, Messliste (alle Messungen, filterbar)
+  expect(Object.keys(wb)).toEqual(['Übersicht', 'Aufmaß', 'Messliste']);
+  expect(wb['Übersicht'][0][0]?.v).toBe('Aufmaß');
+  expect(wb['Übersicht'].some((r) => r[0]?.v === 'Plan' && String(r[1]?.v).startsWith('A-101'))).toBe(true);
+  const ml = messliste(wb, 'A-101');
+  const data = ml.map((r) => r.values);
   expect(data).toEqual([
     [1, 0.6, 0.4, 0.03, 0.24],
     [3, 3, 1.25, 0.1, 3.75],
@@ -373,28 +375,26 @@ test('10. Excel-Export (Plan) mit echten Zahlenwerten', async () => {
     [5, 0.5, 0.5, 0.04, 0.25],
   ]);
   // Zahlen sind numerisch (Typ „n“), nicht Text
-  for (const r of ws.slice(2, 6)) for (const c of r.slice(0, 5)) expect(c?.t).toBe('n');
-  expect(ws[2][4]?.fmt).toBe('#,##0.00');
-  const sumRow = ws.find((r) => r[0]?.v === 'Summe Fläche (m²)')!;
-  expect(sumRow[4]?.v).toBe('=SUM(E3:E6)');
-  expect(Object.keys(wb)).toEqual(['Aufmaß', 'A-101', 'Projektdaten']); // zuerst das Aufmaß nach Vorlage
-  // Druck: auf Seitenbreite angepasst, Kopf (Zeilen 1–2) wiederholt, Druckbereich, Seitenzahlen
-  const pr = readXlsxPrint(file)['A-101'];
-  expect(pr).toMatchObject({ orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0, titleRows: '$1:$2' });
-  expect(pr.printArea).toMatch(/\$A\$1:\$E\$8$/);
+  for (const r of ml) for (const i of [1, 5, 6, 7, 8]) expect(r.cells[i]?.t).toBe('n');
+  expect(ml[0].cells[8]?.fmt).toBe('#,##0.00');
+  const sumRow = wb['Messliste'].find((r) => r[7]?.v === 'Summe')!;
+  expect(sumRow[8]?.v).toBe('=SUBTOTAL(109,I4:I7)'); // Summe berücksichtigt den Filter
+  // Druck: Messliste quer, auf Seitenbreite, Kopf (Zeilen 1–3) wiederholt, Seitenzahlen
+  const pr = readXlsxPrint(file)['Messliste'];
+  expect(pr).toMatchObject({ orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, titleRows: '$1:$3' });
   // Kopfzeile: links Projekt / Kostenstelle, Mitte Seitenzahl (rechts Platz für das Firmenlogo)
   expect(pr.header.center).toContain('Seite &P von &N');
   expect(pr.header.left).not.toBe('');
   // Datei lässt sich mit einem kompatiblen Tabellenprogramm (LibreOffice) öffnen
-  // Planblatt (2. Blatt, nach dem Aufmaß nach Vorlage)
-  execFileSync('soffice', ['--headless', '--convert-to', 'csv:Text - txt - csv (StarCalc):59,34,76,1,,1031,false,false,true,false,false,2', '--outdir', OUT, file], { timeout: 90_000 });
-  const csv = execFileSync('cat', [file.replace(/\.xlsx$/, '-A-101.csv')], { encoding: 'utf8' });
+  // Messliste (3. Blatt) als CSV
+  execFileSync('soffice', ['--headless', '--convert-to', 'csv:Text - txt - csv (StarCalc):59,34,76,1,,1031,false,false,true,false,false,3', '--outdir', OUT, file], { timeout: 90_000 });
+  const csv = execFileSync('cat', [file.replace(/\.xlsx$/, '-Messliste.csv')], { encoding: 'utf8' });
   // Dezimaltrennzeichen hängt von der Ländereinstellung des Programms ab
-  expect(csv).toMatch(/^1;0[.,]60;0[.,]40;0[.,]03;0[.,]24$/m);
-  expect(csv).toMatch(/Summe Fläche \(m²\);;;;5[.,]44/); // Summenformel wird berechnet
-  // Ausdruck (LibreOffice → PDF): eine Seite
+  expect(csv).toMatch(/^A-101;1;Schadstelle;;;0[.,]60;0[.,]40;0[.,]03;0[.,]24;/m);
+  expect(csv).toMatch(/Summe;5[.,]44/); // Summenformel wird berechnet
+  // Ausdruck (LibreOffice → PDF): je Blatt eine Seite
   execFileSync('soffice', ['--headless', '--convert-to', 'pdf', '--outdir', join(OUT, 'xlsx-pdf'), file], { timeout: 90_000 });
-  expect(execFileSync('pdfinfo', [join(OUT, 'xlsx-pdf', 'Wohnanlage_Sued_Tiefgarage_A-101_Aufmass.pdf')], { encoding: 'utf8' })).toMatch(/Pages:\s+3/); // Aufmaß, Plan, Projektdaten
+  expect(execFileSync('pdfinfo', [join(OUT, 'xlsx-pdf', 'Wohnanlage_Sued_Tiefgarage_A-101_Aufmass.pdf')], { encoding: 'utf8' })).toMatch(/Pages:\s+3/); // Übersicht, Aufmaß, Messliste
 });
 
 test('11. Bearbeiteten Plan als PDF exportieren', async () => {
@@ -441,12 +441,12 @@ test('10b. Excel-Export Kostenstelle und Gesamtprojekt', async () => {
   expect(dl.suggestedFilename()).toBe('Wohnanlage_Sued_Tiefgarage_Aufmass.xlsx');
   const file1 = await saveDownload(dl);
   const wb = readXlsx(file1);
-  // Layout: Aufmaß nach Vorlage, Übersicht, je Plan ein Blatt, Projektdaten
+  // Aufbau: Übersicht (Projektdaten, Zusammenfassung, Pläne), Aufmaß nach Leistungen, Messliste
   const names = Object.keys(wb);
-  expect(names.slice(0, 2)).toEqual(['Aufmaß', 'Übersicht']);
-  // Aufmaß nach Vorlage: Flächenblock mit allen Messungen der Kostenstelle und Summe
+  expect(names.slice(0, 3)).toEqual(['Übersicht', 'Aufmaß', 'Messliste']);
+  // Aufmaß nach Leistungen: Flächenblock mit allen Messungen der Kostenstelle und Summe
   const am = wb['Aufmaß'];
-  expect(am[0][0]?.v).toBe('Aufmaß');
+  expect(am[0][0]?.v).toBe('Aufmaß nach Leistungen');
   const fl = am.findIndex((r) => r[0]?.v === 'Flächen');
   expect(fl).toBeGreaterThan(0);
   // lückenlos: nur Spalten mit Werten (hier mit Breite und Tiefe)
@@ -454,11 +454,12 @@ test('10b. Excel-Export Kostenstelle und Gesamtprojekt', async () => {
   const amSum = am.find((r) => r[4]?.v === 'Summe m²')!;
   expect(amSum[5]?.v).toMatch(new RegExp(`^=SUM\\(F${fl + 3}:F\\d+\\)$`));
   expect(readXlsxPrint(file1)['Aufmaß']).toMatchObject({ fitToPage: true, fitToWidth: 1, fitToHeight: 1 }); // eine Seite
-  expect(names).toEqual(expect.arrayContaining(['A-101', 'A-102', 'B-204']));
-  expect(names[names.length - 1]).toBe('Projektdaten');
-  const ov = wb['Übersicht'].find((r) => r[1]?.v === 'A-101')!;
+  // keine Einzelblätter je Plan mehr – alle Pläne in der Messliste
+  expect(names).not.toContain('A-101');
+  expect([...new Set(messliste(wb).map((r) => r.plan))]).toEqual(['A-101', 'A-102', 'B-204']);
+  const ov = wb['Übersicht'].find((r) => r[0]?.v === 'A-101')!;
   expect([ov[3]?.v, ov[4]?.v]).toEqual([4, 5.44]);
-  expect(wb['A-102'].slice(2, 3).map((r) => r.map((c) => c?.v))).toEqual([[1, 1, 2, 0.05, 2]]);
+  expect(messliste(wb, 'A-102').map((r) => r.values)).toEqual([[1, 1, 2, 0.05, 2]]);
 
   // Klassisches Layout bleibt verfügbar (eine Tabelle je Kostenstelle, Plannummer in Spalte A)
   const dlc = await catchDownload(page, () => page.getByTestId('export-xlsx-classic').click());
@@ -474,16 +475,18 @@ test('10b. Excel-Export Kostenstelle und Gesamtprojekt', async () => {
     ['A-102', 1, 2],
     ['B-204', 1, 2],
   ]);
-  const info = wb['Projektdaten'];
-  expect(info.some((r) => r[0]?.v === 'Projekt' && r[1]?.v === 'Wohnanlage Süd')).toBe(true);
+  // Projektdaten stehen oben in der Übersicht
+  expect(wb['Übersicht'].some((r) => r[0]?.v === 'Projekt' && r[1]?.v === 'Wohnanlage Süd')).toBe(true);
 
   const dl2 = await catchDownload(page, () => page.getByTestId('export-xlsx-project').click());
   expect(dl2.suggestedFilename()).toBe('Wohnanlage_Sued_Aufmass.xlsx');
   const f2 = await saveDownload(dl2);
   const wb2 = readXlsx(f2);
-  expect(Object.keys(wb2).slice(0, 2)).toEqual(['Aufmaß', 'Übersicht']);
-  expect(Object.keys(wb2)).toContain('Projektdaten');
-  expect(readXlsxPrint(f2)['Übersicht']).toMatchObject({ orientation: 'landscape', fitToWidth: 1, titleRows: '$1:$2' });
+  expect(Object.keys(wb2).slice(0, 3)).toEqual(['Übersicht', 'Aufmaß', 'Messliste']);
+  // Gesamtprojekt: Pläne aller Kostenstellen mit Gesamtsumme
+  const ovSum = wb2['Übersicht'].find((r) => r[2]?.v === 'Summe')!;
+  expect(String(ovSum[4]?.v)).toMatch(/^=SUM\(E\d+:E\d+\)$/);
+  expect(readXlsxPrint(f2)['Übersicht']).toMatchObject({ fitToPage: true, fitToWidth: 1 });
 });
 
 test('12. Projekt speichern, schließen und vollständig wiederherstellen', async () => {

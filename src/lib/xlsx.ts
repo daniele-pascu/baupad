@@ -41,7 +41,11 @@ export type CellStyle =
   | 'kvMoneyBold'
   | 'subtitle'
   /** Summe mit bis zu 3 Nachkommastellen (z. B. m³) */
-  | 'sumMeasure';
+  | 'sumMeasure'
+  /** Gitter: Text linksbündig mit Umbruch, Betrag, Hinweis (kursiv grau) */
+  | 'gridLeft'
+  | 'gridMoney'
+  | 'gridNote';
 
 export type Cell =
   | null
@@ -115,6 +119,9 @@ const STYLE_INDEX: Record<CellStyle, number> = {
   kvMoneyBold: 26,
   subtitle: 27,
   sumMeasure: 28,
+  gridLeft: 29,
+  gridMoney: 30,
+  gridNote: 31,
 };
 
 export const str = (v: string, s: CellStyle = 'text'): Cell => ({ t: 'str', v, s });
@@ -237,7 +244,7 @@ const STYLES_XML =
   '<border><left style="thin"><color rgb="FFB4B4B4"/></left><right style="thin"><color rgb="FFB4B4B4"/></right><top style="thin"><color rgb="FFB4B4B4"/></top><bottom style="thin"><color rgb="FFB4B4B4"/></bottom><diagonal/></border>' + // 5 feines Gitter
   '</borders>' +
   '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
-  '<cellXfs count="29">' +
+  '<cellXfs count="32">' +
   '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' + // 0 Standard
   '<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment wrapText="1" vertical="center"/></xf>' + // 1 Kopf
   '<xf numFmtId="49" fontId="0" fillId="0" borderId="3" xfId="0" applyNumberFormat="1" applyBorder="1"/>' + // 2 Text
@@ -267,6 +274,9 @@ const STYLES_XML =
   '<xf numFmtId="165" fontId="1" fillId="0" borderId="2" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1"/>' + // 26 Betrag fett
   '<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1"/>' + // 27 Untertitel
   '<xf numFmtId="164" fontId="1" fillId="0" borderId="2" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1"/>' + // 28 Summe Maß
+  '<xf numFmtId="49" fontId="0" fillId="0" borderId="5" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment wrapText="1" vertical="center"/></xf>' + // 29 Gitter Text links
+  '<xf numFmtId="165" fontId="0" fillId="0" borderId="5" xfId="0" applyNumberFormat="1" applyBorder="1"/>' + // 30 Gitter Betrag
+  '<xf numFmtId="49" fontId="3" fillId="0" borderId="5" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment wrapText="1" vertical="center"/></xf>' + // 31 Gitter Hinweis
   '</cellXfs>' +
   '<cellStyles count="1"><cellStyle name="Standard" xfId="0" builtinId="0"/></cellStyles>' +
   '</styleSheet>';

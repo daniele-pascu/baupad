@@ -94,6 +94,25 @@ export async function saveDownload(dl: Download, name?: string): Promise<string>
 }
 
 export type XlsxCell = { v: string | number; t: string; fmt: string } | null;
+
+/** Standard-Excel, Blatt „Messliste“: Messungen (optional eines Plans) als Zeilen [Nr., Länge, Breite, Tiefe, Fläche] samt Zellen */
+export function messliste(wb: Record<string, XlsxCell[][]>, plan?: string) {
+  const ws = wb['Messliste'];
+  const head = ws[2].map((c) => c?.v);
+  expect(head.slice(0, 10)).toEqual(['Plan', 'Nr.', 'Messart', 'Pos.', 'Leistung', 'Länge (m)', 'Breite (m)', 'Tiefe (m)', 'Fläche (m²)', 'Volumen (m³)']);
+  const end = ws.findIndex((r, i) => i >= 3 && (r[0]?.v ?? '') === ''); // Summenzeile beendet die Liste
+  return ws
+    .slice(3, end < 0 ? undefined : end)
+    .filter((r) => !plan || r[0]?.v === plan)
+    .map((r) => ({
+      cells: r,
+      plan: r[0]?.v,
+      nr: r[1]?.v,
+      kind: r[2]?.v,
+      pos: r[3]?.v ?? null,
+      values: [r[1]?.v ?? null, r[5]?.v ?? null, r[6]?.v ?? null, r[7]?.v ?? null, r[8]?.v ?? null] as (string | number | null)[],
+    }));
+}
 export function readXlsx(path: string): Record<string, XlsxCell[][]> {
   return JSON.parse(execFileSync('python3', [join(process.cwd(), 'tests', 'e2e', 'read_xlsx.py'), path], { encoding: 'utf8' }));
 }

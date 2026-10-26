@@ -86,13 +86,19 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   const lvName = Object.keys(wb).find((n) => n.startsWith('LV '))!;
   expect(lvName).toBeTruthy();
   const lv = wb[lvName];
-  expect(lv[1].map((c) => c?.v)).toEqual(['Pos.-Nr.', 'Kurztext', 'EH', 'LV-Menge', 'Aufmaß-Menge', 'Differenz', 'EP (€)', 'GP LV (€)', 'GP Aufmaß (€)', 'Hinweis']);
+  expect(lv[0][0]?.v).toMatch(/^LV-Abgleich – /);
+  expect(lv[2].map((c) => c?.v)).toEqual(['Pos.', 'Kurztext', 'EH', 'LV-Menge', 'Aufmaß-Menge', 'Differenz', 'EP (€)', 'GP LV (€)', 'GP Aufmaß (€)', 'Hinweis']);
   const b = lv.find((r) => r[0]?.v === '92 01 01 B')!;
   const rowNo = lv.indexOf(b) + 1;
   expect(b.slice(0, 9).map((c) => c?.v ?? null)).toEqual(['92 01 01 B', 'Sperrflaeche', 'm²', 120, 10, `=E${rowNo}-D${rowNo}`, 25, 3000, `=E${rowNo}*G${rowNo}`]);
   const c = lv.find((r) => r[0]?.v === '01 11 01 C')!;
   expect(c[4]?.v ?? null).toBeNull(); // keine Messung → keine erfundene Menge
-  expect(readXlsxPrint(file)[lvName]).toMatchObject({ orientation: 'landscape', fitToWidth: 1, titleRows: '$1:$2' });
+  expect(readXlsxPrint(file)[lvName]).toMatchObject({ orientation: 'landscape', fitToWidth: 1, titleRows: '$1:$3' });
+  // Übersicht: Zusammenfassung je Leistung mit Menge aus dem Blatt „Aufmaß“
+  const ov = wb['Übersicht'];
+  const ovB = ov.find((r) => r[0]?.v === '92 01 01 B')!;
+  expect(ovB.slice(1, 3).map((c) => c?.v)).toEqual(['Sperrflaeche', 'm²']);
+  expect(String(ovB[3]?.v)).toMatch(/^='Aufmaß'!E\d+$/);
   expect(Object.keys(wb)).not.toContain('Ohne Leistung'); // alle Messungen zugeordnet
 
   // Nach dem Neuladen bleibt alles erhalten

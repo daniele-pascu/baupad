@@ -41,7 +41,7 @@ describe('Excel nach Vorlage', () => {
     const sh = aufmassBlocksSheet(data, [plan], new Set(), 'Tiefgarage · 91092');
     const text = (c: unknown) => (c && typeof c === 'object' && 'v' in c ? (c as { v: unknown }).v : null);
     const rows = sh.rows.map((r) => r.map(text));
-    expect(rows[0][0]).toBe('Aufmaß');
+    expect(rows[0][0]).toBe('Aufmaß nach Leistungen');
     expect(rows[1][0]).toBe('Tiefgarage · 91092');
     expect(rows[3][0]).toBe('Pos. 01.01  Betonausbruch'); // nur Kurztext, kein Langtext
     expect(rows.flat().some((v) => typeof v === 'string' && v.includes('bis 3 cm'))).toBe(false);
@@ -68,7 +68,8 @@ describe('Excel nach Vorlage', () => {
     const z = unzipSync(f.data);
     const sheet1 = strFromU8(z['xl/worksheets/sheet1.xml']);
     expect(sheet1).toContain('view="pageLayout"');
-    expect(sheet1).toContain('fitToWidth="1" fitToHeight="1"'); // alles auf einer Seite
+    // Blatt 2 (Aufmaß nach Leistungen): alles auf einer Seite
+    expect(strFromU8(z['xl/worksheets/sheet2.xml'])).toContain('fitToWidth="1" fitToHeight="1"');
     expect(sheet1).toContain('<oddHeader>&amp;L&amp;9Tiefgarage &amp;&amp; Co / 91092 – Ebene 1&amp;C&amp;9Seite &amp;P von &amp;N&amp;R&amp;G</oddHeader>');
     expect(sheet1).toContain('<legacyDrawingHF r:id="rIdHF"/>');
     expect(strFromU8(z['xl/worksheets/_rels/sheet1.xml.rels'])).toContain('vmlDrawingHF1.vml');
@@ -82,5 +83,25 @@ describe('Excel nach Vorlage', () => {
     const g = unzipSync(exportXlsx(data, { kind: 'costCenter', costCenterId: 'c1' }).data);
     expect(strFromU8(g['xl/worksheets/sheet1.xml'])).not.toContain('&amp;G');
     expect(g['xl/media/logo.png']).toBeUndefined();
+  });
+
+  it('Aufbau: Übersicht (Projektdaten, Zusammenfassung per Formel, Pläne), Aufmaß, Messliste (Filter, Teilsummen), LV-Abgleich', () => {
+    const z = unzipSync(exportXlsx(data, { kind: 'costCenter', costCenterId: 'c1' }).data);
+    const wb = strFromU8(z['xl/workbook.xml']);
+    const names = [...wb.matchAll(/<sheet name="([^"]+)"/g)].map((m) => m[1]);
+    expect(names).toEqual(['Übersicht', 'Aufmaß', 'Messliste', 'LV 1']);
+    const ov = strFromU8(z['xl/worksheets/sheet1.xml']);
+    for (const t of ['Projektdaten', 'Zusammenfassung', 'Pläne', 'Betonausbruch', 'Linien ohne Leistung', 'Summe netto', 'Tiefgarage &amp; Co']) expect(ov).toContain(t);
+    // Menge kommt per Formel aus dem Blatt „Aufmaß“, GP = Menge × EP
+    expect(ov).toMatch(/<f>'Aufmaß'!E\d+<\/f><v>8<\/v>/);
+    expect(ov).toMatch(/<f>D\d+\*E\d+<\/f><v>400<\/v>/);
+    const ml = strFromU8(z['xl/worksheets/sheet3.xml']);
+    expect(ml).toContain('<autoFilter ref="A3:J');
+    expect(ml).toContain('SUBTOTAL(109,I4:I6)');
+    expect(ml).toContain('Volumen (m³)');
+    expect(strFromU8(z['xl/worksheets/sheet4.xml'])).toContain('LV-Abgleich');
+    // Einzelplan: ohne LV-Abgleich
+    const zp = unzipSync(exportXlsx(data, { kind: 'plan', planId: 'p1' }).data);
+    expect([...strFromU8(zp['xl/workbook.xml']).matchAll(/<sheet name="([^"]+)"/g)].map((m) => m[1])).toEqual(['Übersicht', 'Aufmaß', 'Messliste']);
   });
 });

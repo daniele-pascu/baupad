@@ -1,4 +1,4 @@
-import { countKind, KIND_LABELS, kindOf, quantityBasis, quantityFor, sumAreas, sumLengths } from './measure';
+import { KIND_LABELS, kindOf, quantityBasis, quantityFor, sumAreas, sumLengths } from './measure';
 import { naturalCompare } from './numbers';
 import type { ProjectState } from './store';
 import { alive } from './store';
@@ -292,198 +292,25 @@ function exportClassic(data: ProjectState, scope: XlsxScope, out: BuildOut): Exp
 }
 
 // ---------------------------------------------------------------------------
-// Neues Excel-Layout (Standard)
+// Excel (Standard): Übersicht · Aufmaß nach Leistungen · Messliste · LV-Abgleich
 
-/** Druckfertiges Aufmaßblatt eines Plans: A1 = Plan, Zeile 2 = Überschriften, ab Zeile 3 Messungen. */
-export function planSheet(data: ProjectState, plan: Plan, used: Set<string>): Sheet {
-  const damages = damagesOf(data, plan.id);
-  const showKind = damages.some((d) => kindOf(d) !== 'damage');
-  // Bauteilbuchstaben werden in der Oberfläche nicht mehr verwendet – im Export ausgeblendet
-  const showComp = false;
-  const showPos = damages.some((d) => findPosition(data, d.positionRef));
-  const headers = ['Nr.', 'Länge (m)', 'Breite (m)', 'Tiefe (m)', 'Fläche (m²)'];
-  if (showKind) headers.push('Messart');
-  if (showComp) headers.push('Bauteil');
-  if (showPos) headers.push('Leistung');
-  const kindCol = headers.indexOf('Messart');
-  const body: Cell[][] = damages.map((d) => {
-    const row: Cell[] = [
-      (d.label ? str(d.label) : num(d.number, 'int')),
-      num(d.length, 'measure'),
-      d.width === null ? blank() : num(d.width, 'measure'),
-      // leere Tiefe bleibt leer (nicht 0)
-      d.depth === null ? blank() : num(d.depth, 'measure'),
-      d.area === null ? blank() : num(d.area, 'area'),
-    ];
-    if (showKind) row.push(str(KIND_LABELS[kindOf(d)]));
-    if (showComp) {
-      const c = d.componentId ? data.components[d.componentId] : undefined;
-      row.push(str(c && !c.deletedAt ? (c.name ? `${c.letter} – ${c.name}` : c.letter) : ''));
-    }
-    if (showPos) row.push(str(findPosition(data, d.positionRef)?.pos.number ?? ''));
-    return row;
-  });
-  const first = 3;
-  const last = Math.max(first, damages.length + 2);
-  const sums: Cell[][] = [
-    [
-      str('Summe Fläche (m²)', 'label'),
-      null,
-      null,
-      null,
-      damages.length ? { t: 'formula', f: `SUM(E${first}:E${last})`, v: sumAreas(damages), s: 'boldArea' } : num(0, 'boldArea'),
-    ],
-  ];
-  if (countKind(damages, 'line') && kindCol >= 0) {
-    const k = colName(kindCol);
-    sums.push([
-      str('Summe Länge Linien (m)', 'label'),
-      { t: 'formula', f: `SUMIF(${k}${first}:${k}${last},"Linie",B${first}:B${last})`, v: sumLengths(damages), s: 'boldArea' },
-    ]);
-  }
-  const widths = [8, 12, 12, 12, 13, ...headers.slice(5).map((h) => (h === 'Leistung' ? 14 : h === 'Bauteil' ? 16 : 13))];
-  return {
-    name: sheetName(plan.planNumber || plan.planName || 'Plan', used),
-    rows: [[str(`Plan ${planTitle(plan)}`, 'title')], headers.map((h) => str(h, 'header')), ...body, [], ...sums],
-    widths,
-    headerRows: 2,
-    print: true,
-  };
+/** Ein Block des Aufmaßblatts (für die Zusammenfassung in der Übersicht) */
+export interface BlockInfo {
+  /** Positionsnummer ('' = ohne Leistung) */
+  pos: string;
+  text: string;
+  unit: string;
+  /** Zelle der Summe im Blatt „Aufmaß“, z. B. „E8“ */
+  sumRef: string;
+  total: number;
+  price: number | null;
+  count: number;
 }
 
-/** Übersicht über alle Pläne der Auswahl mit Summen. */
-function overviewSheet(data: ProjectState, plans: Plan[], title: string, used: Set<string>): Sheet {
-  const headers = ['Kostenstelle', 'Plan', 'Bezeichnung / Ebene', 'Messungen', 'Fläche (m²)', 'Länge Linien (m)'];
-  const body: Cell[][] = plans.map((p) => {
-    const ds = damagesOf(data, p.id);
-    return [
-      str(costCenterLabel(data.costCenters[p.costCenterId])),
-      str(p.planNumber),
-      str([p.planName, p.floor].filter(Boolean).join(' · ')),
-      num(ds.length, 'int'),
-      num(sumAreas(ds), 'area'),
-      num(sumLengths(ds), 'measure'),
-    ];
-  });
-  const last = Math.max(3, plans.length + 2);
-  const all = plans.flatMap((p) => damagesOf(data, p.id));
-  return {
-    name: sheetName('Übersicht', used),
-    rows: [
-      [str(title, 'title')],
-      headers.map((h) => str(h, 'header')),
-      ...body,
-      [],
-      [
-        str('Summe', 'label'),
-        null,
-        null,
-        { t: 'formula', f: `SUM(D3:D${last})`, v: all.length, s: 'boldText' },
-        { t: 'formula', f: `SUM(E3:E${last})`, v: sumAreas(all), s: 'boldArea' },
-        { t: 'formula', f: `SUM(F3:F${last})`, v: sumLengths(all), s: 'boldArea' },
-      ],
-    ],
-    widths: [22, 12, 28, 11, 13, 16],
-    headerRows: 2,
-    landscape: true,
-    print: true,
-  };
-}
-
-/**
- * Auswertung eines LV bzw. einer MFK: LV-Menge und Aufmaßmenge getrennt, Differenz und
- * Beträge nur bei vorhandenen Werten und passender Einheit (nichts wird erfunden).
- */
-function lvSheet(doc: LvDocument, damages: Damage[], used: Set<string>): Sheet {
-  const headers = ['Pos.-Nr.', 'Kurztext', 'EH', 'LV-Menge', 'Aufmaß-Menge', 'Differenz', 'EP (€)', 'GP LV (€)', 'GP Aufmaß (€)', 'Hinweis'];
-  const rows: Cell[][] = [];
-  let r = 3;
-  let lvSum = 0;
-  let measuredSum = 0;
-  for (const g of doc.groups.filter((x) => x.number.split(' ').length <= 2)) {
-    const positions = doc.positions.filter((p) => p.group === g.number);
-    if (!positions.length) continue;
-    rows.push([str(g.number, 'label'), str(g.title, 'label')]);
-    r++;
-    for (const p of positions) rows.push(lvRow(doc, p, damages, r++, (a, b) => ((lvSum += a), (measuredSum += b))));
-  }
-  for (const p of doc.positions.filter((x) => !doc.groups.some((g) => g.number === x.group && x.group.split(' ').length <= 2)))
-    rows.push(lvRow(doc, p, damages, r++, (a, b) => ((lvSum += a), (measuredSum += b))));
-  const last = Math.max(3, r - 1);
-  return {
-    name: sheetName(`${doc.kind === 'lv' ? 'LV' : 'MFK'} ${doc.number || doc.name}`, used),
-    rows: [
-      [str(lvDocLabel(doc), 'title')],
-      headers.map((h) => str(h, 'header')),
-      ...rows,
-      [],
-      [
-        str('Summe', 'label'),
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        { t: 'formula', f: `SUM(H3:H${last})`, v: Math.round(lvSum * 100) / 100, s: 'boldMoney' },
-        { t: 'formula', f: `SUM(I3:I${last})`, v: Math.round(measuredSum * 100) / 100, s: 'boldMoney' },
-      ],
-      [null, str('Beträge netto; Aufmaß-Mengen aus den zugeordneten Messungen, LV-Mengen unverändert.', 'note')],
-    ],
-    widths: [13, 42, 6, 11, 13, 11, 11, 13, 14, 30],
-    headerRows: 2,
-    landscape: true,
-    print: true,
-  };
-}
-
-function lvRow(doc: LvDocument, p: LvPosition, damages: Damage[], row: number, add: (lv: number, measured: number) => void): Cell[] {
-  const assigned = damages.filter((d) => d.positionRef === positionRef(doc.id, p.id));
-  const q = assigned.length ? quantityFor(p.unit, assigned) : { value: null, missing: 0 };
-  const notes: string[] = [];
-  if (assigned.length && !quantityBasis(p.unit)) notes.push(`Einheit „${p.unit}“ nicht aus Messungen ableitbar (${assigned.length} Messung(en))`);
-  if (q.missing) notes.push(`${q.missing} Messung(en) passen nicht zur Einheit`);
-  if (p.issues.length) notes.push(`Import ungeprüft: ${p.issues.join(', ')}`);
-  const measuredAmount = q.value !== null && p.unitPrice !== null ? Math.round(q.value * p.unitPrice * 100) / 100 : null;
-  add(p.totalPrice ?? 0, measuredAmount ?? 0);
-  return [
-    str(p.number),
-    str(p.shortText, 'wrap'),
-    str(p.unit),
-    p.quantity === null ? blank() : num(p.quantity, 'measure'),
-    q.value === null ? blank() : num(q.value, 'measure'),
-    p.quantity !== null && q.value !== null ? { t: 'formula', f: `E${row}-D${row}`, v: q.value - p.quantity, s: 'measure' } : blank(),
-    p.unitPrice === null ? blank() : num(p.unitPrice, 'money'),
-    p.totalPrice === null ? blank() : num(p.totalPrice, 'money'),
-    measuredAmount === null ? blank() : { t: 'formula', f: `E${row}*G${row}`, v: measuredAmount, s: 'money' },
-    str(notes.join('; '), 'note'),
-  ];
-}
-
-/** Messungen ohne Leistungszuordnung (nur, wenn es LV/MFK gibt). */
-function unassignedSheet(data: ProjectState, plans: Plan[], used: Set<string>): Sheet | null {
-  const rows = plans.flatMap((p) => damagesOf(data, p.id).filter((d) => !findPosition(data, d.positionRef)).map((d) => ({ p, d })));
-  if (!rows.length) return null;
-  return {
-    name: sheetName('Ohne Leistung', used),
-    rows: [
-      [str('Messungen ohne Leistungszuordnung', 'title')],
-      ['Plan', 'Nr.', 'Messart', 'Länge (m)', 'Breite (m)', 'Tiefe (m)', 'Fläche (m²)'].map((h) => str(h, 'header')),
-      ...rows.map(({ p, d }) => [
-        str(p.planNumber),
-        (d.label ? str(d.label) : num(d.number, 'int')),
-        str(KIND_LABELS[kindOf(d)]),
-        num(d.length, 'measure'),
-        d.width === null ? blank() : num(d.width, 'measure'),
-        d.depth === null ? blank() : num(d.depth, 'measure'),
-        d.area === null ? blank() : num(d.area, 'area'),
-      ]),
-    ],
-    widths: [14, 8, 13, 12, 12, 12, 13],
-    headerRows: 2,
-    print: true,
-  };
-}
+const quoted = (name: string) => `'${name.replace(/'/g, "''")}'`;
+const blankRow = (n: number, s: Parameters<typeof blank>[0]) => Array.from({ length: n }, () => blank(s));
+/** Abschnittsüberschrift als Band über n Spalten */
+const section = (title: string, n: number): Cell[] => [str(title, 'blockTitle'), ...blankRow(n - 1, 'blockTitle')];
 
 /** Einheit für die Anzeige (m2 → m², m3 → m³) */
 const unitLabel = (u: string) => u.replace(/^m2$/i, 'm²').replace(/^m3$/i, 'm³').replace(/^qm$/i, 'm²').replace(/^cbm$/i, 'm³');
@@ -495,13 +322,20 @@ const unitLabel = (u: string) => u.replace(/^m2$/i, 'm²').replace(/^m3$/i, 'm³
  * bei Positionen Einheitspreis und Gesamtpreis (Formeln). Messungen ohne Leistung folgen getrennt
  * nach Flächen und Linien.
  */
-export function aufmassBlocksSheet(data: ProjectState, plans: Plan[], used: Set<string>, subtitle = ''): Sheet {
+export function aufmassBlocksSheet(data: ProjectState, plans: Plan[], used: Set<string>, subtitle = '', collect?: BlockInfo[]): Sheet {
   const items = aufmassRows(data, plans).map(({ plan, damage }) => ({ plan, d: damage }));
-  const rows: Cell[][] = [[str('Aufmaß', 'title')], [str(subtitle || data.project.name, 'subtitle')], []];
+  const rows: Cell[][] = [[str('Aufmaß nach Leistungen', 'title')], [str(subtitle || data.project.name, 'subtitle')], []];
   const totals: string[] = [];
   let money = 0;
   let maxCols = 4;
-  const pushBlock = (title: string, unit: string, list: { plan: Plan; d: Damage; q: number | null }[], price: number | null, priced: boolean) => {
+  const pushBlock = (
+    title: string,
+    unit: string,
+    list: { plan: Plan; d: Damage; q: number | null }[],
+    price: number | null,
+    priced: boolean,
+    info: Pick<BlockInfo, 'pos' | 'text'>,
+  ) => {
     // nur Spalten mit Werten – keine leeren Kästen
     const showW = list.some((x) => x.d.width !== null);
     const showT = list.some((x) => x.d.depth !== null);
@@ -533,6 +367,7 @@ export function aufmassBlocksSheet(data: ProjectState, plans: Plan[], used: Set<
     sumRow[n - 1] = { t: 'formula', f: `SUM(${q}${first}:${q}${last})`, v: total, s: fine ? 'sumMeasure' : 'sumValue' };
     rows.push(sumRow);
     const sumRef = `${q}${rows.length}`;
+    collect?.push({ ...info, unit: u, sumRef, total, price, count: list.length });
     if (priced) {
       const ep: Cell[] = Array.from({ length: n }, () => null);
       ep[n - 2] = str(`Einheitspreis (€/${u})`, 'kvLabel');
@@ -561,6 +396,7 @@ export function aufmassBlocksSheet(data: ProjectState, plans: Plan[], used: Set<
         own.map((x) => ({ ...x, q: measurementQuantity(p.unit, x.d).value })),
         p.unitPrice,
         true,
+        { pos: p.number, text: p.shortText || `Position ${p.number}` },
       );
     }
   }
@@ -569,8 +405,10 @@ export function aufmassBlocksSheet(data: ProjectState, plans: Plan[], used: Set<
   const freeLines = free.filter((x) => kindOf(x.d) === 'line');
   const freeAreas = free.filter((x) => kindOf(x.d) !== 'line');
   const withoutPos = free.length < items.length;
-  if (freeAreas.length) pushBlock(withoutPos ? 'Flächen ohne Leistung' : 'Flächen', 'm²', freeAreas.map((x) => ({ ...x, q: x.d.area })), null, false);
-  if (freeLines.length) pushBlock(withoutPos ? 'Linien ohne Leistung' : 'Linien', 'm', freeLines.map((x) => ({ ...x, q: x.d.length })), null, false);
+  const areaTitle = withoutPos ? 'Flächen ohne Leistung' : 'Flächen';
+  const lineTitle = withoutPos ? 'Linien ohne Leistung' : 'Linien';
+  if (freeAreas.length) pushBlock(areaTitle, 'm²', freeAreas.map((x) => ({ ...x, q: x.d.area })), null, false, { pos: '', text: areaTitle });
+  if (freeLines.length) pushBlock(lineTitle, 'm', freeLines.map((x) => ({ ...x, q: x.d.length })), null, false, { pos: '', text: lineTitle });
   if (!items.length) rows.push([str('Noch keine Messungen erfasst.', 'note')]);
   if (totals.length > 1) {
     const r: Cell[] = Array.from({ length: maxCols }, () => null);
@@ -589,48 +427,236 @@ export function aufmassBlocksSheet(data: ProjectState, plans: Plan[], used: Set<
   };
 }
 
+
+/**
+ * Übersicht (erstes Blatt): Projektdaten, Zusammenfassung je Leistung (Mengen per Formel aus dem
+ * Blatt „Aufmaß“, Einheits- und Gesamtpreise, Summe netto) und die exportierten Pläne.
+ */
+function summarySheet(data: ProjectState, plans: Plan[], ccList: CostCenter[], blocks: BlockInfo[], aufmassName: string, used: Set<string>, subtitle: string, planScope: Plan | null): Sheet {
+  const p = data.project;
+  const all = plans.flatMap((pl) => damagesOf(data, pl.id));
+  const rows: Cell[][] = [[str('Aufmaß', 'title')], [str(subtitle, 'subtitle')], [], section('Projektdaten', 6)];
+  const info: [string, string][] = [
+    ['Projekt', p.name],
+    ['Projektnummer', p.number ?? ''],
+    ['Auftraggeber', p.client],
+    ['Adresse', p.address],
+    ['Kostenstelle', ccList.map((c) => costCenterLabel(c)).filter(Boolean).join(', ')],
+    ...(planScope ? ([['Plan', planTitle(planScope)]] as [string, string][]) : []),
+    ['Umfang', `${plans.length} ${plans.length === 1 ? 'Plan' : 'Pläne'} · ${all.length} ${all.length === 1 ? 'Messung' : 'Messungen'}`],
+    ['Stand', new Date().toLocaleDateString('de-DE')],
+  ];
+  for (const [k, v] of info.filter(([, v]) => v)) rows.push([str(k, 'label'), str(v, 'plain')]);
+  rows.push([]);
+
+  // Zusammenfassung je Leistung
+  rows.push(section('Zusammenfassung', 6));
+  rows.push(['Pos.', 'Leistung', 'Einheit', 'Menge', 'EP (€)', 'GP (€)'].map((h) => str(h, 'gridHead')));
+  const first = rows.length + 1;
+  let money = 0;
+  let priced = false;
+  for (const b of blocks) {
+    const r = rows.length + 1;
+    const amount = b.price !== null ? Math.round(b.total * b.price * 100) / 100 : null;
+    if (amount !== null) {
+      money += amount;
+      priced = true;
+    }
+    rows.push([
+      str(b.pos || '–', 'gridText'),
+      str(b.text, 'gridLeft'),
+      str(b.unit, 'gridText'),
+      { t: 'formula', f: `${quoted(aufmassName)}!${b.sumRef}`, v: b.total, s: b.unit === 'm³' ? 'gridMeasure' : 'gridArea' },
+      b.price === null ? blank('gridMoney') : num(b.price, 'gridMoney'),
+      amount === null ? blank('gridMoney') : { t: 'formula', f: `D${r}*E${r}`, v: amount, s: 'gridMoney' },
+    ]);
+  }
+  if (!blocks.length) rows.push([str('–', 'gridText'), str('Noch keine Messungen erfasst.', 'gridNote'), ...blankRow(4, 'gridText')]);
+  const last = rows.length;
+  if (priced) rows.push([null, null, null, null, str('Summe netto', 'sumLabel'), { t: 'formula', f: `SUM(F${first}:F${last})`, v: Math.round(money * 100) / 100, s: 'kvMoneyBold' }]);
+  rows.push([]);
+
+  // Pläne
+  rows.push(section('Pläne', 6));
+  rows.push(['Plan', 'Bezeichnung', 'Ebene', 'Messungen', 'Fläche (m²)', 'Linien (m)'].map((h) => str(h, 'gridHead')));
+  const pFirst = rows.length + 1;
+  for (const pl of plans) {
+    const ds = damagesOf(data, pl.id);
+    rows.push([
+      str(pl.planNumber, 'gridText'),
+      str(pl.planName, 'gridLeft'),
+      str(pl.floor, 'gridText'),
+      num(ds.length, 'gridInt'),
+      num(sumAreas(ds), 'gridArea'),
+      num(sumLengths(ds), 'gridArea'),
+    ]);
+  }
+  const pLast = rows.length;
+  if (plans.length > 1)
+    rows.push([
+      null,
+      null,
+      str('Summe', 'sumLabel'),
+      { t: 'formula', f: `SUM(D${pFirst}:D${pLast})`, v: all.length, s: 'sumValue' },
+      { t: 'formula', f: `SUM(E${pFirst}:E${pLast})`, v: sumAreas(all), s: 'sumValue' },
+      { t: 'formula', f: `SUM(F${pFirst}:F${pLast})`, v: sumLengths(all), s: 'sumValue' },
+    ]);
+  rows.push([]);
+  rows.push([str('Mengen aus dem Blatt „Aufmaß“ · alle Messungen einzeln im Blatt „Messliste“ · Beträge netto.', 'subtitle')]);
+  return { name: sheetName('Übersicht', used), rows, widths: [16, 38, 10, 12, 12, 14], print: true, pageLayout: true };
+}
+
+/** Messliste: alle Messungen in einer filterbaren Tabelle; Summen berücksichtigen den Filter */
+function measureListSheet(data: ProjectState, plans: Plan[], used: Set<string>, subtitle: string): Sheet {
+  const items = aufmassRows(data, plans);
+  const head = ['Plan', 'Nr.', 'Messart', 'Pos.', 'Leistung', 'Länge (m)', 'Breite (m)', 'Tiefe (m)', 'Fläche (m²)', 'Volumen (m³)'];
+  const rows: Cell[][] = [[str('Messliste', 'title')], [str(subtitle, 'subtitle')], head.map((h) => str(h, 'gridHead'))];
+  const first = rows.length + 1;
+  let area = 0;
+  let vol = 0;
+  for (const { plan, damage: d } of items) {
+    const pos = findPosition(data, d.positionRef)?.pos;
+    const v = d.area !== null && d.depth !== null && kindOf(d) !== 'line' ? Math.round(d.area * d.depth * 10000) / 10000 : null;
+    if (d.area !== null && kindOf(d) !== 'line') area += d.area;
+    if (v !== null) vol += v;
+    rows.push([
+      str(plan.planNumber || plan.planName, 'gridText'),
+      d.label ? str(d.label, 'gridText') : num(d.number, 'gridInt'),
+      str(KIND_LABELS[kindOf(d)], 'gridText'),
+      str(pos?.number ?? '', 'gridText'),
+      str(pos?.shortText ?? '', 'gridLeft'),
+      num(d.length, 'gridMeasure'),
+      d.width === null ? blank('gridMeasure') : num(d.width, 'gridMeasure'),
+      d.depth === null ? blank('gridMeasure') : num(d.depth, 'gridMeasure'),
+      d.area === null || kindOf(d) === 'line' ? blank('gridArea') : num(d.area, 'gridArea'),
+      v === null ? blank('gridMeasure') : num(v, 'gridMeasure'),
+    ]);
+  }
+  const last = Math.max(first, rows.length);
+  if (!items.length) rows.push([str('Noch keine Messungen erfasst.', 'note')]);
+  rows.push([
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    str('Summe', 'sumLabel'),
+    { t: 'formula', f: `SUBTOTAL(109,I${first}:I${last})`, v: Math.round(area * 10000) / 10000, s: 'sumValue' },
+    { t: 'formula', f: `SUBTOTAL(109,J${first}:J${last})`, v: Math.round(vol * 10000) / 10000, s: 'sumMeasure' },
+  ]);
+  rows.push([str('Tipp: Über die Pfeile in der Kopfzeile filtern und sortieren (z. B. nach Plan oder Leistung) – die Summen passen sich an.', 'subtitle')]);
+  return {
+    name: sheetName('Messliste', used),
+    rows,
+    widths: [10, 7, 12, 10, 30, 11, 11, 10, 12, 13],
+    headerRows: 3,
+    autoFilter: `A3:J${last}`,
+    landscape: true,
+    print: true,
+  };
+}
+
+/**
+ * LV-Abgleich je LV/MFK: LV-Menge und Aufmaßmenge getrennt, Differenz und Beträge nur bei
+ * vorhandenen Werten und passender Einheit (nichts wird erfunden).
+ */
+function lvSheet(doc: LvDocument, damages: Damage[], used: Set<string>, subtitle: string): Sheet {
+  const headers = ['Pos.', 'Kurztext', 'EH', 'LV-Menge', 'Aufmaß-Menge', 'Differenz', 'EP (€)', 'GP LV (€)', 'GP Aufmaß (€)', 'Hinweis'];
+  const rows: Cell[][] = [[str(`LV-Abgleich – ${lvDocLabel(doc)}`, 'title')], [str(subtitle, 'subtitle')], headers.map((h) => str(h, 'gridHead'))];
+  const first = rows.length + 1;
+  let lvSum = 0;
+  let measuredSum = 0;
+  const add = (a: number, b: number) => ((lvSum += a), (measuredSum += b));
+  for (const g of doc.groups.filter((x) => x.number.split(' ').length <= 2)) {
+    const positions = doc.positions.filter((p) => p.group === g.number);
+    if (!positions.length) continue;
+    rows.push([str(g.number, 'blockTitle'), str(g.title, 'blockTitle'), ...blankRow(8, 'blockTitle')]);
+    for (const p of positions) rows.push(lvRow(doc, p, damages, rows.length + 1, add));
+  }
+  for (const p of doc.positions.filter((x) => !doc.groups.some((g) => g.number === x.group && x.group.split(' ').length <= 2)))
+    rows.push(lvRow(doc, p, damages, rows.length + 1, add));
+  const last = Math.max(first, rows.length);
+  rows.push([
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    str('Summe', 'sumLabel'),
+    { t: 'formula', f: `SUM(H${first}:H${last})`, v: Math.round(lvSum * 100) / 100, s: 'kvMoneyBold' },
+    { t: 'formula', f: `SUM(I${first}:I${last})`, v: Math.round(measuredSum * 100) / 100, s: 'kvMoneyBold' },
+  ]);
+  rows.push([str('Beträge netto; Aufmaß-Mengen aus den zugeordneten Messungen, LV-Mengen unverändert.', 'subtitle')]);
+  return {
+    name: sheetName(`${doc.kind === 'lv' ? 'LV' : 'MFK'} ${doc.number || doc.name}`, used),
+    rows,
+    widths: [12, 40, 6, 11, 13, 11, 11, 13, 14, 28],
+    headerRows: 3,
+    landscape: true,
+    print: true,
+  };
+}
+
+function lvRow(doc: LvDocument, p: LvPosition, damages: Damage[], row: number, add: (lv: number, measured: number) => void): Cell[] {
+  const assigned = damages.filter((d) => d.positionRef === positionRef(doc.id, p.id));
+  const q = assigned.length ? quantityFor(p.unit, assigned) : { value: null, missing: 0 };
+  const notes: string[] = [];
+  if (assigned.length && !quantityBasis(p.unit)) notes.push(`Einheit „${p.unit}“ nicht aus Messungen ableitbar (${assigned.length} Messung(en))`);
+  if (q.missing) notes.push(`${q.missing} Messung(en) passen nicht zur Einheit`);
+  if (p.issues.length) notes.push(`Import ungeprüft: ${p.issues.join(', ')}`);
+  const measuredAmount = q.value !== null && p.unitPrice !== null ? Math.round(q.value * p.unitPrice * 100) / 100 : null;
+  add(p.totalPrice ?? 0, measuredAmount ?? 0);
+  return [
+    str(p.number, 'gridText'),
+    str(p.shortText, 'gridLeft'),
+    str(unitLabel(p.unit), 'gridText'),
+    p.quantity === null ? blank('gridMeasure') : num(p.quantity, 'gridMeasure'),
+    q.value === null ? blank('gridMeasure') : num(q.value, 'gridMeasure'),
+    p.quantity !== null && q.value !== null ? { t: 'formula', f: `E${row}-D${row}`, v: q.value - p.quantity, s: 'gridMeasure' } : blank('gridMeasure'),
+    p.unitPrice === null ? blank('gridMoney') : num(p.unitPrice, 'gridMoney'),
+    p.totalPrice === null ? blank('gridMoney') : num(p.totalPrice, 'gridMoney'),
+    measuredAmount === null ? blank('gridMoney') : { t: 'formula', f: `E${row}*G${row}`, v: measuredAmount, s: 'gridMoney' },
+    str(notes.join('; '), 'gridNote'),
+  ];
+}
+
 function exportStandard(data: ProjectState, scope: XlsxScope, out: BuildOut): ExportFile {
   const used = new Set<string>();
   const ccs = costCentersOf(data);
   let plans: Plan[];
   let ccList: CostCenter[];
   let name: string;
-  let title: string;
   if (scope.kind === 'plan') {
     const plan = data.plans[scope.planId];
     const cc = data.costCenters[plan.costCenterId];
     plans = [plan];
     ccList = cc ? [cc] : [];
     name = safeFileName(data.project.name, costCenterLabel(cc), plan.planNumber || plan.planName, 'Aufmass');
-    title = '';
   } else if (scope.kind === 'costCenter') {
     const cc = data.costCenters[scope.costCenterId];
     plans = plansOf(data, cc.id);
     ccList = [cc];
     name = safeFileName(data.project.name, costCenterLabel(cc), 'Aufmass');
-    title = [`Aufmaß ${data.project.name}`, costCenterLabel(cc)].filter(Boolean).join(' – ');
   } else {
     plans = ccs.flatMap((cc) => plansOf(data, cc.id));
     ccList = ccs;
     name = safeFileName(data.project.name, 'Aufmass');
-    title = `Aufmaß ${data.project.name}`;
   }
-  // Erstes Blatt: Aufmaß im Layout der Vorlage (Blöcke je Leistung); danach die Detailblätter
-  const sheets: Sheet[] = [aufmassBlocksSheet(data, plans, used, aufmassSubtitle(data, scope))];
-  if (scope.kind !== 'plan') sheets.push(overviewSheet(data, plans, title, used));
-  for (const p of plans) sheets.push(planSheet(data, p, used));
-  if (!plans.length) sheets.push({ name: sheetName('Aufmaß', used), rows: [[str('Keine Pläne', 'title')]], widths: [20] });
-  // LV/MFK-Auswertung (Mengen aus den Messungen der exportierten Pläne)
+  const subtitle = aufmassSubtitle(data, scope);
+  // Reihenfolge der Blätter: Übersicht, Aufmaß, Messliste, LV-Abgleich (Namen vorab reservieren)
+  const overviewUsed = new Set<string>(['übersicht']);
+  const blocks: BlockInfo[] = [];
+  const aufmass = aufmassBlocksSheet(data, plans, overviewUsed, subtitle, blocks);
+  const sheets: Sheet[] = [summarySheet(data, plans, ccList, blocks, aufmass.name, used, subtitle, scope.kind === 'plan' ? plans[0] : null)];
+  overviewUsed.forEach((n) => used.add(n));
+  sheets.push(aufmass, measureListSheet(data, plans, used, subtitle));
   if (scope.kind !== 'plan') {
-    const docs = lvDocsOf(data);
     const damages = plans.flatMap((p) => damagesOf(data, p.id));
-    for (const doc of docs) sheets.push(lvSheet(doc, damages, used));
-    if (docs.length) {
-      const un = unassignedSheet(data, plans, used);
-      if (un) sheets.push(un);
-    }
+    for (const doc of lvDocsOf(data)) sheets.push(lvSheet(doc, damages, used, subtitle));
   }
-  sheets.push(infoSheet(data, ccList, plans, used));
   return { name: `${name}.xlsx`, data: out(sheets), mimeType: XLSX_MIME };
 }
 

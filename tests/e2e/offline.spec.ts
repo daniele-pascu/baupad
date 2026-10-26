@@ -8,6 +8,7 @@ import {
   drawRect,
   fillMeasures,
   planBox,
+  messliste,
   readXlsx,
   saveDownload,
   tableRows,
@@ -74,7 +75,7 @@ test('Offline: Projekt anlegen, PDF importieren, Schadstellen erfassen, exportie
 
   const x = await catchDownload(page, () => page.getByTestId('export-xlsx-plan').click());
   const wb = readXlsx(await saveDownload(x, 'offline.xlsx'));
-  expect(wb['A-101'][2].map((c) => c?.v)).toEqual([1, 1.5, 0.8, 0.05, 1.2]);
+  expect(messliste(wb, 'A-101')[0].values).toEqual([1, 1.5, 0.8, 0.05, 1.2]);
 
   const p = await catchDownload(page, async () => {
     await page.getByTestId('export-pdf-plan').click();
@@ -113,7 +114,8 @@ test('Offline: Projekt anlegen, PDF importieren, Schadstellen erfassen, exportie
   // Offline: Excel (neues Layout mit LV-Auswertung) für die Kostenstelle
   const xc = await catchDownload(page, () => page.getByTestId('export-xlsx-cc').click());
   const wbc = readXlsx(await saveDownload(xc, 'offline-cc.xlsx'));
-  expect(Object.keys(wbc)).toEqual(expect.arrayContaining(['Übersicht', 'A-101', 'Z-1', 'Projektdaten']));
+  expect(Object.keys(wbc)).toEqual(expect.arrayContaining(['Übersicht', 'Aufmaß', 'Messliste']));
+  expect([...new Set(messliste(wbc).map((r) => r.plan))]).toEqual(expect.arrayContaining(['A-101', 'Z-1']));
   expect(Object.keys(wbc).some((n) => n.startsWith('LV '))).toBe(true);
 
   // Keine fehlgeschlagenen Anfragen (alles kam aus dem Offline-Speicher)
