@@ -206,7 +206,7 @@ export function PlanDetailsDialog({ plan, data, onClose }: { plan: Plan; data: P
 }
 
 /** Plannummer prüfen: Pflichtfeld und im Projekt eindeutig */
-function planNumberError(data: ProjectState, value: string, exceptId?: string): string | null {
+export function planNumberError(data: ProjectState, value: string, exceptId?: string): string | null {
   const n = value.trim().toLowerCase();
   if (!n) return 'Bitte eine Plannummer eingeben.';
   if (alive(data.plans).some((p) => p.id !== exceptId && p.planNumber.trim().toLowerCase() === n)) return 'Diese Plannummer ist im Projekt bereits vergeben.';

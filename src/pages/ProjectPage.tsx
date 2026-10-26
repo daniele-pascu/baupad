@@ -7,6 +7,7 @@ import { ImportWizard } from '../components/ImportWizard';
 import { LvPanel } from '../components/LvPanel';
 import { PdfExportDialog } from '../components/PdfExportDialog';
 import { NewDrawingDialog, PlanDetailsDialog } from '../components/PlanFields';
+import { PlanLibrary, ReusePlanDialog, type PlanSource } from '../components/PlanLibrary';
 import { PlanList } from '../components/PlanList';
 import { ProjectForm, type CostCenterInput } from '../components/ProjectForm';
 import { SaveErrorBanner, SaveStatus } from '../components/SaveStatus';
@@ -45,6 +46,8 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
   const [cropping, setCropping] = useState<{ plan: Plan; image: HTMLCanvasElement } | null>(null);
   const [tab, setTab] = useState<'plans' | 'table' | 'lv'>('plans');
   const [drawingNew, setDrawingNew] = useState(false);
+  const [library, setLibrary] = useState(false);
+  const [reuse, setReuse] = useState<PlanSource | null>(null);
   const [backupInfo, setBackupInfo] = useState<BackupStatus | null>(null);
   const [reminderHidden, setReminderHidden] = useState(() => {
     try {
@@ -143,7 +146,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
               ? ''
               : others.length
               ? `Die Originaldatei „${file?.name ?? ''}“ bleibt erhalten, weil sie von ${others.length} weiteren Plan/Plänen verwendet wird.`
-              : `Die Originaldatei „${file?.name ?? ''}“ wird ebenfalls entfernt.`}{' '}
+              : `Die Originaldatei „${file?.name ?? ''}“ bleibt in der Planbibliothek und kann dort für ein neues Aufmaß verwendet oder endgültig entfernt werden.`}{' '}
             Tipp: Vorher über „Projekt sichern“ eine Sicherung anlegen.
           </p>
         </>
@@ -152,7 +155,8 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
       danger: true,
     });
     if (!ok) return;
-    softDelete({ plans: [plan], damages, elements, components, ...(others.length || !file ? {} : { files: [file] }) });
+    // Originaldatei bleibt in der Planbibliothek (wird dort ausdrücklich entfernt)
+    softDelete({ plans: [plan], damages, elements, components });
     toast('Plan gelöscht.');
   };
 
@@ -343,6 +347,11 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
               <button type="button" className="btn" onClick={() => setDrawingNew(true)} data-testid="draw-plan">
                 <Icon name="drawPlan" /> Plan zeichnen
               </button>
+              {Object.values(data.files).some((f) => !f.deletedAt) && (
+                <button type="button" className="btn" onClick={() => setLibrary(true)} data-testid="open-plan-library">
+                  <Icon name="folder" /> Planbibliothek
+                </button>
+              )}
             </div>
             <input
               ref={fileRef}
@@ -366,6 +375,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
                 onEdit={setDetails}
                 onRename={(p) => void renamePlan(p)}
                 onCrop={(p) => void openCrop(p)}
+                onReuse={(p) => setReuse({ file: data.files[p.fileId], pageIndex: p.pageIndex, base: p })}
                 onDelete={(p) => void deletePlan(p)}
               />
             ) : (
@@ -438,6 +448,28 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
           costCenters={ccs.map((c) => ({ id: c.id, number: c.number ?? '', name: c.name }))}
           onClose={() => setEditing(false)}
           onSubmit={saveProject}
+        />
+      )}
+      {library && (
+        <PlanLibrary
+          data={data}
+          onClose={() => setLibrary(false)}
+          onReuse={(s) => {
+            setLibrary(false);
+            setReuse(s);
+          }}
+        />
+      )}
+      {reuse && active && (
+        <ReusePlanDialog
+          data={data}
+          source={reuse}
+          costCenterId={active.id}
+          onClose={() => setReuse(null)}
+          onCreated={(id) => {
+            setReuse(null);
+            navigate(paths.plan(project.id, id));
+          }}
         />
       )}
       {importFile && active && (

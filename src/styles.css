@@ -3679,3 +3679,87 @@ tr.lv-flagged td {
     order: 9;
   }
 }
+
+/* Planbibliothek: Originalpläne des Projekts und ihre Aufmaße */
+.lib-list {
+  display: grid;
+  gap: 14px;
+  margin-top: 12px;
+}
+.lib-file {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  background: var(--surface);
+}
+.lib-file-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin-bottom: 10px;
+}
+.lib-file-name {
+  overflow-wrap: anywhere;
+}
+.lib-usage {
+  margin-left: auto;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  white-space: nowrap;
+}
+.lib-views {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+}
+.lib-view {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 10px;
+  align-items: start;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.lib-view .thumb,
+.reuse-source .thumb {
+  margin: 0;
+}
+.lib-view-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+.lib-uses {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.9rem;
+}
+.lib-uses li {
+  overflow-wrap: anywhere;
+}
+.lib-remove {
+  margin-top: 10px;
+}
+.reuse-source {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 12px;
+  align-items: start;
+  padding: 10px;
+  margin-bottom: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.reuse-source > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

@@ -12,6 +12,8 @@ interface Props {
   onEdit: (plan: Plan) => void;
   onRename: (plan: Plan) => void;
   onCrop: (plan: Plan) => void;
+  /** Neues, leeres Aufmaß mit derselben Planunterlage */
+  onReuse: (plan: Plan) => void;
   onDelete: (plan: Plan) => void;
 }
 
@@ -20,7 +22,7 @@ interface Props {
  * Leistungszuordnung, Anzahl der Messungen und Flächensumme. Auf dem Smartphone werden
  * die Angaben zweizeilig unter der Plannummer angeordnet.
  */
-export function PlanList({ data, plans, onEdit, onRename, onCrop, onDelete }: Props) {
+export function PlanList({ data, plans, onEdit, onRename, onCrop, onReuse, onDelete }: Props) {
   return (
     <div className="plan-list" role="table" aria-label="Pläne" data-testid="plan-list">
       <div className="plan-row plan-head" role="row">
@@ -92,7 +94,12 @@ export function PlanList({ data, plans, onEdit, onRename, onCrop, onDelete }: Pr
                   { label: 'Öffnen', icon: 'map', onSelect: () => navigate(href), testId: 'action-open' },
                   { label: 'Angaben bearbeiten', icon: 'edit', onSelect: () => onEdit(plan), testId: 'action-edit' },
                   { label: 'Umbenennen', icon: 'hash', onSelect: () => onRename(plan), testId: 'action-rename' },
-                  ...(isDrawingPlan(plan) ? [] : [{ label: 'Ausschnitt', icon: 'crop', onSelect: () => onCrop(plan), testId: 'action-crop' }]),
+                  ...(isDrawingPlan(plan) || !data.files[plan.fileId]
+                    ? []
+                    : [
+                        { label: 'Ausschnitt', icon: 'crop', onSelect: () => onCrop(plan), testId: 'action-crop' },
+                        { label: 'Neues Aufmaß mit diesem Plan', icon: 'copy', onSelect: () => onReuse(plan), testId: 'action-reuse' },
+                      ]),
                   { label: 'Löschen', icon: 'trash', onSelect: () => onDelete(plan), danger: true, testId: 'action-delete' },
                 ]}
               />
