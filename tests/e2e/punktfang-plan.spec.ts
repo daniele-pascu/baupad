@@ -76,17 +76,9 @@ test('Vektor-PDF: Ecken des Grundrisses werden exakt gefangen, Fläche aus dem P
   await expect(page.getByTestId('snap-marker')).toBeVisible(); // Anfang der Maßlinie
 });
 
-/** Vergrößert (X): grüner (aktiver) Fangpunkt bzw. nächster roter Punkt zum Mauszeiger – Bildschirmposition */
-async function nearestLupePoint(page: Page, at: { x: number; y: number }) {
-  const box = (await page.getByTestId('plan-viewer').boundingBox())!;
-  const pts = await page.getByTestId('lupe-points').locator('circle').evaluateAll((els) => els.map((e) => ({ x: Number(e.getAttribute('cx')), y: Number(e.getAttribute('cy')) })));
-  const abs = pts.map((p) => ({ x: box.x + p.x, y: box.y + p.y }));
-  return abs.reduce((m, p) => (Math.hypot(p.x - at.x, p.y - at.y) < Math.hypot(m.x - at.x, m.y - at.y) ? p : m));
-}
-
-test('Taste X: Fläche Ecke für Ecke – vergrößert an der Maus, Punkt grün, Ansicht zurück, Punkte bleiben exakt', async ({ page }) => {
+test('X gedrückt halten: vergrößert an der Maus, Fangpunkt rot, Klick setzt grünen Punkt, loslassen zoomt zurück; Enter fertig, Rücktaste löscht', async ({ page }) => {
   await freshStart(page);
-  await createProject(page, 'Lupe', {}, ['Keller']);
+  await createProject(page, 'Halten', {}, ['Keller']);
   await page.getByTestId('plan-file-input').setInputFiles(join(FIXTURES, 'massketten.pdf'));
   const wiz = page.getByTestId('import-wizard');
   await wiz.getByTestId('areas-next').click();
@@ -112,47 +104,55 @@ test('Taste X: Fläche Ecke für Ecke – vergrößert an der Maus, Punkt grün,
     [ROOM.x1, ROOM.y1],
   ];
   for (const [i, [x, y]] of corners.entries()) {
-    const near = scr(x + (x < 500 ? 6 : -6) / s, y + (y > 400 ? -5 : 5) / s); // grob daneben, innen
+    const corner = scr(x, y);
+    const near = { x: corner.x + (x < 500 ? 6 : -6), y: corner.y + (y > 400 ? -5 : 5) }; // grob daneben
     await page.mouse.move(near.x, near.y);
-    await page.keyboard.press('x');
+    await page.keyboard.down('x');
     await expect(page.getByTestId('lupe-hint')).toBeVisible();
-    expect(Number(await viewer.getAttribute('data-scale'))).toBeGreaterThan(scale0 * 4); // hineingezoomt
-    expect(await page.locator('.lupe-pt').count()).toBeGreaterThan(0); // Fangpunkte angezeigt (rot bzw. grün)
-    // der Punkt unter der Maus bleibt stehen – die Ecke liegt jetzt etwas daneben, deutlich vergrößert
-    const target = await nearestLupePoint(page, near);
-    await page.mouse.move(target.x, target.y);
-    await expect(page.getByTestId('lupe-pt-active')).toHaveCount(1); // grün unter dem Mauszeiger
-    if (i === 2) await page.screenshot({ path: join(OUT, 'fang-lupe.png') });
+    const k = Number(await viewer.getAttribute('data-scale')) / scale0;
+    expect(k).toBeGreaterThan(4); // hineingezoomt, der Punkt unter der Maus bleibt stehen
+    // Ecke in der vergrößerten Ansicht anfahren → roter Fangpunkt
+    await page.mouse.move(near.x + (corner.x - near.x) * k, near.y + (corner.y - near.y) * k);
+    await expect(page.getByTestId('snap-hover')).toBeVisible();
+    if (i === 2) await page.screenshot({ path: join(OUT, 'fang-x-halten.png') });
     await page.mouse.down();
     await page.mouse.up();
-    // zurück zur vorherigen Ansicht, Punkt gesetzt (grün gefüllt), Zeichnen läuft weiter
-    await expect(page.getByTestId('lupe-hint')).toHaveCount(0);
-    expect(Number(await viewer.getAttribute('data-scale'))).toBeCloseTo(scale0, 6);
+    // Punkt gesetzt (grün), Ansicht bleibt vergrößert, solange X gehalten wird
     await expect(page.getByTestId('polygon-bar')).toContainText(`${i + 1} Punkt`);
+    expect(Number(await viewer.getAttribute('data-scale')) / scale0).toBeCloseTo(k, 6);
+    await page.keyboard.up('x');
+    await expect(page.getByTestId('lupe-hint')).toHaveCount(0);
+    expect(Number(await viewer.getAttribute('data-scale'))).toBeCloseTo(scale0, 6); // zurück
     await expect(page.locator('.poly-preview circle')).toHaveCount(i + 1);
   }
-  // Esc kehrt ohne Punkt zurück
-  await page.keyboard.press('x');
-  await expect(page.getByTestId('lupe-hint')).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(page.getByTestId('lupe-hint')).toHaveCount(0);
+  // Zusatzpunkt, dann Rücktaste bzw. Entf löscht den letzten Punkt
+  const extra = scr(500, 450);
+  await page.mouse.move(extra.x, extra.y);
+  await page.mouse.down();
+  await page.mouse.up();
+  await expect(page.getByTestId('polygon-bar')).toContainText('5 Punkte');
+  await page.keyboard.press('Backspace');
+  await expect(page.getByTestId('polygon-bar')).toContainText('4 Punkte');
+  const extra2 = scr(600, 420); // andere Stelle (sonst Doppelklick = fertig)
+  await page.mouse.click(extra2.x, extra2.y);
+  await expect(page.getByTestId('polygon-bar')).toContainText('5 Punkte');
+  await page.keyboard.press('Delete');
   await expect(page.getByTestId('polygon-bar')).toContainText('4 Punkte');
 
-  await page.getByTestId('polygon-finish').click();
+  // Enter: fertig – Fläche exakt aus den Raumecken
+  await page.keyboard.press('Enter');
   const dlg = page.getByTestId('damage-dialog');
-  await expect(dlg.getByTestId('use-geometry')).toContainText('116,66 m²'); // exakt die Raumecken
+  await expect(dlg.getByTestId('use-geometry')).toContainText('116,66 m²');
   await dlg.getByTestId('damage-cancel').click();
 
-  // auch beim Rechteck: X vergrößert an der Maus, nach dem Aufziehen zurück zur Ansicht
-  await pickTool(page, 'tool-rect');
-  const m = scr(500, 450);
-  await page.mouse.move(m.x, m.y);
-  await page.keyboard.press('x');
+  // schon nah genug vergrößert: X zoomt nicht weiter, loslassen ändert nichts
+  for (let n = 0; n < 6; n++) await page.keyboard.press('+');
+  await page.waitForTimeout(200);
+  const near = Number(await viewer.getAttribute('data-scale'));
+  await page.keyboard.down('x');
   await expect(page.getByTestId('lupe-hint')).toBeVisible();
-  expect(Number(await viewer.getAttribute('data-scale'))).toBeGreaterThan(scale0 * 4);
-  await drawRect(page, m.x, m.y, m.x + 80, m.y + 60);
-  await expect(dlg).toBeVisible();
+  expect(Number(await viewer.getAttribute('data-scale'))).toBeCloseTo(near, 6);
+  await page.keyboard.up('x');
   await expect(page.getByTestId('lupe-hint')).toHaveCount(0);
-  expect(Number(await viewer.getAttribute('data-scale'))).toBeCloseTo(scale0, 6);
-  await dlg.getByTestId('damage-cancel').click();
+  expect(Number(await viewer.getAttribute('data-scale'))).toBeCloseTo(near, 6);
 });

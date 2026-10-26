@@ -3856,17 +3856,12 @@ button.status-pill:hover {
   margin-top: 14px;
 }
 
-/* Fang-Lupe: mögliche Fangpunkte rot mit weißer Füllung, Punkt unter dem Mauszeiger grün */
+/* X gehalten: berührter Fangpunkt rot mit weißer Füllung (gesetzte Punkte grün, siehe .poly-point) */
 .lupe-pt {
   fill: #fff;
   stroke: #e0202b;
   stroke-width: 2.5;
   filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.85));
-}
-.lupe-pt.active {
-  fill: #fff;
-  stroke: #12a150;
-  stroke-width: 3.5;
 }
 .zoom-hint {
   position: absolute;
@@ -3895,6 +3890,16 @@ button.status-pill:hover {
   background: #fff;
   border: 2px solid #e0202b;
 }
-.lupe-dot.on {
-  border-color: #12a150;
+.lupe-dot.set {
+  background: #12a150;
+  border-color: #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+.snap-marker.snap-hold circle {
+  fill: #fff;
+  stroke: #e0202b;
+  stroke-width: 3;
+}
+.snap-marker.snap-hold text {
+  fill: #c81e28;
 }

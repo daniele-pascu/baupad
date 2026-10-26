@@ -36,7 +36,7 @@ import {
 import { clampRenderScale, drawImageRegion, getImageBitmap, getPdfDocument, renderPdfRegion, type RenderJob } from '../lib/pdf';
 import { getView, putView } from '../lib/db';
 import { arcShape } from '../lib/cad';
-import { SNAP_LABELS, type SnapHit, type SnapKind } from '../lib/snap';
+import { SNAP_LABELS, type SnapKind } from '../lib/snap';
 import { DEFAULT_TRANSPARENCY, fillOf, fillPaths, PX_PER_PT, strokeGeometry, type Fill } from '../lib/style';
 import type { Component, Damage, Plan, Rect, Shape, ShapeStyle, ShapeType, SourceFile } from '../lib/types';
 
@@ -108,11 +108,11 @@ export interface PlanViewerHandle {
   /** Ausgewähltes Objekt formatfüllend anzeigen („Zoom auf Auswahl“) */
   zoomTo(id: string): void;
   /**
-   * Taste X: Plan an der Mausposition vergrößern und alle Fangpunkte zeigen; nach dem nächsten
-   * gesetzten Punkt bzw. der nächsten Form kehrt die vorherige Ansicht zurück. Erneut aufrufen
-   * kehrt ohne Punkt zurück.
+   * Taste X gedrückt halten (`on`): Plan an der Mausposition vergrößern (nicht, wenn schon nah
+   * genug), Fangpunkt unter der Maus rot anzeigen; loslassen (`!on`): zurück zur vorherigen
+   * Ansicht. Gesetzte Punkte liegen in Plankoordinaten und bleiben exakt.
    */
-  toggleLupe(): void;
+  zoomHold(on: boolean): void;
   lupeActive(): boolean;
 }
 
@@ -149,9 +149,7 @@ interface Props {
   overlay?(view: View, preview: Shape | null): ReactNode;
   /** Einrasten an Raster und Fangpunkten (nur gezeichnete Pläne) */
   snap?: SnapFn;
-  /** Alle Fangpunkte in einem Bereich (Seitenkoordinaten) – Anzeige in der Fang-Lupe */
-  snapPoints?: (area: Rect) => SnapHit[];
-  /** Fang-Lupe geöffnet bzw. geschlossen */
+  /** Vergrößerung mit X begonnen bzw. beendet */
   onLupeChange?: (active: boolean) => void;
   /** Gültiger Planbereich (Seitenkoordinaten): Neue Formen und Verschiebungen bleiben darin */
   bounds?: Rect;
@@ -224,32 +222,19 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   const clampP = (p: Point) => (propsRef.current.bounds ? clampPoint(p, propsRef.current.bounds) : p);
   /** Zuletzt gefangener Punkt (Markierung mit Art des Fangpunkts) */
   const snapMark = useRef<{ p: Point; kind: SnapKind } | null>(null);
-  /** Fang-Lupe: Ansicht vor dem Hineinzoomen; letzte Mausposition (Bildschirm) */
-  const lupe = useRef<{ prev: View } | null>(null);
+  /** X gedrückt: Ansicht vor dem Hineinzoomen (null = nicht gezoomt); letzte Mausposition (Bildschirm) */
+  const lupe = useRef<{ prev: View | null } | null>(null);
   const lastHover = useRef<Point | null>(null);
   const endLupe = () => {
     const l = lupe.current;
     if (!l) return;
     lupe.current = null;
     // Ansicht zurück – gesetzte Punkte liegen in Plankoordinaten und bleiben exakt
-    setView(l.prev);
+    if (l.prev) setView(l.prev);
+    else forceRender((n) => n + 1);
     propsRef.current.onLupeChange?.(false);
   };
-  /** Fangpunkte im sichtbaren Bereich (je Ansicht einmal berechnet) */
-  const lupeCache = useRef<{ key: string; pts: SnapHit[] } | null>(null);
-  const lupePoints = (v: View): SnapHit[] => {
-    const el = containerRef.current;
-    const fn = propsRef.current.snapPoints;
-    if (!el || !fn) return [];
-    const key = `${v.scale}:${v.tx}:${v.ty}`;
-    if (lupeCache.current?.key === key) return lupeCache.current.pts;
-    const a = toPage(v, { x: 0, y: 0 });
-    const b = toPage(v, { x: el.clientWidth, y: el.clientHeight });
-    const pts = fn({ x: a.x, y: a.y, w: b.x - a.x, h: b.y - a.y });
-    lupeCache.current = { key, pts };
-    return pts;
-  };
-  // Werkzeugwechsel schließt die Fang-Lupe
+  // Werkzeugwechsel beendet die Vergrößerung (X)
   useEffect(() => {
     if (lupe.current) endLupe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -486,16 +471,24 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       forceRender((n) => n + 1);
     },
     scale: () => viewRef.current?.scale ?? 1,
-    toggleLupe: () => {
-      if (lupe.current) return endLupe();
+    zoomHold: (on: boolean) => {
+      if (!on) return endLupe();
+      if (lupe.current) return;
       const v = viewRef.current;
       if (!v || !size) return;
-      // an der Mausposition (sonst Bildmitte) etwa 5-fach vergrößern – der Punkt unter der Maus bleibt stehen
-      const at = lastHover.current ?? { x: size.w / 2, y: size.h / 2 };
-      const { min, max } = limits();
-      const target = Math.min(max, Math.max(min, v.scale * 5, Math.min(size.w, size.h) / 120));
-      lupe.current = { prev: v };
-      setView(zoomAt(v, at, target / v.scale, min, max));
+      const fit = fitView(region, size.w, size.h).scale;
+      if (v.scale >= fit * 3) {
+        // schon nah genug: nicht weiter hineinzoomen, nur den Fangmodus zeigen
+        lupe.current = { prev: null };
+        forceRender((n) => n + 1);
+      } else {
+        // an der Mausposition (sonst Bildmitte) vergrößern – der Punkt unter der Maus bleibt stehen
+        const at = lastHover.current ?? { x: size.w / 2, y: size.h / 2 };
+        const { min, max } = limits();
+        const target = Math.min(max, Math.max(min, v.scale * 5, fit * 6));
+        lupe.current = { prev: v };
+        setView(zoomAt(v, at, target / v.scale, min, max));
+      }
       propsRef.current.onLupeChange?.(true);
     },
     lupeActive: () => !!lupe.current,
@@ -900,7 +893,6 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
           const raw = clampP(toPage(v, p));
           const snap = propsRef.current.snap;
           propsRef.current.onPlace(clampP(snap ? snapAt(raw, { tool: propsRef.current.tool, scale: v.scale }) : raw));
-          endLupe();
         }
         return;
       case 'component': {
@@ -919,11 +911,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         forceRender((n) => n + 1);
         if (cancelled) return;
         const shape = shapeFromDraw(g, v);
-        if (shape) {
-          // vergrößert (X): nach der Form zurück zur vorherigen Ansicht
-          endLupe();
-          propsRef.current.onCreate(shape);
-        }
+        if (shape) propsRef.current.onCreate(shape);
         return;
       }
       case 'move': {
@@ -960,8 +948,6 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         const lt = lastTap.current;
         const dbl = !lupe.current && lt && now - lt.t < 320 && Math.hypot(lt.p.x - p.x, lt.p.y - p.y) < 30;
         lastTap.current = lupe.current ? null : { t: now, p };
-        // vergrößert (X): Punkt übernommen → vorherige Ansicht (Zeichnen geht weiter)
-        endLupe();
         // Tippen auf den ersten Punkt schließt die Form; Doppeltippen beendet sie
         // (Polygon: geschlossen, Polylinie: offen)
         // (auch im 90°-Modus: maßgeblich ist der angetippte Punkt)
@@ -1161,8 +1147,9 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
               })}
             </g>
           )}
-          {lupe.current && props.snapPoints && <LupePoints view={view} points={lupePoints(view)} active={snapMark.current?.p ?? null} />}
-          {snapMark.current && props.snap && (tool !== 'select' || g.kind === 'vertex' || g.kind === 'move' || g.kind === 'resize') && <SnapMarker view={view} mark={snapMark.current} />}
+          {snapMark.current && props.snap && (tool !== 'select' || g.kind === 'vertex' || g.kind === 'move' || g.kind === 'resize') && (
+            <SnapMarker view={view} mark={snapMark.current} hold={!!lupe.current} />
+          )}
           {props.overlay?.(view, drawPreview)}
           {/* Verbindungslinien zuerst, damit sie unter den Nummern liegen */}
           {damages.map((d) => {
@@ -1271,25 +1258,19 @@ export function FillPaths({ shape, map, fill, boost = false }: { shape: Shape; m
   );
 }
 
-/**
- * Fangpunkte in der Fang-Lupe (Ampel): rot mit weißer Füllung = möglicher Punkt, grün = unter
- * dem Mauszeiger (wird beim Klick übernommen). Nur Anzeige – ändert keine Objektfarben.
- */
-function LupePoints({ view, points, active }: { view: View; points: SnapHit[]; active: Point | null }) {
-  return (
-    <g className="lupe-points" data-testid="lupe-points" pointerEvents="none">
-      {points.map((h, i) => {
-        const c = toScreen(view, h.point);
-        const on = !!active && Math.abs(active.x - h.point.x) < 1e-6 && Math.abs(active.y - h.point.y) < 1e-6;
-        return <circle key={i} cx={c.x} cy={c.y} r={on ? 8 : 6} className={`lupe-pt${on ? ' active' : ''}`} data-kind={h.kind} data-testid={on ? 'lupe-pt-active' : 'lupe-pt'} />;
-      })}
-    </g>
-  );
-}
-
 /** Fangpunkt: Form je Art (wie in CAD-Programmen) mit kurzer Beschriftung */
-function SnapMarker({ view, mark }: { view: View; mark: { p: Point; kind: SnapKind } }) {
+function SnapMarker({ view, mark, hold = false }: { view: View; mark: { p: Point; kind: SnapKind }; hold?: boolean }) {
   const c = toScreen(view, mark.p);
+  // X gedrückt: berührter Fangpunkt rot mit weißer Füllung (Klick setzt ihn → grüner Punkt)
+  if (hold)
+    return (
+      <g className="snap-marker snap-hold" data-testid="snap-marker" data-kind={mark.kind} pointerEvents="none">
+        <circle cx={c.x} cy={c.y} r={8} className="lupe-pt" data-testid="snap-hover" />
+        <text x={c.x + 12} y={c.y - 10}>
+          {SNAP_LABELS[mark.kind]}
+        </text>
+      </g>
+    );
   const r = 6;
   const shape =
     mark.kind === 'end' ? (

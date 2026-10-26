@@ -21,10 +21,10 @@ import { countKind, defaultKindFor, hasArea, KIND_LABELS, KINDS, kindOf, sumLeng
 import { checkMeasure, computeArea, formatArea, formatMeasure, toInputValue } from '../lib/numbers';
 import { compactNumbers, damageNo, duplicateIds, nextNumber, planNumberStart, shiftNumbers, suggestNext, swapNumbers } from '../lib/numbering';
 import { navigate, paths } from '../lib/router';
-import { findSnap, listSnapPoints } from '../lib/snap';
+import { findSnap } from '../lib/snap';
 import { SegIndex } from '../lib/pdf-snap';
 import { clearHistory, newMeta, putRecord, putRecords, redo, softDelete, undo, useAppState, type ProjectState } from '../lib/store';
-import { COLORS, SHAPE_LABELS, type Damage, type DrawElementType, type MeasureKind, type Plan, type Rect, type Shape, type ShapeStyle, type ShapeType } from '../lib/types';
+import { COLORS, SHAPE_LABELS, type Damage, type DrawElementType, type MeasureKind, type Plan, type Shape, type ShapeStyle, type ShapeType } from '../lib/types';
 import { DRAW_TOOLS, readStyle, useDrawing, type DrawTool } from './DrawingMode';
 import { DrawRibbon, OrthoButtons } from '../components/DrawRibbon';
 import { elementLabel } from '../components/DrawPanel';
@@ -356,16 +356,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     const hit = findSnap(p, shapes, tol, planLines?.index.near(p, tol) ?? []);
     return hit ? { ...hit.point, kind: hit.kind } : p;
   };
-  /** Fang-Lupe: alle Fangpunkte im Bereich (Aufmaßobjekte, Zeichnung, Planlinien) */
-  const measureSnapPoints = (area: Rect) =>
-    listSnapPoints(
-      area,
-      [
-        ...shownDamages.map((d) => d.shape),
-        ...(drawingPlan ? drawing.elements.filter((e) => e.type !== 'text').map((e) => shapeToPage(e.shape, unitsPerMeter(plan!))) : []),
-      ],
-      planLines?.index.inRect(area) ?? [],
-    );
+  /** X gedrückt: vergrößert (Hinweis anzeigen) */
   const [lupeOn, setLupeOn] = useState(false);
   /** Linien des PDF-Plans für den Punktfang (einmal je Plan eingelesen) */
   const [planLines, setPlanLines] = useState<{ key: string; index: SegIndex } | null>(null);
@@ -492,19 +483,21 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       const target = e.target as HTMLElement;
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || document.querySelector('.modal')) return;
       const key = e.key.toLowerCase();
-      // vergrößert (X): Esc bzw. X kehrt zur vorherigen Ansicht zurück (gesetzte Punkte bleiben)
-      if (viewer.current?.lupeActive() && (e.key === 'Escape' || (key === 'x' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey))) {
+      // X gedrückt halten: vergrößert an der Maus (Tastenwiederholung ignorieren), loslassen → zurück (keyup)
+      if (key === 'x' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault();
-        viewer.current.toggleLupe();
+        if (e.repeat || viewer.current?.lupeActive()) return;
+        if (!drawing.snapOn) drawing.setSnapOn(true);
+        viewer.current?.zoomHold(true);
         return;
       }
       // Punktwerkzeuge: Enter beendet (Polylinie offen, Polygon geschlossen), C schließt,
-      // Rücktaste nimmt den letzten Punkt zurück, Escape verwirft
-      if (polyCount && ['Enter', 'Escape', 'Backspace'].includes(e.key) || (polyCount && key === 'c' && !e.ctrlKey && !e.metaKey)) {
+      // Rücktaste/Entf nimmt den letzten Punkt zurück, Escape verwirft
+      if (polyCount && ['Enter', 'Escape', 'Backspace', 'Delete'].includes(e.key) || (polyCount && key === 'c' && !e.ctrlKey && !e.metaKey)) {
         e.preventDefault();
         if (e.key === 'Enter') viewer.current?.finishPolygon();
         else if (key === 'c') viewer.current?.finishPolygon(true);
-        else if (e.key === 'Backspace') viewer.current?.undoPolygonPoint();
+        else if (e.key === 'Backspace' || e.key === 'Delete') viewer.current?.undoPolygonPoint();
         else viewer.current?.cancelPolygon();
         return;
       }
@@ -520,13 +513,6 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         e.preventDefault();
         drawing.setOrthoOn(!drawing.orthoOn);
         toast(`90° / Orthogonal ${drawing.orthoOn ? 'aus' : 'ein'}`, 'info', 1500);
-        return;
-      }
-      // X: Plan an der Mausposition vergrößern, Fangpunkte zeigen (Punktfang wird dafür eingeschaltet)
-      if (key === 'x' && !e.shiftKey) {
-        e.preventDefault();
-        if (!drawing.snapOn) drawing.setSnapOn(true);
-        viewer.current?.toggleLupe();
         return;
       }
       // Umschalt+X: Punktfang ein/aus
@@ -566,6 +552,20 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   });
+  // X losgelassen (auch während eines Dialogs) bzw. Fenster verlassen: zurück zur vorherigen Ansicht
+  useEffect(() => {
+    const release = (e?: KeyboardEvent) => {
+      if (e && e.key.toLowerCase() !== 'x') return;
+      viewer.current?.zoomHold(false);
+    };
+    const blur = () => release();
+    window.addEventListener('keyup', release);
+    window.addEventListener('blur', blur);
+    return () => {
+      window.removeEventListener('keyup', release);
+      window.removeEventListener('blur', blur);
+    };
+  }, []);
 
   // (vor dem Abbruch unten: Hooks immer in gleicher Reihenfolge)
   const lineFile = plan && !plan.deletedAt && !drawingPlan ? data.files[plan.fileId] : undefined;
@@ -995,7 +995,6 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               underlay={region ? drawing.drawUnderlay(region) : undefined}
               overlay={drawing.drawOverlay}
               snap={drawing.snapOn || drawing.gridOn || drawing.orthoOn ? drawing.snap : undefined}
-              snapPoints={drawing.snapOn ? measureSnapPoints : undefined}
               onLupeChange={setLupeOn}
               bounds={sheetBounds}
               vertexEdit
@@ -1030,7 +1029,6 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                     })
               }
               snap={drawing.snapOn ? measureSnap : undefined}
-              snapPoints={drawing.snapOn ? measureSnapPoints : undefined}
               onLupeChange={setLupeOn}
               overlay={
                 tool === 'calibrate' && plan.calibration
@@ -1199,7 +1197,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
 
           {lupeOn && (
             <div className="zoom-hint small" data-testid="lupe-hint">
-              Vergrößert: <span className="lupe-dot" /> Fangpunkt · <span className="lupe-dot on" /> wird übernommen · X/Esc zurück
+              X gehalten: <span className="lupe-dot" /> berührter Fangpunkt · Klick setzt ihn <span className="lupe-dot set" /> · loslassen = zurück · Enter fertig · ⌫ letzter Punkt
             </div>
           )}
           {(drawMode ? isPointTool(drawing.viewerTool) && (polyCount > 0 || !drawing.selected) : isPointTool(tool) && (polyCount > 0 || !selected)) && !dialog && (

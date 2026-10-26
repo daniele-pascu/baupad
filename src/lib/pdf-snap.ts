@@ -127,22 +127,6 @@ export class SegIndex {
     });
   }
 
-  /** Strecken, die den Bereich berühren (höchstens `max`) – für die Fang-Lupe */
-  inRect(r: Rect, max = 3000): PlanSeg[] {
-    const s = this.size;
-    const seen = new Set<number>();
-    const out: PlanSeg[] = [];
-    for (let x = Math.floor(r.x / s); x <= Math.floor((r.x + r.w) / s); x++)
-      for (let y = Math.floor(r.y / s); y <= Math.floor((r.y + r.h) / s); y++)
-        for (const i of this.cells.get(x * 100_003 + y) ?? []) {
-          if (seen.has(i)) continue;
-          seen.add(i);
-          out.push(this.segs[i]);
-          if (out.length >= max) return out;
-        }
-    return out;
-  }
-
   /** Strecken im Umkreis `tol`, die nächsten zuerst, höchstens `max` */
   near(p: Point, tol: number, max = 60): PlanSeg[] {
     const s = this.size;
