@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { excelExport, catchDownload, drawRect, FIXTURES, freshStart, OUT, pickTool, planBox, messliste, readXlsx, saveDownload, waitForPlan, waitSaved } from './helpers';
+import { excelExport, catchDownload, drawRect, FIXTURES, freshStart, OUT, pickTool, planBox, blattRows, readXlsx, saveDownload, waitForPlan, waitSaved } from './helpers';
 
 /**
  * Paket J: Werkzeugleiste klappt nach dem Zeichnen zu (zurück zur Auswahl); nur die Länge ist
@@ -49,7 +49,7 @@ test('Projekt ohne Kostenstelle: anlegen, Plan importieren, Kostenstelle später
   await expect(page.getByTestId('plan-row')).toHaveCount(1);
   // Excel ohne Kostenstelle: kein Fehler
   const dl = await catchDownload(page, () => excelExport(page, 'export-xlsx-cc'));
-  expect(dl.suggestedFilename()).toBe('Ohne_KSt_Aufmass.xlsx');
+  expect(dl.suggestedFilename()).toBe('Ohne_KSt_Aufmassblatt_001.xlsx');
   // Später Hauptkostenstelle und eine weitere ergänzen – der Plan bleibt erhalten
   await page.getByTestId('edit-project').click();
   const form = page.getByTestId('project-form');
@@ -181,12 +181,12 @@ test('Messung: nur Länge Pflicht, Breite/Höhe und Tiefe optional; Werkzeugleis
   await expect(page.getByTestId('sum-area')).toHaveText('14,00');
   // Excel: leere Zellen statt 0
   const xdl = await catchDownload(page, () => excelExport(page, 'export-xlsx-plan'));
-  // Messliste: leere Zellen statt 0
-  const rows = messliste(readXlsx(await saveDownload(xdl, 'optional.xlsx')));
-  expect(rows.map((r) => r.values.slice(1))).toEqual([
-    [4.2, null, null, null],
-    [3, null, 0.1, null],
-    [5, 2.8, null, 14],
+  // Aufmaßblatt: Fläche mit Länge × Breite, Linien nur mit Länge (keine 0 für fehlende Werte)
+  const rows = blattRows(readXlsx(await saveDownload(xdl, 'optional.xlsx')));
+  expect(rows.map((r) => [r.nr, r.values])).toEqual([
+    [3, { Länge: 5, Breite: 2.8, 'm²': 14 }],
+    [1, { m: 4.2 }],
+    [2, { m: 3 }],
   ]);
   await page.screenshot({ path: join(OUT, 'leiste-zu.png') });
 });

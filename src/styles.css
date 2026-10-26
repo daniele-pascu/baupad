@@ -3052,20 +3052,39 @@ tr.lv-flagged td {
 }
 
 /* ---------- Punktfang und Kalibrierung ---------- */
-.snap-marker rect,
-.snap-marker path,
-.snap-marker circle {
+.snap-marker .snap-halo,
+.snap-marker .snap-halo * {
   fill: none;
-  stroke: #0b8f4e;
-  stroke-width: 2;
+  stroke: #fff;
+  stroke-width: 5.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.snap-marker .snap-cross {
+  fill: none;
+  stroke: #0a6cff;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+.snap-marker .snap-shape * {
+  fill: rgba(255, 255, 255, 0.85);
+  stroke: #0a6cff;
+  stroke-width: 2.4;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.snap-marker .snap-dot {
+  fill: #0a6cff;
+}
+.snap-marker .snap-tag {
+  fill: #0a6cff;
+  stroke: #fff;
+  stroke-width: 1.5;
 }
 .snap-marker text {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 600;
-  fill: #0b8f4e;
-  paint-order: stroke;
-  stroke: #fff;
-  stroke-width: 3px;
+  fill: #fff;
 }
 .calibration-line line {
   stroke: #7048e8;
@@ -3856,13 +3875,7 @@ button.status-pill:hover {
   margin-top: 14px;
 }
 
-/* X gehalten: berührter Fangpunkt rot mit weißer Füllung (gesetzte Punkte grün, siehe .poly-point) */
-.lupe-pt {
-  fill: #fff;
-  stroke: #e0202b;
-  stroke-width: 2.5;
-  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.85));
-}
+/* X gehalten: Hinweis oben (Fangpunkt blau, gesetzte Punkte grün, siehe .poly-point) */
 .zoom-hint {
   position: absolute;
   top: 12px;
@@ -3886,22 +3899,15 @@ button.status-pill:hover {
   display: inline-block;
   width: 10px;
   height: 10px;
-  border-radius: 50%;
+  border-radius: 2px;
   background: #fff;
-  border: 2px solid #e0202b;
+  border: 2px solid #0a6cff;
 }
 .lupe-dot.set {
+  border-radius: 50%;
   background: #12a150;
   border-color: #fff;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
-}
-.snap-marker.snap-hold circle {
-  fill: #fff;
-  stroke: #e0202b;
-  stroke-width: 3;
-}
-.snap-marker.snap-hold text {
-  fill: #c81e28;
 }
 
 /* Maße aus dem Plan */
@@ -3917,17 +3923,6 @@ button.status-pill:hover {
   padding: 4px 6px;
   font: inherit;
   font-variant-numeric: tabular-nums;
-}
-
-/* Excel-Export: weitere Formate */
-.excel-other {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 8px;
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
 }
 
 /* Firmenlogo: Vorschau der Kopfzeile (A4-Ausschnitt) */

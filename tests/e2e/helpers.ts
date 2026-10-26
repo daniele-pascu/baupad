@@ -95,30 +95,50 @@ export async function saveDownload(dl: Download, name?: string): Promise<string>
 
 export type XlsxCell = { v: string | number; t: string; fmt: string } | null;
 
-/** Excel-Dialog öffnen und ein Format wählen (Standard: „Übersicht & Messliste“; „blatt-export“ = Aufmaßblatt) */
-export async function excelExport(page: Page, opener: string, format: 'xlsx-overview' | 'blatt-export' = 'xlsx-overview', how: 'click' | 'tap' = 'click') {
+/** Excel-Dialog öffnen und das Aufmaßblatt erstellen */
+export async function excelExport(page: Page, opener: string, how: 'click' | 'tap' = 'click') {
   await page.getByTestId(opener)[how]();
-  await page.getByTestId('excel-export').getByTestId(format)[how]();
+  await page.getByTestId('excel-export').getByTestId('blatt-export')[how]();
 }
 
-/** Standard-Excel, Blatt „Messliste“: Messungen (optional eines Plans) als Zeilen [Nr., Länge, Breite, Tiefe, Fläche] samt Zellen */
-export function messliste(wb: Record<string, XlsxCell[][]>, plan?: string) {
-  const ws = wb['Messliste'];
-  const head = ws[2].map((c) => c?.v);
-  expect(head.slice(0, 10)).toEqual(['Plan', 'Nr.', 'Messart', 'Pos.', 'Leistung', 'Länge (m)', 'Breite (m)', 'Tiefe (m)', 'Fläche (m²)', 'Volumen (m³)']);
-  const end = ws.findIndex((r, i) => i >= 3 && (r[0]?.v ?? '') === ''); // Summenzeile beendet die Liste
-  return ws
-    .slice(3, end < 0 ? undefined : end)
-    .filter((r) => !plan || r[0]?.v === plan)
-    .map((r) => ({
-      cells: r,
-      plan: r[0]?.v,
-      nr: r[1]?.v,
-      kind: r[2]?.v,
-      pos: r[3]?.v ?? null,
-      values: [r[1]?.v ?? null, r[5]?.v ?? null, r[6]?.v ?? null, r[7]?.v ?? null, r[8]?.v ?? null] as (string | number | null)[],
-    }));
+/**
+ * Aufmaßblatt: alle Messzeilen der Tabellen (Plan | Nr. | Werte … | Bemerkung) mit Spaltennamen,
+ * z. B. { plan: 'A-101', nr: 1, values: { Länge: 0.6, Breite: 0.4, Tiefe: 0.03, 'm²': 0.24 } }.
+ */
+export function blattRows(wb: Record<string, XlsxCell[][]>, plan?: string | number) {
+  const name = Object.keys(wb).find((n) => n.startsWith('Aufmaßblatt'))!;
+  const out: { plan: string | number; nr: string | number; values: Record<string, string | number | null>; note: string | null; cells: XlsxCell[]; head: string[] }[] = [];
+  const ws = wb[name];
+  // einfache Formeln (=C5*D5) mit den Werten der Zellen ausrechnen
+  const val = (c: XlsxCell) => {
+    const v = c?.v ?? null;
+    if (typeof v !== 'string' || !v.startsWith('=')) return v;
+    const refs = /^=([A-H]\d+)(\*[A-H]\d+)*$/.test(v) ? v.slice(1).split('*') : null;
+    if (!refs) return v;
+    const p = refs.reduce((acc, ref) => acc * Number(ws[Number(ref.slice(1)) - 1][ref.charCodeAt(0) - 65]?.v ?? 0), 1);
+    return Math.round(p * 10000) / 10000;
+  };
+  let head: string[] | null = null;
+  for (const r of ws) {
+    const a = r[0]?.v;
+    if (a === 'Plan' && r[1]?.v === 'Nr.') {
+      head = r.map((c) => String(c?.v ?? ''));
+      continue;
+    }
+    if (!head || a === undefined || a === null || a === '') {
+      head = null;
+      continue;
+    }
+    const values: Record<string, string | number | null> = {};
+    head.forEach((h, i) => {
+      if (i >= 2 && h && h !== 'Bemerkung') values[h] = val(r[i]);
+    });
+    const ni = head.indexOf('Bemerkung');
+    out.push({ plan: a, nr: r[1]?.v as string | number, values, note: ni >= 0 ? ((r[ni]?.v as string) ?? null) : null, cells: r, head });
+  }
+  return plan === undefined ? out : out.filter((x) => String(x.plan) === String(plan));
 }
+
 export function readXlsx(path: string): Record<string, XlsxCell[][]> {
   return JSON.parse(execFileSync('python3', [join(process.cwd(), 'tests', 'e2e', 'read_xlsx.py'), path], { encoding: 'utf8' }));
 }

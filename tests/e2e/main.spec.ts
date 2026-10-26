@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
+import { readdirSync, readFileSync, rmSync } from 'node:fs';
 import {
   excelExport,
   FIXTURES,
@@ -15,7 +16,7 @@ import {
   freshStart,
   markerRelPos,
   planBox,
-  messliste,
+  blattRows,
   readXlsx,
   readXlsxPrint,
   saveDownload,
@@ -358,44 +359,48 @@ test('Markierung verschieben, Größe ändern, Beschriftung verschieben, Farbe �
   await waitSaved(page);
 });
 
-test('10. Excel-Export (Plan) mit echten Zahlenwerten', async () => {
+test('10. Excel-Export (Plan): Aufmaßblatt mit echten Zahlenwerten auf einer Seite', async () => {
   const dl = await catchDownload(page, () => excelExport(page, 'export-xlsx-plan'));
-  expect(dl.suggestedFilename()).toBe('Wohnanlage_Sued_Tiefgarage_A-101_Aufmass.xlsx');
+  expect(dl.suggestedFilename()).toBe('Wohnanlage_Sued_Tiefgarage_A-101_Aufmassblatt_001.xlsx');
   const file = await saveDownload(dl);
   const wb = readXlsx(file);
-  // Aufbau: Übersicht, Aufmaß nach Leistungen, Messliste (alle Messungen, filterbar)
-  expect(Object.keys(wb)).toEqual(['Übersicht', 'Aufmaß', 'Messliste']);
-  expect(wb['Übersicht'][0][0]?.v).toBe('Aufmaß');
-  expect(wb['Übersicht'].some((r) => r[0]?.v === 'Plan' && String(r[1]?.v).startsWith('A-101'))).toBe(true);
-  const ml = messliste(wb, 'A-101');
-  const data = ml.map((r) => r.values);
-  expect(data).toEqual([
+  // nur das Aufmaßblatt (keine weiteren Formate)
+  expect(Object.keys(wb)).toEqual(['Aufmaßblatt 001']);
+  const ws = wb['Aufmaßblatt 001'];
+  expect(ws[0][0]?.v).toBe('Aufmaßblatt 001');
+  expect(ws[2][0]?.v).toBe('Bauvorhaben');
+  expect(String(ws[2][2]?.v)).toContain('Wohnanlage Süd');
+  expect(String(ws[3][2]?.v)).toContain('Tiefgarage');
+  const rows = blattRows(wb, 'A-101');
+  expect(rows.map((r) => [r.nr, r.values['Länge'], r.values['Breite'], r.values['Tiefe'], r.values['m²']])).toEqual([
     [1, 0.6, 0.4, 0.03, 0.24],
     [3, 3, 1.25, 0.1, 3.75],
     [4, 1.5, 0.8, 0.05, 1.2],
     [5, 0.5, 0.5, 0.04, 0.25],
   ]);
-  // Zahlen sind numerisch (Typ „n“), nicht Text
-  for (const r of ml) for (const i of [1, 5, 6, 7, 8]) expect(r.cells[i]?.t).toBe('n');
-  expect(ml[0].cells[8]?.fmt).toBe('#,##0.00');
-  const sumRow = wb['Messliste'].find((r) => r[7]?.v === 'Summe')!;
-  expect(sumRow[8]?.v).toBe('=SUBTOTAL(109,I4:I7)'); // Summe berücksichtigt den Filter
-  // Druck: Messliste quer, auf Seitenbreite, Kopf (Zeilen 1–3) wiederholt, Seitenzahlen
-  const pr = readXlsxPrint(file)['Messliste'];
-  expect(pr).toMatchObject({ orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, titleRows: '$1:$3' });
-  // Kopfzeile: links Projekt / Kostenstelle, Mitte Seitenzahl (rechts Platz für das Firmenlogo)
-  expect(pr.header.center).toContain('Seite &P von &N');
-  expect(pr.header.left).not.toBe('');
-  // Datei lässt sich mit einem kompatiblen Tabellenprogramm (LibreOffice) öffnen
-  // Messliste (3. Blatt) als CSV
-  execFileSync('soffice', ['--headless', '--convert-to', 'csv:Text - txt - csv (StarCalc):59,34,76,1,,1031,false,false,true,false,false,3', '--outdir', OUT, file], { timeout: 90_000 });
-  const csv = execFileSync('cat', [file.replace(/\.xlsx$/, '-Messliste.csv')], { encoding: 'utf8' });
+  // Zahlen sind numerisch (Typ „n“), nicht Text; Fläche als Formel Länge × Breite
+  for (const r of rows) for (const i of [1, 2, 3, 4]) expect(r.cells[i]?.t).toBe('n');
+  expect(String(rows[0].cells[5]?.v)).toMatch(/^=C\d+\*D\d+$/);
+  const sumRow = ws.find((r) => r[6]?.v === 'm²')!;
+  expect(String(sumRow[5]?.v)).toMatch(/^=SUM\(F\d+:F\d+\)$/);
+  // Druck: Hochformat, immer auf eine Seite, Kopfzeile rechts „Seite von Seiten“
+  const pr = readXlsxPrint(file)['Aufmaßblatt 001'];
+  expect(pr).toMatchObject({ orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 1 });
+  expect(pr.header.right).toBe('&P von &N');
+  // Datei lässt sich mit einem kompatiblen Tabellenprogramm (LibreOffice) öffnen, Formeln werden berechnet
+  const csvDir = join(OUT, 'xlsx-csv');
+  rmSync(csvDir, { recursive: true, force: true });
+  execFileSync('soffice', ['--headless', '--convert-to', 'csv:Text - txt - csv (StarCalc):59,34,76,1,,1031,false,false,true,false,false,1', '--outdir', csvDir, file], { timeout: 90_000 });
+  // Dateiname enthält den Blattnamen (mit „ß“ je nach Systemkodierung) – daher als Bytes lesen
+  const csvFile = readdirSync(csvDir, { encoding: 'buffer' }).find((f) => f.toString('latin1').endsWith('.csv'))!;
+  const csv = readFileSync(Buffer.concat([Buffer.from(csvDir + '/'), csvFile]), 'utf8');
   // Dezimaltrennzeichen hängt von der Ländereinstellung des Programms ab
-  expect(csv).toMatch(/^A-101;1;Schadstelle;;;0[.,]60;0[.,]40;0[.,]03;0[.,]24;/m);
-  expect(csv).toMatch(/Summe;5[.,]44/); // Summenformel wird berechnet
-  // Ausdruck (LibreOffice → PDF): je Blatt eine Seite
+  // (Zahlenformat der Vorlage mit Leerraum links/rechts)
+  expect(csv).toMatch(/^A-101;1; *0[.,]60 *; *0[.,]40 *; *0[.,]03 *; *0[.,]24 *;Schadstelle$/m);
+  expect(csv).toMatch(/^;;;;; *5[.,]44 *;m²$/m); // Summenformel wird berechnet
+  // Ausdruck (LibreOffice → PDF): genau eine Seite
   execFileSync('soffice', ['--headless', '--convert-to', 'pdf', '--outdir', join(OUT, 'xlsx-pdf'), file], { timeout: 90_000 });
-  expect(execFileSync('pdfinfo', [join(OUT, 'xlsx-pdf', 'Wohnanlage_Sued_Tiefgarage_A-101_Aufmass.pdf')], { encoding: 'utf8' })).toMatch(/Pages:\s+3/); // Übersicht, Aufmaß, Messliste
+  expect(execFileSync('pdfinfo', [join(OUT, 'xlsx-pdf', 'Wohnanlage_Sued_Tiefgarage_A-101_Aufmassblatt_001.pdf')], { encoding: 'utf8' })).toMatch(/Pages:\s+1\n/);
 });
 
 test('11. Bearbeiteten Plan als PDF exportieren', async () => {
@@ -439,55 +444,30 @@ test('Weitere Pläne: gedrehte Seite und Planbereich – PDF-Export mehrerer Pl�
 
 test('10b. Excel-Export Kostenstelle und Gesamtprojekt', async () => {
   const dl = await catchDownload(page, () => excelExport(page, 'export-xlsx-cc'));
-  expect(dl.suggestedFilename()).toBe('Wohnanlage_Sued_Tiefgarage_Aufmass.xlsx');
+  // Nummer wird hochgezählt
+  expect(dl.suggestedFilename()).toBe('Wohnanlage_Sued_Tiefgarage_Aufmassblatt_002.xlsx');
   const file1 = await saveDownload(dl);
   const wb = readXlsx(file1);
-  // Aufbau: Übersicht (Projektdaten, Zusammenfassung, Pläne), Aufmaß nach Leistungen, Messliste
-  const names = Object.keys(wb);
-  expect(names.slice(0, 3)).toEqual(['Übersicht', 'Aufmaß', 'Messliste']);
-  // Aufmaß nach Leistungen: Flächenblock mit allen Messungen der Kostenstelle und Summe
-  const am = wb['Aufmaß'];
-  expect(am[0][0]?.v).toBe('Aufmaß nach Leistungen');
-  const fl = am.findIndex((r) => r[0]?.v === 'Flächen');
-  expect(fl).toBeGreaterThan(0);
-  // lückenlos: nur Spalten mit Werten (hier mit Breite und Tiefe)
-  expect(am[fl + 1].map((c) => c?.v ?? null).slice(0, 6)).toEqual(['Plan', 'Nr.', 'Länge (m)', 'Breite (m)', 'Tiefe (m)', 'Menge (m²)']);
-  const amSum = am.find((r) => r[4]?.v === 'Summe m²')!;
-  expect(amSum[5]?.v).toMatch(new RegExp(`^=SUM\\(F${fl + 3}:F\\d+\\)$`));
-  expect(readXlsxPrint(file1)['Aufmaß']).toMatchObject({ fitToPage: true, fitToWidth: 1, fitToHeight: 1 }); // eine Seite
-  // keine Einzelblätter je Plan mehr – alle Pläne in der Messliste
-  expect(names).not.toContain('A-101');
-  expect([...new Set(messliste(wb).map((r) => r.plan))]).toEqual(['A-101', 'A-102', 'B-204']);
-  const ov = wb['Übersicht'].find((r) => r[0]?.v === 'A-101')!;
-  expect([ov[3]?.v, ov[4]?.v]).toEqual([4, 5.44]);
-  expect(messliste(wb, 'A-102').map((r) => r.values)).toEqual([[1, 1, 2, 0.05, 2]]);
-
-  // Klassisches Layout bleibt verfügbar (eine Tabelle je Kostenstelle, Plannummer in Spalte A)
-  const dlc = await catchDownload(page, () => page.getByTestId('export-xlsx-classic').click());
-  const wbc = readXlsx(await saveDownload(dlc, 'klassisch.xlsx'));
-  expect(Object.keys(wbc)).toEqual(['Tiefgarage', 'Stiege 1', 'Fassade Nord', 'Projektdaten']);
-  expect(wbc['Tiefgarage'][0].map((c) => c?.v)).toEqual(['Plannummer', 'Schadstellennummer', 'Länge (m)', 'Breite (m)', 'Tiefe (m)', 'Fläche (m²)']);
-  const rows = wbc['Tiefgarage'].slice(1).filter((r) => r[1] && typeof r[1].v === 'number').map((r) => [r[0]?.v, r[1]?.v, r[5]?.v]);
-  expect(rows).toEqual([
-    ['A-101', 1, 0.24],
-    ['A-101', 3, 3.75],
-    ['A-101', 4, 1.2],
-    ['A-101', 5, 0.25],
-    ['A-102', 1, 2],
-    ['B-204', 1, 2],
-  ]);
-  // Projektdaten stehen oben in der Übersicht
-  expect(wb['Übersicht'].some((r) => r[0]?.v === 'Projekt' && r[1]?.v === 'Wohnanlage Süd')).toBe(true);
+  expect(Object.keys(wb)).toEqual(['Aufmaßblatt 002']);
+  // alle Pläne der Kostenstelle in einer Flächentabelle mit Summe
+  const rows = blattRows(wb);
+  expect([...new Set(rows.map((r) => r.plan))]).toEqual(['A-101', 'A-102', 'B-204']);
+  expect(blattRows(wb, 'A-102').map((r) => [r.nr, r.values['Länge'], r.values['Breite'], r.values['Tiefe'], r.values['m²']])).toEqual([[1, 1, 2, 0.05, 2]]);
+  const ws = wb['Aufmaßblatt 002'];
+  const sumRow = ws.find((r) => r[6]?.v === 'm²')!;
+  const [, from, to] = /^=SUM\(F(\d+):F(\d+)\)$/.exec(String(sumRow[5]?.v))!.map(Number);
+  expect(to - from + 1).toBe(6);
+  expect(readXlsxPrint(file1)['Aufmaßblatt 002']).toMatchObject({ fitToPage: true, fitToWidth: 1, fitToHeight: 1 }); // eine Seite
 
   const dl2 = await catchDownload(page, () => excelExport(page, 'export-xlsx-project'));
-  expect(dl2.suggestedFilename()).toBe('Wohnanlage_Sued_Aufmass.xlsx');
+  expect(dl2.suggestedFilename()).toBe('Wohnanlage_Sued_Aufmassblatt_003.xlsx');
   const f2 = await saveDownload(dl2);
   const wb2 = readXlsx(f2);
-  expect(Object.keys(wb2).slice(0, 3)).toEqual(['Übersicht', 'Aufmaß', 'Messliste']);
-  // Gesamtprojekt: Pläne aller Kostenstellen mit Gesamtsumme
-  const ovSum = wb2['Übersicht'].find((r) => r[2]?.v === 'Summe')!;
-  expect(String(ovSum[4]?.v)).toMatch(/^=SUM\(E\d+:E\d+\)$/);
-  expect(readXlsxPrint(f2)['Übersicht']).toMatchObject({ fitToPage: true, fitToWidth: 1 });
+  const ws2 = wb2['Aufmaßblatt 003'];
+  // Gesamtprojekt: alle Kostenstellen im Kopf
+  expect(String(ws2[3][2]?.v)).toMatch(/Tiefgarage.*Stiege 1.*Fassade Nord/);
+  expect(blattRows(wb2).length).toBeGreaterThanOrEqual(6);
+  expect(readXlsxPrint(f2)['Aufmaßblatt 003']).toMatchObject({ fitToPage: true, fitToWidth: 1, fitToHeight: 1 });
 });
 
 test('12. Projekt speichern, schließen und vollständig wiederherstellen', async () => {

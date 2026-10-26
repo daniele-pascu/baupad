@@ -10,7 +10,7 @@ import {
   freshStart,
   markerRelPos,
   planBox,
-  messliste,
+  blattRows,
   readXlsx,
   saveDownload,
   tableRows,
@@ -188,9 +188,9 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   await page.screenshot({ path: join(OUT, `${info.project.name}-editor.png`) });
 
   // 7) Excel-Export über den Dialog „Datei bereit“
-  const dl = await catchDownload(page, () => excelExport(page, 'export-xlsx-plan', 'xlsx-overview', 'tap'));
+  const dl = await catchDownload(page, () => excelExport(page, 'export-xlsx-plan', 'tap'));
   const wb = readXlsx(await saveDownload(dl, `${info.project.name}-plan.xlsx`));
-  expect(messliste(wb, 'C-301').map((r) => r.values)).toEqual([
+  expect(blattRows(wb, 'C-301').map((r) => [r.nr, r.values['Länge'], r.values['Breite'], r.values['Tiefe'], r.values['m²']])).toEqual([
     [1, 1.25, 0.4, 0.03, 0.5],
     [2, 2.4, 1.5, 0.06, 3.6],
   ]);

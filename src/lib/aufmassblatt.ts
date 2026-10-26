@@ -130,8 +130,9 @@ export function exportAufmassblatt(data: ProjectState, scope: XlsxScope, info: B
     add(head);
     add([], 6);
     const priceRows: { pos: LvPosition; row: number }[] = [];
-    for (const { pos, list } of blocks) {
-      add([str(pos.number, 'amPos'), null, str(pos.shortText || '', 'amText')]);
+    blocks.forEach(({ pos, list }, bi) => {
+      // wie Vorlage: Pos.-Nr. normal, Positionstext leicht eingerückt
+      add([str(pos.number, 'amText'), null, str(`   ${pos.shortText || ''}`, 'amText')]);
       // Menge verweist auf die Summe der Tabelle (Zeile wird nachgetragen)
       const qtyRow = add([]);
       add();
@@ -148,29 +149,31 @@ export function exportAufmassblatt(data: ProjectState, scope: XlsxScope, info: B
       ];
       priceRows.push({ pos, row: qtyRow });
       add();
-      add([], 6);
-    }
+      // zwischen zwei Positionen eine durchgehende Linie, danach ein schmaler Abstand
+      if (bi < blocks.length - 1) {
+        add(line('amRule'));
+        add([], 6);
+      } else add();
+    });
     // Zusammenstellung (EUR)
-    add();
     const box = add([str('Zusammenstellung (EUR)', 'amBox'), ...Array.from({ length: 7 }, () => blank('amBox'))], 15.6);
     merges.push(`A${box}:H${box}`);
     add();
     const refs: string[] = [];
     let total = 0;
-    for (const { pos, row } of priceRows) {
+    priceRows.forEach(({ pos, row }, i) => {
       const v = Math.round((rows[row - 1][6] as { v: number }).v * 100) / 100;
       total += v;
-      const r = add([str(pos.number, 'amPos'), null, str(pos.shortText || '', 'amText'), null, null, null, { t: 'formula', f: `G${row}`, v, s: 'amNumBold' }, str('€', 'amBold')]);
+      const r = add([str(pos.number, 'amPos'), null, str(` ${pos.shortText || ''}`, 'amText'), null, null, null, { t: 'formula', f: `G${row}`, v, s: 'amNumBold' }, str('€', 'amBold')]);
       refs.push(`G${r}`);
-      add();
-    }
+      if (i < priceRows.length - 1) add();
+    });
     add(line('amRule'));
     add();
     add(
       [null, null, null, null, str('Gesamtpreis in EUR', 'amTotal'), null, { t: 'formula', f: refs.join('+') || '0', v: Math.round(total * 100) / 100, s: 'amTotalNum' }, str('€', 'amTotal')],
       15.6,
     );
-    add();
     add();
   }
 
@@ -226,7 +229,9 @@ export function exportAufmassblatt(data: ProjectState, scope: XlsxScope, info: B
         total += q ?? 0;
         cells = [n(q, last)];
       }
-      add([str(planNo(plan), last ? 'amCenterLast' : 'amCenter'), nrCell(d, last), ...cells, str(note, 'amNote')]);
+      const pn = planNo(plan);
+      const planCell: Cell = /^[1-9]\d{0,8}$/.test(pn) ? num(Number(pn), last ? 'amCenterLast' : 'amCenter') : str(pn, last ? 'amCenterLast' : 'amCenter');
+      add([planCell, nrCell(d, last), ...cells, note ? str(note, 'amNote') : null]);
     });
     const lastRow = rows.length;
     if (kind === 'other') return null;
@@ -247,6 +252,8 @@ export function exportAufmassblatt(data: ProjectState, scope: XlsxScope, info: B
     print: true,
     pageLayout: true,
     logoLeft: true,
+    // immer auf eine Seite (Breite und Höhe)
+    onePage: true,
   };
   const scopeName =
     scope.kind === 'plan' ? [costCenterLabel(ccs[0]), planNo(plans[0])] : scope.kind === 'costCenter' ? [costCenterLabel(ccs[0])] : [];

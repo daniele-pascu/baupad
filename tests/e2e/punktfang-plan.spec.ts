@@ -76,7 +76,7 @@ test('Vektor-PDF: Ecken des Grundrisses werden exakt gefangen, Fläche aus dem P
   await expect(page.getByTestId('snap-marker')).toBeVisible(); // Anfang der Maßlinie
 });
 
-test('X gedrückt halten: vergrößert an der Maus, Fangpunkt rot, Klick setzt grünen Punkt, loslassen zoomt zurück; Enter fertig, Rücktaste löscht', async ({ page }) => {
+test('X gedrückt halten: vergrößert an der Maus, Fangpunkt blau markiert, Klick setzt grünen Punkt, loslassen zoomt zurück; Enter fertig, Rücktaste löscht', async ({ page }) => {
   await freshStart(page);
   await createProject(page, 'Halten', {}, ['Keller']);
   await page.getByTestId('plan-file-input').setInputFiles(join(FIXTURES, 'massketten.pdf'));

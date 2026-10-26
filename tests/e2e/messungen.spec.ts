@@ -1,6 +1,4 @@
 import { expect, test, type Page } from '@playwright/test';
-import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   excelExport,
@@ -12,7 +10,7 @@ import {
   markerRelPos,
   OUT,
   planBox,
-  messliste,
+  blattRows,
   readXlsx,
   saveDownload,
   waitForPlan,
@@ -146,32 +144,24 @@ test('Messarten Linie, Schadstelle, Fläche: Linien zählen nicht zur Fläche, l
   // Excel: leere Zellen statt 0; Summe nur Flächen
   const dl = await catchDownload(page, () => excelExport(page, 'export-xlsx-plan'));
   const file = await saveDownload(dl, 'messarten.xlsx');
-  const ml = messliste(readXlsx(file), 'M-1');
-  expect(ml.map((r) => [...r.values, r.kind])).toEqual([
-    [1, 3.5, null, null, null, 'Linie'],
-    [2, 2, 1, null, 2, 'Schadstelle'],
-    [3, 1, 0.5, 0.1, 0.5, 'Fläche'],
+  // Aufmaßblatt: Flächen und Linien in getrennten Tabellen, Messart als Bemerkung
+  const wb = readXlsx(file);
+  const ml = blattRows(wb, 'M-1');
+  expect(ml.map((r) => [r.nr, r.values, r.note])).toEqual([
+    [2, { Länge: 2, Breite: 1, Tiefe: null, 'm²': 2 }, 'Schadstelle'], // Tiefe leer, nicht 0
+    [3, { Länge: 1, Breite: 0.5, Tiefe: 0.1, 'm²': 0.5 }, 'Fläche'],
+    [1, { m: 3.5 }, 'Linie'], // Linie: nur Länge
   ]);
-  expect(ml[2].cells[9]?.v).toBeCloseTo(0.05, 6); // Volumen = Fläche × Tiefe; ohne Tiefe leer
-  expect(ml[1].cells[9]?.v ?? null).toBeNull();
-  // Aufmaß nach Vorlage (erstes Blatt): Flächen und Linien in getrennten Blöcken
-  const blocks = readXlsx(file)['Aufmaß'].map((r) => r.map((c) => c?.v ?? null));
-  const areaHead = blocks.findIndex((r) => r[0] === 'Flächen');
-  const lineHead = blocks.findIndex((r) => r[0] === 'Linien');
+  const ws = wb[Object.keys(wb)[0]].map((r) => r.map((c) => c?.v ?? null));
+  const areaHead = ws.findIndex((r) => r[0] === 'Flächen');
+  const lineHead = ws.findIndex((r) => r[0] === 'Linien und Längen');
   expect(areaHead).toBeGreaterThanOrEqual(0);
   expect(lineHead).toBeGreaterThan(areaHead);
-  // lückenlos: Linien nur mit Plan, Nr., Länge, Menge
-  expect(blocks[lineHead + 1].slice(0, 6)).toEqual(['Plan', 'Nr.', 'Länge (m)', 'Menge (m)', null, null]);
-  expect(blocks[lineHead + 2].slice(0, 6)).toEqual(['M-1', 1, 3.5, 3.5, null, null]);
-  // Messliste (3. Blatt) als CSV
-  execFileSync('soffice', ['--headless', '--convert-to', 'csv:Text - txt - csv (StarCalc):59,34,76,1,,1031,false,false,true,false,false,3', '--outdir', OUT, file], { timeout: 90_000 });
-  const csv = readFileSync(file.replace(/\.xlsx$/, '-Messliste.csv'), 'utf8');
-  expect(csv).toMatch(/^M-1;1;Linie;;;3[.,]50;;;;$/m); // Linie: Breite, Tiefe, Fläche leer
-  expect(csv).toMatch(/^M-1;2;Schadstelle;;;2[.,]00;1[.,]00;;2[.,]00;$/m); // Tiefe leer, nicht 0
-  expect(csv).toMatch(/Summe;2[.,]50?;/); // Linie zählt nicht zur Fläche
-  // Übersicht: Pläne mit Fläche und Linien getrennt
-  const ovPlan = readXlsx(file)['Übersicht'].find((r) => r[0]?.v === 'M-1')!;
-  expect([ovPlan[3]?.v, ovPlan[4]?.v, ovPlan[5]?.v]).toEqual([3, 2.5, 3.5]);
+  // Summe Fläche ohne Linie (2,00 + 0,50), Summe Linien 3,50 m
+  const sums = ws.filter((r) => typeof r[5] === 'string' && r[5].startsWith('=SUM') || typeof r[2] === 'string' && r[2].startsWith('=SUM'));
+  expect(sums.map((r) => r.find((c) => c === 'm²' || c === 'm'))).toEqual(['m²', 'm']);
+  expect(String(sums[0][5])).toMatch(new RegExp(`^=SUM\\(F${areaHead + 3}:F${areaHead + 4}\\)$`));
+  expect(String(sums[1][2])).toMatch(new RegExp(`^=SUM\\(C${lineHead + 3}:C${lineHead + 3}\\)$`));
 });
 
 test('Rückgängig und Wiederholen: Anlegen, Verschieben, per Schaltfläche und Tastatur', async () => {

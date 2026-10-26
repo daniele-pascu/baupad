@@ -490,15 +490,15 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       const v = viewRef.current;
       if (!v || !size) return;
       const fit = fitView(region, size.w, size.h).scale;
-      if (v.scale >= fit * 3) {
-        // schon nah genug: nicht weiter hineinzoomen, nur den Fangmodus zeigen
+      const { min, max } = limits();
+      // immer dieselbe Detailstufe (8-fach der Gesamtansicht) – nur wenn schon so nah, nicht weiter
+      const target = Math.min(max, Math.max(min, fit * 8));
+      if (v.scale >= target * 0.85) {
         lupe.current = { prev: null };
         forceRender((n) => n + 1);
       } else {
-        // an der Mausposition (sonst Bildmitte) vergrößern – der Punkt unter der Maus bleibt stehen
+        // an der Mausposition (außerhalb des Plans: Bildmitte) – der Punkt unter der Maus bleibt stehen
         const at = lastHover.current ?? { x: size.w / 2, y: size.h / 2 };
-        const { min, max } = limits();
-        const target = Math.min(max, Math.max(min, v.scale * 5, fit * 6));
         lupe.current = { prev: v };
         setView(zoomAt(v, at, target / v.scale, min, max));
       }
@@ -1126,6 +1126,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       className={`viewer tool-${tool}`}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
+      onPointerLeave={(e) => e.pointerType === 'mouse' && (lastHover.current = null)}
       onPointerUp={(e) => finish(e, false)}
       onPointerCancel={(e) => finish(e, true)}
       onContextMenu={(e) => e.preventDefault()}
@@ -1301,25 +1302,20 @@ export function FillPaths({ shape, map, fill, boost = false }: { shape: Shape; m
   );
 }
 
-/** Fangpunkt: Form je Art (wie in CAD-Programmen) mit kurzer Beschriftung */
+/**
+ * Fangpunkt (wie in CAD-Programmen): Symbol je Art – □ Endpunkt, △ Mitte, ✕ Schnittpunkt,
+ * ○ Kreismitte, ⧖ auf Linie – in kräftigem Blau mit weißem Rand und Fadenkreuz, dazu ein
+ * Schild mit der Bezeichnung. Gut sichtbar auf hellen und dunklen Plänen; nur Anzeige.
+ * `hold` = X gedrückt (etwas größer).
+ */
 function SnapMarker({ view, mark, hold = false }: { view: View; mark: { p: Point; kind: SnapKind }; hold?: boolean }) {
   const c = toScreen(view, mark.p);
-  // X gedrückt: berührter Fangpunkt rot mit weißer Füllung (Klick setzt ihn → grüner Punkt)
-  if (hold)
-    return (
-      <g className="snap-marker snap-hold" data-testid="snap-marker" data-kind={mark.kind} pointerEvents="none">
-        <circle cx={c.x} cy={c.y} r={8} className="lupe-pt" data-testid="snap-hover" />
-        <text x={c.x + 12} y={c.y - 10}>
-          {SNAP_LABELS[mark.kind]}
-        </text>
-      </g>
-    );
-  const r = 6;
+  const r = hold ? 9 : 7.5;
   const shape =
     mark.kind === 'end' ? (
       <rect x={c.x - r} y={c.y - r} width={2 * r} height={2 * r} />
     ) : mark.kind === 'mid' ? (
-      <path d={`M${c.x} ${c.y - r}L${c.x + r} ${c.y + r * 0.8}L${c.x - r} ${c.y + r * 0.8}Z`} />
+      <path d={`M${c.x} ${c.y - r * 1.1}L${c.x + r} ${c.y + r * 0.75}L${c.x - r} ${c.y + r * 0.75}Z`} />
     ) : mark.kind === 'intersection' ? (
       <path d={`M${c.x - r} ${c.y - r}L${c.x + r} ${c.y + r}M${c.x + r} ${c.y - r}L${c.x - r} ${c.y + r}`} />
     ) : mark.kind === 'center' ? (
@@ -1329,12 +1325,25 @@ function SnapMarker({ view, mark, hold = false }: { view: View; mark: { p: Point
     ) : (
       <path d={`M${c.x - r} ${c.y}H${c.x + r}M${c.x} ${c.y - r}V${c.y + r}`} />
     );
+  const g = r + 4; // Fadenkreuz: kurze Striche außerhalb des Symbols
+  const cross = `M${c.x - g - 7} ${c.y}H${c.x - g}M${c.x + g} ${c.y}H${c.x + g + 7}M${c.x} ${c.y - g - 7}V${c.y - g}M${c.x} ${c.y + g}V${c.y + g + 7}`;
+  const label = SNAP_LABELS[mark.kind];
+  const lw = label.length * 6.2 + 12;
   return (
-    <g className="snap-marker" data-testid="snap-marker" data-kind={mark.kind} pointerEvents="none">
-      {shape}
-      <text x={c.x + r + 4} y={c.y - r - 2}>
-        {SNAP_LABELS[mark.kind]}
-      </text>
+    <g className={`snap-marker${hold ? ' snap-hold' : ''}`} data-testid="snap-marker" data-kind={mark.kind} pointerEvents="none">
+      <path className="snap-halo" d={cross} />
+      <path className="snap-cross" d={cross} />
+      <g className="snap-halo">{shape}</g>
+      <g className="snap-shape" data-testid={hold ? 'snap-hover' : undefined}>
+        {shape}
+      </g>
+      <circle className="snap-dot" cx={c.x} cy={c.y} r={1.6} />
+      <g transform={`translate(${c.x + g + 9} ${c.y - g - 18})`}>
+        <rect className="snap-tag" width={lw} height={17} rx={8.5} />
+        <text x={lw / 2} y={12} textAnchor="middle">
+          {label}
+        </text>
+      </g>
     </g>
   );
 }

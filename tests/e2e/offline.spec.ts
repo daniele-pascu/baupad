@@ -9,7 +9,7 @@ import {
   drawRect,
   fillMeasures,
   planBox,
-  messliste,
+  blattRows,
   readXlsx,
   saveDownload,
   tableRows,
@@ -76,7 +76,7 @@ test('Offline: Projekt anlegen, PDF importieren, Schadstellen erfassen, exportie
 
   const x = await catchDownload(page, () => excelExport(page, 'export-xlsx-plan'));
   const wb = readXlsx(await saveDownload(x, 'offline.xlsx'));
-  expect(messliste(wb, 'A-101')[0].values).toEqual([1, 1.5, 0.8, 0.05, 1.2]);
+  expect(blattRows(wb, 'A-101').map((r) => [r.nr, r.values['Länge'], r.values['Breite'], r.values['Tiefe'], r.values['m²']])).toEqual([[1, 1.5, 0.8, 0.05, 1.2]]);
 
   const p = await catchDownload(page, async () => {
     await page.getByTestId('export-pdf-plan').click();
@@ -112,14 +112,12 @@ test('Offline: Projekt anlegen, PDF importieren, Schadstellen erfassen, exportie
   await page.getByTestId('lv-search').fill('Sperr');
   await expect(page.getByTestId('lv-row')).toHaveCount(1);
 
-  // Offline: Excel (neues Layout mit LV-Auswertung) für die Kostenstelle
+  // Offline: Aufmaßblatt für die Kostenstelle (Nummer hochgezählt)
   const xc = await catchDownload(page, () => excelExport(page, 'export-xlsx-cc'));
+  expect(xc.suggestedFilename()).toMatch(/_Aufmassblatt_002\.xlsx$/);
   const wbc = readXlsx(await saveDownload(xc, 'offline-cc.xlsx'));
-  expect(Object.keys(wbc)).toEqual(expect.arrayContaining(['Übersicht', 'Aufmaß', 'Messliste']));
-  expect(messliste(wbc).map((r) => r.plan)).toContain('A-101');
-  // Übersicht: alle Pläne der Kostenstelle, auch der gezeichnete Plan ohne Messungen
-  expect(wbc['Übersicht'].map((r) => r[0]?.v)).toEqual(expect.arrayContaining(['A-101', 'Z-1']));
-  expect(Object.keys(wbc).some((n) => n.startsWith('LV '))).toBe(true);
+  expect(Object.keys(wbc)).toEqual(['Aufmaßblatt 002']);
+  expect(blattRows(wbc).map((r) => r.plan)).toContain('A-101');
 
   // Keine fehlgeschlagenen Anfragen (alles kam aus dem Offline-Speicher)
   expect(failed).toEqual([]);

@@ -485,16 +485,19 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     const onKey = (e: KeyboardEvent) => {
       if (dialog || detailsOpen || pdfOpen) return;
       const target = e.target as HTMLElement;
-      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || document.querySelector('.modal')) return;
       const key = e.key.toLowerCase();
-      // X gedrückt halten: vergrößert an der Maus (Tastenwiederholung ignorieren), loslassen → zurück (keyup)
-      if (key === 'x' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      const typing = ['INPUT', 'TEXTAREA'].includes(target.tagName) || target.isContentEditable;
+      // X gedrückt halten: vergrößert an der Maus (Tastenwiederholung ignorieren), loslassen → zurück (keyup).
+      // Auch wenn noch eine Auswahlliste oder ein Knopf den Fokus hat (z. B. nach dem Planwechsel).
+      if (key === 'x' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey && !typing && !document.querySelector('.modal')) {
         e.preventDefault();
+        if (target.tagName === 'SELECT' || target.tagName === 'BUTTON') target.blur();
         if (e.repeat || viewer.current?.lupeActive()) return;
         if (!drawing.snapOn) drawing.setSnapOn(true);
         viewer.current?.zoomHold(true);
         return;
       }
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || document.querySelector('.modal')) return;
       // Punktwerkzeuge: Enter beendet (Polylinie offen, Polygon geschlossen), C schließt,
       // Rücktaste/Entf nimmt den letzten Punkt zurück, Escape verwirft
       if (polyCount && ['Enter', 'Escape', 'Backspace', 'Delete'].includes(e.key) || (polyCount && key === 'c' && !e.ctrlKey && !e.metaKey)) {
@@ -563,11 +566,14 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       viewer.current?.zoomHold(false);
     };
     const blur = () => release();
+    const hidden = () => document.hidden && release();
     window.addEventListener('keyup', release);
     window.addEventListener('blur', blur);
+    document.addEventListener('visibilitychange', hidden);
     return () => {
       window.removeEventListener('keyup', release);
       window.removeEventListener('blur', blur);
+      document.removeEventListener('visibilitychange', hidden);
     };
   }, []);
 
@@ -1194,7 +1200,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
 
           {lupeOn && (
             <div className="zoom-hint small" data-testid="lupe-hint">
-              X gehalten: <span className="lupe-dot" /> berührter Fangpunkt · Klick setzt ihn <span className="lupe-dot set" /> · loslassen = zurück · Enter fertig · ⌫ letzter Punkt
+              X gehalten: <span className="lupe-dot" /> Fangpunkt · Klick setzt ihn <span className="lupe-dot set" /> · loslassen = zurück · Enter fertig · ⌫ letzter Punkt
             </div>
           )}
           {(drawMode ? isPointTool(drawing.viewerTool) && (polyCount > 0 || !drawing.selected) : isPointTool(tool) && (polyCount > 0 || !selected)) && !dialog && (

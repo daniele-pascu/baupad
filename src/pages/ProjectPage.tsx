@@ -14,8 +14,7 @@ import { ExcelExportDialog } from '../components/ExcelExportDialog';
 import { ProjectForm, type CostCenterInput } from '../components/ProjectForm';
 import { SaveErrorBanner, SaveStatus } from '../components/SaveStatus';
 import { confirmDialog, offerFile, promptDialog, showError, toast } from '../components/ui';
-import { cachedExcelLogo } from '../lib/company';
-import { aufmassRows, componentsOf, findPosition, costCenterLabel, costCenterName, costCentersOf, damagesOf, elementsOf, exportXlsx, lvDocsOf, planTitle, plansOf, type XlsxLayout, type XlsxScope } from '../lib/aufmass';
+import { aufmassRows, componentsOf, findPosition, costCenterLabel, costCenterName, costCentersOf, damagesOf, elementsOf, planTitle, plansOf, type XlsxScope } from '../lib/aufmass';
 import { BACKUP_REMIND_DAYS, backupStatus, exportProjectBackup, type BackupStatus } from '../lib/backup';
 import { isDrawingPlan } from '../lib/drawing';
 import { exportPaper } from '../lib/sheet-layout';
@@ -182,16 +181,6 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
 
   // ---------------------------------------------------------------------------
   // Export
-
-  const xlsx = (scope: 'cc' | 'project', layout: XlsxLayout = 'standard') => {
-    try {
-      // Firmenlogo (Konto → Einstellungen) kommt automatisch in die Kopfzeile
-      const logo = cachedExcelLogo();
-      void offerFile(exportXlsx(data, scope === 'cc' && active ? { kind: 'costCenter', costCenterId: active.id } : { kind: 'project' }, layout, { logo }));
-    } catch (e) {
-      showError(e, 'Excel-Export fehlgeschlagen');
-    }
-  };
 
   const backup = async () => {
     try {
@@ -414,26 +403,6 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
           {ccs.length > 1 && (
             <button type="button" className="btn" onClick={() => setExcelScope({ kind: 'project' })} data-testid="export-xlsx-project">
               <Icon name="excel" /> Excel – gesamtes Projekt
-            </button>
-          )}
-          <button
-            type="button"
-            className="btn"
-            onClick={() => xlsx(ccs.length > 1 ? 'project' : 'cc', 'classic')}
-            title="Bisheriges Format: eine Tabelle je Kostenstelle, Plannummer in Spalte A"
-            data-testid="export-xlsx-classic"
-          >
-            <Icon name="excel" /> Excel – klassisch
-          </button>
-          {lvDocsOf(data).length > 0 && (
-            <button
-              type="button"
-              className="btn"
-              onClick={() => xlsx(ccs.length > 1 ? 'project' : 'cc', 'positions')}
-              title="Je LV/MFK-Position ein Tabellenblatt, dazu freie Messungen"
-              data-testid="export-xlsx-positions"
-            >
-              <Icon name="excel" /> Excel – nach Leistungen
             </button>
           )}
           <button type="button" className="btn" onClick={() => setPdfOpen(true)} disabled={!plans.length}>

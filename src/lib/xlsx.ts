@@ -257,7 +257,7 @@ function sheetXml(sheet: Sheet, logo?: HeaderImage): string {
     (sheet.print && sheet.logoLeft
       ? // Firmenvorlage: Ränder wie dort, auf Seitenbreite; Kopfzeile Logo links, „1 von 2“ rechts
         `<pageMargins left="0.7" right="0.7" top="${logo ? Math.max(0.787, 0.3 + logo.height / 72 + 0.15).toFixed(3) : '0.787'}" bottom="0.787" header="0.3" footer="0.3"/>` +
-        '<pageSetup paperSize="9" orientation="portrait" fitToWidth="1" fitToHeight="0"/>' +
+        `<pageSetup paperSize="9" orientation="portrait" fitToWidth="1" fitToHeight="${sheet.onePage ? 1 : 0}"/>` +
         `<headerFooter><oddHeader>${esc(`${logo ? '&L&G' : ''}&R&P von &N`)}</oddHeader></headerFooter>` +
         (logo ? '<legacyDrawingHF r:id="rIdHF"/>' : '')
       : sheet.print

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { exportXlsx, lvDocsOf, type XlsxLayout, type XlsxScope } from '../lib/aufmass';
+import type { XlsxScope } from '../lib/aufmass';
 import { defaultPeriod, exportAufmassblatt } from '../lib/aufmassblatt';
 import { cachedExcelLogo } from '../lib/company';
 import { updateProject, type ProjectState } from '../lib/store';
@@ -12,7 +12,7 @@ export const nextSheetNo = (data: ProjectState) => String((data.project.sheetNo 
 
 /**
  * Excel-Export: Aufmaßblatt nach Firmenvorlage (Nummer wird vergeben und hochgezählt,
- * Leistungszeitraum aus den Messungen vorgeschlagen); weitere Formate darunter.
+ * Leistungszeitraum aus den Messungen vorgeschlagen).
  */
 export function ExcelExportDialog({ data, scope, onClose }: { data: ProjectState; scope: XlsxScope; onClose: () => void }) {
   const [no, setNo] = useState(() => nextSheetNo(data));
@@ -34,7 +34,6 @@ export function ExcelExportDialog({ data, scope, onClose }: { data: ProjectState
       const n = Number(nr);
       if (Number.isInteger(n) && n > (data.project.sheetNo ?? 0)) updateProject({ sheetNo: n });
     });
-  const other = (layout: XlsxLayout) => run(() => void offerFile(exportXlsx(data, scope, layout, { logo: cachedExcelLogo() })));
 
   return (
     <Modal
@@ -70,25 +69,11 @@ export function ExcelExportDialog({ data, scope, onClose }: { data: ProjectState
         </div>
         <p className="muted small">
           Wie die Firmenvorlage: Firmenlogo links in der Kopfzeile, Bauvorhaben, Kostenstelle und Leistungszeitraum; je LV/MFK die Positionen mit ihren
-          Messungen (Stk., m, m², m³, l) und Zusammenstellung in EUR. Messungen ohne Position folgen mit Plan und Nr. Die Nummer wird beim nächsten Mal
-          automatisch hochgezählt.
+          Messungen (Stk., m, m², m³, l) und Zusammenstellung in EUR. Messungen ohne Position folgen mit Plan und Nr. Immer auf eine Seite. Die
+          Nummer wird beim nächsten Mal automatisch hochgezählt.
         </p>
         <button type="submit" hidden />
       </form>
-      <div className="excel-other">
-        <span className="muted small">Weitere Formate:</span>
-        <button type="button" className="btn btn-sm" onClick={() => other('standard')} data-testid="xlsx-overview">
-          Übersicht &amp; Messliste
-        </button>
-        <button type="button" className="btn btn-sm" onClick={() => other('classic')} data-testid="xlsx-classic">
-          Klassisch
-        </button>
-        {lvDocsOf(data).length > 0 && (
-          <button type="button" className="btn btn-sm" onClick={() => other('positions')} data-testid="xlsx-positions">
-            Nach Leistungen
-          </button>
-        )}
-      </div>
     </Modal>
   );
 }
