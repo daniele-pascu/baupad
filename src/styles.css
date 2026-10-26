@@ -3868,11 +3868,24 @@ button.status-pill:hover {
   stroke: #12a150;
   stroke-width: 3.5;
 }
-.lupe-hint {
+.zoom-hint {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  flex-wrap: wrap;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--glass);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+  white-space: nowrap;
 }
 .lupe-dot {
   display: inline-block;

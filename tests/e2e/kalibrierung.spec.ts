@@ -148,14 +148,14 @@ test('Punktfang: Marker an Ecke und Schnittpunkt, X schaltet aus/ein', async ({ 
   expect(r2.x).toBeCloseTo(r0.x + r0.w, 6); // genau auf der Ecke, unabhängig von Pixeln
   expect(r2.y).toBeCloseTo(r0.y + r0.h, 6);
 
-  // X schaltet den Fang aus → kein Marker, Punkte frei
+  // Umschalt+X schaltet den Fang aus → kein Marker, Punkte frei
   await pickTool(page, 'tool-rect');
   await page.getByTestId('plan-viewer').hover({ position: { x: 5, y: 5 } });
-  await page.keyboard.press('x');
+  await page.keyboard.press('Shift+X');
   await expect(page.getByTestId('snap-toggle-measure')).toHaveAttribute('aria-pressed', 'false');
   await page.mouse.move(box.x + 302, box.y + 202);
   await expect(marker).toHaveCount(0);
-  await page.keyboard.press('x');
+  await page.keyboard.press('Shift+X');
   await expect(page.getByTestId('snap-toggle-measure')).toHaveAttribute('aria-pressed', 'true');
   await page.screenshot({ path: 'tests/output/punktfang.png' });
 });

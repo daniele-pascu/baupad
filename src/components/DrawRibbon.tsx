@@ -209,7 +209,7 @@ export function DrawRibbon({
             {btn('view-zoom-sel', 'zoomSel', 'Auswahl', () => sel && viewer.current?.zoomTo(sel.id), { disabled: !sel, title: 'Zoom auf Auswahl' })}
             {btn('view-back', 'undoView', 'Vorherige', () => viewer.current?.back(), { title: 'Zur vorherigen Ansicht' })}
             {btn('view-grid', 'grid', 'Raster', () => drawing.setGridOn(!drawing.gridOn), { pressed: drawing.gridOn, title: 'Am Raster einrasten' })}
-            {btn('view-snap', 'snap', 'Fang', () => drawing.setSnapOn(!drawing.snapOn), { pressed: drawing.snapOn, title: 'Punktfang (X)' })}
+            {btn('view-snap', 'snap', 'Fang', () => drawing.setSnapOn(!drawing.snapOn), { pressed: drawing.snapOn, title: 'Punktfang (Umschalt+X) · X vergrößert an der Maus' })}
             {btn('view-ortho', 'ortho', '90°', () => drawing.setOrthoOn(!drawing.orthoOn), { pressed: drawing.orthoOn, title: '90° / Orthogonal: nur waagrecht und senkrecht zeichnen (F8)' })}
           </div>
         )}

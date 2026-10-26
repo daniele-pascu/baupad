@@ -108,9 +108,9 @@ export interface PlanViewerHandle {
   /** Ausgewähltes Objekt formatfüllend anzeigen („Zoom auf Auswahl“) */
   zoomTo(id: string): void;
   /**
-   * Fang-Lupe (Taste X bei Punktwerkzeugen): Bereich um den Mauszeiger vergrößern und alle
-   * Fangpunkte zeigen; nach dem nächsten Punkt kehrt die vorherige Ansicht zurück. Erneut
-   * aufrufen schließt die Lupe ohne Punkt.
+   * Taste X: Plan an der Mausposition vergrößern und alle Fangpunkte zeigen; nach dem nächsten
+   * gesetzten Punkt bzw. der nächsten Form kehrt die vorherige Ansicht zurück. Erneut aufrufen
+   * kehrt ohne Punkt zurück.
    */
   toggleLupe(): void;
   lupeActive(): boolean;
@@ -490,14 +490,12 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       if (lupe.current) return endLupe();
       const v = viewRef.current;
       if (!v || !size) return;
-      // um den Mauszeiger (sonst Bildmitte) etwa 5-fach vergrößern, mindestens so, dass ca. 120 Planeinheiten die Breite füllen
+      // an der Mausposition (sonst Bildmitte) etwa 5-fach vergrößern – der Punkt unter der Maus bleibt stehen
       const at = lastHover.current ?? { x: size.w / 2, y: size.h / 2 };
       const { min, max } = limits();
       const target = Math.min(max, Math.max(min, v.scale * 5, Math.min(size.w, size.h) / 120));
       lupe.current = { prev: v };
-      // Punkt unter dem Mauszeiger in die Bildmitte – so liegt die Umgebung frei (nicht unter Leisten am Rand)
-      const c = toPage(v, at);
-      setView({ scale: target, tx: size.w / 2 - c.x * target, ty: size.h / 2 - c.y * target });
+      setView(zoomAt(v, at, target / v.scale, min, max));
       propsRef.current.onLupeChange?.(true);
     },
     lupeActive: () => !!lupe.current,
@@ -902,6 +900,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
           const raw = clampP(toPage(v, p));
           const snap = propsRef.current.snap;
           propsRef.current.onPlace(clampP(snap ? snapAt(raw, { tool: propsRef.current.tool, scale: v.scale }) : raw));
+          endLupe();
         }
         return;
       case 'component': {
@@ -920,7 +919,11 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         forceRender((n) => n + 1);
         if (cancelled) return;
         const shape = shapeFromDraw(g, v);
-        if (shape) propsRef.current.onCreate(shape);
+        if (shape) {
+          // vergrößert (X): nach der Form zurück zur vorherigen Ansicht
+          endLupe();
+          propsRef.current.onCreate(shape);
+        }
         return;
       }
       case 'move': {
@@ -957,7 +960,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         const lt = lastTap.current;
         const dbl = !lupe.current && lt && now - lt.t < 320 && Math.hypot(lt.p.x - p.x, lt.p.y - p.y) < 30;
         lastTap.current = lupe.current ? null : { t: now, p };
-        // Fang-Lupe: Punkt übernommen → vorherige Ansicht (Zeichnen geht weiter)
+        // vergrößert (X): Punkt übernommen → vorherige Ansicht (Zeichnen geht weiter)
         endLupe();
         // Tippen auf den ersten Punkt schließt die Form; Doppeltippen beendet sie
         // (Polygon: geschlossen, Polylinie: offen)

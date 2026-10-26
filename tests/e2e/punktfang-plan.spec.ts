@@ -4,7 +4,7 @@ import { createProject, drawRect, FIXTURES, freshStart, OUT, pickTool, planBox, 
 
 /**
  * Punktfang auf den Linien des PDF-Plans (Vektor-PDF): Rechteck von Ecke zu Ecke des
- * Grundrisses – trifft die Ecken exakt, die Fläche stimmt mit dem Plan überein. Ohne Fang (X)
+ * Grundrisses – trifft die Ecken exakt, die Fläche stimmt mit dem Plan überein. Ohne Fang (Umschalt+X)
  * landet der Punkt dort, wo geklickt wurde.
  */
 
@@ -62,21 +62,21 @@ test('Vektor-PDF: Ecken des Grundrisses werden exakt gefangen, Fläche aus dem P
   expect(d1.shape.x + d1.shape.w).toBeCloseTo(ROOM.x2, 1);
   expect(d1.shape.y + d1.shape.h).toBeCloseTo(ROOM.y2, 1);
 
-  // Fang aus (X): Punkt bleibt, wo geklickt wurde
+  // Fang aus (Umschalt+X): kein Fangpunkt
   // (an einer anderen Ecke, die noch nicht markiert ist: Linie der Maßkette oben)
   await pickTool(page, 'tool-rect');
   const c = scr(ROOM.x1 + 4 / s, ROOM.y1 - 30 - 4 / s);
   await page.mouse.move(c.x, c.y);
   await expect(page.getByTestId('snap-marker')).toBeVisible();
-  await page.keyboard.press('x');
+  await page.keyboard.press('Shift+X');
   await page.mouse.move(c.x - 1, c.y);
   await expect(page.getByTestId('snap-marker')).toHaveCount(0);
-  await page.keyboard.press('x');
+  await page.keyboard.press('Shift+X');
   await page.mouse.move(c.x + 1, c.y);
   await expect(page.getByTestId('snap-marker')).toBeVisible(); // Anfang der Maßlinie
 });
 
-/** Fang-Lupe: grüner (aktiver) Fangpunkt bzw. nächster roter Punkt zum Mauszeiger – Bildschirmposition */
+/** Vergrößert (X): grüner (aktiver) Fangpunkt bzw. nächster roter Punkt zum Mauszeiger – Bildschirmposition */
 async function nearestLupePoint(page: Page, at: { x: number; y: number }) {
   const box = (await page.getByTestId('plan-viewer').boundingBox())!;
   const pts = await page.getByTestId('lupe-points').locator('circle').evaluateAll((els) => els.map((e) => ({ x: Number(e.getAttribute('cx')), y: Number(e.getAttribute('cy')) })));
@@ -84,7 +84,7 @@ async function nearestLupePoint(page: Page, at: { x: number; y: number }) {
   return abs.reduce((m, p) => (Math.hypot(p.x - at.x, p.y - at.y) < Math.hypot(m.x - at.x, m.y - at.y) ? p : m));
 }
 
-test('Fang-Lupe (X): Fläche Ecke für Ecke – zoomt hinein, Punkt grün, Ansicht zurück, Punkte bleiben exakt', async ({ page }) => {
+test('Taste X: Fläche Ecke für Ecke – vergrößert an der Maus, Punkt grün, Ansicht zurück, Punkte bleiben exakt', async ({ page }) => {
   await freshStart(page);
   await createProject(page, 'Lupe', {}, ['Keller']);
   await page.getByTestId('plan-file-input').setInputFiles(join(FIXTURES, 'massketten.pdf'));
@@ -95,11 +95,15 @@ test('Fang-Lupe (X): Fläche Ecke für Ecke – zoomt hinein, Punkt grün, Ansic
   await waitForPlan(page);
   await waitSaved(page);
   const viewer = page.getByTestId('plan-viewer');
+  await pickTool(page, 'tool-polygon');
+  // etwas verkleinern, damit die Ecken nicht unter den Leisten am Rand liegen
+  await viewer.hover({ position: { x: 300, y: 200 } });
+  await page.keyboard.press('-');
+  await page.waitForTimeout(300);
   const scale0 = Number(await viewer.getAttribute('data-scale'));
   const box = await planBox(page);
   const s = box.width / 1191;
   const scr = (x: number, y: number) => ({ x: box.x + x * s, y: box.y + y * s });
-  await pickTool(page, 'tool-polygon');
 
   const corners = [
     [ROOM.x1, ROOM.y2],
@@ -108,15 +112,14 @@ test('Fang-Lupe (X): Fläche Ecke für Ecke – zoomt hinein, Punkt grün, Ansic
     [ROOM.x1, ROOM.y1],
   ];
   for (const [i, [x, y]] of corners.entries()) {
-    const near = scr(x + 6 / s, y - 5 / s); // grob daneben
+    const near = scr(x + (x < 500 ? 6 : -6) / s, y + (y > 400 ? -5 : 5) / s); // grob daneben, innen
     await page.mouse.move(near.x, near.y);
     await page.keyboard.press('x');
     await expect(page.getByTestId('lupe-hint')).toBeVisible();
     expect(Number(await viewer.getAttribute('data-scale'))).toBeGreaterThan(scale0 * 4); // hineingezoomt
     expect(await page.locator('.lupe-pt').count()).toBeGreaterThan(0); // Fangpunkte angezeigt (rot bzw. grün)
-    // die Umgebung des Mauszeigers liegt jetzt in der Bildmitte
-    const vb = (await viewer.boundingBox())!;
-    const target = await nearestLupePoint(page, { x: vb.x + vb.width / 2, y: vb.y + vb.height / 2 });
+    // der Punkt unter der Maus bleibt stehen – die Ecke liegt jetzt etwas daneben, deutlich vergrößert
+    const target = await nearestLupePoint(page, near);
     await page.mouse.move(target.x, target.y);
     await expect(page.getByTestId('lupe-pt-active')).toHaveCount(1); // grün unter dem Mauszeiger
     if (i === 2) await page.screenshot({ path: join(OUT, 'fang-lupe.png') });
@@ -128,7 +131,7 @@ test('Fang-Lupe (X): Fläche Ecke für Ecke – zoomt hinein, Punkt grün, Ansic
     await expect(page.getByTestId('polygon-bar')).toContainText(`${i + 1} Punkt`);
     await expect(page.locator('.poly-preview circle')).toHaveCount(i + 1);
   }
-  // Esc schließt eine offene Lupe ohne Punkt
+  // Esc kehrt ohne Punkt zurück
   await page.keyboard.press('x');
   await expect(page.getByTestId('lupe-hint')).toBeVisible();
   await page.keyboard.press('Escape');
@@ -138,5 +141,18 @@ test('Fang-Lupe (X): Fläche Ecke für Ecke – zoomt hinein, Punkt grün, Ansic
   await page.getByTestId('polygon-finish').click();
   const dlg = page.getByTestId('damage-dialog');
   await expect(dlg.getByTestId('use-geometry')).toContainText('116,66 m²'); // exakt die Raumecken
+  await dlg.getByTestId('damage-cancel').click();
+
+  // auch beim Rechteck: X vergrößert an der Maus, nach dem Aufziehen zurück zur Ansicht
+  await pickTool(page, 'tool-rect');
+  const m = scr(500, 450);
+  await page.mouse.move(m.x, m.y);
+  await page.keyboard.press('x');
+  await expect(page.getByTestId('lupe-hint')).toBeVisible();
+  expect(Number(await viewer.getAttribute('data-scale'))).toBeGreaterThan(scale0 * 4);
+  await drawRect(page, m.x, m.y, m.x + 80, m.y + 60);
+  await expect(dlg).toBeVisible();
+  await expect(page.getByTestId('lupe-hint')).toHaveCount(0);
+  expect(Number(await viewer.getAttribute('data-scale'))).toBeCloseTo(scale0, 6);
   await dlg.getByTestId('damage-cancel').click();
 });

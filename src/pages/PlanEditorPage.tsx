@@ -61,25 +61,11 @@ const OP_HINTS: Partial<Record<DrawTool, string>> = {
 const isPointTool = (t: Tool) => t === 'polygon' || t === 'polyline';
 
 /** Leiste beim Setzen von Punkten: Polylinie offen beenden oder schließen, Polygon schließen */
-function PolylineBar({ polyline, count, viewer, lupe }: { polyline: boolean; count: number; viewer: React.RefObject<PlanViewerHandle | null>; lupe: boolean }) {
+function PolylineBar({ polyline, count, viewer }: { polyline: boolean; count: number; viewer: React.RefObject<PlanViewerHandle | null> }) {
   const name = polyline ? 'Polylinie' : 'Fläche';
   return (
     <div className="draw-bar" data-testid="polygon-bar">
-      <button
-        type="button"
-        className={`btn btn-sm${lupe ? ' btn-primary' : ''}`}
-        onClick={() => viewer.current?.toggleLupe()}
-        aria-pressed={lupe}
-        title="Fang-Lupe (X): Bereich vergrößern und Fangpunkte zeigen – nach dem Punkt zurück zur Ansicht"
-        data-testid="snap-lupe"
-      >
-        <Icon name="zoomSel" size={18} /> Lupe
-      </button>
-      {lupe && (
-        <span className="small lupe-hint" data-testid="lupe-hint">
-          Punkt wählen: <span className="lupe-dot" /> möglich · <span className="lupe-dot on" /> wird übernommen · Esc/X zurück
-        </span>
-      )}
+
       {count === 0 ? (
         <span className="muted small">
           {polyline
@@ -506,8 +492,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       const target = e.target as HTMLElement;
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || document.querySelector('.modal')) return;
       const key = e.key.toLowerCase();
-      // Fang-Lupe offen: Esc bzw. X kehrt zur vorherigen Ansicht zurück (gesetzte Punkte bleiben)
-      if (viewer.current?.lupeActive() && (e.key === 'Escape' || (key === 'x' && !e.ctrlKey && !e.metaKey && !e.altKey))) {
+      // vergrößert (X): Esc bzw. X kehrt zur vorherigen Ansicht zurück (gesetzte Punkte bleiben)
+      if (viewer.current?.lupeActive() && (e.key === 'Escape' || (key === 'x' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey))) {
         e.preventDefault();
         viewer.current.toggleLupe();
         return;
@@ -529,7 +515,6 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         return;
       }
       if (e.ctrlKey || e.metaKey || e.altKey) return;
-      // X: Punktfang ein/aus (wie in CAD-Programmen)
       // F8 wie in CAD-Programmen: 90° / Orthogonal ein/aus (nur beim Zeichnen)
       if (e.key === 'F8' && drawMode) {
         e.preventDefault();
@@ -537,13 +522,14 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         toast(`90° / Orthogonal ${drawing.orthoOn ? 'aus' : 'ein'}`, 'info', 1500);
         return;
       }
-      // X bei Fläche/Polylinie: Fang-Lupe (Punktfang wird dafür eingeschaltet)
-      if (key === 'x' && isPointTool(drawMode ? drawing.viewerTool : tool)) {
+      // X: Plan an der Mausposition vergrößern, Fangpunkte zeigen (Punktfang wird dafür eingeschaltet)
+      if (key === 'x' && !e.shiftKey) {
         e.preventDefault();
         if (!drawing.snapOn) drawing.setSnapOn(true);
         viewer.current?.toggleLupe();
         return;
       }
+      // Umschalt+X: Punktfang ein/aus
       if (key === 'x') {
         e.preventDefault();
         drawing.setSnapOn(!drawing.snapOn);
@@ -1147,7 +1133,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 onClick={() => drawing.setSnapOn(!drawing.snapOn)}
                 aria-pressed={drawing.snapOn}
                 aria-label="Punktfang"
-                title={`Punktfang ${drawing.snapOn ? 'ein' : 'aus'} (X): End-, Schnitt-, Mittelpunkte und Linien`}
+                title={`Punktfang ${drawing.snapOn ? 'ein' : 'aus'} (Umschalt+X): End-, Schnitt-, Mittelpunkte und Linien · X vergrößert an der Maus`}
                 data-testid="snap-toggle-measure"
               >
                 <Icon name="snap" />
@@ -1211,8 +1197,13 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               />
             ) : null)}
 
+          {lupeOn && (
+            <div className="zoom-hint small" data-testid="lupe-hint">
+              Vergrößert: <span className="lupe-dot" /> Fangpunkt · <span className="lupe-dot on" /> wird übernommen · X/Esc zurück
+            </div>
+          )}
           {(drawMode ? isPointTool(drawing.viewerTool) && (polyCount > 0 || !drawing.selected) : isPointTool(tool) && (polyCount > 0 || !selected)) && !dialog && (
-            <PolylineBar polyline={(drawMode ? drawing.tool : tool) === 'polyline'} count={polyCount} viewer={viewer} lupe={lupeOn} />
+            <PolylineBar polyline={(drawMode ? drawing.tool : tool) === 'polyline'} count={polyCount} viewer={viewer} />
           )}
 
           {!drawMode && tool === 'calibrate' && !dialog && (
