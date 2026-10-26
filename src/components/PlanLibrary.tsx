@@ -109,7 +109,7 @@ export function PlanLibrary({ data, onClose, onReuse }: { data: ProjectState; on
                         {file.pageCount > 1 ? `Seite ${base.pageIndex + 1} · ` : ''}
                         {base.crop ? 'Planbereich' : 'Ganze Seite'}
                         {base.rotation ? ` · gedreht ${base.rotation}°` : ''}
-                        {base.calibration ? ` · kalibriert${base.calibration.auto ? ' (automatisch)' : ''}` : ''}
+                        {base.calibration ? ` · kalibriert${base.calibration.auto ? (base.calibration.auto.confirmed ? ' (automatisch, bestätigt)' : ' (automatisch)') : ''}` : ''}
                       </span>
                       <ul className="lib-uses">
                         {group.map((p) => (

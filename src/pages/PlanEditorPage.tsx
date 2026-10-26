@@ -9,7 +9,8 @@ import { PlanViewer, type PlanViewerHandle, type SnapFn, type Tool } from '../co
 import { SaveErrorBanner, SaveStatus } from '../components/SaveStatus';
 import { confirmDialog, offerFile, promptDialog, showError, toast } from '../components/ui';
 import { costCenterLabel, damagesOf, elementsOf, exportXlsx, findPosition, lvDocLabel, lvDocsOf, plansOf, planTitle, positionRef, sumArea } from '../lib/aufmass';
-import { geometryMeasures, planUnitsPerMeter } from '../lib/calibration';
+import { calibrationStatus, checkDeviation, formatPercent, geometryMeasures, planUnitsPerMeter } from '../lib/calibration';
+import { CalibrationReport } from '../components/CalibrationReport';
 import { cachedExcelLogo } from '../lib/company';
 import { calibrationFrom, detectScale, SOURCE_LABELS } from '../lib/scale-detect';
 import { visibleDamages } from '../lib/layers';
@@ -111,6 +112,22 @@ function CalibrationLine({ view, c }: { view: View; c: NonNullable<Plan['calibra
       <circle cx={b.x} cy={b.y} r={4} />
       <text x={(a.x + b.x) / 2} y={(a.y + b.y) / 2 - 8} textAnchor="middle">
         {formatMeasure(c.meters)} m
+      </text>
+    </g>
+  );
+}
+
+/** Prüfstrecke (nur beim Kalibrieren sichtbar), gestrichelt mit Soll und gemessen */
+function CheckLine({ view, c }: { view: View; c: NonNullable<NonNullable<Plan['calibration']>['check']> }) {
+  const a = toScreen(view, c.a);
+  const b = toScreen(view, c.b);
+  return (
+    <g className="calibration-line check-line" data-testid="check-line" pointerEvents="none">
+      <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} strokeDasharray="6 4" />
+      <circle cx={a.x} cy={a.y} r={4} />
+      <circle cx={b.x} cy={b.y} r={4} />
+      <text x={(a.x + b.x) / 2} y={(a.y + b.y) / 2 - 8} textAnchor="middle">
+        Prüfung {formatMeasure(c.expected)} m → {formatMeasure(c.measured)} m
       </text>
     </g>
   );
@@ -235,6 +252,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const [overrides, setOverrides] = useState<Record<string, Partial<Damage>>>({});
   const [mobileTab, setMobileTab] = useState<'plan' | 'table'>('plan');
   const [detailsOpen, setDetailsOpen] = useState(false);
+  /** Kalibrieren: Prüfstrecke statt Referenzstrecke ziehen; Prüfbericht */
+  const [checking, setChecking] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   /** Werkzeug „Fläche“: Anzahl bereits gesetzter Eckpunkte */
   const [polyCount, setPolyCount] = useState(0);
   /** Leistung für neue Messungen: bleibt bis zur nächsten Änderung aktiv ('' = ohne Leistungszuordnung) */
@@ -336,6 +356,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   // Gezeichnete Pläne haben ihren Maßstab – dort gibt es kein Kalibrieren
   useEffect(() => {
     if (drawingPlan && tool === 'calibrate') setTool('select');
+    if (tool !== 'calibrate' && checking) setChecking(false);
   });
 
   /** Kalibrieren: gezogene Strecke + reale Länge → Maßstab des Plans (Messwerte bleiben) */
@@ -356,7 +377,45 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     }
     putRecord('plans', { ...data.plans[plan.id], calibration: { a, b, meters: r.value } });
     setTool('select');
-    toast(`Plan kalibriert: Strecke = ${formatMeasure(r.value)} m. Gespeicherte Messwerte bleiben unverändert.`, 'success', 4000);
+    // kurze Referenzstrecke → Ablesefehler wirkt sich stärker aus
+    const reg = plan.crop ?? { x: 0, y: 0, w: plan.pageWidth, h: plan.pageHeight };
+    const short = Math.hypot(b.x - a.x, b.y - a.y) < 0.2 * Math.max(reg.w, reg.h);
+    toast(
+      `Plan kalibriert: Strecke = ${formatMeasure(r.value)} m. Gespeicherte Messwerte bleiben unverändert.` +
+        (short ? ' Tipp: Eine längere Referenzstrecke (z. B. ganze Wand) ist genauer – mit „Prüfstrecke“ kontrollieren.' : ''),
+      'success',
+      short ? 7000 : 4000,
+    );
+  };
+
+  /** Prüfstrecke: bekannte Länge nachmessen → Abweichung der Kalibrierung (ändert nichts am Maßstab) */
+  const runCheck = async (shape: Shape) => {
+    if (!plan || !k || !plan.calibration) return;
+    const [a, b] = lineEnds(shape);
+    const measured = Math.round((Math.hypot(b.x - a.x, b.y - a.y) / k) * 1000) / 1000;
+    const input = await promptDialog({
+      title: 'Prüfstrecke',
+      label: `Im Plan gemessen: ${formatMeasure(measured)} m – bekannte (bemaßte) Länge dieser Strecke (m)`,
+      value: '',
+      confirmLabel: 'Prüfen',
+    });
+    if (input === null) return;
+    const r = checkMeasure(input, 'Länge');
+    if (!r.ok) {
+      toast(r.error, 'error');
+      return;
+    }
+    const cur = data.plans[plan.id];
+    putRecord('plans', { ...cur, calibration: { ...cur.calibration!, check: { a, b, expected: r.value, measured, at: Date.now() } } });
+    setChecking(false);
+    const dev = measured / r.value - 1;
+    const ok = Math.abs(dev) <= 0.02;
+    toast(
+      `Prüfstrecke: Soll ${formatMeasure(r.value)} m, gemessen ${formatMeasure(measured)} m – Abweichung ${formatPercent(dev)}. ` +
+        (ok ? 'Die Kalibrierung passt.' : 'Bitte die Kalibrierung prüfen (z. B. längere Referenzstrecke).'),
+      ok ? 'success' : 'error',
+      7000,
+    );
   };
 
   /** Maßstab nachträglich aus dem Plan erkennen (PDF mit Text) */
@@ -740,6 +799,23 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               <Icon name="redo" size={20} />
             </button>
           </div>
+          {!drawingPlan &&
+            (() => {
+              const st = calibrationStatus(plan, file?.kind);
+              return (
+                <button
+                  type="button"
+                  className={`status-pill scale-status${st.warn ? ' warn' : ' ok'}`}
+                  onClick={() => setTool('calibrate')}
+                  title={`${st.text} – zum Kalibrieren tippen`}
+                  data-testid="scale-status"
+                  data-state={st.state}
+                >
+                  <span className="hide-sm">Maßstab </span>
+                  {st.short}
+                </button>
+              );
+            })()}
           <button type="button" className="btn btn-sm" onClick={() => setDetailsOpen(true)} title="Planangaben">
             <Icon name="info" size={18} /> <span className="hide-sm">Angaben</span>
           </button>
@@ -800,7 +876,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           )}
         </div>
       )}
-      {!drawMode && !drawingPlan && plan.calibration?.auto && (
+      {!drawMode && !drawingPlan && plan.calibration?.auto && !plan.calibration.auto.confirmed && (
         <div className={`banner ${plan.calibration.auto.warning ? 'banner-warn' : 'banner-info'} scale-banner`} data-testid="scale-detected">
           <p>
             <strong>Maßstab {plan.calibration.auto.label}</strong> automatisch erkannt ({SOURCE_LABELS[plan.calibration.auto.source]}). Maßvorschläge und Flächen
@@ -812,8 +888,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               type="button"
               className="btn btn-sm btn-primary"
               onClick={() => {
-                const { auto: _, ...rest } = data.plans[plan.id].calibration!;
-                putRecord('plans', { ...data.plans[plan.id], calibration: rest });
+                // bestätigt: bleibt als „automatisch erkannt“ gekennzeichnet
+                const cal = data.plans[plan.id].calibration!;
+                putRecord('plans', { ...data.plans[plan.id], calibration: { ...cal, auto: { ...cal.auto!, confirmed: true } } });
               }}
               data-testid="scale-confirm"
             >
@@ -893,7 +970,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               onSelect={(id) => select(id)}
               onCreate={(shape) =>
                 tool === 'calibrate'
-                  ? void calibrate(shape)
+                  ? void (checking ? runCheck(shape) : calibrate(shape))
                   : setDialog({
                       mode: 'new',
                       shape,
@@ -902,7 +979,16 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                     })
               }
               snap={drawing.snapOn ? measureSnap : undefined}
-              overlay={tool === 'calibrate' && plan.calibration ? (view) => <CalibrationLine view={view} c={plan.calibration!} /> : undefined}
+              overlay={
+                tool === 'calibrate' && plan.calibration
+                  ? (view) => (
+                      <>
+                        <CalibrationLine view={view} c={plan.calibration!} />
+                        {plan.calibration!.check && <CheckLine view={view} c={plan.calibration!.check} />}
+                      </>
+                    )
+                  : undefined
+              }
               onShapeChange={(id, shape, commit) => {
                 if (commit) {
                   setOverrides(({ [id]: _, ...rest }) => rest);
@@ -1064,8 +1150,12 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
 
           {!drawMode && tool === 'calibrate' && !dialog && (
             <div className="draw-bar" data-testid="calibrate-bar">
-              <span className="muted small">
-                Kalibrieren: Strecke bekannter Länge im Plan ziehen (z. B. eine bemaßte Wand), danach die reale Länge eingeben.
+              <span className="muted small" data-testid="calibrate-hint">
+                {checking
+                  ? 'Prüfstrecke: eine andere bemaßte Strecke im Plan ziehen, danach ihre bekannte Länge eingeben – der Maßstab bleibt unverändert.'
+                  : file?.kind === 'image'
+                    ? 'Bild/Foto: Maßstab kann nicht gelesen werden. Möglichst lange bemaßte Strecke ziehen (z. B. ganze Wand), danach die reale Länge eingeben.'
+                    : 'Kalibrieren: Strecke bekannter Länge im Plan ziehen (z. B. eine bemaßte Wand), danach die reale Länge eingeben.'}
               </span>
               {file?.kind === 'pdf' && (
                 <button type="button" className="btn btn-sm" onClick={() => void detectFromPlan()} data-testid="calibration-detect" title="Maßstabsangabe und Maßketten im Plan auswerten">
@@ -1074,9 +1164,18 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               )}
               {plan.calibration ? (
                 <>
-                  <strong className="small" data-testid="calibration-info">
-                    {plan.calibration.auto ? `Erkannt: ${plan.calibration.auto.label}` : `Kalibriert: Referenz ${formatMeasure(plan.calibration.meters)} m`}
+                  <strong className={`small${calibrationStatus(plan, file?.kind).warn ? ' text-warn' : ''}`} data-testid="calibration-info" title={calibrationStatus(plan, file?.kind).text}>
+                    {plan.calibration.auto
+                      ? `Erkannt: ${plan.calibration.auto.label}${plan.calibration.auto.confirmed ? ' (bestätigt)' : ' (ungeprüft)'}`
+                      : `Kalibriert: Referenz ${formatMeasure(plan.calibration.meters)} m`}
+                    {checkDeviation(plan) !== null && ` · Prüfung ${formatPercent(checkDeviation(plan)!)}`}
                   </strong>
+                  <button type="button" className={`btn btn-sm${checking ? ' btn-primary' : ''}`} onClick={() => setChecking(!checking)} aria-pressed={checking} data-testid="calibration-check">
+                    Prüfstrecke
+                  </button>
+                  <button type="button" className="btn btn-sm" onClick={() => setReportOpen(true)} data-testid="calibration-report-open">
+                    Prüfbericht
+                  </button>
                   <button type="button" className="btn btn-sm" onClick={() => putRecord('plans', { ...data.plans[plan.id], calibration: undefined })} data-testid="calibration-remove">
                     Kalibrierung entfernen
                   </button>
@@ -1301,6 +1400,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           onDelete={() => void removeDamage(dialogDamage)}
         />
       )}
+      {reportOpen && plan && <CalibrationReport plan={plan} file={file ?? undefined} onClose={() => setReportOpen(false)} />}
       {detailsOpen && <PlanDetailsDialog plan={plan} data={data} onClose={() => setDetailsOpen(false)} />}
       {pdfOpen && <PdfExportDialog data={data} costCenterId={plan.costCenterId} initial={[plan.id]} onClose={() => setPdfOpen(false)} />}
     </div>

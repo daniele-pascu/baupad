@@ -32,6 +32,8 @@ test('PDF mit Maßketten: Maßstab 1:50 erkannt und sofort skaliert; bestätigen
   await wiz.getByTestId('import-save').click();
   await waitForPlan(page);
   const banner = page.getByTestId('scale-detected');
+  await expect(page.getByTestId('scale-status')).toHaveAttribute('data-state', 'auto');
+  await expect(page.getByTestId('scale-status')).toContainText('1:50 – prüfen');
   await expect(banner).toContainText('Maßstab 1:50');
   await expect(banner).toContainText('Maßketten');
   await waitSaved(page);
@@ -53,7 +55,8 @@ test('PDF mit Maßketten: Maßstab 1:50 erkannt und sofort skaliert; bestätigen
   await expect(banner).toHaveCount(0);
   await waitSaved(page);
   cal = (await plans(page))[0].calibration!;
-  expect(cal.auto).toBeUndefined();
+  expect(cal.auto).toMatchObject({ label: '1:50', confirmed: true }); // bleibt als „automatisch erkannt“ gekennzeichnet
+  await expect(page.getByTestId('scale-status')).toHaveAttribute('data-state', 'confirmed');
   expect(upm(cal)).toBeCloseTo(72 / 0.0254 / 50, 3);
 
   // Kalibrierung entfernen und über „Automatisch erkennen“ wiederherstellen
