@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
+import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { catchDownload, createProject, drawRect, FIXTURES, freshStart, planBox, readXlsx, readXlsxPrint, saveDownload, waitForPlan, waitSaved, pickTool } from './helpers';
+import { catchDownload, createProject, drawRect, FIXTURES, freshStart, OUT, planBox, readXlsx, readXlsxPrint, saveDownload, waitForPlan, waitSaved, pickTool } from './helpers';
 
 /** Phase 4: LV/MFK aus PDF importieren, prüfen, durchsuchen, Messungen zuordnen, Mengen. */
 test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen', async ({ page }) => {
@@ -146,7 +147,16 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   expect(ws.slice(free3).some((r) => r[0]?.v === 'P-1' && r[2]?.v === 3 && r[3]?.v === 2)).toBe(true);
   expect(ws.slice(free3).some((r) => r[0]?.v === 'P-1' && r[2]?.v === 5.5)).toBe(true);
   // Druck: Kopfzeile wie Vorlage (rechts „Seite von Seiten“), Seitenbreite
-  expect(readXlsxPrint(file3)['Aufmaßblatt 001']).toMatchObject({ orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 1 }); // immer eine Seite
+  // jede LV/MFK und das Aufmaß ohne Position auf einer eigenen Seite (Umbruch vor der Zeile), Zoom statt „an Seite anpassen“
+  const pr3 = readXlsxPrint(file3)['Aufmaßblatt 001'];
+  expect(pr3).toMatchObject({ orientation: 'portrait', fitToPage: false, rowBreaks: [free3 + 1] });
+  expect(pr3.scale).toBeLessThanOrEqual(100);
+  execFileSync('soffice', ['--headless', '--convert-to', 'pdf', '--outdir', join(OUT, 'blatt-pdf'), file3], { timeout: 90_000 });
+  const pdf3 = join(OUT, 'blatt-pdf', 'aufmassblatt.pdf');
+  expect(execFileSync('pdfinfo', [pdf3], { encoding: 'utf8' })).toMatch(/Pages:\s+2\n/);
+  const page2 = execFileSync('pdftotext', ['-f', '2', '-l', '2', pdf3, '-'], { encoding: 'utf8' });
+  expect(page2).toContain('Aufmaß ohne Leistungsposition');
+  expect(page2).not.toContain('LV - ');
   expect(readXlsxPrint(file3)['Aufmaßblatt 001'].header.right).toBe('&P von &N');
   // nächste Nummer wird hochgezählt
   await page.getByTestId('export-xlsx-cc').click();

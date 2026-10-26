@@ -76,6 +76,15 @@ export type Cell =
   /** leere Zelle, nur mit Formatierung (z. B. Rahmen) */
   | { t: 'blank'; s?: CellStyle };
 
+/** Firmenvorlage (Aufmaßblatt): A4-Höhe, unterer Rand und oberer Rand passend zur Logohöhe, in Zoll */
+export const A4_HEIGHT_IN = 11.69;
+export const BLATT_BOTTOM_IN = 0.787;
+export const blattTopMargin = (logo?: HeaderImage | null) => (logo ? Math.max(0.787, 0.3 + logo.height / 72 + 0.15) : 0.787);
+
+/** manuelle Seitenumbrüche vor den angegebenen Zeilen (brk id = letzte Zeile der vorigen Seite) */
+const rowBreaksXml = (rows?: number[]) =>
+  rows?.length ? `<rowBreaks count="${rows.length}" manualBreakCount="${rows.length}">${rows.map((r) => `<brk id="${r - 1}" max="16383" man="1"/>`).join('')}</rowBreaks>` : '';
+
 export interface Sheet {
   name: string;
   rows: Cell[][];
@@ -97,6 +106,10 @@ export interface Sheet {
   pageLayout?: boolean;
   /** Druck: alles auf eine Seite (Breite und Höhe) */
   onePage?: boolean;
+  /** Druck: fester Zoom in % statt „an Seite anpassen“ (nötig, damit Seitenumbrüche gelten) */
+  scale?: number;
+  /** Druck: Seitenumbruch vor diesen Zeilen (1-basiert) */
+  rowBreaks?: number[];
   /** Verbundene Zellen, z. B. ["A40:H40"] */
   merges?: string[];
   /** Zeilenhöhen in Punkt (Zeile 1-basiert) */
@@ -246,7 +259,7 @@ function sheetXml(sheet: Sheet, logo?: HeaderImage): string {
   return (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
     '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
-    (sheet.print ? '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>' : '') +
+    (sheet.print && !sheet.scale ? '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>' : '') +
     `<dimension ref="${dim}"/>` +
     `<sheetViews><sheetView workbookViewId="0"${sheet.pageLayout ? ' view="pageLayout"' : ''}>${pane}</sheetView></sheetViews>` +
     '<sheetFormatPr defaultRowHeight="15"/>' +
@@ -256,9 +269,12 @@ function sheetXml(sheet: Sheet, logo?: HeaderImage): string {
     (sheet.merges?.length ? `<mergeCells count="${sheet.merges.length}">${sheet.merges.map((m) => `<mergeCell ref="${m}"/>`).join('')}</mergeCells>` : '') +
     (sheet.print && sheet.logoLeft
       ? // Firmenvorlage: Ränder wie dort, auf Seitenbreite; Kopfzeile Logo links, „1 von 2“ rechts
-        `<pageMargins left="0.7" right="0.7" top="${logo ? Math.max(0.787, 0.3 + logo.height / 72 + 0.15).toFixed(3) : '0.787'}" bottom="0.787" header="0.3" footer="0.3"/>` +
-        `<pageSetup paperSize="9" orientation="portrait" fitToWidth="1" fitToHeight="${sheet.onePage ? 1 : 0}"/>` +
+        `<pageMargins left="0.7" right="0.7" top="${blattTopMargin(logo).toFixed(3)}" bottom="${BLATT_BOTTOM_IN}" header="0.3" footer="0.3"/>` +
+        (sheet.scale
+          ? `<pageSetup paperSize="9" orientation="portrait" scale="${sheet.scale}"/>`
+          : `<pageSetup paperSize="9" orientation="portrait" fitToWidth="1" fitToHeight="${sheet.onePage ? 1 : 0}"/>`) +
         `<headerFooter><oddHeader>${esc(`${logo ? '&L&G' : ''}&R&P von &N`)}</oddHeader></headerFooter>` +
+        rowBreaksXml(sheet.rowBreaks) +
         (logo ? '<legacyDrawingHF r:id="rIdHF"/>' : '')
       : sheet.print
       ? // A4, schmale Ränder (cm → Zoll), auf Seitenbreite skaliert, Höhe beliebig; Kopfzeile: links

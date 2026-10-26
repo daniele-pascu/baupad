@@ -212,7 +212,7 @@ export async function tableRows(page: Page) {
   );
 }
 
-export type XlsxPrint = { orientation: string; fitToPage: boolean; fitToWidth: number; fitToHeight: number; titleRows: string | null; printArea: string | null; footer: string; header: { left: string; center: string; right: string } };
+export type XlsxPrint = { orientation: string; fitToPage: boolean; fitToWidth: number; fitToHeight: number; scale: number | null; rowBreaks: number[]; titleRows: string | null; printArea: string | null; footer: string; header: { left: string; center: string; right: string } };
 /** Druckeinstellungen je Tabellenblatt (über openpyxl gelesen) */
 export function readXlsxPrint(path: string): Record<string, XlsxPrint> {
   const script = `
@@ -223,6 +223,7 @@ for ws in wb.worksheets:
     ps = ws.page_setup
     pr = ws.sheet_properties.pageSetUpPr
     out[ws.title] = {"orientation": ps.orientation, "fitToPage": bool(pr and pr.fitToPage), "fitToWidth": ps.fitToWidth, "fitToHeight": ps.fitToHeight,
+      "scale": ps.scale, "rowBreaks": [b.id + 1 for b in ws.row_breaks.brk],
       "titleRows": ws.print_title_rows, "printArea": ws.print_area if isinstance(ws.print_area, str) else (ws.print_area[0] if ws.print_area else None),
       "footer": ws.oddFooter.right.text or "",
       "header": {"left": ws.oddHeader.left.text or "", "center": ws.oddHeader.center.text or "", "right": ws.oddHeader.right.text or ""}}

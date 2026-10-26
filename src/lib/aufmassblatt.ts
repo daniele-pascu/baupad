@@ -2,7 +2,7 @@ import { aufmassRows, costCenterLabel, costCentersOf, lvDocsOf, plansOf, positio
 import { hasArea, KIND_LABELS, kindOf, quantityBasis, quantityFor } from './measure';
 import type { ProjectState } from './store';
 import type { Damage, LvDocument, LvPosition, Plan } from './types';
-import { blank, buildXlsx, num, str, type Cell, type HeaderImage, type Sheet } from './xlsx';
+import { A4_HEIGHT_IN, BLATT_BOTTOM_IN, blank, blattTopMargin, buildXlsx, num, str, type Cell, type HeaderImage, type Sheet } from './xlsx';
 
 /**
  * Aufmaßblatt nach der Firmenvorlage (AMB): ein Blatt, Kopf mit Aufmaßblatt-Nummer,
@@ -86,7 +86,8 @@ export function exportAufmassblatt(data: ProjectState, scope: XlsxScope, info: B
   add([str('Leistungszeitraum', 'amLabel'), null, str(info.period, 'amText')]);
   add();
 
-  // je LV/MFK: Positionen mit Messungen
+  // je LV/MFK: Positionen mit Messungen; jede LV/MFK (und das Aufmaß ohne Position) beginnt auf einer neuen Seite
+  const starts: number[] = [];
   const assigned = new Set<string>();
   for (const doc of lvDocsOf(data)) {
     const blocks = doc.positions
@@ -94,12 +95,14 @@ export function exportAufmassblatt(data: ProjectState, scope: XlsxScope, info: B
       .filter((b) => b.list.length);
     if (!blocks.length) continue;
     blocks.forEach((b) => b.list.forEach((x) => assigned.add(x.d.id)));
+    starts.push(rows.length + 1);
     docSection(doc, blocks);
   }
 
   // Messungen ohne Position: nach Art (Flächen, Linien), Bezug zum Plan über Plan und Nr.
   const free = items.filter((x) => !assigned.has(x.d.id));
   if (free.length) {
+    starts.push(rows.length + 1);
     add([str(assigned.size ? 'Aufmaß ohne Leistungsposition' : 'Aufmaß', 'amDoc')], 15.6);
     add([], 6);
     const areas = free.filter((x) => hasArea(kindOf(x.d)) && x.d.area !== null);
@@ -252,9 +255,21 @@ export function exportAufmassblatt(data: ProjectState, scope: XlsxScope, info: B
     print: true,
     pageLayout: true,
     logoLeft: true,
-    // immer auf eine Seite (Breite und Höhe)
-    onePage: true,
   };
+  const breaks = starts.slice(1);
+  if (!breaks.length) {
+    // ein Abschnitt: immer auf eine Seite (Breite und Höhe)
+    sheet.onePage = true;
+  } else {
+    // mehrere LV/MFK: Seitenumbruch vor jedem weiteren Abschnitt; „auf eine Seite anpassen“ würde die Umbrüche
+    // aufheben, daher fester Zoom so, dass auch der längste Abschnitt auf eine Seite passt
+    sheet.rowBreaks = breaks;
+    const rowH = (r: number) => heights[r] ?? 15;
+    const bounds = [1, ...breaks, rows.length + 1];
+    const longest = Math.max(...bounds.slice(1).map((end, i) => Array.from({ length: end - bounds[i] }, (_, k) => rowH(bounds[i] + k)).reduce((a, b) => a + b, 0)));
+    const usable = (A4_HEIGHT_IN - blattTopMargin(opts.logo) - BLATT_BOTTOM_IN) * 72 * 0.97;
+    sheet.scale = Math.max(10, Math.min(100, Math.floor((usable / longest) * 100)));
+  }
   const scopeName =
     scope.kind === 'plan' ? [costCenterLabel(ccs[0]), planNo(plans[0])] : scope.kind === 'costCenter' ? [costCenterLabel(ccs[0])] : [];
   return {

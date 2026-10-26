@@ -35,4 +35,25 @@ describe('Aufmaßblatt (Firmenvorlage)', () => {
     expect(sheet).toContain('<f>C11*D11</f>'); // m² = Länge × Breite als Formel
     expect(sheet).toMatch(/<f>SUM\(C\d+:C\d+\)<\/f>/); // Summe Linien
   });
+
+  it('jede LV/MFK und das Aufmaß ohne Position beginnt auf einer neuen Seite; fester Zoom, damit die Umbrüche gelten', () => {
+    const pos = (id: string, number: string, unit: string) => ({ id, number, shortText: `Text ${number}`, longText: '', unit, quantity: null, unitPrice: 10, totalPrice: null, group: '', issues: [] });
+    const doc = (id: string, kind: 'lv' | 'mfk', number: string, p: ReturnType<typeof pos>) => ({ ...meta, id, projectId: 'x', kind, name: `Dok ${number}`, number, fileName: '', groups: [], positions: [p] });
+    const many = Object.fromEntries(Array.from({ length: 60 }, (_, i) => [`m${i}`, dmg(`m${i}`, 10 + i, { positionRef: 'm1:b', kind: 'line', width: null, area: null, length: 1 })]));
+    const two = {
+      ...data,
+      lvDocs: { l1: doc('l1', 'lv', '1', pos('a', '01', 'm²')), m1: doc('m1', 'mfk', '2', pos('b', '02', 'm')) },
+      damages: { ...data.damages, d3: dmg('d3', 3, { positionRef: 'l1:a' }), ...many },
+    } as unknown as ProjectState;
+    const ws = strFromU8(unzipSync(exportAufmassblatt(two, { kind: 'costCenter', costCenterId: 'c1' }, { no: '008', period: '' }, { logo }).data)['xl/worksheets/sheet1.xml']);
+    const rowOf = (text: string) => Number(new RegExp(`<row r="(\\d+)"[^>]*>(?:(?!</row>).)*>${text}<`).exec(ws)![1]);
+    const breaks = [...ws.matchAll(/<brk id="(\d+)" max="16383" man="1"\/>/g)].map((m) => Number(m[1]) + 1);
+    // Umbruch vor der MFK und vor dem Aufmaß ohne Position (nicht vor der ersten LV)
+    expect(breaks).toEqual([rowOf('MFK - 2 Dok 2'), rowOf('Aufmaß ohne Leistungsposition')]);
+    expect(ws).not.toContain('fitToPage');
+    // die lange MFK (60 Messungen) passt durch kleineren Zoom auf eine Seite
+    const scale = Number(/scale="(\d+)"/.exec(ws)![1]);
+    expect(scale).toBeLessThan(100);
+    expect(scale).toBeGreaterThanOrEqual(50);
+  });
 });
