@@ -255,8 +255,8 @@ export const SOURCE_LABELS: Record<ScaleSource, string> = {
   lines: 'Maßlinien im Plan',
 };
 
-/** Toleranz für „passt“: Maßketten ±2 %, Maßstabsangabe ±3 % */
-export const DIM_TOLERANCE = 0.02;
+/** Toleranz für „passt“: Maße höchstens 2 cm Abweichung (absolut), Maßstabsangabe ±3 % */
+export const DIM_TOLERANCE_M = 0.02;
 export const NOTE_TOLERANCE = 0.03;
 
 export interface ScaleCheck {
@@ -291,7 +291,7 @@ export function checkScale(items: PageText[], region: Rect | null, upm: number):
     const old = byPair.get(key);
     // je Zahlenpaar die Einheitenannahme, die am besten passt
     if (!old || Math.abs(deviation) < Math.abs(old.deviation))
-      byPair.set(key, { a: p.a.str.trim(), b: p.b.str.trim(), expected: p.meters, measured, deviation, ok: Math.abs(deviation) <= DIM_TOLERANCE });
+      byPair.set(key, { a: p.a.str.trim(), b: p.b.str.trim(), expected: p.meters, measured, deviation, ok: Math.abs(measured - p.meters) <= DIM_TOLERANCE_M });
   }
   const dims = [...byPair.values()].sort((x, y) => Number(y.ok) - Number(x.ok) || Math.abs(x.deviation) - Math.abs(y.deviation));
   const okDevs = dims.filter((d) => d.ok).map((d) => d.deviation).sort((x, y) => x - y);

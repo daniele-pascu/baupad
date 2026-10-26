@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { calibrationStatus, checkDeviation, formatPercent, planUnitsPerMeter } from '../lib/calibration';
+import { calibrationStatus, checkDeviation, checkError, formatCm, formatPercent, MAX_ERROR_M, planUnitsPerMeter } from '../lib/calibration';
 import { formatMeasure } from '../lib/numbers';
-import { checkScale, DIM_TOLERANCE, sourceText, type ScaleCheck } from '../lib/scale-detect';
+import { checkScale, DIM_TOLERANCE_M, sourceText, type ScaleCheck } from '../lib/scale-detect';
 import type { Plan, SourceFile } from '../lib/types';
 import { Modal } from './Modal';
 
@@ -34,6 +34,7 @@ export function CalibrationReport({ plan, file, onClose }: { plan: Plan; file: S
   }, [file, upm, plan.pageIndex, plan.rotation, plan.crop, plan.pageWidth, plan.pageHeight]);
 
   const dev = checkDeviation(plan);
+  const err = checkError(plan);
   const c = plan.calibration;
   return (
     <Modal title="Prüfbericht Maßstab" onClose={onClose} wide testId="calibration-report">
@@ -47,7 +48,9 @@ export function CalibrationReport({ plan, file, onClose }: { plan: Plan; file: S
       {c?.check && dev !== null ? (
         <p data-testid="report-check">
           Soll {formatMeasure(c.check.expected)} m · im Plan gemessen {formatMeasure(c.check.measured)} m · Abweichung{' '}
-          <strong className={Math.abs(dev) > DIM_TOLERANCE ? 'text-warn' : 'text-ok'}>{formatPercent(dev)}</strong>
+          <strong className={Math.abs(err!.diff) > MAX_ERROR_M ? 'text-warn' : 'text-ok'}>{formatCm(err!.diff)}</strong> ({formatPercent(dev)}) · hochgerechnet auf
+          10 m ≈ {formatCm(err!.per10m)}
+          {Math.abs(err!.diff) > MAX_ERROR_M && <span className="text-warn"> – mehr als 2 cm: bitte neu kalibrieren (längere Referenzstrecke).</span>}
         </p>
       ) : (
         <p className="muted small">Noch keine Prüfstrecke gemessen. Tipp: eine zweite, möglichst lange bemaßte Strecke mit „Prüfstrecke“ nachmessen.</p>
@@ -86,7 +89,7 @@ export function CalibrationReport({ plan, file, onClose }: { plan: Plan; file: S
                 <strong>
                   {check.okCount} von {check.dims.length}
                 </strong>{' '}
-                Maßpaaren passen (±{DIM_TOLERANCE * 100} %){check.median !== null && <> · mittlere Abweichung {formatPercent(check.median)}</>}.
+                Maßpaaren passen (höchstens {DIM_TOLERANCE_M * 100} cm Abweichung){check.median !== null && <> · mittlere Abweichung {formatPercent(check.median)}</>}.
                 {check.okCount < check.dims.length && (
                   <span className="muted small"> Nicht passende Paare sind oft keine echte Maßkette (Zahlen stehen nur nebeneinander) – oder widersprechen dem Maßstab.</span>
                 )}
@@ -110,7 +113,7 @@ export function CalibrationReport({ plan, file, onClose }: { plan: Plan; file: S
                         </td>
                         <td className="num">{formatMeasure(d.expected)}</td>
                         <td className="num">{formatMeasure(d.measured)}</td>
-                        <td className="num">{formatPercent(d.deviation)}</td>
+                        <td className="num">{formatCm(d.measured - d.expected)}</td>
                         <td>{d.ok ? <span className="text-ok">passt</span> : <span className="text-warn">widersprüchlich</span>}</td>
                       </tr>
                     ))}

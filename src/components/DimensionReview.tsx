@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { formatPercent } from '../lib/calibration';
-import { analyzeDimensions, calibrationLine, LINE_TOLERANCE, matchDimensionLines, type DimMatch, type DimUnit } from '../lib/dimension-lines';
+import { formatCm } from '../lib/calibration';
+import { ABS_TOLERANCE_M, analyzeDimensions, calibrationLine, matchDimensionLines, type DimMatch, type DimUnit } from '../lib/dimension-lines';
 import { formatMeasure } from '../lib/numbers';
 import { PT_PER_M } from '../lib/scale-detect';
 import { putRecord, type ProjectState } from '../lib/store';
@@ -103,7 +103,7 @@ export function DimensionReview({ data, plan, file, onClose }: { data: ProjectSt
               <strong>
                 {an.okCount} von {an.rows.length}
               </strong>{' '}
-              Maßen passen zusammen (±{(LINE_TOLERANCE * 100).toLocaleString('de-DE')} %)
+              Maßen passen zusammen (höchstens {ABS_TOLERANCE_M * 100} cm Abweichung)
               {n !== null && (
                 <>
                   {' '}
@@ -157,7 +157,7 @@ export function DimensionReview({ data, plan, file, onClose }: { data: ProjectSt
                     </td>
                     <td className="num">{r.meters !== null ? formatMeasure(r.meters) : '–'}</td>
                     <td className="num">{r.measured !== null ? formatMeasure(r.measured) : '–'}</td>
-                    <td className="num">{r.deviation !== null ? formatPercent(r.deviation) : '–'}</td>
+                    <td className="num">{r.measured !== null && r.meters !== null ? formatCm(r.measured - r.meters) : '–'}</td>
                     <td>
                       {r.meters === null ? (
                         <span className="muted small">Einheit passt nicht</span>
@@ -176,7 +176,7 @@ export function DimensionReview({ data, plan, file, onClose }: { data: ProjectSt
             Zahlen ohne Einheit gelten wie in Bauplänen üblich als Zentimeter (420 = 4,20 m · 5 = 0,05 m · 1245 = 12,45 m), Zahlen mit zwei
             Nachkommastellen als Meter (4,20). Gelesen werden nur Zahlen, die mittig über einer gezeichneten Maßlinie stehen; die Länge im Plan reicht von
             Begrenzung zu Begrenzung. Maße, die
-            nicht zum gemeinsamen Maßstab passen, werden nicht verwendet. Die Genauigkeit hängt vom Plan ab – BauPad garantiert keine Maßhaltigkeit.
+            mehr als 2 cm vom gemeinsamen Maßstab abweichen, werden nicht verwendet. Die Genauigkeit hängt vom Plan ab – BauPad garantiert keine Maßhaltigkeit.
           </p>
         </>
       )}

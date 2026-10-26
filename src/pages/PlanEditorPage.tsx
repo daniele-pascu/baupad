@@ -9,7 +9,7 @@ import { PlanViewer, type PlanViewerHandle, type SnapFn, type Tool } from '../co
 import { SaveErrorBanner, SaveStatus } from '../components/SaveStatus';
 import { confirmDialog, offerFile, promptDialog, showError, toast } from '../components/ui';
 import { costCenterLabel, damagesOf, elementsOf, exportXlsx, findPosition, lvDocLabel, lvDocsOf, plansOf, planTitle, positionRef, sumArea } from '../lib/aufmass';
-import { calibrationStatus, checkDeviation, formatPercent, geometryMeasures, planUnitsPerMeter } from '../lib/calibration';
+import { calibrationStatus, checkDeviation, checkError, formatCm, formatPercent, geometryMeasures, MAX_ERROR_M, planUnitsPerMeter } from '../lib/calibration';
 import { CalibrationReport } from '../components/CalibrationReport';
 import { DimensionReview } from '../components/DimensionReview';
 import { cachedExcelLogo } from '../lib/company';
@@ -418,11 +418,11 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     const cur = data.plans[plan.id];
     putRecord('plans', { ...cur, calibration: { ...cur.calibration!, check: { a, b, expected: r.value, measured, at: Date.now() } } });
     setChecking(false);
-    const dev = measured / r.value - 1;
-    const ok = Math.abs(dev) <= 0.02;
+    const diff = measured - r.value;
+    const ok = Math.abs(diff) <= MAX_ERROR_M;
     toast(
-      `Prüfstrecke: Soll ${formatMeasure(r.value)} m, gemessen ${formatMeasure(measured)} m – Abweichung ${formatPercent(dev)}. ` +
-        (ok ? 'Die Kalibrierung passt.' : 'Bitte die Kalibrierung prüfen (z. B. längere Referenzstrecke).'),
+      `Prüfstrecke: Soll ${formatMeasure(r.value)} m, gemessen ${formatMeasure(measured)} m – Abweichung ${formatCm(diff)} (auf 10 m ≈ ${formatCm((diff / r.value) * 10)}). ` +
+        (ok ? 'Die Kalibrierung passt.' : 'Mehr als 2 cm: bitte neu kalibrieren (z. B. längere Referenzstrecke).'),
       ok ? 'success' : 'error',
       7000,
     );
@@ -1232,7 +1232,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                     {plan.calibration.auto
                       ? `Erkannt: ${plan.calibration.auto.label}${plan.calibration.auto.confirmed ? ' (bestätigt)' : ' (ungeprüft)'}`
                       : `Kalibriert: Referenz ${formatMeasure(plan.calibration.meters)} m`}
-                    {checkDeviation(plan) !== null && ` · Prüfung ${formatPercent(checkDeviation(plan)!)}`}
+                    {checkError(plan) !== null && ` · Prüfung ${formatCm(checkError(plan)!.diff)} (${formatPercent(checkDeviation(plan)!)})`}
                   </strong>
                   <button type="button" className={`btn btn-sm${checking ? ' btn-primary' : ''}`} onClick={() => setChecking(!checking)} aria-pressed={checking} data-testid="calibration-check">
                     Prüfstrecke

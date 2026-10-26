@@ -58,7 +58,7 @@ test('PDF: Status automatisch → bestätigt, Prüfstrecke mit Abweichung, Prüf
 
   // Prüfstrecke genau getroffen → ±0,0 %
   await checkLine(page, 1);
-  await expect(page.getByTestId('calibration-info')).toContainText('Prüfung ±0,0 %');
+  await expect(page.getByTestId('calibration-info')).toContainText('Prüfung ±0,0 cm'); // Abweichung in cm
   await expect(page.getByTestId('check-line')).toBeVisible();
 
   // bestätigen → Status grün
@@ -70,10 +70,13 @@ test('PDF: Status automatisch → bestätigt, Prüfstrecke mit Abweichung, Prüf
 
   // Prüfstrecke mit 10 % Abweichung → Warnung, Maßstab bleibt
   await checkLine(page, 1.1);
-  await expect(page.getByTestId('calibration-info')).toContainText('Prüfung −9,1 %');
+  await expect(page.getByTestId('calibration-info')).toContainText('(−9,1 %)');
+  await expect(page.getByTestId('calibration-info')).toContainText(/Prüfung −\d+,\d cm/);
   await expect(status).toHaveClass(/warn/);
   await page.getByTestId('calibration-report-open').click();
   await expect(rep.getByTestId('report-check')).toContainText('−9,1 %');
+  await expect(rep.getByTestId('report-check')).toContainText('mehr als 2 cm'); // Warnung
+  await expect(rep.getByTestId('report-check')).toContainText('auf 10 m');
   await rep.getByRole('button', { name: 'Schließen' }).click();
 
   // selbst kalibrieren → Status „≈ 1:…“, Prüfung zurückgesetzt

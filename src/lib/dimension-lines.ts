@@ -151,17 +151,30 @@ export interface DimAnalysis {
   otherScale: number | null;
 }
 
-/** Toleranz: Maße passen zusammen, wenn sie höchstens 1,5 % vom gemeinsamen Maßstab abweichen */
-export const LINE_TOLERANCE = 0.015;
+/**
+ * Toleranz: ein Maß passt, wenn die im Plan gemessene Länge höchstens 2 cm vom Maßtext abweicht
+ * (absolut – ein kleiner Maßstabsfehler wächst mit der Länge, darum keine Prozent-Toleranz).
+ */
+export const ABS_TOLERANCE_M = 0.02;
 
-function cluster(ks: number[]): { k: number; members: number[] } | null {
-  let best: { k: number; members: number[] } | null = null;
-  for (const c of ks) {
-    const members = ks.map((k, i) => (Math.abs(k - c) / c <= LINE_TOLERANCE ? i : -1)).filter((i) => i >= 0);
-    if (!best || members.length > best.members.length) {
-      const sorted = members.map((i) => ks[i]).sort((p, q) => p - q);
-      best = { k: sorted[Math.floor(sorted.length / 2)], members };
+/**
+ * Größte Gruppe von Maßen mit gemeinsamem Maßstab: Länge im Plan = k · Maß (±2 cm). k wird über
+ * alle Mitglieder ausgeglichen (kleinste Fehlerquadrate), danach die Gruppe neu geprüft.
+ */
+function fitGroup(items: { len: number; m: number; i: number }[]): { k: number; members: number[]; err: number } | null {
+  let best: { k: number; members: number[]; err: number } | null = null;
+  for (const c of items) {
+    let k = c.len / c.m;
+    let members: typeof items = [];
+    for (let round = 0; round < 3; round++) {
+      members = items.filter((x) => Math.abs(x.len / k - x.m) <= ABS_TOLERANCE_M);
+      if (!members.length) break;
+      k = members.reduce((a, x) => a + x.len * x.m, 0) / members.reduce((a, x) => a + x.m * x.m, 0);
     }
+    members = items.filter((x) => Math.abs(x.len / k - x.m) <= ABS_TOLERANCE_M);
+    const err = members.reduce((a, x) => a + Math.abs(x.len / k - x.m), 0);
+    if (members.length && (!best || members.length > best.members.length || (members.length === best.members.length && err < best.err)))
+      best = { k, members: members.map((x) => x.i), err };
   }
   return best;
 }
@@ -174,32 +187,23 @@ function cluster(ks: number[]): { k: number; members: number[] } | null {
 export function analyzeDimensions(matches: DimMatch[], forced?: DimUnit): DimAnalysis {
   // ohne Vorgabe: jede Zahl in ihrer Einheit (ganze Zahlen cm, „4,20“ m); mit Vorgabe alle Zahlen in dieser Einheit
   const unitOf = (m: DimMatch) => forced ?? m.units[0];
-  const units: DimUnit[] = forced ? [forced] : ['cm'];
-  let best: { unit: DimUnit; k: number | null; members: Set<number>; ks: (number | null)[] } | null = null;
-  for (const unit of units) {
-    const ks = matches.map((m) => m.length / (m.value * UNIT_FACTOR[unitOf(m)]));
-    const idx = ks.map((k, i) => (k !== null ? i : -1)).filter((i) => i >= 0);
-    const c = cluster(idx.map((i) => ks[i]!));
-    const members = new Set(c ? c.members.map((j) => idx[j]) : []);
-    if (!best || members.size > best.members.size) best = { unit, k: c && members.size >= 2 ? c.k : null, members, ks };
-  }
-  const b = best!;
+  const items = matches.map((m, i) => ({ len: m.length, m: m.value * UNIT_FACTOR[unitOf(m)], i }));
+  const g = fitGroup(items);
+  const members = new Set(g && g.members.length >= 2 ? g.members : []);
+  const k = members.size ? g!.k : null;
   // angezeigte Einheit: die der meisten passenden Maße (z. B. „5,00“-Ketten → m)
-  if (!forced) {
-    const count = (u: DimUnit) => [...b.members].filter((i) => unitOf(matches[i]) === u).length;
-    b.unit = count('m') > count('cm') ? 'm' : 'cm';
-  }
+  const count = (u: DimUnit) => [...members].filter((i) => unitOf(matches[i]) === u).length;
+  const unit: DimUnit = forced ?? (count('m') > count('cm') ? 'm' : 'cm');
   const rows: DimRow[] = matches.map((m, i) => {
-    const meters = m.value * UNIT_FACTOR[unitOf(m)];
-    const measured = b.k && meters !== null ? m.length / b.k : null;
-    const deviation = measured !== null && meters ? measured / meters - 1 : null;
-    return { match: m, meters, measured, deviation, ok: b.k !== null && b.members.has(i) };
+    const meters = items[i].m;
+    const measured = k ? m.length / k : null;
+    const deviation = measured !== null ? measured / meters - 1 : null;
+    return { match: m, meters, measured, deviation, ok: members.has(i) };
   });
   // zweite Gruppe (anderer Maßstab) unter den übrigen Maßen
-  const rest = b.ks.map((k, i) => (k !== null && !b.members.has(i) ? k : null)).filter((k): k is number => k !== null);
-  const second = cluster(rest);
-  const otherScale = b.k && second && second.members.length >= 2 && Math.abs(second.k - b.k) / b.k > 0.05 ? second.k : null;
-  return { unit: b.unit, k: b.k, rows, okCount: rows.filter((r) => r.ok).length, otherScale };
+  const second = k ? fitGroup(items.filter((x) => !members.has(x.i))) : null;
+  const otherScale = k && second && second.members.length >= 2 && Math.abs(second.k - k) / k > 0.05 ? second.k : null;
+  return { unit, k, rows, okCount: members.size, otherScale };
 }
 
 /** Kalibrierstrecke aus den passenden Maßen: die längste Maßlinie, Länge beim gemeinsamen Maßstab */

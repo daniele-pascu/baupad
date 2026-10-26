@@ -61,6 +61,17 @@ describe('Maßlinien zuordnen und Maßstab bestimmen', () => {
     expect(a.rows.find((r) => r.match.text === '380')!.deviation!).toBeLessThan(-0.03);
     expect(PT_PER_M / a.k!).toBeCloseTo(50, 6);
   });
+  it('2-cm-Grenze: 1 % auf 4,10 m (4 cm) gilt als widersprüchlich, 1 cm passt', () => {
+    const { segs, texts } = plan([500, 365, 240, 410]);
+    const t = texts.map((x) => ({ ...x }));
+    t[3].str = '414'; // 4 cm daneben (1 %)
+    let a = analyzeDimensions(matchDimensionLines(t, segs, null));
+    expect(a.rows[3].ok).toBe(false);
+    expect((a.rows[3].measured! - a.rows[3].meters!) * 100).toBeCloseTo(-4, 1);
+    t[3].str = '411'; // 1 cm daneben
+    a = analyzeDimensions(matchDimensionLines(t, segs, null));
+    expect(a.okCount).toBe(4);
+  });
   it('Einheit vorgeben: alle als mm → anderer Maßstab (1:5)', () => {
     const { segs, texts } = plan([515.5, 365, 240]);
     const a = analyzeDimensions(matchDimensionLines(texts, segs, null), 'mm');

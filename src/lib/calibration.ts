@@ -38,6 +38,23 @@ export function checkDeviation(plan: Plan): number | null {
   return c && c.expected > 0 ? c.measured / c.expected - 1 : null;
 }
 
+/** Zulässige Abweichung einer Länge (Maß im Plan bzw. Prüfstrecke): 2 cm – absolut, nicht in Prozent */
+export const MAX_ERROR_M = 0.02;
+
+/** Längendifferenz in cm mit Vorzeichen, z. B. „+0,8 cm“ */
+export function formatCm(m: number): string {
+  const r = Math.round(m * 1000) / 10;
+  return `${r > 0 ? '+' : r < 0 ? '−' : '±'}${Math.abs(r).toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} cm`;
+}
+
+/** Prüfstrecke: Differenz gemessen − Soll (m) und hochgerechnet auf 10 m */
+export function checkError(plan: Plan): { diff: number; per10m: number } | null {
+  const c = plan.calibration?.check;
+  if (!c || !(c.expected > 0)) return null;
+  const diff = c.measured - c.expected;
+  return { diff, per10m: (diff / c.expected) * 10 };
+}
+
 /** Prozent mit Vorzeichen, z. B. „+0,4 %“ */
 export function formatPercent(v: number): string {
   const r = Math.round(v * 1000) / 10; // auf 0,1 % gerundet – „−0,0 %“ vermeiden
@@ -52,9 +69,10 @@ export function calibrationStatus(plan: Plan, kind: 'pdf' | 'image' | undefined)
   const c = plan.calibration;
   const upm = planUnitsPerMeter(plan);
   if (!c || !upm) return { state: 'none', short: 'Nicht kalibriert', text: 'Nicht kalibriert – Maße werden eingegeben, Flächen nicht aus dem Plan berechnet.', warn: true };
-  const dev = checkDeviation(plan);
-  const checkText = dev === null ? '' : ` · Prüfstrecke ${formatMeasure(c.check!.expected)} m: Abweichung ${formatPercent(dev)}`;
-  const badCheck = dev !== null && Math.abs(dev) > 0.02;
+  const err = checkError(plan);
+  const checkText = err === null ? '' : ` · Prüfstrecke ${formatMeasure(c.check!.expected)} m: Abweichung ${formatCm(err.diff)} (auf 10 m ≈ ${formatCm(err.per10m)})`;
+  // über 2 cm Abweichung → Kalibrierung prüfen (wächst mit der Länge)
+  const badCheck = err !== null && Math.abs(err.diff) > MAX_ERROR_M;
   if (c.auto) {
     const confirmed = !!c.auto.confirmed;
     return {
