@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { catchDownload, drawRect, FIXTURES, freshStart, OUT, pickTool, planBox, messliste, readXlsx, saveDownload, waitForPlan, waitSaved } from './helpers';
+import { excelExport, catchDownload, drawRect, FIXTURES, freshStart, OUT, pickTool, planBox, messliste, readXlsx, saveDownload, waitForPlan, waitSaved } from './helpers';
 
 /**
  * Paket J: Werkzeugleiste klappt nach dem Zeichnen zu (zurück zur Auswahl); nur die Länge ist
@@ -48,7 +48,7 @@ test('Projekt ohne Kostenstelle: anlegen, Plan importieren, Kostenstelle später
   await page.getByRole('link', { name: 'Zurück zur Planliste' }).click();
   await expect(page.getByTestId('plan-row')).toHaveCount(1);
   // Excel ohne Kostenstelle: kein Fehler
-  const dl = await catchDownload(page, () => page.getByTestId('export-xlsx-cc').click());
+  const dl = await catchDownload(page, () => excelExport(page, 'export-xlsx-cc'));
   expect(dl.suggestedFilename()).toBe('Ohne_KSt_Aufmass.xlsx');
   // Später Hauptkostenstelle und eine weitere ergänzen – der Plan bleibt erhalten
   await page.getByTestId('edit-project').click();
@@ -107,7 +107,7 @@ test('Projektinformationen: Reihenfolge, Baubeginn gespeichert und nur dort ange
   const pdf = await saveDownload(pdl, 'baubeginn.pdf');
   const text = execFileSync('pdftotext', [pdf, '-'], { encoding: 'utf8' });
   expect(text).not.toMatch(/02\.11\.2026|Baubeginn/);
-  const xdl = await catchDownload(page, () => page.getByTestId('export-xlsx-plan').click());
+  const xdl = await catchDownload(page, () => excelExport(page, 'export-xlsx-plan'));
   const wb = readXlsx(await saveDownload(xdl, 'baubeginn.xlsx'));
   expect(JSON.stringify(wb)).not.toMatch(/02\.11\.2026|2026-11-02|Baubeginn/);
 });
@@ -180,7 +180,7 @@ test('Messung: nur Länge Pflicht, Breite/Höhe und Tiefe optional; Werkzeugleis
   ]);
   await expect(page.getByTestId('sum-area')).toHaveText('14,00');
   // Excel: leere Zellen statt 0
-  const xdl = await catchDownload(page, () => page.getByTestId('export-xlsx-plan').click());
+  const xdl = await catchDownload(page, () => excelExport(page, 'export-xlsx-plan'));
   // Messliste: leere Zellen statt 0
   const rows = messliste(readXlsx(await saveDownload(xdl, 'optional.xlsx')));
   expect(rows.map((r) => r.values.slice(1))).toEqual([

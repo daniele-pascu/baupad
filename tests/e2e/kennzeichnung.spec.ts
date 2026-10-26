@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { join } from 'node:path';
-import { catchDownload, createProject, drawRect, FIXTURES, freshStart, planBox, messliste, readXlsx, saveDownload, waitForPlan, waitSaved, pickTool } from './helpers';
+import { excelExport, catchDownload, createProject, drawRect, FIXTURES, freshStart, planBox, messliste, readXlsx, saveDownload, waitForPlan, waitSaved, pickTool } from './helpers';
 
 /** Paket D: Nummern und Buchstaben kombinieren, Schema wird fortgesetzt. */
 test('Kennzeichnungen A, B, C, „Wand A“ und Zahlen – Fortsetzung, Doppelprüfung, Export', async ({ page }) => {
@@ -81,7 +81,7 @@ test('Kennzeichnungen A, B, C, „Wand A“ und Zahlen – Fortsetzung, Doppelpr
   await waitSaved(page);
 
   // Excel: Spalte „Nr.“ enthält die Kennzeichnungen als Text, Zahlen als Zahl
-  const dl = await catchDownload(page, () => page.getByTestId('export-xlsx-plan').click());
+  const dl = await catchDownload(page, () => excelExport(page, 'export-xlsx-plan'));
   const nos = messliste(readXlsx(await saveDownload(dl, 'kennzeichnung.xlsx')), 'K-1').map((r) => r.nr);
   expect(new Set(nos)).toEqual(new Set(['A', 'B2', 'Wand A', 'Wand B', 'Stütze', 5, 6]));
 });

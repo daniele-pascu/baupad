@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { catchDownload, createProject, drawRect, FIXTURES, fillMeasures, freshStart, pickTool, planBox, readXlsxPrint, saveDownload, waitForPlan, waitSaved } from './helpers';
+import { excelExport, catchDownload, createProject, drawRect, FIXTURES, fillMeasures, freshStart, pickTool, planBox, readXlsxPrint, saveDownload, waitForPlan, waitSaved } from './helpers';
 
 /** Firmenlogo in Konto → Einstellungen: wird auf dem Gerät gespeichert und in jede Excel-Kopfzeile (rechts) übernommen */
 
@@ -35,7 +35,7 @@ test('Logo hochladen, in der Excel-Kopfzeile rechts; Projekt/Kostenstelle links,
   await drawRect(page, b.x + b.width * 0.2, b.y + b.height * 0.2, b.x + b.width * 0.4, b.y + b.height * 0.4);
   await fillMeasures(page, '2', '3', '', false);
   await waitSaved(page);
-  const dl = await catchDownload(page, () => page.getByTestId('export-xlsx-plan').click());
+  const dl = await catchDownload(page, () => excelExport(page, 'export-xlsx-plan'));
   const file = await saveDownload(dl, 'logo.xlsx');
   const names = unzipList(file);
   expect(names).toContain('xl/media/logo.png');
@@ -55,7 +55,7 @@ test('Logo hochladen, in der Excel-Kopfzeile rechts; Projekt/Kostenstelle links,
   await expect(page.getByTestId('logo-settings')).toContainText('Kein Logo');
   await page.goBack();
   await waitForPlan(page);
-  const dl2 = await catchDownload(page, () => page.getByTestId('export-xlsx-plan').click());
+  const dl2 = await catchDownload(page, () => excelExport(page, 'export-xlsx-plan'));
   const file2 = await saveDownload(dl2, 'ohne-logo.xlsx');
   expect(unzipList(file2)).not.toContain('xl/media/logo.png');
   expect(readXlsxPrint(file2)['Aufmaß'].header.right).toBe('');

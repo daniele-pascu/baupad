@@ -2,6 +2,7 @@ import { expect, test, type CDPSession, type Page } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import {
+  excelExport,
   FIXTURES,
   OUT,
   catchDownload,
@@ -187,7 +188,7 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   await page.screenshot({ path: join(OUT, `${info.project.name}-editor.png`) });
 
   // 7) Excel-Export über den Dialog „Datei bereit“
-  const dl = await catchDownload(page, () => page.getByTestId('export-xlsx-plan').tap());
+  const dl = await catchDownload(page, () => excelExport(page, 'export-xlsx-plan', 'xlsx-overview', 'tap'));
   const wb = readXlsx(await saveDownload(dl, `${info.project.name}-plan.xlsx`));
   expect(messliste(wb, 'C-301').map((r) => r.values)).toEqual([
     [1, 1.25, 0.4, 0.03, 0.5],

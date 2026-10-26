@@ -30,6 +30,8 @@ export interface Project extends SyncMeta {
   /** Projektdatum im Format JJJJ-MM-TT */
   date: string;
   notes: string;
+  /** zuletzt vergebene Aufmaßblatt-Nummer (Excel); fehlt = noch keine */
+  sheetNo?: number;
 }
 
 export interface CostCenter extends SyncMeta {

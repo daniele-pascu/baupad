@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { join } from 'node:path';
-import { catchDownload, createProject, drawRect, FIXTURES, freshStart, planBox, readXlsx, readXlsxPrint, saveDownload, waitForPlan, waitSaved, pickTool } from './helpers';
+import { excelExport, catchDownload, createProject, drawRect, FIXTURES, freshStart, planBox, readXlsx, readXlsxPrint, saveDownload, waitForPlan, waitSaved, pickTool } from './helpers';
 
 /** Phase 4: LV/MFK aus PDF importieren, prüfen, durchsuchen, Messungen zuordnen, Mengen. */
 test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen', async ({ page }) => {
@@ -80,7 +80,7 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   await expect(page.getByTestId('lv-measured-total')).toHaveText('286,00 €');
 
   // Excel: LV-Auswertung mit LV-Menge und Aufmaß-Menge getrennt, Beträge als Formeln
-  const dl = await catchDownload(page, () => page.getByTestId('export-xlsx-cc').click());
+  const dl = await catchDownload(page, () => excelExport(page, 'export-xlsx-cc'));
   const file = await saveDownload(dl, 'lv-auswertung.xlsx');
   const wb = readXlsx(file);
   const lvName = Object.keys(wb).find((n) => n.startsWith('LV '))!;
@@ -151,4 +151,54 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   const pr = readXlsxPrint(file2);
   expect(pr['Pos 92 01 01 B']).toMatchObject({ orientation: 'landscape', fitToWidth: 1, titleRows: '$1:$4' });
   expect(pr['Leistungen']).toMatchObject({ orientation: 'landscape', titleRows: '$1:$2' });
+
+  // Aufmaßblatt nach Firmenvorlage: Nummer automatisch, je LV die Positionen mit Tabelle nach Einheit,
+  // Zusammenstellung (EUR), Gesamtpreis; Messungen ohne Position mit Plan und Nr.
+  await page.getByTestId('export-xlsx-cc').click();
+  const ex = page.getByTestId('excel-export');
+  await expect(ex.getByTestId('blatt-no')).toHaveValue('001');
+  await expect(ex.getByTestId('blatt-period')).toHaveValue(/\d{2}\.\d{2}\.\d{4}/);
+  const dl3 = await catchDownload(page, () => ex.getByTestId('blatt-export').click());
+  expect(dl3.suggestedFilename()).toMatch(/Aufmassblatt_001\.xlsx$/);
+  const file3 = await saveDownload(dl3, 'aufmassblatt.xlsx');
+  const ws = readXlsx(file3)['Aufmaßblatt 001'];
+  const v = (r: number, c: number) => ws[r]?.[c]?.v ?? null;
+  const rowOf = (text: string, col = 0) => ws.findIndex((r) => r[col]?.v === text);
+  expect(v(0, 0)).toBe('Aufmaßblatt 001');
+  expect([v(2, 0), v(2, 2)]).toEqual(['Bauvorhaben', 'LV-Test']);
+  expect([v(3, 0), v(3, 2)]).toEqual(['Kostenstelle', 'Garage']);
+  expect(v(4, 0)).toBe('Leistungszeitraum');
+  expect(String(v(6, 0))).toMatch(/^LV - .*Sanierung Tiefgarage Musterstrasse/);
+  expect(ws[8].map((c) => c?.v ?? null).filter(Boolean)).toEqual(['Pos. / Positionstext', 'Menge', 'EH', 'Einheitspreis', 'Positionspreis']);
+  // Position B (m²): Menge = Summe der Tabelle, Positionspreis = EP × Menge
+  const pb = rowOf('92 01 01 B');
+  expect(v(pb, 2)).toBe('Sperrflaeche');
+  const q = ws[pb + 1];
+  expect([q[3]?.v, q[4]?.v, q[5]?.v, q[6]?.v, q[7]?.v]).toEqual(['m²', 25, '€', `=E${pb + 2}*C${pb + 2}`, '€']);
+  const th = pb + 3;
+  expect(ws[th].slice(0, 6).map((c) => c?.v ?? null)).toEqual(['Plan', 'Nr.', 'Länge', 'Breite', 'm²', 'Bemerkung']);
+  expect(ws[th + 1].slice(0, 5).map((c) => c?.v ?? null)).toEqual(['P-1', 1, 4, 2.5, `=C${th + 2}*D${th + 2}`]);
+  expect(ws[th + 2].slice(4, 6).map((c) => c?.v ?? null)).toEqual([`=SUM(E${th + 2}:E${th + 2})`, 'm²']);
+  expect(q[2]?.v).toBe(`=E${th + 3}`); // Menge verweist auf die Summe
+  // Position A (m): Plan | Nr. | m
+  const pa = rowOf('92 01 01 A');
+  expect(ws[pa + 3].slice(0, 4).map((c) => c?.v ?? null)).toEqual(['Plan', 'Nr.', 'm', 'Bemerkung']);
+  expect(ws[pa + 4].slice(0, 3).map((c) => c?.v ?? null)).toEqual(['P-1', 2, 12]);
+  // Zusammenstellung und Gesamtpreis (Formeln)
+  const boxRow = rowOf('Zusammenstellung (EUR)');
+  expect(boxRow).toBeGreaterThan(pb);
+  const total = ws.find((r) => r[4]?.v === 'Gesamtpreis in EUR')!;
+  expect(String(total[6]?.v)).toMatch(/^=G\d+\+G\d+$/);
+  // ohne Position: Fläche und Linie mit Plan und Nr.
+  const free3 = rowOf('Aufmaß ohne Leistungsposition');
+  expect(free3).toBeGreaterThan(boxRow);
+  expect(ws.slice(free3).some((r) => r[0]?.v === 'P-1' && r[2]?.v === 3 && r[3]?.v === 2)).toBe(true);
+  expect(ws.slice(free3).some((r) => r[0]?.v === 'P-1' && r[2]?.v === 5.5)).toBe(true);
+  // Druck: Kopfzeile wie Vorlage (rechts „Seite von Seiten“), Seitenbreite
+  expect(readXlsxPrint(file3)['Aufmaßblatt 001']).toMatchObject({ orientation: 'portrait', fitToWidth: 1 });
+  expect(readXlsxPrint(file3)['Aufmaßblatt 001'].header.right).toBe('&P von &N');
+  // nächste Nummer wird hochgezählt
+  await page.getByTestId('export-xlsx-cc').click();
+  await expect(page.getByTestId('excel-export').getByTestId('blatt-no')).toHaveValue('002');
+  await page.getByTestId('excel-export').getByRole('button', { name: 'Abbrechen' }).click();
 });

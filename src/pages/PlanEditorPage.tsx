@@ -7,12 +7,12 @@ import { PdfExportDialog } from '../components/PdfExportDialog';
 import { PlanDetailsDialog } from '../components/PlanFields';
 import { PlanViewer, type PlanViewerHandle, type SnapFn, type Tool } from '../components/PlanViewer';
 import { SaveErrorBanner, SaveStatus } from '../components/SaveStatus';
-import { confirmDialog, offerFile, promptDialog, showError, toast } from '../components/ui';
-import { costCenterLabel, damagesOf, elementsOf, exportXlsx, findPosition, lvDocLabel, lvDocsOf, plansOf, planTitle, positionRef, sumArea } from '../lib/aufmass';
+import { confirmDialog, promptDialog, showError, toast } from '../components/ui';
+import { costCenterLabel, damagesOf, elementsOf, findPosition, lvDocLabel, lvDocsOf, plansOf, planTitle, positionRef, sumArea } from '../lib/aufmass';
 import { calibrationStatus, checkDeviation, checkError, formatCm, formatPercent, geometryMeasures, MAX_ERROR_M, planUnitsPerMeter } from '../lib/calibration';
 import { CalibrationReport } from '../components/CalibrationReport';
 import { DimensionReview } from '../components/DimensionReview';
-import { cachedExcelLogo } from '../lib/company';
+import { ExcelExportDialog } from '../components/ExcelExportDialog';
 import { calibrationFrom, detectScale, sourceText } from '../lib/scale-detect';
 import { visibleDamages } from '../lib/layers';
 import { LayerMenu } from '../components/LayerMenu';
@@ -259,6 +259,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const [checking, setChecking] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [dimsOpen, setDimsOpen] = useState(false);
+  const [excelOpen, setExcelOpen] = useState(false);
   /** Werkzeug „Fläche“: Anzahl bereits gesetzter Eckpunkte */
   const [polyCount, setPolyCount] = useState(0);
   /** Leistung für neue Messungen: bleibt bis zur nächsten Änderung aktiv ('' = ohne Leistungszuordnung) */
@@ -736,14 +737,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     if (ok) applyRenumber(changes);
   };
 
-  const exportExcel = () => {
-    try {
-      const logo = cachedExcelLogo();
-      void offerFile(exportXlsx(data, { kind: 'plan', planId: plan.id }, 'standard', { logo }));
-    } catch (e) {
-      showError(e, 'Excel-Export fehlgeschlagen');
-    }
-  };
+  const exportExcel = () => setExcelOpen(true);
 
   // Messleiste in der Breite verstellen (nur Anzeige – Plan- und Markierungskoordinaten bleiben unverändert)
   const commitSideWidth = (w: number) => {
@@ -1464,6 +1458,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           onDelete={() => void removeDamage(dialogDamage)}
         />
       )}
+      {excelOpen && plan && <ExcelExportDialog data={data} scope={{ kind: 'plan', planId: plan.id }} onClose={() => setExcelOpen(false)} />}
       {dimsOpen && plan && file && <DimensionReview data={data} plan={plan} file={file} onClose={() => setDimsOpen(false)} />}
       {reportOpen && plan && <CalibrationReport plan={plan} file={file ?? undefined} onClose={() => setReportOpen(false)} />}
       {detailsOpen && <PlanDetailsDialog plan={plan} data={data} onClose={() => setDetailsOpen(false)} />}

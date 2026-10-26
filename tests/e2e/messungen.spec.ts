@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
+  excelExport,
   catchDownload,
   createProject,
   drawRect,
@@ -143,7 +144,7 @@ test('Messarten Linie, Schadstelle, Fläche: Linien zählen nicht zur Fläche, l
   ]);
 
   // Excel: leere Zellen statt 0; Summe nur Flächen
-  const dl = await catchDownload(page, () => page.getByTestId('export-xlsx-plan').click());
+  const dl = await catchDownload(page, () => excelExport(page, 'export-xlsx-plan'));
   const file = await saveDownload(dl, 'messarten.xlsx');
   const ml = messliste(readXlsx(file), 'M-1');
   expect(ml.map((r) => [...r.values, r.kind])).toEqual([

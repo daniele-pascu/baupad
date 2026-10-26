@@ -10,11 +10,12 @@ import { NewDrawingDialog, PlanDetailsDialog } from '../components/PlanFields';
 import { PlanLibrary, ReusePlanDialog, type PlanSource } from '../components/PlanLibrary';
 import { PlanList } from '../components/PlanList';
 import { RotatePlanDialog } from '../components/RotatePlanDialog';
+import { ExcelExportDialog } from '../components/ExcelExportDialog';
 import { ProjectForm, type CostCenterInput } from '../components/ProjectForm';
 import { SaveErrorBanner, SaveStatus } from '../components/SaveStatus';
 import { confirmDialog, offerFile, promptDialog, showError, toast } from '../components/ui';
 import { cachedExcelLogo } from '../lib/company';
-import { aufmassRows, componentsOf, findPosition, costCenterLabel, costCenterName, costCentersOf, damagesOf, elementsOf, exportXlsx, lvDocsOf, planTitle, plansOf, type XlsxLayout } from '../lib/aufmass';
+import { aufmassRows, componentsOf, findPosition, costCenterLabel, costCenterName, costCentersOf, damagesOf, elementsOf, exportXlsx, lvDocsOf, planTitle, plansOf, type XlsxLayout, type XlsxScope } from '../lib/aufmass';
 import { BACKUP_REMIND_DAYS, backupStatus, exportProjectBackup, type BackupStatus } from '../lib/backup';
 import { isDrawingPlan } from '../lib/drawing';
 import { exportPaper } from '../lib/sheet-layout';
@@ -50,6 +51,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
   const [library, setLibrary] = useState(false);
   const [reuse, setReuse] = useState<PlanSource | null>(null);
   const [rotating, setRotating] = useState<Plan | null>(null);
+  const [excelScope, setExcelScope] = useState<XlsxScope | null>(null);
   const [backupInfo, setBackupInfo] = useState<BackupStatus | null>(null);
   const [reminderHidden, setReminderHidden] = useState(() => {
     try {
@@ -405,12 +407,12 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
         <h2 className="section-title">Export und Sicherung</h2>
         <div className="button-row">
           {active && (
-            <button type="button" className="btn" onClick={() => xlsx('cc')} data-testid="export-xlsx-cc">
-              <Icon name="excel" /> {ccs.length > 1 ? 'Excel – Kostenstelle' : 'Excel – Aufmaß'}
+            <button type="button" className="btn" onClick={() => setExcelScope({ kind: 'costCenter', costCenterId: active.id })} data-testid="export-xlsx-cc">
+              <Icon name="excel" /> {ccs.length > 1 ? 'Excel – Aufmaßblatt Kostenstelle' : 'Excel – Aufmaßblatt'}
             </button>
           )}
           {ccs.length > 1 && (
-            <button type="button" className="btn" onClick={() => xlsx('project')} data-testid="export-xlsx-project">
+            <button type="button" className="btn" onClick={() => setExcelScope({ kind: 'project' })} data-testid="export-xlsx-project">
               <Icon name="excel" /> Excel – gesamtes Projekt
             </button>
           )}
@@ -453,6 +455,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
           onSubmit={saveProject}
         />
       )}
+      {excelScope && <ExcelExportDialog data={data} scope={excelScope} onClose={() => setExcelScope(null)} />}
       {rotating && (
         <RotatePlanDialog
           data={data}

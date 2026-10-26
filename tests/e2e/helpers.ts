@@ -95,6 +95,12 @@ export async function saveDownload(dl: Download, name?: string): Promise<string>
 
 export type XlsxCell = { v: string | number; t: string; fmt: string } | null;
 
+/** Excel-Dialog öffnen und ein Format wählen (Standard: „Übersicht & Messliste“; „blatt-export“ = Aufmaßblatt) */
+export async function excelExport(page: Page, opener: string, format: 'xlsx-overview' | 'blatt-export' = 'xlsx-overview', how: 'click' | 'tap' = 'click') {
+  await page.getByTestId(opener)[how]();
+  await page.getByTestId('excel-export').getByTestId(format)[how]();
+}
+
 /** Standard-Excel, Blatt „Messliste“: Messungen (optional eines Plans) als Zeilen [Nr., Länge, Breite, Tiefe, Fläche] samt Zellen */
 export function messliste(wb: Record<string, XlsxCell[][]>, plan?: string) {
   const ws = wb['Messliste'];

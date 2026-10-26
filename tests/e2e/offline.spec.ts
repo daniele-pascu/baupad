@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import {
+  excelExport,
   FIXTURES,
   catchDownload,
   createProject,
@@ -73,7 +74,7 @@ test('Offline: Projekt anlegen, PDF importieren, Schadstellen erfassen, exportie
   await fillMeasures(page, '1,5', '0,8', '0,05');
   await waitSaved(page);
 
-  const x = await catchDownload(page, () => page.getByTestId('export-xlsx-plan').click());
+  const x = await catchDownload(page, () => excelExport(page, 'export-xlsx-plan'));
   const wb = readXlsx(await saveDownload(x, 'offline.xlsx'));
   expect(messliste(wb, 'A-101')[0].values).toEqual([1, 1.5, 0.8, 0.05, 1.2]);
 
@@ -112,7 +113,7 @@ test('Offline: Projekt anlegen, PDF importieren, Schadstellen erfassen, exportie
   await expect(page.getByTestId('lv-row')).toHaveCount(1);
 
   // Offline: Excel (neues Layout mit LV-Auswertung) für die Kostenstelle
-  const xc = await catchDownload(page, () => page.getByTestId('export-xlsx-cc').click());
+  const xc = await catchDownload(page, () => excelExport(page, 'export-xlsx-cc'));
   const wbc = readXlsx(await saveDownload(xc, 'offline-cc.xlsx'));
   expect(Object.keys(wbc)).toEqual(expect.arrayContaining(['Übersicht', 'Aufmaß', 'Messliste']));
   expect(messliste(wbc).map((r) => r.plan)).toContain('A-101');

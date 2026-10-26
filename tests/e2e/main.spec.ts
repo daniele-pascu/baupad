@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import {
+  excelExport,
   FIXTURES,
   OUT,
   catchDownload,
@@ -358,7 +359,7 @@ test('Markierung verschieben, Größe ändern, Beschriftung verschieben, Farbe �
 });
 
 test('10. Excel-Export (Plan) mit echten Zahlenwerten', async () => {
-  const dl = await catchDownload(page, () => page.getByTestId('export-xlsx-plan').click());
+  const dl = await catchDownload(page, () => excelExport(page, 'export-xlsx-plan'));
   expect(dl.suggestedFilename()).toBe('Wohnanlage_Sued_Tiefgarage_A-101_Aufmass.xlsx');
   const file = await saveDownload(dl);
   const wb = readXlsx(file);
@@ -437,7 +438,7 @@ test('Weitere Pläne: gedrehte Seite und Planbereich – PDF-Export mehrerer Pl�
 });
 
 test('10b. Excel-Export Kostenstelle und Gesamtprojekt', async () => {
-  const dl = await catchDownload(page, () => page.getByTestId('export-xlsx-cc').click());
+  const dl = await catchDownload(page, () => excelExport(page, 'export-xlsx-cc'));
   expect(dl.suggestedFilename()).toBe('Wohnanlage_Sued_Tiefgarage_Aufmass.xlsx');
   const file1 = await saveDownload(dl);
   const wb = readXlsx(file1);
@@ -478,7 +479,7 @@ test('10b. Excel-Export Kostenstelle und Gesamtprojekt', async () => {
   // Projektdaten stehen oben in der Übersicht
   expect(wb['Übersicht'].some((r) => r[0]?.v === 'Projekt' && r[1]?.v === 'Wohnanlage Süd')).toBe(true);
 
-  const dl2 = await catchDownload(page, () => page.getByTestId('export-xlsx-project').click());
+  const dl2 = await catchDownload(page, () => excelExport(page, 'export-xlsx-project'));
   expect(dl2.suggestedFilename()).toBe('Wohnanlage_Sued_Aufmass.xlsx');
   const f2 = await saveDownload(dl2);
   const wb2 = readXlsx(f2);
