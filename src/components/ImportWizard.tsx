@@ -3,10 +3,11 @@ import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { putBlob } from '../lib/db';
 import { uuid } from '../lib/ids';
 import { naturalCompare } from '../lib/numbers';
-import { closePdf, imageToCanvas, loadImageBitmap, openPdf, pageSize, readPageText, renderPdfToCanvas } from '../lib/pdf';
+import { contentBounds } from '../lib/layout-detect';
+import { closePdf, imageToCanvas, loadImageBitmap, openPdf, pageSize, readPageText, renderPdfToCanvas, rotatedSize } from '../lib/pdf';
 import { calibrationFrom, detectScale, type PageText, type ScaleDetection } from '../lib/scale-detect';
 import { alive, newMeta, putRecords, type ProjectState } from '../lib/store';
-import type { PaperFormat, Plan, Rect, SourceFile } from '../lib/types';
+import type { PaperFormat, Plan, PlanRotation, Rect, SourceFile } from '../lib/types';
 import { defaultPaper } from '../lib/sheet-layout';
 import { AreaEditor } from './AreaEditor';
 import { Icon } from './Icon';
@@ -26,6 +27,8 @@ interface Draft extends PlanFieldValues {
   key: string;
   pageIndex: number;
   crop: Rect | null;
+  /** Drehung der Seite im Uhrzeigersinn */
+  rotation: PlanRotation;
   /** Papierformat für den PDF-Export (Standard: A4 passend zur Ausrichtung) */
   paper: PaperFormat;
   /** Format im PDF anzeigen (Standard: nein) */
@@ -61,6 +64,9 @@ export function ImportWizard({ file, data, costCenterId, onClose, onDone }: Prop
   const [sizes, setSizes] = useState<Map<number, { width: number; height: number }>>(new Map());
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [areas, setAreas] = useState<Map<number, Rect[]>>(new Map());
+  // Drehung je Seite (Bereiche beziehen sich auf die gedrehte Seite)
+  const [rotations, setRotations] = useState<Map<number, PlanRotation>>(new Map());
+  const rotOf = (page: number): PlanRotation => rotations.get(page) ?? 0;
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [editingPage, setEditingPage] = useState<{ page: number; image: HTMLCanvasElement } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -114,20 +120,46 @@ export function ImportWizard({ file, data, costCenterId, onClose, onDone }: Prop
     };
   }, [file, kind]);
 
-  // Seitengrößen der ausgewählten Seiten ermitteln
-  const getSize = async (page: number) => {
-    const known = sizes.get(page);
-    if (known) return known;
-    const s = pageSize(await doc!.getPage(page + 1));
-    setSizes((m) => new Map(m).set(page, s));
-    return s;
+  // Seitengrößen der ausgewählten Seiten ermitteln (ungedreht gespeichert, gedreht geliefert)
+  const getSize = async (page: number, rot = rotOf(page)) => {
+    let raw = sizes.get(page);
+    if (!raw) {
+      raw = pageSize(await doc!.getPage(page + 1));
+      const s = raw;
+      setSizes((m) => new Map(m).set(page, s));
+    }
+    return rotatedSize(raw.width, raw.height, rot);
   };
 
   const sortedPages = useMemo(() => [...selected].sort((a, b) => a - b), [selected]);
 
   const renderPage = async (page: number, maxSide: number): Promise<HTMLCanvasElement> => {
-    if (kind === 'pdf') return renderPdfToCanvas(await doc!.getPage(page + 1), maxSide);
-    return imageToCanvas(bitmap!, maxSide);
+    if (kind === 'pdf') return renderPdfToCanvas(await doc!.getPage(page + 1), maxSide, null, rotOf(page));
+    return imageToCanvas(bitmap!, maxSide, null, rotOf(page));
+  };
+
+  /** Seite drehen: festgelegte Bereiche gelten danach nicht mehr */
+  const rotatePage = (page: number, turn: 90 | 270) => {
+    setRotations(new Map(rotations).set(page, ((rotOf(page) + turn) % 360) as PlanRotation));
+    if (areas.get(page)?.length) {
+      setAreas(new Map(areas).set(page, []));
+      toast('Seite gedreht – die Planbereiche bitte neu festlegen.');
+    }
+  };
+
+  /** Weiße Ränder entfernen: Planbereich = Inhalt der Seite (Vorschlag, unter „Bereiche …“ anpassbar) */
+  const trimPage = async (page: number) => {
+    try {
+      const size = await getSize(page);
+      const canvas = await renderPage(page, 1400);
+      const img = canvas.getContext('2d', { willReadFrequently: true })!.getImageData(0, 0, canvas.width, canvas.height);
+      const r = contentBounds(img, size.width, size.height);
+      if (!r) return toast('Kein nennenswerter weißer Rand gefunden – die ganze Seite wird verwendet.');
+      setAreas(new Map(areas).set(page, [r]));
+      toast('Weißer Rand entfernt. Bei Bedarf unter „Bereiche …“ anpassen.', 'success');
+    } catch (e) {
+      showError(e);
+    }
   };
 
   const openAreaEditor = async (page: number) => {
@@ -149,7 +181,7 @@ export function ImportWizard({ file, data, costCenterId, onClose, onDone }: Prop
       const list = areas.get(page) ?? [];
       const crops: (Rect | null)[] = list.length ? list : [null];
       crops.forEach((crop, i) => {
-        const key = `${page}:${i}:${crop ? Math.round(crop.x) + ',' + Math.round(crop.y) : 'full'}`;
+        const key = `${page}:${rotOf(page)}:${i}:${crop ? Math.round(crop.x) + ',' + Math.round(crop.y) : 'full'}`;
         const old = prev.get(key);
         const suffix = [pageCount > 1 ? `Seite ${page + 1}` : '', crops.length > 1 ? `Bereich ${i + 1}` : ''].filter(Boolean).join(', ');
         next.push(
@@ -157,6 +189,7 @@ export function ImportWizard({ file, data, costCenterId, onClose, onDone }: Prop
             key,
             pageIndex: page,
             crop,
+            rotation: rotOf(page),
             showPaper: false,
             paper: defaultPaper(crop ?? { w: pageSizes.get(page)!.width, h: pageSizes.get(page)!.height }),
             planNumber: '',
@@ -212,19 +245,21 @@ export function ImportWizard({ file, data, costCenterId, onClose, onDone }: Prop
       // Maßstab automatisch erkennen (nur PDF mit Text): Maßstabsangabe und Maßketten im Ausschnitt
       const detected = new Map<number, ScaleDetection | null>();
       if (kind === 'pdf' && doc) {
-        const texts = new Map<number, PageText[]>();
+        const texts = new Map<string, PageText[]>();
         for (const [i, d] of drafts.entries()) {
           try {
-            if (!texts.has(d.pageIndex)) texts.set(d.pageIndex, await readPageText(await doc.getPage(d.pageIndex + 1)));
-            const size = sizes.get(d.pageIndex)!;
-            detected.set(i, detectScale(texts.get(d.pageIndex)!, d.crop ?? { x: 0, y: 0, w: size.width, h: size.height }));
+            const tk = `${d.pageIndex}:${d.rotation}`;
+            if (!texts.has(tk)) texts.set(tk, await readPageText(await doc.getPage(d.pageIndex + 1), d.rotation));
+            const size = await getSize(d.pageIndex, d.rotation);
+            detected.set(i, detectScale(texts.get(tk)!, d.crop ?? { x: 0, y: 0, w: size.width, h: size.height }));
           } catch {
             detected.set(i, null); // Erkennung ist optional – Import geht immer weiter
           }
         }
       }
+      const draftSizes = await Promise.all(drafts.map((d) => getSize(d.pageIndex, d.rotation)));
       const plans: Plan[] = drafts.map((d, i) => {
-        const size = sizes.get(d.pageIndex)!;
+        const size = draftSizes[i];
         const det = detected.get(i);
         return {
           ...newMeta(),
@@ -246,6 +281,7 @@ export function ImportWizard({ file, data, costCenterId, onClose, onDone }: Prop
           paper: d.paper,
           numberStart: 1,
           sortIndex: sortIndex++,
+          ...(d.rotation ? { rotation: d.rotation } : {}),
           ...(det ? { calibration: calibrationFrom(det) } : {}),
         };
       });
@@ -331,14 +367,28 @@ export function ImportWizard({ file, data, costCenterId, onClose, onDone }: Prop
             const list = areas.get(page) ?? [];
             return (
               <li key={page} className="area-list-item">
-                <PageTile index={page} render={() => renderPage(page, 240)} small />
+                <PageTile key={rotOf(page)} index={page} render={() => renderPage(page, 240)} small />
                 <div className="grow">
                   <strong>{pageCount > 1 ? `Seite ${page + 1}` : file.name}</strong>
-                  <div className="muted small">{list.length ? `${list.length} Planbereich(e)` : 'Ganze Seite'}</div>
+                  <div className="muted small" data-testid="page-state">
+                    {list.length ? `${list.length} Planbereich(e)` : 'Ganze Seite'}
+                    {rotOf(page) ? ` · gedreht um ${rotOf(page)}°` : ''}
+                  </div>
                 </div>
-                <button type="button" className="btn btn-sm" onClick={() => void openAreaEditor(page)} data-testid="edit-areas">
-                  <Icon name="crop" size={18} /> Bereiche …
-                </button>
+                <div className="row wrap area-actions">
+                  <button type="button" className="icon-btn" onClick={() => rotatePage(page, 270)} title="Nach links drehen (90°)" aria-label="Nach links drehen" data-testid="rotate-page-left">
+                    <Icon name="rotate" size={18} className="flip-x" />
+                  </button>
+                  <button type="button" className="icon-btn" onClick={() => rotatePage(page, 90)} title="Nach rechts drehen (90°)" aria-label="Nach rechts drehen" data-testid="rotate-page-right">
+                    <Icon name="rotate" size={18} />
+                  </button>
+                  <button type="button" className="btn btn-sm" onClick={() => void trimPage(page)} title="Weiße Ränder automatisch abschneiden" data-testid="trim-page">
+                    <Icon name="fit" size={18} /> Ränder abschneiden
+                  </button>
+                  <button type="button" className="btn btn-sm" onClick={() => void openAreaEditor(page)} data-testid="edit-areas">
+                    <Icon name="crop" size={18} /> Bereiche …
+                  </button>
+                </div>
               </li>
             );
           })}
@@ -373,6 +423,7 @@ export function ImportWizard({ file, data, costCenterId, onClose, onDone }: Prop
                 <div className="muted small">
                   {pageCount > 1 && `Seite ${d.pageIndex + 1} · `}
                   {d.crop ? 'Planbereich' : 'Ganze Seite'}
+                  {d.rotation ? ` · gedreht um ${d.rotation}°` : ''}
                 </div>
               </div>
               <PlanFields
@@ -404,8 +455,8 @@ export function ImportWizard({ file, data, costCenterId, onClose, onDone }: Prop
   }
 
   async function renderDraft(d: Draft) {
-    if (kind === 'pdf') return renderPdfToCanvas(await doc!.getPage(d.pageIndex + 1), 240, d.crop);
-    return imageToCanvas(bitmap!, 240, d.crop);
+    if (kind === 'pdf') return renderPdfToCanvas(await doc!.getPage(d.pageIndex + 1), 240, d.crop, d.rotation);
+    return imageToCanvas(bitmap!, 240, d.crop, d.rotation);
   }
 
   return (
@@ -417,8 +468,8 @@ export function ImportWizard({ file, data, costCenterId, onClose, onDone }: Prop
         <AreaEditor
           title={pageCount > 1 ? `Planbereiche – Seite ${editingPage.page + 1}` : 'Planbereiche'}
           image={editingPage.image}
-          pageWidth={sizes.get(editingPage.page)!.width}
-          pageHeight={sizes.get(editingPage.page)!.height}
+          pageWidth={rotatedSize(sizes.get(editingPage.page)!.width, sizes.get(editingPage.page)!.height, rotOf(editingPage.page)).width}
+          pageHeight={rotatedSize(sizes.get(editingPage.page)!.width, sizes.get(editingPage.page)!.height, rotOf(editingPage.page)).height}
           initial={areas.get(editingPage.page) ?? []}
           onClose={() => setEditingPage(null)}
           onDone={(list) => {

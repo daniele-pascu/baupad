@@ -23,7 +23,7 @@ export function PlanThumb({ plan, file }: { plan: Plan; file: SourceFile | undef
       alive = false;
       if (u) URL.revokeObjectURL(u);
     };
-  }, [plan.id, plan.crop, file]);
+  }, [plan.id, plan.crop, plan.rotation, file]);
   return (
     <div className="thumb">
       {url ? <img src={url} alt="" /> : <span className="muted small">{error ? 'Vorschau nicht verfügbar' : 'Vorschau …'}</span>}

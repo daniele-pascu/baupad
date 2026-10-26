@@ -2,7 +2,7 @@ import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import workerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url';
 import { getBlob } from './db';
-import type { Rect } from './types';
+import type { PlanRotation, Rect } from './types';
 
 /*
  * PDF-Darstellung mit pdf.js. Es wird der „legacy“-Build verwendet, damit auch ältere
@@ -56,10 +56,26 @@ export function getPdfDocument(fileId: string): Promise<PDFDocumentProxy> {
   return p;
 }
 
-/** Größe der Seite in Seitenkoordinaten (PDF-Punkte, Seitendrehung berücksichtigt). */
-export function pageSize(page: PDFPageProxy): { width: number; height: number } {
-  const vp = page.getViewport({ scale: 1 });
+/**
+ * Drehung eines Plans (im Uhrzeigersinn) zusätzlich zur Seitendrehung der Datei. Alle
+ * Plankoordinaten (Messungen, Ausschnitt, Kalibrierung) beziehen sich auf die gedrehte Seite.
+ */
+const turn = (page: PDFPageProxy, rot: PlanRotation = 0) => (((page.rotate + rot) % 360) + 360) % 360;
+
+/** pdf.js-Ansicht einer Seite inkl. Plandrehung */
+export function pageViewport(page: PDFPageProxy, rot: PlanRotation = 0, scale = 1, offsetX = 0, offsetY = 0) {
+  return page.getViewport({ scale, rotation: turn(page, rot), offsetX, offsetY });
+}
+
+/** Größe der Seite in Seitenkoordinaten (PDF-Punkte, Seiten- und Plandrehung berücksichtigt). */
+export function pageSize(page: PDFPageProxy, rot: PlanRotation = 0): { width: number; height: number } {
+  const vp = pageViewport(page, rot);
   return { width: vp.width, height: vp.height };
+}
+
+/** Größe nach Drehung (Breite/Höhe vertauscht bei 90°/270°) */
+export function rotatedSize(width: number, height: number, rot: PlanRotation = 0): { width: number; height: number } {
+  return rot === 90 || rot === 270 ? { width: height, height: width } : { width, height };
 }
 
 /** Größte sichere Canvas-Fläche (iOS Safari begrenzt auf ca. 16,7 Mio. Pixel). */
@@ -88,12 +104,13 @@ export function renderPdfRegion(
   canvas: HTMLCanvasElement,
   region: Rect,
   scale: number,
+  rot: PlanRotation = 0,
 ): RenderJob {
   const width = Math.max(1, Math.round(region.w * scale));
   const height = Math.max(1, Math.round(region.h * scale));
   canvas.width = width;
   canvas.height = height;
-  const viewport = page.getViewport({ scale, offsetX: -region.x * scale, offsetY: -region.y * scale });
+  const viewport = pageViewport(page, rot, scale, -region.x * scale, -region.y * scale);
   const ctx = canvas.getContext('2d', { alpha: false })!;
   ctx.fillStyle = '#fff';
   ctx.fillRect(0, 0, width, height);
@@ -112,12 +129,13 @@ export async function renderPdfToCanvas(
   page: PDFPageProxy,
   maxSide: number,
   region?: Rect | null,
+  rot: PlanRotation = 0,
 ): Promise<HTMLCanvasElement> {
-  const size = pageSize(page);
+  const size = pageSize(page, rot);
   const r = region ?? { x: 0, y: 0, w: size.width, h: size.height };
   const scale = clampRenderScale(r.w, r.h, maxSide / Math.max(r.w, r.h));
   const canvas = document.createElement('canvas');
-  await renderPdfRegion(page, canvas, r, scale).promise;
+  await renderPdfRegion(page, canvas, r, scale, rot).promise;
   return canvas;
 }
 
@@ -169,9 +187,32 @@ export function getImageBitmap(fileId: string, mimeType: string): Promise<ImageB
   return p;
 }
 
+/**
+ * Zeichnet den Ausschnitt `r` (Koordinaten des gedrehten Bildes) auf die Fläche w × h Pixel
+ * oben links im Canvas.
+ */
+export function drawImageRegion(ctx: CanvasRenderingContext2D, bitmap: ImageBitmap, r: Rect, w: number, h: number, rot: PlanRotation = 0): void {
+  if (!rot) {
+    ctx.drawImage(bitmap, r.x, r.y, r.w, r.h, 0, 0, w, h);
+    return;
+  }
+  // Bildpunkt (x, y) → gedrehter Punkt (X, Y) → Pixel ((X − r.x)·sx, (Y − r.y)·sy)
+  const W = bitmap.width;
+  const H = bitmap.height;
+  const sx = w / r.w;
+  const sy = h / r.h;
+  ctx.save();
+  if (rot === 90) ctx.setTransform(0, sy, -sx, 0, (H - r.x) * sx, -r.y * sy); // X = H − y, Y = x
+  else if (rot === 180) ctx.setTransform(-sx, 0, 0, -sy, (W - r.x) * sx, (H - r.y) * sy); // X = W − x, Y = H − y
+  else ctx.setTransform(0, -sy, sx, 0, -r.x * sx, (W - r.y) * sy); // 270°: X = y, Y = W − x
+  ctx.drawImage(bitmap, 0, 0);
+  ctx.restore();
+}
+
 /** Zeichnet einen Bildausschnitt mit maximaler Kantenlänge in ein neues Canvas. */
-export function imageToCanvas(bitmap: ImageBitmap, maxSide: number, region?: Rect | null): HTMLCanvasElement {
-  const r = region ?? { x: 0, y: 0, w: bitmap.width, h: bitmap.height };
+export function imageToCanvas(bitmap: ImageBitmap, maxSide: number, region?: Rect | null, rot: PlanRotation = 0): HTMLCanvasElement {
+  const size = rotatedSize(bitmap.width, bitmap.height, rot);
+  const r = region ?? { x: 0, y: 0, w: size.width, h: size.height };
   const scale = clampRenderScale(r.w, r.h, Math.min(1, maxSide / Math.max(r.w, r.h)));
   const canvas = document.createElement('canvas');
   canvas.width = Math.max(1, Math.round(r.w * scale));
@@ -179,7 +220,7 @@ export function imageToCanvas(bitmap: ImageBitmap, maxSide: number, region?: Rec
   const ctx = canvas.getContext('2d')!;
   ctx.fillStyle = '#fff';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(bitmap, r.x, r.y, r.w, r.h, 0, 0, canvas.width, canvas.height);
+  drawImageRegion(ctx, bitmap, r, canvas.width, canvas.height, rot);
   return canvas;
 }
 
@@ -187,8 +228,8 @@ export function imageToCanvas(bitmap: ImageBitmap, maxSide: number, region?: Rec
  * Text einer PDF-Seite in Seitenkoordinaten (wie die Planansicht: PDF-Punkte, Ursprung oben
  * links, Seitendrehung berücksichtigt) – für die automatische Maßstabserkennung.
  */
-export async function readPageText(page: PDFPageProxy): Promise<import('./scale-detect').PageText[]> {
-  const vp = page.getViewport({ scale: 1 });
+export async function readPageText(page: PDFPageProxy, rot: PlanRotation = 0): Promise<import('./scale-detect').PageText[]> {
+  const vp = pageViewport(page, rot);
   const content = await page.getTextContent();
   const out: import('./scale-detect').PageText[] = [];
   for (const it of content.items) {

@@ -190,3 +190,45 @@ function tighten(ink: Uint8Array, W: number, r: Rect): Rect | null {
   if (x2 < 0) return null;
   return { x: x1, y: y1, w: x2 - x1 + 1, h: y2 - y1 + 1 };
 }
+
+/**
+ * Weiße Ränder erkennen: Rahmen um den gesamten Inhalt der Seite (mit kleinem Abstand).
+ * Einzelne Staubpunkte von Scans zählen nicht. `null`, wenn kein nennenswerter Rand da ist
+ * (Inhalt füllt die Seite fast ganz) oder die Seite leer ist. Nur ein Vorschlag.
+ */
+export function contentBounds(image: ImageData, pageWidth: number, pageHeight: number, opts: { threshold?: number } = {}): Rect | null {
+  const { width: W, height: H, data } = image;
+  const threshold = opts.threshold ?? 215;
+  const rows = new Uint32Array(H);
+  const cols = new Uint32Array(W);
+  for (let y = 0, p = 0; y < H; y++) {
+    for (let x = 0; x < W; x++, p += 4) {
+      const lum = data[p + 3] < 128 ? 255 : 0.299 * data[p] + 0.587 * data[p + 1] + 0.114 * data[p + 2];
+      if (lum < threshold) {
+        rows[y]++;
+        cols[x]++;
+      }
+    }
+  }
+  const minRow = Math.max(2, Math.round(W * 0.002));
+  const minCol = Math.max(2, Math.round(H * 0.002));
+  const first = (a: Uint32Array, min: number) => a.findIndex((n) => n >= min);
+  const last = (a: Uint32Array, min: number) => {
+    for (let i = a.length - 1; i >= 0; i--) if (a[i] >= min) return i;
+    return -1;
+  };
+  const y0 = first(rows, minRow);
+  const x0 = first(cols, minCol);
+  if (y0 < 0 || x0 < 0) return null;
+  const y1 = last(rows, minRow) + 1;
+  const x1 = last(cols, minCol) + 1;
+  const pad = Math.round(Math.min(W, H) * 0.01);
+  const bx = Math.max(0, x0 - pad);
+  const by = Math.max(0, y0 - pad);
+  const bw = Math.min(W, x1 + pad) - bx;
+  const bh = Math.min(H, y1 + pad) - by;
+  if (bw * bh >= 0.94 * W * H || bw < W * 0.05 || bh < H * 0.05) return null;
+  const sx = pageWidth / W;
+  const sy = pageHeight / H;
+  return { x: bx * sx, y: by * sy, w: bw * sx, h: bh * sy };
+}

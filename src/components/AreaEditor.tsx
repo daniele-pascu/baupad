@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { HANDLES, handlePosition, normalizeRect, rectContains, type Point } from '../lib/geometry';
-import { detectLayoutRegions } from '../lib/layout-detect';
+import { contentBounds, detectLayoutRegions } from '../lib/layout-detect';
 import type { Rect } from '../lib/types';
 import { Icon } from './Icon';
 import { Modal } from './Modal';
@@ -84,6 +84,19 @@ export function AreaEditor({ title, image, pageWidth, pageHeight, initial, singl
     );
     setAreas([...areas.filter((a) => a.state === 'accepted'), ...found.map((r) => ({ ...r, state: 'proposed' as const }))]);
     setSelected(null);
+  };
+
+  /** Weiße Ränder abschneiden: ein Bereich um den gesamten Inhalt */
+  const trim = () => {
+    const ctx = image.getContext('2d', { willReadFrequently: true })!;
+    const r = contentBounds(ctx.getImageData(0, 0, image.width, image.height), pageWidth, pageHeight);
+    if (!r) {
+      setMessage('Kein nennenswerter weißer Rand gefunden.');
+      return;
+    }
+    setAreas([{ ...r, state: 'accepted' }]);
+    setSelected(0);
+    setMessage('Weißer Rand entfernt. Der Rahmen lässt sich an den Ecken anpassen.');
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
@@ -174,6 +187,9 @@ export function AreaEditor({ title, image, pageWidth, pageHeight, initial, singl
       }
     >
       <div className="area-toolbar">
+        <button type="button" className="btn btn-sm" onClick={trim} data-testid="trim-margins">
+          <Icon name="fit" size={18} /> Ränder abschneiden
+        </button>
         {!single && (
           <button type="button" className="btn btn-sm" onClick={detect} data-testid="detect-areas">
             <Icon name="layers" size={18} /> Bereiche automatisch erkennen

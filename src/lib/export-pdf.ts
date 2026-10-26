@@ -29,7 +29,7 @@ import {
   shapePath,
   type Point,
 } from './geometry';
-import { canvasToBlob, closePdf, clampRenderScale, imageToCanvas, loadImageBitmap, openPdf, renderPdfRegion, renderPdfToCanvas } from './pdf';
+import { canvasToBlob, closePdf, clampRenderScale, imageToCanvas, loadImageBitmap, openPdf, pageViewport, renderPdfRegion, renderPdfToCanvas } from './pdf';
 import type { ProjectState } from './store';
 import { exportPaper, layoutSheet, planHeading, type OverviewCorner, type SheetLayout } from './sheet-layout';
 import { DEFAULT_TRANSPARENCY, fillOf, fillPaths, strokeGeometry } from './style';
@@ -165,12 +165,13 @@ async function addPlanPage(ctx: Ctx, data: ProjectState, plan: Plan) {
       ctx.libDocs.set(file.id, libDoc);
     }
     const libDoc = ctx.libDocs.get(file.id);
-    const full = withOverview ? await renderPdfToCanvas(jsPage, 900) : null;
+    const rot = plan.rotation ?? 0;
+    const full = withOverview ? await renderPdfToCanvas(jsPage, 900, null, rot) : null;
     if (libDoc) {
       try {
         // Originalseite vektoriell einbetten: nur der Planbereich (BBox), skaliert und ggf. gedreht
         // auf die Planfläche des Blatts (Matrix aus der Ansichtstransformation von pdf.js)
-        const viewport = jsPage.getViewport({ scale: 1 });
+        const viewport = pageViewport(jsPage, rot);
         const [a, b, c, d, e, f] = viewport.transform as number[];
         const pts = [
           [region.x, region.y],
@@ -205,7 +206,7 @@ async function addPlanPage(ctx: Ctx, data: ProjectState, plan: Plan) {
     // Bild-Export für nicht veränderbare PDFs: etwa 200 dpi auf dem Papier
     const scale = clampRenderScale(region.w, region.h, Math.max(1, (L.u * 200) / 72));
     const canvas = document.createElement('canvas');
-    await renderPdfRegion(jsPage, canvas, region, scale).promise;
+    await renderPdfRegion(jsPage, canvas, region, scale, rot).promise;
     await addRasterSheet(ctx, plan, L, region, damages, canvas, full);
     return;
   }
@@ -214,8 +215,8 @@ async function addPlanPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   if (!bytes) throw new Error(`Originaldatei ${file.name} nicht gefunden.`);
   const bitmap = await loadImageBitmap(bytes, file.mimeType);
   try {
-    const canvas = imageToCanvas(bitmap, 8192, region);
-    const full = withOverview ? imageToCanvas(bitmap, 900, null) : null;
+    const canvas = imageToCanvas(bitmap, 8192, region, plan.rotation);
+    const full = withOverview ? imageToCanvas(bitmap, 900, null, plan.rotation) : null;
     await addRasterSheet(ctx, plan, L, region, damages, canvas, full);
   } finally {
     bitmap.close();

@@ -3763,3 +3763,34 @@ tr.lv-flagged td {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+
+/* Import: Seite drehen, Ränder abschneiden, Bereiche */
+.area-actions {
+  gap: 6px;
+  justify-content: flex-end;
+}
+.flip-x {
+  transform: scaleX(-1);
+}
+@media (max-width: 640px) {
+  .area-list-item {
+    flex-wrap: wrap;
+  }
+  .area-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+.rotate-preview {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+.rotate-preview .thumb {
+  width: min(100%, 340px);
+  aspect-ratio: 1;
+  margin: 0;
+}
+.center-text {
+  text-align: center;
+}

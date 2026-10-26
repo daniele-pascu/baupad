@@ -14,6 +14,8 @@ interface Props {
   onCrop: (plan: Plan) => void;
   /** Neues, leeres Aufmaß mit derselben Planunterlage */
   onReuse: (plan: Plan) => void;
+  /** Planunterlage drehen */
+  onRotate: (plan: Plan) => void;
   onDelete: (plan: Plan) => void;
 }
 
@@ -22,7 +24,7 @@ interface Props {
  * Leistungszuordnung, Anzahl der Messungen und Flächensumme. Auf dem Smartphone werden
  * die Angaben zweizeilig unter der Plannummer angeordnet.
  */
-export function PlanList({ data, plans, onEdit, onRename, onCrop, onReuse, onDelete }: Props) {
+export function PlanList({ data, plans, onEdit, onRename, onCrop, onReuse, onRotate, onDelete }: Props) {
   return (
     <div className="plan-list" role="table" aria-label="Pläne" data-testid="plan-list">
       <div className="plan-row plan-head" role="row">
@@ -98,6 +100,7 @@ export function PlanList({ data, plans, onEdit, onRename, onCrop, onReuse, onDel
                     ? []
                     : [
                         { label: 'Ausschnitt', icon: 'crop', onSelect: () => onCrop(plan), testId: 'action-crop' },
+                        { label: 'Drehen', icon: 'rotate', onSelect: () => onRotate(plan), testId: 'action-rotate' },
                         { label: 'Neues Aufmaß mit diesem Plan', icon: 'copy', onSelect: () => onReuse(plan), testId: 'action-reuse' },
                       ]),
                   { label: 'Löschen', icon: 'trash', onSelect: () => onDelete(plan), danger: true, testId: 'action-delete' },

@@ -123,7 +123,15 @@ export interface Plan extends SyncMeta {
   planColor?: boolean;
   /** Ausgeblendete Ebenen (Ansicht und PDF); fehlt = alle sichtbar */
   hiddenLayers?: LayerId[];
+  /**
+   * Importierte Pläne: Drehung der Planunterlage im Uhrzeigersinn (fehlt = 0). pageWidth/
+   * pageHeight, Ausschnitt, Kalibrierung und Messungen beziehen sich auf die gedrehte Seite;
+   * die Originaldatei bleibt unverändert.
+   */
+  rotation?: PlanRotation;
 }
+
+export type PlanRotation = 0 | 90 | 180 | 270;
 
 /** Ebenen eines Plans (siehe layers.ts) */
 export type LayerId = 'drawing' | 'dims' | 'text' | 'measures';

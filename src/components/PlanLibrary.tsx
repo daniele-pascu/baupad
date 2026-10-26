@@ -4,7 +4,7 @@ import { getImageBitmap, getPdfDocument, pageSize } from '../lib/pdf';
 import { paths } from '../lib/router';
 import { alive, newMeta, putRecord, softDelete, type ProjectState } from '../lib/store';
 import { renderSource } from '../lib/thumbs';
-import type { Plan, Rect, SourceFile } from '../lib/types';
+import type { Plan, PlanRotation, Rect, SourceFile } from '../lib/types';
 import { Icon } from './Icon';
 import { Modal } from './Modal';
 import { PlanFields, planNumberError, type PlanFieldValues } from './PlanFields';
@@ -23,7 +23,7 @@ function viewsOf(data: ProjectState, file: SourceFile) {
   const plans = alive(data.plans).filter((p) => p.fileId === file.id && p.source !== 'drawing');
   const views = new Map<string, Plan[]>();
   for (const p of plans.sort((a, b) => a.pageIndex - b.pageIndex || a.createdAt - b.createdAt)) {
-    const key = `${p.pageIndex}:${JSON.stringify(p.crop)}`;
+    const key = `${p.pageIndex}:${p.rotation ?? 0}:${JSON.stringify(p.crop)}`;
     views.set(key, [...(views.get(key) ?? []), p]);
   }
   const usedPages = new Set(plans.map((p) => p.pageIndex));
@@ -31,17 +31,17 @@ function viewsOf(data: ProjectState, file: SourceFile) {
   return { plans, views: [...views.values()], freePages };
 }
 
-function SourceThumb({ file, pageIndex, crop }: { file: SourceFile; pageIndex: number; crop: Rect | null }) {
+export function SourceThumb({ file, pageIndex, crop, rotation = 0 }: { file: SourceFile; pageIndex: number; crop: Rect | null; rotation?: PlanRotation }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
-    renderSource(file, pageIndex, 360, crop)
+    renderSource(file, pageIndex, 360, crop, rotation)
       .then((c) => live && setUrl(c.toDataURL('image/jpeg', 0.75)))
       .catch(() => live && setUrl(''));
     return () => {
       live = false;
     };
-  }, [file, pageIndex, crop]);
+  }, [file, pageIndex, crop, rotation]);
   return <div className="thumb lib-thumb">{url ? <img src={url} alt="" /> : <span className="muted small">{url === '' ? 'Keine Vorschau' : 'Vorschau …'}</span>}</div>;
 }
 
@@ -103,11 +103,12 @@ export function PlanLibrary({ data, onClose, onReuse }: { data: ProjectState; on
                 const base = group[0];
                 return (
                   <div key={base.id} className="lib-view" data-testid="library-view">
-                    <SourceThumb file={file} pageIndex={base.pageIndex} crop={base.crop} />
+                    <SourceThumb file={file} pageIndex={base.pageIndex} crop={base.crop} rotation={base.rotation} />
                     <div className="lib-view-body">
                       <span className="muted small">
                         {file.pageCount > 1 ? `Seite ${base.pageIndex + 1} · ` : ''}
                         {base.crop ? 'Planbereich' : 'Ganze Seite'}
+                        {base.rotation ? ` · gedreht ${base.rotation}°` : ''}
                         {base.calibration ? ` · kalibriert${base.calibration.auto ? ' (automatisch)' : ''}` : ''}
                       </span>
                       <ul className="lib-uses">
@@ -162,9 +163,10 @@ function suggestNumber(data: ProjectState, base: string): string {
   for (let i = 2; ; i++) if (!taken.has(`${base}-${i}`.toLowerCase())) return `${base}-${i}`;
 }
 
-/** Seitengröße der Originaldatei (aus einem vorhandenen Aufmaß, sonst aus der Datei gelesen) */
-async function sizeOf(data: ProjectState, file: SourceFile, pageIndex: number): Promise<{ width: number; height: number }> {
-  const known = alive(data.plans).find((p) => p.fileId === file.id && p.pageIndex === pageIndex);
+/** Seitengröße (wie das vorhandene Aufmaß bzw. ungedreht aus einem anderen Aufmaß oder der Datei) */
+async function sizeOf(data: ProjectState, file: SourceFile, pageIndex: number, base: Plan | null): Promise<{ width: number; height: number }> {
+  if (base) return { width: base.pageWidth, height: base.pageHeight };
+  const known = alive(data.plans).find((p) => p.fileId === file.id && p.pageIndex === pageIndex && !p.rotation);
   if (known) return { width: known.pageWidth, height: known.pageHeight };
   if (file.kind === 'pdf') return pageSize(await (await getPdfDocument(file.id)).getPage(pageIndex + 1));
   const bmp = await getImageBitmap(file.id, file.mimeType);
@@ -210,7 +212,7 @@ export function ReusePlanDialog({
     if (error || busy) return;
     setBusy(true);
     try {
-      const size = await sizeOf(data, file, pageIndex);
+      const size = await sizeOf(data, file, pageIndex, base);
       const siblings = alive(data.plans).filter((p) => p.costCenterId === cc);
       const plan: Plan = {
         ...newMeta(),
@@ -234,6 +236,7 @@ export function ReusePlanDialog({
         ...(base?.calibration ? { calibration: structuredClone(base.calibration) } : {}),
         ...(base?.paper ? { paper: base.paper } : {}),
         ...(base ? { showPaper: base.showPaper, showScale: base.showScale, planColor: base.planColor } : {}),
+        ...(base?.rotation ? { rotation: base.rotation } : {}),
       };
       putRecord('plans', plan);
       toast(`Neues Aufmaß „${plan.planNumber}“ angelegt – gleicher Plan, noch ohne Messungen.`, 'success', 4500);
@@ -268,7 +271,7 @@ export function ReusePlanDialog({
         }}
       >
         <div className="reuse-source">
-          <SourceThumb file={file} pageIndex={pageIndex} crop={base?.crop ?? null} />
+          <SourceThumb file={file} pageIndex={pageIndex} crop={base?.crop ?? null} rotation={base?.rotation} />
           <div className="small">
             <strong>{file.name}</strong>
             <span className="muted">

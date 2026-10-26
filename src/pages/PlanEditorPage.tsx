@@ -365,7 +365,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     try {
       const { getPdfDocument, readPageText } = await import('../lib/pdf');
       const page = await (await getPdfDocument(plan.fileId)).getPage(plan.pageIndex + 1);
-      const det = detectScale(await readPageText(page), plan.crop ?? { x: 0, y: 0, w: plan.pageWidth, h: plan.pageHeight });
+      const det = detectScale(await readPageText(page, plan.rotation), plan.crop ?? { x: 0, y: 0, w: plan.pageWidth, h: plan.pageHeight });
       if (!det) {
         toast('Im Plan wurde kein eindeutiger Maßstab gefunden – bitte an einer bekannten Strecke kalibrieren.', 'info', 5000);
         return;

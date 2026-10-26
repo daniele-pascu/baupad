@@ -9,6 +9,7 @@ import { PdfExportDialog } from '../components/PdfExportDialog';
 import { NewDrawingDialog, PlanDetailsDialog } from '../components/PlanFields';
 import { PlanLibrary, ReusePlanDialog, type PlanSource } from '../components/PlanLibrary';
 import { PlanList } from '../components/PlanList';
+import { RotatePlanDialog } from '../components/RotatePlanDialog';
 import { ProjectForm, type CostCenterInput } from '../components/ProjectForm';
 import { SaveErrorBanner, SaveStatus } from '../components/SaveStatus';
 import { confirmDialog, offerFile, promptDialog, showError, toast } from '../components/ui';
@@ -48,6 +49,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
   const [drawingNew, setDrawingNew] = useState(false);
   const [library, setLibrary] = useState(false);
   const [reuse, setReuse] = useState<PlanSource | null>(null);
+  const [rotating, setRotating] = useState<Plan | null>(null);
   const [backupInfo, setBackupInfo] = useState<BackupStatus | null>(null);
   const [reminderHidden, setReminderHidden] = useState(() => {
     try {
@@ -169,7 +171,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
 
   const openCrop = async (plan: Plan) => {
     try {
-      const image = await renderSource(data.files[plan.fileId], plan.pageIndex, 1800);
+      const image = await renderSource(data.files[plan.fileId], plan.pageIndex, 1800, null, plan.rotation);
       setCropping({ plan, image });
     } catch (e) {
       showError(e);
@@ -376,6 +378,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
                 onRename={(p) => void renamePlan(p)}
                 onCrop={(p) => void openCrop(p)}
                 onReuse={(p) => setReuse({ file: data.files[p.fileId], pageIndex: p.pageIndex, base: p })}
+                onRotate={setRotating}
                 onDelete={(p) => void deletePlan(p)}
               />
             ) : (
@@ -448,6 +451,17 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
           costCenters={ccs.map((c) => ({ id: c.id, number: c.number ?? '', name: c.name }))}
           onClose={() => setEditing(false)}
           onSubmit={saveProject}
+        />
+      )}
+      {rotating && (
+        <RotatePlanDialog
+          data={data}
+          plan={data.plans[rotating.id]}
+          onClose={() => setRotating(null)}
+          onReuse={(p) => {
+            setRotating(null);
+            setReuse({ file: data.files[p.fileId], pageIndex: p.pageIndex, base: p });
+          }}
         />
       )}
       {library && (

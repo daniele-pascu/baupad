@@ -33,7 +33,7 @@ import {
   type Point,
   type View,
 } from '../lib/geometry';
-import { clampRenderScale, getImageBitmap, getPdfDocument, renderPdfRegion, type RenderJob } from '../lib/pdf';
+import { clampRenderScale, drawImageRegion, getImageBitmap, getPdfDocument, renderPdfRegion, type RenderJob } from '../lib/pdf';
 import { getView, putView } from '../lib/db';
 import { arcShape } from '../lib/cad';
 import { SNAP_LABELS, type SnapKind } from '../lib/snap';
@@ -296,6 +296,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   const fileId = file?.id ?? null;
   const fileKind = file?.kind;
   const fileMime = file?.mimeType ?? '';
+  const rot = plan.rotation ?? 0;
   useEffect(() => {
     let cancelled = false;
     let job: RenderJob | null = null;
@@ -316,7 +317,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         if (cancelled) return;
         source.current = { page };
         baseScale.current = k;
-        job = renderPdfRegion(page, canvas, region, k);
+        job = renderPdfRegion(page, canvas, region, k, rot);
         await job.promise;
       } else {
         const bitmap = await getImageBitmap(fileId, fileMime);
@@ -329,7 +330,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         const ctx = canvas.getContext('2d')!;
         ctx.fillStyle = '#fff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(bitmap, region.x, region.y, region.w, region.h, 0, 0, canvas.width, canvas.height);
+        drawImageRegion(ctx, bitmap, region, canvas.width, canvas.height, rot);
       }
       if (!cancelled) setStatus('ready');
     })().catch((e) => {
@@ -343,7 +344,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       cancelled = true;
       job?.cancel();
     };
-  }, [fileId, fileKind, fileMime, plan.pageIndex, region]);
+  }, [fileId, fileKind, fileMime, plan.pageIndex, region, rot]);
 
   // Detailebene nachrendern, wenn stark hineingezoomt ist
   useEffect(() => {
@@ -369,7 +370,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       const canvas = document.createElement('canvas');
       const src = source.current;
       if (src?.page) {
-        job = renderPdfRegion(src.page, canvas, r, s);
+        job = renderPdfRegion(src.page, canvas, r, s, rot);
         job.promise
           .then(() => {
             if (cancelled) return;
@@ -380,7 +381,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         const sc = Math.min(s, 1.5);
         canvas.width = Math.max(1, Math.round(r.w * sc));
         canvas.height = Math.max(1, Math.round(r.h * sc));
-        canvas.getContext('2d')!.drawImage(src.bitmap, r.x, r.y, r.w, r.h, 0, 0, canvas.width, canvas.height);
+        drawImageRegion(canvas.getContext('2d')!, src.bitmap, r, canvas.width, canvas.height, rot);
         swapDetail(canvas, r);
       }
     }, 180);
@@ -397,7 +398,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       clearTimeout(t);
       job?.cancel();
     };
-  }, [view, size, status, region, fileId]);
+  }, [view, size, status, region, fileId, rot]);
 
   // ---------------------------------------------------------------------------
   // Ansicht steuern
