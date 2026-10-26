@@ -112,6 +112,24 @@ interface Pair {
  * Meter. Gültig nur, wenn mindestens drei Paare auf ±2 % übereinstimmen.
  */
 export function scaleFromDimensions(items: PageText[], region: Rect | null): { k: number; count: number; a: Point; b: Point; meters: number } | null {
+  const pairs = dimensionPairs(items, region);
+  let best: { k: number; members: Pair[] } | null = null;
+  for (const c of pairs) {
+    const members = pairs.filter((p) => Math.abs(p.k - c.k) / c.k <= 0.02);
+    // je Zahlenpaar nur eine Einheitenannahme zählen
+    const unique = members.filter((p, i) => members.findIndex((o) => o.a === p.a && o.b === p.b) === i);
+    if (!best || unique.length > best.members.length) best = { k: c.k, members: unique };
+  }
+  if (!best || best.members.length < 3) return null;
+  const ks = best.members.map((p) => p.k).sort((x, y) => x - y);
+  const k = ks[Math.floor(ks.length / 2)];
+  // längste gemeinsame Strecke als Kalibrierstrecke (Mitte der ersten bis Mitte der letzten Zahl)
+  const ref = best.members.reduce((m, p) => (p.meters > m.meters ? p : m));
+  return { k, count: best.members.length, a: { x: ref.a.x, y: ref.a.y }, b: { x: ref.b.x, y: ref.b.y }, meters: Math.hypot(ref.b.x - ref.a.x, ref.b.y - ref.a.y) / k };
+}
+
+/** Paare benachbarter Maßzahlen auf einer Linie (je Einheitenannahme ein Eintrag) */
+function dimensionPairs(items: PageText[], region: Rect | null): Pair[] {
   const pairs: Pair[] = [];
   for (const line of textLines(items.filter((t) => inRegion(t, region)))) {
     const nums = line.items.filter((t) => dimValues(t.str).length);
@@ -132,19 +150,7 @@ export function scaleFromDimensions(items: PageText[], region: Rect | null): { k
       }
     }
   }
-  let best: { k: number; members: Pair[] } | null = null;
-  for (const c of pairs) {
-    const members = pairs.filter((p) => Math.abs(p.k - c.k) / c.k <= 0.02);
-    // je Zahlenpaar nur eine Einheitenannahme zählen
-    const unique = members.filter((p, i) => members.findIndex((o) => o.a === p.a && o.b === p.b) === i);
-    if (!best || unique.length > best.members.length) best = { k: c.k, members: unique };
-  }
-  if (!best || best.members.length < 3) return null;
-  const ks = best.members.map((p) => p.k).sort((x, y) => x - y);
-  const k = ks[Math.floor(ks.length / 2)];
-  // längste gemeinsame Strecke als Kalibrierstrecke (Mitte der ersten bis Mitte der letzten Zahl)
-  const ref = best.members.reduce((m, p) => (p.meters > m.meters ? p : m));
-  return { k, count: best.members.length, a: { x: ref.a.x, y: ref.a.y }, b: { x: ref.b.x, y: ref.b.y }, meters: Math.hypot(ref.b.x - ref.a.x, ref.b.y - ref.a.y) / k };
+  return pairs;
 }
 
 /** nächster üblicher Maßstab, wenn innerhalb ±1,5 % */
@@ -207,3 +213,46 @@ export const SOURCE_LABELS: Record<ScaleSource, string> = {
   dims: 'Maßketten im Plan',
   'scale+dims': 'Maßstabsangabe, bestätigt durch Maßketten',
 };
+
+/** Toleranz für „passt“: Maßketten ±2 %, Maßstabsangabe ±3 % */
+export const DIM_TOLERANCE = 0.02;
+export const NOTE_TOLERANCE = 0.03;
+
+export interface ScaleCheck {
+  /** Maßstabsangaben im Plan und ihre Abweichung vom kalibrierten Maßstab */
+  notes: { n: number; labeled: boolean; deviation: number; ok: boolean }[];
+  /** Maßzahlen-Paare: Sollmaß (halbe Summe) und im Plan gemessen */
+  dims: { a: string; b: string; expected: number; measured: number; deviation: number; ok: boolean }[];
+  /** Anteil passender Maßpaare, größte Abweichung der passenden, Median aller */
+  okCount: number;
+  median: number | null;
+}
+
+/**
+ * Kalibrierung prüfen: Wie gut passen Maßstabsangaben und Maßketten des Plans zum aktuellen
+ * Maßstab (`upm` Seiteneinheiten je Meter)? Paare, die nicht passen, sind entweder keine
+ * echte Maßkette (z. B. zufällig nebeneinander stehende Zahlen) oder widersprechen dem Maßstab.
+ */
+export function checkScale(items: PageText[], region: Rect | null, upm: number): ScaleCheck {
+  const nCal = PT_PER_M / upm;
+  const notes = findScaleNotes(items, region)
+    .filter((n, i, all) => all.findIndex((o) => o.n === n.n) === i)
+    .map((n) => {
+      const deviation = n.n / nCal - 1;
+      return { n: n.n, labeled: n.labeled, deviation, ok: Math.abs(deviation) <= NOTE_TOLERANCE };
+    });
+  const byPair = new Map<string, ScaleCheck['dims'][number]>();
+  for (const p of dimensionPairs(items, region)) {
+    const d = Math.hypot(p.b.x - p.a.x, p.b.y - p.a.y);
+    const measured = d / upm;
+    const deviation = measured / p.meters - 1;
+    const key = `${p.a.x},${p.a.y}|${p.b.x},${p.b.y}`;
+    const old = byPair.get(key);
+    // je Zahlenpaar die Einheitenannahme, die am besten passt
+    if (!old || Math.abs(deviation) < Math.abs(old.deviation))
+      byPair.set(key, { a: p.a.str.trim(), b: p.b.str.trim(), expected: p.meters, measured, deviation, ok: Math.abs(deviation) <= DIM_TOLERANCE });
+  }
+  const dims = [...byPair.values()].sort((x, y) => Number(y.ok) - Number(x.ok) || Math.abs(x.deviation) - Math.abs(y.deviation));
+  const okDevs = dims.filter((d) => d.ok).map((d) => d.deviation).sort((x, y) => x - y);
+  return { notes, dims, okCount: okDevs.length, median: okDevs.length ? okDevs[Math.floor(okDevs.length / 2)] : null };
+}

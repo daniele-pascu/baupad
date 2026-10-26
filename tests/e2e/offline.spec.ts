@@ -115,7 +115,9 @@ test('Offline: Projekt anlegen, PDF importieren, Schadstellen erfassen, exportie
   const xc = await catchDownload(page, () => page.getByTestId('export-xlsx-cc').click());
   const wbc = readXlsx(await saveDownload(xc, 'offline-cc.xlsx'));
   expect(Object.keys(wbc)).toEqual(expect.arrayContaining(['Übersicht', 'Aufmaß', 'Messliste']));
-  expect([...new Set(messliste(wbc).map((r) => r.plan))]).toEqual(expect.arrayContaining(['A-101', 'Z-1']));
+  expect(messliste(wbc).map((r) => r.plan)).toContain('A-101');
+  // Übersicht: alle Pläne der Kostenstelle, auch der gezeichnete Plan ohne Messungen
+  expect(wbc['Übersicht'].map((r) => r[0]?.v)).toEqual(expect.arrayContaining(['A-101', 'Z-1']));
   expect(Object.keys(wbc).some((n) => n.startsWith('LV '))).toBe(true);
 
   // Keine fehlgeschlagenen Anfragen (alles kam aus dem Offline-Speicher)

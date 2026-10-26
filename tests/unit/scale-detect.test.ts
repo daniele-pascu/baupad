@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detectScale, findScaleNotes, PT_PER_M, scaleFromDimensions, type PageText } from '../../src/lib/scale-detect';
+import { checkScale, detectScale, findScaleNotes, PT_PER_M, scaleFromDimensions, type PageText } from '../../src/lib/scale-detect';
 
 const T = (str: string, x: number, y: number, angle = 0, width = str.length * 5): PageText => ({ str, x, y, angle, width, height: 8 });
 const page = { x: 0, y: 0, w: 1191, h: 842 };
@@ -62,5 +62,28 @@ describe('Maßstab automatisch erkennen', () => {
   it('nicht eindeutig: zwei verschiedene Maßstäbe ohne Maßketten, oder zufällige Zahlen → nichts', () => {
     expect(detectScale([T('Grundriss M 1:100', 300, 800), T('Detail M 1:20', 900, 800)], page)).toBeNull();
     expect(detectScale([T('12', 100, 100), T('7', 160, 100), T('103', 200, 100), T('5,5', 290, 100)], page)).toBeNull();
+  });
+});
+
+describe('Kalibrierung prüfen (Prüfbericht)', () => {
+  const items = [...chain(['5,00', '3,65', '2,40', '4,10'], 50), T('M 1:50', 1000, 800)];
+  it('richtiger Maßstab: alle Maßpaare und die Angabe passen, Abweichung ~0', () => {
+    const c = checkScale(items, page, PT_PER_M / 50);
+    expect(c.notes).toEqual([expect.objectContaining({ n: 50, ok: true })]);
+    expect(c.dims).toHaveLength(3);
+    expect(c.okCount).toBe(3);
+    expect(Math.abs(c.median!)).toBeLessThan(0.001);
+    expect(c.dims[0]).toMatchObject({ a: '5,00', b: '3,65', ok: true });
+    expect(c.dims[0].expected).toBeCloseTo(4.325, 6);
+    expect(c.dims[0].measured).toBeCloseTo(4.325, 3);
+  });
+  it('falsch kalibriert (5 % zu groß): Maßpaare und Angabe als widersprüchlich gekennzeichnet', () => {
+    const c = checkScale(items, page, (PT_PER_M / 50) * 1.05);
+    expect(c.okCount).toBe(0);
+    expect(c.dims.every((d) => !d.ok && d.deviation < -0.04)).toBe(true); // gemessen zu kurz
+    expect(c.notes[0].ok).toBe(false);
+  });
+  it('kein Text: leerer Bericht', () => {
+    expect(checkScale([], page, 100)).toMatchObject({ notes: [], dims: [], okCount: 0, median: null });
   });
 });

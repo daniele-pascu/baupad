@@ -112,9 +112,10 @@ test('Bild: beim Import drehen und Ränder abschneiden; bestehenden Plan drehen,
   const b1 = await plan(page, 'B-1');
   expect(b1.rotation).toBe(270);
   expect([b1.pageWidth, b1.pageHeight]).toEqual([flat.pageHeight, flat.pageWidth]);
-  // Ausschnitt ohne weißen Rand (Inhalt ca. 8–12 % vom Rand entfernt)
-  expect(b1.crop!.x).toBeGreaterThan(b1.pageWidth * 0.05);
-  expect(b1.crop!.w).toBeLessThan(b1.pageWidth * 0.9);
+  // Ausschnitt ohne weißen Rand: Inhalt 60 px vom Rand, Abstand 1 % (11 px) bleibt
+  expect(b1.crop!.x).toBeGreaterThan(40);
+  expect(b1.crop!.x).toBeLessThan(60);
+  expect(b1.crop!.w).toBeLessThan(b1.pageWidth - 80);
   const s1 = await stripes(page);
   expect(s1.down).toBeGreaterThanOrEqual(8); // Balken liegen jetzt waagerecht
   expect(s1.across).toBeLessThanOrEqual(2);
