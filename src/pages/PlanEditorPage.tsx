@@ -22,6 +22,7 @@ import { checkMeasure, computeArea, formatArea, formatMeasure, toInputValue } fr
 import { compactNumbers, damageNo, duplicateIds, nextNumber, planNumberStart, shiftNumbers, suggestNext, swapNumbers } from '../lib/numbering';
 import { navigate, paths } from '../lib/router';
 import { findSnap } from '../lib/snap';
+import { SegIndex } from '../lib/pdf-snap';
 import { clearHistory, newMeta, putRecord, putRecords, redo, softDelete, undo, useAppState, type ProjectState } from '../lib/store';
 import { COLORS, SHAPE_LABELS, type Damage, type DrawElementType, type MeasureKind, type Plan, type Shape, type ShapeStyle, type ShapeType } from '../lib/types';
 import { DRAW_TOOLS, readStyle, useDrawing, type DrawTool } from './DrawingMode';
@@ -349,9 +350,13 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       ...shownDamages.filter((d) => d.id !== ctx.movingId).map((d) => d.shape),
       ...(drawingPlan ? drawing.elements.filter((e) => e.type !== 'text').map((e) => shapeToPage(e.shape, unitsPerMeter(plan!))) : []),
     ];
-    const hit = findSnap(p, shapes, (matchMedia('(pointer: coarse)').matches ? 16 : 9) / ctx.scale);
+    const tol = (matchMedia('(pointer: coarse)').matches ? 16 : 9) / ctx.scale;
+    // Vektor-PDF: auch Ecken, Mittel- und Schnittpunkte der Planlinien
+    const hit = findSnap(p, shapes, tol, planLines?.index.near(p, tol) ?? []);
     return hit ? { ...hit.point, kind: hit.kind } : p;
   };
+  /** Linien des PDF-Plans für den Punktfang (einmal je Plan eingelesen) */
+  const [planLines, setPlanLines] = useState<{ key: string; index: SegIndex } | null>(null);
 
   // Gezeichnete Pläne haben ihren Maßstab – dort gibt es kein Kalibrieren
   useEffect(() => {
@@ -536,6 +541,25 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   });
+
+  // (vor dem Abbruch unten: Hooks immer in gleicher Reihenfolge)
+  const lineFile = plan && !plan.deletedAt && !drawingPlan ? data.files[plan.fileId] : undefined;
+  const linesKey = plan && lineFile?.kind === 'pdf' ? `${lineFile.id}:${plan.pageIndex}:${plan.rotation ?? 0}:${JSON.stringify(plan.crop)}` : '';
+  useEffect(() => {
+    if (!linesKey || planLines?.key === linesKey) return;
+    let live = true;
+    const p = data.plans[planId];
+    void (async () => {
+      const { getPdfDocument, readPageSegments } = await import('../lib/pdf');
+      const page = await (await getPdfDocument(p.fileId)).getPage(p.pageIndex + 1);
+      const segs = await readPageSegments(page, p.rotation, p.crop);
+      if (live) setPlanLines({ key: linesKey, index: new SegIndex(segs) });
+    })().catch((e) => console.warn('Planlinien für den Punktfang nicht lesbar', e));
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linesKey]);
 
   if (!plan || plan.deletedAt) {
     return (

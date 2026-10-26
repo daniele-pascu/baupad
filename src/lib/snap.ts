@@ -1,4 +1,5 @@
 import { isOpenShape, shapeCenter, shapeVertices, type Point } from './geometry';
+import type { PlanSeg } from './pdf-snap';
 import type { Shape } from './types';
 
 /**
@@ -95,13 +96,20 @@ const segNear = ([a, b]: Seg, p: Point, tol: number) =>
 /**
  * Bester Fangpunkt im Radius `tol` (Plankoordinaten) um `p`. Bei mehreren Treffern gewinnt
  * die Art mit höherem Rang (Endpunkt vor Schnittpunkt vor Mittelpunkt …), dann der nähere.
+ * `planSegs`: Linien des PDF-Plans in der Nähe (Ecken, Mittelpunkte, Schnittpunkte, auf Linie).
  */
-export function findSnap(p: Point, shapes: Shape[], tol: number): SnapHit | null {
+export function findSnap(p: Point, shapes: Shape[], tol: number, planSegs: PlanSeg[] = []): SnapHit | null {
   const cands: SnapHit[] = [];
   for (const s of shapes) cands.push(...pointsOf(s));
   // Kanten in der Nähe: Schnittpunkte (auch innerhalb einer Form) und nächster Punkt auf der Linie
   const near: { seg: Seg; owner: number; index: number }[] = [];
   shapes.forEach((s, owner) => edgesOf(s).forEach((seg, index) => segNear(seg, p, tol) && near.push({ seg, owner, index })));
+  for (const s of planSegs) {
+    if (s.ends & 1) cands.push({ point: s.a, kind: 'end' });
+    if (s.ends & 2) cands.push({ point: s.b, kind: 'end' });
+    if (s.straight) cands.push({ point: { x: (s.a.x + s.b.x) / 2, y: (s.a.y + s.b.y) / 2 }, kind: 'mid' });
+    near.push({ seg: [s.a, s.b], owner: shapes.length + s.path, index: s.index });
+  }
   for (let i = 0; i < near.length; i++) {
     for (let j = i + 1; j < near.length; j++) {
       const A = near[i];

@@ -254,3 +254,37 @@ export async function readPageText(page: PDFPageProxy, rot: PlanRotation = 0): P
   }
   return out;
 }
+
+/**
+ * Linien einer PDF-Seite für den Punktfang: alle gezeichneten Pfade (Striche und Flächenränder,
+ * keine reinen Clip-Pfade) in Plankoordinaten (Seiten- und Plandrehung berücksichtigt), nur im
+ * Bereich `region`. Text und Bilder liefern keine Linien.
+ */
+export async function readPageSegments(page: PDFPageProxy, rot: PlanRotation = 0, region: Rect | null = null): Promise<import('./pdf-snap').PlanSeg[]> {
+  const { mul, pathSegments } = await import('./pdf-snap');
+  type M = [number, number, number, number, number, number];
+  const OPS = pdfjs.OPS;
+  const DRAW = new Set<number>([OPS.stroke, OPS.closeStroke, OPS.fill, OPS.eoFill, OPS.fillStroke, OPS.eoFillStroke, OPS.closeFillStroke, OPS.closeEOFillStroke]);
+  const list = await page.getOperatorList();
+  let ctm = pageViewport(page, rot).transform as M;
+  const stack: M[] = [];
+  const out: import('./pdf-snap').PlanSeg[] = [];
+  let pathId = 0;
+  for (let i = 0; i < list.fnArray.length; i++) {
+    const fn = list.fnArray[i];
+    const args = list.argsArray[i] as unknown[];
+    if (fn === OPS.save) stack.push(ctm);
+    else if (fn === OPS.restore) ctm = stack.pop() ?? ctm;
+    else if (fn === OPS.transform) ctm = mul(ctm, args as M);
+    else if (fn === OPS.paintFormXObjectBegin) {
+      stack.push(ctm);
+      if (Array.isArray(args[0]) || ArrayBuffer.isView(args[0])) ctm = mul(ctm, Array.from(args[0] as ArrayLike<number>) as M);
+    } else if (fn === OPS.paintFormXObjectEnd) ctm = stack.pop() ?? ctm;
+    else if (fn === OPS.constructPath) {
+      const op = args[0] as number;
+      const data = (args[1] as unknown[] | undefined)?.[0] as ArrayLike<number> | undefined;
+      if (DRAW.has(op) && data && typeof data !== 'string' && 'length' in data) pathSegments(data, ctm, pathId++, out, region);
+    }
+  }
+  return out;
+}
