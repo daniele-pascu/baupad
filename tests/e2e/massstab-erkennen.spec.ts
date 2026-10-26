@@ -35,10 +35,10 @@ test('PDF mit Maßketten: Maßstab 1:50 erkannt und sofort skaliert; bestätigen
   await expect(page.getByTestId('scale-status')).toHaveAttribute('data-state', 'auto');
   await expect(page.getByTestId('scale-status')).toContainText('1:50 – prüfen');
   await expect(banner).toContainText('Maßstab 1:50');
-  await expect(banner).toContainText('Maßketten');
+  await expect(banner).toContainText('Maßlinien im Plan: 4 Maße in m'); // Maßzahlen an ihren Maßlinien
   await waitSaved(page);
   let cal = (await plans(page))[0].calibration!;
-  expect(cal.auto).toMatchObject({ source: 'dims', label: '1:50' });
+  expect(cal.auto).toMatchObject({ source: 'lines', label: '1:50', unit: 'm', count: 4 });
   expect(upm(cal)).toBeCloseTo(72 / 0.0254 / 50, 3);
 
   // Messen: Maßvorschlag und Fläche aus dem Plan sofort verfügbar

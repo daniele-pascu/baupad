@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { calibrationStatus, checkDeviation, formatPercent, planUnitsPerMeter } from '../lib/calibration';
 import { formatMeasure } from '../lib/numbers';
-import { checkScale, DIM_TOLERANCE, SOURCE_LABELS, type ScaleCheck } from '../lib/scale-detect';
+import { checkScale, DIM_TOLERANCE, sourceText, type ScaleCheck } from '../lib/scale-detect';
 import type { Plan, SourceFile } from '../lib/types';
 import { Modal } from './Modal';
 
@@ -39,7 +39,7 @@ export function CalibrationReport({ plan, file, onClose }: { plan: Plan; file: S
     <Modal title="Prüfbericht Maßstab" onClose={onClose} wide testId="calibration-report">
       <p className={`banner ${status.warn ? 'banner-warn' : 'banner-info'} small`} data-testid="report-status">
         {status.text}
-        {c?.auto && <> · Quelle: {SOURCE_LABELS[c.auto.source]}</>}
+        {c?.auto && <> · Quelle: {sourceText(c.auto)}</>}
       </p>
       {c?.auto?.warning && <p className="banner banner-warn small">{c.auto.warning}</p>}
 

@@ -3903,3 +3903,18 @@ button.status-pill:hover {
 .snap-marker.snap-hold text {
   fill: #c81e28;
 }
+
+/* Maße aus dem Plan */
+.dims-head {
+  align-items: flex-end;
+  margin-bottom: 8px;
+}
+.dims-unit {
+  min-width: 220px;
+}
+.dims-value {
+  width: 80px;
+  padding: 4px 6px;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}

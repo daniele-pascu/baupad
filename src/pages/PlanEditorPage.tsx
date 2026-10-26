@@ -11,8 +11,9 @@ import { confirmDialog, offerFile, promptDialog, showError, toast } from '../com
 import { costCenterLabel, damagesOf, elementsOf, exportXlsx, findPosition, lvDocLabel, lvDocsOf, plansOf, planTitle, positionRef, sumArea } from '../lib/aufmass';
 import { calibrationStatus, checkDeviation, formatPercent, geometryMeasures, planUnitsPerMeter } from '../lib/calibration';
 import { CalibrationReport } from '../components/CalibrationReport';
+import { DimensionReview } from '../components/DimensionReview';
 import { cachedExcelLogo } from '../lib/company';
-import { calibrationFrom, detectScale, SOURCE_LABELS } from '../lib/scale-detect';
+import { calibrationFrom, detectScale, sourceText } from '../lib/scale-detect';
 import { visibleDamages } from '../lib/layers';
 import { LayerMenu } from '../components/LayerMenu';
 import { drawingRegion, drawingSheet, isDrawingPlan, lineEnds, paperLabel, shapeToPage, suggestMeasures, unitsPerMeter } from '../lib/drawing';
@@ -257,6 +258,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   /** Kalibrieren: Prüfstrecke statt Referenzstrecke ziehen; Prüfbericht */
   const [checking, setChecking] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [dimsOpen, setDimsOpen] = useState(false);
   /** Werkzeug „Fläche“: Anzahl bereits gesetzter Eckpunkte */
   const [polyCount, setPolyCount] = useState(0);
   /** Leistung für neue Messungen: bleibt bis zur nächsten Änderung aktiv ('' = ohne Leistungszuordnung) */
@@ -430,15 +432,16 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const detectFromPlan = async () => {
     if (!plan || !file || file.kind !== 'pdf') return;
     try {
-      const { getPdfDocument, readPageText } = await import('../lib/pdf');
+      const { getPdfDocument, readPageSegments, readPageText } = await import('../lib/pdf');
       const page = await (await getPdfDocument(plan.fileId)).getPage(plan.pageIndex + 1);
-      const det = detectScale(await readPageText(page, plan.rotation), plan.crop ?? { x: 0, y: 0, w: plan.pageWidth, h: plan.pageHeight });
+      const region = plan.crop ?? { x: 0, y: 0, w: plan.pageWidth, h: plan.pageHeight };
+      const det = detectScale(await readPageText(page, plan.rotation), region, await readPageSegments(page, plan.rotation, region));
       if (!det) {
         toast('Im Plan wurde kein eindeutiger Maßstab gefunden – bitte an einer bekannten Strecke kalibrieren.', 'info', 5000);
         return;
       }
       putRecord('plans', { ...data.plans[plan.id], calibration: calibrationFrom(det) });
-      toast(`Maßstab ${det.label} erkannt (${SOURCE_LABELS[det.source]}). Gespeicherte Messwerte bleiben unverändert.`, 'success', 5000);
+      toast(`Maßstab ${det.label} erkannt (${sourceText(det)}). Gespeicherte Messwerte bleiben unverändert.`, 'success', 5000);
     } catch (e) {
       showError(e, 'Maßstab konnte nicht erkannt werden');
     }
@@ -928,7 +931,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       {!drawMode && !drawingPlan && plan.calibration?.auto && !plan.calibration.auto.confirmed && (
         <div className={`banner ${plan.calibration.auto.warning ? 'banner-warn' : 'banner-info'} scale-banner`} data-testid="scale-detected">
           <p>
-            <strong>Maßstab {plan.calibration.auto.label}</strong> automatisch erkannt ({SOURCE_LABELS[plan.calibration.auto.source]}). Maßvorschläge und Flächen
+            <strong>Maßstab {plan.calibration.auto.label}</strong> automatisch erkannt ({sourceText(plan.calibration.auto)}). Maßvorschläge und Flächen
             aus dem Plan nutzen diesen Maßstab – bitte einmal an einer bekannten Strecke prüfen.
             {plan.calibration.auto.warning && <> {plan.calibration.auto.warning}</>}
           </p>
@@ -1214,8 +1217,13 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                     : 'Kalibrieren: Punkt A und Punkt B einer bemaßten Strecke anklicken (X halten = vergrößern) oder die Strecke ziehen, danach die reale Länge eingeben.'}
               </span>
               {file?.kind === 'pdf' && (
-                <button type="button" className="btn btn-sm" onClick={() => void detectFromPlan()} data-testid="calibration-detect" title="Maßstabsangabe und Maßketten im Plan auswerten">
+                <button type="button" className="btn btn-sm" onClick={() => void detectFromPlan()} data-testid="calibration-detect" title="Maßlinien, Maßketten und Maßstabsangabe im Plan auswerten">
                   Automatisch erkennen
+                </button>
+              )}
+              {file?.kind === 'pdf' && (
+                <button type="button" className="btn btn-sm" onClick={() => setDimsOpen(true)} data-testid="calibration-dims" title="Erkannte Maße prüfen, korrigieren und übernehmen">
+                  Maße aus dem Plan
                 </button>
               )}
               {plan.calibration ? (
@@ -1456,6 +1464,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           onDelete={() => void removeDamage(dialogDamage)}
         />
       )}
+      {dimsOpen && plan && file && <DimensionReview data={data} plan={plan} file={file} onClose={() => setDimsOpen(false)} />}
       {reportOpen && plan && <CalibrationReport plan={plan} file={file ?? undefined} onClose={() => setReportOpen(false)} />}
       {detailsOpen && <PlanDetailsDialog plan={plan} data={data} onClose={() => setDetailsOpen(false)} />}
       {pdfOpen && <PdfExportDialog data={data} costCenterId={plan.costCenterId} initial={[plan.id]} onClose={() => setPdfOpen(false)} />}

@@ -110,7 +110,7 @@ export interface Plan extends SyncMeta {
     b: { x: number; y: number };
     meters: number;
     /** automatisch erkannt (bis zur eigenen Kalibrierung); `confirmed` = vom Benutzer geprüft */
-    auto?: { source: 'scale' | 'dims' | 'scale+dims'; label: string; warning?: string; confirmed?: boolean };
+    auto?: { source: 'scale' | 'dims' | 'scale+dims' | 'lines'; label: string; warning?: string; confirmed?: boolean; unit?: 'm' | 'cm' | 'mm'; count?: number };
     /** Prüfstrecke: bekannte Länge `expected` (m), im Plan gemessen `measured` (m) */
     check?: { a: { x: number; y: number }; b: { x: number; y: number }; expected: number; measured: number; at: number };
   };

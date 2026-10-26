@@ -1,4 +1,6 @@
+import { analyzeDimensions, calibrationLine, matchDimensionLines, type DimUnit } from './dimension-lines';
 import type { Point } from './geometry';
+import type { PlanSeg } from './pdf-snap';
 import type { Plan, Rect } from './types';
 
 /**
@@ -34,7 +36,7 @@ export const PT_PER_M = 72 / 0.0254;
 /** übliche Maßstäbe im Bauwesen */
 const STANDARD = [1, 2, 5, 10, 20, 25, 50, 75, 100, 125, 150, 200, 250, 500, 750, 1000, 1250, 2000, 2500, 5000];
 
-export type ScaleSource = 'scale' | 'dims' | 'scale+dims';
+export type ScaleSource = 'scale' | 'dims' | 'scale+dims' | 'lines';
 
 export interface ScaleDetection {
   /** Seiteneinheiten je Meter */
@@ -44,6 +46,9 @@ export interface ScaleDetection {
   source: ScaleSource;
   /** Hinweis, z. B. Angabe und Maßketten widersprechen sich */
   warning?: string;
+  /** Maßlinien: Einheit der Maßzahlen und Zahl der übereinstimmenden Maße */
+  unit?: DimUnit;
+  count?: number;
   /** Kalibrierstrecke in Seitenkoordinaten (für die Anzeige beim Kalibrieren) */
   a: Point;
   b: Point;
@@ -161,13 +166,43 @@ function snapStandard(n: number): number | null {
 
 const fmtN = (n: number) => n.toLocaleString('de-DE', { maximumFractionDigits: n < 10 ? 1 : 0 });
 
-/** Maßstab eines Planbereichs ermitteln (null = nichts Sicheres gefunden) */
-export function detectScale(items: PageText[], region: Rect | null): ScaleDetection | null {
+/**
+ * Maßstab eines Planbereichs ermitteln (null = nichts Sicheres gefunden). Mit den Linien der
+ * Seite (`segs`) zuerst über die Maßlinien: Maßzahl + Einheit ↔ gezeichnete Strecke – die
+ * zuverlässigste Quelle, auch bei verkleinert gedruckten Plänen.
+ */
+export function detectScale(items: PageText[], region: Rect | null, segs?: PlanSeg[]): ScaleDetection | null {
   const notes = findScaleNotes(items, region);
   const labeled = notes.filter((n) => n.labeled);
   const pool = labeled.length ? labeled : notes;
   const distinct = [...new Set(pool.map((n) => n.n))];
   const note = distinct.length === 1 ? pool[0] : null;
+  if (segs?.length) {
+    const an = analyzeDimensions(matchDimensionLines(items, segs, region));
+    const line = an.k ? calibrationLine(an) : null;
+    if (an.k && line) {
+      const n = PT_PER_M / an.k;
+      const snapped = STANDARD.find((v) => Math.abs(v - n) / v <= 0.005);
+      const warnings = [
+        note && Math.abs(n - note.n) / note.n > 0.03
+          ? `Die Maßstabsangabe 1:${note.n} passt nicht zu den Maßlinien (ca. 1:${fmtN(n)}) – der Plan ist vermutlich verkleinert gedruckt. Es gelten die Maßlinien.`
+          : '',
+        an.otherScale ? `Im Plan stehen auch Maße mit anderem Maßstab (ca. 1:${fmtN(PT_PER_M / an.otherScale)}) – diesen Bereich ggf. getrennt zuschneiden und kalibrieren.` : '',
+        an.okCount < an.rows.length ? `${an.rows.length - an.okCount} von ${an.rows.length} Maßen passen nicht und wurden nicht verwendet.` : '',
+      ].filter(Boolean);
+      return {
+        unitsPerMeter: an.k,
+        label: snapped ? `1:${snapped}` : `ca. 1:${fmtN(n)}`,
+        source: 'lines',
+        ...(warnings.length ? { warning: warnings.join(' ') } : {}),
+        unit: an.unit,
+        count: an.okCount,
+        a: line.a,
+        b: line.b,
+        meters: line.meters,
+      };
+    }
+  }
   const dims = scaleFromDimensions(items, region);
   const r = region ?? { x: 0, y: 0, w: 0, h: 0 };
   /** Kalibrierstrecke für eine Maßstabsangabe: waagrecht in der Planmitte, ca. ⅓ der Breite */
@@ -205,13 +240,19 @@ export function detectScale(items: PageText[], region: Rect | null): ScaleDetect
 
 /** Kalibrierung eines Plans aus der Erkennung (Vermerk „automatisch erkannt“) */
 export function calibrationFrom(det: ScaleDetection): NonNullable<Plan['calibration']> {
-  return { a: det.a, b: det.b, meters: det.meters, auto: { source: det.source, label: det.label, ...(det.warning ? { warning: det.warning } : {}) } };
+  return {
+    a: det.a,
+    b: det.b,
+    meters: det.meters,
+    auto: { source: det.source, label: det.label, ...(det.warning ? { warning: det.warning } : {}), ...(det.unit ? { unit: det.unit, count: det.count } : {}) },
+  };
 }
 
 export const SOURCE_LABELS: Record<ScaleSource, string> = {
   scale: 'Maßstabsangabe im Plan',
   dims: 'Maßketten im Plan',
   'scale+dims': 'Maßstabsangabe, bestätigt durch Maßketten',
+  lines: 'Maßlinien im Plan',
 };
 
 /** Toleranz für „passt“: Maßketten ±2 %, Maßstabsangabe ±3 % */
@@ -255,4 +296,10 @@ export function checkScale(items: PageText[], region: Rect | null, upm: number):
   const dims = [...byPair.values()].sort((x, y) => Number(y.ok) - Number(x.ok) || Math.abs(x.deviation) - Math.abs(y.deviation));
   const okDevs = dims.filter((d) => d.ok).map((d) => d.deviation).sort((x, y) => x - y);
   return { notes, dims, okCount: okDevs.length, median: okDevs.length ? okDevs[Math.floor(okDevs.length / 2)] : null };
+}
+
+const UNIT_NAMES: Record<DimUnit, string> = { m: 'm', cm: 'cm', mm: 'mm' };
+/** Quelle der Erkennung als Text, bei Maßlinien mit Anzahl und Einheit („Maßlinien im Plan: 4 Maße in cm“) */
+export function sourceText(auto: { source: ScaleSource; unit?: DimUnit; count?: number }): string {
+  return auto.source === 'lines' && auto.unit ? `${SOURCE_LABELS.lines}: ${auto.count ?? ''} Maße in ${UNIT_NAMES[auto.unit]}`.replace(':  ', ': ') : SOURCE_LABELS[auto.source];
 }

@@ -4,7 +4,7 @@ import { putBlob } from '../lib/db';
 import { uuid } from '../lib/ids';
 import { naturalCompare } from '../lib/numbers';
 import { contentBounds } from '../lib/layout-detect';
-import { closePdf, imageToCanvas, loadImageBitmap, openPdf, pageSize, readPageText, renderPdfToCanvas, rotatedSize } from '../lib/pdf';
+import { closePdf, imageToCanvas, loadImageBitmap, openPdf, pageSize, readPageSegments, readPageText, renderPdfToCanvas, rotatedSize } from '../lib/pdf';
 import { calibrationFrom, detectScale, type PageText, type ScaleDetection } from '../lib/scale-detect';
 import { alive, newMeta, putRecords, type ProjectState } from '../lib/store';
 import type { PaperFormat, Plan, PlanRotation, Rect, SourceFile } from '../lib/types';
@@ -249,9 +249,13 @@ export function ImportWizard({ file, data, costCenterId, onClose, onDone }: Prop
         for (const [i, d] of drafts.entries()) {
           try {
             const tk = `${d.pageIndex}:${d.rotation}`;
-            if (!texts.has(tk)) texts.set(tk, await readPageText(await doc.getPage(d.pageIndex + 1), d.rotation));
+            const pg = await doc.getPage(d.pageIndex + 1);
+            if (!texts.has(tk)) texts.set(tk, await readPageText(pg, d.rotation));
             const size = await getSize(d.pageIndex, d.rotation);
-            detected.set(i, detectScale(texts.get(tk)!, d.crop ?? { x: 0, y: 0, w: size.width, h: size.height }));
+            const region = d.crop ?? { x: 0, y: 0, w: size.width, h: size.height };
+            // Maßlinien des Bereichs (Vektor-PDF) – zuverlässigste Quelle für den Maßstab
+            const segs = await readPageSegments(pg, d.rotation, region).catch(() => []);
+            detected.set(i, detectScale(texts.get(tk)!, region, segs));
           } catch {
             detected.set(i, null); // Erkennung ist optional – Import geht immer weiter
           }
