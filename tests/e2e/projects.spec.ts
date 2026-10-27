@@ -85,7 +85,7 @@ test('Tools: vier gleich große Kacheln, zwei pro Reihe; Projektverwaltung und A
   await page.goto('./#/tools');
   const tiles = page.locator('.tool-tile');
   await expect(tiles).toHaveCount(4);
-  await expect(tiles.locator('strong')).toHaveText(['Projektverwaltung', 'Arbeitereinteilung', 'Noch in Planung', 'Noch in Planung']);
+  await expect(tiles.locator('strong')).toHaveText(['Projektverwaltung', 'Arbeitereinteilung', 'Fotodokumentation', 'Noch in Planung']);
   const boxes = await Promise.all((await tiles.all()).map((t) => t.boundingBox()));
   // 2 × 2, alle gleich groß
   expect(Math.abs(boxes[0]!.y - boxes[1]!.y)).toBeLessThan(1);
@@ -95,7 +95,7 @@ test('Tools: vier gleich große Kacheln, zwei pro Reihe; Projektverwaltung und A
     expect(Math.abs(b!.width - boxes[0]!.width)).toBeLessThan(1);
     expect(Math.abs(b!.height - boxes[0]!.height)).toBeLessThan(1);
   }
-  // „Noch in Planung“ ist nicht antippbar
+  // Fotodokumentation (bald) und „Noch in Planung“ sind noch nicht antippbar
   await expect(page.getByTestId('tool-soon')).toHaveCount(2);
   await expect(page.getByTestId('tool-soon').first()).toHaveAttribute('aria-disabled', 'true');
   await expect(page.locator('a[data-testid="tool-soon"]')).toHaveCount(0);

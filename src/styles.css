@@ -4470,6 +4470,9 @@ a.tool-tile:focus-visible {
   font-size: 1.12rem;
   font-weight: 650;
   letter-spacing: -0.01em;
+  /* lange Wörter (z. B. „Fotodokumentation“) auf sehr schmalen Handys trennen statt überlaufen */
+  hyphens: auto;
+  overflow-wrap: break-word;
 }
 .tool-text span {
   color: var(--muted);

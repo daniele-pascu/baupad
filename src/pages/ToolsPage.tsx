@@ -16,7 +16,7 @@ interface Tool {
 const TOOLS: Tool[] = [
   { id: 'projects', title: 'Projektverwaltung', text: 'Projekte, Pläne und Aufmaß', icon: 'blueprint', tone: 'blue', href: paths.projects() },
   { id: 'workers', title: 'Arbeitereinteilung', text: 'Wochenplanung nach Baustellen', icon: 'helmet', tone: 'amber', href: paths.workers() },
-  { id: 'soon-1', title: 'Noch in Planung', text: 'Weiteres Werkzeug folgt', icon: 'soon', tone: 'violet' },
+  { id: 'photos', title: 'Fotodokumentation', text: 'Baufortschritt und Mängel in Bildern', icon: 'camera', tone: 'violet' },
   { id: 'soon-2', title: 'Noch in Planung', text: 'Weiteres Werkzeug folgt', icon: 'soon', tone: 'teal' },
 ];
 
