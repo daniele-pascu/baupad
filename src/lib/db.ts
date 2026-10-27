@@ -282,6 +282,10 @@ export async function saveWorker(w: Worker): Promise<void> {
   await (await getDB()).put('workers', w);
 }
 
+export async function listWeeks(): Promise<WeekPlan[]> {
+  return (await getDB()).getAll('weeks');
+}
+
 export async function getWeek(id: string): Promise<WeekPlan | undefined> {
   return (await getDB()).get('weeks', id);
 }

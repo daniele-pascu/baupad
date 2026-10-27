@@ -72,7 +72,7 @@ const touch = (w: WeekPlan, sites: WeekSite[], vacation = w.vacation): WeekPlan 
 const mapSite = (w: WeekPlan, siteId: string, f: (s: WeekSite) => WeekSite) => touch(w, w.sites.map((s) => (s.id === siteId ? f(s) : s)));
 
 /** Baustelle hinzufügen (aus einem Projekt oder manuell) */
-export function addSite(w: WeekPlan, site: Pick<WeekSite, 'projectId' | 'name' | 'number' | 'address'>): { week: WeekPlan; site: WeekSite } {
+export function addSite(w: WeekPlan, site: Pick<WeekSite, 'projectId' | 'name' | 'number' | 'address' | 'note'>): { week: WeekPlan; site: WeekSite } {
   const s: WeekSite = { id: uuid(), ...site, days: emptyDays() };
   return { week: touch(w, [...w.sites, s]), site: s };
 }
@@ -80,7 +80,7 @@ export function addSite(w: WeekPlan, site: Pick<WeekSite, 'projectId' | 'name' |
 /** Baustelle aus einem Projekt: Bezeichnung zum Zeitpunkt der Einteilung (bleibt bei späterer Umbenennung) */
 export const siteFromProject = (p: Pick<Project, 'id' | 'name' | 'number' | 'address'>) => ({ projectId: p.id, name: p.name, number: p.number || '', address: p.address || '' });
 
-export const updateSite = (w: WeekPlan, siteId: string, patch: Partial<Pick<WeekSite, 'name' | 'number' | 'address' | 'finished'>>) => mapSite(w, siteId, (s) => ({ ...s, ...patch }));
+export const updateSite = (w: WeekPlan, siteId: string, patch: Partial<Pick<WeekSite, 'name' | 'number' | 'address' | 'finished' | 'note'>>) => mapSite(w, siteId, (s) => ({ ...s, ...patch }));
 export const removeSite = (w: WeekPlan, siteId: string) => touch(w, w.sites.filter((s) => s.id !== siteId));
 
 /** Arbeiter an Tagen einer Baustelle einteilen (Urlaub an diesen Tagen entfällt) */

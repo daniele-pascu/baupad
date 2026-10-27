@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState, type CSSProperties, type InputHTMLAttributes } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type InputHTMLAttributes } from 'react';
 import { ActionMenu } from '../components/ActionMenu';
 import { Icon } from '../components/Icon';
 import { Modal } from '../components/Modal';
 import { SiteNav } from '../components/SiteNav';
 import { ToolIcon } from '../components/ToolIcon';
-import { confirmDialog, showError, toast } from '../components/ui';
+import { PdfPreview } from '../components/PdfPreview';
+import { confirmDialog, offerFile, showError, toast } from '../components/ui';
 import {
   addDays,
   addSite,
@@ -34,6 +35,10 @@ import {
   workerName,
 } from '../lib/crew';
 import { getMeta, getWeek, listProjects, listWorkers, previousWeek, saveWeek, saveWorker, setMeta } from '../lib/db';
+import type { ExportFile } from '../lib/aufmass';
+import { getCompanyLogo } from '../lib/company';
+import { exportCrewBackup, importCrewBackup } from '../lib/crew-backup';
+import { crewDayPdf, crewWeekPdf } from '../lib/crew-pdf';
 import { uuid } from '../lib/ids';
 import { paths } from '../lib/router';
 import type { Project, WeekPlan, WeekSite, Worker, WorkTimes } from '../lib/types';
@@ -55,6 +60,11 @@ export function WorkersPage() {
   /** nicht gespeicherte Woche: aus dieser Woche weitergeführt (bzw. leer) */
   const [draftFrom, setDraftFrom] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  const [company, setCompany] = useState('');
+  const [query, setQuery] = useState('');
+  const [preview, setPreview] = useState<ExportFile | null>(null);
+  const restoreRef = useRef<HTMLInputElement>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [dialog, setDialog] = useState<
     | { kind: 'workers' }
     | { kind: 'times' }
@@ -62,15 +72,17 @@ export function WorkersPage() {
     | { kind: 'assign'; siteId: string; days: number[] }
     | { kind: 'chip'; siteId: string; day: number; workerId: string }
     | { kind: 'open'; day: number; workerId: string }
+    | { kind: 'dayList'; siteId: string }
     | null
   >(null);
 
   useEffect(() => {
-    void Promise.all([listWorkers(), getMeta<WorkTimes>('workTimes'), listProjects()])
-      .then(([w, t, p]) => {
+    void Promise.all([listWorkers(), getMeta<WorkTimes>('workTimes'), listProjects(), getMeta<string>('companyName')])
+      .then(([w, t, p, c]) => {
         setWorkers(w);
         setTimes(t ?? null);
         setProjects(p);
+        setCompany(c ?? '');
       })
       .catch((e) => showError(e, 'Arbeitereinteilung konnte nicht geladen werden'));
   }, []);
@@ -94,7 +106,7 @@ export function WorkersPage() {
     return () => {
       off = true;
     };
-  }, [weekId]);
+  }, [weekId, reloadKey]);
 
   const byId = useMemo(() => new Map((workers ?? []).map((w) => [w.id, w])), [workers]);
   const active = useMemo(() => sortWorkers((workers ?? []).filter((w) => w.active)), [workers]);
@@ -139,6 +151,57 @@ export function WorkersPage() {
     });
   };
 
+  /** PDF-Optionen: Firmenname und Firmenlogo (Konto → Einstellungen) */
+  const pdfOpts = async () => ({ company, logo: await getCompanyLogo() });
+  const run = (fn: () => Promise<void>) => fn().catch((e) => showError(e, 'Das hat nicht geklappt'));
+
+  const exportWeekPdf = () =>
+    run(async () => {
+      setPreview(await crewWeekPdf(plan!, workers!, workTimes, await pdfOpts()));
+    });
+  /** Drucken: PDF in einem neuen Tab öffnen (Fenster sofort öffnen, sonst blockiert der Browser) */
+  const printWeek = () => {
+    const win = window.open('', '_blank');
+    run(async () => {
+      const f = await crewWeekPdf(plan!, workers!, workTimes, await pdfOpts());
+      const url = URL.createObjectURL(new Blob([f.data as BlobPart], { type: 'application/pdf' }));
+      if (win) win.location.href = url;
+      else setPreview(f);
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    });
+  };
+  const carryAgain = () =>
+    run(async () => {
+      const prev = await previousWeek(weekId);
+      if (!prev) {
+        toast('Keine frühere Woche gespeichert.', 'info');
+        return;
+      }
+      const has = plan!.sites.some((s) => s.days.some((d) => d.length));
+      if (
+        has &&
+        !(await confirmDialog({
+          title: `Einteilung aus KW ${isoWeekNo(prev.id)} übernehmen?`,
+          message: <p>Diese Woche hat schon eine Einteilung. Sie wird durch die Baustellen und Arbeiter aus KW {isoWeekNo(prev.id)} ersetzt. Andere Wochen bleiben unverändert.</p>,
+          confirmLabel: 'Ersetzen',
+          danger: true,
+        }))
+      )
+        return;
+      save({ ...carryOver(prev, weekId), createdAt: plan!.createdAt });
+      toast(`Einteilung aus KW ${isoWeekNo(prev.id)} übernommen.`, 'success');
+    });
+  const backup = () => run(async () => offerFile(await exportCrewBackup()));
+  const restore = (f: File) =>
+    run(async () => {
+      const r = await importCrewBackup(f);
+      setWorkers(await listWorkers());
+      setTimes((await getMeta<WorkTimes>('workTimes')) ?? null);
+      setCompany((await getMeta<string>('companyName')) ?? '');
+      setReloadKey((k) => k + 1);
+      toast(`Sicherung eingelesen: ${r.workers} Arbeiter, ${r.weeks} Wochen übernommen.`, 'success', 5000);
+    });
+
   if (!workers || times === undefined || !plan)
     return (
       <>
@@ -151,6 +214,11 @@ export function WorkersPage() {
   const workDays = days.filter((d) => workTimes[d]);
   const open = workDays.map((d) => ({ d, list: unassigned(plan, sortWorkers(workers), d) })).filter((x) => x.list.length);
   const vacations = vacationSummary(plan, days);
+  const q = query.trim().toLowerCase();
+  const hit = (id: string) => !!q && nameOf(id).toLowerCase().includes(q);
+  const shown = q
+    ? plan.sites.filter((s) => [s.name, s.number, s.address].some((t) => t?.toLowerCase().includes(q)) || s.days.some((d) => d.some(hit)))
+    : plan.sites;
   const toggle = (id: string) =>
     setCollapsed((prev) => {
       const next = new Set(prev);
@@ -178,6 +246,31 @@ export function WorkersPage() {
           <button type="button" className="btn" onClick={() => setDialog({ kind: 'times' })} data-testid="crew-times">
             <Icon name="calendar" size={18} /> Arbeitszeit
           </button>
+          <button type="button" className="btn" onClick={exportWeekPdf} disabled={!plan.sites.length} data-testid="crew-pdf">
+            <Icon name="pdf" size={18} /> PDF
+          </button>
+          <ActionMenu
+            label="Weitere Aktionen"
+            testId="crew-more"
+            actions={[
+              { label: 'Drucken', icon: 'pdf', onSelect: printWeek, disabled: !plan.sites.length, testId: 'crew-print' },
+              { label: 'Einteilung aus Vorwoche übernehmen', icon: 'copy', onSelect: () => void carryAgain(), testId: 'crew-carry' },
+              { label: 'Sicherung speichern (Arbeiter und Wochen)', icon: 'download', onSelect: () => void backup(), testId: 'crew-backup' },
+              { label: 'Sicherung öffnen …', icon: 'upload', onSelect: () => restoreRef.current?.click(), testId: 'crew-restore' },
+            ]}
+          />
+          <input
+            ref={restoreRef}
+            type="file"
+            accept=".json,application/json"
+            hidden
+            data-testid="crew-restore-input"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = '';
+              if (f) void restore(f);
+            }}
+          />
         </div>
 
         {times === null && (
@@ -282,7 +375,19 @@ export function WorkersPage() {
         )}
 
         <section className="crew-sites">
-          {plan.sites.map((s) => {
+          {plan.sites.length > 1 && (
+            <label className="crew-search">
+              <Icon name="select" size={18} />
+              <span className="sr-only">Suchen</span>
+              <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Baustelle oder Arbeiter suchen" data-testid="crew-search" />
+              {q && (
+                <span className="muted small" data-testid="crew-search-count">
+                  {shown.length} von {plan.sites.length}
+                </span>
+              )}
+            </label>
+          )}
+          {shown.map((s) => {
             const isOpen = !collapsed.has(s.id);
             const count = new Set(s.days.flat()).size;
             return (
@@ -306,7 +411,8 @@ export function WorkersPage() {
                     testId="site-actions"
                     actions={[
                       { label: 'Arbeiter einteilen (ganze Woche)', icon: 'plus', onSelect: () => setDialog({ kind: 'assign', siteId: s.id, days: workDays }), testId: 'site-assign' },
-                      { label: 'Baustelle bearbeiten', icon: 'edit', onSelect: () => setDialog({ kind: 'site', site: s }), testId: 'site-edit' },
+                      { label: 'Baustelle bearbeiten / Bemerkung', icon: 'edit', onSelect: () => setDialog({ kind: 'site', site: s }), testId: 'site-edit' },
+                      { label: 'Tagesliste (PDF)', icon: 'pdf', onSelect: () => setDialog({ kind: 'dayList', siteId: s.id }), testId: 'site-daylist' },
                       {
                         label: s.finished ? 'Wieder als laufend markieren' : 'Fertiggestellt (ab nächster Woche weg)',
                         icon: 'check',
@@ -329,6 +435,11 @@ export function WorkersPage() {
                     ]}
                   />
                 </header>
+                {isOpen && s.note && (
+                  <p className="crew-note" data-testid="site-note">
+                    {s.note}
+                  </p>
+                )}
                 {isOpen && (
                   <div className="crew-days">
                     {days.map((d) => (
@@ -344,7 +455,7 @@ export function WorkersPage() {
                             <button
                               key={id}
                               type="button"
-                              className={`crew-chip${byId.get(id)?.active === false ? ' inactive' : ''}${sitesOf(plan, id, d, s.id).length ? ' conflict' : ''}`}
+                              className={`crew-chip${byId.get(id)?.active === false ? ' inactive' : ''}${sitesOf(plan, id, d, s.id).length ? ' conflict' : ''}${hit(id) ? ' hit' : ''}`}
                               onClick={() => setDialog({ kind: 'chip', siteId: s.id, day: d, workerId: id })}
                               data-testid="crew-chip"
                               data-worker={nameOf(id)}
@@ -379,11 +490,14 @@ export function WorkersPage() {
       {dialog?.kind === 'times' && (
         <TimesDialog
           times={workTimes}
+          company={company}
           onClose={() => setDialog(null)}
-          onSave={(t) => {
+          onSave={(t, c) => {
             setTimes(t);
+            setCompany(c);
             setDialog(null);
             setMeta('workTimes', t).catch((e) => showError(e));
+            setMeta('companyName', c).catch((e) => showError(e));
             toast('Arbeitszeit gespeichert.', 'success');
           }}
         />
@@ -447,6 +561,22 @@ export function WorkersPage() {
           }}
         />
       )}
+      {dialog?.kind === 'dayList' && (
+        <DayListDialog
+          days={days}
+          site={plan.sites.find((s) => s.id === dialog.siteId)!}
+          weekId={weekId}
+          onClose={() => setDialog(null)}
+          onPick={(d) =>
+            void run(async () => {
+              const f = await crewDayPdf(plan, dialog.siteId, d, workers, workTimes, await pdfOpts());
+              setDialog(null);
+              setPreview(f);
+            })
+          }
+        />
+      )}
+      {preview && <PdfPreview file={preview} onBack={() => setPreview(null)} onClose={() => setPreview(null)} />}
       {dialog?.kind === 'open' && (
         <OpenDialog
           plan={plan}
@@ -569,8 +699,9 @@ function WorkersDialog({ workers, onSave, onClose }: { workers: Worker[]; onSave
 }
 
 /** Arbeitszeit der Firma je Wochentag (einmal eingeben) */
-function TimesDialog({ times, onSave, onClose }: { times: WorkTimes; onSave(t: WorkTimes): void; onClose(): void }) {
+function TimesDialog({ times, company, onSave, onClose }: { times: WorkTimes; company: string; onSave(t: WorkTimes, company: string): void; onClose(): void }) {
   const [t, setT] = useState<WorkTimes>(() => times.map((x) => (x ? { ...x } : null)));
+  const [c, setC] = useState(company);
   const set = (d: number, x: WorkTimes[number]) => setT(t.map((y, i) => (i === d ? x : y)));
   return (
     <Modal
@@ -582,13 +713,13 @@ function TimesDialog({ times, onSave, onClose }: { times: WorkTimes; onSave(t: W
           <button type="button" className="btn" onClick={onClose}>
             Abbrechen
           </button>
-          <button type="button" className="btn btn-primary" onClick={() => onSave(t)} data-testid="times-save">
+          <button type="button" className="btn btn-primary" onClick={() => onSave(t, c.trim())} data-testid="times-save">
             Speichern
           </button>
         </>
       }
     >
-      <p className="muted small">Gilt für alle Baustellen und Wochen. Erscheint in der Einteilung und später im PDF.</p>
+      <p className="muted small">Gilt für alle Baustellen und Wochen. Erscheint in der Einteilung und im PDF.</p>
       <div className="crew-times">
         {DAY_NAMES.map((name, d) => (
           <div key={d} className="crew-time-row">
@@ -608,6 +739,10 @@ function TimesDialog({ times, onSave, onClose }: { times: WorkTimes; onSave(t: W
           </div>
         ))}
       </div>
+      <label className="field crew-company">
+        <span>Firmenname im PDF (optional)</span>
+        <input value={c} onChange={(e) => setC(e.target.value)} placeholder="z. B. Muster Bau GmbH" autoComplete="organization" data-testid="company-name" />
+      </label>
     </Modal>
   );
 }
@@ -623,13 +758,14 @@ function SiteDialog({
   site?: WeekSite;
   projects: Project[];
   taken: string[];
-  onSave(f: Pick<WeekSite, 'projectId' | 'name' | 'number' | 'address'>): void;
+  onSave(f: Pick<WeekSite, 'projectId' | 'name' | 'number' | 'address' | 'note'>): void;
   onClose(): void;
 }) {
   const [projectId, setProjectId] = useState<string>(site?.projectId ?? '');
   const [name, setName] = useState(site?.name ?? '');
   const [number, setNumber] = useState(site?.number ?? '');
   const [address, setAddress] = useState(site?.address ?? '');
+  const [note, setNote] = useState(site?.note ?? '');
   const [show, setShow] = useState(false);
   const pick = (id: string) => {
     setProjectId(id);
@@ -644,7 +780,7 @@ function SiteDialog({
   const submit = () => {
     setShow(true);
     if (!name.trim()) return;
-    onSave({ projectId: projectId || null, name: name.trim(), number: number.trim(), address: address.trim() });
+    onSave({ projectId: projectId || null, name: name.trim(), number: number.trim(), address: address.trim(), note: note.trim() });
   };
   return (
     <Modal
@@ -692,6 +828,10 @@ function SiteDialog({
           <label className="field">
             <span>Adresse</span>
             <input value={address} onChange={(e) => setAddress(e.target.value)} data-testid="site-address" />
+          </label>
+          <label className="field span-2">
+            <span>Bemerkung für diese Woche (optional, erscheint im PDF)</span>
+            <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="z. B. Kran ab Mittwoch, Schlüssel bei Polier" data-testid="site-note-input" />
           </label>
         </div>
         {show && !name.trim() && <p className="error small">Bitte eine Bezeichnung eingeben.</p>}
@@ -880,6 +1020,22 @@ function OpenDialog({
         <button type="button" className="btn" onClick={() => onVacation(rest)} data-testid="open-vacation">
           Urlaub eintragen
         </button>
+      </div>
+    </Modal>
+  );
+}
+
+/** Tagesliste: Tag wählen */
+function DayListDialog({ site, days, weekId, onPick, onClose }: { site: WeekSite; days: number[]; weekId: string; onPick(day: number): void; onClose(): void }) {
+  return (
+    <Modal title={`Tagesliste: ${site.name}`} onClose={onClose} testId="daylist-dialog">
+      <p className="muted small">Liste der Arbeiter dieses Tages mit Tätigkeit und Telefon – zum Ausdrucken für die Baustelle.</p>
+      <div className="crew-chip-actions">
+        {days.map((d) => (
+          <button key={d} type="button" className="btn" onClick={() => onPick(d)} data-testid={`daylist-${d}`}>
+            {DAY_NAMES[d]}, {dayDate(weekId, d)} <span className="muted small">· {site.days[d].length} Arbeiter</span>
+          </button>
+        ))}
       </div>
     </Modal>
   );

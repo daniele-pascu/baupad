@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
+import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { createProject, freshStart, OUT } from './helpers';
+import { catchDownload, createProject, freshStart, OUT, saveDownload } from './helpers';
 
 /**
  * Arbeitereinteilung: Arbeiter einmal anlegen, Arbeitszeit der Firma einmal eingeben, Baustellen aus
@@ -155,4 +156,105 @@ test('Arbeiter deaktivieren: nicht mehr zum Einteilen, in gespeicherten Wochen w
   await expect(chips(page, 'Umbau Gewerbepark', 0)).toHaveClass(/inactive/);
   await site(page, 'Umbau Gewerbepark').locator('[data-day="1"] [data-testid="day-add"]').click();
   await expect(page.getByTestId('assign-dialog').getByTestId('assign-worker')).toHaveCount(0);
+});
+
+test('Suche, PDF (Woche + Tagesliste), Drucken, Vorwoche übernehmen, Sicherung speichern und wiederherstellen', async ({ page, context }) => {
+  await freshStart(page);
+  await page.goto('./#/arbeitereinteilung');
+  await page.getByTestId('week-date').fill('2026-10-26');
+  // Firma und Arbeitszeit
+  await page.getByTestId('crew-times').click();
+  await page.getByTestId('times-dialog').getByTestId('company-name').fill('Muster Bau GmbH');
+  await page.getByTestId('times-dialog').getByTestId('times-save').click();
+  await page.getByTestId('crew-workers').click();
+  const wd = page.getByTestId('workers-dialog');
+  for (const [f, l, role, tel] of [
+    ['Max', 'Muster', 'Polier', '0664 1234567'],
+    ['Thomas', 'Stein', '', ''],
+  ]) {
+    await wd.getByTestId('worker-firstName').fill(f);
+    await wd.getByTestId('worker-lastName').fill(l);
+    await wd.getByTestId('worker-role').fill(role);
+    await wd.getByTestId('worker-phone').fill(tel);
+    await wd.getByTestId('worker-save').click();
+    await expect(wd.getByTestId('worker-row').filter({ hasText: f })).toHaveCount(1);
+  }
+  await page.keyboard.press('Escape');
+  for (const [name, who, note] of [
+    ['Neubau Musterstraße', 'Max Muster', 'Kran ab Mittwoch'],
+    ['Sanierung Hauptplatz', 'Thomas Stein', ''],
+  ]) {
+    await page.getByTestId('add-site').click();
+    const sd = page.getByTestId('site-dialog');
+    await sd.getByTestId('site-name-input').fill(name);
+    if (note) await sd.getByTestId('site-note-input').fill(note);
+    await sd.getByTestId('site-save').click();
+    await assignDialog(page, [who]);
+  }
+  await expect(site(page, 'Neubau Musterstraße').getByTestId('site-note')).toHaveText('Kran ab Mittwoch');
+
+  // Suche nach Arbeiter bzw. Baustelle
+  await page.getByTestId('crew-search').fill('stein');
+  await expect(page.getByTestId('site-card')).toHaveCount(1);
+  await expect(page.getByTestId('crew-search-count')).toHaveText('1 von 2');
+  await expect(chips(page, 'Sanierung Hauptplatz', 0)).toHaveClass(/hit/);
+  await page.getByTestId('crew-search').fill('neubau');
+  await expect(page.getByTestId('site-card')).toHaveAttribute('data-site', 'Neubau Musterstraße');
+  await page.getByTestId('crew-search').fill('');
+  await expect(page.getByTestId('site-card')).toHaveCount(2);
+
+  // PDF Wochenplan (A4 quer) mit Vorschau
+  const dl = await catchDownload(page, () => page.getByTestId('crew-pdf').click());
+  const pdf = await saveDownload(dl, 'arbeitereinteilung-kw44.pdf');
+  const info = execFileSync('pdfinfo', [pdf], { encoding: 'utf8' });
+  expect(info).toMatch(/Page size:\s+841\.89 x 595\.28/);
+  const txt = execFileSync('pdftotext', ['-layout', pdf, '-'], { encoding: 'utf8' });
+  for (const s of ['Arbeitereinteilung KW 44', 'Muster Bau GmbH', 'Neubau Musterstraße', 'Sanierung Hauptplatz', 'Max Muster', 'Kran ab Mittwoch']) expect(txt).toContain(s);
+
+  // Tagesliste einer Baustelle
+  await site(page, 'Neubau Musterstraße').getByTestId('site-actions').click();
+  await page.getByTestId('site-daylist').click();
+  const dl2 = await catchDownload(page, () => page.getByTestId('daylist-dialog').getByTestId('daylist-1').click());
+  const pdf2 = await saveDownload(dl2, 'tagesliste.pdf');
+  const txt2 = execFileSync('pdftotext', ['-layout', pdf2, '-'], { encoding: 'utf8' });
+  for (const s of ['Tagesliste Dienstag, 27.10.2026', 'Neubau Musterstraße', 'Max Muster', 'Polier', '0664 1234567']) expect(txt2).toContain(s);
+
+  // Drucken: PDF in neuem Tab
+  const popup = context.waitForEvent('page');
+  await page.getByTestId('crew-more').click();
+  await page.getByTestId('crew-print').click();
+  const tab = await popup;
+  await expect.poll(() => tab.url()).toMatch(/^blob:/);
+  await tab.close();
+
+  // KW 45 ändern, dann „aus Vorwoche übernehmen“ → Hinweis vor dem Ersetzen
+  await page.getByTestId('week-next').click();
+  await chips(page, 'Neubau Musterstraße', 0).first().click();
+  await page.getByTestId('chip-dialog').getByTestId('chip-remove').click();
+  await expect(chips(page, 'Neubau Musterstraße', 0)).toHaveCount(0);
+  await page.getByTestId('crew-more').click();
+  await page.getByTestId('crew-carry').click();
+  await expect(page.getByTestId('confirm-dialog')).toContainText('wird durch die Baustellen und Arbeiter aus KW 44 ersetzt');
+  await page.getByRole('button', { name: 'Ersetzen' }).click();
+  await expect(chips(page, 'Neubau Musterstraße', 0)).toHaveText(['Max Muster']);
+
+  // Sicherung speichern …
+  const dl3 = await catchDownload(page, async () => {
+    await page.getByTestId('crew-more').click();
+    await page.getByTestId('crew-backup').click();
+  });
+  expect(dl3.suggestedFilename()).toMatch(/^BauPad_Arbeitereinteilung_\d{4}-\d{2}-\d{2}\.json$/);
+  const backupFile = await saveDownload(dl3, 'arbeitereinteilung-sicherung.json');
+  // … auf „neuem Gerät“ (leere Datenbank) wiederherstellen
+  await freshStart(page);
+  await page.goto('./#/arbeitereinteilung');
+  await page.getByTestId('week-date').fill('2026-10-26');
+  await expect(page.getByTestId('crew-empty')).toBeVisible();
+  await page.getByTestId('crew-restore-input').setInputFiles(backupFile);
+  await expect(page.locator('.toast')).toContainText('2 Arbeiter, 2 Wochen übernommen');
+  await expect(page.getByTestId('site-card')).toHaveCount(2);
+  await expect(chips(page, 'Neubau Musterstraße', 0)).toHaveText(['Max Muster']);
+  await expect(page.getByTestId('crew-workers')).toContainText('Arbeiter (2)');
+  await page.getByTestId('crew-times').click();
+  await expect(page.getByTestId('times-dialog').getByTestId('company-name')).toHaveValue('Muster Bau GmbH');
 });
