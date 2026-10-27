@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { AufmassRow } from '../lib/aufmass';
 import { sumArea } from '../lib/aufmass';
-import { countKind, hasVolume, KIND_LABELS, kindOf, sumLengths, sumVolumes } from '../lib/measure';
+import { countKind, hasVolume, isWall, kindOf, measureLabel, sumLengths, sumVolumes } from '../lib/measure';
 import { formatArea, formatMeasure } from '../lib/numbers';
 import { damageNo } from '../lib/numbering';
 import type { Component } from '../lib/types';
@@ -63,7 +63,7 @@ export function AufmassTable({ rows, showPlan, selectedId, onSelect, onEdit, onD
             const sel = r.damage.id === selectedId;
             const kind = kindOf(r.damage);
             const comp = r.damage.componentId ? components?.[r.damage.componentId] : undefined;
-            const label = `${KIND_LABELS[kind]} ${damageNo(r.damage)}`;
+            const label = `${measureLabel(r.damage)} ${damageNo(r.damage)}`;
             return (
               <tr
                 key={r.damage.id}
@@ -86,9 +86,9 @@ export function AufmassTable({ rows, showPlan, selectedId, onSelect, onEdit, onD
                 <td className="num" data-testid="row-area">
                   {formatArea(r.damage.area)}
                 </td>
-                <td className="kind-cell" data-testid="row-kind" title={comp ? `${KIND_LABELS[kind]} · Bauteil ${comp.letter}${comp.name ? ` – ${comp.name}` : ''}` : KIND_LABELS[kind]}>
-                  <Icon name={KIND_ICONS[kind]} size={16} />
-                  <span className="sr-only">{KIND_LABELS[kind]}</span>
+                <td className="kind-cell" data-testid="row-kind" title={comp ? `${measureLabel(r.damage)} · Bauteil ${comp.letter}${comp.name ? ` – ${comp.name}` : ''}` : measureLabel(r.damage)}>
+                  <Icon name={isWall(r.damage) ? 'wall' : KIND_ICONS[kind]} size={16} />
+                  <span className="sr-only">{measureLabel(r.damage)}</span>
                   {comp && !comp.deletedAt && (
                     <span className="component-tag">
                       {comp.letter}

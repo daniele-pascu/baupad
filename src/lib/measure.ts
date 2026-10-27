@@ -21,6 +21,16 @@ export const kindOf = (d: Pick<Damage, 'kind'>): MeasureKind => d.kind ?? 'damag
 /** Messarten mit Fläche (Länge × Breite) */
 export const hasArea = (k: MeasureKind) => k !== 'line';
 
+/**
+ * Wand: Flächenmessung mit offenem Verlauf (Linie mit Knicken). Länge = alle Abschnitte,
+ * Höhe im Feld „Breite/Höhe“, Wandfläche = Länge × Höhe (ohne Höhe keine Fläche).
+ */
+export const isWall = (d: Pick<Damage, 'kind' | 'shape'>) =>
+  hasArea(kindOf(d)) && (d.shape.type === 'line' || (d.shape.type === 'freehand' && d.shape.closed === false));
+
+/** Bezeichnung einer Messung: „Wand“ bzw. die Messart */
+export const measureLabel = (d: Pick<Damage, 'kind' | 'shape'>) => (isWall(d) ? 'Wand' : KIND_LABELS[kindOf(d)]);
+
 /** Messart aus der Form (keine Auswahl beim Einfügen): offene Linien → Linie, geschlossene Formen → Fläche. */
 export function defaultKindFor(shape: Shape): MeasureKind {
   return shape.type === 'line' || (shape.type === 'freehand' && shape.closed === false) ? 'line' : 'area';

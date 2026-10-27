@@ -320,3 +320,123 @@ test('Aufmaß: offene Polylinie = Linienmessung mit Länge, geschlossene = Fläc
   await expect.poll(async () => Math.abs((await barArea()) - (250 * 100) / (s * 100) ** 2)).toBeLessThan(0.05);
   await waitSaved(page);
 });
+
+test('Wand: Verlauf mit Knicken, Länge aus allen Abschnitten, danach Höhe → Wandfläche; Knick verschieben aktualisiert', async () => {
+  await deselect();
+  await pickTool(page, 'tool-wall');
+  const sb = (await sheet().boundingBox())!;
+  const s = await scale();
+  const x = sb.x + 120;
+  const y = sb.y + 80;
+  // L-förmige Wand: 200 px nach rechts, 100 px nach unten, 100 px nach rechts → 400 px
+  for (const [dx, dy] of [[0, 0], [200, 0], [200, 100], [300, 100]]) await page.mouse.click(x + dx, y + dy);
+  await expect(page.getByTestId('polygon-bar')).toContainText('Wand: 4 Punkte');
+  // Antippen des Startpunkts schließt eine Wand nicht – Enter beendet den Verlauf
+  await page.keyboard.press('Enter');
+  const dlg = page.getByTestId('damage-dialog');
+  await expect(dlg).toContainText('Neue Wand');
+  const len = num(await dlg.getByTestId('geometry-length').inputValue());
+  expect(Math.abs(len - 400 / s / 100)).toBeLessThan(0.03);
+  // gleich nach der Wandhöhe gefragt
+  await expect(dlg.getByTestId('input-width')).toBeFocused();
+  await expect(dlg).toContainText('Wandhöhe');
+  await page.keyboard.type('2,5');
+  const area = num((await dlg.getByTestId('wall-area').textContent())!.replace(/\s*m²/, ''));
+  expect(Math.abs(area - len * 2.5)).toBeLessThan(0.01);
+  await dlg.getByTestId('damage-save').click();
+  await expect(dlg).toBeHidden();
+  const row = page.locator('[data-testid="aufmass-row"]').last();
+  await expect(row.getByTestId('row-kind')).toHaveAttribute('title', 'Wand');
+  await expect(page.getByTestId('selection-bar')).toContainText('Wand Nr.');
+  // letzten Knick verschieben (100 px weiter nach rechts) → Länge und Wandfläche werden nachgeführt, Höhe bleibt
+  await pickTool(page, 'tool-select');
+  await page.mouse.click(x + 100, y);
+  await expect(page.locator('circle[data-testid^="vertex-"]')).toHaveCount(4);
+  const v3 = (await page.getByTestId('vertex-3').boundingBox())!;
+  await page.mouse.move(v3.x + v3.width / 2, v3.y + v3.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(x + 400, y + 100, { steps: 6 });
+  await page.mouse.up();
+  const summary = async () => (await page.getByTestId('selection-bar').locator('.selection-info span').nth(1).textContent())!;
+  await expect.poll(async () => Math.abs(num(/([\d.,]+) ×/.exec(await summary())![1]) - 500 / s / 100)).toBeLessThan(0.03);
+  expect(await summary()).toContain('× 2,50 m');
+  const a2 = num(/= ([\d.,]+) m²/.exec(await summary())![1]);
+  expect(Math.abs(a2 - (500 / s / 100) * 2.5)).toBeLessThan(0.05);
+  await waitSaved(page);
+});
+
+test('Messung: Menü mit fünf Messarten; Länge, Winkel, Radius, Abstand, Fläche – nichts wird verändert, Fläche ausdrücklich ins Aufmaß', async () => {
+  await deselect();
+  const rows = page.locator('[data-testid="aufmass-row"]');
+  const before = await rows.count();
+  const sb = (await sheet().boundingBox())!;
+  const s = await scale();
+  const m = (px: number) => px / s / 100; // Bildschirm-Pixel → m
+  // Punktfang aus, damit die Testpunkte nicht an vorhandene Objekte springen
+  const snap = page.getByTestId('snap-toggle-measure');
+  if ((await snap.getAttribute('aria-pressed')) === 'true') await snap.click();
+  const x = sb.x + 160;
+  const y = sb.y + 300;
+  const at = (dx: number, dy: number) => page.mouse.click(x + dx, y + dy);
+  const result = () => page.getByTestId('probe-result').locator('strong');
+  const val = async () => num((await result().textContent())!.replace(/^r = /, '').replace(/\s*(m²|m|°)$/, ''));
+
+  // Menü
+  await page.getByTestId('tool-probe').click();
+  const menu = page.getByTestId('probe-menu');
+  await expect(menu.getByRole('menuitem')).toHaveText([/Länge/, /Fläche/, /Winkel/, /Radius/, /Abstand/]);
+  await menu.getByTestId('probe-menu-length').click();
+  await expect(page.getByTestId('probe-hint')).toContainText('Punkte nacheinander');
+
+  // Länge über zwei Abschnitte (300 + 100 px), Enter beendet
+  await at(0, 0);
+  await at(300, 0);
+  await at(300, 100);
+  await page.keyboard.press('Enter');
+  expect(Math.abs((await val()) - m(400))).toBeLessThan(0.02);
+  await expect(page.getByTestId('probe-result')).toContainText('2 Abschnitte');
+  await expect(page.getByTestId('probe-label')).toBeVisible(); // Ergebnis im Plan
+  await expect(page.locator('.probe-point')).toHaveCount(3); // bestätigte Punkte
+
+  // Winkel: 90° am mittleren Punkt, Bogen im Plan
+  await page.getByTestId('probe-kind-angle').click();
+  await at(100, 0);
+  await at(0, 0);
+  await at(0, 100);
+  await expect(result()).toHaveText('90,0°');
+  await expect(page.getByTestId('probe-angle-arc')).toBeVisible();
+
+  // Radius: Mittelpunkt und Punkt auf dem Kreis (60/80 px → 100 px), mit Durchmesser
+  await page.getByTestId('probe-kind-radius').click();
+  await at(0, 0);
+  await at(60, 80);
+  expect(Math.abs((await val()) - m(100))).toBeLessThan(0.02);
+  await expect(page.getByTestId('probe-result')).toContainText('Ø');
+
+  // Abstand mit waagrechtem und senkrechtem Anteil (300 px waagrecht, 200 px senkrecht)
+  await page.getByTestId('probe-kind-distance').click();
+  await at(0, 0);
+  await at(300, 200);
+  expect(Math.abs((await val()) - m(Math.hypot(300, 200)))).toBeLessThan(0.02);
+  await expect(page.getByTestId('probe-result')).toContainText('waagrecht');
+
+  // Kontrollmessungen ändern nichts
+  await expect(rows).toHaveCount(before);
+
+  // Fläche 200 × 100 px, Startpunkt schließt; ausdrücklich ins Aufmaß übernehmen
+  await page.getByTestId('probe-kind-area').click();
+  for (const [dx, dy] of [[0, 0], [200, 0], [200, 100], [0, 100], [0, 0]]) await at(dx, dy);
+  expect(Math.abs((await val()) - m(200) * m(100))).toBeLessThan(0.02);
+  await expect(page.getByTestId('probe-result')).toContainText('Umfang');
+  await expect(rows).toHaveCount(before);
+  await page.getByTestId('probe-adopt').click();
+  const dlg = page.getByTestId('damage-dialog');
+  await expect(dlg).toContainText('Neue Fläche');
+  await expect(dlg.getByTestId('use-geometry')).toHaveAttribute('aria-pressed', 'true'); // Fläche aus dem Plan
+  await dlg.getByTestId('damage-save').click();
+  await expect(rows).toHaveCount(before + 1);
+  await expect(page.getByTestId('probe-bar')).toHaveCount(0);
+  await snap.click(); // Punktfang wieder ein
+  await waitSaved(page);
+});
+

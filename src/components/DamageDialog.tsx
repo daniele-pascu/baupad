@@ -42,6 +42,8 @@ interface Props {
   suggestion?: { length: number; width: number | null } | null;
   /** Kalibrierter bzw. gezeichneter Plan, geschlossene Form: Fläche und Umfang aus der Geometrie */
   geometry?: { area: number; perimeter: number; formula: string } | null;
+  /** Wand: offener Verlauf, Länge aus allen Abschnitten, dazu Wandhöhe → Wandfläche */
+  wall?: boolean;
   onSave: (v: DamageValues, renumber: Renumber) => void;
   onCancel: () => void;
   onDelete?: () => void;
@@ -53,10 +55,10 @@ type Field = 'number' | 'length' | 'width' | 'depth';
  * Eingabe einer Messung bzw. Schadstelle. Öffnet sich automatisch nach dem Einzeichnen.
  * Enter/Weiter springt zum nächsten Feld; im letzten Feld wird gespeichert.
  */
-export function DamageDialog({ mode, damage, others, components, positions = [], suggestion, geometry, onSave, onCancel, onDelete }: Props) {
+export function DamageDialog({ mode, damage, others, components, positions = [], suggestion, geometry, wall = false, onSave, onCancel, onDelete }: Props) {
   /** Fläche und Umfang aus dem Plan übernehmen (nur bei Flächen-Messarten) */
   // Linie: Länge aus dem Plan (kalibriert) – bei neuen Linien vorgewählt, wird bei Formänderung nachgeführt
-  const lineSuggest = !hasArea(damage.kind) && suggestion ? suggestion.length : null;
+  const lineSuggest = (!hasArea(damage.kind) || wall) && suggestion ? suggestion.length : null;
   const [fromShape, setFromShape] = useState(
     damage.areaFromShape ? !!geometry || lineSuggest !== null : mode === 'new' && lineSuggest !== null && lineSuggest > 0,
   );
@@ -80,7 +82,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   // Aus der Geometrie: Fläche und Umfang kommen aus der Form, nur Nummer und Tiefe sind einzugeben
   const geo = withArea && fromShape && geometry ? geometry : null;
   // Linie: Länge, dazu optional Höhe und Tiefe (getrennt, keine Fläche)
-  const lineGeo = !withArea && fromShape && lineSuggest !== null && lineSuggest > 0 ? lineSuggest : null;
+  const lineGeo = (!withArea || wall) && fromShape && lineSuggest !== null && lineSuggest > 0 ? lineSuggest : null;
   const fields: Field[] = geo ? ['number', 'depth'] : lineGeo !== null ? ['number', 'width', 'depth'] : ['number', 'length', 'width', 'depth'];
 
   // Reine Zahl = Nummer; sonst Kennzeichnung aus Buchstaben (z. B. „A“, „Wand B“, „1A“).
@@ -93,7 +95,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const L = geo ? ({ ok: true, value: geo.perimeter } as const) : lineGeo !== null ? ({ ok: true, value: lineGeo } as const) : checkMeasure(v.length, 'Länge');
   // Nur die Länge ist Pflicht. Breite/Höhe und Tiefe sind optional: leer bleibt leer (null,
   // nicht 0), eine Eingabe muss aber gültig sein
-  const B = !geo && v.width.trim() ? checkMeasure(v.width, withArea ? 'Breite/Höhe' : 'Höhe') : null;
+  const B = !geo && v.width.trim() ? checkMeasure(v.width, withArea && !wall ? 'Breite/Höhe' : 'Höhe') : null;
   const T = v.depth.trim() ? checkMeasure(v.depth, 'Tiefe') : null;
   const area = geo ? geo.area : withArea && L.ok && B?.ok ? computeArea(L.value, B.value) : null;
   // Nummernkonflikte nur unter reinen Nummern (Kennzeichnungen haben eine eigene Prüfung)
@@ -172,7 +174,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
           autoComplete="off"
           placeholder={name === 'depth' || name === 'width' ? 'optional' : undefined}
           aria-invalid={showErrors && !!errors[name]}
-          data-autofocus={mode === 'new' && name === 'length' ? '' : undefined}
+          // Länge aus dem Plan: gleich die Höhe eingeben (bei der Wand die Wandhöhe)
+          data-autofocus={mode === 'new' && name === (lineGeo !== null ? 'width' : 'length') ? '' : undefined}
           data-testid={`input-${name}`}
         />
         <span className="unit">{unit}</span>
@@ -185,7 +188,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
 
   return (
     <Modal
-      title={mode === 'new' ? `Neue ${KIND_LABELS[kind]}` : `${KIND_LABELS[kind]} ${damageNo(damage)} bearbeiten`}
+      title={mode === 'new' ? `Neue ${wall ? 'Wand' : KIND_LABELS[kind]}` : `${wall ? 'Wand' : KIND_LABELS[kind]} ${damageNo(damage)} bearbeiten`}
       onClose={onCancel}
       persistent
       testId="damage-dialog"
@@ -233,7 +236,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
           ) : (
             field('length', 'Länge *', 'm')
           )}
-          {!geo && field('width', withArea ? 'Breite / Höhe (optional)' : 'Höhe (optional)', 'm')}
+          {!geo && field('width', wall ? 'Wandhöhe' : withArea ? 'Breite / Höhe (optional)' : 'Höhe (optional)', 'm')}
           {field('depth', 'Tiefe (optional)', 'm')}
         </div>
         {withArea && geometry && (
@@ -247,7 +250,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             {geo ? 'Maße wieder von Hand eingeben' : `Fläche aus Plan übernehmen: ${formatArea(geometry.area)} m²`}
           </button>
         )}
-        {!withArea && lineSuggest !== null && lineSuggest > 0 && (
+        {(!withArea || wall) && lineSuggest !== null && lineSuggest > 0 && (
           <button
             type="button"
             className={`btn btn-sm suggest-btn${lineGeo !== null ? ' active' : ''}`}
@@ -258,7 +261,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             {lineGeo !== null ? 'Länge wieder von Hand eingeben' : `Länge aus Plan übernehmen: ${formatArea(lineSuggest)} m (alle Abschnitte)`}
           </button>
         )}
-        {suggestion && !geo && withArea && (
+        {suggestion && !geo && withArea && !wall && (
           <button
             type="button"
             className="btn btn-sm suggest-btn"
@@ -282,6 +285,11 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             <>
               <span>Fläche aus Plan ({geo.formula}) – wird bei Formänderung nachgeführt</span>
               <strong>{formatArea(geo.area)} m²</strong>
+            </>
+          ) : wall ? (
+            <>
+              <span>{area !== null ? 'Wandfläche (Länge × Höhe)' : 'Wandfläche erst mit Wandhöhe – Höhe kann später ergänzt werden'}</span>
+              <strong data-testid="wall-area">{area !== null ? `${formatArea(area)} m²` : L.ok ? `L ${formatArea(L.value)} m` : '–'}</strong>
             </>
           ) : withArea ? (
             <>

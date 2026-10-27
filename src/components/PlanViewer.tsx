@@ -49,6 +49,10 @@ export type Tool =
   | 'text'
   | 'polygon'
   | 'polyline'
+  /** Wand: Verlauf Punkt für Punkt, immer offen */
+  | 'wall'
+  /** Messung (Kontrollmessung): Punkte antippen, nichts wird verändert */
+  | 'probe'
   | 'calibrate'
   /** Bogen aus drei Punkten */
   | 'arc'
@@ -60,7 +64,7 @@ export type Tool =
   | 'extend';
 
 /** Werkzeuge, die Punkt für Punkt gesetzt werden (Polygon = immer geschlossen, Polylinie = offen oder geschlossen) */
-const isPointTool = (t: Tool) => t === 'polygon' || t === 'polyline' || t === 'arc';
+const isPointTool = (t: Tool) => t === 'polygon' || t === 'polyline' || t === 'wall' || t === 'arc' || t === 'probe';
 /** Strecken auch per Klick, Klick (Punkt A, Punkt B) – dazwischen z. B. mit X zoomen */
 const CLICK_LINE = new Set<string>(['line', 'calibrate']);
 
@@ -148,7 +152,11 @@ interface Props {
   renderItem?(item: ViewerItem, view: View, selected: boolean): ReactNode | undefined;
   /** Zusätzliche Ebene unter bzw. über den Objekten (Bildschirmkoordinaten) */
   underlay?(view: View, size: { w: number; h: number }): ReactNode;
-  overlay?(view: View, preview: Shape | null): ReactNode;
+  overlay?(view: View, preview: Shape | null, hover?: Point | null): ReactNode;
+  /** Messung: angetippter Punkt (mit Punktfang) – die Planansicht selbst verändert dabei nichts */
+  onProbePoint?(p: Point, scale: number): void;
+  /** Messung: letzter gesetzter Punkt (Vorschau der nächsten Strecke mit Fang von dort) */
+  probeFrom?: Point | null;
   /** Einrasten an Raster und Fangpunkten (nur gezeichnete Pläne) */
   snap?: SnapFn;
   /** Vergrößerung mit X begonnen bzw. beendet */
@@ -760,9 +768,9 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         forceRender((n) => n + 1);
       }
       // Vorschau der nächsten Kante beim Setzen von Flächenpunkten (mit Fang bzw. 90°, wie der Klick)
-      if (isPointTool(propsRef.current.tool) && poly.current.length && viewRef.current) {
+      if (isPointTool(propsRef.current.tool) && (poly.current.length || propsRef.current.tool === 'probe') && viewRef.current) {
         const hp = clampP(toPage(viewRef.current, localPoint(e)));
-        const last = poly.current[poly.current.length - 1];
+        const last = propsRef.current.tool === 'probe' ? (propsRef.current.probeFrom ?? undefined) : poly.current[poly.current.length - 1];
         polyHover.current = e.pointerType === 'mouse' && propsRef.current.snap ? clampP(snapAt(hp, { tool: t, scale: viewRef.current.scale, from: last })) : hp;
         forceRender((n) => n + 1);
       }
@@ -982,7 +990,13 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         const raw = clampP(toPage(v, p));
         const snap = propsRef.current.snap;
         const pts = poly.current;
-        const pp = clampP(snap ? snapAt(raw, { scale: v.scale, tool: propsRef.current.tool, from: pts[pts.length - 1] }) : raw);
+        const probing = propsRef.current.tool === 'probe';
+        const pp = clampP(snap ? snapAt(raw, { scale: v.scale, tool: propsRef.current.tool, from: probing ? (propsRef.current.probeFrom ?? undefined) : pts[pts.length - 1] }) : raw);
+        // Messung: Punkt nur melden – keine Form, keine Auswahl, nichts wird verändert
+        if (probing) {
+          propsRef.current.onProbePoint?.(pp, v.scale);
+          return;
+        }
         const first = pts[0];
         const now = Date.now();
         const lt = lastTap.current;
@@ -992,7 +1006,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         // (Polygon: geschlossen, Polylinie: offen)
         // (auch im 90°-Modus: maßgeblich ist der angetippte Punkt)
         const nearFirst = (q: Point) => Math.hypot((first.x - q.x) * v.scale, (first.y - q.y) * v.scale) < (isCoarse() ? 22 : 12);
-        const onFirst = pts.length >= 3 && (nearFirst(pp) || nearFirst(raw));
+        // Wand bleibt immer offen (Antippen des Startpunkts setzt einen weiteren Punkt)
+        const onFirst = propsRef.current.tool !== 'wall' && pts.length >= 3 && (nearFirst(pp) || nearFirst(raw));
         if (onFirst) {
           finishPolygon(true);
           return;
@@ -1045,7 +1060,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
    */
   function finishPolygon(closed?: boolean) {
     const pts = poly.current;
-    const close = closed ?? propsRef.current.tool !== 'polyline';
+    const tool = propsRef.current.tool;
+    const close = tool === 'wall' ? false : (closed ?? tool !== 'polyline');
     if (pts.length < (close ? 3 : 2)) return;
     poly.current = [];
     polyHover.current = null;
@@ -1201,7 +1217,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
           {snapMark.current && props.snap && (tool !== 'select' || g.kind === 'vertex' || g.kind === 'move' || g.kind === 'resize') && (
             <SnapMarker view={view} mark={snapMark.current} hold={!!lupe.current} />
           )}
-          {props.overlay?.(view, drawPreview)}
+          {props.overlay?.(view, drawPreview, polyHover.current)}
           {/* Verbindungslinien zuerst, damit sie unter den Nummern liegen */}
           {damages.map((d) => {
             const r = labels.get(d.id);

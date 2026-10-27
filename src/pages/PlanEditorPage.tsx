@@ -17,8 +17,10 @@ import { calibrationFrom, detectScale, sourceText } from '../lib/scale-detect';
 import { visibleDamages } from '../lib/layers';
 import { LayerMenu } from '../components/LayerMenu';
 import { drawingRegion, drawingSheet, isDrawingPlan, lineEnds, paperLabel, shapeToPage, suggestMeasures, unitsPerMeter } from '../lib/drawing';
-import { convertShape, isOpenShape, removeVertex, toScreen, type View } from '../lib/geometry';
-import { countKind, defaultKindFor, hasArea, KIND_LABELS, kindOf, sumLengths } from '../lib/measure';
+import { convertShape, isOpenShape, lineShape, polygonShape, removeVertex, rotatePoint, shapeVertices, toScreen, type Point, type View } from '../lib/geometry';
+import { PROBE_KINDS, probeTarget, type ProbeKind } from '../lib/probe';
+import { ProbeBar, ProbeOverlay, type ProbeState } from '../components/ProbeLayer';
+import { countKind, defaultKindFor, hasArea, isWall, KIND_LABELS, kindOf, measureLabel, sumLengths } from '../lib/measure';
 import { checkMeasure, computeArea, formatArea, formatMeasure, toInputValue } from '../lib/numbers';
 import { compactNumbers, damageNo, duplicateIds, nextNumber, planNumberStart, shiftNumbers, suggestNext, swapNumbers } from '../lib/numbering';
 import { navigate, paths } from '../lib/router';
@@ -31,7 +33,7 @@ import { DrawRibbon, OrthoButtons } from '../components/DrawRibbon';
 import { elementLabel } from '../components/DrawPanel';
 import { StylePanel } from '../components/StylePanel';
 
-type DialogState = { mode: 'new'; shape: Shape; number: number; label: string | null; kind: MeasureKind } | { mode: 'edit'; id: string } | null;
+type DialogState = { mode: 'new'; shape: Shape; number: number; label: string | null; kind: MeasureKind; fromShape?: boolean } | { mode: 'edit'; id: string } | null;
 
 const TOOLS: { id: Tool; label: string; short?: string; icon: string; key: string }[] = [
   { id: 'select', label: 'Auswählen / Verschieben', short: 'Auswahl', icon: 'select', key: 'v' },
@@ -40,6 +42,9 @@ const TOOLS: { id: Tool; label: string; short?: string; icon: string; key: strin
   { id: 'ellipse', label: SHAPE_LABELS.ellipse, icon: 'ellipse', key: 'k' },
   { id: 'polygon', label: 'Fläche: Eckpunkte nacheinander setzen', short: 'Fläche', icon: 'polygon', key: 'p' },
   { id: 'polyline', label: 'Freie Form: Punkte nacheinander setzen – offen (Länge) oder geschlossen (Fläche), z. B. ein Dreieck', short: 'Freie Form', icon: 'polyline', key: 'f' },
+  { id: 'wall', label: 'Wand: Verlauf mit Knicken setzen, Enter oder Doppelklick beendet – danach Wandhöhe eingeben', short: 'Wand', icon: 'wall', key: 'w' },
+  // Kontrollmessung: Menü mit Länge, Fläche, Winkel, Radius, Abstand – verändert nichts
+  { id: 'probe', label: 'Messung: Länge, Fläche, Winkel, Radius oder Abstand nachmessen – ändert nichts', short: 'Messung', icon: 'dimension', key: 'n' },
   // nur importierte Pläne (gezeichnete haben ihren Maßstab bereits)
   { id: 'calibrate', label: 'Maßstab kalibrieren: Strecke bekannter Länge im Plan ziehen', short: 'Kalibrieren', icon: 'calibrate', key: 'm' },
 ];
@@ -58,11 +63,34 @@ const OP_HINTS: Partial<Record<DrawTool, string>> = {
 };
 
 /** Werkzeuge, die Punkt für Punkt gesetzt werden */
-const isPointTool = (t: Tool) => t === 'polygon' || t === 'polyline';
+const isPointTool = (t: Tool) => t === 'polygon' || t === 'polyline' || t === 'wall';
 
 /** Leiste beim Setzen von Punkten: Polylinie (im Zeichenmodus „Freie Form“) offen beenden oder schließen, Fläche schließen */
-function PolylineBar({ polyline, count, viewer, lineName = 'Polylinie' }: { polyline: boolean; count: number; viewer: React.RefObject<PlanViewerHandle | null>; lineName?: string }) {
-  const name = polyline ? lineName : 'Fläche';
+function PolylineBar({ polyline, count, viewer, lineName = 'Polylinie', wall = false }: { polyline: boolean; count: number; viewer: React.RefObject<PlanViewerHandle | null>; lineName?: string; wall?: boolean }) {
+  const name = wall ? 'Wand' : polyline ? lineName : 'Fläche';
+  if (wall)
+    return (
+      <div className="draw-bar" data-testid="polygon-bar">
+        {count === 0 ? (
+          <span className="muted small">Wand: Anfangspunkt und alle Knicke nacheinander antippen. Enter, Doppelklick oder „Fertig“ beendet den Verlauf – danach die Wandhöhe eingeben.</span>
+        ) : (
+          <>
+            <strong className="draw-bar-title">
+              {name}: {count} Punkt{count === 1 ? '' : 'e'}
+            </strong>
+            <button type="button" className="btn btn-sm btn-primary" onClick={() => viewer.current?.finishPolygon(false)} disabled={count < 2} data-testid="wall-finish">
+              <Icon name="check" size={18} /> Fertig
+            </button>
+            <button type="button" className="btn btn-sm" onClick={() => viewer.current?.undoPolygonPoint()} title="Letzten Punkt entfernen (Rücktaste)" data-testid="polygon-undo-point">
+              <Icon name="undo" size={18} /> Punkt
+            </button>
+            <button type="button" className="btn btn-sm" onClick={() => viewer.current?.cancelPolygon()} data-testid="polygon-cancel">
+              Abbrechen
+            </button>
+          </>
+        )}
+      </div>
+    );
   return (
     <div className="draw-bar" data-testid="polygon-bar">
 
@@ -186,6 +214,12 @@ function withShapeMeasures<T extends Pick<Damage, 'areaFromShape' | 'kind' | 'le
   if (!d.areaFromShape) return d;
   // Linie mit Länge aus dem Plan: Gesamtlänge aller Abschnitte (Höhe/Tiefe bleiben)
   if (!hasArea(kindOf(d))) return k ? { ...d, length: suggestMeasures(shape, k).length } : d;
+  // Wand: Länge aus allen Abschnitten, Höhe bleibt → Wandfläche neu
+  if (isWall({ kind: d.kind, shape })) {
+    if (!k) return d;
+    const length = suggestMeasures(shape, k).length;
+    return { ...d, length, area: d.width !== null ? computeArea(length, d.width) : null };
+  }
   const g = geometryMeasures(shape, k);
   return g ? { ...d, length: g.perimeter, width: null, area: g.area } : d;
 }
@@ -249,9 +283,15 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const data = useAppState((s) => s.data) as ProjectState;
   const history = useAppState((s) => s.history);
   const plan = data.plans[planId];
-  const [tool, setToolState] = useState<Tool>(() => loadPref('tool', TOOLS.map((t) => t.id), 'ellipse'));
+  const [tool, setToolState] = useState<Tool>(() => loadPref('tool', TOOLS.map((t) => t.id).filter((t) => t !== 'probe'), 'ellipse'));
   const [color, setColorState] = useState(() => loadPref('color', COLORS.map((c) => c.value), DEFAULT_COLOR));
   const [selectedId, setSelectedId] = useState<string | null>(focusDamageId);
+  /** Kontrollmessung (Werkzeug „Messung“) – wird nicht gespeichert */
+  const [probe, setProbe] = useState<ProbeState | null>(null);
+  const [probeMenu, setProbeMenu] = useState(false);
+  useEffect(() => {
+    if (tool !== 'probe') setProbe(null);
+  }, [tool]);
   /** Aufmaß: ausgewählter Eckpunkt der ausgewählten Messung (zum Entfernen) */
   const [measureVertex, setMeasureVertex] = useState<number | null>(null);
   useEffect(() => setMeasureVertex(null), [selectedId]);
@@ -502,6 +542,16 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         return;
       }
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || document.querySelector('.modal')) return;
+      // Messung: Enter beendet (Länge/Fläche), Rücktaste nimmt den letzten Punkt zurück, Escape verwirft bzw. beendet
+      if (!drawMode && tool === 'probe' && probe && ['Enter', 'Escape', 'Backspace', 'Delete'].includes(e.key)) {
+        e.preventDefault();
+        if (e.key === 'Enter') finishProbe();
+        else if (e.key === 'Escape') {
+          if (probe.points.length && !probe.done) setProbe({ ...probe, points: [] });
+          else closeProbe();
+        } else if (!probe.done) setProbe({ ...probe, points: probe.points.slice(0, -1) });
+        return;
+      }
       // Punktwerkzeuge: Enter beendet (Polylinie offen, Polygon geschlossen), C schließt,
       // Rücktaste/Entf nimmt den letzten Punkt zurück, Escape verwirft
       if (polyCount && ['Enter', 'Escape', 'Backspace', 'Delete'].includes(e.key) || (polyCount && key === 'c' && !e.ctrlKey && !e.metaKey)) {
@@ -631,6 +681,51 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     putRecords({ damages: recs });
   };
 
+  /** Messung starten: mit ausgewähltem Objekt gleich dessen Länge, Fläche bzw. Radius; bei „Abstand“ und einer ausgewählten Linie senkrecht zu ihr */
+  const startProbe = (kind: ProbeKind) => {
+    setProbeMenu(false);
+    const sel = selectedId ? data.damages[selectedId] : null;
+    let st: ProbeState = { kind, points: [], done: false, ref: null };
+    if (sel && !sel.deletedAt) {
+      const verts = shapeVertices(sel.shape);
+      const open = isOpenShape(sel.shape);
+      if (kind === 'length' && verts.length >= 2) st = { kind, points: open ? verts : [...verts, verts[0]], done: true, fromObject: sel.id };
+      else if (kind === 'area' && !open && verts.length >= 3) st = { kind, points: verts, done: true, fromObject: sel.id };
+      else if (kind === 'radius' && sel.shape.type === 'ellipse') {
+        const c = { x: sel.shape.x + sel.shape.w / 2, y: sel.shape.y + sel.shape.h / 2 };
+        st = { kind, points: [c, rotatePoint({ x: c.x + sel.shape.w / 2, y: c.y }, c, sel.shape.rotation ?? 0)], done: true, fromObject: sel.id };
+      } else if (kind === 'distance' && open && verts.length === 2) st = { kind, points: [], done: false, ref: [verts[0], verts[1]] };
+    }
+    setProbe(st);
+    setTool('probe');
+  };
+  const probePoint = (p: Point, scale: number) =>
+    setProbe((pr) => {
+      if (!pr) return pr;
+      // fertig: nächster Punkt beginnt eine neue Messung derselben Art
+      const base = pr.done ? { ...pr, points: [], done: false, fromObject: null } : pr;
+      // Fläche: Antippen des Startpunkts schließt
+      if (base.kind === 'area' && base.points.length >= 3 && Math.hypot(p.x - base.points[0].x, p.y - base.points[0].y) * scale < (matchMedia('(pointer: coarse)').matches ? 22 : 12))
+        return { ...base, done: true };
+      const points = [...base.points, p];
+      const target = probeTarget(base.kind, !!base.ref);
+      return { ...base, points, done: target !== null && points.length >= target };
+    });
+  const finishProbe = () =>
+    setProbe((pr) => (pr && !pr.done && ((pr.kind === 'length' && pr.points.length >= 2) || (pr.kind === 'area' && pr.points.length >= 3)) ? { ...pr, done: true } : pr));
+  const closeProbe = () => {
+    setProbe(null);
+    setTool('select');
+  };
+  /** Ausdrücklich ins Aufmaß übernehmen: Länge → Linie, Fläche → Fläche (Maße aus dem Plan) */
+  const adoptProbe = () => {
+    if (!probe || !probe.done) return;
+    const pts = probe.points;
+    const shape = probe.kind === 'area' ? polygonShape(pts, true) : pts.length === 2 ? lineShape(pts[0], pts[1]) : polygonShape(pts, false);
+    setDialog({ mode: 'new', shape, ...suggestNext(stored, planNumberStart(plan)), kind: probe.kind === 'area' ? 'area' : 'line', fromShape: true });
+    closeProbe();
+  };
+
   /** Ausgewählten Eckpunkt der Messung entfernen (Maße aus dem Plan werden nachgeführt) */
   const removeMeasureVertex = (): boolean => {
     const d = selectedId ? data.damages[selectedId] : null;
@@ -647,8 +742,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     const finalShape = convertShape(dialog.mode === 'new' ? dialog.shape : data.damages[dialog.id].shape, v.shapeType);
     const geo = v.areaFromShape && hasArea(v.kind) ? geometryMeasures(finalShape, k) : null;
     // Linie mit Länge aus dem Plan: Gesamtlänge aller Abschnitte, wird bei Formänderungen nachgeführt
-    const lineFromPlan = v.areaFromShape && !hasArea(v.kind) && k ? suggestMeasures(finalShape, k).length : null;
-    const area = geo ? geo.area : hasArea(v.kind) && v.width !== null ? computeArea(v.length, v.width) : null;
+    const wall = isWall({ kind: v.kind, shape: finalShape });
+    const lineFromPlan = v.areaFromShape && (!hasArea(v.kind) || wall) && k ? suggestMeasures(finalShape, k).length : null;
+    const area = geo ? geo.area : hasArea(v.kind) && v.width !== null ? computeArea(lineFromPlan ?? v.length, v.width) : null;
     const measures = {
       kind: v.kind,
       length: geo ? geo.perimeter : (lineFromPlan ?? v.length),
@@ -700,7 +796,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       setTool('select');
       setToolsOpen(false);
       const amount = area !== null ? `${formatArea(area)} m²` : `${formatMeasure(v.length)} m`;
-      toast(`${KIND_LABELS[v.kind]} ${shown} gespeichert (${amount}).`, 'success', 2500);
+      toast(`${wall ? 'Wand' : KIND_LABELS[v.kind]} ${shown} gespeichert (${amount}).`, 'success', 2500);
     } else {
       const d = data.damages[dialog.id];
       const patch = {
@@ -720,7 +816,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   };
 
   const removeDamage = async (d: Damage) => {
-    const label = `${KIND_LABELS[kindOf(d)]} ${damageNo(d)}`;
+    const label = `${measureLabel(d)} ${damageNo(d)}`;
     const ok = await confirmDialog({
       title: `${label} löschen?`,
       message: (
@@ -1045,21 +1141,25 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                       mode: 'new',
                       shape,
                       ...suggestNext(stored, planNumberStart(plan)),
-                      kind: defaultKindFor(shape),
+                      // Wand: Fläche mit offenem Verlauf (Länge × Höhe)
+                      kind: tool === 'wall' ? 'area' : defaultKindFor(shape),
                     })
               }
               snap={drawing.snapOn ? measureSnap : undefined}
               onLupeChange={setLupeOn}
-              overlay={
-                tool === 'calibrate' && plan.calibration
-                  ? (view) => (
-                      <>
-                        <CalibrationLine view={view} c={plan.calibration!} />
-                        {plan.calibration!.check && <CheckLine view={view} c={plan.calibration!.check} />}
-                      </>
-                    )
-                  : undefined
-              }
+              overlay={(view, _preview, hover) => (
+                <>
+                  {tool === 'calibrate' && plan.calibration && (
+                    <>
+                      <CalibrationLine view={view} c={plan.calibration} />
+                      {plan.calibration.check && <CheckLine view={view} c={plan.calibration.check} />}
+                    </>
+                  )}
+                  {tool === 'probe' && probe && <ProbeOverlay view={view} probe={probe} hover={hover ?? null} k={k} />}
+                </>
+              )}
+              onProbePoint={probePoint}
+              probeFrom={probe && !probe.done && probe.points.length ? probe.points[probe.points.length - 1] : null}
               onShapeChange={(id, shape, commit) => {
                 if (commit) {
                   setOverrides(({ [id]: _, ...rest }) => rest);
@@ -1223,8 +1323,20 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               X gehalten: <span className="lupe-dot" /> Fangpunkt · Klick setzt ihn <span className="lupe-dot set" /> · loslassen = zurück · Enter fertig · ⌫ letzter Punkt
             </div>
           )}
+          {!drawMode && tool === 'probe' && probe && !dialog && (
+            <ProbeBar
+              probe={probe}
+              k={k}
+              onKind={(kind) => setProbe({ kind, points: [], done: false, ref: kind === 'distance' ? probe.ref : null })}
+              onFinish={finishProbe}
+              onUndo={() => setProbe({ ...probe, points: probe.points.slice(0, -1) })}
+              onReset={() => setProbe({ ...probe, points: [], done: false, fromObject: null })}
+              onAdopt={adoptProbe}
+              onClose={closeProbe}
+            />
+          )}
           {(drawMode ? isPointTool(drawing.viewerTool) && (polyCount > 0 || !drawing.selected) : isPointTool(tool) && (polyCount > 0 || !selected)) && !dialog && (
-            <PolylineBar polyline={(drawMode ? drawing.tool : tool) === 'polyline'} count={polyCount} viewer={viewer} lineName="Freie Form" />
+            <PolylineBar polyline={(drawMode ? drawing.tool : tool) === 'polyline'} wall={!drawMode && tool === 'wall'} count={polyCount} viewer={viewer} lineName="Freie Form" />
           )}
 
           {!drawMode && tool === 'calibrate' && !dialog && (
@@ -1272,12 +1384,12 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             </div>
           )}
 
-          {!drawMode && selected && !dialog && !polyCount && tool !== 'calibrate' && (
+          {!drawMode && selected && !dialog && !polyCount && tool !== 'calibrate' && tool !== 'probe' && (
             <div className="selection-bar" data-testid="selection-bar">
               <div className="selection-info">
                 <span className="color-dot" style={{ background: selected.color }} />
                 <strong>
-                  {kindOf(selected) === 'damage' ? '' : `${KIND_LABELS[kindOf(selected)]} `}Nr. {damageNo(selected)}
+                  {kindOf(selected) === 'damage' ? '' : `${measureLabel(selected)} `}Nr. {damageNo(selected)}
                 </strong>
                 <span>{measureSummary(selected)}</span>
                 {k && <MeasureCheck damage={selected} k={k} />}
@@ -1356,8 +1468,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                   key={t.id}
                   type="button"
                   className={`tool-btn${tool === t.id ? ' active' : ''}`}
-                  onClick={() => setTool(t.id)}
+                  onClick={() => (t.id === 'probe' ? setProbeMenu(!probeMenu) : setTool(t.id))}
                   aria-pressed={tool === t.id}
+                  aria-expanded={t.id === 'probe' ? probeMenu : undefined}
                   title={`${t.label} (${t.key.toUpperCase()})`}
                   data-testid={`tool-${t.id}`}
                 >
@@ -1365,6 +1478,16 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                   <span>{t.short ?? t.label}</span>
                 </button>
               ))}
+              {probeMenu && (
+                <div className="probe-menu" role="menu" aria-label="Messung" data-testid="probe-menu">
+                  {PROBE_KINDS.map((x) => (
+                    <button key={x.id} type="button" role="menuitem" onClick={() => startProbe(x.id)} data-testid={`probe-menu-${x.id}`}>
+                      <strong>{x.label}</strong>
+                      <span className="muted small">{x.hint}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="tool-group colors">
               {COLORS.map((c) => (
@@ -1472,9 +1595,12 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             shapeType: dialog.shape.type,
             kind: dialog.kind,
             positionRef: activePosition ? lastPosition : null,
+            // aus einer Messung übernommen: Maße aus dem Plan vorgewählt
+            areaFromShape: dialog.fromShape,
           }}
           suggestion={k ? suggestMeasures(dialog.shape, k) : null}
           geometry={geometryMeasures(dialog.shape, k)}
+          wall={isWall({ kind: dialog.kind, shape: dialog.shape })}
           others={stored}
           components={[]}
           positions={positionOptions}
@@ -1488,6 +1614,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           damage={{ ...dialogDamage, shapeType: dialogDamage.shape.type as ShapeType, kind: kindOf(dialogDamage) }}
           suggestion={k ? suggestMeasures(dialogDamage.shape, k) : null}
           geometry={geometryMeasures(dialogDamage.shape, k)}
+          wall={isWall(dialogDamage)}
           others={stored}
           components={[]}
           positions={positionOptions}
