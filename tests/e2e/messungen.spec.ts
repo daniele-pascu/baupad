@@ -367,8 +367,8 @@ test('Datenbank-Umstellung von Version 1: vorhandene Projekte bleiben vollständ
         };
       }),
   );
-  expect(info.version).toBe(4);
-  expect(info.stores).toEqual(expect.arrayContaining(['components', 'outbox', 'elements', 'lvDocs', 'projects', 'damages']));
+  expect(info.version).toBe(5);
+  expect(info.stores).toEqual(expect.arrayContaining(['components', 'outbox', 'elements', 'lvDocs', 'workers', 'weeks', 'projects', 'damages']));
   expect(info.upgradedFrom).toBe(1);
   // Datensätze unverändert (keine neue Revision, keine Felder verändert)
   expect(info.project).toMatchObject({ id: 'p-alt', name: 'Altprojekt', rev: 3 });

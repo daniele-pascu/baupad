@@ -182,7 +182,7 @@ export function WorkersPage() {
 
         {times === null && (
           <div className="crew-setup" style={ACCENT} data-testid="crew-setup-times">
-            <span className="tool-icon">
+            <span className="tile-icon">
               <Icon name="calendar" size={22} />
             </span>
             <div>
@@ -196,7 +196,7 @@ export function WorkersPage() {
         )}
         {active.length === 0 && (
           <div className="crew-setup" style={ACCENT} data-testid="crew-setup-workers">
-            <span className="tool-icon">
+            <span className="tile-icon">
               <ToolIcon name="workers" size={22} />
             </span>
             <div>

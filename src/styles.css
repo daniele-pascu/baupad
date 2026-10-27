@@ -4404,6 +4404,7 @@ button.status-pill:hover {
   max-width: 820px;
   margin-top: 14px;
 }
+/* Hinweis: Klassen der Kacheln heißen „tile-…“ – „tool-…“ ist in der Planansicht schon vergeben (tool-text, tool-rect …) */
 /* Industrie-Stil (hell): weiße Karte, farbiges Symbolfeld, großes feines Symbol im Hintergrund */
 .tool-tile {
   --tool: #ff6a13;
@@ -4437,7 +4438,7 @@ a.tool-tile:focus-visible {
   outline: none;
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--tool) 30%, transparent);
 }
-.tool-mark {
+.tile-mark {
   position: absolute;
   right: -26px;
   bottom: -26px;
@@ -4445,13 +4446,13 @@ a.tool-tile:focus-visible {
   opacity: 0.12;
   pointer-events: none;
 }
-.tool-top {
+.tile-top {
   position: relative;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
 }
-.tool-icon {
+.tile-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -4462,7 +4463,7 @@ a.tool-tile:focus-visible {
   color: #fff;
   box-shadow: 0 8px 16px -8px var(--tool, #ff6a13);
 }
-.tool-text {
+.tile-text {
   position: relative;
   display: flex;
   flex-direction: column;
@@ -4470,35 +4471,35 @@ a.tool-tile:focus-visible {
   margin-top: 8px;
   min-width: 0;
 }
-.tool-text strong {
+.tile-text strong {
   font-size: 1.12rem;
   font-weight: 650;
   letter-spacing: -0.01em;
   /* lange Wörter nie über den Rand (sehr schmale Handys: Schrift wird kleiner, siehe unten) */
   overflow-wrap: anywhere;
 }
-.tool-text span {
+.tile-text span {
   color: var(--muted);
   font-size: 0.9rem;
   line-height: 1.35;
 }
-.tool-go,
-.tool-soon-label {
+.tile-go,
+.tile-soon-label {
   position: relative;
   margin-top: auto;
   font-size: 0.86rem;
   font-weight: 600;
 }
-.tool-go {
+.tile-go {
   color: var(--tool);
 }
-.tool-soon-label {
+.tile-soon-label {
   color: #8a8a8e;
 }
 .tool-soon {
   cursor: default;
 }
-.empty .tool-icon {
+.empty .tile-icon {
   margin: 0 auto 8px;
 }
 @media (max-width: 519px) {
@@ -4510,23 +4511,23 @@ a.tool-tile:focus-visible {
     padding: 14px;
     gap: 10px;
   }
-  .tool-icon {
+  .tile-icon {
     width: 40px;
     height: 40px;
   }
-  .tool-mark {
+  .tile-mark {
     width: 112px;
     height: 112px;
   }
-  .tool-text strong {
+  .tile-text strong {
     /* „Projektverwaltung“, „Fotodokumentation“ bleiben auch auf kleinen Handys einzeilig */
     font-size: clamp(0.8rem, 3.7vw, 1rem);
   }
-  .tool-text span {
+  .tile-text span {
     font-size: 0.8rem;
   }
-  .tool-go,
-  .tool-soon-label {
+  .tile-go,
+  .tile-soon-label {
     font-size: 0.8rem;
   }
 }

@@ -41,22 +41,22 @@ export function ToolsPage() {
           {TOOLS.map((t) => {
             const body = (
               <>
-                <ToolIcon name={t.id} weight="thin" size={132} className="tool-mark" />
-                <span className="tool-top">
-                  <span className="tool-icon" aria-hidden="true">
+                <ToolIcon name={t.id} weight="thin" size={132} className="tile-mark" />
+                <span className="tile-top">
+                  <span className="tile-icon" aria-hidden="true">
                     <ToolIcon name={t.id} size={22} />
                   </span>
                 </span>
-                <span className="tool-text">
+                <span className="tile-text">
                   <strong>{t.title}</strong>
                   <span>{t.text}</span>
                 </span>
                 {t.href ? (
-                  <span className="tool-go">
+                  <span className="tile-go">
                     Öffnen <span aria-hidden="true">→</span>
                   </span>
                 ) : (
-                  <span className="tool-soon-label">In Vorbereitung</span>
+                  <span className="tile-soon-label">In Vorbereitung</span>
                 )}
               </>
             );
