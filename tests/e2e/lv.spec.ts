@@ -78,6 +78,7 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   await expect(page.getByTestId('lv-measured-total')).toHaveText('286,00 €');
 
   // Nach dem Neuladen bleibt alles erhalten
+  await waitSaved(page);
   await page.reload();
   await expect(page.getByTestId('lv-row')).toHaveCount(4);
   await expect(page.getByTestId('lv-measured-total')).toHaveText('286,00 €');
@@ -180,6 +181,7 @@ test('Kurz-LV (eine Zeile je Position, Punkt-Nummern) importieren: alle Position
   await expect(row('o. Nr. 1')).toContainText('Baustelle einrichten');
   await expect(row('S1.12.14.85.03A.2')).toContainText('kg');
   // bleibt nach dem Neuladen erhalten
+  await waitSaved(page);
   await page.reload();
   await expect(page.getByTestId('lv-row')).toHaveCount(8);
 });
@@ -304,6 +306,7 @@ test('LV/MFK manuell: Positionen als Tabelle eingeben, Enter = nächste Zeile mi
   await expect(row('3')).toContainText('Randabschluss');
   await expect(row('2')).toHaveCount(0);
   // bleibt nach dem Neuladen erhalten; weiteres manuelles Dokument wird als MFK vorgeschlagen
+  await waitSaved(page);
   await page.reload();
   await expect(page.getByTestId('lv-row')).toHaveCount(2);
   await page.getByTestId('lv-new').click();
