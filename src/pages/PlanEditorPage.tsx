@@ -18,7 +18,7 @@ import { visibleDamages } from '../lib/layers';
 import { LayerMenu } from '../components/LayerMenu';
 import { drawingRegion, drawingSheet, isDrawingPlan, lineEnds, paperLabel, shapeToPage, suggestMeasures, unitsPerMeter } from '../lib/drawing';
 import { convertShape, isOpenShape, toScreen, type View } from '../lib/geometry';
-import { countKind, defaultKindFor, hasArea, KIND_LABELS, KINDS, kindOf, sumLengths } from '../lib/measure';
+import { countKind, defaultKindFor, hasArea, KIND_LABELS, kindOf, sumLengths } from '../lib/measure';
 import { checkMeasure, computeArea, formatArea, formatMeasure, toInputValue } from '../lib/numbers';
 import { compactNumbers, damageNo, duplicateIds, nextNumber, planNumberStart, shiftNumbers, suggestNext, swapNumbers } from '../lib/numbering';
 import { navigate, paths } from '../lib/router';
@@ -38,9 +38,8 @@ const TOOLS: { id: Tool; label: string; short?: string; icon: string; key: strin
   { id: 'line', label: SHAPE_LABELS.line, icon: 'line', key: 'l' },
   { id: 'rect', label: SHAPE_LABELS.rect, icon: 'rect', key: 'r' },
   { id: 'ellipse', label: SHAPE_LABELS.ellipse, icon: 'ellipse', key: 'k' },
-  { id: 'triangle', label: SHAPE_LABELS.triangle, icon: 'triangle', key: 'd' },
   { id: 'polygon', label: 'Fläche: Eckpunkte nacheinander setzen', short: 'Fläche', icon: 'polygon', key: 'p' },
-  { id: 'polyline', label: 'Polylinie: Punkte nacheinander setzen – offen (Länge) oder geschlossen (Fläche)', short: 'Polylinie', icon: 'polyline', key: 'f' },
+  { id: 'polyline', label: 'Freie Form: Punkte nacheinander setzen – offen (Länge) oder geschlossen (Fläche), z. B. ein Dreieck', short: 'Freie Form', icon: 'polyline', key: 'f' },
   // nur importierte Pläne (gezeichnete haben ihren Maßstab bereits)
   { id: 'calibrate', label: 'Maßstab kalibrieren: Strecke bekannter Länge im Plan ziehen', short: 'Kalibrieren', icon: 'calibrate', key: 'm' },
 ];
@@ -635,8 +634,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     const measures = {
       kind: v.kind,
       length: geo ? geo.perimeter : v.length,
-      width: hasArea(v.kind) && !geo ? v.width : null,
-      depth: hasArea(v.kind) ? v.depth : null,
+      // Linie: Breite = Höhe (optional), getrennt von der Länge – ergibt keine Fläche
+      width: geo ? null : v.width,
+      depth: v.depth,
       area,
       areaFromShape: geo ? true : undefined,
       componentId: v.componentId,
@@ -652,7 +652,6 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     // Umnummerieren betrifft nur Messungen mit reiner Nummer
     const plain = stored.filter((d) => !d.label);
     const shown = v.label ?? String(v.number);
-    storePref('measureKind', v.kind);
     setLastPosition(v.positionRef ?? '');
     if (dialog.mode === 'new') {
       const dmg: Damage = {
@@ -1028,7 +1027,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                       mode: 'new',
                       shape,
                       ...suggestNext(stored, planNumberStart(plan)),
-                      kind: defaultKindFor(shape, loadPref('measureKind', KINDS, 'damage')),
+                      kind: defaultKindFor(shape),
                     })
               }
               snap={drawing.snapOn ? measureSnap : undefined}
@@ -1204,7 +1203,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             </div>
           )}
           {(drawMode ? isPointTool(drawing.viewerTool) && (polyCount > 0 || !drawing.selected) : isPointTool(tool) && (polyCount > 0 || !selected)) && !dialog && (
-            <PolylineBar polyline={(drawMode ? drawing.tool : tool) === 'polyline'} count={polyCount} viewer={viewer} lineName={drawMode ? 'Freie Form' : 'Polylinie'} />
+            <PolylineBar polyline={(drawMode ? drawing.tool : tool) === 'polyline'} count={polyCount} viewer={viewer} lineName="Freie Form" />
           )}
 
           {!drawMode && tool === 'calibrate' && !dialog && (

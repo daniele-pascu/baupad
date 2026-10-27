@@ -127,22 +127,12 @@ test('Linien mit Länge und Richtung schließen aneinander an; Kreis, Dreieck, M
   expect(lines[0].shape.h).toBeCloseTo(3, 6);
   expect(lines[1].shape.w).toBeCloseTo(2.5, 6);
 
-  // Kreis über Durchmesser, Dreieck über Grundseite und Höhe
+  // Kreis über Durchmesser (Dreiecke entstehen über „Freie Form“ mit drei Eckpunkten)
   await deselect();
   await pickTool(page, 'draw-ellipse');
   await page.getByTestId('insert-diameter').fill('1,2');
   await page.getByTestId('insert-submit').click();
   await expect(dim('Ø 1,20 m')).toBeVisible();
-  await deselect();
-  await pickTool(page, 'draw-triangle');
-  await page.getByTestId('insert-base').fill('2');
-  await page.getByTestId('insert-height').fill('1,5');
-  await page.getByTestId('insert-submit').click();
-  await expect(dim('1,50 m')).toBeVisible();
-  // Dreieck nachträglich bemaßen
-  await page.getByTestId('element-base').fill('2,4');
-  await page.getByTestId('element-base').press('Enter');
-  await expect(dim('2,40 m')).toBeVisible();
 
   // Maßlinie durch Ziehen (rastet am Raster ein) – Länge wird angezeigt
   await deselect();
@@ -233,7 +223,7 @@ test('Nach dem Neuladen ist alles da; PDF-Export mit Maßstab; Sicherung und Wie
   await page.reload();
   // Plan mit Inhalt öffnet im Aufmaß
   await expect(page.getByTestId('mode-measure-tab')).toHaveAttribute('aria-selected', 'true');
-  await expect(page.locator('[data-element]')).toHaveCount(7);
+  await expect(page.locator('[data-element]')).toHaveCount(6);
   await expect(page.locator('[data-testid="aufmass-row"]')).toHaveCount(1);
   await expect(dim('6,20 m')).toBeVisible();
 
@@ -262,7 +252,7 @@ test('Nach dem Neuladen ist alles da; PDF-Export mit Maßstab; Sicherung und Wie
   await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Als Kopie importieren' }).click();
   await expect(page.getByTestId('project-title')).toHaveText('Zeichnung (Kopie)');
   await page.getByTestId('plan-open').first().click();
-  await expect(page.locator('[data-element]')).toHaveCount(7);
+  await expect(page.locator('[data-element]')).toHaveCount(6);
   await expect(dim('6,20 m')).toBeVisible();
   await expect(page.locator('[data-testid="aufmass-row"]')).toHaveCount(1);
 });

@@ -59,7 +59,7 @@ test('Obere Werkzeugleiste: Registerkarten Zeichnen, Ändern, Darstellung, Messe
   const bb = (await bar.boundingBox())!;
   expect(bb.y + bb.height).toBeLessThanOrEqual((await sheet().boundingBox())!.y + 1);
   for (const [tab, ids] of [
-    ['draw', ['draw-select', 'draw-line', 'draw-polyline', 'draw-rect', 'draw-ellipse', 'draw-arc', 'draw-triangle', 'draw-polygon', 'draw-text', 'draw-delete', 'draw-undo', 'draw-redo']],
+    ['draw', ['draw-select', 'draw-line', 'draw-polyline', 'draw-rect', 'draw-ellipse', 'draw-arc', 'draw-polygon', 'draw-text', 'draw-delete', 'draw-undo', 'draw-redo']],
     ['modify', ['draw-move', 'draw-copy', 'draw-rotate', 'draw-scale', 'draw-stretch', 'draw-trim', 'draw-extend']],
     ['style', ['ribbon-style']],
     ['measure', ['draw-dimension', 'ribbon-measure']],
@@ -73,6 +73,7 @@ test('Obere Werkzeugleiste: Registerkarten Zeichnen, Ändern, Darstellung, Messe
   await expect(bar.getByTestId('draw-rotate')).toBeDisabled();
   await bar.getByTestId('ribbon-tab-draw').click();
   await expect(bar.getByTestId('draw-freehand')).toHaveCount(0); // Freihand durch Polylinie ersetzt
+  await expect(bar.getByTestId('draw-triangle')).toHaveCount(0); // Dreieck über „Freie Form“
   // Bezeichnungen: „Freie Form“ (statt Polylinie) und „Fläche“ (statt Polygon), nebeneinander
   await expect(bar.getByTestId('draw-polyline')).toHaveText('Freie Form');
   await expect(bar.getByTestId('draw-polygon')).toHaveText('Fläche');
@@ -254,8 +255,8 @@ test('Aufmaß: offene Polylinie = Linienmessung mit Länge, geschlossene = Fläc
   for (const [dx, dy] of [[0, 0], [150, 0], [150, 80]]) await page.mouse.click(x + dx, y + dy);
   await page.getByTestId('polyline-open').click();
   const dlg = page.getByTestId('damage-dialog');
-  await expect(dlg.getByTestId('kind-line')).toHaveAttribute('aria-checked', 'true');
-  await expect(dlg.getByTestId('input-width')).toHaveCount(0);
+  await expect(dlg).toContainText('Neue Linie');
+  await expect(dlg).toContainText('Höhe (optional)');
   // Längenvorschlag = Summe der Abschnitte
   const sug = num((await dlg.getByTestId('use-suggestion').textContent())!.match(/([\d.,]+) m/)![1]);
   expect(Math.abs(sug - 230 / s / 100)).toBeLessThan(0.03);
@@ -266,7 +267,7 @@ test('Aufmaß: offene Polylinie = Linienmessung mit Länge, geschlossene = Fläc
   await pickTool(page, 'tool-polyline');
   for (const [dx, dy] of [[-260, -40], [-160, -40], [-160, 40], [-260, 40]]) await page.mouse.click(x + dx, y + dy);
   await page.getByTestId('polygon-finish').click();
-  await expect(dlg.getByTestId('kind-line')).toHaveAttribute('aria-checked', 'false');
-  await expect(dlg.getByTestId('input-width')).toBeVisible();
+  await expect(dlg).toContainText('Neue Fläche');
+  await expect(dlg).toContainText('Breite / Höhe (optional)');
   await dlg.getByTestId('damage-cancel').click();
 });

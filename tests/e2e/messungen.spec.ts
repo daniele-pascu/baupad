@@ -54,7 +54,7 @@ async function storedDamages(p: Page) {
   );
 }
 
-test('Messarten Linie, Schadstelle, Fläche: Linien zählen nicht zur Fläche, leere Tiefe bleibt leer', async () => {
+test('Messart aus der Form (Linie / Fläche), keine Auswahl beim Einfügen: Linien zählen nicht zur Fläche, leere Tiefe bleibt leer', async () => {
   await freshStart(page);
   await createProject(page, 'Messarten', {}, ['Decke']);
   await page.getByTestId('plan-file-input').setInputFiles(join(FIXTURES, 'parkdeck.png'));
@@ -67,7 +67,9 @@ test('Messarten Linie, Schadstelle, Fläche: Linien zählen nicht zur Fläche, l
   const dlg = page.getByTestId('damage-dialog');
 
   // Neue Werkzeuge und Farben sind vorhanden
-  for (const t of ['select', 'line', 'rect', 'ellipse', 'triangle', 'polyline']) await expect(page.getByTestId(`tool-${t}`)).toBeVisible();
+  for (const t of ['select', 'line', 'rect', 'ellipse', 'polygon', 'polyline']) await expect(page.getByTestId(`tool-${t}`)).toBeVisible();
+  await expect(page.getByTestId('tool-triangle')).toHaveCount(0); // Dreieck über „Freie Form“
+  await expect(page.getByTestId('tool-polyline')).toContainText('Freie Form');
   await expect(page.getByRole('button', { name: 'Farbe Schwarz' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Farbe Weiß' })).toBeVisible();
 
@@ -75,9 +77,12 @@ test('Messarten Linie, Schadstelle, Fläche: Linien zählen nicht zur Fläche, l
   await pickTool(page, 'tool-line');
   await drawRect(page, box.x + box.width * 0.1, box.y + box.height * 0.2, box.x + box.width * 0.35, box.y + box.height * 0.3);
   await expect(dlg).toBeVisible();
-  await expect(dlg.getByTestId('kind-line')).toHaveAttribute('aria-checked', 'true');
-  await expect(dlg.getByTestId('input-width')).toHaveCount(0);
-  await expect(dlg.getByTestId('input-depth')).toHaveCount(0);
+  // keine Messart-Auswahl mehr – Linie ergibt sich aus dem Werkzeug; Höhe und Tiefe optional
+  await expect(dlg).toContainText('Neue Linie');
+  await expect(dlg.locator('[data-testid^="kind-"]')).toHaveCount(0);
+  await expect(dlg).toContainText('Höhe (optional)');
+  await expect(dlg.getByTestId('input-width')).toHaveAttribute('placeholder', 'optional');
+  await expect(dlg.getByTestId('input-depth')).toHaveAttribute('placeholder', 'optional');
   await expect(dlg.getByTestId('area-result')).toContainText('keine Fläche');
   await dlg.getByTestId('input-length').fill('3,5');
   await dlg.getByTestId('damage-save').click();
@@ -87,12 +92,18 @@ test('Messarten Linie, Schadstelle, Fläche: Linien zählen nicht zur Fläche, l
   await expect(page.getByTestId('sum-area')).toHaveText('0,00');
   await expect(page.getByTestId('sum-length')).toHaveText('3,50 m');
 
-  // 2) Dreieck in Schwarz als Schadstelle ohne Tiefe
+  // 2) Dreieck über „Freie Form“ (drei Eckpunkte, Startpunkt schließt) in Schwarz, ohne Tiefe
   await openTools(page); // Leiste klappt nach jeder Messung zu
   await page.getByRole('button', { name: 'Farbe Schwarz' }).click();
-  await pickTool(page, 'tool-triangle');
-  await drawRect(page, box.x + box.width * 0.45, box.y + box.height * 0.2, box.x + box.width * 0.6, box.y + box.height * 0.4);
-  await expect(dlg.getByTestId('kind-damage')).toHaveAttribute('aria-checked', 'true');
+  await pickTool(page, 'tool-polyline');
+  const tri = [
+    [0.45, 0.4],
+    [0.6, 0.4],
+    [0.52, 0.2],
+    [0.45, 0.4],
+  ];
+  for (const [fx, fy] of tri) await page.mouse.click(box.x + box.width * fx, box.y + box.height * fy);
+  await expect(dlg).toContainText('Neue Fläche');
   await expect(dlg.getByTestId('input-number')).toHaveValue('2');
   await expect(dlg.getByTestId('input-depth')).toHaveAttribute('placeholder', 'optional');
   await dlg.getByTestId('input-length').fill('2');
@@ -108,7 +119,6 @@ test('Messarten Linie, Schadstelle, Fläche: Linien zählen nicht zur Fläche, l
   await page.getByRole('button', { name: 'Farbe Weiß' }).click();
   await pickTool(page, 'tool-rect');
   await drawRect(page, box.x + box.width * 0.2, box.y + box.height * 0.55, box.x + box.width * 0.4, box.y + box.height * 0.7);
-  await dlg.getByTestId('kind-area').click();
   await expect(dlg).toContainText('Neue Fläche');
   await dlg.getByTestId('input-length').fill('1');
   await dlg.getByTestId('input-width').fill('0,5');
@@ -137,7 +147,7 @@ test('Messarten Linie, Schadstelle, Fläche: Linien zählen nicht zur Fläche, l
   const stored = await storedDamages(page);
   expect(stored.map((d) => [d.number, d.kind, d.depth])).toEqual([
     [1, 'line', null],
-    [2, 'damage', null],
+    [2, 'area', null],
     [3, 'area', 0.1],
   ]);
 
@@ -232,7 +242,7 @@ test('Bauteile sind ausgeblendet; vorhandene Bauteil-Daten bleiben erhalten', as
   await page.reload();
   await waitForPlan(page);
   await expect(page.locator('[data-component]')).toHaveCount(0); // nicht mehr im Plan angezeigt
-  await row(2).getByRole('button', { name: 'Schadstelle 2 bearbeiten' }).click();
+  await row(2).getByRole('button', { name: 'Fläche 2 bearbeiten' }).click();
   const dlg = page.getByTestId('damage-dialog');
   await expect(dlg.getByTestId('input-component')).toHaveCount(0);
   await dlg.getByTestId('input-length').fill('2,5');

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { hasArea, KIND_LABELS, KINDS } from '../lib/measure';
+import { hasArea, KIND_LABELS } from '../lib/measure';
 import { checkMeasure, computeArea, formatArea, parseDecimal, toInputValue } from '../lib/numbers';
 import { damageNo, findByNumber, parseDamageNumber } from '../lib/numbering';
 import { COLORS, SHAPE_LABELS, type Component, type Damage, type MeasureKind, type ShapeType } from '../lib/types';
@@ -62,7 +62,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
     width: toInputValue(damage.width),
     depth: toInputValue(damage.depth),
   });
-  const [kind, setKind] = useState<MeasureKind>(damage.kind);
+  // Messart ergibt sich aus der Form (keine Auswahl beim Einfügen); bestehende bleibt erhalten
+  const kind: MeasureKind = damage.kind;
   const [color, setColor] = useState(damage.color);
   const [shapeType, setShapeType] = useState<ShapeType>(damage.shapeType);
   const [componentId, setComponentId] = useState<string | null>(damage.componentId ?? null);
@@ -74,7 +75,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const withArea = hasArea(kind);
   // Aus der Geometrie: Fläche und Umfang kommen aus der Form, nur Nummer und Tiefe sind einzugeben
   const geo = withArea && fromShape && geometry ? geometry : null;
-  const fields: Field[] = geo ? ['number', 'depth'] : withArea ? ['number', 'length', 'width', 'depth'] : ['number', 'length'];
+  // Linie: Länge, dazu optional Höhe und Tiefe (getrennt, keine Fläche)
+  const fields: Field[] = geo ? ['number', 'depth'] : ['number', 'length', 'width', 'depth'];
 
   // Reine Zahl = Nummer; sonst Kennzeichnung aus Buchstaben (z. B. „A“, „Wand B“, „1A“).
   // Eine unveränderte bestehende Nummer (auch eine ältere 0) bleibt gültig; neue Nummern ab 1
@@ -86,8 +88,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const L = geo ? ({ ok: true, value: geo.perimeter } as const) : checkMeasure(v.length, 'Länge');
   // Nur die Länge ist Pflicht. Breite/Höhe und Tiefe sind optional: leer bleibt leer (null,
   // nicht 0), eine Eingabe muss aber gültig sein
-  const B = withArea && !geo && v.width.trim() ? checkMeasure(v.width, 'Breite/Höhe') : null;
-  const T = withArea && v.depth.trim() ? checkMeasure(v.depth, 'Tiefe') : null;
+  const B = !geo && v.width.trim() ? checkMeasure(v.width, withArea ? 'Breite/Höhe' : 'Höhe') : null;
+  const T = v.depth.trim() ? checkMeasure(v.depth, 'Tiefe') : null;
   const area = geo ? geo.area : withArea && L.ok && B?.ok ? computeArea(L.value, B.value) : null;
   // Nummernkonflikte nur unter reinen Nummern (Kennzeichnungen haben eine eigene Prüfung)
   const conflict = num !== null ? findByNumber(others.filter((o) => !o.label), num, damage.id) : undefined;
@@ -205,21 +207,6 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
           submit();
         }}
       >
-        <div className="segmented kind-switch" role="radiogroup" aria-label="Messart">
-          {KINDS.map((k) => (
-            <button
-              key={k}
-              type="button"
-              role="radio"
-              aria-checked={kind === k}
-              aria-selected={kind === k}
-              onClick={() => setKind(k)}
-              data-testid={`kind-${k}`}
-            >
-              {KIND_LABELS[k]}
-            </button>
-          ))}
-        </div>
         <div className="measure-grid">
           {field('number', 'Nr. / Kennz.', 'Nr.')}
           {geo ? (
@@ -233,8 +220,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
           ) : (
             field('length', 'Länge *', 'm')
           )}
-          {withArea && !geo && field('width', 'Breite / Höhe (optional)', 'm')}
-          {withArea && field('depth', 'Tiefe (optional)', 'm')}
+          {!geo && field('width', withArea ? 'Breite / Höhe (optional)' : 'Höhe (optional)', 'm')}
+          {field('depth', 'Tiefe (optional)', 'm')}
         </div>
         {withArea && geometry && (
           <button

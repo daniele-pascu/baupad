@@ -74,7 +74,7 @@ test('Kennzeichnungen A, B, C, „Wand A“ und Zahlen – Fortsetzung, Doppelpr
 
   // Bearbeiten: Kennzeichnung ändern
   await page.locator('[data-testid="aufmass-row"][data-number="B"]').getByRole('button', { name: /bearbeiten/ }).click();
-  await expect(dlg).toContainText('Schadstelle B bearbeiten');
+  await expect(dlg).toContainText('Fläche B bearbeiten');
   await dlg.getByTestId('input-number').fill('B2');
   await dlg.getByTestId('damage-save').click();
   await expect(page.locator('[data-testid="aufmass-row"][data-number="B2"]')).toHaveCount(1);

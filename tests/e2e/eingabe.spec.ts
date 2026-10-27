@@ -149,7 +149,6 @@ test('Messung: nur Länge Pflicht, Breite/Höhe und Tiefe optional; Werkzeugleis
   // Fläche (Messart) mit Länge und Tiefe, ohne Breite/Höhe → kein Volumen, keine Fläche
   await pickTool(page, 'tool-rect');
   await drawRect(page, box.x + box.width * 0.4, box.y + box.height * 0.1, box.x + box.width * 0.5, box.y + box.height * 0.2);
-  await dlg.getByTestId('kind-area').click();
   await dlg.getByTestId('input-length').fill('3');
   await dlg.getByTestId('input-depth').fill('0,1');
   await dlg.getByTestId('damage-save').click();

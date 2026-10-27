@@ -194,10 +194,10 @@ test('Neue geschlossene Formen ohne Füllung; Füllung später über Darstellung
   await expect(page.locator(`[data-element-id="${r1.id}"] path[data-line-type]`)).toBeVisible(); // Umrandung sichtbar
   await expect(page.getByTestId('element-info')).toContainText('Fläche');
   const info = await page.getByTestId('element-info').textContent();
-  // Dreieck und Polygon ebenfalls ohne Füllung
+  // Dreieck (Freie Form mit drei Punkten, Startpunkt schließt) und Fläche ebenfalls ohne Füllung
   await deselect();
-  await pickTool(page, 'draw-triangle');
-  await drag(sb.x + 740, sb.y + 380, sb.x + 860, sb.y + 500);
+  await pickTool(page, 'draw-polyline');
+  for (const [dx, dy] of [[0, 120], [120, 120], [60, 0], [0, 120]]) await page.mouse.click(sb.x + 740 + dx, sb.y + 380 + dy);
   await deselect();
   await pickTool(page, 'draw-polygon');
   for (const [dx, dy] of [[0, 0], [90, 0], [90, 70], [0, 70]]) await page.mouse.click(sb.x + 520 + dx, sb.y + 540 + dy);

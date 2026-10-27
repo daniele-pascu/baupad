@@ -33,10 +33,10 @@ test('Offene Polylinie (Riss) bleibt offen; Schadstellen nachträglich drehen un
   const dlg = page.getByTestId('damage-dialog');
   await expect(dlg.getByTestId('input-number')).toHaveValue('1');
   // Offene Linie → automatisch Linienmessung (nur Länge, keine Fläche)
-  await expect(dlg.getByTestId('kind-line')).toHaveAttribute('aria-checked', 'true');
-  await expect(dlg.getByTestId('input-width')).toHaveCount(0);
+  await expect(dlg).toContainText('Neue Linie');
+  await expect(dlg).toContainText('Höhe (optional)'); // Linie: Höhe und Tiefe optional, keine Fläche
   await dlg.getByTestId('input-length').fill('2,9');
-  await dlg.getByTestId('input-length').press('Enter');
+  await dlg.getByTestId('damage-save').click();
   await expect(dlg).toBeHidden();
   const crack = await pathOf(page, 1);
   expect(crack.d).not.toContain('Z'); // nicht automatisch geschlossen

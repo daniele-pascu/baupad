@@ -21,10 +21,9 @@ export const kindOf = (d: Pick<Damage, 'kind'>): MeasureKind => d.kind ?? 'damag
 /** Messarten mit Fläche (Länge × Breite) */
 export const hasArea = (k: MeasureKind) => k !== 'line';
 
-/** Naheliegende Messart für eine Form: offene Linien → Linienmessung. */
-export function defaultKindFor(shape: Shape, fallback: MeasureKind): MeasureKind {
-  if (shape.type === 'line' || (shape.type === 'freehand' && shape.closed === false)) return 'line';
-  return fallback === 'line' ? 'damage' : fallback;
+/** Messart aus der Form (keine Auswahl beim Einfügen): offene Linien → Linie, geschlossene Formen → Fläche. */
+export function defaultKindFor(shape: Shape): MeasureKind {
+  return shape.type === 'line' || (shape.type === 'freehand' && shape.closed === false) ? 'line' : 'area';
 }
 
 const clean = (n: number) => Math.round(n * 1e9) / 1e9;
