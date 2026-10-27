@@ -1,17 +1,5 @@
 const PATHS: Record<string, string> = {
   plus: 'M12 5v14M5 12h14',
-  /** Tools: Grundriss (Projekte und Pläne) */
-  blueprint: 'M4 4h16v16H4zM4 11h6v9M10 4v3M14 11h6M14 11v4M14 19v1',
-  /** Tools: Arbeitereinteilung (Bauhelm) */
-  helmet: 'M2 18.5h20v1.5H2zM4 18.5V16a8 8 0 0116 0v2.5M10 8.3V13M14 8.3V13M10 8.3a8 8 0 014 0',
-  /** Tools: Arbeitereinteilung (Bauarbeiter mit Helm) */
-  worker: 'M3.5 9h17M6 9a6 6 0 0112 0M12 3v3M7.5 9a4.5 4.5 0 009 0M3 22v-.5A5.5 5.5 0 018.5 16h7a5.5 5.5 0 015.5 5.5v.5M9.5 16l2.5 3.5 2.5-3.5',
-  /** Tools: Fotodokumentation (Kamera) */
-  camera: 'M4 8h3l2-3h6l2 3h3a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1V9a1 1 0 011-1zM12 10a3.5 3.5 0 110 7 3.5 3.5 0 010-7z',
-  /** Tools: Berichte und Formulare (Klemmbrett) */
-  clipboard: 'M9 3.5h6v3H9zM9 5H6.5A1.5 1.5 0 005 6.5v13A1.5 1.5 0 006.5 21h11a1.5 1.5 0 001.5-1.5v-13A1.5 1.5 0 0017.5 5H15M8.5 11h7M8.5 14.5h7M8.5 18h4',
-  /** Tools: noch in Planung */
-  soon: 'M12 3a9 9 0 110 18 9 9 0 010-18zM12 7v5l3 2',
   minus: 'M5 12h14',
   back: 'M15 18l-6-6 6-6',
   next: 'M9 18l6-6-6-6',
