@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DRAW_TOOLS, NEEDS_SELECTION, ORTHO_DIR_LABELS, type DrawTool, type useDrawing } from '../pages/DrawingMode';
 import { ORTHO_DIRS } from '../lib/cad';
 import { Icon } from './Icon';
@@ -60,9 +60,12 @@ export function DrawRibbon({
   onProbe?(kind: ProbeKind): void;
 }) {
   const [probeMenu, setProbeMenu] = useState(false);
+  // anderes Werkzeug bzw. andere Registerkarte: Menü der Messung zu
+  useEffect(() => setProbeMenu(false), [drawing.tool]);
   const [tab, setTabState] = useState<Tab>(readTab);
   const setTab = (t: Tab) => {
     setTabState(t);
+    setProbeMenu(false);
     try {
       localStorage.setItem('ribbonTab', t);
     } catch {
@@ -208,7 +211,7 @@ export function DrawRibbon({
           <div className="tool-group" role="group" aria-label="Messen">
             {toolBtn('dimension')}
             {onProbe && (
-              <span className="probe-anchor">
+              <span className="probe-anchor" data-probe-toggle>
                 {btn('ribbon-probe', 'dimension', 'Messung', () => setProbeMenu(!probeMenu), {
                   pressed: probeActive,
                   title: 'Messung: Länge, Fläche, Winkel, Radius oder Abstand nachmessen – ändert nichts',
@@ -216,6 +219,7 @@ export function DrawRibbon({
                 {probeMenu && (
                   <ProbeMenu
                     down
+                    onClose={() => setProbeMenu(false)}
                     onPick={(kind) => {
                       setProbeMenu(false);
                       onProbe(kind);

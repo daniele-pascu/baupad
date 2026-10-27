@@ -7,12 +7,12 @@ import { polygonArea, type Point } from './geometry';
  */
 export type ProbeKind = 'length' | 'area' | 'angle' | 'radius' | 'distance';
 
-export const PROBE_KINDS: { id: ProbeKind; label: string; hint: string }[] = [
-  { id: 'length', label: 'Länge', hint: 'Punkte nacheinander antippen – die Länge aller Abschnitte wird addiert. Enter oder „Fertig“ beendet.' },
-  { id: 'area', label: 'Fläche', hint: 'Eckpunkte nacheinander antippen, Startpunkt oder „Fertig“ schließt die Fläche.' },
-  { id: 'angle', label: 'Winkel', hint: 'Drei Punkte antippen: erster Schenkel, Scheitelpunkt, zweiter Schenkel.' },
-  { id: 'radius', label: 'Radius', hint: 'Mittelpunkt und einen Punkt auf dem Kreis antippen.' },
-  { id: 'distance', label: 'Abstand', hint: 'Zwei Punkte antippen – Abstand, waagrecht und senkrecht. Mit ausgewählter Linie: senkrechter Abstand zu ihr.' },
+export const PROBE_KINDS: { id: ProbeKind; label: string; icon: string; hint: string }[] = [
+  { id: 'length', label: 'Länge', icon: 'ruler', hint: 'Punkte nacheinander antippen – die Länge aller Abschnitte wird addiert. Enter oder „Fertig“ beendet.' },
+  { id: 'area', label: 'Fläche', icon: 'polygon', hint: 'Eckpunkte nacheinander antippen, Startpunkt oder „Fertig“ schließt die Fläche.' },
+  { id: 'angle', label: 'Winkel', icon: 'angle', hint: 'Drei Punkte antippen: erster Schenkel, Scheitelpunkt, zweiter Schenkel.' },
+  { id: 'radius', label: 'Radius', icon: 'radius', hint: 'Mittelpunkt und einen Punkt auf dem Kreis antippen.' },
+  { id: 'distance', label: 'Abstand', icon: 'dimension', hint: 'Zwei Punkte antippen – Abstand, waagrecht und senkrecht. Mit ausgewählter Linie: senkrechter Abstand zu ihr.' },
 ];
 
 /** Benötigte Punkte: feste Anzahl (Winkel 3, Radius 2, Abstand 2 bzw. 1 mit Bezugslinie) oder offen (Länge, Fläche). */

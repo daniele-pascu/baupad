@@ -548,6 +548,16 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         return;
       }
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || document.querySelector('.modal')) return;
+      // Aufmaß: Esc beendet alles – gesetzte Punkte, Messung, Menü, Auswahl – und schaltet auf „Auswahl“
+      if (!drawMode && e.key === 'Escape') {
+        e.preventDefault();
+        viewer.current?.cancelPolygon();
+        setProbe(null);
+        setProbeMenu(false);
+        setSelectedId(null);
+        setTool('select');
+        return;
+      }
       // Messung: Enter beendet (Länge/Fläche), Rücktaste nimmt den letzten Punkt zurück, Escape verwirft bzw. beendet
       if (probe && (drawMode || tool === 'probe') && ['Enter', 'Escape', 'Backspace', 'Delete'].includes(e.key)) {
         e.preventDefault();
@@ -1493,7 +1503,15 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                   key={t.id}
                   type="button"
                   className={`tool-btn${tool === t.id ? ' active' : ''}`}
-                  onClick={() => (t.id === 'probe' ? setProbeMenu(!probeMenu) : setTool(t.id))}
+                  onClick={() => {
+                    if (t.id === 'probe') setProbeMenu(!probeMenu);
+                    else {
+                      // anderes Werkzeug: Menü der Messung zu
+                      setProbeMenu(false);
+                      setTool(t.id);
+                    }
+                  }}
+                  data-probe-toggle={t.id === 'probe' ? '' : undefined}
                   aria-pressed={tool === t.id}
                   aria-expanded={t.id === 'probe' ? probeMenu : undefined}
                   title={`${t.label} (${t.key.toUpperCase()})`}
@@ -1503,7 +1521,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                   <span>{t.short ?? t.label}</span>
                 </button>
               ))}
-              {probeMenu && <ProbeMenu onPick={startProbe} />}
+              {probeMenu && <ProbeMenu onPick={startProbe} onClose={() => setProbeMenu(false)} />}
             </div>
             <div className="tool-group colors">
               {COLORS.map((c) => (

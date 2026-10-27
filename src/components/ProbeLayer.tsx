@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { toScreen, type Point, type View } from '../lib/geometry';
 import { formatProbe, PROBE_KINDS, probeResult, type ProbeKind, type ProbeResult } from '../lib/probe';
 import { Icon } from './Icon';
@@ -136,8 +137,8 @@ export function ProbeBar({
     <div className="draw-bar probe-bar" data-testid="probe-bar">
       <div className="segmented probe-kinds" role="radiogroup" aria-label="Messart">
         {PROBE_KINDS.map((x) => (
-          <button key={x.id} type="button" role="radio" aria-checked={probe.kind === x.id} aria-selected={probe.kind === x.id} onClick={() => onKind(x.id)} data-testid={`probe-kind-${x.id}`}>
-            {x.label}
+          <button key={x.id} type="button" role="radio" aria-checked={probe.kind === x.id} aria-selected={probe.kind === x.id} onClick={() => onKind(x.id)} title={x.hint} data-testid={`probe-kind-${x.id}`}>
+            <Icon name={x.icon} size={16} /> {x.label}
           </button>
         ))}
       </div>
@@ -185,14 +186,35 @@ export function ProbeBar({
   );
 }
 
-/** Menü des Werkzeugs „Messung“: fünf Messarten mit kurzer Anleitung (`down`: öffnet nach unten, z. B. unter der oberen Leiste) */
-export function ProbeMenu({ onPick, down = false }: { onPick(kind: ProbeKind): void; down?: boolean }) {
+/**
+ * Menü des Werkzeugs „Messung“: fünf Messarten mit Symbol und kurzer Anleitung (`down`: öffnet nach unten,
+ * z. B. unter der oberen Leiste). Schließt bei einem Tipp außerhalb (z. B. anderes Werkzeug, Plan).
+ */
+export function ProbeMenu({ onPick, onClose, down = false }: { onPick(kind: ProbeKind): void; onClose(): void; down?: boolean }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const close = useRef(onClose);
+  close.current = onClose;
+  useEffect(() => {
+    const onDown = (e: PointerEvent) => {
+      const t = e.target as Element | null;
+      // der Knopf „Messung“ selbst schaltet das Menü um
+      if (ref.current?.contains(t) || t?.closest?.('[data-probe-toggle]')) return;
+      close.current();
+    };
+    document.addEventListener('pointerdown', onDown, true);
+    return () => document.removeEventListener('pointerdown', onDown, true);
+  }, []);
   return (
-    <div className={`probe-menu${down ? ' probe-menu-down' : ''}`} role="menu" aria-label="Messung" data-testid="probe-menu">
+    <div ref={ref} className={`probe-menu${down ? ' probe-menu-down' : ''}`} role="menu" aria-label="Messung" data-testid="probe-menu">
       {PROBE_KINDS.map((x) => (
         <button key={x.id} type="button" role="menuitem" onClick={() => onPick(x.id)} data-testid={`probe-menu-${x.id}`}>
-          <strong>{x.label}</strong>
-          <span className="muted small">{x.hint}</span>
+          <span className="probe-menu-icon">
+            <Icon name={x.icon} size={22} />
+          </span>
+          <span className="probe-menu-text">
+            <strong>{x.label}</strong>
+            <span className="muted small">{x.hint}</span>
+          </span>
         </button>
       ))}
     </div>

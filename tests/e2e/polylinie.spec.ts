@@ -381,10 +381,22 @@ test('Messung: Menü mit fünf Messarten; Länge, Winkel, Radius, Abstand, Fläc
   const result = () => page.getByTestId('probe-result').locator('strong');
   const val = async () => num((await result().textContent())!.replace(/^r = /, '').replace(/\s*(m²|m|°)$/, ''));
 
-  // Menü
+  // Menü mit Symbolen; ein anderes Werkzeug schließt es
   await page.getByTestId('tool-probe').click();
   const menu = page.getByTestId('probe-menu');
   await expect(menu.getByRole('menuitem')).toHaveText([/Länge/, /Fläche/, /Winkel/, /Radius/, /Abstand/]);
+  await expect(menu.locator('.probe-menu-icon svg')).toHaveCount(5);
+  await page.screenshot({ path: 'tests/output/messung-menue.png' });
+  await page.getByTestId('tool-polyline').click();
+  await expect(menu).toHaveCount(0);
+  await expect(page.getByTestId('tool-polyline')).toHaveAttribute('aria-pressed', 'true');
+  // Tipp in den Plan schließt das Menü ebenfalls (Auswahl-Werkzeug, freie Stelle)
+  await page.getByTestId('tool-select').click();
+  await page.getByTestId('tool-probe').click();
+  await expect(menu).toBeVisible();
+  await page.mouse.click(sb.x + 30, sb.y + 30);
+  await expect(menu).toHaveCount(0);
+  await page.getByTestId('tool-probe').click();
   await menu.getByTestId('probe-menu-length').click();
   await expect(page.getByTestId('probe-hint')).toContainText('Punkte nacheinander');
 
@@ -424,8 +436,14 @@ test('Messung: Menü mit fünf Messarten; Länge, Winkel, Radius, Abstand, Fläc
   // Kontrollmessungen ändern nichts
   await expect(rows).toHaveCount(before);
 
+  // Esc beendet die Messung und schaltet auf „Auswahl“
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('probe-bar')).toHaveCount(0);
+  await expect(page.getByTestId('tool-select')).toHaveAttribute('aria-pressed', 'true');
+  await page.getByTestId('tool-probe').click();
+  await page.getByTestId('probe-menu').getByTestId('probe-menu-area').click();
+
   // Fläche 200 × 100 px, Startpunkt schließt; ausdrücklich ins Aufmaß übernehmen
-  await page.getByTestId('probe-kind-area').click();
   for (const [dx, dy] of [[0, 0], [200, 0], [200, 100], [0, 100], [0, 0]]) await at(dx, dy);
   expect(Math.abs((await val()) - m(200) * m(100))).toBeLessThan(0.02);
   await expect(page.getByTestId('probe-result')).toContainText('Umfang');

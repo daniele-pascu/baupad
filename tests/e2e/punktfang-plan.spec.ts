@@ -218,8 +218,10 @@ test('Kalibrieren und Linie per Klick, Klick: Punkt A, X halten, Punkt B – exa
   // Linie per Klick, Klick: linke Wand (7,70 m) – Länge aus dem Plan
   await pickTool(page, 'tool-line');
   await pickCorner(ROOM.x1, ROOM.y1);
-  await page.keyboard.press('Escape'); // Esc verwirft Punkt A
+  await page.keyboard.press('Escape'); // Esc verwirft Punkt A und schaltet auf „Auswahl“
   await expect(page.getByTestId('click-line-preview')).toHaveCount(0);
+  await expect(page.getByTestId('tool-select')).toHaveAttribute('aria-pressed', 'true');
+  await pickTool(page, 'tool-line');
   await pickCorner(ROOM.x1, ROOM.y1);
   await pickCorner(ROOM.x1, ROOM.y2);
   const dd = page.getByTestId('damage-dialog');
