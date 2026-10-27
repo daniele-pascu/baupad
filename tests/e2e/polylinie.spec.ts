@@ -376,7 +376,7 @@ test('Messung: Menü mit fünf Messarten; Länge, Winkel, Radius, Abstand, Fläc
   const snap = page.getByTestId('snap-toggle-measure');
   if ((await snap.getAttribute('aria-pressed')) === 'true') await snap.click();
   const x = sb.x + 160;
-  const y = sb.y + 300;
+  const y = sb.y + 160; // weit genug über der Leiste der Messung
   const at = (dx: number, dy: number) => page.mouse.click(x + dx, y + dy);
   const result = () => page.getByTestId('probe-result').locator('strong');
   const val = async () => num((await result().textContent())!.replace(/^r = /, '').replace(/\s*(m²|m|°)$/, ''));
@@ -405,6 +405,7 @@ test('Messung: Menü mit fünf Messarten; Länge, Winkel, Radius, Abstand, Fläc
   await at(0, 100);
   await expect(result()).toHaveText('90,0°');
   await expect(page.getByTestId('probe-angle-arc')).toBeVisible();
+  await page.screenshot({ path: 'tests/output/messung-winkel.png' });
 
   // Radius: Mittelpunkt und Punkt auf dem Kreis (60/80 px → 100 px), mit Durchmesser
   await page.getByTestId('probe-kind-radius').click();

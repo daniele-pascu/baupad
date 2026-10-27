@@ -177,7 +177,7 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   await expect(page.getByTestId('selection-bar')).toContainText('3,60 m²');
   // Alle Werkzeuge und Rückgängig/Wiederholen sind per Finger erreichbar, nichts ragt über den Rand
   const vw = page.viewportSize()!.width;
-  for (const t of ['select', 'line', 'rect', 'ellipse', 'triangle', 'polyline']) {
+  for (const t of ['select', 'line', 'rect', 'ellipse', 'polyline', 'wall', 'probe']) {
     const b = (await page.getByTestId(`tool-${t}`).boundingBox())!;
     expect(b.x).toBeGreaterThanOrEqual(0);
     expect(b.x + b.width).toBeLessThanOrEqual(vw + 0.5);
@@ -357,7 +357,7 @@ test('Plan zeichnen per Finger: Raum über Maßeingabe, Bemaßung sichtbar, Weit
   }
   // Registerkarten der oberen Leiste: jede Zeile per Finger wischbar, Knöpfe mindestens 44 px
   for (const [tab, ids] of [
-    ['draw', ['select', 'line', 'polyline', 'rect', 'ellipse', 'arc', 'triangle', 'polygon', 'text', 'delete', 'undo', 'redo']],
+    ['draw', ['select', 'line', 'polyline', 'polygon', 'rect', 'ellipse', 'arc', 'text', 'delete', 'undo', 'redo']],
     ['modify', ['move', 'copy', 'rotate', 'scale', 'stretch', 'trim', 'extend']],
     ['measure', ['dimension']],
   ] as const) {

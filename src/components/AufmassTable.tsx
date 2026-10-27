@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { AufmassRow } from '../lib/aufmass';
 import { sumArea } from '../lib/aufmass';
-import { countKind, hasVolume, isWall, kindOf, measureLabel, sumLengths, sumVolumes } from '../lib/measure';
+import { countKind, hasArea, hasVolume, isWall, kindOf, measureLabel, sumLengths, sumVolumes } from '../lib/measure';
 import { formatArea, formatMeasure } from '../lib/numbers';
 import { damageNo } from '../lib/numbering';
 import type { Component } from '../lib/types';
@@ -78,8 +78,8 @@ export function AufmassTable({ rows, showPlan, selectedId, onSelect, onEdit, onD
                 <td className="num">
                   <span className="color-dot" style={{ background: r.damage.color }} /> {damageNo(r.damage)}
                 </td>
-                <td className="num" title={r.damage.areaFromShape ? 'Umfang – Fläche aus dem Plan berechnet' : undefined}>
-                  {r.damage.areaFromShape ? `U ${formatMeasure(r.damage.length)}` : formatMeasure(r.damage.length)}
+                <td className="num" title={r.damage.areaFromShape && hasArea(kind) && !isWall(r.damage) ? 'Umfang – Fläche aus dem Plan berechnet' : undefined}>
+                  {r.damage.areaFromShape && hasArea(kind) && !isWall(r.damage) ? `U ${formatMeasure(r.damage.length)}` : formatMeasure(r.damage.length)}
                 </td>
                 <td className="num">{formatMeasure(r.damage.width)}</td>
                 <td className="num">{formatMeasure(r.damage.depth)}</td>

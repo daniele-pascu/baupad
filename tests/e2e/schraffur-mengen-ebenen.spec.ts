@@ -266,12 +266,14 @@ test('Importierter Plan: Fläche aus Plan erst nach dem Kalibrieren', async ({ p
   const d = (await stored(page, 'damages'))[0];
   expect(d.area).toBeCloseTo(12.5, 2);
   expect(d.length).toBeCloseTo(15, 2);
-  // Linienmessung: keine Flächenübernahme
+  // Linienmessung: keine Flächenübernahme, nur die Länge aus dem Plan
   await page.getByRole('button', { name: 'Auswahl aufheben' }).click();
   await pickTool(page, 'tool-line');
   await drawRect(page, box.x + 60, box.y + 160, box.x + 160, box.y + 160);
   await expect(dlg).toBeVisible();
-  await expect(dlg.getByTestId('use-geometry')).toHaveCount(0);
+  await expect(dlg.getByTestId('use-geometry')).toHaveText('Länge wieder von Hand eingeben');
+  await expect(dlg.getByTestId('geometry-perimeter')).toHaveCount(0);
+  await expect(dlg.getByTestId('area-result')).toContainText('Länge aus Plan');
 });
 
 test('Ebenen: Zeichnung, Bemaßung, Text und Messungen ein-/ausblenden – Ansicht, Fang und PDF', async ({ page }) => {

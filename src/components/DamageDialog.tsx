@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { hasArea, KIND_LABELS } from '../lib/measure';
 import { checkMeasure, computeArea, formatArea, parseDecimal, toInputValue } from '../lib/numbers';
 import { damageNo, findByNumber, parseDamageNumber } from '../lib/numbering';
@@ -77,6 +77,11 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const [resetLabel, setResetLabel] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const refs = useRef<Record<string, HTMLInputElement | null>>({});
+  // Wand mit Länge aus dem Plan: gleich nach der Wandhöhe fragen (nach dem Fokus des Dialogs)
+  useEffect(() => {
+    if (mode === 'new' && wall && refs.current.width && !refs.current.length) refs.current.width.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const withArea = hasArea(kind);
   // Aus der Geometrie: Fläche und Umfang kommen aus der Form, nur Nummer und Tiefe sind einzugeben

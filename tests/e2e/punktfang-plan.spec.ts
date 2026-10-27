@@ -223,6 +223,6 @@ test('Kalibrieren und Linie per Klick, Klick: Punkt A, X halten, Punkt B – exa
   await pickCorner(ROOM.x1, ROOM.y1);
   await pickCorner(ROOM.x1, ROOM.y2);
   const dd = page.getByTestId('damage-dialog');
-  await expect(dd.getByTestId('use-suggestion')).toContainText('7,70');
+  await expect(dd.getByTestId('geometry-length')).toHaveValue('7,70'); // Länge aus dem Plan (vorgewählt)
   await dd.getByTestId('damage-cancel').click();
 });

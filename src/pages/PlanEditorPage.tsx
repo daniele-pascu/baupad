@@ -225,10 +225,11 @@ function withShapeMeasures<T extends Pick<Damage, 'areaFromShape' | 'kind' | 'le
 }
 
 /** Kurzbeschreibung der Maße je Messart */
-function measureSummary(d: Pick<Damage, 'kind' | 'length' | 'width' | 'depth' | 'area' | 'areaFromShape'>): string {
+function measureSummary(d: Pick<Damage, 'kind' | 'length' | 'width' | 'depth' | 'area' | 'areaFromShape' | 'shape'>): string {
   if (!hasArea(kindOf(d))) return `L ${formatMeasure(d.length)} m`;
   const depth = d.depth !== null ? ` · T ${formatMeasure(d.depth)} m` : '';
-  if (d.areaFromShape && d.area !== null) return `${formatArea(d.area)} m² aus Plan · U ${formatMeasure(d.length)} m${depth}`;
+  // Wand: Länge (aus dem Plan) × Höhe – kein Umfang
+  if (d.areaFromShape && d.area !== null && !isWall(d)) return `${formatArea(d.area)} m² aus Plan · U ${formatMeasure(d.length)} m${depth}`;
   // ohne Breite/Höhe: nur die Länge, keine Fläche
   if (d.width === null || d.area === null) return `L ${formatMeasure(d.length)} m${depth}`;
   return `${formatMeasure(d.length)} × ${formatMeasure(d.width)} m${depth} = ${formatArea(d.area)} m²`;
@@ -242,7 +243,7 @@ function MeasureCheck({ damage, k }: { damage: Damage; k: number }) {
   if (damage.areaFromShape) {
     return (
       <span className="small muted" data-testid="measure-check">
-        {hasArea(kindOf(damage)) ? 'Fläche und Umfang werden aus der Form berechnet' : 'Länge wird aus der Form berechnet'}
+        {isWall(damage) ? 'Wandlänge wird aus der Form berechnet' : hasArea(kindOf(damage)) ? 'Fläche und Umfang werden aus der Form berechnet' : 'Länge wird aus der Form berechnet'}
       </span>
     );
   }
@@ -1395,7 +1396,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 {k && <MeasureCheck damage={selected} k={k} />}
               </div>
               {tool === 'select' ? (
-                <div className="selection-hint muted small">Ziehen = verschieben · Eckpunkte (○) einzeln ziehen · Seitengriffe (□) = Seite · Doppelklick auf Kante = Punkt einfügen</div>
+                <div className="selection-hint muted small">Ziehen = verschieben · ⟳ oben = drehen · Eckpunkte (○) einzeln ziehen · Seitengriffe (□) = Seite · Doppelklick auf Kante = Punkt einfügen</div>
               ) : null}
               <div className="row gap">
                 {tool !== 'select' && (

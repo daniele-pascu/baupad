@@ -136,7 +136,7 @@ export function ProbeBar({
     <div className="draw-bar probe-bar" data-testid="probe-bar">
       <div className="segmented probe-kinds" role="radiogroup" aria-label="Messart">
         {PROBE_KINDS.map((x) => (
-          <button key={x.id} type="button" role="radio" aria-checked={probe.kind === x.id} onClick={() => onKind(x.id)} data-testid={`probe-kind-${x.id}`}>
+          <button key={x.id} type="button" role="radio" aria-checked={probe.kind === x.id} aria-selected={probe.kind === x.id} onClick={() => onKind(x.id)} data-testid={`probe-kind-${x.id}`}>
             {x.label}
           </button>
         ))}

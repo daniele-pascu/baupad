@@ -2087,10 +2087,12 @@ tr.lv-flagged td {
   .tool-group {
     width: 100%;
     justify-content: space-around;
+    /* viele Werkzeuge: lieber zweite Reihe als zu schmale Knöpfe (Finger mind. 44 px) */
+    flex-wrap: wrap;
   }
   .tool-btn {
-    flex: 1;
-    min-width: 0;
+    flex: 1 0 46px;
+    min-width: 46px;
     padding: 2px 1px;
     font-size: 0.66rem;
   }
