@@ -44,7 +44,10 @@ test('Website: Startseite, Über BauPad, Kontakt, Anmelden und Logo', async ({ p
   await expect(page.getByTestId('login-unavailable')).toContainText('Die Anmeldung ist noch nicht eingerichtet.');
   expect(page.url()).toContain('#/anmelden'); // keine Weiterleitung, kein „angemeldet“
   await page.screenshot({ path: join(OUT, 'anmelden.png'), fullPage: true });
-  await page.getByTestId('login-unavailable').getByRole('link', { name: 'Weiter zur Projektverwaltung' }).click();
+  // nach der Anmeldung zuerst die Tools, von dort in die Projektverwaltung
+  await page.getByTestId('login-unavailable').getByRole('link', { name: 'Weiter zu den Tools' }).click();
+  await expect(page.getByTestId('tools-title')).toHaveText('Tools');
+  await page.getByTestId('tool-projects').click();
   await expect(page.getByTestId('projects-title')).toHaveText('Projektverwaltung');
 
   // Einstellungen: Kontobereich als Vorschau, alle Bereiche inaktiv
@@ -69,13 +72,45 @@ test('Website: Startseite, Über BauPad, Kontakt, Anmelden und Logo', async ({ p
   await expect(page.getByTestId('projects-title')).toHaveText('Projektverwaltung');
 });
 
-test('Installierte App startet direkt in der Projektverwaltung (auch ältere Home-Bildschirm-Symbole)', async ({ browser }) => {
+test('Installierte App startet in den Tools (auch ältere Home-Bildschirm-Symbole)', async ({ browser }) => {
   const context = await browser.newContext();
   await context.addInitScript(() => Object.defineProperty(navigator, 'standalone', { get: () => true }));
   const page = await context.newPage();
   await page.goto('./'); // alte Startadresse
-  await expect(page.getByTestId('projects-title')).toHaveText('Projektverwaltung');
+  await expect(page.getByTestId('tools-title')).toHaveText('Tools');
   await context.close();
+});
+
+test('Tools: vier gleich große Kacheln, zwei pro Reihe; Projektverwaltung und Arbeitereinteilung, zwei „Noch in Planung“', async ({ page }) => {
+  await page.goto('./#/tools');
+  const tiles = page.locator('.tool-tile');
+  await expect(tiles).toHaveCount(4);
+  await expect(tiles.locator('strong')).toHaveText(['Projektverwaltung', 'Arbeitereinteilung', 'Noch in Planung', 'Noch in Planung']);
+  const boxes = await Promise.all((await tiles.all()).map((t) => t.boundingBox()));
+  // 2 × 2, alle gleich groß
+  expect(Math.abs(boxes[0]!.y - boxes[1]!.y)).toBeLessThan(1);
+  expect(Math.abs(boxes[2]!.y - boxes[3]!.y)).toBeLessThan(1);
+  expect(boxes[2]!.y).toBeGreaterThan(boxes[0]!.y + boxes[0]!.height - 1);
+  for (const b of boxes) {
+    expect(Math.abs(b!.width - boxes[0]!.width)).toBeLessThan(1);
+    expect(Math.abs(b!.height - boxes[0]!.height)).toBeLessThan(1);
+  }
+  // „Noch in Planung“ ist nicht antippbar
+  await expect(page.getByTestId('tool-soon')).toHaveCount(2);
+  await expect(page.getByTestId('tool-soon').first()).toHaveAttribute('aria-disabled', 'true');
+  await expect(page.locator('a[data-testid="tool-soon"]')).toHaveCount(0);
+  await page.screenshot({ path: join(OUT, 'tools.png'), fullPage: true });
+  // Arbeitereinteilung (noch in Arbeit) und zurück
+  await page.getByTestId('tool-workers').click();
+  await expect(page.getByTestId('workers-title')).toHaveText('Arbeitereinteilung');
+  await expect(page.getByTestId('workers-soon')).toContainText('In Arbeit');
+  await page.getByTestId('to-tools').click();
+  await expect(page.getByTestId('tools-title')).toBeVisible();
+  // Projektverwaltung → zurück zu den Tools
+  await page.getByTestId('tool-projects').click();
+  await expect(page.getByTestId('projects-title')).toHaveText('Projektverwaltung');
+  await page.getByTestId('to-tools').click();
+  await expect(page.getByTestId('tools-title')).toBeVisible();
 });
 
 /** Erstellt eine Projektsicherung im bisherigen Datenformat (Kostenstellen ohne Nummer). */

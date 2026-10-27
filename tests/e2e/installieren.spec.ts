@@ -41,9 +41,9 @@ test('Android/PC: Installationsdialog des Browsers wird direkt geöffnet', async
 
 test('Bereits als App geöffnet: kein Installieren-Knopf; Konto zeigt Status', async ({ page }) => {
   await page.addInitScript(() => Object.defineProperty(navigator, 'standalone', { get: () => true }));
-  // die installierte App startet in der Projektverwaltung; die Startseite zeigt keinen Installieren-Link
+  // die installierte App startet in den Tools; die Startseite zeigt keinen Installieren-Link
   await page.goto('./#/');
-  await expect(page.getByTestId('projects-title')).toBeVisible();
+  await expect(page.getByTestId('tools-title')).toBeVisible();
   await page.evaluate(() => (location.hash = '#/'));
   await expect(page.getByTestId('cta-projects')).toBeVisible();
   await expect(page.getByTestId('install-app')).toHaveCount(0);

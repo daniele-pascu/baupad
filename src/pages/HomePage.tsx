@@ -217,7 +217,12 @@ export function HomePage() {
     <SiteNav />
     <div className="page home">
       <header className="page-head page-head-row">
-        <h1 data-testid="projects-title">Projektverwaltung</h1>
+        <div className="page-head-title">
+          <a href={paths.tools()} className="icon-link" aria-label="Zu den Tools" title="Zu den Tools" data-testid="to-tools">
+            <Icon name="back" />
+          </a>
+          <h1 data-testid="projects-title">Projektverwaltung</h1>
+        </div>
         <a href={paths.account()} className="icon-link" aria-label="Konto und Einstellungen" title="Konto und Einstellungen" data-testid="account-link">
           <Icon name="settings" />
         </a>

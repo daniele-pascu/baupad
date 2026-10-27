@@ -48,8 +48,8 @@ export function LoginPage() {
                 <strong>Die Anmeldung ist noch nicht eingerichtet.</strong> Es wurden keine Daten gesendet. Ihre Projekte werden weiterhin nur auf
                 diesem Gerät gespeichert.
               </p>
-              <a href={paths.projects()} className="btn btn-sm">
-                Weiter zur Projektverwaltung
+              <a href={paths.tools()} className="btn btn-sm">
+                Weiter zu den Tools
               </a>
             </div>
           )}
@@ -66,8 +66,8 @@ export function LoginPage() {
 
         <p className="auth-note">
           Noch ohne Benutzerkonto nutzbar:{' '}
-          <a href={paths.projects()} data-testid="login-skip">
-            direkt zur Projektverwaltung
+          <a href={paths.tools()} data-testid="login-skip">
+            direkt zu den Tools
           </a>
           {' · '}
           <a href={paths.account()}>Kontobereich (Vorschau)</a>

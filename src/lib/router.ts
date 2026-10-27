@@ -7,6 +7,8 @@ export type Route =
   | { name: 'about' }
   | { name: 'contact' }
   | { name: 'projects' }
+  | { name: 'tools' }
+  | { name: 'workers' }
   | { name: 'login' }
   | { name: 'account' }
   | { name: 'project'; projectId: string }
@@ -22,6 +24,8 @@ export function parseRoute(hash: string): Route {
   if (parts[0] === 'ueber' && parts.length === 1) return { name: 'about' };
   if (parts[0] === 'kontakt' && parts.length === 1) return { name: 'contact' };
   if (parts[0] === 'projekte' && parts.length === 1) return { name: 'projects' };
+  if (parts[0] === 'tools' && parts.length === 1) return { name: 'tools' };
+  if (parts[0] === 'arbeitereinteilung' && parts.length === 1) return { name: 'workers' };
   if (parts[0] === 'anmelden' && parts.length === 1) return { name: 'login' };
   if (parts[0] === 'konto' && parts.length === 1) return { name: 'account' };
   if (parts[0] === 'p' && parts.length === 2) return { name: 'project', projectId: parts[1] };
@@ -38,6 +42,10 @@ export const paths = {
   contact: () => '#/kontakt',
   /** Projektverwaltung */
   projects: () => '#/projekte',
+  /** Start nach der Anmeldung: Übersicht aller Werkzeuge (Kacheln) */
+  tools: () => '#/tools',
+  /** Arbeitereinteilung (Wochenplanung nach Baustellen) */
+  workers: () => '#/arbeitereinteilung',
   /** Anmeldeseite (Benutzerkonten noch nicht eingerichtet) */
   login: () => '#/anmelden',
   /** Konto und Einstellungen (Vorschau der geplanten Bereiche) */

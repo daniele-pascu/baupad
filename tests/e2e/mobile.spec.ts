@@ -451,3 +451,17 @@ test('Rechnung anlegen per Finger: vier Arten passen auf den Bildschirm', async 
   await dlg.getByTestId('invoice-save').tap();
   await expect(page.getByTestId('invoice-tab')).toContainText('R 1');
 });
+
+test('Tools per Finger: 2 Kacheln pro Reihe, nichts zu breit, Projektverwaltung öffnet', async ({ page }, info) => {
+  await page.goto('./#/tools');
+  const tiles = page.locator('.tool-tile');
+  await expect(tiles).toHaveCount(4);
+  const [a, b, c] = await Promise.all([tiles.nth(0).boundingBox(), tiles.nth(1).boundingBox(), tiles.nth(2).boundingBox()]);
+  expect(Math.abs(a!.y - b!.y)).toBeLessThan(1); // zwei nebeneinander
+  expect(c!.y).toBeGreaterThan(a!.y + a!.height - 1);
+  expect(a!.width).toBeGreaterThan(130); // gut antippbar
+  await noHorizontalScroll(page);
+  await page.screenshot({ path: join(OUT, `tools-${info.project.name}.png`), fullPage: true });
+  await page.getByTestId('tool-projects').tap();
+  await expect(page.getByTestId('projects-title')).toBeVisible();
+});

@@ -1,5 +1,11 @@
 const PATHS: Record<string, string> = {
   plus: 'M12 5v14M5 12h14',
+  /** Tools: Grundriss (Projekte und Pläne) */
+  blueprint: 'M4 4h16v16H4zM4 11h6v9M10 4v3M14 11h6M14 11v4M14 19v1',
+  /** Tools: Arbeitereinteilung (Bauhelm) */
+  helmet: 'M2 18.5h20v1.5H2zM4 18.5V16a8 8 0 0116 0v2.5M10 8.3V13M14 8.3V13M10 8.3a8 8 0 014 0',
+  /** Tools: noch in Planung */
+  soon: 'M12 3a9 9 0 110 18 9 9 0 010-18zM12 7v5l3 2',
   minus: 'M5 12h14',
   back: 'M15 18l-6-6 6-6',
   next: 'M9 18l6-6-6-6',

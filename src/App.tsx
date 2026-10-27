@@ -9,15 +9,16 @@ import { ProjectPage } from './pages/ProjectPage';
 import { PlanEditorPage } from './pages/PlanEditorPage';
 import { AboutPage, ContactPage, LandingPage } from './pages/SitePages';
 import { AccountPage, LoginPage } from './pages/AccountPages';
+import { ToolsPage, WorkersPage } from './pages/ToolsPage';
 
 /** Als App vom Home-Bildschirm gestartet (iOS/Android/Desktop-PWA)? */
 const isInstalledApp = () =>
   matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
 
-// Die installierte App startet direkt in der Projektverwaltung – auch Symbole, die vor der
+// Die installierte App startet in der Werkzeug-Übersicht („Tools“) – auch Symbole, die vor der
 // neuen Startseite angelegt wurden (diese starten noch mit der Adresse „./“).
 if (typeof window !== 'undefined' && isInstalledApp() && parseRoute(location.hash).name === 'landing') {
-  navigate(paths.projects(), true);
+  navigate(paths.tools(), true);
 }
 
 export function App() {
@@ -49,6 +50,12 @@ export function App() {
       break;
     case 'projects':
       content = <HomePage />;
+      break;
+    case 'tools':
+      content = <ToolsPage />;
+      break;
+    case 'workers':
+      content = <WorkersPage />;
       break;
     case 'login':
       content = <LoginPage />;
