@@ -7,6 +7,7 @@ import { PdfExportDialog } from '../components/PdfExportDialog';
 import { PlanDetailsDialog } from '../components/PlanFields';
 import { PlanViewer, type PlanViewerHandle, type SnapFn, type Tool } from '../components/PlanViewer';
 import { SaveErrorBanner, SaveStatus } from '../components/SaveStatus';
+import { invoiceLabel, invoiceOfPlan } from '../lib/invoices';
 import { confirmDialog, promptDialog, showError, toast } from '../components/ui';
 import { costCenterLabel, damagesOf, elementsOf, findPosition, lvDocLabel, lvDocsOf, plansOf, planTitle, positionRef, sumArea } from '../lib/aufmass';
 import { calibrationStatus, checkDeviation, checkError, formatCm, formatPercent, geometryMeasures, MAX_ERROR_M, planUnitsPerMeter } from '../lib/calibration';
@@ -679,8 +680,11 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   }
   const file = drawingPlan ? null : data.files[plan.fileId];
   const cc = data.costCenters[plan.costCenterId];
-  const siblings = plansOf(data, plan.costCenterId);
+  // aufgeteiltes Projekt: nur die Pläne derselben Rechnung
+  const siblings = plansOf(data, plan.costCenterId, data.project.splitByInvoice ? (plan.invoiceId ?? null) : undefined);
   const idx = siblings.findIndex((p) => p.id === plan.id);
+  // abgerechnete Rechnung: nicht gesperrt, aber deutlich gewarnt
+  const settledInvoice = invoiceOfPlan(data.project, plan)?.settled ? invoiceOfPlan(data.project, plan) : null;
 
   const select = (id: string | null, focus = false) => {
     setSelectedId(id);
@@ -849,6 +853,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         <p>
           {label} ({measureSummary(d)}) wird gelöscht. Die Nummern der übrigen Messungen bleiben unverändert. Mit „Rückgängig“ lässt sich
           das Löschen zurücknehmen.
+          {settledInvoice && <strong className="error" data-testid="settled-confirm"> Achtung: {invoiceLabel(settledInvoice)} ist bereits abgerechnet.</strong>}
         </p>
       ),
       confirmLabel: 'Löschen',
@@ -1019,6 +1024,13 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         </div>
       </header>
       <SaveErrorBanner />
+      {settledInvoice && (
+        <div className="banner banner-warn" role="status" data-testid="settled-warning">
+          <p>
+            <strong>{invoiceLabel(settledInvoice)} ist abgerechnet.</strong> Änderungen und Löschungen in diesem Plan ändern eine bereits abgerechnete Rechnung.
+          </p>
+        </div>
+      )}
       {drawingPlan && (
         <div className={`mode-bar${drawMode ? ' drawing' : ''}`} data-testid="mode-bar">
           <div className="segmented" role="tablist" aria-label="Ansicht">

@@ -5,11 +5,22 @@ import { alive } from './store';
 import type { Component, CostCenter, Damage, DrawElement, LvDocument, LvPosition, Plan } from './types';
 import { blank, buildXlsx, colName, num, sheetName, str, type Cell, type HeaderImage, type Sheet } from './xlsx';
 
-/** Pläne einer Kostenstelle, sortiert nach Plannummer. */
-export function plansOf(data: ProjectState, costCenterId: string): Plan[] {
+/** Pläne einer Kostenstelle, sortiert nach Plannummer; mit `invoiceId` nur die Pläne dieser Rechnung (nach Rechnungen aufgeteilt). */
+export function plansOf(data: ProjectState, costCenterId: string, invoiceId?: string | null): Plan[] {
   return alive(data.plans)
-    .filter((p) => p.costCenterId === costCenterId)
+    .filter((p) => p.costCenterId === costCenterId && (invoiceId === undefined || (p.invoiceId ?? null) === invoiceId))
     .sort((a, b) => naturalCompare(a.planNumber, b.planNumber) || a.sortIndex - b.sortIndex);
+}
+
+/**
+ * Aufmaß je Plan (Projekt nicht nach Rechnungen aufgeteilt): eigener Name oder „Aufmaß 1“, „Aufmaß 2“ …
+ * durchnummeriert in der Reihenfolge der Kostenstellen und Pläne.
+ */
+export function aufmassNameOf(data: ProjectState, plan: Plan): string {
+  if (plan.aufmassName?.trim()) return plan.aufmassName.trim();
+  const order = costCentersOf(data).flatMap((cc) => plansOf(data, cc.id));
+  const i = order.findIndex((p) => p.id === plan.id);
+  return `Aufmaß ${i < 0 ? order.length + 1 : i + 1}`;
 }
 
 /** Schadstellen eines Plans, sortiert nach Nummer. */

@@ -4,6 +4,8 @@ import { AreaEditor } from '../components/AreaEditor';
 import { AufmassTable } from '../components/AufmassTable';
 import { Icon } from '../components/Icon';
 import { ImportWizard } from '../components/ImportWizard';
+import { InvoiceBar } from '../components/InvoiceBar';
+import { invoiceLabel, invoiceOfPlan, invoiceShort, invoicesOf } from '../lib/invoices';
 import { LvPanel } from '../components/LvPanel';
 import { PdfExportDialog } from '../components/PdfExportDialog';
 import { NewDrawingDialog, PlanDetailsDialog } from '../components/PlanFields';
@@ -14,7 +16,8 @@ import { ExcelExportDialog } from '../components/ExcelExportDialog';
 import { ProjectForm, type CostCenterInput } from '../components/ProjectForm';
 import { SaveErrorBanner, SaveStatus } from '../components/SaveStatus';
 import { confirmDialog, offerFile, promptDialog, showError, toast } from '../components/ui';
-import { aufmassRows, componentsOf, findPosition, costCenterLabel, costCenterName, costCentersOf, damagesOf, elementsOf, planTitle, plansOf, type XlsxScope } from '../lib/aufmass';
+import { aufmassNameOf, aufmassRows, componentsOf, findPosition, costCenterLabel, costCenterName, costCentersOf, damagesOf, elementsOf, planTitle, plansOf } from '../lib/aufmass';
+import type { BlattScope } from '../lib/aufmassblatt';
 import { BACKUP_REMIND_DAYS, backupStatus, exportProjectBackup, type BackupStatus } from '../lib/backup';
 import { isDrawingPlan } from '../lib/drawing';
 import { exportPaper } from '../lib/sheet-layout';
@@ -49,7 +52,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
   const [library, setLibrary] = useState(false);
   const [reuse, setReuse] = useState<PlanSource | null>(null);
   const [rotating, setRotating] = useState<Plan | null>(null);
-  const [excelScope, setExcelScope] = useState<XlsxScope | null>(null);
+  const [excelScope, setExcelScope] = useState<BlattScope | null>(null);
   const [backupInfo, setBackupInfo] = useState<BackupStatus | null>(null);
   const [reminderHidden, setReminderHidden] = useState(() => {
     try {
@@ -62,8 +65,32 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
   // Sicherungsstand beim Öffnen prüfen
   useEffect(refreshBackup, [project.id]);
 
-  const plans = active ? plansOf(data, active.id) : [];
+  // Nach Rechnungen aufgeteilt: gewählte Rechnung (gemerkt je Projekt), nur deren Pläne und Aufmaß
+  const split = !!project.splitByInvoice;
+  const invoices = invoicesOf(project);
+  const [invoiceSel, setInvoiceSelState] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(`invoice:${project.id}`);
+    } catch {
+      return null;
+    }
+  });
+  const setInvoiceSel = (id: string) => {
+    setInvoiceSelState(id);
+    try {
+      localStorage.setItem(`invoice:${project.id}`, id);
+    } catch {
+      /* optional */
+    }
+  };
+  const invoice = split ? (invoices.find((i) => i.id === invoiceSel) ?? invoices[invoices.length - 1] ?? null) : null;
+  /** Filter für plansOf: aufgeteilt → nur die Pläne der gewählten Rechnung */
+  const invoiceFilter = split ? (invoice?.id ?? '') : undefined;
+  const plans = active ? plansOf(data, active.id, invoiceFilter) : [];
   const rows = aufmassRows(data, plans);
+  /** Aufmaß der Rechnung: alle Messungen ihrer Pläne über alle Kostenstellen */
+  const shownRows = split ? aufmassRows(data, invoice ? ccs.flatMap((c) => plansOf(data, c.id, invoice.id)) : []) : rows;
+  const projectHasPlans = Object.values(data.plans).some((p) => !p.deletedAt);
 
   // ---------------------------------------------------------------------------
   // Projekt und Kostenstellen
@@ -151,6 +178,11 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
               : `Die Originaldatei „${file?.name ?? ''}“ bleibt in der Planbibliothek und kann dort für ein neues Aufmaß verwendet oder endgültig entfernt werden.`}{' '}
             Tipp: Vorher über „Projekt sichern“ eine Sicherung anlegen.
           </p>
+          {invoiceOfPlan(project, plan)?.settled && (
+            <p className="error" data-testid="settled-confirm">
+              <strong>Achtung: {invoiceLabel(invoiceOfPlan(project, plan)!)} ist bereits abgerechnet.</strong>
+            </p>
+          )}
         </>
       ),
       confirmLabel: 'Plan löschen',
@@ -167,6 +199,12 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
     if (name === null || name === plan.planName) return;
     // Nur die Bezeichnung ändert sich – Messungen, Farben und Bemerkungen bleiben unberührt
     putRecord('plans', { ...data.plans[plan.id], planName: name });
+  };
+
+  const renameAufmass = async (plan: Plan) => {
+    const name = await promptDialog({ title: 'Aufmaß umbenennen', label: 'Name des Aufmaßes (leer = durchnummeriert)', value: aufmassNameOf(data, plan) });
+    if (name === null) return;
+    putRecord('plans', { ...data.plans[plan.id], aufmassName: name.trim() });
   };
 
   const openCrop = async (plan: Plan) => {
@@ -270,6 +308,41 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
         </button>
       </section>
 
+      {/* vor den Plänen: Option „Nach Rechnungen aufteilen“ bzw. die Rechnungen */}
+      <InvoiceBar
+        project={project}
+        invoices={invoices}
+        selected={invoice}
+        planCount={(id) => Object.values(data.plans).filter((p) => !p.deletedAt && p.invoiceId === id).length}
+        canSplit={!projectHasPlans}
+        onSelect={setInvoiceSel}
+        onSave={(inv, turnOn) => {
+          const list = project.invoices ?? [];
+          const exists = list.some((i) => i.id === inv.id);
+          updateProject({ ...(turnOn ? { splitByInvoice: true } : {}), invoices: exists ? list.map((i) => (i.id === inv.id ? inv : i)) : [...list, inv] });
+          if (!exists) setInvoiceSel(inv.id);
+          toast(`${invoiceLabel(inv)} ${exists ? 'gespeichert' : 'angelegt'}.`, 'success');
+        }}
+        onToggleSettled={(inv) => {
+          updateProject({ invoices: (project.invoices ?? []).map((i) => (i.id === inv.id ? { ...i, settled: !i.settled } : i)) });
+          toast(inv.settled ? `${invoiceLabel(inv)} wieder offen.` : `${invoiceLabel(inv)} als abgerechnet markiert – Änderungen nur noch mit Warnung.`, 'info');
+        }}
+        onDelete={(inv) => {
+          const rest = (project.invoices ?? []).filter((i) => i.id !== inv.id);
+          // letzte (leere) Rechnung gelöscht: Projekt wieder ungeteilt
+          updateProject(rest.length ? { invoices: rest } : { invoices: [], splitByInvoice: false });
+          toast(`${invoiceLabel(inv)} gelöscht.`, 'success');
+        }}
+      />
+
+      {invoice?.settled && (
+        <div className="banner banner-warn" role="status" data-testid="settled-warning">
+          <p>
+            <strong>{invoiceLabel(invoice)} ist abgerechnet.</strong> Neue Pläne, Änderungen und Löschungen ändern eine bereits abgerechnete Rechnung.
+          </p>
+        </div>
+      )}
+
       {ccs.length > 1 && (
         <div className="cc-switch" data-testid="cost-center-switch">
           <label htmlFor="cc-select">Kostenstelle</label>
@@ -281,7 +354,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
           >
             {ccs.map((c) => (
               <option key={c.id} value={c.id}>
-                {costCenterName(c)} ({plansOf(data, c.id).length})
+                {costCenterName(c)} ({plansOf(data, c.id, invoiceFilter).length})
               </option>
             ))}
           </select>
@@ -361,7 +434,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
               />
             ) : (
               <div className="empty">
-                <p>Noch keine Pläne{ccs.length > 1 ? ' in dieser Kostenstelle' : ''}.</p>
+                <p data-testid="plans-empty">Noch keine Pläne{invoice ? ` in der ${invoiceLabel(invoice)}` : ''}{ccs.length > 1 ? ' in dieser Kostenstelle' : ''}.</p>
                 <p className="muted">Importieren Sie einen Plan als PDF, JPG oder PNG – auf iPhone/iPad aus „Dateien“ oder der Fotomediathek.</p>
                 <div className="row gap wrap center">
                   <button type="button" className="btn btn-primary btn-lg" onClick={() => fileRef.current?.click()}>
@@ -381,21 +454,77 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
         <section data-testid="aufmass-section">
           <div className="section-head">
             <h2 className="section-title">
-              Aufmaß <span className="muted">({rows.length})</span>
+              Aufmaß
+              {invoice && (
+                <>
+                  <span className="muted"> · </span>
+                  <span data-testid="aufmass-invoice">{invoiceLabel(invoice)}</span>
+                </>
+              )}{' '}
+              <span className="muted">({shownRows.length})</span>
             </h2>
             <div className="row gap wrap">
-              <button type="button" className="btn" onClick={() => setExcelScope({ kind: 'costCenter', costCenterId: active.id })} data-testid="export-xlsx-cc">
-                <Icon name="excel" /> {ccs.length > 1 ? 'Excel – Aufmaßblatt Kostenstelle' : 'Excel – Aufmaßblatt'}
-              </button>
-              {ccs.length > 1 && (
-                <button type="button" className="btn" onClick={() => setExcelScope({ kind: 'project' })} data-testid="export-xlsx-project">
-                  <Icon name="excel" /> Excel – gesamtes Projekt
-                </button>
+              {split ? (
+                invoice && (
+                  <button type="button" className="btn" onClick={() => setExcelScope({ kind: 'invoice', invoiceId: invoice.id })} data-testid="export-xlsx-invoice">
+                    <Icon name="excel" /> Excel – Aufmaßblatt {invoiceShort(invoice)}
+                  </button>
+                )
+              ) : (
+                <>
+                  <button type="button" className="btn" onClick={() => setExcelScope({ kind: 'costCenter', costCenterId: active.id })} data-testid="export-xlsx-cc">
+                    <Icon name="excel" /> {ccs.length > 1 ? 'Excel – Aufmaßblatt Kostenstelle' : 'Excel – Aufmaßblatt'}
+                  </button>
+                  {ccs.length > 1 && (
+                    <button type="button" className="btn" onClick={() => setExcelScope({ kind: 'project' })} data-testid="export-xlsx-project">
+                      <Icon name="excel" /> Excel – gesamtes Projekt
+                    </button>
+                  )}
+                </>
               )}
             </div>
           </div>
-          {rows.length ? (
-            <AufmassTable rows={rows} showPlan components={data.components} positionLabel={(ref) => findPosition(data, ref)?.pos.number ?? null} onSelect={(r) => navigate(paths.plan(project.id, r.plan.id, r.damage.id))} />
+          {split ? (
+            // je Rechnung ein Aufmaß: alle Messungen ihrer Pläne (alle Kostenstellen)
+            shownRows.length ? (
+              <AufmassTable rows={shownRows} showPlan components={data.components} positionLabel={(ref) => findPosition(data, ref)?.pos.number ?? null} onSelect={(r) => navigate(paths.plan(project.id, r.plan.id, r.damage.id))} />
+            ) : (
+              <p className="muted" data-testid="aufmass-empty">
+                Noch keine Messungen{invoice ? ` in der ${invoiceLabel(invoice)}` : ''} – sie erscheinen hier, sobald im Plan gemessen wird.
+              </p>
+            )
+          ) : plans.length ? (
+            // je Plan ein eigenes Aufmaß, durchnummeriert bzw. umbenannt
+            <div className="aufmass-blocks">
+              {plans.map((pl) => {
+                const own = rows.filter((r) => r.plan.id === pl.id);
+                const name = aufmassNameOf(data, pl);
+                return (
+                  <div key={pl.id} className="aufmass-block" data-testid="aufmass-block">
+                    <div className="aufmass-block-head">
+                      <h3>
+                        <span data-testid="aufmass-name">{name}</span> <span className="muted small">· Plan {planTitle(pl)} · {own.length} Messungen</span>
+                      </h3>
+                      <ActionMenu
+                        label={`Aktionen für ${name}`}
+                        testId="aufmass-actions"
+                        actions={[
+                          { label: 'Umbenennen', icon: 'edit', onSelect: () => void renameAufmass(pl), testId: 'aufmass-rename' },
+                          ...(pl.aufmassName ? [{ label: 'Wieder durchnummerieren', icon: 'undo', onSelect: () => putRecord('plans', { ...data.plans[pl.id], aufmassName: '' }), testId: 'aufmass-renumber' }] : []),
+                          { label: 'Excel – Aufmaßblatt', icon: 'excel', onSelect: () => setExcelScope({ kind: 'plan', planId: pl.id }), testId: 'aufmass-excel' },
+                          { label: 'Plan öffnen', icon: 'next', onSelect: () => navigate(paths.plan(project.id, pl.id)), testId: 'aufmass-open' },
+                        ]}
+                      />
+                    </div>
+                    {own.length ? (
+                      <AufmassTable rows={own} components={data.components} positionLabel={(ref) => findPosition(data, ref)?.pos.number ?? null} onSelect={(r) => navigate(paths.plan(project.id, r.plan.id, r.damage.id))} />
+                    ) : (
+                      <p className="muted small">Noch keine Messungen in diesem Plan.</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           ) : (
             <p className="muted" data-testid="aufmass-empty">
               Noch keine Messungen{ccs.length > 1 ? ' in dieser Kostenstelle' : ''} – sie erscheinen hier, sobald im Plan gemessen wird.
@@ -459,6 +588,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
           data={data}
           source={reuse}
           costCenterId={active.id}
+          invoiceId={invoice?.id ?? null}
           onClose={() => setReuse(null)}
           onCreated={(id) => {
             setReuse(null);
@@ -471,6 +601,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
           file={importFile}
           data={data}
           costCenterId={active.id}
+          invoiceId={invoice?.id ?? null}
           onClose={() => setImportFile(null)}
           onDone={(ids) => {
             setImportFile(null);
@@ -482,6 +613,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
         <NewDrawingDialog
           data={data}
           costCenterId={active.id}
+          invoiceId={invoice?.id ?? null}
           onClose={() => setDrawingNew(false)}
           onCreated={(id) => {
             setDrawingNew(false);

@@ -3,6 +3,7 @@ import { drawingRegion, isDrawingPlan, PAPER, PAPER_FORMATS, SCALES, sheetFields
 import { formatMeasure } from '../lib/numbers';
 import { elementsOf } from '../lib/aufmass';
 import { planNumberStart } from '../lib/numbering';
+import { sameNumberScope } from '../lib/invoices';
 import { alive, newMeta, putRecord, type ProjectState } from '../lib/store';
 import { exportPaper, planHeading } from '../lib/sheet-layout';
 import type { PaperFormat, Plan } from '../lib/types';
@@ -123,12 +124,7 @@ export function PlanDetailsDialog({ plan, data, onClose }: { plan: Plan; data: P
   const [paper, setPaper] = useState<PaperFormat | ''>(plan.drawing?.paper ?? '');
   const [scale, setScale] = useState(plan.drawing?.scale ?? 100);
   const [show, setShow] = useState(false);
-  const n = v.planNumber.trim().toLowerCase();
-  const error = !n
-    ? 'Bitte eine Plannummer eingeben.'
-    : alive(data.plans).some((p) => p.id !== plan.id && p.planNumber.trim().toLowerCase() === n)
-      ? 'Diese Plannummer ist im Projekt bereits vergeben.'
-      : null;
+  const error = planNumberError(data, v.planNumber, plan.id, plan.invoiceId);
   const startOk = /^\d{1,6}$/.test(start.trim()) && Number(start.trim()) >= 1;
 
   return (
@@ -205,13 +201,17 @@ export function PlanDetailsDialog({ plan, data, onClose }: { plan: Plan; data: P
   );
 }
 
-/** Plannummer prüfen: Pflichtfeld und im Projekt eindeutig */
-export function planNumberError(data: ProjectState, value: string, exceptId?: string): string | null {
+/** Plannummer prüfen: Pflichtfeld und im Projekt (aufgeteilt: in der Rechnung) eindeutig */
+export function planNumberError(data: ProjectState, value: string, exceptId?: string, invoiceId?: string | null): string | null {
   const n = value.trim().toLowerCase();
   if (!n) return 'Bitte eine Plannummer eingeben.';
-  if (alive(data.plans).some((p) => p.id !== exceptId && p.planNumber.trim().toLowerCase() === n)) return 'Diese Plannummer ist im Projekt bereits vergeben.';
+  const scope = sameNumberScope(data.project, invoiceId);
+  if (alive(data.plans).some((p) => p.id !== exceptId && scope(p) && p.planNumber.trim().toLowerCase() === n)) return planNumberTaken(data);
   return null;
 }
+
+/** Meldung „bereits vergeben“ (im Projekt bzw. in der Rechnung) */
+export const planNumberTaken = (data: ProjectState) => `Diese Plannummer ist ${data.project.splitByInvoice ? 'in dieser Rechnung' : 'im Projekt'} bereits vergeben.`;
 
 /**
  * Neuen Plan selbst zeichnen: Planangaben erfassen und eine leere, maßhaltige Zeichenfläche
@@ -220,11 +220,14 @@ export function planNumberError(data: ProjectState, value: string, exceptId?: st
 export function NewDrawingDialog({
   data,
   costCenterId,
+  invoiceId = null,
   onClose,
   onCreated,
 }: {
   data: ProjectState;
   costCenterId: string;
+  /** aufgeteiltes Projekt: Rechnung des neuen Plans */
+  invoiceId?: string | null;
   onClose: () => void;
   onCreated: (planId: string) => void;
 }) {
@@ -235,7 +238,7 @@ export function NewDrawingDialog({
   const [showScale, setShowScale] = useState(false);
   const [paper, setPaper] = useState<PaperFormat>(() => (localStorage.getItem('paper') as PaperFormat) || 'A3-quer');
   const [scale, setScale] = useState(() => Number(localStorage.getItem('paperScale')) || 100);
-  const error = planNumberError(data, v.planNumber);
+  const error = planNumberError(data, v.planNumber, undefined, invoiceId);
   const submit = () => {
     setShow(true);
     if (error) return;
@@ -244,6 +247,7 @@ export function NewDrawingDialog({
       ...newMeta(),
       projectId: data.project.id,
       costCenterId,
+      ...(invoiceId ? { invoiceId } : {}),
       source: 'drawing',
       ...sheetFields(PAPER[paper] ? paper : 'A3-quer', scale),
       fileId: '',

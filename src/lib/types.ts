@@ -32,6 +32,28 @@ export interface Project extends SyncMeta {
   notes: string;
   /** zuletzt vergebene Aufmaßblatt-Nummer (Excel); fehlt = noch keine */
   sheetNo?: number;
+  /** Pläne und Aufmaß nach Rechnungen aufgeteilt (jede Rechnung hat eigene Pläne) */
+  splitByInvoice?: boolean;
+  /** Rechnungen des Projekts (nur mit splitByInvoice) */
+  invoices?: Invoice[];
+}
+
+/**
+ * Rechnung: Teilrechnung, Schlussteilrechnung bzw. Schlussrechnung. Die Schlussrechnung ist
+ * eine Teilrechnung, nur als letzte gekennzeichnet.
+ */
+export type InvoiceKind = 'tr' | 'str' | 'sr';
+
+export interface Invoice {
+  id: string;
+  kind: InvoiceKind;
+  /** laufende Nummer (1, 2, 3 …) über alle Rechnungen des Projekts */
+  no: number;
+  /** Leistungszeitraum (frei, z. B. „01.10.–31.10.2026“) */
+  period: string;
+  /** als abgerechnet markiert: Änderungen bleiben möglich, aber mit Warnung */
+  settled?: boolean;
+  createdAt: number;
 }
 
 export interface CostCenter extends SyncMeta {
@@ -73,6 +95,10 @@ export interface Rect {
 export interface Plan extends SyncMeta {
   projectId: string;
   costCenterId: string;
+  /** Rechnung, zu der der Plan gehört (nur bei „Nach Rechnungen aufteilen“) */
+  invoiceId?: string | null;
+  /** eigener Name des Aufmaßes dieses Plans (sonst „Aufmaß 1“, „Aufmaß 2“ … durchnummeriert) */
+  aufmassName?: string;
   /**
    * Herkunft: importierte Datei (Standard, fehlt bei älteren Plänen) oder selbst gezeichnet.
    * Gezeichnete Pläne haben keine Datei (fileId = '').

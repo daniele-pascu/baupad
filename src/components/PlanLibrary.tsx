@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { costCenterLabel, damagesOf } from '../lib/aufmass';
 import { getImageBitmap, getPdfDocument, pageSize } from '../lib/pdf';
+import { sameNumberScope } from '../lib/invoices';
 import { paths } from '../lib/router';
 import { alive, newMeta, putRecord, softDelete, type ProjectState } from '../lib/store';
 import { renderSource } from '../lib/thumbs';
@@ -156,10 +157,12 @@ export function PlanLibrary({ data, onClose, onReuse }: { data: ProjectState; on
   );
 }
 
-/** Freie Plannummer als Vorschlag: „A-101“ → „A-101-2“, „A-101-3“ … */
-function suggestNumber(data: ProjectState, base: string): string {
+/** Freie Plannummer als Vorschlag: „A-101“ (in einer anderen Rechnung noch frei) bzw. „A-101-2“, „A-101-3“ … */
+function suggestNumber(data: ProjectState, base: string, invoiceId: string | null): string {
   if (!base.trim()) return '';
-  const taken = new Set(alive(data.plans).map((p) => p.planNumber.trim().toLowerCase()));
+  const scope = sameNumberScope(data.project, invoiceId);
+  const taken = new Set(alive(data.plans).filter(scope).map((p) => p.planNumber.trim().toLowerCase()));
+  if (!taken.has(base.trim().toLowerCase())) return base.trim();
   for (let i = 2; ; i++) if (!taken.has(`${base}-${i}`.toLowerCase())) return `${base}-${i}`;
 }
 
@@ -182,18 +185,21 @@ export function ReusePlanDialog({
   data,
   source,
   costCenterId,
+  invoiceId = null,
   onClose,
   onCreated,
 }: {
   data: ProjectState;
   source: PlanSource;
   costCenterId: string;
+  /** aufgeteiltes Projekt: Rechnung des neuen Plans */
+  invoiceId?: string | null;
   onClose: () => void;
   onCreated: (planId: string) => void;
 }) {
   const { file, base, pageIndex } = source;
   const [v, setV] = useState<PlanFieldValues>({
-    planNumber: suggestNumber(data, base?.planNumber ?? ''),
+    planNumber: suggestNumber(data, base?.planNumber ?? '', invoiceId),
     planName: base?.planName ?? '',
     floor: base?.floor ?? '',
     area: base?.area ?? '',
@@ -205,7 +211,7 @@ export function ReusePlanDialog({
   const [cc, setCc] = useState(data.costCenters[costCenterId] ? costCenterId : (base?.costCenterId ?? ccs[0]?.id ?? ''));
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
-  const error = planNumberError(data, v.planNumber);
+  const error = planNumberError(data, v.planNumber, undefined, invoiceId);
 
   const submit = async () => {
     setShow(true);
@@ -218,6 +224,7 @@ export function ReusePlanDialog({
         ...newMeta(),
         projectId: data.project.id,
         costCenterId: cc,
+        ...(invoiceId ? { invoiceId } : {}),
         fileId: file.id,
         pageIndex,
         pageWidth: size.width,

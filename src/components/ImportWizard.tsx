@@ -12,13 +12,16 @@ import { defaultPaper } from '../lib/sheet-layout';
 import { AreaEditor } from './AreaEditor';
 import { Icon } from './Icon';
 import { Modal } from './Modal';
-import { ExportPaperField, PlanFields, type PlanFieldValues } from './PlanFields';
+import { ExportPaperField, PlanFields, planNumberTaken, type PlanFieldValues } from './PlanFields';
+import { sameNumberScope } from '../lib/invoices';
 import { showError, toast } from './ui';
 
 interface Props {
   file: File;
   data: ProjectState;
   costCenterId: string;
+  /** aufgeteiltes Projekt: Rechnung der neuen Pläne */
+  invoiceId?: string | null;
   onClose: () => void;
   onDone: (planIds: string[]) => void;
 }
@@ -54,7 +57,7 @@ function mimeOf(file: File, kind: 'pdf' | 'image'): string {
  * Import-Assistent: Datei → Seitenauswahl (mehrseitige PDFs) → Planbereiche (optional) →
  * Planbeschreibung → Speichern.
  */
-export function ImportWizard({ file, data, costCenterId, onClose, onDone }: Props) {
+export function ImportWizard({ file, data, costCenterId, invoiceId = null, onClose, onDone }: Props) {
   const kind = detectKind(file);
   const [step, setStep] = useState<Step>('loading');
   const [buf, setBuf] = useState<ArrayBuffer | null>(null);
@@ -207,14 +210,14 @@ export function ImportWizard({ file, data, costCenterId, onClose, onDone }: Prop
   };
 
   const existingNumbers = useMemo(
-    () => new Set(alive(data.plans).map((p) => p.planNumber.trim().toLowerCase()).filter(Boolean)),
-    [data.plans],
+    () => new Set(alive(data.plans).filter(sameNumberScope(data.project, invoiceId)).map((p) => p.planNumber.trim().toLowerCase()).filter(Boolean)),
+    [data.plans, data.project, invoiceId],
   );
 
   const draftErrors = drafts.map((d, i) => {
     const n = d.planNumber.trim().toLowerCase();
     if (!n) return 'Bitte eine Plannummer eingeben.';
-    if (existingNumbers.has(n)) return 'Diese Plannummer ist im Projekt bereits vergeben.';
+    if (existingNumbers.has(n)) return planNumberTaken(data);
     if (drafts.some((o, j) => j !== i && o.planNumber.trim().toLowerCase() === n))
       return 'Diese Plannummer ist mehrfach vergeben.';
     return null;
@@ -269,6 +272,7 @@ export function ImportWizard({ file, data, costCenterId, onClose, onDone }: Prop
           ...newMeta(),
           projectId: data.project.id,
           costCenterId,
+          ...(invoiceId ? { invoiceId } : {}),
           fileId,
           pageIndex: d.pageIndex,
           pageWidth: size.width,

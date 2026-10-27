@@ -1,6 +1,7 @@
 import { strFromU8, unzipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
-import { exportAufmassblatt } from '../../src/lib/aufmassblatt';
+import { aufmassNameOf } from '../../src/lib/aufmass';
+import { defaultPeriod, exportAufmassblatt } from '../../src/lib/aufmassblatt';
 import type { ProjectState } from '../../src/lib/store';
 import type { Damage, Plan } from '../../src/lib/types';
 
@@ -64,5 +65,43 @@ describe('Aufmaßblatt (Firmenvorlage)', () => {
     const scale = Number(/scale="(\d+)"/.exec(ws)![1]);
     expect(scale).toBeLessThan(100);
     expect(scale).toBeGreaterThanOrEqual(50);
+  });
+});
+
+describe('Rechnungen', () => {
+  // zwei Teilrechnungen, je ein Plan; TR 2 hat zwei Pläne mit derselben Position
+  const inv = (id: string, no: number, period = '') => ({ id, kind: 'tr' as const, no, period, createdAt: 1 });
+  const pl = (id: string, invoiceId: string, planNumber: string) => ({ ...plan, id, invoiceId, planNumber }) as Plan;
+  const pos = { id: 'a', number: '01', shortText: 'Beton', longText: '', unit: 'm²', quantity: null, unitPrice: 10, totalPrice: null, group: '', issues: [] };
+  const split = {
+    ...data,
+    project: { ...data.project, splitByInvoice: true, invoices: [inv('t1', 1), inv('t2', 2, 'Oktober 2026')] },
+    plans: { p1: pl('p1', 't1', '1'), p2: pl('p2', 't2', '1'), p3: pl('p3', 't2', '2') },
+    lvDocs: { l1: { ...meta, id: 'l1', projectId: 'x', kind: 'lv', name: 'Haupt-LV', number: '', fileName: '', groups: [], positions: [pos] } },
+    damages: {
+      d1: dmg('d1', 1, { positionRef: 'l1:a' }),
+      d2: dmg('d2', 1, { planId: 'p2', positionRef: 'l1:a', length: 1, width: 1, area: 1 }),
+      d3: dmg('d3', 1, { planId: 'p3', positionRef: 'l1:a', length: 2, width: 1, area: 2 }),
+    },
+  } as unknown as ProjectState;
+
+  it('Aufmaßblatt je Rechnung: alle Pläne der Rechnung, gleiche Position zusammengefasst', () => {
+    const f = exportAufmassblatt(split, { kind: 'invoice', invoiceId: 't2' }, { no: '004', period: 'Oktober 2026' });
+    expect(f.name).toContain('TR2');
+    const ws = strFromU8(unzipSync(f.data)['xl/worksheets/sheet1.xml']);
+    expect(ws).toContain('>Aufmaßblatt 004 – 2. Teilrechnung<');
+    expect(ws.match(/>01</g)).toHaveLength(2); // Position einmal (dazu in der Zusammenstellung) …
+    expect(ws).toMatch(/<f>SUM\(E15:E16\)<\/f><v>3<\/v>/); // … mit 1 + 2 m² aus beiden Plänen, ohne TR 1 (6 m²)
+  });
+
+  it('Leistungszeitraum der Rechnung als Vorschlag', () => {
+    expect(defaultPeriod(split, { kind: 'invoice', invoiceId: 't2' })).toBe('Oktober 2026');
+  });
+
+  it('Aufmaß je Plan: durchnummeriert oder eigener Name', () => {
+    const two = { ...data, plans: { p1: plan, p2: { ...plan, id: 'p2', planNumber: '65' } } } as unknown as ProjectState;
+    expect(aufmassNameOf(two, two.plans.p1)).toBe('Aufmaß 1');
+    expect(aufmassNameOf(two, two.plans.p2)).toBe('Aufmaß 2');
+    expect(aufmassNameOf(two, { ...two.plans.p2, aufmassName: ' Keller Nord ' })).toBe('Keller Nord');
   });
 });

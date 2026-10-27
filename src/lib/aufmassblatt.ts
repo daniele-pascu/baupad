@@ -1,4 +1,5 @@
 import { aufmassRows, costCenterLabel, costCentersOf, lvDocsOf, plansOf, positionRef, safeFileName, type ExportFile, type XlsxScope } from './aufmass';
+import { invoiceLabel, invoiceShort } from './invoices';
 import { hasArea, kindOf, quantityBasis, quantityFor } from './measure';
 import type { ProjectState } from './store';
 import type { Damage, LvDocument, LvPosition, Plan } from './types';
@@ -45,7 +46,14 @@ const nrCell = (d: Damage, last: boolean): Cell => (d.label ? str(d.label, last 
 const n = (v: number | null, last: boolean): Cell => (v === null ? blank(last ? 'amNumLast' : 'amText') : num(v, last ? 'amNumLast' : 'amNum'));
 
 /** Leistungszeitraum aus den Messungen (erste bis letzte Erfassung) */
-export function defaultPeriod(data: ProjectState, scope: XlsxScope): string {
+/** Umfang des Aufmaßblatts: wie beim Excel-Export, zusätzlich eine Rechnung (alle ihre Pläne) */
+export type BlattScope = XlsxScope | { kind: 'invoice'; invoiceId: string };
+
+const invoiceOf = (data: ProjectState, scope: BlattScope) => (scope.kind === 'invoice' ? data.project.invoices?.find((i) => i.id === scope.invoiceId) : undefined);
+
+export function defaultPeriod(data: ProjectState, scope: BlattScope): string {
+  const inv = invoiceOf(data, scope);
+  if (inv?.period) return inv.period;
   const items = aufmassRows(data, plansIn(data, scope));
   const times = items.map((x) => x.damage.createdAt).filter((t) => t > 0);
   const f = (t: number) => new Date(t).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -55,17 +63,25 @@ export function defaultPeriod(data: ProjectState, scope: XlsxScope): string {
   return a === b ? a : `${a} – ${b}`;
 }
 
-function plansIn(data: ProjectState, scope: XlsxScope): Plan[] {
+function plansIn(data: ProjectState, scope: BlattScope): Plan[] {
   if (scope.kind === 'plan') return [data.plans[scope.planId]];
+  if (scope.kind === 'invoice') return costCentersOf(data).flatMap((cc) => plansOf(data, cc.id, scope.invoiceId));
   if (scope.kind === 'costCenter') return plansOf(data, scope.costCenterId);
   return costCentersOf(data).flatMap((cc) => plansOf(data, cc.id));
 }
 
-export function exportAufmassblatt(data: ProjectState, scope: XlsxScope, info: BlattInfo, opts: { logo?: HeaderImage | null } = {}): ExportFile {
+export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: BlattInfo, opts: { logo?: HeaderImage | null } = {}): ExportFile {
   const plans = plansIn(data, scope);
   const items: Item[] = aufmassRows(data, plans).map(({ plan, damage }) => ({ plan, d: damage }));
   const ccs =
-    scope.kind === 'plan' ? [data.costCenters[plans[0].costCenterId]].filter(Boolean) : scope.kind === 'costCenter' ? [data.costCenters[scope.costCenterId]] : costCentersOf(data);
+    scope.kind === 'plan'
+      ? [data.costCenters[plans[0].costCenterId]].filter(Boolean)
+      : scope.kind === 'costCenter'
+        ? [data.costCenters[scope.costCenterId]]
+        : scope.kind === 'invoice'
+          ? costCentersOf(data).filter((c) => plans.some((p) => p.costCenterId === c.id))
+          : costCentersOf(data);
+  const inv = invoiceOf(data, scope);
 
   const rows: Cell[][] = [];
   const heights: Record<number, number> = {};
@@ -78,7 +94,7 @@ export function exportAufmassblatt(data: ProjectState, scope: XlsxScope, info: B
   const line = (style: 'amColHead' | 'amRule') => Array.from({ length: 8 }, () => blank(style));
 
   // Kopf
-  add([str(`Aufmaßblatt ${info.no}`, 'amTitle')], 18);
+  add([str(`Aufmaßblatt ${info.no}${inv ? ` – ${invoiceLabel(inv)}` : ''}`, 'amTitle')], 18);
   add();
   const p = data.project;
   add([str('Bauvorhaben', 'amLabel'), null, str([p.name, p.address].filter(Boolean).join(', '), 'amText')]);
@@ -273,7 +289,7 @@ export function exportAufmassblatt(data: ProjectState, scope: XlsxScope, info: B
     sheet.scale = Math.max(10, Math.min(100, Math.floor((usable / longest) * 100)));
   }
   const scopeName =
-    scope.kind === 'plan' ? [costCenterLabel(ccs[0]), planNo(plans[0])] : scope.kind === 'costCenter' ? [costCenterLabel(ccs[0])] : [];
+    scope.kind === 'plan' ? [costCenterLabel(ccs[0]), planNo(plans[0])] : scope.kind === 'costCenter' ? [costCenterLabel(ccs[0])] : inv ? [invoiceShort(inv).replace(' ', '')] : [];
   return {
     name: `${safeFileName(data.project.name, ...scopeName, `Aufmassblatt_${info.no}`)}.xlsx`,
     data: buildXlsx([sheet], { logo: opts.logo }),

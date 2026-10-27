@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import type { XlsxScope } from '../lib/aufmass';
-import { defaultPeriod, exportAufmassblatt } from '../lib/aufmassblatt';
+import { defaultPeriod, exportAufmassblatt, type BlattScope } from '../lib/aufmassblatt';
 import { cachedExcelLogo } from '../lib/company';
 import { updateProject, type ProjectState } from '../lib/store';
 import { Icon } from './Icon';
@@ -14,7 +13,7 @@ export const nextSheetNo = (data: ProjectState) => String((data.project.sheetNo 
  * Excel-Export: Aufmaßblatt nach Firmenvorlage (Nummer wird vergeben und hochgezählt,
  * Leistungszeitraum aus den Messungen vorgeschlagen).
  */
-export function ExcelExportDialog({ data, scope, onClose }: { data: ProjectState; scope: XlsxScope; onClose: () => void }) {
+export function ExcelExportDialog({ data, scope, onClose }: { data: ProjectState; scope: BlattScope; onClose: () => void }) {
   const [no, setNo] = useState(() => nextSheetNo(data));
   const [period, setPeriod] = useState(() => defaultPeriod(data, scope));
 

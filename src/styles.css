@@ -4259,3 +4259,72 @@ button.status-pill:hover {
   gap: 4px;
 }
 
+
+/* Rechnungen: Option „Nach Rechnungen aufteilen“ bzw. Rechnungsleiste vor den Plänen */
+.invoice-bar {
+  margin-top: 16px;
+}
+.invoice-split {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+.invoice-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.invoice-tab {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.invoice-tab > button[role='tab'] {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 42px;
+  padding: 6px 12px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.invoice-tab.active {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+.invoice-tab.settled > button[role='tab'] {
+  color: var(--muted);
+}
+.invoice-kinds {
+  margin-bottom: 8px;
+}
+@media (max-width: 600px) {
+  .invoice-tab .small {
+    display: none;
+  }
+}
+
+/* Aufmaß je Plan (Projekt nicht aufgeteilt) */
+.aufmass-blocks {
+  display: grid;
+  gap: 14px;
+}
+.aufmass-block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.aufmass-block-head h3 {
+  margin: 0;
+  font-size: 1rem;
+  min-width: 0;
+}
