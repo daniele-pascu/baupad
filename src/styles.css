@@ -1076,6 +1076,8 @@ input[type='range'] {
 /* ---------- Aufmaß-Tabelle ---------- */
 
 .table-wrap {
+  /* Bezugspunkt für absolut positionierte Inhalte (z. B. .sr-only), sonst verbreitern sie die Seite */
+  position: relative;
   overflow: auto;
   background: var(--surface);
   border: 1px solid var(--border);

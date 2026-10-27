@@ -58,8 +58,10 @@ async function pinch(cdp: CDPSession, c: { x: number; y: number }, fromDist: num
 }
 
 async function noHorizontalScroll(page: Page) {
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-  expect(overflow).toBeLessThanOrEqual(1);
+  // gegen die Bildschirmbreite prüfen – auf Mobilgeräten wächst innerWidth mit zu breitem Inhalt mit
+  const screen = page.viewportSize()!.width;
+  const width = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, window.innerWidth));
+  expect(width - screen).toBeLessThanOrEqual(1);
 }
 
 test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, Exporte', async ({ page }, info) => {
@@ -197,6 +199,9 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
 
   // 8) PDF-Export beider Bildpläne
   await page.getByRole('link', { name: 'Zurück zur Planliste' }).tap();
+  // Projektseite mit Aufmaß-Tabelle: nicht breiter als der Bildschirm (Tabelle scrollt in sich)
+  await expect(page.getByTestId('aufmass-section').getByTestId('aufmass-table')).toBeVisible();
+  await noHorizontalScroll(page);
   const dl2 = await catchDownload(page, async () => {
     await page.getByRole('button', { name: 'PDF – Pläne auswählen' }).tap();
     await page.getByTestId('pdf-export-run').tap();
