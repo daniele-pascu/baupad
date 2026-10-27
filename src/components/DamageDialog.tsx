@@ -74,6 +74,10 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const [shapeType, setShapeType] = useState<ShapeType>(damage.shapeType);
   const [componentId, setComponentId] = useState<string | null>(damage.componentId ?? null);
   const [positionRef, setPositionRef] = useState<string | null>(damage.positionRef ?? null);
+  // erst LV bzw. MFK wählen, dann deren Positionen (Verweis „Dokument:Position“)
+  const docOf = (ref: string) => ref.slice(0, ref.indexOf(':'));
+  const docs = [...new Map(positions.map((p) => [docOf(p.ref), p.doc])).entries()].map(([id, label]) => ({ id, label }));
+  const [docId, setDocId] = useState<string>(() => (damage.positionRef && positions.some((p) => p.ref === damage.positionRef) ? docOf(damage.positionRef) : (docs[0]?.id ?? '')));
   const [resetLabel, setResetLabel] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const refs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -337,22 +341,38 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             </select>
           </label>
         )}
+        {positions.length > 0 && docs.length > 1 && (
+          <label className="field">
+            <span>LV / MFK</span>
+            <select
+              value={docId}
+              onChange={(e) => {
+                setDocId(e.target.value);
+                // Position eines anderen Dokuments passt nicht mehr
+                if (positionRef && docOf(positionRef) !== e.target.value) setPositionRef(null);
+              }}
+              data-testid="input-position-doc"
+            >
+              {docs.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         {positions.length > 0 && (
           <label className="field">
             <span>Leistungsposition (optional)</span>
             <select value={positionRef ?? ''} onChange={(e) => setPositionRef(e.target.value || null)} data-testid="input-position">
               <option value="">– keine Leistungszuordnung –</option>
-              {[...new Set(positions.map((p) => p.doc))].map((doc) => (
-                <optgroup key={doc} label={doc}>
-                  {positions
-                    .filter((p) => p.doc === doc)
-                    .map((p) => (
-                      <option key={p.ref} value={p.ref}>
-                        {p.label}
-                      </option>
-                    ))}
-                </optgroup>
-              ))}
+              {positions
+                .filter((p) => docOf(p.ref) === docId)
+                .map((p) => (
+                  <option key={p.ref} value={p.ref}>
+                    {p.label}
+                  </option>
+                ))}
             </select>
           </label>
         )}

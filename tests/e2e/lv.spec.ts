@@ -246,6 +246,38 @@ test('Projektseite: Pläne, Aufmaß und LV/MFK untereinander; LV steht immer vor
   await docs.nth(0).click();
   await expect(page.getByTestId('lv-row')).toHaveCount(8);
   await page.screenshot({ path: join(OUT, 'projekt-bereiche.png'), fullPage: true });
+
+  // Maße eingeben: erst LV oder MFK wählen, dann deren Positionen
+  await page.getByTestId('plan-file-input').setInputFiles(join(FIXTURES, 'parkdeck.png'));
+  const wiz = page.getByTestId('import-wizard');
+  await wiz.getByTestId('areas-next').click();
+  await wiz.locator('[data-field="planNumber"]').fill('P-1');
+  await wiz.getByTestId('import-save').click();
+  await waitForPlan(page);
+  const box = await planBox(page);
+  await pickTool(page, 'tool-rect');
+  await drawRect(page, box.x + box.width * 0.2, box.y + box.height * 0.3, box.x + box.width * 0.35, box.y + box.height * 0.45);
+  const dlg = page.getByTestId('damage-dialog');
+  const docSel = dlg.getByTestId('input-position-doc');
+  await expect(docSel.locator('option')).toHaveCount(2);
+  await expect(docSel.locator('option:checked')).toContainText('Musterarbeiten Tiefgarage'); // LV zuerst
+  await expect(dlg.getByTestId('input-position').locator('option')).toHaveCount(1 + 8); // „keine“ + 8 LV-Positionen
+  await docSel.selectOption({ label: (await docSel.locator('option').nth(1).textContent())! });
+  await expect(dlg.getByTestId('input-position').locator('option')).toHaveCount(1 + 5); // MFK-Positionen
+  const mfkPos = (await dlg.getByTestId('input-position').locator('option').nth(1).textContent())!;
+  await dlg.getByTestId('input-position').selectOption({ label: mfkPos });
+  await dlg.getByTestId('input-length').fill('2');
+  await dlg.getByTestId('input-width').fill('1');
+  await dlg.getByTestId('damage-save').click();
+  await waitSaved(page);
+  // Bearbeiten: MFK und Position sind wieder gewählt
+  await page.locator('[data-testid="aufmass-row"][data-number="1"]').getByRole('button', { name: /bearbeiten/ }).click();
+  await expect(dlg.getByTestId('input-position-doc').locator('option:checked')).toContainText('M9-001');
+  await expect(dlg.getByTestId('input-position').locator('option:checked')).toHaveText(mfkPos);
+  // anderes Dokument → Position zurückgesetzt
+  await dlg.getByTestId('input-position-doc').selectOption({ index: 0 });
+  await expect(dlg.getByTestId('input-position')).toHaveValue('');
+  await dlg.getByTestId('damage-cancel').click();
 });
 
 test('LV/MFK manuell: Positionen als Tabelle eingeben, Enter = nächste Zeile mit nächster Nummer, später bearbeiten', async ({ page }) => {
