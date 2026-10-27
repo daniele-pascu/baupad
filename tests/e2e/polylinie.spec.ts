@@ -491,3 +491,28 @@ test('Messung unter „Plan bearbeiten“: Reiter Messen, Abstand und Fläche, i
   await dlg.getByTestId('damage-cancel').click();
 });
 
+
+test('Plan bearbeiten: Esc beendet Punkte, Messung und Auswahl und schaltet auf „Auswahl“', async () => {
+  await page.getByTestId('mode-draw').click();
+  const sb = (await sheet().boundingBox())!;
+  const bar = page.getByTestId('draw-toolbar');
+  const count = (await elements()).length;
+  // angefangene Freie Form: Esc verwirft die Punkte, Werkzeug „Auswahl“
+  await pickTool(page, 'draw-polyline');
+  await page.mouse.click(sb.x + 120, sb.y + 380);
+  await page.mouse.click(sb.x + 260, sb.y + 380);
+  await page.keyboard.press('Escape');
+  await expect(bar.getByTestId('draw-select')).toHaveAttribute('aria-pressed', 'true');
+  await page.mouse.click(sb.x + 300, sb.y + 420);
+  expect((await elements()).length).toBe(count);
+  // laufende Messung: Esc schließt sie
+  await bar.getByTestId('ribbon-tab-measure').click();
+  await bar.getByTestId('ribbon-probe').click();
+  await bar.getByTestId('probe-menu-length').click();
+  await page.mouse.click(sb.x + 120, sb.y + 380);
+  await expect(page.getByTestId('probe-bar')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('probe-bar')).toHaveCount(0);
+  await bar.getByTestId('ribbon-tab-draw').click();
+  await expect(bar.getByTestId('draw-select')).toHaveAttribute('aria-pressed', 'true');
+});

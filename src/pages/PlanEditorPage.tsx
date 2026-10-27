@@ -549,34 +549,36 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         return;
       }
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || document.querySelector('.modal')) return;
-      // Aufmaß: Esc beendet alles – gesetzte Punkte, Messung, Menü, Auswahl – und schaltet auf „Auswahl“
-      if (!drawMode && e.key === 'Escape') {
+      // Esc beendet alles – gesetzte Punkte, Messung, Menü, Auswahl – und schaltet auf „Auswahl“
+      // (im Aufmaß und unter „Plan bearbeiten“)
+      if (e.key === 'Escape') {
         e.preventDefault();
         viewer.current?.cancelPolygon();
         setProbe(null);
         setProbeMenu(false);
-        setSelectedId(null);
-        setTool('select');
+        if (drawMode) {
+          drawing.setSelectedId(null);
+          drawing.setTool('select');
+        } else {
+          setSelectedId(null);
+          setTool('select');
+        }
         return;
       }
-      // Messung: Enter beendet (Länge/Fläche), Rücktaste nimmt den letzten Punkt zurück, Escape verwirft bzw. beendet
-      if (probe && (drawMode || tool === 'probe') && ['Enter', 'Escape', 'Backspace', 'Delete'].includes(e.key)) {
+      // Messung: Enter beendet (Länge/Fläche), Rücktaste nimmt den letzten Punkt zurück
+      if (probe && (drawMode || tool === 'probe') && ['Enter', 'Backspace', 'Delete'].includes(e.key)) {
         e.preventDefault();
         if (e.key === 'Enter') finishProbe();
-        else if (e.key === 'Escape') {
-          if (probe.points.length && !probe.done) setProbe({ ...probe, points: [] });
-          else closeProbe();
-        } else if (!probe.done) setProbe({ ...probe, points: probe.points.slice(0, -1) });
+        else if (!probe.done) setProbe({ ...probe, points: probe.points.slice(0, -1) });
         return;
       }
       // Punktwerkzeuge: Enter beendet (Polylinie offen, Polygon geschlossen), C schließt,
-      // Rücktaste/Entf nimmt den letzten Punkt zurück, Escape verwirft
-      if (polyCount && ['Enter', 'Escape', 'Backspace', 'Delete'].includes(e.key) || (polyCount && key === 'c' && !e.ctrlKey && !e.metaKey)) {
+      // Rücktaste/Entf nimmt den letzten Punkt zurück (Escape verwirft, siehe oben)
+      if (polyCount && ['Enter', 'Backspace', 'Delete'].includes(e.key) || (polyCount && key === 'c' && !e.ctrlKey && !e.metaKey)) {
         e.preventDefault();
         if (e.key === 'Enter') viewer.current?.finishPolygon();
         else if (key === 'c') viewer.current?.finishPolygon(true);
-        else if (e.key === 'Backspace' || e.key === 'Delete') viewer.current?.undoPolygonPoint();
-        else viewer.current?.cancelPolygon();
+        else viewer.current?.undoPolygonPoint();
         return;
       }
       if ((e.ctrlKey || e.metaKey) && !e.altKey && (key === 'z' || key === 'y')) {
@@ -603,13 +605,12 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       if (drawMode) {
         const dt = DRAW_TOOLS.find((x) => x.key === key);
         if (dt) drawing.setTool(dt.id);
-        else if (e.key === 'Escape') drawing.setSelectedId(null);
         else if ((e.key === 'Delete' || e.key === 'Backspace') && drawing.selected) {
           // ausgewählter Eckpunkt zuerst, sonst das ganze Objekt
           if (!drawing.removeSelectedVertex()) void drawing.remove(drawing.selected);
         }
         else if (!['+', '=', '-', '0'].includes(e.key)) return;
-        if (dt || e.key === 'Escape' || e.key === 'Delete' || e.key === 'Backspace') {
+        if (dt || e.key === 'Delete' || e.key === 'Backspace') {
           e.preventDefault();
           return;
         }
@@ -619,7 +620,6 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       else if (e.key === '+' || e.key === '=') viewer.current?.zoomIn();
       else if (e.key === '-') viewer.current?.zoomOut();
       else if (e.key === '0') viewer.current?.fit();
-      else if (e.key === 'Escape') setSelectedId(null);
       else if ((e.key === 'Delete' || e.key === 'Backspace') && selected) {
         e.preventDefault();
         // ausgewählter Eckpunkt zuerst, sonst die ganze Messung
