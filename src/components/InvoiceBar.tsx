@@ -138,7 +138,13 @@ function InvoiceDialog({ project, invoice, onClose, onSave }: { project: Project
           ))}
         </div>
         <p className="muted small">
-          {kind === 'sr' ? 'Die Schlussrechnung ist die letzte Teilrechnung – sie wird nur als solche gekennzeichnet.' : kind === 'str' ? 'Schlussteilrechnung: letzte Teilrechnung eines Abschnitts.' : 'Teilrechnung mit eigenen Plänen und eigenem Aufmaß.'}
+          {kind === 'sr'
+            ? 'Die Schlussrechnung ist die letzte Teilrechnung – sie wird nur als solche gekennzeichnet.'
+            : kind === 'str'
+              ? 'Schlussteilrechnung: letzte Teilrechnung eines Abschnitts.'
+              : kind === 'r'
+                ? 'Rechnung mit eigenen Plänen und eigenem Aufmaß.'
+                : 'Teilrechnung mit eigenen Plänen und eigenem Aufmaß.'}
         </p>
         <label className="field">
           <span>Leistungszeitraum (optional)</span>

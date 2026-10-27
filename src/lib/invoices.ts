@@ -4,6 +4,7 @@ import type { Invoice, InvoiceKind, Plan, Project } from './types';
 /** Rechnungen: Pläne und Aufmaß je Teilrechnung getrennt (Option „Nach Rechnungen aufteilen“). */
 
 export const INVOICE_KINDS: { id: InvoiceKind; label: string; short: string }[] = [
+  { id: 'r', label: 'Rechnung', short: 'R' },
   { id: 'tr', label: 'Teilrechnung', short: 'TR' },
   { id: 'str', label: 'Schlussteilrechnung', short: 'STR' },
   { id: 'sr', label: 'Schlussrechnung', short: 'SR' },

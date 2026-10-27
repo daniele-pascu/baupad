@@ -112,6 +112,9 @@ test('Nach Rechnungen aufteilen: eigene Pläne je Teilrechnung, gleiche Plannumm
   // leere Rechnung (Schlussrechnung) anlegen und wieder löschen
   await page.getByTestId('invoice-add').click();
   const d3 = page.getByTestId('invoice-dialog');
+  await expect(d3.getByRole('radio')).toHaveText(['Rechnung', 'Teilrechnung', 'Schlussteilrechnung', 'Schlussrechnung']);
+  await d3.getByTestId('invoice-kind-r').click();
+  await expect(d3.getByTestId('invoice-save')).toHaveText('3. Rechnung anlegen');
   await d3.getByTestId('invoice-kind-sr').click();
   await expect(d3.getByTestId('invoice-save')).toHaveText('3. Schlussrechnung anlegen');
   await d3.getByTestId('invoice-save').click();

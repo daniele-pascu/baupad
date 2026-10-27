@@ -432,3 +432,22 @@ test('LV/MFK manuell per Finger: Tabelle passt auf den Bildschirm, Enter legt di
   await expect(dlg).toBeHidden();
   await expect(page.getByTestId('lv-row')).toHaveCount(2);
 });
+
+test('Rechnung anlegen per Finger: vier Arten passen auf den Bildschirm', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'Rechnung mobil');
+  await page.getByTestId('split-invoices').tap();
+  const dlg = page.getByTestId('invoice-dialog');
+  await expect(dlg.getByRole('radio')).toHaveCount(4);
+  await dlg.getByTestId('invoice-kind-r').tap();
+  await expect(dlg.getByTestId('invoice-kind-r')).toHaveAttribute('aria-checked', 'true');
+  const box = (await dlg.boundingBox())!;
+  for (const r of await dlg.getByRole('radio').all()) {
+    const b = (await r.boundingBox())!;
+    expect(b.x).toBeGreaterThanOrEqual(box.x);
+    expect(b.x + b.width).toBeLessThanOrEqual(box.x + box.width + 1);
+  }
+  await noHorizontalScroll(page);
+  await dlg.getByTestId('invoice-save').tap();
+  await expect(page.getByTestId('invoice-tab')).toContainText('R 1');
+});

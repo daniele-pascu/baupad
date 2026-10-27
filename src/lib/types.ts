@@ -42,7 +42,7 @@ export interface Project extends SyncMeta {
  * Rechnung: Teilrechnung, Schlussteilrechnung bzw. Schlussrechnung. Die Schlussrechnung ist
  * eine Teilrechnung, nur als letzte gekennzeichnet.
  */
-export type InvoiceKind = 'tr' | 'str' | 'sr';
+export type InvoiceKind = 'r' | 'tr' | 'str' | 'sr';
 
 export interface Invoice {
   id: string;
