@@ -4462,12 +4462,6 @@ a.tool-tile:focus-visible {
   color: #fff;
   box-shadow: 0 8px 16px -8px var(--tool, #ff6a13);
 }
-.tool-no {
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: #a1a1a6;
-}
 .tool-text {
   position: relative;
   display: flex;

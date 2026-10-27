@@ -38,7 +38,7 @@ export function ToolsPage() {
           </a>
         </header>
         <nav className="tools-grid" aria-label="Werkzeuge">
-          {TOOLS.map((t, i) => {
+          {TOOLS.map((t) => {
             const body = (
               <>
                 <ToolIcon name={t.id} weight="thin" size={132} className="tool-mark" />
@@ -46,7 +46,6 @@ export function ToolsPage() {
                   <span className="tool-icon" aria-hidden="true">
                     <ToolIcon name={t.id} size={22} />
                   </span>
-                  <span className="tool-no">{String(i + 1).padStart(2, '0')}</span>
                 </span>
                 <span className="tool-text">
                   <strong>{t.title}</strong>
