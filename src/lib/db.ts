@@ -1,5 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import type { Component, CostCenter, Damage, DrawElement, EntityMap, EntityStore, LvDocument, Plan, Project, SourceFile } from './types';
+import type { Component, CostCenter, Damage, DrawElement, EntityMap, EntityStore, LvDocument, Plan, Project, SourceFile, WeekPlan, Worker } from './types';
 
 /**
  * Lokale Datenbank (IndexedDB). Sie funktioniert ohne Internetverbindung und hält
@@ -30,6 +30,10 @@ interface AufmassDB extends DBSchema {
   elements: { key: string; value: DrawElement; indexes: { projectId: string } };
   /** ab Version 4: Leistungsverzeichnisse und Mehrkostenforderungen */
   lvDocs: { key: string; value: LvDocument; indexes: { projectId: string } };
+  /** ab Version 5: Arbeitereinteilung – Arbeiter der Firma */
+  workers: { key: string; value: Worker };
+  /** ab Version 5: Arbeitereinteilung – eine Wochenplanung je Woche (Schlüssel = Montag JJJJ-MM-TT) */
+  weeks: { key: string; value: WeekPlan };
 }
 
 export interface OutboxEntry {
@@ -46,9 +50,10 @@ const DB_NAME = 'schadstellen-aufmass';
 /**
  * Version 1: Grundversion. Version 2: Bauteile und Änderungs-Warteschlange.
  * Version 3: Zeichnungsobjekte selbst gezeichneter Pläne. Version 4: LV und MFK.
+ * Version 5: Arbeitereinteilung (Arbeiter, Wochenplanungen).
  * Upgrades legen ausschließlich neue Speicherbereiche an; vorhandene Daten bleiben unverändert.
  */
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 
 let dbPromise: Promise<IDBPDatabase<AufmassDB>> | null = null;
 
@@ -73,6 +78,10 @@ export function getDB(): Promise<IDBPDatabase<AufmassDB>> {
         }
         if (oldVersion < 4) {
           db.createObjectStore('lvDocs', { keyPath: 'id' }).createIndex('projectId', 'projectId');
+        }
+        if (oldVersion < 5) {
+          db.createObjectStore('workers', { keyPath: 'id' });
+          db.createObjectStore('weeks', { keyPath: 'id' });
         }
         // Hinweis für die Projektverwaltung, dass die Datenbank erweitert wurde
         if (oldVersion >= 1) void tx.objectStore('meta').put({ key: 'upgradedFrom', value: oldVersion });
@@ -260,4 +269,30 @@ export async function projectStats(projectId: string) {
     plans: plans.filter((x) => !x.deletedAt).length,
     damages: damages.filter((x) => !x.deletedAt).length,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Arbeitereinteilung
+
+export async function listWorkers(): Promise<Worker[]> {
+  return (await getDB()).getAll('workers');
+}
+
+export async function saveWorker(w: Worker): Promise<void> {
+  await (await getDB()).put('workers', w);
+}
+
+export async function getWeek(id: string): Promise<WeekPlan | undefined> {
+  return (await getDB()).get('weeks', id);
+}
+
+export async function saveWeek(w: WeekPlan): Promise<void> {
+  await (await getDB()).put('weeks', w);
+}
+
+/** Letzte gespeicherte Woche vor `id` (zum Weiterführen) */
+export async function previousWeek(id: string): Promise<WeekPlan | undefined> {
+  const db = await getDB();
+  const cursor = await db.transaction('weeks').store.openCursor(IDBKeyRange.upperBound(id, true), 'prev');
+  return cursor?.value;
 }

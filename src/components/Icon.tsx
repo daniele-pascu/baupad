@@ -1,5 +1,6 @@
 const PATHS: Record<string, string> = {
   plus: 'M12 5v14M5 12h14',
+  calendar: 'M4 6a2 2 0 012-2h12a2 2 0 012 2v13a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM4 10h16M8 2v4M16 2v4',
   minus: 'M5 12h14',
   back: 'M15 18l-6-6 6-6',
   next: 'M9 18l6-6-6-6',

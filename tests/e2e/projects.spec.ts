@@ -100,10 +100,10 @@ test('Tools: vier gleich große Kacheln, zwei pro Reihe; Projektverwaltung und A
   await expect(page.getByTestId('tool-soon').first()).toHaveAttribute('aria-disabled', 'true');
   await expect(page.locator('a[data-testid="tool-soon"]')).toHaveCount(0);
   await page.screenshot({ path: join(OUT, 'tools.png'), fullPage: true });
-  // Arbeitereinteilung (noch in Arbeit) und zurück
+  // Arbeitereinteilung und zurück
   await page.getByTestId('tool-workers').click();
   await expect(page.getByTestId('workers-title')).toHaveText('Arbeitereinteilung');
-  await expect(page.getByTestId('workers-soon')).toContainText('In Arbeit');
+  await expect(page.getByTestId('crew-week')).toBeVisible();
   await page.getByTestId('to-tools').click();
   await expect(page.getByTestId('tools-title')).toBeVisible();
   // Projektverwaltung → zurück zu den Tools

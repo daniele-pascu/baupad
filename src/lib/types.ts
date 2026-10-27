@@ -382,3 +382,48 @@ export const SHAPE_LABELS: Record<ShapeType, string> = {
   triangle: 'Dreieck',
   freehand: 'Freihand',
 };
+
+// ---------------------------------------------------------------------------
+// Arbeitereinteilung (eigenständig, nur auf dem Gerät; ab Datenbank-Version 5)
+
+/** Arbeiter der Firma – einmal angelegt, jede Woche wiederverwendet */
+export interface Worker {
+  id: string;
+  firstName: string;
+  lastName: string;
+  staffNo?: string;
+  phone?: string;
+  /** Qualifikation bzw. Tätigkeit */
+  role?: string;
+  /** inaktiv: wird nicht mehr zum Einteilen angeboten, bleibt in alten Wochen sichtbar */
+  active: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** Baustelle einer Woche – aus einem Projekt (Bezeichnung zum Zeitpunkt der Einteilung) oder manuell */
+export interface WeekSite {
+  id: string;
+  projectId: string | null;
+  name: string;
+  number?: string;
+  address?: string;
+  /** fertiggestellt: wird ab der Folgewoche nicht mehr weitergeführt */
+  finished?: boolean;
+  /** eingeteilte Arbeiter je Tag (0 = Montag … 6 = Sonntag) */
+  days: string[][];
+}
+
+/** Wochenplanung – je Woche ein eigener Datensatz (id = Montag, JJJJ-MM-TT) */
+export interface WeekPlan {
+  id: string;
+  sites: WeekSite[];
+  /** Urlaub je Tag (0 = Montag … 6 = Sonntag) */
+  vacation: string[][];
+  showWeekend?: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** Arbeitszeit der Firma je Wochentag (0 = Montag); null = kein Arbeitstag */
+export type WorkTimes = ({ from: string; to: string } | null)[];

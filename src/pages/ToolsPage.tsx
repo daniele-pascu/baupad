@@ -76,32 +76,3 @@ export function ToolsPage() {
     </>
   );
 }
-
-/** Arbeitereinteilung – Platzhalter, bis der Bereich fertig ist */
-export function WorkersPage() {
-  usePageTitle('Arbeitereinteilung – BauPad');
-  return (
-    <>
-      <SiteNav />
-      <div className="page tools-page">
-        <header className="page-head">
-          <div className="page-head-title">
-            <a href={paths.tools()} className="icon-link" aria-label="Zu den Tools" title="Zu den Tools" data-testid="to-tools">
-              <Icon name="back" />
-            </a>
-            <h1 data-testid="workers-title">Arbeitereinteilung</h1>
-          </div>
-        </header>
-        <div className="empty" data-testid="workers-soon">
-          <span className="tool-icon" style={{ '--tool': '#2f80ed' } as CSSProperties} aria-hidden="true">
-            <ToolIcon name="workers" size={26} />
-          </span>
-          <p>
-            <strong>In Arbeit</strong>
-          </p>
-          <p className="muted">Hier entsteht die Wochenplanung nach Baustellen: Arbeiter je Tag einteilen, Vorwoche weiterführen, als PDF ausgeben.</p>
-        </div>
-      </div>
-    </>
-  );
-}

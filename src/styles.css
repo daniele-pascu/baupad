@@ -4530,3 +4530,426 @@ a.tool-tile:focus-visible {
     font-size: 0.8rem;
   }
 }
+
+/* =====================================================================
+   Arbeitereinteilung: Baustelle → Tag → Arbeiter (Akzent Blau wie die Tools-Kachel)
+   ===================================================================== */
+.crew-page {
+  --crew: #2f80ed;
+  max-width: 980px;
+}
+.crew-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 14px;
+}
+.crew-setup {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  border: 1px solid color-mix(in srgb, var(--tool) 30%, var(--border));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--tool) 6%, #fff);
+}
+.crew-setup > div {
+  flex: 1;
+  min-width: 0;
+}
+.crew-setup p {
+  margin: 2px 0 0;
+}
+.crew-week {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 8px 22px -16px rgba(0, 0, 0, 0.22);
+}
+.crew-week-label {
+  display: flex;
+  flex-direction: column;
+  min-width: 150px;
+  text-align: center;
+}
+.crew-week-label strong {
+  font-size: 1.15rem;
+  letter-spacing: -0.01em;
+}
+.crew-week-label span {
+  font-size: 0.86rem;
+}
+.crew-date input {
+  min-height: 40px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: #fff;
+}
+.crew-weekend {
+  margin-left: auto;
+  min-height: 40px;
+}
+.crew-open {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--warn-border);
+  border-radius: 14px;
+  background: var(--warn-soft);
+}
+.crew-open h2 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+}
+.crew-open-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 4px 0;
+}
+.crew-open-day {
+  flex: none;
+  width: 28px;
+  padding-top: 6px;
+  font-weight: 650;
+}
+.crew-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.crew-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 4px 12px;
+  border: 1px solid color-mix(in srgb, var(--crew) 30%, var(--border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--crew) 9%, #fff);
+  color: #12355f;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 550;
+  cursor: pointer;
+}
+.crew-chip:hover {
+  background: color-mix(in srgb, var(--crew) 16%, #fff);
+}
+.crew-chip.open {
+  border-color: var(--warn-border);
+  background: #fff;
+  color: #7a4b00;
+}
+.crew-chip.vacation {
+  border-style: dashed;
+  border-color: var(--border-strong);
+  background: transparent;
+  color: var(--muted);
+  cursor: default;
+}
+.crew-chip.inactive {
+  opacity: 0.6;
+  border-style: dashed;
+}
+.crew-chip.conflict {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.crew-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--muted);
+  cursor: pointer;
+}
+.crew-add:hover {
+  border-color: var(--crew);
+  color: var(--crew);
+}
+.crew-sites {
+  display: grid;
+  gap: 12px;
+}
+.crew-site {
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--crew);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 8px 22px -16px rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+}
+.crew-site.finished {
+  border-left-color: var(--success);
+}
+.crew-site-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: 6px;
+}
+.crew-site-toggle {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 8px 12px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.crew-site-toggle svg {
+  flex: none;
+  transition: transform 0.15s;
+}
+.crew-site-toggle[aria-expanded='true'] svg {
+  transform: rotate(90deg);
+}
+.crew-site-title {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.crew-site-title strong {
+  font-size: 1.05rem;
+}
+.crew-finished {
+  color: var(--success);
+  font-weight: 600;
+}
+.crew-count {
+  flex: none;
+  min-width: 28px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--crew) 12%, #fff);
+  color: var(--crew);
+  font-size: 0.85rem;
+  font-weight: 650;
+  text-align: center;
+}
+.crew-days {
+  border-top: 1px solid var(--border);
+}
+.crew-day {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 12px;
+}
+.crew-day + .crew-day {
+  border-top: 1px solid #f0f0f3;
+}
+.crew-day.off {
+  background: var(--surface-2);
+}
+.crew-day-label {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  width: 104px;
+  padding-top: 6px;
+}
+.crew-day-label .small {
+  font-size: 0.75rem;
+}
+.crew-add-site {
+  justify-self: start;
+}
+.crew-worker-form h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+.crew-worker-form .row {
+  margin-top: 10px;
+}
+.crew-worker-list {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  border-top: 1px solid var(--border);
+}
+.crew-worker-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.crew-worker-list li.inactive {
+  opacity: 0.6;
+}
+.crew-worker-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-height: 52px;
+  padding: 6px 2px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.crew-times {
+  display: grid;
+  gap: 4px;
+}
+.crew-time-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 48px;
+  border-bottom: 1px solid #f0f0f3;
+}
+.crew-time-inputs {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.crew-time-inputs input {
+  min-height: 40px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: #fff;
+}
+.crew-site-fields {
+  margin-top: 12px;
+}
+.crew-day-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.crew-day-toggles .chip {
+  min-width: 48px;
+  padding: 6px 12px;
+}
+.crew-pick {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.crew-pick li + li {
+  border-top: 1px solid #f0f0f3;
+}
+.crew-pick-name {
+  flex: 1;
+  min-width: 0;
+}
+.crew-pick-status {
+  flex: none;
+  font-size: 0.8rem;
+  color: var(--success);
+}
+.crew-pick-status.warn {
+  color: #b45309;
+}
+.crew-pick .muted .crew-pick-status {
+  color: var(--muted);
+}
+.crew-chip-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+.crew-move {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.crew-move .field {
+  flex: 1;
+}
+@media (max-width: 519px) {
+  .crew-week {
+    justify-content: space-between;
+  }
+  .crew-week-label {
+    min-width: 0;
+    flex: 1 0 auto;
+    white-space: nowrap;
+  }
+  /* zweite Zeile: Datum wählen und Sa/So */
+  .crew-date {
+    order: 5;
+    flex: 1 1 60%;
+  }
+  .crew-date input {
+    width: 100%;
+  }
+  .crew-weekend {
+    order: 6;
+    margin-left: 0;
+  }
+  .crew-setup > div {
+    min-width: calc(100% - 64px);
+  }
+  .crew-setup .btn {
+    width: 100%;
+  }
+  .crew-day {
+    flex-direction: column;
+    gap: 4px;
+  }
+  .crew-day-label {
+    flex-direction: row;
+    gap: 8px;
+    width: auto;
+    padding-top: 0;
+  }
+  .crew-setup {
+    flex-wrap: wrap;
+  }
+}
+.crew-all-set,
+.crew-vacations {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 0.92rem;
+}
+.crew-all-set {
+  border: 1px solid color-mix(in srgb, var(--success) 35%, var(--border));
+  background: color-mix(in srgb, var(--success) 8%, #fff);
+  color: #146c3b;
+  font-weight: 600;
+}
+.crew-vacations {
+  border: 1px solid var(--border);
+  background: var(--surface);
+}

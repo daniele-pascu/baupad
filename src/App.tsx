@@ -9,7 +9,8 @@ import { ProjectPage } from './pages/ProjectPage';
 import { PlanEditorPage } from './pages/PlanEditorPage';
 import { AboutPage, ContactPage, LandingPage } from './pages/SitePages';
 import { AccountPage, LoginPage } from './pages/AccountPages';
-import { ToolsPage, WorkersPage } from './pages/ToolsPage';
+import { ToolsPage } from './pages/ToolsPage';
+import { WorkersPage } from './pages/WorkersPage';
 
 /** Als App vom Home-Bildschirm gestartet (iOS/Android/Desktop-PWA)? */
 const isInstalledApp = () =>

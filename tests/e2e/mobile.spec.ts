@@ -471,3 +471,25 @@ test('Tools per Finger: 2 Kacheln pro Reihe, nichts zu breit, Projektverwaltung 
   await page.getByTestId('tool-projects').tap();
   await expect(page.getByTestId('projects-title')).toBeVisible();
 });
+
+test('Arbeitereinteilung per Finger: Arbeiter, Baustelle, Einteilung – passt auf den Bildschirm', async ({ page }, info) => {
+  await page.goto('./#/arbeitereinteilung');
+  await page.getByTestId('crew-workers').tap();
+  const wd = page.getByTestId('workers-dialog');
+  for (const n of ['Max', 'Peter']) {
+    await wd.getByTestId('worker-firstName').fill(n);
+    await wd.getByTestId('worker-save').tap();
+  }
+  await expect(wd.getByTestId('worker-row')).toHaveCount(2);
+  await wd.getByRole('button', { name: 'Schließen' }).tap();
+  await page.getByTestId('add-site').tap();
+  await page.getByTestId('site-dialog').getByTestId('site-name-input').fill('Neubau Musterstraße');
+  await page.getByTestId('site-dialog').getByTestId('site-save').tap();
+  const ad = page.getByTestId('assign-dialog');
+  await ad.locator('[data-worker="Max"] input').tap();
+  await ad.getByTestId('assign-save').tap();
+  await expect(page.locator('[data-testid="day-row"][data-day="0"] [data-testid="crew-chip"]')).toHaveText(['Max']);
+  await expect(page.getByTestId('crew-open').getByTestId('open-chip')).toHaveCount(5); // Peter Mo–Fr
+  await noHorizontalScroll(page);
+  await page.screenshot({ path: join(OUT, `arbeiter-${info.project.name}.png`), fullPage: true });
+});
