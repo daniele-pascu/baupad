@@ -4470,9 +4470,8 @@ a.tool-tile:focus-visible {
   font-size: 1.12rem;
   font-weight: 650;
   letter-spacing: -0.01em;
-  /* lange Wörter (z. B. „Fotodokumentation“) auf sehr schmalen Handys trennen statt überlaufen */
-  hyphens: auto;
-  overflow-wrap: break-word;
+  /* lange Wörter nie über den Rand (sehr schmale Handys: Schrift wird kleiner, siehe unten) */
+  overflow-wrap: anywhere;
 }
 .tool-text span {
   color: var(--muted);
@@ -4530,7 +4529,8 @@ a.tool-tile:hover .tool-go {
     border-radius: 15px;
   }
   .tool-text strong {
-    font-size: 1rem;
+    /* „Projektverwaltung“, „Fotodokumentation“ bleiben auch auf kleinen Handys einzeilig */
+    font-size: clamp(0.8rem, 3.7vw, 1rem);
   }
   .tool-text span {
     font-size: 0.84rem;

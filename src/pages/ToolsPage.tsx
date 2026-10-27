@@ -15,7 +15,7 @@ interface Tool {
 
 const TOOLS: Tool[] = [
   { id: 'projects', title: 'Projektverwaltung', text: 'Projekte, Pläne und Aufmaß', icon: 'blueprint', tone: 'blue', href: paths.projects() },
-  { id: 'workers', title: 'Arbeitereinteilung', text: 'Wochenplanung nach Baustellen', icon: 'helmet', tone: 'amber', href: paths.workers() },
+  { id: 'workers', title: 'Arbeitereinteilung', text: 'Wochenplanung nach Baustellen', icon: 'worker', tone: 'amber', href: paths.workers() },
   { id: 'photos', title: 'Fotodokumentation', text: 'Baufortschritt und Mängel in Bildern', icon: 'camera', tone: 'violet' },
   { id: 'soon-2', title: 'Noch in Planung', text: 'Weiteres Werkzeug folgt', icon: 'soon', tone: 'teal' },
 ];
@@ -87,7 +87,7 @@ export function WorkersPage() {
         </header>
         <div className="empty" data-testid="workers-soon">
           <span className="tool-icon tone-amber" aria-hidden="true">
-            <Icon name="helmet" size={30} />
+            <Icon name="worker" size={30} />
           </span>
           <p>
             <strong>In Arbeit</strong>

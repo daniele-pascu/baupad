@@ -460,6 +460,11 @@ test('Tools per Finger: 2 Kacheln pro Reihe, nichts zu breit, Projektverwaltung 
   expect(Math.abs(a!.y - b!.y)).toBeLessThan(1); // zwei nebeneinander
   expect(c!.y).toBeGreaterThan(a!.y + a!.height - 1);
   expect(a!.width).toBeGreaterThan(130); // gut antippbar
+  // Titel einzeilig (keine abgebrochenen Wörter wie „Projektverwaltun-g“)
+  for (const t of await tiles.locator('strong').all()) {
+    const lh = await t.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight) || parseFloat(getComputedStyle(el).fontSize) * 1.3);
+    expect((await t.boundingBox())!.height).toBeLessThan(lh * 1.5);
+  }
   await noHorizontalScroll(page);
   await page.screenshot({ path: join(OUT, `tools-${info.project.name}.png`), fullPage: true });
   await page.getByTestId('tool-projects').tap();
