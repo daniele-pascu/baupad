@@ -110,7 +110,8 @@ test('Linien mit Länge und Richtung schließen aneinander an; Kreis, Dreieck, M
   await page.getByRole('button', { name: 'Richtung nach unten' }).click();
   await page.getByTestId('insert-submit').click();
   await expect(dim('3,00 m')).toBeVisible();
-  await deselect();
+  await deselect(); // Esc schaltet auf „Auswahl“ – Linie wieder wählen, sie schließt weiter an
+  await pickTool(page, 'draw-line');
   await expect(page.getByTestId('insert-bar')).toContainText('schließt an die letzte Linie an');
   await page.getByTestId('insert-length').fill('2,5');
   await page.getByRole('button', { name: 'Richtung nach rechts' }).click();

@@ -4314,9 +4314,12 @@ button.status-pill:hover {
 /* Aufmaß je Plan (Projekt nicht aufgeteilt) */
 .aufmass-blocks {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
 }
 .aufmass-block {
+  /* breite Tabellen scrollen in sich statt die Seite zu verbreitern */
+  min-width: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
