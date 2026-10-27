@@ -17,7 +17,7 @@ const TOOLS: Tool[] = [
   { id: 'projects', title: 'Projektverwaltung', text: 'Projekte, Pläne und Aufmaß', icon: 'blueprint', tone: 'blue', href: paths.projects() },
   { id: 'workers', title: 'Arbeitereinteilung', text: 'Wochenplanung nach Baustellen', icon: 'worker', tone: 'amber', href: paths.workers() },
   { id: 'photos', title: 'Fotodokumentation', text: 'Baufortschritt und Mängel in Bildern', icon: 'camera', tone: 'violet' },
-  { id: 'soon-2', title: 'Noch in Planung', text: 'Weiteres Werkzeug folgt', icon: 'soon', tone: 'teal' },
+  { id: 'reports', title: 'Berichte & Formulare', text: 'Regielisten, Bautagesberichte, Formulare', icon: 'clipboard', tone: 'teal' },
 ];
 
 /** Start nach der Anmeldung: alle Werkzeuge als gleich große Kacheln, zwei pro Reihe. */

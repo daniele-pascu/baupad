@@ -4463,7 +4463,8 @@ a.tool-tile:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  margin-top: auto;
+  /* Titel jeder Reihe auf gleicher Höhe (unter dem Symbol), auch wenn einer zweizeilig ist */
+  margin-top: 8px;
   min-width: 0;
 }
 .tool-text strong {
