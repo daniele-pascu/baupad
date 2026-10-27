@@ -16,7 +16,6 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   await page.getByRole('link', { name: 'Zurück zur Planliste' }).click();
 
   // Import mit Prüfansicht
-  await page.getByTestId('tab-lv').click();
   await page.getByTestId('lv-file-input').setInputFiles(join(FIXTURES, 'lv-beispiel.pdf'));
   const review = page.getByTestId('lv-review');
   await expect(review.getByTestId('lv-review-summary')).toContainText('4 Positionen');
@@ -40,7 +39,6 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   await expect(page.getByTestId('lv-flagged')).toHaveCount(0);
 
   // Messungen im Plan den Positionen zuordnen
-  await page.getByRole('tab', { name: /Liste/ }).click();
   await page.getByTestId('plan-open').first().click();
   await waitForPlan(page);
   const box = await planBox(page);
@@ -75,20 +73,17 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   await page.getByRole('link', { name: 'Zurück zur Planliste' }).click();
   await expect(page.getByTestId('plan-services')).toContainText('92 01 01 A');
   await expect(page.getByTestId('plan-services')).toContainText('92 01 01 B');
-  await page.getByTestId('tab-lv').click();
   await expect(page.locator('[data-testid="lv-row"][data-number="92 01 01 B"] [data-testid="lv-measured"]')).toHaveText('10,00');
   await expect(page.locator('[data-testid="lv-row"][data-number="92 01 01 A"] [data-testid="lv-measured"]')).toHaveText('12,00');
   await expect(page.getByTestId('lv-measured-total')).toHaveText('286,00 €');
 
   // Nach dem Neuladen bleibt alles erhalten
   await page.reload();
-  await page.getByTestId('tab-lv').click();
   await expect(page.getByTestId('lv-row')).toHaveCount(4);
   await expect(page.getByTestId('lv-measured-total')).toHaveText('286,00 €');
   await page.screenshot({ path: join(process.cwd(), 'tests', 'output', 'lv-pc.png'), fullPage: true });
 
   // Freie Messungen (ohne Leistung): eine Fläche und eine Linie
-  await page.getByRole('tab', { name: /Liste/ }).click();
   await page.getByTestId('plan-open').first().click();
   await waitForPlan(page);
   await expect(page.getByTestId('current-position')).toContainText('ohne Leistungszuordnung');
@@ -167,7 +162,6 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
 test('Kurz-LV (eine Zeile je Position, Punkt-Nummern) importieren: alle Positionen, Summe wie im Dokument', async ({ page }) => {
   await freshStart(page);
   await createProject(page, 'Kurz-LV', {}, ['Garage']);
-  await page.getByTestId('tab-lv').click();
   await page.getByTestId('lv-file-input').setInputFiles(join(FIXTURES, 'kurz-lv.pdf'));
   const review = page.getByTestId('lv-review');
   const summary = review.getByTestId('lv-review-summary');
@@ -187,14 +181,12 @@ test('Kurz-LV (eine Zeile je Position, Punkt-Nummern) importieren: alle Position
   await expect(row('S1.12.14.85.03A.2')).toContainText('kg');
   // bleibt nach dem Neuladen erhalten
   await page.reload();
-  await page.getByTestId('tab-lv').click();
   await expect(page.getByTestId('lv-row')).toHaveCount(8);
 });
 
 test('MFK mit Punkt-Nummern und EP-Zeile importieren: als MFK samt Nummer erkannt, Gruppen- und Gesamtsumme stimmen', async ({ page }) => {
   await freshStart(page);
   await createProject(page, 'MFK-Import', {}, ['Halle']);
-  await page.getByTestId('tab-lv').click();
   await page.getByTestId('lv-file-input').setInputFiles(join(FIXTURES, 'mfk-beispiel.pdf'));
   const review = page.getByTestId('lv-review');
   const summary = review.getByTestId('lv-review-summary');
@@ -205,7 +197,7 @@ test('MFK mit Punkt-Nummern und EP-Zeile importieren: als MFK samt Nummer erkann
   await expect(summary).not.toContainText('unsicheren Angaben');
   await expect(review.getByTestId('lv-kind')).toHaveValue('mfk');
   await expect(review.getByTestId('lv-number')).toHaveValue('M9-001');
-  await expect(review.getByTestId('lv-name')).toHaveValue('M9-001.MFK Musterhalle Beschichtungen');
+  await expect(review.getByTestId('lv-name')).toHaveValue('Musterhalle Beschichtungen'); // Nummer steht im eigenen Feld
   await review.getByTestId('lv-review-save').click();
   await expect(page.getByTestId('lv-row')).toHaveCount(5);
   await expect(page.getByTestId('lv-flagged')).toHaveCount(0);
@@ -217,4 +209,39 @@ test('MFK mit Punkt-Nummern und EP-Zeile importieren: als MFK samt Nummer erkann
   await expect(page.locator('.lv-detail')).toContainText('Gilt fuer die folgenden Positionen.');
   await expect(page.locator('.lv-detail')).toContainText('Ueberschleifen des Betonuntergrundes');
   await expect(page.locator('.lv-detail')).not.toContainText('Lohn');
+});
+
+test('Projektseite: Pläne, Aufmaß und LV/MFK untereinander; LV steht immer vor den MFKs', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'Bereiche', {}, ['Garage']);
+  // MFK zuerst hochladen, danach das LV
+  for (const f of ['mfk-beispiel.pdf', 'kurz-lv.pdf']) {
+    await page.getByTestId('lv-file-input').setInputFiles(join(FIXTURES, f));
+    await page.getByTestId('lv-review').getByTestId('lv-review-save').click();
+    await expect(page.getByTestId('lv-review')).toBeHidden();
+  }
+  const docs = page.getByTestId('lv-doc-tab');
+  await expect(docs).toHaveCount(2);
+  await expect(docs.nth(0)).toContainText('LV');
+  await expect(docs.nth(0)).toContainText('Musterarbeiten Tiefgarage');
+  await expect(docs.nth(1)).toContainText('MFK');
+  await expect(docs.nth(1)).toContainText('M9-001');
+  // Reihenfolge der Bereiche: Pläne, Aufmaß, LV/MFK – alle gleichzeitig sichtbar, keine Reiter mehr
+  const y = async (sel: string) => (await page.locator(sel).first().boundingBox())!.y;
+  const plansY = await y('.plans-title');
+  const aufmassY = await y('[data-testid="aufmass-section"]');
+  const lvY = await y('[data-testid="lv-section"]');
+  expect(plansY).toBeLessThan(aufmassY);
+  expect(aufmassY).toBeLessThan(lvY);
+  await expect(page.getByTestId('aufmass-empty')).toBeVisible();
+  await expect(page.getByTestId('export-xlsx-cc')).toBeVisible();
+  await expect(page.locator('[role="tab"]')).toHaveCount(0);
+  // auf- und zuklappen
+  await docs.nth(1).click();
+  await expect(page.getByTestId('lv-row')).toHaveCount(5);
+  await docs.nth(1).click();
+  await expect(page.getByTestId('lv-row')).toHaveCount(0);
+  await docs.nth(0).click();
+  await expect(page.getByTestId('lv-row')).toHaveCount(8);
+  await page.screenshot({ path: join(OUT, 'projekt-bereiche.png'), fullPage: true });
 });

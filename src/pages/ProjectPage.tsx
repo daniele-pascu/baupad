@@ -45,7 +45,6 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
   const [importFile, setImportFile] = useState<File | null>(null);
   const [details, setDetails] = useState<Plan | null>(null);
   const [cropping, setCropping] = useState<{ plan: Plan; image: HTMLCanvasElement } | null>(null);
-  const [tab, setTab] = useState<'plans' | 'table' | 'lv'>('plans');
   const [drawingNew, setDrawingNew] = useState(false);
   const [library, setLibrary] = useState(false);
   const [reuse, setReuse] = useState<PlanSource | null>(null);
@@ -323,17 +322,6 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
               )}
             </h2>
             <div className="row gap wrap">
-              <div className="segmented" role="tablist">
-                <button type="button" role="tab" aria-selected={tab === 'plans'} onClick={() => setTab('plans')}>
-                  <Icon name="map" size={18} /> Liste ({plans.length})
-                </button>
-                <button type="button" role="tab" aria-selected={tab === 'table'} onClick={() => setTab('table')} data-testid="tab-table">
-                  <Icon name="table" size={18} /> Aufmaß ({rows.length})
-                </button>
-                <button type="button" role="tab" aria-selected={tab === 'lv'} onClick={() => setTab('lv')} data-testid="tab-lv">
-                  <Icon name="file" size={18} /> LV / MFK
-                </button>
-              </div>
               <button type="button" className="btn btn-primary" onClick={() => fileRef.current?.click()} data-testid="import-plan">
                 <Icon name="upload" /> Plan importieren
               </button>
@@ -360,8 +348,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
             />
           </div>
 
-          {tab === 'plans' &&
-            (plans.length ? (
+          {plans.length ? (
               <PlanList
                 data={data}
                 plans={plans}
@@ -385,26 +372,47 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
                   </button>
                 </div>
               </div>
-            ))}
-
-          {tab === 'lv' && <LvPanel data={data} />}
-          {tab === 'table' && <AufmassTable rows={rows} showPlan components={data.components} positionLabel={(ref) => findPosition(data, ref)?.pos.number ?? null} onSelect={(r) => navigate(paths.plan(project.id, r.plan.id, r.damage.id))} />}
+            )}
         </section>
       )}
+
+      {/* Aufmaß: alle Messungen der Kostenstelle, darüber der Excel-Export (Aufmaßblatt) */}
+      {active && (
+        <section data-testid="aufmass-section">
+          <div className="section-head">
+            <h2 className="section-title">
+              Aufmaß <span className="muted">({rows.length})</span>
+            </h2>
+            <div className="row gap wrap">
+              <button type="button" className="btn" onClick={() => setExcelScope({ kind: 'costCenter', costCenterId: active.id })} data-testid="export-xlsx-cc">
+                <Icon name="excel" /> {ccs.length > 1 ? 'Excel – Aufmaßblatt Kostenstelle' : 'Excel – Aufmaßblatt'}
+              </button>
+              {ccs.length > 1 && (
+                <button type="button" className="btn" onClick={() => setExcelScope({ kind: 'project' })} data-testid="export-xlsx-project">
+                  <Icon name="excel" /> Excel – gesamtes Projekt
+                </button>
+              )}
+            </div>
+          </div>
+          {rows.length ? (
+            <AufmassTable rows={rows} showPlan components={data.components} positionLabel={(ref) => findPosition(data, ref)?.pos.number ?? null} onSelect={(r) => navigate(paths.plan(project.id, r.plan.id, r.damage.id))} />
+          ) : (
+            <p className="muted" data-testid="aufmass-empty">
+              Noch keine Messungen{ccs.length > 1 ? ' in dieser Kostenstelle' : ''} – sie erscheinen hier, sobald im Plan gemessen wird.
+            </p>
+          )}
+        </section>
+      )}
+
+      {/* LV und MFK des Projekts: LV zuerst, darunter die MFKs */}
+      <section data-testid="lv-section">
+        <h2 className="section-title">LV / MFK</h2>
+        <LvPanel data={data} />
+      </section>
 
       <section>
         <h2 className="section-title">Export und Sicherung</h2>
         <div className="button-row">
-          {active && (
-            <button type="button" className="btn" onClick={() => setExcelScope({ kind: 'costCenter', costCenterId: active.id })} data-testid="export-xlsx-cc">
-              <Icon name="excel" /> {ccs.length > 1 ? 'Excel – Aufmaßblatt Kostenstelle' : 'Excel – Aufmaßblatt'}
-            </button>
-          )}
-          {ccs.length > 1 && (
-            <button type="button" className="btn" onClick={() => setExcelScope({ kind: 'project' })} data-testid="export-xlsx-project">
-              <Icon name="excel" /> Excel – gesamtes Projekt
-            </button>
-          )}
           <button type="button" className="btn" onClick={() => setPdfOpen(true)} disabled={!plans.length}>
             <Icon name="pdf" /> PDF – Pläne auswählen
           </button>

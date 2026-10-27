@@ -1776,10 +1776,75 @@ input[type='range'] {
   gap: 8px;
   margin-bottom: 10px;
 }
-.lv-docs {
+/* Dokumente untereinander (LV zuerst, darunter MFKs); das aufgeklappte zeigt seine Positionen */
+.lv-doc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  flex-direction: column;
+  gap: 8px;
+}
+.lv-doc-item {
+  overflow: hidden;
+}
+.lv-doc-item > .lv-doc {
+  padding: 0 14px 14px;
+  border-top: 1px solid var(--border);
+}
+.lv-doc-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: var(--touch);
+  padding: 10px 14px;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.lv-doc-row:hover {
+  background: var(--primary-soft);
+}
+.lv-doc-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.lv-doc-meta {
+  white-space: nowrap;
+}
+.lv-kind {
+  flex: none;
+  min-width: 42px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+.lv-kind-lv {
+  background: var(--primary);
+  color: #fff;
+}
+.lv-kind-mfk {
+  background: var(--primary-soft);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+}
+@media (max-width: 600px) {
+  .lv-doc-row {
+    flex-wrap: wrap;
+  }
+  .lv-doc-meta {
+    order: 3;
+    width: 100%;
+    padding-left: 52px;
+  }
 }
 .lv-doc-head {
   display: flex;

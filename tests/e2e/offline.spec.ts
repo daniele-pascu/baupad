@@ -104,7 +104,6 @@ test('Offline: Projekt anlegen, PDF importieren, Schadstellen erfassen, exportie
 
   // Offline: LV aus PDF lesen (pdf.js-Textebene aus dem Offline-Speicher), Messung zuordnen
   await page.getByRole('link', { name: 'Zurück zur Planliste' }).click();
-  await page.getByTestId('tab-lv').click();
   await page.getByTestId('lv-file-input').setInputFiles(join(FIXTURES, 'lv-beispiel.pdf'));
   await expect(page.getByTestId('lv-review-summary')).toContainText('4 Positionen');
   await page.getByTestId('lv-review-save').click();

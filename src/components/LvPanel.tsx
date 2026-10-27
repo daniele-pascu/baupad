@@ -31,8 +31,9 @@ function measured(data: ProjectState, doc: LvDocument, pos: LvPosition) {
  */
 export function LvPanel({ data }: { data: ProjectState }) {
   const docs = lvDocsOf(data);
+  // aufgeklapptes Dokument: anfangs das erste (LV vor MFK); '' = alle zugeklappt
   const [activeId, setActiveId] = useState<string | null>(null);
-  const active = docs.find((d) => d.id === activeId) ?? docs[0] ?? null;
+  const active = docs.find((d) => d.id === activeId) ?? (activeId === null ? docs[0] : null) ?? null;
   const fileRef = useRef<HTMLInputElement>(null);
   const [importKind, setImportKind] = useState<'lv' | 'mfk'>('lv');
   const [review, setReview] = useState<{ parsed: ParsedLv; fileName: string; kind: 'lv' | 'mfk' } | null>(null);
@@ -85,23 +86,6 @@ export function LvPanel({ data }: { data: ProjectState }) {
   return (
     <div className="lv-panel" data-testid="lv-panel">
       <div className="lv-toolbar">
-        {docs.length > 0 && (
-          <div className="lv-docs" role="tablist" aria-label="Dokumente">
-            {docs.map((d) => (
-              <button
-                key={d.id}
-                type="button"
-                role="tab"
-                className={`chip${active?.id === d.id ? ' active' : ''}`}
-                aria-selected={active?.id === d.id}
-                onClick={() => setActiveId(d.id)}
-                data-testid="lv-doc-tab"
-              >
-                {lvDocLabel(d)}
-              </button>
-            ))}
-          </div>
-        )}
         <div className="row gap wrap">
           <button type="button" className="btn btn-sm" onClick={() => startImport('lv')} disabled={busy} data-testid="lv-import">
             <Icon name="upload" size={18} /> LV importieren (PDF)
@@ -133,7 +117,26 @@ export function LvPanel({ data }: { data: ProjectState }) {
           <p className="muted">Importieren Sie ein LV oder eine MFK als PDF (ÖNORM-Ausdruck mit Positionsnummern) oder legen Sie eine MFK manuell an.</p>
         </div>
       )}
-      {active && <LvDocView data={data} doc={active} onEdit={() => setDocDialog({ doc: active, kind: active.kind })} onDelete={() => void removeDoc(active)} />}
+      {docs.length > 0 && (
+        <ul className="lv-doc-list" aria-label="Dokumente">
+          {docs.map((d) => {
+            const open = active?.id === d.id;
+            return (
+              <li key={d.id} className={`lv-doc-item card${open ? ' open' : ''}`}>
+                <button type="button" className="lv-doc-row" aria-expanded={open} onClick={() => setActiveId(open ? '' : d.id)} data-testid="lv-doc-tab">
+                  <span className={`lv-kind lv-kind-${d.kind}`}>{d.kind === 'lv' ? 'LV' : 'MFK'}</span>
+                  <span className="lv-doc-name">{[d.number, d.name].filter(Boolean).join(' – ') || lvDocLabel(d)}</span>
+                  <span className="lv-doc-meta muted small">
+                    {d.positions.length} Pos. · {eur(sumPositions(d.positions))}
+                  </span>
+                  <Icon name={open ? 'minus' : 'plus'} size={18} />
+                </button>
+                {open && <LvDocView data={data} doc={d} onEdit={() => setDocDialog({ doc: d, kind: d.kind })} onDelete={() => void removeDoc(d)} />}
+              </li>
+            );
+          })}
+        </ul>
+      )}
       {review && (
         <LvReviewDialog
           review={review}
@@ -175,7 +178,12 @@ function LvReviewDialog({
   const { parsed } = review;
   // als MFK erkannt (z. B. „M1-003.MFK …“) → Art und MFK-Nummer vorbelegt
   const [kind, setKind] = useState(parsed.kind ?? review.kind);
-  const [name, setName] = useState(parsed.title || review.fileName.replace(/\.pdf$/i, ''));
+  // „M1-003.MFK Tiefgarage …“ → Bezeichnung „Tiefgarage …“ (die Nummer steht im eigenen Feld)
+  const [name, setName] = useState(() => {
+    const title = parsed.title || review.fileName.replace(/\.pdf$/i, '');
+    const short = parsed.number ? title.replace(new RegExp(`^${parsed.number}\\.?\\s*M(?:FK|KF)\\b[\\s\\-–]*`, 'i'), '').trim() : title;
+    return short || title;
+  });
   const [number, setNumber] = useState(parsed.number ?? '');
   const total = sumPositions(parsed.positions);
   const flagged = parsed.positions.filter((p) => p.issues.length);
@@ -314,7 +322,9 @@ function LvDocView({ data, doc, onEdit, onDelete }: { data: ProjectState; doc: L
     <section className="lv-doc" data-testid="lv-doc">
       <div className="lv-doc-head">
         <div>
-          <h3 data-testid="lv-doc-title">{lvDocLabel(doc)}</h3>
+          <h3 className="sr-only" data-testid="lv-doc-title">
+            {lvDocLabel(doc)}
+          </h3>
           <p className="muted small">
             {doc.positions.length} Positionen · LV-Summe {eur(lvTotal)} · Aufmaß {query ? '(Auswahl) ' : ''}
             <span data-testid="lv-measured-total">{eur(measuredTotal)}</span>
