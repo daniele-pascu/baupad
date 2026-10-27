@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildLines, parseGermanNumber, parseLv, sumPositions, type Line } from '../../src/lib/lv-parse';
+import { nextPositionNumber } from '../../src/lib/numbering';
 
 /** Zeile aus Zellen (Abstand groß genug für eine Spaltentrennung) */
 const L = (page: number, ...cells: string[]): Line => ({ page, x: 40, cells });
@@ -213,3 +214,18 @@ describe('LV aus PDF-Text', () => {
   });
 });
 
+
+describe('Positionsnummer weiterzählen (manuelle Eingabe)', () => {
+  it('Zahlen mit führenden Nullen, Gruppen und Buchstaben', () => {
+    expect(nextPositionNumber('1')).toBe('2');
+    expect(nextPositionNumber('9')).toBe('10');
+    expect(nextPositionNumber('01.01')).toBe('01.02');
+    expect(nextPositionNumber('01.09')).toBe('01.10');
+    expect(nextPositionNumber('92 01 01 A')).toBe('92 01 01 B');
+    expect(nextPositionNumber('03.12.11.26.01.A')).toBe('03.12.11.26.01.B');
+    expect(nextPositionNumber('02.11.21.07C.')).toBe('02.11.21.07D.');
+    expect(nextPositionNumber('Pos 5a')).toBe('Pos 6a');
+    expect(nextPositionNumber('')).toBe('');
+    expect(nextPositionNumber('Zusatz')).toBe('');
+  });
+});

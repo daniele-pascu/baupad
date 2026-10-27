@@ -405,3 +405,29 @@ test('Darstellung einer Messung per Finger: Bedienfeld passt auf den Bildschirm'
   await noHorizontalScroll(page);
   await page.screenshot({ path: join(OUT, `${info.project.name}-darstellung.png`) });
 });
+
+test('LV/MFK manuell per Finger: Tabelle passt auf den Bildschirm, Enter legt die nächste Position an', async ({ page }, info) => {
+  await freshStart(page);
+  await createProject(page, 'Manuell mobil', {}, ['Hof']);
+  await page.getByTestId('lv-new').tap();
+  const dlg = page.getByTestId('lv-doc-dialog');
+  await dlg.getByTestId('lv-doc-name').fill('Zusatz');
+  const rows = dlg.getByTestId('lv-grid-row');
+  await rows.nth(0).getByTestId('grid-shortText').tap();
+  await page.keyboard.type('Fugen schneiden');
+  await rows.nth(0).getByTestId('grid-unit').fill('m');
+  await rows.nth(0).getByTestId('grid-unitPrice').fill('12,5');
+  await page.keyboard.press('Enter');
+  await expect(rows).toHaveCount(2);
+  await expect(rows.nth(1).getByTestId('grid-number')).toHaveValue('2');
+  await page.keyboard.type('Kernbohrung');
+  await noHorizontalScroll(page);
+  // Speichern-Knopf erreichbar
+  const save = dlg.getByTestId('lv-doc-save');
+  const b = (await save.boundingBox())!;
+  expect(b.y + b.height).toBeLessThanOrEqual(page.viewportSize()!.height + 1);
+  await page.screenshot({ path: join(OUT, `${info.project.name}-lv-manuell.png`) });
+  await save.tap();
+  await expect(dlg).toBeHidden();
+  await expect(page.getByTestId('lv-row')).toHaveCount(2);
+});

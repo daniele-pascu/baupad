@@ -168,3 +168,14 @@ export function duplicateIds(damages: Pick<Damage, 'id' | 'number' | 'label'>[])
   }
   return new Set([...byKey.values()].filter((ids) => ids.length > 1).flat());
 }
+
+/** Nächste Positionsnummer vorschlagen: „1“ → „2“, „01.01“ → „01.02“, „92 01 01 A“ → „92 01 01 B“, „…07C.“ → „…07D.“ */
+export function nextPositionNumber(prev: string): string {
+  const t = prev.trim();
+  const letter = /^(.*[\s.\d])([A-Y])(\.?)$/.exec(t);
+  if (letter) return letter[1] + String.fromCharCode(letter[2].charCodeAt(0) + 1) + letter[3];
+  const m = /^(.*?)(\d+)(\D*)$/.exec(t);
+  if (!m) return '';
+  const n = String(Number(m[2]) + 1).padStart(m[2].length, '0');
+  return m[1] + n + m[3];
+}

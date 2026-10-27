@@ -245,3 +245,67 @@ test('Projektseite: Pläne, Aufmaß und LV/MFK untereinander; LV steht immer vor
   await expect(page.getByTestId('lv-row')).toHaveCount(8);
   await page.screenshot({ path: join(OUT, 'projekt-bereiche.png'), fullPage: true });
 });
+
+test('LV/MFK manuell: Positionen als Tabelle eingeben, Enter = nächste Zeile mit nächster Nummer, später bearbeiten', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'Manuell', {}, ['Hof']);
+  await page.getByTestId('lv-new').click();
+  const dlg = page.getByTestId('lv-doc-dialog');
+  await expect(dlg.getByTestId('lv-doc-kind')).toHaveValue('lv'); // noch kein LV → LV vorgeschlagen
+  await dlg.getByTestId('lv-doc-name').fill('Zusatzleistungen Hof');
+  await page.keyboard.press('Enter'); // → erste Zeile, Nummer 1 ist schon eingetragen
+  const rows = dlg.getByTestId('lv-grid-row');
+  await expect(rows.nth(0).getByTestId('grid-number')).toHaveValue('1');
+  await expect(rows.nth(0).getByTestId('grid-shortText')).toBeFocused();
+  await page.keyboard.type('Fugen schneiden');
+  await page.keyboard.press('Tab');
+  await page.keyboard.type('m');
+  await page.keyboard.press('Tab');
+  await page.keyboard.type('12,50');
+  await page.keyboard.press('Enter'); // neue Zeile mit Nummer 2, Cursor im Positionstext
+  await expect(rows).toHaveCount(2);
+  await expect(rows.nth(1).getByTestId('grid-number')).toHaveValue('2');
+  await expect(rows.nth(1).getByTestId('grid-shortText')).toBeFocused();
+  await page.keyboard.type('Kernbohrung 100 mm');
+  await page.keyboard.press('Tab');
+  await page.keyboard.type('Stk');
+  await page.keyboard.press('Tab');
+  await page.keyboard.type('1.234,50');
+  await page.keyboard.press('Enter');
+  await expect(rows).toHaveCount(3);
+  await expect(rows.nth(2).getByTestId('grid-number')).toHaveValue('3');
+  // Zeile ohne Text wird nicht gespeichert, Zeile mit Text braucht eine Nummer
+  await rows.nth(1).getByTestId('grid-number').fill('');
+  await dlg.getByTestId('lv-doc-save').click();
+  await expect(dlg).toContainText('Zeile 2: Pos.-Nr. fehlt');
+  await rows.nth(1).getByTestId('grid-number').fill('2');
+  await expect(dlg.getByTestId('lv-doc-save')).toHaveText('Speichern (2 Pos.)');
+  await page.screenshot({ path: join(OUT, 'lv-manuell.png') });
+  await dlg.getByTestId('lv-doc-save').click();
+  await expect(dlg).toBeHidden();
+  await expect(page.getByTestId('lv-row')).toHaveCount(2);
+  const row = (n: string) => page.locator(`[data-testid="lv-row"][data-number="${n}"]`);
+  await expect(row('1')).toContainText('Fugen schneiden');
+  await expect(row('1')).toContainText('12,50 €');
+  await expect(row('2')).toContainText('Kernbohrung 100 mm');
+  await expect(row('2')).toContainText('1.234,50 €');
+  await expect(page.getByTestId('lv-doc-tab').first()).toContainText('LV');
+
+  // Später bearbeiten: Preis ändern, Zeile entfernen, neue Zeile ergänzen
+  await page.getByTestId('lv-doc-actions').click();
+  await page.getByTestId('lv-doc-edit').click();
+  await expect(rows).toHaveCount(3); // 2 Positionen + leere Zeile mit Nummer 3
+  await rows.nth(0).getByTestId('grid-unitPrice').fill('13');
+  await rows.nth(1).getByTestId('grid-remove').click();
+  await rows.nth(1).getByTestId('grid-shortText').fill('Randabschluss');
+  await dlg.getByTestId('lv-doc-save').click();
+  await expect(page.getByTestId('lv-row')).toHaveCount(2);
+  await expect(row('1')).toContainText('13,00 €');
+  await expect(row('3')).toContainText('Randabschluss');
+  await expect(row('2')).toHaveCount(0);
+  // bleibt nach dem Neuladen erhalten; weiteres manuelles Dokument wird als MFK vorgeschlagen
+  await page.reload();
+  await expect(page.getByTestId('lv-row')).toHaveCount(2);
+  await page.getByTestId('lv-new').click();
+  await expect(dlg.getByTestId('lv-doc-kind')).toHaveValue('mfk');
+});

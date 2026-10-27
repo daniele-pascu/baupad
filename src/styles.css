@@ -1778,6 +1778,109 @@ input[type='range'] {
   gap: 8px;
   margin-bottom: 10px;
 }
+/* Positionen manuell eingeben (Tabelle) */
+.lv-grid-hint {
+  margin: 14px 0 6px;
+}
+.lv-grid-wrap {
+  margin-bottom: 10px;
+  box-shadow: none;
+}
+.lv-grid {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+}
+.lv-grid th {
+  padding: 8px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.lv-grid th.num {
+  text-align: right;
+}
+.lv-grid td {
+  padding: 3px 4px;
+  border-bottom: 1px solid var(--border);
+}
+.lv-grid th:nth-child(1) {
+  width: 120px;
+}
+.lv-grid th:nth-child(3) {
+  width: 80px;
+}
+.lv-grid th:nth-child(4) {
+  width: 130px;
+}
+.lv-grid th:nth-child(5) {
+  width: 40px;
+}
+.lv-grid input {
+  width: 100%;
+  height: 38px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--bg);
+  font: inherit;
+  color: inherit;
+}
+.lv-grid input:focus {
+  outline: none;
+  border-color: var(--border-strong);
+  background: var(--surface);
+  box-shadow: var(--ring);
+}
+.lv-grid td.num input {
+  text-align: right;
+}
+.lv-grid tr.invalid input {
+  border-color: var(--danger);
+}
+.lv-grid .lv-grid-error td {
+  padding: 2px 8px 6px;
+  border-bottom: 1px solid var(--border);
+}
+/* schmale Bildschirme: jede Zeile als Karte – oben Nr. + Text, darunter Einheit, Preis, Entfernen */
+@media (max-width: 600px) {
+  .lv-grid {
+    min-width: 0;
+  }
+  .lv-grid thead {
+    display: none;
+  }
+  .lv-grid,
+  .lv-grid tbody {
+    display: block;
+  }
+  .lv-grid tr[data-testid='lv-grid-row'] {
+    display: grid;
+    grid-template-columns: 72px 1fr 1fr 40px;
+    gap: 6px;
+    padding: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .lv-grid tr[data-testid='lv-grid-row'] td {
+    padding: 0;
+    border: 0;
+  }
+  .lv-grid tr[data-testid='lv-grid-row'] td:nth-child(2) {
+    grid-column: 2 / 5;
+  }
+  .lv-grid tr[data-testid='lv-grid-row'] td:nth-child(3) {
+    grid-column: 1 / 3;
+  }
+  .lv-grid .lv-grid-error {
+    display: block;
+  }
+  .lv-grid .lv-grid-error td {
+    display: block;
+  }
+}
+
 /* Dokumente untereinander (LV zuerst, darunter MFKs); das aufgeklappte zeigt seine Positionen */
 .lv-doc-list {
   list-style: none;

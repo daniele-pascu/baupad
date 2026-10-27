@@ -1,9 +1,9 @@
-import { Fragment, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { damagesForPosition, lvDocLabel, lvDocsOf, planTitle, positionRef } from '../lib/aufmass';
 import { uuid } from '../lib/ids';
-import { damageNo } from '../lib/numbering';
+import { damageNo, nextPositionNumber } from '../lib/numbering';
 import { readLvFromPdf } from '../lib/lv-import';
-import { sumPositions, type ParsedLv } from '../lib/lv-parse';
+import { parseGermanNumber, sumPositions, type ParsedLv } from '../lib/lv-parse';
 import { quantityBasis, quantityFor } from '../lib/measure';
 import { formatArea, formatMeasure, parseDecimal } from '../lib/numbers';
 import { closePdf, openPdf } from '../lib/pdf';
@@ -93,7 +93,7 @@ export function LvPanel({ data }: { data: ProjectState }) {
           <button type="button" className="btn btn-sm" onClick={() => startImport('mfk')} disabled={busy} data-testid="mfk-import">
             <Icon name="upload" size={18} /> MFK importieren (PDF)
           </button>
-          <button type="button" className="btn btn-sm" onClick={() => setDocDialog({ doc: null, kind: 'mfk' })} data-testid="lv-new">
+          <button type="button" className="btn btn-sm" onClick={() => setDocDialog({ doc: null, kind: docs.some((d) => d.kind === 'lv') ? 'mfk' : 'lv' })} data-testid="lv-new">
             <Icon name="plus" size={18} /> Manuell anlegen
           </button>
         </div>
@@ -341,7 +341,7 @@ function LvDocView({ data, doc, onEdit, onDelete }: { data: ProjectState; doc: L
           testId="lv-doc-actions"
           actions={[
             { label: 'Position hinzufügen', icon: 'plus', onSelect: () => setEditing('new'), testId: 'lv-add-position' },
-            { label: 'Bezeichnung bearbeiten', icon: 'edit', onSelect: onEdit },
+            { label: doc.fileName ? 'Bezeichnung bearbeiten' : 'Positionen bearbeiten', icon: 'edit', onSelect: onEdit, testId: 'lv-doc-edit' },
             { label: 'Dokument löschen', icon: 'trash', danger: true, onSelect: onDelete, testId: 'lv-delete' },
           ]}
         />
@@ -543,7 +543,19 @@ function PositionDialog({ position, onClose, onSave }: { position: LvPosition | 
   );
 }
 
-/** LV/MFK manuell anlegen bzw. Bezeichnung und Nummer ändern. */
+/** Preis/Zahl: „12,5“, „12.5“, „1 234,50“ oder „1.234,50“ */
+const parsePrice = (s: string) => (s.trim() ? (parseDecimal(s) ?? parseGermanNumber(s.trim())) : null);
+const priceText = (n: number | null) => (n === null ? '' : String(n).replace('.', ','));
+
+type GridRow = { id: string; number: string; shortText: string; unit: string; unitPrice: string };
+const GRID_COLS = ['number', 'shortText', 'unit', 'unitPrice'] as const;
+const emptyRow = (number = ''): GridRow => ({ id: uuid(), number, shortText: '', unit: '', unitPrice: '' });
+
+/**
+ * LV/MFK manuell anlegen bzw. bearbeiten: Art, Nummer, Bezeichnung und – bei selbst angelegten Dokumenten –
+ * die Positionen als Tabelle (Pos.-Nr. | Positionstext | Einheit | Preis pro Einheit). Enter springt in die
+ * nächste Zeile; am Ende kommt eine neue Zeile mit der nächsten Nummer dazu. Importierte Dokumente: nur Bezeichnung.
+ */
 function DocDialog({
   data,
   doc,
@@ -560,27 +572,104 @@ function DocDialog({
   const [k, setK] = useState(doc?.kind ?? kind);
   const [name, setName] = useState(doc?.name ?? '');
   const [number, setNumber] = useState(doc?.number ?? '');
-  const save = () => {
-    if (!name.trim()) return;
+  const withGrid = !doc || !doc.fileName;
+  const [rows, setRows] = useState<GridRow[]>(() => {
+    const list = (doc?.positions ?? []).map((p) => ({ id: p.id, number: p.number, shortText: p.shortText, unit: p.unit, unitPrice: priceText(p.unitPrice) }));
+    return [...list, emptyRow(list.length ? nextPositionNumber(list[list.length - 1].number) : '1')];
+  });
+  const [show, setShow] = useState(false);
+  const cells = useRef(new Map<string, HTMLInputElement>());
+  const [focus, setFocus] = useState<{ row: number; col: number } | null>(null);
+  useEffect(() => {
+    if (!focus) return;
+    cells.current.get(`${focus.row}:${focus.col}`)?.focus();
+    setFocus(null);
+  }, [focus, rows.length]);
+
+  // nur die (vorgeschlagene) Nummer allein zählt nicht als Position
+  const filled = (r: GridRow) => !!(r.shortText.trim() || r.unit.trim() || r.unitPrice.trim());
+  const used = rows.filter(filled);
+  const rowError = (r: GridRow): string | null => {
+    if (!filled(r)) return null;
+    if (!r.number.trim()) return 'Pos.-Nr. fehlt';
+    if (!r.shortText.trim()) return 'Positionstext fehlt';
+    if (r.unitPrice.trim() && parsePrice(r.unitPrice) === null) return 'Preis bitte als Zahl (z. B. 12,50)';
+    if (used.filter((x) => x.number.trim() === r.number.trim()).length > 1) return 'Pos.-Nr. doppelt';
+    return null;
+  };
+  const errors = withGrid ? rows.map(rowError) : [];
+  const invalid = !name.trim() || errors.some(Boolean);
+
+  const update = (i: number, key: keyof GridRow, value: string) => setRows((rs) => rs.map((r, j) => (j === i ? { ...r, [key]: value } : r)));
+  const onKey = (i: number, col: number) => (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
+    e.preventDefault();
+    const r = rows[i];
+    if (i === rows.length - 1) {
+      if (!filled(r)) return;
+      const next = nextPositionNumber(r.number);
+      setRows((rs) => [...rs, emptyRow(next)]);
+      setFocus({ row: i + 1, col: next ? 1 : 0 }); // Nummer vorgeschlagen → gleich den Text eingeben
+    } else setFocus({ row: i + 1, col: col === 0 ? 0 : 1 });
+  };
+  const removeRow = (i: number) => setRows((rs) => (rs.length > 1 ? rs.filter((_, j) => j !== i) : [emptyRow('1')]));
+
+  const save = async () => {
+    setShow(true);
+    if (invalid) return;
+    const base = new Map((doc?.positions ?? []).map((p) => [p.id, p]));
+    const positions: LvPosition[] = withGrid
+      ? used.map((r) => {
+          const old = base.get(r.id);
+          const ep = parsePrice(r.unitPrice);
+          return {
+            id: r.id,
+            number: r.number.trim(),
+            shortText: r.shortText.trim(),
+            longText: old?.longText ?? '',
+            unit: r.unit.trim(),
+            quantity: old?.quantity ?? null,
+            unitPrice: ep,
+            totalPrice: old?.quantity != null && ep !== null ? Math.round(old.quantity * ep * 100) / 100 : null,
+            group: old?.group ?? '',
+            issues: [],
+          };
+        })
+      : (doc?.positions ?? []);
+    // entfernte Positionen: zugeordnete Messungen bleiben, verlieren nur die Zuordnung (mit Rückfrage)
+    const kept = new Set(positions.map((p) => p.id));
+    const removedRefs = doc ? new Set(doc.positions.filter((p) => !kept.has(p.id)).map((p) => positionRef(doc.id, p.id))) : new Set<string>();
+    const linked = Object.values(data.damages).filter((d) => !d.deletedAt && d.positionRef && removedRefs.has(d.positionRef));
+    if (linked.length) {
+      const ok = await confirmDialog({
+        title: 'Positionen entfernen?',
+        message: <p>{linked.length} Messung(en) sind entfernten Positionen zugeordnet. Sie bleiben erhalten, verlieren aber die Leistungszuordnung.</p>,
+        confirmLabel: 'Entfernen',
+        danger: true,
+      });
+      if (!ok) return;
+    }
     const rec: LvDocument = doc
-      ? { ...doc, kind: k, name: name.trim(), number: number.trim() }
-      : { ...newMeta(), projectId: data.project.id, kind: k, name: name.trim(), number: number.trim(), fileName: '', groups: [], positions: [] };
-    putRecord('lvDocs', rec);
+      ? { ...doc, kind: k, name: name.trim(), number: number.trim(), positions }
+      : { ...newMeta(), projectId: data.project.id, kind: k, name: name.trim(), number: number.trim(), fileName: '', groups: [], positions };
+    putRecords({ lvDocs: [rec], damages: linked.map((d) => ({ ...d, positionRef: null })) });
     onSaved(rec.id);
   };
+
   return (
     <Modal
-      title={doc ? 'Bezeichnung bearbeiten' : 'LV oder MFK anlegen'}
+      title={doc ? (withGrid ? `${lvDocLabel(doc)} bearbeiten` : 'Bezeichnung bearbeiten') : 'LV oder MFK anlegen'}
       onClose={onClose}
       persistent
+      wide={withGrid}
       testId="lv-doc-dialog"
       footer={
         <>
           <button type="button" className="btn" onClick={onClose}>
             Abbrechen
           </button>
-          <button type="button" className="btn btn-primary" onClick={save} disabled={!name.trim()} data-testid="lv-doc-save">
-            Speichern
+          <button type="button" className="btn btn-primary" onClick={() => void save()} disabled={!name.trim()} data-testid="lv-doc-save">
+            {withGrid ? `Speichern (${used.length} Pos.)` : 'Speichern'}
           </button>
         </>
       }
@@ -588,7 +677,7 @@ function DocDialog({
       <div className="form-grid">
         <label className="field">
           <span>Art</span>
-          <select value={k} onChange={(e) => setK(e.target.value as 'lv' | 'mfk')}>
+          <select value={k} onChange={(e) => setK(e.target.value as 'lv' | 'mfk')} data-testid="lv-doc-kind">
             <option value="lv">Leistungsverzeichnis (LV)</option>
             <option value="mfk">Mehrkostenforderung (MFK)</option>
           </select>
@@ -599,9 +688,97 @@ function DocDialog({
         </label>
         <label className="field span-2">
           <span>Bezeichnung *</span>
-          <input value={name} onChange={(e) => setName(e.target.value)} data-autofocus data-testid="lv-doc-name" />
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter → in die erste Tabellenzeile
+              if (e.key === 'Enter' && withGrid && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                setFocus({ row: 0, col: rows[0].number ? 1 : 0 });
+              }
+            }}
+            enterKeyHint={withGrid ? 'next' : undefined}
+            data-autofocus
+            data-testid="lv-doc-name"
+          />
         </label>
       </div>
+      {withGrid && (
+        <>
+          <p className="muted small lv-grid-hint">Positionen eintragen – Enter springt in die nächste Zeile, eine neue Zeile bekommt die nächste Nummer.</p>
+          <div className="table-wrap lv-grid-wrap">
+            <table className="lv-grid" data-testid="lv-grid">
+              <thead>
+                <tr>
+                  <th>Pos.-Nr.</th>
+                  <th>Positionstext</th>
+                  <th>Einheit</th>
+                  <th className="num">Preis / Einheit (€)</th>
+                  <th aria-label="Entfernen" />
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <Fragment key={r.id}>
+                    <tr className={show && errors[i] ? 'invalid' : undefined} data-testid="lv-grid-row">
+                      {GRID_COLS.map((key, col) => (
+                        <td key={key} className={key === 'unitPrice' ? 'num' : undefined}>
+                          <input
+                            ref={(el) => {
+                              if (el) cells.current.set(`${i}:${col}`, el);
+                              else cells.current.delete(`${i}:${col}`);
+                            }}
+                            value={r[key]}
+                            onChange={(e) => update(i, key, e.target.value)}
+                            onKeyDown={onKey(i, col)}
+                            list={key === 'unit' ? 'lv-units' : undefined}
+                            inputMode={key === 'unitPrice' ? 'decimal' : undefined}
+                            enterKeyHint="next"
+                            placeholder={['Nr.', 'Positionstext', 'Einheit', 'Preis €'][col]}
+                            aria-label={`${['Pos.-Nr.', 'Positionstext', 'Einheit', 'Preis pro Einheit'][col]} Zeile ${i + 1}`}
+                            data-testid={`grid-${key}`}
+                          />
+                        </td>
+                      ))}
+                      <td>
+                        <button type="button" className="icon-btn" onClick={() => removeRow(i)} aria-label={`Zeile ${i + 1} entfernen`} data-testid="grid-remove">
+                          <Icon name="close" size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                    {show && errors[i] && (
+                      <tr className="lv-grid-error">
+                        <td colSpan={5} className="error small">
+                          Zeile {i + 1}: {errors[i]}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <datalist id="lv-units">
+            {['m', 'm²', 'm³', 'Stk', 'PA', 'kg', 't', 'l', 'h', 'Wo', 'd', 'lfm'].map((u) => (
+              <option key={u} value={u} />
+            ))}
+          </datalist>
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={() => {
+              const last = rows[rows.length - 1];
+              setRows((rs) => [...rs, emptyRow(nextPositionNumber(last.number))]);
+              setFocus({ row: rows.length, col: 0 });
+            }}
+            data-testid="grid-add"
+          >
+            <Icon name="plus" size={18} /> Zeile hinzufügen
+          </button>
+        </>
+      )}
+      {show && !name.trim() && <p className="error">Bitte eine Bezeichnung eingeben.</p>}
     </Modal>
   );
 }
