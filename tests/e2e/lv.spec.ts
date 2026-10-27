@@ -163,3 +163,58 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   await expect(page.getByTestId('excel-export').getByTestId('blatt-no')).toHaveValue('002');
   await page.getByTestId('excel-export').getByRole('button', { name: 'Abbrechen' }).click();
 });
+
+test('Kurz-LV (eine Zeile je Position, Punkt-Nummern) importieren: alle Positionen, Summe wie im Dokument', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'Kurz-LV', {}, ['Garage']);
+  await page.getByTestId('tab-lv').click();
+  await page.getByTestId('lv-file-input').setInputFiles(join(FIXTURES, 'kurz-lv.pdf'));
+  const review = page.getByTestId('lv-review');
+  const summary = review.getByTestId('lv-review-summary');
+  await expect(summary).toContainText('8 Positionen');
+  await expect(summary).toContainText('23.663,67 €');
+  await expect(review.getByTestId('lv-total-check')).toContainText('Summe stimmt mit dem Dokument überein');
+  await expect(summary).not.toContainText('unsicheren Angaben');
+  await expect(review.getByTestId('lv-name')).toHaveValue('Musterarbeiten Tiefgarage');
+  await review.getByTestId('lv-review-save').click();
+  await expect(page.getByTestId('lv-row')).toHaveCount(8);
+  await expect(page.getByTestId('lv-flagged')).toHaveCount(0);
+  // Punkt-Nummern, Wahlposition ohne GP, Pauschale ohne Nummer
+  const row = (n: string) => page.locator(`[data-testid="lv-row"][data-number="${n}"]`);
+  await expect(row('01.11.21.07C.')).toContainText('Untergrund aufrauen');
+  await expect(row('02.14.80.90A.')).toContainText('Sandstrahlen');
+  await expect(row('o. Nr. 1')).toContainText('Baustelle einrichten');
+  await expect(row('S1.12.14.85.03A.2')).toContainText('kg');
+  // bleibt nach dem Neuladen erhalten
+  await page.reload();
+  await page.getByTestId('tab-lv').click();
+  await expect(page.getByTestId('lv-row')).toHaveCount(8);
+});
+
+test('MFK mit Punkt-Nummern und EP-Zeile importieren: als MFK samt Nummer erkannt, Gruppen- und Gesamtsumme stimmen', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'MFK-Import', {}, ['Halle']);
+  await page.getByTestId('tab-lv').click();
+  await page.getByTestId('lv-file-input').setInputFiles(join(FIXTURES, 'mfk-beispiel.pdf'));
+  const review = page.getByTestId('lv-review');
+  const summary = review.getByTestId('lv-review-summary');
+  await expect(summary).toContainText('5 Positionen');
+  await expect(summary).toContainText('12.345,00 €');
+  await expect(summary).toContainText('alle 2 Gruppensummen stimmen');
+  await expect(review.getByTestId('lv-total-check')).toContainText('Summe stimmt mit dem Dokument überein');
+  await expect(summary).not.toContainText('unsicheren Angaben');
+  await expect(review.getByTestId('lv-kind')).toHaveValue('mfk');
+  await expect(review.getByTestId('lv-number')).toHaveValue('M9-001');
+  await expect(review.getByTestId('lv-name')).toHaveValue('M9-001.MFK Musterhalle Beschichtungen');
+  await review.getByTestId('lv-review-save').click();
+  await expect(page.getByTestId('lv-row')).toHaveCount(5);
+  await expect(page.getByTestId('lv-flagged')).toHaveCount(0);
+  const row = (n: string) => page.locator(`[data-testid="lv-row"][data-number="${n}"]`);
+  await expect(row('09.12.14.81.38.A')).toContainText('Untergrund schleifen');
+  await expect(row('09.12.14.85.01.K.1')).toContainText('Stk');
+  // Langtext: Grundtext + eigener Text, ohne Preisanteile
+  await row('09.12.14.81.38.A').click();
+  await expect(page.locator('.lv-detail')).toContainText('Gilt fuer die folgenden Positionen.');
+  await expect(page.locator('.lv-detail')).toContainText('Ueberschleifen des Betonuntergrundes');
+  await expect(page.locator('.lv-detail')).not.toContainText('Lohn');
+});

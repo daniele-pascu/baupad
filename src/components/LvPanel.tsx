@@ -173,16 +173,19 @@ function LvReviewDialog({
   onSave: (doc: LvDocument) => void;
 }) {
   const { parsed } = review;
-  const [kind, setKind] = useState(review.kind);
+  // als MFK erkannt (z. B. „M1-003.MFK …“) → Art und MFK-Nummer vorbelegt
+  const [kind, setKind] = useState(parsed.kind ?? review.kind);
   const [name, setName] = useState(parsed.title || review.fileName.replace(/\.pdf$/i, ''));
-  const [number, setNumber] = useState('');
+  const [number, setNumber] = useState(parsed.number ?? '');
   const total = sumPositions(parsed.positions);
   const flagged = parsed.positions.filter((p) => p.issues.length);
-  // Summenkontrolle je Untergruppe gegen die im Dokument ausgewiesenen Summen
+  // Summenkontrolle je Gruppe (mit direkt darunter liegenden Positionen) gegen die im Dokument ausgewiesenen Summen
   const checks = Object.entries(parsed.groupSums)
-    .filter(([g]) => g.split(' ').length === 2)
+    .filter(([g]) => parsed.positions.some((p) => p.group === g))
     .map(([g, sum]) => ({ group: g, sum, found: sumPositions(parsed.positions.filter((p) => p.group === g)) }));
   const mismatches = checks.filter((c) => Math.abs(c.sum - c.found) > 0.05);
+  // Gesamtsumme laut Dokument (Kurz-LV „SUMME:“); je Position bis zu 0,5 Cent Rundung
+  const totalOff = parsed.total != null && Math.abs(parsed.total - total) > Math.max(0.05, parsed.positions.length * 0.005);
   return (
     <Modal
       title="LV prüfen und übernehmen"
@@ -235,7 +238,7 @@ function LvReviewDialog({
           <input value={name} onChange={(e) => setName(e.target.value)} data-testid="lv-name" />
         </label>
       </div>
-      <div className={`banner ${mismatches.length || flagged.length ? 'banner-warn' : 'banner-info'}`} data-testid="lv-review-summary">
+      <div className={`banner ${mismatches.length || flagged.length || totalOff ? 'banner-warn' : 'banner-info'}`} data-testid="lv-review-summary">
         <p>
           <strong>{parsed.positions.length} Positionen</strong> erkannt · Summe der Positionspreise <strong>{eur(total)}</strong> (netto, ohne
           Nachlass/USt.)
@@ -245,6 +248,13 @@ function LvReviewDialog({
             {mismatches.length
               ? `Summenkontrolle: ${mismatches.length} von ${checks.length} Gruppensummen weichen ab (${mismatches.map((m) => m.group).join(', ')}).`
               : `Summenkontrolle: alle ${checks.length} Gruppensummen stimmen mit dem Dokument überein.`}
+          </p>
+        )}
+        {parsed.total != null && (
+          <p data-testid="lv-total-check">
+            {totalOff
+              ? `Summenkontrolle: Summe laut Dokument ${eur(parsed.total)} weicht ab – bitte prüfen, ob alle Positionen erkannt wurden.`
+              : `Summenkontrolle: Summe stimmt mit dem Dokument überein (${eur(parsed.total)}).`}
           </p>
         )}
         {flagged.length > 0 && <p>{flagged.length} Position(en) mit unsicheren Angaben – bitte nach dem Übernehmen prüfen (markiert).</p>}
