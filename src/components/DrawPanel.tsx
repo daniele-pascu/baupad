@@ -13,13 +13,13 @@ export const ELEMENT_LABELS: Record<DrawElementType, string> = {
   rect: 'Rechteck',
   ellipse: 'Kreis',
   triangle: 'Dreieck',
-  freehand: 'Polylinie',
+  freehand: 'Freie Form',
   arc: 'Bogen',
   dimension: 'Maßlinie',
   text: 'Text',
 };
 
-/** Bezeichnung eines Objekts (geschlossene Polylinie = „Fläche“, offene = „Polylinie“) */
+/** Bezeichnung eines Objekts (geschlossene Form = „Fläche“, offene = „Freie Form“) */
 export const elementLabel = (e: Pick<DrawElement, 'type' | 'shape'>) =>
   e.type === 'freehand' && e.shape.closed !== false ? 'Fläche' : ELEMENT_LABELS[e.type];
 

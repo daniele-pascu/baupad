@@ -73,6 +73,11 @@ test('Obere Werkzeugleiste: Registerkarten Zeichnen, Ändern, Darstellung, Messe
   await expect(bar.getByTestId('draw-rotate')).toBeDisabled();
   await bar.getByTestId('ribbon-tab-draw').click();
   await expect(bar.getByTestId('draw-freehand')).toHaveCount(0); // Freihand durch Polylinie ersetzt
+  // Bezeichnungen: „Freie Form“ (statt Polylinie) und „Fläche“ (statt Polygon), nebeneinander
+  await expect(bar.getByTestId('draw-polyline')).toHaveText('Freie Form');
+  await expect(bar.getByTestId('draw-polygon')).toHaveText('Fläche');
+  const order = await bar.locator('[role="group"][aria-label="Zeichnen"] .tool-btn').evaluateAll((b) => b.map((x) => x.getAttribute('data-testid')));
+  expect(order.indexOf('draw-polygon')).toBe(order.indexOf('draw-polyline') + 1);
   await expect(bar.getByTestId('draw-delete')).toBeDisabled(); // nichts ausgewählt
   await page.screenshot({ path: 'tests/output/werkzeugleiste.png' });
 });
@@ -85,7 +90,7 @@ test('Offene Polylinie: Enter beendet, nur Länge (keine Fläche); schließen/ö
   const oy = sb.y + 120;
   // L-Form: 200 px nach rechts, 100 px nach unten, 80 px nach rechts
   for (const [dx, dy] of [[0, 0], [200, 0], [200, 100], [280, 100]]) await page.mouse.click(ox + dx, oy + dy);
-  await expect(page.getByTestId('polygon-bar')).toContainText('Polylinie: 4 Punkte');
+  await expect(page.getByTestId('polygon-bar')).toContainText('Freie Form: 4 Punkte'); // im Zeichenmodus „Freie Form“
   await expect(page.getByTestId('polygon-preview')).toBeVisible();
   // Rücktaste nimmt den letzten Punkt zurück, danach an anderer Stelle neu setzen
   await page.keyboard.press('Backspace');
@@ -93,7 +98,7 @@ test('Offene Polylinie: Enter beendet, nur Länge (keine Fläche); schließen/ö
   await page.mouse.click(ox + 320, oy + 100);
   await page.keyboard.press('Enter');
   const el = page.getByTestId('element-bar');
-  await expect(el).toContainText('Polylinie');
+  await expect(el).toContainText('Freie Form');
   const expected = 420 / s / 100;
   expect(Math.abs((await infoValue(/Länge gesamt ([\d.,]+) m/)) - expected)).toBeLessThan(0.03);
   await expect(page.getByTestId('element-info')).toContainText('keine Fläche');
@@ -128,7 +133,7 @@ test('Polylinie: Doppelklick beendet offen, Klick auf Startpunkt schließt', asy
   await page.mouse.click(ox, oy);
   await page.mouse.click(ox + 120, oy + 20);
   await page.mouse.dblclick(ox + 160, oy + 90);
-  await expect(page.getByTestId('element-bar')).toContainText('Polylinie');
+  await expect(page.getByTestId('element-bar')).toContainText('Freie Form');
   await waitSaved(page);
   let e = (await elements()).at(-1)!;
   expect(e.shape.closed).toBe(false);
@@ -223,7 +228,7 @@ test('Linie mit eingefügtem Punkt wird zur offenen Polylinie; Mindestpunktzahl 
   await pickTool(page, 'draw-select');
   await expect(page.getByTestId('element-bar')).toContainText('Linie');
   await page.mouse.dblclick(x + 100, y);
-  await expect(page.getByTestId('element-bar')).toContainText('Polylinie');
+  await expect(page.getByTestId('element-bar')).toContainText('Freie Form');
   await expect(page.locator('circle[data-testid^="vertex-"]')).toHaveCount(3);
   await waitSaved(page);
   const e = (await elements()).at(-1)!;

@@ -61,16 +61,16 @@ const OP_HINTS: Partial<Record<DrawTool, string>> = {
 /** Werkzeuge, die Punkt für Punkt gesetzt werden */
 const isPointTool = (t: Tool) => t === 'polygon' || t === 'polyline';
 
-/** Leiste beim Setzen von Punkten: Polylinie offen beenden oder schließen, Polygon schließen */
-function PolylineBar({ polyline, count, viewer }: { polyline: boolean; count: number; viewer: React.RefObject<PlanViewerHandle | null> }) {
-  const name = polyline ? 'Polylinie' : 'Fläche';
+/** Leiste beim Setzen von Punkten: Polylinie (im Zeichenmodus „Freie Form“) offen beenden oder schließen, Fläche schließen */
+function PolylineBar({ polyline, count, viewer, lineName = 'Polylinie' }: { polyline: boolean; count: number; viewer: React.RefObject<PlanViewerHandle | null>; lineName?: string }) {
+  const name = polyline ? lineName : 'Fläche';
   return (
     <div className="draw-bar" data-testid="polygon-bar">
 
       {count === 0 ? (
         <span className="muted small">
           {polyline
-            ? 'Polylinie: Punkte nacheinander antippen. Doppelklick oder Enter beendet sie offen (Länge), Antippen des Startpunkts oder „Schließen“ ergibt eine Fläche.'
+            ? `${lineName}: Punkte nacheinander antippen. Doppelklick oder Enter beendet sie offen (Länge), Antippen des Startpunkts oder „Schließen“ ergibt eine Fläche.`
             : 'Fläche: Eckpunkte nacheinander antippen. Zum Abschließen den ersten Punkt antippen, doppelt tippen oder „Fläche schließen“.'}
         </span>
       ) : (
@@ -1204,7 +1204,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             </div>
           )}
           {(drawMode ? isPointTool(drawing.viewerTool) && (polyCount > 0 || !drawing.selected) : isPointTool(tool) && (polyCount > 0 || !selected)) && !dialog && (
-            <PolylineBar polyline={(drawMode ? drawing.tool : tool) === 'polyline'} count={polyCount} viewer={viewer} />
+            <PolylineBar polyline={(drawMode ? drawing.tool : tool) === 'polyline'} count={polyCount} viewer={viewer} lineName={drawMode ? 'Freie Form' : 'Polylinie'} />
           )}
 
           {!drawMode && tool === 'calibrate' && !dialog && (
