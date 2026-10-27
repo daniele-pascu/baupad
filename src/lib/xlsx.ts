@@ -66,7 +66,11 @@ export type CellStyle =
   | 'amTotal'
   | 'amTotalNum'
   | 'amRule'
-  | 'amNote';
+  | 'amNote'
+  /** Menge mit 3 Nachkommastellen, rechtsbündig (Ergebnis-Spalte der Messtabelle) */
+  | 'amQty'
+  | 'amQtyLast'
+  | 'amQtyBold';
 
 export type Cell =
   | null
@@ -79,6 +83,8 @@ export type Cell =
 /** Firmenvorlage (Aufmaßblatt): A4-Höhe, unterer Rand und oberer Rand passend zur Logohöhe, in Zoll */
 export const A4_HEIGHT_IN = 11.69;
 export const BLATT_BOTTOM_IN = 0.787;
+/** Seitenränder links/rechts wie in der Firmenvorlage */
+export const BLATT_SIDE_IN = 0.61;
 export const blattTopMargin = (logo?: HeaderImage | null) => (logo ? Math.max(0.787, 0.3 + logo.height / 72 + 0.15) : 0.787);
 
 /** manuelle Seitenumbrüche vor den angegebenen Zeilen (brk id = letzte Zeile der vorigen Seite) */
@@ -116,6 +122,8 @@ export interface Sheet {
   rowHeights?: Record<number, number>;
   /** Kopfzeile wie in der Firmenvorlage: Logo links, „Seite von Seiten“ rechts (statt Text links, Logo rechts) */
   logoLeft?: boolean;
+  /** mit logoLeft: Text in der Mitte der Kopfzeile (kursiv, 9 pt), z. B. „Aufmaßblatt 025“ */
+  headerCenter?: string;
 }
 
 /** Bild für die Kopfzeile rechts (Firmenlogo), Größe in Punkt */
@@ -182,6 +190,9 @@ const STYLE_INDEX: Record<CellStyle, number> = {
   amTotalNum: 49,
   amRule: 50,
   amNote: 51,
+  amQty: 52,
+  amQtyLast: 53,
+  amQtyBold: 54,
 };
 
 export const str = (v: string, s: CellStyle = 'text'): Cell => ({ t: 'str', v, s });
@@ -269,11 +280,11 @@ function sheetXml(sheet: Sheet, logo?: HeaderImage): string {
     (sheet.merges?.length ? `<mergeCells count="${sheet.merges.length}">${sheet.merges.map((m) => `<mergeCell ref="${m}"/>`).join('')}</mergeCells>` : '') +
     (sheet.print && sheet.logoLeft
       ? // Firmenvorlage: Ränder wie dort, auf Seitenbreite; Kopfzeile Logo links, „1 von 2“ rechts
-        `<pageMargins left="0.7" right="0.7" top="${blattTopMargin(logo).toFixed(3)}" bottom="${BLATT_BOTTOM_IN}" header="0.3" footer="0.3"/>` +
+        `<pageMargins left="${BLATT_SIDE_IN}" right="${BLATT_SIDE_IN}" top="${blattTopMargin(logo).toFixed(3)}" bottom="${BLATT_BOTTOM_IN}" header="0.3" footer="0.3"/>` +
         (sheet.scale
           ? `<pageSetup paperSize="9" orientation="portrait" scale="${sheet.scale}"/>`
           : `<pageSetup paperSize="9" orientation="portrait" fitToWidth="1" fitToHeight="${sheet.onePage ? 1 : 0}"/>`) +
-        `<headerFooter><oddHeader>${esc(`${logo ? '&L&G' : ''}&R&P von &N`)}</oddHeader></headerFooter>` +
+        `<headerFooter><oddHeader>${esc(`${logo ? '&L&G' : ''}${sheet.headerCenter ? `&C&"-,Kursiv"&9${hfText(sheet.headerCenter)}` : ''}&R&P von &N`)}</oddHeader></headerFooter>` +
         rowBreaksXml(sheet.rowBreaks) +
         (logo ? '<legacyDrawingHF r:id="rIdHF"/>' : '')
       : sheet.print
@@ -293,9 +304,11 @@ function sheetXml(sheet: Sheet, logo?: HeaderImage): string {
 const STYLES_XML =
   '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
   '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
-  '<numFmts count="3"><numFmt numFmtId="164" formatCode="0.00#"/><numFmt numFmtId="165" formatCode="#,##0.00\\ &quot;€&quot;"/>' +
+  '<numFmts count="4"><numFmt numFmtId="164" formatCode="0.00#"/><numFmt numFmtId="165" formatCode="#,##0.00\\ &quot;€&quot;"/>' +
   // Buchhaltungsformat der Firmenvorlage: 1.234,50 · negative mit Minus · 0 als „-“
-  '<numFmt numFmtId="166" formatCode="_-* #,##0.00_-;\\-* #,##0.00_-;_-* &quot;-&quot;??_-;_-@_-"/></numFmts>' +
+  '<numFmt numFmtId="166" formatCode="_-* #,##0.00_-;\\-* #,##0.00_-;_-* &quot;-&quot;??_-;_-@_-"/>' +
+  // dto. mit 3 Nachkommastellen (Mengen der Messtabellen)
+  '<numFmt numFmtId="167" formatCode="_-* #,##0.000_-;\\-* #,##0.000_-;_-* &quot;-&quot;??_-;_-@_-"/></numFmts>' +
   '<fonts count="11">' +
   '<font><sz val="11"/><color theme="1"/><name val="Calibri"/><family val="2"/><scheme val="minor"/></font>' +
   '<font><b/><sz val="11"/><color theme="1"/><name val="Calibri"/><family val="2"/><scheme val="minor"/></font>' +
@@ -325,7 +338,7 @@ const STYLES_XML =
   '<border><left style="thin"><color rgb="FFB4B4B4"/></left><right style="thin"><color rgb="FFB4B4B4"/></right><top style="thin"><color rgb="FFB4B4B4"/></top><bottom style="thin"><color rgb="FFB4B4B4"/></bottom><diagonal/></border>' + // 5 feines Gitter
   '</borders>' +
   '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
-  '<cellXfs count="52">' +
+  '<cellXfs count="55">' +
   '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' + // 0 Standard
   '<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment wrapText="1" vertical="center"/></xf>' + // 1 Kopf
   '<xf numFmtId="49" fontId="0" fillId="0" borderId="3" xfId="0" applyNumberFormat="1" applyBorder="1"/>' + // 2 Text
@@ -376,9 +389,12 @@ const STYLES_XML =
   '<xf numFmtId="166" fontId="4" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1"/>' + // 46 Zahl, letzte Zeile
   '<xf numFmtId="0" fontId="8" fillId="0" borderId="4" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf>' + // 47 Kasten „Zusammenstellung“
   '<xf numFmtId="0" fontId="8" fillId="0" borderId="0" xfId="0" applyFont="1"/>' + // 48 Gesamt 12 fett
-  '<xf numFmtId="166" fontId="8" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1"/>' + // 49 Gesamt Zahl
+  '<xf numFmtId="4" fontId="8" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1"/>' + // 49 Gesamt Zahl (#.##0,00)
   '<xf numFmtId="0" fontId="4" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1"/>' + // 50 Linie unten
   '<xf numFmtId="49" fontId="10" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1"/>' + // 51 Bemerkung kursiv
+  '<xf numFmtId="167" fontId="4" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyAlignment="1"><alignment horizontal="right"/></xf>' + // 52 Menge 0,000
+  '<xf numFmtId="167" fontId="4" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right"/></xf>' + // 53 dto. letzte Zeile
+  '<xf numFmtId="167" fontId="5" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyAlignment="1"><alignment horizontal="right"/></xf>' + // 54 Summe 0,000 fett
   '</cellXfs>' +
   '<cellStyles count="1"><cellStyle name="Standard" xfId="0" builtinId="0"/></cellStyles>' +
   '</styleSheet>';

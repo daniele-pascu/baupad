@@ -120,9 +120,11 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   expect(ws[8].map((c) => c?.v ?? null).filter(Boolean)).toEqual(['Pos. / Positionstext', 'Menge', 'EH', 'Einheitspreis', 'Positionspreis']);
   // Position B (m²): Menge = Summe der Tabelle, Positionspreis = EP × Menge
   const pb = rowOf('92 01 01 B');
-  expect(v(pb, 2)).toBe('   Sperrflaeche'); // eingerückt wie in der Vorlage
+  expect(v(pb, 2)).toBe('Sperrflaeche'); // neue Vorlage: Text ohne Einrückung
   const q = ws[pb + 1];
-  expect([q[3]?.v, q[4]?.v, q[5]?.v, q[6]?.v, q[7]?.v]).toEqual(['m²', 25, '€', `=E${pb + 2}*C${pb + 2}`, '€']);
+  // Spalten A–J: Menge C, EH D, Einheitspreis F, € G, Positionspreis I, € J
+  expect([q[3]?.v, q[5]?.v, q[6]?.v, q[8]?.v, q[9]?.v]).toEqual(['m²', 25, '€', `=F${pb + 2}*C${pb + 2}`, '€']);
+  expect(ws[pb - 2].map((c) => c?.v ?? null).filter(Boolean)).toEqual(['Pos. / Positionstext', 'Menge', 'EH', 'Einheitspreis', 'Positionspreis']); // Kopf je Position
   const th = pb + 3;
   expect(ws[th].map((c) => c?.v ?? null).filter((x) => x !== null)).toEqual(['Plan', 'Nr.', 'Länge', 'Breite', 'm²']); // ohne Bemerkung keine Spalte „Bemerkung“
   expect(ws[th + 1].slice(0, 5).map((c) => c?.v ?? null)).toEqual(['P-1', 1, 4, 2.5, `=C${th + 2}*D${th + 2}`]);
@@ -133,10 +135,11 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   expect(ws[pa + 3].map((c) => c?.v ?? null).filter((x) => x !== null)).toEqual(['Plan', 'Nr.', 'm']);
   expect(ws[pa + 4].slice(0, 3).map((c) => c?.v ?? null)).toEqual(['P-1', 2, 12]);
   // Zusammenstellung und Gesamtpreis (Formeln)
-  const boxRow = rowOf('Zusammenstellung (EUR)');
+  // Zusammenstellung: Kasten mit dem Namen des LV
+  const boxRow = ws.findIndex((r, i) => i > pb && r[0]?.v === v(6, 0));
   expect(boxRow).toBeGreaterThan(pb);
-  const total = ws.find((r) => r[4]?.v === 'Gesamtpreis in EUR')!;
-  expect(String(total[6]?.v)).toMatch(/^=G\d+\+G\d+$/);
+  const total = ws.find((r) => r[6]?.v === 'Gesamtpreis in EUR')!;
+  expect(String(total[8]?.v)).toMatch(/^=SUM\(I\d+:I\d+\)$/);
   // ohne Position: Fläche und Linie mit Plan und Nr.
   const free3 = rowOf('Aufmaß ohne Leistungsposition');
   expect(free3).toBeGreaterThan(boxRow);

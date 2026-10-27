@@ -25,7 +25,9 @@ describe('Aufmaßblatt (Firmenvorlage)', () => {
   const zip = unzipSync(exportAufmassblatt(data, { kind: 'costCenter', costCenterId: 'c1' }, { no: '007', period: '01.10.2026' }, { logo }).data);
   const sheet = strFromU8(zip['xl/worksheets/sheet1.xml']);
   it('Kopfzeile wie Vorlage: Logo links, „Seite von Seiten“ rechts; Seitenlayout, eine Seite', () => {
-    expect(sheet).toContain('<oddHeader>&amp;L&amp;G&amp;R&amp;P von &amp;N</oddHeader>');
+    // Mitte: Aufmaßblatt-Nummer kursiv 9 pt wie in der neuen Vorlage
+    expect(sheet).toContain('<oddHeader>&amp;L&amp;G&amp;C&amp;&quot;-,Kursiv&quot;&amp;9Aufmaßblatt 007&amp;R&amp;P von &amp;N</oddHeader>');
+    expect(sheet).toContain('<pageMargins left="0.61" right="0.61"');
     expect(strFromU8(zip['xl/drawings/vmlDrawingHF1.vml'])).toContain('id="LH"');
     expect(sheet).toContain('view="pageLayout"');
     expect(sheet).toContain('fitToWidth="1" fitToHeight="1"'); // immer eine Seite
