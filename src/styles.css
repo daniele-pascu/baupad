@@ -4228,4 +4228,13 @@ button.status-pill:hover {
 .probe-menu button:focus-visible {
   background: var(--primary-soft);
 }
+.probe-menu.probe-menu-down {
+  top: 100%;
+  bottom: auto;
+  margin: 6px 0 0;
+}
+.probe-anchor {
+  position: relative;
+  display: inline-flex;
+}
 

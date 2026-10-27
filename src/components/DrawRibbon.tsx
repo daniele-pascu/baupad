@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { DRAW_TOOLS, NEEDS_SELECTION, ORTHO_DIR_LABELS, type DrawTool, type useDrawing } from '../pages/DrawingMode';
 import { ORTHO_DIRS } from '../lib/cad';
 import { Icon } from './Icon';
+import { ProbeMenu } from './ProbeLayer';
+import type { ProbeKind } from '../lib/probe';
 import type { PlanViewerHandle } from './PlanViewer';
 import { StylePanel } from './StylePanel';
 import { promptDialog, toast } from './ui';
@@ -41,6 +43,8 @@ export function DrawRibbon({
   onUndo,
   onRedo,
   onMeasure,
+  probeActive = false,
+  onProbe,
 }: {
   drawing: ReturnType<typeof useDrawing>;
   viewer: React.RefObject<PlanViewerHandle | null>;
@@ -50,7 +54,12 @@ export function DrawRibbon({
   onRedo(): void;
   /** Weiter zum Aufmaß */
   onMeasure(): void;
+  /** Kontrollmessung läuft */
+  probeActive?: boolean;
+  /** Messung mit der gewählten Messart starten */
+  onProbe?(kind: ProbeKind): void;
 }) {
+  const [probeMenu, setProbeMenu] = useState(false);
   const [tab, setTabState] = useState<Tab>(readTab);
   const setTab = (t: Tab) => {
     setTabState(t);
@@ -198,6 +207,23 @@ export function DrawRibbon({
         {tab === 'measure' && (
           <div className="tool-group" role="group" aria-label="Messen">
             {toolBtn('dimension')}
+            {onProbe && (
+              <span className="probe-anchor">
+                {btn('ribbon-probe', 'dimension', 'Messung', () => setProbeMenu(!probeMenu), {
+                  pressed: probeActive,
+                  title: 'Messung: Länge, Fläche, Winkel, Radius oder Abstand nachmessen – ändert nichts',
+                })}
+                {probeMenu && (
+                  <ProbeMenu
+                    down
+                    onPick={(kind) => {
+                      setProbeMenu(false);
+                      onProbe(kind);
+                    }}
+                  />
+                )}
+              </span>
+            )}
             {btn('ribbon-measure', 'table', 'Zum Aufmaß', onMeasure, { title: 'Weiter zum Aufmaß: Messungen erfassen' })}
           </div>
         )}

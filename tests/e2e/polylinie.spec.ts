@@ -441,3 +441,35 @@ test('Messung: Menü mit fünf Messarten; Länge, Winkel, Radius, Abstand, Fläc
   await waitSaved(page);
 });
 
+test('Messung unter „Plan bearbeiten“: Reiter Messen, Abstand und Fläche, ins Aufmaß – Zeichnung bleibt unverändert', async () => {
+  await page.getByTestId('mode-draw').click();
+  const before = JSON.stringify(await elements());
+  const sb = (await sheet().boundingBox())!;
+  const s = await scale();
+  const m = (px: number) => px / s / 100;
+  const bar = page.getByTestId('draw-toolbar');
+  await bar.getByTestId('ribbon-tab-measure').click();
+  await bar.getByTestId('ribbon-probe').click();
+  await expect(bar.getByTestId('probe-menu').getByRole('menuitem')).toHaveCount(5);
+  await bar.getByTestId('probe-menu-distance').click();
+  const x = sb.x + 160;
+  const y = sb.y + 160;
+  await page.mouse.click(x, y);
+  await page.mouse.click(x + 300, y + 200);
+  const val = async () => num((await page.getByTestId('probe-result').locator('strong').textContent())!.replace(/\s*(m²|m)$/, ''));
+  // Punktfang kann auf Zeichnungsobjekte einrasten – daher großzügig
+  expect(Math.abs((await val()) - m(Math.hypot(300, 200)))).toBeLessThan(0.15);
+  await expect(page.getByTestId('probe-result')).toContainText('waagrecht');
+  // Fläche über drei Punkte, „Fertig“, dann ausdrücklich ins Aufmaß → Wechsel ins Aufmaß mit neuer Fläche
+  await page.getByTestId('probe-kind-area').click();
+  for (const [dx, dy] of [[0, 0], [200, 0], [0, 150]]) await page.mouse.click(x + dx, y + dy);
+  await page.getByTestId('probe-finish').click();
+  await expect(page.getByTestId('probe-result')).toContainText('m²');
+  expect(JSON.stringify(await elements())).toBe(before); // Zeichnung unverändert
+  await page.getByTestId('probe-adopt').click();
+  await expect(page.getByTestId('mode-measure-tab')).toHaveAttribute('aria-selected', 'true');
+  const dlg = page.getByTestId('damage-dialog');
+  await expect(dlg).toContainText('Neue Fläche');
+  await dlg.getByTestId('damage-cancel').click();
+});
+

@@ -184,3 +184,18 @@ export function ProbeBar({
     </div>
   );
 }
+
+/** Menü des Werkzeugs „Messung“: fünf Messarten mit kurzer Anleitung (`down`: öffnet nach unten, z. B. unter der oberen Leiste) */
+export function ProbeMenu({ onPick, down = false }: { onPick(kind: ProbeKind): void; down?: boolean }) {
+  return (
+    <div className={`probe-menu${down ? ' probe-menu-down' : ''}`} role="menu" aria-label="Messung" data-testid="probe-menu">
+      {PROBE_KINDS.map((x) => (
+        <button key={x.id} type="button" role="menuitem" onClick={() => onPick(x.id)} data-testid={`probe-menu-${x.id}`}>
+          <strong>{x.label}</strong>
+          <span className="muted small">{x.hint}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+

@@ -18,8 +18,9 @@ import { visibleDamages } from '../lib/layers';
 import { LayerMenu } from '../components/LayerMenu';
 import { drawingRegion, drawingSheet, isDrawingPlan, lineEnds, paperLabel, shapeToPage, suggestMeasures, unitsPerMeter } from '../lib/drawing';
 import { convertShape, isOpenShape, lineShape, polygonShape, removeVertex, rotatePoint, shapeVertices, toScreen, type Point, type View } from '../lib/geometry';
-import { PROBE_KINDS, probeTarget, type ProbeKind } from '../lib/probe';
-import { ProbeBar, ProbeOverlay, type ProbeState } from '../components/ProbeLayer';
+import { probeTarget, type ProbeKind } from '../lib/probe';
+import { ProbeBar, ProbeMenu, ProbeOverlay, type ProbeState } from '../components/ProbeLayer';
+import { circleThrough } from '../lib/cad';
 import { countKind, defaultKindFor, hasArea, isWall, KIND_LABELS, kindOf, measureLabel, sumLengths } from '../lib/measure';
 import { checkMeasure, computeArea, formatArea, formatMeasure, toInputValue } from '../lib/numbers';
 import { compactNumbers, damageNo, duplicateIds, nextNumber, planNumberStart, shiftNumbers, suggestNext, swapNumbers } from '../lib/numbering';
@@ -290,9 +291,6 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   /** Kontrollmessung (Werkzeug „Messung“) – wird nicht gespeichert */
   const [probe, setProbe] = useState<ProbeState | null>(null);
   const [probeMenu, setProbeMenu] = useState(false);
-  useEffect(() => {
-    if (tool !== 'probe') setProbe(null);
-  }, [tool]);
   /** Aufmaß: ausgewählter Eckpunkt der ausgewählten Messung (zum Entfernen) */
   const [measureVertex, setMeasureVertex] = useState<number | null>(null);
   useEffect(() => setMeasureVertex(null), [selectedId]);
@@ -379,6 +377,13 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   }, [stored]);
   const selected = damages.find((d) => d.id === selectedId) ?? null;
   const drawing = useDrawing({ plan, data, damages, viewer, onCreated: () => setToolsOpen(false) });
+  // Aufmaß: Messung endet mit einem anderen Werkzeug; Zeichenmodus: mit einem Zeichenwerkzeug bzw. Moduswechsel
+  useEffect(() => {
+    if (mode !== 'draw' && tool !== 'probe') setProbe(null);
+  }, [tool, mode]);
+  useEffect(() => {
+    if (mode === 'draw') setProbe(null);
+  }, [drawing.tool, mode]);
   const region = useMemo(
     () => (plan && drawingPlan ? drawingRegion(plan, drawing.allElements, stored) : undefined),
     [plan, drawingPlan, drawing.allElements, stored],
@@ -544,7 +549,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       }
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || document.querySelector('.modal')) return;
       // Messung: Enter beendet (Länge/Fläche), Rücktaste nimmt den letzten Punkt zurück, Escape verwirft bzw. beendet
-      if (!drawMode && tool === 'probe' && probe && ['Enter', 'Escape', 'Backspace', 'Delete'].includes(e.key)) {
+      if (probe && (drawMode || tool === 'probe') && ['Enter', 'Escape', 'Backspace', 'Delete'].includes(e.key)) {
         e.preventDefault();
         if (e.key === 'Enter') finishProbe();
         else if (e.key === 'Escape') {
@@ -685,11 +690,18 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   /** Messung starten: mit ausgewähltem Objekt gleich dessen Länge, Fläche bzw. Radius; bei „Abstand“ und einer ausgewählten Linie senkrecht zu ihr */
   const startProbe = (kind: ProbeKind) => {
     setProbeMenu(false);
-    const sel = selectedId ? data.damages[selectedId] : null;
+    // ausgewähltes Objekt: Messung bzw. Zeichnungsobjekt (in Plankoordinaten)
+    const dsel = selectedId ? data.damages[selectedId] : null;
+    const item = drawMode && drawing.selected ? drawing.items.find((i) => i.id === drawing.selected!.id) : null;
+    const sel = drawMode ? (item ? { id: item.id, shape: item.shape, deletedAt: null } : null) : dsel;
     let st: ProbeState = { kind, points: [], done: false, ref: null };
     if (sel && !sel.deletedAt) {
       const verts = shapeVertices(sel.shape);
       const open = isOpenShape(sel.shape);
+      // Bogen (Zeichnung): Radius aus Anfangs-, Mittel- und Endpunkt
+      const arc = drawMode && drawing.selected?.type === 'arc' && verts.length >= 3 ? circleThrough(verts[0], verts[Math.floor(verts.length / 2)], verts[verts.length - 1]) : null;
+      if (kind === 'radius' && arc) st = { kind, points: [arc.c, verts[0]], done: true, fromObject: sel.id };
+      else
       if (kind === 'length' && verts.length >= 2) st = { kind, points: open ? verts : [...verts, verts[0]], done: true, fromObject: sel.id };
       else if (kind === 'area' && !open && verts.length >= 3) st = { kind, points: verts, done: true, fromObject: sel.id };
       else if (kind === 'radius' && sel.shape.type === 'ellipse') {
@@ -698,7 +710,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       } else if (kind === 'distance' && open && verts.length === 2) st = { kind, points: [], done: false, ref: [verts[0], verts[1]] };
     }
     setProbe(st);
-    setTool('probe');
+    if (!drawMode) setTool('probe');
   };
   const probePoint = (p: Point, scale: number) =>
     setProbe((pr) => {
@@ -716,15 +728,18 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     setProbe((pr) => (pr && !pr.done && ((pr.kind === 'length' && pr.points.length >= 2) || (pr.kind === 'area' && pr.points.length >= 3)) ? { ...pr, done: true } : pr));
   const closeProbe = () => {
     setProbe(null);
-    setTool('select');
+    if (!drawMode) setTool('select');
   };
   /** Ausdrücklich ins Aufmaß übernehmen: Länge → Linie, Fläche → Fläche (Maße aus dem Plan) */
   const adoptProbe = () => {
     if (!probe || !probe.done) return;
     const pts = probe.points;
     const shape = probe.kind === 'area' ? polygonShape(pts, true) : pts.length === 2 ? lineShape(pts[0], pts[1]) : polygonShape(pts, false);
+    // im Zeichenmodus: ins Aufmaß wechseln, dort die neue Messung anlegen
+    if (drawMode) switchMode('measure');
+    setProbe(null);
+    setTool('select');
     setDialog({ mode: 'new', shape, ...suggestNext(stored, planNumberStart(plan)), kind: probe.kind === 'area' ? 'area' : 'line', fromShape: true });
-    closeProbe();
   };
 
   /** Ausgewählten Eckpunkt der Messung entfernen (Maße aus dem Plan werden nachgeführt) */
@@ -1094,7 +1109,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               region={region}
               damages={drawing.items}
               selectedId={drawing.selectedId}
-              tool={drawing.viewerTool}
+              tool={probe ? 'probe' : drawing.viewerTool}
               color={drawing.color}
               pending={null}
               onSelect={(id) => drawing.setSelectedId(id)}
@@ -1110,7 +1125,14 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               showLabels={false}
               renderItem={drawing.renderItem}
               underlay={region ? drawing.drawUnderlay(region) : undefined}
-              overlay={drawing.drawOverlay}
+              overlay={(view, preview, hover) => (
+                <>
+                  {drawing.drawOverlay(view, preview)}
+                  {probe && <ProbeOverlay view={view} probe={probe} hover={hover ?? null} k={k} />}
+                </>
+              )}
+              onProbePoint={probePoint}
+              probeFrom={probe && !probe.done && probe.points.length ? probe.points[probe.points.length - 1] : null}
               snap={drawing.snapOn || drawing.gridOn || drawing.orthoOn ? drawing.snap : undefined}
               onLupeChange={setLupeOn}
               bounds={sheetBounds}
@@ -1273,7 +1295,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             </button>
           </div>
 
-          {drawMode && OP_HINTS[drawing.tool] && !dialog && (
+          {drawMode && !probe && OP_HINTS[drawing.tool] && !dialog && (
             <div className="draw-bar" data-testid="op-bar">
               <strong className="draw-bar-title">{DRAW_TOOLS.find((t) => t.id === drawing.tool)?.short}</strong>
               <span className="muted small" data-testid="op-hint">
@@ -1291,7 +1313,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               </button>
             </div>
           )}
-          {drawMode && !OP_HINTS[drawing.tool] &&
+          {drawMode && !probe && !OP_HINTS[drawing.tool] &&
             (drawing.selected && !polyCount ? (
               <ElementBar
                 key={drawing.selected.id}
@@ -1324,7 +1346,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               X gehalten: <span className="lupe-dot" /> Fangpunkt · Klick setzt ihn <span className="lupe-dot set" /> · loslassen = zurück · Enter fertig · ⌫ letzter Punkt
             </div>
           )}
-          {!drawMode && tool === 'probe' && probe && !dialog && (
+          {probe && (drawMode || tool === 'probe') && !dialog && (
             <ProbeBar
               probe={probe}
               k={k}
@@ -1336,7 +1358,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               onClose={closeProbe}
             />
           )}
-          {(drawMode ? isPointTool(drawing.viewerTool) && (polyCount > 0 || !drawing.selected) : isPointTool(tool) && (polyCount > 0 || !selected)) && !dialog && (
+          {!probe && (drawMode ? isPointTool(drawing.viewerTool) && (polyCount > 0 || !drawing.selected) : isPointTool(tool) && (polyCount > 0 || !selected)) && !dialog && (
             <PolylineBar polyline={(drawMode ? drawing.tool : tool) === 'polyline'} wall={!drawMode && tool === 'wall'} count={polyCount} viewer={viewer} lineName="Freie Form" />
           )}
 
@@ -1456,6 +1478,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               onUndo={doUndo}
               onRedo={doRedo}
               onMeasure={() => switchMode('measure')}
+              probeActive={!!probe}
+              onProbe={startProbe}
             />
           ) : (
           <div className={`toolbar${toolsOpen ? '' : ' toolbar-collapsed'}`} role="toolbar" aria-label="Werkzeuge">
@@ -1479,16 +1503,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                   <span>{t.short ?? t.label}</span>
                 </button>
               ))}
-              {probeMenu && (
-                <div className="probe-menu" role="menu" aria-label="Messung" data-testid="probe-menu">
-                  {PROBE_KINDS.map((x) => (
-                    <button key={x.id} type="button" role="menuitem" onClick={() => startProbe(x.id)} data-testid={`probe-menu-${x.id}`}>
-                      <strong>{x.label}</strong>
-                      <span className="muted small">{x.hint}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
+              {probeMenu && <ProbeMenu onPick={startProbe} />}
             </div>
             <div className="tool-group colors">
               {COLORS.map((c) => (
