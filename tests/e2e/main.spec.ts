@@ -333,9 +333,8 @@ test('Markierung verschieben, Größe ändern, Beschriftung verschieben, Farbe �
   const moved = await markerRelPos(page, 4);
   expect(moved.x).toBeGreaterThan(before.x + 0.01);
   expect(Math.abs(moved.w - before.w)).toBeLessThan(0.002);
-  // Größe über Anfasser (unten rechts) ändern
-  const handles = page.locator('.handles .handle');
-  const se = (await handles.nth(4).boundingBox())!;
+  // Größe über den rechten Seitengriff ändern (Ecken sind einzeln verschiebbare Eckpunkte)
+  const se = (await page.locator('.handles rect.handle[data-handle="e"]').boundingBox())!;
   await page.mouse.move(se.x + se.width / 2, se.y + se.height / 2);
   await page.mouse.down();
   await page.mouse.move(se.x + 50, se.y + 30, { steps: 6 });

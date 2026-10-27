@@ -257,12 +257,36 @@ test('Aufmaß: offene Polylinie = Linienmessung mit Länge, geschlossene = Fläc
   const dlg = page.getByTestId('damage-dialog');
   await expect(dlg).toContainText('Neue Linie');
   await expect(dlg).toContainText('Höhe (optional)');
-  // Längenvorschlag = Summe der Abschnitte
-  const sug = num((await dlg.getByTestId('use-suggestion').textContent())!.match(/([\d.,]+) m/)![1]);
-  expect(Math.abs(sug - 230 / s / 100)).toBeLessThan(0.03);
-  await dlg.getByTestId('use-suggestion').click();
+  // Länge aus dem Plan = Summe aller Abschnitte (vorgewählt, wird nachgeführt)
+  await expect(dlg.getByTestId('use-geometry')).toHaveText('Länge wieder von Hand eingeben');
+  const len0 = num(await dlg.getByTestId('geometry-length').inputValue());
+  expect(Math.abs(len0 - 230 / s / 100)).toBeLessThan(0.03);
   await dlg.getByTestId('damage-save').click();
   await expect(page.locator('[data-testid="aufmass-row"]')).toHaveCount(1);
+  const barLen = async () => num((await page.getByTestId('selection-bar').locator('.selection-info span').nth(1).textContent())!.match(/L ([\d.,]+) m/)![1]);
+
+  // Nachträglich bearbeiten: Knick verschieben → Länge wird nachgeführt
+  await pickTool(page, 'tool-select');
+  await page.mouse.click(x + 75, y);
+  await expect(page.locator('circle[data-testid^="vertex-"]')).toHaveCount(3);
+  const v2 = (await page.getByTestId('vertex-2').boundingBox())!;
+  await page.mouse.move(v2.x + v2.width / 2, v2.y + v2.height / 2);
+  await expect(page.getByTestId('vertex-2')).toHaveClass(/hover/); // Griff unter der Maus hervorgehoben
+  await page.mouse.down();
+  await page.mouse.move(x + 150, y + 160, { steps: 6 });
+  await page.mouse.up();
+  await expect.poll(barLen).toBeCloseTo(310 / s / 100, 1);
+  expect(Math.abs((await barLen()) - 310 / s / 100)).toBeLessThan(0.03);
+  // Doppelklick auf eine Kante fügt einen Punkt ein, Länge bleibt gleich
+  await page.mouse.dblclick(x + 75, y);
+  await expect(page.locator('circle[data-testid^="vertex-"]')).toHaveCount(4);
+  expect(Math.abs((await barLen()) - 310 / s / 100)).toBeLessThan(0.03);
+  // Eckpunkt auswählen und entfernen
+  const v1 = (await page.getByTestId('vertex-1').boundingBox())!;
+  await page.mouse.click(v1.x + v1.width / 2, v1.y + v1.height / 2);
+  await page.getByTestId('vertex-remove').click();
+  await expect(page.locator('circle[data-testid^="vertex-"]')).toHaveCount(3);
+  await waitSaved(page);
 
   await pickTool(page, 'tool-polyline');
   for (const [dx, dy] of [[-260, -40], [-160, -40], [-160, 40], [-260, 40]]) await page.mouse.click(x + dx, y + dy);
@@ -270,4 +294,29 @@ test('Aufmaß: offene Polylinie = Linienmessung mit Länge, geschlossene = Fläc
   await expect(dlg).toContainText('Neue Fläche');
   await expect(dlg).toContainText('Breite / Höhe (optional)');
   await dlg.getByTestId('damage-cancel').click();
+
+  // Rechteck mit Fläche aus dem Plan: Ecke einzeln verschieben (→ Trapez), Fläche wird nachgeführt
+  await pickTool(page, 'tool-rect');
+  await page.mouse.move(x - 260, y - 240);
+  await page.mouse.down();
+  await page.mouse.move(x - 160, y - 180, { steps: 5 });
+  await page.mouse.move(x - 60, y - 140, { steps: 5 });
+  await page.mouse.up();
+  await dlg.getByTestId('use-geometry').click();
+  const a0 = num((await dlg.getByTestId('area-result').locator('strong').textContent())!.replace(/\s*m²/, ''));
+  expect(Math.abs(a0 - (200 * 100) / (s * 100) ** 2)).toBeLessThan(0.05);
+  await dlg.getByTestId('damage-save').click();
+  await pickTool(page, 'tool-select');
+  await page.mouse.click(x - 160, y - 239);
+  await expect(page.locator('circle[data-testid^="vertex-"]')).toHaveCount(4); // vier Ecken
+  await expect(page.locator('.handles rect.handle')).toHaveCount(4); // vier Seitengriffe
+  const c2 = (await page.getByTestId('vertex-2').boundingBox())!;
+  await page.mouse.move(c2.x + c2.width / 2, c2.y + c2.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(x + 40, y - 140, { steps: 6 }); // untere rechte Ecke 100 px nach rechts
+  await page.mouse.up();
+  const barArea = async () => num((await page.getByTestId('selection-bar').locator('.selection-info span').nth(1).textContent())!.match(/([\d.,]+) m² aus Plan/)![1]);
+  // Trapez: (200 + 300) / 2 × 100 px
+  await expect.poll(async () => Math.abs((await barArea()) - (250 * 100) / (s * 100) ** 2)).toBeLessThan(0.05);
+  await waitSaved(page);
 });

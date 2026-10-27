@@ -212,6 +212,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [errorMsg, setErrorMsg] = useState('');
   const [detailRect, setDetailRect] = useState<Rect | null>(null);
+  /** Griff unter der Maus (Hervorhebung) */
+  const [hoverHandle, setHoverHandle] = useState<string | null>(null);
   const pointers = useRef(new Map<number, Point>());
   const gesture = useRef<Gesture>({ kind: 'none' });
   const [, forceRender] = useState(0);
@@ -724,8 +726,13 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     if (el && el.style.cursor !== c) el.style.cursor = c;
   };
   const hoverCursor = (p: Point) => {
-    if (propsRef.current.tool !== 'select' || !viewRef.current) return setCursor('');
+    if (propsRef.current.tool !== 'select' || !viewRef.current) {
+      setHoverHandle(null);
+      return setCursor('');
+    }
     const h = hitHandle(p);
+    // Griff unter der Maus hervorheben
+    setHoverHandle(h);
     if (h) return setCursor(HANDLE_CURSOR[h.replace(/^v/, '')] ?? 'move');
     if (hitComponent(p) || hitLabel(p)) return setCursor('move');
     const hit = hitDamage(p);
@@ -1265,10 +1272,21 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
                 );
               })()}
               {screenHandles(selected.shape, view, !!props.vertexEdit && !selected.noVertexEdit, !!selected.noVertexEdit).map(({ h, p }) => {
-                const s = isCoarse() ? 14 : 10;
+                // Touch: größere Griffe; Eckpunkte rund (○), Seiten-/Größengriffe eckig (□)
+                const s = isCoarse() ? 16 : 10;
+                const hover = hoverHandle === h;
                 if (h.startsWith('v')) {
                   const active = props.selectedVertex === Number(h.slice(1));
-                  return <circle key={h} cx={p.x} cy={p.y} r={s * (active ? 0.75 : 0.55)} className={`vertex-handle${active ? ' active' : ''}`} data-testid={`vertex-${h.slice(1)}`} />;
+                  return (
+                    <circle
+                      key={h}
+                      cx={p.x}
+                      cy={p.y}
+                      r={s * (active || hover ? 0.75 : 0.55)}
+                      className={`vertex-handle${active ? ' active' : ''}${hover ? ' hover' : ''}`}
+                      data-testid={`vertex-${h.slice(1)}`}
+                    />
+                  );
                 }
                 if (h === 'rot')
                   return (
@@ -1281,7 +1299,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
                       />
                     </g>
                   );
-                return <rect key={h} x={p.x - s / 2} y={p.y - s / 2} width={s} height={s} className="handle" />;
+                const hs = hover ? s * 1.3 : s;
+                return <rect key={h} x={p.x - hs / 2} y={p.y - hs / 2} width={hs} height={hs} className={`handle${hover ? ' hover' : ''}`} data-handle={h} />;
               })}
             </g>
           )}

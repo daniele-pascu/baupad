@@ -3025,6 +3025,15 @@ tr.lv-flagged td {
   fill: #1f5fbf;
   stroke: #fff;
 }
+/* Griff unter der Maus: kräftiger, damit klar ist, welcher Punkt gezogen wird */
+.vertex-handle.hover:not(.active) {
+  fill: #dbe8fb;
+  stroke-width: 3;
+}
+.handle.hover {
+  fill: #1f5fbf;
+  stroke: #fff;
+}
 .color-pick {
   position: relative;
 }

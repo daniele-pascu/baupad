@@ -17,7 +17,7 @@ import { calibrationFrom, detectScale, sourceText } from '../lib/scale-detect';
 import { visibleDamages } from '../lib/layers';
 import { LayerMenu } from '../components/LayerMenu';
 import { drawingRegion, drawingSheet, isDrawingPlan, lineEnds, paperLabel, shapeToPage, suggestMeasures, unitsPerMeter } from '../lib/drawing';
-import { convertShape, isOpenShape, toScreen, type View } from '../lib/geometry';
+import { convertShape, isOpenShape, removeVertex, toScreen, type View } from '../lib/geometry';
 import { countKind, defaultKindFor, hasArea, KIND_LABELS, kindOf, sumLengths } from '../lib/measure';
 import { checkMeasure, computeArea, formatArea, formatMeasure, toInputValue } from '../lib/numbers';
 import { compactNumbers, damageNo, duplicateIds, nextNumber, planNumberStart, shiftNumbers, suggestNext, swapNumbers } from '../lib/numbering';
@@ -183,7 +183,9 @@ function storePref(key: string, value: string) {
  * neu berechnen. Ohne Ergebnis (z. B. offene Form, kein Maßstab) bleiben die Werte stehen.
  */
 function withShapeMeasures<T extends Pick<Damage, 'areaFromShape' | 'kind' | 'length' | 'area' | 'width'>>(d: T, shape: Shape, k: number | null): T {
-  if (!d.areaFromShape || !hasArea(kindOf(d))) return d;
+  if (!d.areaFromShape) return d;
+  // Linie mit Länge aus dem Plan: Gesamtlänge aller Abschnitte (Höhe/Tiefe bleiben)
+  if (!hasArea(kindOf(d))) return k ? { ...d, length: suggestMeasures(shape, k).length } : d;
   const g = geometryMeasures(shape, k);
   return g ? { ...d, length: g.perimeter, width: null, area: g.area } : d;
 }
@@ -206,7 +208,7 @@ function MeasureCheck({ damage, k }: { damage: Damage; k: number }) {
   if (damage.areaFromShape) {
     return (
       <span className="small muted" data-testid="measure-check">
-        Fläche und Umfang werden aus der Form berechnet
+        {hasArea(kindOf(damage)) ? 'Fläche und Umfang werden aus der Form berechnet' : 'Länge wird aus der Form berechnet'}
       </span>
     );
   }
@@ -250,6 +252,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const [tool, setToolState] = useState<Tool>(() => loadPref('tool', TOOLS.map((t) => t.id), 'ellipse'));
   const [color, setColorState] = useState(() => loadPref('color', COLORS.map((c) => c.value), DEFAULT_COLOR));
   const [selectedId, setSelectedId] = useState<string | null>(focusDamageId);
+  /** Aufmaß: ausgewählter Eckpunkt der ausgewählten Messung (zum Entfernen) */
+  const [measureVertex, setMeasureVertex] = useState<number | null>(null);
+  useEffect(() => setMeasureVertex(null), [selectedId]);
   const [dialog, setDialog] = useState<DialogState>(null);
   const [overrides, setOverrides] = useState<Record<string, Partial<Damage>>>({});
   const [mobileTab, setMobileTab] = useState<'plan' | 'table'>('plan');
@@ -550,7 +555,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       else if (e.key === 'Escape') setSelectedId(null);
       else if ((e.key === 'Delete' || e.key === 'Backspace') && selected) {
         e.preventDefault();
-        void removeDamage(selected);
+        // ausgewählter Eckpunkt zuerst, sonst die ganze Messung
+        if (measureVertex === null || !removeMeasureVertex()) void removeDamage(selected);
       } else if (e.key === 'Enter' && selected) setDialog({ mode: 'edit', id: selected.id });
       else return;
       e.preventDefault();
@@ -625,20 +631,32 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     putRecords({ damages: recs });
   };
 
+  /** Ausgewählten Eckpunkt der Messung entfernen (Maße aus dem Plan werden nachgeführt) */
+  const removeMeasureVertex = (): boolean => {
+    const d = selectedId ? data.damages[selectedId] : null;
+    const shape = d && measureVertex !== null ? removeVertex(d.shape, measureVertex) : null;
+    if (!d || !shape) return false;
+    putRecord('damages', withShapeMeasures({ ...d, shape }, shape, k));
+    setMeasureVertex(null);
+    return true;
+  };
+
   const save = (v: DamageValues, renumber: Renumber) => {
     if (!dialog) return;
     // Fläche aus der Geometrie: aus der endgültigen Form (auch nach einem Formwechsel) berechnen
     const finalShape = convertShape(dialog.mode === 'new' ? dialog.shape : data.damages[dialog.id].shape, v.shapeType);
     const geo = v.areaFromShape && hasArea(v.kind) ? geometryMeasures(finalShape, k) : null;
+    // Linie mit Länge aus dem Plan: Gesamtlänge aller Abschnitte, wird bei Formänderungen nachgeführt
+    const lineFromPlan = v.areaFromShape && !hasArea(v.kind) && k ? suggestMeasures(finalShape, k).length : null;
     const area = geo ? geo.area : hasArea(v.kind) && v.width !== null ? computeArea(v.length, v.width) : null;
     const measures = {
       kind: v.kind,
-      length: geo ? geo.perimeter : v.length,
+      length: geo ? geo.perimeter : (lineFromPlan ?? v.length),
       // Linie: Breite = Höhe (optional), getrennt von der Länge – ergibt keine Fläche
       width: geo ? null : v.width,
       depth: v.depth,
       area,
-      areaFromShape: geo ? true : undefined,
+      areaFromShape: geo || lineFromPlan !== null ? true : undefined,
       componentId: v.componentId,
       positionRef: v.positionRef,
       label: v.label,
@@ -1061,6 +1079,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               onSelectComponent={() => {}}
               onComponentMove={() => {}}
               onPlace={() => {}}
+              vertexEdit
+              selectedVertex={measureVertex}
+              onVertexSelect={setMeasureVertex}
             />
           ) : (
             <div className="viewer-msg error">Originaldatei fehlt.</div>
@@ -1262,12 +1283,24 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 {k && <MeasureCheck damage={selected} k={k} />}
               </div>
               {tool === 'select' ? (
-                <div className="selection-hint muted small">Ziehen = verschieben · ⟳ oben = drehen · Ecken = Größe</div>
+                <div className="selection-hint muted small">Ziehen = verschieben · Eckpunkte (○) einzeln ziehen · Seitengriffe (□) = Seite · Doppelklick auf Kante = Punkt einfügen</div>
               ) : null}
               <div className="row gap">
                 {tool !== 'select' && (
                   <button type="button" className="btn btn-sm" onClick={() => setTool('select')} data-testid="adjust-selected">
                     <Icon name="select" size={18} /> Verschieben / Drehen
+                  </button>
+                )}
+                {measureVertex !== null && (
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    onClick={() => removeMeasureVertex()}
+                    disabled={removeVertex(selected.shape, measureVertex) === null}
+                    title="Ausgewählten Eckpunkt entfernen (Entf)"
+                    data-testid="vertex-remove"
+                  >
+                    <Icon name="trash" size={16} /> Eckpunkt {measureVertex + 1}
                   </button>
                 )}
                 <button type="button" className="btn btn-sm btn-primary" onClick={() => setDialog({ mode: 'edit', id: selected.id })} data-testid="edit-selected">

@@ -55,7 +55,11 @@ type Field = 'number' | 'length' | 'width' | 'depth';
  */
 export function DamageDialog({ mode, damage, others, components, positions = [], suggestion, geometry, onSave, onCancel, onDelete }: Props) {
   /** Fläche und Umfang aus dem Plan übernehmen (nur bei Flächen-Messarten) */
-  const [fromShape, setFromShape] = useState(!!damage.areaFromShape && !!geometry);
+  // Linie: Länge aus dem Plan (kalibriert) – bei neuen Linien vorgewählt, wird bei Formänderung nachgeführt
+  const lineSuggest = !hasArea(damage.kind) && suggestion ? suggestion.length : null;
+  const [fromShape, setFromShape] = useState(
+    damage.areaFromShape ? !!geometry || lineSuggest !== null : mode === 'new' && lineSuggest !== null && lineSuggest > 0,
+  );
   const [v, setV] = useState({
     number: damage.label ?? String(damage.number),
     length: toInputValue(damage.length),
@@ -76,7 +80,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   // Aus der Geometrie: Fläche und Umfang kommen aus der Form, nur Nummer und Tiefe sind einzugeben
   const geo = withArea && fromShape && geometry ? geometry : null;
   // Linie: Länge, dazu optional Höhe und Tiefe (getrennt, keine Fläche)
-  const fields: Field[] = geo ? ['number', 'depth'] : ['number', 'length', 'width', 'depth'];
+  const lineGeo = !withArea && fromShape && lineSuggest !== null && lineSuggest > 0 ? lineSuggest : null;
+  const fields: Field[] = geo ? ['number', 'depth'] : lineGeo !== null ? ['number', 'width', 'depth'] : ['number', 'length', 'width', 'depth'];
 
   // Reine Zahl = Nummer; sonst Kennzeichnung aus Buchstaben (z. B. „A“, „Wand B“, „1A“).
   // Eine unveränderte bestehende Nummer (auch eine ältere 0) bleibt gültig; neue Nummern ab 1
@@ -85,7 +90,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const num = isNumeric ? (!damage.label && raw === String(damage.number) ? damage.number : parseDamageNumber(raw)) : null;
   const label = !isNumeric && raw ? raw : null;
   const labelTaken = label ? others.find((o) => o.id !== damage.id && damageNo(o).toLowerCase() === label.toLowerCase()) : undefined;
-  const L = geo ? ({ ok: true, value: geo.perimeter } as const) : checkMeasure(v.length, 'Länge');
+  const L = geo ? ({ ok: true, value: geo.perimeter } as const) : lineGeo !== null ? ({ ok: true, value: lineGeo } as const) : checkMeasure(v.length, 'Länge');
   // Nur die Länge ist Pflicht. Breite/Höhe und Tiefe sind optional: leer bleibt leer (null,
   // nicht 0), eine Eingabe muss aber gültig sein
   const B = !geo && v.width.trim() ? checkMeasure(v.width, withArea ? 'Breite/Höhe' : 'Höhe') : null;
@@ -130,7 +135,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
         componentId,
         positionRef,
         resetLabel,
-        areaFromShape: !!geo,
+        areaFromShape: !!geo || lineGeo !== null,
         area: geo ? geo.area : null,
       },
       renumber,
@@ -217,6 +222,14 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
                 <span className="unit">m</span>
               </div>
             </label>
+          ) : lineGeo !== null ? (
+            <label className="field measure-field">
+              <span>Länge (aus Plan)</span>
+              <div className="input-unit">
+                <input value={formatArea(lineGeo)} readOnly tabIndex={-1} data-testid="geometry-length" />
+                <span className="unit">m</span>
+              </div>
+            </label>
           ) : (
             field('length', 'Länge *', 'm')
           )}
@@ -234,7 +247,18 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             {geo ? 'Maße wieder von Hand eingeben' : `Fläche aus Plan übernehmen: ${formatArea(geometry.area)} m²`}
           </button>
         )}
-        {suggestion && !geo && (
+        {!withArea && lineSuggest !== null && lineSuggest > 0 && (
+          <button
+            type="button"
+            className={`btn btn-sm suggest-btn${lineGeo !== null ? ' active' : ''}`}
+            onClick={() => setFromShape(lineGeo === null)}
+            aria-pressed={lineGeo !== null}
+            data-testid="use-geometry"
+          >
+            {lineGeo !== null ? 'Länge wieder von Hand eingeben' : `Länge aus Plan übernehmen: ${formatArea(lineSuggest)} m (alle Abschnitte)`}
+          </button>
+        )}
+        {suggestion && !geo && withArea && (
           <button
             type="button"
             className="btn btn-sm suggest-btn"
@@ -266,8 +290,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             </>
           ) : (
             <>
-              <span>Linienmessung (keine Fläche)</span>
-              <strong>{lengthValue && lengthValue > 0 ? `${formatArea(lengthValue)} m` : '–'}</strong>
+              <span>{lineGeo !== null ? 'Länge aus Plan (alle Abschnitte) – wird bei Formänderung nachgeführt' : 'Linienmessung (keine Fläche)'}</span>
+              <strong>{lineGeo !== null ? `${formatArea(lineGeo)} m` : lengthValue && lengthValue > 0 ? `${formatArea(lengthValue)} m` : '–'}</strong>
             </>
           )}
         </div>
