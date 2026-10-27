@@ -4314,17 +4314,55 @@ button.status-pill:hover {
 /* Aufmaß je Plan (Projekt nicht aufgeteilt) */
 .aufmass-blocks {
   display: grid;
-  gap: 14px;
+  gap: 8px;
+}
+.aufmass-block {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
 }
 .aufmass-block-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 6px;
+  gap: 4px;
+  padding-right: 6px;
 }
-.aufmass-block-head h3 {
-  margin: 0;
-  font-size: 1rem;
+.aufmass-toggle {
+  flex: 1;
   min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 8px 12px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.aufmass-toggle svg {
+  flex: none;
+  transition: transform 0.15s;
+}
+.aufmass-block.open .aufmass-toggle svg {
+  transform: rotate(90deg);
+}
+.aufmass-toggle-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.aufmass-toggle-text .small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.aufmass-block.open {
+  padding-bottom: 8px;
+}
+.aufmass-block > .table-wrap,
+.aufmass-block-empty {
+  margin: 0 12px;
 }

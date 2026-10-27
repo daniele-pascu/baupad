@@ -177,8 +177,18 @@ test('Ohne Aufteilung: je Plan ein Aufmaß, durchnummeriert, umbenennbar über �
   const blocks = page.getByTestId('aufmass-block');
   await expect(blocks).toHaveCount(2);
   await expect(blocks.getByTestId('aufmass-name')).toHaveText(['Aufmaß 1', 'Aufmaß 2']);
+  // Liste zugeklappt: nur Name, Plan, Anzahl und Fläche; Messungen erst nach Antippen
+  await expect(page.getByTestId('aufmass-section').getByTestId('aufmass-table')).toHaveCount(0);
+  await expect(blocks.nth(0)).toContainText('1 Messung · 2,00 m²');
+  await expect(blocks.nth(1)).toContainText('0 Messungen');
+  await blocks.nth(0).getByTestId('aufmass-toggle').click();
+  await expect(blocks.nth(0).getByTestId('aufmass-toggle')).toHaveAttribute('aria-expanded', 'true');
   await expect(blocks.nth(0).getByTestId('aufmass-table').locator('tbody tr')).toHaveCount(1);
+  await expect(blocks.nth(1).getByTestId('aufmass-table')).toHaveCount(0);
+  await blocks.nth(1).getByTestId('aufmass-toggle').click();
   await expect(blocks.nth(1)).toContainText('Noch keine Messungen');
+  await blocks.nth(0).getByTestId('aufmass-toggle').click(); // wieder zu
+  await expect(blocks.nth(0).getByTestId('aufmass-table')).toHaveCount(0);
 
   await blocks.nth(1).getByTestId('aufmass-actions').click();
   await page.getByTestId('aufmass-rename').click();

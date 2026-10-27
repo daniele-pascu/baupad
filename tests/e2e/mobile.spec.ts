@@ -200,6 +200,7 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   // 8) PDF-Export beider Bildpläne
   await page.getByRole('link', { name: 'Zurück zur Planliste' }).tap();
   // Projektseite mit Aufmaß-Tabelle: nicht breiter als der Bildschirm (Tabelle scrollt in sich)
+  await page.getByTestId('aufmass-section').getByTestId('aufmass-toggle').first().tap(); // Aufmaß aufklappen
   await expect(page.getByTestId('aufmass-section').getByTestId('aufmass-table')).toBeVisible();
   await noHorizontalScroll(page);
   const dl2 = await catchDownload(page, async () => {

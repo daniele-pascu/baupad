@@ -16,12 +16,12 @@ import { ExcelExportDialog } from '../components/ExcelExportDialog';
 import { ProjectForm, type CostCenterInput } from '../components/ProjectForm';
 import { SaveErrorBanner, SaveStatus } from '../components/SaveStatus';
 import { confirmDialog, offerFile, promptDialog, showError, toast } from '../components/ui';
-import { aufmassNameOf, aufmassRows, componentsOf, findPosition, costCenterLabel, costCenterName, costCentersOf, damagesOf, elementsOf, planTitle, plansOf } from '../lib/aufmass';
+import { aufmassNameOf, aufmassRows, componentsOf, findPosition, costCenterLabel, costCenterName, costCentersOf, damagesOf, elementsOf, planTitle, plansOf, sumArea } from '../lib/aufmass';
 import type { BlattScope } from '../lib/aufmassblatt';
 import { BACKUP_REMIND_DAYS, backupStatus, exportProjectBackup, type BackupStatus } from '../lib/backup';
 import { isDrawingPlan } from '../lib/drawing';
 import { exportPaper } from '../lib/sheet-layout';
-import { formatDate, formatDateTime } from '../lib/numbers';
+import { formatArea, formatDate, formatDateTime } from '../lib/numbers';
 import { navigate, paths } from '../lib/router';
 import { flush, newMeta, putRecord, putRecords, softDelete, updateProject, useAppState, type ProjectState } from '../lib/store';
 import { renderSource } from '../lib/thumbs';
@@ -50,6 +50,8 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
   const [cropping, setCropping] = useState<{ plan: Plan; image: HTMLCanvasElement } | null>(null);
   const [drawingNew, setDrawingNew] = useState(false);
   const [library, setLibrary] = useState(false);
+  /** aufgeklappte Aufmaße (Liste je Plan) */
+  const [openAufmass, setOpenAufmass] = useState<Set<string>>(() => new Set());
   const [reuse, setReuse] = useState<PlanSource | null>(null);
   const [rotating, setRotating] = useState<Plan | null>(null);
   const [excelScope, setExcelScope] = useState<BlattScope | null>(null);
@@ -494,17 +496,35 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
               </p>
             )
           ) : plans.length ? (
-            // je Plan ein eigenes Aufmaß, durchnummeriert bzw. umbenannt
-            <div className="aufmass-blocks">
+            // Liste: je Plan ein eigenes Aufmaß (durchnummeriert bzw. umbenannt); Messungen erst nach Antippen
+            <div className="aufmass-blocks" data-testid="aufmass-list">
               {plans.map((pl) => {
                 const own = rows.filter((r) => r.plan.id === pl.id);
                 const name = aufmassNameOf(data, pl);
+                const open = openAufmass.has(pl.id);
                 return (
-                  <div key={pl.id} className="aufmass-block" data-testid="aufmass-block">
+                  <div key={pl.id} className={`aufmass-block${open ? ' open' : ''}`} data-testid="aufmass-block">
                     <div className="aufmass-block-head">
-                      <h3>
-                        <span data-testid="aufmass-name">{name}</span> <span className="muted small">· Plan {planTitle(pl)} · {own.length} Messungen</span>
-                      </h3>
+                      <button
+                        type="button"
+                        className="aufmass-toggle"
+                        aria-expanded={open}
+                        onClick={() => setOpenAufmass((prev) => {
+                          const next = new Set(prev);
+                          if (!next.delete(pl.id)) next.add(pl.id);
+                          return next;
+                        })}
+                        data-testid="aufmass-toggle"
+                      >
+                        <Icon name="next" size={18} />
+                        <span className="aufmass-toggle-text">
+                          <strong data-testid="aufmass-name">{name}</strong>
+                          <span className="muted small">
+                            Plan {planTitle(pl)} · {own.length} {own.length === 1 ? 'Messung' : 'Messungen'}
+                            {own.length > 0 && ` · ${formatArea(sumArea(own.map((r) => r.damage)))} m²`}
+                          </span>
+                        </span>
+                      </button>
                       <ActionMenu
                         label={`Aktionen für ${name}`}
                         testId="aufmass-actions"
@@ -516,11 +536,12 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
                         ]}
                       />
                     </div>
-                    {own.length ? (
-                      <AufmassTable rows={own} components={data.components} positionLabel={(ref) => findPosition(data, ref)?.pos.number ?? null} onSelect={(r) => navigate(paths.plan(project.id, r.plan.id, r.damage.id))} />
-                    ) : (
-                      <p className="muted small">Noch keine Messungen in diesem Plan.</p>
-                    )}
+                    {open &&
+                      (own.length ? (
+                        <AufmassTable rows={own} components={data.components} positionLabel={(ref) => findPosition(data, ref)?.pos.number ?? null} onSelect={(r) => navigate(paths.plan(project.id, r.plan.id, r.damage.id))} />
+                      ) : (
+                        <p className="muted small aufmass-block-empty">Noch keine Messungen in diesem Plan.</p>
+                      ))}
                   </div>
                 );
               })}
