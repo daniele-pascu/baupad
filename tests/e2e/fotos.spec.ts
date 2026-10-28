@@ -101,6 +101,19 @@ test('Fotos je Baustelle, KW und Tag; Großansicht; Beschreibung; Suche; Duplika
   await expect(lb.getByTestId('lightbox-description')).toContainText('Abplatzung Decke');
   await page.keyboard.press('ArrowRight');
   await expect(lb).toContainText('Montag, 02.11.2026');
+  // Vergrößern: Knöpfe, Mausrad, Doppelklick; Blättern setzt zurück
+  await expect(lb.getByTestId('lightbox-zoom')).toHaveText('100 %');
+  await lb.getByTestId('lightbox-zoom-in').click();
+  await expect(lb.getByTestId('lightbox-zoom')).toHaveText('150 %');
+  await lb.getByTestId('lightbox-image').hover();
+  await page.mouse.wheel(0, -300);
+  await expect.poll(async () => Number(await lb.locator('.lightbox-body').getAttribute('data-zoom'))).toBeGreaterThan(1.5);
+  await lb.getByTestId('lightbox-image').dblclick();
+  await expect(lb.getByTestId('lightbox-zoom')).toHaveText('100 %');
+  await lb.getByTestId('lightbox-image').dblclick();
+  await expect(lb.getByTestId('lightbox-zoom')).toHaveText('250 %');
+  await page.keyboard.press('ArrowLeft');
+  await expect(lb.getByTestId('lightbox-zoom')).toHaveText('100 %');
   await page.keyboard.press('Escape');
   await expect(lb).toHaveCount(0);
 

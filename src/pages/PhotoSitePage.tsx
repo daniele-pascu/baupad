@@ -487,7 +487,15 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
   );
 }
 
-/** Großansicht mit Blättern (Pfeiltasten, Wischen), Angaben und Beschreibung */
+interface Zoom {
+  s: number;
+  x: number;
+  y: number;
+}
+const NO_ZOOM: Zoom = { s: 1, x: 0, y: 0 };
+const MAX_ZOOM = 8;
+
+/** Großansicht mit Blättern (Pfeiltasten, Wischen), Vergrößern (Mausrad, Doppelklick, zwei Finger, +/−), Angaben und Beschreibung */
 function Lightbox({
   photo,
   index,
@@ -516,17 +524,124 @@ function Lightbox({
   const src = usePhotoUrl(photo.id, 'data', photo.updatedAt);
   const [desc, setDesc] = useState(photo.description);
   const [editing, setEditing] = useState(false);
-  const touch = useRef<{ x: number; y: number } | null>(null);
+  /** Vergrößerung: Faktor und Verschiebung (Bildmitte = 0/0) */
+  const [z, setZ] = useState<Zoom>(NO_ZOOM);
+  const zRef = useRef(z);
+  zRef.current = z;
+  const body = useRef<HTMLDivElement>(null);
+  const img = useRef<HTMLImageElement>(null);
   useEffect(() => {
     setDesc(photo.description);
     setEditing(false);
+    setZ(NO_ZOOM);
   }, [photo.id, photo.description]);
+  /** Verschiebung so begrenzen, dass das Bild nicht aus dem Fenster rutscht */
+  const clamp = (st: Zoom): Zoom => {
+    const b = body.current;
+    const im = img.current;
+    if (!b || !im || st.s <= 1) return st.s <= 1 ? NO_ZOOM : st;
+    const mx = Math.max(0, (im.clientWidth * st.s - b.clientWidth) / 2);
+    const my = Math.max(0, (im.clientHeight * st.s - b.clientHeight) / 2);
+    return { s: st.s, x: Math.min(mx, Math.max(-mx, st.x)), y: Math.min(my, Math.max(-my, st.y)) };
+  };
+  /** um den Faktor zoomen, der Punkt (cx, cy – relativ zur Mitte) bleibt an Ort und Stelle */
+  const zoomAt = (factor: number, cx = 0, cy = 0, from: Zoom = zRef.current) => {
+    const ns = Math.min(MAX_ZOOM, Math.max(1, from.s * factor));
+    const k = ns / from.s;
+    setZ(clamp({ s: ns, x: cx - (cx - from.x) * k, y: cy - (cy - from.y) * k }));
+  };
+  const center = (clientX: number, clientY: number) => {
+    const r = body.current!.getBoundingClientRect();
+    return [clientX - (r.left + r.width / 2), clientY - (r.top + r.height / 2)];
+  };
+  // Mausrad (auch mit Strg), Doppelklick, Ziehen; am Handy zwei Finger (Zoom), ein Finger (Verschieben bzw. Wischen)
+  useEffect(() => {
+    const el = body.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const [cx, cy] = center(e.clientX, e.clientY);
+      zoomAt(Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0022)), cx, cy);
+    };
+    const onDbl = (e: MouseEvent) => {
+      if ((e.target as HTMLElement).closest('button')) return;
+      const [cx, cy] = center(e.clientX, e.clientY);
+      if (zRef.current.s > 1) setZ(NO_ZOOM);
+      else zoomAt(2.5, cx, cy);
+    };
+    let drag: { x: number; y: number; zx: number; zy: number } | null = null;
+    const onDown = (e: PointerEvent) => {
+      if (e.pointerType !== 'mouse' || zRef.current.s <= 1 || e.button !== 0) return;
+      drag = { x: e.clientX, y: e.clientY, zx: zRef.current.x, zy: zRef.current.y };
+      el.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    };
+    const onMove = (e: PointerEvent) => {
+      if (!drag) return;
+      setZ(clamp({ ...zRef.current, x: drag.zx + e.clientX - drag.x, y: drag.zy + e.clientY - drag.y }));
+    };
+    const onUp = () => (drag = null);
+    let touch: { x: number; y: number; zx: number; zy: number; dist: number; start: Zoom; moved: boolean } | null = null;
+    const dist = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    const onTS = (e: TouchEvent) => {
+      const t = e.touches;
+      if (t.length === 2) {
+        touch = { x: (t[0].clientX + t[1].clientX) / 2, y: (t[0].clientY + t[1].clientY) / 2, zx: zRef.current.x, zy: zRef.current.y, dist: dist(t), start: zRef.current, moved: true };
+        e.preventDefault();
+      } else if (t.length === 1) touch = { x: t[0].clientX, y: t[0].clientY, zx: zRef.current.x, zy: zRef.current.y, dist: 0, start: zRef.current, moved: false };
+    };
+    const onTM = (e: TouchEvent) => {
+      if (!touch) return;
+      const t = e.touches;
+      if (t.length === 2 && touch.dist) {
+        e.preventDefault();
+        const [cx, cy] = center((t[0].clientX + t[1].clientX) / 2, (t[0].clientY + t[1].clientY) / 2);
+        zoomAt(dist(t) / touch.dist, cx, cy, touch.start);
+      } else if (t.length === 1 && zRef.current.s > 1) {
+        e.preventDefault();
+        touch.moved = true;
+        setZ(clamp({ ...zRef.current, x: touch.zx + t[0].clientX - touch.x, y: touch.zy + t[0].clientY - touch.y }));
+      }
+    };
+    const onTE = (e: TouchEvent) => {
+      const t = touch;
+      touch = null;
+      if (!t || t.moved || zRef.current.s > 1 || !e.changedTouches.length) return;
+      const dx = e.changedTouches[0].clientX - t.x;
+      const dy = e.changedTouches[0].clientY - t.y;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) (dx < 0 ? onNext : onPrev)();
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    el.addEventListener('dblclick', onDbl);
+    el.addEventListener('pointerdown', onDown);
+    el.addEventListener('pointermove', onMove);
+    el.addEventListener('pointerup', onUp);
+    el.addEventListener('pointercancel', onUp);
+    el.addEventListener('touchstart', onTS, { passive: false });
+    el.addEventListener('touchmove', onTM, { passive: false });
+    el.addEventListener('touchend', onTE);
+    return () => {
+      el.removeEventListener('wheel', onWheel);
+      el.removeEventListener('dblclick', onDbl);
+      el.removeEventListener('pointerdown', onDown);
+      el.removeEventListener('pointermove', onMove);
+      el.removeEventListener('pointerup', onUp);
+      el.removeEventListener('pointercancel', onUp);
+      el.removeEventListener('touchstart', onTS);
+      el.removeEventListener('touchmove', onTM);
+      el.removeEventListener('touchend', onTE);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onNext, onPrev]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (editing) return;
       if (e.key === 'Escape') onClose();
       else if (e.key === 'ArrowLeft') onPrev();
       else if (e.key === 'ArrowRight') onNext();
+      else if (e.key === '+') zoomAt(1.5);
+      else if (e.key === '-') zoomAt(1 / 1.5);
+      else if (e.key === '0') setZ(NO_ZOOM);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -541,6 +656,17 @@ function Lightbox({
             {photo.userName && ` · ${photo.userName}`}
           </span>
         </div>
+        <div className="lightbox-zoom" role="group" aria-label="Vergrößerung">
+          <button type="button" className="icon-btn" onClick={() => zoomAt(1 / 1.5)} disabled={z.s <= 1} aria-label="Verkleinern" title="Verkleinern (−)" data-testid="lightbox-zoom-out">
+            <Icon name="minus" size={18} />
+          </button>
+          <button type="button" className="lightbox-zoom-value" onClick={() => setZ(NO_ZOOM)} disabled={z.s <= 1} title="Auf Fenstergröße (0)" data-testid="lightbox-zoom">
+            {Math.round(z.s * 100)} %
+          </button>
+          <button type="button" className="icon-btn" onClick={() => zoomAt(1.5)} disabled={z.s >= MAX_ZOOM} aria-label="Vergrößern" title="Vergrößern (+) – auch Mausrad, Doppelklick oder zwei Finger" data-testid="lightbox-zoom-in">
+            <Icon name="plus" size={18} />
+          </button>
+        </div>
         <span className="muted small">
           {index + 1} / {total}
         </span>
@@ -548,24 +674,17 @@ function Lightbox({
           <Icon name="close" />
         </button>
       </header>
-      <div
-        className="lightbox-body"
-        onTouchStart={(e) => (touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY })}
-        onTouchEnd={(e) => {
-          const t = touch.current;
-          touch.current = null;
-          if (!t) return;
-          const dx = e.changedTouches[0].clientX - t.x;
-          const dy = e.changedTouches[0].clientY - t.y;
-          if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) (dx < 0 ? onNext : onPrev)();
-        }}
-      >
+      <div ref={body} className={`lightbox-body${z.s > 1 ? ' zoomed' : ''}`} data-zoom={z.s.toFixed(2)}>
         {total > 1 && (
           <button type="button" className="lightbox-nav prev" onClick={onPrev} aria-label="Vorheriges Foto" data-testid="lightbox-prev">
             <Icon name="back" />
           </button>
         )}
-        {src ? <img src={src} alt={photo.description || 'Foto'} data-testid="lightbox-image" /> : <span className="muted">Wird geladen …</span>}
+        {src ? (
+          <img ref={img} src={src} alt={photo.description || 'Foto'} draggable={false} style={{ transform: `translate(${z.x}px, ${z.y}px) scale(${z.s})` }} data-testid="lightbox-image" />
+        ) : (
+          <span className="muted">Wird geladen …</span>
+        )}
         {total > 1 && (
           <button type="button" className="lightbox-nav next" onClick={onNext} aria-label="Nächstes Foto" data-testid="lightbox-next">
             <Icon name="next" />
