@@ -3,7 +3,7 @@ import { damagesForPosition, lvDocLabel, lvDocsOf, planTitle, positionRef } from
 import { uuid } from '../lib/ids';
 import { damageNo, nextPositionNumber } from '../lib/numbering';
 import { readLvFromPdf } from '../lib/lv-import';
-import { parseGermanNumber, sumPositions, type ParsedLv } from '../lib/lv-parse';
+import { longTextParagraphs, parseGermanNumber, sumPositions, type ParsedLv } from '../lib/lv-parse';
 import { netLength, quantityBasis, quantityFor } from '../lib/measure';
 import { formatArea, formatMeasure, parseDecimal } from '../lib/numbers';
 import { closePdf, openPdf } from '../lib/pdf';
@@ -265,6 +265,9 @@ function LvReviewDialog({
               : `Summenkontrolle: Summe stimmt mit dem Dokument überein (${eur(parsed.total)}).`}
           </p>
         )}
+        <p data-testid="lv-longtext-count">
+          Langtext bei {parsed.positions.filter((p) => p.longText.trim()).length} von {parsed.positions.length} Positionen erkannt – nach dem Übernehmen beim Antippen der Position lesbar.
+        </p>
         {flagged.length > 0 && <p>{flagged.length} Position(en) mit unsicheren Angaben – bitte nach dem Übernehmen prüfen (markiert).</p>}
       </div>
       <div className="table-wrap lv-review-table">
@@ -286,6 +289,7 @@ function LvReviewDialog({
                 <td className="lv-text">
                   {p.shortText}
                   {p.issues.length > 0 && <small className="error"> ⚠ {p.issues.join(' · ')}</small>}
+                  {p.longText.trim() && <small className="lv-lt-preview">{longTextParagraphs(p.longText).join(' ')}</small>}
                 </td>
                 <td className="num">{qty(p.quantity)}</td>
                 <td>{p.unit || '–'}</td>
@@ -403,7 +407,14 @@ function LvDocView({ data, doc, onEdit, onDelete }: { data: ProjectState; doc: L
                     <tr className="lv-detail">
                       <td colSpan={7}>
                         {pos.issues.length > 0 && <p className="error small">⚠ {pos.issues.join(' · ')}</p>}
-                        {pos.longText && <p className="pre lv-longtext">{pos.longText}</p>}
+                        <div className="lv-longtext" data-testid="lv-longtext">
+                          <strong>Langtext</strong>
+                          {pos.longText.trim() ? (
+                            longTextParagraphs(pos.longText).map((t, k) => <p key={k}>{t}</p>)
+                          ) : (
+                            <p className="muted">Kein Langtext im LV vorhanden.</p>
+                          )}
+                        </div>
                         <p className="small muted">
                           LV: {qty(pos.quantity)} {pos.unit} × {eur(pos.unitPrice)} = {eur(pos.totalPrice)}
                           {!quantityBasis(pos.unit) && ' · Einheit nicht aus Messungen ableitbar (Menge manuell)'}

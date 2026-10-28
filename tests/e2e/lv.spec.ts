@@ -203,6 +203,7 @@ test('MFK mit Punkt-Nummern und EP-Zeile importieren: als MFK samt Nummer erkann
   await expect(review.getByTestId('lv-kind')).toHaveValue('mfk');
   await expect(review.getByTestId('lv-number')).toHaveValue('M9-001');
   await expect(review.getByTestId('lv-name')).toHaveValue('Musterhalle Beschichtungen'); // Nummer steht im eigenen Feld
+  await expect(review.getByTestId('lv-longtext-count')).toContainText('Langtext bei 5 von 5 Positionen erkannt');
   await review.getByTestId('lv-review-save').click();
   await expect(page.getByTestId('lv-row')).toHaveCount(5);
   await expect(page.getByTestId('lv-flagged')).toHaveCount(0);
@@ -214,6 +215,8 @@ test('MFK mit Punkt-Nummern und EP-Zeile importieren: als MFK samt Nummer erkann
   await expect(page.locator('.lv-detail')).toContainText('Gilt fuer die folgenden Positionen.');
   await expect(page.locator('.lv-detail')).toContainText('Ueberschleifen des Betonuntergrundes');
   await expect(page.locator('.lv-detail')).not.toContainText('Lohn');
+  await expect(page.getByTestId('lv-longtext')).toContainText('Langtext');
+  await page.locator('.lv-detail').screenshot({ path: join(OUT, 'lv-langtext.png') });
 });
 
 test('Projektseite: Pläne, Aufmaß und LV/MFK untereinander; LV steht immer vor den MFKs', async ({ page }) => {

@@ -2001,8 +2001,38 @@ tr.lv-flagged td {
   background: #fafbfd;
 }
 .lv-longtext {
-  max-width: 70ch;
-  font-size: 0.88rem;
+  max-width: 75ch;
+  margin: 2px 0 10px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--border-strong, #c7c7cc);
+  background: var(--surface-2, #f5f5f7);
+  border-radius: 0 10px 10px 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  white-space: normal;
+}
+.lv-longtext > strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.lv-longtext p {
+  margin: 0 0 6px;
+}
+.lv-longtext p:last-child {
+  margin-bottom: 0;
+}
+/* Vorschau des Langtexts in der Prüfansicht (eine Zeile) */
+.lv-lt-preview {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 48ch;
+  color: var(--muted);
 }
 .lv-measures {
   margin: 4px 0 8px;

@@ -79,6 +79,35 @@ const FLAGS_RE = /^(?:(?:[A-Z]|ZZ|w|P)\s*){1,4}$/;
 /** Preisanteile „Lohn : 2,00“, „Lohn 6,15“ bzw. „Lohn“ ohne Betrag */
 const PRICE_PART_RE = /^(Lohn|Sonstiges|Material|Gerät|Geraet)\s*(?::|-?\d[\d .]*,\d+$|$)/i;
 
+/** Spaltenkopf „Pos. Nr. | Stichwort | Menge Einheit | Einheitspreis | Positionspreis“ u. Ä. */
+const TABLE_HEAD_RE = /^(?:Pos(?:ition)?\.?\s*-?\s*Nr\.?|OZ|Position)\b.*\b(?:Einheitspreis|EP)\b.*\b(?:Positionspreis|Gesamtpreis|GP)\b/i;
+
+/**
+ * Langtext lesbar machen: im PDF umbrochene Zeilen wieder zu Absätzen zusammenfügen. Ein neuer Absatz beginnt nach
+ * Satzende bzw. Doppelpunkt, bei Aufzählungen und bei Kennzeichnungen wie „Eventualposition (E)“.
+ */
+export function longTextParagraphs(text: string): string[] {
+  const lines = text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
+  // im PDF umbrochene Zeilen sind fast so lang wie die längste Zeile; deutlich kürzere Zeilen enden einen Absatz
+  // (z. B. Überschrift des Grundtexts)
+  const full = Math.max(0, ...lines.map((l) => l.length));
+  const out: string[] = [];
+  let prevRaw = '';
+  for (const line of lines) {
+    const prev = out[out.length - 1];
+    const own = /^(?:[-–•*·]|\d{1,2}[.)]\s|[a-z]\)\s)/.test(line) || /^(?:Eventualposition|Wahlposition|Nicht angeboten|Leitprodukt|Angebotenes Produkt)\b/.test(line);
+    const ended = /[.:;!?)]$/.test(prevRaw) || prevRaw.length < full * 0.7 || /^(?:Eventualposition|Wahlposition|Nicht angeboten)/.test(prevRaw);
+    if (!prev || own || ended) out.push(line);
+    else if (/[a-zäöüß]-$/.test(prev) && /^[a-zäöüß]/.test(line)) out[out.length - 1] = prev.slice(0, -1) + line;
+    else out[out.length - 1] = `${prev} ${line}`;
+    prevRaw = line;
+  }
+  return out;
+}
+
 export const KNOWN_UNITS = ['m', 'm2', 'm²', 'm3', 'm³', 'lfm', 'lm', 'Stk', 'St', 'Stück', 'PA', 'psch', 'Psch', 'h', 'Std', 'Wo', 'Tg', 'd', 'Mt', 'kg', 't', 'l', 'VE', 'ME'];
 
 /**
@@ -156,6 +185,8 @@ export function parseLv(lines: Line[], pageCount: number): ParsedLv {
 
   for (const l of lines) {
     const text = l.cells.join(' ');
+    // Spaltenkopf der Tabelle (wiederholt sich nach jedem Seitenumbruch) – gehört nie zum Langtext
+    if (TABLE_HEAD_RE.test(text) && !/\d,\d/.test(text)) continue;
     const isData = POS_RE.test(l.cells[0]) || /Einheitspreis/.test(text) || PRICE_PART_RE.test(text) || l.cells[0] === 'EP';
     // Bezeichnung und Summe aus dem Deckblatt / den Kopfdaten
     if (/^(LV-Bezeichnung|Projektbezeichnung)$/.test(l.cells[0]) && l.cells[1] && (!docTitle || l.cells[0] === 'LV-Bezeichnung')) docTitle = l.cells[1];

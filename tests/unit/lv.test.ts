@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildLines, parseGermanNumber, parseLv, sumPositions, type Line } from '../../src/lib/lv-parse';
+import { buildLines, longTextParagraphs, parseGermanNumber, parseLv, sumPositions, type Line } from '../../src/lib/lv-parse';
 import { nextPositionNumber } from '../../src/lib/numbering';
 
 /** Zeile aus Zellen (Abstand groß genug für eine Spaltentrennung) */
@@ -181,6 +181,8 @@ describe('LV aus PDF-Text', () => {
       L(3, 'Frei formulierte Position'),
       L(3, '03.12.11.26.01.A', 'Untergrund überschleifen'),
       L(3, 'Überschleifen des Betonuntergrundes.'),
+      // Seitenumbruch: Spaltenkopf wiederholt sich – gehört nicht zum Langtext
+      L(3, 'Pos. Nr.', 'Stichwort', 'Menge Einheit', 'Einheitspreis', 'Positionspreis'),
       L(3, 'Lohn', '6,15'),
       L(3, 'Sonstiges', '2,80'),
       L(3, 'EP', '2 500,00 m²', '8,95', '22 375,00'),
@@ -227,5 +229,24 @@ describe('Positionsnummer weiterzählen (manuelle Eingabe)', () => {
     expect(nextPositionNumber('Pos 5a')).toBe('Pos 6a');
     expect(nextPositionNumber('')).toBe('');
     expect(nextPositionNumber('Zusatz')).toBe('');
+  });
+
+  it('Langtext lesbar: umbrochene Zeilen werden zu Absätzen, Überschrift bleibt eigene Zeile, Silbentrennung entfernt', () => {
+    const t = [
+      'Besondere Vorbereitungen nach Abtrag',
+      'Überschleifen des Betonuntergrundes zur Entfernung von Spitzen, Graten und Höhen-',
+      'versätzen bis 5mm Abtragstiefe mittels großflächigem Diamantschleifgerät mit',
+      'Absaugung.',
+      'Abgerechnet wird die bearbeitete Fläche.',
+      '- Absaugung inbegriffen',
+      'Eventualposition (E)',
+    ].join('\n');
+    expect(longTextParagraphs(t)).toEqual([
+      'Besondere Vorbereitungen nach Abtrag',
+      'Überschleifen des Betonuntergrundes zur Entfernung von Spitzen, Graten und Höhenversätzen bis 5mm Abtragstiefe mittels großflächigem Diamantschleifgerät mit Absaugung.',
+      'Abgerechnet wird die bearbeitete Fläche.',
+      '- Absaugung inbegriffen',
+      'Eventualposition (E)',
+    ]);
   });
 });
