@@ -921,7 +921,7 @@ function TimesDialog({
         Uhrzeiten im PDF anzeigen
       </label>
       <label className="field crew-company">
-        <span>Firmenname im PDF (optional)</span>
+        <span>Firmenname im PDF (oben links, falls kein Firmenlogo hinterlegt ist)</span>
         <input value={c} onChange={(e) => setC(e.target.value)} placeholder="z. B. Muster Bau GmbH" autoComplete="organization" data-testid="company-name" />
       </label>
     </Modal>

@@ -70,23 +70,25 @@ async function setup(opts: CrewPdfOptions): Promise<Ctx> {
   return { doc, font, bold, charset: new Set(font.getCharacterSet()), logo };
 }
 
-/** Kopf: Logo bzw. Firmenname, Titel, Untertitel; liefert die y-Position darunter */
+/** Kopf: oben links Firmenlogo – ohne Logo der Firmenname in Buchstaben –, daneben Titel und Untertitel; liefert die y-Position darunter */
 function header(ctx: Ctx, page: PDFPage, title: string, sub: string, company: string): number {
   const { width, height } = page.getSize();
   let y = height - M;
   let x = M;
   if (ctx.logo) {
-    const h = 26;
-    const w = Math.min(120, (ctx.logo.width / ctx.logo.height) * h);
-    page.drawImage(ctx.logo, { x, y: y - h, width: w, height: (w / ctx.logo.width) * ctx.logo.height });
-    x += w + 14;
+    const h = 30;
+    const w = Math.min(130, (ctx.logo.width / ctx.logo.height) * h);
+    const lh = (w / ctx.logo.width) * ctx.logo.height;
+    page.drawImage(ctx.logo, { x, y: y - 2 - (h + lh) / 2, width: w, height: lh });
+    x += w + 16;
+  } else if (company) {
+    const c = fit(ctx.bold, clean(ctx, company), 15, Math.min(240, width / 3));
+    page.drawText(c, { x, y: y - 22, size: 15, font: ctx.bold, color: INK });
+    x += ctx.bold.widthOfTextAtSize(c, 15) + 16;
   }
-  page.drawText(clean(ctx, title), { x, y: y - 16, size: 16, font: ctx.bold, color: INK });
-  page.drawText(clean(ctx, sub), { x, y: y - 30, size: 10, font: ctx.font, color: MUTED });
-  if (company) {
-    const c = fit(ctx.bold, clean(ctx, company), 11, 260);
-    page.drawText(c, { x: width - M - ctx.bold.widthOfTextAtSize(c, 11), y: y - 16, size: 11, font: ctx.bold, color: INK });
-  }
+  if (x > M) page.drawLine({ start: { x: x - 8, y: y - 2 }, end: { x: x - 8, y: y - 32 }, thickness: 0.8, color: LINE });
+  page.drawText(fit(ctx.bold, clean(ctx, title), 16, width - M - x), { x, y: y - 16, size: 16, font: ctx.bold, color: INK });
+  page.drawText(fit(ctx.font, clean(ctx, sub), 10, width - M - x), { x, y: y - 30, size: 10, font: ctx.font, color: MUTED });
   y -= 40;
   page.drawLine({ start: { x: M, y }, end: { x: width - M, y }, thickness: 1.2, color: INK });
   return y - 12;

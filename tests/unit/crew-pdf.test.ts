@@ -63,6 +63,16 @@ describe('PDF der Arbeitereinteilung', () => {
     expect(t).toContain('(Urlaub)');
   });
 
+  it('Kopf oben links: Firmenlogo, sonst Firmenname', async () => {
+    // 1×1-PNG als Logo
+    const png = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC'), (c) => c.charCodeAt(0));
+    const f = await crewWeekPdf(week(), workers, DEFAULT_WORK_TIMES, { company: 'Muster Bau GmbH', logo: { bytes: png, type: 'png', width: 1, height: 1, name: 'logo.png' } });
+    expect(await sizes(f.data)).toEqual([{ width: 841.89, height: 595.28 }]);
+    if (!hasPoppler) return;
+    expect(text(f.data, 'logo.pdf')).not.toContain('Muster Bau GmbH'); // Logo statt Name
+    expect(text((await crewWeekPdf(week(), workers, DEFAULT_WORK_TIMES, { company: 'Muster Bau GmbH' })).data, 'name.pdf')).toContain('Muster Bau GmbH');
+  });
+
   it('viele Baustellen → mehrere Seiten statt kleiner Schrift', async () => {
     const f = await crewWeekPdf(week(14), workers, DEFAULT_WORK_TIMES);
     expect((await sizes(f.data)).length).toBeGreaterThan(1);
