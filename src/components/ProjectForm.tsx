@@ -17,6 +17,8 @@ interface Props {
   /** Kostenstellen, die zusammen mit den Projektangaben bearbeitet werden */
   costCenters?: CostCenterInput[];
   submitLabel: string;
+  /** Neues Projekt: Baustellen aus der Arbeitereinteilung (noch ohne Projekt) zum Übernehmen */
+  fromCrew?: { name: string; number?: string; address?: string }[];
   onSubmit: (fields: ProjectFields, costCenters: CostCenterInput[]) => void | Promise<void>;
   onClose: () => void;
 }
@@ -24,7 +26,7 @@ interface Props {
 const ccKey = (c: CostCenterInput) => `${c.number.trim()}|${c.name.trim()}`.toLowerCase();
 
 /** Projektangaben einschließlich Kostenstelle(n) – beim Anlegen und beim Bearbeiten. */
-export function ProjectForm({ title, initial, costCenters, submitLabel, onSubmit, onClose }: Props) {
+export function ProjectForm({ title, initial, costCenters, submitLabel, fromCrew, onSubmit, onClose }: Props) {
   const [f, setF] = useState<ProjectFields>({
     name: '',
     number: '',
@@ -85,6 +87,26 @@ export function ProjectForm({ title, initial, costCenters, submitLabel, onSubmit
           }
         }}
       >
+        {!!fromCrew?.length && (
+          <label className="field span-2">
+            <span>Aus der Arbeitereinteilung übernehmen (optional)</span>
+            <select
+              defaultValue=""
+              onChange={(e) => {
+                const s = fromCrew[Number(e.target.value)];
+                if (s) setF({ ...f, name: s.name, number: s.number ?? '', address: s.address ?? '' });
+              }}
+              data-testid="project-from-crew"
+            >
+              <option value="">– Baustelle wählen –</option>
+              {fromCrew.map((s, i) => (
+                <option key={s.name} value={i}>
+                  {[s.number, s.name].filter(Boolean).join(' · ')}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <label className="field span-2">
           <span>Projektname *</span>
           <input value={f.name} onChange={set('name')} name="name" autoComplete="off" enterKeyHint="next" aria-invalid={touched && nameMissing} />

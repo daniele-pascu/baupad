@@ -4993,3 +4993,11 @@ a.tool-tile:focus-visible {
 .crew-company {
   margin-top: 14px;
 }
+.crew-source {
+  display: flex;
+  width: 100%;
+  margin-bottom: 12px;
+}
+.crew-source button {
+  flex: 1;
+}

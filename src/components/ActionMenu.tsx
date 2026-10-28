@@ -42,21 +42,29 @@ export function ActionMenu({ label, actions, testId }: { label: string; actions:
         btn.current?.focus();
       }
     };
-    const onScroll = () => setOpen(false);
+    // Scrollen schließt das Menü nur, wenn sich der Knopf dabei wirklich bewegt hat (ein verspätetes
+    // Scroll-Ereignis direkt nach dem Öffnen, z. B. nach Schwung-Scrollen, lässt es offen)
+    const top0 = btn.current?.getBoundingClientRect().top ?? 0;
+    const onScroll = () => {
+      const top = btn.current?.getBoundingClientRect().top ?? 0;
+      if (Math.abs(top - top0) > 2) setOpen(false);
+    };
     document.addEventListener('pointerdown', close, true);
     window.addEventListener('keydown', onKey);
-    window.addEventListener('resize', onScroll);
+    const onResize = () => setOpen(false);
+    window.addEventListener('resize', onResize);
     window.addEventListener('scroll', onScroll, true);
     return () => {
       document.removeEventListener('pointerdown', close, true);
       window.removeEventListener('keydown', onKey);
-      window.removeEventListener('resize', onScroll);
+      window.removeEventListener('resize', onResize);
       window.removeEventListener('scroll', onScroll, true);
     };
   }, [open]);
 
   useEffect(() => {
-    if (open) menu.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();
+    // ohne Scrollen fokussieren – sonst schließt das Scrollen das Menü gleich wieder (Menü am unteren Rand)
+    if (open) menu.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus({ preventScroll: true });
   }, [open, pos]);
 
   return (

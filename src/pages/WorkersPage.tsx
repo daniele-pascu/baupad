@@ -38,9 +38,10 @@ import { getMeta, getWeek, listProjects, listWorkers, previousWeek, saveWeek, sa
 import type { ExportFile } from '../lib/aufmass';
 import { getCompanyLogo } from '../lib/company';
 import { exportCrewBackup, importCrewBackup } from '../lib/crew-backup';
+import { linkSitesToProject, projectFromSite } from '../lib/crew-link';
 import { crewDayPdf, crewWeekPdf } from '../lib/crew-pdf';
 import { uuid } from '../lib/ids';
-import { paths } from '../lib/router';
+import { navigate, paths } from '../lib/router';
 import type { Project, WeekPlan, WeekSite, Worker, WorkTimes } from '../lib/types';
 import { usePageTitle } from './SitePages';
 
@@ -192,6 +193,16 @@ export function WorkersPage() {
       toast(`Einteilung aus KW ${isoWeekNo(prev.id)} übernommen.`, 'success');
     });
   const backup = () => run(async () => offerFile(await exportCrewBackup()));
+  /** Baustelle ohne Projekt als Projekt anlegen und in allen Wochen verknüpfen */
+  const siteToProject = (s: WeekSite) =>
+    run(async () => {
+      const p = await projectFromSite(s);
+      await linkSitesToProject(s.name, p.id);
+      setProjects((list) => [p, ...list]);
+      // aktuelle Woche ebenfalls verknüpfen (auch wenn sie noch nicht gespeichert war)
+      save({ ...plan!, sites: plan!.sites.map((x) => (!x.projectId && x.name.trim().toLowerCase() === s.name.trim().toLowerCase() ? { ...x, projectId: p.id } : x)), updatedAt: Date.now() });
+      toast(`Projekt „${p.name}“ in der Projektverwaltung angelegt.`, 'success');
+    });
   const restore = (f: File) =>
     run(async () => {
       const r = await importCrewBackup(f);
@@ -413,6 +424,9 @@ export function WorkersPage() {
                       { label: 'Arbeiter einteilen (ganze Woche)', icon: 'plus', onSelect: () => setDialog({ kind: 'assign', siteId: s.id, days: workDays }), testId: 'site-assign' },
                       { label: 'Baustelle bearbeiten / Bemerkung', icon: 'edit', onSelect: () => setDialog({ kind: 'site', site: s }), testId: 'site-edit' },
                       { label: 'Tagesliste (PDF)', icon: 'pdf', onSelect: () => setDialog({ kind: 'dayList', siteId: s.id }), testId: 'site-daylist' },
+                      ...(s.projectId && projects.some((p) => p.id === s.projectId)
+                        ? [{ label: 'Projekt öffnen', icon: 'folder', onSelect: () => navigate(paths.project(s.projectId!)), testId: 'site-open-project' }]
+                        : [{ label: 'Als Projekt in Projektverwaltung anlegen', icon: 'folder', onSelect: () => void siteToProject(s), testId: 'site-to-project' }]),
                       {
                         label: s.finished ? 'Wieder als laufend markieren' : 'Fertiggestellt (ab nächster Woche weg)',
                         icon: 'check',
@@ -508,16 +522,25 @@ export function WorkersPage() {
           projects={projects}
           taken={plan.sites.map((s) => s.projectId).filter(Boolean) as string[]}
           onClose={() => setDialog(null)}
-          onSave={(fields) => {
-            if (dialog.site) save(updateSite(plan, dialog.site.id, fields));
-            else {
-              const r = addSite(plan, fields);
-              save(r.week);
-              setDialog({ kind: 'assign', siteId: r.site.id, days: workDays });
-              return;
-            }
-            setDialog(null);
-          }}
+          onSave={(fields, alsoProject) =>
+            void run(async () => {
+              let f = fields;
+              if (alsoProject) {
+                const p = await projectFromSite(fields);
+                setProjects((list) => [p, ...list]);
+                f = { ...fields, projectId: p.id };
+                toast(`Projekt „${p.name}“ in der Projektverwaltung angelegt.`, 'success');
+              }
+              if (dialog.site) save(updateSite(plan, dialog.site.id, f));
+              else {
+                const r = addSite(plan, f);
+                save(r.week);
+                setDialog({ kind: 'assign', siteId: r.site.id, days: workDays });
+                return;
+              }
+              setDialog(null);
+            })
+          }
         />
       )}
       {dialog?.kind === 'assign' && (
@@ -758,10 +781,13 @@ function SiteDialog({
   site?: WeekSite;
   projects: Project[];
   taken: string[];
-  onSave(f: Pick<WeekSite, 'projectId' | 'name' | 'number' | 'address' | 'note'>): void;
+  onSave(f: Pick<WeekSite, 'projectId' | 'name' | 'number' | 'address' | 'note'>, alsoProject: boolean): void;
   onClose(): void;
 }) {
   const [projectId, setProjectId] = useState<string>(site?.projectId ?? '');
+  /** Quelle: aus der Projektverwaltung wählen oder neue Baustelle (optional auch als Projekt anlegen) */
+  const [source, setSource] = useState<'project' | 'new'>(() => (site ? (site.projectId ? 'project' : 'new') : projects.length ? 'project' : 'new'));
+  const [alsoProject, setAlsoProject] = useState(false);
   const [name, setName] = useState(site?.name ?? '');
   const [number, setNumber] = useState(site?.number ?? '');
   const [address, setAddress] = useState(site?.address ?? '');
@@ -780,7 +806,8 @@ function SiteDialog({
   const submit = () => {
     setShow(true);
     if (!name.trim()) return;
-    onSave({ projectId: projectId || null, name: name.trim(), number: number.trim(), address: address.trim(), note: note.trim() });
+    if (source === 'project' && !projectId) return;
+    onSave({ projectId: source === 'project' ? projectId || null : null, name: name.trim(), number: number.trim(), address: address.trim(), note: note.trim() }, source === 'new' && alsoProject);
   };
   return (
     <Modal
@@ -804,10 +831,30 @@ function SiteDialog({
           submit();
         }}
       >
+        <div className="segmented crew-source" role="radiogroup" aria-label="Baustelle">
+          <button type="button" role="radio" aria-checked={source === 'project'} aria-selected={source === 'project'} onClick={() => setSource('project')} disabled={!projects.length} data-testid="site-source-project">
+            <ToolIcon name="projects" size={16} /> Aus Projektverwaltung
+          </button>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={source === 'new'}
+            aria-selected={source === 'new'}
+            onClick={() => {
+              setSource('new');
+              setProjectId('');
+            }}
+            data-testid="site-source-new"
+          >
+            <Icon name="plus" size={16} /> Neue Baustelle
+          </button>
+        </div>
+        {!projects.length && <p className="muted small">Noch keine Projekte in der Projektverwaltung.</p>}
+        {source === 'project' && (
         <label className="field">
-          <span>Aus der Projektverwaltung</span>
-          <select value={projectId} onChange={(e) => pick(e.target.value)} data-testid="site-project">
-            <option value="">– manuell eingeben –</option>
+          <span>Projekt wählen *</span>
+          <select value={projectId} onChange={(e) => pick(e.target.value)} aria-invalid={show && !projectId ? true : undefined} data-testid="site-project">
+            <option value="">– Projekt wählen –</option>
             {projects.map((p) => (
               <option key={p.id} value={p.id} disabled={taken.includes(p.id) && p.id !== site?.projectId}>
                 {[p.number, p.name].filter(Boolean).join(' · ')}
@@ -816,6 +863,7 @@ function SiteDialog({
             ))}
           </select>
         </label>
+        )}
         <div className="form-grid crew-site-fields">
           <label className="field span-2">
             <span>Bezeichnung *</span>
@@ -834,6 +882,13 @@ function SiteDialog({
             <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="z. B. Kran ab Mittwoch, Schlüssel bei Polier" data-testid="site-note-input" />
           </label>
         </div>
+        {source === 'new' && !site?.projectId && (
+          <label className="check-row" data-testid="site-also-project">
+            <input type="checkbox" checked={alsoProject} onChange={(e) => setAlsoProject(e.target.checked)} />
+            Auch als Projekt in der Projektverwaltung anlegen
+          </label>
+        )}
+        {show && source === 'project' && !projectId && <p className="error small">Bitte ein Projekt wählen.</p>}
         {show && !name.trim() && <p className="error small">Bitte eine Bezeichnung eingeben.</p>}
         <p className="muted small">Die Bezeichnung wird in dieser Woche gespeichert – spätere Umbenennungen des Projekts ändern alte Wochen nicht.</p>
         <button type="submit" hidden />

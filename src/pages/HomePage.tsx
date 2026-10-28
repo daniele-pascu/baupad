@@ -10,6 +10,7 @@ import { getDeviceId } from '../lib/ids';
 import { formatDateTime, naturalCompare } from '../lib/numbers';
 import { navigate, paths } from '../lib/router';
 import { closeProject, createProjectWithCostCenters } from '../lib/store';
+import { linkSitesToProject, sitesWithoutProject } from '../lib/crew-link';
 import type { Project } from '../lib/types';
 
 interface Row {
@@ -63,6 +64,11 @@ function filterAndSort(rows: Row[], query: string, sort: { key: SortKey; dir: 'a
 export function HomePage() {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [creating, setCreating] = useState(false);
+  /** Baustellen der Arbeitereinteilung ohne Projekt (für „Neues Projekt“) */
+  const [crewSites, setCrewSites] = useState<{ name: string; number?: string; address?: string }[]>([]);
+  useEffect(() => {
+    if (creating) void sitesWithoutProject().then(setCrewSites).catch(() => setCrewSites([]));
+  }, [creating]);
   const [storage, setStorage] = useState<{ usage: number; quota: number; persisted: boolean } | null>(null);
   const [upgraded, setUpgraded] = useState(false);
   const [query, setQuery] = useState('');
@@ -117,6 +123,8 @@ export function HomePage() {
     }
     // ohne Kostenstelle: eine leere Kostenstelle nimmt die Pläne auf (später ausfüllbar)
     const { project } = await createProjectWithCostCenters(fields, costCenters.length ? costCenters : [{ number: '', name: '' }]);
+    // gleichnamige Baustelle der Arbeitereinteilung mit dem neuen Projekt verknüpfen
+    await linkSitesToProject(project.name, project.id).catch(() => 0);
     // Projektseite mit Projektinfos, Kostenstelle und Planliste – dort wird der erste Plan importiert
     navigate(paths.project(project.id));
   };
@@ -394,6 +402,7 @@ export function HomePage() {
         <ProjectForm
           title="Neues Projekt"
           submitLabel="Projekt anlegen"
+          fromCrew={crewSites}
           onClose={() => setCreating(false)}
           onSubmit={async (fields, costCenters) => {
             try {
