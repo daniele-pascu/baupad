@@ -15,6 +15,8 @@ export interface CrewPdfOptions {
   logo?: CompanyLogo | null;
   /** Urlaub/Krank (von–bis) an diesem Tag – wird beim Namen gekennzeichnet */
   absent?: (workerId: string, day: number) => 'urlaub' | 'krank' | null;
+  /** Uhrzeiten anzeigen (Standard: ja) */
+  showTimes?: boolean;
 }
 
 /** Kennzeichnung beim Namen: „ (Urlaub)“ bzw. „ (krank)“ */
@@ -111,7 +113,7 @@ export async function crewWeekPdf(plan: WeekPlan, workers: Worker[], times: Work
   const H = 595.28;
   const byId = new Map(workers.map((w) => [w.id, w]));
   const nameOf = (id: string) => (byId.get(id) ? workerName(byId.get(id)!) : 'Unbekannt');
-  const days = visibleDays(plan);
+  const days = visibleDays();
   const kw = isoWeekNo(plan.id);
   const title = `Arbeitereinteilung KW ${kw}`;
   const sub = `${weekRange(plan.id, days[days.length - 1])}`;
@@ -144,7 +146,7 @@ export async function crewWeekPdf(plan: WeekPlan, workers: Worker[], times: Work
     days.forEach((d, i) => {
       const x = M + i * colW;
       page.drawText(`${DAY_SHORT[d]} ${dayDate(plan.id, d)}`, { x: x + 6, y: y - 12, size: 9, font: ctx.bold, color: INK });
-      const t = timeLabel(times[d]);
+      const t = opts.showTimes === false ? '' : timeLabel(times[d]);
       if (t) page.drawText(t, { x: x + 6, y: y - 22, size: 7.5, font: ctx.font, color: MUTED });
     });
     y -= 26;
@@ -217,7 +219,7 @@ export async function crewDayPdf(plan: WeekPlan, siteId: string, day: number, wo
     page.drawText(fit(ctx.font, clean(ctx, meta), 10, W - 2 * M), { x: M, y: y - 10, size: 10, font: ctx.font, color: MUTED });
     y -= 16;
   }
-  const t = timeLabel(times[day]);
+  const t = opts.showTimes === false ? '' : timeLabel(times[day]);
   if (t) {
     page.drawText(`Arbeitszeit: ${t} Uhr`, { x: M, y: y - 10, size: 10, font: ctx.font, color: INK });
     y -= 16;

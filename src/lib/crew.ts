@@ -136,7 +136,8 @@ export function unassigned(w: WeekPlan, workers: Worker[], day: number): Worker[
 }
 
 /** angezeigte Tage: Mo–Fr, mit Wochenende Mo–So */
-export const visibleDays = (w: Pick<WeekPlan, 'showWeekend'>) => (w.showWeekend ? [0, 1, 2, 3, 4, 5, 6] : [0, 1, 2, 3, 4]);
+/** jede Woche zeigt immer alle 7 Tage (Tage ohne Arbeitszeit als „frei“) */
+export const visibleDays = () => [0, 1, 2, 3, 4, 5, 6];
 
 export const workerName = (x: Pick<Worker, 'firstName' | 'lastName'>) => [x.firstName, x.lastName].filter(Boolean).join(' ');
 

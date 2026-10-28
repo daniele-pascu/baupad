@@ -4594,10 +4594,6 @@ a.tool-tile:focus-visible {
   border-radius: 10px;
   background: #fff;
 }
-.crew-weekend {
-  margin-left: auto;
-  min-height: 40px;
-}
 .crew-open {
   margin: 0 0 12px;
   padding: 12px 14px;
@@ -4908,10 +4904,6 @@ a.tool-tile:focus-visible {
   }
   .crew-date input {
     width: 100%;
-  }
-  .crew-weekend {
-    order: 6;
-    margin-left: 0;
   }
   .crew-setup > div {
     min-width: calc(100% - 64px);

@@ -94,6 +94,11 @@ test('Arbeitereinteilung: Woche nach Baustellen planen und in die nächste Woche
   await addFromMonday(page, 'Neubau Musterstraße', ['Max Muster', 'Peter Bau']);
   for (const d of [0, 1, 2, 3, 4]) await expect(chips(page, 'Neubau Musterstraße', d)).toHaveText(['Max Muster', 'Peter Bau']);
   await expect(site(page, 'Neubau Musterstraße').locator('[data-day="4"]')).toContainText('07:00–12:00');
+  // immer alle 7 Tage, Sa/So ohne Arbeitszeit als „frei“
+  await expect(site(page, 'Neubau Musterstraße').getByTestId('day-row')).toHaveCount(7);
+  await expect(site(page, 'Neubau Musterstraße').locator('[data-day="6"]')).toContainText('So 01.11.');
+  await expect(site(page, 'Neubau Musterstraße').locator('[data-day="6"]')).toContainText('frei');
+  await expect(page.getByTestId('crew-week')).toContainText('26.10. – 01.11.2026');
 
   // Baustelle B manuell
   await page.getByTestId('add-site').click();
@@ -204,7 +209,16 @@ test('Suche, PDF (Woche + Tagesliste), Drucken, Vorwoche übernehmen, Sicherung 
   // Firma und Arbeitszeit
   await page.getByTestId('crew-times').click();
   await page.getByTestId('times-dialog').getByTestId('company-name').fill('Muster Bau GmbH');
+  // Uhrzeiten im PDF: standardmäßig an, abwählbar (bleibt gespeichert)
+  await expect(page.getByTestId('times-dialog').getByTestId('times-pdf')).toBeChecked();
+  await page.getByTestId('times-dialog').getByTestId('times-pdf').uncheck();
   await page.getByTestId('times-dialog').getByTestId('times-save').click();
+  await expect(page.getByTestId('times-dialog')).toHaveCount(0);
+  await page.getByTestId('crew-times').click();
+  await expect(page.getByTestId('times-dialog').getByTestId('times-pdf')).not.toBeChecked();
+  await page.getByTestId('times-dialog').getByTestId('times-pdf').check();
+  await page.getByTestId('times-dialog').getByTestId('times-save').click();
+  await page.getByTestId('week-date').fill('2026-10-26');
   await page.getByTestId('crew-workers').click();
   const wd = page.getByTestId('workers-dialog');
   for (const [f, l, role, tel] of [
@@ -399,7 +413,7 @@ test('Ziehen: offenen Arbeiter einteilen, umsetzen ab Tag; bereits geplante Folg
   // KW 45 einmal ändern → gespeichert (bereits geplante Folgewoche)
   await page.getByTestId('week-next').click();
   await expect(page.getByTestId('draft-banner')).toBeVisible();
-  await page.getByTestId('week-weekend').check();
+  await page.getByTestId('draft-save').click();
   await expect(page.getByTestId('draft-banner')).toHaveCount(0);
   await page.getByTestId('week-prev').click();
   // Max am Donnerstag auf B ziehen → ab Donnerstag auf B, von A automatisch entfernt; Folgewoche automatisch mit
@@ -451,7 +465,7 @@ test('Baustelle pausieren (Standby): Arbeiter werden frei, läuft ohne Arbeiter 
   }
   // KW 45 einmal speichern (bereits geplante Folgewoche)
   await page.getByTestId('week-next').click();
-  await page.getByTestId('week-weekend').check();
+  await page.getByTestId('draft-save').click();
   await expect(page.getByTestId('draft-banner')).toHaveCount(0);
   await page.getByTestId('week-prev').click();
 
@@ -482,7 +496,7 @@ test('Baustelle pausieren (Standby): Arbeiter werden frei, läuft ohne Arbeiter 
   await page.getByTestId('week-date').fill('2026-10-26');
   await site(page, 'Baustelle B').getByTestId('site-resume').click();
   await expect(page.getByTestId('crew-paused')).toHaveCount(0);
-  await expect(site(page, 'Baustelle B').getByTestId('day-row')).toHaveCount(5);
+  await expect(site(page, 'Baustelle B').getByTestId('day-row')).toHaveCount(7);
   await addFromMonday(page, 'Baustelle B', ['Peter']);
   await page.getByTestId('week-next').click();
   await expect(page.getByTestId('crew-paused')).toHaveCount(0);
@@ -537,7 +551,7 @@ test('Urlaub und Krank von–bis über mehrere Wochen: bleibt eingeteilt, wird m
   await expect(chips(page, 'Baustelle A', 1).filter({ hasText: 'Max' })).not.toHaveClass(/away/);
   await expect(chips(page, 'Baustelle A', 2).filter({ hasText: 'Max' })).toHaveClass(/away/);
   await expect(chips(page, 'Baustelle A', 3).filter({ hasText: 'Peter' })).toHaveClass(/sick/);
-  await expect(page.getByTestId('vacation-chip')).toHaveText(['Max · Mi–Fr']);
+  await expect(page.getByTestId('vacation-chip')).toHaveText(['Max · Mi–So']); // Urlaub geht übers Wochenende
   await expect(page.getByTestId('sick-chip')).toHaveText(['Peter · Do, Fr']);
   await expect(page.getByTestId('crew-all-set')).toBeVisible();
   await page.screenshot({ path: join(OUT, 'arbeiter-urlaub-krank.png'), fullPage: true });

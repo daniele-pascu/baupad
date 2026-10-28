@@ -45,10 +45,22 @@ describe('PDF der Arbeitereinteilung', () => {
     expect(await sizes(f.data)).toEqual([{ width: 841.89, height: 595.28 }]); // A4 quer
     if (!hasPoppler) return;
     const t = text(f.data, 'woche.pdf');
-    for (const s of ['Arbeitereinteilung KW 44', '26.10. – 30.10.2026', 'Muster Bau GmbH', 'Neubau Musterstraße', '2026-04 · Musterstraße 1', 'Mo 26.10.', 'Fr 30.10.', '07:00–16:00', 'Max Muster', 'Kran ab Mittwoch', 'Urlaub:', 'Stefan Holz (Mo–Fr)'])
+    for (const s of ['Arbeitereinteilung KW 44', '26.10. – 01.11.2026', 'Muster Bau GmbH', 'Neubau Musterstraße', '2026-04 · Musterstraße 1', 'Mo 26.10.', 'Fr 30.10.', 'So 01.11.', '07:00–16:00', 'Max Muster', 'Kran ab Mittwoch', 'Urlaub:', 'Stefan Holz (Mo–Fr)'])
       expect(t).toContain(s);
     expect(t).toContain('Lukasz Wójcik'); // ł → l, ó bleibt
     expect(t).toContain('Ivan Cosic');
+  });
+
+  it('Uhrzeiten abwählbar; Urlaub/Krank (von–bis) beim Namen gekennzeichnet', async () => {
+    const absent = (id: string, d: number) => (id === 'a' && d === 2 ? ('krank' as const) : id === 'c' && d === 4 ? ('urlaub' as const) : null);
+    const f = await crewWeekPdf(week(), workers, DEFAULT_WORK_TIMES, { showTimes: false, absent });
+    expect(await sizes(f.data)).toEqual([{ width: 841.89, height: 595.28 }]);
+    if (!hasPoppler) return;
+    const t = text(f.data, 'ohne-zeit.pdf');
+    expect(t).not.toContain('07:00');
+    expect(t).toContain('(krank)');
+    expect(t).toContain('Krank:');
+    expect(t).toContain('(Urlaub)');
   });
 
   it('viele Baustellen → mehrere Seiten statt kleiner Schrift', async () => {

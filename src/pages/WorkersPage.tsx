@@ -67,6 +67,8 @@ export function WorkersPage() {
   const [draftFrom, setDraftFrom] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const [company, setCompany] = useState('');
+  /** Uhrzeiten im PDF anzeigen (manchmal nicht nötig) */
+  const [pdfTimes, setPdfTimes] = useState(true);
   /** Urlaub / Krank von–bis (über Wochen hinweg) */
   const [absences, setAbsences] = useState<Absence[]>([]);
   const [query, setQuery] = useState('');
@@ -89,8 +91,9 @@ export function WorkersPage() {
   >(null);
 
   useEffect(() => {
-    void Promise.all([listWorkers(), getMeta<WorkTimes>('workTimes'), listProjects(), getMeta<string>('companyName')])
-      .then(([w, t, p, c]) => {
+    void Promise.all([listWorkers(), getMeta<WorkTimes>('workTimes'), listProjects(), getMeta<string>('companyName'), getMeta<boolean>('pdfShowTimes')])
+      .then(([w, t, p, c, pt]) => {
+        setPdfTimes(pt !== false);
         setWorkers(w);
         setTimes(t ?? null);
         setProjects(p);
@@ -213,12 +216,12 @@ export function WorkersPage() {
 
   dropRef.current = (workerId, fromSiteId, fromDay, to) => {
     if (fromSiteId === to.siteId && fromDay === to.day) return;
-    const ds = [to.day, ...[0, 1, 2, 3, 4, 5, 6].filter((d) => d > to.day && workTimes[d] && (plan?.showWeekend || d < 5))];
+    const ds = [to.day, ...[0, 1, 2, 3, 4, 5, 6].filter((d) => d > to.day && workTimes[d])];
     void run(() => place([workerId], to.siteId, ds, false));
   };
 
   /** PDF-Optionen: Firmenname und Firmenlogo (Konto → Einstellungen) */
-  const pdfOpts = async () => ({ company, logo: await getCompanyLogo(), absent: (id: string, d: number) => absenceOn(absences, id, weekId, d) });
+  const pdfOpts = async () => ({ company, logo: await getCompanyLogo(), absent: (id: string, d: number) => absenceOn(absences, id, weekId, d), showTimes: pdfTimes });
   const run = (fn: () => Promise<void>) => fn().catch((e) => showError(e, 'Das hat nicht geklappt'));
 
   const exportWeekPdf = () =>
@@ -286,7 +289,7 @@ export function WorkersPage() {
       </>
     );
 
-  const days = visibleDays(plan);
+  const days = visibleDays();
   const workDays = days.filter((d) => workTimes[d]);
   // Urlaub/Krank (von–bis) gilt nicht als „noch nicht eingeteilt“
   const open = workDays
@@ -428,7 +431,7 @@ export function WorkersPage() {
           </button>
           <div className="crew-week-label">
             <strong data-testid="week-label">KW {isoWeekNo(weekId)}</strong>
-            <span className="muted">{weekRange(weekId, plan.showWeekend ? 6 : 4)}</span>
+            <span className="muted">{weekRange(weekId, 6)}</span>
           </div>
           <button type="button" className="icon-btn" onClick={() => setWeekId(addDays(weekId, 7))} aria-label="Nächste Woche" data-testid="week-next">
             <Icon name="next" />
@@ -442,10 +445,6 @@ export function WorkersPage() {
               Diese Woche
             </button>
           )}
-          <label className="check-row crew-weekend">
-            <input type="checkbox" checked={!!plan.showWeekend} onChange={(e) => save({ ...plan, showWeekend: e.target.checked, updatedAt: Date.now() })} data-testid="week-weekend" />
-            Sa/So
-          </label>
         </div>
 
         {draftFrom !== null && plan.sites.length > 0 && (
@@ -454,6 +453,9 @@ export function WorkersPage() {
               Weitergeführt aus <strong>KW {isoWeekNo(draftFrom)}</strong>: gleiche Baustellen und Arbeiter. Änderungen gelten nur für diese Woche – die Vorwoche bleibt
               unverändert.
             </p>
+            <button type="button" className="btn btn-sm" onClick={() => save({ ...plan, updatedAt: Date.now() })} data-testid="draft-save">
+              So übernehmen
+            </button>
           </div>
         )}
 
@@ -581,7 +583,7 @@ export function WorkersPage() {
                           <strong>
                             {DAY_SHORT[d]} {dayDate(weekId, d)}
                           </strong>
-                          <span className="muted small">{timeLabel(workTimes[d])}</span>
+                          <span className="muted small">{timeLabel(workTimes[d]) || 'frei'}</span>
                         </span>
                         <span className="crew-chips">
                           {s.days[d].map((id) => (
@@ -655,13 +657,16 @@ export function WorkersPage() {
         <TimesDialog
           times={workTimes}
           company={company}
+          pdfTimes={pdfTimes}
           onClose={() => setDialog(null)}
-          onSave={(t, c) => {
+          onSave={(t, c, pt) => {
             setTimes(t);
             setCompany(c);
+            setPdfTimes(pt);
             setDialog(null);
             setMeta('workTimes', t).catch((e) => showError(e));
             setMeta('companyName', c).catch((e) => showError(e));
+            setMeta('pdfShowTimes', pt).catch((e) => showError(e));
             toast('Arbeitszeit gespeichert.', 'success');
           }}
         />
@@ -863,9 +868,22 @@ function WorkersDialog({ workers, onSave, onClose }: { workers: Worker[]; onSave
 }
 
 /** Arbeitszeit der Firma je Wochentag (einmal eingeben) */
-function TimesDialog({ times, company, onSave, onClose }: { times: WorkTimes; company: string; onSave(t: WorkTimes, company: string): void; onClose(): void }) {
+function TimesDialog({
+  times,
+  company,
+  pdfTimes,
+  onSave,
+  onClose,
+}: {
+  times: WorkTimes;
+  company: string;
+  pdfTimes: boolean;
+  onSave(t: WorkTimes, company: string, pdfTimes: boolean): void;
+  onClose(): void;
+}) {
   const [t, setT] = useState<WorkTimes>(() => times.map((x) => (x ? { ...x } : null)));
   const [c, setC] = useState(company);
+  const [pt, setPt] = useState(pdfTimes);
   const set = (d: number, x: WorkTimes[number]) => setT(t.map((y, i) => (i === d ? x : y)));
   return (
     <Modal
@@ -877,13 +895,13 @@ function TimesDialog({ times, company, onSave, onClose }: { times: WorkTimes; co
           <button type="button" className="btn" onClick={onClose}>
             Abbrechen
           </button>
-          <button type="button" className="btn btn-primary" onClick={() => onSave(t, c.trim())} data-testid="times-save">
+          <button type="button" className="btn btn-primary" onClick={() => onSave(t, c.trim(), pt)} data-testid="times-save">
             Speichern
           </button>
         </>
       }
     >
-      <p className="muted small">Gilt für alle Baustellen und Wochen. Erscheint in der Einteilung und im PDF.</p>
+      <p className="muted small">Gilt für alle Baustellen und Wochen. Erscheint in der Einteilung und – wenn angehakt – im PDF. Tage ohne Arbeitszeit stehen als „frei“ in der Woche.</p>
       <div className="crew-times">
         {DAY_NAMES.map((name, d) => (
           <div key={d} className="crew-time-row">
@@ -903,6 +921,10 @@ function TimesDialog({ times, company, onSave, onClose }: { times: WorkTimes; co
           </div>
         ))}
       </div>
+      <label className="check-row crew-pdf-times">
+        <input type="checkbox" checked={pt} onChange={(e) => setPt(e.target.checked)} data-testid="times-pdf" />
+        Uhrzeiten im PDF anzeigen
+      </label>
       <label className="field crew-company">
         <span>Firmenname im PDF (optional)</span>
         <input value={c} onChange={(e) => setC(e.target.value)} placeholder="z. B. Muster Bau GmbH" autoComplete="organization" data-testid="company-name" />
