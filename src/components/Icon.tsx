@@ -40,6 +40,8 @@ const PATHS: Record<string, string> = {
   component: 'M12 21a9 9 0 100-18 9 9 0 000 18zM8.6 16.2L12 7.5l3.4 8.7M9.9 13.2h4.2',
   undo: 'M9 14L4 9l5-5M4 9h11a5 5 0 010 10h-4',
   redo: 'M15 14l5-5-5-5M20 9H9a5 5 0 000 10h4',
+  refresh: 'M20 12a8 8 0 11-2.34-5.66M20 4v5h-5',
+  up: 'M12 19V5M5 12l7-7 7 7',
   dimension: 'M4 7v10M20 7v10M4 12h16M7.5 9.5L4 12l3.5 2.5M16.5 9.5L20 12l-3.5 2.5',
   text: 'M5 7V5h14v2M12 5v14M9 19h6',
   grid: 'M4 4h16v16H4zM4 9.33h16M4 14.67h16M9.33 4v16M14.67 4v16',

@@ -1,4 +1,5 @@
 :root {
+  --nav-h: 64px;
   /* Markenfarbe Schwarz (wie Logo und Navigationsleiste), sonst ruhige Grautöne */
   --primary: #1d1d1f;
   --primary-hover: #000000;
@@ -5838,8 +5839,59 @@ a.tool-tile:focus-visible {
   display: flex;
   flex-direction: column;
 }
-.photo-stream.selecting {
-  padding-bottom: 84px;
+/* haftender Kopf: Projektinfo + Knöpfe + Werkzeugleiste (+ Auswahl); eingeklappt rutscht die Projektinfo unter die Navigation */
+.photo-sticky {
+  display: flow-root; /* Ränder innen bleiben im Block (Hintergrund deckt alles ab) */
+  position: sticky;
+  top: calc(var(--nav-h) + var(--safe-top));
+  z-index: 20;
+  margin: 0 -16px 10px;
+  padding: 0 16px 8px;
+  background: var(--bg);
+  transition: top 0.25s ease;
+}
+.photos-page.head-collapsed {
+  --collapsed-h: var(--info-h, 0px);
+}
+.photo-sticky.collapsed {
+  top: calc(var(--nav-h) + var(--safe-top) - var(--info-h, 0px));
+}
+.photo-sticky-info {
+  display: flow-root;
+}
+.photo-sticky .photo-toolbar {
+  margin-bottom: 0;
+}
+.photo-sticky .photo-selection-bar {
+  margin-top: 10px;
+}
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.photo-to-top {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 30;
+  width: 52px;
+  height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: #111;
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+}
+.photo-to-top:hover {
+  background: #333;
 }
 /* fortlaufende Galerie: je Gruppe (Tag/Woche/Monat) ein Strich mit Überschrift, darunter die Tage */
 .photo-group {
@@ -5847,7 +5899,7 @@ a.tool-tile:focus-visible {
 }
 .photo-group-head {
   position: sticky;
-  top: calc(64px + var(--safe-top));
+  top: calc(var(--nav-h) + var(--safe-top) + var(--sticky-h, 0px) - var(--collapsed-h, 0px));
   z-index: 2;
   display: flex;
   align-items: baseline;
@@ -6041,19 +6093,14 @@ a.tool-tile:focus-visible {
   transform: scaleX(-1);
 }
 .photo-selection-bar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 60;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  padding: 10px 16px max(10px, env(safe-area-inset-bottom));
+  padding: 10px 14px;
+  border-radius: 14px;
   background: #1c1c1e;
   color: #fff;
-  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.2);
 }
 .photo-selection-bar .spacer {
   flex: 1;
@@ -6254,6 +6301,12 @@ a.tool-tile:focus-visible {
   .photo-site-preview {
     grid-template-columns: repeat(2, 36px);
     grid-auto-rows: 36px;
+  }
+  .photo-to-top {
+    display: none;
+  }
+  .photos-page {
+    --nav-h: 56px;
   }
   .photo-capture.big .photo-shoot {
     flex: 1 1 100%;

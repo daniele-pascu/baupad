@@ -216,7 +216,7 @@ test('Neue Baustelle unter Fotos (Übersicht und Speichern-Dialog), Verschieben,
   // PDF: zuerst Fotos auswählen (Knopf „PDF“ startet die Auswahl), dann 1 Foto je Seite, Logo links, fortlaufend → 2 Seiten
   await cards.filter({ hasText: 'Halle 3' }).click();
   await page.getByTestId('photo-pdf').click();
-  await expect(page.getByTestId('photo-selection-hint')).toContainText('dann unten „PDF“');
+  await expect(page.getByTestId('photo-selection-hint')).toContainText('dann „PDF“');
   await expect(page.getByTestId('photo-selected-pdf')).toBeDisabled();
   await page.getByTestId('photo-group-all').check(); // beide liegen in KW 44
   await expect(page.getByTestId('photo-selection-bar')).toContainText('2 ausgewählt');

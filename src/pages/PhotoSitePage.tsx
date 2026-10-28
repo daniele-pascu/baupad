@@ -74,6 +74,12 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
     }
   });
   const [selecting, setSelecting] = useState(false);
+  /** Kopf (Projektinfo + Knöpfe) sichtbar: oben immer; beim Runterscrollen weg, beim Hochscrollen wieder da */
+  const [showInfo, setShowInfo] = useState(true);
+  const [toTop, setToTop] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const stickyRef = useRef<HTMLDivElement>(null);
+  const infoRef = useRef<HTMLDivElement>(null);
   /** womit die Auswahl begonnen wurde (Hinweis in der Leiste) */
   const [intent, setIntent] = useState<'pdf' | 'move' | null>(null);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
@@ -134,6 +140,58 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
   const startSelecting = (why: 'pdf' | 'move' | null) => {
     setSelecting(true);
     setIntent(why);
+  };
+  // Scrollen: Projektinfo ausblenden (runter) bzw. einblenden (ein Stück hoch); Pfeil „nach oben“ ab 600 px
+  useEffect(() => {
+    let last = window.scrollY;
+    let acc = 0;
+    const onScroll = () => {
+      const y = window.scrollY;
+      const dy = y - last;
+      last = y;
+      setToTop(y > 600);
+      if (y < 160) {
+        acc = 0;
+        setShowInfo(true);
+        return;
+      }
+      acc = Math.sign(dy) === Math.sign(acc) ? acc + dy : dy;
+      if (acc > 80) setShowInfo(false);
+      else if (acc < -40) setShowInfo(true);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+  // Höhe des haftenden Blocks und der Projektinfo als CSS-Variablen (für das Verschieben und die Wochen-Überschriften)
+  useEffect(() => {
+    const el = stickyRef.current;
+    const page = el?.parentElement;
+    if (!el || !page) return;
+    const apply = () => {
+      page.style.setProperty('--sticky-h', `${el.offsetHeight}px`);
+      page.style.setProperty('--info-h', `${infoRef.current?.offsetHeight ?? 0}px`);
+    };
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    if (infoRef.current) ro.observe(infoRef.current);
+    return () => ro.disconnect();
+  }, [site, photos.length, selecting]);
+  /** neu laden – falls inzwischen Fotos dazugekommen sind */
+  const refresh = () => {
+    setRefreshing(true);
+    const before = photos.length;
+    void reload()
+      .then(() => {
+        setRefreshing(false);
+        setAll((list) => {
+          const now = (list ?? []).filter((p) => photoSiteKey(p) === siteKey).length;
+          const diff = now - before;
+          toast(diff > 0 ? `${diff} ${diff === 1 ? 'neues Foto' : 'neue Fotos'}.` : 'Keine neuen Fotos.', diff > 0 ? 'success' : 'info');
+          return list;
+        });
+      })
+      .catch(() => setRefreshing(false));
   };
   // ältere Wochen nachladen, sobald das Ende sichtbar wird
   useEffect(() => {
@@ -242,7 +300,9 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
   return (
     <>
       <SiteNav />
-      <div className="page photos-page">
+      <div className={`page photos-page${showInfo ? '' : ' head-collapsed'}`}>
+        <div ref={stickyRef} className={`photo-sticky${showInfo ? '' : ' collapsed'}`} data-testid="photo-sticky" data-collapsed={!showInfo || undefined}>
+        <div ref={infoRef} className="photo-sticky-info">
         <header className="page-head page-head-row">
           <div className="page-head-title">
             <a href={paths.photos()} className="icon-link" aria-label="Zur Übersicht" title="Zur Übersicht" data-testid="to-photos">
@@ -251,17 +311,22 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
             <div>
               <h1 data-testid="photo-site-title">{site?.name ?? '…'}</h1>
               <span className="muted small">
-                {[site?.number, site?.address].filter(Boolean).join(' · ')}
-                {photos.length > 0 && ` · ${photos.length} ${photos.length === 1 ? 'Foto' : 'Fotos'}`}
+                {[site?.number, site?.address, photos.length > 0 ? `${photos.length} ${photos.length === 1 ? 'Foto' : 'Fotos'}` : ''].filter(Boolean).join(' · ')}
               </span>
             </div>
           </div>
-          <button type="button" className="btn btn-sm" onClick={() => downloadZip()} disabled={!shown.length} data-testid="photo-zip">
-            <Icon name="zip" size={16} /> Alle als ZIP
-          </button>
+          <div className="row gap">
+            <button type="button" className="btn btn-sm" onClick={refresh} disabled={refreshing} title="Neu laden – falls inzwischen Fotos dazugekommen sind" data-testid="photo-refresh">
+              <Icon name="refresh" size={16} className={refreshing ? 'spin' : undefined} /> Aktualisieren
+            </button>
+            <button type="button" className="btn btn-sm" onClick={() => downloadZip()} disabled={!shown.length} data-testid="photo-zip">
+              <Icon name="zip" size={16} /> Alle als ZIP
+            </button>
+          </div>
         </header>
 
         {site && <PhotoCapture sites={[site]} site={site} existingHashes={hashes} onSaved={() => void reload()} big />}
+        </div>
 
         {photos.length > 0 && (
           <div className="photo-toolbar" data-testid="photo-toolbar">
@@ -304,10 +369,46 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
             </div>
           </div>
         )}
+          {selecting && (
+          <div className="photo-selection-bar" role="toolbar" aria-label="Auswahl" data-testid="photo-selection-bar">
+            <strong>{chosen.length} ausgewählt</strong>
+            {intent && chosen.length === 0 && (
+              <span className="photo-selection-hint" data-testid="photo-selection-hint">
+                Fotos antippen, dann „{intent === 'pdf' ? 'PDF' : 'Verschieben'}“
+              </span>
+            )}
+            <button type="button" className="btn btn-sm" onClick={() => setMany(shown.map((p) => p.id), true)}>
+              Alle ({shown.length})
+            </button>
+            <button type="button" className="btn btn-sm" onClick={() => setSelected(new Set())} disabled={!chosen.length}>
+              Keine
+            </button>
+            <span className="spacer" />
+            <button type="button" className="btn btn-sm" onClick={() => downloadZip(chosen)} disabled={!chosen.length} data-testid="photo-selected-download">
+              <Icon name="download" size={16} /> Herunterladen
+            </button>
+            <button type="button" className={`btn btn-sm${intent === 'pdf' && chosen.length ? ' btn-primary' : ''}`} onClick={() => setPdfOpen(true)} disabled={!chosen.length} data-testid="photo-selected-pdf">
+              <Icon name="pdf" size={16} /> PDF
+            </button>
+            <button type="button" className={`btn btn-sm${intent === 'move' && chosen.length ? ' btn-primary' : ''}`} onClick={() => setMoving(chosen)} disabled={!chosen.length} data-testid="photo-selected-move">
+              <Icon name="move" size={16} /> Verschieben
+            </button>
+            <button type="button" className="btn btn-sm" disabled title="Kommt mit der zentralen Ablage: Link für 30 Tage, nur auf die Fotos" data-testid="photo-selected-share">
+              <Icon name="share" size={16} /> Link teilen
+            </button>
+            <button type="button" className="btn btn-sm btn-danger-text" onClick={() => removeMany(chosen)} disabled={!chosen.length} data-testid="photo-selected-delete">
+              <Icon name="trash" size={16} /> Löschen
+            </button>
+            <button type="button" className="btn btn-sm" onClick={stopSelecting} aria-label="Auswahl beenden">
+              <Icon name="close" size={16} />
+            </button>
+          </div>
+          )}
+        </div>
         {all && photos.length === 0 && <p className="muted" data-testid="photo-site-empty">Noch keine Fotos auf dieser Baustelle.</p>}
         {photos.length > 0 && shown.length === 0 && <p className="muted">Keine Fotos gefunden.</p>}
 
-        <div className={`photo-stream${selecting ? ' selecting' : ''}`} data-testid="photo-stream">
+        <div className="photo-stream" data-testid="photo-stream">
           {groups.slice(0, limit).map((g) => {
             const ids = g.days.flatMap((d) => d.photos.map((p) => p.id));
             const allOn = ids.every((id) => selected.has(id));
@@ -347,40 +448,10 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
           )}
         </div>
       </div>
-      {selecting && (
-        <div className="photo-selection-bar" role="toolbar" aria-label="Auswahl" data-testid="photo-selection-bar">
-          <strong>{chosen.length} ausgewählt</strong>
-          {intent && chosen.length === 0 && (
-            <span className="photo-selection-hint" data-testid="photo-selection-hint">
-              Fotos antippen, dann unten „{intent === 'pdf' ? 'PDF' : 'Verschieben'}“
-            </span>
-          )}
-          <button type="button" className="btn btn-sm" onClick={() => setMany(shown.map((p) => p.id), true)}>
-            Alle ({shown.length})
-          </button>
-          <button type="button" className="btn btn-sm" onClick={() => setSelected(new Set())} disabled={!chosen.length}>
-            Keine
-          </button>
-          <span className="spacer" />
-          <button type="button" className="btn btn-sm" onClick={() => downloadZip(chosen)} disabled={!chosen.length} data-testid="photo-selected-download">
-            <Icon name="download" size={16} /> Herunterladen
-          </button>
-          <button type="button" className={`btn btn-sm${intent === 'pdf' && chosen.length ? ' btn-primary' : ''}`} onClick={() => setPdfOpen(true)} disabled={!chosen.length} data-testid="photo-selected-pdf">
-            <Icon name="pdf" size={16} /> PDF
-          </button>
-          <button type="button" className={`btn btn-sm${intent === 'move' && chosen.length ? ' btn-primary' : ''}`} onClick={() => setMoving(chosen)} disabled={!chosen.length} data-testid="photo-selected-move">
-            <Icon name="move" size={16} /> Verschieben
-          </button>
-          <button type="button" className="btn btn-sm" disabled title="Kommt mit der zentralen Ablage: Link für 30 Tage, nur auf die Fotos" data-testid="photo-selected-share">
-            <Icon name="share" size={16} /> Link teilen
-          </button>
-          <button type="button" className="btn btn-sm btn-danger-text" onClick={() => removeMany(chosen)} disabled={!chosen.length} data-testid="photo-selected-delete">
-            <Icon name="trash" size={16} /> Löschen
-          </button>
-          <button type="button" className="btn btn-sm" onClick={stopSelecting} aria-label="Auswahl beenden">
-            <Icon name="close" size={16} />
-          </button>
-        </div>
+      {toTop && (
+        <button type="button" className="photo-to-top" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} aria-label="Nach oben zu den neuesten Fotos" title="Nach oben zu den neuesten Fotos" data-testid="photo-to-top">
+          <Icon name="up" size={22} />
+        </button>
       )}
       {moving && site && (
         <MovePhotosDialog
