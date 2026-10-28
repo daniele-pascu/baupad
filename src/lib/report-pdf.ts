@@ -2,9 +2,10 @@ import { rgb, type PDFFont, type PDFPage } from 'pdf-lib';
 import { safeFileName, type ExportFile } from './aufmass';
 import type { CompanyLogo } from './company';
 import { clean, FILL, footers, header, INK, LINE, M, MUTED, setup, type Ctx } from './crew-pdf';
-import { DAY_NAMES } from './crew';
+import { DAY_NAMES, isoWeekNo, weekOf } from './crew';
+import { A4L, A4P, brand, Form, type FormCol } from './form-pdf';
 import { fmtDate, fmtHours, periodLabel, sumHours, typeInfo, workerHours } from './reports';
-import type { DailyData, RegieData, Report, ReportItem, WeeklyData } from './types';
+import type { Report, ReportItem, WeeklyData } from './types';
 
 /**
  * PDF der Berichte (pdf-lib, bereits im Projekt): A4 hoch, Kopf wie bei der Arbeitereinteilung (Logo bzw.
@@ -15,6 +16,8 @@ import type { DailyData, RegieData, Report, ReportItem, WeeklyData } from './typ
 export interface ReportPdfOptions {
   company?: string;
   logo?: CompanyLogo | null;
+  /** Firmenanschrift/Kontakt, mehrzeilig (Kopfblock der Formulare) */
+  lines?: string;
 }
 
 const W = 595.28;
@@ -196,108 +199,194 @@ function headInfo(f: Flow, r: Report) {
 }
 
 const qty = (n: number | null) => (n === null ? '' : n.toLocaleString('de-DE', { maximumFractionDigits: 3 }));
-const items = (f: Flow, title: string, list: ReportItem[]) => {
-  const rows = list.filter((x) => x.text.trim() || x.qty !== null).map((x) => [qty(x.qty), x.unit, x.text]);
-  if (!rows.length) return;
-  f.section(title);
-  f.table(
-    [
-      { label: 'Menge', w: 1.1, align: 'right' },
-      { label: 'Einheit', w: 1 },
-      { label: 'Bezeichnung', w: 6 },
-    ],
-    rows,
-  );
-};
+const qtyUnit = (x: ReportItem) => [qty(x.qty), x.unit].filter(Boolean).join(' ');
+const filled = (list: ReportItem[]) => list.filter((x) => x.text.trim() || x.qty !== null);
 
-function regie(f: Flow, d: RegieData) {
-  const ws = d.workers.filter((w) => w.name.trim() || workerHours(w) !== null);
-  if (ws.length) {
-    f.section('Personal');
-    const ot = d.overtime && ws.some((w) => w.ot50 || w.ot100);
-    const times = ws.some((w) => w.from || w.to);
-    const cols: Col[] = [
-      { label: 'Name', w: 3.2 },
-      { label: 'Qualifikation', w: 2.2 },
-      ...(times
-        ? [
-            { label: 'von', w: 1, align: 'center' as const },
-            { label: 'bis', w: 1, align: 'center' as const },
-            { label: 'Pause', w: 1, align: 'center' as const },
-          ]
-        : []),
-      { label: 'Std.', w: 1, align: 'right' },
-      ...(ot
-        ? [
-            { label: '50 %', w: 0.9, align: 'right' as const },
-            { label: '100 %', w: 0.9, align: 'right' as const },
-          ]
-        : []),
-    ];
-    const rows = ws.map((w) => [
-      w.name,
-      w.role,
-      ...(times ? [w.from, w.to, w.pause ? `${w.pause} min` : ''] : []),
-      fmtHours(workerHours(w)),
-      ...(ot ? [fmtHours(w.ot50 ?? null), fmtHours(w.ot100 ?? null)] : []),
-    ]);
-    const total = sumHours(ws);
-    const sum = total === null ? undefined : ['Summe', '', ...(times ? ['', '', ''] : []), fmtHours(total), ...(ot ? ['', ''] : [])];
-    f.table(cols, rows, sum);
-  }
-  if (d.work.trim()) {
-    f.section('Tätigkeiten / ausgeführte Arbeiten');
-    f.paragraph(d.work);
-  }
-  items(f, 'Material', d.materials);
-  items(f, 'Geräte', d.equipment);
-  if (d.notes.trim()) {
-    f.section('Bemerkungen');
-    f.paragraph(d.notes);
-  }
-  f.signatures(['Auftragnehmer – Datum, Unterschrift', 'Auftraggeber / Kontrolle – Datum, Unterschrift']);
+/** Kopf der Formulare: Firmenblock; auf Folgeseiten dazu „… (Fortsetzung)“ */
+function formHead(title: string, opts: ReportPdfOptions) {
+  return (f: Form, cont: boolean) => {
+    let y = brand(f, opts.company ?? '', opts.lines ?? '');
+    if (cont) {
+      f.text(`${title} (Fortsetzung)`, M, y - 4, { size: 10, bold: true });
+      y -= 16;
+    }
+    return y;
+  };
 }
 
-function daily(f: Flow, d: DailyData) {
+/**
+ * Regieliste als Formular im A4-Querformat (wie die Regietagesliste): Kopfblock mit Auftraggeber, Bauvorhaben,
+ * Auftrags-Nr., KW und Datum; Tätigkeiten; Personal-Tabelle mit Arbeitszeiten, Gesamtstunden und davon
+ * NAZ / 50 % / 100 %; Gerät und Anmerkungen nebeneinander; Material; Unterschriften.
+ */
+function regieForm(ctx: Ctx, r: Report & { type: 'regie' }, opts: ReportPdfOptions) {
+  const d = r.data;
+  const h = r.head;
+  const title = `Regieliste${r.no ? ` Nr. ${r.no}` : ''}`;
+  const f = new Form(ctx, A4L, formHead(title, opts));
+  const W = f.inner; // 777,89
+  f.cells([
+    { label: '', value: `REGIELISTE${r.no ? `   Nr. ${r.no}` : ''}`, w: W * 0.62, big: true },
+    { label: 'Auftraggeber', value: h.client, w: W * 0.38 },
+  ]);
+  f.cells([
+    { label: 'Bauvorhaben', value: [h.project, h.site && h.site !== h.project ? h.site : ''].filter(Boolean).join(' – '), w: W * 0.4 },
+    { label: 'Auftrags-Nr. / Projekt-Nr.', value: h.number, w: W * 0.18 },
+    { label: 'Kal.-Woche', value: `KW ${isoWeekNo(weekOf(r.date))}`, w: W * 0.12 },
+    { label: 'Datum', value: fmtDate(r.date), w: W * 0.3 },
+  ]);
+  f.cells([
+    { label: 'Baustellenadresse', value: h.address, w: W * 0.4 },
+    { label: 'Kostenstelle', value: h.costCenter, w: W * 0.3 },
+    { label: 'Verantwortlich', value: h.responsible, w: W * 0.3 },
+  ]);
+  f.linedBox(M, W, 'Tätigkeiten / ausgeführte Arbeiten', d.work, 3);
+  f.y -= 8;
+  const ws = d.workers.filter((w) => w.name.trim() || workerHours(w) !== null);
+  const naz = (w: (typeof ws)[number]) => {
+    const t = workerHours(w);
+    if (t === null) return null;
+    return Math.max(0, t - (w.ot50 ?? 0) - (w.ot100 ?? 0));
+  };
+  const cols: FormCol[] = [
+    { label: 'PERSONAL', w: W * 0.26 },
+    { label: 'Qualifikation', w: W * 0.14 },
+    { label: 'von', w: W * 0.08, align: 'center' },
+    { label: 'bis', w: W * 0.08, align: 'center' },
+    { label: 'Pause', w: W * 0.08, align: 'center' },
+    { label: 'Gesamt [Std]', w: W * 0.09, align: 'right' },
+    { label: 'NAZ', w: W * 0.09, align: 'right' },
+    { label: '50 %', w: W * 0.09, align: 'right' },
+    { label: '100 %', w: W * 0.09, align: 'right' },
+  ];
+  const total = sumHours(ws);
+  f.table(
+    M,
+    cols,
+    ws.map((w) => [w.name, w.role, w.from, w.to, w.pause ? `${w.pause} min` : '', fmtHours(workerHours(w)), fmtHours(naz(w)), fmtHours(w.ot50 ?? null), fmtHours(w.ot100 ?? null)]),
+    {
+      minRows: 6,
+      groups: [
+        { label: '', span: 2 },
+        { label: 'Arbeitszeiten', span: 3 },
+        { label: '', span: 1 },
+        { label: 'davon', span: 3 },
+      ],
+      sum: total === null ? undefined : ['Summe', '', '', '', '', fmtHours(total), fmtHours(ws.reduce((s, w) => s + (naz(w) ?? 0), 0)), fmtHours(ws.reduce((s, w) => s + (w.ot50 ?? 0), 0) || null), fmtHours(ws.reduce((s, w) => s + (w.ot100 ?? 0), 0) || null)],
+    },
+  );
+  f.y -= 10;
+  // Gerät (links) und Anmerkungen (rechts) nebeneinander, wenn beides auf die Seite passt
+  const eq = filled(d.equipment).map((x) => [x.text, qty(x.qty), x.unit]);
+  const leftW = W * 0.52;
+  const gap = 12;
+  const eqCols: FormCol[] = [
+    { label: 'GERÄT', w: leftW * 0.66 },
+    { label: 'Menge', w: leftW * 0.18, align: 'right' },
+    { label: 'EH', w: leftW * 0.16 },
+  ];
+  const eqRows = Math.max(4, eq.length);
+  const eqH = 14 + eqRows * 15 + 2;
+  const noteLines = Math.max(5, f.wrap(d.notes, ctx.font, 9.2, W - leftW - gap - 10).length);
+  const blockH = Math.max(eqH, 13 + noteLines * 12.5);
+  if (blockH <= f.free - 20) {
+    f.ensure(blockH);
+    const top = f.y;
+    f.table(M, eqCols, eq, { minRows: eqRows });
+    const afterEq = f.y;
+    f.y = top;
+    f.linedBox(M + leftW + gap, W - leftW - gap, 'Anmerkungen', d.notes, Math.max(5, Math.round((eqH - 13) / 12.5)));
+    f.y = Math.min(afterEq, f.y);
+  } else {
+    f.table(M, eqCols, eq, { minRows: eqRows });
+    f.y -= 10;
+    f.linedBox(M, W, 'Anmerkungen', d.notes, 5);
+  }
+  f.y -= 10;
+  const mat = filled(d.materials).map((x) => [x.text, qty(x.qty), x.unit]);
+  f.table(
+    M,
+    [
+      { label: 'MATERIAL', w: leftW * 0.66 },
+      { label: 'Menge', w: leftW * 0.18, align: 'right' },
+      { label: 'EH', w: leftW * 0.16 },
+    ],
+    mat,
+    { minRows: 4 },
+  );
+  // Unterschriften rechts neben dem Material, sonst darunter
+  const sigW = W - leftW - gap;
+  const sx = M + leftW + gap;
+  const sy = f.y + 24;
+  f.line(sx, sy, sx + sigW / 2 - 10, sy, 0.5, MUTED);
+  f.text('Auftraggeber / Kontrolle', sx, sy - 9, { size: 7, color: MUTED });
+  f.line(sx + sigW / 2 + 10, sy, sx + sigW, sy, 0.5, MUTED);
+  f.text(opts.company || 'Auftragnehmer', sx + sigW / 2 + 10, sy - 9, { size: 7, color: MUTED });
+  return f;
+}
+
+/**
+ * Bautagesbericht als Formular im A4-Hochformat: Kopfblock (Titel, Datum, Nr., Bauvorhaben, Auftraggeber,
+ * Arbeitszeit, Wetter, Personalstand), dreiteilige Tabelle Personaleinsatz / Geräte / Material mit „Ist“,
+ * Leistungsfortschritt, besondere Vorkommnisse, Bemerkungen, Unterschriftsfelder AN / ÖBA.
+ */
+function dailyForm(ctx: Ctx, r: Report & { type: 'tag' }, opts: ReportPdfOptions) {
+  const d = r.data;
+  const h = r.head;
+  const title = `Bautagesbericht${r.no ? ` Nr. ${r.no}` : ''}`;
+  const f = new Form(ctx, A4P, formHead(title, opts));
+  const W = f.inner; // 531,28
   const present = d.crew.filter((w) => w.present !== false && w.name.trim());
   const count = d.crewCount ?? (present.length || null);
-  f.info(
-    [
-      ['Arbeitszeit', d.from || d.to ? `${d.from || '?'} – ${d.to || '?'} Uhr` : ''],
-      ['Wetter', d.weather],
-      ['Temperatur', d.tempMin || d.tempMax ? [d.tempMin && `min. ${d.tempMin} °C`, d.tempMax && `max. ${d.tempMax} °C`].filter(Boolean).join(' / ') : ''],
-      ['Mannschaft', count !== null ? `${count} ${count === 1 ? 'Person' : 'Personen'}` : ''],
-    ],
-    4,
-  );
-  if (present.length) {
-    f.section('Anwesend');
-    const withHours = present.some((w) => workerHours(w) !== null);
-    f.table(
-      [
-        { label: 'Name', w: 3.4 },
-        { label: 'Qualifikation', w: 2.6 },
-        ...(withHours ? [{ label: 'Std.', w: 1, align: 'right' as const }] : []),
-      ],
-      present.map((w) => [w.name, w.role, ...(withHours ? [fmtHours(workerHours(w))] : [])]),
-      withHours && sumHours(present) !== null ? ['Summe', '', fmtHours(sumHours(present))] : undefined,
-    );
-  }
-  if (d.work.trim()) {
-    f.section('Durchgeführte Arbeiten');
-    f.paragraph(d.work);
-  }
-  items(f, 'Material', d.materials);
-  items(f, 'Geräte', d.equipment);
-  if (d.incidents.trim()) {
-    f.section('Besondere Vorkommnisse / Behinderungen');
-    f.paragraph(d.incidents);
-  }
-  if (d.notes.trim()) {
-    f.section('Bemerkungen');
-    f.paragraph(d.notes);
-  }
-  f.signatures(['Auftragnehmer – Datum, Unterschrift', 'Auftraggeber / ÖBA – Datum, Unterschrift']);
+  f.cells([
+    { label: 'Auftragnehmer', value: opts.company ?? '', w: W * 0.28 },
+    { label: '', value: 'BAUTAGESBERICHT', w: W * 0.44, big: true, align: 'center' },
+    { label: 'Datum', value: fmtDate(r.date, false), w: W * 0.16 },
+    { label: 'Nr.', value: r.no, w: W * 0.12 },
+  ]);
+  f.cells([
+    { label: 'Bauvorhaben', value: [h.project, h.site && h.site !== h.project ? h.site : ''].filter(Boolean).join(' – '), w: W * 0.44 },
+    { label: 'Baustellenadresse', value: h.address, w: W * 0.28 },
+    { label: 'Auftraggeber', value: h.client, w: W * 0.28 },
+  ]);
+  const weather = [d.weather, d.tempMin || d.tempMax ? `Temperatur ${[d.tempMin && `min. ${d.tempMin} °C`, d.tempMax && `max. ${d.tempMax} °C`].filter(Boolean).join(', ')}` : ''].filter(Boolean).join('\n');
+  f.cells([
+    { label: 'Arbeitszeit', value: d.from || d.to ? `von ${d.from || '__:__'} bis ${d.to || '__:__'} Uhr` : '', w: W * 0.28 },
+    { label: 'Wetter', value: weather, w: W * 0.44 },
+    { label: 'Personalstand', value: count !== null ? `${count} ${count === 1 ? 'Person' : 'Personen'}` : '', w: W * 0.28 },
+  ]);
+  f.cells([
+    { label: 'Projekt-Nr.', value: h.number, w: W * 0.28 },
+    { label: 'Kostenstelle', value: h.costCenter, w: W * 0.44 },
+    { label: 'Verantwortlich', value: h.responsible, w: W * 0.28 },
+  ]);
+  f.y -= 8;
+  const eq = filled(d.equipment);
+  const mat = filled(d.materials);
+  const n = Math.max(8, present.length, eq.length, mat.length);
+  const third = W / 3;
+  const cols: FormCol[] = [
+    { label: 'PERSONALEINSATZ', w: third - 38 },
+    { label: 'Std', w: 38, align: 'right' },
+    { label: 'GERÄTE', w: third - 44 },
+    { label: 'Ist', w: 44, align: 'right' },
+    { label: 'MATERIAL', w: third - 44 },
+    { label: 'Ist', w: 44, align: 'right' },
+  ];
+  const rows = Array.from({ length: n }, (_, i) => {
+    const w = present[i];
+    return [w ? [w.name, w.role].filter(Boolean).join(' · ') : '', w ? fmtHours(workerHours(w)) : '', eq[i]?.text ?? '', eq[i] ? qtyUnit(eq[i]) : '', mat[i]?.text ?? '', mat[i] ? qtyUnit(mat[i]) : ''];
+  });
+  const hours = sumHours(present);
+  f.table(M, cols, rows, { sum: hours !== null ? ['Summe', fmtHours(hours), '', '', '', ''] : undefined });
+  f.y -= 8;
+  f.linedBox(M, W, 'LEISTUNGSFORTSCHRITT / durchgeführte Arbeiten', d.work, 10);
+  f.y -= 8;
+  f.linedBox(M, W, 'BESONDERE VORKOMMNISSE / Behinderungen', d.incidents, 3);
+  f.y -= 8;
+  f.linedBox(M, W, 'BEMERKUNGEN', d.notes, 2);
+  f.signatureBoxes([`für den AN${opts.company ? ` – ${opts.company}` : ''}`, 'für den AG / die ÖBA']);
+  return f;
 }
 
 function weekly(f: Flow, d: WeeklyData) {
@@ -337,11 +426,13 @@ export async function reportPdf(r: Report, opts: ReportPdfOptions = {}): Promise
   const ctx = await setup(opts);
   const info = typeInfo(r.type);
   const title = `${info.label}${r.no ? ` Nr. ${r.no}` : ''}`;
-  const f = new Flow(ctx, title, periodLabel(r), opts.company ?? '');
-  headInfo(f, r);
-  if (r.type === 'regie') regie(f, r.data);
-  else if (r.type === 'tag') daily(f, r.data);
-  else weekly(f, r.data);
+  if (r.type === 'regie') regieForm(ctx, r, opts);
+  else if (r.type === 'tag') dailyForm(ctx, r, opts);
+  else {
+    const f = new Flow(ctx, title, periodLabel(r), opts.company ?? '');
+    headInfo(f, r);
+    weekly(f, r.data);
+  }
   footers(ctx, [info.label, r.head.site || r.head.project].filter(Boolean).join(' · '));
   return {
     name: `${safeFileName(info.label, r.head.site || r.head.project, r.no ? `Nr${r.no}` : '', r.date)}.pdf`,

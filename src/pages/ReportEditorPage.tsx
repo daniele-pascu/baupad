@@ -33,8 +33,8 @@ import { usePageTitle } from './SitePages';
 
 /** PDF eines Berichts mit Firmenname und Firmenlogo (Einstellungen) */
 export async function reportPdfFile(r: Report): Promise<ExportFile> {
-  const [company, logo] = await Promise.all([getMeta<string>('companyName'), getCompanyLogo()]);
-  return reportPdf(r, { company: company ?? '', logo });
+  const [company, lines, logo] = await Promise.all([getMeta<string>('companyName'), getMeta<string>('companyLines'), getCompanyLogo()]);
+  return reportPdf(r, { company: company ?? '', lines: lines ?? '', logo });
 }
 
 /** Eingeteilte Arbeiter der Baustelle des Berichts an einem Tag (Vorschlag aus der Arbeitereinteilung) */

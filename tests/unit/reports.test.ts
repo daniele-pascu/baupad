@@ -89,13 +89,11 @@ describe('Berichte – PDF', () => {
     const f = await reportPdf(r, { company: 'Muster Bau GmbH' });
     expect(f.name).toBe('Regieliste_Sonnenhof_Bauteil_A_Nr1_2026-10-28.pdf');
     const doc = await PDFDocument.load(f.data);
-    expect(doc.getPages().map((p) => Math.round(p.getWidth()))).toEqual([595]); // A4 hoch
+    expect(doc.getPages().map((p) => Math.round(p.getWidth()))).toEqual([842]); // A4 quer (Formular wie die Regietagesliste)
     if (!hasPoppler) return;
     const t = text(f.data, 'regie.pdf');
-    for (const s of ['Regieliste Nr. 1', 'Muster Bau GmbH', 'Wohnanlage Sonnenhof', 'Musterstraße 1', 'Muster GmbH', '91092 – Tiefgarage', 'PERSONAL', 'Max Muster', '8,5', '12,5', 'Reparaturm', 'Sack', 'Auftraggeber / Kontrolle'])
+    for (const s of ['REGIELISTE Nr. 1', 'Muster Bau GmbH', 'Wohnanlage Sonnenhof', 'Musterstraße 1', 'Muster GmbH', '91092 – Tiefgarage', 'KW 44', 'PERSONAL', 'Arbeitszeiten', 'NAZ', 'Max Muster', '8,5', '12,5', 'GERÄT', 'Reparaturm', 'Sack', 'Anmerkungen', 'Auftraggeber / Kontrolle'])
       expect(t).toContain(s);
-    expect(t).not.toContain('GERÄTE'); // leer → nicht ausgegeben
-    expect(t).not.toContain('BEMERKUNGEN');
   });
 
   it('Tagesbericht: nur anwesende Arbeiter; Wochenbericht: Tage mit Inhalt; lange Texte über mehrere Seiten', async () => {
@@ -112,11 +110,15 @@ describe('Berichte – PDF', () => {
     const fw = await reportPdf(w);
     if (!hasPoppler) return;
     const tt = text(ft.data, 'tag.pdf');
+    expect(tt).toContain('BAUTAGESBERICHT');
     expect(tt).toContain('Bautagesbericht Nr. 1 (Fortsetzung)');
+    expect(tt).toContain('PERSONALEINSATZ');
     expect(tt).toContain('Max Muster');
     expect(tt).not.toContain('Peter Muster'); // eingeteilt, aber nicht anwesend
     expect(tt).toContain('1 Person');
+    expect(tt).toContain('LEISTUNGSFORTSCHRITT');
     expect(tt).toContain('Zeile 120');
+    expect(tt).toContain('für den AG / die ÖBA');
     const tw = text(fw.data, 'woche.pdf');
     expect(tw).toContain('Bauwochenbericht Nr. 1');
     expect(tw).toContain('26.10.2026 – 01.11.2026');

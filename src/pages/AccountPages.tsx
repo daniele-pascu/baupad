@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Icon } from '../components/Icon';
 import { SiteFooter, SiteNav } from '../components/SiteNav';
 import { getCompanyLogo, logoHeaderSize, removeCompanyLogo, saveCompanyLogo, type CompanyLogo } from '../lib/company';
+import { getMeta, setMeta } from '../lib/db';
 import { paths } from '../lib/router';
 import { confirmDialog, showError, toast } from '../components/ui';
 import { AppStorageSettings } from '../components/InstallApp';
@@ -133,6 +134,19 @@ export function AccountPage() {
  */
 function LogoSettings() {
   const [logo, setLogo] = useState<CompanyLogo | null | undefined>(undefined);
+  /** Firmenname und Anschrift/Kontakt für den Kopf der Formulare (Regieliste, Bautagesbericht) */
+  const [company, setCompany] = useState('');
+  const [lines, setLines] = useState('');
+  useEffect(() => {
+    void Promise.all([getMeta<string>('companyName'), getMeta<string>('companyLines')]).then(([c, l]) => {
+      setCompany(c ?? '');
+      setLines(l ?? '');
+    });
+  }, []);
+  const saveCompany = () =>
+    Promise.all([setMeta('companyName', company.trim()), setMeta('companyLines', lines.trim())])
+      .then(() => toast('Firmenangaben gespeichert.', 'success'))
+      .catch((e) => showError(e, 'Konnte nicht gespeichert werden'));
   const [busy, setBusy] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -194,6 +208,19 @@ function LogoSettings() {
               <Icon name="trash" /> Entfernen
             </button>
           )}
+        </div>
+        <div className="company-lines" data-testid="company-settings">
+          <label className="field">
+            <span>Firmenname</span>
+            <input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="z. B. Muster Bau GmbH" data-testid="company-name" />
+          </label>
+          <label className="field">
+            <span>Anschrift und Kontakt (Kopf der Berichte, eine Zeile je Angabe)</span>
+            <textarea value={lines} onChange={(e) => setLines(e.target.value)} rows={4} placeholder={'A-1100 Wien, Musterstraße 1\nTel. 01/234 56 78\noffice@muster.at\nwww.muster.at'} data-testid="company-lines" />
+          </label>
+          <button type="button" className="btn btn-sm" onClick={() => void saveCompany()} data-testid="company-save">
+            <Icon name="save" size={16} /> Firmenangaben speichern
+          </button>
         </div>
         <input
           ref={input}
