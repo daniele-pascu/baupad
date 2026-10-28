@@ -55,7 +55,7 @@ test('1. Projekt mit Kostenstellen in einem Schritt erstellen und wieder öffnen
   // Projektinfos zeigen beide Kostenstellen, die Auswahl erscheint nur bei mehreren
   await expect(page.getByTestId('project-cost-centers')).toHaveText('Tiefgarage, Stiege 1');
   await expect(page.getByTestId('cost-center-select').locator('option')).toHaveCount(2);
-  await page.getByRole('link', { name: 'Zur Projektverwaltung' }).click();
+  await page.getByRole('link', { name: 'Zu Aufmaß & Abrechnung' }).click();
   const card = page.getByTestId('project-card').filter({ hasText: 'Wohnanlage Süd' });
   await expect(card).toContainText('Musterstraße 1, Wien');
   await expect(card).toContainText('2 Kostenst.');
@@ -485,7 +485,7 @@ test('12. Projekt speichern, schließen und vollständig wiederherstellen', asyn
   const backup = await saveDownload(dl, 'sicherung.zip');
 
   // Projekt löschen (mit Sicherheitsabfrage)
-  await page.getByRole('link', { name: 'Zur Projektverwaltung' }).click();
+  await page.getByRole('link', { name: 'Zu Aufmaß & Abrechnung' }).click();
   await page.getByRole('button', { name: 'Löschen' }).click();
   await expect(page.getByTestId('confirm-dialog')).toContainText('endgültig');
   await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Endgültig löschen' }).click();

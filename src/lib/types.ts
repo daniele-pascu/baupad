@@ -244,6 +244,26 @@ export interface Damage extends SyncMeta {
    * die Fläche der Form, `length` ihr Umfang, `width` leer. Wird bei Formänderung nachgeführt.
    */
   areaFromShape?: boolean;
+  /**
+   * Abzüge bzw. Zuschläge der Fläche (z. B. Tür, Fenster, Öffnung). `area` ist bereits die Nettofläche
+   * (Länge × Breite bzw. Fläche aus dem Plan, abzüglich bzw. zuzüglich dieser Teilflächen).
+   */
+  deductions?: Deduction[];
+}
+
+/** Teilfläche, die von einer Messfläche abgezogen (bzw. hinzugerechnet) wird */
+export interface Deduction {
+  id: string;
+  /** Bezeichnung, z. B. „Tür“, „Fenster“ */
+  label: string;
+  /** Anzahl gleicher Teilflächen */
+  count: number;
+  /** Breite in m */
+  length: number;
+  /** Höhe in m */
+  width: number;
+  /** true = hinzurechnen statt abziehen */
+  add?: boolean;
 }
 
 /** Linientypen (wie in CAD-Programmen); Wellen- und Zickzacklinie sind reine Darstellung */

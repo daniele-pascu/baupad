@@ -17,7 +17,7 @@ export async function freshStart(page: Page) {
   await page.goto('./#/projekte');
   await page.reload();
   await expect(page).toHaveTitle('BauPad');
-  await expect(page.getByTestId('projects-title')).toHaveText('Projektverwaltung');
+  await expect(page.getByTestId('projects-title')).toHaveText('Aufmaß & Abrechnung');
   await expect(page.getByRole('img', { name: 'BauPad' })).toBeVisible();
 }
 

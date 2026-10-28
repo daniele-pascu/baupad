@@ -44,12 +44,12 @@ test('Website: Startseite, Über BauPad, Kontakt, Anmelden und Logo', async ({ p
   await expect(page.getByTestId('login-unavailable')).toContainText('Die Anmeldung ist noch nicht eingerichtet.');
   expect(page.url()).toContain('#/anmelden'); // keine Weiterleitung, kein „angemeldet“
   await page.screenshot({ path: join(OUT, 'anmelden.png'), fullPage: true });
-  // nach der Anmeldung zuerst die Tools, von dort in die Projektverwaltung
+  // nach der Anmeldung zuerst die Tools, von dort in Aufmaß & Abrechnung
   await page.getByTestId('login-unavailable').getByRole('link', { name: 'Weiter zu den Tools' }).click();
   await expect(page.getByTestId('tools-title')).toHaveText('Tools');
-  // Einstellungen (Zahnrad) nur auf der Tools-Seite, nicht mehr in der Projektverwaltung
+  // Einstellungen (Zahnrad) nur auf der Tools-Seite, nicht mehr in Aufmaß & Abrechnung
   await page.getByTestId('tool-projects').click();
-  await expect(page.getByTestId('projects-title')).toHaveText('Projektverwaltung');
+  await expect(page.getByTestId('projects-title')).toHaveText('Aufmaß & Abrechnung');
   await expect(page.getByTestId('account-link')).toHaveCount(0);
   await page.getByTestId('to-tools').click();
 
@@ -86,11 +86,11 @@ test('Installierte App startet in den Tools (auch ältere Home-Bildschirm-Symbol
   await context.close();
 });
 
-test('Tools: vier gleich große Kacheln, zwei pro Reihe; Projektverwaltung und Arbeitereinteilung, zwei „Noch in Planung“', async ({ page }) => {
+test('Tools: vier gleich große Kacheln, zwei pro Reihe; Aufmaß & Abrechnung und Arbeitereinteilung, zwei „Noch in Planung“', async ({ page }) => {
   await page.goto('./#/tools');
   const tiles = page.locator('.tool-tile');
   await expect(tiles).toHaveCount(4);
-  await expect(tiles.locator('strong')).toHaveText(['Projektverwaltung', 'Arbeitereinteilung', 'Fotodokumentation', 'Berichte & Formulare']);
+  await expect(tiles.locator('strong')).toHaveText(['Aufmaß & Abrechnung', 'Arbeitereinteilung', 'Fotodokumentation', 'Berichte & Formulare']);
   const boxes = await Promise.all((await tiles.all()).map((t) => t.boundingBox()));
   // 2 × 2, alle gleich groß
   expect(Math.abs(boxes[0]!.y - boxes[1]!.y)).toBeLessThan(1);
@@ -111,9 +111,9 @@ test('Tools: vier gleich große Kacheln, zwei pro Reihe; Projektverwaltung und A
   await expect(page.getByTestId('crew-week')).toBeVisible();
   await page.getByTestId('to-tools').click();
   await expect(page.getByTestId('tools-title')).toBeVisible();
-  // Projektverwaltung → zurück zu den Tools
+  // Aufmaß & Abrechnung → zurück zu den Tools
   await page.getByTestId('tool-projects').click();
-  await expect(page.getByTestId('projects-title')).toHaveText('Projektverwaltung');
+  await expect(page.getByTestId('projects-title')).toHaveText('Aufmaß & Abrechnung');
   await page.getByTestId('to-tools').click();
   await expect(page.getByTestId('tools-title')).toBeVisible();
 });

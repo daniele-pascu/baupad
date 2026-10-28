@@ -3,7 +3,7 @@ import { paths, useHash } from '../lib/router';
 import { site } from '../content/site';
 
 /**
- * Schwarze Navigationsleiste der öffentlichen Seiten und der Projektverwaltung.
+ * Schwarze Navigationsleiste der öffentlichen Seiten und von Aufmaß & Abrechnung.
  * Auf Smartphones werden „Über BauPad“ und „Kontakt“ in ein ausklappbares Menü verlegt.
  */
 export function SiteNav() {

@@ -5122,3 +5122,94 @@ a.tool-tile:focus-visible {
 .crew-day.weekend {
   background: var(--surface-2);
 }
+
+/* Abzüge / Zuschläge einer Fläche (Tür, Fenster, Öffnung …) */
+.deductions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 4px 0 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.deductions-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+.deduction-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.deduction-sign {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border: 1px solid color-mix(in srgb, #d93025 40%, var(--border));
+  border-radius: 8px;
+  background: color-mix(in srgb, #d93025 8%, #fff);
+  color: #b3261e;
+  font: inherit;
+  font-size: 1.15rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.deduction-sign.add {
+  border-color: color-mix(in srgb, #1e8e3e 40%, var(--border));
+  background: color-mix(in srgb, #1e8e3e 8%, #fff);
+  color: #1e7a37;
+}
+.deduction-row input {
+  min-width: 0;
+  height: 34px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-strong, var(--border));
+  border-radius: 8px;
+  font: inherit;
+}
+.deduction-label {
+  flex: 1 1 120px;
+}
+.deduction-nums {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: 1 1 100%;
+  min-width: 0;
+  padding-left: 40px;
+}
+.deduction-nums input {
+  width: 0;
+  flex: 1 1 0;
+  text-align: right;
+}
+.deduction-nums input.deduction-count {
+  flex: 0 0 40px;
+}
+.deduction-area {
+  flex: none;
+  min-width: 72px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.deduction-row .error {
+  flex-basis: 100%;
+}
+.deduction-sum {
+  margin: 0;
+}
+.deduction-subrow td {
+  padding-top: 0 !important;
+  font-size: 0.82rem;
+  color: var(--muted);
+  text-align: right;
+  border-top: 0 !important;
+}
+.deduction-subrow td strong {
+  color: var(--text);
+}

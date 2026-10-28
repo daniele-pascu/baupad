@@ -452,7 +452,7 @@ test('Rechnung anlegen per Finger: vier Arten passen auf den Bildschirm', async 
   await expect(page.getByTestId('invoice-tab')).toContainText('R 1');
 });
 
-test('Tools per Finger: 2 Kacheln pro Reihe, nichts zu breit, Projektverwaltung öffnet', async ({ page }, info) => {
+test('Tools per Finger: 2 Kacheln pro Reihe, nichts zu breit, Aufmaß & Abrechnung öffnet', async ({ page }, info) => {
   await page.goto('./#/tools');
   const tiles = page.locator('.tool-tile');
   await expect(tiles).toHaveCount(4);

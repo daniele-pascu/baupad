@@ -1,7 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { Fragment, useEffect, useRef } from 'react';
 import type { AufmassRow } from '../lib/aufmass';
 import { sumArea } from '../lib/aufmass';
-import { countKind, hasArea, hasVolume, isWall, kindOf, measureLabel, sumLengths, sumVolumes } from '../lib/measure';
+import { countKind, deductionText, grossArea, hasArea, hasVolume, isWall, kindOf, measureLabel, sumLengths, sumVolumes } from '../lib/measure';
 import { formatArea, formatMeasure } from '../lib/numbers';
 import { damageNo } from '../lib/numbering';
 import type { Component } from '../lib/types';
@@ -64,9 +64,10 @@ export function AufmassTable({ rows, showPlan, selectedId, onSelect, onEdit, onD
             const kind = kindOf(r.damage);
             const comp = r.damage.componentId ? components?.[r.damage.componentId] : undefined;
             const label = `${measureLabel(r.damage)} ${damageNo(r.damage)}`;
+            const deds = hasArea(kind) && r.damage.area !== null && r.damage.deductions?.length ? r.damage.deductions : null;
             return (
+              <Fragment key={r.damage.id}>
               <tr
-                key={r.damage.id}
                 ref={sel ? selRef : undefined}
                 className={`${sel ? 'selected' : ''}${duplicates?.has(r.damage.id) ? ' duplicate' : ''}`}
                 onClick={() => onSelect?.(r)}
@@ -131,6 +132,14 @@ export function AufmassTable({ rows, showPlan, selectedId, onSelect, onEdit, onD
                   </td>
                 )}
               </tr>
+              {deds && (
+                <tr className={`deduction-subrow${sel ? ' selected' : ''}`} onClick={() => onSelect?.(r)} data-testid="row-deductions">
+                  <td colSpan={before + 1 + after}>
+                    brutto {formatArea(grossArea(r.damage))} m² {deductionText(deds)} = <strong>netto {formatArea(r.damage.area)} m²</strong>
+                  </td>
+                </tr>
+              )}
+              </Fragment>
             );
           })}
           {!rows.length && (

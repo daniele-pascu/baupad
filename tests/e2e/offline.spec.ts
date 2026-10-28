@@ -47,7 +47,7 @@ test('Offline: Projekt anlegen, PDF importieren, Schadstellen erfassen, exportie
   await page.getByTestId('cta-tools').click();
   await expect(page.getByTestId('tools-title')).toHaveText('Tools');
   await page.getByTestId('tool-projects').click();
-  await expect(page.getByTestId('projects-title')).toHaveText('Projektverwaltung');
+  await expect(page.getByTestId('projects-title')).toHaveText('Aufmaß & Abrechnung');
 
   await createProject(page, 'Offline-Baustelle', {}, ['Untergeschoss']);
   await page.getByTestId('plan-file-input').setInputFiles(join(FIXTURES, 'plaene.pdf'));

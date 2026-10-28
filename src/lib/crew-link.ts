@@ -3,7 +3,7 @@ import { createProjectWithCostCenters } from './store';
 import type { Project, WeekSite } from './types';
 
 /**
- * Verbindung Arbeitereinteilung ↔ Projektverwaltung: Baustellen ohne Projekt als Projekt anlegen bzw.
+ * Verbindung Arbeitereinteilung ↔ Aufmaß & Abrechnung: Baustellen ohne Projekt als Projekt anlegen bzw.
  * beim Anlegen eines Projekts eine Baustelle aus der Arbeitereinteilung übernehmen.
  */
 

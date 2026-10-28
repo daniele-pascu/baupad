@@ -234,7 +234,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
   return (
     <div className="page">
       <header className="topbar">
-        <a className="icon-btn" href={paths.projects()} aria-label="Zur Projektverwaltung">
+        <a className="icon-btn" href={paths.projects()} aria-label="Zu Aufmaß & Abrechnung">
           <Icon name="back" />
         </a>
         <div className="topbar-title">

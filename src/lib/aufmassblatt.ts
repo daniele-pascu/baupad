@@ -1,8 +1,8 @@
 import { aufmassRows, costCenterLabel, costCentersOf, lvDocsOf, plansOf, positionRef, safeFileName, type ExportFile, type XlsxScope } from './aufmass';
 import { invoiceLabel, invoiceShort } from './invoices';
-import { hasArea, kindOf, quantityBasis, quantityFor } from './measure';
+import { deductionArea, grossArea, hasArea, kindOf, quantityBasis, quantityFor } from './measure';
 import type { ProjectState } from './store';
-import type { Damage, LvDocument, LvPosition, Plan } from './types';
+import type { Damage, Deduction, LvDocument, LvPosition, Plan } from './types';
 import { A4_HEIGHT_IN, BLATT_BOTTOM_IN, blank, blattTopMargin, buildXlsx, num, str, type Cell, type HeaderImage, type Sheet } from './xlsx';
 
 /**
@@ -211,50 +211,59 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
     const qtyCol = kind === 'area' ? 4 : kind === 'volume' || kind === 'areaDepth' ? 5 : 2;
     const valueHead =
       kind === 'area' ? ['Länge', 'Breite', 'm²'] : kind === 'areaDepth' ? ['Länge', 'Breite', 'Tiefe', 'm²'] : kind === 'volume' ? ['Länge', 'Breite', 'Tiefe', 'm³'] : [kind === 'other' ? unitText(unit) : unitText(kind === 'count' ? 'Stk' : kind === 'liter' ? 'l' : 'm')];
-    const notes = list.map(({ d }) => remark(d, kind));
+    // Zeilen: je Messung eine Zeile, darunter ihre Abzüge/Zuschläge (Tür, Öffnung …) – nur bei Flächen-Tabellen
+    const withDeds = kind === 'area' || kind === 'areaDepth' || kind === 'volume';
+    type Line = { item: Item; ded?: Deduction };
+    const lines: Line[] = list.flatMap((item) => [{ item }, ...(withDeds && item.d.area !== null ? (item.d.deductions ?? []) : []).map((ded) => ({ item, ded }))]);
+    const notes = lines.map(({ item, ded }) => (ded ? dedNote(ded) : remark(item.d, kind)));
     const head: Cell[] = [str('Plan', 'amTh'), str('Nr.', 'amTh'), ...valueHead.map((h) => str(h, 'amTh'))];
     if (notes.some(Boolean)) head.push(str('Bemerkung', 'amThNote'));
     add(head);
     const first = rows.length + 1;
     let total = 0;
-    list.forEach(({ plan, d }, i) => {
-      const last = i === list.length - 1;
+    lines.forEach(({ item: { plan, d }, ded }, i) => {
+      const last = i === lines.length - 1;
       const r = rows.length + 1;
       const note = notes[i];
+      const q = (v: number, f: string): Cell => ({ t: 'formula', f, v, s: last ? 'amQtyLast' : 'amQty' });
+      if (ded) {
+        // Teilfläche mit Vorzeichen: Abzug negativ, Zuschlag positiv (Anzahl als Faktor)
+        const sign = `${ded.add ? '' : '-'}${ded.count > 1 ? `${ded.count}*` : ''}`;
+        const a = deductionArea(ded);
+        let cells: Cell[];
+        if (kind === 'volume') {
+          const v = d.depth !== null ? Math.round(a * d.depth * 10000) / 10000 : null;
+          total += v ?? 0;
+          cells = [n(ded.length, last), n(ded.width, last), n(d.depth, last), v === null ? qn(null, last) : q(v, `${sign}C${r}*D${r}*E${r}`)];
+        } else {
+          total += a;
+          cells = [n(ded.length, last), n(ded.width, last), ...(kind === 'areaDepth' ? [blank(last ? 'amNumLast' : 'amText')] : []), q(a, `${sign}C${r}*D${r}`)];
+        }
+        add([blank(last ? 'amCenterLast' : 'amCenter'), blank(last ? 'amCenterLast' : 'amCenter'), ...cells, note ? str(note, 'amNote') : null]);
+        return;
+      }
       let cells: Cell[];
+      // Bruttofläche (Länge × Breite bzw. aus dem Plan); die Abzüge folgen in eigenen Zeilen
+      const g = grossArea(d);
       if (kind === 'area') {
-        const v = d.area ?? 0;
+        const v = g ?? 0;
         total += v;
         const formula = d.width !== null && !d.areaFromShape;
-        cells = [
-          n(d.areaFromShape ? null : d.length, last),
-          n(d.areaFromShape ? null : d.width, last),
-          formula ? { t: 'formula', f: `C${r}*D${r}`, v, s: last ? 'amQtyLast' : 'amQty' } : qn(d.area, last),
-        ];
+        cells = [n(d.areaFromShape ? null : d.length, last), n(d.areaFromShape ? null : d.width, last), formula ? q(v, `C${r}*D${r}`) : qn(g, last)];
       } else if (kind === 'areaDepth') {
-        const v = d.area ?? 0;
+        const v = g ?? 0;
         total += v;
         const formula = d.width !== null && !d.areaFromShape;
-        cells = [
-          n(d.areaFromShape ? null : d.length, last),
-          n(d.areaFromShape ? null : d.width, last),
-          n(d.depth, last),
-          formula ? { t: 'formula', f: `C${r}*D${r}`, v, s: last ? 'amQtyLast' : 'amQty' } : qn(d.area, last),
-        ];
+        cells = [n(d.areaFromShape ? null : d.length, last), n(d.areaFromShape ? null : d.width, last), n(d.depth, last), formula ? q(v, `C${r}*D${r}`) : qn(g, last)];
       } else if (kind === 'volume') {
-        const v = d.area !== null && d.depth !== null ? Math.round(d.area * d.depth * 10000) / 10000 : null;
+        const v = g !== null && d.depth !== null ? Math.round(g * d.depth * 10000) / 10000 : null;
         total += v ?? 0;
         const formula = d.width !== null && d.depth !== null && !d.areaFromShape;
-        cells = [
-          n(d.areaFromShape ? null : d.length, last),
-          n(d.areaFromShape ? null : d.width, last),
-          n(d.depth, last),
-          formula ? { t: 'formula', f: `C${r}*D${r}*E${r}`, v: v ?? 0, s: last ? 'amQtyLast' : 'amQty' } : qn(v, last),
-        ];
+        cells = [n(d.areaFromShape ? null : d.length, last), n(d.areaFromShape ? null : d.width, last), n(d.depth, last), formula ? q(v ?? 0, `C${r}*D${r}*E${r}`) : qn(v, last)];
       } else {
-        const q = kind === 'liter' ? liters(d) : kind === 'other' ? null : (quantityFor(kind === 'count' ? 'Stk' : 'm', [d]).value ?? null);
-        total += q ?? 0;
-        cells = [qn(q, last)];
+        const qty = kind === 'liter' ? liters(d) : kind === 'other' ? null : (quantityFor(kind === 'count' ? 'Stk' : 'm', [d]).value ?? null);
+        total += qty ?? 0;
+        cells = [qn(qty, last)];
       }
       const pn = planNo(plan);
       const planCell: Cell = /^[1-9]\d{0,8}$/.test(pn) ? num(Number(pn), last ? 'amCenterLast' : 'amCenter') : str(pn, last ? 'amCenterLast' : 'amCenter');
@@ -307,6 +316,11 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
 /** Liter aus Fläche × Tiefe (1 m³ = 1000 l); ohne Tiefe nicht berechenbar */
 function liters(d: Damage): number | null {
   return hasArea(kindOf(d)) && d.area !== null && d.depth !== null ? Math.round(d.area * d.depth * 1000 * 100) / 100 : null;
+}
+
+/** Bemerkung einer Abzugs- bzw. Zuschlagszeile, z. B. „Abzug Tür (2×)“ */
+function dedNote(x: Deduction): string {
+  return [x.add ? 'Zuschlag' : 'Abzug', x.label, x.count > 1 ? `(${x.count}×)` : ''].filter(Boolean).join(' ');
 }
 
 /** Bemerkung: nur Hinweise (Fläche aus dem Plan, fehlende Werte) – sonst leer */

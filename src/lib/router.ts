@@ -40,7 +40,7 @@ export const paths = {
   landing: () => '#/',
   about: () => '#/ueber',
   contact: () => '#/kontakt',
-  /** Projektverwaltung */
+  /** Aufmaß & Abrechnung */
   projects: () => '#/projekte',
   /** Start nach der Anmeldung: Übersicht aller Werkzeuge (Kacheln) */
   tools: () => '#/tools',

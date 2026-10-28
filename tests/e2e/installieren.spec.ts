@@ -1,11 +1,11 @@
 import { expect, test } from '@playwright/test';
 
-/** BauPad als App installieren: Startseite (Link) und Konto → App und Speicher; Projektverwaltung bleibt unverändert */
+/** BauPad als App installieren: Startseite (Link) und Konto → App und Speicher; Aufmaß & Abrechnung bleibt unverändert */
 
 const IPHONE =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
 
-test('PC: ohne Browser-Dialog Anleitung je Gerät; Projektverwaltung ohne Installieren-Knopf', async ({ page }) => {
+test('PC: ohne Browser-Dialog Anleitung je Gerät; Aufmaß & Abrechnung ohne Installieren-Knopf', async ({ page }) => {
   await page.goto('./#/');
   const btn = page.getByTestId('install-app');
   await expect(btn).toBeVisible();

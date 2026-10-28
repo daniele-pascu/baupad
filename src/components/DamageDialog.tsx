@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { hasArea, KIND_LABELS } from '../lib/measure';
+import { uuid } from '../lib/ids';
+import { deductionArea, hasArea, KIND_LABELS, netArea } from '../lib/measure';
 import { checkMeasure, computeArea, formatArea, parseDecimal, toInputValue } from '../lib/numbers';
 import { damageNo, findByNumber, parseDamageNumber } from '../lib/numbering';
-import { COLORS, SHAPE_LABELS, type Component, type Damage, type MeasureKind, type ShapeType } from '../lib/types';
+import { COLORS, SHAPE_LABELS, type Component, type Damage, type Deduction, type MeasureKind, type ShapeType } from '../lib/types';
+import { Icon } from './Icon';
 import { Modal } from './Modal';
 
 export interface DamageValues {
@@ -25,6 +27,18 @@ export interface DamageValues {
   areaFromShape: boolean;
   /** Fläche aus der Geometrie (nur mit areaFromShape) */
   area: number | null;
+  /** Abzüge/Zuschläge der Fläche (Tür, Öffnung …) */
+  deductions: Deduction[];
+}
+
+/** Eingabezeile eines Abzugs (Texte, damit Kommas und leere Felder möglich sind) */
+interface DeductionRow {
+  id: string;
+  label: string;
+  count: string;
+  length: string;
+  width: string;
+  add: boolean;
 }
 
 export type Renumber = 'none' | 'swap' | 'shift';
@@ -32,7 +46,7 @@ export type Renumber = 'none' | 'swap' | 'shift';
 interface Props {
   mode: 'new' | 'edit';
   damage: Pick<Damage, 'id' | 'number' | 'color' | 'labelOffset'> &
-    Partial<Pick<Damage, 'length' | 'width' | 'depth' | 'componentId' | 'positionRef' | 'label' | 'areaFromShape'>> & { shapeType: ShapeType; kind: MeasureKind };
+    Partial<Pick<Damage, 'length' | 'width' | 'depth' | 'componentId' | 'positionRef' | 'label' | 'areaFromShape' | 'deductions'>> & { shapeType: ShapeType; kind: MeasureKind };
   others: Pick<Damage, 'id' | 'number' | 'area' | 'label'>[];
   /** Bauteilkennzeichnungen des Plans für die optionale Zuordnung */
   components: Pick<Component, 'id' | 'letter' | 'name'>[];
@@ -79,6 +93,9 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const docs = [...new Map(positions.map((p) => [docOf(p.ref), p.doc])).entries()].map(([id, label]) => ({ id, label }));
   const [docId, setDocId] = useState<string>(() => (damage.positionRef && positions.some((p) => p.ref === damage.positionRef) ? docOf(damage.positionRef) : (docs[0]?.id ?? '')));
   const [resetLabel, setResetLabel] = useState(false);
+  const [deds, setDeds] = useState<DeductionRow[]>(() =>
+    (damage.deductions ?? []).map((x) => ({ id: x.id, label: x.label, count: String(x.count), length: toInputValue(x.length), width: toInputValue(x.width), add: !!x.add })),
+  );
   const [showErrors, setShowErrors] = useState(false);
   const refs = useRef<Record<string, HTMLInputElement | null>>({});
   // Wand mit Länge aus dem Plan: gleich nach der Wandhöhe fragen (nach dem Fokus des Dialogs)
@@ -106,7 +123,23 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   // nicht 0), eine Eingabe muss aber gültig sein
   const B = !geo && v.width.trim() ? checkMeasure(v.width, withArea && !wall ? 'Breite/Höhe' : 'Höhe') : null;
   const T = v.depth.trim() ? checkMeasure(v.depth, 'Tiefe') : null;
-  const area = geo ? geo.area : withArea && L.ok && B?.ok ? computeArea(L.value, B.value) : null;
+  const gross = geo ? geo.area : withArea && L.ok && B?.ok ? computeArea(L.value, B.value) : null;
+  // Abzüge/Zuschläge: nur vollständige Zeilen zählen (Breite und Höhe > 0, Anzahl ab 1)
+  const dedErrors = deds.map((r) => {
+    const l = parseDecimal(r.length);
+    const w = parseDecimal(r.width);
+    const c = r.count.trim() ? Number(r.count.trim()) : 1;
+    if (!r.length.trim() && !r.width.trim()) return 'Breite und Höhe fehlen.';
+    if (l === null || l <= 0 || w === null || w <= 0) return 'Breite und Höhe müssen größer als 0 sein.';
+    if (!Number.isInteger(c) || c < 1 || c > 999) return 'Anzahl: ganze Zahl ab 1.';
+    return null;
+  });
+  const deductions: Deduction[] = deds
+    .filter((_, i) => !dedErrors[i])
+    .map((r) => ({ id: r.id, label: r.label.trim(), count: r.count.trim() ? Number(r.count.trim()) : 1, length: parseDecimal(r.length)!, width: parseDecimal(r.width)!, ...(r.add ? { add: true } : {}) }));
+  const area = netArea(gross, deductions);
+  const setDed = (id: string, patch: Partial<DeductionRow>) => setDeds((list) => list.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  const newDed = (add: boolean) => setDeds((list) => [...list, { id: uuid(), label: '', count: '1', length: '', width: '', add }]);
   // Nummernkonflikte nur unter reinen Nummern (Kennzeichnungen haben eine eigene Prüfung)
   const conflict = num !== null ? findByNumber(others.filter((o) => !o.label), num, damage.id) : undefined;
   const errors: Record<Field, string | null> = {
@@ -123,7 +156,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
     width: B && !B.ok ? B.error : null,
     depth: T && !T.ok ? T.error : null,
   };
-  const valid = fields.every((f) => !errors[f]);
+  const valid = fields.every((f) => !errors[f]) && dedErrors.every((e) => !e);
 
   const submit = (renumber: Renumber = 'none') => {
     setShowErrors(true);
@@ -148,6 +181,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
         resetLabel,
         areaFromShape: !!geo || lineGeo !== null,
         area: geo ? geo.area : null,
+        deductions: withArea ? deductions : [],
       },
       renumber,
     );
@@ -292,17 +326,17 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
         <div className="area-result" data-testid="area-result">
           {geo ? (
             <>
-              <span>Fläche aus Plan ({geo.formula}) – wird bei Formänderung nachgeführt</span>
-              <strong>{formatArea(geo.area)} m²</strong>
+              <span>Fläche aus Plan ({geo.formula}){deductions.length ? ', netto mit Abzügen' : ''} – wird bei Formänderung nachgeführt</span>
+              <strong>{formatArea(area)} m²</strong>
             </>
           ) : wall ? (
             <>
-              <span>{area !== null ? 'Wandfläche (Länge × Höhe)' : 'Wandfläche erst mit Wandhöhe – Höhe kann später ergänzt werden'}</span>
+              <span>{area !== null ? (deductions.length ? 'Wandfläche netto (Länge × Höhe, mit Abzügen)' : 'Wandfläche (Länge × Höhe)') : 'Wandfläche erst mit Wandhöhe – Höhe kann später ergänzt werden'}</span>
               <strong data-testid="wall-area">{area !== null ? `${formatArea(area)} m²` : L.ok ? `L ${formatArea(L.value)} m` : '–'}</strong>
             </>
           ) : withArea ? (
             <>
-              <span>{area !== null || !lengthValue ? 'Fläche (Länge × Breite/Höhe)' : 'Nur Länge – Fläche erst mit Breite/Höhe'}</span>
+              <span>{area !== null || !lengthValue ? (deductions.length && area !== null ? 'Fläche netto (mit Abzügen)' : 'Fläche (Länge × Breite/Höhe)') : 'Nur Länge – Fläche erst mit Breite/Höhe'}</span>
               <strong>{area !== null ? `${formatArea(area)} m²` : lengthValue && lengthValue > 0 && !v.width.trim() ? `${formatArea(lengthValue)} m` : '–'}</strong>
             </>
           ) : (
@@ -312,6 +346,74 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             </>
           )}
         </div>
+        {withArea && (
+          <div className="deductions" data-testid="deductions">
+            <div className="deductions-head">
+              <strong>Abzüge / Zuschläge</strong>
+              <span className="muted small">z. B. Tür, Fenster, Öffnung</span>
+            </div>
+            {deds.map((r, i) => {
+              const a = dedErrors[i] ? null : deductionArea(deductions.find((x) => x.id === r.id)!);
+              return (
+                <div key={r.id} className="deduction-row" data-testid="deduction-row">
+                  <button
+                    type="button"
+                    className={`deduction-sign${r.add ? ' add' : ''}`}
+                    onClick={() => setDed(r.id, { add: !r.add })}
+                    aria-label={r.add ? 'Wird hinzugerechnet – antippen zum Abziehen' : 'Wird abgezogen – antippen zum Hinzurechnen'}
+                    title={r.add ? 'Zuschlag (hinzurechnen)' : 'Abzug (abziehen)'}
+                    data-testid="deduction-sign"
+                  >
+                    {r.add ? '+' : '−'}
+                  </button>
+                  <input
+                    className="deduction-label"
+                    value={r.label}
+                    onChange={(e) => setDed(r.id, { label: e.target.value })}
+                    placeholder={r.add ? 'Bezeichnung (z. B. Nische)' : 'Bezeichnung (z. B. Tür)'}
+                    aria-label="Bezeichnung"
+                    autoComplete="off"
+                    data-testid="deduction-label"
+                  />
+                  <button type="button" className="icon-btn icon-btn-sm" onClick={() => setDeds((list) => list.filter((x) => x.id !== r.id))} aria-label="Zeile entfernen" data-testid="deduction-remove">
+                    <Icon name="trash" size={16} />
+                  </button>
+                  <span className="deduction-nums">
+                    <input value={r.count} onChange={(e) => setDed(r.id, { count: e.target.value })} inputMode="numeric" placeholder="1" aria-label="Anzahl" className="deduction-count" data-testid="deduction-count" />
+                    <span aria-hidden="true">×</span>
+                    <input value={r.length} onChange={(e) => setDed(r.id, { length: e.target.value })} inputMode="decimal" placeholder="Breite" aria-label="Breite in m" data-testid="deduction-length" />
+                    <span aria-hidden="true">×</span>
+                    <input value={r.width} onChange={(e) => setDed(r.id, { width: e.target.value })} inputMode="decimal" placeholder="Höhe" aria-label="Höhe in m" data-testid="deduction-width" />
+                    <span className="muted small">m =</span>
+                    <span className="deduction-area" data-testid="deduction-area">
+                      {a === null ? '' : `${a < 0 ? '−' : '+'}${formatArea(Math.abs(a))} m²`}
+                    </span>
+                  </span>
+                  {showErrors && dedErrors[i] && <small className="error">{dedErrors[i]}</small>}
+                </div>
+              );
+            })}
+            <div className="row gap wrap">
+              <button type="button" className="btn btn-sm" onClick={() => newDed(false)} data-testid="deduction-add">
+                − Abzug hinzufügen
+              </button>
+              <button type="button" className="btn btn-sm" onClick={() => newDed(true)} data-testid="deduction-add-plus">
+                + Zuschlag hinzufügen
+              </button>
+            </div>
+            {deductions.length > 0 && (
+              <p className="deduction-sum small" data-testid="deduction-sum">
+                {gross === null ? (
+                  'Abzüge wirken erst, wenn eine Fläche berechnet ist (Länge × Breite/Höhe).'
+                ) : (
+                  <>
+                    Brutto {formatArea(gross)} m² {deductions.map((x) => `${deductionArea(x) < 0 ? '−' : '+'} ${formatArea(Math.abs(deductionArea(x)))}`).join(' ')} = <strong>netto {formatArea(area)} m²</strong>
+                  </>
+                )}
+              </p>
+            )}
+          </div>
+        )}
         {conflict && num !== null && (
           <div className="banner banner-warn" data-testid="number-conflict">
             <p>

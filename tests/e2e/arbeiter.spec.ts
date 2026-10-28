@@ -5,7 +5,7 @@ import { catchDownload, createProject, freshStart, OUT, saveDownload } from './h
 
 /**
  * Arbeitereinteilung: Arbeiter einmal anlegen, Arbeitszeit der Firma einmal eingeben, Baustellen aus
- * der Projektverwaltung bzw. manuell, Einteilung je Tag, Urlaub, Konflikt, Verschieben, nächste Woche
+ * Aufmaß & Abrechnung bzw. manuell, Einteilung je Tag, Urlaub, Konflikt, Verschieben, nächste Woche
  * läuft weiter (fertiggestellte Baustelle fällt weg), ältere Woche bleibt unverändert.
  */
 
@@ -79,7 +79,7 @@ test('Arbeitereinteilung: Woche nach Baustellen planen und in die nächste Woche
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('crew-workers')).toContainText('Arbeiter (4)');
 
-  // Baustelle A aus der Projektverwaltung → gleich Arbeiter für die ganze Woche einteilen
+  // Baustelle A aus Aufmaß & Abrechnung → gleich Arbeiter für die ganze Woche einteilen
   await page.getByTestId('add-site').click();
   const sd = page.getByTestId('site-dialog');
   await sd.getByTestId('site-project').selectOption({ label: '2026-04 · Neubau Musterstraße' });
@@ -310,7 +310,7 @@ test('Suche, PDF (Woche + Tagesliste), Drucken, Vorwoche übernehmen, Sicherung 
   await expect(page.getByTestId('times-dialog').getByTestId('company-name')).toHaveValue('Muster Bau GmbH');
 });
 
-test('Baustelle ↔ Projekt: aus der Projektverwaltung wählen, als Projekt anlegen, Projekt aus der Arbeitereinteilung übernehmen', async ({ page }) => {
+test('Baustelle ↔ Projekt: aus Aufmaß & Abrechnung wählen, als Projekt anlegen, Projekt aus der Arbeitereinteilung übernehmen', async ({ page }) => {
   await freshStart(page);
   await createProject(page, 'Neubau Musterstraße', { number: '2026-04', address: 'Musterstraße 1' });
   await page.goto('./#/arbeitereinteilung');
@@ -319,7 +319,7 @@ test('Baustelle ↔ Projekt: aus der Projektverwaltung wählen, als Projekt anle
     await site(page, name).getByTestId('site-actions').click();
   };
 
-  // 1) aus der Projektverwaltung wählen (Standard, wenn Projekte vorhanden)
+  // 1) aus Aufmaß & Abrechnung wählen (Standard, wenn Projekte vorhanden)
   await page.getByTestId('add-site').click();
   let sd = page.getByTestId('site-dialog');
   await expect(sd.getByTestId('site-source-project')).toHaveAttribute('aria-checked', 'true');
@@ -342,7 +342,7 @@ test('Baustelle ↔ Projekt: aus der Projektverwaltung wählen, als Projekt anle
   await sd.getByTestId('site-address').fill('Hauptplatz 3');
   await sd.getByTestId('site-also-project').locator('input').check();
   await sd.getByTestId('site-save').click();
-  await expect(page.locator('.toast', { hasText: 'Projekt „Sanierung Hauptplatz“ in der Projektverwaltung angelegt' })).toHaveCount(1);
+  await expect(page.locator('.toast', { hasText: 'Projekt „Sanierung Hauptplatz“ in Aufmaß & Abrechnung angelegt' })).toHaveCount(1);
   await menu('Sanierung Hauptplatz');
   await expect(page.getByTestId('site-open-project')).toHaveCount(1);
   await page.keyboard.press('Escape');
@@ -362,7 +362,7 @@ test('Baustelle ↔ Projekt: aus der Projektverwaltung wählen, als Projekt anle
   await expect(page.getByTestId('site-open-project')).toHaveCount(1);
   await page.keyboard.press('Escape');
 
-  // 4) umgekehrt: in der Projektverwaltung ein Projekt aus der Arbeitereinteilung übernehmen
+  // 4) umgekehrt: in Aufmaß & Abrechnung ein Projekt aus der Arbeitereinteilung übernehmen
   await page.goto('./#/projekte');
   await page.getByTestId('new-project').click();
   const form = page.getByTestId('project-form');

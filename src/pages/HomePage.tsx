@@ -229,7 +229,7 @@ export function HomePage() {
           <a href={paths.tools()} className="icon-link" aria-label="Zu den Tools" title="Zu den Tools" data-testid="to-tools">
             <Icon name="back" />
           </a>
-          <h1 data-testid="projects-title">Projektverwaltung</h1>
+          <h1 data-testid="projects-title">Aufmaß & Abrechnung</h1>
         </div>
       </header>
 

@@ -83,7 +83,7 @@ export function getDB(): Promise<IDBPDatabase<AufmassDB>> {
           db.createObjectStore('workers', { keyPath: 'id' });
           db.createObjectStore('weeks', { keyPath: 'id' });
         }
-        // Hinweis für die Projektverwaltung, dass die Datenbank erweitert wurde
+        // Hinweis für Aufmaß & Abrechnung, dass die Datenbank erweitert wurde
         if (oldVersion >= 1) void tx.objectStore('meta').put({ key: 'upgradedFrom', value: oldVersion });
       },
       blocking() {

@@ -277,7 +277,7 @@ export function WorkersPage() {
       setProjects((list) => [p, ...list]);
       // aktuelle Woche ebenfalls verknüpfen (auch wenn sie noch nicht gespeichert war)
       save({ ...plan!, sites: plan!.sites.map((x) => (!x.projectId && x.name.trim().toLowerCase() === s.name.trim().toLowerCase() ? { ...x, projectId: p.id } : x)), updatedAt: Date.now() });
-      toast(`Projekt „${p.name}“ in der Projektverwaltung angelegt.`, 'success');
+      toast(`Projekt „${p.name}“ in Aufmaß & Abrechnung angelegt.`, 'success');
     });
   const restore = (f: File) =>
     run(async () => {
@@ -326,7 +326,7 @@ export function WorkersPage() {
       ...(s.paused ? [] : [{ label: 'Tagesliste (PDF)', icon: 'pdf', onSelect: () => setDialog({ kind: 'dayList', siteId: s.id }), testId: 'site-daylist' }]),
       ...(s.projectId && projects.some((p) => p.id === s.projectId)
         ? [{ label: 'Projekt öffnen', icon: 'folder', onSelect: () => navigate(paths.project(s.projectId!)), testId: 'site-open-project' }]
-        : [{ label: 'Als Projekt in Projektverwaltung anlegen', icon: 'folder', onSelect: () => void siteToProject(s), testId: 'site-to-project' }]),
+        : [{ label: 'Als Projekt in Aufmaß & Abrechnung anlegen', icon: 'folder', onSelect: () => void siteToProject(s), testId: 'site-to-project' }]),
       s.paused
         ? { label: 'Fortsetzen', icon: 'play', onSelect: () => void run(() => resume(s)), testId: 'site-resume-menu' }
         : { label: 'Pausieren (Standby)', icon: 'pause', onSelect: () => void run(() => pause(s)), testId: 'site-pause' },
@@ -638,7 +638,7 @@ export function WorkersPage() {
           {plan.sites.length === 0 && (
             <div className="empty" data-testid="crew-empty">
               <p>Noch keine Baustelle in dieser Woche.</p>
-              <p className="muted">Baustelle aus der Projektverwaltung wählen oder manuell anlegen, dann die Arbeiter je Tag einteilen.</p>
+              <p className="muted">Baustelle aus Aufmaß & Abrechnung wählen oder manuell anlegen, dann die Arbeiter je Tag einteilen.</p>
             </div>
           )}
           <button type="button" className="btn btn-primary crew-add-site" onClick={() => setDialog({ kind: 'site' })} data-testid="add-site">
@@ -679,7 +679,7 @@ export function WorkersPage() {
                 const p = await projectFromSite(fields);
                 setProjects((list) => [p, ...list]);
                 f = { ...fields, projectId: p.id };
-                toast(`Projekt „${p.name}“ in der Projektverwaltung angelegt.`, 'success');
+                toast(`Projekt „${p.name}“ in Aufmaß & Abrechnung angelegt.`, 'success');
               }
               if (dialog.site) save(updateSite(plan, dialog.site.id, f));
               else {
@@ -928,7 +928,7 @@ function TimesDialog({
   );
 }
 
-/** Baustelle hinzufügen (aus der Projektverwaltung oder manuell) bzw. bearbeiten */
+/** Baustelle hinzufügen (aus Aufmaß & Abrechnung oder manuell) bzw. bearbeiten */
 function SiteDialog({
   site,
   projects,
@@ -943,7 +943,7 @@ function SiteDialog({
   onClose(): void;
 }) {
   const [projectId, setProjectId] = useState<string>(site?.projectId ?? '');
-  /** Quelle: aus der Projektverwaltung wählen oder neue Baustelle (optional auch als Projekt anlegen) */
+  /** Quelle: aus Aufmaß & Abrechnung wählen oder neue Baustelle (optional auch als Projekt anlegen) */
   const [source, setSource] = useState<'project' | 'new'>(() => (site ? (site.projectId ? 'project' : 'new') : projects.length ? 'project' : 'new'));
   const [alsoProject, setAlsoProject] = useState(false);
   const [name, setName] = useState(site?.name ?? '');
@@ -991,7 +991,7 @@ function SiteDialog({
       >
         <div className="segmented crew-source" role="radiogroup" aria-label="Baustelle">
           <button type="button" role="radio" aria-checked={source === 'project'} aria-selected={source === 'project'} onClick={() => setSource('project')} disabled={!projects.length} data-testid="site-source-project">
-            <ToolIcon name="projects" size={16} /> Aus Projektverwaltung
+            <ToolIcon name="projects" size={16} /> Aus Aufmaß & Abrechnung
           </button>
           <button
             type="button"
@@ -1007,7 +1007,7 @@ function SiteDialog({
             <Icon name="plus" size={16} /> Neue Baustelle
           </button>
         </div>
-        {!projects.length && <p className="muted small">Noch keine Projekte in der Projektverwaltung.</p>}
+        {!projects.length && <p className="muted small">Noch keine Projekte in Aufmaß & Abrechnung.</p>}
         {source === 'project' && (
         <label className="field">
           <span>Projekt wählen *</span>
@@ -1043,7 +1043,7 @@ function SiteDialog({
         {source === 'new' && !site?.projectId && (
           <label className="check-row" data-testid="site-also-project">
             <input type="checkbox" checked={alsoProject} onChange={(e) => setAlsoProject(e.target.checked)} />
-            Auch als Projekt in der Projektverwaltung anlegen
+            Auch als Projekt in Aufmaß & Abrechnung anlegen
           </label>
         )}
         {show && source === 'project' && !projectId && <p className="error small">Bitte ein Projekt wählen.</p>}

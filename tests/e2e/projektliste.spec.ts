@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { createProject, freshStart } from './helpers';
 
-/** Projektverwaltung: Suche, Sortierung (auf-/absteigend), kompakte Karten. */
+/** Aufmaß & Abrechnung: Suche, Sortierung (auf-/absteigend), kompakte Karten. */
 test('Projekte suchen und sortieren', async ({ page }) => {
   await freshStart(page);
   await createProject(page, 'Bahnhof Nord', { number: 'P-2', client: 'Stadtwerke' }, [{ number: '4711', name: 'Tiefgarage' }]);

@@ -1,4 +1,4 @@
-import type { Damage, MeasureKind, Shape } from './types';
+import type { Damage, Deduction, MeasureKind, Shape } from './types';
 
 /**
  * Messarten und Mengen.
@@ -37,6 +37,33 @@ export function defaultKindFor(shape: Shape): MeasureKind {
 }
 
 const clean = (n: number) => Math.round(n * 1e9) / 1e9;
+
+/** Teilfläche einer Abzugs- bzw. Zuschlagszeile mit Vorzeichen (Abzug negativ) */
+export const deductionArea = (x: Pick<Deduction, 'count' | 'length' | 'width' | 'add'>) => clean((x.add ? 1 : -1) * x.count * x.length * x.width);
+
+/** Nettofläche: Bruttofläche (Länge × Breite bzw. aus dem Plan) mit Abzügen und Zuschlägen */
+export function netArea(gross: number | null, deductions: Deduction[] | undefined): number | null {
+  if (gross === null || !deductions?.length) return gross;
+  return clean(deductions.reduce((s, x) => s + deductionArea(x), gross));
+}
+
+/** Kurztext der Abzüge/Zuschläge, z. B. „− 2,10 m² (Tür) + 0,50 m² (Nische)“ */
+export function deductionText(list: Deduction[]): string {
+  const f = (n: number) => n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return list
+    .map((x) => {
+      const a = deductionArea(x);
+      const name = [x.count > 1 ? `${x.count}×` : '', x.label].filter(Boolean).join(' ');
+      return `${a < 0 ? '−' : '+'} ${f(Math.abs(a))} m²${name ? ` (${name})` : ''}`;
+    })
+    .join(' ');
+}
+
+/** Bruttofläche einer gespeicherten Messung (`area` ist netto) */
+export function grossArea(d: Pick<Damage, 'area' | 'deductions'>): number | null {
+  if (d.area === null || !d.deductions?.length) return d.area;
+  return clean(d.deductions.reduce((s, x) => s - deductionArea(x), d.area));
+}
 
 /** Summe der Flächen (m²) – nur Flächen- und Schadstellenmessungen mit Fläche. */
 export function sumAreas(damages: Pick<Damage, 'kind' | 'area'>[]): number {

@@ -29,8 +29,8 @@ test('Sicherungs-Erinnerung erscheint bei alter Sicherung und verschwindet nach 
   const banner = page.getByTestId('backup-reminder');
   await expect(banner).toContainText('Sicherung empfohlen');
 
-  // In der Projektverwaltung ebenfalls sichtbar
-  await page.getByRole('link', { name: 'Zur Projektverwaltung' }).click();
+  // In Aufmaß & Abrechnung ebenfalls sichtbar
+  await page.getByRole('link', { name: 'Zu Aufmaß & Abrechnung' }).click();
   await expect(page.getByTestId('backup-info')).toContainText('Sicherung empfohlen');
   await page.getByTestId('project-card').click();
 
@@ -39,7 +39,7 @@ test('Sicherungs-Erinnerung erscheint bei alter Sicherung und verschwindet nach 
   expect(dl.suggestedFilename()).toMatch(/^Erinnerung_Sicherung_\d{4}-\d{2}-\d{2}\.zip$/);
   await saveDownload(dl, 'erinnerung.zip');
   await expect(banner).toHaveCount(0);
-  await page.getByRole('link', { name: 'Zur Projektverwaltung' }).click();
+  await page.getByRole('link', { name: 'Zu Aufmaß & Abrechnung' }).click();
   // heutiges Datum in der Zeitzone des Browsers (nicht des Testrechners)
   const today = await page.evaluate(() => new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }));
   await expect(page.getByTestId('backup-info')).toContainText(`Letzte Sicherung: ${today}`);

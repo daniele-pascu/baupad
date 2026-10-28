@@ -22,7 +22,7 @@ import { convertShape, isOpenShape, lineShape, polygonShape, removeVertex, rotat
 import { probeTarget, type ProbeKind } from '../lib/probe';
 import { ProbeBar, ProbeMenu, ProbeOverlay, type ProbeState } from '../components/ProbeLayer';
 import { circleThrough } from '../lib/cad';
-import { countKind, defaultKindFor, hasArea, isWall, KIND_LABELS, kindOf, measureLabel, sumLengths } from '../lib/measure';
+import { countKind, deductionText, defaultKindFor, grossArea, hasArea, isWall, KIND_LABELS, kindOf, measureLabel, netArea, sumLengths } from '../lib/measure';
 import { checkMeasure, computeArea, formatArea, formatMeasure, toInputValue } from '../lib/numbers';
 import { compactNumbers, damageNo, duplicateIds, nextNumber, planNumberStart, shiftNumbers, suggestNext, swapNumbers } from '../lib/numbering';
 import { navigate, paths } from '../lib/router';
@@ -44,6 +44,8 @@ const TOOLS: { id: Tool; label: string; short?: string; icon: string; key: strin
   { id: 'ellipse', label: SHAPE_LABELS.ellipse, icon: 'ellipse', key: 'k' },
   { id: 'polygon', label: 'Fläche: Eckpunkte nacheinander setzen', short: 'Fläche', icon: 'polygon', key: 'p' },
   { id: 'polyline', label: 'Freie Form: Punkte nacheinander setzen – offen (Länge) oder geschlossen (Fläche), z. B. ein Dreieck', short: 'Freie Form', icon: 'polyline', key: 'f' },
+  // Freihand: ohne Absetzen zeichnen – bleibt genau so (z. B. Risse); am Startpunkt beendet = Fläche
+  { id: 'freehand', label: 'Freihand: ohne Absetzen zeichnen – Linie genau wie gezeichnet (z. B. Riss), am Startpunkt beenden ergibt eine Fläche', short: 'Freihand', icon: 'freehand', key: 'h' },
   { id: 'wall', label: 'Wand: Verlauf mit Knicken setzen, Enter oder Doppelklick beendet – danach Wandhöhe eingeben', short: 'Wand', icon: 'wall', key: 'w' },
   // Kontrollmessung: Menü mit Länge, Fläche, Winkel, Radius, Abstand – verändert nichts
   { id: 'probe', label: 'Messung: Länge, Fläche, Winkel, Radius oder Abstand nachmessen – ändert nichts', short: 'Messung', icon: 'dimension', key: 'n' },
@@ -212,7 +214,7 @@ function storePref(key: string, value: string) {
  * Messung mit Fläche aus der Plangeometrie: Fläche und Umfang aus der (geänderten) Form
  * neu berechnen. Ohne Ergebnis (z. B. offene Form, kein Maßstab) bleiben die Werte stehen.
  */
-function withShapeMeasures<T extends Pick<Damage, 'areaFromShape' | 'kind' | 'length' | 'area' | 'width'>>(d: T, shape: Shape, k: number | null): T {
+function withShapeMeasures<T extends Pick<Damage, 'areaFromShape' | 'kind' | 'length' | 'area' | 'width' | 'deductions'>>(d: T, shape: Shape, k: number | null): T {
   if (!d.areaFromShape) return d;
   // Linie mit Länge aus dem Plan: Gesamtlänge aller Abschnitte (Höhe/Tiefe bleiben)
   if (!hasArea(kindOf(d))) return k ? { ...d, length: suggestMeasures(shape, k).length } : d;
@@ -220,21 +222,23 @@ function withShapeMeasures<T extends Pick<Damage, 'areaFromShape' | 'kind' | 'le
   if (isWall({ kind: d.kind, shape })) {
     if (!k) return d;
     const length = suggestMeasures(shape, k).length;
-    return { ...d, length, area: d.width !== null ? computeArea(length, d.width) : null };
+    return { ...d, length, area: d.width !== null ? netArea(computeArea(length, d.width), d.deductions) : null };
   }
   const g = geometryMeasures(shape, k);
-  return g ? { ...d, length: g.perimeter, width: null, area: g.area } : d;
+  return g ? { ...d, length: g.perimeter, width: null, area: netArea(g.area, d.deductions) } : d;
 }
 
 /** Kurzbeschreibung der Maße je Messart */
-function measureSummary(d: Pick<Damage, 'kind' | 'length' | 'width' | 'depth' | 'area' | 'areaFromShape' | 'shape'>): string {
+function measureSummary(d: Pick<Damage, 'kind' | 'length' | 'width' | 'depth' | 'area' | 'areaFromShape' | 'shape' | 'deductions'>): string {
   if (!hasArea(kindOf(d))) return `L ${formatMeasure(d.length)} m`;
   const depth = d.depth !== null ? ` · T ${formatMeasure(d.depth)} m` : '';
+  // Abzüge/Zuschläge: Brutto ± Teilflächen = Netto
+  const deds = d.area !== null && d.deductions?.length ? ` ${deductionText(d.deductions)} = ${formatArea(d.area)} m²` : '';
   // Wand: Länge (aus dem Plan) × Höhe – kein Umfang
-  if (d.areaFromShape && d.area !== null && !isWall(d)) return `${formatArea(d.area)} m² aus Plan · U ${formatMeasure(d.length)} m${depth}`;
+  if (d.areaFromShape && d.area !== null && !isWall(d)) return `${formatArea(grossArea(d))} m² aus Plan${deds} · U ${formatMeasure(d.length)} m${depth}`;
   // ohne Breite/Höhe: nur die Länge, keine Fläche
   if (d.width === null || d.area === null) return `L ${formatMeasure(d.length)} m${depth}`;
-  return `${formatMeasure(d.length)} × ${formatMeasure(d.width)} m${depth} = ${formatArea(d.area)} m²`;
+  return `${formatMeasure(d.length)} × ${formatMeasure(d.width)} m${depth} = ${formatArea(grossArea(d))} m²${deds}`;
 }
 
 /**
@@ -774,7 +778,10 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     // Linie mit Länge aus dem Plan: Gesamtlänge aller Abschnitte, wird bei Formänderungen nachgeführt
     const wall = isWall({ kind: v.kind, shape: finalShape });
     const lineFromPlan = v.areaFromShape && (!hasArea(v.kind) || wall) && k ? suggestMeasures(finalShape, k).length : null;
-    const area = geo ? geo.area : hasArea(v.kind) && v.width !== null ? computeArea(lineFromPlan ?? v.length, v.width) : null;
+    const gross = geo ? geo.area : hasArea(v.kind) && v.width !== null ? computeArea(lineFromPlan ?? v.length, v.width) : null;
+    // Abzüge/Zuschläge (Tür, Öffnung …) nur bei Flächen
+    const deductions = hasArea(v.kind) && gross !== null && v.deductions.length ? v.deductions : undefined;
+    const area = netArea(gross, deductions);
     const measures = {
       kind: v.kind,
       length: geo ? geo.perimeter : (lineFromPlan ?? v.length),
@@ -782,6 +789,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       width: geo ? null : v.width,
       depth: v.depth,
       area,
+      deductions,
       areaFromShape: geo || lineFromPlan !== null ? true : undefined,
       componentId: v.componentId,
       positionRef: v.positionRef,

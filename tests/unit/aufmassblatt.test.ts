@@ -48,6 +48,29 @@ describe('Aufmaßblatt (Firmenvorlage)', () => {
     expect(ws).toContain('>Fläche aus Plan<');
   });
 
+  it('Abzüge/Zuschläge: eigene Zeilen mit Formel und Bemerkung, Summe = netto; Position rechnet netto', () => {
+    // Wand 5,50 × 2,30 = 12,65 m², abzüglich 2 Fenster 1,00 × 1,20 und einer Tür 1,00 × 2,10, zuzüglich Nische 0,50 × 1,00
+    const deductions = [
+      { id: 'a', label: 'Fenster', count: 2, length: 1, width: 1.2 },
+      { id: 'b', label: 'Tür', count: 1, length: 1, width: 2.1 },
+      { id: 'c', label: 'Nische', count: 1, length: 0.5, width: 1, add: true },
+    ];
+    const pos = { id: 'a', number: '01', shortText: 'Spachteln', longText: '', unit: 'm²', quantity: null, unitPrice: 10, totalPrice: null, group: '', issues: [] };
+    const withDeds = {
+      ...data,
+      lvDocs: { l1: { ...meta, id: 'l1', projectId: 'x', kind: 'lv', name: 'LV', number: '', fileName: '', groups: [], positions: [pos] } },
+      damages: { d1: dmg('d1', 1, { kind: 'area', length: 5.5, width: 2.3, area: 8.65, deductions, positionRef: 'l1:a' }) },
+    } as unknown as ProjectState;
+    const ws = strFromU8(unzipSync(exportAufmassblatt(withDeds, { kind: 'plan', planId: 'p1' }, { no: '011', period: '' }).data)['xl/worksheets/sheet1.xml']);
+    for (const t of ['Abzug Fenster (2×)', 'Abzug Tür', 'Zuschlag Nische', 'Bemerkung']) expect(ws).toContain(`>${t}<`);
+    const main = /<f>(C(\d+)\*D\2)<\/f><v>12.65<\/v>/.exec(ws)!;
+    const r = Number(main[2]);
+    expect(ws).toContain(`<f>-2*C${r + 1}*D${r + 1}</f><v>-2.4</v>`);
+    expect(ws).toContain(`<f>-C${r + 2}*D${r + 2}</f><v>-2.1</v>`);
+    expect(ws).toContain(`<f>C${r + 3}*D${r + 3}</f><v>0.5</v>`);
+    expect(ws).toContain(`<f>SUM(E${r}:E${r + 3})</f><v>8.65</v>`); // 12,65 − 2,40 − 2,10 + 0,50
+  });
+
   it('jede LV/MFK und das Aufmaß ohne Position beginnt auf einer neuen Seite; fester Zoom, damit die Umbrüche gelten', () => {
     const pos = (id: string, number: string, unit: string) => ({ id, number, shortText: `Text ${number}`, longText: '', unit, quantity: null, unitPrice: 10, totalPrice: null, group: '', issues: [] });
     const doc = (id: string, kind: 'lv' | 'mfk', number: string, p: ReturnType<typeof pos>) => ({ ...meta, id, projectId: 'x', kind, name: `Dok ${number}`, number, fileName: '', groups: [], positions: [p] });
