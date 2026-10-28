@@ -18,9 +18,9 @@ import {
   DEFAULT_WORK_TIMES,
   emptyWeek,
   isoWeekNo,
-  placeInWeek,
+  carryPlacement,
   placeWorker,
-  sameSite,
+  workerSites,
   removeSite,
   setVacation,
   siteFromProject,
@@ -146,27 +146,17 @@ export function WorkersPage() {
     save(next);
     const target = next.sites.find((x) => x.id === siteId)!;
     if (moved.length) toast(`Umgesetzt auf ${target.name}: ${moved.join(', ')}.`, 'success', 4500);
-    // spätere, schon gespeicherte Wochen mit derselben Baustelle
-    const later = (await listWeeks()).filter((w) => w.id > weekId && sameSite(w, target)).sort((a, b) => a.id.localeCompare(b.id));
-    if (!later.length) return;
-    const ok = await confirmDialog({
-      title: 'Auch in den Folgewochen?',
-      message: (
-        <p>
-          {ids.map(nameOf).join(', ')} {ids.length === 1 ? 'ist' : 'sind'} jetzt auf „{target.name}“. Für {later.map((w) => `KW ${isoWeekNo(w.id)}`).join(', ')} gibt es schon eine Einteilung –
-          dort ebenfalls umsetzen?
-        </p>
-      ),
-      confirmLabel: 'Ja, auch dort',
-    });
-    if (!ok) return;
+    // bereits gespeicherte Folgewochen: dort ebenfalls umsetzen, bis der Arbeiter wieder anders eingeteilt ist
+    const later = (await listWeeks()).filter((w) => w.id > weekId).sort((a, b) => a.id.localeCompare(b.id));
     const all = [0, 1, 2, 3, 4, 5, 6].filter((d) => workTimes[d]);
-    for (const w of later) {
-      let n = w;
-      for (const id of ids) n = placeInWeek(n, id, target, all) ?? n;
-      await saveWeek(n);
+    const changed = new Map<string, WeekPlan>();
+    for (const id of ids) {
+      const prev = workerSites(plan!, id, ds);
+      const weeks = later.map((w) => changed.get(w.id) ?? w);
+      for (const w of carryPlacement(weeks, id, prev, target, all)) changed.set(w.id, w);
     }
-    toast(`In ${later.length} ${later.length === 1 ? 'Folgewoche' : 'Folgewochen'} übernommen.`, 'success');
+    for (const w of changed.values()) await saveWeek(w);
+    if (changed.size) toast(`Auch übernommen in ${[...changed.keys()].sort().map((k) => `KW ${isoWeekNo(k)}`).join(', ')}.`, 'success');
   };
 
   dropRef.current = (workerId, fromSiteId, fromDay, to) => {

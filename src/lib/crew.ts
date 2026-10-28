@@ -179,9 +179,11 @@ export function placeWorker(w: WeekPlan, workerId: string, toSiteId: string, day
 
 /** Baustelle derselben Bauvorhaben in einer anderen Woche (gleiches Projekt bzw. gleicher Name) */
 export function sameSite(w: WeekPlan, site: Pick<WeekSite, 'projectId' | 'name'>): WeekSite | undefined {
-  const name = site.name.trim().toLowerCase();
-  return w.sites.find((s) => (site.projectId && s.projectId ? s.projectId === site.projectId : s.name.trim().toLowerCase() === name));
+  return w.sites.find((s) => isSameSite(s, site));
 }
+
+const isSameSite = (a: Pick<WeekSite, 'projectId' | 'name'>, b: Pick<WeekSite, 'projectId' | 'name'>) =>
+  a.projectId && b.projectId ? a.projectId === b.projectId : a.name.trim().toLowerCase() === b.name.trim().toLowerCase();
 
 /**
  * In einer bereits geplanten Folgewoche übernehmen: der Arbeiter ist an allen Arbeitstagen (ohne Urlaub)
@@ -191,4 +193,30 @@ export function placeInWeek(w: WeekPlan, workerId: string, site: Pick<WeekSite, 
   const target = sameSite(w, site);
   if (!target) return null;
   return placeWorker(w, workerId, target.id, workDays).week;
+}
+
+/** Baustellen, auf denen ein Arbeiter in einer Woche (an irgendeinem Tag) eingeteilt ist */
+export const workerSites = (w: WeekPlan, workerId: string, days = [0, 1, 2, 3, 4, 5, 6]) =>
+  w.sites.filter((s) => days.some((d) => s.days[d].includes(workerId)));
+
+/**
+ * Umsetzung in die bereits gespeicherten Folgewochen weitertragen (aufsteigend sortiert): der Arbeiter bleibt
+ * auf der neuen Baustelle, bis er wieder geändert wurde. Halt in der ersten Woche, in der er schon anders
+ * eingeteilt ist als vorher (prevSites) oder die Baustelle fehlt (fertig/entfernt). Liefert nur geänderte Wochen.
+ */
+export function carryPlacement(
+  later: WeekPlan[],
+  workerId: string,
+  prevSites: Pick<WeekSite, 'projectId' | 'name'>[],
+  target: Pick<WeekSite, 'projectId' | 'name'>,
+  workDays: number[],
+): WeekPlan[] {
+  const out: WeekPlan[] = [];
+  for (const w of later) {
+    const changedByHand = workerSites(w, workerId).some((s) => ![...prevSites, target].some((k) => isSameSite(s, k)));
+    const next = changedByHand ? null : placeInWeek(w, workerId, target, workDays);
+    if (!next) break;
+    out.push(next);
+  }
+  return out;
 }

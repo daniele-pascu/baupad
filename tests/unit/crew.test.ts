@@ -137,4 +137,23 @@ describe('Umsetzen (Ziehen / Hinzufügen)', () => {
     expect(placeInWeek(next, 'max', { projectId: null, name: 'Gibt es nicht' }, [0])).toBeNull();
     expect(b).toBeTruthy();
   });
+
+  it('Umsetzung bleibt in den Folgewochen, bis der Arbeiter dort wieder anders eingeteilt ist', async () => {
+    const { carryPlacement, placeWorker, workerSites } = await import('../../src/lib/crew');
+    let { w, a } = twoSites();
+    w = assign(w, a, [0, 1, 2, 3, 4], ['max']);
+    const prev = workerSites(w, 'max');
+    const kw45 = carryOver(w, '2026-11-02');
+    const kw46 = carryOver(kw45, '2026-11-09');
+    // KW 47: von Hand auf eine dritte Baustelle gesetzt → dort und danach bleibt alles
+    let kw47 = carryOver(kw46, '2026-11-16');
+    const c = addSite(kw47, { projectId: null, name: 'Baustelle C' });
+    kw47 = placeWorker(c.week, 'max', c.site.id, [0, 1, 2, 3, 4]).week;
+    const out = carryPlacement([kw45, kw46, kw47], 'max', prev, { projectId: null, name: 'Baustelle B' }, [0, 1, 2, 3, 4]);
+    expect(out.map((x) => x.id)).toEqual(['2026-11-02', '2026-11-09']);
+    for (const x of out) expect(workerSites(x, 'max').map((s) => s.name)).toEqual(['Baustelle B']);
+    // Baustelle fehlt in einer Folgewoche (fertig) → dort aufhören
+    const done = { ...kw45, sites: kw45.sites.filter((s) => s.name !== 'Baustelle B') };
+    expect(carryPlacement([done, kw46], 'max', prev, { projectId: null, name: 'Baustelle B' }, [0])).toEqual([]);
+  });
 });

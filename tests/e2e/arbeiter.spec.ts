@@ -351,7 +351,7 @@ test('Baustelle ↔ Projekt: aus der Projektverwaltung wählen, als Projekt anle
   await expect(page.getByTestId('site-open-project')).toHaveCount(1);
 });
 
-test('Ziehen: offenen Arbeiter einteilen, umsetzen ab Tag; bereits geplante Folgewoche auf Wunsch mit übernehmen', async ({ page }) => {
+test('Ziehen: offenen Arbeiter einteilen, umsetzen ab Tag; bereits geplante Folgewoche wird mit umgesetzt (Ziehen und Antippen)', async ({ page }) => {
   await freshStart(page);
   await page.goto('./#/arbeitereinteilung');
   await page.getByTestId('week-date').fill('2026-10-26');
@@ -386,19 +386,27 @@ test('Ziehen: offenen Arbeiter einteilen, umsetzen ab Tag; bereits geplante Folg
   await page.getByTestId('week-weekend').check();
   await expect(page.getByTestId('draft-banner')).toHaveCount(0);
   await page.getByTestId('week-prev').click();
-  // Max am Donnerstag auf B ziehen → ab Donnerstag auf B, von A automatisch entfernt; Folgewoche auf Wunsch
+  // Max am Donnerstag auf B ziehen → ab Donnerstag auf B, von A automatisch entfernt; Folgewoche automatisch mit
   await dragTo(page, chips(page, 'Baustelle A', 3), site(page, 'Baustelle B').locator('[data-testid="day-row"][data-day="3"]'));
-  await expect(page.getByTestId('confirm-dialog')).toContainText('KW 45');
-  await page.getByRole('button', { name: 'Ja, auch dort' }).click();
-  await expect(page.locator('.toast', { hasText: 'In 1 Folgewoche übernommen' })).toHaveCount(1);
+  await expect(page.getByTestId('confirm-dialog')).toHaveCount(0);
+  await expect(page.locator('.toast', { hasText: 'Auch übernommen in KW 45' })).toHaveCount(1);
   for (const d of [0, 1, 2]) await expect(chips(page, 'Baustelle A', d)).toHaveText(['Max']);
   for (const d of [3, 4]) {
     await expect(chips(page, 'Baustelle A', d)).toHaveCount(0);
     await expect(chips(page, 'Baustelle B', d)).toHaveText(['Peter', 'Max']);
   }
+  // Peter am Freitag antippen → „Umsetzen“ auf A: ab Freitag dort, ebenfalls in KW 45
+  await chips(page, 'Baustelle B', 4).filter({ hasText: 'Peter' }).click();
+  const cd = page.getByTestId('chip-dialog');
+  await cd.getByTestId('chip-move-to').selectOption({ label: 'Baustelle A' });
+  await cd.getByTestId('chip-move').click();
+  await expect(page.locator('.toast', { hasText: 'Auch übernommen in KW 45' }).first()).toBeVisible();
+  await expect(chips(page, 'Baustelle B', 3)).toHaveText(['Peter', 'Max']);
+  await expect(chips(page, 'Baustelle B', 4)).toHaveText(['Max']);
+  await expect(chips(page, 'Baustelle A', 4)).toHaveText(['Peter']);
   await page.getByTestId('week-next').click();
   for (const d of [0, 4]) {
-    await expect(chips(page, 'Baustelle A', d)).toHaveCount(0);
-    await expect(chips(page, 'Baustelle B', d)).toHaveText(['Peter', 'Max']);
+    await expect(chips(page, 'Baustelle A', d)).toHaveText(['Peter']);
+    await expect(chips(page, 'Baustelle B', d)).toHaveText(['Max']);
   }
 });
