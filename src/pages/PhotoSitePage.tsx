@@ -9,7 +9,7 @@ import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, offerFile, showError, toast } from '../components/ui';
 import { safeFileName } from '../lib/aufmass';
 import { getPhotoStorage } from '../lib/photo-storage';
-import { dateTimeLabel, dayTitle, fmtBytes, GROUP_MODES, groupPhotos, matchesPhoto, type PhotoGroupMode, photoSiteKey, SYNC_LABELS, timeLabel, weekLabel } from '../lib/photos';
+import { dateTimeLabel, dayTitle, fmtBytes, GROUP_MODES, groupPhotos, matchesPhoto, type PhotoGroupMode, photoSiteKey, rotateImage, SYNC_LABELS, timeLabel, weekLabel } from '../lib/photos';
 import { navigate, paths } from '../lib/router';
 import type { Photo } from '../lib/types';
 import { loadPhotoSites } from './PhotosPage';
@@ -17,7 +17,7 @@ import { usePageTitle } from './SitePages';
 
 /** Foto-Kachel: Bild, darunter Uhrzeit, Benutzer und Beschreibung; im Auswahlmodus mit Häkchen */
 function Thumb({ photo, selectable, selected, onOpen, onToggle }: { photo: Photo; selectable: boolean; selected: boolean; onOpen(): void; onToggle(): void }) {
-  const src = usePhotoUrl(photo.id, 'thumb');
+  const src = usePhotoUrl(photo.id, 'thumb', photo.updatedAt);
   return (
     <div className={`photo-card${selected ? ' selected' : ''}`} data-testid="photo-thumb" data-photo={photo.id} data-selected={selected || undefined}>
       <button
@@ -74,6 +74,8 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
     }
   });
   const [selecting, setSelecting] = useState(false);
+  /** womit die Auswahl begonnen wurde (Hinweis in der Leiste) */
+  const [intent, setIntent] = useState<'pdf' | 'move' | null>(null);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   /** fortlaufende Galerie: zuerst die neuesten Wochen, beim Scrollen nach unten erscheinen ältere */
   const [limit, setLimit] = useState(4);
@@ -126,7 +128,12 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
     });
   const stopSelecting = () => {
     setSelecting(false);
+    setIntent(null);
     setSelected(new Set());
+  };
+  const startSelecting = (why: 'pdf' | 'move' | null) => {
+    setSelecting(true);
+    setIntent(why);
   };
   // ältere Wochen nachladen, sobald das Ende sichtbar wird
   useEffect(() => {
@@ -175,6 +182,19 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
       });
     });
   const remove = (p: Photo) => removeMany([p]);
+  /** um 90° drehen und sofort in dieser Lage speichern (Bild, Vorschau und – falls vorhanden – Original) */
+  const rotate = (p: Photo, dir: 'left' | 'right') =>
+    run(async () => {
+      const storage = getPhotoStorage();
+      const b = await storage.blobs(p.id);
+      if (!b) throw new Error('Bilddaten nicht gefunden.');
+      const [main, thumb] = await Promise.all([rotateImage(b.data, dir), rotateImage(b.thumb, dir, 0.75)]);
+      const original = b.original ? (await rotateImage(b.original, dir, 0.92).catch(() => null))?.data : undefined;
+      await storage.put({ ...p, width: main.width, height: main.height }, { data: main.data, thumb: thumb.data, ...(original ? { original } : {}) });
+      forgetPhotoUrl(p.id);
+      await reload();
+      toast('Gedreht und gespeichert.', 'success');
+    });
   const saveDescription = (p: Photo, description: string) =>
     run(async () => {
       await getPhotoStorage().update({ ...p, description: description.trim() });
@@ -236,14 +256,9 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
               </span>
             </div>
           </div>
-          <div className="row gap">
-            <button type="button" className="btn btn-sm" onClick={() => setPdfOpen(true)} disabled={!shown.length} data-testid="photo-pdf">
-              <Icon name="pdf" size={16} /> PDF
-            </button>
-            <button type="button" className="btn btn-sm" onClick={() => downloadZip()} disabled={!shown.length} data-testid="photo-zip">
-              <Icon name="zip" size={16} /> Alle als ZIP
-            </button>
-          </div>
+          <button type="button" className="btn btn-sm" onClick={() => downloadZip()} disabled={!shown.length} data-testid="photo-zip">
+            <Icon name="zip" size={16} /> Alle als ZIP
+          </button>
         </header>
 
         {site && <PhotoCapture sites={[site]} site={site} existingHashes={hashes} onSaved={() => void reload()} big />}
@@ -272,9 +287,21 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
                 </button>
               ))}
             </div>
-            <button type="button" className={`btn btn-sm${selecting ? ' btn-primary' : ''}`} onClick={() => (selecting ? stopSelecting() : setSelecting(true))} data-testid="photo-select">
-              <Icon name="check" size={16} /> {selecting ? 'Fertig' : 'Auswählen'}
-            </button>
+            <div className="row gap photo-actions">
+              <button type="button" className={`btn btn-sm${selecting ? ' btn-primary' : ''}`} onClick={() => (selecting ? stopSelecting() : startSelecting(null))} data-testid="photo-select">
+                <Icon name="check" size={16} /> {selecting ? 'Fertig' : 'Auswählen'}
+              </button>
+              {!selecting && (
+                <>
+                  <button type="button" className="btn btn-sm" onClick={() => startSelecting('move')} title="Fotos auswählen und zu einer anderen Baustelle verschieben" data-testid="photo-move">
+                    <Icon name="move" size={16} /> Verschieben
+                  </button>
+                  <button type="button" className="btn btn-sm" onClick={() => startSelecting('pdf')} title="Fotos auswählen und als PDF ausgeben" data-testid="photo-pdf">
+                    <Icon name="pdf" size={16} /> PDF
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         )}
         {all && photos.length === 0 && <p className="muted" data-testid="photo-site-empty">Noch keine Fotos auf dieser Baustelle.</p>}
@@ -323,6 +350,11 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
       {selecting && (
         <div className="photo-selection-bar" role="toolbar" aria-label="Auswahl" data-testid="photo-selection-bar">
           <strong>{chosen.length} ausgewählt</strong>
+          {intent && chosen.length === 0 && (
+            <span className="photo-selection-hint" data-testid="photo-selection-hint">
+              Fotos antippen, dann unten „{intent === 'pdf' ? 'PDF' : 'Verschieben'}“
+            </span>
+          )}
           <button type="button" className="btn btn-sm" onClick={() => setMany(shown.map((p) => p.id), true)}>
             Alle ({shown.length})
           </button>
@@ -333,10 +365,10 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
           <button type="button" className="btn btn-sm" onClick={() => downloadZip(chosen)} disabled={!chosen.length} data-testid="photo-selected-download">
             <Icon name="download" size={16} /> Herunterladen
           </button>
-          <button type="button" className="btn btn-sm" onClick={() => setPdfOpen(true)} disabled={!chosen.length} data-testid="photo-selected-pdf">
+          <button type="button" className={`btn btn-sm${intent === 'pdf' && chosen.length ? ' btn-primary' : ''}`} onClick={() => setPdfOpen(true)} disabled={!chosen.length} data-testid="photo-selected-pdf">
             <Icon name="pdf" size={16} /> PDF
           </button>
-          <button type="button" className="btn btn-sm" onClick={() => setMoving(chosen)} disabled={!chosen.length} data-testid="photo-selected-move">
+          <button type="button" className={`btn btn-sm${intent === 'move' && chosen.length ? ' btn-primary' : ''}`} onClick={() => setMoving(chosen)} disabled={!chosen.length} data-testid="photo-selected-move">
             <Icon name="move" size={16} /> Verschieben
           </button>
           <button type="button" className="btn btn-sm" disabled title="Kommt mit der zentralen Ablage: Link für 30 Tage, nur auf die Fotos" data-testid="photo-selected-share">
@@ -376,6 +408,7 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
           onDelete={() => remove(current)}
           onDownload={() => download(current)}
           onMove={() => setMoving([current])}
+          onRotate={(dir) => rotate(current, dir)}
           onDescription={(t) => saveDescription(current, t)}
         />
       )}
@@ -394,6 +427,7 @@ function Lightbox({
   onDelete,
   onDownload,
   onMove,
+  onRotate,
   onDescription,
 }: {
   photo: Photo;
@@ -405,9 +439,10 @@ function Lightbox({
   onDelete(): void;
   onDownload(): void;
   onMove(): void;
+  onRotate(dir: 'left' | 'right'): void;
   onDescription(text: string): void;
 }) {
-  const src = usePhotoUrl(photo.id, 'data');
+  const src = usePhotoUrl(photo.id, 'data', photo.updatedAt);
   const [desc, setDesc] = useState(photo.description);
   const [editing, setEditing] = useState(false);
   const touch = useRef<{ x: number; y: number } | null>(null);
@@ -503,6 +538,12 @@ function Lightbox({
         <div className="row gap">
           <button type="button" className="btn btn-sm" onClick={onDownload} data-testid="lightbox-download">
             <Icon name="download" size={16} /> Herunterladen
+          </button>
+          <button type="button" className="btn btn-sm" onClick={() => onRotate('left')} title="Nach links drehen (wird sofort gespeichert)" data-testid="lightbox-rotate-left">
+            <Icon name="rotate" size={16} className="flip-x" /> Links
+          </button>
+          <button type="button" className="btn btn-sm" onClick={() => onRotate('right')} title="Nach rechts drehen (wird sofort gespeichert)" data-testid="lightbox-rotate-right">
+            <Icon name="rotate" size={16} /> Rechts
           </button>
           <button type="button" className="btn btn-sm" onClick={onMove} data-testid="lightbox-move">
             <Icon name="move" size={16} /> Verschieben

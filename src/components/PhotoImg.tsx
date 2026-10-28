@@ -20,7 +20,8 @@ export function forgetPhotoUrl(id: string) {
     urls.delete(`${kind}:${id}`);
   }
 }
-export function usePhotoUrl(id: string, kind: 'thumb' | 'data'): string | null {
+/** Bild-Adresse eines Fotos; `version` (z. B. updatedAt) lädt nach einer Änderung – etwa Drehen – neu */
+export function usePhotoUrl(id: string, kind: 'thumb' | 'data', version = 0): string | null {
   const [src, setSrc] = useState<string | null>(() => urls.get(`${kind}:${id}`) ?? null);
   useEffect(() => {
     let on = true;
@@ -29,7 +30,7 @@ export function usePhotoUrl(id: string, kind: 'thumb' | 'data'): string | null {
     return () => {
       on = false;
     };
-  }, [id, kind]);
+  }, [id, kind, version]);
   return src;
 }
 

@@ -213,9 +213,14 @@ test('Neue Baustelle unter Fotos (Übersicht und Speichern-Dialog), Verschieben,
   await page.getByTestId('to-photos').click();
   await expect(cards.filter({ hasText: 'Halle 3' })).toContainText('2 Fotos');
 
-  // PDF: 1 Foto je Seite, Logo links, fortlaufend → 2 Seiten
+  // PDF: zuerst Fotos auswählen (Knopf „PDF“ startet die Auswahl), dann 1 Foto je Seite, Logo links, fortlaufend → 2 Seiten
   await cards.filter({ hasText: 'Halle 3' }).click();
   await page.getByTestId('photo-pdf').click();
+  await expect(page.getByTestId('photo-selection-hint')).toContainText('dann unten „PDF“');
+  await expect(page.getByTestId('photo-selected-pdf')).toBeDisabled();
+  await page.getByTestId('photo-group-all').check(); // beide liegen in KW 44
+  await expect(page.getByTestId('photo-selection-bar')).toContainText('2 ausgewählt');
+  await page.getByTestId('photo-selected-pdf').click();
   const pd = page.getByTestId('photo-pdf-dialog');
   await pd.getByTestId('pdf-per-page').selectOption('1');
   await pd.getByTestId('pdf-logo').selectOption('links');
@@ -229,4 +234,17 @@ test('Neue Baustelle unter Fotos (Übersicht und Speichern-Dialog), Verschieben,
   const { PDFDocument } = await import('pdf-lib');
   expect((await PDFDocument.load(readFileSync(pdfPath))).getPageCount()).toBe(2);
   await expect(pd).toHaveCount(0);
+
+  // Drehen in der Großansicht: wird sofort gespeichert (Breite und Höhe tauschen, bleibt nach dem Neuladen)
+  await page.getByTestId('photo-select').click(); // Fertig
+  await page.getByTestId('photo-thumb').first().click();
+  const img = page.getByTestId('lightbox-image');
+  await expect(img).toBeVisible();
+  const [w, h] = await img.evaluate((i: HTMLImageElement) => [i.naturalWidth, i.naturalHeight]);
+  await page.getByTestId('lightbox-rotate-right').click();
+  await expect(page.locator('.toast', { hasText: 'Gedreht und gespeichert' })).toHaveCount(1);
+  await expect(page.getByTestId('lightbox')).toContainText(`${h} × ${w}`);
+  await page.reload(); // Großansicht bleibt über die Adresse (?f=) offen
+  await expect(page.getByTestId('lightbox')).toContainText(`${h} × ${w}`);
+  await expect.poll(() => page.getByTestId('lightbox-image').evaluate((i: HTMLImageElement) => [i.naturalWidth, i.naturalHeight])).toEqual([h, w]);
 });

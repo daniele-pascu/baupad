@@ -271,4 +271,23 @@ export async function shrinkJpeg(data: ArrayBuffer, max: number, quality = 0.78)
   }
 }
 
+/** Bild um 90° drehen (links/rechts) – neu kodiert als JPEG; liefert auch die neue Pixelgröße */
+export async function rotateImage(data: ArrayBuffer, dir: 'left' | 'right', quality = 0.9): Promise<{ data: ArrayBuffer; width: number; height: number }> {
+  const bitmap = await createImageBitmap(new Blob([data], { type: 'image/jpeg' }));
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = bitmap.height;
+    canvas.height = bitmap.width;
+    const g = canvas.getContext('2d')!;
+    g.translate(canvas.width / 2, canvas.height / 2);
+    g.rotate(((dir === 'right' ? 90 : -90) * Math.PI) / 180);
+    g.drawImage(bitmap, -bitmap.width / 2, -bitmap.height / 2);
+    const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', quality));
+    if (!blob) throw new Error('Bild konnte nicht gedreht werden.');
+    return { data: await blob.arrayBuffer(), width: canvas.width, height: canvas.height };
+  } finally {
+    bitmap.close?.();
+  }
+}
+
 export const fmtBytes = (n: number) => (n >= 1_048_576 ? `${(n / 1_048_576).toFixed(1).replace('.', ',')} MB` : `${Math.round(n / 1024)} KB`);

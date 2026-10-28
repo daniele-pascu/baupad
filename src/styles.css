@@ -6033,6 +6033,13 @@ a.tool-tile:focus-visible {
   border-style: dashed;
 }
 /* Leiste für die Auswahl (unten fest) */
+.photo-selection-hint {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+.flip-x {
+  transform: scaleX(-1);
+}
 .photo-selection-bar {
   position: fixed;
   left: 0;
