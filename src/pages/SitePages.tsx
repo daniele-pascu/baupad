@@ -57,21 +57,24 @@ export function LandingPage() {
           </h2>
           <div className="product-grid" data-testid="product-grid">
             {t.tools.map((x) => (
-              <article key={x.id} className="product-card" style={{ '--tool': x.color } as CSSProperties} data-testid="product-card">
+              <a key={x.id} href={paths.product(site.products[x.id].slug)} className="product-card" style={{ '--tool': x.color } as CSSProperties} data-testid="product-card">
                 <span className="product-icon" aria-hidden="true">
                   <ToolIcon name={x.id} size={26} />
                 </span>
                 <h3>{x.title}</h3>
                 <p>{x.text}</p>
                 <ul>
-                  {x.points.map((p) => (
+                  {x.points.slice(0, 2).map((p) => (
                     <li key={p}>
                       <Icon name="check" size={14} />
                       {p}
                     </li>
                   ))}
                 </ul>
-              </article>
+                <span className="product-more">
+                  Mehr erfahren <span aria-hidden="true">→</span>
+                </span>
+              </a>
             ))}
           </div>
         </section>

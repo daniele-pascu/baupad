@@ -19,6 +19,14 @@ test('Website: Startseite, Über uns, Kontakt, Impressum, Anmelden und Logo', as
   await expect(page.locator('.hero-lead')).toContainText('BauPad vereint Aufmaß und Abrechnung, Arbeitereinteilung, Berichte und Fotodokumentation');
   await expect(page.getByTestId('product-card')).toHaveCount(4);
   await expect(page.getByTestId('product-card').nth(3)).toContainText('Fotodokumentation');
+  // Produktseite: Bilder aus der App und Beispiel-Exporte
+  await page.getByTestId('product-card').nth(3).click();
+  await expect(page.getByTestId('product-title')).toHaveText('Fotodokumentation');
+  await expect(page.getByTestId('product-shots').locator('img')).toHaveCount(4);
+  await expect(page.getByTestId('product-exports').locator('img')).toHaveCount(1);
+  await page.getByTestId('product-open').click();
+  await expect(page.getByTestId('photos-title')).toHaveText('Fotodokumentation');
+  await page.goto('./');
 
   await nav.getByRole('link', { name: 'Über uns' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Über uns');

@@ -8,6 +8,7 @@ import { HomePage } from './pages/HomePage';
 import { ProjectPage } from './pages/ProjectPage';
 import { PlanEditorPage } from './pages/PlanEditorPage';
 import { AboutPage, ContactPage, LandingPage, ImprintPage, PrivacyPage } from './pages/SitePages';
+import { ProductPage } from './pages/ProductPage';
 import { AccountPage, LoginPage } from './pages/AccountPages';
 import { ToolsPage } from './pages/ToolsPage';
 import { WorkersPage } from './pages/WorkersPage';
@@ -60,6 +61,9 @@ export function App() {
       break;
     case 'privacy':
       content = <PrivacyPage />;
+      break;
+    case 'product':
+      content = <ProductPage key={route.product} id={route.product} />;
       break;
     case 'projects':
       content = <HomePage />;

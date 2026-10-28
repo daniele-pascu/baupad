@@ -8,6 +8,7 @@ export type Route =
   | { name: 'contact' }
   | { name: 'imprint' }
   | { name: 'privacy' }
+  | { name: 'product'; product: 'projects' | 'workers' | 'reports' | 'photos' }
   | { name: 'projects' }
   | { name: 'tools' }
   | { name: 'workers' }
@@ -33,6 +34,10 @@ export function parseRoute(hash: string): Route {
   if (parts[0] === 'kontakt' && parts.length === 1) return { name: 'contact' };
   if (parts[0] === 'impressum' && parts.length === 1) return { name: 'imprint' };
   if (parts[0] === 'datenschutz' && parts.length === 1) return { name: 'privacy' };
+  if (parts[0] === 'baupad' && parts.length === 2) {
+    const product = ({ aufmass: 'projects', arbeitereinteilung: 'workers', berichte: 'reports', fotos: 'photos' } as const)[parts[1]];
+    if (product) return { name: 'product', product };
+  }
   if (parts[0] === 'projekte' && parts.length === 1) return { name: 'projects' };
   if (parts[0] === 'tools' && parts.length === 1) return { name: 'tools' };
   if (parts[0] === 'arbeitereinteilung' && parts.length === 1) return { name: 'workers' };
@@ -59,6 +64,8 @@ export const paths = {
   contact: () => '#/kontakt',
   imprint: () => '#/impressum',
   privacy: () => '#/datenschutz',
+  /** Produktseite eines Werkzeugs (Website) */
+  product: (slug: string) => `#/baupad/${slug}`,
   /** Aufmaß & Abrechnung */
   projects: () => '#/projekte',
   /** Start nach der Anmeldung: Übersicht aller Werkzeuge (Kacheln) */
