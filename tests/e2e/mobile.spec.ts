@@ -569,7 +569,7 @@ test('Fotodokumentation per Finger: großer Aufnahme-Knopf, Speichern, Galerie u
   await page.getByTestId('photo-file-input').setInputFiles(join(FIXTURES, 'foto.jpg'));
   const dlg = page.getByTestId('photo-save-dialog');
   await dlg.getByTestId('photo-site').selectOption({ index: 0 }).catch(() => {});
-  await expect(dlg.getByTestId('photo-site').locator('option')).toHaveCount(1); // keine Baustelle angelegt
+  await expect(dlg.getByTestId('photo-site').locator('option')).toHaveCount(2); // keine Baustelle angelegt – nur „wählen“ und „Neue Baustelle“
   await expect(dlg.getByTestId('photo-save')).toBeDisabled();
   await dlg.getByRole('button', { name: 'Abbrechen' }).tap();
   // Baustelle anlegen und erneut

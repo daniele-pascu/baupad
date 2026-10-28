@@ -592,6 +592,14 @@ export type Report =
  */
 export type PhotoSync = 'local' | 'queued' | 'uploading' | 'synced' | 'failed';
 
+/** Baustelle für Fotos: aus einem Projekt (projectId) oder frei angelegt */
+export interface PhotoSite {
+  projectId: string | null;
+  name: string;
+  number: string;
+  address: string;
+}
+
 export interface Photo {
   id: string;
   /** Unternehmen – bis zur Anmeldung leer (wird mit der Cloud-Anbindung gesetzt) */

@@ -165,3 +165,68 @@ test('Ohne Projekt: Baustelle aus der Arbeitereinteilung bzw. Berichten; Foto oh
   await dlg.getByTestId('photo-save').click();
   await expect(page.getByTestId('photo-site')).toHaveAttribute('data-site', 'Halle 3');
 });
+
+test('Neue Baustelle unter Fotos (Übersicht und Speichern-Dialog), Verschieben, PDF mit Optionen', async ({ page }) => {
+  test.setTimeout(120_000);
+  await freshStart(page);
+  await page.goto('./#/fotos');
+  // Baustelle über die Übersicht anlegen → direkt auf ihrer Seite
+  await page.getByTestId('photo-new-site').click();
+  const sd = page.getByTestId('photo-site-dialog');
+  await sd.getByTestId('photo-site-name').fill('Garage Jagdschlossgasse');
+  await sd.getByTestId('photo-site-number').fill('91574');
+  await sd.getByTestId('photo-site-address').fill('1130 Wien, Jagdschlossgasse 77-79');
+  await sd.getByTestId('photo-site-save').click();
+  await expect(page.getByTestId('photo-site-title')).toHaveText('Garage Jagdschlossgasse');
+  await expect(page.getByTestId('photo-site-empty')).toBeVisible();
+  await page.getByTestId('photo-file-input').setInputFiles([shot('A.jpg', '2026:10:27 09:15:30'), shot('B.jpg', '2026:10:27 10:00:00')]);
+  const dlg = page.getByTestId('photo-save-dialog');
+  await expect(dlg.getByTestId('photo-site')).toHaveValue('|Garage Jagdschlossgasse');
+  await dlg.getByTestId('photo-user').fill('Max');
+  await dlg.getByTestId('photo-save').click();
+  await expect(page.getByTestId('photo-thumb')).toHaveCount(2);
+
+  // Übersicht: Baustelle mit Nummer; im Speichern-Dialog eine weitere Baustelle anlegen
+  await page.getByTestId('to-photos').click();
+  const cards = page.locator('a[data-testid="photo-site"]');
+  await expect(cards).toHaveCount(1);
+  await expect(cards).toContainText('91574');
+  await page.getByTestId('photo-file-input').setInputFiles([shot('C.jpg', '2026:10:28 08:00:00')]);
+  await dlg.getByTestId('photo-site').selectOption('__new');
+  await sd.getByTestId('photo-site-name').fill('Halle 3');
+  await sd.getByTestId('photo-site-save').click();
+  await expect(dlg.getByTestId('photo-site')).toHaveValue('|Halle 3');
+  await dlg.getByTestId('photo-save').click();
+  await expect(dlg).toHaveCount(0);
+  await expect(cards).toHaveCount(2);
+
+  // Verschieben: ein Foto von der Garage nach Halle 3
+  await cards.filter({ hasText: 'Garage' }).click();
+  await page.getByTestId('photo-select').click();
+  await page.getByTestId('photo-thumb').first().click();
+  await page.getByTestId('photo-selected-move').click();
+  const mv = page.getByTestId('photo-move-dialog');
+  await mv.getByTestId('photo-move-site').selectOption('|Halle 3');
+  await mv.getByTestId('photo-move-save').click();
+  await expect(page.locator('.toast', { hasText: 'nach „Halle 3“ verschoben' })).toHaveCount(1);
+  await expect(page.getByTestId('photo-thumb')).toHaveCount(1);
+  await page.getByTestId('to-photos').click();
+  await expect(cards.filter({ hasText: 'Halle 3' })).toContainText('2 Fotos');
+
+  // PDF: 1 Foto je Seite, Logo links, fortlaufend → 2 Seiten
+  await cards.filter({ hasText: 'Halle 3' }).click();
+  await page.getByTestId('photo-pdf').click();
+  const pd = page.getByTestId('photo-pdf-dialog');
+  await pd.getByTestId('pdf-per-page').selectOption('1');
+  await pd.getByTestId('pdf-logo').selectOption('links');
+  await pd.getByTestId('pdf-group').selectOption('none');
+  await pd.getByTestId('pdf-quality-klein').check();
+  const dl = page.waitForEvent('download');
+  await pd.getByTestId('photo-pdf-create').click();
+  const d = await dl;
+  expect(d.suggestedFilename()).toMatch(/^Fotos_Halle_3_\d{4}-\d{2}-\d{2}\.pdf$/);
+  const pdfPath = await saveDownload(d, 'fotos.pdf');
+  const { PDFDocument } = await import('pdf-lib');
+  expect((await PDFDocument.load(readFileSync(pdfPath))).getPageCount()).toBe(2);
+  await expect(pd).toHaveCount(0);
+});

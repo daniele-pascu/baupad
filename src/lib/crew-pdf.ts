@@ -70,29 +70,44 @@ export async function setup(opts: Pick<CrewPdfOptions, 'logo'>): Promise<Ctx> {
   return { doc, font, bold, charset: new Set(font.getCharacterSet()), logo };
 }
 
-/** Kopf: links Firmenlogo (ohne Logo der Firmenname in Buchstaben), rechts Titel mit Zeitraum; liefert die y-Position darunter */
-export function header(ctx: Ctx, page: PDFPage, title: string, sub: string, company: string): number {
+/**
+ * Kopf: Firmenlogo (ohne Logo der Firmenname in Buchstaben) und Titel mit Untertitel; Logo links und Titel rechts
+ * (Standard) oder umgekehrt (logoRight); liefert die y-Position darunter
+ */
+export function header(ctx: Ctx, page: PDFPage, title: string, sub: string, company: string, logoRight = false): number {
   const { width, height } = page.getSize();
   let y = height - M;
-  let left = M;
-  if (ctx.logo) {
-    const h = 32;
-    const w = Math.min(140, (ctx.logo.width / ctx.logo.height) * h);
-    const lh = (w / ctx.logo.width) * ctx.logo.height;
-    page.drawImage(ctx.logo, { x: M, y: y - 1 - (h + lh) / 2, width: w, height: lh });
-    left += w + 20;
-  } else if (company) {
-    const c = fit(ctx.bold, clean(ctx, company), 15, width / 2 - M);
-    page.drawText(c, { x: M, y: y - 22, size: 15, font: ctx.bold, color: INK });
-    left += ctx.bold.widthOfTextAtSize(c, 15) + 20;
-  }
-  // rechts: Titel und Zeitraum, rechtsbündig
-  const right = (text: string, size: number, font: PDFFont, color: typeof INK, ty: number) => {
-    const t = fit(font, clean(ctx, text), size, width - M - left);
-    page.drawText(t, { x: width - M - font.widthOfTextAtSize(t, size), y: ty, size, font, color });
+  let brandW = 0;
+  const drawBrand = (x: number | ((w: number) => number)) => {
+    if (ctx.logo) {
+      const h = 32;
+      const w = Math.min(140, (ctx.logo.width / ctx.logo.height) * h);
+      const lh = (w / ctx.logo.width) * ctx.logo.height;
+      page.drawImage(ctx.logo, { x: typeof x === 'function' ? x(w) : x, y: y - 1 - (h + lh) / 2, width: w, height: lh });
+      brandW = w + 20;
+    } else if (company) {
+      const c = fit(ctx.bold, clean(ctx, company), 15, width / 2 - M);
+      const w = ctx.bold.widthOfTextAtSize(c, 15);
+      page.drawText(c, { x: typeof x === 'function' ? x(w) : x, y: y - 22, size: 15, font: ctx.bold, color: INK });
+      brandW = w + 20;
+    }
   };
-  right(title, 16, ctx.bold, INK, y - 16);
-  right(sub, 10, ctx.font, MUTED, y - 30);
+  if (logoRight) {
+    drawBrand((w) => width - M - w);
+    const max = width - 2 * M - brandW;
+    const t = fit(ctx.bold, clean(ctx, title), 16, max);
+    page.drawText(t, { x: M, y: y - 16, size: 16, font: ctx.bold, color: INK });
+    page.drawText(fit(ctx.font, clean(ctx, sub), 10, max), { x: M, y: y - 30, size: 10, font: ctx.font, color: MUTED });
+  } else {
+    drawBrand(M);
+    const left = M + brandW;
+    const right = (text: string, size: number, font: PDFFont, color: typeof INK, ty: number) => {
+      const t = fit(font, clean(ctx, text), size, width - M - left);
+      page.drawText(t, { x: width - M - font.widthOfTextAtSize(t, size), y: ty, size, font, color });
+    };
+    right(title, 16, ctx.bold, INK, y - 16);
+    right(sub, 10, ctx.font, MUTED, y - 30);
+  }
   y -= 40;
   page.drawLine({ start: { x: M, y }, end: { x: width - M, y }, thickness: 1.2, color: INK });
   return y - 12;

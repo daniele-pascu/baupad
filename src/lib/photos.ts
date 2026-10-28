@@ -256,4 +256,19 @@ export async function preparePhoto(file: File, now = Date.now()): Promise<Prepar
   }
 }
 
+/** JPEG auf eine Kantenlänge verkleinern (z. B. für ein kleineres PDF); bei Fehlern bleibt das Original */
+export async function shrinkJpeg(data: ArrayBuffer, max: number, quality = 0.78): Promise<ArrayBuffer> {
+  try {
+    const bitmap = await createImageBitmap(new Blob([data], { type: 'image/jpeg' }));
+    try {
+      if (Math.max(bitmap.width, bitmap.height) <= max) return data;
+      return (await resize(bitmap, max, quality)).data;
+    } finally {
+      bitmap.close?.();
+    }
+  } catch {
+    return data;
+  }
+}
+
 export const fmtBytes = (n: number) => (n >= 1_048_576 ? `${(n / 1_048_576).toFixed(1).replace('.', ',')} MB` : `${Math.round(n / 1024)} KB`);

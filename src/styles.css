@@ -5663,7 +5663,7 @@ a.tool-tile:focus-visible {
 
 /* ───────────── Fotodokumentation ───────────── */
 .photos-page {
-  --tool: #27ae60;
+  --tool: #111111;
 }
 .photo-capture {
   display: flex;
@@ -5989,6 +5989,48 @@ a.tool-tile:focus-visible {
 .photo-check.on {
   background: var(--tool);
   border-color: var(--tool);
+}
+/* Formulare der Foto-Dialoge */
+.stack-fields,
+.pdf-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pdf-options fieldset.field {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.pdf-options .form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+.pdf-options .check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  cursor: pointer;
+}
+.pdf-options .check input {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+.pdf-options .check-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+}
+.pdf-options .radio-list {
+  display: flex;
+  flex-direction: column;
+}
+.photo-site-empty {
+  border-style: dashed;
 }
 /* Leiste für die Auswahl (unten fest) */
 .photo-selection-bar {

@@ -17,7 +17,7 @@ interface Tool {
 const TOOLS: Tool[] = [
   { id: 'projects', title: 'Aufmaß & Abrechnung', text: 'Pläne, Messungen, Excel und Rechnungen', color: '#ff6a13', href: paths.projects() },
   { id: 'workers', title: 'Arbeitereinteilung', text: 'Wochenplanung nach Baustellen', color: '#2f80ed', href: paths.workers() },
-  { id: 'photos', title: 'Fotodokumentation', text: 'Fotos je Baustelle, Woche und Tag', color: '#27ae60', href: paths.photos() },
+  { id: 'photos', title: 'Fotodokumentation', text: 'Fotos je Baustelle, Woche und Tag', color: '#111111', href: paths.photos() },
   { id: 'reports', title: 'Berichte & Formulare', text: 'Regielisten, Bautages- und Wochenberichte', color: '#a259ff', href: paths.reports() },
 ];
 

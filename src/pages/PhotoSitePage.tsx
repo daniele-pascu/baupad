@@ -1,6 +1,8 @@
 import { zipSync } from 'fflate';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '../components/Icon';
+import { MovePhotosDialog } from '../components/MovePhotosDialog';
+import { PhotoPdfDialog } from '../components/PhotoPdfDialog';
 import { forgetPhotoUrl, usePhotoUrl } from '../components/PhotoImg';
 import { PhotoCapture, type PhotoSite } from '../components/PhotoCapture';
 import { SiteNav } from '../components/SiteNav';
@@ -57,6 +59,9 @@ function Thumb({ photo, selectable, selected, onOpen, onToggle }: { photo: Photo
 export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; week: string | null; photoId: string | null }) {
   const [all, setAll] = useState<Photo[] | null>(null);
   const [site, setSite] = useState<PhotoSite | null>(null);
+  const [sites, setSites] = useState<PhotoSite[]>([]);
+  const [moving, setMoving] = useState<Photo[] | null>(null);
+  const [pdfOpen, setPdfOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [user, setUser] = useState('');
   const [mode, setMode] = useState<PhotoGroupMode>(() => {
@@ -83,6 +88,7 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
         setAll(list);
         const mine = list.filter((p) => photoSiteKey(p) === siteKey);
         const sites = await loadPhotoSites(list);
+        setSites(sites);
         const found = sites.find((s) => photoSiteKey({ projectId: s.projectId, siteName: s.name }) === siteKey);
         const last = mine.sort((a, b) => b.uploadedAt - a.uploadedAt)[0];
         setSite(found ?? (last ? { projectId: last.projectId, name: last.siteName, number: last.siteNumber, address: last.siteAddress } : null));
@@ -230,9 +236,14 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
               </span>
             </div>
           </div>
-          <button type="button" className="btn btn-sm" onClick={() => downloadZip()} disabled={!shown.length} data-testid="photo-zip">
-            <Icon name="zip" size={16} /> Alle als ZIP
-          </button>
+          <div className="row gap">
+            <button type="button" className="btn btn-sm" onClick={() => setPdfOpen(true)} disabled={!shown.length} data-testid="photo-pdf">
+              <Icon name="pdf" size={16} /> PDF
+            </button>
+            <button type="button" className="btn btn-sm" onClick={() => downloadZip()} disabled={!shown.length} data-testid="photo-zip">
+              <Icon name="zip" size={16} /> Alle als ZIP
+            </button>
+          </div>
         </header>
 
         {site && <PhotoCapture sites={[site]} site={site} existingHashes={hashes} onSaved={() => void reload()} big />}
@@ -322,6 +333,15 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
           <button type="button" className="btn btn-sm" onClick={() => downloadZip(chosen)} disabled={!chosen.length} data-testid="photo-selected-download">
             <Icon name="download" size={16} /> Herunterladen
           </button>
+          <button type="button" className="btn btn-sm" onClick={() => setPdfOpen(true)} disabled={!chosen.length} data-testid="photo-selected-pdf">
+            <Icon name="pdf" size={16} /> PDF
+          </button>
+          <button type="button" className="btn btn-sm" onClick={() => setMoving(chosen)} disabled={!chosen.length} data-testid="photo-selected-move">
+            <Icon name="move" size={16} /> Verschieben
+          </button>
+          <button type="button" className="btn btn-sm" disabled title="Kommt mit der zentralen Ablage: Link für 30 Tage, nur auf die Fotos" data-testid="photo-selected-share">
+            <Icon name="share" size={16} /> Link teilen
+          </button>
           <button type="button" className="btn btn-sm btn-danger-text" onClick={() => removeMany(chosen)} disabled={!chosen.length} data-testid="photo-selected-delete">
             <Icon name="trash" size={16} /> Löschen
           </button>
@@ -330,6 +350,21 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
           </button>
         </div>
       )}
+      {moving && site && (
+        <MovePhotosDialog
+          photos={moving}
+          sites={sites}
+          from={site}
+          onClose={() => setMoving(null)}
+          onMoved={() => {
+            setMoving(null);
+            if (current && moving.some((p) => p.id === current.id)) show(null);
+            setSelected(new Set());
+            void reload();
+          }}
+        />
+      )}
+      {pdfOpen && site && <PhotoPdfDialog site={site} selection={selecting ? chosen : []} all={shown} onClose={() => setPdfOpen(false)} />}
       {current && (
         <Lightbox
           photo={current}
@@ -340,6 +375,7 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
           onClose={() => show(null)}
           onDelete={() => remove(current)}
           onDownload={() => download(current)}
+          onMove={() => setMoving([current])}
           onDescription={(t) => saveDescription(current, t)}
         />
       )}
@@ -357,6 +393,7 @@ function Lightbox({
   onClose,
   onDelete,
   onDownload,
+  onMove,
   onDescription,
 }: {
   photo: Photo;
@@ -367,6 +404,7 @@ function Lightbox({
   onClose(): void;
   onDelete(): void;
   onDownload(): void;
+  onMove(): void;
   onDescription(text: string): void;
 }) {
   const src = usePhotoUrl(photo.id, 'data');
@@ -465,6 +503,9 @@ function Lightbox({
         <div className="row gap">
           <button type="button" className="btn btn-sm" onClick={onDownload} data-testid="lightbox-download">
             <Icon name="download" size={16} /> Herunterladen
+          </button>
+          <button type="button" className="btn btn-sm" onClick={onMove} data-testid="lightbox-move">
+            <Icon name="move" size={16} /> Verschieben
           </button>
           <button type="button" className="btn btn-sm btn-danger-text" onClick={onDelete} data-testid="lightbox-delete">
             <Icon name="trash" size={16} /> Löschen

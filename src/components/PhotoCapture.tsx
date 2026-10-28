@@ -3,18 +3,13 @@ import { getMeta, setMeta } from '../lib/db';
 import { uuid } from '../lib/ids';
 import { getPhotoStorage } from '../lib/photo-storage';
 import { dayAndWeek, fmtBytes, preparePhoto, type PreparedPhoto } from '../lib/photos';
-import type { Photo } from '../lib/types';
+import type { Photo, PhotoSite } from '../lib/types';
 import { Icon } from './Icon';
 import { Modal } from './Modal';
+import { PhotoSitePicker } from './PhotoSitePicker';
 import { showError, toast } from './ui';
 
-/** Baustelle für neue Fotos (Projekt oder frei) */
-export interface PhotoSite {
-  projectId: string | null;
-  name: string;
-  number: string;
-  address: string;
-}
+export type { PhotoSite };
 
 /** Name auf diesem Gerät – bis zur Anmeldung (dann kommt der Name aus der Sitzung) */
 export async function deviceUserName(): Promise<string> {
@@ -53,6 +48,9 @@ export function PhotoCapture({
   const lib = useRef<HTMLInputElement>(null);
   const [pending, setPending] = useState<Pending[] | null>(null);
   const [chosen, setChosen] = useState<PhotoSite | null>(site ?? null);
+  /** im Dialog neu angelegte Baustellen (bis die Liste neu geladen ist) */
+  const [extra, setExtra] = useState<PhotoSite[]>([]);
+  const allSites = [...sites, ...extra.filter((e) => !sites.some((s) => s.projectId === e.projectId && s.name === e.name))];
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   useEffect(() => {
@@ -161,18 +159,7 @@ export function PhotoCapture({
         >
           <label className="field">
             <span>Baustelle *</span>
-            <select
-              value={chosen ? `${chosen.projectId ?? ''}|${chosen.name}` : ''}
-              onChange={(e) => setChosen(sites.find((s) => `${s.projectId ?? ''}|${s.name}` === e.target.value) ?? null)}
-              data-testid="photo-site"
-            >
-              <option value="">– Baustelle wählen –</option>
-              {sites.map((s) => (
-                <option key={`${s.projectId ?? ''}|${s.name}`} value={`${s.projectId ?? ''}|${s.name}`}>
-                  {[s.number, s.name].filter(Boolean).join(' · ')}
-                </option>
-              ))}
-            </select>
+            <PhotoSitePicker sites={allSites} value={chosen} onChange={setChosen} onCreated={(s) => setExtra((x) => [...x, s])} />
           </label>
           <label className="field">
             <span>Aufgenommen von</span>

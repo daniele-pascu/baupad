@@ -2,27 +2,30 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Icon } from '../components/Icon';
 import { PhotoCapture, type PhotoSite } from '../components/PhotoCapture';
 import { PhotoImg } from '../components/PhotoImg';
+import { PhotoSiteDialog } from '../components/PhotoSitePicker';
 import { SiteNav } from '../components/SiteNav';
 import { ToolIcon } from '../components/ToolIcon';
 import { showError } from '../components/ui';
 import { listProjects, listReports, listWeeks } from '../lib/db';
+import { listFreePhotoSites } from '../lib/photo-sites';
 import { cloudConnected, getPhotoStorage } from '../lib/photo-storage';
 import { groupBySite, matchesPhoto, photoSiteKey, weekLabel } from '../lib/photos';
-import { paths } from '../lib/router';
+import { navigate, paths } from '../lib/router';
 import type { Photo, Project } from '../lib/types';
 import { usePageTitle } from './SitePages';
 
-const ACCENT = { '--tool': '#27ae60' } as CSSProperties;
+const ACCENT = { '--tool': '#111111' } as CSSProperties;
 
 /** Baustellen für neue Fotos: Projekte (Aufmaß & Abrechnung), Baustellen der Arbeitereinteilung und bisherige Foto-Baustellen */
 export async function loadPhotoSites(photos: Photo[]): Promise<PhotoSite[]> {
-  const [projects, weeks, reports] = await Promise.all([listProjects(), listWeeks(), listReports()]);
+  const [projects, weeks, reports, free] = await Promise.all([listProjects(), listWeeks(), listReports(), listFreePhotoSites()]);
   const out: PhotoSite[] = projects.map((p: Project) => ({ projectId: p.id, name: p.site || p.name, number: p.number ?? '', address: p.address }));
   const names = new Map<string, PhotoSite>();
   const add = (name: string, address = '') => {
     const k = name.trim().toLowerCase();
     if (k && !names.has(k)) names.set(k, { projectId: null, name: name.trim(), number: '', address });
   };
+  for (const f of free) names.set(f.name.toLowerCase(), f);
   for (const w of weeks) for (const s of w.sites) if (!s.projectId) add(s.name, s.address ?? '');
   for (const r of reports) if (!r.projectId) add(r.head.site || r.head.project, r.head.address);
   for (const p of photos) if (!p.projectId) add(p.siteName, p.siteAddress);
@@ -41,6 +44,8 @@ export function PhotosPage() {
   const [sites, setSites] = useState<PhotoSite[]>([]);
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<'recent' | 'name'>('recent');
+  const [creating, setCreating] = useState(false);
+  const [free, setFree] = useState<PhotoSite[]>([]);
 
   const reload = () =>
     getPhotoStorage()
@@ -48,6 +53,7 @@ export function PhotosPage() {
       .then(async (list) => {
         setPhotos(list);
         setSites(await loadPhotoSites(list));
+        setFree(await listFreePhotoSites());
       })
       .catch((e) => showError(e, 'Fotos konnten nicht geladen werden'));
   useEffect(() => {
@@ -71,6 +77,8 @@ export function PhotosPage() {
   }, [photos]);
   const hashes = useMemo(() => new Set((photos ?? []).map((p) => p.hash)), [photos]);
   const pending = (photos ?? []).filter((p) => p.sync !== 'synced').length;
+  /** unter „Fotos“ angelegte Baustellen, die noch keine Fotos haben */
+  const empty = useMemo(() => free.filter((f) => !groups.some((g) => g.key === photoSiteKey({ projectId: null, siteName: f.name })) && [f.name, f.number, f.address].join(' ').toLowerCase().includes(query.trim().toLowerCase())), [free, groups, query]);
 
   return (
     <>
@@ -83,7 +91,19 @@ export function PhotosPage() {
             </a>
             <h1 data-testid="photos-title">Fotodokumentation</h1>
           </div>
+          <button type="button" className="btn btn-sm" onClick={() => setCreating(true)} data-testid="photo-new-site">
+            <Icon name="plus" size={16} /> Neue Baustelle
+          </button>
         </header>
+        {creating && (
+          <PhotoSiteDialog
+            onClose={() => setCreating(false)}
+            onSaved={(s) => {
+              setCreating(false);
+              void reload().then(() => navigate(paths.photoSite(photoSiteKey({ projectId: null, siteName: s.name }))));
+            }}
+          />
+        )}
 
         <PhotoCapture sites={sites} existingHashes={hashes} onSaved={() => void reload()} big />
 
@@ -96,7 +116,7 @@ export function PhotosPage() {
           </div>
         )}
 
-        {photos && photos.length === 0 && (
+        {photos && photos.length === 0 && empty.length === 0 && (
           <div className="crew-setup" style={ACCENT} data-testid="photos-empty">
             <span className="tile-icon">
               <ToolIcon name="photos" size={22} />
@@ -125,7 +145,7 @@ export function PhotosPage() {
             </div>
           </div>
         )}
-        {photos && photos.length > 0 && groups.length === 0 && <p className="muted">Keine Fotos gefunden.</p>}
+        {photos && photos.length > 0 && groups.length === 0 && empty.length === 0 && <p className="muted">Keine Fotos gefunden.</p>}
 
         <div className="photo-sites">
           {groups.map((g) => (
@@ -150,6 +170,19 @@ export function PhotosPage() {
                   </span>
                 ))}
                 {g.weeks.length > 6 && <span className="muted small">+{g.weeks.length - 6}</span>}
+              </div>
+              <Icon name="next" size={18} />
+            </a>
+          ))}
+          {empty.map((f) => (
+            <a key={`free:${f.name}`} href={paths.photoSite(photoSiteKey({ projectId: null, siteName: f.name }))} className="photo-site photo-site-empty" data-testid="photo-site" data-site={f.name}>
+              <div className="photo-site-preview" aria-hidden="true">
+                <span className="photo-thumb-empty" />
+              </div>
+              <div className="photo-site-main">
+                <strong>{f.name}</strong>
+                <span className="muted small">{[f.number, f.address].filter(Boolean).join(' · ')}</span>
+                <span className="small muted">Noch keine Fotos</span>
               </div>
               <Icon name="next" size={18} />
             </a>
