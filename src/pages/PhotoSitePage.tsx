@@ -9,7 +9,7 @@ import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, offerFile, showError, toast } from '../components/ui';
 import { safeFileName } from '../lib/aufmass';
 import { getPhotoStorage } from '../lib/photo-storage';
-import { dateTimeLabel, dayTitle, fmtBytes, GROUP_MODES, groupPhotos, matchesPhoto, type PhotoGroupMode, photoSiteKey, rotateImage, SYNC_LABELS, timeLabel, weekLabel } from '../lib/photos';
+import { dateTimeLabel, dayTitle, fmtBytes, GROUP_MODES, groupPhotos, matchesPhoto, type PhotoGroupMode, photoSiteKey, rotateImage, SYNC_LABELS, timeLabel } from '../lib/photos';
 import { navigate, paths } from '../lib/router';
 import type { Photo } from '../lib/types';
 import { loadPhotoSites } from './PhotosPage';
@@ -264,23 +264,18 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
       if (!b) throw new Error('Bilddaten nicht gefunden.');
       await offerFile({ name: `${safeFileName(p.siteName, p.day, timeLabel(p.takenAt).replace(':', ''))}.jpg`, data: new Uint8Array(b.original ?? b.data), mimeType: 'image/jpeg' });
     });
-  /** alle Fotos der Baustelle (bzw. der Suche) als ZIP: Ordner je KW und Tag, dazu eine Liste mit Angaben */
+  /** Fotos als ZIP: ein Ordner, Dateinamen nach Datum und Uhrzeit (JJJJ-MM-TT_HHMM_Nr.jpg), sonst nichts */
   const downloadZip = (list: Photo[] = shown) =>
     run(async () => {
       if (list.length === 1) return download(list[0]);
       const files: Record<string, Uint8Array> = {};
-      const lines = ['Datei;Datum;Uhrzeit;Aufgenommen von;Beschreibung;Status'];
-      for (const g of groupPhotos(list, 'week'))
-        for (const d of g.days)
-          for (const [i, p] of d.photos.entries()) {
-            const b = await getPhotoStorage().blobs(p.id);
-            if (!b) continue;
-            const name = `${weekLabel(g.key).replace(' ', '')}/${d.day}/${d.day}_${timeLabel(p.takenAt).replace(':', '')}_${String(i + 1).padStart(2, '0')}.jpg`;
-            files[name] = new Uint8Array(b.original ?? b.data);
-            lines.push([name, d.day, timeLabel(p.takenAt), p.userName, p.description.replace(/[;\n]/g, ' '), SYNC_LABELS[p.sync]].join(';'));
-          }
+      const sorted = [...list].sort((a, b) => a.takenAt - b.takenAt);
+      for (const [i, p] of sorted.entries()) {
+        const b = await getPhotoStorage().blobs(p.id);
+        if (!b) continue;
+        files[`${p.day}_${timeLabel(p.takenAt).replace(':', '')}_${String(i + 1).padStart(3, '0')}.jpg`] = new Uint8Array(b.original ?? b.data);
+      }
       if (!Object.keys(files).length) return toast('Keine Fotos zum Herunterladen.', 'info');
-      files['fotos.csv'] = new TextEncoder().encode(`﻿${lines.join('\n')}`);
       await offerFile({ name: `${safeFileName('Fotos', site?.name ?? 'Baustelle')}.zip`, data: zipSync(files, { level: 0 }), mimeType: 'application/zip' });
     });
 

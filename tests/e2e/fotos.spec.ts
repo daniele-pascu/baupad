@@ -82,7 +82,7 @@ test('Fotos je Baustelle, KW und Tag; Großansicht; Beschreibung; Suche; Duplika
   await page.getByTestId('photo-selected-download').click();
   const selZip = await saveDownload(await selDownload, 'fotos-auswahl.zip');
   const { unzipSync: unzipSel } = await import('fflate');
-  expect(Object.keys(unzipSel(new Uint8Array(readFileSync(selZip)))).sort()).toEqual(['KW44/2026-10-27/2026-10-27_0915_01.jpg', 'KW44/2026-10-27/2026-10-27_1440_02.jpg', 'fotos.csv']);
+  expect(Object.keys(unzipSel(new Uint8Array(readFileSync(selZip)))).sort()).toEqual(['2026-10-27_0915_001.jpg', '2026-10-27_1440_002.jpg']);
   await page.getByTestId('photo-select').click(); // Fertig
   await expect(page.getByTestId('photo-selection-bar')).toHaveCount(0);
 
@@ -140,17 +140,16 @@ test('Fotos je Baustelle, KW und Tag; Großansicht; Beschreibung; Suche; Duplika
   await expect(page.locator('.toast', { hasText: '1 Foto gespeichert' })).toHaveCount(1);
   await expect(page.getByTestId('photo-site')).toContainText('4 Fotos');
 
-  // ZIP mit Ordnern je KW und Tag + Liste
+  // ZIP: alle Fotos in einem Ordner, nach Datum und Uhrzeit benannt
   await page.getByTestId('photo-site').click();
   const download = page.waitForEvent('download');
   await page.getByTestId('photo-zip').click();
   const dl = await download;
   expect(dl.suggestedFilename()).toBe('Fotos_Neubau_Musterstrasse.zip');
   const zipPath = await saveDownload(dl, 'fotos.zip');
-  const { unzipSync, strFromU8 } = await import('fflate');
+  const { unzipSync } = await import('fflate');
   const entries = unzipSync(new Uint8Array(readFileSync(zipPath)));
-  expect(Object.keys(entries).sort()).toEqual(['KW44/2026-10-27/2026-10-27_0915_01.jpg', 'KW44/2026-10-27/2026-10-27_1440_02.jpg', 'KW44/2026-10-28/2026-10-28_1000_01.jpg', 'KW45/2026-11-02/2026-11-02_0805_01.jpg', 'fotos.csv']);
-  expect(strFromU8(entries['fotos.csv'])).toContain('Abplatzung Decke');
+  expect(Object.keys(entries).sort()).toEqual(['2026-10-27_0915_001.jpg', '2026-10-27_1440_002.jpg', '2026-10-28_1000_003.jpg', '2026-11-02_0805_004.jpg']);
 
   // Löschen mit Bestätigung; nach dem Neuladen bleibt der Rest
   await page.getByTestId('photo-group').nth(0).getByTestId('photo-thumb').first().click();
