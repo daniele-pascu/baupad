@@ -5063,3 +5063,67 @@ a.tool-tile:focus-visible {
 .crew-site.paused .crew-site-title strong {
   color: var(--text, #111);
 }
+
+/* Urlaub / Krank von–bis */
+.crew-vacations button.crew-chip {
+  cursor: pointer;
+}
+.crew-chip.sick {
+  border-color: color-mix(in srgb, #d93025 45%, var(--border));
+  background: color-mix(in srgb, #d93025 8%, #fff);
+  color: #9b1c13;
+}
+.crew-days .crew-chip.sick::after {
+  content: '· krank';
+  margin-left: 5px;
+  font-size: 0.78em;
+  font-weight: 600;
+}
+.crew-absence-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.crew-absence-dates {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.crew-absence-dates input {
+  min-width: 0;
+  width: 100%;
+}
+.crew-absence-list {
+  margin-top: 16px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+.crew-absence-list h3 {
+  margin: 0 0 6px;
+  font-size: 0.9rem;
+}
+.crew-absence-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+}
+.crew-absence-row .crew-chip {
+  cursor: default;
+  min-height: 28px;
+}
+.crew-absence-text {
+  flex: 1;
+  min-width: 0;
+}
+.crew-days .crew-chip.away {
+  border-style: dashed;
+  background: transparent;
+  color: var(--muted);
+}
+.crew-days .crew-chip.away::after {
+  content: '· Urlaub';
+  margin-left: 5px;
+  font-size: 0.78em;
+  font-weight: 600;
+}

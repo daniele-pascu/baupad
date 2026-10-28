@@ -1,7 +1,7 @@
 import { PDFDocument, rgb, StandardFonts, type PDFFont, type PDFImage, type PDFPage } from 'pdf-lib';
 import { safeFileName, type ExportFile } from './aufmass';
 import type { CompanyLogo } from './company';
-import { DAY_NAMES, DAY_SHORT, dayDate, dayList, isoWeekNo, parseDate, addDays, sortWorkers, timeLabel, unassigned, vacationSummary, visibleDays, weekRange, workerName } from './crew';
+import { DAY_NAMES, DAY_SHORT, dayDate, dayList, isoWeekNo, parseDate, addDays, sortWorkers, timeLabel, unassigned, visibleDays, weekRange, workerName } from './crew';
 import type { WeekPlan, WeekSite, Worker, WorkTimes } from './types';
 
 /**
@@ -13,7 +13,12 @@ import type { WeekPlan, WeekSite, Worker, WorkTimes } from './types';
 export interface CrewPdfOptions {
   company?: string;
   logo?: CompanyLogo | null;
+  /** Urlaub/Krank (von–bis) an diesem Tag – wird beim Namen gekennzeichnet */
+  absent?: (workerId: string, day: number) => 'urlaub' | 'krank' | null;
 }
+
+/** Kennzeichnung beim Namen: „ (Urlaub)“ bzw. „ (krank)“ */
+const mark = (opts: CrewPdfOptions, id: string, day: number) => ({ urlaub: ' (Urlaub)', krank: ' (krank)', none: '' })[opts.absent?.(id, day) ?? 'none'];
 
 const INK = rgb(0.11, 0.11, 0.12);
 const MUTED = rgb(0.43, 0.43, 0.45);
@@ -148,7 +153,7 @@ export async function crewWeekPdf(plan: WeekPlan, workers: Worker[], times: Work
     days.forEach((d, i) => {
       const x = M + i * colW;
       s.days[d].forEach((id, r) => {
-        page.drawText(fit(ctx.font, clean(ctx, nameOf(id)), NAME, colW - 12), { x: x + 6, y: y - 11 - r * LH, size: NAME, font: ctx.font, color: INK });
+        page.drawText(fit(ctx.font, clean(ctx, nameOf(id) + mark(opts, id, d)), NAME, colW - 12), { x: x + 6, y: y - 11 - r * LH, size: NAME, font: ctx.font, color: INK });
       });
       if (i > 0) page.drawLine({ start: { x, y: y + 26 }, end: { x, y: y - rows * LH - 6 }, thickness: 0.5, color: LINE });
     });
@@ -162,10 +167,20 @@ export async function crewWeekPdf(plan: WeekPlan, workers: Worker[], times: Work
   }
 
   // Urlaub und noch nicht eingeteilt (sollte leer sein)
-  const vac = vacationSummary(plan, days);
-  const open = days.filter((d) => times[d]).map((d) => ({ d, list: unassigned(plan, sortWorkers(workers), d) })).filter((x) => x.list.length);
+  const open = days
+    .filter((d) => times[d])
+    .map((d) => ({ d, list: unassigned(plan, sortWorkers(workers), d).filter((w) => !opts.absent?.(w.id, d)) }))
+    .filter((x) => x.list.length);
   const lines: { label: string; text: string }[] = [];
-  if (vac.length) lines.push({ label: 'Urlaub:', text: vac.map((v) => `${nameOf(v.workerId)} (${dayList(v.days)})`).join(', ') });
+  // Urlaub aus der Woche und aus den Zeiträumen (von–bis), krank nur aus den Zeiträumen
+  const away = (kind: 'urlaub' | 'krank') =>
+    sortWorkers(workers)
+      .map((w) => ({ w, ds: days.filter((d) => (kind === 'urlaub' && plan.vacation[d]?.includes(w.id)) || opts.absent?.(w.id, d) === kind) }))
+      .filter((x) => x.ds.length)
+      .map((x) => `${workerName(x.w)} (${dayList(x.ds)})`)
+      .join(', ');
+  if (away('urlaub')) lines.push({ label: 'Urlaub:', text: away('urlaub') });
+  if (away('krank')) lines.push({ label: 'Krank:', text: away('krank') });
   for (const o of open) lines.push({ label: `Nicht eingeteilt ${DAY_SHORT[o.d]}:`, text: o.list.map(workerName).join(', ') });
   if (!plan.sites.length) lines.unshift({ label: 'Hinweis:', text: 'Keine Baustelle in dieser Woche.' });
   for (const l of lines) {
@@ -241,7 +256,7 @@ export async function crewDayPdf(plan: WeekPlan, siteId: string, day: number, wo
       y = header(ctx, page, `${title} (Fortsetzung)`, s.name, opts.company ?? '');
       drawHead();
     }
-    const cells = w ? [String(i + 1), workerName(w), w.role ?? '', w.phone ?? '', ''] : ['', '', '', '', ''];
+    const cells = w ? [String(i + 1), workerName(w) + mark(opts, w.id, day), w.role ?? '', w.phone ?? '', ''] : ['', '', '', '', ''];
     let x = M;
     cells.forEach((c, k) => {
       if (c) page.drawText(fit(ctx.font, clean(ctx, c), 10, cols[k].w - 10), { x: x + 6, y: y - 15.5, size: 10, font: ctx.font, color: INK });

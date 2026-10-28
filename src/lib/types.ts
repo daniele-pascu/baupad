@@ -429,5 +429,16 @@ export interface WeekPlan {
   updatedAt: number;
 }
 
+/** Abwesenheit eines Arbeiters von–bis (JJJJ-MM-TT, einschließlich), auch über mehrere Wochen */
+export interface Absence {
+  id: string;
+  workerId: string;
+  /** Urlaub: nicht eingeteilt. Krank: bleibt auf der Baustelle eingeteilt, wird nur markiert */
+  kind: 'urlaub' | 'krank';
+  from: string;
+  to: string;
+  createdAt: number;
+}
+
 /** Arbeitszeit der Firma je Wochentag (0 = Montag); null = kein Arbeitstag */
 export type WorkTimes = ({ from: string; to: string } | null)[];

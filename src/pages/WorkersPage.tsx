@@ -24,7 +24,7 @@ import {
   workerSites,
   removeSite,
   sameSite,
-  setVacation,
+  isoDate,
   siteFromProject,
   sitesOf,
   sortWorkers,
@@ -41,12 +41,13 @@ import {
 import { getMeta, getWeek, listProjects, listWeeks, listWorkers, previousWeek, saveWeek, saveWorker, setMeta } from '../lib/db';
 import type { ExportFile } from '../lib/aufmass';
 import { getCompanyLogo } from '../lib/company';
+import { absenceOn, absenceRange, absenceSummary } from '../lib/crew-absence';
 import { exportCrewBackup, importCrewBackup } from '../lib/crew-backup';
 import { linkSitesToProject, projectFromSite } from '../lib/crew-link';
 import { crewDayPdf, crewWeekPdf } from '../lib/crew-pdf';
 import { uuid } from '../lib/ids';
 import { navigate, paths } from '../lib/router';
-import type { Project, WeekPlan, WeekSite, Worker, WorkTimes } from '../lib/types';
+import type { Absence, Project, WeekPlan, WeekSite, Worker, WorkTimes } from '../lib/types';
 import { usePageTitle } from './SitePages';
 
 const ACCENT = { '--tool': '#2f80ed' } as CSSProperties;
@@ -66,6 +67,8 @@ export function WorkersPage() {
   const [draftFrom, setDraftFrom] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const [company, setCompany] = useState('');
+  /** Urlaub / Krank von–bis (über Wochen hinweg) */
+  const [absences, setAbsences] = useState<Absence[]>([]);
   const [query, setQuery] = useState('');
   const [preview, setPreview] = useState<ExportFile | null>(null);
   const restoreRef = useRef<HTMLInputElement>(null);
@@ -81,6 +84,7 @@ export function WorkersPage() {
     | { kind: 'chip'; siteId: string; day: number; workerId: string }
     | { kind: 'open'; day: number; workerId: string }
     | { kind: 'dayList'; siteId: string }
+    | { kind: 'absence'; workerId?: string; day?: number }
     | null
   >(null);
 
@@ -99,8 +103,9 @@ export function WorkersPage() {
     let off = false;
     setPlan(null);
     void (async () => {
-      const saved = await getWeek(weekId);
+      const [saved, abs] = await Promise.all([getWeek(weekId), getMeta<Absence[]>('absences')]);
       if (off) return;
+      setAbsences(abs ?? []);
       if (saved) {
         setPlan(saved);
         setDraftFrom(null);
@@ -161,6 +166,20 @@ export function WorkersPage() {
     if (changed.size) toast(`Auch übernommen in ${[...changed.keys()].sort().map((k) => `KW ${isoWeekNo(k)}`).join(', ')}.`, 'success');
   };
 
+  /** Urlaub/Krank von–bis speichern (die Wochen selbst bleiben unverändert) */
+  const saveAbsences = async (list: Absence[]) => {
+    await setMeta('absences', list);
+    setAbsences(list);
+  };
+  const addAbsence = async (a: Absence) => {
+    await saveAbsences([...absences, a]);
+    toast(`${a.kind === 'urlaub' ? 'Urlaub' : 'Krank'} eingetragen: ${nameOf(a.workerId)}, ${absenceRange(a)}`, 'success');
+  };
+  const deleteAbsence = async (a: Absence) => {
+    await saveAbsences(absences.filter((x) => x.id !== a.id));
+    toast(`${a.kind === 'urlaub' ? 'Urlaub' : 'Krankmeldung'} gelöscht.`, 'success');
+  };
+
   /** Baustelle pausieren (Standby): Arbeiter werden frei; gilt auch für bereits geplante Folgewochen */
   const pause = async (site: WeekSite) => {
     const later = (await listWeeks()).filter((w) => w.id > weekId && sameSite(w, site) && !sameSite(w, site)!.paused);
@@ -199,7 +218,7 @@ export function WorkersPage() {
   };
 
   /** PDF-Optionen: Firmenname und Firmenlogo (Konto → Einstellungen) */
-  const pdfOpts = async () => ({ company, logo: await getCompanyLogo() });
+  const pdfOpts = async () => ({ company, logo: await getCompanyLogo(), absent: (id: string, d: number) => absenceOn(absences, id, weekId, d) });
   const run = (fn: () => Promise<void>) => fn().catch((e) => showError(e, 'Das hat nicht geklappt'));
 
   const exportWeekPdf = () =>
@@ -269,8 +288,19 @@ export function WorkersPage() {
 
   const days = visibleDays(plan);
   const workDays = days.filter((d) => workTimes[d]);
-  const open = workDays.map((d) => ({ d, list: unassigned(plan, sortWorkers(workers), d) })).filter((x) => x.list.length);
+  // Urlaub/Krank (von–bis) gilt nicht als „noch nicht eingeteilt“
+  const open = workDays
+    .map((d) => ({ d, list: unassigned(plan, sortWorkers(workers), d).filter((w) => !absenceOn(absences, w.id, weekId, d)) }))
+    .filter((x) => x.list.length);
   const vacations = vacationSummary(plan, days);
+  // Urlaub: Tage aus der Woche selbst und aus den Zeiträumen (von–bis)
+  const vacRanges = absenceSummary(absences, weekId, days, 'urlaub');
+  for (const r of vacRanges) {
+    const v = vacations.find((x) => x.workerId === r.workerId);
+    if (v) v.days = [...new Set([...v.days, ...r.days])].sort();
+    else vacations.push(r);
+  }
+  const sickWeek = absenceSummary(absences, weekId, days, 'krank');
   const q = query.trim().toLowerCase();
   const hit = (id: string) => !!q && nameOf(id).toLowerCase().includes(q);
   const shown = q
@@ -343,6 +373,7 @@ export function WorkersPage() {
             testId="crew-more"
             actions={[
               { label: 'Drucken', icon: 'pdf', onSelect: printWeek, disabled: !plan.sites.length, testId: 'crew-print' },
+              { label: 'Urlaub / Krank eintragen', icon: 'calendar', onSelect: () => setDialog({ kind: 'absence' }), testId: 'crew-absence' },
               { label: 'Einteilung aus Vorwoche übernehmen', icon: 'copy', onSelect: () => void carryAgain(), testId: 'crew-carry' },
               { label: 'Sicherung speichern (Arbeiter und Wochen)', icon: 'download', onSelect: () => void backup(), testId: 'crew-backup' },
               { label: 'Sicherung öffnen …', icon: 'upload', onSelect: () => restoreRef.current?.click(), testId: 'crew-restore' },
@@ -464,9 +495,19 @@ export function WorkersPage() {
           <p className="crew-vacations" data-testid="crew-vacations">
             <strong>Urlaub:</strong>
             {vacations.map((v) => (
-              <span key={v.workerId} className="crew-chip vacation" data-testid="vacation-chip">
+              <button key={v.workerId} type="button" className="crew-chip vacation" onClick={() => setDialog({ kind: 'absence', workerId: v.workerId })} data-testid="vacation-chip">
                 {nameOf(v.workerId)} · {dayList(v.days)}
-              </span>
+              </button>
+            ))}
+          </p>
+        )}
+        {sickWeek.length > 0 && (
+          <p className="crew-vacations" data-testid="crew-sick">
+            <strong>Krank:</strong>
+            {sickWeek.map((v) => (
+              <button key={v.workerId} type="button" className="crew-chip sick" onClick={() => setDialog({ kind: 'absence', workerId: v.workerId })} data-testid="sick-chip">
+                {nameOf(v.workerId)} · {dayList(v.days)}
+              </button>
             ))}
           </p>
         )}
@@ -547,7 +588,7 @@ export function WorkersPage() {
                             <button
                               key={id}
                               type="button"
-                              className={`crew-chip${byId.get(id)?.active === false ? ' inactive' : ''}${sitesOf(plan, id, d, s.id).length ? ' conflict' : ''}${hit(id) ? ' hit' : ''}${drag?.workerId === id ? ' dragging' : ''}`}
+                              className={`crew-chip${byId.get(id)?.active === false ? ' inactive' : ''}${sitesOf(plan, id, d, s.id).length ? ' conflict' : ''}${hit(id) ? ' hit' : ''}${drag?.workerId === id ? ' dragging' : ''}${absenceOn(absences, id, weekId, d) === 'krank' ? ' sick' : absenceOn(absences, id, weekId, d) ? ' away' : ''}`}
                               onPointerDown={(e) => startDrag(e, id, nameOf(id), s.id, d)}
                               onContextMenu={(e) => e.preventDefault()}
                               onClick={() => !suppressClick.current && setDialog({ kind: 'chip', siteId: s.id, day: d, workerId: id })}
@@ -679,10 +720,7 @@ export function WorkersPage() {
             setDialog(null);
             void run(() => place([dialog.workerId], to, workDays.filter((d) => d >= dialog.day), false));
           }}
-          onVacation={(week) => {
-            save(setVacation(plan, dialog.workerId, week ? workDays.filter((d) => d >= dialog.day) : [dialog.day], true));
-            setDialog(null);
-          }}
+          onAbsence={() => setDialog({ kind: 'absence', workerId: dialog.workerId, day: dialog.day })}
         />
       )}
       {dialog?.kind === 'dayList' && (
@@ -700,6 +738,19 @@ export function WorkersPage() {
           }
         />
       )}
+      {dialog?.kind === 'absence' && (
+        <AbsenceDialog
+          workers={active}
+          absences={absences}
+          nameOf={nameOf}
+          workerId={dialog.workerId}
+          from={addDays(weekId, dialog.day ?? Math.max(0, workDays[0] ?? 0))}
+          to={addDays(weekId, workDays[workDays.length - 1] ?? 4)}
+          onAdd={(a) => void run(() => addAbsence(a))}
+          onDelete={(a) => void run(() => deleteAbsence(a))}
+          onClose={() => setDialog(null)}
+        />
+      )}
       {preview && <PdfPreview file={preview} onBack={() => setPreview(null)} onClose={() => setPreview(null)} />}
       {dialog?.kind === 'open' && (
         <OpenDialog
@@ -711,10 +762,7 @@ export function WorkersPage() {
             setDialog(null);
             void run(() => place([dialog.workerId], siteId, rest ? workDays.filter((d) => d >= dialog.day) : [dialog.day], false));
           }}
-          onVacation={(rest) => {
-            save(setVacation(plan, dialog.workerId, rest ? workDays.filter((d) => d >= dialog.day) : [dialog.day], true));
-            setDialog(null);
-          }}
+          onAbsence={() => setDialog({ kind: 'absence', workerId: dialog.workerId, day: dialog.day })}
         />
       )}
     </>
@@ -1087,7 +1135,7 @@ function ChipDialog({
   day,
   onRemove,
   onMove,
-  onVacation,
+  onAbsence,
   onClose,
 }: {
   plan: WeekPlan;
@@ -1096,7 +1144,7 @@ function ChipDialog({
   day: number;
   onRemove(): void;
   onMove(to: string): void;
-  onVacation(week: boolean): void;
+  onAbsence(): void;
   onClose(): void;
 }) {
   const others = plan.sites.filter((s) => s.id !== siteId && !s.paused);
@@ -1124,11 +1172,8 @@ function ChipDialog({
         <button type="button" className="btn" onClick={onRemove} data-testid="chip-remove">
           <Icon name="close" size={18} /> Nur am {DAY_NAMES[day]} entfernen
         </button>
-        <button type="button" className="btn" onClick={() => onVacation(false)} data-testid="chip-vacation">
-          Urlaub am {DAY_NAMES[day]}
-        </button>
-        <button type="button" className="btn" onClick={() => onVacation(true)} data-testid="chip-vacation-week">
-          Urlaub ab {DAY_NAMES[day]} bis Wochenende
+        <button type="button" className="btn" onClick={onAbsence} data-testid="chip-absence">
+          <Icon name="calendar" size={18} /> Urlaub / Krank (von – bis)
         </button>
       </div>
     </Modal>
@@ -1141,14 +1186,14 @@ function OpenDialog({
   worker,
   day,
   onAssign,
-  onVacation,
+  onAbsence,
   onClose,
 }: {
   plan: WeekPlan;
   worker: Worker;
   day: number;
   onAssign(siteId: string, rest: boolean): void;
-  onVacation(rest: boolean): void;
+  onAbsence(): void;
   onClose(): void;
 }) {
   const [rest, setRest] = useState(true);
@@ -1165,8 +1210,8 @@ function OpenDialog({
           </button>
         ))}
         {!plan.sites.length && <p className="muted">Noch keine Baustelle in dieser Woche.</p>}
-        <button type="button" className="btn" onClick={() => onVacation(rest)} data-testid="open-vacation">
-          Urlaub eintragen
+        <button type="button" className="btn" onClick={onAbsence} data-testid="open-absence">
+          <Icon name="calendar" size={18} /> Urlaub / Krank (von – bis)
         </button>
       </div>
     </Modal>
@@ -1185,6 +1230,128 @@ function DayListDialog({ site, days, weekId, onPick, onClose }: { site: WeekSite
           </button>
         ))}
       </div>
+    </Modal>
+  );
+}
+
+/** Urlaub oder Krankmeldung von–bis eintragen (auch über mehrere Wochen) und vorhandene Einträge löschen */
+function AbsenceDialog({
+  workers,
+  absences,
+  nameOf,
+  workerId: initialWorker,
+  from: initialFrom,
+  to: initialTo,
+  onAdd,
+  onDelete,
+  onClose,
+}: {
+  workers: Worker[];
+  absences: Absence[];
+  nameOf(id: string): string;
+  workerId?: string;
+  from: string;
+  to: string;
+  onAdd(a: Absence): void;
+  onDelete(a: Absence): void;
+  onClose(): void;
+}) {
+  const [workerId, setWorkerId] = useState(initialWorker ?? '');
+  const [kind, setKind] = useState<Absence['kind']>('urlaub');
+  const [from, setFrom] = useState(initialFrom);
+  const [to, setTo] = useState(initialTo);
+  const [error, setError] = useState('');
+  // laufende und künftige Einträge (bzw. die des gewählten Arbeiters)
+  const today = isoDate(new Date());
+  const list = absences
+    .filter((a) => (workerId ? a.workerId === workerId : a.to >= today))
+    .sort((a, b) => a.from.localeCompare(b.from));
+  const submit = () => {
+    if (!workerId) return setError('Bitte einen Arbeiter wählen.');
+    if (!from || !to) return setError('Bitte „von“ und „bis“ eingeben.');
+    if (to < from) return setError('„bis“ liegt vor „von“.');
+    setError('');
+    onAdd({ id: uuid(), workerId, kind, from, to, createdAt: Date.now() });
+  };
+  return (
+    <Modal
+      title="Urlaub / Krank"
+      onClose={onClose}
+      testId="absence-dialog"
+      footer={
+        <>
+          <button type="button" className="btn" onClick={onClose}>
+            Schließen
+          </button>
+          <button type="button" className="btn btn-primary" onClick={submit} data-testid="absence-save">
+            Eintragen
+          </button>
+        </>
+      }
+    >
+      <form
+        className="crew-absence-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          submit();
+        }}
+      >
+        <div className="segmented" role="radiogroup" aria-label="Art">
+          <button type="button" role="radio" aria-checked={kind === 'urlaub'} aria-selected={kind === 'urlaub'} onClick={() => setKind('urlaub')} data-testid="absence-urlaub">
+            Urlaub
+          </button>
+          <button type="button" role="radio" aria-checked={kind === 'krank'} aria-selected={kind === 'krank'} onClick={() => setKind('krank')} data-testid="absence-krank">
+            Krank
+          </button>
+        </div>
+        <p className="muted small">
+          {kind === 'urlaub'
+            ? 'Im Urlaub wird der Arbeiter an diesen Tagen von der Baustelle genommen.'
+            : 'Krank: bleibt auf seiner Baustelle eingeteilt und wird dort als krank markiert.'}
+        </p>
+        <label className="field">
+          <span>Arbeiter</span>
+          <select value={workerId} onChange={(e) => setWorkerId(e.target.value)} data-testid="absence-worker">
+            <option value="">– wählen –</option>
+            {workers.map((w) => (
+              <option key={w.id} value={w.id}>
+                {workerName(w)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="crew-absence-dates">
+          <label className="field">
+            <span>von</span>
+            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} data-testid="absence-from" />
+          </label>
+          <label className="field">
+            <span>bis</span>
+            <input type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} data-testid="absence-to" />
+          </label>
+        </div>
+        {error && (
+          <p className="error small" role="alert" data-testid="absence-error">
+            {error}
+          </p>
+        )}
+      </form>
+      {list.length > 0 && (
+        <div className="crew-absence-list">
+          <h3>{workerId ? 'Einträge' : 'Aktuell und geplant'}</h3>
+          {list.map((a) => (
+            <div key={a.id} className="crew-absence-row" data-testid="absence-row">
+              <span className={`crew-chip ${a.kind === 'urlaub' ? 'vacation' : 'sick'}`}>{a.kind === 'urlaub' ? 'Urlaub' : 'Krank'}</span>
+              <span className="crew-absence-text">
+                <strong>{nameOf(a.workerId)}</strong> <span className="muted">{absenceRange(a)}</span>
+              </span>
+              <button type="button" className="icon-btn" onClick={() => onDelete(a)} aria-label="Eintrag löschen" data-testid="absence-delete">
+                <Icon name="trash" size={18} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </Modal>
   );
 }

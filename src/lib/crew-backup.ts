@@ -1,9 +1,9 @@
 import { safeFileName, type ExportFile } from './aufmass';
 import { getMeta, listWeeks, listWorkers, saveWeek, saveWorker, setMeta } from './db';
-import type { WeekPlan, Worker, WorkTimes } from './types';
+import type { Absence, WeekPlan, Worker, WorkTimes } from './types';
 
 /**
- * Eigene Sicherungsdatei der Arbeitereinteilung (Arbeiter, alle Wochen, Arbeitszeit, Firmenname) –
+ * Eigene Sicherungsdatei der Arbeitereinteilung (Arbeiter, alle Wochen, Urlaub/Krank, Arbeitszeit, Firmenname) –
  * unabhängig von den Projektsicherungen. Wiederherstellen ergänzt bzw. aktualisiert nur
  * (neuerer Stand gewinnt), es wird nichts gelöscht.
  */
@@ -17,6 +17,7 @@ interface CrewBackup {
   weeks: WeekPlan[];
   workTimes: WorkTimes | null;
   company: string;
+  absences?: Absence[];
 }
 
 export async function exportCrewBackup(): Promise<ExportFile> {
@@ -28,6 +29,7 @@ export async function exportCrewBackup(): Promise<ExportFile> {
     weeks: await listWeeks(),
     workTimes: (await getMeta<WorkTimes>('workTimes')) ?? null,
     company: (await getMeta<string>('companyName')) ?? '',
+    absences: (await getMeta<Absence[]>('absences')) ?? [],
   };
   const d = new Date();
   const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -64,6 +66,11 @@ export async function importCrewBackup(file: File): Promise<{ workers: number; w
     if (cur && cur.updatedAt >= k.updatedAt) continue;
     await saveWeek(k);
     weeks++;
+  }
+  if (Array.isArray(data.absences) && data.absences.length) {
+    const have = (await getMeta<Absence[]>('absences')) ?? [];
+    const add = data.absences.filter((a) => a?.id && a.workerId && a.from && a.to && !have.some((h) => h.id === a.id));
+    if (add.length) await setMeta('absences', [...have, ...add]);
   }
   if (data.workTimes && !(await getMeta('workTimes'))) await setMeta('workTimes', data.workTimes);
   if (data.company && !(await getMeta('companyName'))) await setMeta('companyName', data.company);

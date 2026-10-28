@@ -172,4 +172,20 @@ describe('Umsetzen (Ziehen / Hinzufügen)', () => {
     expect(next.sites.find((s) => s.name === 'Baustelle B')!.paused).toBe(true);
     expect(placeInWeek(next, 'max', { projectId: null, name: 'Baustelle B' }, [0])).toBeNull();
   });
+
+  it('Urlaub/Krank von–bis: Tage je Woche, Urlaub vor krank, Zusammenfassung', async () => {
+    const { absenceDays, absenceOn, absenceSummary, absenceRange } = await import('../../src/lib/crew-absence');
+    const list = [
+      { id: '1', workerId: 'max', kind: 'urlaub' as const, from: '2026-10-28', to: '2026-11-04', createdAt: 0 },
+      { id: '2', workerId: 'max', kind: 'krank' as const, from: '2026-10-26', to: '2026-10-28', createdAt: 0 },
+    ];
+    expect(absenceDays(list[0], '2026-10-26')).toEqual([2, 3, 4, 5, 6]);
+    expect(absenceDays(list[0], '2026-11-02')).toEqual([0, 1, 2]);
+    expect(absenceDays(list[0], '2026-11-09')).toEqual([]);
+    expect(absenceOn(list, 'max', '2026-10-26', 0)).toBe('krank');
+    expect(absenceOn(list, 'max', '2026-10-26', 2)).toBe('urlaub');
+    expect(absenceOn(list, 'peter', '2026-10-26', 2)).toBeNull();
+    expect(absenceSummary(list, '2026-10-26', [0, 1, 2, 3, 4], 'krank')).toEqual([{ workerId: 'max', days: [0, 1] }]);
+    expect(absenceRange(list[0])).toBe('28.10. – 04.11.');
+  });
 });

@@ -107,7 +107,14 @@ test('Arbeitereinteilung: Woche nach Baustellen planen und in die nächste Woche
   const open = page.getByTestId('crew-open');
   await expect(open.getByTestId('open-chip')).toHaveCount(5);
   await open.locator('[data-day="0"] [data-testid="open-chip"]').click();
-  await page.getByTestId('open-dialog').getByTestId('open-vacation').click();
+  await page.getByTestId('open-dialog').getByTestId('open-absence').click();
+  const abs = page.getByTestId('absence-dialog');
+  await expect(abs.getByTestId('absence-worker')).toHaveValue(/.+/);
+  await expect(abs.getByTestId('absence-from')).toHaveValue('2026-10-26');
+  await expect(abs.getByTestId('absence-to')).toHaveValue('2026-10-30');
+  await abs.getByTestId('absence-save').click();
+  await expect(abs.getByTestId('absence-row')).toContainText(['Stefan Holz 26.10. – 30.10.']);
+  await abs.getByRole('button', { name: 'Schließen' }).first().click();
   await expect(page.getByTestId('crew-open')).toHaveCount(0);
   await expect(page.getByTestId('crew-all-set')).toContainText('Alle Arbeiter sind eingeteilt');
   await expect(page.getByTestId('vacation-chip')).toHaveText(['Stefan Holz · Mo–Fr']);
@@ -486,4 +493,68 @@ test('Baustelle pausieren (Standby): Arbeiter werden frei, läuft ohne Arbeiter 
   await site(page, 'Baustelle A').getByTestId('site-actions').click();
   await page.getByTestId('site-finish').click();
   await expect(site(page, 'Baustelle A')).toContainText('abgeschlossen');
+});
+
+test('Urlaub und Krank von–bis über mehrere Wochen: bleibt eingeteilt, wird markiert, danach wieder normal', async ({ page }) => {
+  await freshStart(page);
+  await page.goto('./#/arbeitereinteilung');
+  await page.getByTestId('week-date').fill('2026-10-26');
+  await page.getByTestId('crew-workers').click();
+  const wd = page.getByTestId('workers-dialog');
+  for (const n of ['Max', 'Peter']) {
+    await wd.getByTestId('worker-firstName').fill(n);
+    await wd.getByTestId('worker-save').click();
+    await expect(wd.getByTestId('worker-row').filter({ hasText: n })).toHaveCount(1);
+  }
+  await page.keyboard.press('Escape');
+  await page.getByTestId('add-site').click();
+  await page.getByTestId('site-dialog').getByTestId('site-name-input').fill('Baustelle A');
+  await page.getByTestId('site-dialog').getByTestId('site-save').click();
+  await addFromMonday(page, 'Baustelle A', ['Max', 'Peter']);
+
+  // Max am Mittwoch antippen → Urlaub vom 28.10. bis 04.11. (über das Wochenende in die nächste Woche)
+  await chips(page, 'Baustelle A', 2).filter({ hasText: 'Max' }).click();
+  await page.getByTestId('chip-dialog').getByTestId('chip-absence').click();
+  const abs = page.getByTestId('absence-dialog');
+  await expect(abs.getByTestId('absence-from')).toHaveValue('2026-10-28');
+  await abs.getByTestId('absence-to').fill('2026-10-27');
+  await abs.getByTestId('absence-save').click();
+  await expect(abs.getByTestId('absence-error')).toContainText('„bis“ liegt vor „von“');
+  await abs.getByTestId('absence-to').fill('2026-11-04');
+  await abs.getByTestId('absence-save').click();
+  await expect(page.locator('.toast', { hasText: 'Urlaub eingetragen: Max, 28.10. – 04.11' })).toHaveCount(1);
+  // Peter krank am Donnerstag und Freitag
+  await abs.getByTestId('absence-krank').click();
+  await abs.getByTestId('absence-worker').selectOption({ label: 'Peter' });
+  await abs.getByTestId('absence-from').fill('2026-10-29');
+  await abs.getByTestId('absence-to').fill('2026-10-30');
+  await abs.getByTestId('absence-save').click();
+  await expect(abs.getByTestId('absence-row')).toHaveCount(1); // Liste zeigt die Einträge des gewählten Arbeiters (Peter)
+  await abs.getByRole('button', { name: 'Schließen' }).first().click();
+
+  // bleibt eingeteilt, an den Tagen markiert; nichts „offen“
+  for (const d of [0, 1, 2, 3, 4]) await expect(chips(page, 'Baustelle A', d)).toHaveText(['Max', 'Peter']);
+  await expect(chips(page, 'Baustelle A', 1).filter({ hasText: 'Max' })).not.toHaveClass(/away/);
+  await expect(chips(page, 'Baustelle A', 2).filter({ hasText: 'Max' })).toHaveClass(/away/);
+  await expect(chips(page, 'Baustelle A', 3).filter({ hasText: 'Peter' })).toHaveClass(/sick/);
+  await expect(page.getByTestId('vacation-chip')).toHaveText(['Max · Mi–Fr']);
+  await expect(page.getByTestId('sick-chip')).toHaveText(['Peter · Do, Fr']);
+  await expect(page.getByTestId('crew-all-set')).toBeVisible();
+  await page.screenshot({ path: join(OUT, 'arbeiter-urlaub-krank.png'), fullPage: true });
+
+  // nächste Woche: Max Mo–Mi Urlaub, ab Donnerstag wieder normal auf seiner Baustelle
+  await page.getByTestId('week-next').click();
+  for (const d of [0, 4]) await expect(chips(page, 'Baustelle A', d)).toHaveText(['Max', 'Peter']);
+  await expect(chips(page, 'Baustelle A', 2).filter({ hasText: 'Max' })).toHaveClass(/away/);
+  await expect(chips(page, 'Baustelle A', 3).filter({ hasText: 'Max' })).not.toHaveClass(/away/);
+  await expect(page.getByTestId('vacation-chip')).toHaveText(['Max · Mo–Mi']);
+  await expect(page.getByTestId('crew-sick')).toHaveCount(0);
+
+  // Urlaub löschen (über die Urlaubsanzeige) → keine Markierung mehr
+  await page.getByTestId('vacation-chip').click();
+  await abs.getByTestId('absence-delete').click();
+  await expect(page.locator('.toast', { hasText: 'Urlaub gelöscht' })).toHaveCount(1);
+  await abs.getByRole('button', { name: 'Schließen' }).first().click();
+  await expect(page.getByTestId('crew-vacations')).toHaveCount(0);
+  await expect(chips(page, 'Baustelle A', 2).filter({ hasText: 'Max' })).not.toHaveClass(/away/);
 });
