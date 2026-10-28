@@ -1,6 +1,6 @@
 import { aufmassRows, costCenterLabel, costCentersOf, lvDocsOf, plansOf, positionRef, safeFileName, type ExportFile, type XlsxScope } from './aufmass';
 import { invoiceLabel, invoiceShort } from './invoices';
-import { deductionArea, grossArea, hasArea, kindOf, quantityBasis, quantityFor } from './measure';
+import { deductionArea, deductionLength, grossArea, hasArea, kindOf, quantityBasis, quantityFor } from './measure';
 import type { ProjectState } from './store';
 import type { Damage, Deduction, LvDocument, LvPosition, Plan } from './types';
 import { A4_HEIGHT_IN, BLATT_BOTTOM_IN, blank, blattTopMargin, buildXlsx, num, str, type Cell, type HeaderImage, type Sheet } from './xlsx';
@@ -211,11 +211,13 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
     const qtyCol = kind === 'area' ? 4 : kind === 'volume' || kind === 'areaDepth' ? 5 : 2;
     const valueHead =
       kind === 'area' ? ['Länge', 'Breite', 'm²'] : kind === 'areaDepth' ? ['Länge', 'Breite', 'Tiefe', 'm²'] : kind === 'volume' ? ['Länge', 'Breite', 'Tiefe', 'm³'] : [kind === 'other' ? unitText(unit) : unitText(kind === 'count' ? 'Stk' : kind === 'liter' ? 'l' : 'm')];
-    // Zeilen: je Messung eine Zeile, darunter ihre Abzüge/Zuschläge (Tür, Öffnung …) – nur bei Flächen-Tabellen
-    const withDeds = kind === 'area' || kind === 'areaDepth' || kind === 'volume';
+    // Zeilen: je Messung eine Zeile, darunter ihre Abzüge/Zuschläge (Tür, Öffnung …) – Flächen-Tabellen
+    // (Teilflächen) bzw. Längen-Tabellen (Teillängen von Linien)
+    const areaTable = kind === 'area' || kind === 'areaDepth' || kind === 'volume';
+    const dedsOf = (d: Damage) => (areaTable ? (d.area !== null ? d.deductions : undefined) : kind === 'length' && kindOf(d) === 'line' ? d.deductions : undefined) ?? [];
     type Line = { item: Item; ded?: Deduction };
-    const lines: Line[] = list.flatMap((item) => [{ item }, ...(withDeds && item.d.area !== null ? (item.d.deductions ?? []) : []).map((ded) => ({ item, ded }))]);
-    const notes = lines.map(({ item, ded }) => (ded ? dedNote(ded) : remark(item.d, kind)));
+    const lines: Line[] = list.flatMap((item) => [{ item }, ...dedsOf(item.d).map((ded) => ({ item, ded }))]);
+    const notes = lines.map(({ item, ded }) => (ded ? dedNote(ded, !areaTable) : remark(item.d, kind)));
     const head: Cell[] = [str('Plan', 'amTh'), str('Nr.', 'amTh'), ...valueHead.map((h) => str(h, 'amTh'))];
     if (notes.some(Boolean)) head.push(str('Bemerkung', 'amThNote'));
     add(head);
@@ -231,13 +233,18 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
         const sign = `${ded.add ? '' : '-'}${ded.count > 1 ? `${ded.count}*` : ''}`;
         const a = deductionArea(ded);
         let cells: Cell[];
-        if (kind === 'volume') {
+        if (!areaTable) {
+          // Linie: Teillänge mit Vorzeichen (Anzahl × Länge steht in der Bemerkung)
+          const v = deductionLength(ded);
+          total += v;
+          cells = [num(v, last ? 'amQtyLast' : 'amQty')];
+        } else if (kind === 'volume') {
           const v = d.depth !== null ? Math.round(a * d.depth * 10000) / 10000 : null;
           total += v ?? 0;
-          cells = [n(ded.length, last), n(ded.width, last), n(d.depth, last), v === null ? qn(null, last) : q(v, `${sign}C${r}*D${r}*E${r}`)];
+          cells = [n(ded.length, last), n(ded.width ?? null, last), n(d.depth, last), v === null ? qn(null, last) : q(v, `${sign}C${r}*D${r}*E${r}`)];
         } else {
           total += a;
-          cells = [n(ded.length, last), n(ded.width, last), ...(kind === 'areaDepth' ? [blank(last ? 'amNumLast' : 'amText')] : []), q(a, `${sign}C${r}*D${r}`)];
+          cells = [n(ded.length, last), n(ded.width ?? null, last), ...(kind === 'areaDepth' ? [blank(last ? 'amNumLast' : 'amText')] : []), q(a, `${sign}C${r}*D${r}`)];
         }
         add([blank(last ? 'amCenterLast' : 'amCenter'), blank(last ? 'amCenterLast' : 'amCenter'), ...cells, note ? str(note, 'amNote') : null]);
         return;
@@ -261,7 +268,8 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
         const formula = d.width !== null && d.depth !== null && !d.areaFromShape;
         cells = [n(d.areaFromShape ? null : d.length, last), n(d.areaFromShape ? null : d.width, last), n(d.depth, last), formula ? q(v ?? 0, `C${r}*D${r}*E${r}`) : qn(v, last)];
       } else {
-        const qty = kind === 'liter' ? liters(d) : kind === 'other' ? null : (quantityFor(kind === 'count' ? 'Stk' : 'm', [d]).value ?? null);
+        // Linie mit Abzügen: gemessene Länge, die Abzüge folgen in eigenen Zeilen
+        const qty = kind === 'liter' ? liters(d) : kind === 'other' ? null : kind === 'length' && dedsOf(d).length ? d.length : (quantityFor(kind === 'count' ? 'Stk' : 'm', [d]).value ?? null);
         total += qty ?? 0;
         cells = [qn(qty, last)];
       }
@@ -319,8 +327,10 @@ function liters(d: Damage): number | null {
 }
 
 /** Bemerkung einer Abzugs- bzw. Zuschlagszeile, z. B. „Abzug Tür (2×)“ */
-function dedNote(x: Deduction): string {
-  return [x.add ? 'Zuschlag' : 'Abzug', x.label, x.count > 1 ? `(${x.count}×)` : ''].filter(Boolean).join(' ');
+function dedNote(x: Deduction, line = false): string {
+  const m = (v: number) => v.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const size = line ? `(${x.count > 1 ? `${x.count} × ` : ''}${m(x.length)} m)` : x.count > 1 ? `(${x.count}×)` : '';
+  return [x.add ? 'Zuschlag' : 'Abzug', x.label, size].filter(Boolean).join(' ');
 }
 
 /** Bemerkung: nur Hinweise (Fläche aus dem Plan, fehlende Werte) – sonst leer */

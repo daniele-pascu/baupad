@@ -161,3 +161,40 @@ test('Abzüge: Wand 5,50 × 2,30 abzüglich Tür und 2 Fenster, zuzüglich Nisch
   await expect(row.getByTestId('row-area')).toHaveText('9,75');
   await waitSaved(page);
 });
+
+test('Abzüge auch bei Linien: Sockelleiste 12,40 m abzüglich 2 Türöffnungen à 1,00 m → netto 10,40 m', async () => {
+  await pickTool(page, 'tool-line');
+  const sb = (await sheet().boundingBox())!;
+  await page.mouse.move(sb.x + 560, sb.y + 330);
+  await page.mouse.down();
+  await page.mouse.move(sb.x + 760, sb.y + 330, { steps: 5 });
+  await page.mouse.up();
+  const dlg = page.getByTestId('damage-dialog');
+  await expect(dlg).toContainText('Neue Linie');
+  // Länge von Hand statt aus dem Plan
+  const geo = dlg.getByTestId('use-geometry');
+  if ((await geo.getAttribute('aria-pressed')) === 'true') await geo.click();
+  await dlg.getByTestId('input-length').fill('12,4');
+  await expect(dlg.getByTestId('deductions')).toContainText('Länge, z. B. Türöffnung');
+  await dlg.getByTestId('deduction-add').click();
+  const row = dlg.getByTestId('deduction-row').first();
+  await expect(row.getByTestId('deduction-width')).toHaveCount(0); // Linie: nur Länge
+  await row.getByTestId('deduction-label').fill('Tür');
+  await row.getByTestId('deduction-count').fill('2');
+  await row.getByTestId('deduction-length').fill('1');
+  await expect(row.getByTestId('deduction-area')).toHaveText('−2,00 m');
+  await expect(dlg.getByTestId('deduction-sum')).toContainText('Gemessen 12,40 m');
+  await expect(dlg.getByTestId('deduction-sum')).toContainText('netto 10,40 m');
+  await expect(dlg.getByTestId('area-result')).toContainText('10,40 m');
+  await dlg.getByTestId('damage-save').click();
+  await expect(dlg).toBeHidden();
+  await expect(page.locator('.toast', { hasText: '10,40 m' })).toHaveCount(1);
+  const sub = page.getByTestId('row-deductions').last();
+  await expect(sub).toContainText('gemessen 12,40 m − 2,00 m (2× Tür) = netto 10,40 m');
+  await waitSaved(page);
+  await expect.poll(async () => (await damages()).length).toBe(4);
+  const d = (await damages()).at(-1)!;
+  expect(d).toMatchObject({ kind: 'line', length: 12.4 });
+  expect(d.deductions).toEqual([expect.objectContaining({ label: 'Tür', count: 2, length: 1 })]);
+  expect(d.deductions![0].width).toBeUndefined();
+});

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { uuid } from '../lib/ids';
-import { deductionArea, hasArea, KIND_LABELS, netArea } from '../lib/measure';
+import { deductionArea, deductionLength, hasArea, KIND_LABELS, netArea } from '../lib/measure';
 import { checkMeasure, computeArea, formatArea, parseDecimal, toInputValue } from '../lib/numbers';
 import { damageNo, findByNumber, parseDamageNumber } from '../lib/numbering';
 import { COLORS, SHAPE_LABELS, type Component, type Damage, type Deduction, type MeasureKind, type ShapeType } from '../lib/types';
@@ -124,20 +124,37 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const B = !geo && v.width.trim() ? checkMeasure(v.width, withArea && !wall ? 'Breite/Höhe' : 'Höhe') : null;
   const T = v.depth.trim() ? checkMeasure(v.depth, 'Tiefe') : null;
   const gross = geo ? geo.area : withArea && L.ok && B?.ok ? computeArea(L.value, B.value) : null;
-  // Abzüge/Zuschläge: nur vollständige Zeilen zählen (Breite und Höhe > 0, Anzahl ab 1)
+  // Abzüge/Zuschläge: Flächen mit Breite × Höhe, Linien nur mit Länge; nur vollständige Zeilen zählen
+  const lineDeds = !withArea;
   const dedErrors = deds.map((r) => {
     const l = parseDecimal(r.length);
     const w = parseDecimal(r.width);
     const c = r.count.trim() ? Number(r.count.trim()) : 1;
-    if (!r.length.trim() && !r.width.trim()) return 'Breite und Höhe fehlen.';
-    if (l === null || l <= 0 || w === null || w <= 0) return 'Breite und Höhe müssen größer als 0 sein.';
+    if (lineDeds) {
+      if (!r.length.trim()) return 'Länge fehlt.';
+      if (l === null || l <= 0) return 'Länge muss größer als 0 sein.';
+    } else {
+      if (!r.length.trim() && !r.width.trim()) return 'Breite und Höhe fehlen.';
+      if (l === null || l <= 0 || w === null || w <= 0) return 'Breite und Höhe müssen größer als 0 sein.';
+    }
     if (!Number.isInteger(c) || c < 1 || c > 999) return 'Anzahl: ganze Zahl ab 1.';
     return null;
   });
   const deductions: Deduction[] = deds
     .filter((_, i) => !dedErrors[i])
-    .map((r) => ({ id: r.id, label: r.label.trim(), count: r.count.trim() ? Number(r.count.trim()) : 1, length: parseDecimal(r.length)!, width: parseDecimal(r.width)!, ...(r.add ? { add: true } : {}) }));
+    .map((r) => ({
+      id: r.id,
+      label: r.label.trim(),
+      count: r.count.trim() ? Number(r.count.trim()) : 1,
+      length: parseDecimal(r.length)!,
+      ...(lineDeds ? {} : { width: parseDecimal(r.width)! }),
+      ...(r.add ? { add: true } : {}),
+    }));
   const area = netArea(gross, deductions);
+  const dedValue = (x: Deduction) => (lineDeds ? deductionLength(x) : deductionArea(x));
+  // Linie: gemessene Länge (von Hand oder aus dem Plan) und Nettolänge mit Abzügen
+  const lineGross = lineDeds && L.ok ? L.value : null;
+  const lineNet = lineGross === null ? null : Math.round(deductions.reduce((s, x) => s + deductionLength(x), lineGross) * 1e9) / 1e9;
   const setDed = (id: string, patch: Partial<DeductionRow>) => setDeds((list) => list.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   const newDed = (add: boolean) => setDeds((list) => [...list, { id: uuid(), label: '', count: '1', length: '', width: '', add }]);
   // Nummernkonflikte nur unter reinen Nummern (Kennzeichnungen haben eine eigene Prüfung)
@@ -181,7 +198,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
         resetLabel,
         areaFromShape: !!geo || lineGeo !== null,
         area: geo ? geo.area : null,
-        deductions: withArea ? deductions : [],
+        deductions,
       },
       renumber,
     );
@@ -341,79 +358,99 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             </>
           ) : (
             <>
-              <span>{lineGeo !== null ? 'Länge aus Plan (alle Abschnitte) – wird bei Formänderung nachgeführt' : 'Linienmessung (keine Fläche)'}</span>
-              <strong>{lineGeo !== null ? `${formatArea(lineGeo)} m` : lengthValue && lengthValue > 0 ? `${formatArea(lengthValue)} m` : '–'}</strong>
+              <span>
+                {lineGeo !== null ? 'Länge aus Plan (alle Abschnitte) – wird bei Formänderung nachgeführt' : 'Linienmessung (keine Fläche)'}
+                {deductions.length > 0 && lineNet !== null ? ' · netto mit Abzügen' : ''}
+              </span>
+              <strong>{deductions.length > 0 && lineNet !== null ? `${formatArea(lineNet)} m` : lineGeo !== null ? `${formatArea(lineGeo)} m` : lengthValue && lengthValue > 0 ? `${formatArea(lengthValue)} m` : '–'}</strong>
             </>
           )}
         </div>
-        {withArea && (
-          <div className="deductions" data-testid="deductions">
-            <div className="deductions-head">
-              <strong>Abzüge / Zuschläge</strong>
-              <span className="muted small">z. B. Tür, Fenster, Öffnung</span>
-            </div>
-            {deds.map((r, i) => {
-              const a = dedErrors[i] ? null : deductionArea(deductions.find((x) => x.id === r.id)!);
-              return (
-                <div key={r.id} className="deduction-row" data-testid="deduction-row">
-                  <button
-                    type="button"
-                    className={`deduction-sign${r.add ? ' add' : ''}`}
-                    onClick={() => setDed(r.id, { add: !r.add })}
-                    aria-label={r.add ? 'Wird hinzugerechnet – antippen zum Abziehen' : 'Wird abgezogen – antippen zum Hinzurechnen'}
-                    title={r.add ? 'Zuschlag (hinzurechnen)' : 'Abzug (abziehen)'}
-                    data-testid="deduction-sign"
-                  >
-                    {r.add ? '+' : '−'}
-                  </button>
+        <div className="deductions" data-testid="deductions">
+          <div className="deductions-head">
+            <strong>Abzüge / Zuschläge</strong>
+            <span className="muted small">{lineDeds ? 'Länge, z. B. Türöffnung, Durchgang' : 'z. B. Tür, Fenster, Öffnung'}</span>
+          </div>
+          {deds.map((r, i) => {
+            const a = dedErrors[i] ? null : dedValue(deductions.find((x) => x.id === r.id)!);
+            return (
+              <div key={r.id} className="deduction-row" data-testid="deduction-row">
+                <button
+                  type="button"
+                  className={`deduction-sign${r.add ? ' add' : ''}`}
+                  onClick={() => setDed(r.id, { add: !r.add })}
+                  aria-label={r.add ? 'Wird hinzugerechnet – antippen zum Abziehen' : 'Wird abgezogen – antippen zum Hinzurechnen'}
+                  title={r.add ? 'Zuschlag (hinzurechnen)' : 'Abzug (abziehen)'}
+                  data-testid="deduction-sign"
+                >
+                  {r.add ? '+' : '−'}
+                </button>
+                <input
+                  className="deduction-label"
+                  value={r.label}
+                  onChange={(e) => setDed(r.id, { label: e.target.value })}
+                  placeholder={r.add ? 'Bezeichnung (z. B. Nische)' : 'Bezeichnung (z. B. Tür)'}
+                  aria-label="Bezeichnung"
+                  autoComplete="off"
+                  data-testid="deduction-label"
+                />
+                <button type="button" className="icon-btn icon-btn-sm" onClick={() => setDeds((list) => list.filter((x) => x.id !== r.id))} aria-label="Zeile entfernen" data-testid="deduction-remove">
+                  <Icon name="trash" size={16} />
+                </button>
+                <span className="deduction-nums">
+                  <input value={r.count} onChange={(e) => setDed(r.id, { count: e.target.value })} inputMode="numeric" placeholder="1" aria-label="Anzahl" className="deduction-count" data-testid="deduction-count" />
+                  <span aria-hidden="true">×</span>
                   <input
-                    className="deduction-label"
-                    value={r.label}
-                    onChange={(e) => setDed(r.id, { label: e.target.value })}
-                    placeholder={r.add ? 'Bezeichnung (z. B. Nische)' : 'Bezeichnung (z. B. Tür)'}
-                    aria-label="Bezeichnung"
-                    autoComplete="off"
-                    data-testid="deduction-label"
+                    value={r.length}
+                    onChange={(e) => setDed(r.id, { length: e.target.value })}
+                    inputMode="decimal"
+                    placeholder={lineDeds ? 'Länge' : 'Breite'}
+                    aria-label={lineDeds ? 'Länge in m' : 'Breite in m'}
+                    data-testid="deduction-length"
                   />
-                  <button type="button" className="icon-btn icon-btn-sm" onClick={() => setDeds((list) => list.filter((x) => x.id !== r.id))} aria-label="Zeile entfernen" data-testid="deduction-remove">
-                    <Icon name="trash" size={16} />
-                  </button>
-                  <span className="deduction-nums">
-                    <input value={r.count} onChange={(e) => setDed(r.id, { count: e.target.value })} inputMode="numeric" placeholder="1" aria-label="Anzahl" className="deduction-count" data-testid="deduction-count" />
-                    <span aria-hidden="true">×</span>
-                    <input value={r.length} onChange={(e) => setDed(r.id, { length: e.target.value })} inputMode="decimal" placeholder="Breite" aria-label="Breite in m" data-testid="deduction-length" />
-                    <span aria-hidden="true">×</span>
-                    <input value={r.width} onChange={(e) => setDed(r.id, { width: e.target.value })} inputMode="decimal" placeholder="Höhe" aria-label="Höhe in m" data-testid="deduction-width" />
-                    <span className="muted small">m =</span>
-                    <span className="deduction-area" data-testid="deduction-area">
-                      {a === null ? '' : `${a < 0 ? '−' : '+'}${formatArea(Math.abs(a))} m²`}
-                    </span>
+                  {!lineDeds && (
+                    <>
+                      <span aria-hidden="true">×</span>
+                      <input value={r.width} onChange={(e) => setDed(r.id, { width: e.target.value })} inputMode="decimal" placeholder="Höhe" aria-label="Höhe in m" data-testid="deduction-width" />
+                    </>
+                  )}
+                  <span className="muted small">m =</span>
+                  <span className="deduction-area" data-testid="deduction-area">
+                    {a === null ? '' : `${a < 0 ? '−' : '+'}${formatArea(Math.abs(a))} ${lineDeds ? 'm' : 'm²'}`}
                   </span>
-                  {showErrors && dedErrors[i] && <small className="error">{dedErrors[i]}</small>}
-                </div>
-              );
-            })}
-            <div className="row gap wrap">
-              <button type="button" className="btn btn-sm" onClick={() => newDed(false)} data-testid="deduction-add">
-                − Abzug hinzufügen
-              </button>
-              <button type="button" className="btn btn-sm" onClick={() => newDed(true)} data-testid="deduction-add-plus">
-                + Zuschlag hinzufügen
-              </button>
-            </div>
-            {deductions.length > 0 && (
-              <p className="deduction-sum small" data-testid="deduction-sum">
-                {gross === null ? (
-                  'Abzüge wirken erst, wenn eine Fläche berechnet ist (Länge × Breite/Höhe).'
+                </span>
+                {showErrors && dedErrors[i] && <small className="error">{dedErrors[i]}</small>}
+              </div>
+            );
+          })}
+          <div className="row gap wrap">
+            <button type="button" className="btn btn-sm" onClick={() => newDed(false)} data-testid="deduction-add">
+              − Abzug hinzufügen
+            </button>
+            <button type="button" className="btn btn-sm" onClick={() => newDed(true)} data-testid="deduction-add-plus">
+              + Zuschlag hinzufügen
+            </button>
+          </div>
+          {deductions.length > 0 && (
+            <p className="deduction-sum small" data-testid="deduction-sum">
+              {lineDeds ? (
+                lineGross === null ? (
+                  'Abzüge wirken, sobald eine Länge eingegeben ist.'
                 ) : (
                   <>
-                    Brutto {formatArea(gross)} m² {deductions.map((x) => `${deductionArea(x) < 0 ? '−' : '+'} ${formatArea(Math.abs(deductionArea(x)))}`).join(' ')} = <strong>netto {formatArea(area)} m²</strong>
+                    Gemessen {formatArea(lineGross)} m {deductions.map((x) => `${dedValue(x) < 0 ? '−' : '+'} ${formatArea(Math.abs(dedValue(x)))}`).join(' ')} = <strong>netto {formatArea(lineNet)} m</strong>
                   </>
-                )}
-              </p>
-            )}
-          </div>
-        )}
+                )
+              ) : gross === null ? (
+                'Abzüge wirken erst, wenn eine Fläche berechnet ist (Länge × Breite/Höhe).'
+              ) : (
+                <>
+                  Brutto {formatArea(gross)} m² {deductions.map((x) => `${dedValue(x) < 0 ? '−' : '+'} ${formatArea(Math.abs(dedValue(x)))}`).join(' ')} = <strong>netto {formatArea(area)} m²</strong>
+                </>
+              )}
+            </p>
+          )}
+        </div>
         {conflict && num !== null && (
           <div className="banner banner-warn" data-testid="number-conflict">
             <p>

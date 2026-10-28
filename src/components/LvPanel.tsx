@@ -4,7 +4,7 @@ import { uuid } from '../lib/ids';
 import { damageNo, nextPositionNumber } from '../lib/numbering';
 import { readLvFromPdf } from '../lib/lv-import';
 import { parseGermanNumber, sumPositions, type ParsedLv } from '../lib/lv-parse';
-import { quantityBasis, quantityFor } from '../lib/measure';
+import { netLength, quantityBasis, quantityFor } from '../lib/measure';
 import { formatArea, formatMeasure, parseDecimal } from '../lib/numbers';
 import { closePdf, openPdf } from '../lib/pdf';
 import { paths } from '../lib/router';
@@ -419,7 +419,7 @@ function LvDocView({ data, doc, onEdit, onDelete }: { data: ProjectState; doc: L
                                     {plan ? planTitle(plan) : 'Plan'} · Nr. {damageNo(d)}
                                   </a>{' '}
                                   <span className="muted">
-                                    {formatMeasure(d.length)} m{d.area !== null ? ` · ${formatArea(d.area)} m²` : ''}
+                                    {formatMeasure(netLength(d))} m{d.area !== null ? ` · ${formatArea(d.area)} m²` : ''}
                                   </span>
                                 </li>
                               );

@@ -245,23 +245,24 @@ export interface Damage extends SyncMeta {
    */
   areaFromShape?: boolean;
   /**
-   * Abzüge bzw. Zuschläge der Fläche (z. B. Tür, Fenster, Öffnung). `area` ist bereits die Nettofläche
+   * Abzüge bzw. Zuschläge (z. B. Tür, Fenster, Öffnung). Flächen: `area` ist bereits die Nettofläche
    * (Länge × Breite bzw. Fläche aus dem Plan, abzüglich bzw. zuzüglich dieser Teilflächen).
+   * Linien: `length` bleibt die gemessene Länge, netto siehe `netLength`.
    */
   deductions?: Deduction[];
 }
 
-/** Teilfläche, die von einer Messfläche abgezogen (bzw. hinzugerechnet) wird */
+/** Teilfläche bzw. Teillänge, die von einer Messung abgezogen (bzw. hinzugerechnet) wird */
 export interface Deduction {
   id: string;
   /** Bezeichnung, z. B. „Tür“, „Fenster“ */
   label: string;
   /** Anzahl gleicher Teilflächen */
   count: number;
-  /** Breite in m */
+  /** Breite in m (bei Linien: die Länge) */
   length: number;
-  /** Höhe in m */
-  width: number;
+  /** Höhe in m; fehlt bei Linien (dort zählt nur die Länge) */
+  width?: number;
   /** true = hinzurechnen statt abziehen */
   add?: boolean;
 }

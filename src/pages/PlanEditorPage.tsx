@@ -22,7 +22,7 @@ import { convertShape, isOpenShape, lineShape, polygonShape, removeVertex, rotat
 import { probeTarget, type ProbeKind } from '../lib/probe';
 import { ProbeBar, ProbeMenu, ProbeOverlay, type ProbeState } from '../components/ProbeLayer';
 import { circleThrough } from '../lib/cad';
-import { countKind, deductionText, defaultKindFor, grossArea, hasArea, isWall, KIND_LABELS, kindOf, measureLabel, netArea, sumLengths } from '../lib/measure';
+import { countKind, deductionText, defaultKindFor, grossArea, hasArea, isWall, KIND_LABELS, kindOf, measureLabel, netArea, netLength, sumLengths } from '../lib/measure';
 import { checkMeasure, computeArea, formatArea, formatMeasure, toInputValue } from '../lib/numbers';
 import { compactNumbers, damageNo, duplicateIds, nextNumber, planNumberStart, shiftNumbers, suggestNext, swapNumbers } from '../lib/numbering';
 import { navigate, paths } from '../lib/router';
@@ -230,7 +230,7 @@ function withShapeMeasures<T extends Pick<Damage, 'areaFromShape' | 'kind' | 'le
 
 /** Kurzbeschreibung der Maße je Messart */
 function measureSummary(d: Pick<Damage, 'kind' | 'length' | 'width' | 'depth' | 'area' | 'areaFromShape' | 'shape' | 'deductions'>): string {
-  if (!hasArea(kindOf(d))) return `L ${formatMeasure(d.length)} m`;
+  if (!hasArea(kindOf(d))) return `L ${formatMeasure(d.length)} m${d.deductions?.length ? ` ${deductionText(d.deductions, true)} = ${formatMeasure(netLength(d))} m` : ''}`;
   const depth = d.depth !== null ? ` · T ${formatMeasure(d.depth)} m` : '';
   // Abzüge/Zuschläge: Brutto ± Teilflächen = Netto
   const deds = d.area !== null && d.deductions?.length ? ` ${deductionText(d.deductions)} = ${formatArea(d.area)} m²` : '';
@@ -779,8 +779,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     const wall = isWall({ kind: v.kind, shape: finalShape });
     const lineFromPlan = v.areaFromShape && (!hasArea(v.kind) || wall) && k ? suggestMeasures(finalShape, k).length : null;
     const gross = geo ? geo.area : hasArea(v.kind) && v.width !== null ? computeArea(lineFromPlan ?? v.length, v.width) : null;
-    // Abzüge/Zuschläge (Tür, Öffnung …) nur bei Flächen
-    const deductions = hasArea(v.kind) && gross !== null && v.deductions.length ? v.deductions : undefined;
+    // Abzüge/Zuschläge (Tür, Öffnung …): Flächen mit berechneter Fläche bzw. Linien (Teillängen)
+    const deductions = v.deductions.length && (hasArea(v.kind) ? gross !== null : true) ? v.deductions : undefined;
     const area = netArea(gross, deductions);
     const measures = {
       kind: v.kind,
@@ -833,7 +833,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       // Fertig: zurück zur Auswahl (Messung bleibt ausgewählt und bearbeitbar), Leiste zuklappen
       setTool('select');
       setToolsOpen(false);
-      const amount = area !== null ? `${formatArea(area)} m²` : `${formatMeasure(v.length)} m`;
+      const amount = area !== null ? `${formatArea(area)} m²` : `${formatMeasure(netLength({ kind: v.kind, length: measures.length, deductions }))} m`;
       toast(`${wall ? 'Wand' : KIND_LABELS[v.kind]} ${shown} gespeichert (${amount}).`, 'success', 2500);
     } else {
       const d = data.damages[dialog.id];

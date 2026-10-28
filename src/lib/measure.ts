@@ -39,7 +39,16 @@ export function defaultKindFor(shape: Shape): MeasureKind {
 const clean = (n: number) => Math.round(n * 1e9) / 1e9;
 
 /** Teilfläche einer Abzugs- bzw. Zuschlagszeile mit Vorzeichen (Abzug negativ) */
-export const deductionArea = (x: Pick<Deduction, 'count' | 'length' | 'width' | 'add'>) => clean((x.add ? 1 : -1) * x.count * x.length * x.width);
+export const deductionArea = (x: Pick<Deduction, 'count' | 'length' | 'width' | 'add'>) => clean((x.add ? 1 : -1) * x.count * x.length * (x.width ?? 0));
+
+/** Teillänge einer Abzugs- bzw. Zuschlagszeile einer Linie mit Vorzeichen (Abzug negativ) */
+export const deductionLength = (x: Pick<Deduction, 'count' | 'length' | 'add'>) => clean((x.add ? 1 : -1) * x.count * x.length);
+
+/** Nettolänge: Linien mit Abzügen/Zuschlägen; sonst die gemessene Länge (bei Flächen z. B. der Umfang) */
+export function netLength(d: Pick<Damage, 'kind' | 'length' | 'deductions'>): number {
+  if (kindOf(d) !== 'line' || !d.deductions?.length) return d.length;
+  return clean(d.deductions.reduce((s, x) => s + deductionLength(x), d.length));
+}
 
 /** Nettofläche: Bruttofläche (Länge × Breite bzw. aus dem Plan) mit Abzügen und Zuschlägen */
 export function netArea(gross: number | null, deductions: Deduction[] | undefined): number | null {
@@ -47,14 +56,14 @@ export function netArea(gross: number | null, deductions: Deduction[] | undefine
   return clean(deductions.reduce((s, x) => s + deductionArea(x), gross));
 }
 
-/** Kurztext der Abzüge/Zuschläge, z. B. „− 2,10 m² (Tür) + 0,50 m² (Nische)“ */
-export function deductionText(list: Deduction[]): string {
+/** Kurztext der Abzüge/Zuschläge, z. B. „− 2,10 m² (Tür) + 0,50 m² (Nische)“ bzw. bei Linien „− 1,00 m (Tür)“ */
+export function deductionText(list: Deduction[], line = false): string {
   const f = (n: number) => n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return list
     .map((x) => {
-      const a = deductionArea(x);
+      const a = line ? deductionLength(x) : deductionArea(x);
       const name = [x.count > 1 ? `${x.count}×` : '', x.label].filter(Boolean).join(' ');
-      return `${a < 0 ? '−' : '+'} ${f(Math.abs(a))} m²${name ? ` (${name})` : ''}`;
+      return `${a < 0 ? '−' : '+'} ${f(Math.abs(a))} ${line ? 'm' : 'm²'}${name ? ` (${name})` : ''}`;
     })
     .join(' ');
 }
@@ -71,8 +80,8 @@ export function sumAreas(damages: Pick<Damage, 'kind' | 'area'>[]): number {
 }
 
 /** Summe der Linienlängen (m) – getrennt von den Flächen. */
-export function sumLengths(damages: Pick<Damage, 'kind' | 'length'>[]): number {
-  return clean(damages.reduce((s, d) => (kindOf(d) === 'line' ? s + d.length : s), 0));
+export function sumLengths(damages: Pick<Damage, 'kind' | 'length' | 'deductions'>[]): number {
+  return clean(damages.reduce((s, d) => (kindOf(d) === 'line' ? s + netLength(d) : s), 0));
 }
 
 export const countKind = (damages: Pick<Damage, 'kind'>[], k: MeasureKind) => damages.filter((d) => kindOf(d) === k).length;
@@ -101,11 +110,11 @@ export function quantityBasis(unit: string): QuantityBasis {
  * m² = Summe der Flächen, m = Summe der Längen, m³ = Fläche × Tiefe (nur mit Tiefe),
  * Stk = Anzahl. Bei anderen Einheiten null (nicht automatisch berechenbar).
  */
-export function quantityFor(unit: string, damages: Pick<Damage, 'kind' | 'length' | 'area' | 'depth'>[]): { value: number | null; missing: number } {
+export function quantityFor(unit: string, damages: Pick<Damage, 'kind' | 'length' | 'area' | 'depth' | 'deductions'>[]): { value: number | null; missing: number } {
   const basis = quantityBasis(unit);
   if (!basis) return { value: null, missing: 0 };
   if (basis === 'count') return { value: damages.length, missing: 0 };
-  if (basis === 'length') return { value: clean(damages.reduce((s, d) => s + d.length, 0)), missing: 0 };
+  if (basis === 'length') return { value: clean(damages.reduce((s, d) => s + netLength(d), 0)), missing: 0 };
   if (basis === 'area') {
     const withArea = damages.filter((d) => hasArea(kindOf(d)) && d.area !== null);
     return { value: sumAreas(withArea), missing: damages.length - withArea.length };

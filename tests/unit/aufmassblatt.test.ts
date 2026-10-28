@@ -71,6 +71,18 @@ describe('Aufmaßblatt (Firmenvorlage)', () => {
     expect(ws).toContain(`<f>SUM(E${r}:E${r + 3})</f><v>8.65</v>`); // 12,65 − 2,40 − 2,10 + 0,50
   });
 
+  it('Abzüge bei Linien: gemessene Länge, darunter Teillängen; Summe = netto', () => {
+    const withDeds = {
+      ...data,
+      damages: { d2: dmg('d2', 2, { kind: 'line', width: null, area: null, length: 12.4, deductions: [{ id: 'a', label: 'Tür', count: 2, length: 1 }] }) },
+    } as unknown as ProjectState;
+    const ws = strFromU8(unzipSync(exportAufmassblatt(withDeds, { kind: 'plan', planId: 'p1' }, { no: '012', period: '' }).data)['xl/worksheets/sheet1.xml']);
+    expect(ws).toContain('>Abzug Tür (2 × 1,00 m)<');
+    expect(ws).toContain('<v>12.4</v>');
+    expect(ws).toContain('<v>-2</v>');
+    expect(ws).toMatch(/<f>SUM\(C\d+:C\d+\)<\/f><v>10.4<\/v>/);
+  });
+
   it('jede LV/MFK und das Aufmaß ohne Position beginnt auf einer neuen Seite; fester Zoom, damit die Umbrüche gelten', () => {
     const pos = (id: string, number: string, unit: string) => ({ id, number, shortText: `Text ${number}`, longText: '', unit, quantity: null, unitPrice: 10, totalPrice: null, group: '', issues: [] });
     const doc = (id: string, kind: 'lv' | 'mfk', number: string, p: ReturnType<typeof pos>) => ({ ...meta, id, projectId: 'x', kind, name: `Dok ${number}`, number, fileName: '', groups: [], positions: [p] });
