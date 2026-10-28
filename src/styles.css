@@ -6722,8 +6722,33 @@ button.report-link {
 .cam-view video {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
+}
+.cam-view video.mirror {
+  transform: scaleX(-1);
+}
+.cam-mask {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.cam-mask > div {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.55);
+}
+.cam-mask-frame {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}
+.cam-side .cam-icon {
+  transition: transform 0.25s ease;
+}
+.cam-sheet .segmented {
+  align-self: flex-start;
+  max-width: 100%;
+  overflow-x: auto;
 }
 .cam-flash {
   position: absolute;
@@ -6901,9 +6926,4 @@ button.report-link {
 .cam-drawer button.muted {
   margin-top: auto;
   color: rgba(255, 255, 255, 0.7);
-}
-@media (min-width: 761px) {
-  .cam-view video {
-    object-fit: contain;
-  }
 }
