@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { getMeta, setMeta } from '../lib/db';
 import { uuid } from '../lib/ids';
 import { getPhotoStorage } from '../lib/photo-storage';
-import { dayAndWeek, fmtBytes, preparePhoto, type PreparedPhoto } from '../lib/photos';
+import { paths } from '../lib/router';
+import { dayAndWeek, fmtBytes, photoSiteKey, preparePhoto, type PreparedPhoto } from '../lib/photos';
 import type { Photo, PhotoSite } from '../lib/types';
 import { Icon } from './Icon';
 import { Modal } from './Modal';
@@ -10,6 +11,35 @@ import { PhotoSitePicker } from './PhotoSitePicker';
 import { showError, toast } from './ui';
 
 export type { PhotoSite };
+
+/** Foto-Datensatz aus einem vorbereiteten Bild (gemeinsam für Speichern-Dialog und Kamera-Modus) */
+export function photoFromPrepared(id: string, file: File, pr: PreparedPhoto, site: PhotoSite, user: string, description: string): Photo {
+  const now = Date.now();
+  return {
+    id,
+    companyId: null,
+    projectId: site.projectId,
+    siteName: site.name,
+    siteNumber: site.number,
+    siteAddress: site.address,
+    takenAt: pr.takenAt,
+    ...dayAndWeek(pr.takenAt),
+    takenFrom: pr.takenFrom,
+    uploadedAt: now,
+    userName: user,
+    description: description.trim(),
+    fileName: file.name,
+    width: pr.width,
+    height: pr.height,
+    size: pr.data.byteLength,
+    hash: pr.hash,
+    original: false,
+    sync: 'local',
+    deletedAt: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
 
 /** Name auf diesem Gerät – bis zur Anmeldung (dann kommt der Name aus der Sitzung) */
 export async function deviceUserName(): Promise<string> {
@@ -36,6 +66,7 @@ export function PhotoCapture({
   existingHashes,
   onSaved,
   big = false,
+  render,
 }: {
   sites: PhotoSite[];
   /** vorgewählte Baustelle (Baustellenseite) */
@@ -43,6 +74,8 @@ export function PhotoCapture({
   existingHashes: Set<string>;
   onSaved(photos: Photo[]): void;
   big?: boolean;
+  /** eigene Knöpfe statt der Standardknöpfe (z. B. im Kamera-Modus): `camera` öffnet die Gerätekamera, `library` die Galerie */
+  render?: (open: { camera(): void; library(): void }) => ReactNode;
 }) {
   const cam = useRef<HTMLInputElement>(null);
   const lib = useRef<HTMLInputElement>(null);
@@ -88,31 +121,7 @@ export function PhotoCapture({
       const saved: Photo[] = [];
       for (const p of ready) {
         const pr = p.prepared!;
-        const now = Date.now();
-        const photo: Photo = {
-          id: p.id,
-          companyId: null,
-          projectId: chosen.projectId,
-          siteName: chosen.name,
-          siteNumber: chosen.number,
-          siteAddress: chosen.address,
-          takenAt: pr.takenAt,
-          ...dayAndWeek(pr.takenAt),
-          takenFrom: pr.takenFrom,
-          uploadedAt: now,
-          userName: user,
-          description: p.description.trim(),
-          fileName: p.file.name,
-          width: pr.width,
-          height: pr.height,
-          size: pr.data.byteLength,
-          hash: pr.hash,
-          original: false,
-          sync: 'local',
-          deletedAt: null,
-          createdAt: now,
-          updatedAt: now,
-        };
+        const photo = photoFromPrepared(p.id, p.file, pr, chosen, user, p.description);
         saved.push(await storage.put(photo, { data: pr.data, thumb: pr.thumb }));
       }
       setPending(null);
@@ -130,13 +139,19 @@ export function PhotoCapture({
 
   return (
     <>
-      <div className={`photo-capture${big ? ' big' : ''}`}>
-        <button type="button" className="btn btn-primary photo-shoot" onClick={() => cam.current?.click()} data-testid="photo-shoot">
-          <Icon name="camera" size={big ? 26 : 20} /> Foto aufnehmen
-        </button>
-        <button type="button" className="btn photo-pick" onClick={() => lib.current?.click()} aria-label="Aus Galerie / Datei" title="Aus Galerie / Datei" data-testid="photo-pick">
-          <Icon name="upload" size={18} /> <span className="lbl">Aus Galerie / Datei</span>
-        </button>
+      <div className={`photo-capture${big ? ' big' : ''}${render ? ' custom' : ''}`}>
+        {render ? (
+          render({ camera: () => cam.current?.click(), library: () => lib.current?.click() })
+        ) : (
+          <>
+            <a className="btn btn-primary photo-shoot" href={paths.camera(site ? photoSiteKey({ projectId: site.projectId, siteName: site.name }) : null)} data-testid="photo-shoot">
+              <Icon name="camera" size={big ? 26 : 20} /> Foto aufnehmen
+            </a>
+            <button type="button" className="btn photo-pick" onClick={() => lib.current?.click()} aria-label="Aus Galerie / Datei" title="Aus Galerie / Datei" data-testid="photo-pick">
+              <Icon name="upload" size={18} /> <span className="lbl">Aus Galerie / Datei</span>
+            </button>
+          </>
+        )}
         <input ref={cam} type="file" accept="image/*" capture="environment" multiple hidden onChange={(e) => void pick(e.target.files).finally(() => (e.target.value = ''))} data-testid="photo-camera-input" />
         <input ref={lib} type="file" accept="image/*" multiple hidden onChange={(e) => void pick(e.target.files).finally(() => (e.target.value = ''))} data-testid="photo-file-input" />
       </div>

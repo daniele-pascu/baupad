@@ -20,7 +20,9 @@ export default defineConfig({
   use: {
     baseURL,
     browserName: 'chromium',
-    launchOptions: { executablePath: process.env.CHROMIUM_PATH || undefined },
+    // Kamera-Modus: Chromium liefert ein Testbild statt einer echten Kamera
+    launchOptions: { executablePath: process.env.CHROMIUM_PATH || undefined, args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] },
+    permissions: ['camera'],
     acceptDownloads: true,
     locale: 'de-DE',
     timezoneId: 'Europe/Vienna',
