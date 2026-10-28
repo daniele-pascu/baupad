@@ -70,25 +70,29 @@ async function setup(opts: CrewPdfOptions): Promise<Ctx> {
   return { doc, font, bold, charset: new Set(font.getCharacterSet()), logo };
 }
 
-/** Kopf: oben links Firmenlogo – ohne Logo der Firmenname in Buchstaben –, daneben Titel und Untertitel; liefert die y-Position darunter */
+/** Kopf: links Firmenlogo (ohne Logo der Firmenname in Buchstaben), rechts Titel mit Zeitraum; liefert die y-Position darunter */
 function header(ctx: Ctx, page: PDFPage, title: string, sub: string, company: string): number {
   const { width, height } = page.getSize();
   let y = height - M;
-  let x = M;
+  let left = M;
   if (ctx.logo) {
-    const h = 30;
-    const w = Math.min(130, (ctx.logo.width / ctx.logo.height) * h);
+    const h = 32;
+    const w = Math.min(140, (ctx.logo.width / ctx.logo.height) * h);
     const lh = (w / ctx.logo.width) * ctx.logo.height;
-    page.drawImage(ctx.logo, { x, y: y - 2 - (h + lh) / 2, width: w, height: lh });
-    x += w + 16;
+    page.drawImage(ctx.logo, { x: M, y: y - 1 - (h + lh) / 2, width: w, height: lh });
+    left += w + 20;
   } else if (company) {
-    const c = fit(ctx.bold, clean(ctx, company), 15, Math.min(240, width / 3));
-    page.drawText(c, { x, y: y - 22, size: 15, font: ctx.bold, color: INK });
-    x += ctx.bold.widthOfTextAtSize(c, 15) + 16;
+    const c = fit(ctx.bold, clean(ctx, company), 15, width / 2 - M);
+    page.drawText(c, { x: M, y: y - 22, size: 15, font: ctx.bold, color: INK });
+    left += ctx.bold.widthOfTextAtSize(c, 15) + 20;
   }
-  if (x > M) page.drawLine({ start: { x: x - 8, y: y - 2 }, end: { x: x - 8, y: y - 32 }, thickness: 0.8, color: LINE });
-  page.drawText(fit(ctx.bold, clean(ctx, title), 16, width - M - x), { x, y: y - 16, size: 16, font: ctx.bold, color: INK });
-  page.drawText(fit(ctx.font, clean(ctx, sub), 10, width - M - x), { x, y: y - 30, size: 10, font: ctx.font, color: MUTED });
+  // rechts: Titel und Zeitraum, rechtsbündig
+  const right = (text: string, size: number, font: PDFFont, color: typeof INK, ty: number) => {
+    const t = fit(font, clean(ctx, text), size, width - M - left);
+    page.drawText(t, { x: width - M - font.widthOfTextAtSize(t, size), y: ty, size, font, color });
+  };
+  right(title, 16, ctx.bold, INK, y - 16);
+  right(sub, 10, ctx.font, MUTED, y - 30);
   y -= 40;
   page.drawLine({ start: { x: M, y }, end: { x: width - M, y }, thickness: 1.2, color: INK });
   return y - 12;
