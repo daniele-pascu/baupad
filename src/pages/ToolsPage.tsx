@@ -18,7 +18,7 @@ const TOOLS: Tool[] = [
   { id: 'projects', title: 'Aufmaß & Abrechnung', text: 'Pläne, Messungen, Excel und Rechnungen', color: '#ff6a13', href: paths.projects() },
   { id: 'workers', title: 'Arbeitereinteilung', text: 'Wochenplanung nach Baustellen', color: '#2f80ed', href: paths.workers() },
   { id: 'photos', title: 'Fotodokumentation', text: 'Baufortschritt und Mängel', color: '#27ae60' },
-  { id: 'reports', title: 'Berichte & Formulare', text: 'Regielisten, Bautagesberichte', color: '#a259ff' },
+  { id: 'reports', title: 'Berichte & Formulare', text: 'Regielisten, Bautages- und Wochenberichte', color: '#a259ff', href: paths.reports() },
 ];
 
 /** Start nach der Anmeldung: alle Werkzeuge als gleich große Kacheln, zwei pro Reihe (Industrie-Stil, hell). */

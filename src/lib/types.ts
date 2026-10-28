@@ -463,3 +463,123 @@ export interface Absence {
 
 /** Arbeitszeit der Firma je Wochentag (0 = Montag); null = kein Arbeitstag */
 export type WorkTimes = ({ from: string; to: string } | null)[];
+
+/* ───────────── Berichte & Formulare ───────────── */
+
+/** Berichtstypen; weitere Formulare kommen als neuer Typ hinzu */
+export type ReportType = 'regie' | 'tag' | 'woche';
+
+/**
+ * Kopfdaten eines Berichts – beim Anlegen aus dem Projekt kopiert und danach frei änderbar.
+ * Spätere Änderungen am Projekt verändern einen gespeicherten Bericht nicht.
+ */
+export interface ReportHead {
+  /** Bauvorhaben bzw. Projektname */
+  project: string;
+  /** Projektnummer */
+  number: string;
+  /** Baustellenbezeichnung */
+  site: string;
+  address: string;
+  client: string;
+  costCenter: string;
+  /** verantwortliche Person (optional) */
+  responsible: string;
+}
+
+/** Arbeiter in einem Bericht (Name als Kopie, damit alte Berichte unverändert bleiben) */
+export interface ReportWorker {
+  id: string;
+  /** Arbeiter aus der Arbeiterliste (fehlt bei frei eingegebenen) */
+  workerId?: string;
+  name: string;
+  role: string;
+  /** Beginn/Ende „HH:MM“, Pause in Minuten – optional */
+  from: string;
+  to: string;
+  pause: string;
+  /** Stunden: von Hand bzw. aus Beginn, Ende und Pause; null = nicht angegeben */
+  hours: number | null;
+  /** davon Überstunden 50 % / 100 % (nur Regieliste, optional) */
+  ot50?: number | null;
+  ot100?: number | null;
+  /** Bautagesbericht: tatsächlich anwesend */
+  present?: boolean;
+  /** laut Arbeitereinteilung eingeteilt */
+  planned?: boolean;
+  /** Hinweis aus der Einteilung, z. B. „krank“ */
+  note?: string;
+}
+
+/** Material- bzw. Gerätezeile */
+export interface ReportItem {
+  id: string;
+  text: string;
+  qty: number | null;
+  unit: string;
+}
+
+export interface RegieData {
+  workers: ReportWorker[];
+  /** Tätigkeiten bzw. ausgeführte Arbeiten */
+  work: string;
+  materials: ReportItem[];
+  equipment: ReportItem[];
+  notes: string;
+  /** Spalten für 50 %/100 % Überstunden anzeigen */
+  overtime: boolean;
+}
+
+export interface DailyData {
+  /** Arbeitszeit „HH:MM“ (optional) */
+  from: string;
+  to: string;
+  weather: string;
+  tempMin: string;
+  tempMax: string;
+  /** Mannschaft: Einteilung (planned) und tatsächliche Anwesenheit (present) getrennt */
+  crew: ReportWorker[];
+  /** Anzahl von Hand (ohne Namen bzw. abweichend); null = aus der Liste der Anwesenden */
+  crewCount: number | null;
+  work: string;
+  materials: ReportItem[];
+  equipment: ReportItem[];
+  incidents: string;
+  notes: string;
+}
+
+export interface WeeklyDay {
+  date: string;
+  /** Mannschaftsstärke; null = keine Angabe */
+  count: number | null;
+  names: string;
+  work: string;
+}
+
+export interface WeeklyData {
+  days: WeeklyDay[];
+  events: string;
+  notes: string;
+  open: string;
+}
+
+interface ReportBase {
+  id: string;
+  /** Projekt (Aufmaß & Abrechnung) oder null bei frei eingegebener Baustelle */
+  projectId: string | null;
+  /** fortlaufende Nummer je Baustelle und Typ (änderbar) */
+  no: string;
+  /** Datum JJJJ-MM-TT; Wochenbericht: Beginn */
+  date: string;
+  /** Wochenbericht: Ende */
+  dateTo?: string;
+  status: 'draft' | 'done';
+  head: ReportHead;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export type Report =
+  | (ReportBase & { type: 'regie'; data: RegieData })
+  | (ReportBase & { type: 'tag'; data: DailyData })
+  | (ReportBase & { type: 'woche'; data: WeeklyData });

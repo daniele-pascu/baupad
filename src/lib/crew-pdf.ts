@@ -22,14 +22,14 @@ export interface CrewPdfOptions {
 /** Kennzeichnung beim Namen: „ (Urlaub)“ bzw. „ (krank)“ */
 const mark = (opts: CrewPdfOptions, id: string, day: number) => ({ urlaub: ' (Urlaub)', krank: ' (krank)', none: '' })[opts.absent?.(id, day) ?? 'none'];
 
-const INK = rgb(0.11, 0.11, 0.12);
-const MUTED = rgb(0.43, 0.43, 0.45);
-const LINE = rgb(0.82, 0.82, 0.85);
-const FILL = rgb(0.95, 0.95, 0.97);
+export const INK = rgb(0.11, 0.11, 0.12);
+export const MUTED = rgb(0.43, 0.43, 0.45);
+export const LINE = rgb(0.82, 0.82, 0.85);
+export const FILL = rgb(0.95, 0.95, 0.97);
 const ACCENT = rgb(0.18, 0.5, 0.93);
-const M = 32;
+export const M = 32;
 
-interface Ctx {
+export interface Ctx {
   doc: PDFDocument;
   font: PDFFont;
   bold: PDFFont;
@@ -38,7 +38,7 @@ interface Ctx {
 }
 
 /** Text für die Standardschrift: Zeichen außerhalb (z. B. ł, ć, č) ohne Akzent bzw. „?“ */
-function clean(ctx: Ctx, s: string): string {
+export function clean(ctx: Ctx, s: string): string {
   const map: Record<string, string> = { ł: 'l', Ł: 'L', đ: 'd', Đ: 'D', ı: 'i', ø: 'o', Ø: 'O', '—': '-', '→': '>' };
   return [...s]
     .map((ch) => {
@@ -50,14 +50,14 @@ function clean(ctx: Ctx, s: string): string {
     .join('');
 }
 
-function fit(font: PDFFont, text: string, size: number, max: number): string {
+export function fit(font: PDFFont, text: string, size: number, max: number): string {
   if (font.widthOfTextAtSize(text, size) <= max) return text;
   let t = text;
   while (t.length > 1 && font.widthOfTextAtSize(`${t}…`, size) > max) t = t.slice(0, -1);
   return `${t}…`;
 }
 
-async function setup(opts: CrewPdfOptions): Promise<Ctx> {
+export async function setup(opts: Pick<CrewPdfOptions, 'logo'>): Promise<Ctx> {
   const doc = await PDFDocument.create();
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
@@ -71,7 +71,7 @@ async function setup(opts: CrewPdfOptions): Promise<Ctx> {
 }
 
 /** Kopf: links Firmenlogo (ohne Logo der Firmenname in Buchstaben), rechts Titel mit Zeitraum; liefert die y-Position darunter */
-function header(ctx: Ctx, page: PDFPage, title: string, sub: string, company: string): number {
+export function header(ctx: Ctx, page: PDFPage, title: string, sub: string, company: string): number {
   const { width, height } = page.getSize();
   let y = height - M;
   let left = M;
@@ -98,7 +98,7 @@ function header(ctx: Ctx, page: PDFPage, title: string, sub: string, company: st
   return y - 12;
 }
 
-function footers(ctx: Ctx, left: string) {
+export function footers(ctx: Ctx, left: string) {
   const pages = ctx.doc.getPages();
   const today = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
   pages.forEach((p, i) => {

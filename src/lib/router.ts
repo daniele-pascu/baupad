@@ -9,6 +9,8 @@ export type Route =
   | { name: 'projects' }
   | { name: 'tools' }
   | { name: 'workers' }
+  | { name: 'reports' }
+  | { name: 'report'; reportId: string }
   | { name: 'login' }
   | { name: 'account' }
   | { name: 'project'; projectId: string }
@@ -26,6 +28,8 @@ export function parseRoute(hash: string): Route {
   if (parts[0] === 'projekte' && parts.length === 1) return { name: 'projects' };
   if (parts[0] === 'tools' && parts.length === 1) return { name: 'tools' };
   if (parts[0] === 'arbeitereinteilung' && parts.length === 1) return { name: 'workers' };
+  if (parts[0] === 'berichte' && parts.length === 1) return { name: 'reports' };
+  if (parts[0] === 'berichte' && parts.length === 2) return { name: 'report', reportId: parts[1] };
   if (parts[0] === 'anmelden' && parts.length === 1) return { name: 'login' };
   if (parts[0] === 'konto' && parts.length === 1) return { name: 'account' };
   if (parts[0] === 'p' && parts.length === 2) return { name: 'project', projectId: parts[1] };
@@ -46,6 +50,9 @@ export const paths = {
   tools: () => '#/tools',
   /** Arbeitereinteilung (Wochenplanung nach Baustellen) */
   workers: () => '#/arbeitereinteilung',
+  /** Berichte & Formulare (Regielisten, Bautages- und Bauwochenberichte) */
+  reports: () => '#/berichte',
+  report: (id: string) => `#/berichte/${id}`,
   /** Anmeldeseite (Benutzerkonten noch nicht eingerichtet) */
   login: () => '#/anmelden',
   /** Konto und Einstellungen (Vorschau der geplanten Bereiche) */

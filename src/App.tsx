@@ -11,6 +11,8 @@ import { AboutPage, ContactPage, LandingPage } from './pages/SitePages';
 import { AccountPage, LoginPage } from './pages/AccountPages';
 import { ToolsPage } from './pages/ToolsPage';
 import { WorkersPage } from './pages/WorkersPage';
+import { ReportsPage } from './pages/ReportsPage';
+import { ReportEditorPage } from './pages/ReportEditorPage';
 
 /** Als App vom Home-Bildschirm gestartet (iOS/Android/Desktop-PWA)? */
 const isInstalledApp = () =>
@@ -57,6 +59,12 @@ export function App() {
       break;
     case 'workers':
       content = <WorkersPage />;
+      break;
+    case 'reports':
+      content = <ReportsPage />;
+      break;
+    case 'report':
+      content = <ReportEditorPage key={route.reportId} reportId={route.reportId} />;
       break;
     case 'login':
       content = <LoginPage />;

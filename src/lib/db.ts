@@ -1,5 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import type { Component, CostCenter, Damage, DrawElement, EntityMap, EntityStore, LvDocument, Plan, Project, SourceFile, WeekPlan, Worker } from './types';
+import type { Component, CostCenter, Damage, DrawElement, EntityMap, EntityStore, LvDocument, Plan, Project, Report, SourceFile, WeekPlan, Worker } from './types';
 
 /**
  * Lokale Datenbank (IndexedDB). Sie funktioniert ohne Internetverbindung und hält
@@ -34,6 +34,8 @@ interface AufmassDB extends DBSchema {
   workers: { key: string; value: Worker };
   /** ab Version 5: Arbeitereinteilung – eine Wochenplanung je Woche (Schlüssel = Montag JJJJ-MM-TT) */
   weeks: { key: string; value: WeekPlan };
+  /** ab Version 6: Berichte & Formulare (Regielisten, Bautages- und Bauwochenberichte) */
+  reports: { key: string; value: Report; indexes: { projectId: string } };
 }
 
 export interface OutboxEntry {
@@ -50,10 +52,10 @@ const DB_NAME = 'schadstellen-aufmass';
 /**
  * Version 1: Grundversion. Version 2: Bauteile und Änderungs-Warteschlange.
  * Version 3: Zeichnungsobjekte selbst gezeichneter Pläne. Version 4: LV und MFK.
- * Version 5: Arbeitereinteilung (Arbeiter, Wochenplanungen).
+ * Version 5: Arbeitereinteilung (Arbeiter, Wochenplanungen). Version 6: Berichte & Formulare.
  * Upgrades legen ausschließlich neue Speicherbereiche an; vorhandene Daten bleiben unverändert.
  */
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 
 let dbPromise: Promise<IDBPDatabase<AufmassDB>> | null = null;
 
@@ -82,6 +84,9 @@ export function getDB(): Promise<IDBPDatabase<AufmassDB>> {
         if (oldVersion < 5) {
           db.createObjectStore('workers', { keyPath: 'id' });
           db.createObjectStore('weeks', { keyPath: 'id' });
+        }
+        if (oldVersion < 6) {
+          db.createObjectStore('reports', { keyPath: 'id' }).createIndex('projectId', 'projectId');
         }
         // Hinweis für Aufmaß & Abrechnung, dass die Datenbank erweitert wurde
         if (oldVersion >= 1) void tx.objectStore('meta').put({ key: 'upgradedFrom', value: oldVersion });
@@ -299,4 +304,21 @@ export async function previousWeek(id: string): Promise<WeekPlan | undefined> {
   const db = await getDB();
   const cursor = await db.transaction('weeks').store.openCursor(IDBKeyRange.upperBound(id, true), 'prev');
   return cursor?.value;
+}
+
+/* Berichte & Formulare */
+export async function listReports(): Promise<Report[]> {
+  return (await getDB()).getAll('reports');
+}
+
+export async function getReport(id: string): Promise<Report | undefined> {
+  return (await getDB()).get('reports', id);
+}
+
+export async function saveReport(r: Report): Promise<void> {
+  await (await getDB()).put('reports', r);
+}
+
+export async function deleteReport(id: string): Promise<void> {
+  await (await getDB()).delete('reports', id);
 }

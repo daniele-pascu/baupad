@@ -3,7 +3,7 @@ import { deleteProjectCompletely, getBlob, getDB, getMeta, loadProjectData, setM
 import { getDeviceId, uuid } from './ids';
 import { safeFileName, type ExportFile } from './aufmass';
 import { todayIso } from './numbers';
-import type { Component, CostCenter, Damage, DrawElement, LvDocument, Plan, Project, SourceFile } from './types';
+import type { Component, CostCenter, Damage, DrawElement, LvDocument, Plan, Project, Report, SourceFile } from './types';
 
 /**
  * Projektsicherung als ZIP-Datei: vollständiger Projektstand inklusive Originaldateien.
@@ -26,6 +26,8 @@ export interface BackupContent {
   elements: DrawElement[];
   /** ab Datenbankversion 4 (LV/MFK); fehlt in älteren Sicherungen */
   lvDocs: LvDocument[];
+  /** ab Datenbankversion 6 (Berichte & Formulare des Projekts); fehlt in älteren Sicherungen */
+  reports?: Report[];
   blobs: Map<string, Uint8Array>;
 }
 
@@ -46,6 +48,7 @@ export async function exportProjectBackup(projectId: string): Promise<ExportFile
         components: data.components,
         elements: data.elements,
         lvDocs: data.lvDocs,
+        reports: (await (await getDB()).getAllFromIndex('reports', 'projectId', projectId)) ?? [],
       },
       null,
       1,
@@ -108,6 +111,7 @@ export async function importProjectBackup(content: BackupContent, mode: 'replace
   let components = content.components ?? [];
   let elements = content.elements ?? [];
   let lvDocs = content.lvDocs ?? [];
+  let reports = content.reports ?? [];
   let blobs = content.blobs;
   if (mode === 'copy') {
     const ids = new Map<string, string>();
@@ -123,6 +127,7 @@ export async function importProjectBackup(content: BackupContent, mode: 'replace
     plans = plans.map((p) => ({ ...p, id: remap(p.id), projectId: project.id, costCenterId: remap(p.costCenterId), fileId: p.fileId ? remap(p.fileId) : p.fileId }));
     elements = elements.map((e) => ({ ...e, id: remap(e.id), projectId: project.id, planId: remap(e.planId) }));
     lvDocs = lvDocs.map((l) => ({ ...l, id: remap(l.id), projectId: project.id }));
+    reports = reports.map((r) => ({ ...r, id: remap(r.id), projectId: project.id }));
     components = components.map((c) => ({ ...c, id: remap(c.id), projectId: project.id, planId: remap(c.planId) }));
     damages = damages.map((d) => ({
       ...d,
@@ -138,7 +143,7 @@ export async function importProjectBackup(content: BackupContent, mode: 'replace
     await deleteProjectCompletely(project.id);
   }
   const db = await getDB();
-  const tx = db.transaction(['projects', 'costCenters', 'files', 'blobs', 'plans', 'damages', 'components', 'elements', 'lvDocs'], 'readwrite');
+  const tx = db.transaction(['projects', 'costCenters', 'files', 'blobs', 'plans', 'damages', 'components', 'elements', 'lvDocs', 'reports'], 'readwrite');
   await tx.objectStore('projects').put(project);
   for (const c of costCenters) await tx.objectStore('costCenters').put(c);
   for (const f of files) await tx.objectStore('files').put(f);
@@ -147,6 +152,11 @@ export async function importProjectBackup(content: BackupContent, mode: 'replace
   for (const c of components) await tx.objectStore('components').put(c);
   for (const e of elements) await tx.objectStore('elements').put(e);
   for (const l of lvDocs) await tx.objectStore('lvDocs').put(l);
+  // Berichte: ergänzen bzw. aktualisieren (neuerer Stand gewinnt) – vorhandene werden nie gelöscht
+  for (const r of reports) {
+    const cur = await tx.objectStore('reports').get(r.id);
+    if (!cur || cur.updatedAt < r.updatedAt) await tx.objectStore('reports').put(r);
+  }
   for (const [id, data] of blobs) {
     const buf = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
     await tx.objectStore('blobs').put({ id, projectId: project.id, data: buf });

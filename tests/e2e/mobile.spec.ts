@@ -538,3 +538,24 @@ test('Arbeitereinteilung per Finger: Arbeiter, Baustelle, Einteilung – passt a
   }
   await expect(page.getByTestId('chip-dialog')).toHaveCount(0); // kein Menü durch das Loslassen
 });
+
+test('Berichte per Finger: Regieliste, Tagesbericht und Wochenbericht passen auf den Bildschirm', async ({ page }, info) => {
+  await page.goto('./#/berichte');
+  for (const type of ['regie', 'tag', 'woche'] as const) {
+    await page.getByTestId('report-new').tap();
+    const d = page.getByTestId('report-new-dialog');
+    await d.getByTestId(`report-type-${type}`).tap();
+    if (await d.getByTestId('report-site-name').isVisible()) await d.getByTestId('report-site-name').fill('Halle 3');
+    await d.getByTestId('report-create').tap();
+    await expect(page.getByTestId('report-title')).toBeVisible();
+    if (type !== 'woche') {
+      await page.getByTestId('crew-add').selectOption('frei');
+      await page.locator('.rp-name').first().fill('Hans Huber');
+    }
+    await noHorizontalScroll(page);
+    await page.screenshot({ path: join(OUT, `bericht-${type}-${info.project.name}.png`), fullPage: true });
+    await page.getByTestId('to-reports').tap();
+  }
+  await expect(page.getByTestId('report-item')).toHaveCount(3);
+  await noHorizontalScroll(page);
+});
