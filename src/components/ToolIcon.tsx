@@ -1,14 +1,13 @@
+import { useId } from 'react';
+
 /**
  * Symbole der Tools-Kacheln: Phosphor Icons (https://phosphoricons.com), MIT-Lizenz,
  * Copyright (c) 2023 Phosphor Icons. Kräftig (bold) im Symbolfeld, fein (thin) groß im Hintergrund.
+ * „Aufmaß & Abrechnung“ (Zettel mit Taschenrechner) ist eigens im selben Stil gezeichnet.
  */
 export type ToolIconName = 'projects' | 'workers' | 'photos' | 'reports';
 
-const PATHS: Record<ToolIconName, { bold: string; thin: string }> = {
-  projects: {
-    bold: 'M240,204H228V96a20,20,0,0,0-20-20H172V32a20,20,0,0,0-28.45-18.12l-104,48.54A20.06,20.06,0,0,0,28,80.55V204H16a12,12,0,0,0,0,24H240a12,12,0,0,0,0-24ZM204,100V204H172V100ZM52,83.09,148,38.3V204H52ZM132,112v12a12,12,0,0,1-24,0V112a12,12,0,0,1,24,0Zm-40,0v12a12,12,0,0,1-24,0V112a12,12,0,0,1,24,0Zm0,52v12a12,12,0,0,1-24,0V164a12,12,0,0,1,24,0Zm40,0v12a12,12,0,0,1-24,0V164a12,12,0,0,1,24,0Z',
-    thin: 'M240,212H220V96a12,12,0,0,0-12-12H140V32a12,12,0,0,0-18.66-10l-80,53.33a12,12,0,0,0-5.34,10V212H16a4,4,0,0,0,0,8H240a4,4,0,0,0,0-8ZM208,92a4,4,0,0,1,4,4V212H140V92ZM44,85.34A4,4,0,0,1,45.78,82l80-53.33A4,4,0,0,1,132,32V212H44ZM108,112v16a4,4,0,0,1-8,0V112a4,4,0,0,1,8,0Zm-32,0v16a4,4,0,0,1-8,0V112a4,4,0,0,1,8,0Zm0,56v16a4,4,0,0,1-8,0V168a4,4,0,0,1,8,0Zm32,0v16a4,4,0,0,1-8,0V168a4,4,0,0,1,8,0Z',
-  },
+const PATHS: Record<Exclude<ToolIconName, 'projects'>, { bold: string; thin: string }> = {
   workers: {
     bold: 'M164.38,181.1a52,52,0,1,0-72.76,0,75.89,75.89,0,0,0-30,28.89,12,12,0,0,0,20.78,12,53,53,0,0,1,91.22,0,12,12,0,1,0,20.78-12A75.89,75.89,0,0,0,164.38,181.1ZM100,144a28,28,0,1,1,28,28A28,28,0,0,1,100,144Zm147.21,9.59a12,12,0,0,1-16.81-2.39c-8.33-11.09-19.85-19.59-29.33-21.64a12,12,0,0,1-1.82-22.91,20,20,0,1,0-24.78-28.3,12,12,0,1,1-21-11.6,44,44,0,1,1,73.28,48.35,92.18,92.18,0,0,1,22.85,21.69A12,12,0,0,1,247.21,153.59Zm-192.28-24c-9.48,2.05-21,10.55-29.33,21.65A12,12,0,0,1,6.41,136.79,92.37,92.37,0,0,1,29.26,115.1a44,44,0,1,1,73.28-48.35,12,12,0,1,1-21,11.6,20,20,0,1,0-24.78,28.3,12,12,0,0,1-1.82,22.91Z',
     thin: 'M237,147.44a4,4,0,0,1-5.48-1.4c-8.33-14-20.93-22-34.56-22a4,4,0,0,1-1.2-.2,36.76,36.76,0,0,1-3.8.2,4,4,0,0,1,0-8,28,28,0,1,0-27.12-35,4,4,0,0,1-7.75-2,36,36,0,1,1,54,39.48c10.81,3.85,20.51,12,27.31,23.48A4,4,0,0,1,237,147.44ZM187.46,214a4,4,0,0,1-1.46,5.46,3.93,3.93,0,0,1-2,.54,4,4,0,0,1-3.46-2,61,61,0,0,0-105.08,0,4,4,0,0,1-6.92-4,68.35,68.35,0,0,1,39.19-31,44,44,0,1,1,40.54,0A68.35,68.35,0,0,1,187.46,214ZM128,180a36,36,0,1,0-36-36A36,36,0,0,0,128,180ZM64,116A28,28,0,1,1,91.12,81a4,4,0,0,0,7.75-2A36,36,0,1,0,45.3,118.75,63.55,63.55,0,0,0,12.8,141.6a4,4,0,0,0,6.4,4.8A55.55,55.55,0,0,1,64,124a4,4,0,0,0,0-8Z',
@@ -23,7 +22,36 @@ const PATHS: Record<ToolIconName, { bold: string; thin: string }> = {
   },
 };
 
+/** Aufmaß & Abrechnung: Aufmaßzettel, davor ein Taschenrechner (der Zettel ist hinter dem Rechner ausgespart) */
+function ProjectsIcon({ weight, size, className }: { weight: 'bold' | 'thin'; size: number; className?: string }) {
+  const mask = useId();
+  const sw = weight === 'bold' ? 16 : 7;
+  const calc = <rect x="130" y="104" width="104" height="136" rx="18" />;
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 256 256" fill="none" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <defs>
+        <mask id={mask}>
+          <rect width="256" height="256" fill="#fff" stroke="none" />
+          <g fill="#000" stroke="#000" strokeWidth={sw + 24}>
+            {calc}
+          </g>
+        </mask>
+      </defs>
+      <g mask={`url(#${mask})`}>
+        <path d="M32 16H136L170 50V200a12 12 0 0 1-12 12H32a12 12 0 0 1-12-12V28a12 12 0 0 1 12-12Z" />
+        <path d="M136 16V50H170M46 92H142M46 122H110M46 152H90" />
+      </g>
+      {calc}
+      <g fill="currentColor" stroke="none">
+        <rect x="148" y="122" width="68" height="30" rx="5" />
+        {[158, 182, 206].flatMap((cx) => [180, 207].map((cy) => <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="8" />))}
+      </g>
+    </svg>
+  );
+}
+
 export function ToolIcon({ name, weight = 'bold', size = 24, className }: { name: ToolIconName; weight?: 'bold' | 'thin'; size?: number; className?: string }) {
+  if (name === 'projects') return <ProjectsIcon weight={weight} size={size} className={className} />;
   return (
     <svg className={className} width={size} height={size} viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
       <path d={PATHS[name][weight]} />
