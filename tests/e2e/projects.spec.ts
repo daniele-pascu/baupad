@@ -8,28 +8,39 @@ import { FIXTURES, OUT, createProject, freshStart, openPlan, selectCostCenter, t
  * Phase 2: Website und Navigation, Projektinformationen mit Kostenstelle, kompakte Planliste.
  */
 
-test('Website: Startseite, Über BauPad, Kontakt, Anmelden und Logo', async ({ page }) => {
+test('Website: Startseite, Über uns, Kontakt, Impressum, Anmelden und Logo', async ({ page }) => {
   await page.goto('./');
   await expect(page).toHaveTitle('BauPad');
   const nav = page.getByTestId('site-nav');
   await expect(nav).toBeVisible();
   // schwarze Navigationsleiste
   expect(await nav.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(0, 0, 0)');
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Dein Aufmaß. Direkt im Plan.');
-  await expect(page.locator('.hero-lead')).toContainText('Mit BauPad erfasst du Schadstellen und Oberflächen direkt im Bauplan.');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Die Baustelle. In einer App.');
+  await expect(page.locator('.hero-lead')).toContainText('BauPad vereint Aufmaß und Abrechnung, Arbeitereinteilung, Berichte und Fotodokumentation');
+  await expect(page.getByTestId('product-card')).toHaveCount(4);
+  await expect(page.getByTestId('product-card').nth(3)).toContainText('Fotodokumentation');
 
-  await nav.getByRole('link', { name: 'Über BauPad' }).click();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Über BauPad');
-  await expect(page).toHaveTitle('Über BauPad');
+  await nav.getByRole('link', { name: 'Über uns' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Über uns');
+  await expect(page).toHaveTitle('Über uns – BauPad');
+  await expect(page.locator('.site-text')).toContainText('PAD Software');
 
   await nav.getByRole('link', { name: 'Kontakt' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Kontakt');
   // noch keine Kontaktdaten → sichtbare Platzhalter, nichts erfunden
   await expect(page.getByTestId('contact-list').locator('.placeholder')).toHaveCount(5);
 
+  // Impressum und Datenschutz über die Fußzeile (Firmendaten noch Platzhalter)
+  await page.getByRole('link', { name: 'Impressum' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Impressum');
+  await expect(page.getByTestId('imprint-list').locator('.placeholder')).toHaveCount(6); // Unternehmen hat schon „PAD Software“
+  await page.getByRole('link', { name: 'Datenschutz' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Datenschutz');
+  await expect(page.locator('.site-text')).toContainText('GitHub Pages');
+
   // Logo führt immer zur Startseite
   await nav.getByRole('link', { name: 'BauPad – zur Startseite' }).click();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Dein Aufmaß. Direkt im Plan.');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Die Baustelle. In einer App.');
 
   // „Anmelden“: Anmeldeseite – Konten sind noch nicht eingerichtet, es wird nichts vorgetäuscht
   await nav.getByRole('link', { name: 'Anmelden' }).click();
@@ -72,7 +83,7 @@ test('Website: Startseite, Über BauPad, Kontakt, Anmelden und Logo', async ({ p
 
   // Startseite (vor der Anmeldung): Knopf führt zu den Tools
   await page.goto('./');
-  await expect(page.getByTestId('cta-tools')).toHaveText(/Zu den Tools/);
+  await expect(page.getByTestId('cta-tools')).toHaveText(/BauPad öffnen/);
   await page.getByTestId('cta-tools').click();
   await expect(page.getByTestId('tools-title')).toHaveText('Tools');
 });

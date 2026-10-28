@@ -275,11 +275,11 @@ test('Erstnutzer: vom neuen Projekt bis zum importierten PDF', async ({ page }) 
 test('Website und Planliste auf Smartphone/Tablet: Menü, keine Überbreite, Aktionen per Finger', async ({ page }, info) => {
   const isPhone = info.project.name === 'iphone';
   await page.goto('./');
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Dein Aufmaß. Direkt im Plan.');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Die Baustelle. In einer App.');
   await noHorizontalScroll(page);
   const nav = page.getByTestId('site-nav');
   if (isPhone) {
-    // „Über BauPad“ und „Kontakt“ liegen im ausklappbaren Menü
+    // „Über uns“ und „Kontakt“ liegen im ausklappbaren Menü
     await expect(nav.getByRole('link', { name: 'Kontakt' })).toBeHidden();
     await nav.getByRole('button', { name: 'Menü öffnen' }).tap();
     await expect(nav.getByRole('link', { name: 'Kontakt' })).toBeVisible();

@@ -32,7 +32,7 @@ export default defineConfig({
       manifest: {
         name: 'BauPad',
         short_name: 'BauPad',
-        description: 'BauPad – digitales Aufmaß von Schadstellen bei der Betoninstandsetzung',
+        description: 'BauPad – Aufmaß & Abrechnung, Arbeitereinteilung, Berichte und Fotodokumentation für die Baustelle',
         lang: 'de',
         start_url: './#/projekte',
         scope: './',

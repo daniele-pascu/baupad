@@ -4,7 +4,7 @@ import { site } from '../content/site';
 
 /**
  * Schwarze Navigationsleiste der öffentlichen Seiten und von Aufmaß & Abrechnung.
- * Auf Smartphones werden „Über BauPad“ und „Kontakt“ in ein ausklappbares Menü verlegt.
+ * Auf Smartphones werden „Über uns“ und „Kontakt“ in ein ausklappbares Menü verlegt.
  */
 export function SiteNav() {
   const hash = useHash();
@@ -20,7 +20,7 @@ export function SiteNav() {
         </a>
         <nav className={`site-links${open ? ' open' : ''}`} aria-label="Hauptnavigation" id="site-links">
           <a href={paths.about()} aria-current={current(paths.about())}>
-            Über BauPad
+            Über uns
           </a>
           <a href={paths.contact()} aria-current={current(paths.contact())}>
             Kontakt
@@ -54,8 +54,10 @@ export function SiteFooter() {
         © {new Date().getFullYear()} {site.footer}
       </span>
       <nav aria-label="Fußzeile">
-        <a href={paths.about()}>Über BauPad</a>
+        <a href={paths.about()}>Über uns</a>
         <a href={paths.contact()}>Kontakt</a>
+        <a href={paths.imprint()}>Impressum</a>
+        <a href={paths.privacy()}>Datenschutz</a>
       </nav>
     </footer>
   );

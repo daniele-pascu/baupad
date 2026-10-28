@@ -6,6 +6,8 @@ export type Route =
   | { name: 'landing' }
   | { name: 'about' }
   | { name: 'contact' }
+  | { name: 'imprint' }
+  | { name: 'privacy' }
   | { name: 'projects' }
   | { name: 'tools' }
   | { name: 'workers' }
@@ -29,6 +31,8 @@ export function parseRoute(hash: string): Route {
   if (parts.length === 0) return { name: 'landing' };
   if (parts[0] === 'ueber' && parts.length === 1) return { name: 'about' };
   if (parts[0] === 'kontakt' && parts.length === 1) return { name: 'contact' };
+  if (parts[0] === 'impressum' && parts.length === 1) return { name: 'imprint' };
+  if (parts[0] === 'datenschutz' && parts.length === 1) return { name: 'privacy' };
   if (parts[0] === 'projekte' && parts.length === 1) return { name: 'projects' };
   if (parts[0] === 'tools' && parts.length === 1) return { name: 'tools' };
   if (parts[0] === 'arbeitereinteilung' && parts.length === 1) return { name: 'workers' };
@@ -53,6 +57,8 @@ export const paths = {
   landing: () => '#/',
   about: () => '#/ueber',
   contact: () => '#/kontakt',
+  imprint: () => '#/impressum',
+  privacy: () => '#/datenschutz',
   /** Aufmaß & Abrechnung */
   projects: () => '#/projekte',
   /** Start nach der Anmeldung: Übersicht aller Werkzeuge (Kacheln) */

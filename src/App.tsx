@@ -7,7 +7,7 @@ import { flush, openProject, useAppState } from './lib/store';
 import { HomePage } from './pages/HomePage';
 import { ProjectPage } from './pages/ProjectPage';
 import { PlanEditorPage } from './pages/PlanEditorPage';
-import { AboutPage, ContactPage, LandingPage } from './pages/SitePages';
+import { AboutPage, ContactPage, LandingPage, ImprintPage, PrivacyPage } from './pages/SitePages';
 import { AccountPage, LoginPage } from './pages/AccountPages';
 import { ToolsPage } from './pages/ToolsPage';
 import { WorkersPage } from './pages/WorkersPage';
@@ -54,6 +54,12 @@ export function App() {
       break;
     case 'contact':
       content = <ContactPage />;
+      break;
+    case 'imprint':
+      content = <ImprintPage />;
+      break;
+    case 'privacy':
+      content = <PrivacyPage />;
       break;
     case 'projects':
       content = <HomePage />;
