@@ -12,6 +12,23 @@ import { catchDownload, createProject, freshStart, OUT, saveDownload } from './h
 const site = (page: Page, name: string) => page.locator(`[data-testid="site-card"][data-site="${name}"]`);
 const chips = (page: Page, name: string, day: number) => site(page, name).locator(`[data-testid="day-row"][data-day="${day}"] [data-testid="crew-chip"]`);
 
+/** Namen mit der Maus auf eine Tageszeile ziehen */
+async function dragTo(page: Page, from: ReturnType<Page['locator']>, to: ReturnType<Page['locator']>) {
+  // wie ein Mensch: Start in die Bildmitte holen (nicht unter der festen Navigationsleiste)
+  await from.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+  const a = (await from.boundingBox())!;
+  await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(a.x + a.width / 2 + 10, a.y + a.height / 2 + 10, { steps: 3 });
+  await expect(page.getByTestId('crew-ghost')).toBeVisible();
+  // Ziel während des Ziehens in die Bildmitte scrollen (am Bildschirmrand scrollt die App selbst mit)
+  await to.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+  const b = (await to.boundingBox())!;
+  await page.mouse.move(b.x + b.width * 0.6, b.y + b.height / 2, { steps: 8 });
+  await page.mouse.up();
+  await expect(page.getByTestId('crew-ghost')).toHaveCount(0);
+}
+
 async function assignDialog(page: Page, names: string[]) {
   const dlg = page.getByTestId('assign-dialog');
   for (const n of names) await dlg.locator(`[data-testid="assign-worker"][data-worker="${n}"] input`).check();
@@ -82,17 +99,18 @@ test('Arbeitereinteilung: Woche nach Baustellen planen und in die nächste Woche
   await expect(page.getByTestId('crew-all-set')).toContainText('Alle Arbeiter sind eingeteilt');
   await expect(page.getByTestId('vacation-chip')).toHaveText(['Stefan Holz · Mo–Fr']);
 
-  // Konflikt: Max zusätzlich am Montag auf B → Warnung, nach Bestätigung möglich
-  await site(page, 'Sanierung Hauptplatz').locator('[data-day="0"] [data-testid="day-add"]').click();
-  await expect(page.getByTestId('assign-dialog').locator('[data-worker="Max Muster"]')).toContainText('auf Neubau Musterstraße');
-  await assignDialog(page, ['Max Muster']);
-  await expect(page.getByTestId('conflict-list')).toContainText('Max Muster: Montag auf Neubau Musterstraße');
-  await page.getByRole('button', { name: 'Trotzdem einteilen' }).click();
-  await expect(chips(page, 'Sanierung Hauptplatz', 0)).toHaveText(['Thomas Stein', 'Max Muster']);
-  await expect(chips(page, 'Sanierung Hauptplatz', 0).nth(1)).toHaveClass(/conflict/);
-  // wieder nur an diesem Tag entfernen – andere Baustelle bleibt unverändert
-  await chips(page, 'Sanierung Hauptplatz', 0).nth(1).click();
-  await page.getByTestId('chip-dialog').getByTestId('chip-remove').click();
+  // Hinzufügen auf A nur am Montag: Thomas wird dafür automatisch von B entfernt (nur Montag)
+  await site(page, 'Neubau Musterstraße').locator('[data-day="0"] [data-testid="day-add"]').click();
+  const ad = page.getByTestId('assign-dialog');
+  await expect(ad.locator('[data-worker="Thomas Stein"]')).toContainText('auf Sanierung Hauptplatz → wird umgesetzt');
+  for (const d of [1, 2, 3, 4]) await ad.getByTestId(`assign-day-${d}`).click(); // „+“ schlägt ab Montag die ganze Woche vor – hier nur Montag
+  await assignDialog(page, ['Thomas Stein']);
+  await expect(page.locator('.toast', { hasText: 'Umgesetzt auf Neubau Musterstraße: Thomas Stein (von Sanierung Hauptplatz)' })).toHaveCount(1);
+  await expect(chips(page, 'Neubau Musterstraße', 0)).toHaveText(['Max Muster', 'Peter Bau', 'Thomas Stein']);
+  await expect(chips(page, 'Sanierung Hauptplatz', 0)).toHaveCount(0);
+  await expect(chips(page, 'Sanierung Hauptplatz', 1)).toHaveText(['Thomas Stein']);
+  // per Ziehen zurück auf B (ab Montag)
+  await dragTo(page, chips(page, 'Neubau Musterstraße', 0).nth(2), site(page, 'Sanierung Hauptplatz').locator('[data-testid="day-row"][data-day="0"]'));
   await expect(chips(page, 'Sanierung Hauptplatz', 0)).toHaveText(['Thomas Stein']);
   await expect(chips(page, 'Neubau Musterstraße', 0)).toHaveText(['Max Muster', 'Peter Bau']);
 
@@ -331,4 +349,56 @@ test('Baustelle ↔ Projekt: aus der Projektverwaltung wählen, als Projekt anle
   await page.getByTestId('week-date').fill('2026-10-26');
   await menu('Halle Nord');
   await expect(page.getByTestId('site-open-project')).toHaveCount(1);
+});
+
+test('Ziehen: offenen Arbeiter einteilen, umsetzen ab Tag; bereits geplante Folgewoche auf Wunsch mit übernehmen', async ({ page }) => {
+  await freshStart(page);
+  await page.goto('./#/arbeitereinteilung');
+  await page.getByTestId('week-date').fill('2026-10-26');
+  await page.getByTestId('crew-workers').click();
+  const wd = page.getByTestId('workers-dialog');
+  for (const n of ['Max', 'Peter']) {
+    await wd.getByTestId('worker-firstName').fill(n);
+    await wd.getByTestId('worker-save').click();
+    await expect(wd.getByTestId('worker-row').filter({ hasText: n })).toHaveCount(1);
+  }
+  await page.keyboard.press('Escape');
+  for (const n of ['Baustelle A', 'Baustelle B']) {
+    await page.getByTestId('add-site').click();
+    await page.getByTestId('site-dialog').getByTestId('site-name-input').fill(n);
+    await page.getByTestId('site-dialog').getByTestId('site-save').click();
+    await page.getByTestId('assign-dialog').getByRole('button', { name: 'Abbrechen' }).click();
+  }
+  await expect(page.getByTestId('crew-drag-hint')).toBeVisible();
+  // offenen Namen (Mittwoch) auf Baustelle A ziehen → ab Mittwoch dort
+  await dragTo(page, page.getByTestId('crew-open').locator('[data-day="2"] [data-testid="open-chip"]').filter({ hasText: 'Max' }), site(page, 'Baustelle A').locator('[data-testid="day-row"][data-day="2"]'));
+  for (const d of [0, 1]) await expect(chips(page, 'Baustelle A', d)).toHaveCount(0);
+  for (const d of [2, 3, 4]) await expect(chips(page, 'Baustelle A', d)).toHaveText(['Max']);
+  // Max ab Montag auf A (über „+“, Standard ab Montag ganze Woche), Peter auf B
+  await site(page, 'Baustelle A').locator('[data-day="0"] [data-testid="day-add"]').click();
+  await assignDialog(page, ['Max']);
+  await site(page, 'Baustelle B').locator('[data-day="0"] [data-testid="day-add"]').click();
+  await assignDialog(page, ['Peter']);
+  await expect(page.getByTestId('crew-all-set')).toBeVisible();
+  // KW 45 einmal ändern → gespeichert (bereits geplante Folgewoche)
+  await page.getByTestId('week-next').click();
+  await expect(page.getByTestId('draft-banner')).toBeVisible();
+  await page.getByTestId('week-weekend').check();
+  await expect(page.getByTestId('draft-banner')).toHaveCount(0);
+  await page.getByTestId('week-prev').click();
+  // Max am Donnerstag auf B ziehen → ab Donnerstag auf B, von A automatisch entfernt; Folgewoche auf Wunsch
+  await dragTo(page, chips(page, 'Baustelle A', 3), site(page, 'Baustelle B').locator('[data-testid="day-row"][data-day="3"]'));
+  await expect(page.getByTestId('confirm-dialog')).toContainText('KW 45');
+  await page.getByRole('button', { name: 'Ja, auch dort' }).click();
+  await expect(page.locator('.toast', { hasText: 'In 1 Folgewoche übernommen' })).toHaveCount(1);
+  for (const d of [0, 1, 2]) await expect(chips(page, 'Baustelle A', d)).toHaveText(['Max']);
+  for (const d of [3, 4]) {
+    await expect(chips(page, 'Baustelle A', d)).toHaveCount(0);
+    await expect(chips(page, 'Baustelle B', d)).toHaveText(['Peter', 'Max']);
+  }
+  await page.getByTestId('week-next').click();
+  for (const d of [0, 4]) {
+    await expect(chips(page, 'Baustelle A', d)).toHaveCount(0);
+    await expect(chips(page, 'Baustelle B', d)).toHaveText(['Peter', 'Max']);
+  }
 });

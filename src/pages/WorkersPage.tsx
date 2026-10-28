@@ -4,12 +4,12 @@ import { Icon } from '../components/Icon';
 import { Modal } from '../components/Modal';
 import { SiteNav } from '../components/SiteNav';
 import { ToolIcon } from '../components/ToolIcon';
+import { useChipDrag, type DropTarget } from '../components/useChipDrag';
 import { PdfPreview } from '../components/PdfPreview';
 import { confirmDialog, offerFile, showError, toast } from '../components/ui';
 import {
   addDays,
   addSite,
-  assign,
   carryOver,
   DAY_NAMES,
   DAY_SHORT,
@@ -18,7 +18,9 @@ import {
   DEFAULT_WORK_TIMES,
   emptyWeek,
   isoWeekNo,
-  moveWorker,
+  placeInWeek,
+  placeWorker,
+  sameSite,
   removeSite,
   setVacation,
   siteFromProject,
@@ -34,7 +36,7 @@ import {
   weekRange,
   workerName,
 } from '../lib/crew';
-import { getMeta, getWeek, listProjects, listWorkers, previousWeek, saveWeek, saveWorker, setMeta } from '../lib/db';
+import { getMeta, getWeek, listProjects, listWeeks, listWorkers, previousWeek, saveWeek, saveWorker, setMeta } from '../lib/db';
 import type { ExportFile } from '../lib/aufmass';
 import { getCompanyLogo } from '../lib/company';
 import { exportCrewBackup, importCrewBackup } from '../lib/crew-backup';
@@ -66,6 +68,9 @@ export function WorkersPage() {
   const [preview, setPreview] = useState<ExportFile | null>(null);
   const restoreRef = useRef<HTMLInputElement>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  /** Namen ziehen: ab dem Ziel-Tag auf die Ziel-Baustelle (von der bisherigen automatisch entfernt) */
+  const dropRef = useRef<(workerId: string, fromSiteId: string | null, fromDay: number, to: DropTarget) => void>(() => {});
+  const { drag, start: startDrag, suppressClick } = useChipDrag((...a) => dropRef.current(...a));
   const [dialog, setDialog] = useState<
     | { kind: 'workers' }
     | { kind: 'times' }
@@ -126,30 +131,48 @@ export function WorkersPage() {
     setWorkers((list) => [...(list ?? []).filter((x) => x.id !== w.id), w]);
   };
 
-  /** Konflikt prüfen: Arbeiter am selben Tag schon auf einer anderen Baustelle → nach Bestätigung trotzdem */
-  const confirmConflicts = async (p: WeekPlan, siteId: string, days: number[], ids: string[]) => {
-    const lines: string[] = [];
-    for (const id of ids)
-      for (const d of days) {
-        const other = sitesOf(p, id, d, siteId);
-        if (other.length) lines.push(`${nameOf(id)}: ${DAY_NAMES[d]} auf ${other.map((s) => s.name).join(', ')}`);
-      }
-    if (!lines.length) return true;
-    return confirmDialog({
-      title: 'Schon auf einer anderen Baustelle',
+  /**
+   * Arbeiter an den Tagen `ds` auf eine Baustelle setzen – von anderen Baustellen werden sie an diesen Tagen
+   * automatisch entfernt. Bereits geplante Folgewochen auf Wunsch ebenfalls („für die Zukunft“).
+   */
+  const place = async (ids: string[], siteId: string, ds: number[], overrideVacation: boolean) => {
+    let next = plan!;
+    const moved: string[] = [];
+    for (const id of ids) {
+      const r = placeWorker(next, id, siteId, ds, overrideVacation);
+      next = r.week;
+      if (r.from.length) moved.push(`${nameOf(id)} (von ${r.from.join(', ')})`);
+    }
+    save(next);
+    const target = next.sites.find((x) => x.id === siteId)!;
+    if (moved.length) toast(`Umgesetzt auf ${target.name}: ${moved.join(', ')}.`, 'success', 4500);
+    // spätere, schon gespeicherte Wochen mit derselben Baustelle
+    const later = (await listWeeks()).filter((w) => w.id > weekId && sameSite(w, target)).sort((a, b) => a.id.localeCompare(b.id));
+    if (!later.length) return;
+    const ok = await confirmDialog({
+      title: 'Auch in den Folgewochen?',
       message: (
-        <>
-          <p>Diese Arbeiter sind zur gleichen Zeit bereits eingeteilt:</p>
-          <ul data-testid="conflict-list">
-            {lines.map((l) => (
-              <li key={l}>{l}</li>
-            ))}
-          </ul>
-          <p className="muted">Trotzdem zusätzlich einteilen (z. B. bei unterschiedlichen Einsatzzeiten)?</p>
-        </>
+        <p>
+          {ids.map(nameOf).join(', ')} {ids.length === 1 ? 'ist' : 'sind'} jetzt auf „{target.name}“. Für {later.map((w) => `KW ${isoWeekNo(w.id)}`).join(', ')} gibt es schon eine Einteilung –
+          dort ebenfalls umsetzen?
+        </p>
       ),
-      confirmLabel: 'Trotzdem einteilen',
+      confirmLabel: 'Ja, auch dort',
     });
+    if (!ok) return;
+    const all = [0, 1, 2, 3, 4, 5, 6].filter((d) => workTimes[d]);
+    for (const w of later) {
+      let n = w;
+      for (const id of ids) n = placeInWeek(n, id, target, all) ?? n;
+      await saveWeek(n);
+    }
+    toast(`In ${later.length} ${later.length === 1 ? 'Folgewoche' : 'Folgewochen'} übernommen.`, 'success');
+  };
+
+  dropRef.current = (workerId, fromSiteId, fromDay, to) => {
+    if (fromSiteId === to.siteId && fromDay === to.day) return;
+    const ds = [to.day, ...[0, 1, 2, 3, 4, 5, 6].filter((d) => d > to.day && workTimes[d] && (plan?.showWeekend || d < 5))];
+    void run(() => place([workerId], to.siteId, ds, false));
   };
 
   /** PDF-Optionen: Firmenname und Firmenlogo (Konto → Einstellungen) */
@@ -358,7 +381,15 @@ export function WorkersPage() {
                 <span className="crew-open-day">{DAY_SHORT[d]}</span>
                 <span className="crew-chips">
                   {list.map((w) => (
-                    <button key={w.id} type="button" className="crew-chip open" onClick={() => setDialog({ kind: 'open', day: d, workerId: w.id })} data-testid="open-chip">
+                    <button
+                      key={w.id}
+                      type="button"
+                      className={`crew-chip open${drag?.workerId === w.id ? ' dragging' : ''}`}
+                      onPointerDown={(e) => startDrag(e, w.id, workerName(w), null, d)}
+                      onContextMenu={(e) => e.preventDefault()}
+                      onClick={() => !suppressClick.current && setDialog({ kind: 'open', day: d, workerId: w.id })}
+                      data-testid="open-chip"
+                    >
                       {workerName(w)}
                     </button>
                   ))}
@@ -385,6 +416,17 @@ export function WorkersPage() {
           </p>
         )}
 
+        {plan.sites.length > 0 && active.length > 0 && (
+          <p className="muted small crew-drag-hint" data-testid="crew-drag-hint">
+            Tipp: Namen auf eine andere Baustelle ziehen (am Handy kurz gedrückt halten) – ab diesem Tag dort, auf der bisherigen automatisch entfernt.
+          </p>
+        )}
+        {drag && (
+          <div className="crew-ghost" style={{ left: drag.x, top: drag.y }} aria-hidden="true" data-testid="crew-ghost">
+            {drag.label}
+            {drag.over && <small> → {plan.sites.find((x) => x.id === drag.over!.siteId)?.name} ab {DAY_SHORT[drag.over.day]}</small>}
+          </div>
+        )}
         <section className="crew-sites">
           {plan.sites.length > 1 && (
             <label className="crew-search">
@@ -457,7 +499,14 @@ export function WorkersPage() {
                 {isOpen && (
                   <div className="crew-days">
                     {days.map((d) => (
-                      <div key={d} className={`crew-day${workTimes[d] ? '' : ' off'}`} data-testid="day-row" data-day={d}>
+                      <div
+                        key={d}
+                        className={`crew-day${workTimes[d] ? '' : ' off'}${drag?.over?.siteId === s.id && drag.over.day === d ? ' drop-over' : ''}`}
+                        data-testid="day-row"
+                        data-day={d}
+                        data-drop-site={s.id}
+                        data-drop-day={d}
+                      >
                         <span className="crew-day-label">
                           <strong>
                             {DAY_SHORT[d]} {dayDate(weekId, d)}
@@ -469,15 +518,17 @@ export function WorkersPage() {
                             <button
                               key={id}
                               type="button"
-                              className={`crew-chip${byId.get(id)?.active === false ? ' inactive' : ''}${sitesOf(plan, id, d, s.id).length ? ' conflict' : ''}${hit(id) ? ' hit' : ''}`}
-                              onClick={() => setDialog({ kind: 'chip', siteId: s.id, day: d, workerId: id })}
+                              className={`crew-chip${byId.get(id)?.active === false ? ' inactive' : ''}${sitesOf(plan, id, d, s.id).length ? ' conflict' : ''}${hit(id) ? ' hit' : ''}${drag?.workerId === id ? ' dragging' : ''}`}
+                              onPointerDown={(e) => startDrag(e, id, nameOf(id), s.id, d)}
+                              onContextMenu={(e) => e.preventDefault()}
+                              onClick={() => !suppressClick.current && setDialog({ kind: 'chip', siteId: s.id, day: d, workerId: id })}
                               data-testid="crew-chip"
                               data-worker={nameOf(id)}
                             >
                               {nameOf(id)}
                             </button>
                           ))}
-                          <button type="button" className="crew-add" onClick={() => setDialog({ kind: 'assign', siteId: s.id, days: [d] })} aria-label={`Arbeiter für ${DAY_NAMES[d]} einteilen`} data-testid="day-add">
+                          <button type="button" className="crew-add" onClick={() => setDialog({ kind: 'assign', siteId: s.id, days: workDays.filter((x) => x >= d).length ? workDays.filter((x) => x >= d) : [d] })} aria-label={`Arbeiter für ${DAY_NAMES[d]} einteilen`} data-testid="day-add">
                             <Icon name="plus" size={16} />
                           </button>
                         </span>
@@ -551,10 +602,9 @@ export function WorkersPage() {
           initialDays={dialog.days}
           workers={active}
           onClose={() => setDialog(null)}
-          onSave={async (ids, ds) => {
-            if (!(await confirmConflicts(plan, dialog.siteId, ds, ids))) return;
-            save(assign(plan, dialog.siteId, ds, ids));
+          onSave={(ids, ds) => {
             setDialog(null);
+            void run(() => place(ids, dialog.siteId, ds, true));
           }}
         />
       )}
@@ -569,14 +619,9 @@ export function WorkersPage() {
             save(unassign(plan, dialog.siteId, dialog.day, dialog.workerId));
             setDialog(null);
           }}
-          onMove={async (to) => {
-            const moved = moveWorker(plan, dialog.workerId, dialog.siteId, to, dialog.day);
-            const target = moved.sites.find((s) => s.id === to)!;
-            const ds = target.days.map((l, d) => (l.includes(dialog.workerId) ? d : -1)).filter((d) => d >= dialog.day);
-            if (!(await confirmConflicts(unassignAll(plan, dialog.workerId, dialog.siteId, dialog.day), to, ds, [dialog.workerId]))) return;
-            save(moved);
+          onMove={(to) => {
             setDialog(null);
-            toast(`${nameOf(dialog.workerId)} ab ${DAY_NAMES[dialog.day]} auf ${target.name}.`, 'success');
+            void run(() => place([dialog.workerId], to, workDays.filter((d) => d >= dialog.day), false));
           }}
           onVacation={(week) => {
             save(setVacation(plan, dialog.workerId, week ? workDays.filter((d) => d >= dialog.day) : [dialog.day], true));
@@ -607,9 +652,8 @@ export function WorkersPage() {
           day={dialog.day}
           onClose={() => setDialog(null)}
           onAssign={(siteId, rest) => {
-            const ds = rest ? workDays.filter((d) => d >= dialog.day && unassigned(plan, workers, d).some((w) => w.id === dialog.workerId)) : [dialog.day];
-            save(assign(plan, siteId, ds, [dialog.workerId]));
             setDialog(null);
+            void run(() => place([dialog.workerId], siteId, rest ? workDays.filter((d) => d >= dialog.day) : [dialog.day], false));
           }}
           onVacation={(rest) => {
             save(setVacation(plan, dialog.workerId, rest ? workDays.filter((d) => d >= dialog.day) : [dialog.day], true));
@@ -619,13 +663,6 @@ export function WorkersPage() {
       )}
     </>
   );
-}
-
-/** Woche ohne die Einteilung des Arbeiters auf `siteId` ab `fromDay` (für die Konfliktprüfung beim Verschieben) */
-function unassignAll(p: WeekPlan, workerId: string, siteId: string, fromDay: number): WeekPlan {
-  let next = p;
-  for (let d = fromDay; d < 7; d++) next = unassign(next, siteId, d, workerId);
-  return next;
 }
 
 /** Arbeiterliste: anlegen, bearbeiten, aktiv/inaktiv */
@@ -920,7 +957,7 @@ function AssignDialog({
   const status = (w: Worker) => {
     if (ds.length && ds.every((d) => site.days[d].includes(w.id))) return { text: 'schon hier', here: true };
     const other = [...new Set(ds.flatMap((d) => sitesOf(plan, w.id, d, site.id).map((s) => s.name)))];
-    if (other.length) return { text: `auf ${other.join(', ')}`, warn: true };
+    if (other.length) return { text: `auf ${other.join(', ')} → wird umgesetzt`, warn: true };
     if (ds.some((d) => plan.vacation[d].includes(w.id))) return { text: 'Urlaub', warn: true };
     return { text: 'frei' };
   };

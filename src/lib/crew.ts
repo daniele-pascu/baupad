@@ -158,3 +158,37 @@ export function vacationSummary(w: WeekPlan, days: number[]): { workerId: string
   for (const d of days) for (const id of w.vacation[d] ?? []) map.set(id, [...(map.get(id) ?? []), d]);
   return [...map].map(([workerId, ds]) => ({ workerId, days: ds }));
 }
+
+/**
+ * Arbeiter auf eine Baustelle setzen (Ziehen bzw. Hinzufügen): an den gewählten Tagen ist er nur noch dort –
+ * von anderen Baustellen wird er an diesen Tagen automatisch entfernt. Urlaubstage bleiben unberührt
+ * (außer `overrideVacation`). Liefert auch, von welchen Baustellen er weggenommen wurde.
+ */
+export function placeWorker(w: WeekPlan, workerId: string, toSiteId: string, days: number[], overrideVacation = false): { week: WeekPlan; from: string[] } {
+  const ds = overrideVacation ? days : days.filter((d) => !w.vacation[d]?.includes(workerId));
+  const from = new Set<string>();
+  const sites = w.sites.map((s) => {
+    if (s.id === toSiteId) return { ...s, days: s.days.map((list, d) => (ds.includes(d) && !list.includes(workerId) ? [...list, workerId] : list)) };
+    if (!ds.some((d) => s.days[d].includes(workerId))) return s;
+    from.add(s.name);
+    return { ...s, days: s.days.map((list, d) => (ds.includes(d) ? list.filter((id) => id !== workerId) : list)) };
+  });
+  const vacation = overrideVacation ? w.vacation.map((list, d) => (ds.includes(d) ? list.filter((id) => id !== workerId) : list)) : w.vacation;
+  return { week: touch(w, sites, vacation), from: [...from] };
+}
+
+/** Baustelle derselben Bauvorhaben in einer anderen Woche (gleiches Projekt bzw. gleicher Name) */
+export function sameSite(w: WeekPlan, site: Pick<WeekSite, 'projectId' | 'name'>): WeekSite | undefined {
+  const name = site.name.trim().toLowerCase();
+  return w.sites.find((s) => (site.projectId && s.projectId ? s.projectId === site.projectId : s.name.trim().toLowerCase() === name));
+}
+
+/**
+ * In einer bereits geplanten Folgewoche übernehmen: der Arbeiter ist an allen Arbeitstagen (ohne Urlaub)
+ * auf derselben Baustelle. Gibt es die Baustelle dort nicht (fertig/entfernt), bleibt die Woche unverändert (null).
+ */
+export function placeInWeek(w: WeekPlan, workerId: string, site: Pick<WeekSite, 'projectId' | 'name'>, workDays: number[]): WeekPlan | null {
+  const target = sameSite(w, site);
+  if (!target) return null;
+  return placeWorker(w, workerId, target.id, workDays).week;
+}

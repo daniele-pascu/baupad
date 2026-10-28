@@ -492,4 +492,43 @@ test('Arbeitereinteilung per Finger: Arbeiter, Baustelle, Einteilung – passt a
   await expect(page.getByTestId('crew-open').getByTestId('open-chip')).toHaveCount(5); // Peter Mo–Fr
   await noHorizontalScroll(page);
   await page.screenshot({ path: join(OUT, `arbeiter-${info.project.name}.png`), fullPage: true });
+
+  // Ziehen per Finger: kurz gedrückt halten, dann auf die andere Baustelle ziehen
+  await page.getByTestId('add-site').tap();
+  await page.getByTestId('site-dialog').getByTestId('site-name-input').fill('Sanierung');
+  await page.getByTestId('site-dialog').getByTestId('site-save').tap();
+  await page.getByTestId('assign-dialog').getByRole('button', { name: 'Abbrechen' }).tap();
+  const cdp = await page.context().newCDPSession(page);
+  const chipA = page.locator('[data-site="Neubau Musterstraße"] [data-testid="day-row"][data-day="4"] [data-testid="crew-chip"]');
+  const rowB = page.locator('[data-site="Sanierung"] [data-testid="day-row"][data-day="0"]');
+  await chipA.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+  const center = async (l: typeof chipA) => {
+    const b = (await l.boundingBox())!;
+    return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+  };
+  // schnelles Wischen über einen Namen scrollt nur – kein Ziehen
+  const s0 = await page.evaluate(() => scrollY);
+  const c = await center(chipA);
+  await touchDrag(cdp, c, { x: c.x, y: c.y + 150 }); // nach unten wischen → Seite scrollt nach oben
+  await expect(page.getByTestId('crew-ghost')).toHaveCount(0);
+  expect(await page.evaluate(() => scrollY)).toBeLessThan(s0);
+  await chipA.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+  // gedrückt halten → anheben → ziehen
+  const from = await center(chipA);
+  const to = await center(rowB);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: from.x, y: from.y, id: 1 }] });
+  await pause(500);
+  await expect(page.getByTestId('crew-ghost')).toBeVisible();
+  for (let i = 1; i <= 10; i++) {
+    await pause(16);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: from.x + ((to.x - from.x) * i) / 10, y: from.y + ((to.y - from.y) * i) / 10, id: 1 }] });
+  }
+  await expect(rowB).toHaveClass(/drop-over/);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await expect(page.getByTestId('crew-ghost')).toHaveCount(0);
+  for (const d of [0, 4]) {
+    await expect(page.locator(`[data-site="Sanierung"] [data-day="${d}"] [data-testid="crew-chip"]`)).toHaveText(['Max']);
+    await expect(page.locator(`[data-site="Neubau Musterstraße"] [data-day="${d}"] [data-testid="crew-chip"]`)).toHaveCount(0);
+  }
+  await expect(page.getByTestId('chip-dialog')).toHaveCount(0); // kein Menü durch das Loslassen
 });

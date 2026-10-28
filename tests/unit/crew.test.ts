@@ -101,3 +101,40 @@ describe('Tage kompakt', () => {
     expect(dayList([0, 1])).toBe('Mo, Di');
   });
 });
+
+describe('Umsetzen (Ziehen / Hinzufügen)', () => {
+  it('ab einem Tag auf eine andere Baustelle: von der bisherigen automatisch entfernt, Urlaub bleibt', async () => {
+    const { placeWorker } = await import('../../src/lib/crew');
+    let { w, a, b } = twoSites();
+    w = assign(w, a, [0, 1, 2, 3, 4], ['max', 'peter']);
+    w = setVacation(w, 'max', [3], true);
+    const r = placeWorker(w, 'max', b, [1, 2, 3, 4]); // ab Dienstag
+    expect(r.from).toEqual(['Baustelle A']);
+    expect(r.week.sites[0].days.map((d) => d.includes('max'))).toEqual([true, false, false, false, false, false, false]);
+    expect(r.week.sites[1].days.map((d) => d.includes('max'))).toEqual([false, true, true, false, true, false, false]); // Do = Urlaub
+    expect(r.week.vacation[3]).toEqual(['max']);
+    expect(r.week.sites[0].days[2]).toEqual(['peter']); // andere Arbeiter unverändert
+  });
+
+  it('noch nicht eingeteilt → wird einfach eingeteilt; Urlaub nur auf Wunsch aufgehoben', async () => {
+    const { placeWorker } = await import('../../src/lib/crew');
+    let { w, b } = twoSites();
+    w = setVacation(w, 'tom', [0], true);
+    expect(placeWorker(w, 'tom', b, [0, 1]).week.sites[1].days.slice(0, 2)).toEqual([[], ['tom']]);
+    const o = placeWorker(w, 'tom', b, [0], true).week;
+    expect(o.sites[1].days[0]).toEqual(['tom']);
+    expect(o.vacation[0]).toEqual([]);
+  });
+
+  it('bereits geplante Folgewoche: gleiche Baustelle über Projekt bzw. Name, sonst unverändert', async () => {
+    const { placeInWeek } = await import('../../src/lib/crew');
+    let { w, a, b } = twoSites();
+    w = assign(w, a, [0, 1, 2, 3, 4], ['max']);
+    const next = carryOver(w, '2026-11-02');
+    const moved = placeInWeek(next, 'max', { projectId: null, name: 'baustelle b' }, [0, 1, 2, 3, 4])!;
+    expect(moved.sites.find((s) => s.name === 'Baustelle B')!.days[4]).toEqual(['max']);
+    expect(moved.sites.find((s) => s.name === 'Baustelle A')!.days[4]).toEqual([]);
+    expect(placeInWeek(next, 'max', { projectId: null, name: 'Gibt es nicht' }, [0])).toBeNull();
+    expect(b).toBeTruthy();
+  });
+});

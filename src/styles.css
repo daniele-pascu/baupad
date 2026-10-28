@@ -5001,3 +5001,38 @@ a.tool-tile:focus-visible {
 .crew-source button {
   flex: 1;
 }
+/* Ziehen: Namen anheben und auf eine Tageszeile einer Baustelle fallen lassen */
+.crew-chip {
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.crew-chip.dragging {
+  opacity: 0.35;
+}
+.crew-day.drop-over {
+  background: color-mix(in srgb, var(--crew) 12%, #fff);
+  box-shadow: inset 3px 0 0 var(--crew);
+}
+.crew-ghost {
+  position: fixed;
+  z-index: 1000;
+  transform: translate(-50%, -130%);
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--crew, #2f80ed);
+  color: #fff;
+  font-weight: 650;
+  font-size: 0.92rem;
+  white-space: nowrap;
+  box-shadow: 0 12px 28px -8px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+.crew-ghost small {
+  font-weight: 500;
+  opacity: 0.9;
+}
+.crew-drag-hint {
+  margin: -4px 0 10px;
+}
