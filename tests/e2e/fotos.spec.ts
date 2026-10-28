@@ -41,7 +41,7 @@ test('Fotos je Baustelle, KW und Tag; Großansicht; Beschreibung; Suche; Duplika
   await expect(site.locator('.photo-week-chip')).toHaveText([/KW 45/, /KW 44/]);
   await page.screenshot({ path: join(OUT, 'fotos-uebersicht.png'), fullPage: true });
 
-  // Baustelle: KW 45 (neueste) offen, KW 44 zuklappbar; Tage mit Fotos
+  // Baustelle: fortlaufende Galerie – neueste Woche oben, je Woche ein Strich mit KW, darunter die Tage
   await site.click();
   await expect(page.getByTestId('photo-site-title')).toHaveText('Neubau Musterstraße');
   const weeks = page.getByTestId('photo-week');
@@ -49,8 +49,6 @@ test('Fotos je Baustelle, KW und Tag; Großansicht; Beschreibung; Suche; Duplika
   await expect(weeks.nth(0)).toContainText('KW 45 · 02.11. – 08.11.2026');
   await expect(weeks.nth(0).getByTestId('photo-thumb')).toHaveCount(1);
   await expect(weeks.nth(1)).toContainText('KW 44');
-  await expect(weeks.nth(1).getByTestId('photo-thumb')).toHaveCount(0); // zu
-  await weeks.nth(1).getByTestId('photo-week-toggle').click();
   const day = weeks.nth(1).getByTestId('photo-day');
   await expect(day).toContainText('Dienstag, 27.10.2026');
   await expect(day.getByTestId('photo-thumb')).toHaveCount(2);

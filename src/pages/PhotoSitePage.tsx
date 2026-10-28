@@ -66,7 +66,9 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
   const [all, setAll] = useState<Photo[] | null>(null);
   const [site, setSite] = useState<PhotoSite | null>(null);
   const [query, setQuery] = useState('');
-  const [open, setOpen] = useState<Set<string>>(() => new Set(week ? [week] : []));
+  /** fortlaufende Galerie: zuerst die neuesten Wochen, beim Scrollen nach unten erscheinen ältere */
+  const [limit, setLimit] = useState(4);
+  const sentinel = useRef<HTMLDivElement>(null);
   const photos = useMemo(() => (all ?? []).filter((p) => photoSiteKey(p) === siteKey), [all, siteKey]);
   usePageTitle(`${site?.name ?? 'Baustelle'} – Fotodokumentation – BauPad`);
 
@@ -89,20 +91,25 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
 
   const shown = useMemo(() => photos.filter((p) => matchesPhoto(p, query)), [photos, query]);
   const groups = useMemo(() => groupByWeekAndDay(shown), [shown]);
-  // ohne Vorgabe: neueste Woche offen
+  // ältere Wochen nachladen, sobald das Ende sichtbar wird
   useEffect(() => {
-    if (!week && groups.length && open.size === 0) setOpen(new Set([groups[0].week]));
+    const el = sentinel.current;
+    if (!el || limit >= groups.length) return;
+    const io = new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && setLimit((n) => n + 4), { rootMargin: '600px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [limit, groups.length]);
+  // Vorgabe aus der Adresse (?w=): zu dieser Woche scrollen
+  useEffect(() => {
+    if (!week || !groups.length) return;
+    const idx = groups.findIndex((g) => g.week === week);
+    if (idx >= limit) setLimit(idx + 1);
+    else document.querySelector(`[data-week="${week}"]`)?.scrollIntoView({ block: 'start' });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groups.length]);
+  }, [week, groups.length, limit]);
   const flat = useMemo(() => groups.flatMap((g) => g.days.flatMap((d) => d.photos)), [groups]);
   const current = photoId ? photos.find((p) => p.id === photoId) ?? null : null;
   const hashes = useMemo(() => new Set((all ?? []).map((p) => p.hash)), [all]);
-  const toggle = (w: string) =>
-    setOpen((prev) => {
-      const next = new Set(prev);
-      if (!next.delete(w)) next.add(w);
-      return next;
-    });
   const show = (id: string | null) => navigate(paths.photoSite(siteKey, { photoId: id }), true);
 
   const run = (fn: () => Promise<void>) => fn().catch((e) => showError(e, 'Das hat nicht geklappt'));
@@ -202,22 +209,18 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
         )}
         {all && photos.length === 0 && <p className="muted" data-testid="photo-site-empty">Noch keine Fotos auf dieser Baustelle.</p>}
 
-        {groups.map((g) => {
-          const n = g.days.reduce((s, d) => s + d.photos.length, 0);
-          const isOpen = open.has(g.week);
-          return (
-            <section key={g.week} className="photo-week" data-testid="photo-week" data-week={g.week}>
-              <button type="button" className="crew-site-toggle photo-week-toggle" aria-expanded={isOpen} onClick={() => toggle(g.week)} data-testid="photo-week-toggle">
-                <Icon name="next" size={18} />
-                <span className="crew-site-title">
+        <div className="photo-stream" data-testid="photo-stream">
+          {groups.slice(0, limit).map((g) => {
+            const n = g.days.reduce((s, d) => s + d.photos.length, 0);
+            return (
+              <section key={g.week} className="photo-week" data-testid="photo-week" data-week={g.week}>
+                <div className="photo-week-head">
                   <strong>{weekTitle(g.week)}</strong>
                   <span className="muted small">
-                    {n} {n === 1 ? 'Foto' : 'Fotos'} an {g.days.length} {g.days.length === 1 ? 'Tag' : 'Tagen'}
+                    {n} {n === 1 ? 'Foto' : 'Fotos'}
                   </span>
-                </span>
-              </button>
-              {isOpen &&
-                g.days.map((d) => (
+                </div>
+                {g.days.map((d) => (
                   <div key={d.day} className="photo-day" data-testid="photo-day" data-day={d.day}>
                     <h3>{dayTitle(d.day)}</h3>
                     <div className="photo-grid">
@@ -227,9 +230,17 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
                     </div>
                   </div>
                 ))}
-            </section>
-          );
-        })}
+              </section>
+            );
+          })}
+          {limit < groups.length && (
+            <div ref={sentinel} className="photo-more" data-testid="photo-more">
+              <button type="button" className="btn btn-sm" onClick={() => setLimit((n) => n + 4)}>
+                Ältere Wochen laden ({groups.length - limit})
+              </button>
+            </div>
+          )}
+        </div>
       </div>
       {current && (
         <Lightbox
