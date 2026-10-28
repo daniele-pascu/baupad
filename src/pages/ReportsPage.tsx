@@ -2,50 +2,72 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { ActionMenu } from '../components/ActionMenu';
 import { Icon } from '../components/Icon';
 import { Modal } from '../components/Modal';
-import { PdfPreview } from '../components/PdfPreview';
 import { SiteNav } from '../components/SiteNav';
 import { ToolIcon } from '../components/ToolIcon';
-import { confirmDialog, offerFile, showError, toast } from '../components/ui';
+import { offerFile, showError, toast } from '../components/ui';
 import { exportReportsBackup, importReportsBackup } from '../lib/report-backup';
-import type { ExportFile } from '../lib/aufmass';
-import { deleteReport, listProjects, listReports, listWeeks, loadProjectData, saveReport } from '../lib/db';
+import { listProjects, listReports, listWeeks, loadProjectData, saveReport } from '../lib/db';
 import { navigate, paths } from '../lib/router';
-import { copyReport, emptyHead, headFromProject, newReport, periodLabel, REPORT_TYPES, siteKey, siteLabel, today, typeInfo } from '../lib/reports';
-import { reportPdfFile } from './ReportEditorPage';
+import { emptyHead, fmtDate, headFromProject, newReport, REPORT_TYPES, siteKey, siteLabel, today, typeInfo } from '../lib/reports';
 import type { Project, Report, ReportType } from '../lib/types';
 import { usePageTitle } from './SitePages';
 
-const ACCENT = { '--tool': '#a259ff' } as CSSProperties;
-const TYPE_ORDER: Record<ReportType, number> = { regie: 0, tag: 1, woche: 2 };
+export const ACCENT = { '--tool': '#a259ff' } as CSSProperties;
 
 /** Baustelle für einen neuen Bericht: Projekt aus Aufmaß & Abrechnung oder frei (Name) */
-type SiteChoice = { projectId: string; name: string } | { projectId: null; name: string };
+export type SiteChoice = { projectId: string; name: string } | { projectId: null; name: string };
+
+/** Projekte und freie Baustellen (Arbeitereinteilung, bisherige Berichte) für den Dialog „Neuer Bericht“ */
+export async function loadReportSites(reports: Report[]): Promise<{ projects: Project[]; freeSites: string[] }> {
+  const [projects, weeks] = await Promise.all([listProjects(), listWeeks()]);
+  const names = new Map<string, string>();
+  for (const w of weeks) for (const s of w.sites) if (!s.projectId && s.name.trim()) names.set(s.name.trim().toLowerCase(), s.name.trim());
+  for (const x of reports) if (!x.projectId && siteLabel(x)) names.set(siteLabel(x).toLowerCase(), siteLabel(x));
+  return { projects, freeSites: [...names.values()].sort((a, b) => a.localeCompare(b, 'de')) };
+}
+
+/** Neuen Bericht anlegen (Kopf aus dem Projekt) und zur Bearbeitung wechseln */
+export async function createReport(type: ReportType, site: SiteChoice, date: string, all: Report[]): Promise<void> {
+  let head = { ...emptyHead(), site: site.name, project: site.name };
+  if (site.projectId) {
+    const d = await loadProjectData(site.projectId);
+    if (d) head = headFromProject(d.project, d.costCenters.filter((c) => !c.deletedAt).sort((a, b) => a.sortIndex - b.sortIndex));
+  }
+  const r = newReport(type, { projectId: site.projectId, head, date, all });
+  await saveReport(r);
+  navigate(paths.report(r.id));
+}
+
+interface SiteCard {
+  key: string;
+  site: SiteChoice;
+  head: Report['head'];
+  counts: Record<ReportType, number>;
+  last: string;
+  lastAt: number;
+  open: number;
+}
 
 /**
- * Berichte & Formulare – Übersicht: gruppiert nach Baustelle (wichtigste Gruppierung), darin nach Datum
- * (neueste zuerst) und Typ; Filter nach Typ, Suche, neuer Bericht direkt für eine Baustelle.
+ * Berichte & Formulare – Übersicht je Baustelle: Anzahl Regielisten, Tagesberichte und Wochenberichte,
+ * letzter Bericht; Tippen öffnet die Berichte der Baustelle (getrennte Listen je Typ).
  */
 export function ReportsPage() {
   usePageTitle('Berichte & Formulare – BauPad');
   const [reports, setReports] = useState<Report[] | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [freeSites, setFreeSites] = useState<string[]>([]);
-  const [filter, setFilter] = useState<ReportType | 'all'>('all');
   const [query, setQuery] = useState('');
   const [creating, setCreating] = useState<{ site?: SiteChoice } | null>(null);
-  const [preview, setPreview] = useState<ExportFile | null>(null);
   const restoreRef = useRef<HTMLInputElement>(null);
 
   const reload = () =>
-    Promise.all([listReports(), listProjects(), listWeeks()])
-      .then(([r, p, weeks]) => {
+    listReports()
+      .then(async (r) => {
         setReports(r);
-        setProjects(p);
-        // Baustellen ohne Projekt aus der Arbeitereinteilung und aus bisherigen Berichten
-        const names = new Map<string, string>();
-        for (const w of weeks) for (const s of w.sites) if (!s.projectId && s.name.trim()) names.set(s.name.trim().toLowerCase(), s.name.trim());
-        for (const x of r) if (!x.projectId && siteLabel(x)) names.set(siteLabel(x).toLowerCase(), siteLabel(x));
-        setFreeSites([...names.values()].sort((a, b) => a.localeCompare(b, 'de')));
+        const s = await loadReportSites(r);
+        setProjects(s.projects);
+        setFreeSites(s.freeSites);
       })
       .catch((e) => showError(e, 'Berichte konnten nicht geladen werden'));
   useEffect(() => {
@@ -53,43 +75,27 @@ export function ReportsPage() {
   }, []);
 
   const q = query.trim().toLowerCase();
-  const groups = useMemo(() => {
-    const list = (reports ?? [])
-      .filter((r) => filter === 'all' || r.type === filter)
-      .filter((r) => !q || [typeInfo(r.type).label, r.no, siteLabel(r), r.head.project, r.head.number, r.head.client, periodLabel(r)].some((t) => t?.toLowerCase().includes(q)));
-    const map = new Map<string, Report[]>();
-    for (const r of list) map.set(siteKey(r), [...(map.get(siteKey(r)) ?? []), r]);
-    return [...map.values()]
-      .map((items) => items.sort((a, b) => b.date.localeCompare(a.date) || TYPE_ORDER[a.type] - TYPE_ORDER[b.type] || (parseInt(b.no) || 0) - (parseInt(a.no) || 0)))
-      .sort((a, b) => Math.max(...b.map((x) => x.updatedAt)) - Math.max(...a.map((x) => x.updatedAt)));
-  }, [reports, filter, q]);
+  const cards = useMemo(() => {
+    const map = new Map<string, SiteCard>();
+    for (const r of reports ?? []) {
+      const key = siteKey(r);
+      let c = map.get(key);
+      if (!c) {
+        c = { key, site: r.projectId ? { projectId: r.projectId, name: siteLabel(r) } : { projectId: null, name: siteLabel(r) }, head: r.head, counts: { regie: 0, tag: 0, woche: 0 }, last: r.date, lastAt: 0, open: 0 };
+        map.set(key, c);
+      }
+      c.counts[r.type]++;
+      if (r.date > c.last) c.last = r.date;
+      if (r.updatedAt > c.lastAt) {
+        c.lastAt = r.updatedAt;
+        c.head = r.head;
+      }
+      if (r.status !== 'done') c.open++;
+    }
+    return [...map.values()].filter((c) => !q || [c.site.name, c.head.project, c.head.number, c.head.client, c.head.address].some((t) => t?.toLowerCase().includes(q))).sort((a, b) => b.lastAt - a.lastAt);
+  }, [reports, q]);
 
   const run = (fn: () => Promise<void>) => fn().catch((e) => showError(e, 'Das hat nicht geklappt'));
-  const copy = (r: Report) =>
-    run(async () => {
-      const c = copyReport(r, r.type === 'woche' ? r.date : today(), reports ?? []);
-      await saveReport(c);
-      toast(`Kopie angelegt: ${typeInfo(c.type).label} Nr. ${c.no}.`, 'success');
-      navigate(paths.report(c.id));
-    });
-  const remove = (r: Report) =>
-    void confirmDialog({
-      title: 'Bericht löschen?',
-      message: (
-        <p>
-          {typeInfo(r.type).label} Nr. {r.no} vom {periodLabel(r)} wird endgültig gelöscht.
-        </p>
-      ),
-      confirmLabel: 'Löschen',
-      danger: true,
-    }).then((ok) => {
-      if (ok)
-        void run(async () => {
-          await deleteReport(r.id);
-          await reload();
-          toast('Bericht gelöscht.', 'success');
-        });
-    });
 
   return (
     <>
@@ -134,20 +140,15 @@ export function ReportsPage() {
           </div>
         </header>
 
-        <div className="reports-tools">
-          <div className="segmented reports-filter" role="radiogroup" aria-label="Berichtstyp">
-            {[{ type: 'all' as const, plural: 'Alle' }, ...REPORT_TYPES].map((t) => (
-              <button key={t.type} type="button" role="radio" aria-checked={filter === t.type} aria-selected={filter === t.type} onClick={() => setFilter(t.type)} data-testid={`report-filter-${t.type}`}>
-                {t.plural}
-              </button>
-            ))}
+        {reports && reports.length > 0 && (
+          <div className="reports-tools">
+            <label className="crew-search reports-search">
+              <Icon name="select" size={18} />
+              <span className="sr-only">Suchen</span>
+              <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Baustelle, Nummer oder Auftraggeber suchen" data-testid="report-search" />
+            </label>
           </div>
-          <label className="crew-search reports-search">
-            <Icon name="select" size={18} />
-            <span className="sr-only">Suchen</span>
-            <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Baustelle, Nummer oder Datum suchen" data-testid="report-search" />
-          </label>
-        </div>
+        )}
 
         {reports && reports.length === 0 && (
           <div className="crew-setup" style={ACCENT} data-testid="reports-empty">
@@ -163,53 +164,34 @@ export function ReportsPage() {
             </button>
           </div>
         )}
-        {reports && reports.length > 0 && groups.length === 0 && <p className="muted">Keine Berichte gefunden.</p>}
+        {reports && reports.length > 0 && cards.length === 0 && <p className="muted">Keine Baustelle gefunden.</p>}
 
-        {groups.map((items) => {
-          const first = items[0];
-          const site: SiteChoice = first.projectId ? { projectId: first.projectId, name: siteLabel(first) } : { projectId: null, name: siteLabel(first) };
-          return (
-            <section key={siteKey(first)} className="report-group" data-testid="report-group" data-site={siteLabel(first)}>
-              <header className="report-group-head">
-                <div>
-                  <h2>{siteLabel(first)}</h2>
-                  <span className="muted small">{[first.head.number, first.head.address, first.head.client].filter(Boolean).join(' · ')}</span>
+        <div className="report-sites">
+          {cards.map((c) => {
+            const total = c.counts.regie + c.counts.tag + c.counts.woche;
+            return (
+              <a key={c.key} href={paths.reportSite(c.key)} className="report-site" data-testid="report-site" data-site={c.site.name}>
+                <div className="report-site-main">
+                  <strong>{c.site.name}</strong>
+                  <span className="muted small">{[c.head.number, c.head.address, c.head.client].filter(Boolean).join(' · ')}</span>
+                  <span className="small">
+                    {total} {total === 1 ? 'Bericht' : 'Berichte'} · zuletzt {fmtDate(c.last, false)}
+                    {c.open > 0 && <span className="rp-badge"> {c.open} offen</span>}
+                  </span>
                 </div>
-                <button type="button" className="btn btn-sm" onClick={() => setCreating({ site })} data-testid="report-group-new">
-                  <Icon name="plus" size={16} /> Neu
-                </button>
-              </header>
-              <ul className="report-list">
-                {items.map((r) => (
-                  <li key={r.id} className="report-item" data-testid="report-item" data-type={r.type}>
-                    <a href={paths.report(r.id)} className="report-link">
-                      <span className={`report-type t-${r.type}`}>{typeInfo(r.type).short}</span>
-                      <span className="report-main">
-                        <strong>
-                          {typeInfo(r.type).label} Nr. {r.no}
-                        </strong>
-                        <span className="muted small">{periodLabel(r)}</span>
-                      </span>
-                      <span className={`report-status ${r.status}`} data-testid="report-status">
-                        {r.status === 'done' ? 'Fertig' : 'Entwurf'}
-                      </span>
-                    </a>
-                    <ActionMenu
-                      label={`Aktionen für ${typeInfo(r.type).label} Nr. ${r.no}`}
-                      testId="report-actions"
-                      actions={[
-                        { label: 'Öffnen', icon: 'edit', onSelect: () => navigate(paths.report(r.id)), testId: 'report-open' },
-                        { label: 'Kopieren als neuer Bericht', icon: 'copy', onSelect: () => copy(r), testId: 'report-copy' },
-                        { label: 'PDF', icon: 'pdf', onSelect: () => run(async () => setPreview(await reportPdfFile(r))), testId: 'report-pdf' },
-                        { label: 'Löschen', icon: 'trash', danger: true, onSelect: () => remove(r), testId: 'report-delete' },
-                      ]}
-                    />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          );
-        })}
+                <div className="report-site-counts">
+                  {REPORT_TYPES.map((t) => (
+                    <span key={t.type} className={`report-count${c.counts[t.type] ? '' : ' empty'}`} title={t.plural}>
+                      <span className={`report-type t-${t.type}`}>{t.short}</span>
+                      <span>{c.counts[t.type]}</span>
+                    </span>
+                  ))}
+                </div>
+                <Icon name="next" size={18} />
+              </a>
+            );
+          })}
+        </div>
       </div>
       {creating && (
         <NewReportDialog
@@ -217,27 +199,15 @@ export function ReportsPage() {
           freeSites={freeSites}
           site={creating.site}
           onClose={() => setCreating(null)}
-          onCreate={(type, site, date) =>
-            run(async () => {
-              let head = { ...emptyHead(), site: site.name, project: site.name };
-              if (site.projectId) {
-                const d = await loadProjectData(site.projectId);
-                if (d) head = headFromProject(d.project, d.costCenters.filter((c) => !c.deletedAt).sort((a, b) => a.sortIndex - b.sortIndex));
-              }
-              const r = newReport(type, { projectId: site.projectId, head, date, all: reports ?? [] });
-              await saveReport(r);
-              navigate(paths.report(r.id));
-            })
-          }
+          onCreate={(type, site, date) => run(() => createReport(type, site, date, reports ?? []))}
         />
       )}
-      {preview && <PdfPreview file={preview} onBack={() => setPreview(null)} onClose={() => setPreview(null)} />}
     </>
   );
 }
 
 /** Neuer Bericht: Typ, Baustelle (Projekt oder frei) und Datum */
-function NewReportDialog({
+export function NewReportDialog({
   projects,
   freeSites,
   site,

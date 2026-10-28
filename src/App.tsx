@@ -12,6 +12,7 @@ import { AccountPage, LoginPage } from './pages/AccountPages';
 import { ToolsPage } from './pages/ToolsPage';
 import { WorkersPage } from './pages/WorkersPage';
 import { ReportsPage } from './pages/ReportsPage';
+import { ReportSitePage } from './pages/ReportSitePage';
 import { ReportEditorPage } from './pages/ReportEditorPage';
 import { PhotosPage } from './pages/PhotosPage';
 import { PhotoSitePage } from './pages/PhotoSitePage';
@@ -67,6 +68,9 @@ export function App() {
       break;
     case 'report':
       content = <ReportEditorPage key={route.reportId} reportId={route.reportId} />;
+      break;
+    case 'reportSite':
+      content = <ReportSitePage key={route.siteKey} siteKey={route.siteKey} />;
       break;
     case 'photos':
       content = <PhotosPage />;

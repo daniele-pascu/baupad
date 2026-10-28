@@ -11,6 +11,7 @@ export type Route =
   | { name: 'workers' }
   | { name: 'reports' }
   | { name: 'report'; reportId: string }
+  | { name: 'reportSite'; siteKey: string }
   | { name: 'photos' }
   | { name: 'photoSite'; siteKey: string; week: string | null; photoId: string | null }
   | { name: 'login' }
@@ -31,6 +32,7 @@ export function parseRoute(hash: string): Route {
   if (parts[0] === 'tools' && parts.length === 1) return { name: 'tools' };
   if (parts[0] === 'arbeitereinteilung' && parts.length === 1) return { name: 'workers' };
   if (parts[0] === 'berichte' && parts.length === 1) return { name: 'reports' };
+  if (parts[0] === 'berichte' && parts[1] === 'b' && parts.length === 3) return { name: 'reportSite', siteKey: parts[2] };
   if (parts[0] === 'berichte' && parts.length === 2) return { name: 'report', reportId: parts[1] };
   if (parts[0] === 'fotos' && parts.length === 1) return { name: 'photos' };
   if (parts[0] === 'fotos' && (parts[1] === 'p' || parts[1] === 'n') && parts.length === 3)
@@ -58,6 +60,8 @@ export const paths = {
   /** Berichte & Formulare (Regielisten, Bautages- und Bauwochenberichte) */
   reports: () => '#/berichte',
   report: (id: string) => `#/berichte/${id}`,
+  /** Berichte einer Baustelle (Schlüssel „p:<Projekt-ID>“ bzw. „n:<name>“) */
+  reportSite: (key: string) => `#/berichte/b/${encodeURIComponent(key)}`,
   /** Fotodokumentation: Übersicht und Baustelle (Schlüssel „p:<Projekt>“ bzw. „n:<Name>“) */
   photos: () => '#/fotos',
   photoSite: (siteKey: string, opts: { week?: string | null; photoId?: string | null } = {}) => {

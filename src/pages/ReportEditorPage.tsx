@@ -142,7 +142,7 @@ export function ReportEditorPage({ reportId }: { reportId: string }) {
         window.clearTimeout(timer.current);
         await deleteReport(r.id);
         toast('Bericht gelöscht.', 'success');
-        navigate(paths.reports());
+        navigate(paths.reportSite(siteKey(r)));
       });
     });
   const reloadHead = () =>
@@ -166,7 +166,7 @@ export function ReportEditorPage({ reportId }: { reportId: string }) {
       <div className="page report-page">
         <header className="page-head page-head-row">
           <div className="page-head-title">
-            <a href={paths.reports()} className="icon-link" aria-label="Zur Übersicht" title="Zur Übersicht" data-testid="to-reports" onClick={flush}>
+            <a href={paths.reportSite(siteKey(r))} className="icon-link" aria-label="Zur Baustelle" title="Zur Baustelle" data-testid="to-reports" onClick={flush}>
               <Icon name="back" />
             </a>
             <div>
@@ -231,8 +231,8 @@ export function ReportEditorPage({ reportId }: { reportId: string }) {
           <button type="button" className="btn btn-primary" onClick={showPdf}>
             <Icon name="pdf" /> PDF ansehen / teilen
           </button>
-          <a className="btn" href={paths.reports()} onClick={flush}>
-            Fertig – zur Übersicht
+          <a className="btn" href={paths.reportSite(siteKey(r))} onClick={flush}>
+            Fertig – zur Baustelle
           </a>
         </div>
       </div>

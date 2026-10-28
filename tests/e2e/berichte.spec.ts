@@ -133,19 +133,34 @@ test('Regieliste, Bautagesbericht und Wochenbericht: Übernahme aus Projekt und 
   await expect(wed.getByTestId('rp-day-count')).toHaveValue('1');
   await expect(page.getByTestId('save-state')).toHaveText('gespeichert');
 
-  // Übersicht: eine Baustelle, drei Berichte; Filter, Suche, Kopie
+  // Baustelle: drei Listen (Regielisten, Tagesberichte, Wochenberichte) mit je einem Bericht; Auswahl → ein PDF
   await page.getByTestId('to-reports').click();
-  await expect(page.getByTestId('report-group')).toHaveCount(1);
-  await expect(page.getByTestId('report-group')).toHaveAttribute('data-site', 'Wohnanlage Sonnenhof');
+  await expect(page.getByTestId('report-site-page')).toHaveAttribute('data-site', 'Wohnanlage Sonnenhof');
+  await expect(page.getByTestId('report-section')).toHaveCount(3);
   await expect(page.getByTestId('report-item')).toHaveCount(3);
+  for (const [i, type] of ['regie', 'tag', 'woche'].entries()) await expect(page.getByTestId('report-section').nth(i).getByTestId('report-item')).toHaveAttribute('data-type', type);
   await expect(page.locator('[data-testid="report-item"][data-type="regie"] [data-testid="report-status"]')).toHaveText('Fertig');
-  await page.getByTestId('report-filter-tag').click();
-  await expect(page.getByTestId('report-item')).toHaveCount(1);
-  await page.getByTestId('report-filter-all').click();
-  await page.getByTestId('report-search').fill('Wochen');
-  await expect(page.getByTestId('report-item')).toHaveCount(1);
+  await page.screenshot({ path: join(OUT, 'berichte-baustelle.png'), fullPage: true });
+  await page.getByTestId('report-select').click();
+  await expect(page.getByTestId('report-selected-pdf')).toBeDisabled();
+  await page.getByTestId('report-section').nth(0).getByTestId('report-section-all').check();
+  await page.locator('[data-testid="report-item"][data-type="tag"] .report-link').click();
+  await expect(page.getByTestId('report-selection-bar')).toContainText('2 ausgewählt');
+  await page.getByTestId('report-selected-pdf').click();
+  await expect(page.getByTestId('pdf-preview')).toBeVisible();
+  await expect(page.getByTestId('pdf-file-name')).toHaveValue(/^Berichte_Wohnanlage_Sonnenhof_\d{4}-\d{2}-\d{2}$/);
+  await expect(page.getByTestId('preview-page')).toHaveCount(2); // Regieliste + Tagesbericht in einem PDF
+  await page.getByTestId('preview-back').click();
+  await page.getByTestId('report-select').click(); // Fertig
+  // Übersicht: eine Baustelle mit Anzahl je Typ; zurück zur Baustelle, Kopie
+  await page.getByTestId('to-reports-overview').click();
+  await expect(page.getByTestId('report-site')).toHaveCount(1);
+  await expect(page.getByTestId('report-site')).toContainText('3 Berichte');
+  await page.getByTestId('report-search').fill('Halle');
+  await expect(page.getByTestId('report-site')).toHaveCount(0);
   await page.getByTestId('report-search').fill('');
   await page.screenshot({ path: join(OUT, 'berichte-uebersicht.png'), fullPage: true });
+  await page.getByTestId('report-site').click();
   await page.locator('[data-testid="report-item"][data-type="regie"]').getByTestId('report-actions').click();
   await page.getByTestId('report-copy').click();
   await expect(page.getByTestId('report-title')).toHaveText('Regieliste Nr. 2');
@@ -163,8 +178,10 @@ test('Regieliste, Bautagesbericht und Wochenbericht: Übernahme aus Projekt und 
   await page.getByTestId('import-project-input').setInputFiles(file);
   await expect(page.getByTestId('project-title')).toHaveText('Wohnanlage Sonnenhof');
   await page.goto('./#/berichte');
+  await expect(page.getByTestId('report-site')).toHaveAttribute('data-site', 'Wohnanlage Sonnenhof');
+  await expect(page.getByTestId('report-site')).toContainText('4 Berichte');
+  await page.getByTestId('report-site').click();
   await expect(page.getByTestId('report-item')).toHaveCount(4);
-  await expect(page.getByTestId('report-group')).toHaveAttribute('data-site', 'Wohnanlage Sonnenhof');
 });
 
 test('Ohne Projekt und ohne Arbeitereinteilung: Baustelle frei eingeben, Arbeiter von Hand', async ({ page }) => {
@@ -187,7 +204,9 @@ test('Ohne Projekt und ohne Arbeitereinteilung: Baustelle frei eingeben, Arbeite
   await expect(page.getByTestId('rp-total')).toContainText('6 Std.');
   await expect(page.getByTestId('save-state')).toHaveText('gespeichert');
   await page.getByTestId('to-reports').click();
-  await expect(page.getByTestId('report-group')).toHaveAttribute('data-site', 'Halle 3');
+  await expect(page.getByTestId('report-site-page')).toHaveAttribute('data-site', 'Halle 3');
+  await page.getByTestId('to-reports-overview').click();
+  await expect(page.getByTestId('report-site')).toHaveAttribute('data-site', 'Halle 3');
 
   // Sicherung aller Berichte speichern und auf „neuem Gerät“ wiederherstellen
   const dl = await catchDownload(page, async () => {
@@ -201,6 +220,7 @@ test('Ohne Projekt und ohne Arbeitereinteilung: Baustelle frei eingeben, Arbeite
   await expect(page.getByTestId('reports-empty')).toBeVisible();
   await page.getByTestId('reports-restore-input').setInputFiles(file);
   await expect(page.locator('.toast', { hasText: '1 Bericht(e) übernommen' })).toHaveCount(1);
+  await page.getByTestId('report-site').click();
   await expect(page.getByTestId('report-item')).toHaveCount(1);
   await page.getByTestId('report-item').locator('a').click();
   await expect(page.getByTestId('rp-worker-name')).toHaveValue('Hans Huber');
