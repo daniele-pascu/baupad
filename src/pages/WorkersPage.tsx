@@ -412,7 +412,7 @@ export function WorkersPage() {
           </p>
         )}
         {drag && (
-          <div className="crew-ghost" style={{ left: drag.x, top: drag.y }} aria-hidden="true" data-testid="crew-ghost">
+          <div className="crew-ghost" style={{ left: drag.x - drag.dx, top: drag.y - drag.dy - (drag.touch ? 48 : 0) }} aria-hidden="true" data-testid="crew-ghost">
             {drag.label}
             {drag.over && <small> → {plan.sites.find((x) => x.id === drag.over!.siteId)?.name} ab {DAY_SHORT[drag.over.day]}</small>}
           </div>

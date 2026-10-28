@@ -21,6 +21,10 @@ async function dragTo(page: Page, from: ReturnType<Page['locator']>, to: ReturnT
   await page.mouse.down();
   await page.mouse.move(a.x + a.width / 2 + 10, a.y + a.height / 2 + 10, { steps: 3 });
   await expect(page.getByTestId('crew-ghost')).toBeVisible();
+  // der gezogene Kasten liegt direkt unter dem Mauszeiger (dort, wo er angefasst wurde)
+  const g = (await page.getByTestId('crew-ghost').boundingBox())!;
+  expect(Math.abs(g.x - (a.x + 10))).toBeLessThan(3);
+  expect(Math.abs(g.y - (a.y + 10))).toBeLessThan(3);
   // Ziel während des Ziehens in die Bildmitte scrollen (am Bildschirmrand scrollt die App selbst mit)
   await to.evaluate((el) => el.scrollIntoView({ block: 'center' }));
   const b = (await to.boundingBox())!;

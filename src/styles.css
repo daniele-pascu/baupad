@@ -5018,13 +5018,16 @@ a.tool-tile:focus-visible {
 .crew-ghost {
   position: fixed;
   z-index: 1000;
-  transform: translate(-50%, -130%);
-  padding: 8px 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 34px;
+  padding: 4px 12px;
   border-radius: 999px;
   background: var(--crew, #2f80ed);
   color: #fff;
-  font-weight: 650;
-  font-size: 0.92rem;
+  font-weight: 600;
+  font-size: 0.9rem;
   white-space: nowrap;
   box-shadow: 0 12px 28px -8px rgba(0, 0, 0, 0.45);
   pointer-events: none;

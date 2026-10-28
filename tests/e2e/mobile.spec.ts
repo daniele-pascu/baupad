@@ -519,6 +519,12 @@ test('Arbeitereinteilung per Finger: Arbeiter, Baustelle, Einteilung – passt a
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: from.x, y: from.y, id: 1 }] });
   await pause(500);
   await expect(page.getByTestId('crew-ghost')).toBeVisible();
+  // Kasten knapp über dem Finger (sichtbar, nicht verdeckt, nicht weit weg)
+  const g = (await page.getByTestId('crew-ghost').boundingBox())!;
+  expect(g.y + g.height).toBeLessThan(from.y);
+  expect(from.y - (g.y + g.height)).toBeLessThan(40);
+  expect(from.x).toBeGreaterThan(g.x);
+  expect(from.x).toBeLessThan(g.x + g.width);
   for (let i = 1; i <= 10; i++) {
     await pause(16);
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: from.x + ((to.x - from.x) * i) / 10, y: from.y + ((to.y - from.y) * i) / 10, id: 1 }] });

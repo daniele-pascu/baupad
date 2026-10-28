@@ -11,6 +11,11 @@ export interface ChipDrag {
   label: string;
   x: number;
   y: number;
+  /** Abstand zwischen Zeiger und linker oberer Ecke des Namens beim Anfassen – der Kasten bleibt so unter dem Zeiger */
+  dx: number;
+  dy: number;
+  /** Finger: Kasten etwas über dem Finger zeigen, sonst ist er verdeckt */
+  touch: boolean;
   over: DropTarget | null;
 }
 
@@ -34,6 +39,9 @@ export function useChipDrag(onDrop: (workerId: string, fromSiteId: string | null
     const touch = e.pointerType !== 'mouse';
     const sx = e.clientX;
     const sy = e.clientY;
+    const box = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const dx = sx - box.left;
+    const dy = sy - box.top;
     let last = { x: sx, y: sy };
     let active = false;
     let over: DropTarget | null = null;
@@ -46,7 +54,7 @@ export function useChipDrag(onDrop: (workerId: string, fromSiteId: string | null
     };
     const update = () => {
       over = targetAt(last.x, last.y);
-      setDrag({ workerId, label, x: last.x, y: last.y, over });
+      setDrag({ workerId, label, x: last.x, y: last.y, dx, dy, touch, over });
     };
     // am Rand automatisch scrollen, damit auch weit entfernte Baustellen erreichbar sind
     const autoScroll = () => {
