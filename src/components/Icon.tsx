@@ -10,6 +10,8 @@ const PATHS: Record<string, string> = {
   folder: 'M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z',
   file: 'M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8l-5-5zM14 3v5h5',
   upload: 'M12 16V4M7 9l5-5 5 5M5 20h14',
+  camera: 'M4 8a2 2 0 012-2h2l1.5-2h5L16 6h2a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V8zM12 17a4 4 0 100-8 4 4 0 000 8z',
+  zip: 'M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8l-5-5zM14 3v5h5M10 12h2v2h-2zM12 14h2v2h-2zM10 16h2v2h-2z',
   download: 'M12 4v12M7 11l5 5 5-5M5 20h14',
   excel: 'M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8l-5-5zM9 12l4 5M13 12l-4 5',
   pdf: 'M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8l-5-5zM8.5 16v-4h1.5a1 1 0 010 2H8.5M13 12v4h1a2 2 0 000-4h-1',

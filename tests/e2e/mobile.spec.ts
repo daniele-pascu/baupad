@@ -559,3 +559,37 @@ test('Berichte per Finger: Regieliste, Tagesbericht und Wochenbericht passen auf
   await expect(page.getByTestId('report-item')).toHaveCount(3);
   await noHorizontalScroll(page);
 });
+
+test('Fotodokumentation per Finger: großer Aufnahme-Knopf, Speichern, Galerie und Großansicht passen auf den Bildschirm', async ({ page }, info) => {
+  await page.goto('./#/fotos');
+  const shoot = page.getByTestId('photo-shoot');
+  await expect(shoot).toBeVisible();
+  expect((await shoot.boundingBox())!.height).toBeGreaterThanOrEqual(56);
+  await expect(page.getByTestId('photo-camera-input')).toHaveAttribute('capture', 'environment');
+  await page.getByTestId('photo-file-input').setInputFiles(join(FIXTURES, 'foto.jpg'));
+  const dlg = page.getByTestId('photo-save-dialog');
+  await dlg.getByTestId('photo-site').selectOption({ index: 0 }).catch(() => {});
+  await expect(dlg.getByTestId('photo-site').locator('option')).toHaveCount(1); // keine Baustelle angelegt
+  await expect(dlg.getByTestId('photo-save')).toBeDisabled();
+  await dlg.getByRole('button', { name: 'Abbrechen' }).tap();
+  // Baustelle anlegen und erneut
+  await page.goto('./#/arbeitereinteilung');
+  await page.getByTestId('add-site').tap();
+  await page.getByTestId('site-dialog').getByTestId('site-name-input').fill('Halle 3');
+  await page.getByTestId('site-dialog').getByTestId('site-save').tap();
+  await page.goto('./#/fotos');
+  await page.getByTestId('photo-file-input').setInputFiles([join(FIXTURES, 'foto.jpg'), join(FIXTURES, 'parkdeck.png')]);
+  await dlg.getByTestId('photo-user').fill('Max');
+  await dlg.getByTestId('photo-save').tap();
+  await expect(page.locator('.toast', { hasText: '2 Fotos gespeichert' })).toHaveCount(1);
+  await noHorizontalScroll(page);
+  await page.getByTestId('photo-site').tap();
+  await expect(page.getByTestId('photo-thumb')).toHaveCount(2);
+  await noHorizontalScroll(page);
+  await page.screenshot({ path: join(OUT, `fotos-${info.project.name}.png`), fullPage: true });
+  await page.getByTestId('photo-thumb').first().tap();
+  await expect(page.getByTestId('lightbox-image')).toBeVisible();
+  await noHorizontalScroll(page);
+  await page.screenshot({ path: join(OUT, `foto-gross-${info.project.name}.png`) });
+  await page.getByTestId('lightbox-close').tap();
+});

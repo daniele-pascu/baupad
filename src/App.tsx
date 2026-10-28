@@ -13,6 +13,8 @@ import { ToolsPage } from './pages/ToolsPage';
 import { WorkersPage } from './pages/WorkersPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { ReportEditorPage } from './pages/ReportEditorPage';
+import { PhotosPage } from './pages/PhotosPage';
+import { PhotoSitePage } from './pages/PhotoSitePage';
 
 /** Als App vom Home-Bildschirm gestartet (iOS/Android/Desktop-PWA)? */
 const isInstalledApp = () =>
@@ -65,6 +67,12 @@ export function App() {
       break;
     case 'report':
       content = <ReportEditorPage key={route.reportId} reportId={route.reportId} />;
+      break;
+    case 'photos':
+      content = <PhotosPage />;
+      break;
+    case 'photoSite':
+      content = <PhotoSitePage key={route.siteKey} siteKey={route.siteKey} week={route.week} photoId={route.photoId} />;
       break;
     case 'login':
       content = <LoginPage />;

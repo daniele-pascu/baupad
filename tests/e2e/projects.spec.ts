@@ -86,7 +86,7 @@ test('Installierte App startet in den Tools (auch ältere Home-Bildschirm-Symbol
   await context.close();
 });
 
-test('Tools: vier gleich große Kacheln, zwei pro Reihe; Aufmaß & Abrechnung und Arbeitereinteilung, Berichte & Formulare, eine „Noch in Planung“', async ({ page }) => {
+test('Tools: vier gleich große Kacheln, zwei pro Reihe; alle vier Werkzeuge antippbar', async ({ page }) => {
   await page.goto('./#/tools');
   const tiles = page.locator('.tool-tile');
   await expect(tiles).toHaveCount(4);
@@ -100,10 +100,8 @@ test('Tools: vier gleich große Kacheln, zwei pro Reihe; Aufmaß & Abrechnung un
     expect(Math.abs(b!.width - boxes[0]!.width)).toBeLessThan(1);
     expect(Math.abs(b!.height - boxes[0]!.height)).toBeLessThan(1);
   }
-  // Fotodokumentation (bald) ist noch nicht antippbar
-  await expect(page.getByTestId('tool-soon')).toHaveCount(1);
-  await expect(page.getByTestId('tool-soon').first()).toHaveAttribute('aria-disabled', 'true');
-  await expect(page.locator('a[data-testid="tool-soon"]')).toHaveCount(0);
+  // alle vier Werkzeuge sind antippbar
+  await expect(page.getByTestId('tool-soon')).toHaveCount(0);
   await page.screenshot({ path: join(OUT, 'tools.png'), fullPage: true });
   // Arbeitereinteilung und zurück
   await page.getByTestId('tool-workers').click();

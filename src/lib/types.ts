@@ -583,3 +583,52 @@ export type Report =
   | (ReportBase & { type: 'regie'; data: RegieData })
   | (ReportBase & { type: 'tag'; data: DailyData })
   | (ReportBase & { type: 'woche'; data: WeeklyData });
+
+/* ───────────── Fotodokumentation ───────────── */
+
+/**
+ * Speicherstatus eines Fotos: `local` = nur auf diesem Gerät (noch keine zentrale Ablage angebunden),
+ * `queued`/`uploading`/`failed` = Upload in die zentrale Ablage, `synced` = zentral gespeichert.
+ */
+export type PhotoSync = 'local' | 'queued' | 'uploading' | 'synced' | 'failed';
+
+export interface Photo {
+  id: string;
+  /** Unternehmen – bis zur Anmeldung leer (wird mit der Cloud-Anbindung gesetzt) */
+  companyId: string | null;
+  /** Projekt (Aufmaß & Abrechnung) oder null bei frei eingegebener Baustelle */
+  projectId: string | null;
+  /** Baustellenbezeichnung als Kopie (bleibt auch bei späterer Umbenennung) */
+  siteName: string;
+  siteNumber: string;
+  siteAddress: string;
+  /** Aufnahmezeitpunkt (Ortszeit) – aus den Bilddaten (EXIF) oder dem Zeitpunkt der Aufnahme in der App */
+  takenAt: number;
+  /** Aufnahmetag JJJJ-MM-TT (Ortszeit) und ISO-Kalenderwoche (Montag JJJJ-MM-TT) */
+  day: string;
+  week: string;
+  /** Quelle des Aufnahmezeitpunkts */
+  takenFrom: 'exif' | 'file' | 'now';
+  /** Zeitpunkt des Hochladens bzw. Speicherns in der App */
+  uploadedAt: number;
+  /** Name des Benutzers (aus der Anmeldung; bis dahin der auf dem Gerät hinterlegte Name) */
+  userName: string;
+  description: string;
+  /** ursprünglicher Dateiname */
+  fileName: string;
+  width: number;
+  height: number;
+  /** Größe der gespeicherten (verkleinerten) Datei in Bytes */
+  size: number;
+  /** SHA-256 der Originaldatei – verhindert doppelte Uploads */
+  hash: string;
+  /** Original in voller Größe zusätzlich gespeichert */
+  original: boolean;
+  sync: PhotoSync;
+  /** Kennung in der zentralen Ablage (nach dem Upload) */
+  remoteId?: string;
+  syncError?: string;
+  deletedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+}

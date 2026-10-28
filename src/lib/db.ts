@@ -1,5 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import type { Component, CostCenter, Damage, DrawElement, EntityMap, EntityStore, LvDocument, Plan, Project, Report, SourceFile, WeekPlan, Worker } from './types';
+import type { Component, CostCenter, Damage, DrawElement, EntityMap, EntityStore, LvDocument, Photo, Plan, Project, Report, SourceFile, WeekPlan, Worker } from './types';
 
 /**
  * Lokale Datenbank (IndexedDB). Sie funktioniert ohne Internetverbindung und hält
@@ -36,6 +36,10 @@ interface AufmassDB extends DBSchema {
   weeks: { key: string; value: WeekPlan };
   /** ab Version 6: Berichte & Formulare (Regielisten, Bautages- und Bauwochenberichte) */
   reports: { key: string; value: Report; indexes: { projectId: string } };
+  /** ab Version 7: Fotodokumentation – Angaben je Foto (Baustelle, Tag, Woche, Benutzer, Status) */
+  photos: { key: string; value: Photo; indexes: { projectId: string; week: string; day: string } };
+  /** ab Version 7: Bilddaten (verkleinert, Vorschaubild, optional Original) – nur lokal bis zur zentralen Ablage */
+  photoBlobs: { key: string; value: { id: string; data: ArrayBuffer; thumb: ArrayBuffer; original?: ArrayBuffer } };
 }
 
 export interface OutboxEntry {
@@ -52,10 +56,10 @@ const DB_NAME = 'schadstellen-aufmass';
 /**
  * Version 1: Grundversion. Version 2: Bauteile und Änderungs-Warteschlange.
  * Version 3: Zeichnungsobjekte selbst gezeichneter Pläne. Version 4: LV und MFK.
- * Version 5: Arbeitereinteilung (Arbeiter, Wochenplanungen). Version 6: Berichte & Formulare.
+ * Version 5: Arbeitereinteilung (Arbeiter, Wochenplanungen). Version 6: Berichte & Formulare. Version 7: Fotodokumentation.
  * Upgrades legen ausschließlich neue Speicherbereiche an; vorhandene Daten bleiben unverändert.
  */
-const DB_VERSION = 6;
+const DB_VERSION = 7;
 
 let dbPromise: Promise<IDBPDatabase<AufmassDB>> | null = null;
 
@@ -87,6 +91,13 @@ export function getDB(): Promise<IDBPDatabase<AufmassDB>> {
         }
         if (oldVersion < 6) {
           db.createObjectStore('reports', { keyPath: 'id' }).createIndex('projectId', 'projectId');
+        }
+        if (oldVersion < 7) {
+          const photos = db.createObjectStore('photos', { keyPath: 'id' });
+          photos.createIndex('projectId', 'projectId');
+          photos.createIndex('week', 'week');
+          photos.createIndex('day', 'day');
+          db.createObjectStore('photoBlobs', { keyPath: 'id' });
         }
         // Hinweis für Aufmaß & Abrechnung, dass die Datenbank erweitert wurde
         if (oldVersion >= 1) void tx.objectStore('meta').put({ key: 'upgradedFrom', value: oldVersion });
@@ -321,4 +332,38 @@ export async function saveReport(r: Report): Promise<void> {
 
 export async function deleteReport(id: string): Promise<void> {
   await (await getDB()).delete('reports', id);
+}
+
+/* Fotodokumentation */
+export async function listPhotos(): Promise<Photo[]> {
+  return (await (await getDB()).getAll('photos')).filter((p) => !p.deletedAt);
+}
+
+export async function getPhoto(id: string): Promise<Photo | undefined> {
+  return (await getDB()).get('photos', id);
+}
+
+export async function savePhoto(p: Photo): Promise<void> {
+  await (await getDB()).put('photos', p);
+}
+
+export async function putPhotoBlob(v: { id: string; data: ArrayBuffer; thumb: ArrayBuffer; original?: ArrayBuffer }): Promise<void> {
+  await (await getDB()).put('photoBlobs', v);
+}
+
+export async function getPhotoBlob(id: string) {
+  return (await getDB()).get('photoBlobs', id);
+}
+
+export async function deletePhotoBlob(id: string): Promise<void> {
+  await (await getDB()).delete('photoBlobs', id);
+}
+
+/** Foto und Bilddaten endgültig vom Gerät entfernen */
+export async function deletePhotoCompletely(id: string): Promise<void> {
+  const db = await getDB();
+  const tx = db.transaction(['photos', 'photoBlobs'], 'readwrite');
+  await tx.objectStore('photos').delete(id);
+  await tx.objectStore('photoBlobs').delete(id);
+  await tx.done;
 }

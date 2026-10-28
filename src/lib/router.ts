@@ -11,6 +11,8 @@ export type Route =
   | { name: 'workers' }
   | { name: 'reports' }
   | { name: 'report'; reportId: string }
+  | { name: 'photos' }
+  | { name: 'photoSite'; siteKey: string; week: string | null; photoId: string | null }
   | { name: 'login' }
   | { name: 'account' }
   | { name: 'project'; projectId: string }
@@ -30,6 +32,9 @@ export function parseRoute(hash: string): Route {
   if (parts[0] === 'arbeitereinteilung' && parts.length === 1) return { name: 'workers' };
   if (parts[0] === 'berichte' && parts.length === 1) return { name: 'reports' };
   if (parts[0] === 'berichte' && parts.length === 2) return { name: 'report', reportId: parts[1] };
+  if (parts[0] === 'fotos' && parts.length === 1) return { name: 'photos' };
+  if (parts[0] === 'fotos' && (parts[1] === 'p' || parts[1] === 'n') && parts.length === 3)
+    return { name: 'photoSite', siteKey: `${parts[1]}:${parts[2]}`, week: params.get('w'), photoId: params.get('f') };
   if (parts[0] === 'anmelden' && parts.length === 1) return { name: 'login' };
   if (parts[0] === 'konto' && parts.length === 1) return { name: 'account' };
   if (parts[0] === 'p' && parts.length === 2) return { name: 'project', projectId: parts[1] };
@@ -53,6 +58,16 @@ export const paths = {
   /** Berichte & Formulare (Regielisten, Bautages- und Bauwochenberichte) */
   reports: () => '#/berichte',
   report: (id: string) => `#/berichte/${id}`,
+  /** Fotodokumentation: Übersicht und Baustelle (Schlüssel „p:<Projekt>“ bzw. „n:<Name>“) */
+  photos: () => '#/fotos',
+  photoSite: (siteKey: string, opts: { week?: string | null; photoId?: string | null } = {}) => {
+    const [kind, ...rest] = siteKey.split(':');
+    const q = new URLSearchParams();
+    if (opts.week) q.set('w', opts.week);
+    if (opts.photoId) q.set('f', opts.photoId);
+    const qs = q.toString();
+    return `#/fotos/${kind}/${encodeURIComponent(rest.join(':'))}${qs ? `?${qs}` : ''}`;
+  },
   /** Anmeldeseite (Benutzerkonten noch nicht eingerichtet) */
   login: () => '#/anmelden',
   /** Konto und Einstellungen (Vorschau der geplanten Bereiche) */
