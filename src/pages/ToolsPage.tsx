@@ -33,7 +33,7 @@ export function ToolsPage() {
             <p className="tools-eyebrow">Willkommen zurück</p>
             <h1 data-testid="tools-title">Tools</h1>
           </div>
-          <a href={paths.account()} className="icon-link" aria-label="Konto und Einstellungen" title="Konto und Einstellungen">
+          <a href={paths.account()} className="icon-link" aria-label="Konto und Einstellungen" title="Konto und Einstellungen" data-testid="account-link">
             <Icon name="settings" />
           </a>
         </header>

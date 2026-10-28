@@ -117,8 +117,8 @@ export function AccountPage() {
           <button type="button" className="btn" disabled data-testid="account-logout">
             Abmelden
           </button>
-          <a href={paths.projects()} className="btn btn-primary">
-            <Icon name="back" /> Zur Projektverwaltung
+          <a href={paths.tools()} className="btn btn-primary">
+            <Icon name="back" /> Zu den Tools
           </a>
         </div>
       </main>

@@ -223,9 +223,6 @@ export function HomePage() {
           </a>
           <h1 data-testid="projects-title">Projektverwaltung</h1>
         </div>
-        <a href={paths.account()} className="icon-link" aria-label="Konto und Einstellungen" title="Konto und Einstellungen" data-testid="account-link">
-          <Icon name="settings" />
-        </a>
       </header>
 
       <div className="home-actions">

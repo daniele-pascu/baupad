@@ -27,7 +27,7 @@ export function LandingPage() {
           <h1 className="hero-title fade-in">{t.title}</h1>
           <p className="hero-lead fade-in delay-1">{t.lead}</p>
           <div className="hero-actions fade-in delay-2">
-            <a href={paths.projects()} className="site-cta" data-testid="cta-projects">
+            <a href={paths.tools()} className="site-cta" data-testid="cta-tools">
               {t.cta}
               <span aria-hidden="true"> →</span>
             </a>
@@ -78,7 +78,7 @@ export function AboutPage() {
           </p>
         ))}
         <p className="fade-in delay-3">
-          <a href={paths.projects()} className="site-cta">
+          <a href={paths.tools()} className="site-cta">
             {site.home.cta}
             <span aria-hidden="true"> →</span>
           </a>

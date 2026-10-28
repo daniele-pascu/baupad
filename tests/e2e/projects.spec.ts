@@ -47,8 +47,11 @@ test('Website: Startseite, Über BauPad, Kontakt, Anmelden und Logo', async ({ p
   // nach der Anmeldung zuerst die Tools, von dort in die Projektverwaltung
   await page.getByTestId('login-unavailable').getByRole('link', { name: 'Weiter zu den Tools' }).click();
   await expect(page.getByTestId('tools-title')).toHaveText('Tools');
+  // Einstellungen (Zahnrad) nur auf der Tools-Seite, nicht mehr in der Projektverwaltung
   await page.getByTestId('tool-projects').click();
   await expect(page.getByTestId('projects-title')).toHaveText('Projektverwaltung');
+  await expect(page.getByTestId('account-link')).toHaveCount(0);
+  await page.getByTestId('to-tools').click();
 
   // Einstellungen: Kontobereich als Vorschau, alle Bereiche inaktiv
   await page.getByTestId('account-link').click();
@@ -64,12 +67,14 @@ test('Website: Startseite, Über BauPad, Kontakt, Anmelden und Logo', async ({ p
   ]);
   await expect(page.getByTestId('account-logout')).toBeDisabled();
   await page.screenshot({ path: join(OUT, 'konto.png'), fullPage: true });
-  await page.getByRole('link', { name: 'Zur Projektverwaltung' }).click();
-  await expect(page.getByTestId('projects-title')).toHaveText('Projektverwaltung');
+  await page.getByRole('link', { name: 'Zu den Tools' }).click();
+  await expect(page.getByTestId('tools-title')).toHaveText('Tools');
 
+  // Startseite (vor der Anmeldung): Knopf führt zu den Tools
   await page.goto('./');
-  await page.getByTestId('cta-projects').click();
-  await expect(page.getByTestId('projects-title')).toHaveText('Projektverwaltung');
+  await expect(page.getByTestId('cta-tools')).toHaveText(/Zu den Tools/);
+  await page.getByTestId('cta-tools').click();
+  await expect(page.getByTestId('tools-title')).toHaveText('Tools');
 });
 
 test('Installierte App startet in den Tools (auch ältere Home-Bildschirm-Symbole)', async ({ browser }) => {

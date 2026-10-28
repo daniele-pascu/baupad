@@ -44,7 +44,9 @@ test('Offline: Projekt anlegen, PDF importieren, Schadstellen erfassen, exportie
   await expect(page.getByRole('img', { name: 'BauPad' })).toBeVisible();
   await expect(page.getByTestId('offline-badge')).toBeVisible();
   // Startseite und Navigation funktionieren offline
-  await page.getByTestId('cta-projects').click();
+  await page.getByTestId('cta-tools').click();
+  await expect(page.getByTestId('tools-title')).toHaveText('Tools');
+  await page.getByTestId('tool-projects').click();
   await expect(page.getByTestId('projects-title')).toHaveText('Projektverwaltung');
 
   await createProject(page, 'Offline-Baustelle', {}, ['Untergeschoss']);

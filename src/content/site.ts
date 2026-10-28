@@ -11,7 +11,7 @@ export const site = {
     lead:
       'Mit BauPad erfasst du Schadstellen und Oberflächen direkt im Bauplan. Erstelle Messungen, verwalte deine ' +
       'Projekte und bereite deine Aufmaßdaten übersichtlich für die weitere Bearbeitung auf.',
-    cta: 'Zur Projektverwaltung',
+    cta: 'Zu den Tools',
     /** Kleine Zeile über der Überschrift */
     eyebrow: 'Digitales Aufmaß für die Baustelle',
     secondary: 'Mehr erfahren',
