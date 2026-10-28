@@ -91,8 +91,8 @@ export function PhotosPage() {
             </a>
             <h1 data-testid="photos-title">Fotodokumentation</h1>
           </div>
-          <button type="button" className="btn btn-sm" onClick={() => setCreating(true)} data-testid="photo-new-site">
-            <Icon name="plus" size={16} /> Neue Baustelle
+          <button type="button" className="btn btn-sm" onClick={() => setCreating(true)} aria-label="Neue Baustelle" title="Neue Baustelle" data-testid="photo-new-site">
+            <Icon name="plus" size={16} /> <span className="lbl">Neue Baustelle</span>
           </button>
         </header>
         {creating && (
@@ -110,8 +110,8 @@ export function PhotosPage() {
         {!cloudConnected() && photos && photos.length > 0 && (
           <div className="banner banner-info photos-sync-banner" role="status" data-testid="photos-local-banner">
             <p>
-              <strong>Noch nicht zentral gespeichert:</strong> {pending} {pending === 1 ? 'Foto liegt' : 'Fotos liegen'} nur auf diesem Gerät. Die gemeinsame
-              Ablage für alle Geräte wird mit der Anmeldung angebunden – vorhandene Fotos werden dann automatisch hochgeladen.
+              <strong>Noch nicht zentral gespeichert:</strong> {pending} {pending === 1 ? 'Foto liegt' : 'Fotos liegen'} nur auf diesem Gerät.
+              <span className="lbl"> Die gemeinsame Ablage für alle Geräte wird mit der Anmeldung angebunden – vorhandene Fotos werden dann automatisch hochgeladen.</span>
             </p>
           </div>
         )}

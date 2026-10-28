@@ -540,8 +540,8 @@ test('Arbeitereinteilung per Finger: Arbeiter, Baustelle, Einteilung – passt a
 });
 
 test('Berichte per Finger: Regieliste, Tagesbericht und Wochenbericht passen auf den Bildschirm', async ({ page }, info) => {
-  await page.goto('./#/berichte');
   for (const type of ['regie', 'tag', 'woche'] as const) {
+    await page.goto('./#/berichte'); // Übersicht (der Zurück-Pfeil führt zur Baustelle)
     await page.getByTestId('report-new').tap();
     const d = page.getByTestId('report-new-dialog');
     await d.getByTestId(`report-type-${type}`).tap();

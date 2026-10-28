@@ -134,8 +134,8 @@ export function PhotoCapture({
         <button type="button" className="btn btn-primary photo-shoot" onClick={() => cam.current?.click()} data-testid="photo-shoot">
           <Icon name="camera" size={big ? 26 : 20} /> Foto aufnehmen
         </button>
-        <button type="button" className="btn" onClick={() => lib.current?.click()} data-testid="photo-pick">
-          <Icon name="upload" size={18} /> Aus Galerie / Datei
+        <button type="button" className="btn photo-pick" onClick={() => lib.current?.click()} aria-label="Aus Galerie / Datei" title="Aus Galerie / Datei" data-testid="photo-pick">
+          <Icon name="upload" size={18} /> <span className="lbl">Aus Galerie / Datei</span>
         </button>
         <input ref={cam} type="file" accept="image/*" capture="environment" multiple hidden onChange={(e) => void pick(e.target.files).finally(() => (e.target.value = ''))} data-testid="photo-camera-input" />
         <input ref={lib} type="file" accept="image/*" multiple hidden onChange={(e) => void pick(e.target.files).finally(() => (e.target.value = ''))} data-testid="photo-file-input" />

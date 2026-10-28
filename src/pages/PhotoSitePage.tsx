@@ -310,12 +310,12 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
               </span>
             </div>
           </div>
-          <div className="row gap">
-            <button type="button" className="btn btn-sm" onClick={refresh} disabled={refreshing} title="Neu laden – falls inzwischen Fotos dazugekommen sind" data-testid="photo-refresh">
-              <Icon name="refresh" size={16} className={refreshing ? 'spin' : undefined} /> Aktualisieren
+          <div className="row gap photo-head-actions">
+            <button type="button" className="btn btn-sm" onClick={refresh} disabled={refreshing} title="Neu laden – falls inzwischen Fotos dazugekommen sind" aria-label="Aktualisieren" data-testid="photo-refresh">
+              <Icon name="refresh" size={16} className={refreshing ? 'spin' : undefined} /> <span className="lbl">Aktualisieren</span>
             </button>
-            <button type="button" className="btn btn-sm" onClick={() => downloadZip()} disabled={!shown.length} data-testid="photo-zip">
-              <Icon name="zip" size={16} /> Alle als ZIP
+            <button type="button" className="btn btn-sm" onClick={() => downloadZip()} disabled={!shown.length} title="Alle Fotos als ZIP herunterladen" aria-label="Alle als ZIP" data-testid="photo-zip">
+              <Icon name="zip" size={16} /> <span className="lbl">Alle als ZIP</span>
             </button>
           </div>
         </header>
@@ -348,16 +348,16 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
               ))}
             </div>
             <div className="row gap photo-actions">
-              <button type="button" className={`btn btn-sm${selecting ? ' btn-primary' : ''}`} onClick={() => (selecting ? stopSelecting() : startSelecting(null))} data-testid="photo-select">
-                <Icon name="check" size={16} /> {selecting ? 'Fertig' : 'Auswählen'}
+              <button type="button" className={`btn btn-sm${selecting ? ' btn-primary' : ''}`} onClick={() => (selecting ? stopSelecting() : startSelecting(null))} aria-label={selecting ? 'Auswahl beenden' : 'Auswählen'} data-testid="photo-select">
+                <Icon name="check" size={16} /> <span className="lbl">{selecting ? 'Fertig' : 'Auswählen'}</span>
               </button>
               {!selecting && (
                 <>
-                  <button type="button" className="btn btn-sm" onClick={() => startSelecting('move')} title="Fotos auswählen und zu einer anderen Baustelle verschieben" data-testid="photo-move">
-                    <Icon name="move" size={16} /> Verschieben
+                  <button type="button" className="btn btn-sm" onClick={() => startSelecting('move')} title="Fotos auswählen und zu einer anderen Baustelle verschieben" aria-label="Verschieben" data-testid="photo-move">
+                    <Icon name="move" size={16} /> <span className="lbl">Verschieben</span>
                   </button>
-                  <button type="button" className="btn btn-sm" onClick={() => startSelecting('pdf')} title="Fotos auswählen und als PDF ausgeben" data-testid="photo-pdf">
-                    <Icon name="pdf" size={16} /> PDF
+                  <button type="button" className="btn btn-sm" onClick={() => startSelecting('pdf')} title="Fotos auswählen und als PDF ausgeben" aria-label="PDF" data-testid="photo-pdf">
+                    <Icon name="pdf" size={16} /> <span className="lbl">PDF</span>
                   </button>
                 </>
               )}
@@ -388,7 +388,7 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
             <button type="button" className={`btn btn-sm${intent === 'move' && chosen.length ? ' btn-primary' : ''}`} onClick={() => setMoving(chosen)} disabled={!chosen.length} data-testid="photo-selected-move">
               <Icon name="move" size={16} /> Verschieben
             </button>
-            <button type="button" className="btn btn-sm" disabled title="Kommt mit der zentralen Ablage: Link für 30 Tage, nur auf die Fotos" data-testid="photo-selected-share">
+            <button type="button" className="btn btn-sm hide-mobile" disabled title="Kommt mit der zentralen Ablage: Link für 30 Tage, nur auf die Fotos" data-testid="photo-selected-share">
               <Icon name="share" size={16} /> Link teilen
             </button>
             <button type="button" className="btn btn-sm btn-danger-text" onClick={() => removeMany(chosen)} disabled={!chosen.length} data-testid="photo-selected-delete">
@@ -417,7 +417,7 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
                   {selecting && (
                     <label className="photo-group-all">
                       <input type="checkbox" checked={allOn} onChange={(e) => setMany(ids, e.target.checked)} data-testid="photo-group-all" />
-                      Alle auswählen
+                      Alle<span className="lbl"> auswählen</span>
                     </label>
                   )}
                 </div>
@@ -720,7 +720,7 @@ function Lightbox({
           <span>gespeichert {dateTimeLabel(photo.uploadedAt)}</span>
           {photo.takenFrom !== 'exif' && <span>Aufnahmezeit {photo.takenFrom === 'file' ? 'aus dem Dateidatum' : 'beim Speichern erfasst'}</span>}
         </div>
-        <div className="row gap">
+        <div className="row gap lightbox-actions">
           <button type="button" className="btn btn-sm" onClick={onDownload} data-testid="lightbox-download">
             <Icon name="download" size={16} /> Herunterladen
           </button>

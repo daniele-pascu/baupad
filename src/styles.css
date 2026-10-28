@@ -5275,6 +5275,109 @@ a.tool-tile:focus-visible {
 .reports-search {
   flex: 1 1 240px;
 }
+.report-sites {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.report-site {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--tool);
+  border-radius: 14px;
+  background: var(--surface);
+  color: inherit;
+  text-decoration: none;
+}
+.report-site:hover {
+  border-color: color-mix(in srgb, var(--tool) 40%, var(--border));
+  border-left-color: var(--tool);
+}
+.report-site-main {
+  flex: 1 1 240px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.report-site-main strong {
+  font-size: 1.05rem;
+}
+.report-site-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+.report-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.report-count.empty {
+  opacity: 0.4;
+}
+/* Baustelle: je Typ eine eigene Liste (scrollt für sich) */
+.report-section {
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.report-section-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--surface-2);
+}
+.report-section-head h2 {
+  margin: 0;
+  font-size: 1.02rem;
+}
+.report-section-head .photo-group-all {
+  margin-left: auto;
+}
+.report-section-empty {
+  margin: 0;
+  padding: 12px 14px;
+}
+.report-scroll {
+  max-height: 318px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.report-item.selected {
+  background: color-mix(in srgb, var(--tool) 8%, #fff);
+}
+button.report-link {
+  width: 100%;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.photo-check.static {
+  position: static;
+  flex: none;
+  border-color: var(--border-strong);
+  background: var(--surface);
+  color: #fff;
+  box-shadow: none;
+}
+.photo-check.static.on {
+  border-color: var(--tool);
+  background: var(--tool);
+}
+.report-selection-bar {
+  margin-bottom: 14px;
+}
 .report-group {
   margin-bottom: 18px;
   border: 1px solid var(--border);
@@ -6355,6 +6458,171 @@ a.tool-tile:focus-visible {
   }
   .photo-to-top {
     display: none;
+  }
+  /* Handy: Beschriftungen weg (nur Symbole), Kopf kompakt */
+  .photos-page .lbl,
+  .hide-mobile {
+    display: none;
+  }
+  .photos-page .page-head-row {
+    flex-wrap: nowrap;
+    align-items: flex-start;
+  }
+  .photos-page .page-head-title {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .photos-page .page-head-title > div {
+    min-width: 0;
+  }
+  .photos-page .page-head-title h1 {
+    font-size: 1.5rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .photos-page .page-head-title .muted.small {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .photo-head-actions {
+    flex: none;
+    margin-top: 8px;
+  }
+  .photo-head-actions {
+    margin-left: auto;
+  }
+  .photo-capture.big {
+    flex-wrap: nowrap;
+    margin-bottom: 10px;
+  }
+  .photo-capture.big .photo-shoot {
+    flex: 1 1 auto;
+    min-height: 52px;
+  }
+  .photo-capture.big .photo-pick {
+    flex: none;
+    width: 52px;
+    min-height: 52px;
+    padding: 0;
+    justify-content: center;
+  }
+  .photo-toolbar {
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .photo-toolbar .crew-search {
+    flex-basis: 100%;
+    min-height: 40px;
+  }
+  .photo-toolbar .segmented {
+    flex: 1 1 auto;
+  }
+  .photo-toolbar .segmented button {
+    min-height: 34px;
+    padding: 4px 7px;
+    font-size: 0.86rem;
+    flex: 1;
+  }
+  .photo-actions {
+    margin-left: auto;
+    gap: 6px;
+  }
+  .photo-actions .btn {
+    width: 40px;
+    min-height: 40px;
+    padding: 0;
+    justify-content: center;
+  }
+  .photo-selection-bar {
+    gap: 6px;
+    padding: 8px 10px;
+  }
+  .photo-selection-bar .btn {
+    padding: 0 10px;
+    min-height: 36px;
+    font-size: 0.88rem;
+  }
+  .photo-group-head {
+    gap: 8px;
+    padding: 8px 2px 6px;
+  }
+  .photo-group-head h2 {
+    flex: 1;
+    min-width: 0;
+    font-size: 1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .photo-group-head .muted.small {
+    white-space: nowrap;
+  }
+  .photo-group-all {
+    margin-left: 0;
+    font-size: 0.85rem;
+  }
+  .photo-site-main {
+    flex: 1 1 140px;
+  }
+  .photo-sync {
+    font-size: 0.62rem;
+    padding: 0 5px;
+  }
+  /* Großansicht am Handy: Kopf einzeilig, Knöpfe umbrechen */
+  .lightbox-head {
+    gap: 8px;
+    padding: 8px 10px;
+  }
+  .lightbox-title {
+    font-size: 0.82rem;
+  }
+  .lightbox-title strong,
+  .lightbox-title span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .lightbox-foot {
+    gap: 8px;
+    padding: 8px 10px;
+  }
+  .lightbox-actions {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+  .lightbox-actions .btn {
+    flex: 1 1 30%;
+    justify-content: center;
+    min-height: 40px;
+    padding: 0 8px;
+    font-size: 0.88rem;
+  }
+  .lightbox-meta {
+    font-size: 0.75rem;
+  }
+  .report-site {
+    flex-wrap: wrap;
+    gap: 8px 14px;
+  }
+  .report-site > svg {
+    display: none;
+  }
+  .report-site-main {
+    flex-basis: 100%;
+  }
+  .report-site-counts {
+    flex-basis: 100%;
+    gap: 6px 12px;
+  }
+  .report-site-counts .report-type {
+    font-size: 0.72rem;
+    padding: 2px 7px;
+  }
+  .report-selection-bar .photo-selection-hint {
+    flex-basis: 100%;
   }
   .photos-page {
     --nav-h: 56px;
