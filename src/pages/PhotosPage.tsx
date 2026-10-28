@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Icon } from '../components/Icon';
 import { PhotoCapture, type PhotoSite } from '../components/PhotoCapture';
+import { PhotoImg } from '../components/PhotoImg';
 import { SiteNav } from '../components/SiteNav';
 import { ToolIcon } from '../components/ToolIcon';
 import { showError } from '../components/ui';
@@ -58,6 +59,16 @@ export function PhotosPage() {
     const g = groupBySite(list);
     return sort === 'name' ? g.sort((a, b) => a.name.localeCompare(b.name, 'de')) : g.sort((a, b) => b.lastAt - a.lastAt);
   }, [photos, query, sort]);
+  /** die letzten vier Fotos je Baustelle als Vorschau */
+  const latest = useMemo(() => {
+    const m = new Map<string, Photo[]>();
+    for (const p of [...(photos ?? [])].sort((a, b) => b.takenAt - a.takenAt)) {
+      const k = photoSiteKey(p);
+      const l = m.get(k) ?? [];
+      if (l.length < 4) m.set(k, [...l, p]);
+    }
+    return m;
+  }, [photos]);
   const hashes = useMemo(() => new Set((photos ?? []).map((p) => p.hash)), [photos]);
   const pending = (photos ?? []).filter((p) => p.sync !== 'synced').length;
 
@@ -118,7 +129,12 @@ export function PhotosPage() {
 
         <div className="photo-sites">
           {groups.map((g) => (
-            <a key={g.key} href={paths.photoSite(g.key, query ? {} : {})} className="photo-site" data-testid="photo-site" data-site={g.name}>
+            <a key={g.key} href={paths.photoSite(g.key)} className="photo-site" data-testid="photo-site" data-site={g.name}>
+              <div className="photo-site-preview" aria-hidden="true">
+                {(latest.get(g.key) ?? []).map((p) => (
+                  <PhotoImg key={p.id} id={p.id} />
+                ))}
+              </div>
               <div className="photo-site-main">
                 <strong>{g.name}</strong>
                 <span className="muted small">{[g.number, g.address].filter(Boolean).join(' · ')}</span>

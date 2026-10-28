@@ -44,7 +44,7 @@ test('Fotos je Baustelle, KW und Tag; Großansicht; Beschreibung; Suche; Duplika
   // Baustelle: fortlaufende Galerie – neueste Woche oben, je Woche ein Strich mit KW, darunter die Tage
   await site.click();
   await expect(page.getByTestId('photo-site-title')).toHaveText('Neubau Musterstraße');
-  const weeks = page.getByTestId('photo-week');
+  const weeks = page.getByTestId('photo-group');
   await expect(weeks).toHaveCount(2);
   await expect(weeks.nth(0)).toContainText('KW 45 · 02.11. – 08.11.2026');
   await expect(weeks.nth(0).getByTestId('photo-thumb')).toHaveCount(1);
@@ -55,6 +55,36 @@ test('Fotos je Baustelle, KW und Tag; Großansicht; Beschreibung; Suche; Duplika
   await expect(day.getByTestId('photo-thumb').first()).toContainText('09:15');
   await expect(day.getByTestId('photo-thumb').first()).toContainText('Max Muster');
   await page.screenshot({ path: join(OUT, 'fotos-baustelle.png'), fullPage: true });
+
+  // Gruppierung Tag / Monat / Alle; Benutzerfilter erscheint erst bei mehreren Benutzern
+  await page.getByTestId('photo-mode-day').click();
+  await expect(weeks).toHaveCount(2);
+  await expect(weeks.nth(1)).toContainText('Dienstag, 27.10.2026');
+  await page.getByTestId('photo-mode-month').click();
+  await expect(weeks).toHaveCount(2);
+  await expect(weeks.nth(0)).toContainText('November 2026');
+  await page.getByTestId('photo-mode-all').click();
+  await expect(weeks).toHaveCount(1);
+  await expect(weeks.getByTestId('photo-thumb')).toHaveCount(3);
+  await expect(page.getByTestId('photo-user-filter')).toHaveCount(0);
+  await page.getByTestId('photo-mode-week').click();
+
+  // Auswahl: alle der KW 44 markieren, als ZIP laden, dann abbrechen
+  await page.getByTestId('photo-select').click();
+  await expect(page.getByTestId('photo-selection-bar')).toContainText('0 ausgewählt');
+  await weeks.nth(1).getByTestId('photo-group-all').check();
+  await expect(page.getByTestId('photo-selection-bar')).toContainText('2 ausgewählt');
+  await weeks.nth(0).getByTestId('photo-thumb').first().click(); // im Auswahlmodus: markieren statt öffnen
+  await expect(page.getByTestId('lightbox')).toHaveCount(0);
+  await expect(page.getByTestId('photo-selection-bar')).toContainText('3 ausgewählt');
+  await weeks.nth(0).getByTestId('photo-thumb').first().click();
+  const selDownload = page.waitForEvent('download');
+  await page.getByTestId('photo-selected-download').click();
+  const selZip = await saveDownload(await selDownload, 'fotos-auswahl.zip');
+  const { unzipSync: unzipSel } = await import('fflate');
+  expect(Object.keys(unzipSel(new Uint8Array(readFileSync(selZip)))).sort()).toEqual(['KW44/2026-10-27/2026-10-27_0915_01.jpg', 'KW44/2026-10-27/2026-10-27_1440_02.jpg', 'fotos.csv']);
+  await page.getByTestId('photo-select').click(); // Fertig
+  await expect(page.getByTestId('photo-selection-bar')).toHaveCount(0);
 
   // Großansicht: Angaben, Blättern, Beschreibung bearbeiten
   await day.getByTestId('photo-thumb').first().click();
@@ -110,14 +140,14 @@ test('Fotos je Baustelle, KW und Tag; Großansicht; Beschreibung; Suche; Duplika
   expect(strFromU8(entries['fotos.csv'])).toContain('Abplatzung Decke');
 
   // Löschen mit Bestätigung; nach dem Neuladen bleibt der Rest
-  await page.getByTestId('photo-week').nth(0).getByTestId('photo-thumb').first().click();
+  await page.getByTestId('photo-group').nth(0).getByTestId('photo-thumb').first().click();
   await page.getByTestId('lightbox-delete').click();
   await expect(page.getByTestId('confirm-dialog')).toContainText('endgültig gelöscht');
   await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Löschen' }).click();
   await expect(page.locator('.toast', { hasText: 'Foto gelöscht' })).toHaveCount(1);
   await page.reload();
   await expect(page.getByTestId('photo-site-title')).toHaveText('Neubau Musterstraße');
-  await expect(page.getByTestId('photo-week')).toHaveCount(1);
+  await expect(page.getByTestId('photo-group')).toHaveCount(1);
   await expect(page.getByTestId('photo-site-title').locator('..')).toContainText('3 Fotos');
 });
 

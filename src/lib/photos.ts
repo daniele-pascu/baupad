@@ -81,21 +81,44 @@ export function groupBySite(photos: Photo[]): SiteGroup[] {
   return [...map.values()].map(({ weekMap, ...g }) => ({ ...g, weeks: [...weekMap].map(([week, count]) => ({ week, count })).sort((a, b) => b.week.localeCompare(a.week)) }));
 }
 
-/** Fotos einer Baustelle: Kalenderwoche → Tag → Fotos (neueste Woche zuerst, innerhalb des Tags nach Uhrzeit) */
-export function groupByWeekAndDay(photos: Photo[]): { week: string; days: { day: string; photos: Photo[] }[] }[] {
-  const weeks = new Map<string, Map<string, Photo[]>>();
+export type PhotoGroupMode = 'day' | 'week' | 'month' | 'all';
+export const GROUP_MODES: { id: PhotoGroupMode; label: string }[] = [
+  { id: 'day', label: 'Tag' },
+  { id: 'week', label: 'Woche' },
+  { id: 'month', label: 'Monat' },
+  { id: 'all', label: 'Alle' },
+];
+export const monthTitle = (month: string) => parseDate(`${month}-01`).toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+export interface PhotoGroup {
+  key: string;
+  title: string;
+  count: number;
+  days: { day: string; photos: Photo[] }[];
+}
+
+/** Fotos gruppiert nach Tag, Kalenderwoche, Monat oder gar nicht – neueste Gruppe zuerst, innerhalb des Tags nach Uhrzeit */
+export function groupPhotos(photos: Photo[], mode: PhotoGroupMode): PhotoGroup[] {
+  const keyOf = (p: Photo) => (mode === 'day' ? p.day : mode === 'week' ? p.week : mode === 'month' ? p.day.slice(0, 7) : 'alle');
+  const titleOf = (k: string) => (mode === 'day' ? dayTitle(k) : mode === 'week' ? weekTitle(k) : mode === 'month' ? monthTitle(k) : 'Alle Fotos');
+  const groups = new Map<string, Map<string, Photo[]>>();
   for (const p of photos) {
-    if (!weeks.has(p.week)) weeks.set(p.week, new Map());
-    const days = weeks.get(p.week)!;
+    const k = keyOf(p);
+    if (!groups.has(k)) groups.set(k, new Map());
+    const days = groups.get(k)!;
     days.set(p.day, [...(days.get(p.day) ?? []), p]);
   }
-  return [...weeks]
+  return [...groups]
     .sort((a, b) => b[0].localeCompare(a[0]))
-    .map(([week, days]) => ({
-      week,
+    .map(([key, days]) => ({
+      key,
+      title: titleOf(key),
+      count: [...days.values()].reduce((n, l) => n + l.length, 0),
       days: [...days].sort((a, b) => b[0].localeCompare(a[0])).map(([day, list]) => ({ day, photos: list.sort((a, b) => a.takenAt - b.takenAt) })),
     }));
 }
+
+/** Fotos einer Baustelle: Kalenderwoche → Tag → Fotos (neueste Woche zuerst, innerhalb des Tags nach Uhrzeit) */
+export const groupByWeekAndDay = (photos: Photo[]): { week: string; days: { day: string; photos: Photo[] }[] }[] => groupPhotos(photos, 'week').map((g) => ({ week: g.key, days: g.days }));
 
 /** Suche: Baustelle, Nummer, Adresse, KW („KW 44“, „44“), Datum (JJJJ-MM-TT bzw. TT.MM.), Benutzer, Beschreibung */
 export function matchesPhoto(p: Photo, q: string): boolean {
