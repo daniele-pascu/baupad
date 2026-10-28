@@ -5119,3 +5119,6 @@ a.tool-tile:focus-visible {
   font-size: 0.78em;
   font-weight: 600;
 }
+.crew-day.weekend {
+  background: var(--surface-2);
+}

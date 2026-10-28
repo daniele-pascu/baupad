@@ -50,6 +50,7 @@ import { navigate, paths } from '../lib/router';
 import type { Absence, Project, WeekPlan, WeekSite, Worker, WorkTimes } from '../lib/types';
 import { usePageTitle } from './SitePages';
 
+const WEEKDAYS = [0, 1, 2, 3, 4];
 const ACCENT = { '--tool': '#2f80ed' } as CSSProperties;
 
 /**
@@ -158,7 +159,7 @@ export function WorkersPage() {
     if (moved.length) toast(`Umgesetzt auf ${target.name}: ${moved.join(', ')}.`, 'success', 4500);
     // bereits gespeicherte Folgewochen: dort ebenfalls umsetzen, bis der Arbeiter wieder anders eingeteilt ist
     const later = (await listWeeks()).filter((w) => w.id > weekId).sort((a, b) => a.id.localeCompare(b.id));
-    const all = [0, 1, 2, 3, 4, 5, 6].filter((d) => workTimes[d]);
+    const all = WEEKDAYS;
     const changed = new Map<string, WeekPlan>();
     for (const id of ids) {
       const prev = workerSites(plan!, id, ds);
@@ -214,9 +215,16 @@ export function WorkersPage() {
     toast(`„${site.name}“ läuft wieder – jetzt Arbeiter einteilen.`, 'success');
   };
 
+  /**
+   * „ab diesem Tag“: unter der Woche bis Freitag – plus Sa/So, an denen die Arbeiter schon eingeteilt sind
+   * (die werden mit umgesetzt); ab Samstag bis Sonntag.
+   */
+  const restOfWeek = (day: number, ids: string[] = []) =>
+    [0, 1, 2, 3, 4, 5, 6].filter((d) => d >= day && (d < 5 || day >= 5 || ids.some((id) => plan!.sites.some((s) => s.days[d].includes(id)))));
+
   dropRef.current = (workerId, fromSiteId, fromDay, to) => {
     if (fromSiteId === to.siteId && fromDay === to.day) return;
-    const ds = [to.day, ...[0, 1, 2, 3, 4, 5, 6].filter((d) => d > to.day && workTimes[d])];
+    const ds = restOfWeek(to.day, [workerId]);
     void run(() => place([workerId], to.siteId, ds, false));
   };
 
@@ -290,7 +298,8 @@ export function WorkersPage() {
     );
 
   const days = visibleDays();
-  const workDays = days.filter((d) => workTimes[d]);
+  /** Werktage Mo–Fr: Vorschlag für „ganze Woche“ und Prüfung „noch nicht eingeteilt“ (Sa/So jederzeit möglich) */
+  const workDays = WEEKDAYS;
   // Urlaub/Krank (von–bis) gilt nicht als „noch nicht eingeteilt“
   const open = workDays
     .map((d) => ({ d, list: unassigned(plan, sortWorkers(workers), d).filter((w) => !absenceOn(absences, w.id, weekId, d)) }))
@@ -396,20 +405,6 @@ export function WorkersPage() {
           />
         </div>
 
-        {times === null && (
-          <div className="crew-setup" style={ACCENT} data-testid="crew-setup-times">
-            <span className="tile-icon">
-              <Icon name="calendar" size={22} />
-            </span>
-            <div>
-              <strong>Arbeitszeit der Firma festlegen</strong>
-              <p className="muted small">Einmal eintragen – gilt dann für alle Baustellen und Wochen.</p>
-            </div>
-            <button type="button" className="btn btn-primary" onClick={() => setDialog({ kind: 'times' })}>
-              Festlegen
-            </button>
-          </div>
-        )}
         {active.length === 0 && (
           <div className="crew-setup" style={ACCENT} data-testid="crew-setup-workers">
             <span className="tile-icon">
@@ -573,7 +568,7 @@ export function WorkersPage() {
                     {days.map((d) => (
                       <div
                         key={d}
-                        className={`crew-day${workTimes[d] ? '' : ' off'}${drag?.over?.siteId === s.id && drag.over.day === d ? ' drop-over' : ''}`}
+                        className={`crew-day${d >= 5 ? ' weekend' : ''}${drag?.over?.siteId === s.id && drag.over.day === d ? ' drop-over' : ''}`}
                         data-testid="day-row"
                         data-day={d}
                         data-drop-site={s.id}
@@ -583,7 +578,7 @@ export function WorkersPage() {
                           <strong>
                             {DAY_SHORT[d]} {dayDate(weekId, d)}
                           </strong>
-                          <span className="muted small">{timeLabel(workTimes[d]) || 'frei'}</span>
+                          <span className="muted small">{timeLabel(workTimes[d])}</span>
                         </span>
                         <span className="crew-chips">
                           {s.days[d].map((id) => (
@@ -600,7 +595,7 @@ export function WorkersPage() {
                               {nameOf(id)}
                             </button>
                           ))}
-                          <button type="button" className="crew-add" onClick={() => setDialog({ kind: 'assign', siteId: s.id, days: workDays.filter((x) => x >= d).length ? workDays.filter((x) => x >= d) : [d] })} aria-label={`Arbeiter für ${DAY_NAMES[d]} einteilen`} data-testid="day-add">
+                          <button type="button" className="crew-add" onClick={() => setDialog({ kind: 'assign', siteId: s.id, days: restOfWeek(d) })} aria-label={`Arbeiter für ${DAY_NAMES[d]} einteilen`} data-testid="day-add">
                             <Icon name="plus" size={16} />
                           </button>
                         </span>
@@ -723,7 +718,7 @@ export function WorkersPage() {
           }}
           onMove={(to) => {
             setDialog(null);
-            void run(() => place([dialog.workerId], to, workDays.filter((d) => d >= dialog.day), false));
+            void run(() => place([dialog.workerId], to, restOfWeek(dialog.day, [dialog.workerId]), false));
           }}
           onAbsence={() => setDialog({ kind: 'absence', workerId: dialog.workerId, day: dialog.day })}
         />
@@ -749,8 +744,8 @@ export function WorkersPage() {
           absences={absences}
           nameOf={nameOf}
           workerId={dialog.workerId}
-          from={addDays(weekId, dialog.day ?? Math.max(0, workDays[0] ?? 0))}
-          to={addDays(weekId, workDays[workDays.length - 1] ?? 4)}
+          from={addDays(weekId, dialog.day ?? 0)}
+          to={addDays(weekId, (dialog.day ?? 0) >= 5 ? 6 : 4)}
           onAdd={(a) => void run(() => addAbsence(a))}
           onDelete={(a) => void run(() => deleteAbsence(a))}
           onClose={() => setDialog(null)}
@@ -765,7 +760,7 @@ export function WorkersPage() {
           onClose={() => setDialog(null)}
           onAssign={(siteId, rest) => {
             setDialog(null);
-            void run(() => place([dialog.workerId], siteId, rest ? workDays.filter((d) => d >= dialog.day) : [dialog.day], false));
+            void run(() => place([dialog.workerId], siteId, rest ? restOfWeek(dialog.day, [dialog.workerId]) : [dialog.day], false));
           }}
           onAbsence={() => setDialog({ kind: 'absence', workerId: dialog.workerId, day: dialog.day })}
         />
@@ -901,7 +896,7 @@ function TimesDialog({
         </>
       }
     >
-      <p className="muted small">Gilt für alle Baustellen und Wochen. Erscheint in der Einteilung und – wenn angehakt – im PDF. Tage ohne Arbeitszeit stehen als „frei“ in der Woche.</p>
+      <p className="muted small">Nur zur Info der Firma: erscheint in der Einteilung und – wenn angehakt – im PDF. Eingeteilt werden kann an allen 7 Tagen, auch Sa/So.</p>
       <div className="crew-times">
         {DAY_NAMES.map((name, d) => (
           <div key={d} className="crew-time-row">

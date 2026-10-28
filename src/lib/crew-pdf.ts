@@ -170,7 +170,7 @@ export async function crewWeekPdf(plan: WeekPlan, workers: Worker[], times: Work
 
   // Urlaub und noch nicht eingeteilt (sollte leer sein)
   const open = days
-    .filter((d) => times[d])
+    .filter((d) => d < 5) // Sa/So: nur wer dort eingeteilt ist
     .map((d) => ({ d, list: unassigned(plan, sortWorkers(workers), d).filter((w) => !opts.absent?.(w.id, d)) }))
     .filter((x) => x.list.length);
   const lines: { label: string; text: string }[] = [];

@@ -222,7 +222,9 @@ export function carryPlacement(
   const out: WeekPlan[] = [];
   for (const w of later) {
     const changedByHand = workerSites(w, workerId).some((s) => ![...prevSites, target].some((k) => isSameSite(s, k)));
-    const next = changedByHand ? null : placeInWeek(w, workerId, target, workDays);
+    // Werktage plus Sa/So, an denen er in dieser Woche schon eingeteilt ist
+    const ds = [...new Set([...workDays, ...[5, 6].filter((d) => w.sites.some((s) => s.days[d].includes(workerId)))])];
+    const next = changedByHand ? null : placeInWeek(w, workerId, target, ds);
     if (!next) break;
     out.push(next);
   }

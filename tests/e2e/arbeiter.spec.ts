@@ -51,7 +51,6 @@ test('Arbeitereinteilung: Woche nach Baustellen planen und in die nächste Woche
   await page.goto('./#/tools');
   await page.getByTestId('tool-workers').click();
   await expect(page.getByTestId('workers-title')).toHaveText('Arbeitereinteilung');
-  await expect(page.getByTestId('crew-setup-times')).toBeVisible();
   await expect(page.getByTestId('crew-setup-workers')).toBeVisible();
   await page.getByTestId('week-date').fill('2026-10-28'); // Mittwoch → KW 44
   await expect(page.getByTestId('week-label')).toHaveText('KW 44');
@@ -61,7 +60,6 @@ test('Arbeitereinteilung: Woche nach Baustellen planen und in die nächste Woche
   const t = page.getByTestId('times-dialog');
   await t.getByTestId('time-to-4').fill('12:00');
   await t.getByTestId('times-save').click();
-  await expect(page.getByTestId('crew-setup-times')).toHaveCount(0);
 
   // Arbeiter einmal anlegen
   await page.getByTestId('crew-workers').click();
@@ -94,10 +92,10 @@ test('Arbeitereinteilung: Woche nach Baustellen planen und in die nächste Woche
   await addFromMonday(page, 'Neubau Musterstraße', ['Max Muster', 'Peter Bau']);
   for (const d of [0, 1, 2, 3, 4]) await expect(chips(page, 'Neubau Musterstraße', d)).toHaveText(['Max Muster', 'Peter Bau']);
   await expect(site(page, 'Neubau Musterstraße').locator('[data-day="4"]')).toContainText('07:00–12:00');
-  // immer alle 7 Tage, Sa/So ohne Arbeitszeit als „frei“
+  // immer alle 7 Tage; „ganze Woche“ schlägt Mo–Fr vor, Sa/So bleibt leer, ist aber einteilbar
   await expect(site(page, 'Neubau Musterstraße').getByTestId('day-row')).toHaveCount(7);
   await expect(site(page, 'Neubau Musterstraße').locator('[data-day="6"]')).toContainText('So 01.11.');
-  await expect(site(page, 'Neubau Musterstraße').locator('[data-day="6"]')).toContainText('frei');
+  await expect(chips(page, 'Neubau Musterstraße', 5)).toHaveCount(0);
   await expect(page.getByTestId('crew-week')).toContainText('26.10. – 01.11.2026');
 
   // Baustelle B manuell
@@ -571,4 +569,41 @@ test('Urlaub und Krank von–bis über mehrere Wochen: bleibt eingeteilt, wird m
   await abs.getByRole('button', { name: 'Schließen' }).first().click();
   await expect(page.getByTestId('crew-vacations')).toHaveCount(0);
   await expect(chips(page, 'Baustelle A', 2).filter({ hasText: 'Max' })).not.toHaveClass(/away/);
+});
+
+test('Sa/So wie jeder andere Tag: Wochenend-Partie einteilen, Umsetzen nimmt Sa/So mit; Arbeitszeit nur Info', async ({ page }) => {
+  await freshStart(page);
+  await page.goto('./#/arbeitereinteilung');
+  await page.getByTestId('week-date').fill('2026-10-26');
+  await page.getByTestId('crew-workers').click();
+  const wd = page.getByTestId('workers-dialog');
+  for (const n of ['Max', 'Willi']) {
+    await wd.getByTestId('worker-firstName').fill(n);
+    await wd.getByTestId('worker-save').click();
+    await expect(wd.getByTestId('worker-row').filter({ hasText: n })).toHaveCount(1);
+  }
+  await page.keyboard.press('Escape');
+  for (const n of ['Baustelle A', 'Baustelle B']) {
+    await page.getByTestId('add-site').click();
+    await page.getByTestId('site-dialog').getByTestId('site-name-input').fill(n);
+    await page.getByTestId('site-dialog').getByTestId('site-save').click();
+  }
+  // Willi nur am Wochenende: „+“ am Samstag schlägt Sa–So vor
+  await site(page, 'Baustelle B').locator('[data-day="5"] [data-testid="day-add"]').click();
+  for (const d of [0, 1, 2, 3, 4]) await expect(page.getByTestId(`assign-day-${d}`)).toHaveAttribute('aria-pressed', 'false');
+  for (const d of [5, 6]) await expect(page.getByTestId(`assign-day-${d}`)).toHaveAttribute('aria-pressed', 'true');
+  await assignDialog(page, ['Willi']);
+  for (const d of [5, 6]) await expect(chips(page, 'Baustelle B', d)).toHaveText(['Willi']);
+  // Max Mo–So auf A (Wochenende zusätzlich anhaken)
+  await site(page, 'Baustelle A').locator('[data-day="0"] [data-testid="day-add"]').click();
+  for (const d of [5, 6]) await page.getByTestId(`assign-day-${d}`).click();
+  await assignDialog(page, ['Max']);
+  for (const d of [0, 6]) await expect(chips(page, 'Baustelle A', d)).toHaveText(['Max']);
+  // Max ab Mittwoch auf B ziehen → Mi–So auf B (Sa/So mit umgesetzt), Mo/Di bleibt A
+  await dragTo(page, chips(page, 'Baustelle A', 2), site(page, 'Baustelle B').locator('[data-testid="day-row"][data-day="2"]'));
+  for (const d of [0, 1]) await expect(chips(page, 'Baustelle A', d)).toHaveText(['Max']);
+  for (const d of [2, 3, 4, 5, 6]) await expect(chips(page, 'Baustelle A', d)).toHaveCount(0);
+  await expect(chips(page, 'Baustelle B', 6)).toHaveText(['Willi', 'Max']);
+  // kein Hinweis „Arbeitszeit festlegen“ mehr – Arbeitszeit ist nur Info
+  await expect(page.getByTestId('crew-setup-times')).toHaveCount(0);
 });

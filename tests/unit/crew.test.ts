@@ -188,4 +188,15 @@ describe('Umsetzen (Ziehen / Hinzufügen)', () => {
     expect(absenceSummary(list, '2026-10-26', [0, 1, 2, 3, 4], 'krank')).toEqual([{ workerId: 'max', days: [0, 1] }]);
     expect(absenceRange(list[0])).toBe('28.10. – 04.11.');
   });
+
+  it('Folgewochen: Sa/So, an denen er eingeteilt ist, werden mit umgesetzt', async () => {
+    const { carryPlacement, workerSites } = await import('../../src/lib/crew');
+    let { w, a } = twoSites();
+    w = assign(w, a, [0, 1, 2, 3, 4, 5], ['max']);
+    const next = carryOver(w, '2026-11-02');
+    const [moved] = carryPlacement([next], 'max', workerSites(w, 'max'), { projectId: null, name: 'Baustelle B' }, [0, 1, 2, 3, 4]);
+    expect(moved.sites.find((s) => s.name === 'Baustelle B')!.days[5]).toEqual(['max']);
+    expect(moved.sites.find((s) => s.name === 'Baustelle B')!.days[6]).toEqual([]);
+    expect(workerSites(moved, 'max').map((s) => s.name)).toEqual(['Baustelle B']);
+  });
 });
