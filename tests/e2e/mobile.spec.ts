@@ -485,6 +485,7 @@ test('Arbeitereinteilung per Finger: Arbeiter, Baustelle, Einteilung – passt a
   await page.getByTestId('add-site').tap();
   await page.getByTestId('site-dialog').getByTestId('site-name-input').fill('Neubau Musterstraße');
   await page.getByTestId('site-dialog').getByTestId('site-save').tap();
+  await page.locator('[data-testid="day-row"][data-day="0"] [data-testid="day-add"]').tap();
   const ad = page.getByTestId('assign-dialog');
   await ad.locator('[data-worker="Max"] input').tap();
   await ad.getByTestId('assign-save').tap();
@@ -497,7 +498,6 @@ test('Arbeitereinteilung per Finger: Arbeiter, Baustelle, Einteilung – passt a
   await page.getByTestId('add-site').tap();
   await page.getByTestId('site-dialog').getByTestId('site-name-input').fill('Sanierung');
   await page.getByTestId('site-dialog').getByTestId('site-save').tap();
-  await page.getByTestId('assign-dialog').getByRole('button', { name: 'Abbrechen' }).tap();
   const cdp = await page.context().newCDPSession(page);
   const chipA = page.locator('[data-site="Neubau Musterstraße"] [data-testid="day-row"][data-day="4"] [data-testid="crew-chip"]');
   const rowB = page.locator('[data-site="Sanierung"] [data-testid="day-row"][data-day="0"]');

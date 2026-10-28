@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type InputHTMLAttributes } from 'react';
-import { ActionMenu } from '../components/ActionMenu';
+import { ActionMenu, type MenuAction } from '../components/ActionMenu';
 import { Icon } from '../components/Icon';
 import { Modal } from '../components/Modal';
 import { SiteNav } from '../components/SiteNav';
@@ -19,9 +19,11 @@ import {
   emptyWeek,
   isoWeekNo,
   carryPlacement,
+  pauseSite,
   placeWorker,
   workerSites,
   removeSite,
+  sameSite,
   setVacation,
   siteFromProject,
   sitesOf,
@@ -159,6 +161,37 @@ export function WorkersPage() {
     if (changed.size) toast(`Auch übernommen in ${[...changed.keys()].sort().map((k) => `KW ${isoWeekNo(k)}`).join(', ')}.`, 'success');
   };
 
+  /** Baustelle pausieren (Standby): Arbeiter werden frei; gilt auch für bereits geplante Folgewochen */
+  const pause = async (site: WeekSite) => {
+    const later = (await listWeeks()).filter((w) => w.id > weekId && sameSite(w, site) && !sameSite(w, site)!.paused);
+    const freed = [...new Set(site.days.flat())];
+    const ok = await confirmDialog({
+      title: 'Baustelle pausieren?',
+      message: (
+        <>
+          <p>„{site.name}“ ruht ab dieser Woche (Standby) und läuft ohne Arbeiter weiter, bis du sie fortsetzt.</p>
+          {freed.length > 0 && <p>Frei werden: {freed.map(nameOf).join(', ')} – sie erscheinen unter „Nicht eingeteilt“.</p>}
+          {later.length > 0 && <p>Gilt auch für die bereits geplanten Wochen {later.map((w) => `KW ${isoWeekNo(w.id)}`).join(', ')}.</p>}
+        </>
+      ),
+      confirmLabel: 'Pausieren',
+    });
+    if (!ok) return;
+    save(pauseSite(plan!, site.id).week);
+    for (const w of later) await saveWeek(pauseSite(w, sameSite(w, site)!.id).week);
+    toast(`„${site.name}“ pausiert.`, 'success');
+  };
+  /** pausierte Baustelle wieder aufnehmen (auch in bereits geplanten Folgewochen) */
+  const resume = async (site: WeekSite) => {
+    save(updateSite(plan!, site.id, { paused: false }));
+    for (const w of await listWeeks()) {
+      const t = w.id > weekId ? sameSite(w, site) : undefined;
+      if (t?.paused) await saveWeek(updateSite(w, t.id, { paused: false }));
+    }
+    setCollapsed((prev) => new Set([...prev].filter((id) => id !== site.id)));
+    toast(`„${site.name}“ läuft wieder – jetzt Arbeiter einteilen.`, 'success');
+  };
+
   dropRef.current = (workerId, fromSiteId, fromDay, to) => {
     if (fromSiteId === to.siteId && fromDay === to.day) return;
     const ds = [to.day, ...[0, 1, 2, 3, 4, 5, 6].filter((d) => d > to.day && workTimes[d] && (plan?.showWeekend || d < 5))];
@@ -243,6 +276,38 @@ export function WorkersPage() {
   const shown = q
     ? plan.sites.filter((s) => [s.name, s.number, s.address].some((t) => t?.toLowerCase().includes(q)) || s.days.some((d) => d.some(hit)))
     : plan.sites;
+  const pausedShown = shown.filter((s) => s.paused);
+  /** Menü einer Baustelle (laufend oder pausiert) */
+  const siteActions = (s: WeekSite): MenuAction[] => [
+      ...(s.paused ? [] : [{ label: 'Arbeiter einteilen (ganze Woche)', icon: 'plus', onSelect: () => setDialog({ kind: 'assign', siteId: s.id, days: workDays }), testId: 'site-assign' }]),
+      { label: 'Baustelle bearbeiten / Bemerkung', icon: 'edit', onSelect: () => setDialog({ kind: 'site', site: s }), testId: 'site-edit' },
+      ...(s.paused ? [] : [{ label: 'Tagesliste (PDF)', icon: 'pdf', onSelect: () => setDialog({ kind: 'dayList', siteId: s.id }), testId: 'site-daylist' }]),
+      ...(s.projectId && projects.some((p) => p.id === s.projectId)
+        ? [{ label: 'Projekt öffnen', icon: 'folder', onSelect: () => navigate(paths.project(s.projectId!)), testId: 'site-open-project' }]
+        : [{ label: 'Als Projekt in Projektverwaltung anlegen', icon: 'folder', onSelect: () => void siteToProject(s), testId: 'site-to-project' }]),
+      s.paused
+        ? { label: 'Fortsetzen', icon: 'play', onSelect: () => void run(() => resume(s)), testId: 'site-resume-menu' }
+        : { label: 'Pausieren (Standby)', icon: 'pause', onSelect: () => void run(() => pause(s)), testId: 'site-pause' },
+      {
+        label: s.finished ? 'Wieder öffnen (läuft weiter)' : 'Abschließen (ab nächster Woche weg)',
+        icon: 'check',
+        onSelect: () => save(updateSite(plan, s.id, { finished: !s.finished, paused: false })),
+        testId: 'site-finish',
+      },
+      {
+        label: 'Aus dieser Woche entfernen',
+        icon: 'trash',
+        danger: true,
+        onSelect: () =>
+          void confirmDialog({
+            title: 'Baustelle entfernen?',
+            message: <p>„{s.name}“ und ihre Einteilung werden aus dieser Woche entfernt. Andere Wochen bleiben unverändert.</p>,
+            confirmLabel: 'Entfernen',
+            danger: true,
+          }).then((ok) => ok && save(removeSite(plan, s.id))),
+        testId: 'site-remove',
+      },
+  ];
   const toggle = (id: string) =>
     setCollapsed((prev) => {
       const next = new Set(prev);
@@ -430,7 +495,7 @@ export function WorkersPage() {
               )}
             </label>
           )}
-          {shown.map((s) => {
+          {shown.filter((s) => !s.paused).map((s) => {
             const isOpen = !collapsed.has(s.id);
             const count = new Set(s.days.flat()).size;
             return (
@@ -442,7 +507,7 @@ export function WorkersPage() {
                       <strong data-testid="site-name">{s.name}</strong>
                       <span className="muted small">
                         {[s.number, s.address].filter(Boolean).join(' · ')}
-                        {s.finished && <span className="crew-finished"> · fertiggestellt</span>}
+                        {s.finished && <span className="crew-finished"> · abgeschlossen</span>}
                       </span>
                     </span>
                     <span className="crew-count" title="Arbeiter in dieser Woche">
@@ -452,33 +517,7 @@ export function WorkersPage() {
                   <ActionMenu
                     label={`Aktionen für ${s.name}`}
                     testId="site-actions"
-                    actions={[
-                      { label: 'Arbeiter einteilen (ganze Woche)', icon: 'plus', onSelect: () => setDialog({ kind: 'assign', siteId: s.id, days: workDays }), testId: 'site-assign' },
-                      { label: 'Baustelle bearbeiten / Bemerkung', icon: 'edit', onSelect: () => setDialog({ kind: 'site', site: s }), testId: 'site-edit' },
-                      { label: 'Tagesliste (PDF)', icon: 'pdf', onSelect: () => setDialog({ kind: 'dayList', siteId: s.id }), testId: 'site-daylist' },
-                      ...(s.projectId && projects.some((p) => p.id === s.projectId)
-                        ? [{ label: 'Projekt öffnen', icon: 'folder', onSelect: () => navigate(paths.project(s.projectId!)), testId: 'site-open-project' }]
-                        : [{ label: 'Als Projekt in Projektverwaltung anlegen', icon: 'folder', onSelect: () => void siteToProject(s), testId: 'site-to-project' }]),
-                      {
-                        label: s.finished ? 'Wieder als laufend markieren' : 'Fertiggestellt (ab nächster Woche weg)',
-                        icon: 'check',
-                        onSelect: () => save(updateSite(plan, s.id, { finished: !s.finished })),
-                        testId: 'site-finish',
-                      },
-                      {
-                        label: 'Aus dieser Woche entfernen',
-                        icon: 'trash',
-                        danger: true,
-                        onSelect: () =>
-                          void confirmDialog({
-                            title: 'Baustelle entfernen?',
-                            message: <p>„{s.name}“ und ihre Einteilung werden aus dieser Woche entfernt. Andere Wochen bleiben unverändert.</p>,
-                            confirmLabel: 'Entfernen',
-                            danger: true,
-                          }).then((ok) => ok && save(removeSite(plan, s.id))),
-                        testId: 'site-remove',
-                      },
-                    ]}
+                    actions={siteActions(s)}
                   />
                 </header>
                 {isOpen && s.note && (
@@ -529,6 +568,35 @@ export function WorkersPage() {
               </article>
             );
           })}
+          {pausedShown.length > 0 && (
+            <div className="crew-paused" data-testid="crew-paused">
+              <h2 className="crew-paused-title">
+                Pausiert <span className="muted small">· Standby, ohne Arbeiter, läuft weiter bis „Fortsetzen“</span>
+              </h2>
+              {pausedShown.map((s) => (
+                <article key={s.id} className="crew-site paused" data-testid="site-card" data-site={s.name}>
+                  <header className="crew-site-head">
+                    <span className="crew-site-toggle">
+                      <Icon name="pause" size={18} />
+                      <span className="crew-site-title">
+                        <strong data-testid="site-name">{s.name}</strong>
+                        <span className="muted small">{[s.number, s.address].filter(Boolean).join(' · ')}</span>
+                      </span>
+                    </span>
+                    <button type="button" className="btn btn-sm" onClick={() => void run(() => resume(s))} data-testid="site-resume">
+                      Fortsetzen
+                    </button>
+                    <ActionMenu label={`Aktionen für ${s.name}`} testId="site-actions" actions={siteActions(s)} />
+                  </header>
+                  {s.note && (
+                    <p className="crew-note" data-testid="site-note">
+                      {s.note}
+                    </p>
+                  )}
+                </article>
+              ))}
+            </div>
+          )}
           {plan.sites.length === 0 && (
             <div className="empty" data-testid="crew-empty">
               <p>Noch keine Baustelle in dieser Woche.</p>
@@ -574,10 +642,8 @@ export function WorkersPage() {
               }
               if (dialog.site) save(updateSite(plan, dialog.site.id, f));
               else {
-                const r = addSite(plan, f);
-                save(r.week);
-                setDialog({ kind: 'assign', siteId: r.site.id, days: workDays });
-                return;
+                save(addSite(plan, f).week);
+                toast(`Baustelle „${f.name}“ angelegt.`, 'success');
               }
               setDialog(null);
             })
@@ -1033,7 +1099,7 @@ function ChipDialog({
   onVacation(week: boolean): void;
   onClose(): void;
 }) {
-  const others = plan.sites.filter((s) => s.id !== siteId);
+  const others = plan.sites.filter((s) => s.id !== siteId && !s.paused);
   const [to, setTo] = useState(others[0]?.id ?? '');
   return (
     <Modal title={`${name} · ${DAY_NAMES[day]}`} onClose={onClose} testId="chip-dialog">
@@ -1093,7 +1159,7 @@ function OpenDialog({
         Ab {DAY_NAMES[day]} für die restliche Woche
       </label>
       <div className="crew-chip-actions">
-        {plan.sites.map((s) => (
+        {plan.sites.filter((s) => !s.paused).map((s) => (
           <button key={s.id} type="button" className="btn" onClick={() => onAssign(s.id, rest)} data-testid="open-site" data-site={s.name}>
             <Icon name="plus" size={18} /> {s.name}
           </button>

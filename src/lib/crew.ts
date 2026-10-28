@@ -80,7 +80,14 @@ export function addSite(w: WeekPlan, site: Pick<WeekSite, 'projectId' | 'name' |
 /** Baustelle aus einem Projekt: Bezeichnung zum Zeitpunkt der Einteilung (bleibt bei späterer Umbenennung) */
 export const siteFromProject = (p: Pick<Project, 'id' | 'name' | 'number' | 'address'>) => ({ projectId: p.id, name: p.name, number: p.number || '', address: p.address || '' });
 
-export const updateSite = (w: WeekPlan, siteId: string, patch: Partial<Pick<WeekSite, 'name' | 'number' | 'address' | 'finished' | 'note'>>) => mapSite(w, siteId, (s) => ({ ...s, ...patch }));
+export const updateSite = (w: WeekPlan, siteId: string, patch: Partial<Pick<WeekSite, 'name' | 'number' | 'address' | 'finished' | 'paused' | 'note'>>) => mapSite(w, siteId, (s) => ({ ...s, ...patch }));
+/** Baustelle pausieren (Standby): alle Arbeiter dieser Woche werden frei; liefert die freigewordenen Arbeiter */
+export function pauseSite(w: WeekPlan, siteId: string): { week: WeekPlan; freed: string[] } {
+  const site = w.sites.find((s) => s.id === siteId);
+  const freed = [...new Set(site?.days.flat() ?? [])];
+  return { week: mapSite(w, siteId, (s) => ({ ...s, paused: true, finished: false, days: emptyDays() })), freed };
+}
+
 export const removeSite = (w: WeekPlan, siteId: string) => touch(w, w.sites.filter((s) => s.id !== siteId));
 
 /** Arbeiter an Tagen einer Baustelle einteilen (Urlaub an diesen Tagen entfällt) */
@@ -187,11 +194,11 @@ const isSameSite = (a: Pick<WeekSite, 'projectId' | 'name'>, b: Pick<WeekSite, '
 
 /**
  * In einer bereits geplanten Folgewoche übernehmen: der Arbeiter ist an allen Arbeitstagen (ohne Urlaub)
- * auf derselben Baustelle. Gibt es die Baustelle dort nicht (fertig/entfernt), bleibt die Woche unverändert (null).
+ * auf derselben Baustelle. Gibt es die Baustelle dort nicht (fertig/entfernt) oder ruht sie, bleibt die Woche unverändert (null).
  */
 export function placeInWeek(w: WeekPlan, workerId: string, site: Pick<WeekSite, 'projectId' | 'name'>, workDays: number[]): WeekPlan | null {
   const target = sameSite(w, site);
-  if (!target) return null;
+  if (!target || target.paused) return null;
   return placeWorker(w, workerId, target.id, workDays).week;
 }
 

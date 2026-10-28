@@ -156,4 +156,20 @@ describe('Umsetzen (Ziehen / Hinzufügen)', () => {
     const done = { ...kw45, sites: kw45.sites.filter((s) => s.name !== 'Baustelle B') };
     expect(carryPlacement([done, kw46], 'max', prev, { projectId: null, name: 'Baustelle B' }, [0])).toEqual([]);
   });
+
+  it('pausieren: Arbeiter frei, bleibt beim Weiterführen pausiert, nimmt keine Umsetzung an', async () => {
+    const { pauseSite, placeInWeek } = await import('../../src/lib/crew');
+    let { w, a, b } = twoSites();
+    w = assign(w, a, [0, 1, 2, 3, 4], ['max']);
+    w = assign(w, b, [0, 1], ['peter', 'tom']);
+    const r = pauseSite(w, b);
+    expect(r.freed).toEqual(['peter', 'tom']);
+    const pb = r.week.sites.find((s) => s.id === b)!;
+    expect(pb.paused).toBe(true);
+    expect(pb.days.flat()).toEqual([]);
+    expect(r.week.sites.find((s) => s.id === a)!.days[0]).toEqual(['max']);
+    const next = carryOver(r.week, '2026-11-02');
+    expect(next.sites.find((s) => s.name === 'Baustelle B')!.paused).toBe(true);
+    expect(placeInWeek(next, 'max', { projectId: null, name: 'Baustelle B' }, [0])).toBeNull();
+  });
 });

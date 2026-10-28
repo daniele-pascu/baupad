@@ -410,6 +410,8 @@ export interface WeekSite {
   address?: string;
   /** fertiggestellt: wird ab der Folgewoche nicht mehr weitergeführt */
   finished?: boolean;
+  /** pausiert (Standby): ruht ohne Arbeiter, wird weitergeführt, bis sie fortgesetzt wird */
+  paused?: boolean;
   /** Bemerkung für diese Woche (erscheint im PDF) */
   note?: string;
   /** eingeteilte Arbeiter je Tag (0 = Montag … 6 = Sonntag) */

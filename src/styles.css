@@ -5039,3 +5039,27 @@ a.tool-tile:focus-visible {
 .crew-drag-hint {
   margin: -4px 0 10px;
 }
+
+/* pausierte Baustellen (Standby) */
+.crew-paused {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+}
+.crew-paused-title {
+  margin: 4px 2px 0;
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+.crew-site.paused {
+  border-left-color: var(--muted, #8a8f98);
+  background: color-mix(in srgb, var(--surface) 92%, #8a8f98);
+}
+.crew-site.paused .crew-site-toggle {
+  cursor: default;
+  color: var(--muted, #5f6570);
+}
+.crew-site.paused .crew-site-title strong {
+  color: var(--text, #111);
+}

@@ -124,7 +124,7 @@ export async function crewWeekPdf(plan: WeekPlan, workers: Worker[], times: Work
     return 22 + 26 + rows * LH + 10 + (s.note ? 18 : 16);
   };
 
-  for (const s of plan.sites) {
+  for (const s of plan.sites.filter((x) => !x.paused)) {
     const h = siteHeight(s);
     if (y - h < M + 20 && y < H - M - 60) newPage();
     // Kopf der Baustelle
@@ -132,7 +132,7 @@ export async function crewWeekPdf(plan: WeekPlan, workers: Worker[], times: Work
     page.drawRectangle({ x: M, y: y - 22, width: 3, height: 22, color: s.finished ? rgb(0.12, 0.62, 0.33) : ACCENT });
     const name = fit(ctx.bold, clean(ctx, s.name), 12, 420);
     page.drawText(name, { x: M + 10, y: y - 15.5, size: 12, font: ctx.bold, color: INK });
-    const meta = [s.number, s.address, s.finished ? 'fertiggestellt' : ''].filter(Boolean).join(' · ');
+    const meta = [s.number, s.address, s.finished ? 'abgeschlossen' : ''].filter(Boolean).join(' · ');
     if (meta) page.drawText(fit(ctx.font, clean(ctx, meta), 9, W - 2 * M - 30 - ctx.bold.widthOfTextAtSize(name, 12)), { x: M + 22 + ctx.bold.widthOfTextAtSize(name, 12), y: y - 15, size: 9, font: ctx.font, color: MUTED });
     y -= 22;
     // Tage

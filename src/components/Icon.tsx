@@ -23,6 +23,8 @@ const PATHS: Record<string, string> = {
   table: 'M3 5h18v14H3zM3 10h18M3 15h18M9 5v14',
   map: 'M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14',
   check: 'M5 12l5 5L20 7',
+  pause: 'M9 5v14M15 5v14',
+  play: 'M7 5l12 7-12 7z',
   more: 'M12 6h.01M12 12h.01M12 18h.01',
   save: 'M5 3h11l3 3v13a2 2 0 01-2 2H7a2 2 0 01-2-2V3zM8 3v5h7V3M8 21v-7h8v7',
   layers: 'M12 3l9 5-9 5-9-5 9-5zM3 13l9 5 9-5',
