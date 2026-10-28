@@ -1,6 +1,7 @@
 import { useEffect, type CSSProperties } from 'react';
 import { Icon } from '../components/Icon';
 import { ToolIcon } from '../components/ToolIcon';
+import { DeviceStage, ManageArt, MeasureArt } from '../components/Illustrations';
 import { InstallButton } from '../components/InstallApp';
 import { SiteFooter, SiteNav } from '../components/SiteNav';
 import { site } from '../content/site';
@@ -15,94 +16,140 @@ export function usePageTitle(title: string) {
   }, [title]);
 }
 
-/** Öffentliche Startseite: PAD Software als Firma, BauPad als erstes Produkt mit seinen vier Werkzeugen */
+/** Öffentliche Startseite von PAD Software: BauPad als Produkt – Bilder, Geräte-Bühne, animierte Illustrationen */
 export function LandingPage() {
-  usePageTitle('BauPad');
+  usePageTitle('PAD Software – BauPad');
   const t = site.home;
-  const toFeatures = () => document.getElementById('funktionen')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const toTools = () => document.getElementById('werkzeuge')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const gallery = ['fotos-baustelle.jpg', 'aufmass-editor.jpg', 'arbeiter-woche.jpg', 'berichte-regie-editor.jpg', 'export-berichte-regie.jpg', 'fotos-gross.jpg', 'export-arbeiter-kw.jpg', 'export-fotos.jpg'];
   return (
-    <div className="site">
+    <div className="site landing">
       <SiteNav />
       <main className="site-main">
-        <section className="hero">
-          <p className="hero-eyebrow fade-in">{t.eyebrow}</p>
-          <h1 className="hero-title fade-in">{t.title}</h1>
-          <p className="hero-lead fade-in delay-1">{t.lead}</p>
-          <div className="hero-actions fade-in delay-2">
-            <a href={paths.tools()} className="site-cta" data-testid="cta-tools">
-              {t.cta}
-              <span aria-hidden="true"> →</span>
-            </a>
-            <button type="button" className="site-cta site-cta-secondary" onClick={toFeatures} data-testid="cta-features">
-              {t.secondary}
-            </button>
+        <section className="hero hero-split">
+          <div className="hero-copy">
+            <p className="hero-eyebrow fade-in">{t.eyebrow}</p>
+            <h1 className="hero-title fade-in">{t.title}</h1>
+            <p className="hero-lead fade-in delay-1">{t.lead}</p>
+            <div className="hero-actions fade-in delay-2">
+              <a href={paths.tools()} className="site-cta" data-testid="cta-tools">
+                {t.cta}
+                <span aria-hidden="true"> →</span>
+              </a>
+              <button type="button" className="site-cta site-cta-secondary" onClick={toTools} data-testid="cta-features">
+                {t.secondary}
+              </button>
+            </div>
+            <div className="hero-install fade-in delay-2">
+              <InstallButton variant="link" />
+            </div>
+            <ul className="site-facts hero-facts fade-in delay-3" aria-label="Eigenschaften">
+              {t.facts.map((f) => (
+                <li key={f}>
+                  <Icon name="check" size={16} />
+                  {f}
+                </li>
+              ))}
+            </ul>
           </div>
-          <div className="hero-install fade-in delay-2">
-            <InstallButton variant="link" />
-          </div>
-          <div className="hero-tools fade-in delay-3" aria-hidden="true">
-            {t.tools.map((x) => (
-              <span key={x.id} className="hero-tool" style={{ '--tool': x.color } as CSSProperties}>
-                <ToolIcon name={x.id} size={18} />
-                {x.title}
-              </span>
-            ))}
+          <div className="hero-stage fade-in delay-2">
+            <DeviceStage />
           </div>
         </section>
 
-        <section className="product" id="funktionen" aria-labelledby="product-title">
-          <p className="section-eyebrow">Ein Produkt, vier Werkzeuge</p>
-          <h2 id="product-title" className="section-heading">
+        <section className="tools-section" id="werkzeuge" aria-labelledby="tools-title">
+          <p className="section-eyebrow">Vier Werkzeuge</p>
+          <h2 id="tools-title" className="section-heading">
             Alles, was auf der Baustelle anfällt.
           </h2>
-          <div className="product-grid" data-testid="product-grid">
+          <div className="tool-cards" data-testid="product-grid">
             {t.tools.map((x) => (
-              <a key={x.id} href={paths.product(site.products[x.id].slug)} className="product-card" style={{ '--tool': x.color } as CSSProperties} data-testid="product-card">
-                <span className="product-icon" aria-hidden="true">
-                  <ToolIcon name={x.id} size={26} />
+              <a key={x.id} href={paths.product(site.products[x.id].slug)} className="tool-card" style={{ '--tool': x.color } as CSSProperties} data-testid="product-card">
+                <span className="tool-card-img">
+                  <img src={`./site/${x.image}`} alt="" loading="lazy" />
                 </span>
-                <h3>{x.title}</h3>
-                <p>{x.text}</p>
-                <ul>
-                  {x.points.slice(0, 2).map((p) => (
-                    <li key={p}>
-                      <Icon name="check" size={14} />
-                      {p}
-                    </li>
-                  ))}
-                </ul>
-                <span className="product-more">
-                  Mehr erfahren <span aria-hidden="true">→</span>
+                <span className="tool-card-body">
+                  <span className="product-icon" aria-hidden="true">
+                    <ToolIcon name={x.id} size={22} />
+                  </span>
+                  <strong>{x.title}</strong>
+                  <span className="tool-card-text">{x.text}</span>
+                  <span className="product-more">
+                    Mehr erfahren <span aria-hidden="true">→</span>
+                  </span>
                 </span>
               </a>
             ))}
           </div>
         </section>
 
-        <section className="steps" aria-labelledby="steps-title">
-          <p className="section-eyebrow">So läuft ein Tag mit BauPad</p>
-          <h2 id="steps-title" className="section-heading">
-            Drei Schritte. Kein Papier.
+        <section className="duo" aria-label="Messen und Verwalten">
+          <article className="duo-item">
+            <MeasureArt />
+            <h2>Messen, wo gebaut wird</h2>
+            <p>Plan öffnen, Fläche einzeichnen, Maße eingeben – oder direkt aus dem Plan übernehmen. Jede Messung hat ihre Nummer im Plan und ihre Zeile im Aufmaß.</p>
+          </article>
+          <article className="duo-item">
+            <ManageArt />
+            <h2>Verwalten, ohne Zettel</h2>
+            <p>Mannschaft auf die Woche verteilen, Regieliste und Tagesbericht ausfüllen, Fotos zuordnen. Am Ende ein PDF, das ins Büro geht.</p>
+          </article>
+        </section>
+
+        <section className="gallery" aria-label="Bilder aus BauPad">
+          <div className="gallery-track">
+            {[...gallery, ...gallery].map((g, i) => (
+              <img key={`${g}-${i}`} src={`./site/${g}`} alt="" loading="lazy" aria-hidden={i >= gallery.length ? true : undefined} />
+            ))}
+          </div>
+        </section>
+
+        <section className="roles" aria-labelledby="roles-title">
+          <p className="section-eyebrow">Für wen</p>
+          <h2 id="roles-title" className="section-heading">
+            Für alle, die am Bau arbeiten.
+          </h2>
+          <div className="roles-grid">
+            {t.roles.map((r, i) => (
+              <div key={r.title} className="role-card">
+                <span className="role-no">{i + 1}</span>
+                <strong>{r.title}</strong>
+                <p>{r.text}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="faq" aria-labelledby="faq-title">
+          <p className="section-eyebrow">Fragen und Antworten</p>
+          <h2 id="faq-title" className="section-heading">
+            Kurz beantwortet.
+          </h2>
+          <div className="faq-list" data-testid="faq">
+            {t.faq.map((f) => (
+              <details key={f.q}>
+                <summary>{f.q}</summary>
+                <p>{f.a}</p>
+              </details>
+            ))}
+          </div>
+        </section>
+
+        <section className="roadmap" aria-labelledby="roadmap-title">
+          <p className="section-eyebrow">Was als Nächstes kommt</p>
+          <h2 id="roadmap-title" className="section-heading">
+            In Arbeit.
           </h2>
           <ol className="steps-list">
-            {t.steps.map((s, i) => (
-              <li key={s.title}>
+            {t.roadmap.map((r, i) => (
+              <li key={r.title}>
                 <span className="step-no">{i + 1}</span>
-                <strong>{s.title}</strong>
-                <p>{s.text}</p>
+                <strong>{r.title}</strong>
+                <p>{r.text}</p>
               </li>
             ))}
           </ol>
         </section>
-
-        <ul className="site-facts fade-in delay-3" aria-label="Eigenschaften">
-          {t.facts.map((f) => (
-            <li key={f}>
-              <Icon name="check" size={16} />
-              {f}
-            </li>
-          ))}
-        </ul>
 
         <section className="company" aria-labelledby="company-title">
           <p className="section-eyebrow">{site.company}</p>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { paths, useHash } from '../lib/router';
+import { parseRoute, paths, useHash } from '../lib/router';
 import { site } from '../content/site';
 
 /**
@@ -11,14 +11,29 @@ export function SiteNav() {
   const [open, setOpen] = useState(false);
   useEffect(() => setOpen(false), [hash]);
   const current = (p: string) => (hash === p || (p === paths.landing() && (hash === '' || hash === '#')) ? 'page' : undefined);
+  /** öffentliche Seiten tragen die Firma (PAD Software), die App das Produkt (BauPad) */
+  const route = parseRoute(hash).name;
+  const isSite = ['landing', 'about', 'contact', 'imprint', 'privacy', 'product'].includes(route);
 
   return (
     <header className="site-nav" data-testid="site-nav">
       <div className="site-nav-inner">
-        <a href={paths.landing()} className="site-logo" aria-label="BauPad – zur Startseite">
-          <img src="./icons/logo-header.png" alt="BauPad" height={30} />
-        </a>
+        {isSite ? (
+          <a href={paths.landing()} className="site-logo site-wordmark" aria-label="PAD Software – zur Startseite">
+            <span className="wm-pad">PAD</span>
+            <span className="wm-soft">Software</span>
+          </a>
+        ) : (
+          <a href={paths.landing()} className="site-logo" aria-label="BauPad – zur Startseite">
+            <img src="./icons/logo-header.png" alt="BauPad" height={30} />
+          </a>
+        )}
         <nav className={`site-links${open ? ' open' : ''}`} aria-label="Hauptnavigation" id="site-links">
+          {isSite && (
+            <a href={paths.landing()} aria-current={current(paths.landing())}>
+              BauPad
+            </a>
+          )}
           <a href={paths.about()} aria-current={current(paths.about())}>
             Über uns
           </a>

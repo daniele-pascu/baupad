@@ -275,7 +275,7 @@ test('Erstnutzer: vom neuen Projekt bis zum importierten PDF', async ({ page }) 
 test('Website und Planliste auf Smartphone/Tablet: Menü, keine Überbreite, Aktionen per Finger', async ({ page }, info) => {
   const isPhone = info.project.name === 'iphone';
   await page.goto('./');
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Die Baustelle. In einer App.');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('BauPad. Die Baustelle in einer App.');
   await noHorizontalScroll(page);
   const nav = page.getByTestId('site-nav');
   if (isPhone) {

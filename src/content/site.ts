@@ -9,53 +9,39 @@ export const site = {
   company: 'PAD Software',
   product: 'BauPad',
   home: {
-    /** Kleine Zeile über der Überschrift */
     eyebrow: 'PAD Software · Software für die Baustelle',
-    title: 'Die Baustelle. In einer App.',
-    lead:
-      'BauPad vereint Aufmaß und Abrechnung, Arbeitereinteilung, Berichte und Fotodokumentation – ' +
-      'auf Handy, Tablet und PC, auch ohne Internet in der Tiefgarage.',
+    title: 'BauPad. Die Baustelle in einer App.',
+    lead: 'Aufmaß, Arbeitereinteilung, Berichte und Fotos – am Handy auf der Baustelle, am PC im Büro. Auch ohne Internet.',
     cta: 'BauPad öffnen',
-    secondary: 'Funktionen ansehen',
+    secondary: 'Werkzeuge ansehen',
     /** Die vier Werkzeuge von BauPad – nur, was es wirklich gibt */
     tools: [
-      {
-        id: 'projects' as const,
-        color: '#ff6a13',
-        title: 'Aufmaß & Abrechnung',
-        text: 'Pläne öffnen oder zeichnen, Schadstellen und Flächen direkt im Plan erfassen.',
-        points: ['Messungen mit Abzügen, Bauteilen und Leistungen', 'Aufmaß als Excel, Pläne als PDF', 'Rechnungen je Projekt aufteilen'],
-      },
-      {
-        id: 'workers' as const,
-        color: '#2f80ed',
-        title: 'Arbeitereinteilung',
-        text: 'Wochenplanung: Wer arbeitet wann auf welcher Baustelle.',
-        points: ['Zuweisen per Klick, Urlaub und Krankenstand', 'Wochen weiterführen', 'Einteilung als PDF mit Firmenlogo'],
-      },
-      {
-        id: 'reports' as const,
-        color: '#a259ff',
-        title: 'Berichte & Formulare',
-        text: 'Regielisten, Bautagesberichte und Wochenberichte wie die gewohnten Formulare.',
-        points: ['Baustelle und Mannschaft werden übernommen', 'Formular-PDF mit Logo und Unterschriftsfeldern', 'Mehrere Berichte als ein PDF'],
-      },
-      {
-        id: 'photos' as const,
-        color: '#111111',
-        title: 'Fotodokumentation',
-        text: 'Fotos je Baustelle, Kalenderwoche und Tag – mit eigenem Kamera-Modus.',
-        points: ['Aufnahme direkt der Baustelle zuordnen', 'Galerie mit Suche, Zoom und Drehen', 'Foto-PDF und ZIP mit Datum'],
-      },
+      { id: 'projects' as const, color: '#ff6a13', title: 'Aufmaß & Abrechnung', text: 'Schadstellen und Flächen direkt im Plan erfassen, fertig als Excel und PDF.', image: 'aufmass-editor.jpg', points: ['Messen im Plan oder selbst zeichnen', 'Excel-Aufmaßblatt und Plan-PDF'] },
+      { id: 'workers' as const, color: '#2f80ed', title: 'Arbeitereinteilung', text: 'Wer arbeitet wann auf welcher Baustelle – die Woche auf einen Blick.', image: 'arbeiter-woche.jpg', points: ['Zuweisen per Klick, Urlaub und Krankenstand', 'Wochenplan als PDF mit Logo'] },
+      { id: 'reports' as const, color: '#a259ff', title: 'Berichte & Formulare', text: 'Regielisten, Bautages- und Wochenberichte wie die gewohnten Formulare.', image: 'berichte-regie-editor.jpg', points: ['Mannschaft wird übernommen', 'Formular-PDF mit Unterschriftsfeldern'] },
+      { id: 'photos' as const, color: '#111111', title: 'Fotodokumentation', text: 'Jedes Foto bei der richtigen Baustelle, Kalenderwoche und am richtigen Tag.', image: 'fotos-baustelle.jpg', points: ['Kamera-Modus mit Baustelle oben', 'Foto-PDF und ZIP mit Datum'] },
     ],
-    /** So läuft ein Tag mit BauPad */
-    steps: [
-      { title: 'Baustelle anlegen', text: 'Projekt mit Nummer, Adresse und Auftraggeber – einmal erfasst, überall übernommen.' },
-      { title: 'Auf der Baustelle arbeiten', text: 'Messen, einteilen, fotografieren, Regieliste ausfüllen – auch ohne Empfang.' },
-      { title: 'Ins Büro liefern', text: 'Excel, PDF und ZIP mit einem Tipp erstellen, teilen oder drucken.' },
+    /** Für wen BauPad gemacht ist */
+    roles: [
+      { title: 'Polier und Partie', text: 'Fotos, Regieliste und Stunden direkt vor Ort – in Minuten erledigt, auch ohne Empfang.' },
+      { title: 'Bauleitung', text: 'Aufmaß im Plan, Mannschaft einteilen, Berichte prüfen und als PDF freigeben.' },
+      { title: 'Büro', text: 'Excel, PDF und ZIP kommen fertig an – kein Abtippen von Zetteln.' },
     ],
-    /** Hinweise unter den Funktionen */
     facts: ['Funktioniert offline', 'Installation ohne App Store', 'iPhone, iPad, Android und PC', 'Daten bleiben auf dem Gerät'],
+    /** Fragen und Antworten – nur, was heute stimmt */
+    faq: [
+      { q: 'Funktioniert BauPad ohne Internet?', a: 'Ja. Nach dem ersten Öffnen läuft BauPad vollständig offline – auch in der Tiefgarage. Alle Daten werden auf dem Gerät gespeichert.' },
+      { q: 'Auf welchen Geräten läuft es?', a: 'iPhone, iPad, Android-Handys und -Tablets sowie PC und Mac im Browser. Am Handy lässt sich BauPad wie eine App auf den Home-Bildschirm legen – ohne App Store.' },
+      { q: 'Wo liegen meine Daten?', a: 'Derzeit ausschließlich auf deinem Gerät; Sicherungen erstellst du als Datei. Eine gemeinsame Ablage für alle Geräte eines Unternehmens mit Benutzerkonten ist in Vorbereitung.' },
+      { q: 'Was kostet BauPad?', a: 'BauPad ist derzeit kostenlos nutzbar. Preise für Unternehmen mit gemeinsamer Ablage und Benutzerkonten werden mit der Anmeldung veröffentlicht.' },
+      { q: 'Passen die Formulare zu meinen?', a: 'Regieliste und Bautagesbericht sind an gängige Baustellenformulare angelehnt. Firmenname, Anschrift und Logo kommen aus deinen Einstellungen.' },
+    ],
+    /** Was als Nächstes kommt – ehrlich, ohne Termin */
+    roadmap: [
+      { title: 'Benutzerkonten und Unternehmen', text: 'Anmeldung mit Rollen für Admin, Polier, Arbeiter und Büro.' },
+      { title: 'Gemeinsame Ablage', text: 'Fotos und Berichte zentral für alle Geräte, gespeichert in der EU.' },
+      { title: 'App Store und Google Play', text: 'BauPad zusätzlich als App zum Installieren.' },
+    ],
     companyTitle: 'Aus der Praxis, für die Praxis',
     companyText:
       'PAD Software entwickelt Werkzeuge für Baufirmen – entstanden auf den Baustellen der Betoninstandsetzung in Wien. ' +

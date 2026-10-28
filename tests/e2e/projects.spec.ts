@@ -10,13 +10,15 @@ import { FIXTURES, OUT, createProject, freshStart, openPlan, selectCostCenter, t
 
 test('Website: Startseite, Über uns, Kontakt, Impressum, Anmelden und Logo', async ({ page }) => {
   await page.goto('./');
-  await expect(page).toHaveTitle('BauPad');
+  await expect(page).toHaveTitle('PAD Software – BauPad');
   const nav = page.getByTestId('site-nav');
   await expect(nav).toBeVisible();
   // schwarze Navigationsleiste
   expect(await nav.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(0, 0, 0)');
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Die Baustelle. In einer App.');
-  await expect(page.locator('.hero-lead')).toContainText('BauPad vereint Aufmaß und Abrechnung, Arbeitereinteilung, Berichte und Fotodokumentation');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('BauPad. Die Baustelle in einer App.');
+  await expect(page.locator('.hero-lead')).toContainText('Aufmaß, Arbeitereinteilung, Berichte und Fotos');
+  await expect(page.getByTestId('device-stage').locator('img')).toHaveCount(3);
+  await expect(page.getByTestId('faq').locator('details')).toHaveCount(5);
   await expect(page.getByTestId('product-card')).toHaveCount(4);
   await expect(page.getByTestId('product-card').nth(3)).toContainText('Fotodokumentation');
   // Produktseite: Bilder aus der App und Beispiel-Exporte
@@ -47,8 +49,8 @@ test('Website: Startseite, Über uns, Kontakt, Impressum, Anmelden und Logo', as
   await expect(page.locator('.site-text')).toContainText('GitHub Pages');
 
   // Logo führt immer zur Startseite
-  await nav.getByRole('link', { name: 'BauPad – zur Startseite' }).click();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Die Baustelle. In einer App.');
+  await nav.getByRole('link', { name: 'PAD Software – zur Startseite' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('BauPad. Die Baustelle in einer App.');
 
   // „Anmelden“: Anmeldeseite – Konten sind noch nicht eingerichtet, es wird nichts vorgetäuscht
   await nav.getByRole('link', { name: 'Anmelden' }).click();
