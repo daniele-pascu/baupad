@@ -95,6 +95,28 @@ test('Mängelplan: Plan hochladen, Markierungen setzen und bearbeiten, PDF', asy
   await expect(page.locator('[data-testid="dp-num"][data-no="2"]')).toHaveCount(1);
   await expect(page.locator('[data-testid="dp-num"][data-no="3"]')).toHaveCount(0);
 
+  // Zoom und Verschieben wie in der Planansicht: Knöpfe, Mausrad, Ziehen auf leerer Fläche
+  await expect(page.getByTestId('dp-canvas')).toHaveAttribute('data-zoom', '1.00');
+  await expect(page.getByTestId('dp-zoom-out')).toBeDisabled();
+  await page.getByTestId('dp-zoom-in').click();
+  await expect(page.getByTestId('dp-canvas')).toHaveAttribute('data-zoom', '1.40');
+  await expect(page.getByTestId('dp-zoom-value')).toHaveText('140 %');
+  const canvas = (await page.getByTestId('dp-canvas').boundingBox())!;
+  await page.mouse.move(canvas.x + canvas.width / 2, canvas.y + canvas.height / 2);
+  await page.mouse.wheel(0, -300);
+  await expect.poll(async () => parseFloat((await page.getByTestId('dp-canvas').getAttribute('data-zoom')) ?? '0')).toBeGreaterThan(1.4);
+  const before = (await stage.boundingBox())!;
+  await page.getByTestId('dp-tool-select').click();
+  await page.mouse.move(canvas.x + canvas.width * 0.9, canvas.y + canvas.height * 0.9); // leere Fläche rechts unten
+  await page.mouse.down();
+  await page.mouse.move(canvas.x + canvas.width * 0.5, canvas.y + canvas.height * 0.5, { steps: 5 });
+  await page.mouse.up();
+  const after = (await stage.boundingBox())!;
+  expect(after.x).toBeLessThan(before.x - 20); // Plan wurde nach links verschoben
+  await expect(page.getByTestId('dp-item')).toHaveCount(2); // Ziehen auf leerer Fläche legt nichts an
+  await page.getByTestId('dp-zoom-fit').click();
+  await expect(page.getByTestId('dp-canvas')).toHaveAttribute('data-zoom', '1.00');
+
   // bleibt nach dem Neuladen
   await page.reload();
   await expect(page.getByTestId('dp-item')).toHaveCount(2);

@@ -33,9 +33,13 @@ function pinPath(x: number, y: number, s: number): string {
   return `M${x} ${y} C${x - r * 0.9} ${y - s * 0.45} ${x - r} ${cy + r * 0.2} ${x - r} ${cy} A${r} ${r} 0 1 1 ${x + r} ${cy} C${x + r} ${cy + r * 0.2} ${x + r * 0.9} ${y - s * 0.45} ${x} ${y}Z`;
 }
 
+type View = { s: number; tx: number; ty: number };
+const MAX_S = 8;
+
 /**
- * Plan mit Markierungen: Bild + SVG-Ebene. Werkzeug „auswählen“ trifft Markierungen (und verschiebt sie),
- * die Zeichenwerkzeuge legen Pins, Formen und Text an. Koordinaten sind relativ (0..1) zum Bild.
+ * Plan mit Markierungen: Bild + SVG-Ebene, mit Zoom und Verschieben wie in der Planansicht des Aufmaßes
+ * (Mausrad, zwei Finger, Knöpfe; Ziehen auf leerer Fläche verschiebt). Werkzeug „auswählen“ trifft Markierungen
+ * (und verschiebt sie), die Zeichenwerkzeuge legen Pins, Formen und Text an. Koordinaten sind relativ (0..1) zum Bild.
  */
 function PlanCanvas({
   plan,
@@ -44,7 +48,8 @@ function PlanCanvas({
   selectedId,
   tool,
   color,
-  zoom,
+  zoomCmd,
+  onZoom,
   onCreate,
   onSelect,
   onOpen,
@@ -56,7 +61,9 @@ function PlanCanvas({
   selectedId: string | null;
   tool: Tool;
   color: string;
-  zoom: number;
+  /** Befehl von außen: Faktor (>1 vergrößern, <1 verkleinern) oder 0 = einpassen; Zähler, damit gleiche Befehle erneut wirken */
+  zoomCmd: { n: number; factor: number };
+  onZoom(scale: number): void;
   onCreate(shape: MarkShape, points: Pt[]): void;
   onSelect(id: string | null): void;
   onOpen(id: string): void;
@@ -64,75 +71,177 @@ function PlanCanvas({
 }) {
   const box = useRef<HTMLDivElement>(null);
   const stage = useRef<HTMLDivElement>(null);
-  const [fitW, setFitW] = useState(800);
+  const [size, setSize] = useState({ w: 800, h: 500 });
+  const [view, setViewState] = useState<View>({ s: 1, tx: 0, ty: 0 });
+  const viewRef = useRef(view);
   const [draft, setDraft] = useState<{ shape: MarkShape; points: Pt[] } | null>(null);
-  const drag = useRef<{ kind: 'draw' | 'move'; start: Pt; last: Pt; id?: string; orig?: Pt[]; moved: boolean } | null>(null);
-  useEffect(() => {
-    const el = box.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => setFitW(el.clientWidth - 2));
-    ro.observe(el);
-    setFitW(el.clientWidth - 2);
-    return () => ro.disconnect();
-  }, []);
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const gesture = useRef<
+    | { kind: 'draw'; start: Pt; moved: boolean }
+    | { kind: 'move'; start: Pt; id: string; orig: Pt[]; moved: boolean }
+    | { kind: 'pan'; x: number; y: number; view: View; moved: boolean }
+    | { kind: 'pinch'; dist: number; mid: { x: number; y: number }; view: View }
+    | null
+  >(null);
   const W = plan.width;
   const H = plan.height;
   const ar = W / H;
-  const dispW = Math.max(100, fitW) * zoom;
-  const dispH = dispW / ar;
+  /** eingepasste Größe (Zoom 1) */
+  const fitW = size.w;
+  const fitH = fitW / ar;
+
+  const setView = (v: View) => {
+    viewRef.current = v;
+    setViewState(v);
+    onZoom(v.s);
+  };
+  /** Bild im Rahmen halten: kleiner als der Rahmen → zentriert, sonst keine leeren Ränder */
+  const clamp = (v: View): View => {
+    const cw = fitW * v.s;
+    const ch = fitH * v.s;
+    const bw = size.w;
+    const bh = size.h;
+    const tx = cw <= bw ? (bw - cw) / 2 : Math.min(0, Math.max(bw - cw, v.tx));
+    const ty = ch <= bh ? (bh - ch) / 2 : Math.min(0, Math.max(bh - ch, v.ty));
+    return { s: v.s, tx, ty };
+  };
+  /** um den Faktor zoomen, der Rahmenpunkt (bx, by) bleibt an Ort und Stelle */
+  const zoomAt = (factor: number, bx: number, by: number, from: View = viewRef.current) => {
+    const s = Math.min(MAX_S, Math.max(1, from.s * factor));
+    const k = s / from.s;
+    setView(clamp({ s, tx: bx - (bx - from.tx) * k, ty: by - (by - from.ty) * k }));
+  };
+
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const measure = () => {
+      const w = Math.max(100, el.clientWidth - 2);
+      const h = Math.min(Math.round(w / ar), Math.round(window.innerHeight * 0.72));
+      setSize({ w, h });
+    };
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    measure();
+    return () => ro.disconnect();
+  }, [ar]);
+  useEffect(() => {
+    setView(clamp({ s: 1, tx: 0, ty: 0 }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [size.w, size.h]);
+  useEffect(() => {
+    if (!zoomCmd.n) return;
+    if (zoomCmd.factor === 0) setView(clamp({ s: 1, tx: 0, ty: 0 }));
+    else zoomAt(zoomCmd.factor, size.w / 2, size.h / 2);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoomCmd.n]);
+  // Mausrad (mit Strg feiner), passiv aus, damit die Seite nicht scrollt
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const r = el.getBoundingClientRect();
+      zoomAt(Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0022)), e.clientX - r.left, e.clientY - r.top);
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [size.w, size.h]);
+
   /** Strich- und Symbolgrößen in Bildpixeln, damit sie bei jeder Zoomstufe am Bildschirm gleich groß sind */
-  const px = (n: number) => (n * W) / dispW;
+  const px = (n: number) => (n * W) / (fitW * view.s);
   const tol = px(14) / H;
 
-  const rel = (e: RPointerEvent): Pt => {
+  const boxPt = (e: { clientX: number; clientY: number }) => {
+    const r = box.current!.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  };
+  const rel = (e: { clientX: number; clientY: number }): Pt => {
     const r = stage.current!.getBoundingClientRect();
     return { x: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) };
   };
   const hitAt = (p: Pt) => [...marks].reverse().find((m) => hitMark(m, p, tol, ar)) ?? null;
+  const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
 
   const down = (e: RPointerEvent) => {
-    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    if (e.pointerType === 'mouse' && e.button !== 0 && e.button !== 1) return;
+    (e.currentTarget as Element).setPointerCapture(e.pointerId);
+    pointers.current.set(e.pointerId, boxPt(e));
+    if (pointers.current.size === 2) {
+      // zweiter Finger: Zeichnen/Verschieben abbrechen, ab jetzt Zoom und Verschieben
+      const [a, b] = [...pointers.current.values()];
+      setDraft(null);
+      gesture.current = { kind: 'pinch', dist: dist(a, b), mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, view: viewRef.current };
+      return;
+    }
+    if (pointers.current.size > 2) return;
     const p = rel(e);
-    if (tool === 'select') {
-      const m = hitAt(p);
+    const bp = boxPt(e);
+    if (tool === 'select' || e.button === 1) {
+      const m = tool === 'select' && e.button !== 1 ? hitAt(p) : null;
       if (!m) {
-        onSelect(null);
+        if (tool === 'select' && e.button !== 1) onSelect(null);
+        gesture.current = { kind: 'pan', x: bp.x, y: bp.y, view: viewRef.current, moved: false };
         return;
       }
-      (e.target as Element).setPointerCapture(e.pointerId);
-      drag.current = { kind: 'move', start: p, last: p, id: m.id, orig: m.points, moved: false };
+      gesture.current = { kind: 'move', start: p, id: m.id, orig: m.points, moved: false };
       onSelect(m.id);
       return;
     }
-    (e.target as Element).setPointerCapture(e.pointerId);
-    drag.current = { kind: 'draw', start: p, last: p, moved: false };
+    gesture.current = { kind: 'draw', start: p, moved: false };
     if (tool === 'freehand') setDraft({ shape: 'freehand', points: [p] });
     else setDraft({ shape: tool, points: [p, p] });
   };
   const move = (e: RPointerEvent) => {
-    const d = drag.current;
-    if (!d) return;
-    const p = rel(e);
-    if (Math.hypot((p.x - d.start.x) * ar, p.y - d.start.y) > 0.004) d.moved = true;
-    d.last = p;
-    if (d.kind === 'move' && d.id && d.orig && d.moved) {
-      const dx = p.x - d.start.x;
-      const dy = p.y - d.start.y;
-      onMove(d.id, d.orig.map((q) => ({ x: Math.min(1, Math.max(0, q.x + dx)), y: Math.min(1, Math.max(0, q.y + dy)) })));
+    if (!pointers.current.has(e.pointerId)) return;
+    pointers.current.set(e.pointerId, boxPt(e));
+    const g = gesture.current;
+    if (!g) return;
+    if (g.kind === 'pinch') {
+      if (pointers.current.size < 2) return;
+      const [a, b] = [...pointers.current.values()];
+      const d = dist(a, b);
+      const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      const s = Math.min(MAX_S, Math.max(1, (g.view.s * d) / g.dist));
+      const k = s / g.view.s;
+      // Zoom um die Startmitte, dazu die Bewegung der Finger als Verschiebung
+      setView(clamp({ s, tx: g.mid.x - (g.mid.x - g.view.tx) * k + (mid.x - g.mid.x), ty: g.mid.y - (g.mid.y - g.view.ty) * k + (mid.y - g.mid.y) }));
       return;
     }
-    if (d.kind === 'draw') {
-      if (tool === 'freehand') setDraft((s) => (s ? { ...s, points: [...s.points, p] } : s));
-      else if (tool !== 'pin' && tool !== 'text' && tool !== 'select') setDraft({ shape: tool, points: [d.start, p] });
+    if (g.kind === 'pan') {
+      const bp = boxPt(e);
+      if (Math.hypot(bp.x - g.x, bp.y - g.y) > 3) g.moved = true;
+      if (g.moved) setView(clamp({ s: g.view.s, tx: g.view.tx + bp.x - g.x, ty: g.view.ty + bp.y - g.y }));
+      return;
     }
+    const p = rel(e);
+    if (Math.hypot((p.x - g.start.x) * ar, p.y - g.start.y) > 0.004) g.moved = true;
+    if (g.kind === 'move') {
+      if (!g.moved) return;
+      const dx = p.x - g.start.x;
+      const dy = p.y - g.start.y;
+      onMove(g.id, g.orig.map((q) => ({ x: Math.min(1, Math.max(0, q.x + dx)), y: Math.min(1, Math.max(0, q.y + dy)) })));
+      return;
+    }
+    if (tool === 'freehand') setDraft((s) => (s ? { ...s, points: [...s.points, p] } : s));
+    else if (tool !== 'pin' && tool !== 'text' && tool !== 'select') setDraft({ shape: tool, points: [g.start, p] });
   };
   const up = (e: RPointerEvent) => {
-    const d = drag.current;
-    drag.current = null;
-    if (!d) return;
+    if (!pointers.current.has(e.pointerId)) return;
+    pointers.current.delete(e.pointerId);
+    const g = gesture.current;
+    if (!g) return;
+    if (g.kind === 'pinch') {
+      gesture.current = null;
+      return;
+    }
+    if (pointers.current.size) return;
+    gesture.current = null;
+    if (g.kind === 'pan') return;
     const p = rel(e);
-    if (d.kind === 'move') {
-      if (!d.moved && d.id && d.id === selectedId) onOpen(d.id);
+    if (g.kind === 'move') {
+      if (!g.moved && g.id === selectedId) onOpen(g.id);
       return;
     }
     setDraft(null);
@@ -141,12 +250,19 @@ function PlanCanvas({
       return;
     }
     if (tool === 'freehand') {
-      const pts = thinPoints(draft?.points ?? [d.start, p]);
+      const pts = thinPoints(draft?.points ?? [g.start, p]);
       if (pts.length >= 2) onCreate('freehand', pts);
       return;
     }
-    if (!d.moved || tool === 'select') return; // zu klein
-    onCreate(tool, [d.start, p]);
+    if (!g.moved || tool === 'select') return; // zu klein
+    onCreate(tool, [g.start, p]);
+  };
+  const cancel = (e: RPointerEvent) => {
+    pointers.current.delete(e.pointerId);
+    if (!pointers.current.size) {
+      gesture.current = null;
+      setDraft(null);
+    }
   };
 
   const sw = px(3);
@@ -193,22 +309,30 @@ function PlanCanvas({
   };
 
   return (
-    <div ref={box} className={`dp-canvas${tool === 'select' ? '' : ' drawing'}`} data-testid="dp-canvas">
-      <div ref={stage} className="dp-stage" style={{ width: dispW, height: dispH }} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={() => (drag.current = null)}>
+    <div ref={box} className={`dp-canvas${tool === 'select' ? '' : ' drawing'}`} style={{ height: size.h }} data-testid="dp-canvas" data-zoom={view.s.toFixed(2)}>
+      <div
+        ref={stage}
+        className="dp-stage"
+        style={{ width: fitW, height: fitH, transform: `translate(${view.tx}px, ${view.ty}px) scale(${view.s})` }}
+        onPointerDown={down}
+        onPointerMove={move}
+        onPointerUp={up}
+        onPointerCancel={cancel}
+      >
         {url ? <img src={url} alt="" draggable={false} /> : <div className="dp-loading muted small">Plan wird geladen …</div>}
-        <svg viewBox={`0 0 ${W} ${H}`} width={dispW} height={dispH} aria-hidden="true">
+        <svg viewBox={`0 0 ${W} ${H}`} width={fitW} height={fitH} aria-hidden="true">
           {marks.map((m) => renderShape(m, m.id, m.id === selectedId))}
           {draft && renderShape({ ...draft, color }, 'draft', false, true)}
         </svg>
         {marks.map((m) => {
           const a = markAnchor(m);
-          const dy = m.shape === 'pin' ? -44 : m.shape === 'text' ? -22 : -2;
+          const dy = (m.shape === 'pin' ? -44 : m.shape === 'text' ? -22 : -2) / view.s;
           return (
             <button
               key={m.id}
               type="button"
               className={`dp-num${m.id === selectedId ? ' on' : ''}`}
-              style={{ left: `${a.x * 100}%`, top: `calc(${a.y * 100}% + ${dy}px)`, borderColor: m.color, color: m.color }}
+              style={{ left: `${a.x * 100}%`, top: `calc(${a.y * 100}% + ${dy}px)`, borderColor: m.color, color: m.color, transform: `translate(-50%, -50%) scale(${(m.id === selectedId ? 1.25 : 1) / view.s})` }}
               onPointerDown={(e) => e.stopPropagation()}
               onClick={() => (m.id === selectedId ? onOpen(m.id) : onSelect(m.id))}
               aria-label={`Markierung ${m.no}`}
@@ -398,6 +522,8 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
   const [color, setColor] = useState(MARK_COLORS[0]);
   const [kind, setKind] = useState<DefectKind>('mangel');
   const [zoom, setZoom] = useState(1);
+  const [zoomCmd, setZoomCmd] = useState({ n: 0, factor: 1 });
+  const zoomBy = (factor: number) => setZoomCmd((c) => ({ n: c.n + 1, factor }));
   const [selected, setSelected] = useState<string | null>(markId);
   const [editing, setEditing] = useState<DefectMark | null>(null);
   const [filter, setFilter] = useState<DefectKind | 'all'>('all');
@@ -538,21 +664,22 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
             ))}
           </select>
           <span className="dp-sep" />
-          <button type="button" className="tb" onClick={() => setZoom((z) => Math.min(6, z * 1.25))} aria-label="Vergrößern" data-testid="dp-zoom-in">
+          <button type="button" className="tb" onClick={() => zoomBy(1.4)} aria-label="Vergrößern" title="Vergrößern – auch Mausrad oder zwei Finger" data-testid="dp-zoom-in">
             <Icon name="plus" size={16} />
           </button>
-          <button type="button" className="tb" onClick={() => setZoom((z) => Math.max(1, z / 1.25))} aria-label="Verkleinern" disabled={zoom <= 1} data-testid="dp-zoom-out">
+          <button type="button" className="tb" onClick={() => zoomBy(1 / 1.4)} aria-label="Verkleinern" disabled={zoom <= 1} data-testid="dp-zoom-out">
             <Icon name="minus" size={16} />
           </button>
-          {zoom > 1 && (
-            <button type="button" className="tb" onClick={() => setZoom(1)} aria-label="Einpassen">
-              <Icon name="fit" size={16} />
-            </button>
-          )}
+          <button type="button" className="tb" onClick={() => zoomBy(0)} aria-label="Einpassen" title="Auf Rahmengröße" disabled={zoom <= 1} data-testid="dp-zoom-fit">
+            <Icon name="fit" size={16} />
+          </button>
+          <span className="muted small dp-zoom-value" data-testid="dp-zoom-value">
+            {Math.round(zoom * 100)} %
+          </span>
         </div>
         {tool !== 'select' && (
           <p className="muted small dp-hint" data-testid="dp-hint">
-            {tool === 'pin' || tool === 'text' ? 'Im Plan antippen, wo die Markierung sitzen soll.' : tool === 'freehand' ? 'Mit dem Finger oder der Maus im Plan zeichnen.' : 'Im Plan aufziehen: Startpunkt drücken, ziehen, loslassen.'}
+            {tool === 'pin' || tool === 'text' ? 'Im Plan antippen, wo die Markierung sitzen soll.' : tool === 'freehand' ? 'Mit dem Finger oder der Maus im Plan zeichnen.' : 'Im Plan aufziehen: Startpunkt drücken, ziehen, loslassen.'} Verschieben und Zoom mit zwei Fingern oder Mausrad.
           </p>
         )}
 
@@ -565,7 +692,8 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
               selectedId={selected}
               tool={tool}
               color={color}
-              zoom={zoom}
+              zoomCmd={zoomCmd}
+              onZoom={setZoom}
               onCreate={(s, p) => void create(s, p)}
               onSelect={setSelected}
               onOpen={(id) => setEditing(marks.find((m) => m.id === id) ?? null)}
