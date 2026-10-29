@@ -344,15 +344,23 @@ export function PrivacyPage() {
       ['Der Kamera-Modus greift nur mit deiner ausdrücklichen Erlaubnis auf die Kamera zu. Das Bild wird ausschließlich auf dem Gerät verarbeitet und gespeichert.'],
     ],
     [
+      'Benutzerkonto',
+      [
+        'Für die Werkzeuge ist ein Benutzerkonto nötig. Beim Registrieren werden E-Mail-Adresse, Name, optional der Firmenname sowie ein verschlüsselt gespeichertes Passwort verarbeitet; bei Anmeldung über Google, Apple oder Microsoft erhalten wir von dort Name und E-Mail-Adresse. Dazu kommen Arbeitsbereich (Firma), Funktion und freigegebene Werkzeuge, die der Admin deiner Firma festlegt.',
+        'Diese Kontodaten speichert unser Auftragsverarbeiter Supabase Inc. in einem Rechenzentrum in der EU (Irland) auf Grundlage von Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung). Projekte, Pläne, Fotos und Berichte bleiben weiterhin auf deinem Gerät.',
+        'Du kannst dein Konto jederzeit unter „Konto und Einstellungen“ selbst löschen; damit werden Konto, Mitgliedschaften und ein nur von dir genutzter Arbeitsbereich entfernt.',
+      ],
+    ],
+    [
       'Geplante zentrale Ablage',
       [
-        'Eine gemeinsame Ablage für Unternehmen mit Benutzerkonten ist in Vorbereitung. Sobald sie verfügbar ist, wird diese Erklärung um die dann eingesetzten Dienste und Speicherorte (Rechenzentren in der EU) ergänzt. Bis dahin verlässt kein Inhalt dein Gerät.',
+        'Eine gemeinsame Ablage für Fotos und Berichte aller Geräte eines Unternehmens ist in Vorbereitung. Sobald sie verfügbar ist, wird diese Erklärung um die dann eingesetzten Dienste und Speicherorte (Rechenzentren in der EU) ergänzt.',
       ],
     ],
     [
       'Deine Rechte',
       [
-        'Da wir keine personenbezogenen Daten von dir speichern, können wir auch keine herausgeben oder löschen – das kannst du jederzeit selbst am Gerät (Projekt löschen, Browserdaten löschen). Fragen zum Datenschutz beantworten wir über die Kontaktseite. Beschwerden sind an die österreichische Datenschutzbehörde möglich (www.dsb.gv.at).',
+        'Du hast das Recht auf Auskunft, Berichtigung, Löschung und Datenübertragbarkeit deiner Kontodaten; Löschen und Ändern kannst du selbst in der App, alles Weitere über die Kontaktseite. Inhalte auf dem Gerät löschst du jederzeit selbst (Projekt löschen, Browserdaten löschen). Beschwerden sind an die österreichische Datenschutzbehörde möglich (www.dsb.gv.at).',
       ],
     ],
   ];
@@ -361,7 +369,7 @@ export function PrivacyPage() {
       <SiteNav />
       <main className="site-main site-text">
         <h1 className="site-title fade-in">Datenschutz</h1>
-        <p className="fade-in delay-1">Stand: {new Date().toLocaleDateString('de-AT', { month: 'long', year: 'numeric' })}. Kurz gesagt: BauPad speichert deine Daten auf deinem Gerät, nicht bei uns.</p>
+        <p className="fade-in delay-1">Stand: {new Date().toLocaleDateString('de-AT', { month: 'long', year: 'numeric' })}. Kurz gesagt: Dein Benutzerkonto liegt bei unserem Dienstleister in der EU, deine Projekte, Fotos und Berichte bleiben auf deinem Gerät.</p>
         {sections.map(([h, ps]) => (
           <section key={h} className="legal-section fade-in delay-2">
             <h2>{h}</h2>

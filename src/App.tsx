@@ -20,7 +20,8 @@ import { PhotosPage } from './pages/PhotosPage';
 import { PhotoSitePage } from './pages/PhotoSitePage';
 
 import { isInstalledApp } from './lib/platform';
-import { authSkipped, getAuth } from './lib/auth';
+import { getAuth } from './lib/auth';
+import { useSession } from './lib/use-session';
 import { hasStoredSession, initAuth } from './lib/auth-init';
 
 initAuth();
@@ -37,9 +38,28 @@ if (typeof window !== 'undefined' && isInstalledApp()) {
   }
   // War beim letzten Schließen der Kamera-Modus offen, geht es direkt dort weiter (ein Tipp weniger)
   if (resume && (name === 'landing' || name === 'tools' || name === 'projects')) navigate(paths.camera(), true);
-  // Ohne Anmeldung und ohne „ohne Konto weiter“: zuerst Anmelden/Registrieren, dann die Tools
-  else if (name === 'landing' && !hasStoredSession() && !authSkipped()) navigate(paths.login(), true);
+  // Ohne gespeicherte Anmeldung: zuerst Anmelden/Registrieren, sonst direkt die Tools
+  else if (name === 'landing' && !hasStoredSession()) navigate(paths.login(), true);
   else if (name === 'landing') navigate(paths.tools(), true);
+}
+
+/** Seiten ohne Anmeldung: Website, Anmelden/Registrieren, neues Passwort */
+const PUBLIC_ROUTES = new Set(['landing', 'about', 'contact', 'imprint', 'privacy', 'product', 'login', 'newPassword', 'notFound']);
+
+/**
+ * Zugangsschleuse für alle Werkzeuge: ohne Anmeldung geht es zur Anmeldeseite. Eine auf dem Gerät
+ * gespeicherte Anmeldung zählt auch offline (der Dienst muss nicht erreichbar sein) – erst Abmelden
+ * oder eine vom Dienst zurückgewiesene Sitzung entfernen sie.
+ */
+function AuthGate({ children }: { children: ReactNode }) {
+  const session = useSession();
+  const stored = hasStoredSession();
+  const blocked = session === null && !stored;
+  useEffect(() => {
+    if (blocked) navigate(paths.login(), true);
+  }, [blocked]);
+  if (blocked || (session === undefined && !stored)) return null;
+  return <>{children}</>;
 }
 
 /**
@@ -194,7 +214,7 @@ export function App() {
   return (
     <>
       <OfflineBadge />
-      {content}
+      {PUBLIC_ROUTES.has(route.name) ? content : <AuthGate>{content}</AuthGate>}
       <DialogHost />
       {splash && (
         <div className="splash" aria-hidden="true" data-testid="splash">

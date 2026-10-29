@@ -1,4 +1,4 @@
-import { expect, test, type CDPSession, type Page } from '@playwright/test';
+import { expect, test, type CDPSession, type Page } from './fixtures';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import {
@@ -291,7 +291,7 @@ test('Website und Planliste auf Smartphone/Tablet: Menü, keine Überbreite, Akt
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Kontakt');
   }
   await noHorizontalScroll(page);
-  await expect(nav.getByRole('link', { name: 'Anmelden' })).toBeVisible();
+  await expect(nav.getByTestId('nav-account')).toBeVisible(); // angemeldet: Konto statt „Anmelden“
   await page.screenshot({ path: join(OUT, `${info.project.name}-kontakt.png`) });
 
   // Planliste mit langer Bemerkung

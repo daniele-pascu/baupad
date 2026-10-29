@@ -1,4 +1,5 @@
 import { expect, type Page, type Download } from '@playwright/test';
+import { signInScript } from './fixtures';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -9,11 +10,12 @@ mkdirSync(OUT, { recursive: true });
 
 export async function freshStart(page: Page) {
   await page.goto('./');
-  await page.evaluate(async () => {
+  await page.evaluate(async ({ key, value }) => {
     const dbs = await indexedDB.databases?.();
     for (const d of dbs ?? []) if (d.name) indexedDB.deleteDatabase(d.name);
     localStorage.clear();
-  });
+    localStorage.setItem(key, value); // Anmeldung bleibt (Tools nur mit Anmeldung)
+  }, signInScript());
   await page.goto('./#/projekte');
   await page.reload();
   await expect(page).toHaveTitle('BauPad');

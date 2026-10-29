@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './fixtures';
 import { join } from 'node:path';
 import { createProject, FIXTURES, freshStart, OUT, pickTool, waitForPlan, waitSaved } from './helpers';
 

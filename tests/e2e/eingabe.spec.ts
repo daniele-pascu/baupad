@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './fixtures';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { excelExport, catchDownload, drawRect, FIXTURES, freshStart, OUT, pickTool, planBox, blattRows, readXlsx, saveDownload, waitForPlan, waitSaved } from './helpers';

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { join } from 'node:path';
 import { excelExport, catchDownload, createProject, drawRect, FIXTURES, freshStart, planBox, blattRows, readXlsx, saveDownload, waitForPlan, waitSaved, pickTool } from './helpers';
 

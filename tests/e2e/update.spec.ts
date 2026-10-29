@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import { rmSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';

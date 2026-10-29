@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { catchDownload, createProject, freshStart, saveDownload } from './helpers';
 
 /** Phase 6: Erinnerung an die Projektsicherung (Browser-Speicher ist keine Datensicherung). */

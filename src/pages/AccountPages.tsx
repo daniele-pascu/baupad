@@ -3,7 +3,7 @@ import { Icon } from '../components/Icon';
 import { SiteFooter, SiteNav } from '../components/SiteNav';
 import { getCompanyLogo, logoHeaderSize, removeCompanyLogo, saveCompanyLogo, type CompanyLogo } from '../lib/company';
 import { getMeta, setMeta } from '../lib/db';
-import { AuthNotConnected, getAuth, isEmail, PACKAGES, PROVIDERS, ROLES, TOOLS, defaultToolsForRole, setAuthSkipped, type CompanyUser, type PackageId, type Role, type Session, type ToolId } from '../lib/auth';
+import { AuthNotConnected, getAuth, isEmail, PACKAGES, PROVIDERS, ROLES, TOOLS, defaultToolsForRole, type CompanyUser, type PackageId, type Role, type Session, type ToolId } from '../lib/auth';
 import { useSession } from '../lib/use-session';
 import { listCompanyUsers, listLocalUsers, migrateLocalUsers, removeCompanyUser, saveCompanyUser, usesRemote } from '../lib/users';
 import { ProviderIcon } from '../components/ProviderIcon';
@@ -48,7 +48,6 @@ export function LoginPage({ register = false }: { register?: boolean }) {
     }
   };
   const done = (s: Session) => {
-    setAuthSkipped(false);
     toast(`Angemeldet als ${s.name || s.email}.`, 'success');
     navigate(paths.tools(), true);
   };
@@ -183,12 +182,8 @@ export function LoginPage({ register = false }: { register?: boolean }) {
               {unavailable && (
                 <div className="banner banner-info" role="status" data-testid="login-unavailable">
                   <p>
-                    <strong>Die Anmeldung ist noch nicht eingerichtet.</strong> Es wurden keine Daten gesendet. BauPad kannst du ohne Konto weiter nutzen – die
-                    Daten bleiben auf diesem Gerät.
+                    <strong>Die Anmeldung ist derzeit nicht verfügbar.</strong> Es wurden keine Daten gesendet. Bitte später noch einmal versuchen.
                   </p>
-                  <a href={paths.tools()} className="btn btn-sm">
-                    Weiter zu den Tools
-                  </a>
                 </div>
               )}
             </div>
@@ -196,12 +191,9 @@ export function LoginPage({ register = false }: { register?: boolean }) {
         )}
 
         <p className="auth-note">
-          Noch ohne Benutzerkonto nutzbar:{' '}
-          <a href={paths.tools()} onClick={() => setAuthSkipped(true)} data-testid="login-skip">
-            direkt zu den Tools
-          </a>
-          {' · '}
-          <a href={paths.account()}>Einstellungen</a>
+          Für die Werkzeuge ist ein Konto nötig. Projekte, Fotos und Berichte bleiben auf dem Gerät; das Konto verbindet später alle Geräte deiner Firma.
+          {' '}
+          <a href={paths.landing()}>Zur Startseite</a>
         </p>
       </main>
       <SiteFooter />
@@ -309,7 +301,6 @@ export function AccountPage() {
     if (!ok) return;
     try {
       await getAuth().deleteAccount();
-      setAuthSkipped(true);
       toast('Dein Konto wurde gelöscht.', 'success');
       navigate(paths.landing(), true);
     } catch (e) {
@@ -348,8 +339,7 @@ export function AccountPage() {
           session === null && (
             <div className="banner banner-info" role="status" data-testid="account-preview">
               <p>
-                <strong>Nicht angemeldet.</strong> App, Speicher und Firmenlogo funktionieren auf diesem Gerät auch ohne Konto. Mit Konto bekommst du
-                später dieselben Baustellen, Fotos und Berichte auf allen Geräten.
+                <strong>Nicht angemeldet.</strong>
               </p>
               <a href={paths.login()} className="btn btn-sm btn-primary">
                 Anmelden oder registrieren

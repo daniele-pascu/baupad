@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { createProject, freshStart } from './helpers';
 
 /** Aufmaß & Abrechnung: Suche, Sortierung (auf-/absteigend), kompakte Karten. */

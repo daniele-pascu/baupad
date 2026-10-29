@@ -52,7 +52,7 @@ export default defineConfig({
       },
       workbox: {
         // Alles, was die App offline braucht – inklusive pdf.js-Worker, Schriften, CMaps und WASM.
-        globPatterns: ['**/*.{js,mjs,css,html,png,svg,ico,webmanifest,bcmap,pfb,ttf,wasm,icc}'],
+        globPatterns: ['**/*.{js,mjs,css,html,png,jpg,svg,ico,webmanifest,bcmap,pfb,ttf,wasm,icc}'],
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         navigateFallback: 'index.html',
         cleanupOutdatedCaches: true,

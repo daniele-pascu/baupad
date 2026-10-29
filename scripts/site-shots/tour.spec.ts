@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from '../../tests/e2e/fixtures';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { withExifDate } from '../../tests/unit/exif-fixture';

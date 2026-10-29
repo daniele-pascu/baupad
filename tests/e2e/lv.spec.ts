@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { catchDownload, createProject, drawRect, FIXTURES, freshStart, OUT, planBox, readXlsx, readXlsxPrint, saveDownload, waitForPlan, waitSaved, pickTool } from './helpers';

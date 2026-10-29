@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { strToU8, zipSync } from 'fflate';
@@ -7,6 +7,9 @@ import { FIXTURES, OUT, createProject, freshStart, openPlan, selectCostCenter, t
 /**
  * Phase 2: Website und Navigation, Projektinformationen mit Kostenstelle, kompakte Planliste.
  */
+
+test.describe('ohne Anmeldung', () => {
+  test.use({ signedIn: false });
 
 test('Website: Startseite, Über uns, Kontakt, Impressum, Anmelden und Logo', async ({ page }) => {
   await page.goto('./');
@@ -29,7 +32,7 @@ test('Website: Startseite, Über uns, Kontakt, Impressum, Anmelden und Logo', as
   await expect(page.getByTestId('product-shots').locator('img')).toHaveCount(4);
   await expect(page.getByTestId('product-exports').locator('img')).toHaveCount(1);
   await page.getByTestId('product-open').click();
-  await expect(page.getByTestId('photos-title')).toHaveText('Fotodokumentation');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Anmelden'); // Werkzeug nur mit Anmeldung
   await page.goto('./');
 
   await nav.getByRole('link', { name: 'Über uns' }).click();
@@ -98,8 +101,26 @@ test('Website: Startseite, Über uns, Kontakt, Impressum, Anmelden und Logo', as
   await expect(page.getByTestId('auth-info')).toContainText('E-Mail an neu@example.com'); // Bestätigung ausstehend
   await page.getByTestId('auth-tab-login').click();
   await page.screenshot({ path: join(OUT, 'anmelden.png'), fullPage: true });
-  // nach der Anmeldung zuerst die Tools, von dort in Aufmaß & Abrechnung
-  await page.getByTestId('login-skip').click(); // ohne Konto direkt zu den Tools
+  // Ohne Anmeldung keine Werkzeuge: jede Werkzeug-Adresse führt zur Anmeldeseite
+  for (const h of ['#/tools', '#/projekte', '#/fotos', '#/fotos/kamera', '#/berichte', '#/arbeitereinteilung', '#/konto']) {
+    await page.goto(`./${h}`);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Anmelden');
+    expect(page.url()).toContain('#/anmelden');
+  }
+  await page.goto('./');
+  await page.getByTestId('cta-tools').click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Anmelden');
+});
+
+test('Installierte App ohne Anmeldung startet auf der Anmeldeseite', async ({ page }) => {
+  await page.addInitScript(() => Object.defineProperty(navigator, 'standalone', { get: () => true }));
+  await page.goto('./');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Anmelden');
+});
+});
+
+test('Angemeldet: Tools, Einstellungen und Benutzerliste', async ({ page }) => {
+  await page.goto('./#/tools');
   await expect(page.getByTestId('tools-title')).toHaveText('Tools');
   // Einstellungen (Zahnrad) nur auf der Tools-Seite, nicht mehr in Aufmaß & Abrechnung
   await page.getByTestId('tool-projects').click();
@@ -107,10 +128,11 @@ test('Website: Startseite, Über uns, Kontakt, Impressum, Anmelden und Logo', as
   await expect(page.getByTestId('account-link')).toHaveCount(0);
   await page.getByTestId('to-tools').click();
 
-  // Einstellungen: Kontobereich als Vorschau, alle Bereiche inaktiv
+  // Einstellungen: angemeldete Person, geplante Bereiche inaktiv
   await page.getByTestId('account-link').click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Konto und Einstellungen');
-  await expect(page.getByTestId('account-preview')).toContainText('Nicht angemeldet');
+  await expect(page.getByTestId('account-session')).toContainText('Angemeldet als Test Nutzer');
+  await expect(page.getByTestId('nav-account')).toHaveText('Test');
   await expect(page.getByTestId('account-section')).toHaveText([
     /Persönliche Daten/,
     /E-Mail und Konto/,
@@ -119,7 +141,7 @@ test('Website: Startseite, Über uns, Kontakt, Impressum, Anmelden und Logo', as
     /Firmeninformationen/,
     /Weitere Einstellungen/,
   ]);
-  await expect(page.getByTestId('account-logout')).toHaveCount(0); // ohne Anmeldung kein Abmelden
+  await expect(page.getByTestId('account-logout')).toBeVisible();
   // Benutzer & Rollen: Admin trägt Benutzer mit Funktion, Werkzeugen und Paket ein (bleibt nach dem Neuladen)
   await page.getByTestId('user-add').click();
   const ud = page.getByTestId('user-dialog');
@@ -147,23 +169,19 @@ test('Website: Startseite, Über uns, Kontakt, Impressum, Anmelden und Logo', as
   await page.getByRole('link', { name: 'Zu den Tools' }).click();
   await expect(page.getByTestId('tools-title')).toHaveText('Tools');
 
-  // Startseite (vor der Anmeldung): Knopf führt zu den Tools
+  // Startseite: Knopf führt angemeldet direkt zu den Tools
   await page.goto('./');
   await expect(page.getByTestId('cta-tools')).toHaveText(/BauPad öffnen/);
   await page.getByTestId('cta-tools').click();
   await expect(page.getByTestId('tools-title')).toHaveText('Tools');
 });
 
-test('Installierte App: erster Start zeigt Anmelden, „ohne Konto“ merkt sich das Gerät, danach direkt die Tools', async ({ browser }) => {
+test('Installierte App mit gespeicherter Anmeldung startet direkt in den Tools (auch ältere Home-Bildschirm-Symbole)', async ({ browser }) => {
   const context = await browser.newContext();
   await context.addInitScript(() => Object.defineProperty(navigator, 'standalone', { get: () => true }));
   const page = await context.newPage();
   await page.goto('./'); // alte Startadresse
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Anmelden');
-  await page.getByTestId('login-skip').click();
   await expect(page.getByTestId('tools-title')).toHaveText('Tools');
-  await page.goto('./');
-  await expect(page.getByTestId('tools-title')).toHaveText('Tools'); // beim nächsten Start kein erneutes Nachfragen
   await context.close();
 });
 

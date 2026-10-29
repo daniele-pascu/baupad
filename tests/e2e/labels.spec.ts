@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { FIXTURES, OUT, catchDownload, createProject, fillMeasures, freshStart, planBox, saveDownload, waitForPlan, waitSaved, pickTool } from './helpers';

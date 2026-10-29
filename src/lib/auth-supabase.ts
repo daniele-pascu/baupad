@@ -72,7 +72,9 @@ export class AuthError extends Error {
 
 export class SupabaseAuth implements AuthBackend {
   readonly connected = true;
-  private cache: { userId: string; session: Session } | null = null;
+  /** Sitzung je Benutzer; partial = Kontext der Datenbank fehlte (offline), wird beim nächsten Aufruf online nachgeholt */
+  private cache: { userId: string; session: Session; partial: boolean } | null = null;
+  private pending: { userId: string; promise: Promise<Session> } | null = null;
   constructor(
     private client: AuthClientLike,
     /** Rücksprungadresse für Anbieter-Anmeldung und E-Mail-Links (Seite ohne Hash) */
@@ -149,19 +151,35 @@ export class SupabaseAuth implements AuthBackend {
     return () => data.subscription.unsubscribe();
   }
 
-  /** baut die Session aus Benutzer + Kontext der Datenbank (einmal je Benutzer, dann aus dem Zwischenspeicher) */
-  private async build(raw: RawSession): Promise<Session> {
-    if (this.cache && this.cache.userId === raw.user.id) return this.cache.session;
+  /**
+   * Baut die Session aus Benutzer + Kontext der Datenbank – einmal je Benutzer, gleichzeitige Aufrufe teilen
+   * sich eine Anfrage. Offline wird der Dienst gar nicht erst angefragt; der Kontext wird nachgeholt,
+   * sobald wieder eine Verbindung besteht.
+   */
+  private build(raw: RawSession): Promise<Session> {
+    const online = typeof navigator === 'undefined' || navigator.onLine !== false;
+    if (this.cache && this.cache.userId === raw.user.id && (!this.cache.partial || !online)) return Promise.resolve(this.cache.session);
+    if (this.pending && this.pending.userId === raw.user.id) return this.pending.promise;
+    const promise = this.buildNow(raw, online).finally(() => {
+      if (this.pending?.promise === promise) this.pending = null;
+    });
+    this.pending = { userId: raw.user.id, promise };
+    return promise;
+  }
+
+  private async buildNow(raw: RawSession, online: boolean): Promise<Session> {
     const meta = raw.user.user_metadata ?? {};
     const metaName = String(meta.name ?? meta.full_name ?? '').trim();
     let ctx: Context | null = null;
-    try {
-      // offene Einladungen übernehmen (falls die Person vom Admin eingetragen wurde), dann den Kontext lesen
-      await this.client.rpc('accept_invitations');
-      const { data, error } = await this.client.rpc('my_context');
-      if (!error && data && typeof data === 'object') ctx = data as Context;
-    } catch {
-      /* ohne Kontext (z. B. offline) reicht der Benutzer selbst */
+    if (online) {
+      try {
+        // offene Einladungen übernehmen (falls die Person vom Admin eingetragen wurde), dann den Kontext lesen
+        await this.client.rpc('accept_invitations');
+        const { data, error } = await this.client.rpc('my_context');
+        if (!error && data && typeof data === 'object') ctx = data as Context;
+      } catch {
+        /* ohne Kontext (z. B. Verbindung weg) reicht der Benutzer selbst */
+      }
     }
     const session: Session = {
       userId: raw.user.id,
@@ -172,7 +190,7 @@ export class SupabaseAuth implements AuthBackend {
       companyName: ctx?.workspace_name ?? String(meta.company ?? ''),
       operator: Boolean(ctx?.operator),
     };
-    this.cache = { userId: raw.user.id, session };
+    this.cache = { userId: raw.user.id, session, partial: ctx === null };
     return session;
   }
 }

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { join } from 'node:path';
 import { createProject, FIXTURES, freshStart, saveDownload, waitForPlan } from './helpers';
 

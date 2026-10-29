@@ -141,22 +141,4 @@ export const setAuthBackend = (b: AuthBackend) => {
 };
 export const authConnected = () => backend.connected;
 
-/** Merker „ohne Konto weiter“ in der installierten App (sonst fragt sie beim Start nach der Anmeldung) */
-const SKIP_KEY = 'authSkipped';
-export function authSkipped(): boolean {
-  try {
-    return localStorage.getItem(SKIP_KEY) === '1';
-  } catch {
-    return true;
-  }
-}
-export function setAuthSkipped(v: boolean) {
-  try {
-    if (v) localStorage.setItem(SKIP_KEY, '1');
-    else localStorage.removeItem(SKIP_KEY);
-  } catch {
-    /* optional */
-  }
-}
-
 export const isEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s.trim());

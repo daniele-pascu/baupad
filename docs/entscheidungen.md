@@ -14,6 +14,11 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - Dienst: Supabase, Projekt „BauPad“ (angelegt 29.10.2026, Region West EU/Irland – EU, daher belassen). Fotos später: Hetzner Object Storage (EU).
 - Betreiber-Konten (Betreiber-Übersicht) werden in der Tabelle `operators` per E-Mail freigeschaltet.
 
+## Zugang (29.10.2026)
+- Alle Werkzeuge (Tools, Aufmaß, Arbeitereinteilung, Berichte, Fotos, Kamera, Konto) nur mit Anmeldung – im Browser und in der installierten App, auf jedem Gerät. Kein „ohne Konto weiter“.
+- Eine auf dem Gerät gespeicherte Anmeldung gilt auch offline; nur Abmelden oder eine vom Dienst zurückgewiesene Sitzung beenden sie.
+- Öffentlich bleiben: Startseite, Produktseiten, Über uns, Kontakt, Impressum, Datenschutz, Anmelden/Registrieren, neues Passwort.
+
 ## Abrechnung (Oktober 2026)
 - **Keine In-App-Käufe** (kein Apple-Abo, kein Google-Abo). Grundlage: Apple-Regel 3.1.3(c) Enterprise Services, Verkauf an Firmen.
 - Pakete werden **nur auf der Website** gekauft und verwaltet: **Karte, SEPA-Lastschrift, Rechnung mit Überweisung** (Stripe, alternativ Paddle).
