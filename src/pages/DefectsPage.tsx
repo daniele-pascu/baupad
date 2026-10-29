@@ -12,6 +12,7 @@ import { navigate, paths } from '../lib/router';
 import type { PhotoSite } from '../lib/types';
 import { loadPhotoSites } from './PhotosPage';
 import { usePageTitle } from './SitePages';
+import { useAccess } from '../lib/access';
 
 export const DEFECT_ACCENT = { '--tool': '#d6242b' } as CSSProperties;
 
@@ -23,19 +24,21 @@ export function DefectsPage() {
   const [query, setQuery] = useState('');
   const [uploading, setUploading] = useState(false);
   const [creating, setCreating] = useState(false);
+  const access = useAccess();
 
   const reload = async () => {
     try {
       const [plans, marks, photos] = await Promise.all([listDefectPlans(), listDefectMarks(), getPhotoStorage().list()]);
-      setSummaries(summarize(plans, marks));
-      setSites(await loadPhotoSites(photos));
+      setSummaries(access.filterSites(summarize(plans, marks), (x) => x.key));
+      setSites(access.filterSites(await loadPhotoSites(photos), (s) => (s.projectId ? `p:${s.projectId}` : `n:${s.name.trim().toLowerCase()}`)));
     } catch (e) {
       showError(e, 'Mängelpläne konnten nicht geladen werden');
     }
   };
   useEffect(() => {
-    void reload();
-  }, []);
+    if (access.ready) void reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [access.ready, access.session]);
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();

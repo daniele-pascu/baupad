@@ -21,12 +21,13 @@ export const ROLES: { id: Role; label: string; text: string }[] = [
   { id: 'arbeiter', label: 'Arbeiter', text: 'Fotos der freigegebenen Baustellen' },
 ];
 
-export type ToolId = 'projects' | 'workers' | 'reports' | 'photos';
+export type ToolId = 'projects' | 'workers' | 'reports' | 'photos' | 'defects';
 export const TOOLS: { id: ToolId; label: string }[] = [
   { id: 'projects', label: 'Aufmaß & Abrechnung' },
   { id: 'workers', label: 'Arbeitereinteilung' },
   { id: 'reports', label: 'Berichte & Formulare' },
   { id: 'photos', label: 'Fotodokumentation' },
+  { id: 'defects', label: 'Mängelplan' },
 ];
 
 /** Standard-Freigaben je Rolle (der Admin kann sie je Benutzer ändern) */
@@ -34,9 +35,9 @@ export function defaultToolsForRole(role: Role): ToolId[] {
   switch (role) {
     case 'admin':
     case 'buero':
-      return ['projects', 'workers', 'reports', 'photos'];
+      return ['projects', 'workers', 'reports', 'photos', 'defects'];
     case 'polier':
-      return ['photos', 'reports'];
+      return ['photos', 'reports', 'defects'];
     case 'arbeiter':
       return ['photos'];
   }
@@ -59,6 +60,8 @@ export interface CompanyUser {
   tools: ToolId[];
   pkg: PackageId;
   active: boolean;
+  /** Baustellen, auf die der Benutzer zugreifen darf (Schlüssel p:<Projekt> bzw. n:<Name>); leer = alle */
+  sites: string[];
   createdAt: number;
   /** aus der Datenbank: Mitglied mit Konto oder eingeladen (noch nicht registriert) */
   status?: 'member' | 'invited';
@@ -79,6 +82,9 @@ export interface Session {
   phone: string;
   /** Paket laut Mitgliedschaft (null ohne Arbeitsbereich) */
   pkg: PackageId | null;
+  /** freigegebene Werkzeuge und Baustellen (leer = alle); Admin hat immer alles */
+  tools: ToolId[];
+  sites: string[];
   /** verbundene Anmeldemethoden (email, google, apple, azure) */
   providers: string[];
 }

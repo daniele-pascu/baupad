@@ -5,6 +5,10 @@ import { getCompanyLogo, logoHeaderSize, removeCompanyLogo, saveCompanyLogo, typ
 import { getMeta, setMeta } from '../lib/db';
 import { AuthNotConnected, getAuth, isEmail, PACKAGES, PROVIDERS, ROLES, TOOLS, defaultToolsForRole, type CompanyUser, type PackageId, type Role, type Session, type ToolId } from '../lib/auth';
 import { useSession } from '../lib/use-session';
+import { siteKeyOf } from '../lib/access';
+import { getPhotoStorage } from '../lib/photo-storage';
+import { loadPhotoSites } from './PhotosPage';
+import type { PhotoSite } from '../lib/types';
 import { listCompanyUsers, listLocalUsers, migrateLocalUsers, removeCompanyUser, renameWorkspace, saveCompanyUser, usesRemote } from '../lib/users';
 import { site } from '../content/site';
 import { ProviderIcon } from '../components/ProviderIcon';
@@ -314,6 +318,9 @@ export function AccountPage() {
           )
         )}
 
+        <Section title="Benutzer & Rollen" text="Wer in deiner Firma BauPad nutzt – Funktion, Werkzeuge und Baustellen je Benutzer" open>
+          <UsersSettings />
+        </Section>
         <Section title="Persönliche Daten" text="Name und Telefon – so erscheinst du bei Kollegen und auf Berichten" open>
           <ProfileForm session={session} />
         </Section>
@@ -328,9 +335,6 @@ export function AccountPage() {
         </Section>
         <Section title="Firmeninformationen" text="Firmenname, Anschrift und Logo für Exporte" open>
           <LogoSettings session={session} />
-        </Section>
-        <Section title="Benutzer & Rollen" text="Wer in deiner Firma BauPad nutzt" open>
-          <UsersSettings />
         </Section>
         <Section title="App und Speicher" text="Installation und dauerhafter Speicher auf diesem Gerät" open>
           <AppStorageSettings />
@@ -737,7 +741,7 @@ function LogoSettings({ session }: { session?: Session | null }) {
 }
 
 /** Leerer Benutzer für den Dialog */
-const emptyUser = (): Omit<CompanyUser, 'id' | 'createdAt'> => ({ email: '', name: '', role: 'arbeiter', tools: defaultToolsForRole('arbeiter'), pkg: 'team', active: true });
+const emptyUser = (): Omit<CompanyUser, 'id' | 'createdAt'> => ({ email: '', name: '', role: 'arbeiter', tools: defaultToolsForRole('arbeiter'), pkg: 'team', active: true, sites: [] });
 
 /**
  * Benutzer & Rollen: Der Admin trägt E-Mail, Name, Funktion, Tools und Paket ein. Gespeichert wird die Liste
@@ -790,7 +794,7 @@ function UsersSettings() {
           <strong>Benutzer &amp; Rollen</strong>
           <span className="muted">
             {remote
-              ? `Benutzer deines Arbeitsbereichs „${session?.companyName}“: E-Mail, Name, Funktion, freigegebene Werkzeuge und Paket. Wer noch kein Konto hat, registriert sich auf pad-software.at mit genau dieser E-Mail-Adresse und landet automatisch in deinem Arbeitsbereich.`
+              ? `Du bist Admin der Firma „${session?.companyName}“ – das gilt für alle Werkzeuge. Je Benutzer legst du Funktion, Werkzeuge und die Baustellen fest, auf die er zugreifen darf. Wer noch kein Konto hat, registriert sich auf pad-software.at mit genau dieser E-Mail-Adresse und landet automatisch in deiner Firma.`
               : 'Als Admin legst du fest, wer in deiner Firma BauPad nutzt: E-Mail, Name, Funktion, freigegebene Werkzeuge und Paket. Ohne Anmeldung ist das eine Vormerkliste auf diesem Gerät – nach dem Anmelden kannst du sie in deinen Arbeitsbereich übernehmen.'}
           </span>
         </div>
@@ -852,8 +856,19 @@ function UsersSettings() {
 }
 
 function UserDialog({ value, session, onClose, onSaved }: { value: Omit<CompanyUser, 'id' | 'createdAt'> & { id?: string }; session?: Session | null; onClose(): void; onSaved(u: CompanyUser): void }) {
-  const [u, setU] = useState(value);
+  const [u, setU] = useState({ ...value, sites: value.sites ?? [] });
   const [busy, setBusy] = useState(false);
+  /** alle bekannten Baustellen aus allen Werkzeugen (Projekte, Fotos, Berichte, Einteilung, Mängelplan) */
+  const [allSites, setAllSites] = useState<PhotoSite[]>([]);
+  useEffect(() => {
+    void getPhotoStorage()
+      .list()
+      .then(loadPhotoSites)
+      .then(setAllSites)
+      .catch(() => {});
+  }, []);
+  const restricted = u.sites.length > 0;
+  const toggleSite = (key: string) => setU((p) => ({ ...p, sites: p.sites.includes(key) ? p.sites.filter((x) => x !== key) : [...p.sites, key] }));
   const set = <K extends keyof typeof u>(k: K, v: (typeof u)[K]) => setU((p) => ({ ...p, [k]: v }));
   const setRole = (role: Role) => setU((p) => ({ ...p, role, tools: defaultToolsForRole(role) }));
   const toggleTool = (t: ToolId) => setU((p) => ({ ...p, tools: p.tools.includes(t) ? p.tools.filter((x) => x !== t) : [...p.tools, t] }));
@@ -913,6 +928,31 @@ function UserDialog({ value, session, onClose, onSaved }: { value: Omit<CompanyU
               </label>
             ))}
           </div>
+        </fieldset>
+        <fieldset className="field">
+          <span>Baustellen{u.role === 'admin' ? ' (Admin sieht immer alle)' : ''}</span>
+          <div className="segmented" role="radiogroup" aria-label="Baustellen">
+            <button type="button" role="radio" aria-checked={!restricted} aria-selected={!restricted} onClick={() => set('sites', [])} data-testid="user-sites-all">
+              Alle Baustellen
+            </button>
+            <button type="button" role="radio" aria-checked={restricted} aria-selected={restricted} onClick={() => allSites[0] && !restricted && set('sites', [siteKeyOf(allSites[0].projectId, allSites[0].name)])} disabled={u.role === 'admin' || allSites.length === 0} data-testid="user-sites-some">
+              Nur ausgewählte
+            </button>
+          </div>
+          {restricted && u.role !== 'admin' && (
+            <div className="check-inline user-site-list" data-testid="user-site-list">
+              {allSites.map((s) => {
+                const key = siteKeyOf(s.projectId, s.name);
+                return (
+                  <label key={key} className="check">
+                    <input type="checkbox" checked={u.sites.includes(key)} onChange={() => toggleSite(key)} data-testid="user-site" data-site={key} /> {s.name}
+                    {s.number ? <span className="muted small"> · {s.number}</span> : null}
+                  </label>
+                );
+              })}
+            </div>
+          )}
+          {allSites.length === 0 && <p className="muted small">Noch keine Baustellen angelegt – Zugriff gilt daher für alle.</p>}
         </fieldset>
         <label className="field">
           <span>Paket (vorläufig)</span>

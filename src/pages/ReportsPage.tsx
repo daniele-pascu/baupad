@@ -11,6 +11,8 @@ import { navigate, paths } from '../lib/router';
 import { emptyHead, fmtDate, headFromProject, newReport, REPORT_TYPES, siteKey, siteLabel, today, typeInfo } from '../lib/reports';
 import type { Project, Report, ReportType } from '../lib/types';
 import { usePageTitle } from './SitePages';
+import { useAccess } from '../lib/access';
+import { listFreePhotoSites } from '../lib/photo-sites';
 
 export const ACCENT = { '--tool': '#a259ff' } as CSSProperties;
 
@@ -19,8 +21,10 @@ export type SiteChoice = { projectId: string; name: string } | { projectId: null
 
 /** Projekte und freie Baustellen (Arbeitereinteilung, bisherige Berichte) für den Dialog „Neuer Bericht“ */
 export async function loadReportSites(reports: Report[]): Promise<{ projects: Project[]; freeSites: string[] }> {
-  const [projects, weeks] = await Promise.all([listProjects(), listWeeks()]);
+  const [projects, weeks, free] = await Promise.all([listProjects(), listWeeks(), listFreePhotoSites()]);
   const names = new Map<string, string>();
+  // Baustellen aus allen Werkzeugen: Einteilung, Berichte, Fotos/Mängelplan (frei angelegte)
+  for (const f of free) if (f.name.trim()) names.set(f.name.trim().toLowerCase(), f.name.trim());
   for (const w of weeks) for (const s of w.sites) if (!s.projectId && s.name.trim()) names.set(s.name.trim().toLowerCase(), s.name.trim());
   for (const x of reports) if (!x.projectId && siteLabel(x)) names.set(siteLabel(x).toLowerCase(), siteLabel(x));
   return { projects, freeSites: [...names.values()].sort((a, b) => a.localeCompare(b, 'de')) };
@@ -53,6 +57,7 @@ interface SiteCard {
  * letzter Bericht; Tippen öffnet die Berichte der Baustelle (getrennte Listen je Typ).
  */
 export function ReportsPage() {
+  const access = useAccess();
   usePageTitle('Berichte & Formulare – BauPad');
   const [reports, setReports] = useState<Report[] | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -92,8 +97,12 @@ export function ReportsPage() {
       }
       if (r.status !== 'done') c.open++;
     }
-    return [...map.values()].filter((c) => !q || [c.site.name, c.head.project, c.head.number, c.head.client, c.head.address].some((t) => t?.toLowerCase().includes(q))).sort((a, b) => b.lastAt - a.lastAt);
-  }, [reports, q]);
+    return [...map.values()]
+      .filter((c) => access.canSite(c.key))
+      .filter((c) => !q || [c.site.name, c.head.project, c.head.number, c.head.client, c.head.address].some((t) => t?.toLowerCase().includes(q)))
+      .sort((a, b) => b.lastAt - a.lastAt);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reports, q, access.session]);
 
   const run = (fn: () => Promise<void>) => fn().catch((e) => showError(e, 'Das hat nicht geklappt'));
 

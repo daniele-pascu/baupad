@@ -10,6 +10,7 @@ import { getDeviceId } from '../lib/ids';
 import { formatDateTime, naturalCompare } from '../lib/numbers';
 import { navigate, paths } from '../lib/router';
 import { closeProject, createProjectWithCostCenters } from '../lib/store';
+import { useAccess } from '../lib/access';
 import { linkSitesToProject, sitesWithoutProject } from '../lib/crew-link';
 import type { Project } from '../lib/types';
 
@@ -82,7 +83,9 @@ export function HomePage() {
     }
   };
   // Suche und Sortierung ändern nur die Anzeige, nie die Projektdaten
-  const visible = useMemo(() => filterAndSort(rows ?? [], query, sort), [rows, query, sort]);
+  const access = useAccess();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const visible = useMemo(() => filterAndSort((rows ?? []).filter((r) => access.canSite(`p:${r.project.id}`)), query, sort), [rows, query, sort, access.session]);
   const importRef = useRef<HTMLInputElement>(null);
 
   const load = async () => {

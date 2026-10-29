@@ -17,7 +17,7 @@ function fakeClient(over: Partial<AuthClientLike['auth']> = {}, rpc?: AuthClient
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
       ...over,
     },
-    rpc: rpc ?? (async () => ({ data: { workspace_id: 'w1', workspace_name: 'Muster Bau GmbH', role: 'admin', pkg: 'einzel', operator: false, name: 'Max Muster', phone: '0664' }, error: null })),
+    rpc: rpc ?? (async () => ({ data: { workspace_id: 'w1', workspace_name: 'Muster Bau GmbH', role: 'admin', pkg: 'einzel', tools: ['photos'], sites: ['p:1'], operator: false, name: 'Max Muster', phone: '0664' }, error: null })),
   };
 }
 
@@ -25,7 +25,7 @@ describe('SupabaseAuth', () => {
   it('baut die Sitzung aus Benutzer und Kontext der Datenbank', async () => {
     const a = new SupabaseAuth(fakeClient(), 'https://pad-software.at/');
     const s = await a.session();
-    expect(s).toEqual({ userId: 'u1', email: 'max@muster.at', name: 'Max Muster', role: 'admin', companyId: 'w1', companyName: 'Muster Bau GmbH', operator: false, phone: '0664', pkg: 'einzel', providers: ['email'] });
+    expect(s).toEqual({ userId: 'u1', email: 'max@muster.at', name: 'Max Muster', role: 'admin', companyId: 'w1', companyName: 'Muster Bau GmbH', operator: false, phone: '0664', pkg: 'einzel', providers: ['email'], tools: ['photos'], sites: ['p:1'] });
   });
 
   it('kommt ohne Kontext aus (z. B. Schema noch nicht angelegt): Name und Firma aus der Registrierung', async () => {

@@ -140,12 +140,12 @@ test('Angemeldet: Tools, Einstellungen und Benutzerliste', async ({ page }) => {
   await expect(page.getByTestId('account-session')).toContainText('Angemeldet als Test Nutzer');
   await expect(page.getByTestId('nav-account')).toHaveText('Test');
   await expect(page.getByTestId('account-section')).toHaveText([
+    /Benutzer & Rollen/,
     /Persönliche Daten/,
     /E-Mail und Konto/,
     /Passwort und Anmeldemethoden/,
     /Abonnement und Zahlung/,
     /Firmeninformationen/,
-    /Benutzer & Rollen/,
     /App und Speicher/,
     /Weitere Einstellungen/,
   ]);
@@ -161,6 +161,7 @@ test('Angemeldet: Tools, Einstellungen und Benutzerliste', async ({ page }) => {
   await expect(ud.getByTestId('user-tool-reports')).toBeChecked();
   await expect(ud.getByTestId('user-tool-projects')).not.toBeChecked();
   await ud.getByTestId('user-tool-workers').check();
+  await expect(ud.getByTestId('user-sites-all')).toHaveAttribute('aria-checked', 'true'); // Standard: alle Baustellen
   await ud.getByTestId('user-save').click();
   await expect(page.getByTestId('user-row')).toHaveCount(1);
   await expect(page.getByTestId('user-row')).toContainText('Polier');

@@ -13,6 +13,7 @@ import { groupBySite, matchesPhoto, photoSiteKey, weekLabel } from '../lib/photo
 import { navigate, paths } from '../lib/router';
 import type { Photo, Project } from '../lib/types';
 import { usePageTitle } from './SitePages';
+import { useAccess } from '../lib/access';
 
 const ACCENT = { '--tool': '#111111' } as CSSProperties;
 
@@ -46,13 +47,14 @@ export function PhotosPage() {
   const [sort, setSort] = useState<'recent' | 'name'>('recent');
   const [creating, setCreating] = useState(false);
   const [free, setFree] = useState<PhotoSite[]>([]);
+  const access = useAccess();
 
   const reload = () =>
     getPhotoStorage()
       .list()
       .then(async (list) => {
         setPhotos(list);
-        setSites(await loadPhotoSites(list));
+        setSites(access.filterSites(await loadPhotoSites(list), (s) => (s.projectId ? `p:${s.projectId}` : `n:${s.name.trim().toLowerCase()}`)));
         setFree(await listFreePhotoSites());
       })
       .catch((e) => showError(e, 'Fotos konnten nicht geladen werden'));
@@ -61,10 +63,11 @@ export function PhotosPage() {
   }, []);
 
   const groups = useMemo(() => {
-    const list = (photos ?? []).filter((p) => matchesPhoto(p, query));
+    const list = (photos ?? []).filter((p) => matchesPhoto(p, query) && access.canSite(photoSiteKey(p)));
     const g = groupBySite(list);
     return sort === 'name' ? g.sort((a, b) => a.name.localeCompare(b.name, 'de')) : g.sort((a, b) => b.lastAt - a.lastAt);
-  }, [photos, query, sort]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [photos, query, sort, access.session]);
   /** die letzten vier Fotos je Baustelle als Vorschau */
   const latest = useMemo(() => {
     const m = new Map<string, Photo[]>();

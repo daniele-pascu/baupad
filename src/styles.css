@@ -8063,6 +8063,15 @@ button.report-link {
   }
 }
 
+.user-site-list {
+  max-height: 180px;
+  overflow: auto;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid #e8e8ed;
+  border-radius: 10px;
+}
+
 /* ───────────── Mängelplan ───────────── */
 .defects-page .page-sub {
   margin: 2px 0 0;

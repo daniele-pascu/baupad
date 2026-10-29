@@ -3,6 +3,7 @@ import { Icon } from '../components/Icon';
 import { ToolIcon, type ToolIconName } from '../components/ToolIcon';
 import { SiteNav } from '../components/SiteNav';
 import { isInstalledApp } from '../lib/platform';
+import { useAccess } from '../lib/access';
 import { paths } from '../lib/router';
 import { usePageTitle } from './SitePages';
 
@@ -26,6 +27,8 @@ const TOOLS: Tool[] = [
 /** Start nach der Anmeldung: alle Werkzeuge als gleich große Kacheln, zwei pro Reihe (Industrie-Stil, hell). */
 export function ToolsPage() {
   usePageTitle('Tools – BauPad');
+  const access = useAccess();
+  const tools = TOOLS.filter((t) => access.canTool(t.id as never));
   return (
     <>
       <SiteNav />
@@ -39,7 +42,7 @@ export function ToolsPage() {
             <Icon name="settings" />
           </a>
         </header>
-        {isInstalledApp() && (
+        {isInstalledApp() && access.canTool('photos') && (
         <a href={paths.camera()} className="tools-quick" data-testid="tools-camera">
           <Icon name="camera" size={22} />
           <span>
@@ -50,7 +53,7 @@ export function ToolsPage() {
         </a>
         )}
         <nav className="tools-grid" aria-label="Werkzeuge">
-          {TOOLS.map((t) => {
+          {tools.map((t) => {
             const body = (
               <>
                 <ToolIcon name={t.id} weight="thin" size={132} className="tile-mark" />

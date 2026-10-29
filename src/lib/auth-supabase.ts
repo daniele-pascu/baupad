@@ -6,7 +6,7 @@
  * Der Client wird hereingereicht, damit Tests mit einem nachgestellten Client laufen (Supabase ist aus der
  * Testumgebung nicht erreichbar).
  */
-import type { AuthBackend, AuthProviderId, PackageId, Role, Session, SignUpResult } from './auth';
+import type { AuthBackend, AuthProviderId, PackageId, Role, Session, SignUpResult, ToolId } from './auth';
 
 /** Nur die Teile des Supabase-Clients, die hier gebraucht werden */
 export interface AuthClientLike {
@@ -44,6 +44,8 @@ interface Context {
   workspace_name: string | null;
   role: Role | null;
   pkg: PackageId | null;
+  tools: ToolId[] | null;
+  sites: string[] | null;
   operator: boolean;
   name: string | null;
   phone: string | null;
@@ -233,6 +235,8 @@ export class SupabaseAuth implements AuthBackend {
       operator: Boolean(ctx?.operator),
       phone: ctx?.phone ?? '',
       pkg: ctx?.pkg ?? null,
+      tools: ctx?.tools ?? [],
+      sites: ctx?.sites ?? [],
       providers: providers.length ? providers : raw.user.app_metadata?.provider ? [raw.user.app_metadata.provider] : [],
     };
     this.cache = { userId: raw.user.id, session, partial: ctx === null };

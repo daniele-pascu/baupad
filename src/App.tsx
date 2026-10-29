@@ -25,6 +25,7 @@ import { DefectPlanPage } from './pages/DefectPlanPage';
 import { isInstalledApp } from './lib/platform';
 import { getAuth } from './lib/auth';
 import { useSession } from './lib/use-session';
+import { canTool, ROUTE_TOOL } from './lib/access';
 import { hasStoredSession, initAuth } from './lib/auth-init';
 
 initAuth();
@@ -65,14 +66,21 @@ const PUBLIC_ROUTES = new Set(['landing', 'about', 'contact', 'imprint', 'privac
  * gespeicherte Anmeldung zählt auch offline (der Dienst muss nicht erreichbar sein) – erst Abmelden
  * oder eine vom Dienst zurückgewiesene Sitzung entfernen sie.
  */
-function AuthGate({ children }: { children: ReactNode }) {
+function AuthGate({ route, children }: { route: string; children: ReactNode }) {
   const session = useSession();
   const stored = hasStoredSession();
   const blocked = session === null && !stored;
+  // Werkzeug vom Admin nicht freigegeben → zurück zu den Tools
+  const tool = ROUTE_TOOL[route];
+  const forbidden = !!session && !!tool && !canTool(session, tool);
   useEffect(() => {
     if (blocked) navigate(paths.login(), true);
-  }, [blocked]);
-  if (blocked || (session === undefined && !stored)) return null;
+    else if (forbidden) {
+      toast('Dieses Werkzeug ist für dich nicht freigegeben. Bitte beim Admin deiner Firma nachfragen.', 'error');
+      navigate(paths.tools(), true);
+    }
+  }, [blocked, forbidden]);
+  if (blocked || forbidden || (session === undefined && !stored)) return null;
   return <>{children}</>;
 }
 
@@ -240,7 +248,7 @@ export function App() {
   return (
     <>
       <OfflineBadge />
-      {SITE_ROUTES_WHEN_SIGNED_IN.has(route.name) && hasStoredSession() ? <ToolsRedirect /> : PUBLIC_ROUTES.has(route.name) ? content : <AuthGate>{content}</AuthGate>}
+      {SITE_ROUTES_WHEN_SIGNED_IN.has(route.name) && hasStoredSession() ? <ToolsRedirect /> : PUBLIC_ROUTES.has(route.name) ? content : <AuthGate route={route.name}>{content}</AuthGate>}
       <DialogHost />
       {splash && (
         <div className="splash" aria-hidden="true" data-testid="splash">

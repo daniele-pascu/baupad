@@ -9,7 +9,8 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 ## Anmeldung (Oktober 2026)
 - Anmelden und Registrieren in der App und auf der Website: Google, Apple, Microsoft (Outlook), E-Mail mit Passwort.
 - Jede Registrierung legt einen Arbeitsbereich an; die Person ist Admin (Einzelperson = Firma mit einem Benutzer).
-- Admin verwaltet Benutzer: E-Mail, Name, Funktion (Admin, Büro, Polier, Arbeiter), Werkzeuge, Paket, aktiv/gesperrt.
+- Admin verwaltet Benutzer: E-Mail, Name, Funktion (Admin, Büro, Polier, Arbeiter), Werkzeuge, Paket, aktiv/gesperrt, **Baustellen** (alle oder ausgewählte). Der Admin gilt für die ganze Firma und alle Werkzeuge. Nicht freigegebene Werkzeuge erscheinen nicht in den Tools, nicht freigegebene Baustellen nicht in den Listen.
+- Baustellen sind in allen Werkzeugen dieselben (Projekte, Fotos, Berichte, Einteilung, Mängelplan); Fotos aus dem Mängelplan liegen auch in der Fotodokumentation.
 - Konto löschen muss in der App möglich sein (Apple-Vorgabe bei Registrierung in der App).
 - Dienst: Supabase, Projekt „BauPad“ (angelegt 29.10.2026, Region West EU/Irland – EU, daher belassen). Fotos später: Hetzner Object Storage (EU).
 - Betreiber-Konten (Betreiber-Übersicht) werden in der Tabelle `operators` per E-Mail freigeschaltet.

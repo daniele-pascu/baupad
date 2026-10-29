@@ -20,11 +20,12 @@ interface RemoteRow {
   tools: CompanyUser['tools'];
   pkg: CompanyUser['pkg'];
   active: boolean;
+  sites: string[] | null;
   status: 'member' | 'invited';
   me: boolean;
   created_at: number;
 }
-const fromRow = (r: RemoteRow): CompanyUser => ({ id: r.id, email: r.email, name: r.name, role: r.role, tools: r.tools, pkg: r.pkg, active: r.active, createdAt: r.created_at, status: r.status, me: r.me });
+const fromRow = (r: RemoteRow): CompanyUser => ({ id: r.id, email: r.email, name: r.name, role: r.role, tools: r.tools, pkg: r.pkg, active: r.active, sites: r.sites ?? [], createdAt: r.created_at, status: r.status, me: r.me });
 
 export async function listCompanyUsers(session?: Session | null): Promise<CompanyUser[]> {
   if (usesRemote(session)) {
@@ -35,7 +36,7 @@ export async function listCompanyUsers(session?: Session | null): Promise<Compan
 }
 
 export async function listLocalUsers(): Promise<CompanyUser[]> {
-  return ((await getMeta<CompanyUser[]>(KEY)) ?? []).sort((a, b) => a.name.localeCompare(b.name, 'de') || a.email.localeCompare(b.email));
+  return ((await getMeta<CompanyUser[]>(KEY)) ?? []).map((u) => ({ ...u, sites: u.sites ?? [] })).sort((a, b) => a.name.localeCompare(b.name, 'de') || a.email.localeCompare(b.email));
 }
 
 export async function saveCompanyUser(u: Omit<CompanyUser, 'id' | 'createdAt'> & { id?: string }, session?: Session | null): Promise<CompanyUser> {
@@ -50,6 +51,7 @@ export async function saveCompanyUser(u: Omit<CompanyUser, 'id' | 'createdAt'> &
       p_tools: u.tools.length ? u.tools : defaultToolsForRole(u.role),
       p_pkg: u.pkg,
       p_active: u.active,
+      p_sites: u.sites ?? [],
     });
     return { ...u, id: r.id, email, name: u.name.trim(), createdAt: Date.now(), status: r.status };
   }
@@ -84,6 +86,7 @@ async function saveLocalUser(u: Omit<CompanyUser, 'id' | 'createdAt'> & { id?: s
     tools: u.tools.length ? u.tools : defaultToolsForRole(u.role),
     pkg: u.pkg,
     active: u.active,
+    sites: u.sites ?? [],
   };
   await setMeta(KEY, [...list.filter((x) => x.id !== next.id), next]);
   return next;
