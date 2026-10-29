@@ -14,12 +14,31 @@ export const site = {
     lead: 'Aufmaß, Arbeitereinteilung, Berichte und Fotos – am Handy auf der Baustelle, am PC im Büro. Auch ohne Internet.',
     cta: 'BauPad öffnen',
     secondary: 'Werkzeuge ansehen',
+    /** Bilder im Kopfbereich (public/site) */
+    heroImage: 'fotos-baustelle.jpg',
+    heroPhone: 'kamera-iphone.jpg',
     /** Die vier Werkzeuge von BauPad – nur, was es wirklich gibt */
     tools: [
-      { id: 'projects' as const, color: '#ff6a13', title: 'Aufmaß & Abrechnung', text: 'Schadstellen und Flächen direkt im Plan erfassen, fertig als Excel und PDF.', image: 'aufmass-editor.jpg', points: ['Messen im Plan oder selbst zeichnen', 'Excel-Aufmaßblatt und Plan-PDF'] },
-      { id: 'workers' as const, color: '#2f80ed', title: 'Arbeitereinteilung', text: 'Wer arbeitet wann auf welcher Baustelle – die Woche auf einen Blick.', image: 'arbeiter-woche.jpg', points: ['Zuweisen per Klick, Urlaub und Krankenstand', 'Wochenplan als PDF mit Logo'] },
-      { id: 'reports' as const, color: '#a259ff', title: 'Berichte & Formulare', text: 'Regielisten, Bautages- und Wochenberichte wie die gewohnten Formulare.', image: 'berichte-regie-editor.jpg', points: ['Mannschaft wird übernommen', 'Formular-PDF mit Unterschriftsfeldern'] },
-      { id: 'photos' as const, color: '#111111', title: 'Fotodokumentation', text: 'Jedes Foto bei der richtigen Baustelle, Kalenderwoche und am richtigen Tag.', image: 'fotos-baustelle.jpg', points: ['Kamera-Modus mit Baustelle oben', 'Foto-PDF und ZIP mit Datum'] },
+      { id: 'projects' as const, color: '#ff6a13', title: 'Aufmaß & Abrechnung', text: 'Schadstellen und Flächen direkt im Plan erfassen, fertig als Excel und PDF.', image: 'aufmass-editor.jpg', points: ['Messen im Plan oder selbst zeichnen', 'Leistungsverzeichnis und Rechnungen', 'Excel-Aufmaßblatt und Plan-PDF'] },
+      { id: 'workers' as const, color: '#2f80ed', title: 'Arbeitereinteilung', text: 'Wer arbeitet wann auf welcher Baustelle – die Woche auf einen Blick.', image: 'arbeiter-woche.jpg', points: ['Zuweisen per Klick oder Ziehen', 'Urlaub, Krankenstand, Doppelbelegung', 'Wochenplan als PDF mit Logo'] },
+      { id: 'reports' as const, color: '#a259ff', title: 'Berichte & Formulare', text: 'Regielisten, Bautages- und Wochenberichte wie die gewohnten Formulare.', image: 'berichte-regie-editor.jpg', points: ['Mannschaft wird aus der Einteilung übernommen', 'Je Baustelle getrennte Listen', 'Formular-PDF mit Unterschriftsfeldern'] },
+      { id: 'photos' as const, color: '#111111', title: 'Fotodokumentation', text: 'Jedes Foto bei der richtigen Baustelle, Kalenderwoche und am richtigen Tag.', image: 'fotos-baustelle.jpg', points: ['Kamera-Modus mit Baustelle oben', 'Galerie nach Woche und Tag, Zoom und Drehen', 'Foto-PDF und ZIP mit Datum'] },
+    ],
+    /** Beispiel-Exporte auf der Startseite */
+    exportsLead: 'Kein Abtippen: Aufmaß, Wochenplan, Regieliste und Fotos kommen fertig als Excel oder PDF an – mit Logo und Firmendaten.',
+    exports: [
+      { src: 'export-aufmass.jpg', alt: 'Aufmaßblatt als Excel-Tabelle', caption: 'Aufmaßblatt · Excel' },
+      { src: 'export-arbeiter-kw.jpg', alt: 'Wochenplan als PDF', caption: 'Wochenplan · PDF' },
+      { src: 'export-berichte-regie.jpg', alt: 'Regieliste als Formular-PDF', caption: 'Regieliste · PDF' },
+      { src: 'export-fotos.jpg', alt: 'Fotodokumentation als PDF', caption: 'Fotodokumentation · PDF' },
+    ],
+    /** Handy-Ansichten auf der Startseite */
+    devicesLead: 'BauPad läuft im Browser und lässt sich am Handy wie eine App auf den Startbildschirm legen. Einmal geöffnet, funktioniert es auch ohne Empfang.',
+    phones: [
+      { src: 'tools-iphone.jpg', alt: 'Werkzeugübersicht am iPhone', caption: 'Werkzeuge' },
+      { src: 'kamera-iphone.jpg', alt: 'Kamera-Modus am iPhone', caption: 'Kamera-Modus' },
+      { src: 'fotos-baustelle-iphone.jpg', alt: 'Fotogalerie am iPhone', caption: 'Fotos je Baustelle' },
+      { src: 'berichte-regie-iphone.jpg', alt: 'Regieliste am iPhone', caption: 'Regieliste' },
     ],
     /** Für wen BauPad gemacht ist */
     roles: [

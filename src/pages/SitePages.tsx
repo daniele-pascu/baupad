@@ -1,7 +1,6 @@
 import { useEffect, type CSSProperties } from 'react';
 import { Icon } from '../components/Icon';
 import { ToolIcon } from '../components/ToolIcon';
-import { DeviceStage, ManageArt, MeasureArt } from '../components/Illustrations';
 import { InstallButton } from '../components/InstallApp';
 import { SiteFooter, SiteNav } from '../components/SiteNav';
 import { site } from '../content/site';
@@ -16,12 +15,11 @@ export function usePageTitle(title: string) {
   }, [title]);
 }
 
-/** Öffentliche Startseite von PAD Software: BauPad als Produkt – Bilder, Geräte-Bühne, animierte Illustrationen */
+/** Öffentliche Startseite von PAD Software: BauPad als Produkt – ruhig, mit echten Bildern aus der App, ohne Animationen */
 export function LandingPage() {
   usePageTitle('PAD Software – BauPad');
   const t = site.home;
   const toTools = () => document.getElementById('werkzeuge')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  const gallery = ['fotos-baustelle.jpg', 'aufmass-editor.jpg', 'arbeiter-woche.jpg', 'berichte-regie-editor.jpg', 'export-berichte-regie.jpg', 'fotos-gross.jpg', 'export-arbeiter-kw.jpg', 'export-fotos.jpg'];
   return (
     <div className="site landing">
       <SiteNav />
@@ -52,8 +50,18 @@ export function LandingPage() {
               ))}
             </ul>
           </div>
-          <div className="hero-stage fade-in delay-2">
-            <DeviceStage />
+          <div className="hero-shot fade-in delay-2" aria-hidden="true">
+            <div className="window-frame">
+              <span className="window-bar">
+                <i />
+                <i />
+                <i />
+              </span>
+              <img src={`./site/${t.heroImage}`} alt="" />
+            </div>
+            <div className="phone-frame hero-phone">
+              <img src={`./site/${t.heroPhone}`} alt="" />
+            </div>
           </div>
         </section>
 
@@ -62,18 +70,26 @@ export function LandingPage() {
           <h2 id="tools-title" className="section-heading">
             Alles, was auf der Baustelle anfällt.
           </h2>
-          <div className="tool-cards" data-testid="product-grid">
+          <div className="features" data-testid="product-grid">
             {t.tools.map((x) => (
-              <a key={x.id} href={paths.product(site.products[x.id].slug)} className="tool-card" style={{ '--tool': x.color } as CSSProperties} data-testid="product-card">
-                <span className="tool-card-img">
+              <a key={x.id} href={paths.product(site.products[x.id].slug)} className="feature" style={{ '--tool': x.color } as CSSProperties} data-testid="product-card">
+                <span className="feature-img">
                   <img src={`./site/${x.image}`} alt="" loading="lazy" />
                 </span>
-                <span className="tool-card-body">
+                <span className="feature-body">
                   <span className="product-icon" aria-hidden="true">
                     <ToolIcon name={x.id} size={22} />
                   </span>
                   <strong>{x.title}</strong>
-                  <span className="tool-card-text">{x.text}</span>
+                  <span className="feature-text">{x.text}</span>
+                  <ul className="feature-points">
+                    {x.points.map((pt) => (
+                      <li key={pt}>
+                        <Icon name="check" size={15} />
+                        {pt}
+                      </li>
+                    ))}
+                  </ul>
                   <span className="product-more">
                     Mehr erfahren <span aria-hidden="true">→</span>
                   </span>
@@ -83,23 +99,38 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section className="duo" aria-label="Messen und Verwalten">
-          <article className="duo-item">
-            <MeasureArt />
-            <h2>Messen, wo gebaut wird</h2>
-            <p>Plan öffnen, Fläche einzeichnen, Maße eingeben – oder direkt aus dem Plan übernehmen. Jede Messung hat ihre Nummer im Plan und ihre Zeile im Aufmaß.</p>
-          </article>
-          <article className="duo-item">
-            <ManageArt />
-            <h2>Verwalten, ohne Zettel</h2>
-            <p>Mannschaft auf die Woche verteilen, Regieliste und Tagesbericht ausfüllen, Fotos zuordnen. Am Ende ein PDF, das ins Büro geht.</p>
-          </article>
+        <section className="exports-section" aria-labelledby="exports-title">
+          <p className="section-eyebrow">Ergebnis</p>
+          <h2 id="exports-title" className="section-heading">
+            So kommt es ins Büro.
+          </h2>
+          <p className="section-lead">{t.exportsLead}</p>
+          <div className="export-grid">
+            {t.exports.map((e) => (
+              <figure key={e.src} className="export-card">
+                <span className="export-img">
+                  <img src={`./site/${e.src}`} alt={e.alt} loading="lazy" />
+                </span>
+                <figcaption>{e.caption}</figcaption>
+              </figure>
+            ))}
+          </div>
         </section>
 
-        <section className="gallery" aria-label="Bilder aus BauPad">
-          <div className="gallery-track">
-            {[...gallery, ...gallery].map((g, i) => (
-              <img key={`${g}-${i}`} src={`./site/${g}`} alt="" loading="lazy" aria-hidden={i >= gallery.length ? true : undefined} />
+        <section className="devices-section" aria-labelledby="devices-title">
+          <p className="section-eyebrow">Unterwegs</p>
+          <h2 id="devices-title" className="section-heading">
+            Am Handy genauso wie am PC.
+          </h2>
+          <p className="section-lead">{t.devicesLead}</p>
+          <div className="phone-row">
+            {t.phones.map((ph) => (
+              <figure key={ph.src} className="phone-item">
+                <div className="phone-frame">
+                  <img src={`./site/${ph.src}`} alt={ph.alt} loading="lazy" />
+                </div>
+                <figcaption>{ph.caption}</figcaption>
+              </figure>
             ))}
           </div>
         </section>
@@ -158,11 +189,12 @@ export function LandingPage() {
           </h2>
           <p className="company-text">{t.companyText}</p>
           <div className="hero-actions">
+            <a href={paths.tools()} className="site-cta">
+              {t.cta}
+              <span aria-hidden="true"> →</span>
+            </a>
             <a href={paths.contact()} className="site-cta site-cta-secondary">
               {t.companyCta}
-            </a>
-            <a href={paths.about()} className="site-link">
-              Über uns <span aria-hidden="true">→</span>
             </a>
           </div>
         </section>
