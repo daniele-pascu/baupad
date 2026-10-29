@@ -9,18 +9,6 @@ import { usePageTitle } from './SitePages';
 type ProductId = keyof typeof site.products;
 const OPEN: Record<ProductId, string> = { projects: paths.projects(), workers: paths.workers(), reports: paths.reports(), photos: paths.photos(), defects: paths.defects() };
 
-/** Bild mit Unterschrift; Handy-Bilder schmal mit Rahmen, Klick öffnet das Bild in voller Größe */
-function Shot({ src, alt, caption, phone }: { src: string; alt: string; caption: string; phone?: boolean }) {
-  return (
-    <figure className={`shot${phone ? ' phone' : ''}`}>
-      <a href={`./site/${src}`} target="_blank" rel="noopener">
-        <img src={`./site/${src}`} alt={alt} loading="lazy" />
-      </a>
-      <figcaption>{caption}</figcaption>
-    </figure>
-  );
-}
-
 /** Produktseite eines Werkzeugs: Beschreibung, Bilder aus der App, Funktionen, Beispiel-Exporte */
 export function ProductPage({ id }: { id: ProductId }) {
   const tool = site.home.tools.find((t) => t.id === id)!;
@@ -51,26 +39,6 @@ export function ProductPage({ id }: { id: ProductId }) {
           </div>
         </section>
 
-        <section className="shots" aria-label="Bilder aus der App">
-          <p className="lp-eyebrow">So sieht es aus</p>
-          <div className="shots-grid" data-testid="product-shots">
-            {p.shots
-              .filter((s) => !('phone' in s && s.phone))
-              .map((s) => (
-                <Shot key={s.src} {...s} />
-              ))}
-            {p.shots.some((s) => 'phone' in s && s.phone) && (
-              <div className="shots-phones">
-                {p.shots
-                  .filter((s) => 'phone' in s && s.phone)
-                  .map((s) => (
-                    <Shot key={s.src} {...s} />
-                  ))}
-              </div>
-            )}
-          </div>
-        </section>
-
         <section className="features" aria-label="Funktionen">
           <p className="lp-eyebrow">Funktionen</p>
           <h2 className="lp-h2">Was {tool.title} kann.</h2>
@@ -89,17 +57,6 @@ export function ProductPage({ id }: { id: ProductId }) {
               </div>
             ))}
           </div>
-        </section>
-
-        <section className="shots exports" aria-label="Beispiel-Exporte">
-          <p className="lp-eyebrow">Was herauskommt</p>
-          <h2 className="lp-h2">Beispiel-Exporte</h2>
-          <div className="shots-grid exports-grid" data-testid="product-exports">
-            {p.exports.map((s) => (
-              <Shot key={s.src} {...s} />
-            ))}
-          </div>
-          <p className="muted small">Alle Bilder mit Demodaten. Firmenname und Logo kommen aus deinen Einstellungen.</p>
         </section>
 
         <section className="others" aria-label="Weitere Werkzeuge">

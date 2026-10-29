@@ -65,19 +65,6 @@ export function LandingPage() {
               <InstallButton variant="link" />
             </div>
           </div>
-          <div className="hero-shot lp-shot" aria-hidden="true">
-            <div className="window-frame">
-              <span className="window-bar">
-                <i />
-                <i />
-                <i />
-              </span>
-              <img src={`./site/${t.heroImage}`} alt="" />
-            </div>
-            <div className="phone-frame hero-phone">
-              <img src={`./site/${t.heroPhone}`} alt="" />
-            </div>
-          </div>
         </section>
 
         {/* 3. Welche Probleme löst BauPad? */}
@@ -106,9 +93,6 @@ export function LandingPage() {
           <div className="lp-tool-list" data-testid="product-grid">
             {t.tools.map((x) => (
               <a key={x.id} href={paths.product(site.products[x.id].slug)} className="lp-tool" style={{ '--tool': x.color } as CSSProperties} data-testid="product-card">
-                <span className="lp-tool-img">
-                  <img src={`./site/${x.image}`} alt="" loading="lazy" />
-                </span>
                 <span className="lp-tool-body">
                   <span className="product-icon" aria-hidden="true">
                     <ToolIcon name={x.id} size={22} />
@@ -128,42 +112,6 @@ export function LandingPage() {
                   </span>
                 </span>
               </a>
-            ))}
-          </div>
-        </section>
-
-        <section className="lp-exports" aria-labelledby="lp-exports-title">
-          <p className="lp-eyebrow">Das Ergebnis</p>
-          <h2 id="lp-exports-title" className="lp-h2">
-            {t.exportsTitle}
-          </h2>
-          <p className="lp-text lp-text-lead">{t.exportsLead}</p>
-          <div className="export-grid">
-            {t.exports.map((e) => (
-              <figure key={e.src} className="export-card">
-                <span className="export-img">
-                  <img src={`./site/${e.src}`} alt={e.alt} loading="lazy" />
-                </span>
-                <figcaption>{e.caption}</figcaption>
-              </figure>
-            ))}
-          </div>
-        </section>
-
-        <section className="lp-devices" aria-labelledby="lp-devices-title">
-          <p className="lp-eyebrow">Unterwegs</p>
-          <h2 id="lp-devices-title" className="lp-h2">
-            {t.devicesTitle}
-          </h2>
-          <p className="lp-text lp-text-lead">{t.devicesLead}</p>
-          <div className="phone-row">
-            {t.phones.map((ph) => (
-              <figure key={ph.src} className="phone-item">
-                <div className="phone-frame">
-                  <img src={`./site/${ph.src}`} alt={ph.alt} loading="lazy" />
-                </div>
-                <figcaption>{ph.caption}</figcaption>
-              </figure>
             ))}
           </div>
         </section>

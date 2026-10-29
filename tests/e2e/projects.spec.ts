@@ -22,9 +22,7 @@ test('Website: Startseite, Über uns, Kontakt, Impressum, Anmelden und Logo', as
   await expect(page.locator('.lp-product .lp-h2')).toHaveText('BauPad. Die Baustelle in einer App.');
   await expect(page.getByTestId('problems').locator('li')).toHaveCount(3);
   await expect(page.locator('.hero-lead')).toContainText('Aufmaß, Arbeitereinteilung, Berichte, Fotos und Mängelplan');
-  await expect(page.locator('.hero-shot img')).toHaveCount(2);
-  await expect(page.locator('.export-card')).toHaveCount(4);
-  await expect(page.locator('.phone-item')).toHaveCount(4);
+  await expect(page.locator('.site-main img')).toHaveCount(0); // vorerst ohne Bilder
   await expect(page.getByTestId('faq').locator('details')).toHaveCount(5);
   await expect(page.getByTestId('product-card')).toHaveCount(5);
   await expect(page.getByTestId('product-card').nth(3)).toContainText('Fotodokumentation');
@@ -32,8 +30,7 @@ test('Website: Startseite, Über uns, Kontakt, Impressum, Anmelden und Logo', as
   // Produktseite: Bilder aus der App und Beispiel-Exporte
   await page.getByTestId('product-card').nth(3).click();
   await expect(page.getByTestId('product-title')).toHaveText('Fotodokumentation');
-  await expect(page.getByTestId('product-shots').locator('img')).toHaveCount(4);
-  await expect(page.getByTestId('product-exports').locator('img')).toHaveCount(1);
+  await expect(page.locator('.site-main img')).toHaveCount(0);
   await page.getByTestId('product-open').click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Anmelden'); // Werkzeug nur mit Anmeldung
   await page.goto('./');
