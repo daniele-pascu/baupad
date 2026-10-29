@@ -5,6 +5,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { setAuthBackend } from './auth';
 import { SupabaseAuth } from './auth-supabase';
+import { setRemoteClient } from './remote';
 import { SUPABASE_KEY, SUPABASE_URL } from './supabase-config';
 
 export function initAuth() {
@@ -14,6 +15,7 @@ export function initAuth() {
   });
   const base = `${location.origin}${location.pathname}`;
   setAuthBackend(new SupabaseAuth(client, base));
+  setRemoteClient(client);
 }
 
 /** Gibt es auf diesem Gerät eine gespeicherte Anmeldung? (synchron, für die Startlogik der installierten App) */

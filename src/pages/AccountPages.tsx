@@ -5,7 +5,7 @@ import { getCompanyLogo, logoHeaderSize, removeCompanyLogo, saveCompanyLogo, typ
 import { getMeta, setMeta } from '../lib/db';
 import { AuthNotConnected, getAuth, isEmail, PACKAGES, PROVIDERS, ROLES, TOOLS, defaultToolsForRole, setAuthSkipped, type CompanyUser, type PackageId, type Role, type Session, type ToolId } from '../lib/auth';
 import { useSession } from '../lib/use-session';
-import { listCompanyUsers, removeCompanyUser, saveCompanyUser } from '../lib/users';
+import { listCompanyUsers, listLocalUsers, migrateLocalUsers, removeCompanyUser, saveCompanyUser, usesRemote } from '../lib/users';
 import { ProviderIcon } from '../components/ProviderIcon';
 import { Modal } from '../components/Modal';
 import { navigate, paths } from '../lib/router';
@@ -501,16 +501,44 @@ const emptyUser = (): Omit<CompanyUser, 'id' | 'createdAt'> => ({ email: '', nam
  * bis zur Anbindung der Anmeldung auf diesem Gerät; Einladungen werden dann verschickt.
  */
 function UsersSettings() {
+  const session = useSession();
+  const remote = usesRemote(session);
   const [users, setUsers] = useState<CompanyUser[] | null>(null);
+  const [localCount, setLocalCount] = useState(0);
   const [editing, setEditing] = useState<(Omit<CompanyUser, 'id' | 'createdAt'> & { id?: string }) | null>(null);
-  const reload = () => listCompanyUsers().then(setUsers).catch((e) => showError(e, 'Benutzer konnten nicht geladen werden'));
+  const reload = () =>
+    listCompanyUsers(session)
+      .then(setUsers)
+      .catch((e) => showError(e, 'Benutzer konnten nicht geladen werden'));
   useEffect(() => {
+    if (session === undefined) return;
     void reload();
-  }, []);
+    if (usesRemote(session)) void listLocalUsers().then((l) => setLocalCount(l.length));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]);
   const remove = (u: CompanyUser) =>
-    void confirmDialog({ title: 'Benutzer entfernen?', message: <p>{u.name} ({u.email}) wird aus der Liste entfernt.</p>, confirmLabel: 'Entfernen', danger: true }).then((ok) => {
-      if (ok) void removeCompanyUser(u.id).then(reload);
+    void confirmDialog({
+      title: 'Benutzer entfernen?',
+      message: <p>{u.name} ({u.email}) wird {remote ? 'aus deinem Arbeitsbereich' : 'aus der Liste'} entfernt.</p>,
+      confirmLabel: 'Entfernen',
+      danger: true,
+    }).then((ok) => {
+      if (ok)
+        void removeCompanyUser(u, session)
+          .then(reload)
+          .catch((e) => showError(e, 'Benutzer konnte nicht entfernt werden'));
     });
+  const migrate = async () => {
+    if (!session) return;
+    try {
+      const n = await migrateLocalUsers(session);
+      toast(`${n} Benutzer in den Arbeitsbereich übernommen.`, 'success');
+      setLocalCount(0);
+      void reload();
+    } catch (e) {
+      showError(e, 'Übernahme fehlgeschlagen');
+    }
+  };
   const toolLabel = (t: ToolId) => TOOLS.find((x) => x.id === t)?.label ?? t;
   return (
     <section className="logo-settings users-settings" data-testid="users-settings">
@@ -518,31 +546,48 @@ function UsersSettings() {
         <div>
           <strong>Benutzer &amp; Rollen</strong>
           <span className="muted">
-            Als Admin legst du fest, wer in deiner Firma BauPad nutzt: E-Mail, Name, Funktion, freigegebene Werkzeuge und Paket. Einladungen per E-Mail werden
-            verschickt, sobald die Anmeldung angebunden ist – die Liste ist bis dahin auf diesem Gerät gespeichert.
+            {remote
+              ? `Benutzer deines Arbeitsbereichs „${session?.companyName}“: E-Mail, Name, Funktion, freigegebene Werkzeuge und Paket. Wer noch kein Konto hat, registriert sich auf pad-software.at mit genau dieser E-Mail-Adresse und landet automatisch in deinem Arbeitsbereich.`
+              : 'Als Admin legst du fest, wer in deiner Firma BauPad nutzt: E-Mail, Name, Funktion, freigegebene Werkzeuge und Paket. Ohne Anmeldung ist das eine Vormerkliste auf diesem Gerät – nach dem Anmelden kannst du sie in deinen Arbeitsbereich übernehmen.'}
           </span>
         </div>
         <button type="button" className="btn btn-sm btn-primary" onClick={() => setEditing(emptyUser())} data-testid="user-add">
           <Icon name="plus" size={16} /> Benutzer
         </button>
       </div>
+      {remote && localCount > 0 && (
+        <div className="banner banner-info" role="status" data-testid="users-migrate">
+          <p>
+            Auf diesem Gerät sind noch {localCount} vorgemerkte Benutzer gespeichert.
+          </p>
+          <button type="button" className="btn btn-sm" onClick={() => void migrate()}>
+            In den Arbeitsbereich übernehmen
+          </button>
+        </div>
+      )}
       {users && users.length === 0 && <p className="muted small">Noch keine Benutzer eingetragen. Du selbst bist Admin deines Arbeitsbereichs.</p>}
       {users && users.length > 0 && (
         <ul className="user-list" data-testid="user-list">
           {users.map((u) => (
             <li key={u.id} className="user-row" data-testid="user-row" data-email={u.email}>
               <button type="button" className="user-main" onClick={() => setEditing({ ...u })} data-testid="user-open">
-                <strong>{u.name}</strong>
+                <strong>
+                  {u.name}
+                  {u.me && <span className="muted small"> (du)</span>}
+                </strong>
                 <span className="muted small">{u.email}</span>
                 <span className="small">
                   <span className={`user-role r-${u.role}`}>{ROLES.find((r) => r.id === u.role)?.label}</span> · {PACKAGES.find((p) => p.id === u.pkg)?.label} ·{' '}
                   {u.tools.map(toolLabel).join(', ')}
                   {!u.active && ' · gesperrt'}
+                  {u.status === 'invited' && <span className="user-invited"> · eingeladen, noch nicht registriert</span>}
                 </span>
               </button>
-              <button type="button" className="icon-btn icon-btn-sm danger" onClick={() => remove(u)} aria-label={`${u.name} entfernen`} data-testid="user-remove">
-                <Icon name="trash" size={16} />
-              </button>
+              {!u.me && (
+                <button type="button" className="icon-btn icon-btn-sm danger" onClick={() => remove(u)} aria-label={`${u.name} entfernen`} data-testid="user-remove">
+                  <Icon name="trash" size={16} />
+                </button>
+              )}
             </li>
           ))}
         </ul>
@@ -550,10 +595,11 @@ function UsersSettings() {
       {editing && (
         <UserDialog
           value={editing}
+          session={session}
           onClose={() => setEditing(null)}
-          onSaved={() => {
+          onSaved={(saved) => {
             setEditing(null);
-            toast('Benutzer gespeichert.', 'success');
+            toast(remote && saved.status === 'invited' ? `Gespeichert. ${saved.name} registriert sich mit ${saved.email} und ist dann in deinem Arbeitsbereich.` : 'Benutzer gespeichert.', 'success');
             void reload();
           }}
         />
@@ -562,7 +608,7 @@ function UsersSettings() {
   );
 }
 
-function UserDialog({ value, onClose, onSaved }: { value: Omit<CompanyUser, 'id' | 'createdAt'> & { id?: string }; onClose(): void; onSaved(): void }) {
+function UserDialog({ value, session, onClose, onSaved }: { value: Omit<CompanyUser, 'id' | 'createdAt'> & { id?: string }; session?: Session | null; onClose(): void; onSaved(u: CompanyUser): void }) {
   const [u, setU] = useState(value);
   const [busy, setBusy] = useState(false);
   const set = <K extends keyof typeof u>(k: K, v: (typeof u)[K]) => setU((p) => ({ ...p, [k]: v }));
@@ -571,8 +617,7 @@ function UserDialog({ value, onClose, onSaved }: { value: Omit<CompanyUser, 'id'
   const save = async () => {
     setBusy(true);
     try {
-      await saveCompanyUser(u);
-      onSaved();
+      onSaved(await saveCompanyUser(u, session));
     } catch (e) {
       showError(e, 'Benutzer konnte nicht gespeichert werden');
     } finally {

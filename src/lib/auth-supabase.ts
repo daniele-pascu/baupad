@@ -156,6 +156,8 @@ export class SupabaseAuth implements AuthBackend {
     const metaName = String(meta.name ?? meta.full_name ?? '').trim();
     let ctx: Context | null = null;
     try {
+      // offene Einladungen übernehmen (falls die Person vom Admin eingetragen wurde), dann den Kontext lesen
+      await this.client.rpc('accept_invitations');
       const { data, error } = await this.client.rpc('my_context');
       if (!error && data && typeof data === 'object') ctx = data as Context;
     } catch {

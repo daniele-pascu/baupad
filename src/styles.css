@@ -7781,6 +7781,9 @@ button.report-link {
 }
 
 /* ───────────── Startbild, Anmeldung, Benutzer ───────────── */
+.user-invited {
+  color: #b45309;
+}
 .link-btn {
   padding: 0;
   border: 0;

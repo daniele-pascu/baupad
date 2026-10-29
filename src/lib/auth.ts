@@ -60,6 +60,10 @@ export interface CompanyUser {
   pkg: PackageId;
   active: boolean;
   createdAt: number;
+  /** aus der Datenbank: Mitglied mit Konto oder eingeladen (noch nicht registriert) */
+  status?: 'member' | 'invited';
+  /** die angemeldete Person selbst */
+  me?: boolean;
 }
 
 export interface Session {

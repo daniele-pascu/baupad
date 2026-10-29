@@ -41,7 +41,14 @@ Zugangsdaten in `src/lib/supabase-config.ts`.)
 3. Betreiber: In der Tabelle `operators` (Table Editor) stehen die E-Mail-Adressen, die die Betreiber-Übersicht
    sehen. Vorbelegt ist danielepascu.a@gmail.com; später office@pad-software.at ergänzen.
 
-Das Skript kann jederzeit erneut ausgeführt werden, Daten bleiben erhalten.
+Das Skript kann jederzeit erneut ausgeführt werden, Daten bleiben erhalten. Nach jeder Änderung an
+`schema.sql` (steht im Commit-Text) bitte erneut ausführen.
+
+Benutzerverwaltung (Einstellungen → Benutzer & Rollen) beim angemeldeten Admin: Einträge landen in der
+Datenbank. Hat die Person schon ein BauPad-Konto, wird sie sofort Mitglied; sonst wird eine Einladung
+gespeichert, und die Registrierung mit dieser E-Mail führt automatisch in den Arbeitsbereich des Admins
+(kein eigener Arbeitsbereich). Eine Einladungs-E-Mail wird derzeit nicht verschickt (dafür wäre ein
+E-Mail-Dienst nötig); der Admin sagt der Person Bescheid.
 
 ## 2. Google-Login
 
