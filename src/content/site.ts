@@ -186,7 +186,7 @@ export const site = {
     // Platzhalter – bitte ergänzen
     company: '',
     person: '',
-    email: '',
+    email: 'office@pad-software.at',
     phone: '',
     address: '',
     /** Umsatzsteuer-ID und Firmenbuchnummer (Impressum) */
