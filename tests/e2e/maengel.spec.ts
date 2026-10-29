@@ -134,4 +134,17 @@ test('Mängelplan: Plan hochladen, Markierungen setzen und bearbeiten, PDF', asy
   await expect(page.getByTestId('defect-site-title')).toHaveText('Tiefgarage Parkdeck Nord');
   await expect(page.getByTestId('defect-plan')).toHaveCount(1);
   await expect(page.getByTestId('defect-plan')).toContainText('2 Markierungen');
+
+  // Baustelle hier bearbeiten → gilt in allen Werkzeugen (Fotos, Berichte, Mängelplan)
+  await page.getByTestId('defect-site-edit').click();
+  const sd2 = page.getByTestId('photo-site-dialog');
+  await sd2.getByTestId('photo-site-name').fill('Tiefgarage Nord');
+  await sd2.getByTestId('photo-site-number').fill('91574');
+  await sd2.getByTestId('photo-site-save').click();
+  await expect(page.getByTestId('defect-site-title')).toHaveText('Tiefgarage Nord');
+  await expect(page.locator('.page-sub')).toContainText('91574');
+  await page.goto('./#/maengel');
+  await expect(page.getByTestId('defect-site')).toContainText('Tiefgarage Nord');
+  await page.goto('./#/fotos');
+  await expect(page.locator('[data-testid="photo-site"][data-site="Tiefgarage Nord"]')).toBeVisible(); // auch in der Fotodokumentation umbenannt
 });

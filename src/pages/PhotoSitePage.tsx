@@ -4,7 +4,8 @@ import { Icon } from '../components/Icon';
 import { MovePhotosDialog } from '../components/MovePhotosDialog';
 import { PhotoPdfDialog } from '../components/PhotoPdfDialog';
 import { PhotoSiteDialog } from '../components/PhotoSitePicker';
-import { updateFreePhotoSite } from '../lib/photo-sites';
+import { canEditSites, updateSiteEverywhere } from '../lib/sites';
+import { useSession } from '../lib/use-session';
 import { forgetPhotoUrl, usePhotoUrl } from '../components/PhotoImg';
 import { PhotoCapture, type PhotoSite } from '../components/PhotoCapture';
 import { SiteNav } from '../components/SiteNav';
@@ -181,13 +182,11 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
     return () => ro.disconnect();
   }, [site, photos.length, selecting]);
   /** Angaben der Baustelle ändern: Name, Nummer, Adresse – auf allen Fotos der Baustelle nachziehen */
+  const session = useSession();
+  /** Änderung gilt in allen Werkzeugen (Projekt, Berichte, Einteilung, Mängelplan, Fotos) */
   const saveSite = async (v: { name: string; number: string; address: string }): Promise<PhotoSite> => {
     if (!site) throw new Error('Baustelle nicht geladen.');
-    const next: PhotoSite = site.projectId ? { projectId: site.projectId, ...v } : await updateFreePhotoSite(site.name, v);
-    const storage = getPhotoStorage();
-    const now = Date.now();
-    for (const p of photos) await storage.update({ ...p, siteName: next.name, siteNumber: next.number, siteAddress: next.address, updatedAt: now });
-    return next;
+    return updateSiteEverywhere(site, v);
   };
   /** neu laden – falls inzwischen Fotos dazugekommen sind */
   const refresh = () => {
@@ -323,9 +322,11 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
             </div>
           </div>
           <div className="row gap photo-head-actions">
-            <button type="button" className="btn btn-sm" onClick={() => setEditing(true)} disabled={!site} title="Baustelle bearbeiten (Name, Nummer, Adresse)" aria-label="Baustelle bearbeiten" data-testid="photo-site-edit">
-              <Icon name="edit" size={16} /> <span className="lbl">Bearbeiten</span>
-            </button>
+            {canEditSites(session) && (
+              <button type="button" className="btn btn-sm" onClick={() => setEditing(true)} disabled={!site} title="Baustelle bearbeiten (Name, Nummer, Adresse) – gilt in allen Werkzeugen" aria-label="Baustelle bearbeiten" data-testid="photo-site-edit">
+                <Icon name="edit" size={16} /> <span className="lbl">Bearbeiten</span>
+              </button>
+            )}
             <button type="button" className="btn btn-sm" onClick={refresh} disabled={refreshing} title="Neu laden – falls inzwischen Fotos dazugekommen sind" aria-label="Aktualisieren" data-testid="photo-refresh">
               <Icon name="refresh" size={16} className={refreshing ? 'spin' : undefined} /> <span className="lbl">Aktualisieren</span>
             </button>
@@ -480,7 +481,8 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
       {editing && site && (
         <PhotoSiteDialog
           initial={site}
-          hint={site.projectId ? 'Die Angaben gelten für die Fotos dieser Baustelle. Das Projekt in Aufmaß & Abrechnung bleibt unverändert.' : 'Name, Nummer und Adresse werden auf allen Fotos dieser Baustelle nachgezogen.'}
+          hint="Name, Nummer und Adresse werden in allen Werkzeugen übernommen – Projekt, Fotos, Berichte, Einteilung und Mängelplan."
+
           onSave={saveSite}
           onClose={() => setEditing(false)}
           onSaved={(next) => {

@@ -13,6 +13,10 @@ import type { Project, Report, ReportType } from '../lib/types';
 import { reportPdfFile } from './ReportEditorPage';
 import { createReport, loadReportSites, NewReportDialog, type SiteChoice } from './ReportsPage';
 import { usePageTitle } from './SitePages';
+import { PhotoSiteDialog } from '../components/PhotoSitePicker';
+import { canEditSites, siteKeyOfSite, updateSiteEverywhere } from '../lib/sites';
+import { useSession } from '../lib/use-session';
+import type { PhotoSite } from '../lib/types';
 
 const TYPE_ORDER: ReportType[] = ['regie', 'tag', 'woche'];
 
@@ -41,6 +45,8 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [preview, setPreview] = useState<ExportFile | null>(null);
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const session = useSession();
   const reports = useMemo(() => (all ?? []).filter((r) => siteKey(r) === key), [all, key]);
   const first = reports[0];
   const name = first ? siteLabel(first) : key.startsWith('n:') ? key.slice(2) : '…';
@@ -148,6 +154,11 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
             </div>
           </div>
           <div className="row gap">
+            {canEditSites(session) && site && (
+              <button type="button" className="btn btn-sm" onClick={() => setEditing(true)} title="Baustelle bearbeiten – gilt in allen Werkzeugen" aria-label="Baustelle bearbeiten" data-testid="report-site-edit">
+                <Icon name="edit" size={16} /> <span className="lbl">Bearbeiten</span>
+              </button>
+            )}
             <button type="button" className={`btn btn-sm${selecting ? ' btn-primary' : ''}`} onClick={() => (selecting ? stop() : setSelecting(true))} disabled={!reports.length} data-testid="report-select">
               <Icon name="check" size={16} /> {selecting ? 'Fertig' : 'Auswählen'}
             </button>
@@ -258,6 +269,21 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
       </div>
       {creating && site && (
         <NewReportDialog projects={projects} freeSites={freeSites} site={site} onClose={() => setCreating(false)} onCreate={(type, s, date) => run(() => createReport(type, s, date, all ?? []))} />
+      )}
+      {editing && site && (
+        <PhotoSiteDialog
+          initial={{ projectId: site.projectId, name: site.name, number: first?.head.number ?? '', address: first?.head.address ?? '' } as PhotoSite}
+          hint="Name, Nummer und Adresse werden in allen Werkzeugen übernommen – Projekt, Fotos, Berichte, Einteilung und Mängelplan."
+          onSave={(v) => updateSiteEverywhere({ projectId: site.projectId, name: site.name, number: first?.head.number ?? '', address: first?.head.address ?? '' }, v)}
+          onClose={() => setEditing(false)}
+          onSaved={(next) => {
+            setEditing(false);
+            toast('Baustelle gespeichert – in allen Werkzeugen übernommen.', 'success');
+            const nk = siteKeyOfSite(next);
+            if (nk !== key) navigate(paths.reportSite(nk), true);
+            else void reload();
+          }}
+        />
       )}
       {preview && <PdfPreview file={preview} onBack={() => setPreview(null)} onClose={() => setPreview(null)} />}
     </>

@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { DefectPlanDialog } from '../components/DefectPlanDialog';
+import { PhotoSiteDialog } from '../components/PhotoSitePicker';
+import { canEditSites, siteKeyOfSite, updateSiteEverywhere } from '../lib/sites';
+import { useSession } from '../lib/use-session';
 import { Icon } from '../components/Icon';
 import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, promptDialog, showError, toast } from '../components/ui';
@@ -71,6 +74,8 @@ export function DefectSitePage({ siteKey }: { siteKey: string }) {
   const [marks, setMarks] = useState<DefectMark[]>([]);
   const [site, setSite] = useState<PhotoSite | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const session = useSession();
   usePageTitle(`${site?.name ?? 'Baustelle'} – Mängelplan`);
 
   const reload = async () => {
@@ -139,10 +144,32 @@ export function DefectSitePage({ siteKey }: { siteKey: string }) {
               {site && <p className="muted small page-sub">{[site.number, site.address].filter(Boolean).join(' · ') || 'Mängelplan'}</p>}
             </div>
           </div>
-          <button type="button" className="btn btn-sm btn-primary" onClick={() => setUploading(true)} data-testid="defect-upload">
-            <Icon name="upload" size={16} /> Plan hochladen
-          </button>
+          <div className="row gap">
+            {canEditSites(session) && (
+              <button type="button" className="btn btn-sm" onClick={() => setEditing(true)} disabled={!site} title="Baustelle bearbeiten – gilt in allen Werkzeugen" aria-label="Baustelle bearbeiten" data-testid="defect-site-edit">
+                <Icon name="edit" size={16} /> <span className="lbl">Bearbeiten</span>
+              </button>
+            )}
+            <button type="button" className="btn btn-sm btn-primary" onClick={() => setUploading(true)} data-testid="defect-upload">
+              <Icon name="upload" size={16} /> Plan hochladen
+            </button>
+          </div>
         </header>
+        {editing && site && (
+          <PhotoSiteDialog
+            initial={site}
+            hint="Name, Nummer und Adresse werden in allen Werkzeugen übernommen – Projekt, Fotos, Berichte, Einteilung und Mängelplan."
+            onSave={(v) => updateSiteEverywhere(site, v)}
+            onClose={() => setEditing(false)}
+            onSaved={(next) => {
+              setEditing(false);
+              toast('Baustelle gespeichert – in allen Werkzeugen übernommen.', 'success');
+              const nk = siteKeyOfSite(next);
+              if (nk !== siteKey) navigate(paths.defectSite(nk), true);
+              else void reload();
+            }}
+          />
+        )}
         {uploading && site && (
           <DefectPlanDialog
             sites={[site]}

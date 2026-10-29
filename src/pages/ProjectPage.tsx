@@ -24,6 +24,7 @@ import { exportPaper } from '../lib/sheet-layout';
 import { formatArea, formatDate, formatDateTime } from '../lib/numbers';
 import { navigate, paths } from '../lib/router';
 import { flush, newMeta, putRecord, putRecords, softDelete, updateProject, useAppState, type ProjectState } from '../lib/store';
+import { propagateProject } from '../lib/sites';
 import { renderSource } from '../lib/thumbs';
 import type { CostCenter, Plan } from '../lib/types';
 
@@ -99,6 +100,10 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
 
   const saveProject = (fields: Parameters<typeof updateProject>[0], inputs: CostCenterInput[]) => {
     updateProject(fields);
+    // Baustellenangaben in den anderen Werkzeugen nachziehen (Fotos, Berichte, Einteilung, Mängelplan)
+    void flush()
+      .then(() => propagateProject({ ...project, ...fields }))
+      .catch(() => {});
     const changed: CostCenter[] = [];
     let sortIndex = ccs.length ? Math.max(...ccs.map((c) => c.sortIndex)) + 1 : 0;
     let firstNew: string | null = null;
