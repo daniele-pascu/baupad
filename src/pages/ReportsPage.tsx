@@ -270,12 +270,12 @@ export function NewReportDialog({
           <button key={t.type} type="button" role="radio" aria-checked={type === t.type} className={`report-type-card${type === t.type ? ' active' : ''}`} onClick={() => setType(t.type)} data-testid={`report-type-${t.type}`}>
             <span className={`report-type t-${t.type}`}>{t.short}</span>
             <strong>{t.label}</strong>
-            <span className="muted small">{t.type === 'regie' ? 'Regiearbeiten mit Stunden je Arbeiter' : t.type === 'tag' ? 'Tägliche Dokumentation der Baustelle' : 'Zusammenfassung einer Woche (Mo–So)'}</span>
+            <span className="muted small">{t.type === 'regie' ? 'Regiearbeiten mit Stunden je Arbeiter' : t.type === 'tag' ? 'Tägliche Dokumentation des Projekts' : 'Zusammenfassung einer Woche (Mo–So)'}</span>
           </button>
         ))}
       </div>
       <label className="field">
-        <span>Baustelle</span>
+        <span>Projekt auswählen</span>
         <select value={choice} onChange={(e) => setChoice(e.target.value)} data-testid="report-site">
           {projects.length > 0 && (
             <optgroup label="Aus Aufmaß & Abrechnung">
@@ -287,7 +287,7 @@ export function NewReportDialog({
             </optgroup>
           )}
           {freeSites.length > 0 && (
-            <optgroup label="Weitere Baustellen">
+            <optgroup label="Weitere Projekte">
               {freeSites.map((n) => (
                 <option key={n} value={`n:${n}`}>
                   {n}
