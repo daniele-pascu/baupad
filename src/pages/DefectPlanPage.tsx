@@ -4,12 +4,11 @@ import { Modal } from '../components/Modal';
 import { PdfPreview } from '../components/PdfPreview';
 import { PhotoCapture } from '../components/PhotoCapture';
 import { PhotoImg } from '../components/PhotoImg';
-import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, showError } from '../components/ui';
 import { getCompanyLogo } from '../lib/company';
 import { getDefectPlan, getMeta } from '../lib/db';
 import { defectPdf } from '../lib/defect-pdf';
-import { defectSiteKey, hitMark, KINDS, kindInfo, loadMarks, MARK_COLORS, markAnchor, markBox, newMark, nextMarkNo, planImage, putMark, removeMark, renumber, SHAPES, thinPoints } from '../lib/defects';
+import { defectSiteKey, hitMark, KINDS, kindInfo, loadMarks, MARK_COLORS, markAnchor, markBox, newMark, nextMarkNo, planImage, plansOfSite, putMark, removeMark, renumber, SHAPES, thinPoints } from '../lib/defects';
 import { getPhotoStorage } from '../lib/photo-storage';
 import { photoSiteKey } from '../lib/photos';
 import { navigate, paths } from '../lib/router';
@@ -86,9 +85,10 @@ function PlanCanvas({
   const W = plan.width;
   const H = plan.height;
   const ar = W / H;
-  /** eingepasste Größe (Zoom 1) */
-  const fitW = size.w;
-  const fitH = fitW / ar;
+  /** eingepasste Größe (Zoom 1): ganzer Plan sichtbar, mit etwas Rand */
+  const fit = Math.min((size.w - 24) / W, (size.h - 24) / H);
+  const fitW = Math.max(50, W * fit);
+  const fitH = Math.max(50, H * fit);
 
   const setView = (v: View) => {
     viewRef.current = v;
@@ -115,16 +115,12 @@ function PlanCanvas({
   useEffect(() => {
     const el = box.current;
     if (!el) return;
-    const measure = () => {
-      const w = Math.max(100, el.clientWidth - 2);
-      const h = Math.min(Math.round(w / ar), Math.round(window.innerHeight * 0.72));
-      setSize({ w, h });
-    };
+    const measure = () => setSize({ w: Math.max(100, el.clientWidth), h: Math.max(100, el.clientHeight) });
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     measure();
     return () => ro.disconnect();
-  }, [ar]);
+  }, []);
   useEffect(() => {
     setView(clamp({ s: 1, tx: 0, ty: 0 }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -309,16 +305,17 @@ function PlanCanvas({
   };
 
   return (
-    <div ref={box} className={`dp-canvas${tool === 'select' ? '' : ' drawing'}`} style={{ height: size.h }} data-testid="dp-canvas" data-zoom={view.s.toFixed(2)}>
-      <div
-        ref={stage}
-        className="dp-stage"
-        style={{ width: fitW, height: fitH, transform: `translate(${view.tx}px, ${view.ty}px) scale(${view.s})` }}
-        onPointerDown={down}
-        onPointerMove={move}
-        onPointerUp={up}
-        onPointerCancel={cancel}
-      >
+    <div
+      ref={box}
+      className={`dp-canvas${tool === 'select' ? '' : ' drawing'}`}
+      data-testid="dp-canvas"
+      data-zoom={view.s.toFixed(2)}
+      onPointerDown={down}
+      onPointerMove={move}
+      onPointerUp={up}
+      onPointerCancel={cancel}
+    >
+      <div ref={stage} className="dp-stage" style={{ width: fitW, height: fitH, transform: `translate(${view.tx}px, ${view.ty}px) scale(${view.s})` }}>
         {url ? <img src={url} alt="" draggable={false} /> : <div className="dp-loading muted small">Plan wird geladen …</div>}
         <svg viewBox={`0 0 ${W} ${H}`} width={fitW} height={fitH} aria-hidden="true">
           {marks.map((m) => renderShape(m, m.id, m.id === selectedId))}
@@ -326,7 +323,7 @@ function PlanCanvas({
         </svg>
         {marks.map((m) => {
           const a = markAnchor(m);
-          const dy = (m.shape === 'pin' ? -44 : m.shape === 'text' ? -22 : -2) / view.s;
+          const dy = (m.shape === 'pin' ? -44 : m.shape === 'text' ? -22 : -14) / view.s;
           return (
             <button
               key={m.id}
@@ -527,6 +524,9 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
   const [selected, setSelected] = useState<string | null>(markId);
   const [editing, setEditing] = useState<DefectMark | null>(null);
   const [filter, setFilter] = useState<DefectKind | 'all'>('all');
+  const [toolsOpen, setToolsOpen] = useState(true);
+  const [mobileTab, setMobileTab] = useState<'plan' | 'table'>('plan');
+  const [siblings, setSiblings] = useState<DefectPlan[]>([]);
   const [preview, setPreview] = useState<ExportFile | null>(null);
   const [busy, setBusy] = useState(false);
   const url = usePlanThumb(planId, 'data');
@@ -537,7 +537,10 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
 
   const reloadPhotos = () => getPhotoStorage().list().then(setPhotos).catch(() => {});
   useEffect(() => {
-    void getDefectPlan(planId).then((p) => setPlan(p ?? null));
+    void getDefectPlan(planId).then((p) => {
+      setPlan(p ?? null);
+      if (p) void plansOfSite(defectSiteKey(p)).then(setSiblings);
+    });
     void loadMarks(planId).then(setMarks);
     void reloadPhotos();
   }, [planId]);
@@ -607,149 +610,254 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
 
   const shown = marks.filter((m) => filter === 'all' || m.kind === filter);
   const pickTool = (t: Tool) => setTool((cur) => (cur === t && t !== 'select' ? 'select' : t));
+  const photoCount = marks.reduce((n, m) => n + m.photoIds.length, 0);
+  const siblingIdx = siblings.findIndex((p) => p.id === planId);
 
   if (plan === null)
     return (
-      <>
-        <SiteNav />
-        <div className="page">
-          <p>Plan nicht gefunden.</p>
-          <a href={paths.defects()} className="btn">
-            Zum Mängelplan
-          </a>
-        </div>
-      </>
+      <div className="page">
+        <p>Plan nicht gefunden.</p>
+        <a href={paths.defects()} className="btn">
+          Zum Mängelplan
+        </a>
+      </div>
     );
 
   return (
     <>
-      <SiteNav />
-      <div className="page defects-page dp-page" style={DEFECT_ACCENT}>
-        <header className="page-head page-head-row">
-          <div className="page-head-title">
-            <a href={plan ? paths.defectSite(defectSiteKey(plan)) : paths.defects()} className="icon-link" aria-label="Zur Baustelle" title="Zur Baustelle" data-testid="to-defect-site">
-              <Icon name="back" />
-            </a>
-            <div>
-              <p className="muted small page-sub">{plan?.siteName ?? ''} · Mängelplan</p>
-              <h1 data-testid="dp-title">{plan?.title ?? '…'}</h1>
+      <div className="editor dp-editor" style={DEFECT_ACCENT}>
+        <header className="topbar editor-topbar">
+          <a className="icon-btn" href={plan ? paths.defectSite(defectSiteKey(plan)) : paths.defects()} aria-label="Zurück zur Baustelle" data-testid="to-defect-site">
+            <Icon name="back" />
+          </a>
+          <div className="topbar-title">
+            <small>{[plan?.siteName, plan?.siteNumber].filter(Boolean).join(' · ')} · Mängelplan</small>
+            <div className="plan-switch">
+              <button type="button" className="icon-btn icon-btn-sm" disabled={siblingIdx <= 0} onClick={() => navigate(paths.defectPlan(siblings[siblingIdx - 1].id))} aria-label="Vorheriger Plan">
+                <Icon name="back" size={18} />
+              </button>
+              <select value={planId} onChange={(e) => navigate(paths.defectPlan(e.target.value))} aria-label="Plan wechseln" data-testid="dp-plan-select">
+                {(siblings.length ? siblings : plan ? [plan] : []).map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.title}
+                  </option>
+                ))}
+              </select>
+              <button type="button" className="icon-btn icon-btn-sm" disabled={siblingIdx < 0 || siblingIdx >= siblings.length - 1} onClick={() => navigate(paths.defectPlan(siblings[siblingIdx + 1].id))} aria-label="Nächster Plan">
+                <Icon name="next" size={18} />
+              </button>
             </div>
+            <h1 className="sr-only" data-testid="dp-title">
+              {plan?.title ?? '…'}
+            </h1>
           </div>
-          <div className="row gap">
-            <button type="button" className="btn btn-sm btn-primary" onClick={() => void exportPdf()} disabled={busy || !marks.length} data-testid="dp-pdf">
-              <Icon name="pdf" size={16} /> {busy ? 'Wird erstellt …' : 'PDF'}
+          <div className="topbar-actions">
+            <span className="status-pill ok dp-status" title="Alles gespeichert" data-testid="dp-status">
+              <span className="hide-sm">{marks.length} Markierungen</span>
+            </span>
+            <button type="button" className="btn btn-sm" onClick={() => void exportPdf()} disabled={busy || !marks.length} title="Plan mit Markierungen und Liste als PDF" data-testid="dp-pdf">
+              <Icon name="pdf" size={18} /> <span className="hide-sm">{busy ? 'Wird erstellt …' : 'PDF'}</span>
             </button>
           </div>
         </header>
 
-        <div className="dp-toolbar" role="toolbar" aria-label="Werkzeuge" data-testid="dp-toolbar">
-          <button type="button" className={`tb${tool === 'select' ? ' on' : ''}`} onClick={() => setTool('select')} data-testid="dp-tool-select" title="Auswählen und verschieben">
-            <Icon name="hand" size={16} /> <span className="lbl">Auswählen</span>
+        <div className="mobile-tabs segmented" role="tablist">
+          <button type="button" role="tab" aria-selected={mobileTab === 'plan'} onClick={() => setMobileTab('plan')}>
+            <Icon name="map" size={18} /> Plan
           </button>
-          {SHAPES.map((s) => (
-            <button key={s.id} type="button" className={`tb${tool === s.id ? ' on' : ''}`} onClick={() => pickTool(s.id)} data-testid={`dp-tool-${s.id}`} title={s.label}>
-              <Icon name={SHAPE_ICON[s.id] as never} size={16} /> <span className="lbl">{s.label}</span>
-            </button>
-          ))}
-          <span className="dp-sep" />
-          {MARK_COLORS.map((c) => (
-            <button key={c} type="button" className={`dp-color${color === c ? ' on' : ''}`} style={{ background: c }} onClick={() => setColor(c)} aria-label={`Farbe ${c}`} aria-pressed={color === c} data-testid="dp-color" data-color={c} />
-          ))}
-          <span className="dp-sep" />
-          <select value={kind} onChange={(e) => { const k = e.target.value as DefectKind; setKind(k); setColor(kindInfo(k).color); }} aria-label="Art neuer Markierungen" data-testid="dp-kind">
-            {KINDS.map((k) => (
-              <option key={k.id} value={k.id}>
-                {k.label}
-              </option>
-            ))}
-          </select>
-          <span className="dp-sep" />
-          <button type="button" className="tb" onClick={() => zoomBy(1.4)} aria-label="Vergrößern" title="Vergrößern – auch Mausrad oder zwei Finger" data-testid="dp-zoom-in">
-            <Icon name="plus" size={16} />
+          <button type="button" role="tab" aria-selected={mobileTab === 'table'} onClick={() => setMobileTab('table')} data-testid="dp-mobile-tab-table">
+            <Icon name="table" size={18} /> Liste ({marks.length})
           </button>
-          <button type="button" className="tb" onClick={() => zoomBy(1 / 1.4)} aria-label="Verkleinern" disabled={zoom <= 1} data-testid="dp-zoom-out">
-            <Icon name="minus" size={16} />
-          </button>
-          <button type="button" className="tb" onClick={() => zoomBy(0)} aria-label="Einpassen" title="Auf Rahmengröße" disabled={zoom <= 1} data-testid="dp-zoom-fit">
-            <Icon name="fit" size={16} />
-          </button>
-          <span className="muted small dp-zoom-value" data-testid="dp-zoom-value">
-            {Math.round(zoom * 100)} %
-          </span>
         </div>
-        {tool !== 'select' && (
-          <p className="muted small dp-hint" data-testid="dp-hint">
-            {tool === 'pin' || tool === 'text' ? 'Im Plan antippen, wo die Markierung sitzen soll.' : tool === 'freehand' ? 'Mit dem Finger oder der Maus im Plan zeichnen.' : 'Im Plan aufziehen: Startpunkt drücken, ziehen, loslassen.'} Verschieben und Zoom mit zwei Fingern oder Mausrad.
-          </p>
-        )}
 
-        <div className="dp-layout">
-          {plan && (
-            <PlanCanvas
-              plan={plan}
-              url={url}
-              marks={marks}
-              selectedId={selected}
-              tool={tool}
-              color={color}
-              zoomCmd={zoomCmd}
-              onZoom={setZoom}
-              onCreate={(s, p) => void create(s, p)}
-              onSelect={setSelected}
-              onOpen={(id) => setEditing(marks.find((m) => m.id === id) ?? null)}
-              onMove={(id, p) => {
-                moveMark(id, p);
-                window.clearTimeout((window as unknown as { __dpMove?: number }).__dpMove);
-                (window as unknown as { __dpMove?: number }).__dpMove = window.setTimeout(() => void commitMove(id), 400);
-              }}
-            />
-          )}
-          <aside className="dp-list" data-testid="dp-list">
-            <header>
-              <strong>Markierungen ({marks.length})</strong>
-              <select value={filter} onChange={(e) => setFilter(e.target.value as DefectKind | 'all')} aria-label="Filter" data-testid="dp-filter">
-                <option value="all">Alle</option>
-                {KINDS.map((k) => (
-                  <option key={k.id} value={k.id}>
-                    {k.label}
-                  </option>
-                ))}
-              </select>
-            </header>
-            {marks.length === 0 && <p className="muted small">Noch keine Markierung. Oben ein Werkzeug wählen und im Plan antippen.</p>}
-            <ul>
-              {shown.map((m) => {
-                const k = kindInfo(m.kind);
-                return (
-                  <li key={m.id} className={m.id === selected ? 'on' : ''} data-testid="dp-item" data-no={m.no}>
-                    <button type="button" className="dp-item-main" onClick={() => (selected === m.id ? setEditing(m) : setSelected(m.id))} onDoubleClick={() => setEditing(m)}>
-                      <span className="dp-item-no" style={{ background: m.color }}>
-                        {m.no}
-                      </span>
-                      <span className="dp-item-text">
-                        <strong>{m.title || (m.shape === 'text' && m.text) || `Nr. ${m.no}`}</strong>
-                        <small className="muted">
-                          {m.description || 'keine Beschreibung'}
-                          {m.photoIds.length > 0 && ` · ${m.photoIds.length} ${m.photoIds.length === 1 ? 'Foto' : 'Fotos'}`}
-                        </small>
-                        <span className="dp-tag" style={{ background: k.color }}>
+        <div className={`editor-main show-${mobileTab}`}>
+          <div className="editor-plan">
+            {plan && (
+              <PlanCanvas
+                plan={plan}
+                url={url}
+                marks={marks}
+                selectedId={selected}
+                tool={tool}
+                color={color}
+                zoomCmd={zoomCmd}
+                onZoom={setZoom}
+                onCreate={(s, p) => void create(s, p)}
+                onSelect={setSelected}
+                onOpen={(id) => setEditing(marks.find((m) => m.id === id) ?? null)}
+                onMove={(id, p) => {
+                  moveMark(id, p);
+                  window.clearTimeout((window as unknown as { __dpMove?: number }).__dpMove);
+                  (window as unknown as { __dpMove?: number }).__dpMove = window.setTimeout(() => void commitMove(id), 400);
+                }}
+              />
+            )}
+            <div className="zoom-controls">
+              <button type="button" className="icon-btn" onClick={() => zoomBy(1.4)} aria-label="Vergrößern" title="Vergrößern (+) – auch Mausrad oder zwei Finger" data-testid="dp-zoom-in">
+                <Icon name="plus" />
+              </button>
+              <button type="button" className="icon-btn" onClick={() => zoomBy(1 / 1.4)} aria-label="Verkleinern" title="Verkleinern (−)" disabled={zoom <= 1} data-testid="dp-zoom-out">
+                <Icon name="minus" />
+              </button>
+              <button type="button" className="icon-btn" onClick={() => zoomBy(0)} aria-label="Gesamten Plan anzeigen" title="Gesamten Plan anzeigen (0)" disabled={zoom <= 1} data-testid="dp-zoom-fit">
+                <Icon name="fit" />
+              </button>
+              <span className="dp-zoom-value muted" data-testid="dp-zoom-value">
+                {Math.round(zoom * 100)} %
+              </span>
+            </div>
+
+            <div className={`toolbar${toolsOpen ? '' : ' toolbar-collapsed'}`} role="toolbar" aria-label="Werkzeuge" data-testid="dp-toolbar">
+              {!toolsOpen ? (
+                <button type="button" className="tool-btn tools-open" onClick={() => setToolsOpen(true)} aria-expanded={false} title="Werkzeugleiste öffnen" data-testid="dp-tools-open">
+                  <Icon name={tool === 'select' ? 'hand' : (SHAPE_ICON[tool] as never)} />
+                  <span>Werkzeuge</span>
+                </button>
+              ) : (
+                <>
+                  <div className="tool-group">
+                    <button type="button" className={`tool-btn${tool === 'select' ? ' active' : ''}`} onClick={() => setTool('select')} aria-pressed={tool === 'select'} title="Auswählen und verschieben" data-testid="dp-tool-select">
+                      <Icon name="hand" />
+                      <span>Wählen</span>
+                    </button>
+                    {SHAPES.map((s) => (
+                      <button key={s.id} type="button" className={`tool-btn${tool === s.id ? ' active' : ''}`} onClick={() => pickTool(s.id)} aria-pressed={tool === s.id} title={s.label} data-testid={`dp-tool-${s.id}`}>
+                        <Icon name={SHAPE_ICON[s.id] as never} />
+                        <span>{s.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="tool-group colors">
+                    {MARK_COLORS.map((c) => (
+                      <button key={c} type="button" className={`swatch${color === c ? ' active' : ''}`} style={{ background: c }} onClick={() => setColor(c)} aria-label={`Farbe ${c}`} aria-pressed={color === c} data-testid="dp-color" data-color={c} />
+                    ))}
+                  </div>
+                  <div className="tool-group color-pick">
+                    <select
+                      className="dp-kind-select"
+                      value={kind}
+                      onChange={(e) => {
+                        const k = e.target.value as DefectKind;
+                        setKind(k);
+                        setColor(kindInfo(k).color);
+                      }}
+                      aria-label="Art neuer Markierungen"
+                      title="Art neuer Markierungen"
+                      data-testid="dp-kind"
+                    >
+                      {KINDS.map((k) => (
+                        <option key={k.id} value={k.id}>
                           {k.label}
-                        </span>
-                      </span>
-                      {m.photoIds[0] && (
-                        <span className="dp-item-photo">
-                          <PhotoImg id={m.photoIds[0]} />
-                        </span>
-                      )}
-                    </button>
-                    <button type="button" className="icon-btn icon-btn-sm" onClick={() => setEditing(m)} aria-label={`Nr. ${m.no} bearbeiten`} data-testid="dp-item-edit">
-                      <Icon name="edit" size={16} />
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-            <p className="muted small dp-list-note">Fotos liegen auch in der Fotodokumentation dieser Baustelle.</p>
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <button type="button" className="icon-btn icon-btn-sm tools-close" onClick={() => setToolsOpen(false)} aria-label="Werkzeugleiste ausblenden" title="Werkzeugleiste ausblenden" data-testid="dp-tools-close">
+                    <Icon name="close" size={18} />
+                  </button>
+                </>
+              )}
+            </div>
+            {tool !== 'select' && (
+              <p className="dp-hint" data-testid="dp-hint">
+                {tool === 'pin' || tool === 'text' ? 'Im Plan antippen, wo die Markierung sitzen soll.' : tool === 'freehand' ? 'Mit dem Finger oder der Maus im Plan zeichnen.' : 'Im Plan aufziehen: Startpunkt drücken, ziehen, loslassen.'} Verschieben und Zoom mit zwei Fingern oder Mausrad.
+              </p>
+            )}
+          </div>
+
+          <aside className="editor-side" data-testid="dp-list">
+            <div className="side-head">
+              <h2>Markierungen – {plan?.title ?? '…'}</h2>
+              <span className="muted small" data-testid="dp-summary">
+                {marks.length} {marks.length === 1 ? 'Markierung' : 'Markierungen'} · {photoCount} {photoCount === 1 ? 'Foto' : 'Fotos'}
+                {' · '}
+                <select value={filter} onChange={(e) => setFilter(e.target.value as DefectKind | 'all')} aria-label="Filter" className="dp-filter" data-testid="dp-filter">
+                  <option value="all">alle Arten</option>
+                  {KINDS.map((k) => (
+                    <option key={k.id} value={k.id}>
+                      nur {k.label}
+                    </option>
+                  ))}
+                </select>
+              </span>
+            </div>
+            <div className="table-wrap">
+              <table className="aufmass-table dp-table">
+                <thead>
+                  <tr>
+                    <th>Nr.</th>
+                    <th>Titel</th>
+                    <th>Art</th>
+                    <th className="num">Fotos</th>
+                    <th className="actions-col">
+                      <span className="sr-only">Aktionen</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {shown.map((m) => {
+                    const k = kindInfo(m.kind);
+                    return (
+                      <tr
+                        key={m.id}
+                        className={m.id === selected ? 'selected' : ''}
+                        onClick={() => {
+                          setSelected(m.id);
+                          setMobileTab('plan');
+                        }}
+                        onDoubleClick={() => setEditing(m)}
+                        data-testid="dp-item"
+                        data-no={m.no}
+                      >
+                        <td>
+                          <span className="color-dot" style={{ background: m.color }} /> {m.no}
+                        </td>
+                        <td className="dp-cell-title">
+                          <strong>{m.title || (m.shape === 'text' && m.text) || `Markierung ${m.no}`}</strong>
+                          {m.description && <span className="muted small">{m.description}</span>}
+                        </td>
+                        <td>
+                          <span className="dp-tag" style={{ background: k.color }}>
+                            {k.label}
+                          </span>
+                        </td>
+                        <td className="num">
+                          {m.photoIds[0] ? (
+                            <span className="dp-item-photo">
+                              <PhotoImg id={m.photoIds[0]} />
+                              {m.photoIds.length > 1 && <b>{m.photoIds.length}</b>}
+                            </span>
+                          ) : (
+                            <span className="muted">–</span>
+                          )}
+                        </td>
+                        <td className="actions-col">
+                          <button type="button" className="icon-btn icon-btn-sm" onClick={(e) => { e.stopPropagation(); setEditing(m); }} aria-label={`Nr. ${m.no} bearbeiten`} data-testid="dp-item-edit">
+                            <Icon name="edit" size={16} />
+                          </button>
+                          <button type="button" className="icon-btn icon-btn-sm danger" onClick={(e) => { e.stopPropagation(); void del(m); }} aria-label={`Nr. ${m.no} löschen`} data-testid="dp-item-delete">
+                            <Icon name="trash" size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {marks.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="muted small">
+                        Noch keine Markierung. Unten „Werkzeuge“ öffnen, Pin oder Form wählen und im Plan antippen.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="side-foot">
+              <button type="button" className="btn btn-sm" onClick={() => void renumber(planId).then(setMarks)} disabled={!marks.length} data-testid="dp-renumber">
+                <Icon name="hash" size={18} /> Lückenlos neu nummerieren
+              </button>
+              <span className="muted small">Fotos liegen auch in der Fotodokumentation.</span>
+            </div>
           </aside>
         </div>
       </div>

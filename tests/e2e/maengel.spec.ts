@@ -78,7 +78,7 @@ test('Mängelplan: Plan hochladen, Markierungen setzen und bearbeiten, PDF', asy
   // Auswählen: Nummer antippen → markiert; nochmal → Dialog; Filter
   await page.getByTestId('dp-tool-select').click();
   await page.locator('[data-testid="dp-num"][data-no="1"]').click();
-  await expect(page.locator('[data-testid="dp-item"][data-no="1"]')).toHaveClass(/on/);
+  await expect(page.locator('[data-testid="dp-item"][data-no="1"]')).toHaveClass(/selected/);
   await page.locator('[data-testid="dp-num"][data-no="1"]').click();
   await expect(md).toContainText('Nr. 1 · Pin');
   await expect(md.getByTestId('dp-mark-title')).toHaveValue('Abplatzung Decke');
@@ -107,9 +107,9 @@ test('Mängelplan: Plan hochladen, Markierungen setzen und bearbeiten, PDF', asy
   await expect.poll(async () => parseFloat((await page.getByTestId('dp-canvas').getAttribute('data-zoom')) ?? '0')).toBeGreaterThan(1.4);
   const before = (await stage.boundingBox())!;
   await page.getByTestId('dp-tool-select').click();
-  await page.mouse.move(canvas.x + canvas.width * 0.9, canvas.y + canvas.height * 0.9); // leere Fläche rechts unten
+  await page.mouse.move(canvas.x + canvas.width * 0.5, canvas.y + canvas.height * 0.3); // leere Fläche im Plan
   await page.mouse.down();
-  await page.mouse.move(canvas.x + canvas.width * 0.5, canvas.y + canvas.height * 0.5, { steps: 5 });
+  await page.mouse.move(canvas.x + canvas.width * 0.2, canvas.y + canvas.height * 0.3, { steps: 5 });
   await page.mouse.up();
   const after = (await stage.boundingBox())!;
   expect(after.x).toBeLessThan(before.x - 20); // Plan wurde nach links verschoben

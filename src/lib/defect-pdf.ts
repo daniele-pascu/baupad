@@ -100,7 +100,7 @@ export async function drawPlanWithMarks(marks: DefectMark[], image: ArrayBuffer)
     }
     // Nummer
     const a = markAnchor(m);
-    const dy = m.shape === 'pin' ? -44 * u : m.shape === 'text' ? -22 * u : -2 * u;
+    const dy = m.shape === 'pin' ? -44 * u : m.shape === 'text' ? -22 * u : -14 * u;
     const cx = a.x * W;
     const cy = a.y * H + dy;
     const r = 11 * u;
