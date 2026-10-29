@@ -52,7 +52,7 @@ export const site = {
       { q: 'Funktioniert BauPad ohne Internet?', a: 'Ja. Nach dem ersten Öffnen läuft BauPad vollständig offline – auch in der Tiefgarage. Alle Daten werden auf dem Gerät gespeichert.' },
       { q: 'Auf welchen Geräten läuft es?', a: 'iPhone, iPad, Android-Handys und -Tablets sowie PC und Mac im Browser. Am Handy lässt sich BauPad wie eine App auf den Home-Bildschirm legen – ohne App Store.' },
       { q: 'Wo liegen meine Daten?', a: 'Derzeit ausschließlich auf deinem Gerät; Sicherungen erstellst du als Datei. Eine gemeinsame Ablage für alle Geräte eines Unternehmens mit Benutzerkonten ist in Vorbereitung.' },
-      { q: 'Was kostet BauPad?', a: 'BauPad ist derzeit kostenlos nutzbar. Preise für Unternehmen mit gemeinsamer Ablage und Benutzerkonten werden mit der Anmeldung veröffentlicht.' },
+      { q: 'Was kostet BauPad?', a: 'BauPad ist ein Abo für Firmen und Einzelunternehmer, gekauft und verwaltet auf der Website – per Karte, SEPA-Lastschrift oder Rechnung, keine Käufe in der App. Preise und Pakete werden zum Start veröffentlicht; bis dahin läuft die Testphase.' },
       { q: 'Passen die Formulare zu meinen?', a: 'Regieliste und Bautagesbericht sind an gängige Baustellenformulare angelehnt. Firmenname, Anschrift und Logo kommen aus deinen Einstellungen.' },
     ],
     /** Was als Nächstes kommt – ehrlich, ohne Termin */

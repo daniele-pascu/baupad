@@ -571,7 +571,7 @@ function SubscriptionInfo({ session }: { session: Session | null | undefined }) 
         {session.companyName ? ` · Arbeitsbereich „${session.companyName}“` : ''}
       </p>
       <p className="muted small">
-        BauPad ist derzeit kostenlos nutzbar. Pakete werden {session.role === 'admin' ? 'von dir als Admin' : 'vom Admin deiner Firma'} auf der Website verwaltet – Zahlung
+        BauPad befindet sich in der Testphase. Pakete werden {session.role === 'admin' ? 'von dir als Admin' : 'vom Admin deiner Firma'} auf der Website verwaltet – Zahlung
         per Karte, SEPA-Lastschrift oder Rechnung. Preise und Bestellung folgen; in der App gibt es keine Käufe.
       </p>
     </div>
