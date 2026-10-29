@@ -18,7 +18,7 @@ export type Route =
   | { name: 'camera'; siteKey: string | null }
   | { name: 'photos' }
   | { name: 'photoSite'; siteKey: string; week: string | null; photoId: string | null }
-  | { name: 'login' }
+  | { name: 'login'; register?: boolean }
   | { name: 'account' }
   | { name: 'project'; projectId: string }
   | { name: 'costCenter'; projectId: string; costCenterId: string }
@@ -49,6 +49,7 @@ export function parseRoute(hash: string): Route {
   if (parts[0] === 'fotos' && (parts[1] === 'p' || parts[1] === 'n') && parts.length === 3)
     return { name: 'photoSite', siteKey: `${parts[1]}:${parts[2]}`, week: params.get('w'), photoId: params.get('f') };
   if (parts[0] === 'anmelden' && parts.length === 1) return { name: 'login' };
+  if (parts[0] === 'registrieren' && parts.length === 1) return { name: 'login', register: true };
   if (parts[0] === 'konto' && parts.length === 1) return { name: 'account' };
   if (parts[0] === 'p' && parts.length === 2) return { name: 'project', projectId: parts[1] };
   if (parts[0] === 'p' && parts[2] === 'k' && parts.length === 4)
@@ -91,6 +92,7 @@ export const paths = {
   },
   /** Anmeldeseite (Benutzerkonten noch nicht eingerichtet) */
   login: () => '#/anmelden',
+  register: () => '#/registrieren',
   /** Konto und Einstellungen (Vorschau der geplanten Bereiche) */
   account: () => '#/konto',
   project: (pid: string) => `#/p/${pid}`,

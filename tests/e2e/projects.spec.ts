@@ -57,16 +57,37 @@ test('Website: Startseite, Über uns, Kontakt, Impressum, Anmelden und Logo', as
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Anmelden');
   await expect(page).toHaveTitle('Anmelden – BauPad');
   await expect(page.getByTestId('login-provider')).toHaveCount(3);
-  for (const b of await page.getByTestId('login-provider').all()) await expect(b).toBeDisabled();
-  await expect(page.getByTestId('login-provider').nth(1)).toContainText('Mit Google anmelden');
+  await expect(page.getByTestId('login-provider').nth(0)).toContainText('Mit Google anmelden');
+  await expect(page.getByTestId('login-provider').nth(2)).toContainText('Mit Microsoft (Outlook) anmelden');
+  await page.getByTestId('login-provider').nth(0).click(); // Google: Dienst noch nicht angebunden → ehrlicher Hinweis
+  await expect(page.getByTestId('login-unavailable')).toContainText('Die Anmeldung ist noch nicht eingerichtet.');
   await page.getByTestId('login-email').fill('test@example.com');
   await page.getByTestId('login-password').fill('geheim');
   await page.getByTestId('login-submit').click();
   await expect(page.getByTestId('login-unavailable')).toContainText('Die Anmeldung ist noch nicht eingerichtet.');
   expect(page.url()).toContain('#/anmelden'); // keine Weiterleitung, kein „angemeldet“
+  // Registrieren: Pflichtfelder und Passwortregeln werden geprüft, bevor etwas gesendet würde
+  await page.getByTestId('auth-tab-register').click();
+  expect(page.url()).toContain('#/registrieren');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Registrieren');
+  await page.getByTestId('login-email').fill('neu@example.com');
+  await page.getByTestId('login-submit').click();
+  await expect(page.getByTestId('auth-error')).toContainText('Namen');
+  await page.getByTestId('register-name').fill('Daniele');
+  await page.getByTestId('login-password').fill('kurz');
+  await page.getByTestId('login-submit').click();
+  await expect(page.getByTestId('auth-error')).toContainText('mindestens 8 Zeichen');
+  await page.getByTestId('login-password').fill('langes-passwort');
+  await page.getByTestId('register-password2').fill('anders');
+  await page.getByTestId('login-submit').click();
+  await expect(page.getByTestId('auth-error')).toContainText('nicht überein');
+  await page.getByTestId('register-password2').fill('langes-passwort');
+  await page.getByTestId('login-submit').click();
+  await expect(page.getByTestId('login-unavailable')).toBeVisible();
+  await page.getByTestId('auth-tab-login').click();
   await page.screenshot({ path: join(OUT, 'anmelden.png'), fullPage: true });
   // nach der Anmeldung zuerst die Tools, von dort in Aufmaß & Abrechnung
-  await page.getByTestId('login-unavailable').getByRole('link', { name: 'Weiter zu den Tools' }).click();
+  await page.getByTestId('login-skip').click(); // ohne Konto direkt zu den Tools
   await expect(page.getByTestId('tools-title')).toHaveText('Tools');
   // Einstellungen (Zahnrad) nur auf der Tools-Seite, nicht mehr in Aufmaß & Abrechnung
   await page.getByTestId('tool-projects').click();
@@ -87,6 +108,29 @@ test('Website: Startseite, Über uns, Kontakt, Impressum, Anmelden und Logo', as
     /Weitere Einstellungen/,
   ]);
   await expect(page.getByTestId('account-logout')).toBeDisabled();
+  // Benutzer & Rollen: Admin trägt Benutzer mit Funktion, Werkzeugen und Paket ein (bleibt nach dem Neuladen)
+  await page.getByTestId('user-add').click();
+  const ud = page.getByTestId('user-dialog');
+  await ud.getByTestId('user-email').fill('polier@musterbau.at');
+  await ud.getByTestId('user-name').fill('Max Muster');
+  await ud.locator('.role-option', { hasText: 'Polier' }).click();
+  await expect(ud.getByTestId('user-role-polier')).toBeChecked();
+  await expect(ud.getByTestId('user-tool-photos')).toBeChecked();
+  await expect(ud.getByTestId('user-tool-reports')).toBeChecked();
+  await expect(ud.getByTestId('user-tool-projects')).not.toBeChecked();
+  await ud.getByTestId('user-tool-workers').check();
+  await ud.getByTestId('user-save').click();
+  await expect(page.getByTestId('user-row')).toHaveCount(1);
+  await expect(page.getByTestId('user-row')).toContainText('Polier');
+  await expect(page.getByTestId('user-row')).toContainText('Arbeitereinteilung');
+  await page.getByTestId('user-add').click();
+  await ud.getByTestId('user-email').fill('polier@musterbau.at');
+  await ud.getByTestId('user-name').fill('Doppelt');
+  await ud.getByTestId('user-save').click();
+  await expect(page.locator('.toast', { hasText: 'schon eingetragen' })).toHaveCount(1);
+  await page.keyboard.press('Escape');
+  await page.reload();
+  await expect(page.getByTestId('user-row')).toHaveCount(1);
   await page.screenshot({ path: join(OUT, 'konto.png'), fullPage: true });
   await page.getByRole('link', { name: 'Zu den Tools' }).click();
   await expect(page.getByTestId('tools-title')).toHaveText('Tools');

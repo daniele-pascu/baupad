@@ -38,6 +38,13 @@ if (typeof window !== 'undefined' && isInstalledApp()) {
 
 export function App() {
   const route = parseRoute(useHash());
+  // Startbild mit Logo beim Öffnen der installierten App (kurz, dann die App)
+  const [splash, setSplash] = useState(() => isInstalledApp());
+  useEffect(() => {
+    if (!splash) return;
+    const t = window.setTimeout(() => setSplash(false), 900);
+    return () => window.clearTimeout(t);
+  }, [splash]);
   useServiceWorker();
   // Firmenlogo für Excel-Exporte vorab laden (Export bleibt synchron im Klick)
   useEffect(preloadExcelLogo, []);
@@ -100,7 +107,7 @@ export function App() {
       content = <PhotoSitePage key={route.siteKey} siteKey={route.siteKey} week={route.week} photoId={route.photoId} />;
       break;
     case 'login':
-      content = <LoginPage />;
+      content = <LoginPage key={route.register ? 'r' : 'l'} register={route.register} />;
       break;
     case 'account':
       content = <AccountPage />;
@@ -142,6 +149,13 @@ export function App() {
       <OfflineBadge />
       {content}
       <DialogHost />
+      {splash && (
+        <div className="splash" aria-hidden="true" data-testid="splash">
+          <img src="./icons/icon-192.png" alt="" width={96} height={96} />
+          <strong>BauPad</strong>
+          <span>PAD Software</span>
+        </div>
+      )}
     </>
   );
 }
