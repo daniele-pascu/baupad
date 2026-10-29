@@ -194,7 +194,7 @@ test('Ohne Projekt und ohne Arbeitereinteilung: Baustelle frei eingeben, Arbeite
   const d = page.getByTestId('report-new-dialog');
   await expect(d.getByTestId('report-site')).toHaveValue('neu');
   await d.getByTestId('report-create').click();
-  await expect(d).toContainText('Bitte die Baustelle eingeben.');
+  await expect(d).toContainText('Bitte das Projekt eingeben.');
   await d.getByTestId('report-site-name').fill('Halle 3');
   await d.getByTestId('report-create').click();
   await expect(page.getByTestId('report-title')).toHaveText('Regieliste Nr. 1');

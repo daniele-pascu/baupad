@@ -239,11 +239,11 @@ export function NewReportDialog({
     let s: SiteChoice;
     if (choice.startsWith('p:')) {
       const p = projects.find((x) => x.id === choice.slice(2));
-      if (!p) return setError('Bitte eine Baustelle wählen.');
+      if (!p) return setError('Bitte ein Projekt wählen.');
       s = { projectId: p.id, name: p.site || p.name };
     } else if (choice.startsWith('n:')) s = { projectId: null, name: choice.slice(2) };
     else {
-      if (!name.trim()) return setError('Bitte die Baustelle eingeben.');
+      if (!name.trim()) return setError('Bitte das Projekt eingeben.');
       s = { projectId: null, name: name.trim() };
     }
     if (!date) return setError('Bitte ein Datum wählen.');
@@ -295,12 +295,12 @@ export function NewReportDialog({
               ))}
             </optgroup>
           )}
-          <option value="neu">Andere Baustelle eingeben …</option>
+          <option value="neu">+ Neues Projekt …</option>
         </select>
       </label>
       {choice === 'neu' && (
         <label className="field">
-          <span>Baustelle *</span>
+          <span>Projekt *</span>
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="z. B. Neubau Musterstraße" data-testid="report-site-name" />
         </label>
       )}

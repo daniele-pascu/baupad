@@ -177,7 +177,7 @@ export function PhotoCapture({
           }
         >
           <label className="field">
-            <span>Baustelle *</span>
+            <span>Projekt *</span>
             <PhotoSitePicker sites={allSites} value={chosen} onChange={setChosen} onCreated={(s) => setExtra((x) => [...x, s])} />
           </label>
           <label className="field">

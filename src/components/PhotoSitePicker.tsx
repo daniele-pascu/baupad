@@ -63,7 +63,7 @@ export function PhotoSiteDialog({
         }}
       >
         <label className="field">
-          <span>Baustelle *</span>
+          <span>Projekt *</span>
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="z. B. Garage Jagdschlossgasse" data-autofocus data-testid="photo-site-name" />
         </label>
         <label className="field">
@@ -106,7 +106,7 @@ export function PhotoSitePicker({
         }}
         data-testid={testId}
       >
-        <option value="">– Baustelle wählen –</option>
+        <option value="">– Projekt wählen –</option>
         {sites.map((s) => (
           <option key={siteValue(s)} value={siteValue(s)}>
             {[s.number, s.name].filter(Boolean).join(' · ')}

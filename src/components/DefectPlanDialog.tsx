@@ -20,7 +20,7 @@ export function DefectPlanDialog({ sites, site, onClose, onCreated }: { sites: P
   useEffect(() => setList(sites), [sites]);
 
   const save = async () => {
-    if (!chosen) return showError(new Error('Bitte eine Baustelle wählen.'), 'Plan nicht gespeichert');
+    if (!chosen) return showError(new Error('Bitte ein Projekt wählen.'), 'Plan nicht gespeichert');
     if (!file) return showError(new Error('Bitte einen Plan als PDF oder Bild wählen.'), 'Plan nicht gespeichert');
     setBusy(true);
     try {
@@ -51,7 +51,7 @@ export function DefectPlanDialog({ sites, site, onClose, onCreated }: { sites: P
       <div className="form-grid">
         {!site && (
           <label className="field">
-            <span>Baustelle *</span>
+            <span>Projekt *</span>
             <PhotoSitePicker sites={list} value={chosen} onChange={setChosen} onCreated={(s) => setList((l) => [...l, s])} />
           </label>
         )}

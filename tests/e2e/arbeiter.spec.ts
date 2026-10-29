@@ -366,7 +366,7 @@ test('Baustelle ↔ Projekt: aus Aufmaß & Abrechnung wählen, als Projekt anleg
   await page.goto('./#/projekte');
   await page.getByTestId('new-project').click();
   const form = page.getByTestId('project-form');
-  await expect(form.getByTestId('project-from-crew').locator('option')).toHaveText(['– Baustelle wählen –', 'Halle Nord']); // nur Baustellen ohne Projekt
+  await expect(form.getByTestId('project-from-crew').locator('option')).toHaveText(['– Projekt wählen –', 'Halle Nord']); // nur Baustellen ohne Projekt
   await form.getByTestId('project-from-crew').selectOption({ label: 'Halle Nord' });
   await expect(form.locator('input[name="name"]')).toHaveValue('Halle Nord');
   await form.getByRole('button', { name: 'Projekt anlegen' }).click();

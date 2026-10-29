@@ -98,7 +98,7 @@ export function ProjectForm({ title, initial, costCenters, submitLabel, fromCrew
               }}
               data-testid="project-from-crew"
             >
-              <option value="">– Baustelle wählen –</option>
+              <option value="">– Projekt wählen –</option>
               {fromCrew.map((s, i) => (
                 <option key={s.name} value={i}>
                   {[s.number, s.name].filter(Boolean).join(' · ')}
