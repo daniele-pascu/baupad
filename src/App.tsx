@@ -7,7 +7,7 @@ import { flush, openProject, useAppState } from './lib/store';
 import { HomePage } from './pages/HomePage';
 import { ProjectPage } from './pages/ProjectPage';
 import { PlanEditorPage } from './pages/PlanEditorPage';
-import { AboutPage, ContactPage, LandingPage, ImprintPage, PrivacyPage } from './pages/SitePages';
+import { AboutPage, ContactPage, DeleteAccountInfoPage, LandingPage, ImprintPage, PrivacyPage } from './pages/SitePages';
 import { ProductPage } from './pages/ProductPage';
 import { AccountPage, LoginPage, NewPasswordPage } from './pages/AccountPages';
 import { ToolsPage } from './pages/ToolsPage';
@@ -52,7 +52,7 @@ function ToolsRedirect() {
 }
 
 /** Seiten ohne Anmeldung: Website, Anmelden/Registrieren, neues Passwort */
-const PUBLIC_ROUTES = new Set(['landing', 'about', 'contact', 'imprint', 'privacy', 'product', 'login', 'newPassword', 'notFound']);
+const PUBLIC_ROUTES = new Set(['landing', 'about', 'contact', 'imprint', 'privacy', 'deleteAccountInfo', 'product', 'login', 'newPassword', 'notFound']);
 
 /**
  * Zugangsschleuse für alle Werkzeuge: ohne Anmeldung geht es zur Anmeldeseite. Eine auf dem Gerät
@@ -186,6 +186,9 @@ export function App() {
       break;
     case 'newPassword':
       content = <NewPasswordPage />;
+      break;
+    case 'deleteAccountInfo':
+      content = <DeleteAccountInfoPage />;
       break;
     case 'project':
       content = (

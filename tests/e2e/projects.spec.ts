@@ -110,6 +110,10 @@ test('Website: Startseite, Über uns, Kontakt, Impressum, Anmelden und Logo', as
   await page.goto('./');
   await page.getByTestId('cta-tools').click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Anmelden');
+  // Pflichtseite der Stores: Konto löschen, öffentlich, mit Schritten
+  await page.goto('./#/konto-loeschen');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Konto löschen');
+  await expect(page.getByTestId('delete-steps').locator('li')).toHaveCount(4);
 });
 
 test('Installierte App ohne Anmeldung startet auf der Anmeldeseite', async ({ page }) => {

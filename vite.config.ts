@@ -34,6 +34,8 @@ export default defineConfig({
         short_name: 'BauPad',
         description: 'BauPad – Aufmaß & Abrechnung, Arbeitereinteilung, Berichte und Fotodokumentation für die Baustelle',
         lang: 'de',
+        id: 'baupad',
+        categories: ['business', 'productivity', 'utilities'],
         start_url: './#/projekte',
         shortcuts: [
           { name: 'Foto aufnehmen', short_name: 'Kamera', url: './#/fotos/kamera', icons: [{ src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' }] },

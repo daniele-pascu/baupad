@@ -383,3 +383,41 @@ export function PrivacyPage() {
     </div>
   );
 }
+
+/** Öffentliche Anleitung „Konto löschen“ (Vorgabe von Google Play und App Store bei Apps mit Registrierung) */
+export function DeleteAccountInfoPage() {
+  usePageTitle('Konto löschen – BauPad');
+  const c = site.contact;
+  return (
+    <div className="site">
+      <SiteNav />
+      <main className="site-main site-text">
+        <h1 className="site-title fade-in">Konto löschen</h1>
+        <p className="fade-in delay-1">Du kannst dein BauPad-Konto jederzeit selbst löschen, in der App oder im Browser. Es dauert eine Minute.</p>
+        <ol className="fade-in delay-2" data-testid="delete-steps">
+          <li>BauPad öffnen und anmelden: https://pad-software.at</li>
+          <li>Oben rechts auf deinen Namen tippen (Konto und Einstellungen).</li>
+          <li>Bereich „E-Mail und Konto“ aufklappen.</li>
+          <li>„Konto löschen“ wählen und bestätigen.</li>
+        </ol>
+        <section className="legal-section fade-in delay-2">
+          <h2>Was gelöscht wird</h2>
+          <p>Dein Benutzerkonto (E-Mail, Name, Telefon, Anmeldemethoden), deine Mitgliedschaften in Arbeitsbereichen und ein Arbeitsbereich, den nur du genutzt hast. Die Löschung ist sofort wirksam und kann nicht rückgängig gemacht werden.</p>
+          <h2>Was bleibt</h2>
+          <p>Inhalte, die auf deinem Gerät gespeichert sind (Projekte, Pläne, Fotos, Berichte), bleiben dort, bis du sie in der App oder über die Browserdaten löschst. Inhalte, die du in den Arbeitsbereich einer Firma gestellt hast, bleiben bei dieser Firma.</p>
+          <h2>Ohne Zugang zum Konto</h2>
+          <p>
+            Wenn du dich nicht mehr anmelden kannst, schreib uns von der E-Mail-Adresse des Kontos{c.email ? ` an ${c.email}` : ' über die Kontaktseite'}. Wir löschen das Konto innerhalb von 14 Tagen.
+          </p>
+        </section>
+        <p className="fade-in delay-3">
+          <a href={paths.login()} className="site-cta">
+            Zur Anmeldung
+            <span aria-hidden="true"> →</span>
+          </a>
+        </p>
+      </main>
+      <SiteFooter />
+    </div>
+  );
+}
