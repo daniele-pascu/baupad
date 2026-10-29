@@ -642,7 +642,7 @@ export function WorkersPage() {
             </div>
           )}
           <button type="button" className="btn btn-primary crew-add-site" onClick={() => setDialog({ kind: 'site' })} data-testid="add-site">
-            <Icon name="plus" /> Baustelle
+            <Icon name="plus" /> Neues Projekt
           </button>
         </section>
       </div>
@@ -969,7 +969,7 @@ function SiteDialog({
   };
   return (
     <Modal
-      title={site ? 'Baustelle bearbeiten' : 'Baustelle hinzufügen'}
+      title={site ? 'Projekt bearbeiten' : 'Neues Projekt'}
       onClose={onClose}
       testId="site-dialog"
       footer={
@@ -1004,7 +1004,7 @@ function SiteDialog({
             }}
             data-testid="site-source-new"
           >
-            <Icon name="plus" size={16} /> Neue Baustelle
+            <Icon name="plus" size={16} /> Neues Projekt (manuell)
           </button>
         </div>
         {!projects.length && <p className="muted small">Noch keine Projekte in Aufmaß & Abrechnung.</p>}

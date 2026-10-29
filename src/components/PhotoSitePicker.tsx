@@ -41,7 +41,7 @@ export function PhotoSiteDialog({
   };
   return (
     <Modal
-      title={initial ? 'Baustelle bearbeiten' : 'Neue Baustelle'}
+      title={initial ? 'Projekt bearbeiten' : 'Neues Projekt'}
       onClose={onClose}
       testId="photo-site-dialog"
       footer={
@@ -80,7 +80,7 @@ export function PhotoSiteDialog({
   );
 }
 
-/** Auswahl der Baustelle mit Eintrag „Neue Baustelle …“ */
+/** Auswahl der Baustelle mit Eintrag „Neues Projekt …“ (in allen Werkzeugen gleich benannt) */
 export function PhotoSitePicker({
   sites,
   value,
@@ -112,7 +112,7 @@ export function PhotoSitePicker({
             {[s.number, s.name].filter(Boolean).join(' · ')}
           </option>
         ))}
-        <option value="__new">+ Neue Baustelle …</option>
+        <option value="__new">+ Neues Projekt …</option>
       </select>
       {creating && (
         <PhotoSiteDialog

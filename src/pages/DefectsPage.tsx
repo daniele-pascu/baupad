@@ -58,7 +58,7 @@ export function DefectsPage() {
           </div>
           <div className="row gap">
             <button type="button" className="btn btn-sm" onClick={() => setCreating(true)} data-testid="defect-new-site">
-              <Icon name="plus" size={16} /> <span className="lbl">Neue Baustelle</span>
+              <Icon name="plus" size={16} /> <span className="lbl">Neues Projekt</span>
             </button>
             <button type="button" className="btn btn-sm btn-primary" onClick={() => setUploading(true)} data-testid="defect-upload">
               <Icon name="upload" size={16} /> Plan hochladen

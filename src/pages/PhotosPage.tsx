@@ -94,8 +94,8 @@ export function PhotosPage() {
             </a>
             <h1 data-testid="photos-title">Fotodokumentation</h1>
           </div>
-          <button type="button" className="btn btn-sm" onClick={() => setCreating(true)} aria-label="Neue Baustelle" title="Neue Baustelle" data-testid="photo-new-site">
-            <Icon name="plus" size={16} /> <span className="lbl">Neue Baustelle</span>
+          <button type="button" className="btn btn-sm" onClick={() => setCreating(true)} aria-label="Neues Projekt" title="Neues Projekt" data-testid="photo-new-site">
+            <Icon name="plus" size={16} /> <span className="lbl">Neues Projekt</span>
           </button>
         </header>
         {creating && (

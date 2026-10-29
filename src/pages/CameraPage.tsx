@@ -498,7 +498,7 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
             </ul>
             <div className="row gap">
               <button type="button" className="btn btn-sm" onClick={() => setSiteNew(true)} data-testid="cam-site-new">
-                <Icon name="plus" size={16} /> Neue Baustelle
+                <Icon name="plus" size={16} /> Neues Projekt
               </button>
               <span className="spacer" />
               <button type="button" className="btn btn-sm" onClick={() => setSiteOpen(false)}>
