@@ -21,8 +21,8 @@ Supabase speichert Benutzerkonten, Firmen und Rollen. Der kostenlose Plan reicht
    - **anon public key** (öffentlich, darf in der App stehen)
    Den „service_role“-Schlüssel niemals weitergeben.
 6. Links „Authentication“ → „URL Configuration“:
-   - Site URL: `https://daniele-pascu.github.io/baupad/` (später die eigene Domain)
-   - Redirect URLs: dieselbe Adresse, zusätzlich `https://daniele-pascu.github.io/baupad/#/anmelden`
+   - Site URL: `https://pad-software.at/` (bis zur DNS-Umstellung: `https://daniele-pascu.github.io/baupad/`)
+   - Redirect URLs: dieselbe Adresse, zusätzlich `https://pad-software.at/#/anmelden` und `https://daniele-pascu.github.io/baupad/`
 7. „Authentication“ → „Providers“ → „Email“: eingeschaltet lassen. „Confirm email“ eingeschaltet lassen
    (neue Benutzer bestätigen ihre Adresse per Link).
 
