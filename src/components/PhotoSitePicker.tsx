@@ -67,7 +67,7 @@ export function PhotoSiteDialog({
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="z. B. Garage Jagdschlossgasse" data-autofocus data-testid="photo-site-name" />
         </label>
         <label className="field">
-          <span>Nummer / Code</span>
+          <span>Kostenstelle / Projektnummer</span>
           <input value={number} onChange={(e) => setNumber(e.target.value)} placeholder="z. B. 91574" data-testid="photo-site-number" />
         </label>
         <label className="field">
