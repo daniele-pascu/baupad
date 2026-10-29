@@ -25,8 +25,17 @@ const isInstalledApp = () =>
 
 // Die installierte App startet in der Werkzeug-Übersicht („Tools“) – auch Symbole, die vor der
 // neuen Startseite angelegt wurden (diese starten noch mit der Adresse „./“).
-if (typeof window !== 'undefined' && isInstalledApp() && parseRoute(location.hash).name === 'landing') {
-  navigate(paths.tools(), true);
+if (typeof window !== 'undefined' && isInstalledApp()) {
+  const name = parseRoute(location.hash).name;
+  let resume = false;
+  try {
+    resume = localStorage.getItem('resumeCamera') === '1';
+  } catch {
+    /* egal */
+  }
+  // War beim letzten Schließen der Kamera-Modus offen, geht es direkt dort weiter (ein Tipp weniger)
+  if (resume && (name === 'landing' || name === 'tools' || name === 'projects')) navigate(paths.camera(), true);
+  else if (name === 'landing') navigate(paths.tools(), true);
 }
 
 export function App() {

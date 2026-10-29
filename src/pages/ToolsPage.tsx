@@ -37,6 +37,14 @@ export function ToolsPage() {
             <Icon name="settings" />
           </a>
         </header>
+        <a href={paths.camera()} className="tools-quick" data-testid="tools-camera">
+          <Icon name="camera" size={22} />
+          <span>
+            <strong>Foto aufnehmen</strong>
+            <span>Kamera-Modus – Baustelle wählen, auslösen, fertig</span>
+          </span>
+          <Icon name="next" size={18} />
+        </a>
         <nav className="tools-grid" aria-label="Werkzeuge">
           {TOOLS.map((t) => {
             const body = (

@@ -101,6 +101,21 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
         setSites(s);
         return s;
       });
+  // Merken, dass die Kamera offen war: die installierte App startet dann direkt wieder hier
+  useEffect(() => {
+    try {
+      localStorage.setItem('resumeCamera', '1');
+    } catch {
+      /* egal */
+    }
+    return () => {
+      try {
+        localStorage.removeItem('resumeCamera');
+      } catch {
+        /* egal */
+      }
+    };
+  }, []);
   useEffect(() => {
     void deviceUserName().then(setUser);
     void reload()

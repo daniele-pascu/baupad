@@ -4819,6 +4819,30 @@ button.status-pill:hover {
   text-transform: uppercase;
   color: var(--muted);
 }
+.tools-quick {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0 0 16px;
+  padding: 14px 18px;
+  border-radius: 16px;
+  background: #111;
+  color: #fff;
+  text-decoration: none;
+}
+.tools-quick > span {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.tools-quick > span > span {
+  font-size: 0.88rem;
+  color: rgba(255, 255, 255, 0.72);
+}
+.tools-quick:hover {
+  background: #2c2c2e;
+}
 .tools-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

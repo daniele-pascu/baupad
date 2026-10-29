@@ -6,17 +6,33 @@ import { showError } from './ui';
 
 export const siteValue = (s: PhotoSite | null) => (s ? `${s.projectId ?? ''}|${s.name}` : '');
 
-/** Dialog: neue Baustelle unter „Fotos“ anlegen (Name Pflicht, Nummer und Adresse optional) */
-export function PhotoSiteDialog({ onClose, onSaved }: { onClose(): void; onSaved(site: PhotoSite): void }) {
-  const [name, setName] = useState('');
-  const [number, setNumber] = useState('');
-  const [address, setAddress] = useState('');
+/**
+ * Dialog: neue Baustelle unter „Fotos“ anlegen (Name Pflicht, Nummer und Adresse optional) –
+ * oder mit `initial` und `onSave` eine bestehende Baustelle bearbeiten
+ */
+export function PhotoSiteDialog({
+  onClose,
+  onSaved,
+  initial,
+  onSave,
+  hint,
+}: {
+  onClose(): void;
+  onSaved(site: PhotoSite): void;
+  initial?: PhotoSite;
+  /** eigene Speicherlogik (Bearbeiten); Standard: freie Baustelle anlegen */
+  onSave?(values: { name: string; number: string; address: string }): Promise<PhotoSite>;
+  hint?: string;
+}) {
+  const [name, setName] = useState(initial?.name ?? '');
+  const [number, setNumber] = useState(initial?.number ?? '');
+  const [address, setAddress] = useState(initial?.address ?? '');
   const [busy, setBusy] = useState(false);
   const save = async () => {
     if (!name.trim()) return;
     setBusy(true);
     try {
-      onSaved(await addFreePhotoSite({ name, number, address }));
+      onSaved(onSave ? await onSave({ name: name.trim(), number: number.trim(), address: address.trim() }) : await addFreePhotoSite({ name, number, address }));
     } catch (e) {
       showError(e, 'Baustelle konnte nicht angelegt werden');
     } finally {
@@ -25,7 +41,7 @@ export function PhotoSiteDialog({ onClose, onSaved }: { onClose(): void; onSaved
   };
   return (
     <Modal
-      title="Neue Baustelle"
+      title={initial ? 'Baustelle bearbeiten' : 'Neue Baustelle'}
       onClose={onClose}
       testId="photo-site-dialog"
       footer={
@@ -34,7 +50,7 @@ export function PhotoSiteDialog({ onClose, onSaved }: { onClose(): void; onSaved
             Abbrechen
           </button>
           <button type="button" className="btn btn-primary" onClick={() => void save()} disabled={busy || !name.trim()} data-testid="photo-site-save">
-            Anlegen
+            {initial ? 'Speichern' : 'Anlegen'}
           </button>
         </>
       }
@@ -58,7 +74,7 @@ export function PhotoSiteDialog({ onClose, onSaved }: { onClose(): void; onSaved
           <span>Adresse</span>
           <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Straße, PLZ Ort" autoComplete="street-address" data-testid="photo-site-address" />
         </label>
-        <p className="muted small">Baustellen aus Aufmaß &amp; Abrechnung und der Arbeitereinteilung stehen automatisch zur Auswahl.</p>
+        <p className="muted small">{hint ?? 'Baustellen aus Aufmaß & Abrechnung und der Arbeitereinteilung stehen automatisch zur Auswahl.'}</p>
       </form>
     </Modal>
   );

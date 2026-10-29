@@ -66,7 +66,10 @@ test('Fotos je Baustelle, KW und Tag; Großansicht; Beschreibung; Suche; Duplika
   await page.getByTestId('photo-mode-all').click();
   await expect(weeks).toHaveCount(1);
   await expect(weeks.getByTestId('photo-thumb')).toHaveCount(3);
-  await expect(page.getByTestId('photo-user-filter')).toHaveCount(0);
+  await expect(page.getByTestId('photo-user-filter')).toContainText('Alle Benutzer (1)');
+  await page.getByTestId('photo-user-filter').selectOption('Max Muster');
+  await expect(weeks.getByTestId('photo-thumb')).toHaveCount(3);
+  await page.getByTestId('photo-user-filter').selectOption('');
   await page.getByTestId('photo-mode-week').click();
 
   // Auswahl: alle der KW 44 markieren, als ZIP laden, dann abbrechen
@@ -210,6 +213,18 @@ test('Neue Baustelle unter Fotos (Übersicht und Speichern-Dialog), Verschieben,
   await expect(dlg.getByTestId('photo-site')).toHaveValue('|Halle 3');
   await dlg.getByTestId('photo-save').click();
   await expect(dlg).toHaveCount(0);
+  await expect(cards).toHaveCount(2);
+
+  // Baustelle nachträglich bearbeiten: Name, Nummer, Adresse – Fotos bleiben, Adresse ändert sich
+  await cards.filter({ hasText: 'Garage' }).click();
+  await page.getByTestId('photo-site-edit').click();
+  await sd.getByTestId('photo-site-name').fill('Garage Jagdschlossgasse 77');
+  await sd.getByTestId('photo-site-number').fill('91574-A');
+  await sd.getByTestId('photo-site-save').click();
+  await expect(page.getByTestId('photo-site-title')).toHaveText('Garage Jagdschlossgasse 77');
+  await expect(page.getByTestId('photo-thumb')).toHaveCount(2);
+  await page.getByTestId('to-photos').click();
+  await expect(cards.filter({ hasText: 'Garage Jagdschlossgasse 77' })).toContainText('91574-A');
   await expect(cards).toHaveCount(2);
 
   // Verschieben: ein Foto von der Garage nach Halle 3

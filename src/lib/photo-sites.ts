@@ -21,3 +21,14 @@ export async function addFreePhotoSite(site: { name: string; number?: string; ad
   await setMeta(KEY, list);
   return i >= 0 ? list[i] : next;
 }
+
+/** Angaben einer freien Baustelle ändern (auch der Name); legt sie an, falls sie noch nicht gespeichert war */
+export async function updateFreePhotoSite(oldName: string, site: { name: string; number?: string; address?: string }): Promise<PhotoSite> {
+  const name = site.name.trim();
+  if (!name) throw new Error('Bitte einen Namen für die Baustelle eingeben.');
+  const next: PhotoSite = { projectId: null, name, number: site.number?.trim() ?? '', address: site.address?.trim() ?? '' };
+  const list = (await listFreePhotoSites()).filter((s) => s.name.toLowerCase() !== oldName.trim().toLowerCase() && s.name.toLowerCase() !== name.toLowerCase());
+  list.push(next);
+  await setMeta(KEY, list);
+  return next;
+}
