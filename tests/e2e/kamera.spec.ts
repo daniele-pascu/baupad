@@ -13,7 +13,22 @@ test('Kamera-Modus: Live-Bild, Auslöser speichert sofort, Zähler, letztes Foto
   await expect(page.getByTestId('photo-shoot')).toHaveCount(0);
   await page.goto('./#/fotos/kamera?s=n%3Agarage%20jagdschlossgasse');
   await expect(page.getByTestId('camera-page')).toHaveAttribute('data-ready', 'true');
-  await expect(page.getByTestId('cam-site')).toHaveValue('|Garage Jagdschlossgasse');
+  await expect(page.getByTestId('cam-site')).toHaveAttribute('data-site', 'Garage Jagdschlossgasse');
+  // Suchfenster: Baustellen mit Name, Nummer, Adresse und Anzahl Fotos; Suche; neue Baustelle direkt hier
+  await page.getByTestId('cam-site').click();
+  await expect(page.getByTestId('cam-site-row')).toHaveCount(1);
+  await page.getByTestId('cam-site-search').fill('xyz');
+  await expect(page.getByTestId('cam-site-sheet')).toContainText('Keine Baustelle gefunden');
+  await page.getByTestId('cam-site-search').fill('');
+  await page.getByTestId('cam-site-new').click();
+  await page.getByTestId('photo-site-name').fill('Halle 3');
+  await page.getByTestId('photo-site-number').fill('91575');
+  await page.getByTestId('photo-site-save').click();
+  await expect(page.getByTestId('cam-site')).toHaveAttribute('data-site', 'Halle 3');
+  await expect(page.getByTestId('cam-site')).toContainText('91575');
+  await page.getByTestId('cam-site').click();
+  await page.getByTestId('cam-site-row').filter({ hasText: 'Garage Jagdschlossgasse' }).click();
+  await expect(page.getByTestId('cam-site')).toHaveAttribute('data-site', 'Garage Jagdschlossgasse');
   await expect.poll(() => page.getByTestId('cam-video').evaluate((v: HTMLVideoElement) => v.videoWidth)).toBeGreaterThan(0);
   await page.getByTestId('cam-desc').click();
   await page.getByTestId('cam-desc-input').fill('Rampe Einfahrt');

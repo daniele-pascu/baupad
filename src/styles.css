@@ -7072,7 +7072,84 @@ button.report-link {
   display: flex;
   flex-direction: column;
   align-items: center;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 12px;
+  background: #2c2c2e;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+  text-align: center;
 }
+.cam-site-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cam-site-caret {
+  flex: none;
+  transform: rotate(90deg);
+  opacity: 0.7;
+}
+.cam-site-sheet {
+  max-height: 80vh;
+}
+.cam-site-list {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+}
+.cam-site-list li + li {
+  border-top: 1px solid var(--border);
+}
+.cam-site-list button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 8px 6px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.cam-site-list button.on {
+  color: var(--primary);
+}
+.cam-site-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.cam-site-row-main span {
+  font-size: 0.85rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cam-site-row-n {
+  flex: none;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.cam-site-empty {
+  padding: 14px 6px;
+}
+
 .cam-site select {
   max-width: 100%;
   min-height: 36px;

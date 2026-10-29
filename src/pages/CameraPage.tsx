@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '../components/Icon';
 import { deviceUserName, PhotoCapture, photoFromPrepared } from '../components/PhotoCapture';
 import { PhotoImg } from '../components/PhotoImg';
-import { PhotoSitePicker } from '../components/PhotoSitePicker';
+import { PhotoSiteDialog } from '../components/PhotoSitePicker';
 import { showError, toast } from '../components/ui';
 import { uuid } from '../lib/ids';
 import { getPhotoStorage } from '../lib/photo-storage';
@@ -78,6 +78,11 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
   const [flash, setFlash] = useState(false);
   const [busy, setBusy] = useState(false);
   const [menu, setMenu] = useState(false);
+  const [siteOpen, setSiteOpen] = useState(false);
+  const [siteQuery, setSiteQuery] = useState('');
+  const [siteNew, setSiteNew] = useState(false);
+  /** Kamera neu starten, wenn die App aus dem Hintergrund zurückkommt */
+  const [tick, setTick] = useState(0);
   const [formatOpen, setFormatOpen] = useState(false);
   const [ratio, setRatio] = useState<Ratio>(() => stored('camRatio', RATIOS, '4:3'));
   const [orient, setOrient] = useState<Orient>(() => stored('camOrient', ['auto', 'portrait', 'landscape'] as const, 'auto'));
@@ -182,11 +187,19 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
         const name = e instanceof Error ? e.name : '';
         setError(name === 'NotAllowedError' ? 'Kamerazugriff wurde nicht erlaubt.' : name === 'NotFoundError' ? 'Keine Kamera gefunden.' : 'Kamera konnte nicht gestartet werden.');
       });
+    const onVisibility = () => {
+      if (document.hidden) stop();
+      else setTick((t) => t + 1);
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pagehide', stop);
     return () => {
       cancelled = true;
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pagehide', stop);
       stop();
     };
-  }, [facing]);
+  }, [facing, tick]);
 
   // Drehung erkennen: Layout (wenn die Oberfläche mitdreht) und Lagesensor (auch bei Ausrichtungssperre)
   useEffect(() => {
@@ -304,6 +317,22 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
     }
   };
 
+  /** Baustellen für das Suchfenster: zuletzt fotografierte zuerst, mit Anzahl Fotos */
+  const siteRows = useMemo(() => {
+    const stats = new Map<string, { n: number; last: number }>();
+    for (const p of photos) {
+      const k = photoSiteKey(p);
+      const st = stats.get(k) ?? { n: 0, last: 0 };
+      st.n++;
+      st.last = Math.max(st.last, p.uploadedAt);
+      stats.set(k, st);
+    }
+    const q = siteQuery.trim().toLowerCase();
+    return sites
+      .map((x) => ({ site: x, key: keyOf(x), n: stats.get(keyOf(x))?.n ?? 0, last: stats.get(keyOf(x))?.last ?? 0 }))
+      .filter((r) => !q || [r.site.name, r.site.number, r.site.address].some((t) => t.toLowerCase().includes(q)))
+      .sort((a, b) => b.last - a.last || a.site.name.localeCompare(b.site.name, 'de'));
+  }, [sites, photos, siteQuery]);
   const siteKeyNow = site ? keyOf(site) : null;
   const back = siteKeyNow ? paths.photoSite(siteKeyNow) : paths.photos();
   const reportsKey = site ? (site.projectId ? `p:${site.projectId}` : `n:${site.name.trim().toLowerCase()}`) : null;
@@ -314,16 +343,12 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
         <button type="button" className="cam-icon" onClick={() => setMenu(true)} aria-label="Menü" data-testid="cam-menu">
           <Icon name="menu" size={24} />
         </button>
-        <div className="cam-site">
-          <PhotoSitePicker
-            sites={sites}
-            value={site}
-            onChange={chooseSite}
-            onCreated={(s) => setSites((l) => [...l, s])}
-            testId="cam-site"
-          />
-          {(site ? site.address : true) && <span className="cam-site-sub">{site ? site.address : 'Bitte Baustelle wählen'}</span>}
-        </div>
+        <button type="button" className="cam-site" onClick={() => setSiteOpen(true)} data-testid="cam-site" data-site={site?.name ?? ''}>
+          <span className="cam-site-name">
+            {site ? site.name : 'Baustelle wählen'} <Icon name="next" size={14} className="cam-site-caret" />
+          </span>
+          <span className="cam-site-sub">{site ? [site.number, site.address].filter(Boolean).join(' · ') || 'Baustelle' : 'Antippen und suchen'}</span>
+        </button>
         <a className="cam-icon cam-count" href={back} aria-label="Zu den Fotos" title="Zu den Fotos" data-testid="cam-close">
           <span data-testid="cam-counter">{count}</span>
           <Icon name="close" size={22} />
@@ -427,6 +452,59 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
         />
       </footer>
 
+      {siteOpen && (
+        <div className="cam-sheet-backdrop" onClick={() => setSiteOpen(false)}>
+          <div className="cam-sheet cam-site-sheet" onClick={(e) => e.stopPropagation()} data-testid="cam-site-sheet">
+            <strong>Baustelle wählen</strong>
+            <input type="search" value={siteQuery} onChange={(e) => setSiteQuery(e.target.value)} placeholder="Name, Nummer oder Adresse suchen" autoFocus data-testid="cam-site-search" />
+            <ul className="cam-site-list">
+              {siteRows.map((r) => (
+                <li key={r.key}>
+                  <button
+                    type="button"
+                    className={r.key === siteKeyNow ? 'on' : undefined}
+                    onClick={() => {
+                      chooseSite(r.site);
+                      setSiteOpen(false);
+                      setSiteQuery('');
+                    }}
+                    data-testid="cam-site-row"
+                    data-site={r.site.name}
+                  >
+                    <span className="cam-site-row-main">
+                      <strong>{r.site.name}</strong>
+                      <span>{[r.site.number, r.site.address].filter(Boolean).join(' · ') || (r.site.projectId ? 'Projekt' : 'Baustelle')}</span>
+                    </span>
+                    <span className="cam-site-row-n">{r.n > 0 ? `${r.n} Fotos` : ''}</span>
+                    {r.key === siteKeyNow && <Icon name="check" size={18} />}
+                  </button>
+                </li>
+              ))}
+              {siteRows.length === 0 && <li className="muted small cam-site-empty">Keine Baustelle gefunden.</li>}
+            </ul>
+            <div className="row gap">
+              <button type="button" className="btn btn-sm" onClick={() => setSiteNew(true)} data-testid="cam-site-new">
+                <Icon name="plus" size={16} /> Neue Baustelle
+              </button>
+              <span className="spacer" />
+              <button type="button" className="btn btn-sm" onClick={() => setSiteOpen(false)}>
+                Schließen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {siteNew && (
+        <PhotoSiteDialog
+          onClose={() => setSiteNew(false)}
+          onSaved={(s) => {
+            setSiteNew(false);
+            setSites((l) => [...l, s]);
+            chooseSite(s);
+            setSiteOpen(false);
+          }}
+        />
+      )}
       {descOpen && (
         <div className="cam-sheet-backdrop" onClick={() => setDescOpen(false)}>
           <form
@@ -508,7 +586,7 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
               type="button"
               onClick={() => {
                 setMenu(false);
-                document.querySelector<HTMLSelectElement>('[data-testid="cam-site"]')?.focus();
+                setSiteOpen(true);
               }}
             >
               <Icon name="move" size={20} /> Baustelle wechseln
