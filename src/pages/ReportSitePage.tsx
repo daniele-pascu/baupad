@@ -9,14 +9,13 @@ import { safeFileName, type ExportFile } from '../lib/aufmass';
 import { deleteReport, listReports, saveReport } from '../lib/db';
 import { navigate, paths } from '../lib/router';
 import { copyReport, periodLabel, REPORT_TYPES, siteKey, siteLabel, today, typeInfo } from '../lib/reports';
-import type { Project, Report, ReportType } from '../lib/types';
+import type { PhotoSite, Report, ReportType } from '../lib/types';
 import { reportPdfFile } from './ReportEditorPage';
 import { createReport, loadReportSites, NewReportDialog, type SiteChoice } from './ReportsPage';
 import { usePageTitle } from './SitePages';
 import { PhotoSiteDialog } from '../components/PhotoSitePicker';
 import { canEditSites, siteKeyOfSite, updateSiteEverywhere } from '../lib/sites';
 import { useSession } from '../lib/use-session';
-import type { PhotoSite } from '../lib/types';
 
 const TYPE_ORDER: ReportType[] = ['regie', 'tag', 'woche'];
 
@@ -38,8 +37,7 @@ async function mergedPdf(list: Report[], site: string): Promise<ExportFile> {
  */
 export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
   const [all, setAll] = useState<Report[] | null>(null);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [freeSites, setFreeSites] = useState<string[]>([]);
+  const [sites, setSites] = useState<PhotoSite[]>([]);
   const [creating, setCreating] = useState(false);
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
@@ -57,9 +55,7 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
     listReports()
       .then(async (r) => {
         setAll(r);
-        const s = await loadReportSites(r);
-        setProjects(s.projects);
-        setFreeSites(s.freeSites);
+        setSites(await loadReportSites());
       })
       .catch((e) => showError(e, 'Berichte konnten nicht geladen werden'));
   useEffect(() => {
@@ -268,7 +264,7 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
         })}
       </div>
       {creating && site && (
-        <NewReportDialog projects={projects} freeSites={freeSites} site={site} onClose={() => setCreating(false)} onCreate={(type, s, date) => run(() => createReport(type, s, date, all ?? []))} />
+        <NewReportDialog sites={sites} site={site} onClose={() => setCreating(false)} onCreate={(type, s, date) => run(() => createReport(type, s, date, all ?? []))} />
       )}
       {editing && site && (
         <PhotoSiteDialog

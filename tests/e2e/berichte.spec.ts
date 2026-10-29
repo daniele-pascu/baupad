@@ -192,10 +192,13 @@ test('Ohne Projekt und ohne Arbeitereinteilung: Baustelle frei eingeben, Arbeite
   await page.goto('./#/berichte');
   await page.getByTestId('report-new').click();
   const d = page.getByTestId('report-new-dialog');
-  await expect(d.getByTestId('report-site')).toHaveValue('neu');
+  await expect(d.getByTestId('report-site')).toHaveValue('');
   await d.getByTestId('report-create').click();
-  await expect(d).toContainText('Bitte das Projekt eingeben.');
-  await d.getByTestId('report-site-name').fill('Halle 3');
+  await expect(d).toContainText('Bitte ein Projekt wählen.');
+  await d.getByTestId('report-site').selectOption('__new');
+  await page.getByTestId('photo-site-name').fill('Halle 3');
+  await page.getByTestId('photo-site-save').click();
+  await expect(d.getByTestId('report-site')).toHaveValue('|Halle 3');
   await d.getByTestId('report-create').click();
   await expect(page.getByTestId('report-title')).toHaveText('Regieliste Nr. 1');
   await expect(page.getByTestId('rp-site')).toHaveValue('Halle 3');

@@ -6,33 +6,28 @@ import { SiteNav } from '../components/SiteNav';
 import { ToolIcon } from '../components/ToolIcon';
 import { offerFile, showError, toast } from '../components/ui';
 import { exportReportsBackup, importReportsBackup } from '../lib/report-backup';
-import { listProjects, listReports, listWeeks, loadProjectData, saveReport } from '../lib/db';
+import { listPhotos, listReports, loadProjectData, saveReport } from '../lib/db';
 import { navigate, paths } from '../lib/router';
 import { emptyHead, fmtDate, headFromProject, newReport, REPORT_TYPES, siteKey, siteLabel, today, typeInfo } from '../lib/reports';
-import type { Project, Report, ReportType } from '../lib/types';
+import type { PhotoSite, Report, ReportType } from '../lib/types';
+import { PhotoSitePicker, siteValue } from '../components/PhotoSitePicker';
+import { loadPhotoSites } from './PhotosPage';
 import { usePageTitle } from './SitePages';
 import { useAccess } from '../lib/access';
-import { listFreePhotoSites } from '../lib/photo-sites';
 
 export const ACCENT = { '--tool': '#a259ff' } as CSSProperties;
 
-/** Baustelle für einen neuen Bericht: Projekt aus Aufmaß & Abrechnung oder frei (Name) */
-export type SiteChoice = { projectId: string; name: string } | { projectId: null; name: string };
+/** Projekt für einen neuen Bericht: aus Aufmaß & Abrechnung (projectId) oder frei angelegt (Name, Adresse) */
+export type SiteChoice = { projectId: string | null; name: string; address?: string };
 
-/** Projekte und freie Baustellen (Arbeitereinteilung, bisherige Berichte) für den Dialog „Neuer Bericht“ */
-export async function loadReportSites(reports: Report[]): Promise<{ projects: Project[]; freeSites: string[] }> {
-  const [projects, weeks, free] = await Promise.all([listProjects(), listWeeks(), listFreePhotoSites()]);
-  const names = new Map<string, string>();
-  // Baustellen aus allen Werkzeugen: Einteilung, Berichte, Fotos/Mängelplan (frei angelegte)
-  for (const f of free) if (f.name.trim()) names.set(f.name.trim().toLowerCase(), f.name.trim());
-  for (const w of weeks) for (const s of w.sites) if (!s.projectId && s.name.trim()) names.set(s.name.trim().toLowerCase(), s.name.trim());
-  for (const x of reports) if (!x.projectId && siteLabel(x)) names.set(siteLabel(x).toLowerCase(), siteLabel(x));
-  return { projects, freeSites: [...names.values()].sort((a, b) => a.localeCompare(b, 'de')) };
+/** Alle Projekte für den Dialog „Neuer Bericht“ – dieselbe Liste wie in Fotos und Mängelplan (alle Werkzeuge) */
+export async function loadReportSites(): Promise<PhotoSite[]> {
+  return loadPhotoSites(await listPhotos());
 }
 
 /** Neuen Bericht anlegen (Kopf aus dem Projekt) und zur Bearbeitung wechseln */
 export async function createReport(type: ReportType, site: SiteChoice, date: string, all: Report[]): Promise<void> {
-  let head = { ...emptyHead(), site: site.name, project: site.name };
+  let head = { ...emptyHead(), site: site.name, project: site.name, address: site.address ?? '' };
   if (site.projectId) {
     const d = await loadProjectData(site.projectId);
     if (d) head = headFromProject(d.project, d.costCenters.filter((c) => !c.deletedAt).sort((a, b) => a.sortIndex - b.sortIndex));
@@ -60,8 +55,7 @@ export function ReportsPage() {
   const access = useAccess();
   usePageTitle('Berichte & Formulare – BauPad');
   const [reports, setReports] = useState<Report[] | null>(null);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [freeSites, setFreeSites] = useState<string[]>([]);
+  const [sites, setSites] = useState<PhotoSite[]>([]);
   const [query, setQuery] = useState('');
   const [creating, setCreating] = useState<{ site?: SiteChoice } | null>(null);
   const restoreRef = useRef<HTMLInputElement>(null);
@@ -70,9 +64,7 @@ export function ReportsPage() {
     listReports()
       .then(async (r) => {
         setReports(r);
-        const s = await loadReportSites(r);
-        setProjects(s.projects);
-        setFreeSites(s.freeSites);
+        setSites(access.filterSites(await loadReportSites(), (s) => (s.projectId ? `p:${s.projectId}` : `n:${s.name.trim().toLowerCase()}`)));
       })
       .catch((e) => showError(e, 'Berichte konnten nicht geladen werden'));
   useEffect(() => {
@@ -204,8 +196,7 @@ export function ReportsPage() {
       </div>
       {creating && (
         <NewReportDialog
-          projects={projects}
-          freeSites={freeSites}
+          sites={sites}
           site={creating.site}
           onClose={() => setCreating(null)}
           onCreate={(type, site, date) => run(() => createReport(type, site, date, reports ?? []))}
@@ -215,39 +206,31 @@ export function ReportsPage() {
   );
 }
 
-/** Neuer Bericht: Typ, Baustelle (Projekt oder frei) und Datum */
+/** Neuer Bericht: Typ, Projekt (Auswahl wie in allen Werkzeugen, „+ Neues Projekt …“) und Datum */
 export function NewReportDialog({
-  projects,
-  freeSites,
+  sites,
   site,
   onCreate,
   onClose,
 }: {
-  projects: Project[];
-  freeSites: string[];
+  sites: PhotoSite[];
   site?: SiteChoice;
   onCreate(type: ReportType, site: SiteChoice, date: string): void;
   onClose(): void;
 }) {
   const [type, setType] = useState<ReportType>('regie');
-  // Auswahl: „p:<id>“, „n:<Name>“ oder „neu“ (frei eingeben)
-  const [choice, setChoice] = useState(site ? (site.projectId ? `p:${site.projectId}` : `n:${site.name}`) : projects[0] ? `p:${projects[0].id}` : freeSites[0] ? `n:${freeSites[0]}` : 'neu');
-  const [name, setName] = useState('');
+  const [list, setList] = useState(sites);
+  useEffect(() => setList(sites), [sites]);
+  const [chosen, setChosen] = useState<PhotoSite | null>(() => {
+    if (site) return sites.find((s) => (site.projectId ? s.projectId === site.projectId : !s.projectId && s.name.toLowerCase() === site.name.toLowerCase())) ?? { projectId: site.projectId, name: site.name, number: '', address: site.address ?? '' };
+    return sites[0] ?? null;
+  });
   const [date, setDate] = useState(today());
   const [error, setError] = useState('');
   const submit = () => {
-    let s: SiteChoice;
-    if (choice.startsWith('p:')) {
-      const p = projects.find((x) => x.id === choice.slice(2));
-      if (!p) return setError('Bitte ein Projekt wählen.');
-      s = { projectId: p.id, name: p.site || p.name };
-    } else if (choice.startsWith('n:')) s = { projectId: null, name: choice.slice(2) };
-    else {
-      if (!name.trim()) return setError('Bitte das Projekt eingeben.');
-      s = { projectId: null, name: name.trim() };
-    }
+    if (!chosen) return setError('Bitte ein Projekt wählen.');
     if (!date) return setError('Bitte ein Datum wählen.');
-    onCreate(type, s, date);
+    onCreate(type, { projectId: chosen.projectId, name: chosen.name, address: chosen.address }, date);
   };
   return (
     <Modal
@@ -276,34 +259,8 @@ export function NewReportDialog({
       </div>
       <label className="field">
         <span>Projekt auswählen</span>
-        <select value={choice} onChange={(e) => setChoice(e.target.value)} data-testid="report-site">
-          {projects.length > 0 && (
-            <optgroup label="Aus Aufmaß & Abrechnung">
-              {projects.map((p) => (
-                <option key={p.id} value={`p:${p.id}`}>
-                  {[p.number, p.site || p.name].filter(Boolean).join(' · ')}
-                </option>
-              ))}
-            </optgroup>
-          )}
-          {freeSites.length > 0 && (
-            <optgroup label="Weitere Projekte">
-              {freeSites.map((n) => (
-                <option key={n} value={`n:${n}`}>
-                  {n}
-                </option>
-              ))}
-            </optgroup>
-          )}
-          <option value="neu">+ Neues Projekt …</option>
-        </select>
+        <PhotoSitePicker sites={list} value={chosen} onChange={setChosen} onCreated={(s) => setList((l) => (l.some((x) => siteValue(x) === siteValue(s)) ? l : [...l, s]))} testId="report-site" />
       </label>
-      {choice === 'neu' && (
-        <label className="field">
-          <span>Projekt *</span>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="z. B. Neubau Musterstraße" data-testid="report-site-name" />
-        </label>
-      )}
       <label className="field">
         <span>{typeInfo(type).period === 'week' ? 'Woche (beliebiger Tag der Woche)' : 'Datum'}</span>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} data-testid="report-date" />

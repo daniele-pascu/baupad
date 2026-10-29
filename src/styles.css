@@ -6866,6 +6866,7 @@ button.report-link {
   }
   /* Handy: Beschriftungen weg (nur Symbole), Kopf kompakt */
   .photos-page .lbl,
+  .reports-page .lbl,
   .hide-mobile {
     display: none;
   }

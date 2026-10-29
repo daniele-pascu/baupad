@@ -549,7 +549,11 @@ test('Berichte per Finger: Regieliste, Tagesbericht und Wochenbericht passen auf
     await page.getByTestId('report-new').tap();
     const d = page.getByTestId('report-new-dialog');
     await d.getByTestId(`report-type-${type}`).tap();
-    if (await d.getByTestId('report-site-name').isVisible()) await d.getByTestId('report-site-name').fill('Halle 3');
+    if ((await d.getByTestId('report-site').inputValue()) === '') {
+      await d.getByTestId('report-site').selectOption('__new');
+      await page.getByTestId('photo-site-name').fill('Halle 3');
+      await page.getByTestId('photo-site-save').tap();
+    }
     await d.getByTestId('report-create').tap();
     await expect(page.getByTestId('report-title')).toBeVisible();
     if (type !== 'woche') {
