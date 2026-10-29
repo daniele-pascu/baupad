@@ -44,13 +44,13 @@ test('Website: Startseite, Über uns, Kontakt, Impressum, Anmelden und Logo', as
   await nav.getByRole('link', { name: 'Kontakt' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Kontakt');
   // noch keine Kontaktdaten → sichtbare Platzhalter, nichts erfunden
-  await expect(page.getByTestId('contact-list').locator('.placeholder')).toHaveCount(4); // E-Mail ist eingetragen
+  await expect(page.getByTestId('contact-list').locator('.placeholder')).toHaveCount(3); // Ansprechperson und E-Mail sind eingetragen
   await expect(page.getByTestId('contact-list')).toContainText('office@pad-software.at');
 
   // Impressum und Datenschutz über die Fußzeile (Firmendaten noch Platzhalter)
   await page.getByRole('link', { name: 'Impressum' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Impressum');
-  await expect(page.getByTestId('imprint-list').locator('.placeholder')).toHaveCount(5); // Unternehmen und E-Mail sind eingetragen
+  await expect(page.getByTestId('imprint-list').locator('.placeholder')).toHaveCount(4); // Unternehmen, Inhaber und E-Mail sind eingetragen
   await page.getByRole('link', { name: 'Datenschutz' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Datenschutz');
   await expect(page.locator('.site-text')).toContainText('GitHub Pages');

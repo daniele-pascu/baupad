@@ -185,7 +185,7 @@ export const site = {
     intro: 'Du hast Fragen oder Anregungen zu BauPad? Wir freuen uns über deine Nachricht.',
     // Platzhalter – bitte ergänzen
     company: '',
-    person: '',
+    person: 'Hr. Pascu Andrea-Daniele',
     email: 'office@pad-software.at',
     phone: '',
     address: '',
