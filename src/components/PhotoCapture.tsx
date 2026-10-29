@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { getMeta, setMeta } from '../lib/db';
 import { uuid } from '../lib/ids';
 import { getPhotoStorage } from '../lib/photo-storage';
+import { isInstalledApp } from '../lib/platform';
 import { paths } from '../lib/router';
 import { dayAndWeek, fmtBytes, photoSiteKey, preparePhoto, type PreparedPhoto } from '../lib/photos';
 import type { Photo, PhotoSite } from '../lib/types';
@@ -144,11 +145,14 @@ export function PhotoCapture({
           render({ camera: () => cam.current?.click(), library: () => lib.current?.click() })
         ) : (
           <>
-            <a className="btn btn-primary photo-shoot" href={paths.camera(site ? photoSiteKey({ projectId: site.projectId, siteName: site.name }) : null)} data-testid="photo-shoot">
-              <Icon name="camera" size={big ? 26 : 20} /> Foto aufnehmen
-            </a>
-            <button type="button" className="btn photo-pick" onClick={() => lib.current?.click()} aria-label="Aus Galerie / Datei" title="Aus Galerie / Datei" data-testid="photo-pick">
-              <Icon name="upload" size={18} /> <span className="lbl">Aus Galerie / Datei</span>
+            {/* Kamera-Modus nur in der installierten App; im Browser (PC) reicht die Dateiauswahl */}
+            {isInstalledApp() && (
+              <a className="btn btn-primary photo-shoot" href={paths.camera(site ? photoSiteKey({ projectId: site.projectId, siteName: site.name }) : null)} data-testid="photo-shoot">
+                <Icon name="camera" size={big ? 26 : 20} /> Foto aufnehmen
+              </a>
+            )}
+            <button type="button" className={`btn photo-pick${isInstalledApp() ? '' : ' btn-primary photo-pick-only'}`} onClick={() => lib.current?.click()} aria-label="Fotos auswählen" title="Fotos aus Galerie oder Datei auswählen" data-testid="photo-pick">
+              <Icon name="upload" size={18} /> <span className={isInstalledApp() ? 'lbl' : undefined}>{isInstalledApp() ? 'Aus Galerie / Datei' : 'Fotos auswählen'}</span>
             </button>
           </>
         )}

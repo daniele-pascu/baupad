@@ -41,7 +41,7 @@ test('Website-Bilder iPhone', async ({ page }) => {
   await shot(page, 'fotos-gross');
   await page.getByTestId('lightbox-close').tap();
   // Kamera-Modus (Testbild des Browsers)
-  await page.getByTestId('photo-shoot').tap();
+  await page.goto('./#/fotos/kamera');
   await expect(page.getByTestId('camera-page')).toHaveAttribute('data-ready', 'true');
   // fürs Website-Bild: Demo-Foto anstelle des Testbilds der Browser-Kamera
   const demo = readFileSync(join(DEMO, 'stuetze.jpg')).toString('base64');

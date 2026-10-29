@@ -19,9 +19,7 @@ import { ReportEditorPage } from './pages/ReportEditorPage';
 import { PhotosPage } from './pages/PhotosPage';
 import { PhotoSitePage } from './pages/PhotoSitePage';
 
-/** Als App vom Home-Bildschirm gestartet (iOS/Android/Desktop-PWA)? */
-const isInstalledApp = () =>
-  matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+import { isInstalledApp } from './lib/platform';
 
 // Die installierte App startet in der Werkzeug-Übersicht („Tools“) – auch Symbole, die vor der
 // neuen Startseite angelegt wurden (diese starten noch mit der Adresse „./“).

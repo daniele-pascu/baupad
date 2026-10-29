@@ -9,8 +9,9 @@ test('Kamera-Modus: Live-Bild, Auslöser speichert sofort, Zähler, letztes Foto
   await page.getByTestId('photo-site-name').fill('Garage Jagdschlossgasse');
   await page.getByTestId('photo-site-save').click();
   await expect(page.getByTestId('photo-site-title')).toHaveText('Garage Jagdschlossgasse');
-  // „Foto aufnehmen“ öffnet den Kamera-Modus mit vorgewählter Baustelle
-  await page.getByTestId('photo-shoot').click();
+  // Kamera-Modus (in der installierten App über „Foto aufnehmen“; im Browser gibt es den Knopf nicht)
+  await expect(page.getByTestId('photo-shoot')).toHaveCount(0);
+  await page.goto('./#/fotos/kamera?s=n%3Agarage%20jagdschlossgasse');
   await expect(page.getByTestId('camera-page')).toHaveAttribute('data-ready', 'true');
   await expect(page.getByTestId('cam-site')).toHaveValue('|Garage Jagdschlossgasse');
   await expect.poll(() => page.getByTestId('cam-video').evaluate((v: HTMLVideoElement) => v.videoWidth)).toBeGreaterThan(0);

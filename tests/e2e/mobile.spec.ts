@@ -562,9 +562,11 @@ test('Berichte per Finger: Regieliste, Tagesbericht und Wochenbericht passen auf
 
 test('Fotodokumentation per Finger: großer Aufnahme-Knopf, Speichern, Galerie und Großansicht passen auf den Bildschirm', async ({ page }, info) => {
   await page.goto('./#/fotos');
-  const shoot = page.getByTestId('photo-shoot');
-  await expect(shoot).toBeVisible();
-  expect((await shoot.boundingBox())!.height).toBeGreaterThanOrEqual(56);
+  // im Browser gibt es nur die Dateiauswahl (Kamera-Modus erst in der installierten App)
+  const pick = page.getByTestId('photo-pick');
+  await expect(pick).toBeVisible();
+  expect((await pick.boundingBox())!.height).toBeGreaterThanOrEqual(52);
+  await expect(page.getByTestId('photo-shoot')).toHaveCount(0);
   await expect(page.getByTestId('photo-camera-input')).toHaveAttribute('capture', 'environment');
   await page.getByTestId('photo-file-input').setInputFiles(join(FIXTURES, 'foto.jpg'));
   const dlg = page.getByTestId('photo-save-dialog');
