@@ -43,6 +43,14 @@ if (typeof window !== 'undefined' && isInstalledApp()) {
   else if (name === 'landing') navigate(paths.tools(), true);
 }
 
+/** Website-Seiten, die angemeldet keinen Sinn haben: direkt zu den Tools */
+const SITE_ROUTES_WHEN_SIGNED_IN = new Set(['landing', 'about', 'product']);
+
+function ToolsRedirect() {
+  useEffect(() => navigate(paths.tools(), true), []);
+  return null;
+}
+
 /** Seiten ohne Anmeldung: Website, Anmelden/Registrieren, neues Passwort */
 const PUBLIC_ROUTES = new Set(['landing', 'about', 'contact', 'imprint', 'privacy', 'product', 'login', 'newPassword', 'notFound']);
 
@@ -214,7 +222,7 @@ export function App() {
   return (
     <>
       <OfflineBadge />
-      {PUBLIC_ROUTES.has(route.name) ? content : <AuthGate>{content}</AuthGate>}
+      {SITE_ROUTES_WHEN_SIGNED_IN.has(route.name) && hasStoredSession() ? <ToolsRedirect /> : PUBLIC_ROUTES.has(route.name) ? content : <AuthGate>{content}</AuthGate>}
       <DialogHost />
       {splash && (
         <div className="splash" aria-hidden="true" data-testid="splash">

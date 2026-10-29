@@ -31,17 +31,26 @@ export function SiteNav() {
           </a>
         )}
         <nav className={`site-links${open ? ' open' : ''}`} aria-label="Hauptnavigation" id="site-links">
-          {isSite && (
-            <a href={paths.landing()} aria-current={current(paths.landing())}>
-              BauPad
+          {session ? (
+            // angemeldet: nur die App – Kontakt und Rechtliches stehen unter Konto und Einstellungen
+            <a href={paths.tools()} aria-current={current(paths.tools())}>
+              Tools
             </a>
+          ) : (
+            <>
+              {isSite && (
+                <a href={paths.landing()} aria-current={current(paths.landing())}>
+                  BauPad
+                </a>
+              )}
+              <a href={paths.about()} aria-current={current(paths.about())}>
+                Über uns
+              </a>
+              <a href={paths.contact()} aria-current={current(paths.contact())}>
+                Kontakt
+              </a>
+            </>
           )}
-          <a href={paths.about()} aria-current={current(paths.about())}>
-            Über uns
-          </a>
-          <a href={paths.contact()} aria-current={current(paths.contact())}>
-            Kontakt
-          </a>
         </nav>
         <div className="site-actions">
           {session ? (
@@ -71,13 +80,14 @@ export function SiteNav() {
 }
 
 export function SiteFooter() {
+  const session = useSession();
   return (
     <footer className="site-footer">
       <span>
         © {new Date().getFullYear()} {site.footer}
       </span>
       <nav aria-label="Fußzeile">
-        <a href={paths.about()}>Über uns</a>
+        {!session && <a href={paths.about()}>Über uns</a>}
         <a href={paths.contact()}>Kontakt</a>
         <a href={paths.imprint()}>Impressum</a>
         <a href={paths.privacy()}>Datenschutz</a>

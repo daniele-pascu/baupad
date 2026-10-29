@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Icon } from '../components/Icon';
 import { SiteFooter, SiteNav } from '../components/SiteNav';
 import { getCompanyLogo, logoHeaderSize, removeCompanyLogo, saveCompanyLogo, type CompanyLogo } from '../lib/company';
 import { getMeta, setMeta } from '../lib/db';
 import { AuthNotConnected, getAuth, isEmail, PACKAGES, PROVIDERS, ROLES, TOOLS, defaultToolsForRole, type CompanyUser, type PackageId, type Role, type Session, type ToolId } from '../lib/auth';
 import { useSession } from '../lib/use-session';
-import { listCompanyUsers, listLocalUsers, migrateLocalUsers, removeCompanyUser, saveCompanyUser, usesRemote } from '../lib/users';
+import { listCompanyUsers, listLocalUsers, migrateLocalUsers, removeCompanyUser, renameWorkspace, saveCompanyUser, usesRemote } from '../lib/users';
+import { site } from '../content/site';
 import { ProviderIcon } from '../components/ProviderIcon';
 import { Modal } from '../components/Modal';
 import { navigate, paths } from '../lib/router';
@@ -265,15 +266,6 @@ export function NewPasswordPage() {
   );
 }
 
-const SECTIONS: [string, string][] = [
-  ['Persönliche Daten', 'Name, Telefon und Anzeigename'],
-  ['E-Mail und Konto', 'E-Mail-Adresse ändern, Konto verwalten'],
-  ['Passwort und Anmeldemethoden', 'Passwort ändern, Outlook, Google oder Apple verbinden'],
-  ['Abonnement und Zahlung', 'Paket wird vom Admin auf der Website verwaltet – Karte, SEPA oder Rechnung'],
-  ['Firmeninformationen', 'Firma und Adresse für Exporte'],
-  ['Weitere Einstellungen', 'Sprache, Benachrichtigungen und Datenschutz'],
-];
-
 export function AccountPage() {
   usePageTitle('Konto und Einstellungen – BauPad');
   const session = useSession();
@@ -284,6 +276,163 @@ export function AccountPage() {
       navigate(paths.login(), true);
     } catch (e) {
       showError(e, 'Abmelden fehlgeschlagen');
+    }
+  };
+  return (
+    <div className="site">
+      <SiteNav />
+      <main className="site-main auth">
+        <h1 className="site-title">Konto und Einstellungen</h1>
+        {session ? (
+          <section className="logo-settings" data-testid="account-session">
+            <div className="logo-settings-head">
+              <div>
+                <strong>Angemeldet als {session.name || session.email}</strong>
+                <span className="muted">
+                  {session.email}
+                  {session.companyName ? ` · ${session.companyName}` : ''}
+                  {' · '}
+                  {ROLES.find((r) => r.id === session.role)?.label ?? session.role}
+                  {session.operator ? ' · Betreiber' : ''}
+                </span>
+              </div>
+              <button type="button" className="btn btn-sm" onClick={() => void logout()} data-testid="account-logout">
+                Abmelden
+              </button>
+            </div>
+          </section>
+        ) : (
+          session === null && (
+            <div className="banner banner-info" role="status" data-testid="account-preview">
+              <p>
+                <strong>Nicht angemeldet.</strong>
+              </p>
+              <a href={paths.login()} className="btn btn-sm btn-primary">
+                Anmelden oder registrieren
+              </a>
+            </div>
+          )
+        )}
+
+        <Section title="Persönliche Daten" text="Name und Telefon – so erscheinst du bei Kollegen und auf Berichten" open>
+          <ProfileForm session={session} />
+        </Section>
+        <Section title="E-Mail und Konto" text="E-Mail-Adresse ändern, Konto löschen">
+          <EmailForm session={session} />
+        </Section>
+        <Section title="Passwort und Anmeldemethoden" text="Passwort ändern, Google, Apple oder Microsoft (Outlook) verbinden">
+          <PasswordForm session={session} />
+        </Section>
+        <Section title="Abonnement und Zahlung" text="Paket deines Arbeitsbereichs">
+          <SubscriptionInfo session={session} />
+        </Section>
+        <Section title="Firmeninformationen" text="Firmenname, Anschrift und Logo für Exporte" open>
+          <LogoSettings session={session} />
+        </Section>
+        <Section title="Benutzer & Rollen" text="Wer in deiner Firma BauPad nutzt" open>
+          <UsersSettings />
+        </Section>
+        <Section title="App und Speicher" text="Installation und dauerhafter Speicher auf diesem Gerät" open>
+          <AppStorageSettings />
+        </Section>
+        <Section title="Weitere Einstellungen" text="Sprache, Benachrichtigungen, Kontakt und Datenschutz">
+          <MoreSettings />
+        </Section>
+
+        <div className="row gap wrap">
+          <a href={paths.tools()} className="btn btn-primary">
+            <Icon name="back" /> Zu den Tools
+          </a>
+        </div>
+      </main>
+      <SiteFooter />
+    </div>
+  );
+}
+
+/** Aufklappbarer Bereich der Einstellungen */
+function Section({ title, text, open, children }: { title: string; text: string; open?: boolean; children: ReactNode }) {
+  return (
+    <details className="account-item account-details" open={open} data-testid="account-section">
+      <summary>
+        <div>
+          <strong>{title}</strong>
+          <span className="muted">{text}</span>
+        </div>
+        <Icon name="next" size={18} />
+      </summary>
+      <div className="account-details-body">{children}</div>
+    </details>
+  );
+}
+
+function NeedsLogin() {
+  return (
+    <p className="muted small">
+      Dafür musst du angemeldet sein. <a href={paths.login()}>Anmelden</a>
+    </p>
+  );
+}
+
+function ProfileForm({ session }: { session: Session | null | undefined }) {
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (session) {
+      setName(session.name);
+      setPhone(session.phone);
+    }
+  }, [session]);
+  if (!session) return session === null ? <NeedsLogin /> : null;
+  const save = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return showError(new Error('Bitte den Namen eingeben.'), 'Nicht gespeichert');
+    setBusy(true);
+    try {
+      await getAuth().updateProfile({ name, phone });
+      toast('Persönliche Daten gespeichert.', 'success');
+    } catch (err) {
+      showError(err, 'Konnte nicht gespeichert werden');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <form onSubmit={save} noValidate className="company-lines" data-testid="profile-form">
+      <label className="field">
+        <span>Name *</span>
+        <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" data-testid="profile-name" />
+      </label>
+      <label className="field">
+        <span>Telefon</span>
+        <input value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" inputMode="tel" placeholder="z. B. 0664 123 45 67" data-testid="profile-phone" />
+      </label>
+      <button type="submit" className="btn btn-sm" disabled={busy} data-testid="profile-save">
+        <Icon name="save" size={16} /> Speichern
+      </button>
+    </form>
+  );
+}
+
+function EmailForm({ session }: { session: Session | null | undefined }) {
+  const [email, setEmail] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [info, setInfo] = useState('');
+  if (!session) return session === null ? <NeedsLogin /> : null;
+  const change = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!isEmail(email)) return showError(new Error('Bitte eine gültige E-Mail-Adresse eingeben.'), 'Nicht geändert');
+    if (email.trim().toLowerCase() === session.email) return showError(new Error('Das ist schon deine aktuelle Adresse.'), 'Nicht geändert');
+    setBusy(true);
+    try {
+      await getAuth().updateEmail(email);
+      setInfo(`Wir haben Bestätigungslinks an ${session.email} und ${email.trim()} geschickt. Die neue Adresse gilt, sobald beide bestätigt sind.`);
+      setEmail('');
+    } catch (err) {
+      showError(err, 'E-Mail konnte nicht geändert werden');
+    } finally {
+      setBusy(false);
     }
   };
   const deleteAccount = async () => {
@@ -308,66 +457,159 @@ export function AccountPage() {
     }
   };
   return (
-    <div className="site">
-      <SiteNav />
-      <main className="site-main auth">
-        <h1 className="site-title">Konto und Einstellungen</h1>
-        {session ? (
-          <section className="logo-settings" data-testid="account-session">
-            <div className="logo-settings-head">
-              <div>
-                <strong>Angemeldet als {session.name || session.email}</strong>
-                <span className="muted">
-                  {session.email}
-                  {session.companyName ? ` · ${session.companyName}` : ''}
-                  {' · '}
-                  {ROLES.find((r) => r.id === session.role)?.label ?? session.role}
-                  {session.operator ? ' · Betreiber' : ''}
-                </span>
-              </div>
-            </div>
-            <div className="row gap wrap">
-              <button type="button" className="btn" onClick={() => void logout()} data-testid="account-logout">
-                Abmelden
-              </button>
-              <button type="button" className="btn btn-danger-outline" onClick={() => void deleteAccount()} data-testid="account-delete">
-                Konto löschen
-              </button>
-            </div>
-          </section>
-        ) : (
-          session === null && (
-            <div className="banner banner-info" role="status" data-testid="account-preview">
-              <p>
-                <strong>Nicht angemeldet.</strong>
-              </p>
-              <a href={paths.login()} className="btn btn-sm btn-primary">
-                Anmelden oder registrieren
-              </a>
-            </div>
-          )
+    <div className="company-lines">
+      <p className="small">
+        Aktuelle E-Mail-Adresse: <strong data-testid="account-email">{session.email}</strong>
+      </p>
+      <form onSubmit={change} noValidate data-testid="email-form">
+        <label className="field">
+          <span>Neue E-Mail-Adresse</span>
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" inputMode="email" data-testid="email-new" />
+        </label>
+        {info && (
+          <p className="banner banner-info small" role="status" data-testid="email-info">
+            {info}
+          </p>
         )}
-        <AppStorageSettings />
-        <LogoSettings />
-        <UsersSettings />
-        <ul className="account-list">
-          {SECTIONS.map(([title, text]) => (
-            <li key={title} className="account-item" aria-disabled="true" data-testid="account-section">
-              <div>
-                <strong>{title}</strong>
-                <span className="muted">{text}</span>
-              </div>
-              <span className="auth-soon">geplant</span>
+        <button type="submit" className="btn btn-sm" disabled={busy} data-testid="email-save">
+          E-Mail-Adresse ändern
+        </button>
+      </form>
+      <div className="account-danger">
+        <strong>Konto löschen</strong>
+        <span className="muted small">Entfernt dein Konto und einen nur von dir genutzten Arbeitsbereich. Daten auf diesem Gerät bleiben.</span>
+        <button type="button" className="btn btn-sm btn-danger-outline" onClick={() => void deleteAccount()} data-testid="account-delete">
+          Konto löschen
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const PROVIDER_KEY: Record<string, AuthProviderIdOrEmail> = { email: 'email', google: 'google', apple: 'apple', azure: 'microsoft' };
+type AuthProviderIdOrEmail = 'email' | 'google' | 'apple' | 'microsoft';
+
+function PasswordForm({ session }: { session: Session | null | undefined }) {
+  const [password, setPassword] = useState('');
+  const [password2, setPassword2] = useState('');
+  const [busy, setBusy] = useState(false);
+  if (!session) return session === null ? <NeedsLogin /> : null;
+  const connected = new Set(session.providers.map((p) => PROVIDER_KEY[p] ?? p));
+  const save = async (e: FormEvent) => {
+    e.preventDefault();
+    if (password.length < 8) return showError(new Error('Das Passwort braucht mindestens 8 Zeichen.'), 'Nicht gespeichert');
+    if (password !== password2) return showError(new Error('Die Passwörter stimmen nicht überein.'), 'Nicht gespeichert');
+    setBusy(true);
+    try {
+      await getAuth().updatePassword(password);
+      toast('Passwort gespeichert.', 'success');
+      setPassword('');
+      setPassword2('');
+    } catch (err) {
+      showError(err, 'Passwort konnte nicht geändert werden');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const link = async (id: 'google' | 'apple' | 'microsoft') => {
+    try {
+      await getAuth().linkProvider(id);
+    } catch (err) {
+      showError(err, 'Verbinden nicht möglich');
+    }
+  };
+  return (
+    <div className="company-lines">
+      <strong className="small">Anmeldemethoden</strong>
+      <ul className="provider-list" data-testid="provider-list">
+        <li>
+          <ProviderIcon id="email" /> E-Mail und Passwort {connected.has('email') ? <span className="user-role r-admin">verbunden</span> : <span className="muted small">(unten ein Passwort festlegen)</span>}
+        </li>
+        {PROVIDERS.map((p) => {
+          const id = p.id;
+          if (id === 'email') return null;
+          return (
+            <li key={id}>
+              <ProviderIcon id={id} /> {p.label}{' '}
+              {connected.has(id) ? (
+                <span className="user-role r-admin">verbunden</span>
+              ) : (
+                <button type="button" className="btn btn-sm" onClick={() => void link(id)} data-testid={`link-${id}`}>
+                  verbinden
+                </button>
+              )}
             </li>
-          ))}
-        </ul>
-        <div className="row gap wrap">
-          <a href={paths.tools()} className="btn btn-primary">
-            <Icon name="back" /> Zu den Tools
-          </a>
-        </div>
-      </main>
-      <SiteFooter />
+          );
+        })}
+      </ul>
+      <form onSubmit={save} noValidate data-testid="password-form">
+        <strong className="small">{connected.has('email') ? 'Passwort ändern' : 'Passwort festlegen'}</strong>
+        <label className="field">
+          <span>Neues Passwort *</span>
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" data-testid="password-new" />
+        </label>
+        <label className="field">
+          <span>Passwort wiederholen *</span>
+          <input type="password" value={password2} onChange={(e) => setPassword2(e.target.value)} autoComplete="new-password" data-testid="password-new2" />
+        </label>
+        <button type="submit" className="btn btn-sm" disabled={busy} data-testid="password-save">
+          <Icon name="save" size={16} /> Passwort speichern
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function SubscriptionInfo({ session }: { session: Session | null | undefined }) {
+  if (!session) return session === null ? <NeedsLogin /> : null;
+  const pkg = PACKAGES.find((p) => p.id === session.pkg);
+  return (
+    <div className="company-lines" data-testid="subscription-info">
+      <p className="small">
+        Dein Paket: <strong>{pkg ? pkg.label : 'noch keines'}</strong>
+        {pkg ? ` – ${pkg.text}` : ''}
+        {session.companyName ? ` · Arbeitsbereich „${session.companyName}“` : ''}
+      </p>
+      <p className="muted small">
+        BauPad ist derzeit kostenlos nutzbar. Pakete werden {session.role === 'admin' ? 'von dir als Admin' : 'vom Admin deiner Firma'} auf der Website verwaltet – Zahlung
+        per Karte, SEPA-Lastschrift oder Rechnung. Preise und Bestellung folgen; in der App gibt es keine Käufe.
+      </p>
+    </div>
+  );
+}
+
+function MoreSettings() {
+  const c = site.contact;
+  return (
+    <div className="company-lines" data-testid="more-settings">
+      <p className="small">
+        <strong>Sprache:</strong> Deutsch (weitere Sprachen folgen)
+      </p>
+      <p className="small">
+        <strong>Benachrichtigungen:</strong> BauPad schickt derzeit keine Benachrichtigungen – nur E-Mails zu deinem Konto (Bestätigung, Passwort).
+      </p>
+      <p className="small">
+        <strong>Kontakt:</strong> {c.company || site.company}
+        {c.email ? (
+          <>
+            {' · '}
+            <a href={`mailto:${c.email}`}>{c.email}</a>
+          </>
+        ) : null}
+        {c.phone ? (
+          <>
+            {' · '}
+            <a href={`tel:${c.phone.replace(/[^\d+]/g, '')}`}>{c.phone}</a>
+          </>
+        ) : null}
+        {' · '}
+        <a href={paths.contact()} data-testid="settings-contact">
+          Kontaktseite
+        </a>
+      </p>
+      <p className="small">
+        <strong>Rechtliches:</strong> <a href={paths.privacy()}>Datenschutz</a> · <a href={paths.imprint()}>Impressum</a>
+      </p>
     </div>
   );
 }
@@ -376,21 +618,32 @@ export function AccountPage() {
  * Firmenlogo (schon aktiv, ohne Konto): wird auf diesem Gerät gespeichert und automatisch in
  * die Kopfzeile jeder exportierten Excel-Datei eingefügt (Aufmaßblatt: links oben).
  */
-function LogoSettings() {
+function LogoSettings({ session }: { session?: Session | null }) {
   const [logo, setLogo] = useState<CompanyLogo | null | undefined>(undefined);
   /** Firmenname und Anschrift/Kontakt für den Kopf der Formulare (Regieliste, Bautagesbericht) */
   const [company, setCompany] = useState('');
   const [lines, setLines] = useState('');
   useEffect(() => {
     void Promise.all([getMeta<string>('companyName'), getMeta<string>('companyLines')]).then(([c, l]) => {
-      setCompany(c ?? '');
+      // ohne Eintrag am Gerät: Firmenname aus dem Arbeitsbereich vorbelegen
+      setCompany(c || session?.companyName || '');
       setLines(l ?? '');
     });
-  }, []);
-  const saveCompany = () =>
-    Promise.all([setMeta('companyName', company.trim()), setMeta('companyLines', lines.trim())])
-      .then(() => toast('Firmenangaben gespeichert.', 'success'))
-      .catch((e) => showError(e, 'Konnte nicht gespeichert werden'));
+  }, [session?.companyName]);
+  const isAdmin = usesRemote(session);
+  const saveCompany = async () => {
+    try {
+      await Promise.all([setMeta('companyName', company.trim()), setMeta('companyLines', lines.trim())]);
+      // der Admin benennt damit auch den Arbeitsbereich (sichtbar für alle Benutzer der Firma)
+      if (isAdmin && company.trim() && company.trim() !== session?.companyName) {
+        await renameWorkspace(company.trim());
+        await getAuth().refresh();
+      }
+      toast('Firmenangaben gespeichert.', 'success');
+    } catch (e) {
+      showError(e, 'Konnte nicht gespeichert werden');
+    }
+  };
   const [busy, setBusy] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -418,7 +671,7 @@ function LogoSettings() {
   };
 
   return (
-    <section className="logo-settings" data-testid="logo-settings">
+    <section className="logo-settings logo-settings-inner" data-testid="logo-settings">
       <div className="logo-settings-head">
         <div>
           <strong>Firmenlogo</strong>
@@ -455,7 +708,7 @@ function LogoSettings() {
         </div>
         <div className="company-lines" data-testid="company-settings">
           <label className="field">
-            <span>Firmenname</span>
+            <span>Firmenname{isAdmin ? ' (Name des Arbeitsbereichs, sichtbar für alle Benutzer)' : ''}</span>
             <input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="z. B. Muster Bau GmbH" data-testid="company-name" />
           </label>
           <label className="field">
@@ -531,7 +784,7 @@ function UsersSettings() {
   };
   const toolLabel = (t: ToolId) => TOOLS.find((x) => x.id === t)?.label ?? t;
   return (
-    <section className="logo-settings users-settings" data-testid="users-settings">
+    <section className="logo-settings logo-settings-inner users-settings" data-testid="users-settings">
       <div className="logo-settings-head">
         <div>
           <strong>Benutzer &amp; Rollen</strong>

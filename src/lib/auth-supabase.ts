@@ -6,7 +6,7 @@
  * Der Client wird hereingereicht, damit Tests mit einem nachgestellten Client laufen (Supabase ist aus der
  * Testumgebung nicht erreichbar).
  */
-import type { AuthBackend, AuthProviderId, Role, Session, SignUpResult } from './auth';
+import type { AuthBackend, AuthProviderId, PackageId, Role, Session, SignUpResult } from './auth';
 
 /** Nur die Teile des Supabase-Clients, die hier gebraucht werden */
 export interface AuthClientLike {
@@ -17,7 +17,8 @@ export interface AuthClientLike {
     signUp(c: { email: string; password: string; options?: { data?: Record<string, string>; emailRedirectTo?: string } }): Promise<AuthResult>;
     signOut(): Promise<{ error: { message: string } | null }>;
     resetPasswordForEmail(email: string, o?: { redirectTo?: string }): Promise<{ error: { message: string } | null }>;
-    updateUser(a: { password?: string; data?: Record<string, string> }): Promise<{ error: { message: string } | null }>;
+    updateUser(a: { email?: string; password?: string; data?: Record<string, string> }): Promise<{ error: { message: string } | null }>;
+    linkIdentity(c: { provider: 'google' | 'apple' | 'azure'; options?: { redirectTo?: string; scopes?: string } }): Promise<{ error: { message: string } | null }>;
     onAuthStateChange(cb: (event: string, session: RawSession | null) => void): { data: { subscription: { unsubscribe(): void } } };
   };
   rpc(fn: string, args?: Record<string, unknown>): PromiseLike<{ data: unknown; error: { message: string } | null }>;
@@ -26,7 +27,8 @@ export interface RawUser {
   id: string;
   email?: string;
   user_metadata?: Record<string, unknown>;
-  identities?: unknown[];
+  app_metadata?: { provider?: string; providers?: string[] };
+  identities?: { provider?: string }[];
 }
 export interface RawSession {
   user: RawUser;
@@ -41,8 +43,10 @@ interface Context {
   workspace_id: string | null;
   workspace_name: string | null;
   role: Role | null;
+  pkg: PackageId | null;
   operator: boolean;
   name: string | null;
+  phone: string | null;
 }
 
 const PROVIDER_MAP: Record<Exclude<AuthProviderId, 'email'>, 'google' | 'apple' | 'azure'> = { google: 'google', apple: 'apple', microsoft: 'azure' };
@@ -60,6 +64,10 @@ export function translateAuthError(message: string): string {
   if (m.includes('same password') || m.includes('same_password')) return 'Das neue Passwort muss sich vom bisherigen unterscheiden.';
   if (m.includes('session') && m.includes('missing')) return 'Nicht angemeldet. Bitte den Link aus der E-Mail erneut öffnen.';
   if (m.includes('email_address_invalid') || m.includes('invalid email')) return 'Bitte eine gültige E-Mail-Adresse eingeben.';
+  if (m.includes('manual linking is disabled') || m.includes('manual_linking_disabled')) return 'Das Verbinden weiterer Anmeldemethoden ist beim Dienst noch nicht freigeschaltet.';
+  if (m.includes('identity_already_exists') || m.includes('already linked')) return 'Diese Anmeldemethode ist schon mit einem Konto verbunden.';
+  if (m.includes('email_exists') || m.includes('email address is already')) return 'Diese E-Mail-Adresse wird schon von einem anderen Konto verwendet.';
+  if (m.includes('reauthentication') || m.includes('reauth')) return 'Bitte zuerst abmelden und neu anmelden, dann noch einmal versuchen.';
   return message;
 }
 
@@ -75,6 +83,7 @@ export class SupabaseAuth implements AuthBackend {
   /** Sitzung je Benutzer; partial = Kontext der Datenbank fehlte (offline), wird beim nächsten Aufruf online nachgeholt */
   private cache: { userId: string; session: Session; partial: boolean } | null = null;
   private pending: { userId: string; promise: Promise<Session> } | null = null;
+  private listeners = new Set<(s: Session | null) => void>();
   constructor(
     private client: AuthClientLike,
     /** Rücksprungadresse für Anbieter-Anmeldung und E-Mail-Links (Seite ohne Hash) */
@@ -139,7 +148,36 @@ export class SupabaseAuth implements AuthBackend {
     await this.client.auth.signOut();
   }
 
+  async updateProfile(p: { name: string; phone: string }) {
+    const { error } = await this.client.rpc('update_my_profile', { p_name: p.name.trim(), p_phone: p.phone.trim() });
+    if (error) throw new AuthError(error.message);
+    // Name auch in den Benutzerdaten des Dienstes, damit er ohne Datenbankkontext (offline) stimmt
+    await this.client.auth.updateUser({ data: { name: p.name.trim() } });
+    await this.refresh();
+  }
+
+  async updateEmail(email: string) {
+    const { error } = await this.client.auth.updateUser({ email: email.trim().toLowerCase() });
+    if (error) throw new AuthError(error.message);
+  }
+
+  async linkProvider(provider: Exclude<AuthProviderId, 'email'>) {
+    const { error } = await this.client.auth.linkIdentity({
+      provider: PROVIDER_MAP[provider],
+      options: { redirectTo: this.redirectBase, ...(provider === 'microsoft' ? { scopes: 'email openid profile' } : {}) },
+    });
+    if (error) throw new AuthError(error.message);
+  }
+
+  async refresh() {
+    this.cache = null;
+    const s = await this.session();
+    for (const cb of this.listeners) cb(s);
+    return s;
+  }
+
   onChange(cb: (s: Session | null) => void) {
+    this.listeners.add(cb);
     const { data } = this.client.auth.onAuthStateChange((_event, raw) => {
       if (!raw) {
         this.cache = null;
@@ -148,7 +186,10 @@ export class SupabaseAuth implements AuthBackend {
       }
       void this.build(raw).then(cb, () => cb(null));
     });
-    return () => data.subscription.unsubscribe();
+    return () => {
+      this.listeners.delete(cb);
+      data.subscription.unsubscribe();
+    };
   }
 
   /**
@@ -181,6 +222,7 @@ export class SupabaseAuth implements AuthBackend {
         /* ohne Kontext (z. B. Verbindung weg) reicht der Benutzer selbst */
       }
     }
+    const providers = raw.user.app_metadata?.providers ?? (raw.user.identities ?? []).map((i) => i.provider ?? '').filter(Boolean);
     const session: Session = {
       userId: raw.user.id,
       email: raw.user.email ?? '',
@@ -189,6 +231,9 @@ export class SupabaseAuth implements AuthBackend {
       companyId: ctx?.workspace_id ?? '',
       companyName: ctx?.workspace_name ?? String(meta.company ?? ''),
       operator: Boolean(ctx?.operator),
+      phone: ctx?.phone ?? '',
+      pkg: ctx?.pkg ?? null,
+      providers: providers.length ? providers : raw.user.app_metadata?.provider ? [raw.user.app_metadata.provider] : [],
     };
     this.cache = { userId: raw.user.id, session, partial: ctx === null };
     return session;

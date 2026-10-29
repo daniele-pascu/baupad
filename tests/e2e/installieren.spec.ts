@@ -45,7 +45,7 @@ test('Bereits als App geöffnet: kein Installieren-Knopf; Konto zeigt Status', a
   await page.goto('./#/');
   await expect(page.getByTestId('tools-title')).toBeVisible();
   await page.evaluate(() => (location.hash = '#/'));
-  await expect(page.getByTestId('cta-tools')).toBeVisible();
+  await expect(page.getByTestId('tools-title')).toBeVisible(); // angemeldet: Startseite führt zu den Tools
   await expect(page.getByTestId('install-app')).toHaveCount(0);
   await page.goto('./#/konto');
   await expect(page.getByTestId('app-installed')).toHaveText('Als App installiert');

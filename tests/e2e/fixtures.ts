@@ -25,14 +25,29 @@ export const SESSION_KEY = 'sb-knaskwuhjixxpnqjfqpx-auth-token';
 export const signInScript = (): { key: string; value: string } => ({ key: SESSION_KEY, value: JSON.stringify(FAKE_SESSION) });
 const install = ({ key, value }: { key: string; value: string }) => {
   try {
+    if (sessionStorage.getItem('e2e-signed-out') === '1') return;
     if (!localStorage.getItem(key)) localStorage.setItem(key, value);
   } catch {
     /* kein localStorage */
   }
 };
 
+/** innerhalb eines Tests abmelden (gilt für alle weiteren Seitenaufrufe dieses Tabs) */
+export const signOutInPage = (page: import('@playwright/test').Page) =>
+  page.evaluate((key) => {
+    sessionStorage.setItem('e2e-signed-out', '1');
+    localStorage.removeItem(key);
+  }, SESSION_KEY);
+/** innerhalb eines Tests wieder anmelden */
+export const signInInPage = (page: import('@playwright/test').Page) =>
+  page.evaluate(({ key, value }) => {
+    sessionStorage.removeItem('e2e-signed-out');
+    localStorage.setItem(key, value);
+  }, signInScript());
+
 const remove = (key: string) => {
   try {
+    sessionStorage.setItem('e2e-signed-out', '1');
     localStorage.removeItem(key);
   } catch {
     /* kein localStorage */

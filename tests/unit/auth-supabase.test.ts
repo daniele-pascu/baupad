@@ -3,7 +3,7 @@ import { SupabaseAuth, translateAuthError, type AuthClientLike } from '../../src
 
 /** nachgestellter Supabase-Client: nur die hier benötigten Aufrufe */
 function fakeClient(over: Partial<AuthClientLike['auth']> = {}, rpc?: AuthClientLike['rpc']): AuthClientLike {
-  const user = { id: 'u1', email: 'max@muster.at', user_metadata: { name: 'Max Muster', company: 'Muster Bau' }, identities: [{}] };
+  const user = { id: 'u1', email: 'max@muster.at', user_metadata: { name: 'Max Muster', company: 'Muster Bau' }, app_metadata: { provider: 'email', providers: ['email'] }, identities: [{ provider: 'email' }] };
   return {
     auth: {
       getSession: async () => ({ data: { session: { user } }, error: null }),
@@ -13,10 +13,11 @@ function fakeClient(over: Partial<AuthClientLike['auth']> = {}, rpc?: AuthClient
       signOut: async () => ({ error: null }),
       resetPasswordForEmail: async () => ({ error: null }),
       updateUser: async () => ({ error: null }),
+      linkIdentity: async () => ({ error: null }),
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
       ...over,
     },
-    rpc: rpc ?? (async () => ({ data: { workspace_id: 'w1', workspace_name: 'Muster Bau GmbH', role: 'admin', operator: false, name: 'Max Muster' }, error: null })),
+    rpc: rpc ?? (async () => ({ data: { workspace_id: 'w1', workspace_name: 'Muster Bau GmbH', role: 'admin', pkg: 'einzel', operator: false, name: 'Max Muster', phone: '0664' }, error: null })),
   };
 }
 
@@ -24,7 +25,7 @@ describe('SupabaseAuth', () => {
   it('baut die Sitzung aus Benutzer und Kontext der Datenbank', async () => {
     const a = new SupabaseAuth(fakeClient(), 'https://pad-software.at/');
     const s = await a.session();
-    expect(s).toEqual({ userId: 'u1', email: 'max@muster.at', name: 'Max Muster', role: 'admin', companyId: 'w1', companyName: 'Muster Bau GmbH', operator: false });
+    expect(s).toEqual({ userId: 'u1', email: 'max@muster.at', name: 'Max Muster', role: 'admin', companyId: 'w1', companyName: 'Muster Bau GmbH', operator: false, phone: '0664', pkg: 'einzel', providers: ['email'] });
   });
 
   it('kommt ohne Kontext aus (z. B. Schema noch nicht angelegt): Name und Firma aus der Registrierung', async () => {

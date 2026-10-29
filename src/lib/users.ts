@@ -97,3 +97,8 @@ export async function removeCompanyUser(u: Pick<CompanyUser, 'id' | 'email'>, se
   const list = (await getMeta<CompanyUser[]>(KEY)) ?? [];
   await setMeta(KEY, list.filter((x) => x.id !== u.id));
 }
+
+/** Firmenname des Arbeitsbereichs (nur Admin) */
+export async function renameWorkspace(name: string): Promise<void> {
+  await rpc('rename_my_workspace', { p_name: name });
+}

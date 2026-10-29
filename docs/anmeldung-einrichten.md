@@ -50,6 +50,12 @@ gespeichert, und die Registrierung mit dieser E-Mail führt automatisch in den A
 (kein eigener Arbeitsbereich). Eine Einladungs-E-Mail wird derzeit nicht verschickt (dafür wäre ein
 E-Mail-Dienst nötig); der Admin sagt der Person Bescheid.
 
+## 1c. Weitere Anmeldemethoden verbinden (optional)
+
+Damit ein Benutzer unter Konto → „Passwort und Anmeldemethoden“ zusätzlich Google/Microsoft/Apple mit seinem
+bestehenden Konto verbinden kann: Supabase → Authentication → Settings (bzw. „Sign In / Providers“) →
+**„Allow manual linking“** einschalten. Ohne diese Einstellung meldet die App „noch nicht freigeschaltet“.
+
 ## 2. Google-Login
 
 1. https://console.cloud.google.com öffnen, mit dem Google-Konto der Firma anmelden.

@@ -1,4 +1,4 @@
-import { expect, test, type CDPSession, type Page } from './fixtures';
+import { expect, signInInPage, signOutInPage, test, type CDPSession, type Page } from './fixtures';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import {
@@ -274,6 +274,9 @@ test('Erstnutzer: vom neuen Projekt bis zum importierten PDF', async ({ page }) 
 
 test('Website und Planliste auf Smartphone/Tablet: Menü, keine Überbreite, Aktionen per Finger', async ({ page }, info) => {
   const isPhone = info.project.name === 'iphone';
+  // Website ohne Anmeldung ansehen (angemeldet führt die Startseite direkt zu den Tools)
+  await page.goto('./#/impressum');
+  await signOutInPage(page);
   await page.goto('./');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('BauPad. Die Baustelle in einer App.');
   await noHorizontalScroll(page);
@@ -291,10 +294,11 @@ test('Website und Planliste auf Smartphone/Tablet: Menü, keine Überbreite, Akt
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Kontakt');
   }
   await noHorizontalScroll(page);
-  await expect(nav.getByTestId('nav-account')).toBeVisible(); // angemeldet: Konto statt „Anmelden“
+  await expect(nav.getByRole('link', { name: 'Anmelden' })).toBeVisible();
   await page.screenshot({ path: join(OUT, `${info.project.name}-kontakt.png`) });
 
-  // Planliste mit langer Bemerkung
+  // Planliste mit langer Bemerkung (wieder angemeldet)
+  await signInInPage(page);
   await freshStart(page);
   await createProject(page, 'Liste', {}, [{ number: '4711', name: 'Tiefgarage' }]);
   for (const [no, note] of [

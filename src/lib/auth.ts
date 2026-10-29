@@ -76,6 +76,11 @@ export interface Session {
   companyName: string;
   /** Betreiber (PAD Software) sieht zusätzlich die Betreiber-Übersicht */
   operator: boolean;
+  phone: string;
+  /** Paket laut Mitgliedschaft (null ohne Arbeitsbereich) */
+  pkg: PackageId | null;
+  /** verbundene Anmeldemethoden (email, google, apple, azure) */
+  providers: string[];
 }
 
 /** Ergebnis einer Registrierung: entweder sofort angemeldet oder E-Mail-Bestätigung ausstehend */
@@ -95,6 +100,14 @@ export interface AuthBackend {
   updatePassword(password: string): Promise<void>;
   /** löscht das eigene Konto samt Mitgliedschaften (Vorgabe der Stores) */
   deleteAccount(): Promise<void>;
+  /** Name und Telefon im Profil */
+  updateProfile(p: { name: string; phone: string }): Promise<void>;
+  /** neue E-Mail-Adresse; der Dienst schickt Bestätigungslinks, die Änderung gilt nach dem Klick */
+  updateEmail(email: string): Promise<void>;
+  /** weitere Anmeldemethode verbinden (leitet zum Anbieter weiter) */
+  linkProvider(provider: Exclude<AuthProviderId, 'email'>): Promise<void>;
+  /** Sitzung neu aus dem Dienst lesen (nach Profiländerungen) und Beobachter benachrichtigen */
+  refresh(): Promise<Session | null>;
   /** ruft cb bei jeder Änderung (Anmelden, Abmelden, Token erneuert); liefert Abmeldefunktion */
   onChange(cb: (s: Session | null) => void): () => void;
 }
@@ -128,6 +141,18 @@ export class NotConnectedAuth implements AuthBackend {
   }
   async deleteAccount() {
     throw new AuthNotConnected();
+  }
+  async updateProfile() {
+    throw new AuthNotConnected();
+  }
+  async updateEmail() {
+    throw new AuthNotConnected();
+  }
+  async linkProvider() {
+    throw new AuthNotConnected();
+  }
+  async refresh() {
+    return null;
   }
   onChange() {
     return () => {};

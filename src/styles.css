@@ -7781,6 +7781,89 @@ button.report-link {
 }
 
 /* ───────────── Startbild, Anmeldung, Benutzer ───────────── */
+/* Einstellungen: aufklappbare Bereiche */
+.account-details {
+  display: block;
+  opacity: 1;
+  margin: 16px 0 0;
+  padding: 0;
+  border: 1px solid #e8e8ed;
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.account-details-body > .logo-settings {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+/* Titel steht schon in der Überschrift des Bereichs */
+.account-details-body > .users-settings > .logo-settings-head strong,
+.account-details-body > [data-testid='app-settings'] > .logo-settings-head strong {
+  display: none;
+}
+.account-details > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  cursor: pointer;
+  list-style: none;
+}
+.account-details > summary::-webkit-details-marker {
+  display: none;
+}
+.account-details > summary > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.account-details > summary svg {
+  flex: none;
+  transform: rotate(90deg);
+  transition: transform 0.2s ease;
+}
+.account-details[open] > summary svg {
+  transform: rotate(-90deg);
+}
+.account-details-body {
+  padding: 0 18px 18px;
+}
+.logo-settings-inner {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+.account-danger {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid #ececf0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+.provider-list {
+  list-style: none;
+  margin: 6px 0 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.provider-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.provider-list svg {
+  flex: none;
+}
 .user-invited {
   color: #b45309;
 }

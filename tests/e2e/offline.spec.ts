@@ -35,17 +35,15 @@ test('Offline: Projekt anlegen, PDF importieren, Schadstellen erfassen, exportie
   });
   await page.reload();
   await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
-  await expect(page.getByTestId('cta-tools')).toBeVisible();
+  await expect(page.getByTestId('tools-title')).toBeVisible();
 
   // Ab jetzt ohne Netzwerk
   await context.setOffline(true);
   page.on('requestfailed', (r) => failed.push(`${r.url()} ${r.failure()?.errorText}`));
   await page.reload();
-  await expect(page.getByTestId('cta-tools')).toBeVisible();
+  await expect(page.getByTestId('tools-title')).toBeVisible();
   await expect(page.getByTestId('offline-badge')).toBeVisible();
-  // Startseite und Navigation funktionieren offline
-  await page.getByTestId('cta-tools').click();
-  await expect(page.getByTestId('tools-title')).toHaveText('Tools');
+  // Navigation funktioniert offline (mit gespeicherter Anmeldung)
   await page.getByTestId('tool-projects').click();
   await expect(page.getByTestId('projects-title')).toHaveText('Aufmaß & Abrechnung');
 

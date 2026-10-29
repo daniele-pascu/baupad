@@ -16,6 +16,7 @@ create table if not exists public.profiles (
   name text not null default '',
   created_at timestamptz not null default now()
 );
+alter table public.profiles add column if not exists phone text not null default '';
 
 create table if not exists public.memberships (
   workspace_id uuid not null references public.workspaces (id) on delete cascade,
@@ -122,7 +123,9 @@ language sql stable security definer set search_path = public as $$
     'workspace_id', m.workspace_id,
     'workspace_name', w.name,
     'role', m.role,
+    'pkg', m.pkg,
     'name', p.name,
+    'phone', p.phone,
     'operator', exists (select 1 from public.operators o where lower(o.email) = lower(coalesce(auth.jwt() ->> 'email', '')))
   )
   from public.profiles p
@@ -241,3 +244,41 @@ end;
 $$;
 revoke all on function public.remove_workspace_user(text) from public;
 grant execute on function public.remove_workspace_user(text) to authenticated;
+
+-- 7) Eigenes Profil und Arbeitsbereich pflegen ----------------------------------------------------
+create or replace function public.update_my_profile(p_name text, p_phone text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'not signed in'; end if;
+  if trim(p_name) = '' then raise exception 'Bitte den Namen eingeben.'; end if;
+  update public.profiles set name = trim(p_name), phone = trim(coalesce(p_phone, '')) where id = auth.uid();
+end;
+$$;
+revoke all on function public.update_my_profile(text, text) from public;
+grant execute on function public.update_my_profile(text, text) to authenticated;
+
+-- E-Mail-Änderung im Profil nachziehen (Supabase ändert auth.users nach der Bestätigung)
+create or replace function public.sync_profile_email() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.email is distinct from old.email then
+    update public.profiles set email = coalesce(new.email, '') where id = new.id;
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists on_auth_user_email_changed on auth.users;
+create trigger on_auth_user_email_changed after update of email on auth.users for each row execute function public.sync_profile_email();
+
+create or replace function public.rename_my_workspace(p_name text) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  ws uuid := public.my_admin_workspace();
+begin
+  if ws is null then raise exception 'Nur ein Admin kann den Firmennamen ändern.'; end if;
+  if trim(p_name) = '' then raise exception 'Bitte den Firmennamen eingeben.'; end if;
+  update public.workspaces set name = trim(p_name) where id = ws;
+end;
+$$;
+revoke all on function public.rename_my_workspace(text) from public;
+grant execute on function public.rename_my_workspace(text) to authenticated;

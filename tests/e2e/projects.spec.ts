@@ -139,6 +139,8 @@ test('Angemeldet: Tools, Einstellungen und Benutzerliste', async ({ page }) => {
     /Passwort und Anmeldemethoden/,
     /Abonnement und Zahlung/,
     /Firmeninformationen/,
+    /Benutzer & Rollen/,
+    /App und Speicher/,
     /Weitere Einstellungen/,
   ]);
   await expect(page.getByTestId('account-logout')).toBeVisible();
@@ -169,11 +171,20 @@ test('Angemeldet: Tools, Einstellungen und Benutzerliste', async ({ page }) => {
   await page.getByRole('link', { name: 'Zu den Tools' }).click();
   await expect(page.getByTestId('tools-title')).toHaveText('Tools');
 
-  // Startseite: Knopf führt angemeldet direkt zu den Tools
+  // Startseite: angemeldet geht es direkt zu den Tools, Website-Links verschwinden aus der Leiste
   await page.goto('./');
-  await expect(page.getByTestId('cta-tools')).toHaveText(/BauPad öffnen/);
-  await page.getByTestId('cta-tools').click();
   await expect(page.getByTestId('tools-title')).toHaveText('Tools');
+  await expect(page.getByTestId('site-nav').getByRole('link', { name: 'Über uns' })).toHaveCount(0);
+  await page.goto('./#/ueber');
+  await expect(page.getByTestId('tools-title')).toHaveText('Tools');
+  // Kontakt und Rechtliches stehen unter Konto und Einstellungen
+  await page.goto('./#/konto');
+  await page.getByTestId('account-section').filter({ hasText: 'Weitere Einstellungen' }).locator('summary').click();
+  await expect(page.getByTestId('settings-contact')).toBeVisible();
+  // Persönliche Daten bearbeitbar
+  await expect(page.getByTestId('profile-name')).toHaveValue('Test Nutzer');
+  await page.getByTestId('account-section').filter({ hasText: 'Passwort und Anmeldemethoden' }).locator('summary').click();
+  await expect(page.getByTestId('provider-list')).toContainText('verbunden');
 });
 
 test('Installierte App mit gespeicherter Anmeldung startet direkt in den Tools (auch ältere Home-Bildschirm-Symbole)', async ({ browser }) => {

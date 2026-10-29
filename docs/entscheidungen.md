@@ -18,6 +18,8 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - Alle Werkzeuge (Tools, Aufmaß, Arbeitereinteilung, Berichte, Fotos, Kamera, Konto) nur mit Anmeldung – im Browser und in der installierten App, auf jedem Gerät. Kein „ohne Konto weiter“.
 - Eine auf dem Gerät gespeicherte Anmeldung gilt auch offline; nur Abmelden oder eine vom Dienst zurückgewiesene Sitzung beenden sie.
 - Öffentlich bleiben: Startseite, Produktseiten, Über uns, Kontakt, Impressum, Datenschutz, Anmelden/Registrieren, neues Passwort.
+- Angemeldet führen Startseite, Produktseiten und „Über uns“ direkt zu den Tools; Kontakt und Rechtliches stehen unter Konto → Weitere Einstellungen.
+- Konto und Einstellungen: alle Bereiche aktiv (Persönliche Daten, E-Mail und Konto, Passwort und Anmeldemethoden, Abonnement, Firmeninformationen, Benutzer & Rollen, App und Speicher, Weitere Einstellungen).
 
 ## Abrechnung (Oktober 2026)
 - **Keine In-App-Käufe** (kein Apple-Abo, kein Google-Abo). Grundlage: Apple-Regel 3.1.3(c) Enterprise Services, Verkauf an Firmen.
