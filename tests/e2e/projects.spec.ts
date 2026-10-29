@@ -19,13 +19,14 @@ test('Website: Startseite, Über uns, Kontakt, Impressum, Anmelden und Logo', as
   // schwarze Navigationsleiste
   expect(await nav.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(0, 0, 0)');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('BauPad. Die Baustelle in einer App.');
-  await expect(page.locator('.hero-lead')).toContainText('Aufmaß, Arbeitereinteilung, Berichte und Fotos');
+  await expect(page.locator('.hero-lead')).toContainText('Aufmaß, Arbeitereinteilung, Berichte, Fotos und Mängelplan');
   await expect(page.locator('.hero-shot img')).toHaveCount(2);
   await expect(page.locator('.export-card')).toHaveCount(4);
   await expect(page.locator('.phone-item')).toHaveCount(4);
   await expect(page.getByTestId('faq').locator('details')).toHaveCount(5);
-  await expect(page.getByTestId('product-card')).toHaveCount(4);
+  await expect(page.getByTestId('product-card')).toHaveCount(5);
   await expect(page.getByTestId('product-card').nth(3)).toContainText('Fotodokumentation');
+  await expect(page.getByTestId('product-card').nth(4)).toContainText('Mängelplan');
   // Produktseite: Bilder aus der App und Beispiel-Exporte
   await page.getByTestId('product-card').nth(3).click();
   await expect(page.getByTestId('product-title')).toHaveText('Fotodokumentation');
@@ -200,21 +201,22 @@ test('Installierte App mit gespeicherter Anmeldung startet direkt in den Tools (
   await context.close();
 });
 
-test('Tools: vier gleich große Kacheln, zwei pro Reihe; alle vier Werkzeuge antippbar', async ({ page }) => {
+test('Tools: fünf gleich große Kacheln, zwei pro Reihe; alle Werkzeuge antippbar', async ({ page }) => {
   await page.goto('./#/tools');
   const tiles = page.locator('.tool-tile');
-  await expect(tiles).toHaveCount(4);
-  await expect(tiles.locator('strong')).toHaveText(['Aufmaß & Abrechnung', 'Arbeitereinteilung', 'Fotodokumentation', 'Berichte & Formulare']);
+  await expect(tiles).toHaveCount(5);
+  await expect(tiles.locator('strong')).toHaveText(['Aufmaß & Abrechnung', 'Arbeitereinteilung', 'Fotodokumentation', 'Berichte & Formulare', 'Mängelplan']);
   const boxes = await Promise.all((await tiles.all()).map((t) => t.boundingBox()));
-  // 2 × 2, alle gleich groß
+  // 2 × 2 + 1, alle gleich groß
   expect(Math.abs(boxes[0]!.y - boxes[1]!.y)).toBeLessThan(1);
   expect(Math.abs(boxes[2]!.y - boxes[3]!.y)).toBeLessThan(1);
   expect(boxes[2]!.y).toBeGreaterThan(boxes[0]!.y + boxes[0]!.height - 1);
+  expect(boxes[4]!.y).toBeGreaterThan(boxes[2]!.y + boxes[2]!.height - 1);
   for (const b of boxes) {
     expect(Math.abs(b!.width - boxes[0]!.width)).toBeLessThan(1);
     expect(Math.abs(b!.height - boxes[0]!.height)).toBeLessThan(1);
   }
-  // alle vier Werkzeuge sind antippbar
+  // alle Werkzeuge sind antippbar
   await expect(page.getByTestId('tool-soon')).toHaveCount(0);
   await page.screenshot({ path: join(OUT, 'tools.png'), fullPage: true });
   // Arbeitereinteilung und zurück

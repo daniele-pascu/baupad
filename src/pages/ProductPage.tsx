@@ -7,7 +7,7 @@ import { paths } from '../lib/router';
 import { usePageTitle } from './SitePages';
 
 type ProductId = keyof typeof site.products;
-const OPEN: Record<ProductId, string> = { projects: paths.projects(), workers: paths.workers(), reports: paths.reports(), photos: paths.photos() };
+const OPEN: Record<ProductId, string> = { projects: paths.projects(), workers: paths.workers(), reports: paths.reports(), photos: paths.photos(), defects: paths.defects() };
 
 /** Bild mit Unterschrift; Handy-Bilder schmal mit Rahmen, Klick öffnet das Bild in voller Größe */
 function Shot({ src, alt, caption, phone }: { src: string; alt: string; caption: string; phone?: boolean }) {

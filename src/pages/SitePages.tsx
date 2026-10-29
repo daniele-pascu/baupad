@@ -66,7 +66,7 @@ export function LandingPage() {
         </section>
 
         <section className="tools-section" id="werkzeuge" aria-labelledby="tools-title">
-          <p className="section-eyebrow">Vier Werkzeuge</p>
+          <p className="section-eyebrow">Fünf Werkzeuge</p>
           <h2 id="tools-title" className="section-heading">
             Alles, was auf der Baustelle anfällt.
           </h2>

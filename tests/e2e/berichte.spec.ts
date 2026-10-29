@@ -152,6 +152,9 @@ test('Regieliste, Bautagesbericht und Wochenbericht: Übernahme aus Projekt und 
   await expect(page.getByTestId('preview-page')).toHaveCount(2); // Regieliste + Tagesbericht in einem PDF
   await page.getByTestId('preview-back').click();
   await page.getByTestId('report-select').click(); // Fertig
+  // Teilen ohne Umweg: alle Berichte der Baustelle als ein PDF (am PC wird die Datei heruntergeladen)
+  const shared = await catchDownload(page, () => page.getByTestId('report-share-all').click());
+  expect(shared.suggestedFilename()).toMatch(/^Berichte_Wohnanlage_Sonnenhof_.*\.pdf$/);
   // Übersicht: eine Baustelle mit Anzahl je Typ; zurück zur Baustelle, Kopie
   await page.getByTestId('to-reports-overview').click();
   await expect(page.getByTestId('report-site')).toHaveCount(1);

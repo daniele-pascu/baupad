@@ -1,5 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import type { Component, CostCenter, Damage, DrawElement, EntityMap, EntityStore, LvDocument, Photo, Plan, Project, Report, SourceFile, WeekPlan, Worker } from './types';
+import type { Component, CostCenter, Damage, DrawElement, EntityMap, EntityStore, LvDocument, Photo, Plan, Project, Report, SourceFile, WeekPlan, Worker, DefectMark, DefectPlan } from './types';
 
 /**
  * Lokale Datenbank (IndexedDB). Sie funktioniert ohne Internetverbindung und hält
@@ -40,6 +40,10 @@ interface AufmassDB extends DBSchema {
   photos: { key: string; value: Photo; indexes: { projectId: string; week: string; day: string } };
   /** ab Version 7: Bilddaten (verkleinert, Vorschaubild, optional Original) – nur lokal bis zur zentralen Ablage */
   photoBlobs: { key: string; value: { id: string; data: ArrayBuffer; thumb: ArrayBuffer; original?: ArrayBuffer } };
+  /** ab Version 8: Mängelplan – Pläne je Baustelle, Markierungen, Planbilder */
+  defectPlans: { key: string; value: DefectPlan; indexes: { projectId: string } };
+  defectMarks: { key: string; value: DefectMark; indexes: { planId: string } };
+  defectPlanImages: { key: string; value: { id: string; data: ArrayBuffer; thumb: ArrayBuffer } };
 }
 
 export interface OutboxEntry {
@@ -59,7 +63,7 @@ const DB_NAME = 'schadstellen-aufmass';
  * Version 5: Arbeitereinteilung (Arbeiter, Wochenplanungen). Version 6: Berichte & Formulare. Version 7: Fotodokumentation.
  * Upgrades legen ausschließlich neue Speicherbereiche an; vorhandene Daten bleiben unverändert.
  */
-const DB_VERSION = 7;
+const DB_VERSION = 8;
 
 let dbPromise: Promise<IDBPDatabase<AufmassDB>> | null = null;
 
@@ -98,6 +102,11 @@ export function getDB(): Promise<IDBPDatabase<AufmassDB>> {
           photos.createIndex('week', 'week');
           photos.createIndex('day', 'day');
           db.createObjectStore('photoBlobs', { keyPath: 'id' });
+        }
+        if (oldVersion < 8) {
+          db.createObjectStore('defectPlans', { keyPath: 'id' }).createIndex('projectId', 'projectId');
+          db.createObjectStore('defectMarks', { keyPath: 'id' }).createIndex('planId', 'planId');
+          db.createObjectStore('defectPlanImages', { keyPath: 'id' });
         }
         // Hinweis für Aufmaß & Abrechnung, dass die Datenbank erweitert wurde
         if (oldVersion >= 1) void tx.objectStore('meta').put({ key: 'upgradedFrom', value: oldVersion });
@@ -365,5 +374,50 @@ export async function deletePhotoCompletely(id: string): Promise<void> {
   const tx = db.transaction(['photos', 'photoBlobs'], 'readwrite');
   await tx.objectStore('photos').delete(id);
   await tx.objectStore('photoBlobs').delete(id);
+  await tx.done;
+}
+
+// ---------------------------------------------------------------------------
+// Mängelplan
+
+export async function listDefectPlans(): Promise<DefectPlan[]> {
+  const db = await getDB();
+  return db.getAll('defectPlans');
+}
+export async function getDefectPlan(id: string): Promise<DefectPlan | undefined> {
+  const db = await getDB();
+  return db.get('defectPlans', id);
+}
+export async function saveDefectPlan(p: DefectPlan): Promise<void> {
+  const db = await getDB();
+  await db.put('defectPlans', p);
+}
+export async function putDefectPlanImage(v: { id: string; data: ArrayBuffer; thumb: ArrayBuffer }): Promise<void> {
+  const db = await getDB();
+  await db.put('defectPlanImages', v);
+}
+export async function getDefectPlanImage(id: string) {
+  const db = await getDB();
+  return db.get('defectPlanImages', id);
+}
+export async function listDefectMarks(planId?: string): Promise<DefectMark[]> {
+  const db = await getDB();
+  return planId ? db.getAllFromIndex('defectMarks', 'planId', planId) : db.getAll('defectMarks');
+}
+export async function saveDefectMark(m: DefectMark): Promise<void> {
+  const db = await getDB();
+  await db.put('defectMarks', m);
+}
+export async function deleteDefectMark(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete('defectMarks', id);
+}
+/** Plan samt Markierungen und Bild entfernen (Fotos bleiben in der Fotodokumentation) */
+export async function deleteDefectPlanCompletely(id: string): Promise<void> {
+  const db = await getDB();
+  const tx = db.transaction(['defectPlans', 'defectMarks', 'defectPlanImages'], 'readwrite');
+  for (const m of await tx.objectStore('defectMarks').index('planId').getAll(id)) await tx.objectStore('defectMarks').delete(m.id);
+  await tx.objectStore('defectPlanImages').delete(id);
+  await tx.objectStore('defectPlans').delete(id);
   await tx.done;
 }

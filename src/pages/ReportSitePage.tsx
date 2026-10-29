@@ -4,7 +4,7 @@ import { ActionMenu } from '../components/ActionMenu';
 import { Icon } from '../components/Icon';
 import { PdfPreview } from '../components/PdfPreview';
 import { SiteNav } from '../components/SiteNav';
-import { confirmDialog, showError, toast } from '../components/ui';
+import { confirmDialog, offerFile, showError, toast } from '../components/ui';
 import { safeFileName, type ExportFile } from '../lib/aufmass';
 import { deleteReport, listReports, saveReport } from '../lib/db';
 import { navigate, paths } from '../lib/router';
@@ -114,6 +114,11 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
     setBusy(true);
     void run(async () => setPreview(chosen.length === 1 ? await reportPdfFile(chosen[0]) : await mergedPdf(chosen, name))).finally(() => setBusy(false));
   };
+  /** Teilen ohne Umweg: ein Bericht oder alle Berichte der Baustelle als PDF an Mail, WhatsApp, „Dateien“ … */
+  const share = (list: Report[]) => {
+    setBusy(true);
+    void run(async () => offerFile(list.length === 1 ? await reportPdfFile(list[0]) : await mergedPdf(list, name))).finally(() => setBusy(false));
+  };
 
   if (all && !site)
     return (
@@ -145,6 +150,9 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
           <div className="row gap">
             <button type="button" className={`btn btn-sm${selecting ? ' btn-primary' : ''}`} onClick={() => (selecting ? stop() : setSelecting(true))} disabled={!reports.length} data-testid="report-select">
               <Icon name="check" size={16} /> {selecting ? 'Fertig' : 'Auswählen'}
+            </button>
+            <button type="button" className="btn btn-sm" onClick={() => share(TYPE_ORDER.flatMap((t) => [...byType[t]].reverse()))} disabled={!reports.length || busy} data-testid="report-share-all">
+              <Icon name="share" size={16} /> <span className="lbl">Alle teilen</span>
             </button>
             <button type="button" className="btn btn-sm btn-primary" onClick={() => setCreating(true)} data-testid="report-group-new">
               <Icon name="plus" size={16} /> Neu
@@ -234,6 +242,7 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
                               { label: 'Bearbeiten', icon: 'edit', onSelect: () => navigate(paths.report(r.id)), testId: 'report-open' },
                               { label: 'Kopieren als neuer Bericht', icon: 'copy', onSelect: () => copy(r), testId: 'report-copy' },
                               { label: 'PDF', icon: 'pdf', onSelect: () => run(async () => setPreview(await reportPdfFile(r))), testId: 'report-pdf' },
+                              { label: 'Teilen', icon: 'share', onSelect: () => share([r]), testId: 'report-share' },
                               { label: 'Löschen', icon: 'trash', danger: true, onSelect: () => remove(r), testId: 'report-delete' },
                             ]}
                           />

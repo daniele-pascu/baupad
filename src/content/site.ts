@@ -11,7 +11,7 @@ export const site = {
   home: {
     eyebrow: 'PAD Software · Software für die Baustelle',
     title: 'BauPad. Die Baustelle in einer App.',
-    lead: 'Aufmaß, Arbeitereinteilung, Berichte und Fotos – am Handy auf der Baustelle, am PC im Büro. Auch ohne Internet.',
+    lead: 'Aufmaß, Arbeitereinteilung, Berichte, Fotos und Mängelplan – am Handy auf der Baustelle, am PC im Büro. Auch ohne Internet.',
     cta: 'BauPad öffnen',
     secondary: 'Werkzeuge ansehen',
     /** Bilder im Kopfbereich (public/site) */
@@ -23,6 +23,7 @@ export const site = {
       { id: 'workers' as const, color: '#2f80ed', title: 'Arbeitereinteilung', text: 'Wer arbeitet wann auf welcher Baustelle – die Woche auf einen Blick.', image: 'arbeiter-woche.jpg', points: ['Zuweisen per Klick oder Ziehen', 'Urlaub, Krankenstand, Doppelbelegung', 'Wochenplan als PDF mit Logo'] },
       { id: 'reports' as const, color: '#a259ff', title: 'Berichte & Formulare', text: 'Regielisten, Bautages- und Wochenberichte wie die gewohnten Formulare.', image: 'berichte-regie-editor.jpg', points: ['Mannschaft wird aus der Einteilung übernommen', 'Je Baustelle getrennte Listen', 'Formular-PDF mit Unterschriftsfeldern'] },
       { id: 'photos' as const, color: '#111111', title: 'Fotodokumentation', text: 'Jedes Foto bei der richtigen Baustelle, Kalenderwoche und am richtigen Tag.', image: 'fotos-baustelle.jpg', points: ['Kamera-Modus mit Baustelle oben', 'Galerie nach Woche und Tag, Zoom und Drehen', 'Foto-PDF und ZIP mit Datum'] },
+      { id: 'defects' as const, color: '#d6242b', title: 'Mängelplan', text: 'Mängel, Ausbesserungen und Hinweise im Plan markieren – mit Fotos, als PDF fürs Angebot.', image: 'maengel-plan.jpg', points: ['Plan als PDF oder Foto, ohne Maßstab', 'Pins, Formen und Text in Farben, nummeriert', 'PDF mit Plan, Liste und Fotos'] },
     ],
     /** Beispiel-Exporte auf der Startseite */
     exportsLead: 'Kein Abtippen: Aufmaß, Wochenplan, Regieliste und Fotos kommen fertig als Excel oder PDF an – mit Logo und Firmendaten.',
@@ -148,6 +149,23 @@ export const site = {
         { src: 'fotos-baustelle-iphone.jpg', alt: 'Galerie am iPhone', caption: 'Galerie am Handy', phone: true },
       ],
       exports: [{ src: 'export-fotos.jpg', alt: 'Fotodokumentation als PDF mit vier Fotos je Seite', caption: 'Foto-PDF, 4 je Seite' }],
+    },
+    defects: {
+      slug: 'maengelplan',
+      tagline: 'Mängel, Ausbesserungen und Hinweise direkt im Plan markieren – die Grundlage für Angebot und Mängelliste.',
+      intro:
+        'Plan als PDF oder Foto hochladen, ohne Maßstab und ohne Kalibrieren. Dann Pins, Rechtecke, Kreise, Linien, Freihand und Text ' +
+        'in Farben setzen. Jede Markierung bekommt eine Nummer, eine Art, Titel, Beschreibung und Fotos. Die Fotos liegen gleichzeitig in der Fotodokumentation.',
+      groups: [
+        { title: 'Markieren', items: ['Pin, Rechteck, Kreis, Linie, Freihand, Text', 'Fünf Farben, Art: Mangel, Ausbesserung, Hinweis, Erledigt', 'Nummern laufen je Plan automatisch', 'Verschieben, Zoom, Liste mit Filter'] },
+        { title: 'Beschreiben', items: ['Titel und Beschreibung je Markierung', 'Fotos aufnehmen, aus der Galerie oder aus der Fotodokumentation', 'Vermerk „Mängelplan Nr. 3“ im Foto'] },
+        { title: 'Ausgeben', items: ['PDF: Plan mit Nummern, danach die Liste mit Fotos', 'Logo und Firmendaten im Kopf', 'Je Baustelle beliebig viele Pläne'] },
+      ],
+      shots: [
+        { src: 'maengel-plan.jpg', alt: 'Plan mit Pin, Rechteck und Kreis sowie Liste der Markierungen', caption: 'Plan mit Markierungen – rechts die Liste' },
+        { src: 'maengel-plan-iphone.jpg', alt: 'Mängelplan am iPhone', caption: 'Am Handy', phone: true },
+      ],
+      exports: [{ src: 'export-maengel.jpg', alt: 'Mängelplan als PDF', caption: 'Mängelplan (PDF)' }],
     },
   },
   about: {

@@ -18,6 +18,9 @@ import { CameraPage } from './pages/CameraPage';
 import { ReportEditorPage } from './pages/ReportEditorPage';
 import { PhotosPage } from './pages/PhotosPage';
 import { PhotoSitePage } from './pages/PhotoSitePage';
+import { DefectsPage } from './pages/DefectsPage';
+import { DefectSitePage } from './pages/DefectSitePage';
+import { DefectPlanPage } from './pages/DefectPlanPage';
 
 import { isInstalledApp } from './lib/platform';
 import { getAuth } from './lib/auth';
@@ -47,7 +50,10 @@ if (typeof window !== 'undefined' && isInstalledApp()) {
 const SITE_ROUTES_WHEN_SIGNED_IN = new Set(['landing', 'about', 'product']);
 
 function ToolsRedirect() {
-  useEffect(() => navigate(paths.tools(), true), []);
+  useEffect(() => {
+    // nur umleiten, wenn die Adresse inzwischen nicht schon weitergewandert ist
+    if (SITE_ROUTES_WHEN_SIGNED_IN.has(parseRoute(location.hash).name)) navigate(paths.tools(), true);
+  }, []);
   return null;
 }
 
@@ -177,6 +183,15 @@ export function App() {
       break;
     case 'photoSite':
       content = <PhotoSitePage key={route.siteKey} siteKey={route.siteKey} week={route.week} photoId={route.photoId} />;
+      break;
+    case 'defects':
+      content = <DefectsPage />;
+      break;
+    case 'defectSite':
+      content = <DefectSitePage key={route.siteKey} siteKey={route.siteKey} />;
+      break;
+    case 'defectPlan':
+      content = <DefectPlanPage key={route.planId} planId={route.planId} markId={route.markId} />;
       break;
     case 'login':
       content = <LoginPage key={route.register ? 'r' : 'l'} register={route.register} />;

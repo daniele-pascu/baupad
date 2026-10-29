@@ -9,7 +9,7 @@ export type Route =
   | { name: 'imprint' }
   | { name: 'privacy' }
   | { name: 'deleteAccountInfo' }
-  | { name: 'product'; product: 'projects' | 'workers' | 'reports' | 'photos' }
+  | { name: 'product'; product: 'projects' | 'workers' | 'reports' | 'photos' | 'defects' }
   | { name: 'projects' }
   | { name: 'tools' }
   | { name: 'workers' }
@@ -19,6 +19,9 @@ export type Route =
   | { name: 'camera'; siteKey: string | null }
   | { name: 'photos' }
   | { name: 'photoSite'; siteKey: string; week: string | null; photoId: string | null }
+  | { name: 'defects' }
+  | { name: 'defectSite'; siteKey: string }
+  | { name: 'defectPlan'; planId: string; markId: string | null }
   | { name: 'login'; register?: boolean }
   | { name: 'account' }
   | { name: 'newPassword' }
@@ -38,7 +41,7 @@ export function parseRoute(hash: string): Route {
   if (parts[0] === 'datenschutz' && parts.length === 1) return { name: 'privacy' };
   if (parts[0] === 'konto-loeschen' && parts.length === 1) return { name: 'deleteAccountInfo' };
   if (parts[0] === 'baupad' && parts.length === 2) {
-    const product = ({ aufmass: 'projects', arbeitereinteilung: 'workers', berichte: 'reports', fotos: 'photos' } as const)[parts[1]];
+    const product = ({ aufmass: 'projects', arbeitereinteilung: 'workers', berichte: 'reports', fotos: 'photos', maengelplan: 'defects' } as const)[parts[1]];
     if (product) return { name: 'product', product };
   }
   if (parts[0] === 'projekte' && parts.length === 1) return { name: 'projects' };
@@ -51,6 +54,9 @@ export function parseRoute(hash: string): Route {
   if (parts[0] === 'fotos' && parts[1] === 'kamera' && parts.length === 2) return { name: 'camera', siteKey: params.get('s') };
   if (parts[0] === 'fotos' && (parts[1] === 'p' || parts[1] === 'n') && parts.length === 3)
     return { name: 'photoSite', siteKey: `${parts[1]}:${parts[2]}`, week: params.get('w'), photoId: params.get('f') };
+  if (parts[0] === 'maengel' && parts.length === 1) return { name: 'defects' };
+  if (parts[0] === 'maengel' && parts[1] === 'b' && parts.length === 3) return { name: 'defectSite', siteKey: parts[2] };
+  if (parts[0] === 'maengel' && parts[1] === 'plan' && parts.length === 3) return { name: 'defectPlan', planId: parts[2], markId: params.get('m') };
   if (parts[0] === 'anmelden' && parts.length === 1) return { name: 'login' };
   if (parts[0] === 'registrieren' && parts.length === 1) return { name: 'login', register: true };
   if (parts[0] === 'konto' && parts.length === 1) return { name: 'account' };
@@ -86,6 +92,9 @@ export const paths = {
   /** Fotodokumentation: Übersicht und Baustelle (Schlüssel „p:<Projekt>“ bzw. „n:<Name>“) */
   photos: () => '#/fotos',
   /** Kamera-Modus (Live-Bild, Auslöser) – wahlweise mit vorgewählter Baustelle */
+  defects: () => '#/maengel',
+  defectSite: (key: string) => `#/maengel/b/${encodeURIComponent(key)}`,
+  defectPlan: (planId: string, markId?: string | null) => `#/maengel/plan/${planId}${markId ? `?m=${encodeURIComponent(markId)}` : ''}`,
   camera: (siteKey?: string | null) => `#/fotos/kamera${siteKey ? `?s=${encodeURIComponent(siteKey)}` : ''}`,
   photoSite: (siteKey: string, opts: { week?: string | null; photoId?: string | null } = {}) => {
     const [kind, ...rest] = siteKey.split(':');

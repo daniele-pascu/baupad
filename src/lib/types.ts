@@ -640,3 +640,45 @@ export interface Photo {
   createdAt: number;
   updatedAt: number;
 }
+
+// ---------------------------------------------------------------------------
+// Mängelplan (ab Datenbank-Version 8)
+
+export type DefectKind = 'mangel' | 'ausbesserung' | 'hinweis' | 'erledigt';
+export type MarkShape = 'pin' | 'rect' | 'ellipse' | 'line' | 'freehand' | 'text';
+
+/** Plan einer Baustelle im Mängelplan: Bild (aus PDF-Seite oder Foto), ohne Maßstab */
+export interface DefectPlan {
+  id: string;
+  companyId: string | null;
+  projectId: string | null;
+  siteName: string;
+  siteNumber: string;
+  siteAddress: string;
+  title: string;
+  /** Bildgröße in Pixeln (Markierungen sind relativ 0..1 dazu gespeichert) */
+  width: number;
+  height: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** Markierung im Plan: Pin, Form oder Text, mit Nummer, Art, Beschreibung und Fotos */
+export interface DefectMark {
+  id: string;
+  planId: string;
+  /** laufende Nummer je Plan */
+  no: number;
+  shape: MarkShape;
+  color: string;
+  /** Punkte relativ zur Bildgröße (0..1); Pin/Text: ein Punkt, Rechteck/Ellipse/Linie: zwei, Freihand: viele */
+  points: { x: number; y: number }[];
+  /** Beschriftung bei Textmarkierung */
+  text: string;
+  kind: DefectKind;
+  title: string;
+  description: string;
+  photoIds: string[];
+  createdAt: number;
+  updatedAt: number;
+}

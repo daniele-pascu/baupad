@@ -27,6 +27,10 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - In der Store-App keine Preise, keine Kauf-Knöpfe, keine Links zum Kauf; nur „Paket wird vom Admin deiner Firma verwaltet“.
 - Rechnungen an Firmen mit UID und Umsatzsteuer automatisch; Betreiber-Übersicht mit Firmen, Benutzern, Einnahmen.
 
+## Werkzeuge (29.10.2026)
+- Fünftes Werkzeug **Mängelplan** (Symbol: gefalteter Plan mit Pin, Rot #d6242b): Pläne je Baustelle als Bild ohne Maßstab, Markierungen (Pin, Rechteck, Kreis, Linie, Freihand, Text) mit Nummer, Art (Mangel, Ausbesserung, Hinweis, Erledigt), Titel, Beschreibung, Fotos aus der Fotodokumentation; PDF mit Plan und Liste. Datenbank-Version 8.
+- Berichte & Formulare: „Teilen“ je Bericht und „Alle teilen“ je Baustelle (PDF direkt an Mail, WhatsApp, Dateien).
+
 ## Preis (29.10.2026)
 - BauPad ist ab dem öffentlichen Start kostenpflichtig (Abo). Bis dahin Testphase mit Testkonten, keine Gratis-Version.
 - Vor dem Start nötig: Gewerbe, Stripe-Konto (office@), Preise, Kaufseite, AGB. Offen: Preismodell (je Benutzer oder je Firma) und Testzeit (z. B. 14 Tage).
