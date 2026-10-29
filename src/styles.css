@@ -7096,6 +7096,16 @@ button.report-link {
   transform: rotate(90deg);
   opacity: 0.7;
 }
+/* Fenster mit Eingabefeld oben andocken: so bleibt es über der Tastatur sichtbar */
+.cam-sheet-backdrop.top {
+  align-items: flex-start;
+}
+.cam-sheet-backdrop.top .cam-sheet {
+  max-height: calc(var(--vv-h, 100vh) - 8px);
+  padding-top: calc(12px + var(--safe-top));
+  border-radius: 0 0 18px 18px;
+  box-sizing: border-box;
+}
 .cam-site-sheet {
   max-height: 80vh;
 }

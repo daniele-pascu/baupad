@@ -317,6 +317,20 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
     }
   };
 
+  // Sichtbare Höhe (ohne Bildschirmtastatur) als CSS-Variable – iPhone schiebt sonst das Fenster hinter die Tastatur
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv || !(siteOpen || descOpen)) return;
+    const apply = () => document.documentElement.style.setProperty('--vv-h', `${Math.round(vv.height)}px`);
+    apply();
+    vv.addEventListener('resize', apply);
+    vv.addEventListener('scroll', apply);
+    return () => {
+      vv.removeEventListener('resize', apply);
+      vv.removeEventListener('scroll', apply);
+      document.documentElement.style.removeProperty('--vv-h');
+    };
+  }, [siteOpen, descOpen]);
   /** Baustellen für das Suchfenster: zuletzt fotografierte zuerst, mit Anzahl Fotos */
   const siteRows = useMemo(() => {
     const stats = new Map<string, { n: number; last: number }>();
@@ -453,7 +467,7 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
       </footer>
 
       {siteOpen && (
-        <div className="cam-sheet-backdrop" onClick={() => setSiteOpen(false)}>
+        <div className="cam-sheet-backdrop top" onClick={() => setSiteOpen(false)}>
           <div className="cam-sheet cam-site-sheet" onClick={(e) => e.stopPropagation()} data-testid="cam-site-sheet">
             <strong>Baustelle wählen</strong>
             <input type="search" value={siteQuery} onChange={(e) => setSiteQuery(e.target.value)} placeholder="Name, Nummer oder Adresse suchen" autoFocus data-testid="cam-site-search" />
@@ -506,7 +520,7 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
         />
       )}
       {descOpen && (
-        <div className="cam-sheet-backdrop" onClick={() => setDescOpen(false)}>
+        <div className="cam-sheet-backdrop top" onClick={() => setDescOpen(false)}>
           <form
             className="cam-sheet"
             onClick={(e) => e.stopPropagation()}
