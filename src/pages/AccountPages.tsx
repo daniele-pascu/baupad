@@ -159,7 +159,7 @@ const SECTIONS: [string, string][] = [
   ['Persönliche Daten', 'Name, Telefon und Anzeigename'],
   ['E-Mail und Konto', 'E-Mail-Adresse ändern, Konto verwalten'],
   ['Passwort und Anmeldemethoden', 'Passwort ändern, Outlook, Google oder Apple verbinden'],
-  ['Abonnement und Zahlung', 'Tarif, Rechnungen und Zahlungsart'],
+  ['Abonnement und Zahlung', 'Paket wird vom Admin auf der Website verwaltet – Karte, SEPA oder Rechnung'],
   ['Firmeninformationen', 'Firma und Adresse für Exporte'],
   ['Weitere Einstellungen', 'Sprache, Benachrichtigungen und Datenschutz'],
 ];
