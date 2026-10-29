@@ -66,6 +66,7 @@ export function translateAuthError(message: string): string {
   if (m.includes('same password') || m.includes('same_password')) return 'Das neue Passwort muss sich vom bisherigen unterscheiden.';
   if (m.includes('session') && m.includes('missing')) return 'Nicht angemeldet. Bitte den Link aus der E-Mail erneut öffnen.';
   if (m.includes('email_address_invalid') || m.includes('invalid email')) return 'Bitte eine gültige E-Mail-Adresse eingeben.';
+  if (m.includes('provider is not enabled') || m.includes('unsupported provider') || m.includes('validation_failed') && m.includes('provider')) return 'Diese Anmeldemethode ist noch nicht freigeschaltet. Bitte mit E-Mail und Passwort anmelden.';
   if (m.includes('manual linking is disabled') || m.includes('manual_linking_disabled')) return 'Das Verbinden weiterer Anmeldemethoden ist beim Dienst noch nicht freigeschaltet.';
   if (m.includes('identity_already_exists') || m.includes('already linked')) return 'Diese Anmeldemethode ist schon mit einem Konto verbunden.';
   if (m.includes('email_exists') || m.includes('email address is already')) return 'Diese E-Mail-Adresse wird schon von einem anderen Konto verwendet.';

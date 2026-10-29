@@ -67,8 +67,8 @@ bestehenden Konto verbinden kann: Supabase → Authentication → Settings (bzw.
    - „Veröffentlichungsstatus“ auf „In Produktion“ stellen, sonst dürfen nur Testnutzer anmelden.
 4. „APIs und Dienste“ → „Anmeldedaten“ → „Anmeldedaten erstellen“ → „OAuth-Client-ID“:
    - Anwendungstyp: Webanwendung, Name: BauPad Web
-   - Autorisierte Weiterleitungs-URI: `https://<deine-project-url>.supabase.co/auth/v1/callback`
-     (die Project URL aus Schritt 1, plus `/auth/v1/callback`)
+   - Autorisierte JavaScript-Quelle: `https://pad-software.at`
+   - Autorisierte Weiterleitungs-URI: `https://knaskwuhjixxpnqjfqpx.supabase.co/auth/v1/callback`
 5. Es erscheinen **Client-ID** und **Clientschlüssel**.
 6. In Supabase: „Authentication“ → „Providers“ → „Google“ einschalten, Client-ID und Clientschlüssel eintragen, speichern.
 
@@ -80,25 +80,50 @@ Schick mir: nur die Nachricht, dass Google in Supabase eingeschaltet ist. Die Sc
 2. „Anwendungen“ → „App-Registrierungen“ → „Neue Registrierung“:
    - Name: BauPad
    - Unterstützte Kontotypen: „Konten in einem beliebigen Organisationsverzeichnis und persönliche Microsoft-Konten“
-   - Umleitungs-URI: Web, `https://<deine-project-url>.supabase.co/auth/v1/callback`
+   - Umleitungs-URI: Web, `https://knaskwuhjixxpnqjfqpx.supabase.co/auth/v1/callback`
 3. Nach dem Anlegen: „Anwendungs-ID (Client)“ notieren.
 4. „Zertifikate & Geheimnisse“ → „Neuer geheimer Clientschlüssel“, Laufzeit 24 Monate, den **Wert** sofort kopieren
    (wird nur einmal angezeigt).
 5. In Supabase: „Authentication“ → „Providers“ → „Azure“ einschalten, Client-ID und Geheimnis eintragen,
    Azure Tenant: `common`. Speichern.
 
-## 4. Apple-Login (erst mit dem Apple Developer Program)
+## 4. Apple-Login (sobald das Apple Developer Program freigeschaltet ist)
 
 Braucht das Apple Developer Program (99 US-Dollar im Jahr), das für den App Store ohnehin nötig ist.
-Sobald es da ist, richte ich mit dir die „Services ID“ und den Schlüssel ein; das dauert etwa eine halbe Stunde.
 Hinweis: Wenn die App im App Store Google-Login anbietet, verlangt Apple auch Apple-Login.
 
-## 5. Was danach passiert
+1. https://developer.apple.com/account → „Certificates, Identifiers & Profiles“ → „Identifiers“.
+2. „+“ → **App IDs** → App: Bundle ID `com.padsoftware.baupad` (explicit), Beschreibung „BauPad“,
+   unter „Capabilities“ **Sign in with Apple** anhaken. Registrieren.
+3. „+“ → **Services IDs**: Identifier `com.padsoftware.baupad.web`, Beschreibung „BauPad Web“. Registrieren,
+   dann die Services ID öffnen, „Sign in with Apple“ anhaken → „Configure“:
+   - Primary App ID: die App ID aus Schritt 2
+   - Domains: `knaskwuhjixxpnqjfqpx.supabase.co`
+   - Return URLs: `https://knaskwuhjixxpnqjfqpx.supabase.co/auth/v1/callback`
+4. „Keys“ → „+“: Name „BauPad Sign in with Apple“, **Sign in with Apple** anhaken, „Configure“ → Primary App ID
+   wählen. Registrieren, die Datei `AuthKey_XXXXXXXXXX.p8` herunterladen (nur einmal möglich!) und sicher
+   ablegen. **Key ID** (10 Zeichen) notieren. Die **Team ID** steht oben rechts im Developer-Konto.
+5. Supabase braucht statt der .p8-Datei einen daraus erzeugten „Secret Key“ (gültig 6 Monate):
+   https://supabase.com/docs/guides/auth/social-login/auth-apple → Abschnitt „Generate a client secret“ –
+   dort gibt es ein Formular, in das du Team ID, Key ID, Services ID und den Inhalt der .p8-Datei einträgst;
+   es liefert den Secret Key. Diesen Schritt alle 6 Monate wiederholen (Kalendereintrag!).
+6. In Supabase: „Authentication“ → „Providers“ → „Apple“ einschalten:
+   - Client IDs: `com.padsoftware.baupad.web` (später für die App zusätzlich `com.padsoftware.baupad`, mit Komma)
+   - Secret Key (for OAuth): der Wert aus Schritt 5. Speichern.
 
-- Ich trage Project URL und anon key in die App ein und schalte die Anmeldung frei.
-- Jede Registrierung legt automatisch einen Arbeitsbereich an, die Person ist dessen Admin (Einzelperson = Firma mit einem Benutzer).
-- Die Benutzerliste aus den Einstellungen wird beim ersten Anmelden des Admins übernommen, Einladungen gehen per E-Mail hinaus.
-- Danach kommt die zentrale Ablage (Hetzner Object Storage) für Fotos und Berichte.
+Die .p8-Datei, die Key ID und der Secret Key bleiben bei dir; nichts davon in den Chat schreiben.
+
+## 5. Stand in der App
+
+- Die Knöpfe „Mit Google / Apple / Microsoft (Outlook) anmelden“ stehen auf der Anmeldeseite und unter
+  Konto → „Passwort und Anmeldemethoden“ (Verbinden mit einem bestehenden Konto). Der Ablauf (Weiterleitung,
+  Rückkehr auf pad-software.at, Sitzung) ist fertig.
+- Solange ein Anbieter in Supabase nicht eingeschaltet ist, zeigt die App beim Klick: „Diese Anmeldemethode
+  ist noch nicht freigeschaltet. Bitte mit E-Mail und Passwort anmelden.“
+- Prüfung nach dem Einschalten: auf https://pad-software.at/#/login den Knopf drücken, beim Anbieter anmelden,
+  danach muss die Werkzeugseite erscheinen und unter Konto der Name stehen.
+- Jede Registrierung (auch über Google/Apple/Microsoft) legt automatisch einen Arbeitsbereich an, die Person ist
+  dessen Admin; eine eingeladene E-Mail-Adresse landet im Arbeitsbereich des Admins.
 
 ## Kosten
 
