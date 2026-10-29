@@ -15,33 +15,45 @@ export function usePageTitle(title: string) {
   }, [title]);
 }
 
-/** Öffentliche Startseite von PAD Software: BauPad als Produkt – ruhig, mit echten Bildern aus der App, ohne Animationen */
+/**
+ * Öffentliche Startseite von PAD Software – erzählt in fünf Schritten: Firma, BauPad, Probleme, Werkzeuge, Kennenlernen.
+ * Ruhig, mit echten Bildern aus der App, dezentes Einblenden, keine 3D- oder Parallax-Effekte.
+ */
 export function LandingPage() {
   usePageTitle('PAD Software – BauPad');
   const t = site.home;
-  const toTools = () => document.getElementById('werkzeuge')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const toProduct = () => document.getElementById('baupad')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   return (
     <div className="site landing">
       <SiteNav />
-      <main className="site-main">
-        <section className="hero hero-split">
-          <div className="hero-copy">
-            <p className="hero-eyebrow fade-in">{t.eyebrow}</p>
-            <h1 className="hero-title fade-in">{t.title}</h1>
-            <p className="hero-lead fade-in delay-1">{t.lead}</p>
-            <div className="hero-actions fade-in delay-2">
-              <a href={paths.tools()} className="site-cta" data-testid="cta-tools">
-                {t.cta}
-                <span aria-hidden="true"> →</span>
-              </a>
-              <button type="button" className="site-cta site-cta-secondary" onClick={toTools} data-testid="cta-features">
-                {t.secondary}
-              </button>
-            </div>
-            <div className="hero-install fade-in delay-2">
-              <InstallButton variant="link" />
-            </div>
-            <ul className="site-facts hero-facts fade-in delay-3" aria-label="Eigenschaften">
+      <main className="site-main lp">
+        {/* 1. Was ist PAD Software? */}
+        <section className="lp-hero" aria-labelledby="lp-title">
+          <p className="lp-eyebrow fade-in">{t.eyebrow}</p>
+          <h1 id="lp-title" className="lp-title fade-in">
+            {t.title}
+          </h1>
+          <p className="lp-lead hero-lead fade-in delay-1">{t.lead}</p>
+          <div className="lp-actions fade-in delay-2">
+            <a href={paths.tools()} className="site-cta" data-testid="cta-tools">
+              {t.cta}
+              <span aria-hidden="true"> →</span>
+            </a>
+            <button type="button" className="site-cta site-cta-secondary" onClick={toProduct} data-testid="cta-features">
+              {t.secondary}
+            </button>
+          </div>
+        </section>
+
+        {/* 2. Was ist BauPad? */}
+        <section className="lp-product" id="baupad" aria-labelledby="lp-product-title">
+          <div className="lp-product-copy">
+            <p className="lp-eyebrow">{site.product}</p>
+            <h2 id="lp-product-title" className="lp-h2">
+              {t.productTitle}
+            </h2>
+            <p className="lp-text">{t.productText}</p>
+            <ul className="lp-facts" aria-label="Eigenschaften">
               {t.facts.map((f) => (
                 <li key={f}>
                   <Icon name="check" size={16} />
@@ -49,8 +61,11 @@ export function LandingPage() {
                 </li>
               ))}
             </ul>
+            <div className="hero-install">
+              <InstallButton variant="link" />
+            </div>
           </div>
-          <div className="hero-shot fade-in delay-2" aria-hidden="true">
+          <div className="hero-shot lp-shot" aria-hidden="true">
             <div className="window-frame">
               <span className="window-bar">
                 <i />
@@ -65,24 +80,42 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section className="tools-section" id="werkzeuge" aria-labelledby="tools-title">
-          <p className="section-eyebrow">Fünf Werkzeuge</p>
-          <h2 id="tools-title" className="section-heading">
-            Alles, was auf der Baustelle anfällt.
+        {/* 3. Welche Probleme löst BauPad? */}
+        <section className="lp-problems" aria-labelledby="lp-problems-title">
+          <p className="lp-eyebrow">Das Problem</p>
+          <h2 id="lp-problems-title" className="lp-h2">
+            {t.problemsTitle}
           </h2>
-          <div className="features" data-testid="product-grid">
+          <ol className="lp-problem-list" data-testid="problems">
+            {t.problems.map((x, i) => (
+              <li key={x.title}>
+                <span className="lp-no">0{i + 1}</span>
+                <h3>{x.title}</h3>
+                <p>{x.text}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        {/* 4. Was kann BauPad konkret? */}
+        <section className="lp-tools" id="werkzeuge" aria-labelledby="lp-tools-title">
+          <p className="lp-eyebrow">Die Werkzeuge</p>
+          <h2 id="lp-tools-title" className="lp-h2">
+            {t.toolsTitle}
+          </h2>
+          <div className="lp-tool-list" data-testid="product-grid">
             {t.tools.map((x) => (
-              <a key={x.id} href={paths.product(site.products[x.id].slug)} className="feature" style={{ '--tool': x.color } as CSSProperties} data-testid="product-card">
-                <span className="feature-img">
+              <a key={x.id} href={paths.product(site.products[x.id].slug)} className="lp-tool" style={{ '--tool': x.color } as CSSProperties} data-testid="product-card">
+                <span className="lp-tool-img">
                   <img src={`./site/${x.image}`} alt="" loading="lazy" />
                 </span>
-                <span className="feature-body">
+                <span className="lp-tool-body">
                   <span className="product-icon" aria-hidden="true">
                     <ToolIcon name={x.id} size={22} />
                   </span>
                   <strong>{x.title}</strong>
-                  <span className="feature-text">{x.text}</span>
-                  <ul className="feature-points">
+                  <span className="lp-tool-text">{x.text}</span>
+                  <ul className="lp-points">
                     {x.points.map((pt) => (
                       <li key={pt}>
                         <Icon name="check" size={15} />
@@ -90,7 +123,7 @@ export function LandingPage() {
                       </li>
                     ))}
                   </ul>
-                  <span className="product-more">
+                  <span className="lp-more">
                     Mehr erfahren <span aria-hidden="true">→</span>
                   </span>
                 </span>
@@ -99,12 +132,12 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section className="exports-section" aria-labelledby="exports-title">
-          <p className="section-eyebrow">Ergebnis</p>
-          <h2 id="exports-title" className="section-heading">
-            So kommt es ins Büro.
+        <section className="lp-exports" aria-labelledby="lp-exports-title">
+          <p className="lp-eyebrow">Das Ergebnis</p>
+          <h2 id="lp-exports-title" className="lp-h2">
+            {t.exportsTitle}
           </h2>
-          <p className="section-lead">{t.exportsLead}</p>
+          <p className="lp-text lp-text-lead">{t.exportsLead}</p>
           <div className="export-grid">
             {t.exports.map((e) => (
               <figure key={e.src} className="export-card">
@@ -117,12 +150,12 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section className="devices-section" aria-labelledby="devices-title">
-          <p className="section-eyebrow">Unterwegs</p>
-          <h2 id="devices-title" className="section-heading">
-            Am Handy genauso wie am PC.
+        <section className="lp-devices" aria-labelledby="lp-devices-title">
+          <p className="lp-eyebrow">Unterwegs</p>
+          <h2 id="lp-devices-title" className="lp-h2">
+            {t.devicesTitle}
           </h2>
-          <p className="section-lead">{t.devicesLead}</p>
+          <p className="lp-text lp-text-lead">{t.devicesLead}</p>
           <div className="phone-row">
             {t.phones.map((ph) => (
               <figure key={ph.src} className="phone-item">
@@ -135,25 +168,9 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section className="roles" aria-labelledby="roles-title">
-          <p className="section-eyebrow">Für wen</p>
-          <h2 id="roles-title" className="section-heading">
-            Für alle, die am Bau arbeiten.
-          </h2>
-          <div className="roles-grid">
-            {t.roles.map((r, i) => (
-              <div key={r.title} className="role-card">
-                <span className="role-no">{i + 1}</span>
-                <strong>{r.title}</strong>
-                <p>{r.text}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="faq" aria-labelledby="faq-title">
-          <p className="section-eyebrow">Fragen und Antworten</p>
-          <h2 id="faq-title" className="section-heading">
+        <section className="lp-faq" aria-labelledby="lp-faq-title">
+          <p className="lp-eyebrow">Fragen und Antworten</p>
+          <h2 id="lp-faq-title" className="lp-h2">
             Kurz beantwortet.
           </h2>
           <div className="faq-list" data-testid="faq">
@@ -166,37 +183,38 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section className="roadmap" aria-labelledby="roadmap-title">
-          <p className="section-eyebrow">Was als Nächstes kommt</p>
-          <h2 id="roadmap-title" className="section-heading">
-            In Arbeit.
+        {/* 5. Kennenlernen und Kontakt */}
+        <section className="lp-contact" id="kennenlernen" aria-labelledby="lp-contact-title">
+          <p className="lp-eyebrow">Kennenlernen</p>
+          <h2 id="lp-contact-title" className="lp-h2">
+            {t.contactTitle}
           </h2>
-          <ol className="steps-list">
-            {t.roadmap.map((r, i) => (
-              <li key={r.title}>
-                <span className="step-no">{i + 1}</span>
-                <strong>{r.title}</strong>
-                <p>{r.text}</p>
-              </li>
-            ))}
-          </ol>
-        </section>
-
-        <section className="company" aria-labelledby="company-title">
-          <p className="section-eyebrow">{site.company}</p>
-          <h2 id="company-title" className="section-heading">
-            {t.companyTitle}
-          </h2>
-          <p className="company-text">{t.companyText}</p>
-          <div className="hero-actions">
-            <a href={paths.tools()} className="site-cta">
-              {t.cta}
+          <p className="lp-text">{t.contactText}</p>
+          <div className="lp-actions">
+            <a href={paths.login()} className="site-cta site-cta-light" data-testid="cta-register">
+              {t.contactCta}
               <span aria-hidden="true"> →</span>
             </a>
-            <a href={paths.contact()} className="site-cta site-cta-secondary">
+            <a href={paths.contact()} className="site-cta site-cta-ghost" data-testid="cta-contact">
               {t.companyCta}
             </a>
           </div>
+          <p className="lp-contact-mail">
+            <a href={`mailto:${site.contact.email}`}>{site.contact.email}</a>
+          </p>
+        </section>
+
+        <section className="lp-company" aria-labelledby="lp-company-title">
+          <p className="lp-eyebrow">{site.company}</p>
+          <h2 id="lp-company-title" className="lp-h2">
+            {t.companyTitle}
+          </h2>
+          <p className="lp-text">{t.companyText}</p>
+          <p>
+            <a href={paths.about()} className="lp-more">
+              Über uns <span aria-hidden="true">→</span>
+            </a>
+          </p>
         </section>
       </main>
       <SiteFooter />

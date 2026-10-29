@@ -33,11 +33,12 @@ export function ProductPage({ id }: { id: ProductId }) {
       <main className="site-main">
         <section className="product-hero">
           <a href={paths.landing()} className="site-back">
-            <Icon name="back" size={16} /> BauPad
+            <Icon name="back" size={16} /> Alle Werkzeuge
           </a>
           <span className="product-icon big" aria-hidden="true">
             <ToolIcon name={id} size={34} />
           </span>
+          <p className="lp-eyebrow">BauPad</p>
           <h1 className="site-title" data-testid="product-title">
             {tool.title}
           </h1>
@@ -51,7 +52,7 @@ export function ProductPage({ id }: { id: ProductId }) {
         </section>
 
         <section className="shots" aria-label="Bilder aus der App">
-          <p className="section-eyebrow">So sieht es aus</p>
+          <p className="lp-eyebrow">So sieht es aus</p>
           <div className="shots-grid" data-testid="product-shots">
             {p.shots
               .filter((s) => !('phone' in s && s.phone))
@@ -71,7 +72,8 @@ export function ProductPage({ id }: { id: ProductId }) {
         </section>
 
         <section className="features" aria-label="Funktionen">
-          <p className="section-eyebrow">Funktionen</p>
+          <p className="lp-eyebrow">Funktionen</p>
+          <h2 className="lp-h2">Was {tool.title} kann.</h2>
           <div className="feature-groups">
             {p.groups.map((g) => (
               <div key={g.title} className="feature-group">
@@ -90,8 +92,8 @@ export function ProductPage({ id }: { id: ProductId }) {
         </section>
 
         <section className="shots exports" aria-label="Beispiel-Exporte">
-          <p className="section-eyebrow">Was herauskommt</p>
-          <h2 className="section-heading">Beispiel-Exporte</h2>
+          <p className="lp-eyebrow">Was herauskommt</p>
+          <h2 className="lp-h2">Beispiel-Exporte</h2>
           <div className="shots-grid exports-grid" data-testid="product-exports">
             {p.exports.map((s) => (
               <Shot key={s.src} {...s} />
@@ -101,7 +103,7 @@ export function ProductPage({ id }: { id: ProductId }) {
         </section>
 
         <section className="others" aria-label="Weitere Werkzeuge">
-          <p className="section-eyebrow">Weitere Werkzeuge</p>
+          <p className="lp-eyebrow">Weitere Werkzeuge</p>
           <div className="others-grid">
             {others.map((t) => (
               <a key={t.id} href={paths.product(site.products[t.id].slug)} className="other-card" style={{ '--tool': t.color } as CSSProperties}>

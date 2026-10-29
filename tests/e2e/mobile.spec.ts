@@ -278,7 +278,7 @@ test('Website und Planliste auf Smartphone/Tablet: Menü, keine Überbreite, Akt
   await page.goto('./#/impressum');
   await signOutInPage(page);
   await page.goto('./');
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('BauPad. Die Baustelle in einer App.');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Software, die auf der Baustelle funktioniert.');
   await noHorizontalScroll(page);
   const nav = page.getByTestId('site-nav');
   if (isPhone) {

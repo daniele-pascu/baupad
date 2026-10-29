@@ -18,7 +18,9 @@ test('Website: Startseite, Über uns, Kontakt, Impressum, Anmelden und Logo', as
   await expect(nav).toBeVisible();
   // schwarze Navigationsleiste
   expect(await nav.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(0, 0, 0)');
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('BauPad. Die Baustelle in einer App.');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Software, die auf der Baustelle funktioniert.');
+  await expect(page.locator('.lp-product .lp-h2')).toHaveText('BauPad. Die Baustelle in einer App.');
+  await expect(page.getByTestId('problems').locator('li')).toHaveCount(3);
   await expect(page.locator('.hero-lead')).toContainText('Aufmaß, Arbeitereinteilung, Berichte, Fotos und Mängelplan');
   await expect(page.locator('.hero-shot img')).toHaveCount(2);
   await expect(page.locator('.export-card')).toHaveCount(4);
@@ -57,7 +59,9 @@ test('Website: Startseite, Über uns, Kontakt, Impressum, Anmelden und Logo', as
 
   // Logo führt immer zur Startseite
   await nav.getByRole('link', { name: 'PAD Software – zur Startseite' }).click();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('BauPad. Die Baustelle in einer App.');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Software, die auf der Baustelle funktioniert.');
+  await expect(page.locator('.lp-product .lp-h2')).toHaveText('BauPad. Die Baustelle in einer App.');
+  await expect(page.getByTestId('problems').locator('li')).toHaveCount(3);
 
   // „Anmelden“: Anmeldeseite mit Supabase – der Dienst ist aus der Testumgebung nicht erreichbar,
   // deshalb werden seine Antworten hier nachgestellt (Anbieter-Weiterleitung, falsches Passwort, Registrierung)

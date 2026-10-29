@@ -1,4 +1,4 @@
-import { expect, test } from './fixtures';
+import { expect, signInInPage, signOutInPage, test } from './fixtures';
 
 /** BauPad als App installieren: Startseite (Link) und Konto → App und Speicher; Aufmaß & Abrechnung bleibt unverändert */
 
@@ -6,6 +6,9 @@ const IPHONE =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
 
 test('PC: ohne Browser-Dialog Anleitung je Gerät; Aufmaß & Abrechnung ohne Installieren-Knopf', async ({ page }) => {
+  // Startseite nur abgemeldet (angemeldet führt sie zu den Tools)
+  await page.goto('./#/impressum');
+  await signOutInPage(page);
   await page.goto('./#/');
   const btn = page.getByTestId('install-app');
   await expect(btn).toBeVisible();
@@ -20,12 +23,15 @@ test('PC: ohne Browser-Dialog Anleitung je Gerät; Aufmaß & Abrechnung ohne Ins
   await expect(guide).toContainText('App installieren');
   await page.keyboard.press('Escape');
   await expect(guide).toHaveCount(0);
+  await signInInPage(page);
   await page.goto('./#/projekte');
   await expect(page.getByTestId('projects-title')).toBeVisible();
   await expect(page.getByTestId('install-app')).toHaveCount(0);
 });
 
 test('Android/PC: Installationsdialog des Browsers wird direkt geöffnet', async ({ page }) => {
+  await page.goto('./#/impressum');
+  await signOutInPage(page);
   await page.goto('./#/');
   await page.evaluate(() => {
     const e = new Event('beforeinstallprompt', { cancelable: true }) as Event & { prompt(): Promise<void>; userChoice: Promise<{ outcome: string }> };
@@ -68,6 +74,8 @@ test('Konto: App und Speicher – Status und dauerhafte Speicherung anfordern', 
 test.describe('iPhone', () => {
   test.use({ userAgent: IPHONE, viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
   test('Anleitung „Zum Home-Bildschirm“ mit drei Schritten und Hinweis zum eigenen Speicher', async ({ page }) => {
+    await page.goto('./#/impressum');
+    await signOutInPage(page);
     await page.goto('./#/');
     await page.getByTestId('install-app').tap();
     const guide = page.getByTestId('install-guide');
