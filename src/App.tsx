@@ -9,7 +9,7 @@ import { ProjectPage } from './pages/ProjectPage';
 import { PlanEditorPage } from './pages/PlanEditorPage';
 import { AboutPage, ContactPage, LandingPage, ImprintPage, PrivacyPage } from './pages/SitePages';
 import { ProductPage } from './pages/ProductPage';
-import { AccountPage, LoginPage } from './pages/AccountPages';
+import { AccountPage, LoginPage, NewPasswordPage } from './pages/AccountPages';
 import { ToolsPage } from './pages/ToolsPage';
 import { WorkersPage } from './pages/WorkersPage';
 import { ReportsPage } from './pages/ReportsPage';
@@ -20,6 +20,10 @@ import { PhotosPage } from './pages/PhotosPage';
 import { PhotoSitePage } from './pages/PhotoSitePage';
 
 import { isInstalledApp } from './lib/platform';
+import { authSkipped, getAuth } from './lib/auth';
+import { hasStoredSession, initAuth } from './lib/auth-init';
+
+initAuth();
 
 // Die installierte App startet in der Werkzeug-Übersicht („Tools“) – auch Symbole, die vor der
 // neuen Startseite angelegt wurden (diese starten noch mit der Adresse „./“).
@@ -33,7 +37,46 @@ if (typeof window !== 'undefined' && isInstalledApp()) {
   }
   // War beim letzten Schließen der Kamera-Modus offen, geht es direkt dort weiter (ein Tipp weniger)
   if (resume && (name === 'landing' || name === 'tools' || name === 'projects')) navigate(paths.camera(), true);
+  // Ohne Anmeldung und ohne „ohne Konto weiter“: zuerst Anmelden/Registrieren, dann die Tools
+  else if (name === 'landing' && !hasStoredSession() && !authSkipped()) navigate(paths.login(), true);
   else if (name === 'landing') navigate(paths.tools(), true);
+}
+
+/**
+ * Rückkehr von Google/Apple/Microsoft oder aus einem E-Mail-Link: Supabase hängt „?code=…“ an die Adresse.
+ * Der Client tauscht den Code ein; sobald die Sitzung da ist, geht es zu den Tools (oder zum neuen Passwort).
+ */
+function useAuthReturn() {
+  useEffect(() => {
+    const q = new URLSearchParams(location.search);
+    if (!q.has('code') && !q.has('reset') && !q.has('error_description')) return;
+    const err = q.get('error_description');
+    const reset = q.get('reset') === '1';
+    const clean = () => history.replaceState(null, '', location.pathname + location.hash);
+    if (err) {
+      clean();
+      toast(`Anmeldung nicht möglich: ${err}`, 'error');
+      return;
+    }
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      clean();
+      navigate(reset ? paths.newPassword() : paths.tools(), true);
+    };
+    const off = getAuth().onChange((s) => s && finish());
+    void getAuth()
+      .session()
+      .then((s) => s && finish());
+    const t = window.setTimeout(() => {
+      if (!done) clean();
+    }, 15000);
+    return () => {
+      off();
+      window.clearTimeout(t);
+    };
+  }, []);
 }
 
 export function App() {
@@ -46,6 +89,7 @@ export function App() {
     return () => window.clearTimeout(t);
   }, [splash]);
   useServiceWorker();
+  useAuthReturn();
   // Firmenlogo für Excel-Exporte vorab laden (Export bleibt synchron im Klick)
   useEffect(preloadExcelLogo, []);
   useEffect(() => {
@@ -111,6 +155,9 @@ export function App() {
       break;
     case 'account':
       content = <AccountPage />;
+      break;
+    case 'newPassword':
+      content = <NewPasswordPage />;
       break;
     case 'project':
       content = (

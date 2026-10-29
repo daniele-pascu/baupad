@@ -40,7 +40,10 @@ test('Android/PC: Installationsdialog des Browsers wird direkt geöffnet', async
 });
 
 test('Bereits als App geöffnet: kein Installieren-Knopf; Konto zeigt Status', async ({ page }) => {
-  await page.addInitScript(() => Object.defineProperty(navigator, 'standalone', { get: () => true }));
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'standalone', { get: () => true });
+    localStorage.setItem('authSkipped', '1'); // „ohne Konto weiter“ wurde schon gewählt
+  });
   // die installierte App startet in den Tools; die Startseite zeigt keinen Installieren-Link
   await page.goto('./#/');
   await expect(page.getByTestId('tools-title')).toBeVisible();

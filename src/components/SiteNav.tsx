@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { parseRoute, paths, useHash } from '../lib/router';
 import { site } from '../content/site';
+import { useSession } from '../lib/use-session';
 
 /**
  * Schwarze Navigationsleiste der öffentlichen Seiten und von Aufmaß & Abrechnung.
@@ -8,6 +9,7 @@ import { site } from '../content/site';
  */
 export function SiteNav() {
   const hash = useHash();
+  const session = useSession();
   const [open, setOpen] = useState(false);
   useEffect(() => setOpen(false), [hash]);
   const current = (p: string) => (hash === p || (p === paths.landing() && (hash === '' || hash === '#')) ? 'page' : undefined);
@@ -42,9 +44,15 @@ export function SiteNav() {
           </a>
         </nav>
         <div className="site-actions">
-          <a href={paths.login()} className="site-login" aria-current={current(paths.login())}>
-            Anmelden
-          </a>
+          {session ? (
+            <a href={paths.account()} className="site-login" aria-current={current(paths.account())} data-testid="nav-account" title={session.email}>
+              {session.name ? session.name.split(' ')[0] : 'Konto'}
+            </a>
+          ) : (
+            <a href={paths.login()} className="site-login" aria-current={current(paths.login())}>
+              Anmelden
+            </a>
+          )}
           <button
             type="button"
             className="site-menu-btn"

@@ -7781,6 +7781,26 @@ button.report-link {
 }
 
 /* ───────────── Startbild, Anmeldung, Benutzer ───────────── */
+.link-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.btn-danger-outline {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: #fff;
+}
+.btn-danger-outline:hover {
+  background: var(--danger-soft);
+}
+.auth-card .banner.small {
+  margin: 8px 0 12px;
+}
 .splash {
   position: fixed;
   inset: 0;

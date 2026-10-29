@@ -3,7 +3,8 @@ import { Icon } from '../components/Icon';
 import { SiteFooter, SiteNav } from '../components/SiteNav';
 import { getCompanyLogo, logoHeaderSize, removeCompanyLogo, saveCompanyLogo, type CompanyLogo } from '../lib/company';
 import { getMeta, setMeta } from '../lib/db';
-import { AuthNotConnected, getAuth, isEmail, PACKAGES, PROVIDERS, ROLES, TOOLS, defaultToolsForRole, type CompanyUser, type PackageId, type Role, type ToolId } from '../lib/auth';
+import { AuthNotConnected, getAuth, isEmail, PACKAGES, PROVIDERS, ROLES, TOOLS, defaultToolsForRole, setAuthSkipped, type CompanyUser, type PackageId, type Role, type Session, type ToolId } from '../lib/auth';
+import { useSession } from '../lib/use-session';
 import { listCompanyUsers, removeCompanyUser, saveCompanyUser } from '../lib/users';
 import { ProviderIcon } from '../components/ProviderIcon';
 import { Modal } from '../components/Modal';
@@ -13,13 +14,14 @@ import { AppStorageSettings } from '../components/InstallApp';
 import { usePageTitle } from './SitePages';
 
 /*
- * Anmelden und Registrieren: Google, Apple, Microsoft (Outlook) und E-Mail mit Passwort. Der Anmeldedienst
- * wird angebunden, sobald das Supabase-Projekt angelegt ist – bis dahin meldet jeder Versuch ehrlich
- * „noch nicht eingerichtet“. Es wird nichts gesendet und keine Anmeldung vorgetäuscht.
+ * Anmelden und Registrieren: Google, Apple, Microsoft (Outlook) und E-Mail mit Passwort über Supabase
+ * (lib/auth-supabase.ts). Jede Registrierung legt einen Arbeitsbereich an, die Person ist dessen Admin.
+ * Ohne angeschlossenen Dienst meldet jeder Versuch ehrlich „noch nicht eingerichtet“.
  */
 
 export function LoginPage({ register = false }: { register?: boolean }) {
   usePageTitle(register ? 'Registrieren – BauPad' : 'Anmelden – BauPad');
+  const session = useSession();
   const [tab, setTab] = useState<'login' | 'register'>(register ? 'register' : 'login');
   const [name, setName] = useState('');
   const [company, setCompany] = useState('');
@@ -27,17 +29,28 @@ export function LoginPage({ register = false }: { register?: boolean }) {
   const [password, setPassword] = useState('');
   const [password2, setPassword2] = useState('');
   const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
+  const [busy, setBusy] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
 
   const attempt = async (fn: () => Promise<unknown>) => {
     setError('');
+    setInfo('');
     setUnavailable(false);
+    setBusy(true);
     try {
       await fn();
     } catch (e) {
       if (e instanceof AuthNotConnected) setUnavailable(true);
       else setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
     }
+  };
+  const done = (s: Session) => {
+    setAuthSkipped(false);
+    toast(`Angemeldet als ${s.name || s.email}.`, 'success');
+    navigate(paths.tools(), true);
   };
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -46,15 +59,30 @@ export function LoginPage({ register = false }: { register?: boolean }) {
       if (!name.trim()) return setError('Bitte deinen Namen eingeben.');
       if (password.length < 8) return setError('Das Passwort braucht mindestens 8 Zeichen.');
       if (password !== password2) return setError('Die Passwörter stimmen nicht überein.');
-      void attempt(() => getAuth().signUp({ name, email, password, company }));
+      void attempt(async () => {
+        const r = await getAuth().signUp({ name, email, password, company });
+        if (r.session) done(r.session);
+        else setInfo(`Fast geschafft: Wir haben eine E-Mail an ${r.confirmEmail} geschickt. Bitte den Link darin öffnen, dann ist dein Konto aktiv.`);
+      });
     } else {
       if (!password) return setError('Bitte das Passwort eingeben.');
-      void attempt(() => getAuth().signIn('email', email, password));
+      void attempt(async () => {
+        const s = await getAuth().signIn('email', email, password);
+        if (s) done(s);
+      });
     }
+  };
+  const forgot = () => {
+    if (!isEmail(email)) return setError('Bitte oben deine E-Mail-Adresse eingeben, dann schicken wir den Link zum Zurücksetzen.');
+    void attempt(async () => {
+      await getAuth().resetPassword(email);
+      setInfo(`Wenn es ein Konto für ${email.trim()} gibt, ist der Link zum Zurücksetzen unterwegs. Bitte auch den Spam-Ordner prüfen.`);
+    });
   };
   const switchTab = (t: 'login' | 'register') => {
     setTab(t);
     setError('');
+    setInfo('');
     setUnavailable(false);
     navigate(t === 'register' ? paths.register() : paths.login(), true);
   };
@@ -67,88 +95,178 @@ export function LoginPage({ register = false }: { register?: boolean }) {
           <img src="./icons/icon-192.png" alt="" width={72} height={72} />
         </div>
         <h1 className="site-title">{tab === 'register' ? 'Registrieren' : 'Anmelden'}</h1>
-        <p className="auth-intro">{tab === 'register' ? 'Konto anlegen – du wirst Admin deines Arbeitsbereichs und kannst später Kollegen einladen.' : 'Mit deinem Konto auf allen Geräten dieselben Baustellen, Fotos und Berichte.'}</p>
-        <div className="segmented auth-tabs" role="tablist" aria-label="Anmelden oder Registrieren">
-          <button type="button" role="tab" aria-selected={tab === 'login'} onClick={() => switchTab('login')} data-testid="auth-tab-login">
-            Anmelden
-          </button>
-          <button type="button" role="tab" aria-selected={tab === 'register'} onClick={() => switchTab('register')} data-testid="auth-tab-register">
-            Registrieren
-          </button>
-        </div>
-        <div className="auth-card">
-          <div className="auth-providers">
-            {PROVIDERS.map((p) => (
-              <button key={p.id} type="button" className="btn btn-lg auth-provider" onClick={() => void attempt(() => getAuth().signIn(p.id))} data-testid="login-provider" data-provider={p.id}>
-                <ProviderIcon id={p.id} /> Mit {p.label} {tab === 'register' ? 'registrieren' : 'anmelden'}
-              </button>
-            ))}
-          </div>
-          <div className="auth-divider">
-            <span>oder mit E-Mail</span>
-          </div>
-          <form onSubmit={submit} noValidate data-testid="login-form">
-            {tab === 'register' && (
-              <>
-                <label className="field">
-                  <span>Name *</span>
-                  <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" data-testid="register-name" />
-                </label>
-                <label className="field">
-                  <span>Firma (optional)</span>
-                  <input value={company} onChange={(e) => setCompany(e.target.value)} autoComplete="organization" placeholder="z. B. Muster Bau GmbH" data-testid="register-company" />
-                </label>
-              </>
-            )}
-            <label className="field">
-              <span>E-Mail-Adresse *</span>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" inputMode="email" data-testid="login-email" />
-            </label>
-            <label className="field">
-              <span>Passwort *</span>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={tab === 'register' ? 'new-password' : 'current-password'} data-testid="login-password" />
-            </label>
-            {tab === 'register' && (
-              <label className="field">
-                <span>Passwort wiederholen *</span>
-                <input type="password" value={password2} onChange={(e) => setPassword2(e.target.value)} autoComplete="new-password" data-testid="register-password2" />
-              </label>
-            )}
-            {error && (
-              <p className="error small" role="alert" data-testid="auth-error">
-                {error}
-              </p>
-            )}
-            <button type="submit" className="btn btn-primary btn-lg auth-submit" data-testid="login-submit">
-              {tab === 'register' ? 'Konto anlegen' : 'Anmelden'}
-            </button>
-            {tab === 'login' && (
-              <p className="auth-small muted small">
-                Passwort vergessen? Das Zurücksetzen per E-Mail kommt mit der Anmeldung.
-              </p>
-            )}
-          </form>
-          {unavailable && (
-            <div className="banner banner-info" role="status" data-testid="login-unavailable">
-              <p>
-                <strong>Die Anmeldung ist noch nicht eingerichtet.</strong> Es wurden keine Daten gesendet. BauPad kannst du ohne Konto weiter nutzen – die
-                Daten bleiben auf diesem Gerät.
-              </p>
-              <a href={paths.tools()} className="btn btn-sm">
-                Weiter zu den Tools
+        {session ? (
+          <div className="auth-card" data-testid="login-signed-in">
+            <p>
+              Du bist angemeldet als <strong>{session.name || session.email}</strong>
+              {session.companyName ? ` (${session.companyName})` : ''}.
+            </p>
+            <div className="row gap wrap">
+              <a href={paths.tools()} className="btn btn-primary">
+                Zu den Tools
+              </a>
+              <a href={paths.account()} className="btn">
+                Konto und Einstellungen
               </a>
             </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <>
+            <p className="auth-intro">{tab === 'register' ? 'Konto anlegen – du wirst Admin deines Arbeitsbereichs und kannst später Kollegen einladen.' : 'Mit deinem Konto auf allen Geräten dieselben Baustellen, Fotos und Berichte.'}</p>
+            <div className="segmented auth-tabs" role="tablist" aria-label="Anmelden oder Registrieren">
+              <button type="button" role="tab" aria-selected={tab === 'login'} onClick={() => switchTab('login')} data-testid="auth-tab-login">
+                Anmelden
+              </button>
+              <button type="button" role="tab" aria-selected={tab === 'register'} onClick={() => switchTab('register')} data-testid="auth-tab-register">
+                Registrieren
+              </button>
+            </div>
+            <div className="auth-card">
+              <div className="auth-providers">
+                {PROVIDERS.map((p) => (
+                  <button key={p.id} type="button" className="btn btn-lg auth-provider" disabled={busy} onClick={() => void attempt(() => getAuth().signIn(p.id))} data-testid="login-provider" data-provider={p.id}>
+                    <ProviderIcon id={p.id} /> Mit {p.label} {tab === 'register' ? 'registrieren' : 'anmelden'}
+                  </button>
+                ))}
+              </div>
+              <div className="auth-divider">
+                <span>oder mit E-Mail</span>
+              </div>
+              <form onSubmit={submit} noValidate data-testid="login-form">
+                {tab === 'register' && (
+                  <>
+                    <label className="field">
+                      <span>Name *</span>
+                      <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" data-testid="register-name" />
+                    </label>
+                    <label className="field">
+                      <span>Firma (optional)</span>
+                      <input value={company} onChange={(e) => setCompany(e.target.value)} autoComplete="organization" placeholder="z. B. Muster Bau GmbH" data-testid="register-company" />
+                    </label>
+                  </>
+                )}
+                <label className="field">
+                  <span>E-Mail-Adresse *</span>
+                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" inputMode="email" data-testid="login-email" />
+                </label>
+                <label className="field">
+                  <span>Passwort *</span>
+                  <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={tab === 'register' ? 'new-password' : 'current-password'} data-testid="login-password" />
+                </label>
+                {tab === 'register' && (
+                  <label className="field">
+                    <span>Passwort wiederholen *</span>
+                    <input type="password" value={password2} onChange={(e) => setPassword2(e.target.value)} autoComplete="new-password" data-testid="register-password2" />
+                  </label>
+                )}
+                {error && (
+                  <p className="error small" role="alert" data-testid="auth-error">
+                    {error}
+                  </p>
+                )}
+                {info && (
+                  <p className="banner banner-info small" role="status" data-testid="auth-info">
+                    {info}
+                  </p>
+                )}
+                <button type="submit" className="btn btn-primary btn-lg auth-submit" disabled={busy} data-testid="login-submit">
+                  {busy ? 'Bitte warten …' : tab === 'register' ? 'Konto anlegen' : 'Anmelden'}
+                </button>
+                {tab === 'login' && (
+                  <p className="auth-small muted small">
+                    <button type="button" className="link-btn" onClick={forgot} disabled={busy} data-testid="login-forgot">
+                      Passwort vergessen?
+                    </button>
+                  </p>
+                )}
+              </form>
+              {unavailable && (
+                <div className="banner banner-info" role="status" data-testid="login-unavailable">
+                  <p>
+                    <strong>Die Anmeldung ist noch nicht eingerichtet.</strong> Es wurden keine Daten gesendet. BauPad kannst du ohne Konto weiter nutzen – die
+                    Daten bleiben auf diesem Gerät.
+                  </p>
+                  <a href={paths.tools()} className="btn btn-sm">
+                    Weiter zu den Tools
+                  </a>
+                </div>
+              )}
+            </div>
+          </>
+        )}
 
         <p className="auth-note">
           Noch ohne Benutzerkonto nutzbar:{' '}
-          <a href={paths.tools()} data-testid="login-skip">
+          <a href={paths.tools()} onClick={() => setAuthSkipped(true)} data-testid="login-skip">
             direkt zu den Tools
           </a>
           {' · '}
           <a href={paths.account()}>Einstellungen</a>
         </p>
+      </main>
+      <SiteFooter />
+    </div>
+  );
+}
+
+/** Neues Passwort setzen – nach dem Link aus der E-Mail „Passwort zurücksetzen“ */
+export function NewPasswordPage() {
+  usePageTitle('Neues Passwort – BauPad');
+  const session = useSession();
+  const [password, setPassword] = useState('');
+  const [password2, setPassword2] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (password.length < 8) return setError('Das Passwort braucht mindestens 8 Zeichen.');
+    if (password !== password2) return setError('Die Passwörter stimmen nicht überein.');
+    setError('');
+    setBusy(true);
+    try {
+      await getAuth().updatePassword(password);
+      toast('Neues Passwort gespeichert.', 'success');
+      navigate(paths.tools(), true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="site">
+      <SiteNav />
+      <main className="site-main auth">
+        <h1 className="site-title">Neues Passwort</h1>
+        {session === null ? (
+          <div className="banner banner-info" role="status">
+            <p>Der Link ist abgelaufen oder wurde schon benutzt. Bitte auf der Anmeldeseite erneut „Passwort vergessen?“ wählen.</p>
+            <a href={paths.login()} className="btn btn-sm">
+              Zur Anmeldung
+            </a>
+          </div>
+        ) : (
+          <div className="auth-card">
+            <form onSubmit={submit} noValidate data-testid="new-password-form">
+              <label className="field">
+                <span>Neues Passwort *</span>
+                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" data-testid="new-password" />
+              </label>
+              <label className="field">
+                <span>Passwort wiederholen *</span>
+                <input type="password" value={password2} onChange={(e) => setPassword2(e.target.value)} autoComplete="new-password" data-testid="new-password2" />
+              </label>
+              {error && (
+                <p className="error small" role="alert" data-testid="auth-error">
+                  {error}
+                </p>
+              )}
+              <button type="submit" className="btn btn-primary btn-lg auth-submit" disabled={busy || !session} data-testid="new-password-save">
+                Passwort speichern
+              </button>
+            </form>
+          </div>
+        )}
       </main>
       <SiteFooter />
     </div>
@@ -166,17 +284,79 @@ const SECTIONS: [string, string][] = [
 
 export function AccountPage() {
   usePageTitle('Konto und Einstellungen – BauPad');
+  const session = useSession();
+  const logout = async () => {
+    try {
+      await getAuth().signOut();
+      toast('Abgemeldet.', 'success');
+      navigate(paths.login(), true);
+    } catch (e) {
+      showError(e, 'Abmelden fehlgeschlagen');
+    }
+  };
+  const deleteAccount = async () => {
+    const ok = await confirmDialog({
+      title: 'Konto endgültig löschen?',
+      message: (
+        <>
+          <p>Dein Benutzerkonto und dein Arbeitsbereich beim Anmeldedienst werden gelöscht. Das lässt sich nicht rückgängig machen.</p>
+          <p>Projekte, Fotos und Berichte auf diesem Gerät bleiben erhalten.</p>
+        </>
+      ),
+      confirmLabel: 'Konto löschen',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await getAuth().deleteAccount();
+      setAuthSkipped(true);
+      toast('Dein Konto wurde gelöscht.', 'success');
+      navigate(paths.landing(), true);
+    } catch (e) {
+      showError(e, 'Konto konnte nicht gelöscht werden');
+    }
+  };
   return (
     <div className="site">
       <SiteNav />
       <main className="site-main auth">
         <h1 className="site-title">Konto und Einstellungen</h1>
-        <div className="banner banner-info" role="status" data-testid="account-preview">
-          <p>
-            <strong>Vorschau:</strong> Sie sind nicht angemeldet – Benutzerkonten sind noch nicht eingerichtet. App, Speicher und Firmenlogo
-            funktionieren bereits (auf diesem Gerät); die übrigen Bereiche sind geplant und noch nicht aktiv.
-          </p>
-        </div>
+        {session ? (
+          <section className="logo-settings" data-testid="account-session">
+            <div className="logo-settings-head">
+              <div>
+                <strong>Angemeldet als {session.name || session.email}</strong>
+                <span className="muted">
+                  {session.email}
+                  {session.companyName ? ` · ${session.companyName}` : ''}
+                  {' · '}
+                  {ROLES.find((r) => r.id === session.role)?.label ?? session.role}
+                  {session.operator ? ' · Betreiber' : ''}
+                </span>
+              </div>
+            </div>
+            <div className="row gap wrap">
+              <button type="button" className="btn" onClick={() => void logout()} data-testid="account-logout">
+                Abmelden
+              </button>
+              <button type="button" className="btn btn-danger-outline" onClick={() => void deleteAccount()} data-testid="account-delete">
+                Konto löschen
+              </button>
+            </div>
+          </section>
+        ) : (
+          session === null && (
+            <div className="banner banner-info" role="status" data-testid="account-preview">
+              <p>
+                <strong>Nicht angemeldet.</strong> App, Speicher und Firmenlogo funktionieren auf diesem Gerät auch ohne Konto. Mit Konto bekommst du
+                später dieselben Baustellen, Fotos und Berichte auf allen Geräten.
+              </p>
+              <a href={paths.login()} className="btn btn-sm btn-primary">
+                Anmelden oder registrieren
+              </a>
+            </div>
+          )
+        )}
         <AppStorageSettings />
         <LogoSettings />
         <UsersSettings />
@@ -192,9 +372,6 @@ export function AccountPage() {
           ))}
         </ul>
         <div className="row gap wrap">
-          <button type="button" className="btn" disabled data-testid="account-logout">
-            Abmelden
-          </button>
           <a href={paths.tools()} className="btn btn-primary">
             <Icon name="back" /> Zu den Tools
           </a>

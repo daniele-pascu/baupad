@@ -20,6 +20,7 @@ export type Route =
   | { name: 'photoSite'; siteKey: string; week: string | null; photoId: string | null }
   | { name: 'login'; register?: boolean }
   | { name: 'account' }
+  | { name: 'newPassword' }
   | { name: 'project'; projectId: string }
   | { name: 'costCenter'; projectId: string; costCenterId: string }
   | { name: 'plan'; projectId: string; planId: string; damageId: string | null }
@@ -51,6 +52,7 @@ export function parseRoute(hash: string): Route {
   if (parts[0] === 'anmelden' && parts.length === 1) return { name: 'login' };
   if (parts[0] === 'registrieren' && parts.length === 1) return { name: 'login', register: true };
   if (parts[0] === 'konto' && parts.length === 1) return { name: 'account' };
+  if (parts[0] === 'passwort-neu' && parts.length === 1) return { name: 'newPassword' };
   if (parts[0] === 'p' && parts.length === 2) return { name: 'project', projectId: parts[1] };
   if (parts[0] === 'p' && parts[2] === 'k' && parts.length === 4)
     return { name: 'costCenter', projectId: parts[1], costCenterId: parts[3] };
@@ -95,6 +97,7 @@ export const paths = {
   register: () => '#/registrieren',
   /** Konto und Einstellungen (Vorschau der geplanten Bereiche) */
   account: () => '#/konto',
+  newPassword: () => '#/passwort-neu',
   project: (pid: string) => `#/p/${pid}`,
   costCenter: (pid: string, cid: string) => `#/p/${pid}/k/${cid}`,
   plan: (pid: string, planId: string, damageId?: string) => `#/p/${pid}/plan/${planId}${damageId ? `?d=${damageId}` : ''}`,

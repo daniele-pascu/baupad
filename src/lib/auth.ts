@@ -1,9 +1,9 @@
 /**
  * Anmeldung, Rollen und Tool-Freigaben – Schnittstelle und Grundwerte.
  *
- * Die Oberfläche (Anmelden, Registrieren, Benutzerverwaltung) ist fertig; der Anmeldedienst (Supabase mit
- * Google, Apple, Microsoft und E-Mail) wird angebunden, sobald das Projekt dort angelegt ist. Bis dahin meldet
- * jede Anmeldung ehrlich „noch nicht eingerichtet“ – es wird nichts gesendet und nichts vorgetäuscht.
+ * Der Anmeldedienst ist Supabase (siehe auth-supabase.ts); diese Datei kennt nur die Schnittstelle, damit
+ * Oberfläche und Tests nicht vom Dienst abhängen. Ohne angeschlossenen Dienst meldet jede Anmeldung ehrlich
+ * „noch nicht eingerichtet“ – es wird nichts gesendet und nichts vorgetäuscht.
  */
 
 export type AuthProviderId = 'google' | 'apple' | 'microsoft' | 'email';
@@ -67,16 +67,32 @@ export interface Session {
   email: string;
   name: string;
   role: Role;
+  /** Arbeitsbereich (Firma); jede Registrierung legt einen an, die Person ist dessen Admin */
   companyId: string;
+  companyName: string;
+  /** Betreiber (PAD Software) sieht zusätzlich die Betreiber-Übersicht */
+  operator: boolean;
 }
 
-/** Anmeldedienst – heute nicht verbunden, später Supabase */
+/** Ergebnis einer Registrierung: entweder sofort angemeldet oder E-Mail-Bestätigung ausstehend */
+export type SignUpResult = { session: Session } | { session: null; confirmEmail: string };
+
+/** Anmeldedienst (Supabase) – oder „nicht verbunden“ */
 export interface AuthBackend {
   readonly connected: boolean;
   session(): Promise<Session | null>;
-  signIn(provider: AuthProviderId, email?: string, password?: string): Promise<Session>;
-  signUp(data: { name: string; email: string; password: string; company?: string }): Promise<Session>;
+  /** Anbieter-Anmeldung leitet zum Anbieter weiter (löst nie mit Session auf); E-Mail liefert die Session */
+  signIn(provider: AuthProviderId, email?: string, password?: string): Promise<Session | void>;
+  signUp(data: { name: string; email: string; password: string; company?: string }): Promise<SignUpResult>;
   signOut(): Promise<void>;
+  /** schickt den Link zum Zurücksetzen des Passworts */
+  resetPassword(email: string): Promise<void>;
+  /** setzt das Passwort der angemeldeten Person (nach dem Link aus der E-Mail oder in den Einstellungen) */
+  updatePassword(password: string): Promise<void>;
+  /** löscht das eigene Konto samt Mitgliedschaften (Vorgabe der Stores) */
+  deleteAccount(): Promise<void>;
+  /** ruft cb bei jeder Änderung (Anmelden, Abmelden, Token erneuert); liefert Abmeldefunktion */
+  onChange(cb: (s: Session | null) => void): () => void;
 }
 
 export class AuthNotConnected extends Error {
@@ -86,7 +102,7 @@ export class AuthNotConnected extends Error {
   }
 }
 
-class NotConnectedAuth implements AuthBackend {
+export class NotConnectedAuth implements AuthBackend {
   readonly connected = false;
   async session() {
     return null;
@@ -94,11 +110,23 @@ class NotConnectedAuth implements AuthBackend {
   async signIn(): Promise<Session> {
     throw new AuthNotConnected();
   }
-  async signUp(): Promise<Session> {
+  async signUp(): Promise<SignUpResult> {
     throw new AuthNotConnected();
   }
   async signOut() {
     /* nichts angemeldet */
+  }
+  async resetPassword() {
+    throw new AuthNotConnected();
+  }
+  async updatePassword() {
+    throw new AuthNotConnected();
+  }
+  async deleteAccount() {
+    throw new AuthNotConnected();
+  }
+  onChange() {
+    return () => {};
   }
 }
 
@@ -108,5 +136,23 @@ export const setAuthBackend = (b: AuthBackend) => {
   backend = b;
 };
 export const authConnected = () => backend.connected;
+
+/** Merker „ohne Konto weiter“ in der installierten App (sonst fragt sie beim Start nach der Anmeldung) */
+const SKIP_KEY = 'authSkipped';
+export function authSkipped(): boolean {
+  try {
+    return localStorage.getItem(SKIP_KEY) === '1';
+  } catch {
+    return true;
+  }
+}
+export function setAuthSkipped(v: boolean) {
+  try {
+    if (v) localStorage.setItem(SKIP_KEY, '1');
+    else localStorage.removeItem(SKIP_KEY);
+  } catch {
+    /* optional */
+  }
+}
 
 export const isEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s.trim());

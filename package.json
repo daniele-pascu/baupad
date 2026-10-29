@@ -13,6 +13,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.118.0",
     "fflate": "^0.8.3",
     "idb": "^8.0.4",
     "pdf-lib": "^1.17.1",

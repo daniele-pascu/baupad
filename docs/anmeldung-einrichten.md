@@ -21,12 +21,27 @@ Supabase speichert Benutzerkonten, Firmen und Rollen. Der kostenlose Plan reicht
    - **anon public key** (öffentlich, darf in der App stehen)
    Den „service_role“-Schlüssel niemals weitergeben.
 6. Links „Authentication“ → „URL Configuration“:
-   - Site URL: `https://pad-software.at/` (bis zur DNS-Umstellung: `https://daniele-pascu.github.io/baupad/`)
-   - Redirect URLs: dieselbe Adresse, zusätzlich `https://pad-software.at/#/anmelden` und `https://daniele-pascu.github.io/baupad/`
+   - Site URL: `https://pad-software.at`
+   - Redirect URLs („Add URL“, je ein Eintrag): `https://pad-software.at/**`, `https://www.pad-software.at/**`,
+     `https://daniele-pascu.github.io/baupad/**`, `http://localhost:5173/**`
+   Die App kehrt nach Google/Apple/Microsoft und aus E-Mail-Links auf die Seite ohne Hash zurück und
+   tauscht dort den Code gegen die Sitzung (PKCE).
 7. „Authentication“ → „Providers“ → „Email“: eingeschaltet lassen. „Confirm email“ eingeschaltet lassen
    (neue Benutzer bestätigen ihre Adresse per Link).
 
-Schick mir: Project URL und anon key.
+Schick mir: Project URL und anon key. (Erledigt am 29.10.2026: Projekt „BauPad“, Region West EU/Irland,
+Zugangsdaten in `src/lib/supabase-config.ts`.)
+
+## 1b. Datenbank einrichten (einmalig)
+
+1. Im Supabase-Projekt links **SQL Editor** → **New query**.
+2. Den gesamten Inhalt von `docs/supabase/schema.sql` einfügen und **Run** klicken. Unten muss „Success“ stehen.
+   Das legt an: Arbeitsbereiche, Profile, Mitgliedschaften, Betreiber-Liste, Zugriffsregeln, den Automatismus
+   „Registrierung → eigener Arbeitsbereich mit Admin“, `my_context()` und „Konto löschen“.
+3. Betreiber: In der Tabelle `operators` (Table Editor) stehen die E-Mail-Adressen, die die Betreiber-Übersicht
+   sehen. Vorbelegt ist danielepascu.a@gmail.com; später office@pad-software.at ergänzen.
+
+Das Skript kann jederzeit erneut ausgeführt werden, Daten bleiben erhalten.
 
 ## 2. Google-Login
 

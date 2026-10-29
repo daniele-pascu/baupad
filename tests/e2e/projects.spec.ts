@@ -54,21 +54,31 @@ test('Website: Startseite, Über uns, Kontakt, Impressum, Anmelden und Logo', as
   await nav.getByRole('link', { name: 'PAD Software – zur Startseite' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('BauPad. Die Baustelle in einer App.');
 
-  // „Anmelden“: Anmeldeseite – Konten sind noch nicht eingerichtet, es wird nichts vorgetäuscht
+  // „Anmelden“: Anmeldeseite mit Supabase – der Dienst ist aus der Testumgebung nicht erreichbar,
+  // deshalb werden seine Antworten hier nachgestellt (Anbieter-Weiterleitung, falsches Passwort, Registrierung)
+  await page.route('**/auth/v1/authorize**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<h1>Anbieter</h1>' }));
+  await page.route('**/auth/v1/token**', (r) =>
+    r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ code: 400, error_code: 'invalid_credentials', msg: 'Invalid login credentials' }) }),
+  );
+  await page.route('**/auth/v1/signup**', (r) =>
+    r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'u-neu', aud: 'authenticated', email: 'neu@example.com', identities: [{ id: 'i1' }], user_metadata: {} }) }),
+  );
   await nav.getByRole('link', { name: 'Anmelden' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Anmelden');
   await expect(page).toHaveTitle('Anmelden – BauPad');
   await expect(page.getByTestId('login-provider')).toHaveCount(3);
   await expect(page.getByTestId('login-provider').nth(0)).toContainText('Mit Google anmelden');
   await expect(page.getByTestId('login-provider').nth(2)).toContainText('Mit Microsoft (Outlook) anmelden');
-  await page.getByTestId('login-provider').nth(0).click(); // Google: Dienst noch nicht angebunden → ehrlicher Hinweis
-  await expect(page.getByTestId('login-unavailable')).toContainText('Die Anmeldung ist noch nicht eingerichtet.');
+  await page.getByTestId('login-provider').nth(0).click(); // Google: Weiterleitung zum Anbieter über Supabase
+  await expect(page).toHaveURL(/auth\/v1\/authorize\?provider=google/);
+  await page.goBack();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Anmelden');
   await page.getByTestId('login-email').fill('test@example.com');
   await page.getByTestId('login-password').fill('geheim');
   await page.getByTestId('login-submit').click();
-  await expect(page.getByTestId('login-unavailable')).toContainText('Die Anmeldung ist noch nicht eingerichtet.');
+  await expect(page.getByTestId('auth-error')).toContainText('E-Mail-Adresse oder Passwort ist falsch.');
   expect(page.url()).toContain('#/anmelden'); // keine Weiterleitung, kein „angemeldet“
-  // Registrieren: Pflichtfelder und Passwortregeln werden geprüft, bevor etwas gesendet würde
+  // Registrieren: Pflichtfelder und Passwortregeln werden geprüft, bevor etwas gesendet wird
   await page.getByTestId('auth-tab-register').click();
   expect(page.url()).toContain('#/registrieren');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Registrieren');
@@ -85,7 +95,7 @@ test('Website: Startseite, Über uns, Kontakt, Impressum, Anmelden und Logo', as
   await expect(page.getByTestId('auth-error')).toContainText('nicht überein');
   await page.getByTestId('register-password2').fill('langes-passwort');
   await page.getByTestId('login-submit').click();
-  await expect(page.getByTestId('login-unavailable')).toBeVisible();
+  await expect(page.getByTestId('auth-info')).toContainText('E-Mail an neu@example.com'); // Bestätigung ausstehend
   await page.getByTestId('auth-tab-login').click();
   await page.screenshot({ path: join(OUT, 'anmelden.png'), fullPage: true });
   // nach der Anmeldung zuerst die Tools, von dort in Aufmaß & Abrechnung
@@ -100,7 +110,7 @@ test('Website: Startseite, Über uns, Kontakt, Impressum, Anmelden und Logo', as
   // Einstellungen: Kontobereich als Vorschau, alle Bereiche inaktiv
   await page.getByTestId('account-link').click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Konto und Einstellungen');
-  await expect(page.getByTestId('account-preview')).toContainText('nicht angemeldet');
+  await expect(page.getByTestId('account-preview')).toContainText('Nicht angemeldet');
   await expect(page.getByTestId('account-section')).toHaveText([
     /Persönliche Daten/,
     /E-Mail und Konto/,
@@ -109,7 +119,7 @@ test('Website: Startseite, Über uns, Kontakt, Impressum, Anmelden und Logo', as
     /Firmeninformationen/,
     /Weitere Einstellungen/,
   ]);
-  await expect(page.getByTestId('account-logout')).toBeDisabled();
+  await expect(page.getByTestId('account-logout')).toHaveCount(0); // ohne Anmeldung kein Abmelden
   // Benutzer & Rollen: Admin trägt Benutzer mit Funktion, Werkzeugen und Paket ein (bleibt nach dem Neuladen)
   await page.getByTestId('user-add').click();
   const ud = page.getByTestId('user-dialog');
@@ -144,12 +154,16 @@ test('Website: Startseite, Über uns, Kontakt, Impressum, Anmelden und Logo', as
   await expect(page.getByTestId('tools-title')).toHaveText('Tools');
 });
 
-test('Installierte App startet in den Tools (auch ältere Home-Bildschirm-Symbole)', async ({ browser }) => {
+test('Installierte App: erster Start zeigt Anmelden, „ohne Konto“ merkt sich das Gerät, danach direkt die Tools', async ({ browser }) => {
   const context = await browser.newContext();
   await context.addInitScript(() => Object.defineProperty(navigator, 'standalone', { get: () => true }));
   const page = await context.newPage();
   await page.goto('./'); // alte Startadresse
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Anmelden');
+  await page.getByTestId('login-skip').click();
   await expect(page.getByTestId('tools-title')).toHaveText('Tools');
+  await page.goto('./');
+  await expect(page.getByTestId('tools-title')).toHaveText('Tools'); // beim nächsten Start kein erneutes Nachfragen
   await context.close();
 });
 
