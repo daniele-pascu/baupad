@@ -16,11 +16,14 @@ der Fotos (Projekt, Datum, Beschreibung) steht in der Tabelle `photos` in Supaba
 ## 1. Tabelle anlegen (1 Minute)
 Supabase → SQL Editor → New query → Inhalt von `docs/supabase/storage.sql` einfügen → Run.
 
-## 2. Funktion veröffentlichen
+## 2. Funktion veröffentlichen (erledigt 30.10.2026)
 Supabase → Edge Functions → „Deploy a new function“ → „Via Editor“:
-- Name: `storage`
+- **Zuerst** unten rechts „Function name“ auf `storage` ändern (der zufällige Vorschlag wird sonst zur festen
+  Adresse; ein späteres Umbenennen ändert nur den Anzeigenamen, die App findet die Funktion dann nicht).
 - Code aus `supabase/functions/storage/index.ts` einfügen → Deploy.
-- Einstellungen: **„Verify JWT“ bleibt eingeschaltet** (nur angemeldete Benutzer dürfen die Ablage nutzen).
+- Settings: **„Verify JWT with legacy secret“ ausschalten** (wie beim Kontaktformular). Sonst blockt die
+  Supabase-Schleuse schon die Voranfrage des Browsers und die App meldet „Keine Verbindung“. Die Funktion prüft
+  die Anmeldung selbst (ohne gültiges Token → 401).
 
 Secrets (Edge Functions → Secrets):
 

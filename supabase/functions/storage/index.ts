@@ -12,7 +12,7 @@
 //   setup-cors  {}  (nur Betreiber)  → CORS-Regeln am Bucket setzen (Browser darf direkt hoch-/herunterladen)
 //
 // Secrets: HETZNER_S3_ENDPOINT (https://nbg1.your-objectstorage.com), HETZNER_S3_BUCKET, HETZNER_S3_REGION (eu-central),
-//          HETZNER_S3_KEY, HETZNER_S3_SECRET. „Verify JWT“ bleibt EIN (nur angemeldete Benutzer).
+//          HETZNER_S3_KEY, HETZNER_S3_SECRET. „Verify JWT“ AUS (die Funktion prüft die Anmeldung selbst; sonst scheitert die Browser-Voranfrage).
 // Einrichtung: docs/ablage-einrichten.md
 
 type Method = 'GET' | 'PUT' | 'HEAD';
