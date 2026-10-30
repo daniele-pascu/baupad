@@ -1,6 +1,6 @@
 import { expect, test } from './fixtures';
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
-import { rmSync, symlinkSync } from 'node:fs';
+import { copyFileSync, rmSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
@@ -17,6 +17,8 @@ function build(version: string, dir: string) {
     env: { ...process.env, APP_VERSION: version },
     stdio: 'pipe',
   });
+  // wie auf GitHub Pages: 404.html liefert die App für jede Adresse (z. B. /projekte nach dem Umschreiben)
+  copyFileSync(join(OUTDIR, dir, 'index.html'), join(OUTDIR, dir, '404.html'));
 }
 function publish(dir: string) {
   rmSync(live, { force: true });
@@ -28,7 +30,7 @@ test.beforeAll(async () => {
   build('alt', 'dist-a');
   build('neu', 'dist-b');
   publish('dist-a');
-  server = spawn('node', ['scripts/serve-pages.mjs', '4175', '/baupad/', live], { stdio: 'ignore' });
+  server = spawn('node', ['scripts/serve-pages.mjs', '4175', '/', live], { stdio: 'ignore' });
   await new Promise((r) => setTimeout(r, 800));
 });
 test.afterAll(() => {
@@ -36,7 +38,8 @@ test.afterAll(() => {
 });
 
 test('Neue Version wird automatisch übernommen, offene Eingaben werden nicht unterbrochen', async ({ page }) => {
-  await page.goto('http://localhost:4175/baupad/#/projekte');
+  // alte #-Adresse: wird von der App umgeschrieben (der Testbau enthält keine vorgerenderten Seiten und keine 404.html)
+  await page.goto('http://localhost:4175/#/projekte');
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready;
   });
