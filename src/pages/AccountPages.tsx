@@ -10,13 +10,13 @@ import { getPhotoStorage } from '../lib/photo-storage';
 import { loadPhotoSites } from './PhotosPage';
 import type { PhotoSite } from '../lib/types';
 import { listCompanyUsers, listLocalUsers, migrateLocalUsers, removeCompanyUser, renameWorkspace, saveCompanyUser, usesRemote } from '../lib/users';
-import { site } from '../content/site';
+import { contactData } from '../site/contact-data';
 import { ProviderIcon } from '../components/ProviderIcon';
 import { Modal } from '../components/Modal';
 import { navigate, paths } from '../lib/router';
 import { confirmDialog, showError, toast } from '../components/ui';
 import { AppStorageSettings } from '../components/InstallApp';
-import { usePageTitle } from './SitePages';
+import { usePageTitle } from '../lib/page-title';
 
 /*
  * Anmelden und Registrieren: Google, Apple, Microsoft (Outlook) und E-Mail mit Passwort über Supabase
@@ -96,7 +96,7 @@ export function LoginPage({ register = false }: { register?: boolean }) {
       <SiteNav />
       <main className="site-main auth">
         <div className="auth-logo" aria-hidden="true">
-          <img src="./icons/icon-192.png" alt="" width={72} height={72} />
+          <img src="/icons/icon-192.png" alt="" width={72} height={72} />
         </div>
         <h1 className="site-title">{tab === 'register' ? 'Registrieren' : 'Anmelden'}</h1>
         {session ? (
@@ -583,7 +583,7 @@ function SubscriptionInfo({ session }: { session: Session | null | undefined }) 
 }
 
 function MoreSettings() {
-  const c = site.contact;
+  const c = contactData;
   return (
     <div className="company-lines" data-testid="more-settings">
       <p className="small">
@@ -593,7 +593,7 @@ function MoreSettings() {
         <strong>Benachrichtigungen:</strong> BauPad schickt derzeit keine Benachrichtigungen – nur E-Mails zu deinem Konto (Bestätigung, Passwort).
       </p>
       <p className="small">
-        <strong>Kontakt:</strong> {c.company || site.company}
+        <strong>Kontakt:</strong> {c.company}
         {c.email ? (
           <>
             {' · '}

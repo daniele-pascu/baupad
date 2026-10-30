@@ -2,13 +2,20 @@ import { preloadExcelLogo } from './lib/company';
 import { useEffect, useState, type ReactNode } from 'react';
 import { DialogHost, toast } from './components/ui';
 import { Icon } from './components/Icon';
-import { navigate, parseRoute, paths, useHash } from './lib/router';
+import { currentPath, navigate, parseRoute, paths, usePath } from './lib/router';
 import { flush, openProject, useAppState } from './lib/store';
 import { HomePage } from './pages/HomePage';
 import { ProjectPage } from './pages/ProjectPage';
 import { PlanEditorPage } from './pages/PlanEditorPage';
-import { AboutPage, ContactPage, DeleteAccountInfoPage, LandingPage, ImprintPage, PrivacyPage } from './pages/SitePages';
-import { ProductPage } from './pages/ProductPage';
+import { HomePage as SiteHomePage } from './site/pages/HomePage';
+import { ProductsPage } from './site/pages/ProductsPage';
+import { BauPadPage } from './site/pages/BauPadPage';
+import { ToolPage } from './site/pages/ToolPage';
+import { CompanyPage } from './site/pages/CompanyPage';
+import { ContactPage, ThanksPage } from './site/pages/ContactPage';
+import { FuturePage } from './site/pages/FuturePage';
+import { DeleteAccountPage, ImprintPage, NotFoundPage, PrivacyPage } from './site/pages/LegalPages';
+import './site/site.css';
 import { AccountPage, LoginPage, NewPasswordPage } from './pages/AccountPages';
 import { ToolsPage } from './pages/ToolsPage';
 import { WorkersPage } from './pages/WorkersPage';
@@ -33,7 +40,7 @@ initAuth();
 // Die installierte App startet in der Werkzeug-Übersicht („Tools“) – auch Symbole, die vor der
 // neuen Startseite angelegt wurden (diese starten noch mit der Adresse „./“).
 if (typeof window !== 'undefined' && isInstalledApp()) {
-  const name = parseRoute(location.hash).name;
+  const name = parseRoute(currentPath()).name;
   let resume = false;
   try {
     resume = localStorage.getItem('resumeCamera') === '1';
@@ -48,18 +55,29 @@ if (typeof window !== 'undefined' && isInstalledApp()) {
 }
 
 /** Website-Seiten, die angemeldet keinen Sinn haben: direkt zu den Tools */
-const SITE_ROUTES_WHEN_SIGNED_IN = new Set(['landing', 'about', 'product']);
+const SITE_ROUTES_WHEN_SIGNED_IN = new Set(['landing', 'products', 'baupad', 'company', 'future', 'product']);
 
 function ToolsRedirect() {
   useEffect(() => {
     // nur umleiten, wenn die Adresse inzwischen nicht schon weitergewandert ist
-    if (SITE_ROUTES_WHEN_SIGNED_IN.has(parseRoute(location.hash).name)) navigate(paths.tools(), true);
+    if (SITE_ROUTES_WHEN_SIGNED_IN.has(parseRoute(currentPath()).name)) navigate(paths.tools(), true);
   }, []);
   return null;
 }
 
+/** Website-Seiten (eigener Rahmen mit Titel und Meta-Angaben) */
+const SITE_ROUTES = new Set(['landing', 'products', 'baupad', 'company', 'contact', 'thanks', 'future', 'imprint', 'privacy', 'deleteAccountInfo', 'product', 'notFound']);
+
+/** App-Seiten: Standardtitel „BauPad“ (die vorgerenderte index.html trägt den Titel der Startseite); Seiten mit eigenem Titel überschreiben ihn danach */
+function TitleReset({ route }: { route: string }) {
+  useEffect(() => {
+    if (!SITE_ROUTES.has(route)) document.title = 'BauPad';
+  }, [route]);
+  return null;
+}
+
 /** Seiten ohne Anmeldung: Website, Anmelden/Registrieren, neues Passwort */
-const PUBLIC_ROUTES = new Set(['landing', 'about', 'contact', 'imprint', 'privacy', 'deleteAccountInfo', 'product', 'login', 'newPassword', 'notFound']);
+const PUBLIC_ROUTES = new Set(['landing', 'products', 'baupad', 'company', 'contact', 'thanks', 'future', 'imprint', 'privacy', 'deleteAccountInfo', 'product', 'login', 'newPassword', 'notFound']);
 
 /**
  * Zugangsschleuse für alle Werkzeuge: ohne Anmeldung geht es zur Anmeldeseite. Eine auf dem Gerät
@@ -94,7 +112,7 @@ function useAuthReturn() {
     if (!q.has('code') && !q.has('reset') && !q.has('error_description')) return;
     const err = q.get('error_description');
     const reset = q.get('reset') === '1';
-    const clean = () => history.replaceState(null, '', location.pathname + location.hash);
+    const clean = () => history.replaceState(null, '', location.pathname);
     if (err) {
       clean();
       toast(`Anmeldung nicht möglich: ${err}`, 'error');
@@ -122,7 +140,7 @@ function useAuthReturn() {
 }
 
 export function App() {
-  const route = parseRoute(useHash());
+  const route = parseRoute(usePath());
   // Startbild mit Logo beim Öffnen der installierten App (kurz, dann die App)
   const [splash, setSplash] = useState(() => isInstalledApp());
   useEffect(() => {
@@ -148,13 +166,25 @@ export function App() {
   let content: ReactNode;
   switch (route.name) {
     case 'landing':
-      content = <LandingPage />;
+      content = <SiteHomePage />;
       break;
-    case 'about':
-      content = <AboutPage />;
+    case 'products':
+      content = <ProductsPage />;
+      break;
+    case 'baupad':
+      content = <BauPadPage />;
+      break;
+    case 'company':
+      content = <CompanyPage />;
+      break;
+    case 'future':
+      content = <FuturePage />;
       break;
     case 'contact':
       content = <ContactPage />;
+      break;
+    case 'thanks':
+      content = <ThanksPage />;
       break;
     case 'imprint':
       content = <ImprintPage />;
@@ -163,7 +193,7 @@ export function App() {
       content = <PrivacyPage />;
       break;
     case 'product':
-      content = <ProductPage key={route.product} id={route.product} />;
+      content = <ToolPage key={route.product} id={route.product} />;
       break;
     case 'projects':
       content = <HomePage />;
@@ -211,7 +241,7 @@ export function App() {
       content = <NewPasswordPage />;
       break;
     case 'deleteAccountInfo':
-      content = <DeleteAccountInfoPage />;
+      content = <DeleteAccountPage />;
       break;
     case 'project':
       content = (
@@ -235,24 +265,18 @@ export function App() {
       );
       break;
     default:
-      content = (
-        <div className="page">
-          <p>Seite nicht gefunden.</p>
-          <a className="btn" href={paths.projects()}>
-            Zur Startseite
-          </a>
-        </div>
-      );
+      content = <NotFoundPage />;
   }
 
   return (
     <>
       <OfflineBadge />
+      <TitleReset route={route.name} />
       {SITE_ROUTES_WHEN_SIGNED_IN.has(route.name) && hasStoredSession() ? <ToolsRedirect /> : PUBLIC_ROUTES.has(route.name) ? content : <AuthGate route={route.name}>{content}</AuthGate>}
       <DialogHost />
       {splash && (
         <div className="splash" aria-hidden="true" data-testid="splash">
-          <img src="./icons/icon-192.png" alt="" width={96} height={96} />
+          <img src="/icons/icon-192.png" alt="" width={96} height={96} />
           <strong>BauPad</strong>
           <span>PAD Software</span>
         </div>
@@ -330,7 +354,8 @@ function useServiceWorker() {
             setInterval(check, 30 * 60 * 1000);
           },
           onOfflineReady() {
-            toast('BauPad ist jetzt auch offline verfügbar.', 'success');
+            // Hinweis nur in der App, nicht auf der Website
+            if (!PUBLIC_ROUTES.has(parseRoute(currentPath()).name) || parseRoute(currentPath()).name === 'login') toast('BauPad ist jetzt auch offline verfügbar.', 'success');
           },
           onNeedRefresh() {
             void applyUpdateWhenIdle(() => updateSW(true));

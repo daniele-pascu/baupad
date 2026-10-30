@@ -48,7 +48,7 @@ import { crewDayPdf, crewWeekPdf } from '../lib/crew-pdf';
 import { uuid } from '../lib/ids';
 import { navigate, paths } from '../lib/router';
 import type { Absence, Project, WeekPlan, WeekSite, Worker, WorkTimes } from '../lib/types';
-import { usePageTitle } from './SitePages';
+import { usePageTitle } from '../lib/page-title';
 
 const WEEKDAYS = [0, 1, 2, 3, 4];
 const ACCENT = { '--tool': '#2f80ed' } as CSSProperties;

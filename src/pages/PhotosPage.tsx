@@ -12,7 +12,7 @@ import { cloudConnected, getPhotoStorage } from '../lib/photo-storage';
 import { groupBySite, matchesPhoto, photoSiteKey, weekLabel } from '../lib/photos';
 import { navigate, paths } from '../lib/router';
 import type { Photo, Project } from '../lib/types';
-import { usePageTitle } from './SitePages';
+import { usePageTitle } from '../lib/page-title';
 import { useAccess } from '../lib/access';
 
 const ACCENT = { '--tool': '#111111' } as CSSProperties;

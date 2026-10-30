@@ -29,7 +29,7 @@ import {
   type CrewSuggestion,
 } from '../lib/reports';
 import type { Absence, DailyData, RegieData, Report, ReportHead, ReportItem, ReportWorker, WeeklyData, Worker } from '../lib/types';
-import { usePageTitle } from './SitePages';
+import { usePageTitle } from '../lib/page-title';
 
 /** PDF eines Berichts mit Firmenname und Firmenlogo (Einstellungen) */
 export async function reportPdfFile(r: Report): Promise<ExportFile> {

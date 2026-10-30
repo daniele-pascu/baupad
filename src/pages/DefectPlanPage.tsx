@@ -17,7 +17,7 @@ import type { ExportFile } from '../lib/aufmass';
 import { safeFileName } from '../lib/aufmass';
 import { DEFECT_ACCENT } from './DefectsPage';
 import { usePlanThumb } from './DefectSitePage';
-import { usePageTitle } from './SitePages';
+import { usePageTitle } from '../lib/page-title';
 
 type Tool = 'select' | MarkShape;
 type Pt = { x: number; y: number };

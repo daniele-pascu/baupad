@@ -13,7 +13,7 @@ import { navigate, paths } from '../lib/router';
 import type { DefectMark, DefectPlan, PhotoSite } from '../lib/types';
 import { DEFECT_ACCENT } from './DefectsPage';
 import { loadPhotoSites } from './PhotosPage';
-import { usePageTitle } from './SitePages';
+import { usePageTitle } from '../lib/page-title';
 
 /** Vorschaubild eines Plans (aus der Datenbank, als Objekt-URL) */
 export function usePlanThumb(id: string, kind: 'thumb' | 'data' = 'thumb'): string | null {

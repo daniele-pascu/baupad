@@ -5,7 +5,7 @@ import { SiteNav } from '../components/SiteNav';
 import { isInstalledApp } from '../lib/platform';
 import { useAccess } from '../lib/access';
 import { paths } from '../lib/router';
-import { usePageTitle } from './SitePages';
+import { usePageTitle } from '../lib/page-title';
 
 interface Tool {
   id: ToolIconName;

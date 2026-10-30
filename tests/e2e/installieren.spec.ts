@@ -9,7 +9,7 @@ test('PC: ohne Browser-Dialog Anleitung je Gerät; Aufmaß & Abrechnung ohne Ins
   // Startseite nur abgemeldet (angemeldet führt sie zu den Tools)
   await page.goto('./#/impressum');
   await signOutInPage(page);
-  await page.goto('./#/');
+  await page.goto('./baupad');
   const btn = page.getByTestId('install-app');
   await expect(btn).toBeVisible();
   await btn.click();
@@ -32,7 +32,7 @@ test('PC: ohne Browser-Dialog Anleitung je Gerät; Aufmaß & Abrechnung ohne Ins
 test('Android/PC: Installationsdialog des Browsers wird direkt geöffnet', async ({ page }) => {
   await page.goto('./#/impressum');
   await signOutInPage(page);
-  await page.goto('./#/');
+  await page.goto('./baupad');
   await page.evaluate(() => {
     const e = new Event('beforeinstallprompt', { cancelable: true }) as Event & { prompt(): Promise<void>; userChoice: Promise<{ outcome: string }> };
     e.prompt = async () => void ((window as unknown as { prompted: boolean }).prompted = true);
@@ -76,7 +76,7 @@ test.describe('iPhone', () => {
   test('Anleitung „Zum Home-Bildschirm“ mit drei Schritten und Hinweis zum eigenen Speicher', async ({ page }) => {
     await page.goto('./#/impressum');
     await signOutInPage(page);
-    await page.goto('./#/');
+    await page.goto('./baupad');
     await page.getByTestId('install-app').tap();
     const guide = page.getByTestId('install-guide');
     await expect(page.getByTestId('install-tab-ios')).toHaveAttribute('aria-selected', 'true');

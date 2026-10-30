@@ -10,7 +10,7 @@ import { photoSiteKey, preparePhoto } from '../lib/photos';
 import { navigate, paths } from '../lib/router';
 import type { Photo, PhotoSite } from '../lib/types';
 import { loadPhotoSites } from './PhotosPage';
-import { usePageTitle } from './SitePages';
+import { usePageTitle } from '../lib/page-title';
 
 const LAST_SITE = 'photoLastSite';
 const keyOf = (s: PhotoSite) => photoSiteKey({ projectId: s.projectId, siteName: s.name });

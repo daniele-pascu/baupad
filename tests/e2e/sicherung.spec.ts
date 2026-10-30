@@ -7,7 +7,7 @@ test('Sicherungs-Erinnerung erscheint bei alter Sicherung und verschwindet nach 
   await createProject(page, 'Erinnerung', {}, ['Keller']);
   // Frisches Projekt: keine Erinnerung
   await expect(page.getByTestId('backup-reminder')).toHaveCount(0);
-  const projectId = page.url().split('#/p/')[1].split('/')[0];
+  const projectId = page.url().split('/p/')[1].split('/')[0];
 
   // Letzte Sicherung vor 5 Tagen, danach geändert
   await page.evaluate(async (id) => {

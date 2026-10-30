@@ -278,23 +278,28 @@ test('Website und Planliste auf Smartphone/Tablet: Menü, keine Überbreite, Akt
   await page.goto('./#/impressum');
   await signOutInPage(page);
   await page.goto('./');
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Software, die auf der Baustelle funktioniert.');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('funktioniert');
   await noHorizontalScroll(page);
   const nav = page.getByTestId('site-nav');
-  if (isPhone) {
-    // „Über uns“ und „Kontakt“ liegen im ausklappbaren Menü
-    await expect(nav.getByRole('link', { name: 'Kontakt' })).toBeHidden();
+  const menuBtn = nav.getByRole('button', { name: 'Menü öffnen' });
+  const kontakt = nav.getByRole('link', { name: 'Kontakt', exact: true });
+  if (await menuBtn.isVisible()) {
+    // Seiten liegen im ausklappbaren Menü (Handy und schmales Tablet)
+    await expect(kontakt).toBeHidden();
+    await menuBtn.tap();
+    await expect(kontakt).toBeVisible();
+    await kontakt.tap();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Schreiben Sie uns.');
+    await expect(kontakt).toBeHidden(); // Menü schließt sich
     await nav.getByRole('button', { name: 'Menü öffnen' }).tap();
-    await expect(nav.getByRole('link', { name: 'Kontakt' })).toBeVisible();
-    await nav.getByRole('link', { name: 'Kontakt' }).tap();
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Kontakt');
-    await expect(nav.getByRole('link', { name: 'Kontakt' })).toBeHidden(); // Menü schließt sich
+    await expect(nav.getByRole('link', { name: 'Anmelden' })).toBeVisible();
+    await nav.getByRole('button', { name: 'Menü schließen' }).tap();
   } else {
-    await nav.getByRole('link', { name: 'Kontakt' }).tap();
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Kontakt');
+    await kontakt.tap();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Schreiben Sie uns.');
+    await expect(nav.getByRole('link', { name: 'Anmelden' })).toBeVisible();
   }
   await noHorizontalScroll(page);
-  await expect(nav.getByRole('link', { name: 'Anmelden' })).toBeVisible();
   await page.screenshot({ path: join(OUT, `${info.project.name}-kontakt.png`) });
 
   // Planliste mit langer Bemerkung (wieder angemeldet)

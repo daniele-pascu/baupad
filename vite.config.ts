@@ -20,8 +20,8 @@ function appVersion(): string {
 }
 
 export default defineConfig({
-  // Relative Pfade: die App kann in einem beliebigen Unterordner gehostet werden.
-  base: './',
+  // Wurzel der Domain (pad-software.at); saubere Adressen wie /baupad und /en/baupad
+  base: '/',
   define: { __APP_VERSION__: JSON.stringify(appVersion()) },
   plugins: [
     react(),
@@ -36,12 +36,12 @@ export default defineConfig({
         lang: 'de',
         id: 'baupad',
         categories: ['business', 'productivity', 'utilities'],
-        start_url: './#/projekte',
+        start_url: '/tools',
         shortcuts: [
-          { name: 'Foto aufnehmen', short_name: 'Kamera', url: './#/fotos/kamera', icons: [{ src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' }] },
-          { name: 'Fotodokumentation', short_name: 'Fotos', url: './#/fotos', icons: [{ src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' }] },
+          { name: 'Foto aufnehmen', short_name: 'Kamera', url: '/fotos/kamera', icons: [{ src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' }] },
+          { name: 'Fotodokumentation', short_name: 'Fotos', url: '/fotos', icons: [{ src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' }] },
         ],
-        scope: './',
+        scope: '/',
         display: 'standalone',
         orientation: 'any',
         background_color: '#f4f5f7',
@@ -56,7 +56,9 @@ export default defineConfig({
         // Alles, was die App offline braucht – inklusive pdf.js-Worker, Schriften, CMaps und WASM.
         globPatterns: ['**/*.{js,mjs,css,html,png,jpg,svg,ico,webmanifest,bcmap,pfb,ttf,wasm,icc}'],
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
-        navigateFallback: 'index.html',
+        navigateFallback: '/index.html',
+        // vorgerenderte Website-Seiten und Dateien mit Endung nicht auf die App umleiten
+        navigateFallbackDenylist: [/\.[a-z0-9]+$/i],
         cleanupOutdatedCaches: true,
       },
     }),

@@ -13,7 +13,7 @@ export function initAuth() {
   const client = createClient(SUPABASE_URL, SUPABASE_KEY, {
     auth: { flowType: 'pkce', persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
   });
-  const base = `${location.origin}${location.pathname}`;
+  const base = `${location.origin}/`;
   setAuthBackend(new SupabaseAuth(client, base));
   setRemoteClient(client);
 }

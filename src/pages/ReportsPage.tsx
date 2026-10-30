@@ -12,7 +12,7 @@ import { emptyHead, fmtDate, headFromProject, newReport, REPORT_TYPES, siteKey, 
 import type { PhotoSite, Report, ReportType } from '../lib/types';
 import { PhotoSitePicker, siteValue } from '../components/PhotoSitePicker';
 import { loadPhotoSites } from './PhotosPage';
-import { usePageTitle } from './SitePages';
+import { usePageTitle } from '../lib/page-title';
 import { useAccess } from '../lib/access';
 
 export const ACCENT = { '--tool': '#a259ff' } as CSSProperties;

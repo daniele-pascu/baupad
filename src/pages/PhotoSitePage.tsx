@@ -16,7 +16,7 @@ import { dateTimeLabel, dayTitle, fmtBytes, GROUP_MODES, groupPhotos, matchesPho
 import { navigate, paths } from '../lib/router';
 import type { Photo } from '../lib/types';
 import { loadPhotoSites } from './PhotosPage';
-import { usePageTitle } from './SitePages';
+import { usePageTitle } from '../lib/page-title';
 
 /** Foto-Kachel: Bild, darunter Uhrzeit, Benutzer und Beschreibung; im Auswahlmodus mit Häkchen */
 function Thumb({ photo, selectable, selected, onOpen, onToggle }: { photo: Photo; selectable: boolean; selected: boolean; onOpen(): void; onToggle(): void }) {

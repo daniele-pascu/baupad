@@ -11,54 +11,99 @@ import { FIXTURES, OUT, createProject, freshStart, openPlan, selectCostCenter, t
 test.describe('ohne Anmeldung', () => {
   test.use({ signedIn: false });
 
-test('Website: Startseite, Über uns, Kontakt, Impressum, Anmelden und Logo', async ({ page }) => {
+test('Website: Startseite, Produkte, BauPad, Unternehmen, Zukunft, Kontaktformular, Sprache, Rechtliches', async ({ page }) => {
   await page.goto('./');
-  await expect(page).toHaveTitle('PAD Software – BauPad');
+  await expect(page).toHaveTitle('PAD Software – Software für Baufirmen');
   const nav = page.getByTestId('site-nav');
   await expect(nav).toBeVisible();
-  // schwarze Navigationsleiste
-  expect(await nav.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(0, 0, 0)');
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Software, die auf der Baustelle funktioniert.');
-  await expect(page.locator('.lp-product .lp-h2')).toHaveText('BauPad. Die Baustelle in einer App.');
-  await expect(page.getByTestId('problems').locator('li')).toHaveCount(3);
-  await expect(page.locator('.hero-lead')).toContainText('Aufmaß, Arbeitereinteilung, Berichte, Fotos und Mängelplan');
-  await expect(page.locator('.site-main img')).toHaveCount(0); // vorerst ohne Bilder
-  await expect(page.getByTestId('faq').locator('details')).toHaveCount(5);
+  const h1 = page.getByRole('heading', { level: 1 });
+  await expect(h1).toContainText('funktioniert');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'de');
+  // Dachmarke zuerst: Unternehmen, dann Produktwelt (1 verfügbar, 3 geplant), dann BauPad
+  await expect(page.locator('.ps-product-card.is-available')).toHaveCount(1);
+  await expect(page.locator('.ps-product-card.is-planned')).toHaveCount(3);
+  await expect(page.locator('.ps-panel-tag').first()).toContainText('Platzhalter'); // keine echten Bildschirmfotos
+  await expect(page.locator('.ps-main img')).toHaveCount(0);
+
+  // Produkte
+  await nav.getByRole('link', { name: 'Produkte', exact: true }).click();
+  await expect(h1).toContainText('Produkte von PAD Software');
+  await expect(page).toHaveTitle('Produkte – PAD Software');
+  await expect(page.locator('.ps-badge-plan')).toHaveCount(3);
+  await page.getByTestId('product-open-baupad').click();
+
+  // BauPad: fünf Werkzeuge, Werkzeug-Seite, Werkzeug nur mit Anmeldung
+  await expect(page.getByTestId('product-title')).toContainText('in einer App');
   await expect(page.getByTestId('product-card')).toHaveCount(5);
   await expect(page.getByTestId('product-card').nth(3)).toContainText('Fotodokumentation');
   await expect(page.getByTestId('product-card').nth(4)).toContainText('Mängelplan');
-  // Produktseite: Bilder aus der App und Beispiel-Exporte
+  await expect(page.getByTestId('product-shots').locator('.ps-panel')).toHaveCount(4);
   await page.getByTestId('product-card').nth(3).click();
   await expect(page.getByTestId('product-title')).toHaveText('Fotodokumentation');
-  await expect(page.locator('.site-main img')).toHaveCount(0);
+  expect(page.url()).toContain('/baupad/fotos');
   await page.getByTestId('product-open').click();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Anmelden'); // Werkzeug nur mit Anmeldung
+  await expect(h1).toHaveText('Anmelden'); // Werkzeug nur mit Anmeldung
   await page.goto('./');
 
-  await nav.getByRole('link', { name: 'Über uns' }).click();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Über uns');
-  await expect(page).toHaveTitle('Über uns – BauPad');
-  await expect(page.locator('.site-text')).toContainText('PAD Software');
+  // Unternehmen und Zukunft
+  await nav.getByRole('link', { name: 'Unternehmen', exact: true }).click();
+  await expect(h1).toContainText('für die Praxis');
+  await expect(page).toHaveTitle('Unternehmen – PAD Software');
+  await nav.getByRole('link', { name: 'Zukunft', exact: true }).click();
+  await expect(page.getByTestId('future-list').locator('article')).toHaveCount(3);
+  await expect(page.getByTestId('future-list')).toContainText('In Planung');
 
-  await nav.getByRole('link', { name: 'Kontakt' }).click();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Kontakt');
-  // noch keine Kontaktdaten → sichtbare Platzhalter, nichts erfunden
-  await expect(page.getByTestId('contact-list').locator('.placeholder')).toHaveCount(3); // Ansprechperson und E-Mail sind eingetragen
+  // Kontakt: Angaben (fehlende als Platzhalter), Formular mit Prüfung
+  await nav.getByRole('link', { name: 'Kontakt', exact: true }).click();
+  await expect(h1).toHaveText('Schreiben Sie uns.');
+  await expect(page.getByTestId('contact-list').locator('.placeholder')).toHaveCount(2); // Telefon und Anschrift fehlen noch
   await expect(page.getByTestId('contact-list')).toContainText('office@pad-software.at');
+  await page.getByTestId('contact-submit').click();
+  await expect(page.locator('.ps-error')).toHaveCount(5); // Name, E-Mail, Betreff, Nachricht, Einwilligung
+  await page.getByTestId('contact-name').fill('Max Muster');
+  await page.getByTestId('contact-email').fill('max@example.com');
+  await page.getByTestId('contact-subject').fill('Vorführung');
+  await page.getByTestId('contact-message').fill('Bitte um einen Termin für eine Vorführung.');
+  await page.getByTestId('contact-consent').check();
+  // Versand noch nicht eingerichtet → ehrlicher Hinweis, keine Danke-Seite
+  await page.route('**/functions/v1/contact', (r) => r.fulfill({ status: 501, contentType: 'application/json', body: '{"error":"not-configured"}' }));
+  await page.getByTestId('contact-submit').click();
+  await expect(page.getByTestId('contact-failure')).toContainText('noch nicht eingerichtet');
+  expect(page.url()).not.toContain('danke');
+  // Versand erfolgreich → Danke-Seite
+  await page.unroute('**/functions/v1/contact');
+  await page.route('**/functions/v1/contact', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' }));
+  await page.getByTestId('contact-submit').click();
+  await expect(h1).toHaveText('Danke für Ihre Nachricht.');
+  expect(page.url()).toContain('/kontakt/danke');
+  // Danke-Seite direkt aufgerufen → zurück zum Formular
+  await page.goto('./kontakt/danke');
+  await expect(h1).toHaveText('Schreiben Sie uns.');
+
+  // Sprache: Englisch auf derselben Seite, zurück zu Deutsch
+  await page.locator('[data-testid="lang-en"]:visible').first().click();
+  expect(page.url()).toContain('/en/contact');
+  await expect(h1).toHaveText('Write to us.');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+  await expect(nav.getByRole('link', { name: 'Products', exact: true })).toBeVisible();
+  await expect(page).toHaveTitle('Contact – PAD Software');
+  await page.locator('[data-testid="lang-de"]:visible').first().click();
+  expect(page.url()).toContain('/kontakt');
+  await expect(h1).toHaveText('Schreiben Sie uns.');
 
   // Impressum und Datenschutz über die Fußzeile (Firmendaten noch Platzhalter)
-  await page.getByRole('link', { name: 'Impressum' }).click();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Impressum');
+  const footer = page.getByTestId('site-footer');
+  await footer.getByRole('link', { name: 'Impressum' }).click();
+  await expect(h1).toHaveText('Impressum');
   await expect(page.getByTestId('imprint-list').locator('.placeholder')).toHaveCount(4); // Unternehmen, Inhaber und E-Mail sind eingetragen
-  await page.getByRole('link', { name: 'Datenschutz' }).click();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Datenschutz');
-  await expect(page.locator('.site-text')).toContainText('GitHub Pages');
+  await footer.getByRole('link', { name: 'Datenschutz' }).click();
+  await expect(h1).toHaveText('Datenschutz');
+  await expect(page.locator('.ps-text')).toContainText('GitHub Pages');
+  await expect(page.locator('.ps-text')).toContainText('Kontaktformular');
 
-  // Logo führt immer zur Startseite
-  await nav.getByRole('link', { name: 'PAD Software – zur Startseite' }).click();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Software, die auf der Baustelle funktioniert.');
-  await expect(page.locator('.lp-product .lp-h2')).toHaveText('BauPad. Die Baustelle in einer App.');
-  await expect(page.getByTestId('problems').locator('li')).toHaveCount(3);
+  // Wortmarke führt immer zur Startseite
+  await nav.getByRole('link', { name: 'PAD Software' }).first().click();
+  await expect(h1).toContainText('funktioniert');
 
   // „Anmelden“: Anmeldeseite mit Supabase – der Dienst ist aus der Testumgebung nicht erreichbar,
   // deshalb werden seine Antworten hier nachgestellt (Anbieter-Weiterleitung, falsches Passwort, Registrierung)
@@ -83,10 +128,10 @@ test('Website: Startseite, Über uns, Kontakt, Impressum, Anmelden und Logo', as
   await page.getByTestId('login-password').fill('geheim');
   await page.getByTestId('login-submit').click();
   await expect(page.getByTestId('auth-error')).toContainText('E-Mail-Adresse oder Passwort ist falsch.');
-  expect(page.url()).toContain('#/anmelden'); // keine Weiterleitung, kein „angemeldet“
+  expect(page.url()).toContain('/anmelden'); // keine Weiterleitung, kein „angemeldet“
   // Registrieren: Pflichtfelder und Passwortregeln werden geprüft, bevor etwas gesendet wird
   await page.getByTestId('auth-tab-register').click();
-  expect(page.url()).toContain('#/registrieren');
+  expect(page.url()).toContain('/registrieren');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Registrieren');
   await page.getByTestId('login-email').fill('neu@example.com');
   await page.getByTestId('login-submit').click();
@@ -108,9 +153,9 @@ test('Website: Startseite, Über uns, Kontakt, Impressum, Anmelden und Logo', as
   for (const h of ['#/tools', '#/projekte', '#/fotos', '#/fotos/kamera', '#/berichte', '#/arbeitereinteilung', '#/konto']) {
     await page.goto(`./${h}`);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Anmelden');
-    expect(page.url()).toContain('#/anmelden');
+    expect(page.url()).toContain('/anmelden');
   }
-  await page.goto('./');
+  await page.goto('./baupad');
   await page.getByTestId('cta-tools').click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Anmelden');
   // Pflichtseite der Stores: Konto löschen, öffentlich, mit Schritten

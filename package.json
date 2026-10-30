@@ -7,10 +7,11 @@
   "scripts": {
     "assets": "node scripts/copy-pdfjs-assets.mjs",
     "dev": "npm run assets && vite",
-    "build": "npm run assets && tsc --noEmit && vite build",
+    "build": "npm run assets && tsc --noEmit && vite build && npm run prerender",
     "preview": "vite preview --port 4173 --strictPort",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "prerender": "node --experimental-strip-types scripts/prerender-site.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",

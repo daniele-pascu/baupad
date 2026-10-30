@@ -12,7 +12,7 @@ import { copyReport, periodLabel, REPORT_TYPES, siteKey, siteLabel, today, typeI
 import type { PhotoSite, Report, ReportType } from '../lib/types';
 import { reportPdfFile } from './ReportEditorPage';
 import { createReport, loadReportSites, NewReportDialog, type SiteChoice } from './ReportsPage';
-import { usePageTitle } from './SitePages';
+import { usePageTitle } from '../lib/page-title';
 import { PhotoSiteDialog } from '../components/PhotoSitePicker';
 import { canEditSites, siteKeyOfSite, updateSiteEverywhere } from '../lib/sites';
 import { useSession } from '../lib/use-session';

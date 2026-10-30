@@ -218,7 +218,7 @@ test('Bauteile sind ausgeblendet; vorhandene Bauteil-Daten bleiben erhalten', as
   await page.keyboard.press('b'); // früheres Tastenkürzel ohne Wirkung
   await expect(page.getByTestId('component-dialog')).toHaveCount(0);
   // Bestehende Zuordnung (Daten aus älteren Versionen) bleibt beim Bearbeiten unverändert erhalten
-  const projectId = page.url().split('#/p/')[1].split('/')[0];
+  const projectId = page.url().split('/p/')[1].split('/')[0];
   await page.evaluate(async (pid) => {
     await new Promise<void>((resolve) => {
       const req = indexedDB.open('schadstellen-aufmass');

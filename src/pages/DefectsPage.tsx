@@ -11,7 +11,7 @@ import { getPhotoStorage } from '../lib/photo-storage';
 import { navigate, paths } from '../lib/router';
 import type { PhotoSite } from '../lib/types';
 import { loadPhotoSites } from './PhotosPage';
-import { usePageTitle } from './SitePages';
+import { usePageTitle } from '../lib/page-title';
 import { useAccess } from '../lib/access';
 
 export const DEFECT_ACCENT = { '--tool': '#d6242b' } as CSSProperties;

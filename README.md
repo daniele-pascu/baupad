@@ -7,7 +7,7 @@ bei der Betoninstandsetzung. Läuft im Browser auf iPhone, iPad, PC und Laptop �
 
 | Bereich | Umgesetzt |
 |---|---|
-| Website | Öffentliche Startseite, „Über BauPad“ und „Kontakt“ mit schwarzer Navigationsleiste; Texte und Kontaktdaten in `src/content/site.ts` änderbar; „Anmelden“ führt (noch ohne Benutzerkonten) zur Projektverwaltung; die installierte App startet direkt in der Projektverwaltung |
+| Website | PAD Software als Dachmarke, BauPad als erstes Produkt: Home, Produkte, BauPad (mit Werkzeug-Seiten), Unternehmen, Kontakt (Formular), Zukunft, Impressum, Datenschutz – zweisprachig (DE/EN), saubere Adressen, vorgerendert mit Sitemap. Aufbau und Pflege: `docs/website.md` |
 | Projekte | Anlegen zusammen mit Kostenstelle(n) in einem Schritt (Projektname, Baustelle, Kostenstellennummer und -bezeichnung, Adresse, Auftraggeber, Bearbeiter, Datum, Bemerkungen); alle Angaben gemeinsam bearbeitbar; löschen mit Sicherheitsabfrage, Datum der letzten Bearbeitung |
 | Kostenstellen | Teil der Projektinformationen (Nummer und Bezeichnung); hat ein Projekt mehrere, erscheint über der Planliste eine Auswahl; löschen mit Anzeige der betroffenen Pläne und Messungen |
 | Planliste | Kompakte Liste: Plannummer, Bezeichnung/Ebene, Bemerkung, Leistungszuordnung, Anzahl der Messungen, Flächensumme; Aktionen Öffnen, Angaben bearbeiten, Umbenennen, Ausschnitt, Löschen (mit Übersicht der betroffenen Daten); am Smartphone zweizeilig ohne seitliches Scrollen |
@@ -40,7 +40,7 @@ Voraussetzung: Node.js ≥ 20.
 ```bash
 npm install
 npm run dev        # Entwicklungsserver (ohne Service Worker)
-npm run build      # Produktionsversion nach dist/
+npm run build      # Produktionsversion nach dist/ (inkl. Vorrendern der Website-Seiten, Sitemap, 404.html)
 npm run preview    # Produktionsversion lokal unter http://localhost:4173 testen
 ```
 
@@ -58,12 +58,12 @@ Push auf `main`. Einmalig im Repository einstellen: **Settings → Pages → Bui
 Source: „GitHub Actions“**. Die App ist danach unter `https://<benutzername>.github.io/<repository>/`
 erreichbar. Alle Pfade sind relativ, der Repository-Name ist daher frei wählbar.
 
-Lokal unter dem Pages-Pfad testen:
+Lokal wie auf GitHub Pages testen (statischer Server mit 404.html als Fallback):
 
 ```bash
 npm run build
-node scripts/serve-pages.mjs            # http://localhost:4174/baupad/
-PAGES=1 npm run test:e2e                # alle Ende-zu-Ende-Tests unter diesem Pfad
+node scripts/serve-pages.mjs 4174 /     # http://localhost:4174/
+PAGES=1 npm run test:e2e                # alle Ende-zu-Ende-Tests gegen diesen Server
 ```
 
 **iPhone/iPad:** Seite in Safari öffnen → „Teilen“ → „Zum Home-Bildschirm“. Danach startet die App

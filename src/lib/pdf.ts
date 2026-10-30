@@ -11,7 +11,7 @@ import type { PlanRotation, Rect } from './types';
  */
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
-const assetBase = new URL('pdfjs/', document.baseURI).href;
+const assetBase = `${location.origin}/pdfjs/`;
 
 export function openPdf(data: ArrayBuffer): Promise<PDFDocumentProxy> {
   // pdf.js übernimmt den Puffer in den Worker – daher eine Kopie übergeben.

@@ -120,7 +120,7 @@ Die .p8-Datei, die Key ID und der Secret Key bleiben bei dir; nichts davon in de
   Rückkehr auf pad-software.at, Sitzung) ist fertig.
 - Solange ein Anbieter in Supabase nicht eingeschaltet ist, zeigt die App beim Klick: „Diese Anmeldemethode
   ist noch nicht freigeschaltet. Bitte mit E-Mail und Passwort anmelden.“
-- Prüfung nach dem Einschalten: auf https://pad-software.at/#/login den Knopf drücken, beim Anbieter anmelden,
+- Prüfung nach dem Einschalten: auf https://pad-software.at/anmelden den Knopf drücken, beim Anbieter anmelden,
   danach muss die Werkzeugseite erscheinen und unter Konto der Name stehen.
 - Jede Registrierung (auch über Google/Apple/Microsoft) legt automatisch einen Arbeitsbereich an, die Person ist
   dessen Admin; eine eingeladene E-Mail-Adresse landet im Arbeitsbereich des Admins.

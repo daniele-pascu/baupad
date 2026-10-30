@@ -44,3 +44,14 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 ## Domains (Oktober 2026)
 - Gekauft bei World4You: **pad-software.at** (Website und App) und **baupad.at** (Weiterleitung auf pad-software.at).
 - Hosting weiter über GitHub Pages mit eigener Domain; E-Mail über World4You (E-Mail Grow). Einrichtung: `docs/domain-einrichten.md`.
+
+## Website-Relaunch (30.10.2026)
+- **Markenarchitektur:** PAD Software ist die Dachmarke, BauPad das erste Produkt; weitere Produkte sind als „In Planung“ sichtbar, ohne Namen und Termine (erst nennen, wenn in Entwicklung). Ein Konto gilt für alle Produkte.
+- **Seiten:** Home, Produkte, BauPad (mit fünf Werkzeug-Unterseiten), Unternehmen, Kontakt (+ Danke), Zukunft, Impressum, Datenschutz, Konto löschen. Sticky-Navigation, Hauptaktion „Kontakt aufnehmen“.
+- **Design:** Palette Midnight Blue (White #FFFFFF, Mist #E8EDF4, Steel Blue #8FA7C4, Navy #193B63, Midnight #0B1526), Wechsel heller und dunkler Flächen, starke Typografie (Systemschrift), Scroll-Einblenden, dezente Parallaxe, schwebende Software-Panels; `prefers-reduced-motion` wird beachtet. Keine Videos, keine Baustellenfotos.
+- **Logo:** Für PAD Software gibt es keine Logo-Datei; der bestehende Text-Schriftzug bleibt unverändert, bis die Originaldatei vorliegt. Das BauPad-Logo bleibt unangetastet.
+- **Software-Ansichten:** vorerst gekennzeichnete schematische Platzhalter (keine echten Bildschirmfotos, Entscheidung des Betreibers); echte Bilder können ohne Umbau eingesetzt werden.
+- **Sprachen:** Deutsch (ohne Präfix) und Englisch (`/en/…`), Texte zentral in `src/site/i18n`, Umschalter DE | EN. Die App bleibt deutsch.
+- **Adressen:** saubere Adressen ohne `#`; alte `#/…`-Adressen werden umgeschrieben. Website-Seiten werden vorgerendert (Titel, Meta, canonical, hreflang, Open Graph, JSON-LD), dazu sitemap.xml, robots.txt, 404.html als App-Fallback.
+- **Kontaktformular:** Supabase Edge Function `contact` + Resend (kostenlos bis 3.000 Mails/Monat) an office@pad-software.at, Sicherung in `contact_messages` (12 Monate), Honigtopf, Mindestdauer, Bremse. Einrichtung durch den Betreiber: `docs/kontaktformular.md`. Bis dahin meldet das Formular ehrlich „noch nicht eingerichtet“.
+- **Cookies/Analyse:** nichts vorhanden, kein Banner nötig; Einführung nur nach Entscheidung und mit Einwilligung.
