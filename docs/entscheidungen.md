@@ -69,4 +69,5 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 
 ## Projektregister und Rechte je Werkzeug (30.10.2026)
 - **Ein Projektregister für alle Werkzeuge:** „Neues Projekt“ in Fotos, Berichten, Mängelplan oder Einteilung legt ein echtes Projekt an (auch in Aufmaß & Abrechnung sichtbar, dort ohne Pläne). Gleicher Name = dasselbe Projekt, keine Dubletten. Frei eingetippte Baustellen aus älteren Ständen werden beim Start einmalig übernommen.
+- **Projekte anlegen:** nur Admin und Büro (Betreiber auch). Polier und Arbeiter wählen aus dem Register; „Neues Projekt“ ist für sie in allen Werkzeugen ausgeblendet, und das Anlegen wird in der App abgewiesen.
 - **Rechte je Werkzeug und Projekt:** Admin legt pro Benutzer je Werkzeug fest: Werkzeug an/aus und „Alle Projekte“ oder ausgewählte (Spalte `tool_sites` in `memberships`/`invitations`). Die ältere gemeinsame Baustellenliste bleibt als Rückfall. Durchsetzung zuerst in der App; serverseitig mit dem Datenabgleich (nächster Schritt).

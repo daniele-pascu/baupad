@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '../components/Icon';
+import { useCanCreateProjects } from '../lib/sites';
 import { deviceUserName, PhotoCapture, photoFromPrepared } from '../components/PhotoCapture';
 import { PhotoImg } from '../components/PhotoImg';
 import { PhotoSiteDialog } from '../components/PhotoSitePicker';
@@ -62,6 +63,7 @@ export function cameraFraming(fw: number, fh: number, ratio: Ratio, orient: Orie
  * Ohne Kamerazugriff im Browser bleibt die Gerätekamera über die Dateiauswahl erreichbar.
  */
 export function CameraPage({ siteKey }: { siteKey: string | null }) {
+  const mayCreate = useCanCreateProjects();
   usePageTitle('Kamera – Fotodokumentation – BauPad');
   const [sites, setSites] = useState<PhotoSite[]>([]);
   const [site, setSite] = useState<PhotoSite | null>(null);
@@ -542,9 +544,11 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
               {siteRows.length === 0 && <li className="muted small cam-site-empty">Keine Baustelle gefunden.</li>}
             </ul>
             <div className="row gap">
+              {mayCreate && (
               <button type="button" className="btn btn-sm" onClick={() => setSiteNew(true)} data-testid="cam-site-new">
                 <Icon name="plus" size={16} /> Neues Projekt
               </button>
+              )}
               <span className="spacer" />
               <button type="button" className="btn btn-sm" onClick={() => setSiteOpen(false)}>
                 Schließen

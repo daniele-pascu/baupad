@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { createSiteProject } from '../lib/sites';
+import { createSiteProject, useCanCreateProjects } from '../lib/sites';
 import type { PhotoSite } from '../lib/types';
 import { Modal } from './Modal';
 import { showError } from './ui';
@@ -96,6 +96,7 @@ export function PhotoSitePicker({
   testId?: string;
 }) {
   const [creating, setCreating] = useState(false);
+  const mayCreate = useCanCreateProjects();
   return (
     <>
       <select
@@ -112,7 +113,7 @@ export function PhotoSitePicker({
             {[s.number, s.name].filter(Boolean).join(' · ')}
           </option>
         ))}
-        <option value="__new">+ Neues Projekt …</option>
+        {mayCreate && <option value="__new">+ Neues Projekt …</option>}
       </select>
       {creating && (
         <PhotoSiteDialog

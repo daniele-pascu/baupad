@@ -4,7 +4,8 @@
  * Kopien in Fotos, Mängelplänen, Berichtsköpfen und Wochen der Arbeitereinteilung.
  * Ändern dürfen derzeit Admin und Büro (ohne Arbeitsbereich: jeder).
  */
-import type { Session } from './auth';
+import { getAuth, type Session } from './auth';
+import { useSession } from './use-session';
 import { getDB, getMeta, listDefectPlans, listProjects, listReports, listWeeks, saveDefectPlan, saveReport, saveWeek, setMeta, writeRecords } from './db';
 import { projectFromSite } from './crew-link';
 import { getPhotoStorage } from './photo-storage';
@@ -20,6 +21,15 @@ export interface SiteFields {
 }
 
 export const canEditSites = (s: Session | null | undefined) => !s || !s.companyId || s.role === 'admin' || s.role === 'buero' || s.operator;
+
+/** Projekte anlegen dürfen nur Admin und Büro (Betreiber auch); Polier und Arbeiter wählen aus dem Register */
+export const canCreateProjects = canEditSites;
+
+/** für Seiten und Dialoge: darf die angemeldete Person Projekte anlegen? (undefined = Sitzung lädt noch → nein) */
+export function useCanCreateProjects(): boolean {
+  const session = useSession();
+  return session === undefined ? false : canCreateProjects(session);
+}
 
 export const siteKeyOfSite = (s: PhotoSite) => photoSiteKey({ projectId: s.projectId, siteName: s.name });
 
@@ -85,6 +95,8 @@ export async function findSite(key: string, sites?: PhotoSite[]): Promise<PhotoS
  * Projekt an, das sofort überall erscheint – auch in Aufmaß & Abrechnung (dort ohne Pläne, bis welche kommen).
  */
 export async function createSiteProject(v: SiteFields): Promise<PhotoSite> {
+  const me = await getAuth().session().catch(() => null);
+  if (!canCreateProjects(me)) throw new Error('Projekte dürfen nur Admin und Büro anlegen. Bitte ein vorhandenes Projekt wählen.');
   const name = v.name.trim();
   if (!name) throw new Error('Bitte einen Namen für das Projekt eingeben.');
   const p = await projectFromSite({ name, number: v.number.trim(), address: v.address.trim() });

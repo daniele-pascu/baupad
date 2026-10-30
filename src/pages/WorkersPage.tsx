@@ -44,6 +44,7 @@ import { getCompanyLogo } from '../lib/company';
 import { absenceOn, absenceRange, absenceSummary } from '../lib/crew-absence';
 import { exportCrewBackup, importCrewBackup } from '../lib/crew-backup';
 import { linkSitesToProject, projectFromSite } from '../lib/crew-link';
+import { useCanCreateProjects } from '../lib/sites';
 import { crewDayPdf, crewWeekPdf } from '../lib/crew-pdf';
 import { uuid } from '../lib/ids';
 import { navigate, paths } from '../lib/router';
@@ -943,6 +944,7 @@ function SiteDialog({
   onClose(): void;
 }) {
   const [projectId, setProjectId] = useState<string>(site?.projectId ?? '');
+  const mayCreate = useCanCreateProjects();
   /** Quelle: Projekt aus dem Register wählen oder neues Projekt anlegen (erscheint dann in allen Werkzeugen) */
   const [source, setSource] = useState<'project' | 'new'>(() => (site ? (site.projectId ? 'project' : 'new') : projects.some((p) => !taken.includes(p.id)) ? 'project' : 'new'));
   const [name, setName] = useState(site?.name ?? '');
@@ -992,6 +994,7 @@ function SiteDialog({
           <button type="button" role="radio" aria-checked={source === 'project'} aria-selected={source === 'project'} onClick={() => setSource('project')} disabled={!projects.length} data-testid="site-source-project">
             <ToolIcon name="projects" size={16} /> Aus Aufmaß & Abrechnung
           </button>
+          {mayCreate && (
           <button
             type="button"
             role="radio"
@@ -1005,8 +1008,9 @@ function SiteDialog({
           >
             <Icon name="plus" size={16} /> Neues Projekt (manuell)
           </button>
+          )}
         </div>
-        {!projects.length && <p className="muted small">Noch keine Projekte in Aufmaß & Abrechnung.</p>}
+        {!projects.length && <p className="muted small">{mayCreate ? 'Noch keine Projekte im Register.' : 'Noch keine Projekte – Projekte legt Admin oder Büro an.'}</p>}
         {source === 'project' && (
         <label className="field">
           <span>Projekt wählen *</span>

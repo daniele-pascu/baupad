@@ -14,6 +14,7 @@ import { navigate, paths } from '../lib/router';
 import type { Photo, Project } from '../lib/types';
 import { usePageTitle } from '../lib/page-title';
 import { useAccess } from '../lib/access';
+import { useCanCreateProjects } from '../lib/sites';
 
 const ACCENT = { '--tool': '#111111' } as CSSProperties;
 
@@ -40,20 +41,23 @@ const fmt = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString('de-DE',
  * Nummer, Adresse, KW, Datum, Benutzer und Beschreibung; großer Knopf „Foto aufnehmen“ (Handy/Tablet).
  */
 export function PhotosPage() {
+  const mayCreate = useCanCreateProjects();
   usePageTitle('Fotodokumentation – BauPad');
   const [photos, setPhotos] = useState<Photo[] | null>(null);
-  const [sites, setSites] = useState<PhotoSite[]>([]);
+  const access = useAccess();
+  const [allSites, setAllSites] = useState<PhotoSite[]>([]);
+  /** nur freigegebene Projekte (Filter beim Rendern, damit er auch greift, wenn die Sitzung später kommt) */
+  const sites = useMemo(() => access.filterSites(allSites, (s) => (s.projectId ? `p:${s.projectId}` : `n:${s.name.trim().toLowerCase()}`)), [allSites, access.session]);
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<'recent' | 'name'>('recent');
   const [creating, setCreating] = useState(false);
-  const access = useAccess();
 
   const reload = () =>
     getPhotoStorage()
       .list()
       .then(async (list) => {
         setPhotos(list);
-        setSites(access.filterSites(await loadPhotoSites(list), (s) => (s.projectId ? `p:${s.projectId}` : `n:${s.name.trim().toLowerCase()}`)));
+        setAllSites(await loadPhotoSites(list));
       })
       .catch((e) => showError(e, 'Fotos konnten nicht geladen werden'));
   useEffect(() => {
@@ -94,9 +98,11 @@ export function PhotosPage() {
             </a>
             <h1 data-testid="photos-title">Fotodokumentation</h1>
           </div>
+          {mayCreate && (
           <button type="button" className="btn btn-sm" onClick={() => setCreating(true)} aria-label="Neues Projekt" title="Neues Projekt" data-testid="photo-new-site">
             <Icon name="plus" size={16} /> <span className="lbl">Neues Projekt</span>
           </button>
+          )}
         </header>
         {creating && (
           <PhotoSiteDialog

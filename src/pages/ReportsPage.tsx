@@ -55,7 +55,8 @@ export function ReportsPage() {
   const access = useAccess();
   usePageTitle('Berichte & Formulare – BauPad');
   const [reports, setReports] = useState<Report[] | null>(null);
-  const [sites, setSites] = useState<PhotoSite[]>([]);
+  const [allSites, setAllSites] = useState<PhotoSite[]>([]);
+  const sites = useMemo(() => access.filterSites(allSites, (s) => (s.projectId ? `p:${s.projectId}` : `n:${s.name.trim().toLowerCase()}`)), [allSites, access.session]);
   const [query, setQuery] = useState('');
   const [creating, setCreating] = useState<{ site?: SiteChoice } | null>(null);
   const restoreRef = useRef<HTMLInputElement>(null);
@@ -64,7 +65,7 @@ export function ReportsPage() {
     listReports()
       .then(async (r) => {
         setReports(r);
-        setSites(access.filterSites(await loadReportSites(), (s) => (s.projectId ? `p:${s.projectId}` : `n:${s.name.trim().toLowerCase()}`)));
+        setAllSites(await loadReportSites());
       })
       .catch((e) => showError(e, 'Berichte konnten nicht geladen werden'));
   useEffect(() => {

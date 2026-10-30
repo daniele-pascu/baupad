@@ -11,6 +11,7 @@ import { formatDateTime, naturalCompare } from '../lib/numbers';
 import { navigate, paths } from '../lib/router';
 import { closeProject, createProjectWithCostCenters } from '../lib/store';
 import { useAccess } from '../lib/access';
+import { useCanCreateProjects } from '../lib/sites';
 import { linkSitesToProject, sitesWithoutProject } from '../lib/crew-link';
 import type { Project } from '../lib/types';
 
@@ -63,6 +64,7 @@ function filterAndSort(rows: Row[], query: string, sort: { key: SortKey; dir: 'a
 }
 
 export function HomePage() {
+  const mayCreate = useCanCreateProjects();
   const [rows, setRows] = useState<Row[] | null>(null);
   const [creating, setCreating] = useState(false);
   /** Baustellen der Arbeitereinteilung ohne Projekt (für „Neues Projekt“) */
@@ -237,9 +239,11 @@ export function HomePage() {
       </header>
 
       <div className="home-actions">
+        {mayCreate && (
         <button type="button" className="btn btn-primary btn-lg" onClick={() => setCreating(true)} data-testid="new-project">
           <Icon name="plus" /> Neues Projekt
         </button>
+        )}
         <button type="button" className="btn btn-lg" onClick={() => importRef.current?.click()}>
           <Icon name="upload" /> Projektsicherung öffnen (.zip)
         </button>

@@ -13,24 +13,28 @@ import type { PhotoSite } from '../lib/types';
 import { loadPhotoSites } from './PhotosPage';
 import { usePageTitle } from '../lib/page-title';
 import { useAccess } from '../lib/access';
+import { useCanCreateProjects } from '../lib/sites';
 
 export const DEFECT_ACCENT = { '--tool': '#d6242b' } as CSSProperties;
 
 /** Mängelplan – Übersicht: Baustellen mit Plänen und Markierungen, Plan hochladen, neue Baustelle */
 export function DefectsPage() {
+  const mayCreate = useCanCreateProjects();
   usePageTitle('Mängelplan – BauPad');
-  const [summaries, setSummaries] = useState<DefectSiteSummary[] | null>(null);
-  const [sites, setSites] = useState<PhotoSite[]>([]);
+  const access = useAccess();
+  const [allSummaries, setAllSummaries] = useState<DefectSiteSummary[] | null>(null);
+  const [allSites, setAllSites] = useState<PhotoSite[]>([]);
+  const summaries = useMemo(() => (allSummaries ? access.filterSites(allSummaries, (x) => x.key) : null), [allSummaries, access.session]);
+  const sites = useMemo(() => access.filterSites(allSites, (s) => (s.projectId ? `p:${s.projectId}` : `n:${s.name.trim().toLowerCase()}`)), [allSites, access.session]);
   const [query, setQuery] = useState('');
   const [uploading, setUploading] = useState(false);
   const [creating, setCreating] = useState(false);
-  const access = useAccess();
 
   const reload = async () => {
     try {
       const [plans, marks, photos] = await Promise.all([listDefectPlans(), listDefectMarks(), getPhotoStorage().list()]);
-      setSummaries(access.filterSites(summarize(plans, marks), (x) => x.key));
-      setSites(access.filterSites(await loadPhotoSites(photos), (s) => (s.projectId ? `p:${s.projectId}` : `n:${s.name.trim().toLowerCase()}`)));
+      setAllSummaries(summarize(plans, marks));
+      setAllSites(await loadPhotoSites(photos));
     } catch (e) {
       showError(e, 'Mängelpläne konnten nicht geladen werden');
     }
@@ -57,9 +61,11 @@ export function DefectsPage() {
             <h1 data-testid="defects-title">Mängelplan</h1>
           </div>
           <div className="row gap">
+            {mayCreate && (
             <button type="button" className="btn btn-sm" onClick={() => setCreating(true)} data-testid="defect-new-site">
               <Icon name="plus" size={16} /> <span className="lbl">Neues Projekt</span>
             </button>
+            )}
             <button type="button" className="btn btn-sm btn-primary" onClick={() => setUploading(true)} data-testid="defect-upload">
               <Icon name="upload" size={16} /> Plan hochladen
             </button>
