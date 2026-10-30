@@ -17,12 +17,6 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now()
 );
 alter table public.profiles add column if not exists phone text not null default '';
--- Zugriff je Benutzer: Baustellen-Schlüssel (p:<Projekt> bzw. n:<Name>); leer = alle Baustellen
-alter table public.memberships add column if not exists sites text[] not null default '{}';
-alter table public.invitations add column if not exists sites text[] not null default '{}';
--- Zugriff je Werkzeug: {"photos": ["p:<Projekt>", …], …}; fehlendes Werkzeug oder leere Liste = alle Projekte
-alter table public.memberships add column if not exists tool_sites jsonb not null default '{}'::jsonb;
-alter table public.invitations add column if not exists tool_sites jsonb not null default '{}'::jsonb;
 
 create table if not exists public.memberships (
   workspace_id uuid not null references public.workspaces (id) on delete cascade,
@@ -54,6 +48,13 @@ create table if not exists public.invitations (
   created_at timestamptz not null default now(),
   primary key (workspace_id, email)
 );
+
+-- Zugriff je Benutzer: Baustellen-Schlüssel (p:<Projekt> bzw. n:<Name>); leer = alle Baustellen
+alter table public.memberships add column if not exists sites text[] not null default '{}';
+alter table public.invitations add column if not exists sites text[] not null default '{}';
+-- Zugriff je Werkzeug: {"photos": ["p:<Projekt>", …], …}; fehlendes Werkzeug oder leere Liste = alle Projekte
+alter table public.memberships add column if not exists tool_sites jsonb not null default '{}'::jsonb;
+alter table public.invitations add column if not exists tool_sites jsonb not null default '{}'::jsonb;
 
 -- 2) Zugriffsregeln (Row Level Security) ----------------------------------------
 alter table public.workspaces enable row level security;
