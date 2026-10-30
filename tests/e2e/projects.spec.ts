@@ -207,7 +207,7 @@ test('Angemeldet: Tools, Einstellungen und Benutzerliste', async ({ page }) => {
   await expect(ud.getByTestId('user-tool-reports')).toBeChecked();
   await expect(ud.getByTestId('user-tool-projects')).not.toBeChecked();
   await ud.getByTestId('user-tool-workers').check();
-  await expect(ud.getByTestId('user-sites-all')).toHaveAttribute('aria-checked', 'true'); // Standard: alle Baustellen
+  await expect(ud.getByTestId('user-sites-all-photos')).toHaveAttribute('aria-checked', 'true'); // Standard: alle Projekte je Werkzeug
   await ud.getByTestId('user-save').click();
   await expect(page.getByTestId('user-row')).toHaveCount(1);
   await expect(page.getByTestId('user-row')).toContainText('Polier');

@@ -11,7 +11,7 @@ import { freshStart, FIXTURES } from './helpers';
  */
 
 const jpeg = readFileSync(join(FIXTURES, 'foto.jpg'));
-const CONTEXT = { workspace_id: '11111111-1111-4111-8111-111111111111', workspace_name: 'Testfirma', role: 'admin', pkg: 'pro', tools: [], sites: [], operator: true, name: 'Test Nutzer', phone: '' };
+const CONTEXT = { workspace_id: '11111111-1111-4111-8111-111111111111', workspace_name: 'Testfirma', role: 'admin', pkg: 'pro', tools: [], sites: [], tool_sites: {}, operator: true, name: 'Test Nutzer', phone: '' };
 
 interface Row {
   id: string;

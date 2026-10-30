@@ -48,6 +48,7 @@ interface Context {
   pkg: PackageId | null;
   tools: ToolId[] | null;
   sites: string[] | null;
+  tool_sites: Record<string, string[]> | null;
   operator: boolean;
   name: string | null;
   phone: string | null;
@@ -240,6 +241,7 @@ export class SupabaseAuth implements AuthBackend {
       pkg: ctx?.pkg ?? null,
       tools: ctx?.tools ?? [],
       sites: ctx?.sites ?? [],
+      toolSites: (ctx?.tool_sites ?? {}) as Session['toolSites'],
       providers: providers.length ? providers : raw.user.app_metadata?.provider ? [raw.user.app_metadata.provider] : [],
     };
     this.cache = { userId: raw.user.id, session, partial: ctx === null };

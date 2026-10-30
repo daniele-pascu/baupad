@@ -22,6 +22,8 @@ export const ROLES: { id: Role; label: string; text: string }[] = [
 ];
 
 export type ToolId = 'projects' | 'workers' | 'reports' | 'photos' | 'defects';
+/** je Werkzeug: Projekt-Schlüssel (p:<Projekt>), auf die der Benutzer zugreifen darf; fehlt/leer = alle Projekte */
+export type ToolSites = Partial<Record<ToolId, string[]>>;
 export const TOOLS: { id: ToolId; label: string }[] = [
   { id: 'projects', label: 'Aufmaß & Abrechnung' },
   { id: 'workers', label: 'Arbeitereinteilung' },
@@ -60,8 +62,10 @@ export interface CompanyUser {
   tools: ToolId[];
   pkg: PackageId;
   active: boolean;
-  /** Baustellen, auf die der Benutzer zugreifen darf (Schlüssel p:<Projekt> bzw. n:<Name>); leer = alle */
+  /** ältere Einstellung: Baustellen für alle Werkzeuge gemeinsam (p:<Projekt> bzw. n:<Name>); leer = alle */
   sites: string[];
+  /** Projekte je Werkzeug (Admin legt sie fest); fehlt/leer = alle Projekte des Werkzeugs */
+  toolSites: ToolSites;
   createdAt: number;
   /** aus der Datenbank: Mitglied mit Konto oder eingeladen (noch nicht registriert) */
   status?: 'member' | 'invited';
@@ -85,6 +89,8 @@ export interface Session {
   /** freigegebene Werkzeuge und Baustellen (leer = alle); Admin hat immer alles */
   tools: ToolId[];
   sites: string[];
+  /** Projekte je Werkzeug (leer = alle) */
+  toolSites: ToolSites;
   /** verbundene Anmeldemethoden (email, google, apple, azure) */
   providers: string[];
 }

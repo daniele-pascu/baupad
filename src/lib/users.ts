@@ -21,11 +21,12 @@ interface RemoteRow {
   pkg: CompanyUser['pkg'];
   active: boolean;
   sites: string[] | null;
+  tool_sites: Record<string, string[]> | null;
   status: 'member' | 'invited';
   me: boolean;
   created_at: number;
 }
-const fromRow = (r: RemoteRow): CompanyUser => ({ id: r.id, email: r.email, name: r.name, role: r.role, tools: r.tools, pkg: r.pkg, active: r.active, sites: r.sites ?? [], createdAt: r.created_at, status: r.status, me: r.me });
+const fromRow = (r: RemoteRow): CompanyUser => ({ id: r.id, email: r.email, name: r.name, role: r.role, tools: r.tools, pkg: r.pkg, active: r.active, sites: r.sites ?? [], toolSites: (r.tool_sites ?? {}) as CompanyUser['toolSites'], createdAt: r.created_at, status: r.status, me: r.me });
 
 export async function listCompanyUsers(session?: Session | null): Promise<CompanyUser[]> {
   if (usesRemote(session)) {
@@ -36,7 +37,7 @@ export async function listCompanyUsers(session?: Session | null): Promise<Compan
 }
 
 export async function listLocalUsers(): Promise<CompanyUser[]> {
-  return ((await getMeta<CompanyUser[]>(KEY)) ?? []).map((u) => ({ ...u, sites: u.sites ?? [] })).sort((a, b) => a.name.localeCompare(b.name, 'de') || a.email.localeCompare(b.email));
+  return ((await getMeta<CompanyUser[]>(KEY)) ?? []).map((u) => ({ ...u, sites: u.sites ?? [], toolSites: u.toolSites ?? {} })).sort((a, b) => a.name.localeCompare(b.name, 'de') || a.email.localeCompare(b.email));
 }
 
 export async function saveCompanyUser(u: Omit<CompanyUser, 'id' | 'createdAt'> & { id?: string }, session?: Session | null): Promise<CompanyUser> {
@@ -52,6 +53,7 @@ export async function saveCompanyUser(u: Omit<CompanyUser, 'id' | 'createdAt'> &
       p_pkg: u.pkg,
       p_active: u.active,
       p_sites: u.sites ?? [],
+      p_tool_sites: u.toolSites ?? {},
     });
     return { ...u, id: r.id, email, name: u.name.trim(), createdAt: Date.now(), status: r.status };
   }
@@ -87,6 +89,7 @@ async function saveLocalUser(u: Omit<CompanyUser, 'id' | 'createdAt'> & { id?: s
     pkg: u.pkg,
     active: u.active,
     sites: u.sites ?? [],
+    toolSites: u.toolSites ?? {},
   };
   await setMeta(KEY, [...list.filter((x) => x.id !== next.id), next]);
   return next;

@@ -66,3 +66,7 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - **Technik:** Capacitor verpackt die bestehende Web-App (eine Code-Basis) als Android-App, später iOS. App-ID `at.padsoftware.baupad`. Native Kamera in der Fotodokumentation (volle Qualität), sonst gleiche Oberfläche und Daten wie die Website.
 - **Reihenfolge:** Jetzt Android-App als Test-APK (Build über GitHub Actions, weil der Android-SDK-Server aus der Entwicklungsumgebung nicht erreichbar ist). Store-Veröffentlichung erst zum Verkaufsstart, weil jede Änderung der App einen neuen Store-Upload mit Prüfung bräuchte; die Website aktualisiert sich von selbst. iPhone braucht einen Mac mit Xcode oder einen Cloud-Build-Dienst – Entscheidung offen.
 - **Anbieter im Store:** ohne Firma der Name der Person; nach der Gründung Umstellung auf PAD Software.
+
+## Projektregister und Rechte je Werkzeug (30.10.2026)
+- **Ein Projektregister für alle Werkzeuge:** „Neues Projekt“ in Fotos, Berichten, Mängelplan oder Einteilung legt ein echtes Projekt an (auch in Aufmaß & Abrechnung sichtbar, dort ohne Pläne). Gleicher Name = dasselbe Projekt, keine Dubletten. Frei eingetippte Baustellen aus älteren Ständen werden beim Start einmalig übernommen.
+- **Rechte je Werkzeug und Projekt:** Admin legt pro Benutzer je Werkzeug fest: Werkzeug an/aus und „Alle Projekte“ oder ausgewählte (Spalte `tool_sites` in `memberships`/`invitations`). Die ältere gemeinsame Baustellenliste bleibt als Rückfall. Durchsetzung zuerst in der App; serverseitig mit dem Datenabgleich (nächster Schritt).

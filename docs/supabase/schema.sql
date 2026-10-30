@@ -20,6 +20,9 @@ alter table public.profiles add column if not exists phone text not null default
 -- Zugriff je Benutzer: Baustellen-Schlüssel (p:<Projekt> bzw. n:<Name>); leer = alle Baustellen
 alter table public.memberships add column if not exists sites text[] not null default '{}';
 alter table public.invitations add column if not exists sites text[] not null default '{}';
+-- Zugriff je Werkzeug: {"photos": ["p:<Projekt>", …], …}; fehlendes Werkzeug oder leere Liste = alle Projekte
+alter table public.memberships add column if not exists tool_sites jsonb not null default '{}'::jsonb;
+alter table public.invitations add column if not exists tool_sites jsonb not null default '{}'::jsonb;
 
 create table if not exists public.memberships (
   workspace_id uuid not null references public.workspaces (id) on delete cascade,
@@ -103,8 +106,8 @@ begin
   co := coalesce(nullif(trim(new.raw_user_meta_data ->> 'company'), ''), nm);
   insert into public.profiles (id, email, name) values (new.id, coalesce(new.email, ''), nm) on conflict (id) do nothing;
   -- Eingeladen? Dann Mitglied im einladenden Arbeitsbereich, kein eigener
-  insert into public.memberships (workspace_id, user_id, role, tools, pkg, active, sites)
-    select i.workspace_id, new.id, i.role, i.tools, i.pkg, i.active, i.sites
+  insert into public.memberships (workspace_id, user_id, role, tools, pkg, active, sites, tool_sites)
+    select i.workspace_id, new.id, i.role, i.tools, i.pkg, i.active, i.sites, i.tool_sites
     from public.invitations i where lower(i.email) = lower(coalesce(new.email, ''))
   on conflict do nothing;
   delete from public.invitations where lower(email) = lower(coalesce(new.email, ''));
@@ -129,6 +132,7 @@ language sql stable security definer set search_path = public as $$
     'pkg', m.pkg,
     'tools', m.tools,
     'sites', m.sites,
+    'tool_sites', m.tool_sites,
     'name', p.name,
     'phone', p.phone,
     'operator', exists (select 1 from public.operators o where lower(o.email) = lower(coalesce(auth.jwt() ->> 'email', '')))
@@ -171,8 +175,8 @@ declare
   em text := lower(coalesce(auth.jwt() ->> 'email', ''));
 begin
   if uid is null or em = '' then return; end if;
-  insert into public.memberships (workspace_id, user_id, role, tools, pkg, active, sites)
-    select i.workspace_id, uid, i.role, i.tools, i.pkg, i.active, i.sites from public.invitations i where lower(i.email) = em
+  insert into public.memberships (workspace_id, user_id, role, tools, pkg, active, sites, tool_sites)
+    select i.workspace_id, uid, i.role, i.tools, i.pkg, i.active, i.sites, i.tool_sites from public.invitations i where lower(i.email) = em
   on conflict do nothing;
   delete from public.invitations where lower(email) = em;
 end;
@@ -191,12 +195,12 @@ create or replace function public.list_workspace_users() returns json
 language sql stable security definer set search_path = public as $$
   select coalesce(json_agg(x order by x.name, x.email), '[]'::json)
   from (
-    select p.id::text as id, p.email, p.name, m.role, m.tools, m.pkg, m.active, m.sites, 'member' as status,
+    select p.id::text as id, p.email, p.name, m.role, m.tools, m.pkg, m.active, m.sites, m.tool_sites, 'member' as status,
            (m.user_id = auth.uid()) as me, extract(epoch from m.created_at) * 1000 as created_at
     from public.memberships m join public.profiles p on p.id = m.user_id
     where m.workspace_id = public.my_admin_workspace()
     union all
-    select 'inv:' || i.email, i.email, i.name, i.role, i.tools, i.pkg, i.active, i.sites, 'invited', false, extract(epoch from i.created_at) * 1000
+    select 'inv:' || i.email, i.email, i.name, i.role, i.tools, i.pkg, i.active, i.sites, i.tool_sites, 'invited', false, extract(epoch from i.created_at) * 1000
     from public.invitations i where i.workspace_id = public.my_admin_workspace()
   ) x;
 $$;
@@ -205,7 +209,8 @@ grant execute on function public.list_workspace_users() to authenticated;
 
 -- Benutzer anlegen oder ändern: vorhandenes Konto → Mitgliedschaft, sonst Einladung
 drop function if exists public.upsert_workspace_user(text, text, text, text[], text, boolean);
-create or replace function public.upsert_workspace_user(p_email text, p_name text, p_role text, p_tools text[], p_pkg text, p_active boolean, p_sites text[] default '{}') returns json
+drop function if exists public.upsert_workspace_user(text, text, text, text[], text, boolean, text[]);
+create or replace function public.upsert_workspace_user(p_email text, p_name text, p_role text, p_tools text[], p_pkg text, p_active boolean, p_sites text[] default '{}', p_tool_sites jsonb default '{}'::jsonb) returns json
 language plpgsql security definer set search_path = public as $$
 declare
   ws uuid := public.my_admin_workspace();
@@ -220,20 +225,20 @@ begin
     if target = auth.uid() and (p_role <> 'admin' or not p_active) then
       raise exception 'Du kannst dir selbst die Admin-Rechte nicht nehmen.';
     end if;
-    insert into public.memberships (workspace_id, user_id, role, tools, pkg, active, sites)
-      values (ws, target, p_role, p_tools, p_pkg, p_active, coalesce(p_sites, '{}'))
-    on conflict (workspace_id, user_id) do update set role = excluded.role, tools = excluded.tools, pkg = excluded.pkg, active = excluded.active, sites = excluded.sites;
+    insert into public.memberships (workspace_id, user_id, role, tools, pkg, active, sites, tool_sites)
+      values (ws, target, p_role, p_tools, p_pkg, p_active, coalesce(p_sites, '{}'), coalesce(p_tool_sites, '{}'::jsonb))
+    on conflict (workspace_id, user_id) do update set role = excluded.role, tools = excluded.tools, pkg = excluded.pkg, active = excluded.active, sites = excluded.sites, tool_sites = excluded.tool_sites;
     if p_name <> '' then update public.profiles set name = p_name where id = target and name = ''; end if;
     return json_build_object('status', 'member', 'id', target::text);
   end if;
-  insert into public.invitations (workspace_id, email, name, role, tools, pkg, active, invited_by, sites)
-    values (ws, em, p_name, p_role, p_tools, p_pkg, p_active, auth.uid(), coalesce(p_sites, '{}'))
-  on conflict (workspace_id, email) do update set name = excluded.name, role = excluded.role, tools = excluded.tools, pkg = excluded.pkg, active = excluded.active, sites = excluded.sites;
+  insert into public.invitations (workspace_id, email, name, role, tools, pkg, active, invited_by, sites, tool_sites)
+    values (ws, em, p_name, p_role, p_tools, p_pkg, p_active, auth.uid(), coalesce(p_sites, '{}'), coalesce(p_tool_sites, '{}'::jsonb))
+  on conflict (workspace_id, email) do update set name = excluded.name, role = excluded.role, tools = excluded.tools, pkg = excluded.pkg, active = excluded.active, sites = excluded.sites, tool_sites = excluded.tool_sites;
   return json_build_object('status', 'invited', 'id', 'inv:' || em);
 end;
 $$;
-revoke all on function public.upsert_workspace_user(text, text, text, text[], text, boolean, text[]) from public;
-grant execute on function public.upsert_workspace_user(text, text, text, text[], text, boolean, text[]) to authenticated;
+revoke all on function public.upsert_workspace_user(text, text, text, text[], text, boolean, text[], jsonb) from public;
+grant execute on function public.upsert_workspace_user(text, text, text, text[], text, boolean, text[], jsonb) to authenticated;
 
 -- Benutzer entfernen (Mitgliedschaft oder Einladung), nie sich selbst
 create or replace function public.remove_workspace_user(p_email text) returns void

@@ -741,7 +741,7 @@ function LogoSettings({ session }: { session?: Session | null }) {
 }
 
 /** Leerer Benutzer für den Dialog */
-const emptyUser = (): Omit<CompanyUser, 'id' | 'createdAt'> => ({ email: '', name: '', role: 'arbeiter', tools: defaultToolsForRole('arbeiter'), pkg: 'team', active: true, sites: [] });
+const emptyUser = (): Omit<CompanyUser, 'id' | 'createdAt'> => ({ email: '', name: '', role: 'arbeiter', tools: defaultToolsForRole('arbeiter'), pkg: 'team', active: true, sites: [], toolSites: {} });
 
 /**
  * Benutzer & Rollen: Der Admin trägt E-Mail, Name, Funktion, Tools und Paket ein. Gespeichert wird die Liste
@@ -856,7 +856,7 @@ function UsersSettings() {
 }
 
 function UserDialog({ value, session, onClose, onSaved }: { value: Omit<CompanyUser, 'id' | 'createdAt'> & { id?: string }; session?: Session | null; onClose(): void; onSaved(u: CompanyUser): void }) {
-  const [u, setU] = useState({ ...value, sites: value.sites ?? [] });
+  const [u, setU] = useState({ ...value, sites: value.sites ?? [], toolSites: value.toolSites ?? {} });
   const [busy, setBusy] = useState(false);
   /** alle bekannten Baustellen aus allen Werkzeugen (Projekte, Fotos, Berichte, Einteilung, Mängelplan) */
   const [allSites, setAllSites] = useState<PhotoSite[]>([]);
@@ -867,8 +867,12 @@ function UserDialog({ value, session, onClose, onSaved }: { value: Omit<CompanyU
       .then(setAllSites)
       .catch(() => {});
   }, []);
-  const restricted = u.sites.length > 0;
-  const toggleSite = (key: string) => setU((p) => ({ ...p, sites: p.sites.includes(key) ? p.sites.filter((x) => x !== key) : [...p.sites, key] }));
+  const setToolSites = (t: ToolId, keys: string[]) => setU((p) => ({ ...p, toolSites: { ...p.toolSites, [t]: keys } }));
+  const toggleToolSite = (t: ToolId, key: string) =>
+    setU((p) => {
+      const cur = p.toolSites[t] ?? [];
+      return { ...p, toolSites: { ...p.toolSites, [t]: cur.includes(key) ? cur.filter((x) => x !== key) : [...cur, key] } };
+    });
   const set = <K extends keyof typeof u>(k: K, v: (typeof u)[K]) => setU((p) => ({ ...p, [k]: v }));
   const setRole = (role: Role) => setU((p) => ({ ...p, role, tools: defaultToolsForRole(role) }));
   const toggleTool = (t: ToolId) => setU((p) => ({ ...p, tools: p.tools.includes(t) ? p.tools.filter((x) => x !== t) : [...p.tools, t] }));
@@ -920,39 +924,47 @@ function UserDialog({ value, session, onClose, onSaved }: { value: Omit<CompanyU
           </div>
         </fieldset>
         <fieldset className="field">
-          <span>Werkzeuge (Vorschlag je Funktion, anpassbar)</span>
-          <div className="check-inline">
-            {TOOLS.map((t) => (
-              <label key={t.id} className="check">
-                <input type="checkbox" checked={u.tools.includes(t.id)} onChange={() => toggleTool(t.id)} data-testid={`user-tool-${t.id}`} /> {t.label}
-              </label>
-            ))}
-          </div>
-        </fieldset>
-        <fieldset className="field">
-          <span>Baustellen{u.role === 'admin' ? ' (Admin sieht immer alle)' : ''}</span>
-          <div className="segmented" role="radiogroup" aria-label="Baustellen">
-            <button type="button" role="radio" aria-checked={!restricted} aria-selected={!restricted} onClick={() => set('sites', [])} data-testid="user-sites-all">
-              Alle Baustellen
-            </button>
-            <button type="button" role="radio" aria-checked={restricted} aria-selected={restricted} onClick={() => allSites[0] && !restricted && set('sites', [siteKeyOf(allSites[0].projectId, allSites[0].name)])} disabled={u.role === 'admin' || allSites.length === 0} data-testid="user-sites-some">
-              Nur ausgewählte
-            </button>
-          </div>
-          {restricted && u.role !== 'admin' && (
-            <div className="check-inline user-site-list" data-testid="user-site-list">
-              {allSites.map((s) => {
-                const key = siteKeyOf(s.projectId, s.name);
-                return (
-                  <label key={key} className="check">
-                    <input type="checkbox" checked={u.sites.includes(key)} onChange={() => toggleSite(key)} data-testid="user-site" data-site={key} /> {s.name}
-                    {s.number ? <span className="muted small"> · {s.number}</span> : null}
+          <span>Werkzeuge und Projekte{u.role === 'admin' ? ' (Admin hat immer alle Werkzeuge und Projekte)' : ' – je Werkzeug alle Projekte oder nur ausgewählte'}</span>
+          <div className="tool-access-list">
+            {TOOLS.map((t) => {
+              const on = u.tools.includes(t.id);
+              const chosen = u.toolSites[t.id] ?? [];
+              const some = chosen.length > 0;
+              return (
+                <div key={t.id} className={`tool-access${on ? ' on' : ''}`} data-testid={`user-tool-row-${t.id}`}>
+                  <label className="check">
+                    <input type="checkbox" checked={on} onChange={() => toggleTool(t.id)} data-testid={`user-tool-${t.id}`} /> <strong>{t.label}</strong>
                   </label>
-                );
-              })}
-            </div>
-          )}
-          {allSites.length === 0 && <p className="muted small">Noch keine Baustellen angelegt – Zugriff gilt daher für alle.</p>}
+                  {on && u.role !== 'admin' && (
+                    <div className="tool-access-sites">
+                      <div className="segmented small" role="radiogroup" aria-label={`Projekte in ${t.label}`}>
+                        <button type="button" role="radio" aria-checked={!some} aria-selected={!some} onClick={() => setToolSites(t.id, [])} data-testid={`user-sites-all-${t.id}`}>
+                          Alle Projekte
+                        </button>
+                        <button type="button" role="radio" aria-checked={some} aria-selected={some} onClick={() => allSites[0] && !some && setToolSites(t.id, [siteKeyOf(allSites[0].projectId, allSites[0].name)])} disabled={allSites.length === 0} data-testid={`user-sites-some-${t.id}`}>
+                          Nur ausgewählte
+                        </button>
+                      </div>
+                      {some && (
+                        <div className="check-inline user-site-list" data-testid={`user-site-list-${t.id}`}>
+                          {allSites.map((s) => {
+                            const key = siteKeyOf(s.projectId, s.name);
+                            return (
+                              <label key={key} className="check">
+                                <input type="checkbox" checked={chosen.includes(key)} onChange={() => toggleToolSite(t.id, key)} data-testid="user-site" data-site={key} data-tool={t.id} /> {s.name}
+                                {s.number ? <span className="muted small"> · {s.number}</span> : null}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          {allSites.length === 0 && u.role !== 'admin' && <p className="muted small">Noch keine Projekte angelegt – Zugriff gilt daher für alle.</p>}
         </fieldset>
         <label className="field">
           <span>Paket (vorläufig)</span>

@@ -3615,6 +3615,29 @@ tr.lv-flagged td {
 .status-pill.warn::before {
   background: #e8a200;
 }
+.tool-access-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.tool-access {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.tool-access.on {
+  background: var(--surface-2, #f6f7f9);
+}
+.tool-access-sites {
+  margin: 8px 0 2px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.segmented.small button {
+  padding: 4px 10px;
+  font-size: 0.85rem;
+}
 .cloud-settings {
   margin-top: 16px;
   padding-top: 14px;

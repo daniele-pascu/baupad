@@ -25,7 +25,7 @@ describe('SupabaseAuth', () => {
   it('baut die Sitzung aus Benutzer und Kontext der Datenbank', async () => {
     const a = new SupabaseAuth(fakeClient(), 'https://pad-software.at/');
     const s = await a.session();
-    expect(s).toEqual({ userId: 'u1', email: 'max@muster.at', name: 'Max Muster', role: 'admin', companyId: 'w1', companyName: 'Muster Bau GmbH', operator: false, phone: '0664', pkg: 'einzel', providers: ['email'], tools: ['photos'], sites: ['p:1'] });
+    expect(s).toEqual({ userId: 'u1', email: 'max@muster.at', name: 'Max Muster', role: 'admin', companyId: 'w1', companyName: 'Muster Bau GmbH', operator: false, phone: '0664', pkg: 'einzel', providers: ['email'], tools: ['photos'], sites: ['p:1'], toolSites: {} });
   });
 
   it('kommt ohne Kontext aus (z. B. Schema noch nicht angelegt): Name und Firma aus der Registrierung', async () => {
