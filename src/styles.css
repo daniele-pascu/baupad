@@ -3615,6 +3615,14 @@ tr.lv-flagged td {
 .status-pill.warn::before {
   background: #e8a200;
 }
+.cloud-settings {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line, #e5e5ea);
+}
+.cloud-settings .logo-settings-head {
+  margin-bottom: 8px;
+}
 .app-hint {
   margin: 0 0 12px;
   color: #6b4e00;

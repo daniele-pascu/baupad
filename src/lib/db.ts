@@ -348,6 +348,11 @@ export async function listPhotos(): Promise<Photo[]> {
   return (await (await getDB()).getAll('photos')).filter((p) => !p.deletedAt);
 }
 
+/** alle Fotos einschließlich der zum Löschen vorgemerkten (Abgleich mit der Ablage) */
+export async function listAllPhotos(): Promise<Photo[]> {
+  return (await getDB()).getAll('photos');
+}
+
 export async function getPhoto(id: string): Promise<Photo | undefined> {
   return (await getDB()).get('photos', id);
 }

@@ -4,6 +4,11 @@ import { browser, platform, promptInstall, requestPersistence, storageStatus, us
 import { Icon } from './Icon';
 import { Modal } from './Modal';
 import { toast } from './ui';
+import { cloudCall } from '../lib/cloud';
+import { retryPhotoCloud, syncPhotoCloud, useCloudState } from '../lib/photo-cloud';
+import { fmtBytes } from '../lib/photos';
+import { useSession } from '../lib/use-session';
+import { showError } from './ui';
 
 /**
  * „BauPad installieren“: direkt über den Installationsdialog des Browsers (Android, PC), sonst
@@ -159,6 +164,111 @@ export function AppStorageSettings() {
           </button>
         )}
       </div>
+      <CloudSettings />
     </section>
+  );
+}
+
+const CLOUD_LABELS = {
+  off: 'Nur auf diesem Gerät',
+  setup: 'Noch nicht eingerichtet',
+  connecting: 'Wird verbunden …',
+  ready: 'Verbunden',
+  error: 'Keine Verbindung',
+} as const;
+
+/** Konto → App und Speicher: Zustand der zentralen Ablage, Warteschlange, Abgleich; Betreiber: Prüfung und Einrichtung */
+function CloudSettings() {
+  const session = useSession();
+  const cloud = useCloudState();
+  const [busy, setBusy] = useState(false);
+  const [usage, setUsage] = useState<{ photos: number; bytes: number } | null>(null);
+  useEffect(() => {
+    if (cloud.status !== 'ready') return;
+    void cloudCall<{ photos: number; bytes: number }>('usage')
+      .then(setUsage)
+      .catch(() => setUsage(null));
+  }, [cloud.status, cloud.lastSyncAt]);
+  const run = async (label: string, fn: () => Promise<string>) => {
+    setBusy(true);
+    try {
+      toast(await fn(), 'success', 6000);
+    } catch (e) {
+      showError(e, label);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const sync = () => run('Abgleich fehlgeschlagen', async () => {
+    await syncPhotoCloud();
+    return 'Abgleich abgeschlossen.';
+  });
+  const retry = () => run('Ablage nicht erreichbar', async () => {
+    await retryPhotoCloud(session?.companyId ?? '');
+    return 'Verbindung zur Ablage aufgebaut.';
+  });
+  const check = () => run('Verbindung fehlgeschlagen', async () => {
+    const r = await cloudCall<{ ok: boolean; bucket: string; endpoint: string; region: string }>('status');
+    return `Verbunden: Bucket ${r.bucket} (${r.region}) über ${r.endpoint}.`;
+  });
+  const corsSetup = () => run('Einrichtung fehlgeschlagen', async () => {
+    await cloudCall('setup-cors');
+    return 'Browser-Zugriff am Bucket eingerichtet (CORS).';
+  });
+  const tone = cloud.status === 'ready' ? ' ok' : cloud.status === 'off' || cloud.status === 'connecting' ? '' : ' warn';
+  const time = (t: number) => new Date(t).toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' });
+  return (
+    <div className="cloud-settings" data-testid="cloud-settings">
+      <div className="logo-settings-head">
+        <div>
+          <strong>Zentrale Ablage</strong>
+          <span className="muted">Fotos aller Geräte deiner Firma – gespeichert in Nürnberg (Hetzner), Zugriff nur für angemeldete Benutzer deiner Firma.</span>
+        </div>
+      </div>
+      <div className="app-status">
+        <span className={`status-pill${tone}`} data-testid="cloud-status">
+          {CLOUD_LABELS[cloud.status]}
+        </span>
+        {cloud.status !== 'off' && cloud.pending > 0 && (
+          <span className="muted small" data-testid="cloud-pending">
+            {cloud.pending} {cloud.pending === 1 ? 'Foto wartet' : 'Fotos warten'} auf Upload
+          </span>
+        )}
+        {cloud.lastSyncAt && <span className="muted small">Abgleich {time(cloud.lastSyncAt)}</span>}
+        {usage && (
+          <span className="muted small" data-testid="cloud-usage">
+            In der Ablage: {usage.photos} {usage.photos === 1 ? 'Foto' : 'Fotos'}, {fmtBytes(usage.bytes)}
+          </span>
+        )}
+      </div>
+      {cloud.message && cloud.status !== 'ready' && (
+        <p className="small app-hint" data-testid="cloud-message">
+          {cloud.message}
+        </p>
+      )}
+      {cloud.status === 'off' && !session?.companyId && session && <p className="muted small">Dein Konto gehört zu keiner Firma – Fotos bleiben auf diesem Gerät.</p>}
+      <div className="row gap wrap">
+        {cloud.status === 'ready' && (
+          <button type="button" className="btn" onClick={() => void sync()} disabled={busy || cloud.busy} data-testid="cloud-sync">
+            <Icon name="refresh" /> Jetzt abgleichen
+          </button>
+        )}
+        {(cloud.status === 'setup' || cloud.status === 'error') && session?.companyId && (
+          <button type="button" className="btn" onClick={() => void retry()} disabled={busy} data-testid="cloud-retry">
+            <Icon name="refresh" /> Erneut verbinden
+          </button>
+        )}
+        {session?.operator && (
+          <>
+            <button type="button" className="btn" onClick={() => void check()} disabled={busy} data-testid="cloud-check">
+              Verbindung prüfen
+            </button>
+            <button type="button" className="btn" onClick={() => void corsSetup()} disabled={busy} data-testid="cloud-cors">
+              Browser-Zugriff einrichten
+            </button>
+          </>
+        )}
+      </div>
+    </div>
   );
 }

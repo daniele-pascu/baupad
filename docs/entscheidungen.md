@@ -55,3 +55,9 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - **Adressen:** saubere Adressen ohne `#`; alte `#/…`-Adressen werden umgeschrieben. Website-Seiten werden vorgerendert (Titel, Meta, canonical, hreflang, Open Graph, JSON-LD), dazu sitemap.xml, robots.txt, 404.html als App-Fallback.
 - **Kontaktformular:** Supabase Edge Function `contact` + Resend (kostenlos bis 3.000 Mails/Monat) an office@pad-software.at, Sicherung in `contact_messages` (12 Monate), Honigtopf, Mindestdauer, Bremse. Einrichtung durch den Betreiber: `docs/kontaktformular.md`. Bis dahin meldet das Formular ehrlich „noch nicht eingerichtet“.
 - **Cookies/Analyse:** nichts vorhanden, kein Banner nötig; Einführung nur nach Entscheidung und mit Einwilligung.
+
+## Zentrale Ablage (30.10.2026)
+- **Speicherort:** Hetzner Object Storage (S3-kompatibel), Bucket `baupad-dateien`, Nürnberg (Deutschland), 1 TB für rund 6 €/Monat; Konto office@pad-software.at mit Zwei-Faktor-Anmeldung. Kein Supabase Storage (bei 1 TB deutlich teurer).
+- **Zugang:** Die App kennt keine Hetzner-Schlüssel. Die Supabase-Funktion `storage` prüft die Anmeldung, bestimmt den Arbeitsbereich und gibt kurzlebige signierte Links (Upload 15 min, Download 60 min) nur unter `ws/<Arbeitsbereich>/…` aus. Verzeichnis der Dateien in der Tabelle `photos` mit Zugriffsregeln je Firma.
+- **Reihenfolge:** 1. Fotos (umgesetzt: Upload nach dem Speichern, Abgleich zwischen Geräten, Nachladen, Löschen für alle), 2. Pläne/Berichte/Projekte, 3. Datenschutzerklärung und AVV mit Hetzner.
+- **Verhalten:** Gerät bleibt Zwischenspeicher (offline-fähig); Konto ohne Firma oder nicht eingerichtete Ablage → alles bleibt lokal, Konto zeigt den Zustand. Einrichtung: `docs/ablage-einrichten.md`.

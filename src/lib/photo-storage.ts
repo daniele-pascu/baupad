@@ -6,8 +6,9 @@ import type { Photo } from './types';
  * mit dieser Schnittstelle – nicht mit einem bestimmten Speicherort. So lässt sich die zentrale Ablage
  * (Cloud) später anbinden oder austauschen, ohne die Fotodokumentation neu zu entwickeln.
  *
- * Heute ist nur der lokale Adapter aktiv: Bilder liegen auf diesem Gerät, Status „nur auf diesem Gerät“.
- * Der Cloud-Adapter ist vorbereitet (Schnittstelle), aber noch mit keinem Dienst verbunden.
+ * Lokaler Adapter: Bilder liegen nur auf diesem Gerät (ohne Firma/Arbeitsbereich oder ohne eingerichtete Ablage).
+ * Cloud-Adapter (photo-cloud.ts): Gerät als Zwischenspeicher, Upload-Warteschlange und Abgleich mit der
+ * zentralen Ablage (Hetzner Object Storage über die Supabase-Funktion „storage“).
  */
 
 export interface PhotoBlobs {
@@ -56,17 +57,6 @@ export class LocalPhotoStorage implements PhotoStorage {
   }
 }
 
-/**
- * Anbindung einer zentralen Ablage (Phase 3): Hochladen, Abrufen und Löschen über einen Dienst, der die
- * Berechtigung je Anfrage prüft und nur kurzlebige, geschützte Links ausgibt. Noch nicht verbunden.
- */
-export interface CloudPhotoBackend {
-  upload(photo: Photo, blobs: PhotoBlobs): Promise<{ remoteId: string }>;
-  download(remoteId: string): Promise<PhotoBlobs>;
-  remove(remoteId: string): Promise<void>;
-  list(): Promise<Photo[]>;
-}
-
 let storage: PhotoStorage = new LocalPhotoStorage();
 
 /** aktive Ablage (lokal, bis die zentrale Ablage angebunden ist) */
@@ -75,5 +65,16 @@ export const setPhotoStorage = (s: PhotoStorage) => {
   storage = s;
 };
 
-/** Ist eine zentrale Ablage angebunden? (Phase 3) */
+/** Ist eine zentrale Ablage angebunden? */
 export const cloudConnected = () => storage.kind === 'cloud';
+
+/** Fotos haben sich im Hintergrund geändert (Abgleich mit der Ablage) – Seiten laden neu */
+const EVT = 'baupad:photos';
+export const notifyPhotosChanged = () => {
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(EVT));
+};
+export function onPhotosChanged(cb: () => void): () => void {
+  if (typeof window === 'undefined') return () => {};
+  window.addEventListener(EVT, cb);
+  return () => window.removeEventListener(EVT, cb);
+}

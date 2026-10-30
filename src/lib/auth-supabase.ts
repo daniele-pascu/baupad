@@ -32,6 +32,8 @@ export interface RawUser {
 }
 export interface RawSession {
   user: RawUser;
+  /** Zugangs-Token für Dienste, die die Anmeldung prüfen (Supabase-Funktionen) */
+  access_token?: string;
 }
 interface AuthResult {
   data: { user: RawUser | null; session: RawSession | null };

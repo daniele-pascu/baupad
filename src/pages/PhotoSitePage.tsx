@@ -11,7 +11,7 @@ import { PhotoCapture, type PhotoSite } from '../components/PhotoCapture';
 import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, offerFile, showError, toast } from '../components/ui';
 import { safeFileName } from '../lib/aufmass';
-import { getPhotoStorage } from '../lib/photo-storage';
+import { getPhotoStorage, onPhotosChanged } from '../lib/photo-storage';
 import { dateTimeLabel, dayTitle, fmtBytes, GROUP_MODES, groupPhotos, matchesPhoto, type PhotoGroupMode, photoSiteKey, rotateImage, SYNC_LABELS, timeLabel } from '../lib/photos';
 import { navigate, paths } from '../lib/router';
 import type { Photo } from '../lib/types';
@@ -108,6 +108,7 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
       .catch((e) => showError(e, 'Fotos konnten nicht geladen werden'));
   useEffect(() => {
     void reload();
+    return onPhotosChanged(() => void reload());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [siteKey]);
 

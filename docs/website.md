@@ -53,6 +53,7 @@ src/site/
                          Stage (Software-Panels als Platzhalter), Shapes (abstrakter Hintergrund)
   pages/                 Home, Products, BauPad, Tool, Company, Contact (+ Danke), Future, Legal (+ 404)
 supabase/functions/contact/   Edge Function für das Kontaktformular (Resend) – siehe docs/kontaktformular.md
+supabase/functions/storage/   Edge Function der zentralen Ablage (Hetzner Object Storage) – siehe docs/ablage-einrichten.md
 ```
 
 ## Inhalte ändern

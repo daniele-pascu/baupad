@@ -13,3 +13,12 @@ declare module 'node:os' {
 declare module 'node:path' {
   export function join(...parts: string[]): string;
 }
+declare module 'node:crypto' {
+  interface Hash {
+    update(data: string | Uint8Array): Hash;
+    digest(): Uint8Array;
+    digest(encoding: 'hex' | 'base64'): string;
+  }
+  export function createHash(algorithm: string): Hash;
+  export function createHmac(algorithm: string, key: string | Uint8Array): Hash;
+}

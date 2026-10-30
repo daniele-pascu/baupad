@@ -14,3 +14,10 @@ export async function rpc<T>(fn: string, args?: Record<string, unknown>): Promis
   if (error) throw new Error(error.message.replace(/^.*?:\s*/, ''));
   return data as T;
 }
+
+/** Zugangs-Token der angemeldeten Person (für Supabase-Funktionen) – null ohne Anmeldung */
+export async function accessToken(): Promise<string | null> {
+  if (!client) return null;
+  const { data } = await client.auth.getSession();
+  return data.session?.access_token ?? null;
+}

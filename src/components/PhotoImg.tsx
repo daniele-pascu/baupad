@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getPhotoStorage } from '../lib/photo-storage';
+import { getPhotoStorage, onPhotosChanged } from '../lib/photo-storage';
 
 /** Bild-Adressen (Vorschau bzw. Bild) – je Foto einmal erzeugt, bleiben für die Sitzung gültig */
 const urls = new Map<string, string>();
@@ -26,9 +26,13 @@ export function usePhotoUrl(id: string, kind: 'thumb' | 'data', version = 0): st
   useEffect(() => {
     let on = true;
     setSrc(urls.get(`${kind}:${id}`) ?? null);
-    void photoUrl(id, kind).then((u) => on && setSrc(u));
+    const load = () => void photoUrl(id, kind).then((u) => on && setSrc(u));
+    load();
+    // Bild noch nicht da (z. B. Ablage erst nach dem Start angebunden, Nachladen läuft) → nach Änderungen erneut versuchen
+    const off = onPhotosChanged(load);
     return () => {
       on = false;
+      off();
     };
   }, [id, kind, version]);
   return src;

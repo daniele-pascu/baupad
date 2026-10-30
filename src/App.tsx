@@ -32,6 +32,8 @@ import { DefectPlanPage } from './pages/DefectPlanPage';
 import { isInstalledApp } from './lib/platform';
 import { getAuth } from './lib/auth';
 import { useSession } from './lib/use-session';
+import { connectPhotoCloud } from './lib/photo-cloud';
+import { remoteConnected } from './lib/remote';
 import { canTool, ROUTE_TOOL } from './lib/access';
 import { hasStoredSession, initAuth } from './lib/auth-init';
 
@@ -139,6 +141,16 @@ function useAuthReturn() {
   }, []);
 }
 
+/** Zentrale Ablage je nach Anmeldung anbinden (Firma vorhanden → Cloud-Adapter, sonst lokal) */
+function usePhotoCloud() {
+  const session = useSession();
+  const companyId = session?.companyId ?? null;
+  useEffect(() => {
+    if (session === undefined) return;
+    void connectPhotoCloud(remoteConnected() ? companyId : null).catch(() => {});
+  }, [session === undefined, companyId]);
+}
+
 export function App() {
   const route = parseRoute(usePath());
   // Startbild mit Logo beim Öffnen der installierten App (kurz, dann die App)
@@ -150,6 +162,7 @@ export function App() {
   }, [splash]);
   useServiceWorker();
   useAuthReturn();
+  usePhotoCloud();
   // Firmenlogo für Excel-Exporte vorab laden (Export bleibt synchron im Klick)
   useEffect(preloadExcelLogo, []);
   useEffect(() => {

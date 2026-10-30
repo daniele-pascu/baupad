@@ -8,7 +8,7 @@ import { ToolIcon } from '../components/ToolIcon';
 import { showError } from '../components/ui';
 import { listProjects, listReports, listWeeks } from '../lib/db';
 import { listFreePhotoSites } from '../lib/photo-sites';
-import { cloudConnected, getPhotoStorage } from '../lib/photo-storage';
+import { cloudConnected, getPhotoStorage, onPhotosChanged } from '../lib/photo-storage';
 import { groupBySite, matchesPhoto, photoSiteKey, weekLabel } from '../lib/photos';
 import { navigate, paths } from '../lib/router';
 import type { Photo, Project } from '../lib/types';
@@ -60,6 +60,8 @@ export function PhotosPage() {
       .catch((e) => showError(e, 'Fotos konnten nicht geladen werden'));
   useEffect(() => {
     void reload();
+    return onPhotosChanged(() => void reload());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const groups = useMemo(() => {
