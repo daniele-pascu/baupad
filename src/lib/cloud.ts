@@ -47,7 +47,7 @@ export async function cloudCall<T>(action: string, body: Record<string, unknown>
       signal: AbortSignal.timeout(30_000),
     });
   } catch {
-    throw new CloudError(0, 'offline', 'Keine Verbindung zur zentralen Ablage.');
+    throw new CloudError(0, 'offline', 'Keine Verbindung zur zentralen Ablage (offline, Funktion „storage“ nicht erreichbar oder vom Browser blockiert).');
   }
   const data = (await r.json().catch(() => ({}))) as Record<string, unknown>;
   if (!r.ok) {

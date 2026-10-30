@@ -356,9 +356,10 @@ export async function syncPhotoCloud(): Promise<void> {
   await active.sync();
 }
 
-/** Ablage erneut anbinden (z. B. nach dem Einrichten) */
+/** Ablage erneut anbinden (z. B. nach dem Einrichten) – wirft, wenn die Verbindung nicht zustande kommt */
 export async function retryPhotoCloud(companyId: string, fetchFn?: FetchLike): Promise<void> {
   await setMeta(ACTIVE, null);
   disconnectPhotoCloud();
   await connectPhotoCloud(companyId, fetchFn);
+  if (state.status !== 'ready') throw new CloudError(0, state.status, state.message ?? 'Die zentrale Ablage ist nicht erreichbar.');
 }
