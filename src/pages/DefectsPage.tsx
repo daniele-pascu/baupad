@@ -14,6 +14,7 @@ import { loadPhotoSites } from './PhotosPage';
 import { usePageTitle } from '../lib/page-title';
 import { useAccess } from '../lib/access';
 import { useCanCreateProjects } from '../lib/sites';
+import { photoSiteKey } from '../lib/photos';
 
 export const DEFECT_ACCENT = { '--tool': '#d6242b' } as CSSProperties;
 
@@ -48,6 +49,12 @@ export function DefectsPage() {
     const q = query.trim().toLowerCase();
     return (summaries ?? []).filter((s) => !q || [s.site.name, s.site.number, s.site.address, ...s.plans.map((p) => p.title)].join(' ').toLowerCase().includes(q));
   }, [summaries, query]);
+  /** Projekte aus dem Register, die noch keinen Mängelplan haben (gleiche Liste wie in allen Werkzeugen) */
+  const empty = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const have = new Set((summaries ?? []).map((s) => s.key));
+    return sites.filter((f) => !have.has(photoSiteKey({ projectId: f.projectId, siteName: f.name })) && (!q || [f.name, f.number, f.address].join(' ').toLowerCase().includes(q)));
+  }, [sites, summaries, query]);
 
   return (
     <>
@@ -93,7 +100,7 @@ export function DefectsPage() {
           />
         )}
 
-        {summaries && summaries.length === 0 && (
+        {summaries && summaries.length === 0 && empty.length === 0 && (
           <div className="crew-setup" data-testid="defects-empty">
             <span className="tile-icon">
               <ToolIcon name="defects" size={22} />
@@ -105,7 +112,7 @@ export function DefectsPage() {
           </div>
         )}
 
-        {summaries && summaries.length > 0 && (
+        {summaries && (summaries.length > 0 || empty.length > 0) && (
           <div className="reports-tools">
             <label className="crew-search reports-search">
               <Icon name="select" size={18} />
@@ -139,6 +146,16 @@ export function DefectsPage() {
               </a>
             );
           })}
+          {empty.map((f) => (
+            <a key={`empty:${f.projectId ?? f.name}`} href={paths.defectSite(photoSiteKey({ projectId: f.projectId, siteName: f.name }))} className="report-site report-site-empty" data-testid="defect-site-empty" data-site={f.name}>
+              <div className="report-site-main">
+                <strong>{f.name}</strong>
+                <span className="muted small">{[f.number, f.address].filter(Boolean).join(' · ')}</span>
+                <span className="small muted">Noch kein Mängelplan</span>
+              </div>
+              <Icon name="next" size={18} />
+            </a>
+          ))}
         </div>
       </div>
     </>

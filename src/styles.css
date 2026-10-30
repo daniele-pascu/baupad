@@ -6005,8 +6005,16 @@ button.report-link {
   display: flex;
   flex-direction: column;
 }
-.photo-site-empty {
+.photo-site-empty,
+.report-site-empty {
   border-style: dashed;
+}
+button.report-site-empty {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
 }
 /* Leiste für die Auswahl (unten fest) */
 .photo-selection-hint {

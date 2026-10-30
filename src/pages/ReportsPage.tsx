@@ -96,6 +96,13 @@ export function ReportsPage() {
       .sort((a, b) => b.lastAt - a.lastAt);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reports, q, access.session]);
+  /** Projekte aus dem Register, die noch keinen Bericht haben */
+  const emptySites = useMemo(() => {
+    const have = new Set(cards.map((c) => c.key));
+    return reports
+      ? sites.filter((f) => !have.has(f.projectId ? `p:${f.projectId}` : `n:${f.name.trim().toLowerCase()}`) && (!q || [f.name, f.number, f.address].join(' ').toLowerCase().includes(q)))
+      : [];
+  }, [sites, cards, query, reports]);
 
   const run = (fn: () => Promise<void>) => fn().catch((e) => showError(e, 'Das hat nicht geklappt'));
 
@@ -166,7 +173,7 @@ export function ReportsPage() {
             </button>
           </div>
         )}
-        {reports && reports.length > 0 && cards.length === 0 && <p className="muted">Keine Baustelle gefunden.</p>}
+        {reports && reports.length > 0 && cards.length === 0 && emptySites.length === 0 && <p className="muted">Keine Baustelle gefunden.</p>}
 
         <div className="report-sites">
           {cards.map((c) => {
@@ -193,6 +200,23 @@ export function ReportsPage() {
               </a>
             );
           })}
+          {emptySites.map((f) => (
+            <button
+              key={`empty:${f.projectId ?? f.name}`}
+              type="button"
+              className="report-site report-site-empty"
+              onClick={() => setCreating({ site: { projectId: f.projectId, name: f.name, address: f.address } })}
+              data-testid="report-site-empty"
+              data-site={f.name}
+            >
+              <div className="report-site-main">
+                <strong>{f.name}</strong>
+                <span className="muted small">{[f.number, f.address].filter(Boolean).join(' · ')}</span>
+                <span className="small muted">Noch kein Bericht – antippen zum Anlegen</span>
+              </div>
+              <Icon name="plus" size={18} />
+            </button>
+          ))}
         </div>
       </div>
       {creating && (
