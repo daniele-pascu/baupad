@@ -531,7 +531,7 @@ test('Fehlerfälle: nicht unterstütztes Dateiformat, Konflikt zwischen zwei Tab
   // Zweiter Tab ändert dasselbe Projekt → erster Tab überschreibt nicht unbemerkt
   const url = page.url();
   const other = await page.context().newPage();
-  await other.goto(url.replace(/#.*/, '') + '#/p/' + url.split('#/p/')[1].split('/')[0]);
+  await other.goto(new URL('/p/' + url.split('/p/')[1].split('/')[0], url).href);
   await other.getByTestId('edit-project').click();
   await other.getByTestId('project-form').locator('input[name="address"]').fill('Geändert in Tab 2');
   await other.getByTestId('project-form').getByRole('button', { name: 'Speichern' }).click();

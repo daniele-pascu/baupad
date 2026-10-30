@@ -172,6 +172,7 @@ test('Ohne Projekt: Baustelle aus der Arbeitereinteilung bzw. Berichten; Foto oh
   await page.getByTestId('add-site').click();
   await page.getByTestId('site-dialog').getByTestId('site-name-input').fill('Halle 3');
   await page.getByTestId('site-dialog').getByTestId('site-save').click();
+  await expect(page.getByTestId('site-dialog')).toHaveCount(0); // gespeichert, bevor die Seite neu lädt
   await page.goto('./#/fotos');
   await page.getByTestId('photo-file-input').setInputFiles(join(FIXTURES, 'foto.jpg'));
   const dlg = page.getByTestId('photo-save-dialog');
