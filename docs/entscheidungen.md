@@ -61,3 +61,8 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - **Zugang:** Die App kennt keine Hetzner-Schlüssel. Die Supabase-Funktion `storage` prüft die Anmeldung, bestimmt den Arbeitsbereich und gibt kurzlebige signierte Links (Upload 15 min, Download 60 min) nur unter `ws/<Arbeitsbereich>/…` aus. Verzeichnis der Dateien in der Tabelle `photos` mit Zugriffsregeln je Firma.
 - **Reihenfolge:** 1. Fotos (umgesetzt: Upload nach dem Speichern, Abgleich zwischen Geräten, Nachladen, Löschen für alle), 2. Pläne/Berichte/Projekte, 3. Datenschutzerklärung und AVV mit Hetzner.
 - **Verhalten:** Gerät bleibt Zwischenspeicher (offline-fähig); Konto ohne Firma oder nicht eingerichtete Ablage → alles bleibt lokal, Konto zeigt den Zustand. Einrichtung: `docs/ablage-einrichten.md`.
+
+## Store-App (30.10.2026)
+- **Technik:** Capacitor verpackt die bestehende Web-App (eine Code-Basis) als Android-App, später iOS. App-ID `at.padsoftware.baupad`. Native Kamera in der Fotodokumentation (volle Qualität), sonst gleiche Oberfläche und Daten wie die Website.
+- **Reihenfolge:** Jetzt Android-App als Test-APK (Build über GitHub Actions, weil der Android-SDK-Server aus der Entwicklungsumgebung nicht erreichbar ist). Store-Veröffentlichung erst zum Verkaufsstart, weil jede Änderung der App einen neuen Store-Upload mit Prüfung bräuchte; die Website aktualisiert sich von selbst. iPhone braucht einen Mac mit Xcode oder einen Cloud-Build-Dienst – Entscheidung offen.
+- **Anbieter im Store:** ohne Firma der Name der Person; nach der Gründung Umstellung auf PAD Software.

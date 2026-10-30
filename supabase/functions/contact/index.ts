@@ -21,7 +21,8 @@ interface Payload {
   startedAt?: unknown;
 }
 
-const ALLOWED_ORIGINS = ['https://pad-software.at', 'https://www.pad-software.at', 'http://localhost:5173', 'http://localhost:4173'];
+// https://localhost = Android-Store-App, capacitor://localhost = iOS-Store-App (Capacitor)
+const ALLOWED_ORIGINS = ['https://pad-software.at', 'https://www.pad-software.at', 'https://localhost', 'capacitor://localhost', 'http://localhost:5173', 'http://localhost:4173'];
 
 const cors = (origin: string | null) => ({
   'Access-Control-Allow-Origin': origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],

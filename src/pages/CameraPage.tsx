@@ -8,6 +8,7 @@ import { uuid } from '../lib/ids';
 import { getPhotoStorage } from '../lib/photo-storage';
 import { photoSiteKey, preparePhoto } from '../lib/photos';
 import { navigate, paths } from '../lib/router';
+import { isNativeApp, nativeTakePhoto } from '../lib/native';
 import type { Photo, PhotoSite } from '../lib/types';
 import { loadPhotoSites } from './PhotosPage';
 import { usePageTitle } from '../lib/page-title';
@@ -73,6 +74,8 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
   const [facing, setFacing] = useState<'environment' | 'user'>('environment');
   const [torch, setTorch] = useState(false);
   const [torchOk, setTorchOk] = useState(false);
+  /** Store-App: echte Kamera des Geräts statt Live-Bild */
+  const native = isNativeApp();
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [flash, setFlash] = useState(false);
@@ -160,6 +163,11 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
       stream.current = null;
     };
     stop();
+    if (native) {
+      // Store-App: kein Live-Bild im Fenster – der Auslöser öffnet die Kamera des Geräts (volle Qualität)
+      setReady(true);
+      return;
+    }
     if (!navigator.mediaDevices?.getUserMedia) {
       setError('Dieser Browser erlaubt keinen direkten Kamerazugriff.');
       return;
@@ -277,7 +285,32 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
       .catch(() => toast('Blitz wird von diesem Gerät nicht unterstützt.', 'info'));
   };
 
+  /** Store-App: echte Kamera des Geräts, Foto wird wie ein Galeriebild gespeichert (Aufnahmezeit aus den Bilddaten) */
+  const shootNative = async () => {
+    if (busy) return;
+    if (!site) {
+      toast('Bitte zuerst die Baustelle wählen.', 'info');
+      return;
+    }
+    setBusy(true);
+    try {
+      const file = await nativeTakePhoto();
+      if (!file) return;
+      const pr = await preparePhoto(file);
+      const photo = photoFromPrepared(uuid(), file, pr, site, user, desc);
+      const saved = await getPhotoStorage().put(photo, { data: pr.data, thumb: pr.thumb });
+      setPhotos((p) => [...p, saved]);
+      setLast(saved);
+      setCount((n) => n + 1);
+    } catch (e) {
+      showError(e, 'Foto konnte nicht gespeichert werden');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const shoot = async () => {
+    if (native) return shootNative();
     const v = video.current;
     if (!v || !ready || busy) return;
     if (!site) {
@@ -391,6 +424,14 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
         )}
         {flash && <div className="cam-flash" />}
         {!ready && !error && <p className="cam-hint">Kamera wird gestartet …</p>}
+        {native && !error && (
+          <div className="cam-error cam-native" data-testid="cam-native-hint">
+            <p>
+              <strong>Auslöser antippen</strong> – die Kamera deines Geräts öffnet sich und das Foto wird in voller Qualität gespeichert.
+            </p>
+            {count > 0 && <p className="small">{count} {count === 1 ? 'Foto' : 'Fotos'} in dieser Sitzung aufgenommen.</p>}
+          </div>
+        )}
         {error && (
           <div className="cam-error" data-testid="cam-error">
             <p>{error}</p>
@@ -403,9 +444,11 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
           </button>
         )}
         <div className="cam-side">
+          {!native && (
           <button type="button" className="cam-icon" onClick={() => setFormatOpen(true)} aria-label="Format" title={`Format: ${ratio}, ${orient === 'auto' ? 'automatisch' : orient === 'portrait' ? 'hoch' : 'quer'}`} style={iconStyle} data-testid="cam-format">
             <Icon name="crop" size={22} />
           </button>
+          )}
           <button type="button" className={`cam-icon${desc ? ' on' : ''}`} onClick={() => setDescOpen(true)} aria-label="Beschreibung für die nächsten Fotos" title="Beschreibung" style={iconStyle} data-testid="cam-desc">
             <Icon name="text" size={22} />
           </button>
@@ -414,9 +457,11 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
               <Icon name="flash" size={22} />
             </button>
           )}
+          {!native && (
           <button type="button" className={`cam-icon${facing === 'user' ? ' on' : ''}`} onClick={() => setFacing((f) => (f === 'environment' ? 'user' : 'environment'))} aria-label={facing === 'user' ? 'Zur Rückkamera' : 'Zur Frontkamera'} title={facing === 'user' ? 'Zur Rückkamera' : 'Zur Frontkamera'} style={iconStyle} data-testid="cam-flip">
             <Icon name="flip" size={22} />
           </button>
+          )}
         </div>
       </div>
 

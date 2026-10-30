@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { isNativeApp } from './native';
 
 /**
  * BauPad als App installieren (PWA): Android und PC (Chrome/Edge) bieten einen eigenen
@@ -82,7 +83,7 @@ const subscribe = (l: () => void) => {
 };
 let snapshot = { standalone: false, canPrompt: false };
 const getSnapshot = () => {
-  const next = { standalone: isStandalone(), canPrompt: !!deferred };
+  const next = { standalone: isStandalone() || isNativeApp(), canPrompt: !!deferred };
   if (next.standalone !== snapshot.standalone || next.canPrompt !== snapshot.canPrompt) snapshot = next;
   return snapshot;
 };

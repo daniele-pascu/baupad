@@ -1,0 +1,79 @@
+# Baut die Android-App (Capacitor) auf einem GitHub-Rechner mit Android-SDK.
+# Ergebnis: Test-APK als Artefakt (Actions → Lauf → „BauPad-Android-APK“), zum Installieren auf einem Android-Handy.
+# Release-Paket (AAB) für den Play Store entsteht nur, wenn die Signatur-Secrets gesetzt sind (siehe docs/android-app.md).
+name: Android-App
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'android/**'
+      - 'src/**'
+      - 'public/**'
+      - 'index.html'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'capacitor.config.ts'
+      - 'vite.config.ts'
+      - '.github/workflows/android.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - name: Web-Build (ohne Vorrendern – die App braucht nur die Dateien)
+        run: npm run assets && npx tsc --noEmit && npx vite build
+      - name: Web-Dateien in das Android-Projekt übernehmen
+        run: npx cap sync android
+      - name: Test-APK bauen
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+      - name: Test-APK bereitstellen
+        uses: actions/upload-artifact@v4
+        with:
+          name: BauPad-Android-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Release-Paket (AAB) signieren und bauen
+        if: ${{ github.event_name == 'workflow_dispatch' && vars.ANDROID_RELEASE == 'true' }}
+        working-directory: android
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > upload.keystore
+          ./gradlew bundleRelease --no-daemon \
+            -Pandroid.injected.signing.store.file="$PWD/upload.keystore" \
+            -Pandroid.injected.signing.store.password="$KEYSTORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
+          rm -f upload.keystore
+      - name: Release-Paket bereitstellen
+        if: ${{ github.event_name == 'workflow_dispatch' && vars.ANDROID_RELEASE == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: BauPad-Android-AAB
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 90

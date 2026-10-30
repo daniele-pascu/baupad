@@ -34,6 +34,7 @@ import { getAuth } from './lib/auth';
 import { useSession } from './lib/use-session';
 import { connectPhotoCloud } from './lib/photo-cloud';
 import { remoteConnected } from './lib/remote';
+import { isNativeApp } from './lib/native';
 import { canTool, ROUTE_TOOL } from './lib/access';
 import { hasStoredSession, initAuth } from './lib/auth-init';
 
@@ -63,6 +64,14 @@ function ToolsRedirect() {
   useEffect(() => {
     // nur umleiten, wenn die Adresse inzwischen nicht schon weitergewandert ist
     if (SITE_ROUTES_WHEN_SIGNED_IN.has(parseRoute(currentPath()).name)) navigate(paths.tools(), true);
+  }, []);
+  return null;
+}
+
+/** Store-App: die Website-Seiten gehören nicht in die App – ohne Anmeldung zur Anmeldeseite (Tools-Weiterleitung übernimmt den Rest) */
+function NativeRedirect() {
+  useEffect(() => {
+    if (SITE_ROUTES.has(parseRoute(currentPath()).name)) navigate(paths.login(), true);
   }, []);
   return null;
 }
@@ -285,7 +294,7 @@ export function App() {
     <>
       <OfflineBadge />
       <TitleReset route={route.name} />
-      {SITE_ROUTES_WHEN_SIGNED_IN.has(route.name) && hasStoredSession() ? <ToolsRedirect /> : PUBLIC_ROUTES.has(route.name) ? content : <AuthGate route={route.name}>{content}</AuthGate>}
+      {SITE_ROUTES_WHEN_SIGNED_IN.has(route.name) && hasStoredSession() ? <ToolsRedirect /> : isNativeApp() && SITE_ROUTES.has(route.name) && !['imprint', 'privacy', 'contact', 'deleteAccountInfo'].includes(route.name) ? <NativeRedirect /> : PUBLIC_ROUTES.has(route.name) ? content : <AuthGate route={route.name}>{content}</AuthGate>}
       <DialogHost />
       {splash && (
         <div className="splash" aria-hidden="true" data-testid="splash">
@@ -348,7 +357,7 @@ function OfflineBadge() {
  */
 function useServiceWorker() {
   useEffect(() => {
-    if (!('serviceWorker' in navigator) || import.meta.env.DEV) return;
+    if (!('serviceWorker' in navigator) || import.meta.env.DEV || isNativeApp()) return;
     let cancelled = false;
     let registration: ServiceWorkerRegistration | undefined;
     const check = () => {
