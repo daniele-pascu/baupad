@@ -14,6 +14,11 @@
     "prerender": "node --experimental-strip-types scripts/prerender-site.mjs"
   },
   "dependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/camera": "^8.2.6",
+    "@capacitor/cli": "^8.6.0",
+    "@capacitor/core": "^8.6.0",
     "@supabase/supabase-js": "^2.118.0",
     "fflate": "^0.8.3",
     "idb": "^8.0.4",
