@@ -18,9 +18,13 @@ export const SYNC_LABELS: Record<PhotoSync, string> = {
   failed: 'Upload fehlgeschlagen',
 };
 
-/** Längste Kante der gespeicherten Version und des Vorschaubilds (Pixel) */
-export const PHOTO_MAX = 2000;
-export const THUMB_MAX = 400;
+/**
+ * Längste Kante der gespeicherten Version und des Vorschaubilds (Pixel). 2560 px mit Qualität 0,88 ergibt
+ * bei Baustellenfotos etwa 600–900 KB – deutlich schärfer in der Großansicht (auch am großen Bildschirm),
+ * ohne die Ablage zu sprengen (1 TB ≈ 1,2 Mio. Fotos). Vorschau 600 px: scharfe Kacheln auf Retina-Displays.
+ */
+export const PHOTO_MAX = 2560;
+export const THUMB_MAX = 600;
 
 /** Aufnahmetag und Kalenderwoche (Ortszeit) aus einem Zeitpunkt */
 export function dayAndWeek(ts: number): { day: string; week: string } {
@@ -248,8 +252,8 @@ export async function preparePhoto(file: File, now = Date.now()): Promise<Prepar
     throw new Error(`„${file.name}“ ist kein unterstütztes Bild (JPG, PNG, WEBP, HEIC je nach Gerät).`);
   }
   try {
-    const main = await resize(bitmap, PHOTO_MAX, 0.85);
-    const thumb = await resize(bitmap, THUMB_MAX, 0.75);
+    const main = await resize(bitmap, PHOTO_MAX, 0.88);
+    const thumb = await resize(bitmap, THUMB_MAX, 0.8);
     return { data: main.data, thumb: thumb.data, width: main.width, height: main.height, hash, takenAt, takenFrom };
   } finally {
     bitmap.close?.();
