@@ -227,7 +227,11 @@ async function resize(bitmap: ImageBitmap, max: number, quality: number): Promis
   const canvas = document.createElement('canvas');
   canvas.width = w;
   canvas.height = h;
-  canvas.getContext('2d')!.drawImage(bitmap, 0, 0, w, h);
+  const ctx = canvas.getContext('2d')!;
+  // beste Verkleinerung des Browsers (sonst wirkt das verkleinerte Bild leicht weich oder grieselig)
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(bitmap, 0, 0, w, h);
   const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', quality));
   if (!blob) throw new Error('Bild konnte nicht verarbeitet werden.');
   return { data: await blob.arrayBuffer(), width: w, height: h };

@@ -165,7 +165,7 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
       return;
     }
     navigator.mediaDevices
-      .getUserMedia({ video: { facingMode: facing, width: { ideal: 2560 }, height: { ideal: 1920 } }, audio: false })
+      .getUserMedia({ video: { facingMode: facing, width: { ideal: 4096 }, height: { ideal: 3072 } }, audio: false })
       .then((s) => {
         if (cancelled) {
           s.getTracks().forEach((t) => t.stop());
