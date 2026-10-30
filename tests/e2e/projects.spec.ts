@@ -13,11 +13,11 @@ test.describe('ohne Anmeldung', () => {
 
 test('Website: Startseite, Produkte, BauPad, Unternehmen, Zukunft, Kontaktformular, Sprache, Rechtliches', async ({ page }) => {
   await page.goto('./');
-  await expect(page).toHaveTitle('PAD Software – Software für Baufirmen');
+  await expect(page).toHaveTitle('PAD Software – Software, die Arbeit einfacher macht');
   const nav = page.getByTestId('site-nav');
   await expect(nav).toBeVisible();
   const h1 = page.getByRole('heading', { level: 1 });
-  await expect(h1).toContainText('funktioniert');
+  await expect(h1).toContainText('einfacher macht');
   await expect(page.locator('html')).toHaveAttribute('lang', 'de');
   // Dachmarke zuerst: Unternehmen, dann Produktwelt (1 verfügbar, 3 geplant), dann BauPad
   await expect(page.locator('.ps-product-card.is-available')).toHaveCount(1);
@@ -103,7 +103,7 @@ test('Website: Startseite, Produkte, BauPad, Unternehmen, Zukunft, Kontaktformul
 
   // Wortmarke führt immer zur Startseite
   await nav.getByRole('link', { name: 'PAD Software' }).first().click();
-  await expect(h1).toContainText('funktioniert');
+  await expect(h1).toContainText('einfacher macht');
 
   // „Anmelden“: Anmeldeseite mit Supabase – der Dienst ist aus der Testumgebung nicht erreichbar,
   // deshalb werden seine Antworten hier nachgestellt (Anbieter-Weiterleitung, falsches Passwort, Registrierung)

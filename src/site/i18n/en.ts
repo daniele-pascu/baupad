@@ -22,7 +22,7 @@ export const en: Dict = {
     cta: 'Get in touch',
   },
   footer: {
-    claim: 'Software for construction companies – developed in Austria.',
+    claim: 'Software that makes work easier – developed in Austria.',
     products: 'Products',
     companyCol: 'Company',
     legal: 'Legal',
@@ -47,20 +47,20 @@ export const en: Dict = {
     toTop: 'Back to top',
   },
   home: {
-    title: 'PAD Software – Software for construction companies',
-    description: 'PAD Software builds software for construction companies. BauPad is our first product: measurement, crew scheduling, reports, photo documentation and defect plans in one app.',
+    title: 'PAD Software – Software that makes work easier',
+    description: 'PAD Software builds software that makes work easier. First product: BauPad for construction companies – measurement, crew scheduling, reports, photo documentation and defect plans in one app.',
     hero: {
       eyebrow: 'PAD Software',
-      title: ['Software', 'that works', 'on site.'],
-      lead: 'We build software for construction companies – clear, fast and working without an internet connection. Our first product is BauPad.',
+      title: ['Software', 'that makes', 'work easier.'],
+      lead: 'We build software that simplifies everyday work – clear, fast and working without an internet connection. Our first product is BauPad for construction companies.',
       primary: 'Learn more about BauPad',
       secondary: 'Get in touch',
       facts: ['Developed in Austria', 'Built on real job sites', 'One account for all products'],
     },
     intro: {
       eyebrow: 'The company',
-      title: 'We build tools that hold up on the job site.',
-      text: 'PAD Software is a young software company from Austria. Our products are created where they are needed: on construction sites, in conversations with foremen, in the office during billing. We do not build software for presentations – we build it for the working day.',
+      title: 'We build tools that hold up in everyday work.',
+      text: 'PAD Software is a young software company from Austria. Our products are created where they are needed: in the company, on the construction site, in the office during billing. We do not build software for presentations – we build it for the working day, starting in construction and open to further industries.',
       points: [
         { title: 'Clear', text: 'Every function must work without training – on a phone with gloves on as well as on a PC.' },
         { title: 'Reliable', text: 'Our software keeps working without a signal. What you record stays recorded.' },
@@ -277,9 +277,9 @@ export const en: Dict = {
   },
   companyPage: {
     title: 'Company – PAD Software',
-    description: 'PAD Software is a software company from Austria. We build tools for construction companies that work on site – clear, reliable, honest.',
-    hero: { eyebrow: 'Company', title: ['Software from practice,', 'for practice.'], lead: 'PAD Software is a young software company from Austria. We build tools for construction companies – created on the job sites of concrete repair.' },
-    what: { eyebrow: 'What we do', title: 'We build software for the construction day.', text: 'Our products help construction companies record work, schedule crews, keep proof and bill – on the phone on site and on the PC in the office. BauPad is the first product; more are being planned.' },
+    description: 'PAD Software is a software company from Austria. We build software that makes work easier – clear, reliable, honest. First product: BauPad for construction companies.',
+    hero: { eyebrow: 'Company', title: ['Software from practice,', 'for practice.'], lead: 'PAD Software is a young software company from Austria. We build software that makes work easier – started on the job sites of concrete repair, open to further industries.' },
+    what: { eyebrow: 'What we do', title: 'We build software that makes work easier.', text: 'Our products help companies record work, schedule teams, keep proof and bill – on the phone on site and on the PC in the office. BauPad for construction companies is the first product; further industries and products are being planned.' },
     philosophy: {
       eyebrow: 'Philosophy',
       title: 'Three principles.',
