@@ -16,8 +16,8 @@ export async function freshStart(page: Page) {
     localStorage.clear();
     localStorage.setItem(key, value); // Anmeldung bleibt (Tools nur mit Anmeldung)
   }, signInScript());
-  await page.goto('./#/projekte');
-  await page.reload();
+  // eigener Pfad → immer ein vollständiger Neustart der App (kein Hash-Sprung, kein eigenes reload nötig)
+  await page.goto('./projekte', { waitUntil: 'load' });
   await expect(page).toHaveTitle('BauPad');
   await expect(page.getByTestId('projects-title')).toHaveText('Aufmaß & Abrechnung');
   await expect(page.getByRole('img', { name: 'BauPad' })).toBeVisible();
