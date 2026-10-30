@@ -19,8 +19,7 @@ test('Fotos je Baustelle, KW und Tag; Großansicht; Beschreibung; Suche; Duplika
   await page.goto('./#/tools');
   await page.getByTestId('tool-photos').click();
   await expect(page.getByTestId('photos-title')).toHaveText('Fotodokumentation');
-  // das Projekt aus Aufmaß & Abrechnung steht schon als leere Karte da (Projektregister)
-  await expect(page.locator('[data-testid="photo-site"][data-site="Neubau Musterstraße"]')).toContainText('Noch keine Fotos');
+  await expect(page.getByTestId('photos-empty')).toBeVisible(); // Projekt aus Aufmaß erscheint hier erst mit dem ersten Foto
 
   // drei Fotos aus der Galerie: Di 27.10. (zwei), Mo 02.11. – Baustelle aus dem Projekt
   await page.getByTestId('photo-file-input').setInputFiles([shot('IMG_1.jpg', '2026:10:27 09:15:30'), shot('IMG_2.jpg', '2026:10:27 14:40:00'), shot('IMG_3.jpg', '2026:11:02 08:05:00')]);

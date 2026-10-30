@@ -14,6 +14,8 @@ import { PhotoSitePicker, siteValue } from '../components/PhotoSitePicker';
 import { loadPhotoSites } from './PhotosPage';
 import { usePageTitle } from '../lib/page-title';
 import { useAccess } from '../lib/access';
+import { usedIn } from '../lib/crew-link';
+import { useProjectIn } from '../lib/sites';
 
 export const ACCENT = { '--tool': '#a259ff' } as CSSProperties;
 
@@ -34,6 +36,7 @@ export async function createReport(type: ReportType, site: SiteChoice, date: str
   }
   const r = newReport(type, { projectId: site.projectId, head, date, all });
   await saveReport(r);
+  await useProjectIn(site.projectId, 'reports');
   navigate(paths.report(r.id));
 }
 
@@ -96,11 +99,11 @@ export function ReportsPage() {
       .sort((a, b) => b.lastAt - a.lastAt);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reports, q, access.session]);
-  /** Projekte aus dem Register, die noch keinen Bericht haben */
+  /** in Berichten angelegte oder übernommene Projekte, die noch keinen Bericht haben */
   const emptySites = useMemo(() => {
     const have = new Set(cards.map((c) => c.key));
     return reports
-      ? sites.filter((f) => !have.has(f.projectId ? `p:${f.projectId}` : `n:${f.name.trim().toLowerCase()}`) && (!q || [f.name, f.number, f.address].join(' ').toLowerCase().includes(q)))
+      ? sites.filter((f) => (!f.projectId || usedIn(f, 'reports')) && !have.has(f.projectId ? `p:${f.projectId}` : `n:${f.name.trim().toLowerCase()}`) && (!q || [f.name, f.number, f.address].join(' ').toLowerCase().includes(q)))
       : [];
   }, [sites, cards, query, reports]);
 

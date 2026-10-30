@@ -4,6 +4,7 @@ import { uuid } from '../lib/ids';
 import { getPhotoStorage } from '../lib/photo-storage';
 import { isInstalledApp } from '../lib/platform';
 import { paths } from '../lib/router';
+import { useProjectIn } from '../lib/sites';
 import { dayAndWeek, fmtBytes, photoSiteKey, preparePhoto, type PreparedPhoto } from '../lib/photos';
 import type { Photo, PhotoSite } from '../lib/types';
 import { Icon } from './Icon';
@@ -125,6 +126,7 @@ export function PhotoCapture({
         const photo = photoFromPrepared(p.id, p.file, pr, chosen, user, p.description);
         saved.push(await storage.put(photo, { data: pr.data, thumb: pr.thumb }));
       }
+      await useProjectIn(chosen.projectId, 'photos');
       setPending(null);
       toast(`${saved.length} ${saved.length === 1 ? 'Foto' : 'Fotos'} gespeichert – ${chosen.name}.`, 'success');
       onSaved(saved);

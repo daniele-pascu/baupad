@@ -36,6 +36,12 @@ export interface Project extends SyncMeta {
   splitByInvoice?: boolean;
   /** Rechnungen des Projekts (nur mit splitByInvoice) */
   invoices?: Invoice[];
+  /**
+   * Werkzeuge, in denen das Projekt angelegt bzw. übernommen wurde (projects, workers, reports, photos, defects).
+   * Fehlt = älteres Projekt aus Aufmaß & Abrechnung. Ein Projekt erscheint nur in den Übersichten dieser Werkzeuge;
+   * in allen anderen steht es zum Übernehmen in der Projektauswahl.
+   */
+  tools?: string[];
 }
 
 /**
@@ -598,6 +604,8 @@ export interface PhotoSite {
   name: string;
   number: string;
   address: string;
+  /** Werkzeuge, in denen das Projekt benutzt wird (siehe Project.tools) */
+  tools?: string[];
 }
 
 export interface Photo {

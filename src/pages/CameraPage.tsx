@@ -10,6 +10,7 @@ import { getPhotoStorage } from '../lib/photo-storage';
 import { photoSiteKey, preparePhoto } from '../lib/photos';
 import { navigate, paths } from '../lib/router';
 import { isNativeApp, nativeTakePhoto } from '../lib/native';
+import { useProjectIn } from '../lib/sites';
 import type { Photo, PhotoSite } from '../lib/types';
 import { loadPhotoSites } from './PhotosPage';
 import { usePageTitle } from '../lib/page-title';
@@ -301,6 +302,7 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
       const pr = await preparePhoto(file);
       const photo = photoFromPrepared(uuid(), file, pr, site, user, desc);
       const saved = await getPhotoStorage().put(photo, { data: pr.data, thumb: pr.thumb });
+      await useProjectIn(site.projectId, 'photos');
       setPhotos((p) => [...p, saved]);
       setLast(saved);
       setCount((n) => n + 1);
@@ -342,6 +344,7 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
       const pr = await preparePhoto(file);
       const photo = photoFromPrepared(uuid(), file, { ...pr, takenAt: now.getTime(), takenFrom: 'now' }, site, user, desc);
       const saved = await getPhotoStorage().put(photo, { data: pr.data, thumb: pr.thumb });
+      await useProjectIn(site.projectId, 'photos');
       setPhotos((p) => [...p, saved]);
       setLast(saved);
       setCount((n) => n + 1);

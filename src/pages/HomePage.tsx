@@ -12,7 +12,8 @@ import { navigate, paths } from '../lib/router';
 import { closeProject, createProjectWithCostCenters } from '../lib/store';
 import { useAccess } from '../lib/access';
 import { useCanCreateProjects } from '../lib/sites';
-import { linkSitesToProject, sitesWithoutProject } from '../lib/crew-link';
+import { adoptProject, linkSitesToProject, registerCandidates, usedIn } from '../lib/crew-link';
+import { newMeta } from '../lib/store';
 import type { Project } from '../lib/types';
 
 interface Row {
@@ -68,9 +69,10 @@ export function HomePage() {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [creating, setCreating] = useState(false);
   /** Baustellen der Arbeitereinteilung ohne Projekt (für „Neues Projekt“) */
-  const [crewSites, setCrewSites] = useState<{ name: string; number?: string; address?: string }[]>([]);
+  /** Projekte aus dem Register anderer Werkzeuge, die in Aufmaß & Abrechnung noch nicht benutzt werden */
+  const [candidates, setCandidates] = useState<Project[]>([]);
   useEffect(() => {
-    if (creating) void sitesWithoutProject().then(setCrewSites).catch(() => setCrewSites([]));
+    if (creating) void registerCandidates('projects').then(setCandidates).catch(() => setCandidates([]));
   }, [creating]);
   const [storage, setStorage] = useState<{ usage: number; quota: number; persisted: boolean } | null>(null);
   const [upgraded, setUpgraded] = useState(false);
@@ -92,7 +94,7 @@ export function HomePage() {
 
   const load = async () => {
     try {
-      const projects = await listProjects();
+      const projects = (await listProjects()).filter((p) => usedIn(p, 'projects'));
       const result = await Promise.all(
         projects.map(async (project) => {
           const backup = await backupStatus(project);
@@ -119,15 +121,26 @@ export function HomePage() {
       .catch(() => {});
   }, []);
 
-  const create = async (fields: ProjectFields, costCenters: CostCenterInput[]) => {
+  const create = async (fields: ProjectFields, costCenters: CostCenterInput[], adoptId: string | null) => {
     // Dauerhafte Speicherung anfordern, damit der Browser die Daten nicht automatisch löscht
     try {
       await navigator.storage?.persist?.();
     } catch {
       /* optional */
     }
+    if (adoptId) {
+      // Projekt aus einem anderen Werkzeug übernehmen: Angaben ergänzen, Kostenstellen anlegen, in Aufmaß benutzen
+      const existing = candidates.find((p) => p.id === adoptId);
+      if (existing) {
+        const adopted = await adoptProject({ ...existing, ...fields }, 'projects');
+        const ccs = (costCenters.length ? costCenters : [{ number: '', name: '' }]).map((c, i) => ({ ...newMeta(), rev: 1, projectId: adopted.id, number: c.number, name: c.name, sortIndex: i }));
+        await writeRecords(ccs.map((record) => ({ store: 'costCenters' as const, record, baseRev: 0 })));
+        navigate(paths.project(adopted.id));
+        return;
+      }
+    }
     // ohne Kostenstelle: eine leere Kostenstelle nimmt die Pläne auf (später ausfüllbar)
-    const { project } = await createProjectWithCostCenters(fields, costCenters.length ? costCenters : [{ number: '', name: '' }]);
+    const { project } = await createProjectWithCostCenters({ ...fields, tools: ['projects'] }, costCenters.length ? costCenters : [{ number: '', name: '' }]);
     // gleichnamige Baustelle der Arbeitereinteilung mit dem neuen Projekt verknüpfen
     await linkSitesToProject(project.name, project.id).catch(() => 0);
     // Projektseite mit Projektinfos, Kostenstelle und Planliste – dort wird der erste Plan importiert
@@ -409,11 +422,11 @@ export function HomePage() {
         <ProjectForm
           title="Neues Projekt"
           submitLabel="Projekt anlegen"
-          fromCrew={crewSites}
+          fromRegister={candidates}
           onClose={() => setCreating(false)}
-          onSubmit={async (fields, costCenters) => {
+          onSubmit={async (fields, costCenters, adoptId) => {
             try {
-              await create(fields, costCenters);
+              await create(fields, costCenters, adoptId ?? null);
             } catch (e) {
               showError(e, 'Projekt konnte nicht angelegt werden');
             }

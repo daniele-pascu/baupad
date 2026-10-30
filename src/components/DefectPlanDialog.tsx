@@ -4,6 +4,7 @@ import { Modal } from './Modal';
 import { PhotoSitePicker } from './PhotoSitePicker';
 import { showError } from './ui';
 import { createDefectPlan } from '../lib/defects';
+import { useProjectIn } from '../lib/sites';
 import type { DefectPlan, PhotoSite } from '../lib/types';
 
 /**
@@ -24,7 +25,9 @@ export function DefectPlanDialog({ sites, site, onClose, onCreated }: { sites: P
     if (!file) return showError(new Error('Bitte einen Plan als PDF oder Bild wählen.'), 'Plan nicht gespeichert');
     setBusy(true);
     try {
-      onCreated(await createDefectPlan(chosen, title, file));
+      const plan = await createDefectPlan(chosen, title, file);
+      await useProjectIn(chosen.projectId, 'defects');
+      onCreated(plan);
     } catch (e) {
       showError(e, 'Plan konnte nicht übernommen werden');
     } finally {

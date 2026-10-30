@@ -15,13 +15,14 @@ import type { Photo, Project } from '../lib/types';
 import { usePageTitle } from '../lib/page-title';
 import { useAccess } from '../lib/access';
 import { useCanCreateProjects } from '../lib/sites';
+import { usedIn } from '../lib/crew-link';
 
 const ACCENT = { '--tool': '#111111' } as CSSProperties;
 
 /** Baustellen für neue Fotos: Projekte (Aufmaß & Abrechnung), Baustellen der Arbeitereinteilung und bisherige Foto-Baustellen */
 export async function loadPhotoSites(photos: Photo[]): Promise<PhotoSite[]> {
   const [projects, weeks, reports, free] = await Promise.all([listProjects(), listWeeks(), listReports(), listFreePhotoSites()]);
-  const out: PhotoSite[] = projects.map((p: Project) => ({ projectId: p.id, name: p.site || p.name, number: p.number ?? '', address: p.address }));
+  const out: PhotoSite[] = projects.map((p: Project) => ({ projectId: p.id, name: p.site || p.name, number: p.number ?? '', address: p.address, tools: p.tools }));
   const names = new Map<string, PhotoSite>();
   const add = (name: string, address = '') => {
     const k = name.trim().toLowerCase();
@@ -84,8 +85,8 @@ export function PhotosPage() {
   }, [photos]);
   const hashes = useMemo(() => new Set((photos ?? []).map((p) => p.hash)), [photos]);
   const pending = (photos ?? []).filter((p) => p.sync !== 'synced').length;
-  /** Projekte aus dem Register (und ältere freie Baustellen), die noch keine Fotos haben */
-  const empty = useMemo(() => sites.filter((f) => !groups.some((g) => g.key === photoSiteKey({ projectId: f.projectId, siteName: f.name })) && [f.name, f.number, f.address].join(' ').toLowerCase().includes(query.trim().toLowerCase())), [sites, groups, query]);
+  /** in der Fotodokumentation angelegte oder übernommene Projekte, die noch keine Fotos haben */
+  const empty = useMemo(() => sites.filter((f) => (!f.projectId || usedIn(f, 'photos')) && !groups.some((g) => g.key === photoSiteKey({ projectId: f.projectId, siteName: f.name })) && [f.name, f.number, f.address].join(' ').toLowerCase().includes(query.trim().toLowerCase())), [sites, groups, query]);
 
   return (
     <>

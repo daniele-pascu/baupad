@@ -145,6 +145,8 @@ test('Mängelplan: Plan hochladen, Markierungen setzen und bearbeiten, PDF', asy
   await expect(page.locator('.page-sub')).toContainText('91574');
   await page.goto('./#/maengel');
   await expect(page.getByTestId('defect-site')).toContainText('Tiefgarage Nord');
+  // in der Fotodokumentation steht das Projekt (umbenannt) zum Übernehmen in der Auswahl, nicht in der Übersicht
   await page.goto('./#/fotos');
-  await expect(page.locator('[data-testid="photo-site"][data-site="Tiefgarage Nord"]')).toBeVisible(); // auch in der Fotodokumentation umbenannt
+  await page.getByTestId('photo-file-input').setInputFiles([{ name: 'x.jpg', mimeType: 'image/jpeg', buffer: Buffer.from([0xff, 0xd8, 0xff, 0xd9]) }]);
+  await expect(page.getByTestId('photo-save-dialog').getByTestId('photo-site').locator('option')).toContainText([/Tiefgarage Nord/]);
 });

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { createSiteProject, useCanCreateProjects } from '../lib/sites';
+import { useAccess } from '../lib/access';
 import type { PhotoSite } from '../lib/types';
 import { Modal } from './Modal';
 import { showError } from './ui';
@@ -28,11 +29,12 @@ export function PhotoSiteDialog({
   const [number, setNumber] = useState(initial?.number ?? '');
   const [address, setAddress] = useState(initial?.address ?? '');
   const [busy, setBusy] = useState(false);
+  const { tool } = useAccess();
   const save = async () => {
     if (!name.trim()) return;
     setBusy(true);
     try {
-      onSaved(onSave ? await onSave({ name: name.trim(), number: number.trim(), address: address.trim() }) : await createSiteProject({ name: name.trim(), number: number.trim(), address: address.trim() }));
+      onSaved(onSave ? await onSave({ name: name.trim(), number: number.trim(), address: address.trim() }) : await createSiteProject({ name: name.trim(), number: number.trim(), address: address.trim() }, tool ?? 'photos'));
     } catch (e) {
       showError(e, 'Projekt konnte nicht angelegt werden');
     } finally {

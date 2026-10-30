@@ -15,6 +15,7 @@ import { usePageTitle } from '../lib/page-title';
 import { useAccess } from '../lib/access';
 import { useCanCreateProjects } from '../lib/sites';
 import { photoSiteKey } from '../lib/photos';
+import { usedIn } from '../lib/crew-link';
 
 export const DEFECT_ACCENT = { '--tool': '#d6242b' } as CSSProperties;
 
@@ -49,11 +50,11 @@ export function DefectsPage() {
     const q = query.trim().toLowerCase();
     return (summaries ?? []).filter((s) => !q || [s.site.name, s.site.number, s.site.address, ...s.plans.map((p) => p.title)].join(' ').toLowerCase().includes(q));
   }, [summaries, query]);
-  /** Projekte aus dem Register, die noch keinen Mängelplan haben (gleiche Liste wie in allen Werkzeugen) */
+  /** im Mängelplan angelegte oder übernommene Projekte, die noch keinen Plan haben */
   const empty = useMemo(() => {
     const q = query.trim().toLowerCase();
     const have = new Set((summaries ?? []).map((s) => s.key));
-    return sites.filter((f) => !have.has(photoSiteKey({ projectId: f.projectId, siteName: f.name })) && (!q || [f.name, f.number, f.address].join(' ').toLowerCase().includes(q)));
+    return sites.filter((f) => (!f.projectId || usedIn(f, 'defects')) && !have.has(photoSiteKey({ projectId: f.projectId, siteName: f.name })) && (!q || [f.name, f.number, f.address].join(' ').toLowerCase().includes(q)));
   }, [sites, summaries, query]);
 
   return (

@@ -7,7 +7,7 @@
 import { getAuth, type Session } from './auth';
 import { useSession } from './use-session';
 import { getDB, getMeta, listDefectPlans, listProjects, listReports, listWeeks, saveDefectPlan, saveReport, saveWeek, setMeta, writeRecords } from './db';
-import { projectFromSite } from './crew-link';
+import { adoptProject, projectFromSite, usedIn } from './crew-link';
 import { getPhotoStorage } from './photo-storage';
 import { clearFreePhotoSites, listFreePhotoSites, updateFreePhotoSite } from './photo-sites';
 import { photoSiteKey } from './photos';
@@ -94,13 +94,21 @@ export async function findSite(key: string, sites?: PhotoSite[]): Promise<PhotoS
  * Projektregister: „Neues Projekt“ aus jedem Werkzeug (Fotos, Berichte, Mängelplan, Einteilung) legt ein echtes
  * Projekt an, das sofort überall erscheint – auch in Aufmaß & Abrechnung (dort ohne Pläne, bis welche kommen).
  */
-export async function createSiteProject(v: SiteFields): Promise<PhotoSite> {
+export async function createSiteProject(v: SiteFields, tool: string): Promise<PhotoSite> {
   const me = await getAuth().session().catch(() => null);
   if (!canCreateProjects(me)) throw new Error('Projekte dürfen nur Admin und Büro anlegen. Bitte ein vorhandenes Projekt wählen.');
   const name = v.name.trim();
   if (!name) throw new Error('Bitte einen Namen für das Projekt eingeben.');
-  const p = await projectFromSite({ name, number: v.number.trim(), address: v.address.trim() });
-  return { projectId: p.id, name: p.site || p.name, number: p.number ?? '', address: p.address };
+  const p = await projectFromSite({ name, number: v.number.trim(), address: v.address.trim() }, tool);
+  return { projectId: p.id, name: p.site || p.name, number: p.number ?? '', address: p.address, tools: p.tools };
+}
+
+/** Projekt aus dem Register in ein Werkzeug übernehmen (z. B. beim ersten Foto, Bericht, Plan oder in der Woche) */
+export async function useProjectIn(projectId: string | null, tool: string): Promise<void> {
+  if (!projectId) return;
+  const db = await getDB();
+  const p = await db.get('projects', projectId);
+  if (p && !usedIn(p, tool)) await adoptProject(p, tool);
 }
 
 const ADOPTED = 'freeSitesAdopted';
@@ -120,18 +128,21 @@ export async function adoptFreeSites(): Promise<number> {
     if (k && !byName.has(k)) byName.set(k, { projectId: p.id, name: p.site || p.name, number: p.number ?? '', address: p.address });
   }
   let created = 0;
-  const resolve = async (name: string, number = '', address = '') => {
+  const resolve = async (name: string, tool: string, number = '', address = '') => {
     const k = name.trim().toLowerCase();
     if (!k) return null;
     const have = byName.get(k);
-    if (have) return have;
-    const p = await projectFromSite({ name: name.trim(), number, address });
+    if (have) {
+      await useProjectIn(have.projectId, tool);
+      return have;
+    }
+    const p = await projectFromSite({ name: name.trim(), number, address }, tool);
     const entry = { projectId: p.id, name: name.trim(), number, address };
     byName.set(k, entry);
     created++;
     return entry;
   };
-  for (const f of free) await resolve(f.name, f.number, f.address);
+  for (const f of free) await resolve(f.name, 'photos', f.number, f.address);
   for (const w of weeks) {
     let changed = false;
     const sites = [];
@@ -140,7 +151,7 @@ export async function adoptFreeSites(): Promise<number> {
         sites.push(s);
         continue;
       }
-      const r = await resolve(s.name, s.number ?? '', s.address ?? '');
+      const r = await resolve(s.name, 'workers', s.number ?? '', s.address ?? '');
       if (!r) {
         sites.push(s);
         continue;
@@ -152,17 +163,17 @@ export async function adoptFreeSites(): Promise<number> {
   }
   for (const r of reports) {
     if (r.projectId) continue;
-    const e = await resolve(r.head.site || r.head.project, r.head.number, r.head.address);
+    const e = await resolve(r.head.site || r.head.project, 'reports', r.head.number, r.head.address);
     if (e) await saveReport({ ...r, projectId: e.projectId, updatedAt: Date.now() });
   }
   for (const p of photos) {
     if (p.projectId) continue;
-    const e = await resolve(p.siteName, p.siteNumber, p.siteAddress);
+    const e = await resolve(p.siteName, 'photos', p.siteNumber, p.siteAddress);
     if (e) await storage.update({ ...p, projectId: e.projectId, siteName: e.name, siteNumber: p.siteNumber || e.number, siteAddress: p.siteAddress || e.address });
   }
   for (const d of plans) {
     if (d.projectId) continue;
-    const e = await resolve(d.siteName, d.siteNumber, d.siteAddress);
+    const e = await resolve(d.siteName, 'defects', d.siteNumber, d.siteAddress);
     if (e) await saveDefectPlan({ ...d, projectId: e.projectId, updatedAt: Date.now() });
   }
   await clearFreePhotoSites();

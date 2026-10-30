@@ -360,13 +360,18 @@ test('Baustelle ↔ Projekt: aus Aufmaß & Abrechnung wählen, als Projekt anleg
   await expect(page.getByTestId('site-to-project')).toHaveCount(0);
   await page.keyboard.press('Escape');
 
-  // 4) in Aufmaß & Abrechnung sind alle vier Projekte da; die Übernahme-Auswahl im Formular ist leer (nichts mehr ohne Projekt)
+  // 4) Aufmaß & Abrechnung zeigt nur dort benutzte Projekte; die aus der Einteilung stehen im Formular zum Übernehmen
   await page.goto('./#/projekte');
-  await expect(page.getByTestId('project-card')).toHaveCount(4);
+  await expect(page.getByTestId('project-card')).toHaveCount(1);
   await page.getByTestId('new-project').click();
   const form = page.getByTestId('project-form');
-  await expect(form.getByTestId('project-from-crew')).toHaveCount(0);
-  await page.keyboard.press('Escape');
+  await expect(form.getByTestId('project-from-register').locator('option')).toHaveText(['– Projekt wählen –', 'Halle Nord', 'Sanierung Hauptplatz', 'Umbau Gewerbepark']);
+  await form.getByTestId('project-from-register').selectOption({ label: 'Halle Nord' });
+  await expect(form.locator('input[name="name"]')).toHaveValue('Halle Nord');
+  await form.getByRole('button', { name: 'Projekt anlegen' }).click();
+  await expect(page.getByTestId('project-title')).toHaveText('Halle Nord');
+  await page.goto('./#/projekte');
+  await expect(page.getByTestId('project-card')).toHaveCount(2);
   // Baustelle ist jetzt mit dem Projekt verknüpft
   await page.goto('./#/arbeitereinteilung');
   await page.getByTestId('week-date').fill('2026-10-26');

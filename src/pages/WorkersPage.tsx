@@ -44,7 +44,7 @@ import { getCompanyLogo } from '../lib/company';
 import { absenceOn, absenceRange, absenceSummary } from '../lib/crew-absence';
 import { exportCrewBackup, importCrewBackup } from '../lib/crew-backup';
 import { linkSitesToProject, projectFromSite } from '../lib/crew-link';
-import { useCanCreateProjects } from '../lib/sites';
+import { useCanCreateProjects, useProjectIn } from '../lib/sites';
 import { crewDayPdf, crewWeekPdf } from '../lib/crew-pdf';
 import { uuid } from '../lib/ids';
 import { navigate, paths } from '../lib/router';
@@ -273,7 +273,7 @@ export function WorkersPage() {
   /** Baustelle ohne Projekt als Projekt anlegen und in allen Wochen verknüpfen */
   const siteToProject = (s: WeekSite) =>
     run(async () => {
-      const p = await projectFromSite(s);
+      const p = await projectFromSite(s, 'workers');
       await linkSitesToProject(s.name, p.id);
       setProjects((list) => [p, ...list]);
       // aktuelle Woche ebenfalls verknüpfen (auch wenn sie noch nicht gespeichert war)
@@ -677,11 +677,12 @@ export function WorkersPage() {
             void run(async () => {
               let f = fields;
               if (alsoProject) {
-                const p = await projectFromSite(fields);
+                const p = await projectFromSite(fields, 'workers');
                 setProjects((list) => [p, ...list]);
                 f = { ...fields, projectId: p.id };
                 toast(`Projekt „${p.name}“ in Aufmaß & Abrechnung angelegt.`, 'success');
               }
+              await useProjectIn(f.projectId, 'workers');
               if (dialog.site) save(updateSite(plan, dialog.site.id, f));
               else {
                 save(addSite(plan, f).week);

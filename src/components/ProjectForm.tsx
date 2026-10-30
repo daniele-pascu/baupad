@@ -17,16 +17,18 @@ interface Props {
   /** Kostenstellen, die zusammen mit den Projektangaben bearbeitet werden */
   costCenters?: CostCenterInput[];
   submitLabel: string;
-  /** Neues Projekt: Baustellen aus der Arbeitereinteilung (noch ohne Projekt) zum Übernehmen */
-  fromCrew?: { name: string; number?: string; address?: string }[];
-  onSubmit: (fields: ProjectFields, costCenters: CostCenterInput[]) => void | Promise<void>;
+  /** Neues Projekt: Projekte aus dem Register anderer Werkzeuge (Fotos, Berichte, Einteilung, Mängelplan) zum Übernehmen */
+  fromRegister?: Project[];
+  /** adoptId: gewähltes Register-Projekt (wird übernommen statt neu angelegt) */
+  onSubmit: (fields: ProjectFields, costCenters: CostCenterInput[], adoptId?: string | null) => void | Promise<void>;
   onClose: () => void;
 }
 
 const ccKey = (c: CostCenterInput) => `${c.number.trim()}|${c.name.trim()}`.toLowerCase();
 
 /** Projektangaben einschließlich Kostenstelle(n) – beim Anlegen und beim Bearbeiten. */
-export function ProjectForm({ title, initial, costCenters, submitLabel, fromCrew, onSubmit, onClose }: Props) {
+export function ProjectForm({ title, initial, costCenters, submitLabel, fromRegister, onSubmit, onClose }: Props) {
+  const [adoptId, setAdoptId] = useState<string | null>(null);
   const [f, setF] = useState<ProjectFields>({
     name: '',
     number: '',
@@ -81,27 +83,29 @@ export function ProjectForm({ title, initial, costCenters, submitLabel, fromCrew
             await onSubmit(
               { ...f, name: f.name.trim(), number: (f.number ?? '').trim(), site: f.site.trim() },
               filled.map((c) => ({ ...c, number: c.number.trim(), name: c.name.trim() })),
+              adoptId,
             );
           } finally {
             setBusy(false);
           }
         }}
       >
-        {!!fromCrew?.length && (
+        {!!fromRegister?.length && (
           <label className="field span-2">
-            <span>Aus der Arbeitereinteilung übernehmen (optional)</span>
+            <span>Aus dem Projektregister übernehmen (optional – Projekte aus Fotos, Berichten, Einteilung, Mängelplan)</span>
             <select
-              defaultValue=""
+              value={adoptId ?? ''}
               onChange={(e) => {
-                const s = fromCrew[Number(e.target.value)];
-                if (s) setF({ ...f, name: s.name, number: s.number ?? '', address: s.address ?? '' });
+                const p = fromRegister.find((x) => x.id === e.target.value) ?? null;
+                setAdoptId(p ? p.id : null);
+                if (p) setF({ ...f, name: p.name, number: p.number ?? '', site: p.site, address: p.address, client: p.client, editor: p.editor, date: p.date, notes: p.notes });
               }}
-              data-testid="project-from-crew"
+              data-testid="project-from-register"
             >
               <option value="">– Projekt wählen –</option>
-              {fromCrew.map((s, i) => (
-                <option key={s.name} value={i}>
-                  {[s.number, s.name].filter(Boolean).join(' · ')}
+              {fromRegister.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {[p.number, p.site || p.name].filter(Boolean).join(' · ')}
                 </option>
               ))}
             </select>
