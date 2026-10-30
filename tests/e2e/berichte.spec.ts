@@ -198,7 +198,7 @@ test('Ohne Projekt und ohne Arbeitereinteilung: Baustelle frei eingeben, Arbeite
   await d.getByTestId('report-site').selectOption('__new');
   await page.getByTestId('photo-site-name').fill('Halle 3');
   await page.getByTestId('photo-site-save').click();
-  await expect(d.getByTestId('report-site')).toHaveValue('|Halle 3');
+  await expect(d.getByTestId('report-site')).toHaveValue(/\|Halle 3$/);
   await d.getByTestId('report-create').click();
   await expect(page.getByTestId('report-title')).toHaveText('Regieliste Nr. 1');
   await expect(page.getByTestId('rp-site')).toHaveValue('Halle 3');

@@ -46,7 +46,6 @@ export function PhotosPage() {
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<'recent' | 'name'>('recent');
   const [creating, setCreating] = useState(false);
-  const [free, setFree] = useState<PhotoSite[]>([]);
   const access = useAccess();
 
   const reload = () =>
@@ -55,7 +54,6 @@ export function PhotosPage() {
       .then(async (list) => {
         setPhotos(list);
         setSites(access.filterSites(await loadPhotoSites(list), (s) => (s.projectId ? `p:${s.projectId}` : `n:${s.name.trim().toLowerCase()}`)));
-        setFree(await listFreePhotoSites());
       })
       .catch((e) => showError(e, 'Fotos konnten nicht geladen werden'));
   useEffect(() => {
@@ -82,8 +80,8 @@ export function PhotosPage() {
   }, [photos]);
   const hashes = useMemo(() => new Set((photos ?? []).map((p) => p.hash)), [photos]);
   const pending = (photos ?? []).filter((p) => p.sync !== 'synced').length;
-  /** unter „Fotos“ angelegte Baustellen, die noch keine Fotos haben */
-  const empty = useMemo(() => free.filter((f) => !groups.some((g) => g.key === photoSiteKey({ projectId: null, siteName: f.name })) && [f.name, f.number, f.address].join(' ').toLowerCase().includes(query.trim().toLowerCase())), [free, groups, query]);
+  /** Projekte aus dem Register (und ältere freie Baustellen), die noch keine Fotos haben */
+  const empty = useMemo(() => sites.filter((f) => !groups.some((g) => g.key === photoSiteKey({ projectId: f.projectId, siteName: f.name })) && [f.name, f.number, f.address].join(' ').toLowerCase().includes(query.trim().toLowerCase())), [sites, groups, query]);
 
   return (
     <>
@@ -105,7 +103,7 @@ export function PhotosPage() {
             onClose={() => setCreating(false)}
             onSaved={(s) => {
               setCreating(false);
-              void reload().then(() => navigate(paths.photoSite(photoSiteKey({ projectId: null, siteName: s.name }))));
+              void reload().then(() => navigate(paths.photoSite(photoSiteKey({ projectId: s.projectId, siteName: s.name }))));
             }}
           />
         )}
@@ -180,7 +178,7 @@ export function PhotosPage() {
             </a>
           ))}
           {empty.map((f) => (
-            <a key={`free:${f.name}`} href={paths.photoSite(photoSiteKey({ projectId: null, siteName: f.name }))} className="photo-site photo-site-empty" data-testid="photo-site" data-site={f.name}>
+            <a key={`empty:${f.projectId ?? f.name}`} href={paths.photoSite(photoSiteKey({ projectId: f.projectId, siteName: f.name }))} className="photo-site photo-site-empty" data-testid="photo-site" data-site={f.name}>
               <div className="photo-site-preview" aria-hidden="true">
                 <span className="photo-thumb-empty" />
               </div>

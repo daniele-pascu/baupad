@@ -91,7 +91,7 @@ test('Fotos werden hochgeladen, abgeglichen und für alle Geräte gelöscht', as
   const sd = page.getByTestId('photo-site-dialog');
   await sd.getByTestId('photo-site-name').fill('Baustelle Ablage');
   await sd.getByTestId('photo-site-save').click();
-  await expect(dlg.getByTestId('photo-site')).toHaveValue('|Baustelle Ablage');
+  await expect(dlg.getByTestId('photo-site')).toHaveValue(/\|Baustelle Ablage$/);
   await dlg.getByTestId('photo-user').fill('Max Muster');
   await dlg.getByTestId('photo-save').click();
   await expect(page.locator('.toast', { hasText: '1 Foto gespeichert' })).toHaveCount(1);
@@ -169,7 +169,7 @@ test('Ablage nicht eingerichtet: Fotos bleiben auf dem Gerät, Konto zeigt den H
   const sd = page.getByTestId('photo-site-dialog');
   await sd.getByTestId('photo-site-name').fill('Baustelle Lokal');
   await sd.getByTestId('photo-site-save').click();
-  await expect(dlg.getByTestId('photo-site')).toHaveValue('|Baustelle Lokal');
+  await expect(dlg.getByTestId('photo-site')).toHaveValue(/\|Baustelle Lokal$/);
   await dlg.getByTestId('photo-save').click();
   await expect(page.getByTestId('photos-local-banner')).toContainText('1 Foto liegt nur auf diesem Gerät');
 });

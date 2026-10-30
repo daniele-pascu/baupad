@@ -332,7 +332,7 @@ test('Baustelle ↔ Projekt: aus Aufmaß & Abrechnung wählen, als Projekt anleg
   await page.getByTestId('site-open-project').click();
   await expect(page.getByTestId('project-title')).toHaveText('Neubau Musterstraße');
 
-  // 2) neue Baustelle, gleich auch als Projekt anlegen
+  // 2) neues Projekt aus der Einteilung – landet im Projektregister (auch in Aufmaß & Abrechnung)
   await page.goto('./#/arbeitereinteilung');
   await page.getByTestId('week-date').fill('2026-10-26');
   await page.getByTestId('add-site').click();
@@ -340,39 +340,33 @@ test('Baustelle ↔ Projekt: aus Aufmaß & Abrechnung wählen, als Projekt anleg
   await sd.getByTestId('site-source-new').click();
   await sd.getByTestId('site-name-input').fill('Sanierung Hauptplatz');
   await sd.getByTestId('site-address').fill('Hauptplatz 3');
-  await sd.getByTestId('site-also-project').locator('input').check();
   await sd.getByTestId('site-save').click();
   await expect(page.locator('.toast', { hasText: 'Projekt „Sanierung Hauptplatz“ in Aufmaß & Abrechnung angelegt' })).toHaveCount(1);
   await menu('Sanierung Hauptplatz');
   await expect(page.getByTestId('site-open-project')).toHaveCount(1);
   await page.keyboard.press('Escape');
 
-  // 3) neue Baustelle ohne Projekt – später über ⋮ als Projekt anlegen
+  // 3) weitere neue Projekte aus der Einteilung – jedes landet sofort im Register (kein „als Projekt anlegen“ mehr nötig)
   for (const n of ['Umbau Gewerbepark', 'Halle Nord']) {
     await page.getByTestId('add-site').click();
     sd = page.getByTestId('site-dialog');
     await sd.getByTestId('site-source-new').click();
     await sd.getByTestId('site-name-input').fill(n);
     await sd.getByTestId('site-save').click();
+    await expect(page.locator('.toast', { hasText: `Projekt „${n}“` })).toHaveCount(1);
   }
   await menu('Umbau Gewerbepark');
-  await page.getByTestId('site-to-project').click();
-  await expect(page.locator('.toast', { hasText: 'Projekt „Umbau Gewerbepark“' })).toHaveCount(1);
-  await menu('Umbau Gewerbepark');
   await expect(page.getByTestId('site-open-project')).toHaveCount(1);
+  await expect(page.getByTestId('site-to-project')).toHaveCount(0);
   await page.keyboard.press('Escape');
 
-  // 4) umgekehrt: in Aufmaß & Abrechnung ein Projekt aus der Arbeitereinteilung übernehmen
-  await page.goto('./#/projekte');
-  await page.getByTestId('new-project').click();
-  const form = page.getByTestId('project-form');
-  await expect(form.getByTestId('project-from-crew').locator('option')).toHaveText(['– Projekt wählen –', 'Halle Nord']); // nur Baustellen ohne Projekt
-  await form.getByTestId('project-from-crew').selectOption({ label: 'Halle Nord' });
-  await expect(form.locator('input[name="name"]')).toHaveValue('Halle Nord');
-  await form.getByRole('button', { name: 'Projekt anlegen' }).click();
-  await expect(page.getByTestId('project-title')).toHaveText('Halle Nord');
+  // 4) in Aufmaß & Abrechnung sind alle vier Projekte da; die Übernahme-Auswahl im Formular ist leer (nichts mehr ohne Projekt)
   await page.goto('./#/projekte');
   await expect(page.getByTestId('project-card')).toHaveCount(4);
+  await page.getByTestId('new-project').click();
+  const form = page.getByTestId('project-form');
+  await expect(form.getByTestId('project-from-crew')).toHaveCount(0);
+  await page.keyboard.press('Escape');
   // Baustelle ist jetzt mit dem Projekt verknüpft
   await page.goto('./#/arbeitereinteilung');
   await page.getByTestId('week-date').fill('2026-10-26');

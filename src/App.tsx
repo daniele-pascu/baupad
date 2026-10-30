@@ -35,6 +35,7 @@ import { useSession } from './lib/use-session';
 import { connectPhotoCloud } from './lib/photo-cloud';
 import { remoteConnected } from './lib/remote';
 import { isNativeApp } from './lib/native';
+import { adoptFreeSites } from './lib/sites';
 import { canTool, ROUTE_TOOL } from './lib/access';
 import { hasStoredSession, initAuth } from './lib/auth-init';
 
@@ -172,6 +173,10 @@ export function App() {
   useServiceWorker();
   useAuthReturn();
   usePhotoCloud();
+  // einmalig: frei eingetippte Baustellen aus älteren Ständen ins Projektregister übernehmen
+  useEffect(() => {
+    void adoptFreeSites().catch((e) => console.warn('Projektregister', e));
+  }, []);
   // Firmenlogo für Excel-Exporte vorab laden (Export bleibt synchron im Klick)
   useEffect(preloadExcelLogo, []);
   useEffect(() => {

@@ -32,3 +32,8 @@ export async function updateFreePhotoSite(oldName: string, site: { name: string;
   await setMeta(KEY, list);
   return next;
 }
+
+/** nach der Übernahme ins Projektregister: Liste leeren */
+export async function clearFreePhotoSites(): Promise<void> {
+  await setMeta(KEY, []);
+}

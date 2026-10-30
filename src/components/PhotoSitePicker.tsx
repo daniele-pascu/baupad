@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { addFreePhotoSite } from '../lib/photo-sites';
+import { createSiteProject } from '../lib/sites';
 import type { PhotoSite } from '../lib/types';
 import { Modal } from './Modal';
 import { showError } from './ui';
@@ -20,7 +20,7 @@ export function PhotoSiteDialog({
   onClose(): void;
   onSaved(site: PhotoSite): void;
   initial?: PhotoSite;
-  /** eigene Speicherlogik (Bearbeiten); Standard: freie Baustelle anlegen */
+  /** eigene Speicherlogik (Bearbeiten); Standard: neues Projekt im Projektregister anlegen */
   onSave?(values: { name: string; number: string; address: string }): Promise<PhotoSite>;
   hint?: string;
 }) {
@@ -32,9 +32,9 @@ export function PhotoSiteDialog({
     if (!name.trim()) return;
     setBusy(true);
     try {
-      onSaved(onSave ? await onSave({ name: name.trim(), number: number.trim(), address: address.trim() }) : await addFreePhotoSite({ name, number, address }));
+      onSaved(onSave ? await onSave({ name: name.trim(), number: number.trim(), address: address.trim() }) : await createSiteProject({ name: name.trim(), number: number.trim(), address: address.trim() }));
     } catch (e) {
-      showError(e, 'Baustelle konnte nicht angelegt werden');
+      showError(e, 'Projekt konnte nicht angelegt werden');
     } finally {
       setBusy(false);
     }

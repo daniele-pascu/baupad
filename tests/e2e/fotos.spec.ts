@@ -19,7 +19,8 @@ test('Fotos je Baustelle, KW und Tag; Großansicht; Beschreibung; Suche; Duplika
   await page.goto('./#/tools');
   await page.getByTestId('tool-photos').click();
   await expect(page.getByTestId('photos-title')).toHaveText('Fotodokumentation');
-  await expect(page.getByTestId('photos-empty')).toBeVisible();
+  // das Projekt aus Aufmaß & Abrechnung steht schon als leere Karte da (Projektregister)
+  await expect(page.locator('[data-testid="photo-site"][data-site="Neubau Musterstraße"]')).toContainText('Noch keine Fotos');
 
   // drei Fotos aus der Galerie: Di 27.10. (zwei), Mo 02.11. – Baustelle aus dem Projekt
   await page.getByTestId('photo-file-input').setInputFiles([shot('IMG_1.jpg', '2026:10:27 09:15:30'), shot('IMG_2.jpg', '2026:10:27 14:40:00'), shot('IMG_3.jpg', '2026:11:02 08:05:00')]);
@@ -176,10 +177,11 @@ test('Ohne Projekt: Baustelle aus der Arbeitereinteilung bzw. Berichten; Foto oh
   await page.goto('./#/fotos');
   await page.getByTestId('photo-file-input').setInputFiles(join(FIXTURES, 'foto.jpg'));
   const dlg = page.getByTestId('photo-save-dialog');
-  await expect(dlg.getByTestId('photo-site')).toHaveValue('|Halle 3'); // einzige Baustelle vorgewählt
+  await expect(dlg.getByTestId('photo-site')).toHaveValue(/\|Halle 3$/); // einzige Baustelle vorgewählt
   await expect(dlg.getByTestId('photo-pending-item')).toContainText(/\(Dateidatum\)|\(jetzt\)/);
   await dlg.getByTestId('photo-save').click();
-  await expect(page.getByTestId('photo-site')).toHaveAttribute('data-site', 'Halle 3');
+  await expect(dlg).toHaveCount(0);
+  await expect(page.locator('a[data-testid="photo-site"]')).toHaveAttribute('data-site', 'Halle 3');
 });
 
 test('Neue Baustelle unter Fotos (Übersicht und Speichern-Dialog), Verschieben, PDF mit Optionen', async ({ page }) => {
@@ -197,7 +199,7 @@ test('Neue Baustelle unter Fotos (Übersicht und Speichern-Dialog), Verschieben,
   await expect(page.getByTestId('photo-site-empty')).toBeVisible();
   await page.getByTestId('photo-file-input').setInputFiles([shot('A.jpg', '2026:10:27 09:15:30'), shot('B.jpg', '2026:10:27 10:00:00')]);
   const dlg = page.getByTestId('photo-save-dialog');
-  await expect(dlg.getByTestId('photo-site')).toHaveValue('|Garage Jagdschlossgasse');
+  await expect(dlg.getByTestId('photo-site')).toHaveValue(/\|Garage Jagdschlossgasse$/);
   await dlg.getByTestId('photo-user').fill('Max');
   await dlg.getByTestId('photo-save').click();
   await expect(page.getByTestId('photo-thumb')).toHaveCount(2);
@@ -211,7 +213,7 @@ test('Neue Baustelle unter Fotos (Übersicht und Speichern-Dialog), Verschieben,
   await dlg.getByTestId('photo-site').selectOption('__new');
   await sd.getByTestId('photo-site-name').fill('Halle 3');
   await sd.getByTestId('photo-site-save').click();
-  await expect(dlg.getByTestId('photo-site')).toHaveValue('|Halle 3');
+  await expect(dlg.getByTestId('photo-site')).toHaveValue(/\|Halle 3$/);
   await dlg.getByTestId('photo-save').click();
   await expect(dlg).toHaveCount(0);
   await expect(cards).toHaveCount(2);
@@ -234,7 +236,7 @@ test('Neue Baustelle unter Fotos (Übersicht und Speichern-Dialog), Verschieben,
   await page.getByTestId('photo-thumb').first().click();
   await page.getByTestId('photo-selected-move').click();
   const mv = page.getByTestId('photo-move-dialog');
-  await mv.getByTestId('photo-move-site').selectOption('|Halle 3');
+  await mv.getByTestId('photo-move-site').selectOption({ label: 'Halle 3' });
   await mv.getByTestId('photo-move-save').click();
   await expect(page.locator('.toast', { hasText: 'nach „Halle 3“ verschoben' })).toHaveCount(1);
   await expect(page.getByTestId('photo-thumb')).toHaveCount(1);

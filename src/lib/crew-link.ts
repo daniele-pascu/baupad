@@ -1,4 +1,4 @@
-import { listWeeks, saveWeek } from './db';
+import { listProjects, listWeeks, saveWeek } from './db';
 import { createProjectWithCostCenters } from './store';
 import type { Project, WeekSite } from './types';
 
@@ -31,6 +31,10 @@ export async function linkSitesToProject(name: string, projectId: string): Promi
 
 /** Projekt aus einer Baustelle anlegen (Name, Nummer, Adresse; ohne Kostenstelle – später ergänzbar) */
 export async function projectFromSite(site: Pick<WeekSite, 'name' | 'number' | 'address'>): Promise<Project> {
+  // gleicher Name wie ein vorhandenes Projekt (ohne Groß/Klein) → kein Duplikat, das vorhandene Projekt gilt
+  const key = site.name.trim().toLowerCase();
+  const existing = (await listProjects()).find((p) => !p.deletedAt && ((p.site || p.name).trim().toLowerCase() === key || p.name.trim().toLowerCase() === key));
+  if (existing) return existing;
   const { project } = await createProjectWithCostCenters(
     { name: site.name.trim(), number: (site.number ?? '').trim(), site: '', address: (site.address ?? '').trim(), client: '', editor: '', date: '', notes: '' },
     [{ number: '', name: '' }],

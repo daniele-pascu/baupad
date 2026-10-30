@@ -5,9 +5,10 @@
  * Ändern dürfen derzeit Admin und Büro (ohne Arbeitsbereich: jeder).
  */
 import type { Session } from './auth';
-import { getDB, listDefectPlans, listReports, listWeeks, saveDefectPlan, saveReport, saveWeek, writeRecords } from './db';
+import { getDB, getMeta, listDefectPlans, listProjects, listReports, listWeeks, saveDefectPlan, saveReport, saveWeek, setMeta, writeRecords } from './db';
+import { projectFromSite } from './crew-link';
 import { getPhotoStorage } from './photo-storage';
-import { listFreePhotoSites, updateFreePhotoSite } from './photo-sites';
+import { clearFreePhotoSites, listFreePhotoSites, updateFreePhotoSite } from './photo-sites';
 import { photoSiteKey } from './photos';
 import { getDeviceId } from './ids';
 import type { PhotoSite } from './types';
@@ -77,4 +78,82 @@ export async function propagateProject(project: { id: string; site: string; name
 export async function findSite(key: string, sites?: PhotoSite[]): Promise<PhotoSite | null> {
   const list = sites ?? (await listFreePhotoSites());
   return list.find((s) => siteKeyOfSite(s) === key) ?? null;
+}
+
+/**
+ * Projektregister: „Neues Projekt“ aus jedem Werkzeug (Fotos, Berichte, Mängelplan, Einteilung) legt ein echtes
+ * Projekt an, das sofort überall erscheint – auch in Aufmaß & Abrechnung (dort ohne Pläne, bis welche kommen).
+ */
+export async function createSiteProject(v: SiteFields): Promise<PhotoSite> {
+  const name = v.name.trim();
+  if (!name) throw new Error('Bitte einen Namen für das Projekt eingeben.');
+  const p = await projectFromSite({ name, number: v.number.trim(), address: v.address.trim() });
+  return { projectId: p.id, name: p.site || p.name, number: p.number ?? '', address: p.address };
+}
+
+const ADOPTED = 'freeSitesAdopted';
+
+/**
+ * Einmalig: frei eingetippte Baustellen aus der Zeit vor dem Projektregister (Fotos, Berichte, Wochen,
+ * Mängelpläne, Baustellenliste) werden zu Projekten; alle Einträge zeigen danach auf das Projekt.
+ * Gleicher Name (ohne Groß/Klein) = dasselbe Projekt; gibt es schon ein Projekt mit dieser Baustelle, wird es genommen.
+ */
+export async function adoptFreeSites(): Promise<number> {
+  if (await getMeta<boolean>(ADOPTED)) return 0;
+  const storage = getPhotoStorage();
+  const [projects, weeks, reports, photos, plans, free] = await Promise.all([listProjects(), listWeeks(), listReports(), storage.list(), listDefectPlans(), listFreePhotoSites()]);
+  const byName = new Map<string, { projectId: string; name: string; number: string; address: string }>();
+  for (const p of projects) {
+    const k = (p.site || p.name).trim().toLowerCase();
+    if (k && !byName.has(k)) byName.set(k, { projectId: p.id, name: p.site || p.name, number: p.number ?? '', address: p.address });
+  }
+  let created = 0;
+  const resolve = async (name: string, number = '', address = '') => {
+    const k = name.trim().toLowerCase();
+    if (!k) return null;
+    const have = byName.get(k);
+    if (have) return have;
+    const p = await projectFromSite({ name: name.trim(), number, address });
+    const entry = { projectId: p.id, name: name.trim(), number, address };
+    byName.set(k, entry);
+    created++;
+    return entry;
+  };
+  for (const f of free) await resolve(f.name, f.number, f.address);
+  for (const w of weeks) {
+    let changed = false;
+    const sites = [];
+    for (const s of w.sites) {
+      if (s.projectId) {
+        sites.push(s);
+        continue;
+      }
+      const r = await resolve(s.name, s.number ?? '', s.address ?? '');
+      if (!r) {
+        sites.push(s);
+        continue;
+      }
+      changed = true;
+      sites.push({ ...s, projectId: r.projectId, number: s.number || r.number, address: s.address || r.address });
+    }
+    if (changed) await saveWeek({ ...w, sites });
+  }
+  for (const r of reports) {
+    if (r.projectId) continue;
+    const e = await resolve(r.head.site || r.head.project, r.head.number, r.head.address);
+    if (e) await saveReport({ ...r, projectId: e.projectId, updatedAt: Date.now() });
+  }
+  for (const p of photos) {
+    if (p.projectId) continue;
+    const e = await resolve(p.siteName, p.siteNumber, p.siteAddress);
+    if (e) await storage.update({ ...p, projectId: e.projectId, siteName: e.name, siteNumber: p.siteNumber || e.number, siteAddress: p.siteAddress || e.address });
+  }
+  for (const d of plans) {
+    if (d.projectId) continue;
+    const e = await resolve(d.siteName, d.siteNumber, d.siteAddress);
+    if (e) await saveDefectPlan({ ...d, projectId: e.projectId, updatedAt: Date.now() });
+  }
+  await clearFreePhotoSites();
+  await setMeta(ADOPTED, true);
+  return created;
 }

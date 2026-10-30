@@ -943,9 +943,8 @@ function SiteDialog({
   onClose(): void;
 }) {
   const [projectId, setProjectId] = useState<string>(site?.projectId ?? '');
-  /** Quelle: aus Aufmaß & Abrechnung wählen oder neue Baustelle (optional auch als Projekt anlegen) */
-  const [source, setSource] = useState<'project' | 'new'>(() => (site ? (site.projectId ? 'project' : 'new') : projects.length ? 'project' : 'new'));
-  const [alsoProject, setAlsoProject] = useState(false);
+  /** Quelle: Projekt aus dem Register wählen oder neues Projekt anlegen (erscheint dann in allen Werkzeugen) */
+  const [source, setSource] = useState<'project' | 'new'>(() => (site ? (site.projectId ? 'project' : 'new') : projects.some((p) => !taken.includes(p.id)) ? 'project' : 'new'));
   const [name, setName] = useState(site?.name ?? '');
   const [number, setNumber] = useState(site?.number ?? '');
   const [address, setAddress] = useState(site?.address ?? '');
@@ -965,7 +964,7 @@ function SiteDialog({
     setShow(true);
     if (!name.trim()) return;
     if (source === 'project' && !projectId) return;
-    onSave({ projectId: source === 'project' ? projectId || null : null, name: name.trim(), number: number.trim(), address: address.trim(), note: note.trim() }, source === 'new' && alsoProject);
+    onSave({ projectId: source === 'project' ? projectId || null : null, name: name.trim(), number: number.trim(), address: address.trim(), note: note.trim() }, source === 'new');
   };
   return (
     <Modal
@@ -1040,12 +1039,7 @@ function SiteDialog({
             <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="z. B. Kran ab Mittwoch, Schlüssel bei Polier" data-testid="site-note-input" />
           </label>
         </div>
-        {source === 'new' && !site?.projectId && (
-          <label className="check-row" data-testid="site-also-project">
-            <input type="checkbox" checked={alsoProject} onChange={(e) => setAlsoProject(e.target.checked)} />
-            Auch als Projekt in Aufmaß & Abrechnung anlegen
-          </label>
-        )}
+        {source === 'new' && !site?.projectId && <p className="muted small">Das Projekt wird im Projektregister angelegt und ist damit auch in Aufmaß & Abrechnung, Fotos, Berichten und Mängelplan verfügbar.</p>}
         {show && source === 'project' && !projectId && <p className="error small">Bitte ein Projekt wählen.</p>}
         {show && !name.trim() && <p className="error small">Bitte eine Bezeichnung eingeben.</p>}
         <p className="muted small">Die Bezeichnung wird in dieser Woche gespeichert – spätere Umbenennungen des Projekts ändern alte Wochen nicht.</p>

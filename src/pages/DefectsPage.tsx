@@ -72,7 +72,7 @@ export function DefectsPage() {
             onClose={() => setCreating(false)}
             onSaved={(s) => {
               setCreating(false);
-              void reload().then(() => navigate(paths.defectSite(defectSiteKey({ projectId: null, siteName: s.name }))));
+              void reload().then(() => navigate(paths.defectSite(defectSiteKey({ projectId: s.projectId, siteName: s.name }))));
             }}
           />
         )}
