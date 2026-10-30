@@ -22,7 +22,7 @@ export const en: Dict = {
     cta: 'Get in touch',
   },
   footer: {
-    claim: 'Software that makes work easier – developed in Austria.',
+    claim: 'The working day, made easier – software from Austria.',
     products: 'Products',
     companyCol: 'Company',
     legal: 'Legal',
@@ -47,12 +47,12 @@ export const en: Dict = {
     toTop: 'Back to top',
   },
   home: {
-    title: 'PAD Software – Software that makes work easier',
-    description: 'PAD Software builds software that makes work easier. First product: BauPad for construction companies – measurement, crew scheduling, reports, photo documentation and defect plans in one app.',
+    title: 'PAD Software – The working day, made easier',
+    description: 'PAD Software builds software that makes the working day easier. First product: BauPad for construction companies – measurement, crew scheduling, reports, photo documentation and defect plans in one app.',
     hero: {
       eyebrow: 'PAD Software',
-      title: ['Software', 'that makes', 'work easier.'],
-      lead: 'We build software that simplifies everyday work – clear, fast and working without an internet connection. Our first product is BauPad for construction companies.',
+      title: ['Software.', 'The working day,', 'made easier.'],
+      lead: 'We build software that makes the working day easier – clear, fast and working without an internet connection. Our first product is BauPad for construction companies.',
       primary: 'Learn more about BauPad',
       secondary: 'Get in touch',
       facts: ['Developed in Austria', 'Built on real job sites', 'One account for all products'],
@@ -277,9 +277,9 @@ export const en: Dict = {
   },
   companyPage: {
     title: 'Company – PAD Software',
-    description: 'PAD Software is a software company from Austria. We build software that makes work easier – clear, reliable, honest. First product: BauPad for construction companies.',
-    hero: { eyebrow: 'Company', title: ['Software from practice,', 'for practice.'], lead: 'PAD Software is a young software company from Austria. We build software that makes work easier – started on the job sites of concrete repair, open to further industries.' },
-    what: { eyebrow: 'What we do', title: 'We build software that makes work easier.', text: 'Our products help companies record work, schedule teams, keep proof and bill – on the phone on site and on the PC in the office. BauPad for construction companies is the first product; further industries and products are being planned.' },
+    description: 'PAD Software is a software company from Austria. We build software that makes the working day easier – clear, reliable, honest. First product: BauPad for construction companies.',
+    hero: { eyebrow: 'Company', title: ['Software from practice,', 'for practice.'], lead: 'PAD Software is a young software company from Austria. We build software that makes the working day easier – started on the job sites of concrete repair, open to further industries.' },
+    what: { eyebrow: 'What we do', title: 'We build software that makes the working day easier.', text: 'Our products help companies record work, schedule teams, keep proof and bill – on the phone on site and on the PC in the office. BauPad for construction companies is the first product; further industries and products are being planned.' },
     philosophy: {
       eyebrow: 'Philosophy',
       title: 'Three principles.',

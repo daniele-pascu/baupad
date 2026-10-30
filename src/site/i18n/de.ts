@@ -24,7 +24,7 @@ export const de = {
     cta: 'Kontakt aufnehmen',
   },
   footer: {
-    claim: 'Software, die Arbeit einfacher macht – entwickelt in Österreich.',
+    claim: 'Den Arbeitstag leichter gemacht – Software aus Österreich.',
     products: 'Produkte',
     companyCol: 'Unternehmen',
     legal: 'Rechtliches',
@@ -49,12 +49,12 @@ export const de = {
     toTop: 'Nach oben',
   },
   home: {
-    title: 'PAD Software – Software, die Arbeit einfacher macht',
-    description: 'PAD Software entwickelt Software, die Arbeit einfacher macht. Erstes Produkt: BauPad für Baufirmen – Aufmaß, Arbeitereinteilung, Berichte, Fotodokumentation und Mängelplan in einer App.',
+    title: 'PAD Software – Den Arbeitstag leichter gemacht',
+    description: 'PAD Software entwickelt Software, die den Arbeitstag leichter macht. Erstes Produkt: BauPad für Baufirmen – Aufmaß, Arbeitereinteilung, Berichte, Fotodokumentation und Mängelplan in einer App.',
     hero: {
       eyebrow: 'PAD Software',
-      title: ['Software,', 'die Arbeit', 'einfacher macht.'],
-      lead: 'Wir entwickeln Software, die Arbeitsabläufe vereinfacht – verständlich, schnell und auch ohne Internet. Unser erstes Produkt ist BauPad für Baufirmen.',
+      title: ['Software.', 'Den Arbeitstag', 'leichter gemacht.'],
+      lead: 'Wir entwickeln Software, die den Arbeitstag leichter macht – verständlich, schnell und auch ohne Internet. Unser erstes Produkt ist BauPad für Baufirmen.',
       primary: 'Mehr über BauPad erfahren',
       secondary: 'Kontakt aufnehmen',
       facts: ['Entwickelt in Österreich', 'Aus der Praxis für die Praxis', 'Ein Konto für alle Produkte'],
@@ -279,9 +279,9 @@ export const de = {
   },
   companyPage: {
     title: 'Unternehmen – PAD Software',
-    description: 'PAD Software ist ein Softwareunternehmen aus Österreich. Wir entwickeln Software, die Arbeit einfacher macht – verständlich, verlässlich, ehrlich. Erstes Produkt: BauPad für Baufirmen.',
-    hero: { eyebrow: 'Unternehmen', title: ['Software aus der Praxis,', 'für die Praxis.'], lead: 'PAD Software ist ein junges Softwareunternehmen aus Österreich. Wir entwickeln Software, die Arbeit einfacher macht – begonnen auf den Baustellen der Betoninstandsetzung, offen für weitere Branchen.' },
-    what: { eyebrow: 'Was wir tun', title: 'Wir entwickeln Software, die Arbeit einfacher macht.', text: 'Unsere Produkte helfen Betrieben, Arbeit zu erfassen, Teams einzuteilen, Nachweise zu führen und abzurechnen – am Handy vor Ort und am PC im Büro. BauPad für Baufirmen ist das erste Produkt; weitere Branchen und Produkte sind in Planung.' },
+    description: 'PAD Software ist ein Softwareunternehmen aus Österreich. Wir entwickeln Software, die den Arbeitstag leichter macht – verständlich, verlässlich, ehrlich. Erstes Produkt: BauPad für Baufirmen.',
+    hero: { eyebrow: 'Unternehmen', title: ['Software aus der Praxis,', 'für die Praxis.'], lead: 'PAD Software ist ein junges Softwareunternehmen aus Österreich. Wir entwickeln Software, die den Arbeitstag leichter macht – begonnen auf den Baustellen der Betoninstandsetzung, offen für weitere Branchen.' },
+    what: { eyebrow: 'Was wir tun', title: 'Wir entwickeln Software, die den Arbeitstag leichter macht.', text: 'Unsere Produkte helfen Betrieben, Arbeit zu erfassen, Teams einzuteilen, Nachweise zu führen und abzurechnen – am Handy vor Ort und am PC im Büro. BauPad für Baufirmen ist das erste Produkt; weitere Branchen und Produkte sind in Planung.' },
     philosophy: {
       eyebrow: 'Philosophie',
       title: 'Drei Grundsätze.',
