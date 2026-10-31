@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ActionMenu } from '../components/ActionMenu';
 import { Icon } from '../components/Icon';
 import { PdfPreview } from '../components/PdfPreview';
+import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, offerFile, showError, toast } from '../components/ui';
 import { safeFileName, type ExportFile } from '../lib/aufmass';
 import { deleteReport, listReports, saveReport } from '../lib/db';
@@ -124,6 +125,7 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
   if (all && !site)
     return (
       <>
+        <SiteNav />
         <div className="page">
           <p>Baustelle nicht gefunden.</p>
           <a className="btn" href={paths.reports()}>
@@ -135,6 +137,7 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
 
   return (
     <>
+      <SiteNav />
       <div className="page reports-page" data-testid="report-site-page" data-site={name}>
         <header className="page-head page-head-row">
           <div className="page-head-title">

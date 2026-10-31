@@ -20,6 +20,7 @@ export async function freshStart(page: Page) {
   await page.goto('./projekte', { waitUntil: 'load' });
   await expect(page).toHaveTitle('BauPad');
   await expect(page.getByTestId('projects-title')).toHaveText('Aufmaß & Abrechnung');
+  await expect(page.getByRole('img', { name: 'BauPad' })).toBeVisible();
 }
 
 export type CostCenterSpec = string | { number: string; name: string };

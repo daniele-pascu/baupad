@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { DefectPlanDialog } from '../components/DefectPlanDialog';
 import { Icon } from '../components/Icon';
 import { PhotoSiteDialog } from '../components/PhotoSitePicker';
+import { SiteNav } from '../components/SiteNav';
 import { ToolIcon } from '../components/ToolIcon';
 import { showError } from '../components/ui';
 import { listDefectMarks, listDefectPlans } from '../lib/db';
@@ -58,6 +59,7 @@ export function DefectsPage() {
 
   return (
     <>
+      <SiteNav />
       <div className="page defects-page" style={DEFECT_ACCENT}>
         <header className="page-head page-head-row">
           <div className="page-head-title">

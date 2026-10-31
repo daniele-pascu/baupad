@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ActionMenu } from '../components/ActionMenu';
 import { Icon } from '../components/Icon';
 import { PdfPreview } from '../components/PdfPreview';
+import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, showError, toast } from '../components/ui';
 import type { ExportFile } from '../lib/aufmass';
 import { getCompanyLogo } from '../lib/company';
@@ -104,10 +105,11 @@ export function ReportEditorPage({ reportId }: { reportId: string }) {
   const setHead = (patch: Partial<ReportHead>) => update((x) => ({ ...x, head: { ...x.head, ...patch } }));
   const setData = <T,>(patch: Partial<T>) => update((x) => ({ ...x, data: { ...x.data, ...patch } }) as Report);
 
-  if (r === undefined) return null;
+  if (r === undefined) return <SiteNav />;
   if (r === null)
     return (
       <>
+        <SiteNav />
         <div className="page">
           <p>Bericht nicht gefunden.</p>
           <a className="btn" href={paths.reports()}>
@@ -178,6 +180,7 @@ export function ReportEditorPage({ reportId }: { reportId: string }) {
 
   return (
     <>
+      <SiteNav />
       <div className="page report-page">
         <header className="page-head page-head-row">
           <div className="page-head-title">

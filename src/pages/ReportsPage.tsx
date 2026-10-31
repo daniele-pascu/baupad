@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { ActionMenu } from '../components/ActionMenu';
 import { Icon } from '../components/Icon';
 import { Modal } from '../components/Modal';
+import { SiteNav } from '../components/SiteNav';
 import { ToolIcon } from '../components/ToolIcon';
 import { offerFile, showError, toast } from '../components/ui';
 import { exportReportsBackup, importReportsBackup } from '../lib/report-backup';
@@ -117,6 +118,7 @@ export function ReportsPage() {
 
   return (
     <>
+      <SiteNav />
       <div className="page reports-page">
         <header className="page-head page-head-row">
           <div className="page-head-title">

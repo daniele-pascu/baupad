@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '../components/Icon';
 import { ProjectForm, type CostCenterInput, type ProjectFields } from '../components/ProjectForm';
+import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, offerFile, promptDialog, showError, toast } from '../components/ui';
 import { backupStatus, exportProjectBackup, findExistingProject, importProjectBackup, readProjectBackup, type BackupStatus } from '../lib/backup';
 import { deleteProjectCompletely, getMeta, listProjects, projectStats, setMeta, writeRecords } from '../lib/db';
@@ -239,6 +240,7 @@ export function HomePage() {
 
   return (
     <>
+    <SiteNav />
     <div className="page home">
       <header className="page-head page-head-row">
         <div className="page-head-title">

@@ -3,6 +3,7 @@ import { Icon } from '../components/Icon';
 import { PhotoCapture, type PhotoSite } from '../components/PhotoCapture';
 import { PhotoImg } from '../components/PhotoImg';
 import { PhotoSiteDialog } from '../components/PhotoSitePicker';
+import { SiteNav } from '../components/SiteNav';
 import { ToolIcon } from '../components/ToolIcon';
 import { showError } from '../components/ui';
 import { listProjects, listReports, listWeeks } from '../lib/db';
@@ -89,6 +90,7 @@ export function PhotosPage() {
 
   return (
     <>
+      <SiteNav />
       <div className="page photos-page">
         <header className="page-head page-head-row">
           <div className="page-head-title">

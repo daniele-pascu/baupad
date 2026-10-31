@@ -8,6 +8,7 @@ import { canEditSites, updateSiteEverywhere } from '../lib/sites';
 import { useSession } from '../lib/use-session';
 import { forgetPhotoUrl, usePhotoUrl } from '../components/PhotoImg';
 import { PhotoCapture, type PhotoSite } from '../components/PhotoCapture';
+import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, offerFile, showError, toast } from '../components/ui';
 import { safeFileName } from '../lib/aufmass';
 import { getPhotoStorage, onPhotosChanged } from '../lib/photo-storage';
@@ -293,6 +294,7 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
   if (all && !site && !photos.length)
     return (
       <>
+        <SiteNav />
         <div className="page">
           <p>Baustelle nicht gefunden.</p>
           <a className="btn" href={paths.photos()}>
@@ -304,6 +306,7 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
 
   return (
     <>
+      <SiteNav />
       <div className={`page photos-page${showInfo ? '' : ' head-collapsed'}`}>
         <div ref={stickyRef} className={`photo-sticky${showInfo ? '' : ' collapsed'}`} data-testid="photo-sticky" data-collapsed={!showInfo || undefined}>
         <div ref={infoRef} className="photo-sticky-info">

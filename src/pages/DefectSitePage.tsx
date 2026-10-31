@@ -4,6 +4,7 @@ import { PhotoSiteDialog } from '../components/PhotoSitePicker';
 import { canEditSites, siteKeyOfSite, updateSiteEverywhere } from '../lib/sites';
 import { useSession } from '../lib/use-session';
 import { Icon } from '../components/Icon';
+import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, promptDialog, showError, toast } from '../components/ui';
 import { deleteDefectPlanCompletely, listDefectMarks } from '../lib/db';
 import { KINDS, planImage, plansOfSite, renameDefectPlan } from '../lib/defects';
@@ -131,6 +132,7 @@ export function DefectSitePage({ siteKey }: { siteKey: string }) {
 
   return (
     <>
+      <SiteNav />
       <div className="page defects-page" style={DEFECT_ACCENT}>
         <header className="page-head page-head-row">
           <div className="page-head-title">
