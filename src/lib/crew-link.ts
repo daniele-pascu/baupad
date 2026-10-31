@@ -42,10 +42,18 @@ export async function projectFromSite(
   const cc = (site.costCenter ?? '').trim();
   const { project } = await createProjectWithCostCenters(
     { name: site.name.trim(), number: (site.number ?? '').trim(), site: '', address: (site.address ?? '').trim(), client: (site.client ?? '').trim(), editor: '', date: (site.date ?? '').trim(), notes: (site.notes ?? '').trim(), tools: [tool] },
-    // Kostenstelle aus dem einheitlichen Dialog: Zahl → Nummer, sonst Bezeichnung
-    [cc ? (/^[\d.\-/ ]+$/.test(cc) ? { number: cc, name: '' } : { number: '', name: cc }) : { number: '', name: '' }],
+    [splitCostCenter(cc)],
   );
   return project;
+}
+
+/** Kostenstelle aus dem einheitlichen Dialog (ein Feld): „91092“ → Nummer, „91092 – Tiefgarage“ → Nummer + Bezeichnung, „Tiefgarage“ → Bezeichnung */
+export function splitCostCenter(text: string): { number: string; name: string } {
+  const t = text.trim();
+  if (!t) return { number: '', name: '' };
+  const m = /^([\d][\d.\-/]*)(?:\s*[–\-:]\s*|\s+)?(.*)$/.exec(t);
+  if (m && (m[2] === '' || /^[\d.\-/]+$/.test(m[1]))) return { number: m[1], name: m[2].trim() };
+  return { number: '', name: t };
 }
 
 /** Erste Kostenstelle je Projekt (Nummer, sonst Bezeichnung) – für die Überschrift in Listen */

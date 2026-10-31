@@ -16,7 +16,8 @@ import { loadPhotoSites } from './PhotosPage';
 import { usePageTitle } from '../lib/page-title';
 import { useAccess } from '../lib/access';
 import { usedIn } from '../lib/crew-link';
-import { useProjectIn } from '../lib/sites';
+import { useCanCreateProjects, useProjectIn } from '../lib/sites';
+import { ProjectPicker } from '../components/ProjectPicker';
 import { listFormTemplates } from '../lib/db';
 import type { FormTemplate } from '../lib/form-template';
 
@@ -111,6 +112,9 @@ export function ReportsPage() {
   }, [sites, cards, query, reports]);
 
   const run = (fn: () => Promise<void>) => fn().catch((e) => showError(e, 'Das hat nicht geklappt'));
+  const mayCreate = useCanCreateProjects();
+  /** Fenster „Projekt“: aus dem Register übernehmen oder neu anlegen (wie in allen Werkzeugen) */
+  const [picking, setPicking] = useState(false);
   /** hinterlegte Firmenformulare (Konto → Firmeninformationen) – PDFs der Berichte werden damit ausgegeben */
   const [templates, setTemplates] = useState<FormTemplate[] | null>(null);
   useEffect(() => {
@@ -129,6 +133,11 @@ export function ReportsPage() {
             <h1 data-testid="reports-title">Berichte &amp; Formulare</h1>
           </div>
           <div className="report-actions">
+            {mayCreate && (
+              <button type="button" className="btn" onClick={() => setPicking(true)} title="Projekt aus dem Register übernehmen oder neu anlegen" data-testid="report-new-site">
+                <Icon name="plus" size={16} /> <span className="hide-sm">Neues Projekt</span>
+              </button>
+            )}
             <button type="button" className="btn btn-primary" onClick={() => setCreating({})} data-testid="report-new">
               <Icon name="plus" /> Neuer Bericht
             </button>
@@ -160,6 +169,16 @@ export function ReportsPage() {
           </div>
         </header>
 
+        {picking && (
+          <ProjectPicker
+            tool="reports"
+            onClose={() => setPicking(false)}
+            onPick={() => {
+              setPicking(false);
+              void reload();
+            }}
+          />
+        )}
         {templates && (
           <p className="muted small reports-forms-hint" data-testid="reports-forms-hint">
             {templates.length ? (

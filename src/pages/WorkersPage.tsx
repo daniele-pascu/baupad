@@ -3,6 +3,7 @@ import { ActionMenu, type MenuAction } from '../components/ActionMenu';
 import { Icon } from '../components/Icon';
 import { Modal } from '../components/Modal';
 import { PhotoSiteDialog } from '../components/PhotoSitePicker';
+import { ProjectPicker } from '../components/ProjectPicker';
 import { SiteNav } from '../components/SiteNav';
 import { ToolIcon } from '../components/ToolIcon';
 import { useChipDrag, type DropTarget } from '../components/useChipDrag';
@@ -92,6 +93,7 @@ export function WorkersPage() {
   const [dialog, setDialog] = useState<
     | { kind: 'times' }
     | { kind: 'site'; site?: WeekSite }
+    | { kind: 'pick' }
     | { kind: 'assign'; siteId: string; days: number[] }
     | { kind: 'chip'; siteId: string; day: number; workerId: string }
     | { kind: 'open'; day: number; workerId: string }
@@ -670,7 +672,7 @@ export function WorkersPage() {
               <p className="muted">Projekt auswählen oder neu anlegen, dann die Arbeiter je Tag einteilen.</p>
             </div>
           )}
-          <button type="button" className="btn btn-primary crew-add-site" onClick={() => setDialog({ kind: 'site' })} data-testid="add-site">
+          <button type="button" className="btn btn-primary crew-add-site" onClick={() => setDialog({ kind: 'pick' })} data-testid="add-site">
             <Icon name="plus" /> Neues Projekt
           </button>
         </section>
@@ -692,6 +694,23 @@ export function WorkersPage() {
             setMeta('pdfShowTimes', pt).catch((e) => showError(e));
             toast('Arbeitszeit gespeichert.', 'success');
           }}
+        />
+      )}
+      {dialog?.kind === 'pick' && (
+        <ProjectPicker
+          tool="workers"
+          mode="all"
+          exclude={plan.sites.map((s) => s.projectId).filter(Boolean) as string[]}
+          onClose={() => setDialog(null)}
+          onPick={(p) =>
+            run(async () => {
+              setProjects(await listProjects());
+              const f = siteFromProject(p);
+              save(addSite(plan, { ...f, note: '' }).week);
+              toast(`Baustelle „${f.name}“ angelegt.`, 'success');
+              setDialog(null);
+            })
+          }
         />
       )}
       {dialog?.kind === 'site' && (

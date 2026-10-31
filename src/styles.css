@@ -7951,3 +7951,84 @@ button.report-site-empty {
   color: var(--muted);
   line-height: 1.35;
 }
+
+/* Fenster „Projekt“ (alle Werkzeuge): neu anlegen oder aus dem Register übernehmen */
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.picker-new {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 2px dashed var(--text);
+  border-radius: 14px;
+  background: var(--surface);
+  font: inherit;
+  font-weight: 700;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.picker-plus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--text);
+  color: #fff;
+  flex: none;
+}
+.picker-label {
+  margin: 4px 0 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.picker-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--border);
+}
+.picker-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 4px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.picker-item:hover {
+  background: var(--surface-2);
+}
+.picker-item svg {
+  flex: none;
+  color: var(--muted);
+}
+.picker-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.picker-tag {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #2f4bd1;
+}

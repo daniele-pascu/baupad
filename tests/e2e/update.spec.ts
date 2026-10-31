@@ -49,14 +49,16 @@ test('Neue Version wird automatisch übernommen, offene Eingaben werden nicht un
 
   // Während ein Eingabefenster offen ist, wird nicht neu geladen
   await page.getByTestId('new-project').click();
+  await page.getByTestId('project-picker').getByTestId('picker-new').click();
   await page.getByTestId('project-form').locator('input[name="name"]').fill('Nicht verlieren');
   publish('dist-b'); // neue Version veröffentlicht
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); // App wieder im Vordergrund
   await page.waitForTimeout(3000);
   await expect(page.getByTestId('project-form').locator('input[name="name"]')).toHaveValue('Nicht verlieren');
 
-  // Nach dem Schließen des Fensters übernimmt BauPad die neue Version selbst
+  // Nach dem Schließen der Fenster (Dialog und Fenster „Projekt“) übernimmt BauPad die neue Version selbst
   await page.getByTestId('project-form').getByRole('button', { name: 'Abbrechen' }).click();
+  await page.getByTestId('project-picker').getByRole('button', { name: 'Schließen' }).click();
   await expect(page.getByTestId('app-version')).toHaveText('BauPad Version neu', { timeout: 20_000 });
   await expect(page.locator('.toast')).toContainText('aktualisiert');
 });

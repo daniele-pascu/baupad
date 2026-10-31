@@ -27,9 +27,7 @@ async function setup(page: Page) {
   }
   await page.keyboard.press('Escape');
   await page.getByTestId('add-site').click();
-  const sd = page.getByTestId('site-dialog');
-  await sd.getByTestId('site-project').selectOption({ label: '2026-04 · Wohnanlage Sonnenhof' });
-  await sd.getByTestId('site-save').click();
+  await page.getByTestId('project-picker').getByTestId('picker-item').filter({ hasText: 'Wohnanlage Sonnenhof' }).click();
   await page.locator('[data-site="Wohnanlage Sonnenhof"] [data-day="0"] [data-testid="day-add"]').click();
   const ad = page.getByTestId('assign-dialog');
   for (const n of ['Max', 'Peter']) await ad.locator(`[data-worker="${n}"] input`).check();

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '../components/Icon';
-import { ProjectForm, type CostCenterInput, type ProjectFields } from '../components/ProjectForm';
+import { ProjectPicker } from '../components/ProjectPicker';
 import { ProjectHeading } from '../components/ProjectHeading';
 import { labelFromProject } from '../lib/project-label';
 import { SiteNav } from '../components/SiteNav';
@@ -11,11 +11,10 @@ import { isIOS } from '../lib/download';
 import { getDeviceId } from '../lib/ids';
 import { formatDateTime, naturalCompare } from '../lib/numbers';
 import { navigate, paths } from '../lib/router';
-import { closeProject, createProjectWithCostCenters } from '../lib/store';
+import { closeProject } from '../lib/store';
 import { useAccess } from '../lib/access';
 import { useCanCreateProjects } from '../lib/sites';
-import { adoptProject, linkSitesToProject, registerCandidates, usedIn } from '../lib/crew-link';
-import { newMeta } from '../lib/store';
+import { linkSitesToProject, usedIn } from '../lib/crew-link';
 import type { Project } from '../lib/types';
 
 interface Row {
@@ -72,10 +71,6 @@ export function HomePage() {
   const [creating, setCreating] = useState(false);
   /** Baustellen der Arbeitereinteilung ohne Projekt (für „Neues Projekt“) */
   /** Projekte aus dem Register anderer Werkzeuge, die in Aufmaß & Abrechnung noch nicht benutzt werden */
-  const [candidates, setCandidates] = useState<Project[]>([]);
-  useEffect(() => {
-    if (creating) void registerCandidates('projects').then(setCandidates).catch(() => setCandidates([]));
-  }, [creating]);
   const [storage, setStorage] = useState<{ usage: number; quota: number; persisted: boolean } | null>(null);
   const [upgraded, setUpgraded] = useState(false);
   const [query, setQuery] = useState('');
@@ -123,31 +118,6 @@ export function HomePage() {
       .catch(() => {});
   }, []);
 
-  const create = async (fields: ProjectFields, costCenters: CostCenterInput[], adoptId: string | null) => {
-    // Dauerhafte Speicherung anfordern, damit der Browser die Daten nicht automatisch löscht
-    try {
-      await navigator.storage?.persist?.();
-    } catch {
-      /* optional */
-    }
-    if (adoptId) {
-      // Projekt aus einem anderen Werkzeug übernehmen: Angaben ergänzen, Kostenstellen anlegen, in Aufmaß benutzen
-      const existing = candidates.find((p) => p.id === adoptId);
-      if (existing) {
-        const adopted = await adoptProject({ ...existing, ...fields }, 'projects');
-        const ccs = (costCenters.length ? costCenters : [{ number: '', name: '' }]).map((c, i) => ({ ...newMeta(), rev: 1, projectId: adopted.id, number: c.number, name: c.name, sortIndex: i }));
-        await writeRecords(ccs.map((record) => ({ store: 'costCenters' as const, record, baseRev: 0 })));
-        navigate(paths.project(adopted.id));
-        return;
-      }
-    }
-    // ohne Kostenstelle: eine leere Kostenstelle nimmt die Pläne auf (später ausfüllbar)
-    const { project } = await createProjectWithCostCenters({ ...fields, tools: ['projects'] }, costCenters.length ? costCenters : [{ number: '', name: '' }]);
-    // gleichnamige Baustelle der Arbeitereinteilung mit dem neuen Projekt verknüpfen
-    await linkSitesToProject(project.name, project.id).catch(() => 0);
-    // Projektseite mit Projektinfos, Kostenstelle und Planliste – dort wird der erste Plan importiert
-    navigate(paths.project(project.id));
-  };
 
   const rename = async (p: Project) => {
     const name = await promptDialog({ title: 'Projekt umbenennen', label: 'Projektname', value: p.name });
@@ -411,17 +381,20 @@ export function HomePage() {
       </section>
 
       {creating && (
-        <ProjectForm
-          title="Neues Projekt"
-          submitLabel="Projekt anlegen"
-          fromRegister={candidates}
+        <ProjectPicker
+          tool="projects"
           onClose={() => setCreating(false)}
-          onSubmit={async (fields, costCenters, adoptId) => {
+          onPick={async (p) => {
+            // Dauerhafte Speicherung anfordern, damit der Browser die Daten nicht automatisch löscht
             try {
-              await create(fields, costCenters, adoptId ?? null);
-            } catch (e) {
-              showError(e, 'Projekt konnte nicht angelegt werden');
+              await navigator.storage?.persist?.();
+            } catch {
+              /* optional */
             }
+            // gleichnamige Baustelle der Arbeitereinteilung mit dem Projekt verknüpfen
+            await linkSitesToProject(p.name, p.id).catch(() => 0);
+            setCreating(false);
+            navigate(paths.project(p.id));
           }}
         />
       )}

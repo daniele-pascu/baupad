@@ -17,10 +17,7 @@ interface Props {
   /** Kostenstellen, die zusammen mit den Projektangaben bearbeitet werden */
   costCenters?: CostCenterInput[];
   submitLabel: string;
-  /** Neues Projekt: Projekte aus dem Register anderer Werkzeuge (Fotos, Berichte, Einteilung, Mängelplan) zum Übernehmen */
-  fromRegister?: Project[];
-  /** adoptId: gewähltes Register-Projekt (wird übernommen statt neu angelegt) */
-  onSubmit: (fields: ProjectFields, costCenters: CostCenterInput[], adoptId?: string | null) => void | Promise<void>;
+  onSubmit: (fields: ProjectFields, costCenters: CostCenterInput[]) => void | Promise<void>;
   onClose: () => void;
   /** Test-IDs (Standard project-form / project-*); die anderen Werkzeuge nutzen photo-site-*) */
   ids?: Partial<Record<'dialog' | 'name' | 'number' | 'address' | 'save', string>>;
@@ -28,10 +25,9 @@ interface Props {
 
 const ccKey = (c: CostCenterInput) => `${c.number.trim()}|${c.name.trim()}`.toLowerCase();
 
-/** Projektangaben einschließlich Kostenstelle(n) – beim Anlegen und beim Bearbeiten. */
-export function ProjectForm({ title, initial, costCenters, submitLabel, fromRegister, onSubmit, onClose, ids = {} }: Props) {
+/** Projektangaben – beim Anlegen (ein Kostenstellen-Feld, in allen Werkzeugen gleich) und beim Bearbeiten (mehrere Kostenstellen). */
+export function ProjectForm({ title, initial, costCenters, submitLabel, onSubmit, onClose, ids = {} }: Props) {
   const id = { dialog: 'project-form', name: 'project-name', number: 'project-number', address: 'project-address', save: 'project-save', ...ids };
-  const [adoptId, setAdoptId] = useState<string | null>(null);
   const [f, setF] = useState<ProjectFields>({
     name: '',
     number: '',
@@ -86,34 +82,12 @@ export function ProjectForm({ title, initial, costCenters, submitLabel, fromRegi
             await onSubmit(
               { ...f, name: f.name.trim(), number: (f.number ?? '').trim(), site: f.site.trim() },
               filled.map((c) => ({ ...c, number: c.number.trim(), name: c.name.trim() })),
-              adoptId,
             );
           } finally {
             setBusy(false);
           }
         }}
       >
-        {!!fromRegister?.length && (
-          <label className="field span-2">
-            <span>Projekt auswählen (aus dem Register – optional)</span>
-            <select
-              value={adoptId ?? ''}
-              onChange={(e) => {
-                const p = fromRegister.find((x) => x.id === e.target.value) ?? null;
-                setAdoptId(p ? p.id : null);
-                if (p) setF({ ...f, name: p.name, number: p.number ?? '', site: p.site, address: p.address, client: p.client, editor: p.editor, date: p.date, notes: p.notes });
-              }}
-              data-testid="project-from-register"
-            >
-              <option value="">– Projekt wählen –</option>
-              {fromRegister.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {[p.number, p.site || p.name].filter(Boolean).join(' · ')}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
         <label className="field span-2">
           <span>Projektname *</span>
           <input value={f.name} onChange={set('name')} name="name" autoComplete="off" enterKeyHint="next" aria-invalid={touched && nameMissing} data-autofocus data-testid={id.name} />
@@ -127,8 +101,23 @@ export function ProjectForm({ title, initial, costCenters, submitLabel, fromRegi
           <span>Projektnummer (optional)</span>
           <input value={f.number ?? ''} onChange={set('number')} name="number" autoComplete="off" enterKeyHint="next" data-testid={id.number} />
         </label>
+        {!costCenters && (
+          <label className="field">
+            <span>Kostenstelle (optional)</span>
+            <input
+              value={ccs[0]?.name ?? ''}
+              onChange={(e) => setCc(0, { name: e.target.value, number: '' })}
+              name="costCenter0"
+              placeholder="z. B. 91092 oder 91092 – Tiefgarage"
+              autoComplete="off"
+              enterKeyHint="next"
+              data-testid="cost-center-input"
+            />
+          </label>
+        )}
+        {costCenters && (
         <div className="field cc-fields">
-          <span>Kostenstelle (optional)</span>
+          <span>Kostenstelle(n) (optional)</span>
           {ccs.map((c, i) => (
             <div key={c.id ?? `new-${i}`} className="cc-row">
               <input
@@ -172,6 +161,7 @@ export function ProjectForm({ title, initial, costCenters, submitLabel, fromRegi
           </button>
           {touched && ccError && <small className="error">{ccError}</small>}
         </div>
+        )}
         <label className="field">
           <span>Auftraggeber (optional)</span>
           <input value={f.client} onChange={set('client')} name="client" autoComplete="organization" enterKeyHint="next" data-testid="project-client" />

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { DefectPlanDialog } from '../components/DefectPlanDialog';
 import { Icon } from '../components/Icon';
-import { PhotoSiteDialog } from '../components/PhotoSitePicker';
+import { ProjectPicker } from '../components/ProjectPicker';
 import { SiteNav } from '../components/SiteNav';
 import { ToolIcon } from '../components/ToolIcon';
 import { showError } from '../components/ui';
@@ -82,12 +82,12 @@ export function DefectsPage() {
         </header>
 
         {creating && (
-          <PhotoSiteDialog
-            hint="Die Baustelle steht danach auch in der Fotodokumentation zur Verfügung."
+          <ProjectPicker
+            tool="defects"
             onClose={() => setCreating(false)}
-            onSaved={(s) => {
+            onPick={(p) => {
               setCreating(false);
-              void reload().then(() => navigate(paths.defectSite(defectSiteKey({ projectId: s.projectId, siteName: s.name }))));
+              void reload().then(() => navigate(paths.defectSite(defectSiteKey({ projectId: p.id, siteName: p.site || p.name }))));
             }}
           />
         )}

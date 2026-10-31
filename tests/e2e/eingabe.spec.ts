@@ -29,6 +29,7 @@ async function stored(page: Page, store: string): Promise<Rec[]> {
 
 async function projectWithoutCostCenter(page: Page, name: string) {
   await page.getByTestId('new-project').click();
+  await page.getByTestId('project-picker').getByTestId('picker-new').click();
   const form = page.getByTestId('project-form');
   await form.locator('input[name="name"]').fill(name);
   await form.getByRole('button', { name: 'Projekt anlegen' }).click();
@@ -68,6 +69,7 @@ test('Projekt ohne Kostenstelle: anlegen, Plan importieren, Kostenstelle später
 test('Projektinformationen: Reihenfolge, Baubeginn gespeichert und nur dort angezeigt', async ({ page }) => {
   await freshStart(page);
   await page.getByTestId('new-project').click();
+  await page.getByTestId('project-picker').getByTestId('picker-new').click();
   const form = page.getByTestId('project-form');
   // Reihenfolge im Formular
   const labels = await form.locator('.field > span').allTextContents();

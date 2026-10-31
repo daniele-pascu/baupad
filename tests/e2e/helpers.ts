@@ -30,18 +30,18 @@ export type CostCenterSpec = string | { number: string; name: string };
  * (Projektinfos, Kostenstelle und Planliste).
  */
 export async function createProject(page: Page, name: string, extra: Record<string, string> = {}, costCenters: CostCenterSpec[] = ['Tiefgarage']) {
+  // „Neues Projekt“ → Fenster „Projekt“ (übernehmen oder neu) → „Neues Projekt anlegen“ → gemeinsamer Dialog
   await page.getByTestId('new-project').click();
+  await page.getByTestId('project-picker').getByTestId('picker-new').click();
   const form = page.getByTestId('project-form');
   await form.locator('input[name="name"]').fill(name);
   for (const [k, v] of Object.entries(extra)) await form.locator(`[name="${k}"]`).fill(v);
-  for (let i = 0; i < costCenters.length; i++) {
-    if (i > 0) await form.getByRole('button', { name: '+ Weitere Kostenstelle' }).click();
-    const cc = costCenters[i];
-    if (typeof cc !== 'string') await form.getByTestId('cost-center-number').nth(i).fill(cc.number);
-    await form.getByTestId('cost-center-input').nth(i).fill(typeof cc === 'string' ? cc : cc.name);
-  }
+  // ein Kostenstellen-Feld im Dialog („Nr – Bezeichnung“); weitere Kostenstellen danach über „Projektangaben bearbeiten“
+  const ccText = (cc: CostCenterSpec) => (typeof cc === 'string' ? cc : [cc.number, cc.name].filter(Boolean).join(' – '));
+  if (costCenters[0]) await form.getByTestId('cost-center-input').fill(ccText(costCenters[0]));
   await form.getByRole('button', { name: 'Projekt anlegen' }).click();
   await expect(page.getByTestId('project-title')).toHaveText(name);
+  for (const cc of costCenters.slice(1)) await createCostCenter(page, typeof cc === 'string' ? cc : cc.name, typeof cc === 'string' ? '' : cc.number);
 }
 
 /** Weitere Kostenstelle über „Projektangaben bearbeiten“ hinzufügen. */
@@ -262,11 +262,21 @@ export async function openTools(page: Page, how: 'click' | 'tap' = 'click') {
  * (wie in allen Werkzeugen) → anlegen; das neue Projekt bleibt im Dialog gewählt (danach „Hinzufügen“).
  */
 export async function newWeekProject(page: Page, name: string, extra: Record<string, string> = {}, how: 'click' | 'tap' = 'click') {
-  await page.getByTestId('site-dialog').getByTestId('site-project').selectOption('__new');
-  const pf = page.getByTestId('photo-site-dialog');
-  await pf.getByTestId('photo-site-name').fill(name);
-  for (const [k, v] of Object.entries(extra)) await pf.getByTestId(k).fill(v);
-  await (how === 'tap' ? pf.getByTestId('photo-site-save').tap() : pf.getByTestId('photo-site-save').click());
+  // Fenster „Projekt“ ist offen („Neues Projekt“ in der Einteilung) → „Neues Projekt anlegen“ → gemeinsamer Dialog → Projekt ist sofort in der Woche
+  const press = (l: ReturnType<Page['getByTestId']>) => (how === 'tap' ? l.tap() : l.click());
+  await press(page.getByTestId('project-picker').getByTestId('picker-new'));
+  const pf = page.getByTestId('project-form');
+  await pf.getByTestId('project-name').fill(name);
+  const map: Record<string, string> = { 'photo-site-address': 'project-address', 'photo-site-number': 'project-number' };
+  for (const [k, v] of Object.entries(extra)) await pf.getByTestId(map[k] ?? k).fill(v);
+  await press(pf.getByTestId('project-save'));
   await expect(pf).toHaveCount(0);
-  await expect(page.getByTestId('site-dialog').getByTestId('site-preview')).toContainText(name);
+  await expect(page.locator(`[data-testid="site-card"][data-site="${name}"]`)).toBeVisible();
+}
+
+/** Einteilung: Projekt aus dem Register in die Woche übernehmen (Fenster „Projekt“ ist offen) */
+export async function pickWeekProject(page: Page, name: string, how: 'click' | 'tap' = 'click') {
+  const item = page.getByTestId('project-picker').getByTestId('picker-item').filter({ hasText: name });
+  await (how === 'tap' ? item.tap() : item.click());
+  await expect(page.locator(`[data-testid="site-card"][data-site="${name}"]`)).toBeVisible();
 }

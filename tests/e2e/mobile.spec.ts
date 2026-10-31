@@ -250,6 +250,7 @@ test('Erstnutzer: vom neuen Projekt bis zum importierten PDF', async ({ page }) 
   await expect(page.locator('.home-hint')).toContainText('Projekt öffnen → „Plan importieren“');
   // Projekt und Kostenstelle in einem Schritt
   await page.getByTestId('new-project').tap();
+  await page.getByTestId('project-picker').getByTestId('picker-new').tap();
   const form = page.getByTestId('project-form');
   await form.locator('input[name="name"]').fill('Erster Test');
   await form.getByTestId('cost-center-input').fill('Tiefgarage');
@@ -497,7 +498,6 @@ test('Arbeitereinteilung per Finger: Arbeiter, Baustelle, Einteilung – passt a
   await expect(page.getByTestId('workers-title')).toHaveText('Arbeitereinteilung');
   await page.getByTestId('add-site').tap();
   await newWeekProject(page, 'Neubau Musterstraße', {}, 'tap');
-  await page.getByTestId('site-dialog').getByTestId('site-save').tap();
   await page.locator('[data-testid="day-row"][data-day="0"] [data-testid="day-add"]').tap();
   const ad = page.getByTestId('assign-dialog');
   await ad.locator('[data-worker="Max"] input').tap();
@@ -511,7 +511,6 @@ test('Arbeitereinteilung per Finger: Arbeiter, Baustelle, Einteilung – passt a
   // Ziehen per Finger: kurz gedrückt halten, dann auf die andere Baustelle ziehen
   await page.getByTestId('add-site').tap();
   await newWeekProject(page, 'Sanierung', {}, 'tap');
-  await page.getByTestId('site-dialog').getByTestId('site-save').tap();
   const cdp = await page.context().newCDPSession(page);
   const chipA = page.locator('[data-site="Neubau Musterstraße"] [data-testid="day-row"][data-day="4"] [data-testid="crew-chip"]');
   const rowB = page.locator('[data-site="Sanierung"] [data-testid="day-row"][data-day="0"]');
@@ -596,7 +595,6 @@ test('Fotodokumentation per Finger: großer Aufnahme-Knopf, Speichern, Galerie u
   await page.goto('./#/arbeitereinteilung');
   await page.getByTestId('add-site').tap();
   await newWeekProject(page, 'Halle 3', {}, 'tap');
-  await page.getByTestId('site-dialog').getByTestId('site-save').tap();
   await page.goto('./#/fotos');
   await page.getByTestId('photo-file-input').setInputFiles([join(FIXTURES, 'foto.jpg'), join(FIXTURES, 'parkdeck.png')]);
   await dlg.getByTestId('photo-user').fill('Max');

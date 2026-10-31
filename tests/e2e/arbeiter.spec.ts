@@ -1,7 +1,7 @@
 import { expect, test, type Page } from './fixtures';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { catchDownload, createProject, freshStart, newWeekProject, OUT, saveDownload } from './helpers';
+import { catchDownload, createProject, freshStart, newWeekProject, OUT, pickWeekProject, saveDownload } from './helpers';
 
 /**
  * Arbeitereinteilung: Arbeiter einmal anlegen, Arbeitszeit der Firma einmal eingeben, Baustellen aus
@@ -88,11 +88,8 @@ test('Arbeitereinteilung: Woche nach Baustellen planen und in die nächste Woche
 
   // Baustelle A aus Aufmaß & Abrechnung → gleich Arbeiter für die ganze Woche einteilen
   await page.getByTestId('add-site').click();
-  const sd = page.getByTestId('site-dialog');
-  await sd.getByTestId('site-project').selectOption({ label: '2026-04 · Neubau Musterstraße' });
-  await expect(sd.getByTestId('site-preview')).toContainText('Neubau Musterstraße');
-  await expect(sd.getByTestId('site-preview')).toContainText('Musterstraße 1');
-  await sd.getByTestId('site-save').click();
+  await pickWeekProject(page, 'Neubau Musterstraße');
+  await expect(site(page, 'Neubau Musterstraße')).toContainText('Musterstraße 1');
   // Baustelle erscheint sofort, ohne Einteilungsfenster
   await expect(page.getByTestId('assign-dialog')).toHaveCount(0);
   await expect(site(page, 'Neubau Musterstraße')).toBeVisible();
@@ -108,7 +105,6 @@ test('Arbeitereinteilung: Woche nach Baustellen planen und in die nächste Woche
   // Baustelle B manuell
   await page.getByTestId('add-site').click();
   await newWeekProject(page, 'Sanierung Hauptplatz');
-  await page.getByTestId('site-dialog').getByTestId('site-save').click();
   await addFromMonday(page, 'Sanierung Hauptplatz', ['Thomas Stein']);
   await expect(chips(page, 'Sanierung Hauptplatz', 0)).toHaveText(['Thomas Stein']);
 
@@ -194,10 +190,10 @@ test('Arbeiter deaktivieren: nicht mehr zum Einteilen, in gespeicherten Wochen w
   await wd.getByTestId('staff-new').click();
   await wd.getByTestId('worker-firstName').fill('Andreas');
   await wd.getByTestId('worker-save').click();
+  await expect(page.getByTestId('worker-dialog')).toHaveCount(0);
   await page.keyboard.press('Escape');
   await page.getByTestId('add-site').click();
   await newWeekProject(page, 'Umbau Gewerbepark');
-  await page.getByTestId('site-dialog').getByTestId('site-save').click();
   await addFromMonday(page, 'Umbau Gewerbepark', ['Andreas']);
   await page.getByTestId('crew-workers').click();
   await wd.getByTestId('worker-row').first().getByTestId('worker-open').click();
@@ -248,10 +244,7 @@ test('Suche, PDF (Woche + Tagesliste), Drucken, Vorwoche übernehmen, Sicherung 
     ['Sanierung Hauptplatz', 'Thomas Stein'],
   ]) {
     await page.getByTestId('add-site').click();
-    const sd = page.getByTestId('site-dialog');
     await newWeekProject(page, name);
-    await expect(sd.getByTestId('site-note-input')).toHaveCount(0); // keine Wochenbemerkung mehr
-    await sd.getByTestId('site-save').click();
     await addFromMonday(page, name, [who]);
   }
 
@@ -333,11 +326,8 @@ test('Baustelle ↔ Projekt: aus Aufmaß & Abrechnung wählen, als Projekt anleg
 
   // 1) aus Aufmaß & Abrechnung wählen (Standard, wenn Projekte vorhanden)
   await page.getByTestId('add-site').click();
-  let sd = page.getByTestId('site-dialog');
-  await sd.getByTestId('site-save').click();
-  await expect(sd).toContainText('Bitte ein Projekt wählen.');
-  await sd.getByTestId('site-project').selectOption({ label: '2026-04 · Neubau Musterstraße' });
-  await sd.getByTestId('site-save').click();
+  await expect(page.getByTestId('project-picker').getByTestId('picker-item')).toHaveCount(1);
+  await pickWeekProject(page, 'Neubau Musterstraße');
   await menu('Neubau Musterstraße');
   await expect(page.getByTestId('site-to-project')).toHaveCount(0);
   await page.getByTestId('site-open-project').click();
@@ -347,9 +337,7 @@ test('Baustelle ↔ Projekt: aus Aufmaß & Abrechnung wählen, als Projekt anleg
   await page.goto('./#/arbeitereinteilung');
   await page.getByTestId('week-date').fill('2026-10-26');
   await page.getByTestId('add-site').click();
-  sd = page.getByTestId('site-dialog');
   await newWeekProject(page, 'Sanierung Hauptplatz', { 'photo-site-address': 'Hauptplatz 3' });
-  await sd.getByTestId('site-save').click();
   await expect(site(page, 'Sanierung Hauptplatz')).toBeVisible();
   await menu('Sanierung Hauptplatz');
   await expect(page.getByTestId('site-open-project')).toHaveCount(1);
@@ -358,9 +346,7 @@ test('Baustelle ↔ Projekt: aus Aufmaß & Abrechnung wählen, als Projekt anleg
   // 3) weitere neue Projekte aus der Einteilung – jedes landet sofort im Register (kein „als Projekt anlegen“ mehr nötig)
   for (const n of ['Umbau Gewerbepark', 'Halle Nord']) {
     await page.getByTestId('add-site').click();
-    sd = page.getByTestId('site-dialog');
     await newWeekProject(page, n);
-    await sd.getByTestId('site-save').click();
     await expect(site(page, n)).toBeVisible();
   }
   await menu('Umbau Gewerbepark');
@@ -368,15 +354,14 @@ test('Baustelle ↔ Projekt: aus Aufmaß & Abrechnung wählen, als Projekt anleg
   await expect(page.getByTestId('site-to-project')).toHaveCount(0);
   await page.keyboard.press('Escape');
 
-  // 4) Aufmaß & Abrechnung zeigt nur dort benutzte Projekte; die aus der Einteilung stehen im Formular zum Übernehmen
+  // 4) Aufmaß & Abrechnung zeigt nur dort benutzte Projekte; die aus der Einteilung stehen im Fenster „Projekt“ zum Übernehmen
   await page.goto('./#/projekte');
   await expect(page.getByTestId('project-card')).toHaveCount(1);
   await page.getByTestId('new-project').click();
-  const form = page.getByTestId('project-form');
-  await expect(form.getByTestId('project-from-register').locator('option')).toHaveText(['– Projekt wählen –', 'Halle Nord', 'Sanierung Hauptplatz', 'Umbau Gewerbepark']);
-  await form.getByTestId('project-from-register').selectOption({ label: 'Halle Nord' });
-  await expect(form.locator('input[name="name"]')).toHaveValue('Halle Nord');
-  await form.getByRole('button', { name: 'Projekt anlegen' }).click();
+  const pk = page.getByTestId('project-picker');
+  await expect(pk.getByTestId('picker-item').locator('.proj-title')).toHaveText(['Halle Nord', 'Sanierung Hauptplatz', 'Umbau Gewerbepark']);
+  await expect(pk.getByTestId('picker-item').first()).toContainText('Einteilung'); // Marke: wo das Projekt schon benutzt wird
+  await pk.getByTestId('picker-item').filter({ hasText: 'Halle Nord' }).click();
   await expect(page.getByTestId('project-title')).toHaveText('Halle Nord');
   await page.goto('./#/projekte');
   await expect(page.getByTestId('project-card')).toHaveCount(2);
@@ -403,7 +388,6 @@ test('Ziehen: offenen Arbeiter einteilen, umsetzen ab Tag; bereits geplante Folg
   for (const n of ['Baustelle A', 'Baustelle B']) {
     await page.getByTestId('add-site').click();
     await newWeekProject(page, n);
-    await page.getByTestId('site-dialog').getByTestId('site-save').click();
   }
   await expect(page.getByTestId('crew-drag-hint')).toBeVisible();
   // offenen Namen (Mittwoch) auf Baustelle A ziehen → ab Mittwoch dort
@@ -467,7 +451,6 @@ test('Baustelle pausieren (Standby): Arbeiter werden frei, läuft ohne Arbeiter 
   ]) {
     await page.getByTestId('add-site').click();
     await newWeekProject(page, n);
-    await page.getByTestId('site-dialog').getByTestId('site-save').click();
     await expect(page.getByTestId('assign-dialog')).toHaveCount(0);
     await addFromMonday(page, n, [who]);
   }
@@ -533,7 +516,6 @@ test('Urlaub und Krank von–bis über mehrere Wochen: bleibt eingeteilt, wird m
   await page.keyboard.press('Escape');
   await page.getByTestId('add-site').click();
   await newWeekProject(page, 'Baustelle A');
-  await page.getByTestId('site-dialog').getByTestId('site-save').click();
   await addFromMonday(page, 'Baustelle A', ['Max', 'Peter']);
 
   // Max am Mittwoch antippen → Urlaub vom 28.10. bis 04.11. (über das Wochenende in die nächste Woche)
@@ -599,7 +581,6 @@ test('Sa/So wie jeder andere Tag: Wochenend-Partie einteilen, Umsetzen nimmt Sa/
   for (const n of ['Baustelle A', 'Baustelle B']) {
     await page.getByTestId('add-site').click();
     await newWeekProject(page, n);
-    await page.getByTestId('site-dialog').getByTestId('site-save').click();
   }
   // Willi nur am Wochenende: „+“ am Samstag schlägt Sa–So vor
   await site(page, 'Baustelle B').locator('[data-day="5"] [data-testid="day-add"]').click();
@@ -693,7 +674,6 @@ test('Personalliste: eigene Seite, alphabetisch oder nach Funktion; Einteilung u
   await page.getByTestId('week-date').fill('2026-10-26');
   await page.getByTestId('add-site').click();
   await newWeekProject(page, 'Halle Nord');
-  await page.getByTestId('site-dialog').getByTestId('site-save').click();
   await site(page, 'Halle Nord').locator('[data-day="0"] [data-testid="day-add"]').click();
   const ad = page.getByTestId('assign-dialog');
   await expect(ad.getByTestId('assign-worker')).toHaveText([/Pia Leit · Projektleiter/, /Max Muster · Polier/, /Anna Berg · Vorarbeiter/, /Zoe Adler · Hilfsarbeiter/]);
@@ -716,7 +696,6 @@ test('Doppelt einteilen: Arbeiter bleibt auf der ersten Baustelle und steht zus�
   for (const n of ['Baustelle A', 'Baustelle B']) {
     await page.getByTestId('add-site').click();
     await newWeekProject(page, n);
-    await page.getByTestId('site-dialog').getByTestId('site-save').click();
   }
   await addFromMonday(page, 'Baustelle A', ['Max']);
   // Standard: Umsetzen (Max wäre weg von A) – mit „Doppelt einteilen“ bleibt er auf A

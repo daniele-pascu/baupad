@@ -12,7 +12,7 @@ import { getPhotoStorage } from './photo-storage';
 import { clearFreePhotoSites, listFreePhotoSites, updateFreePhotoSite } from './photo-sites';
 import { photoSiteKey } from './photos';
 import { getDeviceId } from './ids';
-import type { PhotoSite } from './types';
+import type { PhotoSite, Project } from './types';
 
 export interface SiteFields {
   name: string;
@@ -106,6 +106,15 @@ export async function createSiteProject(v: SiteFields, tool: string): Promise<Ph
   if (!name) throw new Error('Bitte einen Namen für das Projekt eingeben.');
   const p = await projectFromSite({ name, number: v.number.trim(), address: v.address.trim(), costCenter: v.costCenter?.trim(), client: v.client?.trim(), date: v.date?.trim(), notes: v.notes?.trim() }, tool);
   return { projectId: p.id, name: p.site || p.name, number: p.number ?? '', address: p.address, costCenter: v.costCenter?.trim() || '', client: p.client, date: p.date, notes: p.notes, tools: p.tools };
+}
+
+/** Neues Projekt im Register anlegen (gleicher Dialog in allen Werkzeugen); liefert das Projekt */
+export async function createRegisterProject(v: SiteFields, tool: string): Promise<Project> {
+  const me = await getAuth().session().catch(() => null);
+  if (!canCreateProjects(me)) throw new Error('Projekte dürfen nur Admin und Büro anlegen. Bitte ein vorhandenes Projekt wählen.');
+  const name = v.name.trim();
+  if (!name) throw new Error('Bitte einen Namen für das Projekt eingeben.');
+  return projectFromSite({ name, number: v.number.trim(), address: v.address.trim(), costCenter: v.costCenter?.trim(), client: v.client?.trim(), date: v.date?.trim(), notes: v.notes?.trim() }, tool);
 }
 
 /** Projekt aus dem Register in ein Werkzeug übernehmen (z. B. beim ersten Foto, Bericht, Plan oder in der Woche) */

@@ -40,11 +40,11 @@ test('Polier: kein „Neues Projekt“ in Aufmaß, Fotos, Mängelplan, Einteilun
 
   await page.goto('./arbeitereinteilung');
   await page.getByTestId('add-site').click();
-  const sd = page.getByTestId('site-dialog');
-  // ohne Recht: nur Projekt wählen, kein „Neues Projekt …“
-  await expect(sd.getByTestId('site-project').locator('option[value="__new"]')).toHaveCount(0);
-  await sd.getByTestId('site-save').click();
-  await expect(sd).toContainText('Bitte ein Projekt wählen.');
+  // ohne Recht: nur Projekt übernehmen, kein „Neues Projekt anlegen“
+  const pk = page.getByTestId('project-picker');
+  await expect(pk).toBeVisible();
+  await expect(pk.getByTestId('picker-new')).toHaveCount(0);
+  await expect(pk.getByTestId('picker-item')).toHaveCount(1);
 });
 
 test('Büro darf Projekte anlegen; Projekte je Werkzeug: nur freigegebene sind wählbar', async ({ page }) => {

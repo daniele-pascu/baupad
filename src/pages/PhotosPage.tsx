@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Icon } from '../components/Icon';
 import { PhotoCapture, type PhotoSite } from '../components/PhotoCapture';
 import { PhotoImg } from '../components/PhotoImg';
-import { PhotoSiteDialog } from '../components/PhotoSitePicker';
+import { ProjectPicker } from '../components/ProjectPicker';
 import { SiteNav } from '../components/SiteNav';
 import { ToolIcon } from '../components/ToolIcon';
 import { showError } from '../components/ui';
@@ -110,11 +110,12 @@ export function PhotosPage() {
           )}
         </header>
         {creating && (
-          <PhotoSiteDialog
+          <ProjectPicker
+            tool="photos"
             onClose={() => setCreating(false)}
-            onSaved={(s) => {
+            onPick={(p) => {
               setCreating(false);
-              void reload().then(() => navigate(paths.photoSite(photoSiteKey({ projectId: s.projectId, siteName: s.name }))));
+              void reload().then(() => navigate(paths.photoSite(photoSiteKey({ projectId: p.id, siteName: p.site || p.name }))));
             }}
           />
         )}
