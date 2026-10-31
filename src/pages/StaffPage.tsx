@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState, type InputHTMLAttributes } from 'react';
 import { Icon } from '../components/Icon';
 import { SiteNav } from '../components/SiteNav';
-import { showError, toast } from '../components/ui';
+import { confirmDialog, showError, toast } from '../components/ui';
 import { WORKER_GRADES, gradeLabel, gradeRank, sortByGrade, sortWorkers, workerName } from '../lib/crew';
-import { getMeta, listWorkers, saveWorker, setMeta } from '../lib/db';
+import { deleteWorker, getMeta, listWorkers, saveWorker, setMeta } from '../lib/db';
 import { uuid } from '../lib/ids';
 import { navigate, paths } from '../lib/router';
 import type { Worker, WorkerGrade } from '../lib/types';
@@ -87,6 +87,28 @@ export function StaffPage() {
       showError(e, 'Speichern fehlgeschlagen');
     }
   };
+  const remove = async (w: Worker) => {
+    const ok = await confirmDialog({
+      title: `${workerName(w)} löschen?`,
+      message: (
+        <>
+          <p>Der Mitarbeiter wird aus der Personalliste und aus allen Wochen der Einteilung entfernt. Das lässt sich nicht rückgängig machen.</p>
+          <p>Bereits erstellte Berichte behalten den Namen.</p>
+        </>
+      ),
+      confirmLabel: 'Löschen',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteWorker(w.id);
+      setWorkers((prev) => (prev ?? []).filter((x) => x.id !== w.id));
+      startEdit(null);
+      toast(`${workerName(w)} gelöscht.`, 'success');
+    } catch (e) {
+      showError(e, 'Löschen fehlgeschlagen');
+    }
+  };
   const toggleActive = (w: Worker) => persist({ ...w, active: !w.active, updatedAt: Date.now() }).catch((e) => showError(e, 'Speichern fehlgeschlagen'));
   const field = (k: keyof typeof blank, label: string, extra: Partial<InputHTMLAttributes<HTMLInputElement>> = {}) => (
     <label className="field">
@@ -148,9 +170,14 @@ export function StaffPage() {
                 <Icon name={edit ? 'check' : 'plus'} size={18} /> {edit ? 'Speichern' : 'Hinzufügen'}
               </button>
               {edit && (
-                <button type="button" className="btn" onClick={() => startEdit(null)} data-testid="worker-cancel">
-                  Abbrechen
-                </button>
+                <>
+                  <button type="button" className="btn" onClick={() => startEdit(null)} data-testid="worker-cancel">
+                    Abbrechen
+                  </button>
+                  <button type="button" className="btn btn-danger-outline" onClick={() => void remove(edit)} data-testid="worker-delete">
+                    <Icon name="trash" size={16} /> Löschen
+                  </button>
+                </>
               )}
             </div>
           </form>

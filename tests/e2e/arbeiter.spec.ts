@@ -640,6 +640,15 @@ test('Personalliste: eigene Seite, alphabetisch oder nach Funktion; Einteilung u
   await sp.getByTestId('worker-row').filter({ hasText: 'Anna Berg' }).getByTestId('worker-open').click();
   await expect(sp.getByTestId('worker-firstName')).toHaveValue('Anna');
   await sp.getByTestId('worker-cancel').click();
+  // löschen (mit Rückfrage): weg aus der Liste
+  await sp.getByTestId('worker-firstName').fill('Tim');
+  await sp.getByTestId('worker-save').click();
+  await expect(sp.getByTestId('worker-row')).toHaveCount(5);
+  await sp.getByTestId('worker-row').filter({ hasText: 'Tim' }).getByTestId('worker-open').click();
+  await sp.getByTestId('worker-delete').click();
+  await page.getByRole('button', { name: 'Löschen' }).last().click();
+  await expect(sp.getByTestId('worker-row')).toHaveCount(4);
+  await expect(sp.getByTestId('worker-firstName')).toHaveValue('');
   // Sortierung bleibt gespeichert; Escape führt zurück zur Einteilung
   await page.reload();
   await expect(sp.getByTestId('staff-sort-grade')).toHaveAttribute('aria-checked', 'true');

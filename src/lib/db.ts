@@ -315,6 +315,28 @@ export async function saveWorker(w: Worker): Promise<void> {
   await (await getDB()).put('workers', w);
 }
 
+/**
+ * Mitarbeiter endgültig löschen: aus der Personalliste, aus allen Wochen der Einteilung und aus Urlaub/Krank.
+ * Berichte behalten die Kopie des Namens.
+ */
+export async function deleteWorker(id: string): Promise<void> {
+  const db = await getDB();
+  for (const week of await db.getAll('weeks')) {
+    let changed = false;
+    for (const site of week.sites) {
+      site.days = site.days.map((ids) => {
+        if (!ids.includes(id)) return ids;
+        changed = true;
+        return ids.filter((x) => x !== id);
+      });
+    }
+    if (changed) await db.put('weeks', week);
+  }
+  const absences = (await getMeta<{ workerId: string }[]>('absences')) ?? [];
+  if (absences.some((a) => a.workerId === id)) await setMeta('absences', absences.filter((a) => a.workerId !== id));
+  await db.delete('workers', id);
+}
+
 export async function listWeeks(): Promise<WeekPlan[]> {
   return (await getDB()).getAll('weeks');
 }
