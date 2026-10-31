@@ -84,6 +84,7 @@ function PlanCanvas({
   const gesture = useRef<
     | { kind: 'draw'; start: Pt; moved: boolean }
     | { kind: 'move'; start: Pt; id: string; orig: Pt[]; moved: boolean }
+    | { kind: 'resize'; id: string; handle: string; orig: Pt[]; box: { x: number; y: number; w: number; h: number } }
     | { kind: 'pan'; x: number; y: number; view: View; moved: boolean }
     | { kind: 'pinch'; dist: number; mid: { x: number; y: number }; view: View }
     | null
@@ -211,6 +212,55 @@ function PlanCanvas({
     return { x: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) };
   };
   const hitAt = (p: Pt) => [...marks].reverse().find((m) => hitMark(m, p, tol, ar)) ?? null;
+  /**
+   * Griffe der ausgewählten Markierung wie im Aufmaß: Linie → Endpunkte (○); Rechteck/Ellipse → Ecken (○) und
+   * Seitenmitten (□); Pin, Text, Freihand → nur verschieben.
+   */
+  const handlesOf = (m: DefectMark): { h: string; p: Pt; round: boolean }[] => {
+    if (m.shape === 'line') return m.points.map((q, i) => ({ h: `v${i}`, p: q, round: true }));
+    if (m.shape !== 'rect' && m.shape !== 'ellipse') return [];
+    const b = markBox(m);
+    const small = Math.min(b.w * W, b.h * H) * ((fitW * view.s) / W) < 64; // auf dem Bildschirm sehr klein → nur Ecken
+    const list: { h: string; p: Pt; round: boolean }[] = [
+      { h: 'nw', p: { x: b.x, y: b.y }, round: true },
+      { h: 'ne', p: { x: b.x + b.w, y: b.y }, round: true },
+      { h: 'se', p: { x: b.x + b.w, y: b.y + b.h }, round: true },
+      { h: 'sw', p: { x: b.x, y: b.y + b.h }, round: true },
+    ];
+    if (!small)
+      list.push(
+        { h: 'n', p: { x: b.x + b.w / 2, y: b.y }, round: false },
+        { h: 'e', p: { x: b.x + b.w, y: b.y + b.h / 2 }, round: false },
+        { h: 's', p: { x: b.x + b.w / 2, y: b.y + b.h }, round: false },
+        { h: 'w', p: { x: b.x, y: b.y + b.h / 2 }, round: false },
+      );
+    return list;
+  };
+  const selectedMark = selectedId ? (marks.find((m) => m.id === selectedId) ?? null) : null;
+  const hitHandle = (p: Pt): string | null => {
+    if (!selectedMark || tool !== 'select') return null;
+    const r = px(12) / W; // Toleranz relativ zur Bildbreite
+    for (const h of handlesOf(selectedMark)) if (Math.hypot((p.x - h.p.x) * ar, p.y - h.p.y) <= r * ar) return h.h;
+    return null;
+  };
+  /** Punkte nach dem Ziehen eines Griffs (relative Koordinaten) */
+  const resized = (g: { handle: string; orig: Pt[]; box: { x: number; y: number; w: number; h: number } }, p: Pt): Pt[] => {
+    if (g.handle.startsWith('v')) {
+      const i = Number(g.handle.slice(1));
+      return g.orig.map((q, k) => (k === i ? p : q));
+    }
+    let { x, y, w, h } = g.box;
+    let x2 = x + w;
+    let y2 = y + h;
+    if (g.handle.includes('w')) x = p.x;
+    if (g.handle.includes('e')) x2 = p.x;
+    if (g.handle.includes('n')) y = p.y;
+    if (g.handle.includes('s')) y2 = p.y;
+    return [
+      { x: Math.min(x, x2), y: Math.min(y, y2) },
+      { x: Math.max(x, x2), y: Math.max(y, y2) },
+    ];
+  };
   const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
 
   const down = (e: RPointerEvent) => {
@@ -228,6 +278,11 @@ function PlanCanvas({
     const p = rel(e);
     const bp = boxPt(e);
     if (tool === 'select' || e.button === 1) {
+      const handle = e.button !== 1 ? hitHandle(p) : null;
+      if (handle && selectedMark) {
+        gesture.current = { kind: 'resize', id: selectedMark.id, handle, orig: selectedMark.points, box: markBox(selectedMark) };
+        return;
+      }
       const m = tool === 'select' && e.button !== 1 ? hitAt(p) : null;
       if (!m) {
         if (tool === 'select' && e.button !== 1) onSelect(null);
@@ -265,6 +320,10 @@ function PlanCanvas({
       return;
     }
     const p = rel(e);
+    if (g.kind === 'resize') {
+      onMove(g.id, resized(g, p));
+      return;
+    }
     if (Math.hypot((p.x - g.start.x) * ar, p.y - g.start.y) > 0.004) g.moved = true;
     if (g.kind === 'move') {
       if (!g.moved) return;
@@ -287,7 +346,7 @@ function PlanCanvas({
     }
     if (pointers.current.size) return;
     gesture.current = null;
-    if (g.kind === 'pan') return;
+    if (g.kind === 'pan' || g.kind === 'resize') return;
     const p = rel(e);
     if (g.kind === 'move') {
       if (!g.moved && g.id === selectedId) onOpen(g.id);
@@ -380,6 +439,23 @@ function PlanCanvas({
         <svg viewBox={`0 0 ${W} ${H}`} width={fitW} height={fitH} aria-hidden="true">
           {marks.map((m) => renderShape(m, m.id, m.id === selectedId))}
           {draft && renderShape({ ...draft, color }, 'draft', false, true)}
+          {selectedMark && tool === 'select' && (
+            <g className="handles" data-testid="dp-handles">
+              {(selectedMark.shape === 'rect' || selectedMark.shape === 'ellipse') &&
+                (() => {
+                  const b = markBox(selectedMark);
+                  return <rect x={b.x * W} y={b.y * H} width={b.w * W} height={b.h * H} className="sel-box" strokeWidth={px(1)} strokeDasharray={`${px(4)} ${px(3)}`} />;
+                })()}
+              {handlesOf(selectedMark).map(({ h, p, round }) => {
+                const sz = px(matchMedia('(pointer: coarse)').matches ? 16 : 10);
+                return round ? (
+                  <circle key={h} cx={p.x * W} cy={p.y * H} r={sz * 0.55} className="vertex-handle" strokeWidth={px(2)} data-handle={h} data-testid={`dp-handle-${h}`} />
+                ) : (
+                  <rect key={h} x={p.x * W - sz / 2} y={p.y * H - sz / 2} width={sz} height={sz} className="handle" strokeWidth={px(1.5)} data-handle={h} data-testid={`dp-handle-${h}`} />
+                );
+              })}
+            </g>
+          )}
         </svg>
         {marks.map((m) => {
           const a = markAnchor(m);
@@ -598,6 +674,7 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
   const [preview, setPreview] = useState<ExportFile | null>(null);
   const [busy, setBusy] = useState(false);
   const url = usePlanThumb(planId, 'data');
+  const selectedMark = selected ? (marks.find((m) => m.id === selected) ?? null) : null;
   /** Großansicht der Fotos eines Mangels */
   const [viewer, setViewer] = useState<{ ids: string[]; index: number; title: string } | null>(null);
   const viewPhotos = (ids: string[], index: number, title: string) => setViewer({ ids, index, title });
@@ -673,6 +750,23 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
     setEditing(null);
     setSelected(null);
   };
+  // Tastatur wie im Aufmaß: V = Auswahl, Entf = ausgewählte Markierung löschen, Esc = Auswahl aufheben
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+      if (document.querySelector('.modal-backdrop, .lightbox')) return;
+      if (e.key === 'v' || e.key === 'V') setTool('select');
+      else if ((e.key === 'Delete' || e.key === 'Backspace') && selected) {
+        e.preventDefault();
+        const m = marks.find((x) => x.id === selected);
+        if (m) void del(m);
+      } else if (e.key === 'Escape' && selected) setSelected(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, marks]);
   const exportPdf = async () => {
     if (!plan) return;
     setBusy(true);
@@ -780,6 +874,50 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
                 }}
               />
             )}
+            {selectedMark && !editing && (
+              <div className="selection-bar" data-testid="dp-selection-bar">
+                <div className="selection-info">
+                  <span className="color-dot" style={{ background: selectedMark.color }} />
+                  <strong>
+                    Nr. {selectedMark.no} · {SHAPES.find((x) => x.id === selectedMark.shape)?.label}
+                  </strong>
+                  <span>{selectedMark.title || kindInfo(selectedMark.kind).label}</span>
+                  {selectedMark.photoIds.length > 0 && (
+                    <span className="muted small">
+                      {selectedMark.photoIds.length} {selectedMark.photoIds.length === 1 ? 'Foto' : 'Fotos'}
+                    </span>
+                  )}
+                </div>
+                {tool === 'select' ? (
+                  <div className="selection-hint muted small">
+                    {selectedMark.shape === 'line'
+                      ? 'Ziehen = verschieben · Endpunkte (○) einzeln ziehen'
+                      : selectedMark.shape === 'rect' || selectedMark.shape === 'ellipse'
+                        ? 'Ziehen = verschieben · Eckpunkte (○) und Seitengriffe (□) ziehen = Größe'
+                        : 'Ziehen = verschieben · noch einmal antippen = bearbeiten'}
+                  </div>
+                ) : null}
+                <div className="row gap">
+                  {tool !== 'select' && (
+                    <button type="button" className="btn btn-sm" onClick={() => setTool('select')} data-testid="dp-adjust-selected">
+                      <Icon name="select" size={18} /> Verschieben / Größe
+                    </button>
+                  )}
+                  {selectedMark.photoIds.length > 0 && (
+                    <button type="button" className="btn btn-sm" onClick={() => viewPhotos(selectedMark.photoIds, 0, `Nr. ${selectedMark.no} · ${kindInfo(selectedMark.kind).label}`)} data-testid="dp-selected-photos">
+                      <Icon name="images" size={18} /> Fotos
+                    </button>
+                  )}
+                  <button type="button" className="btn btn-sm btn-primary" onClick={() => setEditing(selectedMark)} data-testid="dp-edit-selected">
+                    <Icon name="edit" size={18} /> Bearbeiten
+                  </button>
+                  <button type="button" className="btn btn-sm btn-danger-text" onClick={() => void del(selectedMark)} data-testid="dp-delete-selected">
+                    <Icon name="trash" size={18} />
+                    <span className="sr-only">Löschen</span>
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="zoom-controls">
               <button type="button" className="icon-btn" onClick={() => zoomBy(1.4)} aria-label="Vergrößern" title="Vergrößern (+) – auch Mausrad oder zwei Finger" data-testid="dp-zoom-in">
                 <Icon name="plus" />
@@ -798,15 +936,15 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
             <div className={`toolbar${toolsOpen ? '' : ' toolbar-collapsed'}`} role="toolbar" aria-label="Werkzeuge" data-testid="dp-toolbar">
               {!toolsOpen ? (
                 <button type="button" className="tool-btn tools-open" onClick={() => setToolsOpen(true)} aria-expanded={false} title="Werkzeugleiste öffnen" data-testid="dp-tools-open">
-                  <Icon name={tool === 'select' ? 'hand' : (SHAPE_ICON[tool] as never)} />
+                  <Icon name={tool === 'select' ? 'select' : (SHAPE_ICON[tool] as never)} />
                   <span>Werkzeuge</span>
                 </button>
               ) : (
                 <>
                   <div className="tool-group">
-                    <button type="button" className={`tool-btn${tool === 'select' ? ' active' : ''}`} onClick={() => setTool('select')} aria-pressed={tool === 'select'} title="Auswählen und verschieben" data-testid="dp-tool-select">
-                      <Icon name="hand" />
-                      <span>Wählen</span>
+                    <button type="button" className={`tool-btn${tool === 'select' ? ' active' : ''}`} onClick={() => setTool('select')} aria-pressed={tool === 'select'} title="Auswählen / Verschieben (V)" data-testid="dp-tool-select">
+                      <Icon name="select" />
+                      <span>Auswahl</span>
                     </button>
                     {SHAPES.map((s) => (
                       <button key={s.id} type="button" className={`tool-btn${tool === s.id ? ' active' : ''}`} onClick={() => pickTool(s.id)} aria-pressed={tool === s.id} title={s.label} data-testid={`dp-tool-${s.id}`}>

@@ -210,3 +210,62 @@ test('Foto am Mangel: Farbkästen groß, Foto antippen öffnet die Großansicht 
   await expect(viewer).toHaveCount(0);
   await expect(md).toBeVisible();
 });
+
+test('Auswahlwerkzeug wie im Aufmaß: Griffe am Rechteck, Größe ziehen, Auswahlleiste mit Bearbeiten und Löschen', async ({ page }) => {
+  await freshStart(page);
+  await page.goto('./maengel');
+  await page.getByTestId('defect-upload').click();
+  const dlg = page.getByTestId('defect-plan-dialog');
+  await dlg.getByTestId('photo-site').selectOption('__new');
+  const sd = page.getByTestId('photo-site-dialog');
+  await sd.getByTestId('photo-site-name').fill('Griff-Baustelle');
+  await sd.getByTestId('photo-site-save').click();
+  await dlg.getByTestId('defect-plan-file').setInputFiles(join(FIXTURES, 'parkdeck.png'));
+  await dlg.getByTestId('defect-plan-save').click();
+  await expect(page.locator('[data-testid="dp-canvas"] img')).toBeVisible();
+  await expect(page.getByTestId('dp-tool-select')).toContainText('Auswahl');
+  const stage = page.locator('.dp-stage');
+  const box = (await stage.boundingBox())!;
+  const at = (fx: number, fy: number) => ({ x: box.x + box.width * fx, y: box.y + box.height * fy });
+  // Rechteck aufziehen → Dialog speichern
+  await page.getByTestId('dp-tool-rect').click();
+  const a = at(0.3, 0.3);
+  const b = at(0.5, 0.5);
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move(b.x, b.y, { steps: 5 });
+  await page.mouse.up();
+  const md = page.getByTestId('dp-mark-dialog');
+  await md.getByTestId('dp-mark-title').fill('Riss Wand');
+  await md.getByTestId('dp-mark-save').click();
+  // nach dem Speichern bleibt die Markierung ausgewählt; Esc hebt die Auswahl auf, antippen wählt wieder → Griffe und Auswahlleiste
+  await page.getByTestId('dp-tool-select').click();
+  await expect(page.getByTestId('dp-selection-bar')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('dp-selection-bar')).toHaveCount(0);
+  await page.locator('[data-testid="dp-num"][data-no="1"]').click();
+  await expect(page.getByTestId('dp-handles')).toBeVisible();
+  await expect(page.locator('[data-testid^="dp-handle-"]')).toHaveCount(8);
+  const bar = page.getByTestId('dp-selection-bar');
+  await expect(bar).toContainText('Nr. 1 · Rechteck');
+  await expect(bar).toContainText('Riss Wand');
+  await expect(bar).toContainText('Eckpunkte (○) und Seitengriffe (□)');
+  // Ecke unten rechts ziehen → Rechteck wird größer (Nummer wandert mit der oberen Mitte)
+  const se = (await page.getByTestId('dp-handle-se').boundingBox())!;
+  const target = at(0.7, 0.7);
+  await page.mouse.move(se.x + se.width / 2, se.y + se.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(target.x, target.y, { steps: 6 });
+  await page.mouse.up();
+  const se2 = (await page.getByTestId('dp-handle-se').boundingBox())!;
+  expect(se2.x).toBeGreaterThan(se.x + 50);
+  expect(se2.y).toBeGreaterThan(se.y + 50);
+  // Bearbeiten aus der Leiste, Löschen mit Entf
+  await bar.getByTestId('dp-edit-selected').click();
+  await expect(md).toContainText('Nr. 1 · Rechteck');
+  await md.getByRole('button', { name: 'Abbrechen' }).click();
+  await page.keyboard.press('Delete');
+  await page.getByRole('button', { name: 'Löschen' }).last().click();
+  await expect(page.getByTestId('dp-item')).toHaveCount(0);
+  await expect(bar).toHaveCount(0);
+});
