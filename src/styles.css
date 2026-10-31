@@ -7507,12 +7507,15 @@ button.report-site-empty {
 .dp-item-photo {
   position: relative;
   display: inline-block;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
   border-radius: 8px;
   overflow: hidden;
   background: #eee;
   vertical-align: middle;
+  cursor: zoom-in;
 }
 .dp-item-photo img {
   width: 100%;
@@ -7554,19 +7557,51 @@ button.report-site-empty {
 .dp-kinds-field {
   grid-column: 1 / -1;
 }
+/* Farbe im Plan: große, gut antippbare Kästen */
+.dp-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.dp-color {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 3px solid #fff;
+  border-radius: 12px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.18);
+  color: #fff;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.dp-color.on {
+  box-shadow: 0 0 0 3px var(--text);
+}
 .dp-photo-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
   margin-bottom: 8px;
 }
 .dp-photo-chip {
   position: relative;
-  width: 72px;
-  height: 72px;
-  border-radius: 10px;
+  width: 104px;
+  height: 104px;
+  border-radius: 12px;
   overflow: hidden;
   background: #eee;
+}
+.dp-photo-open {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
 }
 .dp-photo-chip img {
   width: 100%;
@@ -7840,4 +7875,12 @@ button.report-site-empty {
 }
 .staff-options .field {
   max-width: 320px;
+}
+
+.photo-viewer-foot {
+  justify-content: center;
+}
+/* Großansicht der Mangel-Fotos liegt über dem Mängel-Dialog */
+.photo-viewer {
+  z-index: 120;
 }

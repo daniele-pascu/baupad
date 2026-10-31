@@ -171,3 +171,42 @@ test('Plan aus PDF: beim starken Hineinzoomen wird der Ausschnitt scharf aus dem
   const w = await detail.evaluate((c: HTMLCanvasElement) => c.width);
   expect(w).toBeGreaterThan(400);
 });
+
+test('Foto am Mangel: Farbkästen groß, Foto antippen öffnet die Großansicht mit Zoom', async ({ page }) => {
+  await freshStart(page);
+  await page.goto('./maengel');
+  await page.getByTestId('defect-upload').click();
+  const dlg = page.getByTestId('defect-plan-dialog');
+  await dlg.getByTestId('photo-site').selectOption('__new');
+  const sd = page.getByTestId('photo-site-dialog');
+  await sd.getByTestId('photo-site-name').fill('Foto-Baustelle');
+  await sd.getByTestId('photo-site-save').click();
+  await dlg.getByTestId('defect-plan-file').setInputFiles(join(FIXTURES, 'parkdeck.png'));
+  await dlg.getByTestId('defect-plan-save').click();
+  await expect(page.locator('[data-testid="dp-canvas"] img')).toBeVisible();
+  // Pin setzen → Dialog
+  await page.getByTestId('dp-tool-pin').click();
+  const stage = (await page.locator('.dp-stage').boundingBox())!;
+  await page.mouse.click(stage.x + stage.width * 0.4, stage.y + stage.height * 0.4);
+  const md = page.getByTestId('dp-mark-dialog');
+  await expect(md).toContainText('Nr. 1 · Pin');
+  const color = md.getByTestId('dp-mark-color').first();
+  const box = (await color.boundingBox())!;
+  expect(box.width).toBeGreaterThanOrEqual(44);
+  expect(box.height).toBeGreaterThanOrEqual(44);
+  // Foto aus der Galerie anhängen
+  await md.getByTestId('photo-file-input').setInputFiles(join(FIXTURES, 'parkdeck.png'));
+  const ps = page.getByTestId('photo-save-dialog');
+  await ps.getByTestId('photo-save').click();
+  await expect(ps).toHaveCount(0);
+  await expect(md.getByTestId('dp-mark-photo')).toHaveCount(1, { timeout: 15_000 });
+  await md.getByTestId('dp-mark-photo').click();
+  const viewer = page.getByTestId('photo-viewer');
+  await expect(viewer).toBeVisible();
+  await expect(viewer.getByTestId('viewer-image')).toBeVisible();
+  await viewer.getByTestId('viewer-zoom-in').click();
+  await expect(viewer.getByTestId('viewer-zoom')).toHaveText('150 %');
+  await page.keyboard.press('Escape'); // schließt nur die Großansicht
+  await expect(viewer).toHaveCount(0);
+  await expect(md).toBeVisible();
+});

@@ -4,6 +4,7 @@ import { Modal } from '../components/Modal';
 import { PdfPreview } from '../components/PdfPreview';
 import { PhotoCapture } from '../components/PhotoCapture';
 import { PhotoImg } from '../components/PhotoImg';
+import { PhotoViewer } from '../components/PhotoViewer';
 import { confirmDialog, showError } from '../components/ui';
 import { getCompanyLogo } from '../lib/company';
 import { getDefectPlan, getMeta } from '../lib/db';
@@ -455,6 +456,7 @@ function MarkDialog({
   onSave,
   onDelete,
   onPhotosAdded,
+  onView,
 }: {
   mark: DefectMark;
   site: PhotoSite;
@@ -463,6 +465,8 @@ function MarkDialog({
   onSave(m: DefectMark): void;
   onDelete(m: DefectMark): void;
   onPhotosAdded(): void;
+  /** Foto groß anzeigen (alle Fotos des Mangels, Startindex) */
+  onView(ids: string[], index: number): void;
 }) {
   const [m, setM] = useState(mark);
   const [picking, setPicking] = useState(false);
@@ -517,9 +521,11 @@ function MarkDialog({
         </label>
         <div className="field">
           <span>Farbe im Plan</span>
-          <div className="row gap">
+          <div className="dp-colors">
             {MARK_COLORS.map((c) => (
-              <button key={c} type="button" className={`dp-color${m.color === c ? ' on' : ''}`} style={{ background: c }} onClick={() => set('color', c)} aria-label={`Farbe ${c}`} aria-pressed={m.color === c} />
+              <button key={c} type="button" className={`dp-color${m.color === c ? ' on' : ''}`} style={{ background: c }} onClick={() => set('color', c)} aria-label={`Farbe ${c}`} aria-pressed={m.color === c} data-testid="dp-mark-color">
+                {m.color === c && <Icon name="check" size={20} />}
+              </button>
             ))}
           </div>
         </div>
@@ -527,9 +533,11 @@ function MarkDialog({
           <span>Fotos ({linked.length})</span>
           {linked.length > 0 && (
             <div className="dp-photo-row" data-testid="dp-mark-photos">
-              {linked.map((p) => (
+              {linked.map((p, i) => (
                 <span key={p.id} className="dp-photo-chip">
-                  <PhotoImg id={p.id} />
+                  <button type="button" className="dp-photo-open" onClick={() => onView(linked.map((x) => x.id), i)} aria-label="Foto groß anzeigen" data-testid="dp-mark-photo">
+                    <PhotoImg id={p.id} />
+                  </button>
                   <button type="button" className="dp-photo-x" onClick={() => set('photoIds', m.photoIds.filter((x) => x !== p.id))} aria-label="Foto entfernen">
                     <Icon name="close" size={12} />
                   </button>
@@ -537,6 +545,7 @@ function MarkDialog({
               ))}
             </div>
           )}
+          {linked.length > 0 && <p className="muted small">Foto antippen: groß ansehen und vergrößern.</p>}
           <div className="row gap wrap">
             <PhotoCapture
               sites={[site]}
@@ -589,6 +598,9 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
   const [preview, setPreview] = useState<ExportFile | null>(null);
   const [busy, setBusy] = useState(false);
   const url = usePlanThumb(planId, 'data');
+  /** Großansicht der Fotos eines Mangels */
+  const [viewer, setViewer] = useState<{ ids: string[]; index: number; title: string } | null>(null);
+  const viewPhotos = (ids: string[], index: number, title: string) => setViewer({ ids, index, title });
   /** Original-PDF-Seite (falls der Plan aus einem PDF stammt) für scharfes Zoomen */
   const [pdfPage, setPdfPage] = useState<PDFPageProxy | null>(null);
   useEffect(() => {
@@ -899,10 +911,10 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
                         </td>
                         <td className="num">
                           {m.photoIds[0] ? (
-                            <span className="dp-item-photo">
+                            <button type="button" className="dp-item-photo" onClick={(e) => { e.stopPropagation(); viewPhotos(m.photoIds, 0, `Nr. ${m.no} · ${kindInfo(m.kind).label}`); }} aria-label={`Fotos von Nr. ${m.no} ansehen`} data-testid="dp-item-photo">
                               <PhotoImg id={m.photoIds[0]} />
                               {m.photoIds.length > 1 && <b>{m.photoIds.length}</b>}
-                            </span>
+                            </button>
                           ) : (
                             <span className="muted">–</span>
                           )}
@@ -948,9 +960,11 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
           }}
           onSave={(m) => void save(m)}
           onDelete={(m) => void del(m)}
+          onView={(ids, index) => viewPhotos(ids, index, `Nr. ${editing.no} · ${kindInfo(editing.kind).label}`)}
           onPhotosAdded={() => void reloadPhotos()}
         />
       )}
+      {viewer && <PhotoViewer ids={viewer.ids} index={viewer.index} title={viewer.title} onIndex={(i) => setViewer({ ...viewer, index: i })} onClose={() => setViewer(null)} />}
       {preview && <PdfPreview file={preview} onBack={() => setPreview(null)} onClose={() => setPreview(null)} />}
     </>
   );
