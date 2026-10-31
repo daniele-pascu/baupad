@@ -188,11 +188,12 @@ test('Neue Baustelle unter Fotos (Übersicht und Speichern-Dialog), Verschieben,
   await page.goto('./#/fotos');
   // Baustelle über die Übersicht anlegen → direkt auf ihrer Seite
   await page.getByTestId('photo-new-site').click();
-  const sd = page.getByTestId('photo-site-dialog');
-  await sd.getByTestId('photo-site-name').fill('Garage Jagdschlossgasse');
-  await sd.getByTestId('photo-site-number').fill('91574');
-  await sd.getByTestId('photo-site-address').fill('1130 Wien, Jagdschlossgasse 77-79');
-  await sd.getByTestId('photo-site-save').click();
+  await page.getByTestId('project-picker').getByTestId('picker-new').click();
+  const pf = page.getByTestId('project-form');
+  await pf.getByTestId('project-name').fill('Garage Jagdschlossgasse');
+  await pf.getByTestId('project-number').fill('91574');
+  await pf.getByTestId('project-address').fill('1130 Wien, Jagdschlossgasse 77-79');
+  await pf.getByTestId('project-save').click();
   await expect(page.getByTestId('photo-site-title')).toHaveText('Garage Jagdschlossgasse');
   await expect(page.getByTestId('photo-site-empty')).toBeVisible();
   await page.getByTestId('photo-file-input').setInputFiles([shot('A.jpg', '2026:10:27 09:15:30'), shot('B.jpg', '2026:10:27 10:00:00')]);
@@ -209,6 +210,7 @@ test('Neue Baustelle unter Fotos (Übersicht und Speichern-Dialog), Verschieben,
   await expect(cards).toContainText('91574');
   await page.getByTestId('photo-file-input').setInputFiles([shot('C.jpg', '2026:10:28 08:00:00')]);
   await dlg.getByTestId('photo-site').selectOption('__new');
+  const sd = page.getByTestId('photo-site-dialog');
   await sd.getByTestId('photo-site-name').fill('Halle 3');
   await sd.getByTestId('photo-site-save').click();
   await expect(dlg.getByTestId('photo-site')).toHaveValue(/\|Halle 3$/);

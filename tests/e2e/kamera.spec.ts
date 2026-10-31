@@ -6,8 +6,9 @@ test('Kamera-Modus: Live-Bild, Auslöser speichert sofort, Zähler, letztes Foto
   await freshStart(page);
   await page.goto('./#/fotos');
   await page.getByTestId('photo-new-site').click();
-  await page.getByTestId('photo-site-name').fill('Garage Jagdschlossgasse');
-  await page.getByTestId('photo-site-save').click();
+  await page.getByTestId('project-picker').getByTestId('picker-new').click();
+  await page.getByTestId('project-name').fill('Garage Jagdschlossgasse');
+  await page.getByTestId('project-save').click();
   await expect(page.getByTestId('photo-site-title')).toHaveText('Garage Jagdschlossgasse');
   // Kamera-Modus (in der installierten App über „Foto aufnehmen“; im Browser gibt es den Knopf nicht)
   await expect(page.getByTestId('photo-shoot')).toHaveCount(0);
