@@ -413,6 +413,9 @@ export const SHAPE_LABELS: Record<ShapeType, string> = {
 // ---------------------------------------------------------------------------
 // Arbeitereinteilung (eigenständig, nur auf dem Gerät; ab Datenbank-Version 5)
 
+/** Einstufung eines Arbeiters (für Personalstand in Berichten und Firmenformulare) */
+export type WorkerGrade = 'bauleiter' | 'vorarbeiter' | 'facharbeiter' | 'hilfsarbeiter' | 'lehrling';
+
 /** Arbeiter der Firma – einmal angelegt, jede Woche wiederverwendet */
 export interface Worker {
   id: string;
@@ -420,8 +423,10 @@ export interface Worker {
   lastName: string;
   staffNo?: string;
   phone?: string;
-  /** Qualifikation bzw. Tätigkeit */
+  /** Qualifikation bzw. Tätigkeit (frei, z. B. Maurer) */
   role?: string;
+  /** Einstufung: Bauleiter, Vorarbeiter/Polier, Facharbeiter, Hilfsarbeiter, Lehrling */
+  grade?: WorkerGrade;
   /** inaktiv: wird nicht mehr zum Einteilen angeboten, bleibt in alten Wochen sichtbar */
   active: boolean;
   createdAt: number;
@@ -500,6 +505,8 @@ export interface ReportWorker {
   workerId?: string;
   name: string;
   role: string;
+  /** Einstufung (aus der Arbeiterliste, Kopie) */
+  grade?: WorkerGrade;
   /** Beginn/Ende „HH:MM“, Pause in Minuten – optional */
   from: string;
   to: string;
@@ -509,6 +516,8 @@ export interface ReportWorker {
   /** davon Überstunden 50 % / 100 % (nur Regieliste, optional) */
   ot50?: number | null;
   ot100?: number | null;
+  /** Wegzeit in Stunden (nur Regieliste, optional – für Firmenformulare mit Wegzeit-Spalte) */
+  travel?: number | null;
   /** Bautagesbericht: tatsächlich anwesend */
   present?: boolean;
   /** laut Arbeitereinteilung eingeteilt */
@@ -532,9 +541,16 @@ export interface RegieData {
   materials: ReportItem[];
   equipment: ReportItem[];
   notes: string;
-  /** Spalten für 50 %/100 % Überstunden anzeigen */
+  /** Spalten für 50 %/100 % Überstunden und Wegzeit anzeigen */
   overtime: boolean;
+  /** Zusatzangaben für Firmenformulare (optional, frei) */
+  travelCosts?: string;
+  lodgingCosts?: string;
+  miscCosts?: string;
 }
+
+/** Personalstand je Einstufung (null = keine Angabe) */
+export type StaffCount = Partial<Record<WorkerGrade, number | null>>;
 
 export interface DailyData {
   /** Arbeitszeit „HH:MM“ (optional) */
@@ -552,6 +568,11 @@ export interface DailyData {
   equipment: ReportItem[];
   incidents: string;
   notes: string;
+  /** Personalstand je Einstufung – aus der Einteilung vorbelegt, von Hand änderbar */
+  staff?: StaffCount;
+  /** Schlussabnahme (optional, für Firmenformulare): Uhrzeit und durch wen */
+  acceptanceTime?: string;
+  acceptanceBy?: string;
 }
 
 export interface WeeklyDay {

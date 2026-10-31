@@ -37,6 +37,7 @@ import {
   weekOf,
   weekRange,
   workerName,
+  WORKER_GRADES,
 } from '../lib/crew';
 import { getMeta, getWeek, listProjects, listWeeks, listWorkers, previousWeek, saveWeek, saveWorker, setMeta } from '../lib/db';
 import type { ExportFile } from '../lib/aufmass';
@@ -48,7 +49,7 @@ import { useCanCreateProjects, useProjectIn } from '../lib/sites';
 import { crewDayPdf, crewWeekPdf } from '../lib/crew-pdf';
 import { uuid } from '../lib/ids';
 import { navigate, paths } from '../lib/router';
-import type { Absence, Project, WeekPlan, WeekSite, Worker, WorkTimes } from '../lib/types';
+import type { Absence, Project, WeekPlan, WeekSite, Worker, WorkerGrade, WorkTimes } from '../lib/types';
 import { usePageTitle } from '../lib/page-title';
 
 const WEEKDAYS = [0, 1, 2, 3, 4];
@@ -773,14 +774,14 @@ export function WorkersPage() {
 
 /** Arbeiterliste: anlegen, bearbeiten, aktiv/inaktiv */
 function WorkersDialog({ workers, onSave, onClose }: { workers: Worker[]; onSave(w: Worker): Promise<void>; onClose(): void }) {
-  const blank = { firstName: '', lastName: '', staffNo: '', phone: '', role: '' };
+  const blank = { firstName: '', lastName: '', staffNo: '', phone: '', role: '', grade: '' };
   const [edit, setEdit] = useState<Worker | null>(null);
   const [v, setV] = useState(blank);
   const [show, setShow] = useState(false);
   const list = sortWorkers(workers);
   const startEdit = (w: Worker | null) => {
     setEdit(w);
-    setV(w ? { firstName: w.firstName, lastName: w.lastName, staffNo: w.staffNo ?? '', phone: w.phone ?? '', role: w.role ?? '' } : blank);
+    setV(w ? { firstName: w.firstName, lastName: w.lastName, staffNo: w.staffNo ?? '', phone: w.phone ?? '', role: w.role ?? '', grade: w.grade ?? '' } : blank);
     setShow(false);
   };
   const submit = async () => {
@@ -794,6 +795,7 @@ function WorkersDialog({ workers, onSave, onClose }: { workers: Worker[]; onSave
       staffNo: v.staffNo.trim(),
       phone: v.phone.trim(),
       role: v.role.trim(),
+      grade: (v.grade || undefined) as WorkerGrade | undefined,
       updatedAt: now,
     } as Worker;
     // Formular sofort leeren – der nächste Name kann gleich eingegeben werden
@@ -825,6 +827,17 @@ function WorkersDialog({ workers, onSave, onClose }: { workers: Worker[]; onSave
         <div className="form-grid">
           {field('firstName', 'Vorname *', { 'aria-invalid': show && !v.firstName.trim() ? true : undefined })}
           {field('lastName', 'Nachname')}
+          <label className="field">
+            <span>Einstufung (für Personalstand und Firmenformulare)</span>
+            <select value={v.grade} onChange={(e) => setV({ ...v, grade: e.target.value })} data-testid="worker-grade">
+              <option value="">– automatisch aus der Tätigkeit –</option>
+              {WORKER_GRADES.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.label} ({g.short})
+                </option>
+              ))}
+            </select>
+          </label>
           {field('role', 'Tätigkeit / Qualifikation (optional)', { placeholder: 'z. B. Polier, Maurer' })}
           {field('staffNo', 'Personalnummer (optional)')}
           {field('phone', 'Telefon (optional)', { type: 'tel', inputMode: 'tel' })}

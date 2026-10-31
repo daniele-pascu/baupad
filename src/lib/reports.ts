@@ -1,8 +1,8 @@
 import { costCenterLabel } from './aufmass';
 import { absenceOn } from './crew-absence';
-import { addDays, carryOver, isoDate, parseDate, weekOf, workerName } from './crew';
+import { addDays, carryOver, countByGrade, gradeOf, isoDate, parseDate, weekOf, workerName } from './crew';
 import { uuid } from './ids';
-import type { Absence, CostCenter, DailyData, Project, RegieData, Report, ReportHead, ReportItem, ReportType, ReportWorker, WeekPlan, WeeklyData, Worker } from './types';
+import type { Absence, CostCenter, DailyData, Project, RegieData, Report, ReportHead, ReportItem, ReportType, ReportWorker, StaffCount, WeekPlan, WeeklyData, Worker } from './types';
 
 /**
  * Berichte & Formulare: gemeinsame Grundlage aller Berichtstypen (Kopfdaten, Arbeiterübernahme, Nummern,
@@ -88,9 +88,22 @@ export function copyReport(r: Report, date: string, all: Report[]): Report {
 
 export const newItem = (): ReportItem => ({ id: uuid(), text: '', qty: null, unit: '' });
 
-export function workerRow(w?: Pick<Worker, 'id' | 'firstName' | 'lastName' | 'role'>, extra: Partial<ReportWorker> = {}): ReportWorker {
-  return { id: uuid(), workerId: w?.id, name: w ? workerName(w) : '', role: w?.role ?? '', from: '', to: '', pause: '', hours: null, ...extra };
+export function workerRow(w?: Pick<Worker, 'id' | 'firstName' | 'lastName' | 'role' | 'grade'>, extra: Partial<ReportWorker> = {}): ReportWorker {
+  return { id: uuid(), workerId: w?.id, name: w ? workerName(w) : '', role: w?.role ?? '', grade: w ? gradeOf(w) : undefined, from: '', to: '', pause: '', hours: null, ...extra };
 }
+
+/** Personalstand aus der Mannschaft des Tages (anwesend bzw. noch nicht abgewählt) */
+export function staffFromCrew(crew: ReportWorker[]): StaffCount {
+  const counted = crew.filter((w) => w.present !== false && (w.name.trim() || w.workerId));
+  const c = countByGrade(counted);
+  return { bauleiter: c.bauleiter || null, vorarbeiter: c.vorarbeiter || null, facharbeiter: c.facharbeiter || null, hilfsarbeiter: c.hilfsarbeiter || null, lehrling: c.lehrling || null };
+}
+
+/** Personalstand gesetzt? (mindestens eine Zahl) */
+export const hasStaff = (s: StaffCount | undefined) => !!s && Object.values(s).some((v) => v !== null && v !== undefined);
+
+/** Summe des Personalstands */
+export const staffTotal = (s: StaffCount | undefined) => (s ? Object.values(s).reduce<number>((a, v) => a + (v ?? 0), 0) : 0);
 
 /** „07:00“ → Minuten; ungültig → null */
 const minutes = (t: string) => {

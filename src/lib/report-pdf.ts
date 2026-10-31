@@ -2,10 +2,10 @@ import { rgb, type PDFFont, type PDFPage } from 'pdf-lib';
 import { safeFileName, type ExportFile } from './aufmass';
 import type { CompanyLogo } from './company';
 import { clean, FILL, footers, header, INK, LINE, M, MUTED, setup, type Ctx } from './crew-pdf';
-import { DAY_NAMES, isoWeekNo, weekOf } from './crew';
+import { DAY_NAMES, isoWeekNo, weekOf, WORKER_GRADES } from './crew';
 import { A4L, A4P, brand, Form, type FormCol } from './form-pdf';
-import { fmtDate, fmtHours, periodLabel, sumHours, typeInfo, workerHours } from './reports';
-import type { Report, ReportItem, WeeklyData } from './types';
+import { fmtDate, fmtHours, hasStaff, periodLabel, staffTotal, sumHours, typeInfo, workerHours } from './reports';
+import type { DailyData, Report, ReportItem, WeeklyData } from './types';
 
 /**
  * PDF der Berichte (pdf-lib, bereits im Projekt): A4 hoch, Kopf wie bei der Arbeitereinteilung (Logo bzw.
@@ -330,6 +330,13 @@ function regieForm(ctx: Ctx, r: Report & { type: 'regie' }, opts: ReportPdfOptio
  * Arbeitszeit, Wetter, Personalstand), dreiteilige Tabelle Personaleinsatz / Geräte / Material mit „Ist“,
  * Leistungsfortschritt, besondere Vorkommnisse, Bemerkungen, Unterschriftsfelder AN / ÖBA.
  */
+/** „BL 1 · VA 1 · FA 3 · HA 2“ – nur, wenn ein Personalstand eingetragen ist */
+function staffText(d: DailyData): string {
+  if (!hasStaff(d.staff)) return '';
+  const parts = WORKER_GRADES.filter((g) => (d.staff?.[g.id] ?? 0) > 0).map((g) => `${g.short} ${d.staff![g.id]}`);
+  return parts.length ? `${staffTotal(d.staff)} (${parts.join(' · ')})` : '';
+}
+
 function dailyForm(ctx: Ctx, r: Report & { type: 'tag' }, opts: ReportPdfOptions) {
   const d = r.data;
   const h = r.head;
@@ -353,7 +360,7 @@ function dailyForm(ctx: Ctx, r: Report & { type: 'tag' }, opts: ReportPdfOptions
   f.cells([
     { label: 'Arbeitszeit', value: d.from || d.to ? `von ${d.from || '__:__'} bis ${d.to || '__:__'} Uhr` : '', w: W * 0.28 },
     { label: 'Wetter', value: weather, w: W * 0.44 },
-    { label: 'Personalstand', value: count !== null ? `${count} ${count === 1 ? 'Person' : 'Personen'}` : '', w: W * 0.28 },
+    { label: 'Personalstand', value: staffText(d) || (count !== null ? `${count} ${count === 1 ? 'Person' : 'Personen'}` : ''), w: W * 0.28 },
   ]);
   f.cells([
     { label: 'Projekt-Nr.', value: h.number, w: W * 0.28 },
@@ -385,6 +392,10 @@ function dailyForm(ctx: Ctx, r: Report & { type: 'tag' }, opts: ReportPdfOptions
   f.linedBox(M, W, 'BESONDERE VORKOMMNISSE / Behinderungen', d.incidents, 3);
   f.y -= 8;
   f.linedBox(M, W, 'BEMERKUNGEN', d.notes, 2);
+  if (d.acceptanceTime || d.acceptanceBy) {
+    f.y -= 8;
+    f.cells([{ label: 'Schlussabnahme', value: [d.acceptanceTime && `${d.acceptanceTime} Uhr`, d.acceptanceBy && `von ${d.acceptanceBy}`].filter(Boolean).join(', '), w: W }]);
+  }
   f.signatureBoxes([`für den AN${opts.company ? ` – ${opts.company}` : ''}`, 'für den AG / die ÖBA']);
   return f;
 }

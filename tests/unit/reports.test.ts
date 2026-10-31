@@ -127,3 +127,19 @@ describe('Berichte – PDF', () => {
     expect(tw).toContain('3 Personen');
   });
 });
+
+describe('Personalstand aus der Mannschaft', () => {
+  it('zählt anwesende bzw. noch nicht abgewählte Arbeiter je Einstufung', async () => {
+    const { staffFromCrew, hasStaff, staffTotal, workerRow } = await import('../../src/lib/reports');
+    const crew = [
+      workerRow({ id: 'a', firstName: 'Max', lastName: '', role: 'Polier' }, { present: true }),
+      workerRow({ id: 'b', firstName: 'Peter', lastName: '', role: 'Maurer', grade: 'facharbeiter' }, { planned: true }),
+      workerRow({ id: 'c', firstName: 'Ali', lastName: '', role: 'Hilfsarbeiter' }, { present: false }),
+    ];
+    const s = staffFromCrew(crew);
+    expect(s).toEqual({ bauleiter: null, vorarbeiter: 1, facharbeiter: 1, hilfsarbeiter: null, lehrling: null });
+    expect(hasStaff(s)).toBe(true);
+    expect(hasStaff(undefined)).toBe(false);
+    expect(staffTotal(s)).toBe(2);
+  });
+});

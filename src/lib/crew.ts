@@ -1,5 +1,5 @@
 import { uuid } from './ids';
-import type { Project, WeekPlan, WeekSite, Worker, WorkTimes } from './types';
+import type { WorkerGrade, Project, WeekPlan, WeekSite, Worker, WorkTimes } from './types';
 
 /**
  * Arbeitereinteilung: Wochenplanung nach Baustellen (Baustelle → Tag → Arbeiter).
@@ -140,6 +140,37 @@ export function unassigned(w: WeekPlan, workers: Worker[], day: number): Worker[
 export const visibleDays = () => [0, 1, 2, 3, 4, 5, 6];
 
 export const workerName = (x: Pick<Worker, 'firstName' | 'lastName'>) => [x.firstName, x.lastName].filter(Boolean).join(' ');
+
+/** Einstufungen (Reihenfolge wie auf Formularen üblich) */
+export const WORKER_GRADES: { id: WorkerGrade; label: string; short: string }[] = [
+  { id: 'bauleiter', label: 'Bauleiter', short: 'BL' },
+  { id: 'vorarbeiter', label: 'Vorarbeiter / Polier', short: 'VA' },
+  { id: 'facharbeiter', label: 'Facharbeiter', short: 'FA' },
+  { id: 'hilfsarbeiter', label: 'Hilfsarbeiter', short: 'HA' },
+  { id: 'lehrling', label: 'Lehrling', short: 'LL' },
+];
+export const gradeLabel = (g: WorkerGrade | undefined) => WORKER_GRADES.find((x) => x.id === g)?.label ?? '';
+
+/**
+ * Einstufung eines Arbeiters: ausdrücklich gesetzt, sonst aus der Tätigkeit erraten („Polier“, „Hilfsarbeiter“ …);
+ * ohne Anhaltspunkt gilt Facharbeiter.
+ */
+export function gradeOf(w: { grade?: WorkerGrade; role?: string }): WorkerGrade {
+  if (w.grade) return w.grade;
+  const r = (w.role ?? '').toLowerCase();
+  if (/bauleit/.test(r)) return 'bauleiter';
+  if (/polier|vorarbeit|partieführ/.test(r)) return 'vorarbeiter';
+  if (/hilfs|helfer|hilfskraft/.test(r)) return 'hilfsarbeiter';
+  if (/lehrling|azubi|lehre/.test(r)) return 'lehrling';
+  return 'facharbeiter';
+}
+
+/** Personalstand: Anzahl je Einstufung (nur gezählte Einträge) */
+export function countByGrade(list: { grade?: WorkerGrade; role?: string }[]): Record<WorkerGrade, number> {
+  const out: Record<WorkerGrade, number> = { bauleiter: 0, vorarbeiter: 0, facharbeiter: 0, hilfsarbeiter: 0, lehrling: 0 };
+  for (const w of list) out[gradeOf(w)]++;
+  return out;
+}
 
 /** Arbeiter alphabetisch (Nachname, Vorname) */
 export const sortWorkers = (list: Worker[]) =>

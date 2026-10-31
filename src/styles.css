@@ -5397,7 +5397,22 @@ button.report-link {
 }
 .rp-workers.regie.ot .rp-w,
 .rp-workers.regie.ot .rp-wh {
-  grid-template-columns: minmax(120px, 2fr) minmax(90px, 1.3fr) 112px 112px 64px 64px 58px 58px 36px;
+  grid-template-columns: minmax(120px, 2fr) minmax(90px, 1.3fr) 112px 112px 60px 60px 54px 54px 60px 36px;
+}
+.rp-staff {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+.rp-staff-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 6px;
+}
+.rp-staff-grid {
+  align-items: end;
 }
 .rp-wh span {
   font-size: 0.75rem;

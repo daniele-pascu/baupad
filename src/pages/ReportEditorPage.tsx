@@ -6,7 +6,7 @@ import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, showError, toast } from '../components/ui';
 import type { ExportFile } from '../lib/aufmass';
 import { getCompanyLogo } from '../lib/company';
-import { addDays, DAY_NAMES, weekOf } from '../lib/crew';
+import { addDays, DAY_NAMES, weekOf, WORKER_GRADES } from '../lib/crew';
 import { deleteReport, getMeta, getReport, getWeek, listReports, listWorkers, loadProjectData, previousWeek, saveReport } from '../lib/db';
 import { navigate, paths } from '../lib/router';
 import { reportPdf } from '../lib/report-pdf';
@@ -27,8 +27,11 @@ import {
   workerHours,
   workerRow,
   type CrewSuggestion,
+  hasStaff,
+  staffFromCrew,
+  staffTotal,
 } from '../lib/reports';
-import type { Absence, DailyData, RegieData, Report, ReportHead, ReportItem, ReportWorker, WeeklyData, Worker } from '../lib/types';
+import type { Absence, DailyData, RegieData, Report, ReportHead, ReportItem, ReportWorker, StaffCount, WeeklyData, Worker } from '../lib/types';
 import { usePageTitle } from '../lib/page-title';
 
 /** PDF eines Berichts mit Firmenname und Firmenlogo (Einstellungen) */
@@ -424,7 +427,7 @@ function RegieForm({ r, data, workers, setData }: { r: Report; data: RegieData; 
         aside={
           <label className="check-row small">
             <input type="checkbox" checked={data.overtime} onChange={(e) => setData({ overtime: e.target.checked })} data-testid="rp-overtime" />
-            Überstunden 50 %/100 %
+            Überstunden 50 %/100 % und Wegzeit
           </label>
         }
       >
@@ -442,6 +445,7 @@ function RegieForm({ r, data, workers, setData }: { r: Report; data: RegieData; 
                 <>
                   <span>50 %</span>
                   <span>100 %</span>
+                  <span>Wegzeit</span>
                 </>
               )}
               <span />
@@ -468,6 +472,7 @@ function RegieForm({ r, data, workers, setData }: { r: Report; data: RegieData; 
                     <>
                       <input value={numText(w.ot50)} onChange={(e) => setW(w.id, { ot50: num(e.target.value) })} inputMode="decimal" placeholder="–" aria-label="davon 50 %" />
                       <input value={numText(w.ot100)} onChange={(e) => setW(w.id, { ot100: num(e.target.value) })} inputMode="decimal" placeholder="–" aria-label="davon 100 %" />
+                      <input value={numText(w.travel)} onChange={(e) => setW(w.id, { travel: num(e.target.value) })} inputMode="decimal" placeholder="–" aria-label="Wegzeit in Stunden" data-testid="rp-worker-travel" />
                     </>
                   )}
                   <button type="button" className="icon-btn icon-btn-sm" onClick={() => setData({ workers: data.workers.filter((x) => x.id !== w.id) })} aria-label="Arbeiter entfernen" data-testid="rp-worker-remove">
@@ -488,6 +493,13 @@ function RegieForm({ r, data, workers, setData }: { r: Report; data: RegieData; 
       <TextBlock label="Tätigkeiten / ausgeführte Arbeiten" value={data.work} onChange={(work) => setData({ work })} testId="rp-work" placeholder="Was wurde in Regie gearbeitet? Wo, auf wessen Anordnung?" />
       <ItemRows title="Material" items={data.materials} onChange={(materials) => setData({ materials })} testId="rp-materials" placeholder="z. B. Reparaturmörtel" />
       <ItemRows title="Geräte" items={data.equipment} onChange={(equipment) => setData({ equipment })} testId="rp-equipment" placeholder="z. B. Stemmhammer" />
+      <Section title="Kosten (optional, für Firmenformulare)">
+        <div className="rp-grid">
+          <Field label="Fahrtkosten / km" value={data.travelCosts ?? ''} onChange={(travelCosts) => setData({ travelCosts })} testId="rp-travel-costs" />
+          <Field label="Nächtigungskosten" value={data.lodgingCosts ?? ''} onChange={(lodgingCosts) => setData({ lodgingCosts })} testId="rp-lodging-costs" />
+          <Field label="Div. Kosten" value={data.miscCosts ?? ''} onChange={(miscCosts) => setData({ miscCosts })} testId="rp-misc-costs" />
+        </div>
+      </Section>
       <TextBlock label="Bemerkungen" value={data.notes} onChange={(notes) => setData({ notes })} testId="rp-notes" rows={3} />
     </>
   );
@@ -521,7 +533,17 @@ function DailyForm({ r, data, workers, setData }: { r: Report; data: DailyData; 
         </div>
       </Section>
       <Section title="Mannschaft">
-        <CrewTools r={r} date={r.date} rows={data.crew} workers={workers} onAdd={(list) => setData({ crew: [...data.crew, ...list.map((w) => (w.planned ? w : { ...w, present: true }))] })} />
+        <CrewTools
+          r={r}
+          date={r.date}
+          rows={data.crew}
+          workers={workers}
+          onAdd={(list) => {
+            const crew = [...data.crew, ...list.map((w) => (w.planned ? w : { ...w, present: true }))];
+            // Personalstand aus der Einteilung vorbelegen, solange noch nichts von Hand eingetragen ist
+            setData(hasStaff(data.staff) ? { crew } : { crew, staff: staffFromCrew(crew) });
+          }}
+        />
         {unconfirmed.length > 0 && (
           <div className="banner banner-info rp-confirm" data-testid="rp-unconfirmed">
             <p>
@@ -574,12 +596,43 @@ function DailyForm({ r, data, workers, setData }: { r: Report; data: DailyData; 
             testId="rp-crew-count"
           />
         </div>
+        <div className="rp-staff" data-testid="rp-staff">
+          <div className="rp-staff-head">
+            <strong>Personalstand</strong>
+            <span className="muted small">je Einstufung – aus der Einteilung übernommen, von Hand änderbar</span>
+            <button type="button" className="btn btn-sm" onClick={() => setData({ staff: staffFromCrew(data.crew) })} disabled={!data.crew.length} data-testid="rp-staff-from-crew">
+              Aus Mannschaft zählen
+            </button>
+          </div>
+          <div className="rp-grid rp-staff-grid">
+            {WORKER_GRADES.map((g) => (
+              <Field
+                key={g.id}
+                label={`${g.label} (${g.short})`}
+                value={numText(data.staff?.[g.id] ?? null)}
+                onChange={(v) => setData({ staff: { ...(data.staff ?? {}), [g.id]: num(v) === null ? null : Math.max(0, Math.round(num(v)!)) } as StaffCount })}
+                inputMode="numeric"
+                testId={`rp-staff-${g.id}`}
+                narrow
+              />
+            ))}
+            <p className="rp-total" data-testid="rp-staff-total">
+              Gesamt: <strong>{staffTotal(data.staff)}</strong>
+            </p>
+          </div>
+        </div>
       </Section>
       <TextBlock label="Durchgeführte Arbeiten" value={data.work} onChange={(work) => setData({ work })} testId="rp-work" placeholder="Was wurde heute wo gemacht?" />
       <ItemRows title="Material" items={data.materials} onChange={(materials) => setData({ materials })} testId="rp-materials" placeholder="Bezeichnung" />
       <ItemRows title="Geräte" items={data.equipment} onChange={(equipment) => setData({ equipment })} testId="rp-equipment" placeholder="Bezeichnung" />
       <TextBlock label="Besondere Vorkommnisse / Behinderungen" value={data.incidents} onChange={(incidents) => setData({ incidents })} testId="rp-incidents" rows={3} />
-      <TextBlock label="Bemerkungen" value={data.notes} onChange={(notes) => setData({ notes })} testId="rp-notes" rows={3} />
+      <TextBlock label="Bemerkungen / Vorbemerkungen für Aufmaß und Regien" value={data.notes} onChange={(notes) => setData({ notes })} testId="rp-notes" rows={3} />
+      <Section title="Schlussabnahme (optional, für Firmenformulare)">
+        <div className="rp-grid">
+          <Field label="Uhrzeit" type="time" value={data.acceptanceTime ?? ''} onChange={(acceptanceTime) => setData({ acceptanceTime })} testId="rp-acceptance-time" narrow />
+          <Field label="abgenommen von" value={data.acceptanceBy ?? ''} onChange={(acceptanceBy) => setData({ acceptanceBy })} testId="rp-acceptance-by" wide />
+        </div>
+      </Section>
     </>
   );
 }
