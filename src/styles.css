@@ -7428,8 +7428,9 @@ button.report-site-empty {
 .dp-canvas.drawing .dp-stage {
   cursor: crosshair;
 }
+/* Auswahlmodus wie im Aufmaß: normaler Pfeil; Hand nur beim Schieben, Größenpfeile über Griffen */
 .dp-canvas {
-  cursor: grab;
+  cursor: default;
 }
 .dp-stage {
   position: absolute;

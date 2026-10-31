@@ -252,6 +252,23 @@ function PlanCanvas({
     for (const h of handlesOf(selectedMark)) if (Math.hypot((p.x - h.p.x) * ar, p.y - h.p.y) <= r * ar) return h.h;
     return null;
   };
+  /** Mauszeiger im Auswahlmodus wie im Aufmaß: Pfeil; über Griffen Größenpfeile, über Markierungen Verschieben, beim Schieben des Plans Hand */
+  const HANDLE_CURSOR: Record<string, string> = { n: 'ns-resize', s: 'ns-resize', e: 'ew-resize', w: 'ew-resize', nw: 'nwse-resize', se: 'nwse-resize', ne: 'nesw-resize', sw: 'nesw-resize', v0: 'move', v1: 'move' };
+  const [hoverHandle, setHoverHandle] = useState<string | null>(null);
+  const setCursor = (c: string) => {
+    const el = box.current;
+    if (el && el.style.cursor !== c) el.style.cursor = c;
+  };
+  const hoverCursor = (p: Pt) => {
+    if (tool !== 'select') {
+      setHoverHandle(null);
+      return setCursor('');
+    }
+    const h = hitHandle(p);
+    setHoverHandle(h);
+    if (h) return setCursor(HANDLE_CURSOR[h] ?? 'move');
+    setCursor(hitAt(p) ? 'move' : 'default');
+  };
   /** Punkte nach dem Ziehen eines Griffs (relative Koordinaten) */
   const resized = (g: { handle: string; orig: Pt[]; box: { x: number; y: number; w: number; h: number } }, p: Pt): Pt[] => {
     if (g.handle.startsWith('v')) {
@@ -296,6 +313,7 @@ function PlanCanvas({
       if (!m) {
         if (tool === 'select' && e.button !== 1) onSelect(null);
         gesture.current = { kind: 'pan', x: bp.x, y: bp.y, view: viewRef.current, moved: false };
+        setCursor('grabbing');
         return;
       }
       gesture.current = { kind: 'move', start: p, id: m.id, orig: m.points, moved: false };
@@ -310,7 +328,10 @@ function PlanCanvas({
     if (!pointers.current.has(e.pointerId)) return;
     pointers.current.set(e.pointerId, boxPt(e));
     const g = gesture.current;
-    if (!g) return;
+    if (!g) {
+      if (e.pointerType === 'mouse') hoverCursor(rel(e));
+      return;
+    }
     if (g.kind === 'pinch') {
       if (pointers.current.size < 2) return;
       const [a, b] = [...pointers.current.values()];
@@ -355,6 +376,7 @@ function PlanCanvas({
     }
     if (pointers.current.size) return;
     gesture.current = null;
+    if (e.pointerType === 'mouse') hoverCursor(rel(e));
     if (g.kind === 'pan' || g.kind === 'resize') return;
     const p = rel(e);
     if (g.kind === 'move') {
@@ -432,7 +454,13 @@ function PlanCanvas({
       data-testid="dp-canvas"
       data-zoom={view.s.toFixed(2)}
       onPointerDown={down}
-      onPointerMove={move}
+      onPointerMove={(e) => {
+        if (!pointers.current.has(e.pointerId)) {
+          if (e.pointerType === 'mouse' && stage.current) hoverCursor(rel(e));
+          return;
+        }
+        move(e);
+      }}
       onPointerUp={up}
       onPointerCancel={cancel}
     >
@@ -457,10 +485,11 @@ function PlanCanvas({
                 })()}
               {handlesOf(selectedMark).map(({ h, p, round }) => {
                 const sz = px(matchMedia('(pointer: coarse)').matches ? 16 : 10);
+                const hover = hoverHandle === h;
                 return round ? (
-                  <circle key={h} cx={p.x * W} cy={p.y * H} r={sz * 0.55} className="vertex-handle" strokeWidth={px(2)} data-handle={h} data-testid={`dp-handle-${h}`} />
+                  <circle key={h} cx={p.x * W} cy={p.y * H} r={sz * (hover ? 0.75 : 0.55)} className={`vertex-handle${hover ? ' hover' : ''}`} strokeWidth={px(2)} data-handle={h} data-testid={`dp-handle-${h}`} />
                 ) : (
-                  <rect key={h} x={p.x * W - sz / 2} y={p.y * H - sz / 2} width={sz} height={sz} className="handle" strokeWidth={px(1.5)} data-handle={h} data-testid={`dp-handle-${h}`} />
+                  <rect key={h} x={p.x * W - (hover ? sz * 0.65 : sz / 2)} y={p.y * H - (hover ? sz * 0.65 : sz / 2)} width={hover ? sz * 1.3 : sz} height={hover ? sz * 1.3 : sz} className={`handle${hover ? ' hover' : ''}`} strokeWidth={px(1.5)} data-handle={h} data-testid={`dp-handle-${h}`} />
                 );
               })}
             </g>
