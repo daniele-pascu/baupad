@@ -6,7 +6,8 @@ import { labelFromProject } from '../lib/project-label';
 import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, offerFile, promptDialog, showError, toast } from '../components/ui';
 import { backupStatus, exportProjectBackup, findExistingProject, importProjectBackup, readProjectBackup, type BackupStatus } from '../lib/backup';
-import { deleteProjectCompletely, getMeta, listProjects, projectStats, setMeta, writeRecords } from '../lib/db';
+import { deleteProjectCompletely, getMeta, listOutbox, listProjects, projectStats, setMeta, writeRecords } from '../lib/db';
+import { useDataSyncState } from '../lib/data-sync';
 import { isIOS } from '../lib/download';
 import { getDeviceId } from '../lib/ids';
 import { formatDateTime, naturalCompare } from '../lib/numbers';
@@ -69,6 +70,15 @@ function filterAndSort(rows: Row[], query: string, sort: { key: SortKey; dir: 'a
 export function HomePage() {
   const mayCreate = useCanCreateProjects();
   const [rows, setRows] = useState<Row[] | null>(null);
+  /** zentrale Ablage: Projekte mit noch nicht übertragenen Änderungen */
+  const sync = useDataSyncState();
+  const [pendingProjects, setPendingProjects] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    if (sync.status === 'off') return;
+    void listOutbox()
+      .then((all) => setPendingProjects(new Set(all.map((e) => e.projectId).filter(Boolean))))
+      .catch(() => {});
+  }, [sync.status, sync.pending, sync.busy, rows]);
   const [creating, setCreating] = useState(false);
   /** Baustellen der Arbeitereinteilung ohne Projekt (für „Neues Projekt“) */
   /** Projekte aus dem Register anderer Werkzeuge, die in Aufmaß & Abrechnung noch nicht benutzt werden */
@@ -335,8 +345,13 @@ export function HomePage() {
                     {r.stats.costCenters} Kostenst. · {r.stats.plans} Pläne · {r.stats.damages} Messungen
                   </span>
                   <span>Zuletzt bearbeitet: {formatDateTime(r.lastEdit)}</span>
+                  {sync.status !== 'off' && (
+                    <span className={pendingProjects.has(r.project.id) ? 'backup-due' : undefined} data-testid="sync-info">
+                      Zentrale Ablage: {pendingProjects.has(r.project.id) ? (sync.status === 'error' ? 'Übertragung fehlgeschlagen' : 'wartet auf Upload') : 'übertragen'}
+                    </span>
+                  )}
                   <span className={r.backup.due ? 'backup-due' : undefined} data-testid="backup-info">
-                    Letzte Sicherung: {r.backup.lastBackup ? formatDateTime(r.backup.lastBackup) : 'noch nie'}
+                    Letzte Sicherung (.zip): {r.backup.lastBackup ? formatDateTime(r.backup.lastBackup) : 'noch nie'}
                     {r.backup.due && ' – Sicherung empfohlen'}
                   </span>
                 </div>
@@ -360,7 +375,14 @@ export function HomePage() {
       <section className="info-box">
         <h2 className="section-title">Hinweise</h2>
         <ul>
-          <li>Alle Daten werden automatisch und ausschließlich auf diesem Gerät gespeichert. Es ist keine Anmeldung nötig.</li>
+          {sync.status === 'off' ? (
+            <li>Alle Daten werden automatisch auf diesem Gerät gespeichert.</li>
+          ) : (
+            <li>
+              Alle Daten werden automatisch auf diesem Gerät gespeichert und mit der zentralen Ablage deiner Firma abgeglichen – sie erscheinen auf allen Geräten, die bei
+              dieser Firma angemeldet sind. Ohne Netz wird bei der nächsten Verbindung übertragen.
+            </li>
+          )}
           <li>Nach dem ersten Laden funktioniert die App auch ohne Internetverbindung.</li>
           {isIOS() && (
             <li>

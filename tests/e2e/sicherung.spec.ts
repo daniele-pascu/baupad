@@ -42,6 +42,6 @@ test('Sicherungs-Erinnerung erscheint bei alter Sicherung und verschwindet nach 
   await page.getByRole('link', { name: 'Zu Aufmaß & Abrechnung' }).click();
   // heutiges Datum in der Zeitzone des Browsers (nicht des Testrechners)
   const today = await page.evaluate(() => new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }));
-  await expect(page.getByTestId('backup-info')).toContainText(`Letzte Sicherung: ${today}`);
+  await expect(page.getByTestId('backup-info')).toContainText(`Letzte Sicherung (.zip): ${today}`);
   await expect(page.getByTestId('backup-info')).not.toContainText('empfohlen');
 });
