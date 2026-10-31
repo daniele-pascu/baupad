@@ -10,6 +10,7 @@ import { confirmDialog, offerFile, showError, toast } from '../components/ui';
 import {
   addDays,
   addSite,
+  assign,
   carryOver,
   DAY_NAMES,
   DAY_SHORT,
@@ -71,6 +72,8 @@ export function WorkersPage() {
   /** nicht gespeicherte Woche: aus dieser Woche weitergeführt (bzw. leer) */
   const [draftFrom, setDraftFrom] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  /** „Noch nicht eingeteilt“: klein (nur Zusammenfassung), antippen zeigt die Namen je Tag */
+  const [showOpen, setShowOpen] = useState(false);
   const [company, setCompany] = useState('');
   /** Uhrzeiten im PDF anzeigen (manchmal nicht nötig) */
   const [pdfTimes, setPdfTimes] = useState(true);
@@ -145,9 +148,18 @@ export function WorkersPage() {
    * Arbeiter an den Tagen `ds` auf eine Baustelle setzen – von anderen Baustellen werden sie an diesen Tagen
    * automatisch entfernt. Bereits geplante Folgewochen auf Wunsch ebenfalls („für die Zukunft“).
    */
-  const place = async (ids: string[], siteId: string, ds: number[], overrideVacation: boolean) => {
+  const place = async (ids: string[], siteId: string, ds: number[], overrideVacation: boolean, keep = false) => {
     let next = plan!;
     const moved: string[] = [];
+    if (keep) {
+      // doppelt einteilen: zusätzlich hier, auf der bisherigen Baustelle bleiben (nur diese Woche)
+      next = assign(next, siteId, ds, ids);
+      save(next);
+      const target = next.sites.find((x) => x.id === siteId)!;
+      const twice = ids.filter((id) => ds.some((d) => sitesOf(next, id, d, siteId).length));
+      if (twice.length) toast(`Doppelt eingeteilt auf ${target.name}: ${twice.map(nameOf).join(', ')} – bleibt auch auf der bisherigen Baustelle.`, 'success', 4500);
+      return;
+    }
     for (const id of ids) {
       const r = placeWorker(next, id, siteId, ds, overrideVacation);
       next = r.week;
@@ -454,11 +466,15 @@ export function WorkersPage() {
         )}
 
         {open.length > 0 ? (
-          <section className="crew-open" data-testid="crew-open">
-            <h2>
-              <Icon name="info" size={18} /> Noch nicht eingeteilt
-            </h2>
-            {open.map(({ d, list }) => (
+          <section className={`crew-open${showOpen ? ' expanded' : ''}`} data-testid="crew-open">
+            <button type="button" className="crew-open-toggle" onClick={() => setShowOpen(!showOpen)} aria-expanded={showOpen} data-testid="crew-open-toggle">
+              <Icon name="info" size={16} />
+              <span>
+                Noch nicht eingeteilt: <strong>{new Set(open.flatMap((o) => o.list.map((w) => w.id))).size}</strong> ({open.map((o) => DAY_SHORT[o.d]).join(', ')})
+              </span>
+              <Icon name="next" size={16} className={`crew-open-chevron${showOpen ? ' open' : ''}`} />
+            </button>
+            {showOpen && open.map(({ d, list }) => (
               <div key={d} className="crew-open-row" data-day={d}>
                 <span className="crew-open-day">{DAY_SHORT[d]}</span>
                 <span className="crew-chips">
@@ -590,8 +606,14 @@ export function WorkersPage() {
                               onClick={() => !suppressClick.current && setDialog({ kind: 'chip', siteId: s.id, day: d, workerId: id })}
                               data-testid="crew-chip"
                               data-worker={nameOf(id)}
+                              title={sitesOf(plan, id, d, s.id).length ? `Auch eingeteilt auf: ${sitesOf(plan, id, d, s.id).map((x) => x.name).join(', ')}` : undefined}
                             >
                               {nameOf(id)}
+                              {sitesOf(plan, id, d, s.id).length > 0 && (
+                                <small className="crew-chip-also" data-testid="chip-also">
+                                  + {sitesOf(plan, id, d, s.id).map((x) => x.name).join(', ')}
+                                </small>
+                              )}
                             </button>
                           ))}
                           <button type="button" className="crew-add" onClick={() => setDialog({ kind: 'assign', siteId: s.id, days: restOfWeek(d) })} aria-label={`Arbeiter für ${DAY_NAMES[d]} einteilen`} data-testid="day-add">
@@ -698,9 +720,9 @@ export function WorkersPage() {
           initialDays={dialog.days}
           workers={active}
           onClose={() => setDialog(null)}
-          onSave={(ids, ds) => {
+          onSave={(ids, ds, keep) => {
             setDialog(null);
-            void run(() => place(ids, dialog.siteId, ds, true));
+            void run(() => place(ids, dialog.siteId, ds, true, keep));
           }}
         />
       )}
@@ -708,6 +730,7 @@ export function WorkersPage() {
         <ChipDialog
           plan={plan}
           name={nameOf(dialog.workerId)}
+          workerId={dialog.workerId}
           siteId={dialog.siteId}
           day={dialog.day}
           onClose={() => setDialog(null)}
@@ -973,15 +996,17 @@ function AssignDialog({
   days: number[];
   initialDays: number[];
   workers: Worker[];
-  onSave(ids: string[], days: number[]): void;
+  onSave(ids: string[], days: number[], keep: boolean): void;
   onClose(): void;
 }) {
   const [sel, setSel] = useState<Set<string>>(() => new Set());
   const [ds, setDs] = useState<number[]>(initialDays);
+  /** doppelt einteilen: zusätzlich hier, auf der bisherigen Baustelle bleiben */
+  const [keep, setKeep] = useState(false);
   const status = (w: Worker) => {
     if (ds.length && ds.every((d) => site.days[d].includes(w.id))) return { text: 'schon hier', here: true };
     const other = [...new Set(ds.flatMap((d) => sitesOf(plan, w.id, d, site.id).map((s) => s.name)))];
-    if (other.length) return { text: `auf ${other.join(', ')} → wird umgesetzt`, warn: true };
+    if (other.length) return { text: keep ? `auch auf ${other.join(', ')} (doppelt)` : `auf ${other.join(', ')} → wird umgesetzt`, warn: true };
     if (ds.some((d) => plan.vacation[d].includes(w.id))) return { text: 'Urlaub', warn: true };
     return { text: 'frei' };
   };
@@ -995,7 +1020,7 @@ function AssignDialog({
           <button type="button" className="btn" onClick={onClose}>
             Abbrechen
           </button>
-          <button type="button" className="btn btn-primary" disabled={!sel.size || !ds.length} onClick={() => onSave([...sel], ds)} data-testid="assign-save">
+          <button type="button" className="btn btn-primary" disabled={!sel.size || !ds.length} onClick={() => onSave([...sel], ds, keep)} data-testid="assign-save">
             {sel.size ? `${sel.size} einteilen` : 'Einteilen'}
           </button>
         </>
@@ -1015,7 +1040,13 @@ function AssignDialog({
           </button>
         ))}
       </div>
-      {workers.length === 0 && <p className="muted">Noch keine aktiven Arbeiter – bitte zuerst unter „Arbeiter“ anlegen.</p>}
+      {workers.length === 0 && <p className="muted">Noch keine aktiven Arbeiter – bitte zuerst unter „Personal“ anlegen.</p>}
+      {plan.sites.some((x) => x.id !== site.id && !x.paused) && (
+        <label className="check crew-keep">
+          <input type="checkbox" checked={keep} onChange={(e) => setKeep(e.target.checked)} data-testid="assign-keep" /> Doppelt einteilen: wer schon auf einer anderen Baustelle ist,
+          bleibt dort und kommt zusätzlich hierher
+        </label>
+      )}
       <ul className="crew-pick">
         {workers.map((w) => {
           const st = status(w);
@@ -1051,6 +1082,7 @@ function AssignDialog({
 function ChipDialog({
   plan,
   name,
+  workerId,
   siteId,
   day,
   onRemove,
@@ -1060,6 +1092,7 @@ function ChipDialog({
 }: {
   plan: WeekPlan;
   name: string;
+  workerId: string;
   siteId: string;
   day: number;
   onRemove(): void;
@@ -1069,9 +1102,16 @@ function ChipDialog({
 }) {
   const others = plan.sites.filter((s) => s.id !== siteId && !s.paused);
   const [to, setTo] = useState(others[0]?.id ?? '');
+  const also = sitesOf(plan, workerId, day, siteId);
   return (
     <Modal title={`${name} · ${DAY_NAMES[day]}`} onClose={onClose} testId="chip-dialog">
       <div className="crew-chip-actions">
+        {also.length > 0 && (
+          <p className="banner banner-warn small" role="status" data-testid="chip-also-hint">
+            Doppelt eingeteilt: {name} ist am {DAY_NAMES[day]} auch auf {also.map((x) => x.name).join(', ')}. „Nur am {DAY_SHORT[day]} entfernen“ nimmt ihn nur von dieser
+            Baustelle.
+          </p>
+        )}
         {others.length > 0 && (
           <div className="crew-move">
             <label className="field">

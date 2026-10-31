@@ -4575,12 +4575,46 @@ a.tool-tile:focus-visible {
   border-radius: 14px;
   background: var(--warn-soft);
 }
-.crew-open h2 {
+.crew-open {
+  padding: 6px 10px;
+}
+.crew-open.expanded {
+  padding-bottom: 10px;
+}
+.crew-open-toggle {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin: 0 0 8px;
-  font-size: 0.95rem;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 2px;
+  border: 0;
+  background: none;
+  color: #7a4b00;
+  font: inherit;
+  font-size: 0.88rem;
+  text-align: left;
+  cursor: pointer;
+}
+.crew-open-toggle > span {
+  flex: 1;
+}
+.crew-open-chevron {
+  flex: none;
+  transform: rotate(90deg);
+  transition: transform 0.2s ease;
+}
+.crew-open-chevron.open {
+  transform: rotate(-90deg);
+}
+.crew-chip-also {
+  margin-left: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  opacity: 0.85;
+}
+.crew-keep {
+  margin: 4px 0 10px;
+  font-size: 0.9rem;
 }
 .crew-open-row {
   display: flex;
