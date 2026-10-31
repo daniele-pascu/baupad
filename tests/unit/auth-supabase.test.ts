@@ -25,7 +25,7 @@ describe('SupabaseAuth', () => {
   it('baut die Sitzung aus Benutzer und Kontext der Datenbank', async () => {
     const a = new SupabaseAuth(fakeClient(), 'https://pad-software.at/');
     const s = await a.session();
-    expect(s).toEqual({ userId: 'u1', email: 'max@muster.at', name: 'Max Muster', role: 'admin', companyId: 'w1', companyName: 'Muster Bau GmbH', operator: false, phone: '0664', pkg: 'einzel', workspaceActive: true, providers: ['email'], tools: ['photos'], sites: ['p:1'], toolSites: {} });
+    expect(s).toEqual({ userId: 'u1', email: 'max@muster.at', name: 'Max Muster', role: 'admin', companyId: 'w1', companyName: 'Muster Bau GmbH', operator: false, phone: '0664', pkg: 'einzel', workspaceActive: true, pricePerUser: 0, members: 0, providers: ['email'], tools: ['photos'], sites: ['p:1'], toolSites: {} });
   });
 
   it('gesperrter Arbeitsbereich: workspace_active false kommt in die Sitzung', async () => {

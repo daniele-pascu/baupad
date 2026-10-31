@@ -15,6 +15,8 @@ create table if not exists public.workspaces (
 alter table public.workspaces add column if not exists active boolean not null default false;
 alter table public.workspaces add column if not exists activated_at timestamptz;
 alter table public.workspaces add column if not exists note text not null default '';
+-- vereinbarter Preis je Benutzer und Monat (EUR, netto) – legt der Betreiber je Firma fest
+alter table public.workspaces add column if not exists price_per_user numeric(10,2) not null default 0;
 create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   email text not null,
@@ -145,6 +147,8 @@ language sql stable security definer set search_path = public as $$
     'sites', m.sites,
     'tool_sites', m.tool_sites,
     'workspace_active', coalesce(w.active, false),
+    'price_per_user', coalesce(w.price_per_user, 0),
+    'members', (select count(*) from public.memberships mm where mm.workspace_id = m.workspace_id and mm.active),
     'name', p.name,
     'phone', p.phone,
     'operator', exists (select 1 from public.operators o where lower(o.email) = lower(coalesce(auth.jwt() ->> 'email', '')))
@@ -322,7 +326,7 @@ begin
   return (
     select coalesce(json_agg(x order by x.active, x.created_at desc), '[]'::json)
     from (
-      select w.id::text as id, w.name, w.active, w.note,
+      select w.id::text as id, w.name, w.active, w.note, w.price_per_user,
              extract(epoch from w.created_at) * 1000 as created_at,
              extract(epoch from w.activated_at) * 1000 as activated_at,
              (select count(*) from public.memberships m where m.workspace_id = w.id and m.active) as members,
@@ -339,18 +343,21 @@ $$;
 revoke all on function public.operator_workspaces() from public;
 grant execute on function public.operator_workspaces() to authenticated;
 
--- Arbeitsbereich freischalten oder sperren (nur Betreiber)
-create or replace function public.operator_set_workspace(p_id uuid, p_active boolean, p_note text default null) returns void
+-- Arbeitsbereich freischalten/sperren, Preis je Benutzer und Notiz setzen (nur Betreiber; null = unverändert)
+drop function if exists public.operator_set_workspace(uuid, boolean, text);
+create or replace function public.operator_set_workspace(p_id uuid, p_active boolean default null, p_price numeric default null, p_note text default null) returns void
 language plpgsql security definer set search_path = public as $$
 begin
   if not public.is_operator() then raise exception 'Nur für Betreiber.'; end if;
+  if p_price is not null and p_price < 0 then raise exception 'Der Preis darf nicht negativ sein.'; end if;
   update public.workspaces
-    set active = p_active,
-        activated_at = case when p_active then coalesce(activated_at, now()) else activated_at end,
+    set active = coalesce(p_active, active),
+        activated_at = case when coalesce(p_active, active) then coalesce(activated_at, now()) else activated_at end,
+        price_per_user = coalesce(p_price, price_per_user),
         note = coalesce(p_note, note)
     where id = p_id;
   if not found then raise exception 'Arbeitsbereich nicht gefunden.'; end if;
 end;
 $$;
-revoke all on function public.operator_set_workspace(uuid, boolean, text) from public;
-grant execute on function public.operator_set_workspace(uuid, boolean, text) to authenticated;
+revoke all on function public.operator_set_workspace(uuid, boolean, numeric, text) from public;
+grant execute on function public.operator_set_workspace(uuid, boolean, numeric, text) to authenticated;

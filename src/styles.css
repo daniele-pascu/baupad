@@ -7621,6 +7621,70 @@ button.report-site-empty {
   margin-top: 18px;
 }
 
+/* Einstellungen als Kästen; antippen öffnet ein Fenster */
+.account-tiles {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0 20px;
+}
+@media (min-width: 720px) {
+  .account-tiles {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.account-tile {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 16px 18px;
+  border: 1px solid #e8e8ed;
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.account-tile:hover {
+  border-color: #cfd4dd;
+}
+.account-tile > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.account-tile .muted {
+  font-size: 0.88rem;
+}
+.account-tile svg {
+  flex: none;
+  color: var(--muted);
+}
+.modal-settings {
+  max-width: 760px;
+}
+.account-dialog-body > .logo-settings {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+.account-dialog-body > .logo-settings + .logo-settings {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid #ececf0;
+}
+/* Titel steht schon in der Überschrift des Fensters */
+.account-dialog-body > .users-settings > .logo-settings-head strong,
+.account-dialog-body > [data-testid='app-settings'] > .logo-settings-head strong {
+  display: none;
+}
+
 /* Betreiber: Kunden freischalten */
 .operator-list {
   display: grid;
@@ -7634,9 +7698,15 @@ button.report-site-empty {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 14px;
+  width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--line, #dde4ee);
   border-radius: 10px;
+  background: var(--surface);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 .operator-row > div {
   flex: 1 1 220px;

@@ -138,8 +138,15 @@ Die .p8-Datei, die Key ID und der Secret Key bleiben bei dir; nichts davon in de
 - Jede Registrierung legt einen Arbeitsbereich an, der **gesperrt** ist (`workspaces.active = false`). Die Person sieht
   statt der Werkzeuge eine Hinweisseite („Vielen Dank für Ihre Registrierung … BauPad befindet sich im Aufbau … Zugang
   wird nach Abschluss der Bestellung aktiviert“). Konto (Abmelden, Konto löschen) bleibt erreichbar.
-- Freischalten: Konto → **Betreiber: Kunden freischalten** – alle registrierten Firmen mit Admin, E-Mail, Datum,
-  Benutzerzahl; Knopf „Freischalten“ bzw. „Sperren“. Alternativ im Supabase Table Editor: Tabelle `workspaces`, Spalte `active`.
+- Freischalten: Konto → Kasten **Betreiber: Kunden** – alle registrierten Firmen mit Admin, E-Mail, Datum,
+  Benutzerzahl und Preis. Firma antippen → „Freischalten“ bzw. „Zugang sperren“, **vereinbarter Preis je Benutzer und
+  Monat** (`workspaces.price_per_user`) und eine Notiz nur für dich. Alternativ im Supabase Table Editor: Tabelle
+  `workspaces`, Spalten `active`, `price_per_user`, `note`.
+- Preis: Es gibt keine Benutzer-Obergrenze. Die Firma sieht den Preis unter „Abonnement und Zahlung“ (Preis × aktive
+  Benutzer = Monatsbetrag) und beim Anlegen jedes weiteren Benutzers als Hinweis. Die Verrechnung machst du derzeit per
+  Rechnung; Stripe kann das später übernehmen.
+- Der Betreiber sieht keine Projekte, Fotos oder Berichte der Firmen und kann sich nicht als deren Benutzer anmelden –
+  die Betreiberfunktionen liefern nur Firma, Admin, Benutzerzahl, Status, Preis und Notiz.
 - Arbeitsbereiche, in denen ein Betreiber (Tabelle `operators`) Mitglied ist, werden beim Ausführen von `schema.sql`
   automatisch freigeschaltet. Betreiber selbst sind nie gesperrt.
 - Ohne Datenbankkontext (offline, Schema noch nicht ergänzt) wird nichts gesperrt.

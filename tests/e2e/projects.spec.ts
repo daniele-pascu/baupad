@@ -196,7 +196,10 @@ test('Angemeldet: Tools, Einstellungen und Benutzerliste', async ({ page }) => {
     /Weitere Einstellungen/,
   ]);
   await expect(page.getByTestId('account-logout')).toBeVisible();
-  // Benutzer & Rollen: Admin trägt Benutzer mit Funktion, Werkzeugen und Paket ein (bleibt nach dem Neuladen)
+  // Benutzer & Rollen: Kasten antippen → eigenes Fenster; Admin trägt Benutzer mit Funktion, Werkzeugen und Paket ein (bleibt nach dem Neuladen)
+  const tile = (id: string) => page.locator(`[data-testid="account-section"][data-tile="${id}"]`);
+  await tile('users').click();
+  await expect(page.getByTestId('account-dialog')).toBeVisible();
   await page.getByTestId('user-add').click();
   const ud = page.getByTestId('user-dialog');
   await ud.getByTestId('user-email').fill('polier@musterbau.at');
@@ -217,10 +220,14 @@ test('Angemeldet: Tools, Einstellungen und Benutzerliste', async ({ page }) => {
   await ud.getByTestId('user-name').fill('Doppelt');
   await ud.getByTestId('user-save').click();
   await expect(page.locator('.toast', { hasText: 'schon eingetragen' })).toHaveCount(1);
-  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape'); // schließt nur den Benutzerdialog, das Einstellungsfenster bleibt offen
+  await expect(ud).toHaveCount(0);
+  await expect(page.getByTestId('account-dialog')).toBeVisible();
   await page.reload();
+  await tile('users').click();
   await expect(page.getByTestId('user-row')).toHaveCount(1);
   await page.screenshot({ path: join(OUT, 'konto.png'), fullPage: true });
+  await page.keyboard.press('Escape');
   await page.getByRole('link', { name: 'Zu den Tools' }).click();
   await expect(page.getByTestId('tools-title')).toHaveText('Tools');
 
@@ -232,11 +239,14 @@ test('Angemeldet: Tools, Einstellungen und Benutzerliste', async ({ page }) => {
   await expect(page.getByTestId('tools-title')).toHaveText('Tools');
   // Kontakt und Rechtliches stehen unter Konto und Einstellungen
   await page.goto('./#/konto');
-  await page.getByTestId('account-section').filter({ hasText: 'Weitere Einstellungen' }).locator('summary').click();
+  await tile('more').click();
   await expect(page.getByTestId('settings-contact')).toBeVisible();
+  await page.keyboard.press('Escape');
   // Persönliche Daten bearbeitbar
+  await tile('profile').click();
   await expect(page.getByTestId('profile-name')).toHaveValue('Test Nutzer');
-  await page.getByTestId('account-section').filter({ hasText: 'Passwort und Anmeldemethoden' }).locator('summary').click();
+  await page.keyboard.press('Escape');
+  await tile('password').click();
   await expect(page.getByTestId('provider-list')).toContainText('verbunden');
 });
 

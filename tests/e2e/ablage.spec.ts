@@ -113,6 +113,7 @@ test('Fotos werden hochgeladen, abgeglichen und für alle Geräte gelöscht', as
 
   // Konto: Ablage verbunden, Belegung aus dem Verzeichnis
   await page.goto('./konto');
+  await page.locator('[data-testid="account-section"][data-tile="storage"]').click();
   await expect(page.getByTestId('cloud-status')).toHaveText('Verbunden');
   await expect(page.getByTestId('cloud-usage')).toContainText('1 Foto');
   await page.getByTestId('cloud-check').click();
@@ -158,6 +159,7 @@ test('Ablage nicht eingerichtet: Fotos bleiben auf dem Gerät, Konto zeigt den H
   await page.route('**/functions/v1/storage', (r) => r.fulfill({ status: 501, contentType: 'application/json', body: '{"error":"not-configured"}' }));
   await freshStart(page);
   await page.goto('./konto');
+  await page.locator('[data-testid="account-section"][data-tile="storage"]').click();
   await expect(page.getByTestId('cloud-status')).toHaveText('Noch nicht eingerichtet');
   await expect(page.getByTestId('cloud-message')).toContainText('noch nicht eingerichtet');
   await expect(page.getByTestId('cloud-retry')).toBeVisible();

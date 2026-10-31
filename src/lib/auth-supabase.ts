@@ -51,6 +51,8 @@ interface Context {
   tool_sites: Record<string, string[]> | null;
   operator: boolean;
   workspace_active?: boolean;
+  price_per_user?: number | string;
+  members?: number | string;
   name: string | null;
   phone: string | null;
 }
@@ -242,6 +244,8 @@ export class SupabaseAuth implements AuthBackend {
       pkg: ctx?.pkg ?? null,
       // ohne Kontext (offline) oder vor der Schema-Ergänzung nichts sperren
       workspaceActive: ctx?.workspace_active ?? true,
+      pricePerUser: Number(ctx?.price_per_user ?? 0) || 0,
+      members: Number(ctx?.members ?? 0) || 0,
       tools: ctx?.tools ?? [],
       sites: ctx?.sites ?? [],
       toolSites: (ctx?.tool_sites ?? {}) as Session['toolSites'],

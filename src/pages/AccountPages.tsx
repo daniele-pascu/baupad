@@ -320,36 +320,7 @@ export function AccountPage() {
           )
         )}
 
-        {session?.operator && (
-          <Section title="Betreiber: Kunden freischalten" text="Alle registrierten Firmen – neue Arbeitsbereiche sind gesperrt, bis du sie nach der Bestellung freischaltest" open>
-            <OperatorWorkspaces />
-          </Section>
-        )}
-        <Section title="Benutzer & Rollen" text="Wer in deiner Firma BauPad nutzt – Funktion, Werkzeuge und Baustellen je Benutzer" open>
-          <UsersSettings />
-        </Section>
-        <Section title="Persönliche Daten" text="Name und Telefon – so erscheinst du bei Kollegen und auf Berichten" open>
-          <ProfileForm session={session} />
-        </Section>
-        <Section title="E-Mail und Konto" text="E-Mail-Adresse ändern, Konto löschen">
-          <EmailForm session={session} />
-        </Section>
-        <Section title="Passwort und Anmeldemethoden" text="Passwort ändern, Google, Apple oder Microsoft (Outlook) verbinden">
-          <PasswordForm session={session} />
-        </Section>
-        <Section title="Abonnement und Zahlung" text="Paket deines Arbeitsbereichs">
-          <SubscriptionInfo session={session} />
-        </Section>
-        <Section title="Firmeninformationen" text="Firmenname, Anschrift, Logo und eigene Formulare für Exporte" open>
-          <LogoSettings session={session} />
-          <FormTemplatesSettings />
-        </Section>
-        <Section title="App und Speicher" text="Installation und dauerhafter Speicher auf diesem Gerät" open>
-          <AppStorageSettings />
-        </Section>
-        <Section title="Weitere Einstellungen" text="Sprache, Benachrichtigungen, Kontakt und Datenschutz">
-          <MoreSettings />
-        </Section>
+        <AccountTiles session={session} />
 
         <div className="row gap wrap">
           <a href={paths.tools()} className="btn btn-primary">
@@ -368,6 +339,7 @@ interface OperatorWorkspace {
   name: string;
   active: boolean;
   note: string;
+  price_per_user: number | string;
   created_at: number;
   activated_at: number | null;
   members: number;
@@ -378,11 +350,13 @@ interface OperatorWorkspace {
 
 const fmtStamp = (ms: number | null) => (ms ? new Date(ms).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '');
 
-/** Betreiber: registrierte Firmen sehen, freischalten oder sperren */
+const euro = (n: number) => `${n.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+
+/** Betreiber: registrierte Firmen sehen, antippen → Freischalten/Sperren, Preis je Benutzer, Notiz */
 function OperatorWorkspaces() {
   const [list, setList] = useState<OperatorWorkspace[] | null>(null);
   const [error, setError] = useState('');
-  const [busy, setBusy] = useState('');
+  const [selected, setSelected] = useState<string | null>(null);
   const load = () =>
     rpc<OperatorWorkspace[]>('operator_workspaces')
       .then((l) => {
@@ -394,19 +368,6 @@ function OperatorWorkspaces() {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const toggle = async (w: OperatorWorkspace) => {
-    if (w.active && !(await confirmDialog({ title: 'Zugang sperren?', message: `„${w.name}“ verliert sofort den Zugang zu allen Werkzeugen. Die Daten bleiben erhalten.`, confirmLabel: 'Sperren', danger: true }))) return;
-    setBusy(w.id);
-    try {
-      await rpc('operator_set_workspace', { p_id: w.id, p_active: !w.active });
-      toast(w.active ? `„${w.name}“ gesperrt.` : `„${w.name}“ freigeschaltet.`, 'success');
-      await load();
-    } catch (e) {
-      showError(e, 'Das hat nicht geklappt');
-    } finally {
-      setBusy('');
-    }
-  };
   if (error)
     return (
       <p className="error small" data-testid="operator-error">
@@ -414,29 +375,29 @@ function OperatorWorkspaces() {
       </p>
     );
   if (!list) return <p className="muted small">Lade …</p>;
-  const open = list.filter((w) => !w.active).length;
+  const w = list.find((x) => x.id === selected);
+  if (w) return <OperatorWorkspaceDetail w={w} onBack={() => setSelected(null)} onChanged={load} />;
+  const open = list.filter((x) => !x.active).length;
   return (
     <div data-testid="operator-workspaces">
       <p className="small">
-        {list.length} {list.length === 1 ? 'Firma' : 'Firmen'} registriert{open ? `, ${open} ${open === 1 ? 'wartet' : 'warten'} auf Freischaltung` : ''}.
+        {list.length} {list.length === 1 ? 'Firma' : 'Firmen'} registriert{open ? `, ${open} ${open === 1 ? 'wartet' : 'warten'} auf Freischaltung` : ''}. Firma antippen für
+        Freischaltung, Preis und Notiz.
       </p>
       <ul className="operator-list">
-        {list.map((w) => (
-          <li key={w.id} className={`operator-row${w.active ? '' : ' locked'}`} data-testid="operator-row">
-            <div>
-              <strong>{w.name}</strong>
-              <span className="muted small">
-                {w.admin_name || '–'} · {w.admin_email || 'kein Admin'} · {w.members} {w.members === 1 ? 'Benutzer' : 'Benutzer'}
-                {w.pkg ? ` · Paket ${PACKAGES.find((p) => p.id === w.pkg)?.label ?? w.pkg}` : ''}
-              </span>
-              <span className="muted small">
-                registriert {fmtStamp(w.created_at)}
-                {w.active && w.activated_at ? ` · freigeschaltet ${fmtStamp(w.activated_at)}` : ''}
-              </span>
-            </div>
-            <span className="operator-state small">{w.active ? 'freigeschaltet' : 'gesperrt – wartet auf Freischaltung'}</span>
-            <button type="button" className={`btn btn-sm${w.active ? '' : ' btn-primary'}`} disabled={busy === w.id} onClick={() => void toggle(w)} data-testid="operator-toggle">
-              {w.active ? 'Sperren' : 'Freischalten'}
+        {list.map((x) => (
+          <li key={x.id}>
+            <button type="button" className={`operator-row${x.active ? '' : ' locked'}`} onClick={() => setSelected(x.id)} data-testid="operator-row">
+              <div>
+                <strong>{x.name}</strong>
+                <span className="muted small">
+                  {x.admin_name || '–'} · {x.admin_email || 'kein Admin'} · {x.members} Benutzer
+                  {Number(x.price_per_user) > 0 ? ` · ${euro(Number(x.price_per_user))} je Benutzer` : ' · Preis offen'}
+                </span>
+                <span className="muted small">registriert {fmtStamp(x.created_at)}</span>
+              </div>
+              <span className="operator-state small">{x.active ? 'freigeschaltet' : 'gesperrt'}</span>
+              <Icon name="next" size={18} />
             </button>
           </li>
         ))}
@@ -445,19 +406,131 @@ function OperatorWorkspaces() {
   );
 }
 
-/** Aufklappbarer Bereich der Einstellungen */
-function Section({ title, text, open, children }: { title: string; text: string; open?: boolean; children: ReactNode }) {
+function OperatorWorkspaceDetail({ w, onBack, onChanged }: { w: OperatorWorkspace; onBack(): void; onChanged(): Promise<void> }) {
+  const [price, setPrice] = useState(Number(w.price_per_user) > 0 ? String(Number(w.price_per_user)).replace('.', ',') : '');
+  const [note, setNote] = useState(w.note ?? '');
+  const [busy, setBusy] = useState(false);
+  const run = async (args: Record<string, unknown>, done: string) => {
+    setBusy(true);
+    try {
+      await rpc('operator_set_workspace', { p_id: w.id, ...args });
+      toast(done, 'success');
+      await onChanged();
+    } catch (e) {
+      showError(e, 'Das hat nicht geklappt');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const save = () => {
+    const n = Number(price.replace(',', '.'));
+    if (price.trim() && (!Number.isFinite(n) || n < 0)) {
+      toast('Bitte einen gültigen Preis eingeben (z. B. 12,50).', 'error');
+      return;
+    }
+    void run({ p_price: price.trim() ? n : 0, p_note: note }, 'Gespeichert.');
+  };
+  const toggle = async () => {
+    if (w.active && !(await confirmDialog({ title: 'Zugang sperren?', message: `„${w.name}“ verliert sofort den Zugang zu allen Werkzeugen. Die Daten bleiben erhalten.`, confirmLabel: 'Sperren', danger: true }))) return;
+    void run({ p_active: !w.active }, w.active ? `„${w.name}“ gesperrt.` : `„${w.name}“ freigeschaltet.`);
+  };
+  const monthly = Number(w.price_per_user) * w.members;
   return (
-    <details className="account-item account-details" open={open} data-testid="account-section">
-      <summary>
-        <div>
-          <strong>{title}</strong>
-          <span className="muted">{text}</span>
-        </div>
-        <Icon name="next" size={18} />
-      </summary>
-      <div className="account-details-body">{children}</div>
-    </details>
+    <div className="stack-fields" data-testid="operator-detail">
+      <button type="button" className="btn btn-sm mr-auto" onClick={onBack} data-testid="operator-back">
+        <Icon name="back" size={16} /> Alle Firmen
+      </button>
+      <div className="company-lines">
+        <p className="small">
+          <strong>{w.name}</strong> · {w.active ? 'freigeschaltet' : 'gesperrt – wartet auf Freischaltung'}
+        </p>
+        <p className="muted small">
+          Admin: {w.admin_name || '–'} · {w.admin_email || 'kein Admin'}
+          <br />
+          {w.members} aktive Benutzer{w.pkg ? ` · Paket ${PACKAGES.find((p) => p.id === w.pkg)?.label ?? w.pkg}` : ''}
+          <br />
+          registriert {fmtStamp(w.created_at)}
+          {w.activated_at ? ` · freigeschaltet ${fmtStamp(w.activated_at)}` : ''}
+          {Number(w.price_per_user) > 0 ? ` · derzeit ${euro(monthly)} je Monat (${w.members} × ${euro(Number(w.price_per_user))})` : ''}
+        </p>
+      </div>
+      <label className="field">
+        <span>Vereinbarter Preis je Benutzer und Monat (€, netto)</span>
+        <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" placeholder="z. B. 12,50" data-testid="operator-price" />
+      </label>
+      <label className="field">
+        <span>Notiz (nur für dich sichtbar)</span>
+        <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} placeholder="z. B. Angebot vom 3.11., Rechnung jährlich" data-testid="operator-note" />
+      </label>
+      <p className="muted small">
+        Die Firma sieht den Preis unter „Abonnement und Zahlung“ und beim Anlegen jedes weiteren Benutzers. Es gibt keine Obergrenze: jeder angelegte
+        Benutzer wird mit diesem Preis verrechnet.
+      </p>
+      <div className="row gap wrap">
+        <button type="button" className="btn btn-primary" onClick={save} disabled={busy} data-testid="operator-save">
+          Speichern
+        </button>
+        <button type="button" className={`btn${w.active ? ' danger' : ' btn-primary'}`} onClick={() => void toggle()} disabled={busy} data-testid="operator-toggle">
+          {w.active ? 'Zugang sperren' : 'Freischalten'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Bereiche der Einstellungen: Kasten antippen → eigenes Fenster (auch am Handy und Tablet übersichtlich) */
+interface TileDef {
+  id: string;
+  title: string;
+  text: string;
+  body: ReactNode;
+}
+
+function AccountTiles({ session }: { session: Session | null | undefined }) {
+  const [open, setOpen] = useState<string | null>(null);
+  const tiles: TileDef[] = [
+    ...(session?.operator
+      ? [{ id: 'operator', title: 'Betreiber: Kunden', text: 'Registrierte Firmen freischalten, Preis je Benutzer vereinbaren', body: <OperatorWorkspaces /> }]
+      : []),
+    { id: 'users', title: 'Benutzer & Rollen', text: 'Wer in deiner Firma BauPad nutzt – Funktion, Werkzeuge und Baustellen je Benutzer', body: <UsersSettings /> },
+    { id: 'profile', title: 'Persönliche Daten', text: 'Name und Telefon – so erscheinst du bei Kollegen und auf Berichten', body: <ProfileForm session={session} /> },
+    { id: 'email', title: 'E-Mail und Konto', text: 'E-Mail-Adresse ändern, Konto löschen', body: <EmailForm session={session} /> },
+    { id: 'password', title: 'Passwort und Anmeldemethoden', text: 'Passwort ändern, Google, Apple oder Microsoft (Outlook) verbinden', body: <PasswordForm session={session} /> },
+    { id: 'subscription', title: 'Abonnement und Zahlung', text: 'Paket, vereinbarter Preis je Benutzer, Benutzerzahl', body: <SubscriptionInfo session={session} /> },
+    {
+      id: 'company',
+      title: 'Firmeninformationen',
+      text: 'Firmenname, Anschrift, Logo und eigene Formulare für Exporte',
+      body: (
+        <>
+          <LogoSettings session={session} />
+          <FormTemplatesSettings />
+        </>
+      ),
+    },
+    { id: 'storage', title: 'App und Speicher', text: 'Installation, dauerhafter Speicher und zentrale Ablage', body: <AppStorageSettings /> },
+    { id: 'more', title: 'Weitere Einstellungen', text: 'Sprache, Benachrichtigungen, Kontakt und Datenschutz', body: <MoreSettings /> },
+  ];
+  const current = tiles.find((t) => t.id === open);
+  return (
+    <>
+      <div className="account-tiles">
+        {tiles.map((t) => (
+          <button key={t.id} type="button" className="account-tile" onClick={() => setOpen(t.id)} data-testid="account-section" data-tile={t.id}>
+            <div>
+              <strong>{t.title}</strong>
+              <span className="muted">{t.text}</span>
+            </div>
+            <Icon name="next" size={18} />
+          </button>
+        ))}
+      </div>
+      {current && (
+        <Modal title={current.title} onClose={() => setOpen(null)} wide className="modal-settings" testId="account-dialog">
+          <div className="account-dialog-body">{current.body}</div>
+        </Modal>
+      )}
+    </>
   );
 }
 
@@ -665,6 +738,18 @@ function SubscriptionInfo({ session }: { session: Session | null | undefined }) 
         {pkg ? ` – ${pkg.text}` : ''}
         {session.companyName ? ` · Arbeitsbereich „${session.companyName}“` : ''}
       </p>
+      {session.companyId && (
+        <p className="small" data-testid="subscription-price">
+          {session.pricePerUser > 0 ? (
+            <>
+              Vereinbarter Preis: <strong>{euro(session.pricePerUser)} je Benutzer und Monat</strong> · derzeit {session.members} {session.members === 1 ? 'Benutzer' : 'Benutzer'} ·{' '}
+              <strong>{euro(session.pricePerUser * session.members)} je Monat</strong>. Jeder weitere Benutzer, den der Admin anlegt, wird mit {euro(session.pricePerUser)} je Monat dazugerechnet.
+            </>
+          ) : (
+            <>Preis je Benutzer noch nicht vereinbart – PAD Software meldet sich dazu. Derzeit {session.members} Benutzer.</>
+          )}
+        </p>
+      )}
       <p className="muted small">
         {session.companyId && !session.workspaceActive && !session.operator ? 'Dein Arbeitsbereich ist noch nicht freigeschaltet – der Zugang zu den Werkzeugen wird von PAD Software nach der Bestellung aktiviert. ' : ''}
         Pakete werden {session.role === 'admin' ? 'von dir als Admin' : 'vom Admin deiner Firma'} auf der Website verwaltet – Zahlung per Karte, SEPA-Lastschrift oder Rechnung.
@@ -995,6 +1080,11 @@ function UserDialog({ value, session, onClose, onSaved }: { value: Omit<CompanyU
       }
     >
       <div className="stack-fields">
+        {!u.id && session && session.pricePerUser > 0 && (
+          <p className="banner banner-info small" role="status" data-testid="user-price-hint">
+            Dieser Benutzer wird laut Vereinbarung mit <strong>{euro(session.pricePerUser)} je Monat</strong> zusätzlich verrechnet (dann {session.members + 1} Benutzer).
+          </p>
+        )}
         <label className="field">
           <span>E-Mail-Adresse *</span>
           <input type="email" value={u.email} onChange={(e) => set('email', e.target.value)} inputMode="email" autoComplete="off" data-autofocus data-testid="user-email" />

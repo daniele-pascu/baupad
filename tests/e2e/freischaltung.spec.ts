@@ -38,7 +38,10 @@ test('gesperrter Arbeitsbereich: Hinweisseite statt Werkzeuge, Konto erreichbar,
   await expect(page.getByTestId('projects-title')).toHaveCount(0);
   // Konto bleibt erreichbar (Abmelden, Konto löschen)
   await page.goto('./konto');
+  await page.locator('[data-testid="account-section"][data-tile="subscription"]').click();
   await expect(page.getByTestId('subscription-info')).toContainText('noch nicht freigeschaltet');
+  await expect(page.getByTestId('subscription-price')).toContainText('noch nicht vereinbart');
+  await page.keyboard.press('Escape');
   // Betreiber schaltet frei → beim nächsten Start sind die Werkzeuge da
   active = true;
   await page.goto('./tools');
@@ -46,32 +49,67 @@ test('gesperrter Arbeitsbereich: Hinweisseite statt Werkzeuge, Konto erreichbar,
   await expect(page.getByTestId('access-pending')).toHaveCount(0);
 });
 
-test('Betreiber: Konto zeigt registrierte Firmen und schaltet sie frei', async ({ page }) => {
+test('Betreiber: Konto zeigt registrierte Firmen, Preis je Benutzer und Freischaltung je Firma', async ({ page }) => {
   const list = [
-    { id: 'w9', name: 'Neu Bau GmbH', active: false, note: '', created_at: Date.UTC(2026, 9, 30), activated_at: null, members: 1, admin_email: 'nina@neubau.at', admin_name: 'Nina Neu', pkg: 'einzel' },
-    { id: 'w1', name: 'Muster Bau', active: true, note: '', created_at: Date.UTC(2026, 0, 5), activated_at: Date.UTC(2026, 0, 6), members: 4, admin_email: 'chef@muster.at', admin_name: 'Chef', pkg: 'firma' },
+    { id: 'w9', name: 'Neu Bau GmbH', active: false, note: '', price_per_user: 0, created_at: Date.UTC(2026, 9, 30), activated_at: null, members: 1, admin_email: 'nina@neubau.at', admin_name: 'Nina Neu', pkg: 'einzel' },
+    { id: 'w1', name: 'Muster Bau', active: true, note: '', price_per_user: '9.90', created_at: Date.UTC(2026, 0, 5), activated_at: Date.UTC(2026, 0, 6), members: 4, admin_email: 'chef@muster.at', admin_name: 'Chef', pkg: 'firma' },
   ];
-  const calls: unknown[] = [];
+  const calls: Record<string, unknown>[] = [];
   await page.route('**/rest/v1/rpc/my_context', (r) => r.fulfill(json(ctx({ workspace_id: 'w1', workspace_name: 'PAD Software', operator: true, workspace_active: true }))));
   await page.route('**/rest/v1/rpc/operator_workspaces', (r) => r.fulfill(json(list)));
   await page.route('**/rest/v1/rpc/operator_set_workspace', (r) => {
-    const body = r.request().postDataJSON() as { p_id: string; p_active: boolean };
+    const body = r.request().postDataJSON() as Record<string, unknown>;
     calls.push(body);
     const w = list.find((x) => x.id === body.p_id);
-    if (w) w.active = body.p_active;
+    if (w) {
+      if (typeof body.p_active === 'boolean') w.active = body.p_active;
+      if (typeof body.p_price === 'number') w.price_per_user = body.p_price;
+      if (typeof body.p_note === 'string') w.note = body.p_note;
+    }
     return r.fulfill({ status: 204, body: '' });
   });
   await freshStart(page);
   await page.goto('./konto');
+  await page.locator('[data-testid="account-section"][data-tile="operator"]').click();
   const box = page.getByTestId('operator-workspaces');
   await expect(box).toContainText('2 Firmen registriert, 1 wartet auf Freischaltung');
   const rows = page.getByTestId('operator-row');
   await expect(rows).toHaveCount(2);
   await expect(rows.first()).toContainText('Neu Bau GmbH');
   await expect(rows.first()).toContainText('nina@neubau.at');
+  await expect(rows.first()).toContainText('Preis offen');
   await expect(rows.first()).toContainText('gesperrt');
-  await rows.first().getByTestId('operator-toggle').click();
-  expect(calls).toEqual([{ p_id: 'w9', p_active: true }]);
+  await expect(rows.nth(1)).toContainText('9,90 € je Benutzer');
+  // Firma antippen → Preis vereinbaren, dann freischalten
+  await rows.first().click();
+  const detail = page.getByTestId('operator-detail');
+  await expect(detail).toContainText('Nina Neu');
+  await detail.getByTestId('operator-price').fill('12,50');
+  await detail.getByTestId('operator-note').fill('Angebot 3.11.');
+  await detail.getByTestId('operator-save').click();
+  expect(calls).toEqual([{ p_id: 'w9', p_price: 12.5, p_note: 'Angebot 3.11.' }]);
+  await expect(detail).toContainText('1 × 12,50 €');
+  await detail.getByTestId('operator-toggle').click();
+  expect(calls[1]).toEqual({ p_id: 'w9', p_active: true });
+  await expect(detail).toContainText('freigeschaltet');
+  await detail.getByTestId('operator-back').click();
   await expect(box).toContainText('2 Firmen registriert.');
-  await expect(rows.first()).toContainText('freigeschaltet');
+  await expect(rows.first()).toContainText('12,50 € je Benutzer');
+});
+
+test('Firma sieht den vereinbarten Preis unter Abonnement und beim Anlegen eines Benutzers', async ({ page }) => {
+  await page.route('**/rest/v1/rpc/my_context', (r) => r.fulfill(json(ctx({ workspace_active: true, price_per_user: '12.50', members: 3 }))));
+  await page.route('**/rest/v1/rpc/list_workspace_users', (r) => r.fulfill(json([])));
+  await freshStart(page);
+  await page.goto('./konto');
+  await page.locator('[data-testid="account-section"][data-tile="subscription"]').click();
+  const price = page.getByTestId('subscription-price');
+  await expect(price).toContainText('12,50 € je Benutzer und Monat');
+  await expect(price).toContainText('derzeit 3 Benutzer');
+  await expect(price).toContainText('37,50 € je Monat');
+  await page.keyboard.press('Escape');
+  await page.locator('[data-testid="account-section"][data-tile="users"]').click();
+  await page.getByTestId('user-add').click();
+  await expect(page.getByTestId('user-dialog').getByTestId('user-price-hint')).toContainText('12,50 € je Monat');
+  await expect(page.getByTestId('user-dialog').getByTestId('user-price-hint')).toContainText('dann 4 Benutzer');
 });

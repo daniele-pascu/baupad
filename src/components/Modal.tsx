@@ -11,9 +11,10 @@ interface Props {
   /** Schließen per Klick auf den Hintergrund verhindern (Schutz vor Datenverlust) */
   persistent?: boolean;
   testId?: string;
+  className?: string;
 }
 
-export function Modal({ title, onClose, children, footer, wide, full, persistent, testId }: Props) {
+export function Modal({ title, onClose, children, footer, wide, full, persistent, testId, className }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -27,6 +28,9 @@ export function Modal({ title, onClose, children, footer, wide, full, persistent
     else el?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        // nur das oberste Fenster schließen (Fenster können geschachtelt sein, z. B. Benutzer in den Einstellungen)
+        const all = document.querySelectorAll('.modal-backdrop');
+        if (all[all.length - 1] !== el?.parentElement) return;
         e.stopPropagation();
         onCloseRef.current();
       }
@@ -47,7 +51,7 @@ export function Modal({ title, onClose, children, footer, wide, full, persistent
     >
       <div
         ref={ref}
-        className={`modal${wide ? ' modal-wide' : ''}${full ? ' modal-full' : ''}`}
+        className={`modal${wide ? ' modal-wide' : ''}${full ? ' modal-full' : ''}${className ? ` ${className}` : ''}`}
         role="dialog"
         aria-modal="true"
         aria-label={title}

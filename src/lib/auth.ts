@@ -88,6 +88,10 @@ export interface Session {
   pkg: PackageId | null;
   /** Arbeitsbereich vom Betreiber freigeschaltet (nach Bestellung); false = Werkzeuge gesperrt, Hinweisseite */
   workspaceActive: boolean;
+  /** vereinbarter Preis je Benutzer und Monat in Euro (0 = noch nicht vereinbart) */
+  pricePerUser: number;
+  /** aktive Benutzer im Arbeitsbereich (inkl. der Person selbst) */
+  members: number;
   /** freigegebene Werkzeuge und Baustellen (leer = alle); Admin hat immer alles */
   tools: ToolId[];
   sites: string[];
