@@ -7627,11 +7627,6 @@ button.report-site-empty {
   gap: 10px;
   margin: 16px 0 20px;
 }
-@media (min-width: 720px) {
-  .account-tiles {
-    grid-template-columns: 1fr 1fr;
-  }
-}
 .account-tile {
   display: flex;
   align-items: center;
