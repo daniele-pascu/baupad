@@ -243,18 +243,17 @@ test('Suche, PDF (Woche + Tagesliste), Drucken, Vorwoche übernehmen, Sicherung 
     await expect(wd.getByTestId('worker-row').filter({ hasText: f })).toHaveCount(1);
   }
   await page.keyboard.press('Escape');
-  for (const [name, who, note] of [
-    ['Neubau Musterstraße', 'Max Muster', 'Kran ab Mittwoch'],
-    ['Sanierung Hauptplatz', 'Thomas Stein', ''],
+  for (const [name, who] of [
+    ['Neubau Musterstraße', 'Max Muster'],
+    ['Sanierung Hauptplatz', 'Thomas Stein'],
   ]) {
     await page.getByTestId('add-site').click();
     const sd = page.getByTestId('site-dialog');
     await sd.getByTestId('site-name-input').fill(name);
-    if (note) await sd.getByTestId('site-note-input').fill(note);
+    await expect(sd.getByTestId('site-note-input')).toHaveCount(0); // keine Wochenbemerkung mehr
     await sd.getByTestId('site-save').click();
     await addFromMonday(page, name, [who]);
   }
-  await expect(site(page, 'Neubau Musterstraße').getByTestId('site-note')).toHaveText('Kran ab Mittwoch');
 
   // Suche nach Arbeiter bzw. Baustelle
   await page.getByTestId('crew-search').fill('stein');
@@ -272,7 +271,7 @@ test('Suche, PDF (Woche + Tagesliste), Drucken, Vorwoche übernehmen, Sicherung 
   const info = execFileSync('pdfinfo', [pdf], { encoding: 'utf8' });
   expect(info).toMatch(/Page size:\s+841\.89 x 595\.28/);
   const txt = execFileSync('pdftotext', ['-layout', pdf, '-'], { encoding: 'utf8' });
-  for (const s of ['Arbeitereinteilung KW 44', 'Muster Bau GmbH', 'Neubau Musterstraße', 'Sanierung Hauptplatz', 'Max Muster', 'Kran ab Mittwoch']) expect(txt).toContain(s);
+  for (const s of ['Arbeitereinteilung KW 44', 'Muster Bau GmbH', 'Neubau Musterstraße', 'Sanierung Hauptplatz', 'Max Muster']) expect(txt).toContain(s);
 
   // Tagesliste einer Baustelle
   await site(page, 'Neubau Musterstraße').getByTestId('site-actions').click();

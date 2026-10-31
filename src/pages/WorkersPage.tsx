@@ -333,7 +333,7 @@ export function WorkersPage() {
   /** Menü einer Baustelle (laufend oder pausiert) */
   const siteActions = (s: WeekSite): MenuAction[] => [
       ...(s.paused ? [] : [{ label: 'Arbeiter einteilen (ganze Woche)', icon: 'plus', onSelect: () => setDialog({ kind: 'assign', siteId: s.id, days: workDays }), testId: 'site-assign' }]),
-      { label: 'Baustelle bearbeiten / Bemerkung', icon: 'edit', onSelect: () => setDialog({ kind: 'site', site: s }), testId: 'site-edit' },
+      { label: 'Projekt bearbeiten', icon: 'edit', onSelect: () => setDialog({ kind: 'site', site: s }), testId: 'site-edit' },
       ...(s.paused ? [] : [{ label: 'Tagesliste (PDF)', icon: 'pdf', onSelect: () => setDialog({ kind: 'dayList', siteId: s.id }), testId: 'site-daylist' }]),
       ...(s.projectId && projects.some((p) => p.id === s.projectId)
         ? [{ label: 'Projekt öffnen', icon: 'folder', onSelect: () => navigate(paths.project(s.projectId!)), testId: 'site-open-project' }]
@@ -876,7 +876,8 @@ function SiteDialog({
   const [name, setName] = useState(site?.name ?? '');
   const [number, setNumber] = useState(site?.number ?? '');
   const [address, setAddress] = useState(site?.address ?? '');
-  const [note, setNote] = useState(site?.note ?? '');
+  /** alte Wochenbemerkung bleibt erhalten (Feld gibt es nicht mehr) */
+  const note = site?.note ?? '';
   const [show, setShow] = useState(false);
   /** wie in den anderen Werkzeugen: Projekt aus dem Register wählen – oder die Felder selbst ausfüllen (neues Projekt im Register) */
   const source: 'project' | 'new' = projectId ? 'project' : 'new';
@@ -947,10 +948,6 @@ function SiteDialog({
           <label className="field">
             <span>Adresse</span>
             <input value={address} onChange={(e) => setAddress(e.target.value)} disabled={!mayCreate && !projectId} data-testid="site-address" />
-          </label>
-          <label className="field span-2">
-            <span>Bemerkung für diese Woche (optional, erscheint im PDF)</span>
-            <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="z. B. Kran ab Mittwoch, Schlüssel bei Polier" data-testid="site-note-input" />
           </label>
         </div>
         {source === 'new' && mayCreate && !site?.projectId && name.trim() && <p className="muted small" data-testid="site-new-hint">Neues Projekt: wird im Projektregister angelegt und ist damit in allen Werkzeugen verfügbar.</p>}
