@@ -19,6 +19,7 @@ async function setup(page: Page) {
     ['Max', 'Polier'],
     ['Peter', 'Facharbeiter'],
   ]) {
+    await wd.getByTestId('staff-new').click();
     await wd.getByTestId('worker-firstName').fill(n);
     await wd.getByTestId('worker-role').fill(role);
     await wd.getByTestId('worker-save').click();

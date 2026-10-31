@@ -1155,11 +1155,12 @@ function DayListDialog({ site, days, weekId, onPick, onClose }: { site: WeekSite
 }
 
 /** Urlaub oder Krankmeldung von–bis eintragen (auch über mehrere Wochen) und vorhandene Einträge löschen */
-function AbsenceDialog({
+export function AbsenceDialog({
   workers,
   absences,
   nameOf,
   workerId: initialWorker,
+  kind: initialKind,
   from: initialFrom,
   to: initialTo,
   onAdd,
@@ -1170,6 +1171,7 @@ function AbsenceDialog({
   absences: Absence[];
   nameOf(id: string): string;
   workerId?: string;
+  kind?: Absence['kind'];
   from: string;
   to: string;
   onAdd(a: Absence): void;
@@ -1177,7 +1179,7 @@ function AbsenceDialog({
   onClose(): void;
 }) {
   const [workerId, setWorkerId] = useState(initialWorker ?? '');
-  const [kind, setKind] = useState<Absence['kind']>('urlaub');
+  const [kind, setKind] = useState<Absence['kind']>(initialKind ?? 'urlaub');
   const [from, setFrom] = useState(initialFrom);
   const [to, setTo] = useState(initialTo);
   const [error, setError] = useState('');

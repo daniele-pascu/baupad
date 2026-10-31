@@ -70,6 +70,7 @@ test('Arbeitereinteilung: Woche nach Baustellen planen und in die nächste Woche
     ['Thomas', 'Stein', ''],
     ['Stefan', 'Holz', ''],
   ]) {
+    await wd.getByTestId('staff-new').click();
     await wd.getByTestId('worker-firstName').fill(first);
     await wd.getByTestId('worker-lastName').fill(last);
     await wd.getByTestId('worker-role').fill(role);
@@ -182,6 +183,7 @@ test('Arbeiter deaktivieren: nicht mehr zum Einteilen, in gespeicherten Wochen w
   await page.getByTestId('week-date').fill('2026-10-26');
   await page.getByTestId('crew-workers').click();
   const wd = page.getByTestId('staff-page');
+  await wd.getByTestId('staff-new').click();
   await wd.getByTestId('worker-firstName').fill('Andreas');
   await wd.getByTestId('worker-save').click();
   await page.keyboard.press('Escape');
@@ -190,6 +192,7 @@ test('Arbeiter deaktivieren: nicht mehr zum Einteilen, in gespeicherten Wochen w
   await page.getByTestId('site-dialog').getByTestId('site-save').click();
   await addFromMonday(page, 'Umbau Gewerbepark', ['Andreas']);
   await page.getByTestId('crew-workers').click();
+  await wd.getByTestId('worker-row').first().getByTestId('worker-open').click();
   await wd.getByTestId('worker-active').click();
   await expect(wd.getByTestId('worker-row')).toHaveClass(/inactive/);
   await page.keyboard.press('Escape');
@@ -223,6 +226,7 @@ test('Suche, PDF (Woche + Tagesliste), Drucken, Vorwoche übernehmen, Sicherung 
     ['Max', 'Muster', 'Polier', '0664 1234567'],
     ['Thomas', 'Stein', '', ''],
   ]) {
+    await wd.getByTestId('staff-new').click();
     await wd.getByTestId('worker-firstName').fill(f);
     await wd.getByTestId('worker-lastName').fill(l);
     await wd.getByTestId('worker-role').fill(role);
@@ -387,6 +391,7 @@ test('Ziehen: offenen Arbeiter einteilen, umsetzen ab Tag; bereits geplante Folg
   await page.getByTestId('crew-workers').click();
   const wd = page.getByTestId('staff-page');
   for (const n of ['Max', 'Peter']) {
+    await wd.getByTestId('staff-new').click();
     await wd.getByTestId('worker-firstName').fill(n);
     await wd.getByTestId('worker-save').click();
     await expect(wd.getByTestId('worker-row').filter({ hasText: n })).toHaveCount(1);
@@ -446,6 +451,7 @@ test('Baustelle pausieren (Standby): Arbeiter werden frei, läuft ohne Arbeiter 
   await page.getByTestId('crew-workers').click();
   const wd = page.getByTestId('staff-page');
   for (const n of ['Max', 'Peter']) {
+    await wd.getByTestId('staff-new').click();
     await wd.getByTestId('worker-firstName').fill(n);
     await wd.getByTestId('worker-save').click();
     await expect(wd.getByTestId('worker-row').filter({ hasText: n })).toHaveCount(1);
@@ -514,6 +520,7 @@ test('Urlaub und Krank von–bis über mehrere Wochen: bleibt eingeteilt, wird m
   await page.getByTestId('crew-workers').click();
   const wd = page.getByTestId('staff-page');
   for (const n of ['Max', 'Peter']) {
+    await wd.getByTestId('staff-new').click();
     await wd.getByTestId('worker-firstName').fill(n);
     await wd.getByTestId('worker-save').click();
     await expect(wd.getByTestId('worker-row').filter({ hasText: n })).toHaveCount(1);
@@ -578,6 +585,7 @@ test('Sa/So wie jeder andere Tag: Wochenend-Partie einteilen, Umsetzen nimmt Sa/
   await page.getByTestId('crew-workers').click();
   const wd = page.getByTestId('staff-page');
   for (const n of ['Max', 'Willi']) {
+    await wd.getByTestId('staff-new').click();
     await wd.getByTestId('worker-firstName').fill(n);
     await wd.getByTestId('worker-save').click();
     await expect(wd.getByTestId('worker-row').filter({ hasText: n })).toHaveCount(1);
@@ -621,6 +629,7 @@ test('Personalliste: eigene Seite, alphabetisch oder nach Funktion; Einteilung u
     ['Anna', 'Berg', 'facharbeiter'],
     ['Pia', 'Leit', 'projektleiter'],
   ]) {
+    await sp.getByTestId('staff-new').click();
     await sp.getByTestId('worker-firstName').fill(first);
     await sp.getByTestId('worker-lastName').fill(last);
     await sp.getByTestId('worker-grade').selectOption(grade);
@@ -636,19 +645,38 @@ test('Personalliste: eigene Seite, alphabetisch oder nach Funktion; Einteilung u
   await sp.getByTestId('staff-search').fill('berg');
   await expect(sp.getByTestId('worker-row')).toHaveCount(1);
   await sp.getByTestId('staff-search').fill('');
-  // bearbeiten: Tippen auf die Zeile füllt das Formular
-  await sp.getByTestId('worker-row').filter({ hasText: 'Anna Berg' }).getByTestId('worker-open').click();
-  await expect(sp.getByTestId('worker-firstName')).toHaveValue('Anna');
-  await sp.getByTestId('worker-cancel').click();
+  // antippen klappt auf: Funktion ändern, Bearbeiten, Urlaub, Krank, Löschen
+  const anna = sp.getByTestId('worker-row').filter({ hasText: 'Anna Berg' });
+  await anna.getByTestId('worker-open').click();
+  await expect(anna.getByTestId('worker-options')).toBeVisible();
+  await anna.getByTestId('worker-grade-inline').selectOption('vorarbeiter');
+  await expect(sp.getByTestId('staff-group')).toHaveText(['Projektleiter', 'Polier', 'Vorarbeiter', 'Hilfsarbeiter']);
+  await anna.getByTestId('worker-edit').click();
+  const wdlg = page.getByTestId('worker-dialog');
+  await expect(wdlg.getByTestId('worker-firstName')).toHaveValue('Anna');
+  await wdlg.getByTestId('worker-phone').fill('0660 1');
+  await wdlg.getByTestId('worker-save').click();
+  await expect(wdlg).toHaveCount(0);
+  await expect(anna).toContainText('0660 1');
+  // Urlaub direkt aus der Liste
+  await anna.getByTestId('worker-urlaub').click();
+  const abs = page.getByTestId('absence-dialog');
+  await expect(abs.getByTestId('absence-worker')).toHaveValue(/.+/);
+  await abs.getByTestId('absence-from').fill('2026-11-02');
+  await abs.getByTestId('absence-to').fill('2026-11-06');
+  await abs.getByTestId('absence-save').click();
+  await expect(abs).toHaveCount(0);
+  await expect(anna).toContainText('Urlaub');
   // löschen (mit Rückfrage): weg aus der Liste
-  await sp.getByTestId('worker-firstName').fill('Tim');
-  await sp.getByTestId('worker-save').click();
+  await sp.getByTestId('staff-new').click();
+  await page.getByTestId('worker-dialog').getByTestId('worker-firstName').fill('Tim');
+  await page.getByTestId('worker-dialog').getByTestId('worker-save').click();
   await expect(sp.getByTestId('worker-row')).toHaveCount(5);
-  await sp.getByTestId('worker-row').filter({ hasText: 'Tim' }).getByTestId('worker-open').click();
-  await sp.getByTestId('worker-delete').click();
+  const tim = sp.getByTestId('worker-row').filter({ hasText: 'Tim' });
+  await tim.getByTestId('worker-open').click();
+  await tim.getByTestId('worker-delete').click();
   await page.getByRole('button', { name: 'Löschen' }).last().click();
   await expect(sp.getByTestId('worker-row')).toHaveCount(4);
-  await expect(sp.getByTestId('worker-firstName')).toHaveValue('');
   // Sortierung bleibt gespeichert; Escape führt zurück zur Einteilung
   await page.reload();
   await expect(sp.getByTestId('staff-sort-grade')).toHaveAttribute('aria-checked', 'true');
@@ -663,6 +691,6 @@ test('Personalliste: eigene Seite, alphabetisch oder nach Funktion; Einteilung u
   await page.getByTestId('site-dialog').getByTestId('site-save').click();
   await site(page, 'Halle Nord').locator('[data-day="0"] [data-testid="day-add"]').click();
   const ad = page.getByTestId('assign-dialog');
-  await expect(ad.getByTestId('assign-worker')).toHaveText([/Pia Leit · Projektleiter/, /Max Muster · Polier/, /Anna Berg · Facharbeiter/, /Zoe Adler · Hilfsarbeiter/]);
+  await expect(ad.getByTestId('assign-worker')).toHaveText([/Pia Leit · Projektleiter/, /Max Muster · Polier/, /Anna Berg · Vorarbeiter/, /Zoe Adler · Hilfsarbeiter/]);
   await page.keyboard.press('Escape');
 });

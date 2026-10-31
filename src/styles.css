@@ -7749,14 +7749,6 @@ button.report-site-empty {
 .staff-page {
   max-width: 760px;
 }
-.staff-form {
-  margin: 8px 0 16px;
-  padding: 16px;
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
-}
 .staff-tools {
   display: flex;
   flex-wrap: wrap;
@@ -7787,4 +7779,27 @@ button.report-site-empty {
 }
 .staff-foot {
   margin-top: 24px;
+}
+.staff-new {
+  margin: 4px 0 16px;
+}
+.staff-chevron {
+  flex: none;
+  color: var(--muted);
+  transform: rotate(90deg);
+  transition: transform 0.2s ease;
+}
+.staff-chevron.open {
+  transform: rotate(-90deg);
+}
+.staff-list li.open {
+  background: var(--surface-2);
+}
+.staff-options {
+  display: grid;
+  gap: 10px;
+  padding: 4px 2px 14px;
+}
+.staff-options .field {
+  max-width: 320px;
 }
