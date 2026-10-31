@@ -327,9 +327,9 @@ function WorkerDialog({ worker, onClose, onSave }: { worker: Worker | null; onCl
             ))}
           </select>
         </label>
-        {field('role', 'Qualifikation / Zusatz (optional)', { placeholder: 'z. B. Maurer, Kranführer' })}
-        {field('staffNo', 'Personalnummer (optional)')}
-        {field('phone', 'Telefon (optional)', { type: 'tel', inputMode: 'tel' })}
+        {field('role', 'Qualifikation / Zusatz', { placeholder: 'z. B. Maurer, Kranführer' })}
+        {field('staffNo', 'Personalnummer')}
+        {field('phone', 'Telefon', { type: 'tel', inputMode: 'tel' })}
         {show && !v.firstName.trim() && <p className="error small">Bitte einen Vornamen eingeben.</p>}
         <button type="submit" hidden />
       </form>

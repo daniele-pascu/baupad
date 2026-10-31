@@ -209,7 +209,7 @@ export function PhotoCapture({
                       <input
                         value={p.description}
                         onChange={(e) => setPending((cur) => cur?.map((x) => (x.id === p.id ? { ...x, description: e.target.value } : x)) ?? null)}
-                        placeholder="Beschreibung (optional)"
+                        placeholder="Beschreibung"
                         aria-label="Beschreibung"
                         data-testid="photo-pending-description"
                       />

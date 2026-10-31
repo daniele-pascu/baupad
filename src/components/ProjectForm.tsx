@@ -94,16 +94,16 @@ export function ProjectForm({ title, initial, costCenters, submitLabel, onSubmit
           {touched && nameMissing && <small className="error">Bitte einen Projektnamen eingeben.</small>}
         </label>
         <label className="field span-2">
-          <span>Bauvorhaben (optional)</span>
+          <span>Bauvorhaben</span>
           <input value={f.address} onChange={set('address')} name="address" placeholder="Adresse" autoComplete="street-address" enterKeyHint="next" data-testid={id.address} />
         </label>
         <label className="field">
-          <span>Projektnummer (optional)</span>
+          <span>Projektnummer</span>
           <input value={f.number ?? ''} onChange={set('number')} name="number" autoComplete="off" enterKeyHint="next" data-testid={id.number} />
         </label>
         {!costCenters && (
           <label className="field">
-            <span>Kostenstelle (optional)</span>
+            <span>Kostenstelle</span>
             <input
               value={ccs[0]?.name ?? ''}
               onChange={(e) => setCc(0, { name: e.target.value, number: '' })}
@@ -117,7 +117,7 @@ export function ProjectForm({ title, initial, costCenters, submitLabel, onSubmit
         )}
         {costCenters && (
         <div className="field cc-fields">
-          <span>Kostenstelle(n) (optional)</span>
+          <span>Kostenstelle(n)</span>
           {ccs.map((c, i) => (
             <div key={c.id ?? `new-${i}`} className="cc-row">
               <input
@@ -163,15 +163,15 @@ export function ProjectForm({ title, initial, costCenters, submitLabel, onSubmit
         </div>
         )}
         <label className="field">
-          <span>Auftraggeber (optional)</span>
+          <span>Auftraggeber</span>
           <input value={f.client} onChange={set('client')} name="client" autoComplete="organization" enterKeyHint="next" data-testid="project-client" />
         </label>
         <label className="field">
-          <span>Baubeginn (optional)</span>
+          <span>Baubeginn</span>
           <input type="date" value={f.date} onChange={set('date')} name="date" data-testid="project-start" />
         </label>
         <label className="field span-2">
-          <span>Bemerkung (optional)</span>
+          <span>Bemerkung</span>
           <textarea value={f.notes} onChange={set('notes')} name="notes" rows={2} data-testid="project-notes" />
         </label>
       </form>

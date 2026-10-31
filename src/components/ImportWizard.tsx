@@ -54,7 +54,7 @@ function mimeOf(file: File, kind: 'pdf' | 'image'): string {
 }
 
 /**
- * Import-Assistent: Datei → Seitenauswahl (mehrseitige PDFs) → Planbereiche (optional) →
+ * Import-Assistent: Datei → Seitenauswahl (mehrseitige PDFs) → Planbereiche →
  * Planbeschreibung → Speichern.
  */
 export function ImportWizard({ file, data, costCenterId, invoiceId = null, onClose, onDone }: Props) {

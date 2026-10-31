@@ -80,9 +80,9 @@ test('Messart aus der Form (Linie / Fläche), keine Auswahl beim Einfügen: Lini
   // keine Messart-Auswahl mehr – Linie ergibt sich aus dem Werkzeug; Höhe und Tiefe optional
   await expect(dlg).toContainText('Neue Linie');
   await expect(dlg.locator('[data-testid^="kind-"]')).toHaveCount(0);
-  await expect(dlg).toContainText('Höhe (optional)');
-  await expect(dlg.getByTestId('input-width')).toHaveAttribute('placeholder', 'optional');
-  await expect(dlg.getByTestId('input-depth')).toHaveAttribute('placeholder', 'optional');
+  await expect(dlg).toContainText('Höhe');
+  await expect(dlg.getByTestId('input-width')).not.toHaveAttribute('placeholder', /./);
+  await expect(dlg.getByTestId('input-depth')).not.toHaveAttribute('placeholder', /./);
   await expect(dlg.getByTestId('area-result')).toContainText('keine Fläche');
   await dlg.getByTestId('input-length').fill('3,5');
   await dlg.getByTestId('damage-save').click();
@@ -105,7 +105,7 @@ test('Messart aus der Form (Linie / Fläche), keine Auswahl beim Einfügen: Lini
   for (const [fx, fy] of tri) await page.mouse.click(box.x + box.width * fx, box.y + box.height * fy);
   await expect(dlg).toContainText('Neue Fläche');
   await expect(dlg.getByTestId('input-number')).toHaveValue('2');
-  await expect(dlg.getByTestId('input-depth')).toHaveAttribute('placeholder', 'optional');
+  await expect(dlg.getByTestId('input-depth')).not.toHaveAttribute('placeholder', /./);
   await dlg.getByTestId('input-length').fill('2');
   await dlg.getByTestId('input-width').fill('1');
   await dlg.getByTestId('damage-save').click(); // Tiefe bleibt leer → trotzdem speicherbar

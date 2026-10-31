@@ -43,6 +43,23 @@ test('PDF: Status automatisch → bestätigt, Prüfstrecke mit Abweichung, Prüf
   // Prüfbericht: Maßketten passen zum erkannten Maßstab
   await status.click(); // öffnet das Kalibrieren
   await expect(page.getByTestId('calibrate-bar')).toBeVisible();
+  // nie zwei Werkzeuge zugleich: Messung-Menü beendet das Kalibrieren, Esc schließt das Menü (Auswahl);
+  // Kalibrieren schließt das Menü; Esc beim Kalibrieren → Auswahl
+  await page.getByTestId('tool-probe').click();
+  await expect(page.getByTestId('probe-menu')).toBeVisible();
+  await expect(page.getByTestId('calibrate-bar')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('probe-menu')).toHaveCount(0);
+  await expect(page.getByTestId('tool-select')).toHaveClass(/active/);
+  await page.getByTestId('tool-probe').click();
+  await status.click();
+  await expect(page.getByTestId('probe-menu')).toHaveCount(0);
+  await expect(page.getByTestId('calibrate-bar')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('calibrate-bar')).toHaveCount(0);
+  await expect(page.getByTestId('tool-select')).toHaveClass(/active/);
+  await status.click();
+  await expect(page.getByTestId('calibrate-bar')).toBeVisible();
   await expect(page.getByTestId('calibration-info')).toContainText('Erkannt: 1:50 (ungeprüft)');
   await page.getByTestId('calibration-report-open').click();
   const rep = page.getByTestId('calibration-report');

@@ -64,7 +64,7 @@ test('Import: Format wählbar (Standard A4 passend), Überschrift, PDF genau A3 
   await expect(wiz.getByTestId('export-paper')).toHaveValue('A4-quer');
   await wiz.getByTestId('export-paper').selectOption('A3-hoch');
   await wiz.locator('[data-field="planNumber"]').fill('F-1');
-  await expect(wiz.locator('[data-field="title"]')).toHaveAttribute('placeholder', 'optional, z. B. Aufmaßplan');
+  await expect(wiz.locator('[data-field="title"]')).toHaveAttribute('placeholder', 'z. B. Aufmaßplan');
   await expect(wiz.getByTestId('heading-preview')).toHaveText('Überschrift im PDF: F-1'); // ohne Titel nur die Nummer
   await wiz.locator('[data-field="title"]').fill('Aufmaßplan Tiefgarage');
   await expect(wiz.getByTestId('heading-preview')).toHaveText('Überschrift im PDF: Aufmaßplan Tiefgarage F-1');

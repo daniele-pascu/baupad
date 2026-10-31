@@ -256,7 +256,7 @@ export function ReportEditorPage({ reportId }: { reportId: string }) {
             <Field label="Auftraggeber" value={r.head.client} onChange={(client) => setHead({ client })} testId="rp-client" />
             <Field label="Projekt-Nr." value={r.head.number} onChange={(number) => setHead({ number })} testId="rp-number" />
             <Field label="Kostenstelle" value={r.head.costCenter} onChange={(costCenter) => setHead({ costCenter })} testId="rp-costcenter" />
-            <Field label="Verantwortlich (optional)" value={r.head.responsible} onChange={(responsible) => setHead({ responsible })} testId="rp-responsible" />
+            <Field label="Verantwortlich" value={r.head.responsible} onChange={(responsible) => setHead({ responsible })} testId="rp-responsible" />
           </div>
           {r.projectId && (
             <button type="button" className="btn btn-sm" onClick={reloadHead} data-testid="rp-reload-head">
@@ -532,7 +532,7 @@ function RegieForm({ r, data, workers, setData }: { r: Report; data: RegieData; 
       <TextBlock label="Tätigkeiten / ausgeführte Arbeiten" value={data.work} onChange={(work) => setData({ work })} testId="rp-work" placeholder="Was wurde in Regie gearbeitet? Wo, auf wessen Anordnung?" />
       <ItemRows title="Material" items={data.materials} onChange={(materials) => setData({ materials })} testId="rp-materials" placeholder="z. B. Reparaturmörtel" />
       <ItemRows title="Geräte" items={data.equipment} onChange={(equipment) => setData({ equipment })} testId="rp-equipment" placeholder="z. B. Stemmhammer" />
-      <Section title="Kosten (optional, für Firmenformulare)">
+      <Section title="Kosten (für Firmenformulare)">
         <div className="rp-grid">
           <Field label="Fahrtkosten / km" value={data.travelCosts ?? ''} onChange={(travelCosts) => setData({ travelCosts })} testId="rp-travel-costs" />
           <Field label="Nächtigungskosten" value={data.lodgingCosts ?? ''} onChange={(lodgingCosts) => setData({ lodgingCosts })} testId="rp-lodging-costs" />
@@ -628,7 +628,7 @@ function DailyForm({ r, data, workers, setData }: { r: Report; data: DailyData; 
             Anwesend: <strong>{present.length}</strong> {present.length === 1 ? 'Person' : 'Personen'}
           </p>
           <Field
-            label="Anzahl abweichend / ohne Namen (optional)"
+            label="Anzahl abweichend / ohne Namen"
             value={numText(data.crewCount)}
             onChange={(v) => setData({ crewCount: num(v) === null ? null : Math.max(0, Math.round(num(v)!)) })}
             inputMode="numeric"
@@ -666,7 +666,7 @@ function DailyForm({ r, data, workers, setData }: { r: Report; data: DailyData; 
       <ItemRows title="Geräte" items={data.equipment} onChange={(equipment) => setData({ equipment })} testId="rp-equipment" placeholder="Bezeichnung" />
       <TextBlock label="Besondere Vorkommnisse / Behinderungen" value={data.incidents} onChange={(incidents) => setData({ incidents })} testId="rp-incidents" rows={3} />
       <TextBlock label="Bemerkungen / Vorbemerkungen für Aufmaß und Regien" value={data.notes} onChange={(notes) => setData({ notes })} testId="rp-notes" rows={3} />
-      <Section title="Schlussabnahme (optional, für Firmenformulare)">
+      <Section title="Schlussabnahme (für Firmenformulare)">
         <div className="rp-grid">
           <Field label="Uhrzeit" type="time" value={data.acceptanceTime ?? ''} onChange={(acceptanceTime) => setData({ acceptanceTime })} testId="rp-acceptance-time" narrow />
           <Field label="abgenommen von" value={data.acceptanceBy ?? ''} onChange={(acceptanceBy) => setData({ acceptanceBy })} testId="rp-acceptance-by" wide />
@@ -747,7 +747,7 @@ function WeeklyForm({ r, data, setData }: { r: Report; data: WeeklyData; setData
               </div>
               <div className="rp-day-crew">
                 <input value={numText(d.count)} onChange={(e) => setDay(i, { count: num(e.target.value) === null ? null : Math.max(0, Math.round(num(e.target.value)!)) })} inputMode="numeric" placeholder="Anz." aria-label="Mannschaftsstärke" className="rp-count-input" data-testid="rp-day-count" />
-                <input value={d.names} onChange={(e) => setDay(i, { names: e.target.value })} placeholder="Namen (optional)" aria-label="Namen" data-testid="rp-day-names" />
+                <input value={d.names} onChange={(e) => setDay(i, { names: e.target.value })} placeholder="Namen" aria-label="Namen" data-testid="rp-day-names" />
               </div>
               <textarea rows={2} value={d.work} onChange={(e) => setDay(i, { work: e.target.value })} placeholder="Durchgeführte Arbeiten" aria-label={`Arbeiten ${DAY_NAMES[i]}`} data-testid="rp-day-work" />
             </div>

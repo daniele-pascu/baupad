@@ -147,7 +147,7 @@ function InvoiceDialog({ project, invoice, onClose, onSave }: { project: Project
                 : 'Teilrechnung mit eigenen Plänen und eigenem Aufmaß.'}
         </p>
         <label className="field">
-          <span>Leistungszeitraum (optional)</span>
+          <span>Leistungszeitraum</span>
           <input value={period} onChange={(e) => setPeriod(e.target.value)} placeholder="z. B. 01.10.2026 – 31.10.2026" autoComplete="off" data-testid="invoice-period" />
         </label>
         <button type="submit" hidden />

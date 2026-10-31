@@ -232,7 +232,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
           autoCapitalize={name === 'number' ? 'characters' : undefined}
           enterKeyHint={fields[fields.length - 1] === name ? 'done' : 'next'}
           autoComplete="off"
-          placeholder={name === 'depth' || name === 'width' ? 'optional' : undefined}
+          placeholder={undefined}
           aria-invalid={showErrors && !!errors[name]}
           // Länge aus dem Plan: gleich die Höhe eingeben (bei der Wand die Wandhöhe)
           data-autofocus={mode === 'new' && name === (lineGeo !== null ? 'width' : 'length') ? '' : undefined}
@@ -296,8 +296,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
           ) : (
             field('length', 'Länge *', 'm')
           )}
-          {!geo && field('width', wall ? 'Wandhöhe' : withArea ? 'Breite / Höhe (optional)' : 'Höhe (optional)', 'm')}
-          {field('depth', 'Tiefe (optional)', 'm')}
+          {!geo && field('width', wall ? 'Wandhöhe' : withArea ? 'Breite / Höhe' : 'Höhe', 'm')}
+          {field('depth', 'Tiefe', 'm')}
         </div>
         {withArea && geometry && (
           <button
@@ -469,7 +469,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
         )}
         {components.length > 0 && (
           <label className="field">
-            <span>Bauteil (optional)</span>
+            <span>Bauteil</span>
             <select value={componentId ?? ''} onChange={(e) => setComponentId(e.target.value || null)} data-testid="input-component">
               <option value="">– kein Bauteil –</option>
               {components.map((c) => (
@@ -502,7 +502,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
         )}
         {positions.length > 0 && (
           <label className="field">
-            <span>Leistungsposition (optional)</span>
+            <span>Leistungsposition</span>
             <select value={positionRef ?? ''} onChange={(e) => setPositionRef(e.target.value || null)} data-testid="input-position">
               <option value="">– keine Leistungszuordnung –</option>
               {positions

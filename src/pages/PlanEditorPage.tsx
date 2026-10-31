@@ -378,6 +378,13 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     setColorState(c);
     storePref('color', c);
   };
+  /** Kalibrieren starten: Menü der Messung, laufende Messung und Stil-Fenster zu (nie zwei Werkzeuge zugleich) */
+  const startCalibrate = () => {
+    setProbeMenu(false);
+    setProbe(null);
+    setStylePopOpen(false);
+    setTool('calibrate');
+  };
 
   // Rückgängig/Wiederholen gilt je geöffnetem Plan
   useEffect(() => {
@@ -800,7 +807,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     const measures = {
       kind: v.kind,
       length: geo ? geo.perimeter : (lineFromPlan ?? v.length),
-      // Linie: Breite = Höhe (optional), getrennt von der Länge – ergibt keine Fläche
+      // Linie: Breite = Höhe, getrennt von der Länge – ergibt keine Fläche
       width: geo ? null : v.width,
       depth: v.depth,
       area,
@@ -1025,7 +1032,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 <button
                   type="button"
                   className={`status-pill scale-status${st.warn ? ' warn' : ' ok'}`}
-                  onClick={() => setTool('calibrate')}
+                  onClick={startCalibrate}
                   title={`${st.text} – zum Kalibrieren tippen`}
                   data-testid="scale-status"
                   data-state={st.state}
@@ -1122,7 +1129,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             >
               Passt
             </button>
-            <button type="button" className="btn btn-sm" onClick={() => setTool('calibrate')} data-testid="scale-recalibrate">
+            <button type="button" className="btn btn-sm" onClick={startCalibrate} data-testid="scale-recalibrate">
               Selbst kalibrieren
             </button>
           </div>
@@ -1553,8 +1560,11 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                   className={`tool-btn${(t.id === 'probe' ? probeMenu || (tool === 'probe' && !stylePopOpen) : tool === t.id && !probeMenu && !stylePopOpen) ? ' active' : ''}`}
                   onClick={() => {
                     setStylePopOpen(false);
-                    if (t.id === 'probe') setProbeMenu(!probeMenu);
-                    else {
+                    if (t.id === 'probe') {
+                      // Menü der Messung öffnen beendet das Kalibrieren
+                      if (!probeMenu && tool === 'calibrate') setTool('select');
+                      setProbeMenu(!probeMenu);
+                    } else {
                       // anderes Werkzeug: Menü der Messung zu, laufende Messung beenden
                       setProbeMenu(false);
                       setProbe(null);
@@ -1597,8 +1607,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 type="button"
                 className={`tool-btn${stylePopOpen ? ' active' : ''}`}
                 onClick={() => {
-                  // Stil öffnen schließt das Menü der Messung (nie zwei zugleich)
+                  // Stil öffnen schließt das Menü der Messung und beendet das Kalibrieren (nie zwei zugleich)
                   setProbeMenu(false);
+                  if (!stylePopOpen && tool === 'calibrate') setTool('select');
                   setStylePopOpen(!stylePopOpen);
                 }}
                 aria-expanded={stylePopOpen}

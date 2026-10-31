@@ -89,7 +89,7 @@ export function ComponentDialog({ mode, initial, usedLetters, measurements, onSa
           {show && error && <small className="error">{error}</small>}
         </label>
         <label className="field">
-          <span>Bezeichnung (optional)</span>
+          <span>Bezeichnung</span>
           <input
             value={v.name}
             onChange={(e) => setV({ ...v, name: e.target.value })}

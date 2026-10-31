@@ -68,7 +68,7 @@ export function PlanFields({
         <input
           value={value.title ?? ''}
           onChange={(e) => onChange({ title: e.target.value })}
-          placeholder="optional, z. B. Aufmaßplan"
+          placeholder="z. B. Aufmaßplan"
           data-field="title"
           autoComplete="off"
           enterKeyHint="next"
@@ -96,7 +96,7 @@ export function PlanFields({
       )}
       <div className="field span-2">
         <span className="field-head">
-          <label htmlFor={`${id}-note`}>Bemerkung (optional)</label>
+          <label htmlFor={`${id}-note`}>Bemerkung</label>
           <ShowInPlan checked={!!value.showNote} onChange={(showNote) => onChange({ showNote })} testId="show-note" />
         </span>
         <textarea id={`${id}-note`} value={value.description} onChange={(e) => onChange({ description: e.target.value })} rows={2} data-field="description" placeholder="z. B. Bereich Tiefgarage Nord" />

@@ -256,7 +256,7 @@ test('Aufmaß: offene Polylinie = Linienmessung mit Länge, geschlossene = Fläc
   await page.getByTestId('polyline-open').click();
   const dlg = page.getByTestId('damage-dialog');
   await expect(dlg).toContainText('Neue Linie');
-  await expect(dlg).toContainText('Höhe (optional)');
+  await expect(dlg).toContainText('Höhe');
   // Länge aus dem Plan = Summe aller Abschnitte (vorgewählt, wird nachgeführt)
   await expect(dlg.getByTestId('use-geometry')).toHaveText('Länge wieder von Hand eingeben');
   const len0 = num(await dlg.getByTestId('geometry-length').inputValue());
@@ -292,7 +292,7 @@ test('Aufmaß: offene Polylinie = Linienmessung mit Länge, geschlossene = Fläc
   for (const [dx, dy] of [[-260, -40], [-160, -40], [-160, 40], [-260, 40]]) await page.mouse.click(x + dx, y + dy);
   await page.getByTestId('polygon-finish').click();
   await expect(dlg).toContainText('Neue Fläche');
-  await expect(dlg).toContainText('Breite / Höhe (optional)');
+  await expect(dlg).toContainText('Breite / Höhe');
   await dlg.getByTestId('damage-cancel').click();
 
   // Rechteck mit Fläche aus dem Plan: Ecke einzeln verschieben (→ Trapez), Fläche wird nachgeführt

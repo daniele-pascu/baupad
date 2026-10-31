@@ -238,7 +238,7 @@ function LvReviewDialog({
           </select>
         </label>
         <label className="field">
-          <span>{kind === 'mfk' ? 'MFK-Nummer' : 'Nummer (optional)'}</span>
+          <span>{kind === 'mfk' ? 'MFK-Nummer' : 'Nummer'}</span>
           <input value={number} onChange={(e) => setNumber(e.target.value)} data-testid="lv-number" />
         </label>
         <label className="field span-2">
@@ -694,7 +694,7 @@ function DocDialog({
           </select>
         </label>
         <label className="field">
-          <span>{k === 'mfk' ? 'MFK-Nummer' : 'Nummer (optional)'}</span>
+          <span>{k === 'mfk' ? 'MFK-Nummer' : 'Nummer'}</span>
           <input value={number} onChange={(e) => setNumber(e.target.value)} data-testid="lv-doc-number" />
         </label>
         <label className="field span-2">

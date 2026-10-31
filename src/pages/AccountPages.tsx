@@ -146,7 +146,7 @@ export function LoginPage({ register = false }: { register?: boolean }) {
                       <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" data-testid="register-name" />
                     </label>
                     <label className="field">
-                      <span>Firma (optional)</span>
+                      <span>Firma</span>
                       <input value={company} onChange={(e) => setCompany(e.target.value)} autoComplete="organization" placeholder="z. B. Muster Bau GmbH" data-testid="register-company" />
                     </label>
                   </>

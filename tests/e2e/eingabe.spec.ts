@@ -129,7 +129,7 @@ test('Messung: nur Länge Pflicht, Breite/Höhe und Tiefe optional; Werkzeugleis
   // Ohne Länge: nicht speicherbar
   await pickTool(page, 'tool-rect');
   await drawRect(page, box.x + box.width * 0.1, box.y + box.height * 0.1, box.x + box.width * 0.2, box.y + box.height * 0.2);
-  await expect(dlg.getByTestId('input-width')).toHaveAttribute('placeholder', 'optional');
+  await expect(dlg.getByTestId('input-width')).not.toHaveAttribute('placeholder', /./);
   await dlg.getByTestId('damage-save').click();
   await expect(dlg).toContainText('Länge');
   await expect(dlg).toBeVisible();
