@@ -288,7 +288,7 @@ export function WorkersPage() {
       setProjects((list) => [p, ...list]);
       // aktuelle Woche ebenfalls verknüpfen (auch wenn sie noch nicht gespeichert war)
       save({ ...plan!, sites: plan!.sites.map((x) => (!x.projectId && x.name.trim().toLowerCase() === s.name.trim().toLowerCase() ? { ...x, projectId: p.id } : x)), updatedAt: Date.now() });
-      toast(`Projekt „${p.name}“ in Aufmaß & Abrechnung angelegt.`, 'success');
+      toast(`Projekt „${p.name}“ im Projektregister angelegt – in allen Werkzeugen verfügbar.`, 'success');
     });
   const restore = (f: File) =>
     run(async () => {
@@ -337,7 +337,7 @@ export function WorkersPage() {
       ...(s.paused ? [] : [{ label: 'Tagesliste (PDF)', icon: 'pdf', onSelect: () => setDialog({ kind: 'dayList', siteId: s.id }), testId: 'site-daylist' }]),
       ...(s.projectId && projects.some((p) => p.id === s.projectId)
         ? [{ label: 'Projekt öffnen', icon: 'folder', onSelect: () => navigate(paths.project(s.projectId!)), testId: 'site-open-project' }]
-        : [{ label: 'Als Projekt in Aufmaß & Abrechnung anlegen', icon: 'folder', onSelect: () => void siteToProject(s), testId: 'site-to-project' }]),
+        : [{ label: 'Ins Projektregister aufnehmen', icon: 'folder', onSelect: () => void siteToProject(s), testId: 'site-to-project' }]),
       s.paused
         ? { label: 'Fortsetzen', icon: 'play', onSelect: () => void run(() => resume(s)), testId: 'site-resume-menu' }
         : { label: 'Pausieren (Standby)', icon: 'pause', onSelect: () => void run(() => pause(s)), testId: 'site-pause' },
@@ -659,7 +659,7 @@ export function WorkersPage() {
           {plan.sites.length === 0 && (
             <div className="empty" data-testid="crew-empty">
               <p>Noch keine Baustelle in dieser Woche.</p>
-              <p className="muted">Baustelle aus Aufmaß & Abrechnung wählen oder manuell anlegen, dann die Arbeiter je Tag einteilen.</p>
+              <p className="muted">Projekt auswählen oder neu anlegen, dann die Arbeiter je Tag einteilen.</p>
             </div>
           )}
           <button type="button" className="btn btn-primary crew-add-site" onClick={() => setDialog({ kind: 'site' })} data-testid="add-site">
@@ -699,7 +699,7 @@ export function WorkersPage() {
                 const p = await projectFromSite(fields, 'workers');
                 setProjects((list) => [p, ...list]);
                 f = { ...fields, projectId: p.id };
-                toast(`Projekt „${p.name}“ in Aufmaß & Abrechnung angelegt.`, 'success');
+                toast(`Projekt „${p.name}“ im Projektregister angelegt – in allen Werkzeugen verfügbar.`, 'success');
               }
               await useProjectIn(f.projectId, 'workers');
               if (dialog.site) save(updateSite(plan, dialog.site.id, f));
@@ -857,7 +857,7 @@ function TimesDialog({
   );
 }
 
-/** Baustelle hinzufügen (aus Aufmaß & Abrechnung oder manuell) bzw. bearbeiten */
+/** Baustelle hinzufügen (Projekt aus dem Register wählen oder neu anlegen) bzw. bearbeiten */
 function SiteDialog({
   site,
   projects,
@@ -920,7 +920,7 @@ function SiteDialog({
       >
         <div className="segmented crew-source" role="radiogroup" aria-label="Baustelle">
           <button type="button" role="radio" aria-checked={source === 'project'} aria-selected={source === 'project'} onClick={() => setSource('project')} disabled={!projects.length} data-testid="site-source-project">
-            <ToolIcon name="projects" size={16} /> Aus Aufmaß & Abrechnung
+            <Icon name="folder" size={16} /> Projekt auswählen
           </button>
           {mayCreate && (
           <button
@@ -934,7 +934,7 @@ function SiteDialog({
             }}
             data-testid="site-source-new"
           >
-            <Icon name="plus" size={16} /> Neues Projekt (manuell)
+            <Icon name="plus" size={16} /> Selbst ausfüllen (neues Projekt)
           </button>
           )}
         </div>
@@ -971,7 +971,7 @@ function SiteDialog({
             <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="z. B. Kran ab Mittwoch, Schlüssel bei Polier" data-testid="site-note-input" />
           </label>
         </div>
-        {source === 'new' && !site?.projectId && <p className="muted small">Das Projekt wird im Projektregister angelegt und ist damit auch in Aufmaß & Abrechnung, Fotos, Berichten und Mängelplan verfügbar.</p>}
+        {source === 'new' && !site?.projectId && <p className="muted small">Das Projekt wird im Projektregister angelegt und ist damit in allen Werkzeugen verfügbar.</p>}
         {show && source === 'project' && !projectId && <p className="error small">Bitte ein Projekt wählen.</p>}
         {show && !name.trim() && <p className="error small">Bitte eine Bezeichnung eingeben.</p>}
         <p className="muted small">Die Bezeichnung wird in dieser Woche gespeichert – spätere Umbenennungen des Projekts ändern alte Wochen nicht.</p>

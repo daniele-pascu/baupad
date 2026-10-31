@@ -355,7 +355,7 @@ test('Baustelle ↔ Projekt: aus Aufmaß & Abrechnung wählen, als Projekt anleg
   await sd.getByTestId('site-name-input').fill('Sanierung Hauptplatz');
   await sd.getByTestId('site-address').fill('Hauptplatz 3');
   await sd.getByTestId('site-save').click();
-  await expect(page.locator('.toast', { hasText: 'Projekt „Sanierung Hauptplatz“ in Aufmaß & Abrechnung angelegt' })).toHaveCount(1);
+  await expect(page.locator('.toast', { hasText: 'Projekt „Sanierung Hauptplatz“ im Projektregister angelegt' })).toHaveCount(1);
   await menu('Sanierung Hauptplatz');
   await expect(page.getByTestId('site-open-project')).toHaveCount(1);
   await page.keyboard.press('Escape');

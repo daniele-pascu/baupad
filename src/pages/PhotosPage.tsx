@@ -200,7 +200,7 @@ export function PhotosPage() {
         </div>
         {/* Baustellen ohne Fotos (zum schnellen Start) */}
         {photos && sites.some((s) => !groups.some((g) => g.key === photoSiteKey({ projectId: s.projectId, siteName: s.name }))) && !query && (
-          <p className="muted small photos-hint">Weitere Baustellen stehen beim Speichern eines Fotos zur Auswahl (aus Aufmaß &amp; Abrechnung und Arbeitereinteilung).</p>
+          <p className="muted small photos-hint">Weitere Projekte aus dem Projektregister stehen beim Speichern eines Fotos zur Auswahl.</p>
         )}
       </div>
     </>

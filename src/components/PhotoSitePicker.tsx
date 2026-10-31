@@ -76,7 +76,7 @@ export function PhotoSiteDialog({
           <span>Adresse</span>
           <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Straße, PLZ Ort" autoComplete="street-address" data-testid="photo-site-address" />
         </label>
-        <p className="muted small">{hint ?? 'Projekte aus Aufmaß & Abrechnung und der Arbeitereinteilung stehen automatisch zur Auswahl.'}</p>
+        <p className="muted small">{hint ?? 'Alle Projekte des Projektregisters stehen zur Auswahl – egal, in welchem Werkzeug sie angelegt wurden.'}</p>
       </form>
     </Modal>
   );
