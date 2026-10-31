@@ -3,7 +3,7 @@ import type { Session } from '../../src/lib/auth';
 import { setRemoteClient } from '../../src/lib/remote';
 import { listCompanyUsers, removeCompanyUser, saveCompanyUser, usesRemote } from '../../src/lib/users';
 
-const admin: Session = { userId: 'u1', email: 'chef@muster.at', name: 'Chef', role: 'admin', companyId: 'w1', companyName: 'Muster Bau', operator: false, phone: '', pkg: 'firma', providers: ['email'], tools: [], sites: [], toolSites: {} };
+const admin: Session = { userId: 'u1', email: 'chef@muster.at', name: 'Chef', role: 'admin', companyId: 'w1', companyName: 'Muster Bau', operator: false, phone: '', pkg: 'firma', workspaceActive: true, providers: ['email'], tools: [], sites: [], toolSites: {} };
 
 function withRpc(rpc: (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>) {
   setRemoteClient({ auth: {} as never, rpc });

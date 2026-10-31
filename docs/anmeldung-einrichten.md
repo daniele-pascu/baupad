@@ -131,3 +131,15 @@ Die .p8-Datei, die Key ID und der Secret Key bleiben bei dir; nichts davon in de
 - Google Cloud OAuth: 0 €.
 - Microsoft Entra App-Registrierung: 0 €.
 - Apple Developer Program: 99 US-Dollar im Jahr.
+
+
+## Freischaltung neuer Firmen (Betreiber)
+
+- Jede Registrierung legt einen Arbeitsbereich an, der **gesperrt** ist (`workspaces.active = false`). Die Person sieht
+  statt der Werkzeuge eine Hinweisseite („Vielen Dank für Ihre Registrierung … BauPad befindet sich im Aufbau … Zugang
+  wird nach Abschluss der Bestellung aktiviert“). Konto (Abmelden, Konto löschen) bleibt erreichbar.
+- Freischalten: Konto → **Betreiber: Kunden freischalten** – alle registrierten Firmen mit Admin, E-Mail, Datum,
+  Benutzerzahl; Knopf „Freischalten“ bzw. „Sperren“. Alternativ im Supabase Table Editor: Tabelle `workspaces`, Spalte `active`.
+- Arbeitsbereiche, in denen ein Betreiber (Tabelle `operators`) Mitglied ist, werden beim Ausführen von `schema.sql`
+  automatisch freigeschaltet. Betreiber selbst sind nie gesperrt.
+- Ohne Datenbankkontext (offline, Schema noch nicht ergänzt) wird nichts gesperrt.

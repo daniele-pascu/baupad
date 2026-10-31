@@ -50,6 +50,7 @@ interface Context {
   sites: string[] | null;
   tool_sites: Record<string, string[]> | null;
   operator: boolean;
+  workspace_active?: boolean;
   name: string | null;
   phone: string | null;
 }
@@ -239,6 +240,8 @@ export class SupabaseAuth implements AuthBackend {
       operator: Boolean(ctx?.operator),
       phone: ctx?.phone ?? '',
       pkg: ctx?.pkg ?? null,
+      // ohne Kontext (offline) oder vor der Schema-Ergänzung nichts sperren
+      workspaceActive: ctx?.workspace_active ?? true,
       tools: ctx?.tools ?? [],
       sites: ctx?.sites ?? [],
       toolSites: (ctx?.tool_sites ?? {}) as Session['toolSites'],

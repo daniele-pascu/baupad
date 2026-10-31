@@ -10,6 +10,11 @@ create table if not exists public.workspaces (
   created_at timestamptz not null default now()
 );
 
+-- Freischaltung: neue Arbeitsbereiche sind gesperrt (kein Zugang zu den Werkzeugen), bis der Betreiber sie nach
+-- der Bestellung freischaltet (Konto → Betreiber → Kunden freischalten). Bestehende Arbeitsbereiche von Betreibern bleiben offen.
+alter table public.workspaces add column if not exists active boolean not null default false;
+alter table public.workspaces add column if not exists activated_at timestamptz;
+alter table public.workspaces add column if not exists note text not null default '';
 create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   email text not null,
@@ -34,6 +39,11 @@ create table if not exists public.operators (
   email text primary key
 );
 insert into public.operators (email) values ('danielepascu.a@gmail.com') on conflict do nothing;
+-- Arbeitsbereiche, in denen ein Betreiber Mitglied ist, sind freigeschaltet
+update public.workspaces w set active = true, activated_at = coalesce(w.activated_at, now())
+  where not w.active and exists (
+    select 1 from public.memberships m join public.profiles p on p.id = m.user_id join public.operators o on lower(o.email) = lower(p.email)
+    where m.workspace_id = w.id);
 
 -- Einladungen: vom Admin eingetragene Personen, die sich noch nicht registriert haben
 create table if not exists public.invitations (
@@ -134,6 +144,7 @@ language sql stable security definer set search_path = public as $$
     'tools', m.tools,
     'sites', m.sites,
     'tool_sites', m.tool_sites,
+    'workspace_active', coalesce(w.active, false),
     'name', p.name,
     'phone', p.phone,
     'operator', exists (select 1 from public.operators o where lower(o.email) = lower(coalesce(auth.jwt() ->> 'email', '')))
@@ -294,3 +305,52 @@ end;
 $$;
 revoke all on function public.rename_my_workspace(text) from public;
 grant execute on function public.rename_my_workspace(text) to authenticated;
+
+-- 7) Betreiber: Kunden (Arbeitsbereiche) sehen und freischalten --------------------------------------
+create or replace function public.is_operator() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.operators o where lower(o.email) = lower(coalesce(auth.jwt() ->> 'email', '')));
+$$;
+revoke all on function public.is_operator() from public;
+grant execute on function public.is_operator() to authenticated;
+
+-- Liste aller Arbeitsbereiche mit Admin, Mitgliederzahl und Freischaltung (nur Betreiber)
+create or replace function public.operator_workspaces() returns json
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not public.is_operator() then raise exception 'Nur für Betreiber.'; end if;
+  return (
+    select coalesce(json_agg(x order by x.active, x.created_at desc), '[]'::json)
+    from (
+      select w.id::text as id, w.name, w.active, w.note,
+             extract(epoch from w.created_at) * 1000 as created_at,
+             extract(epoch from w.activated_at) * 1000 as activated_at,
+             (select count(*) from public.memberships m where m.workspace_id = w.id and m.active) as members,
+             (select p.email from public.memberships m join public.profiles p on p.id = m.user_id
+               where m.workspace_id = w.id and m.role = 'admin' order by m.created_at limit 1) as admin_email,
+             (select p.name from public.memberships m join public.profiles p on p.id = m.user_id
+               where m.workspace_id = w.id and m.role = 'admin' order by m.created_at limit 1) as admin_name,
+             (select m.pkg from public.memberships m where m.workspace_id = w.id and m.role = 'admin' order by m.created_at limit 1) as pkg
+      from public.workspaces w
+    ) x
+  );
+end;
+$$;
+revoke all on function public.operator_workspaces() from public;
+grant execute on function public.operator_workspaces() to authenticated;
+
+-- Arbeitsbereich freischalten oder sperren (nur Betreiber)
+create or replace function public.operator_set_workspace(p_id uuid, p_active boolean, p_note text default null) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_operator() then raise exception 'Nur für Betreiber.'; end if;
+  update public.workspaces
+    set active = p_active,
+        activated_at = case when p_active then coalesce(activated_at, now()) else activated_at end,
+        note = coalesce(p_note, note)
+    where id = p_id;
+  if not found then raise exception 'Arbeitsbereich nicht gefunden.'; end if;
+end;
+$$;
+revoke all on function public.operator_set_workspace(uuid, boolean, text) from public;
+grant execute on function public.operator_set_workspace(uuid, boolean, text) to authenticated;

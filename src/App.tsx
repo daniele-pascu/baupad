@@ -17,6 +17,7 @@ import { FuturePage } from './site/pages/FuturePage';
 import { DeleteAccountPage, ImprintPage, NotFoundPage, PrivacyPage } from './site/pages/LegalPages';
 import './site/site.css';
 import { AccountPage, LoginPage, NewPasswordPage } from './pages/AccountPages';
+import { AccessPendingPage } from './pages/AccessPendingPage';
 import { ToolsPage } from './pages/ToolsPage';
 import { WorkersPage } from './pages/WorkersPage';
 import { ReportsPage } from './pages/ReportsPage';
@@ -36,7 +37,7 @@ import { connectPhotoCloud } from './lib/photo-cloud';
 import { remoteConnected } from './lib/remote';
 import { isNativeApp } from './lib/native';
 import { adoptFreeSites } from './lib/sites';
-import { canTool, ROUTE_TOOL } from './lib/access';
+import { canTool, isLocked, ROUTE_TOOL } from './lib/access';
 import { hasStoredSession, initAuth } from './lib/auth-init';
 
 initAuth();
@@ -103,6 +104,8 @@ function AuthGate({ route, children }: { route: string; children: ReactNode }) {
   // Werkzeug vom Admin nicht freigegeben → zurück zu den Tools
   const tool = ROUTE_TOOL[route];
   const forbidden = !!session && !!tool && !canTool(session, tool);
+  // Arbeitsbereich noch nicht freigeschaltet (Bestellung offen) → Hinweisseite; Konto bleibt erreichbar (Abmelden, Konto löschen)
+  const locked = !!session && isLocked(session) && route !== 'account';
   useEffect(() => {
     if (blocked) navigate(paths.login(), true);
     else if (forbidden) {
@@ -111,6 +114,7 @@ function AuthGate({ route, children }: { route: string; children: ReactNode }) {
     }
   }, [blocked, forbidden]);
   if (blocked || forbidden || (session === undefined && !stored)) return null;
+  if (locked) return <AccessPendingPage session={session!} />;
   return <>{children}</>;
 }
 

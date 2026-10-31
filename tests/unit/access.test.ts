@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { canSite, canTool, siteKeyOf } from '../../src/lib/access';
 import type { Session } from '../../src/lib/auth';
 
-const base: Session = { userId: 'u', email: 'a@b.at', name: 'A', role: 'arbeiter', companyId: 'w1', companyName: 'F', operator: false, phone: '', pkg: 'team', providers: [], tools: ['photos'], sites: ['p:1', 'n:garage'], toolSites: {} };
+const base: Session = { userId: 'u', email: 'a@b.at', name: 'A', role: 'arbeiter', companyId: 'w1', companyName: 'F', operator: false, phone: '', pkg: 'team', workspaceActive: true, providers: [], tools: ['photos'], sites: ['p:1', 'n:garage'], toolSites: {} };
 
 describe('Zugriff je Benutzer', () => {
   it('Arbeiter sieht nur freigegebene Werkzeuge und Baustellen', () => {

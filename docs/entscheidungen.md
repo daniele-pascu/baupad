@@ -15,6 +15,7 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - Konto löschen muss in der App möglich sein (Apple-Vorgabe bei Registrierung in der App).
 - Dienst: Supabase, Projekt „BauPad“ (angelegt 29.10.2026, Region West EU/Irland – EU, daher belassen). Fotos später: Hetzner Object Storage (EU).
 - Betreiber-Konten (Betreiber-Übersicht) werden in der Tabelle `operators` per E-Mail freigeschaltet.
+- **Freischaltung:** Neue Registrierungen haben keinen Zugang zu den Werkzeugen, bis der Betreiber die Firma nach der Bestellung freischaltet (Konto → Betreiber: Kunden freischalten). Gesperrte sehen eine Hinweisseite („im Aufbau, Zugang nach Bestellung“).
 
 ## Zugang (29.10.2026)
 - Alle Werkzeuge (Tools, Aufmaß, Arbeitereinteilung, Berichte, Fotos, Kamera, Konto) nur mit Anmeldung – im Browser und in der installierten App, auf jedem Gerät. Kein „ohne Konto weiter“.

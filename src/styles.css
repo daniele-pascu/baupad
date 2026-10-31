@@ -7611,3 +7611,42 @@ button.report-site-empty {
 
 
 
+
+/* Hinweisseite: Arbeitsbereich noch nicht freigeschaltet */
+.pending-card p {
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+.pending-actions {
+  margin-top: 18px;
+}
+
+/* Betreiber: Kunden freischalten */
+.operator-list {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.operator-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--line, #dde4ee);
+  border-radius: 10px;
+}
+.operator-row > div {
+  flex: 1 1 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.operator-row .operator-state {
+  font-weight: 600;
+}
+.operator-row.locked .operator-state {
+  color: var(--warn, #b45309);
+}

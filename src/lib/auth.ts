@@ -86,6 +86,8 @@ export interface Session {
   phone: string;
   /** Paket laut Mitgliedschaft (null ohne Arbeitsbereich) */
   pkg: PackageId | null;
+  /** Arbeitsbereich vom Betreiber freigeschaltet (nach Bestellung); false = Werkzeuge gesperrt, Hinweisseite */
+  workspaceActive: boolean;
   /** freigegebene Werkzeuge und Baustellen (leer = alle); Admin hat immer alles */
   tools: ToolId[];
   sites: string[];

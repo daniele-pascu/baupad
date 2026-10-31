@@ -18,6 +18,7 @@ import { confirmDialog, showError, toast } from '../components/ui';
 import { AppStorageSettings } from '../components/InstallApp';
 import { FormTemplatesSettings } from '../components/FormTemplates';
 import { usePageTitle } from '../lib/page-title';
+import { rpc } from '../lib/remote';
 
 /*
  * Anmelden und Registrieren: Google, Apple, Microsoft (Outlook) und E-Mail mit Passwort über Supabase
@@ -319,6 +320,11 @@ export function AccountPage() {
           )
         )}
 
+        {session?.operator && (
+          <Section title="Betreiber: Kunden freischalten" text="Alle registrierten Firmen – neue Arbeitsbereiche sind gesperrt, bis du sie nach der Bestellung freischaltest" open>
+            <OperatorWorkspaces />
+          </Section>
+        )}
         <Section title="Benutzer & Rollen" text="Wer in deiner Firma BauPad nutzt – Funktion, Werkzeuge und Baustellen je Benutzer" open>
           <UsersSettings />
         </Section>
@@ -352,6 +358,89 @@ export function AccountPage() {
         </div>
       </main>
       <SiteFooter />
+    </div>
+  );
+}
+
+/** Arbeitsbereich aus Sicht des Betreibers (Datenbankfunktion operator_workspaces) */
+interface OperatorWorkspace {
+  id: string;
+  name: string;
+  active: boolean;
+  note: string;
+  created_at: number;
+  activated_at: number | null;
+  members: number;
+  admin_email: string | null;
+  admin_name: string | null;
+  pkg: PackageId | null;
+}
+
+const fmtStamp = (ms: number | null) => (ms ? new Date(ms).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '');
+
+/** Betreiber: registrierte Firmen sehen, freischalten oder sperren */
+function OperatorWorkspaces() {
+  const [list, setList] = useState<OperatorWorkspace[] | null>(null);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState('');
+  const load = () =>
+    rpc<OperatorWorkspace[]>('operator_workspaces')
+      .then((l) => {
+        setList(l);
+        setError('');
+      })
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)));
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const toggle = async (w: OperatorWorkspace) => {
+    if (w.active && !(await confirmDialog({ title: 'Zugang sperren?', message: `„${w.name}“ verliert sofort den Zugang zu allen Werkzeugen. Die Daten bleiben erhalten.`, confirmLabel: 'Sperren', danger: true }))) return;
+    setBusy(w.id);
+    try {
+      await rpc('operator_set_workspace', { p_id: w.id, p_active: !w.active });
+      toast(w.active ? `„${w.name}“ gesperrt.` : `„${w.name}“ freigeschaltet.`, 'success');
+      await load();
+    } catch (e) {
+      showError(e, 'Das hat nicht geklappt');
+    } finally {
+      setBusy('');
+    }
+  };
+  if (error)
+    return (
+      <p className="error small" data-testid="operator-error">
+        {error.includes('operator_workspaces') ? 'Die Datenbankfunktionen fehlen noch – bitte docs/supabase/schema.sql im Supabase SQL Editor ausführen.' : error}
+      </p>
+    );
+  if (!list) return <p className="muted small">Lade …</p>;
+  const open = list.filter((w) => !w.active).length;
+  return (
+    <div data-testid="operator-workspaces">
+      <p className="small">
+        {list.length} {list.length === 1 ? 'Firma' : 'Firmen'} registriert{open ? `, ${open} ${open === 1 ? 'wartet' : 'warten'} auf Freischaltung` : ''}.
+      </p>
+      <ul className="operator-list">
+        {list.map((w) => (
+          <li key={w.id} className={`operator-row${w.active ? '' : ' locked'}`} data-testid="operator-row">
+            <div>
+              <strong>{w.name}</strong>
+              <span className="muted small">
+                {w.admin_name || '–'} · {w.admin_email || 'kein Admin'} · {w.members} {w.members === 1 ? 'Benutzer' : 'Benutzer'}
+                {w.pkg ? ` · Paket ${PACKAGES.find((p) => p.id === w.pkg)?.label ?? w.pkg}` : ''}
+              </span>
+              <span className="muted small">
+                registriert {fmtStamp(w.created_at)}
+                {w.active && w.activated_at ? ` · freigeschaltet ${fmtStamp(w.activated_at)}` : ''}
+              </span>
+            </div>
+            <span className="operator-state small">{w.active ? 'freigeschaltet' : 'gesperrt – wartet auf Freischaltung'}</span>
+            <button type="button" className={`btn btn-sm${w.active ? '' : ' btn-primary'}`} disabled={busy === w.id} onClick={() => void toggle(w)} data-testid="operator-toggle">
+              {w.active ? 'Sperren' : 'Freischalten'}
+            </button>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -577,8 +666,9 @@ function SubscriptionInfo({ session }: { session: Session | null | undefined }) 
         {session.companyName ? ` · Arbeitsbereich „${session.companyName}“` : ''}
       </p>
       <p className="muted small">
-        BauPad befindet sich in der Testphase. Pakete werden {session.role === 'admin' ? 'von dir als Admin' : 'vom Admin deiner Firma'} auf der Website verwaltet – Zahlung
-        per Karte, SEPA-Lastschrift oder Rechnung. Preise und Bestellung folgen; in der App gibt es keine Käufe.
+        {session.companyId && !session.workspaceActive && !session.operator ? 'Dein Arbeitsbereich ist noch nicht freigeschaltet – der Zugang zu den Werkzeugen wird von PAD Software nach der Bestellung aktiviert. ' : ''}
+        Pakete werden {session.role === 'admin' ? 'von dir als Admin' : 'vom Admin deiner Firma'} auf der Website verwaltet – Zahlung per Karte, SEPA-Lastschrift oder Rechnung.
+        Preise und Bestellung folgen; in der App gibt es keine Käufe.
       </p>
     </div>
   );

@@ -26,6 +26,9 @@ export const ROUTE_TOOL: Record<string, ToolId> = {
 
 const unrestricted = (s: Session | null | undefined) => !s || !s.companyId || s.role === 'admin' || s.operator;
 
+/** Arbeitsbereich noch nicht freigeschaltet (Bestellung offen) – Betreiber sind nie gesperrt */
+export const isLocked = (s: Session | null | undefined) => !!s && !!s.companyId && !s.workspaceActive && !s.operator;
+
 export function canTool(s: Session | null | undefined, tool: ToolId): boolean {
   if (unrestricted(s)) return true;
   return s!.tools.length === 0 || s!.tools.includes(tool);
