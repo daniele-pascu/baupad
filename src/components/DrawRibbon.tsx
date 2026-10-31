@@ -39,6 +39,7 @@ export function DrawRibbon({
   drawing,
   viewer,
   canUndo,
+  onProbeCancel,
   canRedo,
   onUndo,
   onRedo,
@@ -58,6 +59,8 @@ export function DrawRibbon({
   probeActive?: boolean;
   /** Messung mit der gewählten Messart starten */
   onProbe?(kind: ProbeKind): void;
+  /** laufende Messung beenden (anderes Werkzeug gewählt) */
+  onProbeCancel?(): void;
 }) {
   const [probeMenu, setProbeMenu] = useState(false);
   // anderes Werkzeug bzw. andere Registerkarte: Menü der Messung zu
@@ -77,12 +80,18 @@ export function DrawRibbon({
   const toolBtn = (id: DrawTool) => {
     const t = DRAW_TOOLS.find((x) => x.id === id)!;
     const needsSel = NEEDS_SELECTION.has(id) && !sel;
+    // nie zwei zugleich: während Messung (Menü oder laufend) leuchtet nur „Messung“
+    const lit = drawing.tool === id && !probeMenu && !probeActive;
     return (
       <button
         key={id}
         type="button"
-        className={`tool-btn${drawing.tool === id ? ' active' : ''}`}
-        onClick={() => drawing.setTool(id)}
+        className={`tool-btn${lit ? ' active' : ''}`}
+        onClick={() => {
+          setProbeMenu(false);
+          if (probeActive) onProbeCancel?.();
+          drawing.setTool(id);
+        }}
         aria-pressed={drawing.tool === id}
         disabled={needsSel}
         title={`${t.label} (${t.key.toUpperCase()})${needsSel ? ' – zuerst ein Objekt auswählen' : ''}`}
@@ -213,7 +222,7 @@ export function DrawRibbon({
             {onProbe && (
               <span className="probe-anchor" data-probe-toggle>
                 {btn('ribbon-probe', 'dimension', 'Messung', () => setProbeMenu(!probeMenu), {
-                  pressed: probeActive,
+                  pressed: probeActive || probeMenu,
                   title: 'Messung: Länge, Fläche, Winkel, Radius oder Abstand nachmessen – ändert nichts',
                 })}
                 {probeMenu && (

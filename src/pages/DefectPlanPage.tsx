@@ -52,6 +52,7 @@ function PlanCanvas({
   tool,
   color,
   zoomCmd,
+  cancelCmd,
   onZoom,
   onCreate,
   onSelect,
@@ -68,6 +69,8 @@ function PlanCanvas({
   color: string;
   /** Befehl von außen: Faktor (>1 vergrößern, <1 verkleinern) oder 0 = einpassen; Zähler, damit gleiche Befehle erneut wirken */
   zoomCmd: { n: number; factor: number };
+  /** Befehl von außen (Esc): angefangene Zeichnung verwerfen; Zähler */
+  cancelCmd: number;
   onZoom(scale: number): void;
   onCreate(shape: MarkShape, points: Pt[]): void;
   onSelect(id: string | null): void;
@@ -132,6 +135,12 @@ function PlanCanvas({
     setView(clamp({ s: 1, tx: 0, ty: 0 }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [size.w, size.h]);
+  useEffect(() => {
+    if (!cancelCmd) return;
+    setDraft(null);
+    gesture.current = null;
+    pointers.current.clear();
+  }, [cancelCmd]);
   useEffect(() => {
     if (!zoomCmd.n) return;
     if (zoomCmd.factor === 0) setView(clamp({ s: 1, tx: 0, ty: 0 }));
@@ -660,6 +669,7 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
   const [marks, setMarks] = useState<DefectMark[]>([]);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [tool, setTool] = useState<Tool>('select');
+  const [cancelCmd, setCancelCmd] = useState(0);
   const [color, setColor] = useState(MARK_COLORS[0]);
   const [kind, setKind] = useState<DefectKind>('mangel');
   const [zoom, setZoom] = useState(1);
@@ -761,7 +771,13 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
         e.preventDefault();
         const m = marks.find((x) => x.id === selected);
         if (m) void del(m);
-      } else if (e.key === 'Escape' && selected) setSelected(null);
+      } else if (e.key === 'Escape') {
+        // wie im Aufmaß: Esc beendet alles – angefangene Zeichnung, Auswahl – und schaltet auf „Auswahl“
+        e.preventDefault();
+        setCancelCmd((n) => n + 1);
+        setSelected(null);
+        setTool('select');
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -863,6 +879,7 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
                 tool={tool}
                 color={color}
                 zoomCmd={zoomCmd}
+                cancelCmd={cancelCmd}
                 onZoom={setZoom}
                 onCreate={(s, p) => void create(s, p)}
                 onSelect={setSelected}

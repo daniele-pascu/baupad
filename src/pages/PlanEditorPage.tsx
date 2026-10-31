@@ -560,6 +560,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         viewer.current?.cancelPolygon();
         setProbe(null);
         setProbeMenu(false);
+        setStylePopOpen(false);
         if (drawMode) {
           drawing.setSelectedId(null);
           drawing.setTool('select');
@@ -1510,6 +1511,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               onMeasure={() => switchMode('measure')}
               probeActive={!!probe}
               onProbe={startProbe}
+              onProbeCancel={() => setProbe(null)}
             />
           ) : (
           <div className={`toolbar${toolsOpen ? '' : ' toolbar-collapsed'}`} role="toolbar" aria-label="Werkzeuge">
@@ -1522,12 +1524,15 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 <button
                   key={t.id}
                   type="button"
-                  className={`tool-btn${tool === t.id ? ' active' : ''}`}
+                  // nie zwei zugleich: bei offenem Menü (Messung, Stil) leuchtet nur dessen Knopf
+                  className={`tool-btn${(t.id === 'probe' ? probeMenu || (tool === 'probe' && !stylePopOpen) : tool === t.id && !probeMenu && !stylePopOpen) ? ' active' : ''}`}
                   onClick={() => {
+                    setStylePopOpen(false);
                     if (t.id === 'probe') setProbeMenu(!probeMenu);
                     else {
-                      // anderes Werkzeug: Menü der Messung zu
+                      // anderes Werkzeug: Menü der Messung zu, laufende Messung beenden
                       setProbeMenu(false);
+                      setProbe(null);
                       setTool(t.id);
                     }
                   }}
@@ -1566,7 +1571,11 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               <button
                 type="button"
                 className={`tool-btn${stylePopOpen ? ' active' : ''}`}
-                onClick={() => setStylePopOpen(!stylePopOpen)}
+                onClick={() => {
+                  // Stil öffnen schließt das Menü der Messung (nie zwei zugleich)
+                  setProbeMenu(false);
+                  setStylePopOpen(!stylePopOpen);
+                }}
                 aria-expanded={stylePopOpen}
                 title="Darstellung neuer Messungen (Linientyp, Stärke, Füllung)"
                 data-testid="tool-style"

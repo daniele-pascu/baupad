@@ -269,3 +269,34 @@ test('Auswahlwerkzeug wie im Aufmaß: Griffe am Rechteck, Größe ziehen, Auswah
   await expect(page.getByTestId('dp-item')).toHaveCount(0);
   await expect(bar).toHaveCount(0);
 });
+
+test('Esc im Mängelplan wie im Aufmaß: angefangene Zeichnung verwerfen, Auswahl aufheben, zurück auf „Auswahl“', async ({ page }) => {
+  await freshStart(page);
+  await page.goto('./maengel');
+  await page.getByTestId('defect-upload').click();
+  const dlg = page.getByTestId('defect-plan-dialog');
+  await dlg.getByTestId('photo-site').selectOption('__new');
+  const sd = page.getByTestId('photo-site-dialog');
+  await sd.getByTestId('photo-site-name').fill('Esc-Baustelle');
+  await sd.getByTestId('photo-site-save').click();
+  await dlg.getByTestId('defect-plan-file').setInputFiles(join(FIXTURES, 'parkdeck.png'));
+  await dlg.getByTestId('defect-plan-save').click();
+  await expect(page.locator('[data-testid="dp-canvas"] img')).toBeVisible();
+  const box = (await page.locator('.dp-stage').boundingBox())!;
+  const at = (fx: number, fy: number) => ({ x: box.x + box.width * fx, y: box.y + box.height * fy });
+  await page.getByTestId('dp-tool-rect').click();
+  await expect(page.getByTestId('dp-tool-rect')).toHaveClass(/active/);
+  // Rechteck aufziehen, mitten im Ziehen Esc → nichts angelegt, Werkzeug wieder „Auswahl“
+  const a = at(0.3, 0.3);
+  const b = at(0.5, 0.5);
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move(b.x, b.y, { steps: 4 });
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+  await expect(page.getByTestId('dp-mark-dialog')).toHaveCount(0);
+  await expect(page.getByTestId('dp-item')).toHaveCount(0);
+  await expect(page.getByTestId('dp-tool-select')).toHaveClass(/active/);
+  await expect(page.getByTestId('dp-tool-rect')).not.toHaveClass(/active/);
+  await expect(page.getByTestId('dp-hint')).toHaveCount(0);
+});
