@@ -25,7 +25,7 @@ import { usePageTitle } from '../lib/page-title';
 type Tool = 'select' | MarkShape;
 type Pt = { x: number; y: number };
 
-const SHAPE_ICON: Record<MarkShape, string> = { pin: 'map', rect: 'rect', ellipse: 'ellipse', line: 'line', freehand: 'freehand', text: 'text' };
+const SHAPE_ICON: Record<MarkShape, string> = { pin: 'pin', rect: 'rect', ellipse: 'ellipse', line: 'line', freehand: 'freehand', text: 'text' };
 
 /** Pin als SVG-Pfad in Bildkoordinaten (Spitze am Punkt), Größe in Bildpixeln */
 function pinPath(x: number, y: number, s: number): string {

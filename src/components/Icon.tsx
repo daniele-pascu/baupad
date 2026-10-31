@@ -24,6 +24,8 @@ const PATHS: Record<string, string> = {
   undoView: 'M9 14L4 9l5-5M4 9h10a6 6 0 010 12h-3',
   table: 'M3 5h18v14H3zM3 10h18M3 15h18M9 5v14',
   map: 'M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14',
+  // Stecknadel (Pin im Mängelplan)
+  pin: 'M12 21s-7-6.4-7-11.5A7 7 0 0119 9.5C19 14.6 12 21 12 21zM12 12a2.5 2.5 0 100-5 2.5 2.5 0 000 5z',
   check: 'M5 12l5 5L20 7',
   pause: 'M9 5v14M15 5v14',
   play: 'M7 5l12 7-12 7z',
