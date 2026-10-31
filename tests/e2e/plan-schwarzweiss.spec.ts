@@ -68,11 +68,14 @@ for (const file of ['farbplan.pdf', 'farbplan.png']) {
     await page.reload();
     await waitForPlan(page);
     await expect(world).not.toHaveClass(/plan-gray/);
-    // Schalter oben in der Leiste: zurück auf schwarz-weiß (Ebenen-Menü zeigt dasselbe)
+    // Menü „Ansicht“ oben in der Leiste: zurück auf schwarz-weiß (Ebenen-Menü zeigt dasselbe)
+    await page.getByTestId('plan-view').click();
     await expect(page.getByTestId('plan-color-toggle')).toHaveText(/Farbig/);
     await page.getByTestId('plan-color-toggle').click();
     await expect(world).toHaveClass(/plan-gray/);
     await expect(page.getByTestId('plan-color-toggle')).toHaveText(/Schwarz-weiß/);
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('plan-view-pop')).toHaveCount(0);
     await page.getByTestId('layers-toggle').click();
     await expect(page.getByTestId('plan-color')).not.toBeChecked();
   });

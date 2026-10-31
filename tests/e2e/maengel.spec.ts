@@ -170,6 +170,39 @@ test('Plan aus PDF: beim starken Hineinzoomen wird der Ausschnitt scharf aus dem
   await expect(detail).toBeVisible({ timeout: 15_000 });
   const w = await detail.evaluate((c: HTMLCanvasElement) => c.width);
   expect(w).toBeGreaterThan(400);
+
+  // Deckblatt ohne Linien: Menü „Ansicht“ bietet keine Inhaltsfilter
+  await page.getByTestId('dp-view').click();
+  await expect(page.getByTestId('dp-view-pop')).toContainText('keine Vektorlinien');
+});
+
+test('Ansicht im Mängelplan: Farbe ausblenden → Grundbild gefiltert aus dem PDF, bleibt gespeichert, Zurücksetzen', async ({ page }) => {
+  await freshStart(page);
+  await page.goto('./maengel');
+  await page.getByTestId('defect-upload').click();
+  const dlg = page.getByTestId('defect-plan-dialog');
+  await dlg.getByTestId('photo-site').selectOption('__new');
+  const sd = page.getByTestId('photo-site-dialog');
+  await sd.getByTestId('photo-site-name').fill('Ansicht-Baustelle');
+  await sd.getByTestId('photo-site-save').click();
+  await dlg.getByTestId('defect-plan-file').setInputFiles(join(FIXTURES, 'farbplan.pdf'));
+  await dlg.getByTestId('defect-plan-save').click();
+  const img = page.locator('[data-testid="dp-canvas"] img');
+  await expect(img).toBeVisible();
+  const before = await img.getAttribute('src');
+  await page.getByTestId('dp-view').click();
+  const chips = page.getByTestId('dp-view-color');
+  await expect(chips).toHaveCount(2); // blaue Flächen, grüner Rahmen
+  await chips.first().click();
+  await expect.poll(() => img.getAttribute('src')).not.toBe(before); // gefiltertes Grundbild
+  await expect(page.getByTestId('dp-view')).toHaveClass(/btn-primary/);
+  await page.reload();
+  await expect(page.locator('[data-testid="dp-canvas"] img')).toBeVisible();
+  await page.getByTestId('dp-view').click();
+  await expect(page.getByTestId('dp-view-color').first()).toHaveAttribute('aria-pressed', 'false');
+  await page.getByTestId('dp-view-reset').click();
+  await expect(page.getByTestId('dp-view')).not.toHaveClass(/btn-primary/);
+  await expect(page.getByTestId('dp-view-color').first()).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('Foto am Mangel: Farbkästen groß, Foto antippen öffnet die Großansicht mit Zoom', async ({ page }) => {
@@ -315,13 +348,17 @@ test('Plan farbig oder schwarz-weiß: Schalter oben, bleibt gespeichert', async 
   const stage = page.locator('.dp-stage');
   await expect(stage).toBeVisible();
   await expect(stage).not.toHaveAttribute('data-gray', '');
+  await page.getByTestId('dp-view').click();
   await page.getByTestId('dp-plan-color').click();
   await expect(page.getByTestId('dp-plan-color')).toHaveText(/Schwarz-weiß/);
   await expect(stage).toHaveAttribute('data-gray', '');
   await page.reload();
   await expect(page.locator('.dp-stage')).toHaveAttribute('data-gray', '');
+  await page.getByTestId('dp-view').click();
   await page.getByTestId('dp-plan-color').click();
   await expect(page.getByTestId('dp-plan-color')).toHaveText(/Farbig/);
+  // Foto/PNG: keine Inhaltsfilter (kein Vektor-PDF)
+  await expect(page.getByTestId('dp-text')).toHaveCount(0);
 });
 
 test('Mängelliste am PC nach rechts einklappen und wieder ausklappen; bleibt gemerkt', async ({ page }) => {

@@ -30,6 +30,7 @@ import {
   type Point,
 } from './geometry';
 import { canvasToBlob, closePdf, clampRenderScale, imageToCanvas, loadImageBitmap, openPdf, pageViewport, renderPdfRegion, renderPdfToCanvas } from './pdf';
+import { viewActive } from './plan-view';
 import type { ProjectState } from './store';
 import { exportPaper, layoutSheet, planHeading, type OverviewCorner, type SheetLayout } from './sheet-layout';
 import { DEFAULT_TRANSPARENCY, fillOf, fillPaths, strokeGeometry } from './style';
@@ -166,8 +167,10 @@ async function addPlanPage(ctx: Ctx, data: ProjectState, plan: Plan) {
     }
     const libDoc = ctx.libDocs.get(file.id);
     const rot = plan.rotation ?? 0;
-    const full = withOverview ? await renderPdfToCanvas(jsPage, 900, null, rot) : null;
-    if (libDoc) {
+    const renderOpts = { view: plan.view, doc: jsDoc };
+    const full = withOverview ? await renderPdfToCanvas(jsPage, 900, null, rot, renderOpts) : null;
+    // gefilterte Ansicht (Ebenen/Inhalt): als Bild exportieren, die Originalseite enthielte alles
+    if (libDoc && !viewActive(plan.view)) {
       try {
         // Originalseite vektoriell einbetten: nur der Planbereich (BBox), skaliert und ggf. gedreht
         // auf die Planfläche des Blatts (Matrix aus der Ansichtstransformation von pdf.js)
@@ -206,7 +209,7 @@ async function addPlanPage(ctx: Ctx, data: ProjectState, plan: Plan) {
     // Bild-Export für nicht veränderbare PDFs: etwa 200 dpi auf dem Papier
     const scale = clampRenderScale(region.w, region.h, Math.max(1, (L.u * 200) / 72));
     const canvas = document.createElement('canvas');
-    await renderPdfRegion(jsPage, canvas, region, scale, rot).promise;
+    await renderPdfRegion(jsPage, canvas, region, scale, rot, renderOpts).promise;
     await addRasterSheet(ctx, plan, L, region, damages, canvas, full);
     return;
   }

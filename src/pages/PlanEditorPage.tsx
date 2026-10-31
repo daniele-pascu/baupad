@@ -12,6 +12,7 @@ import { confirmDialog, promptDialog, showError, toast } from '../components/ui'
 import { costCenterLabel, damagesOf, elementsOf, findPosition, lvDocLabel, lvDocsOf, plansOf, planTitle, positionRef, sumArea } from '../lib/aufmass';
 import { calibrationStatus, checkDeviation, checkError, formatCm, formatPercent, geometryMeasures, MAX_ERROR_M, planUnitsPerMeter } from '../lib/calibration';
 import { CalibrationReport } from '../components/CalibrationReport';
+import { ViewMenu } from '../components/ViewMenu';
 import { DimensionReview } from '../components/DimensionReview';
 import { ExcelExportDialog } from '../components/ExcelExportDialog';
 import { calibrationFrom, detectScale, sourceText } from '../lib/scale-detect';
@@ -1045,20 +1046,32 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           <button type="button" className="btn btn-sm" onClick={() => setDetailsOpen(true)} title="Planangaben">
             <Icon name="info" size={18} /> <span className="hide-sm">Angaben</span>
           </button>
-          {!drawingPlan && !drawMode && (
-            <button
-              type="button"
-              className="btn btn-sm"
-              onClick={() => {
+          {!drawingPlan && !drawMode && file && (
+            <ViewMenu
+              gray={!plan.planColor}
+              onGray={(gray) => {
                 const { planColor: _, ...rest } = data.plans[plan.id];
-                putRecord('plans', plan.planColor ? rest : { ...rest, planColor: true });
+                putRecord('plans', gray ? rest : { ...rest, planColor: true });
               }}
-              aria-pressed={!!plan.planColor}
-              title={plan.planColor ? 'Plan farbig – antippen für schwarz-weiß (Ansicht und PDF)' : 'Plan schwarz-weiß – antippen für farbig (Ansicht und PDF)'}
-              data-testid="plan-color-toggle"
-            >
-              <Icon name="layers" size={18} /> <span className="hide-sm">{plan.planColor ? 'Farbig' : 'Schwarz-weiß'}</span>
-            </button>
+              view={plan.view}
+              onView={(view) => {
+                const { view: _, ...rest } = data.plans[plan.id];
+                putRecord('plans', view ? { ...rest, view } : rest);
+              }}
+              analyze={
+                file.kind === 'pdf'
+                  ? async () => {
+                      const { getPdfDocument } = await import('../lib/pdf');
+                      const { analyzePlanPage } = await import('../lib/plan-view');
+                      const doc = await getPdfDocument(file.id);
+                      return analyzePlanPage(doc, await doc.getPage(plan.pageIndex + 1));
+                    }
+                  : null
+              }
+              analysisKey={`${file.id}:${plan.pageIndex}`}
+              prefix="plan"
+              colorTestId="plan-color-toggle"
+            />
           )}
           <button type="button" className="btn btn-sm" onClick={exportExcel} title="Aufmaß dieses Plans als Excel" data-testid="export-xlsx-plan">
             <Icon name="excel" size={18} /> <span className="hide-sm">Excel</span>
@@ -1225,6 +1238,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               ref={viewer}
               plan={plan}
               file={file}
+              view={plan.view}
               region={region}
               underlay={drawingPlan && region ? drawing.measureUnderlay(region) : undefined}
               bounds={markerBounds}

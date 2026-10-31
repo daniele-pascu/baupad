@@ -1,5 +1,6 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { PDFPageProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { viewKey, type PlanView } from '../lib/plan-view';
 import {
   HANDLES,
   fitView,
@@ -148,6 +149,8 @@ interface Props {
   onPlace(p: Point): void;
   /** Nummernschilder der Objekte anzeigen (Standard: ja) */
   showLabels?: boolean;
+  /** Ansicht der Planunterlage (PDF-Ebenen, Inhaltsfilter) */
+  view?: PlanView | null;
   /** Eigene Darstellung eines Objekts (undefined = Standard-Markierung) */
   renderItem?(item: ViewerItem, view: View, selected: boolean): ReactNode | undefined;
   /** Zusätzliche Ebene unter bzw. über den Objekten (Bildschirmkoordinaten) */
@@ -338,7 +341,9 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   }, [view, size, plan.id, plan.projectId, fitScale]);
 
   // Quelle laden (PDF-Seite oder Bild)
-  const source = useRef<{ page?: PDFPageProxy; bitmap?: ImageBitmap } | null>(null);
+  const source = useRef<{ page?: PDFPageProxy; doc?: PDFDocumentProxy; bitmap?: ImageBitmap } | null>(null);
+  const planView = props.view ?? null;
+  const planViewKey = viewKey(planView);
   const baseScale = useRef(1);
   const fileId = file?.id ?? null;
   const fileKind = file?.kind;
@@ -362,9 +367,9 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         const doc = await getPdfDocument(fileId);
         const page = await doc.getPage(plan.pageIndex + 1);
         if (cancelled) return;
-        source.current = { page };
+        source.current = { page, doc };
         baseScale.current = k;
-        job = renderPdfRegion(page, canvas, region, k, rot);
+        job = renderPdfRegion(page, canvas, region, k, rot, { view: planView, doc });
         await job.promise;
       } else {
         const bitmap = await getImageBitmap(fileId, fileMime);
@@ -391,7 +396,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       cancelled = true;
       job?.cancel();
     };
-  }, [fileId, fileKind, fileMime, plan.pageIndex, region, rot]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fileId, fileKind, fileMime, plan.pageIndex, region, rot, planViewKey]);
 
   // Detailebene nachrendern, wenn stark hineingezoomt ist
   useEffect(() => {
@@ -417,7 +423,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       const canvas = document.createElement('canvas');
       const src = source.current;
       if (src?.page) {
-        job = renderPdfRegion(src.page, canvas, r, s, rot);
+        job = renderPdfRegion(src.page, canvas, r, s, rot, { view: planView, doc: src.doc });
         job.promise
           .then(() => {
             if (cancelled) return;
@@ -445,7 +451,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       clearTimeout(t);
       job?.cancel();
     };
-  }, [view, size, status, region, fileId, rot]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, size, status, region, fileId, rot, planViewKey]);
 
   // ---------------------------------------------------------------------------
   // Ansicht steuern

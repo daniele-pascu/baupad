@@ -3242,6 +3242,66 @@ tr.lv-flagged td {
 .layer-pop p {
   margin: 6px 0 0;
 }
+/* Menü „Ansicht“ in der Kopfleiste (Aufmaß, Mängelplan) */
+.view-menu {
+  position: relative;
+}
+.view-pop {
+  right: 0;
+  top: calc(100% + 8px);
+  width: min(320px, calc(100vw - 32px));
+  max-height: min(70vh, 640px);
+  overflow: auto;
+}
+.view-pop .pop-title {
+  margin-top: 10px;
+}
+.view-pop .pop-title:first-child {
+  margin-top: 0;
+}
+.view-layers {
+  max-height: 240px;
+  overflow: auto;
+}
+.view-layer-head {
+  padding: 6px 0 2px;
+}
+.view-width {
+  margin: 6px 0;
+}
+.view-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0;
+}
+.view-color {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px 3px 3px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 999px;
+  background: #fff;
+  cursor: pointer;
+}
+.view-color.hidden {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+.view-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.16);
+  background: repeating-linear-gradient(45deg, #888 0 2px, #fff 2px 5px);
+  font-size: 12px;
+  line-height: 20px;
+  text-align: center;
+}
+.view-pop > .btn {
+  margin-top: 6px;
+}
 
 /* Feinschliff Smartphone: Reiter einzeilig, Aktionsknöpfe gleich breit */
 @media (max-width: 600px) {

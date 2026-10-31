@@ -3,6 +3,7 @@ import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist/legacy/build/pdf
 import workerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url';
 import { getBlob } from './db';
 import type { PlanRotation, Rect } from './types';
+import { layerConfig, renderFiltered, viewActive, viewFilters, type PlanView } from './plan-view';
 
 /*
  * PDF-Darstellung mit pdf.js. Es wird der „legacy“-Build verwendet, damit auch ältere
@@ -99,12 +100,19 @@ export interface RenderJob {
  * Rendert den Ausschnitt `region` (Seitenkoordinaten) einer PDF-Seite mit `scale`
  * Pixeln pro Seiteneinheit in das Canvas.
  */
+/** Ansicht (Filter/PDF-Ebenen) beim Zeichnen; `doc` wird für die Ebenen gebraucht */
+export interface RenderOpts {
+  view?: PlanView | null;
+  doc?: PDFDocumentProxy | null;
+}
+
 export function renderPdfRegion(
   page: PDFPageProxy,
   canvas: HTMLCanvasElement,
   region: Rect,
   scale: number,
   rot: PlanRotation = 0,
+  opts: RenderOpts = {},
 ): RenderJob {
   const width = Math.max(1, Math.round(region.w * scale));
   const height = Math.max(1, Math.round(region.h * scale));
@@ -114,6 +122,26 @@ export function renderPdfRegion(
   const ctx = canvas.getContext('2d', { alpha: false })!;
   ctx.fillStyle = '#fff';
   ctx.fillRect(0, 0, width, height);
+  const view = opts.view;
+  if (view && viewActive(view)) {
+    // gefilterte Ansicht: eigenes Zeichnen; nur Ebenen: pdf.js mit Ebenen-Konfiguration
+    let cancelled = false;
+    const promise = (async () => {
+      const occ = opts.doc ? await layerConfig(opts.doc, view.hideLayers) : null;
+      if (cancelled) return;
+      if (viewFilters(view)) await renderFiltered(page, canvas, viewport, view, occ);
+      else await page.render({ canvas, canvasContext: ctx, viewport, background: '#ffffff', optionalContentConfigPromise: Promise.resolve(occ ?? undefined) as never }).promise;
+    })().catch((e: unknown) => {
+      if ((e as { name?: string })?.name === 'RenderingCancelledException') return;
+      throw e;
+    });
+    return {
+      promise,
+      cancel: () => {
+        cancelled = true;
+      },
+    };
+  }
   const task = page.render({ canvas, canvasContext: ctx, viewport, background: '#ffffff' });
   return {
     promise: task.promise.catch((e: unknown) => {
@@ -130,12 +158,13 @@ export async function renderPdfToCanvas(
   maxSide: number,
   region?: Rect | null,
   rot: PlanRotation = 0,
+  opts: RenderOpts = {},
 ): Promise<HTMLCanvasElement> {
   const size = pageSize(page, rot);
   const r = region ?? { x: 0, y: 0, w: size.width, h: size.height };
   const scale = clampRenderScale(r.w, r.h, maxSide / Math.max(r.w, r.h));
   const canvas = document.createElement('canvas');
-  await renderPdfRegion(page, canvas, r, scale, rot).promise;
+  await renderPdfRegion(page, canvas, r, scale, rot, opts).promise;
   return canvas;
 }
 
