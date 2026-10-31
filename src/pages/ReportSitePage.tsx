@@ -16,6 +16,7 @@ import { usePageTitle } from '../lib/page-title';
 import { PhotoSiteDialog } from '../components/PhotoSitePicker';
 import { canEditSites, siteKeyOfSite, updateSiteEverywhere } from '../lib/sites';
 import { useSession } from '../lib/use-session';
+import { useDataChanged } from '../lib/data-events';
 
 const TYPE_ORDER: ReportType[] = ['regie', 'tag', 'woche'];
 
@@ -61,6 +62,7 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
   useEffect(() => {
     void reload();
   }, [key]);
+  useDataChanged(() => void reload());
 
   const byType = useMemo(() => {
     const m: Record<ReportType, Report[]> = { regie: [], tag: [], woche: [] };

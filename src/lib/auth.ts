@@ -185,3 +185,13 @@ export const setAuthBackend = (b: AuthBackend) => {
 export const authConnected = () => backend.connected;
 
 export const isEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s.trim());
+
+/**
+ * Kurzname für die Kopfzeile: erster Vorname abgekürzt + Nachname („Andrea Daniele Pascu“ → „A. Pascu“).
+ * Ein einzelnes Wort bleibt wie es ist.
+ */
+export function shortName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length < 2) return parts[0] ?? '';
+  return `${parts[0][0].toUpperCase()}. ${parts[parts.length - 1]}`;
+}

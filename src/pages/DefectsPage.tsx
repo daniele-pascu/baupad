@@ -17,6 +17,7 @@ import { useCanCreateProjects } from '../lib/sites';
 import { photoSiteKey } from '../lib/photos';
 import { ProjectHeading } from '../components/ProjectHeading';
 import { usedIn } from '../lib/crew-link';
+import { useDataChanged } from '../lib/data-events';
 
 export const DEFECT_ACCENT = { '--tool': '#d6242b' } as CSSProperties;
 
@@ -46,6 +47,7 @@ export function DefectsPage() {
     if (access.ready) void reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [access.ready, access.session]);
+  useDataChanged(() => void reload());
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();

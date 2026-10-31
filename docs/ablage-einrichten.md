@@ -1,7 +1,8 @@
 # Zentrale Ablage einrichten (Hetzner Object Storage + Supabase-Funktion „storage“)
 
-Fotos (später auch Pläne und Berichte) liegen damit nicht mehr nur auf dem Gerät, sondern in einer Ablage,
-auf die alle Geräte einer Firma zugreifen. Speicherort: Hetzner Object Storage, Nürnberg (Deutschland).
+Alle Daten der Werkzeuge (Projekte, Pläne, Aufmaße, Berichte, Einteilung, Mängelpläne, Firmenformulare) und die
+Dateien dazu (Originalpläne, Planbilder, Formular-PDFs, Fotos) liegen damit nicht mehr nur auf dem Gerät, sondern
+in einer Ablage, auf die alle Geräte einer Firma zugreifen. Speicherort: Hetzner Object Storage, Nürnberg (Deutschland).
 Kosten: etwa 6 € pro Monat für 1 TB Speicher und 1 TB Datenverkehr.
 
 So funktioniert es: Die App fragt bei der Supabase-Funktion `storage` nach einem kurzlebigen, signierten Link
@@ -13,8 +14,11 @@ der Fotos (Projekt, Datum, Beschreibung) steht in der Tabelle `photos` in Supaba
 - Hetzner-Konto (office@pad-software.at), Projekt „BauPad“, Bucket `baupad-dateien` in Nürnberg, privat.
 - S3-Zugangsdaten erzeugt (Access Key, Secret Key) – liegen beim Betreiber, nie im Code.
 
-## 1. Tabelle anlegen (1 Minute)
+## 1. Tabellen anlegen (1 Minute)
 Supabase → SQL Editor → New query → Inhalt von `docs/supabase/storage.sql` einfügen → Run.
+Legt `photos` (Verzeichnis der Fotos) und `records` (Datensätze aller Werkzeuge) an. **Nach dem 31.10.2026 einmal erneut
+ausführen** (Tabelle `records` ist neu) und die Funktion `storage` neu veröffentlichen (Schritt 2, neue Aktionen
+`records-upsert`/`records-pull` und Dateischlüssel `files/…`).
 
 ## 2. Funktion veröffentlichen (erledigt 30.10.2026)
 Supabase → Edge Functions → „Deploy a new function“ → „Via Editor“:
@@ -45,6 +49,16 @@ Secrets (Edge Functions → Secrets):
    unter `ws/<Arbeitsbereich>/photos/…`. Auf einem zweiten Gerät mit derselben Firma anmelden: das Foto ist da.
 
 ## Verhalten in der App
+- **Alle Daten:** Jede Änderung (Projekt, Plan, Messung, Bericht, Woche, Arbeiter, Mängelplan, Formular, Firmeneinstellung)
+  wird zuerst auf dem Gerät gespeichert und in die Warteschlange gestellt; mit Verbindung geht sie innerhalb weniger
+  Sekunden in die Ablage (Dateien zuerst, dann die Angaben). Ohne Netz bleibt sie in der Warteschlange und wird bei der
+  nächsten Verbindung übertragen (Konto → App und Speicher zeigt „n Änderungen warten auf Upload“).
+- **Andere Geräte:** holen Änderungen beim Start, beim Wiederverbinden, beim Zurückkehren in die App und alle 5 Minuten;
+  Listen aktualisieren sich von selbst. Beispiel: am iPad auf der Baustelle Aufmaß erfassen, im Büro am PC anmelden –
+  Projekt und Plan sind da; die Originaldatei des Plans wird beim ersten Öffnen nachgeladen.
+- **Konflikte:** Lokale, noch nicht übertragene Änderungen gewinnen; sonst gilt die zuletzt übertragene Änderung
+  (je Datensatz). Löschen gilt für alle Geräte.
+- **Erste Anbindung eines Geräts:** Alles, was schon auf dem Gerät ist, wird einmalig in die Ablage übernommen.
 - Fotos werden weiterhin zuerst auf dem Gerät gespeichert (offline-fähig) und dann hochgeladen
   (Status: wartet auf Upload → wird hochgeladen → zentral gespeichert; bei Fehler: Upload fehlgeschlagen, erneuter Versuch).
 - Beim Start, beim Wiederverbinden und alle paar Minuten gleicht die App das Verzeichnis ab; Bilder anderer
@@ -59,5 +73,6 @@ Secrets (Edge Functions → Secrets):
   Mit Hetzner ist ein Auftragsverarbeitungsvertrag (AVV) abzuschließen: Hetzner-Konto → „Auftragsverarbeitung“ (ist dort elektronisch möglich).
 
 ## Später
-- Pläne, Berichte, Projekte über dieselbe Funktion (Präfixe `plans/`, `reports/` …).
-- Aufräumen gelöschter Dateien, Speicherübersicht je Firma in der Betreiber-Ansicht.
+- Aufräumen gelöschter Dateien (Originalpläne gelöschter Projekte bleiben vorerst bei Hetzner), Speicherübersicht je
+  Firma in der Betreiber-Ansicht (die Anzeige unter Konto zählt nur Fotos).
+- Vorab-Download aller Dateien eines Projekts fürs Arbeiten ohne Netz („Projekt aufs Gerät holen“).

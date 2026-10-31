@@ -58,6 +58,7 @@ import { uuid } from '../lib/ids';
 import { navigate, paths } from '../lib/router';
 import type { Absence, PhotoSite, Project, WeekPlan, WeekSite, Worker, WorkTimes } from '../lib/types';
 import { usePageTitle } from '../lib/page-title';
+import { useDataChanged } from '../lib/data-events';
 
 const WEEKDAYS = [0, 1, 2, 3, 4];
 const ACCENT = { '--tool': '#2f80ed' } as CSSProperties;
@@ -102,8 +103,8 @@ export function WorkersPage() {
     | null
   >(null);
 
-  useEffect(() => {
-    void Promise.all([listWorkers(), getMeta<WorkTimes>('workTimes'), listProjects(), getMeta<string>('companyName'), getMeta<boolean>('pdfShowTimes')])
+  const loadBase = () =>
+    Promise.all([listWorkers(), getMeta<WorkTimes>('workTimes'), listProjects(), getMeta<string>('companyName'), getMeta<boolean>('pdfShowTimes')])
       .then(([w, t, p, c, pt]) => {
         setPdfTimes(pt !== false);
         setWorkers(w);
@@ -112,7 +113,15 @@ export function WorkersPage() {
         setCompany(c ?? '');
       })
       .catch((e) => showError(e, 'Arbeitereinteilung konnte nicht geladen werden'));
+  useEffect(() => {
+    void loadBase();
   }, []);
+  // Abgleich mit der Ablage: Arbeiter, Projekte und die angezeigte Woche neu laden (nicht während ein Fenster offen ist)
+  useDataChanged(() => {
+    if (dialog) return;
+    void loadBase();
+    setReloadKey((k) => k + 1);
+  });
 
   useEffect(() => {
     let off = false;

@@ -14,6 +14,7 @@ import type { DefectMark, DefectPlan, PhotoSite } from '../lib/types';
 import { DEFECT_ACCENT } from './DefectsPage';
 import { loadPhotoSites } from './PhotosPage';
 import { usePageTitle } from '../lib/page-title';
+import { useDataChanged } from '../lib/data-events';
 
 /** Vorschaubild eines Plans (aus der Datenbank, als Objekt-URL) */
 export function usePlanThumb(id: string, kind: 'thumb' | 'data' = 'thumb'): string | null {
@@ -99,6 +100,7 @@ export function DefectSitePage({ siteKey }: { siteKey: string }) {
     void reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [siteKey]);
+  useDataChanged(() => void reload());
 
   const byPlan = useMemo(() => {
     const m = new Map<string, DefectMark[]>();

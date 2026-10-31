@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { paths, usePath } from '../lib/router';
 import { useSession } from '../lib/use-session';
+import { shortName } from '../lib/auth';
 
 /**
  * Schwarze Navigationsleiste der öffentlichen Seiten und von Aufmaß & Abrechnung.
@@ -37,7 +38,7 @@ export function SiteNav() {
         <div className="site-actions">
           {session ? (
             <a href={paths.account()} className="site-login" aria-current={current(paths.account())} data-testid="nav-account" title={session.email}>
-              {session.name ? session.name.split(' ')[0] : 'Konto'}
+              {session.name ? shortName(session.name) : 'Konto'}
             </a>
           ) : (
             <a href={paths.login()} className="site-login" aria-current={current(paths.login())}>

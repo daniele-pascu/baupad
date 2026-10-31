@@ -82,12 +82,13 @@ describe('PDF der Arbeitereinteilung', () => {
     expect(t).toContain('(Fortsetzung)');
   });
 
-  it('Tagesliste einer Baustelle: A4 hoch, Datum, Arbeiter mit Tätigkeit und Telefon', async () => {
+  it('Tagesliste einer Baustelle: A4 hoch, Datum, Arbeiter mit Telefon (Funktion steht nie auf dem PDF)', async () => {
     const w = week();
     const f = await crewDayPdf(w, w.sites[0].id, 0, workers, DEFAULT_WORK_TIMES, { company: 'Muster Bau GmbH' });
     expect(await sizes(f.data)).toEqual([{ width: 595.28, height: 841.89 }]); // A4 hoch
     if (!hasPoppler) return;
     const t = text(f.data, 'tag.pdf');
-    for (const s of ['Tagesliste Montag, 26.10.2026', 'Neubau Musterstraße', 'Arbeitszeit: 07:00–16:00 Uhr', 'Max Muster', 'Polier', '0664 123', '2 Arbeiter eingeteilt']) expect(t).toContain(s);
+    for (const s of ['Tagesliste Montag, 26.10.2026', 'Neubau Musterstraße', 'Arbeitszeit: 07:00–16:00 Uhr', 'Max Muster', '0664 123', '2 Arbeiter eingeteilt']) expect(t).toContain(s);
+    expect(t).not.toContain('Polier');
   });
 });

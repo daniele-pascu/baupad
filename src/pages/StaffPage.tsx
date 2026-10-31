@@ -11,6 +11,7 @@ import { navigate, paths } from '../lib/router';
 import type { Absence, Worker, WorkerGrade } from '../lib/types';
 import { usePageTitle } from '../lib/page-title';
 import { AbsenceDialog } from './WorkersPage';
+import { useDataChanged } from '../lib/data-events';
 
 type Sort = 'name' | 'grade';
 type Form = { firstName: string; lastName: string; staffNo: string; phone: string; role: string; grade: string };
@@ -30,15 +31,18 @@ export function StaffPage() {
   const [open, setOpen] = useState<string | null>(null);
   const [dialog, setDialog] = useState<{ kind: 'new' } | { kind: 'edit'; worker: Worker } | { kind: 'absence'; worker: Worker; type: Absence['kind'] } | null>(null);
 
-  useEffect(() => {
-    void Promise.all([listWorkers(), getMeta<Sort>('staffSort'), getMeta<Absence[]>('absences')])
+  const load = () =>
+    Promise.all([listWorkers(), getMeta<Sort>('staffSort'), getMeta<Absence[]>('absences')])
       .then(([w, s, a]) => {
         setWorkers(w);
         setAbsences(a ?? []);
         if (s === 'grade' || s === 'name') setSort(s);
       })
       .catch((e) => showError(e, 'Personalliste konnte nicht geladen werden'));
+  useEffect(() => {
+    void load();
   }, []);
+  useDataChanged(() => void load());
   // Escape = zurück zur Einteilung (wenn kein Fenster offen ist)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

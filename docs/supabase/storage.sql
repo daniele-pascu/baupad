@@ -48,3 +48,31 @@ language sql stable security definer set search_path = public as $$
 $$;
 revoke all on function public.my_storage_usage() from public;
 grant execute on function public.my_storage_usage() to authenticated;
+
+-- Datensätze aller Werkzeuge (Projekte, Kostenstellen, Pläne, Messungen, Zeichnungen, LV, Arbeiter, Wochen, Berichte,
+-- Mängelpläne und Markierungen, Firmenformulare, Firmeneinstellungen) – ein Eintrag je Datensatz, Angaben als JSON.
+-- Die Dateien dazu (Originalpläne, Planbilder, Formular-PDFs) liegen bei Hetzner unter ws/<workspace_id>/files/<id>/….
+create table if not exists public.records (
+  store text not null,
+  id text not null,
+  workspace_id uuid not null references public.workspaces(id) on delete cascade,
+  data jsonb not null,
+  rev integer not null default 0,
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz,
+  created_by uuid default auth.uid(),
+  primary key (store, id)
+);
+create index if not exists records_ws_updated on public.records (workspace_id, updated_at, id);
+
+alter table public.records enable row level security;
+
+drop policy if exists "Mitglieder lesen Datensätze" on public.records;
+create policy "Mitglieder lesen Datensätze" on public.records for select using (public.is_member(workspace_id));
+drop policy if exists "Mitglieder schreiben Datensätze" on public.records;
+create policy "Mitglieder schreiben Datensätze" on public.records for insert with check (public.is_member(workspace_id));
+drop policy if exists "Mitglieder ändern Datensätze" on public.records;
+create policy "Mitglieder ändern Datensätze" on public.records for update using (public.is_member(workspace_id)) with check (public.is_member(workspace_id));
+
+drop trigger if exists records_touch on public.records;
+create trigger records_touch before insert or update on public.records for each row execute function public.touch_updated_at();

@@ -3,6 +3,7 @@ import { cloudCall, CloudError, type FetchLike } from './cloud';
 import { deletePhotoBlob, deletePhotoCompletely, getMeta, getPhoto, getPhotoBlob, listAllPhotos, listPhotos, putPhotoBlob, savePhoto, setMeta } from './db';
 import { getPhotoStorage, LocalPhotoStorage, notifyPhotosChanged, type PhotoBlobs, type PhotoStorage, setPhotoStorage } from './photo-storage';
 import type { Photo } from './types';
+import { connectDataSync, disconnectDataSync, syncData } from './data-sync';
 
 /**
  * Cloud-Adapter der Fotodokumentation: Das Gerät bleibt Zwischenspeicher (offline-fähig), jede Änderung
@@ -336,12 +337,15 @@ export async function connectPhotoCloud(companyId: string | null | undefined, fe
   setPhotoStorage(storage);
   storage.start();
   await storage.adoptLocal();
+  // dieselbe Ablage für Projekte, Pläne, Berichte, Einteilung, Mängelpläne, Formulare
+  await connectDataSync(companyId, fetchFn).catch(() => {});
   notifyPhotosChanged(); // Seiten, die vor der Anbindung geladen haben, holen Bilder jetzt aus der Ablage
   setState({ status: known ? state.status === 'connecting' ? 'ready' : state.status : 'ready' });
   void storage.sync().catch(() => {});
 }
 
 export function disconnectPhotoCloud() {
+  disconnectDataSync();
   if (active) {
     active.stop();
     active = null;
@@ -354,6 +358,7 @@ export function disconnectPhotoCloud() {
 export async function syncPhotoCloud(): Promise<void> {
   if (!active) throw new CloudError(0, 'off', 'Die zentrale Ablage ist nicht angebunden.');
   await active.sync();
+  await syncData();
 }
 
 /** Ablage erneut anbinden (z. B. nach dem Einrichten) – wirft, wenn die Verbindung nicht zustande kommt */

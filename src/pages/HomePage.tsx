@@ -16,6 +16,7 @@ import { useAccess } from '../lib/access';
 import { useCanCreateProjects } from '../lib/sites';
 import { linkSitesToProject, usedIn } from '../lib/crew-link';
 import type { Project } from '../lib/types';
+import { useDataChanged } from '../lib/data-events';
 
 interface Row {
   project: Project;
@@ -117,6 +118,7 @@ export function HomePage() {
       .then((v) => setUpgraded(!!v))
       .catch(() => {});
   }, []);
+  useDataChanged(() => void load());
 
 
   const rename = async (p: Project) => {

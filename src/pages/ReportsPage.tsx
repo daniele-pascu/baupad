@@ -20,6 +20,7 @@ import { useCanCreateProjects, useProjectIn } from '../lib/sites';
 import { ProjectPicker } from '../components/ProjectPicker';
 import { listFormTemplates } from '../lib/db';
 import type { FormTemplate } from '../lib/form-template';
+import { useDataChanged } from '../lib/data-events';
 
 export const ACCENT = { '--tool': '#a259ff' } as CSSProperties;
 
@@ -78,6 +79,7 @@ export function ReportsPage() {
   useEffect(() => {
     void reload();
   }, []);
+  useDataChanged(() => void reload());
 
   const q = query.trim().toLowerCase();
   const cards = useMemo(() => {

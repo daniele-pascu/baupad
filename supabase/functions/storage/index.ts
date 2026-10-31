@@ -4,8 +4,11 @@
 //
 // Aktionen (POST, JSON { action, ... }):
 //   presign     { items: [{ key, method: 'GET'|'PUT'|'HEAD', contentType? }] }  → kurzlebige Links
+//               (Schlüssel photos/<id>/… für Fotos, files/<id>/… für Originalpläne, Planbilder, Formular-PDFs)
 //   upsert      { photos: [{ id, data, size, has_original, uploaded, deleted_at? }] } → Verzeichnis schreiben
 //   pull        { since: ISO-Zeit | null }                                          → geänderte Einträge seit …
+//   records-upsert { records: [{ store, id, data, rev, deleted_at? }] }            → Datensätze aller Werkzeuge (Tabelle records)
+//   records-pull   { since: ISO-Zeit | null, after: id }                           → Datensätze seit Cursor (Zeit + Kennung), 500 je Seite
 //   delete      { keys: [...] }                                                     → Dateien löschen (Server)
 //   usage       {}                                                                  → Anzahl und Bytes
 //   status      {}  (nur Betreiber)  → prüft Zugangsdaten gegen den Bucket
@@ -179,7 +182,8 @@ async function rest(token: string, path: string, init: RequestInit & { prefer?: 
   return text ? JSON.parse(text) : null;
 }
 
-const KEY_RE = /^photos\/[A-Za-z0-9_-]{4,64}\/(data|thumb|original)\.jpg$/;
+const KEY_RE = /^(photos\/[A-Za-z0-9_-]{4,64}\/(data|thumb|original)\.jpg|files\/[A-Za-z0-9_-]{4,64}\/(data\.bin|data\.jpg|thumb\.jpg|pdf\.pdf))$/;
+const STORES = ['projects', 'costCenters', 'files', 'plans', 'damages', 'components', 'elements', 'lvDocs', 'workers', 'weeks', 'reports', 'defectPlans', 'defectMarks', 'formTemplates', 'meta'];
 
 Deno.serve(async (req: Request) => {
   const origin = req.headers.get('origin');
@@ -253,6 +257,32 @@ Deno.serve(async (req: Request) => {
       const since = typeof body.since === 'string' && body.since ? body.since : '1970-01-01T00:00:00Z';
       const rows = (await rest(ctx.token, `photos?workspace_id=eq.${ctx.ws}&updated_at=gt.${encodeURIComponent(since)}&order=updated_at.asc&limit=500`)) as Record<string, unknown>[];
       return json(200, { photos: rows, now: new Date().toISOString() }, origin);
+    }
+
+    if (action === 'records-upsert') {
+      const list = Array.isArray(body.records) ? (body.records as Record<string, unknown>[]) : [];
+      if (!list.length || list.length > 200) return json(422, { error: 'records' }, origin);
+      for (const r of list) if (!STORES.includes(String(r.store)) || !/^[A-Za-z0-9_:.-]{1,80}$/.test(String(r.id))) return json(422, { error: 'record' }, origin);
+      const rows = list.map((r) => ({
+        store: String(r.store),
+        id: String(r.id),
+        workspace_id: ctx.ws,
+        data: r.data ?? {},
+        rev: Number(r.rev ?? 0),
+        deleted_at: r.deleted_at ? new Date(Number(r.deleted_at)).toISOString() : null,
+      }));
+      await rest(ctx.token, 'records?on_conflict=store,id', { method: 'POST', body: JSON.stringify(rows), prefer: 'resolution=merge-duplicates,return=minimal' });
+      return json(200, { ok: true }, origin);
+    }
+
+    if (action === 'records-pull') {
+      // Cursor (updated_at, id): gleiche Zeitstempel (ein Upsert setzt sie für die ganze Gruppe) gehen nicht verloren
+      const since = typeof body.since === 'string' && body.since ? body.since : '1970-01-01T00:00:00Z';
+      const after = typeof body.after === 'string' ? body.after : '';
+      const t = encodeURIComponent(since);
+      const filter = `or=(updated_at.gt.${t},and(updated_at.eq.${t},id.gt."${encodeURIComponent(after)}"))`;
+      const rows = (await rest(ctx.token, `records?workspace_id=eq.${ctx.ws}&${filter}&order=updated_at.asc,id.asc&limit=500`)) as Record<string, unknown>[];
+      return json(200, { records: rows }, origin);
     }
 
     if (action === 'delete') {

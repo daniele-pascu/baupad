@@ -1,5 +1,5 @@
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
-import { deleteProjectCompletely, getBlob, getDB, getMeta, loadProjectData, setMeta } from './db';
+import { deleteProjectCompletely, getBlob, getDB, getMeta, loadProjectData, notifyLocalChange, outboxEntry, setMeta } from './db';
 import { getDeviceId, uuid } from './ids';
 import { safeFileName, type ExportFile } from './aufmass';
 import { todayIso } from './numbers';
@@ -143,25 +143,37 @@ export async function importProjectBackup(content: BackupContent, mode: 'replace
     await deleteProjectCompletely(project.id);
   }
   const db = await getDB();
-  const tx = db.transaction(['projects', 'costCenters', 'files', 'blobs', 'plans', 'damages', 'components', 'elements', 'lvDocs', 'reports'], 'readwrite');
+  const tx = db.transaction(['projects', 'costCenters', 'files', 'blobs', 'plans', 'damages', 'components', 'elements', 'lvDocs', 'reports', 'outbox'], 'readwrite');
+  const outbox = tx.objectStore('outbox');
+  // jeder wiederhergestellte Datensatz wird für den Abgleich mit der Ablage vorgemerkt
+  const put = async <S extends 'costCenters' | 'files' | 'plans' | 'damages' | 'components' | 'elements' | 'lvDocs'>(store: S, rec: { id: string; rev: number; updatedAt: number }) => {
+    await tx.objectStore(store).put(rec as never);
+    await outbox.put(outboxEntry(store, rec.id, project.id, { rev: rec.rev, updatedAt: rec.updatedAt }));
+  };
   await tx.objectStore('projects').put(project);
-  for (const c of costCenters) await tx.objectStore('costCenters').put(c);
-  for (const f of files) await tx.objectStore('files').put(f);
-  for (const p of plans) await tx.objectStore('plans').put(p);
-  for (const d of damages) await tx.objectStore('damages').put(d);
-  for (const c of components) await tx.objectStore('components').put(c);
-  for (const e of elements) await tx.objectStore('elements').put(e);
-  for (const l of lvDocs) await tx.objectStore('lvDocs').put(l);
+  await outbox.put(outboxEntry('projects', project.id, project.id, { rev: project.rev, updatedAt: project.updatedAt }));
+  for (const c of costCenters) await put('costCenters', c);
+  for (const f of files) await put('files', f);
+  for (const p of plans) await put('plans', p);
+  for (const d of damages) await put('damages', d);
+  for (const c of components) await put('components', c);
+  for (const e of elements) await put('elements', e);
+  for (const l of lvDocs) await put('lvDocs', l);
   // Berichte: ergänzen bzw. aktualisieren (neuerer Stand gewinnt) – vorhandene werden nie gelöscht
   for (const r of reports) {
     const cur = await tx.objectStore('reports').get(r.id);
-    if (!cur || cur.updatedAt < r.updatedAt) await tx.objectStore('reports').put(r);
+    if (!cur || cur.updatedAt < r.updatedAt) {
+      await tx.objectStore('reports').put(r);
+      await outbox.put(outboxEntry('reports', r.id, project.id, { updatedAt: r.updatedAt }));
+    }
   }
   for (const [id, data] of blobs) {
     const buf = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
     await tx.objectStore('blobs').put({ id, projectId: project.id, data: buf });
+    await outbox.put(outboxEntry('blobs', id, project.id));
   }
   await tx.done;
+  notifyLocalChange();
   return project.id;
 }
 

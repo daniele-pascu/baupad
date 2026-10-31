@@ -51,15 +51,45 @@ interface AufmassDB extends DBSchema {
   defectPlanImages: { key: string; value: { id: string; data: ArrayBuffer; thumb: ArrayBuffer; pdf?: ArrayBuffer } };
 }
 
+/** Datensätze, die mit der zentralen Ablage abgeglichen werden (Angaben als JSON) */
+export type SyncStore = EntityStore | 'workers' | 'weeks' | 'reports' | 'defectPlans' | 'defectMarks' | 'formTemplates' | 'meta';
+/** Dateien, die mit der zentralen Ablage abgeglichen werden (Originalpläne, Mängelplan-Bilder, Formular-PDFs) */
+export type SyncFileStore = 'blobs' | 'defectPlanImages' | 'formTemplateFiles';
+/** Einstellungen, die für die ganze Firma gelten (werden abgeglichen); alles andere in `meta` bleibt auf dem Gerät */
+export const SYNC_META_KEYS: readonly string[] = ['absences', 'workTimes', 'companyName', 'companyLines', 'pdfShowTimes'];
+
 export interface OutboxEntry {
   /** „store:id“ */
   id: string;
   projectId: string;
-  store: EntityStore;
+  store: SyncStore | SyncFileStore;
   recordId: string;
   rev: number;
   updatedAt: number;
+  /** endgültig gelöscht – Grabstein für die Ablage */
+  deleted?: boolean;
 }
+
+/** Eintrag der Änderungs-Warteschlange (gleiche Transaktion wie die Änderung selbst) */
+export function outboxEntry(store: SyncStore | SyncFileStore, recordId: string, projectId = '', opts: { rev?: number; updatedAt?: number; deleted?: boolean } = {}): OutboxEntry {
+  return { id: `${store}:${recordId}`, projectId, store, recordId, rev: opts.rev ?? 0, updatedAt: opts.updatedAt ?? Date.now(), ...(opts.deleted ? { deleted: true } : {}) };
+}
+
+// Abgleich mit der zentralen Ablage (data-sync.ts meldet sich an; ohne Anbindung passiert nichts)
+let changeHook: (() => void) | null = null;
+/** wird nach jeder lokalen Änderung gerufen (Warteschlange abarbeiten) */
+export const setSyncChangeHook = (fn: (() => void) | null) => {
+  changeHook = fn;
+};
+const changed = () => changeHook?.();
+/** lokale Änderung außerhalb von db.ts melden (z. B. Sicherung wiederhergestellt) */
+export const notifyLocalChange = () => changed();
+type FileFetcher = (store: SyncFileStore, id: string) => Promise<boolean>;
+let fileFetcher: FileFetcher | null = null;
+/** lädt eine auf diesem Gerät fehlende Datei aus der Ablage nach (true = jetzt vorhanden) */
+export const setSyncFileFetcher = (fn: FileFetcher | null) => {
+  fileFetcher = fn;
+};
 
 const DB_NAME = 'schadstellen-aufmass';
 /**
@@ -137,7 +167,15 @@ export async function getMeta<T>(key: string): Promise<T | undefined> {
 
 export async function setMeta(key: string, value: unknown): Promise<void> {
   const db = await getDB();
-  await db.put('meta', { key, value });
+  if (!SYNC_META_KEYS.includes(key)) {
+    await db.put('meta', { key, value });
+    return;
+  }
+  const tx = db.transaction(['meta', 'outbox'], 'readwrite');
+  await tx.objectStore('meta').put({ key, value });
+  await tx.objectStore('outbox').put(outboxEntry('meta', key));
+  await tx.done;
+  changed();
 }
 
 export async function listProjects(): Promise<Project[]> {
@@ -216,16 +254,10 @@ export async function writeRecords(writes: PendingWrite[]): Promise<void> {
       await store.put(w.record as never);
       // Änderung für die spätere Synchronisierung vormerken (gleiche Transaktion → nie verloren)
       const projectId = w.store === 'projects' ? w.record.id : (w.record as { projectId: string }).projectId;
-      await tx.objectStore('outbox').put({
-        id: `${w.store}:${w.record.id}`,
-        projectId,
-        store: w.store,
-        recordId: w.record.id,
-        rev: w.record.rev,
-        updatedAt: w.record.updatedAt,
-      });
+      await tx.objectStore('outbox').put(outboxEntry(w.store, w.record.id, projectId, { rev: w.record.rev, updatedAt: w.record.updatedAt }));
     }
     await tx.done;
+    changed();
   } catch (e) {
     try {
       tx.abort();
@@ -238,11 +270,18 @@ export async function writeRecords(writes: PendingWrite[]): Promise<void> {
 
 export async function putBlob(id: string, projectId: string, data: ArrayBuffer): Promise<void> {
   const db = await getDB();
-  await db.put('blobs', { id, projectId, data });
+  const tx = db.transaction(['blobs', 'outbox'], 'readwrite');
+  await tx.objectStore('blobs').put({ id, projectId, data });
+  await tx.objectStore('outbox').put(outboxEntry('blobs', id, projectId));
+  await tx.done;
+  changed();
 }
 
+/** Originaldatei – fehlt sie auf diesem Gerät (von einem anderen Gerät angelegt), wird sie aus der Ablage nachgeladen */
 export async function getBlob(id: string): Promise<ArrayBuffer | undefined> {
   const db = await getDB();
+  const local = (await db.get('blobs', id))?.data;
+  if (local || !fileFetcher || !(await fileFetcher('blobs', id))) return local;
   return (await db.get('blobs', id))?.data;
 }
 
@@ -272,7 +311,7 @@ export async function putView(view: { id: string; projectId: string; scale: numb
 }
 
 /** Löscht ein Projekt mit allen zugehörigen Daten endgültig von diesem Gerät. */
-export async function deleteProjectCompletely(projectId: string): Promise<void> {
+export async function deleteProjectCompletely(projectId: string, opts: { tombstone?: boolean } = {}): Promise<void> {
   const db = await getDB();
   const storeNames = ['costCenters', 'files', 'blobs', 'plans', 'damages', 'components', 'elements', 'lvDocs', 'outbox', 'thumbs', 'views'] as const;
   const tx = db.transaction(['projects', ...storeNames], 'readwrite');
@@ -282,7 +321,10 @@ export async function deleteProjectCompletely(projectId: string): Promise<void> 
     for (const key of keys) await store.delete(key);
   }
   await tx.objectStore('projects').delete(projectId);
+  // Grabstein: die Ablage und die anderen Geräte löschen das Projekt ebenfalls
+  if (opts.tombstone !== false) await tx.objectStore('outbox').put(outboxEntry('projects', projectId, projectId, { deleted: true }));
   await tx.done;
+  if (opts.tombstone !== false) changed();
 }
 
 /** Projektübersicht: Anzahl Kostenstellen, Pläne und Schadstellen. */
@@ -313,7 +355,38 @@ export async function listWorkers(): Promise<Worker[]> {
 }
 
 export async function saveWorker(w: Worker): Promise<void> {
-  await (await getDB()).put('workers', w);
+  await putSynced('workers', w);
+}
+
+/** Datensatz samt Vormerkung für den Abgleich schreiben (eine Transaktion) */
+async function putSynced<S extends 'workers' | 'weeks' | 'reports' | 'defectPlans' | 'defectMarks' | 'formTemplates'>(store: S, record: AufmassDB[S]['value'], projectId = ''): Promise<void> {
+  const db = await getDB();
+  const tx = db.transaction([store, 'outbox'], 'readwrite');
+  await tx.objectStore(store).put(record as never);
+  await tx.objectStore('outbox').put(outboxEntry(store, record.id, projectId, { updatedAt: (record as { updatedAt?: number }).updatedAt }));
+  await tx.done;
+  changed();
+}
+
+/** Datensatz endgültig löschen und Grabstein vormerken */
+async function deleteSynced(store: 'workers' | 'weeks' | 'reports' | 'defectPlans' | 'defectMarks' | 'formTemplates', id: string): Promise<void> {
+  const db = await getDB();
+  const tx = db.transaction([store, 'outbox'], 'readwrite');
+  await tx.objectStore(store).delete(id);
+  await tx.objectStore('outbox').put(outboxEntry(store, id, '', { deleted: true }));
+  await tx.done;
+  changed();
+}
+
+/** vom Abgleich: Datensatz anderer Geräte übernehmen bzw. entfernen – ohne neue Vormerkung */
+export async function applyRemoteRecord(store: SyncStore, id: string, data: Record<string, unknown> | null): Promise<void> {
+  const db = await getDB();
+  if (store === 'meta') {
+    if (data) await db.put('meta', { key: id, value: (data as { value: unknown }).value });
+    return;
+  }
+  if (data) await db.put(store, data as never);
+  else await db.delete(store, id);
 }
 
 /**
@@ -323,19 +396,19 @@ export async function saveWorker(w: Worker): Promise<void> {
 export async function deleteWorker(id: string): Promise<void> {
   const db = await getDB();
   for (const week of await db.getAll('weeks')) {
-    let changed = false;
+    let touched = false;
     for (const site of week.sites) {
       site.days = site.days.map((ids) => {
         if (!ids.includes(id)) return ids;
-        changed = true;
+        touched = true;
         return ids.filter((x) => x !== id);
       });
     }
-    if (changed) await db.put('weeks', week);
+    if (touched) await saveWeek({ ...week, updatedAt: Date.now() });
   }
   const absences = (await getMeta<{ workerId: string }[]>('absences')) ?? [];
   if (absences.some((a) => a.workerId === id)) await setMeta('absences', absences.filter((a) => a.workerId !== id));
-  await db.delete('workers', id);
+  await deleteSynced('workers', id);
 }
 
 export async function listWeeks(): Promise<WeekPlan[]> {
@@ -347,7 +420,7 @@ export async function getWeek(id: string): Promise<WeekPlan | undefined> {
 }
 
 export async function saveWeek(w: WeekPlan): Promise<void> {
-  await (await getDB()).put('weeks', w);
+  await putSynced('weeks', w);
 }
 
 /** Letzte gespeicherte Woche vor `id` (zum Weiterführen) */
@@ -367,11 +440,11 @@ export async function getReport(id: string): Promise<Report | undefined> {
 }
 
 export async function saveReport(r: Report): Promise<void> {
-  await (await getDB()).put('reports', r);
+  await putSynced('reports', r, r.projectId ?? '');
 }
 
 export async function deleteReport(id: string): Promise<void> {
-  await (await getDB()).delete('reports', id);
+  await deleteSynced('reports', id);
 }
 
 /* Fotodokumentation */
@@ -425,15 +498,25 @@ export async function getDefectPlan(id: string): Promise<DefectPlan | undefined>
   return db.get('defectPlans', id);
 }
 export async function saveDefectPlan(p: DefectPlan): Promise<void> {
-  const db = await getDB();
-  await db.put('defectPlans', p);
+  await putSynced('defectPlans', p, p.projectId ?? '');
 }
-export async function putDefectPlanImage(v: { id: string; data: ArrayBuffer; thumb: ArrayBuffer; pdf?: ArrayBuffer }): Promise<void> {
+export async function putDefectPlanImage(v: { id: string; data: ArrayBuffer; thumb: ArrayBuffer; pdf?: ArrayBuffer }, opts: { local?: boolean } = {}): Promise<void> {
   const db = await getDB();
-  await db.put('defectPlanImages', v);
+  if (opts.local) {
+    await db.put('defectPlanImages', v);
+    return;
+  }
+  const tx = db.transaction(['defectPlanImages', 'outbox'], 'readwrite');
+  await tx.objectStore('defectPlanImages').put(v);
+  await tx.objectStore('outbox').put(outboxEntry('defectPlanImages', v.id));
+  await tx.done;
+  changed();
 }
+/** Planbild – fehlt es auf diesem Gerät, wird es aus der Ablage nachgeladen */
 export async function getDefectPlanImage(id: string) {
   const db = await getDB();
+  const local = await db.get('defectPlanImages', id);
+  if (local || !fileFetcher || !(await fileFetcher('defectPlanImages', id))) return local;
   return db.get('defectPlanImages', id);
 }
 export async function listDefectMarks(planId?: string): Promise<DefectMark[]> {
@@ -441,21 +524,26 @@ export async function listDefectMarks(planId?: string): Promise<DefectMark[]> {
   return planId ? db.getAllFromIndex('defectMarks', 'planId', planId) : db.getAll('defectMarks');
 }
 export async function saveDefectMark(m: DefectMark): Promise<void> {
-  const db = await getDB();
-  await db.put('defectMarks', m);
+  await putSynced('defectMarks', m);
 }
 export async function deleteDefectMark(id: string): Promise<void> {
-  const db = await getDB();
-  await db.delete('defectMarks', id);
+  await deleteSynced('defectMarks', id);
 }
 /** Plan samt Markierungen und Bild entfernen (Fotos bleiben in der Fotodokumentation) */
-export async function deleteDefectPlanCompletely(id: string): Promise<void> {
+export async function deleteDefectPlanCompletely(id: string, opts: { tombstone?: boolean } = {}): Promise<void> {
   const db = await getDB();
-  const tx = db.transaction(['defectPlans', 'defectMarks', 'defectPlanImages'], 'readwrite');
-  for (const m of await tx.objectStore('defectMarks').index('planId').getAll(id)) await tx.objectStore('defectMarks').delete(m.id);
+  const tx = db.transaction(['defectPlans', 'defectMarks', 'defectPlanImages', 'outbox'], 'readwrite');
+  const outbox = tx.objectStore('outbox');
+  for (const m of await tx.objectStore('defectMarks').index('planId').getAll(id)) {
+    await tx.objectStore('defectMarks').delete(m.id);
+    if (opts.tombstone !== false) await outbox.put(outboxEntry('defectMarks', m.id, '', { deleted: true }));
+  }
   await tx.objectStore('defectPlanImages').delete(id);
   await tx.objectStore('defectPlans').delete(id);
+  if (opts.tombstone !== false) await outbox.put(outboxEntry('defectPlans', id, '', { deleted: true }));
+  else await outbox.delete(`defectPlans:${id}`);
   await tx.done;
+  if (opts.tombstone !== false) changed();
 }
 
 /* Eigene Firmenformulare */
@@ -467,18 +555,96 @@ export async function getFormTemplate(id: string): Promise<FormTemplate | undefi
 }
 export async function saveFormTemplate(t: FormTemplate, pdf?: ArrayBuffer): Promise<void> {
   const db = await getDB();
-  const tx = db.transaction(['formTemplates', 'formTemplateFiles'], 'readwrite');
+  const tx = db.transaction(['formTemplates', 'formTemplateFiles', 'outbox'], 'readwrite');
   await tx.objectStore('formTemplates').put(t);
-  if (pdf) await tx.objectStore('formTemplateFiles').put({ id: t.id, data: pdf });
+  await tx.objectStore('outbox').put(outboxEntry('formTemplates', t.id, '', { updatedAt: t.updatedAt }));
+  if (pdf) {
+    await tx.objectStore('formTemplateFiles').put({ id: t.id, data: pdf });
+    await tx.objectStore('outbox').put(outboxEntry('formTemplateFiles', t.id));
+  }
   await tx.done;
+  changed();
 }
+/** Original-PDF – fehlt es auf diesem Gerät, wird es aus der Ablage nachgeladen */
 export async function getFormTemplateFile(id: string): Promise<ArrayBuffer | undefined> {
-  return (await (await getDB()).get('formTemplateFiles', id))?.data;
+  const db = await getDB();
+  const local = (await db.get('formTemplateFiles', id))?.data;
+  if (local || !fileFetcher || !(await fileFetcher('formTemplateFiles', id))) return local;
+  return (await db.get('formTemplateFiles', id))?.data;
 }
 export async function deleteFormTemplate(id: string): Promise<void> {
   const db = await getDB();
-  const tx = db.transaction(['formTemplates', 'formTemplateFiles'], 'readwrite');
+  const tx = db.transaction(['formTemplates', 'formTemplateFiles', 'outbox'], 'readwrite');
   await tx.objectStore('formTemplates').delete(id);
   await tx.objectStore('formTemplateFiles').delete(id);
+  await tx.objectStore('outbox').put(outboxEntry('formTemplates', id, '', { deleted: true }));
   await tx.done;
+  changed();
+}
+
+/* Abgleich: Warteschlange */
+export async function listOutbox(): Promise<OutboxEntry[]> {
+  return (await getDB()).getAll('outbox');
+}
+/** Eintrag nach erfolgreicher Übertragung entfernen – nur, wenn er sich inzwischen nicht erneut geändert hat */
+export async function clearOutbox(entries: OutboxEntry[]): Promise<void> {
+  const db = await getDB();
+  const tx = db.transaction('outbox', 'readwrite');
+  for (const e of entries) {
+    const cur = await tx.store.get(e.id);
+    if (cur && cur.updatedAt === e.updatedAt && cur.rev === e.rev && Boolean(cur.deleted) === Boolean(e.deleted)) await tx.store.delete(e.id);
+  }
+  await tx.done;
+}
+/** alle vorhandenen Datensätze und Dateien zum Abgleich vormerken (erste Anbindung eines Geräts) */
+export async function enqueueAll(): Promise<number> {
+  const db = await getDB();
+  const stores = ['projects', 'costCenters', 'files', 'plans', 'damages', 'components', 'elements', 'lvDocs', 'workers', 'weeks', 'reports', 'defectPlans', 'defectMarks', 'formTemplates'] as const;
+  const tx = db.transaction([...stores, 'meta', 'blobs', 'defectPlanImages', 'formTemplateFiles', 'outbox'] as const, 'readwrite');
+  const outbox = tx.objectStore('outbox');
+  let n = 0;
+  for (const name of stores) {
+    for (const rec of (await tx.objectStore(name).getAll()) as { id: string; projectId?: string; rev?: number; updatedAt?: number }[]) {
+      await outbox.put(outboxEntry(name, rec.id, name === 'projects' ? rec.id : (rec.projectId ?? ''), { rev: rec.rev, updatedAt: rec.updatedAt }));
+      n++;
+    }
+  }
+  for (const key of SYNC_META_KEYS) if (await tx.objectStore('meta').get(key)) await outbox.put(outboxEntry('meta', key));
+  for (const b of await tx.objectStore('blobs').getAll()) await outbox.put(outboxEntry('blobs', b.id, b.projectId));
+  for (const k of await tx.objectStore('defectPlanImages').getAllKeys()) await outbox.put(outboxEntry('defectPlanImages', k));
+  for (const k of await tx.objectStore('formTemplateFiles').getAllKeys()) await outbox.put(outboxEntry('formTemplateFiles', k));
+  await tx.done;
+  return n;
+}
+/** Datensatz für die Übertragung lesen (Angaben als JSON); meta: { value } */
+export async function readSyncRecord(store: SyncStore, id: string): Promise<Record<string, unknown> | undefined> {
+  const db = await getDB();
+  if (store === 'meta') {
+    const m = await db.get('meta', id);
+    return m ? { value: m.value } : undefined;
+  }
+  return (await db.get(store, id)) as Record<string, unknown> | undefined;
+}
+/** Dateiteile für den Upload (bin = Originaldatei, jpg = Bilder, pdf = Original-PDF) */
+export async function readSyncFile(store: SyncFileStore, id: string): Promise<Record<string, ArrayBuffer> | undefined> {
+  const db = await getDB();
+  if (store === 'blobs') {
+    const b = await db.get('blobs', id);
+    return b ? { 'data.bin': b.data } : undefined;
+  }
+  if (store === 'defectPlanImages') {
+    const v = await db.get('defectPlanImages', id);
+    return v ? { 'data.jpg': v.data, 'thumb.jpg': v.thumb, ...(v.pdf ? { 'pdf.pdf': v.pdf } : {}) } : undefined;
+  }
+  const f = await db.get('formTemplateFiles', id);
+  return f ? { 'pdf.pdf': f.data } : undefined;
+}
+/** nachgeladene Datei ablegen (ohne Vormerkung) */
+export async function writeSyncFile(store: SyncFileStore, id: string, parts: Record<string, ArrayBuffer>): Promise<void> {
+  const db = await getDB();
+  if (store === 'blobs') {
+    const f = await db.get('files', id);
+    await db.put('blobs', { id, projectId: f?.projectId ?? '', data: parts['data.bin'] });
+  } else if (store === 'defectPlanImages') await db.put('defectPlanImages', { id, data: parts['data.jpg'], thumb: parts['thumb.jpg'], ...(parts['pdf.pdf'] ? { pdf: parts['pdf.pdf'] } : {}) });
+  else await db.put('formTemplateFiles', { id, data: parts['pdf.pdf'] });
 }

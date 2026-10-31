@@ -6,6 +6,7 @@ import { Modal } from './Modal';
 import { toast } from './ui';
 import { cloudCall } from '../lib/cloud';
 import { retryPhotoCloud, syncPhotoCloud, useCloudState } from '../lib/photo-cloud';
+import { useDataSyncState } from '../lib/data-sync';
 import { fmtBytes } from '../lib/photos';
 import { useSession } from '../lib/use-session';
 import { showError } from './ui';
@@ -181,6 +182,7 @@ const CLOUD_LABELS = {
 function CloudSettings() {
   const session = useSession();
   const cloud = useCloudState();
+  const data = useDataSyncState();
   const [busy, setBusy] = useState(false);
   const [usage, setUsage] = useState<{ photos: number; bytes: number } | null>(null);
   useEffect(() => {
@@ -222,7 +224,10 @@ function CloudSettings() {
       <div className="logo-settings-head">
         <div>
           <strong>Zentrale Ablage</strong>
-          <span className="muted">Fotos aller Geräte deiner Firma – gespeichert in Nürnberg (Hetzner), Zugriff nur für angemeldete Benutzer deiner Firma.</span>
+          <span className="muted">
+            Projekte, Pläne, Aufmaße, Berichte, Einteilung, Mängelpläne, Formulare und Fotos aller Geräte deiner Firma – gespeichert in Nürnberg (Hetzner), Zugriff nur für
+            angemeldete Benutzer deiner Firma. Ohne Netz bleibt alles auf dem Gerät und wird bei der nächsten Verbindung übertragen.
+          </span>
         </div>
       </div>
       <div className="app-status">
@@ -234,13 +239,23 @@ function CloudSettings() {
             {cloud.pending} {cloud.pending === 1 ? 'Foto wartet' : 'Fotos warten'} auf Upload
           </span>
         )}
-        {cloud.lastSyncAt && <span className="muted small">Abgleich {time(cloud.lastSyncAt)}</span>}
+        {data.status !== 'off' && data.pending > 0 && (
+          <span className="muted small" data-testid="data-pending">
+            {data.pending} {data.pending === 1 ? 'Änderung wartet' : 'Änderungen warten'} auf Upload
+          </span>
+        )}
+        {(data.lastSyncAt ?? cloud.lastSyncAt) && <span className="muted small">Abgleich {time(Math.max(data.lastSyncAt ?? 0, cloud.lastSyncAt ?? 0))}</span>}
         {usage && (
           <span className="muted small" data-testid="cloud-usage">
             In der Ablage: {usage.photos} {usage.photos === 1 ? 'Foto' : 'Fotos'}, {fmtBytes(usage.bytes)}
           </span>
         )}
       </div>
+      {data.status === 'error' && data.message && (
+        <p className="small app-hint" data-testid="data-message">
+          Datenabgleich: {data.message}
+        </p>
+      )}
       {cloud.message && cloud.status !== 'ready' && (
         <p className="small app-hint" data-testid="cloud-message">
           {cloud.message}
