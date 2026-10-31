@@ -70,10 +70,10 @@ for (const file of ['farbplan.pdf', 'farbplan.png']) {
     await expect(world).not.toHaveClass(/plan-gray/);
     // Menü „Ansicht“ oben in der Leiste: zurück auf schwarz-weiß (Ebenen-Menü zeigt dasselbe)
     await page.getByTestId('plan-view').click();
-    await expect(page.getByTestId('plan-color-toggle')).toHaveText(/Farbig/);
-    await page.getByTestId('plan-color-toggle').click();
+    await expect(page.getByTestId('plan-view-color')).toHaveAttribute('aria-checked', 'true');
+    await page.getByTestId('plan-view-gray').click();
     await expect(world).toHaveClass(/plan-gray/);
-    await expect(page.getByTestId('plan-color-toggle')).toHaveText(/Schwarz-weiß/);
+    await expect(page.getByTestId('plan-view-gray')).toHaveAttribute('aria-checked', 'true');
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('plan-view-pop')).toHaveCount(0);
     await page.getByTestId('layers-toggle').click();

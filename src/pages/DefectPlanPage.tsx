@@ -10,11 +10,11 @@ import { confirmDialog, showError } from '../components/ui';
 import { getCompanyLogo } from '../lib/company';
 import { getDefectPlan, getMeta } from '../lib/db';
 import { defectPdf } from '../lib/defect-pdf';
-import { defectSiteKey, hitMark, KINDS, kindInfo, loadMarks, MARK_COLORS, markAnchor, markBox, newMark, nextMarkNo, openPlanPdf, planRaster, plansOfSite, putMark, removeMark, renumber, setDefectPlanGray, setDefectPlanView, SHAPES, thinPoints } from '../lib/defects';
-import { canvasToBlob, clampRenderScale, pageSize, renderPdfRegion, renderPdfToCanvas, type RenderJob } from '../lib/pdf';
-import { analyzePlanPage, viewFilters, viewKey } from '../lib/plan-view';
-import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
+import { defectSiteKey, hitMark, KINDS, kindInfo, loadMarks, MARK_COLORS, markAnchor, markBox, newMark, nextMarkNo, openPlanPdf, planRaster, plansOfSite, putMark, removeMark, renumber, setDefectPlanGray, SHAPES, thinPoints } from '../lib/defects';
+import { clampRenderScale, pageSize, renderPdfRegion, type RenderJob } from '../lib/pdf';
+import type { PDFPageProxy } from 'pdfjs-dist';
 import { getPhotoStorage } from '../lib/photo-storage';
+import { isTouchDevice } from '../lib/platform';
 import { photoSiteKey } from '../lib/photos';
 import { navigate, paths } from '../lib/router';
 import type { DefectKind, DefectMark, DefectPlan, MarkShape, Photo, PhotoSite } from '../lib/types';
@@ -49,7 +49,6 @@ function PlanCanvas({
   plan,
   url,
   pdfPage,
-  pdfDoc,
   marks,
   selectedId,
   tool,
@@ -58,6 +57,7 @@ function PlanCanvas({
   cancelCmd,
   onZoom,
   onCreate,
+  onToolDone,
   onSelect,
   onOpen,
   onMove,
@@ -66,7 +66,6 @@ function PlanCanvas({
   url: string | null;
   /** Original-PDF-Seite: beim Zoomen wird der sichtbare Ausschnitt scharf nachgerendert (wie in Aufmaß & Abrechnung) */
   pdfPage: PDFPageProxy | null;
-  pdfDoc: PDFDocumentProxy | null;
   marks: DefectMark[];
   selectedId: string | null;
   tool: Tool;
@@ -77,6 +76,8 @@ function PlanCanvas({
   cancelCmd: number;
   onZoom(scale: number): void;
   onCreate(shape: MarkShape, points: Pt[]): void;
+  /** Handy/Tablet: benutztes Werkzeug endet mit dem nächsten Fingertipp (Pin/Text sofort nach dem Setzen) */
+  onToolDone(): void;
   onSelect(id: string | null): void;
   onOpen(id: string): void;
   onMove(id: string, points: Pt[]): void;
@@ -87,6 +88,11 @@ function PlanCanvas({
   const [view, setViewState] = useState<View>({ s: 1, tx: 0, ty: 0 });
   const viewRef = useRef(view);
   const [draft, setDraft] = useState<{ shape: MarkShape; points: Pt[] } | null>(null);
+  /** Werkzeug seit der Auswahl benutzt (Touch-Regel) */
+  const usedRef = useRef(false);
+  useEffect(() => {
+    usedRef.current = false;
+  }, [tool]);
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const gesture = useRef<
     | { kind: 'draw'; start: Pt; moved: boolean }
@@ -193,7 +199,7 @@ function PlanCanvas({
       const region = { x: x0 * f, y: y0 * f, w: (x1 - x0) * f, h: (y1 - y0) * f };
       const scale = clampRenderScale(region.w, region.h, needed / f);
       const canvas = document.createElement('canvas');
-      job = renderPdfRegion(pdfPage, canvas, region, scale, 0, { view: plan.view, doc: pdfDoc });
+      job = renderPdfRegion(pdfPage, canvas, region, scale);
       job.promise
         .then(() => {
           if (cancelled || !detailRef.current) return;
@@ -210,8 +216,7 @@ function PlanCanvas({
       clearTimeout(t);
       job?.cancel();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pdfPage, view, size.w, size.h, fitW, fitH, W, viewKey(plan.view)]);
+  }, [pdfPage, view, size.w, size.h, fitW, fitH, W]);
 
   /** Strich- und Symbolgrößen in Bildpixeln, damit sie bei jeder Zoomstufe am Bildschirm gleich groß sind */
   const px = (n: number) => (n * W) / (fitW * view.s);
@@ -308,15 +313,22 @@ function PlanCanvas({
     if (pointers.current.size > 2) return;
     const p = rel(e);
     const bp = boxPt(e);
-    if (tool === 'select' || e.button === 1) {
+    let t = tool;
+    if (e.pointerType !== 'mouse' && usedRef.current && tool !== 'select') {
+      // Handy/Tablet: Werkzeug wurde benutzt – dieser Fingerkontakt beendet es (Tipp = Auswahl, Ziehen = Plan verschieben)
+      usedRef.current = false;
+      onToolDone();
+      t = 'select';
+    }
+    if (t === 'select' || e.button === 1) {
       const handle = e.button !== 1 ? hitHandle(p) : null;
       if (handle && selectedMark) {
         gesture.current = { kind: 'resize', id: selectedMark.id, handle, orig: selectedMark.points, box: markBox(selectedMark) };
         return;
       }
-      const m = tool === 'select' && e.button !== 1 ? hitAt(p) : null;
+      const m = t === 'select' && e.button !== 1 ? hitAt(p) : null;
       if (!m) {
-        if (tool === 'select' && e.button !== 1) onSelect(null);
+        if (t === 'select' && e.button !== 1) onSelect(null);
         gesture.current = { kind: 'pan', x: bp.x, y: bp.y, view: viewRef.current, moved: false };
         setCursor('grabbing');
         return;
@@ -326,8 +338,8 @@ function PlanCanvas({
       return;
     }
     gesture.current = { kind: 'draw', start: p, moved: false };
-    if (tool === 'freehand') setDraft({ shape: 'freehand', points: [p] });
-    else setDraft({ shape: tool, points: [p, p] });
+    if (t === 'freehand') setDraft({ shape: 'freehand', points: [p] });
+    else setDraft({ shape: t, points: [p, p] });
   };
   const move = (e: RPointerEvent) => {
     if (!pointers.current.has(e.pointerId)) return;
@@ -389,16 +401,23 @@ function PlanCanvas({
       return;
     }
     setDraft(null);
+    if (g.kind !== 'draw') return;
     if (tool === 'pin' || tool === 'text') {
       onCreate(tool, [p]);
+      // Handy/Tablet: Setzen ist ein einmaliger Vorgang – danach wieder Auswahl
+      if (e.pointerType !== 'mouse') onToolDone();
       return;
     }
     if (tool === 'freehand') {
       const pts = thinPoints(draft?.points ?? [g.start, p]);
-      if (pts.length >= 2) onCreate('freehand', pts);
+      if (pts.length >= 2) {
+        usedRef.current = true;
+        onCreate('freehand', pts);
+      }
       return;
     }
     if (!g.moved || tool === 'select') return; // zu klein
+    usedRef.current = true;
     onCreate(tool, [g.start, p]);
   };
   const cancel = (e: RPointerEvent) => {
@@ -741,49 +760,21 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
   const viewPhotos = (ids: string[], index: number, title: string) => setViewer({ ids, index, title });
   /** Original-PDF-Seite (falls der Plan aus einem PDF stammt) für scharfes Zoomen */
   const [pdfPage, setPdfPage] = useState<PDFPageProxy | null>(null);
-  const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
   useEffect(() => {
     let off = false;
     setPdfPage(null);
-    setPdfDoc(null);
     void openPlanPdf(planId)
       .then(async (doc) => {
         if (!doc || off) return;
         const page = await doc.getPage(1);
-        if (!off) {
-          setPdfDoc(doc);
-          setPdfPage(page);
-        }
+        if (!off) setPdfPage(page);
       })
       .catch((e) => console.warn(e));
     return () => {
       off = true;
     };
   }, [planId]);
-  /** gefilterte Ansicht: Grundbild neu aus dem PDF zeichnen (das gespeicherte JPEG zeigt alles) */
-  const [filteredUrl, setFilteredUrl] = useState<string | null>(null);
-  const planViewKey = viewKey(plan?.view);
-  useEffect(() => {
-    if (!pdfPage || !plan || !viewFilters(plan.view)) {
-      setFilteredUrl(null);
-      return;
-    }
-    let off = false;
-    let u: string | null = null;
-    void renderPdfToCanvas(pdfPage, Math.max(plan.width, plan.height), null, 0, { view: plan.view, doc: pdfDoc })
-      .then((c) => canvasToBlob(c, 'image/jpeg', 0.9))
-      .then((b) => {
-        if (off) return;
-        u = URL.createObjectURL(b);
-        setFilteredUrl(u);
-      })
-      .catch((e) => console.warn(e));
-    return () => {
-      off = true;
-      if (u) URL.revokeObjectURL(u);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pdfPage, pdfDoc, planViewKey, plan?.id]);
+
   usePageTitle(`${plan?.title ?? 'Plan'} – Mängelplan`);
 
   const site: PhotoSite | null = plan ? { projectId: plan.projectId, name: plan.siteName, number: plan.siteNumber, address: plan.siteAddress } : null;
@@ -867,7 +858,7 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
     if (!plan) return;
     setBusy(true);
     try {
-      const raster = await planRaster(plan.id, undefined, plan.view);
+      const raster = await planRaster(plan.id);
       if (!raster) throw new Error('Planbild nicht gefunden.');
       const [company, lines, logo] = await Promise.all([getMeta<string>('companyName'), getMeta<string>('companyLines'), getCompanyLogo()]);
       const blobs = new Map<string, ArrayBuffer>();
@@ -939,16 +930,8 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
                   setPlan({ ...plan, gray });
                   void setDefectPlanGray(plan.id, gray).catch((e) => showError(e, 'Speichern fehlgeschlagen'));
                 }}
-                view={plan.view}
-                onView={(view) => {
-                  const { view: _, ...rest } = plan;
-                  setPlan(view ? { ...rest, view } : rest);
-                  void setDefectPlanView(plan.id, view).catch((e) => showError(e, 'Speichern fehlgeschlagen'));
-                }}
-                analyze={pdfDoc && pdfPage ? () => analyzePlanPage(pdfDoc, pdfPage) : null}
-                analysisKey={plan.id}
                 prefix="dp"
-                colorTestId="dp-plan-color"
+                colorTestId="dp-view"
               />
             )}
             <button type="button" className="btn btn-sm" onClick={() => void exportPdf()} disabled={busy || !marks.length} title="Plan mit Markierungen und Liste als PDF" data-testid="dp-pdf">
@@ -982,9 +965,9 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
             {plan && (
               <PlanCanvas
                 plan={plan}
-                url={filteredUrl ?? url}
+                url={url}
                 pdfPage={pdfPage}
-                pdfDoc={pdfDoc}
+                onToolDone={() => setTool('select')}
                 marks={marks}
                 selectedId={selected}
                 tool={tool}
@@ -1070,10 +1053,12 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
               ) : (
                 <>
                   <div className="tool-group">
-                    <button type="button" className={`tool-btn${tool === 'select' ? ' active' : ''}`} onClick={() => setTool('select')} aria-pressed={tool === 'select'} title="Auswählen / Verschieben (V)" data-testid="dp-tool-select">
-                      <Icon name="select" />
-                      <span>Auswahl</span>
-                    </button>
+                    {!isTouchDevice() && (
+                      <button type="button" className={`tool-btn${tool === 'select' ? ' active' : ''}`} onClick={() => setTool('select')} aria-pressed={tool === 'select'} title="Auswählen / Verschieben (V)" data-testid="dp-tool-select">
+                        <Icon name="select" />
+                        <span>Auswahl</span>
+                      </button>
+                    )}
                     {SHAPES.map((s) => (
                       <button key={s.id} type="button" className={`tool-btn${tool === s.id ? ' active' : ''}`} onClick={() => pickTool(s.id)} aria-pressed={tool === s.id} title={s.label} data-testid={`dp-tool-${s.id}`}>
                         <Icon name={SHAPE_ICON[s.id] as never} />

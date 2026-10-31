@@ -1,6 +1,5 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
-import { viewKey, type PlanView } from '../lib/plan-view';
+import type { PDFPageProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import {
   HANDLES,
   fitView,
@@ -149,8 +148,6 @@ interface Props {
   onPlace(p: Point): void;
   /** Nummernschilder der Objekte anzeigen (Standard: ja) */
   showLabels?: boolean;
-  /** Ansicht der Planunterlage (PDF-Ebenen, Inhaltsfilter) */
-  view?: PlanView | null;
   /** Eigene Darstellung eines Objekts (undefined = Standard-Markierung) */
   renderItem?(item: ViewerItem, view: View, selected: boolean): ReactNode | undefined;
   /** Zusätzliche Ebene unter bzw. über den Objekten (Bildschirmkoordinaten) */
@@ -173,6 +170,11 @@ interface Props {
   /** Ausgewählter Eckpunkt (nur mit vertexEdit) – z. B. zum Entfernen */
   selectedVertex?: number | null;
   onVertexSelect?(index: number | null): void;
+  /**
+   * Handy/Tablet: Werkzeug wurde benutzt (Form erzeugt bzw. gesetzt) – der nächste Fingerkontakt beendet es:
+   * Tippen ins Leere wählt aus, Ziehen verschiebt den Plan. Platzieren (Bauteil, Text) endet sofort.
+   */
+  onToolDone?(): void;
 }
 
 type Gesture =
@@ -231,6 +233,15 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   const lastTap = useRef<{ t: number; p: Point; moveId?: string } | null>(null);
   const propsRef = useRef(props);
   propsRef.current = props;
+  /** Werkzeug seit der Auswahl benutzt (Touch-Regel, siehe onToolDone) */
+  const usedRef = useRef(false);
+  useEffect(() => {
+    usedRef.current = false;
+  }, [props.tool]);
+  const create = (shape: Shape) => {
+    usedRef.current = true;
+    propsRef.current.onCreate(shape);
+  };
   /** Werkzeug „Fläche (Punkte)“: bisher gesetzte Punkte und Mauszeigerposition für die Vorschau */
   const poly = useRef<Point[]>([]);
   /** Linie/Kalibrieren per Klick: gesetzter Punkt A (wartet auf Punkt B) */
@@ -341,9 +352,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   }, [view, size, plan.id, plan.projectId, fitScale]);
 
   // Quelle laden (PDF-Seite oder Bild)
-  const source = useRef<{ page?: PDFPageProxy; doc?: PDFDocumentProxy; bitmap?: ImageBitmap } | null>(null);
-  const planView = props.view ?? null;
-  const planViewKey = viewKey(planView);
+  const source = useRef<{ page?: PDFPageProxy; bitmap?: ImageBitmap } | null>(null);
   const baseScale = useRef(1);
   const fileId = file?.id ?? null;
   const fileKind = file?.kind;
@@ -367,9 +376,9 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         const doc = await getPdfDocument(fileId);
         const page = await doc.getPage(plan.pageIndex + 1);
         if (cancelled) return;
-        source.current = { page, doc };
+        source.current = { page };
         baseScale.current = k;
-        job = renderPdfRegion(page, canvas, region, k, rot, { view: planView, doc });
+        job = renderPdfRegion(page, canvas, region, k, rot);
         await job.promise;
       } else {
         const bitmap = await getImageBitmap(fileId, fileMime);
@@ -396,8 +405,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       cancelled = true;
       job?.cancel();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fileId, fileKind, fileMime, plan.pageIndex, region, rot, planViewKey]);
+  }, [fileId, fileKind, fileMime, plan.pageIndex, region, rot]);
 
   // Detailebene nachrendern, wenn stark hineingezoomt ist
   useEffect(() => {
@@ -423,7 +431,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       const canvas = document.createElement('canvas');
       const src = source.current;
       if (src?.page) {
-        job = renderPdfRegion(src.page, canvas, r, s, rot, { view: planView, doc: src.doc });
+        job = renderPdfRegion(src.page, canvas, r, s, rot);
         job.promise
           .then(() => {
             if (cancelled) return;
@@ -451,8 +459,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       clearTimeout(t);
       job?.cancel();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, size, status, region, fileId, rot, planViewKey]);
+   }, [view, size, status, region, fileId, rot]);
 
   // ---------------------------------------------------------------------------
   // Ansicht steuern
@@ -683,7 +690,13 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       gesture.current = { kind: 'pan', start: p, view: v, moved: true, tapTarget: null };
       return;
     }
-    const currentTool = propsRef.current.tool;
+    let currentTool = propsRef.current.tool;
+    if (e.pointerType !== 'mouse' && usedRef.current && currentTool !== 'select' && propsRef.current.onToolDone) {
+      // Handy/Tablet: Werkzeug wurde benutzt – dieser Fingerkontakt beendet es (Tipp = Auswahl, Ziehen = Plan verschieben)
+      usedRef.current = false;
+      propsRef.current.onToolDone();
+      currentTool = 'select';
+    }
     if (isPointTool(currentTool)) {
       gesture.current = { kind: 'polytap', start: p, view: v, moved: false };
       return;
@@ -934,6 +947,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
           const raw = clampP(toPage(v, p));
           const snap = propsRef.current.snap;
           propsRef.current.onPlace(clampP(snap ? snapAt(raw, { tool: propsRef.current.tool, scale: v.scale }) : raw));
+          // Handy/Tablet: Platzieren ist ein einmaliger Vorgang – danach wieder Auswahl
+          if (e.pointerType !== 'mouse') propsRef.current.onToolDone?.();
         }
         return;
       case 'component': {
@@ -961,12 +976,12 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
             return;
           }
           clearClickStart();
-          if (Math.hypot(a.x - g.start.x, a.y - g.start.y) * v.scale >= 4) propsRef.current.onCreate(lineShape(a, g.start));
+          if (Math.hypot(a.x - g.start.x, a.y - g.start.y) * v.scale >= 4) create(lineShape(a, g.start));
           return;
         }
         clearClickStart(); // gezogen: wie bisher
         const shape = shapeFromDraw(g, v);
-        if (shape) propsRef.current.onCreate(shape);
+        if (shape) create(shape);
         return;
       }
       case 'move': {
@@ -1032,7 +1047,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
           propsRef.current.onPolygonChange?.(0);
           forceRender((n) => n + 1);
           const arc = arcShape(p1, p2, p3);
-          if (arc) propsRef.current.onCreate(arc);
+          if (arc) create(arc);
           return;
         }
         propsRef.current.onPolygonChange?.(poly.current.length);
@@ -1074,7 +1089,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     polyHover.current = null;
     propsRef.current.onPolygonChange?.(0);
     forceRender((n) => n + 1);
-    propsRef.current.onCreate(polygonShape(pts, close));
+    create(polygonShape(pts, close));
   }
 
   // Mausrad / Trackpad

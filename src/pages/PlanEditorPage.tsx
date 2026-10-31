@@ -13,6 +13,7 @@ import { costCenterLabel, damagesOf, elementsOf, findPosition, lvDocLabel, lvDoc
 import { calibrationStatus, checkDeviation, checkError, formatCm, formatPercent, geometryMeasures, MAX_ERROR_M, planUnitsPerMeter } from '../lib/calibration';
 import { CalibrationReport } from '../components/CalibrationReport';
 import { ViewMenu } from '../components/ViewMenu';
+import { isTouchDevice } from '../lib/platform';
 import { DimensionReview } from '../components/DimensionReview';
 import { ExcelExportDialog } from '../components/ExcelExportDialog';
 import { calibrationFrom, detectScale, sourceText } from '../lib/scale-detect';
@@ -167,6 +168,9 @@ function CheckLine({ view, c }: { view: View; c: NonNullable<NonNullable<Plan['c
     </g>
   );
 }
+
+/** Zeichenwerkzeuge, die am Handy/Tablet nach Gebrauch mit dem nächsten Fingertipp enden (Ändern-Befehle nicht) */
+const DRAW_DONE_TOOLS = new Set<string>(['line', 'polyline', 'rect', 'ellipse', 'arc', 'polygon', 'dimension', 'text']);
 
 /** Zugeklappte Werkzeugleiste: ein Knopf mit dem aktuellen Werkzeug öffnet sie wieder */
 function ToolsOpenButton({ tool, onOpen }: { tool?: { icon: string; label: string; short?: string }; onOpen: () => void }) {
@@ -1053,24 +1057,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 const { planColor: _, ...rest } = data.plans[plan.id];
                 putRecord('plans', gray ? rest : { ...rest, planColor: true });
               }}
-              view={plan.view}
-              onView={(view) => {
-                const { view: _, ...rest } = data.plans[plan.id];
-                putRecord('plans', view ? { ...rest, view } : rest);
-              }}
-              analyze={
-                file.kind === 'pdf'
-                  ? async () => {
-                      const { getPdfDocument } = await import('../lib/pdf');
-                      const { analyzePlanPage } = await import('../lib/plan-view');
-                      const doc = await getPdfDocument(file.id);
-                      return analyzePlanPage(doc, await doc.getPage(plan.pageIndex + 1));
-                    }
-                  : null
-              }
-              analysisKey={`${file.id}:${plan.pageIndex}`}
               prefix="plan"
-              colorTestId="plan-color-toggle"
+              colorTestId="plan-view"
             />
           )}
           <button type="button" className="btn btn-sm" onClick={exportExcel} title="Aufmaß dieses Plans als Excel" data-testid="export-xlsx-plan">
@@ -1198,6 +1186,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               plan={plan}
               file={null}
               region={region}
+              onToolDone={DRAW_DONE_TOOLS.has(drawing.tool) ? () => drawing.setTool('select') : undefined}
               damages={drawing.items}
               selectedId={drawing.selectedId}
               tool={probe ? 'probe' : drawing.viewerTool}
@@ -1238,8 +1227,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               ref={viewer}
               plan={plan}
               file={file}
-              view={plan.view}
               region={region}
+              onToolDone={tool !== 'select' && tool !== 'probe' && tool !== 'calibrate' ? () => setTool('select') : undefined}
               underlay={drawingPlan && region ? drawing.measureUnderlay(region) : undefined}
               bounds={markerBounds}
               onPolygonChange={setPolyCount}
@@ -1581,7 +1570,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             ) : (
             <>
             <div className="tool-group">
-              {TOOLS.filter((t) => t.id !== 'calibrate' || !drawingPlan).map((t) => (
+              {TOOLS.filter((t) => (t.id !== 'calibrate' || !drawingPlan) && (t.id !== 'select' || !isTouchDevice())).map((t) => (
                 <button
                   key={t.id}
                   type="button"

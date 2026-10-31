@@ -94,8 +94,9 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   await waitForPlan(page);
   await noHorizontalScroll(page);
 
-  // Bedienelemente groß genug für Touch
-  for (const id of ['tool-select', 'tool-ellipse', 'tool-rect', 'tool-polyline']) {
+  // Bedienelemente groß genug für Touch; „Auswahl“ gibt es am Handy/Tablet nicht als Knopf (automatisch nach Gebrauch)
+  await expect(page.getByTestId('tool-select')).toHaveCount(0);
+  for (const id of ['tool-ellipse', 'tool-rect', 'tool-polyline']) {
     const b = await page.getByTestId(id).boundingBox();
     expect(b!.height).toBeGreaterThanOrEqual(44);
     expect(b!.width).toBeGreaterThanOrEqual(44);
@@ -153,8 +154,8 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   expect(await page.locator('.damage-label').count()).toBe(2);
   await expect(dlg).toBeHidden();
 
-  // 4) Verschieben mit einem Finger im Auswahlmodus
-  await pickTool(page, 'tool-select', 'tap');
+  // 4) Verschieben mit einem Finger: nach dem Speichern ist das Werkzeug von selbst wieder „Auswahl“ (Leiste zugeklappt)
+  await expect(page.getByTestId('tools-open')).toBeVisible();
   await touchDrag(cdp, { x: vb.x + 60, y: vb.y + 80 }, { x: vb.x + 160, y: vb.y + 150 });
   const afterPan = await markerRelPos(page, 2);
   for (const k of ['x', 'y', 'w', 'h'] as const) expect(Math.abs(afterPan[k] - before[k])).toBeLessThan(0.003);
@@ -176,9 +177,10 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   await dlg.getByTestId('input-width').fill('1,5');
   await dlg.getByTestId('damage-save').tap();
   await expect(page.getByTestId('selection-bar')).toContainText('3,60 m²');
-  // Alle Werkzeuge und Rückgängig/Wiederholen sind per Finger erreichbar, nichts ragt über den Rand
+  // Alle Werkzeuge und Rückgängig/Wiederholen sind per Finger erreichbar, nichts ragt über den Rand (Leiste war zugeklappt)
+  await openTools(page, 'tap');
   const vw = page.viewportSize()!.width;
-  for (const t of ['select', 'line', 'rect', 'ellipse', 'polyline', 'wall', 'probe']) {
+  for (const t of ['line', 'rect', 'ellipse', 'polyline', 'wall', 'probe']) {
     const b = (await page.getByTestId(`tool-${t}`).boundingBox())!;
     expect(b.x).toBeGreaterThanOrEqual(0);
     expect(b.x + b.width).toBeLessThanOrEqual(vw + 0.5);
@@ -369,7 +371,7 @@ test('Plan zeichnen per Finger: Raum über Maßeingabe, Bemaßung sichtbar, Weit
   }
   // Registerkarten der oberen Leiste: jede Zeile per Finger wischbar, Knöpfe mindestens 44 px
   for (const [tab, ids] of [
-    ['draw', ['select', 'line', 'polyline', 'polygon', 'rect', 'ellipse', 'arc', 'text', 'delete', 'undo', 'redo']],
+    ['draw', ['line', 'polyline', 'polygon', 'rect', 'ellipse', 'arc', 'text', 'delete', 'undo', 'redo']],
     ['modify', ['move', 'copy', 'rotate', 'scale', 'stretch', 'trim', 'extend']],
     ['measure', ['dimension']],
   ] as const) {
@@ -381,6 +383,7 @@ test('Plan zeichnen per Finger: Raum über Maßeingabe, Bemaßung sichtbar, Weit
     }
   }
   await page.getByTestId('ribbon-tab-draw').tap();
+  await expect(page.getByTestId('draw-select')).toHaveCount(0); // kein Knopf „Auswahl“ am Handy/Tablet
   await noHorizontalScroll(page);
   await page.screenshot({ path: join(OUT, `${info.project.name}-zeichnen.png`) });
   // Weiter zum Aufmaß: Zeichnung bleibt, Markierungswerkzeuge erscheinen
@@ -610,4 +613,47 @@ test('Fotodokumentation per Finger: großer Aufnahme-Knopf, Speichern, Galerie u
   await noHorizontalScroll(page);
   await page.screenshot({ path: join(OUT, `foto-gross-${info.project.name}.png`) });
   await page.getByTestId('lightbox-close').tap();
+});
+
+test('Mängelplan per Finger: kein Knopf „Auswahl“; Werkzeug endet nach Gebrauch mit dem nächsten Tipp, Pin sofort', async ({ page }) => {
+  await freshStart(page);
+  await page.goto('./maengel');
+  await page.getByTestId('defect-upload').tap();
+  const dlg = page.getByTestId('defect-plan-dialog');
+  await dlg.getByTestId('photo-site').selectOption('__new');
+  const sd = page.getByTestId('photo-site-dialog');
+  await sd.getByTestId('photo-site-name').fill('Touch-Baustelle');
+  await sd.getByTestId('photo-site-save').tap();
+  await dlg.getByTestId('defect-plan-file').setInputFiles(join(FIXTURES, 'parkdeck.png'));
+  await dlg.getByTestId('defect-plan-save').tap();
+  const stage = page.locator('.dp-stage');
+  await expect(stage).toBeVisible();
+  await expect(page.getByTestId('dp-tool-select')).toHaveCount(0);
+  const cdp = await page.context().newCDPSession(page);
+  const box = (await stage.boundingBox())!;
+  const at = (fx: number, fy: number) => ({ x: box.x + box.width * fx, y: box.y + box.height * fy });
+
+  // Rechteck ziehen → Dialog; danach bleibt das Werkzeug bis zum nächsten Tipp ins Leere
+  await page.getByTestId('dp-tool-rect').tap();
+  await touchDrag(cdp, at(0.2, 0.2), at(0.45, 0.45));
+  const md = page.getByTestId('dp-mark-dialog');
+  await expect(md).toContainText('Nr. 1 · Rechteck');
+  await md.getByTestId('dp-mark-save').tap();
+  await expect(md).toBeHidden();
+  await expect(page.getByTestId('dp-tool-rect')).toHaveAttribute('aria-pressed', 'true');
+  const empty = at(0.8, 0.85);
+  await page.touchscreen.tap(empty.x, empty.y);
+  await expect(page.getByTestId('dp-tool-rect')).toHaveAttribute('aria-pressed', 'false');
+  await expect(md).toBeHidden(); // kein zweites Rechteck
+  await expect(page.getByTestId('dp-item')).toHaveCount(1);
+
+  // Pin: setzen → Dialog; das Werkzeug ist danach sofort wieder aus
+  await page.getByTestId('dp-tool-pin').tap();
+  const p = at(0.6, 0.6);
+  await page.touchscreen.tap(p.x, p.y);
+  await expect(md).toContainText('Nr. 2 · Pin');
+  await md.getByTestId('dp-mark-save').tap();
+  await expect(md).toBeHidden();
+  await expect(page.getByTestId('dp-tool-pin')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.getByTestId('dp-item')).toHaveCount(2);
 });

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { DRAW_TOOLS, NEEDS_SELECTION, ORTHO_DIR_LABELS, type DrawTool, type useDrawing } from '../pages/DrawingMode';
 import { ORTHO_DIRS } from '../lib/cad';
 import { Icon } from './Icon';
+import { isTouchDevice } from '../lib/platform';
 import { ProbeMenu } from './ProbeLayer';
 import type { ProbeKind } from '../lib/probe';
 import type { PlanViewerHandle } from './PlanViewer';
@@ -161,7 +162,7 @@ export function DrawRibbon({
         {tab === 'draw' && (
           <>
             <div className="tool-group" role="group" aria-label="Zeichnen">
-              {DRAW_IDS.map(toolBtn)}
+              {DRAW_IDS.filter((id) => id !== 'select' || !isTouchDevice()).map(toolBtn)}
             </div>
             {editGroup}
           </>
@@ -169,7 +170,9 @@ export function DrawRibbon({
         {tab === 'modify' && (
           <>
             <div className="tool-group" role="group" aria-label="Ändern">
-              {MODIFY_IDS.slice(0, 3).map(toolBtn)}
+              {MODIFY_IDS.slice(0, 3)
+                .filter((id) => id !== 'select' || !isTouchDevice())
+                .map(toolBtn)}
               {btn('draw-rotate', 'rotate', 'Drehen', () => void transform('rotate'), { disabled: !sel, title: 'Ausgewähltes Objekt um einen Winkel drehen' })}
               {btn('draw-scale', 'scale', 'Skalieren', () => void transform('scale'), { disabled: !sel, title: 'Ausgewähltes Objekt mit einem Faktor skalieren' })}
               {MODIFY_IDS.slice(3).map(toolBtn)}

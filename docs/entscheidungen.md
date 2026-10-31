@@ -90,7 +90,7 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - Arbeiter bekommen in der Arbeitereinteilung eine **Funktion** zur Auswahl: Projektleiter, Techniker, Bautechniker, Polier, Vorarbeiter, Facharbeiter, Hilfsarbeiter (Freitext nur noch als Zusatz/Qualifikation). Personalstand im Bautagesbericht kommt daraus aus der Einteilung und bleibt änderbar. Firmenformulare mit nur „Bauleiter“ bekommen PL + Techniker + Bautechniker, mit nur „Vorarbeiter“ Vorarbeiter + Polier.
 - Zusatzangaben nur für Firmenformulare: Wegzeit je Arbeiter, Fahrtkosten, Nächtigung, Div. Kosten (Regie), Schlussabnahme (Tagesbericht).
 
-## Ansicht der Planunterlage ohne KI (31.10.2026)
-- **Frage:** nur Wände oder nur Rohbau anzeigen. **Entscheidung:** kein KI-Dienst (Kosten, Datenschutz, nur Näherung), sondern Filter nach Merkmalen des Vektor-PDFs: PDF-Ebenen (wenn der CAD-Export sie mitgibt), Text, Bilder, Strichstärke (Auswahl aus den tatsächlich vorkommenden Stärken), Farben. Ein KI-Modell bleibt als spätere Option für Scans; Preis je Plan wäre gering (Cent-Bereich), Genauigkeit für Maße aber unzureichend.
-- **Umsetzung:** gefiltert zeichnet BauPad die Zeichenbefehle der Seite selbst (pdf.js-Operatorliste), ohne Filter zeichnet pdf.js wie bisher. Gilt für Ansicht und PDF (gefilterter Export als Bild statt eingebetteter Originalseite). Je Plan gespeichert, Aufmaß und Mängelplan gleich.
-- **Grenzen:** Text als Kurven bleibt sichtbar; Verläufe und Muster werden vereinfacht (Schraffur als graue Fläche); Scans und Fotos haben keine Filter.
+## Ansicht der Planunterlage (31.10.2026)
+- **Frage:** nur Wände oder nur Rohbau anzeigen. Ein Filter nach PDF-Ebenen, Text, Strichstärke und Farben war gebaut und wurde auf Wunsch wieder entfernt: Menü „Ansicht“ enthält nur Farbig / Schwarz-weiß (Aufmaß und Mängelplan gleich, Ansicht und PDF, je Plan gespeichert).
+- **KI-Erkennung** bleibt Option für später: Kosten je Plan gering (Cent-Bereich), Genauigkeit für Maße unzureichend, Datenschutz (Pläne beim Anbieter) zu klären.
+- **Handy/Tablet:** kein Knopf „Auswahl“; ein Werkzeug endet nach Gebrauch mit dem nächsten Fingerkontakt (Tipp ins Leere = Auswahl, Ziehen = Plan verschieben), Pin/Text/Bauteil sofort nach dem Setzen, Messungen nach dem Speichern.

@@ -157,8 +157,6 @@ export interface Plan extends SyncMeta {
    * farbigen Aufmaß-Markierungen besser zu sehen sind (Ansicht und PDF; die Originaldatei bleibt).
    */
   planColor?: boolean;
-  /** Ansicht der Planunterlage: PDF-Ebenen und Inhaltsfilter (Text, dünne Linien, Farben) – Ansicht und PDF */
-  view?: import('./plan-view').PlanView;
   /** Ausgeblendete Ebenen (Ansicht und PDF); fehlt = alle sichtbar */
   hiddenLayers?: LayerId[];
   /**
@@ -697,8 +695,6 @@ export interface DefectPlan {
   height: number;
   /** Plan schwarz-weiß anzeigen und exportieren (Standard: farbig, wie hochgeladen) */
   gray?: boolean;
-  /** Ansicht (nur Pläne aus PDF): PDF-Ebenen und Inhaltsfilter – Ansicht und PDF */
-  view?: import('./plan-view').PlanView;
   createdAt: number;
   updatedAt: number;
 }

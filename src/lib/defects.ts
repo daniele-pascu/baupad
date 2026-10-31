@@ -9,7 +9,6 @@ import { canvasToBlob, closePdf, imageToCanvas, loadImageBitmap, openPdf, render
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { photoSiteKey } from './photos';
 import type { DefectKind, DefectMark, DefectPlan, MarkShape, PhotoSite } from './types';
-import type { PlanView } from './plan-view';
 
 export const DEFECT_COLOR = '#d6242b';
 
@@ -92,12 +91,12 @@ export function openPlanPdf(planId: string): Promise<PDFDocumentProxy | null> {
 }
 
 /** Plan als JPEG für den Export: aus dem Original-PDF in hoher Auflösung, sonst das gespeicherte Grundbild */
-export async function planRaster(planId: string, maxSide = EXPORT_MAX, view?: PlanView | null): Promise<ArrayBuffer | null> {
+export async function planRaster(planId: string, maxSide = EXPORT_MAX): Promise<ArrayBuffer | null> {
   const img = await getDefectPlanImage(planId);
   if (!img) return null;
   const doc = await openPlanPdf(planId);
   if (!doc) return img.data;
-  const canvas = await renderPdfToCanvas(await doc.getPage(1), maxSide, null, 0, { view, doc });
+  const canvas = await renderPdfToCanvas(await doc.getPage(1), maxSide);
   return (await canvasToBlob(canvas, 'image/jpeg', 0.9)).arrayBuffer();
 }
 
@@ -120,14 +119,6 @@ export async function createDefectPlan(site: PhotoSite, title: string, file: Fil
   await putDefectPlanImage({ id: plan.id, data: img.data, thumb: img.thumb, pdf: img.pdf });
   await saveDefectPlan(plan);
   return plan;
-}
-
-/** Ansicht (PDF-Ebenen, Inhaltsfilter) je Plan speichern */
-export async function setDefectPlanView(id: string, view: PlanView | undefined): Promise<void> {
-  const p = await getDefectPlan(id);
-  if (!p) return;
-  const { view: _, ...rest } = p;
-  await saveDefectPlan({ ...rest, ...(view ? { view } : {}), updatedAt: Date.now() });
 }
 
 /** Plan farbig oder schwarz-weiß (Ansicht und PDF) */
