@@ -873,13 +873,13 @@ function SiteDialog({
 }) {
   const [projectId, setProjectId] = useState<string>(site?.projectId ?? '');
   const mayCreate = useCanCreateProjects();
-  /** Quelle: Projekt aus dem Register wählen oder neues Projekt anlegen (erscheint dann in allen Werkzeugen) */
-  const [source, setSource] = useState<'project' | 'new'>(() => (site ? (site.projectId ? 'project' : 'new') : projects.some((p) => !taken.includes(p.id)) ? 'project' : 'new'));
   const [name, setName] = useState(site?.name ?? '');
   const [number, setNumber] = useState(site?.number ?? '');
   const [address, setAddress] = useState(site?.address ?? '');
   const [note, setNote] = useState(site?.note ?? '');
   const [show, setShow] = useState(false);
+  /** wie in den anderen Werkzeugen: Projekt aus dem Register wählen – oder die Felder selbst ausfüllen (neues Projekt im Register) */
+  const source: 'project' | 'new' = projectId ? 'project' : 'new';
   const pick = (id: string) => {
     setProjectId(id);
     const p = projects.find((x) => x.id === id);
@@ -888,12 +888,16 @@ function SiteDialog({
       setName(f.name);
       setNumber(f.number);
       setAddress(f.address);
+    } else if (!site) {
+      setName('');
+      setNumber('');
+      setAddress('');
     }
   };
   const submit = () => {
     setShow(true);
     if (!name.trim()) return;
-    if (source === 'project' && !projectId) return;
+    if (!projectId && !mayCreate) return;
     onSave({ projectId: source === 'project' ? projectId || null : null, name: name.trim(), number: number.trim(), address: address.trim(), note: note.trim() }, source === 'new');
   };
   return (
@@ -918,32 +922,10 @@ function SiteDialog({
           submit();
         }}
       >
-        <div className="segmented crew-source" role="radiogroup" aria-label="Baustelle">
-          <button type="button" role="radio" aria-checked={source === 'project'} aria-selected={source === 'project'} onClick={() => setSource('project')} disabled={!projects.length} data-testid="site-source-project">
-            <Icon name="folder" size={16} /> Projekt auswählen
-          </button>
-          {mayCreate && (
-          <button
-            type="button"
-            role="radio"
-            aria-checked={source === 'new'}
-            aria-selected={source === 'new'}
-            onClick={() => {
-              setSource('new');
-              setProjectId('');
-            }}
-            data-testid="site-source-new"
-          >
-            <Icon name="plus" size={16} /> Selbst ausfüllen (neues Projekt)
-          </button>
-          )}
-        </div>
-        {!projects.length && <p className="muted small">{mayCreate ? 'Noch keine Projekte im Register.' : 'Noch keine Projekte – Projekte legt Admin oder Büro an.'}</p>}
-        {source === 'project' && (
         <label className="field">
-          <span>Projekt wählen *</span>
-          <select value={projectId} onChange={(e) => pick(e.target.value)} aria-invalid={show && !projectId ? true : undefined} data-testid="site-project">
-            <option value="">– Projekt wählen –</option>
+          <span>Projekt{mayCreate ? ' (oder unten selbst ausfüllen)' : ' *'}</span>
+          <select value={projectId} onChange={(e) => pick(e.target.value)} aria-invalid={show && !projectId && !mayCreate ? true : undefined} data-testid="site-project">
+            <option value="">{mayCreate ? '– Projekt wählen oder selbst ausfüllen –' : '– Projekt wählen –'}</option>
             {projects.map((p) => (
               <option key={p.id} value={p.id} disabled={taken.includes(p.id) && p.id !== site?.projectId}>
                 {[p.number, p.name].filter(Boolean).join(' · ')}
@@ -952,27 +934,27 @@ function SiteDialog({
             ))}
           </select>
         </label>
-        )}
+        {!projects.length && !mayCreate && <p className="muted small">Noch keine Projekte – Projekte legt Admin oder Büro an.</p>}
         <div className="form-grid crew-site-fields">
           <label className="field span-2">
             <span>Bezeichnung *</span>
-            <input value={name} onChange={(e) => setName(e.target.value)} aria-invalid={show && !name.trim() ? true : undefined} placeholder="z. B. Neubau Musterstraße" data-testid="site-name-input" />
+            <input value={name} onChange={(e) => setName(e.target.value)} disabled={!mayCreate && !projectId} aria-invalid={show && !name.trim() ? true : undefined} placeholder="z. B. Neubau Musterstraße" data-testid="site-name-input" />
           </label>
           <label className="field">
             <span>Projektnummer</span>
-            <input value={number} onChange={(e) => setNumber(e.target.value)} data-testid="site-number" />
+            <input value={number} onChange={(e) => setNumber(e.target.value)} disabled={!mayCreate && !projectId} data-testid="site-number" />
           </label>
           <label className="field">
             <span>Adresse</span>
-            <input value={address} onChange={(e) => setAddress(e.target.value)} data-testid="site-address" />
+            <input value={address} onChange={(e) => setAddress(e.target.value)} disabled={!mayCreate && !projectId} data-testid="site-address" />
           </label>
           <label className="field span-2">
             <span>Bemerkung für diese Woche (optional, erscheint im PDF)</span>
             <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="z. B. Kran ab Mittwoch, Schlüssel bei Polier" data-testid="site-note-input" />
           </label>
         </div>
-        {source === 'new' && !site?.projectId && <p className="muted small">Das Projekt wird im Projektregister angelegt und ist damit in allen Werkzeugen verfügbar.</p>}
-        {show && source === 'project' && !projectId && <p className="error small">Bitte ein Projekt wählen.</p>}
+        {source === 'new' && mayCreate && !site?.projectId && name.trim() && <p className="muted small" data-testid="site-new-hint">Neues Projekt: wird im Projektregister angelegt und ist damit in allen Werkzeugen verfügbar.</p>}
+        {show && !projectId && !mayCreate && <p className="error small">Bitte ein Projekt wählen.</p>}
         {show && !name.trim() && <p className="error small">Bitte eine Bezeichnung eingeben.</p>}
         <p className="muted small">Die Bezeichnung wird in dieser Woche gespeichert – spätere Umbenennungen des Projekts ändern alte Wochen nicht.</p>
         <button type="submit" hidden />

@@ -107,7 +107,6 @@ test('Arbeitereinteilung: Woche nach Baustellen planen und in die nächste Woche
 
   // Baustelle B manuell
   await page.getByTestId('add-site').click();
-  await page.getByTestId('site-dialog').getByTestId('site-source-new').click();
   await page.getByTestId('site-dialog').getByTestId('site-name-input').fill('Sanierung Hauptplatz');
   await page.getByTestId('site-dialog').getByTestId('site-save').click();
   await addFromMonday(page, 'Sanierung Hauptplatz', ['Thomas Stein']);
@@ -336,9 +335,8 @@ test('Baustelle ↔ Projekt: aus Aufmaß & Abrechnung wählen, als Projekt anleg
   // 1) aus Aufmaß & Abrechnung wählen (Standard, wenn Projekte vorhanden)
   await page.getByTestId('add-site').click();
   let sd = page.getByTestId('site-dialog');
-  await expect(sd.getByTestId('site-source-project')).toHaveAttribute('aria-checked', 'true');
   await sd.getByTestId('site-save').click();
-  await expect(sd).toContainText('Bitte ein Projekt wählen.');
+  await expect(sd).toContainText('Bitte eine Bezeichnung eingeben.');
   await sd.getByTestId('site-project').selectOption({ label: '2026-04 · Neubau Musterstraße' });
   await sd.getByTestId('site-save').click();
   await menu('Neubau Musterstraße');
@@ -351,8 +349,8 @@ test('Baustelle ↔ Projekt: aus Aufmaß & Abrechnung wählen, als Projekt anleg
   await page.getByTestId('week-date').fill('2026-10-26');
   await page.getByTestId('add-site').click();
   sd = page.getByTestId('site-dialog');
-  await sd.getByTestId('site-source-new').click();
   await sd.getByTestId('site-name-input').fill('Sanierung Hauptplatz');
+  await expect(sd.getByTestId('site-new-hint')).toBeVisible();
   await sd.getByTestId('site-address').fill('Hauptplatz 3');
   await sd.getByTestId('site-save').click();
   await expect(page.locator('.toast', { hasText: 'Projekt „Sanierung Hauptplatz“ im Projektregister angelegt' })).toHaveCount(1);
@@ -364,7 +362,6 @@ test('Baustelle ↔ Projekt: aus Aufmaß & Abrechnung wählen, als Projekt anleg
   for (const n of ['Umbau Gewerbepark', 'Halle Nord']) {
     await page.getByTestId('add-site').click();
     sd = page.getByTestId('site-dialog');
-    await sd.getByTestId('site-source-new').click();
     await sd.getByTestId('site-name-input').fill(n);
     await sd.getByTestId('site-save').click();
     await expect(page.locator('.toast', { hasText: `Projekt „${n}“` })).toHaveCount(1);
