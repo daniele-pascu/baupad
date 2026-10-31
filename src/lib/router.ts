@@ -184,12 +184,68 @@ function migrateHash(): boolean {
   return true;
 }
 
+/**
+ * Verlauf der App (je Browser-Tab): Reihenfolge der besuchten Adressen und die Position darin.
+ * Damit führt ein Link „Zurück zu …“ auf die Seite, von der man kam, wirklich zurück (wie die
+ * Zurück-Taste), statt eine neue Seite anzuhängen – sonst springt die Zurück-Taste anschließend
+ * zwischen den beiden Seiten hin und her.
+ */
+const STACK_KEY = 'baupad:nav';
+let stack: string[] = [];
+let idx = -1;
+const readStack = () => {
+  try {
+    const raw = sessionStorage.getItem(STACK_KEY);
+    stack = raw ? (JSON.parse(raw) as string[]) : [];
+  } catch {
+    stack = [];
+  }
+};
+const writeStack = () => {
+  try {
+    sessionStorage.setItem(STACK_KEY, JSON.stringify(stack));
+  } catch {
+    /* ohne sessionStorage nur im Speicher */
+  }
+};
+const stateIndex = () => (history.state && typeof history.state.i === 'number' ? (history.state.i as number) : null);
+/** Position aus dem gespeicherten Zustand übernehmen; passt nichts zusammen, beginnt der Verlauf hier neu */
+function syncStack() {
+  const i = stateIndex();
+  const path = currentPath();
+  if (i !== null && stack[i] === path) {
+    idx = i;
+    return;
+  }
+  stack = [path];
+  idx = 0;
+  writeStack();
+  history.replaceState({ i: 0 }, '', location.href);
+}
+/** Adresse, von der man auf die aktuelle Seite kam (unbekannt = null) */
+export function previousPath(): string | null {
+  return idx > 0 ? (stack[idx - 1] ?? null) : null;
+}
+
 export function navigate(path: string, replace = false) {
   // Verträglichkeit: „#/…“ wird weiterhin verstanden
   if (path.startsWith('#')) path = path.slice(1);
   const same = path === currentPath();
-  if (replace || same) history.replaceState(null, '', path);
-  else history.pushState(null, '', path);
+  if (!replace && !same && path === previousPath()) {
+    // zurück zur vorigen Seite: wie die Zurück-Taste (popstate meldet die Änderung)
+    history.back();
+    return;
+  }
+  if (replace || same) {
+    stack[Math.max(idx, 0)] = path;
+    if (idx < 0) idx = 0;
+    history.replaceState({ i: idx }, '', path);
+  } else {
+    idx += 1;
+    stack = [...stack.slice(0, idx), path];
+    history.pushState({ i: idx }, '', path);
+  }
+  writeStack();
   if (!same && !replace) window.scrollTo(0, 0);
   notify();
 }
@@ -208,8 +264,18 @@ function onClick(e: MouseEvent) {
 
 if (typeof window !== 'undefined') {
   migrateHash();
-  window.addEventListener('hashchange', () => migrateHash() && notify());
-  window.addEventListener('popstate', notify);
+  readStack();
+  syncStack();
+  window.addEventListener('hashchange', () => {
+    if (migrateHash()) {
+      syncStack();
+      notify();
+    }
+  });
+  window.addEventListener('popstate', () => {
+    syncStack();
+    notify();
+  });
   document.addEventListener('click', onClick);
 }
 

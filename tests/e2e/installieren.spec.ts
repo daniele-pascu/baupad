@@ -53,12 +53,12 @@ test('Bereits als App geöffnet: kein Installieren-Knopf; Konto zeigt Status', a
   await page.evaluate(() => (location.hash = '#/'));
   await expect(page.getByTestId('tools-title')).toBeVisible(); // angemeldet: Startseite führt zu den Tools
   await expect(page.getByTestId('install-app')).toHaveCount(0);
-  await page.goto('./#/konto');
+  await page.goto('./konto/app');
   await expect(page.getByTestId('app-installed')).toHaveText('Als App installiert');
 });
 
 test('Konto: App und Speicher – Status und dauerhafte Speicherung anfordern', async ({ page }) => {
-  await page.goto('./#/konto');
+  await page.goto('./konto/app');
   const box = page.getByTestId('app-settings');
   await expect(box.getByTestId('app-installed')).toHaveText('Im Browser geöffnet');
   await expect(box.getByTestId('storage-persisted')).toBeVisible();

@@ -454,3 +454,30 @@ test('Planliste am PC: Spalten nebeneinander', async ({ page }) => {
   expect(Math.max(...boxes) - Math.min(...boxes)).toBeLessThan(12);
   await page.screenshot({ path: join(OUT, 'planliste-pc.png') });
 });
+
+test('Zurück-Links führen wirklich zurück: die Zurück-Taste springt danach nicht hin und her', async ({ page }) => {
+  await freshStart(page); // /projekte
+  await page.getByTestId('to-tools').click();
+  await expect(page).toHaveURL(/\/tools$/);
+  await page.getByTestId('account-link').click();
+  await expect(page).toHaveURL(/\/konto$/);
+  await page.locator('[data-testid="account-section"][data-tile="profil"]').click();
+  await expect(page).toHaveURL(/\/konto\/profil$/);
+  // „Zurück“ in der Seite = Zurück-Taste
+  await page.getByTestId('account-back').click();
+  await expect(page).toHaveURL(/\/konto$/);
+  await page.getByRole('link', { name: 'Zu den Tools' }).click();
+  await expect(page).toHaveURL(/\/tools$/);
+  // Zurück-Taste: nicht wieder Konto, sondern die Seite davor
+  await page.goBack();
+  await expect(page).toHaveURL(/\/projekte$/);
+  await page.goForward();
+  await expect(page).toHaveURL(/\/tools$/);
+  // Neuladen behält den Verlauf
+  await page.getByTestId('account-link').click();
+  await page.reload();
+  await page.getByRole('link', { name: 'Zu den Tools' }).click();
+  await expect(page).toHaveURL(/\/tools$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/projekte$/);
+});

@@ -11,7 +11,7 @@ const unzipRead = (file: string, name: string) =>
 
 test('Logo hochladen, im Aufmaßblatt links in der Kopfzeile, rechts Seite von Seiten; entfernen', async ({ page }) => {
   await freshStart(page);
-  await page.goto('./#/konto');
+  await page.goto('./konto/firma');
   const box = page.getByTestId('logo-settings');
   await expect(box).toContainText('Kein Logo');
   await page.getByTestId('logo-input').setInputFiles(join(FIXTURES, 'firmenlogo.png'));
@@ -54,7 +54,7 @@ test('Logo hochladen, im Aufmaßblatt links in der Kopfzeile, rechts Seite von S
   expect(unzipRead(fileB, 'xl/worksheets/sheet1.xml')).toContain('view="pageLayout"');
 
   // Logo entfernen → Export ohne Bild
-  await page.goto('./#/konto');
+  await page.goto('./konto/firma');
   await page.getByTestId('logo-remove').click();
   await page.getByRole('button', { name: 'Entfernen' }).last().click();
   await expect(page.getByTestId('logo-settings')).toContainText('Kein Logo');
