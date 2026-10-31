@@ -1045,6 +1045,21 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           <button type="button" className="btn btn-sm" onClick={() => setDetailsOpen(true)} title="Planangaben">
             <Icon name="info" size={18} /> <span className="hide-sm">Angaben</span>
           </button>
+          {!drawingPlan && !drawMode && (
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={() => {
+                const { planColor: _, ...rest } = data.plans[plan.id];
+                putRecord('plans', plan.planColor ? rest : { ...rest, planColor: true });
+              }}
+              aria-pressed={!!plan.planColor}
+              title={plan.planColor ? 'Plan farbig – antippen für schwarz-weiß (Ansicht und PDF)' : 'Plan schwarz-weiß – antippen für farbig (Ansicht und PDF)'}
+              data-testid="plan-color-toggle"
+            >
+              <Icon name="layers" size={18} /> <span className="hide-sm">{plan.planColor ? 'Farbig' : 'Schwarz-weiß'}</span>
+            </button>
+          )}
           <button type="button" className="btn btn-sm" onClick={exportExcel} title="Aufmaß dieses Plans als Excel" data-testid="export-xlsx-plan">
             <Icon name="excel" size={18} /> <span className="hide-sm">Excel</span>
           </button>

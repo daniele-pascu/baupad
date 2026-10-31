@@ -21,13 +21,20 @@ const hex = (h: string) => {
 };
 
 /** Plan mit Markierungen auf eine Leinwand zeichnen (Bildpixel) und als JPEG liefern */
-export async function drawPlanWithMarks(marks: DefectMark[], image: ArrayBuffer): Promise<ArrayBuffer> {
+export async function drawPlanWithMarks(marks: DefectMark[], image: ArrayBuffer, gray = false): Promise<ArrayBuffer> {
   const bmp = await loadImageBitmap(image, 'image/jpeg');
   const canvas = document.createElement('canvas');
   canvas.width = bmp.width;
   canvas.height = bmp.height;
   const ctx = canvas.getContext('2d')!;
   ctx.drawImage(bmp, 0, 0);
+  if (gray) {
+    // Plan schwarz-weiß, Markierungen bleiben farbig
+    const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const d = img.data;
+    for (let i = 0; i < d.length; i += 4) d[i] = d[i + 1] = d[i + 2] = 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+    ctx.putImageData(img, 0, 0);
+  }
   const W = canvas.width;
   const H = canvas.height;
   const u = Math.max(W, H) / 900; // Einheit: Strichstärken relativ zur Bildgröße
@@ -151,7 +158,7 @@ export async function defectPdf(plan: DefectPlan, marks: DefectMark[], image: Ar
   // Seite 1: Plan
   const p1 = ctx.doc.addPage(size);
   const top = header(ctx, p1, title, sub, opts.company, true);
-  const img = await ctx.doc.embedJpg(await drawPlanWithMarks(marks, image));
+  const img = await ctx.doc.embedJpg(await drawPlanWithMarks(marks, image, !!plan.gray));
   const maxW = size[0] - 2 * M;
   const maxH = top - M - 14;
   const sc = Math.min(maxW / img.width, maxH / img.height);

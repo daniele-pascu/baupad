@@ -121,6 +121,13 @@ export async function createDefectPlan(site: PhotoSite, title: string, file: Fil
   return plan;
 }
 
+/** Plan farbig oder schwarz-weiß (Ansicht und PDF) */
+export async function setDefectPlanGray(id: string, gray: boolean): Promise<void> {
+  const p = await getDefectPlan(id);
+  if (!p) return;
+  await saveDefectPlan({ ...p, gray, updatedAt: Date.now() });
+}
+
 export async function renameDefectPlan(id: string, title: string): Promise<void> {
   const p = await getDefectPlan(id);
   if (!p) return;

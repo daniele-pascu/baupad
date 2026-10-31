@@ -693,6 +693,8 @@ export interface DefectPlan {
   /** Bildgröße in Pixeln (Markierungen sind relativ 0..1 dazu gespeichert) */
   width: number;
   height: number;
+  /** Plan schwarz-weiß anzeigen und exportieren (Standard: farbig, wie hochgeladen) */
+  gray?: boolean;
   createdAt: number;
   updatedAt: number;
 }

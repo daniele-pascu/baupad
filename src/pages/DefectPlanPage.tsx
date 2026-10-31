@@ -9,7 +9,7 @@ import { confirmDialog, showError } from '../components/ui';
 import { getCompanyLogo } from '../lib/company';
 import { getDefectPlan, getMeta } from '../lib/db';
 import { defectPdf } from '../lib/defect-pdf';
-import { defectSiteKey, hitMark, KINDS, kindInfo, loadMarks, MARK_COLORS, markAnchor, markBox, newMark, nextMarkNo, openPlanPdf, planRaster, plansOfSite, putMark, removeMark, renumber, SHAPES, thinPoints } from '../lib/defects';
+import { defectSiteKey, hitMark, KINDS, kindInfo, loadMarks, MARK_COLORS, markAnchor, markBox, newMark, nextMarkNo, openPlanPdf, planRaster, plansOfSite, putMark, removeMark, renumber, setDefectPlanGray, SHAPES, thinPoints } from '../lib/defects';
 import { clampRenderScale, pageSize, renderPdfRegion, type RenderJob } from '../lib/pdf';
 import type { PDFPageProxy } from 'pdfjs-dist';
 import { getPhotoStorage } from '../lib/photo-storage';
@@ -464,7 +464,7 @@ function PlanCanvas({
       onPointerUp={up}
       onPointerCancel={cancel}
     >
-      <div ref={stage} className="dp-stage" style={{ width: fitW, height: fitH, transform: `translate(${view.tx}px, ${view.ty}px) scale(${view.s})` }}>
+      <div ref={stage} className={`dp-stage${plan.gray ? ' dp-gray' : ''}`} data-gray={plan.gray ? '' : undefined} style={{ width: fitW, height: fitH, transform: `translate(${view.tx}px, ${view.ty}px) scale(${view.s})` }}>
         {url ? <img src={url} alt="" draggable={false} /> : <div className="dp-loading muted small">Plan wird geladen …</div>}
         <canvas
           ref={detailRef}
@@ -898,6 +898,22 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
             <span className="status-pill ok dp-status" title="Alles gespeichert" data-testid="dp-status">
               <span className="hide-sm">{marks.length} Markierungen</span>
             </span>
+            {plan && (
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={() => {
+                  const gray = !plan.gray;
+                  setPlan({ ...plan, gray });
+                  void setDefectPlanGray(plan.id, gray).catch((e) => showError(e, 'Speichern fehlgeschlagen'));
+                }}
+                aria-pressed={!!plan.gray}
+                title={plan.gray ? 'Plan schwarz-weiß – antippen für farbig (Ansicht und PDF)' : 'Plan farbig – antippen für schwarz-weiß (Ansicht und PDF)'}
+                data-testid="dp-plan-color"
+              >
+                <Icon name="layers" size={18} /> <span className="hide-sm">{plan.gray ? 'Schwarz-weiß' : 'Farbig'}</span>
+              </button>
+            )}
             <button type="button" className="btn btn-sm" onClick={() => void exportPdf()} disabled={busy || !marks.length} title="Plan mit Markierungen und Liste als PDF" data-testid="dp-pdf">
               <Icon name="pdf" size={18} /> <span className="hide-sm">{busy ? 'Wird erstellt …' : 'PDF'}</span>
             </button>

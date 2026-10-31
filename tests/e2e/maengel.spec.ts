@@ -301,6 +301,29 @@ test('Esc im Mängelplan wie im Aufmaß: angefangene Zeichnung verwerfen, Auswah
   await expect(page.getByTestId('dp-hint')).toHaveCount(0);
 });
 
+test('Plan farbig oder schwarz-weiß: Schalter oben, bleibt gespeichert', async ({ page }) => {
+  await freshStart(page);
+  await page.goto('./maengel');
+  await page.getByTestId('defect-upload').click();
+  const dlg = page.getByTestId('defect-plan-dialog');
+  await dlg.getByTestId('photo-site').selectOption('__new');
+  const sd = page.getByTestId('photo-site-dialog');
+  await sd.getByTestId('photo-site-name').fill('Farb-Baustelle');
+  await sd.getByTestId('photo-site-save').click();
+  await dlg.getByTestId('defect-plan-file').setInputFiles(join(FIXTURES, 'parkdeck.png'));
+  await dlg.getByTestId('defect-plan-save').click();
+  const stage = page.locator('.dp-stage');
+  await expect(stage).toBeVisible();
+  await expect(stage).not.toHaveAttribute('data-gray', '');
+  await page.getByTestId('dp-plan-color').click();
+  await expect(page.getByTestId('dp-plan-color')).toHaveText(/Schwarz-weiß/);
+  await expect(stage).toHaveAttribute('data-gray', '');
+  await page.reload();
+  await expect(page.locator('.dp-stage')).toHaveAttribute('data-gray', '');
+  await page.getByTestId('dp-plan-color').click();
+  await expect(page.getByTestId('dp-plan-color')).toHaveText(/Farbig/);
+});
+
 test('Mängelliste am PC nach rechts einklappen und wieder ausklappen; bleibt gemerkt', async ({ page }) => {
   await freshStart(page);
   await page.goto('./maengel');
