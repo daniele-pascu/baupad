@@ -625,6 +625,11 @@ export interface PhotoSite {
   name: string;
   number: string;
   address: string;
+  /** weitere Angaben aus dem Projektregister (für die Anzeige in Listen) */
+  costCenter?: string;
+  client?: string;
+  date?: string;
+  notes?: string;
   /** Werkzeuge, in denen das Projekt benutzt wird (siehe Project.tools) */
   tools?: string[];
 }

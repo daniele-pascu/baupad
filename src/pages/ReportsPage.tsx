@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { ActionMenu } from '../components/ActionMenu';
+import { ProjectHeading } from '../components/ProjectHeading';
 import { Icon } from '../components/Icon';
 import { Modal } from '../components/Modal';
 import { SiteNav } from '../components/SiteNav';
@@ -204,8 +205,7 @@ export function ReportsPage() {
             return (
               <a key={c.key} href={paths.reportSite(c.key)} className="report-site" data-testid="report-site" data-site={c.site.name}>
                 <div className="report-site-main">
-                  <strong>{c.site.name}</strong>
-                  <span className="muted small">{[c.head.number, c.head.address, c.head.client].filter(Boolean).join(' · ')}</span>
+                  <ProjectHeading info={{ name: c.site.name, number: c.head.number, costCenter: c.head.costCenter, address: c.head.address, client: c.head.client }} />
                   <span className="small">
                     {total} {total === 1 ? 'Bericht' : 'Berichte'} · zuletzt {fmtDate(c.last, false)}
                     {c.open > 0 && <span className="rp-badge"> {c.open} offen</span>}
@@ -233,8 +233,7 @@ export function ReportsPage() {
               data-site={f.name}
             >
               <div className="report-site-main">
-                <strong>{f.name}</strong>
-                <span className="muted small">{[f.number, f.address].filter(Boolean).join(' · ')}</span>
+                <ProjectHeading info={f} />
                 <span className="small muted">Noch kein Bericht – antippen zum Anlegen</span>
               </div>
               <Icon name="plus" size={18} />

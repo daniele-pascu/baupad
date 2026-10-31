@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '../components/Icon';
 import { ProjectForm, type CostCenterInput, type ProjectFields } from '../components/ProjectForm';
+import { ProjectHeading } from '../components/ProjectHeading';
+import { labelFromProject } from '../lib/project-label';
 import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, offerFile, promptDialog, showError, toast } from '../components/ui';
 import { backupStatus, exportProjectBackup, findExistingProject, importProjectBackup, readProjectBackup, type BackupStatus } from '../lib/backup';
@@ -352,20 +354,10 @@ export function HomePage() {
           {visible.map((r) => (
             <li key={r.project.id} className="card project-card">
               <a className="card-main" href={paths.project(r.project.id)} data-testid="project-card">
-                <div className="card-title">
-                  {r.project.name}
-                  {r.project.number && <span className="project-no">Nr. {r.project.number}</span>}
-                </div>
-                <div className="card-sub">
-                  {[
-                    r.stats.costCenterNumbers.length ? `KSt. ${r.stats.costCenterNumbers.join(', ')}` : '',
-                    r.project.site,
-                    r.project.address,
-                    r.project.client,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ') || 'Keine Baustelle angegeben'}
-                </div>
+                <ProjectHeading
+                  info={labelFromProject(r.project, r.stats.costCenterNumbers[0] ?? '')}
+                  extra={r.stats.costCenterNumbers.length > 1 ? `KSt. ${r.stats.costCenterNumbers.join(', ')}` : undefined}
+                />
                 <div className="card-meta">
                   <span>
                     {r.stats.costCenters} Kostenst. · {r.stats.plans} Pläne · {r.stats.damages} Messungen

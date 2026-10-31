@@ -1,4 +1,4 @@
-import { listProjects, listWeeks, saveWeek, writeRecords } from './db';
+import { listProjects, listWeeks, saveWeek, writeRecords, getDB } from './db';
 import { getDeviceId } from './ids';
 import { createProjectWithCostCenters } from './store';
 import type { Project, WeekSite } from './types';
@@ -31,16 +31,32 @@ export async function linkSitesToProject(name: string, projectId: string): Promi
 }
 
 /** Projekt aus einer Baustelle anlegen (Name, Nummer, Adresse; ohne Kostenstelle – später ergänzbar) */
-export async function projectFromSite(site: Pick<WeekSite, 'name' | 'number' | 'address'>, tool = 'workers'): Promise<Project> {
+export async function projectFromSite(
+  site: Pick<WeekSite, 'name' | 'number' | 'address'> & { costCenter?: string; client?: string; date?: string; notes?: string },
+  tool = 'workers',
+): Promise<Project> {
   // gleicher Name wie ein vorhandenes Projekt (ohne Groß/Klein) → kein Duplikat, das vorhandene Projekt wird übernommen
   const key = site.name.trim().toLowerCase();
   const existing = (await listProjects()).find((p) => !p.deletedAt && ((p.site || p.name).trim().toLowerCase() === key || p.name.trim().toLowerCase() === key));
   if (existing) return adoptProject(existing, tool);
+  const cc = (site.costCenter ?? '').trim();
   const { project } = await createProjectWithCostCenters(
-    { name: site.name.trim(), number: (site.number ?? '').trim(), site: '', address: (site.address ?? '').trim(), client: '', editor: '', date: '', notes: '', tools: [tool] },
-    [{ number: '', name: '' }],
+    { name: site.name.trim(), number: (site.number ?? '').trim(), site: '', address: (site.address ?? '').trim(), client: (site.client ?? '').trim(), editor: '', date: (site.date ?? '').trim(), notes: (site.notes ?? '').trim(), tools: [tool] },
+    // Kostenstelle aus dem einheitlichen Dialog: Zahl → Nummer, sonst Bezeichnung
+    [cc ? (/^[\d.\-/ ]+$/.test(cc) ? { number: cc, name: '' } : { number: '', name: cc }) : { number: '', name: '' }],
   );
   return project;
+}
+
+/** Erste Kostenstelle je Projekt (Nummer, sonst Bezeichnung) – für die Überschrift in Listen */
+export async function costCenterByProject(): Promise<Map<string, string>> {
+  const db = await getDB();
+  const out = new Map<string, string>();
+  for (const c of (await db.getAll('costCenters')).filter((c) => !c.deletedAt).sort((a, b) => a.sortIndex - b.sortIndex)) {
+    const label = (c.number ?? '').trim() || c.name.trim();
+    if (label && !out.has(c.projectId)) out.set(c.projectId, label);
+  }
+  return out;
 }
 
 /** Werkzeuge, in denen ein Projekt benutzt wird (ältere Projekte ohne Angabe: Aufmaß & Abrechnung) */

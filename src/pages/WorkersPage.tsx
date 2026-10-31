@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { ActionMenu, type MenuAction } from '../components/ActionMenu';
 import { Icon } from '../components/Icon';
 import { Modal } from '../components/Modal';
+import { PhotoSiteDialog } from '../components/PhotoSitePicker';
 import { SiteNav } from '../components/SiteNav';
 import { ToolIcon } from '../components/ToolIcon';
 import { useChipDrag, type DropTarget } from '../components/useChipDrag';
@@ -47,12 +48,14 @@ import type { ExportFile } from '../lib/aufmass';
 import { getCompanyLogo } from '../lib/company';
 import { absenceOn, absenceRange, absenceSummary } from '../lib/crew-absence';
 import { exportCrewBackup, importCrewBackup } from '../lib/crew-backup';
-import { linkSitesToProject, projectFromSite } from '../lib/crew-link';
+import { costCenterByProject, linkSitesToProject, projectFromSite } from '../lib/crew-link';
+import { ProjectHeading } from '../components/ProjectHeading';
+import { labelFromProject, type ProjectLabelInfo } from '../lib/project-label';
 import { useCanCreateProjects, useProjectIn } from '../lib/sites';
 import { crewDayPdf, crewWeekPdf } from '../lib/crew-pdf';
 import { uuid } from '../lib/ids';
 import { navigate, paths } from '../lib/router';
-import type { Absence, Project, WeekPlan, WeekSite, Worker, WorkTimes } from '../lib/types';
+import type { Absence, PhotoSite, Project, WeekPlan, WeekSite, Worker, WorkTimes } from '../lib/types';
 import { usePageTitle } from '../lib/page-title';
 
 const WEEKDAYS = [0, 1, 2, 3, 4];
@@ -131,6 +134,16 @@ export function WorkersPage() {
     };
   }, [weekId, reloadKey]);
 
+  /** Kostenstelle je Projekt (für die Überschrift der Baustellenkarten) */
+  const [ccMap, setCcMap] = useState<Map<string, string>>(() => new Map());
+  useEffect(() => {
+    void costCenterByProject().then(setCcMap).catch(() => {});
+  }, [projects]);
+  /** Angaben der Baustelle wie in allen Werkzeugen: aus dem Projekt des Registers, sonst aus der Woche */
+  const siteInfo = (s: WeekSite): ProjectLabelInfo => {
+    const p = s.projectId ? projects.find((x) => x.id === s.projectId) : undefined;
+    return p ? { ...labelFromProject(p, ccMap.get(p.id) ?? ''), name: s.name || p.site || p.name } : { name: s.name, number: s.number, address: s.address };
+  };
   const byId = useMemo(() => new Map((workers ?? []).map((w) => [w.id, w])), [workers]);
   const active = useMemo(() => sortByGrade((workers ?? []).filter((w) => w.active)), [workers]);
   const workTimes = times ?? DEFAULT_WORK_TIMES;
@@ -557,11 +570,7 @@ export function WorkersPage() {
                   <button type="button" className="crew-site-toggle" aria-expanded={isOpen} onClick={() => toggle(s.id)} data-testid="site-toggle">
                     <Icon name="next" size={18} />
                     <span className="crew-site-title">
-                      <strong data-testid="site-name">{s.name}</strong>
-                      <span className="muted small">
-                        {[s.number, s.address].filter(Boolean).join(' · ')}
-                        {s.finished && <span className="crew-finished"> · abgeschlossen</span>}
-                      </span>
+                      <ProjectHeading info={siteInfo(s)} nameTestId="site-name" extra={s.finished ? <span className="crew-finished">abgeschlossen</span> : undefined} />
                     </span>
                     <span className="crew-count" title="Arbeiter in dieser Woche">
                       {count}
@@ -638,8 +647,7 @@ export function WorkersPage() {
                     <span className="crew-site-toggle">
                       <Icon name="pause" size={18} />
                       <span className="crew-site-title">
-                        <strong data-testid="site-name">{s.name}</strong>
-                        <span className="muted small">{[s.number, s.address].filter(Boolean).join(' · ')}</span>
+                        <ProjectHeading info={siteInfo(s)} nameTestId="site-name" />
                       </span>
                     </span>
                     <button type="button" className="btn btn-sm" onClick={() => void run(() => resume(s))} data-testid="site-resume">
@@ -692,6 +700,7 @@ export function WorkersPage() {
           projects={projects}
           taken={plan.sites.map((s) => s.projectId).filter(Boolean) as string[]}
           onClose={() => setDialog(null)}
+          onProjectCreated={async () => setProjects(await listProjects())}
           onSave={(fields, alsoProject) =>
             void run(async () => {
               let f = fields;
@@ -857,49 +866,35 @@ function TimesDialog({
   );
 }
 
-/** Baustelle hinzufügen (Projekt aus dem Register wählen oder neu anlegen) bzw. bearbeiten */
+/** Baustelle hinzufügen: Projekt aus dem Register wählen oder „Neues Projekt …“ (gleicher Dialog wie in allen Werkzeugen) */
 function SiteDialog({
   site,
   projects,
   taken,
   onSave,
   onClose,
+  onProjectCreated,
 }: {
   site?: WeekSite;
   projects: Project[];
   taken: string[];
   onSave(f: Pick<WeekSite, 'projectId' | 'name' | 'number' | 'address' | 'note'>, alsoProject: boolean): void;
   onClose(): void;
+  /** neues Projekt wurde im Register angelegt (Liste der Seite neu laden) */
+  onProjectCreated(): Promise<void>;
 }) {
   const [projectId, setProjectId] = useState<string>(site?.projectId ?? '');
+  /** frisch angelegtes Projekt, bis die Liste der Seite nachgeladen ist */
+  const [fresh, setFresh] = useState<PhotoSite | null>(null);
+  const [creating, setCreating] = useState(false);
   const mayCreate = useCanCreateProjects();
-  const [name, setName] = useState(site?.name ?? '');
-  const [number, setNumber] = useState(site?.number ?? '');
-  const [address, setAddress] = useState(site?.address ?? '');
-  /** alte Wochenbemerkung bleibt erhalten (Feld gibt es nicht mehr) */
-  const note = site?.note ?? '';
   const [show, setShow] = useState(false);
-  /** wie in den anderen Werkzeugen: Projekt aus dem Register wählen – oder die Felder selbst ausfüllen (neues Projekt im Register) */
-  const source: 'project' | 'new' = projectId ? 'project' : 'new';
-  const pick = (id: string) => {
-    setProjectId(id);
-    const p = projects.find((x) => x.id === id);
-    if (p) {
-      const f = siteFromProject(p);
-      setName(f.name);
-      setNumber(f.number);
-      setAddress(f.address);
-    } else if (!site) {
-      setName('');
-      setNumber('');
-      setAddress('');
-    }
-  };
+  const chosen = projects.find((p) => p.id === projectId) ?? null;
+  const fields = chosen ? siteFromProject(chosen) : fresh && fresh.projectId === projectId ? { projectId, name: fresh.name, number: fresh.number, address: fresh.address } : site ? { projectId: site.projectId, name: site.name, number: site.number ?? '', address: site.address ?? '' } : null;
   const submit = () => {
     setShow(true);
-    if (!name.trim()) return;
-    if (!projectId && !mayCreate) return;
-    onSave({ projectId: source === 'project' ? projectId || null : null, name: name.trim(), number: number.trim(), address: address.trim(), note: note.trim() }, source === 'new');
+    if (!fields || !fields.name.trim()) return;
+    onSave({ projectId: projectId || null, name: fields.name.trim(), number: (fields.number ?? '').trim(), address: (fields.address ?? '').trim(), note: site?.note ?? '' }, false);
   };
   return (
     <Modal
@@ -924,38 +919,51 @@ function SiteDialog({
         }}
       >
         <label className="field">
-          <span>Projekt{mayCreate ? ' (oder unten selbst ausfüllen)' : ' *'}</span>
-          <select value={projectId} onChange={(e) => pick(e.target.value)} aria-invalid={show && !projectId && !mayCreate ? true : undefined} data-testid="site-project">
-            <option value="">{mayCreate ? '– Projekt wählen oder selbst ausfüllen –' : '– Projekt wählen –'}</option>
+          <span>Projekt *</span>
+          <select
+            value={projectId}
+            onChange={(e) => {
+              if (e.target.value === '__new') setCreating(true);
+              else setProjectId(e.target.value);
+            }}
+            aria-invalid={show && !projectId ? true : undefined}
+            data-testid="site-project"
+          >
+            <option value="">– Projekt wählen –</option>
             {projects.map((p) => (
               <option key={p.id} value={p.id} disabled={taken.includes(p.id) && p.id !== site?.projectId}>
-                {[p.number, p.name].filter(Boolean).join(' · ')}
+                {[p.number, p.site || p.name].filter(Boolean).join(' · ')}
                 {taken.includes(p.id) && p.id !== site?.projectId ? ' (schon in dieser Woche)' : ''}
               </option>
             ))}
+            {fresh && !projects.some((p) => p.id === fresh.projectId) && (
+              <option value={fresh.projectId ?? ''}>{[fresh.number, fresh.name].filter(Boolean).join(' · ')}</option>
+            )}
+            {mayCreate && <option value="__new">+ Neues Projekt …</option>}
           </select>
         </label>
         {!projects.length && !mayCreate && <p className="muted small">Noch keine Projekte – Projekte legt Admin oder Büro an.</p>}
-        <div className="form-grid crew-site-fields">
-          <label className="field span-2">
-            <span>Bezeichnung *</span>
-            <input value={name} onChange={(e) => setName(e.target.value)} disabled={!mayCreate && !projectId} aria-invalid={show && !name.trim() ? true : undefined} placeholder="z. B. Neubau Musterstraße" data-testid="site-name-input" />
-          </label>
-          <label className="field">
-            <span>Projektnummer</span>
-            <input value={number} onChange={(e) => setNumber(e.target.value)} disabled={!mayCreate && !projectId} data-testid="site-number" />
-          </label>
-          <label className="field">
-            <span>Adresse</span>
-            <input value={address} onChange={(e) => setAddress(e.target.value)} disabled={!mayCreate && !projectId} data-testid="site-address" />
-          </label>
-        </div>
-        {source === 'new' && mayCreate && !site?.projectId && name.trim() && <p className="muted small" data-testid="site-new-hint">Neues Projekt: wird im Projektregister angelegt und ist damit in allen Werkzeugen verfügbar.</p>}
-        {show && !projectId && !mayCreate && <p className="error small">Bitte ein Projekt wählen.</p>}
-        {show && !name.trim() && <p className="error small">Bitte eine Bezeichnung eingeben.</p>}
-        <p className="muted small">Die Bezeichnung wird in dieser Woche gespeichert – spätere Umbenennungen des Projekts ändern alte Wochen nicht.</p>
+        {fields && (
+          <p className="muted small" data-testid="site-preview">
+            {[fields.number, fields.name].filter(Boolean).join(' · ')}
+            {fields.address ? ` · ${fields.address}` : ''}
+          </p>
+        )}
+        {show && !projectId && <p className="error small">Bitte ein Projekt wählen.</p>}
+        <p className="muted small">Alle Projekte des Registers stehen zur Auswahl – egal, in welchem Werkzeug sie angelegt wurden.</p>
         <button type="submit" hidden />
       </form>
+      {creating && (
+        <PhotoSiteDialog
+          onClose={() => setCreating(false)}
+          onSaved={(ps) => {
+            setCreating(false);
+            setFresh(ps);
+            setProjectId(ps.projectId ?? '');
+            void onProjectCreated();
+          }}
+        />
+      )}
     </Modal>
   );
 }

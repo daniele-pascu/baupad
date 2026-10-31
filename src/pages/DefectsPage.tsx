@@ -15,6 +15,7 @@ import { usePageTitle } from '../lib/page-title';
 import { useAccess } from '../lib/access';
 import { useCanCreateProjects } from '../lib/sites';
 import { photoSiteKey } from '../lib/photos';
+import { ProjectHeading } from '../components/ProjectHeading';
 import { usedIn } from '../lib/crew-link';
 
 export const DEFECT_ACCENT = { '--tool': '#d6242b' } as CSSProperties;
@@ -129,8 +130,7 @@ export function DefectsPage() {
             return (
               <a key={s.key} href={paths.defectSite(s.key)} className="report-site" data-testid="defect-site" data-site={s.site.name}>
                 <div className="report-site-main">
-                  <strong>{s.site.name}</strong>
-                  <span className="muted small">{[s.site.number, s.site.address].filter(Boolean).join(' · ')}</span>
+                  <ProjectHeading info={sites.find((x) => photoSiteKey({ projectId: x.projectId, siteName: x.name }) === s.key) ?? s.site} />
                   <span className="small">
                     {s.plans.length} {s.plans.length === 1 ? 'Plan' : 'Pläne'} · {total} {total === 1 ? 'Markierung' : 'Markierungen'} · {s.photos} Fotos
                   </span>
@@ -150,8 +150,7 @@ export function DefectsPage() {
           {empty.map((f) => (
             <a key={`empty:${f.projectId ?? f.name}`} href={paths.defectSite(photoSiteKey({ projectId: f.projectId, siteName: f.name }))} className="report-site report-site-empty" data-testid="defect-site-empty" data-site={f.name}>
               <div className="report-site-main">
-                <strong>{f.name}</strong>
-                <span className="muted small">{[f.number, f.address].filter(Boolean).join(' · ')}</span>
+                <ProjectHeading info={f} />
                 <span className="small muted">Noch kein Mängelplan</span>
               </div>
               <Icon name="next" size={18} />

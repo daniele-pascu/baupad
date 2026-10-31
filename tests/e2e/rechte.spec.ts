@@ -41,8 +41,8 @@ test('Polier: kein „Neues Projekt“ in Aufmaß, Fotos, Mängelplan, Einteilun
   await page.goto('./arbeitereinteilung');
   await page.getByTestId('add-site').click();
   const sd = page.getByTestId('site-dialog');
-  // ohne Recht: nur Projekt wählen, kein Selbst-Ausfüllen
-  await expect(sd.getByTestId('site-name-input')).toBeDisabled();
+  // ohne Recht: nur Projekt wählen, kein „Neues Projekt …“
+  await expect(sd.getByTestId('site-project').locator('option[value="__new"]')).toHaveCount(0);
   await sd.getByTestId('site-save').click();
   await expect(sd).toContainText('Bitte ein Projekt wählen.');
 });

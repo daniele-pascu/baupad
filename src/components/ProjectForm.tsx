@@ -22,12 +22,15 @@ interface Props {
   /** adoptId: gewähltes Register-Projekt (wird übernommen statt neu angelegt) */
   onSubmit: (fields: ProjectFields, costCenters: CostCenterInput[], adoptId?: string | null) => void | Promise<void>;
   onClose: () => void;
+  /** Test-IDs (Standard project-form / project-*); die anderen Werkzeuge nutzen photo-site-*) */
+  ids?: Partial<Record<'dialog' | 'name' | 'number' | 'address' | 'save', string>>;
 }
 
 const ccKey = (c: CostCenterInput) => `${c.number.trim()}|${c.name.trim()}`.toLowerCase();
 
 /** Projektangaben einschließlich Kostenstelle(n) – beim Anlegen und beim Bearbeiten. */
-export function ProjectForm({ title, initial, costCenters, submitLabel, fromRegister, onSubmit, onClose }: Props) {
+export function ProjectForm({ title, initial, costCenters, submitLabel, fromRegister, onSubmit, onClose, ids = {} }: Props) {
+  const id = { dialog: 'project-form', name: 'project-name', number: 'project-number', address: 'project-address', save: 'project-save', ...ids };
   const [adoptId, setAdoptId] = useState<string | null>(null);
   const [f, setF] = useState<ProjectFields>({
     name: '',
@@ -59,13 +62,13 @@ export function ProjectForm({ title, initial, costCenters, submitLabel, fromRegi
       title={title}
       onClose={onClose}
       persistent
-      testId="project-form"
+      testId={id.dialog}
       footer={
         <>
           <button type="button" className="btn" onClick={onClose}>
             Abbrechen
           </button>
-          <button type="submit" form="project-form" className="btn btn-primary" disabled={busy}>
+          <button type="submit" form="project-form" className="btn btn-primary" disabled={busy} data-testid={id.save}>
             {submitLabel}
           </button>
         </>
@@ -92,7 +95,7 @@ export function ProjectForm({ title, initial, costCenters, submitLabel, fromRegi
       >
         {!!fromRegister?.length && (
           <label className="field span-2">
-            <span>Aus dem Projektregister übernehmen (optional – Projekte aus Fotos, Berichten, Einteilung, Mängelplan)</span>
+            <span>Projekt auswählen (aus dem Register – optional)</span>
             <select
               value={adoptId ?? ''}
               onChange={(e) => {
@@ -113,11 +116,19 @@ export function ProjectForm({ title, initial, costCenters, submitLabel, fromRegi
         )}
         <label className="field span-2">
           <span>Projektname *</span>
-          <input value={f.name} onChange={set('name')} name="name" autoComplete="off" enterKeyHint="next" aria-invalid={touched && nameMissing} />
+          <input value={f.name} onChange={set('name')} name="name" autoComplete="off" enterKeyHint="next" aria-invalid={touched && nameMissing} data-autofocus data-testid={id.name} />
           {touched && nameMissing && <small className="error">Bitte einen Projektnamen eingeben.</small>}
         </label>
-        <div className="field span-2 cc-fields">
-          <span>Kostenstelle(n) (optional)</span>
+        <label className="field span-2">
+          <span>Bauvorhaben (optional)</span>
+          <input value={f.address} onChange={set('address')} name="address" placeholder="Adresse" autoComplete="street-address" enterKeyHint="next" data-testid={id.address} />
+        </label>
+        <label className="field">
+          <span>Projektnummer (optional)</span>
+          <input value={f.number ?? ''} onChange={set('number')} name="number" autoComplete="off" enterKeyHint="next" data-testid={id.number} />
+        </label>
+        <div className="field cc-fields">
+          <span>Kostenstelle (optional)</span>
           {ccs.map((c, i) => (
             <div key={c.id ?? `new-${i}`} className="cc-row">
               <input
@@ -138,7 +149,7 @@ export function ProjectForm({ title, initial, costCenters, submitLabel, fromRegi
                 onChange={(e) => setCc(i, { name: e.target.value })}
                 name={`costCenter${i}`}
                 data-testid="cost-center-input"
-                placeholder={i === 0 ? 'Hauptkostenstelle, z. B. Tiefgarage' : 'Bezeichnung'}
+                placeholder="Bezeichnung"
                 autoComplete="off"
                 enterKeyHint="next"
                 aria-label={`Kostenstelle ${i + 1} Bezeichnung`}
@@ -161,18 +172,9 @@ export function ProjectForm({ title, initial, costCenters, submitLabel, fromRegi
           </button>
           {touched && ccError && <small className="error">{ccError}</small>}
         </div>
-
-        <label className="field span-2">
-          <span>Projektnummer (optional)</span>
-          <input value={f.number ?? ''} onChange={set('number')} name="number" autoComplete="off" enterKeyHint="next" />
-        </label>
-        <label className="field span-2">
-          <span>Adresse (optional)</span>
-          <input value={f.address} onChange={set('address')} name="address" autoComplete="street-address" enterKeyHint="next" />
-        </label>
         <label className="field">
           <span>Auftraggeber (optional)</span>
-          <input value={f.client} onChange={set('client')} name="client" autoComplete="organization" enterKeyHint="next" />
+          <input value={f.client} onChange={set('client')} name="client" autoComplete="organization" enterKeyHint="next" data-testid="project-client" />
         </label>
         <label className="field">
           <span>Baubeginn (optional)</span>
@@ -180,7 +182,7 @@ export function ProjectForm({ title, initial, costCenters, submitLabel, fromRegi
         </label>
         <label className="field span-2">
           <span>Bemerkung (optional)</span>
-          <textarea value={f.notes} onChange={set('notes')} name="notes" rows={3} />
+          <textarea value={f.notes} onChange={set('notes')} name="notes" rows={2} data-testid="project-notes" />
         </label>
       </form>
     </Modal>

@@ -12,9 +12,9 @@ test('Projekte suchen und sortieren', async ({ page }) => {
   await expect(page.getByTestId('project-number')).toHaveCount(0); // ohne Projektnummer
   await page.goto('./#/projekte');
 
-  const names = () => page.getByTestId('project-card').locator('.card-title').evaluateAll((els) => els.map((e) => e.firstChild?.textContent?.trim()));
+  const names = () => page.getByTestId('project-card').locator('.proj-title').evaluateAll((els) => els.map((e) => e.lastChild?.textContent?.trim()));
   await expect(page.getByTestId('project-card')).toHaveCount(3);
-  await expect(page.getByTestId('project-card').filter({ hasText: 'Bahnhof Nord' })).toContainText('Nr. P-2');
+  await expect(page.getByTestId('project-card').filter({ hasText: 'Bahnhof Nord' })).toContainText('4711');
 
   // Suche: Kostenstellennummer, Projektnummer, Auftraggeber, Adresse/Baustelle, Name
   for (const [q, hit] of [

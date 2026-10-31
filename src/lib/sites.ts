@@ -18,6 +18,11 @@ export interface SiteFields {
   name: string;
   number: string;
   address: string;
+  /** optional (einheitlicher Projektdialog): Kostenstelle, Auftraggeber, Baubeginn, Bemerkung */
+  costCenter?: string;
+  client?: string;
+  date?: string;
+  notes?: string;
 }
 
 export const canEditSites = (s: Session | null | undefined) => !s || !s.companyId || s.role === 'admin' || s.role === 'buero' || s.operator;
@@ -99,8 +104,8 @@ export async function createSiteProject(v: SiteFields, tool: string): Promise<Ph
   if (!canCreateProjects(me)) throw new Error('Projekte dürfen nur Admin und Büro anlegen. Bitte ein vorhandenes Projekt wählen.');
   const name = v.name.trim();
   if (!name) throw new Error('Bitte einen Namen für das Projekt eingeben.');
-  const p = await projectFromSite({ name, number: v.number.trim(), address: v.address.trim() }, tool);
-  return { projectId: p.id, name: p.site || p.name, number: p.number ?? '', address: p.address, tools: p.tools };
+  const p = await projectFromSite({ name, number: v.number.trim(), address: v.address.trim(), costCenter: v.costCenter?.trim(), client: v.client?.trim(), date: v.date?.trim(), notes: v.notes?.trim() }, tool);
+  return { projectId: p.id, name: p.site || p.name, number: p.number ?? '', address: p.address, costCenter: v.costCenter?.trim() || '', client: p.client, date: p.date, notes: p.notes, tools: p.tools };
 }
 
 /** Projekt aus dem Register in ein Werkzeug übernehmen (z. B. beim ersten Foto, Bericht, Plan oder in der Woche) */

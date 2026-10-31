@@ -2,7 +2,7 @@ import { expect, test } from './fixtures';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { withExifDate } from '../unit/exif-fixture';
-import { createProject, freshStart, FIXTURES, OUT, saveDownload } from './helpers';
+import { createProject, freshStart, FIXTURES, newWeekProject, OUT, saveDownload } from './helpers';
 
 /**
  * Fotodokumentation (Phase 1, lokale Ablage): Fotos aufnehmen/auswählen, Baustelle und Aufnahmezeit prüfen,
@@ -170,7 +170,7 @@ test('Ohne Projekt: Baustelle aus der Arbeitereinteilung bzw. Berichten; Foto oh
   await freshStart(page);
   await page.goto('./#/arbeitereinteilung');
   await page.getByTestId('add-site').click();
-  await page.getByTestId('site-dialog').getByTestId('site-name-input').fill('Halle 3');
+  await newWeekProject(page, 'Halle 3');
   await page.getByTestId('site-dialog').getByTestId('site-save').click();
   await expect(page.getByTestId('site-dialog')).toHaveCount(0); // gespeichert, bevor die Seite neu lädt
   await page.goto('./#/fotos');

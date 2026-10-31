@@ -3,6 +3,7 @@ import { createSiteProject, useCanCreateProjects } from '../lib/sites';
 import { useAccess } from '../lib/access';
 import type { PhotoSite } from '../lib/types';
 import { Modal } from './Modal';
+import { ProjectForm } from './ProjectForm';
 import { showError } from './ui';
 
 export const siteValue = (s: PhotoSite | null) => (s ? `${s.projectId ?? ''}|${s.name}` : '');
@@ -30,6 +31,25 @@ export function PhotoSiteDialog({
   const [address, setAddress] = useState(initial?.address ?? '');
   const [busy, setBusy] = useState(false);
   const { tool } = useAccess();
+  // Neues Projekt: in allen Werkzeugen derselbe Dialog (Projektname, Bauvorhaben, Nummer, Kostenstelle, Auftraggeber, Baubeginn, Bemerkung)
+  if (!initial)
+    return (
+      <ProjectForm
+        title="Neues Projekt"
+        submitLabel="Projekt anlegen"
+        ids={{ dialog: 'photo-site-dialog', name: 'photo-site-name', number: 'photo-site-number', address: 'photo-site-address', save: 'photo-site-save' }}
+        onClose={onClose}
+        onSubmit={async (f, ccs) => {
+          try {
+            const cc = ccs[0] ? [ccs[0].number, ccs[0].name].filter(Boolean).join(' – ') : '';
+            const v = { name: f.name, number: f.number ?? '', address: f.address, costCenter: cc, client: f.client, date: f.date, notes: f.notes };
+            onSaved(onSave ? await onSave(v) : await createSiteProject(v, tool ?? 'photos'));
+          } catch (e) {
+            showError(e, 'Projekt konnte nicht angelegt werden');
+          }
+        }}
+      />
+    );
   const save = async () => {
     if (!name.trim()) return;
     setBusy(true);

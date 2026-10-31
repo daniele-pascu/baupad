@@ -11,6 +11,8 @@ import { listFreePhotoSites } from '../lib/photo-sites';
 import { cloudConnected, getPhotoStorage, onPhotosChanged } from '../lib/photo-storage';
 import { groupBySite, matchesPhoto, photoSiteKey, weekLabel } from '../lib/photos';
 import { navigate, paths } from '../lib/router';
+import { costCenterByProject } from '../lib/crew-link';
+import { ProjectHeading } from '../components/ProjectHeading';
 import type { Photo, Project } from '../lib/types';
 import { usePageTitle } from '../lib/page-title';
 import { useAccess } from '../lib/access';
@@ -21,8 +23,8 @@ const ACCENT = { '--tool': '#111111' } as CSSProperties;
 
 /** Baustellen für neue Fotos: Projekte (Aufmaß & Abrechnung), Baustellen der Arbeitereinteilung und bisherige Foto-Baustellen */
 export async function loadPhotoSites(photos: Photo[]): Promise<PhotoSite[]> {
-  const [projects, weeks, reports, free] = await Promise.all([listProjects(), listWeeks(), listReports(), listFreePhotoSites()]);
-  const out: PhotoSite[] = projects.map((p: Project) => ({ projectId: p.id, name: p.site || p.name, number: p.number ?? '', address: p.address, tools: p.tools }));
+  const [projects, weeks, reports, free, ccs] = await Promise.all([listProjects(), listWeeks(), listReports(), listFreePhotoSites(), costCenterByProject()]);
+  const out: PhotoSite[] = projects.map((p: Project) => ({ projectId: p.id, name: p.site || p.name, number: p.number ?? '', address: p.address, costCenter: ccs.get(p.id) ?? '', client: p.client, date: p.date, notes: p.notes, tools: p.tools }));
   const names = new Map<string, PhotoSite>();
   const add = (name: string, address = '') => {
     const k = name.trim().toLowerCase();
@@ -67,6 +69,8 @@ export function PhotosPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /** Angaben aus dem Register zur Baustelle (Kostenstelle, Auftraggeber …) – sonst die Angaben der Fotos */
+  const infoOf = (key: string, fallback: { name: string; number: string; address: string }) => sites.find((x) => photoSiteKey({ projectId: x.projectId, siteName: x.name }) === key) ?? fallback;
   const groups = useMemo(() => {
     const list = (photos ?? []).filter((p) => matchesPhoto(p, query) && access.canSite(photoSiteKey(p)));
     const g = groupBySite(list);
@@ -166,8 +170,7 @@ export function PhotosPage() {
                 ))}
               </div>
               <div className="photo-site-main">
-                <strong>{g.name}</strong>
-                <span className="muted small">{[g.number, g.address].filter(Boolean).join(' · ')}</span>
+                <ProjectHeading info={infoOf(g.key, { name: g.name, number: g.number, address: g.address })} />
                 <span className="small">
                   {g.count} {g.count === 1 ? 'Foto' : 'Fotos'} · {g.from === g.to ? fmt(g.from) : `${fmt(g.from)} – ${fmt(g.to)}`}
                   {g.pending > 0 && <span className="rp-badge"> {g.pending} nur hier</span>}
@@ -190,8 +193,7 @@ export function PhotosPage() {
                 <span className="photo-thumb-empty" />
               </div>
               <div className="photo-site-main">
-                <strong>{f.name}</strong>
-                <span className="muted small">{[f.number, f.address].filter(Boolean).join(' · ')}</span>
+                <ProjectHeading info={f} />
                 <span className="small muted">Noch keine Fotos</span>
               </div>
               <Icon name="next" size={18} />

@@ -256,3 +256,17 @@ export async function openTools(page: Page, how: 'click' | 'tap' = 'click') {
   const open = page.getByTestId('tools-open');
   if (await open.isVisible()) await (how === 'tap' ? open.tap() : open.click());
 }
+
+/**
+ * Arbeitereinteilung: im Dialog „Neues Projekt“ den Eintrag „+ Neues Projekt …“ wählen → gemeinsamer Projektdialog
+ * (wie in allen Werkzeugen) → anlegen; das neue Projekt bleibt im Dialog gewählt (danach „Hinzufügen“).
+ */
+export async function newWeekProject(page: Page, name: string, extra: Record<string, string> = {}, how: 'click' | 'tap' = 'click') {
+  await page.getByTestId('site-dialog').getByTestId('site-project').selectOption('__new');
+  const pf = page.getByTestId('photo-site-dialog');
+  await pf.getByTestId('photo-site-name').fill(name);
+  for (const [k, v] of Object.entries(extra)) await pf.getByTestId(k).fill(v);
+  await (how === 'tap' ? pf.getByTestId('photo-site-save').tap() : pf.getByTestId('photo-site-save').click());
+  await expect(pf).toHaveCount(0);
+  await expect(page.getByTestId('site-dialog').getByTestId('site-preview')).toContainText(name);
+}

@@ -7926,3 +7926,28 @@ button.report-site-empty {
     display: flex;
   }
 }
+
+/* Projekt in Listen (alle Werkzeuge): Kostenstelle/Projektnummer + Name fett und groß, darunter dünn die Angaben */
+.proj-head {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+.proj-title {
+  font-size: 1.12rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.proj-prefix {
+  margin-right: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.proj-sub {
+  font-size: 0.82rem;
+  font-weight: 400;
+  color: var(--muted);
+  line-height: 1.35;
+}
