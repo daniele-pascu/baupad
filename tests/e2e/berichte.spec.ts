@@ -107,9 +107,9 @@ test('Regieliste, Bautagesbericht und Wochenbericht: Übernahme aus Projekt und 
   await page.getByTestId('crew-suggest-apply').click();
   await expect(page.getByTestId('rp-unconfirmed')).toContainText('2 laut Einteilung');
   await expect(page.getByTestId('rp-present-count')).toContainText('Anwesend: 0');
-  // Personalstand aus der Einteilung: Max (Polier) → Vorarbeiter, Peter → Facharbeiter; von Hand änderbar
+  // Personalstand aus der Einteilung: Max (Polier), Peter (Facharbeiter); von Hand änderbar
   await expect(page.getByTestId('rp-staff-total')).toContainText('Gesamt: 2');
-  await expect(page.getByTestId('rp-staff-vorarbeiter')).toHaveValue('1');
+  await expect(page.getByTestId('rp-staff-polier')).toHaveValue('1');
   await expect(page.getByTestId('rp-staff-facharbeiter')).toHaveValue('1');
   await page.getByTestId('rp-staff-hilfsarbeiter').fill('2');
   await expect(page.getByTestId('rp-staff-total')).toContainText('Gesamt: 4');

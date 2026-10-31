@@ -141,33 +141,37 @@ export const visibleDays = () => [0, 1, 2, 3, 4, 5, 6];
 
 export const workerName = (x: Pick<Worker, 'firstName' | 'lastName'>) => [x.firstName, x.lastName].filter(Boolean).join(' ');
 
-/** Einstufungen (Reihenfolge wie auf Formularen üblich) */
+/** Funktionen der Arbeiter (Auswahl in der Arbeiterliste, Reihenfolge wie auf Formularen üblich) */
 export const WORKER_GRADES: { id: WorkerGrade; label: string; short: string }[] = [
-  { id: 'bauleiter', label: 'Bauleiter', short: 'BL' },
-  { id: 'vorarbeiter', label: 'Vorarbeiter / Polier', short: 'VA' },
+  { id: 'projektleiter', label: 'Projektleiter', short: 'PL' },
+  { id: 'techniker', label: 'Techniker', short: 'TE' },
+  { id: 'bautechniker', label: 'Bautechniker', short: 'BT' },
+  { id: 'polier', label: 'Polier', short: 'PO' },
+  { id: 'vorarbeiter', label: 'Vorarbeiter', short: 'VA' },
   { id: 'facharbeiter', label: 'Facharbeiter', short: 'FA' },
   { id: 'hilfsarbeiter', label: 'Hilfsarbeiter', short: 'HA' },
-  { id: 'lehrling', label: 'Lehrling', short: 'LL' },
 ];
 export const gradeLabel = (g: WorkerGrade | undefined) => WORKER_GRADES.find((x) => x.id === g)?.label ?? '';
 
 /**
- * Einstufung eines Arbeiters: ausdrücklich gesetzt, sonst aus der Tätigkeit erraten („Polier“, „Hilfsarbeiter“ …);
+ * Funktion eines Arbeiters: ausdrücklich gewählt, sonst aus der Tätigkeit erraten („Polier“, „Hilfsarbeiter“ …);
  * ohne Anhaltspunkt gilt Facharbeiter.
  */
 export function gradeOf(w: { grade?: WorkerGrade; role?: string }): WorkerGrade {
   if (w.grade) return w.grade;
   const r = (w.role ?? '').toLowerCase();
-  if (/bauleit/.test(r)) return 'bauleiter';
-  if (/polier|vorarbeit|partieführ/.test(r)) return 'vorarbeiter';
-  if (/hilfs|helfer|hilfskraft/.test(r)) return 'hilfsarbeiter';
-  if (/lehrling|azubi|lehre/.test(r)) return 'lehrling';
+  if (/projektleit|bauleit/.test(r)) return 'projektleiter';
+  if (/bautechnik/.test(r)) return 'bautechniker';
+  if (/technik/.test(r)) return 'techniker';
+  if (/polier/.test(r)) return 'polier';
+  if (/vorarbeit|partieführ/.test(r)) return 'vorarbeiter';
+  if (/hilfs|helfer|hilfskraft|lehrling|azubi/.test(r)) return 'hilfsarbeiter';
   return 'facharbeiter';
 }
 
-/** Personalstand: Anzahl je Einstufung (nur gezählte Einträge) */
+/** Personalstand: Anzahl je Funktion */
 export function countByGrade(list: { grade?: WorkerGrade; role?: string }[]): Record<WorkerGrade, number> {
-  const out: Record<WorkerGrade, number> = { bauleiter: 0, vorarbeiter: 0, facharbeiter: 0, hilfsarbeiter: 0, lehrling: 0 };
+  const out: Record<WorkerGrade, number> = { projektleiter: 0, techniker: 0, bautechniker: 0, polier: 0, vorarbeiter: 0, facharbeiter: 0, hilfsarbeiter: 0 };
   for (const w of list) out[gradeOf(w)]++;
   return out;
 }

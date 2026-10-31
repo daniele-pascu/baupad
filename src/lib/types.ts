@@ -413,8 +413,8 @@ export const SHAPE_LABELS: Record<ShapeType, string> = {
 // ---------------------------------------------------------------------------
 // Arbeitereinteilung (eigenständig, nur auf dem Gerät; ab Datenbank-Version 5)
 
-/** Einstufung eines Arbeiters (für Personalstand in Berichten und Firmenformulare) */
-export type WorkerGrade = 'bauleiter' | 'vorarbeiter' | 'facharbeiter' | 'hilfsarbeiter' | 'lehrling';
+/** Funktion eines Arbeiters (Auswahl in der Arbeitereinteilung; Personalstand in Berichten und Firmenformulare) */
+export type WorkerGrade = 'projektleiter' | 'techniker' | 'bautechniker' | 'polier' | 'vorarbeiter' | 'facharbeiter' | 'hilfsarbeiter';
 
 /** Arbeiter der Firma – einmal angelegt, jede Woche wiederverwendet */
 export interface Worker {
@@ -425,7 +425,7 @@ export interface Worker {
   phone?: string;
   /** Qualifikation bzw. Tätigkeit (frei, z. B. Maurer) */
   role?: string;
-  /** Einstufung: Bauleiter, Vorarbeiter/Polier, Facharbeiter, Hilfsarbeiter, Lehrling */
+  /** Funktion: Projektleiter, Techniker, Bautechniker, Polier, Vorarbeiter, Facharbeiter, Hilfsarbeiter */
   grade?: WorkerGrade;
   /** inaktiv: wird nicht mehr zum Einteilen angeboten, bleibt in alten Wochen sichtbar */
   active: boolean;
@@ -505,7 +505,7 @@ export interface ReportWorker {
   workerId?: string;
   name: string;
   role: string;
-  /** Einstufung (aus der Arbeiterliste, Kopie) */
+  /** Funktion (aus der Arbeiterliste, Kopie) */
   grade?: WorkerGrade;
   /** Beginn/Ende „HH:MM“, Pause in Minuten – optional */
   from: string;
@@ -549,7 +549,7 @@ export interface RegieData {
   miscCosts?: string;
 }
 
-/** Personalstand je Einstufung (null = keine Angabe) */
+/** Personalstand je Funktion (null = keine Angabe) */
 export type StaffCount = Partial<Record<WorkerGrade, number | null>>;
 
 export interface DailyData {
@@ -568,7 +568,7 @@ export interface DailyData {
   equipment: ReportItem[];
   incidents: string;
   notes: string;
-  /** Personalstand je Einstufung – aus der Einteilung vorbelegt, von Hand änderbar */
+  /** Personalstand je Funktion – aus der Einteilung vorbelegt, von Hand änderbar */
   staff?: StaffCount;
   /** Schlussabnahme (optional, für Firmenformulare): Uhrzeit und durch wen */
   acceptanceTime?: string;

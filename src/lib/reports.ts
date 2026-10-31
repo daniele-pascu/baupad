@@ -92,11 +92,11 @@ export function workerRow(w?: Pick<Worker, 'id' | 'firstName' | 'lastName' | 'ro
   return { id: uuid(), workerId: w?.id, name: w ? workerName(w) : '', role: w?.role ?? '', grade: w ? gradeOf(w) : undefined, from: '', to: '', pause: '', hours: null, ...extra };
 }
 
-/** Personalstand aus der Mannschaft des Tages (anwesend bzw. noch nicht abgewählt) */
+/** Personalstand je Funktion aus der Mannschaft des Tages (anwesend bzw. noch nicht abgewählt) */
 export function staffFromCrew(crew: ReportWorker[]): StaffCount {
   const counted = crew.filter((w) => w.present !== false && (w.name.trim() || w.workerId));
   const c = countByGrade(counted);
-  return { bauleiter: c.bauleiter || null, vorarbeiter: c.vorarbeiter || null, facharbeiter: c.facharbeiter || null, hilfsarbeiter: c.hilfsarbeiter || null, lehrling: c.lehrling || null };
+  return Object.fromEntries(Object.entries(c).map(([k, v]) => [k, v || null])) as StaffCount;
 }
 
 /** Personalstand gesetzt? (mindestens eine Zahl) */

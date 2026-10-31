@@ -38,6 +38,7 @@ import {
   weekRange,
   workerName,
   WORKER_GRADES,
+  gradeLabel,
 } from '../lib/crew';
 import { getMeta, getWeek, listProjects, listWeeks, listWorkers, previousWeek, saveWeek, saveWorker, setMeta } from '../lib/db';
 import type { ExportFile } from '../lib/aufmass';
@@ -828,9 +829,9 @@ function WorkersDialog({ workers, onSave, onClose }: { workers: Worker[]; onSave
           {field('firstName', 'Vorname *', { 'aria-invalid': show && !v.firstName.trim() ? true : undefined })}
           {field('lastName', 'Nachname')}
           <label className="field">
-            <span>Einstufung (für Personalstand und Firmenformulare)</span>
+            <span>Funktion</span>
             <select value={v.grade} onChange={(e) => setV({ ...v, grade: e.target.value })} data-testid="worker-grade">
-              <option value="">– automatisch aus der Tätigkeit –</option>
+              <option value="">– bitte wählen –</option>
               {WORKER_GRADES.map((g) => (
                 <option key={g.id} value={g.id}>
                   {g.label} ({g.short})
@@ -838,7 +839,7 @@ function WorkersDialog({ workers, onSave, onClose }: { workers: Worker[]; onSave
               ))}
             </select>
           </label>
-          {field('role', 'Tätigkeit / Qualifikation (optional)', { placeholder: 'z. B. Polier, Maurer' })}
+          {field('role', 'Zusatz / Qualifikation (optional)', { placeholder: 'z. B. Maurer, Kranführer' })}
           {field('staffNo', 'Personalnummer (optional)')}
           {field('phone', 'Telefon (optional)', { type: 'tel', inputMode: 'tel' })}
         </div>
@@ -859,7 +860,7 @@ function WorkersDialog({ workers, onSave, onClose }: { workers: Worker[]; onSave
           <li key={w.id} className={w.active ? '' : 'inactive'} data-testid="worker-row">
             <button type="button" className="crew-worker-main" onClick={() => startEdit(w)}>
               <strong>{workerName(w)}</strong>
-              <span className="muted small">{[w.role, w.staffNo && `Nr. ${w.staffNo}`, w.phone].filter(Boolean).join(' · ') || (w.active ? '' : 'inaktiv')}</span>
+              <span className="muted small">{[gradeLabel(w.grade), w.role, w.staffNo && `Nr. ${w.staffNo}`, w.phone].filter(Boolean).join(' · ') || (w.active ? '' : 'inaktiv')}</span>
             </button>
             <button
               type="button"

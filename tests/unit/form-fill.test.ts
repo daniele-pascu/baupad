@@ -53,7 +53,7 @@ describe('Firmenformulare ausfüllen', () => {
         ...emptyDaily(),
         from: '07:00',
         to: '16:30',
-        staff: { bauleiter: 1, vorarbeiter: 1, facharbeiter: 3, hilfsarbeiter: null, lehrling: null },
+        staff: { projektleiter: 1, polier: 1, facharbeiter: 3 },
         work: 'Schalung Stützen Achse 3. Bewehrung Decke über EG verlegt, Betonage am Nachmittag. '.repeat(6),
         incidents: 'Betonlieferung 2 Std. verspätet.',
         notes: 'Regieleistung Kran abgestimmt.',
@@ -70,7 +70,7 @@ describe('Firmenformulare ausfüllen', () => {
     expect(out).toContain('Wohnanlage Sonnenhof');
     expect(out).toMatch(/Kst\.\s+91092/);
     expect(out).toMatch(/Arbeitszeit von\s+07:00\s+bis\s+16:30/);
-    expect(out).toMatch(/Bauleiter:\s+1\s+Vorarbeiter:\s+1\s+Facharbeiter:\s+3/);
+    expect(out).toMatch(/Bauleiter:\s+1\s+Vorarbeiter:\s+1\s+Facharbeiter:\s+3/); // PL zählt als Bauleiter, Polier als Vorarbeiter (Formular ohne eigene Felder)
     expect(out).toContain('Schalung Stützen Achse 3.');
     expect((out.match(/Bewehrung Decke/g) ?? []).length).toBeGreaterThanOrEqual(4); // über mehrere Zeilen verteilt
     expect(out).toContain('Betonlieferung 2 Std. verspätet.');

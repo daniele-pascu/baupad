@@ -49,11 +49,14 @@ export type FieldKey =
   | 'to'
   | 'weather'
   | 'staff.total'
+  | 'staff.projektleiter'
+  | 'staff.techniker'
+  | 'staff.bautechniker'
   | 'staff.bauleiter'
+  | 'staff.polier'
   | 'staff.vorarbeiter'
   | 'staff.facharbeiter'
   | 'staff.hilfsarbeiter'
-  | 'staff.lehrling'
   | 'work'
   | 'incidents'
   | 'notes'
@@ -82,11 +85,14 @@ export const FIELD_LABELS: Record<FieldKey, string> = {
   to: 'Arbeitszeit bis',
   weather: 'Wetter',
   'staff.total': 'Personalstand gesamt',
-  'staff.bauleiter': 'Bauleiter (Anzahl)',
-  'staff.vorarbeiter': 'Vorarbeiter (Anzahl)',
+  'staff.projektleiter': 'Projektleiter (Anzahl)',
+  'staff.techniker': 'Techniker (Anzahl)',
+  'staff.bautechniker': 'Bautechniker (Anzahl)',
+  'staff.bauleiter': 'Bauleitung gesamt (PL + Techniker + Bautechniker)',
+  'staff.polier': 'Polier (Anzahl)',
+  'staff.vorarbeiter': 'Vorarbeiter (Anzahl; ohne Polier-Feld inkl. Polier)',
   'staff.facharbeiter': 'Facharbeiter (Anzahl)',
   'staff.hilfsarbeiter': 'Hilfsarbeiter (Anzahl)',
-  'staff.lehrling': 'Lehrlinge (Anzahl)',
   work: 'Leistungen / Arbeiten',
   incidents: 'Besondere Vorkommnisse',
   notes: 'Bemerkungen',
@@ -165,11 +171,14 @@ const norm = (s: string) =>
 
 /** Reihenfolge wichtig: speziellere Muster zuerst */
 const LABEL_RULES: { key: FieldKey; re: RegExp }[] = [
-  { key: 'staff.bauleiter', re: /bauleiter/ },
-  { key: 'staff.vorarbeiter', re: /vorarbeiter|polier/ },
+  { key: 'staff.projektleiter', re: /projektleiter/ },
+  { key: 'staff.bautechniker', re: /bautechniker/ },
+  { key: 'staff.techniker', re: /techniker/ },
+  { key: 'staff.bauleiter', re: /bauleiter|bauleitung/ },
+  { key: 'staff.polier', re: /polier/ },
+  { key: 'staff.vorarbeiter', re: /vorarbeiter/ },
   { key: 'staff.facharbeiter', re: /facharbeiter/ },
-  { key: 'staff.hilfsarbeiter', re: /hilfsarbeiter/ },
-  { key: 'staff.lehrling', re: /lehrling/ },
+  { key: 'staff.hilfsarbeiter', re: /hilfsarbeiter|helfer/ },
   { key: 'staff.total', re: /personalstand|mannschaft|anzahl arbeiter/ },
   { key: 'acceptanceBy', re: /^uhr, von$|abgenommen von/ },
   { key: 'acceptanceTime', re: /schlussabnahme|abnahme/ },

@@ -618,7 +618,7 @@ function DailyForm({ r, data, workers, setData }: { r: Report; data: DailyData; 
         <div className="rp-staff" data-testid="rp-staff">
           <div className="rp-staff-head">
             <strong>Personalstand</strong>
-            <span className="muted small">je Einstufung – aus der Einteilung übernommen, von Hand änderbar</span>
+            <span className="muted small">je Funktion – aus der Einteilung übernommen, von Hand änderbar</span>
             <button type="button" className="btn btn-sm" onClick={() => setData({ staff: staffFromCrew(data.crew) })} disabled={!data.crew.length} data-testid="rp-staff-from-crew">
               Aus Mannschaft zählen
             </button>

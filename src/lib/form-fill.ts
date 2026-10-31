@@ -3,7 +3,7 @@ import { safeFileName, type ExportFile } from './aufmass';
 import { isoWeekNo, parseDate, weekOf } from './crew';
 import { type Box, type ColKey, type FieldKey, type FormLayout, type FormTemplate, MULTILINE } from './form-template';
 import { fmtDate, fmtHours, staffTotal, workerHours } from './reports';
-import type { Report, ReportItem, ReportWorker } from './types';
+import type { Report, ReportItem, ReportWorker, StaffCount } from './types';
 
 /**
  * Firmenformular ausfüllen: Werte eines Berichts in die erkannten Felder des Original-PDFs schreiben (pdf-lib).
@@ -154,6 +154,28 @@ const addDaysIso = (iso: string, n: number) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
+/**
+ * Personalstand je Funktion. Formulare mit nur „Bauleiter“ bekommen Projektleiter + Techniker + Bautechniker,
+ * Formulare mit nur „Vorarbeiter“ bekommen Vorarbeiter + Polier.
+ */
+function staffValues(staff: StaffCount, layout: FormLayout): Partial<Record<FieldKey, string>> {
+  const has = (k: FieldKey) => layout.fields.some((f) => f.key === k);
+  const n = (v: number | null | undefined) => v ?? 0;
+  const txt = (v: number) => (v ? String(v) : '');
+  const leaders = n(staff.projektleiter) + n(staff.techniker) + n(staff.bautechniker);
+  const anyLeaderField = has('staff.projektleiter') || has('staff.techniker') || has('staff.bautechniker');
+  return {
+    'staff.projektleiter': txt(n(staff.projektleiter)),
+    'staff.techniker': txt(n(staff.techniker)),
+    'staff.bautechniker': txt(n(staff.bautechniker)),
+    'staff.bauleiter': txt(anyLeaderField ? 0 : leaders),
+    'staff.polier': txt(n(staff.polier)),
+    'staff.vorarbeiter': txt(n(staff.vorarbeiter) + (has('staff.polier') ? 0 : n(staff.polier))),
+    'staff.facharbeiter': txt(n(staff.facharbeiter)),
+    'staff.hilfsarbeiter': txt(n(staff.hilfsarbeiter)),
+  };
+}
+
 /** Bautagesbericht → Werte */
 export function dailyValues(r: Report & { type: 'tag' }, layout: FormLayout, company: string): FillValues {
   const d = r.data;
@@ -165,11 +187,7 @@ export function dailyValues(r: Report & { type: 'tag' }, layout: FormLayout, com
     to: d.to,
     weather: [d.weather, d.tempMin || d.tempMax ? `${[d.tempMin && `min. ${d.tempMin} °C`, d.tempMax && `max. ${d.tempMax} °C`].filter(Boolean).join(', ')}` : ''].filter(Boolean).join(', '),
     'staff.total': staffTotal(d.staff) ? String(staffTotal(d.staff)) : d.crewCount !== null ? String(d.crewCount) : present.length ? String(present.length) : '',
-    'staff.bauleiter': staff.bauleiter ? String(staff.bauleiter) : '',
-    'staff.vorarbeiter': staff.vorarbeiter ? String(staff.vorarbeiter) : '',
-    'staff.facharbeiter': staff.facharbeiter ? String(staff.facharbeiter) : '',
-    'staff.hilfsarbeiter': staff.hilfsarbeiter ? String(staff.hilfsarbeiter) : '',
-    'staff.lehrling': staff.lehrling ? String(staff.lehrling) : '',
+    ...staffValues(staff, layout),
     work: d.work,
     incidents: d.incidents,
     notes: d.notes,

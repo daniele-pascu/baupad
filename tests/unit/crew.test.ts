@@ -201,16 +201,18 @@ describe('Umsetzen (Ziehen / Hinzufügen)', () => {
   });
 });
 
-describe('Einstufung der Arbeiter', () => {
-  it('gesetzte Einstufung gilt, sonst wird sie aus der Tätigkeit erraten, Standard Facharbeiter', async () => {
+describe('Funktion der Arbeiter', () => {
+  it('gewählte Funktion gilt, sonst wird sie aus der Tätigkeit erraten, Standard Facharbeiter', async () => {
     const { gradeOf, countByGrade } = await import('../../src/lib/crew');
     expect(gradeOf({ grade: 'hilfsarbeiter', role: 'Polier' })).toBe('hilfsarbeiter');
-    expect(gradeOf({ role: 'Polier' })).toBe('vorarbeiter');
-    expect(gradeOf({ role: 'Bauleiter' })).toBe('bauleiter');
+    expect(gradeOf({ role: 'Polier' })).toBe('polier');
+    expect(gradeOf({ role: 'Vorarbeiter' })).toBe('vorarbeiter');
+    expect(gradeOf({ role: 'Bauleiter' })).toBe('projektleiter');
+    expect(gradeOf({ role: 'Bautechniker' })).toBe('bautechniker');
+    expect(gradeOf({ role: 'Techniker' })).toBe('techniker');
     expect(gradeOf({ role: 'Hilfsarbeiter' })).toBe('hilfsarbeiter');
-    expect(gradeOf({ role: 'Lehrling' })).toBe('lehrling');
     expect(gradeOf({ role: 'Maurer' })).toBe('facharbeiter');
     expect(gradeOf({})).toBe('facharbeiter');
-    expect(countByGrade([{ role: 'Polier' }, { role: 'Maurer' }, { grade: 'hilfsarbeiter' }, {}])).toEqual({ bauleiter: 0, vorarbeiter: 1, facharbeiter: 2, hilfsarbeiter: 1, lehrling: 0 });
+    expect(countByGrade([{ role: 'Polier' }, { role: 'Maurer' }, { grade: 'hilfsarbeiter' }, {}])).toEqual({ projektleiter: 0, techniker: 0, bautechniker: 0, polier: 1, vorarbeiter: 0, facharbeiter: 2, hilfsarbeiter: 1 });
   });
 });

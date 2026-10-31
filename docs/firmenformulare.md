@@ -17,7 +17,7 @@ Linien bleiben exakt wie im Original).
 - Eingabe: Textpositionen und Linien der PDF-Seite (pdf.js, `readFormPage`), als JSON testbar
   (`tests/fixtures/forms/*.json`, erzeugt mit `node --experimental-transform-types tests/fixtures/forms/make-form-fixtures.mjs`).
 - Beschriftungen → Werte über Synonymliste (`LABEL_RULES`): Bauvorhaben, Auftraggeber, Auftrags-Nr., Kst.,
-  Datum/„am“, Kal.-Woche, Nr., Arbeitszeit von/bis, Personalstand je Einstufung, Leistungsbeschreibung,
+  Datum/„am“, Kal.-Woche, Nr., Arbeitszeit von/bis, Personalstand je Funktion, Leistungsbeschreibung,
   Besondere Vorkommnisse, Vorbemerkungen/Bemerkungen, Material, Geräte, Fahrtkosten, Nächtigung, Div. Kosten,
   Schlussabnahme. Firmenanschrift, Unterschriftszeilen und Titel werden ignoriert.
 - Schreibbereich je Beschriftung: Schreiblinie rechts daneben (gepunktet/durchgezogen), sonst die Zelle
@@ -31,15 +31,16 @@ Linien bleiben exakt wie im Original).
 ## Ausfüllen (src/lib/form-fill.ts, pdf-lib)
 - Einzeilig: Schrift wird verkleinert, bis der Text passt (mind. 5,5 pt). Mehrzeilig: Umbruch über die
   Schreiblinien, bei Platzmangel kleinere Schrift, am Ende „…“.
-- Bautagesbericht: Kopf, Arbeitszeit, Wetter, Personalstand (gesamt und je Einstufung BL/VA/FA/HA/Lehrling),
+- Bautagesbericht: Kopf, Arbeitszeit, Wetter, Personalstand (gesamt und je Funktion: Projektleiter, Techniker, Bautechniker, Polier, Vorarbeiter, Facharbeiter, Hilfsarbeiter; ein Feld „Bauleiter“ bekommt PL + Techniker + Bautechniker, ein Feld „Vorarbeiter“ ohne eigenes Polier-Feld auch die Poliere),
   Leistungen, Vorkommnisse, Bemerkungen, Material, Geräte, Schlussabnahme; Tabelle = anwesende Arbeiter.
 - Regieliste als **Wochenblatt**: alle Regielisten des Projekts aus der Kalenderwoche des Berichts kommen auf
   ein Blatt – eine Zeile je Arbeiter, Stunden/50 %/100 %/Wegzeit in der Spalte des Wochentags (das Datum
   der Regieliste bestimmt den Wochentag). Nummern, Material, Kosten werden zusammengefasst.
 - Regieliste als Tagesformular: eine Zeile je Arbeiter mit Zeiten und Stunden.
 - Personalstand im Bautagesbericht wird beim Übernehmen der Mannschaft aus der Arbeitereinteilung nach
-  Einstufung vorbelegt (Arbeiterliste → „Einstufung“; ohne Angabe wird sie aus der Tätigkeit erraten:
-  Polier → Vorarbeiter, Hilfsarbeiter, Lehrling, sonst Facharbeiter) und bleibt von Hand änderbar.
+  Funktion vorbelegt (Arbeiterliste → „Funktion“; ohne Auswahl wird sie aus dem Zusatztext erraten:
+  Polier, Vorarbeiter, Bauleiter → Projektleiter, Hilfsarbeiter/Lehrling → Hilfsarbeiter, sonst Facharbeiter)
+  und bleibt von Hand änderbar.
 
 ## Speicherung
 Vorlage (`formTemplates`) und Original-PDF (`formTemplateFiles`) in der Browser-Datenbank (Version 9), je Gerät.
