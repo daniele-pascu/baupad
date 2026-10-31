@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState, type InputHTMLAttributes } from 'react';
 import { Icon } from '../components/Icon';
 import { Modal } from '../components/Modal';
-import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, showError, toast } from '../components/ui';
 import { WORKER_GRADES, gradeLabel, gradeRank, isoDate, sortByGrade, sortWorkers, workerName } from '../lib/crew';
 import { absenceRange } from '../lib/crew-absence';
@@ -119,7 +118,6 @@ export function StaffPage() {
 
   return (
     <>
-      <SiteNav />
       <div className="page staff-page" data-testid="staff-page">
         <header className="page-head page-head-row">
           <div className="page-head-title">

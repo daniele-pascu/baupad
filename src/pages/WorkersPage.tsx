@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { ActionMenu, type MenuAction } from '../components/ActionMenu';
 import { Icon } from '../components/Icon';
 import { Modal } from '../components/Modal';
-import { SiteNav } from '../components/SiteNav';
 import { ToolIcon } from '../components/ToolIcon';
 import { useChipDrag, type DropTarget } from '../components/useChipDrag';
 import { PdfPreview } from '../components/PdfPreview';
@@ -303,7 +302,6 @@ export function WorkersPage() {
   if (!workers || times === undefined || !plan)
     return (
       <>
-        <SiteNav />
         <div className="page loading">Arbeitereinteilung wird geladen …</div>
       </>
     );
@@ -370,7 +368,6 @@ export function WorkersPage() {
 
   return (
     <>
-      <SiteNav />
       <div className="page crew-page">
         <header className="page-head page-head-row">
           <div className="page-head-title">
