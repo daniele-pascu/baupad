@@ -10,6 +10,8 @@ import { addDays, DAY_NAMES, weekOf, WORKER_GRADES } from '../lib/crew';
 import { deleteReport, getMeta, getReport, getWeek, listReports, listWorkers, loadProjectData, previousWeek, saveReport } from '../lib/db';
 import { navigate, paths } from '../lib/router';
 import { reportPdf } from '../lib/report-pdf';
+import { companyFormFile, templatesFor } from '../lib/form-export';
+import type { FormTemplate } from '../lib/form-template';
 import {
   copyReport,
   crewForDay,
@@ -64,6 +66,11 @@ export function ReportEditorPage({ reportId }: { reportId: string }) {
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [saved, setSaved] = useState(true);
   const [preview, setPreview] = useState<ExportFile | null>(null);
+  /** eigene Firmenformulare für diesen Berichtstyp */
+  const [templates, setTemplates] = useState<FormTemplate[]>([]);
+  useEffect(() => {
+    if (r?.type) void templatesFor(r.type).then(setTemplates).catch(() => setTemplates([]));
+  }, [r?.type]);
   const pending = useRef<Report | null>(null);
   const timer = useRef(0);
   usePageTitle(r ? `${typeInfo(r.type).label} Nr. ${r.no} – BauPad` : 'Bericht – BauPad');
@@ -198,6 +205,18 @@ export function ReportEditorPage({ reportId }: { reportId: string }) {
               label="Weitere Aktionen"
               testId="report-more"
               actions={[
+                ...templates.map((t) => ({
+                  label: `Firmenformular: ${t.name}`,
+                  icon: 'pdf',
+                  testId: 'report-company-form',
+                  onSelect: () =>
+                    run(async () => {
+                      flush();
+                      const f = await companyFormFile(r, t);
+                      if (f.note) toast(f.note, 'info', 5000);
+                      setPreview(f);
+                    }),
+                })),
                 { label: 'Drucken', icon: 'pdf', onSelect: print, testId: 'report-print' },
                 { label: 'Kopieren als neuer Bericht', icon: 'copy', onSelect: copy, testId: 'report-copy' },
                 { label: 'Löschen', icon: 'trash', danger: true, onSelect: remove, testId: 'report-delete' },

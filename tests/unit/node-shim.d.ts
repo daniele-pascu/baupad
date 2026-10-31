@@ -6,6 +6,7 @@ declare module 'node:fs' {
   export function mkdtempSync(prefix: string): string;
   export function writeFileSync(path: string, data: Uint8Array | string): void;
   export function readFileSync(path: string): Uint8Array;
+  export function mkdirSync(path: string, opts?: { recursive?: boolean }): void;
 }
 declare module 'node:os' {
   export function tmpdir(): string;

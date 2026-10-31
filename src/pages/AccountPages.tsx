@@ -16,6 +16,7 @@ import { Modal } from '../components/Modal';
 import { navigate, paths } from '../lib/router';
 import { confirmDialog, showError, toast } from '../components/ui';
 import { AppStorageSettings } from '../components/InstallApp';
+import { FormTemplatesSettings } from '../components/FormTemplates';
 import { usePageTitle } from '../lib/page-title';
 
 /*
@@ -333,8 +334,9 @@ export function AccountPage() {
         <Section title="Abonnement und Zahlung" text="Paket deines Arbeitsbereichs">
           <SubscriptionInfo session={session} />
         </Section>
-        <Section title="Firmeninformationen" text="Firmenname, Anschrift und Logo für Exporte" open>
+        <Section title="Firmeninformationen" text="Firmenname, Anschrift, Logo und eigene Formulare für Exporte" open>
           <LogoSettings session={session} />
+          <FormTemplatesSettings />
         </Section>
         <Section title="App und Speicher" text="Installation und dauerhafter Speicher auf diesem Gerät" open>
           <AppStorageSettings />

@@ -310,12 +310,18 @@ test('Messleiste verstellbar: Grenzen, gespeichert, Markierungen und Daten unver
 
 test('Datenbank-Umstellung von Version 1: vorhandene Projekte bleiben vollständig erhalten', async () => {
   await page.goto('./');
-  await page.evaluate(async () => {
-    for (const d of (await indexedDB.databases?.()) ?? []) if (d.name) indexedDB.deleteDatabase(d.name);
-    localStorage.clear();
-  });
-  // Seite ohne App-Code auf demselben Ursprung, damit die App die Datenbank nicht vorher öffnet
+  await page.evaluate(() => localStorage.clear());
+  // Seite ohne App-Code auf demselben Ursprung, damit die App die Datenbank nicht offen hält; dort löschen und auf den Abschluss warten
   await page.goto('./manifest.webmanifest');
+  await page.evaluate(async () => {
+    for (const d of (await indexedDB.databases?.()) ?? []) {
+      if (!d.name) continue;
+      await new Promise<void>((resolve) => {
+        const req = indexedDB.deleteDatabase(d.name!);
+        req.onsuccess = req.onerror = req.onblocked = () => resolve();
+      });
+    }
+  });
   await page.evaluate(
     () =>
       new Promise<void>((resolve, reject) => {
@@ -367,7 +373,7 @@ test('Datenbank-Umstellung von Version 1: vorhandene Projekte bleiben vollständ
         };
       }),
   );
-  expect(info.version).toBe(8); // Version 8: Mängelplan
+  expect(info.version).toBe(9); // Version 9: eigene Firmenformulare
   expect(info.stores).toEqual(expect.arrayContaining(['components', 'outbox', 'elements', 'lvDocs', 'workers', 'weeks', 'reports', 'photos', 'defectPlans', 'projects', 'damages']));
   expect(info.upgradedFrom).toBe(1);
   // Datensätze unverändert (keine neue Revision, keine Felder verändert)

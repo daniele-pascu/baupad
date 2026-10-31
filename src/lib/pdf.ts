@@ -288,3 +288,22 @@ export async function readPageSegments(page: PDFPageProxy, rot: PlanRotation = 0
   }
   return out;
 }
+
+/**
+ * Seite eines Firmenformulars als Text- und Linienliste (Eingabe der Formular-Erkennung, form-template.ts):
+ * Textpositionen mit Grundlinie (Ursprung oben links), alle gezeichneten Strecken.
+ */
+export async function readFormPage(page: PDFPageProxy): Promise<import('./form-template').FormPage> {
+  const vp = page.getViewport({ scale: 1 });
+  const content = await page.getTextContent();
+  const texts: import('./form-template').FormText[] = [];
+  for (const it of content.items) {
+    if (!('str' in it) || !it.str.trim()) continue;
+    const [a, b, c, d, e, f] = it.transform as number[];
+    void a;
+    const fh = Math.hypot(c, d) || 1;
+    texts.push({ str: it.str, x: e, y: vp.height - f, w: it.width || 0, h: fh, rot: Math.abs(b) > 0.01 ? 1 : 0 });
+  }
+  const segs = (await readPageSegments(page)).map((s) => ({ x1: s.a.x, y1: s.a.y, x2: s.b.x, y2: s.b.y }));
+  return { width: vp.width, height: vp.height, texts, segs };
+}

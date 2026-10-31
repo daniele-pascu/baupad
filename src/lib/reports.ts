@@ -48,8 +48,8 @@ export function headFromProject(p: Pick<Project, 'name' | 'number' | 'site' | 'a
 export const siteKey = (r: Pick<Report, 'projectId' | 'head'>) => (r.projectId ? `p:${r.projectId}` : `n:${(r.head.site || r.head.project).trim().toLowerCase()}`);
 export const siteLabel = (r: Pick<Report, 'head'>) => r.head.site || r.head.project || 'Ohne Baustelle';
 
-const emptyRegie = (): RegieData => ({ workers: [], work: '', materials: [], equipment: [], notes: '', overtime: false });
-const emptyDaily = (): DailyData => ({ from: '', to: '', weather: '', tempMin: '', tempMax: '', crew: [], crewCount: null, work: '', materials: [], equipment: [], incidents: '', notes: '' });
+export const emptyRegie = (): RegieData => ({ workers: [], work: '', materials: [], equipment: [], notes: '', overtime: false });
+export const emptyDaily = (): DailyData => ({ from: '', to: '', weather: '', tempMin: '', tempMax: '', crew: [], crewCount: null, work: '', materials: [], equipment: [], incidents: '', notes: '' });
 const emptyWeekly = (monday: string): WeeklyData => ({
   days: [0, 1, 2, 3, 4, 5, 6].map((d) => ({ date: addDays(monday, d), count: null, names: '', work: '' })),
   events: '',

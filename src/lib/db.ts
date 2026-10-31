@@ -1,5 +1,6 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { Component, CostCenter, Damage, DrawElement, EntityMap, EntityStore, LvDocument, Photo, Plan, Project, Report, SourceFile, WeekPlan, Worker, DefectMark, DefectPlan } from './types';
+import type { FormTemplate } from './form-template';
 
 /**
  * Lokale Datenbank (IndexedDB). Sie funktioniert ohne Internetverbindung und hält
@@ -43,6 +44,9 @@ interface AufmassDB extends DBSchema {
   /** ab Version 8: Mängelplan – Pläne je Baustelle, Markierungen, Planbilder */
   defectPlans: { key: string; value: DefectPlan; indexes: { projectId: string } };
   defectMarks: { key: string; value: DefectMark; indexes: { planId: string } };
+  /** ab Version 9: eigene Firmenformulare (Vorlage + Original-PDF) */
+  formTemplates: { key: string; value: FormTemplate };
+  formTemplateFiles: { key: string; value: { id: string; data: ArrayBuffer } };
   defectPlanImages: { key: string; value: { id: string; data: ArrayBuffer; thumb: ArrayBuffer } };
 }
 
@@ -63,7 +67,7 @@ const DB_NAME = 'schadstellen-aufmass';
  * Version 5: Arbeitereinteilung (Arbeiter, Wochenplanungen). Version 6: Berichte & Formulare. Version 7: Fotodokumentation.
  * Upgrades legen ausschließlich neue Speicherbereiche an; vorhandene Daten bleiben unverändert.
  */
-const DB_VERSION = 8;
+const DB_VERSION = 9;
 
 let dbPromise: Promise<IDBPDatabase<AufmassDB>> | null = null;
 
@@ -107,6 +111,10 @@ export function getDB(): Promise<IDBPDatabase<AufmassDB>> {
           db.createObjectStore('defectPlans', { keyPath: 'id' }).createIndex('projectId', 'projectId');
           db.createObjectStore('defectMarks', { keyPath: 'id' }).createIndex('planId', 'planId');
           db.createObjectStore('defectPlanImages', { keyPath: 'id' });
+        }
+        if (oldVersion < 9) {
+          db.createObjectStore('formTemplates', { keyPath: 'id' });
+          db.createObjectStore('formTemplateFiles', { keyPath: 'id' });
         }
         // Hinweis für Aufmaß & Abrechnung, dass die Datenbank erweitert wurde
         if (oldVersion >= 1) void tx.objectStore('meta').put({ key: 'upgradedFrom', value: oldVersion });
@@ -424,5 +432,30 @@ export async function deleteDefectPlanCompletely(id: string): Promise<void> {
   for (const m of await tx.objectStore('defectMarks').index('planId').getAll(id)) await tx.objectStore('defectMarks').delete(m.id);
   await tx.objectStore('defectPlanImages').delete(id);
   await tx.objectStore('defectPlans').delete(id);
+  await tx.done;
+}
+
+/* Eigene Firmenformulare */
+export async function listFormTemplates(): Promise<FormTemplate[]> {
+  return (await (await getDB()).getAll('formTemplates')).sort((a, b) => a.type.localeCompare(b.type) || a.name.localeCompare(b.name, 'de'));
+}
+export async function getFormTemplate(id: string): Promise<FormTemplate | undefined> {
+  return (await getDB()).get('formTemplates', id);
+}
+export async function saveFormTemplate(t: FormTemplate, pdf?: ArrayBuffer): Promise<void> {
+  const db = await getDB();
+  const tx = db.transaction(['formTemplates', 'formTemplateFiles'], 'readwrite');
+  await tx.objectStore('formTemplates').put(t);
+  if (pdf) await tx.objectStore('formTemplateFiles').put({ id: t.id, data: pdf });
+  await tx.done;
+}
+export async function getFormTemplateFile(id: string): Promise<ArrayBuffer | undefined> {
+  return (await (await getDB()).get('formTemplateFiles', id))?.data;
+}
+export async function deleteFormTemplate(id: string): Promise<void> {
+  const db = await getDB();
+  const tx = db.transaction(['formTemplates', 'formTemplateFiles'], 'readwrite');
+  await tx.objectStore('formTemplates').delete(id);
+  await tx.objectStore('formTemplateFiles').delete(id);
   await tx.done;
 }

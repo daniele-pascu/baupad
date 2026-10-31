@@ -3615,6 +3615,128 @@ tr.lv-flagged td {
 .status-pill.warn::before {
   background: #e8a200;
 }
+.form-templates {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line, #e5e5ea);
+}
+.form-template-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.form-template-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.form-template-row > div:first-child {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.form-tpl {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 16px;
+  align-items: start;
+}
+.form-tpl-stage {
+  min-width: 0;
+}
+.form-tpl-editor {
+  position: relative;
+  width: 100%;
+  border: 1px solid var(--border);
+  background: #fff;
+  user-select: none;
+  touch-action: none;
+}
+.form-tpl-editor.adding {
+  cursor: crosshair;
+}
+.form-tpl-editor img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.form-tpl-box {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1.5px solid rgba(200, 20, 20, 0.85);
+  background: rgba(220, 40, 40, 0.1);
+  cursor: move;
+  overflow: hidden;
+}
+.form-tpl-box span {
+  position: absolute;
+  left: 2px;
+  top: -1px;
+  font-size: 9px;
+  line-height: 1;
+  color: #b01818;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.form-tpl-box.open {
+  border-style: dashed;
+  border-color: rgba(200, 120, 0, 0.9);
+  background: rgba(240, 160, 0, 0.14);
+}
+.form-tpl-box.line {
+  border-color: rgba(0, 110, 210, 0.6);
+  background: rgba(0, 110, 210, 0.06);
+  cursor: default;
+}
+.form-tpl-box.sel {
+  border-color: #0a5bd3;
+  background: rgba(10, 91, 211, 0.18);
+  z-index: 2;
+}
+.form-tpl-cell {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid rgba(0, 150, 60, 0.55);
+  pointer-events: none;
+}
+.form-tpl-side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.form-tpl-field,
+.form-tpl-table {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.form-tpl-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 260px;
+  overflow: auto;
+  font-size: 0.85rem;
+}
+.form-tpl-list .link-btn.on {
+  font-weight: 650;
+}
+@media (max-width: 900px) {
+  .form-tpl {
+    grid-template-columns: 1fr;
+  }
+}
 .tool-access-list {
   display: flex;
   flex-direction: column;
