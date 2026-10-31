@@ -47,7 +47,8 @@ interface AufmassDB extends DBSchema {
   /** ab Version 9: eigene Firmenformulare (Vorlage + Original-PDF) */
   formTemplates: { key: string; value: FormTemplate };
   formTemplateFiles: { key: string; value: { id: string; data: ArrayBuffer } };
-  defectPlanImages: { key: string; value: { id: string; data: ArrayBuffer; thumb: ArrayBuffer } };
+  /** Planbild (JPEG), Vorschau und – bei PDF-Plänen – die Originaldatei für scharfes Nachrendern beim Zoomen */
+  defectPlanImages: { key: string; value: { id: string; data: ArrayBuffer; thumb: ArrayBuffer; pdf?: ArrayBuffer } };
 }
 
 export interface OutboxEntry {
@@ -427,7 +428,7 @@ export async function saveDefectPlan(p: DefectPlan): Promise<void> {
   const db = await getDB();
   await db.put('defectPlans', p);
 }
-export async function putDefectPlanImage(v: { id: string; data: ArrayBuffer; thumb: ArrayBuffer }): Promise<void> {
+export async function putDefectPlanImage(v: { id: string; data: ArrayBuffer; thumb: ArrayBuffer; pdf?: ArrayBuffer }): Promise<void> {
   const db = await getDB();
   await db.put('defectPlanImages', v);
 }

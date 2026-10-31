@@ -7414,6 +7414,10 @@ button.report-site-empty {
   height: 100%;
   pointer-events: none;
 }
+.dp-stage > canvas.dp-detail {
+  position: absolute;
+  pointer-events: none;
+}
 .dp-stage > svg {
   position: absolute;
   inset: 0;

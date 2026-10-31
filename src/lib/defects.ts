@@ -6,6 +6,7 @@
 import { deleteDefectMark, getDefectPlan, getDefectPlanImage, listDefectMarks, listDefectPlans, putDefectPlanImage, saveDefectMark, saveDefectPlan } from './db';
 import { uuid } from './ids';
 import { canvasToBlob, closePdf, imageToCanvas, loadImageBitmap, openPdf, renderPdfToCanvas } from './pdf';
+import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { photoSiteKey } from './photos';
 import type { DefectKind, DefectMark, DefectPlan, MarkShape, PhotoSite } from './types';
 
@@ -34,16 +35,22 @@ export const SHAPES: { id: MarkShape; label: string }[] = [
 /** Schlüssel der Baustelle, gleich wie in der Fotodokumentation (p:<Projekt> bzw. n:<Name>) */
 export const defectSiteKey = (p: Pick<DefectPlan, 'projectId' | 'siteName'>) => photoSiteKey(p);
 
-export const PLAN_MAX = 2600;
+/** Grundbild: längste Kante in Pixeln (Übersicht); beim Zoomen wird aus dem PDF scharf nachgerendert */
+export const PLAN_MAX = 3200;
+/** Auflösung des Plans im PDF-Export (aus dem Original-PDF, sonst das Grundbild) */
+export const EXPORT_MAX = 4200;
 const THUMB_MAX = 480;
 
-/** Plan aus PDF (erste Seite) oder Bild als JPEG übernehmen – ohne Maßstab */
-export async function importPlanImage(file: File): Promise<{ data: ArrayBuffer; thumb: ArrayBuffer; width: number; height: number }> {
+/**
+ * Plan aus PDF (erste Seite) oder Bild als JPEG übernehmen – ohne Maßstab. Bei PDF bleibt die Originaldatei
+ * erhalten, damit die Ansicht beim Zoomen und der Export so scharf sind wie in Aufmaß & Abrechnung.
+ */
+export async function importPlanImage(file: File): Promise<{ data: ArrayBuffer; thumb: ArrayBuffer; width: number; height: number; pdf?: ArrayBuffer }> {
   const buf = await file.arrayBuffer();
   const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
   let canvas: HTMLCanvasElement;
   if (isPdf) {
-    const doc = await openPdf(buf);
+    const doc = await openPdf(buf.slice(0));
     try {
       const page = await doc.getPage(1);
       canvas = await renderPdfToCanvas(page, PLAN_MAX);
@@ -54,9 +61,43 @@ export async function importPlanImage(file: File): Promise<{ data: ArrayBuffer; 
     const bmp = await loadImageBitmap(buf, file.type || 'image/jpeg');
     canvas = imageToCanvas(bmp, PLAN_MAX);
   }
-  const data = await (await canvasToBlob(canvas, 'image/jpeg', 0.86)).arrayBuffer();
+  const data = await (await canvasToBlob(canvas, 'image/jpeg', 0.9)).arrayBuffer();
   const thumb = await (await canvasToBlob(imageToCanvas(await createImageBitmap(canvas), THUMB_MAX), 'image/jpeg', 0.8)).arrayBuffer();
-  return { data, thumb, width: canvas.width, height: canvas.height };
+  return { data, thumb, width: canvas.width, height: canvas.height, pdf: isPdf ? buf : undefined };
+}
+
+/** Geöffnete Original-PDFs je Plan (höchstens zwei zugleich im Speicher) */
+const pdfCache = new Map<string, Promise<PDFDocumentProxy>>();
+export function openPlanPdf(planId: string): Promise<PDFDocumentProxy | null> {
+  let p = pdfCache.get(planId);
+  if (!p) {
+    p = (async () => {
+      const img = await getDefectPlanImage(planId);
+      if (!img?.pdf) throw new Error('no-pdf');
+      return openPdf(img.pdf.slice(0));
+    })();
+    p.catch(() => pdfCache.delete(planId));
+    pdfCache.set(planId, p);
+    while (pdfCache.size > 2) {
+      const [oldest, old] = pdfCache.entries().next().value!;
+      pdfCache.delete(oldest);
+      old.then((d) => closePdf(d)).catch(() => {});
+    }
+  }
+  return p.catch((e: Error) => {
+    if (e.message === 'no-pdf') return null;
+    throw e;
+  });
+}
+
+/** Plan als JPEG für den Export: aus dem Original-PDF in hoher Auflösung, sonst das gespeicherte Grundbild */
+export async function planRaster(planId: string, maxSide = EXPORT_MAX): Promise<ArrayBuffer | null> {
+  const img = await getDefectPlanImage(planId);
+  if (!img) return null;
+  const doc = await openPlanPdf(planId);
+  if (!doc) return img.data;
+  const canvas = await renderPdfToCanvas(await doc.getPage(1), maxSide);
+  return (await canvasToBlob(canvas, 'image/jpeg', 0.9)).arrayBuffer();
 }
 
 export async function createDefectPlan(site: PhotoSite, title: string, file: File): Promise<DefectPlan> {
@@ -75,7 +116,7 @@ export async function createDefectPlan(site: PhotoSite, title: string, file: Fil
     createdAt: now,
     updatedAt: now,
   };
-  await putDefectPlanImage({ id: plan.id, data: img.data, thumb: img.thumb });
+  await putDefectPlanImage({ id: plan.id, data: img.data, thumb: img.thumb, pdf: img.pdf });
   await saveDefectPlan(plan);
   return plan;
 }

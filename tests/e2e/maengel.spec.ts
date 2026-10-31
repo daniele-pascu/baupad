@@ -150,3 +150,24 @@ test('Mängelplan: Plan hochladen, Markierungen setzen und bearbeiten, PDF', asy
   await page.getByTestId('photo-file-input').setInputFiles([{ name: 'x.jpg', mimeType: 'image/jpeg', buffer: Buffer.from([0xff, 0xd8, 0xff, 0xd9]) }]);
   await expect(page.getByTestId('photo-save-dialog').getByTestId('photo-site').locator('option')).toContainText([/Tiefgarage Nord/]);
 });
+
+test('Plan aus PDF: beim starken Hineinzoomen wird der Ausschnitt scharf aus dem PDF nachgerendert', async ({ page }) => {
+  await freshStart(page);
+  await page.goto('./maengel');
+  await page.getByTestId('defect-upload').click();
+  const dlg = page.getByTestId('defect-plan-dialog');
+  await dlg.getByTestId('photo-site').selectOption('__new');
+  const sd = page.getByTestId('photo-site-dialog');
+  await sd.getByTestId('photo-site-name').fill('PDF-Baustelle');
+  await sd.getByTestId('photo-site-save').click();
+  await dlg.getByTestId('defect-plan-file').setInputFiles(join(FIXTURES, 'plaene.pdf'));
+  await dlg.getByTestId('defect-plan-save').click();
+  await expect(page.locator('[data-testid="dp-canvas"] img')).toBeVisible();
+  const detail = page.getByTestId('dp-detail');
+  await expect(detail).toBeHidden(); // Übersicht: Grundbild reicht
+  for (let i = 0; i < 6; i++) await page.getByTestId('dp-zoom-in').click();
+  await expect(page.getByTestId('dp-canvas')).toHaveAttribute('data-zoom', '7.53');
+  await expect(detail).toBeVisible({ timeout: 15_000 });
+  const w = await detail.evaluate((c: HTMLCanvasElement) => c.width);
+  expect(w).toBeGreaterThan(400);
+});

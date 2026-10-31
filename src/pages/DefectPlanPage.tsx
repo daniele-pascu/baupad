@@ -8,7 +8,9 @@ import { confirmDialog, showError } from '../components/ui';
 import { getCompanyLogo } from '../lib/company';
 import { getDefectPlan, getMeta } from '../lib/db';
 import { defectPdf } from '../lib/defect-pdf';
-import { defectSiteKey, hitMark, KINDS, kindInfo, loadMarks, MARK_COLORS, markAnchor, markBox, newMark, nextMarkNo, planImage, plansOfSite, putMark, removeMark, renumber, SHAPES, thinPoints } from '../lib/defects';
+import { defectSiteKey, hitMark, KINDS, kindInfo, loadMarks, MARK_COLORS, markAnchor, markBox, newMark, nextMarkNo, openPlanPdf, planRaster, plansOfSite, putMark, removeMark, renumber, SHAPES, thinPoints } from '../lib/defects';
+import { clampRenderScale, pageSize, renderPdfRegion, type RenderJob } from '../lib/pdf';
+import type { PDFPageProxy } from 'pdfjs-dist';
 import { getPhotoStorage } from '../lib/photo-storage';
 import { photoSiteKey } from '../lib/photos';
 import { navigate, paths } from '../lib/router';
@@ -43,6 +45,7 @@ const MAX_S = 8;
 function PlanCanvas({
   plan,
   url,
+  pdfPage,
   marks,
   selectedId,
   tool,
@@ -56,6 +59,8 @@ function PlanCanvas({
 }: {
   plan: DefectPlan;
   url: string | null;
+  /** Original-PDF-Seite: beim Zoomen wird der sichtbare Ausschnitt scharf nachgerendert (wie in Aufmaß & Abrechnung) */
+  pdfPage: PDFPageProxy | null;
   marks: DefectMark[];
   selectedId: string | null;
   tool: Tool;
@@ -144,6 +149,53 @@ function PlanCanvas({
     return () => el.removeEventListener('wheel', onWheel);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [size.w, size.h]);
+
+  /** Detailebene aus dem PDF: sichtbarer Ausschnitt in Bühnen-Einheiten (eingepasste Größe) */
+  const detailRef = useRef<HTMLCanvasElement>(null);
+  const [detail, setDetail] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  useEffect(() => {
+    if (!pdfPage) {
+      setDetail(null);
+      return;
+    }
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const needed = view.s * dpr; // Bildschirmpixel je Bühnen-Einheit
+    const base = W / fitW; // Pixel des Grundbilds je Bühnen-Einheit
+    if (needed <= base * 1.15) {
+      setDetail(null);
+      return;
+    }
+    let cancelled = false;
+    let job: RenderJob | null = null;
+    const t = setTimeout(() => {
+      const x0 = Math.max(0, -view.tx / view.s);
+      const y0 = Math.max(0, -view.ty / view.s);
+      const x1 = Math.min(fitW, (size.w - view.tx) / view.s);
+      const y1 = Math.min(fitH, (size.h - view.ty) / view.s);
+      if (x1 <= x0 || y1 <= y0) return;
+      const ps = pageSize(pdfPage);
+      const f = ps.width / fitW; // Seiteneinheiten je Bühnen-Einheit
+      const region = { x: x0 * f, y: y0 * f, w: (x1 - x0) * f, h: (y1 - y0) * f };
+      const scale = clampRenderScale(region.w, region.h, needed / f);
+      const canvas = document.createElement('canvas');
+      job = renderPdfRegion(pdfPage, canvas, region, scale);
+      job.promise
+        .then(() => {
+          if (cancelled || !detailRef.current) return;
+          const target = detailRef.current;
+          target.width = canvas.width;
+          target.height = canvas.height;
+          target.getContext('2d')!.drawImage(canvas, 0, 0);
+          setDetail({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 });
+        })
+        .catch((e) => console.warn(e));
+    }, 180);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+      job?.cancel();
+    };
+  }, [pdfPage, view, size.w, size.h, fitW, fitH, W]);
 
   /** Strich- und Symbolgrößen in Bildpixeln, damit sie bei jeder Zoomstufe am Bildschirm gleich groß sind */
   const px = (n: number) => (n * W) / (fitW * view.s);
@@ -317,6 +369,13 @@ function PlanCanvas({
     >
       <div ref={stage} className="dp-stage" style={{ width: fitW, height: fitH, transform: `translate(${view.tx}px, ${view.ty}px) scale(${view.s})` }}>
         {url ? <img src={url} alt="" draggable={false} /> : <div className="dp-loading muted small">Plan wird geladen …</div>}
+        <canvas
+          ref={detailRef}
+          className="dp-detail"
+          data-testid="dp-detail"
+          style={detail ? { left: detail.x, top: detail.y, width: detail.w, height: detail.h } : { display: 'none' }}
+          aria-hidden="true"
+        />
         <svg viewBox={`0 0 ${W} ${H}`} width={fitW} height={fitH} aria-hidden="true">
           {marks.map((m) => renderShape(m, m.id, m.id === selectedId))}
           {draft && renderShape({ ...draft, color }, 'draft', false, true)}
@@ -530,6 +589,22 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
   const [preview, setPreview] = useState<ExportFile | null>(null);
   const [busy, setBusy] = useState(false);
   const url = usePlanThumb(planId, 'data');
+  /** Original-PDF-Seite (falls der Plan aus einem PDF stammt) für scharfes Zoomen */
+  const [pdfPage, setPdfPage] = useState<PDFPageProxy | null>(null);
+  useEffect(() => {
+    let off = false;
+    setPdfPage(null);
+    void openPlanPdf(planId)
+      .then(async (doc) => {
+        if (!doc || off) return;
+        const page = await doc.getPage(1);
+        if (!off) setPdfPage(page);
+      })
+      .catch((e) => console.warn(e));
+    return () => {
+      off = true;
+    };
+  }, [planId]);
   usePageTitle(`${plan?.title ?? 'Plan'} – Mängelplan`);
 
   const site: PhotoSite | null = plan ? { projectId: plan.projectId, name: plan.siteName, number: plan.siteNumber, address: plan.siteAddress } : null;
@@ -590,8 +665,8 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
     if (!plan) return;
     setBusy(true);
     try {
-      const img = await planImage(plan.id);
-      if (!img) throw new Error('Planbild nicht gefunden.');
+      const raster = await planRaster(plan.id);
+      if (!raster) throw new Error('Planbild nicht gefunden.');
       const [company, lines, logo] = await Promise.all([getMeta<string>('companyName'), getMeta<string>('companyLines'), getCompanyLogo()]);
       const blobs = new Map<string, ArrayBuffer>();
       const storage = getPhotoStorage();
@@ -599,7 +674,7 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
         const b = await storage.blobs(id);
         if (b) blobs.set(id, b.data);
       }
-      const data = await defectPdf(plan, marks, img.data, blobs, { company: company ?? '', lines: lines ?? '', logo });
+      const data = await defectPdf(plan, marks, raster, blobs, { company: company ?? '', lines: lines ?? '', logo });
       setPreview({ name: `${safeFileName(`Maengelplan ${plan.siteName} ${plan.title}`)}.pdf`, data, mimeType: 'application/pdf' });
     } catch (e) {
       showError(e, 'PDF konnte nicht erstellt werden');
@@ -676,6 +751,7 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
               <PlanCanvas
                 plan={plan}
                 url={url}
+                pdfPage={pdfPage}
                 marks={marks}
                 selectedId={selected}
                 tool={tool}
