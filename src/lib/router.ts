@@ -38,6 +38,7 @@ export type Route =
   | { name: 'defectPlan'; planId: string; markId: string | null }
   | { name: 'login'; register?: boolean }
   | { name: 'account' }
+  | { name: 'accountSection'; section: string }
   | { name: 'newPassword' }
   | { name: 'project'; projectId: string }
   | { name: 'costCenter'; projectId: string; costCenterId: string }
@@ -95,6 +96,7 @@ export function parseRoute(url: string): Route {
   if (parts[0] === 'anmelden' && parts.length === 1) return { name: 'login' };
   if (parts[0] === 'registrieren' && parts.length === 1) return { name: 'login', register: true };
   if (parts[0] === 'konto' && parts.length === 1) return { name: 'account' };
+  if (parts[0] === 'konto' && parts.length === 2) return { name: 'accountSection', section: parts[1] };
   if (parts[0] === 'passwort-neu' && parts.length === 1) return { name: 'newPassword' };
   if (parts[0] === 'p' && parts.length === 2) return { name: 'project', projectId: parts[1] };
   if (parts[0] === 'p' && parts[2] === 'k' && parts.length === 4) return { name: 'costCenter', projectId: parts[1], costCenterId: parts[3] };
@@ -154,6 +156,8 @@ export const paths = {
   register: () => '/registrieren',
   /** Konto und Einstellungen */
   account: () => '/konto',
+  /** Bereich der Einstellungen als eigene Seite */
+  accountSection: (id: string) => `/konto/${id}`,
   newPassword: () => '/passwort-neu',
   project: (pid: string) => `/p/${pid}`,
   costCenter: (pid: string, cid: string) => `/p/${pid}/k/${cid}`,

@@ -38,10 +38,9 @@ test('gesperrter Arbeitsbereich: Hinweisseite statt Werkzeuge, Konto erreichbar,
   await expect(page.getByTestId('projects-title')).toHaveCount(0);
   // Konto bleibt erreichbar (Abmelden, Konto löschen)
   await page.goto('./konto');
-  await page.locator('[data-testid="account-section"][data-tile="subscription"]').click();
+  await page.locator('[data-testid="account-section"][data-tile="abo"]').click();
   await expect(page.getByTestId('subscription-info')).toContainText('noch nicht freigeschaltet');
   await expect(page.getByTestId('subscription-price')).toContainText('noch nicht vereinbart');
-  await page.keyboard.press('Escape');
   // Betreiber schaltet frei → beim nächsten Start sind die Werkzeuge da
   active = true;
   await page.goto('./tools');
@@ -70,7 +69,8 @@ test('Betreiber: Konto zeigt registrierte Firmen, Preis je Benutzer und Freischa
   });
   await freshStart(page);
   await page.goto('./konto');
-  await page.locator('[data-testid="account-section"][data-tile="operator"]').click();
+  await page.locator('[data-testid="account-section"][data-tile="betreiber"]').click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Betreiber: Kunden');
   const box = page.getByTestId('operator-workspaces');
   await expect(box).toContainText('2 Firmen registriert, 1 wartet auf Freischaltung');
   const rows = page.getByTestId('operator-row');
@@ -101,14 +101,12 @@ test('Firma sieht den vereinbarten Preis unter Abonnement und beim Anlegen eines
   await page.route('**/rest/v1/rpc/my_context', (r) => r.fulfill(json(ctx({ workspace_active: true, price_per_user: '12.50', members: 3 }))));
   await page.route('**/rest/v1/rpc/list_workspace_users', (r) => r.fulfill(json([])));
   await freshStart(page);
-  await page.goto('./konto');
-  await page.locator('[data-testid="account-section"][data-tile="subscription"]').click();
+  await page.goto('./konto/abo');
   const price = page.getByTestId('subscription-price');
   await expect(price).toContainText('12,50 € je Benutzer und Monat');
   await expect(price).toContainText('derzeit 3 Benutzer');
   await expect(price).toContainText('37,50 € je Monat');
-  await page.keyboard.press('Escape');
-  await page.locator('[data-testid="account-section"][data-tile="users"]').click();
+  await page.goto('./konto/benutzer');
   await page.getByTestId('user-add').click();
   await expect(page.getByTestId('user-dialog').getByTestId('user-price-hint')).toContainText('12,50 € je Monat');
   await expect(page.getByTestId('user-dialog').getByTestId('user-price-hint')).toContainText('dann 4 Benutzer');

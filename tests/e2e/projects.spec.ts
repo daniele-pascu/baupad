@@ -196,10 +196,11 @@ test('Angemeldet: Tools, Einstellungen und Benutzerliste', async ({ page }) => {
     /Weitere Einstellungen/,
   ]);
   await expect(page.getByTestId('account-logout')).toBeVisible();
-  // Benutzer & Rollen: Kasten antippen → eigenes Fenster; Admin trägt Benutzer mit Funktion, Werkzeugen und Paket ein (bleibt nach dem Neuladen)
+  // Benutzer & Rollen: Kasten antippen → eigene Seite; Admin trägt Benutzer mit Funktion, Werkzeugen und Paket ein (bleibt nach dem Neuladen)
   const tile = (id: string) => page.locator(`[data-testid="account-section"][data-tile="${id}"]`);
-  await tile('users').click();
-  await expect(page.getByTestId('account-dialog')).toBeVisible();
+  await tile('benutzer').click();
+  await expect(page).toHaveURL(/\/konto\/benutzer$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Benutzer & Rollen');
   await page.getByTestId('user-add').click();
   const ud = page.getByTestId('user-dialog');
   await ud.getByTestId('user-email').fill('polier@musterbau.at');
@@ -220,14 +221,13 @@ test('Angemeldet: Tools, Einstellungen und Benutzerliste', async ({ page }) => {
   await ud.getByTestId('user-name').fill('Doppelt');
   await ud.getByTestId('user-save').click();
   await expect(page.locator('.toast', { hasText: 'schon eingetragen' })).toHaveCount(1);
-  await page.keyboard.press('Escape'); // schließt nur den Benutzerdialog, das Einstellungsfenster bleibt offen
+  await page.keyboard.press('Escape');
   await expect(ud).toHaveCount(0);
-  await expect(page.getByTestId('account-dialog')).toBeVisible();
   await page.reload();
-  await tile('users').click();
   await expect(page.getByTestId('user-row')).toHaveCount(1);
   await page.screenshot({ path: join(OUT, 'konto.png'), fullPage: true });
-  await page.keyboard.press('Escape');
+  await page.getByTestId('account-back').click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Konto und Einstellungen');
   await page.getByRole('link', { name: 'Zu den Tools' }).click();
   await expect(page.getByTestId('tools-title')).toHaveText('Tools');
 
@@ -239,15 +239,16 @@ test('Angemeldet: Tools, Einstellungen und Benutzerliste', async ({ page }) => {
   await expect(page.getByTestId('tools-title')).toHaveText('Tools');
   // Kontakt und Rechtliches stehen unter Konto und Einstellungen
   await page.goto('./#/konto');
-  await tile('more').click();
+  await tile('weitere').click();
   await expect(page.getByTestId('settings-contact')).toBeVisible();
-  await page.keyboard.press('Escape');
-  // Persönliche Daten bearbeitbar
-  await tile('profile').click();
+  // Persönliche Daten bearbeitbar – Bereiche sind direkt per Adresse erreichbar
+  await page.goto('./konto/profil');
   await expect(page.getByTestId('profile-name')).toHaveValue('Test Nutzer');
-  await page.keyboard.press('Escape');
-  await tile('password').click();
+  await page.goto('./konto/passwort');
   await expect(page.getByTestId('provider-list')).toContainText('verbunden');
+  // unbekannter Bereich → zurück zur Übersicht
+  await page.goto('./konto/gibtsnicht');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Konto und Einstellungen');
 });
 
 test('Installierte App mit gespeicherter Anmeldung startet direkt in den Tools (auch ältere Home-Bildschirm-Symbole)', async ({ browser }) => {

@@ -10,8 +10,7 @@ const form = (name: string) => join(FIXTURES, 'forms', name);
 
 test('Bautagesbericht der Firma hochladen, Zuordnung prüfen, Bericht ins Firmenformular exportieren', async ({ page }) => {
   await freshStart(page);
-  await page.goto('./konto');
-  await page.locator('[data-testid="account-section"][data-tile="company"]').click();
+  await page.goto('./konto/firma');
   await page.getByTestId('form-template-input').setInputFiles(form('mst-tagesbericht.pdf'));
   const dlg = page.getByTestId('form-template-dialog');
   await expect(dlg).toBeVisible();
@@ -57,8 +56,7 @@ test('Bautagesbericht der Firma hochladen, Zuordnung prüfen, Bericht ins Firmen
 
 test('Regieliste der Firma: Wochentabelle wird erkannt', async ({ page }) => {
   await freshStart(page);
-  await page.goto('./konto');
-  await page.locator('[data-testid="account-section"][data-tile="company"]').click();
+  await page.goto('./konto/firma');
   await page.getByTestId('form-template-input').setInputFiles(form('mst-regieliste.pdf'));
   const dlg = page.getByTestId('form-template-dialog');
   await expect(dlg.getByTestId('form-template-type')).toHaveValue('regie');

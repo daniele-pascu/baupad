@@ -478,59 +478,90 @@ function OperatorWorkspaceDetail({ w, onBack, onChanged }: { w: OperatorWorkspac
   );
 }
 
-/** Bereiche der Einstellungen: Kasten antippen → eigenes Fenster (auch am Handy und Tablet übersichtlich) */
+/** Bereiche der Einstellungen: Kasten antippen → eigene, ganze Seite (auch am Handy und Tablet übersichtlich) */
 interface TileDef {
   id: string;
   title: string;
   text: string;
-  body: ReactNode;
+  body: (session: Session | null | undefined) => ReactNode;
 }
 
+const ACCOUNT_TILES: TileDef[] = [
+  { id: 'betreiber', title: 'Betreiber: Kunden', text: 'Registrierte Firmen freischalten, Preis je Benutzer vereinbaren', body: () => <OperatorWorkspaces /> },
+  { id: 'benutzer', title: 'Benutzer & Rollen', text: 'Wer in deiner Firma BauPad nutzt – Funktion, Werkzeuge und Baustellen je Benutzer', body: () => <UsersSettings /> },
+  { id: 'profil', title: 'Persönliche Daten', text: 'Name und Telefon – so erscheinst du bei Kollegen und auf Berichten', body: (s) => <ProfileForm session={s} /> },
+  { id: 'email', title: 'E-Mail und Konto', text: 'E-Mail-Adresse ändern, Konto löschen', body: (s) => <EmailForm session={s} /> },
+  { id: 'passwort', title: 'Passwort und Anmeldemethoden', text: 'Passwort ändern, Google, Apple oder Microsoft (Outlook) verbinden', body: (s) => <PasswordForm session={s} /> },
+  { id: 'abo', title: 'Abonnement und Zahlung', text: 'Paket, vereinbarter Preis je Benutzer, Benutzerzahl', body: (s) => <SubscriptionInfo session={s} /> },
+  {
+    id: 'firma',
+    title: 'Firmeninformationen',
+    text: 'Firmenname, Anschrift, Logo und eigene Formulare für Exporte',
+    body: (s) => (
+      <>
+        <LogoSettings session={s} />
+        <FormTemplatesSettings />
+      </>
+    ),
+  },
+  { id: 'app', title: 'App und Speicher', text: 'Installation, dauerhafter Speicher und zentrale Ablage', body: () => <AppStorageSettings /> },
+  { id: 'weitere', title: 'Weitere Einstellungen', text: 'Sprache, Benachrichtigungen, Kontakt und Datenschutz', body: () => <MoreSettings /> },
+];
+const visibleTiles = (session: Session | null | undefined) => ACCOUNT_TILES.filter((t) => t.id !== 'betreiber' || session?.operator);
+
 function AccountTiles({ session }: { session: Session | null | undefined }) {
-  const [open, setOpen] = useState<string | null>(null);
-  const tiles: TileDef[] = [
-    ...(session?.operator
-      ? [{ id: 'operator', title: 'Betreiber: Kunden', text: 'Registrierte Firmen freischalten, Preis je Benutzer vereinbaren', body: <OperatorWorkspaces /> }]
-      : []),
-    { id: 'users', title: 'Benutzer & Rollen', text: 'Wer in deiner Firma BauPad nutzt – Funktion, Werkzeuge und Baustellen je Benutzer', body: <UsersSettings /> },
-    { id: 'profile', title: 'Persönliche Daten', text: 'Name und Telefon – so erscheinst du bei Kollegen und auf Berichten', body: <ProfileForm session={session} /> },
-    { id: 'email', title: 'E-Mail und Konto', text: 'E-Mail-Adresse ändern, Konto löschen', body: <EmailForm session={session} /> },
-    { id: 'password', title: 'Passwort und Anmeldemethoden', text: 'Passwort ändern, Google, Apple oder Microsoft (Outlook) verbinden', body: <PasswordForm session={session} /> },
-    { id: 'subscription', title: 'Abonnement und Zahlung', text: 'Paket, vereinbarter Preis je Benutzer, Benutzerzahl', body: <SubscriptionInfo session={session} /> },
-    {
-      id: 'company',
-      title: 'Firmeninformationen',
-      text: 'Firmenname, Anschrift, Logo und eigene Formulare für Exporte',
-      body: (
-        <>
-          <LogoSettings session={session} />
-          <FormTemplatesSettings />
-        </>
-      ),
-    },
-    { id: 'storage', title: 'App und Speicher', text: 'Installation, dauerhafter Speicher und zentrale Ablage', body: <AppStorageSettings /> },
-    { id: 'more', title: 'Weitere Einstellungen', text: 'Sprache, Benachrichtigungen, Kontakt und Datenschutz', body: <MoreSettings /> },
-  ];
-  const current = tiles.find((t) => t.id === open);
   return (
-    <>
-      <div className="account-tiles">
-        {tiles.map((t) => (
-          <button key={t.id} type="button" className="account-tile" onClick={() => setOpen(t.id)} data-testid="account-section" data-tile={t.id}>
+    <div className="account-tiles">
+      {visibleTiles(session).map((t) => (
+        <a key={t.id} href={paths.accountSection(t.id)} className="account-tile" data-testid="account-section" data-tile={t.id}>
+          <div>
+            <strong>{t.title}</strong>
+            <span className="muted">{t.text}</span>
+          </div>
+          <Icon name="next" size={18} />
+        </a>
+      ))}
+    </div>
+  );
+}
+
+/** Ein Bereich der Einstellungen als ganze Seite (Konto → Kasten) */
+export function AccountSectionPage({ section }: { section: string }) {
+  const session = useSession();
+  const tile = ACCOUNT_TILES.find((t) => t.id === section);
+  usePageTitle(tile ? `${tile.title} – BauPad` : 'Konto – BauPad');
+  useEffect(() => {
+    if (!tile) navigate(paths.account(), true);
+  }, [tile]);
+  if (!tile) return null;
+  if (tile.id === 'betreiber' && session && !session.operator) {
+    navigate(paths.account(), true);
+    return null;
+  }
+  return (
+    <div className="site">
+      <SiteNav />
+      <main className="site-main auth account-section-page" data-testid="account-page" data-section={tile.id}>
+        <header className="page-head page-head-row account-section-head">
+          <div className="page-head-title">
+            <a href={paths.account()} className="icon-link" aria-label="Zurück zu Konto und Einstellungen" title="Zurück" data-testid="account-back">
+              <Icon name="back" />
+            </a>
             <div>
-              <strong>{t.title}</strong>
-              <span className="muted">{t.text}</span>
+              <h1 className="site-title">{tile.title}</h1>
+              <span className="muted small">{tile.text}</span>
             </div>
-            <Icon name="next" size={18} />
-          </button>
-        ))}
-      </div>
-      {current && (
-        <Modal title={current.title} onClose={() => setOpen(null)} wide className="modal-settings" testId="account-dialog">
-          <div className="account-dialog-body">{current.body}</div>
-        </Modal>
-      )}
-    </>
+          </div>
+        </header>
+        <div className="account-dialog-body">{tile.body(session)}</div>
+        <div className="row gap wrap account-section-foot">
+          <a href={paths.account()} className="btn">
+            <Icon name="back" /> Zurück zu Konto und Einstellungen
+          </a>
+        </div>
+      </main>
+      <SiteFooter />
+    </div>
   );
 }
 

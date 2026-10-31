@@ -16,7 +16,7 @@ import { ContactPage, ThanksPage } from './site/pages/ContactPage';
 import { FuturePage } from './site/pages/FuturePage';
 import { DeleteAccountPage, ImprintPage, NotFoundPage, PrivacyPage } from './site/pages/LegalPages';
 import './site/site.css';
-import { AccountPage, LoginPage, NewPasswordPage } from './pages/AccountPages';
+import { AccountPage, AccountSectionPage, LoginPage, NewPasswordPage } from './pages/AccountPages';
 import { AccessPendingPage } from './pages/AccessPendingPage';
 import { ToolsPage } from './pages/ToolsPage';
 import { WorkersPage } from './pages/WorkersPage';
@@ -105,7 +105,7 @@ function AuthGate({ route, children }: { route: string; children: ReactNode }) {
   const tool = ROUTE_TOOL[route];
   const forbidden = !!session && !!tool && !canTool(session, tool);
   // Arbeitsbereich noch nicht freigeschaltet (Bestellung offen) → Hinweisseite; Konto bleibt erreichbar (Abmelden, Konto löschen)
-  const locked = !!session && isLocked(session) && route !== 'account';
+  const locked = !!session && isLocked(session) && route !== 'account' && route !== 'accountSection';
   useEffect(() => {
     if (blocked) navigate(paths.login(), true);
     else if (forbidden) {
@@ -267,6 +267,9 @@ export function App() {
       break;
     case 'account':
       content = <AccountPage />;
+      break;
+    case 'accountSection':
+      content = <AccountSectionPage key={route.section} section={route.section} />;
       break;
     case 'newPassword':
       content = <NewPasswordPage />;

@@ -16,7 +16,7 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - Dienst: Supabase, Projekt „BauPad“ (angelegt 29.10.2026, Region West EU/Irland – EU, daher belassen). Fotos später: Hetzner Object Storage (EU).
 - Betreiber-Konten (Betreiber-Übersicht) werden in der Tabelle `operators` per E-Mail freigeschaltet.
 - **Freischaltung:** Neue Registrierungen haben keinen Zugang zu den Werkzeugen, bis der Betreiber die Firma nach der Bestellung freischaltet (Konto → Betreiber: Kunden freischalten). Gesperrte sehen eine Hinweisseite („im Aufbau, Zugang nach Bestellung“). Je Firma vereinbart der Betreiber einen **Preis je Benutzer und Monat**; keine Nutzer-Obergrenze, jeder angelegte Benutzer zählt. Betreiber hat keinen Zugriff auf Daten oder Anmeldung der Firmen.
-- **Einstellungen (Konto):** Bereiche als Kästen; Antippen öffnet ein eigenes Fenster (auch am Handy/Tablet übersichtlich).
+- **Einstellungen (Konto):** Bereiche als Kästen; Antippen öffnet eine eigene ganze Seite (`/konto/<bereich>`), keine Fenster (am Handy/Tablet zu klein).
 
 ## Zugang (29.10.2026)
 - Alle Werkzeuge (Tools, Aufmaß, Arbeitereinteilung, Berichte, Fotos, Kamera, Konto) nur mit Anmeldung – im Browser und in der installierten App, auf jedem Gerät. Kein „ohne Konto weiter“.

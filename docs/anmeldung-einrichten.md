@@ -138,7 +138,7 @@ Die .p8-Datei, die Key ID und der Secret Key bleiben bei dir; nichts davon in de
 - Jede Registrierung legt einen Arbeitsbereich an, der **gesperrt** ist (`workspaces.active = false`). Die Person sieht
   statt der Werkzeuge eine Hinweisseite („Vielen Dank für Ihre Registrierung … BauPad befindet sich im Aufbau … Zugang
   wird nach Abschluss der Bestellung aktiviert“). Konto (Abmelden, Konto löschen) bleibt erreichbar.
-- Freischalten: Konto → Kasten **Betreiber: Kunden** – alle registrierten Firmen mit Admin, E-Mail, Datum,
+- Freischalten: Konto → Kasten **Betreiber: Kunden** (Seite `/konto/betreiber`) – alle registrierten Firmen mit Admin, E-Mail, Datum,
   Benutzerzahl und Preis. Firma antippen → „Freischalten“ bzw. „Zugang sperren“, **vereinbarter Preis je Benutzer und
   Monat** (`workspaces.price_per_user`) und eine Notiz nur für dich. Alternativ im Supabase Table Editor: Tabelle
   `workspaces`, Spalten `active`, `price_per_user`, `note`.

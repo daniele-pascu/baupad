@@ -7650,6 +7650,30 @@ button.report-site-empty {
 }
 .account-tile:hover {
   border-color: #cfd4dd;
+  text-decoration: none;
+}
+.account-section-page {
+  max-width: 760px;
+}
+.account-section-head {
+  margin-bottom: 18px;
+}
+.account-section-head .site-title {
+  text-align: left;
+  margin: 0;
+  font-size: 1.5rem;
+}
+.account-section-head .page-head-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.account-section-head .page-head-title > div {
+  display: flex;
+  flex-direction: column;
+}
+.account-section-foot {
+  margin-top: 28px;
 }
 .account-tile > div {
   display: flex;
@@ -7663,9 +7687,6 @@ button.report-site-empty {
 .account-tile svg {
   flex: none;
   color: var(--muted);
-}
-.modal-settings {
-  max-width: 760px;
 }
 .account-dialog-body > .logo-settings {
   margin: 0;
