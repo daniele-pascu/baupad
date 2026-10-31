@@ -481,3 +481,21 @@ test('Zurück-Links führen wirklich zurück: die Zurück-Taste springt danach n
   await page.goBack();
   await expect(page).toHaveURL(/\/projekte$/);
 });
+
+test('Aufmaß-Tabelle am PC nach rechts einklappen und wieder ausklappen', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'Klappen', {}, ['EG']);
+  await page.getByTestId('plan-file-input').setInputFiles(join(FIXTURES, 'parkdeck.png'));
+  const wiz = page.getByTestId('import-wizard');
+  await wiz.getByTestId('areas-next').click();
+  await wiz.locator('[data-field="planNumber"]').fill('K-1');
+  await wiz.getByTestId('import-save').click();
+  await waitForPlan(page);
+  const side = page.getByTestId('editor-side');
+  await expect(side).toBeVisible();
+  await page.getByTestId('side-toggle').click();
+  await expect(side).toBeHidden();
+  await expect(page.getByTestId('side-resizer')).toBeHidden();
+  await page.getByTestId('side-toggle').click();
+  await expect(side).toBeVisible();
+});

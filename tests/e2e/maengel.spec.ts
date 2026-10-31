@@ -300,3 +300,26 @@ test('Esc im Mängelplan wie im Aufmaß: angefangene Zeichnung verwerfen, Auswah
   await expect(page.getByTestId('dp-tool-rect')).not.toHaveClass(/active/);
   await expect(page.getByTestId('dp-hint')).toHaveCount(0);
 });
+
+test('Mängelliste am PC nach rechts einklappen und wieder ausklappen; bleibt gemerkt', async ({ page }) => {
+  await freshStart(page);
+  await page.goto('./maengel');
+  await page.getByTestId('defect-upload').click();
+  const dlg = page.getByTestId('defect-plan-dialog');
+  await dlg.getByTestId('photo-site').selectOption('__new');
+  const sd = page.getByTestId('photo-site-dialog');
+  await sd.getByTestId('photo-site-name').fill('Klapp-Baustelle');
+  await sd.getByTestId('photo-site-save').click();
+  await dlg.getByTestId('defect-plan-file').setInputFiles(join(FIXTURES, 'parkdeck.png'));
+  await dlg.getByTestId('defect-plan-save').click();
+  const list = page.getByTestId('dp-list');
+  await expect(list).toBeVisible();
+  const before = (await page.locator('.dp-stage').boundingBox())!;
+  await page.getByTestId('dp-side-toggle').click();
+  await expect(list).toBeHidden();
+  await expect.poll(async () => (await page.locator('.dp-stage').boundingBox())!.width).toBeGreaterThan(before.width);
+  await page.reload();
+  await expect(page.getByTestId('dp-list')).toBeHidden(); // gemerkt
+  await page.getByTestId('dp-side-toggle').click();
+  await expect(page.getByTestId('dp-list')).toBeVisible();
+});

@@ -699,6 +699,23 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [tool, setTool] = useState<Tool>('select');
   const [cancelCmd, setCancelCmd] = useState(0);
+  /** Mängelliste am PC eingeklappt (nach rechts) – bleibt gemerkt */
+  const [sideCollapsed, setSideCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('dpSideCollapsed') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const toggleSide = () =>
+    setSideCollapsed((c) => {
+      try {
+        localStorage.setItem('dpSideCollapsed', c ? '0' : '1');
+      } catch {
+        /* optional */
+      }
+      return !c;
+    });
   const [color, setColor] = useState(MARK_COLORS[0]);
   const [kind, setKind] = useState<DefectKind>('mangel');
   const [zoom, setZoom] = useState(1);
@@ -896,8 +913,19 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
           </button>
         </div>
 
-        <div className={`editor-main show-${mobileTab}`}>
+        <div className={`editor-main show-${mobileTab}${sideCollapsed ? ' side-collapsed' : ''}`}>
           <div className="editor-plan">
+            <button
+              type="button"
+              className="side-toggle"
+              onClick={toggleSide}
+              aria-expanded={!sideCollapsed}
+              aria-label={sideCollapsed ? 'Mängelliste einblenden' : 'Mängelliste ausblenden'}
+              title={sideCollapsed ? 'Mängelliste einblenden' : 'Mängelliste nach rechts einklappen'}
+              data-testid="dp-side-toggle"
+            >
+              <Icon name={sideCollapsed ? 'back' : 'next'} size={18} />
+            </button>
             {plan && (
               <PlanCanvas
                 plan={plan}

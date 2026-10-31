@@ -7885,3 +7885,44 @@ button.report-site-empty {
 .photo-viewer {
   z-index: 120;
 }
+
+/* Seitenleiste (Aufmaß-Tabelle bzw. Mängelliste) am PC nach rechts einklappen und wieder ausklappen */
+.side-toggle {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  z-index: 4;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 64px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-right: 0;
+  border-radius: 12px 0 0 12px;
+  background: var(--glass);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+  color: var(--muted);
+  cursor: pointer;
+}
+.side-toggle:hover {
+  color: var(--text);
+  background: #fff;
+}
+.editor-main.side-collapsed .editor-side,
+.editor-main.side-collapsed .side-resizer {
+  display: none;
+}
+@media (max-width: 899px) {
+  .side-toggle {
+    display: none;
+  }
+  /* am Handy gelten die Reiter Plan | Liste, nicht das Einklappen */
+  .editor-main.side-collapsed.show-table .editor-side {
+    display: flex;
+  }
+}

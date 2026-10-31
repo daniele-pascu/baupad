@@ -318,6 +318,20 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   };
   const [pdfOpen, setPdfOpen] = useState(false);
   const [sideWidth, setSideWidth] = useState(loadSideWidth);
+  /** Messleiste am PC eingeklappt (nach rechts) – bleibt gemerkt */
+  const [sideCollapsed, setSideCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('sideCollapsed') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const toggleSide = () => {
+    setSideCollapsed((c) => {
+      storePref('sideCollapsed', c ? '0' : '1');
+      return !c;
+    });
+  };
   const [, setHistoryTick] = useState(0);
   const viewer = useRef<PlanViewerHandle>(null);
   const planRef = useRef<HTMLDivElement>(null);
@@ -1129,8 +1143,19 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         </button>
       </div>
 
-      <div className={`editor-main show-${mobileTab}`} style={{ '--side-w': `${sideWidth}px` } as React.CSSProperties}>
+      <div className={`editor-main show-${mobileTab}${sideCollapsed ? ' side-collapsed' : ''}`} style={{ '--side-w': `${sideWidth}px` } as React.CSSProperties}>
         <div className="editor-plan" ref={planRef}>
+          <button
+            type="button"
+            className="side-toggle"
+            onClick={toggleSide}
+            aria-expanded={!sideCollapsed}
+            aria-label={sideCollapsed ? 'Aufmaß-Tabelle einblenden' : 'Aufmaß-Tabelle ausblenden'}
+            title={sideCollapsed ? 'Aufmaß-Tabelle einblenden' : 'Aufmaß-Tabelle nach rechts einklappen'}
+            data-testid="side-toggle"
+          >
+            <Icon name={sideCollapsed ? 'back' : 'next'} size={18} />
+          </button>
           {drawMode ? (
             <PlanViewer
               key="draw"
