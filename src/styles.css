@@ -5193,6 +5193,9 @@ a.tool-tile:focus-visible {
 .report-page {
   --tool: #a259ff;
 }
+.reports-forms-hint {
+  margin: -6px 0 14px;
+}
 .reports-tools {
   display: flex;
   flex-wrap: wrap;

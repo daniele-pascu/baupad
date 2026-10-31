@@ -37,6 +37,9 @@ Linien bleiben exakt wie im Original).
   ein Blatt – eine Zeile je Arbeiter, Stunden/50 %/100 %/Wegzeit in der Spalte des Wochentags (das Datum
   der Regieliste bestimmt den Wochentag). Nummern, Material, Kosten werden zusammengefasst.
 - Regieliste als Tagesformular: eine Zeile je Arbeiter mit Zeiten und Stunden.
+- Im Berichte-Tool: Sobald ein Firmenformular für den Berichtstyp hinterlegt ist, gibt der Knopf „PDF“ (und Drucken)
+  direkt das ausgefüllte Firmenformular aus; das BauPad-Layout bleibt im Menü „⋮ → PDF im BauPad-Layout“.
+  Die Übersicht zeigt die hinterlegten Formulare mit Link zu Konto → Firmeninformationen.
 - Personalstand im Bautagesbericht wird beim Übernehmen der Mannschaft aus der Arbeitereinteilung nach
   Funktion vorbelegt (Arbeiterliste → „Funktion“; ohne Auswahl wird sie aus dem Zusatztext erraten:
   Polier, Vorarbeiter, Bauleiter → Projektleiter, Hilfsarbeiter/Lehrling → Hilfsarbeiter, sonst Facharbeiter)

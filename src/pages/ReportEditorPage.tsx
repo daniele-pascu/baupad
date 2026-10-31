@@ -121,15 +121,23 @@ export function ReportEditorPage({ reportId }: { reportId: string }) {
 
   const info = typeInfo(r.type);
   const run = (fn: () => Promise<void>) => fn().catch((e) => showError(e, 'Das hat nicht geklappt'));
+  /** Firmenformular, wenn eines für diesen Berichtstyp hinterlegt ist (Konto → Firmeninformationen), sonst BauPad-Layout */
+  const companyTemplate = templates[0];
+  const pdfFile = async (t: FormTemplate | undefined = companyTemplate) => {
+    if (!t) return reportPdfFile(r);
+    const f = await companyFormFile(r, t);
+    if (f.note) toast(f.note, 'info', 5000);
+    return f;
+  };
   const showPdf = () =>
     run(async () => {
       flush();
-      setPreview(await reportPdfFile(r));
+      setPreview(await pdfFile());
     });
   const print = () => {
     const win = window.open('', '_blank');
     run(async () => {
-      const f = await reportPdfFile(r);
+      const f = await pdfFile();
       const url = URL.createObjectURL(new Blob([f.data as BlobPart], { type: 'application/pdf' }));
       if (win) win.location.href = url;
       else setPreview(f);
@@ -198,7 +206,7 @@ export function ReportEditorPage({ reportId }: { reportId: string }) {
                 'Entwurf · als fertig markieren'
               )}
             </button>
-            <button type="button" className="btn btn-primary" onClick={showPdf} data-testid="report-pdf-btn">
+            <button type="button" className="btn btn-primary" onClick={showPdf} data-testid="report-pdf-btn" title={companyTemplate ? `Firmenformular: ${companyTemplate.name}` : 'PDF im BauPad-Layout'}>
               <Icon name="pdf" /> PDF
             </button>
             <ActionMenu
@@ -212,11 +220,23 @@ export function ReportEditorPage({ reportId }: { reportId: string }) {
                   onSelect: () =>
                     run(async () => {
                       flush();
-                      const f = await companyFormFile(r, t);
-                      if (f.note) toast(f.note, 'info', 5000);
-                      setPreview(f);
+                      setPreview(await pdfFile(t));
                     }),
                 })),
+                ...(companyTemplate
+                  ? [
+                      {
+                        label: 'PDF im BauPad-Layout',
+                        icon: 'pdf',
+                        testId: 'report-baupad-pdf',
+                        onSelect: () =>
+                          run(async () => {
+                            flush();
+                            setPreview(await reportPdfFile(r));
+                          }),
+                      },
+                    ]
+                  : []),
                 { label: 'Drucken', icon: 'pdf', onSelect: print, testId: 'report-print' },
                 { label: 'Kopieren als neuer Bericht', icon: 'copy', onSelect: copy, testId: 'report-copy' },
                 { label: 'Löschen', icon: 'trash', danger: true, onSelect: remove, testId: 'report-delete' },
@@ -251,7 +271,7 @@ export function ReportEditorPage({ reportId }: { reportId: string }) {
 
         <div className="report-bottom">
           <button type="button" className="btn btn-primary" onClick={showPdf}>
-            <Icon name="pdf" /> PDF ansehen / teilen
+            <Icon name="pdf" /> {companyTemplate ? `Firmenformular „${companyTemplate.name}“ ansehen / teilen` : 'PDF ansehen / teilen'}
           </button>
           <a className="btn" href={paths.reportSite(siteKey(r))} onClick={flush}>
             Fertig – zur Baustelle

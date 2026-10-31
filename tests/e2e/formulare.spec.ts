@@ -31,6 +31,7 @@ test('Bautagesbericht der Firma hochladen, Zuordnung prüfen, Bericht ins Firmen
   await page.goto('./projekte');
   await createProject(page, 'Wohnanlage Sonnenhof', { number: '2026-04', address: 'Musterstraße 1, 4020 Linz' });
   await page.goto('./berichte');
+  await expect(page.getByTestId('reports-forms-hint')).toContainText('MST Tagesbericht (Bautagesbericht)');
   await page.getByTestId('report-new').click();
   const d = page.getByTestId('report-new-dialog');
   await d.getByTestId('report-type-tag').click();
@@ -39,12 +40,18 @@ test('Bautagesbericht der Firma hochladen, Zuordnung prüfen, Bericht ins Firmen
   await expect(page.getByTestId('report-title')).toHaveText('Bautagesbericht Nr. 1');
   await page.getByTestId('rp-work').fill('Schalung Stützen Achse 3.');
   await page.getByTestId('rp-staff-facharbeiter').fill('3');
-  await page.getByTestId('report-more').click();
-  await page.getByTestId('report-company-form').click();
+  // Der PDF-Knopf gibt direkt das Firmenformular aus
+  await expect(page.getByTestId('report-pdf-btn')).toHaveAttribute('title', 'Firmenformular: MST Tagesbericht');
+  await page.getByTestId('report-pdf-btn').click();
   const preview = page.getByTestId('pdf-preview');
   await expect(preview).toBeVisible();
   await expect(preview.getByTestId('pdf-file-name')).toHaveValue(/Bautagesbericht_Wohnanlage_Sonnenhof_Nr1_2026-10-28/);
   await expect(preview.locator('img').first()).toBeVisible();
+  await preview.getByTestId('preview-back').click();
+  // BauPad-Layout weiterhin über das Menü
+  await page.getByTestId('report-more').click();
+  await page.getByTestId('report-baupad-pdf').click();
+  await expect(page.getByTestId('pdf-preview')).toBeVisible();
 });
 
 test('Regieliste der Firma: Wochentabelle wird erkannt', async ({ page }) => {

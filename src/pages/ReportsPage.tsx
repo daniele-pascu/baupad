@@ -16,6 +16,8 @@ import { usePageTitle } from '../lib/page-title';
 import { useAccess } from '../lib/access';
 import { usedIn } from '../lib/crew-link';
 import { useProjectIn } from '../lib/sites';
+import { listFormTemplates } from '../lib/db';
+import type { FormTemplate } from '../lib/form-template';
 
 export const ACCENT = { '--tool': '#a259ff' } as CSSProperties;
 
@@ -108,6 +110,11 @@ export function ReportsPage() {
   }, [sites, cards, query, reports]);
 
   const run = (fn: () => Promise<void>) => fn().catch((e) => showError(e, 'Das hat nicht geklappt'));
+  /** hinterlegte Firmenformulare (Konto → Firmeninformationen) – PDFs der Berichte werden damit ausgegeben */
+  const [templates, setTemplates] = useState<FormTemplate[] | null>(null);
+  useEffect(() => {
+    void listFormTemplates().then(setTemplates).catch(() => setTemplates([]));
+  }, []);
 
   return (
     <>
@@ -151,6 +158,19 @@ export function ReportsPage() {
             />
           </div>
         </header>
+
+        {templates && (
+          <p className="muted small reports-forms-hint" data-testid="reports-forms-hint">
+            {templates.length ? (
+              <>
+                Firmenformulare: {templates.map((t) => `${t.name} (${typeInfo(t.type).label})`).join(', ')} – die PDFs dieser Berichte werden damit ausgegeben.{' '}
+              </>
+            ) : (
+              <>Eigene Regieliste und Bautagesbericht der Firma als PDF hinterlegen – die Berichte werden dann direkt in das Firmenformular geschrieben. </>
+            )}
+            <a href={paths.account()}>Konto → Firmeninformationen</a>
+          </p>
+        )}
 
         {reports && reports.length > 0 && (
           <div className="reports-tools">
