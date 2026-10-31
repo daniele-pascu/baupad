@@ -14,7 +14,7 @@ async function setup(page: Page) {
   await page.goto('./#/arbeitereinteilung');
   await page.getByTestId('week-date').fill('2026-10-26');
   await page.getByTestId('crew-workers').click();
-  const wd = page.getByTestId('workers-dialog');
+  const wd = page.getByTestId('staff-page');
   for (const [n, role] of [
     ['Max', 'Polier'],
     ['Peter', 'Facharbeiter'],

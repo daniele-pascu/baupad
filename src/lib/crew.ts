@@ -180,6 +180,12 @@ export function countByGrade(list: { grade?: WorkerGrade; role?: string }[]): Re
 export const sortWorkers = (list: Worker[]) =>
   [...list].sort((a, b) => (a.lastName || a.firstName).localeCompare(b.lastName || b.firstName, 'de') || a.firstName.localeCompare(b.firstName, 'de'));
 
+/** Rang der Funktion (0 = Projektleiter … 6 = Hilfsarbeiter) */
+export const gradeRank = (w: { grade?: WorkerGrade; role?: string }) => Math.max(0, WORKER_GRADES.findIndex((g) => g.id === gradeOf(w)));
+
+/** Reihenfolge für Einteilung und Ausdrucke: höhere Funktion zuerst, innerhalb der Funktion alphabetisch */
+export const sortByGrade = (list: Worker[]) => sortWorkers(list).sort((a, b) => gradeRank(a) - gradeRank(b));
+
 export const timeLabel = (t: WorkTimes[number]) => (t ? `${t.from}–${t.to}` : '');
 
 /** Tage kompakt, z. B. „Mo–Fr“, „Mo, Mi“, „Di–Do, Sa“ */

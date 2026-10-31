@@ -63,7 +63,7 @@ test('Arbeitereinteilung: Woche nach Baustellen planen und in die nächste Woche
 
   // Arbeiter einmal anlegen
   await page.getByTestId('crew-workers').click();
-  const wd = page.getByTestId('workers-dialog');
+  const wd = page.getByTestId('staff-page');
   for (const [first, last, role] of [
     ['Max', 'Muster', 'Polier'],
     ['Peter', 'Bau', ''],
@@ -77,7 +77,7 @@ test('Arbeitereinteilung: Woche nach Baustellen planen und in die nächste Woche
   }
   await expect(wd.getByTestId('worker-row')).toHaveCount(4);
   await page.keyboard.press('Escape');
-  await expect(page.getByTestId('crew-workers')).toContainText('Arbeiter (4)');
+  await expect(page.getByTestId('crew-workers')).toContainText('Personal (4)');
 
   // Baustelle A aus Aufmaß & Abrechnung → gleich Arbeiter für die ganze Woche einteilen
   await page.getByTestId('add-site').click();
@@ -181,7 +181,7 @@ test('Arbeiter deaktivieren: nicht mehr zum Einteilen, in gespeicherten Wochen w
   await page.goto('./#/arbeitereinteilung');
   await page.getByTestId('week-date').fill('2026-10-26');
   await page.getByTestId('crew-workers').click();
-  const wd = page.getByTestId('workers-dialog');
+  const wd = page.getByTestId('staff-page');
   await wd.getByTestId('worker-firstName').fill('Andreas');
   await wd.getByTestId('worker-save').click();
   await page.keyboard.press('Escape');
@@ -218,7 +218,7 @@ test('Suche, PDF (Woche + Tagesliste), Drucken, Vorwoche übernehmen, Sicherung 
   await page.getByTestId('times-dialog').getByTestId('times-save').click();
   await page.getByTestId('week-date').fill('2026-10-26');
   await page.getByTestId('crew-workers').click();
-  const wd = page.getByTestId('workers-dialog');
+  const wd = page.getByTestId('staff-page');
   for (const [f, l, role, tel] of [
     ['Max', 'Muster', 'Polier', '0664 1234567'],
     ['Thomas', 'Stein', '', ''],
@@ -268,7 +268,8 @@ test('Suche, PDF (Woche + Tagesliste), Drucken, Vorwoche übernehmen, Sicherung 
   const dl2 = await catchDownload(page, () => page.getByTestId('daylist-dialog').getByTestId('daylist-1').click());
   const pdf2 = await saveDownload(dl2, 'tagesliste.pdf');
   const txt2 = execFileSync('pdftotext', ['-layout', pdf2, '-'], { encoding: 'utf8' });
-  for (const s of ['Tagesliste Dienstag, 27.10.2026', 'Neubau Musterstraße', 'Max Muster', 'Polier', '0664 1234567']) expect(txt2).toContain(s);
+  for (const s of ['Tagesliste Dienstag, 27.10.2026', 'Neubau Musterstraße', 'Max Muster', '0664 1234567']) expect(txt2).toContain(s);
+  expect(txt2).not.toContain('Polier'); // Funktion/Qualifikation nie auf dem Ausdruck
 
   // Drucken: PDF in neuem Tab
   const popup = context.waitForEvent('page');
@@ -305,7 +306,7 @@ test('Suche, PDF (Woche + Tagesliste), Drucken, Vorwoche übernehmen, Sicherung 
   await expect(page.locator('.toast')).toContainText('2 Arbeiter, 2 Wochen übernommen');
   await expect(page.getByTestId('site-card')).toHaveCount(2);
   await expect(chips(page, 'Neubau Musterstraße', 0)).toHaveText(['Max Muster']);
-  await expect(page.getByTestId('crew-workers')).toContainText('Arbeiter (2)');
+  await expect(page.getByTestId('crew-workers')).toContainText('Personal (2)');
   await page.getByTestId('crew-times').click();
   await expect(page.getByTestId('times-dialog').getByTestId('company-name')).toHaveValue('Muster Bau GmbH');
 });
@@ -384,7 +385,7 @@ test('Ziehen: offenen Arbeiter einteilen, umsetzen ab Tag; bereits geplante Folg
   await page.goto('./#/arbeitereinteilung');
   await page.getByTestId('week-date').fill('2026-10-26');
   await page.getByTestId('crew-workers').click();
-  const wd = page.getByTestId('workers-dialog');
+  const wd = page.getByTestId('staff-page');
   for (const n of ['Max', 'Peter']) {
     await wd.getByTestId('worker-firstName').fill(n);
     await wd.getByTestId('worker-save').click();
@@ -443,7 +444,7 @@ test('Baustelle pausieren (Standby): Arbeiter werden frei, läuft ohne Arbeiter 
   await page.goto('./#/arbeitereinteilung');
   await page.getByTestId('week-date').fill('2026-10-26');
   await page.getByTestId('crew-workers').click();
-  const wd = page.getByTestId('workers-dialog');
+  const wd = page.getByTestId('staff-page');
   for (const n of ['Max', 'Peter']) {
     await wd.getByTestId('worker-firstName').fill(n);
     await wd.getByTestId('worker-save').click();
@@ -511,7 +512,7 @@ test('Urlaub und Krank von–bis über mehrere Wochen: bleibt eingeteilt, wird m
   await page.goto('./#/arbeitereinteilung');
   await page.getByTestId('week-date').fill('2026-10-26');
   await page.getByTestId('crew-workers').click();
-  const wd = page.getByTestId('workers-dialog');
+  const wd = page.getByTestId('staff-page');
   for (const n of ['Max', 'Peter']) {
     await wd.getByTestId('worker-firstName').fill(n);
     await wd.getByTestId('worker-save').click();
@@ -575,7 +576,7 @@ test('Sa/So wie jeder andere Tag: Wochenend-Partie einteilen, Umsetzen nimmt Sa/
   await page.goto('./#/arbeitereinteilung');
   await page.getByTestId('week-date').fill('2026-10-26');
   await page.getByTestId('crew-workers').click();
-  const wd = page.getByTestId('workers-dialog');
+  const wd = page.getByTestId('staff-page');
   for (const n of ['Max', 'Willi']) {
     await wd.getByTestId('worker-firstName').fill(n);
     await wd.getByTestId('worker-save').click();
@@ -605,4 +606,54 @@ test('Sa/So wie jeder andere Tag: Wochenend-Partie einteilen, Umsetzen nimmt Sa/
   await expect(chips(page, 'Baustelle B', 6)).toHaveText(['Willi', 'Max']);
   // kein Hinweis „Arbeitszeit festlegen“ mehr – Arbeitszeit ist nur Info
   await expect(page.getByTestId('crew-setup-times')).toHaveCount(0);
+});
+
+test('Personalliste: eigene Seite, alphabetisch oder nach Funktion; Einteilung und PDF nach Funktion geordnet', async ({ page }) => {
+  await freshStart(page);
+  await page.goto('./arbeitereinteilung');
+  await page.getByTestId('crew-workers').click();
+  await expect(page).toHaveURL(/\/arbeitereinteilung\/personal$/);
+  const sp = page.getByTestId('staff-page');
+  await expect(sp.getByTestId('staff-title')).toHaveText('Personalliste');
+  for (const [first, last, grade] of [
+    ['Zoe', 'Adler', 'hilfsarbeiter'],
+    ['Max', 'Muster', 'polier'],
+    ['Anna', 'Berg', 'facharbeiter'],
+    ['Pia', 'Leit', 'projektleiter'],
+  ]) {
+    await sp.getByTestId('worker-firstName').fill(first);
+    await sp.getByTestId('worker-lastName').fill(last);
+    await sp.getByTestId('worker-grade').selectOption(grade);
+    await sp.getByTestId('worker-save').click();
+  }
+  // alphabetisch nach Nachname
+  await expect(sp.getByTestId('worker-row').locator('strong')).toHaveText(['Zoe Adler', 'Anna Berg', 'Pia Leit', 'Max Muster']);
+  // nach Funktion: Projektleiter → Polier → Facharbeiter → Hilfsarbeiter, mit Gruppenüberschriften
+  await sp.getByTestId('staff-sort-grade').click();
+  await expect(sp.getByTestId('worker-row').locator('strong')).toHaveText(['Pia Leit', 'Max Muster', 'Anna Berg', 'Zoe Adler']);
+  await expect(sp.getByTestId('staff-group')).toHaveText(['Projektleiter', 'Polier', 'Facharbeiter', 'Hilfsarbeiter']);
+  // Suche
+  await sp.getByTestId('staff-search').fill('berg');
+  await expect(sp.getByTestId('worker-row')).toHaveCount(1);
+  await sp.getByTestId('staff-search').fill('');
+  // bearbeiten: Tippen auf die Zeile füllt das Formular
+  await sp.getByTestId('worker-row').filter({ hasText: 'Anna Berg' }).getByTestId('worker-open').click();
+  await expect(sp.getByTestId('worker-firstName')).toHaveValue('Anna');
+  await sp.getByTestId('worker-cancel').click();
+  // Sortierung bleibt gespeichert; Escape führt zurück zur Einteilung
+  await page.reload();
+  await expect(sp.getByTestId('staff-sort-grade')).toHaveAttribute('aria-checked', 'true');
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('workers-title')).toHaveText('Arbeitereinteilung');
+  await expect(page.getByTestId('crew-workers')).toContainText('Personal (4)');
+
+  // Einteilung: offene Arbeiter und Auswahl nach Funktion geordnet
+  await page.getByTestId('week-date').fill('2026-10-26');
+  await page.getByTestId('add-site').click();
+  await page.getByTestId('site-dialog').getByTestId('site-name-input').fill('Halle Nord');
+  await page.getByTestId('site-dialog').getByTestId('site-save').click();
+  await site(page, 'Halle Nord').locator('[data-day="0"] [data-testid="day-add"]').click();
+  const ad = page.getByTestId('assign-dialog');
+  await expect(ad.getByTestId('assign-worker')).toHaveText([/Pia Leit · Projektleiter/, /Max Muster · Polier/, /Anna Berg · Facharbeiter/, /Zoe Adler · Hilfsarbeiter/]);
+  await page.keyboard.press('Escape');
 });

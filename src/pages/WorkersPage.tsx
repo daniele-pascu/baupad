@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type InputHTMLAttributes } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { ActionMenu, type MenuAction } from '../components/ActionMenu';
 import { Icon } from '../components/Icon';
 import { Modal } from '../components/Modal';
@@ -27,7 +27,7 @@ import {
   isoDate,
   siteFromProject,
   sitesOf,
-  sortWorkers,
+  sortByGrade,
   timeLabel,
   unassign,
   unassigned,
@@ -39,8 +39,9 @@ import {
   workerName,
   WORKER_GRADES,
   gradeLabel,
+  gradeRank,
 } from '../lib/crew';
-import { getMeta, getWeek, listProjects, listWeeks, listWorkers, previousWeek, saveWeek, saveWorker, setMeta } from '../lib/db';
+import { getMeta, getWeek, listProjects, listWeeks, listWorkers, previousWeek, saveWeek, setMeta } from '../lib/db';
 import type { ExportFile } from '../lib/aufmass';
 import { getCompanyLogo } from '../lib/company';
 import { absenceOn, absenceRange, absenceSummary } from '../lib/crew-absence';
@@ -50,7 +51,7 @@ import { useCanCreateProjects, useProjectIn } from '../lib/sites';
 import { crewDayPdf, crewWeekPdf } from '../lib/crew-pdf';
 import { uuid } from '../lib/ids';
 import { navigate, paths } from '../lib/router';
-import type { Absence, Project, WeekPlan, WeekSite, Worker, WorkerGrade, WorkTimes } from '../lib/types';
+import type { Absence, Project, WeekPlan, WeekSite, Worker, WorkTimes } from '../lib/types';
 import { usePageTitle } from '../lib/page-title';
 
 const WEEKDAYS = [0, 1, 2, 3, 4];
@@ -83,7 +84,6 @@ export function WorkersPage() {
   const dropRef = useRef<(workerId: string, fromSiteId: string | null, fromDay: number, to: DropTarget) => void>(() => {});
   const { drag, start: startDrag, suppressClick } = useChipDrag((...a) => dropRef.current(...a));
   const [dialog, setDialog] = useState<
-    | { kind: 'workers' }
     | { kind: 'times' }
     | { kind: 'site'; site?: WeekSite }
     | { kind: 'assign'; siteId: string; days: number[] }
@@ -129,7 +129,7 @@ export function WorkersPage() {
   }, [weekId, reloadKey]);
 
   const byId = useMemo(() => new Map((workers ?? []).map((w) => [w.id, w])), [workers]);
-  const active = useMemo(() => sortWorkers((workers ?? []).filter((w) => w.active)), [workers]);
+  const active = useMemo(() => sortByGrade((workers ?? []).filter((w) => w.active)), [workers]);
   const workTimes = times ?? DEFAULT_WORK_TIMES;
   const nameOf = (id: string) => (byId.get(id) ? workerName(byId.get(id)!) : 'Unbekannt');
 
@@ -140,10 +140,6 @@ export function WorkersPage() {
     saveWeek(next).catch((e) => showError(e, 'Speichern fehlgeschlagen'));
   };
 
-  const saveWorkers = async (w: Worker) => {
-    await saveWorker(w);
-    setWorkers((list) => [...(list ?? []).filter((x) => x.id !== w.id), w]);
-  };
 
   /**
    * Arbeiter an den Tagen `ds` auf eine Baustelle setzen – von anderen Baustellen werden sie an diesen Tagen
@@ -305,7 +301,7 @@ export function WorkersPage() {
   const workDays = WEEKDAYS;
   // Urlaub/Krank (von–bis) gilt nicht als „noch nicht eingeteilt“
   const open = workDays
-    .map((d) => ({ d, list: unassigned(plan, sortWorkers(workers), d).filter((w) => !absenceOn(absences, w.id, weekId, d)) }))
+    .map((d) => ({ d, list: unassigned(plan, sortByGrade(workers), d).filter((w) => !absenceOn(absences, w.id, weekId, d)) }))
     .filter((x) => x.list.length);
   const vacations = vacationSummary(plan, days);
   // Urlaub: Tage aus der Woche selbst und aus den Zeiträumen (von–bis)
@@ -374,9 +370,9 @@ export function WorkersPage() {
         </header>
 
         <div className="crew-actions">
-          <button type="button" className="btn" onClick={() => setDialog({ kind: 'workers' })} data-testid="crew-workers">
-            <ToolIcon name="workers" size={18} /> Arbeiter ({active.length})
-          </button>
+          <a href={paths.staff()} className="btn" data-testid="crew-workers">
+            <ToolIcon name="workers" size={18} /> Personal ({active.length})
+          </a>
           <button type="button" className="btn" onClick={() => setDialog({ kind: 'times' })} data-testid="crew-times">
             <Icon name="calendar" size={18} /> Arbeitszeit
           </button>
@@ -414,12 +410,12 @@ export function WorkersPage() {
               <ToolIcon name="workers" size={22} />
             </span>
             <div>
-              <strong>Arbeiter anlegen</strong>
-              <p className="muted small">Die Arbeiterliste wird einmal angelegt und jede Woche wiederverwendet.</p>
+              <strong>Personal anlegen</strong>
+              <p className="muted small">Die Personalliste wird einmal angelegt und jede Woche wiederverwendet.</p>
             </div>
-            <button type="button" className="btn btn-primary" onClick={() => setDialog({ kind: 'workers' })}>
+            <a href={paths.staff()} className="btn btn-primary">
               Anlegen
-            </button>
+            </a>
           </div>
         )}
 
@@ -650,7 +646,6 @@ export function WorkersPage() {
         </section>
       </div>
 
-      {dialog?.kind === 'workers' && <WorkersDialog workers={workers} onSave={saveWorkers} onClose={() => setDialog(null)} />}
       {dialog?.kind === 'times' && (
         <TimesDialog
           times={workTimes}
@@ -774,111 +769,6 @@ export function WorkersPage() {
 }
 
 /** Arbeiterliste: anlegen, bearbeiten, aktiv/inaktiv */
-function WorkersDialog({ workers, onSave, onClose }: { workers: Worker[]; onSave(w: Worker): Promise<void>; onClose(): void }) {
-  const blank = { firstName: '', lastName: '', staffNo: '', phone: '', role: '', grade: '' };
-  const [edit, setEdit] = useState<Worker | null>(null);
-  const [v, setV] = useState(blank);
-  const [show, setShow] = useState(false);
-  const list = sortWorkers(workers);
-  const startEdit = (w: Worker | null) => {
-    setEdit(w);
-    setV(w ? { firstName: w.firstName, lastName: w.lastName, staffNo: w.staffNo ?? '', phone: w.phone ?? '', role: w.role ?? '', grade: w.grade ?? '' } : blank);
-    setShow(false);
-  };
-  const submit = async () => {
-    setShow(true);
-    if (!v.firstName.trim()) return;
-    const now = Date.now();
-    const w: Worker = {
-      ...(edit ?? { id: uuid(), active: true, createdAt: now }),
-      firstName: v.firstName.trim(),
-      lastName: v.lastName.trim(),
-      staffNo: v.staffNo.trim(),
-      phone: v.phone.trim(),
-      role: v.role.trim(),
-      grade: (v.grade || undefined) as WorkerGrade | undefined,
-      updatedAt: now,
-    } as Worker;
-    // Formular sofort leeren – der nächste Name kann gleich eingegeben werden
-    const was = edit;
-    startEdit(null);
-    try {
-      await onSave(w);
-      toast(`${workerName(w)} ${was ? 'gespeichert' : 'angelegt'}.`, 'success');
-    } catch (e) {
-      showError(e, 'Speichern fehlgeschlagen');
-    }
-  };
-  const field = (k: keyof typeof blank, label: string, extra: Partial<InputHTMLAttributes<HTMLInputElement>> = {}) => (
-    <label className="field">
-      <span>{label}</span>
-      <input value={v[k]} onChange={(e) => setV({ ...v, [k]: e.target.value })} autoComplete="off" data-testid={`worker-${k}`} {...extra} />
-    </label>
-  );
-  return (
-    <Modal title="Arbeiter" onClose={onClose} testId="workers-dialog" wide>
-      <form
-        className="crew-worker-form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void submit();
-        }}
-      >
-        <h3>{edit ? `${workerName(edit)} bearbeiten` : 'Neuer Arbeiter'}</h3>
-        <div className="form-grid">
-          {field('firstName', 'Vorname *', { 'aria-invalid': show && !v.firstName.trim() ? true : undefined })}
-          {field('lastName', 'Nachname')}
-          <label className="field">
-            <span>Funktion</span>
-            <select value={v.grade} onChange={(e) => setV({ ...v, grade: e.target.value })} data-testid="worker-grade">
-              <option value="">– bitte wählen –</option>
-              {WORKER_GRADES.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.label} ({g.short})
-                </option>
-              ))}
-            </select>
-          </label>
-          {field('role', 'Zusatz / Qualifikation (optional)', { placeholder: 'z. B. Maurer, Kranführer' })}
-          {field('staffNo', 'Personalnummer (optional)')}
-          {field('phone', 'Telefon (optional)', { type: 'tel', inputMode: 'tel' })}
-        </div>
-        {show && !v.firstName.trim() && <p className="error small">Bitte einen Vornamen eingeben.</p>}
-        <div className="row gap wrap">
-          <button type="submit" className="btn btn-primary" data-testid="worker-save">
-            <Icon name={edit ? 'check' : 'plus'} size={18} /> {edit ? 'Speichern' : 'Hinzufügen'}
-          </button>
-          {edit && (
-            <button type="button" className="btn" onClick={() => startEdit(null)}>
-              Abbrechen
-            </button>
-          )}
-        </div>
-      </form>
-      <ul className="crew-worker-list" data-testid="worker-list">
-        {list.map((w) => (
-          <li key={w.id} className={w.active ? '' : 'inactive'} data-testid="worker-row">
-            <button type="button" className="crew-worker-main" onClick={() => startEdit(w)}>
-              <strong>{workerName(w)}</strong>
-              <span className="muted small">{[gradeLabel(w.grade), w.role, w.staffNo && `Nr. ${w.staffNo}`, w.phone].filter(Boolean).join(' · ') || (w.active ? '' : 'inaktiv')}</span>
-            </button>
-            <button
-              type="button"
-              className="btn btn-sm"
-              onClick={() => void onSave({ ...w, active: !w.active, updatedAt: Date.now() })}
-              data-testid="worker-active"
-            >
-              {w.active ? 'Deaktivieren' : 'Aktivieren'}
-            </button>
-          </li>
-        ))}
-        {!list.length && <li className="muted">Noch keine Arbeiter angelegt.</li>}
-      </ul>
-    </Modal>
-  );
-}
-
-/** Arbeitszeit der Firma je Wochentag (einmal eingeben) */
 function TimesDialog({
   times,
   company,
@@ -1145,7 +1035,7 @@ function AssignDialog({
                 />
                 <span className="crew-pick-name">
                   {workerName(w)}
-                  {w.role && <span className="muted small"> · {w.role}</span>}
+                  <span className="muted small"> · {gradeLabel(w.grade) || WORKER_GRADES[gradeRank(w)].label}</span>
                 </span>
                 <span className={`crew-pick-status${st.warn ? ' warn' : ''}`}>{st.text}</span>
               </label>

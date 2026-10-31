@@ -13,6 +13,7 @@ export const ROUTE_TOOL: Record<string, ToolId> = {
   costCenter: 'projects',
   plan: 'projects',
   workers: 'workers',
+  staff: 'workers',
   reports: 'reports',
   report: 'reports',
   reportSite: 'reports',

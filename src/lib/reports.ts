@@ -1,6 +1,6 @@
 import { costCenterLabel } from './aufmass';
 import { absenceOn } from './crew-absence';
-import { addDays, carryOver, countByGrade, gradeOf, isoDate, parseDate, weekOf, workerName } from './crew';
+import { addDays, carryOver, countByGrade, gradeOf, isoDate, parseDate, sortByGrade, weekOf, workerName } from './crew';
 import { uuid } from './ids';
 import type { Absence, CostCenter, DailyData, Project, RegieData, Report, ReportHead, ReportItem, ReportType, ReportWorker, StaffCount, WeekPlan, WeeklyData, Worker } from './types';
 
@@ -158,10 +158,8 @@ export function crewForDay(week: WeekPlan | null, date: string, site: { projectI
   const s = week.sites.find((x) => (site.projectId && x.projectId ? x.projectId === site.projectId : x.name.trim().toLowerCase() === name));
   if (!s) return [];
   const byId = new Map(workers.map((w) => [w.id, w]));
-  return s.days[day]
-    .map((id) => byId.get(id))
-    .filter((w): w is Worker => !!w)
-    .map((w) => ({ worker: w, absence: absenceOn(absences, w.id, week.id, day) }));
+  const list = s.days[day].map((id) => byId.get(id)).filter((w): w is Worker => !!w);
+  return sortByGrade(list).map((w) => ({ worker: w, absence: absenceOn(absences, w.id, week.id, day) }));
 }
 
 /** Datum lesbar, z. B. „Mi, 28.10.2026“ */

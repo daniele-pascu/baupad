@@ -27,6 +27,7 @@ export type Route =
   | { name: 'projects' }
   | { name: 'tools' }
   | { name: 'workers' }
+  | { name: 'staff' }
   | { name: 'reports' }
   | { name: 'report'; reportId: string }
   | { name: 'reportSite'; siteKey: string }
@@ -83,6 +84,7 @@ export function parseRoute(url: string): Route {
   if (parts[0] === 'projekte' && parts.length === 1) return { name: 'projects' };
   if (parts[0] === 'tools' && parts.length === 1) return { name: 'tools' };
   if (parts[0] === 'arbeitereinteilung' && parts.length === 1) return { name: 'workers' };
+  if (parts[0] === 'arbeitereinteilung' && parts[1] === 'personal' && parts.length === 2) return { name: 'staff' };
   if (parts[0] === 'berichte' && parts.length === 1) return { name: 'reports' };
   if (parts[0] === 'berichte' && parts[1] === 'b' && parts.length === 3) return { name: 'reportSite', siteKey: parts[2] };
   if (parts[0] === 'berichte' && parts.length === 2) return { name: 'report', reportId: parts[1] };
@@ -132,6 +134,8 @@ export const paths = {
   tools: () => '/tools',
   /** Arbeitereinteilung (Wochenplanung nach Baustellen) */
   workers: () => '/arbeitereinteilung',
+  /** Personalliste (Arbeitereinteilung) */
+  staff: () => '/arbeitereinteilung/personal',
   /** Berichte & Formulare (Regielisten, Bautages- und Bauwochenberichte) */
   reports: () => '/berichte',
   report: (id: string) => `/berichte/${id}`,

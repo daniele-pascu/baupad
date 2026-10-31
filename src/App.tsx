@@ -20,6 +20,7 @@ import { AccountPage, AccountSectionPage, LoginPage, NewPasswordPage } from './p
 import { AccessPendingPage } from './pages/AccessPendingPage';
 import { ToolsPage } from './pages/ToolsPage';
 import { WorkersPage } from './pages/WorkersPage';
+import { StaffPage } from './pages/StaffPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { ReportSitePage } from './pages/ReportSitePage';
 import { CameraPage } from './pages/CameraPage';
@@ -234,6 +235,9 @@ export function App() {
       break;
     case 'workers':
       content = <WorkersPage />;
+      break;
+    case 'staff':
+      content = <StaffPage />;
       break;
     case 'reports':
       content = <ReportsPage />;

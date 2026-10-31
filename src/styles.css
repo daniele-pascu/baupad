@@ -7744,3 +7744,47 @@ button.report-site-empty {
 .operator-row.locked .operator-state {
   color: var(--warn, #b45309);
 }
+
+/* Personalliste (Arbeitereinteilung) */
+.staff-page {
+  max-width: 760px;
+}
+.staff-form {
+  margin: 8px 0 16px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.staff-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.staff-tools .crew-search {
+  flex: 1 1 240px;
+}
+.staff-list li {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+.staff-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.staff-group {
+  padding: 12px 2px 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.staff-foot {
+  margin-top: 24px;
+}

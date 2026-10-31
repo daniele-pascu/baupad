@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { addSite, assign, carryOver, emptyWeek, isoWeekNo, moveWorker, setVacation, siteFromProject, sitesOf, unassign, unassigned, updateSite, weekOf, weekRange } from '../../src/lib/crew';
-import type { Worker } from '../../src/lib/types';
+import { addSite, assign, carryOver, emptyWeek, isoWeekNo, moveWorker, setVacation, siteFromProject, sitesOf, unassign, unassigned, updateSite, weekOf, weekRange, sortByGrade } from '../../src/lib/crew';
+import type { Worker, WorkerGrade } from '../../src/lib/types';
 
 const W = (id: string, active = true): Worker => ({ id, firstName: id, lastName: '', active, createdAt: 0, updatedAt: 0 });
 const workers = [W('max'), W('peter'), W('tom'), W('alt', false)];
@@ -202,6 +202,12 @@ describe('Umsetzen (Ziehen / Hinzufügen)', () => {
 });
 
 describe('Funktion der Arbeiter', () => {
+  it('sortByGrade: höhere Funktion zuerst, innerhalb alphabetisch nach Nachname', () => {
+    const w = (firstName: string, lastName: string, grade?: WorkerGrade, role?: string) => ({ id: firstName, firstName, lastName, active: true, createdAt: 0, updatedAt: 0, grade, role }) as Worker;
+    const list = [w('Zoe', 'Adler', 'hilfsarbeiter'), w('Max', 'Muster', undefined, 'Polier'), w('Anna', 'Berg', 'facharbeiter'), w('Karl', 'Alt', 'facharbeiter'), w('Pia', 'Leit', 'projektleiter')];
+    expect(sortByGrade(list).map((x) => x.firstName)).toEqual(['Pia', 'Max', 'Karl', 'Anna', 'Zoe']);
+  });
+
   it('gewählte Funktion gilt, sonst wird sie aus der Tätigkeit erraten, Standard Facharbeiter', async () => {
     const { gradeOf, countByGrade } = await import('../../src/lib/crew');
     expect(gradeOf({ grade: 'hilfsarbeiter', role: 'Polier' })).toBe('hilfsarbeiter');

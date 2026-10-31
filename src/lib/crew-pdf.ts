@@ -1,7 +1,7 @@
 import { PDFDocument, rgb, StandardFonts, type PDFFont, type PDFImage, type PDFPage } from 'pdf-lib';
 import { safeFileName, type ExportFile } from './aufmass';
 import type { CompanyLogo } from './company';
-import { DAY_NAMES, DAY_SHORT, dayDate, dayList, isoWeekNo, parseDate, addDays, sortWorkers, timeLabel, unassigned, visibleDays, weekRange, workerName } from './crew';
+import { DAY_NAMES, DAY_SHORT, dayDate, dayList, isoWeekNo, parseDate, addDays, sortByGrade, timeLabel, unassigned, visibleDays, weekRange, workerName } from './crew';
 import type { WeekPlan, WeekSite, Worker, WorkTimes } from './types';
 
 /**
@@ -192,12 +192,12 @@ export async function crewWeekPdf(plan: WeekPlan, workers: Worker[], times: Work
   // Urlaub und noch nicht eingeteilt (sollte leer sein)
   const open = days
     .filter((d) => d < 5) // Sa/So: nur wer dort eingeteilt ist
-    .map((d) => ({ d, list: unassigned(plan, sortWorkers(workers), d).filter((w) => !opts.absent?.(w.id, d)) }))
+    .map((d) => ({ d, list: unassigned(plan, sortByGrade(workers), d).filter((w) => !opts.absent?.(w.id, d)) }))
     .filter((x) => x.list.length);
   const lines: { label: string; text: string }[] = [];
   // Urlaub aus der Woche und aus den Zeiträumen (von–bis), krank nur aus den Zeiträumen
   const away = (kind: 'urlaub' | 'krank') =>
-    sortWorkers(workers)
+    sortByGrade(workers)
       .map((w) => ({ w, ds: days.filter((d) => (kind === 'urlaub' && plan.vacation[d]?.includes(w.id)) || opts.absent?.(w.id, d) === kind) }))
       .filter((x) => x.ds.length)
       .map((x) => `${workerName(x.w)} (${dayList(x.ds)})`)
@@ -253,10 +253,9 @@ export async function crewDayPdf(plan: WeekPlan, siteId: string, day: number, wo
   // Tabelle
   const cols = [
     { h: 'Nr.', w: 30 },
-    { h: 'Name', w: 170 },
-    { h: 'Tätigkeit', w: 110 },
-    { h: 'Telefon', w: 100 },
-    { h: 'Bemerkung / Unterschrift', w: W - 2 * M - 410 },
+    { h: 'Name', w: 200 },
+    { h: 'Telefon', w: 110 },
+    { h: 'Bemerkung / Unterschrift', w: W - 2 * M - 340 },
   ];
   const row = 24;
   const drawHead = () => {
@@ -272,14 +271,15 @@ export async function crewDayPdf(plan: WeekPlan, siteId: string, day: number, wo
   const ids = s.days[day];
   const list = ids.map((id) => byId.get(id)).filter(Boolean) as Worker[];
   // drei leere Zeilen für Ergänzungen von Hand
-  const rows: (Worker | null)[] = [...sortWorkers(list), null, null, null];
+  const rows: (Worker | null)[] = [...sortByGrade(list), null, null, null];
   rows.forEach((w, i) => {
     if (y - row < M + 20) {
       page = ctx.doc.addPage([W, H]);
       y = header(ctx, page, `${title} (Fortsetzung)`, s.name, opts.company ?? '');
       drawHead();
     }
-    const cells = w ? [String(i + 1), workerName(w) + mark(opts, w.id, day), w.role ?? '', w.phone ?? '', ''] : ['', '', '', '', ''];
+    // Funktion und Qualifikation bleiben im Tool – nie auf dem Ausdruck
+    const cells = w ? [String(i + 1), workerName(w) + mark(opts, w.id, day), w.phone ?? '', ''] : ['', '', '', ''];
     let x = M;
     cells.forEach((c, k) => {
       if (c) page.drawText(fit(ctx.font, clean(ctx, c), 10, cols[k].w - 10), { x: x + 6, y: y - 15.5, size: 10, font: ctx.font, color: INK });
