@@ -111,3 +111,17 @@ test('Firma sieht den vereinbarten Preis unter Abonnement und beim Anlegen eines
   await expect(page.getByTestId('user-dialog').getByTestId('user-price-hint')).toContainText('12,50 € je Monat');
   await expect(page.getByTestId('user-dialog').getByTestId('user-price-hint')).toContainText('dann 4 Benutzer');
 });
+
+test('E-Mail-Adresse ändern nur als Admin der Firma', async ({ page }) => {
+  let role = 'arbeiter';
+  await page.route('**/rest/v1/rpc/my_context', (r) => r.fulfill(json(ctx({ workspace_active: true, role }))));
+  await page.goto('./');
+  await page.goto('./konto/email');
+  await expect(page.getByTestId('email-locked')).toContainText('nur der Admin');
+  await expect(page.getByTestId('email-form')).toHaveCount(0);
+  await expect(page.getByTestId('account-delete')).toBeVisible();
+  role = 'admin';
+  await page.goto('./konto/email');
+  await expect(page.getByTestId('email-form')).toBeVisible();
+  await expect(page.getByTestId('email-locked')).toHaveCount(0);
+});

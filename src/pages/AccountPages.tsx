@@ -490,7 +490,7 @@ const ACCOUNT_TILES: TileDef[] = [
   { id: 'betreiber', title: 'Betreiber: Kunden', text: 'Registrierte Firmen freischalten, Preis je Benutzer vereinbaren', body: () => <OperatorWorkspaces /> },
   { id: 'benutzer', title: 'Benutzer & Rollen', text: 'Wer in deiner Firma BauPad nutzt – Funktion, Werkzeuge und Baustellen je Benutzer', body: () => <UsersSettings /> },
   { id: 'profil', title: 'Persönliche Daten', text: 'Name und Telefon – so erscheinst du bei Kollegen und auf Berichten', body: (s) => <ProfileForm session={s} /> },
-  { id: 'email', title: 'E-Mail und Konto', text: 'E-Mail-Adresse ändern, Konto löschen', body: (s) => <EmailForm session={s} /> },
+  { id: 'email', title: 'E-Mail und Konto', text: 'E-Mail-Adresse (ändern nur als Admin), Konto löschen', body: (s) => <EmailForm session={s} /> },
   { id: 'passwort', title: 'Passwort und Anmeldemethoden', text: 'Passwort ändern, Google, Apple oder Microsoft (Outlook) verbinden', body: (s) => <PasswordForm session={s} /> },
   { id: 'abo', title: 'Abonnement und Zahlung', text: 'Paket, vereinbarter Preis je Benutzer, Benutzerzahl', body: (s) => <SubscriptionInfo session={s} /> },
   {
@@ -655,11 +655,20 @@ function EmailForm({ session }: { session: Session | null | undefined }) {
       showError(e, 'Konto konnte nicht gelöscht werden');
     }
   };
+  // Die Anmelde-Adresse ist in der Firma hinterlegt (Benutzer & Rollen); Mitarbeiter dürfen sie nicht selbst tauschen
+  const mayChange = !session.companyId || session.role === 'admin' || session.operator;
   return (
     <div className="company-lines">
       <p className="small">
         Aktuelle E-Mail-Adresse: <strong data-testid="account-email">{session.email}</strong>
       </p>
+      {!mayChange && (
+        <p className="banner banner-info small" role="status" data-testid="email-locked">
+          Deine E-Mail-Adresse ist in der Firma „{session.companyName}“ hinterlegt. Ändern kann sie nur der Admin deiner Firma unter Benutzer &amp; Rollen – bitte dort
+          melden.
+        </p>
+      )}
+      {mayChange && (
       <form onSubmit={change} noValidate data-testid="email-form">
         <label className="field">
           <span>Neue E-Mail-Adresse</span>
@@ -674,6 +683,7 @@ function EmailForm({ session }: { session: Session | null | undefined }) {
           E-Mail-Adresse ändern
         </button>
       </form>
+      )}
       <div className="account-danger">
         <strong>Konto löschen</strong>
         <span className="muted small">Entfernt dein Konto und einen nur von dir genutzten Arbeitsbereich. Daten auf diesem Gerät bleiben.</span>
