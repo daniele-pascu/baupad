@@ -219,7 +219,8 @@ export const de = {
           hook: 'Mängel im Plan, nicht im Kopf.',
           points: [
             'Plan zum Projekt hochladen, Pins setzen, beschreiben, Fotos dazu',
-            'Fotos werden online gespeichert und erscheinen auch in der Fotodokumentation',
+            'Fotos aus der Fotodokumentation auswählen oder direkt aufnehmen – neue Fotos landen auch dort',
+            'Alles online gespeichert, für alle mit Zugang zum Projekt',
             'Linien und Formen für die bessere Übersicht',
             'Mängelliste mit Plan und Fotos als PDF fürs Angebot',
           ],

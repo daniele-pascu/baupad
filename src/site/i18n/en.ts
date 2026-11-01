@@ -217,7 +217,8 @@ export const en: Dict = {
           hook: 'Defects in the plan, not in your head.',
           points: [
             'Upload the plan to the project, set pins, describe, add photos',
-            'Photos are stored online and also appear in the photo documentation',
+            'Pick photos from the photo documentation or take them right there – new photos appear there too',
+            'Everything stored online, for everyone with access to the project',
             'Lines and shapes for a better overview',
             'Defect list with plan and photos as PDF for the quote',
           ],
