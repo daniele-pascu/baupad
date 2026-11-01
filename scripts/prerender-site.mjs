@@ -35,6 +35,7 @@ function routes() {
     const t = DICT[lang];
     const m = meta(lang, t);
     for (const name of Object.keys(SITE_SLUGS[lang])) {
+      if (!m[name]) continue; // abgeschaltete Seiten (z. B. Zukunft) werden nicht vorgerendert
       const [title, description, jsonLd, noindex] = m[name];
       out.push({ path: sitePath(name, lang), lang, title, description, jsonLd, noindex, alternates: Object.fromEntries(LANGS.map((l) => [l, sitePath(name, l)])) });
     }
