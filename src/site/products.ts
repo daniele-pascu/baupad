@@ -37,8 +37,6 @@ export const TOOL_ENTRIES: ToolEntry[] = [
 
 export const PRODUCTS: ProductEntry[] = [{ id: 'baupad', status: 'available', path: (lang) => paths.baupad(lang), color: '#193B63', tools: TOOL_ENTRIES }];
 
-/** Anzahl geplanter Produkte als Vorschau (ohne Namen – siehe futurePage.items in den Texten) */
-export const PLANNED_COUNT = 2;
 
 /** Texte eines Werkzeugs in der gewünschten Sprache */
 export function toolText(t: Dict, id: ProductId) {

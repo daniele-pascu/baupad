@@ -118,81 +118,119 @@ export const de = {
   },
   baupad: {
     title: 'BauPad – Die Baustelle in einer App | PAD Software',
-    description: 'BauPad vereint Aufmaß & Abrechnung, Arbeitereinteilung, Berichte & Formulare, Fotodokumentation und Mängelplan in einer App – am Handy, Tablet und PC, auch offline.',
+    description: 'BauPad vereint Aufmaß & Abrechnung, Arbeitereinteilung, Berichte & Formulare, Fotodokumentation und Mängelplan in einer App – am Handy, Tablet und PC, auch ohne Empfang.',
     hero: {
       eyebrow: 'BauPad · Produkt von PAD Software',
       title: ['Die Baustelle', 'in einer App.'],
-      lead: 'Aufmaß, Einteilung, Berichte, Fotos und Mängelplan – fünf Werkzeuge, die zusammenhängen. Was auf der Baustelle erfasst wird, liegt im Büro fertig als Excel oder PDF.',
+      lead: 'Aufmaß, Einteilung, Berichte, Fotos und Mängelplan – fünf Werkzeuge, ein Konto, ein Stand für alle. Erfasst auf der Baustelle, fertig im Büro.',
       primary: 'Kontakt aufnehmen',
       secondary: 'BauPad öffnen',
       status: 'Testphase – Abo folgt zum Start',
     },
-    intro: {
-      eyebrow: 'Das Produkt',
-      title: 'Ein Stand für Baustelle und Büro.',
-      text: 'BauPad läuft im Browser und lässt sich am Handy wie eine App installieren. Projekte, Mannschaft und Fotos sind in allen Werkzeugen dieselben. Nach dem ersten Öffnen funktioniert alles auch ohne Empfang.',
-      facts: ['Funktioniert offline', 'iPhone, iPad, Android und PC', 'Benutzerkonten je Firma', 'Excel, PDF und ZIP fertig fürs Büro'],
-    },
     problems: {
-      eyebrow: 'Der Baualltag',
-      title: 'Was heute Zeit kostet.',
+      eyebrow: 'Kennen Sie das?',
+      title: 'Drei Probleme. Drei Antworten.',
+      problemLabel: 'Das Problem',
+      solutionLabel: 'So macht es BauPad',
       items: [
-        { title: 'Zettel, die im Auto bleiben.', text: 'Aufmaß und Regiestunden werden auf Papier notiert und Tage später abgetippt – oder gehen verloren.' },
-        { title: 'Fotos, die niemand mehr findet.', text: 'Hunderte Bilder am Handy ohne Baustelle und Datum. Beim Nachweis fehlt genau das eine.' },
-        { title: 'Wer ist morgen wo?', text: 'Die Einteilung steht auf einer Tafel oder in einer Nachricht. Änderungen kommen nicht bei allen an.' },
-        { title: 'Formulare, die doppelt ausgefüllt werden.', text: 'Regieliste, Tagesbericht, Wochenbericht – dieselben Angaben, dreimal von Hand.' },
+        {
+          problem: 'Für jede Arbeit eine eigene App.',
+          detail: 'Aufmaß hier, Fotos dort, die Einteilung in einer Nachricht. Fünf Apps, fünf Logins, fünfmal dieselbe Baustelle eintippen.',
+          solution: 'Fünf Werkzeuge in einer App.',
+          points: ['Aufmaß & Abrechnung, Arbeitereinteilung, Berichte & Formulare, Fotodokumentation, Mängelplan', 'Ein Konto, eine Firma, eine Projektliste', 'Am Handy, am Tablet und am PC – dieselbe Oberfläche'],
+        },
+        {
+          problem: 'Kein Empfang auf der Baustelle.',
+          detail: 'In der Tiefgarage oder im Rohbau bricht die Verbindung ab – und mit ihr die App.',
+          solution: 'Erst lokal, dann für alle.',
+          points: ['Alles wird sofort am Gerät gespeichert und funktioniert ohne Internet', 'Sobald wieder Empfang da ist, geht es von selbst in die zentrale Ablage', 'Alle Benutzer der Firma sehen denselben Stand – Büro und Baustelle'],
+        },
+        {
+          problem: 'Jeder sieht alles.',
+          detail: 'Ein Arbeiter soll seine Baustelle sehen, nicht die Zahlen der ganzen Firma.',
+          solution: 'Rechte je Benutzer.',
+          points: ['Je Benutzer einstellbar: welche Werkzeuge, welche Projekte, welche Fotos', 'Datenschutz zwischen Baustellen – jede Partie sieht nur ihre', 'Der Admin der Firma legt es in einer Minute fest'],
+        },
       ],
     },
-    challenges: {
-      eyebrow: 'Die Anforderungen',
-      title: 'Was Software auf der Baustelle aushalten muss.',
+    one: {
+      eyebrow: 'Ein Projekt',
+      title: 'Einmal anlegen, überall da.',
+      text: 'Ein Projekt wird in einem Werkzeug angelegt und bei Bedarf in jedes andere übernommen – mit einem Tipp.',
+      points: ['Projektname, Bauvorhaben, Projektnummer, Kostenstelle, Auftraggeber, Baubeginn – einmal eingetragen', 'In Aufmaß, Einteilung, Berichten, Fotos und Mängelplan dieselbe Liste', 'Keine Dubletten, keine Tippfehler bei der dritten Eingabe'],
+    },
+    roles: {
+      eyebrow: 'Benutzerrollen',
+      title: 'Jeder sieht, was er braucht.',
+      text: 'Vier Rollen, vom Admin eingestellt: welche Werkzeuge und welche Projekte.',
       items: [
-        { title: 'Kein Empfang in der Tiefgarage', text: 'Erfassen muss auch ohne Internet funktionieren – und später von selbst abgleichen.' },
-        { title: 'Handschuhe und Sonne', text: 'Große Tasten, klare Schrift, wenige Schritte. Keine Menüs, die man suchen muss.' },
-        { title: 'Verschiedene Rollen', text: 'Polier, Bauleitung und Büro brauchen unterschiedliche Rechte und Ansichten – mit denselben Daten.' },
-        { title: 'Gewohnte Formulare', text: 'Das Ergebnis muss aussehen wie das Formular, das der Auftraggeber kennt.' },
+        { title: 'Admin', text: 'Legt Benutzer, Rollen, Werkzeuge und Projekte fest. Verwaltet Firma und Formulare.' },
+        { title: 'Büro', text: 'Projekte anlegen, Aufmaße prüfen, Exporte für Rechnung und Auftraggeber.' },
+        { title: 'Polier', text: 'Einteilung, Berichte, Fotos und Mängel direkt vor Ort.' },
+        { title: 'Arbeiter', text: 'Sieht seine Baustellen, macht Fotos und Regieliste – mehr nicht.' },
       ],
     },
-    solution: {
-      eyebrow: 'Die Lösung',
-      title: 'So löst BauPad das.',
-      items: [
-        { title: 'Einmal erfassen, überall verwenden', text: 'Ein Projekt wird einmal angelegt und steht in allen Werkzeugen zur Verfügung. Fotos aus dem Mängelplan liegen auch in der Fotodokumentation.' },
-        { title: 'Offline zuerst', text: 'Alles wird auf dem Gerät gespeichert und funktioniert ohne Empfang. Sicherungen entstehen als Datei.' },
-        { title: 'Fertig fürs Büro', text: 'Aufmaßblatt als Excel, Wochenplan, Regieliste und Foto-PDF mit Logo und Firmendaten – ohne Abtippen.' },
-        { title: 'Rechte je Benutzer', text: 'Der Admin der Firma legt fest, wer welches Werkzeug und welche Projekte sieht.' },
-      ],
-    },
-    features: {
-      eyebrow: 'Funktionen',
-      title: 'Fünf Werkzeuge. Ein Stand.',
+    tools: {
+      eyebrow: 'Die fünf Werkzeuge',
+      title: 'Was BauPad kann.',
+      text: 'Kurz und ohne Umwege – so, wie es auf der Baustelle gebraucht wird.',
       more: 'Mehr erfahren',
+      items: {
+        projects: {
+          hook: 'Plan rauf, messen, fertig.',
+          points: [
+            'Plan als PDF oder Foto hochladen – Maßstab wird erkannt, sonst in Sekunden selbst skaliert',
+            'Pläne in Originalauflösung, farbig oder schwarz-weiß',
+            'LV und MFK hochladen – Positionen werden erkannt und sind je Messung wählbar',
+            'Kein Plan dabei? Eigenen Plan schnell skizzieren',
+            'Linie, Rechteck, Kreis, Fläche, Wand, Freihand, Messung – je nach Bedarf',
+            'Export: Pläne als PDF, Aufmaßaufstellung als PDF oder Excel, mit Preisen, falls vorhanden',
+          ],
+        },
+        workers: {
+          hook: 'Wer ist nächste Woche wo? Ein Blick.',
+          points: [
+            'Arbeiter nach Funktion eintragen und auf Baustellen einteilen',
+            'Jede Woche läuft weiter, bis jemand umgeteilt, krank oder im Urlaub ist',
+            'Baustellen pausieren, abschließen oder löschen',
+            'Sehr einfach zu bedienen, klare Übersicht',
+            'Wochenliste als PDF',
+          ],
+        },
+        reports: {
+          hook: 'Ihre Formulare. Automatisch ausgefüllt.',
+          points: [
+            'Jede Firma hat eigene Formulare – darum laden Sie Ihre Vorlagen hoch',
+            'In höchstens zehn Minuten festlegen, welche Angabe in welches Feld gehört',
+            'Gilt für Bautagesbericht, Regieliste, Wochenbericht und mehr',
+            'Ausfüllen am Handy, fertig als PDF im gewohnten Aussehen',
+          ],
+        },
+        photos: {
+          hook: 'Foto gemacht, für alle da.',
+          points: [
+            'Schnell Fotos zum jeweiligen Projekt aufnehmen',
+            'In Sekunden online gespeichert – für jeden, der Zugang zum Projekt hat',
+            'Sortiert nach Tag, Kalenderwoche, Monat oder alles auf einmal',
+            'Foto-PDF mit Logo und Angaben, ZIP fürs Archiv',
+          ],
+        },
+        defects: {
+          hook: 'Mängel im Plan, nicht im Kopf.',
+          points: [
+            'Plan zum Projekt hochladen, Pins setzen, beschreiben, Fotos dazu',
+            'Fotos werden online gespeichert und erscheinen auch in der Fotodokumentation',
+            'Linien und Formen für die bessere Übersicht',
+            'Mängelliste mit Plan und Fotos als PDF fürs Angebot',
+          ],
+        },
+      },
     },
-    benefits: {
-      eyebrow: 'Nutzen',
-      title: 'Was Sie davon haben.',
-      items: [
-        { title: 'Weniger Abtippen', text: 'Aufmaß, Stunden und Fotos kommen fertig im Büro an.' },
-        { title: 'Nachweise, die halten', text: 'Jedes Foto mit Projekt, Datum und Beschreibung. Jede Markierung im Plan nummeriert.' },
-        { title: 'Klarheit in der Woche', text: 'Alle sehen dieselbe Einteilung – als PDF oder direkt in der App.' },
-        { title: 'Schneller abrechnen', text: 'Messungen im Plan werden sofort gerechnet, Rechnungen je Plan getrennt.' },
-      ],
-    },
-    useCases: {
-      eyebrow: 'Anwendungsfälle',
-      title: 'Für wen BauPad gemacht ist.',
-      items: [
-        { title: 'Polier und Partie', text: 'Fotos, Regieliste und Stunden direkt vor Ort – in Minuten erledigt, auch ohne Empfang.' },
-        { title: 'Bauleitung', text: 'Aufmaß im Plan, Mannschaft einteilen, Berichte prüfen und als PDF freigeben.' },
-        { title: 'Büro', text: 'Excel, PDF und ZIP kommen fertig an. Benutzer und Rechte werden zentral verwaltet.' },
-        { title: 'Betoninstandsetzung und Sanierung', text: 'Schadstellen im Plan erfassen, Mängel markieren, Angebote auf Basis des Mängelplans erstellen.' },
-      ],
-    },
-    stage: {
-      eyebrow: 'Die Software',
-      title: 'BauPad im Überblick.',
-      text: 'Werkzeugübersicht, Plan mit Messungen, Wochenplan und Fotogalerie – hier als schematische Platzhalter. Echte Bildschirmansichten folgen.',
-      panels: ['Werkzeugübersicht', 'Aufmaß im Plan', 'Wochenplan', 'Fotogalerie'],
+    intro: {
+      eyebrow: 'Die Technik',
+      title: 'Läuft überall, braucht nichts.',
+      text: 'BauPad läuft im Browser und lässt sich am Handy wie eine App installieren. Keine Installation im Büro, keine Updates von Hand.',
+      facts: ['Funktioniert ohne Empfang', 'iPhone, iPad, Android und PC', 'Benutzerkonten je Firma', 'Daten in der EU gespeichert', 'Excel, PDF und ZIP fertig fürs Büro'],
     },
     cta: {
       eyebrow: 'Nächster Schritt',

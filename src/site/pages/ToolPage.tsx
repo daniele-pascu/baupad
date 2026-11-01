@@ -7,11 +7,9 @@ import { TOOL_ENTRIES, toolPath } from '../products';
 import { Reveal } from '../components/Reveal';
 import { Section, SectionHead } from '../components/Section';
 import { Backdrop } from '../components/Shapes';
-import { Panel, type PanelKind } from '../components/Stage';
 import { SiteLayout } from '../components/SiteShell';
 
 const OPEN: Record<ProductId, string> = { projects: paths.projects(), workers: paths.workers(), reports: paths.reports(), photos: paths.photos(), defects: paths.defects() };
-const PANEL: Record<ProductId, PanelKind> = { projects: 'plan', workers: 'week', reports: 'report', photos: 'photos', defects: 'defects' };
 
 /** Werkzeug-Seite unter BauPad: Beschreibung, Funktionen in Gruppen, Platzhalter-Ansicht, weitere Werkzeuge */
 export function ToolPage({ id }: { id: ProductId }) {
@@ -58,9 +56,6 @@ export function ToolPage({ id }: { id: ProductId }) {
               </a>
             </div>
           </Reveal>
-          <Reveal delay={120} className="ps-split-stage">
-            <Panel kind={PANEL[id]} label={tool.title} placeholderLabel={t.common.placeholder} />
-          </Reveal>
         </div>
       </Section>
 
@@ -84,7 +79,7 @@ export function ToolPage({ id }: { id: ProductId }) {
       </Section>
 
       <Section tone="white">
-        <SectionHead eyebrow={t.tool.others} title={t.baupad.features.title} />
+        <SectionHead eyebrow={t.tool.others} title={t.baupad.tools.title} />
         <div className="ps-others">
           {others.map((x, i) => (
             <Reveal key={x.id} delay={i * 60}>

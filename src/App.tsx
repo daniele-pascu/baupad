@@ -13,7 +13,6 @@ import { BauPadPage } from './site/pages/BauPadPage';
 import { ToolPage } from './site/pages/ToolPage';
 import { CompanyPage } from './site/pages/CompanyPage';
 import { ContactPage, ThanksPage } from './site/pages/ContactPage';
-import { FuturePage } from './site/pages/FuturePage';
 import { DeleteAccountPage, ImprintPage, NotFoundPage, PrivacyPage } from './site/pages/LegalPages';
 import './site/site.css';
 import { AccountPage, AccountSectionPage, LoginPage, NewPasswordPage } from './pages/AccountPages';
@@ -210,7 +209,7 @@ export function App() {
       content = <CompanyPage />;
       break;
     case 'future':
-      content = <FuturePage />;
+      content = <ProductsPage />; // Seite „Zukunft“ abgeschaltet – alte Adresse zeigt die Produkte
       break;
     case 'contact':
       content = <ContactPage />;

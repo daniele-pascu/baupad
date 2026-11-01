@@ -27,7 +27,6 @@ function routes() {
     company: [t.companyPage.title, t.companyPage.description, [org]],
     contact: [t.contactPage.title, t.contactPage.description, [org]],
     thanks: [t.contactPage.thanks.title, t.contactPage.thanks.text, [], true],
-    future: [t.futurePage.title, t.futurePage.description, []],
     imprint: [t.legal.imprint.title, t.legal.imprint.description, []],
     privacy: [t.legal.privacy.title, t.legal.privacy.description, []],
     deleteAccountInfo: [t.legal.deleteAccount.title, t.legal.deleteAccount.description, []],

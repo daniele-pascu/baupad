@@ -9,10 +9,9 @@ import { siteAlternates, softwareJsonLd } from '../seo';
 import { Reveal } from '../components/Reveal';
 import { Badge, Grid, Lines, Section, SectionHead, Statement } from '../components/Section';
 import { Backdrop } from '../components/Shapes';
-import { Panel, Stage } from '../components/Stage';
 import { SiteLayout } from '../components/SiteShell';
 
-/** Produktseite BauPad: Problem → Lösung → Nutzen, Funktionsübersicht, Anwendungsfälle, große Software-Präsentation */
+/** Produktseite BauPad: Problem → Lösung, ein Projekt für alle Werkzeuge, Rollen, die fünf Werkzeuge als Stichpunkte – ohne Bilder */
 export function BauPadPage() {
   const { lang, t } = useLang();
   const b = t.baupad;
@@ -41,12 +40,101 @@ export function BauPadPage() {
             <Badge kind="neutral">{b.hero.status}</Badge>
           </p>
         </div>
-        <div className="ps-hero-stage" aria-hidden="true">
-          <Stage main="tools" floats={['defects', 'week']} placeholderLabel={t.common.placeholder} floatLabel={t.common.placeholderShort} immediate labels={[t.home.baupad.stageTitle, t.tools.defects.title, t.tools.workers.title]} />
-        </div>
       </section>
 
-      {/* 2. Produktvorstellung */}
+      {/* 2. Problem → Lösung */}
+      <Section tone="white">
+        <SectionHead eyebrow={b.problems.eyebrow} title={b.problems.title} />
+        <div className="ps-pairs" data-testid="problem-pairs">
+          {b.problems.items.map((p, i) => (
+            <Reveal key={p.problem} delay={i * 80} as="article" className="ps-pair">
+              <div className="ps-pair-problem">
+                <span className="ps-pair-label">{b.problems.problemLabel}</span>
+                <h3>{p.problem}</h3>
+                <p>{p.detail}</p>
+              </div>
+              <div className="ps-pair-solution">
+                <span className="ps-pair-label">{b.problems.solutionLabel}</span>
+                <h3>{p.solution}</h3>
+                <ul className="ps-points">
+                  {p.points.map((pt) => (
+                    <li key={pt}>
+                      <Icon name="check" size={15} />
+                      {pt}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      </Section>
+
+      {/* 3. Ein Projekt, alle Werkzeuge + Rollen */}
+      <Section tone="navy">
+        <Backdrop variant="dark" />
+        <div className="ps-split ps-split-text">
+          <SectionHead eyebrow={b.one.eyebrow} title={b.one.title} text={b.one.text} />
+          <Reveal>
+            <ul className="ps-points ps-points-light">
+              {b.one.points.map((pt) => (
+                <li key={pt}>
+                  <Icon name="check" size={15} />
+                  {pt}
+                </li>
+              ))}
+            </ul>
+          </Reveal>
+        </div>
+        <div className="ps-roles">
+          <SectionHead eyebrow={b.roles.eyebrow} title={b.roles.title} text={b.roles.text} level={3} />
+          <Grid cols={4}>
+            {b.roles.items.map((r) => (
+              <Statement key={r.title} icon={<Icon name="hand" size={18} />} title={r.title} text={r.text} />
+            ))}
+          </Grid>
+        </div>
+      </Section>
+
+      {/* 4. Die fünf Werkzeuge */}
+      <Section tone="mist" id="werkzeuge">
+        <SectionHead eyebrow={b.tools.eyebrow} title={b.tools.title} text={b.tools.text} />
+        <div className="ps-toolcards" data-testid="product-grid">
+          {TOOL_ENTRIES.map((x, i) => {
+            const tool = b.tools.items[x.id];
+            return (
+              <Reveal key={x.id} delay={i * 60} as="article" className="ps-toolcard" style={{ '--c': x.color } as CSSProperties}>
+                <div className="ps-toolcard-head">
+                  <span className="ps-feature-icon">
+                    <ToolIcon name={x.icon} size={26} />
+                  </span>
+                  <div>
+                    <h3>
+                      <a href={toolPath(x.id, lang)} className="ps-toolcard-title" data-testid="product-card">
+                        {t.tools[x.id].title}
+                      </a>
+                    </h3>
+                    <p className="ps-toolcard-hook">{tool.hook}</p>
+                  </div>
+                </div>
+                <ul className="ps-points">
+                  {tool.points.map((pt) => (
+                    <li key={pt}>
+                      <Icon name="check" size={15} />
+                      {pt}
+                    </li>
+                  ))}
+                </ul>
+                <a href={toolPath(x.id, lang)} className="ps-link">
+                  {b.tools.more} <Icon name="next" size={14} />
+                </a>
+              </Reveal>
+            );
+          })}
+        </div>
+      </Section>
+
+      {/* 5. Technik kurz */}
       <Section tone="white">
         <div className="ps-split ps-split-text">
           <SectionHead eyebrow={b.intro.eyebrow} title={b.intro.title} text={b.intro.text} />
@@ -66,103 +154,8 @@ export function BauPadPage() {
         </div>
       </Section>
 
-      {/* 3. Probleme */}
-      <Section tone="mist">
-        <SectionHead eyebrow={b.problems.eyebrow} title={b.problems.title} />
-        <Grid cols={2}>
-          {b.problems.items.map((p, i) => (
-            <Statement key={p.title} no={`0${i + 1}`} title={p.title} text={p.text} />
-          ))}
-        </Grid>
-      </Section>
-
-      {/* 4. Herausforderungen */}
-      <Section tone="navy">
-        <Backdrop variant="dark" />
-        <SectionHead eyebrow={b.challenges.eyebrow} title={b.challenges.title} />
-        <Grid cols={4}>
-          {b.challenges.items.map((p, i) => (
-            <Statement key={p.title} no={`0${i + 1}`} title={p.title} text={p.text} />
-          ))}
-        </Grid>
-      </Section>
-
-      {/* 5. Lösung */}
-      <Section tone="white">
-        <SectionHead eyebrow={b.solution.eyebrow} title={b.solution.title} />
-        <Grid cols={2}>
-          {b.solution.items.map((p) => (
-            <Statement key={p.title} icon={<Icon name="check" size={18} />} title={p.title} text={p.text} />
-          ))}
-        </Grid>
-      </Section>
-
-      {/* 6. Funktionsübersicht */}
-      <Section tone="mist" id="werkzeuge">
-        <SectionHead eyebrow={b.features.eyebrow} title={b.features.title} />
-        <div className="ps-feature-list" data-testid="product-grid">
-          {TOOL_ENTRIES.map((x, i) => (
-            <Reveal key={x.id} delay={i * 60} as="article" className="ps-feature">
-              <a href={toolPath(x.id, lang)} className="ps-feature-link" style={{ '--c': x.color } as CSSProperties} data-testid="product-card">
-                <span className="ps-feature-icon">
-                  <ToolIcon name={x.icon} size={26} />
-                </span>
-                <span className="ps-feature-body">
-                  <strong>{t.tools[x.id].title}</strong>
-                  <span>{t.tools[x.id].short}</span>
-                  <ul>
-                    {t.tools[x.id].points.map((pt) => (
-                      <li key={pt}>
-                        <Icon name="check" size={14} />
-                        {pt}
-                      </li>
-                    ))}
-                  </ul>
-                  <em className="ps-link">
-                    {b.features.more} <Icon name="next" size={14} />
-                  </em>
-                </span>
-              </a>
-            </Reveal>
-          ))}
-        </div>
-      </Section>
-
-      {/* 7. Vorteile */}
-      <Section tone="white">
-        <SectionHead eyebrow={b.benefits.eyebrow} title={b.benefits.title} />
-        <Grid cols={4}>
-          {b.benefits.items.map((p, i) => (
-            <Statement key={p.title} no={`0${i + 1}`} title={p.title} text={p.text} />
-          ))}
-        </Grid>
-      </Section>
-
-      {/* 8. Anwendungsfälle */}
-      <Section tone="mist">
-        <SectionHead eyebrow={b.useCases.eyebrow} title={b.useCases.title} />
-        <Grid cols={2}>
-          {b.useCases.items.map((p) => (
-            <Statement key={p.title} icon={<Icon name="hand" size={18} />} title={p.title} text={p.text} />
-          ))}
-        </Grid>
-      </Section>
-
-      {/* 9. Große Software-Präsentation */}
-      <Section tone="midnight" id="software" className="ps-showcase">
-        <Backdrop variant="dark" />
-        <SectionHead eyebrow={b.stage.eyebrow} title={b.stage.title} text={b.stage.text} align="center" />
-        <div className="ps-showcase-grid" data-testid="product-shots">
-          {(['tools', 'plan', 'week', 'photos'] as const).map((k, i) => (
-            <Reveal key={k} delay={i * 90}>
-              <Panel kind={k} label={b.stage.panels[i]} placeholderLabel={t.common.placeholder} />
-            </Reveal>
-          ))}
-        </div>
-      </Section>
-
-      {/* 10. CTA */}
-      <Section tone="white" className="ps-final-cta">
+      {/* 6. CTA */}
+      <Section tone="mist" className="ps-final-cta">
         <SectionHead eyebrow={b.cta.eyebrow} title={b.cta.title} text={b.cta.text} align="center" />
         <Reveal className="ps-actions ps-actions-center">
           <a href={paths.contact(lang)} className="ps-btn ps-btn-navy ps-btn-lg" data-testid="cta-contact-2">

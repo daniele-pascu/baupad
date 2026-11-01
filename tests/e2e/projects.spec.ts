@@ -11,7 +11,7 @@ import { FIXTURES, OUT, createProject, freshStart, openPlan, selectCostCenter, t
 test.describe('ohne Anmeldung', () => {
   test.use({ signedIn: false });
 
-test('Website: Startseite, Produkte, BauPad, Unternehmen, Zukunft, Kontaktformular, Sprache, Rechtliches', async ({ page }) => {
+test('Website: Startseite, Produkte, BauPad, Unternehmen, Kontaktformular, Sprache, Rechtliches', async ({ page }) => {
   await page.goto('./');
   await expect(page).toHaveTitle('PAD Software – Den Arbeitstag leichter gemacht');
   const nav = page.getByTestId('site-nav');
@@ -21,15 +21,15 @@ test('Website: Startseite, Produkte, BauPad, Unternehmen, Zukunft, Kontaktformul
   await expect(page.locator('html')).toHaveAttribute('lang', 'de');
   // Dachmarke zuerst: Unternehmen, dann Produktwelt (1 verfügbar, 3 geplant), dann BauPad
   await expect(page.locator('.ps-product-card.is-available')).toHaveCount(1);
-  await expect(page.locator('.ps-product-card.is-planned')).toHaveCount(2);
-  await expect(page.locator('.ps-panel-tag').first()).toContainText('Platzhalter'); // keine echten Bildschirmfotos
+  await expect(page.locator('.ps-product-card.is-planned')).toHaveCount(0); // keine Vorschau-Produkte mehr
+  await expect(page.locator('.ps-panel, .ps-panel-tag')).toHaveCount(0); // keine Bilder und Platzhalter
   await expect(page.locator('.ps-main img')).toHaveCount(0);
 
   // Produkte
   await nav.getByRole('link', { name: 'Produkte', exact: true }).click();
   await expect(h1).toContainText('Produkte von PAD Software');
   await expect(page).toHaveTitle('Produkte – PAD Software');
-  await expect(page.locator('.ps-badge-plan')).toHaveCount(2);
+  await expect(page.locator('.ps-badge-plan')).toHaveCount(0);
   await page.getByTestId('product-open-baupad').click();
 
   // BauPad: fünf Werkzeuge, Werkzeug-Seite, Werkzeug nur mit Anmeldung
@@ -37,7 +37,7 @@ test('Website: Startseite, Produkte, BauPad, Unternehmen, Zukunft, Kontaktformul
   await expect(page.getByTestId('product-card')).toHaveCount(5);
   await expect(page.getByTestId('product-card').nth(3)).toContainText('Fotodokumentation');
   await expect(page.getByTestId('product-card').nth(4)).toContainText('Mängelplan');
-  await expect(page.getByTestId('product-shots').locator('.ps-panel')).toHaveCount(4);
+  await expect(page.getByTestId('problem-pairs').locator('article')).toHaveCount(3); // Problem → Lösung
   await page.getByTestId('product-card').nth(3).click();
   await expect(page.getByTestId('product-title')).toHaveText('Fotodokumentation');
   expect(page.url()).toContain('/baupad/fotos');
@@ -45,13 +45,11 @@ test('Website: Startseite, Produkte, BauPad, Unternehmen, Zukunft, Kontaktformul
   await expect(h1).toHaveText('Anmelden'); // Werkzeug nur mit Anmeldung
   await page.goto('./');
 
-  // Unternehmen und Zukunft
+  // Unternehmen
   await nav.getByRole('link', { name: 'Unternehmen', exact: true }).click();
   await expect(h1).toContainText('für die Praxis');
   await expect(page).toHaveTitle('Unternehmen – PAD Software');
-  await nav.getByRole('link', { name: 'Zukunft', exact: true }).click();
-  await expect(page.getByTestId('future-list').locator('article')).toHaveCount(2); // Ablage ist verfügbar, nicht mehr in Planung
-  await expect(page.getByTestId('future-list')).toContainText('In Planung');
+  await expect(nav.getByRole('link', { name: 'Zukunft', exact: true })).toHaveCount(0); // Seite abgeschaltet
 
   // Kontakt: Angaben (fehlende als Platzhalter), Formular mit Prüfung
   await nav.getByRole('link', { name: 'Kontakt', exact: true }).click();

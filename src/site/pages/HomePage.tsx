@@ -4,12 +4,11 @@ import { ToolIcon } from '../../components/ToolIcon';
 import { paths } from '../../lib/router';
 import { contactData } from '../contact-data';
 import { useLang } from '../i18n';
-import { PLANNED_COUNT, PRODUCTS, TOOL_ENTRIES, toolPath } from '../products';
+import { PRODUCTS, TOOL_ENTRIES, toolPath } from '../products';
 import { organizationJsonLd, siteAlternates, softwareJsonLd } from '../seo';
 import { Reveal } from '../components/Reveal';
 import { Badge, Grid, Lines, Section, SectionHead, Statement } from '../components/Section';
 import { Backdrop } from '../components/Shapes';
-import { Stage } from '../components/Stage';
 import { SiteLayout } from '../components/SiteShell';
 
 /** Startseite: PAD Software als Dachmarke, dann Unternehmen, Produktwelt, BauPad, Ausblick, Haltung, Kontakt */
@@ -45,9 +44,6 @@ export function HomePage() {
               </li>
             ))}
           </ul>
-        </div>
-        <div className="ps-hero-stage" aria-hidden="true">
-          <Stage main="tools" floats={['plan', 'photos']} placeholderLabel={t.common.placeholder} floatLabel={t.common.placeholderShort} immediate labels={[h.baupad.stageTitle, t.tools.projects.title, t.tools.photos.title]} />
         </div>
       </section>
 
@@ -90,16 +86,6 @@ export function HomePage() {
               </a>
             </Reveal>
           ))}
-          {Array.from({ length: PLANNED_COUNT }).map((_, i) => (
-            <Reveal key={i} delay={80 * (i + 1)} className="ps-product-card is-planned" as="article">
-              <div className="ps-product-card-head">
-                <span className="ps-product-mark ps-product-mark-plan">?</span>
-                <Badge kind="plan">{t.common.comingSoon}</Badge>
-              </div>
-              <h3>{t.futurePage.items[i]?.title}</h3>
-              <p>{t.futurePage.items[i]?.text}</p>
-            </Reveal>
-          ))}
         </div>
         <Reveal className="ps-inline-cta">
           <a href={paths.products(lang)} className="ps-btn ps-btn-navy">
@@ -111,7 +97,7 @@ export function HomePage() {
       {/* 4. BauPad */}
       <Section tone="navy" id="baupad" className="ps-baupad-teaser">
         <Backdrop variant="dark" />
-        <div className="ps-split">
+        <div className="ps-split ps-split-text">
           <div>
             <SectionHead eyebrow={h.baupad.eyebrow} title={h.baupad.title} text={h.baupad.text} />
             <ul className="ps-tool-list" data-reveal="">
@@ -135,27 +121,6 @@ export function HomePage() {
               </a>
             </div>
           </div>
-          <div className="ps-split-stage">
-            <Stage main="plan" floats={['week', 'report']} placeholderLabel={t.common.placeholder} floatLabel={t.common.placeholderShort} labels={[t.tools.projects.title, t.tools.workers.title, t.tools.reports.title]} />
-          </div>
-        </div>
-      </Section>
-
-      {/* 5. Ausblick */}
-      <Section tone="white" id="zukunft">
-        <div className="ps-split ps-split-text">
-          <SectionHead eyebrow={h.future.eyebrow} title={h.future.title} text={h.future.text} />
-          <Reveal className="ps-plan-list">
-            {t.futurePage.items.map((it) => (
-              <div key={it.title} className="ps-plan-item">
-                <Badge kind="plan">{t.common.comingSoon}</Badge>
-                <strong>{it.title}</strong>
-              </div>
-            ))}
-            <a href={paths.future(lang)} className="ps-link">
-              {h.future.cta} <Icon name="next" size={14} />
-            </a>
-          </Reveal>
         </div>
       </Section>
 

@@ -35,7 +35,6 @@ const NAV: { key: SiteRouteName; label: 'home' | 'products' | 'baupad' | 'compan
   { key: 'products', label: 'products' },
   { key: 'baupad', label: 'baupad' },
   { key: 'company', label: 'company' },
-  { key: 'future', label: 'future' },
   { key: 'contact', label: 'contact' },
 ];
 
@@ -144,7 +143,6 @@ export function SiteFooter() {
               {t.product}
             </a>
           ))}
-          <a href={paths.future(lang)}>{t.nav.future}</a>
         </nav>
         <nav aria-label={t.footer.companyCol}>
           <h2>{t.footer.companyCol}</h2>
