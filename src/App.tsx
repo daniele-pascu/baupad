@@ -181,13 +181,7 @@ function usePhotoCloud() {
 
 export function App() {
   const route = parseRoute(usePath());
-  // Startbild mit Logo beim Öffnen der installierten App (kurz, dann die App)
-  const [splash, setSplash] = useState(() => isInstalledApp());
-  useEffect(() => {
-    if (!splash) return;
-    const t = window.setTimeout(() => setSplash(false), 350); // kurz: die App soll sofort da sein
-    return () => window.clearTimeout(t);
-  }, [splash]);
+  // kein eigenes Startbild: Android/iOS bzw. die Store-App zeigen beim Öffnen schon das Logo – nur einmal
   useServiceWorker();
   useAuthReturn();
   usePhotoCloud();
@@ -328,13 +322,6 @@ export function App() {
       <TitleReset route={route.name} />
       {SITE_ROUTES_WHEN_SIGNED_IN.has(route.name) && hasStoredSession() ? <ToolsRedirect /> : isNativeApp() && SITE_ROUTES.has(route.name) && !['imprint', 'privacy', 'contact', 'deleteAccountInfo'].includes(route.name) ? <NativeRedirect /> : PUBLIC_ROUTES.has(route.name) ? content : <AuthGate route={route.name}>{content}</AuthGate>}
       <DialogHost />
-      {splash && (
-        <div className="splash" aria-hidden="true" data-testid="splash">
-          <img src="/icons/icon-192.png" alt="" width={96} height={96} />
-          <strong>BauPad</strong>
-          <span>PAD Software</span>
-        </div>
-      )}
     </>
   );
 }
