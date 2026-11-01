@@ -31,7 +31,16 @@ interface RemoteRow {
   uploaded: boolean;
   updated_at: string;
   deleted_at: string | null;
+  /** Benutzer, der den Eintrag angelegt hat (auth.uid) */
+  created_by?: string | null;
 }
+
+/** angemeldete Person – ersetzt fehlende Namen an eigenen Fotos */
+export interface PhotoUser {
+  id: string;
+  name: string;
+}
+let currentUser: PhotoUser | null = null;
 
 export interface CloudState {
   /** off = keine Firma/abgemeldet · setup = Ablage nicht eingerichtet · connecting · ready · error */
@@ -82,6 +91,13 @@ export class CloudPhotoStorage implements PhotoStorage {
     readonly companyId: string,
     private fetchFn?: FetchLike,
   ) {}
+
+  /** Eigene Fotos ohne Namen bekommen den Namen der Anmeldung (ältere Aufnahmen vor der Anmeldung) */
+  private nameFor(data: { userName?: string }, createdBy: string | null | undefined): string {
+    const n = (data.userName ?? '').trim();
+    if (n) return n;
+    return currentUser && createdBy === currentUser.id ? currentUser.name : '';
+  }
 
   private call<T>(action: string, body: Record<string, unknown> = {}) {
     return cloudCall<T>(action, body, this.fetchFn);
@@ -277,6 +293,7 @@ export class CloudPhotoStorage implements PhotoStorage {
         const data = row.data as unknown as Photo;
         const p: Photo = {
           ...data,
+          userName: this.nameFor(data, row.created_by),
           id: row.id,
           companyId: this.companyId,
           size: row.size || data.size || 0,
@@ -313,6 +330,26 @@ let active: CloudPhotoStorage | null = null;
  * nach dem Abmelden gilt wieder der lokale Speicher. Der erste Abgleich prüft, ob die Ablage eingerichtet ist –
  * war sie es schon einmal, läuft der Adapter auch offline los (Warteschlange) und gleicht später ab.
  */
+/**
+ * Einmal je Anmeldung: eigene Fotos ohne Namen bekommen den Namen der Anmeldung – lokal die noch nie hochgeladenen
+ * (dieses Gerät = diese Person), in der Ablage über den Hochladenden (created_by) beim nächsten vollständigen Abgleich.
+ */
+export async function backfillPhotoUserNames(user: PhotoUser | null): Promise<void> {
+  currentUser = user && user.name.trim() ? { id: user.id, name: user.name.trim() } : null;
+  if (!currentUser) return;
+  const key = `photoUserBackfill:${currentUser.id}`;
+  if (await getMeta<boolean>(key)) return;
+  let changed = false;
+  for (const p of await listAllPhotos()) {
+    if (p.userName.trim() || p.deletedAt || p.remoteId) continue;
+    await getPhotoStorage().update({ ...p, userName: currentUser.name });
+    changed = true;
+  }
+  await setMeta(SYNC_AT, null); // Ablage einmal komplett neu durchgehen (Namen an eigenen Fotos ergänzen)
+  await setMeta(key, true);
+  if (changed) notifyPhotosChanged();
+}
+
 export async function connectPhotoCloud(companyId: string | null | undefined, fetchFn?: FetchLike): Promise<void> {
   if (!companyId) {
     disconnectPhotoCloud();

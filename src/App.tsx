@@ -34,7 +34,7 @@ import { DefectPlanPage } from './pages/DefectPlanPage';
 import { isInstalledApp } from './lib/platform';
 import { getAuth } from './lib/auth';
 import { useSession } from './lib/use-session';
-import { connectPhotoCloud } from './lib/photo-cloud';
+import { backfillPhotoUserNames, connectPhotoCloud, syncPhotoCloud } from './lib/photo-cloud';
 import { remoteConnected } from './lib/remote';
 import { isNativeApp } from './lib/native';
 import { adoptFreeSites } from './lib/sites';
@@ -171,10 +171,17 @@ function useAuthReturn() {
 function usePhotoCloud() {
   const session = useSession();
   const companyId = session?.companyId ?? null;
+  const userId = session?.userId ?? null;
+  const userName = session?.name ?? '';
   useEffect(() => {
     if (session === undefined) return;
-    void connectPhotoCloud(remoteConnected() ? companyId : null).catch(() => {});
-  }, [session === undefined, companyId]);
+    void connectPhotoCloud(remoteConnected() ? companyId : null)
+      .catch(() => {})
+      // nach der Anbindung: eigene Fotos ohne Namen bekommen den Namen der Anmeldung, danach Abgleich
+      .then(() => backfillPhotoUserNames(userId ? { id: userId, name: userName } : null))
+      .then(() => syncPhotoCloud().catch(() => {}))
+      .catch(() => {});
+  }, [session === undefined, companyId, userId, userName]);
 }
 
 export function App() {
