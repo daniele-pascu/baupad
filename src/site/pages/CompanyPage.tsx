@@ -1,5 +1,4 @@
 import { Icon } from '../../components/Icon';
-import { paths } from '../../lib/router';
 import { contactData } from '../contact-data';
 import { useLang } from '../i18n';
 import { organizationJsonLd, siteAlternates } from '../seo';
@@ -71,17 +70,6 @@ export function CompanyPage() {
         </div>
       </Section>
 
-      <Section tone="mist">
-        <SectionHead eyebrow={c.link.eyebrow} title={c.link.title} text={c.link.text} />
-        <Reveal className="ps-actions">
-          <a href={paths.products(lang)} className="ps-btn ps-btn-navy">
-            {c.link.cta} <Icon name="next" size={16} />
-          </a>
-          <a href={paths.contact(lang)} className="ps-btn ps-btn-outline-dark">
-            {t.common.contact}
-          </a>
-        </Reveal>
-      </Section>
     </SiteLayout>
   );
 }

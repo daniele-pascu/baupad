@@ -159,14 +159,9 @@ export const en: Dict = {
     },
     roles: {
       eyebrow: 'User roles',
-      title: 'Everyone sees what they need.',
-      text: 'Four roles, set by the admin: which tools and which projects.',
-      items: [
-        { title: 'Admin', text: 'Defines users, roles, tools and projects. Manages company and forms. Sees under photos what was uploaded last across all projects.' },
-        { title: 'Office', text: 'Create projects, check measurements, exports for invoice and client. “Recently uploaded” gallery across all projects.' },
-        { title: 'Foreman', text: 'Scheduling, reports, photos and defects directly on site.' },
-        { title: 'Worker', text: 'Sees his sites, takes photos and fills the day-work list – nothing more.' },
-      ],
+      title: 'Four roles.',
+      text: 'Admin, office, foreman and worker – the admin defines per user which tools and which projects they see.',
+      items: [{ title: 'Admin', text: '' }, { title: 'Office', text: '' }, { title: 'Foreman', text: '' }, { title: 'Worker', text: '' }],
     },
     tools: {
       eyebrow: 'The five tools',
@@ -339,7 +334,6 @@ export const en: Dict = {
       ],
     },
     value: { eyebrow: 'Value', title: 'What customers get.', items: ['Less retyping, fewer lost notes', 'Proof that stands up to the client', 'One software for foreman, site manager and office', 'Personal contact with the developers'] },
-    link: { eyebrow: 'Products', title: 'Company and products belong together.', text: 'PAD Software is the brand, BauPad the first product. Every further product builds on the same foundation: one account, one company, shared projects.', cta: 'All products' },
   },
   contactPage: {
     title: 'Contact – PAD Software',

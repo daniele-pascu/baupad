@@ -161,14 +161,9 @@ export const de = {
     },
     roles: {
       eyebrow: 'Benutzerrollen',
-      title: 'Jeder sieht, was er braucht.',
-      text: 'Vier Rollen, vom Admin eingestellt: welche Werkzeuge und welche Projekte.',
-      items: [
-        { title: 'Admin', text: 'Legt Benutzer, Rollen, Werkzeuge und Projekte fest. Verwaltet Firma und Formulare. Sieht unter Fotos, was zuletzt aus allen Projekten hochgeladen wurde.' },
-        { title: 'Büro', text: 'Projekte anlegen, Aufmaße prüfen, Exporte für Rechnung und Auftraggeber. Galerie „Zuletzt hochgeladen“ über alle Projekte.' },
-        { title: 'Polier', text: 'Einteilung, Berichte, Fotos und Mängel direkt vor Ort.' },
-        { title: 'Arbeiter', text: 'Sieht seine Baustellen, macht Fotos und Regieliste – mehr nicht.' },
-      ],
+      title: 'Vier Rollen.',
+      text: 'Admin, Büro, Polier und Arbeiter – der Admin legt je Benutzer fest, welche Werkzeuge und welche Projekte er sieht.',
+      items: [{ title: 'Admin', text: '' }, { title: 'Büro', text: '' }, { title: 'Polier', text: '' }, { title: 'Arbeiter', text: '' }],
     },
     tools: {
       eyebrow: 'Die fünf Werkzeuge',
@@ -341,7 +336,6 @@ export const de = {
       ],
     },
     value: { eyebrow: 'Nutzen', title: 'Was Kunden davon haben.', items: ['Weniger Abtippen, weniger verlorene Zettel', 'Nachweise, die vor dem Auftraggeber bestehen', 'Eine Software für Polier, Bauleitung und Büro', 'Persönlicher Kontakt zu den Entwicklern'] },
-    link: { eyebrow: 'Produkte', title: 'Unternehmen und Produkte gehören zusammen.', text: 'PAD Software ist die Marke, BauPad das erste Produkt. Jedes weitere Produkt baut auf derselben Grundlage auf: ein Konto, eine Firma, gemeinsame Projekte.', cta: 'Alle Produkte' },
   },
   contactPage: {
     title: 'Kontakt – PAD Software',

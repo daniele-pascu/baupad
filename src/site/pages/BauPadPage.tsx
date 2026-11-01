@@ -7,7 +7,7 @@ import { useLang } from '../i18n';
 import { TOOL_ENTRIES, toolPath } from '../products';
 import { siteAlternates, softwareJsonLd } from '../seo';
 import { Reveal } from '../components/Reveal';
-import { Badge, Grid, Lines, Section, SectionHead, Statement } from '../components/Section';
+import { Badge, Lines, Section, SectionHead } from '../components/Section';
 import { Backdrop } from '../components/Shapes';
 import { SiteLayout } from '../components/SiteShell';
 
@@ -88,11 +88,14 @@ export function BauPadPage() {
         </div>
         <div className="ps-roles">
           <SectionHead eyebrow={b.roles.eyebrow} title={b.roles.title} text={b.roles.text} level={3} />
-          <Grid cols={4}>
+          <ul className="ps-role-list" data-testid="roles">
             {b.roles.items.map((r) => (
-              <Statement key={r.title} icon={<Icon name="hand" size={18} />} title={r.title} text={r.text} />
+              <li key={r.title}>
+                <Icon name="hand" size={18} />
+                {r.title}
+              </li>
             ))}
-          </Grid>
+          </ul>
         </div>
       </Section>
 
