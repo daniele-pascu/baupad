@@ -164,8 +164,8 @@ export const de = {
       title: 'Jeder sieht, was er braucht.',
       text: 'Vier Rollen, vom Admin eingestellt: welche Werkzeuge und welche Projekte.',
       items: [
-        { title: 'Admin', text: 'Legt Benutzer, Rollen, Werkzeuge und Projekte fest. Verwaltet Firma und Formulare.' },
-        { title: 'Büro', text: 'Projekte anlegen, Aufmaße prüfen, Exporte für Rechnung und Auftraggeber.' },
+        { title: 'Admin', text: 'Legt Benutzer, Rollen, Werkzeuge und Projekte fest. Verwaltet Firma und Formulare. Sieht unter Fotos, was zuletzt aus allen Projekten hochgeladen wurde.' },
+        { title: 'Büro', text: 'Projekte anlegen, Aufmaße prüfen, Exporte für Rechnung und Auftraggeber. Galerie „Zuletzt hochgeladen“ über alle Projekte.' },
         { title: 'Polier', text: 'Einteilung, Berichte, Fotos und Mängel direkt vor Ort.' },
         { title: 'Arbeiter', text: 'Sieht seine Baustellen, macht Fotos und Regieliste – mehr nicht.' },
       ],

@@ -103,11 +103,18 @@ export function PhotosPage() {
             </a>
             <h1 data-testid="photos-title">Fotodokumentation</h1>
           </div>
-          {mayCreate && (
-          <button type="button" className="btn btn-sm" onClick={() => setCreating(true)} aria-label="Neues Projekt" title="Neues Projekt" data-testid="photo-new-site">
-            <Icon name="plus" size={16} /> <span className="lbl">Neues Projekt</span>
-          </button>
-          )}
+          <div className="row gap">
+            {(access.session?.role === 'admin' || access.session?.role === 'buero') && (
+              <a href={paths.photosRecent()} className="btn btn-sm" title="Die neuesten Fotos aller Projekte als Galerie" data-testid="photo-recent">
+                <Icon name="images" size={16} /> <span className="lbl">Zuletzt hochgeladen</span>
+              </a>
+            )}
+            {mayCreate && (
+              <button type="button" className="btn btn-sm" onClick={() => setCreating(true)} aria-label="Neues Projekt" title="Neues Projekt" data-testid="photo-new-site">
+                <Icon name="plus" size={16} /> <span className="lbl">Neues Projekt</span>
+              </button>
+            )}
+          </div>
         </header>
         {creating && (
           <ProjectPicker

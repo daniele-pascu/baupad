@@ -33,6 +33,7 @@ export type Route =
   | { name: 'reportSite'; siteKey: string }
   | { name: 'camera'; siteKey: string | null }
   | { name: 'photos' }
+  | { name: 'photosRecent' }
   | { name: 'photoSite'; siteKey: string; week: string | null; photoId: string | null }
   | { name: 'defects' }
   | { name: 'defectSite'; siteKey: string }
@@ -89,6 +90,7 @@ export function parseRoute(url: string): Route {
   if (parts[0] === 'berichte' && parts[1] === 'b' && parts.length === 3) return { name: 'reportSite', siteKey: parts[2] };
   if (parts[0] === 'berichte' && parts.length === 2) return { name: 'report', reportId: parts[1] };
   if (parts[0] === 'fotos' && parts.length === 1) return { name: 'photos' };
+  if (parts[0] === 'fotos' && parts[1] === 'zuletzt' && parts.length === 2) return { name: 'photosRecent' };
   if (parts[0] === 'fotos' && parts[1] === 'kamera' && parts.length === 2) return { name: 'camera', siteKey: params.get('s') };
   if (parts[0] === 'fotos' && (parts[1] === 'p' || parts[1] === 'n') && parts.length === 3)
     return { name: 'photoSite', siteKey: `${parts[1]}:${parts[2]}`, week: params.get('w'), photoId: params.get('f') };
@@ -143,6 +145,7 @@ export const paths = {
   reportSite: (key: string) => `/berichte/b/${encodeURIComponent(key)}`,
   /** Fotodokumentation: Übersicht und Baustelle (Schlüssel „p:<Projekt>“ bzw. „n:<Name>“) */
   photos: () => '/fotos',
+  photosRecent: () => '/fotos/zuletzt',
   defects: () => '/maengel',
   defectSite: (key: string) => `/maengel/b/${encodeURIComponent(key)}`,
   defectPlan: (planId: string, markId?: string | null) => `/maengel/plan/${planId}${markId ? `?m=${encodeURIComponent(markId)}` : ''}`,

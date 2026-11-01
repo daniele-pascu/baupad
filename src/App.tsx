@@ -25,6 +25,7 @@ import { ReportSitePage } from './pages/ReportSitePage';
 import { CameraPage } from './pages/CameraPage';
 import { ReportEditorPage } from './pages/ReportEditorPage';
 import { PhotosPage } from './pages/PhotosPage';
+import { RecentPhotosPage } from './pages/RecentPhotosPage';
 import { PhotoSitePage } from './pages/PhotoSitePage';
 import { DefectsPage } from './pages/DefectsPage';
 import { DefectSitePage } from './pages/DefectSitePage';
@@ -249,6 +250,9 @@ export function App() {
       break;
     case 'photos':
       content = <PhotosPage />;
+      break;
+    case 'photosRecent':
+      content = <RecentPhotosPage />;
       break;
     case 'camera':
       content = <CameraPage key={route.siteKey ?? ''} siteKey={route.siteKey} />;

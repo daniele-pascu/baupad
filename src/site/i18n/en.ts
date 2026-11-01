@@ -162,8 +162,8 @@ export const en: Dict = {
       title: 'Everyone sees what they need.',
       text: 'Four roles, set by the admin: which tools and which projects.',
       items: [
-        { title: 'Admin', text: 'Defines users, roles, tools and projects. Manages company and forms.' },
-        { title: 'Office', text: 'Create projects, check measurements, exports for invoice and client.' },
+        { title: 'Admin', text: 'Defines users, roles, tools and projects. Manages company and forms. Sees under photos what was uploaded last across all projects.' },
+        { title: 'Office', text: 'Create projects, check measurements, exports for invoice and client. “Recently uploaded” gallery across all projects.' },
         { title: 'Foreman', text: 'Scheduling, reports, photos and defects directly on site.' },
         { title: 'Worker', text: 'Sees his sites, takes photos and fills the day-work list – nothing more.' },
       ],

@@ -277,4 +277,15 @@ test('Neue Baustelle unter Fotos (Übersicht und Speichern-Dialog), Verschieben,
   await page.reload(); // Großansicht bleibt über die Adresse (?f=) offen
   await expect(page.getByTestId('lightbox')).toContainText(`${h} × ${w}`);
   await expect.poll(() => page.getByTestId('lightbox-image').evaluate((i: HTMLImageElement) => [i.naturalWidth, i.naturalHeight])).toEqual([h, w]);
+
+  // Admin/Büro: „Zuletzt hochgeladen“ – Galerie aller Projekte, neueste zuerst, mit Projekt und Großansicht
+  await page.goto('./fotos');
+  await page.getByTestId('photo-recent').click();
+  await expect(page.getByTestId('recent-title')).toHaveText('Zuletzt hochgeladen');
+  const recent = page.getByTestId('photo-recent-card');
+  await expect(recent).toHaveCount(3);
+  await expect(recent.first()).toContainText('Halle 3'); // C.jpg wurde zuletzt gespeichert
+  await expect(recent.nth(1)).toContainText('Garage');
+  await recent.first().locator('.photo-thumb').click();
+  await expect(page.locator('.photo-viewer')).toBeVisible();
 });

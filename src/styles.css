@@ -8054,3 +8054,18 @@ button.report-site-empty {
   background: #eef2ff;
   color: #2f4bd1;
 }
+
+/* Fotodokumentation → Zuletzt hochgeladen: Projekt als Marke auf der Kachel */
+.photo-recent-site {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 650;
+  color: var(--ink, #1c1c1e);
+  text-decoration: none;
+}
+.photo-recent-site:hover {
+  text-decoration: underline;
+}
