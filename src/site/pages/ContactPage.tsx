@@ -96,13 +96,16 @@ export function ContactPage() {
   };
 
   firstError.current = null;
-  const rows: [string, string, 'mail' | 'tel' | null][] = [
-    [c.direct.email, contactData.email, 'mail'],
-    [c.direct.person, contactData.person, null],
-    [c.direct.company, contactData.company, null],
-    [c.direct.phone, contactData.phone, 'tel'],
-    [c.direct.address, contactData.address, null],
-  ];
+  // leere Angaben (Telefon, Anschrift) erscheinen erst, wenn sie eingetragen sind
+  const rows = (
+    [
+      [c.direct.email, contactData.email, 'mail'],
+      [c.direct.person, contactData.person, null],
+      [c.direct.company, contactData.company, null],
+      [c.direct.phone, contactData.phone, 'tel'],
+      [c.direct.address, contactData.address, null],
+    ] as [string, string, 'mail' | 'tel' | null][]
+  ).filter((r) => r[1]);
 
   return (
     <SiteLayout meta={{ title: c.title, description: c.description, lang, alternates: siteAlternates('contact'), jsonLd: [organizationJsonLd(contactData.email)] }} className="ps-contact-page">

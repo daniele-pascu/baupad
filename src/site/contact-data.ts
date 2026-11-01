@@ -1,10 +1,10 @@
 /**
  * Kontakt- und Impressumsangaben von PAD Software – hier ergänzen, nichts wird erfunden.
- * Leere Angaben ('') werden auf den Seiten sichtbar als „wird ergänzt“ angezeigt.
+ * Leere Angaben ('') erscheinen auf der Kontaktseite nicht; im Impressum stehen sie als „wird ergänzt“ (dort Pflicht).
  */
 export const contactData = {
   company: 'PAD Software',
-  person: 'Hr. Pascu Andrea-Daniele',
+  person: 'Andrea-Daniele Pascu',
   email: 'office@pad-software.at',
   phone: '',
   address: '',

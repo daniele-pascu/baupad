@@ -251,7 +251,7 @@ export const de = {
         { title: 'Aufnehmen', items: ['Kamera-Modus: Projekt wählen, auslösen, fertig', 'Format 4:3, 3:2, 16:9, 1:1 – quer gehalten, quer gespeichert', 'Beschreibung für die nächsten Fotos', 'Galerie-Import mit Aufnahmezeit aus dem Foto'] },
         { title: 'Ordnen', items: ['Projekt → Kalenderwoche → Tag', 'Ansicht nach Tag, Woche, Monat oder alles', 'Suche nach KW, Datum, Name oder Beschreibung', 'Verschieben zu einem anderen Projekt'] },
         { title: 'Ansehen', items: ['Großansicht mit Blättern und Zoom', 'Drehen wird sofort gespeichert', 'Beschreibung direkt im Bild bearbeiten'] },
-        { title: 'Ausgeben', items: ['Foto-PDF: 1 bis 6 Fotos je Seite, Logo, Angaben wählbar', 'ZIP mit Dateien nach Datum', 'Zentrale Ablage für alle Geräte in Vorbereitung'] },
+        { title: 'Ausgeben', items: ['Foto-PDF: 1 bis 6 Fotos je Seite, Logo, Angaben wählbar', 'ZIP mit Dateien nach Datum', 'Zentrale Ablage: alle Geräte der Firma sehen denselben Stand, Dateien in Deutschland gespeichert'] },
       ],
     },
     defects: {
@@ -346,7 +346,6 @@ export const de = {
     hero: { eyebrow: 'Zukunft', title: ['Was als Nächstes', 'kommt.'], lead: 'BauPad ist der Anfang. Hier zeigen wir, woran wir arbeiten – klar gekennzeichnet als Planung, ohne Produktnamen und ohne Termine.' },
     badge: 'In Planung',
     items: [
-      { title: 'Gemeinsame Ablage', text: 'Fotos, Pläne und Berichte zentral für alle Geräte einer Firma, gespeichert in der EU. Heute liegen Projektdaten auf dem Gerät.' },
       { title: 'BauPad in den App Stores', text: 'BauPad zusätzlich als App im App Store und bei Google Play. Die Web-App bleibt.' },
       { title: 'Weitere Werkzeuge für den Baualltag', text: 'Wir sammeln Themen aus dem Betrieb: Zeiterfassung, Material, Geräte. Was davon ein Produkt wird, entscheidet die Praxis.' },
     ],
@@ -391,7 +390,7 @@ export const de = {
         {
           h: 'Welche Daten BauPad verarbeitet',
           p: [
-            'Alle Inhalte, die Sie in BauPad erfassen (Projekte, Pläne, Messungen, Arbeiter, Berichte, Fotos), werden ausschließlich im Speicher Ihres Geräts abgelegt (Browser-Datenbank). Sie werden nicht an uns oder Dritte übertragen.',
+            'Alle Inhalte, die Sie in BauPad erfassen (Projekte, Pläne, Messungen, Arbeiter, Berichte, Fotos), werden zuerst im Speicher Ihres Geräts abgelegt (Browser-Datenbank), damit BauPad auch ohne Internet funktioniert. Gehört Ihr Konto zu einer Firma, werden sie zusätzlich in die zentrale Ablage Ihrer Firma übertragen (siehe unten), damit alle Geräte der Firma denselben Stand sehen. Ohne Firma bleiben sie nur auf dem Gerät.',
             'Exporte (Excel, PDF, ZIP) erstellen Sie selbst auf dem Gerät und geben sie selbst weiter. Beim Teilen über Apps Ihres Geräts gelten deren Datenschutzbestimmungen.',
             'Fotos können Aufnahmezeit und den am Gerät eingetragenen Namen enthalten. Ortsangaben werden nicht gespeichert.',
           ],
@@ -401,18 +400,22 @@ export const de = {
           h: 'Benutzerkonto',
           p: [
             'Für die Werkzeuge ist ein Benutzerkonto nötig. Beim Registrieren werden E-Mail-Adresse, Name, optional der Firmenname sowie ein verschlüsselt gespeichertes Passwort verarbeitet; bei Anmeldung über Google, Apple oder Microsoft erhalten wir von dort Name und E-Mail-Adresse. Dazu kommen Arbeitsbereich (Firma), Funktion und freigegebene Werkzeuge, die der Admin Ihrer Firma festlegt.',
-            'Diese Kontodaten speichert unser Auftragsverarbeiter Supabase Inc. in einem Rechenzentrum in der EU (Irland) auf Grundlage von Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung). Projekte, Pläne, Fotos und Berichte bleiben weiterhin auf Ihrem Gerät.',
+            'Diese Kontodaten speichert unser Auftragsverarbeiter Supabase Inc. in einem Rechenzentrum in der EU (Irland) auf Grundlage von Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung).',
             'Sie können Ihr Konto jederzeit unter „Konto und Einstellungen“ selbst löschen; damit werden Konto, Mitgliedschaften und ein nur von Ihnen genutzter Arbeitsbereich entfernt.',
           ],
         },
         {
-          h: 'Geplante zentrale Ablage',
-          p: ['Eine gemeinsame Ablage für Fotos und Berichte aller Geräte eines Unternehmens ist in Vorbereitung. Sobald sie verfügbar ist, wird diese Erklärung um die dann eingesetzten Dienste und Speicherorte (Rechenzentren in der EU) ergänzt.'],
+          h: 'Zentrale Ablage',
+          p: [
+            'Die zentrale Ablage speichert die Inhalte eines Unternehmens (Projekte, Pläne, Aufmaße, Berichte, Einteilung, Mängelpläne, Formulare, Fotos) für alle Geräte und Benutzer dieser Firma. Zugriff haben nur angemeldete Benutzer der Firma im Rahmen der vom Admin vergebenen Rechte. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung).',
+            'Datensätze (Angaben zu Projekten, Messungen, Berichten, Einteilung, Markierungen) speichert unser Auftragsverarbeiter Supabase Inc. in einem Rechenzentrum in der EU (Irland). Dateien (Originalpläne, Planbilder, Formular-PDFs, Fotos) speichert unser Auftragsverarbeiter Hetzner Online GmbH in einem Rechenzentrum in Nürnberg (Deutschland). Die Übertragung erfolgt verschlüsselt über kurzlebige, auf die Firma beschränkte Zugriffslinks; PAD Software hat keinen Zugriff auf die Inhalte Ihrer Firma, nur auf Kontodaten und Abrechnung.',
+            'Die Inhalte bleiben gespeichert, bis Sie sie in BauPad löschen oder die Firma ihren Arbeitsbereich auflöst; Löschen gilt für alle Geräte der Firma. Mit beiden Dienstleistern bestehen Auftragsverarbeitungsverträge nach Art. 28 DSGVO.',
+          ],
         },
         {
           h: 'Ihre Rechte',
           p: [
-            'Sie haben das Recht auf Auskunft, Berichtigung, Löschung und Datenübertragbarkeit Ihrer Daten; Löschen und Ändern des Kontos können Sie selbst in der App, alles Weitere über die Kontaktseite. Inhalte auf dem Gerät löschen Sie jederzeit selbst (Projekt löschen, Browserdaten löschen). Beschwerden sind an die österreichische Datenschutzbehörde möglich (www.dsb.gv.at).',
+            'Sie haben das Recht auf Auskunft, Berichtigung, Löschung und Datenübertragbarkeit Ihrer Daten; Löschen und Ändern des Kontos können Sie selbst in der App, alles Weitere über die Kontaktseite. Inhalte löschen Sie jederzeit selbst in BauPad (Projekt löschen); auf einem Gerät ohne Firma zusätzlich über die Browserdaten. Beschwerden sind an die österreichische Datenschutzbehörde möglich (www.dsb.gv.at).',
           ],
         },
       ],

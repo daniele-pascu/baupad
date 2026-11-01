@@ -21,7 +21,7 @@ test('Website: Startseite, Produkte, BauPad, Unternehmen, Zukunft, Kontaktformul
   await expect(page.locator('html')).toHaveAttribute('lang', 'de');
   // Dachmarke zuerst: Unternehmen, dann Produktwelt (1 verfügbar, 3 geplant), dann BauPad
   await expect(page.locator('.ps-product-card.is-available')).toHaveCount(1);
-  await expect(page.locator('.ps-product-card.is-planned')).toHaveCount(3);
+  await expect(page.locator('.ps-product-card.is-planned')).toHaveCount(2);
   await expect(page.locator('.ps-panel-tag').first()).toContainText('Platzhalter'); // keine echten Bildschirmfotos
   await expect(page.locator('.ps-main img')).toHaveCount(0);
 
@@ -29,7 +29,7 @@ test('Website: Startseite, Produkte, BauPad, Unternehmen, Zukunft, Kontaktformul
   await nav.getByRole('link', { name: 'Produkte', exact: true }).click();
   await expect(h1).toContainText('Produkte von PAD Software');
   await expect(page).toHaveTitle('Produkte – PAD Software');
-  await expect(page.locator('.ps-badge-plan')).toHaveCount(3);
+  await expect(page.locator('.ps-badge-plan')).toHaveCount(2);
   await page.getByTestId('product-open-baupad').click();
 
   // BauPad: fünf Werkzeuge, Werkzeug-Seite, Werkzeug nur mit Anmeldung
@@ -50,13 +50,13 @@ test('Website: Startseite, Produkte, BauPad, Unternehmen, Zukunft, Kontaktformul
   await expect(h1).toContainText('für die Praxis');
   await expect(page).toHaveTitle('Unternehmen – PAD Software');
   await nav.getByRole('link', { name: 'Zukunft', exact: true }).click();
-  await expect(page.getByTestId('future-list').locator('article')).toHaveCount(3);
+  await expect(page.getByTestId('future-list').locator('article')).toHaveCount(2); // Ablage ist verfügbar, nicht mehr in Planung
   await expect(page.getByTestId('future-list')).toContainText('In Planung');
 
   // Kontakt: Angaben (fehlende als Platzhalter), Formular mit Prüfung
   await nav.getByRole('link', { name: 'Kontakt', exact: true }).click();
   await expect(h1).toHaveText('Schreiben Sie uns.');
-  await expect(page.getByTestId('contact-list').locator('.placeholder')).toHaveCount(2); // Telefon und Anschrift fehlen noch
+  await expect(page.getByTestId('contact-list').locator('.placeholder')).toHaveCount(0); // leere Angaben (Telefon, Anschrift) werden nicht gezeigt
   await expect(page.getByTestId('contact-list')).toContainText('office@pad-software.at');
   await page.getByTestId('contact-submit').click();
   await expect(page.locator('.ps-error')).toHaveCount(5); // Name, E-Mail, Betreff, Nachricht, Einwilligung

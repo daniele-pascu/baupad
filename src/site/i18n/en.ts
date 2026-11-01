@@ -249,7 +249,7 @@ export const en: Dict = {
         { title: 'Capture', items: ['Camera mode: choose the project, shoot, done', 'Format 4:3, 3:2, 16:9, 1:1 – held landscape, saved landscape', 'Description for the next photos', 'Gallery import with capture time from the photo'] },
         { title: 'Organise', items: ['Project → calendar week → day', 'View by day, week, month or everything', 'Search by week, date, name or description', 'Move to another project'] },
         { title: 'View', items: ['Full view with paging and zoom', 'Rotation is saved immediately', 'Edit the description directly in the picture'] },
-        { title: 'Export', items: ['Photo PDF: 1 to 6 photos per page, logo, selectable details', 'ZIP with files by date', 'Central storage for all devices in preparation'] },
+        { title: 'Export', items: ['Photo PDF: 1 to 6 photos per page, logo, selectable details', 'ZIP with files by date', 'Central storage: all devices of the company see the same state, files stored in Germany'] },
       ],
     },
     defects: {
@@ -344,7 +344,6 @@ export const en: Dict = {
     hero: { eyebrow: 'Future', title: ['What comes', 'next.'], lead: 'BauPad is the beginning. Here we show what we are working on – clearly labelled as planning, without product names and without dates.' },
     badge: 'Planned',
     items: [
-      { title: 'Shared storage', text: 'Photos, plans and reports centrally for all devices of a company, stored in the EU. Today project data stays on the device.' },
       { title: 'BauPad in the app stores', text: 'BauPad additionally as an app in the App Store and on Google Play. The web app stays.' },
       { title: 'Further tools for the construction day', text: 'We collect topics from the field: time tracking, material, equipment. Practice decides which of them becomes a product.' },
     ],
@@ -389,7 +388,7 @@ export const en: Dict = {
         {
           h: 'Which data BauPad processes',
           p: [
-            'All content you record in BauPad (projects, plans, measurements, workers, reports, photos) is stored exclusively in the storage of your device (browser database). It is not transmitted to us or third parties.',
+            'All content you record in BauPad (projects, plans, measurements, workers, reports, photos) is first stored on your device (browser database) so that BauPad works without internet. If your account belongs to a company, it is additionally transferred to the central storage of your company (see below) so that all devices of the company see the same state. Without a company it stays on the device only.',
             'Exports (Excel, PDF, ZIP) are created by you on the device and shared by you. When sharing via apps on your device, their privacy policies apply.',
             'Photos may contain the capture time and the name entered on the device. Location data is not stored.',
           ],
@@ -399,18 +398,22 @@ export const en: Dict = {
           h: 'User account',
           p: [
             'A user account is required for the tools. When registering, e-mail address, name, optionally the company name and an encrypted password are processed; when signing in via Google, Apple or Microsoft we receive name and e-mail address from there. In addition there are workspace (company), role and released tools, which the admin of your company defines.',
-            'This account data is stored by our processor Supabase Inc. in a data centre in the EU (Ireland) on the basis of Art. 6 (1) (b) GDPR (performance of contract). Projects, plans, photos and reports remain on your device.',
+            'This account data is stored by our processor Supabase Inc. in a data centre in the EU (Ireland) on the basis of Art. 6 (1) (b) GDPR (performance of contract).',
             'You can delete your account yourself at any time under “Account and settings”; this removes the account, memberships and a workspace used only by you.',
           ],
         },
         {
-          h: 'Planned central storage',
-          p: ['Shared storage for photos and reports of all devices of a company is in preparation. As soon as it is available, this policy will be extended by the services and storage locations used (data centres in the EU).'],
+          h: 'Central storage',
+          p: [
+            'Central storage keeps the content of a company (projects, plans, measurements, reports, scheduling, defect plans, forms, photos) for all devices and users of that company. Only signed-in users of the company have access, within the rights granted by the admin. The legal basis is Art. 6 (1) (b) GDPR (performance of contract).',
+            'Records (details of projects, measurements, reports, scheduling, markers) are stored by our processor Supabase Inc. in a data centre in the EU (Ireland). Files (original plans, plan images, form PDFs, photos) are stored by our processor Hetzner Online GmbH in a data centre in Nuremberg (Germany). Transfers are encrypted via short-lived access links restricted to the company; PAD Software has no access to the content of your company, only to account data and billing.',
+            'Content stays stored until you delete it in BauPad or the company dissolves its workspace; deletion applies to all devices of the company. Data processing agreements under Art. 28 GDPR are in place with both providers.',
+          ],
         },
         {
           h: 'Your rights',
           p: [
-            'You have the right to access, rectification, erasure and portability of your data; deleting and changing the account is possible in the app, everything else via the contact page. Content on the device can be deleted by you at any time (delete project, clear browser data). Complaints may be submitted to the Austrian Data Protection Authority (www.dsb.gv.at).',
+            'You have the right to access, rectification, erasure and portability of your data; deleting and changing the account is possible in the app, everything else via the contact page. You can delete content yourself in BauPad at any time (delete project); on a device without a company also via the browser data. Complaints may be submitted to the Austrian Data Protection Authority (www.dsb.gv.at).',
           ],
         },
       ],
