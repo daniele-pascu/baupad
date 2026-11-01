@@ -43,11 +43,12 @@ import { hasStoredSession, initAuth } from './lib/auth-init';
 
 initAuth();
 
-/** zuletzt geöffnete Seite der Werkzeuge (installierte App startet dort wieder) */
-const LAST_PATH = 'baupad:lastPath';
+/** Seiten, die die installierte App beim Start nicht auf die Werkzeug-Übersicht umlenkt (Anmeldung, Rechtliches, Konto-Links aus E-Mails) */
+const PUBLIC_ROUTES_AT_START = new Set(['login', 'register', 'newPassword', 'imprint', 'privacy', 'contact', 'deleteAccountInfo', 'account', 'accountSection', 'camera']);
 
-// Die installierte App startet dort, wo sie zuletzt war (Werkzeugseite oder Kamera), sonst in der
-// Werkzeug-Übersicht („Tools“) – auch Symbole, die vor der neuen Startseite angelegt wurden (Adresse „./“).
+// Die installierte App startet immer in der Werkzeug-Übersicht („Tools“) – bzw. im Kamera-Modus, wenn der zuletzt
+// offen war. Auch Symbole, die vor der neuen Startseite angelegt wurden (Adresse „./“), und Android, das die
+// letzte Adresse wiederherstellt.
 if (typeof window !== 'undefined' && isInstalledApp()) {
   const name = parseRoute(currentPath()).name;
   let resume = false;
@@ -56,18 +57,12 @@ if (typeof window !== 'undefined' && isInstalledApp()) {
   } catch {
     /* egal */
   }
-  let last: string | null = null;
-  try {
-    last = localStorage.getItem(LAST_PATH);
-  } catch {
-    /* egal */
-  }
   // War beim letzten Schließen der Kamera-Modus offen, geht es direkt dort weiter – mit dem letzten Projekt (ein Tipp weniger)
   if (resume && (name === 'landing' || name === 'tools' || name === 'projects')) navigate(paths.camera(), true);
   // Ohne gespeicherte Anmeldung: zuerst Anmelden/Registrieren
   else if (name === 'landing' && !hasStoredSession()) navigate(paths.login(), true);
-  // War die App zuletzt in einem Werkzeug offen, geht es genau dort weiter
-  else if ((name === 'landing' || name === 'tools') && hasStoredSession() && last && last !== paths.tools()) navigate(last, true);
+  // sonst immer die Werkzeug-Übersicht („Tools“) – auch wenn die App zuletzt in einem Werkzeug offen war
+  else if (name !== 'tools' && !PUBLIC_ROUTES_AT_START.has(name) && hasStoredSession()) navigate(paths.tools(), true);
   else if (name === 'landing') navigate(paths.tools(), true);
 }
 
@@ -193,15 +188,6 @@ export function App() {
     const t = window.setTimeout(() => setSplash(false), 350); // kurz: die App soll sofort da sein
     return () => window.clearTimeout(t);
   }, [splash]);
-  // Werkzeugseite merken: die installierte App öffnet beim nächsten Start wieder genau dort
-  useEffect(() => {
-    if (PUBLIC_ROUTES.has(route.name) || SITE_ROUTES.has(route.name) || ['register', 'account', 'accountSection', 'accessPending'].includes(route.name)) return;
-    try {
-      localStorage.setItem(LAST_PATH, currentPath());
-    } catch {
-      /* egal */
-    }
-  }, [route]);
   useServiceWorker();
   useAuthReturn();
   usePhotoCloud();
