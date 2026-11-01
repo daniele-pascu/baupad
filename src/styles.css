@@ -8069,3 +8069,11 @@ button.report-site-empty {
 .photo-recent-site:hover {
   text-decoration: underline;
 }
+
+/* Tablet und Handy (Finger): große Aufnahme- und Auswahlknöpfe unabhängig von der Bildschirmbreite */
+@media (pointer: coarse) {
+  .photo-capture.big .photo-shoot,
+  .photo-capture.big .photo-pick {
+    min-height: 52px;
+  }
+}
