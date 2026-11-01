@@ -35,7 +35,7 @@ export const TOOL_ENTRIES: ToolEntry[] = [
   { id: 'defects', icon: 'defects', color: '#d6242b', slug: PRODUCT_SLUG_OF.defects },
 ];
 
-export const PRODUCTS: ProductEntry[] = [{ id: 'baupad', status: 'available', path: (lang) => paths.baupad(lang), color: '#193B63', tools: TOOL_ENTRIES }];
+export const PRODUCTS: ProductEntry[] = [{ id: 'baupad', status: 'available', path: (lang) => paths.baupad(lang), color: '#1c1c1f', tools: TOOL_ENTRIES }];
 
 
 /** Texte eines Werkzeugs in der gewünschten Sprache */
