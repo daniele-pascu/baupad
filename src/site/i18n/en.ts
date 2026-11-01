@@ -147,7 +147,7 @@ export const en: Dict = {
           problem: 'Everyone sees everything.',
           detail: 'A worker should see his site, not the numbers of the whole company.',
           solution: 'Rights per user.',
-          points: ['Set per user: which tools, which projects, which photos', 'Privacy between sites – each crew sees only its own', 'The company admin sets it in a minute'],
+          points: ['Set per user: which tools, which projects', 'Privacy between sites – each crew sees only its own', 'The company admin sets it in a minute'],
         },
       ],
     },

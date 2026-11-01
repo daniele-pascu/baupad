@@ -149,7 +149,7 @@ export const de = {
           problem: 'Jeder sieht alles.',
           detail: 'Ein Arbeiter soll seine Baustelle sehen, nicht die Zahlen der ganzen Firma.',
           solution: 'Rechte je Benutzer.',
-          points: ['Je Benutzer einstellbar: welche Werkzeuge, welche Projekte, welche Fotos', 'Datenschutz zwischen Baustellen – jede Partie sieht nur ihre', 'Der Admin der Firma legt es in einer Minute fest'],
+          points: ['Je Benutzer einstellbar: welche Werkzeuge, welche Projekte', 'Datenschutz zwischen Baustellen – jede Partie sieht nur ihre', 'Der Admin der Firma legt es in einer Minute fest'],
         },
       ],
     },
