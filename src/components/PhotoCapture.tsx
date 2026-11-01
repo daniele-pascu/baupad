@@ -43,8 +43,15 @@ export function photoFromPrepared(id: string, file: File, pr: PreparedPhoto, sit
   };
 }
 
-/** Name auf diesem Gerät – bis zur Anmeldung (dann kommt der Name aus der Sitzung) */
+/** Name der angemeldeten Person; ohne Anmeldung der auf diesem Gerät hinterlegte Name */
 export async function deviceUserName(): Promise<string> {
+  try {
+    const { getAuth } = await import('../lib/auth');
+    const s = await getAuth().session();
+    if (s?.name?.trim()) return s.name.trim();
+  } catch {
+    /* keine Anmeldung */
+  }
   return (await getMeta<string>('deviceUser')) ?? '';
 }
 
@@ -89,7 +96,7 @@ export function PhotoCapture({
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    void deviceUserName().then(setName);
+    void deviceUserName().then(setName); // angemeldet: Name aus der Anmeldung, sonst vom Gerät
   }, []);
   useEffect(() => () => pending?.forEach((p) => URL.revokeObjectURL(p.url)), [pending]);
 
@@ -184,7 +191,14 @@ export function PhotoCapture({
           </label>
           <label className="field">
             <span>Aufgenommen von</span>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ihr Name (bis zur Anmeldung auf diesem Gerät gespeichert)" autoComplete="name" data-testid="photo-user" />
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              title="Steht an jedem Foto – angemeldet wird der Name der Anmeldung vorgeschlagen"
+              placeholder="Ihr Name (bis zur Anmeldung auf diesem Gerät gespeichert)"
+              autoComplete="name"
+              data-testid="photo-user"
+            />
           </label>
           <ul className="photo-pending" data-testid="photo-pending">
             {pending.map((p) => (

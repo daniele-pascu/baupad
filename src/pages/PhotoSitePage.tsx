@@ -47,7 +47,9 @@ function Thumb({ photo, selectable, selected, onOpen, onToggle }: { photo: Photo
       <div className="photo-card-info">
         <span className="photo-card-line">
           <strong>{timeLabel(photo.takenAt)} Uhr</strong>
-          {photo.userName && <span className="muted">{photo.userName}</span>}
+          <span className="muted" data-testid="photo-user-name">
+            von {photo.userName.trim() || 'unbekannt'}
+          </span>
         </span>
         <span className={`photo-card-desc${photo.description ? '' : ' muted'}`}>{photo.description || 'Keine Beschreibung'}</span>
       </div>
@@ -680,8 +682,7 @@ function Lightbox({
         <div className="lightbox-title">
           <strong>{[photo.siteNumber, photo.siteName].filter(Boolean).join(' · ')}</strong>
           <span>
-            {dayTitle(photo.day)} · {timeLabel(photo.takenAt)} Uhr
-            {photo.userName && ` · ${photo.userName}`}
+            {dayTitle(photo.day)} · {timeLabel(photo.takenAt)} Uhr · von {photo.userName.trim() || 'unbekannt'}
           </span>
         </div>
         <div className="lightbox-zoom" role="group" aria-label="Vergrößerung">

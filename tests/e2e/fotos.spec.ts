@@ -92,7 +92,7 @@ test('Fotos je Baustelle, KW und Tag; Großansicht; Beschreibung; Suche; Duplika
   // Großansicht: Angaben, Blättern, Beschreibung bearbeiten
   await day.getByTestId('photo-thumb').first().click();
   const lb = page.getByTestId('lightbox');
-  await expect(lb).toContainText('Dienstag, 27.10.2026 · 09:15 Uhr · Max Muster');
+  await expect(lb).toContainText('Dienstag, 27.10.2026 · 09:15 Uhr · von Max Muster');
   await expect(lb.getByTestId('lightbox-image')).toBeVisible();
   await expect(lb.getByTestId('lightbox-description')).toContainText('Riss Stütze B4');
   await expect(lb.getByTestId('lightbox-sync')).toHaveText('nur auf diesem Gerät');
@@ -286,6 +286,7 @@ test('Neue Baustelle unter Fotos (Übersicht und Speichern-Dialog), Verschieben,
   await expect(recent).toHaveCount(3);
   await expect(recent.first()).toContainText('Halle 3'); // C.jpg wurde zuletzt gespeichert
   await expect(recent.nth(1)).toContainText('Garage');
+  await expect(recent.first().getByTestId('photo-user-name')).toContainText('von '); // Benutzer steht immer dabei
   await recent.first().locator('.photo-thumb').click();
   await expect(page.locator('.photo-viewer')).toBeVisible();
 });

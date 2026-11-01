@@ -32,8 +32,8 @@ function Card({ photo, onOpen }: { photo: Photo; onOpen(): void }) {
           {site}
         </a>
         <span className="photo-card-line">
-          {photo.userName && <span className="muted">{photo.userName}</span>}
-          <span className="muted">{photo.fileName}</span>
+          <strong data-testid="photo-user-name">von {photo.userName.trim() || 'unbekannt'}</strong>
+          <span className="muted">{timeLabel(photo.takenAt)} Uhr</span>
         </span>
         {photo.description && <span className="photo-card-desc">{photo.description}</span>}
       </div>
