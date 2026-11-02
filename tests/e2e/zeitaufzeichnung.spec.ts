@@ -44,19 +44,31 @@ test('Tag erfassen, Monatszettel mit Wegzeit und zweiter Baustelle, Excel, Freig
   await page.getByTestId('tool-times').click();
   await expect(page.getByTestId('times-title')).toHaveText('Zeitaufzeichnung');
 
-  // Tag erfassen: Vorschlag aus der Einteilung (Parkring, 8,5 h), Peter ändern, Rest übernehmen
+  // Tag erfassen: Vorschlag aus der Einteilung (Parkring, 07:00–16:00, Pause 0:30 = 8,5 h), Peter ändern, Rest übernehmen
   await page.getByTestId('times-date').fill('2026-10-28');
   await expect(page.getByTestId('times-day-row')).toHaveCount(2);
   await expect(row(page, 'Max')).toHaveAttribute('data-state', 'suggested');
-  await expect(row(page, 'Max').getByTestId('times-hours')).toHaveValue('8,5');
+  await expect(row(page, 'Max').getByTestId('times-from')).toHaveValue('07:00');
+  await expect(row(page, 'Max').getByTestId('times-to')).toHaveValue('16:00');
+  await expect(row(page, 'Max').getByTestId('times-pause')).toHaveValue('0.5');
+  await expect(row(page, 'Max').getByTestId('times-hours')).toHaveText('8,5 h');
   await expect(row(page, 'Max').getByTestId('times-site')).toHaveValue(/^p:/);
-  await row(page, 'Peter').getByTestId('times-hours').fill('7');
+  await row(page, 'Peter').getByTestId('times-to').fill('15:00');
+  await expect(row(page, 'Peter')).toHaveAttribute('data-state', 'done');
+  await expect(row(page, 'Peter').getByTestId('times-hours')).toHaveText('7,5 h');
+  await row(page, 'Peter').getByTestId('times-pause').selectOption('1');
+  await expect(row(page, 'Peter').getByTestId('times-hours')).toHaveText('7 h');
   await row(page, 'Peter').getByTestId('times-travel').fill('1,5');
   await row(page, 'Peter').getByTestId('times-travel').press('Enter');
-  await expect(row(page, 'Peter')).toHaveAttribute('data-state', 'done');
   await expect(page.getByTestId('times-confirm-all')).toHaveText(/\(1\)/);
   await page.getByTestId('times-confirm-all').click();
   await expect(row(page, 'Max')).toHaveAttribute('data-state', 'done');
+  // Peters Zeiten bleiben ab jetzt als Vorschlag (nächster Tag: bis 15:00, Pause 1:00)
+  await page.getByTestId('times-date').fill('2026-10-29');
+  await expect(row(page, 'Peter')).toHaveAttribute('data-state', 'suggested');
+  await expect(row(page, 'Peter').getByTestId('times-to')).toHaveValue('15:00');
+  await expect(row(page, 'Peter').getByTestId('times-pause')).toHaveValue('1');
+  await expect(row(page, 'Max').getByTestId('times-to')).toHaveValue('16:00');
 
   // Monatsliste: Oktober, Stunden je Person
   await page.getByTestId('times-prev').click();
@@ -70,19 +82,18 @@ test('Tag erfassen, Monatszettel mit Wegzeit und zweiter Baustelle, Excel, Freig
   await expect(page.getByTestId('timesheet-title')).toHaveText('Max');
   await expect(page.getByTestId('timesheet-month')).toHaveText('Oktober 2026');
   const thu = page.locator('[data-testid="timesheet-day"][data-date="2026-10-29"]');
-  await expect(thu.getByTestId('timesheet-suggestion')).toHaveText('Parkring 8,5 h');
+  await expect(thu.getByTestId('timesheet-suggestion')).toHaveText('Parkring 07:00–16:00, 8,5 h');
   await thu.getByTestId('timesheet-take').click();
   await expect(thu).toHaveAttribute('data-state', 'done');
-  await expect(page.getByTestId('timesheet-hours').first()).toBeVisible();
+  // Fr: vormittags Parkring 07:00–11:30, nachmittags Halle 3 11:30–16:00 (ohne Pause)
   const fri = page.locator('[data-testid="timesheet-day"][data-date="2026-10-30"]');
   await fri.getByTestId('timesheet-edit').click();
   await expect(fri).toHaveAttribute('data-state', 'done');
-  await fri.getByTestId('timesheet-hours').fill('4');
-  await fri.getByTestId('timesheet-hours').press('Enter');
+  await fri.getByTestId('timesheet-to').fill('11:30');
+  await expect(fri.getByTestId('timesheet-line-hours')).toHaveText('4 h');
   await fri.getByTestId('timesheet-add-line').click();
+  await expect(fri.getByTestId('timesheet-from').nth(1)).toHaveValue('11:30');
   await fri.getByTestId('timesheet-site').nth(1).selectOption({ label: 'Halle 3' });
-  await fri.getByTestId('timesheet-hours').nth(1).fill('4,5');
-  await fri.getByTestId('timesheet-hours').nth(1).press('Enter');
   await expect(fri.getByTestId('timesheet-day-sum')).toHaveText('8,5 h');
   await expect(page.getByTestId('timesheet-summary')).toContainText('25,5 h');
   await expect(page.getByTestId('timesheet-summary')).toContainText('Halle 3 4,5 h');

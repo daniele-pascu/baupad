@@ -8,7 +8,7 @@ import { useDataChanged } from '../lib/data-events';
 import { usePageTitle } from '../lib/page-title';
 import { navigate, paths } from '../lib/router';
 import { canEditSites } from '../lib/sites';
-import { fmtH, monthId, monthLabel, monthOf, parseHours, shiftMonth, summarize, timesXlsx, weekdayIdx, WEEKDAYS, type TimeDay } from '../lib/times';
+import { defaultTimes, fmtH, fmtPause, hoursOf, monthId, monthLabel, monthOf, parseHours, PAUSES, shiftMonth, summarize, timesXlsx, validTime, weekdayIdx, WEEKDAYS, type TimeDay } from '../lib/times';
 import { loadTimes, saveDay, suggestionFor, type TimesData } from '../lib/times-data';
 import { useSession } from '../lib/use-session';
 import type { Worker } from '../lib/types';
@@ -226,27 +226,55 @@ export function SiteSelect({ value, sites, onChange, disabled, testId }: { value
   );
 }
 
-/** eine Zeile in „Tag erfassen“: Baustelle, Stunden, Wegzeit; Vorschlag grau bis bestätigt */
+/** von / bis / Pause – gemeinsamer Baustein für „Tag erfassen“ und den Monatszettel */
+export function TimeInputs({ from, to, pause, disabled, onChange, testPrefix }: { from: string; to: string; pause: number; disabled?: boolean; onChange(v: { from: string; to: string; pause: number }): void; testPrefix: string }) {
+  return (
+    <>
+      <label className="times-time">
+        <span>von</span>
+        <input type="time" step={900} value={from} disabled={disabled} onChange={(e) => onChange({ from: e.target.value, to, pause })} data-testid={`${testPrefix}-from`} />
+      </label>
+      <label className="times-time">
+        <span>bis</span>
+        <input type="time" step={900} value={to} disabled={disabled} onChange={(e) => onChange({ from, to: e.target.value, pause })} data-testid={`${testPrefix}-to`} />
+      </label>
+      <label className="times-time">
+        <span>Pause</span>
+        <select value={String(pause)} disabled={disabled} onChange={(e) => onChange({ from, to, pause: Number(e.target.value) })} data-testid={`${testPrefix}-pause`}>
+          {[...new Set([...PAUSES, pause])].sort((a, b) => a - b).map((p) => (
+            <option key={p} value={String(p)}>
+              {fmtPause(p)}
+            </option>
+          ))}
+        </select>
+      </label>
+    </>
+  );
+}
+
+/** eine Zeile in „Tag erfassen“: Baustelle, von, bis, Pause → Stunden, Wegzeit; Vorschlag grau bis bestätigt */
 function DayRow({ w, date, rec, sugg, data, by, locked, onSaved }: { w: Worker; date: string; rec: TimeDay | null; sugg: ReturnType<typeof suggestionFor>; data: TimesData; by: string; locked: boolean; onSaved(): void }) {
   const base = rec ? rec.lines : sugg.lines;
   const multi = base.length > 1;
   const first = base[0] ?? null;
+  const fallback = defaultTimes(data.times, date, data.defaults[w.id]);
   const [site, setSite] = useState<{ projectId: string | null; siteName: string } | null>(first ? { projectId: first.projectId, siteName: first.siteName } : null);
-  const [hours, setHours] = useState(first ? fmtH(first.hours) : '');
+  const [t, setT] = useState({ from: first?.from ?? fallback?.from ?? '', to: first?.to ?? fallback?.to ?? '', pause: first?.from ? (first.pause ?? 0) : (fallback?.pause ?? 0) });
   const [travel, setTravel] = useState(first?.travel ? fmtH(first.travel) : '');
   const approved = data.approvals.some((a) => a.id === monthId(w.id, data.month));
-  const save = (next: { site?: typeof site; hours?: string; travel?: string } = {}) => {
+  const hours = validTime(t.from) && validTime(t.to) ? hoursOf(t.from, t.to, t.pause) : (first?.hours ?? 0);
+  const save = (next: { site?: typeof site; t?: typeof t; travel?: string } = {}) => {
     const s = next.site !== undefined ? next.site : site;
-    const h = parseHours(next.hours ?? hours);
-    const t = parseHours(next.travel ?? travel);
-    if (!s || h === null) return;
-    void saveDay(w.id, date, [{ projectId: s.projectId, siteName: s.siteName, hours: h, ...(t ? { travel: t } : {}) }], by, { prev: rec ?? undefined, approved })
+    const tt = next.t ?? t;
+    const tr = parseHours(next.travel ?? travel);
+    if (!s || !validTime(tt.from) || !validTime(tt.to)) return;
+    void saveDay(w.id, date, [{ projectId: s.projectId, siteName: s.siteName, from: tt.from, to: tt.to, pause: tt.pause, hours: 0, ...(tr ? { travel: tr } : {}) }], by, { prev: rec ?? undefined, approved, remember: true })
       .then(onSaved)
       .catch((e) => showError(e, 'Speichern fehlgeschlagen'));
   };
   const absent = sugg.absence ? (sugg.absence === 'urlaub' ? 'Urlaub' : 'Krank') : null;
   return (
-    <li className={`times-day-row${rec ? ' done' : ' suggested'}`} data-testid="times-day-row" data-name={workerName(w)} data-state={rec ? 'done' : 'suggested'}>
+    <li className={`times-day-row${rec ? ' done' : ' suggested'}${multi ? ' multi' : ''}`} data-testid="times-day-row" data-name={workerName(w)} data-state={rec ? 'done' : 'suggested'}>
       <span className="times-day-name">
         <strong>{workerName(w)}</strong>
         {absent && !rec && <span className="times-badge">{absent}</span>}
@@ -254,7 +282,7 @@ function DayRow({ w, date, rec, sugg, data, by, locked, onSaved }: { w: Worker; 
       </span>
       {multi ? (
         <span className="small times-day-multi">
-          {base.map((l) => `${l.siteName} ${fmtH(l.hours)} h`).join(' · ')} –{' '}
+          {base.map((l) => `${l.siteName} ${l.from ? `${l.from}–${l.to} ` : ''}${fmtH(l.hours)} h`).join(' · ')} –{' '}
           <a href={paths.timesheet(w.id, data.month)} data-testid="times-open-sheet">
             im Monatszettel ändern
           </a>
@@ -271,13 +299,20 @@ function DayRow({ w, date, rec, sugg, data, by, locked, onSaved }: { w: Worker; 
               save({ site: v });
             }}
           />
-          <label className="times-num">
-            <input inputMode="decimal" value={hours} disabled={locked} onChange={(e) => setHours(e.target.value)} onBlur={() => hours !== (first ? fmtH(first.hours) : '') && save()} onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} placeholder="Std." aria-label={`Stunden ${workerName(w)}`} data-testid="times-hours" />
-            <span>h</span>
-          </label>
+          <TimeInputs
+            {...t}
+            disabled={locked}
+            testPrefix="times"
+            onChange={(v) => {
+              setT(v);
+              save({ t: v });
+            }}
+          />
+          <span className="times-hours" data-testid="times-hours">
+            {fmtH(hours)} h
+          </span>
           <label className="times-num travel">
             <input inputMode="decimal" value={travel} disabled={locked} onChange={(e) => setTravel(e.target.value)} onBlur={() => travel !== (first?.travel ? fmtH(first.travel) : '') && save()} onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} placeholder="Weg" aria-label={`Wegzeit ${workerName(w)}`} data-testid="times-travel" />
-            <span>h</span>
           </label>
         </>
       )}

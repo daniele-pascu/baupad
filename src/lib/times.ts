@@ -12,11 +12,23 @@ import type { Absence, WeekPlan, Worker, WorkTimes } from './types';
 export interface TimeLine {
   projectId: string | null;
   siteName: string;
-  /** Stunden (Dezimal, z. B. 8,5) */
+  /** Stunden (Dezimal, z. B. 8,5) – aus von/bis/Pause berechnet */
   hours: number;
+  /** Arbeitszeit von–bis (HH:MM) und Pause in Stunden */
+  from?: string;
+  to?: string;
+  pause?: number;
   /** Wegzeit in Stunden (optional) */
   travel?: number;
 }
+
+/** zuletzt eingetragene Zeiten je Arbeiter – werden ab dann vorgeschlagen (Firmen-Einstellung „timeDefaults“) */
+export interface TimeDefault {
+  from: string;
+  to: string;
+  pause: number;
+}
+export type TimeDefaults = Record<string, TimeDefault>;
 
 /** erfasster Tag eines Arbeiters (Datensatz je Arbeiter und Tag – zwei Poliere stören sich nicht) */
 export interface TimeDay {
@@ -117,6 +129,17 @@ const minutes = (t: string) => {
   const [h, m] = t.split(':').map(Number);
   return h * 60 + (m || 0);
 };
+const hhmm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(Math.round(min % 60)).padStart(2, '0')}`;
+export const validTime = (t: string | undefined): t is string => !!t && /^\d{1,2}:\d{2}$/.test(t);
+/** Stunden aus von, bis und Pause (auf Viertelstunden genau gerundet auf 2 Stellen) */
+export function hoursOf(from: string, to: string, pause = 0): number {
+  if (!validTime(from) || !validTime(to)) return 0;
+  const h = (minutes(to) - minutes(from)) / 60 - (pause || 0);
+  return Math.max(0, Math.round(h * 100) / 100);
+}
+/** Pause in Stunden anzeigen, z. B. 0:30 */
+export const fmtPause = (p: number) => `${Math.floor(p)}:${String(Math.round((p % 1) * 60)).padStart(2, '0')}`;
+export const PAUSES = [0, 0.25, 0.5, 0.75, 1, 1.5];
 /** Stunden eines Arbeitstags laut Firmen-Arbeitszeit; über 6 Stunden 0,5 Stunden Pause (Arbeitszeitgesetz) */
 export function plannedHours(times: WorkTimes, date: string): number {
   const t = times[weekdayIdx(date)];
@@ -131,21 +154,41 @@ export interface DaySuggestion {
   holiday: string | null;
 }
 
+/** Arbeitszeit eines Tages für einen Arbeiter: zuletzt eingetragene Zeiten, sonst die Firmen-Arbeitszeit */
+export function defaultTimes(times: WorkTimes, date: string, own?: TimeDefault | null): TimeDefault | null {
+  const t = times[weekdayIdx(date)];
+  if (!t || holidayOn(date)) return null;
+  if (own && validTime(own.from) && validTime(own.to)) return own;
+  const h = Math.max(0, minutes(t.to) - minutes(t.from)) / 60;
+  return { from: t.from, to: t.to, pause: h > 6 ? 0.5 : 0 };
+}
+
 /**
- * Vorschlag für einen Arbeiter an einem Tag: Baustellen laut Einteilung (eine Baustelle → volle Stunden;
- * mehrere → aufgeteilt), Stunden laut Firmen-Arbeitszeit. Urlaub/Krank und Feiertage ohne Stunden.
+ * Vorschlag für einen Arbeiter an einem Tag: Baustellen laut Einteilung, von/bis/Pause wie zuletzt für ihn
+ * eingetragen (sonst Firmen-Arbeitszeit). Zwei Baustellen: Tag in der Mitte geteilt, Pause auf der ersten.
+ * Urlaub/Krank und Feiertage ohne Stunden.
  */
-export function suggestDay(workerId: string, date: string, week: WeekPlan | null, times: WorkTimes, absences: Absence[]): DaySuggestion {
+export function suggestDay(workerId: string, date: string, week: WeekPlan | null, times: WorkTimes, absences: Absence[], defaults: TimeDefaults = {}): DaySuggestion {
   const holiday = holidayOn(date);
   const hits = absences.filter((a) => a.workerId === workerId && date >= a.from && date <= a.to);
   const absence = hits.some((a) => a.kind === 'urlaub') ? 'urlaub' : hits.length ? 'krank' : null;
   if (holiday || absence || !week) return { lines: [], absence, holiday };
   const day = weekdayIdx(date);
   const sites = week.sites.filter((s) => !s.paused && s.days[day]?.includes(workerId));
-  const total = plannedHours(times, date);
-  if (!sites.length || !total) return { lines: [], absence, holiday };
-  const each = Math.round((total / sites.length) * 4) / 4;
-  return { lines: sites.map((s) => ({ projectId: s.projectId, siteName: s.name, hours: each })), absence, holiday };
+  const t = defaultTimes(times, date, defaults[workerId]);
+  if (!sites.length || !t) return { lines: [], absence, holiday };
+  if (sites.length === 1) return { lines: [{ projectId: sites[0].projectId, siteName: sites[0].name, from: t.from, to: t.to, pause: t.pause, hours: hoursOf(t.from, t.to, t.pause) }], absence, holiday };
+  // mehrere Baustellen: Arbeitszeit gleichmäßig aufteilen (Viertelstunden), Pause auf der ersten
+  const work = (minutes(t.to) - minutes(t.from) - t.pause * 60) / sites.length;
+  let at = minutes(t.from);
+  const lines = sites.map((s, i) => {
+    const pause = i === 0 ? t.pause : 0;
+    const end = i === sites.length - 1 ? minutes(t.to) : Math.round((at + work + pause * 60) / 15) * 15;
+    const l: TimeLine = { projectId: s.projectId, siteName: s.name, from: hhmm(at), to: hhmm(end), pause, hours: hoursOf(hhmm(at), hhmm(end), pause) };
+    at = end;
+    return l;
+  });
+  return { lines, absence, holiday };
 }
 
 export const dayHours = (d: Pick<TimeDay, 'lines'> | null | undefined) => (d ? d.lines.reduce((s, l) => s + (l.hours || 0), 0) : 0);
@@ -267,14 +310,26 @@ export function timesXlsx(month: string, workers: Worker[], days: TimeDay[], abs
   const siteSheet: Sheet = { name: 'Je Baustelle', rows: siteRows, widths: [32, 24, 10, 10], headerRows: 3, print: true };
 
   // Blatt 3: Einzeln
-  const list: Cell[][] = [[str('Datum', 'header'), str('Personalnr.', 'header'), str('Name', 'header'), str('Baustelle', 'header'), str('Stunden', 'header'), str('Wegzeit', 'header'), str('Erfasst von', 'header')]];
+  const list: Cell[][] = [[str('Datum', 'header'), str('Personalnr.', 'header'), str('Name', 'header'), str('Baustelle', 'header'), str('Von', 'header'), str('Bis', 'header'), str('Pause', 'header'), str('Stunden', 'header'), str('Wegzeit', 'header'), str('Erfasst von', 'header')]];
   const names = new Map(people.map((w) => [w.id, w]));
   for (const d of [...days].filter((x) => x.month === month).sort((a, b) => a.date.localeCompare(b.date) || workerName(names.get(a.workerId) ?? { firstName: '', lastName: '' }).localeCompare(workerName(names.get(b.workerId) ?? { firstName: '', lastName: '' }), 'de'))) {
     const w = names.get(d.workerId);
     if (!w) continue;
-    for (const l of d.lines) list.push([str(parseDate(d.date).toLocaleDateString('de-DE'), 'text'), str(w.staffNo ?? '', 'text'), str(workerName(w), 'text'), str(l.siteName, 'text'), num(l.hours || 0, 'area'), l.travel ? num(l.travel, 'area') : blank(), str(d.updatedBy, 'text')]);
+    for (const l of d.lines)
+      list.push([
+        str(parseDate(d.date).toLocaleDateString('de-DE'), 'text'),
+        str(w.staffNo ?? '', 'text'),
+        str(workerName(w), 'text'),
+        str(l.siteName, 'text'),
+        str(l.from ?? '', 'center'),
+        str(l.to ?? '', 'center'),
+        str(l.from ? fmtPause(l.pause ?? 0) : '', 'center'),
+        num(l.hours || 0, 'area'),
+        l.travel ? num(l.travel, 'area') : blank(),
+        str(d.updatedBy, 'text'),
+      ]);
   }
-  const listSheet: Sheet = { name: 'Einzeln', rows: list, widths: [11, 11, 22, 30, 9, 9, 18], freezeHeader: true, autoFilter: `A1:G${Math.max(1, list.length)}` };
+  const listSheet: Sheet = { name: 'Einzeln', rows: list, widths: [11, 11, 22, 30, 8, 8, 8, 9, 9, 18], freezeHeader: true, autoFilter: `A1:J${Math.max(1, list.length)}` };
 
   return { name: `${safeFileName('Zeitaufzeichnung', month, company)}.xlsx`, data: buildXlsx([monthSheet, siteSheet, listSheet]), mimeType: XLSX_MIME };
 }

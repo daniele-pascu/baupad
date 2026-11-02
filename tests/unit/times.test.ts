@@ -1,7 +1,7 @@
 import { unzipSync, strFromU8 } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_WORK_TIMES } from '../../src/lib/crew';
-import { easter, holidayOn, monthDays, parseHours, plannedHours, suggestDay, summarize, timesXlsx, type TimeDay } from '../../src/lib/times';
+import { easter, holidayOn, hoursOf, monthDays, parseHours, plannedHours, suggestDay, summarize, timesXlsx, type TimeDay } from '../../src/lib/times';
 import type { Absence, WeekPlan, Worker } from '../../src/lib/types';
 
 const worker = (id: string, firstName: string, lastName = ''): Worker => ({ id, firstName, lastName, active: true }) as Worker;
@@ -44,12 +44,20 @@ describe('Zeitaufzeichnung: Vorschlag und Summen', () => {
     { name: 'Halle 3', days: [[], [], ['max'], [], [], [], []] },
   ]);
   const abs: Absence[] = [{ id: 'a', workerId: 'peter', kind: 'urlaub', from: '2026-10-29', to: '2026-10-30', createdAt: 0 }];
-  it('Baustelle aus der Einteilung, Stunden aus der Firmen-Arbeitszeit; zwei Baustellen geteilt', () => {
-    expect(suggestDay('max', '2026-10-27', w, DEFAULT_WORK_TIMES, abs).lines).toEqual([{ projectId: 'p1', siteName: 'Parkring', hours: 8.5 }]);
+  it('Stunden aus von, bis und Pause', () => {
+    expect(hoursOf('07:00', '16:00', 0.5)).toBe(8.5);
+    expect(hoursOf('06:30', '15:15', 0.75)).toBe(8);
+    expect(hoursOf('07:00', '12:00')).toBe(5);
+    expect(hoursOf('', '12:00')).toBe(0);
+  });
+  it('Baustelle aus der Einteilung, Zeiten aus der Firmen-Arbeitszeit; zwei Baustellen geteilt', () => {
+    expect(suggestDay('max', '2026-10-27', w, DEFAULT_WORK_TIMES, abs).lines).toEqual([{ projectId: 'p1', siteName: 'Parkring', from: '07:00', to: '16:00', pause: 0.5, hours: 8.5 }]);
     expect(suggestDay('max', '2026-10-28', w, DEFAULT_WORK_TIMES, abs).lines).toEqual([
-      { projectId: 'p1', siteName: 'Parkring', hours: 4.25 },
-      { projectId: null, siteName: 'Halle 3', hours: 4.25 },
+      { projectId: 'p1', siteName: 'Parkring', from: '07:00', to: '11:45', pause: 0.5, hours: 4.25 },
+      { projectId: null, siteName: 'Halle 3', from: '11:45', to: '16:00', pause: 0, hours: 4.25 },
     ]);
+    // einmal eingetragene Zeiten des Arbeiters bleiben als Vorschlag
+    expect(suggestDay('max', '2026-10-27', w, DEFAULT_WORK_TIMES, abs, { max: { from: '06:30', to: '15:30', pause: 1 } }).lines[0]).toMatchObject({ from: '06:30', to: '15:30', pause: 1, hours: 8 });
     expect(suggestDay('max', '2026-10-26', w, DEFAULT_WORK_TIMES, abs)).toMatchObject({ lines: [], holiday: 'Nationalfeiertag' });
     expect(suggestDay('peter', '2026-10-29', w, DEFAULT_WORK_TIMES, abs)).toMatchObject({ lines: [], absence: 'urlaub' });
     expect(suggestDay('peter', '2026-10-28', w, DEFAULT_WORK_TIMES, abs).lines).toEqual([]); // nicht eingeteilt
@@ -73,7 +81,7 @@ describe('Zeitaufzeichnung: Vorschlag und Summen', () => {
     ]);
   });
   it('Excel: drei Blätter, Stunden je Tag, U für Urlaub, F für Feiertag', () => {
-    const f = timesXlsx('2026-10', [worker('peter', 'Peter', 'Beispiel')], [day('peter', '2026-10-27', [{ projectId: 'p1', siteName: 'Parkring', hours: 8.5, travel: 1 }])], abs, DEFAULT_WORK_TIMES, 'Muster Bau');
+    const f = timesXlsx('2026-10', [worker('peter', 'Peter', 'Beispiel')], [day('peter', '2026-10-27', [{ projectId: 'p1', siteName: 'Parkring', from: '07:00', to: '16:00', pause: 0.5, hours: 8.5, travel: 1 }])], abs, DEFAULT_WORK_TIMES, 'Muster Bau');
     expect(f.name).toBe('Zeitaufzeichnung_2026-10_Muster_Bau.xlsx');
     const files = unzipSync(f.data);
     const wb = strFromU8(files['xl/workbook.xml']);
@@ -87,5 +95,8 @@ describe('Zeitaufzeichnung: Vorschlag und Summen', () => {
     expect(sheet1).toContain('>U<');
     expect(sheet1).toContain('>F<');
     expect(sheet2).toContain('Parkring');
+    const sheet3 = strFromU8(files['xl/worksheets/sheet3.xml']);
+    expect(sheet3).toContain('07:00');
+    expect(sheet3).toContain('0:30');
   });
 });

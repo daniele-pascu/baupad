@@ -678,9 +678,9 @@ test('Zeitaufzeichnung per Finger: Tag erfassen und Monatszettel passen auf den 
   await row.getByTestId('times-site').selectOption({ label: 'Andere Baustelle …' });
   await page.getByTestId('prompt-dialog').locator('input').fill('Halle 3');
   await page.getByTestId('prompt-dialog').getByRole('button', { name: 'Speichern' }).tap();
-  await row.getByTestId('times-hours').fill('8');
-  await row.getByTestId('times-hours').press('Enter');
+  await row.getByTestId('times-to').fill('15:30');
   await expect(row).toHaveAttribute('data-state', 'done');
+  await expect(row.getByTestId('times-hours')).toHaveText('8 h');
   await noHorizontalScroll(page);
   await page.screenshot({ path: join(OUT, `zeit-${info.project.name}.png`), fullPage: true });
   await page.locator('[data-testid="times-person"][data-name="Max Muster"]').tap();

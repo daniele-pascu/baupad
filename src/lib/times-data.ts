@@ -1,7 +1,7 @@
 import { DEFAULT_WORK_TIMES, weekOf } from './crew';
-import { getMeta, getWeek, listProjects, listTimeDays, listTimeMonths, listWorkers, previousWeek, saveTimeDay } from './db';
+import { getMeta, getWeek, listProjects, listTimeDays, listTimeMonths, listWorkers, previousWeek, saveTimeDay, setMeta } from './db';
 import { effectiveWeek } from './reports';
-import { dayId, monthOf, suggestDay, weeksOfMonth, type DaySuggestion, type TimeDay, type TimeLine, type TimeMonth } from './times';
+import { dayId, hoursOf, monthOf, suggestDay, validTime, weeksOfMonth, type DaySuggestion, type TimeDay, type TimeDefaults, type TimeLine, type TimeMonth } from './times';
 import type { Absence, WeekPlan, Worker, WorkTimes } from './types';
 
 /** alles, was Übersicht und Monatszettel für einen Monat brauchen */
@@ -16,11 +16,13 @@ export interface TimesData {
   /** Baustellen zur Auswahl (Projektregister + Baustellen der Einteilung ohne Projekt) */
   sites: { projectId: string | null; name: string }[];
   company: string;
+  /** zuletzt eingetragene Zeiten je Arbeiter */
+  defaults: TimeDefaults;
 }
 
 export async function loadTimes(month: string): Promise<TimesData> {
   const mondays = weeksOfMonth(month);
-  const [workers, days, approvals, times, absences, projects, company, weekList] = await Promise.all([
+  const [workers, days, approvals, times, absences, projects, company, defaults, weekList] = await Promise.all([
     listWorkers(),
     listTimeDays(month),
     listTimeMonths(month),
@@ -28,6 +30,7 @@ export async function loadTimes(month: string): Promise<TimesData> {
     getMeta<Absence[]>('absences'),
     listProjects(),
     getMeta<string>('companyName'),
+    getMeta<TimeDefaults>('timeDefaults'),
     Promise.all(mondays.map(async (id) => effectiveWeek(id, await getWeek(id), await previousWeek(id)))),
   ]);
   const weeks = new Map(mondays.map((id, i) => [id, weekList[i]]));
@@ -46,18 +49,34 @@ export async function loadTimes(month: string): Promise<TimesData> {
     absences: absences ?? [],
     sites,
     company: company ?? '',
+    defaults: defaults ?? {},
   };
 }
 
-export const suggestionFor = (data: TimesData, workerId: string, date: string): DaySuggestion => suggestDay(workerId, date, data.weeks.get(weekOf(date)) ?? null, data.times, data.absences);
+export const suggestionFor = (data: TimesData, workerId: string, date: string): DaySuggestion => suggestDay(workerId, date, data.weeks.get(weekOf(date)) ?? null, data.times, data.absences, data.defaults);
 
 /** Tag speichern; nach der Freigabe wird jede Änderung mit Name und Zeitpunkt vermerkt */
-export async function saveDay(workerId: string, date: string, lines: TimeLine[], by: string, opts: { prev?: TimeDay; approved?: boolean } = {}): Promise<TimeDay> {
+export async function saveDay(workerId: string, date: string, lines: TimeLine[], by: string, opts: { prev?: TimeDay; approved?: boolean; remember?: boolean } = {}): Promise<TimeDay> {
   const now = Date.now();
-  const clean = lines.map((l) => ({ projectId: l.projectId, siteName: l.siteName, hours: l.hours, ...(l.travel ? { travel: l.travel } : {}) }));
-  const text = clean.map((l) => `${l.siteName} ${l.hours} h${l.travel ? ` + ${l.travel} h Weg` : ''}`).join('; ') || 'keine Stunden';
+  const clean: TimeLine[] = lines.map((l) => {
+    const timed = validTime(l.from) && validTime(l.to);
+    return {
+      projectId: l.projectId,
+      siteName: l.siteName,
+      hours: timed ? hoursOf(l.from!, l.to!, l.pause ?? 0) : l.hours,
+      ...(timed ? { from: l.from, to: l.to, pause: l.pause ?? 0 } : {}),
+      ...(l.travel ? { travel: l.travel } : {}),
+    };
+  });
+  const text = clean.map((l) => `${l.siteName} ${l.from ? `${l.from}–${l.to}, ` : ''}${l.hours} h${l.travel ? ` + ${l.travel} h Weg` : ''}`).join('; ') || 'keine Stunden';
   const log = [...(opts.prev?.log ?? []), ...(opts.approved ? [{ at: now, by, text }] : [])].slice(-20);
   const d: TimeDay = { id: dayId(workerId, date), workerId, date, month: monthOf(date), lines: clean, updatedAt: now, updatedBy: by, ...(log.length ? { log } : {}) };
   await saveTimeDay(d);
+  // eine Baustelle mit Zeiten: diese Zeiten gelten ab jetzt als Vorschlag für den Arbeiter
+  if (opts.remember && clean.length === 1 && clean[0].from) {
+    const all = (await getMeta<TimeDefaults>('timeDefaults')) ?? {};
+    const cur = all[workerId];
+    if (!cur || cur.from !== clean[0].from || cur.to !== clean[0].to || cur.pause !== (clean[0].pause ?? 0)) await setMeta('timeDefaults', { ...all, [workerId]: { from: clean[0].from!, to: clean[0].to!, pause: clean[0].pause ?? 0 } });
+  }
   return d;
 }

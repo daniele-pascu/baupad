@@ -8,10 +8,10 @@ import { deleteTimeDay, deleteTimeMonth, saveTimeMonth } from '../lib/db';
 import { usePageTitle } from '../lib/page-title';
 import { navigate, paths } from '../lib/router';
 import { canEditSites } from '../lib/sites';
-import { dayHours, fmtH, holidayOn, monthDays, monthId, monthLabel, parseHours, plannedHours, shiftMonth, summarize, thisMonth, timesXlsx, weekdayIdx, WEEKDAYS, type TimeDay, type TimeLine } from '../lib/times';
+import { dayHours, defaultTimes, fmtH, holidayOn, hoursOf, monthDays, monthId, monthLabel, parseHours, plannedHours, shiftMonth, summarize, thisMonth, timesXlsx, validTime, weekdayIdx, WEEKDAYS, type TimeDay, type TimeLine } from '../lib/times';
 import { loadTimes, saveDay, suggestionFor, type TimesData } from '../lib/times-data';
 import { useSession } from '../lib/use-session';
-import { SiteSelect, TIMES_ACCENT } from './TimesPage';
+import { SiteSelect, TimeInputs, TIMES_ACCENT } from './TimesPage';
 
 /**
  * Monatszettel eines Arbeiters: eine Zeile je Tag mit Baustelle und Stunden (zweite Baustelle = zweite Zeile),
@@ -160,33 +160,40 @@ export function TimesheetPage({ workerId, month: m }: { workerId: string; month:
   );
 }
 
-/** ein Tag im Monatszettel */
+type LineDraft = { projectId: string | null; siteName: string; from: string; to: string; pause: number; hours: number; travel: string };
+const draftOf = (l: TimeLine): LineDraft => ({ projectId: l.projectId, siteName: l.siteName, from: l.from ?? '', to: l.to ?? '', pause: l.pause ?? 0, hours: l.hours, travel: l.travel ? fmtH(l.travel) : '' });
+/** vollständig: Baustelle und von/bis – oder ältere Zeile nur mit Stunden */
+const complete = (l: LineDraft) => !!l.siteName && ((validTime(l.from) && validTime(l.to)) || (!l.from && !l.to && l.hours > 0));
+
+/** ein Tag im Monatszettel: je Baustelle eine Zeile mit von, bis, Pause → Stunden, Wegzeit */
 function SheetDay({ date, rec, data, workerId, by, locked, approved, today, onSaved }: { date: string; rec: TimeDay | null; data: TimesData; workerId: string; by: string; locked: boolean; approved: boolean; today: string; onSaved(): void }) {
   const sugg = suggestionFor(data, workerId, date);
-  const [lines, setLines] = useState<{ projectId: string | null; siteName: string; hours: string; travel: string }[]>(() => (rec?.lines ?? []).map((l) => ({ projectId: l.projectId, siteName: l.siteName, hours: fmtH(l.hours), travel: l.travel ? fmtH(l.travel) : '' })));
+  const fallback = defaultTimes(data.times, date, data.defaults[workerId]);
+  const [lines, setLines] = useState<LineDraft[]>(() => (rec?.lines ?? []).map(draftOf));
   const [editing, setEditing] = useState(false);
   const wd = weekdayIdx(date);
   const free = !plannedHours(data.times, date);
   const holiday = holidayOn(date);
   const absent = sugg.absence === 'urlaub' ? 'Urlaub' : sugg.absence === 'krank' ? 'Krank' : null;
-  const persist = (next: typeof lines) => {
-    const out: TimeLine[] = [];
-    for (const l of next) {
-      const h = parseHours(l.hours);
-      if (!l.siteName || h === null) continue;
+  const persist = (next: LineDraft[]) => {
+    // solange eine Zeile unvollständig ist (Baustelle oder Zeiten fehlen), noch nicht speichern
+    if (next.some((l) => !complete(l))) return;
+    const out: TimeLine[] = next.map((l) => {
       const t = parseHours(l.travel);
-      out.push({ projectId: l.projectId, siteName: l.siteName, hours: h, ...(t ? { travel: t } : {}) });
-    }
-    // solange eine Zeile unvollständig ist (Baustelle oder Stunden fehlen), noch nicht speichern
-    if (out.length < next.length) return;
+      return { projectId: l.projectId, siteName: l.siteName, hours: l.hours, ...(l.from ? { from: l.from, to: l.to, pause: l.pause } : {}), ...(t ? { travel: t } : {}) };
+    });
+    // Korrekturen im Monatszettel sind Ausnahmen – gemerkt werden die Zeiten aus „Tag erfassen“
     void saveDay(workerId, date, out, by, { prev: rec ?? undefined, approved }).then(onSaved, (e) => showError(e, 'Speichern fehlgeschlagen'));
   };
-  const setLine = (i: number, patch: Partial<(typeof lines)[number]>, commit = false) => {
+  const setLine = (i: number, patch: Partial<LineDraft>, commit = false) => {
     const next = lines.map((l, j) => (j === i ? { ...l, ...patch } : l));
     setLines(next);
     if (commit) persist(next);
   };
-  const addLine = () => setLines((l) => [...l, { projectId: null, siteName: '', hours: '', travel: '' }]);
+  const addLine = () => {
+    const last = lines[lines.length - 1];
+    setLines((l) => [...l, { projectId: null, siteName: '', from: last?.to ?? fallback?.from ?? '', to: fallback?.to ?? '', pause: 0, hours: 0, travel: '' }]);
+  };
   const removeLine = (i: number) => {
     const next = lines.filter((_, j) => j !== i);
     setLines(next);
@@ -195,6 +202,7 @@ function SheetDay({ date, rec, data, workerId, by, locked, approved, today, onSa
   const take = () => void saveDay(workerId, date, sugg.lines, by).then(onSaved, (e) => showError(e, 'Speichern fehlgeschlagen'));
   const reset = () => void deleteTimeDay(rec!.id).then(onSaved, (e) => showError(e, 'Zurücksetzen fehlgeschlagen'));
   const isOpen = !rec && !free && !absent && date <= today && sugg.lines.length > 0;
+  const lineHours = (l: LineDraft) => (validTime(l.from) && validTime(l.to) ? hoursOf(l.from, l.to, l.pause) : l.hours);
 
   return (
     <li className={`times-sheet-day${free ? ' free' : ''}${rec ? ' done' : ''}${isOpen ? ' open' : ''}`} data-testid="timesheet-day" data-date={date} data-state={rec ? 'done' : isOpen ? 'open' : 'none'}>
@@ -211,13 +219,12 @@ function SheetDay({ date, rec, data, workerId, by, locked, approved, today, onSa
             {lines.map((l, i) => (
               <div key={i} className="times-line" data-testid="timesheet-line">
                 <SiteSelect value={l.siteName ? { projectId: l.projectId, siteName: l.siteName } : null} sites={data.sites} disabled={locked} testId="timesheet-site" onChange={(v) => setLine(i, { projectId: v.projectId, siteName: v.siteName }, true)} />
-                <label className="times-num">
-                  <input inputMode="decimal" value={l.hours} disabled={locked} onChange={(e) => setLine(i, { hours: e.target.value })} onBlur={() => persist(lines)} onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} placeholder="Std." aria-label="Stunden" data-testid="timesheet-hours" />
-                  <span>h</span>
-                </label>
+                <TimeInputs from={l.from} to={l.to} pause={l.pause} disabled={locked} testPrefix="timesheet" onChange={(v) => setLine(i, v, true)} />
+                <span className="times-hours" data-testid="timesheet-line-hours">
+                  {fmtH(lineHours(l))} h
+                </span>
                 <label className="times-num travel">
                   <input inputMode="decimal" value={l.travel} disabled={locked} onChange={(e) => setLine(i, { travel: e.target.value })} onBlur={() => persist(lines)} onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} placeholder="Weg" aria-label="Wegzeit" data-testid="timesheet-travel" />
-                  <span>h</span>
                 </label>
                 {!locked && (rec || lines.length > 1) && (
                   <button type="button" className="icon-link times-line-remove" onClick={() => removeLine(i)} aria-label="Zeile entfernen" data-testid="timesheet-line-remove">
@@ -243,7 +250,7 @@ function SheetDay({ date, rec, data, workerId, by, locked, approved, today, onSa
         ) : sugg.lines.length ? (
           <div className="times-suggest">
             <span className="muted small" data-testid="timesheet-suggestion">
-              {sugg.lines.map((l) => `${l.siteName} ${fmtH(l.hours)} h`).join(' · ')}
+              {sugg.lines.map((l) => `${l.siteName} ${l.from}–${l.to}, ${fmtH(l.hours)} h`).join(' · ')}
             </span>
             {!locked && (
               <button type="button" className="btn btn-sm times-take" onClick={take} data-testid="timesheet-take">
@@ -255,7 +262,7 @@ function SheetDay({ date, rec, data, workerId, by, locked, approved, today, onSa
                 type="button"
                 className="link-btn small"
                 onClick={() => {
-                  setLines(sugg.lines.map((l) => ({ projectId: l.projectId, siteName: l.siteName, hours: fmtH(l.hours), travel: '' })));
+                  setLines(sugg.lines.map(draftOf));
                   void saveDay(workerId, date, sugg.lines, by).then(onSaved);
                 }}
                 data-testid="timesheet-edit"
@@ -270,7 +277,7 @@ function SheetDay({ date, rec, data, workerId, by, locked, approved, today, onSa
               type="button"
               className="link-btn small times-add-day"
               onClick={() => {
-                setLines([{ projectId: null, siteName: '', hours: '', travel: '' }]);
+                setLines([{ projectId: null, siteName: '', from: fallback?.from ?? '07:00', to: fallback?.to ?? '16:00', pause: fallback?.pause ?? 0.5, hours: 0, travel: '' }]);
                 setEditing(true);
               }}
               data-testid="timesheet-add-day"

@@ -4164,7 +4164,7 @@ tr.lv-flagged td {
 }
 .times-day-row {
   display: grid;
-  grid-template-columns: minmax(140px, 1.2fr) minmax(150px, 1.6fr) 92px 92px 44px;
+  grid-template-columns: minmax(130px, 1fr) minmax(150px, 1.4fr) 96px 96px 78px 62px 66px 44px;
   align-items: center;
   gap: 8px;
   padding: 8px 0;
@@ -4186,7 +4186,39 @@ tr.lv-flagged td {
   min-width: 0;
 }
 .times-day-multi {
-  grid-column: 2 / 5;
+  grid-column: 2 / 8;
+}
+.times-time {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.times-time span {
+  font-size: 0.68rem;
+  color: var(--muted);
+  line-height: 1;
+}
+.times-time input,
+.times-time select {
+  width: 100%;
+  min-width: 0;
+  height: 38px;
+  padding: 0 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  font: inherit;
+  font-size: 15px;
+  background: #fff;
+}
+.times-hours {
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+.times-day-row.suggested .times-hours {
+  color: var(--muted);
 }
 .times-day-row select,
 .times-line select {
@@ -4318,9 +4350,14 @@ tr.lv-flagged td {
 }
 .times-line {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 92px 92px 28px;
-  align-items: center;
+  grid-template-columns: minmax(0, 1fr) 92px 92px 74px 56px 62px 28px;
+  align-items: end;
   gap: 8px;
+}
+.times-line > .times-hours,
+.times-line > .times-num,
+.times-line > .times-line-remove {
+  align-self: center;
 }
 .times-line-actions {
   gap: 14px;
@@ -4362,9 +4399,10 @@ tr.lv-flagged td {
     display: none;
   }
   .times-day-row {
-    grid-template-columns: minmax(0, 1fr) 84px 84px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-  .times-day-name {
+  .times-day-name,
+  .times-day-row > select {
     grid-column: 1 / -1;
   }
   .times-day-row .times-take {
@@ -4388,8 +4426,24 @@ tr.lv-flagged td {
     padding-top: 0;
   }
   .times-line {
-    grid-template-columns: minmax(0, 1fr) 58px 58px 28px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 6px;
+    padding-bottom: 6px;
+    border-bottom: 1px dashed var(--border);
+  }
+  .times-line > select {
+    grid-column: 1 / -1;
+  }
+  .times-time input,
+  .times-time select {
+    padding: 0 4px;
+    font-size: 14px;
+  }
+  .times-sheet-day {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .times-sheet-sum {
+    display: none;
   }
   .times-person {
     grid-template-columns: minmax(0, 1fr) auto 18px;

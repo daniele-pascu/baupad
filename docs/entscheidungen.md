@@ -104,7 +104,8 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - Eingerichtet wird die erste Seite einer PDF; Rechte über die Rollen (Admin/Büro verwalten, alle füllen aus) – kein eigenes Rechteschema je Benutzer.
 
 ## Zeitaufzeichnung (02.11.2026)
-- Stunden **je Person und Tag** als Zahl (kein von–bis), Wegzeit optional; der **Polier** tippt für seine Arbeiter.
+- Stunden **je Person und Tag** aus **von, bis und Pause** (Stunden werden berechnet), Wegzeit optional; der **Polier** tippt für seine Arbeiter.
+- Einmal in „Tag erfassen“ eingetragene Zeiten bleiben **je Arbeiter** als Vorschlag, bis sie wieder geändert werden (Firmen-Einstellung `timeDefaults`, abgeglichen). Korrekturen im Monatszettel ändern den Vorschlag nicht.
 - **Monatszettel je Person**; Vorschlag aus Arbeitereinteilung (Baustelle) und Firmen-Arbeitszeit (Stunden, über 6 h 0,5 h Pause) – gezählt wird nur Bestätigtes.
 - Freigabe je Person und Monat durch Admin/Büro; danach für den Polier gesperrt, Änderungen des Büros werden mit Name und Zeit vermerkt.
 - Excel für die Lohnverrechnung (Blätter Monat, Je Baustelle, Einzeln). Keine Ortung/GPS.
