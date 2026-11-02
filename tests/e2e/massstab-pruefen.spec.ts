@@ -22,7 +22,8 @@ async function checkLine(page: Page, factor: number): Promise<number> {
   await page.getByTestId('calibration-check').click();
   await expect(page.getByTestId('calibrate-hint')).toContainText('Prüfstrecke');
   const b = await planBox(page);
-  await drawRect(page, b.x + b.width * 0.2, b.y + b.height * 0.7, b.x + b.width * 0.7, b.y + b.height * 0.7);
+  // Prüfstrecke oberhalb der Kalibrier-Karte (unten im Plan) ziehen
+  await drawRect(page, b.x + b.width * 0.2, b.y + b.height * 0.6, b.x + b.width * 0.7, b.y + b.height * 0.6);
   const dlg = page.getByTestId('prompt-dialog');
   const label = await dlg.textContent();
   const measured = Number(/gemessen: ([\d.,]+) m/.exec(label!)![1].replace('.', '').replace(',', '.'));

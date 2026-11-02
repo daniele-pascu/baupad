@@ -1732,6 +1732,108 @@ input[type='range'] {
   min-height: 40px;
   padding: 4px 10px;
 }
+/* Kalibrieren: gegliederte Karte – Kopf mit Stand, zwei Schritte, Aktionen in Gruppen */
+.calib-bar {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 7px;
+  padding: 9px 16px 11px;
+  width: min(940px, calc(100% - 20px));
+}
+.calib-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.calib-title {
+  font-size: 0.95rem;
+}
+.calib-status {
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #f0f0f2;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.calib-status.ok {
+  background: #e6f6ec;
+  color: #146c3a;
+}
+.calib-status.warn {
+  background: var(--warn-soft);
+  color: #8a5a00;
+}
+.calib-status.none {
+  background: #f0f0f2;
+  color: var(--muted);
+}
+.calib-steps {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.calib-steps b {
+  color: var(--text);
+}
+.calib-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin: 0 2px 0 4px;
+  border-radius: 50%;
+  background: var(--text);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  vertical-align: middle;
+}
+.calib-step:first-child {
+  margin-left: 0;
+}
+.calib-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 22px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+.calib-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.calib-group-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.calib-group-end {
+  margin-left: auto;
+}
+.calib-remove {
+  color: var(--danger);
+}
+.gap-s {
+  gap: 6px;
+}
+@media (max-width: 720px) {
+  .calib-bar {
+    padding: 8px 10px 10px;
+  }
+  .calib-group-end {
+    margin-left: 0;
+  }
+}
+
 .draw-bar .span-all {
   flex-basis: 100%;
   text-align: center;

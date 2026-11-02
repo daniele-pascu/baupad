@@ -1444,46 +1444,77 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           )}
 
           {!drawMode && tool === 'calibrate' && !dialog && (
-            <div className="draw-bar" data-testid="calibrate-bar">
-              <span className="muted small" data-testid="calibrate-hint">
-                {checking
-                  ? 'Prüfstrecke: eine andere bemaßte Strecke im Plan ziehen, danach ihre bekannte Länge eingeben – der Maßstab bleibt unverändert.'
-                  : file?.kind === 'image'
-                    ? 'Bild/Foto: Maßstab kann nicht gelesen werden. Möglichst lange bemaßte Strecke wählen (z. B. ganze Wand): Punkt A und B anklicken oder ziehen, danach die reale Länge eingeben.'
-                    : 'Kalibrieren: Punkt A und Punkt B einer bemaßten Strecke anklicken (X halten = vergrößern) oder die Strecke ziehen, danach die reale Länge eingeben.'}
-              </span>
-              {file?.kind === 'pdf' && (
-                <button type="button" className="btn btn-sm" onClick={() => void detectFromPlan()} data-testid="calibration-detect" title="Maßlinien, Maßketten und Maßstabsangabe im Plan auswerten">
-                  Automatisch erkennen
-                </button>
-              )}
-              {file?.kind === 'pdf' && (
-                <button type="button" className="btn btn-sm" onClick={() => setDimsOpen(true)} data-testid="calibration-dims" title="Erkannte Maße prüfen, korrigieren und übernehmen">
-                  Maße aus dem Plan
-                </button>
-              )}
-              {plan.calibration ? (
-                <>
-                  <strong className={`small${calibrationStatus(plan, file?.kind).warn ? ' text-warn' : ''}`} data-testid="calibration-info" title={calibrationStatus(plan, file?.kind).text}>
+            <div className="draw-bar calib-bar" data-testid="calibrate-bar">
+              {/* Kopf: Titel + Stand der Kalibrierung als Pille */}
+              <div className="calib-head">
+                <strong className="calib-title">Maßstab</strong>
+                {plan.calibration ? (
+                  <strong className={`calib-status${calibrationStatus(plan, file?.kind).warn ? ' warn' : ' ok'}`} data-testid="calibration-info" title={calibrationStatus(plan, file?.kind).text}>
                     {plan.calibration.auto
                       ? `Erkannt: ${plan.calibration.auto.label}${plan.calibration.auto.confirmed ? ' (bestätigt)' : ' (ungeprüft)'}`
                       : `Kalibriert: Referenz ${formatMeasure(plan.calibration.meters)} m`}
                     {checkError(plan) !== null && ` · Prüfung ${formatCm(checkError(plan)!.diff)} (${formatPercent(checkDeviation(plan)!)})`}
                   </strong>
-                  <button type="button" className={`btn btn-sm${checking ? ' btn-primary' : ''}`} onClick={() => setChecking(!checking)} aria-pressed={checking} data-testid="calibration-check">
-                    Prüfstrecke
-                  </button>
-                  <button type="button" className="btn btn-sm" onClick={() => setReportOpen(true)} data-testid="calibration-report-open">
-                    Prüfbericht
-                  </button>
-                  <button type="button" className="btn btn-sm" onClick={() => putRecord('plans', { ...data.plans[plan.id], calibration: undefined })} data-testid="calibration-remove">
-                    Kalibrierung entfernen
-                  </button>
-                </>
-              ) : (
-                <strong className="small" data-testid="calibration-info">
-                  Noch nicht kalibriert
-                </strong>
+                ) : (
+                  <strong className="calib-status none" data-testid="calibration-info">
+                    Noch nicht kalibriert
+                  </strong>
+                )}
+              </div>
+              {/* Anleitung in zwei Schritten */}
+              <p className="calib-steps" data-testid="calibrate-hint">
+                {checking ? (
+                  <>
+                    <b>Prüfstrecke:</b> <span className="calib-step">1</span> eine andere bemaßte Strecke im Plan ziehen <span className="calib-step">2</span> ihre bekannte Länge eingeben – der Maßstab bleibt unverändert.
+                  </>
+                ) : file?.kind === 'image' ? (
+                  <>
+                    <b>Bild/Foto:</b> Maßstab kann nicht gelesen werden. <span className="calib-step">1</span> möglichst lange bemaßte Strecke (z. B. ganze Wand) anklicken oder ziehen <span className="calib-step">2</span> reale Länge eingeben.
+                  </>
+                ) : (
+                  <>
+                    <span className="calib-step">1</span> Punkt A und B einer bemaßten Strecke anklicken oder die Strecke ziehen (X halten = Lupe) <span className="calib-step">2</span> reale Länge eingeben.
+                  </>
+                )}
+              </p>
+              {/* Aktionen in Gruppen */}
+              {(file?.kind === 'pdf' || plan.calibration) && (
+                <div className="calib-actions">
+                  {file?.kind === 'pdf' && (
+                    <div className="calib-group">
+                      <span className="calib-group-label">Aus dem Plan</span>
+                      <div className="row gap-s">
+                        <button type="button" className="btn btn-sm" onClick={() => void detectFromPlan()} data-testid="calibration-detect" title="Maßlinien, Maßketten und Maßstabsangabe im Plan auswerten">
+                          Automatisch erkennen
+                        </button>
+                        <button type="button" className="btn btn-sm" onClick={() => setDimsOpen(true)} data-testid="calibration-dims" title="Erkannte Maße prüfen, korrigieren und übernehmen">
+                          Maße aus dem Plan
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {plan.calibration && (
+                    <div className="calib-group">
+                      <span className="calib-group-label">Kontrolle</span>
+                      <div className="row gap-s">
+                        <button type="button" className={`btn btn-sm${checking ? ' btn-primary' : ''}`} onClick={() => setChecking(!checking)} aria-pressed={checking} data-testid="calibration-check" title="Eine zweite bemaßte Strecke nachmessen – zeigt die Abweichung, ändert den Maßstab nicht">
+                          Prüfstrecke
+                        </button>
+                        <button type="button" className="btn btn-sm" onClick={() => setReportOpen(true)} data-testid="calibration-report-open" title="Stand, Prüfstrecke und Hinweise als Bericht">
+                          Prüfbericht
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {plan.calibration && (
+                    <div className="calib-group calib-group-end">
+                      <span className="calib-group-label">Zurücksetzen</span>
+                      <button type="button" className="btn btn-sm calib-remove" onClick={() => putRecord('plans', { ...data.plans[plan.id], calibration: undefined })} data-testid="calibration-remove" title="Maßstab verwerfen – danach neu kalibrieren oder erkennen">
+                        Kalibrierung entfernen
+                      </button>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )}
