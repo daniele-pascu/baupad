@@ -646,7 +646,7 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
                 setSiteOpen(true);
               }}
             >
-              <Icon name="pin" size={20} /> Baustelle wechseln
+              <Icon name="swap" size={20} /> Baustelle wechseln
             </button>
             <button type="button" className="muted" onClick={() => navigate(back)}>
               <Icon name="close" size={20} /> Kamera schließen
