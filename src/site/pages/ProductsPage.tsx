@@ -34,7 +34,8 @@ export function ProductsPage() {
         {PRODUCTS.map((prod) => (
           <div key={prod.id} className="ps-product-detail">
             <Reveal className="ps-product-detail-copy">
-              <Badge kind="ok">{t.common.available}</Badge>
+              <img className="ps-product-logo" src="/icons/logo-header.png" alt={t.product} width={142} height={40} />
+              <Badge kind="plan">{t.common.available}</Badge>
               <p className="ps-lead">{t.baupad.description}</p>
               <ul className="ps-tool-list ps-tool-list-dark">
                 {prod.tools.map((x) => (

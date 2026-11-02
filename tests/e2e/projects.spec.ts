@@ -23,13 +23,13 @@ test('Website: Startseite, Produkte, BauPad, Unternehmen, Kontaktformular, Sprac
   await expect(page.locator('.ps-product-card.is-available')).toHaveCount(1);
   await expect(page.locator('.ps-product-card.is-planned')).toHaveCount(0); // keine Vorschau-Produkte mehr
   await expect(page.locator('.ps-panel, .ps-panel-tag')).toHaveCount(0); // keine Bilder und Platzhalter
-  await expect(page.locator('.ps-main img')).toHaveCount(0);
+  await expect(page.locator('.ps-main img:not(.ps-product-logo)')).toHaveCount(0); // keine Fotos/Platzhalter – nur das BauPad-Logo
 
   // Produkte
   await nav.getByRole('link', { name: 'Produkte', exact: true }).click();
   await expect(h1).toContainText('Produkte von PAD Software');
   await expect(page).toHaveTitle('Produkte – PAD Software');
-  await expect(page.locator('.ps-badge-plan')).toHaveCount(0);
+  await expect(page.locator('.ps-badge-plan')).toHaveText('Bald verfügbar'); // BauPad in der Testphase
   await page.getByTestId('product-open-baupad').click();
 
   // BauPad: fünf Werkzeuge, Werkzeug-Seite, Werkzeug nur mit Anmeldung

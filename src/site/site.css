@@ -2080,3 +2080,15 @@
   color: #fff;
   font-weight: 650;
 }
+
+/* Produktkarte: BauPad-Logo statt Buchstabe */
+.ps-product-logo {
+  display: block;
+  height: 32px;
+  width: auto;
+  border-radius: 8px;
+}
+.ps-product-detail-copy .ps-product-logo {
+  height: 40px;
+  margin-bottom: 14px;
+}

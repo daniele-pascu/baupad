@@ -69,8 +69,8 @@ export function HomePage() {
           {PRODUCTS.map((p) => (
             <Reveal key={p.id} className="ps-product-card is-available" as="article">
               <div className="ps-product-card-head">
-                <span className="ps-product-mark">{t.product.slice(0, 1)}</span>
-                <Badge kind="ok">{t.common.available}</Badge>
+                <img className="ps-product-logo" src="/icons/logo-header.png" alt={t.product} width={114} height={32} />
+                <Badge kind="plan">{t.common.available}</Badge>
               </div>
               <h3>{t.product}</h3>
               <p>{t.baupad.description}</p>
