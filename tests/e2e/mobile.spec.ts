@@ -621,12 +621,13 @@ test('Fotodokumentation per Finger: großer Aufnahme-Knopf, Speichern, Galerie u
 test('Mängelplan per Finger: kein Knopf „Auswahl“; Werkzeug endet nach Gebrauch mit dem nächsten Tipp, Pin sofort', async ({ page }) => {
   await freshStart(page);
   await page.goto('./maengel');
+  await page.getByTestId('defect-new-site').tap();
+  await page.getByTestId('project-picker').getByTestId('picker-new').tap();
+  await page.getByTestId('project-name').fill('Touch-Baustelle');
+  await page.getByTestId('project-save').tap();
+  await expect(page.getByTestId('defect-site-title')).toHaveText('Touch-Baustelle');
   await page.getByTestId('defect-upload').tap();
   const dlg = page.getByTestId('defect-plan-dialog');
-  await dlg.getByTestId('photo-site').selectOption('__new');
-  const sd = page.getByTestId('photo-site-dialog');
-  await sd.getByTestId('photo-site-name').fill('Touch-Baustelle');
-  await sd.getByTestId('photo-site-save').tap();
   await dlg.getByTestId('defect-plan-file').setInputFiles(join(FIXTURES, 'parkdeck.png'));
   await dlg.getByTestId('defect-plan-save').tap();
   const stage = page.locator('.dp-stage');

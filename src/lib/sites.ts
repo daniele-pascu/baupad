@@ -6,7 +6,7 @@
  */
 import { getAuth, type Session } from './auth';
 import { useSession } from './use-session';
-import { getDB, getMeta, listDefectPlans, listProjects, listReports, listWeeks, saveDefectPlan, saveReport, saveWeek, setMeta, writeRecords } from './db';
+import { getDB, listDefectPlans, listProjects, listReports, listWeeks, saveDefectPlan, saveReport, saveWeek, writeRecords } from './db';
 import { adoptProject, projectFromSite, usedIn } from './crew-link';
 import { getPhotoStorage } from './photo-storage';
 import { clearFreePhotoSites, listFreePhotoSites, updateFreePhotoSite } from './photo-sites';
@@ -125,23 +125,25 @@ export async function useProjectIn(projectId: string | null, tool: string): Prom
   if (p && !usedIn(p, tool)) await adoptProject(p, tool);
 }
 
-const ADOPTED = 'freeSitesAdopted';
-
 /**
- * Einmalig: frei eingetippte Baustellen aus der Zeit vor dem Projektregister (Fotos, Berichte, Wochen,
- * Mängelpläne, Baustellenliste) werden zu Projekten; alle Einträge zeigen danach auf das Projekt.
+ * Projektregister nachziehen (läuft beim Start und nach jedem Abgleich): frei eingetippte Baustellen (Fotos, Berichte,
+ * Wochen, Mängelpläne, Baustellenliste) und Einträge, deren Projekt im Register fehlt (z. B. nur auf einem anderen
+ * Gerät angelegt oder gelöscht), werden zu Projekten; alle Einträge zeigen danach auf das Projekt.
  * Gleicher Name (ohne Groß/Klein) = dasselbe Projekt; gibt es schon ein Projekt mit dieser Baustelle, wird es genommen.
+ * Liefert die Zahl der geänderten Einträge (neue Projekte und umgehängte Einträge).
  */
 export async function adoptFreeSites(): Promise<number> {
-  if (await getMeta<boolean>(ADOPTED)) return 0;
   const storage = getPhotoStorage();
   const [projects, weeks, reports, photos, plans, free] = await Promise.all([listProjects(), listWeeks(), listReports(), storage.list(), listDefectPlans(), listFreePhotoSites()]);
+  const known = new Set(projects.map((p) => p.id));
+  const orphan = (id: string | null | undefined) => !id || !known.has(id);
+  if (!free.length && !weeks.some((w) => w.sites.some((s) => orphan(s.projectId))) && !reports.some((r) => orphan(r.projectId)) && !photos.some((x) => orphan(x.projectId)) && !plans.some((d) => orphan(d.projectId))) return 0;
   const byName = new Map<string, { projectId: string; name: string; number: string; address: string }>();
   for (const p of projects) {
     const k = (p.site || p.name).trim().toLowerCase();
     if (k && !byName.has(k)) byName.set(k, { projectId: p.id, name: p.site || p.name, number: p.number ?? '', address: p.address });
   }
-  let created = 0;
+  let changes = 0;
   const resolve = async (name: string, tool: string, number = '', address = '') => {
     const k = name.trim().toLowerCase();
     if (!k) return null;
@@ -153,7 +155,7 @@ export async function adoptFreeSites(): Promise<number> {
     const p = await projectFromSite({ name: name.trim(), number, address }, tool);
     const entry = { projectId: p.id, name: name.trim(), number, address };
     byName.set(k, entry);
-    created++;
+    changes++;
     return entry;
   };
   for (const f of free) await resolve(f.name, 'photos', f.number, f.address);
@@ -161,7 +163,7 @@ export async function adoptFreeSites(): Promise<number> {
     let changed = false;
     const sites = [];
     for (const s of w.sites) {
-      if (s.projectId) {
+      if (!orphan(s.projectId)) {
         sites.push(s);
         continue;
       }
@@ -173,24 +175,32 @@ export async function adoptFreeSites(): Promise<number> {
       changed = true;
       sites.push({ ...s, projectId: r.projectId, number: s.number || r.number, address: s.address || r.address });
     }
-    if (changed) await saveWeek({ ...w, sites });
+    if (changed) {
+      await saveWeek({ ...w, sites });
+      changes++;
+    }
   }
   for (const r of reports) {
-    if (r.projectId) continue;
+    if (!orphan(r.projectId)) continue;
     const e = await resolve(r.head.site || r.head.project, 'reports', r.head.number, r.head.address);
-    if (e) await saveReport({ ...r, projectId: e.projectId, updatedAt: Date.now() });
+    if (!e) continue;
+    await saveReport({ ...r, projectId: e.projectId, updatedAt: Date.now() });
+    changes++;
   }
   for (const p of photos) {
-    if (p.projectId) continue;
+    if (!orphan(p.projectId)) continue;
     const e = await resolve(p.siteName, 'photos', p.siteNumber, p.siteAddress);
-    if (e) await storage.update({ ...p, projectId: e.projectId, siteName: e.name, siteNumber: p.siteNumber || e.number, siteAddress: p.siteAddress || e.address });
+    if (!e) continue;
+    await storage.update({ ...p, projectId: e.projectId, siteName: e.name, siteNumber: p.siteNumber || e.number, siteAddress: p.siteAddress || e.address });
+    changes++;
   }
   for (const d of plans) {
-    if (d.projectId) continue;
+    if (!orphan(d.projectId)) continue;
     const e = await resolve(d.siteName, 'defects', d.siteNumber, d.siteAddress);
-    if (e) await saveDefectPlan({ ...d, projectId: e.projectId, updatedAt: Date.now() });
+    if (!e) continue;
+    await saveDefectPlan({ ...d, projectId: e.projectId, updatedAt: Date.now() });
+    changes++;
   }
-  await clearFreePhotoSites();
-  await setMeta(ADOPTED, true);
-  return created;
+  if (free.length) await clearFreePhotoSites();
+  return changes;
 }

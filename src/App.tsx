@@ -38,6 +38,7 @@ import { backfillPhotoUserNames, connectPhotoCloud, syncPhotoCloud } from './lib
 import { remoteConnected } from './lib/remote';
 import { isNativeApp } from './lib/native';
 import { adoptFreeSites } from './lib/sites';
+import { notifyDataChanged, useDataChanged } from './lib/data-events';
 import { canTool, isLocked, ROUTE_TOOL } from './lib/access';
 import { hasStoredSession, initAuth } from './lib/auth-init';
 
@@ -185,10 +186,15 @@ export function App() {
   useServiceWorker();
   useAuthReturn();
   usePhotoCloud();
-  // einmalig: frei eingetippte Baustellen aus älteren Ständen ins Projektregister übernehmen
-  useEffect(() => {
-    void adoptFreeSites().catch((e) => console.warn('Projektregister', e));
-  }, []);
+  // Projektregister nachziehen: beim Start und nach jedem Abgleich (Baustellen ohne Projekt → Projekt im Register)
+  const adopt = () =>
+    adoptFreeSites()
+      .then((n) => {
+        if (n) notifyDataChanged(); // Seiten zeigen die Einträge jetzt unter dem Projekt
+      })
+      .catch((e) => console.warn('Projektregister', e));
+  useEffect(() => void adopt(), []);
+  useDataChanged(() => void adopt());
   // Firmenlogo für Excel-Exporte vorab laden (Export bleibt synchron im Klick)
   useEffect(preloadExcelLogo, []);
   useEffect(() => {

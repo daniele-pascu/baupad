@@ -699,7 +699,7 @@ export function WorkersPage() {
             </div>
           )}
           <button type="button" className="btn btn-primary crew-add-site" onClick={() => setDialog({ kind: 'pick' })} data-testid="add-site">
-            <Icon name="plus" /> Neues Projekt
+            <Icon name="plus" size={16} /> Neues Projekt
           </button>
         </section>
       </div>

@@ -237,8 +237,8 @@ export function HomePage() {
 
       <div className="home-actions">
         {mayCreate && (
-        <button type="button" className="btn btn-primary btn-lg" onClick={() => setCreating(true)} data-testid="new-project">
-          <Icon name="plus" /> Neues Projekt
+        <button type="button" className="btn btn-primary" onClick={() => setCreating(true)} data-testid="new-project">
+          <Icon name="plus" size={16} /> Neues Projekt
         </button>
         )}
         <button type="button" className="btn btn-lg" onClick={() => importRef.current?.click()}>

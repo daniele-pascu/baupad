@@ -1,6 +1,19 @@
-import { expect, test } from './fixtures';
+import { expect, test, type Page } from './fixtures';
 import { join } from 'node:path';
 import { FIXTURES, freshStart } from './helpers';
+
+/** Übersicht → „Neues Projekt“ → im Register anlegen → im Projekt „Plan hochladen“ (Datei gewählt, Dialog offen) */
+async function newProjectPlan(page: Page, name: string, file = 'parkdeck.png') {
+  await page.getByTestId('defect-new-site').click();
+  await page.getByTestId('project-picker').getByTestId('picker-new').click();
+  await page.getByTestId('project-name').fill(name);
+  await page.getByTestId('project-save').click();
+  await expect(page.getByTestId('defect-site-title')).toHaveText(name);
+  await page.getByTestId('defect-upload').click();
+  const dlg = page.getByTestId('defect-plan-dialog');
+  await dlg.getByTestId('defect-plan-file').setInputFiles(join(FIXTURES, file));
+  return dlg;
+}
 
 /**
  * Mängelplan: Baustelle und Plan anlegen (Bild, ohne Maßstab), Pin, Rechteck und Freihand markieren,
@@ -12,14 +25,9 @@ test('Mängelplan: Plan hochladen, Markierungen setzen und bearbeiten, PDF', asy
   await expect(page.getByTestId('defects-title')).toHaveText('Mängelplan');
   await expect(page.getByTestId('defects-empty')).toBeVisible();
 
-  // Plan hochladen mit neuer Baustelle
-  await page.getByTestId('defect-upload').click();
-  const dlg = page.getByTestId('defect-plan-dialog');
-  await dlg.getByTestId('photo-site').selectOption('__new');
-  const sd = page.getByTestId('photo-site-dialog');
-  await sd.getByTestId('photo-site-name').fill('Tiefgarage Parkdeck Nord');
-  await sd.getByTestId('photo-site-save').click();
-  await dlg.getByTestId('defect-plan-file').setInputFiles(join(FIXTURES, 'parkdeck.png'));
+  // Projekt anlegen, im Projekt den Plan hochladen (in der Übersicht gibt es kein „Plan hochladen“)
+  await expect(page.getByTestId('defect-upload')).toHaveCount(0);
+  const dlg = await newProjectPlan(page, 'Tiefgarage Parkdeck Nord');
   await expect(dlg.getByTestId('defect-plan-title')).toHaveValue('parkdeck'); // Dateiname als Vorschlag
   await dlg.getByTestId('defect-plan-title').fill('Plan EG');
   await dlg.getByTestId('defect-plan-save').click();
@@ -154,13 +162,7 @@ test('Mängelplan: Plan hochladen, Markierungen setzen und bearbeiten, PDF', asy
 test('Plan aus PDF: beim starken Hineinzoomen wird der Ausschnitt scharf aus dem PDF nachgerendert', async ({ page }) => {
   await freshStart(page);
   await page.goto('./maengel');
-  await page.getByTestId('defect-upload').click();
-  const dlg = page.getByTestId('defect-plan-dialog');
-  await dlg.getByTestId('photo-site').selectOption('__new');
-  const sd = page.getByTestId('photo-site-dialog');
-  await sd.getByTestId('photo-site-name').fill('PDF-Baustelle');
-  await sd.getByTestId('photo-site-save').click();
-  await dlg.getByTestId('defect-plan-file').setInputFiles(join(FIXTURES, 'plaene.pdf'));
+  const dlg = await newProjectPlan(page, 'PDF-Baustelle', 'plaene.pdf');
   await dlg.getByTestId('defect-plan-save').click();
   await expect(page.locator('[data-testid="dp-canvas"] img')).toBeVisible();
   const detail = page.getByTestId('dp-detail');
@@ -176,13 +178,7 @@ test('Plan aus PDF: beim starken Hineinzoomen wird der Ausschnitt scharf aus dem
 test('Foto am Mangel: Farbkästen groß, Foto antippen öffnet die Großansicht mit Zoom', async ({ page }) => {
   await freshStart(page);
   await page.goto('./maengel');
-  await page.getByTestId('defect-upload').click();
-  const dlg = page.getByTestId('defect-plan-dialog');
-  await dlg.getByTestId('photo-site').selectOption('__new');
-  const sd = page.getByTestId('photo-site-dialog');
-  await sd.getByTestId('photo-site-name').fill('Foto-Baustelle');
-  await sd.getByTestId('photo-site-save').click();
-  await dlg.getByTestId('defect-plan-file').setInputFiles(join(FIXTURES, 'parkdeck.png'));
+  const dlg = await newProjectPlan(page, 'Foto-Baustelle');
   await dlg.getByTestId('defect-plan-save').click();
   await expect(page.locator('[data-testid="dp-canvas"] img')).toBeVisible();
   // Pin setzen → Dialog
@@ -215,13 +211,7 @@ test('Foto am Mangel: Farbkästen groß, Foto antippen öffnet die Großansicht 
 test('Auswahlwerkzeug wie im Aufmaß: Griffe am Rechteck, Größe ziehen, Auswahlleiste mit Bearbeiten und Löschen', async ({ page }) => {
   await freshStart(page);
   await page.goto('./maengel');
-  await page.getByTestId('defect-upload').click();
-  const dlg = page.getByTestId('defect-plan-dialog');
-  await dlg.getByTestId('photo-site').selectOption('__new');
-  const sd = page.getByTestId('photo-site-dialog');
-  await sd.getByTestId('photo-site-name').fill('Griff-Baustelle');
-  await sd.getByTestId('photo-site-save').click();
-  await dlg.getByTestId('defect-plan-file').setInputFiles(join(FIXTURES, 'parkdeck.png'));
+  const dlg = await newProjectPlan(page, 'Griff-Baustelle');
   await dlg.getByTestId('defect-plan-save').click();
   await expect(page.locator('[data-testid="dp-canvas"] img')).toBeVisible();
   await expect(page.getByTestId('dp-tool-select')).toContainText('Auswahl');
@@ -274,13 +264,7 @@ test('Auswahlwerkzeug wie im Aufmaß: Griffe am Rechteck, Größe ziehen, Auswah
 test('Esc im Mängelplan wie im Aufmaß: angefangene Zeichnung verwerfen, Auswahl aufheben, zurück auf „Auswahl“', async ({ page }) => {
   await freshStart(page);
   await page.goto('./maengel');
-  await page.getByTestId('defect-upload').click();
-  const dlg = page.getByTestId('defect-plan-dialog');
-  await dlg.getByTestId('photo-site').selectOption('__new');
-  const sd = page.getByTestId('photo-site-dialog');
-  await sd.getByTestId('photo-site-name').fill('Esc-Baustelle');
-  await sd.getByTestId('photo-site-save').click();
-  await dlg.getByTestId('defect-plan-file').setInputFiles(join(FIXTURES, 'parkdeck.png'));
+  const dlg = await newProjectPlan(page, 'Esc-Baustelle');
   await dlg.getByTestId('defect-plan-save').click();
   await expect(page.locator('[data-testid="dp-canvas"] img')).toBeVisible();
   const box = (await page.locator('.dp-stage').boundingBox())!;
@@ -305,13 +289,7 @@ test('Esc im Mängelplan wie im Aufmaß: angefangene Zeichnung verwerfen, Auswah
 test('Plan farbig oder schwarz-weiß: Schalter oben, bleibt gespeichert', async ({ page }) => {
   await freshStart(page);
   await page.goto('./maengel');
-  await page.getByTestId('defect-upload').click();
-  const dlg = page.getByTestId('defect-plan-dialog');
-  await dlg.getByTestId('photo-site').selectOption('__new');
-  const sd = page.getByTestId('photo-site-dialog');
-  await sd.getByTestId('photo-site-name').fill('Farb-Baustelle');
-  await sd.getByTestId('photo-site-save').click();
-  await dlg.getByTestId('defect-plan-file').setInputFiles(join(FIXTURES, 'parkdeck.png'));
+  const dlg = await newProjectPlan(page, 'Farb-Baustelle');
   await dlg.getByTestId('defect-plan-save').click();
   const stage = page.locator('.dp-stage');
   await expect(stage).toBeVisible();
@@ -331,13 +309,7 @@ test('Plan farbig oder schwarz-weiß: Schalter oben, bleibt gespeichert', async 
 test('Mängelliste am PC nach rechts einklappen und wieder ausklappen; bleibt gemerkt', async ({ page }) => {
   await freshStart(page);
   await page.goto('./maengel');
-  await page.getByTestId('defect-upload').click();
-  const dlg = page.getByTestId('defect-plan-dialog');
-  await dlg.getByTestId('photo-site').selectOption('__new');
-  const sd = page.getByTestId('photo-site-dialog');
-  await sd.getByTestId('photo-site-name').fill('Klapp-Baustelle');
-  await sd.getByTestId('photo-site-save').click();
-  await dlg.getByTestId('defect-plan-file').setInputFiles(join(FIXTURES, 'parkdeck.png'));
+  const dlg = await newProjectPlan(page, 'Klapp-Baustelle');
   await dlg.getByTestId('defect-plan-save').click();
   const list = page.getByTestId('dp-list');
   await expect(list).toBeVisible();
@@ -349,4 +321,39 @@ test('Mängelliste am PC nach rechts einklappen und wieder ausklappen; bleibt ge
   await expect(page.getByTestId('dp-list')).toBeHidden(); // gemerkt
   await page.getByTestId('dp-side-toggle').click();
   await expect(page.getByTestId('dp-list')).toBeVisible();
+});
+
+test('Projektregister nachziehen: Plan ohne Projekt (z. B. von einem anderen Gerät) wird zum Projekt und steht in Aufmaß & Abrechnung zur Übernahme', async ({ page }) => {
+  await freshStart(page);
+  await page.goto('./maengel');
+  const dlg = await newProjectPlan(page, 'Verwaistes Projekt');
+  await dlg.getByTestId('defect-plan-save').click();
+  await expect(page.locator('[data-testid="dp-canvas"] img')).toBeVisible();
+  // Projekt aus dem Register entfernen, Plan hängt an einer unbekannten Projekt-ID (wie nach einem Teil-Abgleich)
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve, reject) => {
+        const req = indexedDB.open('schadstellen-aufmass');
+        req.onerror = () => reject(req.error);
+        req.onsuccess = () => {
+          const db = req.result;
+          const tx = db.transaction(['projects', 'defectPlans'], 'readwrite');
+          tx.objectStore('projects').clear();
+          const store = tx.objectStore('defectPlans');
+          store.getAll().onsuccess = (e) => {
+            for (const p of (e.target as IDBRequest).result) store.put({ ...p, projectId: 'fehlt-' + p.projectId });
+          };
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+        };
+      }),
+  );
+  await page.goto('./maengel');
+  await expect(page.getByTestId('defect-site')).toHaveCount(1);
+  await expect(page.getByTestId('defect-site')).toContainText('Verwaistes Projekt');
+  await page.goto('./projekte');
+  await page.getByTestId('new-project').click();
+  await expect(page.getByTestId('project-picker').getByTestId('picker-item')).toHaveCount(1);
+  await expect(page.getByTestId('project-picker').getByTestId('picker-item')).toContainText('Verwaistes Projekt');
+  await expect(page.getByTestId('project-picker').locator('.picker-tag')).toHaveText(['Mängelplan']);
 });

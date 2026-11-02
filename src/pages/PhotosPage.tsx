@@ -110,7 +110,7 @@ export function PhotosPage() {
               </a>
             )}
             {mayCreate && (
-              <button type="button" className="btn btn-sm" onClick={() => setCreating(true)} aria-label="Neues Projekt" title="Neues Projekt" data-testid="photo-new-site">
+              <button type="button" className="btn btn-primary" onClick={() => setCreating(true)} aria-label="Neues Projekt" title="Projekt aus dem Register übernehmen oder neu anlegen" data-testid="photo-new-site">
                 <Icon name="plus" size={16} /> <span className="lbl">Neues Projekt</span>
               </button>
             )}

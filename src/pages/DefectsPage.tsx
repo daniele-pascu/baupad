@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { DefectPlanDialog } from '../components/DefectPlanDialog';
 import { Icon } from '../components/Icon';
 import { ProjectPicker } from '../components/ProjectPicker';
 import { SiteNav } from '../components/SiteNav';
@@ -21,7 +20,7 @@ import { useDataChanged } from '../lib/data-events';
 
 export const DEFECT_ACCENT = { '--tool': '#d6242b' } as CSSProperties;
 
-/** Mängelplan – Übersicht: Baustellen mit Plänen und Markierungen, Plan hochladen, neue Baustelle */
+/** Mängelplan – Übersicht: Projekte mit Plänen und Markierungen; Plan hochladen erst im Projekt */
 export function DefectsPage() {
   const mayCreate = useCanCreateProjects();
   usePageTitle('Mängelplan – BauPad');
@@ -31,7 +30,6 @@ export function DefectsPage() {
   const summaries = useMemo(() => (allSummaries ? access.filterSites(allSummaries, (x) => x.key) : null), [allSummaries, access.session]);
   const sites = useMemo(() => access.filterSites(allSites, (s) => (s.projectId ? `p:${s.projectId}` : `n:${s.name.trim().toLowerCase()}`)), [allSites, access.session]);
   const [query, setQuery] = useState('');
-  const [uploading, setUploading] = useState(false);
   const [creating, setCreating] = useState(false);
 
   const reload = async () => {
@@ -73,13 +71,10 @@ export function DefectsPage() {
           </div>
           <div className="row gap">
             {mayCreate && (
-            <button type="button" className="btn btn-sm" onClick={() => setCreating(true)} data-testid="defect-new-site">
-              <Icon name="plus" size={16} /> <span className="lbl">Neues Projekt</span>
-            </button>
+              <button type="button" className="btn btn-primary" onClick={() => setCreating(true)} title="Projekt aus dem Register übernehmen oder neu anlegen" data-testid="defect-new-site">
+                <Icon name="plus" size={16} /> <span className="lbl">Neues Projekt</span>
+              </button>
             )}
-            <button type="button" className="btn btn-sm btn-primary" onClick={() => setUploading(true)} data-testid="defect-upload">
-              <Icon name="upload" size={16} /> Plan hochladen
-            </button>
           </div>
         </header>
 
@@ -93,16 +88,6 @@ export function DefectsPage() {
             }}
           />
         )}
-        {uploading && (
-          <DefectPlanDialog
-            sites={sites}
-            onClose={() => setUploading(false)}
-            onCreated={(p) => {
-              setUploading(false);
-              navigate(paths.defectPlan(p.id));
-            }}
-          />
-        )}
 
         {summaries && summaries.length === 0 && empty.length === 0 && (
           <div className="crew-setup" data-testid="defects-empty">
@@ -110,9 +95,14 @@ export function DefectsPage() {
               <ToolIcon name="defects" size={22} />
             </span>
             <div>
-              <strong>Noch kein Mängelplan</strong>
-              <p className="muted small">Plan hochladen (PDF oder Foto), dann Mängel, Ausbesserungen und Hinweise mit Pins, Formen und Fotos markieren. Am Ende ein PDF fürs Angebot.</p>
+              <strong>Noch kein Projekt</strong>
+              <p className="muted small">Projekt anlegen oder aus dem Register übernehmen – im Projekt dann den Plan hochladen (PDF oder Foto) und Mängel, Ausbesserungen und Hinweise mit Pins, Formen und Fotos markieren. Am Ende ein PDF fürs Angebot.</p>
             </div>
+            {mayCreate && (
+              <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>
+                Neues Projekt
+              </button>
+            )}
           </div>
         )}
 
