@@ -36,6 +36,7 @@ export type Route =
   | { name: 'formTemplates' }
   | { name: 'formTemplate'; templateId: string }
   | { name: 'formEntry'; entryId: string }
+  | { name: 'register' }
   | { name: 'times'; month: string | null; date: string | null }
   | { name: 'timesheet'; workerId: string; month: string | null }
   | { name: 'camera'; siteKey: string | null }
@@ -75,6 +76,7 @@ const APP_SEGMENTS: Record<string, string> = {
   fotodokumentation: 'fotos',
   maengelplan: 'maengel',
   zeitaufzeichnung: 'zeit',
+  projektregister: 'register',
   konto: 'konto',
   anmelden: 'anmelden',
   registrieren: 'registrieren',
@@ -127,6 +129,7 @@ export function parseRoute(url: string): Route {
   if (parts[0] === 'fotos' && parts[1] === 'kamera' && parts.length === 2) return { name: 'camera', siteKey: params.get('s') };
   if (parts[0] === 'fotos' && (parts[1] === 'p' || parts[1] === 'n') && parts.length === 3)
     return { name: 'photoSite', siteKey: `${parts[1]}:${parts[2]}`, week: params.get('w'), photoId: params.get('f') };
+  if (parts[0] === 'register' && parts.length === 1) return { name: 'register' };
   if (parts[0] === 'zeit' && parts.length === 1) return { name: 'times', month: params.get('m'), date: params.get('d') };
   if (parts[0] === 'zeit' && parts.length === 2) return { name: 'timesheet', workerId: parts[1], month: params.get('m') };
   if (parts[0] === 'maengel' && parts.length === 1) return { name: 'defects' };
@@ -182,6 +185,8 @@ export const paths = {
   formTemplates: () => `${APP}/berichte-und-formulare/vorlagen`,
   formTemplate: (id: string) => `${APP}/berichte-und-formulare/vorlagen/${id}`,
   formEntry: (id: string) => `${APP}/berichte-und-formulare/f/${id}`,
+  /** Projektregister: alle Projekte der Firma (nur Angaben), von dort in Werkzeuge übernehmen */
+  projectRegister: () => `${APP}/projektregister`,
   /** Zeitaufzeichnung: Übersicht (Tag erfassen, Monatsliste) und Monatszettel je Arbeiter */
   times: (opts: { month?: string; date?: string } = {}) => {
     const q = new URLSearchParams();
@@ -247,6 +252,8 @@ export function canonicalPath(r: Route, lang: Lang = 'de'): string | null {
       return paths.formTemplate(r.templateId);
     case 'formEntry':
       return paths.formEntry(r.entryId);
+    case 'register':
+      return paths.projectRegister();
     case 'times':
       return `${APP}/zeitaufzeichnung`;
     case 'timesheet':

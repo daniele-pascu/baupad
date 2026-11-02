@@ -28,6 +28,7 @@ import { FormTemplatesPage } from './pages/FormTemplatesPage';
 import { FormTemplateEditorPage } from './pages/FormTemplateEditorPage';
 import { FormEntryPage } from './pages/FormEntryPage';
 import { TimesPage } from './pages/TimesPage';
+import { RegisterPage } from './pages/RegisterPage';
 import { TimesheetPage } from './pages/TimesheetPage';
 import { PhotosPage } from './pages/PhotosPage';
 import { RecentPhotosPage } from './pages/RecentPhotosPage';
@@ -283,6 +284,9 @@ export function App() {
       break;
     case 'formEntry':
       content = <FormEntryPage key={route.entryId} entryId={route.entryId} />;
+      break;
+    case 'register':
+      content = <RegisterPage />;
       break;
     case 'times':
       content = <TimesPage month={route.month} date={route.date} />;

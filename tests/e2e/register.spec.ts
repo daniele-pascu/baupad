@@ -1,0 +1,63 @@
+import { expect, test } from './fixtures';
+import { createProject, freshStart } from './helpers';
+
+/** Projektregister: alle Projekte mit Angaben, in Tools übernehmen, neues Projekt mit Wahl der Tools, Rechte. */
+test('Projektregister: Angaben, in Tools übernehmen, dort öffnen, neues Projekt anlegen', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'Parkring', { number: '91300', address: 'Parkring 10, 1010 Wien', client: 'Muster GmbH' }, [{ number: '91300', name: 'Garage' }]);
+  await page.goto('./baupad/tools');
+  await page.getByTestId('tools-register').click();
+  await expect(page.getByTestId('register-title')).toHaveText('Projektregister');
+  const row = page.locator('[data-testid="register-row"][data-name="Parkring"]');
+  await expect(row).toContainText('Parkring 10, 1010 Wien');
+  await expect(row).toContainText('Muster GmbH');
+  await expect(row.getByTestId('register-tool')).toHaveText([/Aufmaß & Abrechnung/]);
+
+  // in Fotodokumentation und Mängelplan übernehmen
+  await row.getByTestId('register-adopt').click();
+  const dlg = page.getByTestId('register-adopt-dialog');
+  await expect(dlg.locator('[data-testid="register-adopt-tool"][data-tool="projects"] input')).toBeDisabled();
+  await dlg.locator('[data-testid="register-adopt-tool"][data-tool="photos"] input').check();
+  await dlg.locator('[data-testid="register-adopt-tool"][data-tool="defects"] input').check();
+  await dlg.getByTestId('register-adopt-save').click();
+  await expect(row.getByTestId('register-tool')).toHaveText([/Aufmaß & Abrechnung/, /Fotodokumentation/, /Mängelplan/]);
+  // dort öffnen
+  await row.locator('[data-testid="register-tool"][data-tool="defects"]').click();
+  await expect(page.getByTestId('defect-site-title')).toHaveText('Parkring');
+  await page.goto('./baupad/fotodokumentation');
+  await expect(page.locator('a[data-testid="photo-site"]')).toHaveAttribute('data-site', 'Parkring');
+
+  // neues Projekt im Register → nur Berichte & Formulare → direkt dorthin
+  await page.goto('./baupad/projektregister');
+  await page.getByTestId('register-new').click();
+  await page.getByTestId('project-name').fill('Halle 3');
+  await page.getByTestId('project-save').click();
+  const ad = page.getByTestId('register-adopt-dialog');
+  await expect(ad.getByTestId('register-adopt-save')).toBeDisabled();
+  await ad.locator('[data-testid="register-adopt-tool"][data-tool="reports"] input').check();
+  await ad.getByTestId('register-adopt-save').click();
+  await expect(page.getByTestId('report-site-page')).toHaveAttribute('data-site', 'Halle 3');
+  await page.goto('./baupad/projektregister');
+  await expect(page.getByTestId('register-row')).toHaveCount(2);
+  await expect(page.locator('[data-testid="register-row"][data-name="Halle 3"]').getByTestId('register-tool')).toHaveText([/Berichte & Formulare/]);
+  // nicht in Aufmaß & Abrechnung
+  await page.goto('./baupad/aufmass-und-abrechnung');
+  await expect(page.getByTestId('project-card')).toHaveCount(1);
+
+  // Suche
+  await page.goto('./baupad/projektregister');
+  await page.getByTestId('register-search').fill('91300');
+  await expect(page.getByTestId('register-row')).toHaveCount(1);
+});
+
+test('Projektregister: Polier sieht die Projekte, legt aber keine an', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'Parkring', { number: '91300' });
+  const context = { workspace_id: '11111111-1111-4111-8111-111111111111', workspace_name: 'Testfirma', role: 'polier', pkg: 'team', tools: ['projects', 'photos', 'reports', 'workers', 'defects'], sites: [], tool_sites: {}, operator: false, name: 'Polier Paul', phone: '' };
+  await page.route('**/rest/v1/rpc/my_context', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(context) }));
+  await page.goto('./baupad/projektregister');
+  await expect(page.getByTestId('register-row')).toHaveCount(1);
+  await expect(page.getByTestId('register-new')).toHaveCount(0);
+  await expect(page.getByTestId('register-edit')).toHaveCount(0);
+  await expect(page.getByTestId('register-adopt')).toBeVisible(); // übernehmen darf er
+});

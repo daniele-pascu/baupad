@@ -4452,6 +4452,96 @@ tr.lv-flagged td {
     grid-column: 1 / 2;
   }
 }
+/* Projektregister */
+.tools-register {
+  margin-top: 16px;
+}
+.register-search {
+  margin-bottom: 12px;
+}
+.register-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.register-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.register-main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.register-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 10px;
+  margin: 0;
+  font-size: 0.82rem;
+}
+.register-facts dt {
+  color: var(--muted);
+}
+.register-facts dd {
+  margin: 0;
+}
+.register-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.register-tool {
+  font-size: 0.76rem;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: #f0f0f2;
+  color: var(--text);
+  text-decoration: none;
+  white-space: nowrap;
+}
+a.register-tool:hover {
+  background: #e4e4e8;
+}
+.register-tool.off {
+  color: var(--muted);
+}
+.register-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.register-adopt-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+@media (max-width: 720px) {
+  .register-page .page-head-row {
+    flex-wrap: wrap;
+  }
+  .register-page .page-head-row > .btn {
+    margin-left: auto;
+  }
+  .register-card {
+    flex-direction: column;
+  }
+  .register-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
 .tool-access-list {
   display: flex;
   flex-direction: column;

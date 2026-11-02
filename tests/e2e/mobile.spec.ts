@@ -688,3 +688,17 @@ test('Zeitaufzeichnung per Finger: Tag erfassen und Monatszettel passen auf den 
   await noHorizontalScroll(page);
   await page.screenshot({ path: join(OUT, `zettel-${info.project.name}.png`) });
 });
+
+test('Projektregister per Finger: passt auf den Bildschirm', async ({ page }, info) => {
+  await page.goto('./baupad/projektregister');
+  await page.getByTestId('register-new').tap();
+  await page.getByTestId('project-name').fill('Parkring Garage Sanierung');
+  await page.getByTestId('project-save').tap();
+  await page.getByTestId('register-adopt-dialog').locator('[data-testid="register-adopt-tool"][data-tool="photos"] input').check();
+  await page.getByTestId('register-adopt-dialog').locator('[data-testid="register-adopt-tool"][data-tool="defects"] input').check();
+  await page.getByTestId('register-adopt-save').tap();
+  await expect(page.getByTestId('register-adopt-dialog')).toHaveCount(0);
+  await expect(page.getByTestId('register-row')).toHaveCount(1);
+  await noHorizontalScroll(page);
+  await page.screenshot({ path: join(OUT, `register-${info.project.name}.png`), fullPage: true });
+});

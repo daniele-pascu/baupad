@@ -90,6 +90,14 @@ export function ToolsPage() {
             );
           })}
         </nav>
+        <a href={paths.projectRegister()} className="tools-quick tools-register" data-testid="tools-register">
+          <Icon name="folder" size={22} />
+          <span>
+            <strong>Projektregister</strong>
+            <span>Alle Projekte der Firma – Angaben ansehen und in jedes Tool übernehmen</span>
+          </span>
+          <Icon name="next" size={18} />
+        </a>
       </div>
     </>
   );
