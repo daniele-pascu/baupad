@@ -484,6 +484,8 @@ interface TileDef {
   title: string;
   text: string;
   body: (session: Session | null | undefined) => ReactNode;
+  /** Kachel führt direkt auf eine andere Seite (kein Zwischenschritt) */
+  href?: string;
 }
 
 const ACCOUNT_TILES: TileDef[] = [
@@ -503,6 +505,7 @@ const ACCOUNT_TILES: TileDef[] = [
     id: 'formulare',
     title: 'Firmenformulare',
     text: 'Eigene PDF-Vorlagen: Felder einrichten, im Projekt ausfüllen',
+    href: paths.formTemplates(),
     body: () => (
       <div className="logo-settings-head" data-testid="account-forms">
         <div>
@@ -524,7 +527,7 @@ function AccountTiles({ session }: { session: Session | null | undefined }) {
   return (
     <div className="account-tiles">
       {visibleTiles(session).map((t) => (
-        <a key={t.id} href={paths.accountSection(t.id)} className="account-tile" data-testid="account-section" data-tile={t.id}>
+        <a key={t.id} href={t.href ?? paths.accountSection(t.id)} className="account-tile" data-testid="account-section" data-tile={t.id}>
           <div>
             <strong>{t.title}</strong>
             <span className="muted">{t.text}</span>

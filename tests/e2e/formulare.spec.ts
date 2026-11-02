@@ -35,9 +35,10 @@ test('Bautagesbericht der Firma hochladen, Zuordnung prüfen, Bericht ins Firmen
   await expect(dlg).toHaveCount(0);
   await expect(page.getByTestId('form-template-row')).toContainText('MST Tagesbericht');
   await expect(page.getByTestId('form-template-row')).toContainText('Bautagesbericht · 14 Felder zugeordnet');
-  // unter Konto → Firmenformulare nur der Verweis auf die Vorlagen
-  await page.goto('./konto/formulare');
-  await expect(page.getByTestId('account-form-templates')).toBeVisible();
+  // Konto → Kachel „Firmenformulare“ führt direkt zu den Vorlagen
+  await page.goto('./konto');
+  await page.locator('[data-testid="account-section"][data-tile="formulare"]').click();
+  await expect(page.getByTestId('form-templates-title')).toHaveText('Formularvorlagen');
 
   // Bericht anlegen und als Firmenformular ausgeben
   await page.goto('./projekte');
