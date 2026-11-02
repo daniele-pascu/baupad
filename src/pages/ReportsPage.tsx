@@ -66,7 +66,6 @@ export function ReportsPage() {
   const [allSites, setAllSites] = useState<PhotoSite[]>([]);
   const sites = useMemo(() => access.filterSites(allSites, (s) => (s.projectId ? `p:${s.projectId}` : `n:${s.name.trim().toLowerCase()}`)), [allSites, access.session]);
   const [query, setQuery] = useState('');
-  const [creating, setCreating] = useState<{ site?: SiteChoice } | null>(null);
   const restoreRef = useRef<HTMLInputElement>(null);
 
   const reload = () =>
@@ -136,13 +135,10 @@ export function ReportsPage() {
           </div>
           <div className="report-actions">
             {mayCreate && (
-              <button type="button" className="btn" onClick={() => setPicking(true)} title="Projekt aus dem Register übernehmen oder neu anlegen" data-testid="report-new-site">
+              <button type="button" className="btn btn-primary" onClick={() => setPicking(true)} title="Projekt aus dem Register übernehmen oder neu anlegen" data-testid="report-new-site">
                 <Icon name="plus" size={16} /> <span className="hide-sm">Neues Projekt</span>
               </button>
             )}
-            <button type="button" className="btn btn-primary" onClick={() => setCreating({})} data-testid="report-new">
-              <Icon name="plus" /> Neuer Bericht
-            </button>
             <ActionMenu
               label="Sicherung"
               testId="reports-more"
@@ -175,9 +171,10 @@ export function ReportsPage() {
           <ProjectPicker
             tool="reports"
             onClose={() => setPicking(false)}
-            onPick={() => {
+            onPick={(p) => {
               setPicking(false);
-              void reload();
+              // direkt ins Projekt – dort wird der Bericht angelegt
+              void reload().then(() => navigate(paths.reportSite(`p:${p.id}`)));
             }}
           />
         )}
@@ -204,18 +201,20 @@ export function ReportsPage() {
           </div>
         )}
 
-        {reports && reports.length === 0 && (
+        {reports && reports.length === 0 && emptySites.length === 0 && (
           <div className="crew-setup" style={ACCENT} data-testid="reports-empty">
             <span className="tile-icon">
               <ToolIcon name="reports" size={22} />
             </span>
             <div>
-              <strong>Noch keine Berichte</strong>
-              <p className="muted small">Regieliste, Bautagesbericht oder Bauwochenbericht anlegen – Baustelle, Adresse und Mannschaft werden übernommen.</p>
+              <strong>Noch kein Projekt</strong>
+              <p className="muted small">Projekt anlegen oder aus dem Register übernehmen – im Projekt dann Regieliste, Bautagesbericht oder Bauwochenbericht anlegen. Baustelle, Adresse und Mannschaft werden übernommen.</p>
             </div>
-            <button type="button" className="btn btn-primary" onClick={() => setCreating({})}>
-              Anlegen
-            </button>
+            {mayCreate && (
+              <button type="button" className="btn btn-primary" onClick={() => setPicking(true)}>
+                Neues Projekt
+              </button>
+            )}
           </div>
         )}
         {reports && reports.length > 0 && cards.length === 0 && emptySites.length === 0 && <p className="muted">Keine Baustelle gefunden.</p>}
@@ -245,31 +244,22 @@ export function ReportsPage() {
             );
           })}
           {emptySites.map((f) => (
-            <button
+            <a
               key={`empty:${f.projectId ?? f.name}`}
-              type="button"
+              href={paths.reportSite(f.projectId ? `p:${f.projectId}` : `n:${f.name.trim().toLowerCase()}`)}
               className="report-site report-site-empty"
-              onClick={() => setCreating({ site: { projectId: f.projectId, name: f.name, address: f.address } })}
               data-testid="report-site-empty"
               data-site={f.name}
             >
               <div className="report-site-main">
                 <ProjectHeading info={f} />
-                <span className="small muted">Noch kein Bericht – antippen zum Anlegen</span>
+                <span className="small muted">Noch kein Bericht</span>
               </div>
-              <Icon name="plus" size={18} />
-            </button>
+              <Icon name="next" size={18} />
+            </a>
           ))}
         </div>
       </div>
-      {creating && (
-        <NewReportDialog
-          sites={sites}
-          site={creating.site}
-          onClose={() => setCreating(null)}
-          onCreate={(type, site, date) => run(() => createReport(type, site, date, reports ?? []))}
-        />
-      )}
     </>
   );
 }

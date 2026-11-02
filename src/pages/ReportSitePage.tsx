@@ -48,15 +48,25 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
   const session = useSession();
   const reports = useMemo(() => (all ?? []).filter((r) => siteKey(r) === key), [all, key]);
   const first = reports[0];
-  const name = first ? siteLabel(first) : key.startsWith('n:') ? key.slice(2) : '…';
+  /** Projekt ohne Bericht: Angaben aus dem Register (gleiche Liste wie in allen Werkzeugen) */
+  const info = useMemo(() => sites.find((x) => (x.projectId ? `p:${x.projectId}` : `n:${x.name.trim().toLowerCase()}`) === key) ?? null, [sites, key]);
+  const name = first ? siteLabel(first) : info ? info.name : key.startsWith('n:') ? key.slice(2) : '…';
   usePageTitle(`${name} – Berichte – BauPad`);
-  const site: SiteChoice | null = first ? (first.projectId ? { projectId: first.projectId, name } : { projectId: null, name }) : key.startsWith('n:') ? { projectId: null, name } : null;
+  const site: SiteChoice | null = first
+    ? first.projectId
+      ? { projectId: first.projectId, name }
+      : { projectId: null, name }
+    : info
+      ? { projectId: info.projectId, name, address: info.address }
+      : key.startsWith('n:')
+        ? { projectId: null, name }
+        : null;
 
   const reload = () =>
-    listReports()
-      .then(async (r) => {
+    Promise.all([listReports(), loadReportSites()])
+      .then(([r, s]) => {
+        setSites(s);
         setAll(r);
-        setSites(await loadReportSites());
       })
       .catch((e) => showError(e, 'Berichte konnten nicht geladen werden'));
   useEffect(() => {
@@ -148,7 +158,7 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
             </a>
             <div>
               <h1 data-testid="report-site-title">{name}</h1>
-              <span className="muted small">{first ? [first.head.number, first.head.address, first.head.client].filter(Boolean).join(' · ') : ''}</span>
+              <span className="muted small">{first ? [first.head.number, first.head.address, first.head.client].filter(Boolean).join(' · ') : info ? [info.number, info.address].filter(Boolean).join(' · ') : ''}</span>
             </div>
           </div>
           <div className="row gap">
@@ -189,7 +199,7 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
           </div>
         )}
 
-        {all && reports.length === 0 && <p className="muted">Noch keine Berichte auf dieser Baustelle.</p>}
+        {all && reports.length === 0 && <p className="muted">Noch keine Berichte in diesem Projekt – oben „Neu“ antippen: Regieliste, Bautagesbericht oder Bauwochenbericht.</p>}
 
         {REPORT_TYPES.map((t) => {
           const items = byType[t.type];

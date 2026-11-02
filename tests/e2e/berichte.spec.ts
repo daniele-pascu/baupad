@@ -35,9 +35,17 @@ async function setup(page: Page) {
   await expect(page.locator('[data-site="Wohnanlage Sonnenhof"] [data-day="2"] [data-testid="crew-chip"]')).toHaveText(['Max', 'Peter']);
 }
 
+/** Bericht anlegen: von der Übersicht zuerst ins Projekt (vorhandene Karte, sonst aus dem Register übernehmen), dort „Neu“ */
 async function newReport(page: Page, type: 'regie' | 'tag' | 'woche', date = '2026-10-28', fromGroup = false) {
-  if (fromGroup) await page.getByTestId('report-group-new').first().click();
-  else await page.getByTestId('report-new').click();
+  if (!fromGroup && (await page.getByTestId('report-group-new').count()) === 0) {
+    const card = page.getByTestId('report-site').or(page.getByTestId('report-site-empty')).first();
+    if (await card.count()) await card.click();
+    else {
+      await page.getByTestId('report-new-site').click();
+      await page.getByTestId('project-picker').getByTestId('picker-item').first().click();
+    }
+  }
+  await page.getByTestId('report-group-new').first().click();
   const d = page.getByTestId('report-new-dialog');
   await d.getByTestId(`report-type-${type}`).click();
   await d.getByTestId('report-date').fill(date);
@@ -195,14 +203,16 @@ test('Regieliste, Bautagesbericht und Wochenbericht: Übernahme aus Projekt und 
 test('Ohne Projekt und ohne Arbeitereinteilung: Baustelle frei eingeben, Arbeiter von Hand', async ({ page }) => {
   await freshStart(page);
   await page.goto('./#/berichte');
-  await page.getByTestId('report-new').click();
+  await expect(page.getByTestId('reports-empty')).toBeVisible(); // noch kein Projekt
+  await expect(page.getByTestId('report-new')).toHaveCount(0); // Berichte werden im Projekt angelegt
+  await page.getByTestId('report-new-site').click();
+  await page.getByTestId('project-picker').getByTestId('picker-new').click();
+  await page.getByTestId('project-name').fill('Halle 3');
+  await page.getByTestId('project-save').click();
+  // direkt im Projekt – auch ohne Bericht betretbar
+  await expect(page.getByTestId('report-site-page')).toHaveAttribute('data-site', 'Halle 3');
+  await page.getByTestId('report-group-new').click();
   const d = page.getByTestId('report-new-dialog');
-  await expect(d.getByTestId('report-site')).toHaveValue('');
-  await d.getByTestId('report-create').click();
-  await expect(d).toContainText('Bitte ein Projekt wählen.');
-  await d.getByTestId('report-site').selectOption('__new');
-  await page.getByTestId('photo-site-name').fill('Halle 3');
-  await page.getByTestId('photo-site-save').click();
   await expect(d.getByTestId('report-site')).toHaveValue(/\|Halle 3$/);
   await d.getByTestId('report-create').click();
   await expect(page.getByTestId('report-title')).toHaveText('Regieliste Nr. 1');

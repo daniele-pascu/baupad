@@ -32,7 +32,9 @@ test('Bautagesbericht der Firma hochladen, Zuordnung prüfen, Bericht ins Firmen
   await createProject(page, 'Wohnanlage Sonnenhof', { number: '2026-04', address: 'Musterstraße 1, 4020 Linz' });
   await page.goto('./berichte');
   await expect(page.getByTestId('reports-forms-hint')).toContainText('MST Tagesbericht (Bautagesbericht)');
-  await page.getByTestId('report-new').click();
+  await page.getByTestId('report-new-site').click();
+  await page.getByTestId('project-picker').getByTestId('picker-item').filter({ hasText: 'Wohnanlage Sonnenhof' }).click();
+  await page.getByTestId('report-group-new').click();
   const d = page.getByTestId('report-new-dialog');
   await d.getByTestId('report-type-tag').click();
   await d.getByTestId('report-date').fill('2026-10-28');

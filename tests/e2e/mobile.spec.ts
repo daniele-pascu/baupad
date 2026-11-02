@@ -557,15 +557,18 @@ test('Arbeitereinteilung per Finger: Arbeiter, Baustelle, Einteilung – passt a
 
 test('Berichte per Finger: Regieliste, Tagesbericht und Wochenbericht passen auf den Bildschirm', async ({ page }, info) => {
   for (const type of ['regie', 'tag', 'woche'] as const) {
-    await page.goto('./#/berichte'); // Übersicht (der Zurück-Pfeil führt zur Baustelle)
-    await page.getByTestId('report-new').tap();
+    await page.goto('./#/berichte'); // Übersicht → Projekt (beim ersten Mal anlegen) → „Neu“
+    const card = page.getByTestId('report-site').or(page.getByTestId('report-site-empty')).first();
+    if (await card.count()) await card.tap();
+    else {
+      await page.getByTestId('report-new-site').tap();
+      await page.getByTestId('project-picker').getByTestId('picker-new').tap();
+      await page.getByTestId('project-name').fill('Halle 3');
+      await page.getByTestId('project-save').tap();
+    }
+    await page.getByTestId('report-group-new').tap();
     const d = page.getByTestId('report-new-dialog');
     await d.getByTestId(`report-type-${type}`).tap();
-    if ((await d.getByTestId('report-site').inputValue()) === '') {
-      await d.getByTestId('report-site').selectOption('__new');
-      await page.getByTestId('photo-site-name').fill('Halle 3');
-      await page.getByTestId('photo-site-save').tap();
-    }
     await d.getByTestId('report-create').tap();
     await expect(page.getByTestId('report-title')).toBeVisible();
     if (type !== 'woche') {
