@@ -109,6 +109,36 @@ export function RegisterPage() {
     }
   };
 
+  // nur Admin und Büro; die anderen übernehmen Projekte in den Tools („Projekt übernehmen“)
+  if (!mayCreate)
+    return (
+      <>
+        <SiteNav />
+        <div className="page register-page" style={ACCENT}>
+          <header className="page-head page-head-row">
+            <div className="page-head-title">
+              <a href={paths.tools()} className="icon-link" aria-label="Zu den Tools" title="Zu den Tools" data-testid="to-tools">
+                <Icon name="back" />
+              </a>
+              <h1 data-testid="register-title">Projektregister</h1>
+            </div>
+          </header>
+          <div className="crew-setup" data-testid="register-no-access">
+            <span className="tile-icon">
+              <Icon name="folder" size={22} />
+            </span>
+            <div>
+              <strong>Nur für Admin und Büro</strong>
+              <p className="muted small">Projekte übernimmst du direkt im Tool: dort „Projekt übernehmen“ antippen und das Projekt wählen.</p>
+            </div>
+            <a href={paths.tools()} className="btn btn-primary">
+              Zu den Tools
+            </a>
+          </div>
+        </div>
+      </>
+    );
+
   return (
     <>
       <SiteNav />

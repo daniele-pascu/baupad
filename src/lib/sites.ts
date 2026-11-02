@@ -6,7 +6,7 @@
  */
 import { getAuth, type Session } from './auth';
 import { useSession } from './use-session';
-import { deleteDefectPlanCompletely, deleteFormEntry, deleteProjectCompletely, deleteReport, getDB, listDefectPlans, listFormEntries, listProjects, listReports, listWeeks, saveDefectPlan, saveReport, saveTimeDay, saveWeek, writeRecords } from './db';
+import { deleteDefectPlanCompletely, deleteFormEntry, deleteProjectCompletely, deleteReport, getDB, getMeta, setMeta, listDefectPlans, listFormEntries, listProjects, listReports, listWeeks, saveDefectPlan, saveReport, saveTimeDay, saveWeek, writeRecords } from './db';
 import { adoptProject, projectFromSite, usedIn } from './crew-link';
 import { getPhotoStorage } from './photo-storage';
 import { clearFreePhotoSites, listFreePhotoSites, updateFreePhotoSite } from './photo-sites';
@@ -195,11 +195,24 @@ export async function useProjectIn(projectId: string | null, tool: string): Prom
  * Gleicher Name (ohne Groß/Klein) = dasselbe Projekt; gibt es schon ein Projekt mit dieser Baustelle, wird es genommen.
  * Liefert die Zahl der geänderten Einträge (neue Projekte und umgehängte Einträge).
  */
-export async function adoptFreeSites(): Promise<number> {
+export async function adoptFreeSites(purge = true): Promise<number> {
   const storage = getPhotoStorage();
-  const [projects, weeks, reports, photos, plans, free] = await Promise.all([listProjects(), listWeeks(), listReports(), storage.list(), listDefectPlans(), listFreePhotoSites()]);
+  const [projects, weeks, reports, photos, plans, free, deleted] = await Promise.all([listProjects(), listWeeks(), listReports(), storage.list(), listDefectPlans(), listFreePhotoSites(), getMeta<string[]>(DELETED_KEY)]);
   const known = new Set(projects.map((p) => p.id));
-  const orphan = (id: string | null | undefined) => !id || !known.has(id);
+  // gelöschte Projekte: Reste (z. B. offline erfasst oder Löschung noch unterwegs) werden entfernt, nicht neu angelegt
+  const gone = new Set((deleted ?? []).filter((id) => !known.has(id)));
+  let purged = 0;
+  if (gone.size && purge) {
+    for (const id of gone) {
+      const u = await collectUsage(id);
+      if (Object.values(u).some((l) => l.length)) {
+        await purgeProjectData(id, u);
+        purged++;
+      }
+    }
+    if (purged) return purged + (await adoptFreeSites(false));
+  }
+  const orphan = (id: string | null | undefined) => !id || (!known.has(id) && !gone.has(id));
   if (!free.length && !weeks.some((w) => w.sites.some((s) => orphan(s.projectId))) && !reports.some((r) => orphan(r.projectId)) && !photos.some((x) => orphan(x.projectId)) && !plans.some((d) => orphan(d.projectId))) return 0;
   const byName = new Map<string, { projectId: string; name: string; number: string; address: string }>();
   for (const p of projects) {
@@ -303,7 +316,17 @@ async function collectUsage(projectId: string) {
  * (Lohnverrechnung) – dort steht die Baustelle danach nur noch als Name.
  */
 export async function deleteProjectEverywhere(projectId: string): Promise<void> {
-  const u = await collectUsage(projectId);
+  // zuerst merken (abgeglichen): jedes Gerät räumt Reste dieses Projekts weg, statt es neu anzulegen
+  const list = (await getMeta<string[]>(DELETED_KEY)) ?? [];
+  if (!list.includes(projectId)) await setMeta(DELETED_KEY, [...list, projectId].slice(-500));
+  await purgeProjectData(projectId, await collectUsage(projectId));
+  await deleteProjectCompletely(projectId);
+}
+
+/** gelöschte Projekte (Firmen-Einstellung, abgeglichen) */
+const DELETED_KEY = 'deletedProjects';
+
+async function purgeProjectData(projectId: string, u: Awaited<ReturnType<typeof collectUsage>>): Promise<void> {
   const storage = getPhotoStorage();
   for (const w of u.weeks) {
     const drop = new Set(w.sites.filter((s) => s.projectId === projectId).map((s) => s.id));
@@ -314,5 +337,4 @@ export async function deleteProjectEverywhere(projectId: string): Promise<void> 
   for (const x of u.photos) await storage.remove(x.id);
   for (const d of u.plans) await deleteDefectPlanCompletely(d.id);
   for (const d of u.days) await saveTimeDay({ ...d, lines: d.lines.map((l) => (l.projectId === projectId ? { ...l, projectId: null } : l)), updatedAt: Date.now() });
-  await deleteProjectCompletely(projectId);
 }

@@ -116,5 +116,7 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - „Tag erfassen“: Wochentag + Datum mit Pfeilen für Vortag/nächsten Tag; je Arbeiter Kästchen anwesend/Urlaub/Krank (schreibt in die gemeinsamen Abwesenheiten der Einteilung, Tag ohne Stunden).
 
 ## Projekt löschen im Register (02.11.2026)
+- **Projektregister nur für Admin und Büro** (Kachel und Seite); alle anderen übernehmen Projekte im jeweiligen Tool über „Projekt übernehmen“.
+- **Löschen gilt auf allen Geräten:** Die Projekt-ID kommt in die abgeglichene Firmen-Einstellung `deletedProjects`. Jedes Gerät räumt beim Start und nach jedem Abgleich Reste dieses Projekts weg (z. B. offline erfasste Fotos/Berichte oder noch nicht abgeglichene Wochen), statt das Projekt daraus neu anzulegen.
 - „Neues Projekt“ im Register legt nur die Projektinfos an (in keinem Tool, Kennung `register` in `tools`); in Tools übernimmt man es danach im Register oder direkt im Tool.
 - Admin/Büro löschen ein Projekt im Projektregister – auch wenn noch Einträge daran hängen. Der Dialog zählt auf, was mitgelöscht wird (Aufmaß-Pläne/Schadstellen, Berichte, Firmenformulare, Fotos, Mängelpläne; die Baustelle verschwindet aus den Wochen der Einteilung, sonst würde das Projekt beim Start wieder angelegt). Erfasste Stunden der Zeitaufzeichnung bleiben (Lohnverrechnung), die Baustelle steht dort nur noch als Name.

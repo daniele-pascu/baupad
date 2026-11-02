@@ -75,15 +75,57 @@ test('Projektregister: Angaben, in Tools übernehmen, dort öffnen, neues Projek
   await expect(page.getByTestId('register-row')).toHaveCount(0);
 });
 
-test('Projektregister: Polier sieht die Projekte, legt aber keine an', async ({ page }) => {
+test('Projektregister nur für Admin und Büro: Polier sieht weder Kachel noch Register, übernimmt Projekte im Tool', async ({ page }) => {
   await freshStart(page);
   await createProject(page, 'Parkring', { number: '91300' });
   const context = { workspace_id: '11111111-1111-4111-8111-111111111111', workspace_name: 'Testfirma', role: 'polier', pkg: 'team', tools: ['projects', 'photos', 'reports', 'workers', 'defects'], sites: [], tool_sites: {}, operator: false, name: 'Polier Paul', phone: '' };
   await page.route('**/rest/v1/rpc/my_context', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(context) }));
+  await page.goto('./baupad/tools');
+  await expect(page.getByTestId('tools-title')).toBeVisible();
+  await expect(page.getByTestId('tool-photos')).toBeVisible();
+  await expect(page.getByTestId('tools-register')).toHaveCount(0);
   await page.goto('./baupad/projektregister');
-  await expect(page.getByTestId('register-row')).toHaveCount(1);
-  await expect(page.getByTestId('register-new')).toHaveCount(0);
-  await expect(page.getByTestId('register-edit')).toHaveCount(0);
-  await expect(page.getByTestId('register-delete')).toHaveCount(0);
-  await expect(page.getByTestId('register-adopt')).toBeVisible(); // übernehmen darf er
+  await expect(page.getByTestId('register-no-access')).toBeVisible();
+  await expect(page.getByTestId('register-row')).toHaveCount(0);
+  // im Tool: „Projekt übernehmen“ zeigt das Projekt aus dem Register
+  await page.goto('./baupad/fotodokumentation');
+  await page.getByTestId('photo-new-site').click();
+  await expect(page.getByTestId('project-picker').getByTestId('picker-item').filter({ hasText: 'Parkring' })).toHaveCount(1);
+});
+
+test('Gelöschtes Projekt kommt auf anderen Geräten nicht zurück: Reste werden weggeräumt statt neu angelegt', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'Parkring', { number: '91300' });
+  await page.goto('./baupad/arbeitereinteilung');
+  await page.getByTestId('add-site').click();
+  await page.getByTestId('project-picker').getByTestId('picker-item').filter({ hasText: 'Parkring' }).click();
+  await expect(page.locator('[data-site="Parkring"]')).toHaveCount(1);
+  // anderes Gerät: Löschung des Projekts ist angekommen, die geänderte Woche noch nicht
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve, reject) => {
+        const open = indexedDB.open('schadstellen-aufmass');
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const db = open.result;
+          const tx = db.transaction(['projects', 'meta'], 'readwrite');
+          const all = tx.objectStore('projects').getAll();
+          all.onsuccess = () => {
+            const p = (all.result as { id: string; name: string }[]).find((x) => x.name === 'Parkring')!;
+            tx.objectStore('projects').delete(p.id);
+            tx.objectStore('meta').put({ key: 'deletedProjects', value: [p.id] });
+          };
+          tx.oncomplete = () => {
+            db.close();
+            resolve();
+          };
+          tx.onerror = () => reject(tx.error);
+        };
+      }),
+  );
+  await page.reload();
+  await expect(page.locator('[data-site="Parkring"]')).toHaveCount(0);
+  await page.goto('./baupad/projektregister');
+  await expect(page.getByTestId('register-title')).toBeVisible();
+  await expect(page.getByTestId('register-row')).toHaveCount(0);
 });

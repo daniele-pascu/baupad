@@ -6,6 +6,7 @@ import { isInstalledApp } from '../lib/platform';
 import { useAccess } from '../lib/access';
 import { paths } from '../lib/router';
 import { usePageTitle } from '../lib/page-title';
+import { canEditSites } from '../lib/sites';
 
 interface Tool {
   id: ToolIconName;
@@ -32,6 +33,8 @@ export function ToolsPage() {
   usePageTitle('Tools – BauPad');
   const access = useAccess();
   const tools = TOOLS.filter((t) => access.canTool((t.tool ?? t.id) as never));
+  // Projektregister nur für Admin und Büro – die anderen übernehmen Projekte in den Tools („Projekt übernehmen“)
+  const register = canEditSites(access.session);
   return (
     <>
       <SiteNav />
@@ -90,6 +93,7 @@ export function ToolsPage() {
             );
           })}
         </nav>
+        {register && (
         <a href={paths.projectRegister()} className="tools-register" data-testid="tools-register">
           <span className="tools-register-icon" aria-hidden="true">
             <Icon name="folder" size={24} />
@@ -102,6 +106,7 @@ export function ToolsPage() {
             Öffnen <span aria-hidden="true">→</span>
           </span>
         </a>
+        )}
       </div>
     </>
   );
