@@ -50,7 +50,7 @@ test('Projektregister: Angaben, in Tools übernehmen, dort öffnen, neues Projek
   await expect(page.getByTestId('register-row')).toHaveCount(1);
   await page.getByTestId('register-search').fill('');
 
-  // Löschen: Halle 3 hat keine Einträge → weg; Parkring steht in einer Woche der Einteilung → gesperrt
+  // Löschen: Halle 3 ohne Einträge; Parkring samt Baustelle in der Woche der Einteilung
   await page.locator('[data-testid="register-row"][data-name="Halle 3"]').getByTestId('register-delete').click();
   await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Endgültig löschen' }).click();
   await expect(page.getByTestId('register-row')).toHaveCount(1);
@@ -60,9 +60,14 @@ test('Projektregister: Angaben, in Tools übernehmen, dort öffnen, neues Projek
   await expect(page.locator('[data-site="Parkring"]')).toHaveCount(1);
   await page.goto('./baupad/projektregister');
   await page.locator('[data-testid="register-row"][data-name="Parkring"]').getByTestId('register-delete').click();
-  await expect(page.getByTestId('register-delete-usage')).toContainText('Wochen in der Arbeitereinteilung');
-  await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Verstanden' }).click();
-  await expect(page.getByTestId('register-row')).toHaveCount(1);
+  await expect(page.getByTestId('register-delete-usage')).toContainText('1 Baustelle in Wochen der Arbeitereinteilung');
+  await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Endgültig löschen' }).click();
+  await expect(page.getByTestId('register-row')).toHaveCount(0);
+  // auch aus der Woche weg und nicht wieder angelegt
+  await page.goto('./baupad/arbeitereinteilung');
+  await expect(page.locator('[data-site="Parkring"]')).toHaveCount(0);
+  await page.goto('./baupad/projektregister');
+  await expect(page.getByTestId('register-row')).toHaveCount(0);
 });
 
 test('Projektregister: Polier sieht die Projekte, legt aber keine an', async ({ page }) => {

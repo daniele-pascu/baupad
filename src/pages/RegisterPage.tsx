@@ -11,11 +11,11 @@ import { useAccess } from '../lib/access';
 import { TOOLS, type ToolId } from '../lib/auth';
 import { adoptProject, costCenterByProject, projectTools } from '../lib/crew-link';
 import { useDataChanged } from '../lib/data-events';
-import { deleteProjectCompletely, listProjects, projectStats } from '../lib/db';
+import { listProjects, projectStats } from '../lib/db';
 import { labelFromProject } from '../lib/project-label';
 import { usePageTitle } from '../lib/page-title';
 import { navigate, paths } from '../lib/router';
-import { canEditSites, createRegisterProject, projectUsage, type SiteFields } from '../lib/sites';
+import { canEditSites, createRegisterProject, deleteProjectEverywhere, projectUsage, type SiteFields } from '../lib/sites';
 import { useSession } from '../lib/use-session';
 import type { Project } from '../lib/types';
 
@@ -68,33 +68,16 @@ export function RegisterPage() {
   }, [projects, ccs, q, access.session]);
   const usable = (t: ToolId) => access.canTool(t);
 
-  /** Löschen: nur wenn in den anderen Tools nichts mehr am Projekt hängt; Aufmaß-Daten werden mitgelöscht */
+  /** Löschen: Projekt mit allem, was in den Tools daran hängt (Stunden der Zeitaufzeichnung bleiben) */
   const remove = async (p: Project) => {
     try {
       const name = p.site || p.name;
       const [usage, stats] = await Promise.all([projectUsage(p.id), projectStats(p.id)]);
-      if (usage.length) {
-        await confirmDialog({
-          title: 'Projekt kann noch nicht gelöscht werden',
-          message: (
-            <>
-              <p>
-                An <strong>„{name}“</strong> hängen noch Einträge:
-              </p>
-              <ul data-testid="register-delete-usage">
-                {usage.map((u) => (
-                  <li key={u.label}>
-                    {u.count} {u.label}
-                  </li>
-                ))}
-              </ul>
-              <p>Diese zuerst im jeweiligen Tool löschen oder einem anderen Projekt zuordnen – dann lässt sich das Projekt hier löschen.</p>
-            </>
-          ),
-          confirmLabel: 'Verstanden',
-        });
-        return;
-      }
+      const lost = [
+        ...(stats.plans + stats.damages > 0 ? [`Aufmaß & Abrechnung: ${stats.plans} Plan/Pläne, ${stats.damages} Schadstelle(n)`] : []),
+        ...usage.filter((u) => !u.label.startsWith('Tage')).map((u) => `${u.count} ${u.label}`),
+      ];
+      const days = usage.find((u) => u.label.startsWith('Tage'));
       const ok = await confirmDialog({
         title: 'Projekt löschen?',
         message: (
@@ -102,18 +85,25 @@ export function RegisterPage() {
             <p>
               <strong>„{name}“</strong> wird aus dem Projektregister und allen Tools <strong>endgültig</strong> gelöscht.
             </p>
-            {stats.plans + stats.damages > 0 && (
-              <p>
-                In Aufmaß &amp; Abrechnung gehen dabei {stats.plans} Plan/Pläne und {stats.damages} Schadstelle(n) verloren – vorher dort über „Sichern“ als Datei sichern.
-              </p>
+            {lost.length > 0 && (
+              <>
+                <p>Dabei wird mitgelöscht:</p>
+                <ul data-testid="register-delete-usage">
+                  {lost.map((x) => (
+                    <li key={x}>{x}</li>
+                  ))}
+                </ul>
+              </>
             )}
+            {days && <p className="muted small">Erfasste Stunden ({days.count} Tage in der Zeitaufzeichnung) bleiben erhalten – die Baustelle steht dort dann nur noch als Name.</p>}
+            {lost.length > 0 && <p className="muted small">Das lässt sich nicht rückgängig machen. Wichtiges vorher sichern (Fotos, PDFs, Aufmaß „Sichern“).</p>}
           </>
         ),
         confirmLabel: 'Endgültig löschen',
         danger: true,
       });
       if (!ok) return;
-      await deleteProjectCompletely(p.id);
+      await deleteProjectEverywhere(p.id);
       toast(`„${name}“ gelöscht.`, 'success');
       reload();
     } catch (e) {

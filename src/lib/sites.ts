@@ -6,7 +6,7 @@
  */
 import { getAuth, type Session } from './auth';
 import { useSession } from './use-session';
-import { getDB, listDefectPlans, listFormEntries, listProjects, listReports, listWeeks, saveDefectPlan, saveReport, saveWeek, writeRecords } from './db';
+import { deleteDefectPlanCompletely, deleteFormEntry, deleteProjectCompletely, deleteReport, getDB, listDefectPlans, listFormEntries, listProjects, listReports, listWeeks, saveDefectPlan, saveReport, saveTimeDay, saveWeek, writeRecords } from './db';
 import { adoptProject, projectFromSite, usedIn } from './crew-link';
 import { getPhotoStorage } from './photo-storage';
 import { clearFreePhotoSites, listFreePhotoSites, updateFreePhotoSite } from './photo-sites';
@@ -264,20 +264,49 @@ export async function adoptFreeSites(): Promise<number> {
 
 const live = (x: object) => !(x as { deletedAt?: number | null }).deletedAt;
 
-/**
- * Wo hängt ein Projekt noch dran (außer Aufmaß & Abrechnung)? Solange es Einträge gibt, darf es nicht aus dem
- * Register gelöscht werden – sonst würde es beim nächsten Start aus diesen Einträgen neu angelegt.
- */
+/** Was an einem Projekt in den anderen Tools hängt (für den Lösch-Dialog im Register) */
 export async function projectUsage(projectId: string): Promise<{ label: string; count: number }[]> {
-  const db = await getDB();
-  const [weeks, reports, photos, plans, forms, days] = await Promise.all([listWeeks(), listReports(), getPhotoStorage().list(), listDefectPlans(), listFormEntries(), db.getAll('timeDays')]);
+  const u = await collectUsage(projectId);
   const n = (label: string, count: number) => ({ label, count });
   return [
-    n('Wochen in der Arbeitereinteilung', weeks.filter((w) => w.sites.some((s) => s.projectId === projectId)).length),
-    n('Berichte', reports.filter((r) => live(r) && r.projectId === projectId).length),
-    n('Firmenformulare', forms.filter((f) => live(f) && f.projectId === projectId).length),
-    n('Fotos', photos.filter((x) => live(x) && x.projectId === projectId).length),
-    n('Mängelpläne', plans.filter((d) => live(d) && d.projectId === projectId).length),
-    n('Tage in der Zeitaufzeichnung', days.filter((d) => d.lines.some((l) => l.projectId === projectId)).length),
+    n('Baustelle in Wochen der Arbeitereinteilung', u.weeks.length),
+    n('Berichte', u.reports.length),
+    n('Firmenformulare', u.forms.length),
+    n('Fotos', u.photos.length),
+    n('Mängelpläne', u.plans.length),
+    n('Tage in der Zeitaufzeichnung', u.days.length),
   ].filter((x) => x.count > 0);
+}
+
+async function collectUsage(projectId: string) {
+  const db = await getDB();
+  const [weeks, reports, photos, plans, forms, days] = await Promise.all([listWeeks(), listReports(), getPhotoStorage().list(), listDefectPlans(), listFormEntries(), db.getAll('timeDays')]);
+  return {
+    weeks: weeks.filter((w) => w.sites.some((s) => s.projectId === projectId)),
+    reports: reports.filter((r) => live(r) && r.projectId === projectId),
+    forms: forms.filter((f) => live(f) && f.projectId === projectId),
+    photos: photos.filter((x) => live(x) && x.projectId === projectId),
+    plans: plans.filter((d) => live(d) && d.projectId === projectId),
+    days: days.filter((d) => d.lines.some((l) => l.projectId === projectId)),
+  };
+}
+
+/**
+ * Projekt aus dem Register und allen Tools endgültig löschen: Berichte, Firmenformulare, Fotos, Mängelpläne und
+ * Aufmaß-Daten werden gelöscht, die Baustelle verschwindet aus den Wochen der Einteilung. Erfasste Stunden bleiben
+ * (Lohnverrechnung) – dort steht die Baustelle danach nur noch als Name.
+ */
+export async function deleteProjectEverywhere(projectId: string): Promise<void> {
+  const u = await collectUsage(projectId);
+  const storage = getPhotoStorage();
+  for (const w of u.weeks) {
+    const drop = new Set(w.sites.filter((s) => s.projectId === projectId).map((s) => s.id));
+    await saveWeek({ ...w, sites: w.sites.filter((s) => !drop.has(s.id)), updatedAt: Date.now() });
+  }
+  for (const r of u.reports) await deleteReport(r.id);
+  for (const f of u.forms) await deleteFormEntry(f.id);
+  for (const x of u.photos) await storage.remove(x.id);
+  for (const d of u.plans) await deleteDefectPlanCompletely(d.id);
+  for (const d of u.days) await saveTimeDay({ ...d, lines: d.lines.map((l) => (l.projectId === projectId ? { ...l, projectId: null } : l)), updatedAt: Date.now() });
+  await deleteProjectCompletely(projectId);
 }
