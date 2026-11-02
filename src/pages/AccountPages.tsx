@@ -496,20 +496,23 @@ const ACCOUNT_TILES: TileDef[] = [
   {
     id: 'firma',
     title: 'Firmeninformationen',
-    text: 'Firmenname, Anschrift, Logo und eigene Formulare für Exporte',
-    body: (s) => (
-      <>
-        <LogoSettings session={s} />
-        <div className="logo-settings-head" data-testid="account-forms">
-          <div>
-            <strong>Eigene Formulare</strong>
-            <span className="muted">PDF-Vorlagen der Firma (Regieliste, Stundenzettel, Materialliste …) werden unter Berichte &amp; Formulare → Vorlagen eingerichtet und im Projekt ausgefüllt.</span>
-          </div>
-          <a href={paths.formTemplates()} className="btn btn-sm" data-testid="account-form-templates">
-            Zu den Vorlagen
-          </a>
+    text: 'Firmenname, Anschrift und Logo für Exporte',
+    body: (s) => <LogoSettings session={s} />,
+  },
+  {
+    id: 'formulare',
+    title: 'Firmenformulare',
+    text: 'Eigene PDF-Vorlagen: Felder einrichten, im Projekt ausfüllen',
+    body: () => (
+      <div className="logo-settings-head" data-testid="account-forms">
+        <div>
+          <strong>Vorlagen der Firma</strong>
+          <span className="muted">Regieliste, Stundenzettel, Materialliste oder andere Formulare als PDF hochladen, jeden Kasten benennen und festlegen, was eingetragen wird. Ausgefüllt wird im jeweiligen Projekt unter Berichte &amp; Formulare.</span>
         </div>
-      </>
+        <a href={paths.formTemplates()} className="btn btn-primary" data-testid="account-form-templates">
+          Vorlagen öffnen
+        </a>
+      </div>
     ),
   },
   { id: 'app', title: 'App und Speicher', text: 'Installation, dauerhafter Speicher und zentrale Ablage', body: () => <AppStorageSettings /> },

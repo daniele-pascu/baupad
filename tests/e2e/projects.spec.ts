@@ -190,6 +190,7 @@ test('Angemeldet: Tools, Einstellungen und Benutzerliste', async ({ page }) => {
     /Passwort und Anmeldemethoden/,
     /Abonnement und Zahlung/,
     /Firmeninformationen/,
+    /Firmenformulare/,
     /App und Speicher/,
     /Weitere Einstellungen/,
   ]);
