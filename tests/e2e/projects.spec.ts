@@ -182,7 +182,7 @@ test('Angemeldet: Tools, Einstellungen und Benutzerliste', async ({ page }) => {
   await page.getByTestId('account-link').click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Konto und Einstellungen');
   await expect(page.getByTestId('account-session')).toContainText('Angemeldet als Test Nutzer');
-  await expect(page.getByTestId('nav-account')).toHaveText('Test');
+  await expect(page.getByTestId('nav-account')).toHaveText('T. Nutzer'); // erster Vorname abgekürzt + Nachname
   await expect(page.getByTestId('account-section')).toHaveText([
     /Benutzer & Rollen/,
     /Persönliche Daten/,

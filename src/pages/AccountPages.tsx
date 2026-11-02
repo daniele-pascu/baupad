@@ -288,7 +288,17 @@ export function AccountPage() {
     <div className="site">
       <SiteNav />
       <main className="site-main auth">
-        <h1 className="site-title">Konto und Einstellungen</h1>
+        <header className="page-head page-head-row account-section-head">
+          <div className="page-head-title">
+            <a href={paths.tools()} className="icon-link" aria-label="Zurück" title="Zurück" data-testid="to-tools">
+              <Icon name="back" />
+            </a>
+            <h1 className="site-title">Konto und Einstellungen</h1>
+          </div>
+          <a href={paths.tools()} className="btn btn-primary" data-testid="account-to-tools">
+            Zu den Tools
+          </a>
+        </header>
         {session ? (
           <section className="logo-settings" data-testid="account-session">
             <div className="logo-settings-head">
@@ -321,12 +331,6 @@ export function AccountPage() {
         )}
 
         <AccountTiles session={session} />
-
-        <div className="row gap wrap">
-          <a href={paths.tools()} className="btn btn-primary">
-            <Icon name="back" /> Zu den Tools
-          </a>
-        </div>
       </main>
       <SiteFooter />
     </div>
