@@ -162,6 +162,18 @@ test('Vorlage einrichten, im Projekt ausfüllen, PDF, Nummern, Vorlagenversion',
   await expect(fld('Anwesende')).toHaveValue('Max, Peter'); // Kopie behält die Werte
   await page.getByTestId('to-reports').click();
   await expect(page.getByTestId('form-item')).toHaveCount(2);
+  // „+“ neben der Liste legt sofort ein Formular mit heutigem Datum an
+  await page.getByTestId('form-section-add').click();
+  await expect(page.getByTestId('form-entry-title')).toHaveText('Tagesbericht Muster Nr. 3');
+  await page.getByTestId('form-entry-more').click();
+  await page.getByTestId('form-entry-delete').click();
+  await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Löschen' }).click();
+  await expect(page.getByTestId('form-item')).toHaveCount(2);
+  // auch bei den BauPad-Berichten: „+“ neben Regielisten
+  await page.locator('[data-testid="report-section-add"][data-type="regie"]').click();
+  await expect(page.getByTestId('report-title')).toHaveText('Regieliste Nr. 1');
+  await page.getByTestId('to-reports').click();
+  await expect(page.getByTestId('report-item')).toHaveCount(1);
   await page.getByTestId('to-reports-overview').click();
   await expect(page.getByTestId('report-site')).toContainText('2 Formulare');
   await expect(page.getByTestId('report-site-forms')).toHaveText('2 × Tagesbericht Muster');

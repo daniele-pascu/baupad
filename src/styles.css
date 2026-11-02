@@ -5663,6 +5663,15 @@ a.tool-tile:focus-visible {
 .report-section-head .photo-group-all {
   margin-left: auto;
 }
+.report-section-add {
+  margin-left: auto;
+  min-height: 32px;
+  padding: 0 10px;
+}
+.report-section-head .photo-group-all + .report-section-add,
+.report-section-add + .photo-group-all {
+  margin-left: 0;
+}
 .report-section-empty {
   margin: 0;
   padding: 12px 14px;

@@ -61,6 +61,7 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
       g.items.push(e);
       m.set(e.templateId, g);
     }
+    for (const t of templates) if (!m.has(t.id)) m.set(t.id, { name: t.name, items: [] }); // Vorlage ohne Eintrag: leere Liste mit „+“
     for (const g of m.values()) g.items.sort((a, b) => b.date.localeCompare(a.date) || (parseInt(b.no) || 0) - (parseInt(a.no) || 0));
     return [...m.entries()].sort((a, b) => a[1].name.localeCompare(b[1].name, 'de'));
   }, [entries, templates]);
@@ -118,6 +119,14 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
           toast('Formular gelöscht.', 'success');
         });
     });
+  /** „+“ neben einer Liste: sofort anlegen (heutiges Datum, Datum im Formular änderbar) */
+  const quickAdd = (type: ReportType) => {
+    if (site) void run(() => createReport(type, site, today(), all ?? []));
+  };
+  const quickAddForm = (templateId: string) => {
+    const t = templates.find((x) => x.id === templateId);
+    if (t && site) void createForm(t, site, today());
+  };
   const createForm = (t: FormTemplate, s: SiteChoice, date: string) =>
     run(async () => {
       const e = await createFormEntry(t, { projectId: s.projectId, name: s.name }, date, allEntries, session?.name ?? '');
@@ -240,7 +249,7 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
           </div>
         )}
 
-        {all && reports.length === 0 && entries.length === 0 && <p className="muted">Noch keine Berichte in diesem Projekt – oben „Neu“ antippen: Regieliste, Bautagesbericht, Bauwochenbericht{templates.length ? ' oder ein Firmenformular' : ''}.</p>}
+        {all && reports.length === 0 && entries.length === 0 && templates.length === 0 && <p className="muted">Noch keine Berichte in diesem Projekt – oben „Neu“ antippen: Regieliste, Bautagesbericht, Bauwochenbericht{templates.length ? ' oder ein Firmenformular' : ''}.</p>}
 
         {REPORT_TYPES.map((t) => {
           const items = byType[t.type];
@@ -252,6 +261,11 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
                 <span className={`report-type t-${t.type}`}>{t.short}</span>
                 <h2>{t.plural}</h2>
                 <span className="muted small">{items.length}</span>
+                {!selecting && site && (
+                  <button type="button" className="btn btn-sm report-section-add" onClick={() => quickAdd(t.type)} title={`${t.label} für heute anlegen`} aria-label={`${t.label} anlegen`} data-testid="report-section-add" data-type={t.type}>
+                    <Icon name="plus" size={16} />
+                  </button>
+                )}
                 {selecting && items.length > 0 && (
                   <label className="photo-group-all">
                     <input type="checkbox" checked={allOn} onChange={(e) => setMany(ids, e.target.checked)} data-testid="report-section-all" />
@@ -322,7 +336,13 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
               <span className="report-type t-form">F</span>
               <h2>{g.name}</h2>
               <span className="muted small">{g.items.length}</span>
+              {site && templates.some((t) => t.id === templateId) && (
+                <button type="button" className="btn btn-sm report-section-add" onClick={() => quickAddForm(templateId)} title={`${g.name} für heute anlegen`} aria-label={`${g.name} anlegen`} data-testid="form-section-add" data-name={g.name}>
+                  <Icon name="plus" size={16} />
+                </button>
+              )}
             </header>
+            {g.items.length === 0 && <p className="muted small report-section-empty">Noch kein Formular – mit „+“ anlegen.</p>}
             <ul className="report-list report-scroll">
               {g.items.map((e) => (
                 <li key={e.id} className="report-item" data-testid="form-item" data-no={e.no}>
