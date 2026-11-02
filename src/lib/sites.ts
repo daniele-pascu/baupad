@@ -6,7 +6,7 @@
  */
 import { getAuth, type Session } from './auth';
 import { useSession } from './use-session';
-import { getDB, listDefectPlans, listProjects, listReports, listWeeks, saveDefectPlan, saveReport, saveWeek, writeRecords } from './db';
+import { getDB, listDefectPlans, listFormEntries, listProjects, listReports, listWeeks, saveDefectPlan, saveReport, saveWeek, writeRecords } from './db';
 import { adoptProject, projectFromSite, usedIn } from './crew-link';
 import { getPhotoStorage } from './photo-storage';
 import { clearFreePhotoSites, listFreePhotoSites, updateFreePhotoSite } from './photo-sites';
@@ -260,4 +260,24 @@ export async function adoptFreeSites(): Promise<number> {
   }
   if (free.length) await clearFreePhotoSites();
   return changes;
+}
+
+const live = (x: object) => !(x as { deletedAt?: number | null }).deletedAt;
+
+/**
+ * Wo hängt ein Projekt noch dran (außer Aufmaß & Abrechnung)? Solange es Einträge gibt, darf es nicht aus dem
+ * Register gelöscht werden – sonst würde es beim nächsten Start aus diesen Einträgen neu angelegt.
+ */
+export async function projectUsage(projectId: string): Promise<{ label: string; count: number }[]> {
+  const db = await getDB();
+  const [weeks, reports, photos, plans, forms, days] = await Promise.all([listWeeks(), listReports(), getPhotoStorage().list(), listDefectPlans(), listFormEntries(), db.getAll('timeDays')]);
+  const n = (label: string, count: number) => ({ label, count });
+  return [
+    n('Wochen in der Arbeitereinteilung', weeks.filter((w) => w.sites.some((s) => s.projectId === projectId)).length),
+    n('Berichte', reports.filter((r) => live(r) && r.projectId === projectId).length),
+    n('Firmenformulare', forms.filter((f) => live(f) && f.projectId === projectId).length),
+    n('Fotos', photos.filter((x) => live(x) && x.projectId === projectId).length),
+    n('Mängelpläne', plans.filter((d) => live(d) && d.projectId === projectId).length),
+    n('Tage in der Zeitaufzeichnung', days.filter((d) => d.lines.some((l) => l.projectId === projectId)).length),
+  ].filter((x) => x.count > 0);
 }

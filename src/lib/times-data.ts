@@ -1,5 +1,7 @@
-import { DEFAULT_WORK_TIMES, weekOf } from './crew';
-import { getMeta, getWeek, listProjects, listTimeDays, listTimeMonths, listWorkers, previousWeek, saveTimeDay, setMeta } from './db';
+import { addDays, DEFAULT_WORK_TIMES, weekOf } from './crew';
+import { uuid } from './ids';
+import { deleteTimeDay, getMeta, getTimeFile, getWeek, listProjects, listTimeDays, listTimeMonths, listWorkers, previousWeek, putTimeFile, saveTimeDay, saveTimeMonth, setMeta } from './db';
+import type { ExportFile } from './aufmass';
 import { effectiveWeek } from './reports';
 import { dayId, hoursOf, monthOf, suggestDay, validTime, weeksOfMonth, type DaySuggestion, type TimeDay, type TimeDefaults, type TimeLine, type TimeMonth } from './times';
 import type { Absence, WeekPlan, Worker, WorkTimes } from './types';
@@ -79,4 +81,58 @@ export async function saveDay(workerId: string, date: string, lines: TimeLine[],
     if (!cur || cur.from !== clean[0].from || cur.to !== clean[0].to || cur.pause !== (clean[0].pause ?? 0)) await setMeta('timeDefaults', { ...all, [workerId]: { from: clean[0].from!, to: clean[0].to!, pause: clean[0].pause ?? 0 } });
   }
   return d;
+}
+
+/** alle erfassten Tage eines Jahres (für die Jahresdatei) */
+export async function loadYearDays(year: number): Promise<TimeDay[]> {
+  const months = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`);
+  return (await Promise.all(months.map((m) => listTimeDays(m)))).flat();
+}
+
+/** Jahresdatei eines Arbeiters in der Firmenvorlage (Stand jetzt) */
+export async function workerYearFile(data: TimesData, workerId: string, year: number, month?: string): Promise<ExportFile> {
+  const worker = data.workers.find((w) => w.id === workerId);
+  if (!worker) throw new Error('Arbeiter nicht gefunden.');
+  const { timeYearFile } = await import('./time-workbook');
+  return timeYearFile({ year, worker, times: data.times, absences: data.absences, days: await loadYearDays(year) }, month);
+}
+
+/** Monat freigeben und die Datei des Arbeiters (Jahresdatei, Stand dieses Monats) in der Ablage speichern */
+export async function approveMonth(data: TimesData, workerId: string, month: string, by: string): Promise<void> {
+  const f = await workerYearFile(data, workerId, Number(month.slice(0, 4)), month);
+  const fileId = `zeit_${workerId}_${month}`.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
+  await putTimeFile(fileId, f.data.slice().buffer);
+  await saveTimeMonth({ id: `${workerId}|${month}`, workerId, month, approvedAt: Date.now(), approvedBy: by, fileId });
+}
+
+/** gespeicherte Datei eines freigegebenen Monats */
+export async function storedMonthFile(data: TimesData, m: TimeMonth): Promise<ExportFile | null> {
+  if (!m.fileId) return null;
+  const bytes = await getTimeFile(m.fileId);
+  if (!bytes) return null;
+  const worker = data.workers.find((w) => w.id === m.workerId);
+  const { yearFileName } = await import('./time-workbook');
+  return { name: yearFileName(Number(m.month.slice(0, 4)), worker ?? { firstName: 'Arbeiter', lastName: '' }, m.month), data: new Uint8Array(bytes), mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' };
+}
+
+/**
+ * Urlaub oder Krank für einen Arbeiter an einem Tag (gemeinsame Liste der Arbeitereinteilung): der Tag wird aus
+ * bestehenden Zeiträumen herausgenommen und neu eingetragen; der Tag gilt dann als erfasst (ohne Stunden).
+ * null: wieder anwesend – die Erfassung des Tages wird zurückgesetzt (Vorschlag aus der Einteilung).
+ */
+export async function setDayAbsence(workerId: string, date: string, kind: Absence['kind'] | null, by: string): Promise<void> {
+  const list = (await getMeta<Absence[]>('absences')) ?? [];
+  const out: Absence[] = [];
+  for (const a of list) {
+    if (a.workerId !== workerId || date < a.from || date > a.to) {
+      out.push(a);
+      continue;
+    }
+    if (a.from < date) out.push({ ...a, to: addDays(date, -1) });
+    if (a.to > date) out.push({ ...a, id: uuid(), from: addDays(date, 1) });
+  }
+  if (kind) out.push({ id: uuid(), workerId, kind, from: date, to: date, createdAt: Date.now() });
+  await setMeta('absences', out);
+  if (kind) await saveDay(workerId, date, [], by);
+  else await deleteTimeDay(dayId(workerId, date));
 }

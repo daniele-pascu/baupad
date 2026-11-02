@@ -4,12 +4,12 @@ import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, offerFile, showError, toast } from '../components/ui';
 import { isoDate, parseDate, workerName } from '../lib/crew';
 import { useDataChanged } from '../lib/data-events';
-import { deleteTimeDay, deleteTimeMonth, saveTimeMonth } from '../lib/db';
+import { deleteTimeDay, deleteTimeMonth } from '../lib/db';
 import { usePageTitle } from '../lib/page-title';
 import { navigate, paths } from '../lib/router';
 import { canEditSites } from '../lib/sites';
-import { dayHours, defaultTimes, fmtH, holidayOn, hoursOf, monthDays, monthId, monthLabel, parseHours, plannedHours, shiftMonth, summarize, thisMonth, timesXlsx, validTime, weekdayIdx, WEEKDAYS, type TimeDay, type TimeLine } from '../lib/times';
-import { loadTimes, saveDay, suggestionFor, type TimesData } from '../lib/times-data';
+import { dayHours, defaultTimes, fmtH, holidayOn, hoursOf, monthDays, monthId, monthLabel, parseHours, plannedHours, shiftMonth, summarize, thisMonth, validTime, weekdayIdx, WEEKDAYS, type TimeDay, type TimeLine } from '../lib/times';
+import { approveMonth, loadTimes, saveDay, storedMonthFile, suggestionFor, workerYearFile, type TimesData } from '../lib/times-data';
 import { useSession } from '../lib/use-session';
 import { SiteSelect, TimeInputs, TIMES_ACCENT } from './TimesPage';
 
@@ -62,11 +62,17 @@ export function TimesheetPage({ workerId, month: m }: { workerId: string; month:
   const approve = () =>
     run(async () => {
       if (s.open.length && !(await confirmDialog({ title: 'Trotzdem freigeben?', message: <p>{s.open.length} Werktage sind noch nicht erfasst. Diese Tage zählen dann ohne Stunden.</p>, confirmLabel: 'Freigeben' }))) return;
-      await saveTimeMonth({ id: monthId(workerId, month), workerId, month, approvedAt: Date.now(), approvedBy: by });
-      toast('Monat freigegeben – Änderungen nur noch durch das Büro.', 'success');
+      await approveMonth(data, workerId, month, by);
+      toast(`Monat freigegeben – Datei „${monthLabel(month)}“ gespeichert. Änderungen nur noch durch das Büro.`, 'success', 5000);
     });
   const unapprove = () => run(() => deleteTimeMonth(monthId(workerId, month)));
-  const excel = () => void offerFile(timesXlsx(month, [worker], [...days.values()], data.absences, data.times, data.company)).catch((e) => showError(e, 'Excel konnte nicht erstellt werden'));
+  /** Excel in der Firmenvorlage: Jahresdatei mit allen Monaten bis jetzt */
+  const excel = () => void workerYearFile(data, workerId, Number(month.slice(0, 4))).then(offerFile).catch((e) => showError(e, 'Excel konnte nicht erstellt werden'));
+  /** beim Freigeben gespeicherter Monatsstand */
+  const stored = () =>
+    void (approval ? storedMonthFile(data, approval) : Promise.resolve(null))
+      .then((f) => (f ? offerFile(f) : toast('Für diesen Monat ist keine Datei gespeichert.', 'info')))
+      .catch((e) => showError(e, 'Datei konnte nicht geladen werden'));
 
   return (
     <>
@@ -83,9 +89,14 @@ export function TimesheetPage({ workerId, month: m }: { workerId: string; month:
             </div>
           </div>
           <div className="row gap">
-            <button type="button" className="btn btn-sm" onClick={excel} data-testid="timesheet-excel">
-              <Icon name="excel" size={16} /> Excel
+            <button type="button" className="btn btn-sm" onClick={excel} title="Jahresdatei in der Firmenvorlage (alle Monate, Formeln, Feiertage)" data-testid="timesheet-excel">
+              <Icon name="excel" size={16} /> Excel {month.slice(0, 4)}
             </button>
+            {approval?.fileId && (
+              <button type="button" className="btn btn-sm" onClick={stored} title="Beim Freigeben gespeicherte Datei dieses Monats" data-testid="timesheet-stored">
+                <Icon name="download" size={16} /> Gespeichert {monthLabel(month).split(' ')[0]}
+              </button>
+            )}
             {office &&
               (approval ? (
                 <button type="button" className="btn btn-sm" onClick={unapprove} data-testid="timesheet-unapprove">

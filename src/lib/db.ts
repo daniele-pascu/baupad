@@ -54,6 +54,8 @@ interface AufmassDB extends DBSchema {
   /** ab Version 11: Zeitaufzeichnung – erfasste Tage je Arbeiter, Freigaben je Monat */
   timeDays: { key: string; value: TimeDay; indexes: { month: string; workerId: string } };
   timeMonths: { key: string; value: TimeMonth; indexes: { month: string } };
+  /** ab Version 12: gespeicherte Zeitaufzeichnung je Arbeiter und Monat (Excel in der Firmenvorlage) */
+  timeFiles: { key: string; value: { id: string; data: ArrayBuffer } };
   /** Planbild (JPEG), Vorschau und – bei PDF-Plänen – die Originaldatei für scharfes Nachrendern beim Zoomen */
   defectPlanImages: { key: string; value: { id: string; data: ArrayBuffer; thumb: ArrayBuffer; pdf?: ArrayBuffer } };
 }
@@ -61,7 +63,7 @@ interface AufmassDB extends DBSchema {
 /** Datensätze, die mit der zentralen Ablage abgeglichen werden (Angaben als JSON) */
 export type SyncStore = EntityStore | 'workers' | 'weeks' | 'reports' | 'defectPlans' | 'defectMarks' | 'formTemplates' | 'formEntries' | 'timeDays' | 'timeMonths' | 'meta';
 /** Dateien, die mit der zentralen Ablage abgeglichen werden (Originalpläne, Mängelplan-Bilder, Formular-PDFs) */
-export type SyncFileStore = 'blobs' | 'defectPlanImages' | 'formTemplateFiles';
+export type SyncFileStore = 'blobs' | 'defectPlanImages' | 'formTemplateFiles' | 'timeFiles';
 /** Einstellungen, die für die ganze Firma gelten (werden abgeglichen); alles andere in `meta` bleibt auf dem Gerät */
 export const SYNC_META_KEYS: readonly string[] = ['absences', 'workTimes', 'companyName', 'companyLines', 'pdfShowTimes', 'timeDefaults'];
 
@@ -105,7 +107,7 @@ const DB_NAME = 'schadstellen-aufmass';
  * Version 5: Arbeitereinteilung (Arbeiter, Wochenplanungen). Version 6: Berichte & Formulare. Version 7: Fotodokumentation.
  * Upgrades legen ausschließlich neue Speicherbereiche an; vorhandene Daten bleiben unverändert.
  */
-const DB_VERSION = 11;
+const DB_VERSION = 12;
 
 let dbPromise: Promise<IDBPDatabase<AufmassDB>> | null = null;
 
@@ -162,6 +164,9 @@ export function getDB(): Promise<IDBPDatabase<AufmassDB>> {
           days.createIndex('month', 'month');
           days.createIndex('workerId', 'workerId');
           db.createObjectStore('timeMonths', { keyPath: 'id' }).createIndex('month', 'month');
+        }
+        if (oldVersion < 12) {
+          db.createObjectStore('timeFiles', { keyPath: 'id' });
         }
         // Hinweis für Aufmaß & Abrechnung, dass die Datenbank erweitert wurde
         if (oldVersion >= 1) void tx.objectStore('meta').put({ key: 'upgradedFrom', value: oldVersion });
@@ -612,6 +617,21 @@ export async function saveTimeDay(d: TimeDay): Promise<void> {
 export async function deleteTimeDay(id: string): Promise<void> {
   await deleteSynced('timeDays', id);
 }
+/** gespeicherte Excel-Datei (Monatsstand) – fehlt sie auf diesem Gerät, wird sie aus der Ablage nachgeladen */
+export async function getTimeFile(id: string): Promise<ArrayBuffer | undefined> {
+  const db = await getDB();
+  const local = (await db.get('timeFiles', id))?.data;
+  if (local || !fileFetcher || !(await fileFetcher('timeFiles', id))) return local;
+  return (await db.get('timeFiles', id))?.data;
+}
+export async function putTimeFile(id: string, data: ArrayBuffer): Promise<void> {
+  const db = await getDB();
+  const tx = db.transaction(['timeFiles', 'outbox'], 'readwrite');
+  await tx.objectStore('timeFiles').put({ id, data });
+  await tx.objectStore('outbox').put(outboxEntry('timeFiles', id));
+  await tx.done;
+  changed();
+}
 export async function listTimeMonths(month: string): Promise<TimeMonth[]> {
   return (await getDB()).getAllFromIndex('timeMonths', 'month', month);
 }
@@ -664,7 +684,7 @@ export async function clearOutbox(entries: OutboxEntry[]): Promise<void> {
 export async function enqueueAll(): Promise<number> {
   const db = await getDB();
   const stores = ['projects', 'costCenters', 'files', 'plans', 'damages', 'components', 'elements', 'lvDocs', 'workers', 'weeks', 'reports', 'defectPlans', 'defectMarks', 'formTemplates', 'formEntries', 'timeDays', 'timeMonths'] as const;
-  const tx = db.transaction([...stores, 'meta', 'blobs', 'defectPlanImages', 'formTemplateFiles', 'outbox'] as const, 'readwrite');
+  const tx = db.transaction([...stores, 'meta', 'blobs', 'defectPlanImages', 'formTemplateFiles', 'timeFiles', 'outbox'] as const, 'readwrite');
   const outbox = tx.objectStore('outbox');
   let n = 0;
   for (const name of stores) {
@@ -677,6 +697,7 @@ export async function enqueueAll(): Promise<number> {
   for (const b of await tx.objectStore('blobs').getAll()) await outbox.put(outboxEntry('blobs', b.id, b.projectId));
   for (const k of await tx.objectStore('defectPlanImages').getAllKeys()) await outbox.put(outboxEntry('defectPlanImages', k));
   for (const k of await tx.objectStore('formTemplateFiles').getAllKeys()) await outbox.put(outboxEntry('formTemplateFiles', k));
+  for (const k of await tx.objectStore('timeFiles').getAllKeys()) await outbox.put(outboxEntry('timeFiles', k));
   await tx.done;
   return n;
 }
@@ -700,6 +721,10 @@ export async function readSyncFile(store: SyncFileStore, id: string): Promise<Re
     const v = await db.get('defectPlanImages', id);
     return v ? { 'data.jpg': v.data, 'thumb.jpg': v.thumb, ...(v.pdf ? { 'pdf.pdf': v.pdf } : {}) } : undefined;
   }
+  if (store === 'timeFiles') {
+    const t = await db.get('timeFiles', id);
+    return t ? { 'data.bin': t.data } : undefined;
+  }
   const f = await db.get('formTemplateFiles', id);
   return f ? { 'pdf.pdf': f.data } : undefined;
 }
@@ -710,5 +735,6 @@ export async function writeSyncFile(store: SyncFileStore, id: string, parts: Rec
     const f = await db.get('files', id);
     await db.put('blobs', { id, projectId: f?.projectId ?? '', data: parts['data.bin'] });
   } else if (store === 'defectPlanImages') await db.put('defectPlanImages', { id, data: parts['data.jpg'], thumb: parts['thumb.jpg'], ...(parts['pdf.pdf'] ? { pdf: parts['pdf.pdf'] } : {}) });
+  else if (store === 'timeFiles') await db.put('timeFiles', { id, data: parts['data.bin'] });
   else await db.put('formTemplateFiles', { id, data: parts['pdf.pdf'] });
 }

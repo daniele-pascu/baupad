@@ -52,6 +52,8 @@ export interface TimeMonth {
   month: string;
   approvedAt: number;
   approvedBy: string;
+  /** gespeicherte Excel-Datei dieses Monatsstands (Firmenvorlage, Ablage „timeFiles“) */
+  fileId?: string;
 }
 
 export const dayId = (workerId: string, date: string) => `${workerId}|${date}`;

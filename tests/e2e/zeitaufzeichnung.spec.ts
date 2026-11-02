@@ -69,6 +69,20 @@ test('Tag erfassen, Monatszettel mit Wegzeit und zweiter Baustelle, Excel, Freig
   await expect(row(page, 'Peter').getByTestId('times-to')).toHaveValue('15:00');
   await expect(row(page, 'Peter').getByTestId('times-pause')).toHaveValue('1');
   await expect(row(page, 'Max').getByTestId('times-to')).toHaveValue('16:00');
+  // Kopfzeile: Wochentag, Datum, Pfeile für Vortag/nächsten Tag
+  await expect(page.getByTestId('times-weekday')).toHaveText('Donnerstag');
+  await page.getByTestId('times-day-next').click();
+  await expect(page.getByTestId('times-date')).toHaveValue('2026-10-30');
+  await expect(page.getByTestId('times-weekday')).toHaveText('Freitag');
+  await page.getByTestId('times-day-prev').click();
+  await expect(page.getByTestId('times-date')).toHaveValue('2026-10-29');
+  // Urlaub/Krank je Arbeiter: keine Stunden; wieder anwesend → Vorschlag
+  await row(page, 'Peter').getByTestId('times-absence').selectOption('krank');
+  await expect(row(page, 'Peter')).toContainText('Krank – keine Stunden');
+  await expect(row(page, 'Peter').getByTestId('times-from')).toHaveCount(0);
+  await row(page, 'Peter').getByTestId('times-absence').selectOption('');
+  await expect(row(page, 'Peter')).toHaveAttribute('data-state', 'suggested');
+  await expect(row(page, 'Peter').getByTestId('times-to')).toHaveValue('15:00');
 
   // Monatsliste: Oktober, Stunden je Person
   await page.getByTestId('times-prev').click();
@@ -100,18 +114,26 @@ test('Tag erfassen, Monatszettel mit Wegzeit und zweiter Baustelle, Excel, Freig
   // Nationalfeiertag ohne Vorschlag; Samstag frei
   await expect(page.locator('[data-testid="timesheet-day"][data-date="2026-10-26"]')).toContainText('Nationalfeiertag');
 
-  // Excel des Monatszettels
+  // Excel in der Firmenvorlage: Jahresdatei 2026 (Oktober-Blatt mit Zeiten und Baustellen)
   const dl = page.waitForEvent('download');
   await page.getByTestId('timesheet-excel').click();
-  const file = await saveDownload(await dl, 'zeit.xlsx');
+  const d = await dl;
+  expect(d.suggestedFilename()).toBe('Zeitaufzeichnung_2026_Max.xlsx');
+  const file = await saveDownload(d, 'zeit.xlsx');
   const { unzipSync, strFromU8 } = await import('fflate');
   const files = unzipSync(new Uint8Array(readFileSync(file)));
-  expect(strFromU8(files['xl/worksheets/sheet2.xml'])).toContain('Halle 3');
+  const oct = strFromU8(files['xl/worksheets/sheet11.xml']);
+  expect(oct).toContain('Parkring; Halle 3');
+  expect(oct).toMatch(/<c r="C31"[^>]*><v>0\.291666667<\/v>/); // 29.10. 07:00
 
   // Freigabe: Polier kann danach nichts mehr ändern
   await page.getByTestId('timesheet-approve').click();
   await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Freigeben' }).click();
   await expect(page.getByTestId('timesheet-approved')).toContainText('Freigegeben am');
+  // beim Freigeben gespeichert: Monatsstand als Datei
+  const dl2 = page.waitForEvent('download');
+  await page.getByTestId('timesheet-stored').click();
+  expect((await dl2).suggestedFilename()).toBe('Zeitaufzeichnung_2026-10_Max.xlsx');
   const context = { workspace_id: '11111111-1111-4111-8111-111111111111', workspace_name: 'Testfirma', role: 'polier', pkg: 'team', tools: ['projects', 'photos', 'reports', 'workers', 'defects'], sites: [], tool_sites: {}, operator: false, name: 'Polier Paul', phone: '' };
   await page.route('**/rest/v1/rpc/my_context', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(context) }));
   await page.reload();

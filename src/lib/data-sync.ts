@@ -40,7 +40,7 @@ const PAGE = 500;
 const BATCH = 200;
 const KICK_DELAY = 1500;
 
-const FILE_STORES: SyncFileStore[] = ['blobs', 'defectPlanImages', 'formTemplateFiles'];
+const FILE_STORES: SyncFileStore[] = ['blobs', 'defectPlanImages', 'formTemplateFiles', 'timeFiles'];
 const PROJECT_STORES: SyncStore[] = ['projects', 'costCenters', 'files', 'plans', 'damages', 'components', 'elements', 'lvDocs'];
 /** Dateiteile je Ablage; „pdf.pdf“ der Planbilder ist optional */
 const FILE_PARTS: Record<SyncFileStore, { name: string; type: string; optional?: boolean }[]> = {
@@ -51,6 +51,7 @@ const FILE_PARTS: Record<SyncFileStore, { name: string; type: string; optional?:
     { name: 'pdf.pdf', type: 'application/pdf', optional: true },
   ],
   formTemplateFiles: [{ name: 'pdf.pdf', type: 'application/pdf' }],
+  timeFiles: [{ name: 'data.bin', type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }],
 };
 const fileKey = (id: string, part: string) => `files/${id}/${part}`;
 const isFileStore = (s: string): s is SyncFileStore => (FILE_STORES as string[]).includes(s);

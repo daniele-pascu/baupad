@@ -100,3 +100,45 @@ describe('Zeitaufzeichnung: Vorschlag und Summen', () => {
     expect(sheet3).toContain('0:30');
   });
 });
+
+describe('Zeitaufzeichnung: Jahresdatei in der Firmenvorlage', () => {
+  it('füllt Jahr, Name, Soll, Feiertage des Jahres, Zeiten, U/K, Pause nur wenn abweichend, Kommentar – Formeln bleiben', async () => {
+    const { fillYearWorkbook, serial } = await import('../../src/lib/time-workbook');
+    const { TIME_TEMPLATE_B64 } = await import('../../src/lib/time-template');
+    const tpl = Uint8Array.from(atob(TIME_TEMPLATE_B64), (c) => c.charCodeAt(0));
+    const w = { id: 'w1', firstName: 'Andrea', lastName: 'Pascu', active: true } as Worker;
+    const data = fillYearWorkbook(tpl, {
+      year: 2027,
+      worker: w,
+      times: DEFAULT_WORK_TIMES,
+      absences: [{ id: 'a', workerId: 'w1', kind: 'krank', from: '2027-03-03', to: '2027-03-03', createdAt: 0 }],
+      days: [
+        day('w1', '2027-03-01', [{ projectId: null, siteName: 'Parkring', from: '07:00', to: '16:00', pause: 0.5, hours: 8.5, travel: 1 }]),
+        day('w1', '2027-03-02', [{ projectId: null, siteName: 'Parkring', from: '07:00', to: '15:00', pause: 1, hours: 7 }]),
+        day('w1', '2027-03-05', [{ projectId: null, siteName: 'Halle 3', from: '07:00', to: '12:00', pause: 0.5, hours: 4.5 }]),
+        day('other', '2027-03-01', [{ projectId: null, siteName: 'X', from: '06:00', to: '07:00', pause: 0, hours: 1 }]),
+      ],
+    });
+    const f = unzipSync(data);
+    const start = strFromU8(f['xl/worksheets/sheet1.xml']);
+    expect(start).toContain('<c r="C7" s="');
+    expect(start).toMatch(/<c r="C7"[^>]*><v>2027<\/v>/);
+    expect(start).toContain('Pascu Andrea');
+    expect(start).toMatch(/<c r="C16"[^>]*><v>0\.354166667<\/v>/); // 8:30 Soll
+    const basis = strFromU8(f['xl/worksheets/sheet14.xml']);
+    expect(basis).toMatch(new RegExp(`<c r="A7"[^>]*><v>${serial('2027-03-28')}</v>`)); // Ostersonntag 2027
+    expect(basis).toMatch(new RegExp(`<c r="A8"[^>]*><v>${serial('2027-03-29')}</v>`));
+    expect(basis).toContain('<f>A7-2</f>'); // Karfreitag bleibt Formel
+    const march = strFromU8(f['xl/worksheets/sheet4.xml']);
+    expect(march).toMatch(/<c r="C3"[^>]*><v>0\.291666667<\/v>/); // 1.3. 07:00
+    expect(march).toMatch(/<c r="D3"[^>]*><v>0\.666666667<\/v>/); // 16:00
+    expect(march).toContain('Parkring · Weg 1 h');
+    expect(march).toMatch(/<c r="J3"[^>]*><f>/); // Pause wie Vorlage → Formel bleibt
+    expect(march).toMatch(/<c r="J4"[^>]*><v>0\.041666667<\/v>/); // 1 h Pause weicht ab → Wert
+    expect(march).toMatch(/<c r="K5"[^>]*t="inlineStr"><is><t xml:space="preserve">K<\/t>/); // krank
+    expect(march).toMatch(/<c r="J7"[^>]*><v>0\.020833333<\/v>/); // Freitag: Vorlage 0:00, BauPad 0:30
+    expect(march).not.toContain('>X<'); // anderer Arbeiter
+    expect(march).toContain('<f>SUM(I3-J3,IF(OR(K3="U",K3="K"),B3,IF(K3="HU",B3/2)))</f>');
+    expect(strFromU8(f['xl/workbook.xml'])).toContain('fullCalcOnLoad="1"');
+  });
+});

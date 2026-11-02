@@ -3,17 +3,18 @@ import { Icon } from '../components/Icon';
 import { SiteNav } from '../components/SiteNav';
 import { ToolIcon } from '../components/ToolIcon';
 import { offerFile, promptDialog, showError, toast } from '../components/ui';
-import { isoDate, parseDate, workerName } from '../lib/crew';
+import { addDays, isoDate, workerName } from '../lib/crew';
 import { useDataChanged } from '../lib/data-events';
 import { usePageTitle } from '../lib/page-title';
 import { navigate, paths } from '../lib/router';
 import { canEditSites } from '../lib/sites';
-import { defaultTimes, fmtH, fmtPause, hoursOf, monthId, monthLabel, monthOf, parseHours, PAUSES, shiftMonth, summarize, timesXlsx, validTime, weekdayIdx, WEEKDAYS, type TimeDay } from '../lib/times';
-import { loadTimes, saveDay, suggestionFor, type TimesData } from '../lib/times-data';
+import { defaultTimes, fmtH, fmtPause, hoursOf, monthId, monthLabel, monthOf, parseHours, PAUSES, shiftMonth, summarize, timesXlsx, validTime, weekdayIdx, type TimeDay } from '../lib/times';
+import { loadTimes, saveDay, setDayAbsence, suggestionFor, workerYearFile, type TimesData } from '../lib/times-data';
 import { useSession } from '../lib/use-session';
 import type { Worker } from '../lib/types';
 
 export const TIMES_ACCENT = { '--tool': '#0f9d76' } as CSSProperties;
+const WEEKDAY_LONG = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
 
 /**
  * Zeitaufzeichnung – Übersicht: „Tag erfassen“ (alle Arbeiter des Tages mit Baustelle und Stunden aus der
@@ -48,6 +49,19 @@ export function TimesPage({ month: m, date: d }: { month: string | null; date: s
     if (!data) return;
     void offerFile(timesXlsx(month, data.workers, data.days, data.absences, data.times, data.company)).catch((e) => showError(e, 'Excel konnte nicht erstellt werden'));
   };
+  /** je Arbeiter die Jahresdatei in der Firmenvorlage, zusammen als ZIP */
+  const yearFiles = () => {
+    if (!data) return;
+    void (async () => {
+      const { zipSync } = await import('fflate');
+      const files: Record<string, Uint8Array> = {};
+      for (const w of data.workers.filter((x) => x.active || data.days.some((d) => d.workerId === x.id))) {
+        const f = await workerYearFile(data, w.id, Number(month.slice(0, 4)));
+        files[f.name] = f.data;
+      }
+      await offerFile({ name: `Zeitaufzeichnung_${month.slice(0, 4)}_alle_Arbeiter.zip`, data: zipSync(files, { level: 0 }), mimeType: 'application/zip' });
+    })().catch((e) => showError(e, 'Dateien konnten nicht erstellt werden'));
+  };
 
   const rows = useMemo(() => {
     if (!data) return [];
@@ -74,12 +88,25 @@ export function TimesPage({ month: m, date: d }: { month: string | null; date: s
         </header>
 
         <section className="times-card" data-testid="times-day">
-          <header className="times-card-head">
+          <header className="times-card-head times-day-head">
             <h2>Tag erfassen</h2>
-            <input type="date" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} data-testid="times-date" />
-            <span className="muted small">
-              {WEEKDAYS[weekdayIdx(date)]}, {parseDate(date).toLocaleDateString('de-DE')}
-            </span>
+            <div className="times-day-nav">
+              <button type="button" className="icon-link" onClick={() => setDate(addDays(date, -1))} aria-label="Vortag" title="Vortag" data-testid="times-day-prev">
+                <Icon name="back" size={18} />
+              </button>
+              <strong className="times-weekday" data-testid="times-weekday">
+                {WEEKDAY_LONG[weekdayIdx(date)]}
+              </strong>
+              <input type="date" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} aria-label="Datum" data-testid="times-date" />
+              <button type="button" className="icon-link" onClick={() => setDate(addDays(date, 1))} aria-label="Nächster Tag" title="Nächster Tag" data-testid="times-day-next">
+                <Icon name="next" size={18} />
+              </button>
+            </div>
+            {date !== today && (
+              <button type="button" className="btn btn-sm" onClick={() => setDate(today)} data-testid="times-today">
+                Heute
+              </button>
+            )}
           </header>
           {dayData ? <DayList data={dayData} date={date} by={by} office={canEditSites(session)} extra={extra} onExtra={(id) => setExtra((l) => [...l, id])} onSaved={reload} /> : <p className="muted small">Wird geladen …</p>}
         </section>
@@ -96,8 +123,11 @@ export function TimesPage({ month: m, date: d }: { month: string | null; date: s
                 <Icon name="next" size={18} />
               </button>
             </div>
-            <button type="button" className="btn btn-sm btn-primary times-excel" onClick={excel} disabled={!data} data-testid="times-excel">
-              <Icon name="excel" size={16} /> Excel
+            <button type="button" className="btn btn-sm times-excel" onClick={yearFiles} disabled={!data} title="Je Arbeiter die Jahresdatei in der Firmenvorlage (ZIP)" data-testid="times-year-files">
+              <Icon name="excel" size={16} /> Jahresdateien {month.slice(0, 4)}
+            </button>
+            <button type="button" className="btn btn-sm btn-primary" onClick={excel} disabled={!data} title="Übersicht des Monats für die Lohnverrechnung" data-testid="times-excel">
+              <Icon name="excel" size={16} /> Monatsübersicht
             </button>
           </header>
           {data && rows.length === 0 && (
@@ -167,7 +197,7 @@ function DayList({ data, date, by, office, extra, onExtra, onSaved }: { data: Ti
   return (
     <>
       {holiday && <p className="small times-holiday">Feiertag: {holiday}</p>}
-      {items.length === 0 && <p className="muted small">An diesem Tag ist niemand eingeteilt. Arbeiter unten dazuholen.</p>}
+      {items.length === 0 && <p className="muted small">An diesem Tag ist niemand eingeteilt. Arbeiter unten hinzufügen.</p>}
       <ul className="times-day-list">
         {items.map((x) => (
           <DayRow key={`${x.w.id}-${date}-${x.rec?.updatedAt ?? 0}`} w={x.w} date={date} rec={x.rec} sugg={x.sugg} data={data} by={by} locked={x.locked} onSaved={onSaved} />
@@ -180,8 +210,8 @@ function DayList({ data, date, by, office, extra, onExtra, onSaved }: { data: Ti
           </button>
         )}
         {others.length > 0 && (
-          <select className="btn" value="" onChange={(e) => e.target.value && onExtra(e.target.value)} aria-label="Arbeiter dazuholen" data-testid="times-add-worker">
-            <option value="">+ Arbeiter dazuholen</option>
+          <select className="btn" value="" onChange={(e) => e.target.value && onExtra(e.target.value)} aria-label="Arbeiter hinzufügen" data-testid="times-add-worker">
+            <option value="">+ Arbeiter hinzufügen</option>
             {others.map((w) => (
               <option key={w.id} value={w.id}>
                 {workerName(w)}
@@ -272,15 +302,22 @@ function DayRow({ w, date, rec, sugg, data, by, locked, onSaved }: { w: Worker; 
       .then(onSaved)
       .catch((e) => showError(e, 'Speichern fehlgeschlagen'));
   };
-  const absent = sugg.absence ? (sugg.absence === 'urlaub' ? 'Urlaub' : 'Krank') : null;
+  const absence = sugg.absence;
+  const setAbsence = (kind: 'urlaub' | 'krank' | null) => void setDayAbsence(w.id, date, kind, by).then(onSaved, (e) => showError(e, 'Speichern fehlgeschlagen'));
   return (
-    <li className={`times-day-row${rec ? ' done' : ' suggested'}${multi ? ' multi' : ''}`} data-testid="times-day-row" data-name={workerName(w)} data-state={rec ? 'done' : 'suggested'}>
+    <li className={`times-day-row${rec ? ' done' : ' suggested'}${multi ? ' multi' : ''}${absence ? ' absent' : ''}`} data-testid="times-day-row" data-name={workerName(w)} data-state={rec ? 'done' : 'suggested'}>
       <span className="times-day-name">
         <strong>{workerName(w)}</strong>
-        {absent && !rec && <span className="times-badge">{absent}</span>}
-        {rec ? <span className="times-badge ok">erfasst</span> : first ? <span className="times-badge">Vorschlag</span> : null}
+        {rec && !absence ? <span className="times-badge ok">erfasst</span> : first && !absence ? <span className="times-badge">Vorschlag</span> : null}
+        <select className={`times-absence${absence ? ` on ${absence}` : ''}`} value={absence ?? ''} disabled={locked} onChange={(e) => setAbsence((e.target.value || null) as 'urlaub' | 'krank' | null)} aria-label={`Anwesenheit ${workerName(w)}`} data-testid="times-absence">
+          <option value="">anwesend</option>
+          <option value="urlaub">Urlaub</option>
+          <option value="krank">Krank</option>
+        </select>
       </span>
-      {multi ? (
+      {absence ? (
+        <span className="small muted times-day-multi">{absence === 'urlaub' ? 'Urlaub – keine Stunden' : 'Krank – keine Stunden'}</span>
+      ) : multi ? (
         <span className="small times-day-multi">
           {base.map((l) => `${l.siteName} ${l.from ? `${l.from}–${l.to} ` : ''}${fmtH(l.hours)} h`).join(' · ')} –{' '}
           <a href={paths.timesheet(w.id, data.month)} data-testid="times-open-sheet">
@@ -316,7 +353,7 @@ function DayRow({ w, date, rec, sugg, data, by, locked, onSaved }: { w: Worker; 
           </label>
         </>
       )}
-      {!rec && !locked && first && (
+      {!rec && !locked && first && !absence && (
         <button type="button" className="btn btn-sm times-take" onClick={() => void saveDay(w.id, date, sugg.lines, by).then(onSaved)} data-testid="times-take" title="Vorschlag übernehmen">
           <Icon name="check" size={16} />
         </button>

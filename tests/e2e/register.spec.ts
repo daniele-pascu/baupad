@@ -48,6 +48,21 @@ test('Projektregister: Angaben, in Tools übernehmen, dort öffnen, neues Projek
   await page.goto('./baupad/projektregister');
   await page.getByTestId('register-search').fill('91300');
   await expect(page.getByTestId('register-row')).toHaveCount(1);
+  await page.getByTestId('register-search').fill('');
+
+  // Löschen: Halle 3 hat keine Einträge → weg; Parkring steht in einer Woche der Einteilung → gesperrt
+  await page.locator('[data-testid="register-row"][data-name="Halle 3"]').getByTestId('register-delete').click();
+  await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Endgültig löschen' }).click();
+  await expect(page.getByTestId('register-row')).toHaveCount(1);
+  await page.goto('./baupad/arbeitereinteilung');
+  await page.getByTestId('add-site').click();
+  await page.getByTestId('project-picker').getByTestId('picker-item').filter({ hasText: 'Parkring' }).click();
+  await expect(page.locator('[data-site="Parkring"]')).toHaveCount(1);
+  await page.goto('./baupad/projektregister');
+  await page.locator('[data-testid="register-row"][data-name="Parkring"]').getByTestId('register-delete').click();
+  await expect(page.getByTestId('register-delete-usage')).toContainText('Wochen in der Arbeitereinteilung');
+  await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Verstanden' }).click();
+  await expect(page.getByTestId('register-row')).toHaveCount(1);
 });
 
 test('Projektregister: Polier sieht die Projekte, legt aber keine an', async ({ page }) => {
@@ -59,5 +74,6 @@ test('Projektregister: Polier sieht die Projekte, legt aber keine an', async ({ 
   await expect(page.getByTestId('register-row')).toHaveCount(1);
   await expect(page.getByTestId('register-new')).toHaveCount(0);
   await expect(page.getByTestId('register-edit')).toHaveCount(0);
+  await expect(page.getByTestId('register-delete')).toHaveCount(0);
   await expect(page.getByTestId('register-adopt')).toBeVisible(); // übernehmen darf er
 });

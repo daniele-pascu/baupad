@@ -110,3 +110,9 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - Freigabe je Person und Monat durch Admin/Büro; danach für den Polier gesperrt, Änderungen des Büros werden mit Name und Zeit vermerkt.
 - Excel für die Lohnverrechnung (Blätter Monat, Je Baustelle, Einzeln). Keine Ortung/GPS.
 - Eigene Kachel, Rechte wie Arbeitereinteilung (kein neues Recht am Server nötig). Keine Verbindung zu Regieliste/Bautagesbericht.
+- **Jahresdatei je Arbeiter in der Firmenvorlage** „Zeit_aufzeichnung.xlsx“ (bereinigt mit `scripts/make-time-template.py`, eingebettet in `src/lib/time-template.ts`): je Jahr eine neue Datei; alle Formeln, Farben und Pausenregeln der Vorlage bleiben, BauPad trägt nur Eingaben ein (Jahr, Name, Soll je Wochentag, österreichische Feiertage des Jahres inkl. Ostern/Pfingsten/Fronleichnam, je Tag bis zu drei Blöcke Beginn/Ende, U/K, Pause nur wenn abweichend, Baustellen und Wegzeit als Kommentar). Excel rechnet beim Öffnen neu.
+- Beim **Freigeben** wird der Monatsstand als Datei je Arbeiter gespeichert (`timeFiles`, DB v12, Abgleich über die Ablage) und ist im Monatszettel unter „Gespeichert …“ abrufbar. „Jahresdateien“ lädt alle Arbeiter als ZIP.
+- „Tag erfassen“: Wochentag + Datum mit Pfeilen für Vortag/nächsten Tag; je Arbeiter Kästchen anwesend/Urlaub/Krank (schreibt in die gemeinsamen Abwesenheiten der Einteilung, Tag ohne Stunden).
+
+## Projekt löschen im Register (02.11.2026)
+- Admin/Büro löschen ein Projekt im Projektregister. Erlaubt nur, wenn in den anderen Tools nichts mehr daran hängt (Wochen, Berichte, Firmenformulare, Fotos, Mängelpläne, Zeitaufzeichnung) – sonst zeigt BauPad, wo noch Einträge sind. Grund: aus solchen Einträgen würde das Projekt beim nächsten Start wieder angelegt; Daten sollen nie unbemerkt verloren gehen. Aufmaß-Daten (Pläne, Schadstellen) werden nach Hinweis mitgelöscht.

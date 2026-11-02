@@ -1,25 +1,30 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Icon } from '../components/Icon';
 import { Modal } from '../components/Modal';
 import { ProjectEditDialog } from '../components/ProjectEditDialog';
 import { ProjectForm } from '../components/ProjectForm';
 import { ProjectHeading } from '../components/ProjectHeading';
 import { SiteNav } from '../components/SiteNav';
-import { showError, toast } from '../components/ui';
+import { ToolIcon } from '../components/ToolIcon';
+import { confirmDialog, showError, toast } from '../components/ui';
 import { useAccess } from '../lib/access';
 import { TOOLS, type ToolId } from '../lib/auth';
 import { adoptProject, costCenterByProject, projectTools } from '../lib/crew-link';
 import { useDataChanged } from '../lib/data-events';
-import { listProjects } from '../lib/db';
+import { deleteProjectCompletely, listProjects, projectStats } from '../lib/db';
 import { labelFromProject } from '../lib/project-label';
 import { usePageTitle } from '../lib/page-title';
 import { navigate, paths } from '../lib/router';
-import { canEditSites, createRegisterProject, type SiteFields } from '../lib/sites';
+import { canEditSites, createRegisterProject, projectUsage, type SiteFields } from '../lib/sites';
 import { useSession } from '../lib/use-session';
 import type { Project } from '../lib/types';
 
 /** Werkzeug-Namen wie in den Tools-Kacheln */
 const TOOL_LABEL: Record<ToolId, string> = { projects: 'Aufmaß & Abrechnung', workers: 'Arbeitereinteilung', reports: 'Berichte & Formulare', photos: 'Fotodokumentation', defects: 'Mängelplan' };
+/** Farben wie die Tools-Kacheln */
+const TOOL_COLOR: Record<ToolId, string> = { projects: '#ff6a13', workers: '#2f80ed', reports: '#a259ff', photos: '#111111', defects: '#d6242b' };
+const ACCENT = { '--tool': '#475467' } as CSSProperties;
+const fmtDay = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString('de-DE');
 /** Projekt im Werkzeug öffnen */
 const toolPath = (tool: ToolId, id: string) =>
   tool === 'projects' ? paths.project(id) : tool === 'reports' ? paths.reportSite(`p:${id}`) : tool === 'photos' ? paths.photoSite(`p:${id}`) : tool === 'defects' ? paths.defectSite(`p:${id}`) : paths.workers();
@@ -63,75 +68,126 @@ export function RegisterPage() {
   }, [projects, ccs, q, access.session]);
   const usable = (t: ToolId) => access.canTool(t);
 
+  /** Löschen: nur wenn in den anderen Tools nichts mehr am Projekt hängt; Aufmaß-Daten werden mitgelöscht */
+  const remove = async (p: Project) => {
+    try {
+      const name = p.site || p.name;
+      const [usage, stats] = await Promise.all([projectUsage(p.id), projectStats(p.id)]);
+      if (usage.length) {
+        await confirmDialog({
+          title: 'Projekt kann noch nicht gelöscht werden',
+          message: (
+            <>
+              <p>
+                An <strong>„{name}“</strong> hängen noch Einträge:
+              </p>
+              <ul data-testid="register-delete-usage">
+                {usage.map((u) => (
+                  <li key={u.label}>
+                    {u.count} {u.label}
+                  </li>
+                ))}
+              </ul>
+              <p>Diese zuerst im jeweiligen Tool löschen oder einem anderen Projekt zuordnen – dann lässt sich das Projekt hier löschen.</p>
+            </>
+          ),
+          confirmLabel: 'Verstanden',
+        });
+        return;
+      }
+      const ok = await confirmDialog({
+        title: 'Projekt löschen?',
+        message: (
+          <>
+            <p>
+              <strong>„{name}“</strong> wird aus dem Projektregister und allen Tools <strong>endgültig</strong> gelöscht.
+            </p>
+            {stats.plans + stats.damages > 0 && (
+              <p>
+                In Aufmaß &amp; Abrechnung gehen dabei {stats.plans} Plan/Pläne und {stats.damages} Schadstelle(n) verloren – vorher dort über „Sichern“ als Datei sichern.
+              </p>
+            )}
+          </>
+        ),
+        confirmLabel: 'Endgültig löschen',
+        danger: true,
+      });
+      if (!ok) return;
+      await deleteProjectCompletely(p.id);
+      toast(`„${name}“ gelöscht.`, 'success');
+      reload();
+    } catch (e) {
+      showError(e, 'Projekt konnte nicht gelöscht werden');
+    }
+  };
+
   return (
     <>
       <SiteNav />
-      <div className="page register-page">
+      <div className="page register-page" style={ACCENT}>
         <header className="page-head page-head-row">
           <div className="page-head-title">
             <a href={paths.tools()} className="icon-link" aria-label="Zu den Tools" title="Zu den Tools" data-testid="to-tools">
               <Icon name="back" />
             </a>
-            <div>
-              <h1 data-testid="register-title">Projektregister</h1>
-              <span className="muted small">Alle Projekte der Firma – von hier in jedes Tool übernehmen</span>
-            </div>
+            <h1 data-testid="register-title">Projektregister</h1>
           </div>
           {mayCreate && (
-            <button type="button" className="btn btn-primary" onClick={() => setCreating(true)} data-testid="register-new">
-              <Icon name="plus" size={16} /> Neues Projekt
+            <button type="button" className="btn btn-primary" onClick={() => setCreating(true)} title="Projekt anlegen und gleich in die gewünschten Tools übernehmen" data-testid="register-new">
+              <Icon name="plus" size={16} /> <span className="hide-sm">Neues Projekt</span>
             </button>
           )}
         </header>
 
         {projects && projects.length > 0 && (
-          <label className="crew-search register-search">
-            <Icon name="select" size={18} />
-            <span className="sr-only">Suchen</span>
-            <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name, Nummer, Kostenstelle, Adresse, Auftraggeber …" data-testid="register-search" />
-          </label>
+          <div className="reports-tools">
+            <label className="crew-search reports-search">
+              <Icon name="select" size={18} />
+              <span className="sr-only">Suchen</span>
+              <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Baustelle, Nummer, Kostenstelle oder Auftraggeber suchen" data-testid="register-search" />
+            </label>
+          </div>
         )}
-        {projects && projects.length === 0 && <p className="muted">Noch kein Projekt. {mayCreate ? '„Neues Projekt“ antippen.' : 'Projekte legen Admin oder Büro an.'}</p>}
+        {projects && projects.length === 0 && (
+          <div className="crew-setup" data-testid="register-empty">
+            <span className="tile-icon">
+              <Icon name="folder" size={22} />
+            </span>
+            <div>
+              <strong>Noch kein Projekt</strong>
+              <p className="muted small">Hier stehen alle Projekte der Firma mit ihren Angaben. Von hier übernimmt man ein Projekt in jedes Tool – Name, Nummer, Adresse und Auftraggeber sind überall gleich.</p>
+            </div>
+            {mayCreate && (
+              <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>
+                Neues Projekt
+              </button>
+            )}
+          </div>
+        )}
         {projects && projects.length > 0 && list.length === 0 && <p className="muted">Kein Projekt gefunden.</p>}
 
         <ul className="register-list">
           {list.map((p) => {
             const used = projectTools(p).filter((t): t is ToolId => TOOLS.some((x) => x.id === t));
             const missing = TOOLS.map((t) => t.id).filter((t) => !used.includes(t) && usable(t));
+            const facts = [p.client ? `Auftraggeber ${p.client}` : '', p.date ? `Baubeginn ${fmtDay(p.date)}` : ''].filter(Boolean);
             return (
               <li key={p.id} className="register-card" data-testid="register-row" data-name={p.site || p.name}>
                 <div className="register-main">
                   <ProjectHeading info={labelFromProject(p, ccs.get(p.id) ?? '')} />
-                  <dl className="register-facts">
-                    {p.client && (
-                      <>
-                        <dt>Auftraggeber</dt>
-                        <dd>{p.client}</dd>
-                      </>
-                    )}
-                    {p.date && (
-                      <>
-                        <dt>Baubeginn</dt>
-                        <dd>{new Date(`${p.date}T12:00:00`).toLocaleDateString('de-DE')}</dd>
-                      </>
-                    )}
-                    {p.notes && (
-                      <>
-                        <dt>Bemerkung</dt>
-                        <dd>{p.notes}</dd>
-                      </>
-                    )}
-                  </dl>
+                  {facts.length > 0 && <span className="small">{facts.join(' · ')}</span>}
+                  {p.notes && <span className="small muted register-notes">{p.notes}</span>}
                   <div className="register-tools" data-testid="register-tools">
-                    {used.length === 0 && <span className="muted small">In keinem Tool</span>}
+                    {used.length === 0 && <span className="muted small">Noch in keinem Tool</span>}
                     {used.map((t) =>
                       usable(t) ? (
-                        <a key={t} href={toolPath(t, p.id)} className="register-tool" title={`In ${TOOL_LABEL[t]} öffnen`} data-testid="register-tool" data-tool={t}>
-                          {TOOL_LABEL[t]} <span aria-hidden="true">→</span>
+                        <a key={t} href={toolPath(t, p.id)} className="register-tool" style={{ '--tool': TOOL_COLOR[t] } as CSSProperties} title={`In ${TOOL_LABEL[t]} öffnen`} data-testid="register-tool" data-tool={t}>
+                          <ToolIcon name={t} size={14} /> {TOOL_LABEL[t]}
+                          <Icon name="next" size={12} />
                         </a>
                       ) : (
-                        <span key={t} className="register-tool off" data-tool={t}>
-                          {TOOL_LABEL[t]}
+                        <span key={t} className="register-tool off" style={{ '--tool': TOOL_COLOR[t] } as CSSProperties} data-tool={t}>
+                          <ToolIcon name={t} size={14} /> {TOOL_LABEL[t]}
                         </span>
                       ),
                     )}
@@ -139,14 +195,19 @@ export function RegisterPage() {
                 </div>
                 <div className="register-actions">
                   {missing.length > 0 && (
-                    <button type="button" className="btn btn-sm btn-primary" onClick={() => setAdopt(p)} data-testid="register-adopt">
+                    <button type="button" className="btn btn-sm" onClick={() => setAdopt(p)} title="Projekt in weitere Tools übernehmen" data-testid="register-adopt">
                       <Icon name="plus" size={16} /> In Tool übernehmen
                     </button>
                   )}
                   {mayCreate && (
-                    <button type="button" className="btn btn-sm" onClick={() => setEditing(p)} data-testid="register-edit">
-                      <Icon name="edit" size={16} /> Bearbeiten
-                    </button>
+                    <span className="register-icons">
+                      <button type="button" className="icon-link" onClick={() => setEditing(p)} aria-label="Projekt bearbeiten" title="Projekt bearbeiten" data-testid="register-edit">
+                        <Icon name="edit" size={18} />
+                      </button>
+                      <button type="button" className="icon-link danger" onClick={() => void remove(p)} aria-label="Projekt löschen" title="Projekt löschen" data-testid="register-delete">
+                        <Icon name="trash" size={18} />
+                      </button>
+                    </span>
                   )}
                 </div>
               </li>
