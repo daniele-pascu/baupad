@@ -102,3 +102,10 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - Nummerierung je Vorlage **und Projekt** (nicht firmenweit); Lücken bleiben; doppelte Nummern werden markiert, nicht automatisch geändert.
 - Ausgefüllte Formulare speichern einen Schnappschuss der Felder und die Vorlagenversion; Vorlagenänderungen wirken nur auf neue Formulare.
 - Eingerichtet wird die erste Seite einer PDF; Rechte über die Rollen (Admin/Büro verwalten, alle füllen aus) – kein eigenes Rechteschema je Benutzer.
+
+## Zeitaufzeichnung (02.11.2026)
+- Stunden **je Person und Tag** als Zahl (kein von–bis), Wegzeit optional; der **Polier** tippt für seine Arbeiter.
+- **Monatszettel je Person**; Vorschlag aus Arbeitereinteilung (Baustelle) und Firmen-Arbeitszeit (Stunden, über 6 h 0,5 h Pause) – gezählt wird nur Bestätigtes.
+- Freigabe je Person und Monat durch Admin/Büro; danach für den Polier gesperrt, Änderungen des Büros werden mit Name und Zeit vermerkt.
+- Excel für die Lohnverrechnung (Blätter Monat, Je Baustelle, Einzeln). Keine Ortung/GPS.
+- Eigene Kachel, Rechte wie Arbeitereinteilung (kein neues Recht am Server nötig). Keine Verbindung zu Regieliste/Bautagesbericht.

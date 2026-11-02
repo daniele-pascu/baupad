@@ -14,6 +14,8 @@ interface Tool {
   /** Akzentfarbe der Kachel */
   color: string;
   href?: string;
+  /** Recht, das die Kachel braucht (sonst = id) */
+  tool?: string;
 }
 
 const TOOLS: Tool[] = [
@@ -22,13 +24,14 @@ const TOOLS: Tool[] = [
   { id: 'photos', title: 'Fotodokumentation', text: 'Fotos je Baustelle, Woche und Tag', color: '#111111', href: paths.photos() },
   { id: 'reports', title: 'Berichte & Formulare', text: 'Regielisten, Bautages- und Wochenberichte', color: '#a259ff', href: paths.reports() },
   { id: 'defects', title: 'Mängelplan', text: 'Mängel im Plan markieren, Fotos und PDF', color: '#d6242b', href: paths.defects() },
+  { id: 'times', title: 'Zeitaufzeichnung', text: 'Stunden je Arbeiter und Tag, Monatszettel, Excel', color: '#0f9d76', href: paths.times(), tool: 'workers' },
 ];
 
 /** Start nach der Anmeldung: alle Werkzeuge als gleich große Kacheln, zwei pro Reihe (Industrie-Stil, hell). */
 export function ToolsPage() {
   usePageTitle('Tools – BauPad');
   const access = useAccess();
-  const tools = TOOLS.filter((t) => access.canTool(t.id as never));
+  const tools = TOOLS.filter((t) => access.canTool((t.tool ?? t.id) as never));
   return (
     <>
       <SiteNav />

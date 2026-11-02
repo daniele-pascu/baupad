@@ -36,6 +36,8 @@ export type Route =
   | { name: 'formTemplates' }
   | { name: 'formTemplate'; templateId: string }
   | { name: 'formEntry'; entryId: string }
+  | { name: 'times'; month: string | null; date: string | null }
+  | { name: 'timesheet'; workerId: string; month: string | null }
   | { name: 'camera'; siteKey: string | null }
   | { name: 'photos' }
   | { name: 'photosRecent' }
@@ -72,6 +74,7 @@ const APP_SEGMENTS: Record<string, string> = {
   'berichte-und-formulare': 'berichte',
   fotodokumentation: 'fotos',
   maengelplan: 'maengel',
+  zeitaufzeichnung: 'zeit',
   konto: 'konto',
   anmelden: 'anmelden',
   registrieren: 'registrieren',
@@ -124,6 +127,8 @@ export function parseRoute(url: string): Route {
   if (parts[0] === 'fotos' && parts[1] === 'kamera' && parts.length === 2) return { name: 'camera', siteKey: params.get('s') };
   if (parts[0] === 'fotos' && (parts[1] === 'p' || parts[1] === 'n') && parts.length === 3)
     return { name: 'photoSite', siteKey: `${parts[1]}:${parts[2]}`, week: params.get('w'), photoId: params.get('f') };
+  if (parts[0] === 'zeit' && parts.length === 1) return { name: 'times', month: params.get('m'), date: params.get('d') };
+  if (parts[0] === 'zeit' && parts.length === 2) return { name: 'timesheet', workerId: parts[1], month: params.get('m') };
   if (parts[0] === 'maengel' && parts.length === 1) return { name: 'defects' };
   if (parts[0] === 'maengel' && parts[1] === 'b' && parts.length === 3) return { name: 'defectSite', siteKey: parts[2] };
   if (parts[0] === 'maengel' && parts[1] === 'plan' && parts.length === 3) return { name: 'defectPlan', planId: parts[2], markId: params.get('m') };
@@ -177,6 +182,15 @@ export const paths = {
   formTemplates: () => `${APP}/berichte-und-formulare/vorlagen`,
   formTemplate: (id: string) => `${APP}/berichte-und-formulare/vorlagen/${id}`,
   formEntry: (id: string) => `${APP}/berichte-und-formulare/f/${id}`,
+  /** Zeitaufzeichnung: Übersicht (Tag erfassen, Monatsliste) und Monatszettel je Arbeiter */
+  times: (opts: { month?: string; date?: string } = {}) => {
+    const q = new URLSearchParams();
+    if (opts.month) q.set('m', opts.month);
+    if (opts.date) q.set('d', opts.date);
+    const qs = q.toString();
+    return `${APP}/zeitaufzeichnung${qs ? `?${qs}` : ''}`;
+  },
+  timesheet: (workerId: string, month?: string) => `${APP}/zeitaufzeichnung/${encodeURIComponent(workerId)}${month ? `?m=${month}` : ''}`,
   /** Fotodokumentation: Übersicht und Baustelle (Schlüssel „p:<Projekt>“ bzw. „n:<Name>“) */
   photos: () => `${APP}/fotodokumentation`,
   photosRecent: () => `${APP}/fotodokumentation/zuletzt`,
@@ -233,6 +247,10 @@ export function canonicalPath(r: Route, lang: Lang = 'de'): string | null {
       return paths.formTemplate(r.templateId);
     case 'formEntry':
       return paths.formEntry(r.entryId);
+    case 'times':
+      return `${APP}/zeitaufzeichnung`;
+    case 'timesheet':
+      return `${APP}/zeitaufzeichnung/${encodeURIComponent(r.workerId)}`;
     case 'camera':
       return paths.camera();
     case 'photos':

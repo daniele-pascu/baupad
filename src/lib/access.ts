@@ -20,6 +20,8 @@ export const ROUTE_TOOL: Record<string, ToolId> = {
   formTemplates: 'reports',
   formTemplate: 'reports',
   formEntry: 'reports',
+  times: 'workers',
+  timesheet: 'workers',
   photos: 'photos',
   camera: 'photos',
   photoSite: 'photos',

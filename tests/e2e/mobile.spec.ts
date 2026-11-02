@@ -469,7 +469,7 @@ test('Rechnung anlegen per Finger: vier Arten passen auf den Bildschirm', async 
 test('Tools per Finger: 2 Kacheln pro Reihe, nichts zu breit, Aufmaß & Abrechnung öffnet', async ({ page }, info) => {
   await page.goto('./#/tools');
   const tiles = page.locator('.tool-tile');
-  await expect(tiles).toHaveCount(5); // fünf Werkzeuge seit dem Mängelplan
+  await expect(tiles).toHaveCount(6); // sechs Werkzeuge seit der Zeitaufzeichnung
   const [a, b, c] = await Promise.all([tiles.nth(0).boundingBox(), tiles.nth(1).boundingBox(), tiles.nth(2).boundingBox()]);
   expect(Math.abs(a!.y - b!.y)).toBeLessThan(1); // zwei nebeneinander
   expect(c!.y).toBeGreaterThan(a!.y + a!.height - 1);
@@ -659,4 +659,32 @@ test('Mängelplan per Finger: kein Knopf „Auswahl“; Werkzeug endet nach Gebr
   await expect(md).toBeHidden();
   await expect(page.getByTestId('dp-tool-pin')).toHaveAttribute('aria-pressed', 'false');
   await expect(page.getByTestId('dp-item')).toHaveCount(2);
+});
+
+test('Zeitaufzeichnung per Finger: Tag erfassen und Monatszettel passen auf den Bildschirm', async ({ page }, info) => {
+  await page.goto('./baupad/arbeitereinteilung');
+  await page.getByTestId('crew-workers').tap();
+  const wd = page.getByTestId('staff-page');
+  for (const n of ['Max Muster', 'Peter Beispiel']) {
+    await wd.getByTestId('staff-new').tap();
+    await wd.getByTestId('worker-firstName').fill(n);
+    await wd.getByTestId('worker-save').tap();
+    await expect(wd.getByTestId('worker-row').filter({ hasText: n })).toHaveCount(1);
+  }
+  await page.goto('./baupad/zeitaufzeichnung');
+  await expect(page.getByTestId('times-title')).toHaveText('Zeitaufzeichnung');
+  await page.getByTestId('times-add-worker').selectOption({ label: 'Max Muster' });
+  const row = page.locator('[data-testid="times-day-row"][data-name="Max Muster"]');
+  await row.getByTestId('times-site').selectOption({ label: 'Andere Baustelle …' });
+  await page.getByTestId('prompt-dialog').locator('input').fill('Halle 3');
+  await page.getByTestId('prompt-dialog').getByRole('button', { name: 'Speichern' }).tap();
+  await row.getByTestId('times-hours').fill('8');
+  await row.getByTestId('times-hours').press('Enter');
+  await expect(row).toHaveAttribute('data-state', 'done');
+  await noHorizontalScroll(page);
+  await page.screenshot({ path: join(OUT, `zeit-${info.project.name}.png`), fullPage: true });
+  await page.locator('[data-testid="times-person"][data-name="Max Muster"]').tap();
+  await expect(page.getByTestId('timesheet-summary')).toContainText('8 h');
+  await noHorizontalScroll(page);
+  await page.screenshot({ path: join(OUT, `zettel-${info.project.name}.png`) });
 });

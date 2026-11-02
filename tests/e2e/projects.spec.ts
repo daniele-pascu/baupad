@@ -259,15 +259,14 @@ test('Installierte App mit gespeicherter Anmeldung startet direkt in den Tools (
   await context.close();
 });
 
-test('Tools: fünf gleich große Kacheln, zwei pro Reihe; alle Werkzeuge antippbar', async ({ page }) => {
+test('Tools: sechs gleich große Kacheln, zwei pro Reihe; alle Werkzeuge antippbar', async ({ page }) => {
   await page.goto('./#/tools');
   const tiles = page.locator('.tool-tile');
-  await expect(tiles).toHaveCount(5);
-  await expect(tiles.locator('strong')).toHaveText(['Aufmaß & Abrechnung', 'Arbeitereinteilung', 'Fotodokumentation', 'Berichte & Formulare', 'Mängelplan']);
+  await expect(tiles).toHaveCount(6);
+  await expect(tiles.locator('strong')).toHaveText(['Aufmaß & Abrechnung', 'Arbeitereinteilung', 'Fotodokumentation', 'Berichte & Formulare', 'Mängelplan', 'Zeitaufzeichnung']);
   const boxes = await Promise.all((await tiles.all()).map((t) => t.boundingBox()));
-  // 2 × 2 + 1, alle gleich groß
-  expect(Math.abs(boxes[0]!.y - boxes[1]!.y)).toBeLessThan(1);
-  expect(Math.abs(boxes[2]!.y - boxes[3]!.y)).toBeLessThan(1);
+  // 3 × 2, alle gleich groß
+  for (const r of [0, 2, 4]) expect(Math.abs(boxes[r]!.y - boxes[r + 1]!.y)).toBeLessThan(1);
   expect(boxes[2]!.y).toBeGreaterThan(boxes[0]!.y + boxes[0]!.height - 1);
   expect(boxes[4]!.y).toBeGreaterThan(boxes[2]!.y + boxes[2]!.height - 1);
   for (const b of boxes) {
