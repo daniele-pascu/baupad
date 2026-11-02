@@ -123,11 +123,11 @@ export function TimesPage({ month: m, date: d }: { month: string | null; date: s
                 <Icon name="next" size={18} />
               </button>
             </div>
-            <button type="button" className="btn btn-sm times-excel" onClick={yearFiles} disabled={!data} title="Je Arbeiter die Jahresdatei in der Firmenvorlage (ZIP)" data-testid="times-year-files">
-              <Icon name="excel" size={16} /> Jahresdateien {month.slice(0, 4)}
+            <button type="button" className="btn btn-sm btn-primary times-excel" onClick={yearFiles} disabled={!data} title="Je Arbeiter die Zeitaufzeichnung in der Firmenvorlage (alle Monate, Formeln, Feiertage) – als ZIP" data-testid="times-year-files">
+              <Icon name="excel" size={16} /> Zeitaufzeichnung {month.slice(0, 4)} (alle)
             </button>
-            <button type="button" className="btn btn-sm btn-primary" onClick={excel} disabled={!data} title="Übersicht des Monats für die Lohnverrechnung" data-testid="times-excel">
-              <Icon name="excel" size={16} /> Monatsübersicht
+            <button type="button" className="btn btn-sm" onClick={excel} disabled={!data} title="Zusätzliche Kurzliste des Monats (nicht die Firmenvorlage)" data-testid="times-excel">
+              <Icon name="excel" size={16} /> Kurzliste Monat
             </button>
           </header>
           {data && rows.length === 0 && (

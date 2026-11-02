@@ -1,6 +1,7 @@
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { safeFileName, type ExportFile } from './aufmass';
 import { addDays, workerName } from './crew';
+import { calcWorkbook } from './xlsx-calc';
 import { easter, holidayOn, monthDays, plannedHours, type TimeDay, type TimeLine } from './times';
 import type { Absence, Worker, WorkTimes } from './types';
 
@@ -201,6 +202,8 @@ export function fillYearWorkbook(template: Uint8Array, input: YearFileInput): Ui
 
   // Titel in den Dateieigenschaften
   if (files['docProps/core.xml']) files['docProps/core.xml'] = strToU8(read('docProps/core.xml').replace(/<dc:title>[^<]*<\/dc:title>/, '').replace('</cp:coreProperties>', `<dc:title>${esc(`Arbeitszeiterfassung ${year} – ${name}`)}</dc:title></cp:coreProperties>`));
+  // Ergebnisse aller Formeln mitspeichern (wie Excel) – sonst zeigen Vorschauen und die geschützte Ansicht leere Felder
+  calcWorkbook(files);
   return zipSync(files, { level: 6 });
 }
 

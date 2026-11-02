@@ -140,6 +140,12 @@ describe('Zeitaufzeichnung: Jahresdatei in der Firmenvorlage', () => {
     expect(march).not.toContain('>X<'); // anderer Arbeiter
     expect(march).toContain('<f>SUM(I3-J3,IF(OR(K3="U",K3="K"),B3,IF(K3="HU",B3/2)))</f>');
     expect(strFromU8(f['xl/workbook.xml'])).toContain('fullCalcOnLoad="1"');
+    // Ergebnisse der Formeln sind mitgespeichert (wie Excel): Datum, Soll, Stunden, Summen – auch ohne Neuberechnung sichtbar
+    expect(march).toMatch(new RegExp(`<c r="A3"[^>]*><f>[^<]*</f><v>${serial('2027-03-01')}</v>`));
+    expect(march).toMatch(/<c r="B3"[^>]*><f>[^<]*<\/f><v>0\.354166666666666\d*<\/v>/); // Soll 8:30
+    expect(Number(/<c r="I3"[^>]*><f>[^<]*<\/f><v>([^<]*)<\/v>/.exec(march)?.[1])).toBeCloseTo(0.375, 12); // 07:00–16:00 = 9:00
+    expect(march).toMatch(/<c r="I34"[^>]*><f>[^<]*<\/f><v>0<\/v>/); // keine Urlaubstage im März
+    expect(march).not.toMatch(/<f>[^<]*<\/f><\/c>/); // keine Formel ohne Ergebnis
     expect(strFromU8(f['xl/worksheets/sheet2.xml'])).toMatch(/<c r="I35"[^>]*><v>25<\/v>/); // Urlaubsanspruch Mo–Fr: 25 Tage
   });
 });

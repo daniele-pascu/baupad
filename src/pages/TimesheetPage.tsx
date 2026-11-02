@@ -89,8 +89,8 @@ export function TimesheetPage({ workerId, month: m }: { workerId: string; month:
             </div>
           </div>
           <div className="row gap">
-            <button type="button" className="btn btn-sm" onClick={excel} title="Jahresdatei in der Firmenvorlage (alle Monate, Formeln, Feiertage)" data-testid="timesheet-excel">
-              <Icon name="excel" size={16} /> Excel {month.slice(0, 4)}
+            <button type="button" className="btn btn-sm btn-primary" onClick={excel} title="Zeitaufzeichnung in der Firmenvorlage (alle Monate, Formeln, Feiertage)" data-testid="timesheet-excel">
+              <Icon name="excel" size={16} /> Zeitaufzeichnung {month.slice(0, 4)}
             </button>
             {approval?.fileId && (
               <button type="button" className="btn btn-sm" onClick={stored} title="Beim Freigeben gespeicherte Datei dieses Monats" data-testid="timesheet-stored">
