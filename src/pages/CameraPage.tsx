@@ -387,7 +387,6 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
   }, [sites, photos, siteQuery]);
   const siteKeyNow = site ? keyOf(site) : null;
   const back = siteKeyNow ? paths.photoSite(siteKeyNow) : paths.photos();
-  const reportsKey = site ? (site.projectId ? `p:${site.projectId}` : `n:${site.name.trim().toLowerCase()}`) : null;
 
   return (
     <div className="cam" data-testid="camera-page" data-ready={ready || undefined}>
@@ -640,14 +639,6 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
                 <Icon name="images" size={20} /> Fotos der Baustelle
               </a>
             )}
-            {reportsKey && (
-              <a href={paths.reportSite(reportsKey)}>
-                <Icon name="file" size={20} /> Regielisten &amp; Tagesberichte
-              </a>
-            )}
-            <a href={paths.photos()}>
-              <Icon name="folder" size={20} /> Alle Baustellen
-            </a>
             <button
               type="button"
               onClick={() => {
@@ -655,14 +646,8 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
                 setSiteOpen(true);
               }}
             >
-              <Icon name="move" size={20} /> Baustelle wechseln
+              <Icon name="pin" size={20} /> Baustelle wechseln
             </button>
-            <a href={paths.account()}>
-              <Icon name="settings" size={20} /> Einstellungen
-            </a>
-            <a href={paths.tools()}>
-              <Icon name="grid" size={20} /> Alle Werkzeuge
-            </a>
             <button type="button" className="muted" onClick={() => navigate(back)}>
               <Icon name="close" size={20} /> Kamera schließen
             </button>

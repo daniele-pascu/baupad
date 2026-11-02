@@ -54,6 +54,8 @@ test('Kamera-Modus: Live-Bild, Auslöser speichert sofort, Zähler, letztes Foto
   await expect(page.getByTestId('cam-last').locator('img')).toBeVisible();
   // Menü: Fotos der Baustelle
   await page.getByTestId('cam-menu').click();
+  // Menü nur: Fotos der Baustelle, Baustelle wechseln, Kamera schließen
+  await expect(page.getByTestId('cam-drawer').locator('a, button')).toHaveText([/Fotos der Baustelle/, /Baustelle wechseln/, /Kamera schließen/]);
   await page.getByTestId('cam-drawer').getByRole('link', { name: 'Fotos der Baustelle' }).click();
   await expect(page.getByTestId('photo-site-title')).toHaveText('Garage Jagdschlossgasse');
   await expect(page.getByTestId('photo-thumb')).toHaveCount(3);
