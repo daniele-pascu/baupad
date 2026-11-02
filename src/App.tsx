@@ -2,7 +2,7 @@ import { preloadExcelLogo } from './lib/company';
 import { useEffect, useState, type ReactNode } from 'react';
 import { DialogHost, toast } from './components/ui';
 import { Icon } from './components/Icon';
-import { currentPath, navigate, parseRoute, paths, usePath } from './lib/router';
+import { currentPath, navigate, parseRoute, paths, usePath, LEGACY_AUTH_PATHS } from './lib/router';
 import { flush, openProject, useAppState } from './lib/store';
 import { HomePage } from './pages/HomePage';
 import { ProjectPage } from './pages/ProjectPage';
@@ -181,7 +181,13 @@ function usePhotoCloud() {
 }
 
 export function App() {
-  const route = parseRoute(usePath());
+  const path = usePath();
+  const route = parseRoute(path);
+  // alte Anmeldeadressen weiterleiten (Adresse in der Leiste bleibt sauber, Abfrage wie ?reset=1 bleibt erhalten)
+  useEffect(() => {
+    const target = LEGACY_AUTH_PATHS[location.pathname.replace(/\/+$/, '')];
+    if (target) navigate(`${target}${location.search}`, true);
+  }, [path]);
   // kein eigenes Startbild: Android/iOS bzw. die Store-App zeigen beim Öffnen schon das Logo – nur einmal
   useServiceWorker();
   useAuthReturn();

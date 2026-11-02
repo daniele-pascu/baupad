@@ -97,11 +97,13 @@ export function parseRoute(url: string): Route {
   if (parts[0] === 'maengel' && parts.length === 1) return { name: 'defects' };
   if (parts[0] === 'maengel' && parts[1] === 'b' && parts.length === 3) return { name: 'defectSite', siteKey: parts[2] };
   if (parts[0] === 'maengel' && parts[1] === 'plan' && parts.length === 3) return { name: 'defectPlan', planId: parts[2], markId: params.get('m') };
-  if (parts[0] === 'anmelden' && parts.length === 1) return { name: 'login' };
-  if (parts[0] === 'registrieren' && parts.length === 1) return { name: 'login', register: true };
+  // Anmeldung je Produkt: /baupad/anmelden (die alten Adressen /anmelden, /registrieren, /passwort-neu leiten dorthin weiter)
+  const auth = parts[0] === 'baupad' && parts.length === 2 ? parts[1] : parts.length === 1 ? parts[0] : '';
+  if (auth === 'anmelden') return { name: 'login' };
+  if (auth === 'registrieren') return { name: 'login', register: true };
+  if (auth === 'passwort-neu') return { name: 'newPassword' };
   if (parts[0] === 'konto' && parts.length === 1) return { name: 'account' };
   if (parts[0] === 'konto' && parts.length === 2) return { name: 'accountSection', section: parts[1] };
-  if (parts[0] === 'passwort-neu' && parts.length === 1) return { name: 'newPassword' };
   if (parts[0] === 'p' && parts.length === 2) return { name: 'project', projectId: parts[1] };
   if (parts[0] === 'p' && parts[2] === 'k' && parts.length === 4) return { name: 'costCenter', projectId: parts[1], costCenterId: parts[3] };
   if (parts[0] === 'p' && parts[2] === 'plan' && parts.length === 4) return { name: 'plan', projectId: parts[1], planId: parts[3], damageId: params.get('d') };
@@ -114,6 +116,9 @@ export function sitePath(name: SiteRouteName, lang: Lang = 'de'): string {
   if (lang === 'en') return slug ? `/en/${slug}` : '/en';
   return `/${slug}`;
 }
+
+/** Frühere Adressen der Anmeldung → neue Adresse unter /baupad/… (Lesezeichen, alte E-Mail-Links) */
+export const LEGACY_AUTH_PATHS: Record<string, string> = { '/anmelden': '/baupad/anmelden', '/registrieren': '/baupad/registrieren', '/passwort-neu': '/baupad/passwort-neu' };
 
 export const paths = {
   landing: (lang: Lang = 'de') => sitePath('landing', lang),
@@ -159,13 +164,13 @@ export const paths = {
     const qs = q.toString();
     return `/fotos/${kind}/${encodeURIComponent(rest.join(':'))}${qs ? `?${qs}` : ''}`;
   },
-  login: () => '/anmelden',
-  register: () => '/registrieren',
+  login: () => '/baupad/anmelden',
+  register: () => '/baupad/registrieren',
   /** Konto und Einstellungen */
   account: () => '/konto',
   /** Bereich der Einstellungen als eigene Seite */
   accountSection: (id: string) => `/konto/${id}`,
-  newPassword: () => '/passwort-neu',
+  newPassword: () => '/baupad/passwort-neu',
   project: (pid: string) => `/p/${pid}`,
   costCenter: (pid: string, cid: string) => `/p/${pid}/k/${cid}`,
   plan: (pid: string, planId: string, damageId?: string) => `/p/${pid}/plan/${planId}${damageId ? `?d=${damageId}` : ''}`,
