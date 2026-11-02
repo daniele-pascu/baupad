@@ -155,8 +155,9 @@ test('Mängelplan: Plan hochladen, Markierungen setzen und bearbeiten, PDF', asy
   await expect(page.getByTestId('defect-site')).toContainText('Tiefgarage Nord');
   // in der Fotodokumentation steht das Projekt (umbenannt) zum Übernehmen in der Auswahl, nicht in der Übersicht
   await page.goto('./#/fotos');
-  await page.getByTestId('photo-file-input').setInputFiles([{ name: 'x.jpg', mimeType: 'image/jpeg', buffer: Buffer.from([0xff, 0xd8, 0xff, 0xd9]) }]);
-  await expect(page.getByTestId('photo-save-dialog').getByTestId('photo-site').locator('option')).toContainText([/Tiefgarage Nord/]);
+  await expect(page.locator('a[data-testid="photo-site"]')).toHaveCount(0);
+  await page.getByTestId('photo-new-site').click();
+  await expect(page.getByTestId('project-picker').getByTestId('picker-item')).toHaveText([/Tiefgarage Nord/]);
 });
 
 test('Plan aus PDF: beim starken Hineinzoomen wird der Ausschnitt scharf aus dem PDF nachgerendert', async ({ page }) => {

@@ -4,7 +4,8 @@ import { Modal } from './Modal';
 import { ProjectForm } from './ProjectForm';
 import { ProjectHeading } from './ProjectHeading';
 import { showError } from './ui';
-import { TOOLS } from '../lib/auth';
+import { TOOLS, type ToolId } from '../lib/auth';
+import { useAccess } from '../lib/access';
 import { adoptProject, costCenterByProject, projectTools, usedIn } from '../lib/crew-link';
 import { listProjects } from '../lib/db';
 import { labelFromProject } from '../lib/project-label';
@@ -13,7 +14,7 @@ import type { Project } from '../lib/types';
 
 /**
  * Ein Fenster „Projekt“ für alle Werkzeuge: oben „Neues Projekt anlegen“ (gleicher Dialog überall), darunter alle
- * Projekte aus dem Register zum Übernehmen (mit Suche). Antippen übernimmt das Projekt sofort in dieses Werkzeug.
+ * freigegebenen Projekte aus dem Register zum Übernehmen (mit Suche). Antippen übernimmt das Projekt sofort in dieses Werkzeug.
  * `mode` 'unused': nur Projekte, die hier noch nicht benutzt werden (Standard); 'all': alle außer `exclude`.
  */
 export function ProjectPicker({
@@ -31,6 +32,7 @@ export function ProjectPicker({
   onPick(p: Project): void | Promise<void>;
 }) {
   const mayCreate = useCanCreateProjects();
+  const access = useAccess(tool as ToolId);
   const [projects, setProjects] = useState<Project[] | null>(null);
   const [ccs, setCcs] = useState<Map<string, string>>(() => new Map());
   const [q, setQ] = useState('');
@@ -45,13 +47,15 @@ export function ProjectPicker({
       .catch((e) => showError(e, 'Projekte konnten nicht geladen werden'));
   }, []);
   const list = useMemo(() => {
-    const all = (projects ?? []).filter((p) => !exclude.includes(p.id) && (mode === 'all' || !usedIn(p, tool)));
+    // nur freigegebene Projekte (Rechte je Werkzeug)
+    const all = access.filterSites((projects ?? []).filter((p) => !exclude.includes(p.id) && (mode === 'all' || !usedIn(p, tool))), (p) => `p:${p.id}`);
     const needle = q.trim().toLowerCase();
     const hit = needle
       ? all.filter((p) => [p.name, p.site, p.number ?? '', ccs.get(p.id) ?? '', p.address, p.client, p.notes].join(' ').toLowerCase().includes(needle))
       : all;
     return hit.sort((a, b) => a.name.localeCompare(b.name, 'de'));
-  }, [projects, exclude, mode, tool, q, ccs]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projects, exclude, mode, tool, q, ccs, access.session]);
   const SHORT: Record<string, string> = { projects: 'Aufmaß & Abrechnung', workers: 'Arbeitereinteilung', reports: 'Berichte & Formulare', photos: 'Fotodokumentation', defects: 'Mängelplan' };
   const toolLabel = (id: string) => SHORT[id] ?? TOOLS.find((t) => t.id === id)?.label ?? id;
   const pick = async (p: Project) => {

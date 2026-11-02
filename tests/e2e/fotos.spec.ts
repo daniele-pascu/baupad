@@ -19,9 +19,13 @@ test('Fotos je Baustelle, KW und Tag; Großansicht; Beschreibung; Suche; Duplika
   await page.goto('./#/tools');
   await page.getByTestId('tool-photos').click();
   await expect(page.getByTestId('photos-title')).toHaveText('Fotodokumentation');
-  await expect(page.getByTestId('photos-empty')).toBeVisible(); // Projekt aus Aufmaß erscheint hier erst mit dem ersten Foto
+  await expect(page.getByTestId('photos-empty')).toBeVisible(); // Projekt aus Aufmaß erscheint hier erst nach dem Übernehmen
+  await expect(page.getByTestId('photo-file-input')).toHaveCount(0); // Fotos erst im Projekt
 
-  // drei Fotos aus der Galerie: Di 27.10. (zwei), Mo 02.11. – Baustelle aus dem Projekt
+  // Projekt aus dem Register übernehmen, dann drei Fotos aus der Galerie: Di 27.10. (zwei), Mo 02.11.
+  await page.getByTestId('photo-new-site').click();
+  await page.getByTestId('project-picker').getByTestId('picker-item').filter({ hasText: 'Neubau Musterstraße' }).click();
+  await expect(page.getByTestId('photo-site-title')).toHaveText('Neubau Musterstraße');
   await page.getByTestId('photo-file-input').setInputFiles([shot('IMG_1.jpg', '2026:10:27 09:15:30'), shot('IMG_2.jpg', '2026:10:27 14:40:00'), shot('IMG_3.jpg', '2026:11:02 08:05:00')]);
   const dlg = page.getByTestId('photo-save-dialog');
   await expect(dlg).toContainText('3 Fotos speichern');
@@ -31,6 +35,7 @@ test('Fotos je Baustelle, KW und Tag; Großansicht; Beschreibung; Suche; Duplika
   await dlg.getByTestId('photo-pending-description').first().fill('Riss Stütze B4');
   await dlg.getByTestId('photo-save').click();
   await expect(page.locator('.toast', { hasText: '3 Fotos gespeichert' })).toHaveCount(1);
+  await page.getByTestId('to-photos').click();
   await expect(page.getByTestId('photos-local-banner')).toContainText('3 Fotos liegen nur auf diesem Gerät');
 
   // Übersicht: Baustelle mit Anzahl, Zeitraum und Kalenderwochen
@@ -135,12 +140,14 @@ test('Fotos je Baustelle, KW und Tag; Großansicht; Beschreibung; Suche; Duplika
   }
   await page.getByTestId('photo-search').fill('');
 
-  // dasselbe Foto noch einmal → als Duplikat erkannt und übersprungen
+  // dasselbe Foto noch einmal (im Projekt) → als Duplikat erkannt und übersprungen
+  await page.getByTestId('photo-site').click();
   await page.getByTestId('photo-file-input').setInputFiles([shot('IMG_1.jpg', '2026:10:27 09:15:30'), shot('IMG_4.jpg', '2026:10:28 10:00:00')]);
   await expect(dlg.getByTestId('photo-duplicate')).toHaveCount(1);
   await expect(dlg.getByTestId('photo-save')).toHaveText('1 speichern');
   await dlg.getByTestId('photo-save').click();
   await expect(page.locator('.toast', { hasText: '1 Foto gespeichert' })).toHaveCount(1);
+  await page.getByTestId('to-photos').click();
   await expect(page.getByTestId('photo-site')).toContainText('4 Fotos');
 
   // ZIP: alle Fotos in einem Ordner, nach Datum und Uhrzeit benannt
@@ -173,12 +180,16 @@ test('Ohne Projekt: Baustelle aus der Arbeitereinteilung bzw. Berichten; Foto oh
   await newWeekProject(page, 'Halle 3');
   await expect(page.getByTestId('project-picker')).toHaveCount(0); // gespeichert, bevor die Seite neu lädt
   await page.goto('./#/fotos');
+  await page.getByTestId('photo-new-site').click();
+  await page.getByTestId('project-picker').getByTestId('picker-item').filter({ hasText: 'Halle 3' }).click();
+  await expect(page.getByTestId('photo-site-title')).toHaveText('Halle 3');
   await page.getByTestId('photo-file-input').setInputFiles(join(FIXTURES, 'foto.jpg'));
   const dlg = page.getByTestId('photo-save-dialog');
-  await expect(dlg.getByTestId('photo-site')).toHaveValue(/\|Halle 3$/); // einzige Baustelle vorgewählt
+  await expect(dlg.getByTestId('photo-site')).toHaveValue(/\|Halle 3$/); // Projekt der Seite vorgewählt
   await expect(dlg.getByTestId('photo-pending-item')).toContainText(/\(Dateidatum\)|\(jetzt\)/);
   await dlg.getByTestId('photo-save').click();
   await expect(dlg).toHaveCount(0);
+  await page.getByTestId('to-photos').click();
   await expect(page.locator('a[data-testid="photo-site"]')).toHaveAttribute('data-site', 'Halle 3');
 });
 
@@ -203,20 +214,23 @@ test('Neue Baustelle unter Fotos (Übersicht und Speichern-Dialog), Verschieben,
   await dlg.getByTestId('photo-save').click();
   await expect(page.getByTestId('photo-thumb')).toHaveCount(2);
 
-  // Übersicht: Baustelle mit Nummer; im Speichern-Dialog eine weitere Baustelle anlegen
+  // Übersicht: Baustelle mit Nummer; ein weiteres Projekt anlegen und dort ein Foto speichern
   await page.getByTestId('to-photos').click();
   const cards = page.locator('a[data-testid="photo-site"]');
   await expect(cards).toHaveCount(1);
   await expect(cards).toContainText('91574');
+  await page.getByTestId('photo-new-site').click();
+  await page.getByTestId('project-picker').getByTestId('picker-new').click();
+  await pf.getByTestId('project-name').fill('Halle 3');
+  await pf.getByTestId('project-save').click();
+  await expect(page.getByTestId('photo-site-title')).toHaveText('Halle 3');
   await page.getByTestId('photo-file-input').setInputFiles([shot('C.jpg', '2026:10:28 08:00:00')]);
-  await dlg.getByTestId('photo-site').selectOption('__new');
-  const sd = page.getByTestId('photo-site-dialog');
-  await sd.getByTestId('photo-site-name').fill('Halle 3');
-  await sd.getByTestId('photo-site-save').click();
   await expect(dlg.getByTestId('photo-site')).toHaveValue(/\|Halle 3$/);
   await dlg.getByTestId('photo-save').click();
   await expect(dlg).toHaveCount(0);
+  await page.getByTestId('to-photos').click();
   await expect(cards).toHaveCount(2);
+  const sd = page.getByTestId('photo-site-dialog');
 
   // Baustelle nachträglich bearbeiten: Name, Nummer, Adresse – Fotos bleiben, Adresse ändert sich
   await cards.filter({ hasText: 'Garage' }).click();

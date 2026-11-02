@@ -70,11 +70,9 @@ export function DefectsPage() {
             <h1 data-testid="defects-title">Mängelplan</h1>
           </div>
           <div className="row gap">
-            {mayCreate && (
-              <button type="button" className="btn btn-primary" onClick={() => setCreating(true)} title="Projekt aus dem Register übernehmen oder neu anlegen" data-testid="defect-new-site">
-                <Icon name="plus" size={16} /> <span className="lbl">Neues Projekt</span>
-              </button>
-            )}
+            <button type="button" className="btn btn-primary" onClick={() => setCreating(true)} title="Projekt aus dem Register übernehmen oder neu anlegen" data-testid="defect-new-site">
+              <Icon name="plus" size={16} /> <span className="lbl">{mayCreate ? 'Neues Projekt' : 'Projekt übernehmen'}</span>
+            </button>
           </div>
         </header>
 
@@ -98,11 +96,9 @@ export function DefectsPage() {
               <strong>Noch kein Projekt</strong>
               <p className="muted small">Projekt anlegen oder aus dem Register übernehmen – im Projekt dann den Plan hochladen (PDF oder Foto) und Mängel, Ausbesserungen und Hinweise mit Pins, Formen und Fotos markieren. Am Ende ein PDF fürs Angebot.</p>
             </div>
-            {mayCreate && (
-              <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>
-                Neues Projekt
-              </button>
-            )}
+            <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>
+              {mayCreate ? 'Neues Projekt' : 'Projekt übernehmen'}
+            </button>
           </div>
         )}
 

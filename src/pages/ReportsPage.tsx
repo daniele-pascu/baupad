@@ -134,11 +134,9 @@ export function ReportsPage() {
             <h1 data-testid="reports-title">Berichte &amp; Formulare</h1>
           </div>
           <div className="report-actions">
-            {mayCreate && (
-              <button type="button" className="btn btn-primary" onClick={() => setPicking(true)} title="Projekt aus dem Register übernehmen oder neu anlegen" data-testid="report-new-site">
-                <Icon name="plus" size={16} /> <span className="hide-sm">Neues Projekt</span>
-              </button>
-            )}
+            <button type="button" className="btn btn-primary" onClick={() => setPicking(true)} title="Projekt aus dem Register übernehmen oder neu anlegen" data-testid="report-new-site">
+              <Icon name="plus" size={16} /> <span className="hide-sm">{mayCreate ? 'Neues Projekt' : 'Projekt übernehmen'}</span>
+            </button>
             <ActionMenu
               label="Sicherung"
               testId="reports-more"
@@ -210,11 +208,9 @@ export function ReportsPage() {
               <strong>Noch kein Projekt</strong>
               <p className="muted small">Projekt anlegen oder aus dem Register übernehmen – im Projekt dann Regieliste, Bautagesbericht oder Bauwochenbericht anlegen. Baustelle, Adresse und Mannschaft werden übernommen.</p>
             </div>
-            {mayCreate && (
-              <button type="button" className="btn btn-primary" onClick={() => setPicking(true)}>
-                Neues Projekt
-              </button>
-            )}
+            <button type="button" className="btn btn-primary" onClick={() => setPicking(true)}>
+              {mayCreate ? 'Neues Projekt' : 'Projekt übernehmen'}
+            </button>
           </div>
         )}
         {reports && reports.length > 0 && cards.length === 0 && emptySites.length === 0 && <p className="muted">Keine Baustelle gefunden.</p>}

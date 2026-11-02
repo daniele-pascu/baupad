@@ -56,6 +56,9 @@ function fakeCloud() {
         for (const k of body.keys as string[]) files.delete(k);
         return ok({ ok: true, failed: [] });
       }
+      // Datenabgleich (Projekte, Berichte, Pläne …): hier nur bestätigen, keine Einträge anderer Geräte
+      if (action === 'records-upsert') return ok({ ok: true });
+      if (action === 'records-pull') return ok({ records: [] });
       if (action === 'usage') {
         const live = [...rows.values()].filter((x) => !x.deleted_at);
         return ok({ photos: live.length, bytes: live.reduce((s, x) => s + x.size, 0) });
@@ -85,16 +88,18 @@ test('Fotos werden hochgeladen, abgeglichen und für alle Geräte gelöscht', as
   await expect(page.getByTestId('photos-title')).toHaveText('Fotodokumentation');
 
   // Foto speichern → Warteschlange → Upload (Bilddaten per Link, dann Verzeichnis) → zentral gespeichert
+  await page.getByTestId('photo-new-site').click();
+  await page.getByTestId('project-picker').getByTestId('picker-new').click();
+  await page.getByTestId('project-name').fill('Baustelle Ablage');
+  await page.getByTestId('project-save').click();
+  await expect(page.getByTestId('photo-site-title')).toHaveText('Baustelle Ablage');
   await page.getByTestId('photo-file-input').setInputFiles([{ name: 'IMG_1.jpg', mimeType: 'image/jpeg', buffer: jpeg }]);
   const dlg = page.getByTestId('photo-save-dialog');
-  await dlg.getByTestId('photo-site').selectOption('__new');
-  const sd = page.getByTestId('photo-site-dialog');
-  await sd.getByTestId('photo-site-name').fill('Baustelle Ablage');
-  await sd.getByTestId('photo-site-save').click();
   await expect(dlg.getByTestId('photo-site')).toHaveValue(/\|Baustelle Ablage$/);
   await dlg.getByTestId('photo-user').fill('Max Muster');
   await dlg.getByTestId('photo-save').click();
   await expect(page.locator('.toast', { hasText: '1 Foto gespeichert' })).toHaveCount(1);
+  await page.getByTestId('to-photos').click();
   await expect(page.getByTestId('photos-local-banner')).toHaveCount(0);
   await expect.poll(() => cloud.rows.size, { timeout: 15_000 }).toBe(1);
   const [row] = [...cloud.rows.values()];
@@ -163,13 +168,16 @@ test('Ablage nicht eingerichtet: Fotos bleiben auf dem Gerät, Konto zeigt den H
   await expect(page.getByTestId('cloud-retry')).toBeVisible();
 
   await page.goto('./fotos');
+  await page.getByTestId('photo-new-site').click();
+  await page.getByTestId('project-picker').getByTestId('picker-new').click();
+  await page.getByTestId('project-name').fill('Baustelle Lokal');
+  await page.getByTestId('project-save').click();
+  await expect(page.getByTestId('photo-site-title')).toHaveText('Baustelle Lokal');
   await page.getByTestId('photo-file-input').setInputFiles([{ name: 'IMG_1.jpg', mimeType: 'image/jpeg', buffer: jpeg }]);
   const dlg = page.getByTestId('photo-save-dialog');
-  await dlg.getByTestId('photo-site').selectOption('__new');
-  const sd = page.getByTestId('photo-site-dialog');
-  await sd.getByTestId('photo-site-name').fill('Baustelle Lokal');
-  await sd.getByTestId('photo-site-save').click();
   await expect(dlg.getByTestId('photo-site')).toHaveValue(/\|Baustelle Lokal$/);
   await dlg.getByTestId('photo-save').click();
+  await expect(page.locator('.toast', { hasText: '1 Foto gespeichert' })).toHaveCount(1);
+  await page.getByTestId('to-photos').click();
   await expect(page.getByTestId('photos-local-banner')).toContainText('1 Foto liegt nur auf diesem Gerät');
 });

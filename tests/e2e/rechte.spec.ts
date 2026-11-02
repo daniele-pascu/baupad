@@ -28,15 +28,16 @@ test('Polier: kein „Neues Projekt“ in Aufmaß, Fotos, Mängelplan, Einteilun
   await expect(page.getByTestId('new-project')).toHaveCount(0);
 
   await page.goto('./fotos');
-  await expect(page.getByTestId('photos-empty')).toBeVisible(); // Aufmaß-Projekt erscheint hier erst mit dem ersten Foto
-  await expect(page.getByTestId('photo-new-site')).toHaveCount(0);
-  await page.getByTestId('photo-file-input').setInputFiles([{ name: 'IMG_1.jpg', mimeType: 'image/jpeg', buffer: Buffer.from([0xff, 0xd8, 0xff, 0xd9]) }]);
-  const dlg = page.getByTestId('photo-save-dialog');
-  await expect(dlg.getByTestId('photo-site').locator('option')).toHaveText(['– Projekt wählen –', '2026-04 · Neubau Musterstraße']); // Projekt wählbar, aber kein „Neues Projekt“
+  await expect(page.getByTestId('photos-empty')).toBeVisible(); // Aufmaß-Projekt erscheint hier erst nach dem Übernehmen
+  await expect(page.getByTestId('photo-new-site')).toHaveText(/Projekt übernehmen/); // kein „Neues Projekt“
+  await page.getByTestId('photo-new-site').click();
+  const pp = page.getByTestId('project-picker');
+  await expect(pp.getByTestId('picker-new')).toHaveCount(0);
+  await expect(pp.getByTestId('picker-item')).toHaveText([/Neubau Musterstraße/]); // Projekt übernehmbar, aber nicht anlegen
   await page.keyboard.press('Escape');
 
   await page.goto('./maengel');
-  await expect(page.getByTestId('defect-new-site')).toHaveCount(0);
+  await expect(page.getByTestId('defect-new-site')).toHaveText(/Projekt übernehmen/);
 
   await page.goto('./arbeitereinteilung');
   await page.getByTestId('add-site').click();
@@ -54,22 +55,35 @@ test('Büro darf Projekte anlegen; Projekte je Werkzeug: nur freigegebene sind w
   await createProject(page, 'Sanierung Hauptplatz', { number: '2026-05' });
   await page.route('**/rest/v1/rpc/my_context', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(context('buero')) }));
   await page.goto('./fotos');
-  await expect(page.getByTestId('photo-new-site')).toBeVisible();
+  await expect(page.getByTestId('photo-new-site')).toHaveText(/Neues Projekt/);
   // Projekte aus Aufmaß erscheinen in Fotos nicht in der Übersicht, aber in der Auswahl zum Übernehmen
   await expect(page.locator('a[data-testid="photo-site"]')).toHaveCount(0);
-  const fake = { name: 'IMG_1.jpg', mimeType: 'image/jpeg', buffer: Buffer.from([0xff, 0xd8, 0xff, 0xd9]) };
-  await page.getByTestId('photo-file-input').setInputFiles([fake]);
-  const options = page.getByTestId('photo-save-dialog').getByTestId('photo-site').locator('option');
-  await expect(options).toHaveText(['– Projekt wählen –', '2026-05 · Sanierung Hauptplatz', '2026-04 · Neubau Musterstraße', '+ Neues Projekt …']); // zuletzt bearbeitet zuerst
-  const ids = await options.evaluateAll((els) => els.map((e) => (e as HTMLOptionElement).value.split('|')[0]).filter(Boolean));
+  await page.getByTestId('photo-new-site').click();
+  const pp = page.getByTestId('project-picker');
+  await expect(pp.getByTestId('picker-new')).toHaveCount(1);
+  await expect(pp.getByTestId('picker-item')).toHaveText([/Neubau Musterstraße/, /Sanierung Hauptplatz/]); // A–Z
+  const ids = await pp.getByTestId('picker-item').evaluateAll((els) => els.map((e) => e.getAttribute('data-project')));
+  const sanId = await page.evaluate(
+    () =>
+      new Promise<string>((resolve) => {
+        const r = indexedDB.open('schadstellen-aufmass');
+        r.onsuccess = () => {
+          const q = r.result.transaction('projects').objectStore('projects').getAll();
+          q.onsuccess = () => resolve((q.result as { id: string; name: string }[]).find((p) => p.name === 'Sanierung Hauptplatz')!.id);
+        };
+      }),
+  );
+  expect(ids).toEqual(['Neubau Musterstraße', 'Sanierung Hauptplatz']);
   await page.keyboard.press('Escape');
 
   // Polier mit Freigabe nur für ein Projekt in der Fotodokumentation
   await page.unroute('**/rest/v1/rpc/my_context');
-  await page.route('**/rest/v1/rpc/my_context', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(context('polier', { tool_sites: { photos: [`p:${ids[0]}`] } })) }));
+  await page.route('**/rest/v1/rpc/my_context', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(context('polier', { tool_sites: { photos: [`p:${sanId}`] } })) }));
   await page.reload();
-  await page.getByTestId('photo-file-input').setInputFiles([fake]);
-  await expect(page.getByTestId('photo-save-dialog').getByTestId('photo-site').locator('option')).toHaveText(['– Projekt wählen –', '2026-05 · Sanierung Hauptplatz']);
+  await expect(page.getByTestId('photo-new-site')).toHaveText(/Projekt übernehmen/);
+  await page.getByTestId('photo-new-site').click();
+  await expect(pp.getByTestId('picker-new')).toHaveCount(0);
+  await expect(pp.getByTestId('picker-item')).toHaveText([/Sanierung Hauptplatz/]);
   await page.keyboard.press('Escape');
   await page.goto('./projekte');
   await expect(page.getByTestId('project-card')).toHaveCount(2); // Aufmaß: keine Einschränkung eingetragen → alle

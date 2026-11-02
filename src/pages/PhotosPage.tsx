@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Icon } from '../components/Icon';
-import { PhotoCapture, type PhotoSite } from '../components/PhotoCapture';
+import { type PhotoSite } from '../components/PhotoCapture';
 import { PhotoImg } from '../components/PhotoImg';
 import { ProjectPicker } from '../components/ProjectPicker';
 import { SiteNav } from '../components/SiteNav';
@@ -41,7 +41,7 @@ const fmt = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString('de-DE',
 
 /**
  * Fotodokumentation – Übersicht: alle Baustellen mit Anzahl, Zeitraum und Kalenderwochen; Suche über Baustelle,
- * Nummer, Adresse, KW, Datum, Benutzer und Beschreibung; großer Knopf „Foto aufnehmen“ (Handy/Tablet).
+ * Nummer, Adresse, KW, Datum, Benutzer und Beschreibung. Fotos aufnehmen/auswählen erst im Projekt.
  */
 export function PhotosPage() {
   const mayCreate = useCanCreateProjects();
@@ -87,7 +87,6 @@ export function PhotosPage() {
     }
     return m;
   }, [photos]);
-  const hashes = useMemo(() => new Set((photos ?? []).map((p) => p.hash)), [photos]);
   const pending = (photos ?? []).filter((p) => p.sync !== 'synced').length;
   /** in der Fotodokumentation angelegte oder übernommene Projekte, die noch keine Fotos haben */
   const empty = useMemo(() => sites.filter((f) => (!f.projectId || usedIn(f, 'photos')) && !groups.some((g) => g.key === photoSiteKey({ projectId: f.projectId, siteName: f.name })) && [f.name, f.number, f.address].join(' ').toLowerCase().includes(query.trim().toLowerCase())), [sites, groups, query]);
@@ -109,11 +108,9 @@ export function PhotosPage() {
                 <Icon name="images" size={16} /> <span className="lbl">Zuletzt hochgeladen</span>
               </a>
             )}
-            {mayCreate && (
-              <button type="button" className="btn btn-primary" onClick={() => setCreating(true)} aria-label="Neues Projekt" title="Projekt aus dem Register übernehmen oder neu anlegen" data-testid="photo-new-site">
-                <Icon name="plus" size={16} /> <span className="lbl">Neues Projekt</span>
-              </button>
-            )}
+            <button type="button" className="btn btn-primary" onClick={() => setCreating(true)} aria-label={mayCreate ? 'Neues Projekt' : 'Projekt übernehmen'} title="Projekt aus dem Register übernehmen oder neu anlegen" data-testid="photo-new-site">
+              <Icon name="plus" size={16} /> <span className="lbl">{mayCreate ? 'Neues Projekt' : 'Projekt übernehmen'}</span>
+            </button>
           </div>
         </header>
         {creating && (
@@ -126,8 +123,6 @@ export function PhotosPage() {
             }}
           />
         )}
-
-        <PhotoCapture sites={sites} existingHashes={hashes} onSaved={() => void reload()} big />
 
         {!cloudConnected() && photos && photos.length > 0 && (
           <div className="banner banner-info photos-sync-banner" role="status" data-testid="photos-local-banner">
@@ -144,9 +139,12 @@ export function PhotosPage() {
               <ToolIcon name="photos" size={22} />
             </span>
             <div>
-              <strong>Noch keine Fotos</strong>
-              <p className="muted small">Foto aufnehmen oder aus der Galerie wählen – es wird der Baustelle, Kalenderwoche und dem Aufnahmetag zugeordnet.</p>
+              <strong>Noch kein Projekt</strong>
+              <p className="muted small">Projekt anlegen oder aus dem Register übernehmen – im Projekt dann Fotos aufnehmen oder aus der Galerie wählen. Jedes Foto wird der Kalenderwoche und dem Aufnahmetag zugeordnet.</p>
             </div>
+            <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>
+              {mayCreate ? 'Neues Projekt' : 'Projekt übernehmen'}
+            </button>
           </div>
         )}
 
@@ -210,7 +208,7 @@ export function PhotosPage() {
         </div>
         {/* Baustellen ohne Fotos (zum schnellen Start) */}
         {photos && sites.some((s) => !groups.some((g) => g.key === photoSiteKey({ projectId: s.projectId, siteName: s.name }))) && !query && (
-          <p className="muted small photos-hint">Weitere Projekte aus dem Projektregister stehen beim Speichern eines Fotos zur Auswahl.</p>
+          <p className="muted small photos-hint">Weitere Projekte aus dem Projektregister über „{mayCreate ? 'Neues Projekt' : 'Projekt übernehmen'}“ hierher übernehmen.</p>
         )}
       </div>
     </>

@@ -585,29 +585,28 @@ test('Berichte per Finger: Regieliste, Tagesbericht und Wochenbericht passen auf
 
 test('Fotodokumentation per Finger: großer Aufnahme-Knopf, Speichern, Galerie und Großansicht passen auf den Bildschirm', async ({ page }, info) => {
   await page.goto('./#/fotos');
+  await expect(page.getByTestId('photo-pick')).toHaveCount(0); // Fotos erst im Projekt
+  // Projekt anlegen (Einteilung), in der Fotodokumentation übernehmen
+  await page.goto('./#/arbeitereinteilung');
+  await page.getByTestId('add-site').tap();
+  await newWeekProject(page, 'Halle 3', {}, 'tap');
+  await page.goto('./#/fotos');
+  await page.getByTestId('photo-new-site').tap();
+  await page.getByTestId('project-picker').getByTestId('picker-item').filter({ hasText: 'Halle 3' }).tap();
+  await expect(page.getByTestId('photo-site-title')).toHaveText('Halle 3');
   // im Browser gibt es nur die Dateiauswahl (Kamera-Modus erst in der installierten App)
   const pick = page.getByTestId('photo-pick');
   await expect(pick).toBeVisible();
   expect((await pick.boundingBox())!.height).toBeGreaterThanOrEqual(52);
   await expect(page.getByTestId('photo-shoot')).toHaveCount(0);
   await expect(page.getByTestId('photo-camera-input')).toHaveAttribute('capture', 'environment');
-  await page.getByTestId('photo-file-input').setInputFiles(join(FIXTURES, 'foto.jpg'));
-  const dlg = page.getByTestId('photo-save-dialog');
-  await dlg.getByTestId('photo-site').selectOption({ index: 0 }).catch(() => {});
-  await expect(dlg.getByTestId('photo-site').locator('option')).toHaveCount(2); // keine Baustelle angelegt – nur „wählen“ und „Neue Baustelle“
-  await expect(dlg.getByTestId('photo-save')).toBeDisabled();
-  await dlg.getByRole('button', { name: 'Abbrechen' }).tap();
-  // Baustelle anlegen und erneut
-  await page.goto('./#/arbeitereinteilung');
-  await page.getByTestId('add-site').tap();
-  await newWeekProject(page, 'Halle 3', {}, 'tap');
-  await page.goto('./#/fotos');
   await page.getByTestId('photo-file-input').setInputFiles([join(FIXTURES, 'foto.jpg'), join(FIXTURES, 'parkdeck.png')]);
+  const dlg = page.getByTestId('photo-save-dialog');
+  await expect(dlg.getByTestId('photo-site')).toHaveValue(/\|Halle 3$/);
   await dlg.getByTestId('photo-user').fill('Max');
   await dlg.getByTestId('photo-save').tap();
   await expect(page.locator('.toast', { hasText: '2 Fotos gespeichert' })).toHaveCount(1);
   await noHorizontalScroll(page);
-  await page.getByTestId('photo-site').tap();
   await expect(page.getByTestId('photo-thumb')).toHaveCount(2);
   await noHorizontalScroll(page);
   await page.screenshot({ path: join(OUT, `fotos-${info.project.name}.png`), fullPage: true });
