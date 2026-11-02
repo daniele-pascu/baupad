@@ -12,7 +12,8 @@ import { getPhotoStorage } from './photo-storage';
 import { clearFreePhotoSites, listFreePhotoSites, updateFreePhotoSite } from './photo-sites';
 import { photoSiteKey } from './photos';
 import { getDeviceId } from './ids';
-import type { PhotoSite, Project } from './types';
+import { newMeta } from './store';
+import type { CostCenter, PhotoSite, Project } from './types';
 
 export interface SiteFields {
   name: string;
@@ -81,6 +82,62 @@ export async function updateSiteEverywhere(site: PhotoSite, v: SiteFields): Prom
     next = await updateFreePhotoSite(site.name, v);
   }
   await propagateSite(key, next);
+  return next;
+}
+
+/** Felder des einheitlichen Dialogs „Projektangaben bearbeiten“ (wie in Aufmaß & Abrechnung) */
+export interface ProjectEditFields {
+  name: string;
+  number: string;
+  address: string;
+  client: string;
+  date: string;
+  notes: string;
+}
+export interface CostCenterEdit {
+  id?: string;
+  number: string;
+  name: string;
+}
+
+/**
+ * Projektangaben aus einem Werkzeug speichern – derselbe Dialog wie in Aufmaß & Abrechnung: Name, Bauvorhaben,
+ * Nummer, Kostenstellen, Auftraggeber, Baubeginn, Bemerkung. Kopien in allen Werkzeugen werden nachgezogen.
+ */
+export async function saveProjectEverywhere(projectId: string, f: ProjectEditFields, inputs: CostCenterEdit[]): Promise<PhotoSite> {
+  const name = f.name.trim();
+  if (!name) throw new Error('Bitte einen Namen für das Projekt eingeben.');
+  const db = await getDB();
+  const project = await db.get('projects', projectId);
+  if (!project) throw new Error('Projekt nicht gefunden.');
+  const record: Project = {
+    ...project,
+    name,
+    // Bauvorhaben ist in den Werkzeugen der Anzeigename – beides gleich halten
+    site: project.site ? name : '',
+    number: f.number.trim(),
+    address: f.address.trim(),
+    client: f.client.trim(),
+    date: f.date.trim(),
+    notes: f.notes.trim(),
+    rev: project.rev + 1,
+    updatedAt: Date.now(),
+    deviceId: getDeviceId(),
+  };
+  const existing = (await db.getAll('costCenters')).filter((c) => c.projectId === projectId && !c.deletedAt).sort((a, b) => a.sortIndex - b.sortIndex);
+  let sortIndex = existing.length ? Math.max(...existing.map((c) => c.sortIndex)) + 1 : 0;
+  const writes: { store: 'costCenters'; record: CostCenter; baseRev: number }[] = [];
+  for (const input of inputs) {
+    const number = input.number.trim();
+    const cname = input.name.trim();
+    const old = input.id ? existing.find((c) => c.id === input.id) : undefined;
+    if (old) {
+      if ((old.number ?? '') !== number || old.name !== cname) writes.push({ store: 'costCenters', record: { ...old, number, name: cname, rev: old.rev + 1, updatedAt: Date.now(), deviceId: getDeviceId() }, baseRev: old.rev });
+    } else if (number || cname) writes.push({ store: 'costCenters', record: { ...newMeta(), rev: 1, projectId, number, name: cname, sortIndex: sortIndex++ }, baseRev: 0 });
+  }
+  await writeRecords([{ store: 'projects', record, baseRev: project.rev }, ...writes]);
+  const next: PhotoSite = { projectId, name, number: record.number ?? '', address: record.address, client: record.client, date: record.date, notes: record.notes, tools: record.tools };
+  await propagateSite(`p:${projectId}`, next);
   return next;
 }
 

@@ -3,8 +3,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '../components/Icon';
 import { MovePhotosDialog } from '../components/MovePhotosDialog';
 import { PhotoPdfDialog } from '../components/PhotoPdfDialog';
-import { PhotoSiteDialog } from '../components/PhotoSitePicker';
-import { canEditSites, updateSiteEverywhere } from '../lib/sites';
+import { ProjectEditDialog } from '../components/ProjectEditDialog';
+import { canEditSites } from '../lib/sites';
 import { useSession } from '../lib/use-session';
 import { forgetPhotoUrl, usePhotoUrl } from '../components/PhotoImg';
 import { PhotoCapture, type PhotoSite } from '../components/PhotoCapture';
@@ -187,10 +187,6 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
   /** Angaben der Baustelle ändern: Name, Nummer, Adresse – auf allen Fotos der Baustelle nachziehen */
   const session = useSession();
   /** Änderung gilt in allen Werkzeugen (Projekt, Berichte, Einteilung, Mängelplan, Fotos) */
-  const saveSite = async (v: { name: string; number: string; address: string }): Promise<PhotoSite> => {
-    if (!site) throw new Error('Baustelle nicht geladen.');
-    return updateSiteEverywhere(site, v);
-  };
   /** neu laden – falls inzwischen Fotos dazugekommen sind */
   const refresh = () => {
     setRefreshing(true);
@@ -482,11 +478,8 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
         />
       )}
       {editing && site && (
-        <PhotoSiteDialog
-          initial={site}
-          hint="Name, Nummer und Adresse werden in allen Werkzeugen übernommen – Projekt, Fotos, Berichte, Einteilung und Mängelplan."
-
-          onSave={saveSite}
+        <ProjectEditDialog
+          site={site}
           onClose={() => setEditing(false)}
           onSaved={(next) => {
             setEditing(false);

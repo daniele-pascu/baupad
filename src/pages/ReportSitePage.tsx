@@ -13,8 +13,8 @@ import type { PhotoSite, Report, ReportType } from '../lib/types';
 import { reportPdfFile } from './ReportEditorPage';
 import { createReport, loadReportSites, NewReportDialog, type SiteChoice } from './ReportsPage';
 import { usePageTitle } from '../lib/page-title';
-import { PhotoSiteDialog } from '../components/PhotoSitePicker';
-import { canEditSites, siteKeyOfSite, updateSiteEverywhere } from '../lib/sites';
+import { ProjectEditDialog } from '../components/ProjectEditDialog';
+import { canEditSites, siteKeyOfSite } from '../lib/sites';
 import { useSession } from '../lib/use-session';
 import { useDataChanged } from '../lib/data-events';
 
@@ -279,10 +279,8 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
         <NewReportDialog sites={sites} site={site} onClose={() => setCreating(false)} onCreate={(type, s, date) => run(() => createReport(type, s, date, all ?? []))} />
       )}
       {editing && site && (
-        <PhotoSiteDialog
-          initial={{ projectId: site.projectId, name: site.name, number: first?.head.number ?? '', address: first?.head.address ?? '' } as PhotoSite}
-          hint="Name, Nummer und Adresse werden in allen Werkzeugen übernommen – Projekt, Fotos, Berichte, Einteilung und Mängelplan."
-          onSave={(v) => updateSiteEverywhere({ projectId: site.projectId, name: site.name, number: first?.head.number ?? '', address: first?.head.address ?? '' }, v)}
+        <ProjectEditDialog
+          site={{ projectId: site.projectId, name: site.name, number: first?.head.number ?? info?.number ?? '', address: first?.head.address ?? info?.address ?? '' }}
           onClose={() => setEditing(false)}
           onSaved={(next) => {
             setEditing(false);

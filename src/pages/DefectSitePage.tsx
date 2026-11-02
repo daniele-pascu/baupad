@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { DefectPlanDialog } from '../components/DefectPlanDialog';
-import { PhotoSiteDialog } from '../components/PhotoSitePicker';
-import { canEditSites, siteKeyOfSite, updateSiteEverywhere } from '../lib/sites';
+import { ProjectEditDialog } from '../components/ProjectEditDialog';
+import { canEditSites, siteKeyOfSite } from '../lib/sites';
 import { useSession } from '../lib/use-session';
 import { Icon } from '../components/Icon';
 import { SiteNav } from '../components/SiteNav';
@@ -158,10 +158,8 @@ export function DefectSitePage({ siteKey }: { siteKey: string }) {
           </div>
         </header>
         {editing && site && (
-          <PhotoSiteDialog
-            initial={site}
-            hint="Name, Nummer und Adresse werden in allen Werkzeugen übernommen – Projekt, Fotos, Berichte, Einteilung und Mängelplan."
-            onSave={(v) => updateSiteEverywhere(site, v)}
+          <ProjectEditDialog
+            site={site}
             onClose={() => setEditing(false)}
             onSaved={(next) => {
               setEditing(false);
