@@ -24,6 +24,9 @@ import { ReportsPage } from './pages/ReportsPage';
 import { ReportSitePage } from './pages/ReportSitePage';
 import { CameraPage } from './pages/CameraPage';
 import { ReportEditorPage } from './pages/ReportEditorPage';
+import { FormTemplatesPage } from './pages/FormTemplatesPage';
+import { FormTemplateEditorPage } from './pages/FormTemplateEditorPage';
+import { FormEntryPage } from './pages/FormEntryPage';
 import { PhotosPage } from './pages/PhotosPage';
 import { RecentPhotosPage } from './pages/RecentPhotosPage';
 import { PhotoSitePage } from './pages/PhotoSitePage';
@@ -269,6 +272,15 @@ export function App() {
       break;
     case 'reportSite':
       content = <ReportSitePage key={route.siteKey} siteKey={route.siteKey} />;
+      break;
+    case 'formTemplates':
+      content = <FormTemplatesPage />;
+      break;
+    case 'formTemplate':
+      content = <FormTemplateEditorPage key={route.templateId} templateId={route.templateId} />;
+      break;
+    case 'formEntry':
+      content = <FormEntryPage key={route.entryId} entryId={route.entryId} />;
       break;
     case 'photos':
       content = <PhotosPage />;

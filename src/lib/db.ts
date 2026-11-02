@@ -1,6 +1,7 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { Component, CostCenter, Damage, DrawElement, EntityMap, EntityStore, LvDocument, Photo, Plan, Project, Report, SourceFile, WeekPlan, Worker, DefectMark, DefectPlan } from './types';
 import type { FormTemplate } from './form-template';
+import type { FormEntry } from './forms';
 
 /**
  * Lokale Datenbank (IndexedDB). Sie funktioniert ohne Internetverbindung und hält
@@ -47,12 +48,14 @@ interface AufmassDB extends DBSchema {
   /** ab Version 9: eigene Firmenformulare (Vorlage + Original-PDF) */
   formTemplates: { key: string; value: FormTemplate };
   formTemplateFiles: { key: string; value: { id: string; data: ArrayBuffer } };
+  /** ab Version 10: ausgefüllte Firmenformulare (je Projekt, mit Schnappschuss der Vorlage) */
+  formEntries: { key: string; value: FormEntry; indexes: { projectId: string } };
   /** Planbild (JPEG), Vorschau und – bei PDF-Plänen – die Originaldatei für scharfes Nachrendern beim Zoomen */
   defectPlanImages: { key: string; value: { id: string; data: ArrayBuffer; thumb: ArrayBuffer; pdf?: ArrayBuffer } };
 }
 
 /** Datensätze, die mit der zentralen Ablage abgeglichen werden (Angaben als JSON) */
-export type SyncStore = EntityStore | 'workers' | 'weeks' | 'reports' | 'defectPlans' | 'defectMarks' | 'formTemplates' | 'meta';
+export type SyncStore = EntityStore | 'workers' | 'weeks' | 'reports' | 'defectPlans' | 'defectMarks' | 'formTemplates' | 'formEntries' | 'meta';
 /** Dateien, die mit der zentralen Ablage abgeglichen werden (Originalpläne, Mängelplan-Bilder, Formular-PDFs) */
 export type SyncFileStore = 'blobs' | 'defectPlanImages' | 'formTemplateFiles';
 /** Einstellungen, die für die ganze Firma gelten (werden abgeglichen); alles andere in `meta` bleibt auf dem Gerät */
@@ -98,7 +101,7 @@ const DB_NAME = 'schadstellen-aufmass';
  * Version 5: Arbeitereinteilung (Arbeiter, Wochenplanungen). Version 6: Berichte & Formulare. Version 7: Fotodokumentation.
  * Upgrades legen ausschließlich neue Speicherbereiche an; vorhandene Daten bleiben unverändert.
  */
-const DB_VERSION = 9;
+const DB_VERSION = 10;
 
 let dbPromise: Promise<IDBPDatabase<AufmassDB>> | null = null;
 
@@ -146,6 +149,9 @@ export function getDB(): Promise<IDBPDatabase<AufmassDB>> {
         if (oldVersion < 9) {
           db.createObjectStore('formTemplates', { keyPath: 'id' });
           db.createObjectStore('formTemplateFiles', { keyPath: 'id' });
+        }
+        if (oldVersion < 10) {
+          db.createObjectStore('formEntries', { keyPath: 'id' }).createIndex('projectId', 'projectId');
         }
         // Hinweis für Aufmaß & Abrechnung, dass die Datenbank erweitert wurde
         if (oldVersion >= 1) void tx.objectStore('meta').put({ key: 'upgradedFrom', value: oldVersion });
@@ -359,7 +365,7 @@ export async function saveWorker(w: Worker): Promise<void> {
 }
 
 /** Datensatz samt Vormerkung für den Abgleich schreiben (eine Transaktion) */
-async function putSynced<S extends 'workers' | 'weeks' | 'reports' | 'defectPlans' | 'defectMarks' | 'formTemplates'>(store: S, record: AufmassDB[S]['value'], projectId = ''): Promise<void> {
+async function putSynced<S extends 'workers' | 'weeks' | 'reports' | 'defectPlans' | 'defectMarks' | 'formTemplates' | 'formEntries'>(store: S, record: AufmassDB[S]['value'], projectId = ''): Promise<void> {
   const db = await getDB();
   const tx = db.transaction([store, 'outbox'], 'readwrite');
   await tx.objectStore(store).put(record as never);
@@ -369,7 +375,7 @@ async function putSynced<S extends 'workers' | 'weeks' | 'reports' | 'defectPlan
 }
 
 /** Datensatz endgültig löschen und Grabstein vormerken */
-async function deleteSynced(store: 'workers' | 'weeks' | 'reports' | 'defectPlans' | 'defectMarks' | 'formTemplates', id: string): Promise<void> {
+async function deleteSynced(store: 'workers' | 'weeks' | 'reports' | 'defectPlans' | 'defectMarks' | 'formTemplates' | 'formEntries', id: string): Promise<void> {
   const db = await getDB();
   const tx = db.transaction([store, 'outbox'], 'readwrite');
   await tx.objectStore(store).delete(id);
@@ -572,6 +578,34 @@ export async function getFormTemplateFile(id: string): Promise<ArrayBuffer | und
   if (local || !fileFetcher || !(await fileFetcher('formTemplateFiles', id))) return local;
   return (await db.get('formTemplateFiles', id))?.data;
 }
+/** Vorlage: Datei einer bestimmten Version (fileId) lesen – lokal, sonst aus der Ablage */
+export async function getFormFile(fileId: string): Promise<ArrayBuffer | undefined> {
+  return getFormTemplateFile(fileId);
+}
+/** Datei einer neuen Vorlagenversion ablegen (ältere Dateien bleiben für vorhandene Formulare) */
+export async function putFormFile(fileId: string, pdf: ArrayBuffer): Promise<void> {
+  const db = await getDB();
+  const tx = db.transaction(['formTemplateFiles', 'outbox'], 'readwrite');
+  await tx.objectStore('formTemplateFiles').put({ id: fileId, data: pdf });
+  await tx.objectStore('outbox').put(outboxEntry('formTemplateFiles', fileId));
+  await tx.done;
+  changed();
+}
+
+/* ausgefüllte Firmenformulare */
+export async function listFormEntries(): Promise<FormEntry[]> {
+  return (await (await getDB()).getAll('formEntries')).sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt);
+}
+export async function getFormEntry(id: string): Promise<FormEntry | undefined> {
+  return (await getDB()).get('formEntries', id);
+}
+export async function saveFormEntry(e: FormEntry): Promise<void> {
+  await putSynced('formEntries', e, e.projectId ?? '');
+}
+export async function deleteFormEntry(id: string): Promise<void> {
+  await deleteSynced('formEntries', id);
+}
+
 export async function deleteFormTemplate(id: string): Promise<void> {
   const db = await getDB();
   const tx = db.transaction(['formTemplates', 'formTemplateFiles', 'outbox'], 'readwrite');
@@ -599,7 +633,7 @@ export async function clearOutbox(entries: OutboxEntry[]): Promise<void> {
 /** alle vorhandenen Datensätze und Dateien zum Abgleich vormerken (erste Anbindung eines Geräts) */
 export async function enqueueAll(): Promise<number> {
   const db = await getDB();
-  const stores = ['projects', 'costCenters', 'files', 'plans', 'damages', 'components', 'elements', 'lvDocs', 'workers', 'weeks', 'reports', 'defectPlans', 'defectMarks', 'formTemplates'] as const;
+  const stores = ['projects', 'costCenters', 'files', 'plans', 'damages', 'components', 'elements', 'lvDocs', 'workers', 'weeks', 'reports', 'defectPlans', 'defectMarks', 'formTemplates', 'formEntries'] as const;
   const tx = db.transaction([...stores, 'meta', 'blobs', 'defectPlanImages', 'formTemplateFiles', 'outbox'] as const, 'readwrite');
   const outbox = tx.objectStore('outbox');
   let n = 0;

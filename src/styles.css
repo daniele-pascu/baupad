@@ -3856,6 +3856,238 @@ tr.lv-flagged td {
     grid-template-columns: 1fr;
   }
 }
+/* Firmenformulare: Vorlagen, Feld-Editor, Eingabemaske */
+.form-template-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.form-template-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.form-template-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.form-template-actions {
+  flex-shrink: 0;
+  align-items: center;
+}
+.form-field-chips {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+}
+.form-field-chip {
+  font-size: 0.76rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f0f0f2;
+  color: var(--text);
+}
+.form-field-chip.req {
+  background: #ece4ff;
+}
+.report-type.t-form,
+.report-section.t-form .report-type {
+  background: #ece4ff;
+  color: #5b2bbf;
+}
+.report-type-card.t-form.active {
+  border-color: #a259ff;
+}
+.rp-badge.warn {
+  background: var(--warn-soft);
+  color: #8a5a00;
+}
+/* Editor */
+.form-editor .form-tpl-editor {
+  border-radius: 6px;
+  overflow: hidden;
+}
+.form-tpl-box.custom {
+  border-color: rgba(162, 89, 255, 0.9);
+  background: rgba(162, 89, 255, 0.12);
+}
+.form-tpl-box.custom.req {
+  border-width: 2px;
+}
+.form-tpl-box.custom.sel {
+  border-color: #0a5bd3;
+  background: rgba(10, 91, 211, 0.16);
+}
+.form-box-label {
+  position: absolute;
+  left: 2px;
+  top: 0;
+  font-size: 9px;
+  line-height: 1.1;
+  color: #5b2bbf;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.form-sample {
+  position: absolute;
+  inset: 0;
+  padding: 0 1px;
+  display: flex;
+  align-items: center;
+  color: #1a1a73;
+  font-family: Helvetica, Arial, sans-serif;
+  white-space: nowrap;
+  overflow: hidden;
+  pointer-events: none;
+}
+.form-sample.multi {
+  align-items: flex-start;
+  flex-direction: column;
+  white-space: pre;
+}
+.form-sample.multi > span {
+  display: block;
+  overflow: hidden;
+}
+.form-line-mark {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed rgba(10, 91, 211, 0.5);
+  pointer-events: none;
+}
+.form-resize {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #0a5bd3;
+  border: 2px solid #fff;
+  cursor: nwse-resize;
+  touch-action: none;
+}
+.form-field-list-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.form-field-list {
+  max-height: 320px;
+}
+.form-field-geo summary {
+  cursor: pointer;
+}
+.form-tpl-side .field small {
+  margin-top: 2px;
+}
+/* Eingabemaske */
+.form-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 42%);
+  gap: 16px;
+  align-items: start;
+}
+.form-entry.no-preview {
+  grid-template-columns: minmax(0, 1fr);
+}
+.form-entry-fields .rp-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.form-entry-fields .rp-section .rp-grid {
+  margin: 0;
+}
+.form-entry-label {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.form-entry-label b {
+  color: var(--danger);
+}
+.form-entry-label small {
+  margin-left: auto;
+  font-size: 0.72rem;
+}
+.form-entry-hint {
+  margin-top: 2px;
+}
+.form-entry-multi.overflow textarea {
+  border-color: var(--danger);
+}
+.form-entry-people {
+  margin-top: 4px;
+}
+.form-entry-add-person {
+  max-width: 220px;
+}
+.form-entry-check-row {
+  padding: 6px 0;
+}
+.form-entry-check-row small {
+  display: block;
+}
+.form-entry-check p {
+  margin: 2px 0;
+}
+.form-entry-preview {
+  position: sticky;
+  top: 70px;
+}
+.form-preview-stage {
+  position: relative;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  overflow: hidden;
+}
+.form-preview-stage img,
+.form-preview-blank {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.form-preview-box {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px dashed rgba(162, 89, 255, 0.35);
+}
+.form-preview-box.focus {
+  border: 2px solid #0a5bd3;
+  background: rgba(10, 91, 211, 0.08);
+}
+.form-preview-box.bad {
+  border: 2px solid var(--danger);
+  background: var(--danger-soft);
+}
+@media (max-width: 900px) {
+  .form-entry {
+    grid-template-columns: 1fr;
+  }
+  .form-entry-preview {
+    position: static;
+  }
+  .form-template-card {
+    flex-direction: column;
+  }
+}
 .tool-access-list {
   display: flex;
   flex-direction: column;

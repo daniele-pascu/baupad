@@ -7,7 +7,7 @@ import { SiteNav } from '../components/SiteNav';
 import { ToolIcon } from '../components/ToolIcon';
 import { offerFile, showError, toast } from '../components/ui';
 import { exportReportsBackup, importReportsBackup } from '../lib/report-backup';
-import { listPhotos, listReports, loadProjectData, saveReport } from '../lib/db';
+import { listFormEntries, listPhotos, listReports, loadProjectData, saveReport } from '../lib/db';
 import { navigate, paths } from '../lib/router';
 import { emptyHead, fmtDate, headFromProject, newReport, REPORT_TYPES, siteKey, siteLabel, today, typeInfo } from '../lib/reports';
 import type { PhotoSite, Report, ReportType } from '../lib/types';
@@ -19,7 +19,8 @@ import { usedIn } from '../lib/crew-link';
 import { useCanCreateProjects, useProjectIn } from '../lib/sites';
 import { ProjectPicker } from '../components/ProjectPicker';
 import { listFormTemplates } from '../lib/db';
-import type { FormTemplate } from '../lib/form-template';
+import { isCustomTemplate, type FormTemplate } from '../lib/form-template';
+import { entrySiteKey, type FormEntry } from '../lib/forms';
 import { useDataChanged } from '../lib/data-events';
 
 export const ACCENT = { '--tool': '#a259ff' } as CSSProperties;
@@ -50,6 +51,8 @@ interface SiteCard {
   site: SiteChoice;
   head: Report['head'];
   counts: Record<ReportType, number>;
+  /** ausgefüllte Firmenformulare je Vorlage */
+  forms: Map<string, { name: string; count: number }>;
   last: string;
   lastAt: number;
   open: number;
@@ -63,14 +66,16 @@ export function ReportsPage() {
   const access = useAccess();
   usePageTitle('Berichte & Formulare – BauPad');
   const [reports, setReports] = useState<Report[] | null>(null);
+  const [entries, setEntries] = useState<FormEntry[]>([]);
   const [allSites, setAllSites] = useState<PhotoSite[]>([]);
   const sites = useMemo(() => access.filterSites(allSites, (s) => (s.projectId ? `p:${s.projectId}` : `n:${s.name.trim().toLowerCase()}`)), [allSites, access.session]);
   const [query, setQuery] = useState('');
   const restoreRef = useRef<HTMLInputElement>(null);
 
   const reload = () =>
-    listReports()
-      .then(async (r) => {
+    Promise.all([listReports(), listFormEntries()])
+      .then(async ([r, e]) => {
+        setEntries(e);
         setReports(r);
         setAllSites(await loadReportSites());
       })
@@ -87,7 +92,7 @@ export function ReportsPage() {
       const key = siteKey(r);
       let c = map.get(key);
       if (!c) {
-        c = { key, site: r.projectId ? { projectId: r.projectId, name: siteLabel(r) } : { projectId: null, name: siteLabel(r) }, head: r.head, counts: { regie: 0, tag: 0, woche: 0 }, last: r.date, lastAt: 0, open: 0 };
+        c = { key, site: r.projectId ? { projectId: r.projectId, name: siteLabel(r) } : { projectId: null, name: siteLabel(r) }, head: r.head, counts: { regie: 0, tag: 0, woche: 0 }, forms: new Map(), last: r.date, lastAt: 0, open: 0 };
         map.set(key, c);
       }
       c.counts[r.type]++;
@@ -98,12 +103,26 @@ export function ReportsPage() {
       }
       if (r.status !== 'done') c.open++;
     }
+    for (const e of entries) {
+      const key = entrySiteKey(e);
+      let c = map.get(key);
+      if (!c) {
+        c = { key, site: { projectId: e.projectId, name: e.siteName }, head: { ...emptyHead(), site: e.siteName, project: e.siteName }, counts: { regie: 0, tag: 0, woche: 0 }, forms: new Map(), last: e.date, lastAt: 0, open: 0 };
+        map.set(key, c);
+      }
+      const f = c.forms.get(e.templateId) ?? { name: e.templateName, count: 0 };
+      f.count++;
+      c.forms.set(e.templateId, f);
+      if (e.date > c.last) c.last = e.date;
+      if (e.updatedAt > c.lastAt) c.lastAt = e.updatedAt;
+      if (e.status !== 'done') c.open++;
+    }
     return [...map.values()]
       .filter((c) => access.canSite(c.key))
       .filter((c) => !q || [c.site.name, c.head.project, c.head.number, c.head.client, c.head.address].some((t) => t?.toLowerCase().includes(q)))
       .sort((a, b) => b.lastAt - a.lastAt);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reports, q, access.session]);
+  }, [reports, entries, q, access.session]);
   /** in Berichten angelegte oder übernommene Projekte, die noch keinen Bericht haben */
   const emptySites = useMemo(() => {
     const have = new Set(cards.map((c) => c.key));
@@ -121,6 +140,9 @@ export function ReportsPage() {
   useEffect(() => {
     void listFormTemplates().then(setTemplates).catch(() => setTemplates([]));
   }, []);
+  const customTemplates = (templates ?? []).filter(isCustomTemplate);
+  const reportTemplates = (templates ?? []).filter((t) => !isCustomTemplate(t));
+  const anyData = (reports?.length ?? 0) + entries.length > 0;
 
   return (
     <>
@@ -137,6 +159,9 @@ export function ReportsPage() {
             <button type="button" className="btn btn-primary" onClick={() => setPicking(true)} title="Projekt aus dem Register übernehmen oder neu anlegen" data-testid="report-new-site">
               <Icon name="plus" size={16} /> <span className="hide-sm">{mayCreate ? 'Neues Projekt' : 'Projekt übernehmen'}</span>
             </button>
+            <a href={paths.formTemplates()} className="btn" title="Formularvorlagen der Firma: PDF hochladen, Felder einrichten" data-testid="reports-templates">
+              <Icon name="file" size={16} /> <span className="hide-sm">Vorlagen</span>
+            </a>
             <ActionMenu
               label="Sicherung"
               testId="reports-more"
@@ -178,18 +203,14 @@ export function ReportsPage() {
         )}
         {templates && (
           <p className="muted small reports-forms-hint" data-testid="reports-forms-hint">
-            {templates.length ? (
-              <>
-                Firmenformulare: {templates.map((t) => `${t.name} (${typeInfo(t.type).label})`).join(', ')} – die PDFs dieser Berichte werden damit ausgegeben.{' '}
-              </>
-            ) : (
-              <>Eigene Regieliste und Bautagesbericht der Firma als PDF hinterlegen – die Berichte werden dann direkt in das Firmenformular geschrieben. </>
-            )}
-            <a href={paths.account()}>Konto → Firmeninformationen</a>
+            {customTemplates.length > 0 && <>Firmenformulare zum Ausfüllen: {customTemplates.map((t) => t.name).join(', ')}. </>}
+            {reportTemplates.length > 0 && <>Für BauPad-Berichte: {reportTemplates.map((t) => `${t.name} (${typeInfo(t.type).label})`).join(', ')} – die PDFs dieser Berichte werden damit ausgegeben. </>}
+            {templates.length === 0 && <>Eigene Formulare der Firma (Regieliste, Stundenzettel, Materialliste …) als PDF hinterlegen, Felder einrichten und im Projekt digital ausfüllen. </>}
+            <a href={paths.formTemplates()}>Vorlagen verwalten</a>
           </p>
         )}
 
-        {reports && reports.length > 0 && (
+        {reports && anyData && (
           <div className="reports-tools">
             <label className="crew-search reports-search">
               <Icon name="select" size={18} />
@@ -199,7 +220,7 @@ export function ReportsPage() {
           </div>
         )}
 
-        {reports && reports.length === 0 && emptySites.length === 0 && (
+        {reports && !anyData && emptySites.length === 0 && (
           <div className="crew-setup" style={ACCENT} data-testid="reports-empty">
             <span className="tile-icon">
               <ToolIcon name="reports" size={22} />
@@ -213,19 +234,26 @@ export function ReportsPage() {
             </button>
           </div>
         )}
-        {reports && reports.length > 0 && cards.length === 0 && emptySites.length === 0 && <p className="muted">Keine Baustelle gefunden.</p>}
+        {reports && anyData && cards.length === 0 && emptySites.length === 0 && <p className="muted">Keine Baustelle gefunden.</p>}
 
         <div className="report-sites">
           {cards.map((c) => {
             const total = c.counts.regie + c.counts.tag + c.counts.woche;
+            const forms = [...c.forms.values()];
+            const formsTotal = forms.reduce((n, f) => n + f.count, 0);
             return (
               <a key={c.key} href={paths.reportSite(c.key)} className="report-site" data-testid="report-site" data-site={c.site.name}>
                 <div className="report-site-main">
                   <ProjectHeading info={{ name: c.site.name, number: c.head.number, costCenter: c.head.costCenter, address: c.head.address, client: c.head.client }} />
                   <span className="small">
-                    {total} {total === 1 ? 'Bericht' : 'Berichte'} · zuletzt {fmtDate(c.last, false)}
+                    {[total ? `${total} ${total === 1 ? 'Bericht' : 'Berichte'}` : '', formsTotal ? `${formsTotal} ${formsTotal === 1 ? 'Formular' : 'Formulare'}` : ''].filter(Boolean).join(' · ')} · zuletzt {fmtDate(c.last, false)}
                     {c.open > 0 && <span className="rp-badge"> {c.open} offen</span>}
                   </span>
+                  {forms.length > 0 && (
+                    <span className="small muted" data-testid="report-site-forms">
+                      {forms.map((f) => `${f.count} × ${f.name}`).join(' · ')}
+                    </span>
+                  )}
                 </div>
                 <div className="report-site-counts">
                   {REPORT_TYPES.map((t) => (
@@ -266,13 +294,18 @@ export function NewReportDialog({
   site,
   onCreate,
   onClose,
+  templates = [],
+  onCreateForm,
 }: {
   sites: PhotoSite[];
   site?: SiteChoice;
   onCreate(type: ReportType, site: SiteChoice, date: string): void;
   onClose(): void;
+  /** freie Firmenformulare (Vorlagen) – erscheinen als weitere Karten */
+  templates?: FormTemplate[];
+  onCreateForm?(t: FormTemplate, site: SiteChoice, date: string): void;
 }) {
-  const [type, setType] = useState<ReportType>('regie');
+  const [type, setType] = useState<string>('regie');
   const [list, setList] = useState(sites);
   useEffect(() => setList(sites), [sites]);
   const [chosen, setChosen] = useState<PhotoSite | null>(() => {
@@ -284,8 +317,12 @@ export function NewReportDialog({
   const submit = () => {
     if (!chosen) return setError('Bitte ein Projekt wählen.');
     if (!date) return setError('Bitte ein Datum wählen.');
-    onCreate(type, { projectId: chosen.projectId, name: chosen.name, address: chosen.address }, date);
+    const s = { projectId: chosen.projectId, name: chosen.name, address: chosen.address };
+    const tpl = templates.find((t) => `tpl:${t.id}` === type);
+    if (tpl) return onCreateForm?.(tpl, s, date);
+    onCreate(type as ReportType, s, date);
   };
+  const isReport = !type.startsWith('tpl:');
   return (
     <Modal
       title="Neuer Bericht"
@@ -310,13 +347,26 @@ export function NewReportDialog({
             <span className="muted small">{t.type === 'regie' ? 'Regiearbeiten mit Stunden je Arbeiter' : t.type === 'tag' ? 'Tägliche Dokumentation des Projekts' : 'Zusammenfassung einer Woche (Mo–So)'}</span>
           </button>
         ))}
+        {templates.map((t) => {
+          const n = (t.fields ?? []).length;
+          return (
+            <button key={t.id} type="button" role="radio" aria-checked={type === `tpl:${t.id}`} className={`report-type-card t-form${type === `tpl:${t.id}` ? ' active' : ''}`} onClick={() => setType(`tpl:${t.id}`)} data-testid="report-type-form" data-name={t.name}>
+              <span className="report-type t-form">F</span>
+              <strong>{t.name}</strong>
+              <span className="muted small">
+                Firmenformular · {n} {n === 1 ? 'Feld' : 'Felder'}
+                {(t.fields ?? []).some((f) => f.required) ? `, ${(t.fields ?? []).filter((f) => f.required).length} Pflicht` : ''}
+              </span>
+            </button>
+          );
+        })}
       </div>
       <label className="field">
         <span>Projekt auswählen</span>
         <PhotoSitePicker sites={list} value={chosen} onChange={setChosen} onCreated={(s) => setList((l) => (l.some((x) => siteValue(x) === siteValue(s)) ? l : [...l, s]))} testId="report-site" />
       </label>
       <label className="field">
-        <span>{typeInfo(type).period === 'week' ? 'Woche (beliebiger Tag der Woche)' : 'Datum'}</span>
+        <span>{isReport && typeInfo(type as ReportType).period === 'week' ? 'Woche (beliebiger Tag der Woche)' : 'Datum'}</span>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} data-testid="report-date" />
       </label>
       {error && (

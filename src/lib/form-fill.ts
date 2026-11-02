@@ -20,14 +20,14 @@ export interface FillValues {
 const INK = rgb(0.1, 0.1, 0.45);
 const MIN_SIZE = 5.5;
 
-function sanitize(font: PDFFont, s: string): string {
+export function sanitize(font: PDFFont, s: string): string {
   const set = new Set(font.getCharacterSet());
   const map: Record<string, string> = { ł: 'l', Ł: 'L', đ: 'd', Đ: 'D', ı: 'i', ø: 'o', Ø: 'O', '—': '-', '–': '-', '→': '>', '„': '"', '“': '"', '”': '"', '‚': "'", '‘': "'", '’': "'", '…': '...', '€': 'EUR' };
   return [...s.replace(/\r/g, '')].map((ch) => (set.has(ch.codePointAt(0)!) ? ch : (map[ch] ?? (set.has(ch.normalize('NFD')[0].codePointAt(0)!) ? ch.normalize('NFD')[0] : '?')))).join('');
 }
 
 /** Text in einen Kasten: Schriftgröße passend, Grundlinie knapp über dem unteren Rand */
-function drawInBox(page: PDFPage, font: PDFFont, pageH: number, box: Box, text: string, opts: { max?: number; align?: 'left' | 'right' | 'center' } = {}) {
+export function drawInBox(page: PDFPage, font: PDFFont, pageH: number, box: Box, text: string, opts: { max?: number; align?: 'left' | 'right' | 'center' } = {}) {
   const t = sanitize(font, text.trim());
   if (!t) return;
   let size = Math.min(opts.max ?? 9.5, Math.max(MIN_SIZE, box.h * 0.82));
@@ -71,10 +71,10 @@ function wrap(font: PDFFont, text: string, size: number, widths: number[]): stri
 }
 
 /** mehrzeiliges Feld: erste Zeile im Kasten, weitere auf den Schreiblinien; bei Platzmangel kleinere Schrift */
-function drawLines(page: PDFPage, font: PDFFont, pageH: number, boxes: Box[], text: string) {
+export function drawLines(page: PDFPage, font: PDFFont, pageH: number, boxes: Box[], text: string, startSize?: number) {
   if (!text.trim() || !boxes.length) return;
   const widths = boxes.map((b) => b.w);
-  let size = Math.min(9.5, Math.max(MIN_SIZE, boxes[0].h * 0.82));
+  let size = startSize ?? Math.min(9.5, Math.max(MIN_SIZE, boxes[0].h * 0.82));
   let lines = wrap(font, text, size, widths);
   while (lines.length > boxes.length && size > MIN_SIZE) {
     size -= 0.5;

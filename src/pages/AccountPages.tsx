@@ -16,7 +16,6 @@ import { Modal } from '../components/Modal';
 import { navigate, paths } from '../lib/router';
 import { confirmDialog, showError, toast } from '../components/ui';
 import { AppStorageSettings } from '../components/InstallApp';
-import { FormTemplatesSettings } from '../components/FormTemplates';
 import { usePageTitle } from '../lib/page-title';
 import { rpc } from '../lib/remote';
 
@@ -501,7 +500,15 @@ const ACCOUNT_TILES: TileDef[] = [
     body: (s) => (
       <>
         <LogoSettings session={s} />
-        <FormTemplatesSettings />
+        <div className="logo-settings-head" data-testid="account-forms">
+          <div>
+            <strong>Eigene Formulare</strong>
+            <span className="muted">PDF-Vorlagen der Firma (Regieliste, Stundenzettel, Materialliste …) werden unter Berichte &amp; Formulare → Vorlagen eingerichtet und im Projekt ausgefüllt.</span>
+          </div>
+          <a href={paths.formTemplates()} className="btn btn-sm" data-testid="account-form-templates">
+            Zu den Vorlagen
+          </a>
+        </div>
       </>
     ),
   },

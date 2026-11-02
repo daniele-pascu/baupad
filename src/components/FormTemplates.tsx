@@ -38,7 +38,7 @@ export function FormTemplatesSettings() {
   const [draft, setDraft] = useState<{ t: FormTemplate; pdf: ArrayBuffer } | null>(null);
   const [busy, setBusy] = useState(false);
   const input = useRef<HTMLInputElement>(null);
-  const reload = () => void listFormTemplates().then(setList).catch(() => setList([]));
+  const reload = () => void listFormTemplates().then((l) => setList(l.filter((t) => !t.kind))).catch(() => setList([]));
   useEffect(reload, []);
 
   const pick = async (file: File | undefined) => {

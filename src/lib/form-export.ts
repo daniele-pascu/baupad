@@ -8,7 +8,7 @@ import type { Report, ReportType } from './types';
 
 /** Firmenformulare für einen Berichtstyp (Konto → Firmeninformationen → Eigene Formulare) */
 export async function templatesFor(type: ReportType): Promise<FormTemplate[]> {
-  return (await listFormTemplates()).filter((t) => t.type === type);
+  return (await listFormTemplates()).filter((t) => !t.kind && t.type === type);
 }
 
 /**

@@ -94,3 +94,11 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - **Frage:** nur Wände oder nur Rohbau anzeigen. Ein Filter nach PDF-Ebenen, Text, Strichstärke und Farben war gebaut und wurde auf Wunsch wieder entfernt: Menü „Ansicht“ enthält nur Farbig / Schwarz-weiß (Aufmaß und Mängelplan gleich, Ansicht und PDF, je Plan gespeichert).
 - **KI-Erkennung** bleibt Option für später: Kosten je Plan gering (Cent-Bereich), Genauigkeit für Maße unzureichend, Datenschutz (Pläne beim Anbieter) zu klären.
 - **Handy/Tablet:** kein Knopf „Auswahl“; ein Werkzeug endet nach Gebrauch mit dem nächsten Fingerkontakt (Tipp ins Leere = Auswahl, Ziehen = Plan verschieben), Pin/Text/Bauteil sofort nach dem Setzen, Messungen nach dem Speichern.
+
+## Firmenformulare mit eigenen Feldern (02.11.2026)
+- Jede Firma richtet ihre PDF-Vorlagen selbst ein (Feldname, Typ, Hinweis, Pflicht); keine einheitlichen Formulare.
+- Die bisherigen BauPad-Berichte (Regieliste, Bautagesbericht, Bauwochenbericht) bleiben; freie Firmenformulare kommen daneben.
+- Vorlagenverwaltung wandert von Konto → Firmeninformationen nach Berichte & Formulare → Vorlagen (unter Konto nur ein Verweis).
+- Nummerierung je Vorlage **und Projekt** (nicht firmenweit); Lücken bleiben; doppelte Nummern werden markiert, nicht automatisch geändert.
+- Ausgefüllte Formulare speichern einen Schnappschuss der Felder und die Vorlagenversion; Vorlagenänderungen wirken nur auf neue Formulare.
+- Eingerichtet wird die erste Seite einer PDF; Rechte über die Rollen (Admin/Büro verwalten, alle füllen aus) – kein eigenes Rechteschema je Benutzer.

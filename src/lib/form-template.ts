@@ -1,3 +1,4 @@
+import type { CustomField } from './forms';
 import type { ReportType } from './types';
 
 /**
@@ -158,7 +159,21 @@ export interface FormTemplate {
   layout: FormLayout;
   createdAt: number;
   updatedAt: number;
+  /**
+   * „custom“: freies Firmenformular mit selbst eingerichteten Feldern (forms.ts) – wird unter Berichte & Formulare
+   * ausgefüllt. Ohne kind: Firmenformular für einen BauPad-Bericht (automatisch befüllt).
+   */
+  kind?: 'custom';
+  fields?: CustomField[];
+  /** Version der Felder/Datei – ausgefüllte Formulare merken sich ihre Version */
+  version?: number;
+  /** Datei der aktuellen Version (ältere Versionen bleiben für vorhandene Formulare erhalten) */
+  fileId?: string;
 }
+
+/** Datei-ID der Vorlage (ältere Vorlagen: gleich der Vorlagen-ID) */
+export const templateFileId = (t: Pick<FormTemplate, 'id' | 'fileId'>) => t.fileId ?? t.id;
+export const isCustomTemplate = (t: Pick<FormTemplate, 'kind'>) => t.kind === 'custom';
 
 /* ───────────── Beschriftungen erkennen ───────────── */
 

@@ -6,7 +6,10 @@ import { PdfPreview } from '../components/PdfPreview';
 import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, offerFile, showError, toast } from '../components/ui';
 import { safeFileName, type ExportFile } from '../lib/aufmass';
-import { deleteReport, listReports, saveReport } from '../lib/db';
+import { deleteFormEntry, deleteReport, listFormEntries, listFormTemplates, listReports, saveReport } from '../lib/db';
+import { isCustomTemplate, type FormTemplate } from '../lib/form-template';
+import { duplicateNos, entrySiteKey, fmtFieldDate, isoWeekLabel, type FormEntry } from '../lib/forms';
+import { copyFormEntry, createFormEntry, formEntryPdf } from '../lib/forms-data';
 import { navigate, paths } from '../lib/router';
 import { copyReport, periodLabel, REPORT_TYPES, siteKey, siteLabel, today, typeInfo } from '../lib/reports';
 import type { PhotoSite, Report, ReportType } from '../lib/types';
@@ -45,8 +48,23 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
   const [preview, setPreview] = useState<ExportFile | null>(null);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [allEntries, setAllEntries] = useState<FormEntry[]>([]);
+  const [templates, setTemplates] = useState<FormTemplate[]>([]);
   const session = useSession();
   const reports = useMemo(() => (all ?? []).filter((r) => siteKey(r) === key), [all, key]);
+  const entries = useMemo(() => allEntries.filter((e) => entrySiteKey(e) === key), [allEntries, key]);
+  /** ausgefüllte Firmenformulare je Vorlage (neueste zuerst) */
+  const byTemplate = useMemo(() => {
+    const m = new Map<string, { name: string; items: FormEntry[] }>();
+    for (const e of entries) {
+      const g = m.get(e.templateId) ?? { name: templates.find((t) => t.id === e.templateId)?.name ?? e.templateName, items: [] };
+      g.items.push(e);
+      m.set(e.templateId, g);
+    }
+    for (const g of m.values()) g.items.sort((a, b) => b.date.localeCompare(a.date) || (parseInt(b.no) || 0) - (parseInt(a.no) || 0));
+    return [...m.entries()].sort((a, b) => a[1].name.localeCompare(b[1].name, 'de'));
+  }, [entries, templates]);
+  const dupNos = useMemo(() => duplicateNos(entries), [entries]);
   const first = reports[0];
   /** Projekt ohne Bericht: Angaben aus dem Register (gleiche Liste wie in allen Werkzeugen) */
   const info = useMemo(() => sites.find((x) => (x.projectId ? `p:${x.projectId}` : `n:${x.name.trim().toLowerCase()}`) === key) ?? null, [sites, key]);
@@ -63,9 +81,11 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
         : null;
 
   const reload = () =>
-    Promise.all([listReports(), loadReportSites()])
-      .then(([r, s]) => {
+    Promise.all([listReports(), loadReportSites(), listFormEntries(), listFormTemplates()])
+      .then(([r, s, e, t]) => {
         setSites(s);
+        setAllEntries(e);
+        setTemplates(t.filter(isCustomTemplate));
         setAll(r);
       })
       .catch((e) => showError(e, 'Berichte konnten nicht geladen werden'));
@@ -83,6 +103,27 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
   const chosen = useMemo(() => TYPE_ORDER.flatMap((t) => [...byType[t]].reverse()).filter((r) => selected.has(r.id)), [byType, selected]);
 
   const run = (fn: () => Promise<void>) => fn().catch((e) => showError(e, 'Das hat nicht geklappt'));
+  const copyEntry = (e: FormEntry) =>
+    run(async () => {
+      const c = await copyFormEntry(e, allEntries, session?.name ?? '');
+      toast(`Kopie angelegt: ${c.templateName} Nr. ${c.no}.`, 'success');
+      navigate(paths.formEntry(c.id));
+    });
+  const removeEntry = (e: FormEntry) =>
+    void confirmDialog({ title: 'Formular löschen?', message: <p>{e.templateName} Nr. {e.no} vom {fmtFieldDate(e.date)} wird endgültig gelöscht.</p>, confirmLabel: 'Löschen', danger: true }).then((ok) => {
+      if (ok)
+        void run(async () => {
+          await deleteFormEntry(e.id);
+          await reload();
+          toast('Formular gelöscht.', 'success');
+        });
+    });
+  const createForm = (t: FormTemplate, s: SiteChoice, date: string) =>
+    run(async () => {
+      const e = await createFormEntry(t, { projectId: s.projectId, name: s.name }, date, allEntries, session?.name ?? '');
+      setCreating(false);
+      navigate(paths.formEntry(e.id));
+    });
   const copy = (r: Report) =>
     run(async () => {
       const c = copyReport(r, r.type === 'woche' ? r.date : today(), all ?? []);
@@ -199,7 +240,7 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
           </div>
         )}
 
-        {all && reports.length === 0 && <p className="muted">Noch keine Berichte in diesem Projekt – oben „Neu“ antippen: Regieliste, Bautagesbericht oder Bauwochenbericht.</p>}
+        {all && reports.length === 0 && entries.length === 0 && <p className="muted">Noch keine Berichte in diesem Projekt – oben „Neu“ antippen: Regieliste, Bautagesbericht, Bauwochenbericht{templates.length ? ' oder ein Firmenformular' : ''}.</p>}
 
         {REPORT_TYPES.map((t) => {
           const items = byType[t.type];
@@ -274,9 +315,56 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
             </section>
           );
         })}
+
+        {byTemplate.map(([templateId, g]) => (
+          <section key={templateId} className="report-section t-form" data-testid="form-section" data-name={g.name}>
+            <header className="report-section-head">
+              <span className="report-type t-form">F</span>
+              <h2>{g.name}</h2>
+              <span className="muted small">{g.items.length}</span>
+            </header>
+            <ul className="report-list report-scroll">
+              {g.items.map((e) => (
+                <li key={e.id} className="report-item" data-testid="form-item" data-no={e.no}>
+                  <a href={paths.formEntry(e.id)} className="report-link">
+                    <span className="report-main">
+                      <strong>
+                        {g.name} Nr. {e.no}
+                        {dupNos.has(e.id) && (
+                          <span className="rp-badge warn" title="Diese Nummer gibt es in diesem Projekt zweimal – bitte eine davon ändern">
+                            {' '}
+                            Nummer doppelt
+                          </span>
+                        )}
+                      </strong>
+                      <span className="muted small">
+                        {fmtFieldDate(e.date)} · {isoWeekLabel(e.date)}
+                        {e.createdBy ? ` · ${e.createdBy}` : ''}
+                      </span>
+                    </span>
+                    <span className={`report-status ${e.status}`} data-testid="form-status">
+                      {e.status === 'done' ? 'Fertig' : 'Entwurf'}
+                    </span>
+                  </a>
+                  <ActionMenu
+                    label={`Aktionen für ${g.name} Nr. ${e.no}`}
+                    testId="form-actions"
+                    actions={[
+                      { label: 'Bearbeiten', icon: 'edit', onSelect: () => navigate(paths.formEntry(e.id)), testId: 'form-open' },
+                      { label: 'Kopieren als neues Formular', icon: 'copy', onSelect: () => copyEntry(e), testId: 'form-copy' },
+                      { label: 'PDF', icon: 'pdf', onSelect: () => run(async () => setPreview(await formEntryPdf(e))), testId: 'form-pdf' },
+                      { label: 'Teilen', icon: 'share', onSelect: () => run(async () => offerFile(await formEntryPdf(e))), testId: 'form-share' },
+                      { label: 'Löschen', icon: 'trash', danger: true, onSelect: () => removeEntry(e), testId: 'form-delete' },
+                    ]}
+                  />
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
       </div>
       {creating && site && (
-        <NewReportDialog sites={sites} site={site} onClose={() => setCreating(false)} onCreate={(type, s, date) => run(() => createReport(type, s, date, all ?? []))} />
+        <NewReportDialog sites={sites} site={site} templates={templates} onCreateForm={createForm} onClose={() => setCreating(false)} onCreate={(type, s, date) => run(() => createReport(type, s, date, all ?? []))} />
       )}
       {editing && site && (
         <ProjectEditDialog

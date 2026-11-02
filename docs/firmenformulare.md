@@ -1,11 +1,49 @@
-# Eigene Firmenformulare (Regieliste, Bautagesbericht)
+# Eigene Firmenformulare
 
-Jede Firma kann ihre eigenen Formulare als PDF hinterlegen. BauPad erkennt die Felder, der Admin prüft die
-Zuordnung einmal, danach füllt BauPad bei jedem Export das Original-PDF der Firma aus (Logo, Layout und
-Linien bleiben exakt wie im Original).
+Jede Firma kann ihre eigenen Formulare als PDF hinterlegen – unter **Berichte & Formulare → Vorlagen**.
+Zwei Arten:
+
+1. **Firmenformulare mit eigenen Feldern** (`src/lib/forms.ts`): Die Firma legt selbst fest, wie jeder Kasten
+   heißt, welcher Typ hineingehört (einzeilig, mehrzeilig, Datum, Kalenderwoche, Zahl, Betrag, Mitarbeiter,
+   Baustelle/Projekt, eigene Firma, Auswahl, Kontrollkästchen, laufende Nummer), was einzutragen ist (Hinweis)
+   und ob das Feld Pflicht ist. Diese Vorlagen werden im Projekt digital ausgefüllt (Regielisten, Stundenzettel,
+   Materiallisten, Leistungsnachweise …).
+2. **Firmenformulare für BauPad-Berichte** (Abschnitt weiter unten): Regieliste/Bautagesbericht der Firma werden
+   automatisch aus den BauPad-Berichten befüllt.
+
+## Firmenformulare mit eigenen Feldern
+
+- **Anlegen:** Vorlagen → „Neues Formular hinzufügen“ → PDF wählen → Name → „Eigene Felder einrichten“ (Admin/Büro).
+  Auf Wunsch schlägt BauPad Felder aus Beschriftungen und Linien der PDF vor (`fieldsFromDetection`).
+- **Editor** (`FormTemplateEditorPage`): PDF als Bild, darauf die Kästen. „Feld zeichnen“ (ziehen), verschieben,
+  an der Ecke vergrößern; Seitenleiste: Name, Typ, Hinweis, Pflicht, bei mehrzeilig Zeilen und Schriftgröße
+  (Standard: Zeilen aus Kastenhöhe und 9 pt), bei Auswahl die Möglichkeiten, bei Projekt die Angabe (Name,
+  Nummer, Adresse, Auftraggeber, Kostenstelle). „Beispiel“ zeigt, wie gefüllte Felder aussehen. Speichern
+  erhöht die **Vorlagenversion**. Eingerichtet wird die erste Seite.
+- **Vorlage bearbeiten (neues PDF):** neue Datei mit neuer Datei-ID; Felder bleiben; vorhandene Formulare
+  behalten die alte Datei. Umbenennen, Kopieren, Löschen (mit Rückfrage; ausgefüllte Formulare bleiben).
+- **Ausfüllen** (`FormEntryPage`): im Projekt „Neu“ → Vorlage → Datum. Eingabemaske nur mit den eingerichteten
+  Feldern in Leserichtung (Hinweis, Pflichtstern), rechts die Vorlage mit den Werten als Kontrolle.
+  Mehrzeilig: „Zeile x von y“, Enter = neue Zeile, Warnung bei Überlauf; PDF erst, wenn Pflichtfelder gefüllt
+  sind und nichts überläuft. Jede Änderung wird gespeichert.
+- **Datenübernahme** (`src/lib/forms-data.ts`): Projektfelder aus dem Register, Datum → ISO-Kalenderwoche
+  (Jahreswechsel korrekt), Mitarbeiter laut Arbeitereinteilung des Tages (änderbar, Vorschlag-Knopf und
+  Auswahl aus der Arbeiterliste), Firmenname, laufende Nummer. Fehlt eine Angabe, bleibt das Feld leer.
+- **Nummerierung:** je Vorlage und Projekt (höchste + 1, Lücken bleiben, Nummer änderbar); doppelte Nummern
+  nach einem Abgleich werden in der Liste markiert.
+- **Speicherung:** `formEntries` (DB v10, Abgleich über die zentrale Ablage) mit Schnappschuss der Felder,
+  Vorlagenversion und Datei-ID – spätere Änderungen an der Vorlage verändern vorhandene Formulare nicht.
+- **Rechte:** Vorlagen anlegen/bearbeiten/löschen: Admin und Büro; ausfüllen: alle mit Zugang zum Werkzeug.
+- **PDF** (`src/lib/forms-pdf.ts`, pdf-lib): Werte an den eingerichteten Stellen ins Original-PDF; einzeilig
+  mit passender Schriftgröße, mehrzeilig auf die Zeilen des Kastens, Kontrollkästchen als „X“.
+
+# Firmenformulare für BauPad-Berichte (Regieliste, Bautagesbericht)
+
+BauPad erkennt die Felder, der Admin prüft die Zuordnung einmal, danach füllt BauPad bei jedem Export das
+Original-PDF der Firma aus (Logo, Layout und Linien bleiben exakt wie im Original).
 
 ## Bedienung
-1. Konto → Firmeninformationen → **Eigene Formulare** → „Formular hochladen (PDF)“ (Admin/Büro).
+1. Berichte & Formulare → **Vorlagen** → „Neues Formular hinzufügen“ → „Für einen BauPad-Bericht“ (Admin/Büro).
    Geeignet sind PDFs aus Word/Excel mit Text; reine Scans haben keinen Text und werden abgewiesen.
 2. **Prüfen:** Vorschau mit den erkannten Feldern (rot = zugeordnet, orange gestrichelt = ohne Zuordnung,
    blau = weitere Schreibzeilen, grün = Tabellenzellen). Feld antippen → „Wert aus BauPad“ ändern, verschieben,

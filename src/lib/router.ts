@@ -33,6 +33,9 @@ export type Route =
   | { name: 'reports' }
   | { name: 'report'; reportId: string }
   | { name: 'reportSite'; siteKey: string }
+  | { name: 'formTemplates' }
+  | { name: 'formTemplate'; templateId: string }
+  | { name: 'formEntry'; entryId: string }
   | { name: 'camera'; siteKey: string | null }
   | { name: 'photos' }
   | { name: 'photosRecent' }
@@ -112,6 +115,9 @@ export function parseRoute(url: string): Route {
   if (parts[0] === 'arbeitereinteilung' && parts[1] === 'personal' && parts.length === 2) return { name: 'staff' };
   if (parts[0] === 'berichte' && parts.length === 1) return { name: 'reports' };
   if (parts[0] === 'berichte' && parts[1] === 'b' && parts.length === 3) return { name: 'reportSite', siteKey: parts[2] };
+  if (parts[0] === 'berichte' && parts[1] === 'vorlagen' && parts.length === 2) return { name: 'formTemplates' };
+  if (parts[0] === 'berichte' && parts[1] === 'vorlagen' && parts.length === 3) return { name: 'formTemplate', templateId: parts[2] };
+  if (parts[0] === 'berichte' && parts[1] === 'f' && parts.length === 3) return { name: 'formEntry', entryId: parts[2] };
   if (parts[0] === 'berichte' && parts.length === 2) return { name: 'report', reportId: parts[1] };
   if (parts[0] === 'fotos' && parts.length === 1) return { name: 'photos' };
   if (parts[0] === 'fotos' && parts[1] === 'zuletzt' && parts.length === 2) return { name: 'photosRecent' };
@@ -167,6 +173,10 @@ export const paths = {
   report: (id: string) => `${APP}/berichte-und-formulare/${id}`,
   /** Berichte einer Baustelle (Schlüssel „p:<Projekt-ID>“ bzw. „n:<name>“) */
   reportSite: (key: string) => `${APP}/berichte-und-formulare/b/${encodeURIComponent(key)}`,
+  /** Firmenformulare: Vorlagen verwalten, Felder einrichten, ausgefülltes Formular */
+  formTemplates: () => `${APP}/berichte-und-formulare/vorlagen`,
+  formTemplate: (id: string) => `${APP}/berichte-und-formulare/vorlagen/${id}`,
+  formEntry: (id: string) => `${APP}/berichte-und-formulare/f/${id}`,
   /** Fotodokumentation: Übersicht und Baustelle (Schlüssel „p:<Projekt>“ bzw. „n:<Name>“) */
   photos: () => `${APP}/fotodokumentation`,
   photosRecent: () => `${APP}/fotodokumentation/zuletzt`,
@@ -217,6 +227,12 @@ export function canonicalPath(r: Route, lang: Lang = 'de'): string | null {
       return paths.report(r.reportId);
     case 'reportSite':
       return paths.reportSite(r.siteKey);
+    case 'formTemplates':
+      return paths.formTemplates();
+    case 'formTemplate':
+      return paths.formTemplate(r.templateId);
+    case 'formEntry':
+      return paths.formEntry(r.entryId);
     case 'camera':
       return paths.camera();
     case 'photos':

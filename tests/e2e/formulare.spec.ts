@@ -3,15 +3,24 @@ import { join } from 'node:path';
 import { createProject, freshStart, FIXTURES } from './helpers';
 
 /**
- * Eigene Firmenformulare: PDF unter Konto hochladen, Erkennung prüfen, speichern; im Bericht „Firmenformular“
- * exportieren (ausgefülltes Original-PDF in der Vorschau). Vorlagen: MST Bau-Tagesbericht und Regieliste.
+ * Firmenformulare für BauPad-Berichte: PDF unter Berichte & Formulare → Vorlagen hochladen, Erkennung prüfen,
+ * speichern; im Bericht „Firmenformular“ exportieren (ausgefülltes Original-PDF in der Vorschau).
+ * Vorlagen: MST Bau-Tagesbericht und Regieliste.
  */
 const form = (name: string) => join(FIXTURES, 'forms', name);
 
+/** Vorlage hochladen → „Für einen BauPad-Bericht“ → Zuordnung prüfen */
+async function uploadReportForm(page: import('./fixtures').Page, file: string) {
+  await page.goto('./baupad/berichte-und-formulare/vorlagen');
+  await page.getByTestId('form-template-input').setInputFiles(form(file));
+  const nd = page.getByTestId('form-new-dialog');
+  await nd.getByTestId('form-new-kind-report').click();
+  await nd.getByTestId('form-new-create').click();
+}
+
 test('Bautagesbericht der Firma hochladen, Zuordnung prüfen, Bericht ins Firmenformular exportieren', async ({ page }) => {
   await freshStart(page);
-  await page.goto('./konto/firma');
-  await page.getByTestId('form-template-input').setInputFiles(form('mst-tagesbericht.pdf'));
+  await uploadReportForm(page, 'mst-tagesbericht.pdf');
   const dlg = page.getByTestId('form-template-dialog');
   await expect(dlg).toBeVisible();
   await expect(dlg.getByTestId('form-template-type')).toHaveValue('tag');
@@ -25,7 +34,10 @@ test('Bautagesbericht der Firma hochladen, Zuordnung prüfen, Bericht ins Firmen
   await dlg.getByTestId('form-template-save').click();
   await expect(dlg).toHaveCount(0);
   await expect(page.getByTestId('form-template-row')).toContainText('MST Tagesbericht');
-  await expect(page.getByTestId('form-template-row')).toContainText('Bautagesbericht · 14 Felder');
+  await expect(page.getByTestId('form-template-row')).toContainText('Bautagesbericht · 14 Felder zugeordnet');
+  // unter Konto → Firmeninformationen nur noch der Verweis
+  await page.goto('./konto/firma');
+  await expect(page.getByTestId('account-form-templates')).toBeVisible();
 
   // Bericht anlegen und als Firmenformular ausgeben
   await page.goto('./projekte');
@@ -58,11 +70,10 @@ test('Bautagesbericht der Firma hochladen, Zuordnung prüfen, Bericht ins Firmen
 
 test('Regieliste der Firma: Wochentabelle wird erkannt', async ({ page }) => {
   await freshStart(page);
-  await page.goto('./konto/firma');
-  await page.getByTestId('form-template-input').setInputFiles(form('mst-regieliste.pdf'));
+  await uploadReportForm(page, 'mst-regieliste.pdf');
   const dlg = page.getByTestId('form-template-dialog');
   await expect(dlg.getByTestId('form-template-type')).toHaveValue('regie');
   await expect(dlg.getByTestId('form-template-summary')).toContainText('Tabelle 10 Zeilen × 29 Spalten (Wochenblatt)');
   await dlg.getByTestId('form-template-save').click();
-  await expect(page.getByTestId('form-template-row')).toContainText('Regieliste · 11 Felder');
+  await expect(page.getByTestId('form-template-row')).toContainText('Regieliste · 11 Felder zugeordnet');
 });
