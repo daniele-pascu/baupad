@@ -288,8 +288,7 @@ test('Suche, PDF (Woche + Tagesliste), Drucken, Vorwoche übernehmen, Sicherung 
   await chips(page, 'Neubau Musterstraße', 0).first().click();
   await page.getByTestId('chip-dialog').getByTestId('chip-remove').click();
   await expect(chips(page, 'Neubau Musterstraße', 0)).toHaveCount(0);
-  await page.getByTestId('crew-more').click();
-  await page.getByTestId('crew-carry').click();
+  await page.getByTestId('crew-carry').click(); // sichtbar in der Wochenleiste
   await expect(page.getByTestId('confirm-dialog')).toContainText('wird durch die Baustellen und Arbeiter aus KW 44 ersetzt');
   await page.getByRole('button', { name: 'Ersetzen' }).click();
   await expect(chips(page, 'Neubau Musterstraße', 0)).toHaveText(['Max Muster']);
@@ -728,4 +727,34 @@ test('Doppelt einteilen: Arbeiter bleibt auf der ersten Baustelle und steht zus�
   await expect(page.getByTestId('open-chip')).toHaveCount(0);
   await toggle.click();
   await expect(page.getByTestId('crew-open').locator('[data-day="0"] [data-testid="open-chip"]')).toHaveText(['Peter']);
+});
+
+test('Einteilen: Arbeiter suchen; Vorwoche übernehmen als sichtbarer Knopf', async ({ page }) => {
+  await freshStart(page);
+  await page.goto('./baupad/arbeitereinteilung');
+  await page.getByTestId('crew-workers').click();
+  const wd = page.getByTestId('staff-page');
+  for (const n of ['Andrea Pascu', 'Patrik Vojtek', 'Günter Wagner']) {
+    await wd.getByTestId('staff-new').click();
+    await wd.getByTestId('worker-firstName').fill(n);
+    await wd.getByTestId('worker-save').click();
+    await expect(wd.getByTestId('worker-row').filter({ hasText: n })).toHaveCount(1);
+  }
+  await page.keyboard.press('Escape');
+  await page.getByTestId('add-site').click();
+  await page.getByTestId('project-picker').getByTestId('picker-new').click();
+  await page.getByTestId('project-name').fill('91300');
+  await page.getByTestId('project-save').click();
+  await page.locator('[data-site="91300"] [data-day="0"] [data-testid="day-add"]').click();
+  const ad = page.getByTestId('assign-dialog');
+  await expect(ad.getByTestId('assign-worker')).toHaveCount(3);
+  await ad.getByTestId('assign-worker').filter({ hasText: 'Andrea' }).locator('input').check();
+  await ad.getByTestId('assign-search').fill('wag');
+  await expect(ad.getByTestId('assign-worker')).toHaveText([/Günter Wagner/]);
+  await ad.getByTestId('assign-worker').locator('input').check();
+  await ad.getByTestId('assign-search').fill('');
+  await expect(ad.getByTestId('assign-worker')).toHaveCount(3);
+  await expect(ad.getByTestId('assign-save')).toHaveText('2 einteilen'); // Auswahl bleibt beim Suchen erhalten
+  await ad.getByTestId('assign-save').click();
+  await expect(page.getByTestId('crew-carry')).toHaveText(/Vorwoche übernehmen/);
 });

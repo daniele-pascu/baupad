@@ -438,7 +438,6 @@ export function WorkersPage() {
             actions={[
               { label: 'Drucken', icon: 'pdf', onSelect: printWeek, disabled: !plan.sites.length, testId: 'crew-print' },
               { label: 'Urlaub / Krank eintragen', icon: 'calendar', onSelect: () => setDialog({ kind: 'absence' }), testId: 'crew-absence' },
-              { label: 'Einteilung aus Vorwoche übernehmen', icon: 'copy', onSelect: () => void carryAgain(), testId: 'crew-carry' },
               { label: 'Sicherung speichern (Arbeiter und Wochen)', icon: 'download', onSelect: () => void backup(), testId: 'crew-backup' },
               { label: 'Sicherung öffnen …', icon: 'upload', onSelect: () => restoreRef.current?.click(), testId: 'crew-restore' },
             ]}
@@ -492,6 +491,9 @@ export function WorkersPage() {
               Diese Woche
             </button>
           )}
+          <button type="button" className="btn btn-sm crew-carry-btn" onClick={() => void carryAgain()} title="Baustellen und Arbeiter der Vorwoche in diese Woche übernehmen" data-testid="crew-carry">
+            <Icon name="copy" size={16} /> Vorwoche übernehmen
+          </button>
         </div>
 
         {draftFrom !== null && plan.sites.length > 0 && (
@@ -1033,6 +1035,9 @@ function AssignDialog({
 }) {
   const [sel, setSel] = useState<Set<string>>(() => new Set());
   const [ds, setDs] = useState<number[]>(initialDays);
+  const [q, setQ] = useState('');
+  const needle = q.trim().toLowerCase();
+  const shown = needle ? workers.filter((w) => [workerName(w), w.role ?? '', w.staffNo ?? '', gradeLabel(w.grade) || WORKER_GRADES[gradeRank(w)].label].join(' ').toLowerCase().includes(needle)) : workers;
   /** doppelt einteilen: zusätzlich hier, auf der bisherigen Baustelle bleiben */
   const [keep, setKeep] = useState(false);
   const status = (w: Worker) => {
@@ -1079,8 +1084,16 @@ function AssignDialog({
           bleibt dort und kommt zusätzlich hierher
         </label>
       )}
+      {workers.length > 0 && (
+        <label className="crew-search crew-pick-search">
+          <Icon name="select" size={18} />
+          <span className="sr-only">Arbeiter suchen</span>
+          <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Arbeiter suchen: Name, Funktion, Nr." data-testid="assign-search" />
+        </label>
+      )}
+      {needle && shown.length === 0 && <p className="muted small">Kein Arbeiter gefunden.</p>}
       <ul className="crew-pick">
-        {workers.map((w) => {
+        {shown.map((w) => {
           const st = status(w);
           return (
             <li key={w.id}>

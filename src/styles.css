@@ -5519,6 +5519,17 @@ a.tool-tile:focus-visible {
   min-width: 48px;
   padding: 6px 12px;
 }
+.crew-pick-search {
+  margin: 10px 0 4px;
+}
+.crew-carry-btn {
+  margin-left: auto;
+}
+@media (max-width: 720px) {
+  .crew-carry-btn {
+    margin-left: 0;
+  }
+}
 .crew-pick {
   list-style: none;
   margin: 0;
