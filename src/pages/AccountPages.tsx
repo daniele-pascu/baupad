@@ -290,9 +290,6 @@ export function AccountPage() {
       <main className="site-main auth">
         <header className="page-head page-head-row account-section-head">
           <div className="page-head-title">
-            <a href={paths.tools()} className="icon-link" aria-label="Zurück" title="Zurück" data-testid="to-tools">
-              <Icon name="back" />
-            </a>
             <h1 className="site-title">Konto und Einstellungen</h1>
           </div>
           <a href={paths.tools()} className="btn btn-primary" data-testid="account-to-tools">
