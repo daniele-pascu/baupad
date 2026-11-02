@@ -39,7 +39,9 @@ describe('Website: Sprachen und Adressen', () => {
   it('Sprachumschalter führt zur gleichen Seite', () => {
     expect(switchLangPath('/kontakt', 'en')).toBe('/en/contact');
     expect(switchLangPath('/en/contact/thank-you', 'de')).toBe('/kontakt/danke');
-    expect(switchLangPath('/baupad/aufmass', 'en')).toBe('/en/baupad/aufmass');
+    expect(switchLangPath('/baupad/funktionen/aufmass', 'en')).toBe('/en/baupad/features/aufmass');
+    expect(switchLangPath('/en/baupad/features/aufmass', 'de')).toBe('/baupad/funktionen/aufmass');
+    expect(switchLangPath('/baupad/aufmass', 'en')).toBe('/en/baupad/features/aufmass'); // frühere Adresse
     expect(switchLangPath('/en', 'de')).toBe('/');
     expect(switchLangPath('/tools', 'en')).toBe('/en');
   });

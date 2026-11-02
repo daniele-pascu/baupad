@@ -40,7 +40,7 @@ test('Website: Startseite, Produkte, BauPad, Unternehmen, Kontaktformular, Sprac
   await expect(page.getByTestId('problem-pairs').locator('article')).toHaveCount(3); // Problem → Lösung
   await page.getByTestId('product-card').nth(3).click();
   await expect(page.getByTestId('product-title')).toHaveText('Fotodokumentation');
-  expect(page.url()).toContain('/baupad/fotos');
+  expect(page.url()).toContain('/baupad/funktionen/fotos');
   await page.getByTestId('product-open').click();
   await expect(h1).toHaveText('Anmelden'); // Werkzeug nur mit Anmeldung
   await page.goto('./');
@@ -456,28 +456,28 @@ test('Planliste am PC: Spalten nebeneinander', async ({ page }) => {
 test('Zurück-Links führen wirklich zurück: die Zurück-Taste springt danach nicht hin und her', async ({ page }) => {
   await freshStart(page); // /projekte
   await page.getByTestId('to-tools').click();
-  await expect(page).toHaveURL(/\/tools$/);
+  await expect(page).toHaveURL(/\/baupad\/tools$/);
   await page.getByTestId('account-link').click();
-  await expect(page).toHaveURL(/\/konto$/);
+  await expect(page).toHaveURL(/\/baupad\/konto$/);
   await page.locator('[data-testid="account-section"][data-tile="profil"]').click();
-  await expect(page).toHaveURL(/\/konto\/profil$/);
+  await expect(page).toHaveURL(/\/baupad\/konto\/profil$/);
   // „Zurück“ in der Seite = Zurück-Taste
   await page.getByTestId('account-back').click();
-  await expect(page).toHaveURL(/\/konto$/);
+  await expect(page).toHaveURL(/\/baupad\/konto$/);
   await page.getByRole('link', { name: 'Zu den Tools' }).click();
-  await expect(page).toHaveURL(/\/tools$/);
+  await expect(page).toHaveURL(/\/baupad\/tools$/);
   // Zurück-Taste: nicht wieder Konto, sondern die Seite davor
   await page.goBack();
-  await expect(page).toHaveURL(/\/projekte$/);
+  await expect(page).toHaveURL(/\/baupad\/aufmass-und-abrechnung$/);
   await page.goForward();
-  await expect(page).toHaveURL(/\/tools$/);
+  await expect(page).toHaveURL(/\/baupad\/tools$/);
   // Neuladen behält den Verlauf
   await page.getByTestId('account-link').click();
   await page.reload();
   await page.getByRole('link', { name: 'Zu den Tools' }).click();
-  await expect(page).toHaveURL(/\/tools$/);
+  await expect(page).toHaveURL(/\/baupad\/tools$/);
   await page.goBack();
-  await expect(page).toHaveURL(/\/projekte$/);
+  await expect(page).toHaveURL(/\/baupad\/aufmass-und-abrechnung$/);
 });
 
 test('Aufmaß-Tabelle am PC nach rechts einklappen und wieder ausklappen', async ({ page }) => {

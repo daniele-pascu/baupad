@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { de } from '../src/site/i18n/de.ts';
 import { en } from '../src/site/i18n/en.ts';
-import { PRODUCT_SLUG_OF, SITE_SLUGS, sitePath } from '../src/lib/router.ts';
+import { paths, PRODUCT_SLUG_OF, SITE_SLUGS, sitePath } from '../src/lib/router.ts';
 import { contactData } from '../src/site/contact-data.ts';
 
 const ORIGIN = 'https://pad-software.at';
@@ -41,7 +41,7 @@ function routes() {
     }
     for (const [id, slug] of Object.entries(PRODUCT_SLUG_OF)) {
       const tool = t.tools[id];
-      const p = (l) => `${l === 'en' ? '/en' : ''}/baupad/${slug}`;
+      const p = (l) => paths.product(slug, l);
       out.push({ path: p(lang), lang, title: `${tool.title}${t.tool.titleSuffix}`, description: tool.tagline, jsonLd: [], alternates: Object.fromEntries(LANGS.map((l) => [l, p(l)])) });
     }
   }
@@ -100,7 +100,7 @@ async function main() {
   await writeFile(join(dist, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${urls}\n</urlset>\n`);
   await writeFile(
     join(dist, 'robots.txt'),
-    ['User-agent: *', 'Allow: /', '# Werkzeuge der App (nur mit Anmeldung)', ...['/tools', '/projekte', '/arbeitereinteilung', '/berichte', '/fotos', '/maengel', '/konto', '/anmelden', '/registrieren', '/passwort-neu', '/baupad/anmelden', '/baupad/registrieren', '/baupad/passwort-neu', '/p/'].map((p) => `Disallow: ${p}`), '', `Sitemap: ${ORIGIN}/sitemap.xml`, ''].join('\n'),
+    ['User-agent: *', 'Allow: /', '# Werkzeuge der App (nur mit Anmeldung)', ...['/baupad/tools', '/baupad/aufmass-und-abrechnung', '/baupad/arbeitereinteilung', '/baupad/berichte-und-formulare', '/baupad/fotodokumentation', '/baupad/maengelplan', '/baupad/konto', '/baupad/anmelden', '/baupad/registrieren', '/baupad/passwort-neu', '/tools', '/projekte', '/arbeitereinteilung', '/berichte', '/fotos', '/maengel', '/konto', '/anmelden', '/registrieren', '/passwort-neu', '/p/'].map((p) => `Disallow: ${p}`), '', `Sitemap: ${ORIGIN}/sitemap.xml`, ''].join('\n'),
   );
   console.log(`prerender: ${rs.length} Seiten, sitemap.xml, robots.txt, 404.html`);
 }

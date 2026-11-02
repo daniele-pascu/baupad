@@ -36,7 +36,7 @@ export default defineConfig({
         lang: 'de',
         id: 'baupad',
         categories: ['business', 'productivity', 'utilities'],
-        start_url: '/tools',
+        start_url: '/baupad/tools',
         shortcuts: [
           { name: 'Foto aufnehmen', short_name: 'Kamera', url: '/fotos/kamera', icons: [{ src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' }] },
           { name: 'Fotodokumentation', short_name: 'Fotos', url: '/fotos', icons: [{ src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' }] },

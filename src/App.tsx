@@ -2,7 +2,7 @@ import { preloadExcelLogo } from './lib/company';
 import { useEffect, useState, type ReactNode } from 'react';
 import { DialogHost, toast } from './components/ui';
 import { Icon } from './components/Icon';
-import { currentPath, navigate, parseRoute, paths, usePath, LEGACY_AUTH_PATHS } from './lib/router';
+import { canonicalPath, currentPath, langOf, navigate, parseRoute, paths, usePath } from './lib/router';
 import { flush, openProject, useAppState } from './lib/store';
 import { HomePage } from './pages/HomePage';
 import { ProjectPage } from './pages/ProjectPage';
@@ -183,10 +183,13 @@ function usePhotoCloud() {
 export function App() {
   const path = usePath();
   const route = parseRoute(path);
-  // alte Anmeldeadressen weiterleiten (Adresse in der Leiste bleibt sauber, Abfrage wie ?reset=1 bleibt erhalten)
+  // alte Adressen still auf die richtige umschreiben (/tools → /baupad/tools …); Abfrage wie ?reset=1 bleibt erhalten
   useEffect(() => {
-    const target = LEGACY_AUTH_PATHS[location.pathname.replace(/\/+$/, '')];
-    if (target) navigate(`${target}${location.search}`, true);
+    if (location.hash.startsWith('#/')) return; // wird zuerst von der #-Umschreibung behandelt
+    // Stand jetzt lesen (eine Seite kann in ihrem eigenen Effekt schon weiternavigiert haben)
+    const now = location.pathname;
+    const want = canonicalPath(parseRoute(now + location.search), langOf(now));
+    if (want && decodeURIComponent(now.replace(/\/+$/, '') || '/') !== decodeURIComponent(want)) navigate(`${want}${location.search}`, true);
   }, [path]);
   // kein eigenes Startbild: Android/iOS bzw. die Store-App zeigen beim Öffnen schon das Logo – nur einmal
   useServiceWorker();

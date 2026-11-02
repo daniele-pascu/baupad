@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Icon } from '../../components/Icon';
-import { langOf, LANGS, navigate, parseRoute, paths, sitePath, usePath, type Lang, type SiteRouteName } from '../../lib/router';
+import { langOf, LANGS, navigate, parseRoute, paths, sitePath, usePath, type Lang, type SiteRouteName, PRODUCT_SLUG_OF } from '../../lib/router';
 import { useSession } from '../../lib/use-session';
 import { contactData } from '../contact-data';
 import { useLang } from '../i18n';
@@ -24,7 +24,7 @@ export function Wordmark({ lang }: { lang: Lang }) {
 /** Adresse derselben Seite in der anderen Sprache (Werkzeug-Seiten behalten ihren Pfad) */
 export function switchLangPath(path: string, to: Lang): string {
   const route = parseRoute(path);
-  if (route.name === 'product') return paths.product(path.replace(/^\/en/, '').split('/')[2] ?? '', to);
+  if (route.name === 'product') return paths.product(PRODUCT_SLUG_OF[route.product], to);
   const site = route.name as SiteRouteName;
   const known: SiteRouteName[] = ['landing', 'products', 'baupad', 'company', 'contact', 'thanks', 'future', 'imprint', 'privacy', 'deleteAccountInfo'];
   return known.includes(site) ? sitePath(site, to) : paths.landing(to);

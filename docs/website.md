@@ -32,8 +32,12 @@ Saubere Adressen ohne `#`. Deutsch ohne Präfix, Englisch unter `/en/…`:
 | Kontakt, Danke | `/kontakt`, `/kontakt/danke` | `/en/contact`, `/en/contact/thank-you` |
 | Impressum, Datenschutz, Konto löschen | `/impressum`, `/datenschutz`, `/konto-loeschen` | `/en/imprint`, `/en/privacy`, `/en/delete-account` |
 
-Die App bleibt deutsch (`/tools`, `/projekte`, `/fotos` …). Alte `#/…`-Adressen (Lesezeichen, installierte App,
-E-Mail-Links) werden beim Laden still umgeschrieben. Auf GitHub Pages liefert `404.html` die App für jede
+Die App bleibt deutsch und liegt je Produkt unter `/baupad/<Werkzeug>`: `/baupad/tools`, `/baupad/aufmass-und-abrechnung`
+(Projektseiten `/baupad/aufmass-und-abrechnung/p/…`), `/baupad/arbeitereinteilung`, `/baupad/berichte-und-formulare`,
+`/baupad/fotodokumentation`, `/baupad/maengelplan`, `/baupad/konto`, `/baupad/anmelden`. Die Website-Infoseiten der
+Werkzeuge liegen unter `/baupad/funktionen/<slug>` bzw. `/en/baupad/features/<slug>`. Alte Adressen (`/tools`, `/fotos`,
+`/p/…`, `/baupad/<slug>` und `#/…` – Lesezeichen, installierte App, E-Mail-Links) werden beim Laden still umgeschrieben
+(`canonicalPath` im Router). Auf GitHub Pages liefert `404.html` die App für jede
 unbekannte Adresse; die Website-Seiten sind zusätzlich als eigene `index.html` vorgerendert (Titel, Beschreibung,
 canonical, hreflang, Open Graph, JSON-LD) – siehe `scripts/prerender-site.mjs`. Dazu entstehen `sitemap.xml` und
 `robots.txt`.

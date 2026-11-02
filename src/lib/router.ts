@@ -1,9 +1,11 @@
 import { useSyncExternalStore } from 'react';
 
 /**
- * Router mit sauberen Adressen (History API): „/baupad“, „/kontakt“, „/en/contact“, „/tools“ …
+ * Router mit sauberen Adressen (History API): „/baupad“, „/kontakt“, „/en/contact“, „/baupad/tools“ …
  * – Website-Seiten gibt es auf Deutsch (ohne Präfix) und Englisch („/en/…“), die App bleibt deutsch.
- * – Alte „#/…“-Adressen (Lesezeichen, installierte App, E-Mail-Links) werden beim Laden still umgeschrieben.
+ * – Die App liegt je Produkt unter „/baupad/<Werkzeug>“: /baupad/tools, /baupad/aufmass-und-abrechnung,
+ *   /baupad/arbeitereinteilung, /baupad/berichte-und-formulare, /baupad/fotodokumentation, /baupad/maengelplan, /baupad/konto.
+ * – Alte „#/…“-Adressen und die früheren Pfade („/tools“, „/fotos“, „/p/…“) werden beim Laden still umgeschrieben.
  * – Auf GitHub Pages liefert 404.html die App für jede Adresse; Website-Seiten werden zusätzlich vorgerendert.
  */
 
@@ -53,10 +55,26 @@ export const SITE_SLUGS: Record<Lang, Record<SiteRouteName, string>> = {
   en: { landing: '', products: 'products', baupad: 'baupad', company: 'company', contact: 'contact', thanks: 'contact/thank-you', future: 'future', imprint: 'imprint', privacy: 'privacy', deleteAccountInfo: 'delete-account' },
 };
 
-/** Werkzeug-Seiten unter /baupad/… (in beiden Sprachen gleich) */
+/** Website-Infoseiten der Werkzeuge: /baupad/funktionen/<slug> bzw. /en/baupad/features/<slug> */
+export const PRODUCT_INFO_SEGMENT: Record<Lang, string> = { de: 'funktionen', en: 'features' };
 export const PRODUCT_SLUGS = { aufmass: 'projects', arbeitereinteilung: 'workers', berichte: 'reports', fotos: 'photos', maengelplan: 'defects' } as const;
 export type ProductId = (typeof PRODUCT_SLUGS)[keyof typeof PRODUCT_SLUGS];
 export const PRODUCT_SLUG_OF: Record<ProductId, string> = { projects: 'aufmass', workers: 'arbeitereinteilung', reports: 'berichte', photos: 'fotos', defects: 'maengelplan' };
+
+/** App unter /baupad/<Werkzeug>: neuer Abschnitt → früherer erster Pfadteil (so bleibt die Erkennung unten unverändert) */
+const APP_SEGMENTS: Record<string, string> = {
+  tools: 'tools',
+  'aufmass-und-abrechnung': 'projekte',
+  arbeitereinteilung: 'arbeitereinteilung',
+  'berichte-und-formulare': 'berichte',
+  fotodokumentation: 'fotos',
+  maengelplan: 'maengel',
+  konto: 'konto',
+  anmelden: 'anmelden',
+  registrieren: 'registrieren',
+  'passwort-neu': 'passwort-neu',
+};
+const APP = '/baupad';
 
 /** Sprache aus der Adresse: „/en/…“ → en, sonst de */
 export function langOf(url: string): Lang {
@@ -76,11 +94,17 @@ export function parseRoute(url: string): Route {
   for (const name of Object.keys(slugs) as SiteRouteName[]) if (slugs[name] === slug) return { name };
   // frühere Adresse „Über uns“
   if (slug === 'ueber' || slug === 'about') return { name: 'company' };
-  if (parts[0] === 'baupad' && parts.length === 2) {
-    const product = PRODUCT_SLUGS[parts[1] as keyof typeof PRODUCT_SLUGS];
+  // Website-Infoseite eines Werkzeugs (/baupad/funktionen/<slug>; früher /baupad/<slug>, auf Deutsch nur, wo das kein App-Pfad ist)
+  if (parts[0] === 'baupad' && ((parts.length === 3 && parts[1] === PRODUCT_INFO_SEGMENT[lang]) || (parts.length === 2 && (lang === 'en' || !APP_SEGMENTS[parts[1]])))) {
+    const product = PRODUCT_SLUGS[parts[parts.length - 1] as keyof typeof PRODUCT_SLUGS];
     if (product) return { name: 'product', product };
   }
   if (lang === 'en') return { name: 'notFound' };
+  // App unter /baupad/<Werkzeug> → auf die früheren Pfadteile abbilden
+  if (parts[0] === 'baupad' && parts.length >= 2 && APP_SEGMENTS[parts[1]]) {
+    parts = [APP_SEGMENTS[parts[1]], ...parts.slice(2)];
+    if (parts[0] === 'projekte' && parts[1] === 'p') parts = parts.slice(1); // Projektseiten: /baupad/aufmass-und-abrechnung/p/<id>/…
+  }
   // App (deutsch)
   if (parts[0] === 'projekte' && parts.length === 1) return { name: 'projects' };
   if (parts[0] === 'tools' && parts.length === 1) return { name: 'tools' };
@@ -97,11 +121,9 @@ export function parseRoute(url: string): Route {
   if (parts[0] === 'maengel' && parts.length === 1) return { name: 'defects' };
   if (parts[0] === 'maengel' && parts[1] === 'b' && parts.length === 3) return { name: 'defectSite', siteKey: parts[2] };
   if (parts[0] === 'maengel' && parts[1] === 'plan' && parts.length === 3) return { name: 'defectPlan', planId: parts[2], markId: params.get('m') };
-  // Anmeldung je Produkt: /baupad/anmelden (die alten Adressen /anmelden, /registrieren, /passwort-neu leiten dorthin weiter)
-  const auth = parts[0] === 'baupad' && parts.length === 2 ? parts[1] : parts.length === 1 ? parts[0] : '';
-  if (auth === 'anmelden') return { name: 'login' };
-  if (auth === 'registrieren') return { name: 'login', register: true };
-  if (auth === 'passwort-neu') return { name: 'newPassword' };
+  if (parts[0] === 'anmelden' && parts.length === 1) return { name: 'login' };
+  if (parts[0] === 'registrieren' && parts.length === 1) return { name: 'login', register: true };
+  if (parts[0] === 'passwort-neu' && parts.length === 1) return { name: 'newPassword' };
   if (parts[0] === 'konto' && parts.length === 1) return { name: 'account' };
   if (parts[0] === 'konto' && parts.length === 2) return { name: 'accountSection', section: parts[1] };
   if (parts[0] === 'p' && parts.length === 2) return { name: 'project', projectId: parts[1] };
@@ -117,9 +139,6 @@ export function sitePath(name: SiteRouteName, lang: Lang = 'de'): string {
   return `/${slug}`;
 }
 
-/** Frühere Adressen der Anmeldung → neue Adresse unter /baupad/… (Lesezeichen, alte E-Mail-Links) */
-export const LEGACY_AUTH_PATHS: Record<string, string> = { '/anmelden': '/baupad/anmelden', '/registrieren': '/baupad/registrieren', '/passwort-neu': '/baupad/passwort-neu' };
-
 export const paths = {
   landing: (lang: Lang = 'de') => sitePath('landing', lang),
   products: (lang: Lang = 'de') => sitePath('products', lang),
@@ -134,47 +153,102 @@ export const paths = {
   /** frühere Seite „Über uns“ → Unternehmen */
   about: (lang: Lang = 'de') => sitePath('company', lang),
   /** Werkzeug-Seite unter BauPad (Website) */
-  product: (slug: string, lang: Lang = 'de') => `${lang === 'en' ? '/en' : ''}/baupad/${slug}`,
+  product: (slug: string, lang: Lang = 'de') => `${lang === 'en' ? '/en' : ''}/baupad/${PRODUCT_INFO_SEGMENT[lang]}/${slug}`,
   /** Aufmaß & Abrechnung */
-  projects: () => '/projekte',
+  projects: () => `${APP}/aufmass-und-abrechnung`,
   /** Start nach der Anmeldung: Übersicht aller Werkzeuge (Kacheln) */
-  tools: () => '/tools',
+  tools: () => `${APP}/tools`,
   /** Arbeitereinteilung (Wochenplanung nach Baustellen) */
-  workers: () => '/arbeitereinteilung',
+  workers: () => `${APP}/arbeitereinteilung`,
   /** Personalliste (Arbeitereinteilung) */
-  staff: () => '/arbeitereinteilung/personal',
+  staff: () => `${APP}/arbeitereinteilung/personal`,
   /** Berichte & Formulare (Regielisten, Bautages- und Bauwochenberichte) */
-  reports: () => '/berichte',
-  report: (id: string) => `/berichte/${id}`,
+  reports: () => `${APP}/berichte-und-formulare`,
+  report: (id: string) => `${APP}/berichte-und-formulare/${id}`,
   /** Berichte einer Baustelle (Schlüssel „p:<Projekt-ID>“ bzw. „n:<name>“) */
-  reportSite: (key: string) => `/berichte/b/${encodeURIComponent(key)}`,
+  reportSite: (key: string) => `${APP}/berichte-und-formulare/b/${encodeURIComponent(key)}`,
   /** Fotodokumentation: Übersicht und Baustelle (Schlüssel „p:<Projekt>“ bzw. „n:<Name>“) */
-  photos: () => '/fotos',
-  photosRecent: () => '/fotos/zuletzt',
-  defects: () => '/maengel',
-  defectSite: (key: string) => `/maengel/b/${encodeURIComponent(key)}`,
-  defectPlan: (planId: string, markId?: string | null) => `/maengel/plan/${planId}${markId ? `?m=${encodeURIComponent(markId)}` : ''}`,
+  photos: () => `${APP}/fotodokumentation`,
+  photosRecent: () => `${APP}/fotodokumentation/zuletzt`,
+  defects: () => `${APP}/maengelplan`,
+  defectSite: (key: string) => `${APP}/maengelplan/b/${encodeURIComponent(key)}`,
+  defectPlan: (planId: string, markId?: string | null) => `${APP}/maengelplan/plan/${planId}${markId ? `?m=${encodeURIComponent(markId)}` : ''}`,
   /** Kamera-Modus (Live-Bild, Auslöser) – wahlweise mit vorgewählter Baustelle */
-  camera: (siteKey?: string | null) => `/fotos/kamera${siteKey ? `?s=${encodeURIComponent(siteKey)}` : ''}`,
+  camera: (siteKey?: string | null) => `${APP}/fotodokumentation/kamera${siteKey ? `?s=${encodeURIComponent(siteKey)}` : ''}`,
   photoSite: (siteKey: string, opts: { week?: string | null; photoId?: string | null } = {}) => {
     const [kind, ...rest] = siteKey.split(':');
     const q = new URLSearchParams();
     if (opts.week) q.set('w', opts.week);
     if (opts.photoId) q.set('f', opts.photoId);
     const qs = q.toString();
-    return `/fotos/${kind}/${encodeURIComponent(rest.join(':'))}${qs ? `?${qs}` : ''}`;
+    return `${APP}/fotodokumentation/${kind}/${encodeURIComponent(rest.join(':'))}${qs ? `?${qs}` : ''}`;
   },
-  login: () => '/baupad/anmelden',
-  register: () => '/baupad/registrieren',
+  login: () => `${APP}/anmelden`,
+  register: () => `${APP}/registrieren`,
   /** Konto und Einstellungen */
-  account: () => '/konto',
+  account: () => `${APP}/konto`,
   /** Bereich der Einstellungen als eigene Seite */
-  accountSection: (id: string) => `/konto/${id}`,
-  newPassword: () => '/baupad/passwort-neu',
-  project: (pid: string) => `/p/${pid}`,
-  costCenter: (pid: string, cid: string) => `/p/${pid}/k/${cid}`,
-  plan: (pid: string, planId: string, damageId?: string) => `/p/${pid}/plan/${planId}${damageId ? `?d=${damageId}` : ''}`,
+  accountSection: (id: string) => `${APP}/konto/${id}`,
+  newPassword: () => `${APP}/passwort-neu`,
+  project: (pid: string) => `${APP}/aufmass-und-abrechnung/p/${pid}`,
+  costCenter: (pid: string, cid: string) => `${APP}/aufmass-und-abrechnung/p/${pid}/k/${cid}`,
+  plan: (pid: string, planId: string, damageId?: string) => `${APP}/aufmass-und-abrechnung/p/${pid}/plan/${planId}${damageId ? `?d=${damageId}` : ''}`,
 };
+
+/**
+ * Richtige Adresse (ohne Abfrage) zu einer Route – für die stille Weiterleitung alter Pfade
+ * („/tools“ → „/baupad/tools“, „/baupad/fotos“ → „/baupad/funktionen/fotos“ …). null: keine Vorgabe.
+ */
+export function canonicalPath(r: Route, lang: Lang = 'de'): string | null {
+  switch (r.name) {
+    case 'product':
+      return paths.product(PRODUCT_SLUG_OF[r.product], lang);
+    case 'projects':
+      return paths.projects();
+    case 'tools':
+      return paths.tools();
+    case 'workers':
+      return paths.workers();
+    case 'staff':
+      return paths.staff();
+    case 'reports':
+      return paths.reports();
+    case 'report':
+      return paths.report(r.reportId);
+    case 'reportSite':
+      return paths.reportSite(r.siteKey);
+    case 'camera':
+      return paths.camera();
+    case 'photos':
+      return paths.photos();
+    case 'photosRecent':
+      return paths.photosRecent();
+    case 'photoSite':
+      return paths.photoSite(r.siteKey);
+    case 'defects':
+      return paths.defects();
+    case 'defectSite':
+      return paths.defectSite(r.siteKey);
+    case 'defectPlan':
+      return paths.defectPlan(r.planId);
+    case 'login':
+      return r.register ? paths.register() : paths.login();
+    case 'account':
+      return paths.account();
+    case 'accountSection':
+      return paths.accountSection(r.section);
+    case 'newPassword':
+      return paths.newPassword();
+    case 'project':
+      return paths.project(r.projectId);
+    case 'costCenter':
+      return paths.costCenter(r.projectId, r.costCenterId);
+    case 'plan':
+      return paths.plan(r.projectId, r.planId);
+    default:
+      return null;
+  }
+}
 
 const EVENT = 'baupad:navigate';
 const notify = () => window.dispatchEvent(new Event(EVENT));
