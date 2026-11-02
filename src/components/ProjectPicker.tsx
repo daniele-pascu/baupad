@@ -52,7 +52,7 @@ export function ProjectPicker({
       : all;
     return hit.sort((a, b) => a.name.localeCompare(b.name, 'de'));
   }, [projects, exclude, mode, tool, q, ccs]);
-  const SHORT: Record<string, string> = { projects: 'Aufmaß', workers: 'Einteilung', reports: 'Berichte', photos: 'Fotos', defects: 'Mängelplan' };
+  const SHORT: Record<string, string> = { projects: 'Aufmaß & Abrechnung', workers: 'Arbeitereinteilung', reports: 'Berichte & Formulare', photos: 'Fotodokumentation', defects: 'Mängelplan' };
   const toolLabel = (id: string) => SHORT[id] ?? TOOLS.find((t) => t.id === id)?.label ?? id;
   const pick = async (p: Project) => {
     setBusy(true);

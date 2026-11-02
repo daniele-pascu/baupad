@@ -72,7 +72,24 @@ export function WorkersPage() {
   const [workers, setWorkers] = useState<Worker[] | null>(null);
   const [times, setTimes] = useState<WorkTimes | null | undefined>(undefined);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [weekId, setWeekId] = useState(() => weekOf(new Date()));
+  // zuletzt angezeigte Woche bleibt beim Wechsel zur Personalliste und zurück erhalten (je Browser-Tab)
+  const [weekId, setWeekIdState] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('crewWeek');
+      if (saved && /^\d{4}-\d{2}-\d{2}$/.test(saved)) return saved;
+    } catch {
+      /* egal */
+    }
+    return weekOf(new Date());
+  });
+  const setWeekId = (id: string) => {
+    setWeekIdState(id);
+    try {
+      sessionStorage.setItem('crewWeek', id);
+    } catch {
+      /* egal */
+    }
+  };
   const [plan, setPlan] = useState<WeekPlan | null>(null);
   /** nicht gespeicherte Woche: aus dieser Woche weitergeführt (bzw. leer) */
   const [draftFrom, setDraftFrom] = useState<string | null>(null);

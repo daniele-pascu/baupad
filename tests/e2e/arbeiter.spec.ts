@@ -360,7 +360,7 @@ test('Baustelle ↔ Projekt: aus Aufmaß & Abrechnung wählen, als Projekt anleg
   await page.getByTestId('new-project').click();
   const pk = page.getByTestId('project-picker');
   await expect(pk.getByTestId('picker-item').locator('.proj-title')).toHaveText(['Halle Nord', 'Sanierung Hauptplatz', 'Umbau Gewerbepark']);
-  await expect(pk.getByTestId('picker-item').first()).toContainText('Einteilung'); // Marke: wo das Projekt schon benutzt wird
+  await expect(pk.getByTestId('picker-item').first()).toContainText('Arbeitereinteilung'); // Marke: wo das Projekt schon benutzt wird
   await pk.getByTestId('picker-item').filter({ hasText: 'Halle Nord' }).click();
   await expect(page.getByTestId('project-title')).toHaveText('Halle Nord');
   await page.goto('./#/projekte');
