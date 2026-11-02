@@ -27,15 +27,20 @@ test('Projektregister: Angaben, in Tools übernehmen, dort öffnen, neues Projek
   await page.goto('./baupad/fotodokumentation');
   await expect(page.locator('a[data-testid="photo-site"]')).toHaveAttribute('data-site', 'Parkring');
 
-  // neues Projekt im Register → nur Berichte & Formulare → direkt dorthin
+  // neues Projekt im Register: nur Projektinfos, in keinem Tool; danach in Berichte & Formulare übernehmen
   await page.goto('./baupad/projektregister');
   await page.getByTestId('register-new').click();
   await page.getByTestId('project-name').fill('Halle 3');
   await page.getByTestId('project-save').click();
+  const halle = page.locator('[data-testid="register-row"][data-name="Halle 3"]');
+  await expect(halle).toContainText('Noch in keinem Tool');
+  await expect(page.getByTestId('register-adopt-dialog')).toHaveCount(0);
+  await halle.getByTestId('register-adopt').click();
   const ad = page.getByTestId('register-adopt-dialog');
   await expect(ad.getByTestId('register-adopt-save')).toBeDisabled();
   await ad.locator('[data-testid="register-adopt-tool"][data-tool="reports"] input').check();
   await ad.getByTestId('register-adopt-save').click();
+  await halle.locator('[data-testid="register-tool"][data-tool="reports"]').click();
   await expect(page.getByTestId('report-site-page')).toHaveAttribute('data-site', 'Halle 3');
   await page.goto('./baupad/projektregister');
   await expect(page.getByTestId('register-row')).toHaveCount(2);

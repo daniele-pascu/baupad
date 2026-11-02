@@ -124,21 +124,43 @@ describe('Zeitaufzeichnung: Jahresdatei in der Firmenvorlage', () => {
     expect(start).toContain('<c r="C7" s="');
     expect(start).toMatch(/<c r="C7"[^>]*><v>2027<\/v>/);
     expect(start).toContain('Pascu Andrea');
-    expect(start).toMatch(/<c r="C16"[^>]*><v>0\.354166667<\/v>/); // 8:30 Soll
+    expect(start).toMatch(/<c r="C16"[^>]*><v>0\.3541666666666667<\/v>/); // 8:30 Soll
     const basis = strFromU8(f['xl/worksheets/sheet14.xml']);
     expect(basis).toMatch(new RegExp(`<c r="A7"[^>]*><v>${serial('2027-03-28')}</v>`)); // Ostersonntag 2027
     expect(basis).toMatch(new RegExp(`<c r="A8"[^>]*><v>${serial('2027-03-29')}</v>`));
     expect(basis).toContain('<f>A7-2</f>'); // Karfreitag bleibt Formel
     const march = strFromU8(f['xl/worksheets/sheet4.xml']);
-    expect(march).toMatch(/<c r="C3"[^>]*><v>0\.291666667<\/v>/); // 1.3. 07:00
-    expect(march).toMatch(/<c r="D3"[^>]*><v>0\.666666667<\/v>/); // 16:00
+    expect(march).toMatch(/<c r="C3"[^>]*><v>0\.2916666666666667<\/v>/); // 1.3. 07:00
+    expect(march).toMatch(/<c r="D3"[^>]*><v>0\.6666666666666666<\/v>/); // 16:00
     expect(march).toContain('Parkring · Weg 1 h');
     expect(march).toMatch(/<c r="J3"[^>]*><f>/); // Pause wie Vorlage → Formel bleibt
-    expect(march).toMatch(/<c r="J4"[^>]*><v>0\.041666667<\/v>/); // 1 h Pause weicht ab → Wert
+    expect(march).toMatch(/<c r="J4"[^>]*><v>0\.041666666666666664<\/v>/); // 1 h Pause weicht ab → Wert
     expect(march).toMatch(/<c r="K5"[^>]*t="inlineStr"><is><t xml:space="preserve">K<\/t>/); // krank
-    expect(march).toMatch(/<c r="J7"[^>]*><v>0\.020833333<\/v>/); // Freitag: Vorlage 0:00, BauPad 0:30
+    expect(march).toMatch(/<c r="J7"[^>]*><v>0\.020833333333333332<\/v>/); // Freitag: Vorlage 0:00, BauPad 0:30
     expect(march).not.toContain('>X<'); // anderer Arbeiter
     expect(march).toContain('<f>SUM(I3-J3,IF(OR(K3="U",K3="K"),B3,IF(K3="HU",B3/2)))</f>');
     expect(strFromU8(f['xl/workbook.xml'])).toContain('fullCalcOnLoad="1"');
+    expect(strFromU8(f['xl/worksheets/sheet2.xml'])).toMatch(/<c r="I35"[^>]*><v>25<\/v>/); // Urlaubsanspruch Mo–Fr: 25 Tage
+  });
+});
+
+describe('Zeitaufzeichnung: Jahresübertrag', () => {
+  it('Resturlaub und Stunden zum Jahresende wie die Vorlage (mit LibreOffice nachgerechnet) – Jänner des Folgejahres übernimmt sie', async () => {
+    const { fillYearWorkbook, yearEnd } = await import('../../src/lib/time-workbook');
+    const { TIME_TEMPLATE_B64 } = await import('../../src/lib/time-template');
+    const w = { id: 'w', firstName: 'Andrea', lastName: 'Pascu', active: true } as Worker;
+    const d = (date: string, from: string, to: string, pause: number) => day('w', date, [{ projectId: null, siteName: 'X', from, to, pause, hours: 0 }]);
+    const absences: Absence[] = [
+      { id: 'a', workerId: 'w', kind: 'urlaub', from: '2025-08-04', to: '2025-08-08', createdAt: 0 },
+      { id: 'b', workerId: 'w', kind: 'krank', from: '2025-09-01', to: '2025-09-02', createdAt: 0 },
+    ];
+    const days = [d('2025-03-03', '07:00', '17:00', 0.5), d('2025-03-04', '07:00', '15:00', 0.5), d('2025-06-06', '07:00', '12:00', 0.5), d('2025-11-12', '06:00', '18:00', 1)];
+    // 25 Tage Anspruch − 5 U + 20 (Oktober laut Vorlage) = 40; Stunden: Dezember M36 der Vorlage
+    const carry = yearEnd({ year: 2025, worker: w, times: DEFAULT_WORK_TIMES, absences, days });
+    expect(carry).toEqual({ vacation: 40, hours: -2016 });
+    const tpl = Uint8Array.from(atob(TIME_TEMPLATE_B64), (c) => c.charCodeAt(0));
+    const jan = strFromU8(unzipSync(fillYearWorkbook(tpl, { year: 2026, worker: w, times: DEFAULT_WORK_TIMES, absences, days: [], carry }))['xl/worksheets/sheet2.xml']);
+    expect(jan).toMatch(/<c r="I35"[^>]*><v>40<\/v>/);
+    expect(jan).toMatch(/<c r="M35"[^>]*><v>-2016<\/v>/);
   });
 });

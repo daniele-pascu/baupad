@@ -14,8 +14,8 @@ import { useDataChanged } from '../lib/data-events';
 import { listProjects, projectStats } from '../lib/db';
 import { labelFromProject } from '../lib/project-label';
 import { usePageTitle } from '../lib/page-title';
-import { navigate, paths } from '../lib/router';
-import { canEditSites, createRegisterProject, deleteProjectEverywhere, projectUsage, type SiteFields } from '../lib/sites';
+import { paths } from '../lib/router';
+import { canEditSites, createRegisterProject, deleteProjectEverywhere, projectUsage } from '../lib/sites';
 import { useSession } from '../lib/use-session';
 import type { Project } from '../lib/types';
 
@@ -45,8 +45,6 @@ export function RegisterPage() {
   const [adopt, setAdopt] = useState<Project | null>(null);
   const [editing, setEditing] = useState<Project | null>(null);
   const [creating, setCreating] = useState(false);
-  /** neues Projekt: Angaben erfasst, Werkzeuge werden noch gewählt */
-  const [fresh, setFresh] = useState<SiteFields | null>(null);
 
   const reload = () =>
     void Promise.all([listProjects(), costCenterByProject()])
@@ -123,7 +121,7 @@ export function RegisterPage() {
             <h1 data-testid="register-title">Projektregister</h1>
           </div>
           {mayCreate && (
-            <button type="button" className="btn btn-primary" onClick={() => setCreating(true)} title="Projekt anlegen und gleich in die gewünschten Tools übernehmen" data-testid="register-new">
+            <button type="button" className="btn btn-primary" onClick={() => setCreating(true)} title="Projekt mit seinen Angaben anlegen – in Tools übernimmt man es später" data-testid="register-new">
               <Icon name="plus" size={16} /> <span className="hide-sm">Neues Projekt</span>
             </button>
           )}
@@ -232,31 +230,18 @@ export function RegisterPage() {
       {creating && (
         <ProjectForm
           title="Neues Projekt"
-          submitLabel="Weiter"
+          submitLabel="Projekt anlegen"
           onClose={() => setCreating(false)}
-          onSubmit={(f, cc) => {
-            // Angaben merken; angelegt wird nach der Wahl der Werkzeuge
-            setFresh({ name: f.name, number: f.number ?? '', address: f.address, client: f.client, date: f.date, notes: f.notes, costCenter: cc[0] ? [cc[0].number, cc[0].name].filter(Boolean).join(' – ') : '' });
-            setCreating(false);
-          }}
-        />
-      )}
-      {fresh && (
-        <AdoptDialog
-          project={null}
-          usable={usable}
-          title={`„${fresh.name}“ – in welche Tools?`}
-          onClose={() => setFresh(null)}
-          onCreate={async (tools) => {
-            let p = await createRegisterProject(fresh, tools[0]);
-            for (const t of tools.slice(1)) p = await adoptProject(p, t);
-            return p;
-          }}
-          onDone={(names, created) => {
-            setFresh(null);
-            toast(`Projekt angelegt${names.length ? ` – in ${names.join(', ')}` : ''}.`, 'success');
-            reload();
-            if (created && names.length === 1) navigate(toolPath(projectTools(created)[0] as ToolId, created.id));
+          onSubmit={async (f, cc) => {
+            // nur Projektinfos – in Tools übernimmt man es später („In Tool übernehmen“ oder im Tool selbst)
+            try {
+              await createRegisterProject({ name: f.name, number: f.number ?? '', address: f.address, client: f.client, date: f.date, notes: f.notes, costCenter: cc[0] ? [cc[0].number, cc[0].name].filter(Boolean).join(' – ') : '' });
+              setCreating(false);
+              toast(`Projekt „${f.name.trim()}“ angelegt.`, 'success');
+              reload();
+            } catch (e) {
+              showError(e, 'Projekt konnte nicht angelegt werden');
+            }
           }}
         />
       )}
@@ -271,28 +256,21 @@ function AdoptDialog({
   title,
   onClose,
   onDone,
-  onCreate,
 }: {
-  project: Project | null;
+  project: Project;
   usable(t: ToolId): boolean;
   title?: string;
   onClose(): void;
-  onDone(names: string[], created?: Project): void;
-  onCreate?(tools: ToolId[]): Promise<Project>;
+  onDone(names: string[]): void;
 }) {
-  const used = project ? projectTools(project) : [];
+  const used = projectTools(project);
   const [sel, setSel] = useState<Set<ToolId>>(() => new Set());
   const [busy, setBusy] = useState(false);
   const save = async () => {
     setBusy(true);
     try {
       const tools = TOOLS.map((t) => t.id).filter((t) => sel.has(t));
-      if (onCreate) {
-        const p = await onCreate(tools);
-        onDone(tools.map((t) => TOOL_LABEL[t]), p);
-        return;
-      }
-      let p = project!;
+      let p = project;
       for (const t of tools) p = await adoptProject(p, t);
       onDone(tools.map((t) => TOOL_LABEL[t]));
     } catch (e) {
@@ -303,7 +281,7 @@ function AdoptDialog({
   };
   return (
     <Modal
-      title={title ?? `„${project!.site || project!.name}“ in Tool übernehmen`}
+      title={title ?? `„${project.site || project.name}“ in Tool übernehmen`}
       onClose={onClose}
       testId="register-adopt-dialog"
       footer={
@@ -312,7 +290,7 @@ function AdoptDialog({
             Abbrechen
           </button>
           <button type="button" className="btn btn-primary" onClick={() => void save()} disabled={busy || sel.size === 0} data-testid="register-adopt-save">
-            {onCreate ? 'Projekt anlegen' : 'Übernehmen'}
+            Übernehmen
           </button>
         </>
       }

@@ -124,7 +124,7 @@ test('Tag erfassen, Monatszettel mit Wegzeit und zweiter Baustelle, Excel, Freig
   const files = unzipSync(new Uint8Array(readFileSync(file)));
   const oct = strFromU8(files['xl/worksheets/sheet11.xml']);
   expect(oct).toContain('Parkring; Halle 3');
-  expect(oct).toMatch(/<c r="C31"[^>]*><v>0\.291666667<\/v>/); // 29.10. 07:00
+  expect(oct).toMatch(/<c r="C31"[^>]*><v>0\.2916666666666667<\/v>/); // 29.10. 07:00
 
   // Freigabe: Polier kann danach nichts mehr ändern
   await page.getByTestId('timesheet-approve').click();

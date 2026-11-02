@@ -96,6 +96,29 @@ for n in [k for k in files if k.startswith('xl/worksheets/sheet') and k.endswith
     assert 't="shared"' not in s, n
     put(n, s)
 
+# --- überschriebene Formeln wiederherstellen: in der Vorlage stehen bei einzelnen Tagen feste Werte statt der
+#     Formel (Soll in Spalte B, Pause in Spalte J, z. B. 15.08., 05.09., Pause 02.11.) – die gelten nur für das
+#     Beispieljahr. Formel derselben Zeile aus dem Januar übernehmen, Format der Zelle bleibt.
+jan = text('xl/worksheets/sheet2.xml')
+def formula_at(x, ref):
+    m = re.search(r'<c r="' + ref + r'"[^>]*>(<f>[^<]*</f>)', x)
+    return m.group(1) if m else None
+restored = []
+for i in range(3, 14):
+    p = f'xl/worksheets/sheet{i}.xml'
+    s = text(p)
+    for row in range(3, 34):
+        for col in 'BJ':
+            ref = f'{col}{row}'
+            if formula_at(s, ref) or not formula_at(jan, ref):
+                continue
+            f = formula_at(jan, ref)
+            s, n = re.subn(r'<c r="' + ref + r'"( s="\d+")?(?: t="\w+")?(?:/>|>(?:(?!</c>).)*</c>)', lambda m: f'<c r="{ref}"{m.group(1) or ""}>{f}</c>', s, flags=re.S)
+            assert n == 1, (p, ref)
+            restored.append(f'{i}:{ref}')
+    put(p, s)
+print('Formeln wiederhergestellt:', restored)
+
 # --- zwischengespeicherte Formelergebnisse entfernen: jede Formel wird beim Öffnen neu berechnet
 for n in [k for k in files if k.startswith('xl/worksheets/sheet') and k.endswith('.xml')]:
     s = text(n)

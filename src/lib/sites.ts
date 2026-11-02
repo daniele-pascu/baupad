@@ -165,12 +165,18 @@ export async function createSiteProject(v: SiteFields, tool: string): Promise<Ph
   return { projectId: p.id, name: p.site || p.name, number: p.number ?? '', address: p.address, costCenter: v.costCenter?.trim() || '', client: p.client, date: p.date, notes: p.notes, tools: p.tools };
 }
 
-/** Neues Projekt im Register anlegen (gleicher Dialog in allen Werkzeugen); liefert das Projekt */
-export async function createRegisterProject(v: SiteFields, tool: string): Promise<Project> {
+/**
+ * Neues Projekt im Projektregister anlegen – nur die Projektinfos, noch in keinem Tool (Kennung `register` in
+ * `tools`); übernommen wird es später im Register oder direkt im jeweiligen Tool. Liefert das Projekt.
+ */
+export async function createRegisterProject(v: SiteFields, tool = 'register'): Promise<Project> {
   const me = await getAuth().session().catch(() => null);
   if (!canCreateProjects(me)) throw new Error('Projekte dürfen nur Admin und Büro anlegen. Bitte ein vorhandenes Projekt wählen.');
   const name = v.name.trim();
   if (!name) throw new Error('Bitte einen Namen für das Projekt eingeben.');
+  const key = name.toLowerCase();
+  if (tool === 'register' && (await listProjects()).some((p) => !p.deletedAt && ((p.site || p.name).trim().toLowerCase() === key || p.name.trim().toLowerCase() === key)))
+    throw new Error(`Das Projekt „${name}“ gibt es schon im Projektregister.`);
   return projectFromSite({ name, number: v.number.trim(), address: v.address.trim(), costCenter: v.costCenter?.trim(), client: v.client?.trim(), date: v.date?.trim(), notes: v.notes?.trim() }, tool);
 }
 

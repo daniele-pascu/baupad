@@ -67,7 +67,7 @@ export async function costCenterByProject(): Promise<Map<string, string>> {
   return out;
 }
 
-/** Werkzeuge, in denen ein Projekt benutzt wird (ältere Projekte ohne Angabe: Aufmaß & Abrechnung) */
+/** Werkzeuge, in denen ein Projekt benutzt wird (ältere Projekte ohne Angabe: Aufmaß & Abrechnung; nur im Register angelegt: `register`) */
 export const projectTools = (p: Pick<Project, 'tools'>): string[] => (p.tools && p.tools.length ? p.tools : ['projects']);
 export const usedIn = (p: Pick<Project, 'tools'>, tool: string) => projectTools(p).includes(tool);
 

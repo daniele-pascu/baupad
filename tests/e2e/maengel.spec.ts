@@ -173,6 +173,12 @@ test('Plan aus PDF: beim starken Hineinzoomen wird der Ausschnitt scharf aus dem
   await expect(detail).toBeVisible({ timeout: 15_000 });
   const w = await detail.evaluate((c: HTMLCanvasElement) => c.width);
   expect(w).toBeGreaterThan(400);
+  // weiter hineinzoomen wie im Aufmaß (bis 60-fach), Detailebene bleibt scharf
+  for (let i = 0; i < 6; i++) await page.getByTestId('dp-zoom-in').click();
+  await expect(page.getByTestId('dp-canvas')).toHaveAttribute('data-zoom', '56.69');
+  await expect(detail).toBeVisible({ timeout: 15_000 });
+  await page.getByTestId('dp-zoom-in').click();
+  await expect(page.getByTestId('dp-canvas')).toHaveAttribute('data-zoom', '60.00');
 
 });
 

@@ -2,6 +2,7 @@ import { addDays, DEFAULT_WORK_TIMES, weekOf } from './crew';
 import { uuid } from './ids';
 import { deleteTimeDay, getMeta, getTimeFile, getWeek, listProjects, listTimeDays, listTimeMonths, listWorkers, previousWeek, putTimeFile, saveTimeDay, saveTimeMonth, setMeta } from './db';
 import type { ExportFile } from './aufmass';
+import type { YearCarry } from './time-workbook';
 import { effectiveWeek } from './reports';
 import { dayId, hoursOf, monthOf, suggestDay, validTime, weeksOfMonth, type DaySuggestion, type TimeDay, type TimeDefaults, type TimeLine, type TimeMonth } from './times';
 import type { Absence, WeekPlan, Worker, WorkTimes } from './types';
@@ -94,7 +95,25 @@ export async function workerYearFile(data: TimesData, workerId: string, year: nu
   const worker = data.workers.find((w) => w.id === workerId);
   if (!worker) throw new Error('Arbeiter nicht gefunden.');
   const { timeYearFile } = await import('./time-workbook');
-  return timeYearFile({ year, worker, times: data.times, absences: data.absences, days: await loadYearDays(year) }, month);
+  return timeYearFile({ year, worker, times: data.times, absences: data.absences, days: await loadYearDays(year), carry: await yearCarry(data, worker, year) }, month);
+}
+
+/**
+ * Übertrag aus den Vorjahren: zurück bis zum ersten Jahr ohne Einträge, dann Jahr für Jahr nachrechnen
+ * (Resturlaub und Stunden +/- wie im Dezember der Vorlage). Ohne Vorjahr: undefined (Urlaubsanspruch, 0 Stunden).
+ */
+async function yearCarry(data: TimesData, worker: Worker, year: number) {
+  const { yearEnd } = await import('./time-workbook');
+  const chain: { year: number; days: TimeDay[] }[] = [];
+  for (let y = year - 1; y >= year - 15; y--) {
+    const days = (await loadYearDays(y)).filter((d) => d.workerId === worker.id);
+    const absent = data.absences.some((a) => a.workerId === worker.id && a.from <= `${y}-12-31` && a.to >= `${y}-01-01`);
+    if (!days.length && !absent) break;
+    chain.unshift({ year: y, days });
+  }
+  let carry: YearCarry | undefined;
+  for (const c of chain) carry = yearEnd({ year: c.year, worker, times: data.times, absences: data.absences, days: c.days, carry });
+  return carry;
 }
 
 /** Monat freigeben und die Datei des Arbeiters (Jahresdatei, Stand dieses Monats) in der Ablage speichern */

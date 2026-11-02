@@ -694,6 +694,8 @@ test('Projektregister per Finger: passt auf den Bildschirm', async ({ page }, in
   await page.getByTestId('register-new').tap();
   await page.getByTestId('project-name').fill('Parkring Garage Sanierung');
   await page.getByTestId('project-save').tap();
+  await expect(page.getByTestId('register-row')).toHaveCount(1);
+  await page.getByTestId('register-adopt').tap();
   await page.getByTestId('register-adopt-dialog').locator('[data-testid="register-adopt-tool"][data-tool="photos"] input').check();
   await page.getByTestId('register-adopt-dialog').locator('[data-testid="register-adopt-tool"][data-tool="defects"] input').check();
   await page.getByTestId('register-adopt-save').tap();

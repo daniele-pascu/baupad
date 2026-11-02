@@ -38,7 +38,8 @@ function pinPath(x: number, y: number, s: number): string {
 }
 
 type View = { s: number; tx: number; ty: number };
-const MAX_S = 8;
+/** größte Vergrößerung – wie in Aufmaß & Abrechnung (60-fach der eingepassten Größe); Schärfe kommt aus dem PDF nach */
+const MAX_S = 60;
 
 /**
  * Plan mit Markierungen: Bild + SVG-Ebene, mit Zoom und Verschieben wie in der Planansicht des Aufmaßes
