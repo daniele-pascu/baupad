@@ -9527,3 +9527,14 @@ html[data-theme='dark'] .crew-search {
 .deduction-row .deduction-colors {
   order: 8;
 }
+/* Infos (Brutto, Abzüge, netto) über den Tasten, mit Trennstrich; zwischen den Tastenreihen keiner */
+.deductions .deduction-sum {
+  border-top: 1px solid var(--border-strong);
+  padding-top: 10px;
+  margin-top: 10px;
+}
+.ded-actions.ded-actions-2 {
+  border-top: none;
+  padding-top: 0;
+  margin-top: 8px;
+}

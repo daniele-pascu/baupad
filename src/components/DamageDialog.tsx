@@ -561,6 +561,25 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
               </div>
             );
           })}
+          {deductions.length > 0 && (
+            <p className="deduction-sum small" data-testid="deduction-sum">
+              {lineDeds ? (
+                lineGross === null ? (
+                  'Abzüge wirken, sobald eine Länge eingegeben ist.'
+                ) : (
+                  <>
+                    Gemessen {formatArea(lineGross)} m {deductions.map((x) => `${dedValue(x) < 0 ? '−' : '+'} ${formatArea(Math.abs(dedValue(x)))}`).join(' ')} = <strong>netto {formatArea(lineNet)} m</strong>
+                  </>
+                )
+              ) : gross === null ? (
+                'Abzüge wirken erst, wenn eine Fläche berechnet ist (Länge × Breite/Höhe).'
+              ) : (
+                <>
+                  Brutto {formatArea(gross)} m² {deductions.map((x) => `${dedValue(x) < 0 ? '−' : '+'} ${formatArea(Math.abs(dedValue(x)))}`).join(' ')} = <strong>netto {formatArea(area)} m²</strong>
+                </>
+              )}
+            </p>
+          )}
           <div className="row gap wrap ded-actions">
             <button type="button" className="btn btn-sm" onClick={() => newDed(false)} data-testid="deduction-add">
               − Abzug hinzufügen
@@ -570,7 +589,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             </button>
           </div>
           {onDrawDeduction && !lineDeds && (
-            <div className="row gap wrap ded-actions">
+            <div className="row gap wrap ded-actions ded-actions-2">
                 <button
                   type="button"
                   className="btn btn-sm"
@@ -596,25 +615,6 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
                   <Icon name="edit" size={16} /> + Im Plan zeichnen
                 </button>
             </div>
-          )}
-          {deductions.length > 0 && (
-            <p className="deduction-sum small" data-testid="deduction-sum">
-              {lineDeds ? (
-                lineGross === null ? (
-                  'Abzüge wirken, sobald eine Länge eingegeben ist.'
-                ) : (
-                  <>
-                    Gemessen {formatArea(lineGross)} m {deductions.map((x) => `${dedValue(x) < 0 ? '−' : '+'} ${formatArea(Math.abs(dedValue(x)))}`).join(' ')} = <strong>netto {formatArea(lineNet)} m</strong>
-                  </>
-                )
-              ) : gross === null ? (
-                'Abzüge wirken erst, wenn eine Fläche berechnet ist (Länge × Breite/Höhe).'
-              ) : (
-                <>
-                  Brutto {formatArea(gross)} m² {deductions.map((x) => `${dedValue(x) < 0 ? '−' : '+'} ${formatArea(Math.abs(dedValue(x)))}`).join(' ')} = <strong>netto {formatArea(area)} m²</strong>
-                </>
-              )}
-            </p>
           )}
         </div>
         {conflict && num !== null && (
