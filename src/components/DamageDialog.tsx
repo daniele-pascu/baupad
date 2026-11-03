@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { uuid } from '../lib/ids';
 import { deductionArea, deductionLength, hasArea, KIND_LABELS, netArea } from '../lib/measure';
-import { ceil2, checkMeasure, computeArea, formatArea, parseDecimal, toInputValue } from '../lib/numbers';
+import { round2, checkMeasure, computeArea, formatArea, parseDecimal, toInputValue } from '../lib/numbers';
 
-/** Maße im Eingabefeld: auf 2 Stellen aufgerundet (ältere Werte mit 3 Stellen) */
-const up2 = (n: number | null | undefined) => (n === null || n === undefined ? n : ceil2(n));
+/** Maße im Eingabefeld: kaufmännisch auf 2 Stellen gerundet (ältere Werte mit 3 Stellen) */
+const up2 = (n: number | null | undefined) => (n === null || n === undefined ? n : round2(n));
 import { damageNo, findByNumber, parseDamageNumber } from '../lib/numbering';
 import { COLORS, SHAPE_LABELS, type Component, type Damage, type Deduction, type MeasureKind, type Shape, type ShapeType } from '../lib/types';
 import { Icon } from './Icon';
@@ -140,8 +140,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
         id: uuid(),
         label: `${drawAdd.current ? 'Zuschlag' : 'Abzug'} ${list.filter((x) => x.shape && !!x.add === drawAdd.current).length + 1}`,
         count: '1',
-        length: toInputValue(ceil2(drawnDeduction.length)),
-        width: toInputValue(ceil2(drawnDeduction.width)),
+        length: toInputValue(round2(drawnDeduction.length)),
+        width: toInputValue(round2(drawnDeduction.width)),
         add: drawAdd.current,
         shape: drawnDeduction.shape,
         color: DEDUCTION_COLOR,

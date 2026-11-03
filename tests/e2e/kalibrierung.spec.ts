@@ -80,7 +80,7 @@ test('Importierter Plan: kalibrieren, Maße aus dem Plan, unabhängig vom Zoom; 
   const b2 = await planBox(page);
   await pickTool(page, 'tool-rect');
   await drawRect(page, b2.x + 400, b2.y + 300, b2.x + 500, b2.y + 350);
-  const exp = (v: number) => (Math.ceil(Math.round((v / f) * 1e6) / 1e4 - 1e-6) / 100).toFixed(2).replace('.', ','); // Maße immer aufgerundet
+  const exp = (v: number) => (Math.round(Math.round((v / f) * 1e6) / 1e4 + 1e-7) / 100).toFixed(2).replace('.', ','); // kaufmännisch gerundet
   await expect(dlg.getByTestId('use-suggestion')).toContainText(`${exp(5)} × ${exp(2.5)} m`);
   await dlg.getByTestId('damage-cancel').click();
   await page.getByTestId('plan-viewer').hover();

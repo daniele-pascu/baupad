@@ -35,7 +35,7 @@ describe('Aufmaßblatt (Firmenvorlage)', () => {
   });
   it('ohne LV: Kopf mit Nummer, Bauvorhaben, Kostenstelle, Leistungszeitraum; Flächen und Linien mit Plan und Nr.', () => {
     for (const t of ['Aufmaßblatt 007', 'Bauvorhaben X', '91092 – Ebene 1', '01.10.2026', 'Aufmaß', 'Flächen', 'Linien und Längen']) expect(sheet).toContain(`>${t}<`);
-    expect(sheet).toContain('<f>ROUNDUP(C11*D11,2)</f>'); // m² = Länge × Breite als Formel
+    expect(sheet).toContain('<f>ROUND(C11*D11,2)</f>'); // m² = Länge × Breite als Formel
     expect(sheet).toMatch(/<f>SUM\(C\d+:C\d+\)<\/f>/); // Summe Linien
     // nichts zu bemerken → keine Spalte „Bemerkung“, keine Messart
     expect(sheet).not.toContain('>Bemerkung<');
@@ -63,11 +63,11 @@ describe('Aufmaßblatt (Firmenvorlage)', () => {
     } as unknown as ProjectState;
     const ws = strFromU8(unzipSync(exportAufmassblatt(withDeds, { kind: 'plan', planId: 'p1' }, { no: '011', period: '' }).data)['xl/worksheets/sheet1.xml']);
     for (const t of ['Abzug Fenster (2×)', 'Abzug Tür', 'Zuschlag Nische', 'Bemerkung']) expect(ws).toContain(`>${t}<`);
-    const main = /<f>ROUNDUP\((C(\d+)\*D\2),2\)<\/f><v>12.65<\/v>/.exec(ws)!;
+    const main = /<f>ROUND\((C(\d+)\*D\2),2\)<\/f><v>12.65<\/v>/.exec(ws)!;
     const r = Number(main[2]);
-    expect(ws).toContain(`<f>-2*ROUNDUP(C${r + 1}*D${r + 1},2)</f><v>-2.4</v>`);
-    expect(ws).toContain(`<f>-ROUNDUP(C${r + 2}*D${r + 2},2)</f><v>-2.1</v>`);
-    expect(ws).toContain(`<f>ROUNDUP(C${r + 3}*D${r + 3},2)</f><v>0.5</v>`);
+    expect(ws).toContain(`<f>-2*ROUND(C${r + 1}*D${r + 1},2)</f><v>-2.4</v>`);
+    expect(ws).toContain(`<f>-ROUND(C${r + 2}*D${r + 2},2)</f><v>-2.1</v>`);
+    expect(ws).toContain(`<f>ROUND(C${r + 3}*D${r + 3},2)</f><v>0.5</v>`);
     expect(ws).toContain(`<f>SUM(E${r}:E${r + 3})</f><v>8.65</v>`); // 12,65 − 2,40 − 2,10 + 0,50
   });
 

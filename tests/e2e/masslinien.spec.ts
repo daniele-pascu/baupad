@@ -53,7 +53,7 @@ test('Maßlinien in cm: automatisch 1:50 beim Import, falsches Maß gekennzeichn
   await expect(dlg.getByTestId('dims-summary')).toContainText('4 von 5');
   await expect(dlg.getByTestId('dims-summary')).toContainText('1:50');
   const row = (v: string) => dlg.getByTestId('dims-row').filter({ has: page.locator(`input[data-testid="dims-value"][value="${v}"]`) });
-  await expect(row('515,5')).toContainText('5,16'); // 515,5 cm = 5,155 m → aufgerundet 5,16
+  await expect(row('515,5')).toContainText('5,16'); // 515,5 cm = 5,155 m → kaufmännisch 5,16
   await expect(row('515,5')).toContainText('passt');
   await expect(row('420')).toContainText('widersprüchlich');
   await expect(row('420').getByTestId('dims-use')).not.toBeChecked();

@@ -16,14 +16,13 @@ export function parseDecimal(input: string): number | null {
 }
 
 /**
- * Aufrunden auf 2 Nachkommastellen (Baustellen-Abrechnung: Maße und Mengen immer aufrunden, 1,231 → 1,24).
- * Gleitkomma-Rauschen wird vorher entfernt (1,20 bleibt 1,20).
+ * Kaufmännisch runden auf 2 Nachkommastellen: ab 5 auf, sonst ab (1,234 → 1,23; 1,235 → 1,24).
+ * Gleitkomma-Rauschen wird vorher entfernt (1,2000000000000002 bleibt 1,20).
  */
-export function ceil2(n: number): number {
+export function round2(n: number): number {
   if (!Number.isFinite(n)) return n;
-  // Rauschen der Gleitkommarechnung entfernen (z. B. 1,2000000000000002), dann auf Hundertstel aufrunden
   const clean = Math.round(n * 1e6) / 1e6;
-  return Math.ceil(clean * 100 - 1e-6) / 100;
+  return (Math.sign(clean) * Math.round(Math.abs(clean) * 100 + 1e-7)) / 100 || 0;
 }
 
 export type MeasureCheck = { ok: true; value: number } | { ok: false; error: string };
@@ -35,7 +34,7 @@ export function checkMeasure(input: string, label: string): MeasureCheck {
   if (n === null) return { ok: false, error: `${label}: „${input}“ ist keine gültige Zahl.` };
   if (n <= 0) return { ok: false, error: `${label} muss größer als 0 sein.` };
   if (n >= 10000) return { ok: false, error: `${label} ist unplausibel groß.` };
-  return { ok: true, value: ceil2(n) };
+  return { ok: true, value: round2(n) };
 }
 
 /**
@@ -44,7 +43,7 @@ export function checkMeasure(input: string, label: string): MeasureCheck {
  * der Anzeige.
  */
 export function computeArea(length: number, width: number): number {
-  return ceil2(length * width);
+  return round2(length * width);
 }
 
 const fmtCache = new Map<string, Intl.NumberFormat>();
@@ -58,16 +57,16 @@ function fmt(min: number, max: number): Intl.NumberFormat {
   return f;
 }
 
-/** Maße: 2 Nachkommastellen, aufgerundet (z. B. 1,50; 0,125 → 0,13). */
+/** Maße: 2 Nachkommastellen, kaufmännisch gerundet (z. B. 1,50; 0,125 → 0,13; 0,124 → 0,12). */
 export function formatMeasure(n: number | null | undefined): string {
   if (n === null || n === undefined || !Number.isFinite(n)) return '–';
-  return fmt(2, 2).format((n < 0 ? -ceil2(-n) : ceil2(n)) || 0);
+  return fmt(2, 2).format(round2(n));
 }
 
-/** Flächen: 2 Nachkommastellen, aufgerundet. */
+/** Flächen: 2 Nachkommastellen, kaufmännisch gerundet. */
 export function formatArea(n: number | null | undefined): string {
   if (n === null || n === undefined || !Number.isFinite(n)) return '–';
-  return fmt(2, 2).format((n < 0 ? -ceil2(-n) : ceil2(n)) || 0);
+  return fmt(2, 2).format(round2(n));
 }
 
 /** Wert für ein Eingabefeld (ohne Tausenderpunkte). */

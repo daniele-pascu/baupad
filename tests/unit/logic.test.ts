@@ -31,11 +31,12 @@ describe('Flächenberechnung', () => {
   it('Länge × Breite, Tiefe nicht einbezogen', () => {
     expect(computeArea(1.5, 0.8)).toBe(1.2);
     expect(computeArea(0.1, 0.2)).toBe(0.02);
-    expect(computeArea(1.255, 1)).toBe(1.26); // immer auf 2 Stellen aufgerundet // keine vorzeitige Rundung
+    expect(computeArea(1.255, 1)).toBe(1.26); // kaufmännisch: ab 5 auf // keine vorzeitige Rundung
     expect(formatArea(1.2)).toBe('1,20');
     expect(formatArea(1234.5)).toBe('1.234,50');
     expect(formatMeasure(0.05)).toBe('0,05');
-    expect(formatMeasure(0.125)).toBe('0,13'); // immer aufgerundet
+    expect(formatMeasure(0.125)).toBe('0,13'); // kaufmännisch: ab 5 auf
+    expect(formatMeasure(0.124)).toBe('0,12'); // sonst ab
   });
 });
 

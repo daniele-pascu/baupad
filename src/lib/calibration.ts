@@ -1,4 +1,4 @@
-import { ceil2 } from './numbers';
+import { round2 } from './numbers';
 import { isDrawingPlan, shapeInfo, shapeToMeters, unitsPerMeter } from './drawing';
 import { isOpenShape } from './geometry';
 import { formatMeasure } from './numbers';
@@ -28,7 +28,7 @@ export function geometryMeasures(shape: Shape, k: number | null): { area: number
   if (!info || info.area === null) return null;
   const formula =
     s.type === 'rect' ? 'Länge × Breite' : s.type === 'ellipse' ? (Math.abs(s.w - s.h) < 1e-9 ? 'π · r²' : 'π · a · b') : 'Polygonfläche aus den Eckpunkten';
-  return { area: ceil2(info.area), perimeter: ceil2(info.perimeter), formula };
+  return { area: round2(info.area), perimeter: round2(info.perimeter), formula };
 }
 
 export type CalibrationState = 'none' | 'auto' | 'confirmed' | 'manual';
