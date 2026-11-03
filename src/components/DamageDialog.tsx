@@ -720,10 +720,16 @@ export function PositionPicker({
   const multi = new Set(positions.map((p) => p.doc)).size > 1;
   const shown = positions.filter((p) => !needle || [p.number ?? '', p.shortText ?? p.label, p.doc].some((t) => t.toLowerCase().includes(needle)));
   return (
-    <Modal title="Leistungsposition wählen" onClose={onClose} wide testId="position-picker">
+    <Modal title="Leistungsposition wählen" onClose={onClose} wide testId="position-picker" className="position-picker-modal">
       <input type="search" className="position-search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Suchen: Positionsnummer oder Kurztext" autoFocus data-testid="position-search" />
       <div className="position-table-wrap">
         <table className="position-table">
+          <colgroup>
+            <col className="col-pos" />
+            <col />
+            <col className="col-eh" />
+            {multi && <col className="col-doc" />}
+          </colgroup>
           <thead>
             <tr>
               <th>Position</th>

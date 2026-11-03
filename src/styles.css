@@ -9488,3 +9488,33 @@ html[data-theme='dark'] .crew-search {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Positionssuche: breiteres Fenster, nur senkrecht scrollen (Kurztext bricht um) */
+.modal.position-picker-modal {
+  width: min(980px, calc(100vw - 24px));
+  max-width: none;
+}
+.position-table-wrap {
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.position-table {
+  table-layout: fixed;
+}
+.position-table td,
+.position-table th {
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+.position-table .col-pos {
+  width: 9.5em;
+}
+.position-table .col-eh {
+  width: 3.6em;
+}
+.position-table .col-doc {
+  width: 8em;
+}
+.position-table .pos-no {
+  white-space: normal;
+}

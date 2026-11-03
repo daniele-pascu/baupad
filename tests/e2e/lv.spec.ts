@@ -52,6 +52,13 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   await dlg.getByTestId('input-position').click(); // Feld antippen öffnet das Suchfenster
   const picker = page.getByTestId('position-picker');
   await expect(picker.locator('thead th').first()).toHaveText('Position');
+  // nur senkrecht scrollen: Tabelle passt in die Breite (Kurztext bricht um)
+  for (const w of [1280, 820, 390]) {
+    await page.setViewportSize({ width: w, height: 900 });
+    const over = await picker.locator('.position-table-wrap').evaluate((el) => el.scrollWidth - el.clientWidth);
+    expect(over).toBeLessThanOrEqual(1);
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
   await picker.getByTestId('position-search').fill('sperr');
   await expect(picker.getByTestId('position-option')).toHaveCount(1);
   await picker.getByTestId('position-option').click();
