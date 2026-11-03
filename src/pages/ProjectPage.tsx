@@ -29,6 +29,7 @@ import { propagateProject } from '../lib/sites';
 import { useDataSyncState } from '../lib/data-sync';
 import { renderSource } from '../lib/thumbs';
 import type { AufmassSheet, CostCenter, Plan } from '../lib/types';
+import type { AufmassRow } from '../lib/aufmass';
 
 /**
  * Projektseite: Projektinformationen (inklusive Kostenstelle) und direkt darunter die
@@ -55,6 +56,8 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
   const [library, setLibrary] = useState(false);
   /** aufgeklappte Aufmaße (Liste je Plan) */
   const [openAufmass, setOpenAufmass] = useState<Set<string>>(() => new Set());
+  /** aufgeklappte Pläne innerhalb eines Aufmaßes (Schlüssel „Aufmaß:Plan“) */
+  const [openPlans, setOpenPlans] = useState<Set<string>>(() => new Set());
   const [reuse, setReuse] = useState<PlanSource | null>(null);
   const [rotating, setRotating] = useState<Plan | null>(null);
   const [excelScope, setExcelScope] = useState<BlattScope | null>(null);
@@ -119,6 +122,48 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
   const sheets = (project.aufmassSheets ?? [])
     .map((sheet, i) => ({ sheet, name: sheet.name?.trim() || `Aufmaß ${i + 1}`, sheetPlans: sheet.planIds.map((id) => data.plans[id]).filter((p): p is Plan => !!p && !p.deletedAt) }))
     .filter((x) => x.sheetPlans.length && (!active || x.sheetPlans.some((p) => p.costCenterId === active.id)));
+  const toggleOpen = (set: typeof setOpenAufmass, key: string) =>
+    set((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(key)) next.add(key);
+      return next;
+    });
+
+  /** Messungen eines Aufmaßes je Plan, jeder Plan einzeln aufklappbar */
+  const planGroups = (groupKey: string, plans: Plan[], rowsOfGroup: AufmassRow[]) => {
+    const ordered = [...new Map(rowsOfGroup.map((r) => [r.plan.id, r.plan])).values()];
+    for (const p of plans) if (!ordered.some((o) => o.id === p.id)) ordered.push(p);
+    return (
+      <div className="aufmass-plans" data-testid="aufmass-plan-groups">
+        {ordered.map((plan) => {
+          const key = `${groupKey}:${plan.id}`;
+          const open = openPlans.has(key);
+          const own = rowsOfGroup.filter((r) => r.plan.id === plan.id);
+          return (
+            <div key={plan.id} className={`aufmass-plan${open ? ' open' : ''}`} data-testid="aufmass-plan">
+              <button type="button" className="aufmass-plan-toggle" aria-expanded={open} onClick={() => toggleOpen(setOpenPlans, key)} data-testid="aufmass-plan-toggle">
+                <Icon name="next" size={16} />
+                <span className="aufmass-toggle-text">
+                  <strong data-testid="aufmass-plan-name">{planTitle(plan)}</strong>
+                  <span className="muted small">
+                    {own.length} {own.length === 1 ? 'Messung' : 'Messungen'}
+                    {own.length > 0 && ` · ${formatArea(sumArea(own.map((r) => r.damage)))} m²`}
+                  </span>
+                </span>
+              </button>
+              {open &&
+                (own.length ? (
+                  <AufmassTable rows={own} components={data.components} positionLabel={(ref) => findPosition(data, ref)?.pos.number ?? null} {...positionGrouping(data)} onSelect={(r) => navigate(paths.plan(project.id, r.plan.id, r.damage.id))} />
+                ) : (
+                  <p className="muted small aufmass-block-empty">Noch keine Messungen in diesem Plan.</p>
+                ))}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   const shownRows = split ? aufmassRows(data, invoice ? ccs.flatMap((c) => plansOf(data, c.id, invoice.id)) : []) : rows;
 
   // ---------------------------------------------------------------------------
@@ -538,7 +583,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
           {split ? (
             // je Rechnung ein Aufmaß: alle Messungen ihrer Pläne (alle Kostenstellen)
             shownRows.length ? (
-              <AufmassTable rows={shownRows} showPlan components={data.components} positionLabel={(ref) => findPosition(data, ref)?.pos.number ?? null} {...positionGrouping(data)} onSelect={(r) => navigate(paths.plan(project.id, r.plan.id, r.damage.id))} />
+              planGroups(`inv-${invoice?.id ?? ''}`, [], shownRows)
             ) : (
               <p className="muted" data-testid="aufmass-empty">
                 Noch keine Messungen{invoice ? ` in der ${invoiceLabel(invoice)}` : ''} – sie erscheinen hier, sobald im Plan gemessen wird.
@@ -557,11 +602,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
                         type="button"
                         className="aufmass-toggle"
                         aria-expanded={open}
-                        onClick={() => setOpenAufmass((prev) => {
-                          const next = new Set(prev);
-                          if (!next.delete(sheet.id)) next.add(sheet.id);
-                          return next;
-                        })}
+                        onClick={() => toggleOpen(setOpenAufmass, sheet.id)}
                         data-testid="aufmass-toggle"
                       >
                         <Icon name="next" size={18} />
@@ -594,8 +635,10 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
                     </div>
                     {open && (
                       <>
-                        {own.length ? (
-                          <AufmassTable rows={own} showPlan={sheetPlans.length > 1} components={data.components} positionLabel={(ref) => findPosition(data, ref)?.pos.number ?? null} {...positionGrouping(data)} onSelect={(r) => navigate(paths.plan(project.id, r.plan.id, r.damage.id))} />
+                        {sheetPlans.length > 1 ? (
+                          planGroups(sheet.id, sheetPlans, own)
+                        ) : own.length ? (
+                          <AufmassTable rows={own} components={data.components} positionLabel={(ref) => findPosition(data, ref)?.pos.number ?? null} {...positionGrouping(data)} onSelect={(r) => navigate(paths.plan(project.id, r.plan.id, r.damage.id))} />
                         ) : (
                           <p className="muted small aufmass-block-empty">Noch keine Messungen in {sheetPlans.length === 1 ? 'diesem Plan' : 'diesen Plänen'}.</p>
                         )}

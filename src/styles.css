@@ -9650,3 +9650,43 @@ html[data-theme='dark'] .crew-search {
     white-space: normal;
   }
 }
+/* Aufmaß mit mehreren Plänen: jeder Plan einzeln aufklappbar */
+.aufmass-plans {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  margin: 0 12px;
+}
+.aufmass-plan {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.aufmass-plan-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 6px 10px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.aufmass-plan-toggle svg {
+  flex: none;
+  transition: transform 0.15s;
+}
+.aufmass-plan.open .aufmass-plan-toggle svg {
+  transform: rotate(90deg);
+}
+.aufmass-plan.open {
+  padding-bottom: 8px;
+}
+.aufmass-plan > .table-wrap,
+.aufmass-plan > .aufmass-block-empty {
+  margin: 0 10px;
+}

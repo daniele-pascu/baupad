@@ -155,7 +155,14 @@ test('Aufmaß je Rechnung: alle Pläne zusammen, Excel mit Rechnung im Titel', a
   await backToList(page);
   // ein Aufmaß mit den Messungen beider Pläne
   await expect(page.getByTestId('aufmass-block')).toHaveCount(0);
-  await expect(page.getByTestId('aufmass-section').getByTestId('aufmass-table').locator('tbody tr')).toHaveCount(2);
+  // je Plan aufklappbar
+  const planGroups = page.getByTestId('aufmass-section').getByTestId('aufmass-plan');
+  await expect(planGroups).toHaveCount(2);
+  await expect(page.getByTestId('aufmass-section').getByTestId('aufmass-table')).toHaveCount(0);
+  await planGroups.nth(0).getByTestId('aufmass-plan-toggle').click();
+  await planGroups.nth(1).getByTestId('aufmass-plan-toggle').click();
+  await expect(planGroups.nth(0).getByTestId('aufmass-table').locator('[data-testid="aufmass-row"]')).toHaveCount(1);
+  await expect(planGroups.nth(1).getByTestId('aufmass-table').locator('[data-testid="aufmass-row"]')).toHaveCount(1);
   await page.getByTestId('export-xlsx-invoice').click();
   const file = await saveDownload(await catchDownload(page, () => page.getByTestId('excel-export').getByTestId('blatt-export').click()));
   expect(file).toContain('TR1');
@@ -213,6 +220,18 @@ test('Ohne Aufteilung: Aufmaß entsteht erst über „Aufmaßblatt“ mit gewäh
   await expect(blocks.nth(0).getByTestId('aufmass-table').locator('tbody tr')).toHaveCount(1);
   await blocks.nth(0).getByTestId('aufmass-toggle').click(); // wieder zu
   await expect(blocks.nth(0).getByTestId('aufmass-table')).toHaveCount(0);
+  // Aufmaß mit zwei Plänen: jeder Plan einzeln aufklappbar
+  await blocks.nth(1).getByTestId('aufmass-toggle').click();
+  const plans2 = blocks.nth(1).getByTestId('aufmass-plan');
+  await expect(plans2.getByTestId('aufmass-plan-name')).toHaveText(['1 – massketten', '2 – massketten']);
+  await expect(blocks.nth(1).getByTestId('aufmass-table')).toHaveCount(0);
+  await plans2.nth(0).getByTestId('aufmass-plan-toggle').click();
+  await expect(plans2.nth(0).getByTestId('aufmass-table').locator('[data-testid="aufmass-row"]')).toHaveCount(1);
+  await plans2.nth(1).getByTestId('aufmass-plan-toggle').click();
+  await expect(plans2.nth(1)).toContainText('Noch keine Messungen in diesem Plan');
+  await plans2.nth(0).getByTestId('aufmass-plan-toggle').click(); // wieder zu
+  await expect(plans2.nth(0).getByTestId('aufmass-table')).toHaveCount(0);
+  await blocks.nth(1).getByTestId('aufmass-toggle').click();
 
   // umbenennen, bleibt nach Neuladen
   await blocks.nth(1).getByTestId('aufmass-actions').click();
