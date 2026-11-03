@@ -40,8 +40,13 @@ function pinPath(x: number, y: number, s: number): string {
 type View = { s: number; tx: number; ty: number };
 /** größte Vergrößerung – wie in Aufmaß & Abrechnung (60-fach der eingepassten Größe); Schärfe kommt aus dem PDF nach */
 const MAX_S = 60;
-/** Stift (Apple Pencil): sobald benutzt, zeichnet nur der Stift; Finger verschieben/zoomen; aufliegende Hand wird ignoriert */
-let penSeen = false;
+/**
+ * Stift (Apple Pencil): solange damit gearbeitet wird, zeichnet nur der Stift; Finger verschieben/zoomen, aufliegende
+ * Hand wird ignoriert. Ruht der Stift einen Moment, geht wieder alles mit dem Finger (wie im Aufmaß).
+ */
+let lastPenAt = 0;
+const PEN_IDLE_MS = 4000; // wie im Aufmaß (PlanViewer)
+const penActive = () => Date.now() - lastPenAt < PEN_IDLE_MS;
 
 /**
  * Plan mit Markierungen: Bild + SVG-Ebene, mit Zoom und Verschieben wie in der Planansicht des Aufmaßes
@@ -315,7 +320,7 @@ function PlanCanvas({
   const down = (e: RPointerEvent) => {
     if (e.pointerType === 'mouse' && e.button !== 0 && e.button !== 1) return;
     if (e.pointerType === 'pen') {
-      penSeen = true;
+      lastPenAt = Date.now();
       // Stift hat Vorrang: Begonnenes einer aufliegenden Hand verwerfen, der Stift zählt nie für eine Zoom-Geste
       if (pointers.current.size) {
         for (const id of pointers.current.keys()) palmIds.current.add(id);
@@ -340,8 +345,8 @@ function PlanCanvas({
     if (pointers.current.size > 2) return;
     const p = rel(e);
     const bp = boxPt(e);
-    if (e.pointerType === 'touch' && penSeen) {
-      // mit Stift gearbeitet: ein Finger verschiebt nur den Plan
+    if (e.pointerType === 'touch' && penActive()) {
+      // gerade mit dem Stift gearbeitet: ein Finger verschiebt nur den Plan
       gesture.current = { kind: 'pan', x: bp.x, y: bp.y, view: viewRef.current, moved: false };
       return;
     }
@@ -415,7 +420,10 @@ function PlanCanvas({
     else if (tool !== 'pin' && tool !== 'text' && tool !== 'select') setDraft({ shape: tool, points: [g.start, p] });
   };
   const up = (e: RPointerEvent) => {
-    if (e.pointerId === penId.current) penId.current = null;
+    if (e.pointerId === penId.current) {
+      penId.current = null;
+      lastPenAt = Date.now();
+    }
     if (palmIds.current.delete(e.pointerId)) suppressClick.current = true;
     if (!pointers.current.has(e.pointerId)) return;
     pointers.current.delete(e.pointerId);
@@ -455,7 +463,10 @@ function PlanCanvas({
     onCreate(tool, [g.start, p]);
   };
   const cancel = (e: RPointerEvent) => {
-    if (e.pointerId === penId.current) penId.current = null;
+    if (e.pointerId === penId.current) {
+      penId.current = null;
+      lastPenAt = Date.now();
+    }
     pointers.current.delete(e.pointerId);
     if (!pointers.current.size) {
       gesture.current = null;

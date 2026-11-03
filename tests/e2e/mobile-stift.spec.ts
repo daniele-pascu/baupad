@@ -101,6 +101,16 @@ test('Aufmaß: Hand liegt auf (ein Finger am Bildschirm), Stift tippt: Markierun
   await expect(page.getByTestId('damage-dialog')).toHaveCount(0);
   if (before !== null) expect(await viewer.getAttribute('data-tx')).not.toBe(before);
   await expect(page.locator('.damage-label')).toHaveCount(1);
+  // Stift ruht (z. B. leer): nach kurzer Zeit geht wieder alles mit dem Finger – Rechteck ziehen öffnet die Messung
+  await pause(4300);
+  await pickTool(page, 'tool-rect', 'tap');
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: b.x + b.width * 0.3, y: b.y + b.height * 0.3, id: 41 }] });
+  for (let i = 1; i <= 8; i++) {
+    await pause(16);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: b.x + b.width * (0.3 + i * 0.03), y: b.y + b.height * (0.3 + i * 0.02), id: 41 }] });
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await expect(page.getByTestId('damage-dialog')).toBeVisible();
 });
 
 test('Mängelplan: Hand liegt auf, Stift setzt den Pin trotzdem', async ({ page }, info) => {

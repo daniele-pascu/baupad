@@ -205,11 +205,13 @@ const releaseCanvas = (c: HTMLCanvasElement) => {
 };
 
 /**
- * Stift (Apple Pencil u. ä.): sobald einmal benutzt, zeichnet nur noch der Stift – Finger verschieben und zoomen
- * nur (ein Finger verschiebt, zwei zoomen); eine aufliegende Hand während des Stifts wird ignoriert.
- * Gilt für die ganze Sitzung (alle Pläne).
+ * Stift (Apple Pencil u. ä.): solange mit dem Stift gearbeitet wird, zeichnet nur der Stift – Finger verschieben und
+ * zoomen nur (Handballen-Schutz); eine aufliegende Hand während des Stifts wird ignoriert. Ruht der Stift einen
+ * Moment (PEN_IDLE_MS), geht wieder alles mit dem Finger – auch wenn der Stift leer ist oder fehlt.
  */
-let penSeen = false;
+let lastPenAt = 0;
+export const PEN_IDLE_MS = 4000;
+const penActive = () => Date.now() - lastPenAt < PEN_IDLE_MS;
 
 /** Werkzeuge, die durch Ziehen eine Form erzeugen */
 type DrawGestureTool = ShapeType | 'dimension' | 'calibrate' | 'window' | 'vector';
@@ -720,7 +722,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   const onPointerDown = (e: React.PointerEvent) => {
     if (!viewRef.current || status !== 'ready') return;
     if (e.pointerType === 'pen') {
-      penSeen = true;
+      lastPenAt = Date.now();
       // Stift hat Vorrang: was eine aufliegende Hand begonnen hat, verwerfen – der Stift zählt nie für eine Zoom-Geste
       if (pointers.current.size) {
         dropGesture();
@@ -751,8 +753,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       gesture.current = { kind: 'pan', start: p, view: v, moved: true, tapTarget: null };
       return;
     }
-    if (e.pointerType === 'touch' && penSeen) {
-      // mit Stift gearbeitet: ein Finger verschiebt nur (kein Zeichnen, kein Auswählen, Werkzeug bleibt)
+    if (e.pointerType === 'touch' && penActive()) {
+      // gerade mit dem Stift gearbeitet: ein Finger verschiebt nur (kein Zeichnen, kein Auswählen, Werkzeug bleibt)
       gesture.current = { kind: 'pan', start: p, view: v, moved: false, tapTarget: null, navOnly: true };
       return;
     }
@@ -977,7 +979,10 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   };
 
   const finish = (e: React.PointerEvent, cancelled: boolean) => {
-    if (e.pointerId === penId.current) penId.current = null;
+    if (e.pointerId === penId.current) {
+      penId.current = null;
+      lastPenAt = Date.now(); // Handballen-Schutz zählt ab dem Absetzen des Stifts
+    }
     if (palmIds.current.delete(e.pointerId)) suppressClick.current = true;
     if (!pointers.current.has(e.pointerId)) return;
     pointers.current.delete(e.pointerId);
