@@ -390,18 +390,18 @@ function LvDocView({ data, doc, onEdit, onDelete }: { data: ProjectState; doc: L
                     data-testid="lv-row"
                     data-number={pos.number}
                   >
-                    <td className="nowrap">{pos.number}</td>
-                    <td className="lv-text">
+                    <td className="nowrap lv-c-no">{pos.number}</td>
+                    <td className="lv-text lv-c-text">
                       {pos.shortText}
                       {pos.issues.length > 0 && <span className="lv-warn" title={pos.issues.join(' · ')}> ⚠</span>}
                     </td>
-                    <td>{pos.unit}</td>
-                    <td className="num">{qty(pos.quantity)}</td>
-                    <td className="num" data-testid="lv-measured">
+                    <td className="lv-c-unit" data-label="EH">{pos.unit}</td>
+                    <td className="num lv-c-qty" data-label="LV-Menge">{qty(pos.quantity)}</td>
+                    <td className="num lv-c-meas" data-label="Aufmaß" data-testid="lv-measured">
                       {m.damages.length ? (m.value !== null ? qty(m.value) : `${m.damages.length} Mess.`) : '–'}
                     </td>
-                    <td className="num hide-sm">{eur(pos.unitPrice)}</td>
-                    <td className="num hide-sm">{m.amount !== null && m.damages.length ? eur(m.amount) : '–'}</td>
+                    <td className="num hide-sm lv-c-ep" data-label="EP">{eur(pos.unitPrice)}</td>
+                    <td className="num hide-sm lv-c-gp" data-label="GP">{m.amount !== null && m.damages.length ? eur(m.amount) : '–'}</td>
                   </tr>
                   {isOpen && (
                     <tr className="lv-detail">

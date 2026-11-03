@@ -485,6 +485,14 @@ test('LV/MFK manuell per Finger: Tabelle passt auf den Bildschirm, Enter legt di
   await save.tap();
   await expect(dlg).toBeHidden();
   await expect(page.getByTestId('lv-row')).toHaveCount(2);
+  // LV-Ansicht: nichts abgeschnitten – Nummer, Kurztext, Menge und Aufmaß liegen innerhalb der Tabelle
+  const wrap = (await page.getByTestId('lv-table').locator('xpath=..').boundingBox())!;
+  for (const cell of ['.lv-c-no', '.lv-c-text', '.lv-c-qty', '.lv-c-meas']) {
+    const c = (await page.getByTestId('lv-row').first().locator(cell).boundingBox())!;
+    expect(c.width).toBeGreaterThan(0);
+    expect(c.x + c.width).toBeLessThanOrEqual(wrap.x + wrap.width + 1);
+  }
+  await page.getByTestId('lv-table').screenshot({ path: join(OUT, `${info.project.name}-lv-ansicht.png`) });
 });
 
 test('Rechnung anlegen per Finger: vier Arten passen auf den Bildschirm', async ({ page }) => {
