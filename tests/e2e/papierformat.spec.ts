@@ -273,8 +273,80 @@ test('Starkes Hineinzoomen: Ausschnitt scharf aus dem PDF, Hilfs-Zeichenflächen
   const detail = page.getByTestId('plan-detail');
   await expect(detail).toBeVisible({ timeout: 15_000 });
   expect(await detail.evaluate((c: HTMLCanvasElement) => c.width)).toBeGreaterThan(400);
+  // Ausschnitt in Bildschirmpixeln, nicht in der per CSS vergrößerten Ebene (Safari zeigt die unscharf)
+  const fit = await detail.evaluate((c: HTMLCanvasElement) => ({
+    inWorld: !!c.closest('.viewer-world'),
+    ratio: c.width / (c.getBoundingClientRect().width * devicePixelRatio),
+  }));
+  expect(fit.inWorld).toBe(false);
+  expect(fit.ratio).toBeGreaterThan(0.85);
+  // liegt deckungsgleich über dem Grundbild: Ausschnitt mit und ohne scharfe Ebene fast gleich
+  const viewer = page.getByTestId('plan-viewer');
+  const sharp = await viewer.screenshot({ path: join(OUT, 'zoom-scharf.png') });
+  await detail.evaluate((c: HTMLCanvasElement) => (c.style.visibility = 'hidden'));
+  await viewer.screenshot({ path: join(OUT, 'zoom-grundbild.png') });
+  await detail.evaluate((c: HTMLCanvasElement) => (c.style.visibility = ''));
+  expect(sharp.length).toBeGreaterThan(0);
   // keine großen Zeichenflächen bleiben im Speicher: nicht eingehängte sind auf 0 × 0 zurückgesetzt (kleine Vorschaubilder zählen nicht)
   await expect
     .poll(() => page.evaluate(() => (window as unknown as { __canvases: HTMLCanvasElement[] }).__canvases.filter((c) => !c.isConnected && c.width * c.height > 200_000).length), { timeout: 10_000 })
     .toBe(0);
+});
+
+test('Pläne von einem anderen Gerät (ohne Vorschaubilder): geöffneter Plan bleibt beim Zoomen scharf, auch während Vorschaubilder entstehen', async ({ page }) => {
+  const problems: string[] = [];
+  page.on('console', (m) => {
+    if (/Detail neu laden|destroyed|Transport|Worker was/i.test(m.text())) problems.push(m.text());
+  });
+  await freshStart(page);
+  await createProject(page, 'Viele Pläne', {}, ['EG']);
+  const files = ['farbplan.pdf', 'massketten.pdf', 'masslinien.pdf', 'plaene.pdf'];
+  for (const [i, f] of files.entries()) {
+    await page.goto(page.url().replace(/\/plan\/.*$/, ''));
+    await page.getByTestId('plan-file-input').setInputFiles(join(FIXTURES, f));
+    const wiz = page.getByTestId('import-wizard');
+    await expect(wiz.getByTestId('pages-next').or(wiz.getByTestId('areas-next'))).toBeVisible({ timeout: 20_000 });
+    if (await wiz.getByTestId('pages-next').isVisible()) {
+      await wiz.getByTestId('page-tile').first().click();
+      await wiz.getByTestId('pages-next').click();
+    }
+    await wiz.getByTestId('areas-next').click();
+    await wiz.locator('[data-field="planNumber"]').fill(`V-${i + 1}`);
+    await wiz.getByTestId('import-save').click();
+    await waitForPlan(page);
+  }
+  const projectUrl = page.url().replace(/\/plan\/.*$/, '');
+  // wie auf einem zweiten Gerät: keine Vorschaubilder vorhanden
+  await page.evaluate(
+    () =>
+      new Promise<void>((res) => {
+        for (const k of Object.keys(localStorage)) if (k.startsWith('thumbCrop:')) localStorage.removeItem(k);
+        const r = indexedDB.open('schadstellen-aufmass');
+        r.onsuccess = () => {
+          const tx = r.result.transaction('thumbs', 'readwrite');
+          tx.objectStore('thumbs').clear();
+          tx.oncomplete = () => {
+            r.result.close();
+            res();
+          };
+        };
+      }),
+  );
+  // langsames Gerät nachstellen (iPad rendert große Pläne deutlich langsamer)
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Emulation.setCPUThrottlingRate', { rate: 12 });
+  await page.goto(projectUrl);
+  // sofort einen Plan öffnen, während die Vorschaubilder der anderen noch entstehen
+  await page.getByTestId('plan-row').filter({ hasText: 'V-1' }).first().getByTestId('plan-open').click();
+  await waitForPlan(page);
+  const zoom = page.getByRole('button', { name: 'Vergrößern', exact: true });
+  for (let i = 0; i < 6; i++) await zoom.click();
+  const detail = page.getByTestId('plan-detail');
+  await expect(detail).toBeVisible({ timeout: 15_000 });
+  await page.waitForTimeout(8000); // Vorschaubilder sind fertig
+  await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+  for (let i = 0; i < 2; i++) await zoom.click();
+  await page.waitForTimeout(1500);
+  await expect(detail).toBeVisible();
+  expect(problems).toEqual([]);
 });

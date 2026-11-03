@@ -156,6 +156,8 @@ export function ImportWizard({ file, data, costCenterId, invoiceId = null, onClo
       const size = await getSize(page);
       const canvas = await renderPage(page, 1400);
       const img = canvas.getContext('2d', { willReadFrequently: true })!.getImageData(0, 0, canvas.width, canvas.height);
+      canvas.width = 0; // Safari: Zeichenfläche sofort freigeben
+      canvas.height = 0;
       const r = contentBounds(img, size.width, size.height);
       if (!r) return toast('Kein nennenswerter weißer Rand gefunden – die ganze Seite wird verwendet.');
       setAreas(new Map(areas).set(page, [r]));
@@ -249,20 +251,34 @@ export function ImportWizard({ file, data, costCenterId, invoiceId = null, onClo
       const detected = new Map<number, ScaleDetection | null>();
       if (kind === 'pdf' && doc) {
         const texts = new Map<string, PageText[]>();
+        let fresh: PDFDocumentProxy | null = null;
+        const detect = async (src: PDFDocumentProxy, d: (typeof drafts)[number]) => {
+          const tk = `${d.pageIndex}:${d.rotation}`;
+          const pg = await src.getPage(d.pageIndex + 1);
+          if (!texts.has(tk)) texts.set(tk, await readPageText(pg, d.rotation));
+          const size = pageSize(pg, d.rotation);
+          const region = d.crop ?? { x: 0, y: 0, w: size.width, h: size.height };
+          // Maßlinien des Bereichs (Vektor-PDF) – zuverlässigste Quelle für den Maßstab
+          const segs = await readPageSegments(pg, d.rotation, region).catch(() => []);
+          return detectScale(texts.get(tk)!, region, segs);
+        };
         for (const [i, d] of drafts.entries()) {
           try {
-            const tk = `${d.pageIndex}:${d.rotation}`;
-            const pg = await doc.getPage(d.pageIndex + 1);
-            if (!texts.has(tk)) texts.set(tk, await readPageText(pg, d.rotation));
-            const size = await getSize(d.pageIndex, d.rotation);
-            const region = d.crop ?? { x: 0, y: 0, w: size.width, h: size.height };
-            // Maßlinien des Bereichs (Vektor-PDF) – zuverlässigste Quelle für den Maßstab
-            const segs = await readPageSegments(pg, d.rotation, region).catch(() => []);
-            detected.set(i, detectScale(texts.get(tk)!, region, segs));
-          } catch {
-            detected.set(i, null); // Erkennung ist optional – Import geht immer weiter
+            detected.set(i, await detect(fresh ?? doc, d));
+          } catch (e) {
+            // z. B. am iPad das Vorschau-Dokument schon beendet: frisch aus der Datei öffnen und einmal wiederholen
+            console.warn('Maßstab-Erkennung, neuer Versuch', e);
+            try {
+              fresh ??= await openPdf(buf!);
+              detected.set(i, await detect(fresh, d));
+            } catch (e2) {
+              detected.set(i, null); // Erkennung ist optional – Import geht immer weiter
+              // sichtbar machen, damit ein Fehler am Gerät gemeldet werden kann
+              toast(`Maßstab nicht automatisch erkannt (${(e2 as Error)?.message ?? e2}). Bitte im Plan kalibrieren.`, 'error');
+            }
           }
         }
+        if (fresh) void closePdf(fresh);
       }
       const draftSizes = await Promise.all(drafts.map((d) => getSize(d.pageIndex, d.rotation)));
       const plans: Plan[] = drafts.map((d, i) => {
@@ -516,7 +532,11 @@ function PageTile({
       done = true;
       io.disconnect();
       enqueue(render)
-        .then((c) => setUrl(c.toDataURL('image/jpeg', 0.7)))
+        .then((c) => {
+          setUrl(c.toDataURL('image/jpeg', 0.7));
+          c.width = 0; // Safari: Zeichenfläche sofort freigeben
+          c.height = 0;
+        })
         .catch((e) => console.warn(e));
     });
     io.observe(el);

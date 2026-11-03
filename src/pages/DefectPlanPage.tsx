@@ -530,15 +530,17 @@ function PlanCanvas({
         if (e.cancelable) e.preventDefault();
       }}
     >
-      <div ref={stage} className={`dp-stage${plan.gray ? ' dp-gray' : ''}`} data-gray={plan.gray ? '' : undefined} style={{ width: fitW, height: fitH, transform: `translate(${view.tx}px, ${view.ty}px) scale(${view.s})` }}>
+      <div className={`dp-base${plan.gray ? ' dp-gray' : ''}`} style={{ width: fitW, height: fitH, transform: `translate(${view.tx}px, ${view.ty}px) scale(${view.s})` }}>
         {url ? <img src={url} alt="" draggable={false} /> : <div className="dp-loading muted small">Plan wird geladen …</div>}
-        <canvas
-          ref={detailRef}
-          className="dp-detail"
-          data-testid="dp-detail"
-          style={detail ? { left: detail.x, top: detail.y, width: detail.w, height: detail.h } : { display: 'none' }}
-          aria-hidden="true"
-        />
+      </div>
+      <canvas
+        ref={detailRef}
+        className={`dp-detail${plan.gray ? ' dp-gray' : ''}`}
+        data-testid="dp-detail"
+        style={detail ? { left: view.tx + detail.x * view.s, top: view.ty + detail.y * view.s, width: detail.w * view.s, height: detail.h * view.s } : { display: 'none' }}
+        aria-hidden="true"
+      />
+      <div ref={stage} className={`dp-stage${plan.gray ? ' dp-gray' : ''}`} data-gray={plan.gray ? '' : undefined} style={{ width: fitW, height: fitH, transform: `translate(${view.tx}px, ${view.ty}px) scale(${view.s})` }}>
         <svg viewBox={`0 0 ${W} ${H}`} width={fitW} height={fitH} aria-hidden="true">
           {marks.map((m) => renderShape(m, m.id, m.id === selectedId))}
           {draft && renderShape({ ...draft, color }, 'draft', false, true)}

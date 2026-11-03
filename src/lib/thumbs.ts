@@ -20,6 +20,13 @@ export async function renderSource(
 }
 
 const pending = new Map<string, Promise<Blob>>();
+/** Vorschaubilder nacheinander erzeugen – parallel öffnet das iPad sonst viele große PDFs zugleich */
+let queue: Promise<unknown> = Promise.resolve();
+function enqueue<T>(job: () => Promise<T>): Promise<T> {
+  const r = queue.then(job, job);
+  queue = r.catch(() => {});
+  return r;
+}
 
 /** Vorschaubild eines Plans (zwischengespeichert, nur lokal). */
 export function planThumb(plan: Plan, file: SourceFile): Promise<Blob> {
@@ -29,8 +36,15 @@ export function planThumb(plan: Plan, file: SourceFile): Promise<Blob> {
   p = (async () => {
     const cached = await getThumb(plan.id);
     if (cached && thumbMatches(plan)) return cached;
-    const canvas = await renderSource(file, plan.pageIndex, 480, plan.crop, plan.rotation);
-    const blob = await canvasToBlob(canvas, 'image/jpeg', 0.8);
+    const blob = await enqueue(async () => {
+      const canvas = await renderSource(file, plan.pageIndex, 480, plan.crop, plan.rotation);
+      try {
+        return await canvasToBlob(canvas, 'image/jpeg', 0.8);
+      } finally {
+        canvas.width = 0; // Safari: Zeichenfläche sofort freigeben
+        canvas.height = 0;
+      }
+    });
     await putThumb(plan.id, plan.projectId, blob);
     localStorage.setItem(`thumbCrop:${plan.id}`, thumbKey(plan));
     return blob;

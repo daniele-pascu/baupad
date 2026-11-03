@@ -33,7 +33,7 @@ import {
   type Point,
   type View,
 } from '../lib/geometry';
-import { clampRenderScale, drawImageRegion, getImageBitmap, getPdfDocument, renderPdfRegion, type RenderJob } from '../lib/pdf';
+import { clampRenderScale, drawImageRegion, dropPdfDocument, getImageBitmap, getPdfDocument, pinPdfDocument, renderPdfRegion, type RenderJob } from '../lib/pdf';
 import { getView, putView } from '../lib/db';
 import { arcShape } from '../lib/cad';
 import { SNAP_LABELS, type SnapKind } from '../lib/snap';
@@ -390,6 +390,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       return;
     }
     setStatus('loading');
+    const unpin = fileKind === 'pdf' ? pinPdfDocument(fileId) : null;
     (async () => {
       const canvas = baseCanvasRef.current!;
       // Grundbild so groß wie möglich (Zeichenflächen-Limit ~16 Mio. Pixel); beim Zoomen wird zusätzlich scharf nachgezeichnet
@@ -427,6 +428,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     return () => {
       cancelled = true;
       job?.cancel();
+      unpin?.();
     };
   }, [fileId, fileKind, fileMime, plan.pageIndex, region, rot]);
 
@@ -454,8 +456,21 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       const canvas = document.createElement('canvas');
       const src = source.current;
       if (src?.page) {
-        job = renderPdfRegion(src.page, canvas, r, s, rot);
-        job.promise
+        const run = (page: NonNullable<typeof src.page>) => {
+          job = renderPdfRegion(page, canvas, r, s, rot);
+          return job.promise;
+        };
+        run(src.page)
+          .catch(async (e) => {
+            // Dokument geschlossen oder Worker beendet (z. B. Speicherdruck am iPad): neu öffnen, einmal wiederholen
+            if (cancelled || !fileId) throw e;
+            console.warn('Detail neu laden', e);
+            dropPdfDocument(fileId);
+            const page = await (await getPdfDocument(fileId)).getPage(plan.pageIndex + 1);
+            if (cancelled) return;
+            source.current = { page };
+            await run(page);
+          })
           .then(() => {
             if (cancelled) return;
             swapDetail(canvas, r);
@@ -484,6 +499,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       clearTimeout(t);
       job?.cancel();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
    }, [view, size, status, region, fileId, rot]);
 
   // ---------------------------------------------------------------------------
@@ -1249,17 +1265,24 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
           className="viewer-canvas"
           style={{ left: region.x, top: region.y, width: region.w, height: region.h }}
         />
-        <canvas
-          ref={detailCanvasRef}
-          data-testid="plan-detail"
-          className="viewer-canvas"
-          style={
-            detailRect
-              ? { left: detailRect.x, top: detailRect.y, width: detailRect.w, height: detailRect.h }
-              : { display: 'none' }
-          }
-        />
       </div>
+      {/* Scharfer Ausschnitt in Bildschirmpixeln, bewusst AUSSERHALB der skalierten Ebene: Safari (iPad/iPhone)
+          rastert vergrößerte Ebenen in geringer Auflösung und zieht sie hoch – darin wäre er unscharf. */}
+      <canvas
+        ref={detailCanvasRef}
+        data-testid="plan-detail"
+        className={`viewer-canvas viewer-detail${props.plan.planColor ? '' : ' plan-gray'}`}
+        style={
+          detailRect && view
+            ? {
+                left: view.tx + detailRect.x * view.scale,
+                top: view.ty + detailRect.y * view.scale,
+                width: detailRect.w * view.scale,
+                height: detailRect.h * view.scale,
+              }
+            : { display: 'none' }
+        }
+      />
       {view && size && (
         <svg className="viewer-overlay" width={size.w} height={size.h}>
           {props.underlay?.(view, size)}

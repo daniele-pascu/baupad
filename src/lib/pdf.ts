@@ -33,6 +33,41 @@ export function closePdf(doc: PDFDocumentProxy): Promise<void> {
 // Zwischenspeicher für geöffnete Dokumente (begrenzt, um Speicher auf iPhone/iPad zu schonen)
 const docCache = new Map<string, Promise<PDFDocumentProxy>>();
 const MAX_DOCS = 2;
+/** Dokumente, die gerade angezeigt werden – werden nie aus dem Zwischenspeicher geworfen */
+const pinned = new Map<string, number>();
+
+/**
+ * Dokument festhalten, solange es angezeigt wird (z. B. Planansicht). Sonst könnten Vorschaubilder
+ * anderer Pläne es schließen – danach scheitert das scharfe Nachzeichnen beim Zoomen.
+ */
+export function pinPdfDocument(fileId: string): () => void {
+  pinned.set(fileId, (pinned.get(fileId) ?? 0) + 1);
+  return () => {
+    const n = (pinned.get(fileId) ?? 1) - 1;
+    if (n > 0) pinned.set(fileId, n);
+    else pinned.delete(fileId);
+    trimDocCache();
+  };
+}
+
+/** Dokument verwerfen (z. B. nach einem Fehler), beim nächsten Zugriff wird es neu geöffnet */
+export function dropPdfDocument(fileId: string): void {
+  const p = docCache.get(fileId);
+  docCache.delete(fileId);
+  p?.then((d) => closePdf(d)).catch(() => {});
+}
+
+function trimDocCache() {
+  const evictable = () => [...docCache.keys()].filter((k) => !pinned.has(k));
+  let keys = evictable();
+  while (docCache.size > MAX_DOCS && keys.length) {
+    const oldest = keys[0];
+    const old = docCache.get(oldest)!;
+    docCache.delete(oldest);
+    old.then((d) => closePdf(d)).catch(() => {});
+    keys = evictable();
+  }
+}
 
 export function getPdfDocument(fileId: string): Promise<PDFDocumentProxy> {
   let p = docCache.get(fileId);
@@ -46,13 +81,11 @@ export function getPdfDocument(fileId: string): Promise<PDFDocumentProxy> {
     if (!data) throw new Error('Originaldatei nicht gefunden.');
     return openPdf(data);
   })();
-  p.catch(() => docCache.delete(fileId));
+  p.catch(() => {
+    if (docCache.get(fileId) === p) docCache.delete(fileId);
+  });
   docCache.set(fileId, p);
-  while (docCache.size > MAX_DOCS) {
-    const [oldest, old] = docCache.entries().next().value!;
-    docCache.delete(oldest);
-    old.then((d) => closePdf(d)).catch(() => {});
-  }
+  trimDocCache();
   return p;
 }
 

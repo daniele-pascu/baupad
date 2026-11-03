@@ -1372,8 +1372,13 @@ input[type='range'] {
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
 }
 /* Planunterlage schwarz-weiß (Standard): farbige Markierungen heben sich besser ab */
-.viewer-world.plan-gray .viewer-canvas {
+.viewer-world.plan-gray .viewer-canvas,
+.viewer-detail.plan-gray {
   filter: grayscale(1);
+}
+.viewer-detail {
+  pointer-events: none;
+  box-shadow: none;
 }
 .viewer-overlay {
   position: absolute;
@@ -8448,13 +8453,33 @@ button.report-site-empty {
   height: 100%;
   pointer-events: none;
 }
-.dp-stage > canvas.dp-detail {
+/* Grundbild in eigener Ebene unter dem scharfen Ausschnitt; die Bühne darüber trägt nur Markierungen */
+.dp-base {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  pointer-events: none;
+  background: #fff;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
+}
+.dp-base > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.dp-canvas > .dp-stage {
+  background: transparent;
+  box-shadow: none;
+}
+/* scharfer Ausschnitt in Bildschirmpixeln (nicht in der skalierten Ebene – Safari wäre dort unscharf) */
+.dp-canvas > canvas.dp-detail {
   position: absolute;
   pointer-events: none;
 }
 /* Plan schwarz-weiß (Markierungen im SVG bleiben farbig) */
-.dp-stage.dp-gray > img,
-.dp-stage.dp-gray > canvas.dp-detail {
+.dp-base.dp-gray > img,
+canvas.dp-detail.dp-gray {
   filter: grayscale(1);
 }
 .dp-stage > svg {
