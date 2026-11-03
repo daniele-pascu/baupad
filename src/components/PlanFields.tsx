@@ -19,6 +19,9 @@ export interface PlanFieldValues {
   title?: string;
   /** Bemerkung im PDF anzeigen */
   showNote?: boolean;
+  /** Planbezeichnung bzw. Ebene in der Überschrift anzeigen */
+  showName?: boolean;
+  showFloor?: boolean;
 }
 
 /** Kontrollkästchen „Im Plan anzeigen“: steuert nur die Ausgabe im PDF, die Angabe bleibt gespeichert */
@@ -76,18 +79,24 @@ export function PlanFields({
         />
       </label>
       <p className="muted small span-2 heading-preview" data-testid="heading-preview">
-        Überschrift im PDF: {planHeading({ planNumber: value.planNumber, title: value.title })}
+        Überschrift im PDF: {planHeading({ planNumber: value.planNumber, title: value.title, planName: value.planName, floor: value.floor, showName: value.showName, showFloor: value.showFloor })}
       </p>
       {!simple && (
       <>
-      <label className="field">
-        <span>Planbezeichnung</span>
-        <input value={value.planName} onChange={(e) => onChange({ planName: e.target.value })} placeholder="z. B. Untergeschoss" data-field="planName" autoComplete="off" enterKeyHint="next" />
-      </label>
-      <label className="field">
-        <span>Ebene / Geschoss</span>
-        <input value={value.floor} onChange={(e) => onChange({ floor: e.target.value })} placeholder="z. B. UG2, EG, 1. OG" data-field="floor" autoComplete="off" enterKeyHint="next" />
-      </label>
+      <div className="field">
+        <span className="field-head">
+          <label htmlFor={`${id}-name`}>Planbezeichnung</label>
+          <ShowInPlan checked={!!value.showName} onChange={(showName) => onChange({ showName })} testId="show-name" />
+        </span>
+        <input id={`${id}-name`} value={value.planName} onChange={(e) => onChange({ planName: e.target.value })} placeholder="z. B. BA. 4" data-field="planName" autoComplete="off" enterKeyHint="next" />
+      </div>
+      <div className="field">
+        <span className="field-head">
+          <label htmlFor={`${id}-floor`}>Ebene / Geschoss</label>
+          <ShowInPlan checked={!!value.showFloor} onChange={(showFloor) => onChange({ showFloor })} testId="show-floor" />
+        </span>
+        <input id={`${id}-floor`} value={value.floor} onChange={(e) => onChange({ floor: e.target.value })} placeholder="z. B. UG2, EG, 1. OG" data-field="floor" autoComplete="off" enterKeyHint="next" />
+      </div>
       <label className="field">
         <span>Planbereich</span>
         <input value={value.area} onChange={(e) => onChange({ area: e.target.value })} placeholder="z. B. Decke, Wand Nord" data-field="area" autoComplete="off" enterKeyHint="next" />
@@ -115,6 +124,8 @@ export function PlanDetailsDialog({ plan, data, onClose }: { plan: Plan; data: P
     description: plan.description,
     title: plan.title ?? '',
     showNote: !!plan.showNote,
+    showName: !!plan.showName,
+    showFloor: !!plan.showFloor,
   });
   const [showPaper, setShowPaper] = useState(!!plan.showPaper);
   const [showScale, setShowScale] = useState(!!plan.showScale);
@@ -154,6 +165,8 @@ export function PlanDetailsDialog({ plan, data, onClose }: { plan: Plan; data: P
                 numberStart: Number(start.trim()),
                 title: v.title?.trim() ?? '',
                 showNote: !!v.showNote,
+                showName: !!v.showName,
+                showFloor: !!v.showFloor,
                 showPaper,
                 showScale: isDrawingPlan(plan) ? showScale : false,
                 ...(isDrawingPlan(plan) ? (paper ? sheetFields(paper, scale) : {}) : { paper: exportFmt }),
@@ -260,6 +273,8 @@ export function NewDrawingDialog({
       description: v.description.trim(),
       title: v.title?.trim() ?? '',
       showNote: !!v.showNote,
+      showName: !!v.showName,
+      showFloor: !!v.showFloor,
       showPaper,
       showScale,
       numberStart: 1,

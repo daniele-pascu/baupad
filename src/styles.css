@@ -9039,3 +9039,10 @@ button.report-site-empty {
     text-overflow: ellipsis;
   }
 }
+
+/* Planliste: Sortierung nach Plannummer */
+.plan-sort-row {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 0 8px;
+}

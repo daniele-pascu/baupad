@@ -113,6 +113,13 @@ test('Plandetails: Format und Überschrift ändern, nach Neuladen erhalten', asy
   await det.locator('[data-field="title"]').fill('Aufmaß Hof');
   await det.locator('[data-field="description"]').fill('Nur Bereich Nord');
   await det.getByTestId('show-note').check();
+  // Planbezeichnung und Ebene neben Titel und Nummer (Kästchen „Im Plan anzeigen“)
+  await det.locator('[data-field="planName"]').fill('BA. 4');
+  await det.locator('[data-field="floor"]').fill('UG2');
+  await expect(det.getByTestId('heading-preview')).toHaveText('Überschrift im PDF: Aufmaß Hof P-7');
+  await det.getByTestId('show-name').check();
+  await det.getByTestId('show-floor').check();
+  await expect(det.getByTestId('heading-preview')).toHaveText('Überschrift im PDF: Aufmaß Hof P-7 BA. 4 UG2');
   await det.getByRole('button', { name: 'Speichern' }).click();
   await waitSaved(page); // erst nach dem Speichern neu laden (sonst fragt der Browser nach)
   await page.reload();
@@ -121,12 +128,14 @@ test('Plandetails: Format und Überschrift ändern, nach Neuladen erhalten', asy
   await expect(det.getByTestId('export-paper')).toHaveValue('A4-hoch');
   await expect(det.locator('[data-field="title"]')).toHaveValue('Aufmaß Hof');
   await expect(det.getByTestId('show-note')).toBeChecked();
+  await expect(det.getByTestId('show-name')).toBeChecked();
+  await expect(det.getByTestId('show-floor')).toBeChecked();
   await det.getByRole('button', { name: 'Abbrechen' }).click();
   await page.getByTestId('plan-open').click();
   await waitForPlan(page);
   r = await exportPdf(page, 'format-a4-hoch');
   expect(r.info).toMatch(new RegExp(`Page size:\\s+${A4} pts`));
-  expect(r.text).toContain('Aufmaß Hof P-7');
+  expect(r.text).toContain('Aufmaß Hof P-7 BA. 4 UG2');
   expect(r.text).toContain('Nur Bereich Nord'); // Bemerkung, weil „Im Plan anzeigen“ gewählt
   expect(borderInk(r.png)).toBe(0);
   await page.screenshot({ path: join(OUT, 'format-editor.png') });
@@ -156,4 +165,32 @@ test('Gezeichneter Plan: Überschrift frei wählbar, Format des Zeichenblatts', 
   expect(r.text).not.toContain('Interne Notiz'); // Bemerkung nur auf Wunsch im Plan
   expect(r.text).not.toMatch(/Maßstab|A4/);
   expect(borderInk(r.png)).toBe(0);
+});
+
+test('Planliste: nach Plannummer auf- oder absteigend, Wahl bleibt gemerkt', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'Sortierung', {}, ['UG']);
+  for (const nr of ['009', '002', '010']) {
+    await page.getByTestId('draw-plan').click();
+    const nd = page.getByTestId('new-drawing');
+    await nd.locator('[data-field="planNumber"]').fill(nr);
+    await nd.getByTestId('new-drawing-save').click();
+    await expect(page.getByTestId('drawing-sheet')).toBeVisible();
+    await page.getByRole('link', { name: 'Zurück zur Planliste' }).click();
+  }
+  const numbers = () => page.getByTestId('plan-row').locator('.plan-number, [data-testid="plan-number"]').allInnerTexts();
+  const rows = page.getByTestId('plan-row');
+  await expect(rows).toHaveCount(3);
+  await expect(rows.nth(0)).toContainText('002');
+  await expect(rows.nth(2)).toContainText('010');
+  await expect(page.getByTestId('plan-sort')).toHaveText(/aufsteigend/);
+  await page.getByTestId('plan-sort').click();
+  await expect(page.getByTestId('plan-sort')).toHaveText(/absteigend/);
+  await expect(rows.nth(0)).toContainText('010');
+  await expect(rows.nth(1)).toContainText('009');
+  await expect(rows.nth(2)).toContainText('002');
+  void numbers;
+  await page.reload();
+  await expect(page.getByTestId('plan-sort')).toHaveAttribute('data-order', 'desc');
+  await expect(page.getByTestId('plan-row').nth(0)).toContainText('010');
 });

@@ -150,6 +150,9 @@ export interface Plan extends SyncMeta {
   };
   /** Im PDF anzeigen: Bemerkung (description), Papierformat, Maßstab – Standard: nein */
   showNote?: boolean;
+  /** in der Überschrift neben Titel und Nummer: Planbezeichnung bzw. Ebene/Geschoss (Standard: nein) */
+  showName?: boolean;
+  showFloor?: boolean;
   showPaper?: boolean;
   showScale?: boolean;
   /**

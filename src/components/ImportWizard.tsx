@@ -285,6 +285,8 @@ export function ImportWizard({ file, data, costCenterId, invoiceId = null, onClo
           description: d.description.trim(),
           title: d.title?.trim() ?? '',
           showNote: !!d.showNote,
+          showName: !!d.showName,
+          showFloor: !!d.showFloor,
           showPaper: d.showPaper,
           paper: d.paper,
           numberStart: 1,

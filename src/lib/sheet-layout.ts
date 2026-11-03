@@ -46,7 +46,9 @@ export const defaultPaper = (r: { w: number; h: number }): PaperFormat => (r.w >
  * Überschrift des Plans im PDF: optionaler Titel vor der (Pflicht-)Plannummer, sonst nichts –
  * z. B. „Aufmaßplan 067“ bzw. nur „067“.
  */
-export const planHeading = (plan: Pick<Plan, 'title' | 'planNumber'>) => [plan.title?.trim(), plan.planNumber.trim()].filter(Boolean).join(' ');
+/** Überschrift: Titel Nummer [Planbezeichnung] [Ebene] – z. B. „Aufmaßplan 009 BA. 4 UG2“ */
+export const planHeading = (plan: Pick<Plan, 'title' | 'planNumber'> & Partial<Pick<Plan, 'planName' | 'floor' | 'showName' | 'showFloor'>>) =>
+  [plan.title?.trim(), plan.planNumber.trim(), plan.showName ? plan.planName?.trim() : '', plan.showFloor ? plan.floor?.trim() : ''].filter(Boolean).join(' ');
 
 const fit = (r: { w: number; h: number }, box: { w: number; h: number }) => Math.min(box.w / r.w, box.h / r.h);
 

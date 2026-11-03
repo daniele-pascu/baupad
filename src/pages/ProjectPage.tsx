@@ -91,7 +91,25 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
   const invoice = split ? (invoices.find((i) => i.id === invoiceSel) ?? invoices[invoices.length - 1] ?? null) : null;
   /** Filter für plansOf: aufgeteilt → nur die Pläne der gewählten Rechnung */
   const invoiceFilter = split ? (invoice?.id ?? '') : undefined;
-  const plans = active ? plansOf(data, active.id, invoiceFilter) : [];
+  // Planliste nach Plannummer auf- oder absteigend (gemerkt auf dem Gerät)
+  const [planDesc, setPlanDesc] = useState(() => {
+    try {
+      return localStorage.getItem('planSort') === 'desc';
+    } catch {
+      return false;
+    }
+  });
+  const toggleSort = () => {
+    const next = !planDesc;
+    setPlanDesc(next);
+    try {
+      localStorage.setItem('planSort', next ? 'desc' : 'asc');
+    } catch {
+      /* optional */
+    }
+  };
+  const plansAsc = active ? plansOf(data, active.id, invoiceFilter) : [];
+  const plans = planDesc ? [...plansAsc].reverse() : plansAsc;
   const rows = aufmassRows(data, plans);
   /** Aufmaß der Rechnung: alle Messungen ihrer Pläne über alle Kostenstellen */
   const shownRows = split ? aufmassRows(data, invoice ? ccs.flatMap((c) => plansOf(data, c.id, invoice.id)) : []) : rows;
@@ -430,6 +448,13 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
             />
           </div>
 
+          {plans.length > 1 && (
+            <div className="plan-sort-row">
+              <button type="button" className="btn btn-sm" onClick={toggleSort} title="Reihenfolge der Pläne umkehren" data-testid="plan-sort" data-order={planDesc ? 'desc' : 'asc'}>
+                <Icon name={planDesc ? 'down' : 'up'} size={16} /> Plannr. {planDesc ? 'absteigend' : 'aufsteigend'}
+              </button>
+            </div>
+          )}
           {plans.length ? (
               <PlanList
                 data={data}
