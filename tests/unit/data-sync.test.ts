@@ -32,6 +32,10 @@ vi.mock('../../src/lib/db', () => ({
   setMeta: async (k: string, v: unknown) => void meta.set(k, v),
   setSyncChangeHook: () => {},
   setSyncFileFetcher: () => {},
+  getDB: async () => ({
+    getAll: async (store: string) => [...records.entries()].filter(([k]) => k.startsWith(`${store}:`)).map(([, v]) => v),
+    getKey: async (store: string, id: string) => (files.has(`${store}:${id}`) ? id : undefined),
+  }),
 }));
 vi.mock('../../src/lib/store', () => ({
   getState: () => ({ projectId: 'p1' }),
@@ -172,6 +176,24 @@ describe('Funktion „storage“ kennt alle Datenarten der App', () => {
     expect(app.length).toBeGreaterThan(10);
     expect(app.filter((s) => !server.includes(s))).toEqual([]);
     expect(new RegExp(/const RECORD_ID_RE = (\/.+\/);/.exec(fn)![1].slice(1, -1)).test('w1|2026-11-02')).toBe(true);
+  });
+});
+
+describe('Pläne auf dem Gerät', () => {
+  it('lädt nach dem Abgleich alle fehlenden Pläne in voller Auflösung (Original) herunter – vorhandene und gelöschte nicht', async () => {
+    records.set('files:f1', { id: 'f1', projectId: 'p1', deletedAt: null });
+    records.set('files:f2', { id: 'f2', projectId: 'p1', deletedAt: null });
+    records.set('files:f3', { id: 'f3', projectId: 'p1', deletedAt: 123 });
+    records.set('defectPlans:d1', { id: 'd1', deletedAt: null });
+    files.set('blobs:f2', { 'data.bin': new ArrayBuffer(8) }); // schon da
+    const sync = new DataSync('ws1', fakeFetch);
+    expect(await sync.prefetchFiles()).toBe(2);
+    expect(files.has('blobs:f1')).toBe(true);
+    expect(files.has('blobs:f3')).toBe(false);
+    expect(files.has('defectPlanImages:d1')).toBe(true);
+    expect(s3).toContain('GET https://s3.test/files/f1/data.bin');
+    expect(s3.some((u) => u.includes('files/f2/'))).toBe(false);
+    sync.stop();
   });
 });
 

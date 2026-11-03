@@ -10,6 +10,7 @@ import {
   getMeta,
   listOutbox,
   readSyncFile,
+  getDB,
   readSyncRecord,
   setMeta,
   setSyncChangeHook,
@@ -142,6 +143,7 @@ export class DataSync {
     );
   }
   stop() {
+    this.stopped = true;
     for (const f of this.stopFns) f();
     this.stopFns = [];
   }
@@ -166,6 +168,38 @@ export class DataSync {
     if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
     await this.push();
     await this.pull();
+    void this.prefetchFiles().catch(() => {});
+  }
+
+  private prefetching = false;
+  private stopped = false;
+  /**
+   * Alle Pläne auf dem Gerät halten – in voller Auflösung (Originaldatei), damit sie auf der Baustelle auch ohne
+   * Empfang da sind: importierte Pläne (PDF/Bild), Mängelplan-Bilder samt PDF, Formular-PDFs. Fehlende Dateien
+   * werden nach jedem Abgleich im Hintergrund nachgeladen (bisher erst beim Öffnen).
+   */
+  async prefetchFiles(): Promise<number> {
+    if (this.prefetching) return 0;
+    this.prefetching = true;
+    let n = 0;
+    try {
+      const db = await getDB();
+      const live = (x: object) => !(x as { deletedAt?: number | null }).deletedAt;
+      const want: [SyncFileStore, string][] = [
+        ...(await db.getAll('files')).filter(live).map((f) => ['blobs', f.id] as [SyncFileStore, string]),
+        ...(await db.getAll('defectPlans')).filter(live).map((d) => ['defectPlanImages', d.id] as [SyncFileStore, string]),
+        ...(await db.getAll('formTemplates')).map((t) => ['formTemplateFiles', t.id] as [SyncFileStore, string]),
+      ];
+      for (const [store, id] of want) {
+        if (this.stopped || (typeof navigator !== 'undefined' && navigator.onLine === false)) break;
+        if ((await db.getKey(store, id)) !== undefined) continue;
+        if (await this.fetchFile(store, id)) n++;
+      }
+    } finally {
+      this.prefetching = false;
+    }
+    if (n) notifyDataChanged();
+    return n;
   }
 
   /** Warteschlange übertragen – läuft nie doppelt; ein Aufruf währenddessen hängt einen weiteren Durchlauf an */
