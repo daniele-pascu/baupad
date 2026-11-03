@@ -48,7 +48,7 @@ export const en: Dict = {
   },
   home: {
     title: 'PAD Software – The working day, made easier',
-    description: 'PAD Software builds software that makes the working day easier. First product: BauPad for construction companies – measurement, crew scheduling, reports, photo documentation and defect plans in one app.',
+    description: 'PAD Software builds software that makes the working day easier. First product: BauPad for construction companies – measurement, crew scheduling, reports, photo documentation, defect plans and time recording in one app.',
     hero: {
       eyebrow: 'PAD Software',
       title: ['Software.', 'The working day,', 'made easier.'],
@@ -76,7 +76,7 @@ export const en: Dict = {
     baupad: {
       eyebrow: 'First product',
       title: 'BauPad. The job site in one app.',
-      text: 'Measurement & billing, crew scheduling, reports & forms, photo documentation and defect plans – five tools, one source of truth. On the phone on site, on the PC in the office, even offline.',
+      text: 'Measurement & billing, crew scheduling, reports & forms, photo documentation, defect plans and time recording – six tools, one source of truth. On the phone on site, on the PC in the office, even offline.',
       cta: 'Learn more about BauPad',
       stageTitle: 'BauPad – tool overview',
     },
@@ -116,11 +116,11 @@ export const en: Dict = {
   },
   baupad: {
     title: 'BauPad – The construction site in one app | PAD Software',
-    description: 'BauPad combines measurement & billing, crew scheduling, reports & forms, photo documentation and defect plan in one app – on phone, tablet and PC, even without reception.',
+    description: 'BauPad combines measurement & billing, crew scheduling, reports & forms, photo documentation, defect plan and time recording in one app – on phone, tablet and PC, even without reception.',
     hero: {
       eyebrow: 'BauPad · Product by PAD Software',
       title: ['The construction site', 'in one app.'],
-      lead: 'Measurement, scheduling, reports, photos and defect plan – five tools, one account, one state for everyone. Recorded on site, ready in the office.',
+      lead: 'Measurement, scheduling, reports, photos, defect plan and time recording – six tools, one account, one state for everyone. Recorded on site, ready in the office.',
       primary: 'Get in touch',
       secondary: 'Open BauPad',
       status: 'Test phase – subscription follows at launch',
@@ -133,9 +133,9 @@ export const en: Dict = {
       items: [
         {
           problem: 'A separate app for every job.',
-          detail: 'Measurement here, photos there, the schedule in a message. Five apps, five logins, the same site typed in five times.',
-          solution: 'Five tools in one app.',
-          points: ['Measurement & billing, crew scheduling, reports & forms, photo documentation, defect plan', 'One account, one company, one project list', 'On phone, tablet and PC – the same interface'],
+          detail: 'Measurement here, photos there, the hours on paper. Six apps, six logins, the same site typed in six times.',
+          solution: 'Six tools in one app.',
+          points: ['Measurement & billing, crew scheduling, reports & forms, photo documentation, defect plan, time recording', 'One account, one company, one project list', 'On phone, tablet and PC – the same interface'],
         },
         {
           problem: 'No reception on site.',
@@ -164,7 +164,7 @@ export const en: Dict = {
       items: [{ title: 'Admin', text: '' }, { title: 'Office', text: '' }, { title: 'Foreman', text: '' }, { title: 'Worker', text: '' }],
     },
     tools: {
-      eyebrow: 'The five tools',
+      eyebrow: 'The six tools',
       title: 'What BauPad does.',
       text: 'Short and direct – the way it is needed on site.',
       more: 'Learn more',
@@ -206,6 +206,15 @@ export const en: Dict = {
             'Stored online in seconds – for everyone with access to the project',
             'Sorted by day, calendar week, month or all at once',
             'Photo PDF with logo and details, ZIP for the archive',
+          ],
+        },
+        times: {
+          hook: 'Hours entered in the evening, not searched for at month end.',
+          points: [
+            'The foreman records site, from, to and break per day for all workers – suggested from the schedule',
+            'Holiday and sick leave with one tap, Austrian public holidays built in',
+            'Monthly sheet per worker with target, actual and travel time, approved by the office',
+            'Excel per worker in your own company template, continued every year – remaining leave and hours carried over',
           ],
         },
         defects: {
@@ -284,6 +293,18 @@ export const en: Dict = {
         { title: 'Organise', items: ['Project → calendar week → day', 'View by day, week, month or everything', 'Search by week, date, name or description', 'Move to another project'] },
         { title: 'View', items: ['Full view with paging and zoom', 'Rotation is saved immediately', 'Edit the description directly in the picture'] },
         { title: 'Export', items: ['Photo PDF: 1 to 6 photos per page, logo, selectable details', 'ZIP with files by date', 'Central storage: all devices of the company see the same state, files stored in Germany'] },
+      ],
+    },
+    times: {
+      title: 'Time Recording',
+      short: 'Hours per worker and day – recorded by the foreman, approved by the office, as Excel in your company template.',
+      points: ['Record the day with suggestions from the schedule', 'Monthly sheet with target, actual, holiday and sick leave', 'Excel per worker in your own company template'],
+      tagline: 'Your crew’s hours – recorded daily, approved monthly, ready for payroll.',
+      intro: 'The foreman enters site, from, to and break per day for his workers – BauPad suggests the site from the crew schedule and the usual times. Holiday and sick leave take one tap, Austrian public holidays are built in. The office approves each worker’s month and gets the Excel file in its own company template – with all formulas, continued every year.',
+      groups: [
+        { title: 'Record', items: ['Record the day: all workers of a day at a glance', 'Suggestion from the schedule, times once entered are kept', 'Second site on the same day, travel time optional', 'Holiday and sick leave with one tap'] },
+        { title: 'Check', items: ['Monthly sheet per worker: target, actual, plus/minus', 'Austrian public holidays automatically', 'Approval by the office, locked afterwards'] },
+        { title: 'Export', items: ['Excel per worker in the company template, all formulas kept', 'Continued every year: remaining leave and hours carried over', 'Saved online as monthly state on approval', 'All workers as ZIP'] },
       ],
     },
     defects: {

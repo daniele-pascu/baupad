@@ -9,7 +9,7 @@ import { Section, SectionHead } from '../components/Section';
 import { Backdrop } from '../components/Shapes';
 import { SiteLayout } from '../components/SiteShell';
 
-const OPEN: Record<ProductId, string> = { projects: paths.projects(), workers: paths.workers(), reports: paths.reports(), photos: paths.photos(), defects: paths.defects() };
+const OPEN: Record<ProductId, string> = { projects: paths.projects(), workers: paths.workers(), reports: paths.reports(), photos: paths.photos(), defects: paths.defects(), times: paths.times() };
 
 /** Werkzeug-Seite unter BauPad: Beschreibung, Funktionen in Gruppen, Platzhalter-Ansicht, weitere Werkzeuge */
 export function ToolPage({ id }: { id: ProductId }) {

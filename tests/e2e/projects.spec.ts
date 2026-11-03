@@ -34,9 +34,10 @@ test('Website: Startseite, Produkte, BauPad, Unternehmen, Kontaktformular, Sprac
 
   // BauPad: fünf Werkzeuge, Werkzeug-Seite, Werkzeug nur mit Anmeldung
   await expect(page.getByTestId('product-title')).toContainText('in einer App');
-  await expect(page.getByTestId('product-card')).toHaveCount(5);
+  await expect(page.getByTestId('product-card')).toHaveCount(6);
   await expect(page.getByTestId('product-card').nth(3)).toContainText('Fotodokumentation');
   await expect(page.getByTestId('product-card').nth(4)).toContainText('Mängelplan');
+  await expect(page.getByTestId('product-card').nth(5)).toContainText('Zeitaufzeichnung');
   await expect(page.getByTestId('problem-pairs').locator('article')).toHaveCount(3); // Problem → Lösung
   await page.getByTestId('product-card').nth(3).click();
   await expect(page.getByTestId('product-title')).toHaveText('Fotodokumentation');

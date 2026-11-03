@@ -33,6 +33,7 @@ export const TOOL_ENTRIES: ToolEntry[] = [
   { id: 'reports', icon: 'reports', color: '#a259ff', slug: PRODUCT_SLUG_OF.reports },
   { id: 'photos', icon: 'photos', color: '#193B63', slug: PRODUCT_SLUG_OF.photos },
   { id: 'defects', icon: 'defects', color: '#d6242b', slug: PRODUCT_SLUG_OF.defects },
+  { id: 'times', icon: 'times', color: '#0f9d76', slug: PRODUCT_SLUG_OF.times },
 ];
 
 export const PRODUCTS: ProductEntry[] = [{ id: 'baupad', status: 'available', path: (lang) => paths.baupad(lang), color: '#1c1c1f', tools: TOOL_ENTRIES }];

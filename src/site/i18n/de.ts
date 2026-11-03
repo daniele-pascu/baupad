@@ -50,7 +50,7 @@ export const de = {
   },
   home: {
     title: 'PAD Software – Den Arbeitstag leichter gemacht',
-    description: 'PAD Software entwickelt Software, die den Arbeitstag leichter macht. Erstes Produkt: BauPad für Baufirmen – Aufmaß, Arbeitereinteilung, Berichte, Fotodokumentation und Mängelplan in einer App.',
+    description: 'PAD Software entwickelt Software, die den Arbeitstag leichter macht. Erstes Produkt: BauPad für Baufirmen – Aufmaß, Arbeitereinteilung, Berichte, Fotodokumentation, Mängelplan und Zeitaufzeichnung in einer App.',
     hero: {
       eyebrow: 'PAD Software',
       title: ['Software.', 'Den Arbeitstag', 'leichter gemacht.'],
@@ -78,7 +78,7 @@ export const de = {
     baupad: {
       eyebrow: 'Erstes Produkt',
       title: 'BauPad. Die Baustelle in einer App.',
-      text: 'Aufmaß & Abrechnung, Arbeitereinteilung, Berichte & Formulare, Fotodokumentation und Mängelplan – fünf Werkzeuge, ein Stand. Am Handy auf der Baustelle, am PC im Büro, auch ohne Internet.',
+      text: 'Aufmaß & Abrechnung, Arbeitereinteilung, Berichte & Formulare, Fotodokumentation, Mängelplan und Zeitaufzeichnung – sechs Werkzeuge, ein Stand. Am Handy auf der Baustelle, am PC im Büro, auch ohne Internet.',
       cta: 'Mehr über BauPad erfahren',
       stageTitle: 'BauPad – Werkzeugübersicht',
     },
@@ -118,11 +118,11 @@ export const de = {
   },
   baupad: {
     title: 'BauPad – Die Baustelle in einer App | PAD Software',
-    description: 'BauPad vereint Aufmaß & Abrechnung, Arbeitereinteilung, Berichte & Formulare, Fotodokumentation und Mängelplan in einer App – am Handy, Tablet und PC, auch ohne Empfang.',
+    description: 'BauPad vereint Aufmaß & Abrechnung, Arbeitereinteilung, Berichte & Formulare, Fotodokumentation, Mängelplan und Zeitaufzeichnung in einer App – am Handy, Tablet und PC, auch ohne Empfang.',
     hero: {
       eyebrow: 'BauPad · Produkt von PAD Software',
       title: ['Die Baustelle', 'in einer App.'],
-      lead: 'Aufmaß, Einteilung, Berichte, Fotos und Mängelplan – fünf Werkzeuge, ein Konto, ein Stand für alle. Erfasst auf der Baustelle, fertig im Büro.',
+      lead: 'Aufmaß, Einteilung, Berichte, Fotos, Mängelplan und Zeiten – sechs Werkzeuge, ein Konto, ein Stand für alle. Erfasst auf der Baustelle, fertig im Büro.',
       primary: 'Kontakt aufnehmen',
       secondary: 'BauPad öffnen',
       status: 'Testphase – Abo folgt zum Start',
@@ -135,9 +135,9 @@ export const de = {
       items: [
         {
           problem: 'Für jede Arbeit eine eigene App.',
-          detail: 'Aufmaß hier, Fotos dort, die Einteilung in einer Nachricht. Fünf Apps, fünf Logins, fünfmal dieselbe Baustelle eintippen.',
-          solution: 'Fünf Werkzeuge in einer App.',
-          points: ['Aufmaß & Abrechnung, Arbeitereinteilung, Berichte & Formulare, Fotodokumentation, Mängelplan', 'Ein Konto, eine Firma, eine Projektliste', 'Am Handy, am Tablet und am PC – dieselbe Oberfläche'],
+          detail: 'Aufmaß hier, Fotos dort, die Stunden auf Papier. Sechs Apps, sechs Logins, sechsmal dieselbe Baustelle eintippen.',
+          solution: 'Sechs Werkzeuge in einer App.',
+          points: ['Aufmaß & Abrechnung, Arbeitereinteilung, Berichte & Formulare, Fotodokumentation, Mängelplan, Zeitaufzeichnung', 'Ein Konto, eine Firma, eine Projektliste', 'Am Handy, am Tablet und am PC – dieselbe Oberfläche'],
         },
         {
           problem: 'Kein Empfang auf der Baustelle.',
@@ -166,7 +166,7 @@ export const de = {
       items: [{ title: 'Admin', text: '' }, { title: 'Büro', text: '' }, { title: 'Polier', text: '' }, { title: 'Arbeiter', text: '' }],
     },
     tools: {
-      eyebrow: 'Die fünf Werkzeuge',
+      eyebrow: 'Die sechs Werkzeuge',
       title: 'Was BauPad kann.',
       text: 'Kurz und ohne Umwege – so, wie es auf der Baustelle gebraucht wird.',
       more: 'Mehr erfahren',
@@ -208,6 +208,15 @@ export const de = {
             'In Sekunden online gespeichert – für jeden, der Zugang zum Projekt hat',
             'Sortiert nach Tag, Kalenderwoche, Monat oder alles auf einmal',
             'Foto-PDF mit Logo und Angaben, ZIP fürs Archiv',
+          ],
+        },
+        times: {
+          hook: 'Stunden am Abend getippt, nicht am Monatsende gesucht.',
+          points: [
+            'Der Polier erfasst je Tag Baustelle, von, bis und Pause für alle Arbeiter – Vorschlag aus der Einteilung',
+            'Urlaub und Krank per Antippen, österreichische Feiertage automatisch',
+            'Monatszettel je Arbeiter mit Soll, Ist und Wegzeit, Freigabe durch das Büro',
+            'Excel je Arbeiter in der Firmenvorlage, jedes Jahr fortgesetzt – Resturlaub und Stunden werden übertragen',
           ],
         },
         defects: {
@@ -286,6 +295,18 @@ export const de = {
         { title: 'Ordnen', items: ['Projekt → Kalenderwoche → Tag', 'Ansicht nach Tag, Woche, Monat oder alles', 'Suche nach KW, Datum, Name oder Beschreibung', 'Verschieben zu einem anderen Projekt'] },
         { title: 'Ansehen', items: ['Großansicht mit Blättern und Zoom', 'Drehen wird sofort gespeichert', 'Beschreibung direkt im Bild bearbeiten'] },
         { title: 'Ausgeben', items: ['Foto-PDF: 1 bis 6 Fotos je Seite, Logo, Angaben wählbar', 'ZIP mit Dateien nach Datum', 'Zentrale Ablage: alle Geräte der Firma sehen denselben Stand, Dateien in Deutschland gespeichert'] },
+      ],
+    },
+    times: {
+      title: 'Zeitaufzeichnung',
+      short: 'Stunden je Arbeiter und Tag – vom Polier erfasst, vom Büro freigegeben, als Excel in der Firmenvorlage.',
+      points: ['Tag erfassen mit Vorschlag aus der Einteilung', 'Monatszettel mit Soll, Ist, Urlaub und Krank', 'Excel je Arbeiter in der eigenen Firmenvorlage'],
+      tagline: 'Die Stunden der Mannschaft – täglich erfasst, monatlich freigegeben, fertig für die Lohnverrechnung.',
+      intro: 'Der Polier tippt je Tag für seine Arbeiter Baustelle, von, bis und Pause – BauPad schlägt die Baustelle aus der Arbeitereinteilung und die gewohnten Zeiten vor. Urlaub und Krank gehen per Antippen, Feiertage in Österreich sind hinterlegt. Das Büro gibt den Monat je Arbeiter frei und bekommt die Excel-Datei in der eigenen Firmenvorlage – mit allen Formeln, jedes Jahr fortgesetzt.',
+      groups: [
+        { title: 'Erfassen', items: ['Tag erfassen: alle Arbeiter eines Tages auf einen Blick', 'Vorschlag aus der Einteilung, einmal eingetragene Zeiten bleiben', 'Zweite Baustelle am selben Tag, Wegzeit optional', 'Urlaub und Krank per Antippen'] },
+        { title: 'Prüfen', items: ['Monatszettel je Arbeiter: Soll, Ist, Plus/Minus', 'Österreichische Feiertage automatisch', 'Freigabe durch das Büro, danach gesperrt'] },
+        { title: 'Ausgeben', items: ['Excel je Arbeiter in der Firmenvorlage, alle Formeln bleiben', 'Jedes Jahr fortgesetzt: Resturlaub und Stunden werden übertragen', 'Beim Freigeben als Monatsstand online gespeichert', 'Alle Arbeiter als ZIP'] },
       ],
     },
     defects: {
