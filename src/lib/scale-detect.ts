@@ -126,10 +126,10 @@ export function scaleFromDimensions(items: PageText[], region: Rect | null): { k
     if (!best || unique.length > best.members.length) best = { k: c.k, members: unique };
   }
   if (!best || best.members.length < 3) return null;
-  const ks = best.members.map((p) => p.k).sort((x, y) => x - y);
-  const k = ks[Math.floor(ks.length / 2)];
-  // längste gemeinsame Strecke als Kalibrierstrecke (Mitte der ersten bis Mitte der letzten Zahl)
+  // längste gemeinsame Strecke als Kalibrierstrecke (Mitte der ersten bis Mitte der letzten Zahl) –
+  // der Maßstab kommt genau aus ihr: je länger, desto genauer
   const ref = best.members.reduce((m, p) => (p.meters > m.meters ? p : m));
+  const k = ref.k;
   return { k, count: best.members.length, a: { x: ref.a.x, y: ref.a.y }, b: { x: ref.b.x, y: ref.b.y }, meters: Math.hypot(ref.b.x - ref.a.x, ref.b.y - ref.a.y) / k };
 }
 
@@ -181,6 +181,8 @@ export function detectScale(items: PageText[], region: Rect | null, segs?: PlanS
     const an = analyzeDimensions(matchDimensionLines(items, segs, region));
     const line = an.k ? calibrationLine(an) : null;
     if (an.k && line) {
+      // Maßstab aus der längsten passenden Maßlinie (genauer als ein Mittel über kurze Maße)
+      an.k = line.k;
       const n = PT_PER_M / an.k;
       const snapped = STANDARD.find((v) => Math.abs(v - n) / v <= 0.005);
       const warnings = [

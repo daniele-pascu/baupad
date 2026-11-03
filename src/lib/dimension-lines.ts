@@ -206,12 +206,13 @@ export function analyzeDimensions(matches: DimMatch[], forced?: DimUnit): DimAna
   return { unit, k, rows, okCount: members.size, otherScale };
 }
 
-/** Kalibrierstrecke aus den passenden Maßen: die längste Maßlinie, Länge beim gemeinsamen Maßstab */
-export function calibrationLine(a: DimAnalysis, use?: boolean[]): { a: Point; b: Point; meters: number; count: number } | null {
-  const rows = a.rows.filter((r, i) => (use ? use[i] : r.ok) && r.meters !== null);
+/**
+ * Kalibrierstrecke aus den passenden Maßen: immer die längste Maßlinie mit ihrem beschrifteten Maß – je länger die
+ * Strecke, desto kleiner der Ablesefehler. Der Maßstab `k` kommt genau aus dieser Strecke.
+ */
+export function calibrationLine(a: DimAnalysis, use?: boolean[]): { a: Point; b: Point; meters: number; count: number; k: number } | null {
+  const rows = a.rows.filter((r, i) => (use ? use[i] : r.ok) && r.meters !== null && r.meters > 0);
   if (rows.length < 1) return null;
-  const ks = rows.map((r) => r.match.length / r.meters!).sort((p, q) => p - q);
-  const k = ks[Math.floor(ks.length / 2)];
   const ref = rows.reduce((m, r) => (r.match.length > m.match.length ? r : m));
-  return { a: ref.match.a, b: ref.match.b, meters: Math.round((ref.match.length / k) * 10000) / 10000, count: rows.length };
+  return { a: ref.match.a, b: ref.match.b, meters: Math.round(ref.meters! * 10000) / 10000, count: rows.length, k: ref.match.length / ref.meters! };
 }

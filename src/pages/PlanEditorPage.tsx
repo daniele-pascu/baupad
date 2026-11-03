@@ -11,7 +11,6 @@ import { invoiceLabel, invoiceOfPlan } from '../lib/invoices';
 import { confirmDialog, promptDialog, showError, toast } from '../components/ui';
 import { costCenterLabel, damagesOf, elementsOf, findPosition, lvDocLabel, lvDocsOf, plansOf, planTitle, positionRef, sumArea } from '../lib/aufmass';
 import { calibrationStatus, checkDeviation, checkError, formatCm, formatPercent, geometryMeasures, MAX_ERROR_M, planUnitsPerMeter } from '../lib/calibration';
-import { CalibrationReport } from '../components/CalibrationReport';
 import { ViewMenu } from '../components/ViewMenu';
 import { isTouchDevice } from '../lib/platform';
 import { DimensionReview } from '../components/DimensionReview';
@@ -321,7 +320,6 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const [detailsOpen, setDetailsOpen] = useState(false);
   /** Kalibrieren: Prüfstrecke statt Referenzstrecke ziehen; Prüfbericht */
   const [checking, setChecking] = useState(false);
-  const [reportOpen, setReportOpen] = useState(false);
   const [dimsOpen, setDimsOpen] = useState(false);
   const [excelOpen, setExcelOpen] = useState(false);
   /** Werkzeug „Fläche“: Anzahl bereits gesetzter Eckpunkte */
@@ -388,6 +386,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
 
   const setTool = (t: Tool) => {
     if (t !== 'calibrate') setChecking(false);
+    // Punktfang (blau) ist bei jedem Werkzeug an
+    if (t !== 'select' && !drawing.snapOn) drawing.setSnapOn(true);
     setToolState(t);
     storePref('tool', t);
   };
@@ -1557,9 +1557,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                         <button type="button" className={`btn btn-sm${checking ? ' btn-primary' : ''}`} onClick={() => setChecking(!checking)} aria-pressed={checking} data-testid="calibration-check" title="Eine zweite bemaßte Strecke nachmessen – zeigt die Abweichung, ändert den Maßstab nicht">
                           Prüfstrecke
                         </button>
-                        <button type="button" className="btn btn-sm" onClick={() => setReportOpen(true)} data-testid="calibration-report-open" title="Stand, Prüfstrecke und Hinweise als Bericht">
-                          Prüfbericht
-                        </button>
+
                       </div>
                     </div>
                   )}
@@ -1852,7 +1850,6 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       )}
       {excelOpen && plan && <ExcelExportDialog data={data} scope={{ kind: 'plan', planId: plan.id }} onClose={() => setExcelOpen(false)} />}
       {dimsOpen && plan && file && <DimensionReview data={data} plan={plan} file={file} onClose={() => setDimsOpen(false)} />}
-      {reportOpen && plan && <CalibrationReport plan={plan} file={file ?? undefined} onClose={() => setReportOpen(false)} />}
       {detailsOpen && <PlanDetailsDialog plan={plan} data={data} onClose={() => setDetailsOpen(false)} />}
       {pdfOpen && <PdfExportDialog data={data} costCenterId={plan.costCenterId} initial={[plan.id]} onClose={() => setPdfOpen(false)} />}
     </div>

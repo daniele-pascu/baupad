@@ -33,7 +33,7 @@ async function checkLine(page: Page, factor: number): Promise<number> {
   return measured;
 }
 
-test('PDF: Status automatisch → bestätigt, Prüfstrecke mit Abweichung, Prüfbericht mit Maßketten', async ({ page }) => {
+test('PDF: Status automatisch → bestätigt, Prüfstrecke mit Abweichung, kein Prüfbericht', async ({ page }) => {
   await freshStart(page);
   await createProject(page, 'Prüfen', {}, ['Keller']);
   await importPlan(page, 'massketten.pdf', 'K-1');
@@ -62,17 +62,8 @@ test('PDF: Status automatisch → bestätigt, Prüfstrecke mit Abweichung, Prüf
   await status.click();
   await expect(page.getByTestId('calibrate-bar')).toBeVisible();
   await expect(page.getByTestId('calibration-info')).toContainText('Erkannt: 1:50 (ungeprüft)');
-  await page.getByTestId('calibration-report-open').click();
-  const rep = page.getByTestId('calibration-report');
-  await expect(rep.getByTestId('report-status')).toContainText('Maßstab 1:50 automatisch erkannt – noch nicht geprüft');
-  await expect(rep.getByTestId('report-summary')).toContainText('Maßpaaren passen');
-  const [, ok, total] = /(\d+) von (\d+)/.exec((await rep.getByTestId('report-summary').textContent())!)!.map(Number);
-  expect(ok).toBeGreaterThanOrEqual(3);
-  expect(ok).toBeLessThanOrEqual(total);
-  await expect(rep.getByTestId('report-dims').locator('tbody tr').first()).toContainText('passt');
-  await expect(rep).toContainText('garantiert aber keine Maßhaltigkeit');
-  await page.screenshot({ path: join(OUT, 'pruefbericht.png') });
-  await rep.getByRole('button', { name: 'Schließen' }).click();
+  // kein Prüfbericht mehr im Kalibrieren
+  await expect(page.getByTestId('calibration-report-open')).toHaveCount(0);
 
   // Prüfstrecke genau getroffen → ±0,0 %
   await checkLine(page, 1);
@@ -91,11 +82,6 @@ test('PDF: Status automatisch → bestätigt, Prüfstrecke mit Abweichung, Prüf
   await expect(page.getByTestId('calibration-info')).toContainText('(−9,1 %)');
   await expect(page.getByTestId('calibration-info')).toContainText(/Prüfung −\d+,\d cm/);
   await expect(status).toHaveClass(/warn/);
-  await page.getByTestId('calibration-report-open').click();
-  await expect(rep.getByTestId('report-check')).toContainText('−9,1 %');
-  await expect(rep.getByTestId('report-check')).toContainText('mehr als 2 cm'); // Warnung
-  await expect(rep.getByTestId('report-check')).toContainText('auf 10 m');
-  await rep.getByRole('button', { name: 'Schließen' }).click();
 
   // selbst kalibrieren → Status „≈ 1:…“, Prüfung zurückgesetzt
   await page.getByTestId('calibration-check').click();
@@ -110,7 +96,7 @@ test('PDF: Status automatisch → bestätigt, Prüfstrecke mit Abweichung, Prüf
   await expect(status).toContainText('≈ 1:');
 });
 
-test('Bild: nicht kalibriert, klarer Hinweis; nach Kalibrierung Prüfbericht ohne Maßketten', async ({ page }) => {
+test('Bild: nicht kalibriert, klarer Hinweis; Kalibrierung von Hand', async ({ page }) => {
   await freshStart(page);
   await createProject(page, 'Prüfen Bild', {}, ['Hof']);
   await importPlan(page, 'farbplan.png', 'F-1');
@@ -129,7 +115,4 @@ test('Bild: nicht kalibriert, klarer Hinweis; nach Kalibrierung Prüfbericht ohn
   await waitSaved(page);
   await expect(status).toHaveAttribute('data-state', 'manual');
   await expect(status).toContainText('Kalibriert'); // bei Bildern kein Papiermaßstab
-  await pickTool(page, 'tool-calibrate');
-  await page.getByTestId('calibration-report-open').click();
-  await expect(page.getByTestId('calibration-report').getByTestId('report-image')).toContainText('Maßzahlen können nicht automatisch gelesen werden');
 });
