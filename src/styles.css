@@ -9046,3 +9046,30 @@ button.report-site-empty {
   justify-content: flex-end;
   margin: 0 0 8px;
 }
+
+/* Aufmaßblatt: Pläne zusammenstellen */
+.blatt-plans {
+  margin: 12px 0 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.blatt-plans legend {
+  padding: 0 4px;
+  font-weight: 600;
+}
+.blatt-plans-quick {
+  margin-bottom: 6px;
+}
+.blatt-plans-list {
+  max-height: 240px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.blatt-plans-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}

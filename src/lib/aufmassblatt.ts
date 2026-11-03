@@ -49,7 +49,8 @@ const qn = (v: number | null, last: boolean): Cell => (v === null ? blank(last ?
 
 /** Leistungszeitraum aus den Messungen (erste bis letzte Erfassung) */
 /** Umfang des Aufmaßblatts: wie beim Excel-Export, zusätzlich eine Rechnung (alle ihre Pläne) */
-export type BlattScope = XlsxScope | { kind: 'invoice'; invoiceId: string };
+/** 'plans': frei zusammengestellte Pläne (auch aus mehreren Kostenstellen) auf einem Aufmaßblatt */
+export type BlattScope = XlsxScope | { kind: 'invoice'; invoiceId: string } | { kind: 'plans'; planIds: string[] };
 
 const invoiceOf = (data: ProjectState, scope: BlattScope) => (scope.kind === 'invoice' ? data.project.invoices?.find((i) => i.id === scope.invoiceId) : undefined);
 
@@ -65,8 +66,13 @@ export function defaultPeriod(data: ProjectState, scope: BlattScope): string {
   return a === b ? a : `${a} – ${b}`;
 }
 
-function plansIn(data: ProjectState, scope: BlattScope): Plan[] {
+export function plansIn(data: ProjectState, scope: BlattScope): Plan[] {
   if (scope.kind === 'plan') return [data.plans[scope.planId]];
+  if (scope.kind === 'plans') {
+    // Reihenfolge wie in der Planliste: Kostenstelle, dann Plannummer
+    const want = new Set(scope.planIds);
+    return costCentersOf(data).flatMap((cc) => plansOf(data, cc.id).filter((p) => want.has(p.id)));
+  }
   if (scope.kind === 'invoice') return costCentersOf(data).flatMap((cc) => plansOf(data, cc.id, scope.invoiceId));
   if (scope.kind === 'costCenter') return plansOf(data, scope.costCenterId);
   return costCentersOf(data).flatMap((cc) => plansOf(data, cc.id));
@@ -80,7 +86,7 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
       ? [data.costCenters[plans[0].costCenterId]].filter(Boolean)
       : scope.kind === 'costCenter'
         ? [data.costCenters[scope.costCenterId]]
-        : scope.kind === 'invoice'
+        : scope.kind === 'invoice' || scope.kind === 'plans'
           ? costCentersOf(data).filter((c) => plans.some((p) => p.costCenterId === c.id))
           : costCentersOf(data);
   const inv = invoiceOf(data, scope);
@@ -313,7 +319,15 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
     sheet.scale = Math.max(10, Math.min(100, Math.floor((usable / longest) * 100)));
   }
   const scopeName =
-    scope.kind === 'plan' ? [costCenterLabel(ccs[0]), planNo(plans[0])] : scope.kind === 'costCenter' ? [costCenterLabel(ccs[0])] : inv ? [invoiceShort(inv).replace(' ', '')] : [];
+    scope.kind === 'plan' || (scope.kind === 'plans' && plans.length === 1)
+      ? [costCenterLabel(ccs[0]), planNo(plans[0])]
+      : scope.kind === 'costCenter' || (scope.kind === 'plans' && ccs.length === 1)
+        ? [costCenterLabel(ccs[0]), ...(scope.kind === 'plans' ? [`${plans.length}_Plaene`] : [])]
+        : scope.kind === 'plans'
+          ? [`${plans.length}_Plaene`]
+          : inv
+            ? [invoiceShort(inv).replace(' ', '')]
+            : [];
   return {
     name: `${safeFileName(data.project.name, ...scopeName, `Aufmassblatt_${info.no}`)}.xlsx`,
     data: buildXlsx([sheet], { logo: opts.logo }),

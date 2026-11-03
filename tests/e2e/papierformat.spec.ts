@@ -1,7 +1,7 @@
 import { expect, test, type Page } from './fixtures';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { catchDownload, createProject, drawRect, FIXTURES, fillMeasures, freshStart, OUT, planBox, saveDownload, tableRows, waitForPlan, waitSaved, pickTool } from './helpers';
+import { blattRows, catchDownload, createProject, readXlsx, drawRect, FIXTURES, fillMeasures, freshStart, OUT, planBox, saveDownload, tableRows, waitForPlan, waitSaved, pickTool } from './helpers';
 
 /**
  * Paket H/I: Jeder exportierte Plan hat A4 oder A3 (hoch/quer); der Plan wird proportional
@@ -193,4 +193,34 @@ test('Planliste: nach Plannummer auf- oder absteigend, Wahl bleibt gemerkt', asy
   await page.reload();
   await expect(page.getByTestId('plan-sort')).toHaveAttribute('data-order', 'desc');
   await expect(page.getByTestId('plan-row').nth(0)).toContainText('010');
+});
+
+test('Aufmaßblatt aus mehreren Plänen zusammenstellen', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'Zusammen', {}, ['UG']);
+  for (const [nr, len] of [['001', '2'], ['002', '3'], ['003', '4']]) {
+    await page.getByTestId('plan-file-input').setInputFiles(join(FIXTURES, 'parkdeck.png'));
+    const wiz = page.getByTestId('import-wizard');
+    await wiz.getByTestId('areas-next').click();
+    await wiz.locator('[data-field="planNumber"]').fill(nr);
+    await wiz.getByTestId('import-save').click();
+    await waitForPlan(page);
+    const box = await planBox(page);
+    await pickTool(page, 'tool-rect');
+    await drawRect(page, box.x + box.width * 0.2, box.y + box.height * 0.2, box.x + box.width * 0.4, box.y + box.height * 0.35);
+    await fillMeasures(page, len, '1', '');
+    await waitSaved(page);
+    await page.getByRole('link', { name: 'Zurück zur Planliste' }).click();
+  }
+  await page.getByTestId('export-xlsx-cc').click();
+  const ex = page.getByTestId('excel-export');
+  const list = ex.getByTestId('blatt-plans');
+  await expect(list).toContainText('(3 von 3)');
+  await ex.locator('[data-testid="blatt-plan"][data-plan="002"] input').uncheck();
+  await expect(list).toContainText('(2 von 3)');
+  const dl = await catchDownload(page, () => ex.getByTestId('blatt-export').click());
+  expect(dl.suggestedFilename()).toContain('2_Plaene');
+  const wb = await readXlsx(await saveDownload(dl, 'blatt-zusammen.xlsx'));
+  const plans = [...new Set(blattRows(wb).map((r) => String(r.plan)))];
+  expect(plans).toEqual(['001', '003']);
 });
