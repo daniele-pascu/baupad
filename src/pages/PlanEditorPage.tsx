@@ -25,7 +25,7 @@ import { probeTarget, type ProbeKind } from '../lib/probe';
 import { ProbeBar, ProbeMenu, ProbeOverlay, type ProbeState } from '../components/ProbeLayer';
 import { circleThrough } from '../lib/cad';
 import { countKind, deductionText, defaultKindFor, grossArea, hasArea, isWall, KIND_LABELS, kindOf, measureLabel, netArea, netLength, sumLengths } from '../lib/measure';
-import { checkMeasure, computeArea, formatArea, formatMeasure, toInputValue } from '../lib/numbers';
+import { ceil2, checkMeasure, computeArea, formatArea, formatMeasure, toInputValue } from '../lib/numbers';
 import { compactNumbers, damageNo, duplicateIds, nextNumber, planNumberStart, shiftNumbers, suggestNext, swapNumbers } from '../lib/numbering';
 import { navigate, paths } from '../lib/router';
 import { findSnap } from '../lib/snap';
@@ -456,8 +456,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     const m = shapeToMeters(shape, k);
     const geo = geometryMeasures(shape, k);
     const rect = shape.type === 'rect' && !(shape.rotation ?? 0);
-    const length = Math.round((rect ? m.w : (geo?.area ?? 0)) * 1000) / 1000;
-    const width = rect ? Math.round(m.h * 1000) / 1000 : 1;
+    const length = ceil2(rect ? m.w : (geo?.area ?? 0));
+    const width = rect ? ceil2(m.h) : 1;
     if (!(length > 0)) return;
     const deductions = (d.deductions ?? []).map((x) => (x.id === dedId ? { ...x, shape, length, width } : x));
     const gross = grossArea(d);
@@ -1341,7 +1341,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                     </>
                   )}
                   {tool === 'probe' && probe && <ProbeOverlay view={view} probe={probe} hover={hover ?? null} k={k} />}
-                  <DeductionOverlay view={view} items={[...planDeds, ...sessionDeds]} onMoveLabel={moveDedLabel} onEditShape={k ? editDedShape : undefined} />
+                  <DeductionOverlay view={view} items={[...planDeds, ...sessionDeds]} onMoveLabel={moveDedLabel} onEditShape={k ? editDedShape : undefined} tapToEdit={tool === 'select'} />
                 </>
               )}
               onProbePoint={probePoint}
@@ -1897,11 +1897,14 @@ function DeductionOverlay({
   items,
   onMoveLabel,
   onEditShape,
+  tapToEdit,
 }: {
   view: View;
   items: DedItem[];
   onMoveLabel?: (damageId: string, dedId: string, at: Point) => void;
   onEditShape?: (damageId: string, dedId: string, shape: Shape) => void;
+  /** Fläche antippen öffnet die Eckpunkte (im Auswahlmodus) */
+  tapToEdit?: boolean;
 }) {
   const drag = useRef<{ key: string; pointerId: number; dx: number; dy: number; moved: boolean; item: DedItem } | null>(null);
   const [live, setLive] = useState<{ key: string; at: Point } | null>(null);
@@ -1909,6 +1912,7 @@ function DeductionOverlay({
   const [editKey, setEditKey] = useState<string | null>(null);
   const vdrag = useRef<{ key: string; index: number; pointerId: number; item: DedItem; moved: boolean } | null>(null);
   const [liveShape, setLiveShape] = useState<{ key: string; shape: Shape } | null>(null);
+  const tap = useRef<{ key: string; pointerId: number; x: number; y: number; moved: boolean } | null>(null);
   if (!items.length) return null;
   const local = (e: React.PointerEvent) => {
     const r = (e.currentTarget as SVGElement).ownerSVGElement!.getBoundingClientRect();
@@ -1935,7 +1939,35 @@ function DeductionOverlay({
         const away = Math.hypot(at.x - c.x, at.y - c.y) > 14;
         return (
           <g key={key} data-testid="ded-shape">
-            <polygon points={pts.map((p) => `${p.x},${p.y}`).join(' ')} fill={`url(#ded-hatch-${col.slice(1)})`} stroke={col} strokeWidth={1.5} strokeDasharray="5 3" pointerEvents="none" />
+            <polygon
+              points={pts.map((p) => `${p.x},${p.y}`).join(' ')}
+              fill={`url(#ded-hatch-${col.slice(1)})`}
+              stroke={col}
+              strokeWidth={editKey === key ? 2.5 : 1.5}
+              strokeDasharray="5 3"
+              pointerEvents={tapToEdit && onEditShape && it.dedId ? 'visiblePainted' : 'none'}
+              data-testid="ded-area"
+              onPointerDown={(e) => {
+                // Abzug/Zuschlag direkt antippen → Eckpunkte bearbeiten (unabhängig von der Messung)
+                e.stopPropagation();
+                (e.currentTarget as Element).setPointerCapture(e.pointerId);
+                const p = local(e);
+                tap.current = { key, pointerId: e.pointerId, x: p.x, y: p.y, moved: false };
+              }}
+              onPointerMove={(e) => {
+                const t = tap.current;
+                if (!t || t.pointerId !== e.pointerId) return;
+                const p = local(e);
+                if (Math.hypot(p.x - t.x, p.y - t.y) > 6) t.moved = true;
+              }}
+              onPointerUp={(e) => {
+                const t = tap.current;
+                if (!t || t.pointerId !== e.pointerId) return;
+                e.stopPropagation();
+                tap.current = null;
+                if (!t.moved) setEditKey((k0) => (k0 === key ? null : key));
+              }}
+            />
             {away && <line x1={c.x} y1={c.y} x2={at.x} y2={at.y} stroke={col} strokeWidth={1} strokeDasharray="3 2" pointerEvents="none" />}
             <text
               x={at.x}

@@ -1,7 +1,7 @@
 import { expect, test } from './fixtures';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { catchDownload, createProject, drawRect, saveDownload, FIXTURES, freshStart, pickTool, planBox, waitForPlan, waitSaved } from './helpers';
+import { OUT, catchDownload, createProject, drawRect, saveDownload, FIXTURES, freshStart, pickTool, planBox, waitForPlan, waitSaved } from './helpers';
 
 test('Abzug im Plan zeichnen: Maße werden aus dem Plan erkannt, nummeriert und schraffiert angezeigt', async ({ page }) => {
   await freshStart(page);
@@ -57,6 +57,7 @@ test('Abzug im Plan zeichnen: Maße werden aus dem Plan erkannt, nummeriert und 
   await expect(dlg.getByTestId('deduction-row')).toHaveCount(2);
   await expect(dlg.getByTestId('deduction-row').nth(1).getByTestId('deduction-label')).toHaveValue('Abzug 2');
   await expect(dlg.getByTestId('deduction-sum')).toContainText('netto');
+  await dlg.getByTestId('deductions').screenshot({ path: join(OUT, 'abzuege-bloecke.png') });
   // Bezeichnung zur Wahl, Farbe frei wählbar
   // Bezeichnungen zur Auswahl: alphabetisch, mit Wand
   const names = (await dlg.getByTestId('deduction-row').nth(0).getByTestId('deduction-name-pick').locator('option').allTextContents()).slice(1);
@@ -119,7 +120,9 @@ test('Abzug im Plan zeichnen: Maße werden aus dem Plan erkannt, nummeriert und 
         }),
     );
   const area0 = await areaNow();
-  await page.getByTestId('ded-label').nth(1).click();
+  // Abzugsfläche direkt antippen (nicht die Nummer) → Eckpunkte
+  const area = (await page.getByTestId('ded-area').nth(1).boundingBox())!;
+  await page.mouse.click(area.x + area.width * 0.3, area.y + area.height * 0.3);
   const v = page.getByTestId('ded-vertex');
   await expect(v).toHaveCount(4);
   const vb = (await v.nth(2).boundingBox())!;

@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { uuid } from '../lib/ids';
 import { deductionArea, deductionLength, hasArea, KIND_LABELS, netArea } from '../lib/measure';
-import { checkMeasure, computeArea, formatArea, parseDecimal, toInputValue } from '../lib/numbers';
+import { ceil2, checkMeasure, computeArea, formatArea, parseDecimal, toInputValue } from '../lib/numbers';
+
+/** Maße im Eingabefeld: auf 2 Stellen aufgerundet (ältere Werte mit 3 Stellen) */
+const up2 = (n: number | null | undefined) => (n === null || n === undefined ? n : ceil2(n));
 import { damageNo, findByNumber, parseDamageNumber } from '../lib/numbering';
 import { COLORS, SHAPE_LABELS, type Component, type Damage, type Deduction, type MeasureKind, type Shape, type ShapeType } from '../lib/types';
 import { Icon } from './Icon';
@@ -105,9 +108,9 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   );
   const [v, setV] = useState({
     number: damage.label ?? String(damage.number),
-    length: toInputValue(damage.length),
-    width: toInputValue(damage.width),
-    depth: toInputValue(damage.depth),
+    length: toInputValue(up2(damage.length)),
+    width: toInputValue(up2(damage.width)),
+    depth: toInputValue(up2(damage.depth)),
   });
   // Messart ergibt sich aus der Form (keine Auswahl beim Einfügen); bestehende bleibt erhalten
   const kind: MeasureKind = damage.kind;
@@ -122,7 +125,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const [docId, setDocId] = useState<string>(() => (damage.positionRef && positions.some((p) => p.ref === damage.positionRef) ? docOf(damage.positionRef) : (docs[0]?.id ?? '')));
   const [resetLabel, setResetLabel] = useState(false);
   const [deds, setDeds] = useState<DeductionRow[]>(() =>
-    (damage.deductions ?? []).map((x) => ({ id: x.id, label: x.label, count: String(x.count), length: toInputValue(x.length), width: toInputValue(x.width), add: !!x.add, ...(x.shape ? { shape: x.shape } : {}), ...(x.labelAt ? { labelAt: x.labelAt } : {}), ...(x.color ? { color: x.color } : {}), ...(x.no ? { no: x.no } : {}) })),
+    (damage.deductions ?? []).map((x) => ({ id: x.id, label: x.label, count: String(x.count), length: toInputValue(up2(x.length)), width: toInputValue(up2(x.width)), add: !!x.add, ...(x.shape ? { shape: x.shape } : {}), ...(x.labelAt ? { labelAt: x.labelAt } : {}), ...(x.color ? { color: x.color } : {}), ...(x.no ? { no: x.no } : {}) })),
   );
   // im Plan gezeichneten Abzug übernehmen: fortlaufend nummeriert („Abzug 1“, „Abzug 2“ …)
   const lastDrawn = useRef(drawnDeduction?.seq ?? 0);
@@ -137,8 +140,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
         id: uuid(),
         label: `${drawAdd.current ? 'Zuschlag' : 'Abzug'} ${list.filter((x) => x.shape && !!x.add === drawAdd.current).length + 1}`,
         count: '1',
-        length: toInputValue(Math.round(drawnDeduction.length * 1000) / 1000),
-        width: toInputValue(Math.round(drawnDeduction.width * 1000) / 1000),
+        length: toInputValue(ceil2(drawnDeduction.length)),
+        width: toInputValue(ceil2(drawnDeduction.width)),
         add: drawAdd.current,
         shape: drawnDeduction.shape,
         color: DEDUCTION_COLOR,
@@ -542,15 +545,16 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
               </div>
             );
           })}
-          <div className="row gap wrap">
+          <div className="row gap wrap ded-actions">
             <button type="button" className="btn btn-sm" onClick={() => newDed(false)} data-testid="deduction-add">
               − Abzug hinzufügen
             </button>
             <button type="button" className="btn btn-sm" onClick={() => newDed(true)} data-testid="deduction-add-plus">
               + Zuschlag hinzufügen
             </button>
-            {onDrawDeduction && !lineDeds && (
-              <>
+          </div>
+          {onDrawDeduction && !lineDeds && (
+            <div className="row gap wrap ded-actions">
                 <button
                   type="button"
                   className="btn btn-sm"
@@ -575,9 +579,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
                 >
                   <Icon name="edit" size={16} /> + Im Plan zeichnen
                 </button>
-              </>
-            )}
-          </div>
+            </div>
+          )}
           {deductions.length > 0 && (
             <p className="deduction-sum small" data-testid="deduction-sum">
               {lineDeds ? (

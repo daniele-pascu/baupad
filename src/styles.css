@@ -9417,7 +9417,52 @@ html[data-theme='dark'] .crew-search {
 }
 /* Abzüge/Zuschläge: dünne Trennlinie zwischen den Zeilen */
 .deduction-row + .deduction-row {
-  border-top: 1px solid var(--border);
-  padding-top: 8px;
-  margin-top: 8px;
+  border-top: 1px solid var(--border-strong);
+  padding-top: 12px;
+  margin-top: 12px;
+}
+/* Block je Abzug/Zuschlag: oben Vorzeichen, Bezeichnung, Auswahl, Nummer, Löschen (rechts);
+   darunter die Maße; darunter die Farben */
+.deduction-row .deduction-sign {
+  order: 1;
+}
+.deduction-row .deduction-label {
+  order: 2;
+}
+.deduction-row .deduction-name-pick {
+  order: 3;
+}
+.deduction-row .deduction-no {
+  order: 4;
+}
+.deduction-row [data-testid='deduction-remove'] {
+  order: 5;
+  margin-left: auto;
+  width: 40px;
+  height: 40px;
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border));
+  border-radius: 10px;
+  color: var(--danger);
+}
+.deduction-row [data-testid='deduction-remove'] svg {
+  width: 20px;
+  height: 20px;
+}
+.deduction-row .deduction-nums {
+  order: 6;
+}
+.deduction-row .deduction-colors {
+  order: 7;
+}
+.deduction-row .error {
+  order: 8;
+}
+.deduction-row .deduction-colors {
+  padding-left: 40px;
+}
+/* Trennstriche: unter den Zeilen, zwischen „hinzufügen“ und „Im Plan zeichnen“ */
+.ded-actions {
+  border-top: 1px solid var(--border-strong);
+  padding-top: 10px;
+  margin-top: 10px;
 }
