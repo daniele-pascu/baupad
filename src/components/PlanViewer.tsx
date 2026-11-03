@@ -1122,7 +1122,11 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
           finishPolygon(true);
           return;
         }
-        if (dbl) {
+        // Doppeltippen beendet – aber nur, wenn genug Punkte da sind; sonst zählt das Tippen als weiterer Punkt
+        // (schnelles Setzen vieler Punkte darf keine verschlucken). Fläche verhält sich dabei wie die Polylinie.
+        const tl = propsRef.current.tool;
+        const need = tl === 'polyline' || tl === 'wall' ? 2 : 3;
+        if (dbl && pts.length >= need) {
           finishPolygon();
           return;
         }

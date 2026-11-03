@@ -103,7 +103,7 @@ function PolylineBar({ polyline, count, viewer, lineName = 'Polylinie', wall = f
         <span className="muted small">
           {polyline
             ? `${lineName}: Punkte nacheinander antippen. Doppelklick oder Enter beendet sie offen (Länge), Antippen des Startpunkts oder „Schließen“ ergibt eine Fläche.`
-            : 'Fläche: Eckpunkte nacheinander antippen. Zum Abschließen den ersten Punkt antippen, doppelt tippen oder „Fläche schließen“.'}
+            : 'Fläche: Punkte nacheinander antippen wie bei der Polylinie – beliebig viele. Startpunkt antippen, doppelt tippen, Enter oder „Fläche schließen“ ergibt die geschlossene Fläche.'}
         </span>
       ) : (
         <>
