@@ -39,6 +39,8 @@ const PULL_EVERY = 5 * 60_000;
 const PAGE = 500;
 const BATCH = 200;
 const KICK_DELAY = 1500;
+const RETRY_MIN = 10_000;
+const RETRY_MAX = 120_000;
 
 const FILE_STORES: SyncFileStore[] = ['blobs', 'defectPlanImages', 'formTemplateFiles', 'timeFiles'];
 const PROJECT_STORES: SyncStore[] = ['projects', 'costCenters', 'files', 'plans', 'damages', 'components', 'elements', 'lvDocs'];
@@ -99,6 +101,9 @@ export class DataSync {
   private flushing: Promise<void> | null = null;
   private again = false;
   private kickTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Wiederholung, solange noch etwas in der Warteschlange liegt (kein/schwacher Empfang): 10 s, 20 s … höchstens 2 min */
+  private retryTimer: ReturnType<typeof setTimeout> | undefined;
+  private retryDelay = RETRY_MIN;
   private timer: ReturnType<typeof setInterval> | undefined;
   private stopFns: (() => void)[] = [];
   /** Abgleich hat das geöffnete Projekt verändert, während dort ungespeicherte Änderungen waren */
@@ -114,7 +119,10 @@ export class DataSync {
   }
 
   start() {
-    const onOnline = () => void this.sync().catch(() => {});
+    const onOnline = () => {
+      this.retryDelay = RETRY_MIN;
+      void this.sync().catch(() => {});
+    };
     const onVisible = () => {
       if (document.visibilityState === 'visible') void this.sync().catch(() => {});
     };
@@ -128,6 +136,7 @@ export class DataSync {
       () => document.removeEventListener('visibilitychange', onVisible),
       () => clearInterval(this.timer),
       () => clearTimeout(this.kickTimer),
+      () => clearTimeout(this.retryTimer),
       () => setSyncChangeHook(null),
       () => setSyncFileFetcher(null),
     );
@@ -173,9 +182,28 @@ export class DataSync {
         } while (this.again);
       } finally {
         this.flushing = null;
+        void listOutbox()
+          .then((l) => this.retryLater(l.length))
+          .catch(() => {});
       }
     })();
     return this.flushing;
+  }
+
+  /** noch nicht alles oben (kein Empfang, Abbruch): bald erneut versuchen, mit wachsendem Abstand */
+  private retryLater(pending: number) {
+    if (!pending) {
+      clearTimeout(this.retryTimer);
+      this.retryTimer = undefined;
+      this.retryDelay = RETRY_MIN;
+      return;
+    }
+    if (this.retryTimer || !this.stopFns.length) return;
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = undefined;
+      void this.push().catch(() => {});
+    }, this.retryDelay);
+    this.retryDelay = Math.min(this.retryDelay * 2, RETRY_MAX);
   }
 
   private async pushOnce(): Promise<void> {

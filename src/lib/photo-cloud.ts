@@ -17,6 +17,8 @@ import { connectDataSync, disconnectDataSync, syncData } from './data-sync';
 const SYNC_AT = 'photoSyncAt';
 const ACTIVE = 'photoCloudActive';
 const PULL_EVERY = 5 * 60_000;
+const RETRY_MIN = 10_000;
+const RETRY_MAX = 120_000;
 const PAGE = 500;
 
 type Part = 'data' | 'thumb' | 'original';
@@ -85,6 +87,9 @@ export class CloudPhotoStorage implements PhotoStorage {
   private flushing: Promise<void> | null = null;
   private again = false;
   private timer: ReturnType<typeof setInterval> | undefined;
+  /** Wiederholung, solange Fotos noch nicht oben sind (kein/schwacher Empfang): 10 s, 20 s … höchstens 2 min */
+  private retryTimer: ReturnType<typeof setTimeout> | undefined;
+  private retryDelay = RETRY_MIN;
   private stopFns: (() => void)[] = [];
 
   constructor(
@@ -105,14 +110,17 @@ export class CloudPhotoStorage implements PhotoStorage {
 
   /** Hintergrund: regelmäßiger Abgleich, bei Wiederverbindung und beim Zurückkehren in die App */
   start() {
-    const onOnline = () => void this.sync();
+    const onOnline = () => {
+      this.retryDelay = RETRY_MIN;
+      void this.sync();
+    };
     const onVisible = () => {
       if (document.visibilityState === 'visible') void this.sync();
     };
     window.addEventListener('online', onOnline);
     document.addEventListener('visibilitychange', onVisible);
     this.timer = setInterval(() => void this.sync(), PULL_EVERY);
-    this.stopFns.push(() => window.removeEventListener('online', onOnline), () => document.removeEventListener('visibilitychange', onVisible), () => clearInterval(this.timer));
+    this.stopFns.push(() => window.removeEventListener('online', onOnline), () => document.removeEventListener('visibilitychange', onVisible), () => clearInterval(this.timer), () => clearTimeout(this.retryTimer));
   }
   stop() {
     for (const f of this.stopFns) f();
@@ -204,9 +212,26 @@ export class CloudPhotoStorage implements PhotoStorage {
         } while (this.again);
       } finally {
         this.flushing = null;
+        this.retryLater(state.pending);
       }
     })();
     return this.flushing;
+  }
+
+  /** noch Fotos offen (kein Empfang, Abbruch): bald erneut versuchen, mit wachsendem Abstand */
+  private retryLater(pending: number) {
+    if (!pending) {
+      clearTimeout(this.retryTimer);
+      this.retryTimer = undefined;
+      this.retryDelay = RETRY_MIN;
+      return;
+    }
+    if (this.retryTimer || !this.stopFns.length) return;
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = undefined;
+      void this.flush().catch(() => {});
+    }, this.retryDelay);
+    this.retryDelay = Math.min(this.retryDelay * 2, RETRY_MAX);
   }
 
   private async flushOnce(): Promise<void> {

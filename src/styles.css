@@ -9005,3 +9005,28 @@ button.report-site-empty {
     min-height: 52px;
   }
 }
+
+/* Speicherstand in der Navigationsleiste: offline bzw. Uploads ausstehend */
+.sync-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.sync-badge.offline {
+  background: #f5a524;
+  color: #111;
+}
+@media (max-width: 420px) {
+  .sync-badge {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}

@@ -28,11 +28,18 @@ function fakeCloud() {
   const rows = new Map<string, Row>();
   const files = new Map<string, Buffer>();
   const calls: string[] = [];
+  /** übertragene Datensätze (Projekte, Pläne …): „store:id“ */
+  const records = new Set<string>();
+  /** schwacher Empfang: so viele Datenübertragungen schlagen noch fehl */
+  const failNext = { records: 0 };
+  /** kein Empfang: Ablage nicht erreichbar (Playwright beantwortet umgeleitete Anfragen sonst auch offline) */
+  const net = { offline: false };
   let tick = 0;
   const now = () => new Date(Date.UTC(2026, 9, 30, 12, 0, ++tick)).toISOString();
   const install = async (page: Page) => {
     await page.route('**/rest/v1/rpc/my_context', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(CONTEXT) }));
     await page.route('**/functions/v1/storage', async (r) => {
+      if (net.offline) return r.abort('internetdisconnected');
       const body = r.request().postDataJSON() as Record<string, unknown>;
       const action = String(body.action);
       calls.push(action);
@@ -57,7 +64,14 @@ function fakeCloud() {
         return ok({ ok: true, failed: [] });
       }
       // Datenabgleich (Projekte, Berichte, Pläne …): hier nur bestätigen, keine Einträge anderer Geräte
-      if (action === 'records-upsert') return ok({ ok: true });
+      if (action === 'records-upsert') {
+        if (failNext.records > 0) {
+          failNext.records--;
+          return r.abort('connectionreset');
+        }
+        for (const x of body.records as { store: string; id: string }[]) records.add(`${x.store}:${x.id}`);
+        return ok({ ok: true });
+      }
       if (action === 'records-pull') return ok({ records: [] });
       if (action === 'usage') {
         const live = [...rows.values()].filter((x) => !x.deleted_at);
@@ -76,7 +90,7 @@ function fakeCloud() {
       return f ? r.fulfill({ status: 200, contentType: 'image/jpeg', body: f }) : r.fulfill({ status: 404, body: 'NoSuchKey' });
     });
   };
-  return { rows, files, calls, install, now };
+  return { rows, files, calls, records, failNext, net, install, now };
 }
 
 test('Fotos werden hochgeladen, abgeglichen und für alle Geräte gelöscht', async ({ page }) => {
@@ -181,3 +195,33 @@ test('Ablage nicht eingerichtet: Fotos bleiben auf dem Gerät, Konto zeigt den H
   await page.getByTestId('to-photos').click();
   await expect(page.getByTestId('photos-local-banner')).toContainText('1 Foto liegt nur auf diesem Gerät');
 });
+
+test('Ohne Empfang zuerst lokal, bei Empfang automatisch hochladen – auch bei schwachem Empfang mit Wiederholung', async ({ page, context }) => {
+  test.setTimeout(90_000);
+  const cloud = fakeCloud();
+  await cloud.install(page);
+  await freshStart(page);
+  await page.goto('./baupad/projektregister');
+  await expect(page.getByTestId('register-title')).toBeVisible();
+  await expect.poll(() => cloud.calls.includes('records-pull'), { timeout: 15_000 }).toBe(true);
+
+  // kein Empfang: Projekt wird lokal angelegt, oben steht „Offline · … warten“
+  cloud.net.offline = true;
+  await context.setOffline(true);
+  await expect(page.getByTestId('sync-badge')).toHaveText(/^Offline/);
+  await page.getByTestId('register-new').click();
+  await page.getByTestId('project-name').fill('Funkloch');
+  await page.getByTestId('project-save').click();
+  await expect(page.locator('[data-testid="register-row"][data-name="Funkloch"]')).toHaveCount(1);
+  await expect(page.getByTestId('sync-badge')).toHaveText(/^Offline · \d+ warten$/);
+  await page.waitForTimeout(2500);
+  expect([...cloud.records].some((k) => k.startsWith('projects:'))).toBe(false);
+
+  // Empfang wieder da, aber die ersten Übertragungen brechen ab (schwacher Empfang) → Wiederholung ohne Zutun
+  cloud.failNext.records = 1;
+  cloud.net.offline = false;
+  await context.setOffline(false);
+  await expect.poll(() => [...cloud.records].some((k) => k.startsWith('projects:')), { timeout: 30_000 }).toBe(true);
+  await expect(page.getByTestId('sync-badge')).toHaveCount(0);
+});
+
