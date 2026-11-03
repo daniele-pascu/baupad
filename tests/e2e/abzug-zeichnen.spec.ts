@@ -1,6 +1,7 @@
 import { expect, test } from './fixtures';
 import { join } from 'node:path';
-import { createProject, drawRect, FIXTURES, freshStart, pickTool, planBox, waitForPlan, waitSaved } from './helpers';
+import { execFileSync } from 'node:child_process';
+import { catchDownload, createProject, drawRect, saveDownload, FIXTURES, freshStart, pickTool, planBox, waitForPlan, waitSaved } from './helpers';
 
 test('Abzug im Plan zeichnen: Maße werden aus dem Plan erkannt, nummeriert und schraffiert angezeigt', async ({ page }) => {
   await freshStart(page);
@@ -26,6 +27,7 @@ test('Abzug im Plan zeichnen: Maße werden aus dem Plan erkannt, nummeriert und 
   const geo = dlg.getByTestId('use-geometry').first();
   if ((await geo.getAttribute('aria-pressed')) !== 'true') await geo.click();
   // Abzug im Plan zeichnen: Fenster blendet sich aus, Hinweis oben
+  await expect(dlg.getByTestId('deduction-draw')).toHaveText(/Im Plan zeichnen/);
   await dlg.getByTestId('deduction-draw').click();
   await expect(dlg).toBeHidden();
   await expect(page.getByTestId('ded-draw-bar')).toBeVisible();
@@ -47,12 +49,19 @@ test('Abzug im Plan zeichnen: Maße werden aus dem Plan erkannt, nummeriert und 
   await expect(dlg.getByTestId('deduction-row')).toHaveCount(2);
   await expect(dlg.getByTestId('deduction-row').nth(1).getByTestId('deduction-label')).toHaveValue('Abzug 2');
   await expect(dlg.getByTestId('deduction-sum')).toContainText('netto');
+  // Bezeichnung zur Wahl, Farbe frei wählbar
+  await dlg.getByTestId('deduction-row').nth(0).getByTestId('deduction-name-pick').selectOption('Tür');
+  await expect(dlg.getByTestId('deduction-row').nth(0).getByTestId('deduction-label')).toHaveValue('Tür');
+  await dlg.getByTestId('deduction-row').nth(0).getByTestId('deduction-color').nth(3).click(); // Blau
   await dlg.getByTestId('damage-save').click();
   await expect(dlg).toBeHidden();
   await waitSaved(page);
   // gespeichert: im Plan schraffiert mit Nummer der Messung
   await expect(page.getByTestId('ded-shape')).toHaveCount(2);
-  await expect(page.getByTestId('ded-overlay').locator('text')).toHaveText(['1-A1', '1-A2']);
+  await expect(page.getByTestId('ded-overlay').locator('text')).toHaveText(['1-A1 Tür', '1-A2']);
+  const blue = await page.getByTestId('ded-shape').nth(0).locator('polygon').getAttribute('stroke');
+  const red = await page.getByTestId('ded-shape').nth(1).locator('polygon').getAttribute('stroke');
+  expect(blue).not.toBe(red);
   // Nummer verschieben (wie bei allen Formen), bleibt gespeichert
   const lbl = page.getByTestId('ded-label').first();
   const lb = (await lbl.boundingBox())!;
@@ -65,6 +74,15 @@ test('Abzug im Plan zeichnen: Maße werden aus dem Plan erkannt, nummeriert und 
   await expect(page.getByTestId('damage-dialog')).toHaveCount(0);
   await waitSaved(page);
   const moved = (await lbl.boundingBox())!;
+  // im PDF-Export eingezeichnet, mit Nummer und Bezeichnung
+  const dl = await catchDownload(page, async () => {
+    await page.getByTestId('export-pdf-plan').click();
+    await page.getByTestId('pdf-export-run').click();
+  });
+  const pdf = await saveDownload(dl, 'abzuege.pdf');
+  const text = execFileSync('pdftotext', [pdf, '-'], { encoding: 'utf8' });
+  expect(text).toContain('1-A1 Tür');
+  expect(text).toContain('1-A2');
   await page.reload();
   await waitForPlan(page);
   await expect(page.getByTestId('ded-shape')).toHaveCount(2);

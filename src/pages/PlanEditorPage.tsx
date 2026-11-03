@@ -410,7 +410,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     setTool(dedDraw.prevTool);
     setDedDraw(null);
     if (!(length > 0) || !(width > 0)) return toast('Abzug konnte nicht erkannt werden – bitte eine geschlossene Form ziehen.', 'error');
-    setSessionDeds((l) => [...l, { shape, label: `A${l.length + 1}` }]);
+    setSessionDeds((l) => [...l, { shape, label: `A${l.length + 1}`, color: DED_DEFAULT }]);
     setDrawnDed({ seq: Date.now(), length, width, shape });
   };
   /** Kalibrieren starten: Menü der Messung, laufende Messung und Stil-Fenster zu (nie zwei Werkzeuge zugleich) */
@@ -435,7 +435,13 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     () =>
       stored.flatMap((d) => {
         let n = 0;
-        return (d.deductions ?? []).flatMap((x) => (x.shape ? [{ shape: x.shape, label: `${damageNo(d)}-A${++n}`, labelAt: x.labelAt, damageId: d.id, dedId: x.id }] : []));
+        return (d.deductions ?? []).flatMap((x) => {
+          if (!x.shape) return [];
+          const no = `${damageNo(d)}-A${++n}`;
+          // Bezeichnung dazu, wenn gewählt (nicht der Vorschlag „Abzug 1“)
+          const name = x.label && !/^Abzug \d+$/.test(x.label) ? ` ${x.label}` : '';
+          return [{ shape: x.shape, label: `${no}${name}`, labelAt: x.labelAt, damageId: d.id, dedId: x.id, color: x.color }];
+        });
       }),
     [stored],
   );
@@ -1857,7 +1863,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
 }
 
 /** Im Plan gezeichnete Abzüge: rot schraffiert mit Nummer */
-type DedItem = { shape: Shape; label: string; labelAt?: Point; damageId?: string; dedId?: string };
+const DED_DEFAULT = '#e03131';
+type DedItem = { shape: Shape; label: string; labelAt?: Point; damageId?: string; dedId?: string; color?: string };
 
 /** Im Plan gezeichnete Abzüge: rot schraffiert mit Nummer; die Nummer lässt sich verschieben (wie bei allen Formen) */
 function DeductionOverlay({ view, items, onMoveLabel }: { view: View; items: DedItem[]; onMoveLabel?: (damageId: string, dedId: string, at: Point) => void }) {
@@ -1871,9 +1878,11 @@ function DeductionOverlay({ view, items, onMoveLabel }: { view: View; items: Ded
   return (
     <g className="ded-overlay" data-testid="ded-overlay">
       <defs>
-        <pattern id="ded-hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-          <line x1="0" y1="0" x2="0" y2="8" stroke="#d1242f" strokeWidth="2" strokeOpacity="0.55" />
-        </pattern>
+        {[...new Set(items.map((x) => x.color ?? DED_DEFAULT))].map((c) => (
+          <pattern key={c} id={`ded-hatch-${c.slice(1)}`} width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <line x1="0" y1="0" x2="0" y2="8" stroke={c} strokeWidth="2" strokeOpacity="0.6" />
+          </pattern>
+        ))}
       </defs>
       {items.map((it, i) => {
         const key = it.dedId ?? `s${i}`;
@@ -1881,17 +1890,19 @@ function DeductionOverlay({ view, items, onMoveLabel }: { view: View; items: Ded
         const c = pts.reduce((a, p) => ({ x: a.x + p.x / pts.length, y: a.y + p.y / pts.length }), { x: 0, y: 0 });
         const at = live?.key === key ? toScreen(view, live.at) : it.labelAt ? toScreen(view, it.labelAt) : c;
         const movable = !!(onMoveLabel && it.damageId && it.dedId);
+        const col = it.color ?? DED_DEFAULT;
         const away = Math.hypot(at.x - c.x, at.y - c.y) > 14;
         return (
           <g key={key} data-testid="ded-shape">
-            <polygon points={pts.map((p) => `${p.x},${p.y}`).join(' ')} fill="url(#ded-hatch)" stroke="#d1242f" strokeWidth={1.5} strokeDasharray="5 3" pointerEvents="none" />
-            {away && <line x1={c.x} y1={c.y} x2={at.x} y2={at.y} stroke="#d1242f" strokeWidth={1} strokeDasharray="3 2" pointerEvents="none" />}
+            <polygon points={pts.map((p) => `${p.x},${p.y}`).join(' ')} fill={`url(#ded-hatch-${col.slice(1)})`} stroke={col} strokeWidth={1.5} strokeDasharray="5 3" pointerEvents="none" />
+            {away && <line x1={c.x} y1={c.y} x2={at.x} y2={at.y} stroke={col} strokeWidth={1} strokeDasharray="3 2" pointerEvents="none" />}
             <text
               x={at.x}
               y={at.y}
               textAnchor="middle"
               dominantBaseline="central"
               className={`ded-label${movable ? ' movable' : ''}`}
+              style={{ fill: col }}
               data-testid="ded-label"
               onPointerDown={
                 movable

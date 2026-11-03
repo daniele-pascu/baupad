@@ -295,6 +295,8 @@ export interface Deduction {
   shape?: Shape;
   /** verschobene Position der Nummer im Plan (Seitenkoordinaten); fehlt = Mitte der Form */
   labelAt?: { x: number; y: number };
+  /** Farbe im Plan und im PDF (frei wählbar); fehlt = Rot */
+  color?: string;
 }
 
 /** Linientypen (wie in CAD-Programmen); Wellen- und Zickzacklinie sind reine Darstellung */

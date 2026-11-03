@@ -9341,3 +9341,20 @@ html[data-theme='dark'] .crew-search {
   cursor: move;
   touch-action: none;
 }
+.deduction-name-pick {
+  width: 44px;
+  min-height: 36px;
+  padding: 0 4px;
+  border-radius: 8px;
+}
+.deduction-colors {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex-basis: 100%;
+}
+.swatch.swatch-sm {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+}

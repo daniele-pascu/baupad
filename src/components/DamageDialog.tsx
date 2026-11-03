@@ -42,7 +42,12 @@ interface DeductionRow {
   /** im Plan gezeichnet */
   shape?: Shape;
   labelAt?: { x: number; y: number };
+  color?: string;
 }
+
+/** Bezeichnungen zur Auswahl (frei überschreibbar) */
+export const DEDUCTION_NAMES = ['Tür', 'Fenster', 'Öffnung', 'Tor', 'Nische', 'Schacht', 'Stütze', 'Säule', 'Treppe', 'Aussparung', 'Durchbruch', 'Abzug'];
+export const DEDUCTION_COLOR = '#e03131';
 
 /** im Plan gezeichneter Abzug: erkannte Maße (Rechteck: Breite × Höhe, sonst Fläche × 1) */
 export interface DrawnDeduction {
@@ -111,7 +116,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const [docId, setDocId] = useState<string>(() => (damage.positionRef && positions.some((p) => p.ref === damage.positionRef) ? docOf(damage.positionRef) : (docs[0]?.id ?? '')));
   const [resetLabel, setResetLabel] = useState(false);
   const [deds, setDeds] = useState<DeductionRow[]>(() =>
-    (damage.deductions ?? []).map((x) => ({ id: x.id, label: x.label, count: String(x.count), length: toInputValue(x.length), width: toInputValue(x.width), add: !!x.add, ...(x.shape ? { shape: x.shape } : {}), ...(x.labelAt ? { labelAt: x.labelAt } : {}) })),
+    (damage.deductions ?? []).map((x) => ({ id: x.id, label: x.label, count: String(x.count), length: toInputValue(x.length), width: toInputValue(x.width), add: !!x.add, ...(x.shape ? { shape: x.shape } : {}), ...(x.labelAt ? { labelAt: x.labelAt } : {}), ...(x.color ? { color: x.color } : {}) })),
   );
   // im Plan gezeichneten Abzug übernehmen: fortlaufend nummeriert („Abzug 1“, „Abzug 2“ …)
   const lastDrawn = useRef(drawnDeduction?.seq ?? 0);
@@ -128,6 +133,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
         width: toInputValue(Math.round(drawnDeduction.width * 1000) / 1000),
         add: false,
         shape: drawnDeduction.shape,
+        color: DEDUCTION_COLOR,
       },
     ]);
   }, [drawnDeduction]);
@@ -186,6 +192,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
       ...(r.add ? { add: true } : {}),
       ...(r.shape ? { shape: r.shape } : {}),
       ...(r.labelAt ? { labelAt: r.labelAt } : {}),
+      ...(r.shape ? { color: r.color ?? DEDUCTION_COLOR } : {}),
     }));
   const area = netArea(gross, deductions);
   const dedValue = (x: Deduction) => (lineDeds ? deductionLength(x) : deductionArea(x));
@@ -404,6 +411,11 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             </>
           )}
         </div>
+        <datalist id="deduction-names">
+          {DEDUCTION_NAMES.map((n) => (
+            <option key={n} value={n} />
+          ))}
+        </datalist>
         <div className="deductions" data-testid="deductions">
           <div className="deductions-head">
             <strong>Abzüge / Zuschläge</strong>
@@ -429,9 +441,42 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
                   onChange={(e) => setDed(r.id, { label: e.target.value })}
                   placeholder={r.add ? 'Bezeichnung (z. B. Nische)' : 'Bezeichnung (z. B. Tür)'}
                   aria-label="Bezeichnung"
+                  list="deduction-names"
                   autoComplete="off"
                   data-testid="deduction-label"
                 />
+                <select
+                  className="deduction-name-pick"
+                  value=""
+                  onChange={(e) => e.target.value && setDed(r.id, { label: e.target.value })}
+                  aria-label="Bezeichnung wählen"
+                  title="Bezeichnung wählen"
+                  data-testid="deduction-name-pick"
+                >
+                  <option value="">▾</option>
+                  {DEDUCTION_NAMES.map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+                {r.shape && (
+                  <span className="deduction-colors" role="radiogroup" aria-label="Farbe im Plan" data-testid="deduction-colors">
+                    {COLORS.map((c) => (
+                      <button
+                        key={c.value}
+                        type="button"
+                        role="radio"
+                        aria-checked={(r.color ?? DEDUCTION_COLOR) === c.value}
+                        className={`swatch swatch-sm${(r.color ?? DEDUCTION_COLOR) === c.value ? ' active' : ''}`}
+                        style={{ background: c.value }}
+                        title={c.name}
+                        onClick={() => setDed(r.id, { color: c.value })}
+                        data-testid="deduction-color"
+                      />
+                    ))}
+                  </span>
+                )}
                 <button type="button" className="icon-btn icon-btn-sm" onClick={() => setDeds((list) => list.filter((x) => x.id !== r.id))} aria-label="Zeile entfernen" data-testid="deduction-remove">
                   <Icon name="trash" size={16} />
                 </button>
@@ -470,7 +515,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             </button>
             {onDrawDeduction && !lineDeds && (
               <button type="button" className="btn btn-sm" onClick={onDrawDeduction} data-testid="deduction-draw">
-                <Icon name="edit" size={16} /> Abzug im Plan zeichnen
+                <Icon name="edit" size={16} /> Im Plan zeichnen
               </button>
             )}
           </div>
