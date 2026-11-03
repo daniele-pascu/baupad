@@ -1,3 +1,4 @@
+import { invoiceLabel, invoicesOf } from '../lib/invoices';
 import { useId, useState } from 'react';
 import { drawingRegion, isDrawingPlan, PAPER, PAPER_FORMATS, SCALES, sheetFields, sheetMeters } from '../lib/drawing';
 import { formatMeasure } from '../lib/numbers';
@@ -137,7 +138,10 @@ export function PlanDetailsDialog({ plan, data, onClose }: { plan: Plan; data: P
   const [show, setShow] = useState(false);
   /** Anzeige im Plan (Titel, Bezeichnung, Ebene, Bemerkung, Format, Maßstab) auf alle Pläne des Projekts übertragen */
   const [applyAll, setApplyAll] = useState(false);
-  const error = planNumberError(data, v.planNumber, plan.id, plan.invoiceId);
+  /** aufgeteilt nach Rechnungen: Plan in eine andere Rechnung verschieben */
+  const invoices = data.project.splitByInvoice ? invoicesOf(data.project) : [];
+  const [invoiceId, setInvoiceId] = useState(plan.invoiceId ?? invoices[0]?.id ?? '');
+  const error = planNumberError(data, v.planNumber, plan.id, invoices.length ? invoiceId : plan.invoiceId);
   const startOk = /^\d{1,6}$/.test(start.trim()) && Number(start.trim()) >= 1;
 
   return (
@@ -172,6 +176,7 @@ export function PlanDetailsDialog({ plan, data, onClose }: { plan: Plan; data: P
                 showPaper,
                 showScale: isDrawingPlan(plan) ? showScale : false,
                 ...(isDrawingPlan(plan) ? (paper ? sheetFields(paper, scale) : {}) : { paper: exportFmt }),
+                ...(invoices.length && invoiceId ? { invoiceId } : {}),
               });
               if (applyAll)
                 for (const other of alive(data.plans)) {
@@ -195,6 +200,18 @@ export function PlanDetailsDialog({ plan, data, onClose }: { plan: Plan; data: P
       }
     >
       <PlanFields value={v} onChange={(p) => setV({ ...v, ...p })} error={show ? error : null} />
+      {invoices.length > 1 && (
+        <label className="field">
+          <span>Rechnung</span>
+          <select value={invoiceId} onChange={(e) => setInvoiceId(e.target.value)} data-testid="plan-invoice">
+            {invoices.map((i) => (
+              <option key={i.id} value={i.id}>
+                {invoiceLabel(i)}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <label className="check-row small apply-all-plans">
         <input type="checkbox" checked={applyAll} onChange={(e) => setApplyAll(e.target.checked)} data-testid="apply-all-plans" />
         <span>Titel und „Im Plan anzeigen“ für alle Pläne dieses Projekts übernehmen ({alive(data.plans).filter((x) => x.projectId === plan.projectId).length} Pläne)</span>

@@ -119,7 +119,6 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
     .map((sheet, i) => ({ sheet, name: sheet.name?.trim() || `Aufmaß ${i + 1}`, sheetPlans: sheet.planIds.map((id) => data.plans[id]).filter((p): p is Plan => !!p && !p.deletedAt) }))
     .filter((x) => x.sheetPlans.length && (!active || x.sheetPlans.some((p) => p.costCenterId === active.id)));
   const shownRows = split ? aufmassRows(data, invoice ? ccs.flatMap((c) => plansOf(data, c.id, invoice.id)) : []) : rows;
-  const projectHasPlans = Object.values(data.plans).some((p) => !p.deletedAt);
 
   // ---------------------------------------------------------------------------
   // Projekt und Kostenstellen
@@ -353,12 +352,17 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
         invoices={invoices}
         selected={invoice}
         planCount={(id) => Object.values(data.plans).filter((p) => !p.deletedAt && p.invoiceId === id).length}
-        canSplit={!projectHasPlans}
+        canSplit
         onSelect={setInvoiceSel}
         onSave={(inv, turnOn) => {
           const list = project.invoices ?? [];
           const exists = list.some((i) => i.id === inv.id);
           updateProject({ ...(turnOn ? { splitByInvoice: true } : {}), invoices: exists ? list.map((i) => (i.id === inv.id ? inv : i)) : [...list, inv] });
+          // bestehende Pläne kommen beim Aufteilen in die erste Rechnung (lassen sich später verschieben)
+          if (turnOn) {
+            const loose = Object.values(data.plans).filter((p) => !p.deletedAt && !p.invoiceId);
+            if (loose.length) putRecords({ plans: loose.map((p) => ({ ...p, invoiceId: inv.id })) });
+          }
           if (!exists) setInvoiceSel(inv.id);
           toast(`${invoiceLabel(inv)} ${exists ? 'gespeichert' : 'angelegt'}.`, 'success');
         }}

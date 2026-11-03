@@ -12,11 +12,14 @@ export const INVOICE_KINDS: { id: InvoiceKind; label: string; short: string }[] 
 
 const kindOf = (k: InvoiceKind) => INVOICE_KINDS.find((x) => x.id === k)!;
 
-/** z. B. „2. Teilrechnung“, „4. Schlussrechnung“ */
-export const invoiceLabel = (i: Pick<Invoice, 'kind' | 'no'>) => `${i.no}. ${kindOf(i.kind).label}`;
+type Named = Pick<Invoice, 'kind' | 'no'> & Partial<Pick<Invoice, 'name' | 'number'>>;
+const nameOf = (i: Named) => i.name?.trim() || kindOf(i.kind).label;
 
-/** kurz, z. B. „TR 2“, „SR 4“ */
-export const invoiceShort = (i: Pick<Invoice, 'kind' | 'no'>) => `${kindOf(i.kind).short} ${i.no}`;
+/** z. B. „2. Teilrechnung“, „4. Schlussrechnung“; mit eigener Bezeichnung/Nummer „Abschnitt Nord 2026-014“ */
+export const invoiceLabel = (i: Named) => (i.number?.trim() ? `${nameOf(i)} ${i.number.trim()}` : `${i.no}. ${nameOf(i)}`);
+
+/** kurz, z. B. „TR 2“, „SR 4“ (bzw. mit eigener Nummer „TR 2026-014“) */
+export const invoiceShort = (i: Named) => `${kindOf(i.kind).short} ${i.number?.trim() || i.no}`;
 
 /** Rechnungen in Reihenfolge */
 export const invoicesOf = (p: Pick<Project, 'invoices'>): Invoice[] => [...(p.invoices ?? [])].sort((a, b) => a.no - b.no);

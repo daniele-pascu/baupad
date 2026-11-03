@@ -174,8 +174,8 @@ test('Ohne Aufteilung: Aufmaß entsteht erst über „Aufmaßblatt“ mit gewäh
   await backToList(page);
   await importPlan(page, '2');
   await backToList(page);
-  // Option nur bei Projekten ohne Pläne
-  await expect(page.getByTestId('split-invoices')).toHaveCount(0);
+  // Aufteilen geht auch mit vorhandenen Plänen
+  await expect(page.getByTestId('split-invoices')).toHaveCount(1);
 
   // Messungen bleiben im Plan – noch kein Aufmaß, keine Zahl neben der Überschrift
   const blocks = page.getByTestId('aufmass-block');
@@ -242,4 +242,36 @@ test('Ohne Aufteilung: Aufmaß entsteht erst über „Aufmaßblatt“ mit gewäh
   await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Löschen' }).click();
   await expect(page.getByTestId('aufmass-block').getByTestId('aufmass-name')).toHaveText(['Aufmaß 1']);
   await expect(page.getByTestId('plan-row').filter({ hasText: /^1/ }).first()).toContainText('1');
+});
+
+test('Bestehendes Projekt nach Rechnungen aufteilen: eigene Bezeichnung und Nummer, Pläne wandern mit und lassen sich verschieben', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'Später aufgeteilt');
+  await importPlan(page, 'P1');
+  await backToList(page);
+  await page.getByTestId('split-invoices').click();
+  const dlg = page.getByTestId('invoice-dialog');
+  await dlg.getByTestId('invoice-name').fill('Abschnitt Nord');
+  await dlg.getByTestId('invoice-number').fill('2026-014');
+  await expect(dlg.getByTestId('invoice-preview')).toContainText('Abschnitt Nord 2026-014');
+  await dlg.getByTestId('invoice-save').click();
+  await expect(page.getByTestId('invoice-tab')).toHaveCount(1);
+  await expect(page.getByTestId('invoice-tab')).toContainText('TR 2026-014');
+  // vorhandener Plan steht in der ersten Rechnung
+  await expect(page.getByTestId('plan-row')).toHaveCount(1);
+  // zweite Rechnung (laufende Nummer) – Plan dorthin verschieben
+  await page.getByTestId('invoice-add').click();
+  await page.getByTestId('invoice-dialog').getByTestId('invoice-save').click();
+  await expect(page.getByTestId('invoice-tab')).toHaveCount(2);
+  await expect(page.getByTestId('plan-row')).toHaveCount(0);
+  await tab(page, '2026-014').click();
+  await expect(page.getByTestId('plan-row')).toHaveCount(1);
+  await page.getByTestId('plan-row').first().locator('[data-testid$="actions"], .action-menu-trigger').first().click();
+  await page.getByTestId('action-edit').click();
+  const details = page.getByTestId('plan-details');
+  await details.getByTestId('plan-invoice').selectOption({ index: 1 });
+  await details.getByRole('button', { name: 'Speichern' }).click();
+  await expect(page.getByTestId('plan-row')).toHaveCount(0);
+  await page.getByTestId('invoice-tab').nth(1).click();
+  await expect(page.getByTestId('plan-row')).toHaveCount(1);
 });

@@ -68,6 +68,10 @@ export interface Invoice {
   kind: InvoiceKind;
   /** laufende Nummer (1, 2, 3 …) über alle Rechnungen des Projekts */
   no: number;
+  /** eigene Bezeichnung (z. B. „Abschnitt Nord“); fehlt = Art der Rechnung („Teilrechnung“) */
+  name?: string;
+  /** eigene Rechnungsnummer (frei, z. B. „2026-014“); fehlt = laufende Nummer */
+  number?: string;
   /** Leistungszeitraum (frei, z. B. „01.10.–31.10.2026“) */
   period: string;
   /** als abgerechnet markiert: Änderungen bleiben möglich, aber mit Warnung */

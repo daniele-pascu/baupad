@@ -106,8 +106,11 @@ export function InvoiceBar({
 function InvoiceDialog({ project, invoice, onClose, onSave }: { project: Project; invoice: Invoice | null; onClose(): void; onSave(inv: Invoice): void }) {
   const [kind, setKind] = useState<InvoiceKind>(invoice?.kind ?? 'tr');
   const [period, setPeriod] = useState(invoice?.period ?? '');
-  const preview = invoice ? { ...invoice, kind } : { ...newInvoice(project, kind), kind };
-  const save = () => onSave(invoice ? { ...invoice, kind, period: period.trim() } : newInvoice(project, kind, period));
+  const [name, setName] = useState(invoice?.name ?? '');
+  const [number, setNumber] = useState(invoice?.number ?? '');
+  const own = { name: name.trim() || undefined, number: number.trim() || undefined };
+  const preview = invoice ? { ...invoice, kind, ...own } : { ...newInvoice(project, kind), kind, ...own };
+  const save = () => onSave(invoice ? { ...invoice, kind, period: period.trim(), ...own } : { ...newInvoice(project, kind, period), ...own });
   return (
     <Modal
       title={invoice ? `${invoiceLabel(invoice)} bearbeiten` : 'Rechnung anlegen'}
@@ -145,6 +148,19 @@ function InvoiceDialog({ project, invoice, onClose, onSave }: { project: Project
               : kind === 'r'
                 ? 'Rechnung mit eigenen Plänen und eigenem Aufmaß.'
                 : 'Teilrechnung mit eigenen Plänen und eigenem Aufmaß.'}
+        </p>
+        <div className="form-grid">
+          <label className="field">
+            <span>Bezeichnung (optional)</span>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder={INVOICE_KINDS.find((k) => k.id === kind)!.label} autoComplete="off" data-testid="invoice-name" />
+          </label>
+          <label className="field">
+            <span>Nummer (optional)</span>
+            <input value={number} onChange={(e) => setNumber(e.target.value)} placeholder={String(preview.no)} autoComplete="off" data-testid="invoice-number" />
+          </label>
+        </div>
+        <p className="muted small" data-testid="invoice-preview">
+          Erscheint als <strong>{invoiceLabel(preview)}</strong> ({invoiceShort(preview)})
         </p>
         <label className="field">
           <span>Leistungszeitraum</span>
