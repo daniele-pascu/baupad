@@ -297,6 +297,8 @@ export interface Deduction {
   labelAt?: { x: number; y: number };
   /** Farbe im Plan und im PDF (frei wählbar); fehlt = Rot */
   color?: string;
+  /** eigene Nummer im Plan und PDF (z. B. „T1“); fehlt = automatisch „3-A1“ */
+  no?: string;
 }
 
 /** Linientypen (wie in CAD-Programmen); Wellen- und Zickzacklinie sind reine Darstellung */

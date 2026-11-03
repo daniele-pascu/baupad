@@ -9362,3 +9362,7 @@ html[data-theme='dark'] .crew-search {
 .lib-upload-row {
   margin: 4px 0 14px;
 }
+.deduction-no {
+  width: 9.5em;
+  min-height: 36px;
+}

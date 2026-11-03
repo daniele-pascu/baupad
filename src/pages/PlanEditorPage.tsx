@@ -439,7 +439,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         let n = 0;
         return (d.deductions ?? []).flatMap((x) => {
           if (!x.shape) return [];
-          const no = `${damageNo(d)}-A${++n}`;
+          ++n;
+          const no = x.no?.trim() || `${damageNo(d)}-A${n}`;
           // Bezeichnung dazu, wenn gewählt (nicht der Vorschlag „Abzug 1“)
           const name = x.label && !/^Abzug \d+$/.test(x.label) ? ` ${x.label}` : '';
           return [{ shape: x.shape, label: `${no}${name}`, labelAt: x.labelAt, damageId: d.id, dedId: x.id, color: x.color }];

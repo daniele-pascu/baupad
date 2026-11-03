@@ -43,6 +43,8 @@ interface DeductionRow {
   shape?: Shape;
   labelAt?: { x: number; y: number };
   color?: string;
+  /** eigene Nummer im Plan (leer = automatisch) */
+  no?: string;
 }
 
 /** Bezeichnungen zur Auswahl (frei überschreibbar) */
@@ -116,7 +118,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const [docId, setDocId] = useState<string>(() => (damage.positionRef && positions.some((p) => p.ref === damage.positionRef) ? docOf(damage.positionRef) : (docs[0]?.id ?? '')));
   const [resetLabel, setResetLabel] = useState(false);
   const [deds, setDeds] = useState<DeductionRow[]>(() =>
-    (damage.deductions ?? []).map((x) => ({ id: x.id, label: x.label, count: String(x.count), length: toInputValue(x.length), width: toInputValue(x.width), add: !!x.add, ...(x.shape ? { shape: x.shape } : {}), ...(x.labelAt ? { labelAt: x.labelAt } : {}), ...(x.color ? { color: x.color } : {}) })),
+    (damage.deductions ?? []).map((x) => ({ id: x.id, label: x.label, count: String(x.count), length: toInputValue(x.length), width: toInputValue(x.width), add: !!x.add, ...(x.shape ? { shape: x.shape } : {}), ...(x.labelAt ? { labelAt: x.labelAt } : {}), ...(x.color ? { color: x.color } : {}), ...(x.no ? { no: x.no } : {}) })),
   );
   // im Plan gezeichneten Abzug übernehmen: fortlaufend nummeriert („Abzug 1“, „Abzug 2“ …)
   const lastDrawn = useRef(drawnDeduction?.seq ?? 0);
@@ -193,6 +195,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
       ...(r.shape ? { shape: r.shape } : {}),
       ...(r.labelAt ? { labelAt: r.labelAt } : {}),
       ...(r.shape ? { color: r.color ?? DEDUCTION_COLOR } : {}),
+      ...(r.no?.trim() ? { no: r.no.trim() } : {}),
     }));
   const area = netArea(gross, deductions);
   const dedValue = (x: Deduction) => (lineDeds ? deductionLength(x) : deductionArea(x));
@@ -200,6 +203,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const lineGross = lineDeds && L.ok ? L.value : null;
   const lineNet = lineGross === null ? null : Math.round(deductions.reduce((s, x) => s + deductionLength(x), lineGross) * 1e9) / 1e9;
   const setDed = (id: string, patch: Partial<DeductionRow>) => setDeds((list) => list.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  /** automatische Nummer eines im Plan gezeichneten Abzugs („3-A1“) */
+  const autoDedNo = (i: number) => `${damageNo(damage)}-A${deds.slice(0, i + 1).filter((x) => x.shape).length}`;
   const newDed = (add: boolean) => setDeds((list) => [...list, { id: uuid(), label: '', count: '1', length: '', width: '', add }]);
   // Nummernkonflikte nur unter reinen Nummern (Kennzeichnungen haben eine eigene Prüfung)
   const conflict = num !== null ? findByNumber(others.filter((o) => !o.label), num, damage.id) : undefined;
@@ -460,6 +465,19 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
                     </option>
                   ))}
                 </select>
+                {r.shape && (
+                  <input
+                    className="deduction-no"
+                    value={r.no ?? ''}
+                    onChange={(e) => setDed(r.id, { no: e.target.value })}
+                    placeholder={`Nr. (auto: ${autoDedNo(i)})`}
+                    aria-label="Nummer im Plan"
+                    title="Nummer im Plan – leer = automatisch"
+                    autoComplete="off"
+                    maxLength={12}
+                    data-testid="deduction-no"
+                  />
+                )}
                 {r.shape && (
                   <span className="deduction-colors" role="radiogroup" aria-label="Farbe im Plan" data-testid="deduction-colors">
                     {COLORS.map((c) => (

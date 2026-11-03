@@ -389,7 +389,8 @@ function drawDamages(ctx: Ctx, t: Target, region: Rect, damages: Damage[], compo
       const b = shapeAABB(x.shape);
       const at = x.labelAt ?? { x: b.x + b.w / 2, y: b.y + b.h / 2 };
       const name = x.label && !/^Abzug \d+$/.test(x.label) ? ` ${x.label}` : '';
-      const text = clean(ctx, `${damageNo(d)}-A${++n}${name}`);
+      ++n;
+      const text = clean(ctx, `${x.no?.trim() || `${damageNo(d)}-A${n}`}${name}`);
       const tw = ctx.bold.widthOfTextAtSize(text, fs * 0.85) * u;
       drawTextMapped(t, text, { x: at.x - tw / 2, y: at.y + fs * 0.3 * u }, fs * 0.85, ctx.bold, hexToRgb(col));
     }

@@ -53,12 +53,15 @@ test('Abzug im Plan zeichnen: Maße werden aus dem Plan erkannt, nummeriert und 
   await dlg.getByTestId('deduction-row').nth(0).getByTestId('deduction-name-pick').selectOption('Tür');
   await expect(dlg.getByTestId('deduction-row').nth(0).getByTestId('deduction-label')).toHaveValue('Tür');
   await dlg.getByTestId('deduction-row').nth(0).getByTestId('deduction-color').nth(3).click(); // Blau
+  // eigene Nummer (leer = automatisch „1-A2“)
+  await expect(dlg.getByTestId('deduction-row').nth(1).getByTestId('deduction-no')).toHaveAttribute('placeholder', /1-A2/);
+  await dlg.getByTestId('deduction-row').nth(0).getByTestId('deduction-no').fill('T1');
   await dlg.getByTestId('damage-save').click();
   await expect(dlg).toBeHidden();
   await waitSaved(page);
   // gespeichert: im Plan schraffiert mit Nummer der Messung
   await expect(page.getByTestId('ded-shape')).toHaveCount(2);
-  await expect(page.getByTestId('ded-overlay').locator('text')).toHaveText(['1-A1 Tür', '1-A2']);
+  await expect(page.getByTestId('ded-overlay').locator('text')).toHaveText(['T1 Tür', '1-A2']);
   const blue = await page.getByTestId('ded-shape').nth(0).locator('polygon').getAttribute('stroke');
   const red = await page.getByTestId('ded-shape').nth(1).locator('polygon').getAttribute('stroke');
   expect(blue).not.toBe(red);
@@ -81,7 +84,7 @@ test('Abzug im Plan zeichnen: Maße werden aus dem Plan erkannt, nummeriert und 
   });
   const pdf = await saveDownload(dl, 'abzuege.pdf');
   const text = execFileSync('pdftotext', [pdf, '-'], { encoding: 'utf8' });
-  expect(text).toContain('1-A1 Tür');
+  expect(text).toContain('T1 Tür');
   expect(text).toContain('1-A2');
   await page.reload();
   await waitForPlan(page);
