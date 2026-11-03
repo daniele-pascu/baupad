@@ -60,6 +60,7 @@ const PATHS: Record<string, string> = {
   snap: 'M12 2v5M12 17v5M2 12h5M17 12h5M12 15a3 3 0 100-6 3 3 0 000 6z',
   calibrate: 'M3 17L17 3l4 4L7 21zM7 13l2 2M10 10l2 2M13 7l2 2',
   zoomSel: 'M10 17a7 7 0 100-14 7 7 0 000 14zM21 21l-5.2-5.2M7.5 7.5h5v5h-5z',
+  search: 'M10 17a7 7 0 100-14 7 7 0 000 14zM21 21l-5.2-5.2',
   arc: 'M4 18a8 8 0 0116 0M4 18h.01M12 10h.01M20 18h.01',
   move: 'M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3',
   copy: 'M8 8h11v11H8zM5 16V5h11',

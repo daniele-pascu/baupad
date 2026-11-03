@@ -43,6 +43,14 @@ test('Abzug im Plan zeichnen: Maße werden aus dem Plan erkannt, nummeriert und 
   expect(l).toBeGreaterThan(0);
   expect(w).toBeGreaterThan(l); // höher als breit gezogen
   await expect(page.getByTestId('ded-shape')).toHaveCount(1);
+  // Zuschlag im Plan zeichnen → „Zuschlag 1“, Nummer „1-Z1“
+  await dlg.getByTestId('deduction-draw-plus').click();
+  await drawRect(page, ...at(0.55, 0.45), ...at(0.58, 0.5));
+  await expect(dlg.getByTestId('deduction-row')).toHaveCount(2);
+  await expect(dlg.getByTestId('deduction-row').nth(1).getByTestId('deduction-label')).toHaveValue('Zuschlag 1');
+  await expect(dlg.getByTestId('deduction-row').nth(1).getByTestId('deduction-sign')).toHaveText('+');
+  await expect(dlg.getByTestId('deduction-row').nth(1).getByTestId('deduction-no')).toHaveAttribute('placeholder', /1-Z1/);
+  await dlg.getByTestId('deduction-row').nth(1).getByTestId('deduction-remove').click();
   // zweiter Abzug → „Abzug 2“
   await dlg.getByTestId('deduction-draw').click();
   await drawRect(page, ...at(0.5, 0.35), ...at(0.55, 0.4));
@@ -50,6 +58,10 @@ test('Abzug im Plan zeichnen: Maße werden aus dem Plan erkannt, nummeriert und 
   await expect(dlg.getByTestId('deduction-row').nth(1).getByTestId('deduction-label')).toHaveValue('Abzug 2');
   await expect(dlg.getByTestId('deduction-sum')).toContainText('netto');
   // Bezeichnung zur Wahl, Farbe frei wählbar
+  // Bezeichnungen zur Auswahl: alphabetisch, mit Wand
+  const names = (await dlg.getByTestId('deduction-row').nth(0).getByTestId('deduction-name-pick').locator('option').allTextContents()).slice(1);
+  expect(names).toContain('Wand');
+  expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b, 'de')));
   await dlg.getByTestId('deduction-row').nth(0).getByTestId('deduction-name-pick').selectOption('Tür');
   await expect(dlg.getByTestId('deduction-row').nth(0).getByTestId('deduction-label')).toHaveValue('Tür');
   await dlg.getByTestId('deduction-row').nth(0).getByTestId('deduction-color').nth(3).click(); // Blau
@@ -91,6 +103,33 @@ test('Abzug im Plan zeichnen: Maße werden aus dem Plan erkannt, nummeriert und 
   await expect(page.getByTestId('ded-shape')).toHaveCount(2);
   const after = (await page.getByTestId('ded-label').first().boundingBox())!;
   expect(Math.abs(after.x - moved.x)).toBeLessThan(4);
+  // Form bearbeiten wie eine Polylinie: Nummer antippen → Eckpunkte ziehen → Maße neu erkannt
+  const areaNow = () =>
+    page.evaluate(
+      () =>
+        new Promise<number>((res) => {
+          const r = indexedDB.open('schadstellen-aufmass');
+          r.onsuccess = () => {
+            const g = r.result.transaction('damages').objectStore('damages').getAll();
+            g.onsuccess = () => {
+              r.result.close();
+              res(g.result.find((d: { deletedAt: number | null }) => !d.deletedAt).area);
+            };
+          };
+        }),
+    );
+  const area0 = await areaNow();
+  await page.getByTestId('ded-label').nth(1).click();
+  const v = page.getByTestId('ded-vertex');
+  await expect(v).toHaveCount(4);
+  const vb = (await v.nth(2).boundingBox())!;
+  await page.mouse.move(vb.x + vb.width / 2, vb.y + vb.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(vb.x + vb.width / 2 + 60, vb.y + vb.height / 2 + 40, { steps: 6 });
+  await page.mouse.up();
+  await waitSaved(page);
+  await expect.poll(areaNow).not.toBe(area0);
+
 });
 
 test('Fläche mit vielen Punkten: Knicke erscheinen als Anfasser und lassen sich ziehen', async ({ page }) => {

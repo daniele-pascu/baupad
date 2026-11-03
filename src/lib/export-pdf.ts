@@ -381,16 +381,17 @@ function drawDamages(ctx: Ctx, t: Target, region: Rect, damages: Damage[], compo
   // im Plan gezeichnete Abzüge: gestrichelt, schraffiert in ihrer Farbe, mit Nummer (z. B. „3-A1 Tür“)
   const dedStyle: ShapeStyle = { lineType: 'dashed', fillType: 'hatch', hatch: { pattern: 'lines', angle: 45, spacing: 4 }, fillTransparency: 35 };
   for (const d of damages) {
-    let n = 0;
+    let na = 0;
+    let nz = 0;
     for (const x of d.deductions ?? []) {
       if (!x.shape) continue;
       const col = x.color ?? '#e03131';
       drawStyledShape(t.page, (p) => t.map(p), x.shape, col, dedStyle, stroke * 0.8, 35, null);
       const b = shapeAABB(x.shape);
       const at = x.labelAt ?? { x: b.x + b.w / 2, y: b.y + b.h / 2 };
-      const name = x.label && !/^Abzug \d+$/.test(x.label) ? ` ${x.label}` : '';
-      ++n;
-      const text = clean(ctx, `${x.no?.trim() || `${damageNo(d)}-A${n}`}${name}`);
+      const name = x.label && !/^(Abzug|Zuschlag) \d+$/.test(x.label) ? ` ${x.label}` : '';
+      const auto = x.add ? `${damageNo(d)}-Z${++nz}` : `${damageNo(d)}-A${++na}`;
+      const text = clean(ctx, `${x.no?.trim() || auto}${name}`);
       const tw = ctx.bold.widthOfTextAtSize(text, fs * 0.85) * u;
       drawTextMapped(t, text, { x: at.x - tw / 2, y: at.y + fs * 0.3 * u }, fs * 0.85, ctx.bold, hexToRgb(col));
     }

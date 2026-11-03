@@ -48,7 +48,15 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   await drawRect(page, box.x + box.width * 0.2, box.y + box.height * 0.3, box.x + box.width * 0.35, box.y + box.height * 0.45);
   await dlg.getByTestId('input-length').fill('4');
   await dlg.getByTestId('input-width').fill('2,5');
-  await dlg.getByTestId('input-position').selectOption({ label: '92 01 01 B Sperrflaeche (m²)' });
+  // Position über das breite Suchfenster wählen: Spalten Position, Kurztext, EH
+  await dlg.getByTestId('position-search-open').click();
+  const picker = page.getByTestId('position-picker');
+  await expect(picker.locator('thead th').first()).toHaveText('Position');
+  await picker.getByTestId('position-search').fill('sperr');
+  await expect(picker.getByTestId('position-option')).toHaveCount(1);
+  await picker.getByTestId('position-option').click();
+  await expect(picker).toHaveCount(0);
+  await expect(dlg.getByTestId('input-position').locator('option:checked')).toHaveText('92 01 01 B Sperrflaeche (m²)');
   await dlg.getByTestId('damage-save').click();
   await expect(page.locator('[data-testid="aufmass-row"][data-number="1"] [data-testid="row-position"]')).toHaveText('92 01 01 B');
   await expect(page.getByTestId('current-position')).toContainText('92 01 01 B');

@@ -20,7 +20,7 @@ import { calibrationFrom, detectScale, sourceText } from '../lib/scale-detect';
 import { visibleDamages } from '../lib/layers';
 import { LayerMenu } from '../components/LayerMenu';
 import { drawingRegion, drawingSheet, isDrawingPlan, lineEnds, paperLabel, shapeToMeters, shapeToPage, suggestMeasures, unitsPerMeter } from '../lib/drawing';
-import { convertShape, isOpenShape, lineShape, polygonShape, removeVertex, rotatePoint, shapeVertices, toPage, toScreen, type Point, type View } from '../lib/geometry';
+import { convertShape, isOpenShape, lineShape, moveVertex, polygonShape, removeVertex, rotatePoint, shapeVertices, toPage, toScreen, type Point, type View } from '../lib/geometry';
 import { probeTarget, type ProbeKind } from '../lib/probe';
 import { ProbeBar, ProbeMenu, ProbeOverlay, type ProbeState } from '../components/ProbeLayer';
 import { circleThrough } from '../lib/cad';
@@ -436,18 +436,33 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const planDeds = useMemo(
     () =>
       stored.flatMap((d) => {
-        let n = 0;
+        let na = 0;
+        let nz = 0;
         return (d.deductions ?? []).flatMap((x) => {
           if (!x.shape) return [];
-          ++n;
-          const no = x.no?.trim() || `${damageNo(d)}-A${n}`;
-          // Bezeichnung dazu, wenn gewählt (nicht der Vorschlag „Abzug 1“)
-          const name = x.label && !/^Abzug \d+$/.test(x.label) ? ` ${x.label}` : '';
+          const auto = x.add ? `${damageNo(d)}-Z${++nz}` : `${damageNo(d)}-A${++na}`;
+          const no = x.no?.trim() || auto;
+          // Bezeichnung dazu, wenn gewählt (nicht der Vorschlag „Abzug 1“ / „Zuschlag 1“)
+          const name = x.label && !/^(Abzug|Zuschlag) \d+$/.test(x.label) ? ` ${x.label}` : '';
           return [{ shape: x.shape, label: `${no}${name}`, labelAt: x.labelAt, damageId: d.id, dedId: x.id, color: x.color }];
         });
       }),
     [stored],
   );
+  /** Form eines im Plan gezeichneten Abzugs/Zuschlags geändert: Maße neu erkennen, Nettofläche nachführen */
+  const editDedShape = (damageId: string, dedId: string, shape: Shape) => {
+    const d = data.damages[damageId];
+    if (!d || !k) return;
+    const m = shapeToMeters(shape, k);
+    const geo = geometryMeasures(shape, k);
+    const rect = shape.type === 'rect' && !(shape.rotation ?? 0);
+    const length = Math.round((rect ? m.w : (geo?.area ?? 0)) * 1000) / 1000;
+    const width = rect ? Math.round(m.h * 1000) / 1000 : 1;
+    if (!(length > 0)) return;
+    const deductions = (d.deductions ?? []).map((x) => (x.id === dedId ? { ...x, shape, length, width } : x));
+    const gross = grossArea(d);
+    putRecord('damages', { ...d, deductions, area: gross !== null ? netArea(gross, deductions) : d.area });
+  };
   /** Nummer eines im Plan gezeichneten Abzugs verschoben */
   const moveDedLabel = (damageId: string, dedId: string, at: Point) => {
     const d = data.damages[damageId];
@@ -1012,7 +1027,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const lineCount = countKind(damages, 'line');
   const activePosition = findPosition(data, lastPosition);
   const positionOptions = lvDocsOf(data).flatMap((doc) =>
-    doc.positions.map((p) => ({ ref: positionRef(doc.id, p.id), doc: lvDocLabel(doc), label: `${p.number} ${p.shortText} (${p.unit || '–'})` })),
+    doc.positions.map((p) => ({ ref: positionRef(doc.id, p.id), doc: lvDocLabel(doc), label: `${p.number} ${p.shortText} (${p.unit || '–'})`, number: p.number, shortText: p.shortText, unit: p.unit })),
   );
 
   return (
@@ -1330,7 +1345,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                     </>
                   )}
                   {tool === 'probe' && probe && <ProbeOverlay view={view} probe={probe} hover={hover ?? null} k={k} />}
-                  <DeductionOverlay view={view} items={[...planDeds, ...sessionDeds]} onMoveLabel={moveDedLabel} />
+                  <DeductionOverlay view={view} items={[...planDeds, ...sessionDeds]} onMoveLabel={moveDedLabel} onEditShape={k ? editDedShape : undefined} />
                 </>
               )}
               onProbePoint={probePoint}
@@ -1876,9 +1891,23 @@ const DED_DEFAULT = '#e03131';
 type DedItem = { shape: Shape; label: string; labelAt?: Point; damageId?: string; dedId?: string; color?: string };
 
 /** Im Plan gezeichnete Abzüge: rot schraffiert mit Nummer; die Nummer lässt sich verschieben (wie bei allen Formen) */
-function DeductionOverlay({ view, items, onMoveLabel }: { view: View; items: DedItem[]; onMoveLabel?: (damageId: string, dedId: string, at: Point) => void }) {
+function DeductionOverlay({
+  view,
+  items,
+  onMoveLabel,
+  onEditShape,
+}: {
+  view: View;
+  items: DedItem[];
+  onMoveLabel?: (damageId: string, dedId: string, at: Point) => void;
+  onEditShape?: (damageId: string, dedId: string, shape: Shape) => void;
+}) {
   const drag = useRef<{ key: string; pointerId: number; dx: number; dy: number; moved: boolean; item: DedItem } | null>(null);
   const [live, setLive] = useState<{ key: string; at: Point } | null>(null);
+  /** angetippter Abzug: Eckpunkte zum Ziehen (wie bei der Polylinie) */
+  const [editKey, setEditKey] = useState<string | null>(null);
+  const vdrag = useRef<{ key: string; index: number; pointerId: number; item: DedItem; moved: boolean } | null>(null);
+  const [liveShape, setLiveShape] = useState<{ key: string; shape: Shape } | null>(null);
   if (!items.length) return null;
   const local = (e: React.PointerEvent) => {
     const r = (e.currentTarget as SVGElement).ownerSVGElement!.getBoundingClientRect();
@@ -1895,7 +1924,9 @@ function DeductionOverlay({ view, items, onMoveLabel }: { view: View; items: Ded
       </defs>
       {items.map((it, i) => {
         const key = it.dedId ?? `s${i}`;
-        const pts = (shapeVertices(it.shape).length ? shapeVertices(it.shape) : ellipsePoints(it.shape)).map((p) => toScreen(view, p));
+        const shape = liveShape?.key === key ? liveShape.shape : it.shape;
+        const verts = shapeVertices(shape);
+        const pts = (verts.length ? verts : ellipsePoints(shape)).map((p) => toScreen(view, p));
         const c = pts.reduce((a, p) => ({ x: a.x + p.x / pts.length, y: a.y + p.y / pts.length }), { x: 0, y: 0 });
         const at = live?.key === key ? toScreen(view, live.at) : it.labelAt ? toScreen(view, it.labelAt) : c;
         const movable = !!(onMoveLabel && it.damageId && it.dedId);
@@ -1937,6 +1968,7 @@ function DeductionOverlay({ view, items, onMoveLabel }: { view: View; items: Ded
                 e.stopPropagation();
                 drag.current = null;
                 if (g.moved && live?.key === g.key) onMoveLabel!(g.item.damageId!, g.item.dedId!, live.at);
+                else if (!g.moved && onEditShape) setEditKey((k0) => (k0 === g.key ? null : g.key));
                 setLive(null);
               }}
               onPointerCancel={() => {
@@ -1946,6 +1978,47 @@ function DeductionOverlay({ view, items, onMoveLabel }: { view: View; items: Ded
             >
               {it.label}
             </text>
+            {editKey === key &&
+              movable &&
+              verts.map((v, vi) => {
+                const sp = toScreen(view, v);
+                return (
+                  <circle
+                    key={vi}
+                    cx={sp.x}
+                    cy={sp.y}
+                    r={9}
+                    className="ded-vertex"
+                    style={{ stroke: col }}
+                    data-testid="ded-vertex"
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      (e.currentTarget as Element).setPointerCapture(e.pointerId);
+                      vdrag.current = { key, index: vi, pointerId: e.pointerId, item: it, moved: false };
+                    }}
+                    onPointerMove={(e) => {
+                      const g = vdrag.current;
+                      if (!g || g.pointerId !== e.pointerId) return;
+                      e.stopPropagation();
+                      g.moved = true;
+                      const pp = toPage(view, local(e));
+                      setLiveShape({ key, shape: moveVertex(g.item.shape, g.index, pp) });
+                    }}
+                    onPointerUp={(e) => {
+                      const g = vdrag.current;
+                      if (!g || g.pointerId !== e.pointerId) return;
+                      e.stopPropagation();
+                      vdrag.current = null;
+                      if (g.moved && liveShape?.key === key) onEditShape!(g.item.damageId!, g.item.dedId!, liveShape.shape);
+                      setLiveShape(null);
+                    }}
+                    onPointerCancel={() => {
+                      vdrag.current = null;
+                      setLiveShape(null);
+                    }}
+                  />
+                );
+              })}
           </g>
         );
       })}

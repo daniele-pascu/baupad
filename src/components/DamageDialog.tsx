@@ -48,7 +48,10 @@ interface DeductionRow {
 }
 
 /** Bezeichnungen zur Auswahl (frei überschreibbar) */
-export const DEDUCTION_NAMES = ['Tür', 'Fenster', 'Öffnung', 'Tor', 'Nische', 'Schacht', 'Stütze', 'Säule', 'Treppe', 'Aussparung', 'Durchbruch', 'Abzug'];
+export const DEDUCTION_NAMES = [
+  'Abzug', 'Aufzug', 'Aussparung', 'Balkon', 'Durchbruch', 'Fenster', 'Fensterbank', 'Kamin', 'Leibung', 'Lichtschacht', 'Nische', 'Öffnung',
+  'Pfeiler', 'Podest', 'Rampe', 'Säule', 'Schacht', 'Sockel', 'Stiege', 'Stütze', 'Tor', 'Treppe', 'Tür', 'Unterzug', 'Vorsprung', 'Wand', 'Zuschlag',
+].sort((a, b) => a.localeCompare(b, 'de'));
 export const DEDUCTION_COLOR = '#e03131';
 
 /** im Plan gezeichneter Abzug: erkannte Maße (Rechteck: Breite × Höhe, sonst Fläche × 1) */
@@ -69,7 +72,7 @@ interface Props {
   /** Bauteilkennzeichnungen des Plans für die optionale Zuordnung */
   components: Pick<Component, 'id' | 'letter' | 'name'>[];
   /** Leistungspositionen (LV/MFK) für die optionale Zuordnung */
-  positions?: { ref: string; label: string; doc: string }[];
+  positions?: { ref: string; label: string; doc: string; number?: string; shortText?: string; unit?: string }[];
   /** Gezeichnete Pläne: Maße aus der Markierung (Maßstab bekannt) als Vorschlag */
   suggestion?: { length: number; width: number | null } | null;
   /** Kalibrierter bzw. gezeichneter Plan, geschlossene Form: Fläche und Umfang aus der Geometrie */
@@ -112,6 +115,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const [shapeType, setShapeType] = useState<ShapeType>(damage.shapeType);
   const [componentId, setComponentId] = useState<string | null>(damage.componentId ?? null);
   const [positionRef, setPositionRef] = useState<string | null>(damage.positionRef ?? null);
+  const [pickPos, setPickPos] = useState(false);
   // erst LV bzw. MFK wählen, dann deren Positionen (Verweis „Dokument:Position“)
   const docOf = (ref: string) => ref.slice(0, ref.indexOf(':'));
   const docs = [...new Map(positions.map((p) => [docOf(p.ref), p.doc])).entries()].map(([id, label]) => ({ id, label }));
@@ -122,6 +126,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   );
   // im Plan gezeichneten Abzug übernehmen: fortlaufend nummeriert („Abzug 1“, „Abzug 2“ …)
   const lastDrawn = useRef(drawnDeduction?.seq ?? 0);
+  /** gezeichnete Form als Zuschlag (true) oder Abzug (false) übernehmen */
+  const drawAdd = useRef(false);
   useEffect(() => {
     if (!drawnDeduction || drawnDeduction.seq === lastDrawn.current) return;
     lastDrawn.current = drawnDeduction.seq;
@@ -129,11 +135,11 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
       ...list,
       {
         id: uuid(),
-        label: `Abzug ${list.filter((x) => x.shape).length + 1}`,
+        label: `${drawAdd.current ? 'Zuschlag' : 'Abzug'} ${list.filter((x) => x.shape && !!x.add === drawAdd.current).length + 1}`,
         count: '1',
         length: toInputValue(Math.round(drawnDeduction.length * 1000) / 1000),
         width: toInputValue(Math.round(drawnDeduction.width * 1000) / 1000),
-        add: false,
+        add: drawAdd.current,
         shape: drawnDeduction.shape,
         color: DEDUCTION_COLOR,
       },
@@ -204,7 +210,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const lineNet = lineGross === null ? null : Math.round(deductions.reduce((s, x) => s + deductionLength(x), lineGross) * 1e9) / 1e9;
   const setDed = (id: string, patch: Partial<DeductionRow>) => setDeds((list) => list.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   /** automatische Nummer eines im Plan gezeichneten Abzugs („3-A1“) */
-  const autoDedNo = (i: number) => `${damageNo(damage)}-A${deds.slice(0, i + 1).filter((x) => x.shape).length}`;
+  const autoDedNo = (i: number) => `${damageNo(damage)}-${deds[i].add ? 'Z' : 'A'}${deds.slice(0, i + 1).filter((x) => x.shape && !!x.add === !!deds[i].add).length}`;
   const newDed = (add: boolean) => setDeds((list) => [...list, { id: uuid(), label: '', count: '1', length: '', width: '', add }]);
   // Nummernkonflikte nur unter reinen Nummern (Kennzeichnungen haben eine eigene Prüfung)
   const conflict = num !== null ? findByNumber(others.filter((o) => !o.label), num, damage.id) : undefined;
@@ -416,6 +422,18 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             </>
           )}
         </div>
+        {pickPos && (
+          <PositionPicker
+            positions={positions}
+            selected={positionRef}
+            onClose={() => setPickPos(false)}
+            onPick={(ref) => {
+              setPositionRef(ref);
+              if (ref) setDocId(docOf(ref));
+              setPickPos(false);
+            }}
+          />
+        )}
         <datalist id="deduction-names">
           {DEDUCTION_NAMES.map((n) => (
             <option key={n} value={n} />
@@ -532,9 +550,32 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
               + Zuschlag hinzufügen
             </button>
             {onDrawDeduction && !lineDeds && (
-              <button type="button" className="btn btn-sm" onClick={onDrawDeduction} data-testid="deduction-draw">
-                <Icon name="edit" size={16} /> Im Plan zeichnen
-              </button>
+              <>
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={() => {
+                    drawAdd.current = false;
+                    onDrawDeduction();
+                  }}
+                  title="Abzug im Plan zeichnen"
+                  data-testid="deduction-draw"
+                >
+                  <Icon name="edit" size={16} /> − Im Plan zeichnen
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={() => {
+                    drawAdd.current = true;
+                    onDrawDeduction();
+                  }}
+                  title="Zuschlag im Plan zeichnen"
+                  data-testid="deduction-draw-plus"
+                >
+                  <Icon name="edit" size={16} /> + Im Plan zeichnen
+                </button>
+              </>
             )}
           </div>
           {deductions.length > 0 && (
@@ -608,7 +649,12 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
         )}
         {positions.length > 0 && (
           <label className="field">
-            <span>Leistungsposition</span>
+            <span className="row gap-s position-label">
+              Leistungsposition
+              <button type="button" className="btn btn-sm" onClick={(e) => { e.preventDefault(); setPickPos(true); }} data-testid="position-search-open">
+                <Icon name="search" size={16} /> Suchen
+              </button>
+            </span>
             <select value={positionRef ?? ''} onChange={(e) => setPositionRef(e.target.value || null)} data-testid="input-position">
               <option value="">– keine Leistungszuordnung –</option>
               {positions
@@ -654,6 +700,55 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
         )}
         <button type="submit" hidden />
       </form>
+    </Modal>
+  );
+}
+
+/** Leistungsposition suchen: breites Fenster mit Suche, Spalten Position, Kurztext, Einheit (und LV/MFK) */
+export function PositionPicker({
+  positions,
+  selected,
+  onClose,
+  onPick,
+}: {
+  positions: { ref: string; label: string; doc: string; number?: string; shortText?: string; unit?: string }[];
+  selected: string | null;
+  onClose: () => void;
+  onPick: (ref: string | null) => void;
+}) {
+  const [q, setQ] = useState('');
+  const needle = q.trim().toLowerCase();
+  const multi = new Set(positions.map((p) => p.doc)).size > 1;
+  const shown = positions.filter((p) => !needle || [p.number ?? '', p.shortText ?? p.label, p.doc].some((t) => t.toLowerCase().includes(needle)));
+  return (
+    <Modal title="Leistungsposition wählen" onClose={onClose} wide testId="position-picker">
+      <input type="search" className="position-search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Suchen: Positionsnummer oder Kurztext" autoFocus data-testid="position-search" />
+      <div className="position-table-wrap">
+        <table className="position-table">
+          <thead>
+            <tr>
+              <th>Position</th>
+              <th>Kurztext</th>
+              <th>EH</th>
+              {multi && <th>LV / MFK</th>}
+            </tr>
+          </thead>
+          <tbody>
+            <tr className={!selected ? 'sel' : ''} onClick={() => onPick(null)} data-testid="position-option-none">
+              <td colSpan={multi ? 4 : 3} className="muted">– keine Leistungszuordnung –</td>
+            </tr>
+            {shown.map((p) => (
+              <tr key={p.ref} className={selected === p.ref ? 'sel' : ''} onClick={() => onPick(p.ref)} data-testid="position-option">
+                <td className="pos-no">{p.number ?? ''}</td>
+                <td>{p.shortText ?? p.label}</td>
+                <td>{p.unit || '–'}</td>
+                {multi && <td className="muted small">{p.doc}</td>}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {!shown.length && <p className="muted">Keine Position gefunden.</p>}
+      </div>
     </Modal>
   );
 }

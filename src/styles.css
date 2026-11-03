@@ -9366,3 +9366,52 @@ html[data-theme='dark'] .crew-search {
   width: 9.5em;
   min-height: 36px;
 }
+/* Leistungsposition suchen */
+.position-label {
+  align-items: center;
+  justify-content: space-between;
+}
+.position-search {
+  width: 100%;
+  margin-bottom: 10px;
+}
+.position-table-wrap {
+  max-height: min(60vh, 520px);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.position-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+.position-table th {
+  position: sticky;
+  top: 0;
+  background: var(--surface-2);
+  text-align: left;
+  padding: 8px 10px;
+}
+.position-table td {
+  padding: 9px 10px;
+  border-top: 1px solid var(--border);
+  cursor: pointer;
+}
+.position-table tr:hover td {
+  background: var(--primary-soft);
+}
+.position-table tr.sel td {
+  background: var(--primary-soft);
+  font-weight: 600;
+}
+.position-table .pos-no {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.ded-vertex {
+  fill: #fff;
+  stroke-width: 2.5px;
+  cursor: move;
+  touch-action: none;
+}
