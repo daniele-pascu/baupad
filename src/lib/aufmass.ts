@@ -57,6 +57,21 @@ export const lvDocLabel = (d: Pick<LvDocument, 'kind' | 'name' | 'number'>) =>
 export const positionRef = (docId: string, posId: string) => `${docId}:${posId}`;
 
 /** Position zu einem Verweis „Dokument:Position“ (null, wenn gelöscht). */
+/** Gruppierung der Aufmaß-Tabelle nach LV-Position: Überschrift „Nr. Kurztext (LV)“ und Reihenfolge wie im LV */
+export function positionGrouping(data: ProjectState) {
+  const order = new Map<string, number>();
+  let i = 0;
+  for (const doc of lvDocsOf(data)) for (const p of doc.positions) order.set(positionRef(doc.id, p.id), i++);
+  const multi = lvDocsOf(data).length > 1;
+  return {
+    positionTitle: (ref: string) => {
+      const f = findPosition(data, ref);
+      return f ? `${f.pos.number} ${f.pos.shortText}${f.pos.unit ? ` (${f.pos.unit})` : ''}${multi ? ` · ${lvDocLabel(f.doc)}` : ''}` : null;
+    },
+    positionOrder: (ref: string) => order.get(ref) ?? 1e9,
+  };
+}
+
 export function findPosition(data: ProjectState, ref: string | null | undefined): { doc: LvDocument; pos: LvPosition } | null {
   if (!ref) return null;
   const [docId, posId] = ref.split(':');

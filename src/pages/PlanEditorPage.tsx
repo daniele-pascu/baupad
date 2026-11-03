@@ -11,7 +11,7 @@ import { PlanViewer, type PlanViewerHandle, type SnapFn, type Tool } from '../co
 import { SaveErrorBanner, SaveStatus } from '../components/SaveStatus';
 import { invoiceLabel, invoiceOfPlan } from '../lib/invoices';
 import { confirmDialog, promptDialog, showError, toast } from '../components/ui';
-import { costCenterLabel, damagesOf, elementsOf, findPosition, lvDocLabel, lvDocsOf, plansOf, planTitle, positionRef, sumArea } from '../lib/aufmass';
+import { positionGrouping, costCenterLabel, damagesOf, elementsOf, findPosition, lvDocLabel, lvDocsOf, plansOf, planTitle, positionRef, sumArea } from '../lib/aufmass';
 import { calibrationStatus, checkDeviation, checkError, formatCm, formatPercent, geometryMeasures, MAX_ERROR_M, planUnitsPerMeter } from '../lib/calibration';
 import { ViewMenu } from '../components/ViewMenu';
 import { isTouchDevice } from '../lib/platform';
@@ -1810,6 +1810,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             selectedId={selectedId}
             duplicates={dupIds}
             positionLabel={(ref) => findPosition(data, ref)?.pos.number ?? null}
+            {...positionGrouping(data)}
             onSelect={(r) => {
               select(r.damage.id, true);
               setMobileTab('plan');
@@ -1991,13 +1992,25 @@ function DeductionOverlay({
               }}
             />
             {away && <line x1={c.x} y1={c.y} x2={at.x} y2={at.y} stroke={col} strokeWidth={1} strokeDasharray="3 2" pointerEvents="none" />}
+            {/* weißes Kästchen wie bei den Nummern der Messungen (gleiche Größe) */}
+            <rect
+              x={at.x - (it.label.length * 7.4 + 10) / 2}
+              y={at.y - 10}
+              width={it.label.length * 7.4 + 10}
+              height={20}
+              rx={3}
+              fill="#fff"
+              fillOpacity={0.95}
+              stroke={col}
+              strokeWidth={1.4}
+              pointerEvents="none"
+            />
             <text
               x={at.x}
               y={at.y}
               textAnchor="middle"
               dominantBaseline="central"
               className={`ded-label${movable ? ' movable' : ''}`}
-              style={{ fill: col }}
               data-testid="ded-label"
               onPointerDown={
                 movable

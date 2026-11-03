@@ -1,3 +1,4 @@
+import { naturalCompare } from '../lib/numbers';
 import { Fragment, useEffect, useRef } from 'react';
 import type { AufmassRow } from '../lib/aufmass';
 import { sumArea } from '../lib/aufmass';
@@ -21,14 +22,33 @@ interface Props {
   components?: Record<string, Pick<Component, 'letter' | 'name' | 'deletedAt'>>;
   /** Positionsnummer zu einem Leistungsverweis (für die Spalte „Art“) */
   positionLabel?: (ref: string) => string | null;
+  /** Überschrift einer Positionsgruppe (z. B. „01.02 Spachteln“); mit Positionen wird nach LV-Position gruppiert */
+  positionTitle?: (ref: string) => string | null;
+  /** Reihenfolge der Positionen (z. B. LV-Reihenfolge); fehlt = nach Positionsnummer */
+  positionOrder?: (ref: string) => number;
 }
 
 /** Aufmaß-Tabelle: Plannummer, Nummer, Länge, Breite, Tiefe, Fläche, Art (Symbol) und Bauteil. */
-export function AufmassTable({ rows, showPlan, selectedId, onSelect, onEdit, onDelete, duplicates, components, positionLabel }: Props) {
+export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, onEdit, onDelete, duplicates, components, positionLabel, positionTitle, positionOrder }: Props) {
   const selRef = useRef<HTMLTableRowElement>(null);
   useEffect(() => {
     selRef.current?.scrollIntoView({ block: 'nearest' });
   }, [selectedId]);
+  // nach LV-Position gruppieren (Positionsnummer aufsteigend), Messungen ohne Position gesammelt am Ende
+  const grouped = !!positionTitle && rawRows.some((r) => r.damage.positionRef);
+  const groupKey = (r: AufmassRow) => (r.damage.positionRef && positionTitle?.(r.damage.positionRef) ? r.damage.positionRef : '');
+  const rows = grouped
+    ? [...rawRows].sort((a, b) => {
+        const ka = groupKey(a);
+        const kb = groupKey(b);
+        if (ka === kb) return 0;
+        if (!ka) return 1;
+        if (!kb) return -1;
+        const oa = positionOrder?.(ka) ?? 0;
+        const ob = positionOrder?.(kb) ?? 0;
+        return oa - ob || naturalCompare(positionLabel?.(ka) ?? ka, positionLabel?.(kb) ?? kb);
+      })
+    : rawRows;
   const damages = rows.map((r) => r.damage);
   const total = sumArea(damages);
   const lines = countKind(damages, 'line');
@@ -59,14 +79,28 @@ export function AufmassTable({ rows, showPlan, selectedId, onSelect, onEdit, onD
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => {
+          {rows.map((r, ri) => {
             const sel = r.damage.id === selectedId;
+            const gk = grouped ? groupKey(r) : null;
+            const newGroup = gk !== null && (ri === 0 || groupKey(rows[ri - 1]) !== gk);
+            const groupRows = newGroup ? rows.filter((x) => groupKey(x) === gk).map((x) => x.damage) : [];
             const kind = kindOf(r.damage);
             const comp = r.damage.componentId ? components?.[r.damage.componentId] : undefined;
             const label = `${measureLabel(r.damage)} ${damageNo(r.damage)}`;
             const deds = (hasArea(kind) ? r.damage.area !== null : true) && r.damage.deductions?.length ? r.damage.deductions : null;
             return (
               <Fragment key={r.damage.id}>
+              {newGroup && (
+                <tr className="position-group" data-testid="position-group">
+                  <td colSpan={before + 1 + after}>
+                    <span className="position-group-title">{gk ? positionTitle!(gk) : 'Ohne Leistungsposition'}</span>
+                    <span className="position-group-sum">
+                      {groupRows.some((d) => hasArea(kindOf(d))) ? `${formatArea(sumArea(groupRows))} m²` : ''}
+                      {countKind(groupRows, 'line') > 0 ? `${groupRows.some((d) => hasArea(kindOf(d))) ? ' · ' : ''}${formatMeasure(sumLengths(groupRows))} m` : ''}
+                    </span>
+                  </td>
+                </tr>
+              )}
               <tr
                 ref={sel ? selRef : undefined}
                 className={`${sel ? 'selected' : ''}${duplicates?.has(r.damage.id) ? ' duplicate' : ''}`}

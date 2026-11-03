@@ -392,12 +392,12 @@ function drawDamages(ctx: Ctx, t: Target, region: Rect, damages: Damage[], compo
       const name = x.label && !/^(Abzug|Zuschlag) \d+$/.test(x.label) ? ` ${x.label}` : '';
       const text = clean(ctx, `${nos[xi]}${name}`);
       // gut lesbar: größer, fett, auf weißem Kästchen mit Rahmen in der Farbe des Abzugs
-      const dfs = fs * 1.15;
-      const tw = ctx.bold.widthOfTextAtSize(text, dfs) * u;
-      const pad = dfs * 0.35 * u;
-      const bh = dfs * 1.4 * u;
-      drawRectMapped(t, { x: at.x - tw / 2 - pad, y: at.y - bh / 2, w: tw + 2 * pad, h: bh }, { color: rgb(1, 1, 1), borderColor: hexToRgb(col), borderWidth: stroke, opacity: 0.95 });
-      drawTextMapped(t, text, { x: at.x - tw / 2, y: at.y + dfs * 0.35 * u }, dfs, ctx.bold, hexToRgb(col));
+      // gleiche Größe und gleiches Kästchen wie die Nummern der Messungen
+      const tw = ctx.bold.widthOfTextAtSize(text, fs) * u;
+      const pad = fs * 0.35 * u;
+      const bh = fs * 1.35 * u;
+      drawRectMapped(t, { x: at.x - tw / 2 - pad, y: at.y - bh / 2, w: tw + 2 * pad, h: bh }, { color: rgb(1, 1, 1), borderColor: hexToRgb(col), borderWidth: stroke * 0.8, opacity: 0.92 });
+      drawTextMapped(t, text, { x: at.x - tw / 2, y: at.y + bh * 0.23 }, fs, ctx.bold);
     }
   }
   // Nummern

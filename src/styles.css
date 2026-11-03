@@ -9330,12 +9330,10 @@ html[data-theme='dark'] .crew-search {
   box-shadow: var(--shadow-md);
 }
 .ded-label {
-  font-size: 13px;
+  /* gleich wie die Nummern der Messungen */
+  font-size: 12px;
   font-weight: 700;
-  fill: #d1242f;
-  paint-order: stroke;
-  stroke: #fff;
-  stroke-width: 3px;
+  fill: #111;
 }
 .ded-label.movable {
   cursor: move;
@@ -9537,4 +9535,48 @@ html[data-theme='dark'] .crew-search {
   border-top: none;
   padding-top: 0;
   margin-top: 8px;
+}
+/* Aufmaß-Tabelle: Gruppen je LV-Position, deutlich getrennt */
+.aufmass-table tr.position-group td {
+  background: var(--surface-2);
+  border-top: 2px solid var(--border-strong);
+  padding: 8px 10px;
+  font-weight: 700;
+  white-space: normal;
+  cursor: default;
+}
+.aufmass-table tr.position-group:first-child td {
+  border-top: none;
+}
+.position-group-title {
+  margin-right: 10px;
+}
+.position-group-sum {
+  float: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+/* nur senkrecht scrollen: Tabelle passt in die Breite (Spalten schmaler, Art bricht um) */
+.table-wrap:has(> .aufmass-table) {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.aufmass-table {
+  table-layout: auto;
+}
+@media (max-width: 1100px) {
+  .aufmass-table th,
+  .aufmass-table td {
+    padding: 8px 5px;
+  }
+  .aufmass-table {
+    font-size: 0.86rem;
+  }
+  .aufmass-table .kind-cell {
+    white-space: normal;
+  }
+}
+.aufmass-block-foot {
+  justify-content: flex-end;
+  padding: 10px 12px 12px;
 }

@@ -16,7 +16,7 @@ import { ExcelExportDialog } from '../components/ExcelExportDialog';
 import { ProjectForm, type CostCenterInput } from '../components/ProjectForm';
 import { SaveErrorBanner, SaveStatus } from '../components/SaveStatus';
 import { confirmDialog, offerFile, promptDialog, showError, toast } from '../components/ui';
-import { aufmassRows, componentsOf, findPosition, costCenterLabel, costCenterName, costCentersOf, damagesOf, elementsOf, planTitle, plansOf, sumArea } from '../lib/aufmass';
+import { positionGrouping, aufmassRows, componentsOf, findPosition, costCenterLabel, costCenterName, costCentersOf, damagesOf, elementsOf, planTitle, plansOf, sumArea } from '../lib/aufmass';
 import type { BlattScope } from '../lib/aufmassblatt';
 import { BACKUP_REMIND_DAYS, backupStatus, exportProjectBackup, type BackupStatus } from '../lib/backup';
 import { isDrawingPlan } from '../lib/drawing';
@@ -534,7 +534,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
           {split ? (
             // je Rechnung ein Aufmaß: alle Messungen ihrer Pläne (alle Kostenstellen)
             shownRows.length ? (
-              <AufmassTable rows={shownRows} showPlan components={data.components} positionLabel={(ref) => findPosition(data, ref)?.pos.number ?? null} onSelect={(r) => navigate(paths.plan(project.id, r.plan.id, r.damage.id))} />
+              <AufmassTable rows={shownRows} showPlan components={data.components} positionLabel={(ref) => findPosition(data, ref)?.pos.number ?? null} {...positionGrouping(data)} onSelect={(r) => navigate(paths.plan(project.id, r.plan.id, r.damage.id))} />
             ) : (
               <p className="muted" data-testid="aufmass-empty">
                 Noch keine Messungen{invoice ? ` in der ${invoiceLabel(invoice)}` : ''} – sie erscheinen hier, sobald im Plan gemessen wird.
@@ -588,12 +588,31 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
                         ]}
                       />
                     </div>
-                    {open &&
-                      (own.length ? (
-                        <AufmassTable rows={own} showPlan={sheetPlans.length > 1} components={data.components} positionLabel={(ref) => findPosition(data, ref)?.pos.number ?? null} onSelect={(r) => navigate(paths.plan(project.id, r.plan.id, r.damage.id))} />
-                      ) : (
-                        <p className="muted small aufmass-block-empty">Noch keine Messungen in {sheetPlans.length === 1 ? 'diesem Plan' : 'diesen Plänen'}.</p>
-                      ))}
+                    {open && (
+                      <>
+                        {own.length ? (
+                          <AufmassTable rows={own} showPlan={sheetPlans.length > 1} components={data.components} positionLabel={(ref) => findPosition(data, ref)?.pos.number ?? null} {...positionGrouping(data)} onSelect={(r) => navigate(paths.plan(project.id, r.plan.id, r.damage.id))} />
+                        ) : (
+                          <p className="muted small aufmass-block-empty">Noch keine Messungen in {sheetPlans.length === 1 ? 'diesem Plan' : 'diesen Plänen'}.</p>
+                        )}
+                        <div className="row gap wrap aufmass-block-foot">
+                          <button
+                            type="button"
+                            className="btn btn-sm"
+                            onClick={() => {
+                              setExcelSheet(sheet.id);
+                              setExcelScope({ kind: 'plans', planIds: sheetPlans.map((p) => p.id) });
+                            }}
+                            data-testid="aufmass-foot-excel"
+                          >
+                            <Icon name="excel" size={16} /> Excel – Aufmaßblatt
+                          </button>
+                          <button type="button" className="btn btn-sm btn-danger-text" onClick={() => void deleteSheet(sheet.id, name)} data-testid="aufmass-foot-delete">
+                            <Icon name="trash" size={16} /> Aufmaß löschen
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 );
               })}
