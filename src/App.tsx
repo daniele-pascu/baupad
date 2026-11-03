@@ -1,3 +1,4 @@
+import { useAppearance } from './lib/appearance';
 import { preloadExcelLogo } from './lib/company';
 import { useEffect, useState, type ReactNode } from 'react';
 import { DialogHost, toast } from './components/ui';
@@ -189,6 +190,8 @@ function usePhotoCloud() {
 export function App() {
   const path = usePath();
   const route = parseRoute(path);
+  // Darstellung (Größe, hell/dunkel) und feste Größe nur in der App, nicht auf der Website
+  useAppearance(!SITE_ROUTES.has(route.name));
   // alte Adressen still auf die richtige umschreiben (/tools → /baupad/tools …); Abfrage wie ?reset=1 bleibt erhalten
   useEffect(() => {
     if (location.hash.startsWith('#/')) return; // wird zuerst von der #-Umschreibung behandelt

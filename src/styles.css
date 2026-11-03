@@ -9201,3 +9201,107 @@ canvas.dp-detail.dp-gray {
     margin: 0;
   }
 }
+
+/* ===== Darstellung der App (Einstellungen → Darstellung) ===== */
+/* feste Größe: kein Vergrößern der Seite mit zwei Fingern / Doppeltippen (Pläne zoomen selbst) */
+html.app-fixed,
+html.app-fixed body {
+  touch-action: pan-x pan-y;
+}
+/* Größe: Schrift und Tasten (rem-basiert) */
+html[data-size='small'] {
+  font-size: 14px;
+  --touch: 40px;
+}
+html[data-size='large'] {
+  font-size: 18px;
+  --touch: 50px;
+}
+.appearance-settings {
+  display: grid;
+  gap: 18px;
+}
+.appearance-row {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+}
+.appearance-row .segmented {
+  margin-top: 4px;
+}
+
+/* Dunkelmodus: Flächen, Text und Linien dunkel – Pläne, Fotos und Formulare bleiben hell */
+html[data-theme='dark'] {
+  color-scheme: dark;
+  --primary: #f5f5f7;
+  --primary-hover: #ffffff;
+  --primary-soft: #2c2c2e;
+  --danger: #ff5c5c;
+  --danger-soft: #3a1d1f;
+  --warn-soft: #3a3020;
+  --warn-border: #a8842a;
+  --success: #34c76f;
+  --bg: #000000;
+  --surface: #1c1c1e;
+  --surface-2: #232325;
+  --border: #38383a;
+  --border-strong: #4a4a4d;
+  --text: #f5f5f7;
+  --muted: #a1a1a6;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.7);
+  --ring: 0 0 0 4px rgba(255, 255, 255, 0.18);
+  --glass: rgba(28, 28, 30, 0.88);
+  color: var(--text);
+  background: var(--bg);
+}
+html[data-theme='dark'] .btn-primary {
+  color: #111;
+}
+html[data-theme='dark'] .segmented {
+  background: #2c2c2e;
+}
+html[data-theme='dark'] .segmented button[aria-selected='true'] {
+  background: #48484a;
+}
+html[data-theme='dark'] .site,
+html[data-theme='dark'] .site-main {
+  background: var(--bg);
+  color: var(--text);
+}
+html[data-theme='dark'] .site-title {
+  color: var(--text);
+}
+html[data-theme='dark'] .tools-register {
+  background: var(--surface);
+  --tool: #8e8e93;
+}
+html[data-theme='dark'] [data-testid='tool-photos'] {
+  --tool: #8e8e93;
+}
+html[data-theme='dark'] .tool-btn.active,
+html[data-theme='dark'] .icon-btn.active,
+html[data-theme='dark'] .active-toggle {
+  color: #111;
+}
+html[data-theme='dark'] .editor-plan,
+html[data-theme='dark'] .dp-canvas {
+  background: #2c2c2e;
+}
+html[data-theme='dark'] th {
+  background: var(--surface-2);
+  color: var(--text);
+}
+html[data-theme='dark'] .banner-info {
+  background: #1d2633;
+  color: var(--text);
+}
+html[data-theme='dark'] input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']),
+html[data-theme='dark'] select,
+html[data-theme='dark'] textarea,
+html[data-theme='dark'] .crew-search {
+  background-color: var(--surface-2);
+  color: var(--text);
+  border-color: var(--border-strong);
+}

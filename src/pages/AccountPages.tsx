@@ -18,6 +18,7 @@ import { confirmDialog, showError, toast } from '../components/ui';
 import { AppStorageSettings } from '../components/InstallApp';
 import { usePageTitle } from '../lib/page-title';
 import { rpc } from '../lib/remote';
+import { setUiSize, setUiTheme, useAppearanceSettings, type UiSize, type UiTheme } from '../lib/appearance';
 
 /*
  * Anmelden und Registrieren: Google, Apple, Microsoft (Outlook) und E-Mail mit Passwort über Supabase
@@ -518,6 +519,7 @@ const ACCOUNT_TILES: TileDef[] = [
       </div>
     ),
   },
+  { id: 'darstellung', title: 'Darstellung', text: 'Größe von Schrift und Tasten, hell oder dunkel', body: () => <AppearanceSettings /> },
   { id: 'app', title: 'App und Speicher', text: 'Installation, dauerhafter Speicher und zentrale Ablage', body: () => <AppStorageSettings /> },
   { id: 'weitere', title: 'Weitere Einstellungen', text: 'Sprache, Benachrichtigungen, Kontakt und Datenschutz', body: () => <MoreSettings /> },
 ];
@@ -810,6 +812,40 @@ function SubscriptionInfo({ session }: { session: Session | null | undefined }) 
         Pakete werden {session.role === 'admin' ? 'von dir als Admin' : 'vom Admin deiner Firma'} auf der Website verwaltet – Zahlung per Karte, SEPA-Lastschrift oder Rechnung.
         Preise und Bestellung folgen; in der App gibt es keine Käufe.
       </p>
+    </div>
+  );
+}
+
+/** Darstellung der App auf diesem Gerät: Größe (Schrift und Tasten) und hell/dunkel */
+function AppearanceSettings() {
+  const { size, theme } = useAppearanceSettings();
+  const sizes: [UiSize, string][] = [['small', 'Klein'], ['medium', 'Mittel'], ['large', 'Groß']];
+  const themes: [UiTheme, string][] = [['light', 'Aus'], ['dark', 'An'], ['system', 'Wie System']];
+  return (
+    <div className="appearance-settings" data-testid="appearance-settings">
+      <div className="appearance-row">
+        <strong>Größe</strong>
+        <span className="muted small">Schrift und Tasten in der ganzen App – ohne Vergrößern mit zwei Fingern</span>
+        <div className="segmented" role="radiogroup" aria-label="Größe">
+          {sizes.map(([v, label]) => (
+            <button key={v} type="button" role="radio" aria-checked={size === v} aria-selected={size === v} onClick={() => setUiSize(v)} data-testid={`ui-size-${v}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="appearance-row">
+        <strong>Dunkelmodus</strong>
+        <span className="muted small">„Wie System“ folgt der Einstellung des Geräts. Pläne bleiben immer weiß.</span>
+        <div className="segmented" role="radiogroup" aria-label="Dunkelmodus">
+          {themes.map(([v, label]) => (
+            <button key={v} type="button" role="radio" aria-checked={theme === v} aria-selected={theme === v} onClick={() => setUiTheme(v)} data-testid={`ui-theme-${v}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <p className="muted small">Gilt für dieses Gerät.</p>
     </div>
   );
 }
