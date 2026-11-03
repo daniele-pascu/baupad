@@ -40,6 +40,8 @@ function pinPath(x: number, y: number, s: number): string {
 type View = { s: number; tx: number; ty: number };
 /** größte Vergrößerung – wie in Aufmaß & Abrechnung (60-fach der eingepassten Größe); Schärfe kommt aus dem PDF nach */
 const MAX_S = 60;
+/** Stift (Apple Pencil): sobald benutzt, zeichnet nur der Stift; Finger verschieben/zoomen; aufliegende Hand wird ignoriert */
+let penSeen = false;
 
 /**
  * Plan mit Markierungen: Bild + SVG-Ebene, mit Zoom und Verschieben wie in der Planansicht des Aufmaßes
@@ -91,6 +93,11 @@ function PlanCanvas({
   const [draft, setDraft] = useState<{ shape: MarkShape; points: Pt[] } | null>(null);
   /** Werkzeug seit der Auswahl benutzt (Touch-Regel) */
   const usedRef = useRef(false);
+  /** Stift liegt gerade auf */
+  const penId = useRef<number | null>(null);
+  /** als aufliegende Hand verworfene Berührungen – ihr Abheben darf keinen Klick auslösen */
+  const palmIds = useRef(new Set<number>());
+  const suppressClick = useRef(false);
   useEffect(() => {
     usedRef.current = false;
   }, [tool]);
@@ -302,6 +309,20 @@ function PlanCanvas({
 
   const down = (e: RPointerEvent) => {
     if (e.pointerType === 'mouse' && e.button !== 0 && e.button !== 1) return;
+    if (e.pointerType === 'pen') {
+      penSeen = true;
+      // Stift hat Vorrang: Begonnenes einer aufliegenden Hand verwerfen, der Stift zählt nie für eine Zoom-Geste
+      if (pointers.current.size) {
+        for (const id of pointers.current.keys()) palmIds.current.add(id);
+        pointers.current.clear();
+        gesture.current = null;
+        setDraft(null);
+      }
+      penId.current = e.pointerId;
+    } else if (e.pointerType === 'touch' && penId.current !== null) {
+      palmIds.current.add(e.pointerId);
+      return; // Stift liegt auf: Hand ignorieren
+    }
     (e.currentTarget as Element).setPointerCapture(e.pointerId);
     pointers.current.set(e.pointerId, boxPt(e));
     if (pointers.current.size === 2) {
@@ -314,6 +335,11 @@ function PlanCanvas({
     if (pointers.current.size > 2) return;
     const p = rel(e);
     const bp = boxPt(e);
+    if (e.pointerType === 'touch' && penSeen) {
+      // mit Stift gearbeitet: ein Finger verschiebt nur den Plan
+      gesture.current = { kind: 'pan', x: bp.x, y: bp.y, view: viewRef.current, moved: false };
+      return;
+    }
     let t = tool;
     if (e.pointerType !== 'mouse' && usedRef.current && tool !== 'select') {
       // Handy/Tablet: Werkzeug wurde benutzt – dieser Fingerkontakt beendet es (Tipp = Auswahl, Ziehen = Plan verschieben)
@@ -384,6 +410,8 @@ function PlanCanvas({
     else if (tool !== 'pin' && tool !== 'text' && tool !== 'select') setDraft({ shape: tool, points: [g.start, p] });
   };
   const up = (e: RPointerEvent) => {
+    if (e.pointerId === penId.current) penId.current = null;
+    if (palmIds.current.delete(e.pointerId)) suppressClick.current = true;
     if (!pointers.current.has(e.pointerId)) return;
     pointers.current.delete(e.pointerId);
     const g = gesture.current;
@@ -422,6 +450,7 @@ function PlanCanvas({
     onCreate(tool, [g.start, p]);
   };
   const cancel = (e: RPointerEvent) => {
+    if (e.pointerId === penId.current) penId.current = null;
     pointers.current.delete(e.pointerId);
     if (!pointers.current.size) {
       gesture.current = null;
@@ -488,6 +517,13 @@ function PlanCanvas({
       }}
       onPointerUp={up}
       onPointerCancel={cancel}
+      onTouchEnd={(e) => {
+        // aufliegende Hand abgehoben: kein Klick an dieser Stelle
+        if (suppressClick.current) {
+          suppressClick.current = false;
+          if (e.cancelable) e.preventDefault();
+        }
+      }}
     >
       <div ref={stage} className={`dp-stage${plan.gray ? ' dp-gray' : ''}`} data-gray={plan.gray ? '' : undefined} style={{ width: fitW, height: fitH, transform: `translate(${view.tx}px, ${view.ty}px) scale(${view.s})` }}>
         {url ? <img src={url} alt="" draggable={false} /> : <div className="dp-loading muted small">Plan wird geladen …</div>}

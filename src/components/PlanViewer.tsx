@@ -179,7 +179,7 @@ interface Props {
 
 type Gesture =
   | { kind: 'none' }
-  | { kind: 'pan'; start: Point; view: View; moved: boolean; tapTarget: string | null }
+  | { kind: 'pan'; start: Point; view: View; moved: boolean; tapTarget: string | null; navOnly?: boolean }
   | { kind: 'pinch'; dist: number; mid: Point; view: View }
   | { kind: 'draw'; tool: DrawGestureTool; start: Point; current: Point; points: Point[] }
   | { kind: 'move'; id: string; start: Point; orig: Shape; moved: boolean; ref: Point }
@@ -193,6 +193,13 @@ type Gesture =
   | { kind: 'ignore' };
 
 const isCoarse = () => matchMedia('(pointer: coarse)').matches;
+
+/**
+ * Stift (Apple Pencil u. ä.): sobald einmal benutzt, zeichnet nur noch der Stift – Finger verschieben und zoomen
+ * nur (ein Finger verschiebt, zwei zoomen); eine aufliegende Hand während des Stifts wird ignoriert.
+ * Gilt für die ganze Sitzung (alle Pläne).
+ */
+let penSeen = false;
 
 /** Werkzeuge, die durch Ziehen eine Form erzeugen */
 type DrawGestureTool = ShapeType | 'dimension' | 'calibrate' | 'window' | 'vector';
@@ -235,6 +242,11 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   propsRef.current = props;
   /** Werkzeug seit der Auswahl benutzt (Touch-Regel, siehe onToolDone) */
   const usedRef = useRef(false);
+  /** Stift liegt gerade auf (Kennung des Zeigers) */
+  const penId = useRef<number | null>(null);
+  /** Berührungen, die als aufliegende Hand verworfen wurden – ihr Abheben darf keinen Klick auslösen */
+  const palmIds = useRef(new Set<number>());
+  const suppressClick = useRef(false);
   useEffect(() => {
     usedRef.current = false;
   }, [props.tool]);
@@ -664,20 +676,40 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     forceRender((n) => n + 1);
   };
 
+  /** laufende Aktion ohne Ergebnis verwerfen (Pinch-Beginn, Stift kommt dazu) */
+  const dropGesture = () => {
+    const g = gesture.current;
+    if (g.kind === 'move' || g.kind === 'resize') propsRef.current.onShapeChange(g.id, g.orig, false);
+    if (g.kind === 'label') {
+      const d = propsRef.current.damages.find((x) => x.id === g.id);
+      if (d) propsRef.current.onLabelChange(g.id, d.labelOffset ?? { dx: 0, dy: 0 }, false);
+    }
+    if (g.kind === 'component') propsRef.current.onComponentMove(g.id, g.orig.x, g.orig.y, false);
+    gesture.current = { kind: 'none' };
+  };
+
   const onPointerDown = (e: React.PointerEvent) => {
     if (!viewRef.current || status !== 'ready') return;
+    if (e.pointerType === 'pen') {
+      penSeen = true;
+      // Stift hat Vorrang: was eine aufliegende Hand begonnen hat, verwerfen – der Stift zählt nie für eine Zoom-Geste
+      if (pointers.current.size) {
+        dropGesture();
+        for (const id of pointers.current.keys()) palmIds.current.add(id);
+        pointers.current.clear();
+        forceRender((n) => n + 1);
+      }
+      penId.current = e.pointerId;
+    } else if (e.pointerType === 'touch' && penId.current !== null) {
+      palmIds.current.add(e.pointerId);
+      return; // Stift liegt auf: Finger bzw. Handballen ignorieren
+    }
     const p = localPoint(e);
     pointers.current.set(e.pointerId, p);
     containerRef.current!.setPointerCapture(e.pointerId);
     if (pointers.current.size === 2) {
       // Zwei Finger: Zoomen/Verschieben, laufende Aktion verwerfen
-      const g = gesture.current;
-      if (g.kind === 'move' || g.kind === 'resize') propsRef.current.onShapeChange(g.id, g.orig, false);
-      if (g.kind === 'label') {
-        const d = propsRef.current.damages.find((x) => x.id === g.id);
-        if (d) propsRef.current.onLabelChange(g.id, d.labelOffset ?? { dx: 0, dy: 0 }, false);
-      }
-      if (g.kind === 'component') propsRef.current.onComponentMove(g.id, g.orig.x, g.orig.y, false);
+      dropGesture();
       startPinch();
       return;
     }
@@ -688,6 +720,11 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     const v = viewRef.current;
     if (e.pointerType === 'mouse' && e.button !== 0) {
       gesture.current = { kind: 'pan', start: p, view: v, moved: true, tapTarget: null };
+      return;
+    }
+    if (e.pointerType === 'touch' && penSeen) {
+      // mit Stift gearbeitet: ein Finger verschiebt nur (kein Zeichnen, kein Auswählen, Werkzeug bleibt)
+      gesture.current = { kind: 'pan', start: p, view: v, moved: false, tapTarget: null, navOnly: true };
       return;
     }
     let currentTool = propsRef.current.tool;
@@ -911,6 +948,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   };
 
   const finish = (e: React.PointerEvent, cancelled: boolean) => {
+    if (e.pointerId === penId.current) penId.current = null;
+    if (palmIds.current.delete(e.pointerId)) suppressClick.current = true;
     if (!pointers.current.has(e.pointerId)) return;
     pointers.current.delete(e.pointerId);
     const g = gesture.current;
@@ -928,6 +967,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     const p = localPoint(e);
     switch (g.kind) {
       case 'pan':
+        if (g.navOnly) return;
         if (!g.moved && !cancelled) {
           const now = Date.now();
           const lt = lastTap.current;
@@ -1174,6 +1214,13 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       onPointerLeave={(e) => e.pointerType === 'mouse' && (lastHover.current = null)}
       onPointerUp={(e) => finish(e, false)}
       onPointerCancel={(e) => finish(e, true)}
+      onTouchEnd={(e) => {
+        // aufliegende Hand abgehoben: kein Klick an dieser Stelle (z. B. auf „Abbrechen“ im eben geöffneten Dialog)
+        if (suppressClick.current) {
+          suppressClick.current = false;
+          if (e.cancelable) e.preventDefault();
+        }
+      }}
       onContextMenu={(e) => e.preventDefault()}
       data-testid="plan-viewer"
       data-scale={view?.scale}
