@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { paths, usePath } from '../lib/router';
+import { navigate, paths, usePath } from '../lib/router';
 import { useSession } from '../lib/use-session';
 import { shortName } from '../lib/auth';
 import { useDataSyncState } from '../lib/data-sync';
@@ -31,6 +31,14 @@ function SyncBadge() {
   const online = useOnline();
   if (data.status === 'off' && photos.status === 'off') return null;
   const waiting = data.pending + photos.pending;
+  // Fehler der Online-Ablage (nicht nur fehlender Empfang): deutlich zeigen, Antippen öffnet das Konto mit der Meldung
+  const failure = online && (data.status === 'error' || photos.status === 'error' || photos.status === 'setup') ? (data.status === 'error' ? data.message : photos.message) : null;
+  if (failure !== null)
+    return (
+      <button type="button" className="sync-badge error" title={failure || 'Online-Speichern fehlgeschlagen'} onClick={() => navigate(paths.accountSection('app'))} data-testid="sync-badge" data-error="1">
+        Online-Fehler{waiting ? ` · ${waiting} warten` : ''}
+      </button>
+    );
   if (online && !waiting) return null;
   const busy = online && (data.busy || photos.busy);
   const text = !online ? (waiting ? `Offline · ${waiting} warten` : 'Offline') : busy ? 'Wird hochgeladen …' : `${waiting} warten auf Upload`;

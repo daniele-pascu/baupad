@@ -9023,6 +9023,15 @@ button.report-site-empty {
   background: #f5a524;
   color: #111;
 }
+.sync-badge.error {
+  border: 0;
+  background: #d6242b;
+  color: #fff;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+}
 @media (max-width: 420px) {
   .sync-badge {
     max-width: 120px;

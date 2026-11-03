@@ -32,6 +32,7 @@ const MESSAGES: Record<string, string> = {
   unauthorized: 'Bitte neu anmelden.',
   'no-workspace': 'Dein Konto gehört zu keiner Firma – Fotos bleiben auf diesem Gerät.',
   forbidden: 'Dafür fehlt die Berechtigung.',
+  action: 'Die Funktion „storage“ in Supabase ist veraltet – bitte neu veröffentlichen (Anleitung: docs/ablage-einrichten.md, Schritt 1 und 2). Bis dahin bleiben Projekte und Daten nur auf diesem Gerät.',
 };
 
 /** ruft eine Aktion der Funktion „storage“ mit der Anmeldung der Person */

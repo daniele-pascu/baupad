@@ -34,6 +34,8 @@ function fakeCloud() {
   const failNext = { records: 0 };
   /** kein Empfang: Ablage nicht erreichbar (Playwright beantwortet umgeleitete Anfragen sonst auch offline) */
   const net = { offline: false };
+  /** veraltete Funktion ohne Datenabgleich (kennt records-* nicht) */
+  const old = { records: false };
   let tick = 0;
   const now = () => new Date(Date.UTC(2026, 9, 30, 12, 0, ++tick)).toISOString();
   const install = async (page: Page) => {
@@ -64,6 +66,7 @@ function fakeCloud() {
         return ok({ ok: true, failed: [] });
       }
       // Datenabgleich (Projekte, Berichte, Pläne …): hier nur bestätigen, keine Einträge anderer Geräte
+      if (old.records && action.startsWith('records-')) return r.fulfill({ status: 400, contentType: 'application/json', body: '{"error":"action"}' });
       if (action === 'records-upsert') {
         if (failNext.records > 0) {
           failNext.records--;
@@ -90,7 +93,7 @@ function fakeCloud() {
       return f ? r.fulfill({ status: 200, contentType: 'image/jpeg', body: f }) : r.fulfill({ status: 404, body: 'NoSuchKey' });
     });
   };
-  return { rows, files, calls, records, failNext, net, install, now };
+  return { rows, files, calls, records, failNext, net, old, install, now };
 }
 
 test('Fotos werden hochgeladen, abgeglichen und für alle Geräte gelöscht', async ({ page }) => {
@@ -223,5 +226,20 @@ test('Ohne Empfang zuerst lokal, bei Empfang automatisch hochladen – auch bei 
   await context.setOffline(false);
   await expect.poll(() => [...cloud.records].some((k) => k.startsWith('projects:')), { timeout: 30_000 }).toBe(true);
   await expect(page.getByTestId('sync-badge')).toHaveCount(0);
+});
+
+test('Veraltete Funktion „storage“ ohne Datenabgleich: roter Hinweis oben, Konto erklärt, was zu tun ist', async ({ page }) => {
+  const cloud = fakeCloud();
+  cloud.old.records = true;
+  await cloud.install(page);
+  await freshStart(page);
+  await page.goto('./baupad/projektregister');
+  await page.getByTestId('register-new').click();
+  await page.getByTestId('project-name').fill('Parkring');
+  await page.getByTestId('project-save').click();
+  const badge = page.getByTestId('sync-badge');
+  await expect(badge).toHaveText(/^Online-Fehler/, { timeout: 15_000 });
+  await badge.click();
+  await expect(page.getByTestId('data-message')).toContainText('Funktion „storage“ in Supabase ist veraltet');
 });
 
