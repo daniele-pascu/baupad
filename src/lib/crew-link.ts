@@ -67,6 +67,17 @@ export async function costCenterByProject(): Promise<Map<string, string>> {
   return out;
 }
 
+/** alle Kostenstellen je Projekt als Suchtext („4711 Tiefgarage 4712 EG …“) */
+export async function costCenterSearchByProject(): Promise<Map<string, string>> {
+  const db = await getDB();
+  const out = new Map<string, string>();
+  for (const c of (await db.getAll('costCenters')).filter((c) => !c.deletedAt)) {
+    const t = [c.number ?? '', c.name].join(' ').trim();
+    if (t) out.set(c.projectId, `${out.get(c.projectId) ?? ''} ${t}`.trim());
+  }
+  return out;
+}
+
 /** Werkzeuge, in denen ein Projekt benutzt wird (ältere Projekte ohne Angabe: Aufmaß & Abrechnung; nur im Register angelegt: `register`) */
 export const projectTools = (p: Pick<Project, 'tools'>): string[] => (p.tools && p.tools.length ? p.tools : ['projects']);
 export const usedIn = (p: Pick<Project, 'tools'>, tool: string) => projectTools(p).includes(tool);

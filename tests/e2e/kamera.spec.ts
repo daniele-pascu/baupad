@@ -1,5 +1,5 @@
 import { expect, test } from './fixtures';
-import { freshStart } from './helpers';
+import { createProject, freshStart } from './helpers';
 
 /** Kamera-Modus mit Chromiums Testkamera: Baustelle wählen, auslösen, Foto landet in der Baustelle */
 test('Kamera-Modus: Live-Bild, Auslöser speichert sofort, Zähler, letztes Foto, Beschreibung, Menü', async ({ page }) => {
@@ -71,4 +71,18 @@ test('Kamera-Modus: Live-Bild, Auslöser speichert sofort, Zähler, letztes Foto
   expect(await ratio()).toBeCloseTo(16 / 9, 2); // 16:9 quer
   await page.getByTestId('lightbox-next').click();
   expect(await ratio()).toBeCloseTo(3 / 4, 2); // „Hoch“ → gedreht, 4:3 hochkant
+});
+
+test('Kamera-Modus: Projektsuche zeigt die Kostenstelle und findet Projekte über die Kostenstelle', async ({ page }) => {
+  await freshStart(page);
+  await page.goto('/baupad/aufmass-und-abrechnung');
+  await createProject(page, 'Wohnanlage Süd', {}, [{ number: '4711', name: 'Tiefgarage' }]);
+  await page.goto('./#/fotos/kamera');
+  await page.getByTestId('cam-site').click();
+  const row = page.getByTestId('cam-site-row').filter({ hasText: 'Wohnanlage Süd' });
+  await expect(row).toContainText('KST 4711');
+  await page.getByTestId('cam-site-search').fill('4711');
+  await expect(page.getByTestId('cam-site-row')).toHaveCount(1);
+  await page.getByTestId('cam-site-search').fill('tiefgarage');
+  await expect(page.getByTestId('cam-site-row').filter({ hasText: 'Wohnanlage Süd' })).toHaveCount(1);
 });

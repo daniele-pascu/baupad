@@ -9204,8 +9204,9 @@ canvas.dp-detail.dp-gray {
 
 /* ===== Darstellung der App (Einstellungen → Darstellung) ===== */
 /* feste Größe: kein Vergrößern der Seite mit zwei Fingern / Doppeltippen (Pläne zoomen selbst) */
-html.app-fixed,
-html.app-fixed body {
+/* nicht auf Seiten mit Plan: dort steuert der Plan Stift, Finger und Zoom selbst (Apple Pencil) */
+html.app-fixed body:not(:has(.viewer, .dp-canvas)) .site-main,
+html.app-fixed body:not(:has(.viewer, .dp-canvas)) .page {
   touch-action: pan-x pan-y;
 }
 /* Größe: Schrift und Tasten (rem-basiert) */

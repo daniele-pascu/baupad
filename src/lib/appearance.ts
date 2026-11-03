@@ -71,7 +71,8 @@ export function useAppearance(isApp: boolean) {
     window.addEventListener(EVENT, apply);
     q?.addEventListener?.('change', apply);
     // Safari: Vergrößern mit zwei Fingern auf der Seite sperren (Pläne zoomen selbst über Zeiger-Ereignisse)
-    const block = (e: Event) => isApp && e.preventDefault();
+    // nicht auf Seiten mit Plan (Stift und Hand gleichzeitig dürfen dort nicht abgefangen werden)
+    const block = (e: Event) => isApp && !document.querySelector('.viewer, .dp-canvas') && e.preventDefault();
     document.addEventListener('gesturestart', block);
     return () => {
       window.removeEventListener(EVENT, apply);

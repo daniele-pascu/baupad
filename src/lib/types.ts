@@ -649,6 +649,8 @@ export interface PhotoSite {
   address: string;
   /** weitere Angaben aus dem Projektregister (für die Anzeige in Listen) */
   costCenter?: string;
+  /** alle Kostenstellen (Nummern und Bezeichnungen) für die Suche */
+  ccSearch?: string;
   client?: string;
   date?: string;
   notes?: string;

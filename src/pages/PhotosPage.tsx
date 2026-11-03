@@ -11,7 +11,7 @@ import { listFreePhotoSites } from '../lib/photo-sites';
 import { cloudConnected, getPhotoStorage, onPhotosChanged } from '../lib/photo-storage';
 import { groupBySite, matchesPhoto, photoSiteKey, weekLabel } from '../lib/photos';
 import { navigate, paths } from '../lib/router';
-import { costCenterByProject } from '../lib/crew-link';
+import { costCenterByProject, costCenterSearchByProject } from '../lib/crew-link';
 import { ProjectHeading } from '../components/ProjectHeading';
 import type { Photo, Project } from '../lib/types';
 import { usePageTitle } from '../lib/page-title';
@@ -23,8 +23,8 @@ const ACCENT = { '--tool': '#111111' } as CSSProperties;
 
 /** Baustellen für neue Fotos: Projekte (Aufmaß & Abrechnung), Baustellen der Arbeitereinteilung und bisherige Foto-Baustellen */
 export async function loadPhotoSites(photos: Photo[]): Promise<PhotoSite[]> {
-  const [projects, weeks, reports, free, ccs] = await Promise.all([listProjects(), listWeeks(), listReports(), listFreePhotoSites(), costCenterByProject()]);
-  const out: PhotoSite[] = projects.map((p: Project) => ({ projectId: p.id, name: p.site || p.name, number: p.number ?? '', address: p.address, costCenter: ccs.get(p.id) ?? '', client: p.client, date: p.date, notes: p.notes, tools: p.tools }));
+  const [projects, weeks, reports, free, ccs, ccAll] = await Promise.all([listProjects(), listWeeks(), listReports(), listFreePhotoSites(), costCenterByProject(), costCenterSearchByProject()]);
+  const out: PhotoSite[] = projects.map((p: Project) => ({ projectId: p.id, name: p.site || p.name, number: p.number ?? '', address: p.address, costCenter: ccs.get(p.id) ?? '', ccSearch: ccAll.get(p.id) ?? '', client: p.client, date: p.date, notes: p.notes, tools: p.tools }));
   const names = new Map<string, PhotoSite>();
   const add = (name: string, address = '') => {
     const k = name.trim().toLowerCase();

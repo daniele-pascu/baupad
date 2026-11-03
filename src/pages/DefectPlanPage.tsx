@@ -111,7 +111,7 @@ function PlanCanvas({
     | { kind: 'draw'; start: Pt; moved: boolean }
     | { kind: 'move'; start: Pt; id: string; orig: Pt[]; moved: boolean }
     | { kind: 'resize'; id: string; handle: string; orig: Pt[]; box: { x: number; y: number; w: number; h: number } }
-    | { kind: 'pan'; x: number; y: number; view: View; moved: boolean }
+    | { kind: 'pan'; x: number; y: number; view: View; moved: boolean; exit?: boolean }
     | { kind: 'pinch'; dist: number; mid: { x: number; y: number }; view: View }
     | null
   >(null);
@@ -351,11 +351,20 @@ function PlanCanvas({
       return;
     }
     let t = tool;
-    if (e.pointerType !== 'mouse' && usedRef.current && tool !== 'select') {
-      // Handy/Tablet: Werkzeug wurde benutzt – dieser Fingerkontakt beendet es (Tipp = Auswahl, Ziehen = Plan verschieben)
+    if (e.pointerType === 'touch' && usedRef.current && tool !== 'select') {
+      // Handy/Tablet: Werkzeug wurde benutzt – dieser Fingerkontakt beendet es (Tipp = Auswahl, Ziehen = Plan verschieben);
+      // mit dem Stift bleibt das Werkzeug aktiv
       usedRef.current = false;
       onToolDone();
       t = 'select';
+    }
+    if (t !== 'select' && e.button !== 1) {
+      // außerhalb des Plans getippt: zurück auf Auswahl (Ziehen verschiebt nur)
+      const r = stage.current!.getBoundingClientRect();
+      if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) {
+        gesture.current = { kind: 'pan', x: bp.x, y: bp.y, view: viewRef.current, moved: false, exit: true };
+        return;
+      }
     }
     if (t === 'select' || e.button === 1) {
       const handle = e.button !== 1 ? hitHandle(p) : null;
@@ -436,6 +445,12 @@ function PlanCanvas({
     if (pointers.current.size) return;
     gesture.current = null;
     if (e.pointerType === 'mouse') hoverCursor(rel(e));
+    if (g.kind === 'pan' && g.exit && !g.moved) {
+      usedRef.current = false;
+      setDraft(null);
+      onToolDone();
+      return;
+    }
     if (g.kind === 'pan' || g.kind === 'resize') return;
     const p = rel(e);
     if (g.kind === 'move') {

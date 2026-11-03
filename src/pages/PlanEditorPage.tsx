@@ -387,6 +387,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   }, [drawMode]);
 
   const setTool = (t: Tool) => {
+    if (t !== 'calibrate') setChecking(false);
     setToolState(t);
     storePref('tool', t);
   };
@@ -1225,6 +1226,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               file={null}
               region={region}
               onToolDone={DRAW_DONE_TOOLS.has(drawing.tool) ? () => drawing.setTool('select') : undefined}
+              onExitTool={() => drawing.setTool('select')}
               damages={drawing.items}
               selectedId={drawing.selectedId}
               tool={probe ? 'probe' : drawing.viewerTool}
@@ -1267,6 +1269,14 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               file={file}
               region={region}
               onToolDone={tool !== 'select' && tool !== 'probe' && tool !== 'calibrate' ? () => setTool('select') : undefined}
+              onExitTool={() => {
+                // außerhalb des Plans getippt: Auswahl, alle Werkzeuge (auch Kalibrieren und Messung) aus
+                setProbe(null);
+                setProbeMenu(false);
+                setStylePopOpen(false);
+                setChecking(false);
+                setTool('select');
+              }}
               underlay={drawingPlan && region ? drawing.measureUnderlay(region) : undefined}
               bounds={markerBounds}
               onPolygonChange={setPolyCount}

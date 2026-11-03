@@ -382,7 +382,7 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
     const q = siteQuery.trim().toLowerCase();
     return sites
       .map((x) => ({ site: x, key: keyOf(x), n: stats.get(keyOf(x))?.n ?? 0, last: stats.get(keyOf(x))?.last ?? 0 }))
-      .filter((r) => !q || [r.site.name, r.site.number, r.site.address].some((t) => t.toLowerCase().includes(q)))
+      .filter((r) => !q || [r.site.name, r.site.number, r.site.address, r.site.costCenter ?? '', r.site.ccSearch ?? '', r.site.client ?? ''].some((t) => t.toLowerCase().includes(q)))
       .sort((a, b) => b.last - a.last || a.site.name.localeCompare(b.site.name, 'de'));
   }, [sites, photos, siteQuery]);
   const siteKeyNow = site ? keyOf(site) : null;
@@ -398,7 +398,7 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
           <span className="cam-site-name">
             {site ? site.name : 'Baustelle wählen'} <Icon name="next" size={14} className="cam-site-caret" />
           </span>
-          <span className="cam-site-sub">{site ? [site.number, site.address].filter(Boolean).join(' · ') || 'Baustelle' : 'Antippen und suchen'}</span>
+          <span className="cam-site-sub">{site ? [site.number, site.costCenter ? `KST ${site.costCenter}` : '', site.address].filter(Boolean).join(' · ') || 'Baustelle' : 'Antippen und suchen'}</span>
         </button>
         <a className="cam-icon cam-count" href={back} aria-label="Zu den Fotos" title="Zu den Fotos" data-testid="cam-close">
           <span data-testid="cam-counter">{count}</span>
@@ -519,7 +519,7 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
         <div className="cam-sheet-backdrop top" onClick={() => setSiteOpen(false)}>
           <div className="cam-sheet cam-site-sheet" onClick={(e) => e.stopPropagation()} data-testid="cam-site-sheet">
             <strong>Baustelle wählen</strong>
-            <input type="search" value={siteQuery} onChange={(e) => setSiteQuery(e.target.value)} placeholder="Name, Nummer oder Adresse suchen" autoFocus data-testid="cam-site-search" />
+            <input type="search" value={siteQuery} onChange={(e) => setSiteQuery(e.target.value)} placeholder="Name, Nummer, Kostenstelle oder Adresse suchen" autoFocus data-testid="cam-site-search" />
             <ul className="cam-site-list">
               {siteRows.map((r) => (
                 <li key={r.key}>
@@ -536,7 +536,7 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
                   >
                     <span className="cam-site-row-main">
                       <strong>{r.site.name}</strong>
-                      <span>{[r.site.number, r.site.address].filter(Boolean).join(' · ') || (r.site.projectId ? 'Projekt' : 'Baustelle')}</span>
+                      <span>{[r.site.number, r.site.costCenter ? `KST ${r.site.costCenter}` : '', r.site.address].filter(Boolean).join(' · ') || (r.site.projectId ? 'Projekt' : 'Baustelle')}</span>
                     </span>
                     <span className="cam-site-row-n">{r.n > 0 ? `${r.n} Fotos` : ''}</span>
                     {r.key === siteKeyNow && <Icon name="check" size={18} />}

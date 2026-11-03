@@ -175,11 +175,13 @@ interface Props {
    * Tippen ins Leere wählt aus, Ziehen verschiebt den Plan. Platzieren (Bauteil, Text) endet sofort.
    */
   onToolDone?(): void;
+  /** außerhalb des Plans getippt, während ein Werkzeug aktiv ist: zurück auf Auswahl (alle Werkzeuge aus) */
+  onExitTool?(): void;
 }
 
 type Gesture =
   | { kind: 'none' }
-  | { kind: 'pan'; start: Point; view: View; moved: boolean; tapTarget: string | null; navOnly?: boolean }
+  | { kind: 'pan'; start: Point; view: View; moved: boolean; tapTarget: string | null; navOnly?: boolean; exit?: boolean }
   | { kind: 'pinch'; dist: number; mid: Point; view: View }
   | { kind: 'draw'; tool: DrawGestureTool; start: Point; current: Point; points: Point[] }
   | { kind: 'move'; id: string; start: Point; orig: Shape; moved: boolean; ref: Point }
@@ -759,11 +761,17 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       return;
     }
     let currentTool = propsRef.current.tool;
-    if (e.pointerType !== 'mouse' && usedRef.current && currentTool !== 'select' && propsRef.current.onToolDone) {
-      // Handy/Tablet: Werkzeug wurde benutzt – dieser Fingerkontakt beendet es (Tipp = Auswahl, Ziehen = Plan verschieben)
+    if (e.pointerType === 'touch' && usedRef.current && currentTool !== 'select' && propsRef.current.onToolDone) {
+      // Handy/Tablet: Werkzeug wurde benutzt – dieser Fingerkontakt beendet es (Tipp = Auswahl, Ziehen = Plan verschieben).
+      // Mit dem Stift bleibt das Werkzeug aktiv (mehrere Messungen hintereinander).
       usedRef.current = false;
       propsRef.current.onToolDone();
       currentTool = 'select';
+    }
+    if (currentTool !== 'select' && propsRef.current.onExitTool && !rectContains(region, toPage(v, p), 0)) {
+      // außerhalb des Plans getippt: zurück auf Auswahl, alle Werkzeuge aus (Ziehen verschiebt nur)
+      gesture.current = { kind: 'pan', start: p, view: v, moved: false, tapTarget: null, exit: true };
+      return;
     }
     if (isPointTool(currentTool)) {
       gesture.current = { kind: 'polytap', start: p, view: v, moved: false };
@@ -1002,6 +1010,10 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     switch (g.kind) {
       case 'pan':
         if (g.navOnly) return;
+        if (g.exit) {
+          if (!g.moved && !cancelled) propsRef.current.onExitTool?.();
+          return;
+        }
         if (!g.moved && !cancelled) {
           const now = Date.now();
           const lt = lastTap.current;

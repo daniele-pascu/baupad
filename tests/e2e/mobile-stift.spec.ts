@@ -104,10 +104,11 @@ test('Aufmaß: Hand liegt auf (ein Finger am Bildschirm), Stift tippt: Markierun
   // Stift ruht (z. B. leer): nach kurzer Zeit geht wieder alles mit dem Finger – Rechteck ziehen öffnet die Messung
   await pause(4300);
   await pickTool(page, 'tool-rect', 'tap');
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: b.x + b.width * 0.3, y: b.y + b.height * 0.3, id: 41 }] });
+  // (der Plan wurde eben verschoben – im Plan ziehen, nicht daneben)
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: b.x + b.width * 0.55, y: b.y + b.height * 0.55, id: 41 }] });
   for (let i = 1; i <= 8; i++) {
     await pause(16);
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: b.x + b.width * (0.3 + i * 0.03), y: b.y + b.height * (0.3 + i * 0.02), id: 41 }] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: b.x + b.width * (0.55 + i * 0.02), y: b.y + b.height * (0.55 + i * 0.015), id: 41 }] });
   }
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await expect(page.getByTestId('damage-dialog')).toBeVisible();
@@ -177,4 +178,55 @@ test('Finger: Rechteck zeichnen, antippen und einen Eckpunkt ziehen – Fläche 
   await expect.poll(() => page.locator('[data-shape-id], path[data-damage]').first().getAttribute('d')).not.toBe(before);
   // aus dem Rechteck ist ein Viereck mit verschobener Ecke geworden – weiterhin eine Messung
   await expect(page.locator('.damage-label')).toHaveCount(1);
+});
+
+test('Stift bleibt beim Werkzeug, Kalibrieren endet mit anderem Werkzeug, Tipp außerhalb des Plans = Auswahl', async ({ page }, info) => {
+  test.skip(info.project.name === 'iphone');
+  await freshStart(page);
+  await createProject(page, 'Werkzeuge', {}, ['EG']);
+  await page.getByTestId('plan-file-input').setInputFiles(join(FIXTURES, 'parkdeck.png'));
+  const wiz = page.getByTestId('import-wizard');
+  await wiz.getByTestId('areas-next').click();
+  await wiz.locator('[data-field="planNumber"]').fill('W-1');
+  await wiz.getByTestId('import-save').click();
+  await waitForPlan(page);
+  const cdp = await page.context().newCDPSession(page);
+  const viewer = page.getByTestId('plan-viewer');
+  const b = (await viewer.boundingBox())!;
+  const penDrag = async (x0: number, y0: number, x1: number, y1: number) => {
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: x0, y: y0, button: 'left', clickCount: 1, pointerType: 'pen' } as never);
+    for (let i = 1; i <= 8; i++) {
+      await pause(16);
+      await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0 + ((x1 - x0) * i) / 8, y: y0 + ((y1 - y0) * i) / 8, button: 'left', pointerType: 'pen' } as never);
+    }
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: x1, y: y1, button: 'left', clickCount: 1, pointerType: 'pen' } as never);
+    await pause(300);
+  };
+  const dlg = page.getByTestId('damage-dialog');
+  const save = async () => {
+    await expect(dlg).toBeVisible();
+    await dlg.getByTestId('input-length').fill('1');
+    await dlg.getByTestId('damage-save').tap();
+    await expect(dlg).toBeHidden();
+  };
+  // Kalibrieren → anderes Werkzeug: Kalibrieren ist aus
+  await pickTool(page, 'tool-calibrate', 'tap');
+  await expect(page.getByTestId('calibrate-bar')).toBeVisible();
+  await pickTool(page, 'tool-rect', 'tap');
+  await expect(page.getByTestId('calibrate-bar')).toHaveCount(0);
+  await expect(page.getByTestId('tool-rect')).toHaveAttribute('aria-pressed', 'true');
+  // Stift zeichnet (auch nach vorheriger Stift-Nutzung wieder)
+  await penDrag(b.x + b.width * 0.3, b.y + b.height * 0.3, b.x + b.width * 0.4, b.y + b.height * 0.4);
+  await save();
+  await pickTool(page, 'tool-rect', 'tap');
+  await penDrag(b.x + b.width * 0.5, b.y + b.height * 0.3, b.x + b.width * 0.6, b.y + b.height * 0.4);
+  await save();
+  await expect(page.locator('.damage-label')).toHaveCount(2);
+  await pickTool(page, 'tool-rect', 'tap');
+  await expect(page.getByTestId('tool-rect')).toHaveAttribute('aria-pressed', 'true');
+  // Plan verkleinern und neben den Plan tippen (Finger, nach Stift-Pause): zurück auf Auswahl
+  await pause(4300);
+  for (let i = 0; i < 4; i++) await page.getByRole('button', { name: 'Verkleinern', exact: true }).tap();
+  await page.touchscreen.tap(b.x + 12, b.y + 12);
+  await expect(page.getByTestId('tool-rect')).toHaveAttribute('aria-pressed', 'false');
 });
