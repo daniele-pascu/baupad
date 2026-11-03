@@ -68,6 +68,8 @@ const ACCENT = { '--tool': '#2f80ed' } as CSSProperties;
  * eigener Datensatz; eine neue Woche läuft mit den Baustellen und Arbeitern der Vorwoche weiter.
  */
 export function WorkersPage() {
+  // Projekte anlegen nur Admin/Büro (Polier und Arbeiter übernehmen aus dem Register)
+  const mayCreateProjects = useCanCreateProjects();
   usePageTitle('Arbeitereinteilung – BauPad');
   const [workers, setWorkers] = useState<Worker[] | null>(null);
   const [times, setTimes] = useState<WorkTimes | null | undefined>(undefined);
@@ -378,7 +380,9 @@ export function WorkersPage() {
       ...(s.paused ? [] : [{ label: 'Tagesliste (PDF)', icon: 'pdf', onSelect: () => setDialog({ kind: 'dayList', siteId: s.id }), testId: 'site-daylist' }]),
       ...(s.projectId && projects.some((p) => p.id === s.projectId)
         ? [{ label: 'Projekt öffnen', icon: 'folder', onSelect: () => navigate(paths.project(s.projectId!)), testId: 'site-open-project' }]
-        : [{ label: 'Ins Projektregister aufnehmen', icon: 'folder', onSelect: () => void siteToProject(s), testId: 'site-to-project' }]),
+        : mayCreateProjects
+          ? [{ label: 'Ins Projektregister aufnehmen', icon: 'folder', onSelect: () => void siteToProject(s), testId: 'site-to-project' }]
+          : []),
       s.paused
         ? { label: 'Fortsetzen', icon: 'play', onSelect: () => void run(() => resume(s)), testId: 'site-resume-menu' }
         : { label: 'Pausieren (Standby)', icon: 'pause', onSelect: () => void run(() => pause(s)), testId: 'site-pause' },

@@ -91,6 +91,21 @@ test('Projektregister nur für Admin und Büro: Polier sieht weder Kachel noch R
   await page.goto('./baupad/fotodokumentation');
   await page.getByTestId('photo-new-site').click();
   await expect(page.getByTestId('project-picker').getByTestId('picker-item').filter({ hasText: 'Parkring' })).toHaveCount(1);
+  // Polier darf in keinem Tool ein Projekt anlegen – nur übernehmen
+  await expect(page.getByTestId('project-picker').getByTestId('picker-new')).toHaveCount(0);
+  for (const [url, btn] of [
+    ['./baupad/aufmass-und-abrechnung', 'new-project'],
+    ['./baupad/maengelplan', 'defect-new-site'],
+    ['./baupad/berichte-und-formulare', 'report-new-site'],
+  ] as const) {
+    await page.goto(url);
+    const b = page.getByTestId(btn);
+    if (await b.count()) {
+      await b.first().click();
+      await expect(page.getByTestId('project-picker')).toBeVisible();
+      await expect(page.getByTestId('project-picker').getByTestId('picker-new')).toHaveCount(0);
+    }
+  }
 });
 
 test('Gelöschtes Projekt kommt auf anderen Geräten nicht zurück: Reste werden weggeräumt statt neu angelegt', async ({ page }) => {

@@ -1,3 +1,4 @@
+import { getAuth } from './auth';
 import { listProjects, listWeeks, saveWeek, writeRecords, getDB } from './db';
 import { getDeviceId } from './ids';
 import { createProjectWithCostCenters } from './store';
@@ -39,6 +40,12 @@ export async function projectFromSite(
   const key = site.name.trim().toLowerCase();
   const existing = (await listProjects()).find((p) => !p.deletedAt && ((p.site || p.name).trim().toLowerCase() === key || p.name.trim().toLowerCase() === key));
   if (existing) return adoptProject(existing, tool);
+  // Projekte anlegen nur Admin und Büro (Betreiber); Polier und Arbeiter übernehmen aus dem Projektregister
+  const session = await getAuth()
+    .session()
+    .catch(() => null);
+  if (session && session.companyId && !(session.role === 'admin' || session.role === 'buero' || session.operator))
+    throw new Error('Projekte legen nur Admin oder Büro an – bitte ein Projekt aus dem Projektregister übernehmen.');
   const cc = (site.costCenter ?? '').trim();
   const { project } = await createProjectWithCostCenters(
     { name: site.name.trim(), number: (site.number ?? '').trim(), site: '', address: (site.address ?? '').trim(), client: (site.client ?? '').trim(), editor: '', date: (site.date ?? '').trim(), notes: (site.notes ?? '').trim(), tools: [tool] },

@@ -8,7 +8,6 @@ import { confirmDialog, offerFile, promptDialog, showError, toast } from '../com
 import { backupStatus, exportProjectBackup, findExistingProject, importProjectBackup, readProjectBackup, type BackupStatus } from '../lib/backup';
 import { getMeta, listOutbox, listProjects, projectStats, setMeta, writeRecords } from '../lib/db';
 import { useDataSyncState } from '../lib/data-sync';
-import { isIOS } from '../lib/download';
 import { getDeviceId } from '../lib/ids';
 import { formatDateTime, naturalCompare } from '../lib/numbers';
 import { navigate, paths } from '../lib/router';
@@ -278,9 +277,6 @@ export function HomePage() {
         </div>
       )}
 
-      <p className="muted small home-hint">
-        Pläne (PDF, Fotos) importieren Sie im Projekt: Projekt öffnen → „Plan importieren“.
-      </p>
 
       <section>
         <h2 className="section-title">Projekte</h2>
@@ -346,11 +342,14 @@ export function HomePage() {
                     {r.stats.costCenters} Kostenst. · {r.stats.plans} Pläne · {r.stats.damages} Messungen
                   </span>
                   <span>Zuletzt bearbeitet: {formatDateTime(r.lastEdit)}</span>
-                  {sync.status !== 'off' && (
-                    <span className={pendingProjects.has(r.project.id) ? 'backup-due' : undefined} data-testid="sync-info">
-                      Online: {pendingProjects.has(r.project.id) ? (sync.status === 'error' ? 'Übertragung fehlgeschlagen' : 'wartet auf Upload') : 'gespeichert'}
-                    </span>
-                  )}
+                  {/* wo gespeichert: nur auf dem Gerät oder auf dem Gerät und online */}
+                  <span className={`save-place${pendingProjects.has(r.project.id) && sync.status === 'error' ? ' backup-due' : ''}`} data-testid="sync-info">
+                    {sync.status === 'off'
+                      ? 'Lokal gespeichert'
+                      : pendingProjects.has(r.project.id)
+                        ? `Lokal gespeichert · ${sync.status === 'error' ? 'Online-Übertragung fehlgeschlagen' : 'online folgt'}`
+                        : 'Lokal & online gespeichert'}
+                  </span>
                   {sync.status === 'off' && (
                     <span className={r.backup.due ? 'backup-due' : undefined} data-testid="backup-info">
                       Letzte Sicherung (.zip): {r.backup.lastBackup ? formatDateTime(r.backup.lastBackup) : 'noch nie'}
@@ -376,25 +375,6 @@ export function HomePage() {
       </section>
 
       <section className="info-box">
-        <h2 className="section-title">Hinweise</h2>
-        <ul>
-          {sync.status === 'off' ? (
-            <li>Alle Daten werden automatisch auf diesem Gerät gespeichert.</li>
-          ) : (
-            <li>
-              Alle Daten werden automatisch auf diesem Gerät gespeichert und mit der zentralen Ablage deiner Firma abgeglichen – sie erscheinen auf allen Geräten, die bei
-              dieser Firma angemeldet sind. Ohne Netz wird bei der nächsten Verbindung übertragen.
-            </li>
-          )}
-          <li>Nach dem ersten Laden funktioniert die App auch ohne Internetverbindung.</li>
-          {isIOS() && (
-            <li>
-              <strong>iPhone/iPad:</strong> Fügen Sie die App über „Teilen → Zum Home-Bildschirm“ hinzu. Safari kann Daten von
-              Websites, die länger nicht genutzt wurden, sonst automatisch löschen.
-            </li>
-          )}
-          {sync.status === 'off' && <li>Sichern Sie Projekte regelmäßig als Datei („Sichern“), um sie zu archivieren oder auf ein anderes Gerät zu übertragen.</li>}
-        </ul>
         <p className="muted small" data-testid="app-version">
           BauPad Version {__APP_VERSION__}
         </p>

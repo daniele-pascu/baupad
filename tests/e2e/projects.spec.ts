@@ -192,6 +192,7 @@ test('Angemeldet: Tools, Einstellungen und Benutzerliste', async ({ page }) => {
     /Abonnement und Zahlung/,
     /Firmeninformationen/,
     /Firmenformulare/,
+    /Darstellung/,
     /App und Speicher/,
     /Weitere Einstellungen/,
   ]);

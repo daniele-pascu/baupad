@@ -289,7 +289,7 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
 test('Erstnutzer: vom neuen Projekt bis zum importierten PDF', async ({ page }) => {
   await freshStart(page);
   // Startseite erklärt, wo Pläne importiert werden
-  await expect(page.locator('.home-hint')).toContainText('Projekt öffnen → „Plan importieren“');
+  await expect(page.locator('.home-hint')).toHaveCount(0); // keine Hinweise mehr unter Aufmaß & Abrechnung
   // Projekt und Kostenstelle in einem Schritt
   await page.getByTestId('new-project').tap();
   await page.getByTestId('project-picker').getByTestId('picker-new').tap();
