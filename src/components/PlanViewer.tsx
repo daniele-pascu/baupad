@@ -682,7 +682,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   const hitHandle = (p: Point): string | null => {
     const sel = propsRef.current.damages.find((d) => d.id === propsRef.current.selectedId);
     if (!sel) return null;
-    const tol = isCoarse() ? 22 : 10;
+    const tol = isCoarse() ? 26 : 10;
     // nächstgelegener Anfasser innerhalb der Toleranz
     let best: string | null = null;
     let bestD = Infinity;
@@ -1410,7 +1410,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
                       key={h}
                       cx={p.x}
                       cy={p.y}
-                      r={s * (active || hover ? 0.75 : 0.55)}
+                      r={s * (active || hover ? 0.85 : isCoarse() ? 0.7 : 0.55)}
                       className={`vertex-handle${active ? ' active' : ''}${hover ? ' hover' : ''}`}
                       data-testid={`vertex-${h.slice(1)}`}
                     />
