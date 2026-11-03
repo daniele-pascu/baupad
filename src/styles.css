@@ -5339,6 +5339,10 @@ button.status-pill:hover {
 .tools-quick:hover {
   background: #2c2c2e;
 }
+/* Foto-Taste, Kacheln und Register gleich breit: am PC auf 820px, an Handy und Tablet von Rand zu Rand */
+.tools-quick {
+  max-width: 820px;
+}
 .tools-grid {
   display: grid;
   grid-auto-rows: 1fr;
@@ -5346,6 +5350,13 @@ button.status-pill:hover {
   gap: 14px;
   max-width: 820px;
   margin-top: 14px;
+}
+@media (max-width: 1366px) {
+  .tools-quick,
+  .tools-grid,
+  .tools-register {
+    max-width: none;
+  }
 }
 /* Hinweis: Klassen der Kacheln heißen „tile-…“ – „tool-…“ ist in der Planansicht schon vergeben (tool-text, tool-rect …) */
 /* Industrie-Stil (hell): weiße Karte, farbiges Symbolfeld, großes feines Symbol im Hintergrund */

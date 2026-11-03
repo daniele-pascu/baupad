@@ -507,6 +507,8 @@ test('Rechnung anlegen per Finger: vier Arten passen auf den Bildschirm', async 
 });
 
 test('Tools per Finger: 2 Kacheln pro Reihe, nichts zu breit, Aufmaß & Abrechnung öffnet', async ({ page }, info) => {
+  // wie in der installierten App (dort gibt es die Foto-Taste oben)
+  await page.addInitScript(() => Object.defineProperty(navigator, 'standalone', { get: () => true }));
   await page.goto('./#/tools');
   const tiles = page.locator('.tool-tile');
   await expect(tiles).toHaveCount(6); // sechs Werkzeuge seit der Zeitaufzeichnung
@@ -520,6 +522,17 @@ test('Tools per Finger: 2 Kacheln pro Reihe, nichts zu breit, Aufmaß & Abrechnu
     const lh = await t.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight) || parseFloat(getComputedStyle(el).fontSize) * 1.3);
     expect((await t.boundingBox())!.height).toBeLessThan(lh * 1.5);
   }
+  // Foto-Taste, Kacheln und Register gleich breit, von Rand zu Rand (nur der Seitenabstand bleibt)
+  const quick = (await page.getByTestId('tools-camera').boundingBox())!;
+  const regEl = page.getByTestId('tools-register'); // nur für Admin/Büro
+  const reg = (await regEl.count()) ? (await regEl.boundingBox())! : quick;
+  const vw = page.viewportSize()!.width;
+  expect(Math.abs(b!.x + b!.width - (quick.x + quick.width))).toBeLessThan(2);
+  expect(Math.abs(reg.x + reg.width - (quick.x + quick.width))).toBeLessThan(2);
+  expect(Math.abs(a!.x - quick.x)).toBeLessThan(2);
+  const gear = (await page.getByTestId('account-link').boundingBox())!; // rechter Seitenrand wie die Kopfzeile
+  expect(Math.abs(gear.x + gear.width - (quick.x + quick.width))).toBeLessThan(2);
+  expect(vw - (quick.x + quick.width)).toBeLessThan(64);
   await noHorizontalScroll(page);
   await page.screenshot({ path: join(OUT, `tools-${info.project.name}.png`), fullPage: true });
   await page.getByTestId('tool-projects').tap();
