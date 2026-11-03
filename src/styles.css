@@ -1460,12 +1460,38 @@ input[type='range'] {
   box-shadow: 0 10px 34px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.05);
   max-width: calc(100% - 20px);
 }
-/* Aufmaß: schmaler Planbereich (Tablet mit Tabelle daneben) – Leiste bricht um statt in die Tabelle zu ragen;
-   die Auswahlleiste darüber rückt über --toolbar-h automatisch mit */
+/* Aufmaß: schmaler Planbereich – zuerst nur Symbole (Text bleibt für Vorlesen/Tooltip), damit die Leiste einzeilig
+   bleibt; reicht das nicht (Tablet mit Tabelle daneben), bricht sie um statt in die Tabelle zu ragen.
+   Die Auswahlleiste darüber rückt über --toolbar-h automatisch mit. */
+.editor-plan {
+  container-type: inline-size;
+}
+@container (max-width: 1120px) {
+  .editor-plan > .toolbar:not([data-testid='dp-toolbar']) .tool-btn {
+    min-width: 44px;
+    height: 44px;
+  }
+  .editor-plan > .toolbar:not([data-testid='dp-toolbar']) .tool-btn > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
 .editor-plan > .toolbar:not([data-testid='dp-toolbar']) {
   flex-wrap: wrap;
   justify-content: center;
   row-gap: 6px;
+  /* mittig über die volle Breite zentrieren (mit left: 50 % stünde nur die halbe Breite zur Verfügung
+     und die Leiste bräche unnötig um) */
+  left: 10px;
+  right: 10px;
+  width: fit-content;
+  max-width: none;
+  margin-inline: auto;
+  transform: none;
 }
 .tool-group {
   display: flex;

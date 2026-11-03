@@ -373,7 +373,7 @@ test('Datenbank-Umstellung von Version 1: vorhandene Projekte bleiben vollständ
         };
       }),
   );
-  expect(info.version).toBe(9); // Version 9: eigene Firmenformulare
+  expect(info.version).toBe(12); // aktuelle Version (12: Zeitaufzeichnung mit gespeicherten Monatsdateien)
   expect(info.stores).toEqual(expect.arrayContaining(['components', 'outbox', 'elements', 'lvDocs', 'workers', 'weeks', 'reports', 'photos', 'defectPlans', 'projects', 'damages']));
   expect(info.upgradedFrom).toBe(1);
   // Datensätze unverändert (keine neue Revision, keine Felder verändert)
