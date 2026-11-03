@@ -9580,3 +9580,7 @@ html[data-theme='dark'] .crew-search {
   justify-content: flex-end;
   padding: 10px 12px 12px;
 }
+/* Seite unter der oberen Leiste: kein zusätzlicher Abstand für die Statusleiste */
+.page.page-under-nav {
+  padding-top: 8px;
+}

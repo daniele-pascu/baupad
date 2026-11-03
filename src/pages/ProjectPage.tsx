@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ActionMenu } from '../components/ActionMenu';
+import { SiteNav } from '../components/SiteNav';
 import { AreaEditor } from '../components/AreaEditor';
 import { AufmassTable } from '../components/AufmassTable';
 import { Icon } from '../components/Icon';
@@ -268,7 +269,10 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
   };
 
   return (
-    <div className="page">
+    <>
+    {/* obere Leiste (BauPad, Tools) wie in allen Werkzeugen */}
+    <SiteNav />
+    <div className="page page-under-nav">
       <header className="topbar">
         <a className="icon-btn" href={paths.projects()} aria-label="Zu Aufmaß & Abrechnung">
           <Icon name="back" />
@@ -744,5 +748,6 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
       )}
       {pdfOpen && <PdfExportDialog data={data} costCenterId={active?.id} initial={plans.map((p) => p.id)} onClose={() => setPdfOpen(false)} />}
     </div>
+    </>
   );
 }
