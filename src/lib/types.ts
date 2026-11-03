@@ -276,6 +276,8 @@ export interface Damage extends SyncMeta {
    * Linien: `length` bleibt die gemessene Länge, netto siehe `netLength`.
    */
   deductions?: Deduction[];
+  /** freie Bemerkung / Notiz zur Messung (Aufmaß-Tabelle, Excel-Spalte „Bemerkung“) */
+  note?: string | null;
 }
 
 /** Teilfläche bzw. Teillänge, die von einer Messung abgezogen (bzw. hinzugerechnet) wird */

@@ -9690,3 +9690,30 @@ html[data-theme='dark'] .crew-search {
 .aufmass-plan > .aufmass-block-empty {
   margin: 0 10px;
 }
+/* Aufmaß-Tabelle: Bemerkung als Spalte, am Handy als Zeile unter der Messung */
+.aufmass-table .note-col {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  min-width: 8em;
+  max-width: 22em;
+  font-size: 0.88rem;
+}
+.aufmass-table .note-subrow {
+  display: none;
+}
+.aufmass-table .note-subrow td {
+  padding-top: 0 !important;
+  border-top: 0 !important;
+  font-size: 0.82rem;
+  color: var(--muted);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 640px) {
+  .aufmass-table .note-col {
+    display: none;
+  }
+  .aufmass-table .note-subrow {
+    display: table-row;
+  }
+}

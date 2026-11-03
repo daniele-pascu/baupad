@@ -899,6 +899,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       componentId: v.componentId,
       positionRef: v.positionRef,
       label: v.label,
+      note: v.note,
     };
     // Kennzeichnung (z. B. „A“): Die Nummer dient nur der Reihenfolge – bestehende bleibt, neue ans Ende
     const number = v.label

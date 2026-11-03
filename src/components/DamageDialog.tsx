@@ -32,6 +32,8 @@ export interface DamageValues {
   area: number | null;
   /** Abzüge/Zuschläge der Fläche (Tür, Öffnung …) */
   deductions: Deduction[];
+  /** freie Bemerkung / Notiz; null = keine */
+  note: string | null;
 }
 
 /** Eingabezeile eines Abzugs (Texte, damit Kommas und leere Felder möglich sind) */
@@ -70,7 +72,7 @@ export type Renumber = 'none' | 'swap' | 'shift';
 interface Props {
   mode: 'new' | 'edit';
   damage: Pick<Damage, 'id' | 'number' | 'color' | 'labelOffset'> &
-    Partial<Pick<Damage, 'length' | 'width' | 'depth' | 'componentId' | 'positionRef' | 'label' | 'areaFromShape' | 'deductions'>> & { shapeType: ShapeType; kind: MeasureKind };
+    Partial<Pick<Damage, 'length' | 'width' | 'depth' | 'componentId' | 'positionRef' | 'label' | 'areaFromShape' | 'deductions' | 'note'>> & { shapeType: ShapeType; kind: MeasureKind };
   others: Pick<Damage, 'id' | 'number' | 'area' | 'label'>[];
   /** Bauteilkennzeichnungen des Plans für die optionale Zuordnung */
   components: Pick<Component, 'id' | 'letter' | 'name'>[];
@@ -121,6 +123,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const [componentId, setComponentId] = useState<string | null>(damage.componentId ?? null);
   const [positionRef, setPositionRef] = useState<string | null>(damage.positionRef ?? null);
   const [pickPos, setPickPos] = useState(false);
+  const [note, setNote] = useState(damage.note ?? '');
   // erst LV bzw. MFK wählen, dann deren Positionen (Verweis „Dokument:Position“)
   const docOf = (ref: string) => ref.slice(0, ref.indexOf(':'));
   const docs = [...new Map(positions.map((p) => [docOf(p.ref), p.doc])).entries()].map(([id, label]) => ({ id, label }));
@@ -259,6 +262,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
         areaFromShape: !!geo || lineGeo !== null,
         area: geo ? geo.area : null,
         deductions,
+        note: note.trim() || null,
       },
       renumber,
     );
@@ -682,6 +686,10 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             </button>
           </div>
         )}
+        <label className="field">
+          <span>Bemerkung / Notiz</span>
+          <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="optional, z. B. Hinweis zur Messung" data-testid="input-note" />
+        </label>
         <fieldset className="option-row">
           <legend>Farbe</legend>
           {COLORS.map((c) => (

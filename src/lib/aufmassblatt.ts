@@ -354,6 +354,7 @@ function dedNote(x: Deduction, line = false): string {
 /** Bemerkung: nur Hinweise (Fläche aus dem Plan, fehlende Werte) – sonst leer */
 function remark(d: Damage, kind: Kind): string {
   const parts: string[] = [];
+  if (d.note?.trim()) parts.push(d.note.trim());
   if (d.areaFromShape) parts.push('Fläche aus Plan');
   if ((kind === 'volume' || kind === 'liter') && d.depth === null) parts.push('ohne Tiefe');
   if (kind === 'area' && d.area === null) parts.push('keine Fläche');

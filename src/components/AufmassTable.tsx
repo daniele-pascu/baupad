@@ -53,8 +53,10 @@ export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, on
   const total = sumArea(damages);
   const lines = countKind(damages, 'line');
   const actions = !!(onEdit || onDelete);
+  // Spalte „Bemerkung“ nur, wenn eine Messung eine Notiz hat (am Handy als Zeile darunter)
+  const notes = damages.some((d) => d.note?.trim());
   const before = showPlan ? 5 : 4; // Spalten vor „Fläche“
-  const after = 1 + (actions ? 1 : 0); // Spalten nach „Fläche“
+  const after = 1 + (notes ? 1 : 0) + (actions ? 1 : 0); // Spalten nach „Fläche“
   return (
     <div className="table-wrap">
       <table className="aufmass-table" data-testid="aufmass-table">
@@ -75,6 +77,7 @@ export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, on
               Fläche <span className="unit-h">(m²)</span>
             </th>
             <th title="Messart und Bauteil">Art</th>
+            {notes && <th className="note-col">Bemerkung</th>}
             {actions && <th className="actions-col"><span className="sr-only">Aktionen</span></th>}
           </tr>
         </thead>
@@ -135,6 +138,11 @@ export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, on
                     </span>
                   )}
                 </td>
+                {notes && (
+                  <td className="note-col" data-testid="row-note">
+                    {r.damage.note}
+                  </td>
+                )}
                 {actions && (
                   <td className="actions-col">
                     {onEdit && (
@@ -166,6 +174,11 @@ export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, on
                   </td>
                 )}
               </tr>
+              {notes && r.damage.note?.trim() && (
+                <tr className={`note-subrow${sel ? ' selected' : ''}`} onClick={() => onSelect?.(r)} data-testid="row-note-sm">
+                  <td colSpan={before + 1 + after}>{r.damage.note}</td>
+                </tr>
+              )}
               {deds && (
                 <tr className={`deduction-subrow${sel ? ' selected' : ''}`} onClick={() => onSelect?.(r)} data-testid="row-deductions">
                   <td colSpan={before + 1 + after}>

@@ -222,3 +222,48 @@ test('Zeichenmodus: nach dem Zeichnen Auswahl aktiv, Objekt bearbeitbar, Leiste 
   await page.getByTestId('insert-submit').click();
   await expect(page.getByTestId('draw-line')).toHaveAttribute('aria-pressed', 'true');
 });
+
+test('Messung: Bemerkung / Notiz im Dialog, in der Aufmaß-Tabelle und im Excel', async ({ page }) => {
+  await freshStart(page);
+  await projectWithoutCostCenter(page, 'Notiz');
+  await page.getByTestId('plan-file-input').setInputFiles(join(FIXTURES, 'parkdeck.png'));
+  const wiz = page.getByTestId('import-wizard');
+  await wiz.getByTestId('areas-next').click();
+  await wiz.locator('[data-field="planNumber"]').fill('N-1');
+  await wiz.getByTestId('import-save').click();
+  await waitForPlan(page);
+  const box = await planBox(page);
+  const dlg = page.getByTestId('damage-dialog');
+  // ohne Notiz: keine Spalte „Bemerkung“
+  await pickTool(page, 'tool-rect');
+  await drawRect(page, box.x + box.width * 0.1, box.y + box.height * 0.1, box.x + box.width * 0.2, box.y + box.height * 0.2);
+  await dlg.getByTestId('input-length').fill('2');
+  await dlg.getByTestId('input-width').fill('1');
+  await dlg.getByTestId('damage-save').click();
+  await expect(dlg).toBeHidden();
+  await expect(page.getByTestId('aufmass-table').locator('th.note-col')).toHaveCount(0);
+  // mit Notiz
+  await pickTool(page, 'tool-rect');
+  await drawRect(page, box.x + box.width * 0.4, box.y + box.height * 0.1, box.x + box.width * 0.5, box.y + box.height * 0.2);
+  await dlg.getByTestId('input-length').fill('5');
+  await dlg.getByTestId('input-width').fill('2');
+  await dlg.getByTestId('input-note').fill('Ecke beschädigt');
+  await dlg.getByTestId('damage-save').click();
+  await expect(dlg).toBeHidden();
+  await waitSaved(page);
+  const ds = await stored(page, 'damages');
+  expect(ds.map((d) => d.note ?? null)).toEqual([null, 'Ecke beschädigt']);
+  await expect(page.getByTestId('aufmass-table').locator('th.note-col')).toHaveText('Bemerkung');
+  await expect(page.getByTestId('row-note')).toHaveText(['', 'Ecke beschädigt']);
+  // Notiz bleibt beim Bearbeiten erhalten
+  await page.locator('[data-testid="aufmass-row"][data-number="2"]').getByRole('button', { name: /2 bearbeiten/ }).click();
+  await expect(dlg.getByTestId('input-note')).toHaveValue('Ecke beschädigt');
+  await dlg.getByTestId('damage-cancel').click();
+  // Excel: Spalte „Bemerkung“
+  const xdl = await catchDownload(page, () => excelExport(page, 'export-xlsx-plan'));
+  const rows = blattRows(readXlsx(await saveDownload(xdl, 'notiz.xlsx')));
+  expect(rows.map((r) => [r.nr, r.note])).toEqual([
+    [1, null],
+    [2, 'Ecke beschädigt'],
+  ]);
+});
