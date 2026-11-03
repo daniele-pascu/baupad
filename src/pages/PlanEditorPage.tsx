@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { AufmassTable } from '../components/AufmassTable';
+import { deductionNumbers } from '../lib/numbering';
 import { RotatePlanDialog } from '../components/RotatePlanDialog';
 import { DamageDialog, type DamageValues, type DrawnDeduction, type Renumber } from '../components/DamageDialog';
 import { ElementBar, InsertBar } from '../components/DrawPanel';
@@ -436,12 +437,10 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const planDeds = useMemo(
     () =>
       stored.flatMap((d) => {
-        let na = 0;
-        let nz = 0;
-        return (d.deductions ?? []).flatMap((x) => {
+        const nos = deductionNumbers(d);
+        return (d.deductions ?? []).flatMap((x, xi) => {
           if (!x.shape) return [];
-          const auto = x.add ? `${damageNo(d)}-Z${++nz}` : `${damageNo(d)}-A${++na}`;
-          const no = x.no?.trim() || auto;
+          const no = nos[xi];
           // Bezeichnung dazu, wenn gewählt (nicht der Vorschlag „Abzug 1“ / „Zuschlag 1“)
           const name = x.label && !/^(Abzug|Zuschlag) \d+$/.test(x.label) ? ` ${x.label}` : '';
           return [{ shape: x.shape, label: `${no}${name}`, labelAt: x.labelAt, damageId: d.id, dedId: x.id, color: x.color }];
@@ -449,6 +448,16 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       }),
     [stored],
   );
+  /** Maße eines gezeichneten Abzugs aus dem Plan (Rechteck: Breite × Höhe, sonst Fläche × 1) */
+  const dedMeasures = (shape: Shape): { length: number; width: number } | null => {
+    if (!k) return null;
+    const m = shapeToMeters(shape, k);
+    const geo = geometryMeasures(shape, k);
+    const rect = shape.type === 'rect' && !(shape.rotation ?? 0);
+    const length = round2(rect ? m.w : (geo?.area ?? 0));
+    const width = rect ? round2(m.h) : 1;
+    return length > 0 && width > 0 ? { length, width } : null;
+  };
   /** Form eines im Plan gezeichneten Abzugs/Zuschlags geändert: Maße neu erkennen, Nettofläche nachführen */
   const editDedShape = (damageId: string, dedId: string, shape: Shape) => {
     const d = data.damages[damageId];
@@ -1842,6 +1851,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           onDrawDeduction={k ? startDedDraw : undefined}
           drawnDeduction={drawnDed}
           hidden={!!dedDraw}
+          dedFromPlan={k ? dedMeasures : undefined}
         />
       )}
       {dialogDamage && (
@@ -1860,6 +1870,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           onDrawDeduction={k ? startDedDraw : undefined}
           drawnDeduction={drawnDed}
           hidden={!!dedDraw}
+          dedFromPlan={k ? dedMeasures : undefined}
         />
       )}
       {dedDraw && (
@@ -1913,6 +1924,17 @@ function DeductionOverlay({
   const vdrag = useRef<{ key: string; index: number; pointerId: number; item: DedItem; moved: boolean } | null>(null);
   const [liveShape, setLiveShape] = useState<{ key: string; shape: Shape } | null>(null);
   const tap = useRef<{ key: string; pointerId: number; x: number; y: number; moved: boolean } | null>(null);
+  // außerhalb tippen (Plan, anderer Abzug, Leiste): Markierung weg
+  useEffect(() => {
+    if (!editKey) return;
+    const off = (e: PointerEvent) => {
+      const t = e.target as Element | null;
+      if (t?.closest?.('[data-testid="ded-area"], [data-testid="ded-vertex"], [data-testid="ded-label"]')) return;
+      setEditKey(null);
+    };
+    document.addEventListener('pointerdown', off, true);
+    return () => document.removeEventListener('pointerdown', off, true);
+  }, [editKey]);
   if (!items.length) return null;
   const local = (e: React.PointerEvent) => {
     const r = (e.currentTarget as SVGElement).ownerSVGElement!.getBoundingClientRect();

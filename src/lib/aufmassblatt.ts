@@ -1,4 +1,5 @@
 import { round2 } from './numbers';
+import { deductionNumbers } from './numbering';
 import { aufmassRows, costCenterLabel, costCentersOf, lvDocsOf, plansOf, positionRef, safeFileName, type ExportFile, type XlsxScope } from './aufmass';
 import { invoiceLabel, invoiceShort } from './invoices';
 import { deductionArea, deductionLength, grossArea, hasArea, kindOf, quantityBasis, quantityFor } from './measure';
@@ -253,7 +254,8 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
           total += a;
           cells = [n(ded.length, last), n(ded.width ?? null, last), ...(kind === 'areaDepth' ? [blank(last ? 'amNumLast' : 'amText')] : []), q(a, `${sign}ROUND(C${r}*D${r},2)`)];
         }
-        add([blank(last ? 'amCenterLast' : 'amCenter'), blank(last ? 'amCenterLast' : 'amCenter'), ...cells, note ? str(note, 'amNote') : null]);
+        const dNo = deductionNumbers(d)[(d.deductions ?? []).indexOf(ded)] ?? '';
+        add([blank(last ? 'amCenterLast' : 'amCenter'), dNo ? str(dNo, last ? 'amCenterLast' : 'amCenter') : blank(last ? 'amCenterLast' : 'amCenter'), ...cells, note ? str(note, 'amNote') : null]);
         return;
       }
       let cells: Cell[];
@@ -345,7 +347,8 @@ function liters(d: Damage): number | null {
 function dedNote(x: Deduction, line = false): string {
   const m = (v: number) => v.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const size = line ? `(${x.count > 1 ? `${x.count} × ` : ''}${m(x.length)} m)` : x.count > 1 ? `(${x.count}×)` : '';
-  return [x.add ? 'Zuschlag' : 'Abzug', x.label, size].filter(Boolean).join(' ');
+  // Bezeichnung in der Bemerkung (die Nummer steht in der Spalte „Nr.“)
+  return [x.label?.trim() || (x.add ? 'Zuschlag' : 'Abzug'), size].filter(Boolean).join(' ');
 }
 
 /** Bemerkung: nur Hinweise (Fläche aus dem Plan, fehlende Werte) – sonst leer */

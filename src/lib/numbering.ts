@@ -101,6 +101,19 @@ export function duplicateNumbers(damages: Pick<Damage, 'number'>[]): number[] {
 /** Angezeigte Nummer bzw. Kennzeichnung einer Messung. */
 export const damageNo = (d: Pick<Damage, 'number' | 'label'>): string => d.label?.trim() || String(d.number);
 
+/**
+ * Nummern der Abzüge/Zuschläge einer Messung (gleich im Plan, im PDF und im Excel): eigene Nummer oder
+ * automatisch „3-A1“, „3-A2“ (Abzüge) bzw. „3-Z1“ (Zuschläge) in der Reihenfolge der Zeilen.
+ */
+export function deductionNumbers(d: Pick<Damage, 'number' | 'label' | 'deductions'>): string[] {
+  let a = 0;
+  let z = 0;
+  return (d.deductions ?? []).map((x) => {
+    const auto = `${damageNo(d)}-${x.add ? `Z${++z}` : `A${++a}`}`;
+    return x.no?.trim() || auto;
+  });
+}
+
 const nextLetters = (s: string): string => {
   // A → B, Z → AA, AZ → BA (Groß-/Kleinschreibung bleibt erhalten)
   const upper = s === s.toUpperCase();

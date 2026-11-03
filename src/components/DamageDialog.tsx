@@ -91,6 +91,8 @@ interface Props {
   drawnDeduction?: DrawnDeduction | null;
   /** während im Plan gezeichnet wird: Fenster ausgeblendet (bleibt mit allen Eingaben erhalten) */
   hidden?: boolean;
+  /** Maßstab bekannt: Maße eines gezeichneten Abzugs aus dem Plan (Rechteck: Breite × Höhe, sonst Fläche × 1) */
+  dedFromPlan?: (shape: Shape) => { length: number; width: number } | null;
 }
 
 type Field = 'number' | 'length' | 'width' | 'depth';
@@ -99,7 +101,7 @@ type Field = 'number' | 'length' | 'width' | 'depth';
  * Eingabe einer Messung bzw. Schadstelle. Öffnet sich automatisch nach dem Einzeichnen.
  * Enter/Weiter springt zum nächsten Feld; im letzten Feld wird gespeichert.
  */
-export function DamageDialog({ mode, damage, others, components, positions = [], suggestion, geometry, wall = false, onSave, onCancel, onDelete, onDrawDeduction, drawnDeduction, hidden }: Props) {
+export function DamageDialog({ mode, damage, others, components, positions = [], suggestion, geometry, wall = false, onSave, onCancel, onDelete, onDrawDeduction, drawnDeduction, hidden, dedFromPlan }: Props) {
   /** Fläche und Umfang aus dem Plan übernehmen (nur bei Flächen-Messarten) */
   // Linie: Länge aus dem Plan (kalibriert) – bei neuen Linien vorgewählt, wird bei Formänderung nachgeführt
   const lineSuggest = (!hasArea(damage.kind) || wall) && suggestion ? suggestion.length : null;
@@ -213,7 +215,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const lineNet = lineGross === null ? null : Math.round(deductions.reduce((s, x) => s + deductionLength(x), lineGross) * 1e9) / 1e9;
   const setDed = (id: string, patch: Partial<DeductionRow>) => setDeds((list) => list.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   /** automatische Nummer eines im Plan gezeichneten Abzugs („3-A1“) */
-  const autoDedNo = (i: number) => `${damageNo(damage)}-${deds[i].add ? 'Z' : 'A'}${deds.slice(0, i + 1).filter((x) => x.shape && !!x.add === !!deds[i].add).length}`;
+  const autoDedNo = (i: number) => `${damageNo(damage)}-${deds[i].add ? 'Z' : 'A'}${deds.slice(0, i + 1).filter((x) => !!x.add === !!deds[i].add).length}`;
   const newDed = (add: boolean) => setDeds((list) => [...list, { id: uuid(), label: '', count: '1', length: '', width: '', add }]);
   // Nummernkonflikte nur unter reinen Nummern (Kennzeichnungen haben eine eigene Prüfung)
   const conflict = num !== null ? findByNumber(others.filter((o) => !o.label), num, damage.id) : undefined;
@@ -486,18 +488,32 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
                     </option>
                   ))}
                 </select>
-                {r.shape && (
+                {(
                   <input
                     className="deduction-no"
                     value={r.no ?? ''}
                     onChange={(e) => setDed(r.id, { no: e.target.value })}
-                    placeholder={`Nr. (auto: ${autoDedNo(i)})`}
+                    placeholder={`Nr. ${autoDedNo(i)}`}
                     aria-label="Nummer im Plan"
                     title="Nummer im Plan – leer = automatisch"
                     autoComplete="off"
                     maxLength={12}
                     data-testid="deduction-no"
                   />
+                )}
+                {r.shape && dedFromPlan && (
+                  <button
+                    type="button"
+                    className="btn btn-sm deduction-from-plan"
+                    onClick={() => {
+                      const m = dedFromPlan(r.shape!);
+                      if (m) setDed(r.id, { length: toInputValue(m.length), width: toInputValue(m.width) });
+                    }}
+                    title="Fläche aus dem Plan erkennen (Plan hat einen Maßstab)"
+                    data-testid="deduction-from-plan"
+                  >
+                    Fläche aus Plan
+                  </button>
                 )}
                 {r.shape && (
                   <span className="deduction-colors" role="radiogroup" aria-label="Farbe im Plan" data-testid="deduction-colors">

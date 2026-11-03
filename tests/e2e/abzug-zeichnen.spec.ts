@@ -59,6 +59,12 @@ test('Abzug im Plan zeichnen: Maße werden aus dem Plan erkannt, nummeriert und 
   await expect(dlg.getByTestId('deduction-sum')).toContainText('netto');
   await dlg.getByTestId('deductions').screenshot({ path: join(OUT, 'abzuege-bloecke.png') });
   // Bezeichnung zur Wahl, Farbe frei wählbar
+  // Fläche aus dem Plan erkennen (Maßstab bekannt): überschriebene Maße wieder aus dem Plan
+  const row0 = dlg.getByTestId('deduction-row').nth(0);
+  const w0 = await row0.getByTestId('deduction-width').inputValue();
+  await row0.getByTestId('deduction-width').fill('9');
+  await row0.getByTestId('deduction-from-plan').click();
+  await expect(row0.getByTestId('deduction-width')).toHaveValue(w0);
   // Bezeichnungen zur Auswahl: alphabetisch, mit Wand
   const names = (await dlg.getByTestId('deduction-row').nth(0).getByTestId('deduction-name-pick').locator('option').allTextContents()).slice(1);
   expect(names).toContain('Wand');
@@ -132,6 +138,9 @@ test('Abzug im Plan zeichnen: Maße werden aus dem Plan erkannt, nummeriert und 
   await page.mouse.up();
   await waitSaved(page);
   await expect.poll(areaNow).not.toBe(area0);
+  // daneben tippen → Markierung weg
+  await page.mouse.click(box.x + box.width * 0.85, box.y + box.height * 0.85);
+  await expect(page.getByTestId('ded-vertex')).toHaveCount(0);
 
 });
 

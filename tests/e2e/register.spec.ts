@@ -144,3 +144,18 @@ test('Gelöschtes Projekt kommt auf anderen Geräten nicht zurück: Reste werden
   await expect(page.getByTestId('register-title')).toBeVisible();
   await expect(page.getByTestId('register-row')).toHaveCount(0);
 });
+
+test('Projekt im Tool gelöscht → auch aus dem Projektregister weg', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'Weg damit', { number: '777' });
+  await page.goto('./baupad/projektregister');
+  await expect(page.getByTestId('register-row').filter({ hasText: 'Weg damit' })).toHaveCount(1);
+  await page.goto('./baupad/aufmass-und-abrechnung');
+  const card = page.locator('.project-card').filter({ hasText: 'Weg damit' });
+  await card.getByRole('button', { name: 'Löschen' }).click();
+  await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Endgültig löschen' }).click();
+  await expect(page.locator('.project-card').filter({ hasText: 'Weg damit' })).toHaveCount(0);
+  await page.goto('./baupad/projektregister');
+  await expect(page.getByTestId('register-new')).toBeVisible();
+  await expect(page.getByTestId('register-row').filter({ hasText: 'Weg damit' })).toHaveCount(0);
+});

@@ -34,6 +34,7 @@ import type { ProjectState } from './store';
 import { exportPaper, layoutSheet, planHeading, type OverviewCorner, type SheetLayout } from './sheet-layout';
 import { DEFAULT_TRANSPARENCY, fillOf, fillPaths, strokeGeometry } from './style';
 import type { Component, Damage, Plan, Rect, Shape, ShapeStyle } from './types';
+import { deductionNumbers } from './numbering';
 
 /**
  * PDF-Export bearbeiteter Pläne.
@@ -381,19 +382,22 @@ function drawDamages(ctx: Ctx, t: Target, region: Rect, damages: Damage[], compo
   // im Plan gezeichnete Abzüge: gestrichelt, schraffiert in ihrer Farbe, mit Nummer (z. B. „3-A1 Tür“)
   const dedStyle: ShapeStyle = { lineType: 'dashed', fillType: 'hatch', hatch: { pattern: 'lines', angle: 45, spacing: 4 }, fillTransparency: 35 };
   for (const d of damages) {
-    let na = 0;
-    let nz = 0;
-    for (const x of d.deductions ?? []) {
+    const nos = deductionNumbers(d);
+    for (const [xi, x] of (d.deductions ?? []).entries()) {
       if (!x.shape) continue;
       const col = x.color ?? '#e03131';
       drawStyledShape(t.page, (p) => t.map(p), x.shape, col, dedStyle, stroke * 0.8, 35, null);
       const b = shapeAABB(x.shape);
       const at = x.labelAt ?? { x: b.x + b.w / 2, y: b.y + b.h / 2 };
       const name = x.label && !/^(Abzug|Zuschlag) \d+$/.test(x.label) ? ` ${x.label}` : '';
-      const auto = x.add ? `${damageNo(d)}-Z${++nz}` : `${damageNo(d)}-A${++na}`;
-      const text = clean(ctx, `${x.no?.trim() || auto}${name}`);
-      const tw = ctx.bold.widthOfTextAtSize(text, fs * 0.85) * u;
-      drawTextMapped(t, text, { x: at.x - tw / 2, y: at.y + fs * 0.3 * u }, fs * 0.85, ctx.bold, hexToRgb(col));
+      const text = clean(ctx, `${nos[xi]}${name}`);
+      // gut lesbar: größer, fett, auf weißem Kästchen mit Rahmen in der Farbe des Abzugs
+      const dfs = fs * 1.15;
+      const tw = ctx.bold.widthOfTextAtSize(text, dfs) * u;
+      const pad = dfs * 0.35 * u;
+      const bh = dfs * 1.4 * u;
+      drawRectMapped(t, { x: at.x - tw / 2 - pad, y: at.y - bh / 2, w: tw + 2 * pad, h: bh }, { color: rgb(1, 1, 1), borderColor: hexToRgb(col), borderWidth: stroke, opacity: 0.95 });
+      drawTextMapped(t, text, { x: at.x - tw / 2, y: at.y + dfs * 0.35 * u }, dfs, ctx.bold, hexToRgb(col));
     }
   }
   // Nummern

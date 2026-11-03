@@ -9426,13 +9426,15 @@ html[data-theme='dark'] .crew-search {
 .deduction-row .deduction-sign {
   order: 1;
 }
-.deduction-row .deduction-label {
+.deduction-row .deduction-no {
   order: 2;
+  flex: 0 0 7.5em;
+  width: 7.5em;
 }
-.deduction-row .deduction-name-pick {
+.deduction-row .deduction-label {
   order: 3;
 }
-.deduction-row .deduction-no {
+.deduction-row .deduction-name-pick {
   order: 4;
 }
 .deduction-row [data-testid='deduction-remove'] {
@@ -9517,4 +9519,11 @@ html[data-theme='dark'] .crew-search {
 }
 .position-table .pos-no {
   white-space: normal;
+}
+.deduction-row .deduction-from-plan {
+  order: 7;
+  margin-left: 40px;
+}
+.deduction-row .deduction-colors {
+  order: 8;
 }
