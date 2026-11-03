@@ -24,6 +24,8 @@ import {
   clampDelta,
   clampPoint,
   hasEditableVertices,
+  cornerIndices,
+  isOpenShape,
   moveVertex,
   polygonShape,
   canEditVertexCount,
@@ -1512,10 +1514,16 @@ function SnapMarker({ view, mark, hold = false }: { view: View; mark: { p: Point
  * die vier Ecken, leicht nach außen versetzt, damit die Form selbst sichtbar und
  * verschiebbar bleibt. Dazu der Dreh-Anfasser „rot“ über der Oberkante.
  */
+/** Eckpunkt-Anfasser: alle Punkte, bei sehr vielen nur die Knicke (je nach Zoom) – Index bleibt der echte Punkt */
+function vertexHandles(shape: Shape, v: View): { h: string; p: Point }[] {
+  const scr = shapeVertices(shape).map((p) => toScreen(v, p));
+  return cornerIndices(scr, !isOpenShape(shape)).map((i) => ({ h: `v${i}`, p: scr[i] }));
+}
+
 function screenHandles(shape: Shape, v: View, vertexEdit = false, fixedShape = false): { h: string; p: Point }[] {
   // Linie: nur die beiden Endpunkte (eigenständiges 2D-Objekt, kein schmales Rechteck)
   if (shape.type === 'line') return shapeVertices(shape).map((p, i) => ({ h: `v${i}`, p: toScreen(v, p) }));
-  const verts = vertexEdit && hasEditableVertices(shape) ? shapeVertices(shape).map((p, i) => ({ h: `v${i}`, p: toScreen(v, p) })) : null;
+  const verts = vertexEdit && hasEditableVertices(shape) ? vertexHandles(shape, v) : null;
   const b = shapeBounds(shape);
   const c = shapeCenter(b);
   const rot = shape.rotation ?? 0;

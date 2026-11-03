@@ -71,3 +71,50 @@ test('Abzug im Plan zeichnen: Maße werden aus dem Plan erkannt, nummeriert und 
   const after = (await page.getByTestId('ded-label').first().boundingBox())!;
   expect(Math.abs(after.x - moved.x)).toBeLessThan(4);
 });
+
+test('Fläche mit vielen Punkten: Knicke erscheinen als Anfasser und lassen sich ziehen', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'Knicke', {}, ['EG']);
+  await page.getByTestId('plan-file-input').setInputFiles(join(FIXTURES, 'parkdeck.png'));
+  const wiz = page.getByTestId('import-wizard');
+  await wiz.getByTestId('areas-next').click();
+  await wiz.locator('[data-field="planNumber"]').fill('K-1');
+  await wiz.getByTestId('import-save').click();
+  await waitForPlan(page);
+  const box = await planBox(page);
+  const cx = box.x + box.width * 0.45;
+  const cy = box.y + box.height * 0.45;
+  const R = Math.min(box.width, box.height) * 0.32;
+  // Fläche mit vielen Eckpunkten (Werkzeug „Fläche“): Stern mit 6 Zacken aus 48 Punkten
+  await pickTool(page, 'tool-polygon');
+  const N = 48;
+  const at = (i: number) => {
+    const a = (i / N) * Math.PI * 2;
+    const r = R * (0.6 + 0.4 * Math.abs(((i * 6) / N) % 1 - 0.5) * 2);
+    return [cx + r * Math.cos(a), cy + r * Math.sin(a)] as const;
+  };
+  for (let i = 0; i < N; i++) {
+    await page.mouse.click(...at(i));
+    await page.waitForTimeout(380); // kein Doppelklick (der würde die Fläche beenden)
+  }
+  // letzter Punkt liegt nah am ersten → Fläche schließt sich selbst; sonst „Fertig“
+  if (!(await page.getByTestId('damage-dialog').isVisible())) await page.getByTestId('polygon-finish').click();
+  const dlg = page.getByTestId('damage-dialog');
+  await expect(dlg).toBeVisible();
+  await dlg.getByTestId('input-length').fill('2');
+  await dlg.getByTestId('input-width').fill('2');
+  await dlg.getByTestId('damage-save').click();
+  await expect(dlg).toBeHidden();
+  // Fläche auswählen → Knicke als Anfasser (früher bei über 40 Punkten gar keine)
+  await page.mouse.click(cx, cy);
+  const handles = page.locator('[data-testid^="vertex-"]');
+  await expect.poll(() => handles.count()).toBeGreaterThanOrEqual(6);
+  expect(await handles.count()).toBeLessThan(200);
+  const before = await page.locator('path[data-damage]').first().getAttribute('d');
+  const hb = (await handles.first().boundingBox())!;
+  await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(hb.x + hb.width / 2 + 40, hb.y + hb.height / 2 + 30, { steps: 5 });
+  await page.mouse.up();
+  await expect.poll(() => page.locator('path[data-damage]').first().getAttribute('d')).not.toBe(before);
+});

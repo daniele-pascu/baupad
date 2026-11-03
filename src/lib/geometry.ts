@@ -337,7 +337,44 @@ export function shapeVertices(s: Shape): Point[] {
 }
 
 /** Eckpunkte bearbeitbar? (Ellipsen nicht; sehr feine Freihandzüge nur über den Rahmen) */
-export const hasEditableVertices = (s: Shape) => s.type === 'rect' || s.type === 'line' || s.type === 'triangle' || (s.type === 'freehand' && (s.points?.length ?? 0) <= 40);
+export const hasEditableVertices = (s: Shape) => s.type === 'rect' || s.type === 'line' || s.type === 'triangle' || (s.type === 'freehand' && (s.points?.length ?? 0) <= 2000);
+
+/** bis zu so vielen Punkten werden alle als Anfasser gezeigt; darüber nur die Knicke (siehe cornerIndices) */
+export const ALL_VERTICES_MAX = 40;
+
+/**
+ * Knicke eines Linienzugs: Punkte, an denen sich die Richtung deutlich ändert (dazu Anfang/Ende bei offenen Formen).
+ * `screen` sind die Punkte in Bildschirmpixeln; nah beieinander liegende Knicke werden ausgedünnt (mind. `gap` px),
+ * beim Hineinzoomen erscheinen daher mehr.
+ */
+export function cornerIndices(screen: Point[], closed: boolean, minAngleDeg = 25, gap = 16): number[] {
+  const n = screen.length;
+  if (n <= ALL_VERTICES_MAX) return screen.map((_, i) => i);
+  const turn = (i: number) => {
+    const a = screen[(i - 1 + n) % n];
+    const b = screen[i];
+    const c = screen[(i + 1) % n];
+    const a1 = Math.atan2(b.y - a.y, b.x - a.x);
+    const a2 = Math.atan2(c.y - b.y, c.x - b.x);
+    let d = Math.abs(a2 - a1);
+    if (d > Math.PI) d = 2 * Math.PI - d;
+    return (d * 180) / Math.PI;
+  };
+  const cand: { i: number; t: number }[] = [];
+  for (let i = 0; i < n; i++) {
+    if (!closed && (i === 0 || i === n - 1)) cand.push({ i, t: 360 });
+    else if (turn(i) >= minAngleDeg) cand.push({ i, t: turn(i) });
+  }
+  // stärkste Knicke zuerst, Abstand am Bildschirm einhalten
+  cand.sort((x, y) => y.t - x.t);
+  const kept: number[] = [];
+  for (const c of cand) {
+    if (kept.length >= 300) break;
+    const p = screen[c.i];
+    if (kept.every((k) => Math.hypot(screen[k].x - p.x, screen[k].y - p.y) >= gap)) kept.push(c.i);
+  }
+  return kept.sort((a, b) => a - b);
+}
 
 /**
  * Form aus Eckpunkten (Seitenkoordinaten) neu aufbauen – ungedreht, Rahmen = Umriss.
