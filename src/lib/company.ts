@@ -2,8 +2,8 @@ import { getMeta, setMeta } from './db';
 import type { HeaderImage } from './xlsx';
 
 /**
- * Firmenlogo für Exporte (Excel-Kopfzeile). Es wird nur auf diesem Gerät gespeichert
- * (IndexedDB, nicht in Projekten oder Sicherungen) und nirgendwohin gesendet.
+ * Firmenlogo für Exporte (Excel-Kopfzeile). Firmen-Einstellung: auf dem Gerät gespeichert und mit der
+ * Online-Ablage der Firma abgeglichen (Bilddaten dafür als Base64, siehe `toStored`).
  */
 
 export interface CompanyLogo {
@@ -19,14 +19,30 @@ export interface CompanyLogo {
 }
 
 const KEY = 'companyLogo';
+/** gespeicherte Form: Bilddaten als Base64 (Abgleich als JSON); ältere Logos haben `bytes` */
+type StoredLogo = Omit<CompanyLogo, 'bytes'> & { b64?: string; bytes?: Uint8Array };
+function toStored(l: CompanyLogo): StoredLogo {
+  let bin = '';
+  for (let i = 0; i < l.bytes.length; i += 0x8000) bin += String.fromCharCode(...l.bytes.subarray(i, i + 0x8000));
+  const { bytes: _b, ...rest } = l;
+  return { ...rest, b64: btoa(bin) };
+}
+function fromStored(v: StoredLogo): CompanyLogo | null {
+  const { b64, bytes, ...rest } = v;
+  const data = b64 ? Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)) : bytes instanceof Uint8Array ? bytes : null;
+  return data ? { ...rest, bytes: data } : null;
+}
 /** größte gespeicherte Kantenlänge in Pixeln (scharf genug für den Druck, kleine Dateien) */
 const MAX_PX = 900;
 export const LOGO_MAX_FILE = 8 * 1024 * 1024;
 
 export async function getCompanyLogo(): Promise<CompanyLogo | null> {
   try {
-    const v = await getMeta<CompanyLogo>(KEY);
-    return v && v.bytes && v.width > 0 && v.height > 0 ? v : null;
+    const v = await getMeta<StoredLogo>(KEY);
+    const logo = v ? fromStored(v) : null;
+    if (!logo || !(logo.width > 0 && logo.height > 0)) return null;
+    if (!v!.b64) await setMeta(KEY, toStored(logo)); // ältere Form einmal umstellen – dann geht es auch online
+    return logo;
   } catch {
     return null;
   }
@@ -52,7 +68,7 @@ export async function saveCompanyLogo(file: File): Promise<CompanyLogo> {
   const type = isPng ? 'png' : 'jpeg';
   const logo = await prepareLogo(bitmap, type, file.name);
   bitmap.close?.();
-  await setMeta(KEY, logo);
+  await setMeta(KEY, toStored(logo));
   cached = { bytes: logo.bytes, type: logo.type, ...logoHeaderSize(logo) };
   return logo;
 }
@@ -140,7 +156,7 @@ export async function excelHeaderLogo(): Promise<HeaderImage | null> {
       const bmp = await createImageBitmap(new Blob([logo.bytes as BlobPart], { type: `image/${logo.type}` }));
       logo = await prepareLogo(bmp, logo.type, logo.name);
       bmp.close?.();
-      await setMeta(KEY, logo);
+      await setMeta(KEY, toStored(logo));
     } catch {
       /* Logo bleibt unverändert */
     }

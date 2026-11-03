@@ -65,7 +65,7 @@ export type SyncStore = EntityStore | 'workers' | 'weeks' | 'reports' | 'defectP
 /** Dateien, die mit der zentralen Ablage abgeglichen werden (Originalpläne, Mängelplan-Bilder, Formular-PDFs) */
 export type SyncFileStore = 'blobs' | 'defectPlanImages' | 'formTemplateFiles' | 'timeFiles';
 /** Einstellungen, die für die ganze Firma gelten (werden abgeglichen); alles andere in `meta` bleibt auf dem Gerät */
-export const SYNC_META_KEYS: readonly string[] = ['absences', 'workTimes', 'companyName', 'companyLines', 'pdfShowTimes', 'timeDefaults', 'deletedProjects'];
+export const SYNC_META_KEYS: readonly string[] = ['absences', 'workTimes', 'companyName', 'companyLines', 'pdfShowTimes', 'timeDefaults', 'deletedProjects', 'companyLogo'];
 
 export interface OutboxEntry {
   /** „store:id“ */

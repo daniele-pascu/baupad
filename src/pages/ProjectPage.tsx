@@ -25,6 +25,7 @@ import { formatArea, formatDate, formatDateTime } from '../lib/numbers';
 import { navigate, paths } from '../lib/router';
 import { flush, newMeta, putRecord, putRecords, softDelete, updateProject, useAppState, type ProjectState } from '../lib/store';
 import { propagateProject } from '../lib/sites';
+import { useDataSyncState } from '../lib/data-sync';
 import { renderSource } from '../lib/thumbs';
 import type { CostCenter, Plan } from '../lib/types';
 
@@ -57,6 +58,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
   const [rotating, setRotating] = useState<Plan | null>(null);
   const [excelScope, setExcelScope] = useState<BlattScope | null>(null);
   const [backupInfo, setBackupInfo] = useState<BackupStatus | null>(null);
+  const sync = useDataSyncState();
   const [reminderHidden, setReminderHidden] = useState(() => {
     try {
       return sessionStorage.getItem(`backupLater:${data.project.id}`) === '1';
@@ -249,7 +251,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
         <SaveStatus />
       </header>
       <SaveErrorBanner />
-      {backupInfo?.due && !reminderHidden && (
+      {backupInfo?.due && !reminderHidden && sync.status === 'off' && (
         <div className="banner banner-warn backup-reminder" role="status" data-testid="backup-reminder">
           <p>
             <strong>Sicherung empfohlen:</strong> Das Projekt wurde seit der letzten Sicherung (

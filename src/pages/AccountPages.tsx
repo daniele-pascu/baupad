@@ -913,7 +913,7 @@ function LogoSettings({ session }: { session?: Session | null }) {
           <strong>Firmenlogo</strong>
           <span className="muted">
             Erscheint automatisch in der Kopfzeile jeder exportierten Excel-Datei (Aufmaßblatt: links oben). Leere Ränder werden abgeschnitten und die
-            Größe passend zum Logo gewählt – breite Logos flach, quadratische höher. Wird nur auf diesem Gerät gespeichert.
+            Größe passend zum Logo gewählt – breite Logos flach, quadratische höher. Gilt für die ganze Firma und wird online gespeichert.
           </span>
         </div>
       </div>

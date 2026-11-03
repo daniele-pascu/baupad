@@ -212,6 +212,7 @@ export function App() {
   useDataChanged(() => void adopt());
   // Firmenlogo für Excel-Exporte vorab laden (Export bleibt synchron im Klick)
   useEffect(preloadExcelLogo, []);
+  useDataChanged(preloadExcelLogo); // Firmenlogo kann von einem anderen Gerät kommen
   useEffect(() => {
     try {
       if (sessionStorage.getItem('justUpdated')) {

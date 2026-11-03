@@ -121,3 +121,9 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - **Löschen gilt auf allen Geräten:** Die Projekt-ID kommt in die abgeglichene Firmen-Einstellung `deletedProjects`. Jedes Gerät räumt beim Start und nach jedem Abgleich Reste dieses Projekts weg (z. B. offline erfasste Fotos/Berichte oder noch nicht abgeglichene Wochen), statt das Projekt daraus neu anzulegen.
 - „Neues Projekt“ im Register legt nur die Projektinfos an (in keinem Tool, Kennung `register` in `tools`); in Tools übernimmt man es danach im Register oder direkt im Tool.
 - Admin/Büro löschen ein Projekt im Projektregister – auch wenn noch Einträge daran hängen. Der Dialog zählt auf, was mitgelöscht wird (Aufmaß-Pläne/Schadstellen, Berichte, Firmenformulare, Fotos, Mängelpläne; die Baustelle verschwindet aus den Wochen der Einteilung, sonst würde das Projekt beim Start wieder angelegt). Erfasste Stunden der Zeitaufzeichnung bleiben (Lohnverrechnung), die Baustelle steht dort nur noch als Name.
+
+## Alles online (03.11.2026)
+- Mit Firmen-Arbeitsbereich wird alles mit der Online-Ablage abgeglichen: Projekte (Projektliste/Register), Pläne, Messungen, Zeichnungen, LV, Arbeiter, Wochen, Berichte, Firmenformulare, Mängelpläne, Zeitaufzeichnung inkl. gespeicherter Monatsdateien, Fotos und die Firmen-Einstellungen – jetzt auch das **Firmenlogo** (als Base64 in `companyLogo`).
+- Nur auf dem Gerät bleiben Bedien-Einstellungen (Sortierung, zuletzt gewählte Baustelle, Zoom-Ansicht, Vorschaubilder).
+- Mit Online-Ablage entfallen die Hinweise „Sicherung empfohlen“; die Projektliste zeigt je Projekt „Online: gespeichert / wartet auf Upload“. Löschen in Aufmaß & Abrechnung löscht wie im Register überall.
+

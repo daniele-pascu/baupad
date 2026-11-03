@@ -6,7 +6,7 @@ import { labelFromProject } from '../lib/project-label';
 import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, offerFile, promptDialog, showError, toast } from '../components/ui';
 import { backupStatus, exportProjectBackup, findExistingProject, importProjectBackup, readProjectBackup, type BackupStatus } from '../lib/backup';
-import { deleteProjectCompletely, getMeta, listOutbox, listProjects, projectStats, setMeta, writeRecords } from '../lib/db';
+import { getMeta, listOutbox, listProjects, projectStats, setMeta, writeRecords } from '../lib/db';
 import { useDataSyncState } from '../lib/data-sync';
 import { isIOS } from '../lib/download';
 import { getDeviceId } from '../lib/ids';
@@ -14,7 +14,7 @@ import { formatDateTime, naturalCompare } from '../lib/numbers';
 import { navigate, paths } from '../lib/router';
 import { closeProject } from '../lib/store';
 import { useAccess } from '../lib/access';
-import { useCanCreateProjects } from '../lib/sites';
+import { useCanCreateProjects, deleteProjectEverywhere } from '../lib/sites';
 import { linkSitesToProject, usedIn } from '../lib/crew-link';
 import type { Project } from '../lib/types';
 import { useDataChanged } from '../lib/data-events';
@@ -152,16 +152,17 @@ export function HomePage() {
         <>
           <p>
             Das Projekt <strong>„{r.project.name}“</strong> mit {r.stats.costCenters} Kostenstelle(n), {r.stats.plans} Plan/Plänen und{' '}
-            {r.stats.damages} Schadstelle(n) wird <strong>endgültig</strong> von diesem Gerät gelöscht.
+            {r.stats.damages} Schadstelle(n) wird <strong>endgültig</strong> gelöscht{sync.status !== 'off' ? ' – auf allen Geräten und für alle Benutzer, auch in den anderen Tools' : ''}.
           </p>
-          <p>Tipp: Sichern Sie das Projekt vorher über „Sichern“ als Datei.</p>
+          <p>Tipp: Wer es aufheben will, sichert das Projekt vorher über „Sichern“ als Datei.</p>
         </>
       ),
       confirmLabel: 'Endgültig löschen',
       danger: true,
     });
     if (!ok) return;
-    await deleteProjectCompletely(r.project.id);
+    // wie im Projektregister: überall löschen, damit es auf keinem Gerät aus Resten zurückkommt
+    await deleteProjectEverywhere(r.project.id);
     toast('Projekt gelöscht.');
     void load();
   };
@@ -347,13 +348,15 @@ export function HomePage() {
                   <span>Zuletzt bearbeitet: {formatDateTime(r.lastEdit)}</span>
                   {sync.status !== 'off' && (
                     <span className={pendingProjects.has(r.project.id) ? 'backup-due' : undefined} data-testid="sync-info">
-                      Zentrale Ablage: {pendingProjects.has(r.project.id) ? (sync.status === 'error' ? 'Übertragung fehlgeschlagen' : 'wartet auf Upload') : 'übertragen'}
+                      Online: {pendingProjects.has(r.project.id) ? (sync.status === 'error' ? 'Übertragung fehlgeschlagen' : 'wartet auf Upload') : 'gespeichert'}
                     </span>
                   )}
-                  <span className={r.backup.due ? 'backup-due' : undefined} data-testid="backup-info">
-                    Letzte Sicherung (.zip): {r.backup.lastBackup ? formatDateTime(r.backup.lastBackup) : 'noch nie'}
-                    {r.backup.due && ' – Sicherung empfohlen'}
-                  </span>
+                  {sync.status === 'off' && (
+                    <span className={r.backup.due ? 'backup-due' : undefined} data-testid="backup-info">
+                      Letzte Sicherung (.zip): {r.backup.lastBackup ? formatDateTime(r.backup.lastBackup) : 'noch nie'}
+                      {r.backup.due && ' – Sicherung empfohlen'}
+                    </span>
+                  )}
                 </div>
               </a>
               <div className="card-actions">
@@ -390,7 +393,7 @@ export function HomePage() {
               Websites, die länger nicht genutzt wurden, sonst automatisch löschen.
             </li>
           )}
-          <li>Sichern Sie Projekte regelmäßig als Datei („Sichern“), um sie zu archivieren oder auf ein anderes Gerät zu übertragen.</li>
+          {sync.status === 'off' && <li>Sichern Sie Projekte regelmäßig als Datei („Sichern“), um sie zu archivieren oder auf ein anderes Gerät zu übertragen.</li>}
         </ul>
         <p className="muted small" data-testid="app-version">
           BauPad Version {__APP_VERSION__}
