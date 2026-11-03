@@ -16,7 +16,7 @@ import { ExcelExportDialog } from '../components/ExcelExportDialog';
 import { ProjectForm, type CostCenterInput } from '../components/ProjectForm';
 import { SaveErrorBanner, SaveStatus } from '../components/SaveStatus';
 import { confirmDialog, offerFile, promptDialog, showError, toast } from '../components/ui';
-import { aufmassNameOf, aufmassRows, componentsOf, findPosition, costCenterLabel, costCenterName, costCentersOf, damagesOf, elementsOf, planTitle, plansOf, sumArea } from '../lib/aufmass';
+import { aufmassRows, componentsOf, findPosition, costCenterLabel, costCenterName, costCentersOf, damagesOf, elementsOf, planTitle, plansOf, sumArea } from '../lib/aufmass';
 import type { BlattScope } from '../lib/aufmassblatt';
 import { BACKUP_REMIND_DAYS, backupStatus, exportProjectBackup, type BackupStatus } from '../lib/backup';
 import { isDrawingPlan } from '../lib/drawing';
@@ -27,7 +27,7 @@ import { flush, newMeta, putRecord, putRecords, softDelete, updateProject, useAp
 import { propagateProject } from '../lib/sites';
 import { useDataSyncState } from '../lib/data-sync';
 import { renderSource } from '../lib/thumbs';
-import type { CostCenter, Plan } from '../lib/types';
+import type { AufmassSheet, CostCenter, Plan } from '../lib/types';
 
 /**
  * Projektseite: Projektinformationen (inklusive Kostenstelle) und direkt darunter die
@@ -57,6 +57,8 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
   const [reuse, setReuse] = useState<PlanSource | null>(null);
   const [rotating, setRotating] = useState<Plan | null>(null);
   const [excelScope, setExcelScope] = useState<BlattScope | null>(null);
+  /** Aufmaß, dessen Pläne der Excel-Dialog übernimmt (sonst legt er ein neues an) */
+  const [excelSheet, setExcelSheet] = useState<string | undefined>(undefined);
   const [backupInfo, setBackupInfo] = useState<BackupStatus | null>(null);
   const sync = useDataSyncState();
   const [reminderHidden, setReminderHidden] = useState(() => {
@@ -112,6 +114,10 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
   const plans = planDesc ? [...plansAsc].reverse() : plansAsc;
   const rows = aufmassRows(data, plans);
   /** Aufmaß der Rechnung: alle Messungen ihrer Pläne über alle Kostenstellen */
+  // angelegte Aufmaße (durchnummeriert über das Projekt), sichtbar in der Kostenstelle ihrer Pläne
+  const sheets = (project.aufmassSheets ?? [])
+    .map((sheet, i) => ({ sheet, name: sheet.name?.trim() || `Aufmaß ${i + 1}`, sheetPlans: sheet.planIds.map((id) => data.plans[id]).filter((p): p is Plan => !!p && !p.deletedAt) }))
+    .filter((x) => x.sheetPlans.length && (!active || x.sheetPlans.some((p) => p.costCenterId === active.id)));
   const shownRows = split ? aufmassRows(data, invoice ? ccs.flatMap((c) => plansOf(data, c.id, invoice.id)) : []) : rows;
   const projectHasPlans = Object.values(data.plans).some((p) => !p.deletedAt);
 
@@ -228,10 +234,16 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
     putRecord('plans', { ...data.plans[plan.id], planName: name });
   };
 
-  const renameAufmass = async (plan: Plan) => {
-    const name = await promptDialog({ title: 'Aufmaß umbenennen', label: 'Name des Aufmaßes (leer = durchnummeriert)', value: aufmassNameOf(data, plan) });
+  const patchSheet = (id: string, patch: Partial<AufmassSheet>) =>
+    updateProject({ aufmassSheets: (data.project.aufmassSheets ?? []).map((x) => (x.id === id ? { ...x, ...patch } : x)) });
+  const renameSheet = async (id: string, current: string) => {
+    const name = await promptDialog({ title: 'Aufmaß umbenennen', label: 'Name des Aufmaßes (leer = durchnummeriert)', value: current });
     if (name === null) return;
-    putRecord('plans', { ...data.plans[plan.id], aufmassName: name.trim() });
+    patchSheet(id, { name: name.trim() });
+  };
+  const deleteSheet = async (id: string, name: string) => {
+    if (!(await confirmDialog({ title: `${name} löschen?`, message: 'Nur die Zusammenstellung wird gelöscht – die Messungen bleiben im Plan.', confirmLabel: 'Löschen', danger: true }))) return;
+    updateProject({ aufmassSheets: (data.project.aufmassSheets ?? []).filter((x) => x.id !== id) });
   };
 
   const openCrop = async (plan: Plan) => {
@@ -494,8 +506,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
                   <span className="muted"> · </span>
                   <span data-testid="aufmass-invoice">{invoiceLabel(invoice)}</span>
                 </>
-              )}{' '}
-              <span className="muted">({shownRows.length})</span>
+              )}
             </h2>
             <div className="row gap wrap">
               {split ? (
@@ -527,15 +538,14 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
                 Noch keine Messungen{invoice ? ` in der ${invoiceLabel(invoice)}` : ''} – sie erscheinen hier, sobald im Plan gemessen wird.
               </p>
             )
-          ) : plans.length ? (
-            // Liste: je Plan ein eigenes Aufmaß (durchnummeriert bzw. umbenannt); Messungen erst nach Antippen
+          ) : sheets.length ? (
+            // Aufmaße entstehen erst über „Aufmaßblatt“ mit gewählten Plänen; Messungen erst nach Antippen
             <div className="aufmass-blocks" data-testid="aufmass-list">
-              {plans.map((pl) => {
-                const own = rows.filter((r) => r.plan.id === pl.id);
-                const name = aufmassNameOf(data, pl);
-                const open = openAufmass.has(pl.id);
+              {sheets.map(({ sheet, name, sheetPlans }) => {
+                const own = aufmassRows(data, sheetPlans);
+                const open = openAufmass.has(sheet.id);
                 return (
-                  <div key={pl.id} className={`aufmass-block${open ? ' open' : ''}`} data-testid="aufmass-block">
+                  <div key={sheet.id} className={`aufmass-block${open ? ' open' : ''}`} data-testid="aufmass-block">
                     <div className="aufmass-block-head">
                       <button
                         type="button"
@@ -543,7 +553,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
                         aria-expanded={open}
                         onClick={() => setOpenAufmass((prev) => {
                           const next = new Set(prev);
-                          if (!next.delete(pl.id)) next.add(pl.id);
+                          if (!next.delete(sheet.id)) next.add(sheet.id);
                           return next;
                         })}
                         data-testid="aufmass-toggle"
@@ -551,8 +561,8 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
                         <Icon name="next" size={18} />
                         <span className="aufmass-toggle-text">
                           <strong data-testid="aufmass-name">{name}</strong>
-                          <span className="muted small">
-                            Plan {planTitle(pl)} · {own.length} {own.length === 1 ? 'Messung' : 'Messungen'}
+                          <span className="muted small" data-testid="aufmass-plans">
+                            {sheetPlans.length === 1 ? 'Plan' : 'Pläne'} {sheetPlans.map((p) => p.planNumber || planTitle(p)).join(', ')} · {own.length} {own.length === 1 ? 'Messung' : 'Messungen'}
                             {own.length > 0 && ` · ${formatArea(sumArea(own.map((r) => r.damage)))} m²`}
                           </span>
                         </span>
@@ -561,18 +571,26 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
                         label={`Aktionen für ${name}`}
                         testId="aufmass-actions"
                         actions={[
-                          { label: 'Umbenennen', icon: 'edit', onSelect: () => void renameAufmass(pl), testId: 'aufmass-rename' },
-                          ...(pl.aufmassName ? [{ label: 'Wieder durchnummerieren', icon: 'undo', onSelect: () => putRecord('plans', { ...data.plans[pl.id], aufmassName: '' }), testId: 'aufmass-renumber' }] : []),
-                          { label: 'Excel – Aufmaßblatt', icon: 'excel', onSelect: () => setExcelScope({ kind: 'plan', planId: pl.id }), testId: 'aufmass-excel' },
-                          { label: 'Plan öffnen', icon: 'next', onSelect: () => navigate(paths.plan(project.id, pl.id)), testId: 'aufmass-open' },
+                          { label: 'Umbenennen', icon: 'edit', onSelect: () => void renameSheet(sheet.id, name), testId: 'aufmass-rename' },
+                          ...(sheet.name ? [{ label: 'Wieder durchnummerieren', icon: 'undo', onSelect: () => patchSheet(sheet.id, { name: '' }), testId: 'aufmass-renumber' }] : []),
+                          {
+                            label: 'Excel – Aufmaßblatt / Pläne ändern',
+                            icon: 'excel',
+                            onSelect: () => {
+                              setExcelSheet(sheet.id);
+                              setExcelScope({ kind: 'plans', planIds: sheetPlans.map((p) => p.id) });
+                            },
+                            testId: 'aufmass-excel',
+                          },
+                          { label: 'Aufmaß löschen', icon: 'trash', onSelect: () => void deleteSheet(sheet.id, name), testId: 'aufmass-delete' },
                         ]}
                       />
                     </div>
                     {open &&
                       (own.length ? (
-                        <AufmassTable rows={own} components={data.components} positionLabel={(ref) => findPosition(data, ref)?.pos.number ?? null} onSelect={(r) => navigate(paths.plan(project.id, r.plan.id, r.damage.id))} />
+                        <AufmassTable rows={own} showPlan={sheetPlans.length > 1} components={data.components} positionLabel={(ref) => findPosition(data, ref)?.pos.number ?? null} onSelect={(r) => navigate(paths.plan(project.id, r.plan.id, r.damage.id))} />
                       ) : (
-                        <p className="muted small aufmass-block-empty">Noch keine Messungen in diesem Plan.</p>
+                        <p className="muted small aufmass-block-empty">Noch keine Messungen in {sheetPlans.length === 1 ? 'diesem Plan' : 'diesen Plänen'}.</p>
                       ))}
                   </div>
                 );
@@ -580,7 +598,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
             </div>
           ) : (
             <p className="muted" data-testid="aufmass-empty">
-              Noch keine Messungen{ccs.length > 1 ? ' in dieser Kostenstelle' : ''} – sie erscheinen hier, sobald im Plan gemessen wird.
+              Noch kein Aufmaß. Die Messungen bleiben im Plan – ein Aufmaß entsteht, sobald du auf „Aufmaßblatt“ tippst und die Pläne auswählst.
             </p>
           )}
         </section>
@@ -614,7 +632,17 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
           onSubmit={saveProject}
         />
       )}
-      {excelScope && <ExcelExportDialog data={data} scope={excelScope} onClose={() => setExcelScope(null)} />}
+      {excelScope && (
+        <ExcelExportDialog
+          data={data}
+          scope={excelScope}
+          sheetId={excelSheet}
+          onClose={() => {
+            setExcelScope(null);
+            setExcelSheet(undefined);
+          }}
+        />
+      )}
       {rotating && (
         <RotatePlanDialog
           data={data}

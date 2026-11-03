@@ -4,6 +4,7 @@ import { defaultPeriod, exportAufmassblatt, plansIn, type BlattScope } from '../
 import { cachedExcelLogo } from '../lib/company';
 import { updateProject, type ProjectState } from '../lib/store';
 import { Icon } from './Icon';
+import { uuid } from '../lib/ids';
 import { Modal } from './Modal';
 import { offerFile, showError } from './ui';
 
@@ -14,7 +15,7 @@ export const nextSheetNo = (data: ProjectState) => String((data.project.sheetNo 
  * Excel-Export: Aufmaßblatt nach Firmenvorlage (Nummer wird vergeben und hochgezählt,
  * Leistungszeitraum aus den Messungen vorgeschlagen).
  */
-export function ExcelExportDialog({ data, scope, onClose }: { data: ProjectState; scope: BlattScope; onClose: () => void }) {
+export function ExcelExportDialog({ data, scope, onClose, sheetId }: { data: ProjectState; scope: BlattScope; onClose: () => void; sheetId?: string }) {
   const [no, setNo] = useState(() => nextSheetNo(data));
   // Pläne frei zusammenstellen: vorausgewählt ist, was exportiert werden soll (Plan, Kostenstelle, Projekt)
   const initial = useMemo(() => plansIn(data, scope).map((p) => p.id), []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -46,7 +47,17 @@ export function ExcelExportDialog({ data, scope, onClose }: { data: ProjectState
       // Firmenlogo (Konto → Einstellungen) kommt automatisch links in die Kopfzeile
       void offerFile(exportAufmassblatt(data, effective, { no: nr, period: period.trim() }, { logo: cachedExcelLogo() }));
       const n = Number(nr);
-      if (Number.isInteger(n) && n > (data.project.sheetNo ?? 0)) updateProject({ sheetNo: n });
+      const patch: Partial<typeof data.project> = {};
+      if (Number.isInteger(n) && n > (data.project.sheetNo ?? 0)) patch.sheetNo = n;
+      // Aufmaß in der Liste anlegen bzw. dessen Pläne übernehmen (nicht bei Rechnungen – die haben ihr eigenes Aufmaß)
+      if (pickable) {
+        const planIds = plansIn(data, effective).map((p) => p.id);
+        const list = data.project.aufmassSheets ?? [];
+        const sameSet = (a: string[]) => a.length === planIds.length && a.every((id) => planIds.includes(id));
+        if (sheetId && list.some((x) => x.id === sheetId)) patch.aufmassSheets = list.map((x) => (x.id === sheetId ? { ...x, planIds } : x));
+        else if (!list.some((x) => sameSet(x.planIds))) patch.aufmassSheets = [...list, { id: uuid(), planIds, createdAt: Date.now() }];
+      }
+      if (Object.keys(patch).length) updateProject(patch);
     });
 
   return (

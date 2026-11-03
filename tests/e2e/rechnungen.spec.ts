@@ -166,7 +166,7 @@ test('Aufmaß je Rechnung: alle Pläne zusammen, Excel mit Rechnung im Titel', a
   expect(plansInSheet).toEqual(['A', 'B']);
 });
 
-test('Ohne Aufteilung: je Plan ein Aufmaß, durchnummeriert, umbenennbar über ⋮', async ({ page }) => {
+test('Ohne Aufteilung: Aufmaß entsteht erst über „Aufmaßblatt“ mit gewählten Plänen; durchnummeriert, umbenennbar, löschbar', async ({ page }) => {
   await freshStart(page);
   await createProject(page, 'Aufmaß je Plan');
   await importPlan(page, '1');
@@ -177,22 +177,44 @@ test('Ohne Aufteilung: je Plan ein Aufmaß, durchnummeriert, umbenennbar über �
   // Option nur bei Projekten ohne Pläne
   await expect(page.getByTestId('split-invoices')).toHaveCount(0);
 
+  // Messungen bleiben im Plan – noch kein Aufmaß, keine Zahl neben der Überschrift
   const blocks = page.getByTestId('aufmass-block');
-  await expect(blocks).toHaveCount(2);
+  await expect(blocks).toHaveCount(0);
+  await expect(page.getByTestId('aufmass-empty')).toBeVisible();
+  await expect(page.getByTestId('aufmass-section').locator('h2')).toHaveText('Aufmaß');
+
+  // Aufmaßblatt mit Plan 1 → erstes Aufmaß erscheint
+  const blatt = async (plans: string[]) => {
+    const dlg = page.getByTestId('excel-export');
+    await expect(dlg).toBeVisible();
+    await dlg.getByTestId('blatt-plans-none').click();
+    for (const p of plans) await dlg.locator(`[data-testid="blatt-plan"][data-plan="${p}"] input`).check();
+    await catchDownload(page, () => dlg.getByTestId('blatt-export').click());
+  };
+  await page.getByTestId('export-xlsx-cc').click();
+  await blatt(['1']);
+  await expect(blocks).toHaveCount(1);
+  await expect(blocks.getByTestId('aufmass-name')).toHaveText(['Aufmaß 1']);
+  await expect(blocks.nth(0)).toContainText('Plan 1 · 1 Messung · 2,00 m²');
+  // zweites Aufmaß mit beiden Plänen
+  await page.getByTestId('export-xlsx-cc').click();
+  await blatt(['1', '2']);
   await expect(blocks.getByTestId('aufmass-name')).toHaveText(['Aufmaß 1', 'Aufmaß 2']);
-  // Liste zugeklappt: nur Name, Plan, Anzahl und Fläche; Messungen erst nach Antippen
+  await expect(blocks.nth(1)).toContainText('Pläne 1, 2 · 1 Messung');
+  // gleiches Aufmaß nochmals exportiert: kein doppelter Eintrag
+  await page.getByTestId('export-xlsx-cc').click();
+  await blatt(['1']);
+  await expect(blocks).toHaveCount(2);
+
+  // zugeklappt; Messungen erst nach Antippen
   await expect(page.getByTestId('aufmass-section').getByTestId('aufmass-table')).toHaveCount(0);
-  await expect(blocks.nth(0)).toContainText('1 Messung · 2,00 m²');
-  await expect(blocks.nth(1)).toContainText('0 Messungen');
   await blocks.nth(0).getByTestId('aufmass-toggle').click();
   await expect(blocks.nth(0).getByTestId('aufmass-toggle')).toHaveAttribute('aria-expanded', 'true');
   await expect(blocks.nth(0).getByTestId('aufmass-table').locator('tbody tr')).toHaveCount(1);
-  await expect(blocks.nth(1).getByTestId('aufmass-table')).toHaveCount(0);
-  await blocks.nth(1).getByTestId('aufmass-toggle').click();
-  await expect(blocks.nth(1)).toContainText('Noch keine Messungen');
   await blocks.nth(0).getByTestId('aufmass-toggle').click(); // wieder zu
   await expect(blocks.nth(0).getByTestId('aufmass-table')).toHaveCount(0);
 
+  // umbenennen, bleibt nach Neuladen
   await blocks.nth(1).getByTestId('aufmass-actions').click();
   await page.getByTestId('aufmass-rename').click();
   const dlg = page.getByTestId('prompt-dialog');
@@ -202,14 +224,22 @@ test('Ohne Aufteilung: je Plan ein Aufmaß, durchnummeriert, umbenennbar über �
   await waitSaved(page);
   await page.reload();
   await expect(page.getByTestId('aufmass-block').getByTestId('aufmass-name')).toHaveText(['Aufmaß 1', 'Keller Nord']);
-
   // wieder durchnummerieren
   await page.getByTestId('aufmass-block').nth(1).getByTestId('aufmass-actions').click();
   await page.getByTestId('aufmass-renumber').click();
   await expect(page.getByTestId('aufmass-block').getByTestId('aufmass-name')).toHaveText(['Aufmaß 1', 'Aufmaß 2']);
 
-  // Excel nur dieses Aufmaßes
-  await page.getByTestId('aufmass-block').nth(0).getByTestId('aufmass-actions').click();
+  // Pläne eines Aufmaßes ändern (über dessen Aufmaßblatt)
+  await page.getByTestId('aufmass-block').nth(1).getByTestId('aufmass-actions').click();
   await page.getByTestId('aufmass-excel').click();
-  await expect(page.getByTestId('excel-export')).toBeVisible();
+  await expect(page.getByTestId('excel-export').locator('[data-testid="blatt-plan"] input:checked')).toHaveCount(2);
+  await blatt(['2']);
+  await expect(page.getByTestId('aufmass-block').nth(1)).toContainText('Plan 2 · 0 Messungen');
+
+  // löschen: Messungen bleiben im Plan
+  await page.getByTestId('aufmass-block').nth(0).getByTestId('aufmass-actions').click();
+  await page.getByTestId('aufmass-delete').click();
+  await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Löschen' }).click();
+  await expect(page.getByTestId('aufmass-block').getByTestId('aufmass-name')).toHaveText(['Aufmaß 1']);
+  await expect(page.getByTestId('plan-row').filter({ hasText: /^1/ }).first()).toContainText('1');
 });

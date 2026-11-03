@@ -19,6 +19,14 @@ export interface SyncMeta {
   deletedAt: number | null;
 }
 
+/** ein angelegtes Aufmaß: Name (leer = durchnummeriert) und die Pläne, deren Messungen es zusammenfasst */
+export interface AufmassSheet {
+  id: string;
+  name?: string;
+  planIds: string[];
+  createdAt: number;
+}
+
 export interface Project extends SyncMeta {
   name: string;
   /** Projektnummer (optional; ältere Projekte haben keine) */
@@ -32,6 +40,11 @@ export interface Project extends SyncMeta {
   notes: string;
   /** zuletzt vergebene Aufmaßblatt-Nummer (Excel); fehlt = noch keine */
   sheetNo?: number;
+  /**
+   * Aufmaße des Projekts: entstehen erst über „Aufmaßblatt“ mit gewählten Plänen (die Messungen bleiben im Plan).
+   * Fehlt = noch keines angelegt.
+   */
+  aufmassSheets?: AufmassSheet[];
   /** Pläne und Aufmaß nach Rechnungen aufgeteilt (jede Rechnung hat eigene Pläne) */
   splitByInvoice?: boolean;
   /** Rechnungen des Projekts (nur mit splitByInvoice) */
