@@ -427,7 +427,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
         </div>
         {pickPos && (
           <PositionPicker
-            positions={positions}
+            positions={positions.filter((p) => !docId || docOf(p.ref) === docId)}
             selected={positionRef}
             onClose={() => setPickPos(false)}
             onPick={(ref) => {
@@ -651,24 +651,20 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
           </label>
         )}
         {positions.length > 0 && (
-          <label className="field">
-            <span className="row gap-s position-label">
-              Leistungsposition
-              <button type="button" className="btn btn-sm" onClick={(e) => { e.preventDefault(); setPickPos(true); }} data-testid="position-search-open">
-                <Icon name="search" size={16} /> Suchen
-              </button>
-            </span>
-            <select value={positionRef ?? ''} onChange={(e) => setPositionRef(e.target.value || null)} data-testid="input-position">
-              <option value="">– keine Leistungszuordnung –</option>
-              {positions
-                .filter((p) => docOf(p.ref) === docId)
-                .map((p) => (
-                  <option key={p.ref} value={p.ref}>
-                    {p.label}
-                  </option>
-                ))}
-            </select>
-          </label>
+          <div className="field">
+            <span>Leistungsposition</span>
+            {/* Antippen öffnet das Suchfenster (Position, Kurztext, EH) */}
+            <button
+              type="button"
+              className="position-field"
+              onClick={() => setPickPos(true)}
+              data-value={positionRef ?? ''}
+              data-testid="input-position"
+            >
+              <span className={positionRef ? '' : 'muted'}>{positions.find((p) => p.ref === positionRef)?.label ?? '– keine Leistungszuordnung –'}</span>
+              <Icon name="search" size={18} />
+            </button>
+          </div>
         )}
         <fieldset className="option-row">
           <legend>Farbe</legend>

@@ -49,14 +49,14 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   await dlg.getByTestId('input-length').fill('4');
   await dlg.getByTestId('input-width').fill('2,5');
   // Position über das breite Suchfenster wählen: Spalten Position, Kurztext, EH
-  await dlg.getByTestId('position-search-open').click();
+  await dlg.getByTestId('input-position').click(); // Feld antippen öffnet das Suchfenster
   const picker = page.getByTestId('position-picker');
   await expect(picker.locator('thead th').first()).toHaveText('Position');
   await picker.getByTestId('position-search').fill('sperr');
   await expect(picker.getByTestId('position-option')).toHaveCount(1);
   await picker.getByTestId('position-option').click();
   await expect(picker).toHaveCount(0);
-  await expect(dlg.getByTestId('input-position').locator('option:checked')).toHaveText('92 01 01 B Sperrflaeche (m²)');
+  await expect(dlg.getByTestId('input-position')).toHaveText('92 01 01 B Sperrflaeche (m²)');
   await dlg.getByTestId('damage-save').click();
   await expect(page.locator('[data-testid="aufmass-row"][data-number="1"] [data-testid="row-position"]')).toHaveText('92 01 01 B');
   await expect(page.getByTestId('current-position')).toContainText('92 01 01 B');
@@ -64,8 +64,9 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   await drawRect(page, box.x + box.width * 0.5, box.y + box.height * 0.3, box.x + box.width * 0.7, box.y + box.height * 0.35);
   await dlg.getByTestId('input-length').fill('12');
   // Zuletzt gewählte Leistung wird für die nächste Messung übernommen und im Plan angezeigt
-  await expect(dlg.getByTestId('input-position').locator('option:checked')).toHaveText('92 01 01 B Sperrflaeche (m²)');
-  await dlg.getByTestId('input-position').selectOption({ label: '92 01 01 A Linienmarkierung weiss (m)' });
+  await expect(dlg.getByTestId('input-position')).toHaveText('92 01 01 B Sperrflaeche (m²)');
+  await dlg.getByTestId('input-position').click();
+  await page.getByTestId('position-picker').getByTestId('position-option').filter({ hasText: 'Linienmarkierung weiss' }).click();
   await dlg.getByTestId('damage-save').click();
   await waitSaved(page);
   await expect(page.getByTestId('current-position')).toContainText('92 01 01 A');
@@ -74,7 +75,7 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   await expect(page.getByTestId('current-position')).toContainText('ohne Leistungszuordnung');
   await pickTool(page, 'tool-rect');
   await drawRect(page, box.x + box.width * 0.6, box.y + box.height * 0.6, box.x + box.width * 0.7, box.y + box.height * 0.7);
-  await expect(dlg.getByTestId('input-position')).toHaveValue('');
+  await expect(dlg.getByTestId('input-position')).toHaveAttribute('data-value', '');
   await dlg.getByTestId('damage-cancel').click();
 
   // Planliste zeigt die Leistungen, LV die Aufmaßmengen: 10 m² × 25 € + 12 m × 3 € = 286 €
@@ -275,11 +276,15 @@ test('Projektseite: Pläne, Aufmaß und LV/MFK untereinander; LV steht immer vor
   const docSel = dlg.getByTestId('input-position-doc');
   await expect(docSel.locator('option')).toHaveCount(2);
   await expect(docSel.locator('option:checked')).toContainText('Musterarbeiten Tiefgarage'); // LV zuerst
-  await expect(dlg.getByTestId('input-position').locator('option')).toHaveCount(1 + 8); // „keine“ + 8 LV-Positionen
+  const picker = page.getByTestId('position-picker');
+  await dlg.getByTestId('input-position').click();
+  await expect(picker.getByTestId('position-option')).toHaveCount(8); // 8 LV-Positionen
+  await picker.getByRole('button', { name: 'Schließen' }).first().click();
   await docSel.selectOption({ label: (await docSel.locator('option').nth(1).textContent())! });
-  await expect(dlg.getByTestId('input-position').locator('option')).toHaveCount(1 + 5); // MFK-Positionen
-  const mfkPos = (await dlg.getByTestId('input-position').locator('option').nth(1).textContent())!;
-  await dlg.getByTestId('input-position').selectOption({ label: mfkPos });
+  await dlg.getByTestId('input-position').click();
+  await expect(picker.getByTestId('position-option')).toHaveCount(5); // MFK-Positionen
+  await picker.getByTestId('position-option').first().click();
+  const mfkPos = (await dlg.getByTestId('input-position').textContent())!;
   await dlg.getByTestId('input-length').fill('2');
   await dlg.getByTestId('input-width').fill('1');
   await dlg.getByTestId('damage-save').click();
@@ -287,10 +292,10 @@ test('Projektseite: Pläne, Aufmaß und LV/MFK untereinander; LV steht immer vor
   // Bearbeiten: MFK und Position sind wieder gewählt
   await page.locator('[data-testid="aufmass-row"][data-number="1"]').getByRole('button', { name: /bearbeiten/ }).click();
   await expect(dlg.getByTestId('input-position-doc').locator('option:checked')).toContainText('M9-001');
-  await expect(dlg.getByTestId('input-position').locator('option:checked')).toHaveText(mfkPos);
+  await expect(dlg.getByTestId('input-position')).toHaveText(mfkPos);
   // anderes Dokument → Position zurückgesetzt
   await dlg.getByTestId('input-position-doc').selectOption({ index: 0 });
-  await expect(dlg.getByTestId('input-position')).toHaveValue('');
+  await expect(dlg.getByTestId('input-position')).toHaveAttribute('data-value', '');
   await dlg.getByTestId('damage-cancel').click();
 });
 
