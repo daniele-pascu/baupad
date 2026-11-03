@@ -41,6 +41,7 @@ interface DeductionRow {
   add: boolean;
   /** im Plan gezeichnet */
   shape?: Shape;
+  labelAt?: { x: number; y: number };
 }
 
 /** im Plan gezeichneter Abzug: erkannte Maße (Rechteck: Breite × Höhe, sonst Fläche × 1) */
@@ -110,7 +111,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const [docId, setDocId] = useState<string>(() => (damage.positionRef && positions.some((p) => p.ref === damage.positionRef) ? docOf(damage.positionRef) : (docs[0]?.id ?? '')));
   const [resetLabel, setResetLabel] = useState(false);
   const [deds, setDeds] = useState<DeductionRow[]>(() =>
-    (damage.deductions ?? []).map((x) => ({ id: x.id, label: x.label, count: String(x.count), length: toInputValue(x.length), width: toInputValue(x.width), add: !!x.add, ...(x.shape ? { shape: x.shape } : {}) })),
+    (damage.deductions ?? []).map((x) => ({ id: x.id, label: x.label, count: String(x.count), length: toInputValue(x.length), width: toInputValue(x.width), add: !!x.add, ...(x.shape ? { shape: x.shape } : {}), ...(x.labelAt ? { labelAt: x.labelAt } : {}) })),
   );
   // im Plan gezeichneten Abzug übernehmen: fortlaufend nummeriert („Abzug 1“, „Abzug 2“ …)
   const lastDrawn = useRef(drawnDeduction?.seq ?? 0);
@@ -184,6 +185,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
       ...(lineDeds ? {} : { width: parseDecimal(r.width)! }),
       ...(r.add ? { add: true } : {}),
       ...(r.shape ? { shape: r.shape } : {}),
+      ...(r.labelAt ? { labelAt: r.labelAt } : {}),
     }));
   const area = netArea(gross, deductions);
   const dedValue = (x: Deduction) => (lineDeds ? deductionLength(x) : deductionArea(x));

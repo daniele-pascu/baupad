@@ -293,6 +293,8 @@ export interface Deduction {
   add?: boolean;
   /** im Plan gezeichnet (Seitenkoordinaten): Maße daraus erkannt, im Plan schraffiert mit Nummer */
   shape?: Shape;
+  /** verschobene Position der Nummer im Plan (Seitenkoordinaten); fehlt = Mitte der Form */
+  labelAt?: { x: number; y: number };
 }
 
 /** Linientypen (wie in CAD-Programmen); Wellen- und Zickzacklinie sind reine Darstellung */

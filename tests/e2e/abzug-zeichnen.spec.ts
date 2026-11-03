@@ -53,7 +53,21 @@ test('Abzug im Plan zeichnen: Maße werden aus dem Plan erkannt, nummeriert und 
   // gespeichert: im Plan schraffiert mit Nummer der Messung
   await expect(page.getByTestId('ded-shape')).toHaveCount(2);
   await expect(page.getByTestId('ded-overlay').locator('text')).toHaveText(['1-A1', '1-A2']);
+  // Nummer verschieben (wie bei allen Formen), bleibt gespeichert
+  const lbl = page.getByTestId('ded-label').first();
+  const lb = (await lbl.boundingBox())!;
+  await page.mouse.move(lb.x + lb.width / 2, lb.y + lb.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(lb.x + lb.width / 2 + 60, lb.y + lb.height / 2 + 40, { steps: 6 });
+  await page.mouse.up();
+  await expect.poll(async () => (await lbl.boundingBox())!.x).toBeGreaterThan(lb.x + 40);
+  // kein Zeichnen/keine neue Messung beim Ziehen der Nummer
+  await expect(page.getByTestId('damage-dialog')).toHaveCount(0);
+  await waitSaved(page);
+  const moved = (await lbl.boundingBox())!;
   await page.reload();
   await waitForPlan(page);
   await expect(page.getByTestId('ded-shape')).toHaveCount(2);
+  const after = (await page.getByTestId('ded-label').first().boundingBox())!;
+  expect(Math.abs(after.x - moved.x)).toBeLessThan(4);
 });

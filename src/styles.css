@@ -9337,3 +9337,7 @@ html[data-theme='dark'] .crew-search {
   stroke: #fff;
   stroke-width: 3px;
 }
+.ded-label.movable {
+  cursor: move;
+  touch-action: none;
+}

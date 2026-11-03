@@ -20,7 +20,7 @@ import { calibrationFrom, detectScale, sourceText } from '../lib/scale-detect';
 import { visibleDamages } from '../lib/layers';
 import { LayerMenu } from '../components/LayerMenu';
 import { drawingRegion, drawingSheet, isDrawingPlan, lineEnds, paperLabel, shapeToMeters, shapeToPage, suggestMeasures, unitsPerMeter } from '../lib/drawing';
-import { convertShape, isOpenShape, lineShape, polygonShape, removeVertex, rotatePoint, shapeVertices, toScreen, type Point, type View } from '../lib/geometry';
+import { convertShape, isOpenShape, lineShape, polygonShape, removeVertex, rotatePoint, shapeVertices, toPage, toScreen, type Point, type View } from '../lib/geometry';
 import { probeTarget, type ProbeKind } from '../lib/probe';
 import { ProbeBar, ProbeMenu, ProbeOverlay, type ProbeState } from '../components/ProbeLayer';
 import { circleThrough } from '../lib/cad';
@@ -309,7 +309,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const [dedDraw, setDedDraw] = useState<{ prevTool: Tool } | null>(null);
   const [drawnDed, setDrawnDed] = useState<DrawnDeduction | null>(null);
   /** in diesem Fenster gezeichnete Abzüge (bis zum Speichern im Plan sichtbar) */
-  const [sessionDeds, setSessionDeds] = useState<{ shape: Shape; label: string }[]>([]);
+  const [sessionDeds, setSessionDeds] = useState<DedItem[]>([]);
   useEffect(() => {
     if (dialog) return;
     setDedDraw(null);
@@ -435,10 +435,16 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     () =>
       stored.flatMap((d) => {
         let n = 0;
-        return (d.deductions ?? []).flatMap((x) => (x.shape ? [{ shape: x.shape, label: `${damageNo(d)}-A${++n}` }] : []));
+        return (d.deductions ?? []).flatMap((x) => (x.shape ? [{ shape: x.shape, label: `${damageNo(d)}-A${++n}`, labelAt: x.labelAt, damageId: d.id, dedId: x.id }] : []));
       }),
     [stored],
   );
+  /** Nummer eines im Plan gezeichneten Abzugs verschoben */
+  const moveDedLabel = (damageId: string, dedId: string, at: Point) => {
+    const d = data.damages[damageId];
+    if (!d) return;
+    putRecord('damages', { ...d, deductions: (d.deductions ?? []).map((x) => (x.id === dedId ? { ...x, labelAt: { x: at.x, y: at.y } } : x)) });
+  };
   const damages = useMemo(() => stored.map((d) => (overrides[d.id] ? { ...d, ...overrides[d.id] } : d)), [stored, overrides]);
   // Ebene „Messungen“ ausgeblendet: nicht im Plan (die Tabelle bleibt vollständig)
   const shownDamages = useMemo(() => visibleDamages(plan, damages), [plan, damages]);
@@ -1310,7 +1316,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                     </>
                   )}
                   {tool === 'probe' && probe && <ProbeOverlay view={view} probe={probe} hover={hover ?? null} k={k} />}
-                  <DeductionOverlay view={view} items={[...planDeds, ...sessionDeds]} />
+                  <DeductionOverlay view={view} items={[...planDeds, ...sessionDeds]} onMoveLabel={moveDedLabel} />
                 </>
               )}
               onProbePoint={probePoint}
@@ -1854,8 +1860,17 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
 }
 
 /** Im Plan gezeichnete Abzüge: rot schraffiert mit Nummer */
-function DeductionOverlay({ view, items }: { view: View; items: { shape: Shape; label: string }[] }) {
+type DedItem = { shape: Shape; label: string; labelAt?: Point; damageId?: string; dedId?: string };
+
+/** Im Plan gezeichnete Abzüge: rot schraffiert mit Nummer; die Nummer lässt sich verschieben (wie bei allen Formen) */
+function DeductionOverlay({ view, items, onMoveLabel }: { view: View; items: DedItem[]; onMoveLabel?: (damageId: string, dedId: string, at: Point) => void }) {
+  const drag = useRef<{ key: string; pointerId: number; dx: number; dy: number; moved: boolean; item: DedItem } | null>(null);
+  const [live, setLive] = useState<{ key: string; at: Point } | null>(null);
   if (!items.length) return null;
+  const local = (e: React.PointerEvent) => {
+    const r = (e.currentTarget as SVGElement).ownerSVGElement!.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  };
   return (
     <g className="ded-overlay" data-testid="ded-overlay">
       <defs>
@@ -1864,12 +1879,54 @@ function DeductionOverlay({ view, items }: { view: View; items: { shape: Shape; 
         </pattern>
       </defs>
       {items.map((it, i) => {
+        const key = it.dedId ?? `s${i}`;
         const pts = (shapeVertices(it.shape).length ? shapeVertices(it.shape) : ellipsePoints(it.shape)).map((p) => toScreen(view, p));
         const c = pts.reduce((a, p) => ({ x: a.x + p.x / pts.length, y: a.y + p.y / pts.length }), { x: 0, y: 0 });
+        const at = live?.key === key ? toScreen(view, live.at) : it.labelAt ? toScreen(view, it.labelAt) : c;
+        const movable = !!(onMoveLabel && it.damageId && it.dedId);
+        const away = Math.hypot(at.x - c.x, at.y - c.y) > 14;
         return (
-          <g key={i} data-testid="ded-shape">
-            <polygon points={pts.map((p) => `${p.x},${p.y}`).join(' ')} fill="url(#ded-hatch)" stroke="#d1242f" strokeWidth={1.5} strokeDasharray="5 3" />
-            <text x={c.x} y={c.y} textAnchor="middle" dominantBaseline="central" className="ded-label">
+          <g key={key} data-testid="ded-shape">
+            <polygon points={pts.map((p) => `${p.x},${p.y}`).join(' ')} fill="url(#ded-hatch)" stroke="#d1242f" strokeWidth={1.5} strokeDasharray="5 3" pointerEvents="none" />
+            {away && <line x1={c.x} y1={c.y} x2={at.x} y2={at.y} stroke="#d1242f" strokeWidth={1} strokeDasharray="3 2" pointerEvents="none" />}
+            <text
+              x={at.x}
+              y={at.y}
+              textAnchor="middle"
+              dominantBaseline="central"
+              className={`ded-label${movable ? ' movable' : ''}`}
+              data-testid="ded-label"
+              onPointerDown={
+                movable
+                  ? (e) => {
+                      e.stopPropagation();
+                      (e.currentTarget as Element).setPointerCapture(e.pointerId);
+                      const p = local(e);
+                      drag.current = { key, pointerId: e.pointerId, dx: at.x - p.x, dy: at.y - p.y, moved: false, item: it };
+                    }
+                  : undefined
+              }
+              onPointerMove={(e) => {
+                const g = drag.current;
+                if (!g || g.pointerId !== e.pointerId) return;
+                e.stopPropagation();
+                const p = local(e);
+                g.moved = true;
+                setLive({ key: g.key, at: toPage(view, { x: p.x + g.dx, y: p.y + g.dy }) });
+              }}
+              onPointerUp={(e) => {
+                const g = drag.current;
+                if (!g || g.pointerId !== e.pointerId) return;
+                e.stopPropagation();
+                drag.current = null;
+                if (g.moved && live?.key === g.key) onMoveLabel!(g.item.damageId!, g.item.dedId!, live.at);
+                setLive(null);
+              }}
+              onPointerCancel={() => {
+                drag.current = null;
+                setLive(null);
+              }}
+            >
               {it.label}
             </text>
           </g>
