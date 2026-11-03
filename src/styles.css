@@ -9358,3 +9358,7 @@ html[data-theme='dark'] .crew-search {
   height: 22px;
   min-width: 22px;
 }
+/* Planbibliothek: Abstand zwischen „Pläne hochladen“ und der Suche */
+.lib-upload-row {
+  margin: 4px 0 14px;
+}

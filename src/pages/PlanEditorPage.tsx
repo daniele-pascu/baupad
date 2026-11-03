@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { AufmassTable } from '../components/AufmassTable';
+import { RotatePlanDialog } from '../components/RotatePlanDialog';
 import { DamageDialog, type DamageValues, type DrawnDeduction, type Renumber } from '../components/DamageDialog';
 import { ElementBar, InsertBar } from '../components/DrawPanel';
 import { Icon } from '../components/Icon';
@@ -318,6 +319,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const [overrides, setOverrides] = useState<Record<string, Partial<Damage>>>({});
   const [mobileTab, setMobileTab] = useState<'plan' | 'table'>('plan');
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [rotateOpen, setRotateOpen] = useState(false);
   /** Kalibrieren: Prüfstrecke statt Referenzstrecke ziehen; Prüfbericht */
   const [checking, setChecking] = useState(false);
   const [dimsOpen, setDimsOpen] = useState(false);
@@ -1101,6 +1103,11 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           <button type="button" className="btn btn-sm" onClick={() => setDetailsOpen(true)} title="Planangaben">
             <Icon name="info" size={18} /> <span className="hide-sm">Angaben</span>
           </button>
+          {!drawingPlan && file && (
+            <button type="button" className="btn btn-sm" onClick={() => setRotateOpen(true)} title="Plan drehen (Messungen drehen mit, auch im Export)" data-testid="editor-rotate">
+              <Icon name="rotate" size={18} /> <span className="hide-sm">Drehen</span>
+            </button>
+          )}
           {!drawingPlan && !drawMode && file && (
             <ViewMenu
               gray={!plan.planColor}
@@ -1857,6 +1864,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       {excelOpen && plan && <ExcelExportDialog data={data} scope={{ kind: 'plan', planId: plan.id }} onClose={() => setExcelOpen(false)} />}
       {dimsOpen && plan && file && <DimensionReview data={data} plan={plan} file={file} onClose={() => setDimsOpen(false)} />}
       {detailsOpen && <PlanDetailsDialog plan={plan} data={data} onClose={() => setDetailsOpen(false)} />}
+      {rotateOpen && plan && <RotatePlanDialog data={data} plan={plan} onClose={() => setRotateOpen(false)} onReuse={() => setRotateOpen(false)} />}
       {pdfOpen && <PdfExportDialog data={data} costCenterId={plan.costCenterId} initial={[plan.id]} onClose={() => setPdfOpen(false)} />}
     </div>
   );

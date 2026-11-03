@@ -117,7 +117,7 @@ export function PlanLibrary({ data, onClose, onReuse }: { data: ProjectState; on
         Alle Originalpläne dieses Projekts – unbearbeitet, so wie hochgeladen. Jeder Plan, der für ein Aufmaß importiert wird, landet automatisch
         hier. Pläne lassen sich auch nur hier hochladen und später mit „Neues Aufmaß“ auswählen.
       </p>
-      <div className="row gap wrap">
+      <div className="row gap wrap lib-upload-row">
         <button type="button" className="btn btn-primary" onClick={() => inputRef.current?.click()} disabled={uploading} data-testid="library-upload">
           <Icon name="upload" size={18} /> {uploading ? 'Wird hochgeladen …' : 'Pläne hochladen'}
         </button>

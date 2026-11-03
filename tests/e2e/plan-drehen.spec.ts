@@ -24,6 +24,22 @@ async function plans(page: Page): Promise<P[]> {
   );
 }
 const plan = async (page: Page, no: string) => (await plans(page)).find((p) => p.planNumber === no)!;
+async function records(page: Page, store: string): Promise<unknown[]> {
+  return page.evaluate(
+    (st) =>
+      new Promise<unknown[]>((resolve) => {
+        const req = indexedDB.open('schadstellen-aufmass');
+        req.onsuccess = () => {
+          const all = req.result.transaction(st).objectStore(st).getAll();
+          all.onsuccess = () => {
+            req.result.close();
+            resolve(all.result.filter((p: { deletedAt: number | null }) => !p.deletedAt));
+          };
+        };
+      }),
+    store,
+  );
+}
 const upm = (c: NonNullable<P['calibration']>) => Math.hypot(c.b.x - c.a.x, c.b.y - c.a.y) / c.meters;
 
 /** Blaue Balken im Planbild: Wechsel blau/weiß entlang der Mitte (waagerecht bzw. senkrecht) */
@@ -134,19 +150,32 @@ test('Bild: beim Import drehen und Ränder abschneiden; bestehenden Plan drehen,
   const b0 = await plan(page, 'B-0');
   expect([b0.rotation, b0.pageWidth, b0.pageHeight]).toEqual([90, flat.pageHeight, flat.pageWidth]);
 
-  // mit Messung: Drehen gesperrt, Hinweis auf neues Aufmaß
+  // mit Messung: Drehen in der Bearbeitung – Messung dreht mit, Maße bleiben, PDF-Export gedreht
   await page.getByTestId('plan-row').filter({ hasText: 'B-0' }).getByTestId('plan-open').click();
   await waitForPlan(page);
   const b = await planBox(page);
   await pickTool(page, 'tool-rect');
-  await drawRect(page, b.x + b.width * 0.2, b.y + b.height * 0.2, b.x + b.width * 0.4, b.y + b.height * 0.4);
+  await drawRect(page, b.x + b.width * 0.2, b.y + b.height * 0.2, b.x + b.width * 0.4, b.y + b.height * 0.3);
   await fillMeasures(page, '1', '1', '', false);
   await waitSaved(page);
-  await backToList(page);
-  await row('B-0').getByTestId('plan-actions').click();
-  await page.getByTestId('action-rotate').click();
-  await expect(dlg.getByTestId('rotate-blocked')).toContainText('1 Messung');
-  await expect(dlg.getByTestId('rotate-save')).toHaveCount(0);
-  await dlg.getByTestId('rotate-reuse').click();
-  await expect(page.getByTestId('reuse-plan')).toContainText('farbplan.png'); // neues Aufmaß mit gleichem (gedrehtem) Plan
+  const before = (await records(page, 'damages'))[0] as { shape: { x: number; y: number; w: number; h: number; rotation?: number }; area: number };
+  await page.getByTestId('editor-rotate').click();
+  const dlg2 = page.getByTestId('rotate-plan');
+  await expect(dlg2.getByTestId('rotate-blocked')).toHaveCount(0);
+  await dlg2.getByTestId('rotate-right').click();
+  await expect(dlg2.getByTestId('rotate-state')).toContainText('Messungen und Abzüge drehen mit');
+  await dlg2.getByTestId('rotate-save').click();
+  await waitSaved(page);
+  const b0r = await plan(page, 'B-0');
+  expect([b0r.rotation, b0r.pageWidth, b0r.pageHeight]).toEqual([180, flat.pageWidth, flat.pageHeight]);
+  const after = (await records(page, 'damages'))[0] as typeof before;
+  expect(after.area).toBe(before.area); // Maße bleiben
+  expect(after.shape.rotation ?? 0).toBe(((before.shape.rotation ?? 0) + 90) % 360);
+  expect([after.shape.w, after.shape.h]).toEqual([before.shape.w, before.shape.h]);
+  // Mittelpunkt dreht mit: (x, y) → (H − y, x) im vorherigen Seitenformat
+  const cb = { x: before.shape.x + before.shape.w / 2, y: before.shape.y + before.shape.h / 2 };
+  const ca = { x: after.shape.x + after.shape.w / 2, y: after.shape.y + after.shape.h / 2 };
+  expect(Math.abs(ca.x - (b0.pageHeight - cb.y))).toBeLessThan(0.01);
+  expect(Math.abs(ca.y - cb.x)).toBeLessThan(0.01);
+  await expect(page.locator('.damage-label')).toHaveCount(1);
 });

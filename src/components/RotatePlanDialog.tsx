@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { componentsOf, damagesOf, elementsOf, planTitle } from '../lib/aufmass';
-import { rotatePlan } from '../lib/plan-rotate';
-import { putRecord, type ProjectState } from '../lib/store';
+import { rotatePlan, rotatePlanWithContent } from '../lib/plan-rotate';
+import { putRecord, putRecords, type ProjectState } from '../lib/store';
 import type { Plan } from '../lib/types';
 import { Icon } from './Icon';
 import { Modal } from './Modal';
@@ -16,11 +16,18 @@ import { toast } from './ui';
 export function RotatePlanDialog({ data, plan, onClose, onReuse }: { data: ProjectState; plan: Plan; onClose: () => void; onReuse: (plan: Plan) => void }) {
   const [turn, setTurn] = useState<0 | 90 | 180 | 270>(0);
   const file = data.files[plan.fileId];
-  const used = damagesOf(data, plan.id).length + componentsOf(data, plan.id).length + elementsOf(data, plan.id).length;
+  // Messungen und Bauteilbuchstaben drehen mit; nur gezeichnete Elemente (Zeichenplan) verhindern das Drehen
+  const used = elementsOf(data, plan.id).length;
+  const content = damagesOf(data, plan.id).length + componentsOf(data, plan.id).length;
   const preview = turn ? rotatePlan(plan, turn) : plan;
   const add = (d: 90 | 270) => setTurn((((turn + d) % 360) as 0 | 90 | 180 | 270));
   const save = () => {
-    if (turn) putRecord('plans', rotatePlan(data.plans[plan.id], turn));
+    if (turn) {
+      if (content) {
+        const r = rotatePlanWithContent(data.plans[plan.id], damagesOf(data, plan.id), componentsOf(data, plan.id), turn);
+        putRecords({ plans: [r.plan], damages: r.damages, components: r.components });
+      } else putRecord('plans', rotatePlan(data.plans[plan.id], turn));
+    }
     toast(turn ? 'Plan gedreht.' : 'Keine Änderung.', turn ? 'success' : 'info');
     onClose();
   };
@@ -78,7 +85,7 @@ export function RotatePlanDialog({ data, plan, onClose, onReuse }: { data: Proje
         </button>
       </div>
       <p className="muted small center-text" data-testid="rotate-state">
-        {preview.rotation ? `Gedreht um ${preview.rotation}° gegenüber der Originaldatei` : 'Wie in der Originaldatei'} · Ausschnitt und Kalibrierung drehen mit.
+        {preview.rotation ? `Gedreht um ${preview.rotation}° gegenüber der Originaldatei` : 'Wie in der Originaldatei'} · Ausschnitt, Kalibrierung{content ? ', Messungen und Abzüge' : ''} drehen mit – auch im PDF-Export.
       </p>
     </Modal>
   );
