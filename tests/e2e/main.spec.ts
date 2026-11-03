@@ -379,7 +379,7 @@ test('10. Excel-Export (Plan): Aufmaßblatt mit echten Zahlenwerten auf einer Se
   ]);
   // Zahlen sind numerisch (Typ „n“), nicht Text; Fläche als Formel Länge × Breite
   for (const r of rows) for (const i of [1, 2, 3, 4]) expect(r.cells[i]?.t).toBe('n');
-  expect(String(rows[0].cells[5]?.v)).toMatch(/^=C\d+\*D\d+$/);
+  expect(String(rows[0].cells[5]?.v)).toMatch(/^=ROUNDUP\(C\d+\*D\d+,2\)$/);
   const sumRow = ws.find((r) => r[6]?.v === 'm²')!;
   expect(String(sumRow[5]?.v)).toMatch(/^=SUM\(F\d+:F\d+\)$/);
   // Druck: Hochformat, immer auf eine Seite, Kopfzeile rechts „Seite von Seiten“

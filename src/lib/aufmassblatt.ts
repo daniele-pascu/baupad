@@ -1,3 +1,4 @@
+import { ceil2 } from './numbers';
 import { aufmassRows, costCenterLabel, costCentersOf, lvDocsOf, plansOf, positionRef, safeFileName, type ExportFile, type XlsxScope } from './aufmass';
 import { invoiceLabel, invoiceShort } from './invoices';
 import { deductionArea, deductionLength, grossArea, hasArea, kindOf, quantityBasis, quantityFor } from './measure';
@@ -245,12 +246,12 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
           total += v;
           cells = [num(v, last ? 'amQtyLast' : 'amQty')];
         } else if (kind === 'volume') {
-          const v = d.depth !== null ? Math.round(a * d.depth * 10000) / 10000 : null;
+          const v = d.depth !== null ? (a < 0 ? -1 : 1) * ceil2(Math.abs(a) * d.depth) : null;
           total += v ?? 0;
-          cells = [n(ded.length, last), n(ded.width ?? null, last), n(d.depth, last), v === null ? qn(null, last) : q(v, `${sign}C${r}*D${r}*E${r}`)];
+          cells = [n(ded.length, last), n(ded.width ?? null, last), n(d.depth, last), v === null ? qn(null, last) : q(v, `${sign}ROUNDUP(ROUNDUP(C${r}*D${r},2)*E${r},2)`)];
         } else {
           total += a;
-          cells = [n(ded.length, last), n(ded.width ?? null, last), ...(kind === 'areaDepth' ? [blank(last ? 'amNumLast' : 'amText')] : []), q(a, `${sign}C${r}*D${r}`)];
+          cells = [n(ded.length, last), n(ded.width ?? null, last), ...(kind === 'areaDepth' ? [blank(last ? 'amNumLast' : 'amText')] : []), q(a, `${sign}ROUNDUP(C${r}*D${r},2)`)];
         }
         add([blank(last ? 'amCenterLast' : 'amCenter'), blank(last ? 'amCenterLast' : 'amCenter'), ...cells, note ? str(note, 'amNote') : null]);
         return;
@@ -262,17 +263,17 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
         const v = g ?? 0;
         total += v;
         const formula = d.width !== null && !d.areaFromShape;
-        cells = [n(d.areaFromShape ? null : d.length, last), n(d.areaFromShape ? null : d.width, last), formula ? q(v, `C${r}*D${r}`) : qn(g, last)];
+        cells = [n(d.areaFromShape ? null : d.length, last), n(d.areaFromShape ? null : d.width, last), formula ? q(v, `ROUNDUP(C${r}*D${r},2)`) : qn(g, last)];
       } else if (kind === 'areaDepth') {
         const v = g ?? 0;
         total += v;
         const formula = d.width !== null && !d.areaFromShape;
-        cells = [n(d.areaFromShape ? null : d.length, last), n(d.areaFromShape ? null : d.width, last), n(d.depth, last), formula ? q(v, `C${r}*D${r}`) : qn(g, last)];
+        cells = [n(d.areaFromShape ? null : d.length, last), n(d.areaFromShape ? null : d.width, last), n(d.depth, last), formula ? q(v, `ROUNDUP(C${r}*D${r},2)`) : qn(g, last)];
       } else if (kind === 'volume') {
-        const v = g !== null && d.depth !== null ? Math.round(g * d.depth * 10000) / 10000 : null;
+        const v = g !== null && d.depth !== null ? ceil2(g * d.depth) : null;
         total += v ?? 0;
         const formula = d.width !== null && d.depth !== null && !d.areaFromShape;
-        cells = [n(d.areaFromShape ? null : d.length, last), n(d.areaFromShape ? null : d.width, last), n(d.depth, last), formula ? q(v ?? 0, `C${r}*D${r}*E${r}`) : qn(v, last)];
+        cells = [n(d.areaFromShape ? null : d.length, last), n(d.areaFromShape ? null : d.width, last), n(d.depth, last), formula ? q(v ?? 0, `ROUNDUP(ROUNDUP(C${r}*D${r},2)*E${r},2)`) : qn(v, last)];
       } else {
         // Linie mit Abzügen: gemessene Länge, die Abzüge folgen in eigenen Zeilen
         const qty = kind === 'liter' ? liters(d) : kind === 'other' ? null : kind === 'length' && dedsOf(d).length ? d.length : (quantityFor(kind === 'count' ? 'Stk' : 'm', [d]).value ?? null);

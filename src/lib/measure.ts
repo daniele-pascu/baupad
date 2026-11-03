@@ -37,9 +37,10 @@ export function defaultKindFor(shape: Shape): MeasureKind {
 }
 
 const clean = (n: number) => Math.round(n * 1e9) / 1e9;
+import { ceil2 } from './numbers';
 
 /** Teilfläche einer Abzugs- bzw. Zuschlagszeile mit Vorzeichen (Abzug negativ) */
-export const deductionArea = (x: Pick<Deduction, 'count' | 'length' | 'width' | 'add'>) => clean((x.add ? 1 : -1) * x.count * x.length * (x.width ?? 0));
+export const deductionArea = (x: Pick<Deduction, 'count' | 'length' | 'width' | 'add'>) => clean((x.add ? 1 : -1) * x.count * ceil2(x.length * (x.width ?? 0)));
 
 /** Teillänge einer Abzugs- bzw. Zuschlagszeile einer Linie mit Vorzeichen (Abzug negativ) */
 export const deductionLength = (x: Pick<Deduction, 'count' | 'length' | 'add'>) => clean((x.add ? 1 : -1) * x.count * x.length);
@@ -88,7 +89,7 @@ export const countKind = (damages: Pick<Damage, 'kind'>[], k: MeasureKind) => da
 
 /** Summe der Volumen (m³) – nur Messungen mit Fläche und Tiefe; fehlende Werte zählen nicht als 0. */
 export function sumVolumes(damages: Pick<Damage, 'kind' | 'area' | 'depth'>[]): number {
-  return clean(damages.reduce((s, d) => (hasArea(kindOf(d)) && d.area !== null && d.depth !== null ? s + d.area * d.depth : s), 0));
+  return clean(damages.reduce((s, d) => (hasArea(kindOf(d)) && d.area !== null && d.depth !== null ? s + ceil2(d.area * d.depth) : s), 0));
 }
 export const hasVolume = (damages: Pick<Damage, 'kind' | 'area' | 'depth'>[]) => damages.some((d) => hasArea(kindOf(d)) && d.area !== null && d.depth !== null);
 
@@ -120,5 +121,5 @@ export function quantityFor(unit: string, damages: Pick<Damage, 'kind' | 'length
     return { value: sumAreas(withArea), missing: damages.length - withArea.length };
   }
   const withDepth = damages.filter((d) => hasArea(kindOf(d)) && d.area !== null && d.depth !== null);
-  return { value: clean(withDepth.reduce((s, d) => s + d.area! * d.depth!, 0)), missing: damages.length - withDepth.length };
+  return { value: clean(withDepth.reduce((s, d) => s + ceil2(d.area! * d.depth!), 0)), missing: damages.length - withDepth.length };
 }

@@ -9415,3 +9415,9 @@ html[data-theme='dark'] .crew-search {
   cursor: move;
   touch-action: none;
 }
+/* Abzüge/Zuschläge: dünne Trennlinie zwischen den Zeilen */
+.deduction-row + .deduction-row {
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+  margin-top: 8px;
+}

@@ -113,11 +113,22 @@ export function blattRows(wb: Record<string, XlsxCell[][]>, plan?: string | numb
   const ws = wb[name];
   // einfache Formeln (=C5*D5) mit den Werten der Zellen ausrechnen
   const val = (c: XlsxCell) => {
-    const v = c?.v ?? null;
-    if (typeof v !== 'string' || !v.startsWith('=')) return v;
-    const refs = /^=([A-H]\d+)(\*[A-H]\d+)*$/.test(v) ? v.slice(1).split('*') : null;
-    if (!refs) return v;
-    const p = refs.reduce((acc, ref) => acc * Number(ws[Number(ref.slice(1)) - 1][ref.charCodeAt(0) - 65]?.v ?? 0), 1);
+    const raw = c?.v ?? null;
+    if (typeof raw !== 'string' || !raw.startsWith('=')) return raw;
+    // ROUNDUP(…,2) (Maße und Mengen werden auf 2 Stellen aufgerundet), auch verschachtelt
+    let v = raw;
+    let up = 0;
+    while (/^=-?(\d+\*)?ROUNDUP\(/.test(v)) {
+      v = v.replace(/ROUNDUP\(/, '').replace(/,2\)/, '');
+      up++;
+    }
+    const m = /^=(-?)((?:\d+\*)?)([A-H]\d+(?:\*[A-H]\d+)*)$/.exec(v);
+    if (!m) return raw;
+    const refs = m[3].split('*');
+    let p = refs.reduce((acc, ref) => acc * Number(ws[Number(ref.slice(1)) - 1][ref.charCodeAt(0) - 65]?.v ?? 0), 1);
+    if (up) p = Math.ceil(Math.round(p * 1e6) / 1e6 * 100 - 1e-6) / 100;
+    if (m[2]) p *= Number(m[2].slice(0, -1));
+    if (m[1]) p = -p;
     return Math.round(p * 10000) / 10000;
   };
   let head: string[] | null = null;

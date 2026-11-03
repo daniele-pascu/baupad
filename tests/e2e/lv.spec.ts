@@ -135,7 +135,7 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   expect(ws[pb - 2].map((c) => c?.v ?? null).filter(Boolean)).toEqual(['Pos. / Positionstext', 'Menge', 'EH', 'Einheitspreis', 'Positionspreis']); // Kopf je Position
   const th = pb + 3;
   expect(ws[th].map((c) => c?.v ?? null).filter((x) => x !== null)).toEqual(['Plan', 'Nr.', 'Länge', 'Breite', 'm²']); // ohne Bemerkung keine Spalte „Bemerkung“
-  expect(ws[th + 1].slice(0, 5).map((c) => c?.v ?? null)).toEqual(['P-1', 1, 4, 2.5, `=C${th + 2}*D${th + 2}`]);
+  expect(ws[th + 1].slice(0, 5).map((c) => c?.v ?? null)).toEqual(['P-1', 1, 4, 2.5, `=ROUNDUP(C${th + 2}*D${th + 2},2)`]);
   expect(ws[th + 2].slice(4, 6).map((c) => c?.v ?? null)).toEqual([`=SUM(E${th + 2}:E${th + 2})`, 'm²']);
   expect(q[2]?.v).toBe(`=E${th + 3}`); // Menge verweist auf die Summe
   // Position A (m): Plan | Nr. | m

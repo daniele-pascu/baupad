@@ -1,3 +1,4 @@
+import { ceil2 } from './numbers';
 import { fromShapeLocal, freehandPoints, lineShape, polygonArea, shapeAABB, shapeCenter, shapeVertices, type Point } from './geometry';
 import { formatMeasure } from './numbers';
 import type { Damage, DrawElement, DrawingInfo, PaperFormat, Plan, Rect, Shape } from './types';
@@ -474,7 +475,7 @@ export function suggestMeasures(shape: Shape, k = UNITS_PER_M): { length: number
   return { length: round2(Math.max(s.w, s.h)), width: round2(Math.min(s.w, s.h)) };
 }
 
-const round2 = (n: number) => Math.round(n * 100) / 100;
+const round2 = (n: number) => ceil2(n); // Maße immer aufrunden (2 Nachkommastellen)
 
 /** Maßstab für den Ausdruck: kleinster Normmaßstab, bei dem der Bereich aufs Papier passt. */
 export function printScale(regionM: { w: number; h: number }, paperMm: { w: number; h: number }): number {
