@@ -1119,11 +1119,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           <button type="button" className="btn btn-sm" onClick={() => setDetailsOpen(true)} title="Planangaben">
             <Icon name="info" size={18} /> <span className="hide-sm">Angaben</span>
           </button>
-          {!drawingPlan && file && (
-            <button type="button" className="btn btn-sm" onClick={() => setRotateOpen(true)} title="Plan drehen (Messungen drehen mit, auch im Export)" data-testid="editor-rotate">
-              <Icon name="rotate" size={18} /> <span className="hide-sm">Drehen</span>
-            </button>
-          )}
+
           {!drawingPlan && !drawMode && file && (
             <ViewMenu
               gray={!plan.planColor}
@@ -1423,6 +1419,11 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             <button type="button" className="icon-btn" onClick={() => viewer.current?.fit()} aria-label="Gesamten Plan anzeigen" title="Gesamten Plan anzeigen (0)">
               <Icon name="fit" />
             </button>
+            {!drawingPlan && !drawMode && file && (
+              <button type="button" className="icon-btn" onClick={() => setRotateOpen(true)} aria-label="Plan drehen" title="Plan drehen (Messungen drehen mit, auch im Export)" data-testid="editor-rotate">
+                <Icon name="rotate" />
+              </button>
+            )}
             <button
               type="button"
               className="icon-btn"
