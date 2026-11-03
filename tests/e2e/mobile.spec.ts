@@ -101,8 +101,12 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
     expect(b!.height).toBeGreaterThanOrEqual(44);
     expect(b!.width).toBeGreaterThanOrEqual(44);
   }
-  // Schmale Bildschirme (iPhone, iPad hochkant): Plan und Tabelle über Reiter umschaltbar
-  await expect(page.getByTestId('mobile-tab-table')).toBeVisible();
+  // Schmale Bildschirme (iPhone, iPad hochkant): Plan und Tabelle über Reiter umschaltbar; iPad quer: nebeneinander
+  const sideBySide = page.viewportSize()!.width > 1024;
+  if (sideBySide) {
+    await expect(page.getByTestId('mobile-tab-table')).toBeHidden();
+    await expect(page.getByTestId('aufmass-table')).toBeVisible();
+  } else await expect(page.getByTestId('mobile-tab-table')).toBeVisible();
 
   const cdp = await page.context().newCDPSession(page);
   const box = await planBox(page);
@@ -162,7 +166,7 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   await page.getByRole('button', { name: 'Gesamten Plan anzeigen' }).tap();
 
   // 5) Tabelle
-  await page.getByTestId('mobile-tab-table').tap();
+  if (!sideBySide) await page.getByTestId('mobile-tab-table').tap();
   expect((await tableRows(page)).map((r) => [r[0], r[4]])).toEqual([
     ['1', '0,50'],
     ['2', '2,64'],

@@ -40,6 +40,12 @@ export default defineConfig({
       testMatch: /mobile/,
       use: { viewport: { width: 820, height: 1180 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, userAgent: iPadUA },
     },
+    {
+      // iPad quer (Baustelle: oft im Querformat)
+      name: 'ipad-quer',
+      testMatch: /mobile/,
+      use: { viewport: { width: 1180, height: 820 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, userAgent: iPadUA },
+    },
   ],
   webServer: {
     command: pages ? 'node scripts/serve-pages.mjs 4174 /' : 'npx vite preview --port 4173 --strictPort',
