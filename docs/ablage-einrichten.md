@@ -20,7 +20,12 @@ Legt `photos` (Verzeichnis der Fotos) und `records` (Datensätze aller Werkzeuge
 ausführen** (Tabelle `records` ist neu) und die Funktion `storage` neu veröffentlichen (Schritt 2, neue Aktionen
 `records-upsert`/`records-pull` und Dateischlüssel `files/…`).
 
-## 2. Funktion veröffentlichen (erledigt 30.10.2026)
+**03.11.2026:** `storage.sql` (Schlüssel je Firma) und Funktion `storage` erneut eingespielt – die Funktion kennt jetzt
+auch Firmenformulare und Zeitaufzeichnung (`formEntries`, `timeDays`, `timeMonths`, Kennungen mit „|“). Ein Unit-Test
+prüft, dass die Funktion jede Datenart der App annimmt. Die Funktion mit der Adresse `…/functions/v1/rapid-proce…`
+war ein Fehlversuch und wird nicht gebraucht (löschen).
+
+## 2. Funktion veröffentlichen (erledigt 30.10.2026, aktualisiert 03.11.2026)
 Supabase → Edge Functions → „Deploy a new function“ → „Via Editor“:
 - **Zuerst** unten rechts „Function name“ auf `storage` ändern (der zufällige Vorschlag wird sonst zur festen
   Adresse; ein späteres Umbenennen ändert nur den Anzeigenamen, die App findet die Funktion dann nicht).

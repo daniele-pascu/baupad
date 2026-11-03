@@ -183,7 +183,9 @@ async function rest(token: string, path: string, init: RequestInit & { prefer?: 
 }
 
 const KEY_RE = /^(photos\/[A-Za-z0-9_-]{4,64}\/(data|thumb|original)\.jpg|files\/[A-Za-z0-9_-]{4,64}\/(data\.bin|data\.jpg|thumb\.jpg|pdf\.pdf))$/;
-const STORES = ['projects', 'costCenters', 'files', 'plans', 'damages', 'components', 'elements', 'lvDocs', 'workers', 'weeks', 'reports', 'defectPlans', 'defectMarks', 'formTemplates', 'meta'];
+const STORES = ['projects', 'costCenters', 'files', 'plans', 'damages', 'components', 'elements', 'lvDocs', 'workers', 'weeks', 'reports', 'defectPlans', 'defectMarks', 'formTemplates', 'formEntries', 'timeDays', 'timeMonths', 'meta'];
+/** Kennung eines Datensatzes; „|“ für Zeitaufzeichnung (Arbeiter|Datum) */
+const RECORD_ID_RE = /^[A-Za-z0-9_:.|-]{1,80}$/;
 
 Deno.serve(async (req: Request) => {
   const origin = req.headers.get('origin');
@@ -262,7 +264,7 @@ Deno.serve(async (req: Request) => {
     if (action === 'records-upsert') {
       const list = Array.isArray(body.records) ? (body.records as Record<string, unknown>[]) : [];
       if (!list.length || list.length > 200) return json(422, { error: 'records' }, origin);
-      for (const r of list) if (!STORES.includes(String(r.store)) || !/^[A-Za-z0-9_:.-]{1,80}$/.test(String(r.id))) return json(422, { error: 'record' }, origin);
+      for (const r of list) if (!STORES.includes(String(r.store)) || !RECORD_ID_RE.test(String(r.id))) return json(422, { error: 'record' }, origin);
       const rows = list.map((r) => ({
         store: String(r.store),
         id: String(r.id),
@@ -271,7 +273,7 @@ Deno.serve(async (req: Request) => {
         rev: Number(r.rev ?? 0),
         deleted_at: r.deleted_at ? new Date(Number(r.deleted_at)).toISOString() : null,
       }));
-      await rest(ctx.token, 'records?on_conflict=store,id', { method: 'POST', body: JSON.stringify(rows), prefer: 'resolution=merge-duplicates,return=minimal' });
+      await rest(ctx.token, 'records?on_conflict=workspace_id,store,id', { method: 'POST', body: JSON.stringify(rows), prefer: 'resolution=merge-duplicates,return=minimal' });
       return json(200, { ok: true }, origin);
     }
 

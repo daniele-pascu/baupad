@@ -47,6 +47,7 @@ const store = await import('../../src/lib/store');
 /** nachgebildeter Server: Tabelle records + signierte Links; S3-Uploads/-Downloads über globalThis.fetch */
 const server = new Map<string, { store: string; id: string; data: unknown; rev: number; updated_at: string; deleted_at: string | null }>();
 const calls: string[] = [];
+const rejectStores = new Set<string>();
 let clock = 0;
 const stamp = () => `2026-10-31T19:00:00.${String(++clock).padStart(6, '0')}+00:00`;
 const fakeFetch = async (_url: string, init: RequestInit) => {
@@ -58,6 +59,8 @@ const fakeFetch = async (_url: string, init: RequestInit) => {
     return new Response(JSON.stringify({ urls }), { status: 200 });
   }
   if (body.action === 'records-upsert') {
+    // veraltete Funktion nachstellen: kennt manche Datenarten nicht → ganze Lieferung 422
+    if ((body.records as { store: string }[]).some((r) => rejectStores.has(r.store))) return new Response(JSON.stringify({ error: 'record' }), { status: 422 });
     const at = stamp(); // ein Upsert → gleiche Zeit für die ganze Gruppe
     for (const r of body.records as { store: string; id: string; data: unknown; rev: number; deleted_at: number | null }[])
       server.set(`${r.store}:${r.id}`, { ...r, updated_at: at, deleted_at: r.deleted_at ? new Date(r.deleted_at).toISOString() : null });
@@ -81,6 +84,7 @@ beforeEach(() => {
   applied.length = 0;
   deletedProjects.length = 0;
   calls.length = 0;
+  rejectStores.clear();
   s3.length = 0;
   globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
     s3.push(`${init?.method ?? 'GET'} ${String(url)}`);
@@ -140,4 +144,34 @@ describe('Datenabgleich', () => {
     expect(Object.keys(files.get('defectPlanImages:dp1')!)).toEqual(['data.jpg', 'thumb.jpg']);
     expect(await sync.fetchFile('blobs', 'missing')).toBe(true); // Server liefert (nachgebildet) – Ergebnis wird gespeichert
   });
+
+  it('eine abgelehnte Datenart hält die anderen nicht auf: Rest wird übertragen, Abgelehntes bleibt in der Warteschlange', async () => {
+    rejectStores.add('timeDays');
+    records.set('plans:pl1', { id: 'pl1', projectId: 'p1', title: 'EG', rev: 1 });
+    records.set('timeDays:w1|2026-11-02', { id: 'w1|2026-11-02', lines: [] });
+    outbox.set('plans:pl1', entry('plans', 'pl1'));
+    outbox.set('timeDays:w1|2026-11-02', entry('timeDays', 'w1|2026-11-02'));
+    const sync = new DataSync('ws1', fakeFetch);
+    await expect(sync.push()).rejects.toThrow('abgelehnt');
+    expect(server.has('plans:pl1')).toBe(true);
+    expect(server.has('timeDays:w1|2026-11-02')).toBe(false);
+    expect([...outbox.keys()]).toEqual(['timeDays:w1|2026-11-02']);
+    sync.stop();
+  });
 });
+
+describe('Funktion „storage“ kennt alle Datenarten der App', () => {
+  it('jede abgeglichene Datenart (SyncStore ohne Dateien) steht in STORES der Funktion; Kennungen mit „|“ erlaubt', async () => {
+    const { readFileSync } = await import('node:fs');
+    const fn = new TextDecoder().decode(readFileSync('supabase/functions/storage/index.ts'));
+    const db = new TextDecoder().decode(readFileSync('src/lib/db.ts'));
+    const types = new TextDecoder().decode(readFileSync('src/lib/types.ts'));
+    const union = (src: string, name: string) => [...(new RegExp(`export type ${name} =([^;]+);`).exec(src)?.[1] ?? '').matchAll(/'([A-Za-z]+)'/g)].map((m) => m[1]);
+    const app = [...union(types, 'EntityStore'), ...union(db, 'SyncStore')];
+    const server = [...(/const STORES = \[([^\]]+)\]/.exec(fn)?.[1] ?? '').matchAll(/'([A-Za-z]+)'/g)].map((m) => m[1]);
+    expect(app.length).toBeGreaterThan(10);
+    expect(app.filter((s) => !server.includes(s))).toEqual([]);
+    expect(new RegExp(/const RECORD_ID_RE = (\/.+\/);/.exec(fn)![1].slice(1, -1)).test('w1|2026-11-02')).toBe(true);
+  });
+});
+

@@ -61,7 +61,7 @@ create table if not exists public.records (
   updated_at timestamptz not null default now(),
   deleted_at timestamptz,
   created_by uuid default auth.uid(),
-  primary key (store, id)
+  primary key (workspace_id, store, id)
 );
 create index if not exists records_ws_updated on public.records (workspace_id, updated_at, id);
 
@@ -76,3 +76,17 @@ create policy "Mitglieder ändern Datensätze" on public.records for update usin
 
 drop trigger if exists records_touch on public.records;
 create trigger records_touch before insert or update on public.records for each row execute function public.touch_updated_at();
+
+-- 03.11.2026: Schlüssel je Firma (gleiche Kennung, z. B. Einstellung „absences“, in mehreren Firmen möglich).
+-- Läuft nur, wenn die Tabelle noch den alten Schlüssel (store, id) hat; Daten bleiben erhalten.
+do $$
+begin
+  if exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.records'::regclass and contype = 'p' and array_length(conkey, 1) = 2
+  ) then
+    alter table public.records drop constraint records_pkey;
+    alter table public.records add primary key (workspace_id, store, id);
+  end if;
+end $$;
+

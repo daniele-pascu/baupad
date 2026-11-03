@@ -216,7 +216,26 @@ export class DataSync {
       // Dateien zuerst: wenn der Datensatz bei den anderen Geräten ankommt, ist die Datei schon da
       for (const e of all.filter((e) => isFileStore(e.store))) await this.pushFile(e);
       const records = all.filter((e) => !isFileStore(e.store));
-      for (let i = 0; i < records.length; i += BATCH) await this.pushRecords(records.slice(i, i + BATCH));
+      let rejected = 0;
+      for (let i = 0; i < records.length; i += BATCH) {
+        const batch = records.slice(i, i + BATCH);
+        try {
+          await this.pushRecords(batch);
+        } catch (err) {
+          // Server lehnt die Lieferung ab (z. B. eine Datenart, die die Funktion noch nicht kennt): einzeln
+          // übertragen, damit ein einzelner Eintrag nicht alle anderen aufhält; abgelehnte bleiben in der Warteschlange
+          if (!(err instanceof CloudError && err.status === 422)) throw err;
+          for (const one of batch) {
+            try {
+              await this.pushRecords([one]);
+            } catch (e1) {
+              if (!(e1 instanceof CloudError && e1.status === 422)) throw e1;
+              rejected++;
+            }
+          }
+        }
+      }
+      if (rejected) throw new CloudError(422, 'rejected', `${rejected} ${rejected === 1 ? 'Eintrag wurde' : 'Einträge wurden'} von der Ablage abgelehnt – die Funktion „storage“ in Supabase ist vermutlich veraltet (neu veröffentlichen). Alles andere ist übertragen.`);
       setState({ status: 'ready', message: null });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
