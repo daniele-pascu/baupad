@@ -343,9 +343,8 @@ export const hasEditableVertices = (s: Shape) => s.type === 'rect' || s.type ===
 export const ALL_VERTICES_MAX = 40;
 
 /**
- * Knicke eines Linienzugs: Punkte, an denen sich die Richtung deutlich ändert (dazu Anfang/Ende bei offenen Formen).
- * `screen` sind die Punkte in Bildschirmpixeln; nah beieinander liegende Knicke werden ausgedünnt (mind. `gap` px),
- * beim Hineinzoomen erscheinen daher mehr.
+ * Anfasser bei vielen Punkten: alle Punkte, am Bildschirm ausgedünnt (mind. `gap` px Abstand) – deutliche Knicke
+ * (und Anfang/Ende offener Formen) zuerst. Beim Hineinzoomen erscheint jeder Punkt.
  */
 export function cornerIndices(screen: Point[], closed: boolean, minAngleDeg = 25, gap = 16): number[] {
   const n = screen.length;
@@ -360,16 +359,17 @@ export function cornerIndices(screen: Point[], closed: boolean, minAngleDeg = 25
     if (d > Math.PI) d = 2 * Math.PI - d;
     return (d * 180) / Math.PI;
   };
+  // alle Punkte sind greifbar – deutliche Knicke (ab minAngleDeg) haben Vorrang, der Rest erscheint, sobald genug Platz ist
   const cand: { i: number; t: number }[] = [];
   for (let i = 0; i < n; i++) {
-    if (!closed && (i === 0 || i === n - 1)) cand.push({ i, t: 360 });
-    else if (turn(i) >= minAngleDeg) cand.push({ i, t: turn(i) });
+    const t = !closed && (i === 0 || i === n - 1) ? 360 : turn(i);
+    cand.push({ i, t: t >= minAngleDeg ? t + 1000 : t });
   }
   // stärkste Knicke zuerst, Abstand am Bildschirm einhalten
   cand.sort((x, y) => y.t - x.t);
   const kept: number[] = [];
   for (const c of cand) {
-    if (kept.length >= 300) break;
+    if (kept.length >= 400) break;
     const p = screen[c.i];
     if (kept.every((k) => Math.hypot(screen[k].x - p.x, screen[k].y - p.y) >= gap)) kept.push(c.i);
   }

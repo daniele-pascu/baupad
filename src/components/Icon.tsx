@@ -70,6 +70,8 @@ const PATHS: Record<string, string> = {
   scale: 'M4 14v6h6M4 20l7-7M14 4h6v6M20 4l-7 7',
   polyline: 'M3 18l5-9 6 5 7-10M3 18h.01M8 9h.01M14 14h.01M21 4h.01',
   polygon: 'M5 18L4 8l8-5 8 6-3 10z',
+  /** Fläche mit kleinem „A“ in der Form (Werkzeug „Fläche“) */
+  'polygon-a': 'M5 18L4 8l8-5 8 6-3 10zM10 14.5l2-5 2 5M10.7 12.8h2.6',
   wall: 'M3 6h18v12H3zM3 12h18M9 6v6M15 12v6',
   ruler: 'M3 17L17 3l4 4L7 21zM7 13l2 2M10 10l2 2M13 7l2 2',
   angle: 'M4 19h16M4 19L15 5M10 19a6.5 6.5 0 00-2.4-5',

@@ -1,6 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { costCenterLabel, damagesOf } from '../lib/aufmass';
-import { getImageBitmap, getPdfDocument, pageSize } from '../lib/pdf';
+import { closePdf, getImageBitmap, getPdfDocument, openPdf, pageSize } from '../lib/pdf';
+import { putBlob } from '../lib/db';
+import { uuid } from '../lib/ids';
+import { detectKind, mimeOf } from './ImportWizard';
 import { sameNumberScope } from '../lib/invoices';
 import { paths } from '../lib/router';
 import { alive, newMeta, putRecord, softDelete, type ProjectState } from '../lib/store';
@@ -73,17 +76,66 @@ export function PlanLibrary({ data, onClose, onReuse }: { data: ProjectState; on
     toast('Originalplan entfernt.');
   };
 
+  // Pläne nur in die Bibliothek hochladen (ohne Aufmaß) – später mit „Neues Aufmaß“ auswählen
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const upload = async (list: FileList | null) => {
+    if (!list?.length) return;
+    setUploading(true);
+    let n = 0;
+    try {
+      for (const f of Array.from(list)) {
+        const kind = detectKind(f);
+        if (!kind) {
+          toast(`„${f.name}“: nur PDF, JPG oder PNG.`, 'error');
+          continue;
+        }
+        const buf = await f.arrayBuffer();
+        let pageCount = 1;
+        if (kind === 'pdf') {
+          const doc = await openPdf(buf);
+          pageCount = doc.numPages;
+          await closePdf(doc);
+        }
+        const id = uuid();
+        await putBlob(id, data.project.id, buf);
+        putRecord('files', { ...newMeta(), id, projectId: data.project.id, name: f.name, mimeType: mimeOf(f, kind), size: f.size, kind, pageCount });
+        n++;
+      }
+      if (n) toast(n === 1 ? 'Plan in die Planbibliothek hochgeladen.' : `${n} Pläne in die Planbibliothek hochgeladen.`, 'success');
+    } catch (e) {
+      showError(e, 'Hochladen fehlgeschlagen');
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = '';
+    }
+  };
+
   return (
     <Modal title="Planbibliothek" onClose={onClose} wide testId="plan-library">
       <p className="muted small">
-        Alle importierten Originalpläne dieses Projekts. Mit „Neues Aufmaß“ verwenden Sie denselben Plan noch einmal – z. B. für eine andere
-        Leistung oder Plannummer. Der Plan wird nicht erneut hochgeladen; bestehende Aufmaße bleiben unverändert.
+        Alle Originalpläne dieses Projekts – unbearbeitet, so wie hochgeladen. Jeder Plan, der für ein Aufmaß importiert wird, landet automatisch
+        hier. Pläne lassen sich auch nur hier hochladen und später mit „Neues Aufmaß“ auswählen.
       </p>
+      <div className="row gap wrap">
+        <button type="button" className="btn btn-primary" onClick={() => inputRef.current?.click()} disabled={uploading} data-testid="library-upload">
+          <Icon name="upload" size={18} /> {uploading ? 'Wird hochgeladen …' : 'Pläne hochladen'}
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png"
+          multiple
+          hidden
+          onChange={(e) => void upload(e.target.files)}
+          data-testid="library-file-input"
+        />
+      </div>
       <label className="field">
         <span className="sr-only">Suchen</span>
         <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Suchen: Plannummer, Bezeichnung oder Dateiname" data-testid="library-search" autoComplete="off" />
       </label>
-      {!files.length && <p className="muted">Noch keine Pläne importiert.</p>}
+      {!files.length && <p className="muted">Noch keine Pläne – oben hochladen oder einen Plan für ein Aufmaß importieren.</p>}
       {files.length > 0 && !shown.length && <p className="muted">Kein Plan gefunden.</p>}
       <div className="lib-list">
         {shown.map(({ file, plans, views, freePages }) => (

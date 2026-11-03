@@ -399,6 +399,8 @@ test('Messung: Menü mit fünf Messarten; Länge, Winkel, Radius, Abstand, Fläc
   await page.getByTestId('tool-probe').click();
   await menu.getByTestId('probe-menu-length').click();
   await expect(page.getByTestId('probe-hint')).toContainText('Punkte nacheinander');
+  // Werkzeugwahl schaltet den Punktfang ein – für exakte Pixelwerte hier ausschalten
+  if ((await snap.getAttribute('aria-pressed')) === 'true') await snap.click();
 
   // Länge über zwei Abschnitte (300 + 100 px), Enter beendet
   await at(0, 0);
@@ -442,6 +444,7 @@ test('Messung: Menü mit fünf Messarten; Länge, Winkel, Radius, Abstand, Fläc
   await expect(page.getByTestId('tool-select')).toHaveAttribute('aria-pressed', 'true');
   await page.getByTestId('tool-probe').click();
   await page.getByTestId('probe-menu').getByTestId('probe-menu-area').click();
+  if ((await snap.getAttribute('aria-pressed')) === 'true') await snap.click();
 
   // Fläche 200 × 100 px, Startpunkt schließt; ausdrücklich ins Aufmaß übernehmen
   for (const [dx, dy] of [[0, 0], [200, 0], [200, 100], [0, 100], [0, 0]]) await at(dx, dy);
@@ -455,7 +458,7 @@ test('Messung: Menü mit fünf Messarten; Länge, Winkel, Radius, Abstand, Fläc
   await dlg.getByTestId('damage-save').click();
   await expect(rows).toHaveCount(before + 1);
   await expect(page.getByTestId('probe-bar')).toHaveCount(0);
-  await snap.click(); // Punktfang wieder ein
+  if ((await snap.getAttribute('aria-pressed')) !== 'true') await snap.click(); // Punktfang wieder ein
   await waitSaved(page);
 });
 

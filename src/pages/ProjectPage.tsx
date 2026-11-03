@@ -444,11 +444,9 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
               <button type="button" className="btn" onClick={() => setDrawingNew(true)} data-testid="draw-plan">
                 <Icon name="drawPlan" /> Plan zeichnen
               </button>
-              {Object.values(data.files).some((f) => !f.deletedAt) && (
-                <button type="button" className="btn" onClick={() => setLibrary(true)} data-testid="open-plan-library">
-                  <Icon name="folder" /> Planbibliothek
-                </button>
-              )}
+              <button type="button" className="btn btn-primary" onClick={() => setLibrary(true)} data-testid="open-plan-library">
+                <Icon name="folder" /> Planbibliothek
+              </button>
             </div>
             <input
               ref={fileRef}

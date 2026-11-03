@@ -43,7 +43,7 @@ const TOOLS: { id: Tool; label: string; short?: string; icon: string; key: strin
   { id: 'line', label: SHAPE_LABELS.line, icon: 'line', key: 'l' },
   { id: 'rect', label: SHAPE_LABELS.rect, icon: 'rect', key: 'r' },
   { id: 'ellipse', label: SHAPE_LABELS.ellipse, icon: 'ellipse', key: 'k' },
-  { id: 'polygon', label: 'Fläche: Eckpunkte nacheinander setzen', short: 'Fläche', icon: 'polygon', key: 'p' },
+  { id: 'polygon', label: 'Fläche: Eckpunkte nacheinander setzen', short: 'Fläche', icon: 'polygon-a', key: 'p' },
   { id: 'polyline', label: 'Freie Form: Punkte nacheinander setzen – offen (Länge) oder geschlossen (Fläche), z. B. ein Dreieck', short: 'Freie Form', icon: 'polyline', key: 'f' },
   // Freihand: ohne Absetzen zeichnen – bleibt genau so (z. B. Risse); am Startpunkt beendet = Fläche
   { id: 'freehand', label: 'Freihand: ohne Absetzen zeichnen – Linie genau wie gezeichnet (z. B. Riss), am Startpunkt beenden ergibt eine Fläche', short: 'Freihand', icon: 'freehand', key: 'h' },

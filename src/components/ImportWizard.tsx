@@ -47,7 +47,7 @@ export function detectKind(file: File): 'pdf' | 'image' | null {
   return null;
 }
 
-function mimeOf(file: File, kind: 'pdf' | 'image'): string {
+export function mimeOf(file: File, kind: 'pdf' | 'image'): string {
   if (kind === 'pdf') return 'application/pdf';
   if (file.type) return file.type === 'image/jpg' ? 'image/jpeg' : file.type;
   return file.name.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';

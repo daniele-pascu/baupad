@@ -172,5 +172,26 @@ test('Letztes Aufmaß gelöscht: Plan bleibt in der Bibliothek, neues Aufmaß oh
   await page.getByRole('dialog').filter({ hasText: 'Originalplan entfernen?' }).getByRole('button', { name: 'Entfernen' }).click();
   await waitSaved(page);
   expect(live(await records(page, 'files'))).toHaveLength(0);
-  await expect(page.getByTestId('open-plan-library')).toHaveCount(0);
+  // Planbibliothek bleibt erreichbar (Hochladen ohne Aufmaß)
+  await expect(page.getByTestId('open-plan-library')).toBeVisible();
+});
+
+test('Planbibliothek: Pläne nur hochladen (ohne Aufmaß), später als neues Aufmaß auswählen', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'Bibliothek hochladen', {}, ['EG']);
+  // Taste schwarz (Hauptaktion) und ohne vorhandene Pläne sichtbar
+  const open = page.getByTestId('open-plan-library');
+  await expect(open).toHaveClass(/btn-primary/);
+  await open.click();
+  const lib = page.getByTestId('plan-library');
+  await lib.getByTestId('library-file-input').setInputFiles([join(FIXTURES, 'plaene.pdf'), join(FIXTURES, 'parkdeck.png')]);
+  await expect(lib.getByTestId('library-file')).toHaveCount(2);
+  await expect(lib.getByTestId('library-usage').first()).toContainText('nicht verwendet');
+  // kein Aufmaß angelegt
+  expect(live(await records(page, 'plans'))).toHaveLength(0);
+  await waitSaved(page);
+  // später: Seite des PDFs als neues Aufmaß wählen
+  await lib.locator('[data-testid="library-file"][data-file="plaene.pdf"]').getByTestId('library-reuse-page').first().click();
+  const dlg = page.getByTestId('reuse-plan');
+  await expect(dlg).toBeVisible();
 });

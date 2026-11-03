@@ -1,14 +1,19 @@
 import { describe, expect, it } from 'vitest';
 
 describe('cornerIndices – Knicke bei Flächen mit vielen Punkten', () => {
-  it('Quadrat aus 120 Punkten: genau die 4 Ecken als Anfasser', async () => {
+  it('Quadrat aus 120 Punkten: Ecken immer, beim Hineinzoomen alle Punkte', async () => {
     const { cornerIndices } = await import('../../src/lib/geometry');
     const pts: { x: number; y: number }[] = [];
     for (let i = 0; i < 30; i++) pts.push({ x: i * 10, y: 0 });
     for (let i = 0; i < 30; i++) pts.push({ x: 300, y: i * 10 });
     for (let i = 0; i < 30; i++) pts.push({ x: 300 - i * 10, y: 300 });
     for (let i = 0; i < 30; i++) pts.push({ x: 0, y: 300 - i * 10 });
-    expect(cornerIndices(pts, true)).toEqual([0, 30, 60, 90]);
+    // 10 px Abstand: Ecken immer dabei, dazwischen ausgedünnt
+    const few = cornerIndices(pts, true);
+    expect(few).toEqual(expect.arrayContaining([0, 30, 60, 90]));
+    expect(few.length).toBeLessThan(120);
+    // vergrößert (40 px Abstand): jeder Punkt greifbar
+    expect(cornerIndices(pts.map((p) => ({ x: p.x * 4, y: p.y * 4 })), true)).toHaveLength(120);
   });
   it('bis 40 Punkte: alle Punkte', async () => {
     const { cornerIndices } = await import('../../src/lib/geometry');
