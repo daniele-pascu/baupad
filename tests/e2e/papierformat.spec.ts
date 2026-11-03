@@ -242,3 +242,39 @@ test('Aufmaßblatt aus mehreren Plänen zusammenstellen', async ({ page }) => {
   const plans = [...new Set(blattRows(wb).map((r) => String(r.plan)))];
   expect(plans).toEqual(['001', '003']);
 });
+
+test('Starkes Hineinzoomen: Ausschnitt scharf aus dem PDF, Hilfs-Zeichenflächen werden sofort freigegeben (iPad-Speicherlimit)', async ({ page }) => {
+  // alle erzeugten Zeichenflächen mitschreiben
+  await page.addInitScript(() => {
+    const made: HTMLCanvasElement[] = [];
+    (window as unknown as { __canvases: HTMLCanvasElement[] }).__canvases = made;
+    const orig = document.createElement.bind(document);
+    document.createElement = ((tag: string, opts?: ElementCreationOptions) => {
+      const el = orig(tag, opts);
+      if (tag.toLowerCase() === 'canvas') made.push(el as HTMLCanvasElement);
+      return el;
+    }) as typeof document.createElement;
+  });
+  await freshStart(page);
+  await createProject(page, 'Zoom', {}, ['EG']);
+  await page.getByTestId('plan-file-input').setInputFiles(join(FIXTURES, 'plaene.pdf'));
+  const wiz = page.getByTestId('import-wizard');
+  await wiz.getByTestId('page-tile').nth(1).click();
+  await wiz.getByTestId('pages-next').click();
+  await wiz.getByTestId('areas-next').click();
+  await wiz.locator('[data-field="planNumber"]').fill('Z-1');
+  await wiz.getByTestId('import-save').click();
+  await waitForPlan(page);
+  const zoom = page.getByRole('button', { name: 'Vergrößern', exact: true });
+  for (let i = 0; i < 8; i++) {
+    await zoom.click();
+    await page.waitForTimeout(250);
+  }
+  const detail = page.getByTestId('plan-detail');
+  await expect(detail).toBeVisible({ timeout: 15_000 });
+  expect(await detail.evaluate((c: HTMLCanvasElement) => c.width)).toBeGreaterThan(400);
+  // keine großen Zeichenflächen bleiben im Speicher: nicht eingehängte sind auf 0 × 0 zurückgesetzt (kleine Vorschaubilder zählen nicht)
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as { __canvases: HTMLCanvasElement[] }).__canvases.filter((c) => !c.isConnected && c.width * c.height > 200_000).length), { timeout: 10_000 })
+    .toBe(0);
+});

@@ -217,7 +217,12 @@ function PlanCanvas({
           target.getContext('2d')!.drawImage(canvas, 0, 0);
           setDetail({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 });
         })
-        .catch((e) => console.warn(e));
+        .catch((e) => console.warn(e))
+        .finally(() => {
+          // sofort freigeben – Safari (iPad/iPhone) hat ein festes Speicherlimit für Zeichenflächen
+          canvas.width = 0;
+          canvas.height = 0;
+        });
     }, 180);
     return () => {
       cancelled = true;

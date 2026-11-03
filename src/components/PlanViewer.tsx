@@ -195,6 +195,16 @@ type Gesture =
 const isCoarse = () => matchMedia('(pointer: coarse)').matches;
 
 /**
+ * Zeichenfläche sofort freigeben. Safari (iPad/iPhone) hat ein festes Speicherlimit für alle Zeichenflächen
+ * zusammen und gibt sie erst spät frei – ohne das schlägt das scharfe Nachzeichnen beim Zoomen nach ein paar
+ * Schritten still fehl und man sieht nur das vergrößerte, grobe Grundbild.
+ */
+const releaseCanvas = (c: HTMLCanvasElement) => {
+  c.width = 0;
+  c.height = 0;
+};
+
+/**
  * Stift (Apple Pencil u. ä.): sobald einmal benutzt, zeichnet nur noch der Stift – Finger verschieben und zoomen
  * nur (ein Finger verschiebt, zwei zoomen); eine aufliegende Hand während des Stifts wird ignoriert.
  * Gilt für die ganze Sitzung (alle Pläne).
@@ -449,13 +459,15 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
             if (cancelled) return;
             swapDetail(canvas, r);
           })
-          .catch((e) => console.warn(e));
+          .catch((e) => console.warn(e))
+          .finally(() => releaseCanvas(canvas));
       } else if (src?.bitmap) {
         const sc = Math.min(s, 1.5);
         canvas.width = Math.max(1, Math.round(r.w * sc));
         canvas.height = Math.max(1, Math.round(r.h * sc));
         drawImageRegion(canvas.getContext('2d')!, src.bitmap, r, canvas.width, canvas.height, rot);
         swapDetail(canvas, r);
+        releaseCanvas(canvas);
       }
     }, 180);
     const swapDetail = (canvas: HTMLCanvasElement, r: Rect) => {
@@ -1238,6 +1250,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         />
         <canvas
           ref={detailCanvasRef}
+          data-testid="plan-detail"
           className="viewer-canvas"
           style={
             detailRect
