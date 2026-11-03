@@ -287,6 +287,8 @@ export interface Deduction {
   width?: number;
   /** true = hinzurechnen statt abziehen */
   add?: boolean;
+  /** im Plan gezeichnet (Seitenkoordinaten): Maße daraus erkannt, im Plan schraffiert mit Nummer */
+  shape?: Shape;
 }
 
 /** Linientypen (wie in CAD-Programmen); Wellen- und Zickzacklinie sind reine Darstellung */

@@ -9305,3 +9305,34 @@ html[data-theme='dark'] .crew-search {
   color: var(--text);
   border-color: var(--border-strong);
 }
+
+/* Abzug im Plan zeichnen: Messfenster bleibt erhalten, ist aber ausgeblendet */
+.modal-backdrop:has(> .modal-hidden) {
+  display: none;
+}
+.ded-draw-bar {
+  position: fixed;
+  left: 50%;
+  top: calc(var(--safe-top) + 72px);
+  transform: translateX(-50%);
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100vw - 24px);
+  padding: 8px 8px 8px 16px;
+  border-radius: 999px;
+  background: #d1242f;
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.9rem;
+  box-shadow: var(--shadow-md);
+}
+.ded-label {
+  font-size: 13px;
+  font-weight: 700;
+  fill: #d1242f;
+  paint-order: stroke;
+  stroke: #fff;
+  stroke-width: 3px;
+}

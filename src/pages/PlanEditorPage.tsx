@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { AufmassTable } from '../components/AufmassTable';
-import { DamageDialog, type DamageValues, type Renumber } from '../components/DamageDialog';
+import { DamageDialog, type DamageValues, type DrawnDeduction, type Renumber } from '../components/DamageDialog';
 import { ElementBar, InsertBar } from '../components/DrawPanel';
 import { Icon } from '../components/Icon';
 import { PdfExportDialog } from '../components/PdfExportDialog';
@@ -19,7 +19,7 @@ import { ExcelExportDialog } from '../components/ExcelExportDialog';
 import { calibrationFrom, detectScale, sourceText } from '../lib/scale-detect';
 import { visibleDamages } from '../lib/layers';
 import { LayerMenu } from '../components/LayerMenu';
-import { drawingRegion, drawingSheet, isDrawingPlan, lineEnds, paperLabel, shapeToPage, suggestMeasures, unitsPerMeter } from '../lib/drawing';
+import { drawingRegion, drawingSheet, isDrawingPlan, lineEnds, paperLabel, shapeToMeters, shapeToPage, suggestMeasures, unitsPerMeter } from '../lib/drawing';
 import { convertShape, isOpenShape, lineShape, polygonShape, removeVertex, rotatePoint, shapeVertices, toScreen, type Point, type View } from '../lib/geometry';
 import { probeTarget, type ProbeKind } from '../lib/probe';
 import { ProbeBar, ProbeMenu, ProbeOverlay, type ProbeState } from '../components/ProbeLayer';
@@ -305,6 +305,17 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const [measureVertex, setMeasureVertex] = useState<number | null>(null);
   useEffect(() => setMeasureVertex(null), [selectedId]);
   const [dialog, setDialog] = useState<DialogState>(null);
+  /** Abzug im Plan zeichnen: Messfenster ausgeblendet, nächste gezeichnete Form wird zum Abzug */
+  const [dedDraw, setDedDraw] = useState<{ prevTool: Tool } | null>(null);
+  const [drawnDed, setDrawnDed] = useState<DrawnDeduction | null>(null);
+  /** in diesem Fenster gezeichnete Abzüge (bis zum Speichern im Plan sichtbar) */
+  const [sessionDeds, setSessionDeds] = useState<{ shape: Shape; label: string }[]>([]);
+  useEffect(() => {
+    if (dialog) return;
+    setDedDraw(null);
+    setDrawnDed(null);
+    setSessionDeds([]);
+  }, [dialog]);
   const [overrides, setOverrides] = useState<Record<string, Partial<Damage>>>({});
   const [mobileTab, setMobileTab] = useState<'plan' | 'table'>('plan');
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -383,6 +394,24 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     setColorState(c);
     storePref('color', c);
   };
+  const startDedDraw = () => {
+    setDedDraw({ prevTool: tool });
+    if (!['rect', 'polygon', 'triangle', 'ellipse', 'freehand'].includes(tool)) setTool('rect');
+  };
+  const finishDedDraw = (shape: Shape) => {
+    if (!dedDraw || !k) return;
+    // Maße aus dem Plan erkennen: Rechteck = Breite × Höhe, sonst die Fläche der Form
+    const m = shapeToMeters(shape, k);
+    const geo = geometryMeasures(shape, k);
+    const rect = shape.type === 'rect';
+    const length = rect ? m.w : (geo?.area ?? 0);
+    const width = rect ? m.h : 1;
+    setTool(dedDraw.prevTool);
+    setDedDraw(null);
+    if (!(length > 0) || !(width > 0)) return toast('Abzug konnte nicht erkannt werden – bitte eine geschlossene Form ziehen.', 'error');
+    setSessionDeds((l) => [...l, { shape, label: `A${l.length + 1}` }]);
+    setDrawnDed({ seq: Date.now(), length, width, shape });
+  };
   /** Kalibrieren starten: Menü der Messung, laufende Messung und Stil-Fenster zu (nie zwei Werkzeuge zugleich) */
   const startCalibrate = () => {
     setProbeMenu(false);
@@ -400,6 +429,15 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   }, [planId]);
 
   const stored = useMemo(() => (plan ? damagesOf(data, plan.id) : []), [data, plan]);
+  /** gespeicherte, im Plan gezeichnete Abzüge (schraffiert, Nummer „A1“ … je Messung) */
+  const planDeds = useMemo(
+    () =>
+      stored.flatMap((d) => {
+        let n = 0;
+        return (d.deductions ?? []).flatMap((x) => (x.shape ? [{ shape: x.shape, label: `${damageNo(d)}-A${++n}` }] : []));
+      }),
+    [stored],
+  );
   const damages = useMemo(() => stored.map((d) => (overrides[d.id] ? { ...d, ...overrides[d.id] } : d)), [stored, overrides]);
   // Ebene „Messungen“ ausgeblendet: nicht im Plan (die Tabelle bleibt vollständig)
   const shownDamages = useMemo(() => visibleDamages(plan, damages), [plan, damages]);
@@ -1239,7 +1277,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               pending={dialog?.mode === 'new' ? { shape: dialog.shape, color } : null}
               onSelect={(id) => select(id)}
               onCreate={(shape) =>
-                tool === 'calibrate'
+                dedDraw
+                  ? finishDedDraw(shape)
+                  : tool === 'calibrate'
                   ? void (checking ? runCheck(shape) : calibrate(shape))
                   : setDialog({
                       mode: 'new',
@@ -1260,6 +1300,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                     </>
                   )}
                   {tool === 'probe' && probe && <ProbeOverlay view={view} probe={probe} hover={hover ?? null} k={k} />}
+                  <DeductionOverlay view={view} items={[...planDeds, ...sessionDeds]} />
                 </>
               )}
               onProbePoint={probePoint}
@@ -1754,6 +1795,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           positions={positionOptions}
           onSave={save}
           onCancel={() => setDialog(null)}
+          onDrawDeduction={k ? startDedDraw : undefined}
+          drawnDeduction={drawnDed}
+          hidden={!!dedDraw}
         />
       )}
       {dialogDamage && (
@@ -1769,7 +1813,26 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           onSave={save}
           onCancel={() => setDialog(null)}
           onDelete={() => void removeDamage(dialogDamage)}
+          onDrawDeduction={k ? startDedDraw : undefined}
+          drawnDeduction={drawnDed}
+          hidden={!!dedDraw}
         />
+      )}
+      {dedDraw && (
+        <div className="ded-draw-bar" role="status" data-testid="ded-draw-bar">
+          <span>Abzug zeichnen: Form im Plan ziehen (z. B. Tür, Fenster)</span>
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={() => {
+              setTool(dedDraw.prevTool);
+              setDedDraw(null);
+            }}
+            data-testid="ded-draw-cancel"
+          >
+            Abbrechen
+          </button>
+        </div>
       )}
       {excelOpen && plan && <ExcelExportDialog data={data} scope={{ kind: 'plan', planId: plan.id }} onClose={() => setExcelOpen(false)} />}
       {dimsOpen && plan && file && <DimensionReview data={data} plan={plan} file={file} onClose={() => setDimsOpen(false)} />}
@@ -1778,4 +1841,40 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       {pdfOpen && <PdfExportDialog data={data} costCenterId={plan.costCenterId} initial={[plan.id]} onClose={() => setPdfOpen(false)} />}
     </div>
   );
+}
+
+/** Im Plan gezeichnete Abzüge: rot schraffiert mit Nummer */
+function DeductionOverlay({ view, items }: { view: View; items: { shape: Shape; label: string }[] }) {
+  if (!items.length) return null;
+  return (
+    <g className="ded-overlay" data-testid="ded-overlay">
+      <defs>
+        <pattern id="ded-hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <line x1="0" y1="0" x2="0" y2="8" stroke="#d1242f" strokeWidth="2" strokeOpacity="0.55" />
+        </pattern>
+      </defs>
+      {items.map((it, i) => {
+        const pts = (shapeVertices(it.shape).length ? shapeVertices(it.shape) : ellipsePoints(it.shape)).map((p) => toScreen(view, p));
+        const c = pts.reduce((a, p) => ({ x: a.x + p.x / pts.length, y: a.y + p.y / pts.length }), { x: 0, y: 0 });
+        return (
+          <g key={i} data-testid="ded-shape">
+            <polygon points={pts.map((p) => `${p.x},${p.y}`).join(' ')} fill="url(#ded-hatch)" stroke="#d1242f" strokeWidth={1.5} strokeDasharray="5 3" />
+            <text x={c.x} y={c.y} textAnchor="middle" dominantBaseline="central" className="ded-label">
+              {it.label}
+            </text>
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
+/** Ellipse als Vieleck (für die Darstellung) */
+function ellipsePoints(s: Shape): Point[] {
+  const out: Point[] = [];
+  for (let i = 0; i < 36; i++) {
+    const a = (i / 36) * Math.PI * 2;
+    out.push(rotatePoint({ x: s.x + s.w / 2 + (Math.cos(a) * s.w) / 2, y: s.y + s.h / 2 + (Math.sin(a) * s.h) / 2 }, { x: s.x + s.w / 2, y: s.y + s.h / 2 }, s.rotation ?? 0));
+  }
+  return out;
 }

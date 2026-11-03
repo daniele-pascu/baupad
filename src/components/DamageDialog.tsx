@@ -3,7 +3,7 @@ import { uuid } from '../lib/ids';
 import { deductionArea, deductionLength, hasArea, KIND_LABELS, netArea } from '../lib/measure';
 import { checkMeasure, computeArea, formatArea, parseDecimal, toInputValue } from '../lib/numbers';
 import { damageNo, findByNumber, parseDamageNumber } from '../lib/numbering';
-import { COLORS, SHAPE_LABELS, type Component, type Damage, type Deduction, type MeasureKind, type ShapeType } from '../lib/types';
+import { COLORS, SHAPE_LABELS, type Component, type Damage, type Deduction, type MeasureKind, type Shape, type ShapeType } from '../lib/types';
 import { Icon } from './Icon';
 import { Modal } from './Modal';
 
@@ -39,6 +39,16 @@ interface DeductionRow {
   length: string;
   width: string;
   add: boolean;
+  /** im Plan gezeichnet */
+  shape?: Shape;
+}
+
+/** im Plan gezeichneter Abzug: erkannte Maße (Rechteck: Breite × Höhe, sonst Fläche × 1) */
+export interface DrawnDeduction {
+  seq: number;
+  length: number;
+  width: number;
+  shape: Shape;
 }
 
 export type Renumber = 'none' | 'swap' | 'shift';
@@ -61,6 +71,12 @@ interface Props {
   onSave: (v: DamageValues, renumber: Renumber) => void;
   onCancel: () => void;
   onDelete?: () => void;
+  /** Abzug im Plan zeichnen (nur Flächen mit Maßstab): Fenster blendet sich aus, bis gezeichnet ist */
+  onDrawDeduction?: () => void;
+  /** zuletzt im Plan gezeichneter Abzug – wird als nummerierte Zeile übernommen */
+  drawnDeduction?: DrawnDeduction | null;
+  /** während im Plan gezeichnet wird: Fenster ausgeblendet (bleibt mit allen Eingaben erhalten) */
+  hidden?: boolean;
 }
 
 type Field = 'number' | 'length' | 'width' | 'depth';
@@ -69,7 +85,7 @@ type Field = 'number' | 'length' | 'width' | 'depth';
  * Eingabe einer Messung bzw. Schadstelle. Öffnet sich automatisch nach dem Einzeichnen.
  * Enter/Weiter springt zum nächsten Feld; im letzten Feld wird gespeichert.
  */
-export function DamageDialog({ mode, damage, others, components, positions = [], suggestion, geometry, wall = false, onSave, onCancel, onDelete }: Props) {
+export function DamageDialog({ mode, damage, others, components, positions = [], suggestion, geometry, wall = false, onSave, onCancel, onDelete, onDrawDeduction, drawnDeduction, hidden }: Props) {
   /** Fläche und Umfang aus dem Plan übernehmen (nur bei Flächen-Messarten) */
   // Linie: Länge aus dem Plan (kalibriert) – bei neuen Linien vorgewählt, wird bei Formänderung nachgeführt
   const lineSuggest = (!hasArea(damage.kind) || wall) && suggestion ? suggestion.length : null;
@@ -94,8 +110,26 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const [docId, setDocId] = useState<string>(() => (damage.positionRef && positions.some((p) => p.ref === damage.positionRef) ? docOf(damage.positionRef) : (docs[0]?.id ?? '')));
   const [resetLabel, setResetLabel] = useState(false);
   const [deds, setDeds] = useState<DeductionRow[]>(() =>
-    (damage.deductions ?? []).map((x) => ({ id: x.id, label: x.label, count: String(x.count), length: toInputValue(x.length), width: toInputValue(x.width), add: !!x.add })),
+    (damage.deductions ?? []).map((x) => ({ id: x.id, label: x.label, count: String(x.count), length: toInputValue(x.length), width: toInputValue(x.width), add: !!x.add, ...(x.shape ? { shape: x.shape } : {}) })),
   );
+  // im Plan gezeichneten Abzug übernehmen: fortlaufend nummeriert („Abzug 1“, „Abzug 2“ …)
+  const lastDrawn = useRef(drawnDeduction?.seq ?? 0);
+  useEffect(() => {
+    if (!drawnDeduction || drawnDeduction.seq === lastDrawn.current) return;
+    lastDrawn.current = drawnDeduction.seq;
+    setDeds((list) => [
+      ...list,
+      {
+        id: uuid(),
+        label: `Abzug ${list.filter((x) => x.shape).length + 1}`,
+        count: '1',
+        length: toInputValue(Math.round(drawnDeduction.length * 1000) / 1000),
+        width: toInputValue(Math.round(drawnDeduction.width * 1000) / 1000),
+        add: false,
+        shape: drawnDeduction.shape,
+      },
+    ]);
+  }, [drawnDeduction]);
   const [showErrors, setShowErrors] = useState(false);
   const refs = useRef<Record<string, HTMLInputElement | null>>({});
   // Wand mit Länge aus dem Plan: gleich nach der Wandhöhe fragen (nach dem Fokus des Dialogs)
@@ -149,6 +183,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
       length: parseDecimal(r.length)!,
       ...(lineDeds ? {} : { width: parseDecimal(r.width)! }),
       ...(r.add ? { add: true } : {}),
+      ...(r.shape ? { shape: r.shape } : {}),
     }));
   const area = netArea(gross, deductions);
   const dedValue = (x: Deduction) => (lineDeds ? deductionLength(x) : deductionArea(x));
@@ -252,6 +287,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
       onClose={onCancel}
       persistent
       testId="damage-dialog"
+      className={hidden ? 'modal-hidden' : undefined}
       footer={
         <>
           {onDelete && (
@@ -430,6 +466,11 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             <button type="button" className="btn btn-sm" onClick={() => newDed(true)} data-testid="deduction-add-plus">
               + Zuschlag hinzufügen
             </button>
+            {onDrawDeduction && !lineDeds && (
+              <button type="button" className="btn btn-sm" onClick={onDrawDeduction} data-testid="deduction-draw">
+                <Icon name="edit" size={16} /> Abzug im Plan zeichnen
+              </button>
+            )}
           </div>
           {deductions.length > 0 && (
             <p className="deduction-sum small" data-testid="deduction-sum">
