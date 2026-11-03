@@ -182,6 +182,30 @@ test('Plan aus PDF: beim starken Hineinzoomen wird der Ausschnitt scharf aus dem
 
 });
 
+for (const file of ['parkdeck.png', 'foto.jpg']) {
+  test(`Plan aus Bild (${file}): Original bleibt in voller Auflösung auf dem Gerät, Zoom zeichnet scharf nach`, async ({ page }) => {
+    await freshStart(page);
+    await page.goto('./maengel');
+    const dlg = await newProjectPlan(page, 'Bild-Baustelle', file);
+    await dlg.getByTestId('defect-plan-save').click();
+    await expect(page.locator('[data-testid="dp-canvas"] img')).toBeVisible();
+    // Original als einseitiges PDF gespeichert (wird mit abgeglichen)
+    const hasPdf = await page.evaluate(
+      () =>
+        new Promise<boolean>((res) => {
+          const r = indexedDB.open('schadstellen-aufmass');
+          r.onsuccess = () => {
+            const g = r.result.transaction('defectPlanImages').objectStore('defectPlanImages').getAll();
+            g.onsuccess = () => res(g.result.length === 1 && g.result[0].pdf?.byteLength > 1000);
+          };
+        }),
+    );
+    expect(hasPdf).toBe(true);
+    for (let i = 0; i < 8; i++) await page.getByTestId('dp-zoom-in').click();
+    await expect(page.getByTestId('dp-detail')).toBeVisible({ timeout: 15_000 });
+  });
+}
+
 test('Foto am Mangel: Farbkästen groß, Foto antippen öffnet die Großansicht mit Zoom', async ({ page }) => {
   await freshStart(page);
   await page.goto('./maengel');

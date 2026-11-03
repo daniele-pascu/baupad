@@ -388,6 +388,8 @@ export async function connectDataSync(companyId: string, fetchFn?: FetchLike): P
   disconnectDataSync();
   const s = new DataSync(companyId, fetchFn);
   active = s;
+  // Pläne liegen offline auf dem Gerät: Browser bitten, sie nicht bei Speicherknappheit zu löschen
+  void Promise.resolve(navigator.storage?.persist?.()).catch(() => {});
   s.start();
   await s.adoptLocal();
   setState({ status: 'ready', message: null, pending: (await listOutbox()).length });

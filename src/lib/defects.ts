@@ -49,6 +49,7 @@ export async function importPlanImage(file: File): Promise<{ data: ArrayBuffer; 
   const buf = await file.arrayBuffer();
   const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
   let canvas: HTMLCanvasElement;
+  let pdf: ArrayBuffer | undefined;
   if (isPdf) {
     const doc = await openPdf(buf.slice(0));
     try {
@@ -60,10 +61,72 @@ export async function importPlanImage(file: File): Promise<{ data: ArrayBuffer; 
   } else {
     const bmp = await loadImageBitmap(buf, file.type || 'image/jpeg');
     canvas = imageToCanvas(bmp, PLAN_MAX);
+    // Original in voller Auflösung behalten: als einseitiges PDF verpackt, damit Zoom, Export und Abgleich
+    // denselben Weg wie bei PDF-Plänen gehen (JPEG/PNG unverändert, andere Formate verlustarm umgewandelt)
+    pdf = await imageAsPdf(buf, bmp).catch((e) => {
+      console.warn(e);
+      return undefined;
+    });
   }
   const data = await (await canvasToBlob(canvas, 'image/jpeg', 0.9)).arrayBuffer();
   const thumb = await (await canvasToBlob(imageToCanvas(await createImageBitmap(canvas), THUMB_MAX), 'image/jpeg', 0.8)).arrayBuffer();
-  return { data, thumb, width: canvas.width, height: canvas.height, pdf: isPdf ? buf : undefined };
+  return { data, thumb, width: canvas.width, height: canvas.height, pdf: isPdf ? buf : pdf };
+}
+
+/** EXIF-Ausrichtung eines JPEG (1 = aufrecht bzw. keine Angabe) */
+export function jpegOrientation(buf: ArrayBuffer): number {
+  try {
+    return readOrientation(new DataView(buf));
+  } catch {
+    return 0; // unlesbar → über die Zeichenfläche umwandeln
+  }
+}
+function readOrientation(v: DataView): number {
+  let o = 2;
+  while (o + 4 < v.byteLength && v.getUint8(o) === 0xff) {
+    const marker = v.getUint8(o + 1);
+    const len = v.getUint16(o + 2);
+    if (marker === 0xda) break;
+    if (marker === 0xe1 && v.getUint32(o + 4) === 0x45786966) {
+      const t = o + 10;
+      const le = v.getUint16(t) === 0x4949;
+      const ifd = t + v.getUint32(t + 4, le);
+      const n = v.getUint16(ifd, le);
+      for (let i = 0; i < n; i++) {
+        const e = ifd + 2 + i * 12;
+        if (v.getUint16(e, le) === 0x0112) return v.getUint16(e + 8, le) || 1;
+      }
+      return 1;
+    }
+    o += 2 + len;
+  }
+  return 1;
+}
+
+/** Bildplan unverändert in ein einseitiges PDF (1 Bildpunkt = 1 Punkt) */
+async function imageAsPdf(buf: ArrayBuffer, bmp: ImageBitmap): Promise<ArrayBuffer> {
+  const { PDFDocument } = await import('pdf-lib');
+  const doc = await PDFDocument.create();
+  const head = new Uint8Array(buf.slice(0, 8));
+  const isJpeg = head[0] === 0xff && head[1] === 0xd8;
+  const isPng = head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4e && head[3] === 0x47;
+  let img;
+  if (isJpeg && jpegOrientation(buf) === 1) img = await doc.embedJpg(buf);
+  else if (isPng) img = await doc.embedPng(buf);
+  else {
+    // z. B. HEIC/WebP oder gedrehtes Handyfoto: in voller Auflösung (höchstens Zeichenflächen-Limit) als JPEG
+    const c = imageToCanvas(bmp, Number.MAX_SAFE_INTEGER);
+    try {
+      img = await doc.embedJpg(await (await canvasToBlob(c, 'image/jpeg', 0.95)).arrayBuffer());
+    } finally {
+      c.width = 0;
+      c.height = 0;
+    }
+  }
+  const page = doc.addPage([img.width, img.height]);
+  page.drawImage(img, { x: 0, y: 0, width: img.width, height: img.height });
+  const bytes = await doc.save();
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }
 
 /** Geöffnete Original-PDFs je Plan (höchstens zwei zugleich im Speicher) */
