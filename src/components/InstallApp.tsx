@@ -17,8 +17,10 @@ import { showError } from './ui';
  */
 export function InstallButton({ variant = 'btn', label = 'BauPad als App installieren' }: { variant?: 'btn' | 'link'; label?: string }) {
   const { standalone } = useInstallState();
+  const session = useSession();
   const [guide, setGuide] = useState(false);
-  if (standalone) return null;
+  // läuft schon als App: Knopf weg – außer für den Betreiber (z. B. am iPad die Anleitung für weitere Geräte)
+  if (standalone && !session?.operator) return null;
   const click = async () => {
     const r = await promptInstall();
     if (r === 'unavailable') setGuide(true);

@@ -89,9 +89,16 @@ describe('Format und Überschrift', () => {
     expect(exportPaper(plan({ paper: 'A3-quer', drawing: { unit: 'm', unitsPerMeter: 100, paper: 'A4-hoch', scale: 50 } }))).toBe('A4-hoch');
   });
   it('Überschrift: optionaler Titel vor der Plannummer, sonst nur die Nummer', () => {
-    expect(planHeading(plan({ title: 'Aufmaßplan', planNumber: '067' }))).toBe('Aufmaßplan 067');
-    expect(planHeading(plan({ title: '  Bestand ', planNumber: '12' }))).toBe('Bestand 12');
-    expect(planHeading(plan({ title: '', planNumber: '067' }))).toBe('067');
-    expect(planHeading(plan({ planNumber: '067' }))).toBe('067');
+    const p = (x: Parameters<typeof plan>[0]) => plan({ showName: false, showFloor: false, ...x });
+    expect(planHeading(p({ title: 'Aufmaßplan', planNumber: '067' }))).toBe('Aufmaßplan 067');
+    expect(planHeading(p({ title: '  Bestand ', planNumber: '12' }))).toBe('Bestand 12');
+    expect(planHeading(p({ title: '', planNumber: '067' }))).toBe('067');
+    expect(planHeading(p({ planNumber: '067' }))).toBe('067');
+  });
+  it('Überschrift: Planbezeichnung und Ebene standardmäßig dahinter, je abwählbar', () => {
+    expect(planHeading({ title: 'Aufmaßplan', planNumber: '009', planName: 'BA. 4', floor: 'UG2' })).toBe('Aufmaßplan 009 BA. 4 UG2');
+    expect(planHeading({ title: 'Aufmaßplan', planNumber: '009', planName: 'BA. 4', floor: 'UG2', showFloor: false })).toBe('Aufmaßplan 009 BA. 4');
+    expect(planHeading({ title: 'Aufmaßplan', planNumber: '009', planName: 'BA. 4', floor: 'UG2', showName: false, showFloor: false })).toBe('Aufmaßplan 009');
+    expect(planHeading({ planNumber: '009', planName: '', floor: 'UG2' })).toBe('009 UG2');
   });
 });

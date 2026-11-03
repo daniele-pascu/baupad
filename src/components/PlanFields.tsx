@@ -86,14 +86,14 @@ export function PlanFields({
       <div className="field">
         <span className="field-head">
           <label htmlFor={`${id}-name`}>Planbezeichnung</label>
-          <ShowInPlan checked={!!value.showName} onChange={(showName) => onChange({ showName })} testId="show-name" />
+          <ShowInPlan checked={value.showName !== false} onChange={(showName) => onChange({ showName })} testId="show-name" />
         </span>
         <input id={`${id}-name`} value={value.planName} onChange={(e) => onChange({ planName: e.target.value })} placeholder="z. B. BA. 4" data-field="planName" autoComplete="off" enterKeyHint="next" />
       </div>
       <div className="field">
         <span className="field-head">
           <label htmlFor={`${id}-floor`}>Ebene / Geschoss</label>
-          <ShowInPlan checked={!!value.showFloor} onChange={(showFloor) => onChange({ showFloor })} testId="show-floor" />
+          <ShowInPlan checked={value.showFloor !== false} onChange={(showFloor) => onChange({ showFloor })} testId="show-floor" />
         </span>
         <input id={`${id}-floor`} value={value.floor} onChange={(e) => onChange({ floor: e.target.value })} placeholder="z. B. UG2, EG, 1. OG" data-field="floor" autoComplete="off" enterKeyHint="next" />
       </div>
@@ -124,8 +124,8 @@ export function PlanDetailsDialog({ plan, data, onClose }: { plan: Plan; data: P
     description: plan.description,
     title: plan.title ?? '',
     showNote: !!plan.showNote,
-    showName: !!plan.showName,
-    showFloor: !!plan.showFloor,
+    showName: plan.showName !== false,
+    showFloor: plan.showFloor !== false,
   });
   const [showPaper, setShowPaper] = useState(!!plan.showPaper);
   const [showScale, setShowScale] = useState(!!plan.showScale);
@@ -135,6 +135,8 @@ export function PlanDetailsDialog({ plan, data, onClose }: { plan: Plan; data: P
   const [paper, setPaper] = useState<PaperFormat | ''>(plan.drawing?.paper ?? '');
   const [scale, setScale] = useState(plan.drawing?.scale ?? 100);
   const [show, setShow] = useState(false);
+  /** Anzeige im Plan (Titel, Bezeichnung, Ebene, Bemerkung, Format, Maßstab) auf alle Pläne des Projekts übertragen */
+  const [applyAll, setApplyAll] = useState(false);
   const error = planNumberError(data, v.planNumber, plan.id, plan.invoiceId);
   const startOk = /^\d{1,6}$/.test(start.trim()) && Number(start.trim()) >= 1;
 
@@ -165,12 +167,25 @@ export function PlanDetailsDialog({ plan, data, onClose }: { plan: Plan; data: P
                 numberStart: Number(start.trim()),
                 title: v.title?.trim() ?? '',
                 showNote: !!v.showNote,
-                showName: !!v.showName,
-                showFloor: !!v.showFloor,
+                showName: v.showName !== false,
+                showFloor: v.showFloor !== false,
                 showPaper,
                 showScale: isDrawingPlan(plan) ? showScale : false,
                 ...(isDrawingPlan(plan) ? (paper ? sheetFields(paper, scale) : {}) : { paper: exportFmt }),
               });
+              if (applyAll)
+                for (const other of alive(data.plans)) {
+                  if (other.id === plan.id || other.projectId !== plan.projectId) continue;
+                  putRecord('plans', {
+                    ...other,
+                    title: v.title?.trim() ?? '',
+                    showNote: !!v.showNote,
+                    showName: v.showName !== false,
+                    showFloor: v.showFloor !== false,
+                    showPaper,
+                    showScale: isDrawingPlan(other) ? showScale : false,
+                  });
+                }
               onClose();
             }}
           >
@@ -180,6 +195,10 @@ export function PlanDetailsDialog({ plan, data, onClose }: { plan: Plan; data: P
       }
     >
       <PlanFields value={v} onChange={(p) => setV({ ...v, ...p })} error={show ? error : null} />
+      <label className="check-row small apply-all-plans">
+        <input type="checkbox" checked={applyAll} onChange={(e) => setApplyAll(e.target.checked)} data-testid="apply-all-plans" />
+        <span>Titel und „Im Plan anzeigen“ für alle Pläne dieses Projekts übernehmen ({alive(data.plans).filter((x) => x.projectId === plan.projectId).length} Pläne)</span>
+      </label>
       <label className="field">
         <span>Startnummer für neue Schadstellen</span>
         <input value={start} onChange={(e) => setStart(e.target.value)} inputMode="numeric" pattern="[0-9]*" />
@@ -273,8 +292,8 @@ export function NewDrawingDialog({
       description: v.description.trim(),
       title: v.title?.trim() ?? '',
       showNote: !!v.showNote,
-      showName: !!v.showName,
-      showFloor: !!v.showFloor,
+      showName: v.showName !== false,
+      showFloor: v.showFloor !== false,
       showPaper,
       showScale,
       numberStart: 1,

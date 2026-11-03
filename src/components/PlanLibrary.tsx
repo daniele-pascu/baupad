@@ -237,8 +237,8 @@ export function ReusePlanDialog({
         description: v.description.trim(),
         title: v.title?.trim() ?? '',
         showNote: !!v.showNote,
-        showName: !!v.showName,
-        showFloor: !!v.showFloor,
+        showName: v.showName !== false,
+        showFloor: v.showFloor !== false,
         numberStart: 1,
         sortIndex: siblings.length ? Math.max(...siblings.map((p) => p.sortIndex)) + 1 : 0,
         // gleiche Planunterlage: Kalibrierung, Papierformat und Darstellung gelten weiter

@@ -128,3 +128,10 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - Mit Online-Ablage entfallen die Hinweise „Sicherung empfohlen“; die Projektliste zeigt je Projekt „Online: gespeichert / wartet auf Upload“. Löschen in Aufmaß & Abrechnung löscht wie im Register überall.
 - **Ohne Empfang:** Jede Änderung landet zuerst auf dem Gerät (Warteschlange) und wird bei Empfang automatisch hochgeladen – beim Online-Ereignis, beim Zurückkehren in die App, alle 5 Minuten und nach einem Fehlschlag (schwacher Empfang) mit Wiederholung nach 10 s, 20 s, 40 s … höchstens alle 2 Minuten (Daten und Fotos). Oben in der Leiste steht „Offline · N warten“ bzw. „N warten auf Upload“, solange etwas aussteht.
 
+## Aufmaß: Überschrift, Planliste, Aufmaßblatt, iPad (03.11.2026)
+- Überschrift im Plan-PDF: Titel Nummer Planbezeichnung Ebene (z. B. „Aufmaßplan 009 BA. 4 UG2“). Planbezeichnung und Ebene stehen standardmäßig drin (auch bei bestehenden Plänen, sofern ausgefüllt), je Plan über „Im Plan anzeigen“ abwählbar. In den Planangaben überträgt „für alle Pläne dieses Projekts übernehmen“ Titel und Anzeige auf alle Pläne.
+- Planliste nach Plannummer auf- oder absteigend (auf dem Gerät gemerkt).
+- Aufmaßblatt (Excel): im Dialog Pläne frei zusammenstellen, auch über Kostenstellen hinweg.
+- iPad: Stift-Vorrang – sobald ein Stift benutzt wurde, zeichnet nur der Stift; Finger verschieben/zoomen; aufliegende Hand wird ignoriert, ihr Abheben löst keinen Klick aus.
+- „BauPad als App installieren“ bleibt für den Betreiber (operator) auch in der installierten App sichtbar.
+

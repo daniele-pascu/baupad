@@ -48,7 +48,7 @@ export const defaultPaper = (r: { w: number; h: number }): PaperFormat => (r.w >
  */
 /** Überschrift: Titel Nummer [Planbezeichnung] [Ebene] – z. B. „Aufmaßplan 009 BA. 4 UG2“ */
 export const planHeading = (plan: Pick<Plan, 'title' | 'planNumber'> & Partial<Pick<Plan, 'planName' | 'floor' | 'showName' | 'showFloor'>>) =>
-  [plan.title?.trim(), plan.planNumber.trim(), plan.showName ? plan.planName?.trim() : '', plan.showFloor ? plan.floor?.trim() : ''].filter(Boolean).join(' ');
+  [plan.title?.trim(), plan.planNumber.trim(), plan.showName !== false ? plan.planName?.trim() : '', plan.showFloor !== false ? plan.floor?.trim() : ''].filter(Boolean).join(' ');
 
 const fit = (r: { w: number; h: number }, box: { w: number; h: number }) => Math.min(box.w / r.w, box.h / r.h);
 

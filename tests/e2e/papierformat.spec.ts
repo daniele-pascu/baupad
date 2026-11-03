@@ -65,6 +65,9 @@ test('Import: Format wählbar (Standard A4 passend), Überschrift, PDF genau A3 
   await wiz.getByTestId('export-paper').selectOption('A3-hoch');
   await wiz.locator('[data-field="planNumber"]').fill('F-1');
   await expect(wiz.locator('[data-field="title"]')).toHaveAttribute('placeholder', 'z. B. Aufmaßplan');
+  // Standard: Nummer und Planbezeichnung (hier aus dem Dateinamen); ohne Titel
+  await expect(wiz.getByTestId('heading-preview')).toHaveText('Überschrift im PDF: F-1 plaene (Seite 2)');
+  await wiz.getByTestId('show-name').uncheck();
   await expect(wiz.getByTestId('heading-preview')).toHaveText('Überschrift im PDF: F-1'); // ohne Titel nur die Nummer
   await wiz.locator('[data-field="title"]').fill('Aufmaßplan Tiefgarage');
   await expect(wiz.getByTestId('heading-preview')).toHaveText('Überschrift im PDF: Aufmaßplan Tiefgarage F-1');
@@ -100,7 +103,7 @@ test('Plandetails: Format und Überschrift ändern, nach Neuladen erhalten', asy
   await waitForPlan(page);
   let r = await exportPdf(page, 'format-standard');
   expect(r.info).toMatch(new RegExp(`Page size:\\s+(${A4}|${A4Q}) pts`)); // Standard A4
-  expect(r.text).toMatch(/^P-7$/m);
+  expect(r.text).toContain('P-7 parkdeck'); // Planbezeichnung standardmäßig in der Überschrift
   expect(r.text).not.toContain('Aufmaßplan');
   expect(r.text).not.toMatch(/A4|Hochformat|Querformat/); // Format standardmäßig nicht im Plan
   expect(borderInk(r.png)).toBe(0);
@@ -116,8 +119,9 @@ test('Plandetails: Format und Überschrift ändern, nach Neuladen erhalten', asy
   // Planbezeichnung und Ebene neben Titel und Nummer (Kästchen „Im Plan anzeigen“)
   await det.locator('[data-field="planName"]').fill('BA. 4');
   await det.locator('[data-field="floor"]').fill('UG2');
-  await expect(det.getByTestId('heading-preview')).toHaveText('Überschrift im PDF: Aufmaß Hof P-7');
-  await det.getByTestId('show-name').check();
+  await expect(det.getByTestId('heading-preview')).toHaveText('Überschrift im PDF: Aufmaß Hof P-7 BA. 4 UG2'); // Standard: angezeigt
+  await det.getByTestId('show-floor').uncheck();
+  await expect(det.getByTestId('heading-preview')).toHaveText('Überschrift im PDF: Aufmaß Hof P-7 BA. 4');
   await det.getByTestId('show-floor').check();
   await expect(det.getByTestId('heading-preview')).toHaveText('Überschrift im PDF: Aufmaß Hof P-7 BA. 4 UG2');
   await det.getByRole('button', { name: 'Speichern' }).click();
@@ -193,6 +197,20 @@ test('Planliste: nach Plannummer auf- oder absteigend, Wahl bleibt gemerkt', asy
   await page.reload();
   await expect(page.getByTestId('plan-sort')).toHaveAttribute('data-order', 'desc');
   await expect(page.getByTestId('plan-row').nth(0)).toContainText('010');
+  // Titel und Anzeige für alle Pläne des Projekts übernehmen
+  await page.getByTestId('plan-row').nth(0).getByTestId('plan-actions').click();
+  await page.getByTestId('action-edit').click();
+  const det = page.getByTestId('plan-details');
+  await det.locator('[data-field="title"]').fill('Aufmaßplan');
+  await det.getByTestId('show-note').check();
+  await det.getByTestId('apply-all-plans').check();
+  await det.getByRole('button', { name: 'Speichern' }).click();
+  await expect(det).toHaveCount(0);
+  await page.getByTestId('plan-row').nth(2).getByTestId('plan-actions').click();
+  await page.getByTestId('action-edit').click();
+  await expect(det.locator('[data-field="title"]')).toHaveValue('Aufmaßplan');
+  await expect(det.getByTestId('show-note')).toBeChecked();
+  await expect(det.locator('[data-field="planNumber"]')).toHaveValue('002'); // Nummer bleibt
 });
 
 test('Aufmaßblatt aus mehreren Plänen zusammenstellen', async ({ page }) => {

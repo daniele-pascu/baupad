@@ -57,6 +57,23 @@ test('Bereits als App geöffnet: kein Installieren-Knopf; Konto zeigt Status', a
   await expect(page.getByTestId('app-installed')).toHaveText('Als App installiert');
 });
 
+test('Bereits als App geöffnet: Betreiber behält „BauPad als App installieren“ in den Einstellungen, andere nicht', async ({ page }) => {
+  await page.addInitScript(() => Object.defineProperty(navigator, 'standalone', { get: () => true }));
+  const ctx = (operator: boolean) => ({ workspace_id: '11111111-1111-4111-8111-111111111111', workspace_name: 'Testfirma', role: 'admin', pkg: 'pro', tools: [], sites: [], tool_sites: {}, operator, name: 'Test Nutzer', phone: '' });
+  let operator = true;
+  await page.route('**/rest/v1/rpc/my_context', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ctx(operator)) }));
+  await page.goto('./konto/app');
+  await expect(page.getByTestId('app-installed')).toHaveText('Als App installiert');
+  await expect(page.getByTestId('install-app')).toBeVisible();
+  await page.getByTestId('install-app').click();
+  await expect(page.getByTestId('install-guide')).toBeVisible();
+  await page.keyboard.press('Escape');
+  operator = false;
+  await page.reload();
+  await expect(page.getByTestId('app-installed')).toHaveText('Als App installiert');
+  await expect(page.getByTestId('install-app')).toHaveCount(0);
+});
+
 test('Konto: App und Speicher – Status und dauerhafte Speicherung anfordern', async ({ page }) => {
   await page.goto('./konto/app');
   const box = page.getByTestId('app-settings');
