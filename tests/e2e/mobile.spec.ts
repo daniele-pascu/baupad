@@ -522,17 +522,19 @@ test('Tools per Finger: 2 Kacheln pro Reihe, nichts zu breit, Aufmaß & Abrechnu
     const lh = await t.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight) || parseFloat(getComputedStyle(el).fontSize) * 1.3);
     expect((await t.boundingBox())!.height).toBeLessThan(lh * 1.5);
   }
-  // Foto-Taste, Kacheln und Register gleich breit, von Rand zu Rand (nur der Seitenabstand bleibt)
+  // Kacheln und Register von Rand zu Rand (bis zum Seitenrand wie die Kopfzeile), Foto-Taste kompakt
   const quick = (await page.getByTestId('tools-camera').boundingBox())!;
   const regEl = page.getByTestId('tools-register'); // nur für Admin/Büro
-  const reg = (await regEl.count()) ? (await regEl.boundingBox())! : quick;
-  const vw = page.viewportSize()!.width;
-  expect(Math.abs(b!.x + b!.width - (quick.x + quick.width))).toBeLessThan(2);
-  expect(Math.abs(reg.x + reg.width - (quick.x + quick.width))).toBeLessThan(2);
+  const gear = (await page.getByTestId('account-link').boundingBox())!;
+  const right = gear.x + gear.width;
+  expect(Math.abs(b!.x + b!.width - right)).toBeLessThan(2);
+  if (await regEl.count()) {
+    const reg = (await regEl.boundingBox())!;
+    expect(Math.abs(reg.x + reg.width - right)).toBeLessThan(2);
+  }
   expect(Math.abs(a!.x - quick.x)).toBeLessThan(2);
-  const gear = (await page.getByTestId('account-link').boundingBox())!; // rechter Seitenrand wie die Kopfzeile
-  expect(Math.abs(gear.x + gear.width - (quick.x + quick.width))).toBeLessThan(2);
-  expect(vw - (quick.x + quick.width)).toBeLessThan(64);
+  expect(quick.width).toBeLessThan(260);
+  expect(page.viewportSize()!.width - right).toBeLessThan(64);
   await noHorizontalScroll(page);
   await page.screenshot({ path: join(OUT, `tools-${info.project.name}.png`), fullPage: true });
   await page.getByTestId('tool-projects').tap();

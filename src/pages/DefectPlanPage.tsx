@@ -223,7 +223,7 @@ function PlanCanvas({
           canvas.width = 0;
           canvas.height = 0;
         });
-    }, 180);
+    }, 90);
     return () => {
       cancelled = true;
       clearTimeout(t);

@@ -392,7 +392,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     setStatus('loading');
     (async () => {
       const canvas = baseCanvasRef.current!;
-      const maxSide = isCoarse() ? 3072 : 4096;
+      // Grundbild so groß wie möglich (Zeichenflächen-Limit ~16 Mio. Pixel); beim Zoomen wird zusätzlich scharf nachgezeichnet
+      const maxSide = 4096;
       const k = clampRenderScale(region.w, region.h, maxSide / Math.max(region.w, region.h));
       if (fileKind === 'pdf') {
         const doc = await getPdfDocument(fileId);
@@ -469,7 +470,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         swapDetail(canvas, r);
         releaseCanvas(canvas);
       }
-    }, 180);
+    }, 90);
     const swapDetail = (canvas: HTMLCanvasElement, r: Rect) => {
       const target = detailCanvasRef.current;
       if (!target) return;

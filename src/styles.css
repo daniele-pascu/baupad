@@ -5316,12 +5316,15 @@ button.status-pill:hover {
   color: var(--muted);
 }
 .tools-quick {
+  /* kompakte Taste, nur so breit wie ihr Text */
   display: flex;
+  width: fit-content;
   align-items: center;
-  gap: 14px;
-  margin: 0 0 16px;
-  padding: 14px 18px;
-  border-radius: 16px;
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 11px 16px;
+  min-height: 44px;
+  border-radius: 14px;
   background: #111;
   color: #fff;
   text-decoration: none;
@@ -5339,10 +5342,7 @@ button.status-pill:hover {
 .tools-quick:hover {
   background: #2c2c2e;
 }
-/* Foto-Taste, Kacheln und Register gleich breit: am PC auf 820px, an Handy und Tablet von Rand zu Rand */
-.tools-quick {
-  max-width: 820px;
-}
+/* Kacheln und Register: am PC auf 820px, an Handy und Tablet von Rand zu Rand */
 .tools-grid {
   display: grid;
   grid-auto-rows: 1fr;
@@ -5352,7 +5352,6 @@ button.status-pill:hover {
   margin-top: 14px;
 }
 @media (max-width: 1366px) {
-  .tools-quick,
   .tools-grid,
   .tools-register {
     max-width: none;
