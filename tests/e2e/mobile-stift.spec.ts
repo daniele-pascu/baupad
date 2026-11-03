@@ -74,8 +74,10 @@ test('Aufmaß: Hand liegt auf (ein Finger am Bildschirm), Stift tippt: Markierun
   const viewer = page.getByTestId('plan-viewer');
   await pickTool(page, 'tool-ellipse', 'tap');
   const b = (await viewer.boundingBox())!;
-  // Handballen liegt unten rechts auf
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: b.x + b.width * 0.85, y: b.y + b.height * 0.85, id: 21 }] });
+  // Handballen liegt unten rechts auf dem Plan auf (über der Werkzeugleiste)
+  const tb = (await page.locator('.toolbar').boundingBox())!;
+  const palmY = Math.min(b.y + b.height * 0.85, tb.y - 30);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: b.x + b.width * 0.85, y: palmY, id: 21 }] });
   await pause(100);
   await penTap(cdp, b.x + b.width * 0.4, b.y + b.height * 0.4);
   await expect(page.getByTestId('damage-dialog')).toBeVisible();

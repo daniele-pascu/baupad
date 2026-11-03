@@ -63,6 +63,40 @@ async function noHorizontalScroll(page: Page) {
   const screen = page.viewportSize()!.width;
   const width = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, window.innerWidth));
   expect(width - screen).toBeLessThanOrEqual(1);
+  await noOverlap(page);
+}
+
+/**
+ * Eingabefelder, Auswahllisten und Knöpfe dürfen sich nicht überlappen (z. B. Uhrzeitfelder, die über ihre Spalte
+ * hinausragen). Schwebende Bedienelemente über dem Plan (Zoom, Werkzeugleisten) und Toasts zählen nicht.
+ */
+async function noOverlap(page: Page) {
+  const hits = await page.evaluate(() => {
+    // offenes Overlay (Dialog, Großansicht): nur dessen Inhalt prüfen – der Hintergrund ist verdeckt
+    const overlays = [...document.querySelectorAll('.modal-backdrop, .lightbox, .cam-sheet-backdrop')].filter((o) => o.getBoundingClientRect().width > 0);
+    const root: ParentNode = overlays.length ? overlays[overlays.length - 1] : document;
+    // schwebend über dem Plan bzw. dem Bild: Zoom-Knöpfe, Hinweise
+    const floating = (el: Element) => !!el.closest('.toast, .zoom-controls, .dp-stage, .site-nav, [data-testid="plan-viewer"] .viewer-overlay');
+    const els = [...root.querySelectorAll('input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([type=file]), select, textarea, button, a.btn')]
+      .filter((el) => !floating(el))
+      .map((el) => ({ el, r: el.getBoundingClientRect() }))
+      .filter(({ el, r }) => r.width > 2 && r.height > 2 && getComputedStyle(el).visibility !== 'hidden' && !(el as HTMLElement).hidden);
+    const out: string[] = [];
+    for (let i = 0; i < els.length; i++)
+      for (let j = i + 1; j < els.length; j++) {
+        const a = els[i];
+        const b = els[j];
+        if (a.el.contains(b.el) || b.el.contains(a.el)) continue;
+        const w = Math.min(a.r.right, b.r.right) - Math.max(a.r.left, b.r.left);
+        const h = Math.min(a.r.bottom, b.r.bottom) - Math.max(a.r.top, b.r.top);
+        if (w > 3 && h > 3) {
+          const name = (e: Element) => `${e.tagName.toLowerCase()}${e.getAttribute('data-testid') ? `[${e.getAttribute('data-testid')}]` : ''}${e.getAttribute('aria-label') ? `{${e.getAttribute('aria-label')}}` : ''}${typeof e.className === 'string' && e.className ? `.${e.className.split(' ')[0]}` : ''}${(e as HTMLElement).innerText ? ` „${(e as HTMLElement).innerText.trim().slice(0, 20)}“` : ''}`;
+          out.push(`${name(a.el)} ⟷ ${name(b.el)} (${Math.round(w)}×${Math.round(h)})`);
+        }
+      }
+    return out.slice(0, 8);
+  });
+  expect(hits, 'überlappende Bedienelemente').toEqual([]);
 }
 
 test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, Exporte', async ({ page }, info) => {
@@ -117,6 +151,8 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   const dlg = page.getByTestId('damage-dialog');
   await expect(dlg).toBeVisible();
   await expect(dlg.getByTestId('input-number')).toHaveValue('1');
+  // kein „Geisterklick“ vom Tippen auf den Plan in den eben geöffneten Dialog (z. B. auf „Abzug hinzufügen“)
+  await expect(dlg.getByRole('button', { name: 'Zeile entfernen' })).toHaveCount(0);
   await expect(dlg.getByTestId('input-length')).toHaveAttribute('inputmode', 'decimal');
   // Nr. erlaubt Zahlen und Buchstaben (z. B. 12a) – Texttastatur, Buchstaben groß
   await expect(dlg.getByTestId('input-number')).toHaveAttribute('inputmode', 'text');

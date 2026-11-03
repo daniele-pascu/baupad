@@ -268,7 +268,7 @@ test('8./9. Schadstelle bearbeiten, Nummer ändern, löschen – Plan und Tabell
   // Neue Schadstelle mit vergebener Nummer → nachfolgende verschieben
   await pickTool(page, 'tool-rect');
   const box = await planBox(page);
-  await drawRect(page, box.x + box.width * 0.35, box.y + box.height * 0.7, box.x + box.width * 0.42, box.y + box.height * 0.8);
+  await drawRect(page, box.x + box.width * 0.35, box.y + box.height * 0.56, box.x + box.width * 0.42, box.y + box.height * 0.64); // über der (ggf. zweizeiligen) Werkzeugleiste
   await expect(dlg.getByTestId('input-number')).toHaveValue('4');
   await dlg.getByTestId('input-number').fill('2');
   await dlg.getByTestId('input-length').fill('1');

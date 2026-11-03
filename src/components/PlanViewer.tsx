@@ -1215,11 +1215,12 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       onPointerUp={(e) => finish(e, false)}
       onPointerCancel={(e) => finish(e, true)}
       onTouchEnd={(e) => {
-        // aufliegende Hand abgehoben: kein Klick an dieser Stelle (z. B. auf „Abbrechen“ im eben geöffneten Dialog)
-        if (suppressClick.current) {
-          suppressClick.current = false;
-          if (e.cancelable) e.preventDefault();
-        }
+        // Der Plan arbeitet mit Pointer-Events. Der Browser schickt nach dem Tippen zusätzlich einen Klick an dieselbe
+        // Stelle – öffnet das Tippen einen Dialog (neue Messung), träfe dieser „Geisterklick“ dessen Knöpfe
+        // (z. B. „Abzug hinzufügen“). Darum: Berührungen auf dem Plan lösen keinen Klick aus (Knöpfe im Plan schon).
+        suppressClick.current = false;
+        if ((e.target as Element).closest?.('button, a, input, select, textarea, label')) return;
+        if (e.cancelable) e.preventDefault();
       }}
       onContextMenu={(e) => e.preventDefault()}
       data-testid="plan-viewer"

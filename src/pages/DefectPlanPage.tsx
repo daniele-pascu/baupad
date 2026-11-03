@@ -518,11 +518,11 @@ function PlanCanvas({
       onPointerUp={up}
       onPointerCancel={cancel}
       onTouchEnd={(e) => {
-        // aufliegende Hand abgehoben: kein Klick an dieser Stelle
-        if (suppressClick.current) {
-          suppressClick.current = false;
-          if (e.cancelable) e.preventDefault();
-        }
+        // kein „Geisterklick“ nach dem Tippen auf den Plan (würde den eben geöffneten Dialog treffen);
+        // gilt auch für eine abgehobene Hand. Knöpfe im Plan bleiben normal bedienbar.
+        suppressClick.current = false;
+        if ((e.target as Element).closest?.('button, a, input, select, textarea, label')) return;
+        if (e.cancelable) e.preventDefault();
       }}
     >
       <div ref={stage} className={`dp-stage${plan.gray ? ' dp-gray' : ''}`} data-gray={plan.gray ? '' : undefined} style={{ width: fitW, height: fitH, transform: `translate(${view.tx}px, ${view.ty}px) scale(${view.s})` }}>
