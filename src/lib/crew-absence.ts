@@ -57,3 +57,10 @@ export function withAbsence(list: Absence[], a: Absence): Absence[] {
 export function cleanAbsences(list: Absence[]): Absence[] {
   return [...list].sort((a, b) => a.createdAt - b.createdAt).reduce<Absence[]>((acc, a) => withAbsence(acc, a), []);
 }
+
+/** Urlaub/Krank eines Arbeiters an einzelnen Tagen aufheben (Einträge werden gekürzt bzw. geteilt) */
+export function clearAbsenceOn(list: Absence[], workerId: string, dates: string[]): Absence[] {
+  let out = list;
+  for (const date of dates) out = withAbsence(out, { id: '__clear', workerId, kind: 'urlaub', from: date, to: date, createdAt: 0 }).filter((x) => x.id !== '__clear');
+  return out;
+}

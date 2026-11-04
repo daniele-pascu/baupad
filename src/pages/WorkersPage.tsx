@@ -6,7 +6,6 @@ import { PhotoSiteDialog } from '../components/PhotoSitePicker';
 import { ProjectPicker } from '../components/ProjectPicker';
 import { SiteNav } from '../components/SiteNav';
 import { ToolIcon } from '../components/ToolIcon';
-import { useChipDrag, type DropTarget } from '../components/useChipDrag';
 import { PdfPreview } from '../components/PdfPreview';
 import { confirmDialog, offerFile, showError, toast } from '../components/ui';
 import {
@@ -49,7 +48,7 @@ import { naturalCompare } from '../lib/numbers';
 import { holidayOn } from '../lib/times';
 import type { ExportFile } from '../lib/aufmass';
 import { getCompanyLogo } from '../lib/company';
-import { absenceOn, absenceRange, absenceSummary, cleanAbsences, withAbsence } from '../lib/crew-absence';
+import { absenceDays, absenceOn, absenceRange, absenceSummary, cleanAbsences, clearAbsenceOn, withAbsence } from '../lib/crew-absence';
 import { exportCrewBackup, importCrewBackup } from '../lib/crew-backup';
 import { costCenterByProject, costCenterSearchByProject, linkSitesToProject, projectFromSite } from '../lib/crew-link';
 import { ProjectHeading } from '../components/ProjectHeading';
@@ -123,7 +122,8 @@ export function WorkersPage() {
   const [plan, setPlan] = useState<WeekPlan | null>(null);
   /** nicht gespeicherte Woche: aus dieser Woche weitergeführt (bzw. leer) */
   const [draftFrom, setDraftFrom] = useState<string | null>(null);
-  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  /** aufgeklappte Projekte (Schlüssel: Projekt bzw. Name) – beim Öffnen der Einteilung ist alles zugeklappt */
+  const [openKeys, setOpenKeys] = useState<Set<string>>(() => new Set());
   /** „Noch nicht eingeteilt“: klein (nur Zusammenfassung), antippen zeigt die Namen je Tag */
   const [showOpen, setShowOpen] = useState(false);
   const [company, setCompany] = useState('');
@@ -135,9 +135,6 @@ export function WorkersPage() {
   const [preview, setPreview] = useState<ExportFile | null>(null);
   const restoreRef = useRef<HTMLInputElement>(null);
   const [reloadKey, setReloadKey] = useState(0);
-  /** Namen ziehen: ab dem Ziel-Tag auf die Ziel-Baustelle (von der bisherigen automatisch entfernt) */
-  const dropRef = useRef<(workerId: string, fromSiteId: string | null, fromDay: number, to: DropTarget) => void>(() => {});
-  const { drag, start: startDrag, suppressClick } = useChipDrag((...a) => dropRef.current(...a));
   const [dialog, setDialog] = useState<
     | { kind: 'times' }
     | { kind: 'site'; site?: WeekSite }
@@ -146,7 +143,7 @@ export function WorkersPage() {
     | { kind: 'chip'; siteId: string; day: number; workerId: string }
     | { kind: 'open'; day: number; workerId: string }
     | { kind: 'dayList'; siteId: string }
-    | { kind: 'absence'; workerId?: string; day?: number }
+    | { kind: 'absence'; workerId?: string; day?: number; absKind?: Absence['kind'] }
     | null
   >(null);
 
@@ -211,6 +208,10 @@ export function WorkersPage() {
   const crew = useMemo(() => active.filter((w) => !isProjectLead(w)), [active]);
   const workTimes = times ?? DEFAULT_WORK_TIMES;
   const nameOf = (id: string) => (byId.get(id) ? workerName(byId.get(id)!) : 'Unbekannt');
+  /** Projekt-Schlüssel fürs Auf-/Zuklappen (bleibt beim Wochenwechsel gleich) */
+  const siteKey = (s: Pick<WeekSite, 'projectId' | 'name'>) => s.projectId || s.name;
+  /** angetippter Arbeiter: seine Tage werden in den Projekten markiert */
+  const picked = dialog?.kind === 'chip' ? dialog.workerId : null;
 
   /** Woche speichern (jede Änderung sofort, nur diese Woche) */
   const save = (next: WeekPlan) => {
@@ -227,6 +228,19 @@ export function WorkersPage() {
   const place = async (ids: string[], siteId: string, ds: number[], overrideVacation: boolean, keep = false) => {
     let next = plan!;
     const moved: string[] = [];
+    // wer krank/auf Urlaub und an dem Tag nirgends eingeteilt war und jetzt eingeteilt wird: Urlaub/Krank dort aufheben
+    let abs = absences;
+    const cleared: string[] = [];
+    for (const id of ids) {
+      const free = ds.filter((d) => absenceOn(abs, id, weekId, d) && !plan!.sites.some((s) => s.days[d].includes(id)));
+      if (!free.length) continue;
+      abs = clearAbsenceOn(abs, id, free.map((d) => addDays(weekId, d)));
+      cleared.push(`${nameOf(id)} (${free.map((d) => DAY_SHORT[d]).join(', ')})`);
+    }
+    if (cleared.length) {
+      await saveAbsences(abs);
+      toast(`Urlaub/Krank aufgehoben: ${cleared.join(', ')}.`, 'success', 4500);
+    }
     if (keep) {
       // doppelt einteilen: zusätzlich hier, auf der bisherigen Baustelle bleiben (nur diese Woche)
       next = assign(next, siteId, ds, ids);
@@ -267,8 +281,13 @@ export function WorkersPage() {
     toast(`${a.kind === 'urlaub' ? 'Urlaub' : 'Krank'} eingetragen: ${nameOf(a.workerId)}, ${absenceRange(a)}`, 'success');
   };
   const deleteAbsence = async (a: Absence) => {
-    await saveAbsences(absences.filter((x) => x.id !== a.id));
+    const rest = absences.filter((x) => x.id !== a.id);
+    await saveAbsences(rest);
     toast(`${a.kind === 'urlaub' ? 'Urlaub' : 'Krankmeldung'} gelöscht.`, 'success');
+    // wieder verfügbar: wenn er an diesen Tagen (diese Woche) nirgends eingeteilt ist, gleich auf ein Projekt einteilen
+    const free = absenceDays(a, weekId).filter((d) => !absenceOn(rest, a.workerId, weekId, d) && !plan!.sites.some((s) => s.days[d].includes(a.workerId)));
+    const w = byId.get(a.workerId);
+    if (free.length && w?.active && !isProjectLead(w) && plan!.sites.some((s) => !s.paused)) setDialog({ kind: 'open', day: free[0], workerId: a.workerId });
   };
 
   /** Baustelle pausieren (Standby): Arbeiter werden frei; gilt auch für bereits geplante Folgewochen */
@@ -298,7 +317,7 @@ export function WorkersPage() {
       const t = w.id > weekId ? sameSite(w, site) : undefined;
       if (t?.paused) await saveWeek(updateSite(w, t.id, { paused: false }));
     }
-    setCollapsed((prev) => new Set([...prev].filter((id) => id !== site.id)));
+    setOpenKeys((prev) => new Set(prev).add(siteKey(site)));
     toast(`„${site.name}“ läuft wieder – jetzt Arbeiter einteilen.`, 'success');
   };
 
@@ -309,11 +328,6 @@ export function WorkersPage() {
   const restOfWeek = (day: number, ids: string[] = []) =>
     [0, 1, 2, 3, 4, 5, 6].filter((d) => d >= day && (d < 5 || day >= 5 || ids.some((id) => plan!.sites.some((s) => s.days[d].includes(id)))));
 
-  dropRef.current = (workerId, fromSiteId, fromDay, to) => {
-    if (fromSiteId === to.siteId && fromDay === to.day) return;
-    const ds = restOfWeek(to.day, [workerId]);
-    void run(() => place([workerId], to.siteId, ds, false));
-  };
 
   /** PDF-Optionen: Firmenname und Firmenlogo (Konto → Einstellungen) */
   const pdfOpts = async () => ({
@@ -489,10 +503,10 @@ export function WorkersPage() {
         testId: 'site-remove',
       },
   ];
-  const toggle = (id: string) =>
-    setCollapsed((prev) => {
+  const toggle = (key: string) =>
+    setOpenKeys((prev) => {
       const next = new Set(prev);
-      if (!next.delete(id)) next.add(id);
+      if (!next.delete(key)) next.add(key);
       return next;
     });
 
@@ -636,10 +650,8 @@ export function WorkersPage() {
                     <button
                       key={w.id}
                       type="button"
-                      className={`crew-chip open${drag?.workerId === w.id ? ' dragging' : ''}`}
-                      onPointerDown={(e) => startDrag(e, w.id, workerName(w), null, firstOpenDay(w.id))}
-                      onContextMenu={(e) => e.preventDefault()}
-                      onClick={() => !suppressClick.current && setDialog({ kind: 'open', day: firstOpenDay(w.id), workerId: w.id })}
+                      className="crew-chip open"
+                      onClick={() => setDialog({ kind: 'open', day: firstOpenDay(w.id), workerId: w.id })}
                       data-testid="open-chip"
                     >
                       {workerName(w)}
@@ -656,17 +668,6 @@ export function WorkersPage() {
               <Icon name="check" size={18} /> Alle Arbeiter sind eingeteilt.
             </p>
           )
-        )}
-        {plan.sites.length > 0 && active.length > 0 && (
-          <p className="muted small crew-drag-hint" data-testid="crew-drag-hint">
-            Tipp: Namen auf ein anderes Projekt ziehen (am Handy kurz gedrückt halten) – ab diesem Tag dort, auf der bisherigen automatisch entfernt.
-          </p>
-        )}
-        {drag && (
-          <div className="crew-ghost" style={{ left: drag.x - drag.dx, top: drag.y - drag.dy - (drag.touch ? 48 : 0) }} aria-hidden="true" data-testid="crew-ghost">
-            {drag.label}
-            {drag.over && <small> → {plan.sites.find((x) => x.id === drag.over!.siteId)?.name} ab {DAY_SHORT[drag.over.day]}</small>}
-          </div>
         )}
         <section className="crew-sites">
           {plan.sites.length > 0 && (
@@ -714,12 +715,13 @@ export function WorkersPage() {
             </label>
           )}
           {shown.filter((s) => !s.paused).map((s) => {
-            const isOpen = !collapsed.has(s.id);
+            // zugeklappt, außer selbst aufgeklappt oder Treffer bei der Suche
+            const isOpen = openKeys.has(siteKey(s)) || !!q;
             const count = new Set(s.days.flat()).size;
             return (
               <article key={s.id} className={`crew-site${s.finished ? ' finished' : ''}`} data-testid="site-card" data-site={s.name}>
                 <header className="crew-site-head">
-                  <button type="button" className="crew-site-toggle" aria-expanded={isOpen} onClick={() => toggle(s.id)} data-testid="site-toggle">
+                  <button type="button" className="crew-site-toggle" aria-expanded={isOpen} onClick={() => toggle(siteKey(s))} data-testid="site-toggle">
                     <Icon name="next" size={18} />
                     <span className="crew-site-title">
                       <ProjectHeading info={siteInfo(s)} nameTestId="site-name" extra={s.finished ? <span className="crew-finished">abgeschlossen</span> : undefined} />
@@ -759,11 +761,9 @@ export function WorkersPage() {
                     {days.map((d) => (
                       <div
                         key={d}
-                        className={`crew-day${d >= 5 ? ' weekend' : ''}${holidayOf(d) ? ' holiday' : ''}${drag?.over?.siteId === s.id && drag.over.day === d ? ' drop-over' : ''}`}
+                        className={`crew-day${d >= 5 ? ' weekend' : ''}${holidayOf(d) ? ' holiday' : ''}`}
                         data-testid="day-row"
                         data-day={d}
-                        data-drop-site={s.id}
-                        data-drop-day={d}
                       >
                         <span className="crew-day-label">
                           <strong>
@@ -780,10 +780,8 @@ export function WorkersPage() {
                             <button
                               key={id}
                               type="button"
-                              className={`crew-chip${byId.get(id)?.active === false ? ' inactive' : ''}${sitesOf(plan, id, d, s.id).length ? ' conflict' : ''}${hit(id) ? ' hit' : ''}${drag?.workerId === id ? ' dragging' : ''}${absenceOn(absences, id, weekId, d) === 'krank' ? ' sick' : absenceOn(absences, id, weekId, d) ? ' away' : ''}`}
-                              onPointerDown={(e) => startDrag(e, id, nameOf(id), s.id, d)}
-                              onContextMenu={(e) => e.preventDefault()}
-                              onClick={() => !suppressClick.current && setDialog({ kind: 'chip', siteId: s.id, day: d, workerId: id })}
+                              className={`crew-chip${byId.get(id)?.active === false ? ' inactive' : ''}${sitesOf(plan, id, d, s.id).length ? ' conflict' : ''}${hit(id) ? ' hit' : ''}${picked === id ? ' picked' : ''}${absenceOn(absences, id, weekId, d) === 'krank' ? ' sick' : absenceOn(absences, id, weekId, d) ? ' away' : ''}`}
+                              onClick={() => setDialog({ kind: 'chip', siteId: s.id, day: d, workerId: id })}
                               data-testid="crew-chip"
                               data-worker={nameOf(id)}
                               title={sitesOf(plan, id, d, s.id).length ? `Auch eingeteilt auf: ${sitesOf(plan, id, d, s.id).map((x) => x.name).join(', ')}` : undefined}
@@ -872,7 +870,9 @@ export function WorkersPage() {
             run(async () => {
               setProjects(await listProjects());
               const f = siteFromProject(p);
-              save(addSite(plan, { ...f, note: '' }).week);
+              const r = addSite(plan, { ...f, note: '' });
+              save(r.week);
+              setOpenKeys((prev) => new Set(prev).add(siteKey(r.site)));
               toast(`Projekt „${f.name}“ angelegt.`, 'success');
               setDialog(null);
             })
@@ -903,7 +903,9 @@ export function WorkersPage() {
               await useProjectIn(f.projectId, 'workers');
               if (dialog.site) save(updateSite(plan, dialog.site.id, f));
               else {
-                save(addSite(plan, f).week);
+                const r = addSite(plan, f);
+                save(r.week);
+                setOpenKeys((prev) => new Set(prev).add(siteKey(r.site)));
                 toast(`Projekt „${f.name}“ angelegt.`, 'success');
               }
               setDialog(null);
@@ -928,20 +930,34 @@ export function WorkersPage() {
       {dialog?.kind === 'chip' && (
         <ChipDialog
           plan={plan}
+          weekId={weekId}
+          days={days}
+          absences={absences}
           name={nameOf(dialog.workerId)}
           workerId={dialog.workerId}
           siteId={dialog.siteId}
           day={dialog.day}
           onClose={() => setDialog(null)}
+          onToggleDay={(d, on) => {
+            if (on) void run(() => place([dialog.workerId], dialog.siteId, [d], true));
+            else save(unassign(plan, dialog.siteId, d, dialog.workerId));
+          }}
           onRemove={() => {
             save(unassign(plan, dialog.siteId, dialog.day, dialog.workerId));
             setDialog(null);
           }}
-          onMove={(to) => {
+          onRemoveWeek={() => {
+            let next = plan;
+            for (const d of days) next = unassign(next, dialog.siteId, d, dialog.workerId);
+            save(next);
             setDialog(null);
-            void run(() => place([dialog.workerId], to, restOfWeek(dialog.day, [dialog.workerId]), false));
+            toast(`${nameOf(dialog.workerId)} aus „${plan.sites.find((x) => x.id === dialog.siteId)?.name}“ entfernt (diese Woche).`, 'success');
           }}
-          onAbsence={() => setDialog({ kind: 'absence', workerId: dialog.workerId, day: dialog.day })}
+          onMove={(to, keep) => {
+            setDialog(null);
+            void run(() => place([dialog.workerId], to, restOfWeek(dialog.day, [dialog.workerId]), false, keep));
+          }}
+          onAbsence={(k) => setDialog({ kind: 'absence', workerId: dialog.workerId, day: dialog.day, absKind: k })}
         />
       )}
       {dialog?.kind === 'dayList' && (
@@ -965,6 +981,7 @@ export function WorkersPage() {
           absences={absences}
           nameOf={nameOf}
           workerId={dialog.workerId}
+          kind={dialog.absKind}
           from={addDays(weekId, dialog.day ?? 0)}
           to={addDays(weekId, (dialog.day ?? 0) >= 5 ? 6 : 4)}
           onAdd={(a) => void run(() => addAbsence(a))}
@@ -983,7 +1000,7 @@ export function WorkersPage() {
             setDialog(null);
             void run(() => place([dialog.workerId], siteId, rest ? restOfWeek(dialog.day, [dialog.workerId]) : [dialog.day], false));
           }}
-          onAbsence={() => setDialog({ kind: 'absence', workerId: dialog.workerId, day: dialog.day })}
+          onAbsence={(k) => setDialog({ kind: 'absence', workerId: dialog.workerId, day: dialog.day, absKind: k })}
         />
       )}
     </>
@@ -1336,37 +1353,84 @@ function AssignDialog({
 /** Eingeteilter Arbeiter: an diesem Tag entfernen, ab diesem Tag verschieben, Urlaub */
 function ChipDialog({
   plan,
+  weekId,
+  days,
+  absences,
   name,
   workerId,
   siteId,
   day,
+  onToggleDay,
   onRemove,
+  onRemoveWeek,
   onMove,
   onAbsence,
   onClose,
 }: {
   plan: WeekPlan;
+  weekId: string;
+  days: number[];
+  absences: Absence[];
   name: string;
   workerId: string;
   siteId: string;
   day: number;
+  onToggleDay(day: number, on: boolean): void;
   onRemove(): void;
-  onMove(to: string): void;
-  onAbsence(): void;
+  onRemoveWeek(): void;
+  onMove(to: string, keep: boolean): void;
+  onAbsence(kind: Absence['kind']): void;
   onClose(): void;
 }) {
+  const site = plan.sites.find((s) => s.id === siteId);
   const others = plan.sites.filter((s) => s.id !== siteId && !s.paused);
   const [to, setTo] = useState(others[0]?.id ?? '');
+  const [keep, setKeep] = useState(false);
   const also = sitesOf(plan, workerId, day, siteId);
   return (
-    <Modal title={`${name} · ${DAY_NAMES[day]}`} onClose={onClose} testId="chip-dialog">
+    <Modal title={name} onClose={onClose} testId="chip-dialog">
       <div className="crew-chip-actions">
+        <div className="crew-chip-week" data-testid="chip-week">
+          <span className="muted small">
+            Tage auf <strong>{site?.name}</strong> – antippen zum Ein-/Austragen
+          </span>
+          <div className="crew-chip-days">
+            {days.map((d) => {
+              const on = !!site?.days[d].includes(workerId);
+              const elsewhere = sitesOf(plan, workerId, d, siteId);
+              const abs = absenceOn(absences, workerId, weekId, d);
+              return (
+                <button
+                  key={d}
+                  type="button"
+                  className={`crew-chip-day${on ? ' on' : ''}${d === day ? ' today' : ''}${abs ? ` ${abs === 'krank' ? 'sick' : 'away'}` : ''}`}
+                  aria-pressed={on}
+                  onClick={() => onToggleDay(d, !on)}
+                  data-testid="chip-day"
+                  data-day={d}
+                  title={elsewhere.length ? `Auf: ${elsewhere.map((x) => x.name).join(', ')}` : undefined}
+                >
+                  <strong>{DAY_SHORT[d]}</strong>
+                  <small>{dayDate(weekId, d)}</small>
+                  {abs ? <small>{abs === 'krank' ? 'krank' : 'Urlaub'}</small> : elsewhere.length ? <small className="crew-chip-day-other">{elsewhere[0].name}</small> : null}
+                </button>
+              );
+            })}
+          </div>
+        </div>
         {also.length > 0 && (
           <p className="banner banner-warn small" role="status" data-testid="chip-also-hint">
-            Doppelt eingeteilt: {name} ist am {DAY_NAMES[day]} auch auf {also.map((x) => x.name).join(', ')}. „Nur am {DAY_SHORT[day]} entfernen“ nimmt ihn nur von diesem
-            Projekt.
+            Doppelt eingeteilt: {name} ist am {DAY_NAMES[day]} auch auf {also.map((x) => x.name).join(', ')}.
           </p>
         )}
+        <div className="crew-chip-row">
+          <button type="button" className="btn" onClick={() => onAbsence('urlaub')} data-testid="chip-urlaub">
+            <Icon name="calendar" size={18} /> Urlaub
+          </button>
+          <button type="button" className="btn" onClick={() => onAbsence('krank')} data-testid="chip-krank">
+            <Icon name="calendar" size={18} /> Krank
+          </button>
+        </div>
         {others.length > 0 && (
           <div className="crew-move">
             <label className="field">
@@ -1379,17 +1443,23 @@ function ChipDialog({
                 ))}
               </select>
             </label>
-            <button type="button" className="btn btn-primary" onClick={() => onMove(to)} data-testid="chip-move">
-              Verschieben
+            <label className="check-row small">
+              <input type="checkbox" checked={keep} onChange={(e) => setKeep(e.target.checked)} data-testid="chip-move-keep" />
+              Zusätzlich (doppelt) – auf diesem Projekt bleiben
+            </label>
+            <button type="button" className="btn btn-primary" onClick={() => onMove(to, keep)} data-testid="chip-move">
+              {keep ? 'Zusätzlich einteilen' : 'Umsetzen'}
             </button>
           </div>
         )}
-        <button type="button" className="btn" onClick={onRemove} data-testid="chip-remove">
-          <Icon name="close" size={18} /> Nur am {DAY_NAMES[day]} entfernen
-        </button>
-        <button type="button" className="btn" onClick={onAbsence} data-testid="chip-absence">
-          <Icon name="calendar" size={18} /> Urlaub / Krank (von – bis)
-        </button>
+        <div className="crew-chip-row">
+          <button type="button" className="btn" onClick={onRemove} data-testid="chip-remove">
+            <Icon name="close" size={18} /> Nur am {DAY_SHORT[day]} entfernen
+          </button>
+          <button type="button" className="btn btn-danger-text" onClick={onRemoveWeek} data-testid="chip-remove-week">
+            <Icon name="trash" size={18} /> Ganze Woche entfernen
+          </button>
+        </div>
       </div>
     </Modal>
   );
@@ -1408,7 +1478,7 @@ function OpenDialog({
   worker: Worker;
   day: number;
   onAssign(siteId: string, rest: boolean): void;
-  onAbsence(): void;
+  onAbsence(kind: Absence['kind']): void;
   onClose(): void;
 }) {
   const [rest, setRest] = useState(true);
@@ -1425,9 +1495,14 @@ function OpenDialog({
           </button>
         ))}
         {!plan.sites.length && <p className="muted">Noch kein Projekt in dieser Woche.</p>}
-        <button type="button" className="btn" onClick={onAbsence} data-testid="open-absence">
-          <Icon name="calendar" size={18} /> Urlaub / Krank (von – bis)
-        </button>
+        <div className="crew-chip-row">
+          <button type="button" className="btn" onClick={() => onAbsence('urlaub')} data-testid="open-absence">
+            <Icon name="calendar" size={18} /> Urlaub
+          </button>
+          <button type="button" className="btn" onClick={() => onAbsence('krank')} data-testid="open-krank">
+            <Icon name="calendar" size={18} /> Krank
+          </button>
+        </div>
       </div>
     </Modal>
   );
