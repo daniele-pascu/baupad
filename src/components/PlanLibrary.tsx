@@ -210,7 +210,7 @@ export function PlanLibrary({ data, onClose, onReuse }: { data: ProjectState; on
 }
 
 /** Freie Plannummer als Vorschlag: „A-101“ (in einer anderen Rechnung noch frei) bzw. „A-101-2“, „A-101-3“ … */
-function suggestNumber(data: ProjectState, base: string, invoiceId: string | null): string {
+export function suggestNumber(data: ProjectState, base: string, invoiceId: string | null): string {
   if (!base.trim()) return '';
   const scope = sameNumberScope(data.project, invoiceId);
   const taken = new Set(alive(data.plans).filter(scope).map((p) => p.planNumber.trim().toLowerCase()));

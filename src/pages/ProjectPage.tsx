@@ -10,7 +10,7 @@ import { invoiceLabel, invoiceOfPlan, invoiceShort, invoicesOf } from '../lib/in
 import { LvPanel } from '../components/LvPanel';
 import { PdfExportDialog } from '../components/PdfExportDialog';
 import { NewDrawingDialog, PlanDetailsDialog } from '../components/PlanFields';
-import { PlanLibrary, ReusePlanDialog, type PlanSource } from '../components/PlanLibrary';
+import { PlanLibrary, ReusePlanDialog, suggestNumber, type PlanSource } from '../components/PlanLibrary';
 import { PlanList } from '../components/PlanList';
 import { RotatePlanDialog } from '../components/RotatePlanDialog';
 import { ExcelExportDialog } from '../components/ExcelExportDialog';
@@ -21,6 +21,7 @@ import { positionGrouping, aufmassRows, componentsOf, findPosition, costCenterLa
 import type { BlattScope } from '../lib/aufmassblatt';
 import { BACKUP_REMIND_DAYS, backupStatus, exportProjectBackup, type BackupStatus } from '../lib/backup';
 import { isDrawingPlan } from '../lib/drawing';
+import { uuid } from '../lib/ids';
 import { exportPaper } from '../lib/sheet-layout';
 import { formatArea, formatDate, formatDateTime } from '../lib/numbers';
 import { navigate, paths } from '../lib/router';
@@ -225,6 +226,32 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
 
   // ---------------------------------------------------------------------------
   // Pläne
+
+  /** Aufmaßplan duplizieren: gleicher Plan mit allen Messungen, Bauteilen und Zeichnungsobjekten (neue Plannummer) */
+  const duplicatePlan = (plan: Plan) => {
+    const copy: Plan = {
+      ...structuredClone(plan),
+      ...newMeta(),
+      planNumber: suggestNumber(data, plan.planNumber || planTitle(plan), plan.invoiceId ?? null),
+      sortIndex: Math.max(0, ...plansOf(data, plan.costCenterId).map((p) => p.sortIndex)) + 1,
+    };
+    const compIds = new Map<string, string>();
+    const components = componentsOf(data, plan.id).map((c) => {
+      const n = { ...structuredClone(c), ...newMeta(), planId: copy.id };
+      compIds.set(c.id, n.id);
+      return n;
+    });
+    const damages = damagesOf(data, plan.id).map((d) => ({
+      ...structuredClone(d),
+      ...newMeta(),
+      planId: copy.id,
+      ...(d.componentId ? { componentId: compIds.get(d.componentId) ?? null } : {}),
+      ...(d.deductions ? { deductions: d.deductions.map((x) => ({ ...structuredClone(x), id: uuid() })) } : {}),
+    }));
+    const elements = elementsOf(data, plan.id).map((e) => ({ ...structuredClone(e), ...newMeta(), planId: copy.id }));
+    putRecords({ plans: [copy], components, damages, elements });
+    toast(`Aufmaßplan dupliziert: „${copy.planNumber || planTitle(copy)}“ mit ${damages.length} ${damages.length === 1 ? 'Messung' : 'Messungen'}.`, 'success', 4500);
+  };
 
   const deletePlan = async (plan: Plan) => {
     const damages = damagesOf(data, plan.id);
@@ -531,6 +558,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
                 onRename={(p) => void renamePlan(p)}
                 onCrop={(p) => void openCrop(p)}
                 onReuse={(p) => setReuse({ file: data.files[p.fileId], pageIndex: p.pageIndex, base: p })}
+                onDuplicate={duplicatePlan}
                 onRotate={setRotating}
                 onDelete={(p) => void deletePlan(p)}
               />

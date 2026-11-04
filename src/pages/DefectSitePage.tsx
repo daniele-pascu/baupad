@@ -6,7 +6,7 @@ import { useSession } from '../lib/use-session';
 import { Icon } from '../components/Icon';
 import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, promptDialog, showError, toast } from '../components/ui';
-import { deleteDefectPlanCompletely, listDefectMarks } from '../lib/db';
+import { deleteDefectPlanCompletely, listDefectMarks, loadProjectData } from '../lib/db';
 import { KINDS, planImage, plansOfSite, renameDefectPlan } from '../lib/defects';
 import { getPhotoStorage } from '../lib/photo-storage';
 import { navigate, paths } from '../lib/router';
@@ -74,8 +74,19 @@ export function DefectSitePage({ siteKey }: { siteKey: string }) {
   const [plans, setPlans] = useState<DefectPlan[] | null>(null);
   const [marks, setMarks] = useState<DefectMark[]>([]);
   const [site, setSite] = useState<PhotoSite | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const [uploading, setUploading] = useState<false | 'upload' | 'library'>(false);
   const [editing, setEditing] = useState(false);
+  /** Pläne in der Planbibliothek des Projekts (Aufmaß & Abrechnung) – Taste nur, wenn welche da sind */
+  const [libCount, setLibCount] = useState(0);
+  useEffect(() => {
+    setLibCount(0);
+    if (!site?.projectId) return;
+    let live = true;
+    void loadProjectData(site.projectId).then((d) => live && setLibCount(d ? d.files.filter((f) => !f.deletedAt).length : 0));
+    return () => {
+      live = false;
+    };
+  }, [site?.projectId]);
   const session = useSession();
   usePageTitle(`${site?.name ?? 'Baustelle'} – Mängelplan`);
 
@@ -152,7 +163,12 @@ export function DefectSitePage({ siteKey }: { siteKey: string }) {
                 <Icon name="edit" size={16} /> <span className="lbl">Bearbeiten</span>
               </button>
             )}
-            <button type="button" className="btn btn-sm btn-primary" onClick={() => setUploading(true)} data-testid="defect-upload">
+            {libCount > 0 && (
+              <button type="button" className="btn btn-sm" onClick={() => setUploading('library')} title="Pläne aus der Planbibliothek des Projekts (Aufmaß & Abrechnung)" data-testid="defect-library">
+                <Icon name="folder" size={16} /> Planbibliothek ({libCount})
+              </button>
+            )}
+            <button type="button" className="btn btn-sm btn-primary" onClick={() => setUploading('upload')} data-testid="defect-upload">
               <Icon name="upload" size={16} /> Plan hochladen
             </button>
           </div>
@@ -174,6 +190,7 @@ export function DefectSitePage({ siteKey }: { siteKey: string }) {
           <DefectPlanDialog
             sites={[site]}
             site={site}
+            fromLibrary={uploading === 'library'}
             onClose={() => setUploading(false)}
             onCreated={(p) => {
               setUploading(false);

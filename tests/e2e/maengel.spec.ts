@@ -422,8 +422,12 @@ test('Projekt übernehmen: Pläne aus der Planbibliothek (Aufmaß & Abrechnung) 
   await page.getByTestId('defect-new-site').click();
   await page.getByTestId('project-picker').getByTestId('picker-item').filter({ hasText: 'Garage Nord' }).click();
   await expect(page.getByTestId('defect-site-title')).toHaveText('Garage Nord');
-  await page.getByTestId('defect-upload').click();
+  // eigene Taste „Planbibliothek“ (nur weil Pläne abgelegt sind)
+  await expect(page.getByTestId('defect-library')).toContainText('Planbibliothek (1)');
+  await page.getByTestId('defect-library').click();
   const dlg = page.getByTestId('defect-plan-dialog');
+  await expect(dlg).toContainText('Plan aus der Planbibliothek');
+  await expect(dlg.getByTestId('defect-plan-pick')).toHaveCount(0);
   const items = dlg.getByTestId('defect-library-item');
   await expect(items).toHaveCount(4);
   await expect(items.nth(1)).toContainText('plaene – Seite 2');
@@ -432,4 +436,16 @@ test('Projekt übernehmen: Pläne aus der Planbibliothek (Aufmaß & Abrechnung) 
   await dlg.getByTestId('defect-plan-save').click();
   await expect(page.getByTestId('dp-title')).toHaveText('plaene – Seite 2');
   await expect(page.locator('[data-testid="dp-canvas"] img')).toBeVisible();
+});
+
+test('Ohne Pläne in der Planbibliothek keine Taste „Planbibliothek“', async ({ page }) => {
+  await freshStart(page);
+  await page.goto('./#/maengel');
+  await page.getByTestId('defect-new-site').click();
+  await page.getByTestId('project-picker').getByTestId('picker-new').click();
+  await page.getByTestId('project-name').fill('Leer');
+  await page.getByTestId('project-save').click();
+  await expect(page.getByTestId('defect-site-title')).toHaveText('Leer');
+  await expect(page.getByTestId('defect-upload')).toBeVisible();
+  await expect(page.getByTestId('defect-library')).toHaveCount(0);
 });

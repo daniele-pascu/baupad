@@ -15,7 +15,7 @@ import type { DefectPlan, PhotoSite } from '../lib/types';
  * Plan in den Mängelplan hochladen: Baustelle wählen (oder neu anlegen), Titel, Datei (PDF erste Seite oder Foto).
  * Kein Maßstab, keine Kalibrierung – das Bild wird so übernommen, wie es ist.
  */
-export function DefectPlanDialog({ sites, site, onClose, onCreated }: { sites: PhotoSite[]; site?: PhotoSite | null; onClose(): void; onCreated(plan: DefectPlan): void }) {
+export function DefectPlanDialog({ sites, site, fromLibrary = false, onClose, onCreated }: { sites: PhotoSite[]; site?: PhotoSite | null; /** nur Auswahl aus der Planbibliothek */ fromLibrary?: boolean; onClose(): void; onCreated(plan: DefectPlan): void }) {
   const [chosen, setChosen] = useState<PhotoSite | null>(site ?? null);
   const [list, setList] = useState(sites);
   const [title, setTitle] = useState('');
@@ -74,7 +74,7 @@ export function DefectPlanDialog({ sites, site, onClose, onCreated }: { sites: P
 
   return (
     <Modal
-      title="Plan hochladen"
+      title={fromLibrary ? 'Plan aus der Planbibliothek' : 'Plan hochladen'}
       onClose={onClose}
       testId="defect-plan-dialog"
       footer={
@@ -99,6 +99,7 @@ export function DefectPlanDialog({ sites, site, onClose, onCreated }: { sites: P
           <span>Bezeichnung des Plans</span>
           <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="z. B. EG Parkdeck, Fassade Nord" data-testid="defect-plan-title" />
         </label>
+        {!fromLibrary && (
         <div className="field">
           <span>Plan (PDF, erste Seite – oder Foto/Bild) *</span>
           <div className="row gap wrap">
@@ -122,9 +123,10 @@ export function DefectPlanDialog({ sites, site, onClose, onCreated }: { sites: P
           />
           <p className="muted small">Ohne Maßstab: Der Plan dient nur zum Markieren, es wird nichts gemessen.</p>
         </div>
+        )}
         {lib.length > 0 && (
           <div className="field" data-testid="defect-library">
-            <span>Oder aus der Planbibliothek des Projekts ({lib.length})</span>
+            <span>{fromLibrary ? `Planbibliothek des Projekts (${lib.length})` : `Oder aus der Planbibliothek des Projekts (${lib.length})`}</span>
             <div className="defect-lib-grid">
               {lib.map((x) => {
                 const on = libPick?.file.id === x.file.id && libPick.pageIndex === x.pageIndex;

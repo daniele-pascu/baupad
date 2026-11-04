@@ -111,6 +111,20 @@ test('Plan erneut verwenden: neues leeres Aufmaß, Original bleibt, Datei nur ei
   await expect(page.getByTestId('reuse-plan').locator('[data-field="planNumber"]')).toHaveValue('K-1-2');
   await page.getByTestId('reuse-plan').getByRole('button', { name: 'Abbrechen' }).click();
 
+  // Aufmaßplan duplizieren: gleicher Plan mit allen Messungen, neue Plannummer
+  await page.getByTestId('plan-row').filter({ hasText: 'K-1' }).getByTestId('plan-actions').click();
+  await page.getByTestId('action-duplicate').click();
+  await expect(page.locator('.toast', { hasText: 'dupliziert' })).toContainText('K-1-2');
+  await expect(page.getByTestId('plan-row').filter({ hasText: 'K-1-2' })).toHaveCount(1);
+  await openPlan(page, 'K-1-2');
+  await waitForPlan(page);
+  expect((await tableRows(page)).length).toBe(1);
+  await backToList(page);
+  await page.getByTestId('plan-row').filter({ hasText: 'K-1-2' }).getByTestId('plan-actions').click();
+  await page.getByTestId('action-delete').click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Plan löschen' }).click();
+  await expect(page.getByTestId('plan-row').filter({ hasText: 'K-1-2' })).toHaveCount(0);
+
   // K-1 löschen: Datei bleibt (wird von K-2 verwendet)
   await page.getByTestId('plan-row').filter({ hasText: 'K-1' }).getByTestId('plan-actions').click();
   await page.getByTestId('action-delete').click();

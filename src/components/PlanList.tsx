@@ -14,6 +14,8 @@ interface Props {
   onCrop: (plan: Plan) => void;
   /** Neues, leeres Aufmaß mit derselben Planunterlage */
   onReuse: (plan: Plan) => void;
+  /** Aufmaßplan samt Messungen kopieren */
+  onDuplicate: (plan: Plan) => void;
   /** Planunterlage drehen */
   onRotate: (plan: Plan) => void;
   onDelete: (plan: Plan) => void;
@@ -24,7 +26,7 @@ interface Props {
  * Leistungszuordnung, Anzahl der Messungen und Flächensumme. Auf dem Smartphone werden
  * die Angaben zweizeilig unter der Plannummer angeordnet.
  */
-export function PlanList({ data, plans, onEdit, onRename, onCrop, onReuse, onRotate, onDelete }: Props) {
+export function PlanList({ data, plans, onEdit, onRename, onCrop, onReuse, onDuplicate, onRotate, onDelete }: Props) {
   return (
     <div className="plan-list" role="table" aria-label="Pläne" data-testid="plan-list">
       <div className="plan-row plan-head" role="row">
@@ -96,6 +98,7 @@ export function PlanList({ data, plans, onEdit, onRename, onCrop, onReuse, onRot
                   { label: 'Öffnen', icon: 'map', onSelect: () => navigate(href), testId: 'action-open' },
                   { label: 'Angaben bearbeiten', icon: 'edit', onSelect: () => onEdit(plan), testId: 'action-edit' },
                   { label: 'Umbenennen', icon: 'hash', onSelect: () => onRename(plan), testId: 'action-rename' },
+                  { label: 'Duplizieren (mit Messungen)', icon: 'copy', onSelect: () => onDuplicate(plan), testId: 'action-duplicate' },
                   ...(isDrawingPlan(plan) || !data.files[plan.fileId]
                     ? []
                     : [
