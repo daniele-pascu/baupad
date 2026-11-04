@@ -300,7 +300,7 @@ test('Messung: Fotos wie im Mängelplan (Galerie → Fotodokumentation), Taste F
   await expect(cam).toContainText('Aufmaß F-1 Nr. 1');
   // Testkamera (Live-Bild, ohne Lampe): Blitz-Taste zeigt den Hinweis auf die Gerätekamera
   await expect(cam).toHaveAttribute('data-live', '1', { timeout: 15_000 });
-  await expect(cam.getByTestId('series-flash')).toContainText('–');
+  await expect(cam.getByTestId('series-flash').locator('[data-flash-icon="off"]')).toHaveCount(1); // durchgestrichen
   await cam.getByTestId('series-flash').click();
   await expect(page.locator('.toast', { hasText: 'Gerätekamera' })).toHaveCount(1);
   await expect(cam.getByTestId('series-device-camera')).toBeVisible();

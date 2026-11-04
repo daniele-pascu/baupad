@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from './Icon';
+import { FlashIcon } from './FlashIcon';
 import { deviceUserName, photoFromPrepared } from './PhotoCapture';
 import { showError, toast } from './ui';
 import { uuid } from '../lib/ids';
@@ -221,9 +222,8 @@ export function SeriesCamera({ site, description, onDone, onClose }: { site: Pho
                 {orient === 'auto' && detectedLandscape !== null ? ` (${detectedLandscape ? 'Quer' : 'Hoch'})` : ''}
               </span>
             </button>
-            <button type="button" className={`series-cam-flashbtn${mode !== 'off' && torchOk ? ' on' : ''}`} onClick={cycleFlash} aria-label={`Blitz: ${FLASH_LABEL[mode]}`} title="Blitz: Aus / Auto / An" data-testid="series-flash" data-mode={mode}>
-              <Icon name="flash" size={20} />
-              <span>{torchOk ? FLASH_LABEL[mode] : '–'}</span>
+            <button type="button" className={`series-cam-flashbtn series-cam-flashicon${mode !== 'off' && torchOk ? ' on' : ''}`} onClick={cycleFlash} aria-label={`Blitz: ${FLASH_LABEL[torchOk ? mode : 'off']}`} title="Blitz: Aus / Auto / An" data-testid="series-flash" data-mode={torchOk ? mode : 'off'}>
+              <FlashIcon mode={torchOk ? mode : 'off'} size={22} />
             </button>
             <button type="button" className="series-cam-flashbtn" onClick={() => input.current?.click()} title="Kamera des Geräts öffnen (eigener Blitz Auto/An/Aus)" data-testid="series-device-camera">
               <Icon name="camera" size={20} />

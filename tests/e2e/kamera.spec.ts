@@ -90,3 +90,34 @@ test('Kamera-Modus: Projektsuche zeigt die Kostenstelle und findet Projekte übe
   await page.getByTestId('cam-site-search').fill('tiefgarage');
   await expect(page.getByTestId('cam-site-row').filter({ hasText: 'Wohnanlage Süd' })).toHaveCount(1);
 });
+
+test('Kamera-Modus: Blitz-Symbol wechselt Aus (durchgestrichen) → Auto (A, hervorgehoben) → An (hervorgehoben)', async ({ page }) => {
+  // Testkamera mit Lampe vortäuschen
+  await page.addInitScript(() => {
+    const caps = MediaStreamTrack.prototype.getCapabilities;
+    MediaStreamTrack.prototype.getCapabilities = function () {
+      return { ...(caps ? caps.call(this) : {}), torch: true } as MediaTrackCapabilities;
+    };
+    MediaStreamTrack.prototype.applyConstraints = () => Promise.resolve();
+  });
+  await freshStart(page);
+  await page.goto('./#/fotos/kamera');
+  await expect(page.getByTestId('camera-page')).toHaveAttribute('data-ready', 'true');
+  const btn = page.getByTestId('cam-torch');
+  const icon = (m: string) => btn.locator(`[data-flash-icon="${m}"]`);
+  await expect(icon('off')).toHaveCount(1);
+  await expect(btn).not.toHaveClass(/\bon\b/);
+  await expect(btn).not.toContainText(/Aus|Auto|An/);
+  await btn.click();
+  await expect(icon('auto')).toHaveCount(1);
+  await expect(icon('auto')).toContainText('A');
+  await expect(btn).toHaveClass(/\bon\b/);
+  await btn.click();
+  await expect(icon('on')).toHaveCount(1);
+  await expect(btn).toHaveClass(/\bon\b/);
+  await btn.click();
+  await expect(icon('off')).toHaveCount(1);
+  await expect(btn).not.toHaveClass(/\bon\b/);
+  await btn.click();
+  await btn.screenshot({ path: 'tests/output/blitz-auto.png' });
+});

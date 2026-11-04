@@ -9911,17 +9911,6 @@ html[data-theme='dark'] .crew-search {
   border-color: #f5b800;
   color: #000;
 }
-.cam-flash-mode {
-  position: relative;
-}
-.cam-flash-label {
-  position: absolute;
-  right: -2px;
-  bottom: -2px;
-  font-size: 0.6rem;
-  font-weight: 700;
-  line-height: 1;
-}
 /* Serienkamera: Foto drehen (unten links am Vorschaubild) */
 .series-cam-thumb button.series-cam-turn {
   top: auto;
@@ -10021,4 +10010,9 @@ html[data-theme='dark'] .crew-search {
     align-self: end;
     justify-self: center;
   }
+}
+.series-cam-flashicon {
+  width: 44px;
+  padding: 0;
+  justify-content: center;
 }

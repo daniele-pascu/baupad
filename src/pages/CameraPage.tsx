@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '../components/Icon';
+import { FlashIcon } from '../components/FlashIcon';
 import { useCanCreateProjects } from '../lib/sites';
 import { deviceUserName, PhotoCapture, photoFromPrepared } from '../components/PhotoCapture';
 import { PhotoImg } from '../components/PhotoImg';
@@ -76,7 +77,7 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
   const [desc, setDesc] = useState('');
   const [descOpen, setDescOpen] = useState(false);
   const [facing, setFacing] = useState<'environment' | 'user'>('environment');
-  const [torch, setTorch] = useState(false);
+  const [, setTorch] = useState(false);
   const [torchOk, setTorchOk] = useState(false);
   /** Store-App: echte Kamera des Geräts statt Live-Bild */
   const native = isNativeApp();
@@ -464,9 +465,8 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
             <Icon name="text" size={22} />
           </button>
           {!native && (
-            <button type="button" className={`cam-icon cam-flash-mode${torch || (torchOk && flashMode === 'auto') ? ' on' : ''}`} onClick={toggleTorch} aria-label={`Blitz: ${FLASH_LABEL[flashMode]}`} title="Blitz: Aus / Auto / An" style={iconStyle} data-testid="cam-torch" data-mode={flashMode}>
-              <Icon name="flash" size={22} />
-              <span className="cam-flash-label">{torchOk ? FLASH_LABEL[flashMode] : '–'}</span>
+            <button type="button" className={`cam-icon${torchOk && flashMode !== 'off' ? ' on' : ''}`} onClick={toggleTorch} aria-label={`Blitz: ${FLASH_LABEL[torchOk ? flashMode : 'off']}`} title="Blitz: Aus / Auto / An" style={iconStyle} data-testid="cam-torch" data-mode={torchOk ? flashMode : 'off'}>
+              <FlashIcon mode={torchOk ? flashMode : 'off'} size={22} />
             </button>
           )}
           {!native && (
