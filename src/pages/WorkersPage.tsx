@@ -40,9 +40,8 @@ import {
   weekOf,
   weekRange,
   workerName,
-  WORKER_GRADES,
   gradeLabel,
-  gradeRank,
+  knownGrade,
   siteManagerOf,
   siteManagerText,
 } from '../lib/crew';
@@ -53,7 +52,7 @@ import type { ExportFile } from '../lib/aufmass';
 import { getCompanyLogo } from '../lib/company';
 import { absenceOn, absenceRange, absenceSummary } from '../lib/crew-absence';
 import { exportCrewBackup, importCrewBackup } from '../lib/crew-backup';
-import { costCenterByProject, linkSitesToProject, projectFromSite } from '../lib/crew-link';
+import { costCenterByProject, costCenterSearchByProject, linkSitesToProject, projectFromSite } from '../lib/crew-link';
 import { ProjectHeading } from '../components/ProjectHeading';
 import { labelFromProject, type ProjectLabelInfo } from '../lib/project-label';
 import { useCanCreateProjects, useProjectIn } from '../lib/sites';
@@ -196,8 +195,11 @@ export function WorkersPage() {
 
   /** Kostenstelle je Projekt (für die Überschrift der Baustellenkarten) */
   const [ccMap, setCcMap] = useState<Map<string, string>>(() => new Map());
+  /** alle Kostenstellen je Projekt als Suchtext */
+  const [ccAllMap, setCcAllMap] = useState<Map<string, string>>(() => new Map());
   useEffect(() => {
     void costCenterByProject().then(setCcMap).catch(() => {});
+    void costCenterSearchByProject().then(setCcAllMap).catch(() => {});
   }, [projects]);
   /** Angaben der Baustelle wie in allen Werkzeugen: aus dem Projekt des Registers, sonst aus der Woche */
   const siteInfo = (s: WeekSite): ProjectLabelInfo => {
@@ -230,7 +232,7 @@ export function WorkersPage() {
       save(next);
       const target = next.sites.find((x) => x.id === siteId)!;
       const twice = ids.filter((id) => ds.some((d) => sitesOf(next, id, d, siteId).length));
-      if (twice.length) toast(`Doppelt eingeteilt auf ${target.name}: ${twice.map(nameOf).join(', ')} – bleibt auch auf der bisherigen Baustelle.`, 'success', 4500);
+      if (twice.length) toast(`Doppelt eingeteilt auf ${target.name}: ${twice.map(nameOf).join(', ')} – bleibt auch auf dem bisherigen Projekt.`, 'success', 4500);
       return;
     }
     for (const id of ids) {
@@ -273,7 +275,7 @@ export function WorkersPage() {
     const later = (await listWeeks()).filter((w) => w.id > weekId && sameSite(w, site) && !sameSite(w, site)!.paused);
     const freed = [...new Set(site.days.flat())];
     const ok = await confirmDialog({
-      title: 'Baustelle pausieren?',
+      title: 'Projekt pausieren?',
       message: (
         <>
           <p>„{site.name}“ ruht ab dieser Woche (Standby) und läuft ohne Arbeiter weiter, bis du sie fortsetzt.</p>
@@ -352,7 +354,7 @@ export function WorkersPage() {
         has &&
         !(await confirmDialog({
           title: `Einteilung aus KW ${isoWeekNo(prev.id)} übernehmen?`,
-          message: <p>Diese Woche hat schon eine Einteilung. Sie wird durch die Baustellen und Arbeiter aus KW {isoWeekNo(prev.id)} ersetzt. Andere Wochen bleiben unverändert.</p>,
+          message: <p>Diese Woche hat schon eine Einteilung. Sie wird durch die Projekte und Arbeiter aus KW {isoWeekNo(prev.id)} ersetzt. Andere Wochen bleiben unverändert.</p>,
           confirmLabel: 'Ersetzen',
           danger: true,
         }))
@@ -412,7 +414,11 @@ export function WorkersPage() {
   const q = query.trim().toLowerCase();
   const hit = (id: string) => !!q && nameOf(id).toLowerCase().includes(q);
   const filtered = q
-    ? plan.sites.filter((s) => [s.name, s.number, s.address].some((t) => t?.toLowerCase().includes(q)) || s.days.some((d) => d.some(hit)))
+    ? plan.sites.filter((s) => {
+        const p = s.projectId ? projects.find((x) => x.id === s.projectId) : undefined;
+        const texts = [s.name, s.number, s.address, p?.name, p?.site, p?.number, p ? ccMap.get(p.id) : '', p ? ccAllMap.get(p.id) : '', siteManagerOf(s, p)?.name];
+        return texts.some((t) => t?.toLowerCase().includes(q)) || s.days.some((d) => d.some(hit));
+      })
     : plan.sites;
   // Reihenfolge der Baustellen (nur Anzeige, gemerkt): wie angelegt, Projektnummer, Kostenstelle, Name, neu/alt
   const projOf = (s: WeekSite) => (s.projectId ? projects.find((x) => x.id === s.projectId) : undefined);
@@ -468,7 +474,7 @@ export function WorkersPage() {
         danger: true,
         onSelect: () =>
           void confirmDialog({
-            title: 'Baustelle entfernen?',
+            title: 'Projekt entfernen?',
             message: <p>„{s.name}“ und ihre Einteilung werden aus dieser Woche entfernt. Andere Wochen bleiben unverändert.</p>,
             confirmLabel: 'Entfernen',
             danger: true,
@@ -568,7 +574,7 @@ export function WorkersPage() {
               Diese Woche
             </button>
           )}
-          <button type="button" className="btn btn-sm crew-carry-btn" onClick={() => void carryAgain()} title="Baustellen und Arbeiter der Vorwoche in diese Woche übernehmen" data-testid="crew-carry">
+          <button type="button" className="btn btn-sm crew-carry-btn" onClick={() => void carryAgain()} title="Projekte und Arbeiter der Vorwoche in diese Woche übernehmen" data-testid="crew-carry">
             <Icon name="copy" size={16} /> Vorwoche übernehmen
           </button>
         </div>
@@ -576,7 +582,7 @@ export function WorkersPage() {
         {draftFrom !== null && plan.sites.length > 0 && (
           <div className="banner banner-info" role="status" data-testid="draft-banner">
             <p>
-              Weitergeführt aus <strong>KW {isoWeekNo(draftFrom)}</strong>: gleiche Baustellen und Arbeiter. Änderungen gelten nur für diese Woche – die Vorwoche bleibt
+              Weitergeführt aus <strong>KW {isoWeekNo(draftFrom)}</strong>: gleiche Projekte und Arbeiter. Änderungen gelten nur für diese Woche – die Vorwoche bleibt
               unverändert.
             </p>
             <button type="button" className="btn btn-sm" onClick={() => save({ ...plan, updatedAt: Date.now() })} data-testid="draft-save">
@@ -646,7 +652,7 @@ export function WorkersPage() {
 
         {plan.sites.length > 0 && active.length > 0 && (
           <p className="muted small crew-drag-hint" data-testid="crew-drag-hint">
-            Tipp: Namen auf eine andere Baustelle ziehen (am Handy kurz gedrückt halten) – ab diesem Tag dort, auf der bisherigen automatisch entfernt.
+            Tipp: Namen auf ein anderes Projekt ziehen (am Handy kurz gedrückt halten) – ab diesem Tag dort, auf der bisherigen automatisch entfernt.
           </p>
         )}
         {drag && (
@@ -659,13 +665,13 @@ export function WorkersPage() {
           {plan.sites.length > 0 && (
             <div className="crew-sites-bar" data-testid="crew-sites-bar">
               <strong className="crew-sites-count" data-testid="crew-sites-count">
-                {plan.sites.length} {plan.sites.length === 1 ? 'Baustelle' : 'Baustellen'}
+                {plan.sites.length} {plan.sites.length === 1 ? 'Projekt' : 'Projekte'}
               </strong>
               {plan.sites.length > 1 && (
                 <span className="crew-sort">
                   <label>
                     <span className="muted small">Sortieren nach</span>
-                    <select value={siteSort.key} onChange={(e) => changeSiteSort({ ...siteSort, key: e.target.value as SiteSort })} aria-label="Baustellen sortieren nach" data-testid="crew-order">
+                    <select value={siteSort.key} onChange={(e) => changeSiteSort({ ...siteSort, key: e.target.value as SiteSort })} aria-label="Projekte sortieren nach" data-testid="crew-order">
                       {(Object.keys(SITE_SORT_LABELS) as SiteSort[]).map((o) => (
                         <option key={o} value={o}>
                           {SITE_SORT_LABELS[o]}
@@ -692,7 +698,7 @@ export function WorkersPage() {
             <label className="crew-search">
               <Icon name="select" size={18} />
               <span className="sr-only">Suchen</span>
-              <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Baustelle oder Arbeiter suchen" data-testid="crew-search" />
+              <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Projekt, Kostenstelle, Projektnummer oder Arbeiter suchen" data-testid="crew-search" />
               {q && (
                 <span className="muted small" data-testid="crew-search-count">
                   {shown.length} von {plan.sites.length}
@@ -826,7 +832,7 @@ export function WorkersPage() {
           )}
           {plan.sites.length === 0 && (
             <div className="empty" data-testid="crew-empty">
-              <p>Noch keine Baustelle in dieser Woche.</p>
+              <p>Noch kein Projekt in dieser Woche.</p>
               <p className="muted">Projekt auswählen oder neu anlegen, dann die Arbeiter je Tag einteilen.</p>
             </div>
           )}
@@ -862,7 +868,7 @@ export function WorkersPage() {
               setProjects(await listProjects());
               const f = siteFromProject(p);
               save(addSite(plan, { ...f, note: '' }).week);
-              toast(`Baustelle „${f.name}“ angelegt.`, 'success');
+              toast(`Projekt „${f.name}“ angelegt.`, 'success');
               setDialog(null);
             })
           }
@@ -888,7 +894,7 @@ export function WorkersPage() {
               if (dialog.site) save(updateSite(plan, dialog.site.id, f));
               else {
                 save(addSite(plan, f).week);
-                toast(`Baustelle „${f.name}“ angelegt.`, 'success');
+                toast(`Projekt „${f.name}“ angelegt.`, 'success');
               }
               setDialog(null);
             })
@@ -1192,7 +1198,7 @@ function AssignDialog({
   const [ds, setDs] = useState<number[]>(initialDays);
   const [q, setQ] = useState('');
   const needle = q.trim().toLowerCase();
-  const shown = needle ? workers.filter((w) => [workerName(w), w.role ?? '', w.staffNo ?? '', gradeLabel(w.grade) || WORKER_GRADES[gradeRank(w)].label].join(' ').toLowerCase().includes(needle)) : workers;
+  const shown = needle ? workers.filter((w) => [workerName(w), w.role ?? '', w.staffNo ?? '', gradeLabel(knownGrade(w) ?? undefined)].join(' ').toLowerCase().includes(needle)) : workers;
   /** immer zusätzlich hier einteilen: wer schon auf einer anderen Baustelle ist, bleibt dort (wird gekennzeichnet) */
   const keep = true;
   const status = (w: Worker) => {
@@ -1260,7 +1266,7 @@ function AssignDialog({
                 />
                 <span className="crew-pick-name">
                   {workerName(w)}
-                  <span className="muted small"> · {gradeLabel(w.grade) || WORKER_GRADES[gradeRank(w)].label}</span>
+                  {knownGrade(w) && <span className="muted small"> · {gradeLabel(knownGrade(w)!)}</span>}
                 </span>
                 <span className={`crew-pick-status${st.warn ? ' warn' : ''}`}>{st.text}</span>
               </label>
@@ -1302,14 +1308,14 @@ function ChipDialog({
       <div className="crew-chip-actions">
         {also.length > 0 && (
           <p className="banner banner-warn small" role="status" data-testid="chip-also-hint">
-            Doppelt eingeteilt: {name} ist am {DAY_NAMES[day]} auch auf {also.map((x) => x.name).join(', ')}. „Nur am {DAY_SHORT[day]} entfernen“ nimmt ihn nur von dieser
-            Baustelle.
+            Doppelt eingeteilt: {name} ist am {DAY_NAMES[day]} auch auf {also.map((x) => x.name).join(', ')}. „Nur am {DAY_SHORT[day]} entfernen“ nimmt ihn nur von diesem
+            Projekt.
           </p>
         )}
         {others.length > 0 && (
           <div className="crew-move">
             <label className="field">
-              <span>Ab {DAY_NAMES[day]} auf andere Baustelle</span>
+              <span>Ab {DAY_NAMES[day]} auf anderes Projekt</span>
               <select value={to} onChange={(e) => setTo(e.target.value)} data-testid="chip-move-to">
                 {others.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -1363,7 +1369,7 @@ function OpenDialog({
             <Icon name="plus" size={18} /> {s.name}
           </button>
         ))}
-        {!plan.sites.length && <p className="muted">Noch keine Baustelle in dieser Woche.</p>}
+        {!plan.sites.length && <p className="muted">Noch kein Projekt in dieser Woche.</p>}
         <button type="button" className="btn" onClick={onAbsence} data-testid="open-absence">
           <Icon name="calendar" size={18} /> Urlaub / Krank (von – bis)
         </button>
@@ -1376,7 +1382,7 @@ function OpenDialog({
 function DayListDialog({ site, days, weekId, onPick, onClose }: { site: WeekSite; days: number[]; weekId: string; onPick(day: number): void; onClose(): void }) {
   return (
     <Modal title={`Tagesliste: ${site.name}`} onClose={onClose} testId="daylist-dialog">
-      <p className="muted small">Liste der Arbeiter dieses Tages mit Tätigkeit und Telefon – zum Ausdrucken für die Baustelle.</p>
+      <p className="muted small">Liste der Arbeiter dieses Tages mit Tätigkeit und Telefon – zum Ausdrucken für das Projekt.</p>
       <div className="crew-chip-actions">
         {days.map((d) => (
           <button key={d} type="button" className="btn" onClick={() => onPick(d)} data-testid={`daylist-${d}`}>
@@ -1462,8 +1468,8 @@ export function AbsenceDialog({
         </div>
         <p className="muted small">
           {kind === 'urlaub'
-            ? 'Im Urlaub wird der Arbeiter an diesen Tagen von der Baustelle genommen.'
-            : 'Krank: bleibt auf seiner Baustelle eingeteilt und wird dort als krank markiert.'}
+            ? 'Im Urlaub wird der Arbeiter an diesen Tagen vom Projekt genommen.'
+            : 'Krank: bleibt auf seinem Projekt eingeteilt und wird dort als krank markiert.'}
         </p>
         <label className="field">
           <span>Arbeiter</span>

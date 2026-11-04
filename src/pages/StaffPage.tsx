@@ -117,7 +117,7 @@ export function StaffPage() {
     }, 'Löschen fehlgeschlagen');
 
   /** Gruppenüberschrift je Funktion (nur bei Sortierung nach Funktion) */
-  const groupOf = (w: Worker) => (sort === 'grade' ? WORKER_GRADES[gradeRank(w)].label : '');
+  const groupOf = (w: Worker) => (sort === 'grade' ? (WORKER_GRADES[gradeRank(w)]?.label ?? 'Ohne Funktion') : '');
   const today = isoDate(new Date());
   const upcoming = (w: Worker) => absences.filter((a) => a.workerId === w.id && a.to >= today).sort((a, b) => a.from.localeCompare(b.from));
 

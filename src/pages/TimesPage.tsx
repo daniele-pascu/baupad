@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Icon } from '../components/Icon';
 import { TimeField } from '../components/TimeField';
 import { SiteNav } from '../components/SiteNav';
@@ -227,7 +227,7 @@ function DayList({ data, date, by, office, extra, onExtra, onSaved }: { data: Ti
       {items.length === 0 && <p className="muted small">An diesem Tag ist niemand eingeteilt. Arbeiter unten hinzufügen.</p>}
       <ul className="times-day-list">
         {items.map((x) => (
-          <DayRow key={`${x.w.id}-${date}-${x.rec?.updatedAt ?? 0}`} w={x.w} date={date} rec={x.rec} sugg={x.sugg} data={data} by={by} locked={x.locked} onSaved={onSaved} />
+          <DayRow key={`${x.w.id}-${date}`} w={x.w} date={date} rec={x.rec} sugg={x.sugg} data={data} by={by} locked={x.locked} onSaved={onSaved} />
         ))}
       </ul>
       <div className="row gap wrap times-day-actions">
@@ -346,6 +346,15 @@ function DayRow({ w, date, rec, sugg, data, by, locked, onSaved }: { w: Worker; 
   const [site, setSite] = useState<{ projectId: string | null; siteName: string } | null>(first ? { projectId: first.projectId, siteName: first.siteName } : null);
   const [t, setT] = useState<TimeValues>(() => timeValues(first?.from ? first : fallback));
   const [travel, setTravel] = useState(first?.travel ? fmtH(first.travel) : '');
+  // Änderung von außen (anderes Gerät, Vorschlag übernommen): Werte nachziehen – nicht während hier getippt wird
+  const rowRef = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    if (rowRef.current?.contains(document.activeElement)) return;
+    setSite(first ? { projectId: first.projectId, siteName: first.siteName } : null);
+    setT(timeValues(first?.from ? first : fallback));
+    setTravel(first?.travel ? fmtH(first.travel) : '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rec?.updatedAt]);
   const approved = data.approvals.some((a) => a.id === monthId(w.id, data.month));
   const hours = validTime(t.from) && validTime(t.to) ? hoursOf(t.from, t.to, t.pause) : (first?.hours ?? 0);
   const save = (next: { site?: typeof site; t?: typeof t; travel?: string } = {}) => {
@@ -360,7 +369,7 @@ function DayRow({ w, date, rec, sugg, data, by, locked, onSaved }: { w: Worker; 
   const absence = sugg.absence;
   const setAbsence = (kind: 'urlaub' | 'krank' | null) => void setDayAbsence(w.id, date, kind, by).then(onSaved, (e) => showError(e, 'Speichern fehlgeschlagen'));
   return (
-    <li className={`times-day-row${rec ? ' done' : ' suggested'}${multi ? ' multi' : ''}${absence ? ' absent' : ''}`} data-testid="times-day-row" data-name={workerName(w)} data-state={rec ? 'done' : 'suggested'}>
+    <li ref={rowRef} className={`times-day-row${rec ? ' done' : ' suggested'}${multi ? ' multi' : ''}${absence ? ' absent' : ''}`} data-testid="times-day-row" data-name={workerName(w)} data-state={rec ? 'done' : 'suggested'}>
       <span className="times-day-name">
         <strong>{workerName(w)}</strong>
         {rec && !absence ? <span className="times-badge ok">erfasst</span> : first && !absence ? <span className="times-badge">Vorschlag</span> : null}

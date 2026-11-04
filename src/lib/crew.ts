@@ -159,6 +159,11 @@ export const gradeLabel = (g: WorkerGrade | undefined) => WORKER_GRADES.find((x)
  * ohne Anhaltspunkt gilt Facharbeiter.
  */
 export function gradeOf(w: { grade?: WorkerGrade; role?: string }): WorkerGrade {
+  return knownGrade(w) ?? 'facharbeiter';
+}
+
+/** Funktion nur, wenn gewählt oder aus der Tätigkeit erkennbar – sonst keine (nichts anzeigen) */
+export function knownGrade(w: { grade?: WorkerGrade; role?: string }): WorkerGrade | null {
   if (w.grade) return w.grade;
   const r = (w.role ?? '').toLowerCase();
   if (/projektleit|bauleit/.test(r)) return 'projektleiter';
@@ -167,7 +172,7 @@ export function gradeOf(w: { grade?: WorkerGrade; role?: string }): WorkerGrade 
   if (/polier/.test(r)) return 'polier';
   if (/vorarbeit|partieführ/.test(r)) return 'vorarbeiter';
   if (/hilfs|helfer|hilfskraft|lehrling|azubi/.test(r)) return 'hilfsarbeiter';
-  return 'facharbeiter';
+  return null;
 }
 
 /** Personalstand: Anzahl je Funktion */
@@ -182,7 +187,11 @@ export const sortWorkers = (list: Worker[]) =>
   [...list].sort((a, b) => (a.lastName || a.firstName).localeCompare(b.lastName || b.firstName, 'de') || a.firstName.localeCompare(b.firstName, 'de'));
 
 /** Rang der Funktion (0 = Projektleiter … 6 = Hilfsarbeiter) */
-export const gradeRank = (w: { grade?: WorkerGrade; role?: string }) => Math.max(0, WORKER_GRADES.findIndex((g) => g.id === gradeOf(w)));
+/** ohne Funktion: ans Ende (nach Hilfsarbeiter) */
+export const gradeRank = (w: { grade?: WorkerGrade; role?: string }) => {
+  const g = knownGrade(w);
+  return g ? WORKER_GRADES.findIndex((x) => x.id === g) : WORKER_GRADES.length;
+};
 
 /** Reihenfolge für Einteilung und Ausdrucke: höhere Funktion zuerst, innerhalb der Funktion alphabetisch */
 export const sortByGrade = (list: Worker[]) => sortWorkers(list).sort((a, b) => gradeRank(a) - gradeRank(b));

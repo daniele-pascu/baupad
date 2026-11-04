@@ -292,7 +292,7 @@ test('Suche, PDF (Woche + Tagesliste), Drucken, Vorwoche übernehmen, Sicherung 
   await page.getByTestId('chip-dialog').getByTestId('chip-remove').click();
   await expect(chips(page, 'Neubau Musterstraße', 0)).toHaveCount(0);
   await page.getByTestId('crew-carry').click(); // sichtbar in der Wochenleiste
-  await expect(page.getByTestId('confirm-dialog')).toContainText('wird durch die Baustellen und Arbeiter aus KW 44 ersetzt');
+  await expect(page.getByTestId('confirm-dialog')).toContainText('wird durch die Projekte und Arbeiter aus KW 44 ersetzt');
   await page.getByRole('button', { name: 'Ersetzen' }).click();
   await expect(chips(page, 'Neubau Musterstraße', 0)).toHaveText(['Max Muster']);
 
@@ -812,7 +812,7 @@ test('Baustellen: Anzahl der Woche, sortieren nach Projektnummer/Anlegedatum mit
     await newWeekProject(page, name, { 'project-number': no });
     await page.waitForTimeout(20); // unterschiedliche Anlegezeit
   }
-  await expect(page.getByTestId('crew-sites-count')).toHaveText('3 Baustellen');
+  await expect(page.getByTestId('crew-sites-count')).toHaveText('3 Projekte');
   const names = () => page.getByTestId('site-card').evaluateAll((els) => els.map((e) => e.getAttribute('data-site')));
   await expect.poll(names).toEqual(['Alpha', 'Beta', 'Gamma']);
   const order = page.getByTestId('crew-order');
