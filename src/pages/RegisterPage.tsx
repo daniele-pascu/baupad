@@ -10,6 +10,16 @@ import { confirmDialog, showError, toast } from '../components/ui';
 import { useAccess } from '../lib/access';
 import { TOOLS, type ToolId } from '../lib/auth';
 import { adoptProject, costCenterByProject, projectTools } from '../lib/crew-link';
+import { naturalCompare } from '../lib/numbers';
+
+type RegisterOrder = 'name' | 'cc-asc' | 'cc-desc' | 'new' | 'old';
+const ORDER_LABELS: Record<RegisterOrder, string> = {
+  name: 'Name A–Z',
+  'cc-asc': 'Kostenstelle aufsteigend',
+  'cc-desc': 'Kostenstelle absteigend',
+  new: 'Neueste zuerst',
+  old: 'Älteste zuerst',
+};
 import { useDataChanged } from '../lib/data-events';
 import { listProjects, projectStats } from '../lib/db';
 import { labelFromProject } from '../lib/project-label';
@@ -42,6 +52,23 @@ export function RegisterPage() {
   const [projects, setProjects] = useState<Project[] | null>(null);
   const [ccs, setCcs] = useState<Map<string, string>>(() => new Map());
   const [q, setQ] = useState('');
+  /** Reihenfolge (gemerkt): Name, Kostenstelle auf-/absteigend, neueste/älteste zuerst */
+  const [order, setOrder] = useState<RegisterOrder>(() => {
+    try {
+      const v = localStorage.getItem('registerOrder');
+      return v && v in ORDER_LABELS ? (v as RegisterOrder) : 'name';
+    } catch {
+      return 'name';
+    }
+  });
+  const changeOrder = (o: RegisterOrder) => {
+    setOrder(o);
+    try {
+      localStorage.setItem('registerOrder', o);
+    } catch {
+      /* egal */
+    }
+  };
   const [adopt, setAdopt] = useState<Project | null>(null);
   const [editing, setEditing] = useState<Project | null>(null);
   const [creating, setCreating] = useState(false);
@@ -61,9 +88,22 @@ export function RegisterPage() {
     return (projects ?? [])
       .filter((p) => access.canSite(`p:${p.id}`))
       .filter((p) => !needle || [p.name, p.site, p.number ?? '', ccs.get(p.id) ?? '', p.address, p.client, p.notes].join(' ').toLowerCase().includes(needle))
-      .sort((a, b) => (a.site || a.name).localeCompare(b.site || b.name, 'de'));
+      .sort((a, b) => {
+        const byName = (a.site || a.name).localeCompare(b.site || b.name, 'de');
+        if (order === 'new') return b.createdAt - a.createdAt || byName;
+        if (order === 'old') return a.createdAt - b.createdAt || byName;
+        if (order === 'cc-asc' || order === 'cc-desc') {
+          const ca = ccs.get(a.id) ?? '';
+          const cb = ccs.get(b.id) ?? '';
+          // ohne Kostenstelle immer am Ende
+          if (!ca || !cb) return ca ? -1 : cb ? 1 : byName;
+          const c = naturalCompare(ca, cb);
+          return (order === 'cc-asc' ? c : -c) || byName;
+        }
+        return byName;
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projects, ccs, q, access.session]);
+  }, [projects, ccs, q, order, access.session]);
   const usable = (t: ToolId) => access.canTool(t);
 
   /** Löschen: Projekt mit allem, was in den Tools daran hängt (Stunden der Zeitaufzeichnung bleiben) */
@@ -163,6 +203,16 @@ export function RegisterPage() {
               <Icon name="select" size={18} />
               <span className="sr-only">Suchen</span>
               <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Baustelle, Nummer, Kostenstelle oder Auftraggeber suchen" data-testid="register-search" />
+            </label>
+            <label className="register-order">
+              <span className="sr-only">Sortieren</span>
+              <select value={order} onChange={(e) => changeOrder(e.target.value as RegisterOrder)} aria-label="Sortieren" data-testid="register-order">
+                {(Object.keys(ORDER_LABELS) as RegisterOrder[]).map((o) => (
+                  <option key={o} value={o}>
+                    {ORDER_LABELS[o]}
+                  </option>
+                ))}
+              </select>
             </label>
           </div>
         )}

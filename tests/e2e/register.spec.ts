@@ -159,3 +159,28 @@ test('Projekt im Tool gelöscht → auch aus dem Projektregister weg', async ({ 
   await expect(page.getByTestId('register-new')).toBeVisible();
   await expect(page.getByTestId('register-row').filter({ hasText: 'Weg damit' })).toHaveCount(0);
 });
+
+test('Projektregister sortieren: Name, Kostenstelle auf-/absteigend, neueste/älteste zuerst', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'Beta', {}, [{ number: '91500', name: 'Hof' }]);
+  await page.goto('./baupad/aufmass-und-abrechnung');
+  await createProject(page, 'Alpha', {}, [{ number: '91200', name: 'Keller' }]);
+  await page.goto('./baupad/aufmass-und-abrechnung');
+  await createProject(page, 'Gamma', {}, [{ number: '91300', name: 'Dach' }]);
+  await page.goto('./baupad/tools');
+  await page.getByTestId('tools-register').click();
+  const names = () => page.getByTestId('register-row').evaluateAll((els) => els.map((e) => e.getAttribute('data-name')));
+  await expect.poll(names).toEqual(['Alpha', 'Beta', 'Gamma']);
+  await page.getByTestId('register-order').selectOption('cc-asc');
+  await expect.poll(names).toEqual(['Alpha', 'Gamma', 'Beta']); // 91200, 91300, 91500
+  await page.getByTestId('register-order').selectOption('cc-desc');
+  await expect.poll(names).toEqual(['Beta', 'Gamma', 'Alpha']);
+  await page.getByTestId('register-order').selectOption('new');
+  await expect.poll(names).toEqual(['Gamma', 'Alpha', 'Beta']);
+  await page.getByTestId('register-order').selectOption('old');
+  await expect.poll(names).toEqual(['Beta', 'Alpha', 'Gamma']);
+  // bleibt gemerkt
+  await page.reload();
+  await expect(page.getByTestId('register-order')).toHaveValue('old');
+  await expect.poll(names).toEqual(['Beta', 'Alpha', 'Gamma']);
+});

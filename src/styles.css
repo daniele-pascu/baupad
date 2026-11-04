@@ -10345,3 +10345,13 @@ html[data-theme='dark'] .crew-search {
 .worker-dup-line {
   display: block;
 }
+/* Projektregister: Sortierung neben der Suche */
+.register-order select {
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
