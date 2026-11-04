@@ -96,7 +96,7 @@ export function PhotoCapture({
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    void deviceUserName().then(setName); // angemeldet: Name aus der Anmeldung, sonst vom Gerät
+    void deviceUserName().then((n) => setName((prev) => prev || n)); // angemeldet: Name aus der Anmeldung, sonst vom Gerät
   }, []);
   useEffect(() => () => pending?.forEach((p) => URL.revokeObjectURL(p.url)), [pending]);
 

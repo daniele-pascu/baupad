@@ -1,6 +1,7 @@
 import { PDFDocument, rgb, StandardFonts, type PDFFont, type PDFImage, type PDFPage } from 'pdf-lib';
 import { safeFileName, type ExportFile } from './aufmass';
 import type { CompanyLogo } from './company';
+import { baupadLogoBytes } from './baupad-logo';
 import { DAY_NAMES, DAY_SHORT, dayDate, dayList, isoWeekNo, parseDate, addDays, sortByGrade, siteTitle, timeLabel, unassigned, visibleDays, weekRange, workerName, workerWithGrade, type SiteLabel } from './crew';
 import type { WeekPlan, WeekSite, Worker, WorkTimes } from './types';
 
@@ -41,6 +42,8 @@ export interface Ctx {
   bold: PDFFont;
   charset: Set<number>;
   logo: PDFImage | null;
+  /** BauPad-App-Logo (oben links) */
+  baupad?: PDFImage | null;
 }
 
 /** Text für die Standardschrift: Zeichen außerhalb (z. B. ł, ć, č) ohne Akzent bzw. „?“ */
@@ -73,53 +76,48 @@ export async function setup(opts: Pick<CrewPdfOptions, 'logo'>): Promise<Ctx> {
   } catch {
     logo = null; // Logo ist optional
   }
-  return { doc, font, bold, charset: new Set(font.getCharacterSet()), logo };
+  let baupad: PDFImage | null = null;
+  try {
+    baupad = await doc.embedPng(baupadLogoBytes());
+  } catch {
+    baupad = null;
+  }
+  return { doc, font, bold, charset: new Set(font.getCharacterSet()), logo, baupad };
 }
 
 /**
- * Kopf: Firmenlogo (ohne Logo der Firmenname in Buchstaben) und Titel mit Untertitel; Logo links und Titel rechts
- * (Standard) oder umgekehrt (logoRight); liefert die y-Position darunter
+ * Kopf: oben links das BauPad-Logo (schwarzes Viereck wie die App), rechts Titel und Untertitel;
+ * das Firmenlogo (ohne Logo der Firmenname) steht links vor dem Titel. Liefert die y-Position darunter.
+ * (`logoRight` bleibt für ältere Aufrufe, das BauPad-Logo steht immer links.)
  */
-export function header(ctx: Ctx, page: PDFPage, title: string, sub: string, company: string, logoRight = false): number {
-  const { width, height } = page.getSize();
-  let y = height - M;
-  let brandW = 0;
-  const drawBrand = (x: number | ((w: number) => number)) => {
-    if (ctx.logo) {
-      const h = 32;
-      const w = Math.min(140, (ctx.logo.width / ctx.logo.height) * h);
-      const lh = (w / ctx.logo.width) * ctx.logo.height;
-      page.drawImage(ctx.logo, { x: typeof x === 'function' ? x(w) : x, y: y - 1 - (h + lh) / 2, width: w, height: lh });
-      brandW = w + 20;
-    } else {
-      // ohne Firmenlogo: schwarzes Viereck „BauPad“, daneben der Firmenname (falls eingetragen)
-      const bw = ctx.bold.widthOfTextAtSize('BauPad', 12) + 16;
-      const c = company ? fit(ctx.bold, clean(ctx, company), 13, width / 2 - M - bw - 10) : '';
-      const cw = c ? ctx.bold.widthOfTextAtSize(c, 13) + 10 : 0;
-      const x0 = typeof x === 'function' ? x(bw + cw) : x;
-      page.drawRectangle({ x: x0, y: y - 30, width: bw, height: 28, color: INK });
-      page.drawText('BauPad', { x: x0 + 8, y: y - 20, size: 12, font: ctx.bold, color: rgb(1, 1, 1) });
-      if (c) page.drawText(c, { x: x0 + bw + 10, y: y - 21, size: 13, font: ctx.bold, color: INK });
-      brandW = bw + cw + 20;
-    }
-  };
-  if (logoRight) {
-    drawBrand((w) => width - M - w);
-    const max = width - 2 * M - brandW;
-    const t = fit(ctx.bold, clean(ctx, title), 16, max);
-    page.drawText(t, { x: M, y: y - 16, size: 16, font: ctx.bold, color: INK });
-    page.drawText(fit(ctx.font, clean(ctx, sub), 10, max), { x: M, y: y - 30, size: 10, font: ctx.font, color: MUTED });
-  } else {
-    drawBrand(M);
-    const left = M + brandW;
-    const right = (text: string, size: number, font: PDFFont, color: typeof INK, ty: number) => {
-      const t = fit(font, clean(ctx, text), size, width - M - left);
-      page.drawText(t, { x: width - M - font.widthOfTextAtSize(t, size), y: ty, size, font, color });
-    };
-    right(title, 16, ctx.bold, INK, y - 16);
-    right(sub, 10, ctx.font, MUTED, y - 30);
+export function header(ctx: Ctx, page: PDFPage, title: string, sub: string, company: string, _logoRight = false): number {
+  void _logoRight;
+  const { width } = page.getSize();
+  const top = page.getSize().height - M;
+  const S = 34;
+  let left = M;
+  if (ctx.baupad) {
+    page.drawImage(ctx.baupad, { x: M, y: top - S - 3, width: S, height: S });
+    left = M + S + 14;
   }
-  y -= 40;
+  const t = fit(ctx.bold, clean(ctx, title), 16, (width - M - left) * 0.7);
+  const st = fit(ctx.font, clean(ctx, sub), 10, (width - M - left) * 0.7);
+  const tw = Math.max(ctx.bold.widthOfTextAtSize(t, 16), ctx.font.widthOfTextAtSize(st, 10));
+  page.drawText(t, { x: width - M - ctx.bold.widthOfTextAtSize(t, 16), y: top - 16, size: 16, font: ctx.bold, color: INK });
+  page.drawText(st, { x: width - M - ctx.font.widthOfTextAtSize(st, 10), y: top - 30, size: 10, font: ctx.font, color: MUTED });
+  // Firmenlogo bzw. Firmenname links vor dem Titel
+  const right = width - M - tw - 16;
+  const room = right - left;
+  if (ctx.logo && room > 30) {
+    const h = 30;
+    const w = Math.min(140, room, (ctx.logo.width / ctx.logo.height) * h);
+    const lh = (w / ctx.logo.width) * ctx.logo.height;
+    page.drawImage(ctx.logo, { x: right - w, y: top - 3 - (S + lh) / 2, width: w, height: lh });
+  } else if (company && room > 30) {
+    const c = fit(ctx.bold, clean(ctx, company), 12, room);
+    page.drawText(c, { x: right - ctx.bold.widthOfTextAtSize(c, 12), y: top - 24, size: 12, font: ctx.bold, color: INK });
+  }
+  const y = top - 42;
   page.drawLine({ start: { x: M, y }, end: { x: width - M, y }, thickness: 1.2, color: INK });
   return y - 12;
 }
