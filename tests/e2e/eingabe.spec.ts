@@ -327,22 +327,30 @@ test('Messung: Fotos wie im Mängelplan (Galerie → Fotodokumentation), Taste F
   await lg.getByTestId('legend-save').click();
   await expect(page.getByTestId('plan-legend')).toContainText('Betonsanierung');
   await waitSaved(page);
-  // PDF mit Legende und Fotoseite je Nummer
+  // Plan-PDF mit Legende (ohne Fotos)
   const dl = await catchDownload(page, async () => {
     await page.getByTestId('export-pdf-plan').click();
-    await expect(page.getByTestId('pdf-photos')).toBeChecked();
     await page.getByTestId('pdf-export-run').click();
   });
-  const pdf = await saveDownload(dl, 'fotos-legende.pdf');
+  const pdf = await saveDownload(dl, 'plan-legende.pdf');
   const text = execFileSync('pdftotext', [pdf, '-'], { encoding: 'utf8' });
   expect(text).toContain('Legende');
   expect(text).toContain('Betonsanierung');
-  expect(text).toContain('Fotos - F-1');
-  expect(text).toContain('Nr. 1');
-  const pages = Number(/Pages:\s+(\d+)/.exec(execFileSync('pdfinfo', [pdf], { encoding: 'utf8' }))![1]);
-  expect(pages).toBe(2);
-  const images = execFileSync('pdfimages', ['-list', '-f', '2', '-l', '2', pdf], { encoding: 'utf8' }).trim().split('\n').length - 2;
-  expect(images).toBeGreaterThanOrEqual(3);
+  expect(text).not.toContain('Fotos');
+  expect(Number(/Pages:\s+(\d+)/.exec(execFileSync('pdfinfo', [pdf], { encoding: 'utf8' }))![1])).toBe(1);
+  await page.keyboard.press('Escape');
+  // Foto-PDF separat: jedes Foto mit Plan, Nummer und Position
+  const fdl = await catchDownload(page, async () => {
+    await page.getByTestId('export-pdf-plan').click();
+    await expect(page.getByTestId('pdf-photos-run')).toContainText('Foto-PDF (3)');
+    await page.getByTestId('pdf-photos-run').click();
+  });
+  const fpdf = await saveDownload(fdl, 'fotos.pdf');
+  const ftext = execFileSync('pdftotext', [fpdf, '-'], { encoding: 'utf8' });
+  expect(ftext.match(/Plan F-1 - parkdeck\s+·\s+Nr\. 1/g)?.length).toBe(3);
+  expect(ftext).toContain('Position: ohne Leistungszuordnung');
+  expect(Number(/Pages:\s+(\d+)/.exec(execFileSync('pdfinfo', [fpdf], { encoding: 'utf8' }))![1])).toBe(2);
+  expect(execFileSync('pdfimages', ['-list', fpdf], { encoding: 'utf8' }).trim().split('\n').length - 2).toBe(3);
   // Projekt: Taste Fotodokumentation öffnet die Fotos des Projekts (mit Vermerk)
   await page.keyboard.press('Escape');
   await page.getByRole('link', { name: 'Zurück zur Planliste' }).click();

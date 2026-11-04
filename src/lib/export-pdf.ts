@@ -16,7 +16,7 @@ import {
   type PDFPage,
 } from 'pdf-lib';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
-import { componentsOf, costCenterLabel, damagesOf, elementsOf, planTitle, safeFileName, type ExportFile } from './aufmass';
+import { componentsOf, costCenterLabel, damagesOf, elementsOf, findPosition, planTitle, safeFileName, type ExportFile } from './aufmass';
 import { dimsVisible, visibleDamages, visibleElements } from './layers';
 import { annotationsOf, contentRegion, dimGeometry, drawingSheet, isDrawingPlan, PAPER, PRINT_HEADER_MM, PRINT_MARGIN_MM, printScale, shapeToPage, unitsPerMeter } from './drawing';
 import { getBlob } from './db';
@@ -97,8 +97,6 @@ export interface PdfExportOptions {
   planIds: string[];
   /** Übersicht des Gesamtplans bei Planausschnitten (im freien Platz des Blatts, verdeckt nichts) */
   overview?: { enabled: boolean; corner: OverviewCorner };
-  /** nach jedem Plan: Fotos der Messungen je Nummer (A4 hoch) */
-  photos?: boolean;
 }
 
 export async function exportPlansPdf(data: ProjectState, opts: PdfExportOptions): Promise<ExportFile> {
@@ -123,7 +121,6 @@ export async function exportPlansPdf(data: ProjectState, opts: PdfExportOptions)
       const plan = data.plans[planId];
       if (!plan || plan.deletedAt) continue;
       await addPlanPage(ctx, data, plan);
-      if (opts.photos) await addPhotoPages(ctx, data, plan);
     }
   } finally {
     for (const d of ctx.jsDocs.values()) void closePdf(d);
@@ -593,76 +590,87 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   page.drawText(lbl, { x: bx + barPt - ctx.font.widthOfTextAtSize(lbl, 6.5) / 2, y: by + 5, size: 6.5, font: ctx.font, color: rgb(0.3, 0.33, 0.38) });
 }
 
-/** Fotos der Messungen eines Plans: je Nummer Überschrift (Farbe, Art, Menge, Bemerkung) und die Fotos (3 je Reihe) */
-async function addPhotoPages(ctx: Ctx, data: ProjectState, plan: Plan) {
-  const list = damagesOf(data, plan.id).filter((d) => d.photoIds?.length);
-  if (!list.length) return;
+/**
+ * Foto-PDF (eigene Datei): je Foto ein großes Bild, darüber klar beschriftet, zu welchem Plan, welcher
+ * Nummer und welcher Leistungsposition es gehört (dazu Art, Menge, Bemerkung). Zwei Fotos je A4-Seite.
+ */
+export async function exportPhotosPdf(data: ProjectState, planIds: string[]): Promise<ExportFile> {
+  const out = await PDFDocument.create();
+  out.setTitle('Fotos Aufmaß');
+  out.setCreator('BauPad');
+  out.setProducer('BauPad');
+  const font = await out.embedFont(StandardFonts.Helvetica);
+  const bold = await out.embedFont(StandardFonts.HelveticaBold);
+  const ctx = { charset: new Set(font.getCharacterSet()) } as Ctx;
   const { getPhotoStorage } = await import('./photo-storage');
   const storage = getPhotoStorage();
+  const photoMeta = new Map((await storage.list()).map((p) => [p.id, p]));
   const W = 595.28;
   const H = 841.89;
   const M = 36;
   const INK = rgb(0.1, 0.1, 0.12);
-  const MUTED = rgb(0.45, 0.45, 0.5);
-  const COLS = 3;
-  const GAP = 8;
-  const CW = (W - 2 * M - (COLS - 1) * GAP) / COLS;
-  const PH = 150;
+  const MUTED = rgb(0.4, 0.42, 0.46);
+  const HEAD = 34;
+  const SLOT = (H - 2 * M - HEAD - 16) / 2;
+  const CAP = 50;
+  const date = new Date().toLocaleDateString('de-DE');
   let page: PDFPage | null = null;
-  let y = 0;
-  const title = clean(ctx, `Fotos - ${planTitle(plan)}`);
+  let slot = 2;
+  let pageNo = 0;
   const newPage = () => {
-    page = ctx.out.addPage([W, H]);
-    page.drawText(fitText(ctx.bold, title, 13, W - 2 * M), { x: M, y: H - M - 12, size: 13, font: ctx.bold, color: INK });
-    const sub = clean(ctx, [ctx.projectName, new Date().toLocaleDateString('de-DE')].filter(Boolean).join(' · '));
-    page.drawText(fitText(ctx.font, sub, 8.5, W - 2 * M), { x: M, y: H - M - 26, size: 8.5, font: ctx.font, color: MUTED });
-    page.drawLine({ start: { x: M, y: H - M - 32 }, end: { x: W - M, y: H - M - 32 }, thickness: 0.6, color: MUTED });
-    y = H - M - 44;
+    page = out.addPage([W, H]);
+    pageNo++;
+    slot = 0;
+    page.drawText(fitText(bold, clean(ctx, `Fotodokumentation - ${data.project.name}`), 13, W - 2 * M - 80), { x: M, y: H - M - 13, size: 13, font: bold, color: INK });
+    page.drawText(date, { x: W - M - font.widthOfTextAtSize(date, 9), y: H - M - 12, size: 9, font, color: MUTED });
+    page.drawLine({ start: { x: M, y: H - M - HEAD + 10 }, end: { x: W - M, y: H - M - HEAD + 10 }, thickness: 0.6, color: MUTED });
+    const pn = `Seite ${pageNo}`;
+    page.drawText(pn, { x: W - M - font.widthOfTextAtSize(pn, 8), y: M - 16, size: 8, font, color: MUTED });
   };
-  newPage();
-  for (const d of list) {
-    const imgs: PDFImage[] = [];
-    for (const id of d.photoIds!) {
-      try {
-        const b = await storage.blobs(id);
-        if (!b) continue;
-        const u8 = new Uint8Array(b.data);
-        imgs.push(u8[0] === 0x89 ? await ctx.out.embedPng(b.data) : await ctx.out.embedJpg(b.data));
-      } catch {
-        /* Foto überspringen */
+  let count = 0;
+  for (const planId of planIds) {
+    const plan = data.plans[planId];
+    if (!plan || plan.deletedAt) continue;
+    for (const d of damagesOf(data, plan.id)) {
+      for (const id of d.photoIds ?? []) {
+        let img: PDFImage;
+        try {
+          const b = await storage.blobs(id);
+          if (!b) continue;
+          img = new Uint8Array(b.data)[0] === 0x89 ? await out.embedPng(b.data) : await out.embedJpg(b.data);
+        } catch {
+          continue;
+        }
+        if (slot >= 2) newPage();
+        const pg = page as unknown as PDFPage;
+        const top = H - M - HEAD - slot * (SLOT + 16);
+        // Beschriftung: Plan · Nr. groß, darunter Position, dann Art/Menge/Bemerkung
+        pg.drawRectangle({ x: M, y: top - CAP, width: W - 2 * M, height: CAP, color: rgb(0.95, 0.95, 0.96) });
+        pg.drawRectangle({ x: M, y: top - CAP, width: 6, height: CAP, color: hexToRgb(d.color) });
+        const pos = findPosition(data, d.positionRef)?.pos;
+        const l1 = clean(ctx, `Plan ${planTitle(plan)}   ·   Nr. ${damageNo(d)}`);
+        const l2 = clean(ctx, pos ? `Position ${pos.number}  ${pos.shortText}` : 'Position: ohne Leistungszuordnung');
+        const qty = d.area !== null ? `${formatArea(d.area)} m²` : `${formatMeasure(d.length)} m`;
+        const taken = photoMeta.get(id)?.takenAt;
+        const l3 = clean(ctx, [measureLabel(d), qty, d.note?.trim() ?? '', taken ? `Foto vom ${new Date(taken).toLocaleDateString('de-DE')}` : ''].filter(Boolean).join('  ·  '));
+        pg.drawText(fitText(bold, l1, 13, W - 2 * M - 20), { x: M + 14, y: top - 17, size: 13, font: bold, color: INK });
+        pg.drawText(fitText(font, l2, 10.5, W - 2 * M - 20), { x: M + 14, y: top - 31, size: 10.5, font, color: INK });
+        pg.drawText(fitText(font, l3, 8.5, W - 2 * M - 20), { x: M + 14, y: top - 44, size: 8.5, font, color: MUTED });
+        const maxW = W - 2 * M;
+        const maxH = SLOT - CAP - 6;
+        const s = Math.min(maxW / img.width, maxH / img.height);
+        const iw = img.width * s;
+        const ih = img.height * s;
+        pg.drawImage(img, { x: M + (maxW - iw) / 2, y: top - CAP - 6 - ih, width: iw, height: ih });
+        slot++;
+        count++;
       }
     }
-    if (!imgs.length) continue;
-    const head = clean(ctx, `Nr. ${damageNo(d)} · ${measureLabel(d)}${d.area !== null ? ` · ${formatArea(d.area)} m²` : ` · ${formatMeasure(d.length)} m`}`);
-    const note = d.note?.trim() ? clean(ctx, d.note.trim()) : '';
-    const rows = Math.ceil(imgs.length / COLS);
-    // Überschrift und erste Fotoreihe zusammenhalten
-    if (y - (24 + (note ? 12 : 0) + PH) < M) newPage();
-    let pg = page as unknown as PDFPage;
-    pg.drawCircle({ x: M + 6, y: y - 4, size: 6, color: hexToRgb(d.color) });
-    pg.drawText(fitText(ctx.bold, head, 11, W - 2 * M - 18), { x: M + 18, y: y - 8, size: 11, font: ctx.bold, color: INK });
-    y -= 20;
-    if (note) {
-      pg.drawText(fitText(ctx.font, note, 9, W - 2 * M - 18), { x: M + 18, y: y - 4, size: 9, font: ctx.font, color: MUTED });
-      y -= 14;
-    }
-    for (let r = 0; r < rows; r++) {
-      if (y - PH < M) {
-        newPage();
-        pg = page as unknown as PDFPage;
-      }
-      for (let c = 0; c < COLS; c++) {
-        const im = imgs[r * COLS + c];
-        if (!im) break;
-        const s = Math.min(CW / im.width, PH / im.height);
-        const iw = im.width * s;
-        const ih = im.height * s;
-        pg.drawImage(im, { x: M + c * (CW + GAP) + (CW - iw) / 2, y: y - PH + (PH - ih) / 2, width: iw, height: ih });
-      }
-      y -= PH + GAP;
-    }
-    y -= 8;
   }
+  if (!count) throw new Error('Keine Fotos zu den Messungen der ausgewählten Pläne.');
+  const plans = planIds.map((id) => data.plans[id]).filter(Boolean);
+  const name = plans.length === 1 ? safeFileName(data.project.name, plans[0].planNumber || plans[0].planName, 'Fotos') : safeFileName(data.project.name, 'Fotos');
+  return { name: `${name}.pdf`, data: await out.save(), mimeType: 'application/pdf' };
 }
 
 /** Farblegende als weißer Kasten (unten links über dem Plan): je Farbe ein Feld und die Bezeichnung */

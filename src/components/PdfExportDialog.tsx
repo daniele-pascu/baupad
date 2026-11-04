@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Icon } from './Icon';
 import { PAPER } from '../lib/drawing';
 import { hiddenLayerNames } from '../lib/layers';
 import { exportPaper } from '../lib/sheet-layout';
@@ -34,8 +35,6 @@ export function PdfExportDialog({ data, costCenterId, initial, onClose }: Props)
   // Übersicht des Gesamtplans (nur bei Plänen mit Ausschnitt); Einstellung wird gemerkt
   const [overview, setOverview] = useState(() => readPref('pdfOverview', '1') === '1');
   const [corner, setCorner] = useState<OverviewCorner>(() => (readPref('pdfOverviewCorner', 'tr') as OverviewCorner));
-  // Fotos der Messungen je Nummer anhängen (Einstellung wird gemerkt)
-  const [withPhotos, setWithPhotos] = useState(() => readPref('pdfPhotos', '1') === '1');
   const photoCount = [...selected].reduce((n, id) => n + damagesOf(data, id).reduce((k, d) => k + (d.photoIds?.length ?? 0), 0), 0);
   const anyCrop = [...selected].some((id) => data.plans[id]?.crop && data.plans[id]?.source !== 'drawing');
   const allIds = groups.flatMap((g) => g.plans.map((p) => p.id));
@@ -53,11 +52,23 @@ export function PdfExportDialog({ data, costCenterId, initial, onClose }: Props)
       const ordered = allIds.filter((id) => selected.has(id));
       writePref('pdfOverview', overview ? '1' : '0');
       writePref('pdfOverviewCorner', corner);
-      writePref('pdfPhotos', withPhotos ? '1' : '0');
       // erst Vorschau, dort speichern (Ordner wählen, teilen oder herunterladen)
-      setPreview(await exportPlansPdf(data, { planIds: ordered, overview: { enabled: overview, corner }, photos: withPhotos && photoCount > 0 }));
+      setPreview(await exportPlansPdf(data, { planIds: ordered, overview: { enabled: overview, corner } }));
     } catch (e) {
       showError(e, 'PDF-Export fehlgeschlagen');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Foto-PDF: eigene Datei, jedes Foto mit Plan, Nummer und Position beschriftet
+  const runPhotos = async () => {
+    setBusy(true);
+    try {
+      const { exportPhotosPdf } = await import('../lib/export-pdf');
+      setPreview(await exportPhotosPdf(data, allIds.filter((id) => selected.has(id))));
+    } catch (e) {
+      showError(e, 'Foto-PDF fehlgeschlagen');
     } finally {
       setBusy(false);
     }
@@ -74,6 +85,11 @@ export function PdfExportDialog({ data, costCenterId, initial, onClose }: Props)
           <button type="button" className="btn" onClick={onClose}>
             Abbrechen
           </button>
+          {photoCount > 0 && (
+            <button type="button" className="btn" disabled={busy} onClick={() => void runPhotos()} data-testid="pdf-photos-run" title="Eigenes PDF: jedes Foto mit Plan, Nummer und Position">
+              <Icon name="camera" size={16} /> Foto-PDF ({photoCount})
+            </button>
+          )}
           <button type="button" className="btn btn-primary" disabled={busy || !selected.size} onClick={() => void run()} data-testid="pdf-export-run">
             {busy ? 'PDF wird erstellt …' : `${selected.size} Plan/Pläne – Vorschau`}
           </button>
@@ -116,14 +132,6 @@ export function PdfExportDialog({ data, costCenterId, initial, onClose }: Props)
         </fieldset>
       ))}
       {!groups.length && <p>Keine Pläne vorhanden.</p>}
-      {photoCount > 0 && (
-        <label className="check-row" data-testid="pdf-photos-option">
-          <input type="checkbox" checked={withPhotos} onChange={(e) => setWithPhotos(e.target.checked)} data-testid="pdf-photos" />
-          <span>
-            Fotos der Messungen anhängen – je Nummer, nach jedem Plan ({photoCount} {photoCount === 1 ? 'Foto' : 'Fotos'})
-          </span>
-        </label>
-      )}
       {anyCrop && (
         <fieldset className="check-group" data-testid="pdf-overview-options">
           <legend>Planausschnitte</legend>
