@@ -97,11 +97,20 @@ export class SupabaseAuth implements AuthBackend {
     private client: AuthClientLike,
     /** Rücksprungadresse für Anbieter-Anmeldung und E-Mail-Links (Seite ohne Hash) */
     private redirectBase: string,
+    /**
+     * Gespeicherte Anmeldung auf dem Gerät (ohne Prüfung). Offline läuft der Zugangsschlüssel nach etwa einer
+     * Stunde ab und kann nicht erneuert werden – der Dienst meldet dann „keine Sitzung“, obwohl die Anmeldung
+     * gültig gespeichert ist. Solange sie gespeichert bleibt, gilt man als angemeldet; gelöscht wird sie nur
+     * beim Abmelden oder wenn der Server die Anmeldung wirklich ablehnt.
+     */
+    private readStored: () => RawSession | null = () => null,
   ) {}
 
   async session(): Promise<Session | null> {
     const { data } = await this.client.auth.getSession();
-    return data.session ? this.build(data.session) : null;
+    if (data.session) return this.build(data.session);
+    const kept = this.readStored();
+    return kept?.user?.id ? this.build(kept) : null;
   }
 
   async signIn(provider: AuthProviderId, email?: string, password?: string): Promise<Session | void> {
@@ -187,8 +196,10 @@ export class SupabaseAuth implements AuthBackend {
 
   onChange(cb: (s: Session | null) => void) {
     this.listeners.add(cb);
-    const { data } = this.client.auth.onAuthStateChange((_event, raw) => {
-      if (!raw) {
+    const { data } = this.client.auth.onAuthStateChange((event, raw) => {
+      // ohne Sitzung (z. B. offline mit abgelaufenem Schlüssel): gespeicherte Anmeldung behalten – außer beim echten Abmelden
+      if (!raw && event !== 'SIGNED_OUT') raw = this.readStored();
+      if (!raw?.user?.id) {
         this.cache = null;
         cb(null);
         return;

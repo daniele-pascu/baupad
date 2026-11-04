@@ -22,6 +22,30 @@ function fakeClient(over: Partial<AuthClientLike['auth']> = {}, rpc?: AuthClient
 }
 
 describe('SupabaseAuth', () => {
+  it('offline mit abgelaufenem Schlüssel: gespeicherte Anmeldung gilt weiter (kein Rauswurf)', async () => {
+    const stored = { user: { id: 'u1', email: 'max@muster.at', user_metadata: { name: 'Max Muster' } } };
+    const a = new SupabaseAuth(fakeClient({ getSession: async () => ({ data: { session: null }, error: { message: 'Failed to fetch' } }) }), 'x', () => stored);
+    const s = await a.session();
+    expect(s?.userId).toBe('u1');
+    expect(s?.name).toBe('Max Muster');
+    // ohne gespeicherte Anmeldung: abgemeldet
+    const b = new SupabaseAuth(fakeClient({ getSession: async () => ({ data: { session: null }, error: null }) }), 'x', () => null);
+    expect(await b.session()).toBeNull();
+  });
+
+  it('Anmeldeereignisse: ohne Sitzung bleibt die gespeicherte Anmeldung, nur echtes Abmelden meldet ab', async () => {
+    let fire: (e: string, s: null) => void = () => {};
+    let stored: { user: { id: string; email: string } } | null = { user: { id: 'u1', email: 'max@muster.at' } };
+    const a = new SupabaseAuth(fakeClient({ onAuthStateChange: (cb) => ((fire = cb as typeof fire), { data: { subscription: { unsubscribe() {} } } }) }), 'x', () => stored);
+    const seen: (string | null)[] = [];
+    a.onChange((s) => seen.push(s?.userId ?? null));
+    fire('INITIAL_SESSION', null);
+    await vi.waitFor(() => expect(seen).toEqual(['u1']));
+    stored = null; // Abmelden löscht die gespeicherte Anmeldung
+    fire('SIGNED_OUT', null);
+    expect(seen).toEqual(['u1', null]);
+  });
+
   it('baut die Sitzung aus Benutzer und Kontext der Datenbank', async () => {
     const a = new SupabaseAuth(fakeClient(), 'https://pad-software.at/');
     const s = await a.session();
