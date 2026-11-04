@@ -570,7 +570,7 @@ test('Arbeitereinteilung per Finger: Arbeiter, Baustelle, Einteilung – passt a
   await ad.getByTestId('assign-save').tap();
   await expect(page.locator('[data-testid="day-row"][data-day="0"] [data-testid="crew-chip"]')).toHaveText(['Max']);
   await page.getByTestId('crew-open-toggle').tap();
-  await expect(page.getByTestId('crew-open').getByTestId('open-chip')).toHaveCount(5); // Peter Mo–Fr
+  await expect(page.getByTestId('crew-open').getByTestId('open-chip')).toHaveCount(1); // Peter die ganze Woche frei
   await noHorizontalScroll(page);
   await page.screenshot({ path: join(OUT, `arbeiter-${info.project.name}.png`), fullPage: true });
 

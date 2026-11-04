@@ -73,7 +73,7 @@ test('Projektinformationen: Reihenfolge, Baubeginn gespeichert und nur dort ange
   const form = page.getByTestId('project-form');
   // Reihenfolge im Formular
   const labels = await form.locator('.field > span').allTextContents();
-  expect(labels.map((l) => l.replace(/ \*| \(optional\)/g, ''))).toEqual(['Projektname', 'Bauvorhaben', 'Projektnummer', 'Kostenstelle', 'Bauleitung', 'Auftraggeber', 'Baubeginn', 'Bemerkung']);
+  expect(labels.map((l) => l.replace(/ \*| \(optional\)/g, ''))).toEqual(['Projektname', 'Bauvorhaben', 'Projektnummer', 'Kostenstelle', 'Auftraggeber', 'Baubeginn', 'Bemerkung']);
   await expect(form.getByTestId('project-start')).toHaveValue(''); // kein automatisches Datum
   await form.locator('input[name="name"]').fill('Reihenfolge');
   await form.getByTestId('cost-center-input').first().fill('Garage');

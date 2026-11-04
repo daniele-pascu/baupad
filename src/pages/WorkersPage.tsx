@@ -31,9 +31,7 @@ import {
   siteFromProject,
   sitesOf,
   sortByGrade,
-  timeLabel,
   unassign,
-  unassigned,
   updateSite,
   vacationSummary,
   visibleDays,
@@ -55,11 +53,11 @@ import { exportCrewBackup, importCrewBackup } from '../lib/crew-backup';
 import { costCenterByProject, costCenterSearchByProject, linkSitesToProject, projectFromSite } from '../lib/crew-link';
 import { ProjectHeading } from '../components/ProjectHeading';
 import { labelFromProject, type ProjectLabelInfo } from '../lib/project-label';
-import { useCanCreateProjects, useProjectIn } from '../lib/sites';
+import { setProjectManager, useCanCreateProjects, useProjectIn } from '../lib/sites';
 import { crewDayPdf, crewWeekPdf } from '../lib/crew-pdf';
 import { uuid } from '../lib/ids';
 import { navigate, paths } from '../lib/router';
-import type { Absence, PhotoSite, Project, WeekPlan, WeekSite, Worker, WorkTimes } from '../lib/types';
+import type { Absence, PhotoSite, Project, SiteManager, WeekPlan, WeekSite, Worker, WorkTimes } from '../lib/types';
 import { usePageTitle } from '../lib/page-title';
 import { useDataChanged } from '../lib/data-events';
 
@@ -398,10 +396,15 @@ export function WorkersPage() {
   // Urlaub/Krank (von–bis) gilt nicht als „noch nicht eingeteilt“
   /** gesetzliche Feiertage in Österreich (jedes Jahr automatisch, auch Ostermontag, Pfingstmontag, Fronleichnam …) */
   const holidayOf = (d: number) => holidayOn(addDays(weekId, d));
-  const open = workDays
-    .filter((d) => !holidayOf(d))
-    .map((d) => ({ d, list: unassigned(plan, sortByGrade(workers), d).filter((w) => !absenceOn(absences, w.id, weekId, d)) }))
-    .filter((x) => x.list.length);
+  // Warnung nur für Arbeiter, die die ganze Woche nirgends eingeteilt sind (Urlaub/Krank an allen Arbeitstagen zählt nicht)
+  const firmDays = workDays.filter((d) => workTimes[d] && !holidayOf(d));
+  const openWeek = sortByGrade(workers ?? []).filter(
+    (w) =>
+      w.active &&
+      !plan.sites.some((s) => s.days.some((d) => d.includes(w.id))) &&
+      firmDays.some((d) => !plan.vacation[d]?.includes(w.id) && !absenceOn(absences, w.id, weekId, d)),
+  );
+  const firstOpenDay = (id: string) => firmDays.find((d) => !plan.vacation[d]?.includes(id) && !absenceOn(absences, id, weekId, d)) ?? 0;
   const vacations = vacationSummary(plan, days);
   // Urlaub: Tage aus der Woche selbst und aus den Zeiträumen (von–bis)
   const vacRanges = absenceSummary(absences, weekId, days, 'urlaub');
@@ -591,27 +594,26 @@ export function WorkersPage() {
           </div>
         )}
 
-        {open.length > 0 ? (
+        {openWeek.length > 0 ? (
           <section className={`crew-open${showOpen ? ' expanded' : ''}`} data-testid="crew-open">
             <button type="button" className="crew-open-toggle" onClick={() => setShowOpen(!showOpen)} aria-expanded={showOpen} data-testid="crew-open-toggle">
               <Icon name="info" size={16} />
               <span>
-                Noch nicht eingeteilt: <strong>{new Set(open.flatMap((o) => o.list.map((w) => w.id))).size}</strong> ({open.map((o) => DAY_SHORT[o.d]).join(', ')})
+                Diese Woche nicht eingeteilt: <strong>{openWeek.length}</strong>
               </span>
               <Icon name="next" size={16} className={`crew-open-chevron${showOpen ? ' open' : ''}`} />
             </button>
-            {showOpen && open.map(({ d, list }) => (
-              <div key={d} className="crew-open-row" data-day={d}>
-                <span className="crew-open-day">{DAY_SHORT[d]}</span>
+            {showOpen && (
+              <div className="crew-open-row" data-day={firstOpenDay(openWeek[0].id)}>
                 <span className="crew-chips">
-                  {list.map((w) => (
+                  {openWeek.map((w) => (
                     <button
                       key={w.id}
                       type="button"
                       className={`crew-chip open${drag?.workerId === w.id ? ' dragging' : ''}`}
-                      onPointerDown={(e) => startDrag(e, w.id, workerName(w), null, d)}
+                      onPointerDown={(e) => startDrag(e, w.id, workerName(w), null, firstOpenDay(w.id))}
                       onContextMenu={(e) => e.preventDefault()}
-                      onClick={() => !suppressClick.current && setDialog({ kind: 'open', day: d, workerId: w.id })}
+                      onClick={() => !suppressClick.current && setDialog({ kind: 'open', day: firstOpenDay(w.id), workerId: w.id })}
                       data-testid="open-chip"
                     >
                       {workerName(w)}
@@ -619,7 +621,7 @@ export function WorkersPage() {
                   ))}
                 </span>
               </div>
-            ))}
+            )}
           </section>
         ) : (
           plan.sites.length > 0 &&
@@ -731,7 +733,7 @@ export function WorkersPage() {
                   const m = siteManagerOf(s, projOf(s));
                   return m ? (
                     <p className={`crew-site-manager${m.deputy ? ' deputy' : ''}`} data-testid="site-manager-line">
-                      <strong>BL:</strong> {m.name}
+                      <strong>PL:</strong> {m.name}
                       {m.phone && (
                         <>
                           {' · '}
@@ -766,9 +768,7 @@ export function WorkersPage() {
                             <span className="crew-holiday" data-testid="day-holiday">
                               {holidayOf(d)}
                             </span>
-                          ) : (
-                            <span className="muted small">{timeLabel(workTimes[d])}</span>
-                          )}
+                          ) : null}
                         </span>
                         <span className="crew-chips">
                           {s.days[d].map((id) => (
@@ -877,13 +877,18 @@ export function WorkersPage() {
       {dialog?.kind === 'site' && (
         <SiteDialog
           site={dialog.site}
+          workers={workers ?? []}
           projects={projects}
           taken={plan.sites.map((s) => s.projectId).filter(Boolean) as string[]}
           onClose={() => setDialog(null)}
           onProjectCreated={async () => setProjects(await listProjects())}
-          onSave={(fields, alsoProject) =>
+          onSave={(fields, alsoProject, manager) =>
             void run(async () => {
               let f = fields;
+              if (manager !== undefined && fields.projectId) {
+                await setProjectManager(fields.projectId, manager);
+                setProjects(await listProjects());
+              }
               if (alsoProject) {
                 const p = await projectFromSite(fields, 'workers');
                 setProjects((list) => [p, ...list]);
@@ -1049,6 +1054,7 @@ function TimesDialog({
 /** Baustelle hinzufügen: Projekt aus dem Register wählen oder „Neues Projekt …“ (gleicher Dialog wie in allen Werkzeugen) */
 function SiteDialog({
   site,
+  workers,
   projects,
   taken,
   onSave,
@@ -1058,7 +1064,9 @@ function SiteDialog({
   site?: WeekSite;
   projects: Project[];
   taken: string[];
-  onSave(f: Pick<WeekSite, 'projectId' | 'name' | 'number' | 'address' | 'note' | 'siteManager'>, alsoProject: boolean): void;
+  onSave(f: Pick<WeekSite, 'projectId' | 'name' | 'number' | 'address' | 'note' | 'siteManager'>, alsoProject: boolean, manager?: SiteManager | null): void;
+  /** Personal zur Auswahl des Projektleiters */
+  workers: Worker[];
   onClose(): void;
   /** neues Projekt wurde im Register angelegt (Liste der Seite neu laden) */
   onProjectCreated(): Promise<void>;
@@ -1070,7 +1078,15 @@ function SiteDialog({
   const mayCreate = useCanCreateProjects();
   const [show, setShow] = useState(false);
   const chosen = projects.find((p) => p.id === projectId) ?? null;
-  /** Vertretung der Bauleitung nur in dieser Woche */
+  /** Projektleiter des Projekts (gilt jede Woche): aus dem Personal oder frei mit Handynummer */
+  const [pl, setPl] = useState<SiteManager | null>(() => chosen?.siteManager ?? null);
+  useEffect(() => setPl(chosen?.siteManager ?? null), [projectId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const plMode = !pl ? '' : pl.workerId ? pl.workerId : 'other';
+  const LEAD = new Set(['projektleiter', 'techniker', 'bautechniker']);
+  const sorted = sortByGrade(workers.filter((w) => w.active || w.id === pl?.workerId));
+  const leads = sorted.filter((w) => LEAD.has(w.grade ?? ''));
+  const rest = sorted.filter((w) => !LEAD.has(w.grade ?? ''));
+  /** Vertretung des Projektleiters nur in dieser Woche */
   const [deputy, setDeputy] = useState<{ on: boolean; name: string; phone: string }>(() => ({ on: !!site?.siteManager?.name, name: site?.siteManager?.name ?? '', phone: site?.siteManager?.phone ?? '' }));
   const fields = chosen ? siteFromProject(chosen) : fresh && fresh.projectId === projectId ? { projectId, name: fresh.name, number: fresh.number, address: fresh.address } : site ? { projectId: site.projectId, name: site.name, number: site.number ?? '', address: site.address ?? '' } : null;
   const submit = () => {
@@ -1086,6 +1102,7 @@ function SiteDialog({
         siteManager: deputy.on && deputy.name.trim() ? { workerId: null, name: deputy.name.trim(), phone: deputy.phone.trim() } : null,
       },
       false,
+      projectId ? (pl && pl.name.trim() ? { workerId: pl.workerId ?? null, name: pl.name.trim(), phone: pl.phone.trim() } : null) : undefined,
     );
   };
   return (
@@ -1142,13 +1159,56 @@ function SiteDialog({
           </p>
         )}
         {show && !projectId && <p className="error small">Bitte ein Projekt wählen.</p>}
+        {projectId && (
+          <div className="field site-manager" data-testid="site-manager">
+            <span>Projektleiter</span>
+            <select
+              value={plMode}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (!v) return setPl(null);
+                if (v === 'other') return setPl({ workerId: null, name: pl?.workerId ? '' : (pl?.name ?? ''), phone: pl?.workerId ? '' : (pl?.phone ?? '') });
+                const w = workers.find((x) => x.id === v);
+                if (w) setPl({ workerId: w.id, name: workerName(w), phone: w.phone ?? '' });
+              }}
+              data-testid="site-manager-select"
+            >
+              <option value="">– keiner –</option>
+              {leads.length > 0 && (
+                <optgroup label="Projektleitung / Technik">
+                  {leads.map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {workerName(w)} ({gradeLabel(w.grade!)})
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {rest.length > 0 && (
+                <optgroup label="Personal">
+                  {rest.map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {workerName(w)}
+                      {w.grade ? ` (${gradeLabel(w.grade)})` : ''}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              <option value="other">Andere Person …</option>
+            </select>
+            {pl && (
+              <span className="site-manager-fields">
+                {plMode === 'other' && <input value={pl.name} onChange={(e) => setPl({ ...pl, name: e.target.value })} placeholder="Name" aria-label="Name des Projektleiters" data-testid="site-manager-name" />}
+                <input value={pl.phone} onChange={(e) => setPl({ ...pl, phone: e.target.value })} placeholder="Handynummer" type="tel" inputMode="tel" aria-label="Handynummer des Projektleiters" data-testid="site-manager-phone" />
+              </span>
+            )}
+            <p className="muted small">Gilt für das Projekt in jeder Woche (auch im PDF und im Bautagesbericht).</p>
+          </div>
+        )}
         {site && (
           <div className="field site-manager" data-testid="site-deputy">
-            <span>Bauleitung</span>
-            <p className="muted small">{chosen?.siteManager?.name ? `Laut Projekt: ${siteManagerText(chosen.siteManager)}` : 'Im Projekt ist keine Bauleitung eingetragen (Projektangaben bearbeiten).'}</p>
             <label className="check-row">
               <input type="checkbox" checked={deputy.on} onChange={(e) => setDeputy({ ...deputy, on: e.target.checked })} data-testid="site-deputy-on" />
-              <span>Vertretung nur in dieser Woche</span>
+              <span>Vertretung des Projektleiters nur in dieser Woche</span>
             </label>
             {deputy.on && (
               <span className="site-manager-fields">

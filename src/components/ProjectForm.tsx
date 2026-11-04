@@ -1,13 +1,8 @@
-import { useEffect, useState } from 'react';
-import type { Project, SiteManager, Worker } from '../lib/types';
-import { listWorkers } from '../lib/db';
-import { gradeLabel, sortByGrade, workerName } from '../lib/crew';
+import { useState } from 'react';
+import type { Project } from '../lib/types';
 import { Modal } from './Modal';
 
 export type ProjectFields = Pick<Project, 'name' | 'number' | 'site' | 'address' | 'client' | 'editor' | 'date' | 'notes' | 'siteManager'>;
-
-/** Bauleitung: zuerst Projektleiter, Techniker, Bautechniker – dann alle anderen */
-const LEAD_GRADES = new Set(['projektleiter', 'techniker', 'bautechniker']);
 
 /** Kostenstelle im Formular; `id` ist bei bereits gespeicherten Kostenstellen gesetzt. */
 export interface CostCenterInput {
@@ -46,17 +41,8 @@ export function ProjectForm({ title, initial, costCenters, submitLabel, onSubmit
     ...initial,
   });
   const [ccs, setCcs] = useState<CostCenterInput[]>(costCenters?.length ? costCenters : [{ number: '', name: '' }]);
-  // Bauleitung: aus dem Personal oder frei mit Handynummer
-  const [workers, setWorkers] = useState<Worker[]>([]);
-  useEffect(() => {
-    void listWorkers().then((l) => setWorkers(sortByGrade(l.filter((w) => w.active || w.id === f.siteManager?.workerId))), () => undefined);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Projektleiter wird in der Arbeitereinteilung eingetragen – hier bleibt der Wert unverändert erhalten
   const sm = f.siteManager ?? null;
-  const smMode = !sm ? '' : sm.workerId ? sm.workerId : 'other';
-  const setSm = (next: SiteManager | null) => setF((p) => ({ ...p, siteManager: next }));
-  const leads = workers.filter((w) => LEAD_GRADES.has(w.grade ?? ''));
-  const rest = workers.filter((w) => !LEAD_GRADES.has(w.grade ?? ''));
   const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const set = (k: keyof ProjectFields) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
@@ -178,48 +164,6 @@ export function ProjectForm({ title, initial, costCenters, submitLabel, onSubmit
           {touched && ccError && <small className="error">{ccError}</small>}
         </div>
         )}
-        <div className="field span-2 site-manager" data-testid="site-manager">
-          <span>Bauleitung</span>
-          <select
-            value={smMode}
-            onChange={(e) => {
-              const v = e.target.value;
-              if (!v) return setSm(null);
-              if (v === 'other') return setSm({ workerId: null, name: sm?.workerId ? '' : (sm?.name ?? ''), phone: sm?.workerId ? '' : (sm?.phone ?? '') });
-              const w = workers.find((x) => x.id === v);
-              if (w) setSm({ workerId: w.id, name: workerName(w), phone: w.phone ?? '' });
-            }}
-            data-testid="site-manager-select"
-          >
-            <option value="">– keine –</option>
-            {leads.length > 0 && (
-              <optgroup label="Projektleitung / Technik">
-                {leads.map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {workerName(w)} ({gradeLabel(w.grade)})
-                  </option>
-                ))}
-              </optgroup>
-            )}
-            {rest.length > 0 && (
-              <optgroup label="Personal">
-                {rest.map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {workerName(w)}
-                    {w.grade ? ` (${gradeLabel(w.grade)})` : ''}
-                  </option>
-                ))}
-              </optgroup>
-            )}
-            <option value="other">Andere Person …</option>
-          </select>
-          {sm && (
-            <span className="site-manager-fields">
-              {smMode === 'other' && <input value={sm.name} onChange={(e) => setSm({ ...sm, name: e.target.value })} placeholder="Name" aria-label="Name der Bauleitung" autoComplete="off" data-testid="site-manager-name" />}
-              <input value={sm.phone} onChange={(e) => setSm({ ...sm, phone: e.target.value })} placeholder="Handynummer" aria-label="Handynummer der Bauleitung" type="tel" inputMode="tel" autoComplete="off" data-testid="site-manager-phone" />
-            </span>
-          )}
-        </div>
         <label className="field">
           <span>Auftraggeber</span>
           <input value={f.client} onChange={set('client')} name="client" autoComplete="organization" enterKeyHint="next" data-testid="project-client" />

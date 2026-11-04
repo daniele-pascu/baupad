@@ -95,7 +95,7 @@ test('Arbeitereinteilung: Woche nach Baustellen planen und in die nächste Woche
   await expect(site(page, 'Neubau Musterstraße')).toBeVisible();
   await addFromMonday(page, 'Neubau Musterstraße', ['Max Muster', 'Peter Bau']);
   for (const d of [0, 1, 2, 3, 4]) await expect(chips(page, 'Neubau Musterstraße', d)).toHaveText(['Max Muster', 'Peter Bau']);
-  await expect(site(page, 'Neubau Musterstraße').locator('[data-day="4"]')).toContainText('07:00–12:00');
+  await expect(site(page, 'Neubau Musterstraße').locator('[data-day="4"]')).not.toContainText('07:00'); // keine Uhrzeit mehr in der Einteilung
   // immer alle 7 Tage; „ganze Woche“ schlägt Mo–Fr vor, Sa/So bleibt leer, ist aber einteilbar
   await expect(site(page, 'Neubau Musterstraße').getByTestId('day-row')).toHaveCount(7);
   await expect(site(page, 'Neubau Musterstraße').locator('[data-day="6"]')).toContainText('So 01.11.');
@@ -108,12 +108,12 @@ test('Arbeitereinteilung: Woche nach Baustellen planen und in die nächste Woche
   await addFromMonday(page, 'Sanierung Hauptplatz', ['Thomas Stein']);
   await expect(chips(page, 'Sanierung Hauptplatz', 0)).toHaveText(['Thomas Stein']);
 
-  // Noch nicht eingeteilt: Stefan an jedem Tag → Urlaub für die ganze Woche
+  // Diese Woche nicht eingeteilt (nur wer die ganze Woche nirgends ist): Stefan → Urlaub für die ganze Woche
   const open = page.getByTestId('crew-open');
-  await expect(open.getByTestId('crew-open-toggle')).toContainText('Noch nicht eingeteilt: 1 (Di, Mi, Do, Fr)'); // Mo 26.10. Nationalfeiertag
+  await expect(open.getByTestId('crew-open-toggle')).toContainText('Diese Woche nicht eingeteilt: 1');
   await showOpen(page);
-  await expect(open.getByTestId('open-chip')).toHaveCount(4);
-  await open.locator('[data-day="1"] [data-testid="open-chip"]').click();
+  await expect(open.getByTestId('open-chip')).toHaveText(['Stefan Holz']);
+  await open.getByTestId('open-chip').click(); // erster Arbeitstag: Di (Mo 26.10. Nationalfeiertag)
   await page.getByTestId('open-dialog').getByTestId('open-absence').click();
   const abs = page.getByTestId('absence-dialog');
   await expect(abs.getByTestId('absence-worker')).toHaveValue(/.+/);
@@ -171,9 +171,9 @@ test('Arbeitereinteilung: Woche nach Baustellen planen und in die nächste Woche
   await expect(page.getByTestId('site-card')).toHaveCount(1);
   await expect(chips(page, 'Neubau Musterstraße', 0)).toHaveText(['Max Muster', 'Peter Bau']);
   await expect(chips(page, 'Neubau Musterstraße', 3)).toHaveText(['Max Muster']);
-  // Peter (Mi–Fr) und Thomas sind jetzt frei, Stefan wieder da → „Noch nicht eingeteilt“
+  // Thomas ist die ganze Woche frei, Stefan wieder da → „Diese Woche nicht eingeteilt“ (Peter ist Mo/Di eingeteilt)
   await showOpen(page);
-  await expect(page.getByTestId('crew-open').locator('[data-day="2"] [data-testid="open-chip"]')).toHaveText(['Peter Bau', 'Stefan Holz', 'Thomas Stein']);
+  await expect(page.getByTestId('crew-open').getByTestId('open-chip')).toHaveText(['Stefan Holz', 'Thomas Stein']);
   // Änderung in KW 45 …
   await chips(page, 'Neubau Musterstraße', 0).first().click();
   await page.getByTestId('chip-dialog').getByTestId('chip-remove').click();
@@ -394,7 +394,7 @@ test('Ziehen: offenen Arbeiter einteilen, umsetzen ab Tag; bereits geplante Folg
   await expect(page.getByTestId('crew-drag-hint')).toBeVisible();
   // offenen Namen (Mittwoch) auf Baustelle A ziehen → ab Mittwoch dort
   await showOpen(page);
-  await dragTo(page, page.getByTestId('crew-open').locator('[data-day="2"] [data-testid="open-chip"]').filter({ hasText: 'Max' }), site(page, 'Baustelle A').locator('[data-testid="day-row"][data-day="2"]'));
+  await dragTo(page, page.getByTestId('crew-open').getByTestId('open-chip').filter({ hasText: 'Max' }), site(page, 'Baustelle A').locator('[data-testid="day-row"][data-day="2"]'));
   for (const d of [0, 1]) await expect(chips(page, 'Baustelle A', d)).toHaveCount(0);
   for (const d of [2, 3, 4]) await expect(chips(page, 'Baustelle A', d)).toHaveText(['Max']);
   // Max ab Montag auf A (über „+“, Standard ab Montag ganze Woche), Peter auf B
@@ -474,7 +474,7 @@ test('Baustelle pausieren (Standby): Arbeiter werden frei, läuft ohne Arbeiter 
   await expect(site(page, 'Baustelle B').getByTestId('day-row')).toHaveCount(0);
   await page.screenshot({ path: join(OUT, 'arbeiter-pausiert.png'), fullPage: true });
   await showOpen(page);
-  await expect(page.getByTestId('crew-open').locator('[data-day="1"] [data-testid="open-chip"]')).toHaveText(['Peter']); // Mo Feiertag
+  await expect(page.getByTestId('crew-open').getByTestId('open-chip')).toHaveText(['Peter']);
   // pausierte Baustelle steht nicht in der Auswahl zum Umsetzen
   await chips(page, 'Baustelle A', 0).click();
   await expect(page.getByTestId('chip-dialog').getByTestId('chip-move-to')).toHaveCount(0);
@@ -722,12 +722,12 @@ test('Doppelt einteilen: Arbeiter bleibt auf der ersten Baustelle und steht zus�
   await expect(chips(page, 'Baustelle B', 0)).toHaveCount(0);
   await expect(chips(page, 'Baustelle A', 0)).toHaveText(['Max']);
   await expect(chips(page, 'Baustelle A', 0).getByTestId('chip-also')).toHaveCount(0);
-  // Peter ist frei → kleine Meldung, antippen zeigt ihn je Tag
+  // Peter ist die ganze Woche frei → kleine Meldung, antippen zeigt ihn
   const toggle = page.getByTestId('crew-open-toggle');
-  await expect(toggle).toContainText('Noch nicht eingeteilt: 1 (Di, Mi, Do, Fr)'); // Mo Feiertag
+  await expect(toggle).toContainText('Diese Woche nicht eingeteilt: 1');
   await expect(page.getByTestId('open-chip')).toHaveCount(0);
   await toggle.click();
-  await expect(page.getByTestId('crew-open').locator('[data-day="1"] [data-testid="open-chip"]')).toHaveText(['Peter']);
+  await expect(page.getByTestId('crew-open').getByTestId('open-chip')).toHaveText(['Peter']);
 });
 
 test('Einteilen: Arbeiter suchen; Vorwoche übernehmen als sichtbarer Knopf', async ({ page }) => {
@@ -835,7 +835,7 @@ test('Baustellen: Anzahl der Woche, sortieren nach Projektnummer/Anlegedatum mit
   await expect.poll(names).toEqual(['Beta', 'Gamma', 'Alpha']);
 });
 
-test('Bauleitung je Projekt: aus dem Personal wählen, Anzeige bei der Baustelle und im PDF, Vertretung nur diese Woche', async ({ page }) => {
+test('Projektleiter in der Einteilung: aus dem Personal wählen, Anzeige bei der Baustelle und im PDF, Vertretung nur diese Woche', async ({ page }) => {
   await freshStart(page);
   await page.goto('./#/arbeitereinteilung');
   await page.getByTestId('week-date').fill('2026-10-26');
@@ -850,38 +850,39 @@ test('Bauleitung je Projekt: aus dem Personal wählen, Anzeige bei der Baustelle
   await wd.getByTestId('worker-save').click();
   await expect(page.getByTestId('worker-dialog')).toHaveCount(0);
   await page.keyboard.press('Escape');
-  // neues Projekt mit Bauleitung aus dem Personal
+  // Projekt anlegen, Projektleiter in der Einteilung eintragen (⋮ → Projekt bearbeiten)
   await page.getByTestId('add-site').click();
-  await page.getByTestId('project-picker').getByTestId('picker-new').click();
-  const pf = page.getByTestId('project-form');
-  await pf.getByTestId('project-name').fill('Parkring');
-  await pf.getByTestId('site-manager-select').selectOption({ label: 'Paul Leiter (Projektleiter)' });
-  await expect(pf.getByTestId('site-manager-phone')).toHaveValue('0664 123');
-  await pf.getByTestId('project-save').click();
+  await newWeekProject(page, 'Parkring');
   const card = page.locator('[data-testid="site-card"][data-site="Parkring"]');
-  await expect(card.getByTestId('site-manager-line')).toHaveText('BL: Paul Leiter · 0664 123');
-  // Wochen-PDF mit Bauleitung
+  await expect(card.getByTestId('site-manager-line')).toHaveCount(0);
+  await card.getByTestId('site-actions').click();
+  await page.getByTestId('site-edit').click();
+  const sd = page.getByTestId('site-dialog');
+  await sd.getByTestId('site-manager-select').selectOption({ label: 'Paul Leiter (Projektleiter)' });
+  await expect(sd.getByTestId('site-manager-phone')).toHaveValue('0664 123');
+  await sd.getByTestId('site-save').click();
+  await expect(card.getByTestId('site-manager-line')).toHaveText('PL: Paul Leiter · 0664 123');
+  // Wochen-PDF mit Projektleiter
   const dl = await catchDownload(page, () => page.getByTestId('crew-pdf').click());
-  const txt = execFileSync('pdftotext', ['-layout', await saveDownload(dl, 'bauleitung.pdf'), '-'], { encoding: 'utf8' });
-  expect(txt).toContain('BL: Paul Leiter · 0664 123');
+  const txt = execFileSync('pdftotext', ['-layout', await saveDownload(dl, 'projektleiter.pdf'), '-'], { encoding: 'utf8' });
+  expect(txt).toContain('PL: Paul Leiter · 0664 123');
   await page.keyboard.press('Escape');
   // Vertretung nur diese Woche
   await card.getByTestId('site-actions').click();
   await page.getByTestId('site-edit').click();
-  const sd = page.getByTestId('site-dialog');
-  await expect(sd.getByTestId('site-deputy')).toContainText('Laut Projekt: Paul Leiter · 0664 123');
+  await expect(sd.getByTestId('site-manager-select')).toHaveValue(/.+/);
   await sd.getByTestId('site-deputy-on').check();
   await sd.getByTestId('site-deputy-name').fill('Vera Vertretung');
   await sd.getByTestId('site-deputy-phone').fill('0676 9');
   await sd.getByTestId('site-save').click();
-  await expect(card.getByTestId('site-manager-line')).toContainText('BL: Vera Vertretung · 0676 9');
+  await expect(card.getByTestId('site-manager-line')).toContainText('PL: Vera Vertretung · 0676 9');
   await expect(card.getByTestId('site-manager-line')).toContainText('Vertretung diese Woche');
   // nächste Woche (weitergeführt): wieder die Bauleitung des Projekts
   await page.getByTestId('week-next').click();
-  await expect(page.locator('[data-testid="site-card"][data-site="Parkring"]').getByTestId('site-manager-line')).toHaveText('BL: Paul Leiter · 0664 123');
+  await expect(page.locator('[data-testid="site-card"][data-site="Parkring"]').getByTestId('site-manager-line')).toHaveText('PL: Paul Leiter · 0664 123');
 });
 
-test('Feiertage in Österreich automatisch gekennzeichnet (jedes Jahr), nicht als „noch nicht eingeteilt“', async ({ page }) => {
+test('Feiertage in Österreich automatisch gekennzeichnet (jedes Jahr); Warnung nur, wer die ganze Woche frei ist', async ({ page }) => {
   await freshStart(page);
   await page.goto('./arbeitereinteilung');
   await page.getByTestId('crew-workers').click();
@@ -898,7 +899,7 @@ test('Feiertage in Österreich automatisch gekennzeichnet (jedes Jahr), nicht al
   const card = site(page, 'Parkring');
   await expect(card.locator('[data-testid="day-row"][data-day="0"]').getByTestId('day-holiday')).toHaveText('Nationalfeiertag');
   await expect(card.locator('[data-testid="day-row"][data-day="0"]')).toHaveClass(/holiday/);
-  await expect(page.getByTestId('crew-open')).toContainText('(Di, Mi, Do, Fr)');
+  await expect(page.getByTestId('crew-open')).toContainText('Diese Woche nicht eingeteilt: 1');
   // anderes Jahr, bewegliche Feiertage: Ostermontag 2027 = 29.03.2027, Christi Himmelfahrt 06.05.2027
   for (const [date, day, name] of [
     ['2027-03-29', '0', 'Ostermontag'],

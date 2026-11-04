@@ -341,3 +341,11 @@ async function purgeProjectData(projectId: string, u: Awaited<ReturnType<typeof 
   for (const d of u.plans) await deleteDefectPlanCompletely(d.id);
   for (const d of u.days) await saveTimeDay({ ...d, lines: d.lines.map((l) => (l.projectId === projectId ? { ...l, projectId: null } : l)), updatedAt: Date.now() });
 }
+
+/** Projektleiter eines Projekts speichern (aus der Arbeitereinteilung) */
+export async function setProjectManager(projectId: string, sm: SiteManager | null): Promise<void> {
+  const db = await getDB();
+  const project = await db.get('projects', projectId);
+  if (!project) throw new Error('Projekt nicht gefunden.');
+  await writeRecords([{ store: 'projects', record: { ...project, siteManager: sm, rev: project.rev + 1, updatedAt: Date.now(), deviceId: getDeviceId() }, baseRev: project.rev }]);
+}

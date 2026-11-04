@@ -160,10 +160,11 @@ export async function crewWeekPdf(plan: WeekPlan, workers: Worker[], times: Work
     // Kopf der Baustelle
     page.drawRectangle({ x: M, y: y - 22, width: W - 2 * M, height: 22, color: FILL });
     page.drawRectangle({ x: M, y: y - 22, width: 3, height: 22, color: s.finished ? rgb(0.12, 0.62, 0.33) : ACCENT });
-    const name = fit(ctx.bold, clean(ctx, s.name), 12, 420);
+    // Projektnummer zuerst (falls vorhanden), dann der Name
+    const name = fit(ctx.bold, clean(ctx, [s.number, s.name].filter(Boolean).join(' · ')), 12, 420);
     page.drawText(name, { x: M + 10, y: y - 15.5, size: 12, font: ctx.bold, color: INK });
     const bl = opts.manager?.(s.id);
-    const meta = [s.number, s.address, bl ? `BL: ${bl}` : '', s.finished ? 'abgeschlossen' : ''].filter(Boolean).join(' · ');
+    const meta = [s.address, bl ? `PL: ${bl}` : '', s.finished ? 'abgeschlossen' : ''].filter(Boolean).join(' · ');
     if (meta) page.drawText(fit(ctx.font, clean(ctx, meta), 9, W - 2 * M - 30 - ctx.bold.widthOfTextAtSize(name, 12)), { x: M + 22 + ctx.bold.widthOfTextAtSize(name, 12), y: y - 15, size: 9, font: ctx.font, color: MUTED });
     y -= 22;
     // Tage
@@ -236,10 +237,10 @@ export async function crewDayPdf(plan: WeekPlan, siteId: string, day: number, wo
   let page = ctx.doc.addPage([W, H]);
   let y = header(ctx, page, title, `KW ${isoWeekNo(plan.id)}`, opts.company ?? '');
   // Baustelle
-  page.drawText(fit(ctx.bold, clean(ctx, s.name), 14, W - 2 * M), { x: M, y: y - 14, size: 14, font: ctx.bold, color: INK });
+  page.drawText(fit(ctx.bold, clean(ctx, [s.number, s.name].filter(Boolean).join(' · ')), 14, W - 2 * M), { x: M, y: y - 14, size: 14, font: ctx.bold, color: INK });
   y -= 20;
   const bl = opts.manager?.(s.id);
-  const meta = [s.number, s.address, bl ? `Bauleitung: ${bl}` : ''].filter(Boolean).join(' · ');
+  const meta = [s.address, bl ? `Projektleiter: ${bl}` : ''].filter(Boolean).join(' · ');
   if (meta) {
     page.drawText(fit(ctx.font, clean(ctx, meta), 10, W - 2 * M), { x: M, y: y - 10, size: 10, font: ctx.font, color: MUTED });
     y -= 16;
@@ -295,7 +296,7 @@ export async function crewDayPdf(plan: WeekPlan, siteId: string, day: number, wo
   page.drawText(`${list.length} Arbeiter eingeteilt`, { x: M, y: y - 16, size: 9, font: ctx.font, color: MUTED });
   footers(ctx, `${s.name} · ${title}`);
   return {
-    name: `${safeFileName('Tagesliste', s.name, addDays(plan.id, day))}.pdf`,
+    name: `${safeFileName('Tagesliste', s.number || '', s.name, addDays(plan.id, day))}.pdf`,
     data: await ctx.doc.save(),
     mimeType: 'application/pdf',
   };
