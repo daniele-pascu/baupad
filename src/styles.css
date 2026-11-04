@@ -10318,3 +10318,16 @@ html[data-theme='dark'] .crew-search {
     grid-column: 1 / -1;
   }
 }
+/* Zuletzt hochgeladen: Kostenstelle vor dem Projektnamen */
+.photo-cc {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--text);
+  color: var(--surface);
+  font-size: 0.78em;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  vertical-align: 1px;
+}

@@ -304,3 +304,23 @@ test('Neue Baustelle unter Fotos (Übersicht und Speichern-Dialog), Verschieben,
   await recent.first().locator('.photo-thumb').click();
   await expect(page.locator('.photo-viewer')).toBeVisible();
 });
+
+test('Zuletzt hochgeladen: Kostenstelle als Kennzeichen vor dem Projektnamen', async ({ page }) => {
+  await freshStart(page);
+  await page.goto('./#/fotos');
+  await page.getByTestId('photo-new-site').click();
+  await page.getByTestId('project-picker').getByTestId('picker-new').click();
+  const pf = page.getByTestId('project-form');
+  await pf.getByTestId('project-name').fill('Parkring');
+  await pf.getByTestId('project-number').fill('91300');
+  await pf.getByTestId('cost-center-input').fill('4711');
+  await pf.getByTestId('project-save').click();
+  await expect(page.getByTestId('photo-site-title')).toHaveText('Parkring');
+  await page.getByTestId('photo-file-input').setInputFiles(join(FIXTURES, 'foto.jpg'));
+  await page.getByTestId('photo-save-dialog').getByTestId('photo-save').click();
+  await page.getByTestId('to-photos').click();
+  await page.getByTestId('photo-recent').click();
+  const card = page.getByTestId('photo-recent-card').first();
+  await expect(card.getByTestId('photo-recent-cc')).toHaveText('KST 4711');
+  await expect(card.getByTestId('photo-recent-site')).toHaveText(/^KST 4711\s*91300 – Parkring$/);
+});

@@ -9,6 +9,7 @@ import { usePageTitle } from '../lib/page-title';
 import { getPhotoStorage, onPhotosChanged } from '../lib/photo-storage';
 import { dayTitle, photoSiteKey, timeLabel } from '../lib/photos';
 import { paths } from '../lib/router';
+import { costCenterByProject } from '../lib/crew-link';
 import type { Photo } from '../lib/types';
 
 const PAGE = 60;
@@ -18,7 +19,7 @@ const uploadDay = (ts: number) => {
 };
 
 /** Kachel: Bild, Projekt als Marke, Uhrzeit und Benutzer */
-function Card({ photo, onOpen }: { photo: Photo; onOpen(): void }) {
+function Card({ photo, cc, onOpen }: { photo: Photo; /** Kostenstelle des Projekts (Nummer bzw. Bezeichnung) */ cc: string; onOpen(): void }) {
   const src = usePhotoUrl(photo.id, 'thumb', photo.updatedAt);
   const site = [photo.siteNumber, photo.siteName].filter(Boolean).join(' – ');
   return (
@@ -28,7 +29,12 @@ function Card({ photo, onOpen }: { photo: Photo; onOpen(): void }) {
         <span className="photo-thumb-time">{timeLabel(photo.uploadedAt)}</span>
       </button>
       <div className="photo-card-info">
-        <a href={paths.photoSite(photoSiteKey(photo))} className="photo-recent-site" title="Zum Projekt">
+        <a href={paths.photoSite(photoSiteKey(photo))} className="photo-recent-site" title="Zum Projekt" data-testid="photo-recent-site">
+          {cc && (
+            <span className="photo-cc" data-testid="photo-recent-cc">
+              KST {cc}
+            </span>
+          )}
           {site}
         </a>
         <span className="photo-card-line">
@@ -51,6 +57,12 @@ export function RecentPhotosPage() {
   const [all, setAll] = useState<Photo[] | null>(null);
   const [limit, setLimit] = useState(PAGE);
   const [viewer, setViewer] = useState<number | null>(null);
+  /** Kostenstelle je Projekt – steht vor dem Projektnamen */
+  const [ccs, setCcs] = useState<Map<string, string>>(new Map());
+  useEffect(() => {
+    void costCenterByProject().then(setCcs, () => undefined);
+  }, []);
+  const ccOf = (p: Photo) => (p.projectId ? (ccs.get(p.projectId) ?? '') : '');
   const reload = () =>
     getPhotoStorage()
       .list()
@@ -100,7 +112,7 @@ export function RecentPhotosPage() {
                 <h3>{dayTitle(d.day)}</h3>
                 <div className="photo-grid">
                   {d.photos.map((p) => (
-                    <Card key={p.id} photo={p} onOpen={() => setViewer(idx(p.id))} />
+                    <Card key={p.id} photo={p} cc={ccOf(p)} onOpen={() => setViewer(idx(p.id))} />
                   ))}
                 </div>
               </div>
@@ -113,7 +125,7 @@ export function RecentPhotosPage() {
           </div>
         )}
         {viewer !== null && ids.length > 0 && (
-          <PhotoViewer ids={ids} index={viewer} title={[shown[viewer]?.siteNumber, shown[viewer]?.siteName].filter(Boolean).join(' – ')} onIndex={setViewer} onClose={() => setViewer(null)} />
+          <PhotoViewer ids={ids} index={viewer} title={[shown[viewer] && ccOf(shown[viewer]) ? `KST ${ccOf(shown[viewer])}` : '', shown[viewer]?.siteNumber, shown[viewer]?.siteName].filter(Boolean).join(' – ')} onIndex={setViewer} onClose={() => setViewer(null)} />
         )}
       </div>
     </>
