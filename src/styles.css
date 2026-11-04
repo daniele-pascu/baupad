@@ -10291,3 +10291,30 @@ html[data-theme='dark'] .crew-search {
   width: 30px;
   height: 30px;
 }
+/* Arbeitszeiten des Unternehmens (einmalig) */
+.worktimes-list {
+  display: grid;
+  gap: 8px;
+}
+.worktimes-row {
+  display: grid;
+  grid-template-columns: 130px repeat(4, minmax(0, 1fr)) 64px;
+  align-items: end;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid var(--border);
+}
+.worktimes-row.off {
+  align-items: center;
+}
+.worktimes-row .check-row {
+  align-self: center;
+}
+@media (max-width: 720px) {
+  .worktimes-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .worktimes-row .check-row {
+    grid-column: 1 / -1;
+  }
+}

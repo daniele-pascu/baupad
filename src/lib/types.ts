@@ -509,7 +509,8 @@ export interface Absence {
 }
 
 /** Arbeitszeit der Firma je Wochentag (0 = Montag); null = kein Arbeitstag */
-export type WorkTimes = ({ from: string; to: string } | null)[];
+/** Arbeitszeit je Wochentag (Mo–So) der Firma; Pause von–bis optional (sonst über 6 h 0:30) */
+export type WorkTimes = ({ from: string; to: string; pauseFrom?: string; pauseTo?: string } | null)[];
 
 /* ───────────── Berichte & Formulare ───────────── */
 

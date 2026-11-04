@@ -8,10 +8,12 @@ import { useDataChanged } from '../lib/data-events';
 import { usePageTitle } from '../lib/page-title';
 import { navigate, paths } from '../lib/router';
 import { canEditSites } from '../lib/sites';
-import { defaultTimes, fmtH, fmtPause, hoursOf, monthId, monthLabel, monthOf, parseHours, pauseOf, pauseTimes, shiftMonth, summarize, timesXlsx, validTime, weekdayIdx, type TimeDay } from '../lib/times';
+import { companyPause, defaultTimes, fmtH, fmtPause, hoursOf, monthId, monthLabel, monthOf, parseHours, pauseOf, pauseTimes, shiftMonth, summarize, timesXlsx, validTime, weekdayIdx, type TimeDay } from '../lib/times';
 import { loadTimes, saveDay, setDayAbsence, suggestionFor, workerYearFile, type TimesData } from '../lib/times-data';
 import { useSession } from '../lib/use-session';
-import type { Worker } from '../lib/types';
+import type { Worker, WorkTimes } from '../lib/types';
+import { Modal } from '../components/Modal';
+import { setMeta } from '../lib/db';
 
 export const TIMES_ACCENT = { '--tool': '#0f9d76' } as CSSProperties;
 const WEEKDAY_LONG = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
@@ -31,6 +33,11 @@ export function TimesPage({ month: m, date: d }: { month: string | null; date: s
   const [dayData, setDayData] = useState<TimesData | null>(null);
   const [extra, setExtra] = useState<string[]>([]);
   const by = session?.name || 'Unbekannt';
+  /** Arbeitszeiten der Firma: einmalig fragen (gilt für alle im Unternehmen), später über die Taste ändern */
+  const [setup, setSetup] = useState<'auto' | 'open' | 'skipped' | null>(null);
+  useEffect(() => {
+    if (data && !data.timesSet && setup === null) setSetup('auto');
+  }, [data, setup]);
 
   const reload = () => {
     void loadTimes(month)
@@ -85,7 +92,26 @@ export function TimesPage({ month: m, date: d }: { month: string | null; date: s
             </a>
             <h1 data-testid="times-title">Zeitaufzeichnung</h1>
           </div>
+          <button type="button" className="btn btn-sm" onClick={() => setSetup('open')} title="Arbeitszeiten des Unternehmens (Vorschlag beim Erfassen)" data-testid="times-worktimes">
+            <Icon name="settings" size={16} /> <span className="lbl">Arbeitszeiten</span>
+          </button>
         </header>
+        {data && (setup === 'auto' || setup === 'open') && (
+          <WorkTimesDialog
+            times={data.times}
+            first={setup === 'auto'}
+            onClose={() => setSetup('skipped')}
+            onSave={(t) => {
+              void setMeta('workTimes', t)
+                .then(() => {
+                  setSetup('skipped');
+                  toast('Arbeitszeiten gespeichert – sie werden beim Erfassen vorgeschlagen.', 'success');
+                  reload();
+                })
+                .catch((e) => showError(e, 'Speichern fehlgeschlagen'));
+            }}
+          />
+        )}
 
         <section className="times-card" data-testid="times-day">
           <header className="times-card-head times-day-head">
@@ -387,5 +413,78 @@ function DayRow({ w, date, rec, sugg, data, by, locked, onSaved }: { w: Worker; 
         </button>
       )}
     </li>
+  );
+}
+
+const DAY_LABELS = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
+
+/**
+ * Arbeitszeiten des Unternehmens je Wochentag (Beginn, Ende, Pause von–bis) – einmalig beim ersten Öffnen gefragt,
+ * gilt für alle im Unternehmen und als Vorschlag beim Erfassen; wer länger oder kürzer gearbeitet hat, bessert den Tag aus.
+ */
+function WorkTimesDialog({ times, first, onClose, onSave }: { times: WorkTimes; first: boolean; onClose(): void; onSave(t: WorkTimes): void }) {
+  const [t, setT] = useState<WorkTimes>(() =>
+    times.map((x) => (x ? { ...x, ...(x.pauseFrom ? {} : (pauseTimes(x.from, x.to, companyPause(x)) ?? {})) } : null)),
+  );
+  const set = (d: number, patch: Partial<NonNullable<WorkTimes[number]>> | null) => setT(t.map((y, i) => (i !== d ? y : patch === null ? null : { ...(y ?? { from: '07:00', to: '16:00' }), ...patch })));
+  return (
+    <Modal
+      title={first ? 'Arbeitszeiten eures Unternehmens' : 'Arbeitszeiten'}
+      onClose={onClose}
+      testId="worktimes-dialog"
+      footer={
+        <>
+          <button type="button" className="btn" onClick={onClose} data-testid="worktimes-later">
+            {first ? 'Später' : 'Abbrechen'}
+          </button>
+          <button type="button" className="btn btn-primary" onClick={() => onSave(t.map((x) => (x ? { from: x.from, to: x.to, ...(x.pauseFrom && x.pauseTo ? { pauseFrom: x.pauseFrom, pauseTo: x.pauseTo } : {}) } : null)))} data-testid="worktimes-save">
+            Speichern
+          </button>
+        </>
+      }
+    >
+      <p className="muted small">
+        {first ? 'Einmalig: Von wann bis wann wird bei euch gearbeitet? ' : ''}Diese Zeiten werden beim Erfassen vorgeschlagen. Wer an einem Tag länger oder kürzer gearbeitet hat, bessert einfach Beginn, Ende oder Pause an diesem Tag aus.
+      </p>
+      <div className="worktimes-list">
+        {DAY_LABELS.map((name, d) => {
+          const x = t[d];
+          const pause = x ? (validTime(x.pauseFrom) && validTime(x.pauseTo) ? pauseOf(x.pauseFrom, x.pauseTo) : 0) : 0;
+          return (
+            <div key={d} className={`worktimes-row${x ? '' : ' off'}`} data-testid="worktimes-row" data-day={d}>
+              <label className="check-row">
+                <input type="checkbox" checked={!!x} onChange={(e) => set(d, e.target.checked ? { from: '07:00', to: d === 4 ? '12:00' : '16:00', ...(d === 4 ? {} : { pauseFrom: '12:00', pauseTo: '12:30' }) } : null)} data-testid="worktimes-day" />
+                <strong>{name}</strong>
+              </label>
+              {x ? (
+                <>
+                  <label className="times-time">
+                    <span>Beginn</span>
+                    <input type="time" step={300} value={x.from} onChange={(e) => set(d, { from: e.target.value })} data-testid="worktimes-from" />
+                  </label>
+                  <label className="times-time">
+                    <span>Ende</span>
+                    <input type="time" step={300} value={x.to} onChange={(e) => set(d, { to: e.target.value })} data-testid="worktimes-to" />
+                  </label>
+                  <label className="times-time">
+                    <span>Pause von</span>
+                    <input type="time" step={300} value={x.pauseFrom ?? ''} onChange={(e) => set(d, { pauseFrom: e.target.value })} data-testid="worktimes-pause-from" />
+                  </label>
+                  <label className="times-time">
+                    <span>Pause bis</span>
+                    <input type="time" step={300} value={x.pauseTo ?? ''} onChange={(e) => set(d, { pauseTo: e.target.value })} data-testid="worktimes-pause-to" />
+                  </label>
+                  <span className="times-pause-sum" data-testid="worktimes-hours">
+                    <span className="muted small">Stunden</span> {fmtH(Math.max(0, hoursOf(x.from, x.to, pause)))}
+                  </span>
+                </>
+              ) : (
+                <span className="muted small">frei</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </Modal>
   );
 }

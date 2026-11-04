@@ -165,12 +165,18 @@ export function pauseTimes(from: string, to: string, pause: number): { pauseFrom
   if (start < a || start + len > b) start = Math.round((a + (b - a - len) / 2) / 15) * 15;
   return { pauseFrom: hhmm(start), pauseTo: hhmm(start + len) };
 }
-/** Stunden eines Arbeitstags laut Firmen-Arbeitszeit; über 6 Stunden 0,5 Stunden Pause (Arbeitszeitgesetz) */
+/** Pause eines Arbeitstags der Firma: eingetragene Pause von–bis, sonst über 6 Stunden 0,5 Stunden (Arbeitszeitgesetz) */
+export function companyPause(t: WorkTimes[number]): number {
+  if (!t) return 0;
+  if (validTime(t.pauseFrom) && validTime(t.pauseTo)) return pauseOf(t.pauseFrom, t.pauseTo);
+  return Math.max(0, minutes(t.to) - minutes(t.from)) / 60 > 6 ? 0.5 : 0;
+}
+/** Stunden eines Arbeitstags laut Firmen-Arbeitszeit (abzüglich Pause) */
 export function plannedHours(times: WorkTimes, date: string): number {
   const t = times[weekdayIdx(date)];
   if (!t || holidayOn(date)) return 0;
   const h = Math.max(0, minutes(t.to) - minutes(t.from)) / 60;
-  return h > 6 ? h - 0.5 : h;
+  return Math.max(0, h - companyPause(t));
 }
 
 export interface DaySuggestion {
@@ -184,8 +190,8 @@ export function defaultTimes(times: WorkTimes, date: string, own?: TimeDefault |
   const t = times[weekdayIdx(date)];
   if (!t || holidayOn(date)) return null;
   if (own && validTime(own.from) && validTime(own.to)) return validTime(own.pauseFrom) ? own : { ...own, ...pauseTimes(own.from, own.to, own.pause) };
-  const h = Math.max(0, minutes(t.to) - minutes(t.from)) / 60;
-  const pause = h > 6 ? 0.5 : 0;
+  const pause = companyPause(t);
+  if (validTime(t.pauseFrom) && validTime(t.pauseTo)) return { from: t.from, to: t.to, pause, pauseFrom: t.pauseFrom, pauseTo: t.pauseTo };
   return { from: t.from, to: t.to, pause, ...pauseTimes(t.from, t.to, pause) };
 }
 

@@ -21,6 +21,8 @@ export interface TimesData {
   company: string;
   /** zuletzt eingetragene Zeiten je Arbeiter */
   defaults: TimeDefaults;
+  /** Arbeitszeiten der Firma schon festgelegt (sonst einmalig fragen) */
+  timesSet: boolean;
 }
 
 export async function loadTimes(month: string): Promise<TimesData> {
@@ -49,10 +51,12 @@ export async function loadTimes(month: string): Promise<TimesData> {
     approvals,
     weeks,
     times: times ?? DEFAULT_WORK_TIMES,
+    timesSet: !!times,
     absences: absences ?? [],
     sites,
     company: company ?? '',
-    defaults: defaults ?? {},
+    // mit festgelegten Firmen-Arbeitszeiten gelten diese als Vorschlag; Abweichungen werden je Tag ausgebessert
+    defaults: times ? {} : (defaults ?? {}),
   };
 }
 

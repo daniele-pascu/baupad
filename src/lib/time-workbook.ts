@@ -2,7 +2,7 @@ import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { safeFileName, type ExportFile } from './aufmass';
 import { addDays, workerName } from './crew';
 import { calcWorkbook } from './xlsx-calc';
-import { easter, holidayOn, monthDays, plannedHours, type TimeDay, type TimeLine } from './times';
+import { companyPause, easter, holidayOn, monthDays, plannedHours, type TimeDay, type TimeLine } from './times';
 import type { Absence, Worker, WorkTimes } from './types';
 
 /**
@@ -46,7 +46,7 @@ export function weeklySoll(times: WorkTimes): number[] {
     const t = times[d];
     if (!t) return 0;
     const h = Math.max(0, minutes(t.to) - minutes(t.from)) / 60;
-    return h > 6 ? h - 0.5 : h;
+    return Math.max(0, h - companyPause(t));
   });
 }
 

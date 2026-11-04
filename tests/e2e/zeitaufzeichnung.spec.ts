@@ -43,6 +43,8 @@ test('Tag erfassen, Monatszettel mit Wegzeit und zweiter Baustelle, Excel, Freig
   await page.goto('./baupad/tools');
   await page.getByTestId('tool-times').click();
   await expect(page.getByTestId('times-title')).toHaveText('Zeitaufzeichnung');
+  // einmalige Frage nach den Arbeitszeiten – hier später
+  await page.getByTestId('worktimes-dialog').getByTestId('worktimes-later').click();
 
   // Tag erfassen: Vorschlag aus der Einteilung (Parkring, 07:00–16:00, Pause 0:30 = 8,5 h), Peter ändern, Rest übernehmen
   await page.getByTestId('times-date').fill('2026-10-28');
@@ -147,4 +149,41 @@ test('Tag erfassen, Monatszettel mit Wegzeit und zweiter Baustelle, Excel, Freig
   await expect(page.getByTestId('timesheet-approve')).toHaveCount(0);
   await expect(fri.getByTestId('timesheet-site').first()).toBeDisabled();
   await expect(page.getByTestId('timesheet-take')).toHaveCount(0);
+});
+
+test('Arbeitszeiten des Unternehmens einmalig festlegen: Vorschlag je Tag, Abweichung nur an dem Tag', async ({ page }) => {
+  await setup(page);
+  await page.goto('./baupad/zeitaufzeichnung');
+  const dlg = page.getByTestId('worktimes-dialog');
+  await expect(dlg).toContainText('Arbeitszeiten eures Unternehmens');
+  // Dienstag und Mittwoch: 06:30–16:00, Pause 12:00–12:45
+  for (const d of ['1', '2']) {
+    const r = dlg.locator(`[data-testid="worktimes-row"][data-day="${d}"]`);
+    await expect(r.getByTestId('worktimes-from')).toHaveValue('07:00');
+    await r.getByTestId('worktimes-from').fill('06:30');
+    await r.getByTestId('worktimes-pause-from').fill('12:00');
+    await r.getByTestId('worktimes-pause-to').fill('12:45');
+    await expect(r.getByTestId('worktimes-hours')).toContainText('8,75');
+  }
+  await dlg.getByTestId('worktimes-save').click();
+  await expect(dlg).toHaveCount(0);
+  // Dienstag: Vorschlag aus den Arbeitszeiten
+  await page.getByTestId('times-date').fill('2026-10-27');
+  await expect(row(page, 'Max').getByTestId('times-from')).toHaveValue('06:30');
+  await expect(row(page, 'Max').getByTestId('times-pause-to')).toHaveValue('12:45');
+  await expect(row(page, 'Max').getByTestId('times-hours')).toHaveText('8,75 h');
+  // länger gearbeitet: nur an diesem Tag ausbessern (wird sofort gespeichert)
+  await row(page, 'Max').getByTestId('times-to').fill('17:00');
+  await expect(row(page, 'Max').getByTestId('times-hours')).toHaveText('9,75 h');
+  await expect(row(page, 'Max')).toHaveAttribute('data-state', 'done');
+  // nächster Tag: wieder die Arbeitszeit des Unternehmens
+  await page.getByTestId('times-date').fill('2026-10-28');
+  await expect(row(page, 'Max').getByTestId('times-to')).toHaveValue('16:00');
+  await expect(row(page, 'Max').getByTestId('times-hours')).toHaveText('8,75 h');
+  // nach dem Neuladen nicht mehr gefragt; über die Taste änderbar
+  await page.reload();
+  await expect(page.getByTestId('times-title')).toBeVisible();
+  await expect(page.getByTestId('worktimes-dialog')).toHaveCount(0);
+  await page.getByTestId('times-worktimes').click();
+  await expect(page.getByTestId('worktimes-dialog').locator('[data-day="1"]').getByTestId('worktimes-from')).toHaveValue('06:30');
 });
