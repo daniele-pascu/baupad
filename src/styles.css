@@ -10243,3 +10243,51 @@ html[data-theme='dark'] .crew-search {
     justify-self: end;
   }
 }
+/* Foto-Editor: Zoom-Knöpfe, Hinweis, eigene Farbe */
+.pe-zoom {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  background: rgba(28, 28, 30, 0.85);
+}
+.pe-zoom .icon-btn {
+  color: #fff;
+}
+.pe-zoom .icon-btn:disabled {
+  opacity: 0.35;
+}
+.pe-hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #bbb;
+}
+.pe-colors .pe-custom {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: conic-gradient(#e03131, #f5b800, #2f9e44, #15aabf, #1c7ed6, #9c36b5, #e03131);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+  overflow: hidden;
+}
+.pe-colors .pe-custom input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+.pe-colors {
+  gap: 6px;
+}
+.pe-colors .swatch {
+  width: 30px;
+  height: 30px;
+}

@@ -80,4 +80,27 @@ test('Foto bearbeiten am Handy: Editor passt auf den Bildschirm, Foto groß', as
     expect(b.x + b.width).toBeLessThanOrEqual(391);
   }
   await page.screenshot({ path: join(OUT, 'foto-bearbeiten-handy.png') });
+  // zwei Finger: auseinander = Foto vergrößern (wie beim Plan)
+  const pinch = (cx: number, cy: number, d0: number, d1: number) =>
+    page.evaluate(
+      ({ cx, cy, d0, d1 }) => {
+        const el = document.querySelector('[data-testid="pe-canvas"]')!;
+        const ev = (type: string, id: number, x: number, y: number) => el.dispatchEvent(new PointerEvent(type, { pointerId: id, pointerType: 'touch', clientX: x, clientY: y, bubbles: true, isPrimary: id === 1 }));
+        ev('pointerdown', 1, cx - d0, cy);
+        ev('pointerdown', 2, cx + d0, cy);
+        for (let i = 1; i <= 5; i++) {
+          const d = d0 + ((d1 - d0) * i) / 5;
+          ev('pointermove', 1, cx - d, cy);
+          ev('pointermove', 2, cx + d, cy);
+        }
+        ev('pointerup', 1, cx - d1, cy);
+        ev('pointerup', 2, cx + d1, cy);
+      },
+      { cx, cy, d0, d1 },
+    );
+  const cv = ed.getByTestId('pe-canvas');
+  await pinch(img.x + img.width / 2, img.y + img.height / 2, 40, 100);
+  await expect.poll(async () => Number(await cv.getAttribute('data-zoom'))).toBeGreaterThan(2);
+  await ed.getByTestId('pe-zoom-fit').tap();
+  await expect(cv).toHaveAttribute('data-zoom', '1.00');
 });

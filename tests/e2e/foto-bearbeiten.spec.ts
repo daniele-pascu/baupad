@@ -48,9 +48,15 @@ test('Foto bearbeiten: Freihand, Polylinie, Rechteck, Kreis, Darstellung, Rückg
     await page.mouse.move(b.x, b.y, { steps: 5 });
     await page.mouse.up();
   };
-  // Freihand (Standard)
+  // Freihand; danach automatisch wieder Auswahl (keine Auswahl-Taste mehr)
+  await expect(ed.getByTestId('pe-tool-select')).toHaveCount(0);
+  await ed.getByTestId('pe-tool-free').click();
   await dragTo(at(0.1, 0.1), at(0.3, 0.2));
   await expect(cv).toHaveAttribute('data-marks', '1');
+  await expect(cv).toHaveAttribute('data-tool', 'select');
+  // mehr Farben und eigene Farbe
+  expect(await ed.getByTestId('pe-color').count()).toBeGreaterThanOrEqual(16);
+  await expect(ed.getByTestId('pe-color-custom')).toHaveCount(1);
   // Rechteck blau, ausgefüllt, 50 %
   await ed.getByTestId('pe-tool-rect').click();
   await ed.locator('[data-testid="pe-color"][data-color="#1c7ed6"]').click();
@@ -69,17 +75,45 @@ test('Foto bearbeiten: Freihand, Polylinie, Rechteck, Kreis, Darstellung, Rückg
   await expect(ed.getByTestId('pe-polybar')).toContainText('3 Punkte');
   await ed.getByTestId('pe-poly-close').click();
   await expect(cv).toHaveAttribute('data-marks', '4');
+  await expect(cv).toHaveAttribute('data-tool', 'select');
   await expect(ed.getByTestId('pe-toggle-closed')).toContainText('Geschlossen');
+  // Eckpunkte wie im Plan: 3 Eckpunkte + 3 Kantenmitten; Mitte ziehen fügt einen Eckpunkt ein
+  await expect(ed.getByTestId('pe-handle')).toHaveCount(3);
+  await expect(ed.getByTestId('pe-handle-mid')).toHaveCount(3);
+  const mid = (await ed.getByTestId('pe-handle-mid').first().boundingBox())!;
+  await dragTo({ x: mid.x + mid.width / 2, y: mid.y + mid.height / 2 }, { x: mid.x + 40, y: mid.y - 30 });
+  await expect(ed.getByTestId('pe-handle')).toHaveCount(4);
+  // Eckpunkt ziehen
+  const v = (await ed.getByTestId('pe-handle').first().boundingBox())!;
+  await dragTo({ x: v.x + v.width / 2, y: v.y + v.height / 2 }, { x: v.x - 20, y: v.y + 10 });
+  await expect(ed.getByTestId('pe-handle')).toHaveCount(4);
+  // Doppeltippen entfernt einen Eckpunkt
+  const v2 = (await ed.getByTestId('pe-handle').nth(1).boundingBox())!;
+  await page.mouse.dblclick(v2.x + v2.width / 2, v2.y + v2.height / 2);
+  await expect(ed.getByTestId('pe-handle')).toHaveCount(3);
   await ed.getByTestId('pe-toggle-closed').click();
   await expect(ed.getByTestId('pe-toggle-closed')).toContainText('Offen');
   // Rückgängig / Wiederholen
-  await ed.getByTestId('pe-undo').click(); // wieder geschlossen
-  await ed.getByTestId('pe-undo').click(); // Polylinie weg
+  for (let i = 0; i < 5; i++) await ed.getByTestId('pe-undo').click(); // offen, entfernen, ziehen, einfügen, Polylinie
   await expect(cv).toHaveAttribute('data-marks', '3');
   await ed.getByTestId('pe-redo').click();
   await expect(cv).toHaveAttribute('data-marks', '4');
+  // daneben tippen hebt die Auswahl auf
+  await page.mouse.click(at(0.5, 0.95).x, at(0.5, 0.95).y);
+  await expect(ed.getByTestId('pe-delete')).toHaveCount(0);
+  // Rechteck an der Ecke größer ziehen (Griffe)
+  const r0 = at(0.6, 0.5);
+  await page.mouse.click(r0.x, r0.y);
+  await expect(ed.getByTestId('pe-handle')).toHaveCount(4);
+  // Zoom wie beim Plan: Knöpfe und Mausrad, ganzes Foto
+  await ed.getByTestId('pe-zoom-in').click();
+  await expect(cv).toHaveAttribute('data-zoom', '1.50');
+  await page.mouse.move(at(0.5, 0.5).x, at(0.5, 0.5).y);
+  await page.mouse.wheel(0, -300);
+  await expect.poll(async () => Number(await cv.getAttribute('data-zoom'))).toBeGreaterThan(1.6);
+  await ed.getByTestId('pe-zoom-fit').click();
+  await expect(cv).toHaveAttribute('data-zoom', '1.00');
   // Auswahl: Kreis antippen und löschen
-  await ed.getByTestId('pe-tool-select').click();
   const c = at(0.9, 0.2);
   await page.mouse.click(c.x, c.y);
   await expect(ed.getByTestId('pe-delete')).toBeVisible();
