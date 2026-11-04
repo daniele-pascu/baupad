@@ -4,7 +4,7 @@ import { TimeField } from '../components/TimeField';
 import { SiteNav } from '../components/SiteNav';
 import { ToolIcon } from '../components/ToolIcon';
 import { offerFile, promptDialog, showError, toast } from '../components/ui';
-import { addDays, isoDate, workerName } from '../lib/crew';
+import { addDays, gradeLabel, isoDate, knownGrade, sortByGrade, workerName } from '../lib/crew';
 import { useDataChanged } from '../lib/data-events';
 import { usePageTitle } from '../lib/page-title';
 import { navigate, paths } from '../lib/router';
@@ -51,6 +51,27 @@ export function TimesPage({ month: m, date: d }: { month: string | null; date: s
   useEffect(reload, [month, date]);
   useDataChanged(reload);
   useEffect(() => setExtra([]), [date]);
+  /** „Meine Arbeiter“: Polier/Arbeiter wählt aus, wen er erfasst (gemerkt je Benutzer auf diesem Gerät); leer = alle */
+  const mineKey = `timesMine:${by}`;
+  const readMine = () => {
+    try {
+      return JSON.parse(localStorage.getItem(mineKey) ?? '[]') as string[];
+    } catch {
+      return [];
+    }
+  };
+  const [mine, setMine] = useState<string[]>(readMine);
+  // Anmeldung kommt evtl. erst nach dem ersten Zeichnen – dann die Auswahl dieses Benutzers laden
+  useEffect(() => setMine(readMine()), [mineKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [picking, setPicking] = useState(false);
+  const saveMine = (ids: string[]) => {
+    setMine(ids);
+    try {
+      localStorage.setItem(mineKey, JSON.stringify(ids));
+    } catch {
+      /* egal */
+    }
+  };
 
   const setMonth = (next: string) => navigate(paths.times({ month: next }), true);
   const excel = () => {
@@ -135,7 +156,14 @@ export function TimesPage({ month: m, date: d }: { month: string | null; date: s
               </button>
             )}
           </header>
-          {dayData ? <DayList data={dayData} date={date} by={by} office={canEditSites(session)} extra={extra} onExtra={(id) => setExtra((l) => [...l, id])} onSaved={reload} /> : <p className="muted small">Wird geladen …</p>}
+          <div className="times-mine">
+            <button type="button" className="btn btn-sm" onClick={() => setPicking(true)} data-testid="times-pick">
+              <ToolIcon name="workers" size={16} /> {mine.length ? `Meine Arbeiter (${mine.length})` : 'Arbeiter auswählen'}
+            </button>
+            <span className="muted small">{mine.length ? 'Nur deine Arbeiter – je Arbeiter nur die Tage ausfüllen, an denen er bei dir war.' : 'Alle Arbeiter des Tages – oder deine Arbeiter auswählen.'}</span>
+          </div>
+          {picking && dayData && <PickWorkers workers={dayData.workers} selected={mine} onClose={() => setPicking(false)} onSave={(ids) => (saveMine(ids), setPicking(false))} />}
+          {dayData ? <DayList data={dayData} date={date} by={by} office={canEditSites(session)} mine={mine} extra={extra} onExtra={(id) => setExtra((l) => [...l, id])} onSaved={reload} /> : <p className="muted small">Wird geladen …</p>}
         </section>
 
         <section className="times-card" data-testid="times-month">
@@ -206,10 +234,12 @@ export function TimesPage({ month: m, date: d }: { month: string | null; date: s
 }
 
 /** Arbeiter eines Tages: eingeteilte, bereits erfasste und dazugeholte */
-function DayList({ data, date, by, office, extra, onExtra, onSaved }: { data: TimesData; date: string; by: string; office: boolean; extra: string[]; onExtra(id: string): void; onSaved(): void }) {
+function DayList({ data, date, by, office, mine, extra, onExtra, onSaved }: { data: TimesData; date: string; by: string; office: boolean; mine: string[]; extra: string[]; onExtra(id: string): void; onSaved(): void }) {
   const items = data.workers
+    .filter((w) => !mine.length || mine.includes(w.id) || extra.includes(w.id))
     .map((w) => ({ w, rec: data.days.find((x) => x.workerId === w.id && x.date === date) ?? null, sugg: suggestionFor(data, w.id, date), locked: data.approvals.some((a) => a.id === monthId(w.id, data.month)) && !office }))
-    .filter((x) => x.rec || x.sugg.lines.length || x.sugg.absence || extra.includes(x.w.id))
+    // eigene Auswahl: alle gewählten zeigen (auch ohne Einteilung); sonst wie bisher die Arbeiter des Tages
+    .filter((x) => (mine.length && x.w.active) || x.rec || x.sugg.lines.length || x.sugg.absence || extra.includes(x.w.id))
     .sort((a, b) => (a.rec?.lines[0]?.siteName ?? a.sugg.lines[0]?.siteName ?? 'zzz').localeCompare(b.rec?.lines[0]?.siteName ?? b.sugg.lines[0]?.siteName ?? 'zzz', 'de') || workerName(a.w).localeCompare(workerName(b.w), 'de'));
   const pending = items.filter((x) => !x.rec && x.sugg.lines.length && !x.locked);
   const others = data.workers.filter((w) => w.active && !items.some((x) => x.w.id === w.id));
@@ -248,6 +278,62 @@ function DayList({ data, date, by, office, extra, onExtra, onSaved }: { data: Ti
         )}
       </div>
     </>
+  );
+}
+
+/** „Meine Arbeiter“ auswählen: Suche oder scrollen, ankreuzen (wie beim Einteilen) */
+function PickWorkers({ workers, selected, onSave, onClose }: { workers: Worker[]; selected: string[]; onSave(ids: string[]): void; onClose(): void }) {
+  const [sel, setSel] = useState<Set<string>>(() => new Set(selected));
+  const [q, setQ] = useState('');
+  const needle = q.trim().toLowerCase();
+  const list = sortByGrade(workers.filter((w) => w.active));
+  const shown = needle ? list.filter((w) => [workerName(w), w.role ?? '', w.staffNo ?? '', gradeLabel(knownGrade(w) ?? undefined)].join(' ').toLowerCase().includes(needle)) : list;
+  return (
+    <Modal
+      title="Meine Arbeiter"
+      onClose={onClose}
+      testId="times-pick-dialog"
+      footer={
+        <>
+          <button type="button" className="btn" onClick={() => setSel(new Set())} data-testid="times-pick-none">
+            Keine
+          </button>
+          <button type="button" className="btn btn-primary" onClick={() => onSave(list.filter((w) => sel.has(w.id)).map((w) => w.id))} data-testid="times-pick-save">
+            {sel.size ? `${sel.size} übernehmen` : 'Alle zeigen'}
+          </button>
+        </>
+      }
+    >
+      <p className="muted small">Wähle die Arbeiter, die bei dir sind. „Tag erfassen“ zeigt dann nur diese – ohne Auswahl alle.</p>
+      <label className="crew-search crew-pick-search">
+        <Icon name="select" size={18} />
+        <span className="sr-only">Arbeiter suchen</span>
+        <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Arbeiter suchen: Name, Funktion, Nr." data-testid="times-pick-search" />
+      </label>
+      {needle && shown.length === 0 && <p className="muted small">Kein Arbeiter gefunden.</p>}
+      <ul className="crew-pick">
+        {shown.map((w) => (
+          <li key={w.id}>
+            <label className="check-row" data-testid="times-pick-worker" data-worker={workerName(w)}>
+              <input
+                type="checkbox"
+                checked={sel.has(w.id)}
+                onChange={(e) => {
+                  const next = new Set(sel);
+                  if (e.target.checked) next.add(w.id);
+                  else next.delete(w.id);
+                  setSel(next);
+                }}
+              />
+              <span className="crew-pick-name">
+                {workerName(w)}
+                {knownGrade(w) && <span className="muted small"> · {gradeLabel(knownGrade(w)!)}</span>}
+              </span>
+            </label>
+          </li>
+        ))}
+      </ul>
+    </Modal>
   );
 }
 

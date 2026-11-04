@@ -10508,3 +10508,12 @@ html[data-theme='dark'] .crew-search {
   flex: 1;
   min-width: 0;
 }
+
+/* Zeitaufzeichnung: „Meine Arbeiter“ */
+.times-mine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-bottom: 10px;
+}

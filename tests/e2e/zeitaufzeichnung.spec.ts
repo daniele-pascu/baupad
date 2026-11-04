@@ -191,3 +191,34 @@ test('Arbeitszeiten des Unternehmens einmalig festlegen: Vorschlag je Tag, Abwei
   await page.getByTestId('times-worktimes').click();
   await expect(page.getByTestId('worktimes-dialog').locator('[data-day="1"]').getByTestId('worktimes-from')).toHaveValue('06:30');
 });
+
+test('Meine Arbeiter: Polier wählt mit Suche aus, „Tag erfassen“ zeigt nur diese; gemerkt; ohne Auswahl wieder alle', async ({ page }) => {
+  await setup(page);
+  await page.goto('./baupad/zeitaufzeichnung');
+  await page.getByTestId('worktimes-dialog').getByTestId('worktimes-later').click();
+  await page.getByTestId('times-date').fill('2026-10-28');
+  await expect(page.getByTestId('times-day-row')).toHaveCount(2);
+  await page.getByTestId('times-pick').click();
+  const pd = page.getByTestId('times-pick-dialog');
+  await pd.getByTestId('times-pick-search').fill('max');
+  await expect(pd.getByTestId('times-pick-worker')).toHaveCount(1);
+  await pd.locator('[data-testid="times-pick-worker"][data-worker="Max"] input').check();
+  await pd.getByTestId('times-pick-search').fill('');
+  await expect(pd.getByTestId('times-pick-worker')).toHaveCount(2);
+  await pd.getByTestId('times-pick-save').click();
+  await expect(page.getByTestId('times-pick')).toHaveText(/Meine Arbeiter \(1\)/);
+  await expect(page.getByTestId('times-day-row')).toHaveCount(1);
+  await expect(row(page, 'Max')).toBeVisible();
+  // Tag ohne Einteilung (Samstag): gewählter Arbeiter steht trotzdem da – nur ausfüllen, wenn er bei mir war
+  await page.getByTestId('times-date').fill('2026-10-31');
+  await expect(page.getByTestId('times-day-row')).toHaveCount(1);
+  await page.reload();
+  await expect(page.getByTestId('times-pick')).toHaveText(/Meine Arbeiter \(1\)/);
+  await page.getByTestId('worktimes-dialog').getByTestId('worktimes-later').click();
+  // keine Auswahl → wieder alle des Tages
+  await page.getByTestId('times-pick').click();
+  await pd.getByTestId('times-pick-none').click();
+  await pd.getByTestId('times-pick-save').click();
+  await page.getByTestId('times-date').fill('2026-10-28');
+  await expect(page.getByTestId('times-day-row')).toHaveCount(2);
+});
