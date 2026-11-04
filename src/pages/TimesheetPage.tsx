@@ -11,7 +11,7 @@ import { canEditSites } from '../lib/sites';
 import { dayHours, defaultTimes, fmtH, holidayOn, hoursOf, monthDays, monthId, monthLabel, parseHours, plannedHours, shiftMonth, summarize, thisMonth, validTime, weekdayIdx, WEEKDAYS, type TimeDay, type TimeLine } from '../lib/times';
 import { approveMonth, loadTimes, saveDay, storedMonthFile, suggestionFor, workerYearFile, type TimesData } from '../lib/times-data';
 import { useSession } from '../lib/use-session';
-import { SiteSelect, TimeInputs, TIMES_ACCENT } from './TimesPage';
+import { SiteSelect, TimeInputs, timeValues, TIMES_ACCENT } from './TimesPage';
 
 /**
  * Monatszettel eines Arbeiters: eine Zeile je Tag mit Baustelle und Stunden (zweite Baustelle = zweite Zeile),
@@ -171,8 +171,8 @@ export function TimesheetPage({ workerId, month: m }: { workerId: string; month:
   );
 }
 
-type LineDraft = { projectId: string | null; siteName: string; from: string; to: string; pause: number; hours: number; travel: string };
-const draftOf = (l: TimeLine): LineDraft => ({ projectId: l.projectId, siteName: l.siteName, from: l.from ?? '', to: l.to ?? '', pause: l.pause ?? 0, hours: l.hours, travel: l.travel ? fmtH(l.travel) : '' });
+type LineDraft = { projectId: string | null; siteName: string; from: string; to: string; pause: number; pauseFrom: string; pauseTo: string; hours: number; travel: string };
+const draftOf = (l: TimeLine): LineDraft => ({ projectId: l.projectId, siteName: l.siteName, ...timeValues(l), hours: l.hours, travel: l.travel ? fmtH(l.travel) : '' });
 /** vollständig: Baustelle und von/bis – oder ältere Zeile nur mit Stunden */
 const complete = (l: LineDraft) => !!l.siteName && ((validTime(l.from) && validTime(l.to)) || (!l.from && !l.to && l.hours > 0));
 
@@ -191,7 +191,7 @@ function SheetDay({ date, rec, data, workerId, by, locked, approved, today, onSa
     if (next.some((l) => !complete(l))) return;
     const out: TimeLine[] = next.map((l) => {
       const t = parseHours(l.travel);
-      return { projectId: l.projectId, siteName: l.siteName, hours: l.hours, ...(l.from ? { from: l.from, to: l.to, pause: l.pause } : {}), ...(t ? { travel: t } : {}) };
+      return { projectId: l.projectId, siteName: l.siteName, hours: l.hours, ...(l.from ? { from: l.from, to: l.to, pause: l.pause, ...(l.pauseFrom && l.pauseTo ? { pauseFrom: l.pauseFrom, pauseTo: l.pauseTo } : {}) } : {}), ...(t ? { travel: t } : {}) };
     });
     // Korrekturen im Monatszettel sind Ausnahmen – gemerkt werden die Zeiten aus „Tag erfassen“
     void saveDay(workerId, date, out, by, { prev: rec ?? undefined, approved }).then(onSaved, (e) => showError(e, 'Speichern fehlgeschlagen'));
@@ -203,7 +203,7 @@ function SheetDay({ date, rec, data, workerId, by, locked, approved, today, onSa
   };
   const addLine = () => {
     const last = lines[lines.length - 1];
-    setLines((l) => [...l, { projectId: null, siteName: '', from: last?.to ?? fallback?.from ?? '', to: fallback?.to ?? '', pause: 0, hours: 0, travel: '' }]);
+    setLines((l) => [...l, { projectId: null, siteName: '', from: last?.to ?? fallback?.from ?? '', to: fallback?.to ?? '', pause: 0, pauseFrom: '', pauseTo: '', hours: 0, travel: '' }]);
   };
   const removeLine = (i: number) => {
     const next = lines.filter((_, j) => j !== i);
@@ -230,7 +230,7 @@ function SheetDay({ date, rec, data, workerId, by, locked, approved, today, onSa
             {lines.map((l, i) => (
               <div key={i} className="times-line" data-testid="timesheet-line">
                 <SiteSelect value={l.siteName ? { projectId: l.projectId, siteName: l.siteName } : null} sites={data.sites} disabled={locked} testId="timesheet-site" onChange={(v) => setLine(i, { projectId: v.projectId, siteName: v.siteName }, true)} />
-                <TimeInputs from={l.from} to={l.to} pause={l.pause} disabled={locked} testPrefix="timesheet" onChange={(v) => setLine(i, v, true)} />
+                <TimeInputs from={l.from} to={l.to} pause={l.pause} pauseFrom={l.pauseFrom} pauseTo={l.pauseTo} disabled={locked} testPrefix="timesheet" onChange={(v) => setLine(i, v, true)} />
                 <span className="times-hours" data-testid="timesheet-line-hours">
                   {fmtH(lineHours(l))} h
                 </span>
@@ -288,7 +288,7 @@ function SheetDay({ date, rec, data, workerId, by, locked, approved, today, onSa
               type="button"
               className="link-btn small times-add-day"
               onClick={() => {
-                setLines([{ projectId: null, siteName: '', from: fallback?.from ?? '07:00', to: fallback?.to ?? '16:00', pause: fallback?.pause ?? 0.5, hours: 0, travel: '' }]);
+                setLines([{ projectId: null, siteName: '', ...timeValues(fallback ?? { from: '07:00', to: '16:00', pause: 0.5 }), hours: 0, travel: '' }]);
                 setEditing(true);
               }}
               data-testid="timesheet-add-day"

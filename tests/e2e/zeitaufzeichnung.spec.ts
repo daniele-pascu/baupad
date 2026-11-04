@@ -50,13 +50,17 @@ test('Tag erfassen, Monatszettel mit Wegzeit und zweiter Baustelle, Excel, Freig
   await expect(row(page, 'Max')).toHaveAttribute('data-state', 'suggested');
   await expect(row(page, 'Max').getByTestId('times-from')).toHaveValue('07:00');
   await expect(row(page, 'Max').getByTestId('times-to')).toHaveValue('16:00');
-  await expect(row(page, 'Max').getByTestId('times-pause')).toHaveValue('0.5');
+  // Pause von–bis (Vorschlag Mittag), Dauer automatisch
+  await expect(row(page, 'Max').getByTestId('times-pause-from')).toHaveValue('12:00');
+  await expect(row(page, 'Max').getByTestId('times-pause-to')).toHaveValue('12:30');
+  await expect(row(page, 'Max').getByTestId('times-pause')).toContainText('0:30');
   await expect(row(page, 'Max').getByTestId('times-hours')).toHaveText('8,5 h');
   await expect(row(page, 'Max').getByTestId('times-site')).toHaveValue(/^p:/);
   await row(page, 'Peter').getByTestId('times-to').fill('15:00');
   await expect(row(page, 'Peter')).toHaveAttribute('data-state', 'done');
   await expect(row(page, 'Peter').getByTestId('times-hours')).toHaveText('7,5 h');
-  await row(page, 'Peter').getByTestId('times-pause').selectOption('1');
+  await row(page, 'Peter').getByTestId('times-pause-to').fill('13:00');
+  await expect(row(page, 'Peter').getByTestId('times-pause')).toContainText('1:00');
   await expect(row(page, 'Peter').getByTestId('times-hours')).toHaveText('7 h');
   await row(page, 'Peter').getByTestId('times-travel').fill('1,5');
   await row(page, 'Peter').getByTestId('times-travel').press('Enter');
@@ -67,7 +71,9 @@ test('Tag erfassen, Monatszettel mit Wegzeit und zweiter Baustelle, Excel, Freig
   await page.getByTestId('times-date').fill('2026-10-29');
   await expect(row(page, 'Peter')).toHaveAttribute('data-state', 'suggested');
   await expect(row(page, 'Peter').getByTestId('times-to')).toHaveValue('15:00');
-  await expect(row(page, 'Peter').getByTestId('times-pause')).toHaveValue('1');
+  await expect(row(page, 'Peter').getByTestId('times-pause-from')).toHaveValue('12:00');
+  await expect(row(page, 'Peter').getByTestId('times-pause-to')).toHaveValue('13:00');
+  await expect(row(page, 'Peter').getByTestId('times-pause')).toContainText('1:00');
   await expect(row(page, 'Max').getByTestId('times-to')).toHaveValue('16:00');
   // Kopfzeile: Wochentag, Datum, Pfeile für Vortag/nächsten Tag
   await expect(page.getByTestId('times-weekday')).toHaveText('Donnerstag');

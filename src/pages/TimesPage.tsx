@@ -8,7 +8,7 @@ import { useDataChanged } from '../lib/data-events';
 import { usePageTitle } from '../lib/page-title';
 import { navigate, paths } from '../lib/router';
 import { canEditSites } from '../lib/sites';
-import { defaultTimes, fmtH, fmtPause, hoursOf, monthId, monthLabel, monthOf, parseHours, PAUSES, shiftMonth, summarize, timesXlsx, validTime, weekdayIdx, type TimeDay } from '../lib/times';
+import { defaultTimes, fmtH, fmtPause, hoursOf, monthId, monthLabel, monthOf, parseHours, pauseOf, pauseTimes, shiftMonth, summarize, timesXlsx, validTime, weekdayIdx, type TimeDay } from '../lib/times';
 import { loadTimes, saveDay, setDayAbsence, suggestionFor, workerYearFile, type TimesData } from '../lib/times-data';
 import { useSession } from '../lib/use-session';
 import type { Worker } from '../lib/types';
@@ -256,28 +256,56 @@ export function SiteSelect({ value, sites, onChange, disabled, testId }: { value
   );
 }
 
-/** von / bis / Pause – gemeinsamer Baustein für „Tag erfassen“ und den Monatszettel */
-export function TimeInputs({ from, to, pause, disabled, onChange, testPrefix }: { from: string; to: string; pause: number; disabled?: boolean; onChange(v: { from: string; to: string; pause: number }): void; testPrefix: string }) {
+export interface TimeValues {
+  from: string;
+  to: string;
+  pause: number;
+  pauseFrom: string;
+  pauseTo: string;
+}
+
+/** Werte für die Eingabe: ältere Einträge nur mit Pausendauer bekommen passende Pausenzeiten vorgeschlagen */
+export function timeValues(l: { from?: string; to?: string; pause?: number; pauseFrom?: string; pauseTo?: string } | null | undefined): TimeValues {
+  const from = l?.from ?? '';
+  const to = l?.to ?? '';
+  const pause = l?.pause ?? 0;
+  const pt = validTime(l?.pauseFrom) && validTime(l?.pauseTo) ? { pauseFrom: l!.pauseFrom!, pauseTo: l!.pauseTo! } : (pauseTimes(from, to, pause) ?? { pauseFrom: '', pauseTo: '' });
+  return { from, to, pause, ...pt };
+}
+
+/**
+ * Arbeitsbeginn, Arbeitsende, Pause von–bis – gemeinsamer Baustein für „Tag erfassen“ und den Monatszettel.
+ * Die Pausendauer wird aus den Pausenzeiten automatisch berechnet und angezeigt.
+ */
+export function TimeInputs({ from, to, pauseFrom, pauseTo, pause, disabled, onChange, testPrefix }: TimeValues & { disabled?: boolean; onChange(v: TimeValues): void; testPrefix: string }) {
+  const emit = (patch: Partial<TimeValues>) => {
+    const v = { from, to, pause, pauseFrom, pauseTo, ...patch };
+    // Dauer aus von–bis; beide leer = keine Pause; nur eine Zeit = Dauer bleibt bis zur zweiten
+    const p = validTime(v.pauseFrom) && validTime(v.pauseTo) ? pauseOf(v.pauseFrom, v.pauseTo) : !v.pauseFrom && !v.pauseTo ? 0 : v.pause;
+    onChange({ ...v, pause: p });
+  };
+  const bad = validTime(pauseFrom) && validTime(pauseTo) && (pauseTo <= pauseFrom || (validTime(from) && pauseFrom < from) || (validTime(to) && pauseTo > to));
   return (
     <>
       <label className="times-time">
-        <span>von</span>
-        <input type="time" step={900} value={from} disabled={disabled} onChange={(e) => onChange({ from: e.target.value, to, pause })} data-testid={`${testPrefix}-from`} />
+        <span>Beginn</span>
+        <input type="time" step={300} value={from} disabled={disabled} onChange={(e) => emit({ from: e.target.value })} data-testid={`${testPrefix}-from`} />
       </label>
       <label className="times-time">
-        <span>bis</span>
-        <input type="time" step={900} value={to} disabled={disabled} onChange={(e) => onChange({ from, to: e.target.value, pause })} data-testid={`${testPrefix}-to`} />
+        <span>Ende</span>
+        <input type="time" step={300} value={to} disabled={disabled} onChange={(e) => emit({ to: e.target.value })} data-testid={`${testPrefix}-to`} />
       </label>
       <label className="times-time">
-        <span>Pause</span>
-        <select value={String(pause)} disabled={disabled} onChange={(e) => onChange({ from, to, pause: Number(e.target.value) })} data-testid={`${testPrefix}-pause`}>
-          {[...new Set([...PAUSES, pause])].sort((a, b) => a - b).map((p) => (
-            <option key={p} value={String(p)}>
-              {fmtPause(p)}
-            </option>
-          ))}
-        </select>
+        <span>Pause von</span>
+        <input type="time" step={300} value={pauseFrom} disabled={disabled} onChange={(e) => emit({ pauseFrom: e.target.value })} data-testid={`${testPrefix}-pause-from`} />
       </label>
+      <label className="times-time">
+        <span>Pause bis</span>
+        <input type="time" step={300} value={pauseTo} disabled={disabled} onChange={(e) => emit({ pauseTo: e.target.value })} data-testid={`${testPrefix}-pause-to`} />
+      </label>
+      <span className={`times-pause-sum${bad ? ' warn' : ''}`} title={bad ? 'Pause liegt nicht innerhalb der Arbeitszeit' : 'Pausendauer (automatisch)'} data-testid={`${testPrefix}-pause`}>
+        <span className="muted small">Pause</span> {fmtPause(pause)}
+      </span>
     </>
   );
 }
@@ -289,7 +317,7 @@ function DayRow({ w, date, rec, sugg, data, by, locked, onSaved }: { w: Worker; 
   const first = base[0] ?? null;
   const fallback = defaultTimes(data.times, date, data.defaults[w.id]);
   const [site, setSite] = useState<{ projectId: string | null; siteName: string } | null>(first ? { projectId: first.projectId, siteName: first.siteName } : null);
-  const [t, setT] = useState({ from: first?.from ?? fallback?.from ?? '', to: first?.to ?? fallback?.to ?? '', pause: first?.from ? (first.pause ?? 0) : (fallback?.pause ?? 0) });
+  const [t, setT] = useState<TimeValues>(() => timeValues(first?.from ? first : fallback));
   const [travel, setTravel] = useState(first?.travel ? fmtH(first.travel) : '');
   const approved = data.approvals.some((a) => a.id === monthId(w.id, data.month));
   const hours = validTime(t.from) && validTime(t.to) ? hoursOf(t.from, t.to, t.pause) : (first?.hours ?? 0);
@@ -298,7 +326,7 @@ function DayRow({ w, date, rec, sugg, data, by, locked, onSaved }: { w: Worker; 
     const tt = next.t ?? t;
     const tr = parseHours(next.travel ?? travel);
     if (!s || !validTime(tt.from) || !validTime(tt.to)) return;
-    void saveDay(w.id, date, [{ projectId: s.projectId, siteName: s.siteName, from: tt.from, to: tt.to, pause: tt.pause, hours: 0, ...(tr ? { travel: tr } : {}) }], by, { prev: rec ?? undefined, approved, remember: true })
+    void saveDay(w.id, date, [{ projectId: s.projectId, siteName: s.siteName, from: tt.from, to: tt.to, pause: tt.pause, ...(tt.pauseFrom && tt.pauseTo ? { pauseFrom: tt.pauseFrom, pauseTo: tt.pauseTo } : {}), hours: 0, ...(tr ? { travel: tr } : {}) }], by, { prev: rec ?? undefined, approved, remember: true })
       .then(onSaved)
       .catch((e) => showError(e, 'Speichern fehlgeschlagen'));
   };

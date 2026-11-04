@@ -18,6 +18,9 @@ export interface TimeLine {
   from?: string;
   to?: string;
   pause?: number;
+  /** Pause von–bis (HH:MM); daraus wird `pause` automatisch berechnet */
+  pauseFrom?: string;
+  pauseTo?: string;
   /** Wegzeit in Stunden (optional) */
   travel?: number;
 }
@@ -27,6 +30,8 @@ export interface TimeDefault {
   from: string;
   to: string;
   pause: number;
+  pauseFrom?: string;
+  pauseTo?: string;
 }
 export type TimeDefaults = Record<string, TimeDefault>;
 
@@ -142,6 +147,24 @@ export function hoursOf(from: string, to: string, pause = 0): number {
 /** Pause in Stunden anzeigen, z. B. 0:30 */
 export const fmtPause = (p: number) => `${Math.floor(p)}:${String(Math.round((p % 1) * 60)).padStart(2, '0')}`;
 export const PAUSES = [0, 0.25, 0.5, 0.75, 1, 1.5];
+/** Pausendauer in Stunden aus Pause von–bis (0, wenn unvollständig oder verkehrt) */
+export function pauseOf(pauseFrom: string | undefined, pauseTo: string | undefined): number {
+  if (!validTime(pauseFrom) || !validTime(pauseTo)) return 0;
+  return Math.max(0, Math.round(((minutes(pauseTo) - minutes(pauseFrom)) / 60) * 100) / 100);
+}
+/**
+ * Pausenzeiten vorschlagen, wenn nur eine Dauer bekannt ist (ältere Einträge, Firmen-Arbeitszeit):
+ * Mittag 12:00, sonst in der Mitte der Arbeitszeit (auf Viertelstunden).
+ */
+export function pauseTimes(from: string, to: string, pause: number): { pauseFrom: string; pauseTo: string } | null {
+  if (!pause || !validTime(from) || !validTime(to)) return null;
+  const a = minutes(from);
+  const b = minutes(to);
+  const len = Math.round(pause * 60);
+  let start = 12 * 60;
+  if (start < a || start + len > b) start = Math.round((a + (b - a - len) / 2) / 15) * 15;
+  return { pauseFrom: hhmm(start), pauseTo: hhmm(start + len) };
+}
 /** Stunden eines Arbeitstags laut Firmen-Arbeitszeit; über 6 Stunden 0,5 Stunden Pause (Arbeitszeitgesetz) */
 export function plannedHours(times: WorkTimes, date: string): number {
   const t = times[weekdayIdx(date)];
@@ -160,9 +183,10 @@ export interface DaySuggestion {
 export function defaultTimes(times: WorkTimes, date: string, own?: TimeDefault | null): TimeDefault | null {
   const t = times[weekdayIdx(date)];
   if (!t || holidayOn(date)) return null;
-  if (own && validTime(own.from) && validTime(own.to)) return own;
+  if (own && validTime(own.from) && validTime(own.to)) return validTime(own.pauseFrom) ? own : { ...own, ...pauseTimes(own.from, own.to, own.pause) };
   const h = Math.max(0, minutes(t.to) - minutes(t.from)) / 60;
-  return { from: t.from, to: t.to, pause: h > 6 ? 0.5 : 0 };
+  const pause = h > 6 ? 0.5 : 0;
+  return { from: t.from, to: t.to, pause, ...pauseTimes(t.from, t.to, pause) };
 }
 
 /**
@@ -179,14 +203,15 @@ export function suggestDay(workerId: string, date: string, week: WeekPlan | null
   const sites = week.sites.filter((s) => !s.paused && s.days[day]?.includes(workerId));
   const t = defaultTimes(times, date, defaults[workerId]);
   if (!sites.length || !t) return { lines: [], absence, holiday };
-  if (sites.length === 1) return { lines: [{ projectId: sites[0].projectId, siteName: sites[0].name, from: t.from, to: t.to, pause: t.pause, hours: hoursOf(t.from, t.to, t.pause) }], absence, holiday };
+  const pt = t.pause && validTime(t.pauseFrom) && validTime(t.pauseTo) ? { pauseFrom: t.pauseFrom, pauseTo: t.pauseTo } : {};
+  if (sites.length === 1) return { lines: [{ projectId: sites[0].projectId, siteName: sites[0].name, from: t.from, to: t.to, pause: t.pause, ...pt, hours: hoursOf(t.from, t.to, t.pause) }], absence, holiday };
   // mehrere Baustellen: Arbeitszeit gleichmäßig aufteilen (Viertelstunden), Pause auf der ersten
   const work = (minutes(t.to) - minutes(t.from) - t.pause * 60) / sites.length;
   let at = minutes(t.from);
   const lines = sites.map((s, i) => {
     const pause = i === 0 ? t.pause : 0;
     const end = i === sites.length - 1 ? minutes(t.to) : Math.round((at + work + pause * 60) / 15) * 15;
-    const l: TimeLine = { projectId: s.projectId, siteName: s.name, from: hhmm(at), to: hhmm(end), pause, hours: hoursOf(hhmm(at), hhmm(end), pause) };
+    const l: TimeLine = { projectId: s.projectId, siteName: s.name, from: hhmm(at), to: hhmm(end), pause, ...(pause ? pauseTimes(hhmm(at), hhmm(end), pause) : {}), hours: hoursOf(hhmm(at), hhmm(end), pause) };
     at = end;
     return l;
   });

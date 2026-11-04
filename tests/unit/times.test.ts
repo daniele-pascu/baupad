@@ -1,7 +1,7 @@
 import { unzipSync, strFromU8 } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_WORK_TIMES } from '../../src/lib/crew';
-import { easter, holidayOn, hoursOf, monthDays, parseHours, plannedHours, suggestDay, summarize, timesXlsx, type TimeDay } from '../../src/lib/times';
+import { pauseOf, easter, holidayOn, hoursOf, monthDays, parseHours, plannedHours, suggestDay, summarize, timesXlsx, type TimeDay } from '../../src/lib/times';
 import type { Absence, WeekPlan, Worker } from '../../src/lib/types';
 
 const worker = (id: string, firstName: string, lastName = ''): Worker => ({ id, firstName, lastName, active: true }) as Worker;
@@ -51,14 +51,19 @@ describe('Zeitaufzeichnung: Vorschlag und Summen', () => {
     expect(hoursOf('', '12:00')).toBe(0);
   });
   it('Baustelle aus der Einteilung, Zeiten aus der Firmen-Arbeitszeit; zwei Baustellen geteilt', () => {
-    expect(suggestDay('max', '2026-10-27', w, DEFAULT_WORK_TIMES, abs).lines).toEqual([{ projectId: 'p1', siteName: 'Parkring', from: '07:00', to: '16:00', pause: 0.5, hours: 8.5 }]);
+    expect(suggestDay('max', '2026-10-27', w, DEFAULT_WORK_TIMES, abs).lines).toEqual([{ projectId: 'p1', siteName: 'Parkring', from: '07:00', to: '16:00', pause: 0.5, pauseFrom: '12:00', pauseTo: '12:30', hours: 8.5 }]);
     expect(suggestDay('max', '2026-10-28', w, DEFAULT_WORK_TIMES, abs).lines).toEqual([
-      { projectId: 'p1', siteName: 'Parkring', from: '07:00', to: '11:45', pause: 0.5, hours: 4.25 },
+      { projectId: 'p1', siteName: 'Parkring', from: '07:00', to: '11:45', pause: 0.5, pauseFrom: '09:15', pauseTo: '09:45', hours: 4.25 },
       { projectId: null, siteName: 'Halle 3', from: '11:45', to: '16:00', pause: 0, hours: 4.25 },
     ]);
     // einmal eingetragene Zeiten des Arbeiters bleiben als Vorschlag
     expect(suggestDay('max', '2026-10-27', w, DEFAULT_WORK_TIMES, abs, { max: { from: '06:30', to: '15:30', pause: 1 } }).lines[0]).toMatchObject({ from: '06:30', to: '15:30', pause: 1, hours: 8 });
     expect(suggestDay('max', '2026-10-26', w, DEFAULT_WORK_TIMES, abs)).toMatchObject({ lines: [], holiday: 'Nationalfeiertag' });
+    // Pause von–bis: Dauer automatisch
+    expect(pauseOf('12:00', '12:45')).toBe(0.75);
+    expect(pauseOf('12:30', '12:00')).toBe(0);
+    expect(pauseOf('12:00', '')).toBe(0);
+    expect(suggestDay('max', '2026-10-27', w, DEFAULT_WORK_TIMES, abs, { max: { from: '06:30', to: '15:30', pause: 0.75, pauseFrom: '11:30', pauseTo: '12:15' } }).lines[0]).toMatchObject({ pauseFrom: '11:30', pauseTo: '12:15', pause: 0.75, hours: 8.25 });
     expect(suggestDay('peter', '2026-10-29', w, DEFAULT_WORK_TIMES, abs)).toMatchObject({ lines: [], absence: 'urlaub' });
     expect(suggestDay('peter', '2026-10-28', w, DEFAULT_WORK_TIMES, abs).lines).toEqual([]); // nicht eingeteilt
   });

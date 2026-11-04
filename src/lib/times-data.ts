@@ -4,7 +4,7 @@ import { deleteTimeDay, getMeta, getTimeFile, getWeek, listProjects, listTimeDay
 import type { ExportFile } from './aufmass';
 import type { YearCarry } from './time-workbook';
 import { effectiveWeek } from './reports';
-import { dayId, hoursOf, monthOf, suggestDay, validTime, weeksOfMonth, type DaySuggestion, type TimeDay, type TimeDefaults, type TimeLine, type TimeMonth } from './times';
+import { dayId, hoursOf, monthOf, pauseOf, suggestDay, validTime, weeksOfMonth, type DaySuggestion, type TimeDay, type TimeDefaults, type TimeLine, type TimeMonth } from './times';
 import type { Absence, WeekPlan, Worker, WorkTimes } from './types';
 
 /** alles, was Übersicht und Monatszettel für einen Monat brauchen */
@@ -63,11 +63,14 @@ export async function saveDay(workerId: string, date: string, lines: TimeLine[],
   const now = Date.now();
   const clean: TimeLine[] = lines.map((l) => {
     const timed = validTime(l.from) && validTime(l.to);
+    // Pause von–bis eingetragen: Dauer daraus (automatisch)
+    const pt = validTime(l.pauseFrom) && validTime(l.pauseTo);
+    const pause = pt ? pauseOf(l.pauseFrom, l.pauseTo) : (l.pause ?? 0);
     return {
       projectId: l.projectId,
       siteName: l.siteName,
-      hours: timed ? hoursOf(l.from!, l.to!, l.pause ?? 0) : l.hours,
-      ...(timed ? { from: l.from, to: l.to, pause: l.pause ?? 0 } : {}),
+      hours: timed ? hoursOf(l.from!, l.to!, pause) : l.hours,
+      ...(timed ? { from: l.from, to: l.to, pause, ...(pt ? { pauseFrom: l.pauseFrom, pauseTo: l.pauseTo } : {}) } : {}),
       ...(l.travel ? { travel: l.travel } : {}),
     };
   });
@@ -79,7 +82,9 @@ export async function saveDay(workerId: string, date: string, lines: TimeLine[],
   if (opts.remember && clean.length === 1 && clean[0].from) {
     const all = (await getMeta<TimeDefaults>('timeDefaults')) ?? {};
     const cur = all[workerId];
-    if (!cur || cur.from !== clean[0].from || cur.to !== clean[0].to || cur.pause !== (clean[0].pause ?? 0)) await setMeta('timeDefaults', { ...all, [workerId]: { from: clean[0].from!, to: clean[0].to!, pause: clean[0].pause ?? 0 } });
+    const c = clean[0];
+    if (!cur || cur.from !== c.from || cur.to !== c.to || cur.pause !== (c.pause ?? 0) || cur.pauseFrom !== c.pauseFrom || cur.pauseTo !== c.pauseTo)
+      await setMeta('timeDefaults', { ...all, [workerId]: { from: c.from!, to: c.to!, pause: c.pause ?? 0, ...(c.pauseFrom ? { pauseFrom: c.pauseFrom, pauseTo: c.pauseTo } : {}) } });
   }
   return d;
 }
