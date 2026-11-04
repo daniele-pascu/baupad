@@ -286,3 +286,25 @@ export function carryPlacement(
 export const siteManagerOf = (s: Pick<WeekSite, 'siteManager'>, project?: Pick<Project, 'siteManager'> | null) => (s.siteManager?.name ? { ...s.siteManager, deputy: true } : project?.siteManager?.name ? { ...project.siteManager, deputy: false } : null);
 /** „BL: Max Muster · 0664 …“ */
 export const siteManagerText = (m: { name: string; phone: string } | null) => (m ? [m.name, m.phone].filter(Boolean).join(' · ') : '');
+
+/** Bezeichnung der Projekte in Einteilung und PDF (Einstellung) */
+export type SiteLabel = 'number-name' | 'name-number' | 'name' | 'number';
+export const SITE_LABELS: Record<SiteLabel, string> = {
+  'number-name': 'Projektnummer · Name',
+  'name-number': 'Name · Projektnummer',
+  name: 'Nur Name',
+  number: 'Nur Projektnummer (ohne Nummer: Name)',
+};
+export function siteTitle(s: { number?: string; name: string }, mode: SiteLabel = 'number-name'): string {
+  const n = (s.number ?? '').trim();
+  if (mode === 'name' || !n) return s.name;
+  if (mode === 'number') return n;
+  return mode === 'name-number' ? `${s.name} · ${n}` : `${n} · ${s.name}`;
+}
+
+/** Name mit Funktion (Kürzel) für Ausdrucke, z. B. „Max Muster · PO“ */
+export function workerWithGrade(w: Pick<Worker, 'firstName' | 'lastName' | 'grade' | 'role'>): string {
+  const g = knownGrade(w);
+  const short = g ? WORKER_GRADES.find((x) => x.id === g)?.short : '';
+  return short ? `${workerName(w)} · ${short}` : workerName(w);
+}

@@ -10483,3 +10483,17 @@ html[data-theme='dark'] .crew-search {
   font-size: 0.72rem;
   font-weight: 600;
 }
+
+/* Einstellungen der Arbeitereinteilung */
+.crew-set-title {
+  margin: 14px 0 6px;
+  font-size: 0.95rem;
+}
+.crew-set-title:first-child {
+  margin-top: 0;
+}
+.crew-set-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 8px;
+}

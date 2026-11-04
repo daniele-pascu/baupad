@@ -20,6 +20,7 @@ import { componentsOf, costCenterLabel, damagesOf, elementsOf, findPosition, pla
 import { dimsVisible, visibleDamages, visibleElements } from './layers';
 import { annotationsOf, contentRegion, dimGeometry, drawingSheet, isDrawingPlan, PAPER, PRINT_HEADER_MM, PRINT_MARGIN_MM, printScale, shapeToPage, unitsPerMeter } from './drawing';
 import { getBlob } from './db';
+import { MADE_WITH } from './crew-pdf';
 import { damageNo } from './numbering';
 import {
   layoutLabels,
@@ -626,6 +627,7 @@ export async function exportPhotosPdf(data: ProjectState, planIds: string[]): Pr
     page.drawLine({ start: { x: M, y: H - M - HEAD + 10 }, end: { x: W - M, y: H - M - HEAD + 10 }, thickness: 0.6, color: MUTED });
     const pn = `Seite ${pageNo}`;
     page.drawText(pn, { x: W - M - font.widthOfTextAtSize(pn, 8), y: M - 16, size: 8, font, color: MUTED });
+    page.drawText(MADE_WITH, { x: (W - font.widthOfTextAtSize(MADE_WITH, 8)) / 2, y: M - 16, size: 8, font, color: MUTED });
   };
   let count = 0;
   for (const planId of planIds) {

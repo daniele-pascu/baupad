@@ -30,6 +30,9 @@ import {
   siteFromProject,
   sitesOf,
   sortByGrade,
+  SITE_LABELS,
+  siteTitle,
+  type SiteLabel,
   unassign,
   updateSite,
   vacationSummary,
@@ -129,6 +132,9 @@ export function WorkersPage() {
   const [company, setCompany] = useState('');
   /** Uhrzeiten im PDF anzeigen (manchmal nicht nötig) */
   const [pdfTimes, setPdfTimes] = useState(true);
+  /** Einstellungen: Bezeichnung der Projekte, Funktion der Arbeiter im PDF */
+  const [siteLabel, setSiteLabel] = useState<SiteLabel>('number-name');
+  const [pdfGrades, setPdfGrades] = useState(false);
   /** Urlaub / Krank von–bis (über Wochen hinweg) */
   const [absences, setAbsences] = useState<Absence[]>([]);
   const [query, setQuery] = useState('');
@@ -148,9 +154,11 @@ export function WorkersPage() {
   >(null);
 
   const loadBase = () =>
-    Promise.all([listWorkers(), getMeta<WorkTimes>('workTimes'), listProjects(), getMeta<string>('companyName'), getMeta<boolean>('pdfShowTimes')])
-      .then(([w, t, p, c, pt]) => {
+    Promise.all([listWorkers(), getMeta<WorkTimes>('workTimes'), listProjects(), getMeta<string>('companyName'), getMeta<boolean>('pdfShowTimes'), getMeta<SiteLabel>('crewSiteLabel'), getMeta<boolean>('pdfShowGrades')])
+      .then(([w, t, p, c, pt, sl, pg]) => {
         setPdfTimes(pt !== false);
+        setSiteLabel(sl && sl in SITE_LABELS ? sl : 'number-name');
+        setPdfGrades(pg === true);
         setWorkers(w);
         setTimes(t ?? null);
         setProjects(p);
@@ -200,7 +208,9 @@ export function WorkersPage() {
   /** Angaben der Baustelle wie in allen Werkzeugen: aus dem Projekt des Registers, sonst aus der Woche */
   const siteInfo = (s: WeekSite): ProjectLabelInfo => {
     const p = s.projectId ? projects.find((x) => x.id === s.projectId) : undefined;
-    return p ? { ...labelFromProject(p, ccMap.get(p.id) ?? ''), name: s.name || p.site || p.name } : { name: s.name, number: s.number, address: s.address };
+    const info: ProjectLabelInfo = p ? { ...labelFromProject(p, ccMap.get(p.id) ?? ''), name: s.name || p.site || p.name } : { name: s.name, number: s.number, address: s.address };
+    // Bezeichnung laut Einstellung (Nummer vorne wie bisher, sonst im Namen bzw. weggelassen)
+    return siteLabel === 'number-name' ? info : { ...info, name: siteTitle({ number: info.number ?? '', name: info.name }, siteLabel), number: '' };
   };
   const byId = useMemo(() => new Map((workers ?? []).map((w) => [w.id, w])), [workers]);
   const active = useMemo(() => sortByGrade((workers ?? []).filter((w) => w.active)), [workers]);
@@ -335,6 +345,8 @@ export function WorkersPage() {
     logo: await getCompanyLogo(),
     absent: (id: string, d: number) => absenceOn(absences, id, weekId, d),
     showTimes: pdfTimes,
+    siteLabel,
+    showGrades: pdfGrades,
     manager: (siteId: string) => {
       const st = plan?.sites.find((x) => x.id === siteId);
       return st ? siteManagerText(siteManagerOf(st, st.projectId ? projects.find((p) => p.id === st.projectId) : null)) : '';
@@ -531,7 +543,7 @@ export function WorkersPage() {
             <ToolIcon name="workers" size={18} /> Personal ({active.length})
           </a>
           <button type="button" className="btn" onClick={() => setDialog({ kind: 'times' })} data-testid="crew-times">
-            <Icon name="calendar" size={18} /> Arbeitszeit
+            <Icon name="settings" size={18} /> Einstellungen
           </button>
           <button type="button" className="btn" onClick={exportWeekPdf} disabled={!plan.sites.length} data-testid="crew-pdf">
             <Icon name="pdf" size={18} /> PDF
@@ -847,16 +859,24 @@ export function WorkersPage() {
           times={workTimes}
           company={company}
           pdfTimes={pdfTimes}
+          siteLabel={siteLabel}
+          pdfGrades={pdfGrades}
+          siteSort={siteSort}
           onClose={() => setDialog(null)}
-          onSave={(t, c, pt) => {
+          onSave={(t, c, pt, x) => {
             setTimes(t);
             setCompany(c);
             setPdfTimes(pt);
+            setSiteLabel(x.siteLabel);
+            setPdfGrades(x.pdfGrades);
+            changeSiteSort(x.siteSort);
             setDialog(null);
             setMeta('workTimes', t).catch((e) => showError(e));
             setMeta('companyName', c).catch((e) => showError(e));
             setMeta('pdfShowTimes', pt).catch((e) => showError(e));
-            toast('Arbeitszeit gespeichert.', 'success');
+            setMeta('crewSiteLabel', x.siteLabel).catch((e) => showError(e));
+            setMeta('pdfShowGrades', x.pdfGrades).catch((e) => showError(e));
+            toast('Einstellungen gespeichert.', 'success');
           }}
         />
       )}
@@ -1008,26 +1028,36 @@ export function WorkersPage() {
 }
 
 /** Arbeiterliste: anlegen, bearbeiten, aktiv/inaktiv */
+type CrewSettings = { siteLabel: SiteLabel; pdfGrades: boolean; siteSort: { key: SiteSort; desc: boolean } };
+
+/** Einstellungen der Arbeitereinteilung: Arbeitszeit, Projektbezeichnung, Reihenfolge, PDF (Uhrzeiten, Funktion, Firmenname) */
 function TimesDialog({
   times,
   company,
   pdfTimes,
+  siteLabel,
+  pdfGrades,
+  siteSort,
   onSave,
   onClose,
 }: {
   times: WorkTimes;
   company: string;
   pdfTimes: boolean;
-  onSave(t: WorkTimes, company: string, pdfTimes: boolean): void;
+  siteLabel: SiteLabel;
+  pdfGrades: boolean;
+  siteSort: { key: SiteSort; desc: boolean };
+  onSave(t: WorkTimes, company: string, pdfTimes: boolean, x: CrewSettings): void;
   onClose(): void;
 }) {
   const [t, setT] = useState<WorkTimes>(() => times.map((x) => (x ? { ...x } : null)));
   const [c, setC] = useState(company);
   const [pt, setPt] = useState(pdfTimes);
+  const [x, setX] = useState<CrewSettings>({ siteLabel, pdfGrades, siteSort });
   const set = (d: number, x: WorkTimes[number]) => setT(t.map((y, i) => (i === d ? x : y)));
   return (
     <Modal
-      title="Arbeitszeit der Firma"
+      title="Einstellungen Arbeitereinteilung"
       onClose={onClose}
       testId="times-dialog"
       footer={
@@ -1035,12 +1065,48 @@ function TimesDialog({
           <button type="button" className="btn" onClick={onClose}>
             Abbrechen
           </button>
-          <button type="button" className="btn btn-primary" onClick={() => onSave(t, c.trim(), pt)} data-testid="times-save">
+          <button type="button" className="btn btn-primary" onClick={() => onSave(t, c.trim(), pt, x)} data-testid="times-save">
             Speichern
           </button>
         </>
       }
     >
+      <h3 className="crew-set-title">Projekte</h3>
+      <label className="field">
+        <span>Bezeichnung der Projekte (Einteilung und PDF)</span>
+        <select value={x.siteLabel} onChange={(e) => setX({ ...x, siteLabel: e.target.value as SiteLabel })} data-testid="set-site-label">
+          {(Object.keys(SITE_LABELS) as SiteLabel[]).map((k) => (
+            <option key={k} value={k}>
+              {SITE_LABELS[k]}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div className="crew-set-row">
+        <label className="field">
+          <span>Reihenfolge der Projekte</span>
+          <select value={x.siteSort.key} onChange={(e) => setX({ ...x, siteSort: { ...x.siteSort, key: e.target.value as SiteSort } })} data-testid="set-site-order">
+            {(Object.keys(SITE_SORT_LABELS) as SiteSort[]).map((k) => (
+              <option key={k} value={k}>
+                {SITE_SORT_LABELS[k]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          <span>Richtung</span>
+          <select value={x.siteSort.desc ? 'desc' : 'asc'} onChange={(e) => setX({ ...x, siteSort: { ...x.siteSort, desc: e.target.value === 'desc' } })} data-testid="set-site-dir">
+            <option value="asc">aufsteigend</option>
+            <option value="desc">absteigend</option>
+          </select>
+        </label>
+      </div>
+      <h3 className="crew-set-title">PDF</h3>
+      <label className="check-row">
+        <input type="checkbox" checked={x.pdfGrades} onChange={(e) => setX({ ...x, pdfGrades: e.target.checked })} data-testid="set-pdf-grades" />
+        Funktion der Arbeiter anzeigen (z. B. „Max Muster · PO“)
+      </label>
+      <h3 className="crew-set-title">Arbeitszeit der Firma</h3>
       <p className="muted small">Nur zur Info der Firma: erscheint in der Einteilung und – wenn angehakt – im PDF. Eingeteilt werden kann an allen 7 Tagen, auch Sa/So.</p>
       <div className="crew-times">
         {DAY_NAMES.map((name, d) => (

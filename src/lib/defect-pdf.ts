@@ -4,7 +4,7 @@
  */
 import { rgb, type PDFImage, type PDFPage } from 'pdf-lib';
 import type { CompanyLogo } from './company';
-import { clean, fit, header, INK, LINE, M, MUTED, setup, type Ctx } from './crew-pdf';
+import { clean, fit, header, INK, LINE, M, madeWith, MUTED, setup, type Ctx } from './crew-pdf';
 import { kindInfo, markAnchor, markBox } from './defects';
 import { loadImageBitmap } from './pdf';
 import type { DefectMark, DefectPlan } from './types';
@@ -157,7 +157,7 @@ export async function defectPdf(plan: DefectPlan, marks: DefectMark[], image: Ar
 
   // Seite 1: Plan
   const p1 = ctx.doc.addPage(size);
-  const top = header(ctx, p1, title, sub, opts.company, true);
+  const top = header(ctx, p1, title, sub, opts.company);
   const img = await ctx.doc.embedJpg(await drawPlanWithMarks(marks, image, !!plan.gray));
   const maxW = size[0] - 2 * M;
   const maxH = top - M - 14;
@@ -176,7 +176,7 @@ export async function defectPdf(plan: DefectPlan, marks: DefectMark[], image: Ar
   const newPage = () => {
     page = ctx.doc.addPage([W, H]);
     pageNo++;
-    y = header(ctx, page, `${title} – Liste`, sub, opts.company, true) - 8;
+    y = header(ctx, page, `${title} – Liste`, sub, opts.company) - 8;
     footer(ctx, page, plan, pageNo);
   };
   newPage();
@@ -233,7 +233,8 @@ export async function defectPdf(plan: DefectPlan, marks: DefectMark[], image: Ar
 function footer(ctx: Ctx, page: PDFPage, plan: DefectPlan, no: number) {
   const { width } = page.getSize();
   const txt = clean(ctx, `Mängelplan · ${plan.siteName} · ${plan.title} · erstellt am ${new Date().toLocaleDateString('de-DE')}`);
-  page.drawText(txt, { x: M, y: M - 14, size: 7.5, font: ctx.font, color: MUTED });
+  page.drawText(fit(ctx.font, txt, 7.5, width / 2 - M - 70), { x: M, y: M - 14, size: 7.5, font: ctx.font, color: MUTED });
+  madeWith(ctx, page, M - 14, 7.5);
   const pn = `Seite ${no}`;
   page.drawText(pn, { x: width - M - ctx.font.widthOfTextAtSize(pn, 7.5), y: M - 14, size: 7.5, font: ctx.font, color: MUTED });
 }

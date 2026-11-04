@@ -1,7 +1,7 @@
 import { PDFDocument, rgb, StandardFonts, type PDFFont, type PDFImage, type PDFPage } from 'pdf-lib';
 import { safeFileName, type ExportFile } from './aufmass';
 import type { CompanyLogo } from './company';
-import { DAY_NAMES, DAY_SHORT, dayDate, dayList, isoWeekNo, parseDate, addDays, sortByGrade, timeLabel, unassigned, visibleDays, weekRange, workerName } from './crew';
+import { DAY_NAMES, DAY_SHORT, dayDate, dayList, isoWeekNo, parseDate, addDays, sortByGrade, siteTitle, timeLabel, unassigned, visibleDays, weekRange, workerName, workerWithGrade, type SiteLabel } from './crew';
 import type { WeekPlan, WeekSite, Worker, WorkTimes } from './types';
 
 /**
@@ -19,6 +19,10 @@ export interface CrewPdfOptions {
   showTimes?: boolean;
   /** Bauleitung je Baustelle (Baustellen-ID → „Name · Handy“) */
   manager?: (siteId: string) => string;
+  /** Bezeichnung der Projekte (Standard: Projektnummer · Name) */
+  siteLabel?: SiteLabel;
+  /** Funktion der Arbeiter beim Namen (Kürzel, z. B. „PO“) */
+  showGrades?: boolean;
 }
 
 /** Kennzeichnung beim Namen: „ (Urlaub)“ bzw. „ (krank)“ */
@@ -87,11 +91,16 @@ export function header(ctx: Ctx, page: PDFPage, title: string, sub: string, comp
       const lh = (w / ctx.logo.width) * ctx.logo.height;
       page.drawImage(ctx.logo, { x: typeof x === 'function' ? x(w) : x, y: y - 1 - (h + lh) / 2, width: w, height: lh });
       brandW = w + 20;
-    } else if (company) {
-      const c = fit(ctx.bold, clean(ctx, company), 15, width / 2 - M);
-      const w = ctx.bold.widthOfTextAtSize(c, 15);
-      page.drawText(c, { x: typeof x === 'function' ? x(w) : x, y: y - 22, size: 15, font: ctx.bold, color: INK });
-      brandW = w + 20;
+    } else {
+      // ohne Firmenlogo: schwarzes Viereck „BauPad“, daneben der Firmenname (falls eingetragen)
+      const bw = ctx.bold.widthOfTextAtSize('BauPad', 12) + 16;
+      const c = company ? fit(ctx.bold, clean(ctx, company), 13, width / 2 - M - bw - 10) : '';
+      const cw = c ? ctx.bold.widthOfTextAtSize(c, 13) + 10 : 0;
+      const x0 = typeof x === 'function' ? x(bw + cw) : x;
+      page.drawRectangle({ x: x0, y: y - 30, width: bw, height: 28, color: INK });
+      page.drawText('BauPad', { x: x0 + 8, y: y - 20, size: 12, font: ctx.bold, color: rgb(1, 1, 1) });
+      if (c) page.drawText(c, { x: x0 + bw + 10, y: y - 21, size: 13, font: ctx.bold, color: INK });
+      brandW = bw + cw + 20;
     }
   };
   if (logoRight) {
@@ -115,12 +124,20 @@ export function header(ctx: Ctx, page: PDFPage, title: string, sub: string, comp
   return y - 12;
 }
 
+/** Fußzeile Mitte: „Erstellt mit BauPad · pad-software.at“ */
+export const MADE_WITH = 'Erstellt mit BauPad · pad-software.at';
+export function madeWith(ctx: Pick<Ctx, 'font'>, p: PDFPage, y: number, size = 8) {
+  const { width } = p.getSize();
+  p.drawText(MADE_WITH, { x: (width - ctx.font.widthOfTextAtSize(MADE_WITH, size)) / 2, y, size, font: ctx.font, color: MUTED });
+}
+
 export function footers(ctx: Ctx, left: string) {
   const pages = ctx.doc.getPages();
   const today = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
   pages.forEach((p, i) => {
     const { width } = p.getSize();
-    p.drawText(clean(ctx, `${left} · erstellt am ${today}`), { x: M, y: 18, size: 8, font: ctx.font, color: MUTED });
+    p.drawText(fit(ctx.font, clean(ctx, `${left} · erstellt am ${today}`), 8, width / 2 - M - 70), { x: M, y: 18, size: 8, font: ctx.font, color: MUTED });
+    madeWith(ctx, p, 18);
     const t = `Seite ${i + 1} von ${pages.length}`;
     p.drawText(t, { x: width - M - ctx.font.widthOfTextAtSize(t, 8), y: 18, size: 8, font: ctx.font, color: MUTED });
   });
@@ -135,7 +152,7 @@ export async function crewWeekPdf(plan: WeekPlan, workers: Worker[], times: Work
   const W = 841.89;
   const H = 595.28;
   const byId = new Map(workers.map((w) => [w.id, w]));
-  const nameOf = (id: string) => (byId.get(id) ? workerName(byId.get(id)!) : 'Unbekannt');
+  const nameOf = (id: string) => (byId.get(id) ? (opts.showGrades ? workerWithGrade(byId.get(id)!) : workerName(byId.get(id)!)) : 'Unbekannt');
   const days = visibleDays();
   const kw = isoWeekNo(plan.id);
   const title = `Arbeitereinteilung KW ${kw}`;
@@ -161,7 +178,7 @@ export async function crewWeekPdf(plan: WeekPlan, workers: Worker[], times: Work
     page.drawRectangle({ x: M, y: y - 22, width: W - 2 * M, height: 22, color: FILL });
     page.drawRectangle({ x: M, y: y - 22, width: 3, height: 22, color: s.finished ? rgb(0.12, 0.62, 0.33) : ACCENT });
     // Projektnummer zuerst (falls vorhanden), dann der Name
-    const name = fit(ctx.bold, clean(ctx, [s.number, s.name].filter(Boolean).join(' · ')), 12, 420);
+    const name = fit(ctx.bold, clean(ctx, siteTitle(s, opts.siteLabel)), 12, 420);
     page.drawText(name, { x: M + 10, y: y - 15.5, size: 12, font: ctx.bold, color: INK });
     const bl = opts.manager?.(s.id);
     const meta = [s.address, bl ? `PL: ${bl}` : '', s.finished ? 'abgeschlossen' : ''].filter(Boolean).join(' · ');
@@ -237,7 +254,7 @@ export async function crewDayPdf(plan: WeekPlan, siteId: string, day: number, wo
   let page = ctx.doc.addPage([W, H]);
   let y = header(ctx, page, title, `KW ${isoWeekNo(plan.id)}`, opts.company ?? '');
   // Baustelle
-  page.drawText(fit(ctx.bold, clean(ctx, [s.number, s.name].filter(Boolean).join(' · ')), 14, W - 2 * M), { x: M, y: y - 14, size: 14, font: ctx.bold, color: INK });
+  page.drawText(fit(ctx.bold, clean(ctx, siteTitle(s, opts.siteLabel)), 14, W - 2 * M), { x: M, y: y - 14, size: 14, font: ctx.bold, color: INK });
   y -= 20;
   const bl = opts.manager?.(s.id);
   const meta = [s.address, bl ? `Projektleiter: ${bl}` : ''].filter(Boolean).join(' · ');
@@ -283,8 +300,8 @@ export async function crewDayPdf(plan: WeekPlan, siteId: string, day: number, wo
       y = header(ctx, page, `${title} (Fortsetzung)`, s.name, opts.company ?? '');
       drawHead();
     }
-    // Funktion und Qualifikation bleiben im Tool – nie auf dem Ausdruck
-    const cells = w ? [String(i + 1), workerName(w) + mark(opts, w.id, day), w.phone ?? '', ''] : ['', '', '', ''];
+    // Funktion nur, wenn in den Einstellungen gewählt
+    const cells = w ? [String(i + 1), (opts.showGrades ? workerWithGrade(w) : workerName(w)) + mark(opts, w.id, day), w.phone ?? '', ''] : ['', '', '', ''];
     let x = M;
     cells.forEach((c, k) => {
       if (c) page.drawText(fit(ctx.font, clean(ctx, c), 10, cols[k].w - 10), { x: x + 6, y: y - 15.5, size: 10, font: ctx.font, color: INK });

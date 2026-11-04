@@ -1004,3 +1004,51 @@ test('Arbeiter antippen: Tage der Woche markiert und umschaltbar, Urlaub/Krank-K
   await expect(chips(page, 'Baustelle A', 0).filter({ hasText: 'Peter' })).toHaveCount(1);
   await expect(page.getByTestId('crew-sick')).toHaveCount(0);
 });
+
+test('Einstellungen der Einteilung: Bezeichnung der Projekte, Reihenfolge, Funktion im PDF; PDF mit BauPad-Viereck und Fußzeile', async ({ page }) => {
+  await freshStart(page);
+  await page.goto('./#/arbeitereinteilung');
+  await page.getByTestId('week-date').fill('2026-11-02');
+  await page.getByTestId('crew-workers').click();
+  const wd = page.getByTestId('staff-page');
+  await wd.getByTestId('staff-new').click();
+  await wd.getByTestId('worker-firstName').fill('Max');
+  await wd.getByTestId('worker-lastName').fill('Muster');
+  await wd.getByTestId('worker-grade').selectOption('polier');
+  await wd.getByTestId('worker-save').click();
+  await expect(page.getByTestId('worker-dialog')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  for (const [name, no] of [
+    ['Alpha', '300'],
+    ['Beta', '100'],
+  ]) {
+    await page.getByTestId('add-site').click();
+    await newWeekProject(page, name, { 'project-number': no });
+  }
+  await addFromMonday(page, 'Alpha', ['Max Muster']);
+  const names = () => page.getByTestId('site-card').evaluateAll((els) => els.map((e) => e.getAttribute('data-site')));
+  await expect.poll(names).toEqual(['Alpha', 'Beta']);
+  // Einstellungen: Name · Projektnummer, nach Projektnummer, Funktion im PDF
+  await page.getByTestId('crew-times').click();
+  const sd = page.getByTestId('times-dialog');
+  await expect(sd).toContainText('Einstellungen Arbeitereinteilung');
+  await sd.getByTestId('set-site-label').selectOption('name-number');
+  await sd.getByTestId('set-site-order').selectOption('number');
+  await sd.getByTestId('set-pdf-grades').check();
+  await sd.getByTestId('times-save').click();
+  await expect(sd).toHaveCount(0);
+  await expect.poll(names).toEqual(['Beta', 'Alpha']);
+  await expect(site(page, 'Alpha').getByTestId('site-name')).toHaveText('Alpha · 300');
+  const dl = await catchDownload(page, () => page.getByTestId('crew-pdf').click());
+  const txt = execFileSync('pdftotext', ['-layout', await saveDownload(dl, 'einstellungen.pdf'), '-'], { encoding: 'utf8' });
+  expect(txt).toContain('Alpha · 300');
+  expect(txt).toContain('Max Muster · PO');
+  expect(txt).toContain('BauPad'); // Viereck oben links (kein Firmenlogo)
+  expect(txt).toContain('Erstellt mit BauPad · pad-software.at');
+  await page.keyboard.press('Escape');
+  // gemerkt
+  await page.reload();
+  await page.getByTestId('crew-times').click();
+  await expect(page.getByTestId('set-site-label')).toHaveValue('name-number');
+  await expect(page.getByTestId('set-pdf-grades')).toBeChecked();
+});
