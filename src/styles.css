@@ -10539,3 +10539,20 @@ html[data-theme='dark'] .crew-search {
   gap: 6px;
   margin-top: 4px;
 }
+
+/* Einteilung am Handy: Titel und „Neues Projekt“ überlappen nicht (Taste nur mit +, Titel kürzt) */
+@media (max-width: 519px) {
+  .crew-page .page-head-row .lbl {
+    display: none;
+  }
+  .crew-page .page-head-row .btn-primary {
+    flex: none;
+    padding-inline: 14px;
+  }
+  .crew-page .page-head-title h1 {
+    font-size: 1.6rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}

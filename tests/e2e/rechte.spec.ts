@@ -40,12 +40,9 @@ test('Polier: kein „Neues Projekt“ in Aufmaß, Fotos, Mängelplan, Einteilun
   await expect(page.getByTestId('defect-new-site')).toHaveText(/Projekt übernehmen/);
 
   await page.goto('./arbeitereinteilung');
-  await page.getByTestId('add-site').click();
-  // ohne Recht: nur Projekt übernehmen, kein „Neues Projekt anlegen“
-  const pk = page.getByTestId('project-picker');
-  await expect(pk).toBeVisible();
-  await expect(pk.getByTestId('picker-new')).toHaveCount(0);
-  await expect(pk.getByTestId('picker-item')).toHaveCount(1);
+  // ohne Recht, Projekte hinzuzufügen: keine Taste „Neues Projekt“ in der Einteilung
+  await expect(page.getByTestId('workers-title')).toBeVisible();
+  await expect(page.getByTestId('add-site')).toHaveCount(0);
 });
 
 test('Büro darf Projekte anlegen; Projekte je Werkzeug: nur freigegebene sind wählbar', async ({ page }) => {

@@ -1037,13 +1037,24 @@ test('Einstellungen der Einteilung: Bezeichnung der Projekte, Reihenfolge, Funkt
   await sd.getByTestId('set-pdf-grades').check();
   await sd.getByTestId('times-save').click();
   await expect(sd).toHaveCount(0);
+  await expect(page.locator('.toast', { hasText: 'Einstellungen gespeichert' })).toHaveCount(1);
   await expect.poll(names).toEqual(['Beta', 'Alpha']);
   await expect(site(page, 'Alpha').getByTestId('site-name')).toHaveText('Alpha · 300');
+  // Projektnummer später im Register geändert → PDF nimmt die aktuelle Nummer (wie die App)
+  await page.goto('./baupad/projektregister');
+  await page.getByTestId('register-row').filter({ hasText: 'Beta' }).getByTestId('register-edit').click();
+  await page.getByTestId('photo-site-number').fill('101');
+  await page.getByTestId('photo-site-save').click();
+  await expect(page.locator('.toast').first()).toBeVisible();
+  await page.goto('./baupad/arbeitereinteilung');
+  await page.getByTestId('week-date').fill('2026-11-02');
+  await expect(page.getByTestId('site-card')).toHaveCount(2);
+  await expect(site(page, 'Beta').getByTestId('site-name')).toHaveText('Beta · 101'); // Einstellungen und Register geladen (Nummer aus dem Register)
   const dl = await catchDownload(page, () => page.getByTestId('crew-pdf').click());
   const txt = execFileSync('pdftotext', ['-layout', await saveDownload(dl, 'einstellungen.pdf'), '-'], { encoding: 'utf8' });
   expect(txt).toContain('Alpha · 300');
+  expect(txt).toContain('Beta · 101');
   expect(txt).toContain('Max Muster · PO');
-  expect(txt).toContain('BauPad'); // Viereck oben links (kein Firmenlogo)
   expect(txt).toContain('Erstellt mit BauPad · pad-software.at');
   await page.keyboard.press('Escape');
   // gemerkt

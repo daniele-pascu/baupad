@@ -55,7 +55,7 @@ import { absenceDays, absenceOn, absenceRange, absenceSummary, cleanAbsences, cl
 import { exportCrewBackup, importCrewBackup } from '../lib/crew-backup';
 import { costCenterByProject, costCenterSearchByProject, linkSitesToProject, projectFromSite } from '../lib/crew-link';
 import { ProjectHeading } from '../components/ProjectHeading';
-import { labelFromProject, type ProjectLabelInfo } from '../lib/project-label';
+import { labelFromProject, projectPrefix, type ProjectLabelInfo } from '../lib/project-label';
 import { setProjectManager, useCanCreateProjects, useProjectIn } from '../lib/sites';
 import { crewDayPdf, crewWeekPdf } from '../lib/crew-pdf';
 import { uuid } from '../lib/ids';
@@ -210,7 +210,7 @@ export function WorkersPage() {
     const p = s.projectId ? projects.find((x) => x.id === s.projectId) : undefined;
     const info: ProjectLabelInfo = p ? { ...labelFromProject(p, ccMap.get(p.id) ?? ''), name: s.name || p.site || p.name } : { name: s.name, number: s.number, address: s.address };
     // Bezeichnung laut Einstellung (Nummer vorne wie bisher, sonst im Namen bzw. weggelassen)
-    return siteLabel === 'number-name' ? info : { ...info, name: siteTitle({ number: info.number ?? '', name: info.name }, siteLabel), number: '' };
+    return siteLabel === 'number-name' ? info : { ...info, name: siteTitle({ number: projectPrefix(info), name: info.name }, siteLabel), number: '', costCenter: '' };
   };
   const byId = useMemo(() => new Map((workers ?? []).map((w) => [w.id, w])), [workers]);
   const active = useMemo(() => sortByGrade((workers ?? []).filter((w) => w.active)), [workers]);
@@ -339,6 +339,15 @@ export function WorkersPage() {
     [0, 1, 2, 3, 4, 5, 6].filter((d) => d >= day && (d < 5 || day >= 5 || ids.some((id) => plan!.sites.some((s) => s.days[d].includes(id)))));
 
 
+  /** fürs PDF: Projektnummer, Name und Adresse aktuell aus dem Projektregister (wie in der App angezeigt) */
+  const pdfPlan = (w: WeekPlan): WeekPlan => ({
+    ...w,
+    sites: w.sites.map((s) => {
+      const p = projOf(s);
+      // gleiche Nummer wie in der App: Kostenstelle, sonst Projektnummer
+      return p ? { ...s, number: ccMap.get(p.id) || p.number || s.number, name: s.name || p.site || p.name, address: p.address || s.address } : s;
+    }),
+  });
   /** PDF-Optionen: Firmenname und Firmenlogo (Konto → Einstellungen) */
   const pdfOpts = async () => ({
     company,
@@ -356,13 +365,13 @@ export function WorkersPage() {
 
   const exportWeekPdf = () =>
     run(async () => {
-      setPreview(await crewWeekPdf(plan!, workers!, workTimes, await pdfOpts()));
+      setPreview(await crewWeekPdf(pdfPlan(plan!), workers!, workTimes, await pdfOpts()));
     });
   /** Drucken: PDF in einem neuen Tab öffnen (Fenster sofort öffnen, sonst blockiert der Browser) */
   const printWeek = () => {
     const win = window.open('', '_blank');
     run(async () => {
-      const f = await crewWeekPdf(plan!, workers!, workTimes, await pdfOpts());
+      const f = await crewWeekPdf(pdfPlan(plan!), workers!, workTimes, await pdfOpts());
       const url = URL.createObjectURL(new Blob([f.data as BlobPart], { type: 'application/pdf' }));
       if (win) win.location.href = url;
       else setPreview(f);
@@ -533,9 +542,12 @@ export function WorkersPage() {
             </a>
             <h1 data-testid="workers-title">Arbeitereinteilung</h1>
           </div>
-          <button type="button" className="btn btn-primary" onClick={() => setDialog({ kind: 'pick' })} title="Projekt aus dem Register übernehmen oder neu anlegen" aria-label="Neues Projekt" data-testid="add-site">
-            <Icon name="plus" size={16} /> <span className="lbl">Neues Projekt</span>
-          </button>
+          {/* Projekte hinzufügen nur Admin/Büro – ohne dieses Recht keine Taste */}
+          {mayCreateProjects && (
+            <button type="button" className="btn btn-primary" onClick={() => setDialog({ kind: 'pick' })} title="Projekt aus dem Register übernehmen oder neu anlegen" aria-label="Neues Projekt" data-testid="add-site">
+              <Icon name="plus" size={16} /> <span className="lbl">Neues Projekt</span>
+            </button>
+          )}
         </header>
 
         <div className="crew-actions">
@@ -871,12 +883,10 @@ export function WorkersPage() {
             setPdfGrades(x.pdfGrades);
             changeSiteSort(x.siteSort);
             setDialog(null);
-            setMeta('workTimes', t).catch((e) => showError(e));
-            setMeta('companyName', c).catch((e) => showError(e));
-            setMeta('pdfShowTimes', pt).catch((e) => showError(e));
-            setMeta('crewSiteLabel', x.siteLabel).catch((e) => showError(e));
-            setMeta('pdfShowGrades', x.pdfGrades).catch((e) => showError(e));
-            toast('Einstellungen gespeichert.', 'success');
+            // erst nach dem Speichern melden (Seitenwechsel direkt danach verliert sonst nichts)
+            void Promise.all([setMeta('workTimes', t), setMeta('companyName', c), setMeta('pdfShowTimes', pt), setMeta('crewSiteLabel', x.siteLabel), setMeta('pdfShowGrades', x.pdfGrades)])
+              .then(() => toast('Einstellungen gespeichert.', 'success'))
+              .catch((e) => showError(e, 'Speichern fehlgeschlagen'));
           }}
         />
       )}
@@ -988,7 +998,7 @@ export function WorkersPage() {
           onClose={() => setDialog(null)}
           onPick={(d) =>
             void run(async () => {
-              const f = await crewDayPdf(plan, dialog.siteId, d, workers, workTimes, await pdfOpts());
+              const f = await crewDayPdf(pdfPlan(plan), dialog.siteId, d, workers, workTimes, await pdfOpts());
               setDialog(null);
               setPreview(f);
             })
