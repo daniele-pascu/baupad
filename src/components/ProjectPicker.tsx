@@ -109,7 +109,7 @@ export function ProjectPicker({
         )}
         <ul className="picker-list">
           {list.map((p) => {
-            const where = projectTools(p).filter((t) => t !== tool);
+            const where = projectTools(p).filter((t) => t !== tool && t !== 'register');
             return (
               <li key={p.id}>
                 <button type="button" className="picker-item" onClick={() => void pick(p)} disabled={busy} data-testid="picker-item" data-project={p.name}>

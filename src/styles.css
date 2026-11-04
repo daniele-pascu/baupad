@@ -10497,3 +10497,14 @@ html[data-theme='dark'] .crew-search {
   grid-template-columns: 2fr 1fr;
   gap: 8px;
 }
+
+/* Mängelplan-Übersicht: Projekt mit ⋮-Menü (bearbeiten, löschen) */
+.defect-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.defect-row > .report-site {
+  flex: 1;
+  min-width: 0;
+}

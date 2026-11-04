@@ -449,3 +449,34 @@ test('Ohne Pläne in der Planbibliothek keine Taste „Planbibliothek“', async
   await expect(page.getByTestId('defect-upload')).toBeVisible();
   await expect(page.getByTestId('defect-library')).toHaveCount(0);
 });
+
+test('Übersicht: Projekt bearbeiten und aus dem Mängelplan löschen (⋮), Projekt bleibt im Register', async ({ page }) => {
+  await freshStart(page);
+  await page.goto('./#/maengel');
+  const dlg = await newProjectPlan(page, 'Parkdeck Süd');
+  await dlg.getByTestId('defect-plan-save').click();
+  await expect(page.getByTestId('dp-title')).toBeVisible();
+  await page.goto('./#/maengel');
+  const row = page.locator('.defect-row').filter({ has: page.locator('[data-site="Parkdeck Süd"]') });
+  await expect(row).toBeVisible();
+  // bearbeiten: Name ändern
+  await row.getByTestId('defect-site-actions').click();
+  await page.getByTestId('defect-site-edit').click();
+  await page.getByTestId('photo-site-name').fill('Parkdeck Süd Neu');
+  await page.getByTestId('photo-site-save').click();
+  await expect(page.locator('.toast', { hasText: 'Projekt gespeichert' })).toHaveCount(1);
+  await expect(page.getByTestId('defect-sites')).toContainText('Parkdeck Süd Neu');
+  // löschen (mit Rückfrage) → weg aus dem Mängelplan
+  await page.locator('.defect-row').first().getByTestId('defect-site-actions').click();
+  await page.getByTestId('defect-site-delete').click();
+  await expect(page.getByTestId('confirm-dialog')).toContainText('1 Plan');
+  await page.getByRole('button', { name: 'Löschen' }).last().click();
+  await expect(page.locator('.toast', { hasText: 'aus dem Mängelplan gelöscht' })).toHaveCount(1);
+  await expect(page.locator('.defect-row')).toHaveCount(0);
+  await expect(page.getByTestId('defects-empty')).toBeVisible();
+  await page.reload();
+  await expect(page.locator('.defect-row')).toHaveCount(0);
+  // im Register weiterhin vorhanden
+  await page.goto('./baupad/projektregister');
+  await expect(page.locator('body')).toContainText('Parkdeck Süd Neu');
+});

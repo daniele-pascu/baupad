@@ -97,6 +97,17 @@ export async function adoptProject(p: Project, tool: string): Promise<Project> {
   return record;
 }
 
+/** Projekt aus einem Werkzeug herausnehmen (bleibt im Register und in den anderen Werkzeugen) */
+export async function dropProjectFromTool(projectId: string, tool: string): Promise<void> {
+  const db = await getDB();
+  const p = await db.get('projects', projectId);
+  if (!p || !usedIn(p, tool)) return;
+  const rest = projectTools(p).filter((t) => t !== tool);
+  // leer hieße „Aufmaß“ (Standard) – daher „nur im Register“ merken
+  const record: Project = { ...p, tools: rest.length ? rest : ['register'], rev: p.rev + 1, updatedAt: Date.now(), deviceId: getDeviceId() };
+  await writeRecords([{ store: 'projects', record, baseRev: p.rev }]);
+}
+
 /** Projekte des Registers, die in diesem Werkzeug noch nicht benutzt werden (zum Übernehmen) */
 export async function registerCandidates(tool: string): Promise<Project[]> {
   return (await listProjects()).filter((p) => !usedIn(p, tool)).sort((a, b) => (a.site || a.name).localeCompare(b.site || b.name, 'de'));
