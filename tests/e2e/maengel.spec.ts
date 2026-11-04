@@ -1,6 +1,6 @@
 import { expect, test, type Page } from './fixtures';
 import { join } from 'node:path';
-import { FIXTURES, freshStart } from './helpers';
+import { createProject, FIXTURES, freshStart, waitSaved } from './helpers';
 
 /** Übersicht → „Neues Projekt“ → im Register anlegen → im Projekt „Plan hochladen“ (Datei gewählt, Dialog offen) */
 async function newProjectPlan(page: Page, name: string, file = 'parkdeck.png') {
@@ -406,4 +406,30 @@ test('Projektregister nachziehen: Plan ohne Projekt (z. B. von einem anderen Ger
   await expect(page.getByTestId('project-picker').getByTestId('picker-item')).toHaveCount(1);
   await expect(page.getByTestId('project-picker').getByTestId('picker-item')).toContainText('Verwaistes Projekt');
   await expect(page.getByTestId('project-picker').locator('.picker-tag')).toHaveText(['Mängelplan']);
+});
+
+test('Projekt übernehmen: Pläne aus der Planbibliothek (Aufmaß & Abrechnung) direkt wählbar, auch einzelne PDF-Seiten', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'Garage Nord');
+  // Bibliothek: ein mehrseitiges PDF hochladen
+  await page.getByTestId('open-plan-library').click();
+  await page.getByTestId('library-file-input').setInputFiles(join(FIXTURES, 'plaene.pdf'));
+  await expect(page.locator('.toast', { hasText: 'Planbibliothek hochgeladen' })).toHaveCount(1);
+  await page.keyboard.press('Escape');
+  await waitSaved(page);
+  // Mängelplan: Projekt übernehmen → „Plan hochladen“ zeigt die Bibliothek (je Seite)
+  await page.goto('./#/maengel');
+  await page.getByTestId('defect-new-site').click();
+  await page.getByTestId('project-picker').getByTestId('picker-item').filter({ hasText: 'Garage Nord' }).click();
+  await expect(page.getByTestId('defect-site-title')).toHaveText('Garage Nord');
+  await page.getByTestId('defect-upload').click();
+  const dlg = page.getByTestId('defect-plan-dialog');
+  const items = dlg.getByTestId('defect-library-item');
+  await expect(items).toHaveCount(4);
+  await expect(items.nth(1)).toContainText('plaene – Seite 2');
+  await items.nth(1).click();
+  await expect(dlg.getByTestId('defect-plan-title')).toHaveValue('plaene – Seite 2');
+  await dlg.getByTestId('defect-plan-save').click();
+  await expect(page.getByTestId('dp-title')).toHaveText('plaene – Seite 2');
+  await expect(page.locator('[data-testid="dp-canvas"] img')).toBeVisible();
 });

@@ -45,7 +45,7 @@ const THUMB_MAX = 480;
  * Plan aus PDF (erste Seite) oder Bild als JPEG übernehmen – ohne Maßstab. Bei PDF bleibt die Originaldatei
  * erhalten, damit die Ansicht beim Zoomen und der Export so scharf sind wie in Aufmaß & Abrechnung.
  */
-export async function importPlanImage(file: File): Promise<{ data: ArrayBuffer; thumb: ArrayBuffer; width: number; height: number; pdf?: ArrayBuffer }> {
+export async function importPlanImage(file: File, pageIndex = 0): Promise<{ data: ArrayBuffer; thumb: ArrayBuffer; width: number; height: number; pdf?: ArrayBuffer }> {
   const buf = await file.arrayBuffer();
   const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
   let canvas: HTMLCanvasElement;
@@ -53,7 +53,9 @@ export async function importPlanImage(file: File): Promise<{ data: ArrayBuffer; 
   if (isPdf) {
     const doc = await openPdf(buf.slice(0));
     try {
-      const page = await doc.getPage(1);
+      const page = await doc.getPage(Math.min(pageIndex, doc.numPages - 1) + 1);
+      // mehrseitiges PDF: nur die gewählte Seite als Original behalten (Zoom und Export nutzen Seite 1)
+      if (doc.numPages > 1) pdf = await singlePagePdf(buf, Math.min(pageIndex, doc.numPages - 1)).catch(() => undefined);
       canvas = await renderPdfToCanvas(page, PLAN_MAX);
     } finally {
       await closePdf(doc);
@@ -70,7 +72,7 @@ export async function importPlanImage(file: File): Promise<{ data: ArrayBuffer; 
   }
   const data = await (await canvasToBlob(canvas, 'image/jpeg', 0.9)).arrayBuffer();
   const thumb = await (await canvasToBlob(imageToCanvas(await createImageBitmap(canvas), THUMB_MAX), 'image/jpeg', 0.8)).arrayBuffer();
-  return { data, thumb, width: canvas.width, height: canvas.height, pdf: isPdf ? buf : pdf };
+  return { data, thumb, width: canvas.width, height: canvas.height, pdf: isPdf ? (pdf ?? buf) : pdf };
 }
 
 /** EXIF-Ausrichtung eines JPEG (1 = aufrecht bzw. keine Angabe) */
@@ -163,8 +165,19 @@ export async function planRaster(planId: string, maxSide = EXPORT_MAX): Promise<
   return (await canvasToBlob(canvas, 'image/jpeg', 0.9)).arrayBuffer();
 }
 
-export async function createDefectPlan(site: PhotoSite, title: string, file: File): Promise<DefectPlan> {
-  const img = await importPlanImage(file);
+/** eine Seite eines PDF als eigenes, einseitiges PDF (verlustfrei, vektoriell) */
+async function singlePagePdf(buf: ArrayBuffer, pageIndex: number): Promise<ArrayBuffer> {
+  const { PDFDocument } = await import('pdf-lib');
+  const src = await PDFDocument.load(buf.slice(0), { ignoreEncryption: true });
+  const out = await PDFDocument.create();
+  const [page] = await out.copyPages(src, [pageIndex]);
+  out.addPage(page);
+  const bytes = await out.save();
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
+
+export async function createDefectPlan(site: PhotoSite, title: string, file: File, pageIndex = 0): Promise<DefectPlan> {
+  const img = await importPlanImage(file, pageIndex);
   const now = Date.now();
   const plan: DefectPlan = {
     id: uuid(),
