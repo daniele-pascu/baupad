@@ -9886,3 +9886,39 @@ html[data-theme='dark'] .crew-search {
   width: 22px;
   height: 22px;
 }
+/* Serienkamera: Blitz Aus/Auto/An und Gerätekamera */
+.series-cam-top .series-cam-title {
+  flex: 1;
+  min-width: 0;
+}
+.series-cam-flashbtn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 20px;
+  background: none;
+  color: #fff;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.series-cam-flashbtn.on {
+  background: #f5b800;
+  border-color: #f5b800;
+  color: #000;
+}
+.cam-flash-mode {
+  position: relative;
+}
+.cam-flash-label {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  line-height: 1;
+}

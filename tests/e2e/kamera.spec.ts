@@ -31,6 +31,10 @@ test('Kamera-Modus: Live-Bild, Auslöser speichert sofort, Zähler, letztes Foto
   await page.getByTestId('cam-site-row').filter({ hasText: 'Garage Jagdschlossgasse' }).click();
   await expect(page.getByTestId('cam-site')).toHaveAttribute('data-site', 'Garage Jagdschlossgasse');
   await expect.poll(() => page.getByTestId('cam-video').evaluate((v: HTMLVideoElement) => v.videoWidth)).toBeGreaterThan(0);
+  // Blitz Aus/Auto/An: Testkamera hat keine Lampe → Hinweis auf die Gerätekamera
+  await expect(page.getByTestId('cam-torch')).toBeVisible();
+  await page.getByTestId('cam-torch').click();
+  await expect(page.locator('.toast', { hasText: 'Gerätekamera' })).toHaveCount(1);
   await page.getByTestId('cam-desc').click();
   await page.getByTestId('cam-desc-input').fill('Rampe Einfahrt');
   await page.getByTestId('cam-desc-save').click();

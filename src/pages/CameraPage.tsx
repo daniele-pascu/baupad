@@ -14,6 +14,7 @@ import { useProjectIn } from '../lib/sites';
 import type { Photo, PhotoSite } from '../lib/types';
 import { loadPhotoSites } from './PhotosPage';
 import { usePageTitle } from '../lib/page-title';
+import { FLASH_HINT, FLASH_LABEL, flashBeforeShot, loadFlash, nextFlash, saveFlash, setTorch as setTorchOn, type FlashMode } from '../lib/flash';
 
 const LAST_SITE = 'photoLastSite';
 const keyOf = (s: PhotoSite) => photoSiteKey({ projectId: s.projectId, siteName: s.name });
@@ -278,14 +279,18 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
   /** Symbole mitdrehen, damit sie in Handlage aufrecht stehen */
   const iconStyle = angle && !layoutLandscape ? { transform: `rotate(${angle}deg)` } : undefined;
 
+  // Blitz Aus / Auto / An (gemerkt): An = Lampe dauerhaft, Auto = bei Dunkelheit kurz beim Auslösen
+  const [flashMode, setFlashMode] = useState<FlashMode>(loadFlash);
+  useEffect(() => {
+    if (!torchOk) return;
+    const on = flashMode === 'on';
+    void setTorchOn(stream.current?.getVideoTracks()[0], on).then((ok) => ok && setTorch(on));
+  }, [flashMode, torchOk]);
   const toggleTorch = () => {
-    const track = stream.current?.getVideoTracks()[0];
-    if (!track) return;
-    const next = !torch;
-    track
-      .applyConstraints({ advanced: [{ torch: next } as MediaTrackConstraintSet] })
-      .then(() => setTorch(next))
-      .catch(() => toast('Blitz wird von diesem Gerät nicht unterstützt.', 'info'));
+    if (!torchOk) return toast(FLASH_HINT, 'info');
+    const next = nextFlash(flashMode);
+    setFlashMode(next);
+    saveFlash(next);
   };
 
   /** Store-App: echte Kamera des Geräts, Foto wird wie ein Galeriebild gespeichert (Aufnahmezeit aus den Bilddaten) */
@@ -325,6 +330,7 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
     setFlash(true);
     window.setTimeout(() => setFlash(false), 180);
     try {
+      const off = await flashBeforeShot(flashMode, stream.current?.getVideoTracks()[0], v);
       const fw = v.videoWidth || 1280;
       const fh = v.videoHeight || 960;
       const f = cameraFraming(fw, fh, ratio, orient, angle, layoutLandscape);
@@ -336,6 +342,7 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
       if (f.rot) g.rotate((f.rot * Math.PI) / 180);
       // Ausschnitt des Sensorbilds mittig zeichnen (vor der Drehung w × h, danach passend zum Blatt)
       g.drawImage(v, f.crop.x, f.crop.y, f.crop.w, f.crop.h, -f.crop.w / 2, -f.crop.h / 2, f.crop.w, f.crop.h);
+      off();
       const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', 0.92));
       if (!blob) throw new Error('Bild konnte nicht aufgenommen werden.');
       const now = new Date();
@@ -456,9 +463,10 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
           <button type="button" className={`cam-icon${desc ? ' on' : ''}`} onClick={() => setDescOpen(true)} aria-label="Beschreibung für die nächsten Fotos" title="Beschreibung" style={iconStyle} data-testid="cam-desc">
             <Icon name="text" size={22} />
           </button>
-          {torchOk && (
-            <button type="button" className={`cam-icon${torch ? ' on' : ''}`} onClick={toggleTorch} aria-label="Blitz" title="Blitz" style={iconStyle} data-testid="cam-torch">
+          {!native && (
+            <button type="button" className={`cam-icon cam-flash-mode${torch || (torchOk && flashMode === 'auto') ? ' on' : ''}`} onClick={toggleTorch} aria-label={`Blitz: ${FLASH_LABEL[flashMode]}`} title="Blitz: Aus / Auto / An" style={iconStyle} data-testid="cam-torch" data-mode={flashMode}>
               <Icon name="flash" size={22} />
+              <span className="cam-flash-label">{torchOk ? FLASH_LABEL[flashMode] : '–'}</span>
             </button>
           )}
           {!native && (

@@ -298,9 +298,16 @@ test('Messung: Fotos wie im Mängelplan (Galerie → Fotodokumentation), Taste F
   const cam = page.getByTestId('series-camera');
   await expect(cam).toBeVisible();
   await expect(cam).toContainText('Aufmaß F-1 Nr. 1');
-  await expect(cam).toHaveAttribute('data-live', '0', { timeout: 15_000 });
+  // Testkamera (Live-Bild, ohne Lampe): Blitz-Taste zeigt den Hinweis auf die Gerätekamera
+  await expect(cam).toHaveAttribute('data-live', '1', { timeout: 15_000 });
+  await expect(cam.getByTestId('series-flash')).toContainText('–');
+  await cam.getByTestId('series-flash').click();
+  await expect(page.locator('.toast', { hasText: 'Gerätekamera' })).toHaveCount(1);
+  await expect(cam.getByTestId('series-device-camera')).toBeVisible();
+  await cam.getByTestId('series-shutter').click();
+  await expect(cam.getByTestId('series-count')).toHaveText('1 Foto');
+  // Gerätekamera (eigener Blitz): Foto kommt als Datei
   await cam.getByTestId('series-input').setInputFiles(join(FIXTURES, 'foto.jpg'));
-  await cam.getByTestId('series-input').setInputFiles(join(FIXTURES, 'parkdeck.png'));
   await expect(cam.getByTestId('series-count')).toHaveText('2 Fotos');
   await cam.getByTestId('series-done').click();
   await expect(cam).toHaveCount(0);
