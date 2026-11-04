@@ -35,6 +35,9 @@ import { exportPaper, layoutSheet, planHeading, type OverviewCorner, type SheetL
 import { DEFAULT_TRANSPARENCY, fillOf, fillPaths, strokeGeometry } from './style';
 import type { Component, Damage, Plan, Rect, Shape, ShapeStyle } from './types';
 import { deductionNumbers } from './numbering';
+import { measureLabel } from './measure';
+import { legendEntries, type LegendEntry } from './legend';
+import { formatArea, formatMeasure } from './numbers';
 
 /**
  * PDF-Export bearbeiteter Pläne.
@@ -56,6 +59,7 @@ interface Ctx {
   libDocs: Map<string, PDFDocument | null>;
   jsDocs: Map<string, PDFDocumentProxy>;
   overview: PdfExportOptions['overview'];
+  projectName: string;
 }
 
 function hexToRgb(hex: string) {
@@ -93,6 +97,8 @@ export interface PdfExportOptions {
   planIds: string[];
   /** Übersicht des Gesamtplans bei Planausschnitten (im freien Platz des Blatts, verdeckt nichts) */
   overview?: { enabled: boolean; corner: OverviewCorner };
+  /** nach jedem Plan: Fotos der Messungen je Nummer (A4 hoch) */
+  photos?: boolean;
 }
 
 export async function exportPlansPdf(data: ProjectState, opts: PdfExportOptions): Promise<ExportFile> {
@@ -110,12 +116,14 @@ export async function exportPlansPdf(data: ProjectState, opts: PdfExportOptions)
     libDocs: new Map(),
     jsDocs: new Map(),
     overview: opts.overview,
+    projectName: data.project.name,
   };
   try {
     for (const planId of opts.planIds) {
       const plan = data.plans[planId];
       if (!plan || plan.deletedAt) continue;
       await addPlanPage(ctx, data, plan);
+      if (opts.photos) await addPhotoPages(ctx, data, plan);
     }
   } finally {
     for (const d of ctx.jsDocs.values()) void closePdf(d);
@@ -265,6 +273,7 @@ async function finishSheet(ctx: Ctx, page: PDFPage, plan: Plan, L: SheetLayout, 
   const target: Target = { page, map, textRotation: 0, ptPerUnit: L.u };
   drawSheetHeader(ctx, page, L.h, L.header, plan, plan.showPaper ? [PAPER[exportPaper(plan)].label] : []);
   drawDamages(ctx, target, region, damages, []);
+  if (plan.showLegend) drawLegend(ctx, page, L.plan.x + 4, L.h - (L.plan.y + L.plan.h) + 4, legendEntries(plan, damages));
   if (L.overview && full && plan.crop) await drawOverview(ctx, page, L, plan, L.overview, full);
 }
 
@@ -570,6 +579,7 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   }
   // Messungen und Bauteilbuchstaben darüber
   drawDamages(ctx, target, region, damages, components);
+  if (plan.showLegend) drawLegend(ctx, page, margin + 2, margin + 2, legendEntries(plan, damages));
   // Maßstabsleiste rechts im Kopfbereich (nur wenn der Maßstab angezeigt werden soll)
   if (!plan.showScale) return;
   const lblW = ctx.font.widthOfTextAtSize(`${String(barM).replace('.', ',')} m`, 6.5);
@@ -581,4 +591,93 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   page.drawText('0', { x: bx - 2, y: by + 5, size: 6.5, font: ctx.font, color: rgb(0.3, 0.33, 0.38) });
   const lbl = `${String(barM).replace('.', ',')} m`;
   page.drawText(lbl, { x: bx + barPt - ctx.font.widthOfTextAtSize(lbl, 6.5) / 2, y: by + 5, size: 6.5, font: ctx.font, color: rgb(0.3, 0.33, 0.38) });
+}
+
+/** Fotos der Messungen eines Plans: je Nummer Überschrift (Farbe, Art, Menge, Bemerkung) und die Fotos (3 je Reihe) */
+async function addPhotoPages(ctx: Ctx, data: ProjectState, plan: Plan) {
+  const list = damagesOf(data, plan.id).filter((d) => d.photoIds?.length);
+  if (!list.length) return;
+  const { getPhotoStorage } = await import('./photo-storage');
+  const storage = getPhotoStorage();
+  const W = 595.28;
+  const H = 841.89;
+  const M = 36;
+  const INK = rgb(0.1, 0.1, 0.12);
+  const MUTED = rgb(0.45, 0.45, 0.5);
+  const COLS = 3;
+  const GAP = 8;
+  const CW = (W - 2 * M - (COLS - 1) * GAP) / COLS;
+  const PH = 150;
+  let page: PDFPage | null = null;
+  let y = 0;
+  const title = clean(ctx, `Fotos - ${planTitle(plan)}`);
+  const newPage = () => {
+    page = ctx.out.addPage([W, H]);
+    page.drawText(fitText(ctx.bold, title, 13, W - 2 * M), { x: M, y: H - M - 12, size: 13, font: ctx.bold, color: INK });
+    const sub = clean(ctx, [ctx.projectName, new Date().toLocaleDateString('de-DE')].filter(Boolean).join(' · '));
+    page.drawText(fitText(ctx.font, sub, 8.5, W - 2 * M), { x: M, y: H - M - 26, size: 8.5, font: ctx.font, color: MUTED });
+    page.drawLine({ start: { x: M, y: H - M - 32 }, end: { x: W - M, y: H - M - 32 }, thickness: 0.6, color: MUTED });
+    y = H - M - 44;
+  };
+  newPage();
+  for (const d of list) {
+    const imgs: PDFImage[] = [];
+    for (const id of d.photoIds!) {
+      try {
+        const b = await storage.blobs(id);
+        if (!b) continue;
+        const u8 = new Uint8Array(b.data);
+        imgs.push(u8[0] === 0x89 ? await ctx.out.embedPng(b.data) : await ctx.out.embedJpg(b.data));
+      } catch {
+        /* Foto überspringen */
+      }
+    }
+    if (!imgs.length) continue;
+    const head = clean(ctx, `Nr. ${damageNo(d)} · ${measureLabel(d)}${d.area !== null ? ` · ${formatArea(d.area)} m²` : ` · ${formatMeasure(d.length)} m`}`);
+    const note = d.note?.trim() ? clean(ctx, d.note.trim()) : '';
+    const rows = Math.ceil(imgs.length / COLS);
+    // Überschrift und erste Fotoreihe zusammenhalten
+    if (y - (24 + (note ? 12 : 0) + PH) < M) newPage();
+    let pg = page as unknown as PDFPage;
+    pg.drawCircle({ x: M + 6, y: y - 4, size: 6, color: hexToRgb(d.color) });
+    pg.drawText(fitText(ctx.bold, head, 11, W - 2 * M - 18), { x: M + 18, y: y - 8, size: 11, font: ctx.bold, color: INK });
+    y -= 20;
+    if (note) {
+      pg.drawText(fitText(ctx.font, note, 9, W - 2 * M - 18), { x: M + 18, y: y - 4, size: 9, font: ctx.font, color: MUTED });
+      y -= 14;
+    }
+    for (let r = 0; r < rows; r++) {
+      if (y - PH < M) {
+        newPage();
+        pg = page as unknown as PDFPage;
+      }
+      for (let c = 0; c < COLS; c++) {
+        const im = imgs[r * COLS + c];
+        if (!im) break;
+        const s = Math.min(CW / im.width, PH / im.height);
+        const iw = im.width * s;
+        const ih = im.height * s;
+        pg.drawImage(im, { x: M + c * (CW + GAP) + (CW - iw) / 2, y: y - PH + (PH - ih) / 2, width: iw, height: ih });
+      }
+      y -= PH + GAP;
+    }
+    y -= 8;
+  }
+}
+
+/** Farblegende als weißer Kasten (unten links über dem Plan): je Farbe ein Feld und die Bezeichnung */
+function drawLegend(ctx: Ctx, page: PDFPage, x: number, y: number, entries: LegendEntry[]) {
+  if (!entries.length) return;
+  const size = 8;
+  const row = 11;
+  const labels = entries.map((e) => fitText(ctx.font, clean(ctx, e.label), size, 200));
+  const w = Math.max(ctx.bold.widthOfTextAtSize('Legende', size), ...labels.map((l) => ctx.font.widthOfTextAtSize(l, size) + 14)) + 12;
+  const h = 14 + entries.length * row + 4;
+  page.drawRectangle({ x, y, width: w, height: h, color: rgb(1, 1, 1), borderColor: rgb(0.55, 0.57, 0.6), borderWidth: 0.6 });
+  page.drawText('Legende', { x: x + 6, y: y + h - 11, size, font: ctx.bold, color: rgb(0.1, 0.1, 0.12) });
+  entries.forEach((e, i) => {
+    const ty = y + h - 14 - (i + 1) * row + 3;
+    page.drawRectangle({ x: x + 6, y: ty - 1, width: 9, height: 7, color: hexToRgb(e.color), borderColor: rgb(0.4, 0.4, 0.45), borderWidth: 0.4 });
+    page.drawText(labels[i], { x: x + 20, y: ty, size, font: ctx.font, color: rgb(0.1, 0.1, 0.12) });
+  });
 }

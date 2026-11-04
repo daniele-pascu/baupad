@@ -4,6 +4,7 @@ import { Modal } from './Modal';
 import { PhotoCapture } from './PhotoCapture';
 import { PhotoImg } from './PhotoImg';
 import { PhotoViewer } from './PhotoViewer';
+import { SeriesCamera } from './SeriesCamera';
 import { getPhotoStorage } from '../lib/photo-storage';
 import { photoSiteKey } from '../lib/photos';
 import type { Photo, PhotoSite } from '../lib/types';
@@ -54,7 +55,8 @@ export function SitePhotosPicker({ photos, chosen, onClose, onDone }: { photos: 
  * Fotos zu einem Eintrag (Messung im Aufmaß): aufnehmen, aus der Galerie oder aus der Fotodokumentation
  * der Baustelle wählen; neue Fotos landen auch in der Fotodokumentation. Antippen = groß ansehen.
  */
-export function PhotoAttach({ site, ids, onChange, hint }: { site: PhotoSite; ids: string[]; onChange(ids: string[]): void; hint?: string }) {
+export function PhotoAttach({ site, ids, onChange, hint, description = '' }: { site: PhotoSite; ids: string[]; onChange(ids: string[]): void; hint?: string; /** Vermerk für neue Fotos (z. B. „Aufmaß A-1 Nr. 3“) */ description?: string }) {
+  const [series, setSeries] = useState(false);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [picking, setPicking] = useState(false);
   const [view, setView] = useState<number | null>(null);
@@ -92,10 +94,10 @@ export function PhotoAttach({ site, ids, onChange, hint }: { site: PhotoSite; id
             onChange([...ids, ...saved.map((p) => p.id)]);
             void reload();
           }}
-          render={({ camera, library }) => (
+          render={({ library }) => (
             <>
-              <button type="button" className="btn btn-sm" onClick={camera} data-testid="attach-camera">
-                <Icon name="camera" size={16} /> Foto aufnehmen
+              <button type="button" className="btn btn-sm" onClick={() => setSeries(true)} data-testid="attach-camera">
+                <Icon name="camera" size={16} /> Fotos aufnehmen
               </button>
               <button type="button" className="btn btn-sm" onClick={library} data-testid="attach-library">
                 <Icon name="images" size={16} /> Aus Galerie
@@ -116,6 +118,18 @@ export function PhotoAttach({ site, ids, onChange, hint }: { site: PhotoSite; id
           onDone={(sel) => {
             onChange(sel);
             setPicking(false);
+          }}
+        />
+      )}
+      {series && (
+        <SeriesCamera
+          site={site}
+          description={description}
+          onClose={() => setSeries(false)}
+          onDone={(saved) => {
+            setSeries(false);
+            onChange([...ids, ...saved.map((p) => p.id)]);
+            void reload();
           }}
         />
       )}

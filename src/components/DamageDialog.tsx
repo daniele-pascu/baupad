@@ -91,6 +91,8 @@ interface Props {
   onSave: (v: DamageValues, renumber: Renumber) => void;
   /** Baustelle der Fotodokumentation (Projekt): Fotos zur Messung aufnehmen bzw. wählen */
   photoSite?: PhotoSite | null;
+  /** Vermerk-Anfang für neue Fotos, z. B. „Aufmaß A-1“ */
+  photoPrefix?: string;
   onCancel: () => void;
   onDelete?: () => void;
   /** Abzug im Plan zeichnen (nur Flächen mit Maßstab): Fenster blendet sich aus, bis gezeichnet ist */
@@ -109,7 +111,7 @@ type Field = 'number' | 'length' | 'width' | 'depth';
  * Eingabe einer Messung bzw. Schadstelle. Öffnet sich automatisch nach dem Einzeichnen.
  * Enter/Weiter springt zum nächsten Feld; im letzten Feld wird gespeichert.
  */
-export function DamageDialog({ mode, damage, others, components, positions = [], suggestion, geometry, wall = false, onSave, onCancel, onDelete, onDrawDeduction, drawnDeduction, hidden, dedFromPlan, photoSite }: Props) {
+export function DamageDialog({ mode, damage, others, components, positions = [], suggestion, geometry, wall = false, onSave, onCancel, onDelete, onDrawDeduction, drawnDeduction, hidden, dedFromPlan, photoSite, photoPrefix }: Props) {
   /** Fläche und Umfang aus dem Plan übernehmen (nur bei Flächen-Messarten) */
   // Linie: Länge aus dem Plan (kalibriert) – bei neuen Linien vorgewählt, wird bei Formänderung nachgeführt
   const lineSuggest = (!hasArea(damage.kind) || wall) && suggestion ? suggestion.length : null;
@@ -698,7 +700,15 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
           <span>Bemerkung / Notiz</span>
           <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="optional, z. B. Hinweis zur Messung" data-testid="input-note" />
         </label>
-        {photoSite && <PhotoAttach site={photoSite} ids={photoIds} onChange={setPhotoIds} hint="Neue Fotos landen auch in der Fotodokumentation des Projekts." />}
+        {photoSite && (
+          <PhotoAttach
+            site={photoSite}
+            ids={photoIds}
+            onChange={setPhotoIds}
+            description={`${photoPrefix ?? 'Aufmaß'} Nr. ${v.number.trim() || damage.label || damage.number}`}
+            hint="„Fotos aufnehmen“: Foto machen, beliebig viele, dann Haken – alle Fotos gehören zu dieser Nummer und landen auch in der Fotodokumentation."
+          />
+        )}
         <fieldset className="option-row">
           <legend>Farbe</legend>
           {COLORS.map((c) => (

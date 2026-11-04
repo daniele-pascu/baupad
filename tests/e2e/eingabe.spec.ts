@@ -293,22 +293,60 @@ test('Messung: Fotos wie im Mängelplan (Galerie → Fotodokumentation), Taste F
   await expect(page.getByTestId('photo-viewer')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('photo-viewer')).toHaveCount(0);
+  // Serienaufnahme: Foto, Foto – Haken speichert beide zur Nummer (ohne Live-Bild: Kamera des Geräts)
+  await dlg.getByTestId('attach-camera').click();
+  const cam = page.getByTestId('series-camera');
+  await expect(cam).toBeVisible();
+  await expect(cam).toContainText('Aufmaß F-1 Nr. 1');
+  await expect(cam).toHaveAttribute('data-live', '0', { timeout: 15_000 });
+  await cam.getByTestId('series-input').setInputFiles(join(FIXTURES, 'foto.jpg'));
+  await cam.getByTestId('series-input').setInputFiles(join(FIXTURES, 'parkdeck.png'));
+  await expect(cam.getByTestId('series-count')).toHaveText('2 Fotos');
+  await cam.getByTestId('series-done').click();
+  await expect(cam).toHaveCount(0);
+  await expect(dlg.getByTestId('attach-photo')).toHaveCount(3, { timeout: 15_000 });
   await dlg.getByTestId('damage-save').click();
   await expect(dlg).toBeHidden();
-  await expect(page.getByTestId('row-photos')).toHaveText('1');
+  await expect(page.getByTestId('row-photos')).toHaveText('3');
   await waitSaved(page);
   const ds = await stored(page, 'damages');
-  expect((ds[0].photoIds as string[]).length).toBe(1);
-  // erneut öffnen: Foto ist dabei, aus der Fotodokumentation wählbar
+  expect((ds[0].photoIds as string[]).length).toBe(3);
+  // erneut öffnen: Fotos sind dabei, aus der Fotodokumentation wählbar
   await page.locator('[data-testid="aufmass-row"][data-number="1"]').getByRole('button', { name: /1 bearbeiten/ }).click();
-  await expect(dlg.getByTestId('attach-photo')).toHaveCount(1, { timeout: 15_000 });
+  await expect(dlg.getByTestId('attach-photo')).toHaveCount(3, { timeout: 15_000 });
   await dlg.getByTestId('attach-from-doku').click();
-  await expect(page.getByTestId('dp-photo-pick')).toHaveCount(1);
+  await expect(page.getByTestId('dp-photo-pick')).toHaveCount(3);
   await page.getByTestId('dp-photo-picker-done').click();
   await dlg.getByTestId('damage-cancel').click();
+  // Farblegende: erkannte Farbe mit eigener Bezeichnung, im Plan angezeigt
+  await page.getByTestId('editor-legend').click();
+  const lg = page.getByTestId('legend-dialog');
+  await expect(lg.getByTestId('legend-row')).toHaveCount(1);
+  await lg.getByTestId('legend-input').fill('Betonsanierung');
+  await expect(lg.getByTestId('legend-show')).toBeChecked();
+  await lg.getByTestId('legend-save').click();
+  await expect(page.getByTestId('plan-legend')).toContainText('Betonsanierung');
+  await waitSaved(page);
+  // PDF mit Legende und Fotoseite je Nummer
+  const dl = await catchDownload(page, async () => {
+    await page.getByTestId('export-pdf-plan').click();
+    await expect(page.getByTestId('pdf-photos')).toBeChecked();
+    await page.getByTestId('pdf-export-run').click();
+  });
+  const pdf = await saveDownload(dl, 'fotos-legende.pdf');
+  const text = execFileSync('pdftotext', [pdf, '-'], { encoding: 'utf8' });
+  expect(text).toContain('Legende');
+  expect(text).toContain('Betonsanierung');
+  expect(text).toContain('Fotos - F-1');
+  expect(text).toContain('Nr. 1');
+  const pages = Number(/Pages:\s+(\d+)/.exec(execFileSync('pdfinfo', [pdf], { encoding: 'utf8' }))![1]);
+  expect(pages).toBe(2);
+  const images = execFileSync('pdfimages', ['-list', '-f', '2', '-l', '2', pdf], { encoding: 'utf8' }).trim().split('\n').length - 2;
+  expect(images).toBeGreaterThanOrEqual(3);
   // Projekt: Taste Fotodokumentation öffnet die Fotos des Projekts (mit Vermerk)
+  await page.keyboard.press('Escape');
   await page.getByRole('link', { name: 'Zurück zur Planliste' }).click();
   await page.getByTestId('project-photos').click();
-  await expect(page.getByTestId('photo-thumb')).toHaveCount(1, { timeout: 15_000 });
+  await expect(page.getByTestId('photo-thumb')).toHaveCount(3, { timeout: 15_000 });
   await expect(page.locator('body')).toContainText('Fotos Aufmaß');
 });

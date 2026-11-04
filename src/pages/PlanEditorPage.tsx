@@ -12,6 +12,8 @@ import { SaveErrorBanner, SaveStatus } from '../components/SaveStatus';
 import { invoiceLabel, invoiceOfPlan } from '../lib/invoices';
 import { confirmDialog, promptDialog, showError, toast } from '../components/ui';
 import { getPhotoStorage } from '../lib/photo-storage';
+import { legendEntries } from '../lib/legend';
+import { LegendBox, LegendDialog } from '../components/LegendDialog';
 import type { PhotoSite } from '../lib/types';
 import { positionGrouping, costCenterLabel, damagesOf, elementsOf, findPosition, lvDocLabel, lvDocsOf, plansOf, planTitle, positionRef, sumArea } from '../lib/aufmass';
 import { calibrationStatus, checkDeviation, checkError, formatCm, formatPercent, geometryMeasures, MAX_ERROR_M, planUnitsPerMeter } from '../lib/calibration';
@@ -323,6 +325,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const [mobileTab, setMobileTab] = useState<'plan' | 'table'>('plan');
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [rotateOpen, setRotateOpen] = useState(false);
+  const [legendOpen, setLegendOpen] = useState(false);
   /** Kalibrieren: Prüfstrecke statt Referenzstrecke ziehen; Prüfbericht */
   const [checking, setChecking] = useState(false);
   const [dimsOpen, setDimsOpen] = useState(false);
@@ -435,6 +438,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   }, [planId]);
 
   const stored = useMemo(() => (plan ? damagesOf(data, plan.id) : []), [data, plan]);
+  const legend = useMemo(() => (plan ? legendEntries(plan, stored) : []), [plan, stored]);
   /** gespeicherte, im Plan gezeichnete Abzüge (schraffiert, Nummer „A1“ … je Messung) */
   const planDeds = useMemo(
     () =>
@@ -1412,6 +1416,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             </div>
           )}
 
+          {plan.showLegend && !drawMode && <LegendBox entries={legend} onOpen={() => setLegendOpen(true)} />}
           <div className="zoom-controls">
             <LayerMenu
               hidden={plan.hiddenLayers ?? []}
@@ -1442,6 +1447,11 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             <button type="button" className="icon-btn" onClick={() => viewer.current?.fit()} aria-label="Gesamten Plan anzeigen" title="Gesamten Plan anzeigen (0)">
               <Icon name="fit" />
             </button>
+            {!drawMode && (
+              <button type="button" className={`icon-btn${plan.showLegend ? ' active' : ''}`} onClick={() => setLegendOpen(true)} aria-label="Farblegende" title="Farblegende: Bezeichnung je Farbe (im Plan und im PDF)" data-testid="editor-legend">
+                <Icon name="info" />
+              </button>
+            )}
             {!drawingPlan && !drawMode && file && (
               <button type="button" className="icon-btn" onClick={() => setRotateOpen(true)} aria-label="Plan drehen" title="Plan drehen (Messungen drehen mit, auch im Export)" data-testid="editor-rotate">
                 <Icon name="rotate" />
@@ -1843,6 +1853,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       {dialog?.mode === 'new' && (
         <DamageDialog
           photoSite={photoSite}
+          photoPrefix={`Aufmaß ${plan.planNumber || planTitle(plan)}`}
           mode="new"
           damage={{
             id: '',
@@ -1873,6 +1884,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       {dialogDamage && (
         <DamageDialog
           photoSite={photoSite}
+          photoPrefix={`Aufmaß ${plan.planNumber || planTitle(plan)}`}
           mode="edit"
           damage={{ ...dialogDamage, shapeType: dialogDamage.shape.type as ShapeType, kind: kindOf(dialogDamage) }}
           suggestion={k ? suggestMeasures(dialogDamage.shape, k) : null}
@@ -1909,6 +1921,18 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       {excelOpen && plan && <ExcelExportDialog data={data} scope={{ kind: 'plan', planId: plan.id }} onClose={() => setExcelOpen(false)} />}
       {dimsOpen && plan && file && <DimensionReview data={data} plan={plan} file={file} onClose={() => setDimsOpen(false)} />}
       {detailsOpen && <PlanDetailsDialog plan={plan} data={data} onClose={() => setDetailsOpen(false)} />}
+      {legendOpen && plan && (
+        <LegendDialog
+          entries={legend}
+          show={!!plan.showLegend}
+          labels={plan.legendLabels ?? {}}
+          onClose={() => setLegendOpen(false)}
+          onSave={(show, labels) => {
+            putRecord('plans', { ...data.plans[plan.id], showLegend: show, legendLabels: labels });
+            setLegendOpen(false);
+          }}
+        />
+      )}
       {rotateOpen && plan && <RotatePlanDialog data={data} plan={plan} onClose={() => setRotateOpen(false)} onReuse={() => setRotateOpen(false)} />}
       {pdfOpen && <PdfExportDialog data={data} costCenterId={plan.costCenterId} initial={[plan.id]} onClose={() => setPdfOpen(false)} />}
     </div>

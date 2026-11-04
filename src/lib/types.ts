@@ -185,6 +185,10 @@ export interface Plan extends SyncMeta {
    * die Originaldatei bleibt unverändert.
    */
   rotation?: PlanRotation;
+  /** Farblegende im Plan und im PDF anzeigen */
+  showLegend?: boolean;
+  /** eigene Bezeichnungen je Farbe (Farbwert klein geschrieben → Text) */
+  legendLabels?: Record<string, string>;
 }
 
 export type PlanRotation = 0 | 90 | 180 | 270;
