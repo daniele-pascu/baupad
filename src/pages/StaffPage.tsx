@@ -232,6 +232,7 @@ export function StaffPage() {
       {(dialog?.kind === 'new' || dialog?.kind === 'edit') && (
         <WorkerDialog
           worker={dialog.kind === 'edit' ? dialog.worker : null}
+          others={(workers ?? []).filter((x) => dialog.kind !== 'edit' || x.id !== dialog.worker.id)}
           onClose={() => setDialog(null)}
           onSave={async (w) => {
             await persist(w);
@@ -260,15 +261,47 @@ export function StaffPage() {
 }
 
 /** Fenster: Mitarbeiter anlegen oder bearbeiten */
-function WorkerDialog({ worker, onClose, onSave }: { worker: Worker | null; onClose(): void; onSave(w: Worker): Promise<void> }) {
+/** schon hinterlegt? gleicher Vor- und Nachname (ohne Groß-/Kleinschreibung) oder gleiche Personalnummer */
+export function workerDuplicates(v: { firstName: string; lastName: string; staffNo: string }, others: Worker[]): { worker: Worker; reason: 'name' | 'staffNo' }[] {
+  const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
+  const name = norm(`${v.firstName} ${v.lastName}`);
+  const no = v.staffNo.trim();
+  const out: { worker: Worker; reason: 'name' | 'staffNo' }[] = [];
+  for (const w of others) {
+    if (no && (w.staffNo ?? '').trim() === no) out.push({ worker: w, reason: 'staffNo' });
+    else if (v.firstName.trim() && norm(`${w.firstName} ${w.lastName}`) === name) out.push({ worker: w, reason: 'name' });
+  }
+  return out;
+}
+
+function WorkerDialog({ worker, others, onClose, onSave }: { worker: Worker | null; others: Worker[]; onClose(): void; onSave(w: Worker): Promise<void> }) {
   const [v, setV] = useState<Form>(
     worker ? { firstName: worker.firstName, lastName: worker.lastName, staffNo: worker.staffNo ?? '', phone: worker.phone ?? '', role: worker.role ?? '', grade: worker.grade ?? '' } : BLANK,
   );
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
+  const dups = workerDuplicates(v, others);
+  const dupText = (d: { worker: Worker; reason: 'name' | 'staffNo' }) =>
+    `${workerName(d.worker)}${d.worker.staffNo ? ` (Personalnr. ${d.worker.staffNo})` : ''}${d.worker.active ? '' : ' – inaktiv'}${d.reason === 'staffNo' ? ' hat dieselbe Personalnummer' : ' ist schon hinterlegt'}`;
   const submit = async () => {
     setShow(true);
     if (!v.firstName.trim()) return;
+    // doppelt? nur nach Rückfrage speichern
+    if (dups.length) {
+      const ok = await confirmDialog({
+        title: dups.some((d) => d.reason === 'name') ? 'Mitarbeiter schon hinterlegt' : 'Personalnummer schon vergeben',
+        message: (
+          <>
+            {dups.map((d) => (
+              <p key={d.worker.id}>{dupText(d)}.</p>
+            ))}
+            <p>Trotzdem {worker ? 'speichern' : 'als weiteren Mitarbeiter anlegen'}?</p>
+          </>
+        ),
+        confirmLabel: worker ? 'Trotzdem speichern' : 'Trotzdem anlegen',
+      });
+      if (!ok) return;
+    }
     const now = Date.now();
     const w: Worker = {
       ...(worker ?? { id: uuid(), active: true, createdAt: now }),
@@ -320,6 +353,18 @@ function WorkerDialog({ worker, onClose, onSave }: { worker: Worker | null; onCl
       >
         {field('firstName', 'Vorname *', { 'aria-invalid': show && !v.firstName.trim() ? true : undefined, 'data-autofocus': '' } as Partial<InputHTMLAttributes<HTMLInputElement>>)}
         {field('lastName', 'Nachname')}
+        {dups.length > 0 && (
+          <div className="worker-dup" role="status" data-testid="worker-duplicate">
+            <Icon name="info" size={18} />
+            <span>
+              {dups.map((d) => (
+                <span key={d.worker.id} className="worker-dup-line">
+                  {dupText(d)}.
+                </span>
+              ))}
+            </span>
+          </div>
+        )}
         <label className="field">
           <span>Funktion</span>
           <select value={v.grade} onChange={(e) => setV({ ...v, grade: e.target.value })} data-testid="worker-grade">

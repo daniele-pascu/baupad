@@ -758,3 +758,43 @@ test('Einteilen: Arbeiter suchen; Vorwoche übernehmen als sichtbarer Knopf', as
   await ad.getByTestId('assign-save').click();
   await expect(page.getByTestId('crew-carry')).toHaveText(/Vorwoche übernehmen/);
 });
+
+test('Mitarbeiter schon hinterlegt: Meldung beim Anlegen, nur nach Rückfrage doppelt', async ({ page }) => {
+  await freshStart(page);
+  await page.goto('./#/arbeitereinteilung');
+  await page.getByTestId('crew-workers').click();
+  const wd = page.getByTestId('staff-page');
+  await wd.getByTestId('staff-new').click();
+  await wd.getByTestId('worker-firstName').fill('Max');
+  await wd.getByTestId('worker-lastName').fill('Muster');
+  await wd.getByTestId('worker-staffNo').fill('17');
+  await wd.getByTestId('worker-save').click();
+  await expect(page.getByTestId('worker-dialog')).toHaveCount(0);
+  // gleicher Name (andere Schreibweise): Hinweis schon beim Tippen
+  await wd.getByTestId('staff-new').click();
+  await wd.getByTestId('worker-firstName').fill('max ');
+  await wd.getByTestId('worker-lastName').fill('MUSTER');
+  await expect(page.getByTestId('worker-duplicate')).toContainText('Max Muster (Personalnr. 17) ist schon hinterlegt');
+  await wd.getByTestId('worker-save').click();
+  const cf = page.getByTestId('confirm-dialog');
+  await expect(cf).toContainText('Mitarbeiter schon hinterlegt');
+  await cf.getByRole('button', { name: 'Abbrechen' }).click();
+  await expect(page.getByTestId('worker-dialog')).toBeVisible();
+  // gleiche Personalnummer bei anderem Namen
+  await wd.getByTestId('worker-firstName').fill('Peter');
+  await wd.getByTestId('worker-lastName').fill('Beispiel');
+  await wd.getByTestId('worker-staffNo').fill('17');
+  await expect(page.getByTestId('worker-duplicate')).toContainText('hat dieselbe Personalnummer');
+  await wd.getByTestId('worker-staffNo').fill('18');
+  await expect(page.getByTestId('worker-duplicate')).toHaveCount(0);
+  await wd.getByTestId('worker-save').click();
+  await expect(page.getByTestId('worker-dialog')).toHaveCount(0);
+  await expect(wd.getByTestId('worker-row')).toHaveCount(2);
+  // bewusst doppelt anlegen geht nach Bestätigung
+  await wd.getByTestId('staff-new').click();
+  await wd.getByTestId('worker-firstName').fill('Max');
+  await wd.getByTestId('worker-lastName').fill('Muster');
+  await wd.getByTestId('worker-save').click();
+  await cf.getByRole('button', { name: 'Trotzdem anlegen' }).click();
+  await expect(wd.getByTestId('worker-row')).toHaveCount(3);
+});
