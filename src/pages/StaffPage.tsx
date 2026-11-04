@@ -4,7 +4,7 @@ import { Modal } from '../components/Modal';
 import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, showError, toast } from '../components/ui';
 import { WORKER_GRADES, gradeLabel, gradeRank, isoDate, sortByGrade, sortWorkers, workerName } from '../lib/crew';
-import { absenceRange } from '../lib/crew-absence';
+import { absenceRange, cleanAbsences, withAbsence } from '../lib/crew-absence';
 import { deleteWorker, getMeta, listWorkers, saveWorker, setMeta } from '../lib/db';
 import { uuid } from '../lib/ids';
 import { navigate, paths } from '../lib/router';
@@ -35,7 +35,7 @@ export function StaffPage() {
     Promise.all([listWorkers(), getMeta<Sort>('staffSort'), getMeta<Absence[]>('absences')])
       .then(([w, s, a]) => {
         setWorkers(w);
-        setAbsences(a ?? []);
+        setAbsences(cleanAbsences(a ?? []));
         if (s === 'grade' || s === 'name') setSort(s);
       })
       .catch((e) => showError(e, 'Personalliste konnte nicht geladen werden'));
@@ -106,7 +106,7 @@ export function StaffPage() {
   };
   const addAbsence = (a: Absence) =>
     run(async () => {
-      await saveAbsences([...absences, a]);
+      await saveAbsences(withAbsence(absences, a));
       toast(`${a.kind === 'urlaub' ? 'Urlaub' : 'Krank'} eingetragen: ${nameOf(a.workerId)}, ${absenceRange(a)}`, 'success');
       setDialog(null);
     }, 'Speichern fehlgeschlagen');

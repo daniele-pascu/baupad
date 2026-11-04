@@ -145,8 +145,6 @@ export const workerName = (x: Pick<Worker, 'firstName' | 'lastName'>) => [x.firs
 /** Funktionen der Arbeiter (Auswahl in der Arbeiterliste, Reihenfolge wie auf Formularen üblich) */
 export const WORKER_GRADES: { id: WorkerGrade; label: string; short: string }[] = [
   { id: 'projektleiter', label: 'Projektleiter', short: 'PL' },
-  { id: 'techniker', label: 'Techniker', short: 'TE' },
-  { id: 'bautechniker', label: 'Bautechniker', short: 'BT' },
   { id: 'polier', label: 'Polier', short: 'PO' },
   { id: 'vorarbeiter', label: 'Vorarbeiter', short: 'VA' },
   { id: 'facharbeiter', label: 'Facharbeiter', short: 'FA' },
@@ -164,11 +162,10 @@ export function gradeOf(w: { grade?: WorkerGrade; role?: string }): WorkerGrade 
 
 /** Funktion nur, wenn gewählt oder aus der Tätigkeit erkennbar – sonst keine (nichts anzeigen) */
 export function knownGrade(w: { grade?: WorkerGrade; role?: string }): WorkerGrade | null {
-  if (w.grade) return w.grade;
+  // nur noch Projektleiter, Polier, Vorarbeiter, Facharbeiter, Hilfsarbeiter (früheres Techniker/Bautechniker → keine Funktion)
+  if (w.grade) return WORKER_GRADES.some((x) => x.id === w.grade) ? w.grade : null;
   const r = (w.role ?? '').toLowerCase();
   if (/projektleit|bauleit/.test(r)) return 'projektleiter';
-  if (/bautechnik/.test(r)) return 'bautechniker';
-  if (/technik/.test(r)) return 'techniker';
   if (/polier/.test(r)) return 'polier';
   if (/vorarbeit|partieführ/.test(r)) return 'vorarbeiter';
   if (/hilfs|helfer|hilfskraft|lehrling|azubi/.test(r)) return 'hilfsarbeiter';
@@ -186,7 +183,7 @@ export function countByGrade(list: { grade?: WorkerGrade; role?: string }[]): Re
 export const sortWorkers = (list: Worker[]) =>
   [...list].sort((a, b) => (a.lastName || a.firstName).localeCompare(b.lastName || b.firstName, 'de') || a.firstName.localeCompare(b.firstName, 'de'));
 
-/** Rang der Funktion (0 = Projektleiter … 6 = Hilfsarbeiter) */
+/** Rang der Funktion (0 = Projektleiter … 4 = Hilfsarbeiter) */
 /** ohne Funktion: ans Ende (nach Hilfsarbeiter) */
 export const gradeRank = (w: { grade?: WorkerGrade; role?: string }) => {
   const g = knownGrade(w);
@@ -195,6 +192,9 @@ export const gradeRank = (w: { grade?: WorkerGrade; role?: string }) => {
 
 /** Reihenfolge für Einteilung und Ausdrucke: höhere Funktion zuerst, innerhalb der Funktion alphabetisch */
 export const sortByGrade = (list: Worker[]) => sortWorkers(list).sort((a, b) => gradeRank(a) - gradeRank(b));
+
+/** Projektleiter werden nicht auf Baustellen eingeteilt (stehen beim Projekt als PL) */
+export const isProjectLead = (w: { grade?: WorkerGrade; role?: string }) => knownGrade(w) === 'projektleiter';
 
 export const timeLabel = (t: WorkTimes[number]) => (t ? `${t.from}–${t.to}` : '');
 

@@ -39,6 +39,7 @@ import {
   weekRange,
   workerName,
   gradeLabel,
+  isProjectLead,
   knownGrade,
   siteManagerOf,
   siteManagerText,
@@ -48,7 +49,7 @@ import { naturalCompare } from '../lib/numbers';
 import { holidayOn } from '../lib/times';
 import type { ExportFile } from '../lib/aufmass';
 import { getCompanyLogo } from '../lib/company';
-import { absenceOn, absenceRange, absenceSummary } from '../lib/crew-absence';
+import { absenceOn, absenceRange, absenceSummary, cleanAbsences, withAbsence } from '../lib/crew-absence';
 import { exportCrewBackup, importCrewBackup } from '../lib/crew-backup';
 import { costCenterByProject, costCenterSearchByProject, linkSitesToProject, projectFromSite } from '../lib/crew-link';
 import { ProjectHeading } from '../components/ProjectHeading';
@@ -175,7 +176,7 @@ export function WorkersPage() {
     void (async () => {
       const [saved, abs] = await Promise.all([getWeek(weekId), getMeta<Absence[]>('absences')]);
       if (off) return;
-      setAbsences(abs ?? []);
+      setAbsences(cleanAbsences(abs ?? []));
       if (saved) {
         setPlan(saved);
         setDraftFrom(null);
@@ -206,6 +207,8 @@ export function WorkersPage() {
   };
   const byId = useMemo(() => new Map((workers ?? []).map((w) => [w.id, w])), [workers]);
   const active = useMemo(() => sortByGrade((workers ?? []).filter((w) => w.active)), [workers]);
+  /** einteilbar: aktive Arbeiter ohne Projektleiter (PL steht beim Projekt, nicht in der Wocheneinteilung) */
+  const crew = useMemo(() => active.filter((w) => !isProjectLead(w)), [active]);
   const workTimes = times ?? DEFAULT_WORK_TIMES;
   const nameOf = (id: string) => (byId.get(id) ? workerName(byId.get(id)!) : 'Unbekannt');
 
@@ -260,7 +263,7 @@ export function WorkersPage() {
     setAbsences(list);
   };
   const addAbsence = async (a: Absence) => {
-    await saveAbsences([...absences, a]);
+    await saveAbsences(withAbsence(absences, a));
     toast(`${a.kind === 'urlaub' ? 'Urlaub' : 'Krank'} eingetragen: ${nameOf(a.workerId)}, ${absenceRange(a)}`, 'success');
   };
   const deleteAbsence = async (a: Absence) => {
@@ -401,6 +404,7 @@ export function WorkersPage() {
   const openWeek = sortByGrade(workers ?? []).filter(
     (w) =>
       w.active &&
+      !isProjectLead(w) &&
       !plan.sites.some((s) => s.days.some((d) => d.includes(w.id))) &&
       firmDays.some((d) => !plan.vacation[d]?.includes(w.id) && !absenceOn(absences, w.id, weekId, d)),
   );
@@ -557,6 +561,7 @@ export function WorkersPage() {
           </div>
         )}
 
+        <div className="crew-sticky" data-testid="crew-sticky">
         <div className="crew-week" data-testid="crew-week">
           <button type="button" className="icon-btn" onClick={() => setWeekId(addDays(weekId, -7))} aria-label="Vorige Woche" data-testid="week-prev">
             <Icon name="back" />
@@ -580,6 +585,27 @@ export function WorkersPage() {
           <button type="button" className="btn btn-sm crew-carry-btn" onClick={() => void carryAgain()} title="Projekte und Arbeiter der Vorwoche in diese Woche übernehmen" data-testid="crew-carry">
             <Icon name="copy" size={16} /> Vorwoche übernehmen
           </button>
+        </div>
+        {vacations.length > 0 && (
+          <p className="crew-vacations" data-testid="crew-vacations">
+            <strong>Urlaub:</strong>
+            {vacations.map((v) => (
+              <button key={v.workerId} type="button" className="crew-chip vacation" onClick={() => setDialog({ kind: 'absence', workerId: v.workerId })} data-testid="vacation-chip">
+                {nameOf(v.workerId)} · {dayList(v.days)}
+              </button>
+            ))}
+          </p>
+        )}
+        {sickWeek.length > 0 && (
+          <p className="crew-vacations" data-testid="crew-sick">
+            <strong>Krank:</strong>
+            {sickWeek.map((v) => (
+              <button key={v.workerId} type="button" className="crew-chip sick" onClick={() => setDialog({ kind: 'absence', workerId: v.workerId })} data-testid="sick-chip">
+                {nameOf(v.workerId)} · {dayList(v.days)}
+              </button>
+            ))}
+          </p>
+        )}
         </div>
 
         {draftFrom !== null && plan.sites.length > 0 && (
@@ -631,27 +657,6 @@ export function WorkersPage() {
             </p>
           )
         )}
-        {vacations.length > 0 && (
-          <p className="crew-vacations" data-testid="crew-vacations">
-            <strong>Urlaub:</strong>
-            {vacations.map((v) => (
-              <button key={v.workerId} type="button" className="crew-chip vacation" onClick={() => setDialog({ kind: 'absence', workerId: v.workerId })} data-testid="vacation-chip">
-                {nameOf(v.workerId)} · {dayList(v.days)}
-              </button>
-            ))}
-          </p>
-        )}
-        {sickWeek.length > 0 && (
-          <p className="crew-vacations" data-testid="crew-sick">
-            <strong>Krank:</strong>
-            {sickWeek.map((v) => (
-              <button key={v.workerId} type="button" className="crew-chip sick" onClick={() => setDialog({ kind: 'absence', workerId: v.workerId })} data-testid="sick-chip">
-                {nameOf(v.workerId)} · {dayList(v.days)}
-              </button>
-            ))}
-          </p>
-        )}
-
         {plan.sites.length > 0 && active.length > 0 && (
           <p className="muted small crew-drag-hint" data-testid="crew-drag-hint">
             Tipp: Namen auf ein anderes Projekt ziehen (am Handy kurz gedrückt halten) – ab diesem Tag dort, auf der bisherigen automatisch entfernt.
@@ -912,7 +917,7 @@ export function WorkersPage() {
           site={plan.sites.find((s) => s.id === dialog.siteId)!}
           days={days}
           initialDays={dialog.days}
-          workers={active}
+          workers={crew}
           onClose={() => setDialog(null)}
           onSave={(ids, ds, keep) => {
             setDialog(null);
@@ -1082,10 +1087,8 @@ function SiteDialog({
   const [pl, setPl] = useState<SiteManager | null>(() => chosen?.siteManager ?? null);
   useEffect(() => setPl(chosen?.siteManager ?? null), [projectId]); // eslint-disable-line react-hooks/exhaustive-deps
   const plMode = !pl ? '' : pl.workerId ? pl.workerId : 'other';
-  const LEAD = new Set(['projektleiter', 'techniker', 'bautechniker']);
-  const sorted = sortByGrade(workers.filter((w) => w.active || w.id === pl?.workerId));
-  const leads = sorted.filter((w) => LEAD.has(w.grade ?? ''));
-  const rest = sorted.filter((w) => !LEAD.has(w.grade ?? ''));
+  /** nur Personal mit der Funktion Projektleiter; ein bisher gewählter anderer Eintrag bleibt sichtbar, damit er nicht verloren geht */
+  const leads = sortByGrade(workers.filter((w) => (w.active && w.grade === 'projektleiter') || w.id === pl?.workerId));
   /** Vertretung des Projektleiters nur in dieser Woche */
   const [deputy, setDeputy] = useState<{ on: boolean; name: string; phone: string }>(() => ({ on: !!site?.siteManager?.name, name: site?.siteManager?.name ?? '', phone: site?.siteManager?.phone ?? '' }));
   const fields = chosen ? siteFromProject(chosen) : fresh && fresh.projectId === projectId ? { projectId, name: fresh.name, number: fresh.number, address: fresh.address } : site ? { projectId: site.projectId, name: site.name, number: site.number ?? '', address: site.address ?? '' } : null;
@@ -1174,32 +1177,24 @@ function SiteDialog({
               data-testid="site-manager-select"
             >
               <option value="">– keiner –</option>
-              {leads.length > 0 && (
-                <optgroup label="Projektleitung / Technik">
-                  {leads.map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {workerName(w)} ({gradeLabel(w.grade!)})
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-              {rest.length > 0 && (
-                <optgroup label="Personal">
-                  {rest.map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {workerName(w)}
-                      {w.grade ? ` (${gradeLabel(w.grade)})` : ''}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-              <option value="other">Andere Person …</option>
+              {leads.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {workerName(w)}
+                  {w.grade && w.grade !== 'projektleiter' ? ` (${gradeLabel(w.grade)})` : ''}
+                </option>
+              ))}
+              {plMode === 'other' && <option value="other">{pl?.name || 'Andere Person'}</option>}
             </select>
             {pl && (
               <span className="site-manager-fields">
                 {plMode === 'other' && <input value={pl.name} onChange={(e) => setPl({ ...pl, name: e.target.value })} placeholder="Name" aria-label="Name des Projektleiters" data-testid="site-manager-name" />}
                 <input value={pl.phone} onChange={(e) => setPl({ ...pl, phone: e.target.value })} placeholder="Handynummer" type="tel" inputMode="tel" aria-label="Handynummer des Projektleiters" data-testid="site-manager-phone" />
               </span>
+            )}
+            {!leads.length && (
+              <p className="muted small" data-testid="site-manager-none">
+                Noch niemand mit der Funktion „Projektleiter“ – im Personal bei der Person die Funktion Projektleiter wählen.
+              </p>
             )}
             <p className="muted small">Gilt für das Projekt in jeder Woche (auch im PDF und im Bautagesbericht).</p>
           </div>

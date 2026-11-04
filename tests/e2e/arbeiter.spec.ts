@@ -538,6 +538,11 @@ test('Urlaub und Krank von–bis über mehrere Wochen: bleibt eingeteilt, wird m
   await abs.getByTestId('absence-to').fill('2026-10-30');
   await abs.getByTestId('absence-save').click();
   await expect(abs.getByTestId('absence-row')).toHaveCount(1); // Liste zeigt die Einträge des gewählten Arbeiters (Peter)
+  // gleiche Tage nochmal eintragen → keine Doppelung (je Arbeiter und Tag nur ein Eintrag)
+  await abs.getByTestId('absence-from').fill('2026-10-29');
+  await abs.getByTestId('absence-to').fill('2026-10-30');
+  await abs.getByTestId('absence-save').click();
+  await expect(abs.getByTestId('absence-row')).toHaveCount(1);
   await abs.getByRole('button', { name: 'Schließen' }).first().click();
 
   // bleibt eingeteilt, an den Tagen markiert; nichts „offen“
@@ -548,6 +553,11 @@ test('Urlaub und Krank von–bis über mehrere Wochen: bleibt eingeteilt, wird m
   await expect(page.getByTestId('vacation-chip')).toHaveText(['Max · Mi–So']); // Urlaub geht übers Wochenende
   await expect(page.getByTestId('sick-chip')).toHaveText(['Peter · Do, Fr']);
   await expect(page.getByTestId('crew-all-set')).toBeVisible();
+  // Urlaub/Krank oben fixiert (in der haftenden Kopfleiste mit der Woche)
+  await expect(page.getByTestId('crew-sticky').getByTestId('crew-vacations')).toBeVisible();
+  await expect(page.getByTestId('crew-sticky').getByTestId('crew-sick')).toBeVisible();
+  await page.mouse.wheel(0, 2000);
+  await expect(page.getByTestId('crew-sick')).toBeInViewport();
   await page.screenshot({ path: join(OUT, 'arbeiter-urlaub-krank.png'), fullPage: true });
 
   // nächste Woche: Max Mo–Mi Urlaub, ab Donnerstag wieder normal auf seiner Baustelle
@@ -678,7 +688,8 @@ test('Personalliste: eigene Seite, alphabetisch oder nach Funktion; Einteilung u
   await newWeekProject(page, 'Halle Nord');
   await site(page, 'Halle Nord').locator('[data-day="0"] [data-testid="day-add"]').click();
   const ad = page.getByTestId('assign-dialog');
-  await expect(ad.getByTestId('assign-worker')).toHaveText([/Pia Leit · Projektleiter/, /Max Muster · Polier/, /Anna Berg · Vorarbeiter/, /Zoe Adler · Hilfsarbeiter/]);
+  // Projektleiter (Pia) ist nicht einteilbar
+  await expect(ad.getByTestId('assign-worker')).toHaveText([/Max Muster · Polier/, /Anna Berg · Vorarbeiter/, /Zoe Adler · Hilfsarbeiter/]);
   await page.keyboard.press('Escape');
 });
 
@@ -845,6 +856,8 @@ test('Projektleiter in der Einteilung: aus dem Personal wählen, Anzeige bei der
   await wd.getByTestId('staff-new').click();
   await wd.getByTestId('worker-firstName').fill('Paul');
   await wd.getByTestId('worker-lastName').fill('Leiter');
+  // nur noch diese Funktionen zur Auswahl
+  await expect(wd.getByTestId('worker-grade').locator('option')).toHaveText(['– bitte wählen –', 'Projektleiter', 'Polier', 'Vorarbeiter', 'Facharbeiter', 'Hilfsarbeiter']);
   await wd.getByTestId('worker-grade').selectOption('projektleiter');
   await wd.getByTestId('worker-phone').fill('0664 123');
   await wd.getByTestId('worker-save').click();
@@ -855,10 +868,18 @@ test('Projektleiter in der Einteilung: aus dem Personal wählen, Anzeige bei der
   await newWeekProject(page, 'Parkring');
   const card = page.locator('[data-testid="site-card"][data-site="Parkring"]');
   await expect(card.getByTestId('site-manager-line')).toHaveCount(0);
+  // Projektleiter ist nicht in der Woche einteilbar: keine „nicht eingeteilt“-Warnung, nicht im Zuweisen-Dialog
+  await expect(page.getByTestId('crew-open')).toHaveCount(0);
+  await card.getByTestId('day-add').first().click();
+  await expect(page.getByTestId('assign-dialog')).toBeVisible();
+  await expect(page.getByTestId('assign-dialog')).not.toContainText('Paul Leiter');
+  await page.keyboard.press('Escape');
   await card.getByTestId('site-actions').click();
   await page.getByTestId('site-edit').click();
   const sd = page.getByTestId('site-dialog');
-  await sd.getByTestId('site-manager-select').selectOption({ label: 'Paul Leiter (Projektleiter)' });
+  // zur Auswahl stehen nur Personen mit der Funktion Projektleiter
+  await expect(sd.getByTestId('site-manager-select').locator('option')).toHaveText(['– keiner –', 'Paul Leiter']);
+  await sd.getByTestId('site-manager-select').selectOption({ label: 'Paul Leiter' });
   await expect(sd.getByTestId('site-manager-phone')).toHaveValue('0664 123');
   await sd.getByTestId('site-save').click();
   await expect(card.getByTestId('site-manager-line')).toHaveText('PL: Paul Leiter · 0664 123');

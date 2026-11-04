@@ -1,4 +1,5 @@
 import { addDays, dayDate } from './crew';
+import { uuid } from './ids';
 import type { Absence } from './types';
 
 /**
@@ -33,3 +34,26 @@ export const absenceRange = (a: Pick<Absence, 'from' | 'to'>) => {
   const t = dayDate(a.to, 0);
   return f === t ? f : `${f} – ${t}`;
 };
+
+/**
+ * Urlaub/Krank eintragen ohne Doppelungen: an den Tagen des neuen Eintrags wird ein bestehender Eintrag desselben
+ * Arbeiters gekürzt bzw. geteilt – je Arbeiter und Tag gibt es danach genau einen Eintrag (der neueste gilt).
+ */
+export function withAbsence(list: Absence[], a: Absence): Absence[] {
+  const out: Absence[] = [];
+  for (const x of list) {
+    if (x.id === a.id) continue;
+    if (x.workerId !== a.workerId || x.to < a.from || x.from > a.to) {
+      out.push(x);
+      continue;
+    }
+    if (x.from < a.from) out.push({ ...x, to: addDays(a.from, -1) });
+    if (x.to > a.to) out.push({ ...x, id: x.from < a.from ? uuid() : x.id, from: addDays(a.to, 1) });
+  }
+  return [...out, a];
+}
+
+/** bestehende Doppelungen auflösen (ältere Einträge zuerst, der neueste gilt) */
+export function cleanAbsences(list: Absence[]): Absence[] {
+  return [...list].sort((a, b) => a.createdAt - b.createdAt).reduce<Absence[]>((acc, a) => withAbsence(acc, a), []);
+}

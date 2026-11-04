@@ -209,13 +209,14 @@ describe('Funktion der Arbeiter', () => {
   });
 
   it('gewählte Funktion gilt, sonst wird sie aus der Tätigkeit erraten, Standard Facharbeiter', async () => {
-    const { gradeOf, countByGrade } = await import('../../src/lib/crew');
+    const { gradeOf, countByGrade, knownGrade } = await import('../../src/lib/crew');
     expect(gradeOf({ grade: 'hilfsarbeiter', role: 'Polier' })).toBe('hilfsarbeiter');
     expect(gradeOf({ role: 'Polier' })).toBe('polier');
     expect(gradeOf({ role: 'Vorarbeiter' })).toBe('vorarbeiter');
     expect(gradeOf({ role: 'Bauleiter' })).toBe('projektleiter');
-    expect(gradeOf({ role: 'Bautechniker' })).toBe('bautechniker');
-    expect(gradeOf({ role: 'Techniker' })).toBe('techniker');
+    // Techniker/Bautechniker gibt es nicht mehr als Funktion → keine Funktion (zählt als Facharbeiter)
+    expect(knownGrade({ grade: 'techniker' })).toBeNull();
+    expect(knownGrade({ role: 'Bautechniker' })).toBeNull();
     expect(gradeOf({ role: 'Hilfsarbeiter' })).toBe('hilfsarbeiter');
     expect(gradeOf({ role: 'Maurer' })).toBe('facharbeiter');
     expect(gradeOf({})).toBe('facharbeiter');

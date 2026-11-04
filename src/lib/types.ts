@@ -470,7 +470,7 @@ export interface Worker {
   phone?: string;
   /** Qualifikation bzw. Tätigkeit (frei, z. B. Maurer) */
   role?: string;
-  /** Funktion: Projektleiter, Techniker, Bautechniker, Polier, Vorarbeiter, Facharbeiter, Hilfsarbeiter */
+  /** Funktion: Projektleiter, Polier, Vorarbeiter, Facharbeiter, Hilfsarbeiter (techniker/bautechniker nur noch aus alten Daten, gilt als keine Funktion) */
   grade?: WorkerGrade;
   /** inaktiv: wird nicht mehr zum Einteilen angeboten, bleibt in alten Wochen sichtbar */
   active: boolean;

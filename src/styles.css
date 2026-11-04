@@ -5520,6 +5520,20 @@ a.tool-tile:focus-visible {
 .crew-setup p {
   margin: 2px 0 0;
 }
+/* Wochenleiste + Urlaub/Krank bleiben beim Scrollen oben fixiert */
+.crew-sticky {
+  display: flow-root;
+  position: sticky;
+  top: calc(var(--nav-h) + var(--safe-top));
+  z-index: 15;
+  margin: 0 -16px;
+  padding: 8px 16px 0;
+  background: var(--bg);
+}
+.crew-sticky .crew-vacations {
+  margin-bottom: 8px;
+  padding: 6px 12px;
+}
 .crew-week {
   display: flex;
   flex-wrap: wrap;
