@@ -10420,3 +10420,16 @@ html[data-theme='dark'] .crew-search {
   color: #8a4b08;
   font-size: 0.78rem;
 }
+/* Arbeitereinteilung: Feiertag */
+.crew-day.holiday {
+  background: #fff4e6;
+}
+.crew-holiday {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: #e8590c;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 600;
+}

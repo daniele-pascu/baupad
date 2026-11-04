@@ -48,6 +48,7 @@ import {
 } from '../lib/crew';
 import { getMeta, getWeek, listProjects, listWeeks, listWorkers, previousWeek, saveWeek, setMeta } from '../lib/db';
 import { naturalCompare } from '../lib/numbers';
+import { holidayOn } from '../lib/times';
 import type { ExportFile } from '../lib/aufmass';
 import { getCompanyLogo } from '../lib/company';
 import { absenceOn, absenceRange, absenceSummary } from '../lib/crew-absence';
@@ -393,7 +394,10 @@ export function WorkersPage() {
   /** Werktage Mo–Fr: Vorschlag für „ganze Woche“ und Prüfung „noch nicht eingeteilt“ (Sa/So jederzeit möglich) */
   const workDays = WEEKDAYS;
   // Urlaub/Krank (von–bis) gilt nicht als „noch nicht eingeteilt“
+  /** gesetzliche Feiertage in Österreich (jedes Jahr automatisch, auch Ostermontag, Pfingstmontag, Fronleichnam …) */
+  const holidayOf = (d: number) => holidayOn(addDays(weekId, d));
   const open = workDays
+    .filter((d) => !holidayOf(d))
     .map((d) => ({ d, list: unassigned(plan, sortByGrade(workers), d).filter((w) => !absenceOn(absences, w.id, weekId, d)) }))
     .filter((x) => x.list.length);
   const vacations = vacationSummary(plan, days);
@@ -742,7 +746,7 @@ export function WorkersPage() {
                     {days.map((d) => (
                       <div
                         key={d}
-                        className={`crew-day${d >= 5 ? ' weekend' : ''}${drag?.over?.siteId === s.id && drag.over.day === d ? ' drop-over' : ''}`}
+                        className={`crew-day${d >= 5 ? ' weekend' : ''}${holidayOf(d) ? ' holiday' : ''}${drag?.over?.siteId === s.id && drag.over.day === d ? ' drop-over' : ''}`}
                         data-testid="day-row"
                         data-day={d}
                         data-drop-site={s.id}
@@ -752,7 +756,13 @@ export function WorkersPage() {
                           <strong>
                             {DAY_SHORT[d]} {dayDate(weekId, d)}
                           </strong>
-                          <span className="muted small">{timeLabel(workTimes[d])}</span>
+                          {holidayOf(d) ? (
+                            <span className="crew-holiday" data-testid="day-holiday">
+                              {holidayOf(d)}
+                            </span>
+                          ) : (
+                            <span className="muted small">{timeLabel(workTimes[d])}</span>
+                          )}
                         </span>
                         <span className="crew-chips">
                           {s.days[d].map((id) => (
@@ -1183,8 +1193,8 @@ function AssignDialog({
   const [q, setQ] = useState('');
   const needle = q.trim().toLowerCase();
   const shown = needle ? workers.filter((w) => [workerName(w), w.role ?? '', w.staffNo ?? '', gradeLabel(w.grade) || WORKER_GRADES[gradeRank(w)].label].join(' ').toLowerCase().includes(needle)) : workers;
-  /** doppelt einteilen: zusätzlich hier, auf der bisherigen Baustelle bleiben */
-  const [keep, setKeep] = useState(false);
+  /** immer zusätzlich hier einteilen: wer schon auf einer anderen Baustelle ist, bleibt dort (wird gekennzeichnet) */
+  const keep = true;
   const status = (w: Worker) => {
     if (ds.length && ds.every((d) => site.days[d].includes(w.id))) return { text: 'schon hier', here: true };
     const other = [...new Set(ds.flatMap((d) => sitesOf(plan, w.id, d, site.id).map((s) => s.name)))];
@@ -1223,12 +1233,6 @@ function AssignDialog({
         ))}
       </div>
       {workers.length === 0 && <p className="muted">Noch keine aktiven Arbeiter – bitte zuerst unter „Personal“ anlegen.</p>}
-      {plan.sites.some((x) => x.id !== site.id && !x.paused) && (
-        <label className="check crew-keep">
-          <input type="checkbox" checked={keep} onChange={(e) => setKeep(e.target.checked)} data-testid="assign-keep" /> Doppelt einteilen: wer schon auf einer anderen Baustelle ist,
-          bleibt dort und kommt zusätzlich hierher
-        </label>
-      )}
       {workers.length > 0 && (
         <label className="crew-search crew-pick-search">
           <Icon name="select" size={18} />
