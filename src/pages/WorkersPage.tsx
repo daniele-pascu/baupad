@@ -424,6 +424,9 @@ export function WorkersPage() {
             </a>
             <h1 data-testid="workers-title">Arbeitereinteilung</h1>
           </div>
+          <button type="button" className="btn btn-primary" onClick={() => setDialog({ kind: 'pick' })} title="Projekt aus dem Register übernehmen oder neu anlegen" aria-label="Neues Projekt" data-testid="add-site">
+            <Icon name="plus" size={16} /> <span className="lbl">Neues Projekt</span>
+          </button>
         </header>
 
         <div className="crew-actions">
@@ -704,9 +707,6 @@ export function WorkersPage() {
               <p className="muted">Projekt auswählen oder neu anlegen, dann die Arbeiter je Tag einteilen.</p>
             </div>
           )}
-          <button type="button" className="btn btn-primary crew-add-site" onClick={() => setDialog({ kind: 'pick' })} data-testid="add-site">
-            <Icon name="plus" size={16} /> Neues Projekt
-          </button>
         </section>
       </div>
 
