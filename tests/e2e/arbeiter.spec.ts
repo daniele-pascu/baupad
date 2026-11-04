@@ -833,3 +833,49 @@ test('Baustellen: Anzahl der Woche, sortieren nach Projektnummer/Anlegedatum mit
   await expect(page.getByTestId('crew-order-dir')).toHaveAttribute('data-dir', 'asc');
   await expect.poll(names).toEqual(['Beta', 'Gamma', 'Alpha']);
 });
+
+test('Bauleitung je Projekt: aus dem Personal wählen, Anzeige bei der Baustelle und im PDF, Vertretung nur diese Woche', async ({ page }) => {
+  await freshStart(page);
+  await page.goto('./#/arbeitereinteilung');
+  await page.getByTestId('week-date').fill('2026-10-26');
+  // Personal: Projektleiter mit Handynummer
+  await page.getByTestId('crew-workers').click();
+  const wd = page.getByTestId('staff-page');
+  await wd.getByTestId('staff-new').click();
+  await wd.getByTestId('worker-firstName').fill('Paul');
+  await wd.getByTestId('worker-lastName').fill('Leiter');
+  await wd.getByTestId('worker-grade').selectOption('projektleiter');
+  await wd.getByTestId('worker-phone').fill('0664 123');
+  await wd.getByTestId('worker-save').click();
+  await expect(page.getByTestId('worker-dialog')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  // neues Projekt mit Bauleitung aus dem Personal
+  await page.getByTestId('add-site').click();
+  await page.getByTestId('project-picker').getByTestId('picker-new').click();
+  const pf = page.getByTestId('project-form');
+  await pf.getByTestId('project-name').fill('Parkring');
+  await pf.getByTestId('site-manager-select').selectOption({ label: 'Paul Leiter (Projektleiter)' });
+  await expect(pf.getByTestId('site-manager-phone')).toHaveValue('0664 123');
+  await pf.getByTestId('project-save').click();
+  const card = page.locator('[data-testid="site-card"][data-site="Parkring"]');
+  await expect(card.getByTestId('site-manager-line')).toHaveText('BL: Paul Leiter · 0664 123');
+  // Wochen-PDF mit Bauleitung
+  const dl = await catchDownload(page, () => page.getByTestId('crew-pdf').click());
+  const txt = execFileSync('pdftotext', ['-layout', await saveDownload(dl, 'bauleitung.pdf'), '-'], { encoding: 'utf8' });
+  expect(txt).toContain('BL: Paul Leiter · 0664 123');
+  await page.keyboard.press('Escape');
+  // Vertretung nur diese Woche
+  await card.getByTestId('site-actions').click();
+  await page.getByTestId('site-edit').click();
+  const sd = page.getByTestId('site-dialog');
+  await expect(sd.getByTestId('site-deputy')).toContainText('Laut Projekt: Paul Leiter · 0664 123');
+  await sd.getByTestId('site-deputy-on').check();
+  await sd.getByTestId('site-deputy-name').fill('Vera Vertretung');
+  await sd.getByTestId('site-deputy-phone').fill('0676 9');
+  await sd.getByTestId('site-save').click();
+  await expect(card.getByTestId('site-manager-line')).toContainText('BL: Vera Vertretung · 0676 9');
+  await expect(card.getByTestId('site-manager-line')).toContainText('Vertretung diese Woche');
+  // nächste Woche (weitergeführt): wieder die Bauleitung des Projekts
+  await page.getByTestId('week-next').click();
+  await expect(page.locator('[data-testid="site-card"][data-site="Parkring"]').getByTestId('site-manager-line')).toHaveText('BL: Paul Leiter · 0664 123');
+});

@@ -77,7 +77,7 @@ export function ProjectPicker({
         onClose={() => setCreating(false)}
         onSubmit={async (f, cc) => {
           try {
-            const p = await createRegisterProject({ name: f.name, number: f.number ?? '', address: f.address, costCenter: cc[0]?.name ?? '', client: f.client, date: f.date, notes: f.notes }, tool);
+            const p = await createRegisterProject({ name: f.name, number: f.number ?? '', address: f.address, costCenter: cc[0]?.name ?? '', client: f.client, date: f.date, notes: f.notes, siteManager: f.siteManager ?? null }, tool);
             await onPick(p);
           } catch (e) {
             showError(e, 'Projekt konnte nicht angelegt werden');

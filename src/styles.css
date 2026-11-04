@@ -10390,3 +10390,33 @@ html[data-theme='dark'] .crew-search {
   border: 1px solid var(--border-strong);
   border-radius: 10px;
 }
+/* Bauleitung im Projektdialog */
+.site-manager select {
+  width: 100%;
+}
+.site-manager-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+  margin-top: 6px;
+}
+.crew-site-manager {
+  margin: 0;
+  padding: 4px 12px 6px 40px;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+.crew-site-manager strong {
+  color: var(--text);
+}
+.crew-site-manager a {
+  color: inherit;
+}
+.crew-deputy {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: #fff4e6;
+  color: #8a4b08;
+  font-size: 0.78rem;
+}

@@ -64,7 +64,8 @@ export function carryOver(prev: WeekPlan, id: string): WeekPlan {
   week.showWeekend = prev.showWeekend;
   week.sites = prev.sites
     .filter((s) => !s.finished)
-    .map((s) => ({ ...s, id: uuid(), finished: false, days: s.days.map((d) => [...d]) }));
+    // Vertretung der Bauleitung gilt nur für ihre Woche
+    .map(({ siteManager: _sm, ...s }) => ({ ...s, id: uuid(), finished: false, days: s.days.map((d) => [...d]) }));
   return week;
 }
 
@@ -80,7 +81,7 @@ export function addSite(w: WeekPlan, site: Pick<WeekSite, 'projectId' | 'name' |
 /** Baustelle aus einem Projekt: Bezeichnung zum Zeitpunkt der Einteilung (bleibt bei späterer Umbenennung) */
 export const siteFromProject = (p: Pick<Project, 'id' | 'name' | 'number' | 'address'>) => ({ projectId: p.id, name: p.name, number: p.number || '', address: p.address || '' });
 
-export const updateSite = (w: WeekPlan, siteId: string, patch: Partial<Pick<WeekSite, 'name' | 'number' | 'address' | 'finished' | 'paused' | 'note'>>) => mapSite(w, siteId, (s) => ({ ...s, ...patch }));
+export const updateSite = (w: WeekPlan, siteId: string, patch: Partial<Pick<WeekSite, 'name' | 'number' | 'address' | 'finished' | 'paused' | 'note' | 'siteManager'>>) => mapSite(w, siteId, (s) => ({ ...s, ...patch }));
 /** Baustelle pausieren (Standby): alle Arbeiter dieser Woche werden frei; liefert die freigewordenen Arbeiter */
 export function pauseSite(w: WeekPlan, siteId: string): { week: WeekPlan; freed: string[] } {
   const site = w.sites.find((s) => s.id === siteId);
@@ -271,3 +272,8 @@ export function carryPlacement(
   }
   return out;
 }
+
+/** Bauleitung einer Baustelle in einer Woche: Vertretung dieser Woche, sonst die Bauleitung des Projekts */
+export const siteManagerOf = (s: Pick<WeekSite, 'siteManager'>, project?: Pick<Project, 'siteManager'> | null) => (s.siteManager?.name ? { ...s.siteManager, deputy: true } : project?.siteManager?.name ? { ...project.siteManager, deputy: false } : null);
+/** „BL: Max Muster · 0664 …“ */
+export const siteManagerText = (m: { name: string; phone: string } | null) => (m ? [m.name, m.phone].filter(Boolean).join(' · ') : '');

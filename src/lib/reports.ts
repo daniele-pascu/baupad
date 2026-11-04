@@ -32,7 +32,7 @@ export const typeInfo = (t: ReportType) => REPORT_TYPES.find((x) => x.type === t
 export const emptyHead = (): ReportHead => ({ project: '', number: '', site: '', address: '', client: '', costCenter: '', responsible: '' });
 
 /** Kopfdaten aus einem Projekt (Aufmaß & Abrechnung) */
-export function headFromProject(p: Pick<Project, 'name' | 'number' | 'site' | 'address' | 'client' | 'editor'>, costCenters: Pick<CostCenter, 'number' | 'name'>[] = []): ReportHead {
+export function headFromProject(p: Pick<Project, 'name' | 'number' | 'site' | 'address' | 'client' | 'editor' | 'siteManager'>, costCenters: Pick<CostCenter, 'number' | 'name'>[] = []): ReportHead {
   return {
     project: p.name,
     number: p.number ?? '',
@@ -40,7 +40,8 @@ export function headFromProject(p: Pick<Project, 'name' | 'number' | 'site' | 'a
     address: p.address,
     client: p.client,
     costCenter: costCenters.map((c) => costCenterLabel(c)).filter(Boolean).join(', '),
-    responsible: p.editor,
+    // verantwortlich: Bauleitung des Projekts (sonst wie bisher der Bearbeiter)
+    responsible: p.siteManager?.name ? [p.siteManager.name, p.siteManager.phone].filter(Boolean).join(', ') : p.editor,
   };
 }
 

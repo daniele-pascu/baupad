@@ -315,7 +315,7 @@ export function RegisterPage() {
           onSubmit={async (f, cc) => {
             // nur Projektinfos – in Tools übernimmt man es später („In Tool übernehmen“ oder im Tool selbst)
             try {
-              await createRegisterProject({ name: f.name, number: f.number ?? '', address: f.address, client: f.client, date: f.date, notes: f.notes, costCenter: cc[0] ? [cc[0].number, cc[0].name].filter(Boolean).join(' – ') : '' });
+              await createRegisterProject({ name: f.name, number: f.number ?? '', address: f.address, client: f.client, date: f.date, notes: f.notes, siteManager: f.siteManager ?? null, costCenter: cc[0] ? [cc[0].number, cc[0].name].filter(Boolean).join(' – ') : '' });
               setCreating(false);
               toast(`Projekt „${f.name.trim()}“ angelegt.`, 'success');
               reload();

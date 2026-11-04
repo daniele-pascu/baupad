@@ -24,7 +24,7 @@ export function PhotoSiteDialog({ onClose, onSaved }: { onClose(): void; onSaved
       onSubmit={async (f, ccs) => {
         try {
           const cc = ccs[0] ? [ccs[0].number, ccs[0].name].filter(Boolean).join(' – ') : '';
-          onSaved(await createSiteProject({ name: f.name, number: f.number ?? '', address: f.address, costCenter: cc, client: f.client, date: f.date, notes: f.notes }, tool ?? 'photos'));
+          onSaved(await createSiteProject({ name: f.name, number: f.number ?? '', address: f.address, costCenter: cc, client: f.client, date: f.date, notes: f.notes, siteManager: f.siteManager ?? null }, tool ?? 'photos'));
         } catch (e) {
           showError(e, 'Projekt konnte nicht angelegt werden');
         }

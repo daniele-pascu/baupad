@@ -17,6 +17,8 @@ export interface CrewPdfOptions {
   absent?: (workerId: string, day: number) => 'urlaub' | 'krank' | null;
   /** Uhrzeiten anzeigen (Standard: ja) */
   showTimes?: boolean;
+  /** Bauleitung je Baustelle (Baustellen-ID → „Name · Handy“) */
+  manager?: (siteId: string) => string;
 }
 
 /** Kennzeichnung beim Namen: „ (Urlaub)“ bzw. „ (krank)“ */
@@ -160,7 +162,8 @@ export async function crewWeekPdf(plan: WeekPlan, workers: Worker[], times: Work
     page.drawRectangle({ x: M, y: y - 22, width: 3, height: 22, color: s.finished ? rgb(0.12, 0.62, 0.33) : ACCENT });
     const name = fit(ctx.bold, clean(ctx, s.name), 12, 420);
     page.drawText(name, { x: M + 10, y: y - 15.5, size: 12, font: ctx.bold, color: INK });
-    const meta = [s.number, s.address, s.finished ? 'abgeschlossen' : ''].filter(Boolean).join(' · ');
+    const bl = opts.manager?.(s.id);
+    const meta = [s.number, s.address, bl ? `BL: ${bl}` : '', s.finished ? 'abgeschlossen' : ''].filter(Boolean).join(' · ');
     if (meta) page.drawText(fit(ctx.font, clean(ctx, meta), 9, W - 2 * M - 30 - ctx.bold.widthOfTextAtSize(name, 12)), { x: M + 22 + ctx.bold.widthOfTextAtSize(name, 12), y: y - 15, size: 9, font: ctx.font, color: MUTED });
     y -= 22;
     // Tage
@@ -235,7 +238,8 @@ export async function crewDayPdf(plan: WeekPlan, siteId: string, day: number, wo
   // Baustelle
   page.drawText(fit(ctx.bold, clean(ctx, s.name), 14, W - 2 * M), { x: M, y: y - 14, size: 14, font: ctx.bold, color: INK });
   y -= 20;
-  const meta = [s.number, s.address].filter(Boolean).join(' · ');
+  const bl = opts.manager?.(s.id);
+  const meta = [s.number, s.address, bl ? `Bauleitung: ${bl}` : ''].filter(Boolean).join(' · ');
   if (meta) {
     page.drawText(fit(ctx.font, clean(ctx, meta), 10, W - 2 * M), { x: M, y: y - 10, size: 10, font: ctx.font, color: MUTED });
     y -= 16;

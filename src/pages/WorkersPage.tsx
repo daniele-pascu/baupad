@@ -43,6 +43,8 @@ import {
   WORKER_GRADES,
   gradeLabel,
   gradeRank,
+  siteManagerOf,
+  siteManagerText,
 } from '../lib/crew';
 import { getMeta, getWeek, listProjects, listWeeks, listWorkers, previousWeek, saveWeek, setMeta } from '../lib/db';
 import { naturalCompare } from '../lib/numbers';
@@ -310,7 +312,16 @@ export function WorkersPage() {
   };
 
   /** PDF-Optionen: Firmenname und Firmenlogo (Konto → Einstellungen) */
-  const pdfOpts = async () => ({ company, logo: await getCompanyLogo(), absent: (id: string, d: number) => absenceOn(absences, id, weekId, d), showTimes: pdfTimes });
+  const pdfOpts = async () => ({
+    company,
+    logo: await getCompanyLogo(),
+    absent: (id: string, d: number) => absenceOn(absences, id, weekId, d),
+    showTimes: pdfTimes,
+    manager: (siteId: string) => {
+      const st = plan?.sites.find((x) => x.id === siteId);
+      return st ? siteManagerText(siteManagerOf(st, st.projectId ? projects.find((p) => p.id === st.projectId) : null)) : '';
+    },
+  });
   const run = (fn: () => Promise<void>) => fn().catch((e) => showError(e, 'Das hat nicht geklappt'));
 
   const exportWeekPdf = () =>
@@ -706,6 +717,21 @@ export function WorkersPage() {
                     actions={siteActions(s)}
                   />
                 </header>
+                {(() => {
+                  const m = siteManagerOf(s, projOf(s));
+                  return m ? (
+                    <p className={`crew-site-manager${m.deputy ? ' deputy' : ''}`} data-testid="site-manager-line">
+                      <strong>BL:</strong> {m.name}
+                      {m.phone && (
+                        <>
+                          {' · '}
+                          <a href={`tel:${m.phone.replace(/[^\d+]/g, '')}`}>{m.phone}</a>
+                        </>
+                      )}
+                      {m.deputy && <span className="crew-deputy"> Vertretung diese Woche</span>}
+                    </p>
+                  ) : null;
+                })()}
                 {isOpen && s.note && (
                   <p className="crew-note" data-testid="site-note">
                     {s.note}
@@ -1016,7 +1042,7 @@ function SiteDialog({
   site?: WeekSite;
   projects: Project[];
   taken: string[];
-  onSave(f: Pick<WeekSite, 'projectId' | 'name' | 'number' | 'address' | 'note'>, alsoProject: boolean): void;
+  onSave(f: Pick<WeekSite, 'projectId' | 'name' | 'number' | 'address' | 'note' | 'siteManager'>, alsoProject: boolean): void;
   onClose(): void;
   /** neues Projekt wurde im Register angelegt (Liste der Seite neu laden) */
   onProjectCreated(): Promise<void>;
@@ -1028,11 +1054,23 @@ function SiteDialog({
   const mayCreate = useCanCreateProjects();
   const [show, setShow] = useState(false);
   const chosen = projects.find((p) => p.id === projectId) ?? null;
+  /** Vertretung der Bauleitung nur in dieser Woche */
+  const [deputy, setDeputy] = useState<{ on: boolean; name: string; phone: string }>(() => ({ on: !!site?.siteManager?.name, name: site?.siteManager?.name ?? '', phone: site?.siteManager?.phone ?? '' }));
   const fields = chosen ? siteFromProject(chosen) : fresh && fresh.projectId === projectId ? { projectId, name: fresh.name, number: fresh.number, address: fresh.address } : site ? { projectId: site.projectId, name: site.name, number: site.number ?? '', address: site.address ?? '' } : null;
   const submit = () => {
     setShow(true);
     if (!fields || !fields.name.trim()) return;
-    onSave({ projectId: projectId || null, name: fields.name.trim(), number: (fields.number ?? '').trim(), address: (fields.address ?? '').trim(), note: site?.note ?? '' }, false);
+    onSave(
+      {
+        projectId: projectId || null,
+        name: fields.name.trim(),
+        number: (fields.number ?? '').trim(),
+        address: (fields.address ?? '').trim(),
+        note: site?.note ?? '',
+        siteManager: deputy.on && deputy.name.trim() ? { workerId: null, name: deputy.name.trim(), phone: deputy.phone.trim() } : null,
+      },
+      false,
+    );
   };
   return (
     <Modal
@@ -1088,6 +1126,22 @@ function SiteDialog({
           </p>
         )}
         {show && !projectId && <p className="error small">Bitte ein Projekt wählen.</p>}
+        {site && (
+          <div className="field site-manager" data-testid="site-deputy">
+            <span>Bauleitung</span>
+            <p className="muted small">{chosen?.siteManager?.name ? `Laut Projekt: ${siteManagerText(chosen.siteManager)}` : 'Im Projekt ist keine Bauleitung eingetragen (Projektangaben bearbeiten).'}</p>
+            <label className="check-row">
+              <input type="checkbox" checked={deputy.on} onChange={(e) => setDeputy({ ...deputy, on: e.target.checked })} data-testid="site-deputy-on" />
+              <span>Vertretung nur in dieser Woche</span>
+            </label>
+            {deputy.on && (
+              <span className="site-manager-fields">
+                <input value={deputy.name} onChange={(e) => setDeputy({ ...deputy, name: e.target.value })} placeholder="Name" aria-label="Name der Vertretung" data-testid="site-deputy-name" />
+                <input value={deputy.phone} onChange={(e) => setDeputy({ ...deputy, phone: e.target.value })} placeholder="Handynummer" type="tel" inputMode="tel" aria-label="Handynummer der Vertretung" data-testid="site-deputy-phone" />
+              </span>
+            )}
+          </div>
+        )}
         <p className="muted small">Alle Projekte des Registers stehen zur Auswahl – egal, in welchem Werkzeug sie angelegt wurden.</p>
         <button type="submit" hidden />
       </form>

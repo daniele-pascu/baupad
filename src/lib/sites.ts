@@ -13,7 +13,7 @@ import { clearFreePhotoSites, listFreePhotoSites, updateFreePhotoSite } from './
 import { photoSiteKey } from './photos';
 import { getDeviceId } from './ids';
 import { newMeta } from './store';
-import type { CostCenter, PhotoSite, Project } from './types';
+import type { CostCenter, PhotoSite, Project, SiteManager } from './types';
 
 export interface SiteFields {
   name: string;
@@ -24,6 +24,7 @@ export interface SiteFields {
   client?: string;
   date?: string;
   notes?: string;
+  siteManager?: SiteManager | null;
 }
 
 export const canEditSites = (s: Session | null | undefined) => !s || !s.companyId || s.role === 'admin' || s.role === 'buero' || s.operator;
@@ -93,6 +94,7 @@ export interface ProjectEditFields {
   client: string;
   date: string;
   notes: string;
+  siteManager?: SiteManager | null;
 }
 export interface CostCenterEdit {
   id?: string;
@@ -120,6 +122,7 @@ export async function saveProjectEverywhere(projectId: string, f: ProjectEditFie
     client: f.client.trim(),
     date: f.date.trim(),
     notes: f.notes.trim(),
+    ...(f.siteManager !== undefined ? { siteManager: f.siteManager } : {}),
     rev: project.rev + 1,
     updatedAt: Date.now(),
     deviceId: getDeviceId(),
@@ -161,7 +164,7 @@ export async function createSiteProject(v: SiteFields, tool: string): Promise<Ph
   if (!canCreateProjects(me)) throw new Error('Projekte dürfen nur Admin und Büro anlegen. Bitte ein vorhandenes Projekt wählen.');
   const name = v.name.trim();
   if (!name) throw new Error('Bitte einen Namen für das Projekt eingeben.');
-  const p = await projectFromSite({ name, number: v.number.trim(), address: v.address.trim(), costCenter: v.costCenter?.trim(), client: v.client?.trim(), date: v.date?.trim(), notes: v.notes?.trim() }, tool);
+  const p = await projectFromSite({ name, number: v.number.trim(), address: v.address.trim(), costCenter: v.costCenter?.trim(), client: v.client?.trim(), date: v.date?.trim(), notes: v.notes?.trim(), siteManager: v.siteManager ?? null }, tool);
   return { projectId: p.id, name: p.site || p.name, number: p.number ?? '', address: p.address, costCenter: v.costCenter?.trim() || '', client: p.client, date: p.date, notes: p.notes, tools: p.tools };
 }
 
@@ -177,7 +180,7 @@ export async function createRegisterProject(v: SiteFields, tool = 'register'): P
   const key = name.toLowerCase();
   if (tool === 'register' && (await listProjects()).some((p) => !p.deletedAt && ((p.site || p.name).trim().toLowerCase() === key || p.name.trim().toLowerCase() === key)))
     throw new Error(`Das Projekt „${name}“ gibt es schon im Projektregister.`);
-  return projectFromSite({ name, number: v.number.trim(), address: v.address.trim(), costCenter: v.costCenter?.trim(), client: v.client?.trim(), date: v.date?.trim(), notes: v.notes?.trim() }, tool);
+  return projectFromSite({ name, number: v.number.trim(), address: v.address.trim(), costCenter: v.costCenter?.trim(), client: v.client?.trim(), date: v.date?.trim(), notes: v.notes?.trim(), siteManager: v.siteManager ?? null }, tool);
 }
 
 /** Projekt aus dem Register in ein Werkzeug übernehmen (z. B. beim ersten Foto, Bericht, Plan oder in der Woche) */

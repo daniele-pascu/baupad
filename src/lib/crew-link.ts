@@ -2,7 +2,7 @@ import { getAuth } from './auth';
 import { listProjects, listWeeks, saveWeek, writeRecords, getDB } from './db';
 import { getDeviceId } from './ids';
 import { createProjectWithCostCenters } from './store';
-import type { Project, WeekSite } from './types';
+import type { Project, SiteManager, WeekSite } from './types';
 
 /**
  * Verbindung Arbeitereinteilung ↔ Aufmaß & Abrechnung: Baustellen ohne Projekt als Projekt anlegen bzw.
@@ -33,7 +33,7 @@ export async function linkSitesToProject(name: string, projectId: string): Promi
 
 /** Projekt aus einer Baustelle anlegen (Name, Nummer, Adresse; ohne Kostenstelle – später ergänzbar) */
 export async function projectFromSite(
-  site: Pick<WeekSite, 'name' | 'number' | 'address'> & { costCenter?: string; client?: string; date?: string; notes?: string },
+  site: Pick<WeekSite, 'name' | 'number' | 'address'> & { costCenter?: string; client?: string; date?: string; notes?: string; siteManager?: SiteManager | null },
   tool = 'workers',
 ): Promise<Project> {
   // gleicher Name wie ein vorhandenes Projekt (ohne Groß/Klein) → kein Duplikat, das vorhandene Projekt wird übernommen
@@ -48,7 +48,7 @@ export async function projectFromSite(
     throw new Error('Projekte legen nur Admin oder Büro an – bitte ein Projekt aus dem Projektregister übernehmen.');
   const cc = (site.costCenter ?? '').trim();
   const { project } = await createProjectWithCostCenters(
-    { name: site.name.trim(), number: (site.number ?? '').trim(), site: '', address: (site.address ?? '').trim(), client: (site.client ?? '').trim(), editor: '', date: (site.date ?? '').trim(), notes: (site.notes ?? '').trim(), tools: [tool] },
+    { name: site.name.trim(), number: (site.number ?? '').trim(), site: '', address: (site.address ?? '').trim(), client: (site.client ?? '').trim(), editor: '', date: (site.date ?? '').trim(), notes: (site.notes ?? '').trim(), tools: [tool], ...(site.siteManager?.name ? { siteManager: site.siteManager } : {}) },
     [splitCostCenter(cc)],
   );
   return project;

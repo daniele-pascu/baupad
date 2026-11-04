@@ -27,7 +27,16 @@ export interface AufmassSheet {
   createdAt: number;
 }
 
+/** Bauleitung eines Projekts: aus dem Personal (workerId) oder frei eingetragen, mit Handynummer */
+export interface SiteManager {
+  workerId?: string | null;
+  name: string;
+  phone: string;
+}
+
 export interface Project extends SyncMeta {
+  /** Bauleitung (Projektinfo); in der Einteilung je Woche vertretbar */
+  siteManager?: SiteManager | null;
   name: string;
   /** Projektnummer (optional; ältere Projekte haben keine) */
   number?: string;
@@ -482,6 +491,8 @@ export interface WeekSite {
   paused?: boolean;
   /** Bemerkung für diese Woche (erscheint im PDF) */
   note?: string;
+  /** Vertretung der Bauleitung nur in dieser Woche (sonst gilt die Bauleitung des Projekts) */
+  siteManager?: SiteManager | null;
   /** eingeteilte Arbeiter je Tag (0 = Montag … 6 = Sonntag) */
   days: string[][];
 }
