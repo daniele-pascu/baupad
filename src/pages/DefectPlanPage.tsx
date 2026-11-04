@@ -7,6 +7,7 @@ import { PhotoCapture } from '../components/PhotoCapture';
 import { PhotoImg } from '../components/PhotoImg';
 import { PhotoViewer } from '../components/PhotoViewer';
 import { SitePhotosPicker } from '../components/PhotoAttach';
+import { SeriesCamera } from '../components/SeriesCamera';
 import { confirmDialog, showError } from '../components/ui';
 import { getCompanyLogo } from '../lib/company';
 import { getDefectPlan, getMeta } from '../lib/db';
@@ -638,6 +639,7 @@ function MarkDialog({
 }) {
   const [m, setM] = useState(mark);
   const [picking, setPicking] = useState(false);
+  const [series, setSeries] = useState(false);
   const set = <K extends keyof DefectMark>(k: K, v: DefectMark[K]) => setM((p) => ({ ...p, [k]: v }));
   const setKind = (kind: DefectKind) => setM((p) => ({ ...p, kind, color: MARK_COLORS.includes(p.color) && p.color !== kindInfo(p.kind).color ? p.color : kindInfo(kind).color }));
   const hashes = useMemo(() => new Set(photos.map((p) => p.hash)), [photos]);
@@ -723,10 +725,10 @@ function MarkDialog({
                 set('photoIds', [...m.photoIds, ...saved.map((p) => p.id)]);
                 onPhotosAdded();
               }}
-              render={({ camera, library }) => (
+              render={({ library }) => (
                 <>
-                  <button type="button" className="btn btn-sm" onClick={camera} data-testid="dp-photo-camera">
-                    <Icon name="camera" size={16} /> Foto aufnehmen
+                  <button type="button" className="btn btn-sm" onClick={() => setSeries(true)} data-testid="dp-photo-camera">
+                    <Icon name="camera" size={16} /> Fotos aufnehmen
                   </button>
                   <button type="button" className="btn btn-sm" onClick={library} data-testid="dp-photo-library">
                     <Icon name="images" size={16} /> Aus Galerie
@@ -741,6 +743,18 @@ function MarkDialog({
           <p className="muted small">Neue Fotos landen auch in der Fotodokumentation dieser Baustelle, mit Vermerk „Mängelplan Nr. {m.no}“.</p>
         </div>
       </div>
+      {series && (
+        <SeriesCamera
+          site={site}
+          description={`Mängelplan Nr. ${m.no}${m.title ? `: ${m.title}` : ''}`}
+          onClose={() => setSeries(false)}
+          onDone={(saved) => {
+            setSeries(false);
+            setM((p) => ({ ...p, photoIds: [...p.photoIds, ...saved.map((x) => x.id)] }));
+            onPhotosAdded();
+          }}
+        />
+      )}
       {picking && <SitePhotosPicker photos={photos} chosen={m.photoIds} onClose={() => setPicking(false)} onDone={(ids) => { set('photoIds', ids); setPicking(false); }} />}
     </Modal>
   );

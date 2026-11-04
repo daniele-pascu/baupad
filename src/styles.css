@@ -9922,3 +9922,13 @@ html[data-theme='dark'] .crew-search {
   font-weight: 700;
   line-height: 1;
 }
+/* Serienkamera: Foto drehen (unten links am Vorschaubild) */
+.series-cam-thumb button.series-cam-turn {
+  top: auto;
+  right: auto;
+  bottom: -6px;
+  left: -6px;
+}
+.series-cam-top {
+  flex-wrap: wrap;
+}

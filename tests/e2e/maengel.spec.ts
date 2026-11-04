@@ -244,6 +244,18 @@ test('Foto am Mangel: Farbkästen groß, Foto antippen öffnet die Großansicht 
   await page.keyboard.press('Escape'); // schließt nur die Großansicht
   await expect(viewer).toHaveCount(0);
   await expect(md).toBeVisible();
+  // Serienkamera mit Blitz und Hoch/Quer: zwei Fotos, Haken → beide am Mangel
+  await md.getByTestId('dp-photo-camera').click();
+  const cam = page.getByTestId('series-camera');
+  await expect(cam).toContainText('Mängelplan Nr. 1');
+  await expect(cam).toHaveAttribute('data-live', '1', { timeout: 15_000 });
+  await expect(cam.getByTestId('series-flash')).toBeVisible();
+  await cam.getByTestId('series-shutter').click();
+  await cam.getByTestId('series-shutter').click();
+  await expect(cam.getByTestId('series-count')).toHaveText('2 Fotos');
+  await cam.getByTestId('series-done').click();
+  await expect(cam).toHaveCount(0);
+  await expect(md.getByTestId('dp-mark-photo')).toHaveCount(3, { timeout: 15_000 });
 });
 
 test('Auswahlwerkzeug wie im Aufmaß: Griffe am Rechteck, Größe ziehen, Auswahlleiste mit Bearbeiten und Löschen', async ({ page }) => {

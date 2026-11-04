@@ -304,8 +304,13 @@ test('Messung: Fotos wie im Mängelplan (Galerie → Fotodokumentation), Taste F
   await cam.getByTestId('series-flash').click();
   await expect(page.locator('.toast', { hasText: 'Gerätekamera' })).toHaveCount(1);
   await expect(cam.getByTestId('series-device-camera')).toBeVisible();
+  // Hoch/Quer: automatisch erkannt (PC-Testkamera quer), umschaltbar
+  await expect(cam.getByTestId('series-orient')).toContainText('Auto (Quer)');
   await cam.getByTestId('series-shutter').click();
   await expect(cam.getByTestId('series-count')).toHaveText('1 Foto');
+  // im schlimmsten Fall: Foto um 90° drehen
+  await cam.getByTestId('series-turn').first().click();
+  await expect(cam.getByTestId('series-thumb').first()).toHaveAttribute('data-rot', '90');
   // Gerätekamera (eigener Blitz): Foto kommt als Datei
   await cam.getByTestId('series-input').setInputFiles(join(FIXTURES, 'foto.jpg'));
   await expect(cam.getByTestId('series-count')).toHaveText('2 Fotos');
@@ -318,6 +323,10 @@ test('Messung: Fotos wie im Mängelplan (Galerie → Fotodokumentation), Taste F
   await waitSaved(page);
   const ds = await stored(page, 'damages');
   expect((ds[0].photoIds as string[]).length).toBe(3);
+  // gedrehtes Live-Foto ist hochkant gespeichert
+  const ph = await stored(page, 'photos');
+  const turned = ph.find((p) => p.id === (ds[0].photoIds as string[])[1])!;
+  expect(Number(turned.height)).toBeGreaterThan(Number(turned.width));
   // erneut öffnen: Fotos sind dabei, aus der Fotodokumentation wählbar
   await page.locator('[data-testid="aufmass-row"][data-number="1"]').getByRole('button', { name: /1 bearbeiten/ }).click();
   await expect(dlg.getByTestId('attach-photo')).toHaveCount(3, { timeout: 15_000 });
