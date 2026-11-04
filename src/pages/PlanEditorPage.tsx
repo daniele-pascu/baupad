@@ -11,6 +11,8 @@ import { PlanViewer, type PlanViewerHandle, type SnapFn, type Tool } from '../co
 import { SaveErrorBanner, SaveStatus } from '../components/SaveStatus';
 import { invoiceLabel, invoiceOfPlan } from '../lib/invoices';
 import { confirmDialog, promptDialog, showError, toast } from '../components/ui';
+import { getPhotoStorage } from '../lib/photo-storage';
+import type { PhotoSite } from '../lib/types';
 import { positionGrouping, costCenterLabel, damagesOf, elementsOf, findPosition, lvDocLabel, lvDocsOf, plansOf, planTitle, positionRef, sumArea } from '../lib/aufmass';
 import { calibrationStatus, checkDeviation, checkError, formatCm, formatPercent, geometryMeasures, MAX_ERROR_M, planUnitsPerMeter } from '../lib/calibration';
 import { ViewMenu } from '../components/ViewMenu';
@@ -790,6 +792,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const file = drawingPlan ? null : data.files[plan.fileId];
   const cc = data.costCenters[plan.costCenterId];
   // aufgeteiltes Projekt: nur die Pläne derselben Rechnung
+  // Fotodokumentation des Projekts (gleiche Baustelle wie in den anderen Werkzeugen)
+  const photoSite: PhotoSite = { projectId: data.project.id, name: data.project.site || data.project.name, number: data.project.number ?? '', address: data.project.address };
   const siblings = plansOf(data, plan.costCenterId, data.project.splitByInvoice ? (plan.invoiceId ?? null) : undefined);
   const idx = siblings.findIndex((p) => p.id === plan.id);
   // abgerechnete Rechnung: nicht gesperrt, aber deutlich gewarnt
@@ -900,6 +904,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       positionRef: v.positionRef,
       label: v.label,
       note: v.note,
+      photoIds: v.photoIds.length ? v.photoIds : undefined,
     };
     // Kennzeichnung (z. B. „A“): Die Nummer dient nur der Reihenfolge – bestehende bleibt, neue ans Ende
     const number = v.label
@@ -911,6 +916,14 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     const plain = stored.filter((d) => !d.label);
     const shown = v.label ?? String(v.number);
     setLastPosition(v.positionRef ?? '');
+    // Vermerk in der Fotodokumentation, wenn das Foto noch keine Beschreibung hat
+    if (v.photoIds.length) {
+      const note = `Aufmaß ${plan.planNumber || planTitle(plan)} Nr. ${shown}`;
+      void (async () => {
+        const storage = getPhotoStorage();
+        for (const p of (await storage.list()).filter((p) => v.photoIds.includes(p.id) && !p.description.trim())) await storage.update({ ...p, description: note });
+      })().catch(() => {});
+    }
     if (dialog.mode === 'new') {
       const dmg: Damage = {
         ...newMeta(),
@@ -1829,6 +1842,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
 
       {dialog?.mode === 'new' && (
         <DamageDialog
+          photoSite={photoSite}
           mode="new"
           damage={{
             id: '',
@@ -1858,6 +1872,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       )}
       {dialogDamage && (
         <DamageDialog
+          photoSite={photoSite}
           mode="edit"
           damage={{ ...dialogDamage, shapeType: dialogDamage.shape.type as ShapeType, kind: kindOf(dialogDamage) }}
           suggestion={k ? suggestMeasures(dialogDamage.shape, k) : null}

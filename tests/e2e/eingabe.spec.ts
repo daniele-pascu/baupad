@@ -267,3 +267,48 @@ test('Messung: Bemerkung / Notiz im Dialog, in der Aufmaß-Tabelle und im Excel'
     [2, 'Ecke beschädigt'],
   ]);
 });
+
+test('Messung: Fotos wie im Mängelplan (Galerie → Fotodokumentation), Taste Fotodokumentation im Projekt', async ({ page }) => {
+  await freshStart(page);
+  await projectWithoutCostCenter(page, 'Fotos Aufmaß');
+  await page.getByTestId('plan-file-input').setInputFiles(join(FIXTURES, 'parkdeck.png'));
+  const wiz = page.getByTestId('import-wizard');
+  await wiz.getByTestId('areas-next').click();
+  await wiz.locator('[data-field="planNumber"]').fill('F-1');
+  await wiz.getByTestId('import-save').click();
+  await waitForPlan(page);
+  const box = await planBox(page);
+  const dlg = page.getByTestId('damage-dialog');
+  await pickTool(page, 'tool-rect');
+  await drawRect(page, box.x + box.width * 0.1, box.y + box.height * 0.1, box.x + box.width * 0.2, box.y + box.height * 0.2);
+  await dlg.getByTestId('input-length').fill('2');
+  await dlg.getByTestId('input-width').fill('1');
+  await expect(dlg.getByTestId('attach-camera')).toBeVisible();
+  await dlg.getByTestId('photo-file-input').setInputFiles(join(FIXTURES, 'foto.jpg'));
+  const ps = page.getByTestId('photo-save-dialog');
+  await ps.getByTestId('photo-save').click();
+  await expect(ps).toHaveCount(0);
+  await expect(dlg.getByTestId('attach-photo')).toHaveCount(1, { timeout: 15_000 });
+  await dlg.getByTestId('attach-photo').click();
+  await expect(page.getByTestId('photo-viewer')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('photo-viewer')).toHaveCount(0);
+  await dlg.getByTestId('damage-save').click();
+  await expect(dlg).toBeHidden();
+  await expect(page.getByTestId('row-photos')).toHaveText('1');
+  await waitSaved(page);
+  const ds = await stored(page, 'damages');
+  expect((ds[0].photoIds as string[]).length).toBe(1);
+  // erneut öffnen: Foto ist dabei, aus der Fotodokumentation wählbar
+  await page.locator('[data-testid="aufmass-row"][data-number="1"]').getByRole('button', { name: /1 bearbeiten/ }).click();
+  await expect(dlg.getByTestId('attach-photo')).toHaveCount(1, { timeout: 15_000 });
+  await dlg.getByTestId('attach-from-doku').click();
+  await expect(page.getByTestId('dp-photo-pick')).toHaveCount(1);
+  await page.getByTestId('dp-photo-picker-done').click();
+  await dlg.getByTestId('damage-cancel').click();
+  // Projekt: Taste Fotodokumentation öffnet die Fotos des Projekts (mit Vermerk)
+  await page.getByRole('link', { name: 'Zurück zur Planliste' }).click();
+  await page.getByTestId('project-photos').click();
+  await expect(page.getByTestId('photo-thumb')).toHaveCount(1, { timeout: 15_000 });
+  await expect(page.locator('body')).toContainText('Fotos Aufmaß');
+});

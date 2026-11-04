@@ -278,6 +278,8 @@ export interface Damage extends SyncMeta {
   deductions?: Deduction[];
   /** freie Bemerkung / Notiz zur Messung (Aufmaß-Tabelle, Excel-Spalte „Bemerkung“) */
   note?: string | null;
+  /** Fotos aus der Fotodokumentation (IDs) zu dieser Messung */
+  photoIds?: string[];
 }
 
 /** Teilfläche bzw. Teillänge, die von einer Messung abgezogen (bzw. hinzugerechnet) wird */

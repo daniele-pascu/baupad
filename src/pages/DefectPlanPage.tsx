@@ -6,6 +6,7 @@ import { PdfPreview } from '../components/PdfPreview';
 import { PhotoCapture } from '../components/PhotoCapture';
 import { PhotoImg } from '../components/PhotoImg';
 import { PhotoViewer } from '../components/PhotoViewer';
+import { SitePhotosPicker } from '../components/PhotoAttach';
 import { confirmDialog, showError } from '../components/ui';
 import { getCompanyLogo } from '../lib/company';
 import { getDefectPlan, getMeta } from '../lib/db';
@@ -613,47 +614,6 @@ function PlanCanvas({
   );
 }
 
-/** Fotos der Baustelle aus der Fotodokumentation auswählen */
-function SitePhotosPicker({ photos, chosen, onClose, onDone }: { photos: Photo[]; chosen: string[]; onClose(): void; onDone(ids: string[]): void }) {
-  const [sel, setSel] = useState<Set<string>>(new Set(chosen));
-  const toggle = (id: string) => setSel((s) => {
-    const n = new Set(s);
-    if (n.has(id)) n.delete(id);
-    else n.add(id);
-    return n;
-  });
-  return (
-    <Modal
-      title="Fotos aus der Fotodokumentation"
-      onClose={onClose}
-      wide
-      testId="dp-photo-picker"
-      footer={
-        <>
-          <button type="button" className="btn" onClick={onClose}>
-            Abbrechen
-          </button>
-          <button type="button" className="btn btn-primary" onClick={() => onDone([...sel])} data-testid="dp-photo-picker-done">
-            {sel.size} übernehmen
-          </button>
-        </>
-      }
-    >
-      {photos.length === 0 ? (
-        <p className="muted">Noch keine Fotos auf dieser Baustelle.</p>
-      ) : (
-        <div className="dp-photo-grid">
-          {photos.map((p) => (
-            <button key={p.id} type="button" className={`dp-photo-pick${sel.has(p.id) ? ' on' : ''}`} onClick={() => toggle(p.id)} aria-pressed={sel.has(p.id)} data-testid="dp-photo-pick">
-              <PhotoImg id={p.id} />
-              <span className="small">{new Date(p.takenAt).toLocaleDateString('de-DE')}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </Modal>
-  );
-}
 
 /** Markierung bearbeiten: Art, Titel, Beschreibung, Farbe, Text, Fotos */
 function MarkDialog({

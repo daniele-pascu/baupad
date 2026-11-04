@@ -390,9 +390,14 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
             </div>
           )}
         </dl>
-        <button type="button" className="btn btn-sm" onClick={() => setEditing(true)} data-testid="edit-project">
-          <Icon name="edit" size={18} /> Projektangaben bearbeiten
-        </button>
+        <div className="row gap wrap">
+          <button type="button" className="btn btn-sm" onClick={() => setEditing(true)} data-testid="edit-project">
+            <Icon name="edit" size={18} /> Projektangaben bearbeiten
+          </button>
+          <button type="button" className="btn btn-sm" onClick={() => navigate(paths.photoSite(`p:${project.id}`))} data-testid="project-photos">
+            <Icon name="camera" size={18} /> Fotodokumentation
+          </button>
+        </div>
       </section>
 
       {/* vor den Plänen: Option „Nach Rechnungen aufteilen“ bzw. die Rechnungen */}

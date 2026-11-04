@@ -9717,3 +9717,12 @@ html[data-theme='dark'] .crew-search {
     display: table-row;
   }
 }
+/* Aufmaß-Tabelle: Anzahl Fotos einer Messung */
+.aufmass-table .photo-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 4px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}

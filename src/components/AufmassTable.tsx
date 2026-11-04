@@ -137,6 +137,12 @@ export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, on
                       {positionLabel(r.damage.positionRef)}
                     </span>
                   )}
+                  {!!r.damage.photoIds?.length && (
+                    <span className="photo-tag" title={`${r.damage.photoIds.length} ${r.damage.photoIds.length === 1 ? 'Foto' : 'Fotos'}`} data-testid="row-photos">
+                      <Icon name="camera" size={14} />
+                      {r.damage.photoIds.length}
+                    </span>
+                  )}
                 </td>
                 {notes && (
                   <td className="note-col" data-testid="row-note">

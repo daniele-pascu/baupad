@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { PhotoAttach } from './PhotoAttach';
+import type { PhotoSite } from '../lib/types';
 import { uuid } from '../lib/ids';
 import { deductionArea, deductionLength, hasArea, KIND_LABELS, netArea } from '../lib/measure';
 import { round2, checkMeasure, computeArea, formatArea, parseDecimal, toInputValue } from '../lib/numbers';
@@ -34,6 +36,8 @@ export interface DamageValues {
   deductions: Deduction[];
   /** freie Bemerkung / Notiz; null = keine */
   note: string | null;
+  /** Fotos (Fotodokumentation) zur Messung */
+  photoIds: string[];
 }
 
 /** Eingabezeile eines Abzugs (Texte, damit Kommas und leere Felder möglich sind) */
@@ -72,7 +76,7 @@ export type Renumber = 'none' | 'swap' | 'shift';
 interface Props {
   mode: 'new' | 'edit';
   damage: Pick<Damage, 'id' | 'number' | 'color' | 'labelOffset'> &
-    Partial<Pick<Damage, 'length' | 'width' | 'depth' | 'componentId' | 'positionRef' | 'label' | 'areaFromShape' | 'deductions' | 'note'>> & { shapeType: ShapeType; kind: MeasureKind };
+    Partial<Pick<Damage, 'length' | 'width' | 'depth' | 'componentId' | 'positionRef' | 'label' | 'areaFromShape' | 'deductions' | 'note' | 'photoIds'>> & { shapeType: ShapeType; kind: MeasureKind };
   others: Pick<Damage, 'id' | 'number' | 'area' | 'label'>[];
   /** Bauteilkennzeichnungen des Plans für die optionale Zuordnung */
   components: Pick<Component, 'id' | 'letter' | 'name'>[];
@@ -85,6 +89,8 @@ interface Props {
   /** Wand: offener Verlauf, Länge aus allen Abschnitten, dazu Wandhöhe → Wandfläche */
   wall?: boolean;
   onSave: (v: DamageValues, renumber: Renumber) => void;
+  /** Baustelle der Fotodokumentation (Projekt): Fotos zur Messung aufnehmen bzw. wählen */
+  photoSite?: PhotoSite | null;
   onCancel: () => void;
   onDelete?: () => void;
   /** Abzug im Plan zeichnen (nur Flächen mit Maßstab): Fenster blendet sich aus, bis gezeichnet ist */
@@ -103,7 +109,7 @@ type Field = 'number' | 'length' | 'width' | 'depth';
  * Eingabe einer Messung bzw. Schadstelle. Öffnet sich automatisch nach dem Einzeichnen.
  * Enter/Weiter springt zum nächsten Feld; im letzten Feld wird gespeichert.
  */
-export function DamageDialog({ mode, damage, others, components, positions = [], suggestion, geometry, wall = false, onSave, onCancel, onDelete, onDrawDeduction, drawnDeduction, hidden, dedFromPlan }: Props) {
+export function DamageDialog({ mode, damage, others, components, positions = [], suggestion, geometry, wall = false, onSave, onCancel, onDelete, onDrawDeduction, drawnDeduction, hidden, dedFromPlan, photoSite }: Props) {
   /** Fläche und Umfang aus dem Plan übernehmen (nur bei Flächen-Messarten) */
   // Linie: Länge aus dem Plan (kalibriert) – bei neuen Linien vorgewählt, wird bei Formänderung nachgeführt
   const lineSuggest = (!hasArea(damage.kind) || wall) && suggestion ? suggestion.length : null;
@@ -124,6 +130,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const [positionRef, setPositionRef] = useState<string | null>(damage.positionRef ?? null);
   const [pickPos, setPickPos] = useState(false);
   const [note, setNote] = useState(damage.note ?? '');
+  const [photoIds, setPhotoIds] = useState<string[]>(damage.photoIds ?? []);
   // erst LV bzw. MFK wählen, dann deren Positionen (Verweis „Dokument:Position“)
   const docOf = (ref: string) => ref.slice(0, ref.indexOf(':'));
   const docs = [...new Map(positions.map((p) => [docOf(p.ref), p.doc])).entries()].map(([id, label]) => ({ id, label }));
@@ -263,6 +270,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
         area: geo ? geo.area : null,
         deductions,
         note: note.trim() || null,
+        photoIds,
       },
       renumber,
     );
@@ -690,6 +698,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
           <span>Bemerkung / Notiz</span>
           <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="optional, z. B. Hinweis zur Messung" data-testid="input-note" />
         </label>
+        {photoSite && <PhotoAttach site={photoSite} ids={photoIds} onChange={setPhotoIds} hint="Neue Fotos landen auch in der Fotodokumentation des Projekts." />}
         <fieldset className="option-row">
           <legend>Farbe</legend>
           {COLORS.map((c) => (
