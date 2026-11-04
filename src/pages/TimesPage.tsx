@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Icon } from '../components/Icon';
+import { TimeField } from '../components/TimeField';
 import { SiteNav } from '../components/SiteNav';
 import { ToolIcon } from '../components/ToolIcon';
 import { offerFile, promptDialog, showError, toast } from '../components/ui';
@@ -315,19 +316,19 @@ export function TimeInputs({ from, to, pauseFrom, pauseTo, pause, disabled, onCh
     <>
       <label className="times-time">
         <span>Beginn</span>
-        <input type="time" step={300} value={from} disabled={disabled} onChange={(e) => emit({ from: e.target.value })} data-testid={`${testPrefix}-from`} />
+        <TimeField value={from} disabled={disabled} onChange={(v) => emit({ from: v })} testId={`${testPrefix}-from`} />
       </label>
       <label className="times-time">
         <span>Ende</span>
-        <input type="time" step={300} value={to} disabled={disabled} onChange={(e) => emit({ to: e.target.value })} data-testid={`${testPrefix}-to`} />
+        <TimeField value={to} disabled={disabled} onChange={(v) => emit({ to: v })} testId={`${testPrefix}-to`} />
       </label>
       <label className="times-time">
         <span>Pause von</span>
-        <input type="time" step={300} value={pauseFrom} disabled={disabled} onChange={(e) => emit({ pauseFrom: e.target.value })} data-testid={`${testPrefix}-pause-from`} />
+        <TimeField value={pauseFrom} disabled={disabled} onChange={(v) => emit({ pauseFrom: v })} testId={`${testPrefix}-pause-from`} />
       </label>
       <label className="times-time">
         <span>Pause bis</span>
-        <input type="time" step={300} value={pauseTo} disabled={disabled} onChange={(e) => emit({ pauseTo: e.target.value })} data-testid={`${testPrefix}-pause-to`} />
+        <TimeField value={pauseTo} disabled={disabled} onChange={(v) => emit({ pauseTo: v })} testId={`${testPrefix}-pause-to`} />
       </label>
       <span className={`times-pause-sum${bad ? ' warn' : ''}`} title={bad ? 'Pause liegt nicht innerhalb der Arbeitszeit' : 'Pausendauer (automatisch)'} data-testid={`${testPrefix}-pause`}>
         <span className="muted small">Pause</span> {fmtPause(pause)}
@@ -460,19 +461,19 @@ function WorkTimesDialog({ times, first, onClose, onSave }: { times: WorkTimes; 
                 <>
                   <label className="times-time">
                     <span>Beginn</span>
-                    <input type="time" step={300} value={x.from} onChange={(e) => set(d, { from: e.target.value })} data-testid="worktimes-from" />
+                    <TimeField value={x.from} onChange={(v) => set(d, { from: v })} testId="worktimes-from" />
                   </label>
                   <label className="times-time">
                     <span>Ende</span>
-                    <input type="time" step={300} value={x.to} onChange={(e) => set(d, { to: e.target.value })} data-testid="worktimes-to" />
+                    <TimeField value={x.to} onChange={(v) => set(d, { to: v })} testId="worktimes-to" />
                   </label>
                   <label className="times-time">
                     <span>Pause von</span>
-                    <input type="time" step={300} value={x.pauseFrom ?? ''} onChange={(e) => set(d, { pauseFrom: e.target.value })} data-testid="worktimes-pause-from" />
+                    <TimeField value={x.pauseFrom ?? ''} onChange={(v) => set(d, { pauseFrom: v })} testId="worktimes-pause-from" />
                   </label>
                   <label className="times-time">
                     <span>Pause bis</span>
-                    <input type="time" step={300} value={x.pauseTo ?? ''} onChange={(e) => set(d, { pauseTo: e.target.value })} data-testid="worktimes-pause-to" />
+                    <TimeField value={x.pauseTo ?? ''} onChange={(v) => set(d, { pauseTo: v })} testId="worktimes-pause-to" />
                   </label>
                   <span className="times-pause-sum" data-testid="worktimes-hours">
                     <span className="muted small">Stunden</span> {fmtH(Math.max(0, hoursOf(x.from, x.to, pause)))}

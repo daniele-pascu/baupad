@@ -172,8 +172,12 @@ test('Arbeitszeiten des Unternehmens einmalig festlegen: Vorschlag je Tag, Abwei
   await expect(row(page, 'Max').getByTestId('times-from')).toHaveValue('06:30');
   await expect(row(page, 'Max').getByTestId('times-pause-to')).toHaveValue('12:45');
   await expect(row(page, 'Max').getByTestId('times-hours')).toHaveText('8,75 h');
-  // länger gearbeitet: nur an diesem Tag ausbessern (wird sofort gespeichert)
-  await row(page, 'Max').getByTestId('times-to').fill('17:00');
+  // länger gearbeitet: nur an diesem Tag ausbessern (wird sofort gespeichert) – mit der Zahlentastatur „1700“
+  await expect(row(page, 'Max').getByTestId('times-to')).toHaveAttribute('inputmode', 'numeric');
+  await row(page, 'Max').getByTestId('times-to').click();
+  await page.keyboard.type('1700');
+  await expect(row(page, 'Max').getByTestId('times-to')).toHaveValue('17:00');
+  await expect(row(page, 'Max').getByTestId('times-pause-from')).toBeFocused(); // springt ins nächste Feld
   await expect(row(page, 'Max').getByTestId('times-hours')).toHaveText('9,75 h');
   await expect(row(page, 'Max')).toHaveAttribute('data-state', 'done');
   // nächster Tag: wieder die Arbeitszeit des Unternehmens
