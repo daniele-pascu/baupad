@@ -1,5 +1,10 @@
 const PATHS: Record<string, string> = {
   plus: 'M12 5v14M5 12h14',
+  /* Vorschläge für die Farblegende */
+  legend: 'M4 5h4v4H4zM4 15h4v4H4zM11 7h9M11 17h9',
+  legend2: 'M3 4h18v16H3zM6 8h3v3H6zM6 13h3v3H6zM12 9.5h6M12 14.5h6',
+  legend3: 'M12 3a9 9 0 100 18c1.7 0 2-1.3 1.3-2.3-.7-1-.2-2.7 1.4-2.7H17a4 4 0 004-4c0-5-4-9-9-9zM7.5 11.5h.01M10 7.5h.01M15 7.5h.01',
+  legend4: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
   calendar: 'M4 6a2 2 0 012-2h12a2 2 0 012 2v13a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM4 10h16M8 2v4M16 2v4',
   minus: 'M5 12h14',
   back: 'M15 18l-6-6 6-6',

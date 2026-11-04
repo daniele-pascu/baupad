@@ -22,6 +22,7 @@ test('Schnelle Folgeänderungen an derselben Schadstelle werden ohne Fehlkonflik
   await fillMeasures(page, '1', '1', '0,02');
   await pickTool(page, 'tool-select');
   await page.locator('[data-testid="aufmass-row"][data-number="1"]').click();
+  await page.getByTestId('damage-cancel').click(); // Tabelle öffnet die Bearbeitung – schließen, Auswahl bleibt
 
   // Farbwechsel in unregelmäßigen Abständen rund um die Speicherverzögerung (250 ms)
   const colors = ['Blau', 'Grün', 'Gelb', 'Orange', 'Violett', 'Rot'];
@@ -36,6 +37,7 @@ test('Schnelle Folgeänderungen an derselben Schadstelle werden ohne Fehlkonflik
   await page.reload();
   await waitForPlan(page);
   await page.locator('[data-testid="aufmass-row"][data-number="1"]').click();
+  await page.getByTestId('damage-cancel').click(); // Tabelle öffnet die Bearbeitung – schließen, Auswahl bleibt
   // Die zuletzt gewählte Farbe ist dauerhaft gespeichert
   const hex = { Rot: '#e03131', Blau: '#1c7ed6', Grün: '#2f9e44', Gelb: '#f5b800', Orange: '#f76707', Violett: '#9c36b5' }[last];
   await expect(page.locator('.viewer-overlay path[data-damage]').first()).toHaveAttribute('stroke', hex!);

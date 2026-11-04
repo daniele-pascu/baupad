@@ -348,8 +348,12 @@ test('Messung: Fotos wie im Mängelplan (Galerie → Fotodokumentation), Taste F
   await expect(lg.getByTestId('legend-row')).toHaveCount(1);
   await lg.getByTestId('legend-input').fill('Betonsanierung');
   await expect(lg.getByTestId('legend-show')).toBeChecked();
+  // Lage wählbar (Standard unten links) – hier oben rechts
+  await expect(lg.getByTestId('legend-pos-bl')).toHaveAttribute('aria-checked', 'true');
+  await lg.getByTestId('legend-pos-tr').click();
   await lg.getByTestId('legend-save').click();
   await expect(page.getByTestId('plan-legend')).toContainText('Betonsanierung');
+  await expect(page.getByTestId('plan-legend')).toHaveAttribute('data-pos', 'tr');
   await waitSaved(page);
   // Plan-PDF mit Legende (ohne Fotos)
   const dl = await catchDownload(page, async () => {
@@ -361,6 +365,13 @@ test('Messung: Fotos wie im Mängelplan (Galerie → Fotodokumentation), Taste F
   expect(text).toContain('Legende');
   expect(text).toContain('Betonsanierung');
   expect(text).not.toContain('Fotos');
+  // im PDF oben rechts
+  const bbox = execFileSync('pdftotext', ['-bbox', pdf, '-'], { encoding: 'utf8' });
+  const pageW = Number(/<page width="([\d.]+)"/.exec(bbox)![1]);
+  const pageH = Number(/<page width="[\d.]+" height="([\d.]+)"/.exec(bbox)![1]);
+  const word = /<word xMin="([\d.]+)" yMin="([\d.]+)"[^>]*>Legende</.exec(bbox)!;
+  expect(Number(word[1])).toBeGreaterThan(pageW / 2);
+  expect(Number(word[2])).toBeLessThan(pageH / 2);
   expect(Number(/Pages:\s+(\d+)/.exec(execFileSync('pdfinfo', [pdf], { encoding: 'utf8' }))![1])).toBe(1);
   await page.keyboard.press('Escape');
   // Foto-PDF separat: jedes Foto mit Plan, Nummer und Position

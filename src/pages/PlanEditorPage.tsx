@@ -1416,7 +1416,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             </div>
           )}
 
-          {plan.showLegend && !drawMode && <LegendBox entries={legend} onOpen={() => setLegendOpen(true)} />}
+          {plan.showLegend && !drawMode && <LegendBox entries={legend} pos={plan.legendPos ?? 'bl'} onOpen={() => setLegendOpen(true)} />}
           <div className="zoom-controls">
             <LayerMenu
               hidden={plan.hiddenLayers ?? []}
@@ -1449,7 +1449,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             </button>
             {!drawMode && (
               <button type="button" className={`icon-btn${plan.showLegend ? ' active' : ''}`} onClick={() => setLegendOpen(true)} aria-label="Farblegende" title="Farblegende: Bezeichnung je Farbe (im Plan und im PDF)" data-testid="editor-legend">
-                <Icon name="info" />
+                <Icon name="legend" />
               </button>
             )}
             {!drawingPlan && !drawMode && file && (
@@ -1836,8 +1836,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             positionLabel={(ref) => findPosition(data, ref)?.pos.number ?? null}
             {...positionGrouping(data)}
             onSelect={(r) => {
-              select(r.damage.id, true);
-              setMobileTab('plan');
+              // Tabelle antippen: Maße bearbeiten (nicht zur Stelle im Plan springen)
+              select(r.damage.id);
+              setDialog({ mode: 'edit', id: r.damage.id });
             }}
             onEdit={(r) => setDialog({ mode: 'edit', id: r.damage.id })}
             onDelete={(r) => void removeDamage(r.damage)}
@@ -1926,9 +1927,10 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           entries={legend}
           show={!!plan.showLegend}
           labels={plan.legendLabels ?? {}}
+          pos={plan.legendPos ?? 'bl'}
           onClose={() => setLegendOpen(false)}
-          onSave={(show, labels) => {
-            putRecord('plans', { ...data.plans[plan.id], showLegend: show, legendLabels: labels });
+          onSave={(show, labels, pos) => {
+            putRecord('plans', { ...data.plans[plan.id], showLegend: show, legendLabels: labels, legendPos: pos });
             setLegendOpen(false);
           }}
         />

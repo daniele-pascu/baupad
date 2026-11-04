@@ -124,6 +124,9 @@ export interface Rect {
  * Bei Bildern entspricht eine Einheit einem Bildpixel (EXIF-Ausrichtung berücksichtigt).
  * Markierungen werden immer in diesen Koordinaten gespeichert – nie in Bildschirmpixeln.
  */
+/** Ecke der Farblegende: oben/unten, links/rechts */
+export type LegendPos = 'tl' | 'tr' | 'bl' | 'br';
+
 export interface Plan extends SyncMeta {
   projectId: string;
   costCenterId: string;
@@ -198,6 +201,8 @@ export interface Plan extends SyncMeta {
   showLegend?: boolean;
   /** eigene Bezeichnungen je Farbe (Farbwert klein geschrieben → Text) */
   legendLabels?: Record<string, string>;
+  /** Lage der Legende im Plan und im PDF (Standard: unten links) */
+  legendPos?: LegendPos;
 }
 
 export type PlanRotation = 0 | 90 | 180 | 270;

@@ -34,7 +34,7 @@ import { canvasToBlob, closePdf, clampRenderScale, imageToCanvas, loadImageBitma
 import type { ProjectState } from './store';
 import { exportPaper, layoutSheet, planHeading, type OverviewCorner, type SheetLayout } from './sheet-layout';
 import { DEFAULT_TRANSPARENCY, fillOf, fillPaths, strokeGeometry } from './style';
-import type { Component, Damage, Plan, Rect, Shape, ShapeStyle } from './types';
+import type { Component, Damage, LegendPos, Plan, Rect, Shape, ShapeStyle } from './types';
 import { deductionNumbers } from './numbering';
 import { measureLabel } from './measure';
 import { legendEntries, type LegendEntry } from './legend';
@@ -271,7 +271,7 @@ async function finishSheet(ctx: Ctx, page: PDFPage, plan: Plan, L: SheetLayout, 
   const target: Target = { page, map, textRotation: 0, ptPerUnit: L.u };
   drawSheetHeader(ctx, page, L.h, L.header, plan, plan.showPaper ? [PAPER[exportPaper(plan)].label] : []);
   drawDamages(ctx, target, region, damages, []);
-  if (plan.showLegend) drawLegend(ctx, page, L.plan.x + 4, L.h - (L.plan.y + L.plan.h) + 4, legendEntries(plan, damages));
+  if (plan.showLegend) drawLegend(ctx, page, { x: L.plan.x, y: L.h - (L.plan.y + L.plan.h), w: L.plan.w, h: L.plan.h }, plan.legendPos ?? 'bl', legendEntries(plan, damages));
   if (L.overview && full && plan.crop) await drawOverview(ctx, page, L, plan, L.overview, full);
 }
 
@@ -577,7 +577,7 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   }
   // Messungen und Bauteilbuchstaben darüber
   drawDamages(ctx, target, region, damages, components);
-  if (plan.showLegend) drawLegend(ctx, page, margin + 2, margin + 2, legendEntries(plan, damages));
+  if (plan.showLegend) drawLegend(ctx, page, { x: margin - 2, y: margin - 2, w: W - 2 * margin + 4, h: H - 2 * margin - headerPt + 4 }, plan.legendPos ?? 'bl', legendEntries(plan, damages));
   // Maßstabsleiste rechts im Kopfbereich (nur wenn der Maßstab angezeigt werden soll)
   if (!plan.showScale) return;
   const lblW = ctx.font.widthOfTextAtSize(`${String(barM).replace('.', ',')} m`, 6.5);
@@ -675,14 +675,16 @@ export async function exportPhotosPdf(data: ProjectState, planIds: string[]): Pr
   return { name: `${name}.pdf`, data: await out.save(), mimeType: 'application/pdf' };
 }
 
-/** Farblegende als weißer Kasten (unten links über dem Plan): je Farbe ein Feld und die Bezeichnung */
-function drawLegend(ctx: Ctx, page: PDFPage, x: number, y: number, entries: LegendEntry[]) {
+/** Farblegende als weißer Kasten in der gewählten Ecke des Planbereichs (PDF-Koordinaten, y nach oben): je Farbe ein Feld und die Bezeichnung */
+function drawLegend(ctx: Ctx, page: PDFPage, box: { x: number; y: number; w: number; h: number }, pos: LegendPos, entries: LegendEntry[]) {
   if (!entries.length) return;
   const size = 8;
   const row = 11;
   const labels = entries.map((e) => fitText(ctx.font, clean(ctx, e.label), size, 200));
   const w = Math.max(ctx.bold.widthOfTextAtSize('Legende', size), ...labels.map((l) => ctx.font.widthOfTextAtSize(l, size) + 14)) + 12;
   const h = 14 + entries.length * row + 4;
+  const x = pos[1] === 'l' ? box.x + 4 : box.x + box.w - w - 4;
+  const y = pos[0] === 'b' ? box.y + 4 : box.y + box.h - h - 4;
   page.drawRectangle({ x, y, width: w, height: h, color: rgb(1, 1, 1), borderColor: rgb(0.55, 0.57, 0.6), borderWidth: 0.6 });
   page.drawText('Legende', { x: x + 6, y: y + h - 11, size, font: ctx.bold, color: rgb(0.1, 0.1, 0.12) });
   entries.forEach((e, i) => {

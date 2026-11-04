@@ -1,21 +1,32 @@
 import { useState } from 'react';
 import { Modal } from './Modal';
 import { colorName, type LegendEntry } from '../lib/legend';
+import type { LegendPos } from '../lib/types';
+
+const POS: { id: LegendPos; label: string }[] = [
+  { id: 'tl', label: 'Oben links' },
+  { id: 'tr', label: 'Oben rechts' },
+  { id: 'bl', label: 'Unten links' },
+  { id: 'br', label: 'Unten rechts' },
+];
 
 /** Farblegende des Plans: je erkannter Farbe eine eigene Bezeichnung; im Plan und im PDF anzeigen */
 export function LegendDialog({
   entries,
   show,
   labels,
+  pos: initialPos,
   onClose,
   onSave,
 }: {
   entries: LegendEntry[];
   show: boolean;
   labels: Record<string, string>;
+  pos: LegendPos;
   onClose(): void;
-  onSave(show: boolean, labels: Record<string, string>): void;
+  onSave(show: boolean, labels: Record<string, string>, pos: LegendPos): void;
 }) {
+  const [pos, setPos] = useState<LegendPos>(initialPos);
   const [on, setOn] = useState(show || !entries.length ? show : true);
   const [txt, setTxt] = useState<Record<string, string>>(() => Object.fromEntries(entries.map((e) => [e.color, labels[e.color] ?? ''])));
   return (
@@ -38,7 +49,7 @@ export function LegendDialog({
                 if (t.trim()) next[c] = t.trim();
                 else delete next[c];
               }
-              onSave(on, next);
+              onSave(on, next, pos);
             }}
             data-testid="legend-save"
           >
@@ -64,15 +75,25 @@ export function LegendDialog({
         <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} data-testid="legend-show" />
         <span>Legende im Plan und im PDF anzeigen</span>
       </label>
+      <div className="field">
+        <span>Lage im Plan und im PDF</span>
+        <div className="legend-pos" role="radiogroup" aria-label="Lage der Legende">
+          {POS.map((p) => (
+            <button key={p.id} type="button" role="radio" aria-checked={pos === p.id} className={`chip${pos === p.id ? ' active' : ''}`} onClick={() => setPos(p.id)} data-testid={`legend-pos-${p.id}`}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </div>
     </Modal>
   );
 }
 
 /** Legende unten links über dem Plan (Antippen öffnet die Bearbeitung) */
-export function LegendBox({ entries, onOpen }: { entries: LegendEntry[]; onOpen(): void }) {
+export function LegendBox({ entries, pos = 'bl', onOpen }: { entries: LegendEntry[]; pos?: LegendPos; onOpen(): void }) {
   if (!entries.length) return null;
   return (
-    <button type="button" className="plan-legend" onClick={onOpen} title="Legende bearbeiten" data-testid="plan-legend">
+    <button type="button" className={`plan-legend pos-${pos}`} data-pos={pos} onClick={onOpen} title="Legende bearbeiten" data-testid="plan-legend">
       <strong>Legende</strong>
       {entries.map((e) => (
         <span key={e.color} className="plan-legend-row">

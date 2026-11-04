@@ -10517,3 +10517,25 @@ html[data-theme='dark'] .crew-search {
   gap: 6px 10px;
   margin-bottom: 10px;
 }
+
+/* Farblegende: Ecke wählbar */
+.plan-legend.pos-tl {
+  top: 12px;
+  bottom: auto;
+}
+.plan-legend.pos-tr {
+  top: 12px;
+  bottom: auto;
+  left: auto;
+  right: 12px;
+}
+.plan-legend.pos-br {
+  left: auto;
+  right: 12px;
+}
+.legend-pos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 4px;
+}

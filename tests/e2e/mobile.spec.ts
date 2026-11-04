@@ -207,7 +207,11 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
     ['1', '0,50'],
     ['2', '2,64'],
   ]);
+  // Tabelle antippen → Bearbeitung der Maße (bleibt in der Tabelle)
   await page.locator('[data-testid="aufmass-row"][data-number="2"]').tap();
+  await expect(page.getByTestId('damage-dialog')).toBeVisible();
+  await page.getByTestId('damage-cancel').tap();
+  if (!sideBySide) await page.getByRole('tab', { name: /Plan/ }).tap();
   await expect(page.getByTestId('plan-viewer')).toBeVisible();
   await expect(page.getByTestId('selection-bar')).toContainText('Nr. 2');
   await noHorizontalScroll(page);
@@ -280,6 +284,7 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
     await expect(page.getByTestId('aufmass-table')).toBeVisible();
     await expect(page.getByTestId('plan-viewer')).toBeVisible();
     await page.locator('[data-testid="aufmass-row"][data-number="1"]').tap();
+    await page.getByTestId('damage-cancel').tap();
     await expect(page.getByTestId('selection-bar')).toContainText('Nr. 1');
     await noHorizontalScroll(page);
     await page.screenshot({ path: join(OUT, 'ipad-quer-editor.png') });
