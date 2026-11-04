@@ -12,7 +12,9 @@ import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, offerFile, showError, toast } from '../components/ui';
 import { safeFileName } from '../lib/aufmass';
 import { getPhotoStorage, onPhotosChanged } from '../lib/photo-storage';
-import { dateTimeLabel, dayTitle, fmtBytes, GROUP_MODES, groupPhotos, matchesPhoto, type PhotoGroupMode, photoSiteKey, rotateImage, SYNC_LABELS, timeLabel } from '../lib/photos';
+import { dateTimeLabel, dayTitle, fmtBytes, GROUP_MODES, groupPhotos, matchesPhoto, type PhotoGroupMode, photoSiteKey, preparePhoto, rotateImage, SYNC_LABELS, timeLabel } from '../lib/photos';
+import { PhotoEditor } from '../components/PhotoEditor';
+import { uuid } from '../lib/ids';
 import { navigate, paths } from '../lib/router';
 import type { Photo } from '../lib/types';
 import { loadPhotoSites } from './PhotosPage';
@@ -220,6 +222,7 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [week, groups.length, limit]);
   const flat = useMemo(() => groups.flatMap((g) => g.days.flatMap((d) => d.photos)), [groups]);
+  const [editPhoto, setEditPhoto] = useState<Photo | null>(null);
   const current = photoId ? photos.find((p) => p.id === photoId) ?? null : null;
   const hashes = useMemo(() => new Set((all ?? []).map((p) => p.hash)), [all]);
   const show = (id: string | null) => navigate(paths.photoSite(siteKey, { photoId: id }), true);
@@ -272,9 +275,36 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
     run(async () => {
       const b = await getPhotoStorage().blobs(p.id);
       if (!b) throw new Error('Bilddaten nicht gefunden.');
-      await offerFile({ name: `${safeFileName(p.siteName, p.day, timeLabel(p.takenAt).replace(':', ''))}.jpg`, data: new Uint8Array(b.original ?? b.data), mimeType: 'image/jpeg' });
+      await offerFile({ name: photoFileName(p), data: new Uint8Array(b.original ?? b.data), mimeType: 'image/jpeg' });
     });
-  /** Fotos als ZIP: ein Ordner, Dateinamen nach Datum und Uhrzeit (JJJJ-MM-TT_HHMM_Nr.jpg), sonst nichts */
+  /** Foto bearbeitet: immer als Kopie neben dem Original (gleiche Baustelle und Aufnahmezeit) */
+  const saveEditedCopy = async (p: Photo, blob: Blob) => {
+    const file = new File([blob], photoFileName(p, undefined, true), { type: 'image/jpeg', lastModified: p.takenAt });
+    const pr = await preparePhoto(file);
+    const now = Date.now();
+    const copy: Photo = {
+      ...p,
+      id: uuid(),
+      description: p.description.trim() ? `${p.description.trim()} (bearbeitet)` : 'bearbeitet',
+      fileName: file.name,
+      width: pr.width,
+      height: pr.height,
+      size: pr.data.byteLength,
+      hash: pr.hash,
+      original: false,
+      sync: 'local',
+      uploadedAt: now,
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null,
+    };
+    await getPhotoStorage().put(copy, { data: pr.data, thumb: pr.thumb });
+    await reload();
+    setEditPhoto(null);
+    toast('Bearbeitetes Foto als Kopie gespeichert – das Original bleibt unverändert.', 'success');
+    show(copy.id);
+  };
+  /** Fotos als ZIP: ein Ordner, Dateinamen nach Baustelle, Datum und Uhrzeit (Baustelle_JJJJ-MM-TT_HHMM_Nr[_bearbeitet].jpg) */
   const downloadZip = (list: Photo[] = shown) =>
     run(async () => {
       if (list.length === 1) return download(list[0]);
@@ -283,7 +313,7 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
       for (const [i, p] of sorted.entries()) {
         const b = await getPhotoStorage().blobs(p.id);
         if (!b) continue;
-        files[`${p.day}_${timeLabel(p.takenAt).replace(':', '')}_${String(i + 1).padStart(3, '0')}.jpg`] = new Uint8Array(b.original ?? b.data);
+        files[photoFileName(p, i + 1)] = new Uint8Array(b.original ?? b.data);
       }
       if (!Object.keys(files).length) return toast('Keine Fotos zum Herunterladen.', 'info');
       await offerFile({ name: `${safeFileName('Fotos', site?.name ?? 'Baustelle')}.zip`, data: zipSync(files, { level: 0 }), mimeType: 'application/zip' });
@@ -491,7 +521,7 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
         />
       )}
       {pdfOpen && site && <PhotoPdfDialog site={site} selection={selecting ? chosen : []} all={shown} onClose={() => setPdfOpen(false)} />}
-      {current && (
+      {current && !editPhoto && (
         <Lightbox
           photo={current}
           index={flat.findIndex((p) => p.id === current.id)}
@@ -504,8 +534,10 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
           onMove={() => setMoving([current])}
           onRotate={(dir) => rotate(current, dir)}
           onDescription={(t) => saveDescription(current, t)}
+          onEdit={() => setEditPhoto(current)}
         />
       )}
+      {editPhoto && <EditPhoto photo={editPhoto} onClose={() => setEditPhoto(null)} onSave={(blob) => saveEditedCopy(editPhoto, blob)} />}
     </>
   );
 }
@@ -531,6 +563,7 @@ function Lightbox({
   onMove,
   onRotate,
   onDescription,
+  onEdit,
 }: {
   photo: Photo;
   index: number;
@@ -543,6 +576,7 @@ function Lightbox({
   onMove(): void;
   onRotate(dir: 'left' | 'right'): void;
   onDescription(text: string): void;
+  onEdit(): void;
 }) {
   const src = usePhotoUrl(photo.id, 'data', photo.updatedAt);
   const [desc, setDesc] = useState(photo.description);
@@ -751,6 +785,9 @@ function Lightbox({
           <button type="button" className="btn btn-sm" onClick={onDownload} data-testid="lightbox-download">
             <Icon name="download" size={16} /> Herunterladen
           </button>
+          <button type="button" className="btn btn-sm btn-primary" onClick={onEdit} title="Zeichnen, markieren – wird als Kopie gespeichert" data-testid="lightbox-edit">
+            <Icon name="edit" size={16} /> Bearbeiten
+          </button>
           <button type="button" className="btn btn-sm" onClick={() => onRotate('left')} title="Nach links drehen (wird sofort gespeichert)" data-testid="lightbox-rotate-left">
             <Icon name="rotate" size={16} className="flip-x" /> Links
           </button>
@@ -767,4 +804,17 @@ function Lightbox({
       </footer>
     </div>
   );
+}
+
+/** Dateiname beim Speichern: Baustelle_Datum_Uhrzeit[_Nr][_bearbeitet].jpg */
+function photoFileName(p: Photo, n?: number, edited = /_bearbeitet\.jpe?g$/i.test(p.fileName)): string {
+  const base = safeFileName(p.siteName || 'Baustelle', p.day, timeLabel(p.takenAt).replace(':', ''));
+  return `${base}${n ? `_${String(n).padStart(3, '0')}` : ''}${edited ? '_bearbeitet' : ''}.jpg`;
+}
+
+/** Bearbeiten-Ansicht mit den Bilddaten des Fotos */
+function EditPhoto({ photo, onClose, onSave }: { photo: Photo; onClose(): void; onSave(blob: Blob): Promise<void> }) {
+  const src = usePhotoUrl(photo.id, 'data', photo.updatedAt);
+  if (!src) return null;
+  return <PhotoEditor src={src} width={photo.width} height={photo.height} title={photo.description || 'Foto bearbeiten'} onClose={onClose} onSave={onSave} />;
 }

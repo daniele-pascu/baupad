@@ -58,3 +58,26 @@ test('Fotodokumentation: Taste „Foto aufnehmen“ auch in der Projektliste (in
   await btn.tap();
   await expect(page.getByTestId('camera-page')).toBeVisible();
 });
+
+test('Foto bearbeiten am Handy: Editor passt auf den Bildschirm, Foto groß', async ({ page }, info) => {
+  test.skip(info.project.name !== 'iphone', 'nur Handy');
+  await freshStart(page);
+  await page.goto('./#/fotos');
+  await page.getByTestId('photo-new-site').tap();
+  await page.getByTestId('project-picker').getByTestId('picker-new').tap();
+  await page.getByTestId('project-name').fill('Parkring');
+  await page.getByTestId('project-save').tap();
+  await page.getByTestId('photo-file-input').setInputFiles(join(process.cwd(), 'tests', 'fixtures', 'foto.jpg'));
+  await page.getByTestId('photo-save-dialog').getByTestId('photo-save').tap();
+  await page.getByTestId('photo-thumb').first().tap();
+  await page.getByTestId('lightbox-edit').tap();
+  const ed = page.getByTestId('photo-editor');
+  await expect(ed).toBeVisible();
+  const img = (await page.locator('[data-testid="pe-canvas"] image').boundingBox())!;
+  expect(img.height).toBeGreaterThan(300);
+  for (const id of ['pe-save', 'pe-undo', 'pe-tool-free', 'pe-tool-ellipse', 'pe-opacity']) {
+    const b = (await ed.getByTestId(id).boundingBox())!;
+    expect(b.x + b.width).toBeLessThanOrEqual(391);
+  }
+  await page.screenshot({ path: join(OUT, 'foto-bearbeiten-handy.png') });
+});

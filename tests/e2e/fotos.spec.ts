@@ -90,7 +90,7 @@ test('Fotos je Baustelle, KW und Tag; Großansicht; Beschreibung; Suche; Duplika
   await page.getByTestId('photo-selected-download').click();
   const selZip = await saveDownload(await selDownload, 'fotos-auswahl.zip');
   const { unzipSync: unzipSel } = await import('fflate');
-  expect(Object.keys(unzipSel(new Uint8Array(readFileSync(selZip)))).sort()).toEqual(['2026-10-27_0915_001.jpg', '2026-10-27_1440_002.jpg']);
+  expect(Object.keys(unzipSel(new Uint8Array(readFileSync(selZip)))).sort()).toEqual(['Neubau_Musterstrasse_2026-10-27_0915_001.jpg', 'Neubau_Musterstrasse_2026-10-27_1440_002.jpg']);
   await page.getByTestId('photo-select').click(); // Fertig
   await expect(page.getByTestId('photo-selection-bar')).toHaveCount(0);
 
@@ -159,7 +159,7 @@ test('Fotos je Baustelle, KW und Tag; Großansicht; Beschreibung; Suche; Duplika
   const zipPath = await saveDownload(dl, 'fotos.zip');
   const { unzipSync } = await import('fflate');
   const entries = unzipSync(new Uint8Array(readFileSync(zipPath)));
-  expect(Object.keys(entries).sort()).toEqual(['2026-10-27_0915_001.jpg', '2026-10-27_1440_002.jpg', '2026-10-28_1000_003.jpg', '2026-11-02_0805_004.jpg']);
+  expect(Object.keys(entries).sort()).toEqual(['Neubau_Musterstrasse_2026-10-27_0915_001.jpg', 'Neubau_Musterstrasse_2026-10-27_1440_002.jpg', 'Neubau_Musterstrasse_2026-10-28_1000_003.jpg', 'Neubau_Musterstrasse_2026-11-02_0805_004.jpg']);
 
   // Löschen mit Bestätigung; nach dem Neuladen bleibt der Rest
   await page.getByTestId('photo-group').nth(0).getByTestId('photo-thumb').first().click();
