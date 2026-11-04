@@ -11,6 +11,7 @@ import { listFreePhotoSites } from '../lib/photo-sites';
 import { cloudConnected, getPhotoStorage, onPhotosChanged } from '../lib/photo-storage';
 import { groupBySite, matchesPhoto, photoSiteKey, weekLabel } from '../lib/photos';
 import { navigate, paths } from '../lib/router';
+import { isInstalledApp } from '../lib/platform';
 import { costCenterByProject, costCenterSearchByProject } from '../lib/crew-link';
 import { ProjectHeading } from '../components/ProjectHeading';
 import type { Photo, Project } from '../lib/types';
@@ -113,6 +114,13 @@ export function PhotosPage() {
             </button>
           </div>
         </header>
+        {isInstalledApp() && (
+          <a href={paths.camera()} className="tools-quick" data-testid="photos-camera">
+            <Icon name="camera" size={22} />
+            <strong>Foto aufnehmen</strong>
+            <Icon name="next" size={16} />
+          </a>
+        )}
         {creating && (
           <ProjectPicker
             tool="photos"

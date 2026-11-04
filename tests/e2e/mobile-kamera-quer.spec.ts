@@ -42,3 +42,19 @@ test('Kamera quer: Kamera-Modus mit Auslöser rechts, Foto quer gespeichert', as
   expect(dims.w).toBeGreaterThan(dims.h); // quer gespeichert
   await page.setViewportSize({ width: 390, height: 844 });
 });
+
+test('Fotodokumentation: Taste „Foto aufnehmen“ auch in der Projektliste (installierte App)', async ({ page }, info) => {
+  test.skip(info.project.name !== 'iphone', 'nur Handy');
+  await freshStart(page);
+  await page.addInitScript(() => Object.defineProperty(navigator, 'standalone', { get: () => true }));
+  await page.goto('./#/tools');
+  await page.getByTestId('tool-photos').tap();
+  await expect(page.getByTestId('photos-title')).toBeVisible();
+  const btn = page.getByTestId('photos-camera');
+  await expect(btn).toContainText('Foto aufnehmen');
+  const head = (await page.getByTestId('photos-title').boundingBox())!;
+  expect((await btn.boundingBox())!.y).toBeGreaterThan(head.y);
+  await page.screenshot({ path: join(OUT, 'fotos-foto-aufnehmen.png') });
+  await btn.tap();
+  await expect(page.getByTestId('camera-page')).toBeVisible();
+});
