@@ -45,6 +45,7 @@ import {
   gradeRank,
 } from '../lib/crew';
 import { getMeta, getWeek, listProjects, listWeeks, listWorkers, previousWeek, saveWeek, setMeta } from '../lib/db';
+import { naturalCompare } from '../lib/numbers';
 import type { ExportFile } from '../lib/aufmass';
 import { getCompanyLogo } from '../lib/company';
 import { absenceOn, absenceRange, absenceSummary } from '../lib/crew-absence';
@@ -67,6 +68,18 @@ const ACCENT = { '--tool': '#2f80ed' } as CSSProperties;
  * Arbeitereinteilung: Wochenplanung nach Baustellen (Baustelle → Tag → Arbeiter). Jede Woche ist ein
  * eigener Datensatz; eine neue Woche läuft mit den Baustellen und Arbeitern der Vorwoche weiter.
  */
+type SiteOrder = 'manual' | 'number-asc' | 'number-desc' | 'cc-asc' | 'cc-desc' | 'name' | 'new' | 'old';
+const SITE_ORDER_LABELS: Record<SiteOrder, string> = {
+  manual: 'Reihenfolge wie angelegt',
+  'number-asc': 'Projektnummer aufsteigend',
+  'number-desc': 'Projektnummer absteigend',
+  'cc-asc': 'Kostenstelle aufsteigend',
+  'cc-desc': 'Kostenstelle absteigend',
+  name: 'Name A–Z',
+  new: 'Neueste Projekte zuerst',
+  old: 'Älteste Projekte zuerst',
+};
+
 export function WorkersPage() {
   // Projekte anlegen nur Admin/Büro (Polier und Arbeiter übernehmen aus dem Register)
   const mayCreateProjects = useCanCreateProjects();
@@ -74,6 +87,22 @@ export function WorkersPage() {
   const [workers, setWorkers] = useState<Worker[] | null>(null);
   const [times, setTimes] = useState<WorkTimes | null | undefined>(undefined);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [siteOrder, setSiteOrder] = useState<SiteOrder>(() => {
+    try {
+      const v = localStorage.getItem('crewSiteOrder');
+      return v && v in SITE_ORDER_LABELS ? (v as SiteOrder) : 'manual';
+    } catch {
+      return 'manual';
+    }
+  });
+  const changeSiteOrder = (o: SiteOrder) => {
+    setSiteOrder(o);
+    try {
+      localStorage.setItem('crewSiteOrder', o);
+    } catch {
+      /* egal */
+    }
+  };
   // zuletzt angezeigte Woche bleibt beim Wechsel zur Personalliste und zurück erhalten (je Browser-Tab)
   const [weekId, setWeekIdState] = useState(() => {
     try {
@@ -369,9 +398,36 @@ export function WorkersPage() {
   const sickWeek = absenceSummary(absences, weekId, days, 'krank');
   const q = query.trim().toLowerCase();
   const hit = (id: string) => !!q && nameOf(id).toLowerCase().includes(q);
-  const shown = q
+  const filtered = q
     ? plan.sites.filter((s) => [s.name, s.number, s.address].some((t) => t?.toLowerCase().includes(q)) || s.days.some((d) => d.some(hit)))
     : plan.sites;
+  // Reihenfolge der Baustellen (nur Anzeige, gemerkt): wie angelegt, Projektnummer, Kostenstelle, Name, neu/alt
+  const projOf = (s: WeekSite) => (s.projectId ? projects.find((x) => x.id === s.projectId) : undefined);
+  const shown = siteOrder === 'manual'
+    ? filtered
+    : [...filtered].sort((a, b) => {
+        const pa = projOf(a);
+        const pb = projOf(b);
+        const byName = (a.name || '').localeCompare(b.name || '', 'de');
+        const keyed = (ka: string, kb: string, desc: boolean) => (!ka || !kb ? (ka ? -1 : kb ? 1 : byName) : (desc ? -1 : 1) * naturalCompare(ka, kb) || byName);
+        switch (siteOrder) {
+          case 'number-asc':
+          case 'number-desc':
+            return keyed(pa?.number || a.number || '', pb?.number || b.number || '', siteOrder === 'number-desc');
+          case 'cc-asc':
+          case 'cc-desc':
+            return keyed(pa ? (ccMap.get(pa.id) ?? '') : '', pb ? (ccMap.get(pb.id) ?? '') : '', siteOrder === 'cc-desc');
+          case 'new':
+          case 'old': {
+            const ta = pa?.createdAt ?? 0;
+            const tb = pb?.createdAt ?? 0;
+            if (!ta || !tb) return ta ? -1 : tb ? 1 : byName;
+            return (siteOrder === 'new' ? tb - ta : ta - tb) || byName;
+          }
+          default:
+            return byName;
+        }
+      });
   const pausedShown = shown.filter((s) => s.paused);
   /** Menü einer Baustelle (laufend oder pausiert) */
   const siteActions = (s: WeekSite): MenuAction[] => [
@@ -586,6 +642,18 @@ export function WorkersPage() {
           </div>
         )}
         <section className="crew-sites">
+          {plan.sites.length > 1 && (
+            <label className="crew-order">
+              <span className="sr-only">Baustellen sortieren</span>
+              <select value={siteOrder} onChange={(e) => changeSiteOrder(e.target.value as SiteOrder)} aria-label="Baustellen sortieren" data-testid="crew-order">
+                {(Object.keys(SITE_ORDER_LABELS) as SiteOrder[]).map((o) => (
+                  <option key={o} value={o}>
+                    {SITE_ORDER_LABELS[o]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           {plan.sites.length > 1 && (
             <label className="crew-search">
               <Icon name="select" size={18} />

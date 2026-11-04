@@ -10355,3 +10355,15 @@ html[data-theme='dark'] .crew-search {
   color: var(--text);
   font: inherit;
 }
+/* Arbeitereinteilung: Baustellen sortieren */
+.crew-order select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 10px;
+  margin-bottom: 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}

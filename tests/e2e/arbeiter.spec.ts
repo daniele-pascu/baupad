@@ -798,3 +798,35 @@ test('Mitarbeiter schon hinterlegt: Meldung beim Anlegen, nur nach Rückfrage do
   await cf.getByRole('button', { name: 'Trotzdem anlegen' }).click();
   await expect(wd.getByTestId('worker-row')).toHaveCount(3);
 });
+
+test('Baustellen sortieren: wie angelegt, Projektnummer auf-/absteigend, neueste/älteste zuerst', async ({ page }) => {
+  await freshStart(page);
+  await page.goto('./#/arbeitereinteilung');
+  for (const [name, no] of [
+    ['Alpha', '300'],
+    ['Beta', '100'],
+    ['Gamma', '200'],
+  ]) {
+    await page.getByTestId('add-site').click();
+    await newWeekProject(page, name, { 'project-number': no });
+    await page.waitForTimeout(20); // unterschiedliche Anlegezeit
+  }
+  const names = () => page.getByTestId('site-card').evaluateAll((els) => els.map((e) => e.getAttribute('data-site')));
+  await expect.poll(names).toEqual(['Alpha', 'Beta', 'Gamma']);
+  const order = page.getByTestId('crew-order');
+  await order.selectOption('number-asc');
+  await expect.poll(names).toEqual(['Beta', 'Gamma', 'Alpha']);
+  await order.selectOption('number-desc');
+  await expect.poll(names).toEqual(['Alpha', 'Gamma', 'Beta']);
+  await order.selectOption('new');
+  await expect.poll(names).toEqual(['Gamma', 'Beta', 'Alpha']);
+  await order.selectOption('old');
+  await expect.poll(names).toEqual(['Alpha', 'Beta', 'Gamma']);
+  await order.selectOption('name');
+  await expect.poll(names).toEqual(['Alpha', 'Beta', 'Gamma']);
+  // gemerkt
+  await order.selectOption('number-asc');
+  await page.reload();
+  await expect(page.getByTestId('crew-order')).toHaveValue('number-asc');
+  await expect.poll(names).toEqual(['Beta', 'Gamma', 'Alpha']);
+});
