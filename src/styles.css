@@ -10355,15 +10355,38 @@ html[data-theme='dark'] .crew-search {
   color: var(--text);
   font: inherit;
 }
-/* Arbeitereinteilung: Baustellen sortieren */
-.crew-order select {
-  width: 100%;
-  min-height: 44px;
-  padding: 0 10px;
+/* Arbeitereinteilung: Anzahl Baustellen links, Sortieren nach … und Pfeil rechts (eine Zeile) */
+.crew-sites-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
   margin-bottom: 8px;
+}
+.crew-sites-count {
+  font-size: 1rem;
+}
+.crew-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.crew-sort label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.crew-sort select {
+  min-height: 40px;
+  padding: 0 8px;
   border: 1px solid var(--border-strong);
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--surface);
   color: var(--text);
   font: inherit;
+}
+.crew-sort-dir {
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
 }

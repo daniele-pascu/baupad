@@ -799,7 +799,7 @@ test('Mitarbeiter schon hinterlegt: Meldung beim Anlegen, nur nach Rückfrage do
   await expect(wd.getByTestId('worker-row')).toHaveCount(3);
 });
 
-test('Baustellen sortieren: wie angelegt, Projektnummer auf-/absteigend, neueste/älteste zuerst', async ({ page }) => {
+test('Baustellen: Anzahl der Woche, sortieren nach Projektnummer/Anlegedatum mit Pfeil auf/ab', async ({ page }) => {
   await freshStart(page);
   await page.goto('./#/arbeitereinteilung');
   for (const [name, no] of [
@@ -811,22 +811,25 @@ test('Baustellen sortieren: wie angelegt, Projektnummer auf-/absteigend, neueste
     await newWeekProject(page, name, { 'project-number': no });
     await page.waitForTimeout(20); // unterschiedliche Anlegezeit
   }
+  await expect(page.getByTestId('crew-sites-count')).toHaveText('3 Baustellen');
   const names = () => page.getByTestId('site-card').evaluateAll((els) => els.map((e) => e.getAttribute('data-site')));
   await expect.poll(names).toEqual(['Alpha', 'Beta', 'Gamma']);
   const order = page.getByTestId('crew-order');
-  await order.selectOption('number-asc');
+  const dir = page.getByTestId('crew-order-dir');
+  await order.selectOption('number');
+  await expect(dir).toHaveAttribute('data-dir', 'asc');
   await expect.poll(names).toEqual(['Beta', 'Gamma', 'Alpha']);
-  await order.selectOption('number-desc');
+  await dir.click();
+  await expect(dir).toHaveAttribute('data-dir', 'desc');
   await expect.poll(names).toEqual(['Alpha', 'Gamma', 'Beta']);
-  await order.selectOption('new');
+  await order.selectOption('created'); // absteigend = neueste zuerst
   await expect.poll(names).toEqual(['Gamma', 'Beta', 'Alpha']);
-  await order.selectOption('old');
-  await expect.poll(names).toEqual(['Alpha', 'Beta', 'Gamma']);
-  await order.selectOption('name');
+  await dir.click();
   await expect.poll(names).toEqual(['Alpha', 'Beta', 'Gamma']);
   // gemerkt
-  await order.selectOption('number-asc');
+  await order.selectOption('number');
   await page.reload();
-  await expect(page.getByTestId('crew-order')).toHaveValue('number-asc');
+  await expect(page.getByTestId('crew-order')).toHaveValue('number');
+  await expect(page.getByTestId('crew-order-dir')).toHaveAttribute('data-dir', 'asc');
   await expect.poll(names).toEqual(['Beta', 'Gamma', 'Alpha']);
 });

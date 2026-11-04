@@ -68,16 +68,13 @@ const ACCENT = { '--tool': '#2f80ed' } as CSSProperties;
  * Arbeitereinteilung: Wochenplanung nach Baustellen (Baustelle → Tag → Arbeiter). Jede Woche ist ein
  * eigener Datensatz; eine neue Woche läuft mit den Baustellen und Arbeitern der Vorwoche weiter.
  */
-type SiteOrder = 'manual' | 'number-asc' | 'number-desc' | 'cc-asc' | 'cc-desc' | 'name' | 'new' | 'old';
-const SITE_ORDER_LABELS: Record<SiteOrder, string> = {
-  manual: 'Reihenfolge wie angelegt',
-  'number-asc': 'Projektnummer aufsteigend',
-  'number-desc': 'Projektnummer absteigend',
-  'cc-asc': 'Kostenstelle aufsteigend',
-  'cc-desc': 'Kostenstelle absteigend',
-  name: 'Name A–Z',
-  new: 'Neueste Projekte zuerst',
-  old: 'Älteste Projekte zuerst',
+type SiteSort = 'manual' | 'number' | 'cc' | 'name' | 'created';
+const SITE_SORT_LABELS: Record<SiteSort, string> = {
+  manual: 'wie angelegt',
+  number: 'Projektnummer',
+  cc: 'Kostenstelle',
+  name: 'Name',
+  created: 'Anlegedatum',
 };
 
 export function WorkersPage() {
@@ -87,18 +84,19 @@ export function WorkersPage() {
   const [workers, setWorkers] = useState<Worker[] | null>(null);
   const [times, setTimes] = useState<WorkTimes | null | undefined>(undefined);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [siteOrder, setSiteOrder] = useState<SiteOrder>(() => {
+  /** Baustellen sortieren (nur Anzeige, gemerkt): wonach und auf-/absteigend */
+  const [siteSort, setSiteSort] = useState<{ key: SiteSort; desc: boolean }>(() => {
     try {
-      const v = localStorage.getItem('crewSiteOrder');
-      return v && v in SITE_ORDER_LABELS ? (v as SiteOrder) : 'manual';
+      const v = JSON.parse(localStorage.getItem('crewSiteSort') ?? 'null') as { key?: string; desc?: boolean } | null;
+      return v?.key && v.key in SITE_SORT_LABELS ? { key: v.key as SiteSort, desc: !!v.desc } : { key: 'manual', desc: false };
     } catch {
-      return 'manual';
+      return { key: 'manual', desc: false };
     }
   });
-  const changeSiteOrder = (o: SiteOrder) => {
-    setSiteOrder(o);
+  const changeSiteSort = (next: { key: SiteSort; desc: boolean }) => {
+    setSiteSort(next);
     try {
-      localStorage.setItem('crewSiteOrder', o);
+      localStorage.setItem('crewSiteSort', JSON.stringify(next));
     } catch {
       /* egal */
     }
@@ -403,29 +401,30 @@ export function WorkersPage() {
     : plan.sites;
   // Reihenfolge der Baustellen (nur Anzeige, gemerkt): wie angelegt, Projektnummer, Kostenstelle, Name, neu/alt
   const projOf = (s: WeekSite) => (s.projectId ? projects.find((x) => x.id === s.projectId) : undefined);
-  const shown = siteOrder === 'manual'
-    ? filtered
+  const shown = siteSort.key === 'manual'
+    ? siteSort.desc
+      ? [...filtered].reverse()
+      : filtered
     : [...filtered].sort((a, b) => {
         const pa = projOf(a);
         const pb = projOf(b);
         const byName = (a.name || '').localeCompare(b.name || '', 'de');
-        const keyed = (ka: string, kb: string, desc: boolean) => (!ka || !kb ? (ka ? -1 : kb ? 1 : byName) : (desc ? -1 : 1) * naturalCompare(ka, kb) || byName);
-        switch (siteOrder) {
-          case 'number-asc':
-          case 'number-desc':
-            return keyed(pa?.number || a.number || '', pb?.number || b.number || '', siteOrder === 'number-desc');
-          case 'cc-asc':
-          case 'cc-desc':
-            return keyed(pa ? (ccMap.get(pa.id) ?? '') : '', pb ? (ccMap.get(pb.id) ?? '') : '', siteOrder === 'cc-desc');
-          case 'new':
-          case 'old': {
+        const dir = siteSort.desc ? -1 : 1;
+        // ohne Wert immer am Ende
+        const keyed = (ka: string, kb: string) => (!ka || !kb ? (ka ? -1 : kb ? 1 : byName) : dir * naturalCompare(ka, kb) || byName);
+        switch (siteSort.key) {
+          case 'number':
+            return keyed(pa?.number || a.number || '', pb?.number || b.number || '');
+          case 'cc':
+            return keyed(pa ? (ccMap.get(pa.id) ?? '') : '', pb ? (ccMap.get(pb.id) ?? '') : '');
+          case 'created': {
             const ta = pa?.createdAt ?? 0;
             const tb = pb?.createdAt ?? 0;
             if (!ta || !tb) return ta ? -1 : tb ? 1 : byName;
-            return (siteOrder === 'new' ? tb - ta : ta - tb) || byName;
+            return dir * (ta - tb) || byName;
           }
           default:
-            return byName;
+            return dir * byName;
         }
       });
   const pausedShown = shown.filter((s) => s.paused);
@@ -642,17 +641,37 @@ export function WorkersPage() {
           </div>
         )}
         <section className="crew-sites">
-          {plan.sites.length > 1 && (
-            <label className="crew-order">
-              <span className="sr-only">Baustellen sortieren</span>
-              <select value={siteOrder} onChange={(e) => changeSiteOrder(e.target.value as SiteOrder)} aria-label="Baustellen sortieren" data-testid="crew-order">
-                {(Object.keys(SITE_ORDER_LABELS) as SiteOrder[]).map((o) => (
-                  <option key={o} value={o}>
-                    {SITE_ORDER_LABELS[o]}
-                  </option>
-                ))}
-              </select>
-            </label>
+          {plan.sites.length > 0 && (
+            <div className="crew-sites-bar" data-testid="crew-sites-bar">
+              <strong className="crew-sites-count" data-testid="crew-sites-count">
+                {plan.sites.length} {plan.sites.length === 1 ? 'Baustelle' : 'Baustellen'}
+              </strong>
+              {plan.sites.length > 1 && (
+                <span className="crew-sort">
+                  <label>
+                    <span className="muted small">Sortieren nach</span>
+                    <select value={siteSort.key} onChange={(e) => changeSiteSort({ ...siteSort, key: e.target.value as SiteSort })} aria-label="Baustellen sortieren nach" data-testid="crew-order">
+                      {(Object.keys(SITE_SORT_LABELS) as SiteSort[]).map((o) => (
+                        <option key={o} value={o}>
+                          {SITE_SORT_LABELS[o]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    className="icon-btn crew-sort-dir"
+                    onClick={() => changeSiteSort({ ...siteSort, desc: !siteSort.desc })}
+                    aria-label={siteSort.desc ? 'Absteigend – tippen für aufsteigend' : 'Aufsteigend – tippen für absteigend'}
+                    title={siteSort.desc ? 'Absteigend' : 'Aufsteigend'}
+                    data-testid="crew-order-dir"
+                    data-dir={siteSort.desc ? 'desc' : 'asc'}
+                  >
+                    <Icon name={siteSort.desc ? 'down' : 'up'} size={20} />
+                  </button>
+                </span>
+              )}
+            </div>
           )}
           {plan.sites.length > 1 && (
             <label className="crew-search">
