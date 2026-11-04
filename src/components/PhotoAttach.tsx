@@ -4,7 +4,7 @@ import { Modal } from './Modal';
 import { PhotoCapture } from './PhotoCapture';
 import { PhotoImg } from './PhotoImg';
 import { PhotoViewer } from './PhotoViewer';
-import { SeriesCamera } from './SeriesCamera';
+import { askMotionPermission, SeriesCamera } from './SeriesCamera';
 import { getPhotoStorage } from '../lib/photo-storage';
 import { photoSiteKey } from '../lib/photos';
 import type { Photo, PhotoSite } from '../lib/types';
@@ -96,7 +96,10 @@ export function PhotoAttach({ site, ids, onChange, hint, description = '' }: { s
           }}
           render={({ library }) => (
             <>
-              <button type="button" className="btn btn-sm" onClick={() => setSeries(true)} data-testid="attach-camera">
+              <button type="button" className="btn btn-sm" onClick={() => {
+                  askMotionPermission();
+                  setSeries(true);
+                }} data-testid="attach-camera">
                 <Icon name="camera" size={16} /> Fotos aufnehmen
               </button>
               <button type="button" className="btn btn-sm" onClick={library} data-testid="attach-library">

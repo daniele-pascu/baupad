@@ -12,6 +12,12 @@ import { useProjectIn } from '../lib/sites';
 import { cameraFraming } from '../pages/CameraPage';
 
 type Orient = 'auto' | 'portrait' | 'landscape';
+
+/** iPhone: Lagesensor nur nach Erlaubnis (aus einer Berührung heraus) – beim Öffnen der Kamera aufrufen */
+export function askMotionPermission() {
+  const DOE = window.DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> } | undefined;
+  DOE?.requestPermission?.().catch(() => undefined);
+}
 const ORIENT_LABEL: Record<Orient, string> = { auto: 'Auto', portrait: 'Hoch', landscape: 'Quer' };
 const nextOrient = (o: Orient): Orient => (o === 'auto' ? 'portrait' : o === 'portrait' ? 'landscape' : 'auto');
 
@@ -71,12 +77,11 @@ export function SeriesCamera({ site, description, onDone, onClose }: { site: Pho
     };
     const DOE = window.DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> } | undefined;
     const attach = () => window.addEventListener('deviceorientation', onOrient);
-    if (DOE && !DOE.requestPermission) attach();
-    // iOS: Erlaubnis nur aus einer Berührung heraus
+    // ohne Erlaubnispflicht bzw. schon erlaubt (beim Öffnen gefragt): Ereignisse kommen einfach an
+    attach();
+    // iOS: Erlaubnis nur aus einer Berührung heraus (falls beim Öffnen noch nicht erteilt)
     const ask = () => {
-      DOE?.requestPermission?.()
-        .then((r) => r === 'granted' && attach())
-        .catch(() => undefined);
+      DOE?.requestPermission?.().catch(() => undefined);
     };
     window.addEventListener('click', ask, { once: true });
     return () => {

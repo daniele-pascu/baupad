@@ -306,6 +306,14 @@ test('Messung: Fotos wie im Mängelplan (Galerie → Fotodokumentation), Taste F
   await expect(cam.getByTestId('series-device-camera')).toBeVisible();
   // Hoch/Quer: automatisch erkannt (PC-Testkamera quer), umschaltbar
   await expect(cam.getByTestId('series-orient')).toContainText('Auto (Quer)');
+  // Handy quer: Bild links groß, Auslöser und Haken rechts
+  await page.setViewportSize({ width: 844, height: 390 });
+  const vb = (await cam.locator('video').boundingBox())!;
+  const sb = (await cam.getByTestId('series-shutter').boundingBox())!;
+  expect(sb.x).toBeGreaterThanOrEqual(vb.x + vb.width - 2);
+  expect(vb.height).toBeGreaterThan(250);
+  await page.screenshot({ path: join(OUT, 'serienkamera-quer.png') });
+  await page.setViewportSize({ width: 1440, height: 900 });
   await cam.getByTestId('series-shutter').click();
   await expect(cam.getByTestId('series-count')).toHaveText('1 Foto');
   // im schlimmsten Fall: Foto um 90° drehen

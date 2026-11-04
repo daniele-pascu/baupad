@@ -7,7 +7,7 @@ import { PhotoCapture } from '../components/PhotoCapture';
 import { PhotoImg } from '../components/PhotoImg';
 import { PhotoViewer } from '../components/PhotoViewer';
 import { SitePhotosPicker } from '../components/PhotoAttach';
-import { SeriesCamera } from '../components/SeriesCamera';
+import { askMotionPermission, SeriesCamera } from '../components/SeriesCamera';
 import { confirmDialog, showError } from '../components/ui';
 import { getCompanyLogo } from '../lib/company';
 import { getDefectPlan, getMeta } from '../lib/db';
@@ -727,7 +727,10 @@ function MarkDialog({
               }}
               render={({ library }) => (
                 <>
-                  <button type="button" className="btn btn-sm" onClick={() => setSeries(true)} data-testid="dp-photo-camera">
+                  <button type="button" className="btn btn-sm" onClick={() => {
+                    askMotionPermission();
+                    setSeries(true);
+                  }} data-testid="dp-photo-camera">
                     <Icon name="camera" size={16} /> Fotos aufnehmen
                   </button>
                   <button type="button" className="btn btn-sm" onClick={library} data-testid="dp-photo-library">
