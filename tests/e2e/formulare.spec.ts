@@ -91,8 +91,9 @@ test('Regieliste der Firma: Wochentabelle wird erkannt', async ({ page }) => {
   await box.click();
   const x0 = Number(await fp.getByTestId('form-tpl-x').inputValue());
   await page.keyboard.press('ArrowRight');
+  await expect.poll(async () => Number(await fp.getByTestId('form-tpl-x').inputValue())).toBeCloseTo(x0 + 1, 0);
   await page.keyboard.press('ArrowRight');
-  expect(Number(await fp.getByTestId('form-tpl-x').inputValue())).toBeCloseTo(x0 + 2, 0);
+  await expect.poll(async () => Number(await fp.getByTestId('form-tpl-x').inputValue())).toBeCloseTo(x0 + 2, 0);
   // neues Feld wie Text ziehen → übernimmt die zuletzt gewählte Schrift; Entf entfernt es wieder
   const n0 = await dlg.getByTestId('form-tpl-box').count();
   await dlg.getByTestId('form-template-add').click();

@@ -175,15 +175,14 @@ test('Vorlage einrichten, im Projekt ausfüllen, PDF, Nummern, Vorlagenversion',
   await expect(page.getByTestId('form-item')).toHaveCount(2);
   // Listen erst, wenn es dort etwas gibt: noch keine Regieliste → keine Liste „Regielisten“
   await expect(page.locator('[data-testid="report-section"][data-type="regie"]')).toHaveCount(0);
+  // „Neu“ zeigt nur angelegte Formulare: hier das eigene Formular, keine BauPad-Berichte ohne Firmenformular
   await page.getByTestId('report-group-new').click();
-  await page.getByTestId('report-new-dialog').getByTestId('report-type-regie').click();
-  await page.getByTestId('report-new-dialog').getByTestId('report-create').click();
-  await expect(page.getByTestId('report-title')).toHaveText('Regieliste Nr. 1');
-  await page.getByTestId('to-reports').click();
-  await expect(page.locator('[data-testid="report-section"][data-type="regie"]')).toHaveCount(1);
-  // mit „+“ daneben gleich die nächste
-  await expect(page.locator('[data-testid="report-section-add"][data-type="regie"]')).toBeVisible();
-  await expect(page.getByTestId('report-item')).toHaveCount(1);
+  const nd2 = page.getByTestId('report-new-dialog');
+  await expect(nd2.getByTestId('report-type-form')).toHaveCount(1);
+  await expect(nd2.getByTestId('report-type-regie')).toHaveCount(0);
+  await expect(nd2.getByTestId('report-type-tag')).toHaveCount(0);
+  await expect(nd2.getByTestId('report-type-woche')).toHaveCount(0);
+  await nd2.getByRole('button', { name: 'Abbrechen' }).click();
   await page.getByTestId('to-reports-overview').click();
   await expect(page.getByTestId('report-site')).toContainText('2 Formulare');
   await expect(page.getByTestId('report-site-forms')).toHaveText('2 × Tagesbericht Muster');

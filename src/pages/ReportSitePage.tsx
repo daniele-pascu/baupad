@@ -50,6 +50,8 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
   const [editing, setEditing] = useState(false);
   const [allEntries, setAllEntries] = useState<FormEntry[]>([]);
   const [templates, setTemplates] = useState<FormTemplate[]>([]);
+  /** Firmenformulare für BauPad-Berichte (bestimmen, welche Berichtsarten bei „Neu“ erscheinen) */
+  const [reportTemplates, setReportTemplates] = useState<FormTemplate[]>([]);
   const session = useSession();
   const reports = useMemo(() => (all ?? []).filter((r) => siteKey(r) === key), [all, key]);
   const entries = useMemo(() => allEntries.filter((e) => entrySiteKey(e) === key), [allEntries, key]);
@@ -87,6 +89,7 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
         setSites(s);
         setAllEntries(e);
         setTemplates(t.filter(isCustomTemplate));
+        setReportTemplates(t.filter((x) => !isCustomTemplate(x)));
         setAll(r);
       })
       .catch((e) => showError(e, 'Berichte konnten nicht geladen werden'));
@@ -413,7 +416,7 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
         ))}
       </div>
       {creating && site && (
-        <NewReportDialog sites={sites} site={site} templates={templates} onCreateForm={createForm} onClose={() => setCreating(false)} onCreate={(type, s, date) => run(() => createReport(type, s, date, all ?? []))} />
+        <NewReportDialog sites={sites} site={site} templates={templates} reportTemplates={reportTemplates} onCreateForm={createForm} onClose={() => setCreating(false)} onCreate={(type, s, date) => run(() => createReport(type, s, date, all ?? []))} />
       )}
       {editing && site && (
         <ProjectEditDialog

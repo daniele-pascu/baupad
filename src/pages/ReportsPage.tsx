@@ -295,6 +295,7 @@ export function NewReportDialog({
   onCreate,
   onClose,
   templates: allTemplates = [],
+  reportTemplates,
   onCreateForm,
 }: {
   sites: PhotoSite[];
@@ -304,10 +305,17 @@ export function NewReportDialog({
   /** freie Firmenformulare (Vorlagen) – erscheinen als weitere Karten */
   templates?: FormTemplate[];
   onCreateForm?(t: FormTemplate, site: SiteChoice, date: string): void;
+  /** hinterlegte Firmenformulare für BauPad-Berichte – dann erscheinen nur diese Berichtsarten */
+  reportTemplates?: FormTemplate[];
 }) {
   // nur verfügbare Firmenformulare: eingerichtet (mindestens ein Feld)
   const templates = allTemplates.filter((t) => (t.fields?.length ?? 0) > 0);
-  const [type, setType] = useState<string>('regie');
+  // nur angelegte Formulare: BauPad-Berichte mit hinterlegtem Firmenformular + eingerichtete eigene Formulare;
+  // ist noch gar nichts angelegt, die BauPad-Berichte, damit man überhaupt etwas anlegen kann
+  const rt = reportTemplates ?? [];
+  const withForm = REPORT_TYPES.filter((t) => rt.some((x) => x.type === t.type));
+  const types = reportTemplates === undefined || (!withForm.length && !templates.length) ? REPORT_TYPES : withForm;
+  const [type, setType] = useState<string>(() => types[0]?.type ?? (templates[0] ? `tpl:${templates[0].id}` : 'regie'));
   const [list, setList] = useState(sites);
   useEffect(() => setList(sites), [sites]);
   const [chosen, setChosen] = useState<PhotoSite | null>(() => {
@@ -342,13 +350,16 @@ export function NewReportDialog({
       }
     >
       <div className="report-type-choice" role="radiogroup" aria-label="Berichtstyp">
-        {REPORT_TYPES.map((t) => (
-          <button key={t.type} type="button" role="radio" aria-checked={type === t.type} className={`report-type-card${type === t.type ? ' active' : ''}`} onClick={() => setType(t.type)} data-testid={`report-type-${t.type}`}>
-            <span className={`report-type t-${t.type}`}>{t.short}</span>
-            <strong>{t.label}</strong>
-            <span className="muted small">{t.type === 'regie' ? 'Regiearbeiten mit Stunden je Arbeiter' : t.type === 'tag' ? 'Tägliche Dokumentation des Projekts' : 'Zusammenfassung einer Woche (Mo–So)'}</span>
-          </button>
-        ))}
+        {types.map((t) => {
+          const form = rt.find((x) => x.type === t.type);
+          return (
+            <button key={t.type} type="button" role="radio" aria-checked={type === t.type} className={`report-type-card${type === t.type ? ' active' : ''}`} onClick={() => setType(t.type)} data-testid={`report-type-${t.type}`}>
+              <span className={`report-type t-${t.type}`}>{t.short}</span>
+              <strong>{t.label}</strong>
+              <span className="muted small">{form ? `Firmenformular: ${form.name}` : t.type === 'regie' ? 'Regiearbeiten mit Stunden je Arbeiter' : t.type === 'tag' ? 'Tägliche Dokumentation des Projekts' : 'Zusammenfassung einer Woche (Mo–So)'}</span>
+            </button>
+          );
+        })}
         {templates.map((t) => {
           const n = (t.fields ?? []).length;
           return (
