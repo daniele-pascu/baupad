@@ -1,5 +1,5 @@
 import type { ExportFile } from './aufmass';
-import { weekOf, workerName } from './crew';
+import { DEFAULT_WORK_TIMES, weekOf, workerName } from './crew';
 import { getFormFile, getMeta, getWeek, listWorkers, loadProjectData, previousWeek, saveFormEntry } from './db';
 import { templateFileId, type FormTemplate } from './form-template';
 import { mainDate, nextFormNo, prefill, type FormEntry, type PrefillContext } from './forms';
@@ -7,7 +7,7 @@ import { filledEntryFile } from './forms-pdf';
 import { uuid } from './ids';
 import { crewForDay, effectiveWeek } from './reports';
 import { today } from './reports';
-import type { Absence } from './types';
+import type { Absence, WorkTimes } from './types';
 
 /**
  * Ausgefüllte Firmenformulare: Anlegen mit Datenübernahme (Projekt, Datum/KW, Mitarbeiter aus der Einteilung,
@@ -41,8 +41,8 @@ export async function suggestedPeople(projectId: string | null, siteName: string
 
 /** Übernahme-Angaben zu Projekt, Datum und Firma */
 export async function prefillContext(projectId: string | null, siteName: string, date: string, no: string): Promise<PrefillContext> {
-  const [project, people, company] = await Promise.all([projectInfoFor(projectId, siteName), suggestedPeople(projectId, siteName, date), getMeta<string>('companyName')]);
-  return { project, people, company: company ?? '', date, no };
+  const [project, people, company, workTimes] = await Promise.all([projectInfoFor(projectId, siteName), suggestedPeople(projectId, siteName, date), getMeta<string>('companyName'), getMeta<WorkTimes>('workTimes')]);
+  return { project, people, company: company ?? '', date, no, workTimes: workTimes ?? DEFAULT_WORK_TIMES };
 }
 
 /** Neues Formular aus einer Vorlage – Schnappschuss der Felder, Nummer je Projekt, Werte übernommen */
@@ -77,7 +77,7 @@ export async function copyFormEntry(src: FormEntry, all: FormEntry[], createdBy:
   const now = Date.now();
   const date = today();
   const no = nextFormNo(all, src.templateId);
-  const values = prefill(src.layout.fields, { date, no }, src.values);
+  const values = prefill(src.layout.fields, { date, no, workTimes: (await getMeta<WorkTimes>('workTimes')) ?? DEFAULT_WORK_TIMES }, src.values);
   const e: FormEntry = { ...src, id: uuid(), no, date: mainDate(src.layout.fields, values) ?? date, values, status: 'draft', createdBy, createdAt: now, updatedAt: now };
   await saveFormEntry(e);
   return e;

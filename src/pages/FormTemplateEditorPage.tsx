@@ -18,21 +18,38 @@ import { ACCENT } from './ReportsPage';
  * Jeder Kasten zeigt seinen Feldnamen als Muster (Schrift, Größe, Farbe). Speichern erhöht die Vorlagenversion.
  */
 
-const SAMPLE: Record<CustomFieldType, string> = {
-  text: 'Beispieltext',
-  multiline: 'Erste Zeile des Textes\nZweite Zeile des Textes\nDritte Zeile des Textes',
-  date: '28.10.2026',
-  week: '44',
-  weekday: 'Mittwoch',
-  number: '12',
-  amount: '1.250,00',
-  person: 'Max Muster, Peter Beispiel',
-  project: 'Wohnanlage Sonnenhof',
-  company: 'Muster Bau GmbH',
-  select: 'Auswahl',
-  checkbox: 'X',
-  no: '7',
-};
+
+/** Zahleneingabe, in die man frei tippen kann (leer, „1“ auf dem Weg zu „12“ …) – übernommen wird jeder gültige Wert */
+function NumInput({ value, min, max, step, onCommit, testId, label }: { value: number; min: number; max?: number; step?: number; onCommit(v: number): void; testId: string; label?: string }) {
+  const [text, setText] = useState(String(value));
+  const [focus, setFocus] = useState(false);
+  useEffect(() => {
+    if (!focus) setText(String(value));
+  }, [value, focus]);
+  const ok = (v: number) => Number.isFinite(v) && v >= min && (max === undefined || v <= max);
+  return (
+    <input
+      type="number"
+      inputMode="decimal"
+      min={min}
+      max={max}
+      step={step}
+      value={text}
+      aria-label={label}
+      onFocus={() => setFocus(true)}
+      onBlur={() => {
+        setFocus(false);
+        setText(String(value));
+      }}
+      onChange={(e) => {
+        setText(e.target.value);
+        const v = Number(e.target.value.replace(',', '.'));
+        if (e.target.value.trim() && ok(v)) onCommit(v);
+      }}
+      data-testid={testId}
+    />
+  );
+}
 
 /** Schrift wie im ausgefüllten PDF */
 const ink = (f: CustomField) => ({ color: f.color || DEFAULT_FORM_COLOR, fontFamily: fontCss(f), fontWeight: f.bold ? 700 : 400 });
@@ -382,7 +399,7 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
       await saveFormTemplate(next);
       setT(next);
       setDirty(false);
-      toast(`Vorlage gespeichert (Version ${next.version}).`, 'success');
+      toast('Vorlage gespeichert.', 'success');
     } catch (e) {
       showError(e, 'Konnte nicht gespeichert werden');
     } finally {
@@ -422,7 +439,7 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
             <div>
               <h1 data-testid="form-editor-title">{name || t.name}</h1>
               <span className="muted small">
-                Felder einrichten · Version {t.version ?? 1} · <span data-testid="form-editor-state">{dirty ? 'nicht gespeichert' : 'gespeichert'}</span>
+                Felder einrichten · <span data-testid="form-editor-state">{dirty ? 'nicht gespeichert' : 'gespeichert'}</span>
               </span>
             </div>
           </div>
@@ -539,7 +556,7 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
                     onChange={(e) => {
                       // Vorschlag gewählt (z. B. „Wochentag“) → passender Feldtyp, solange noch „Einzeiliger Text“
                       const sg = suggestionFor(e.target.value);
-                      patch(field.id, { name: e.target.value, ...(sg && field.type === 'text' ? { type: sg.type, ...(sg.source ? { source: sg.source } : {}) } : {}) });
+                      patch(field.id, { name: e.target.value, ...(sg && field.type === 'text' ? { type: sg.type, ...(sg.source ? { source: sg.source } : {}), ...(sg.timeOf ? { timeOf: sg.timeOf } : {}) } : {}) });
                     }}
                     placeholder="z. B. Baustelle – Vorschlag wählen oder selbst schreiben"
                     data-testid="form-field-name"
@@ -553,7 +570,7 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
                     {NAME_SUGGESTIONS.filter((x) => !fields.some((g) => g.name.trim().toLowerCase() === x.name.toLowerCase()))
                       .slice(0, 8)
                       .map((x) => (
-                        <button key={x.name} type="button" className="chip" onClick={() => patch(field.id, { name: x.name, type: x.type, ...(x.source ? { source: x.source } : {}) })} data-testid="form-name-suggestion">
+                        <button key={x.name} type="button" className="chip" onClick={() => patch(field.id, { name: x.name, type: x.type, ...(x.source ? { source: x.source } : {}), ...(x.timeOf ? { timeOf: x.timeOf } : {}) })} data-testid="form-name-suggestion">
                           {x.name}
                         </button>
                       ))}
@@ -570,6 +587,17 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
                   </select>
                   <small className="muted">{FIELD_TYPES.find((x) => x.id === field.type)?.help}</small>
                 </label>
+                {field.type === 'time' && (
+                  <label className="field">
+                    <span>Aus den Arbeitszeiten der Firma</span>
+                    <select value={field.timeOf ?? ''} onChange={(e) => patch(field.id, { timeOf: (e.target.value || undefined) as CustomField['timeOf'] })} data-testid="form-field-timeof">
+                      <option value="from">Arbeitsbeginn</option>
+                      <option value="to">Arbeitsende</option>
+                      <option value="">nichts vorschlagen</option>
+                    </select>
+                    <small className="muted">Je nach Wochentag des Datums (Zeitaufzeichnung bzw. Einteilung → Arbeitszeiten); beim Ausfüllen änderbar.</small>
+                  </label>
+                )}
                 {field.type === 'project' && (
                   <label className="field">
                     <span>Angabe aus dem Projekt</span>
@@ -619,20 +647,17 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
                       {field.type === 'multiline' && (
                         <label className="field">
                           <span>Zeilenabstand (mm)</span>
-                          <input
-                            type="number"
+                          <NumInput
                             min={2}
-                            max={30}
+                            max={40}
                             step={0.5}
                             value={Math.round((pitchOf(field) / MM_PT) * 10) / 10}
-                            onChange={(e) => {
-                              const mm = Number(e.target.value);
-                              if (!(mm > 0)) return;
+                            onCommit={(mm) => {
                               const pitch = mm * MM_PT;
                               const n = lineCapacity(field);
                               patch(field.id, { pitch, lines: n, box: { ...field.box, h: Math.min(height - field.box.y, multiHeight(n, pitch, fontSizeOf(field))) } });
                             }}
-                            data-testid="form-field-pitch"
+                            testId="form-field-pitch"
                           />
                         </label>
                       )}
@@ -661,10 +686,10 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
                                 <tr key={i}>
                                   <td>{i + 1}</td>
                                   <td>
-                                    <input type="number" min={0} step={0.5} value={Math.round((ins.left / MM_PT) * 10) / 10} onChange={(e) => set('left', Number(e.target.value) || 0)} aria-label={`Zeile ${i + 1} Beginn`} data-testid="form-inset-left-mm" />
+                                    <NumInput min={0} step={0.5} value={Math.round((ins.left / MM_PT) * 10) / 10} onCommit={(v) => set('left', v)} label={`Zeile ${i + 1} Beginn`} testId="form-inset-left-mm" />
                                   </td>
                                   <td>
-                                    <input type="number" min={0} step={0.5} value={Math.round((ins.right / MM_PT) * 10) / 10} onChange={(e) => set('right', Number(e.target.value) || 0)} aria-label={`Zeile ${i + 1} Ende`} data-testid="form-inset-right-mm" />
+                                    <NumInput min={0} step={0.5} value={Math.round((ins.right / MM_PT) * 10) / 10} onCommit={(v) => set('right', v)} label={`Zeile ${i + 1} Ende`} testId="form-inset-right-mm" />
                                   </td>
                                 </tr>
                               );
@@ -736,9 +761,6 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
                         ))}
                       </div>
                     </div>
-                    <p className="form-ink-sample" style={{ ...ink(field), fontSize: `${Math.max(11, fontSizeOf(field) * 1.4)}px` }}>
-                      So wird es ausgefüllt: {SAMPLE[field.type].split('\n')[0]}
-                    </p>
                   </div>
                 )}
                 <label className="field">

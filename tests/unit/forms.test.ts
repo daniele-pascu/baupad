@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { analyzeForm } from '../../src/lib/form-template';
-import { displayValue, duplicateNos, parseNoRange, lineBoxes, wrapToLines, fieldsFromDetection, fits, isoWeek, isoWeekLabel, lineCapacity, nextFormNo, prefill, readingOrder, wrapText, type CustomField, type FormEntry } from '../../src/lib/forms';
+import { workTimeFor, displayValue, duplicateNos, parseNoRange, lineBoxes, wrapToLines, fieldsFromDetection, fits, isoWeek, isoWeekLabel, lineCapacity, nextFormNo, prefill, readingOrder, wrapText, type CustomField, type FormEntry } from '../../src/lib/forms';
 import tagesbericht from '../fixtures/forms/mst-tagesbericht.json';
 
 /** Näherung für Helvetica: 0,5 × Schriftgröße je Zeichen */
@@ -120,5 +120,15 @@ describe('Firmenformulare: Zeilen mit eigenem Beginn/Ende', () => {
     const lines = wrapToLines(f, 'aaaaaaaaaa bbbbbbbbbb cccccccccc dddddddddd', measure);
     expect(lines[0]).toBe('aaaaaaaaaa bbbbbbbbbb');
     expect(lines[1]).toBe('cccccccccc dddddddddd');
+  });
+});
+
+describe('Firmenformulare: Uhrzeit aus den Arbeitszeiten der Firma', () => {
+  const wt = [{ from: '07:00', to: '16:00' }, { from: '07:00', to: '16:00' }, { from: '07:00', to: '16:00' }, { from: '07:00', to: '16:00' }, { from: '07:00', to: '12:30' }, null, null];
+  it('Beginn/Ende je Wochentag; freier Tag → kein Vorschlag', () => {
+    expect(workTimeFor({ timeOf: 'from' }, { date: '2026-11-06', workTimes: wt })).toBe('07:00'); // Freitag
+    expect(workTimeFor({ timeOf: 'to' }, { date: '2026-11-06', workTimes: wt })).toBe('12:30');
+    expect(workTimeFor({ timeOf: 'to' }, { date: '2026-11-07', workTimes: wt })).toBeUndefined(); // Samstag frei
+    expect(prefill([field({ id: 'b', type: 'time', timeOf: 'from' }), field({ id: 'e', type: 'time', timeOf: 'to' })], { date: '2026-11-02', workTimes: wt })).toEqual({ b: '07:00', e: '16:00' });
   });
 });

@@ -94,7 +94,8 @@ test('Vorlage einrichten, im Projekt ausfüllen, PDF, Nummern, Vorlagenversion',
   const row = page.getByTestId('form-template-row');
   await expect(row).toHaveCount(1);
   await expect(row).toContainText('Tagesbericht Muster');
-  await expect(row).toContainText('14 Felder · 1 Pflicht · Version 2');
+  await expect(row).toContainText('14 Felder · 1 Pflicht · 0 Formulare');
+  await expect(row).not.toContainText('Version');
   await expect(row.getByTestId('form-template-fields')).toContainText('Baustelle *');
   await expect(row.getByTestId('form-template-fields')).toContainText('Wetter');
 
@@ -336,6 +337,12 @@ test('Felder: Namen vorschlagen, Schrift (Größe, Art, Farbe), Wochentag/KW aus
   const h7 = Number(await panel.getByTestId('form-field-h').inputValue());
   await panel.getByTestId('form-field-pitch').fill('9');
   expect(Number(await panel.getByTestId('form-field-h').inputValue())).toBeCloseTo(h7 + 2 * 2 * 2.835, 0);
+  // frei tippen: löschen und „12“ eingeben (springt nicht auf den alten Wert zurück)
+  await panel.getByTestId('form-field-pitch').fill('');
+  await panel.getByTestId('form-field-pitch').pressSequentially('12');
+  await expect(panel.getByTestId('form-field-pitch')).toHaveValue('12');
+  expect(Number(await panel.getByTestId('form-field-h').inputValue())).toBeCloseTo(h7 + 2 * 5 * 2.835, 0);
+  await panel.getByTestId('form-field-pitch').fill('9');
   await panel.getByTestId('form-field-name').fill('Arbeiten');
   // Beginn/Ende je Zeile: erste Zeile später beginnen (Eingabe), letzte Zeile früher enden (am Ende ziehen)
   await panel.getByTestId('form-line-insets').locator('xpath=..').locator('summary').click();
@@ -363,6 +370,11 @@ test('Felder: Namen vorschlagen, Schrift (Größe, Art, Farbe), Wochentag/KW aus
   await expect(page.getByTestId('form-field-box')).toHaveCount(count - 1);
   await expect(page.locator('[data-testid="form-field-box"][data-name="Arbeiten"]')).toHaveCount(0);
   await page.getByTestId('form-editor-stage').screenshot({ path: join(OUT, 'formular-editor-zeilen.png') });
+  // Uhrzeit: Vorschlag „Arbeitsbeginn“ → Feldtyp Uhrzeit, Wert aus den Arbeitszeiten der Firma
+  await draw(0.1, 0.22);
+  await panel.getByTestId('form-field-name').fill('Arbeitsbeginn');
+  await expect(panel.getByTestId('form-field-type')).toHaveValue('time');
+  await expect(panel.getByTestId('form-field-timeof')).toHaveValue('from');
   await page.getByTestId('form-editor-save').click();
   await expect(page.getByTestId('form-editor-state')).toHaveText('gespeichert');
 
@@ -385,10 +397,12 @@ test('Felder: Namen vorschlagen, Schrift (Größe, Art, Farbe), Wochentag/KW aus
   await expect(page.getByTestId('form-entry-title')).toHaveText('Regie Nr. 1');
   await expect(fld('Wochentag')).toHaveValue('Mittwoch');
   await expect(fld('KW')).toHaveValue('45');
+  await expect(fld('Arbeitsbeginn')).toHaveValue('07:00'); // Arbeitszeiten der Firma (Standard Mo–Fr 07:00–16:00)
   // Datum ändern → beides zieht mit
   await page.locator('[data-testid="form-entry-field"][type="date"]').first().fill('2026-11-09');
   await expect(fld('Wochentag')).toHaveValue('Montag');
   await expect(fld('KW')).toHaveValue('46');
+  await expect(fld('Arbeitsbeginn')).toHaveValue('07:00');
   await expect(page.getByTestId('save-state')).toHaveText('gespeichert');
   // anderes Projekt: Nummer läuft durch (Nr. 2), dann wieder im ersten Projekt Nr. 3
   await newForm('Halle 3', '2026-11-05');

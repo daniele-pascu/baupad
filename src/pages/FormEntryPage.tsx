@@ -5,9 +5,11 @@ import { PdfPreview } from '../components/PdfPreview';
 import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, showError, toast } from '../components/ui';
 import type { ExportFile } from '../lib/aufmass';
-import { deleteFormEntry, getFormEntry, getFormFile, listFormEntries, saveFormEntry } from '../lib/db';
+import { deleteFormEntry, getFormEntry, getFormFile, getMeta, listFormEntries, saveFormEntry } from '../lib/db';
+import { DEFAULT_WORK_TIMES } from '../lib/crew';
+import type { WorkTimes } from '../lib/types';
 import { useDataChanged } from '../lib/data-events';
-import { justifyOf, BASELINE_PT, lineBoxes, wrapToLines, displayValue, entrySiteKey, fits, fontCss, DEFAULT_FORM_COLOR, fmtFieldDate, fontSizeOf, isoWeekLabel, lineCapacity, mainDate, missingRequired, prefill, readingOrder, type CustomField, type FormEntry, type Measure } from '../lib/forms';
+import { workTimeFor, justifyOf, BASELINE_PT, lineBoxes, wrapToLines, displayValue, entrySiteKey, fits, fontCss, DEFAULT_FORM_COLOR, fmtFieldDate, fontSizeOf, isoWeekLabel, lineCapacity, mainDate, missingRequired, prefill, readingOrder, type CustomField, type FormEntry, type Measure } from '../lib/forms';
 import { copyFormEntry, formEntryPdf, prefillContext, suggestedPeople } from '../lib/forms-data';
 import { helveticaMeasure } from '../lib/forms-pdf';
 import { usePageTitle } from '../lib/page-title';
@@ -43,11 +45,14 @@ export function FormEntryPage({ entryId }: { entryId: string }) {
   const timer = useRef(0);
   usePageTitle(e ? `${e.templateName} Nr. ${e.no} – BauPad` : 'Formular – BauPad');
 
+  /** Arbeitszeiten der Firma – Uhrzeit-Felder Beginn/Ende je Wochentag */
+  const [workTimes, setWorkTimes] = useState<WorkTimes>(DEFAULT_WORK_TIMES);
   useEffect(() => {
-    void Promise.all([getFormEntry(entryId), helveticaMeasure()])
-      .then(([entry, m]) => {
+    void Promise.all([getFormEntry(entryId), helveticaMeasure(), getMeta<WorkTimes>('workTimes')])
+      .then(([entry, m, wt]) => {
         setE(entry ?? null);
         setMeasure(() => m);
+        setWorkTimes(wt ?? DEFAULT_WORK_TIMES);
       })
       .catch((err) => showError(err, 'Formular konnte nicht geladen werden'));
   }, [entryId]);
@@ -109,8 +114,16 @@ export function FormEntryPage({ entryId }: { entryId: string }) {
   const setValue = (f: CustomField, v: string) =>
     update((x) => {
       let values = { ...x.values, [f.id]: v };
-      // Datum geändert → Kalenderwoche und Wochentag nachziehen, Hauptdatum des Formulars
-      if (f.type === 'date') values = prefill(x.layout.fields.filter((g) => g.type === 'week' || g.type === 'weekday'), { date: v }, values);
+      // Datum geändert → Kalenderwoche und Wochentag nachziehen, Hauptdatum des Formulars;
+      // Arbeitsbeginn/-ende nur, wenn noch leer bzw. noch der Vorschlag des alten Datums (eigene Änderung bleibt)
+      if (f.type === 'date') {
+        const old = x.values[f.id];
+        values = prefill(x.layout.fields.filter((g) => g.type === 'week' || g.type === 'weekday'), { date: v }, values);
+        for (const g of x.layout.fields.filter((g) => g.type === 'time' && g.timeOf)) {
+          const cur = values[g.id] ?? '';
+          if (!cur || cur === workTimeFor(g, { date: old, workTimes })) values[g.id] = workTimeFor(g, { date: v, workTimes }) ?? '';
+        }
+      }
       return { ...x, values, date: mainDate(x.layout.fields, values) ?? x.date };
     });
   const setNo = (no: string) => update((x) => ({ ...x, no, values: prefill(x.layout.fields.filter((g) => g.type === 'no'), { no }, x.values) }));
@@ -340,6 +353,14 @@ function FieldInput({ f, value, measure, people, onChange, onFocus }: { f: Custo
           {label}
           <input {...common} type="number" inputMode="numeric" min={1} max={53} value={value} onChange={(e) => onChange(e.target.value)} />
           <small className="muted">{f.hint || 'wird aus dem Datum berechnet'}</small>
+        </label>
+      );
+    case 'time':
+      return (
+        <label className="field" htmlFor={id}>
+          {label}
+          <input {...common} type="time" value={value} onChange={(e) => onChange(e.target.value)} />
+          <small className="muted">{f.hint || (f.timeOf ? `Vorschlag: ${f.timeOf === 'from' ? 'Arbeitsbeginn' : 'Arbeitsende'} laut Arbeitszeiten der Firma` : '')}</small>
         </label>
       );
     case 'weekday':

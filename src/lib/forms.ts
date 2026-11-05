@@ -12,7 +12,7 @@ import { uuid } from './ids';
  * Koordinaten wie in form-template.ts: PDF-Punkte, Ursprung oben links.
  */
 
-export type CustomFieldType = 'text' | 'multiline' | 'date' | 'week' | 'weekday' | 'number' | 'amount' | 'person' | 'project' | 'company' | 'select' | 'checkbox' | 'no';
+export type CustomFieldType = 'text' | 'multiline' | 'date' | 'week' | 'weekday' | 'time' | 'number' | 'amount' | 'person' | 'project' | 'company' | 'select' | 'checkbox' | 'no';
 /** Welche Angabe des Projekts in ein Projektfeld kommt */
 export type ProjectSource = 'name' | 'number' | 'address' | 'client' | 'costCenter';
 
@@ -38,6 +38,8 @@ export interface CustomField {
   options?: string[];
   /** Projektfeld: welche Angabe */
   source?: ProjectSource;
+  /** Uhrzeit: aus den Arbeitszeiten der Firma (Wochentag des Datums) – Beginn oder Ende */
+  timeOf?: 'from' | 'to';
   /** Datum: Jahr steht schon im Formular → nur Tag.Monat. */
   dateFormat?: 'dd.MM.yyyy' | 'dd.MM.';
   align?: 'left' | 'center' | 'right';
@@ -69,7 +71,7 @@ export const FORM_COLORS: { value: string; label: string }[] = [
 export const DEFAULT_FORM_COLOR = '#1a1a73';
 
 /** Vorschläge für Feldnamen (mit passendem Typ) – oder selbst benennen */
-export const NAME_SUGGESTIONS: { name: string; type: CustomFieldType; source?: ProjectSource }[] = [
+export const NAME_SUGGESTIONS: { name: string; type: CustomFieldType; source?: ProjectSource; timeOf?: 'from' | 'to' }[] = [
   { name: 'Datum', type: 'date' },
   { name: 'KW', type: 'week' },
   { name: 'Wochentag', type: 'weekday' },
@@ -87,8 +89,8 @@ export const NAME_SUGGESTIONS: { name: string; type: CustomFieldType; source?: P
   { name: 'Material', type: 'multiline' },
   { name: 'Geräte', type: 'multiline' },
   { name: 'Wetter', type: 'text' },
-  { name: 'Arbeitszeit von', type: 'text' },
-  { name: 'Arbeitszeit bis', type: 'text' },
+  { name: 'Arbeitsbeginn', type: 'time', timeOf: 'from' },
+  { name: 'Arbeitsende', type: 'time', timeOf: 'to' },
   { name: 'Stunden', type: 'number' },
   { name: 'Betrag', type: 'amount' },
   { name: 'Erledigt', type: 'checkbox' },
@@ -107,6 +109,7 @@ export const FIELD_TYPES: { id: CustomFieldType; label: string; help: string }[]
   { id: 'date', label: 'Datum', help: 'Datum wählen; passende KW-Felder werden mitgesetzt' },
   { id: 'week', label: 'Kalenderwoche', help: 'Kalenderwoche nach ISO 8601, aus dem Datum berechnet' },
   { id: 'weekday', label: 'Wochentag', help: 'Wochentag (z. B. Montag), aus dem Datum berechnet' },
+  { id: 'time', label: 'Uhrzeit', help: 'Uhrzeit, z. B. Arbeitsbeginn/-ende – kommt aus den Arbeitszeiten der Firma für den Wochentag des Datums (änderbar)' },
   { id: 'number', label: 'Zahl', help: 'Zahl, z. B. Stunden oder Stück' },
   { id: 'amount', label: 'Betrag', help: 'Betrag mit zwei Nachkommastellen' },
   { id: 'person', label: 'Mitarbeiter / Personen', help: 'Aus der Arbeiterliste wählen; Vorschlag aus der Arbeitereinteilung' },
@@ -372,9 +375,18 @@ export interface PrefillContext {
   project?: { name: string; number?: string; address?: string; client?: string; costCenter?: string } | null;
   date?: string;
   company?: string;
+  /** Arbeitszeiten der Firma (0 = Montag) – für Uhrzeit-Felder Beginn/Ende */
+  workTimes?: ({ from: string; to: string } | null)[];
   /** vorgeschlagene Personen (aus der Arbeitereinteilung) */
   people?: string[];
   no?: string;
+}
+
+/** Arbeitsbeginn bzw. -ende laut Arbeitszeiten der Firma am Wochentag des Datums (freier Tag → undefined) */
+export function workTimeFor(f: Pick<CustomField, 'timeOf'>, ctx: Pick<PrefillContext, 'date' | 'workTimes'>): string | undefined {
+  if (!f.timeOf || !ctx.date || !ctx.workTimes || !/^\d{4}-\d{2}-\d{2}$/.test(ctx.date)) return undefined;
+  const t = ctx.workTimes[(parseDate(ctx.date).getDay() + 6) % 7];
+  return t ? t[f.timeOf] : undefined;
 }
 
 /** Werte aus vorhandenen Angaben – nur, wo das Formular ein passendes Feld hat; fehlt eine Angabe, bleibt das Feld leer */
@@ -394,6 +406,9 @@ export function prefill(fields: CustomField[], ctx: PrefillContext, current: Rec
         break;
       case 'weekday':
         v = ctx.date ? weekdayName(ctx.date) : undefined;
+        break;
+      case 'time':
+        v = workTimeFor(f, ctx);
         break;
       case 'company':
         v = ctx.company;
@@ -423,7 +438,7 @@ export const missingRequired = (fields: CustomField[], values: Record<string, st
 
 /* ───────────── aus der automatischen Erkennung ───────────── */
 
-const TYPE_OF: Partial<Record<FieldKey, { type: CustomFieldType; source?: ProjectSource }>> = {
+const TYPE_OF: Partial<Record<FieldKey, { type: CustomFieldType; source?: ProjectSource; timeOf?: 'from' | 'to' }>> = {
   date: { type: 'date' },
   week: { type: 'week' },
   no: { type: 'no' },
@@ -434,6 +449,8 @@ const TYPE_OF: Partial<Record<FieldKey, { type: CustomFieldType; source?: Projec
   client: { type: 'project', source: 'client' },
   address: { type: 'project', source: 'address' },
   company: { type: 'company' },
+  from: { type: 'time', timeOf: 'from' },
+  to: { type: 'time', timeOf: 'to' },
   work: { type: 'multiline' },
   incidents: { type: 'multiline' },
   notes: { type: 'multiline' },
@@ -457,6 +474,7 @@ export function fieldsFromDetection(layout: FormLayout): CustomField[] {
         : { ...f.box };
     const out: CustomField = { id: uuid(), name, type: m.type, box };
     if (m.source) out.source = m.source;
+    if (m.timeOf) out.timeOf = m.timeOf;
     if (all.length > 1) {
       out.type = 'multiline';
       out.lines = all.length;
