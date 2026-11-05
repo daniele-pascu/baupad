@@ -275,4 +275,30 @@ test('Format ändern und PDF im gewählten Format; Format/Maßstab nur auf Wunsc
   text = execFileSync('pdftotext', [pdf, '-'], { encoding: 'utf8' });
   expect(text).toContain(`Maßstab 1:${auto}`);
   expect(text).toContain('4,25 m');
+
+  // Ohne Maßstab: Zeichnung füllt das Blatt (zentriert), kein Maßstab im PDF – auch wenn „Maßstab anzeigen“ an ist
+  await page.getByTestId('sheet-label').click();
+  await pd.getByTestId('sheet-paper').selectOption('A3-quer');
+  await pd.getByTestId('sheet-scale').selectOption('0');
+  await expect(pd.getByTestId('sheet-size')).toContainText('so groß wie möglich auf das Blatt gesetzt und zentriert');
+  await expect(pd.getByTestId('sheet-outside')).toHaveCount(0);
+  await pd.getByRole('button', { name: 'Speichern' }).click();
+  await expect(page.getByTestId('sheet-label')).toHaveText('A3 Querformat · ohne Maßstab');
+  await waitSaved(page);
+  dl = await catchDownload(page, async () => {
+    await page.getByTestId('export-pdf-plan').click();
+    await page.getByTestId('pdf-export-run').click();
+  });
+  pdf = await saveDownload(dl, 'format-a3-fill.pdf');
+  expect(execFileSync('pdfinfo', [pdf], { encoding: 'utf8' })).toMatch(/Page size:\s+1190\.5\d* x 841\.8\d*/);
+  text = execFileSync('pdftotext', [pdf, '-'], { encoding: 'utf8' });
+  expect(text).toContain('A3 Querformat');
+  expect(text).not.toMatch(/Maßstab 1:/);
+  expect(text).toContain('4,25 m');
+  // wieder mit Maßstab: Auswahl zeigt 1:100, „ohne Maßstab“ ist weg
+  await page.getByTestId('sheet-label').click();
+  await expect(pd.getByTestId('sheet-scale')).toHaveValue('0');
+  await pd.getByTestId('sheet-scale').selectOption('100');
+  await pd.getByRole('button', { name: 'Speichern' }).click();
+  await expect(page.getByTestId('sheet-label')).toHaveText('A3 Querformat · 1:100');
 });

@@ -486,14 +486,17 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   const paperFmt = plan.drawing?.paper ? PAPER[plan.drawing.paper] : null;
   const fitMm = paperFmt ? { w: paperFmt.w - 2 * PRINT_MARGIN_MM, h: paperFmt.h - 2 * PRINT_MARGIN_MM - PRINT_HEADER_MM } : null;
   const fit = fitMm ? printFit(plan, allElements, allDamages, fitMm) : null;
-  const region = fit ? fit.region : contentRegion(plan, allElements, allDamages);
+  const region = plan.drawing?.fit ? contentRegion(plan, allElements, allDamages) : fit ? fit.region : contentRegion(plan, allElements, allDamages);
   const portrait = paperFmt ? paperFmt.h > paperFmt.w : region.h > region.w;
   const W = paperFmt ? paperFmt.w * MM : portrait ? A3.hPt : A3.wPt;
   const H = paperFmt ? paperFmt.h * MM : portrait ? A3.wPt : A3.hPt;
   const margin = (paperFmt ? PRINT_MARGIN_MM : 12) * MM;
   const headerPt = (paperFmt ? PRINT_HEADER_MM : 16) * MM;
   const avail = { w: (W - 2 * margin) / MM, h: (H - 2 * margin - headerPt) / MM };
-  const scaleN = fit ? fit.scale : printScale({ w: region.w / k, h: region.h / k }, avail);
+  // ohne Maßstab: so groß wie möglich auf das Blatt, zentriert (krummer Maßstab, wird nicht angezeigt)
+  const fill = !!paperFmt && !!plan.drawing?.fit;
+  const fillU = fill ? Math.min((avail.w * MM) / region.w, (avail.h * MM) / region.h) : 0;
+  const scaleN = fill ? (1000 / k) * MM / fillU : fit ? fit.scale : printScale({ w: region.w / k, h: region.h / k }, avail);
   // Seiteneinheit (1/k m) → Punkte auf dem Papier
   const u = (1000 / k / scaleN) * MM;
   const ox = (W - region.w * u) / 2;
@@ -515,8 +518,8 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
     H,
     { x: margin, y: margin, w: W - 2 * margin, h: headerPt },
     plan,
-    [plan.showPaper ? fmtLabel : '', plan.showScale ? `Maßstab 1:${scaleN}` : ''].filter(Boolean),
-    plan.showScale ? barPt + 12 : 0,
+    [plan.showPaper ? fmtLabel : '', plan.showScale && !fill ? `Maßstab 1:${scaleN}` : ''].filter(Boolean),
+    plan.showScale && !fill ? barPt + 12 : 0,
   );
 
   // Zeichnungsobjekte
@@ -605,7 +608,7 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   drawDamages(ctx, target, region, damages, components);
   if (plan.showLegend) drawLegend(ctx, page, { x: margin - 2, y: margin - 2, w: W - 2 * margin + 4, h: H - 2 * margin - headerPt + 4 }, plan.legendPos ?? 'bl', legendEntries(plan, damages));
   // Maßstabsleiste rechts im Kopfbereich (nur wenn der Maßstab angezeigt werden soll)
-  if (!plan.showScale) return;
+  if (!plan.showScale || fill) return;
   const lblW = ctx.font.widthOfTextAtSize(`${String(barM).replace('.', ',')} m`, 6.5);
   const bx = W - margin - barPt - lblW / 2;
   const by = H - margin - 28;

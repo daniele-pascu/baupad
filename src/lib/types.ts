@@ -225,6 +225,8 @@ export interface DrawingInfo {
   paper?: PaperFormat;
   /** Maßstab 1:n des Zeichenblatts, z. B. 100 */
   scale?: number;
+  /** ohne Maßstab: im PDF füllt die Zeichnung das Blatt (so groß wie möglich, zentriert) */
+  fit?: boolean;
 }
 
 export type PaperFormat = 'A4-hoch' | 'A4-quer' | 'A3-hoch' | 'A3-quer';

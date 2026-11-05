@@ -41,12 +41,14 @@ export function sheetMeters(paper: PaperFormat, scale: number): { w: number; h: 
 }
 
 /** Planfelder für ein Zeichenblatt (Maßsystem, Format, Maßstab, Blattgröße in Seiteneinheiten). */
+/** scale 0 = ohne Maßstab (Blatt füllen, zentriert); das Zeichenblatt am Bildschirm entspricht dann 1:100 */
 export function sheetFields(paper: PaperFormat, scale: number): Pick<Plan, 'drawing' | 'pageWidth' | 'pageHeight'> {
-  const m = sheetMeters(paper, scale);
-  return { drawing: { ...DRAWING_INFO, paper, scale }, pageWidth: Math.round(m.w * UNITS_PER_M), pageHeight: Math.round(m.h * UNITS_PER_M) };
+  const fit = scale === 0;
+  const m = sheetMeters(paper, fit ? 100 : scale);
+  return { drawing: { ...DRAWING_INFO, paper, scale: fit ? 100 : scale, ...(fit ? { fit: true } : {}) }, pageWidth: Math.round(m.w * UNITS_PER_M), pageHeight: Math.round(m.h * UNITS_PER_M) };
 }
 
-export const paperLabel = (d: Plan['drawing']) => (d?.paper ? `${PAPER[d.paper].label} · 1:${d.scale ?? 100}` : '');
+export const paperLabel = (d: Plan['drawing']) => (d?.paper ? `${PAPER[d.paper].label} · ${d.fit ? 'ohne Maßstab' : `1:${d.scale ?? 100}`}` : '');
 
 export const isDrawingPlan = (p: Pick<Plan, 'source'> | null | undefined) => p?.source === 'drawing';
 

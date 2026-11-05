@@ -134,7 +134,7 @@ export function PlanDetailsDialog({ plan, data, onClose }: { plan: Plan; data: P
   const [exportFmt, setExportFmt] = useState<PaperFormat>(() => exportPaper(plan));
   const [start, setStart] = useState(String(planNumberStart(plan)));
   const [paper, setPaper] = useState<PaperFormat | ''>(plan.drawing?.paper ?? '');
-  const [scale, setScale] = useState(plan.drawing?.scale ?? 100);
+  const [scale, setScale] = useState(plan.drawing?.fit ? 0 : (plan.drawing?.scale ?? 100));
   const [show, setShow] = useState(false);
   /** Anzeige im Plan (Titel, Bezeichnung, Ebene, Bemerkung, Format, Maßstab) auf alle Pläne des Projekts übertragen */
   const [applyAll, setApplyAll] = useState(false);
@@ -233,7 +233,7 @@ export function PlanDetailsDialog({ plan, data, onClose }: { plan: Plan; data: P
             showScale={showScale}
             onShow={(o) => (o.showPaper !== undefined && setShowPaper(o.showPaper), o.showScale !== undefined && setShowScale(o.showScale))}
           />
-          {paper && <OutsideHint plan={plan} data={data} paper={paper} scale={scale} />}
+          {paper && scale > 0 && <OutsideHint plan={plan} data={data} paper={paper} scale={scale} />}
           <p className="muted small">Selbst gezeichneter Plan (Maße in Metern).</p>
         </>
       ) : (
@@ -419,7 +419,7 @@ function SheetFields({
   showScale?: boolean;
   onShow?: (o: { showPaper?: boolean; showScale?: boolean }) => void;
 }) {
-  const m = paper ? sheetMeters(paper, scale) : null;
+  const m = paper ? sheetMeters(paper, scale || 100) : null;
   return (
     <div className="form-grid">
       <div className="field">
@@ -442,6 +442,7 @@ function SheetFields({
           {onShow && <ShowInPlan checked={showScale} onChange={(v) => onShow({ showScale: v })} testId="show-scale" />}
         </span>
         <select id="sheet-scale" value={scale} onChange={(e) => onChange(paper, Number(e.target.value))} disabled={!paper} data-testid="sheet-scale">
+          <option value={0}>Ohne Maßstab – Blatt füllen</option>
           {SCALES.map((n) => (
             <option key={n} value={n}>
               1:{n}
@@ -449,7 +450,12 @@ function SheetFields({
           ))}
         </select>
       </div>
-      {m && (
+      {m && scale === 0 && (
+        <p className="muted small span-2" data-testid="sheet-size">
+          Ohne Maßstab: Im PDF wird die Zeichnung so groß wie möglich auf das Blatt gesetzt und zentriert.
+        </p>
+      )}
+      {m && scale > 0 && (
         <p className="muted small span-2" data-testid="sheet-size">
           Zeichenblatt: {formatMeasure(m.w)} × {formatMeasure(m.h)} m (realer Bereich innerhalb der Druckränder)
         </p>
