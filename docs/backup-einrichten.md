@@ -1,5 +1,7 @@
 # Nächtliche Sicherung einrichten (Supabase → Hetzner)
 
+**Erledigt 05.11.2026:** Funktion, Zeitplan und Geheimwort eingerichtet; erster Lauf erfolgreich (8 Tabellen, 363 Datensätze, 21 Fotos im Verzeichnis, 90 KB gepackt).
+
 Jede Nacht sichert die Supabase-Funktion `backup` alle Tabellen der Datenbank (Firmen, Benutzer-Zuordnungen,
 Einladungen, Foto-Verzeichnis, Datensätze aller Werkzeuge, Kontaktanfragen) gepackt in den Hetzner-Bucket
 `baupad-dateien` unter `backups/<JJJJ-MM-TT>/`. Aufbewahrt werden die letzten 30 Sicherungen und der Stand vom
@@ -35,6 +37,7 @@ select status_code, content from net._http_response order by created desc limit 
 Erwartet: `200` und `{"date":"…","counts":{"workspaces":…,"records":…},…}`. In der Hetzner-Konsole liegt dann
 `backups/<heute>/` mit je einer Datei pro Tabelle und `manifest.json`.
 
+- `401 UNAUTHORIZED_NO_AUTH_HEADER` → bei der Funktion ist „Verify JWT“ noch an (Supabase-Schleuse) – ausschalten.
 - `401 token` → Secret `BACKUP_TOKEN` stimmt nicht mit Schritt 2 überein.
 - `501 not-configured` → `BACKUP_TOKEN` oder Hetzner-Secrets fehlen.
 - `502 Datenbank …: 401` → der Standardschlüssel ist abgeschaltet: unter Project Settings → API Keys einen

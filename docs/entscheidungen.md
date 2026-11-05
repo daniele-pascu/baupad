@@ -137,5 +137,5 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 
 
 ## Sicherung (05.11.2026)
-- Laufende Daten bleiben in Supabase (kostenloser Tarif), **Sicherungen bei Hetzner** (anderer Anbieter, Deutschland): jede Nacht über die Funktion `backup` (pg_cron), 30 Sicherungen + Monatsstände für 12 Monate, Wiederherstellung je Firma. Keine Zusatzkosten. Supabase Pro (~25 $/Monat) erst mit zahlenden Kunden. Einrichtung: `docs/backup-einrichten.md`.
+- Laufende Daten bleiben in Supabase (kostenloser Tarif), **Sicherungen bei Hetzner** (anderer Anbieter, Deutschland): jede Nacht über die Funktion `backup` (pg_cron), 30 Sicherungen + Monatsstände für 12 Monate, Wiederherstellung je Firma. Keine Zusatzkosten. Supabase Pro (~25 $/Monat) erst mit zahlenden Kunden. Einrichtung: `docs/backup-einrichten.md` (eingerichtet und erster Lauf erfolgreich am 05.11.2026).
 - Materialverwaltung: gleiche Architektur (Supabase + Hetzner), Symbol „Wagen mit Material“ (Variante N); vorher Versionsprüfung gegen stilles Überschreiben und Schutz vor Doppelten im Abgleich.
