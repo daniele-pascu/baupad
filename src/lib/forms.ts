@@ -12,7 +12,7 @@ import { uuid } from './ids';
  * Koordinaten wie in form-template.ts: PDF-Punkte, Ursprung oben links.
  */
 
-export type CustomFieldType = 'text' | 'multiline' | 'date' | 'week' | 'number' | 'amount' | 'person' | 'project' | 'company' | 'select' | 'checkbox' | 'no';
+export type CustomFieldType = 'text' | 'multiline' | 'date' | 'week' | 'weekday' | 'number' | 'amount' | 'person' | 'project' | 'company' | 'select' | 'checkbox' | 'no';
 /** Welche Angabe des Projekts in ein Projektfeld kommt */
 export type ProjectSource = 'name' | 'number' | 'address' | 'client' | 'costCenter';
 
@@ -37,7 +37,56 @@ export interface CustomField {
   /** Datum: Jahr steht schon im Formular → nur Tag.Monat. */
   dateFormat?: 'dd.MM.yyyy' | 'dd.MM.';
   align?: 'left' | 'center' | 'right';
+  /** Schriftfarbe (Hex), Standard dunkelblau wie Kugelschreiber */
+  color?: string;
+  /** Schriftart (die PDF-Standardschriften – wie Arial, Times New Roman, Courier New in Word) */
+  font?: FormFont;
+  bold?: boolean;
 }
+
+export type FormFont = 'helvetica' | 'times' | 'courier';
+export const FORM_FONTS: { id: FormFont; label: string; css: string }[] = [
+  { id: 'helvetica', label: 'Arial / Helvetica', css: 'Arial, Helvetica, sans-serif' },
+  { id: 'times', label: 'Times New Roman', css: '"Times New Roman", Times, serif' },
+  { id: 'courier', label: 'Courier New', css: '"Courier New", Courier, monospace' },
+];
+export const fontCss = (f: Pick<CustomField, 'font'>) => FORM_FONTS.find((x) => x.id === (f.font ?? 'helvetica'))!.css;
+/** Schriftfarben zur Auswahl */
+export const FORM_COLORS: { value: string; label: string }[] = [
+  { value: '#1a1a73', label: 'Dunkelblau (Kugelschreiber)' },
+  { value: '#000000', label: 'Schwarz' },
+  { value: '#1c5fd6', label: 'Blau' },
+  { value: '#c92a2a', label: 'Rot' },
+  { value: '#2b8a3e', label: 'Grün' },
+];
+export const DEFAULT_FORM_COLOR = '#1a1a73';
+
+/** Vorschläge für Feldnamen (mit passendem Typ) – oder selbst benennen */
+export const NAME_SUGGESTIONS: { name: string; type: CustomFieldType; source?: ProjectSource }[] = [
+  { name: 'Datum', type: 'date' },
+  { name: 'KW', type: 'week' },
+  { name: 'Wochentag', type: 'weekday' },
+  { name: 'Nummer', type: 'no' },
+  { name: 'Baustelle', type: 'project', source: 'name' },
+  { name: 'Projektnummer', type: 'project', source: 'number' },
+  { name: 'Kostenstelle', type: 'project', source: 'costCenter' },
+  { name: 'Auftraggeber', type: 'project', source: 'client' },
+  { name: 'Adresse', type: 'project', source: 'address' },
+  { name: 'Firma', type: 'company' },
+  { name: 'Mitarbeiter', type: 'person' },
+  { name: 'Verantwortlich', type: 'person' },
+  { name: 'Ausgeführte Arbeiten', type: 'multiline' },
+  { name: 'Bemerkungen', type: 'multiline' },
+  { name: 'Material', type: 'multiline' },
+  { name: 'Geräte', type: 'multiline' },
+  { name: 'Wetter', type: 'text' },
+  { name: 'Arbeitszeit von', type: 'text' },
+  { name: 'Arbeitszeit bis', type: 'text' },
+  { name: 'Stunden', type: 'number' },
+  { name: 'Betrag', type: 'amount' },
+  { name: 'Erledigt', type: 'checkbox' },
+];
+export const suggestionFor = (name: string) => NAME_SUGGESTIONS.find((x) => x.name.toLowerCase() === name.trim().toLowerCase());
 
 export interface CustomLayout {
   width: number;
@@ -50,6 +99,7 @@ export const FIELD_TYPES: { id: CustomFieldType; label: string; help: string }[]
   { id: 'multiline', label: 'Mehrzeiliger Text', help: 'Längerer Text, Enter = neue Zeile; Zeilenzahl aus der Kastenhöhe' },
   { id: 'date', label: 'Datum', help: 'Datum wählen; passende KW-Felder werden mitgesetzt' },
   { id: 'week', label: 'Kalenderwoche', help: 'Kalenderwoche nach ISO 8601, aus dem Datum berechnet' },
+  { id: 'weekday', label: 'Wochentag', help: 'Wochentag (z. B. Montag), aus dem Datum berechnet' },
   { id: 'number', label: 'Zahl', help: 'Zahl, z. B. Stunden oder Stück' },
   { id: 'amount', label: 'Betrag', help: 'Betrag mit zwei Nachkommastellen' },
   { id: 'person', label: 'Mitarbeiter / Personen', help: 'Aus der Arbeiterliste wählen; Vorschlag aus der Arbeitereinteilung' },
@@ -57,7 +107,7 @@ export const FIELD_TYPES: { id: CustomFieldType; label: string; help: string }[]
   { id: 'company', label: 'Eigene Firma', help: 'Firmenname aus den Firmeninformationen' },
   { id: 'select', label: 'Auswahlfeld', help: 'Eine von mehreren vorgegebenen Möglichkeiten' },
   { id: 'checkbox', label: 'Kontrollkästchen', help: 'Angekreuzt oder leer' },
-  { id: 'no', label: 'Laufende Nummer', help: 'Nummer des Formulars, fortlaufend je Projekt' },
+  { id: 'no', label: 'Laufende Nummer', help: 'Nummer des Formulars, fortlaufend je Formular (über alle Projekte)' },
 ];
 export const typeLabel = (t: CustomFieldType) => FIELD_TYPES.find((x) => x.id === t)?.label ?? t;
 export const PROJECT_SOURCES: { id: ProjectSource; label: string }[] = [
@@ -79,7 +129,7 @@ export interface FormEntry {
   layout: CustomLayout;
   projectId: string | null;
   siteName: string;
-  /** laufende Nummer je Vorlage und Projekt */
+  /** laufende Nummer je Vorlage (durchgehend über alle Projekte) */
   no: string;
   /** Hauptdatum (erstes Datumsfeld, sonst Anlagedatum) – für Sortierung und Anzeige */
   date: string;
@@ -93,10 +143,25 @@ export interface FormEntry {
 
 export const entrySiteKey = (e: Pick<FormEntry, 'projectId' | 'siteName'>) => (e.projectId ? `p:${e.projectId}` : `n:${e.siteName.trim().toLowerCase()}`);
 
-/** nächste Nummer je Vorlage und Projekt (höchste + 1, Lücken bleiben) */
-export function nextFormNo(entries: Pick<FormEntry, 'templateId' | 'projectId' | 'siteName' | 'no'>[], templateId: string, siteKey: string): string {
-  const max = entries.filter((e) => e.templateId === templateId && entrySiteKey(e) === siteKey).reduce((m, e) => Math.max(m, parseInt(e.no, 10) || 0), 0);
+/** nächste Nummer je Vorlage – durchgehend über alle Projekte (höchste + 1, Lücken bleiben) */
+export function nextFormNo(entries: Pick<FormEntry, 'templateId' | 'no'>[], templateId: string): string {
+  const max = entries.filter((e) => e.templateId === templateId).reduce((m, e) => Math.max(m, parseInt(e.no, 10) || 0), 0);
   return String(max + 1);
+}
+
+/** Nummernbereich „3-20“, „3–5, 8, 10-12“ → Nummern; leer/ungültig → null */
+export function parseNoRange(text: string): Set<number> | null {
+  const out = new Set<number>();
+  for (const part of text.split(/[,;\s]+/).filter(Boolean)) {
+    const m = /^(\d+)(?:\s*[-–]\s*(\d+))?$/.exec(part.trim());
+    if (!m) return null;
+    const a = Number(m[1]);
+    const b = m[2] ? Number(m[2]) : a;
+    const [lo, hi] = a <= b ? [a, b] : [b, a];
+    if (hi - lo > 2000) return null;
+    for (let n = lo; n <= hi; n++) out.add(n);
+  }
+  return out.size ? out : null;
 }
 
 /** doppelte Nummern (zwei Geräte gleichzeitig) – zur Warnung in der Liste */
@@ -104,7 +169,7 @@ export function duplicateNos(entries: FormEntry[]): Set<string> {
   const seen = new Map<string, string>();
   const dup = new Set<string>();
   for (const e of entries) {
-    const k = `${e.templateId}|${entrySiteKey(e)}|${e.no.trim()}`;
+    const k = `${e.templateId}|${e.no.trim()}`;
     const first = seen.get(k);
     if (first) dup.add(first).add(e.id);
     else seen.set(k, e.id);
@@ -198,6 +263,9 @@ export function isoWeek(iso: string): { week: number; year: number } {
   const monday = weekOf(iso);
   return { week: isoWeekNo(monday), year: parseDate(addDays(monday, 3)).getFullYear() };
 }
+const WEEKDAYS = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+/** Wochentag zum Datum, z. B. „Mittwoch“ */
+export const weekdayName = (iso: string) => WEEKDAYS[parseDate(iso).getDay()];
 export const isoWeekLabel = (iso: string) => {
   const w = isoWeek(iso);
   return `KW ${w.week}/${w.year}`;
@@ -218,6 +286,8 @@ export function displayValue(f: CustomField, value: string | undefined): string 
       return fmtAmount(v);
     case 'checkbox':
       return v ? 'X' : '';
+    case 'weekday':
+      return /^\d{4}-\d{2}-\d{2}$/.test(v) ? weekdayName(v) : v;
     default:
       return v;
   }
@@ -247,6 +317,9 @@ export function prefill(fields: CustomField[], ctx: PrefillContext, current: Rec
         break;
       case 'week':
         v = ctx.date ? String(isoWeek(ctx.date).week) : undefined;
+        break;
+      case 'weekday':
+        v = ctx.date ? weekdayName(ctx.date) : undefined;
         break;
       case 'company':
         v = ctx.company;

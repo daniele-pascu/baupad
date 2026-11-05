@@ -4,11 +4,11 @@ import { ActionMenu } from '../components/ActionMenu';
 import { Icon } from '../components/Icon';
 import { PdfPreview } from '../components/PdfPreview';
 import { SiteNav } from '../components/SiteNav';
-import { confirmDialog, offerFile, showError, toast } from '../components/ui';
+import { confirmDialog, offerFile, promptDialog, showError, toast } from '../components/ui';
 import { safeFileName, type ExportFile } from '../lib/aufmass';
 import { deleteFormEntry, deleteReport, listFormEntries, listFormTemplates, listReports, saveReport } from '../lib/db';
 import { isCustomTemplate, type FormTemplate } from '../lib/form-template';
-import { duplicateNos, entrySiteKey, fmtFieldDate, isoWeekLabel, type FormEntry } from '../lib/forms';
+import { duplicateNos, entrySiteKey, fmtFieldDate, isoWeekLabel, parseNoRange, type FormEntry } from '../lib/forms';
 import { copyFormEntry, createFormEntry, formEntryPdf } from '../lib/forms-data';
 import { navigate, paths } from '../lib/router';
 import { copyReport, periodLabel, REPORT_TYPES, siteKey, siteLabel, today, typeInfo } from '../lib/reports';
@@ -122,6 +122,30 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
   /** „+“ neben einer Liste: sofort anlegen (heutiges Datum, Datum im Formular änderbar) */
   const quickAdd = (type: ReportType) => {
     if (site) void run(() => createReport(type, site, today(), all ?? []));
+  };
+  /** Formulare einer Vorlage nach Nummern drucken, z. B. „3-20“ – ein PDF mit allen gewählten Formularen */
+  const printForms = (name: string, items: FormEntry[]) => {
+    const nos = items.map((x) => parseInt(x.no, 10)).filter((n) => Number.isFinite(n)).sort((a, b) => a - b);
+    const def = nos.length ? (nos[0] === nos[nos.length - 1] ? String(nos[0]) : `${nos[0]}-${nos[nos.length - 1]}`) : '';
+    void promptDialog({ title: `${name} drucken`, label: 'Nummern (z. B. 3-20 oder 3, 5, 8-10)', value: def, confirmLabel: 'PDF erstellen' }).then((text) => {
+      if (text === null) return;
+      const range = parseNoRange(text);
+      if (!range) return toast('Bitte Nummern wie „3-20“ oder „3, 5, 8-10“ eingeben.', 'error');
+      const chosen = items.filter((x) => range.has(parseInt(x.no, 10))).sort((a, b) => (parseInt(a.no, 10) || 0) - (parseInt(b.no, 10) || 0));
+      if (!chosen.length) return toast(`Keine Formulare mit den Nummern ${text} in diesem Projekt.`, 'error');
+      setBusy(true);
+      void run(async () => {
+        const out = await PDFDocument.create();
+        for (const x of chosen) {
+          const f = await formEntryPdf(x);
+          const doc = await PDFDocument.load(f.data);
+          for (const pg of await out.copyPages(doc, doc.getPageIndices())) out.addPage(pg);
+        }
+        const nums = chosen.map((x) => x.no);
+        setPreview({ name: `${safeFileName(name, chosen[0].siteName, `Nr${nums[0]}-${nums[nums.length - 1]}`)}.pdf`, data: await out.save(), mimeType: 'application/pdf' });
+        toast(`${chosen.length} ${chosen.length === 1 ? 'Formular' : 'Formulare'} im PDF.`, 'success');
+      }).finally(() => setBusy(false));
+    });
   };
   const quickAddForm = (templateId: string) => {
     const t = templates.find((x) => x.id === templateId);
@@ -336,6 +360,11 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
               <span className="report-type t-form">F</span>
               <h2>{g.name}</h2>
               <span className="muted small">{g.items.length}</span>
+              {g.items.length > 0 && (
+                <button type="button" className="btn btn-sm" onClick={() => printForms(g.name, g.items)} disabled={busy} title={`${g.name} nach Nummern drucken (z. B. 3-20)`} data-testid="form-section-print" data-name={g.name}>
+                  <Icon name="pdf" size={16} /> Drucken
+                </button>
+              )}
               {site && templates.some((t) => t.id === templateId) && (
                 <button type="button" className="btn btn-sm report-section-add" onClick={() => quickAddForm(templateId)} title={`${g.name} für heute anlegen`} aria-label={`${g.name} anlegen`} data-testid="form-section-add" data-name={g.name}>
                   <Icon name="plus" size={16} />

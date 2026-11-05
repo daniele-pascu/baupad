@@ -10556,3 +10556,51 @@ html[data-theme='dark'] .crew-search {
     text-overflow: ellipsis;
   }
 }
+
+/* Firmenformular-Editor: Schrift (Größe, Art, Farbe), Zeilen, Feldnamen-Vorschläge */
+.form-ink {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2, var(--bg));
+}
+.form-bold {
+  align-self: end;
+  min-height: var(--touch, 44px);
+}
+.form-colors {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.form-color {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid var(--surface);
+  box-shadow: 0 0 0 1px var(--border-strong);
+  cursor: pointer;
+}
+.form-color.on {
+  box-shadow: 0 0 0 3px var(--text);
+}
+.form-ink-sample {
+  margin: 0;
+}
+.form-name-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+.form-name-chips .chip {
+  font-size: 0.8rem;
+  padding: 2px 8px;
+}
+.form-box-lines {
+  font-style: normal;
+  opacity: 0.75;
+}

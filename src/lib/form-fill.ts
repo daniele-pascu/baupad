@@ -1,4 +1,4 @@
-import { PDFDocument, rgb, StandardFonts, type PDFFont, type PDFPage } from 'pdf-lib';
+import { PDFDocument, rgb, StandardFonts, type PDFFont, type PDFPage, type RGB } from 'pdf-lib';
 import { safeFileName, type ExportFile } from './aufmass';
 import { isoWeekNo, parseDate, weekOf } from './crew';
 import { type Box, type ColKey, type FieldKey, type FormLayout, type FormTemplate, MULTILINE } from './form-template';
@@ -27,7 +27,7 @@ export function sanitize(font: PDFFont, s: string): string {
 }
 
 /** Text in einen Kasten: Schriftgröße passend, Grundlinie knapp über dem unteren Rand */
-export function drawInBox(page: PDFPage, font: PDFFont, pageH: number, box: Box, text: string, opts: { max?: number; align?: 'left' | 'right' | 'center' } = {}) {
+export function drawInBox(page: PDFPage, font: PDFFont, pageH: number, box: Box, text: string, opts: { max?: number; align?: 'left' | 'right' | 'center'; color?: RGB } = {}) {
   const t = sanitize(font, text.trim());
   if (!t) return;
   let size = Math.min(opts.max ?? 9.5, Math.max(MIN_SIZE, box.h * 0.82));
@@ -38,7 +38,7 @@ export function drawInBox(page: PDFPage, font: PDFFont, pageH: number, box: Box,
   const w = font.widthOfTextAtSize(s, size);
   const x = opts.align === 'right' ? box.x + box.w - 1 - w : opts.align === 'center' ? box.x + (box.w - w) / 2 : box.x + 1;
   const y = pageH - (box.y + box.h) + Math.max(1.5, (box.h - size) / 2 + size * 0.12);
-  page.drawText(s, { x, y, size, font, color: INK });
+  page.drawText(s, { x, y, size, font, color: opts.color ?? INK });
 }
 
 /** Zeilenumbruch auf gegebene Breiten (je Zeile eigene Breite) */
@@ -71,7 +71,7 @@ function wrap(font: PDFFont, text: string, size: number, widths: number[]): stri
 }
 
 /** mehrzeiliges Feld: erste Zeile im Kasten, weitere auf den Schreiblinien; bei Platzmangel kleinere Schrift */
-export function drawLines(page: PDFPage, font: PDFFont, pageH: number, boxes: Box[], text: string, startSize?: number) {
+export function drawLines(page: PDFPage, font: PDFFont, pageH: number, boxes: Box[], text: string, startSize?: number, color: RGB = INK) {
   if (!text.trim() || !boxes.length) return;
   const widths = boxes.map((b) => b.w);
   let size = startSize ?? Math.min(9.5, Math.max(MIN_SIZE, boxes[0].h * 0.82));
@@ -85,8 +85,14 @@ export function drawLines(page: PDFPage, font: PDFFont, pageH: number, boxes: Bo
     let s = l;
     if (i === boxes.length - 1 && lines.length > boxes.length) s = `${s} …`;
     while (s.length > 1 && font.widthOfTextAtSize(s, size) > b.w - 2) s = s.slice(0, -1);
-    page.drawText(s, { x: b.x + 1, y: pageH - (b.y + b.h) + Math.max(1.5, (b.h - size) / 2 + size * 0.12), size, font, color: INK });
+    page.drawText(s, { x: b.x + 1, y: pageH - (b.y + b.h) + Math.max(1.5, (b.h - size) / 2 + size * 0.12), size, font, color });
   });
+}
+
+/** Hex-Farbe → pdf-lib-Farbe */
+export function hexColor(hex: string | undefined): RGB | undefined {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex ?? '');
+  return m ? rgb(parseInt(m[1], 16) / 255, parseInt(m[2], 16) / 255, parseInt(m[3], 16) / 255) : undefined;
 }
 
 /** PDF der Vorlage mit Werten beschreiben */

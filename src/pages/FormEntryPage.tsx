@@ -8,7 +8,7 @@ import type { ExportFile } from '../lib/aufmass';
 import { workerName } from '../lib/crew';
 import { deleteFormEntry, getFormEntry, getFormFile, listFormEntries, listWorkers, saveFormEntry } from '../lib/db';
 import { useDataChanged } from '../lib/data-events';
-import { displayValue, entrySiteKey, fits, fmtFieldDate, fontSizeOf, isoWeekLabel, lineCapacity, mainDate, missingRequired, prefill, readingOrder, type CustomField, type FormEntry, type Measure } from '../lib/forms';
+import { displayValue, entrySiteKey, fits, fontCss, DEFAULT_FORM_COLOR, fmtFieldDate, fontSizeOf, isoWeekLabel, lineCapacity, mainDate, missingRequired, prefill, readingOrder, type CustomField, type FormEntry, type Measure } from '../lib/forms';
 import { copyFormEntry, formEntryPdf, prefillContext, suggestedPeople } from '../lib/forms-data';
 import { helveticaMeasure } from '../lib/forms-pdf';
 import { usePageTitle } from '../lib/page-title';
@@ -25,6 +25,9 @@ import { ACCENT } from './ReportsPage';
 
 /** Näherung, bis die PDF-Schrift geladen ist */
 const roughMeasure: Measure = (s, size) => s.length * size * 0.5;
+
+/** Schrift wie im PDF: Farbe, Schriftart, fett */
+const inkStyle = (f: CustomField) => ({ color: f.color || DEFAULT_FORM_COLOR, fontFamily: fontCss(f), fontWeight: f.bold ? 700 : 400 });
 
 export function FormEntryPage({ entryId }: { entryId: string }) {
   const session = useSession();
@@ -110,8 +113,8 @@ export function FormEntryPage({ entryId }: { entryId: string }) {
   const setValue = (f: CustomField, v: string) =>
     update((x) => {
       let values = { ...x.values, [f.id]: v };
-      // Datum geändert → Kalenderwochen-Felder nachziehen, Hauptdatum des Formulars
-      if (f.type === 'date') values = prefill(x.layout.fields.filter((g) => g.type === 'week'), { date: v }, values);
+      // Datum geändert → Kalenderwoche und Wochentag nachziehen, Hauptdatum des Formulars
+      if (f.type === 'date') values = prefill(x.layout.fields.filter((g) => g.type === 'week' || g.type === 'weekday'), { date: v }, values);
       return { ...x, values, date: mainDate(x.layout.fields, values) ?? x.date };
     });
   const setNo = (no: string) => update((x) => ({ ...x, no, values: prefill(x.layout.fields.filter((g) => g.type === 'no'), { no }, x.values) }));
@@ -262,13 +265,13 @@ export function FormEntryPage({ entryId }: { entryId: string }) {
                   return (
                     <div key={f.id} className={`form-preview-box${focus === f.id ? ' focus' : ''}${bad ? ' bad' : ''}`} style={{ left: pct(f.box.x, e.layout.width), top: pct(f.box.y, e.layout.height), width: pct(f.box.w, e.layout.width), height: pct(f.box.h, e.layout.height) }} title={f.name}>
                       {f.type === 'multiline' ? (
-                        <span className="form-sample multi" style={{ fontSize: size, lineHeight: `${(f.box.h / lineCapacity(f)) * pxPerPt}px` }}>
+                        <span className="form-sample multi" style={{ ...inkStyle(f), fontSize: size, lineHeight: `${(f.box.h / lineCapacity(f)) * pxPerPt}px` }}>
                           {text.split('\n').map((s, i) => (
                             <span key={i}>{s}</span>
                           ))}
                         </span>
                       ) : (
-                        <span className="form-sample" style={{ fontSize: size, textAlign: f.align ?? (f.type === 'checkbox' ? 'center' : f.type === 'amount' || f.type === 'number' ? 'right' : 'left') }}>
+                        <span className="form-sample" style={{ ...inkStyle(f), fontSize: size, textAlign: f.align ?? (f.type === 'checkbox' ? 'center' : f.type === 'amount' || f.type === 'number' ? 'right' : 'left') }}>
                           {text}
                         </span>
                       )}
@@ -329,6 +332,14 @@ function FieldInput({ f, value, measure, workers, people, onChange, onFocus }: {
         <label className="field" htmlFor={id}>
           {label}
           <input {...common} type="number" inputMode="numeric" min={1} max={53} value={value} onChange={(e) => onChange(e.target.value)} />
+          <small className="muted">{f.hint || 'wird aus dem Datum berechnet'}</small>
+        </label>
+      );
+    case 'weekday':
+      return (
+        <label className="field" htmlFor={id}>
+          {label}
+          <input {...common} value={value} onChange={(e) => onChange(e.target.value)} placeholder="z. B. Montag" />
           <small className="muted">{f.hint || 'wird aus dem Datum berechnet'}</small>
         </label>
       );

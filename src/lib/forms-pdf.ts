@@ -1,7 +1,14 @@
 import { PDFDocument, StandardFonts } from 'pdf-lib';
 import { safeFileName, type ExportFile } from './aufmass';
-import { drawInBox, drawLines, sanitize } from './form-fill';
-import { displayValue, fontSizeOf, lineBoxes, type CustomLayout, type FormEntry, type Measure } from './forms';
+import { drawInBox, drawLines, hexColor, sanitize } from './form-fill';
+import { DEFAULT_FORM_COLOR, displayValue, fontSizeOf, lineBoxes, type CustomField, type CustomLayout, type FormEntry, type Measure } from './forms';
+import type { PDFFont } from 'pdf-lib';
+
+const STD: Record<string, [StandardFonts, StandardFonts]> = {
+  helvetica: [StandardFonts.Helvetica, StandardFonts.HelveticaBold],
+  times: [StandardFonts.TimesRoman, StandardFonts.TimesRomanBold],
+  courier: [StandardFonts.Courier, StandardFonts.CourierBold],
+};
 
 /**
  * Ausgefülltes Firmenformular: Werte an den eingerichteten Stellen in das Original-PDF schreiben.
@@ -10,15 +17,23 @@ import { displayValue, fontSizeOf, lineBoxes, type CustomLayout, type FormEntry,
  */
 export async function fillCustomForm(pdf: ArrayBuffer, layout: CustomLayout, values: Record<string, string>): Promise<Uint8Array> {
   const doc = await PDFDocument.load(pdf, { ignoreEncryption: true });
-  const font = await doc.embedFont(StandardFonts.Helvetica);
+  // Schriftart und Farbe je Feld (Standardschriften des PDF, jeweils einmal eingebettet)
+  const fonts = new Map<string, PDFFont>();
+  const fontOf = async (f: CustomField) => {
+    const k = `${f.font ?? 'helvetica'}:${f.bold ? 1 : 0}`;
+    if (!fonts.has(k)) fonts.set(k, await doc.embedFont(STD[f.font ?? 'helvetica'][f.bold ? 1 : 0]));
+    return fonts.get(k)!;
+  };
   const page = doc.getPage(0);
   const pageH = page.getHeight();
   for (const f of layout.fields) {
     const text = displayValue(f, values[f.id]);
     if (!text) continue;
-    if (f.type === 'multiline') drawLines(page, font, pageH, lineBoxes(f), text, fontSizeOf(f));
-    else if (f.type === 'checkbox') drawInBox(page, font, pageH, f.box, 'X', { max: Math.min(12, f.box.h * 0.9), align: 'center' });
-    else drawInBox(page, font, pageH, f.box, text.replace(/\s*\n\s*/g, ' · '), { max: fontSizeOf(f), align: f.align ?? (f.type === 'amount' || f.type === 'number' ? 'right' : 'left') });
+    const font = await fontOf(f);
+    const color = hexColor(f.color || DEFAULT_FORM_COLOR);
+    if (f.type === 'multiline') drawLines(page, font, pageH, lineBoxes(f), text, fontSizeOf(f), color);
+    else if (f.type === 'checkbox') drawInBox(page, font, pageH, f.box, 'X', { max: Math.min(12, f.box.h * 0.9), align: 'center', color });
+    else drawInBox(page, font, pageH, f.box, text.replace(/\s*\n\s*/g, ' · '), { max: fontSizeOf(f), align: f.align ?? (f.type === 'amount' || f.type === 'number' ? 'right' : 'left'), color });
   }
   return doc.save();
 }

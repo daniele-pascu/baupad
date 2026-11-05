@@ -2,7 +2,7 @@ import type { ExportFile } from './aufmass';
 import { weekOf, workerName } from './crew';
 import { getFormFile, getMeta, getWeek, listWorkers, loadProjectData, previousWeek, saveFormEntry } from './db';
 import { templateFileId, type FormTemplate } from './form-template';
-import { entrySiteKey, mainDate, nextFormNo, prefill, type FormEntry, type PrefillContext } from './forms';
+import { mainDate, nextFormNo, prefill, type FormEntry, type PrefillContext } from './forms';
 import { filledEntryFile } from './forms-pdf';
 import { uuid } from './ids';
 import { crewForDay, effectiveWeek } from './reports';
@@ -50,7 +50,7 @@ export async function createFormEntry(t: FormTemplate, site: { projectId: string
   const fields = t.fields ?? [];
   const now = Date.now();
   const base = { projectId: site.projectId, siteName: site.name };
-  const no = nextFormNo(all, t.id, entrySiteKey(base));
+  const no = nextFormNo(all, t.id);
   const values = prefill(fields, await prefillContext(site.projectId, site.name, date, no));
   const e: FormEntry = {
     id: uuid(),
@@ -76,7 +76,7 @@ export async function createFormEntry(t: FormTemplate, site: { projectId: string
 export async function copyFormEntry(src: FormEntry, all: FormEntry[], createdBy: string): Promise<FormEntry> {
   const now = Date.now();
   const date = today();
-  const no = nextFormNo(all, src.templateId, entrySiteKey(src));
+  const no = nextFormNo(all, src.templateId);
   const values = prefill(src.layout.fields, { date, no }, src.values);
   const e: FormEntry = { ...src, id: uuid(), no, date: mainDate(src.layout.fields, values) ?? date, values, status: 'draft', createdBy, createdAt: now, updatedAt: now };
   await saveFormEntry(e);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { analyzeForm } from '../../src/lib/form-template';
-import { displayValue, duplicateNos, fieldsFromDetection, fits, isoWeek, isoWeekLabel, lineCapacity, nextFormNo, prefill, readingOrder, wrapText, type CustomField, type FormEntry } from '../../src/lib/forms';
+import { displayValue, duplicateNos, parseNoRange, fieldsFromDetection, fits, isoWeek, isoWeekLabel, lineCapacity, nextFormNo, prefill, readingOrder, wrapText, type CustomField, type FormEntry } from '../../src/lib/forms';
 import tagesbericht from '../fixtures/forms/mst-tagesbericht.json';
 
 /** Näherung für Helvetica: 0,5 × Schriftgröße je Zeichen */
@@ -8,17 +8,28 @@ const measure = (s: string, size: number) => s.length * size * 0.5;
 const field = (p: Partial<CustomField>): CustomField => ({ id: p.id ?? 'f', name: p.name ?? 'Feld', type: p.type ?? 'text', box: p.box ?? { x: 0, y: 0, w: 100, h: 12 }, ...p });
 const entry = (p: Partial<FormEntry>): FormEntry => ({ id: p.id ?? 'e', templateId: 't1', templateName: 'Regieliste', templateVersion: 1, fileId: 't1', layout: { width: 595, height: 842, fields: [] }, projectId: 'p1', siteName: 'Halle', no: '1', date: '2026-10-28', values: {}, status: 'draft', createdBy: '', createdAt: 0, updatedAt: 0, ...p });
 
-describe('Firmenformulare: Nummerierung je Vorlage und Projekt', () => {
-  it('nächste Nummer = höchste + 1, getrennt je Vorlage und Projekt; Lücken bleiben', () => {
+describe('Firmenformulare: Nummerierung durchgehend je Vorlage', () => {
+  it('nächste Nummer = höchste + 1 je Vorlage, über alle Projekte; Lücken bleiben', () => {
     const all = [entry({ no: '1' }), entry({ id: 'b', no: '7' }), entry({ id: 'c', no: '3', templateId: 't2' }), entry({ id: 'd', no: '20', projectId: 'p2' })];
-    expect(nextFormNo(all, 't1', 'p:p1')).toBe('8');
-    expect(nextFormNo(all, 't2', 'p:p1')).toBe('4');
-    expect(nextFormNo(all, 't1', 'p:p2')).toBe('21');
-    expect(nextFormNo(all, 't9', 'p:p1')).toBe('1');
+    expect(nextFormNo(all, 't1')).toBe('21');
+    expect(nextFormNo(all, 't2')).toBe('4');
+    expect(nextFormNo(all, 't9')).toBe('1');
   });
-  it('doppelte Nummern (zwei Geräte) werden erkannt', () => {
+  it('doppelte Nummern (zwei Geräte) werden erkannt – je Vorlage, auch projektübergreifend', () => {
     const dup = duplicateNos([entry({ id: 'a', no: '8' }), entry({ id: 'b', no: '8' }), entry({ id: 'c', no: '9' }), entry({ id: 'd', no: '8', projectId: 'p2' })]);
-    expect([...dup].sort()).toEqual(['a', 'b']);
+    expect([...dup].sort()).toEqual(['a', 'b', 'd']);
+  });
+  it('Nummernbereich zum Drucken: „3-20“, „3–5, 8“; ungültig → null', () => {
+    expect([...parseNoRange('3-6')!]).toEqual([3, 4, 5, 6]);
+    expect([...parseNoRange('3–5, 8')!]).toEqual([3, 4, 5, 8]);
+    expect([...parseNoRange('20-18')!]).toEqual([18, 19, 20]);
+    expect(parseNoRange('abc')).toBeNull();
+    expect(parseNoRange('')).toBeNull();
+  });
+  it('Wochentag aus dem Datum (Feld „Wochentag“), auch als Vorschlag beim Anlegen', () => {
+    const f = field({ id: 'w', type: 'weekday' });
+    expect(displayValue(f, '2026-11-04')).toBe('Mittwoch');
+    expect(prefill([f, field({ id: 'k', type: 'week' })], { date: '2026-11-05' })).toEqual({ w: 'Donnerstag', k: '45' });
   });
 });
 

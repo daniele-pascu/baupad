@@ -4,7 +4,7 @@ import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, showError, toast } from '../components/ui';
 import { getFormFile, getFormTemplate, saveFormTemplate } from '../lib/db';
 import { analyzeForm, templateFileId, type FormTemplate } from '../lib/form-template';
-import { FIELD_TYPES, fieldsFromDetection, fontSizeOf, lineBoxes, lineCapacity, newField, PROJECT_SOURCES, readingOrder, typeLabel, type CustomField, type CustomFieldType } from '../lib/forms';
+import { DEFAULT_FORM_COLOR, FIELD_TYPES, FORM_COLORS, FORM_FONTS, fontCss, NAME_SUGGESTIONS, suggestionFor, fieldsFromDetection, fontSizeOf, lineBoxes, lineCapacity, newField, PROJECT_SOURCES, readingOrder, typeLabel, type CustomField, type CustomFieldType } from '../lib/forms';
 import { uuid } from '../lib/ids';
 import { usePageTitle } from '../lib/page-title';
 import { navigate, paths } from '../lib/router';
@@ -23,6 +23,7 @@ const SAMPLE: Record<CustomFieldType, string> = {
   multiline: 'Erste Zeile des Textes\nZweite Zeile des Textes\nDritte Zeile des Textes',
   date: '28.10.2026',
   week: '44',
+  weekday: 'Mittwoch',
   number: '12',
   amount: '1.250,00',
   person: 'Max Muster, Peter Beispiel',
@@ -32,6 +33,9 @@ const SAMPLE: Record<CustomFieldType, string> = {
   checkbox: 'X',
   no: '7',
 };
+
+/** Schrift wie im ausgefüllten PDF */
+const ink = (f: CustomField) => ({ color: f.color || DEFAULT_FORM_COLOR, fontFamily: fontCss(f), fontWeight: f.bold ? 700 : 400 });
 
 type Drag = { kind: 'move' | 'resize' | 'draw'; id: string; x: number; y: number; box: CustomField['box']; moved?: boolean };
 
@@ -278,7 +282,7 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
                 >
                   {sample ? (
                     f.type === 'multiline' ? (
-                      <span className="form-sample multi" style={{ fontSize: fontPx(f), lineHeight: `${(f.box.h / lineCapacity(f)) * pxPerPt}px` }}>
+                      <span className="form-sample multi" style={{ ...ink(f), fontSize: fontPx(f), lineHeight: `${(f.box.h / lineCapacity(f)) * pxPerPt}px` }}>
                         {SAMPLE.multiline
                           .split('\n')
                           .slice(0, lineCapacity(f))
@@ -287,15 +291,17 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
                           ))}
                       </span>
                     ) : (
-                      <span className="form-sample" style={{ fontSize: fontPx(f), textAlign: f.align ?? (f.type === 'checkbox' ? 'center' : 'left') }}>
+                      <span className="form-sample" style={{ ...ink(f), fontSize: fontPx(f), textAlign: f.align ?? (f.type === 'checkbox' ? 'center' : 'left') }}>
                         {SAMPLE[f.type]}
                       </span>
                     )
                   ) : (
-                    <span className="form-box-label">{f.name || '?'}</span>
+                    <span className="form-box-label">
+                      {f.name || '?'}
+                      {f.type === 'multiline' && <em className="form-box-lines"> · {lineCapacity(f)} Zeilen</em>}
+                    </span>
                   )}
                   {f.type === 'multiline' &&
-                    sel === f.id &&
                     lineBoxes(f)
                       .slice(1)
                       .map((b, i) => <i key={i} className="form-line-mark" style={{ top: pct(b.y - f.box.y, f.box.h) }} />)}
@@ -321,7 +327,32 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
               <div className="form-tpl-field" data-testid="form-field-panel">
                 <label className="field">
                   <span>Feldname *</span>
-                  <input ref={nameInput} value={field.name} onChange={(e) => patch(field.id, { name: e.target.value })} placeholder="z. B. Baustelle" data-testid="form-field-name" />
+                  <input
+                    ref={nameInput}
+                    value={field.name}
+                    list="form-name-suggestions"
+                    onChange={(e) => {
+                      // Vorschlag gewählt (z. B. „Wochentag“) → passender Feldtyp, solange noch „Einzeiliger Text“
+                      const sg = suggestionFor(e.target.value);
+                      patch(field.id, { name: e.target.value, ...(sg && field.type === 'text' ? { type: sg.type, ...(sg.source ? { source: sg.source } : {}) } : {}) });
+                    }}
+                    placeholder="z. B. Baustelle – Vorschlag wählen oder selbst schreiben"
+                    data-testid="form-field-name"
+                  />
+                  <datalist id="form-name-suggestions">
+                    {NAME_SUGGESTIONS.map((x) => (
+                      <option key={x.name} value={x.name} />
+                    ))}
+                  </datalist>
+                  <span className="form-name-chips">
+                    {NAME_SUGGESTIONS.filter((x) => !fields.some((g) => g.name.trim().toLowerCase() === x.name.toLowerCase()))
+                      .slice(0, 8)
+                      .map((x) => (
+                        <button key={x.name} type="button" className="chip" onClick={() => patch(field.id, { name: x.name, type: x.type, ...(x.source ? { source: x.source } : {}) })} data-testid="form-name-suggestion">
+                          {x.name}
+                        </button>
+                      ))}
+                  </span>
                 </label>
                 <label className="field">
                   <span>Feldtyp</span>
@@ -361,16 +392,59 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
                     <textarea rows={4} value={(field.options ?? []).join('\n')} onChange={(e) => patch(field.id, { options: e.target.value.split('\n') })} onBlur={(e) => patch(field.id, { options: e.target.value.split('\n').map((s) => s.trim()).filter(Boolean) })} data-testid="form-field-options" />
                   </label>
                 )}
-                {field.type === 'multiline' && (
-                  <div className="rp-grid">
-                    <label className="field">
-                      <span>Zeilen</span>
-                      <input type="number" min={1} value={field.lines ?? ''} placeholder={String(lineCapacity(field))} onChange={(e) => patch(field.id, { lines: Number(e.target.value) > 0 ? Number(e.target.value) : undefined })} data-testid="form-field-lines" />
-                    </label>
-                    <label className="field">
-                      <span>Schrift (pt)</span>
-                      <input type="number" min={5.5} max={14} step={0.5} value={field.fontSize ?? ''} placeholder={fontSizeOf(field).toFixed(1)} onChange={(e) => patch(field.id, { fontSize: Number(e.target.value) > 0 ? Number(e.target.value) : undefined })} data-testid="form-field-font" />
-                    </label>
+                {field.type !== 'checkbox' && (
+                  <div className="form-ink" data-testid="form-field-ink">
+                    <div className="rp-grid">
+                      {field.type === 'multiline' && (
+                        <label className="field">
+                          <span>Zeilen</span>
+                          <input type="number" min={1} value={field.lines ?? ''} placeholder={String(lineCapacity(field))} onChange={(e) => patch(field.id, { lines: Number(e.target.value) > 0 ? Number(e.target.value) : undefined })} data-testid="form-field-lines" />
+                        </label>
+                      )}
+                      <label className="field">
+                        <span>Schriftgröße (pt)</span>
+                        <input type="number" min={5.5} max={14} step={0.5} value={field.fontSize ?? ''} placeholder={fontSizeOf(field).toFixed(1)} onChange={(e) => patch(field.id, { fontSize: Number(e.target.value) > 0 ? Number(e.target.value) : undefined })} data-testid="form-field-font" />
+                      </label>
+                    </div>
+                    <div className="rp-grid">
+                      <label className="field">
+                        <span>Schriftart</span>
+                        <select value={field.font ?? 'helvetica'} onChange={(e) => patch(field.id, { font: e.target.value as CustomField['font'] })} data-testid="form-field-fontface">
+                          {FORM_FONTS.map((x) => (
+                            <option key={x.id} value={x.id} style={{ fontFamily: x.css }}>
+                              {x.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="check-row form-bold">
+                        <input type="checkbox" checked={!!field.bold} onChange={(e) => patch(field.id, { bold: e.target.checked })} data-testid="form-field-bold" />
+                        <span>Fett</span>
+                      </label>
+                    </div>
+                    <div className="field">
+                      <span>Schriftfarbe</span>
+                      <div className="form-colors" role="radiogroup" aria-label="Schriftfarbe">
+                        {FORM_COLORS.map((c) => (
+                          <button
+                            key={c.value}
+                            type="button"
+                            role="radio"
+                            aria-checked={(field.color || DEFAULT_FORM_COLOR) === c.value}
+                            aria-label={c.label}
+                            title={c.label}
+                            className={`form-color${(field.color || DEFAULT_FORM_COLOR) === c.value ? ' on' : ''}`}
+                            style={{ background: c.value }}
+                            onClick={() => patch(field.id, { color: c.value })}
+                            data-testid="form-field-color"
+                            data-color={c.value}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <p className="form-ink-sample" style={{ ...ink(field), fontSize: `${Math.max(11, fontSizeOf(field) * 1.4)}px` }}>
+                      So wird es ausgefüllt: {SAMPLE[field.type].split('\n')[0]}
+                    </p>
                   </div>
                 )}
                 <label className="field">
@@ -419,7 +493,11 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
                   <button type="button" className={`link-btn${sel === f.id ? ' on' : ''}${f.name.trim() ? '' : ' text-warn'}`} onClick={() => setSel(f.id)}>
                     {f.name.trim() || 'ohne Namen'}
                     {f.required && ' *'}
-                    <span className="muted small"> · {typeLabel(f.type)}</span>
+                    <span className="muted small">
+                      {' '}
+                      · {typeLabel(f.type)}
+                      {f.type === 'multiline' ? ` · ${lineCapacity(f)} Zeilen` : ''}
+                    </span>
                   </button>
                 </li>
               ))}

@@ -1,6 +1,7 @@
 import { expect, test, type Page } from './fixtures';
 import { join } from 'node:path';
-import { createProject, FIXTURES, freshStart } from './helpers';
+import { execFileSync } from 'node:child_process';
+import { catchDownload, createProject, FIXTURES, freshStart, OUT, saveDownload } from './helpers';
 
 /**
  * Firmenformulare mit eigenen Feldern: Vorlage hochladen, Felder einrichten (Name, Typ, Hinweis, Pflicht,
@@ -218,4 +219,92 @@ test('Rechte: Polier richtet keine Vorlagen ein, kann aber Formulare ausfüllen'
   await d.locator('[data-testid="report-type-form"]').click();
   await d.getByTestId('report-create').click();
   await expect(page.getByTestId('form-entry-title')).toContainText('Nr. 1');
+});
+
+test('Felder: Namen vorschlagen, Schrift (Größe, Art, Farbe), Wochentag/KW aus dem Datum; Nummer durchgehend; Drucken nach Nummern', async ({ page }) => {
+  test.setTimeout(150_000);
+  await freshStart(page);
+  await createProject(page, 'Wohnanlage Sonnenhof', { number: '2026-04' });
+  await page.goto('./baupad/aufmass-und-abrechnung');
+  await createProject(page, 'Halle 3', { number: '2026-05' });
+  await page.goto('./baupad/berichte-und-formulare/vorlagen');
+  await page.getByTestId('form-template-input').setInputFiles(form('mst-tagesbericht.pdf'));
+  const nd = page.getByTestId('form-new-dialog');
+  await nd.getByTestId('form-new-name').fill('Regie');
+  await nd.getByTestId('form-new-create').click();
+  await expect(page.getByTestId('form-field-box')).toHaveCount(14);
+  const panel = page.getByTestId('form-field-panel');
+  // neues Feld zeichnen → Vorschlag „Wochentag“ setzt den passenden Typ
+  const draw = async (fx: number, fy: number) => {
+    await page.getByTestId('form-editor-draw').click();
+    const st = (await page.getByTestId('form-editor-stage').boundingBox())!;
+    await page.mouse.move(st.x + st.width * fx, st.y + st.height * fy);
+    await page.mouse.down();
+    await page.mouse.move(st.x + st.width * (fx + 0.2), st.y + st.height * (fy + 0.02), { steps: 4 });
+    await page.mouse.up();
+  };
+  await draw(0.55, 0.55);
+  await panel.getByTestId('form-name-suggestion').filter({ hasText: 'Wochentag' }).click();
+  await expect(panel.getByTestId('form-field-name')).toHaveValue('Wochentag');
+  await expect(panel.getByTestId('form-field-type')).toHaveValue('weekday');
+  // Schrift: Größe, Times New Roman, fett, Farbe Rot
+  await panel.getByTestId('form-field-font').fill('11');
+  await panel.getByTestId('form-field-fontface').selectOption('times');
+  await panel.getByTestId('form-field-bold').check();
+  await panel.locator('[data-testid="form-field-color"][data-color="#c92a2a"]').click();
+  await expect(panel.locator('[data-testid="form-field-color"][data-color="#c92a2a"]')).toHaveAttribute('aria-checked', 'true');
+  await panel.screenshot({ path: join(OUT, 'formular-feld-schrift.png') });
+  // selbst geschriebener Name, der einem Vorschlag entspricht → Typ automatisch (KW)
+  await draw(0.55, 0.62);
+  await panel.getByTestId('form-field-name').fill('KW');
+  await expect(panel.getByTestId('form-field-type')).toHaveValue('week');
+  // mehrzeiliges Feld zeigt die Zeilen an
+  await expect(page.locator('[data-testid="form-field-box"][data-name="Leistungsbeschreibung"]')).toContainText(/\d+ Zeilen/);
+  await page.getByTestId('form-editor-save').click();
+  await expect(page.getByTestId('form-editor-state')).toHaveText('gespeichert');
+
+  // Formular im ersten Projekt: Datum → KW und Wochentag automatisch
+  const newForm = async (site: string, date: string) => {
+    await page.goto('./baupad/berichte-und-formulare');
+    if ((await page.locator(`[data-testid="report-site"]`).filter({ hasText: site }).count()) > 0) await page.locator('[data-testid="report-site"]').filter({ hasText: site }).click();
+    else {
+      await page.getByTestId('report-new-site').click();
+      await page.getByTestId('project-picker').getByTestId('picker-item').filter({ hasText: site }).click();
+    }
+    await page.getByTestId('report-group-new').click();
+    const d = page.getByTestId('report-new-dialog');
+    await d.locator('[data-testid="report-type-form"][data-name="Regie"]').click();
+    await d.getByTestId('report-date').fill(date);
+    await d.getByTestId('report-create').click();
+  };
+  const fld = (name: string) => page.locator(`[data-testid="form-entry-field"][data-name="${name}"]`);
+  await newForm('Wohnanlage Sonnenhof', '2026-11-04');
+  await expect(page.getByTestId('form-entry-title')).toHaveText('Regie Nr. 1');
+  await expect(fld('Wochentag')).toHaveValue('Mittwoch');
+  await expect(fld('KW')).toHaveValue('45');
+  // Datum ändern → beides zieht mit
+  await page.locator('[data-testid="form-entry-field"][type="date"]').first().fill('2026-11-09');
+  await expect(fld('Wochentag')).toHaveValue('Montag');
+  await expect(fld('KW')).toHaveValue('46');
+  await expect(page.getByTestId('save-state')).toHaveText('gespeichert');
+  // anderes Projekt: Nummer läuft durch (Nr. 2), dann wieder im ersten Projekt Nr. 3
+  await newForm('Halle 3', '2026-11-05');
+  await expect(page.getByTestId('form-entry-title')).toHaveText('Regie Nr. 2');
+  await expect(page.getByTestId('save-state')).toHaveText('gespeichert');
+  await newForm('Wohnanlage Sonnenhof', '2026-11-06');
+  await expect(page.getByTestId('form-entry-title')).toHaveText('Regie Nr. 3');
+  await expect(page.getByTestId('save-state')).toHaveText('gespeichert');
+
+  // Drucken je Formular: Nummern 1-3 → im Projekt Nr. 1 und Nr. 3 in einem PDF
+  await page.getByTestId('to-reports').click();
+  await page.locator('[data-testid="form-section-print"][data-name="Regie"]').click();
+  const pd = page.getByTestId('prompt-dialog');
+  await expect(pd.locator('input')).toHaveValue('1-3');
+  await pd.locator('input').fill('1-3');
+  const dl = await catchDownload(page, () => pd.getByRole('button', { name: 'PDF erstellen' }).click());
+  const file = await saveDownload(dl, 'regie-1-3.pdf');
+  expect(Number(/Pages:\s+(\d+)/.exec(execFileSync('pdfinfo', [file], { encoding: 'utf8' }))![1])).toBe(2);
+  const txt = execFileSync('pdftotext', [file, '-'], { encoding: 'utf8' });
+  expect(txt).toContain('Montag');
+  expect(txt).toContain('Freitag');
 });
