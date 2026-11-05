@@ -196,9 +196,27 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
   // PC: gewähltes Feld mit den Pfeiltasten genau setzen (1 pt, mit Umschalt 0,5 mm × 10 = 5 mm)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!sel || !e.key.startsWith('Arrow')) return;
+      if (!sel) return;
       const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+      const typing = !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
+      // Enter = Feld fertig (auch im Namensfeld; im mehrzeiligen Textfeld bleibt Enter eine neue Zeile)
+      if (e.key === 'Enter' && t?.tagName !== 'TEXTAREA' && t?.tagName !== 'BUTTON') {
+        e.preventDefault();
+        (document.activeElement as HTMLElement | null)?.blur?.();
+        setSel(null);
+        setDrawing(false);
+        return;
+      }
+      // Entf = gewähltes Feld löschen (nicht beim Schreiben in einem Eingabefeld)
+      if (e.key === 'Delete' && !typing) {
+        e.preventDefault();
+        setFields((l) => l.filter((x) => x.id !== sel));
+        setSel(null);
+        setDirty(true);
+        toast('Feld gelöscht.', 'success');
+        return;
+      }
+      if (!e.key.startsWith('Arrow') || typing) return;
       e.preventDefault();
       const step = e.shiftKey ? 5 * MM_PT : 1;
       const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;

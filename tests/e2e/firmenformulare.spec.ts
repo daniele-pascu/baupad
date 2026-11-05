@@ -316,6 +316,15 @@ test('Felder: Namen vorschlagen, Schrift (Größe, Art, Farbe), Wochentag/KW aus
   const s2 = (await strips.nth(2).boundingBox())!;
   expect(s2.x + s2.width).toBeLessThan(s1.x + s1.width - 40);
   expect(Number(await panel.getByTestId('form-inset-right-mm').last().inputValue())).toBeGreaterThan(5);
+  // Enter = fertig (Feld abgewählt); Entf löscht das gewählte Feld
+  const count = await page.getByTestId('form-field-box').count();
+  await panel.getByTestId('form-field-name').press('Enter');
+  await expect(page.getByTestId('form-field-panel')).toHaveCount(0);
+  await page.locator('[data-testid="form-field-box"][data-name="Arbeiten"]').click();
+  await expect(page.getByTestId('form-field-panel')).toBeVisible();
+  await page.keyboard.press('Delete');
+  await expect(page.getByTestId('form-field-box')).toHaveCount(count - 1);
+  await expect(page.locator('[data-testid="form-field-box"][data-name="Arbeiten"]')).toHaveCount(0);
   await page.getByTestId('form-editor-stage').screenshot({ path: join(OUT, 'formular-editor-zeilen.png') });
   await page.getByTestId('form-editor-save').click();
   await expect(page.getByTestId('form-editor-state')).toHaveText('gespeichert');
