@@ -141,7 +141,7 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - Materialverwaltung: gleiche Architektur (Supabase + Hetzner), Symbol „Wagen mit Material“ (Variante N); vorher Versionsprüfung gegen stilles Überschreiben und Schutz vor Doppelten im Abgleich.
 
 ## Materialverwaltung (05.11.2026)
-- Ein Tool „Materialverwaltung“ (Kachel mit Wagen-Symbol), in Etappen: 1. Materialstamm (Bezeichnung, Artikelnummer, Einheit, Preis netto, Lieferant, Kategorie, Notiz) und Lieferanten – **umgesetzt**; 2. Materiallisten je Baustelle mit Bestellmenge, Liefertermin, Status und Verlauf; 3. Angebote/Lieferscheine als PDF, PDF-Export.
+- Ein Tool „Materialverwaltung“ (Kachel mit Wagen-Symbol), in Etappen: 1. Materialstamm (Bezeichnung, Artikelnummer, Einheit, Preis netto, Lieferant, Kategorie, Notiz) und Lieferanten – **umgesetzt**; 2. Materiallisten je Baustelle mit Bestellmenge, Liefertermin, Status und Verlauf – **umgesetzt** (Bereich „Baustellen“, Projekte aus dem Register, nur freigegebene; gleiches noch nicht geliefertes Material → Rückfrage „dazurechnen“; Datenart `materialItems`); 3. Angebote/Lieferscheine als PDF, PDF-Export.
 - Doppelte Einträge: Hinweis schon beim Tippen und Rückfrage beim Speichern (gleiche Artikelnummer beim selben Lieferanten bzw. gleicher Name mit gleicher Einheit; Schreibweise, Umlaute, „m2“/„m²“, „Stück“/„Stk“ egal). Lieferanten: gleicher Name, Rechtsform egal.
 - Abgleich wie alle Tools (Datenarten `materials`, `suppliers`). Solange die Funktion `storage` nicht neu veröffentlicht ist, bleiben nur diese Datensätze in der Warteschlange – alles andere wird normal übertragen.
 - Standardfreigabe: Admin, Büro und Polier; bestehende Benutzer bekommen das Tool vom Admin unter Benutzer & Rollen.

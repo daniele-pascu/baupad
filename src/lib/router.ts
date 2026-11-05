@@ -45,6 +45,7 @@ export type Route =
   | { name: 'photoSite'; siteKey: string; week: string | null; photoId: string | null }
   | { name: 'defects' }
   | { name: 'materials'; tab: string | null }
+  | { name: 'materialSite'; projectId: string }
   | { name: 'defectSite'; siteKey: string }
   | { name: 'defectPlan'; planId: string; markId: string | null }
   | { name: 'login'; register?: boolean }
@@ -136,6 +137,7 @@ export function parseRoute(url: string): Route {
   if (parts[0] === 'zeit' && parts.length === 2) return { name: 'timesheet', workerId: parts[1], month: params.get('m') };
   if (parts[0] === 'maengel' && parts.length === 1) return { name: 'defects' };
   if (parts[0] === 'material' && parts.length === 1) return { name: 'materials', tab: params.get('t') };
+  if (parts[0] === 'material' && parts[1] === 'b' && parts.length === 3) return { name: 'materialSite', projectId: parts[2] };
   if (parts[0] === 'maengel' && parts[1] === 'b' && parts.length === 3) return { name: 'defectSite', siteKey: parts[2] };
   if (parts[0] === 'maengel' && parts[1] === 'plan' && parts.length === 3) return { name: 'defectPlan', planId: parts[2], markId: params.get('m') };
   if (parts[0] === 'anmelden' && parts.length === 1) return { name: 'login' };
@@ -204,7 +206,8 @@ export const paths = {
   photosRecent: () => `${APP}/fotodokumentation/zuletzt`,
   defects: () => `${APP}/maengelplan`,
   /** Materialverwaltung: Materialien bzw. Lieferanten (t=lieferanten) */
-  materials: (tab?: 'lieferanten') => `${APP}/materialverwaltung${tab ? `?t=${tab}` : ''}`,
+  materials: (tab?: 'material' | 'lieferanten') => `${APP}/materialverwaltung${tab ? `?t=${tab}` : ''}`,
+  materialSite: (projectId: string) => `${APP}/materialverwaltung/b/${encodeURIComponent(projectId)}`,
   defectSite: (key: string) => `${APP}/maengelplan/b/${encodeURIComponent(key)}`,
   defectPlan: (planId: string, markId?: string | null) => `${APP}/maengelplan/plan/${planId}${markId ? `?m=${encodeURIComponent(markId)}` : ''}`,
   /** Kamera-Modus (Live-Bild, Auslöser) – wahlweise mit vorgewählter Baustelle */
@@ -275,6 +278,8 @@ export function canonicalPath(r: Route, lang: Lang = 'de'): string | null {
       return paths.defects();
     case 'materials':
       return paths.materials();
+    case 'materialSite':
+      return paths.materialSite(r.projectId);
     case 'defectSite':
       return paths.defectSite(r.siteKey);
     case 'defectPlan':

@@ -29,6 +29,7 @@ export const ROUTE_TOOL: Record<string, ToolId> = {
   defectSite: 'defects',
   defectPlan: 'defects',
   materials: 'materials',
+  materialSite: 'materials',
 };
 
 const unrestricted = (s: Session | null | undefined) => !s || !s.companyId || s.role === 'admin' || s.operator;

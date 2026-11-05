@@ -496,6 +496,31 @@ export interface Material {
   updatedAt: number;
 }
 
+/** Materialverwaltung: Status einer Position auf der Materialliste einer Baustelle */
+export type MaterialStatus = 'offen' | 'bestellt' | 'geliefert';
+
+/** Materialverwaltung: Position auf der Materialliste einer Baustelle (Projekt aus dem Register) */
+export interface MaterialItem {
+  id: string;
+  projectId: string;
+  /** Material aus dem Materialstamm (fehlt = frei eingegeben) */
+  materialId?: string | null;
+  /** Bezeichnung, Einheit und Preis zum Zeitpunkt des Eintrags (Kopie aus dem Materialstamm, änderbar) */
+  name: string;
+  unit: string;
+  price?: number | null;
+  qty: number | null;
+  supplierId?: string | null;
+  /** gewünschter Liefertermin JJJJ-MM-TT */
+  deliveryDate?: string;
+  status: MaterialStatus;
+  note?: string;
+  /** Verlauf: wer hat wann was geändert (Status, Menge, Termin) */
+  history: { at: number; by: string; text: string }[];
+  createdAt: number;
+  updatedAt: number;
+}
+
 /** Arbeiter der Firma – einmal angelegt, jede Woche wiederverwendet */
 export interface Worker {
   id: string;

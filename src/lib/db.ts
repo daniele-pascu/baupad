@@ -1,5 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import type { Component, CostCenter, Damage, DrawElement, EntityMap, EntityStore, LvDocument, Photo, Plan, Project, Report, SourceFile, WeekPlan, Worker, DefectMark, DefectPlan, Material, Supplier } from './types';
+import type { Component, CostCenter, Damage, DrawElement, EntityMap, EntityStore, LvDocument, Photo, Plan, Project, Report, SourceFile, WeekPlan, Worker, DefectMark, DefectPlan, Material, MaterialItem, Supplier } from './types';
 import type { FormTemplate } from './form-template';
 import type { FormEntry } from './forms';
 import type { TimeDay, TimeMonth } from './times';
@@ -38,6 +38,8 @@ interface AufmassDB extends DBSchema {
   /** ab Version 13: Materialverwaltung */
   materials: { key: string; value: Material };
   suppliers: { key: string; value: Supplier };
+  /** ab Version 14: Materiallisten je Baustelle */
+  materialItems: { key: string; value: MaterialItem; indexes: { projectId: string } };
   /** ab Version 5: Arbeitereinteilung – eine Wochenplanung je Woche (Schlüssel = Montag JJJJ-MM-TT) */
   weeks: { key: string; value: WeekPlan };
   /** ab Version 6: Berichte & Formulare (Regielisten, Bautages- und Bauwochenberichte) */
@@ -64,7 +66,7 @@ interface AufmassDB extends DBSchema {
 }
 
 /** Datensätze, die mit der zentralen Ablage abgeglichen werden (Angaben als JSON) */
-export type SyncStore = EntityStore | 'workers' | 'weeks' | 'reports' | 'defectPlans' | 'defectMarks' | 'formTemplates' | 'formEntries' | 'timeDays' | 'timeMonths' | 'materials' | 'suppliers' | 'meta';
+export type SyncStore = EntityStore | 'workers' | 'weeks' | 'reports' | 'defectPlans' | 'defectMarks' | 'formTemplates' | 'formEntries' | 'timeDays' | 'timeMonths' | 'materials' | 'suppliers' | 'materialItems' | 'meta';
 /** Dateien, die mit der zentralen Ablage abgeglichen werden (Originalpläne, Mängelplan-Bilder, Formular-PDFs) */
 export type SyncFileStore = 'blobs' | 'defectPlanImages' | 'formTemplateFiles' | 'timeFiles';
 /** Einstellungen, die für die ganze Firma gelten (werden abgeglichen); alles andere in `meta` bleibt auf dem Gerät */
@@ -110,7 +112,7 @@ const DB_NAME = 'schadstellen-aufmass';
  * Version 5: Arbeitereinteilung (Arbeiter, Wochenplanungen). Version 6: Berichte & Formulare. Version 7: Fotodokumentation.
  * Upgrades legen ausschließlich neue Speicherbereiche an; vorhandene Daten bleiben unverändert.
  */
-const DB_VERSION = 13;
+const DB_VERSION = 14;
 
 let dbPromise: Promise<IDBPDatabase<AufmassDB>> | null = null;
 
@@ -174,6 +176,9 @@ export function getDB(): Promise<IDBPDatabase<AufmassDB>> {
         if (oldVersion < 13) {
           db.createObjectStore('materials', { keyPath: 'id' });
           db.createObjectStore('suppliers', { keyPath: 'id' });
+        }
+        if (oldVersion < 14) {
+          db.createObjectStore('materialItems', { keyPath: 'id' }).createIndex('projectId', 'projectId');
         }
         // Hinweis für Aufmaß & Abrechnung, dass die Datenbank erweitert wurde
         if (oldVersion >= 1) void tx.objectStore('meta').put({ key: 'upgradedFrom', value: oldVersion });
@@ -387,7 +392,7 @@ export async function saveWorker(w: Worker): Promise<void> {
 }
 
 /** Datensatz samt Vormerkung für den Abgleich schreiben (eine Transaktion) */
-async function putSynced<S extends 'workers' | 'weeks' | 'reports' | 'defectPlans' | 'defectMarks' | 'formTemplates' | 'formEntries' | 'timeDays' | 'timeMonths' | 'materials' | 'suppliers'>(store: S, record: AufmassDB[S]['value'], projectId = ''): Promise<void> {
+async function putSynced<S extends 'workers' | 'weeks' | 'reports' | 'defectPlans' | 'defectMarks' | 'formTemplates' | 'formEntries' | 'timeDays' | 'timeMonths' | 'materials' | 'suppliers' | 'materialItems'>(store: S, record: AufmassDB[S]['value'], projectId = ''): Promise<void> {
   const db = await getDB();
   const tx = db.transaction([store, 'outbox'], 'readwrite');
   await tx.objectStore(store).put(record as never);
@@ -397,7 +402,7 @@ async function putSynced<S extends 'workers' | 'weeks' | 'reports' | 'defectPlan
 }
 
 /** Datensatz endgültig löschen und Grabstein vormerken */
-async function deleteSynced(store: 'workers' | 'weeks' | 'reports' | 'defectPlans' | 'defectMarks' | 'formTemplates' | 'formEntries' | 'timeDays' | 'timeMonths' | 'materials' | 'suppliers', id: string): Promise<void> {
+async function deleteSynced(store: 'workers' | 'weeks' | 'reports' | 'defectPlans' | 'defectMarks' | 'formTemplates' | 'formEntries' | 'timeDays' | 'timeMonths' | 'materials' | 'suppliers' | 'materialItems', id: string): Promise<void> {
   const db = await getDB();
   const tx = db.transaction([store, 'outbox'], 'readwrite');
   await tx.objectStore(store).delete(id);
@@ -446,6 +451,10 @@ export const deleteMaterial = (id: string) => deleteSynced('materials', id);
 export const listSuppliers = async (): Promise<Supplier[]> => (await getDB()).getAll('suppliers');
 export const saveSupplier = (x: Supplier) => putSynced('suppliers', x);
 /** Lieferant löschen; Materialien behalten ihre Angaben, verlieren nur die Zuordnung */
+export const listMaterialItems = async (projectId?: string): Promise<MaterialItem[]> =>
+  projectId ? (await getDB()).getAllFromIndex('materialItems', 'projectId', projectId) : (await getDB()).getAll('materialItems');
+export const saveMaterialItem = (x: MaterialItem) => putSynced('materialItems', x, x.projectId);
+export const deleteMaterialItem = (id: string) => deleteSynced('materialItems', id);
 export async function deleteSupplier(id: string): Promise<void> {
   for (const m of await listMaterials()) if (m.supplierId === id) await saveMaterial({ ...m, supplierId: null, updatedAt: Date.now() });
   await deleteSynced('suppliers', id);
@@ -705,7 +714,7 @@ export async function clearOutbox(entries: OutboxEntry[]): Promise<void> {
 /** alle vorhandenen Datensätze und Dateien zum Abgleich vormerken (erste Anbindung eines Geräts) */
 export async function enqueueAll(): Promise<number> {
   const db = await getDB();
-  const stores = ['projects', 'costCenters', 'files', 'plans', 'damages', 'components', 'elements', 'lvDocs', 'workers', 'weeks', 'reports', 'defectPlans', 'defectMarks', 'formTemplates', 'formEntries', 'timeDays', 'timeMonths', 'materials', 'suppliers'] as const;
+  const stores = ['projects', 'costCenters', 'files', 'plans', 'damages', 'components', 'elements', 'lvDocs', 'workers', 'weeks', 'reports', 'defectPlans', 'defectMarks', 'formTemplates', 'formEntries', 'timeDays', 'timeMonths', 'materials', 'suppliers', 'materialItems'] as const;
   const tx = db.transaction([...stores, 'meta', 'blobs', 'defectPlanImages', 'formTemplateFiles', 'timeFiles', 'outbox'] as const, 'readwrite');
   const outbox = tx.objectStore('outbox');
   let n = 0;

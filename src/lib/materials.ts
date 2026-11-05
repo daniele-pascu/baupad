@@ -1,4 +1,4 @@
-import type { Material, Supplier } from './types';
+import type { Material, MaterialItem, MaterialStatus, Supplier } from './types';
 
 /**
  * Materialverwaltung: Materialstamm und Lieferanten der Firma. Doppelte Einträge werden beim Anlegen erkannt
@@ -69,3 +69,58 @@ export function matchesMaterial(m: Material, q: string, supplierName = ''): bool
   if (!k) return true;
   return [m.name, m.articleNo, m.category, supplierName].some((v) => normKey(v).includes(k));
 }
+
+/* ───────────── Materiallisten je Baustelle (Teil 2) ───────────── */
+
+export const STATUS: { id: MaterialStatus; label: string; next?: MaterialStatus; action?: string }[] = [
+  { id: 'offen', label: 'Offen', next: 'bestellt', action: 'Bestellt' },
+  { id: 'bestellt', label: 'Bestellt', next: 'geliefert', action: 'Geliefert' },
+  { id: 'geliefert', label: 'Geliefert' },
+];
+export const statusLabel = (s: MaterialStatus) => STATUS.find((x) => x.id === s)?.label ?? s;
+
+/** Verlaufseintrag anhängen (höchstens 30 behalten) */
+export function withHistory(item: MaterialItem, by: string, text: string, at = Date.now()): MaterialItem {
+  return { ...item, updatedAt: at, history: [...(item.history ?? []), { at, by, text }].slice(-30) };
+}
+
+/** Status ändern – mit Verlauf („bestellt von …“) */
+export function setStatus(item: MaterialItem, status: MaterialStatus, by: string, at = Date.now()): MaterialItem {
+  if (item.status === status) return item;
+  return withHistory({ ...item, status }, by, `${statusLabel(status)}`, at);
+}
+
+/** Menge „1.234,5“ / „20“ → Zahl; leer → null; ungültig → undefined */
+export function parseQty(s: string): number | null | undefined {
+  const t = s.replace(/\s/g, '').trim();
+  if (!t) return null;
+  const n = Number(t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : t);
+  return Number.isFinite(n) && n > 0 ? Math.round(n * 1000) / 1000 : undefined;
+}
+export const fmtQty = (q: number | null | undefined) => (q === null || q === undefined ? '' : q.toLocaleString('de-AT', { maximumFractionDigits: 3 }));
+
+/** Wert einer Position (Menge × Preis), null wenn eines fehlt */
+export const itemValue = (x: Pick<MaterialItem, 'qty' | 'price'>) => (x.qty !== null && x.qty !== undefined && x.price !== null && x.price !== undefined ? Math.round(x.qty * x.price * 100) / 100 : null);
+
+/** Zähler je Status und Summe (ohne Positionen ohne Preis) */
+export function listSummary(items: MaterialItem[]) {
+  const count = { offen: 0, bestellt: 0, geliefert: 0 } as Record<MaterialStatus, number>;
+  let value = 0;
+  for (const x of items) {
+    count[x.status]++;
+    value += itemValue(x) ?? 0;
+  }
+  return { count, value: Math.round(value * 100) / 100, total: items.length };
+}
+
+/** Dasselbe Material ist auf dieser Baustelle schon offen bzw. bestellt (noch nicht geliefert)? */
+export function pendingDuplicate(items: MaterialItem[], x: Pick<MaterialItem, 'materialId' | 'name' | 'unit'> & { id?: string }): MaterialItem | null {
+  return (
+    items.find(
+      (i) => i.id !== x.id && i.status !== 'geliefert' && (x.materialId ? i.materialId === x.materialId : normKey(i.name) === normKey(x.name) && normUnit(i.unit) === normUnit(x.unit)),
+    ) ?? null
+  );
+}
+
+/** Liefertermin überschritten (noch nicht geliefert) */
+export const overdue = (x: Pick<MaterialItem, 'deliveryDate' | 'status'>, today: string) => !!x.deliveryDate && x.status !== 'geliefert' && x.deliveryDate < today;

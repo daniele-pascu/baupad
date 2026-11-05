@@ -1,5 +1,5 @@
 import { expect, test } from './fixtures';
-import { freshStart } from './helpers';
+import { createProject, freshStart } from './helpers';
 
 /** Materialverwaltung (Teil 1): Kachel, Lieferanten, Materialstamm, Warnung bei Dubletten, Suche, Bearbeiten, Löschen */
 test('Materialverwaltung: Lieferant und Materialien anlegen, Dublette melden, suchen, ändern, löschen', async ({ page }) => {
@@ -7,6 +7,8 @@ test('Materialverwaltung: Lieferant und Materialien anlegen, Dublette melden, su
   await page.goto('./baupad/tools');
   await page.getByTestId('tool-materials').click();
   await expect(page.getByTestId('materials-title')).toHaveText('Materialverwaltung');
+  await expect(page.getByTestId('material-sites-empty')).toBeVisible(); // erster Bereich: Baustellen
+  await page.getByTestId('mat-tab-materials').click();
   await expect(page.getByTestId('materials-empty')).toBeVisible();
 
   // Lieferant
@@ -66,6 +68,8 @@ test('Materialverwaltung: Lieferant und Materialien anlegen, Dublette melden, su
   await page.locator('[data-testid="material-row"][data-name="Kabelbinder 300 mm"]').getByTestId('material-open').click();
   await d.getByTestId('material-price').fill('0,15');
   await d.getByTestId('material-save').click();
+  await expect(d).toHaveCount(0);
+  await expect(page.locator('[data-testid="material-row"][data-name="Kabelbinder 300 mm"]')).toContainText('0,15 € / Stk');
   await page.reload();
   await expect(page.locator('[data-testid="material-row"][data-name="Kabelbinder 300 mm"]')).toContainText('0,15 € / Stk');
 
@@ -86,4 +90,69 @@ test('Materialverwaltung: Lieferant und Materialien anlegen, Dublette melden, su
   await d.getByTestId('material-delete').click();
   await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Löschen' }).click();
   await expect(page.getByTestId('material-row')).toHaveCount(1);
+});
+
+test('Materialliste je Baustelle: aus dem Materialstamm, gleiches Material wird dazugerechnet, bestellt → geliefert mit Verlauf', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'Wohnanlage Sonnenhof', { number: '2026-04' });
+  await page.goto('./baupad/materialverwaltung?t=material');
+  await page.getByTestId('material-new').click();
+  const md = page.getByTestId('material-dialog');
+  await md.getByTestId('material-name').fill('Zementestrich CT-C25');
+  await md.getByTestId('material-unit').selectOption('m²');
+  await md.getByTestId('material-price').fill('18,90');
+  await md.getByTestId('material-save').click();
+  await expect(md).toHaveCount(0);
+
+  await page.getByTestId('mat-tab-sites').click();
+  await expect(page.getByTestId('material-site')).toContainText('Noch keine Materialliste');
+  await page.getByTestId('material-site-open').click();
+  await expect(page.getByTestId('material-site-title')).toHaveText('2026-04 · Wohnanlage Sonnenhof');
+  await expect(page.getByTestId('items-empty')).toBeVisible();
+
+  const add = async (qty: string) => {
+    await page.getByTestId('item-new').click();
+    const d = page.getByTestId('item-dialog');
+    await d.getByTestId('item-search').fill('estrich');
+    await d.getByTestId('item-material').selectOption({ index: 1 });
+    await expect(d.getByTestId('item-name')).toHaveValue('Zementestrich CT-C25');
+    await expect(d.getByTestId('item-price')).toHaveValue('18,9');
+    await d.getByTestId('item-qty').fill(qty);
+    await d.getByTestId('item-date').fill('2026-11-20');
+    await d.getByTestId('item-save').click();
+  };
+  await add('20');
+  await expect(page.getByTestId('item-row')).toHaveCount(1);
+  await expect(page.getByTestId('item-row')).toContainText('20 m² Zementestrich CT-C25');
+  await expect(page.getByTestId('item-row')).toContainText('Liefertermin 20.11.2026');
+  await expect(page.getByTestId('material-site-summary')).toContainText('1 offen · 0 bestellt · 0 geliefert · 378,00 € netto');
+
+  // gleiches Material nochmal → Rückfrage, Menge wird dazugerechnet statt doppelt
+  await add('10');
+  await expect(page.getByTestId('confirm-dialog')).toContainText('steht schon auf der Liste (Offen, 20 m²). Menge 10 m² dazurechnen?');
+  await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Dazurechnen' }).click();
+  await expect(page.getByTestId('item-row')).toHaveCount(1);
+  await expect(page.getByTestId('item-row')).toContainText('30 m² Zementestrich');
+
+  // bestellt → geliefert
+  await page.getByTestId('item-advance').click();
+  await expect(page.getByTestId('item-row')).toHaveAttribute('data-status', 'bestellt');
+  await page.getByTestId('item-advance').click();
+  await expect(page.getByTestId('item-row')).toHaveAttribute('data-status', 'geliefert');
+  await expect(page.getByTestId('item-advance')).toHaveCount(0);
+  await expect(page.getByTestId('material-site-summary')).toContainText('0 offen · 0 bestellt · 1 geliefert');
+
+  // Verlauf mit Namen
+  await page.getByTestId('item-open').click();
+  const h = page.getByTestId('item-history');
+  await expect(h.locator('li')).toHaveCount(4);
+  await expect(h.locator('li').nth(0)).toContainText('Test Nutzer: Geliefert');
+  await expect(h.locator('li').nth(2)).toContainText('Menge +10 → 30 m²');
+  await page.getByTestId('item-dialog').getByRole('button', { name: 'Abbrechen' }).click();
+
+  // nach dem Neuladen und in der Übersicht
+  await page.reload();
+  await expect(page.getByTestId('item-row')).toHaveCount(1);
+  await page.getByTestId('material-site-back').click();
+  await expect(page.getByTestId('material-site')).toContainText('1 geliefert');
 });

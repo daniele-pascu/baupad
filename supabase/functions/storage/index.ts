@@ -257,7 +257,7 @@ async function ownWorkerIds(ws: string, email: string): Promise<Set<string>> {
 }
 
 const KEY_RE = /^(photos\/[A-Za-z0-9_-]{4,64}\/(data|thumb|original)\.jpg|files\/[A-Za-z0-9_-]{4,64}\/(data\.bin|data\.jpg|thumb\.jpg|pdf\.pdf))$/;
-const STORES = ['projects', 'costCenters', 'files', 'plans', 'damages', 'components', 'elements', 'lvDocs', 'workers', 'weeks', 'reports', 'defectPlans', 'defectMarks', 'formTemplates', 'formEntries', 'timeDays', 'timeMonths', 'materials', 'suppliers', 'meta'];
+const STORES = ['projects', 'costCenters', 'files', 'plans', 'damages', 'components', 'elements', 'lvDocs', 'workers', 'weeks', 'reports', 'defectPlans', 'defectMarks', 'formTemplates', 'formEntries', 'timeDays', 'timeMonths', 'materials', 'suppliers', 'materialItems', 'meta'];
 /** Kennung eines Datensatzes; „|“ für Zeitaufzeichnung (Arbeiter|Datum) */
 const RECORD_ID_RE = /^[A-Za-z0-9_:.|-]{1,80}$/;
 

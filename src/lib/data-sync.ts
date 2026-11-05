@@ -35,7 +35,7 @@ import { getState, hasUnsavedChanges, flush as flushStore, reloadProject } from 
  */
 
 /** Datenarten, die eine ältere Funktion „storage“ noch abweist (Materialverwaltung, 05.11.2026) */
-const NEW_STORES = new Set<string>(['materials', 'suppliers']);
+const NEW_STORES = new Set<string>(['materials', 'suppliers', 'materialItems']);
 const CURSOR = 'dataSyncCursor';
 const ADOPTED = 'dataSyncWorkspace';
 const PULL_EVERY = 5 * 60_000;

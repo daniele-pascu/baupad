@@ -4,14 +4,17 @@ import { Modal } from '../components/Modal';
 import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, showError, toast } from '../components/ui';
 import { useDataChanged } from '../lib/data-events';
-import { deleteMaterial, deleteSupplier, listMaterials, listSuppliers, saveMaterial, saveSupplier } from '../lib/db';
+import { deleteMaterial, deleteSupplier, listMaterialItems, listMaterials, listProjects, listSuppliers, saveMaterial, saveSupplier } from '../lib/db';
+import { canSite } from '../lib/access';
+import { useSession } from '../lib/use-session';
+import { listSummary } from '../lib/materials';
 import { uuid } from '../lib/ids';
 import { fmtPrice, materialDuplicates, matchesMaterial, normKey, parsePrice, sortMaterials, sortSuppliers, supplierDuplicates, UNITS, type MaterialDuplicate } from '../lib/materials';
 import { usePageTitle } from '../lib/page-title';
 import { navigate, paths } from '../lib/router';
-import type { Material, Supplier } from '../lib/types';
+import type { Material, MaterialItem, Project, Supplier } from '../lib/types';
 
-type Tab = 'materials' | 'suppliers';
+type Tab = 'sites' | 'materials' | 'suppliers';
 
 /**
  * Materialverwaltung (Teil 1): Materialstamm und Lieferanten der Firma – einmal angelegt, auf allen Geräten
@@ -24,12 +27,17 @@ export function MaterialsPage({ tab }: { tab: Tab }) {
   const [query, setQuery] = useState('');
   const [editMat, setEditMat] = useState<Material | 'new' | null>(null);
   const [editSup, setEditSup] = useState<Supplier | 'new' | null>(null);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [items, setItems] = useState<MaterialItem[]>([]);
+  const session = useSession();
 
   const reload = () =>
-    Promise.all([listMaterials(), listSuppliers()])
-      .then(([m, s]) => {
+    Promise.all([listMaterials(), listSuppliers(), listProjects(), listMaterialItems()])
+      .then(([m, s, p, i]) => {
         setMaterials(m);
         setSuppliers(s);
+        setProjects(p);
+        setItems(i);
       })
       .catch((e) => showError(e, 'Materialien konnten nicht geladen werden'));
   useEffect(() => void reload(), []);
@@ -49,8 +57,16 @@ export function MaterialsPage({ tab }: { tab: Tab }) {
 
   const switchTab = (t: Tab) => {
     setQuery('');
-    navigate(paths.materials(t === 'suppliers' ? 'lieferanten' : undefined));
+    navigate(paths.materials(t === 'suppliers' ? 'lieferanten' : t === 'materials' ? 'material' : undefined));
   };
+  /** Baustellen (Projekte aus dem Register, nur freigegebene): mit Materialliste zuerst, dann A–Z */
+  const siteList = useMemo(() => {
+    const k = normKey(query);
+    return projects
+      .filter((p) => canSite(session, `p:${p.id}`, 'materials') && (!k || [p.name, p.site, p.number, p.address].some((v) => normKey(v).includes(k))))
+      .map((p) => ({ p, sum: listSummary(items.filter((x) => x.projectId === p.id)) }))
+      .sort((a, b) => Number(b.sum.total > 0) - Number(a.sum.total > 0) || (a.p.site || a.p.name).localeCompare(b.p.site || b.p.name, 'de'));
+  }, [projects, items, query, session]);
 
   return (
     <>
@@ -71,6 +87,9 @@ export function MaterialsPage({ tab }: { tab: Tab }) {
         </header>
 
         <div className="segmented materials-tabs" role="tablist" aria-label="Bereich">
+          <button type="button" role="tab" aria-selected={tab === 'sites'} aria-checked={tab === 'sites'} onClick={() => switchTab('sites')} data-testid="mat-tab-sites">
+            Baustellen
+          </button>
           <button type="button" role="tab" aria-selected={tab === 'materials'} aria-checked={tab === 'materials'} onClick={() => switchTab('materials')} data-testid="mat-tab-materials">
             Materialien
           </button>
@@ -79,6 +98,7 @@ export function MaterialsPage({ tab }: { tab: Tab }) {
           </button>
         </div>
 
+        {tab !== 'sites' && (
         <button type="button" className="account-tile staff-new" onClick={() => (tab === 'materials' ? setEditMat('new') : setEditSup('new'))} data-testid={tab === 'materials' ? 'material-new' : 'supplier-new'}>
           <div>
             <strong>{tab === 'materials' ? '+ Neues Material' : '+ Neuer Lieferant'}</strong>
@@ -86,6 +106,7 @@ export function MaterialsPage({ tab }: { tab: Tab }) {
           </div>
           <Icon name="next" size={18} />
         </button>
+        )}
 
         <div className="staff-tools">
           <label className="crew-search">
@@ -95,13 +116,35 @@ export function MaterialsPage({ tab }: { tab: Tab }) {
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={tab === 'materials' ? 'Material, Artikelnummer oder Lieferant suchen' : 'Lieferant suchen'}
+              placeholder={tab === 'sites' ? 'Baustelle suchen' : tab === 'materials' ? 'Material, Artikelnummer oder Lieferant suchen' : 'Lieferant suchen'}
               data-testid="materials-search"
             />
           </label>
         </div>
 
-        {tab === 'materials' ? (
+        {tab === 'sites' ? (
+          !siteList.length ? (
+            <p className="muted" data-testid="material-sites-empty">
+              Noch keine Baustellen. Projekte kommen aus dem Projektregister – sie stehen in allen Tools gleich zur Verfügung.
+            </p>
+          ) : (
+            <ul className="crew-worker-list staff-list" data-testid="material-site-list">
+              {siteList.map(({ p, sum }) => (
+                <li key={p.id} data-testid="material-site" data-name={p.site || p.name}>
+                  <div className="staff-row">
+                    <a href={paths.materialSite(p.id)} className="crew-worker-main" data-testid="material-site-open">
+                      <strong>{[p.number, p.site || p.name].filter(Boolean).join(' · ')}</strong>
+                      <span className="muted small">
+                        {sum.total ? [sum.count.offen && `${sum.count.offen} offen`, sum.count.bestellt && `${sum.count.bestellt} bestellt`, sum.count.geliefert && `${sum.count.geliefert} geliefert`].filter(Boolean).join(' · ') : 'Noch keine Materialliste'}
+                      </span>
+                    </a>
+                    <Icon name="next" size={18} className="staff-chevron" />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )
+        ) : tab === 'materials' ? (
           materials && !materials.length ? (
             <p className="muted" data-testid="materials-empty">
               Noch keine Materialien. Lege oben das erste Material an – es steht danach auf allen Geräten der Firma zur Verfügung.
