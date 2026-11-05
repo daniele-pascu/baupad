@@ -27,17 +27,19 @@ export function sanitize(font: PDFFont, s: string): string {
 }
 
 /** Text in einen Kasten: Schriftgröße passend, Grundlinie knapp über dem unteren Rand */
-export function drawInBox(page: PDFPage, font: PDFFont, pageH: number, box: Box, text: string, opts: { max?: number; align?: 'left' | 'right' | 'center'; color?: RGB } = {}) {
+export function drawInBox(page: PDFPage, font: PDFFont, pageH: number, box: Box, text: string, opts: { max?: number; align?: 'left' | 'right' | 'center'; color?: RGB; exact?: boolean; baseline?: number } = {}) {
   const t = sanitize(font, text.trim());
   if (!t) return;
-  let size = Math.min(opts.max ?? 9.5, Math.max(MIN_SIZE, box.h * 0.82));
+  // exact: eingestellte Schriftgröße (nur bei zu langem Text kleiner)
+  let size = opts.exact && opts.max ? opts.max : Math.min(opts.max ?? 9.5, Math.max(MIN_SIZE, box.h * 0.82));
   const avail = Math.max(4, box.w - 2);
   while (size > MIN_SIZE && font.widthOfTextAtSize(t, size) > avail) size -= 0.5;
   let s = t;
   while (s.length > 1 && font.widthOfTextAtSize(s, size) > avail) s = s.slice(0, -1);
   const w = font.widthOfTextAtSize(s, size);
   const x = opts.align === 'right' ? box.x + box.w - 1 - w : opts.align === 'center' ? box.x + (box.w - w) / 2 : box.x + 1;
-  const y = pageH - (box.y + box.h) + Math.max(1.5, (box.h - size) / 2 + size * 0.12);
+  // baseline: fester Abstand der Schrift über der Unterkante (Firmenformulare 0,5 mm), sonst mittig
+  const y = pageH - (box.y + box.h) + (opts.baseline ?? Math.max(1.5, (box.h - size) / 2 + size * 0.12));
   page.drawText(s, { x, y, size, font, color: opts.color ?? INK });
 }
 
@@ -71,7 +73,7 @@ function wrap(font: PDFFont, text: string, size: number, widths: number[]): stri
 }
 
 /** mehrzeiliges Feld: erste Zeile im Kasten, weitere auf den Schreiblinien; bei Platzmangel kleinere Schrift */
-export function drawLines(page: PDFPage, font: PDFFont, pageH: number, boxes: Box[], text: string, startSize?: number, color: RGB = INK) {
+export function drawLines(page: PDFPage, font: PDFFont, pageH: number, boxes: Box[], text: string, startSize?: number, color: RGB = INK, baseline?: number) {
   if (!text.trim() || !boxes.length) return;
   const widths = boxes.map((b) => b.w);
   let size = startSize ?? Math.min(9.5, Math.max(MIN_SIZE, boxes[0].h * 0.82));
@@ -85,7 +87,7 @@ export function drawLines(page: PDFPage, font: PDFFont, pageH: number, boxes: Bo
     let s = l;
     if (i === boxes.length - 1 && lines.length > boxes.length) s = `${s} …`;
     while (s.length > 1 && font.widthOfTextAtSize(s, size) > b.w - 2) s = s.slice(0, -1);
-    page.drawText(s, { x: b.x + 1, y: pageH - (b.y + b.h) + Math.max(1.5, (b.h - size) / 2 + size * 0.12), size, font, color });
+    page.drawText(s, { x: b.x + 1, y: pageH - (b.y + b.h) + (baseline ?? Math.max(1.5, (b.h - size) / 2 + size * 0.12)), size, font, color });
   });
 }
 

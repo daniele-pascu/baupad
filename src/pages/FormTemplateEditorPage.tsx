@@ -4,7 +4,7 @@ import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, showError, toast } from '../components/ui';
 import { getFormFile, getFormTemplate, saveFormTemplate } from '../lib/db';
 import { analyzeForm, templateFileId, type FormTemplate } from '../lib/form-template';
-import { DEFAULT_FORM_COLOR, FIELD_TYPES, FORM_COLORS, FORM_FONTS, fontCss, NAME_SUGGESTIONS, suggestionFor, fieldsFromDetection, fontSizeOf, lineBoxes, lineCapacity, newField, PROJECT_SOURCES, readingOrder, typeLabel, type CustomField, type CustomFieldType } from '../lib/forms';
+import { BASELINE_PT, DEFAULT_PITCH, MM_PT, multiHeight, pitchOf, textBoxHeight, withFontSize, DEFAULT_FORM_COLOR, FIELD_TYPES, FORM_COLORS, FORM_FONTS, fontCss, NAME_SUGGESTIONS, suggestionFor, fieldsFromDetection, fontSizeOf, lineBoxes, lineCapacity, newField, PROJECT_SOURCES, readingOrder, typeLabel, type CustomField, type CustomFieldType } from '../lib/forms';
 import { uuid } from '../lib/ids';
 import { usePageTitle } from '../lib/page-title';
 import { navigate, paths } from '../lib/router';
@@ -123,8 +123,10 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
       setSel(null);
       return;
     }
+    // wie Text: angetippte Stelle = Schreiblinie (Schrift 0,5 mm darüber), nach rechts = Länge, nach unten = weitere Zeilen
     const p = toPt(e.clientX, e.clientY);
-    const f = newField({ x: p.x, y: p.y, w: 0, h: 0 });
+    const th = textBoxHeight(10);
+    const f = { ...newField({ x: p.x, y: Math.max(0, p.y - th), w: 0, h: th }), fontSize: 10 };
     setFields((l) => [...l, f]);
     drag.current = { kind: 'draw', id: f.id, x: e.clientX, y: e.clientY, box: { ...f.box } };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -141,10 +143,23 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
       l.map((f) => {
         if (f.id !== d.id) return f;
         if (d.kind === 'move') return { ...f, box: { ...f.box, x: Math.max(0, Math.min(width - f.box.w, d.box.x + dx)), y: Math.max(0, Math.min(height - f.box.h, d.box.y + dy)) } };
-        if (d.kind === 'resize') return { ...f, box: { ...f.box, w: Math.max(8, Math.min(width - f.box.x, d.box.w + dx)), h: Math.max(6, Math.min(height - f.box.y, d.box.h + dy)) } };
-        const x = Math.min(d.box.x, d.box.x + dx);
-        const y = Math.min(d.box.y, d.box.y + dy);
-        return { ...f, box: { x, y, w: Math.abs(dx), h: Math.abs(dy) } };
+        const w = (x0: number) => Math.max(8, Math.min(width - x0, d.box.w + dx));
+        if (d.kind === 'resize') {
+          // Textfeld: nur in die Länge (Höhe kommt von der Schrift); Zeilenfeld: Länge und Anzahl Zeilen
+          if (f.type === 'multiline' && f.pitch) {
+            const n = Math.max(1, Math.round((d.box.h - textBoxHeight(fontSizeOf(f)) + dy) / f.pitch) + 1);
+            return { ...f, lines: n, box: { ...f.box, w: w(f.box.x), h: Math.min(height - f.box.y, multiHeight(n, f.pitch, fontSizeOf(f))) } };
+          }
+          if (f.type === 'checkbox' || f.type === 'multiline') return { ...f, box: { ...f.box, w: w(f.box.x), h: Math.max(6, Math.min(height - f.box.y, d.box.h + dy)) } };
+          return { ...f, box: { ...f.box, w: w(f.box.x) } };
+        }
+        // zeichnen: Länge nach rechts (oder links), nach unten ziehen = weitere Zeilen wie eine Schlange
+        const x = Math.max(0, Math.min(d.box.x, d.box.x + dx));
+        const bw = Math.min(width - x, Math.abs(dx));
+        const n = dy > DEFAULT_PITCH * 0.6 ? 1 + Math.round(dy / DEFAULT_PITCH) : 1;
+        const size = fontSizeOf(f);
+        if (n > 1) return { ...f, type: 'multiline', lines: n, pitch: f.pitch ?? DEFAULT_PITCH, box: { x, y: d.box.y, w: bw, h: Math.min(height - d.box.y, multiHeight(n, f.pitch ?? DEFAULT_PITCH, size)) } };
+        return { ...f, type: f.type === 'multiline' ? 'text' : f.type, lines: undefined, pitch: undefined, box: { x, y: d.box.y, w: bw, h: textBoxHeight(size) } };
       }),
     );
   };
@@ -156,11 +171,28 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
     if (d.kind === 'draw') {
       setDrawing(false);
       // zu klein (bloßer Tipp) → Standardgröße eines Textfeldes
-      setFields((l) => l.map((f) => (f.id === d.id && (f.box.w < 8 || f.box.h < 6) ? { ...f, box: { ...f.box, w: Math.min(140, width - f.box.x), h: 12 } } : f)));
+      setFields((l) => l.map((f) => (f.id === d.id && f.box.w < 8 ? { ...f, box: { ...f.box, w: Math.min(140, width - f.box.x) } } : f)));
       setSel(d.id);
       setTimeout(() => nameInput.current?.select(), 0);
     }
   };
+
+  // PC: gewähltes Feld mit den Pfeiltasten genau setzen (1 pt, mit Umschalt 0,5 mm × 10 = 5 mm)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!sel || !e.key.startsWith('Arrow')) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+      e.preventDefault();
+      const step = e.shiftKey ? 5 * MM_PT : 1;
+      const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+      const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+      setFields((l) => l.map((f) => (f.id === sel ? { ...f, box: { ...f.box, x: Math.max(0, Math.min(width - f.box.w, f.box.x + dx)), y: Math.max(0, Math.min(height - f.box.h, f.box.y + dy)) } } : f)));
+      setDirty(true);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [sel, width, height]);
 
   const suggest = () =>
     void (async () => {
@@ -273,38 +305,44 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
               {fields.map((f) => (
                 <div
                   key={f.id}
-                  className={`form-tpl-box custom${sel === f.id ? ' sel' : ''}${f.required ? ' req' : ''}`}
+                  className={`form-tpl-box custom${sel === f.id ? ' sel' : ''}${f.required ? ' req' : ''}${f.type === 'multiline' && f.pitch ? ' strips' : ''}`}
                   style={{ left: pct(f.box.x, width), top: pct(f.box.y, height), width: pct(f.box.w, width), height: pct(f.box.h, height) }}
                   onPointerDown={(e) => onBoxDown(e, f, 'move')}
                   title={`${f.name} – ${typeLabel(f.type)}`}
                   data-testid="form-field-box"
                   data-name={f.name}
                 >
-                  {sample ? (
-                    f.type === 'multiline' ? (
+                  {f.type === 'multiline' && f.pitch ? (
+                    // Zeilenstreifen: jede Zeile einzeln, erste mit Muster (Feldname bzw. Beispiel)
+                    lineBoxes(f).map((b, i) => (
+                      <i key={i} className="form-line-strip" style={{ top: pct(b.y - f.box.y, f.box.h), height: pct(b.h, f.box.h) }} data-testid="form-line-strip">
+                        <span className="form-sample base" style={{ ...ink(f), fontSize: fontPx(f), paddingBottom: BASELINE_PT * pxPerPt }}>
+                          {sample ? (SAMPLE.multiline.split('\n')[i] ?? '') : i === 0 ? f.name || '?' : ''}
+                        </span>
+                      </i>
+                    ))
+                  ) : f.type === 'multiline' ? (
+                    <>
                       <span className="form-sample multi" style={{ ...ink(f), fontSize: fontPx(f), lineHeight: `${(f.box.h / lineCapacity(f)) * pxPerPt}px` }}>
-                        {SAMPLE.multiline
-                          .split('\n')
+                        {(sample ? SAMPLE.multiline.split('\n') : [f.name || '?'])
                           .slice(0, lineCapacity(f))
-                          .map((s, i) => (
-                            <span key={i}>{s}</span>
+                          .map((x, i) => (
+                            <span key={i}>{x}</span>
                           ))}
                       </span>
-                    ) : (
-                      <span className="form-sample" style={{ ...ink(f), fontSize: fontPx(f), textAlign: f.align ?? (f.type === 'checkbox' ? 'center' : 'left') }}>
-                        {SAMPLE[f.type]}
-                      </span>
-                    )
+                      {lineBoxes(f)
+                        .slice(1)
+                        .map((b, i) => (
+                          <i key={i} className="form-line-mark" style={{ top: pct(b.y - f.box.y, f.box.h) }} />
+                        ))}
+                    </>
                   ) : (
-                    <span className="form-box-label">
-                      {f.name || '?'}
-                      {f.type === 'multiline' && <em className="form-box-lines"> · {lineCapacity(f)} Zeilen</em>}
+                    // Muster: Feldname in Schrift, Größe und Farbe – sitzt 0,5 mm über der Unterkante
+                    <span className={`form-sample${f.type === 'checkbox' ? '' : ' base'}`} style={{ ...ink(f), fontSize: fontPx(f), paddingBottom: f.type === 'checkbox' ? undefined : BASELINE_PT * pxPerPt, justifyContent: f.align === 'right' || f.type === 'amount' || f.type === 'number' ? 'flex-end' : f.type === 'checkbox' || f.align === 'center' ? 'center' : 'flex-start' }}>
+                      {sample ? SAMPLE[f.type] : f.type === 'checkbox' ? 'X' : f.name || '?'}
                     </span>
                   )}
-                  {f.type === 'multiline' &&
-                    lineBoxes(f)
-                      .slice(1)
-                      .map((b, i) => <i key={i} className="form-line-mark" style={{ top: pct(b.y - f.box.y, f.box.h) }} />)}
+                  {f.type === 'multiline' && <em className="form-box-lines">{lineCapacity(f)} Zeilen</em>}
                   {sel === f.id && <b className="form-resize" onPointerDown={(e) => onBoxDown(e, f, 'resize')} data-testid="form-field-resize" />}
                 </div>
               ))}
@@ -398,12 +436,47 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
                       {field.type === 'multiline' && (
                         <label className="field">
                           <span>Zeilen</span>
-                          <input type="number" min={1} value={field.lines ?? ''} placeholder={String(lineCapacity(field))} onChange={(e) => patch(field.id, { lines: Number(e.target.value) > 0 ? Number(e.target.value) : undefined })} data-testid="form-field-lines" />
+                          <input
+                            type="number"
+                            min={1}
+                            value={field.lines ?? ''}
+                            placeholder={String(lineCapacity(field))}
+                            onChange={(e) => {
+                              const n = Number(e.target.value) > 0 ? Number(e.target.value) : undefined;
+                              patch(field.id, field.pitch && n ? { lines: n, box: { ...field.box, h: multiHeight(n, field.pitch, fontSizeOf(field)) } } : { lines: n });
+                            }}
+                            data-testid="form-field-lines"
+                          />
+                        </label>
+                      )}
+                      {field.type === 'multiline' && (
+                        <label className="field">
+                          <span>Zeilenabstand (mm)</span>
+                          <input
+                            type="number"
+                            min={2}
+                            max={30}
+                            step={0.5}
+                            value={Math.round((pitchOf(field) / MM_PT) * 10) / 10}
+                            onChange={(e) => {
+                              const mm = Number(e.target.value);
+                              if (!(mm > 0)) return;
+                              const pitch = mm * MM_PT;
+                              const n = lineCapacity(field);
+                              patch(field.id, { pitch, lines: n, box: { ...field.box, h: Math.min(height - field.box.y, multiHeight(n, pitch, fontSizeOf(field))) } });
+                            }}
+                            data-testid="form-field-pitch"
+                          />
                         </label>
                       )}
                       <label className="field">
                         <span>Schriftgröße (pt)</span>
-                        <input type="number" min={5.5} max={14} step={0.5} value={field.fontSize ?? ''} placeholder={fontSizeOf(field).toFixed(1)} onChange={(e) => patch(field.id, { fontSize: Number(e.target.value) > 0 ? Number(e.target.value) : undefined })} data-testid="form-field-font" />
+                        <input type="number" min={5.5} max={14} step={0.5} value={field.fontSize ?? ''} placeholder={fontSizeOf(field).toFixed(1)} onChange={(e) => {
+                            const v = Number(e.target.value) > 0 ? Number(e.target.value) : undefined;
+                            patch(field.id, withFontSize(field, v));
+                          }}
+                          data-testid="form-field-font"
+                        />
                       </label>
                     </div>
                     <div className="rp-grid">

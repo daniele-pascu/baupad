@@ -78,7 +78,7 @@ test('Vorlage einrichten, im Projekt ausfüllen, PDF, Nummern, Vorlagenversion',
   const stage = (await page.getByTestId('form-editor-stage').boundingBox())!;
   await page.mouse.move(stage.x + stage.width * 0.55, stage.y + stage.height * 0.55);
   await page.mouse.down();
-  await page.mouse.move(stage.x + stage.width * 0.8, stage.y + stage.height * 0.57, { steps: 4 });
+  await page.mouse.move(stage.x + stage.width * 0.8, stage.y + stage.height * 0.55, { steps: 4 });
   await page.mouse.up();
   await expect(page.getByTestId('form-field-box')).toHaveCount(14);
   await panel.getByTestId('form-field-name').fill('Wetter');
@@ -247,7 +247,7 @@ test('Felder: Namen vorschlagen, Schrift (Größe, Art, Farbe), Wochentag/KW aus
     const st = (await page.getByTestId('form-editor-stage').boundingBox())!;
     await page.mouse.move(st.x + st.width * fx, st.y + st.height * fy);
     await page.mouse.down();
-    await page.mouse.move(st.x + st.width * (fx + 0.2), st.y + st.height * (fy + 0.02), { steps: 4 });
+    await page.mouse.move(st.x + st.width * (fx + 0.2), st.y + st.height * fy, { steps: 4 });
     await page.mouse.up();
   };
   await draw(0.55, 0.55);
@@ -267,6 +267,41 @@ test('Felder: Namen vorschlagen, Schrift (Größe, Art, Farbe), Wochentag/KW aus
   await expect(panel.getByTestId('form-field-type')).toHaveValue('week');
   // mehrzeiliges Feld zeigt die Zeilen an
   await expect(page.locator('[data-testid="form-field-box"][data-name="Leistungsbeschreibung"]')).toContainText(/\d+ Zeilen/);
+  // Feldname dient als Muster im Kasten (in Schrift, Größe, Farbe)
+  await expect(page.locator('[data-testid="form-field-box"][data-name="KW"] .form-sample')).toHaveText('KW');
+  // Schriftgröße größer → Kasten wächst nach oben, Unterkante (Schreiblinie) bleibt
+  const geo = async () => ({ y: Number(await panel.getByTestId('form-field-y').inputValue()), h: Number(await panel.getByTestId('form-field-h').inputValue()) });
+  await panel.locator('summary').click();
+  const g1 = await geo();
+  await panel.getByTestId('form-field-font').fill('14');
+  const g2 = await geo();
+  expect(g2.h).toBeGreaterThan(g1.h);
+  expect(Math.abs(g2.y + g2.h - (g1.y + g1.h))).toBeLessThan(0.3);
+  // Pfeiltasten verschieben das gewählte Feld (1 pt je Druck)
+  const x1 = Number(await panel.getByTestId('form-field-x').inputValue());
+  await page.getByTestId('form-editor-stage').click({ position: { x: 5, y: 5 } }); // Fokus weg vom Eingabefeld (Auswahl bleibt nicht) …
+  await page.locator('[data-testid="form-field-box"][data-name="KW"]').click(); // … Feld wieder wählen
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowDown');
+  expect(Number(await panel.getByTestId('form-field-x').inputValue())).toBeCloseTo(x1 + 2, 0);
+  expect(Number(await panel.getByTestId('form-field-y').inputValue())).toBeCloseTo(g2.y + 1, 0);
+  // nach unten ziehen beim Zeichnen = weitere Zeilen, jede Zeile einzeln; Zeilenabstand einstellbar
+  await page.getByTestId('form-editor-draw').click();
+  const st = (await page.getByTestId('form-editor-stage').boundingBox())!;
+  await page.mouse.move(st.x + st.width * 0.1, st.y + st.height * 0.45);
+  await page.mouse.down();
+  await page.mouse.move(st.x + st.width * 0.5, st.y + st.height * 0.45 + (st.height / 842) * 7 * 2.835 * 2, { steps: 6 });
+  await page.mouse.up();
+  await expect(panel.getByTestId('form-field-type')).toHaveValue('multiline');
+  const strips = page.locator('[data-testid="form-field-box"]').last().getByTestId('form-line-strip');
+  await expect(strips).toHaveCount(3);
+  await expect(panel.getByTestId('form-field-pitch')).toHaveValue('7');
+  const h7 = Number(await panel.getByTestId('form-field-h').inputValue());
+  await panel.getByTestId('form-field-pitch').fill('9');
+  expect(Number(await panel.getByTestId('form-field-h').inputValue())).toBeCloseTo(h7 + 2 * 2 * 2.835, 0);
+  await panel.getByTestId('form-field-name').fill('Arbeiten');
+  await page.getByTestId('form-editor-stage').screenshot({ path: join(OUT, 'formular-editor-zeilen.png') });
   await page.getByTestId('form-editor-save').click();
   await expect(page.getByTestId('form-editor-state')).toHaveText('gespeichert');
 

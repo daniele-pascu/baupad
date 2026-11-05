@@ -28,6 +28,8 @@ export interface CustomField {
   box: Box;
   /** mehrzeilig: Anzahl Zeilen (sonst aus Höhe und Schriftgröße berechnet) */
   lines?: number;
+  /** mehrzeilig: Zeilenabstand in Punkt (Oberkante zu Oberkante). Gesetzt = jede Zeile ein eigener Streifen. */
+  pitch?: number;
   /** Schriftgröße in Punkt (sonst passend zur Kastenhöhe, max. 9,5) */
   fontSize?: number;
   /** Auswahlfeld: Möglichkeiten */
@@ -198,6 +200,36 @@ export function fontSizeOf(f: CustomField): number {
   return Math.min(MAX_FONT, Math.max(MIN_FONT, f.box.h * 0.82));
 }
 export const lineHeightOf = (size: number) => size * 1.32;
+/** 1 mm in Punkt */
+export const MM_PT = 72 / 25.4;
+/** Schrift sitzt 0,5 mm über der Unterkante des Kastens bzw. der Zeile */
+export const BASELINE_PT = 0.5 * MM_PT;
+/** Höhe einer Schreibzeile für die Schriftgröße (Oberlänge + 0,5 mm Abstand zur Linie) */
+export const textBoxHeight = (size: number) => Math.round((size * 1.05 + BASELINE_PT) * 10) / 10;
+/** Standard-Zeilenabstand neuer mehrzeiliger Felder: 7 mm */
+export const DEFAULT_PITCH = 7 * MM_PT;
+/** Zeilenabstand (Punkt) eines mehrzeiligen Feldes */
+export const pitchOf = (f: CustomField) => f.pitch ?? f.box.h / lineCapacity(f);
+/** Kastenhöhe für Zeilen und Zeilenabstand (letzte Zeile so hoch wie die Schrift) */
+export const multiHeight = (lines: number, pitch: number, size: number) => (Math.max(1, lines) - 1) * pitch + textBoxHeight(size);
+/**
+ * Schriftgröße ändern: einzeilig wächst der Kasten nach oben (Unterkante = Schreiblinie bleibt);
+ * mehrzeilig mit Zeilenstreifen bleibt die erste Schreiblinie, die Höhe folgt.
+ */
+export function withFontSize(f: CustomField, size: number | undefined): CustomField {
+  const next: CustomField = { ...f, fontSize: size };
+  const s = fontSizeOf(next);
+  if (f.type === 'checkbox') return next;
+  if (f.type === 'multiline') {
+    if (!f.pitch) return next;
+    const firstBottom = f.box.y + textBoxHeight(fontSizeOf(f));
+    const y = Math.max(0, firstBottom - textBoxHeight(s));
+    return { ...next, box: { ...f.box, y, h: multiHeight(lineCapacity(f), f.pitch, s) } };
+  }
+  const bottom = f.box.y + f.box.h;
+  const h = textBoxHeight(s);
+  return { ...next, box: { ...f.box, y: Math.max(0, bottom - h), h } };
+}
 /** Zeilen, die in den Kasten passen */
 export function lineCapacity(f: CustomField): number {
   if (f.type !== 'multiline') return 1;
@@ -207,6 +239,11 @@ export function lineCapacity(f: CustomField): number {
 /** Zeilenkästen eines mehrzeiligen Feldes (gleich hoch, von oben nach unten) */
 export function lineBoxes(f: CustomField): Box[] {
   const n = lineCapacity(f);
+  // Zeilenstreifen mit eigenem Abstand: jede Zeile so hoch wie die Schrift, Abstand = pitch
+  if (f.type === 'multiline' && f.pitch) {
+    const th = textBoxHeight(fontSizeOf(f));
+    return Array.from({ length: n }, (_, i) => ({ x: f.box.x, y: f.box.y + i * f.pitch!, w: f.box.w, h: th }));
+  }
   const h = f.box.h / n;
   return Array.from({ length: n }, (_, i) => ({ x: f.box.x, y: f.box.y + i * h, w: f.box.w, h }));
 }
