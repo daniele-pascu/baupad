@@ -1,4 +1,4 @@
-import { addDays, isoWeekNo, parseDate, weekOf } from './crew';
+import { addDays, isoWeekNo, parseDate, weekOf, WORKER_GRADES } from './crew';
 import { FIELD_LABELS, type Box, type FieldKey, type FormLayout } from './form-template';
 import { uuid } from './ids';
 
@@ -84,6 +84,7 @@ export const NAME_SUGGESTIONS: { name: string; type: CustomFieldType; source?: P
   { name: 'Firma', type: 'company' },
   { name: 'Mitarbeiter', type: 'person' },
   { name: 'Verantwortlich', type: 'person' },
+  { name: 'Qualifikation', type: 'text' },
   { name: 'Ausgeführte Arbeiten', type: 'multiline' },
   { name: 'Bemerkungen', type: 'multiline' },
   { name: 'Material', type: 'multiline' },
@@ -423,6 +424,40 @@ export function prefill(fields: CustomField[], ctx: PrefillContext, current: Rec
         v = undefined;
     }
     if (v !== undefined) out[f.id] = v;
+  }
+  return withQualifications(fields, out);
+}
+
+/** Feld fragt nach der Qualifikation/Funktion (Text- oder mehrzeiliges Feld mit passendem Namen) */
+export const isQualificationField = (f: Pick<CustomField, 'type' | 'name'>) => (f.type === 'text' || f.type === 'multiline') && /qualifikation|funktion/i.test(f.name);
+
+/**
+ * Qualifikation der eingetragenen Personen aus dem Kürzel vor dem Namen („PO Muster Max“ → „Polier“), in derselben
+ * Reihenfolge; mehrzeilig je Zeile, sonst mit Komma. Personen ohne Kürzel werden übersprungen.
+ */
+export function qualificationsFor(people: string, multiline: boolean): string {
+  const list = people
+    .split(/[,\n]/)
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .map((x) => WORKER_GRADES.find((g) => g.short === x.split(/\s+/)[0])?.label ?? '')
+    .filter(Boolean);
+  return list.join(multiline ? '\n' : ', ');
+}
+
+/**
+ * Qualifikationsfelder aus dem (ersten) Personenfeld nachziehen – nur, wenn sie leer sind oder noch den Vorschlag
+ * zum vorherigen Personenwert enthalten (eigene Eingaben bleiben).
+ */
+export function withQualifications(fields: CustomField[], values: Record<string, string>, previous: Record<string, string> = {}): Record<string, string> {
+  const person = fields.find((f) => f.type === 'person');
+  if (!person) return values;
+  const out = { ...values };
+  for (const f of fields.filter(isQualificationField)) {
+    const multi = f.type === 'multiline';
+    const cur = out[f.id] ?? '';
+    const oldSuggestion = qualificationsFor(previous[person.id] ?? '', multi);
+    if (!cur || cur === oldSuggestion) out[f.id] = qualificationsFor(out[person.id] ?? '', multi);
   }
   return out;
 }

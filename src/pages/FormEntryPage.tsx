@@ -9,7 +9,7 @@ import { deleteFormEntry, getFormEntry, getFormFile, getMeta, listFormEntries, s
 import { DEFAULT_WORK_TIMES } from '../lib/crew';
 import type { WorkTimes } from '../lib/types';
 import { useDataChanged } from '../lib/data-events';
-import { workTimeFor, justifyOf, BASELINE_PT, lineBoxes, wrapToLines, displayValue, entrySiteKey, fits, fontCss, DEFAULT_FORM_COLOR, fmtFieldDate, fontSizeOf, isoWeekLabel, lineCapacity, mainDate, missingRequired, prefill, readingOrder, type CustomField, type FormEntry, type Measure } from '../lib/forms';
+import { workTimeFor, justifyOf, BASELINE_PT, lineBoxes, wrapToLines, displayValue, entrySiteKey, fits, fontCss, DEFAULT_FORM_COLOR, fmtFieldDate, fontSizeOf, isoWeekLabel, lineCapacity, mainDate, missingRequired, prefill, readingOrder, withQualifications, type CustomField, type FormEntry, type Measure } from '../lib/forms';
 import { copyFormEntry, formEntryPdf, prefillContext, suggestedPeople } from '../lib/forms-data';
 import { helveticaMeasure } from '../lib/forms-pdf';
 import { usePageTitle } from '../lib/page-title';
@@ -124,6 +124,8 @@ export function FormEntryPage({ entryId }: { entryId: string }) {
           if (!cur || cur === workTimeFor(g, { date: old, workTimes })) values[g.id] = workTimeFor(g, { date: v, workTimes }) ?? '';
         }
       }
+      // Person geändert → Qualifikationsfelder (falls das Formular danach fragt) nachziehen
+      if (f.type === 'person') values = withQualifications(x.layout.fields, values, x.values);
       return { ...x, values, date: mainDate(x.layout.fields, values) ?? x.date };
     });
   const setNo = (no: string) => update((x) => ({ ...x, no, values: prefill(x.layout.fields.filter((g) => g.type === 'no'), { no }, x.values) }));
