@@ -140,7 +140,7 @@ export function ReportsPage() {
   useEffect(() => {
     void listFormTemplates().then(setTemplates).catch(() => setTemplates([]));
   }, []);
-  const customTemplates = (templates ?? []).filter(isCustomTemplate);
+  const customTemplates = (templates ?? []).filter((t) => isCustomTemplate(t) && (t.fields?.length ?? 0) > 0);
   const reportTemplates = (templates ?? []).filter((t) => !isCustomTemplate(t));
   const anyData = (reports?.length ?? 0) + entries.length > 0;
 
@@ -294,7 +294,7 @@ export function NewReportDialog({
   site,
   onCreate,
   onClose,
-  templates = [],
+  templates: allTemplates = [],
   onCreateForm,
 }: {
   sites: PhotoSite[];
@@ -305,6 +305,8 @@ export function NewReportDialog({
   templates?: FormTemplate[];
   onCreateForm?(t: FormTemplate, site: SiteChoice, date: string): void;
 }) {
+  // nur verfügbare Firmenformulare: eingerichtet (mindestens ein Feld)
+  const templates = allTemplates.filter((t) => (t.fields?.length ?? 0) > 0);
   const [type, setType] = useState<string>('regie');
   const [list, setList] = useState(sites);
   useEffect(() => setList(sites), [sites]);
