@@ -7,7 +7,7 @@ import { confirmDialog, showError, toast } from '../components/ui';
 import type { ExportFile } from '../lib/aufmass';
 import { deleteFormEntry, getFormEntry, getFormFile, listFormEntries, saveFormEntry } from '../lib/db';
 import { useDataChanged } from '../lib/data-events';
-import { BASELINE_PT, lineBoxes, wrapToLines, displayValue, entrySiteKey, fits, fontCss, DEFAULT_FORM_COLOR, fmtFieldDate, fontSizeOf, isoWeekLabel, lineCapacity, mainDate, missingRequired, prefill, readingOrder, type CustomField, type FormEntry, type Measure } from '../lib/forms';
+import { justifyOf, BASELINE_PT, lineBoxes, wrapToLines, displayValue, entrySiteKey, fits, fontCss, DEFAULT_FORM_COLOR, fmtFieldDate, fontSizeOf, isoWeekLabel, lineCapacity, mainDate, missingRequired, prefill, readingOrder, type CustomField, type FormEntry, type Measure } from '../lib/forms';
 import { copyFormEntry, formEntryPdf, prefillContext, suggestedPeople } from '../lib/forms-data';
 import { helveticaMeasure } from '../lib/forms-pdf';
 import { usePageTitle } from '../lib/page-title';
@@ -267,7 +267,7 @@ export function FormEntryPage({ entryId }: { entryId: string }) {
                           .map((line, i) => {
                             const b = lineBoxes(f)[i];
                             return (
-                              <span key={i} className="form-sample base" style={{ ...inkStyle(f), fontSize: size, top: pct(b.y - f.box.y, f.box.h), height: pct(b.h, f.box.h), left: pct(b.x - f.box.x, f.box.w), width: pct(b.w, f.box.w), right: 'auto', bottom: 'auto', paddingBottom: BASELINE_PT * pxPerPt }}>
+                              <span key={i} className="form-sample base" style={{ ...inkStyle(f), fontSize: size, top: pct(b.y - f.box.y, f.box.h), height: pct(b.h, f.box.h), left: pct(b.x - f.box.x, f.box.w), width: pct(b.w, f.box.w), right: 'auto', bottom: 'auto', paddingBottom: BASELINE_PT * pxPerPt, justifyContent: justifyOf(f) }}>
                                 {line}
                               </span>
                             );
@@ -279,7 +279,7 @@ export function FormEntryPage({ entryId }: { entryId: string }) {
                           ))}
                         </span>
                       ) : (
-                        <span className={`form-sample${f.type === 'checkbox' ? '' : ' base'}`} style={{ ...inkStyle(f), fontSize: size, paddingBottom: f.type === 'checkbox' ? undefined : BASELINE_PT * pxPerPt, textAlign: f.align ?? (f.type === 'checkbox' ? 'center' : f.type === 'amount' || f.type === 'number' ? 'right' : 'left') }}>
+                        <span className={`form-sample${f.type === 'checkbox' ? '' : ' base'}`} style={{ ...inkStyle(f), fontSize: size, paddingBottom: f.type === 'checkbox' ? undefined : BASELINE_PT * pxPerPt, justifyContent: justifyOf(f) }}>
                           {text}
                         </span>
                       )}

@@ -4,7 +4,7 @@ import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, showError, toast } from '../components/ui';
 import { getFormFile, getFormTemplate, saveFormTemplate } from '../lib/db';
 import { analyzeForm, templateFileId, type FormTemplate } from '../lib/form-template';
-import { BASELINE_PT, DEFAULT_PITCH, MM_PT, multiHeight, pitchOf, textBoxHeight, withFontSize, DEFAULT_FORM_COLOR, FIELD_TYPES, FORM_COLORS, FORM_FONTS, fontCss, NAME_SUGGESTIONS, suggestionFor, fieldsFromDetection, fontSizeOf, lineBoxes, lineCapacity, newField, PROJECT_SOURCES, readingOrder, typeLabel, type CustomField, type CustomFieldType } from '../lib/forms';
+import { alignOf, justifyOf, BASELINE_PT, DEFAULT_PITCH, MM_PT, multiHeight, pitchOf, textBoxHeight, withFontSize, DEFAULT_FORM_COLOR, FIELD_TYPES, FORM_COLORS, FORM_FONTS, fontCss, NAME_SUGGESTIONS, suggestionFor, fieldsFromDetection, fontSizeOf, lineBoxes, lineCapacity, newField, PROJECT_SOURCES, readingOrder, typeLabel, type CustomField, type CustomFieldType } from '../lib/forms';
 import { uuid } from '../lib/ids';
 import { usePageTitle } from '../lib/page-title';
 import { navigate, paths } from '../lib/router';
@@ -176,9 +176,29 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
 
   const field = fields.find((f) => f.id === sel) ?? null;
   const ordered = useMemo(() => readingOrder(fields), [fields]);
+  /** zuletzt gewählte Schrift (Farbe, Art, fett, Größe) – gilt für das nächste neue Feld; auf dem Gerät gemerkt */
+  const lastStyle = useRef<Pick<CustomField, 'color' | 'font' | 'bold' | 'fontSize'>>(
+    (() => {
+      try {
+        return JSON.parse(localStorage.getItem('formFieldStyle') ?? '{}');
+      } catch {
+        return {};
+      }
+    })(),
+  );
   const patch = (id: string, p: Partial<CustomField>) => {
     setFields((l) => l.map((f) => (f.id === id ? { ...f, ...p } : f)));
     setDirty(true);
+    const st: Partial<CustomField> = {};
+    for (const k of ['color', 'font', 'bold', 'fontSize'] as const) if (k in p) (st as Record<string, unknown>)[k] = p[k];
+    if (Object.keys(st).length) {
+      lastStyle.current = { ...lastStyle.current, ...st };
+      try {
+        localStorage.setItem('formFieldStyle', JSON.stringify(lastStyle.current));
+      } catch {
+        /* egal */
+      }
+    }
   };
   const pct = (v: number, total: number) => `${(v / total) * 100}%`;
   const toPt = (clientX: number, clientY: number) => {
@@ -217,8 +237,11 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
     }
     // wie Text: angetippte Stelle = Schreiblinie (Schrift 0,5 mm darüber), nach rechts = Länge, nach unten = weitere Zeilen
     const p = toPt(e.clientX, e.clientY);
-    const th = textBoxHeight(10);
-    const f = { ...newField({ x: p.x, y: Math.max(0, p.y - th), w: 0, h: th }), fontSize: 10 };
+    // Schrift wie beim zuletzt bearbeiteten Feld (Farbe, Art, fett, Größe)
+    const ls = lastStyle.current;
+    const size = ls.fontSize ?? 10;
+    const th = textBoxHeight(size);
+    const f: CustomField = { ...newField({ x: p.x, y: Math.max(0, p.y - th), w: 0, h: th }), fontSize: size, ...(ls.color ? { color: ls.color } : {}), ...(ls.font ? { font: ls.font } : {}), ...(ls.bold ? { bold: true } : {}) };
     setFields((l) => [...l, f]);
     drag.current = { kind: 'draw', id: f.id, x: e.clientX, y: e.clientY, box: { ...f.box } };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -459,7 +482,7 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
                             <b className="form-inset-handle right" onPointerDown={(e) => onInsetDown(e, f, i, 'right')} title="Zeilenende ziehen" data-testid="form-inset-right" />
                           </>
                         )}
-                        <span className="form-sample base" style={{ ...ink(f), fontSize: fontPx(f), paddingBottom: BASELINE_PT * pxPerPt }}>
+                        <span className="form-sample base" style={{ ...ink(f), fontSize: fontPx(f), paddingBottom: BASELINE_PT * pxPerPt, justifyContent: justifyOf(f) }}>
                           {i === 0 ? f.name || '?' : ''}
                         </span>
                       </i>
@@ -481,7 +504,7 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
                     </>
                   ) : (
                     // Muster: Feldname in Schrift, Größe und Farbe – sitzt 0,5 mm über der Unterkante
-                    <span className={`form-sample${f.type === 'checkbox' ? '' : ' base'}`} style={{ ...ink(f), fontSize: fontPx(f), paddingBottom: f.type === 'checkbox' ? undefined : BASELINE_PT * pxPerPt, justifyContent: f.align === 'right' || f.type === 'amount' || f.type === 'number' ? 'flex-end' : f.type === 'checkbox' || f.align === 'center' ? 'center' : 'flex-start' }}>
+                    <span className={`form-sample${f.type === 'checkbox' ? '' : ' base'}`} style={{ ...ink(f), fontSize: fontPx(f), paddingBottom: f.type === 'checkbox' ? undefined : BASELINE_PT * pxPerPt, justifyContent: justifyOf(f) }}>
                       {f.type === 'checkbox' ? 'X' : f.name || '?'}
                     </span>
                   )}
@@ -655,7 +678,7 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
                         <span>Schriftgröße (pt)</span>
                         <input type="number" min={5.5} max={14} step={0.5} value={field.fontSize ?? ''} placeholder={fontSizeOf(field).toFixed(1)} onChange={(e) => {
                             const v = Number(e.target.value) > 0 ? Number(e.target.value) : undefined;
-                            patch(field.id, withFontSize(field, v));
+                            patch(field.id, { fontSize: v, box: withFontSize(field, v).box });
                           }}
                           data-testid="form-field-font"
                         />
@@ -676,6 +699,22 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
                         <input type="checkbox" checked={!!field.bold} onChange={(e) => patch(field.id, { bold: e.target.checked })} data-testid="form-field-bold" />
                         <span>Fett</span>
                       </label>
+                    </div>
+                    <div className="field">
+                      <span>Ausrichtung</span>
+                      <div className="segmented form-align" role="radiogroup" aria-label="Ausrichtung">
+                        {(
+                          [
+                            ['left', 'Links'],
+                            ['center', 'Mittig'],
+                            ['right', 'Rechts'],
+                          ] as const
+                        ).map(([a, label]) => (
+                          <button key={a} type="button" role="radio" aria-checked={alignOf(field) === a} aria-selected={alignOf(field) === a} onClick={() => patch(field.id, { align: a })} data-testid={`form-field-align-${a}`}>
+                            {label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                     <div className="field">
                       <span>Schriftfarbe</span>

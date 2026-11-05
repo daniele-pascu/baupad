@@ -4031,6 +4031,33 @@ tr.lv-flagged td {
   cursor: nwse-resize;
   touch-action: none;
 }
+/* Firmenformular-Felder: die ganze rechte Seite ist der Griff (dicke Leiste, außen am Kasten) */
+.form-tpl-box.custom {
+  overflow: visible;
+}
+.form-tpl-box.custom .form-sample {
+  overflow: hidden;
+}
+.form-tpl-box.custom .form-resize {
+  top: -1px;
+  bottom: -1px;
+  right: -9px;
+  width: 7px;
+  height: auto;
+  border-radius: 4px;
+  border: 1px solid #fff;
+  cursor: ew-resize;
+  z-index: 4;
+}
+.form-tpl-box.custom .form-resize::before {
+  content: '';
+  position: absolute;
+  inset: -6px -10px -6px 0; /* größere Fläche für den Finger – nur nach außen, damit die Zeilengriffe frei bleiben */
+}
+.form-tpl-box.custom.strips .form-resize,
+.form-tpl-box.custom.multi .form-resize {
+  cursor: nwse-resize;
+}
 .form-field-list-head {
   display: flex;
   align-items: baseline;

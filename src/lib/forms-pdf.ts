@@ -1,7 +1,7 @@
 import { PDFDocument, StandardFonts } from 'pdf-lib';
 import { safeFileName, type ExportFile } from './aufmass';
 import { drawInBox, drawLines, hexColor, sanitize } from './form-fill';
-import { BASELINE_PT, DEFAULT_FORM_COLOR, displayValue, fontSizeOf, lineBoxes, type CustomField, type CustomLayout, type FormEntry, type Measure } from './forms';
+import { alignOf, BASELINE_PT, DEFAULT_FORM_COLOR, displayValue, fontSizeOf, lineBoxes, type CustomField, type CustomLayout, type FormEntry, type Measure } from './forms';
 import type { PDFFont } from 'pdf-lib';
 
 const STD: Record<string, [StandardFonts, StandardFonts]> = {
@@ -32,9 +32,9 @@ export async function fillCustomForm(pdf: ArrayBuffer, layout: CustomLayout, val
     const font = await fontOf(f);
     const color = hexColor(f.color || DEFAULT_FORM_COLOR);
     // Schrift 0,5 mm über der Unterkante (wie im Editor gezeigt); eingestellte Größe genau
-    if (f.type === 'multiline') drawLines(page, font, pageH, lineBoxes(f), text, fontSizeOf(f), color, BASELINE_PT);
+    if (f.type === 'multiline') drawLines(page, font, pageH, lineBoxes(f), text, fontSizeOf(f), color, BASELINE_PT, alignOf(f));
     else if (f.type === 'checkbox') drawInBox(page, font, pageH, f.box, 'X', { max: Math.min(12, f.box.h * 0.9), align: 'center', color });
-    else drawInBox(page, font, pageH, f.box, text.replace(/\s*\n\s*/g, ' · '), { max: fontSizeOf(f), exact: !!f.fontSize, baseline: BASELINE_PT, align: f.align ?? (f.type === 'amount' || f.type === 'number' ? 'right' : 'left'), color });
+    else drawInBox(page, font, pageH, f.box, text.replace(/\s*\n\s*/g, ' · '), { max: fontSizeOf(f), exact: !!f.fontSize, baseline: BASELINE_PT, align: alignOf(f), color });
   }
   return doc.save();
 }

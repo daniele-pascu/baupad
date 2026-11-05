@@ -73,7 +73,7 @@ function wrap(font: PDFFont, text: string, size: number, widths: number[]): stri
 }
 
 /** mehrzeiliges Feld: erste Zeile im Kasten, weitere auf den Schreiblinien; bei Platzmangel kleinere Schrift */
-export function drawLines(page: PDFPage, font: PDFFont, pageH: number, boxes: Box[], text: string, startSize?: number, color: RGB = INK, baseline?: number) {
+export function drawLines(page: PDFPage, font: PDFFont, pageH: number, boxes: Box[], text: string, startSize?: number, color: RGB = INK, baseline?: number, align: 'left' | 'center' | 'right' = 'left') {
   if (!text.trim() || !boxes.length) return;
   const widths = boxes.map((b) => b.w);
   let size = startSize ?? Math.min(9.5, Math.max(MIN_SIZE, boxes[0].h * 0.82));
@@ -87,7 +87,9 @@ export function drawLines(page: PDFPage, font: PDFFont, pageH: number, boxes: Bo
     let s = l;
     if (i === boxes.length - 1 && lines.length > boxes.length) s = `${s} …`;
     while (s.length > 1 && font.widthOfTextAtSize(s, size) > b.w - 2) s = s.slice(0, -1);
-    page.drawText(s, { x: b.x + 1, y: pageH - (b.y + b.h) + (baseline ?? Math.max(1.5, (b.h - size) / 2 + size * 0.12)), size, font, color });
+    const w = font.widthOfTextAtSize(s, size);
+    const x = align === 'right' ? b.x + b.w - 1 - w : align === 'center' ? b.x + (b.w - w) / 2 : b.x + 1;
+    page.drawText(s, { x, y: pageH - (b.y + b.h) + (baseline ?? Math.max(1.5, (b.h - size) / 2 + size * 0.12)), size, font, color });
   });
 }
 

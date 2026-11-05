@@ -275,9 +275,20 @@ test('Felder: Namen vorschlagen, Schrift (Größe, Art, Farbe), Wochentag/KW aus
   await panel.getByTestId('form-field-bold').check();
   await panel.locator('[data-testid="form-field-color"][data-color="#c92a2a"]').click();
   await expect(panel.locator('[data-testid="form-field-color"][data-color="#c92a2a"]')).toHaveAttribute('aria-checked', 'true');
+  // Ausrichtung je Feld: links / mittig / rechts – das Muster im Kasten richtet sich danach
+  await expect(panel.getByTestId('form-field-align-left')).toHaveAttribute('aria-checked', 'true');
+  await panel.getByTestId('form-field-align-right').click();
+  await expect(page.locator('[data-testid="form-field-box"][data-name="Wochentag"] .form-sample')).toHaveCSS('justify-content', 'flex-end');
+  await panel.getByTestId('form-field-align-center').click();
+  await expect(page.locator('[data-testid="form-field-box"][data-name="Wochentag"] .form-sample')).toHaveCSS('justify-content', 'center');
   await panel.screenshot({ path: join(OUT, 'formular-feld-schrift.png') });
   // selbst geschriebener Name, der einem Vorschlag entspricht → Typ automatisch (KW)
   await draw(0.55, 0.28);
+  // neues Feld übernimmt die zuletzt gewählte Schrift (Times, fett, Rot, 11 pt)
+  await expect(panel.getByTestId('form-field-fontface')).toHaveValue('times');
+  await expect(panel.getByTestId('form-field-bold')).toBeChecked();
+  await expect(panel.locator('[data-testid="form-field-color"][data-color="#c92a2a"]')).toHaveAttribute('aria-checked', 'true');
+  await expect(panel.getByTestId('form-field-font')).toHaveValue('11');
   await panel.getByTestId('form-field-name').fill('KW');
   await expect(panel.getByTestId('form-field-type')).toHaveValue('week');
   // mehrzeiliges Feld zeigt die Zeilen an
@@ -292,6 +303,16 @@ test('Felder: Namen vorschlagen, Schrift (Größe, Art, Farbe), Wochentag/KW aus
   const g2 = await geo();
   expect(g2.h).toBeGreaterThan(g1.h);
   expect(Math.abs(g2.y + g2.h - (g1.y + g1.h))).toBeLessThan(0.3);
+  // Länge: an der ganzen rechten Seite ziehen (nicht nur an der Ecke)
+  const w1 = Number(await panel.getByTestId('form-field-w').inputValue());
+  await page.locator('[data-testid="form-field-box"][data-name="KW"]').getByTestId('form-field-resize').scrollIntoViewIfNeeded();
+  const bar = (await page.locator('[data-testid="form-field-box"][data-name="KW"]').getByTestId('form-field-resize').boundingBox())!;
+  expect(bar.height).toBeGreaterThan(bar.width * 1.5); // Leiste über die ganze Höhe
+  await page.mouse.move(bar.x + bar.width / 2, bar.y + bar.height * 0.3);
+  await page.mouse.down();
+  await page.mouse.move(bar.x + bar.width / 2 + 60, bar.y + bar.height * 0.3, { steps: 4 });
+  await page.mouse.up();
+  expect(Number(await panel.getByTestId('form-field-w').inputValue())).toBeGreaterThan(w1 + 20);
   // Pfeiltasten verschieben das gewählte Feld (1 pt je Druck)
   const x1 = Number(await panel.getByTestId('form-field-x').inputValue());
   await page.getByTestId('form-editor-stage').click({ position: { x: 5, y: 5 } }); // Fokus weg vom Eingabefeld (Auswahl bleibt nicht) …
@@ -329,7 +350,8 @@ test('Felder: Namen vorschlagen, Schrift (Größe, Art, Farbe), Wochentag/KW aus
   await page.mouse.move(hb.x + hb.width / 2 - 60, hb.y + hb.height / 2, { steps: 4 });
   await page.mouse.up();
   const s2 = (await strips.nth(2).boundingBox())!;
-  expect(s2.x + s2.width).toBeLessThan(s1.x + s1.width - 40);
+  const s1b = (await strips.nth(1).boundingBox())!;
+  expect(s2.x + s2.width).toBeLessThan(s1b.x + s1b.width - 40); // nur die letzte Zeile kürzer
   expect(Number(await panel.getByTestId('form-inset-right-mm').last().inputValue())).toBeGreaterThan(5);
   // Enter = fertig (Feld abgewählt); Entf löscht das gewählte Feld
   const count = await page.getByTestId('form-field-box').count();

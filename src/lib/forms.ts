@@ -54,6 +54,9 @@ export const FORM_FONTS: { id: FormFont; label: string; css: string }[] = [
   { id: 'times', label: 'Times New Roman', css: '"Times New Roman", Times, serif' },
   { id: 'courier', label: 'Courier New', css: '"Courier New", Courier, monospace' },
 ];
+/** Ausrichtung eines Feldes (Standard: Zahlen/Beträge rechts, Kästchen mittig, sonst links) */
+export const alignOf = (f: Pick<CustomField, 'align' | 'type'>): 'left' | 'center' | 'right' => f.align ?? (f.type === 'amount' || f.type === 'number' ? 'right' : f.type === 'checkbox' ? 'center' : 'left');
+export const justifyOf = (f: Pick<CustomField, 'align' | 'type'>) => ({ left: 'flex-start', center: 'center', right: 'flex-end' })[alignOf(f)];
 export const fontCss = (f: Pick<CustomField, 'font'>) => FORM_FONTS.find((x) => x.id === (f.font ?? 'helvetica'))!.css;
 /** Schriftfarben zur Auswahl */
 export const FORM_COLORS: { value: string; label: string }[] = [
