@@ -117,6 +117,7 @@ test('Vorlage einrichten, im Projekt ausfüllen, PDF, Nummern, Vorlagenversion',
   await expect(page.locator('[data-testid="form-entry-field"][type="date"]').first()).toHaveValue('2026-10-28');
   await expect(fld('Anwesende')).toHaveValue('Max, Peter'); // laut Einteilung an diesem Tag auf der Baustelle (änderbar)
   await expect(page.getByTestId('form-entry-people-suggest')).toHaveCount(0);
+  await expect(page.getByTestId('form-entry-people-add')).toHaveCount(0); // keine Taste „+ Mitarbeiter“ mehr
   await fld('Anwesende').fill('Hans');
   await expect(page.getByTestId('form-entry-people-suggest')).toContainText('Aus Einteilung: Max, Peter');
   await page.getByTestId('form-entry-people-suggest').click();
@@ -170,10 +171,16 @@ test('Vorlage einrichten, im Projekt ausfüllen, PDF, Nummern, Vorlagenversion',
   await page.getByTestId('form-entry-delete').click();
   await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Löschen' }).click();
   await expect(page.getByTestId('form-item')).toHaveCount(2);
-  // auch bei den BauPad-Berichten: „+“ neben Regielisten
-  await page.locator('[data-testid="report-section-add"][data-type="regie"]').click();
+  // Listen erst, wenn es dort etwas gibt: noch keine Regieliste → keine Liste „Regielisten“
+  await expect(page.locator('[data-testid="report-section"][data-type="regie"]')).toHaveCount(0);
+  await page.getByTestId('report-group-new').click();
+  await page.getByTestId('report-new-dialog').getByTestId('report-type-regie').click();
+  await page.getByTestId('report-new-dialog').getByTestId('report-create').click();
   await expect(page.getByTestId('report-title')).toHaveText('Regieliste Nr. 1');
   await page.getByTestId('to-reports').click();
+  await expect(page.locator('[data-testid="report-section"][data-type="regie"]')).toHaveCount(1);
+  // mit „+“ daneben gleich die nächste
+  await expect(page.locator('[data-testid="report-section-add"][data-type="regie"]')).toBeVisible();
   await expect(page.getByTestId('report-item')).toHaveCount(1);
   await page.getByTestId('to-reports-overview').click();
   await expect(page.getByTestId('report-site')).toContainText('2 Formulare');

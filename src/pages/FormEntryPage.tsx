@@ -5,8 +5,7 @@ import { PdfPreview } from '../components/PdfPreview';
 import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, showError, toast } from '../components/ui';
 import type { ExportFile } from '../lib/aufmass';
-import { workerName } from '../lib/crew';
-import { deleteFormEntry, getFormEntry, getFormFile, listFormEntries, listWorkers, saveFormEntry } from '../lib/db';
+import { deleteFormEntry, getFormEntry, getFormFile, listFormEntries, saveFormEntry } from '../lib/db';
 import { useDataChanged } from '../lib/data-events';
 import { displayValue, entrySiteKey, fits, fontCss, DEFAULT_FORM_COLOR, fmtFieldDate, fontSizeOf, isoWeekLabel, lineCapacity, mainDate, missingRequired, prefill, readingOrder, type CustomField, type FormEntry, type Measure } from '../lib/forms';
 import { copyFormEntry, formEntryPdf, prefillContext, suggestedPeople } from '../lib/forms-data';
@@ -14,7 +13,6 @@ import { helveticaMeasure } from '../lib/forms-pdf';
 import { usePageTitle } from '../lib/page-title';
 import { navigate, paths } from '../lib/router';
 import { useSession } from '../lib/use-session';
-import type { Worker } from '../lib/types';
 import { ACCENT } from './ReportsPage';
 
 /**
@@ -32,7 +30,6 @@ const inkStyle = (f: CustomField) => ({ color: f.color || DEFAULT_FORM_COLOR, fo
 export function FormEntryPage({ entryId }: { entryId: string }) {
   const session = useSession();
   const [e, setE] = useState<FormEntry | null | undefined>(undefined);
-  const [workers, setWorkers] = useState<Worker[]>([]);
   const [img, setImg] = useState<string | null>(null);
   const [measure, setMeasure] = useState<Measure>(() => roughMeasure);
   const [saved, setSaved] = useState(true);
@@ -47,10 +44,9 @@ export function FormEntryPage({ entryId }: { entryId: string }) {
   usePageTitle(e ? `${e.templateName} Nr. ${e.no} – BauPad` : 'Formular – BauPad');
 
   useEffect(() => {
-    void Promise.all([getFormEntry(entryId), listWorkers(), helveticaMeasure()])
-      .then(([entry, w, m]) => {
+    void Promise.all([getFormEntry(entryId), helveticaMeasure()])
+      .then(([entry, m]) => {
         setE(entry ?? null);
-        setWorkers(w.filter((x) => x.active));
         setMeasure(() => m);
       })
       .catch((err) => showError(err, 'Formular konnte nicht geladen werden'));
@@ -241,7 +237,7 @@ export function FormEntryPage({ entryId }: { entryId: string }) {
             <section className="rp-section">
               {fields.length === 0 && <p className="muted">Diese Vorlage hat keine Felder. Bitte unter „Vorlagen“ Felder einrichten.</p>}
               {fields.map((f) => (
-                <FieldInput key={f.id} f={f} value={e.values[f.id] ?? ''} measure={measure} workers={workers} people={people} onChange={(v) => setValue(f, v)} onFocus={() => setFocus(f.id)} />
+                <FieldInput key={f.id} f={f} value={e.values[f.id] ?? ''} measure={measure} people={people} onChange={(v) => setValue(f, v)} onFocus={() => setFocus(f.id)} />
               ))}
             </section>
             <div className="report-bottom">
@@ -289,7 +285,7 @@ export function FormEntryPage({ entryId }: { entryId: string }) {
 }
 
 /** ein Eingabefeld je Typ */
-function FieldInput({ f, value, measure, workers, people, onChange, onFocus }: { f: CustomField; value: string; measure: Measure; workers: Worker[]; people: string[]; onChange(v: string): void; onFocus(): void }) {
+function FieldInput({ f, value, measure, people, onChange, onFocus }: { f: CustomField; value: string; measure: Measure; people: string[]; onChange(v: string): void; onFocus(): void }) {
   const fit = fits(f, value, measure);
   const id = `ff-${f.id}`;
   const label = (
@@ -306,7 +302,6 @@ function FieldInput({ f, value, measure, workers, people, onChange, onFocus }: {
   const hint = f.hint ? <small className="muted form-entry-hint">{f.hint}</small> : null;
   const common = { id, onFocus, 'data-testid': 'form-entry-field', 'data-name': f.name, 'aria-invalid': (f.required && !value.trim()) || !fit.ok ? true : undefined };
   const suggestion = people.filter((p) => !value.toLowerCase().includes(p.toLowerCase()));
-  const names = workers.map(workerName).filter((n) => !value.toLowerCase().includes(n.toLowerCase()));
   const append = (...ns: string[]) => onChange([value.trim(), ...ns].filter(Boolean).join(', '));
   switch (f.type) {
     case 'multiline':
@@ -395,16 +390,6 @@ function FieldInput({ f, value, measure, workers, people, onChange, onFocus }: {
               <button type="button" className="btn btn-sm" onClick={() => append(...suggestion)} data-testid="form-entry-people-suggest" title="Laut Arbeitereinteilung an diesem Tag auf der Baustelle">
                 Aus Einteilung: {suggestion.join(', ')}
               </button>
-            )}
-            {names.length > 0 && (
-              <select className="btn btn-sm form-entry-add-person" value="" onChange={(e) => e.target.value && append(e.target.value)} aria-label="Mitarbeiter hinzufügen" data-testid="form-entry-people-add">
-                <option value="">+ Mitarbeiter</option>
-                {names.map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </select>
             )}
           </span>
           {hint}

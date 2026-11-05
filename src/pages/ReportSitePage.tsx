@@ -61,7 +61,7 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
       g.items.push(e);
       m.set(e.templateId, g);
     }
-    for (const t of templates) if (!m.has(t.id)) m.set(t.id, { name: t.name, items: [] }); // Vorlage ohne Eintrag: leere Liste mit „+“
+    // Liste je Formular erst, wenn es dort ein ausgefülltes Formular gibt (neu über „Neu“)
     for (const g of m.values()) g.items.sort((a, b) => b.date.localeCompare(a.date) || (parseInt(b.no) || 0) - (parseInt(a.no) || 0));
     return [...m.entries()].sort((a, b) => a[1].name.localeCompare(b[1].name, 'de'));
   }, [entries, templates]);
@@ -275,7 +275,7 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
 
         {all && reports.length === 0 && entries.length === 0 && templates.length === 0 && <p className="muted">Noch keine Berichte in diesem Projekt – oben „Neu“ antippen: Regieliste, Bautagesbericht, Bauwochenbericht{templates.length ? ' oder ein Firmenformular' : ''}.</p>}
 
-        {REPORT_TYPES.map((t) => {
+        {REPORT_TYPES.filter((t) => byType[t.type].length > 0).map((t) => {
           const items = byType[t.type];
           const ids = items.map((r) => r.id);
           const allOn = ids.length > 0 && ids.every((id) => selected.has(id));
