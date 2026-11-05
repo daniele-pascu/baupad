@@ -14,9 +14,25 @@ import { FillPaths, visibleStroke } from './PlanViewer';
 const DIM_COLOR = '#1f5fbf';
 
 /** Zeichenfläche (weiß) mit Raster; Rasterweite passt sich dem Zoom an. */
-export function renderSheet(view: View, size: { w: number; h: number }, region: Rect, k: number, grid: boolean): ReactNode {
+export function renderSheet(view: View, size: { w: number; h: number }, region: Rect, k: number, grid: boolean, infinite = false): ReactNode {
+  const tl0 = toScreen(view, { x: region.x, y: region.y });
+  // Unbegrenzte Zeichenfläche: weißer Hintergrund und Raster über die ganze Ansicht; der
+  // bisherige Bereich bleibt als unsichtbarer Bezug (z. B. für Tests) erhalten
+  const area = (
+    <rect key="sheet-area" className="drawing-sheet" data-testid="drawing-sheet" x={tl0.x} y={tl0.y} width={region.w * view.scale} height={region.h * view.scale} fill="none" stroke="none" />
+  );
+  if (infinite) {
+    const a = toPage(view, { x: 0, y: 0 });
+    const b = toPage(view, { x: size.w, y: size.h });
+    region = { x: a.x, y: a.y, w: b.x - a.x, h: b.y - a.y };
+  }
   const tl = toScreen(view, { x: region.x, y: region.y });
-  const sheet = (
+  const sheet = infinite ? (
+    <g key="sheet">
+      <rect className="drawing-bg" x={0} y={0} width={size.w} height={size.h} fill="#fff" />
+      {area}
+    </g>
+  ) : (
     <rect
       key="sheet"
       className="drawing-sheet"

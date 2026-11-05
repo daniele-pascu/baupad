@@ -18,7 +18,7 @@ import {
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { componentsOf, costCenterLabel, damagesOf, elementsOf, findPosition, planTitle, safeFileName, type ExportFile } from './aufmass';
 import { dimsVisible, visibleDamages, visibleElements } from './layers';
-import { annotationsOf, contentRegion, dimGeometry, drawingSheet, isDrawingPlan, PAPER, PRINT_HEADER_MM, PRINT_MARGIN_MM, printScale, shapeToPage, unitsPerMeter } from './drawing';
+import { annotationsOf, contentRegion, dimGeometry, isDrawingPlan, PAPER, PRINT_HEADER_MM, PRINT_MARGIN_MM, printFit, printScale, shapeToPage, unitsPerMeter } from './drawing';
 import { getBlob } from './db';
 import { MADE_WITH } from './crew-pdf';
 import { damageNo } from './numbering';
@@ -480,18 +480,20 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   const damages = visibleDamages(plan, allDamages);
   // Bauteilbuchstaben werden nicht mehr verwendet (Daten bleiben gespeichert, erscheinen aber nicht im Export)
   const components: ReturnType<typeof componentsOf> = [];
-  // Mit Papierformat: genau das Zeichenblatt im gewählten Maßstab; sonst (ältere Pläne) Inhalt
-  // auf A3 mit passendem Normmaßstab
-  const sheet = drawingSheet(plan);
+  // Mit Papierformat: das Zeichenblatt im gewählten Maßstab bzw. – wenn die Zeichnung über das
+  // Blatt hinausgeht – der ganze Inhalt, passend verkleinert; sonst (ältere Pläne) Inhalt auf A3
+  // mit passendem Normmaßstab
   const paperFmt = plan.drawing?.paper ? PAPER[plan.drawing.paper] : null;
-  const region = sheet ?? contentRegion(plan, allElements, allDamages);
+  const fitMm = paperFmt ? { w: paperFmt.w - 2 * PRINT_MARGIN_MM, h: paperFmt.h - 2 * PRINT_MARGIN_MM - PRINT_HEADER_MM } : null;
+  const fit = fitMm ? printFit(plan, allElements, allDamages, fitMm) : null;
+  const region = fit ? fit.region : contentRegion(plan, allElements, allDamages);
   const portrait = paperFmt ? paperFmt.h > paperFmt.w : region.h > region.w;
   const W = paperFmt ? paperFmt.w * MM : portrait ? A3.hPt : A3.wPt;
   const H = paperFmt ? paperFmt.h * MM : portrait ? A3.wPt : A3.hPt;
   const margin = (paperFmt ? PRINT_MARGIN_MM : 12) * MM;
   const headerPt = (paperFmt ? PRINT_HEADER_MM : 16) * MM;
   const avail = { w: (W - 2 * margin) / MM, h: (H - 2 * margin - headerPt) / MM };
-  const scaleN = paperFmt ? (plan.drawing?.scale ?? 100) : printScale({ w: region.w / k, h: region.h / k }, avail);
+  const scaleN = fit ? fit.scale : printScale({ w: region.w / k, h: region.h / k }, avail);
   // Seiteneinheit (1/k m) → Punkte auf dem Papier
   const u = (1000 / k / scaleN) * MM;
   const ox = (W - region.w * u) / 2;

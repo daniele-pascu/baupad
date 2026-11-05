@@ -1,6 +1,6 @@
 import { invoiceLabel, invoicesOf } from '../lib/invoices';
 import { useId, useState } from 'react';
-import { drawingRegion, isDrawingPlan, PAPER, PAPER_FORMATS, SCALES, sheetFields, sheetMeters } from '../lib/drawing';
+import { isDrawingPlan, PAPER, PAPER_FORMATS, PRINT_HEADER_MM, PRINT_MARGIN_MM, printFit, SCALES, sheetFields, sheetMeters } from '../lib/drawing';
 import { formatMeasure } from '../lib/numbers';
 import { elementsOf } from '../lib/aufmass';
 import { planNumberStart } from '../lib/numbering';
@@ -461,11 +461,11 @@ function SheetFields({
 /** Hinweis, wenn vorhandene Objekte bei einem kleineren Blatt außerhalb liegen würden (nichts wird verändert). */
 function OutsideHint({ plan, data, paper, scale }: { plan: Plan; data: ProjectState; paper: PaperFormat; scale: number }) {
   const f = sheetFields(paper, scale);
-  const r = drawingRegion({ ...plan, ...f }, elementsOf(data, plan.id));
-  const outside = r.x < 0 || r.y < 0 || r.w > f.pageWidth + 0.5 || r.h > f.pageHeight + 0.5;
-  return outside ? (
-    <p className="small warn-text" data-testid="sheet-outside">
-      Teile der Zeichnung liegen außerhalb dieses Blatts. Sie bleiben erhalten, sind im PDF aber abgeschnitten – größeres Format oder Maßstab wählen.
+  const p = PAPER[paper];
+  const fit = printFit({ ...plan, ...f }, elementsOf(data, plan.id), [], { w: p.w - 2 * PRINT_MARGIN_MM, h: p.h - 2 * PRINT_MARGIN_MM - PRINT_HEADER_MM });
+  return fit.fitted ? (
+    <p className="small muted" data-testid="sheet-outside">
+      Die Zeichnung ist größer als das Blatt bei 1:{scale}. Im PDF wird sie automatisch auf 1:{fit.scale} verkleinert, damit alles auf {p.label} passt.
     </p>
   ) : null;
 }

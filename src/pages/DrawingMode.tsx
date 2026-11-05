@@ -24,10 +24,10 @@ import {
   type Apex,
   type Measures,
 } from '../lib/drawing';
-import { type OrthoDir, extendLine, ORTHO_DIRS, orthoPoint, rotateShapeBy, scaleShape, stretchShape, translateShape, trimLine } from '../lib/cad';
-import { findSnap, type SnapKind } from '../lib/snap';
+import { type OrthoDir, extendLine, ORTHO_DIRS, orthoPoint, rotateShapeBy, scaleShape, stretchShape, translateShape, trimByFence, trimShape } from '../lib/cad';
+import { edgesOf, findSnap, type SnapKind } from '../lib/snap';
 import { dimsVisible, visibleDamages, visibleElements } from '../lib/layers';
-import { distToSegment, pathToSvg, rectsOverlap, removeVertex, setPolylineClosed, shapeAABB, shapePath, toScreen, type Point, type View } from '../lib/geometry';
+import { distToSegment, isOpenShape, pathToSvg, rectsOverlap, removeVertex, setPolylineClosed, shapeAABB, shapePath, toScreen, type Point, type View } from '../lib/geometry';
 import { newMeta, putRecord, putRecords, softDelete, type ProjectState } from '../lib/store';
 import type { Damage, DrawElement, DrawElementType, Plan, Rect, Shape, ShapeStyle } from '../lib/types';
 
@@ -55,7 +55,7 @@ export const DRAW_TOOLS: { id: DrawTool; label: string; short?: string; icon: st
   { id: 'move', label: 'Verschieben: Basispunkt zum Zielpunkt ziehen (mit Fang)', short: 'Verschieben', icon: 'move', key: 'g', group: 'modify' },
   { id: 'copy', label: 'Kopieren: Basispunkt zum Zielpunkt ziehen (mit Fang)', short: 'Kopieren', icon: 'copy', key: 'c', group: 'modify' },
   { id: 'stretch', label: 'Strecken: Fenster über Eckpunkte ziehen, dann Verschiebung ziehen', short: 'Strecken', icon: 'stretch', key: 's', group: 'modify' },
-  { id: 'trim', label: 'Trimmen: Linienabschnitt bis zur nächsten Kante entfernen', short: 'Trimmen', icon: 'trim', key: 'z', group: 'modify' },
+  { id: 'trim', label: 'Stutzen: Abschnitt bis zu den nächsten Kanten entfernen – anklicken oder über mehrere Linien ziehen (Zaun)', short: 'Stutzen', icon: 'trim', key: 'z', group: 'modify' },
   { id: 'extend', label: 'Verlängern: Linie bis zur nächsten Kante verlängern', short: 'Verlängern', icon: 'extend', key: 'e', group: 'modify' },
 ];
 
@@ -341,20 +341,29 @@ export function useDrawing(opts: {
     putRecord('elements', { ...e, shape: roundShape(shape) });
   };
 
-  /** Trimmen/Verlängern: angeklickte Linie gegen alle anderen Objekte */
+  /** Elementtyp eines gestutzten Teilstücks (Bogen bleibt Bogen, sonst Linie bzw. offene Polylinie) */
+  const pieceType = (orig: DrawElement, piece: Shape): DrawElementType => (piece.type === 'line' ? 'line' : orig.type === 'arc' ? 'arc' : 'freehand');
+
+  /** Ergebnis des Stutzens speichern: erstes Teil ersetzt das Original, weitere werden neu angelegt */
+  const trimmedRecords = (e: DrawElement, parts: Shape[]): DrawElement[] =>
+    parts.map((sh, i) => ({ ...e, ...(i ? newMeta() : {}), type: pieceType(e, sh), shape: roundShape(sh) }));
+
+  /** Stutzen-fähige Objekte: alles mit Kanten außer Text und Maßlinien */
+  const trimmable = (e: DrawElement) => e.type !== 'text' && e.type !== 'dimension';
+
+  /** Stutzen (Klick) bzw. Verlängern: angeklicktes Objekt gegen alle anderen Objekte */
   const trimOrExtend = (p: Point) => {
     const pm = { x: p.x / k, y: p.y / k };
     const pxPerM = (viewer.current?.scale() ?? 1) * k;
     const tol = (isCoarse() ? 18 : 10) / pxPerM;
     let best: { e: DrawElement; d: number } | null = null;
     for (const e of stored) {
-      if (e.type !== 'line') continue;
-      const [a, b] = lineEnds(e.shape);
-      const d = distToSegment(pm, a, b);
+      if (tool === 'extend' ? e.type !== 'line' : !trimmable(e)) continue;
+      const d = Math.min(...edgesOf(e.shape).map(([a, b]) => distToSegment(pm, a, b)));
       if (d <= tol && (!best || d < best.d)) best = { e, d };
     }
     if (!best) {
-      toast(tool === 'trim' ? 'Bitte eine Linie anklicken (Trimmen gilt für Linien).' : 'Bitte eine Linie nahe dem zu verlängernden Ende anklicken.', 'info');
+      toast(tool === 'trim' ? 'Bitte eine Linie oder Kante anklicken – oder über mehrere Linien ziehen (Zaun).' : 'Bitte eine Linie nahe dem zu verlängernden Ende anklicken.', 'info');
       return;
     }
     const line = best.e;
@@ -365,13 +374,40 @@ export function useDrawing(opts: {
       else putRecord('elements', { ...line, shape: roundShape(next) });
       return;
     }
-    const parts = trimLine(line.shape, pm, others);
+    const parts = trimShape(line.shape, pm, others);
     if (!parts) {
-      toast('Die Linie schneidet keine andere Kante.', 'info');
+      toast(line.type === 'line' || line.type === 'arc' || isOpenShape(line.shape) ? 'Die Linie schneidet keine andere Kante.' : 'Zum Stutzen einer geschlossenen Form braucht es mindestens zwei Schnittpunkte.', 'info');
       return;
     }
+    if (selectedId === line.id) setSelectedId(null);
     if (!parts.length) softDelete({ elements: [line] });
-    else putRecords({ elements: [{ ...line, shape: roundShape(parts[0]) }, ...parts.slice(1).map((sh) => ({ ...line, ...newMeta(), shape: roundShape(sh) }))] });
+    else putRecords({ elements: trimmedRecords(line, parts) });
+  };
+
+  /** Stutzen mit Zaun: alle gekreuzten Linien zwischen ihren Schnittkanten entfernen (ein Rückgängig-Schritt) */
+  const onFence = (a: Point, b: Point) => {
+    const list = stored.filter((e) => e.type !== 'text');
+    const res = trimByFence(
+      list.map((e) => e.shape),
+      { x: a.x / k, y: a.y / k },
+      { x: b.x / k, y: b.y / k },
+    );
+    const changed: DrawElement[] = [];
+    const removed: DrawElement[] = [];
+    for (const [i, parts] of res) {
+      const e = list[i];
+      if (!trimmable(e)) continue;
+      if (!parts.length) removed.push(e);
+      else changed.push(...trimmedRecords(e, parts));
+    }
+    if (!changed.length && !removed.length) {
+      toast('Der Zaun kreuzt keine Linie, die gestutzt werden kann.', 'info');
+      return;
+    }
+    setSelectedId(null);
+    if (changed.length) putRecords({ elements: changed });
+    if (removed.length) softDelete({ elements: removed });
+    toast(`${res.size} Objekt(e) gestutzt.`, 'success', 2000);
   };
 
   const onShapeChange = (id: string, pageShape: Shape, commit: boolean) => {
@@ -508,7 +544,7 @@ export function useDrawing(opts: {
   /** Planbearbeitung: Zeichenfläche mit Raster, Messungen nur blass zur Orientierung */
   const drawUnderlay = (region: Rect) => (view: View, size: { w: number; h: number }) => (
     <>
-      {renderSheet(view, size, region, k, true)}
+      {renderSheet(view, size, region, k, true, true)}
       {markerPaths(view)}
     </>
   );
@@ -516,7 +552,7 @@ export function useDrawing(opts: {
   /** Aufmaß: Zeichnung als ruhender Hintergrund mit Maßen */
   const measureUnderlay = (region: Rect) => (view: View, size: { w: number; h: number }) => (
     <>
-      {renderSheet(view, size, region, k, false)}
+      {renderSheet(view, size, region, k, false, true)}
       {elements.map((e) => (
         <g key={e.id}>{renderElement(e, shapeToPage(e.shape, k), view, false)}</g>
       ))}
@@ -603,6 +639,7 @@ export function useDrawing(opts: {
     overlapping,
     remove,
     renderItem,
+    onFence,
     drawUnderlay,
     measureUnderlay,
     drawOverlay,

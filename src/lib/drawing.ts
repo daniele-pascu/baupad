@@ -477,9 +477,34 @@ export function suggestMeasures(shape: Shape, k = UNITS_PER_M): { length: number
 
 
 /** Maßstab für den Ausdruck: kleinster Normmaßstab, bei dem der Bereich aufs Papier passt. */
-export function printScale(regionM: { w: number; h: number }, paperMm: { w: number; h: number }): number {
+export function printScale(regionM: { w: number; h: number }, paperMm: { w: number; h: number }, min = 0): number {
   const scales = [20, 25, 50, 75, 100, 125, 200, 250, 500, 1000, 2000, 5000];
-  for (const n of scales) if ((regionM.w * 1000) / n <= paperMm.w && (regionM.h * 1000) / n <= paperMm.h) return n;
+  for (const n of scales) if (n >= min && (regionM.w * 1000) / n <= paperMm.w && (regionM.h * 1000) / n <= paperMm.h) return n;
   return scales[scales.length - 1];
+}
+
+/**
+ * Druckausschnitt und Maßstab eines gezeichneten Plans mit Papierformat. Die Zeichenfläche ist
+ * unbegrenzt: Liegt alles auf dem Zeichenblatt, wird genau das Blatt im gewählten Maßstab
+ * gedruckt. Sonst wird der gesamte Inhalt gedruckt und – falls nötig – so weit verkleinert
+ * (nächster Normmaßstab ≥ gewählter Maßstab), dass er auf das gewählte Format passt.
+ */
+export function printFit(
+  plan: Pick<Plan, 'pageWidth' | 'pageHeight' | 'drawing'>,
+  elements: Pick<DrawElement, 'shape'>[],
+  damages: Pick<Damage, 'shape'>[],
+  availMm: { w: number; h: number },
+): { region: Rect; scale: number; fitted: boolean } {
+  const k = unitsPerMeter(plan);
+  const chosen = plan.drawing?.scale ?? 100;
+  const sheet = { x: 0, y: 0, w: plan.pageWidth, h: plan.pageHeight };
+  const tol = 0.5;
+  const onSheet = [...elements.map((e) => shapeAABB(shapeToPage(e.shape, k))), ...damages.map((d) => shapeAABB(d.shape))].every(
+    (b) => b.x >= -tol && b.y >= -tol && b.x + b.w <= sheet.w + tol && b.y + b.h <= sheet.h + tol,
+  );
+  if (onSheet) return { region: sheet, scale: chosen, fitted: false };
+  const region = contentRegion(plan, elements, damages);
+  const scale = printScale({ w: region.w / k, h: region.h / k }, availMm, chosen);
+  return { region, scale, fitted: scale !== chosen };
 }
 

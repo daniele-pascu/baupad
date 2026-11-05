@@ -130,6 +130,8 @@ interface Props {
   file: SourceFile | null;
   /** Darzustellender Bereich (Standard: Planausschnitt bzw. ganze Seite) */
   region?: Rect;
+  /** Unbegrenzte Zeichenfläche (gezeichnete Pläne): weit herauszoomen, außerhalb tippen beendet kein Werkzeug */
+  infinite?: boolean;
   damages: ViewerItem[];
   selectedId: string | null;
   tool: Tool;
@@ -148,6 +150,8 @@ interface Props {
   onComponentMove(id: string, x: number, y: number, commit: boolean): void;
   /** Werkzeug „Bauteil“ bzw. „Text“: Stelle im Plan angetippt */
   onPlace(p: Point): void;
+  /** Stutzen: über Linien gezogener Zaun (Seitenkoordinaten); fehlt = Ziehen verschiebt den Plan */
+  onFence?(a: Point, b: Point): void;
   /** Nummernschilder der Objekte anzeigen (Standard: ja) */
   showLabels?: boolean;
   /** Eigene Darstellung eines Objekts (undefined = Standard-Markierung) */
@@ -193,7 +197,7 @@ type Gesture =
   | { kind: 'rotate'; id: string; orig: Shape; startAngle: number }
   | { kind: 'label'; id: string; start: Point; orig: Rect; moved: boolean }
   | { kind: 'component'; id: string; start: Point; orig: Point; moved: boolean }
-  | { kind: 'place'; start: Point; view: View; moved: boolean }
+  | { kind: 'place'; start: Point; view: View; moved: boolean; fence?: Point }
   | { kind: 'ignore' };
 
 const isCoarse = () => matchMedia('(pointer: coarse)').matches;
@@ -317,9 +321,9 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   const limits = useCallback(
     () => {
       const f = size ? fitView(region, size.w, size.h).scale : 1;
-      return { min: f * 0.5, max: Math.max(f * 60, 12) };
+      return { min: f * (props.infinite ? 0.02 : 0.5), max: Math.max(f * 60, 12) };
     },
-    [region, size],
+    [region, size, props.infinite],
   );
 
   // Werkzeugwechsel verwirft eine angefangene Fläche
@@ -770,7 +774,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       propsRef.current.onToolDone();
       currentTool = 'select';
     }
-    if (currentTool !== 'select' && propsRef.current.onExitTool && !rectContains(region, toPage(v, p), 0)) {
+    if (currentTool !== 'select' && propsRef.current.onExitTool && !propsRef.current.infinite && !rectContains(region, toPage(v, p), 0)) {
       // außerhalb des Plans getippt: zurück auf Auswahl, alle Werkzeuge aus (Ziehen verschiebt nur)
       gesture.current = { kind: 'pan', start: p, view: v, moved: false, tapTarget: null, exit: true };
       return;
@@ -898,6 +902,12 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         const dy = p.y - g.start.y;
         if (!g.moved && Math.hypot(dx, dy) < 6) return;
         g.moved = true;
+        if (g.kind === 'place' && propsRef.current.tool === 'trim' && propsRef.current.onFence) {
+          // Stutzen: Ziehen legt einen Zaun über die zu stutzenden Linien
+          g.fence = p;
+          forceRender((n) => n + 1);
+          return;
+        }
         setCursor('grabbing');
         setView({ ...g.view, tx: g.view.tx + dx, ty: g.view.ty + dy });
         return;
@@ -1031,6 +1041,11 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         }
         return;
       case 'place':
+        if (g.fence) {
+          if (!cancelled) propsRef.current.onFence?.(toPage(g.view, g.start), toPage(g.view, g.fence));
+          forceRender((n) => n + 1);
+          return;
+        }
         if (!g.moved && !cancelled) {
           const raw = clampP(toPage(v, p));
           const snap = propsRef.current.snap;
@@ -1347,6 +1362,11 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
           {snapMark.current && props.snap && (tool !== 'select' || g.kind === 'vertex' || g.kind === 'move' || g.kind === 'resize') && (
             <SnapMarker view={view} mark={snapMark.current} hold={!!lupe.current} />
           )}
+          {g.kind === 'place' && g.fence && (() => {
+            const a = toScreen(view, toPage(g.view, g.start));
+            const b = toScreen(view, toPage(g.view, g.fence));
+            return <line className="trim-fence" data-testid="trim-fence" x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#e5484d" strokeWidth={2} strokeDasharray="6 4" />;
+          })()}
           {props.overlay?.(view, drawPreview, polyHover.current)}
           {/* Verbindungslinien zuerst, damit sie unter den Nummern liegen */}
           {damages.map((d) => {

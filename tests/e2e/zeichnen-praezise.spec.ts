@@ -4,7 +4,7 @@ import { catchDownload, createProject, freshStart, saveDownload, waitSaved, pick
 
 /**
  * Präzises Zeichnen (Paket B) und Papierformat/Maßstab (Paket C): freie Maße ohne Rastern,
- * Begrenzung auf das Blatt, Linien-Endpunkte, Eckpunkte, Fläche aus Punkten, Format im PDF.
+ * unbegrenzte Zeichenfläche, Linien-Endpunkte, Eckpunkte, Fläche aus Punkten, Format im PDF.
  */
 
 test.describe.configure({ mode: 'serial' });
@@ -87,15 +87,14 @@ test('Freie Maße ohne Raster; Formen bleiben auf dem Blatt', async () => {
   await page.getByTestId('element-length').press('Enter');
   await expect(page.locator('.dims [data-dim="1,38 m"]').first()).toBeVisible();
 
-  // Über den Blattrand hinaus ziehen → Form endet am Rand (9,50 × 13,15 m)
+  // Unbegrenzte Zeichenfläche: über den Blattrand (9,50 × 13,15 m) hinaus ziehen → Form geht darüber hinaus
   await deselect();
   await pickTool(page, 'draw-rect');
   await drag(sb.x + sb.width - 60, sb.y + sb.height - 140, sb.x + sb.width + 150, sb.y + sb.height + 150);
   await waitSaved(page);
   const edge = (await stored('elements'))[1];
-  expect(edge.shape.x + edge.shape.w).toBeLessThanOrEqual(9.5 + 1e-6);
-  expect(edge.shape.y + edge.shape.h).toBeLessThanOrEqual(13.15 + 1e-6);
-  expect(edge.shape.w).toBeGreaterThan(0.3);
+  expect(edge.shape.x + edge.shape.w).toBeGreaterThan(9.5 + 0.1);
+  expect(edge.shape.y + edge.shape.h).toBeGreaterThan(13.15 + 0.1);
 });
 
 test('Linie: Endpunkte einzeln verschieben, Länge bleibt bearbeitbar', async () => {
@@ -151,7 +150,8 @@ test('Rechteck über Eckpunkte zum unregelmäßigen Viereck; Fläche aus Punkten
   const sb = (await sheet().boundingBox())!;
   const s = await scale();
   const ox = sb.x + 60;
-  const oy = sb.y + sb.height - 200;
+  const vb = (await page.getByTestId('plan-viewer').boundingBox())!;
+  const oy = Math.min(sb.y + sb.height, vb.y + vb.height) - 200; // Zeichenfläche ist unbegrenzt: im sichtbaren Bereich bleiben
   for (const [dx, dy] of [[0, 0], [100, 0], [100, 60], [0, 60]]) await page.mouse.click(ox + dx, oy + dy);
   await expect(page.getByTestId('polygon-bar')).toContainText('4 Punkte');
   await expect(page.getByTestId('polygon-preview')).toBeVisible();
@@ -194,9 +194,10 @@ test('Aufmaß: Fläche aus Punkten als Messung; Markierung bleibt auf dem Blatt'
   await dlg.getByTestId('input-width').fill('0,8');
   await dlg.getByTestId('damage-save').click();
   await expect(page.locator('[data-testid="aufmass-row"]')).toHaveCount(1);
-  // Markierung über den Blattrand hinaus → endet am Rand
+  // Markierung über den Blattrand hinaus → auf gezeichneten Plänen nicht mehr begrenzt
   await pickTool(page, 'tool-rect');
-  await drag(sb.x + sb.width - 40, sb.y + 300, sb.x + sb.width + 200, sb.y + 360);
+  const sheetRight = sb.x + 950 * (await scale()); // rechter Blattrand (Zeichenfläche geht weiter)
+  await drag(sheetRight - 40, sb.y + 300, sheetRight + 200, sb.y + 360);
   await dlg.getByTestId('input-length').fill('1');
   await dlg.getByTestId('input-width').fill('1');
   await dlg.getByTestId('damage-save').click();
@@ -211,7 +212,7 @@ test('Aufmaß: Fläche aus Punkten als Messung; Markierung bleibt auf dem Blatt'
         };
       }),
   );
-  for (const d of dm) expect(d.shape.x + d.shape.w).toBeLessThanOrEqual(950 + 1e-6);
+  expect(Math.max(...dm.map((d) => d.shape.x + d.shape.w))).toBeGreaterThan(950 + 10);
 });
 
 test('Format ändern und PDF im gewählten Format; Format/Maßstab nur auf Wunsch im Plan', async () => {
@@ -253,4 +254,22 @@ test('Format ändern und PDF im gewählten Format; Format/Maßstab nur auf Wunsc
   expect(text).toMatch(/^5\s?m$/m); // Maßstabsleiste
   expect(text).toContain('4,25 m');
   execFileSync('pdftoppm', ['-png', '-r', '50', pdf, 'tests/output/format-a3']);
+
+  // Zeichnung größer als das Blatt (A4 hoch 1:20 = 3,80 × 5,26 m): PDF verkleinert automatisch passend
+  await page.getByTestId('sheet-label').click();
+  await pd.getByTestId('sheet-paper').selectOption('A4-hoch');
+  await pd.getByTestId('sheet-scale').selectOption('20');
+  await expect(pd.getByTestId('sheet-outside')).toContainText(/automatisch auf 1:(50|75|100|125|200)/);
+  const auto = (await pd.getByTestId('sheet-outside').textContent())!.match(/auf 1:(\d+)/)![1];
+  await pd.getByRole('button', { name: 'Speichern' }).click();
+  await waitSaved(page);
+  dl = await catchDownload(page, async () => {
+    await page.getByTestId('export-pdf-plan').click();
+    await page.getByTestId('pdf-export-run').click();
+  });
+  pdf = await saveDownload(dl, 'format-a4-auto.pdf');
+  expect(execFileSync('pdfinfo', [pdf], { encoding: 'utf8' })).toMatch(/Page size:\s+595\.2\d* x 841\.8\d*/);
+  text = execFileSync('pdftotext', [pdf, '-'], { encoding: 'utf8' });
+  expect(text).toContain(`Maßstab 1:${auto}`);
+  expect(text).toContain('4,25 m');
 });

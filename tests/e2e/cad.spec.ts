@@ -169,6 +169,58 @@ test('Trimmen und Verlängern von Linien an anderen Linien', async () => {
   near(short!.shape.w, await m(200)); // von x = 100 bis zur Querwand bei x = 300
 });
 
+test('Stutzen mit Zaun (mehrere Linien auf einmal) und an einem Rechteck', async () => {
+  await deselect();
+  const sb = (await sheet().boundingBox())!;
+  const line = async (x1: number, y1: number, x2: number, y2: number) => {
+    await deselect();
+    await pickTool(page, 'draw-line');
+    await drag(sb.x + x1, sb.y + y1, sb.x + x2, sb.y + y2);
+  };
+  // zwei waagrechte Linien zwischen zwei Querwänden
+  await line(650, 150, 900, 150);
+  await line(650, 200, 900, 200);
+  await line(710, 120, 710, 230);
+  await line(840, 120, 840, 230);
+  await waitSaved(page);
+  const n0 = (await elements()).length;
+  await deselect();
+  await pickTool(page, 'draw-trim');
+  // Zaun senkrecht durch beide Linien ziehen
+  await page.mouse.move(sb.x + 775, sb.y + 130);
+  await page.mouse.down();
+  await page.mouse.move(sb.x + 775, sb.y + 170, { steps: 4 });
+  await expect(page.getByTestId('trim-fence')).toHaveCount(1);
+  await page.mouse.move(sb.x + 775, sb.y + 220, { steps: 4 });
+  await page.mouse.up();
+  await waitSaved(page);
+  let els = await elements();
+  expect(els).toHaveLength(n0 + 2); // beide Linien je in zwei Teile geteilt
+  await expect(page.getByTestId('trim-fence')).toHaveCount(0);
+  const x650 = await m(650);
+  const pieces = els.filter((e) => e.type === 'line' && e.shape.h < 0.01 && e.shape.x >= x650 - 0.01);
+  expect(pieces).toHaveLength(4);
+  // je Linie bleiben 60 px links und 60 px rechts der Querwände
+  near(pieces.reduce((sum, e) => sum + e.shape.w, 0), await m(240), 0.05);
+
+  // Rechteck mit einer Linie quer durch: rechte Hälfte wegstutzen → offene Polylinie
+  await deselect();
+  await pickTool(page, 'draw-rect');
+  await drag(sb.x + 650, sb.y + 300, sb.x + 850, sb.y + 380);
+  await line(750, 280, 750, 400);
+  await waitSaved(page);
+  const n1 = (await elements()).length;
+  await deselect();
+  await pickTool(page, 'draw-trim');
+  await page.mouse.click(sb.x + 850, sb.y + 340);
+  await waitSaved(page);
+  els = await elements();
+  expect(els).toHaveLength(n1);
+  const opened = els.find((e) => e.type === 'freehand' && e.shape.closed === false);
+  expect(opened).toBeTruthy();
+  near(opened!.shape.w, await m(100), 0.05); // nur noch die linke Hälfte (100 px breit)
+});
+
 test('Bogen aus drei Punkten: Länge und Radius', async () => {
   await deselect();
   const sb = (await sheet().boundingBox())!;

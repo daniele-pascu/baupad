@@ -24,7 +24,7 @@ import { ExcelExportDialog } from '../components/ExcelExportDialog';
 import { calibrationFrom, detectScale, sourceText } from '../lib/scale-detect';
 import { visibleDamages } from '../lib/layers';
 import { LayerMenu } from '../components/LayerMenu';
-import { drawingRegion, drawingSheet, isDrawingPlan, lineEnds, paperLabel, shapeToMeters, shapeToPage, suggestMeasures, unitsPerMeter } from '../lib/drawing';
+import { drawingRegion, isDrawingPlan, lineEnds, paperLabel, shapeToMeters, shapeToPage, suggestMeasures, unitsPerMeter } from '../lib/drawing';
 import { convertShape, isOpenShape, lineShape, moveVertex, polygonShape, removeVertex, rotatePoint, shapeVertices, toPage, toScreen, type Point, type View } from '../lib/geometry';
 import { probeTarget, type ProbeKind } from '../lib/probe';
 import { ProbeBar, ProbeMenu, ProbeOverlay, type ProbeState } from '../components/ProbeLayer';
@@ -69,7 +69,7 @@ const OP_HINTS: Partial<Record<DrawTool, string>> = {
   move: 'Objekt auswählen, dann vom Basispunkt zum Zielpunkt ziehen (Fang nutzt Ecken und Endpunkte).',
   copy: 'Objekt auswählen, dann vom Basispunkt zum Zielpunkt ziehen – die Kopie wird dort eingefügt.',
   stretch: '1. Fenster über die Eckpunkte ziehen, die sich bewegen sollen.',
-  trim: 'Den Linienabschnitt anklicken, der bis zur nächsten Kante entfernt werden soll.',
+  trim: 'Stutzen: Abschnitt anklicken, der bis zu den nächsten Kanten entfernt wird – oder über mehrere Linien ziehen (Zaun), um alle gekreuzten Abschnitte zu stutzen.',
   extend: 'Die Linie nahe dem Ende anklicken, das bis zur nächsten Kante verlängert werden soll.',
 };
 
@@ -504,9 +504,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     [plan, drawingPlan, drawing.allElements, stored],
   );
 
-  /** Gültiger Bereich für neue Formen: Zeichenblatt bzw. Planausschnitt (Seitenkoordinaten) */
-  const sheetBounds = plan && drawingPlan ? drawingSheet(plan) : undefined;
-  const markerBounds = !plan ? undefined : drawingPlan ? sheetBounds : (plan.crop ?? { x: 0, y: 0, w: plan.pageWidth, h: plan.pageHeight });
+  /** Gültiger Bereich für neue Formen: gezeichnete Pläne unbegrenzt (wie der Modellbereich im CAD,
+   *  der PDF-Export skaliert passend aufs Format), importierte Pläne der Planausschnitt */
+  const markerBounds = !plan || drawingPlan ? undefined : (plan.crop ?? { x: 0, y: 0, w: plan.pageWidth, h: plan.pageHeight });
   /** Maßstab (Seiteneinheiten je m): gezeichnete Pläne immer, importierte nach Kalibrierung */
   const k = plan ? planUnitsPerMeter(plan) : null;
 
@@ -1292,6 +1292,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               pending={null}
               onSelect={(id) => drawing.setSelectedId(id)}
               onCreate={drawing.onCreate}
+              onFence={drawing.onFence}
               onShapeChange={drawing.onShapeChange}
               onLabelChange={() => {}}
               onHistoryChange={() => setHistoryTick((n) => n + 1)}
@@ -1313,7 +1314,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               probeFrom={probe && !probe.done && probe.points.length ? probe.points[probe.points.length - 1] : null}
               snap={drawing.snapOn || drawing.gridOn || drawing.orthoOn ? drawing.snap : undefined}
               onLupeChange={setLupeOn}
-              bounds={sheetBounds}
+              infinite
               vertexEdit
               selectedVertex={drawing.vertex}
               onVertexSelect={drawing.setVertex}
@@ -1326,6 +1327,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               plan={plan}
               file={file}
               region={region}
+              infinite={drawingPlan}
               onToolDone={tool !== 'select' && tool !== 'probe' && tool !== 'calibrate' ? () => setTool('select') : undefined}
               onExitTool={() => {
                 // außerhalb des Plans getippt: Auswahl, alle Werkzeuge (auch Kalibrieren und Messung) aus
