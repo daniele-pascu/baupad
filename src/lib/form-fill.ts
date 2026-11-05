@@ -1,6 +1,6 @@
 import { PDFDocument, rgb, StandardFonts, type PDFFont, type PDFPage, type RGB } from 'pdf-lib';
 import { safeFileName, type ExportFile } from './aufmass';
-import { isoWeekNo, parseDate, weekOf } from './crew';
+import { gradeLabel, isoWeekNo, parseDate, weekOf, WORKER_GRADES } from './crew';
 import { type Box, type ColKey, type FieldKey, type FieldStyle, type FormLayout, type FormTemplate, MULTILINE } from './form-template';
 import { fmtDate, fmtHours, staffTotal, workerHours } from './reports';
 import type { Report, ReportItem, ReportWorker, StaffCount } from './types';
@@ -230,11 +230,39 @@ export function dailyValues(r: Report & { type: 'tag' }, layout: FormLayout, com
     acceptanceTime: d.acceptanceTime ?? '',
     acceptanceBy: d.acceptanceBy ?? '',
   };
-  return { fields: withDates(layout, fields, r.date), rows: present.map((w) => workerCells(w)) };
+  return { fields: withDates(layout, fields, r.date), rows: present.map((w) => workerCells(w, hasRoleCol(layout))) };
 }
 
-function workerCells(w: ReportWorker): Partial<Record<ColKey, string>> {
-  return { name: w.name, role: w.role, from: w.from, to: w.to, pause: w.pause, hours: num(workerHours(w)), ot50: num(w.ot50 ?? null), ot100: num(w.ot100 ?? null), travel: num(w.travel ?? null) };
+/** Hat das Formular eine eigene Spalte für die Qualifikation? Dann steht sie dort und nicht vor dem Namen */
+const hasRoleCol = (layout: FormLayout) => !!layout.table?.cols.some((c) => c.key === 'role');
+
+/** Qualifikation eines Arbeiters: Funktion (z. B. Polier), sonst die frei eingetragene Tätigkeit */
+export function qualificationOf(w: Pick<ReportWorker, 'role' | 'grade' | 'name'>): string {
+  return gradeLabel(w.grade ?? gradeFromName(w.name) ?? undefined) || w.role.trim();
+}
+
+/** Name ohne vorangestelltes Kürzel der Funktion („PO Muster Max“ → „Muster Max“) */
+export function plainName(name: string): string {
+  const m = name.trim().match(/^(\S+)\s+(.+)$/);
+  return m && WORKER_GRADES.some((g) => g.short === m[1]) ? m[2] : name.trim();
+}
+const gradeFromName = (name: string) => {
+  const first = name.trim().split(/\s+/)[0];
+  return WORKER_GRADES.find((g) => g.short === first)?.id ?? null;
+};
+
+function workerCells(w: ReportWorker, roleCol: boolean): Partial<Record<ColKey, string>> {
+  return {
+    name: roleCol ? plainName(w.name) : w.name,
+    role: qualificationOf(w),
+    from: w.from,
+    to: w.to,
+    pause: w.pause,
+    hours: num(workerHours(w)),
+    ot50: num(w.ot50 ?? null),
+    ot100: num(w.ot100 ?? null),
+    travel: num(w.travel ?? null),
+  };
 }
 
 /** Regieliste (Tagesformular) → Werte */
@@ -252,7 +280,7 @@ export function regieValues(r: Report & { type: 'regie' }, layout: FormLayout, c
     lodgingCosts: d.lodgingCosts ?? '',
     miscCosts: d.miscCosts ?? '',
   };
-  return { fields: withDates(layout, fields, r.date), rows: d.workers.filter((w) => w.name.trim()).map(workerCells) };
+  return { fields: withDates(layout, fields, r.date), rows: d.workers.filter((w) => w.name.trim()).map((w) => workerCells(w, hasRoleCol(layout))) };
 }
 
 /**
@@ -283,10 +311,10 @@ export function regieWeekValues(reports: (Report & { type: 'regie' })[], weekSta
   for (const r of sorted) {
     const day = (parseDate(r.date).getDay() + 6) % 7;
     for (const w of r.data.workers) {
-      const name = w.name.trim();
+      const name = hasRoleCol(layout) ? plainName(w.name) : w.name.trim();
       if (!name) continue;
       const key = name.toLowerCase();
-      const row = rows.get(key) ?? { name, role: w.role, _h: {} };
+      const row = rows.get(key) ?? { name, role: qualificationOf(w), _h: {} };
       const add = (k: string, v: number | null | undefined) => {
         if (v === null || v === undefined) return;
         row._h[k] = (row._h[k] ?? 0) + v;

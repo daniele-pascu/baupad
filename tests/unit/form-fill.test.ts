@@ -88,6 +88,11 @@ describe('Firmenformulare ausfüllen', () => {
     expect(values.rows).toHaveLength(2);
     expect(values.rows[0]).toMatchObject({ name: 'PO Muster Max', 'day:0:hours': '8', 'day:0:ot50': '1', 'day:2:hours': '6,5', 'day:2:travel': '1' });
     expect(values.rows[1]).toMatchObject({ name: 'Pan Peter', 'day:2:hours': '4' });
+    // Formular mit eigener Spalte „Qualifikation“: dort steht die Funktion, vor dem Namen kein Kürzel
+    const withRole = { ...layout, table: { ...layout.table!, cols: [...layout.table!.cols, { key: 'role' as const, x: 0, w: 40 }] } };
+    const v2 = regieWeekValues([mon, wed] as (Report & { type: 'regie' })[], '2026-10-26', withRole, 'MST Muhr');
+    expect(v2.rows[0]).toMatchObject({ name: 'Muster Max', role: 'Polier' });
+    expect(v2.rows[1]).toMatchObject({ name: 'Pan Peter', role: '' });
     const out = text(await fillForm(pdf('mst-regieliste'), layout, values), 'regieliste');
     if (out === null) return;
     expect(out).toContain('PO Muster Max');

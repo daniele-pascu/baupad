@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { analyzeForm } from '../../src/lib/form-template';
-import { workTimeFor, displayValue, duplicateNos, parseNoRange, lineBoxes, wrapToLines, fieldsFromDetection, fits, isoWeek, isoWeekLabel, lineCapacity, nextFormNo, prefill, readingOrder, wrapText, type CustomField, type FormEntry } from '../../src/lib/forms';
+import { workTimeFor, displayValue, duplicateNos, parseNoRange, lineBoxes, wrapToLines, fieldsFromDetection, fits, isoWeek, isoWeekLabel, lineCapacity, nextFormNo, prefill, qualificationsFor, readingOrder, withQualifications, wrapText, type CustomField, type FormEntry } from '../../src/lib/forms';
 import tagesbericht from '../fixtures/forms/mst-tagesbericht.json';
 
 /** Näherung für Helvetica: 0,5 × Schriftgröße je Zeichen */
@@ -130,5 +130,25 @@ describe('Firmenformulare: Uhrzeit aus den Arbeitszeiten der Firma', () => {
     expect(workTimeFor({ timeOf: 'to' }, { date: '2026-11-06', workTimes: wt })).toBe('12:30');
     expect(workTimeFor({ timeOf: 'to' }, { date: '2026-11-07', workTimes: wt })).toBeUndefined(); // Samstag frei
     expect(prefill([field({ id: 'b', type: 'time', timeOf: 'from' }), field({ id: 'e', type: 'time', timeOf: 'to' })], { date: '2026-11-02', workTimes: wt })).toEqual({ b: '07:00', e: '16:00' });
+  });
+});
+
+describe('Qualifikation übernehmen, wenn das Formular danach fragt', () => {
+  const f = (id: string, type: CustomField['type'], name: string) => ({ id, type, name, x: 0, y: 0, w: 100, h: 12 }) as CustomField;
+  const fields = [f('p', 'person', 'Mitarbeiter'), f('q', 'text', 'Qualifikation'), f('n', 'text', 'Bemerkung')];
+
+  it('aus dem Kürzel vor dem Namen, in derselben Reihenfolge', () => {
+    expect(qualificationsFor('PO Muster Max, VA Berg Anna, Gast Hans', false)).toBe('Polier, Vorarbeiter');
+    expect(qualificationsFor('FA Holz Stefan\nHA Stein Thomas', true)).toBe('Facharbeiter\nHilfsarbeiter');
+  });
+
+  it('beim Anlegen aus der Einteilung und bei Änderung der Personen – eigene Eingabe bleibt', () => {
+    const v = prefill(fields, { people: ['PO Muster Max', 'FA Holz Stefan'] });
+    expect(v).toMatchObject({ p: 'PO Muster Max, FA Holz Stefan', q: 'Polier, Facharbeiter' });
+    expect(v.n).toBeUndefined();
+    const changed = withQualifications(fields, { ...v, p: 'VA Berg Anna' }, v);
+    expect(changed.q).toBe('Vorarbeiter');
+    const own = withQualifications(fields, { ...v, q: 'Maurer', p: 'VA Berg Anna' }, { ...v, q: 'Maurer' });
+    expect(own.q).toBe('Maurer');
   });
 });
