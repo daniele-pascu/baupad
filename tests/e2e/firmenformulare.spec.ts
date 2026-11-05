@@ -117,13 +117,18 @@ test('Vorlage einrichten, im Projekt ausfüllen, PDF, Nummern, Vorlagenversion',
   await expect(fld('Kst')).toHaveValue('91092 – Tiefgarage');
   await expect(fld('Bau-Tagesbericht Nr')).toHaveValue('1');
   await expect(page.locator('[data-testid="form-entry-field"][type="date"]').first()).toHaveValue('2026-10-28');
-  await expect(fld('Anwesende')).toHaveValue('Max, Peter'); // laut Einteilung an diesem Tag auf der Baustelle (änderbar)
+  await expect(fld('Anwesende')).toHaveValue('PO Max, Peter'); // laut Einteilung an diesem Tag auf der Baustelle, Kürzel vorne (änderbar)
   await expect(page.getByTestId('form-entry-people-suggest')).toHaveCount(0);
   await expect(page.getByTestId('form-entry-people-add')).toHaveCount(0); // keine Taste „+ Mitarbeiter“ mehr
   await fld('Anwesende').fill('Hans');
-  await expect(page.getByTestId('form-entry-people-suggest')).toContainText('Aus Einteilung: Max, Peter');
+  await expect(page.getByTestId('form-entry-person-chip')).toHaveText(['+ PO Max', '+ Peter']);
+  await page.getByTestId('form-entry-person-chip').first().click();
+  await expect(fld('Anwesende')).toHaveValue('Hans, PO Max');
+  await expect(page.getByTestId('form-entry-person-chip')).toHaveText(['+ Peter']);
+  await fld('Anwesende').fill('Hans');
+  await expect(page.getByTestId('form-entry-people-suggest')).toContainText('Alle aus Einteilung: PO Max, Peter');
   await page.getByTestId('form-entry-people-suggest').click();
-  await expect(fld('Anwesende')).toHaveValue('Hans, Max, Peter');
+  await expect(fld('Anwesende')).toHaveValue('Hans, PO Max, Peter');
   await fld('Anwesende').fill('Max, Peter');
   await expect(page.getByTestId('form-entry-pdf')).toBeEnabled();
   await fld('Wetter').selectOption('bewölkt');

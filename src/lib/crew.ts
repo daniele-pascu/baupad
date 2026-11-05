@@ -308,3 +308,10 @@ export function workerWithGrade(w: Pick<Worker, 'firstName' | 'lastName' | 'grad
   const short = g ? WORKER_GRADES.find((x) => x.id === g)?.short : '';
   return short ? `${workerName(w)} · ${short}` : workerName(w);
 }
+
+/** Name mit Funktionskürzel davor für Berichte und Formulare, z. B. „VA Patrick Vojtek“ (ohne Funktion nur der Name) */
+export function nameWithGrade(w: Pick<Worker, 'firstName' | 'lastName' | 'grade' | 'role'>): string {
+  const g = knownGrade(w);
+  const short = g ? WORKER_GRADES.find((x) => x.id === g)?.short : '';
+  return short ? `${short} ${workerName(w)}` : workerName(w);
+}

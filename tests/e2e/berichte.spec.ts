@@ -76,7 +76,7 @@ test('Regieliste, Bautagesbericht und Wochenbericht: Übernahme aus Projekt und 
   await expect(page.getByTestId('crew-suggest-row')).toHaveCount(2);
   await page.getByTestId('crew-suggest-apply').click();
   const rows = page.getByTestId('rp-worker');
-  await expect(rows.nth(0).getByTestId('rp-worker-name')).toHaveValue('Max');
+  await expect(rows.nth(0).getByTestId('rp-worker-name')).toHaveValue('PO Max'); // Funktionskürzel vor dem Namen (änderbar)
   await expect(rows.nth(1).getByTestId('rp-worker-name')).toHaveValue('Peter');
   // Stunden: Max aus Beginn/Ende/Pause, Peter von Hand
   await rows.nth(0).getByTestId('rp-worker-from').fill('07:00');
@@ -136,7 +136,7 @@ test('Regieliste, Bautagesbericht und Wochenbericht: Übernahme aus Projekt und 
   await page.getByTestId('rp-from-daily').click();
   const wed = page.locator('[data-testid="rp-day"][data-date="2026-10-28"]');
   await expect(wed.getByTestId('rp-day-count')).toHaveValue('1');
-  await expect(wed.getByTestId('rp-day-names')).toHaveValue('Max');
+  await expect(wed.getByTestId('rp-day-names')).toHaveValue('PO Max');
   await expect(wed.getByTestId('rp-day-work')).toHaveValue('Schalung Stützen Achse 3.');
   await expect(page.getByTestId('rp-events')).toHaveValue(/Betonlieferung 2 Std\. verspätet\./);
   // Mannschaft der übrigen Tage aus der Einteilung (bereits ausgefüllte Tage bleiben)

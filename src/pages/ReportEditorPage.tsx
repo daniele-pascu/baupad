@@ -6,7 +6,7 @@ import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, showError, toast } from '../components/ui';
 import type { ExportFile } from '../lib/aufmass';
 import { getCompanyLogo } from '../lib/company';
-import { addDays, DAY_NAMES, weekOf, WORKER_GRADES } from '../lib/crew';
+import { addDays, DAY_NAMES, nameWithGrade, weekOf, WORKER_GRADES } from '../lib/crew';
 import { deleteReport, getMeta, getReport, getWeek, listReports, listWorkers, loadProjectData, previousWeek, saveReport } from '../lib/db';
 import { navigate, paths } from '../lib/router';
 import { reportPdf } from '../lib/report-pdf';
@@ -692,7 +692,7 @@ function WeeklyForm({ r, data, setData }: { r: Report; data: WeeklyData; setData
           const s = (await suggestionsFor(r, d.date)).filter((x) => x.absence !== 'urlaub');
           if (!s.length) return d;
           n++;
-          return { ...d, count: s.length, names: s.map((x) => [x.worker.firstName, x.worker.lastName].filter(Boolean).join(' ')).join(', ') };
+          return { ...d, count: s.length, names: s.map((x) => nameWithGrade(x.worker)).join(', ') };
         }),
       );
       setData({ days });

@@ -429,9 +429,19 @@ function FieldInput({ f, value, measure, people, onChange, onFocus }: { f: Custo
           <input {...common} value={value} onChange={(e) => onChange(e.target.value)} placeholder={f.hint || 'Namen, mit Komma getrennt'} />
           <span className="row gap wrap form-entry-people">
             {suggestion.length > 0 && (
-              <button type="button" className="btn btn-sm" onClick={() => append(...suggestion)} data-testid="form-entry-people-suggest" title="Laut Arbeitereinteilung an diesem Tag auf der Baustelle">
-                Aus Einteilung: {suggestion.join(', ')}
-              </button>
+              <>
+                {/* auf der Baustelle eingeteilt (Einteilung) – einzeln antippen oder alle; danach frei änderbar */}
+                {suggestion.map((p) => (
+                  <button key={p} type="button" className="chip" onClick={() => append(p)} data-testid="form-entry-person-chip">
+                    + {p}
+                  </button>
+                ))}
+                {suggestion.length > 1 && (
+                  <button type="button" className="btn btn-sm" onClick={() => append(...suggestion)} data-testid="form-entry-people-suggest" title="Laut Arbeitereinteilung an diesem Tag auf der Baustelle">
+                    Alle aus Einteilung: {suggestion.join(', ')}
+                  </button>
+                )}
+              </>
             )}
           </span>
           {hint}

@@ -1,5 +1,5 @@
 import type { ExportFile } from './aufmass';
-import { DEFAULT_WORK_TIMES, weekOf, workerName } from './crew';
+import { DEFAULT_WORK_TIMES, nameWithGrade, weekOf } from './crew';
 import { getFormFile, getMeta, getWeek, listWorkers, loadProjectData, previousWeek, saveFormEntry } from './db';
 import { templateFileId, type FormTemplate } from './form-template';
 import { mainDate, nextFormNo, prefill, type FormEntry, type PrefillContext } from './forms';
@@ -36,7 +36,7 @@ export async function suggestedPeople(projectId: string | null, siteName: string
   const [saved, prev, workers, abs] = await Promise.all([getWeek(wid), previousWeek(wid), listWorkers(), getMeta<Absence[]>('absences')]);
   return crewForDay(effectiveWeek(wid, saved, prev), date, { projectId, name: siteName }, workers, abs ?? [])
     .filter((s) => s.absence !== 'urlaub')
-    .map((s) => workerName(s.worker));
+    .map((s) => nameWithGrade(s.worker));
 }
 
 /** Übernahme-Angaben zu Projekt, Datum und Firma */

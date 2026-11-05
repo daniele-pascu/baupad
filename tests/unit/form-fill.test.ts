@@ -86,11 +86,11 @@ describe('Firmenformulare ausfüllen', () => {
     expect(values.fields.week).toBe('44');
     expect(values.fields.no).toBe('3, 4');
     expect(values.rows).toHaveLength(2);
-    expect(values.rows[0]).toMatchObject({ name: 'Max Muster', 'day:0:hours': '8', 'day:0:ot50': '1', 'day:2:hours': '6,5', 'day:2:travel': '1' });
+    expect(values.rows[0]).toMatchObject({ name: 'PO Max Muster', 'day:0:hours': '8', 'day:0:ot50': '1', 'day:2:hours': '6,5', 'day:2:travel': '1' });
     expect(values.rows[1]).toMatchObject({ name: 'Peter Pan', 'day:2:hours': '4' });
     const out = text(await fillForm(pdf('mst-regieliste'), layout, values), 'regieliste');
     if (out === null) return;
-    expect(out).toContain('Max Muster');
+    expect(out).toContain('PO Max Muster');
     expect(out).toContain('Peter Pan');
     expect(out).toContain('Bohrkrone 120');
     expect(out).toContain('120 km');
