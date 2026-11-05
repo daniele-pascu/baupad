@@ -4516,7 +4516,13 @@ tr.lv-flagged td {
   text-align: left;
 }
 @media (max-width: 720px) {
-  .times-page .page-head-row {
+  .times-page .page-head-row,
+  .reports-page[data-testid='report-site-page'] .page-head-row {
+    flex-wrap: wrap;
+  }
+  .reports-page[data-testid='report-site-page'] .page-head-row > .row {
+    width: 100%;
+    justify-content: flex-end;
     flex-wrap: wrap;
   }
   .times-page .page-head-row > .row {

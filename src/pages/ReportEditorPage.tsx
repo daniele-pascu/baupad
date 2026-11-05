@@ -250,9 +250,8 @@ export function ReportEditorPage({ reportId }: { reportId: string }) {
             <Field label="Nr." value={r.no} onChange={(no) => update((x) => ({ ...x, no }))} testId="rp-no" narrow />
             <Field label={r.type === 'woche' ? 'Woche (Mo–So)' : 'Datum'} type="date" value={r.date} onChange={setDate} testId="rp-date" />
             {r.type === 'woche' && <p className="muted small rp-hint">{periodLabel(r)}</p>}
-            <Field label="Bauvorhaben" value={r.head.project} onChange={(project) => setHead({ project })} testId="rp-project" wide />
-            <Field label="Baustelle" value={r.head.site} onChange={(site) => setHead({ site })} testId="rp-site" wide />
-            <Field label="Adresse" value={r.head.address} onChange={(address) => setHead({ address })} testId="rp-address" wide />
+            {/* Bauvorhaben, Baustelle und Adresse sind in der Praxis dasselbe: ein Feld, die Adresse kommt aus dem Projekt */}
+            <Field label="Baustelle" value={r.head.site || r.head.project} onChange={(site) => setHead({ site, project: site })} testId="rp-site" wide />
             <Field label="Auftraggeber" value={r.head.client} onChange={(client) => setHead({ client })} testId="rp-client" />
             <Field label="Projekt-Nr." value={r.head.number} onChange={(number) => setHead({ number })} testId="rp-number" />
             <Field label="Kostenstelle" value={r.head.costCenter} onChange={(costCenter) => setHead({ costCenter })} testId="rp-costcenter" />

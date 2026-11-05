@@ -39,6 +39,12 @@ async function mergedPdf(list: Report[], site: string): Promise<ExportFile> {
  * (neueste zuerst, jede Liste scrollt für sich). Tippen öffnet die Bearbeitung; „Auswählen“ markiert
  * beliebige Berichte und gibt sie zusammen als PDF aus.
  */
+/** Nach Nummer sortieren (numerisch, bei gleicher Nummer nach Datum) */
+function byNo(a: { no: string; date: string }, b: { no: string; date: string }, asc: boolean): number {
+  const d = (parseInt(a.no, 10) || 0) - (parseInt(b.no, 10) || 0) || a.date.localeCompare(b.date) || a.no.localeCompare(b.no, 'de', { numeric: true });
+  return asc ? d : -d;
+}
+
 export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
   const [all, setAll] = useState<Report[] | null>(null);
   const [sites, setSites] = useState<PhotoSite[]>([]);
@@ -56,6 +62,24 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
   const reports = useMemo(() => (all ?? []).filter((r) => siteKey(r) === key), [all, key]);
   const entries = useMemo(() => allEntries.filter((e) => entrySiteKey(e) === key), [allEntries, key]);
   /** ausgefüllte Firmenformulare je Vorlage (neueste zuerst) */
+  /** Sortierung der Listen nach Nummer (auf- bzw. absteigend, gemerkt auf dem Gerät) */
+  const [asc, setAsc] = useState(() => {
+    try {
+      return localStorage.getItem('reportSortAsc') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const toggleSort = () => {
+    setAsc((v) => {
+      try {
+        localStorage.setItem('reportSortAsc', v ? '0' : '1');
+      } catch {
+        /* egal */
+      }
+      return !v;
+    });
+  };
   const byTemplate = useMemo(() => {
     const m = new Map<string, { name: string; items: FormEntry[] }>();
     for (const e of entries) {
@@ -64,9 +88,9 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
       m.set(e.templateId, g);
     }
     // Liste je Formular erst, wenn es dort ein ausgefülltes Formular gibt (neu über „Neu“)
-    for (const g of m.values()) g.items.sort((a, b) => b.date.localeCompare(a.date) || (parseInt(b.no) || 0) - (parseInt(a.no) || 0));
+    for (const g of m.values()) g.items.sort((a, b) => byNo(a, b, asc));
     return [...m.entries()].sort((a, b) => a[1].name.localeCompare(b[1].name, 'de'));
-  }, [entries, templates]);
+  }, [entries, templates, asc]);
   const dupNos = useMemo(() => duplicateNos(entries), [entries]);
   const first = reports[0];
   /** Projekt ohne Bericht: Angaben aus dem Register (gleiche Liste wie in allen Werkzeugen) */
@@ -101,10 +125,12 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
   const byType = useMemo(() => {
     const m: Record<ReportType, Report[]> = { regie: [], tag: [], woche: [] };
     for (const r of reports) m[r.type].push(r);
-    for (const t of TYPE_ORDER) m[t].sort((a, b) => b.date.localeCompare(a.date) || (parseInt(b.no) || 0) - (parseInt(a.no) || 0));
+    for (const t of TYPE_ORDER) m[t].sort((a, b) => byNo(a, b, asc));
     return m;
-  }, [reports]);
-  const chosen = useMemo(() => TYPE_ORDER.flatMap((t) => [...byType[t]].reverse()).filter((r) => selected.has(r.id)), [byType, selected]);
+  }, [reports, asc]);
+  /** Teilen/Drucken immer aufsteigend (älteste zuerst) */
+  const ascending = (list: Report[]) => [...list].sort((a, b) => byNo(a, b, true));
+  const chosen = useMemo(() => TYPE_ORDER.flatMap((t) => ascending(byType[t])).filter((r) => selected.has(r.id)), [byType, selected]);
 
   const run = (fn: () => Promise<void>) => fn().catch((e) => showError(e, 'Das hat nicht geklappt'));
   const copyEntry = (e: FormEntry) =>
@@ -244,10 +270,22 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
                 <Icon name="edit" size={16} /> <span className="lbl">Bearbeiten</span>
               </button>
             )}
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={toggleSort}
+              disabled={!reports.length && !entries.length}
+              title={asc ? 'Nach Nummer aufsteigend – tippen für absteigend' : 'Nach Nummer absteigend – tippen für aufsteigend'}
+              aria-label={asc ? 'Nach Nummer aufsteigend sortiert' : 'Nach Nummer absteigend sortiert'}
+              data-testid="report-sort"
+              data-dir={asc ? 'asc' : 'desc'}
+            >
+              Nr. {asc ? '↑' : '↓'}
+            </button>
             <button type="button" className={`btn btn-sm${selecting ? ' btn-primary' : ''}`} onClick={() => (selecting ? stop() : setSelecting(true))} disabled={!reports.length} data-testid="report-select">
               <Icon name="check" size={16} /> {selecting ? 'Fertig' : 'Auswählen'}
             </button>
-            <button type="button" className="btn btn-sm" onClick={() => share(TYPE_ORDER.flatMap((t) => [...byType[t]].reverse()))} disabled={!reports.length || busy} data-testid="report-share-all">
+            <button type="button" className="btn btn-sm" onClick={() => share(TYPE_ORDER.flatMap((t) => ascending(byType[t])))} disabled={!reports.length || busy} data-testid="report-share-all">
               <Icon name="share" size={16} /> <span className="lbl">Alle teilen</span>
             </button>
             <button type="button" className="btn btn-sm btn-primary" onClick={() => setCreating(true)} data-testid="report-group-new">
@@ -309,7 +347,7 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
                   {items.map((r) => {
                     const on = selected.has(r.id);
                     return (
-                      <li key={r.id} className={`report-item${on ? ' selected' : ''}`} data-testid="report-item" data-type={r.type} data-selected={on || undefined}>
+                      <li key={r.id} className={`report-item${on ? ' selected' : ''}`} data-testid="report-item" data-type={r.type} data-no={r.no} data-selected={on || undefined}>
                         {selecting ? (
                           <button type="button" className="report-link" onClick={() => toggle(r.id)} aria-pressed={on}>
                             <span className={`photo-check static${on ? ' on' : ''}`} aria-hidden="true">

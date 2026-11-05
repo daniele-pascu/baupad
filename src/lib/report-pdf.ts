@@ -184,13 +184,17 @@ class Flow {
   }
 }
 
+/** Adresse nur, wenn sie sich vom Bauvorhaben/von der Baustelle unterscheidet (sonst stünde dasselbe doppelt da) */
+const norm = (x: string) => x.trim().toLowerCase();
+const extraAddress = (h: Report['head']) => (h.address && norm(h.address) !== norm(h.project) && norm(h.address) !== norm(h.site) ? h.address : '');
+
 /** Kopfdaten des Berichts (nur ausgefüllte) */
 function headInfo(f: Flow, r: Report) {
   const h = r.head;
   f.info([
     ['Bauvorhaben', h.project],
     ['Baustelle', h.site !== h.project ? h.site : ''],
-    ['Adresse', h.address],
+    ['Adresse', extraAddress(h)],
     ['Auftraggeber', h.client],
     ['Projekt-Nr.', h.number],
     ['Kostenstelle', h.costCenter],
@@ -236,7 +240,7 @@ function regieForm(ctx: Ctx, r: Report & { type: 'regie' }, opts: ReportPdfOptio
     { label: 'Datum', value: fmtDate(r.date), w: W * 0.3 },
   ]);
   f.cells([
-    { label: 'Baustellenadresse', value: h.address, w: W * 0.4 },
+    { label: 'Baustellenadresse', value: extraAddress(h), w: W * 0.4 },
     { label: 'Kostenstelle', value: h.costCenter, w: W * 0.3 },
     { label: 'Verantwortlich', value: h.responsible, w: W * 0.3 },
   ]);
@@ -353,7 +357,7 @@ function dailyForm(ctx: Ctx, r: Report & { type: 'tag' }, opts: ReportPdfOptions
   ]);
   f.cells([
     { label: 'Bauvorhaben', value: [h.project, h.site && h.site !== h.project ? h.site : ''].filter(Boolean).join(' – '), w: W * 0.44 },
-    { label: 'Baustellenadresse', value: h.address, w: W * 0.28 },
+    { label: 'Baustellenadresse', value: extraAddress(h), w: W * 0.28 },
     { label: 'Auftraggeber', value: h.client, w: W * 0.28 },
   ]);
   const weather = [d.weather, d.tempMin || d.tempMax ? `Temperatur ${[d.tempMin && `min. ${d.tempMin} °C`, d.tempMax && `max. ${d.tempMax} °C`].filter(Boolean).join(', ')}` : ''].filter(Boolean).join('\n');

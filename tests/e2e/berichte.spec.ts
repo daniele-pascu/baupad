@@ -66,8 +66,7 @@ test('Regieliste, Bautagesbericht und Wochenbericht: Übernahme aus Projekt und 
   // 1) Regieliste – Kopf aus dem Projekt
   await newReport(page, 'regie');
   await expect(page.getByTestId('report-title')).toHaveText('Regieliste Nr. 1');
-  await expect(page.getByTestId('rp-project')).toHaveValue('Wohnanlage Sonnenhof');
-  await expect(page.getByTestId('rp-address')).toHaveValue('Musterstraße 1, 4020 Linz');
+  await expect(page.getByTestId('rp-site')).toHaveValue('Wohnanlage Sonnenhof');
   await expect(page.getByTestId('rp-client')).toHaveValue('Muster GmbH');
   await expect(page.getByTestId('rp-number')).toHaveValue('2026-04');
   await expect(page.getByTestId('rp-costcenter')).toHaveValue('91092 – Tiefgarage');
@@ -198,6 +197,15 @@ test('Regieliste, Bautagesbericht und Wochenbericht: Übernahme aus Projekt und 
   await expect(page.getByTestId('report-site')).toContainText('4 Berichte');
   await page.getByTestId('report-site').click();
   await expect(page.getByTestId('report-item')).toHaveCount(4);
+  // Liste nach Nummer: Standard absteigend, umschaltbar auf aufsteigend (wird gemerkt)
+  const regieNos = () => page.locator('[data-testid="report-item"][data-type="regie"]').evaluateAll((els) => els.map((e) => e.getAttribute('data-no')));
+  await expect(page.getByTestId('report-sort')).toHaveAttribute('data-dir', 'desc');
+  expect(await regieNos()).toEqual(['2', '1']);
+  await page.getByTestId('report-sort').click();
+  await expect(page.getByTestId('report-sort')).toHaveAttribute('data-dir', 'asc');
+  expect(await regieNos()).toEqual(['1', '2']);
+  await page.reload();
+  await expect(page.getByTestId('report-sort')).toHaveAttribute('data-dir', 'asc');
 });
 
 test('Ohne Projekt und ohne Arbeitereinteilung: Baustelle frei eingeben, Arbeiter von Hand', async ({ page }) => {
