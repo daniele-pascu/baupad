@@ -45,10 +45,10 @@ describe('PDF der Arbeitereinteilung', () => {
     expect(await sizes(f.data)).toEqual([{ width: 841.89, height: 595.28 }]); // A4 quer
     if (!hasPoppler) return;
     const t = text(f.data, 'woche.pdf');
-    for (const s of ['Arbeitereinteilung KW 44', '26.10. – 01.11.2026', 'Muster Bau GmbH', '2026-04 · Neubau Musterstraße', 'Musterstraße 1', 'Mo 26.10.', 'Fr 30.10.', 'So 01.11.', '07:00–16:00', 'Max Muster', 'Kran ab Mittwoch', 'Urlaub:', 'Stefan Holz (Mo–Fr)'])
+    for (const s of ['Arbeitereinteilung KW 44', '26.10. – 01.11.2026', 'Muster Bau GmbH', '2026-04 · Neubau Musterstraße', 'Musterstraße 1', 'Mo 26.10.', 'Fr 30.10.', 'So 01.11.', '07:00–16:00', 'Muster Max', 'Kran ab Mittwoch', 'Urlaub:', 'Holz Stefan (Mo–Fr)'])
       expect(t).toContain(s);
-    expect(t).toContain('Lukasz Wójcik'); // ł → l, ó bleibt
-    expect(t).toContain('Ivan Cosic');
+    expect(t).toContain('Wójcik Lukasz'); // ł → l, ó bleibt
+    expect(t).toContain('Cosic Ivan');
   });
 
   it('Uhrzeiten abwählbar; Urlaub/Krank (von–bis) beim Namen gekennzeichnet', async () => {
@@ -88,7 +88,7 @@ describe('PDF der Arbeitereinteilung', () => {
     expect(await sizes(f.data)).toEqual([{ width: 595.28, height: 841.89 }]); // A4 hoch
     if (!hasPoppler) return;
     const t = text(f.data, 'tag.pdf');
-    for (const s of ['Tagesliste Montag, 26.10.2026', 'Neubau Musterstraße', 'Arbeitszeit: 07:00–16:00 Uhr', 'Max Muster', '0664 123', '2 Arbeiter eingeteilt']) expect(t).toContain(s);
+    for (const s of ['Tagesliste Montag, 26.10.2026', 'Neubau Musterstraße', 'Arbeitszeit: 07:00–16:00 Uhr', 'Muster Max', '0664 123', '2 Arbeiter eingeteilt']) expect(t).toContain(s);
     expect(t).not.toContain('Polier');
   });
 });

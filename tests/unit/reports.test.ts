@@ -92,7 +92,7 @@ describe('Berichte – PDF', () => {
     expect(doc.getPages().map((p) => Math.round(p.getWidth()))).toEqual([842]); // A4 quer (Formular wie die Regietagesliste)
     if (!hasPoppler) return;
     const t = text(f.data, 'regie.pdf');
-    for (const s of ['REGIELISTE Nr. 1', 'Muster Bau GmbH', 'Wohnanlage Sonnenhof', 'Musterstraße 1', 'Muster GmbH', '91092 – Tiefgarage', 'KW 44', 'PERSONAL', 'Arbeitszeiten', 'NAZ', 'Max Muster', '8,5', '12,5', 'GERÄT', 'Reparaturm', 'Sack', 'Anmerkungen', 'Auftraggeber / Kontrolle'])
+    for (const s of ['REGIELISTE Nr. 1', 'Muster Bau GmbH', 'Wohnanlage Sonnenhof', 'Musterstraße 1', 'Muster GmbH', '91092 – Tiefgarage', 'KW 44', 'PERSONAL', 'Arbeitszeiten', 'NAZ', 'Muster Max', '8,5', '12,5', 'GERÄT', 'Reparaturm', 'Sack', 'Anmerkungen', 'Auftraggeber / Kontrolle'])
       expect(t).toContain(s);
   });
 
@@ -113,8 +113,8 @@ describe('Berichte – PDF', () => {
     expect(tt).toContain('BAUTAGESBERICHT');
     expect(tt).toContain('Bautagesbericht Nr. 1 (Fortsetzung)');
     expect(tt).toContain('PERSONALEINSATZ');
-    expect(tt).toContain('Max Muster');
-    expect(tt).not.toContain('Peter Muster'); // eingeteilt, aber nicht anwesend
+    expect(tt).toContain('Muster Max');
+    expect(tt).not.toContain('Muster Peter'); // eingeteilt, aber nicht anwesend
     expect(tt).toContain('1 Person');
     expect(tt).toContain('LEISTUNGSFORTSCHRITT');
     expect(tt).toContain('Zeile 120');

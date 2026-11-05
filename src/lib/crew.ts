@@ -140,7 +140,8 @@ export function unassigned(w: WeekPlan, workers: Worker[], day: number): Worker[
 /** jede Woche zeigt immer alle 7 Tage (Tage ohne Arbeitszeit als „frei“) */
 export const visibleDays = () => [0, 1, 2, 3, 4, 5, 6];
 
-export const workerName = (x: Pick<Worker, 'firstName' | 'lastName'>) => [x.firstName, x.lastName].filter(Boolean).join(' ');
+/** Anzeigename eines Arbeiters: immer Nachname zuerst, dann Vorname (Listen, PDFs, Berichte) */
+export const workerName = (x: Pick<Worker, 'firstName' | 'lastName'>) => [x.lastName, x.firstName].filter(Boolean).join(' ');
 
 /** Funktionen der Arbeiter (Auswahl in der Arbeiterliste, Reihenfolge wie auf Formularen üblich) */
 export const WORKER_GRADES: { id: WorkerGrade; label: string; short: string }[] = [

@@ -95,7 +95,7 @@ describe('Zeitaufzeichnung: Vorschlag und Summen', () => {
     expect(wb).toContain('name="Einzeln"');
     const sheet1 = strFromU8(files['xl/worksheets/sheet1.xml']);
     const sheet2 = strFromU8(files['xl/worksheets/sheet2.xml']);
-    expect(sheet1).toContain('Peter Beispiel');
+    expect(sheet1).toContain('Beispiel Peter');
     expect(sheet1).toContain('<v>8.5</v>');
     expect(sheet1).toContain('>U<');
     expect(sheet1).toContain('>F<');

@@ -92,8 +92,8 @@ test('Arbeitereinteilung: Woche nach Baustellen planen und in die nächste Woche
   // Baustelle erscheint sofort, ohne Einteilungsfenster
   await expect(page.getByTestId('assign-dialog')).toHaveCount(0);
   await expect(site(page, 'Neubau Musterstraße')).toBeVisible();
-  await addFromMonday(page, 'Neubau Musterstraße', ['Max Muster', 'Peter Bau']);
-  for (const d of [0, 1, 2, 3, 4]) await expect(chips(page, 'Neubau Musterstraße', d)).toHaveText(['Max Muster', 'Peter Bau']);
+  await addFromMonday(page, 'Neubau Musterstraße', ['Muster Max', 'Bau Peter']);
+  for (const d of [0, 1, 2, 3, 4]) await expect(chips(page, 'Neubau Musterstraße', d)).toHaveText(['Muster Max', 'Bau Peter']);
   await expect(site(page, 'Neubau Musterstraße').locator('[data-day="4"]')).not.toContainText('07:00'); // keine Uhrzeit mehr in der Einteilung
   // immer alle 7 Tage; „ganze Woche“ schlägt Mo–Fr vor, Sa/So bleibt leer, ist aber einteilbar
   await expect(site(page, 'Neubau Musterstraße').getByTestId('day-row')).toHaveCount(7);
@@ -104,14 +104,14 @@ test('Arbeitereinteilung: Woche nach Baustellen planen und in die nächste Woche
   // Baustelle B manuell
   await page.getByTestId('add-site').click();
   await newWeekProject(page, 'Sanierung Hauptplatz');
-  await addFromMonday(page, 'Sanierung Hauptplatz', ['Thomas Stein']);
-  await expect(chips(page, 'Sanierung Hauptplatz', 0)).toHaveText(['Thomas Stein']);
+  await addFromMonday(page, 'Sanierung Hauptplatz', ['Stein Thomas']);
+  await expect(chips(page, 'Sanierung Hauptplatz', 0)).toHaveText(['Stein Thomas']);
 
   // Diese Woche nicht eingeteilt (nur wer die ganze Woche nirgends ist): Stefan → Urlaub für die ganze Woche
   const open = page.getByTestId('crew-open');
   await expect(open.getByTestId('crew-open-toggle')).toContainText('Diese Woche nicht eingeteilt: 1');
   await showOpen(page);
-  await expect(open.getByTestId('open-chip')).toHaveText(['Stefan Holz']);
+  await expect(open.getByTestId('open-chip')).toHaveText(['Holz Stefan']);
   await open.getByTestId('open-chip').click(); // erster Arbeitstag: Di (Mo 26.10. Nationalfeiertag)
   await page.getByTestId('open-dialog').getByTestId('open-absence').click();
   const abs = page.getByTestId('absence-dialog');
@@ -120,37 +120,37 @@ test('Arbeitereinteilung: Woche nach Baustellen planen und in die nächste Woche
   await abs.getByTestId('absence-from').fill('2026-10-26'); // ganze Woche (Mo ist Feiertag)
   await expect(abs.getByTestId('absence-to')).toHaveValue('2026-10-30');
   await abs.getByTestId('absence-save').click();
-  await expect(abs.getByTestId('absence-row')).toContainText(['Stefan Holz 26.10. – 30.10.']);
+  await expect(abs.getByTestId('absence-row')).toContainText(['Holz Stefan 26.10. – 30.10.']);
   await abs.getByRole('button', { name: 'Schließen' }).first().click();
   await expect(page.getByTestId('crew-open')).toHaveCount(0);
   await expect(page.getByTestId('crew-all-set')).toContainText('Alle Arbeiter sind eingeteilt');
-  await expect(page.getByTestId('vacation-chip')).toHaveText(['Stefan Holz · Mo–Fr']);
+  await expect(page.getByTestId('vacation-chip')).toHaveText(['Holz Stefan · Mo–Fr']);
 
   // Hinzufügen auf A nur am Montag: Thomas bleibt auf B und steht zusätzlich auf A (gekennzeichnet)
   await site(page, 'Neubau Musterstraße').locator('[data-day="0"] [data-testid="day-add"]').click();
   const ad = page.getByTestId('assign-dialog');
   await expect(ad.getByTestId('assign-keep')).toHaveCount(0); // kein Kästchen mehr
-  await expect(ad.locator('[data-worker="Thomas Stein"]')).toContainText('auch auf Sanierung Hauptplatz (doppelt)');
+  await expect(ad.locator('[data-worker="Stein Thomas"]')).toContainText('auch auf Sanierung Hauptplatz (doppelt)');
   for (const d of [1, 2, 3, 4]) await ad.getByTestId(`assign-day-${d}`).click(); // „+“ schlägt ab Montag die ganze Woche vor – hier nur Montag
-  await assignDialog(page, ['Thomas Stein']);
-  await expect(page.locator('.toast', { hasText: 'Doppelt eingeteilt auf Neubau Musterstraße: Thomas Stein' })).toHaveCount(1);
-  await expect(chips(page, 'Neubau Musterstraße', 0)).toHaveText(['Max Muster', 'Peter Bau', /Thomas Stein/]);
+  await assignDialog(page, ['Stein Thomas']);
+  await expect(page.locator('.toast', { hasText: 'Doppelt eingeteilt auf Neubau Musterstraße: Stein Thomas' })).toHaveCount(1);
+  await expect(chips(page, 'Neubau Musterstraße', 0)).toHaveText(['Muster Max', 'Bau Peter', /Stein Thomas/]);
   await expect(chips(page, 'Neubau Musterstraße', 0).nth(2).getByTestId('chip-also')).toHaveText('+ Sanierung Hauptplatz');
-  await expect(chips(page, 'Sanierung Hauptplatz', 0)).toHaveText([/Thomas Stein/]);
-  await expect(chips(page, 'Sanierung Hauptplatz', 1)).toHaveText(['Thomas Stein']);
+  await expect(chips(page, 'Sanierung Hauptplatz', 0)).toHaveText([/Stein Thomas/]);
+  await expect(chips(page, 'Sanierung Hauptplatz', 1)).toHaveText(['Stein Thomas']);
   // antippen → ab Montag zurück auf B
   await moveTo(page, chips(page, 'Neubau Musterstraße', 0).nth(2), 'Sanierung Hauptplatz');
-  await expect(chips(page, 'Sanierung Hauptplatz', 0)).toHaveText(['Thomas Stein']);
-  await expect(chips(page, 'Neubau Musterstraße', 0)).toHaveText(['Max Muster', 'Peter Bau']);
+  await expect(chips(page, 'Sanierung Hauptplatz', 0)).toHaveText(['Stein Thomas']);
+  await expect(chips(page, 'Neubau Musterstraße', 0)).toHaveText(['Muster Max', 'Bau Peter']);
 
   // Peter ab Mittwoch auf die andere Baustelle
   await chips(page, 'Neubau Musterstraße', 2).nth(1).click();
   const cd = page.getByTestId('chip-dialog');
   await cd.getByTestId('chip-move-to').selectOption({ label: 'Sanierung Hauptplatz' });
   await cd.getByTestId('chip-move').click();
-  await expect(chips(page, 'Neubau Musterstraße', 1)).toHaveText(['Max Muster', 'Peter Bau']);
-  await expect(chips(page, 'Neubau Musterstraße', 2)).toHaveText(['Max Muster']);
-  await expect(chips(page, 'Sanierung Hauptplatz', 2)).toHaveText(['Thomas Stein', 'Peter Bau']);
+  await expect(chips(page, 'Neubau Musterstraße', 1)).toHaveText(['Muster Max', 'Bau Peter']);
+  await expect(chips(page, 'Neubau Musterstraße', 2)).toHaveText(['Muster Max']);
+  await expect(chips(page, 'Sanierung Hauptplatz', 2)).toHaveText(['Stein Thomas', 'Bau Peter']);
 
   // Baustelle B ist diese Woche fertig
   await site(page, 'Sanierung Hauptplatz').getByTestId('site-actions').click();
@@ -164,18 +164,18 @@ test('Arbeitereinteilung: Woche nach Baustellen planen und in die nächste Woche
   // beim Öffnen sind alle Projekte zugeklappt
   await expect(page.locator('[data-testid="site-toggle"][aria-expanded="true"]')).toHaveCount(0);
   await expandAll(page);
-  await expect(chips(page, 'Sanierung Hauptplatz', 3)).toHaveText(['Thomas Stein', 'Peter Bau']);
+  await expect(chips(page, 'Sanierung Hauptplatz', 3)).toHaveText(['Stein Thomas', 'Bau Peter']);
 
   // nächste Woche läuft weiter: nur Baustelle A, gleiche Arbeiter je Wochentag, kein Urlaub übernommen
   await page.getByTestId('week-next').click();
   await expect(page.getByTestId('week-label')).toHaveText('KW 45');
   await expect(page.getByTestId('draft-banner')).toContainText('KW 44');
   await expect(page.getByTestId('site-card')).toHaveCount(1);
-  await expect(chips(page, 'Neubau Musterstraße', 0)).toHaveText(['Max Muster', 'Peter Bau']);
-  await expect(chips(page, 'Neubau Musterstraße', 3)).toHaveText(['Max Muster']);
+  await expect(chips(page, 'Neubau Musterstraße', 0)).toHaveText(['Muster Max', 'Bau Peter']);
+  await expect(chips(page, 'Neubau Musterstraße', 3)).toHaveText(['Muster Max']);
   // Thomas ist die ganze Woche frei, Stefan wieder da → „Diese Woche nicht eingeteilt“ (Peter ist Mo/Di eingeteilt)
   await showOpen(page);
-  await expect(page.getByTestId('crew-open').getByTestId('open-chip')).toHaveText(['Stefan Holz', 'Thomas Stein']);
+  await expect(page.getByTestId('crew-open').getByTestId('open-chip')).toHaveText(['Holz Stefan', 'Stein Thomas']);
   // Änderung in KW 45 …
   await chips(page, 'Neubau Musterstraße', 0).first().click();
   await page.getByTestId('chip-dialog').getByTestId('chip-remove').click();
@@ -183,7 +183,7 @@ test('Arbeitereinteilung: Woche nach Baustellen planen und in die nächste Woche
   // … ändert KW 44 nicht
   await page.getByTestId('week-prev').click();
   await expect(page.getByTestId('site-card')).toHaveCount(2);
-  await expect(chips(page, 'Neubau Musterstraße', 0)).toHaveText(['Max Muster', 'Peter Bau']);
+  await expect(chips(page, 'Neubau Musterstraße', 0)).toHaveText(['Muster Max', 'Bau Peter']);
 });
 
 test('Arbeiter deaktivieren: nicht mehr zum Einteilen, in gespeicherten Wochen weiter sichtbar', async ({ page }) => {
@@ -246,8 +246,8 @@ test('Suche, PDF (Woche + Tagesliste), Drucken, Vorwoche übernehmen, Sicherung 
   }
   await page.keyboard.press('Escape');
   for (const [name, who] of [
-    ['Neubau Musterstraße', 'Max Muster'],
-    ['Sanierung Hauptplatz', 'Thomas Stein'],
+    ['Neubau Musterstraße', 'Muster Max'],
+    ['Sanierung Hauptplatz', 'Stein Thomas'],
   ]) {
     await page.getByTestId('add-site').click();
     await newWeekProject(page, name);
@@ -270,7 +270,7 @@ test('Suche, PDF (Woche + Tagesliste), Drucken, Vorwoche übernehmen, Sicherung 
   const info = execFileSync('pdfinfo', [pdf], { encoding: 'utf8' });
   expect(info).toMatch(/Page size:\s+841\.89 x 595\.28/);
   const txt = execFileSync('pdftotext', ['-layout', pdf, '-'], { encoding: 'utf8' });
-  for (const s of ['Arbeitereinteilung KW 44', 'Muster Bau GmbH', 'Neubau Musterstraße', 'Sanierung Hauptplatz', 'Max Muster']) expect(txt).toContain(s);
+  for (const s of ['Arbeitereinteilung KW 44', 'Muster Bau GmbH', 'Neubau Musterstraße', 'Sanierung Hauptplatz', 'Muster Max']) expect(txt).toContain(s);
 
   // Tagesliste einer Baustelle
   await site(page, 'Neubau Musterstraße').getByTestId('site-actions').click();
@@ -278,7 +278,7 @@ test('Suche, PDF (Woche + Tagesliste), Drucken, Vorwoche übernehmen, Sicherung 
   const dl2 = await catchDownload(page, () => page.getByTestId('daylist-dialog').getByTestId('daylist-1').click());
   const pdf2 = await saveDownload(dl2, 'tagesliste.pdf');
   const txt2 = execFileSync('pdftotext', ['-layout', pdf2, '-'], { encoding: 'utf8' });
-  for (const s of ['Tagesliste Dienstag, 27.10.2026', 'Neubau Musterstraße', 'Max Muster', '0664 1234567']) expect(txt2).toContain(s);
+  for (const s of ['Tagesliste Dienstag, 27.10.2026', 'Neubau Musterstraße', 'Muster Max', '0664 1234567']) expect(txt2).toContain(s);
   expect(txt2).not.toContain('Polier'); // Funktion/Qualifikation nie auf dem Ausdruck
 
   // Drucken: PDF in neuem Tab
@@ -297,7 +297,7 @@ test('Suche, PDF (Woche + Tagesliste), Drucken, Vorwoche übernehmen, Sicherung 
   await page.getByTestId('crew-carry').click(); // sichtbar in der Wochenleiste
   await expect(page.getByTestId('confirm-dialog')).toContainText('wird durch die Projekte und Arbeiter aus KW 44 ersetzt');
   await page.getByRole('button', { name: 'Ersetzen' }).click();
-  await expect(chips(page, 'Neubau Musterstraße', 0)).toHaveText(['Max Muster']);
+  await expect(chips(page, 'Neubau Musterstraße', 0)).toHaveText(['Muster Max']);
 
   // Sicherung speichern …
   const dl3 = await catchDownload(page, async () => {
@@ -315,7 +315,7 @@ test('Suche, PDF (Woche + Tagesliste), Drucken, Vorwoche übernehmen, Sicherung 
   await expect(page.locator('.toast')).toContainText('2 Arbeiter, 2 Wochen übernommen');
   await expect(page.getByTestId('site-card')).toHaveCount(2);
   await expandAll(page);
-  await expect(chips(page, 'Neubau Musterstraße', 0)).toHaveText(['Max Muster']);
+  await expect(chips(page, 'Neubau Musterstraße', 0)).toHaveText(['Muster Max']);
   await expect(page.getByTestId('crew-workers')).toContainText('Personal (2)');
   await page.getByTestId('crew-times').click();
   await expect(page.getByTestId('times-dialog').getByTestId('company-name')).toHaveValue('Muster Bau GmbH');
@@ -640,17 +640,17 @@ test('Personalliste: eigene Seite, alphabetisch oder nach Funktion; Einteilung u
     await sp.getByTestId('worker-save').click();
   }
   // alphabetisch nach Nachname
-  await expect(sp.getByTestId('worker-row').locator('strong')).toHaveText(['Zoe Adler', 'Anna Berg', 'Pia Leit', 'Max Muster']);
+  await expect(sp.getByTestId('worker-row').locator('strong')).toHaveText(['Adler Zoe', 'Berg Anna', 'Leit Pia', 'Muster Max']);
   // nach Funktion: Projektleiter → Polier → Facharbeiter → Hilfsarbeiter, mit Gruppenüberschriften
   await sp.getByTestId('staff-sort-grade').click();
-  await expect(sp.getByTestId('worker-row').locator('strong')).toHaveText(['Pia Leit', 'Max Muster', 'Anna Berg', 'Zoe Adler']);
+  await expect(sp.getByTestId('worker-row').locator('strong')).toHaveText(['Leit Pia', 'Muster Max', 'Berg Anna', 'Adler Zoe']);
   await expect(sp.getByTestId('staff-group')).toHaveText(['Projektleiter', 'Polier', 'Facharbeiter', 'Hilfsarbeiter']);
   // Suche
   await sp.getByTestId('staff-search').fill('berg');
   await expect(sp.getByTestId('worker-row')).toHaveCount(1);
   await sp.getByTestId('staff-search').fill('');
   // antippen klappt auf: Funktion ändern, Bearbeiten, Urlaub, Krank, Löschen
-  const anna = sp.getByTestId('worker-row').filter({ hasText: 'Anna Berg' });
+  const anna = sp.getByTestId('worker-row').filter({ hasText: 'Berg Anna' });
   await anna.getByTestId('worker-open').click();
   await expect(anna.getByTestId('worker-options')).toBeVisible();
   await anna.getByTestId('worker-grade-inline').selectOption('vorarbeiter');
@@ -695,7 +695,7 @@ test('Personalliste: eigene Seite, alphabetisch oder nach Funktion; Einteilung u
   await site(page, 'Halle Nord').locator('[data-day="0"] [data-testid="day-add"]').click();
   const ad = page.getByTestId('assign-dialog');
   // Projektleiter (Pia) ist nicht einteilbar
-  await expect(ad.getByTestId('assign-worker')).toHaveText([/Max Muster · Polier/, /Anna Berg · Vorarbeiter/, /Zoe Adler · Hilfsarbeiter/]);
+  await expect(ad.getByTestId('assign-worker')).toHaveText([/Muster Max · Polier/, /Berg Anna · Vorarbeiter/, /Adler Zoe · Hilfsarbeiter/]);
   await page.keyboard.press('Escape');
 });
 
@@ -792,7 +792,7 @@ test('Mitarbeiter schon hinterlegt: Meldung beim Anlegen, nur nach Rückfrage do
   await wd.getByTestId('staff-new').click();
   await wd.getByTestId('worker-firstName').fill('max ');
   await wd.getByTestId('worker-lastName').fill('MUSTER');
-  await expect(page.getByTestId('worker-duplicate')).toContainText('Max Muster (Personalnr. 17) ist schon hinterlegt');
+  await expect(page.getByTestId('worker-duplicate')).toContainText('Muster Max (Personalnr. 17) ist schon hinterlegt');
   await wd.getByTestId('worker-save').click();
   const cf = page.getByTestId('confirm-dialog');
   await expect(cf).toContainText('Mitarbeiter schon hinterlegt');
@@ -878,21 +878,21 @@ test('Projektleiter in der Einteilung: aus dem Personal wählen, Anzeige bei der
   await expect(page.getByTestId('crew-open')).toHaveCount(0);
   await card.getByTestId('day-add').first().click();
   await expect(page.getByTestId('assign-dialog')).toBeVisible();
-  await expect(page.getByTestId('assign-dialog')).not.toContainText('Paul Leiter');
+  await expect(page.getByTestId('assign-dialog')).not.toContainText('Leiter Paul');
   await page.keyboard.press('Escape');
   await card.getByTestId('site-actions').click();
   await page.getByTestId('site-edit').click();
   const sd = page.getByTestId('site-dialog');
   // zur Auswahl stehen nur Personen mit der Funktion Projektleiter
-  await expect(sd.getByTestId('site-manager-select').locator('option')).toHaveText(['– keiner –', 'Paul Leiter']);
-  await sd.getByTestId('site-manager-select').selectOption({ label: 'Paul Leiter' });
+  await expect(sd.getByTestId('site-manager-select').locator('option')).toHaveText(['– keiner –', 'Leiter Paul']);
+  await sd.getByTestId('site-manager-select').selectOption({ label: 'Leiter Paul' });
   await expect(sd.getByTestId('site-manager-phone')).toHaveValue('0664 123');
   await sd.getByTestId('site-save').click();
-  await expect(card.getByTestId('site-manager-line')).toHaveText('PL: Paul Leiter · 0664 123');
+  await expect(card.getByTestId('site-manager-line')).toHaveText('PL: Leiter Paul · 0664 123');
   // Wochen-PDF mit Projektleiter
   const dl = await catchDownload(page, () => page.getByTestId('crew-pdf').click());
   const txt = execFileSync('pdftotext', ['-layout', await saveDownload(dl, 'projektleiter.pdf'), '-'], { encoding: 'utf8' });
-  expect(txt).toContain('PL: Paul Leiter · 0664 123');
+  expect(txt).toContain('PL: Leiter Paul · 0664 123');
   await page.keyboard.press('Escape');
   // Vertretung nur diese Woche
   await card.getByTestId('site-actions').click();
@@ -906,7 +906,7 @@ test('Projektleiter in der Einteilung: aus dem Personal wählen, Anzeige bei der
   await expect(card.getByTestId('site-manager-line')).toContainText('Vertretung diese Woche');
   // nächste Woche (weitergeführt): wieder die Bauleitung des Projekts
   await page.getByTestId('week-next').click();
-  await expect(page.locator('[data-testid="site-card"][data-site="Parkring"]').getByTestId('site-manager-line')).toHaveText('PL: Paul Leiter · 0664 123');
+  await expect(page.locator('[data-testid="site-card"][data-site="Parkring"]').getByTestId('site-manager-line')).toHaveText('PL: Leiter Paul · 0664 123');
 });
 
 test('Feiertage in Österreich automatisch gekennzeichnet (jedes Jahr); Warnung nur, wer die ganze Woche frei ist', async ({ page }) => {
@@ -1025,7 +1025,7 @@ test('Einstellungen der Einteilung: Bezeichnung der Projekte, Reihenfolge, Funkt
     await page.getByTestId('add-site').click();
     await newWeekProject(page, name, { 'project-number': no });
   }
-  await addFromMonday(page, 'Alpha', ['Max Muster']);
+  await addFromMonday(page, 'Alpha', ['Muster Max']);
   const names = () => page.getByTestId('site-card').evaluateAll((els) => els.map((e) => e.getAttribute('data-site')));
   await expect.poll(names).toEqual(['Alpha', 'Beta']);
   // Einstellungen: Name · Projektnummer, nach Projektnummer, Funktion im PDF
@@ -1054,7 +1054,7 @@ test('Einstellungen der Einteilung: Bezeichnung der Projekte, Reihenfolge, Funkt
   const txt = execFileSync('pdftotext', ['-layout', await saveDownload(dl, 'einstellungen.pdf'), '-'], { encoding: 'utf8' });
   expect(txt).toContain('Alpha · 300');
   expect(txt).toContain('Beta · 101');
-  expect(txt).toContain('Max Muster · PO');
+  expect(txt).toContain('Muster Max · PO');
   expect(txt).toContain('Erstellt mit BauPad · pad-software.at');
   await page.keyboard.press('Escape');
   // gemerkt

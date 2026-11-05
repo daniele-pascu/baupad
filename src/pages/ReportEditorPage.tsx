@@ -6,7 +6,7 @@ import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, showError, toast } from '../components/ui';
 import type { ExportFile } from '../lib/aufmass';
 import { getCompanyLogo } from '../lib/company';
-import { addDays, DAY_NAMES, nameWithGrade, weekOf, WORKER_GRADES } from '../lib/crew';
+import { addDays, DAY_NAMES, nameWithGrade, weekOf, WORKER_GRADES, workerName } from '../lib/crew';
 import { deleteReport, getMeta, getReport, getWeek, listReports, listWorkers, loadProjectData, previousWeek, saveReport } from '../lib/db';
 import { navigate, paths } from '../lib/router';
 import { reportPdf } from '../lib/report-pdf';
@@ -395,7 +395,7 @@ function CrewTools({ r, date, rows, workers, onAdd }: { r: Report; date: string;
           <option value="">+ Arbeiter hinzufügen …</option>
           {others.map((w) => (
             <option key={w.id} value={w.id}>
-              {[w.firstName, w.lastName].filter(Boolean).join(' ')}
+              {workerName(w)}
               {w.role ? ` – ${w.role}` : ''}
             </option>
           ))}
@@ -422,7 +422,7 @@ function CrewTools({ r, date, rows, workers, onAdd }: { r: Report; date: string;
                       setPicked(next);
                     }}
                   />
-                  {[s.worker.firstName, s.worker.lastName].filter(Boolean).join(' ')}
+                  {workerName(s.worker)}
                   {s.worker.role && <span className="muted small"> · {s.worker.role}</span>}
                   {s.absence && <span className={`rp-badge ${s.absence}`}>{s.absence === 'urlaub' ? 'Urlaub' : 'krank'}</span>}
                   {have.has(s.worker.id) && <span className="muted small"> (schon in der Liste)</span>}
