@@ -312,7 +312,15 @@ export function useDrawing(opts: {
 
   /** Maßlinie aus drei Punkten (Seitenkoordinaten): Lage der Maßlinie und Abstand zu den gemessenen Punkten */
   const onDimension = (a2: Point, b2: Point, offset: number) => {
-    create('dimension', lineShape({ x: a2.x / k, y: a2.y / k }, { x: b2.x / k, y: b2.y / k }), { offset: Math.round((offset / k) * 10000) / 10000 || undefined }, true);
+    const gap = Number(pref('dimGap', '1'));
+    create('dimension', lineShape({ x: a2.x / k, y: a2.y / k }, { x: b2.x / k, y: b2.y / k }), { offset: Math.round((offset / k) * 10000) / 10000 || undefined, ...(Number.isFinite(gap) && gap !== 1 ? { extGap: gap } : {}) }, true);
+  };
+  /** Abstand der Hilfslinien zum Objekt (mm) – gilt auch als Vorgabe für die nächsten Maßlinien */
+  const setExtGap = (id: string, mm: number) => {
+    const e = data.elements[id];
+    if (!e) return;
+    storePref('dimGap', String(mm));
+    putRecord('elements', { ...e, extGap: mm });
   };
   const formatLength = (len: number) => formatM(len / k);
 
@@ -657,6 +665,7 @@ export function useDrawing(opts: {
     trackOn,
     setTrackOn,
     onDimension,
+    setExtGap,
     formatLength,
     setOrthoOn,
     orthoDir,

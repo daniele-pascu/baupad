@@ -18,7 +18,7 @@ import {
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { componentsOf, costCenterLabel, damagesOf, elementsOf, findPosition, planTitle, safeFileName, type ExportFile } from './aufmass';
 import { dimsVisible, visibleDamages, visibleElements } from './layers';
-import { annotationsOf, contentRegion, dimGeometry, isDrawingPlan, lineEnds, PAPER, PRINT_HEADER_MM, PRINT_MARGIN_MM, printFit, printScale, shapeToPage, unitsPerMeter } from './drawing';
+import { annotationsOf, contentRegion, dimGeometry, dimLeader, isDrawingPlan, lineEnds, PAPER, PRINT_HEADER_MM, PRINT_MARGIN_MM, printFit, printScale, shapeToPage, unitsPerMeter } from './drawing';
 import { getBlob } from './db';
 import { MADE_WITH } from './crew-pdf';
 import { damageNo } from './numbering';
@@ -545,8 +545,10 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
         const off = e.offset * k;
         const s = Math.sign(off);
         const over = 1.2 / u; // 1,2 pt Überstand
+        // Abstand zum Objekt in mm auf dem Papier (einstellbar je Maßlinie)
+        const gap = Math.min(((e.extGap ?? 1) * MM) / u, Math.abs(off) * 0.8);
         for (const p of [a, b]) {
-          const from = map({ x: p.x + nx * off * 0.97, y: p.y + ny * off * 0.97 });
+          const from = map({ x: p.x + nx * (off - s * gap), y: p.y + ny * (off - s * gap) });
           const to = map({ x: p.x - nx * s * over, y: p.y - ny * s * over });
           page.drawLine({ start: from, end: to, thickness: 0.4, color });
         }
@@ -571,6 +573,13 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
     for (const dm of dims) {
       const a = paper({ x: dm.a.x * k, y: dm.a.y * k });
       const b = paper({ x: dm.b.x * k, y: dm.b.y * k });
+      // Maßlinie zu kurz für die Zahl → daneben mit Führungslinie und Unterstrich (wie im CAD)
+      const ld = dm.leader ? dimLeader(a, b, ctx.bold.widthOfTextAtSize(clean(ctx, dm.text), fs), fs) : null;
+      if (ld) {
+        for (let i = 1; i < ld.path.length; i++) page.drawLine({ start: pdf(ld.path[i - 1]), end: pdf(ld.path[i]), thickness: 0.35, color: dimColor });
+        drawRotatedText(dm.text, ld.center, ld.angle);
+        continue;
+      }
       if (Math.hypot(b.x - a.x, b.y - a.y) < 12) continue;
       const off = dm.inline ? 0 : 9;
       const g = dimGeometry(a, b, dm.side, off);

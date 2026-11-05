@@ -66,7 +66,7 @@ const INSERT_FIELDS: Partial<Record<DrawElementType, Field[]>> = {
 };
 
 const HINTS: Partial<Record<DrawElementType, string>> = {
-  dimension: 'Maßlinie: von Punkt zu Punkt ziehen – die Länge wird automatisch angezeigt.',
+  dimension: 'Maßlinie: Punkt A, Punkt B, dann den Abstand anklicken – die Länge wird automatisch angezeigt.',
   text: 'Text: Stelle im Plan antippen.',
 };
 
@@ -185,6 +185,7 @@ export function ElementBar({
   onColor,
   styleOpen = false,
   onToggleStyle,
+  onExtGap,
 }: {
   element: DrawElement;
   /** Darstellungsfeld geöffnet (bleibt beim Wechsel der Auswahl offen) */
@@ -199,6 +200,8 @@ export function ElementBar({
   onRemoveVertex?(): void;
   /** Polylinie öffnen (nur Länge) bzw. schließen (Fläche) */
   onSetClosed?(closed: boolean): void;
+  /** Maßlinie: Abstand der Hilfslinien zum Objekt (mm) ändern */
+  onExtGap?(mm: number): void;
   /** Anzahl Messungen, die auf dem Objekt liegen (nur Hinweis) */
   overlapping: number;
   onApply(m: Measures): void;
@@ -214,6 +217,7 @@ export function ElementBar({
     n === undefined ? '' : FIELDS[f].degrees ? String(Math.round(n * 100) / 100).replace('.', ',') : meterInput(n);
   const [values, setValues] = useState<Record<string, string>>({});
   const [text, setText] = useState(element.text ?? '');
+  const [gap, setGap] = useState(String(element.extGap ?? 1).replace('.', ','));
   const [error, setError] = useState<string | null>(null);
   const styled = element.type !== 'text' && element.type !== 'dimension' && !!onStyle && !!onColor && !!onToggleStyle;
   // Werte neu übernehmen, wenn sich das Objekt ändert (Ziehen, Rückgängig …)
@@ -221,6 +225,7 @@ export function ElementBar({
   useEffect(() => {
     setValues(Object.fromEntries((Object.keys(current) as Field[]).map((f) => [f, fmt(f, current[f])])));
     setText(element.text ?? '');
+    setGap(String(element.extGap ?? 1).replace('.', ','));
     setError(null);
   }, [key]);
 
@@ -273,6 +278,29 @@ export function ElementBar({
           </span>
         </label>
       ))}
+      {element.type === 'dimension' && !!element.offset && onExtGap && (
+        <label className="draw-field">
+          <span>Abstand zum Objekt</span>
+          <span className="input-unit">
+            <input
+              value={gap}
+              onChange={(e) => setGap(e.target.value)}
+              onBlur={() => {
+                const n = Number(gap.replace(',', '.'));
+                if (Number.isFinite(n) && n >= 0 && n <= 50) {
+                  setError(null);
+                  if (Math.abs(n - (element.extGap ?? 1)) > 1e-9) onExtGap(n);
+                } else setError('Abstand bitte zwischen 0 und 50 mm.');
+              }}
+              onKeyDown={(e) => e.key === 'Enter' && (e.currentTarget as HTMLInputElement).blur()}
+              inputMode="decimal"
+              title="Lücke zwischen Objekt und Hilfslinie (wie im Plan bzw. PDF, unabhängig vom Zoom)"
+              data-testid="element-extgap"
+            />
+            <span className="unit">mm</span>
+          </span>
+        </label>
+      )}
       {element.type !== 'text' && element.type !== 'dimension' && (
         <label className="check-row small">
           <input type="checkbox" checked={element.showDims !== false} onChange={(e) => onShowDims(e.target.checked)} data-testid="element-showdims" />

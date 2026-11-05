@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { annotationsOf, dimGeometry, gridStep, majorStep, shapeToMeters } from '../lib/drawing';
+import { annotationsOf, dimGeometry, dimLeader, gridStep, majorStep, shapeToMeters } from '../lib/drawing';
 import { shapeCenter, shapePath, toPage, toScreen, type Point, type View } from '../lib/geometry';
 import { DEFAULT_TRANSPARENCY, fillOf, PX_PER_PT, strokeGeometry } from '../lib/style';
 import type { DrawElement, DrawElementType, Rect, Shape } from '../lib/types';
@@ -78,7 +78,7 @@ export function renderSheet(view: View, size: { w: number; h: number }, region: 
 }
 
 /** Zeichnungsobjekt in Bildschirmkoordinaten (shape in Seitenkoordinaten). */
-export function renderElement(e: Pick<DrawElement, 'id' | 'type' | 'color' | 'text' | 'style'> & { offset?: number }, pageShape: Shape, view: View, selected: boolean, faded = false, k = 100): ReactNode {
+export function renderElement(e: Pick<DrawElement, 'id' | 'type' | 'color' | 'text' | 'style'> & { offset?: number; extGap?: number }, pageShape: Shape, view: View, selected: boolean, faded = false, k = 100): ReactNode {
   const stroke = visibleStroke(e.color);
   const w = e.style?.lineWidth && e.type !== 'dimension' ? Math.max(1, e.style.lineWidth * PX_PER_PT) : selected ? 3 : 2;
   if (e.type === 'text') {
@@ -110,7 +110,7 @@ export function renderElement(e: Pick<DrawElement, 'id' | 'type' | 'color' | 'te
     const [a, b] = endsOnScreen(pageShape, view);
     const t = ticks(a, b, 6);
     // Hilfslinien zu den gemessenen Punkten (Maßlinie mit Abstand, wie im CAD)
-    const ext = e.offset ? extensionLines(a, b, e.offset * k * view.scale) : '';
+    const ext = e.offset ? extensionLines(a, b, e.offset * k * view.scale, (e.extGap ?? 1) * PX_PER_MM) : '';
     return (
       <g data-element="dimension" data-element-id={e.id} opacity={faded ? 0.55 : 1}>
         {ext && <path d={ext} stroke={stroke} strokeWidth={0.9} data-testid="dim-extension" />}
@@ -146,12 +146,14 @@ export function renderElement(e: Pick<DrawElement, 'id' | 'type' | 'color' | 'te
 }
 
 /** Hilfslinien einer Maßlinie a–b zu den Punkten im Abstand off (Bildschirm, Normale links von a→b): kleine Lücke am Punkt, kurzer Überstand */
-export function extensionLines(a: Point, b: Point, off: number): string {
+/** Bildschirm: 1 mm ≈ 3,78 px (96 dpi) – Abstände der Bemaßung wie auf dem Papier, unabhängig vom Zoom */
+export const PX_PER_MM = 96 / 25.4;
+export function extensionLines(a: Point, b: Point, off: number, gapPx = PX_PER_MM): string {
   const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
   const nx = -(b.y - a.y) / len;
   const ny = (b.x - a.x) / len;
   const s = Math.sign(off);
-  const gap = Math.min(3, Math.abs(off) / 3);
+  const gap = Math.min(gapPx, Math.abs(off) * 0.8);
   const seg = (p: Point) => `M${p.x + nx * (off - s * gap)} ${p.y + ny * (off - s * gap)}L${p.x - nx * s * 4} ${p.y - ny * s * 4}`;
   return seg(a) + seg(b);
 }
@@ -185,6 +187,19 @@ export function renderDims(
     dims.forEach((dm, i) => {
       const a = toS(dm.a);
       const b = toS(dm.b);
+      // Maßlinie: passt die Zahl nicht dazwischen → daneben mit Führungslinie (wie im CAD)
+      const ld = dm.leader ? dimLeader(a, b, dm.text.length * 7, 12) : null;
+      if (ld) {
+        out.push(
+          <g key={`${it.id}-d${i}`} className="dim" data-dim={dm.text} data-leader="1">
+            <polyline points={ld.path.map((p) => `${p.x},${p.y}`).join(' ')} fill="none" stroke={color} strokeWidth={0.9} data-testid="dim-leader" />
+            <text x={ld.center.x} y={ld.center.y} transform={`rotate(${ld.angle} ${ld.center.x} ${ld.center.y})`} textAnchor="middle" dominantBaseline="central" className="dim-text" fill={color} data-testid={opts.testId}>
+              {dm.text}
+            </text>
+          </g>,
+        );
+        return;
+      }
       if (Math.hypot(b.x - a.x, b.y - a.y) < 18) return; // zu klein für eine lesbare Maßkette
       const off = dm.inline ? 0 : 16;
       const g = dimGeometry(a, b, dm.side, off);

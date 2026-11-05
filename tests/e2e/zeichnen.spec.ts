@@ -157,6 +157,27 @@ test('Linien mit Länge und Richtung schließen aneinander an; Kreis, Dreieck, M
   expect(dimEl.shape.h).toBeLessThan(0.001); // waagerecht
   expect(Math.abs(dimEl.shape.w * 100 - Math.round(dimEl.shape.w * 100))).toBeLessThan(1e-6); // Rasterwert
   expect(Math.abs(dimEl.offset)).toBeGreaterThan(0.1); // Maßlinie im Abstand, Hilfslinien zu den Punkten
+  // Abstand der Hilfslinien zum Objekt einstellen (mm, gilt auch für die nächsten Maßlinien)
+  await pickTool(page, 'draw-select');
+  const db = (await page.locator('[data-element="dimension"] line').first().boundingBox())!;
+  await page.mouse.click(db.x + db.width / 2, db.y + db.height / 2);
+  await page.getByTestId('element-extgap').fill('3');
+  await page.getByTestId('element-extgap').press('Enter');
+  await waitSaved(page);
+  expect(((await stored(page, 'elements')).find((e) => e.type === 'dimension') as unknown as { extGap: number }).extGap).toBe(3);
+  // kurze Maßlinie: Zahl passt nicht dazwischen → daneben mit Führungslinie
+  await deselect();
+  await pickTool(page, 'draw-dimension');
+  await page.getByTestId('grid-toggle').click(); // Raster aus für eine kurze Strecke
+  await page.mouse.click(sb.x + sb.width * 0.5, y0);
+  await page.mouse.click(sb.x + sb.width * 0.5 + 22, y0);
+  await page.mouse.click(sb.x + sb.width * 0.5 + 11, y0 - 40);
+  await expect(page.locator('[data-element="dimension"]')).toHaveCount(2);
+  await expect(page.getByTestId('dim-leader')).toHaveCount(1);
+  await waitSaved(page);
+  const dims2 = (await stored(page, 'elements')).filter((e) => e.type === 'dimension') as unknown as { extGap?: number }[];
+  expect(dims2.map((d) => d.extGap)).toEqual([3, 3]); // Vorgabe übernommen
+  await page.getByTestId('grid-toggle').click();
   await page.getByTestId('grid-toggle').click(); // wieder aus
 
   // Text
@@ -229,7 +250,7 @@ test('Nach dem Neuladen ist alles da; PDF-Export mit Maßstab; Sicherung und Wie
   await page.reload();
   // Plan mit Inhalt öffnet im Aufmaß
   await expect(page.getByTestId('mode-measure-tab')).toHaveAttribute('aria-selected', 'true');
-  await expect(page.locator('[data-element]')).toHaveCount(6);
+  await expect(page.locator('[data-element]')).toHaveCount(7);
   await expect(page.locator('[data-testid="aufmass-row"]')).toHaveCount(1);
   await expect(dim('6,20 m')).toBeVisible();
 
@@ -258,7 +279,7 @@ test('Nach dem Neuladen ist alles da; PDF-Export mit Maßstab; Sicherung und Wie
   await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Als Kopie importieren' }).click();
   await expect(page.getByTestId('project-title')).toHaveText('Zeichnung (Kopie)');
   await page.getByTestId('plan-open').first().click();
-  await expect(page.locator('[data-element]')).toHaveCount(6);
+  await expect(page.locator('[data-element]')).toHaveCount(7);
   await expect(dim('6,20 m')).toBeVisible();
   await expect(page.locator('[data-testid="aufmass-row"]')).toHaveCount(1);
 });

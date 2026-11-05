@@ -1558,6 +1558,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 styleOpen={styleOpen}
                 onToggleStyle={() => setStyleOpen(!styleOpen)}
                 onColor={(c) => drawing.recolor(drawing.selected!.id, c)}
+                onExtGap={(mm) => drawing.setExtGap(drawing.selected!.id, mm)}
                 onDelete={() => void drawing.remove(drawing.selected!)}
                 onClose={() => drawing.setSelectedId(null)}
               />

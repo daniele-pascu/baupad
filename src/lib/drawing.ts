@@ -330,6 +330,32 @@ export interface DimAnnotation {
   text: string;
   /** true: Text direkt an der Linie, ohne Hilfslinien (z. B. Linienlänge) */
   inline?: boolean;
+  /** Maßlinie (Werkzeug „Maß“): passt die Maßzahl nicht dazwischen, steht sie daneben mit Führungslinie */
+  leader?: boolean;
+}
+
+/**
+ * Maßzahl einer zu kurzen Maßlinie a2–b2 wie im CAD daneben setzen: Führungslinie vom Maß schräg nach oben,
+ * Unterstrich unter der Zahl (gleiche Einheit wie die Eingaben: Bildschirmpixel bzw. Punkt). null = passt dazwischen.
+ */
+export function dimLeader(a2: Point, b2: Point, textW: number, fs: number): { path: Point[]; center: Point; angle: number } | null {
+  const len = Math.hypot(b2.x - a2.x, b2.y - a2.y);
+  if (textW + fs * 0.8 <= len) return null;
+  let angle = (Math.atan2(b2.y - a2.y, b2.x - a2.x) * 180) / Math.PI;
+  if (angle > 90) angle -= 180;
+  if (angle <= -90) angle += 180;
+  const r = (angle * Math.PI) / 180;
+  const d = { x: Math.cos(r), y: Math.sin(r) };
+  const up = { x: Math.sin(r), y: -Math.cos(r) };
+  const mid = { x: (a2.x + b2.x) / 2, y: (a2.y + b2.y) / 2 };
+  // Ende in Leserichtung „rechts“
+  const right = (b2.x - a2.x) * d.x + (b2.y - a2.y) * d.y >= 0 ? b2 : a2;
+  const start = { x: mid.x + (right.x - mid.x) * 0.6, y: mid.y + (right.y - mid.y) * 0.6 };
+  const elbow = { x: start.x + up.x * fs * 1.6 + d.x * fs * 0.9, y: start.y + up.y * fs * 1.6 + d.y * fs * 0.9 };
+  const w = textW + fs * 0.4;
+  const end = { x: elbow.x + d.x * w, y: elbow.y + d.y * w };
+  const center = { x: elbow.x + d.x * (w / 2) + up.x * fs * 0.65, y: elbow.y + d.y * (w / 2) + up.y * fs * 0.65 };
+  return { path: [start, elbow, end], center, angle };
 }
 
 /** Freistehende Beschriftung (z. B. „Ø 2,00 m“). */
@@ -347,7 +373,7 @@ export function annotationsOf(e: Pick<DrawElement, 'type' | 'shape' | 'showDims'
   const s = e.shape;
   if (e.type === 'dimension') {
     const [a, b] = lineEnds(s);
-    dims.push({ a, b, side: -1, text: formatM(dist(a, b)), inline: true });
+    dims.push({ a, b, side: -1, text: formatM(dist(a, b)), inline: true, leader: true });
     return { dims, labels };
   }
   if (e.showDims === false) return { dims, labels };

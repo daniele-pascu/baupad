@@ -389,6 +389,8 @@ export interface DrawElement extends SyncMeta {
   showDims?: boolean;
   /** Maßlinie: Abstand der Maßlinie von der gemessenen Strecke in m (Vorzeichen = Seite) */
   offset?: number;
+  /** Maßlinie: Abstand der Hilfslinien vom gemessenen Objekt in mm (wie im Plan/PDF); fehlt = 1 mm */
+  extGap?: number;
   /** Darstellung (Linientyp, -stärke, Füllung); fehlt = Standarddarstellung */
   style?: ShapeStyle;
 }
