@@ -37,7 +37,7 @@ const SAMPLE: Record<CustomFieldType, string> = {
 /** Schrift wie im ausgefüllten PDF */
 const ink = (f: CustomField) => ({ color: f.color || DEFAULT_FORM_COLOR, fontFamily: fontCss(f), fontWeight: f.bold ? 700 : 400 });
 
-type Drag = { kind: 'move' | 'resize' | 'draw'; id: string; x: number; y: number; box: CustomField['box']; moved?: boolean };
+type Drag = { kind: 'move' | 'resize' | 'draw' | 'inset'; id: string; x: number; y: number; box: CustomField['box']; moved?: boolean; line?: number; side?: 'left' | 'right'; insets?: { left: number; right: number }[] };
 
 export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
   const session = useSession();
@@ -118,6 +118,15 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
     drag.current = { kind, id: f.id, x: e.clientX, y: e.clientY, box: { ...f.box } };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
+  /** Zeilenanfang bzw. -ende ziehen (Einzug je Zeile) */
+  const onInsetDown = (e: ReactPointerEvent, f: CustomField, line: number, side: 'left' | 'right') => {
+    e.stopPropagation();
+    setSel(f.id);
+    const n = lineCapacity(f);
+    const insets = Array.from({ length: n }, (_, i) => ({ left: f.lineInsets?.[i]?.left ?? 0, right: f.lineInsets?.[i]?.right ?? 0 }));
+    drag.current = { kind: 'inset', id: f.id, x: e.clientX, y: e.clientY, box: { ...f.box }, line, side, insets };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
   const onStageDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (!drawing) {
       setSel(null);
@@ -142,6 +151,13 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
     setFields((l) =>
       l.map((f) => {
         if (f.id !== d.id) return f;
+        if (d.kind === 'inset' && d.insets && d.line !== undefined) {
+          const ins = d.insets.map((x) => ({ ...x }));
+          const cur = ins[d.line];
+          if (d.side === 'left') cur.left = Math.max(0, Math.min(f.box.w - cur.right - 8, cur.left + dx));
+          else cur.right = Math.max(0, Math.min(f.box.w - cur.left - 8, cur.right - dx));
+          return { ...f, lineInsets: ins };
+        }
         if (d.kind === 'move') return { ...f, box: { ...f.box, x: Math.max(0, Math.min(width - f.box.w, d.box.x + dx)), y: Math.max(0, Math.min(height - f.box.h, d.box.y + dy)) } };
         const w = (x0: number) => Math.max(8, Math.min(width - x0, d.box.w + dx));
         if (d.kind === 'resize') {
@@ -315,7 +331,13 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
                   {f.type === 'multiline' && f.pitch ? (
                     // Zeilenstreifen: jede Zeile einzeln, erste mit Muster (Feldname bzw. Beispiel)
                     lineBoxes(f).map((b, i) => (
-                      <i key={i} className="form-line-strip" style={{ top: pct(b.y - f.box.y, f.box.h), height: pct(b.h, f.box.h) }} data-testid="form-line-strip">
+                      <i key={i} className="form-line-strip" style={{ top: pct(b.y - f.box.y, f.box.h), height: pct(b.h, f.box.h), left: pct(b.x - f.box.x, f.box.w), width: pct(b.w, f.box.w), right: 'auto' }} data-testid="form-line-strip">
+                        {sel === f.id && (
+                          <>
+                            <b className="form-inset-handle left" onPointerDown={(e) => onInsetDown(e, f, i, 'left')} title="Zeilenanfang ziehen" data-testid="form-inset-left" />
+                            <b className="form-inset-handle right" onPointerDown={(e) => onInsetDown(e, f, i, 'right')} title="Zeilenende ziehen" data-testid="form-inset-right" />
+                          </>
+                        )}
                         <span className="form-sample base" style={{ ...ink(f), fontSize: fontPx(f), paddingBottom: BASELINE_PT * pxPerPt }}>
                           {sample ? (SAMPLE.multiline.split('\n')[i] ?? '') : i === 0 ? f.name || '?' : ''}
                         </span>
@@ -469,6 +491,44 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
                           />
                         </label>
                       )}
+                    </div>
+                    {field.type === 'multiline' && field.pitch && (
+                      <details className="form-line-insets" open={!!field.lineInsets?.some((x) => x.left || x.right)}>
+                        <summary className="small">Beginn und Ende je Zeile (mm)</summary>
+                        <p className="muted small">Einzug vom linken bzw. rechten Rand des Kastens – oder im Formular die Enden der Zeile ziehen.</p>
+                        <table className="form-inset-table" data-testid="form-line-insets">
+                          <thead>
+                            <tr>
+                              <th>Zeile</th>
+                              <th>Beginn</th>
+                              <th>Ende</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {Array.from({ length: lineCapacity(field) }, (_, i) => {
+                              const ins = field.lineInsets?.[i] ?? { left: 0, right: 0 };
+                              const set = (k: 'left' | 'right', mm: number) => {
+                                const all = Array.from({ length: lineCapacity(field) }, (_, j) => ({ left: field.lineInsets?.[j]?.left ?? 0, right: field.lineInsets?.[j]?.right ?? 0 }));
+                                all[i] = { ...all[i], [k]: Math.max(0, mm) * MM_PT };
+                                patch(field.id, { lineInsets: all });
+                              };
+                              return (
+                                <tr key={i}>
+                                  <td>{i + 1}</td>
+                                  <td>
+                                    <input type="number" min={0} step={0.5} value={Math.round((ins.left / MM_PT) * 10) / 10} onChange={(e) => set('left', Number(e.target.value) || 0)} aria-label={`Zeile ${i + 1} Beginn`} data-testid="form-inset-left-mm" />
+                                  </td>
+                                  <td>
+                                    <input type="number" min={0} step={0.5} value={Math.round((ins.right / MM_PT) * 10) / 10} onChange={(e) => set('right', Number(e.target.value) || 0)} aria-label={`Zeile ${i + 1} Ende`} data-testid="form-inset-right-mm" />
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </details>
+                    )}
+                    <div className="rp-grid">
                       <label className="field">
                         <span>Schriftgröße (pt)</span>
                         <input type="number" min={5.5} max={14} step={0.5} value={field.fontSize ?? ''} placeholder={fontSizeOf(field).toFixed(1)} onChange={(e) => {

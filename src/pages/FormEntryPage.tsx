@@ -7,7 +7,7 @@ import { confirmDialog, showError, toast } from '../components/ui';
 import type { ExportFile } from '../lib/aufmass';
 import { deleteFormEntry, getFormEntry, getFormFile, listFormEntries, saveFormEntry } from '../lib/db';
 import { useDataChanged } from '../lib/data-events';
-import { BASELINE_PT, lineBoxes, wrapText, displayValue, entrySiteKey, fits, fontCss, DEFAULT_FORM_COLOR, fmtFieldDate, fontSizeOf, isoWeekLabel, lineCapacity, mainDate, missingRequired, prefill, readingOrder, type CustomField, type FormEntry, type Measure } from '../lib/forms';
+import { BASELINE_PT, lineBoxes, wrapToLines, displayValue, entrySiteKey, fits, fontCss, DEFAULT_FORM_COLOR, fmtFieldDate, fontSizeOf, isoWeekLabel, lineCapacity, mainDate, missingRequired, prefill, readingOrder, type CustomField, type FormEntry, type Measure } from '../lib/forms';
 import { copyFormEntry, formEntryPdf, prefillContext, suggestedPeople } from '../lib/forms-data';
 import { helveticaMeasure } from '../lib/forms-pdf';
 import { usePageTitle } from '../lib/page-title';
@@ -262,12 +262,12 @@ export function FormEntryPage({ entryId }: { entryId: string }) {
                     <div key={f.id} className={`form-preview-box${focus === f.id ? ' focus' : ''}${bad ? ' bad' : ''}`} style={{ left: pct(f.box.x, e.layout.width), top: pct(f.box.y, e.layout.height), width: pct(f.box.w, e.layout.width), height: pct(f.box.h, e.layout.height) }} title={f.name}>
                       {f.type === 'multiline' && f.pitch ? (
                         // Zeilenstreifen: jede Zeile an ihrer Stelle, Schrift auf der Schreiblinie
-                        wrapText(text, f.box.w, fontSizeOf(f), measure)
+                        wrapToLines(f, text, measure)
                           .slice(0, lineCapacity(f))
                           .map((line, i) => {
                             const b = lineBoxes(f)[i];
                             return (
-                              <span key={i} className="form-sample base" style={{ ...inkStyle(f), fontSize: size, top: pct(b.y - f.box.y, f.box.h), height: pct(b.h, f.box.h), bottom: 'auto', paddingBottom: BASELINE_PT * pxPerPt }}>
+                              <span key={i} className="form-sample base" style={{ ...inkStyle(f), fontSize: size, top: pct(b.y - f.box.y, f.box.h), height: pct(b.h, f.box.h), left: pct(b.x - f.box.x, f.box.w), width: pct(b.w, f.box.w), right: 'auto', bottom: 'auto', paddingBottom: BASELINE_PT * pxPerPt }}>
                                 {line}
                               </span>
                             );

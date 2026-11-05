@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { analyzeForm } from '../../src/lib/form-template';
-import { displayValue, duplicateNos, parseNoRange, fieldsFromDetection, fits, isoWeek, isoWeekLabel, lineCapacity, nextFormNo, prefill, readingOrder, wrapText, type CustomField, type FormEntry } from '../../src/lib/forms';
+import { displayValue, duplicateNos, parseNoRange, lineBoxes, wrapToLines, fieldsFromDetection, fits, isoWeek, isoWeekLabel, lineCapacity, nextFormNo, prefill, readingOrder, wrapText, type CustomField, type FormEntry } from '../../src/lib/forms';
 import tagesbericht from '../fixtures/forms/mst-tagesbericht.json';
 
 /** Näherung für Helvetica: 0,5 × Schriftgröße je Zeichen */
@@ -104,5 +104,21 @@ describe('Firmenformulare: Vorschlag aus der Erkennung', () => {
     expect(by('Leistungsbeschreibung')!.lines!).toBeGreaterThan(1);
     expect(by('Facharbeiter')?.type).toBe('number');
     expect(fields.every((f) => f.name.trim() && f.box.w > 0 && f.box.h > 0)).toBe(true);
+  });
+});
+
+describe('Firmenformulare: Zeilen mit eigenem Beginn/Ende', () => {
+  it('Einzug je Zeile verschiebt Anfang bzw. Ende; Umbruch nutzt die Breite jeder Zeile', () => {
+    const f = field({ type: 'multiline', lines: 3, pitch: 20, fontSize: 10, box: { x: 100, y: 50, w: 200, h: 51 }, lineInsets: [{ left: 60, right: 0 }, { left: 0, right: 0 }, { left: 0, right: 100 }] });
+    const b = lineBoxes(f);
+    expect(b.map((x) => [x.x, x.w, x.y])).toEqual([
+      [160, 140, 50],
+      [100, 200, 70],
+      [100, 100, 90],
+    ]);
+    // 10 pt Schrift, Näherung 5 pt je Zeichen: erste Zeile fasst 27 Zeichen, zweite 39
+    const lines = wrapToLines(f, 'aaaaaaaaaa bbbbbbbbbb cccccccccc dddddddddd', measure);
+    expect(lines[0]).toBe('aaaaaaaaaa bbbbbbbbbb');
+    expect(lines[1]).toBe('cccccccccc dddddddddd');
   });
 });

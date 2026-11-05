@@ -30,6 +30,8 @@ export interface CustomField {
   lines?: number;
   /** mehrzeilig: Zeilenabstand in Punkt (Oberkante zu Oberkante). Gesetzt = jede Zeile ein eigener Streifen. */
   pitch?: number;
+  /** mehrzeilig: je Zeile Einzug links und rechts (Punkt, vom Kastenrand) – z. B. erste Zeile nach „Bemerkung:“ */
+  lineInsets?: { left: number; right: number }[];
   /** Schriftgröße in Punkt (sonst passend zur Kastenhöhe, max. 9,5) */
   fontSize?: number;
   /** Auswahlfeld: Möglichkeiten */
@@ -242,7 +244,12 @@ export function lineBoxes(f: CustomField): Box[] {
   // Zeilenstreifen mit eigenem Abstand: jede Zeile so hoch wie die Schrift, Abstand = pitch
   if (f.type === 'multiline' && f.pitch) {
     const th = textBoxHeight(fontSizeOf(f));
-    return Array.from({ length: n }, (_, i) => ({ x: f.box.x, y: f.box.y + i * f.pitch!, w: f.box.w, h: th }));
+    return Array.from({ length: n }, (_, i) => {
+      const ins = f.lineInsets?.[i];
+      const left = Math.max(0, Math.min(f.box.w - 8, ins?.left ?? 0));
+      const right = Math.max(0, Math.min(f.box.w - left - 8, ins?.right ?? 0));
+      return { x: f.box.x + left, y: f.box.y + i * f.pitch!, w: f.box.w - left - right, h: th };
+    });
   }
   const h = f.box.h / n;
   return Array.from({ length: n }, (_, i) => ({ x: f.box.x, y: f.box.y + i * h, w: f.box.w, h }));
@@ -275,10 +282,37 @@ export function wrapText(text: string, width: number, size: number, measure: Mea
   return out;
 }
 
+/** Umbruch auf die Zeilen eines Feldes – jede Zeile mit ihrer eigenen Breite (Einzüge) */
+export function wrapToLines(f: CustomField, text: string, measure: Measure): string[] {
+  const widths = lineBoxes(f).map((b) => b.w);
+  if (widths.every((w) => w === widths[0])) return wrapText(text, widths[0] ?? f.box.w, fontSizeOf(f), measure);
+  const out: string[] = [];
+  const size = fontSizeOf(f);
+  const wAt = (i: number) => Math.max(4, (widths[Math.min(i, widths.length - 1)] ?? f.box.w) - 2);
+  for (const para of text.replace(/\r/g, '').split('\n')) {
+    const words = para.split(/\s+/).filter(Boolean);
+    if (!words.length) {
+      out.push('');
+      continue;
+    }
+    let line = '';
+    for (const word of words) {
+      const probe = line ? `${line} ${word}` : word;
+      if (measure(probe, size) <= wAt(out.length) || !line) line = probe;
+      else {
+        out.push(line);
+        line = word;
+      }
+    }
+    out.push(line);
+  }
+  return out;
+}
+
 /** Passt der Text? Mehrzeilig: Zeilen zählen; einzeilig: Breite bei kleinster Schrift */
 export function fits(f: CustomField, value: string, measure: Measure): { ok: boolean; lines: number; capacity: number } {
   if (f.type === 'multiline') {
-    const lines = wrapText(value, f.box.w, fontSizeOf(f), measure).length;
+    const lines = wrapToLines(f, value, measure).length;
     const capacity = lineCapacity(f);
     return { ok: lines <= capacity, lines, capacity };
   }

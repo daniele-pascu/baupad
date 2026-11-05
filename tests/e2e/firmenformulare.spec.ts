@@ -301,6 +301,21 @@ test('Felder: Namen vorschlagen, Schrift (Größe, Art, Farbe), Wochentag/KW aus
   await panel.getByTestId('form-field-pitch').fill('9');
   expect(Number(await panel.getByTestId('form-field-h').inputValue())).toBeCloseTo(h7 + 2 * 2 * 2.835, 0);
   await panel.getByTestId('form-field-name').fill('Arbeiten');
+  // Beginn/Ende je Zeile: erste Zeile später beginnen (Eingabe), letzte Zeile früher enden (am Ende ziehen)
+  await panel.getByTestId('form-line-insets').locator('xpath=..').locator('summary').click();
+  await panel.getByTestId('form-inset-left-mm').first().fill('20');
+  const s0 = (await strips.nth(0).boundingBox())!;
+  const s1 = (await strips.nth(1).boundingBox())!;
+  expect(s0.x).toBeGreaterThan(s1.x + 10);
+  const handle = page.locator('[data-testid="form-field-box"]').last().getByTestId('form-inset-right').last();
+  const hb = (await handle.boundingBox())!;
+  await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(hb.x + hb.width / 2 - 60, hb.y + hb.height / 2, { steps: 4 });
+  await page.mouse.up();
+  const s2 = (await strips.nth(2).boundingBox())!;
+  expect(s2.x + s2.width).toBeLessThan(s1.x + s1.width - 40);
+  expect(Number(await panel.getByTestId('form-inset-right-mm').last().inputValue())).toBeGreaterThan(5);
   await page.getByTestId('form-editor-stage').screenshot({ path: join(OUT, 'formular-editor-zeilen.png') });
   await page.getByTestId('form-editor-save').click();
   await expect(page.getByTestId('form-editor-state')).toHaveText('gespeichert');
