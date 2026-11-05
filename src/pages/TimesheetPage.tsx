@@ -7,7 +7,7 @@ import { useDataChanged } from '../lib/data-events';
 import { deleteTimeDay, deleteTimeMonth } from '../lib/db';
 import { usePageTitle } from '../lib/page-title';
 import { navigate, paths } from '../lib/router';
-import { canEditSites } from '../lib/sites';
+import { timesScope } from '../lib/times-access';
 import { dayHours, defaultTimes, fmtH, holidayOn, hoursOf, monthDays, monthId, monthLabel, parseHours, plannedHours, shiftMonth, summarize, thisMonth, validTime, weekdayIdx, WEEKDAYS, type TimeDay, type TimeLine } from '../lib/times';
 import { approveMonth, loadTimes, saveDay, storedMonthFile, suggestionFor, workerYearFile, type TimesData } from '../lib/times-data';
 import { useSession } from '../lib/use-session';
@@ -23,20 +23,33 @@ export function TimesheetPage({ workerId, month: m }: { workerId: string; month:
   const month = m ?? thisMonth();
   const [data, setData] = useState<TimesData | null>(null);
   const today = isoDate(new Date());
-  const office = canEditSites(session);
+  const scope = useMemo(() => timesScope(session), [session]);
+  const office = scope.level === 'office';
   const by = session?.name || 'Unbekannt';
   const reload = () =>
-    void loadTimes(month)
+    void loadTimes(month, scope)
       .then(setData)
       .catch((e) => showError(e, 'Monatszettel konnte nicht geladen werden'));
-  useEffect(reload, [month]);
+  useEffect(reload, [month, JSON.stringify(scope)]); // eslint-disable-line react-hooks/exhaustive-deps
   useDataChanged(reload);
   const worker = data?.workers.find((w) => w.id === workerId) ?? null;
   usePageTitle(worker ? `${workerName(worker)} – ${monthLabel(month)} – BauPad` : 'Monatszettel – BauPad');
 
   const days = useMemo(() => new Map((data?.days ?? []).filter((d) => d.workerId === workerId).map((d) => [d.date, d] as const)), [data, workerId]);
   const approval = data?.approvals.find((a) => a.id === monthId(workerId, month)) ?? null;
-  const locked = !!approval && !office;
+  // Arbeiter: nur ansehen; Polier: Monatszettel macht das Büro
+  const locked = scope.level === 'own' || (!!approval && !office);
+  if (scope.level === 'site')
+    return (
+      <>
+        <SiteNav />
+        <div className="page">
+          <p className="muted" data-testid="timesheet-office-only">
+            Monatszettel, Freigabe und Excel macht das Büro. <a href={paths.times()}>Zurück zur Zeitaufzeichnung</a>
+          </p>
+        </div>
+      </>
+    );
   if (!data) return <SiteNav />;
   if (!worker)
     return (

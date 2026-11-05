@@ -332,8 +332,11 @@ export class DataSync {
     const touchedProjects = new Set<string>();
     let changed = false;
     for (;;) {
-      const { records } = await this.call<{ records: RemoteRow[] }>('records-pull', { since: cursor.at || null, after: cursor.id });
-      if (!records.length) break;
+      // neuere Funktion: eigener Cursor und „more“ (Zeitdaten werden für Polier/Arbeiter gefiltert – eine Seite kann
+      // dann weniger Einträge haben, ohne dass es das Ende ist)
+      const res = await this.call<{ records: RemoteRow[]; cursor?: { at: string; id: string } | null; more?: boolean }>('records-pull', { since: cursor.at || null, after: cursor.id });
+      const { records } = res;
+      if (!records.length && !res.more) break;
       const pending = new Set((await listOutbox()).map((e) => e.id));
       for (const row of records) {
         if (pending.has(`${row.store}:${row.id}`)) continue; // lokale Änderung wartet noch – sie gewinnt
@@ -342,9 +345,9 @@ export class DataSync {
         if (PROJECT_STORES.includes(row.store)) touchedProjects.add(row.store === 'projects' ? row.id : String(row.data.projectId ?? ''));
       }
       const last = records[records.length - 1];
-      cursor = { at: last.updated_at, id: last.id };
+      cursor = res.cursor ?? { at: last.updated_at, id: last.id };
       await setMeta(CURSOR, cursor);
-      if (records.length < PAGE) break;
+      if (res.more === undefined ? records.length < PAGE : !res.more) break;
     }
     setState({ status: 'ready', message: null, lastSyncAt: Date.now() });
     if (!changed) return;

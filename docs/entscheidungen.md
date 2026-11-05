@@ -145,3 +145,8 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - Doppelte Einträge: Hinweis schon beim Tippen und Rückfrage beim Speichern (gleiche Artikelnummer beim selben Lieferanten bzw. gleicher Name mit gleicher Einheit; Schreibweise, Umlaute, „m2“/„m²“, „Stück“/„Stk“ egal). Lieferanten: gleicher Name, Rechtsform egal.
 - Abgleich wie alle Tools (Datenarten `materials`, `suppliers`). Solange die Funktion `storage` nicht neu veröffentlicht ist, bleiben nur diese Datensätze in der Warteschlange – alles andere wird normal übertragen.
 - Standardfreigabe: Admin, Büro und Polier; bestehende Benutzer bekommen das Tool vom Admin unter Benutzer & Rollen.
+
+## Zeitaufzeichnung: Rechte (05.11.2026)
+- Eigene Freigabe „Zeitaufzeichnung“ (getrennt von der Arbeitereinteilung; ältere Freigaben „Arbeitereinteilung“ gelten weiter).
+- **Admin/Büro:** alles (alle Arbeiter und Projekte, Monatszettel, Freigabe, Excel). **Polier:** nur Stunden auf seinen freigegebenen Projekten erfassen und sehen (Projekte der Freigabe „Zeitaufzeichnung“, sonst „Arbeitereinteilung“, sonst Baustellenliste; leer = alle); Zeilen anderer Projekte bleiben beim Speichern erhalten; keine Monatszettel, kein Excel. **Arbeiter:** nur die eigenen Stunden ansehen – verknüpft über „BauPad-Konto (E-Mail)“ in der Personalliste.
+- Durchgesetzt auch am Server: Funktion `storage` liefert Polier/Arbeiter Zeitdaten nur gefiltert (Dienstschlüssel), die Tabelle `records` lässt Zeitdaten direkt nur für das Büro zu (`docs/supabase/time-access.sql`). Reihenfolge: erst Funktion veröffentlichen, dann SQL.

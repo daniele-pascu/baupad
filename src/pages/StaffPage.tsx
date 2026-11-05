@@ -14,8 +14,8 @@ import { AbsenceDialog } from './WorkersPage';
 import { useDataChanged } from '../lib/data-events';
 
 type Sort = 'name' | 'grade';
-type Form = { firstName: string; lastName: string; staffNo: string; phone: string; role: string; grade: string };
-const BLANK: Form = { firstName: '', lastName: '', staffNo: '', phone: '', role: '', grade: '' };
+type Form = { firstName: string; lastName: string; staffNo: string; phone: string; role: string; grade: string; userEmail: string };
+const BLANK: Form = { firstName: '', lastName: '', staffNo: '', phone: '', role: '', grade: '', userEmail: '' };
 
 /**
  * Personalliste der Arbeitereinteilung: oben „Neuer Mitarbeiter“ (Fenster), darunter die Liste. Ein Mitarbeiter
@@ -281,7 +281,7 @@ export function workerDuplicates(v: { firstName: string; lastName: string; staff
 
 function WorkerDialog({ worker, others, onClose, onSave }: { worker: Worker | null; others: Worker[]; onClose(): void; onSave(w: Worker): Promise<void> }) {
   const [v, setV] = useState<Form>(
-    worker ? { firstName: worker.firstName, lastName: worker.lastName, staffNo: worker.staffNo ?? '', phone: worker.phone ?? '', role: worker.role ?? '', grade: worker.grade ?? '' } : BLANK,
+    worker ? { firstName: worker.firstName, lastName: worker.lastName, staffNo: worker.staffNo ?? '', phone: worker.phone ?? '', role: worker.role ?? '', grade: worker.grade ?? '', userEmail: worker.userEmail ?? '' } : BLANK,
   );
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -316,6 +316,7 @@ function WorkerDialog({ worker, others, onClose, onSave }: { worker: Worker | nu
       phone: v.phone.trim(),
       role: v.role.trim(),
       grade: (v.grade || undefined) as WorkerGrade | undefined,
+      userEmail: v.userEmail.trim().toLowerCase() || undefined,
       updatedAt: now,
     } as Worker;
     setBusy(true);
@@ -384,6 +385,7 @@ function WorkerDialog({ worker, others, onClose, onSave }: { worker: Worker | nu
         {field('role', 'Tätigkeit / Zusatz', { placeholder: 'z. B. Maurer, Kranführer' })}
         {field('staffNo', 'Personalnummer')}
         {field('phone', 'Telefon', { type: 'tel', inputMode: 'tel' })}
+        {field('userEmail', 'BauPad-Konto (E-Mail) – sieht damit seine eigenen Stunden', { type: 'email', inputMode: 'email', placeholder: 'leer = kein Zugang zu eigenen Stunden' })}
         {show && !v.firstName.trim() && <p className="error small">Bitte einen Vornamen eingeben.</p>}
         <button type="submit" hidden />
       </form>

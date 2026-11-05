@@ -507,6 +507,8 @@ export interface Worker {
   role?: string;
   /** Funktion: Projektleiter, Polier, Vorarbeiter, Facharbeiter, Hilfsarbeiter (techniker/bautechniker nur noch aus alten Daten, gilt als keine Funktion) */
   grade?: WorkerGrade;
+  /** E-Mail des BauPad-Kontos dieses Arbeiters – damit sieht er in der Zeitaufzeichnung seine eigenen Stunden */
+  userEmail?: string;
   /** inaktiv: wird nicht mehr zum Einteilen angeboten, bleibt in alten Wochen sichtbar */
   active: boolean;
   createdAt: number;

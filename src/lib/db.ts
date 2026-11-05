@@ -630,6 +630,9 @@ export async function putFormFile(fileId: string, pdf: ArrayBuffer): Promise<voi
 export async function listTimeDays(month: string): Promise<TimeDay[]> {
   return (await getDB()).getAllFromIndex('timeDays', 'month', month);
 }
+export async function getTimeDay(id: string): Promise<TimeDay | undefined> {
+  return (await getDB()).get('timeDays', id);
+}
 export async function saveTimeDay(d: TimeDay): Promise<void> {
   await putSynced('timeDays', d);
 }

@@ -8,7 +8,7 @@ import { addDays, gradeLabel, isoDate, knownGrade, sortByGrade, workerName } fro
 import { useDataChanged } from '../lib/data-events';
 import { usePageTitle } from '../lib/page-title';
 import { navigate, paths } from '../lib/router';
-import { canEditSites } from '../lib/sites';
+import { lineAllowed, timesScope, type TimesScope } from '../lib/times-access';
 import { companyPause, defaultTimes, fmtH, fmtPause, hoursOf, monthId, monthLabel, monthOf, parseHours, pauseOf, pauseTimes, shiftMonth, summarize, timesXlsx, validTime, weekdayIdx, type TimeDay } from '../lib/times';
 import { loadTimes, saveDay, setDayAbsence, suggestionFor, workerYearFile, type TimesData } from '../lib/times-data';
 import { useSession } from '../lib/use-session';
@@ -34,21 +34,25 @@ export function TimesPage({ month: m, date: d }: { month: string | null; date: s
   const [dayData, setDayData] = useState<TimesData | null>(null);
   const [extra, setExtra] = useState<string[]>([]);
   const by = session?.name || 'Unbekannt';
+  /** Rechte: Büro alles, Polier nur seine Projekte, Arbeiter nur eigene Stunden (lesen) */
+  const scope = useMemo(() => timesScope(session), [session]);
+  const scopeKey = JSON.stringify(scope);
+  const office = scope.level === 'office';
   /** Arbeitszeiten der Firma: einmalig fragen (gilt für alle im Unternehmen), später über die Taste ändern */
   const [setup, setSetup] = useState<'auto' | 'open' | 'skipped' | null>(null);
   useEffect(() => {
-    if (data && !data.timesSet && setup === null) setSetup('auto');
-  }, [data, setup]);
+    if (data && !data.timesSet && setup === null && office) setSetup('auto');
+  }, [data, setup, office]);
 
   const reload = () => {
-    void loadTimes(month)
+    void loadTimes(month, scope)
       .then(setData)
       .catch((e) => showError(e, 'Zeitaufzeichnung konnte nicht geladen werden'));
-    void loadTimes(monthOf(date))
+    void loadTimes(monthOf(date), scope)
       .then(setDayData)
       .catch(() => setDayData(null));
   };
-  useEffect(reload, [month, date]);
+  useEffect(reload, [month, date, scopeKey]); // eslint-disable-line react-hooks/exhaustive-deps
   useDataChanged(reload);
   useEffect(() => setExtra([]), [date]);
   /** „Meine Arbeiter“: Polier/Arbeiter wählt aus, wen er erfasst (gemerkt je Benutzer auf diesem Gerät); leer = alle */
@@ -114,11 +118,13 @@ export function TimesPage({ month: m, date: d }: { month: string | null; date: s
             </a>
             <h1 data-testid="times-title">Zeitaufzeichnung</h1>
           </div>
-          <button type="button" className="btn btn-sm" onClick={() => setSetup('open')} title="Arbeitszeiten des Unternehmens (Vorschlag beim Erfassen)" data-testid="times-worktimes">
-            <Icon name="settings" size={16} /> <span className="lbl">Arbeitszeiten</span>
-          </button>
+          {office && (
+            <button type="button" className="btn btn-sm" onClick={() => setSetup('open')} title="Arbeitszeiten des Unternehmens (Vorschlag beim Erfassen)" data-testid="times-worktimes">
+              <Icon name="settings" size={16} /> <span className="lbl">Arbeitszeiten</span>
+            </button>
+          )}
         </header>
-        {data && (setup === 'auto' || setup === 'open') && (
+        {data && office && (setup === 'auto' || setup === 'open') && (
           <WorkTimesDialog
             times={data.times}
             first={setup === 'auto'}
@@ -137,7 +143,7 @@ export function TimesPage({ month: m, date: d }: { month: string | null; date: s
 
         <section className="times-card" data-testid="times-day">
           <header className="times-card-head times-day-head">
-            <h2>Tag erfassen</h2>
+            <h2>{scope.level === 'own' ? 'Meine Stunden' : 'Tag erfassen'}</h2>
             <div className="times-day-nav">
               <button type="button" className="icon-link" onClick={() => setDate(addDays(date, -1))} aria-label="Vortag" title="Vortag" data-testid="times-day-prev">
                 <Icon name="back" size={18} />
@@ -156,16 +162,33 @@ export function TimesPage({ month: m, date: d }: { month: string | null; date: s
               </button>
             )}
           </header>
+          {scope.level === 'site' && scope.sites.length > 0 && (
+            <p className="muted small" data-testid="times-scope-site">
+              Du siehst und erfasst nur Stunden auf deinen freigegebenen Projekten.
+            </p>
+          )}
+          {scope.level === 'own' && (
+            <p className="muted small" data-testid="times-scope-own">
+              {data && !data.workers.length ? 'Dein Konto ist noch keinem Arbeiter zugeordnet – das Büro trägt deine E-Mail in der Personalliste ein.' : 'Deine eigenen Stunden – eintragen und ändern macht der Polier bzw. das Büro.'}
+            </p>
+          )}
+          {scope.level !== 'own' && (
           <div className="times-mine">
             <button type="button" className="btn btn-sm" onClick={() => setPicking(true)} data-testid="times-pick">
               <ToolIcon name="workers" size={16} /> {mine.length ? `Meine Arbeiter (${mine.length})` : 'Arbeiter auswählen'}
             </button>
             <span className="muted small">{mine.length ? 'Nur deine Arbeiter – je Arbeiter nur die Tage ausfüllen, an denen er bei dir war.' : 'Alle Arbeiter des Tages – oder deine Arbeiter auswählen.'}</span>
           </div>
+          )}
           {picking && dayData && <PickWorkers workers={dayData.workers} selected={mine} onClose={() => setPicking(false)} onSave={(ids) => (saveMine(ids), setPicking(false))} />}
-          {dayData ? <DayList data={dayData} date={date} by={by} office={canEditSites(session)} mine={mine} extra={extra} onExtra={(id) => setExtra((l) => [...l, id])} onSaved={reload} /> : <p className="muted small">Wird geladen …</p>}
+          {dayData ? <DayList data={dayData} date={date} by={by} office={office} scope={scope} mine={mine} extra={extra} onExtra={(id) => setExtra((l) => [...l, id])} onSaved={reload} /> : <p className="muted small">Wird geladen …</p>}
         </section>
 
+        {scope.level === 'site' ? (
+          <p className="muted small times-card" data-testid="times-month-office">
+            Monatszettel, Freigabe und Excel macht das Büro.
+          </p>
+        ) : (
         <section className="times-card" data-testid="times-month">
           <header className="times-card-head">
             <h2>Monatszettel</h2>
@@ -178,14 +201,18 @@ export function TimesPage({ month: m, date: d }: { month: string | null; date: s
                 <Icon name="next" size={18} />
               </button>
             </div>
+            {office && (
             <button type="button" className="btn btn-sm btn-primary times-excel" onClick={yearFiles} disabled={!data} title="Je Arbeiter die Zeitaufzeichnung in der Firmenvorlage (alle Monate, Formeln, Feiertage) – als ZIP" data-testid="times-year-files">
               <Icon name="excel" size={16} /> Zeitaufzeichnung {month.slice(0, 4)} (alle)
             </button>
+            )}
+            {office && (
             <button type="button" className="btn btn-sm" onClick={excel} disabled={!data} title="Zusätzliche Kurzliste des Monats (nicht die Firmenvorlage)" data-testid="times-excel">
               <Icon name="excel" size={16} /> Kurzliste Monat
             </button>
+            )}
           </header>
-          {data && rows.length === 0 && (
+          {data && rows.length === 0 && office && (
             <div className="crew-setup">
               <span className="tile-icon">
                 <ToolIcon name="times" size={22} />
@@ -228,23 +255,25 @@ export function TimesPage({ month: m, date: d }: { month: string | null; date: s
             ))}
           </ul>
         </section>
+        )}
       </div>
     </>
   );
 }
 
 /** Arbeiter eines Tages: eingeteilte, bereits erfasste und dazugeholte */
-function DayList({ data, date, by, office, mine, extra, onExtra, onSaved }: { data: TimesData; date: string; by: string; office: boolean; mine: string[]; extra: string[]; onExtra(id: string): void; onSaved(): void }) {
+function DayList({ data, date, by, office, scope, mine, extra, onExtra, onSaved }: { data: TimesData; date: string; by: string; office: boolean; scope: TimesScope; mine: string[]; extra: string[]; onExtra(id: string): void; onSaved(): void }) {
+  const readOnly = scope.level === 'own';
   const items = data.workers
     .filter((w) => !mine.length || mine.includes(w.id) || extra.includes(w.id))
-    .map((w) => ({ w, rec: data.days.find((x) => x.workerId === w.id && x.date === date) ?? null, sugg: suggestionFor(data, w.id, date), locked: data.approvals.some((a) => a.id === monthId(w.id, data.month)) && !office }))
+    .map((w) => ({ w, rec: data.days.find((x) => x.workerId === w.id && x.date === date) ?? null, sugg: suggestionFor(data, w.id, date), locked: readOnly || (data.approvals.some((a) => a.id === monthId(w.id, data.month)) && !office) }))
     // eigene Auswahl: alle gewählten zeigen (auch ohne Einteilung); sonst wie bisher die Arbeiter des Tages
     .filter((x) => (mine.length && x.w.active) || x.rec || x.sugg.lines.length || x.sugg.absence || extra.includes(x.w.id))
     .sort((a, b) => (a.rec?.lines[0]?.siteName ?? a.sugg.lines[0]?.siteName ?? 'zzz').localeCompare(b.rec?.lines[0]?.siteName ?? b.sugg.lines[0]?.siteName ?? 'zzz', 'de') || workerName(a.w).localeCompare(workerName(b.w), 'de'));
   const pending = items.filter((x) => !x.rec && x.sugg.lines.length && !x.locked);
-  const others = data.workers.filter((w) => w.active && !items.some((x) => x.w.id === w.id));
+  const others = readOnly ? [] : data.workers.filter((w) => w.active && !items.some((x) => x.w.id === w.id));
   const confirmAll = () =>
-    void Promise.all(pending.map((x) => saveDay(x.w.id, date, x.sugg.lines, by)))
+    void Promise.all(pending.map((x) => saveDay(x.w.id, date, x.sugg.lines, by, { scope })))
       .then(() => {
         toast(`${pending.length} ${pending.length === 1 ? 'Arbeiter' : 'Arbeiter'} übernommen.`, 'success');
         onSaved();
@@ -257,7 +286,7 @@ function DayList({ data, date, by, office, mine, extra, onExtra, onSaved }: { da
       {items.length === 0 && <p className="muted small">An diesem Tag ist niemand eingeteilt. Arbeiter unten hinzufügen.</p>}
       <ul className="times-day-list">
         {items.map((x) => (
-          <DayRow key={`${x.w.id}-${date}`} w={x.w} date={date} rec={x.rec} sugg={x.sugg} data={data} by={by} locked={x.locked} onSaved={onSaved} />
+          <DayRow key={`${x.w.id}-${date}`} w={x.w} date={date} rec={x.rec} sugg={x.sugg} data={data} by={by} scope={scope} locked={x.locked} onSaved={onSaved} />
         ))}
       </ul>
       <div className="row gap wrap times-day-actions">
@@ -424,7 +453,9 @@ export function TimeInputs({ from, to, pauseFrom, pauseTo, pause, disabled, onCh
 }
 
 /** eine Zeile in „Tag erfassen“: Baustelle, von, bis, Pause → Stunden, Wegzeit; Vorschlag grau bis bestätigt */
-function DayRow({ w, date, rec, sugg, data, by, locked, onSaved }: { w: Worker; date: string; rec: TimeDay | null; sugg: ReturnType<typeof suggestionFor>; data: TimesData; by: string; locked: boolean; onSaved(): void }) {
+function DayRow({ w, date, rec, sugg: rawSugg, data, by, scope, locked, onSaved }: { w: Worker; date: string; rec: TimeDay | null; sugg: ReturnType<typeof suggestionFor>; data: TimesData; by: string; scope: TimesScope; locked: boolean; onSaved(): void }) {
+  // Polier: Vorschläge aus der Einteilung nur für seine Projekte
+  const sugg = scope.level === 'site' ? { ...rawSugg, lines: rawSugg.lines.filter((l) => lineAllowed(l, scope)) } : rawSugg;
   const base = rec ? rec.lines : sugg.lines;
   const multi = base.length > 1;
   const first = base[0] ?? null;
@@ -448,12 +479,12 @@ function DayRow({ w, date, rec, sugg, data, by, locked, onSaved }: { w: Worker; 
     const tt = next.t ?? t;
     const tr = parseHours(next.travel ?? travel);
     if (!s || !validTime(tt.from) || !validTime(tt.to)) return;
-    void saveDay(w.id, date, [{ projectId: s.projectId, siteName: s.siteName, from: tt.from, to: tt.to, pause: tt.pause, ...(tt.pauseFrom && tt.pauseTo ? { pauseFrom: tt.pauseFrom, pauseTo: tt.pauseTo } : {}), hours: 0, ...(tr ? { travel: tr } : {}) }], by, { prev: rec ?? undefined, approved, remember: true })
+    void saveDay(w.id, date, [{ projectId: s.projectId, siteName: s.siteName, from: tt.from, to: tt.to, pause: tt.pause, ...(tt.pauseFrom && tt.pauseTo ? { pauseFrom: tt.pauseFrom, pauseTo: tt.pauseTo } : {}), hours: 0, ...(tr ? { travel: tr } : {}) }], by, { prev: rec ?? undefined, approved, remember: true, scope })
       .then(onSaved)
       .catch((e) => showError(e, 'Speichern fehlgeschlagen'));
   };
   const absence = sugg.absence;
-  const setAbsence = (kind: 'urlaub' | 'krank' | null) => void setDayAbsence(w.id, date, kind, by).then(onSaved, (e) => showError(e, 'Speichern fehlgeschlagen'));
+  const setAbsence = (kind: 'urlaub' | 'krank' | null) => void setDayAbsence(w.id, date, kind, by, scope).then(onSaved, (e) => showError(e, 'Speichern fehlgeschlagen'));
   return (
     <li ref={rowRef} className={`times-day-row${rec ? ' done' : ' suggested'}${multi ? ' multi' : ''}${absence ? ' absent' : ''}`} data-testid="times-day-row" data-name={workerName(w)} data-state={rec ? 'done' : 'suggested'}>
       <span className="times-day-name">
@@ -504,7 +535,7 @@ function DayRow({ w, date, rec, sugg, data, by, locked, onSaved }: { w: Worker; 
         </>
       )}
       {!rec && !locked && first && !absence && (
-        <button type="button" className="btn btn-sm times-take" onClick={() => void saveDay(w.id, date, sugg.lines, by).then(onSaved)} data-testid="times-take" title="Vorschlag übernehmen">
+        <button type="button" className="btn btn-sm times-take" onClick={() => void saveDay(w.id, date, sugg.lines, by, { scope }).then(onSaved)} data-testid="times-take" title="Vorschlag übernehmen">
           <Icon name="check" size={16} />
         </button>
       )}

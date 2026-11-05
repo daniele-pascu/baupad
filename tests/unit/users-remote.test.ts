@@ -41,7 +41,7 @@ describe('Benutzerverwaltung in der Datenbank', () => {
     const rpc = vi.fn(async (fn: string) => ({ data: fn === 'upsert_workspace_user' ? { status: 'invited', id: 'inv:neu@muster.at' } : null, error: null }));
     withRpc(rpc);
     const saved = await saveCompanyUser({ email: ' Neu@Muster.at ', name: 'Neu', role: 'arbeiter', tools: [], pkg: 'team', active: true, sites: ['n:garage'], toolSites: { photos: ['p:x'] } }, admin);
-    expect(rpc).toHaveBeenCalledWith('upsert_workspace_user', { p_email: 'neu@muster.at', p_name: 'Neu', p_role: 'arbeiter', p_tools: ['photos'], p_pkg: 'team', p_active: true, p_sites: ['n:garage'], p_tool_sites: { photos: ['p:x'] } });
+    expect(rpc).toHaveBeenCalledWith('upsert_workspace_user', { p_email: 'neu@muster.at', p_name: 'Neu', p_role: 'arbeiter', p_tools: ['times', 'photos'], p_pkg: 'team', p_active: true, p_sites: ['n:garage'], p_tool_sites: { photos: ['p:x'] } });
     expect(saved.status).toBe('invited');
     await removeCompanyUser(saved, admin);
     expect(rpc).toHaveBeenLastCalledWith('remove_workspace_user', { p_email: 'neu@muster.at' });

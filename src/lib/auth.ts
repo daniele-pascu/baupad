@@ -21,12 +21,13 @@ export const ROLES: { id: Role; label: string; text: string }[] = [
   { id: 'arbeiter', label: 'Arbeiter', text: 'Fotos der freigegebenen Baustellen' },
 ];
 
-export type ToolId = 'projects' | 'workers' | 'reports' | 'photos' | 'defects' | 'materials';
+export type ToolId = 'projects' | 'workers' | 'times' | 'reports' | 'photos' | 'defects' | 'materials';
 /** je Werkzeug: Projekt-Schlüssel (p:<Projekt>), auf die der Benutzer zugreifen darf; fehlt/leer = alle Projekte */
 export type ToolSites = Partial<Record<ToolId, string[]>>;
 export const TOOLS: { id: ToolId; label: string }[] = [
   { id: 'projects', label: 'Aufmaß & Abrechnung' },
   { id: 'workers', label: 'Arbeitereinteilung' },
+  { id: 'times', label: 'Zeitaufzeichnung' },
   { id: 'reports', label: 'Berichte & Formulare' },
   { id: 'photos', label: 'Fotodokumentation' },
   { id: 'defects', label: 'Mängelplan' },
@@ -38,11 +39,11 @@ export function defaultToolsForRole(role: Role): ToolId[] {
   switch (role) {
     case 'admin':
     case 'buero':
-      return ['projects', 'workers', 'reports', 'photos', 'defects', 'materials'];
+      return ['projects', 'workers', 'times', 'reports', 'photos', 'defects', 'materials'];
     case 'polier':
-      return ['photos', 'reports', 'defects', 'materials'];
+      return ['times', 'photos', 'reports', 'defects', 'materials'];
     case 'arbeiter':
-      return ['photos'];
+      return ['times', 'photos'];
   }
 }
 

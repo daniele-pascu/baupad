@@ -25,7 +25,7 @@ const TOOLS: Tool[] = [
   { id: 'photos', title: 'Fotodokumentation', text: 'Fotos je Baustelle, Woche und Tag', color: '#111111', href: paths.photos() },
   { id: 'reports', title: 'Berichte & Formulare', text: 'Regielisten, Bautages- und Wochenberichte', color: '#a259ff', href: paths.reports() },
   { id: 'defects', title: 'Mängelplan', text: 'Mängel im Plan markieren, Fotos und PDF', color: '#d6242b', href: paths.defects() },
-  { id: 'times', title: 'Zeitaufzeichnung', text: 'Stunden je Arbeiter und Tag, Monatszettel, Excel', color: '#0f9d76', href: paths.times(), tool: 'workers' },
+  { id: 'times', title: 'Zeitaufzeichnung', text: 'Stunden je Arbeiter und Tag, Monatszettel, Excel', color: '#0f9d76', href: paths.times() },
   { id: 'materials', title: 'Materialverwaltung', text: 'Materialien und Lieferanten der Firma', color: '#c2850c', href: paths.materials() },
 ];
 

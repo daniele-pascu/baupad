@@ -8,7 +8,8 @@
 //   upsert      { photos: [{ id, data, size, has_original, uploaded, deleted_at? }] } → Verzeichnis schreiben
 //   pull        { since: ISO-Zeit | null }                                          → geänderte Einträge seit …
 //   records-upsert { records: [{ store, id, data, rev, deleted_at? }] }            → Datensätze aller Werkzeuge (Tabelle records)
-//   records-pull   { since: ISO-Zeit | null, after: id }                           → Datensätze seit Cursor (Zeit + Kennung), 500 je Seite
+//   records-pull   { since: ISO-Zeit | null, after: id }                           → Datensätze seit Cursor (Zeit + Kennung), 500 je Seite;
+//                  Antwort mit cursor/more. Zeitaufzeichnung: Polier nur Zeilen seiner Projekte, Arbeiter nur eigene Tage (s. TIME_STORES)
 //   delete      { keys: [...] }                                                     → Dateien löschen (Server)
 //   usage       {}                                                                  → Anzahl und Bytes
 //   status      {}  (nur Betreiber)  → prüft Zugangsdaten gegen den Bucket
@@ -157,7 +158,25 @@ function config(): S3Config | null {
 }
 
 /** Arbeitsbereich und Betreiber-Kennzeichen des angemeldeten Benutzers (über my_context mit seinem JWT, RLS gilt) */
-async function context(req: Request): Promise<{ ws: string | null; operator: boolean; token: string } | null> {
+export interface Ctx {
+  ws: string | null;
+  operator: boolean;
+  token: string;
+  role: string;
+  email: string;
+  sites: string[];
+  toolSites: Record<string, string[]>;
+}
+/** E-Mail aus dem (von my_context schon geprüften) Anmelde-Token */
+function tokenEmail(token: string): string {
+  try {
+    const part = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    return String((JSON.parse(atob(part)) as { email?: string }).email ?? '').trim().toLowerCase();
+  } catch {
+    return '';
+  }
+}
+async function context(req: Request): Promise<Ctx | null> {
   const auth = req.headers.get('authorization') ?? '';
   const token = auth.replace(/^Bearer\s+/i, '');
   if (!token) return null;
@@ -167,8 +186,8 @@ async function context(req: Request): Promise<{ ws: string | null; operator: boo
     body: '{}',
   });
   if (!r.ok) return null;
-  const ctx = (await r.json()) as { workspace_id: string | null; operator: boolean } | null;
-  return { ws: ctx?.workspace_id ?? null, operator: Boolean(ctx?.operator), token };
+  const ctx = (await r.json()) as { workspace_id: string | null; operator: boolean; role?: string; sites?: string[]; tool_sites?: Record<string, string[]> } | null;
+  return { ws: ctx?.workspace_id ?? null, operator: Boolean(ctx?.operator), token, role: ctx?.role ?? '', email: tokenEmail(token), sites: ctx?.sites ?? [], toolSites: ctx?.tool_sites ?? {} };
 }
 
 /** Datenbankzugriff mit der Anmeldung des Benutzers (Zugriffsregeln der Tabelle gelten) */
@@ -182,12 +201,67 @@ async function rest(token: string, path: string, init: RequestInit & { prefer?: 
   return text ? JSON.parse(text) : null;
 }
 
+// ---- Zeitaufzeichnung: wer bekommt welche Stunden ------------------------------------------------
+// Büro (Admin, Büro, Betreiber): alles. Polier: nur Zeilen auf seinen Projekten (Freigabe „Zeitaufzeichnung“, sonst
+// „Arbeitereinteilung“, sonst Baustellenliste; leer = alle). Arbeiter: nur Tage der Arbeiter, deren hinterlegte
+// Konto-E-Mail (Personalliste, userEmail) zu seiner Anmeldung passt; Arbeiter schreiben keine Stunden.
+// Die Tabelle `records` lässt Zeitdaten nur für das Büro zu (docs/supabase/time-access.sql) – Polier und Arbeiter
+// bekommen sie ausschließlich gefiltert über diese Funktion (mit dem Dienstschlüssel).
+export const TIME_STORES = ['timeDays', 'timeMonths'];
+type TimeLine = { projectId: string | null; siteName: string; [k: string]: unknown };
+export type TimeScope = { level: 'office' } | { level: 'site'; sites: string[] } | { level: 'own'; email: string };
+export function timeScopeOf(c: Pick<Ctx, 'operator' | 'role' | 'email' | 'sites' | 'toolSites'>): TimeScope {
+  if (c.operator || c.role === 'admin' || c.role === 'buero' || !c.role) return { level: 'office' };
+  if (c.role === 'polier') {
+    const t = c.toolSites?.times ?? [];
+    const w = c.toolSites?.workers ?? [];
+    return { level: 'site', sites: t.length ? t : w.length ? w : (c.sites ?? []) };
+  }
+  return { level: 'own', email: c.email };
+}
+const siteKey = (l: TimeLine) => (l.projectId ? `p:${l.projectId}` : `n:${String(l.siteName ?? '').trim().toLowerCase()}`);
+const lineOk = (l: TimeLine, scope: TimeScope) => scope.level === 'office' || (scope.level === 'site' && (!scope.sites.length || scope.sites.includes(siteKey(l))));
+type Row = { store: string; id: string; data: Record<string, unknown>; updated_at: string; deleted_at: string | null; [k: string]: unknown };
+/** Zeit-Datensatz für eine eingeschränkte Person: zugeschnitten, oder als „gelöscht“ (damit alte Kopien verschwinden) */
+export function filterTimeRow(row: Row, scope: TimeScope, ownWorkers: Set<string>): Row {
+  if (scope.level === 'office' || row.deleted_at) return row;
+  const gone = { ...row, data: {}, deleted_at: row.updated_at };
+  if (scope.level === 'own') return ownWorkers.has(String(row.data.workerId ?? '')) ? row : gone;
+  if (row.store !== 'timeDays') return gone; // Monatsfreigaben nur für das Büro
+  const lines = ((row.data.lines as TimeLine[]) ?? []).filter((l) => lineOk(l, scope));
+  return lines.length ? { ...row, data: { ...row.data, lines } } : gone;
+}
+/** Speichern durch den Polier: seine Zeilen ersetzen, Zeilen anderer Projekte aus dem gespeicherten Stand bleiben */
+export function mergeTimeDay(existing: Record<string, unknown> | null, incoming: Record<string, unknown>, deleted: boolean, scope: TimeScope): { data: Record<string, unknown>; deleted: boolean } {
+  const hidden = ((existing?.lines as TimeLine[]) ?? []).filter((l) => !lineOk(l, scope));
+  const mine = deleted ? [] : ((incoming.lines as TimeLine[]) ?? []).filter((l) => lineOk(l, scope));
+  if (deleted && !hidden.length) return { data: {}, deleted: true };
+  return { data: { ...(existing ?? {}), ...(deleted ? {} : incoming), lines: [...hidden, ...mine] }, deleted: false };
+}
+/** Datenbank mit dem Dienstschlüssel (nur für die gefilterte Zeitaufzeichnung) */
+async function service(path: string, init: RequestInit & { prefer?: string } = {}) {
+  const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+  if (!key) throw new Error('service-key');
+  const r = await fetch(`${Deno.env.get('SUPABASE_URL')}/rest/v1/${path}`, {
+    ...init,
+    headers: { apikey: key, ...(key.startsWith('eyJ') ? { Authorization: `Bearer ${key}` } : {}), 'Content-Type': 'application/json', ...(init.prefer ? { Prefer: init.prefer } : {}), ...(init.headers ?? {}) },
+  });
+  const text = await r.text();
+  if (!r.ok) throw new Error(`db ${r.status} ${text.slice(0, 200)}`);
+  return text ? JSON.parse(text) : null;
+}
+async function ownWorkerIds(ws: string, email: string): Promise<Set<string>> {
+  if (!email) return new Set();
+  const rows = (await service(`records?workspace_id=eq.${ws}&store=eq.workers&deleted_at=is.null&data->>userEmail=eq.${encodeURIComponent(email)}&select=id`)) as { id: string }[];
+  return new Set(rows.map((r) => r.id));
+}
+
 const KEY_RE = /^(photos\/[A-Za-z0-9_-]{4,64}\/(data|thumb|original)\.jpg|files\/[A-Za-z0-9_-]{4,64}\/(data\.bin|data\.jpg|thumb\.jpg|pdf\.pdf))$/;
 const STORES = ['projects', 'costCenters', 'files', 'plans', 'damages', 'components', 'elements', 'lvDocs', 'workers', 'weeks', 'reports', 'defectPlans', 'defectMarks', 'formTemplates', 'formEntries', 'timeDays', 'timeMonths', 'materials', 'suppliers', 'meta'];
 /** Kennung eines Datensatzes; „|“ für Zeitaufzeichnung (Arbeiter|Datum) */
 const RECORD_ID_RE = /^[A-Za-z0-9_:.|-]{1,80}$/;
 
-Deno.serve(async (req: Request) => {
+export async function handler(req: Request): Promise<Response> {
   const origin = req.headers.get('origin');
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors(origin) });
   if (req.method !== 'POST') return json(405, { error: 'method' }, origin);
@@ -269,11 +343,22 @@ Deno.serve(async (req: Request) => {
         store: String(r.store),
         id: String(r.id),
         workspace_id: ctx.ws,
-        data: r.data ?? {},
+        data: (r.data ?? {}) as Record<string, unknown>,
         rev: Number(r.rev ?? 0),
         deleted_at: r.deleted_at ? new Date(Number(r.deleted_at)).toISOString() : null,
       }));
-      await rest(ctx.token, 'records?on_conflict=workspace_id,store,id', { method: 'POST', body: JSON.stringify(rows), prefer: 'resolution=merge-duplicates,return=minimal' });
+      const scope = timeScopeOf(ctx);
+      const timeRows = scope.level === 'office' ? [] : rows.filter((r) => TIME_STORES.includes(r.store));
+      const other = scope.level === 'office' ? rows : rows.filter((r) => !TIME_STORES.includes(r.store));
+      if (other.length) await rest(ctx.token, 'records?on_conflict=workspace_id,store,id', { method: 'POST', body: JSON.stringify(other), prefer: 'resolution=merge-duplicates,return=minimal' });
+      // Polier: nur Tage, zusammengeführt mit dem gespeicherten Stand; Arbeiter und Monatsfreigaben: nichts
+      if (scope.level === 'site') {
+        for (const r of timeRows.filter((x) => x.store === 'timeDays')) {
+          const cur = ((await service(`records?workspace_id=eq.${ctx.ws}&store=eq.timeDays&id=eq.${encodeURIComponent(r.id)}&select=data,deleted_at`)) as { data: Record<string, unknown>; deleted_at: string | null }[])[0];
+          const m = mergeTimeDay(cur && !cur.deleted_at ? cur.data : null, r.data, !!r.deleted_at, scope);
+          await service('records?on_conflict=workspace_id,store,id', { method: 'POST', body: JSON.stringify([{ ...r, data: m.data, deleted_at: m.deleted ? new Date().toISOString() : null }]), prefer: 'resolution=merge-duplicates,return=minimal' });
+        }
+      }
       return json(200, { ok: true }, origin);
     }
 
@@ -283,8 +368,27 @@ Deno.serve(async (req: Request) => {
       const after = typeof body.after === 'string' ? body.after : '';
       const t = encodeURIComponent(since);
       const filter = `or=(updated_at.gt.${t},and(updated_at.eq.${t},id.gt."${encodeURIComponent(after)}"))`;
-      const rows = (await rest(ctx.token, `records?workspace_id=eq.${ctx.ws}&${filter}&order=updated_at.asc,id.asc&limit=500`)) as Record<string, unknown>[];
-      return json(200, { records: rows }, origin);
+      const scope = timeScopeOf(ctx);
+      if (scope.level === 'office') {
+        const rows = (await rest(ctx.token, `records?workspace_id=eq.${ctx.ws}&${filter}&order=updated_at.asc,id.asc&limit=500`)) as Row[];
+        const last = rows[rows.length - 1];
+        return json(200, { records: rows, cursor: last ? { at: last.updated_at, id: last.id } : null, more: rows.length === 500 }, origin);
+      }
+      // Polier/Arbeiter: übrige Daten wie bisher, Zeitdaten getrennt (Dienstschlüssel) und gefiltert; gemeinsamer Cursor
+      const notTime = `&store=not.in.(${TIME_STORES.join(',')})`;
+      const a = (await rest(ctx.token, `records?workspace_id=eq.${ctx.ws}${notTime}&${filter}&order=updated_at.asc,id.asc&limit=500`)) as Row[];
+      let b: Row[] = [];
+      let own = new Set<string>();
+      try {
+        b = (await service(`records?workspace_id=eq.${ctx.ws}&store=in.(${TIME_STORES.join(',')})&${filter}&order=updated_at.asc,id.asc&limit=500`)) as Row[];
+        if (scope.level === 'own') own = await ownWorkerIds(ctx.ws, scope.email);
+      } catch {
+        b = []; // ohne Dienstschlüssel: keine Zeitdaten
+      }
+      const merged = [...a, ...b].sort((x, y) => (x.updated_at < y.updated_at ? -1 : x.updated_at > y.updated_at ? 1 : x.id < y.id ? -1 : x.id > y.id ? 1 : 0)).slice(0, 500);
+      const last = merged[merged.length - 1];
+      const out = merged.map((r) => (TIME_STORES.includes(r.store) ? filterTimeRow(r, scope, own) : r));
+      return json(200, { records: out, cursor: last ? { at: last.updated_at, id: last.id } : null, more: a.length === 500 || b.length === 500 }, origin);
     }
 
     if (action === 'delete') {
@@ -310,4 +414,8 @@ Deno.serve(async (req: Request) => {
     console.error(action, e);
     return json(500, { error: 'failed', detail: String(e).slice(0, 300) }, origin);
   }
-});
+}
+
+// In Supabase (Deno) starten; in Tests (Node) werden nur die Hilfsfunktionen benutzt
+const denoRt = (globalThis as { Deno?: { serve(h: (req: Request) => Promise<Response>): void } }).Deno;
+if (denoRt) denoRt.serve(handler);

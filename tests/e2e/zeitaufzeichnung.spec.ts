@@ -145,10 +145,10 @@ test('Tag erfassen, Monatszettel mit Wegzeit und zweiter Baustelle, Excel, Freig
   const context = { workspace_id: '11111111-1111-4111-8111-111111111111', workspace_name: 'Testfirma', role: 'polier', pkg: 'team', tools: ['projects', 'photos', 'reports', 'workers', 'defects'], sites: [], tool_sites: {}, operator: false, name: 'Polier Paul', phone: '' };
   await page.route('**/rest/v1/rpc/my_context', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(context) }));
   await page.reload();
-  await expect(page.getByTestId('timesheet-approved')).toContainText('Änderungen nur durch das Büro');
+  // Monatszettel, Freigabe und Excel macht nur das Büro – der Polier sieht nur den Hinweis
+  await expect(page.getByTestId('timesheet-office-only')).toBeVisible();
   await expect(page.getByTestId('timesheet-approve')).toHaveCount(0);
-  await expect(fri.getByTestId('timesheet-site').first()).toBeDisabled();
-  await expect(page.getByTestId('timesheet-take')).toHaveCount(0);
+  await expect(fri.getByTestId('timesheet-site')).toHaveCount(0);
 });
 
 test('Arbeitszeiten des Unternehmens einmalig festlegen: Vorschlag je Tag, Abweichung nur an dem Tag', async ({ page }) => {
@@ -221,4 +221,85 @@ test('Meine Arbeiter: Polier wählt mit Suche aus, „Tag erfassen“ zeigt nur 
   await pd.getByTestId('times-pick-save').click();
   await page.getByTestId('times-date').fill('2026-10-28');
   await expect(page.getByTestId('times-day-row')).toHaveCount(2);
+});
+
+/** Kontext aus der Datenbank nachbauen (Rolle, Projekte je Werkzeug) */
+const ctxOf = (role: string, toolSites: Record<string, string[]> = {}) => ({
+  workspace_id: '11111111-1111-4111-8111-111111111111',
+  workspace_name: 'Testfirma',
+  role,
+  pkg: 'team',
+  tools: ['times', 'workers', 'photos'],
+  sites: [],
+  tool_sites: toolSites,
+  operator: false,
+  name: 'Test Nutzer',
+  phone: '',
+});
+const idb = <T,>(page: Page, fn: string, arg?: unknown) =>
+  page.evaluate(
+    ([f, a]) =>
+      new Promise<T>((resolve) => {
+        const r = indexedDB.open('schadstellen-aufmass');
+        r.onsuccess = () => {
+          const db = r.result;
+          // eslint-disable-next-line no-new-func
+          void (new Function('db', 'a', `return (${f})(db, a)`) as (db: IDBDatabase, a: unknown) => Promise<T>)(db, a).then((v) => {
+            db.close();
+            resolve(v);
+          });
+        };
+      }),
+    [fn, arg] as const,
+  );
+const getAll = (store: string) => `(db) => new Promise((res) => { const q = db.transaction('${store}').objectStore('${store}').getAll(); q.onsuccess = () => res(q.result); })`;
+
+test('Rechte: Polier nur Stunden seiner Projekte (andere bleiben erhalten), kein Monatszettel; Arbeiter nur eigene Stunden, nur lesen', async ({ page }) => {
+  test.setTimeout(120_000);
+  await setup(page);
+  const projects = await idb<{ id: string; name: string }[]>(page, getAll('projects'));
+  const park = projects.find((p) => p.name === 'Parkring')!.id;
+  const halle = projects.find((p) => p.name === 'Halle 3')!.id;
+  const workers = await idb<{ id: string; firstName: string }[]>(page, getAll('workers'));
+  const peter = workers.find((w) => w.firstName === 'Peter')!.id;
+  // Büro hat Peter am Dienstag 4 h in Halle 3 erfasst (andere Baustelle)
+  await idb(page, `(db, a) => new Promise((res) => { const t = db.transaction('timeDays', 'readwrite'); t.objectStore('timeDays').put(a); t.oncomplete = () => res(1); })`, {
+    id: `${peter}|2026-10-27`, workerId: peter, date: '2026-10-27', month: '2026-10', lines: [{ projectId: halle, siteName: 'Halle 3', hours: 4, from: '07:00', to: '11:00', pause: 0 }], updatedAt: 1, updatedBy: 'Büro',
+  });
+
+  // Polier mit Freigabe nur für Parkring
+  await page.route('**/rest/v1/rpc/my_context', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ctxOf('polier', { times: [`p:${park}`] })) }));
+  await page.goto('./baupad/zeitaufzeichnung');
+  await expect(page.getByTestId('times-scope-site')).toBeVisible();
+  await expect(page.getByTestId('times-worktimes')).toHaveCount(0);
+  await expect(page.getByTestId('times-month')).toHaveCount(0);
+  await expect(page.getByTestId('times-month-office')).toBeVisible();
+  await page.getByTestId('times-date').fill('2026-10-27');
+  // Halle 3 ist für ihn unsichtbar: Peter erscheint nur mit dem Vorschlag für Parkring
+  await expect(row(page, 'Peter')).toHaveAttribute('data-state', 'suggested');
+  await expect(page.getByTestId('times-day')).not.toContainText('Halle 3');
+  await row(page, 'Peter').getByTestId('times-take').click();
+  await expect(row(page, 'Peter')).toHaveAttribute('data-state', 'done');
+  // gespeichert: seine Parkring-Zeile dazu, die Zeile in Halle 3 bleibt erhalten
+  const day = (await idb<{ id: string; lines: { siteName: string }[] }[]>(page, getAll('timeDays'))).find((d) => d.id === `${peter}|2026-10-27`)!;
+  expect(day.lines.map((l) => l.siteName).sort()).toEqual(['Halle 3', 'Parkring']);
+  // Monatszettel direkt aufgerufen: nur Hinweis
+  await page.goto(`./baupad/zeitaufzeichnung/${peter}?m=2026-10`);
+  await expect(page.getByTestId('timesheet-office-only')).toBeVisible();
+
+  // Arbeiter: zuerst ohne Verknüpfung → Hinweis, dann Peter mit seiner Konto-E-Mail verknüpft → nur Peter, nur lesen
+  await page.unroute('**/rest/v1/rpc/my_context');
+  await page.route('**/rest/v1/rpc/my_context', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ctxOf('arbeiter')) }));
+  await page.goto('./baupad/zeitaufzeichnung?d=2026-10-27');
+  await expect(page.getByTestId('times-scope-own')).toContainText('noch keinem Arbeiter zugeordnet');
+  await idb(page, `(db, a) => new Promise((res) => { const t = db.transaction('workers', 'readwrite'); const s = t.objectStore('workers'); const q = s.get(a); q.onsuccess = () => s.put({ ...q.result, userEmail: 'test@baupad.local' }); t.oncomplete = () => res(1); })`, peter);
+  await page.reload();
+  await expect(page.getByTestId('times-scope-own')).toContainText('Deine eigenen Stunden');
+  await expect(page.getByTestId('times-day-row')).toHaveCount(1);
+  await expect(row(page, 'Peter')).toBeVisible();
+  await expect(row(page, 'Peter').locator('select, input').first()).toBeDisabled();
+  await expect(page.getByTestId('times-add-worker')).toHaveCount(0);
+  await expect(page.getByTestId('times-pick')).toHaveCount(0);
+  await expect(page.getByTestId('times-person')).toHaveCount(1); // nur der eigene Monatszettel
+  await expect(page.getByTestId('times-year-files')).toHaveCount(0);
 });

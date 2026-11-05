@@ -30,14 +30,14 @@ import { useSession } from '../lib/use-session';
 import type { Project } from '../lib/types';
 
 /** Werkzeug-Namen wie in den Tools-Kacheln */
-const TOOL_LABEL: Record<ToolId, string> = { projects: 'Aufmaß & Abrechnung', workers: 'Arbeitereinteilung', reports: 'Berichte & Formulare', photos: 'Fotodokumentation', defects: 'Mängelplan', materials: 'Materialverwaltung' };
+const TOOL_LABEL: Record<ToolId, string> = { projects: 'Aufmaß & Abrechnung', workers: 'Arbeitereinteilung', times: 'Zeitaufzeichnung', reports: 'Berichte & Formulare', photos: 'Fotodokumentation', defects: 'Mängelplan', materials: 'Materialverwaltung' };
 /** Farben wie die Tools-Kacheln */
-const TOOL_COLOR: Record<ToolId, string> = { projects: '#ff6a13', workers: '#2f80ed', reports: '#a259ff', photos: '#111111', defects: '#d6242b', materials: '#c2850c' };
+const TOOL_COLOR: Record<ToolId, string> = { projects: '#ff6a13', workers: '#2f80ed', times: '#0f9d76', reports: '#a259ff', photos: '#111111', defects: '#d6242b', materials: '#c2850c' };
 const ACCENT = { '--tool': '#475467' } as CSSProperties;
 const fmtDay = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString('de-DE');
 /** Projekt im Werkzeug öffnen */
 const toolPath = (tool: ToolId, id: string) =>
-  tool === 'projects' ? paths.project(id) : tool === 'reports' ? paths.reportSite(`p:${id}`) : tool === 'photos' ? paths.photoSite(`p:${id}`) : tool === 'defects' ? paths.defectSite(`p:${id}`) : tool === 'materials' ? paths.materials() : paths.workers();
+  tool === 'projects' ? paths.project(id) : tool === 'reports' ? paths.reportSite(`p:${id}`) : tool === 'photos' ? paths.photoSite(`p:${id}`) : tool === 'defects' ? paths.defectSite(`p:${id}`) : tool === 'materials' ? paths.materials() : tool === 'times' ? paths.times() : paths.workers();
 
 /**
  * Projektregister: alle Projekte der Firma mit ihren Angaben (nur Infos). Je Projekt sieht man, in welchen

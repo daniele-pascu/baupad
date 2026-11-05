@@ -1,11 +1,12 @@
 import { addDays, DEFAULT_WORK_TIMES, weekOf } from './crew';
 import { uuid } from './ids';
-import { deleteTimeDay, getMeta, getTimeFile, getWeek, listProjects, listTimeDays, listTimeMonths, listWorkers, previousWeek, putTimeFile, saveTimeDay, saveTimeMonth, setMeta } from './db';
+import { deleteTimeDay, getMeta, getTimeDay, getTimeFile, getWeek, listProjects, listTimeDays, listTimeMonths, listWorkers, previousWeek, putTimeFile, saveTimeDay, saveTimeMonth, setMeta } from './db';
 import type { ExportFile } from './aufmass';
 import type { YearCarry } from './time-workbook';
 import { effectiveWeek } from './reports';
 import { dayId, hoursOf, monthOf, pauseOf, suggestDay, validTime, weeksOfMonth, type DaySuggestion, type TimeDay, type TimeDefaults, type TimeLine, type TimeMonth } from './times';
 import type { Absence, WeekPlan, Worker, WorkTimes } from './types';
+import { lineAllowed, mergeHiddenLines, ownWorkerIds, visibleDays, type TimesScope } from './times-access';
 
 /** alles, was Übersicht und Monatszettel für einen Monat brauchen */
 export interface TimesData {
@@ -25,7 +26,7 @@ export interface TimesData {
   timesSet: boolean;
 }
 
-export async function loadTimes(month: string): Promise<TimesData> {
+export async function loadTimes(month: string, scope: TimesScope = { level: 'office' }): Promise<TimesData> {
   const mondays = weeksOfMonth(month);
   const [workers, days, approvals, times, absences, projects, company, defaults, weekList] = await Promise.all([
     listWorkers(),
@@ -43,17 +44,20 @@ export async function loadTimes(month: string): Promise<TimesData> {
   for (const w of weekList) for (const s of w?.sites ?? []) if (!s.projectId && !sites.some((x) => !x.projectId && x.name === s.name)) sites.push({ projectId: null, name: s.name });
   sites.sort((a, b) => a.name.localeCompare(b.name, 'de'));
   // aktive Arbeiter, dazu inaktive mit Stunden in diesem Monat
-  const withDays = new Set(days.map((d) => d.workerId));
+  // Rechte: Polier nur Zeilen seiner Projekte, Arbeiter nur eigene Tage (siehe times-access.ts)
+  const shownDays = visibleDays(days, scope, workers);
+  const own = scope.level === 'own' ? ownWorkerIds(workers, scope.email) : null;
+  const withDays = new Set(shownDays.map((d) => d.workerId));
   return {
     month,
-    workers: workers.filter((w) => w.active || withDays.has(w.id)),
-    days,
-    approvals,
+    workers: workers.filter((w) => (own ? own.has(w.id) : w.active || withDays.has(w.id))),
+    days: shownDays,
+    approvals: scope.level === 'office' ? approvals : own ? approvals.filter((a) => own.has(a.workerId)) : [],
     weeks,
     times: times ?? DEFAULT_WORK_TIMES,
     timesSet: !!times,
     absences: absences ?? [],
-    sites,
+    sites: scope.level === 'site' ? sites.filter((x) => lineAllowed({ projectId: x.projectId, siteName: x.name }, scope)) : sites,
     company: company ?? '',
     // mit festgelegten Firmen-Arbeitszeiten gelten diese als Vorschlag; Abweichungen werden je Tag ausgebessert
     defaults: times ? {} : (defaults ?? {}),
@@ -63,8 +67,10 @@ export async function loadTimes(month: string): Promise<TimesData> {
 export const suggestionFor = (data: TimesData, workerId: string, date: string): DaySuggestion => suggestDay(workerId, date, data.weeks.get(weekOf(date)) ?? null, data.times, data.absences, data.defaults);
 
 /** Tag speichern; nach der Freigabe wird jede Änderung mit Name und Zeitpunkt vermerkt */
-export async function saveDay(workerId: string, date: string, lines: TimeLine[], by: string, opts: { prev?: TimeDay; approved?: boolean; remember?: boolean } = {}): Promise<TimeDay> {
+export async function saveDay(workerId: string, date: string, input: TimeLine[], by: string, opts: { prev?: TimeDay; approved?: boolean; remember?: boolean; scope?: TimesScope } = {}): Promise<TimeDay> {
   const now = Date.now();
+  // Polier: Zeilen anderer Projekte (für ihn unsichtbar) bleiben erhalten
+  const lines = opts.scope?.level === 'site' ? mergeHiddenLines((await getTimeDay(dayId(workerId, date)))?.lines, input, opts.scope) : input;
   const clean: TimeLine[] = lines.map((l) => {
     const timed = validTime(l.from) && validTime(l.to);
     // Pause von–bis eingetragen: Dauer daraus (automatisch)
@@ -148,7 +154,7 @@ export async function storedMonthFile(data: TimesData, m: TimeMonth): Promise<Ex
  * bestehenden Zeiträumen herausgenommen und neu eingetragen; der Tag gilt dann als erfasst (ohne Stunden).
  * null: wieder anwesend – die Erfassung des Tages wird zurückgesetzt (Vorschlag aus der Einteilung).
  */
-export async function setDayAbsence(workerId: string, date: string, kind: Absence['kind'] | null, by: string): Promise<void> {
+export async function setDayAbsence(workerId: string, date: string, kind: Absence['kind'] | null, by: string, scope?: TimesScope): Promise<void> {
   const list = (await getMeta<Absence[]>('absences')) ?? [];
   const out: Absence[] = [];
   for (const a of list) {
@@ -161,6 +167,8 @@ export async function setDayAbsence(workerId: string, date: string, kind: Absenc
   }
   if (kind) out.push({ id: uuid(), workerId, kind, from: date, to: date, createdAt: Date.now() });
   await setMeta('absences', out);
-  if (kind) await saveDay(workerId, date, [], by);
+  // Polier: Zeilen anderer Projekte bleiben stehen (saveDay mit scope behält sie)
+  const hidden = scope?.level === 'site' ? ((await getTimeDay(dayId(workerId, date)))?.lines ?? []).filter((l) => !lineAllowed(l, scope)) : [];
+  if (kind || hidden.length) await saveDay(workerId, date, [], by, { scope });
   else await deleteTimeDay(dayId(workerId, date));
 }

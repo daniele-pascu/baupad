@@ -20,8 +20,8 @@ export const ROUTE_TOOL: Record<string, ToolId> = {
   formTemplates: 'reports',
   formTemplate: 'reports',
   formEntry: 'reports',
-  times: 'workers',
-  timesheet: 'workers',
+  times: 'times',
+  timesheet: 'times',
   photos: 'photos',
   camera: 'photos',
   photoSite: 'photos',
@@ -38,7 +38,8 @@ export const isLocked = (s: Session | null | undefined) => !!s && !!s.companyId 
 
 export function canTool(s: Session | null | undefined, tool: ToolId): boolean {
   if (unrestricted(s)) return true;
-  return s!.tools.length === 0 || s!.tools.includes(tool);
+  // Zeitaufzeichnung war früher Teil der Arbeitereinteilung – ältere Freigaben gelten weiter
+  return s!.tools.length === 0 || s!.tools.includes(tool) || (tool === 'times' && s!.tools.includes('workers'));
 }
 
 /**
