@@ -1,6 +1,6 @@
 import { costCenterLabel } from './aufmass';
 import { absenceOn } from './crew-absence';
-import { addDays, carryOver, countByGrade, isoDate, knownGrade, nameWithGrade, parseDate, sortByGrade, weekOf } from './crew';
+import { addDays, carryOver, countByGrade, gradeLabel, isoDate, knownGrade, nameWithGrade, parseDate, sortByGrade, weekOf } from './crew';
 import { uuid } from './ids';
 import type { Absence, CostCenter, DailyData, Project, RegieData, Report, ReportHead, ReportItem, ReportType, ReportWorker, StaffCount, WeekPlan, WeeklyData, Worker } from './types';
 
@@ -90,7 +90,9 @@ export function copyReport(r: Report, date: string, all: Report[]): Report {
 export const newItem = (): ReportItem => ({ id: uuid(), text: '', qty: null, unit: '' });
 
 export function workerRow(w?: Pick<Worker, 'id' | 'firstName' | 'lastName' | 'role' | 'grade'>, extra: Partial<ReportWorker> = {}): ReportWorker {
-  return { id: uuid(), workerId: w?.id, name: w ? nameWithGrade(w) : '', role: w?.role ?? '', grade: w ? (knownGrade(w) ?? undefined) : undefined, from: '', to: '', pause: '', hours: null, ...extra };
+  const grade = w ? (knownGrade(w) ?? undefined) : undefined;
+  // Qualifikation laut Personalliste (z. B. Polier), sonst die eingetragene Tätigkeit – in der Regieliste änderbar
+  return { id: uuid(), workerId: w?.id, name: w ? nameWithGrade(w) : '', role: gradeLabel(grade) || (w?.role ?? ''), grade, from: '', to: '', pause: '', hours: null, ...extra };
 }
 
 /** Personalstand je Funktion aus der Mannschaft des Tages (anwesend bzw. noch nicht abgewählt) */

@@ -1114,7 +1114,7 @@ function TimesDialog({
       <h3 className="crew-set-title">PDF</h3>
       <label className="check-row">
         <input type="checkbox" checked={x.pdfGrades} onChange={(e) => setX({ ...x, pdfGrades: e.target.checked })} data-testid="set-pdf-grades" />
-        Funktion der Arbeiter anzeigen (z. B. „Max Muster · PO“)
+        Qualifikation der Arbeiter anzeigen (z. B. „Max Muster · PO“)
       </label>
       <h3 className="crew-set-title">Arbeitszeit der Firma</h3>
       <p className="muted small">Nur zur Info der Firma: erscheint in der Einteilung und – wenn angehakt – im PDF. Eingeteilt werden kann an allen 7 Tagen, auch Sa/So.</p>
@@ -1286,7 +1286,7 @@ function SiteDialog({
             )}
             {!leads.length && (
               <p className="muted small" data-testid="site-manager-none">
-                Noch niemand mit der Funktion „Projektleiter“ – im Personal bei der Person die Funktion Projektleiter wählen.
+                Noch niemand mit der Qualifikation „Projektleiter“ – im Personal bei der Person die Qualifikation Projektleiter wählen.
               </p>
             )}
             <p className="muted small">Gilt für das Projekt in jeder Woche (auch im PDF und im Bautagesbericht).</p>
@@ -1391,7 +1391,7 @@ function AssignDialog({
         <label className="crew-search crew-pick-search">
           <Icon name="select" size={18} />
           <span className="sr-only">Arbeiter suchen</span>
-          <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Arbeiter suchen: Name, Funktion, Nr." data-testid="assign-search" />
+          <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Arbeiter suchen: Name, Qualifikation, Nr." data-testid="assign-search" />
         </label>
       )}
       {needle && shown.length === 0 && <p className="muted small">Kein Arbeiter gefunden.</p>}

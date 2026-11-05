@@ -134,7 +134,7 @@ describe('Firmenformulare: Uhrzeit aus den Arbeitszeiten der Firma', () => {
 });
 
 describe('Qualifikation übernehmen, wenn das Formular danach fragt', () => {
-  const f = (id: string, type: CustomField['type'], name: string) => ({ id, type, name, x: 0, y: 0, w: 100, h: 12 }) as CustomField;
+  const f = (id: string, type: CustomField['type'], name: string) => ({ id, type, name, box: { x: 0, y: 0, w: 100, h: 12 } }) as unknown as CustomField;
   const fields = [f('p', 'person', 'Mitarbeiter'), f('q', 'text', 'Qualifikation'), f('n', 'text', 'Bemerkung')];
 
   it('aus dem Kürzel vor dem Namen, in derselben Reihenfolge', () => {

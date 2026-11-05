@@ -308,7 +308,7 @@ function PickWorkers({ workers, selected, onSave, onClose }: { workers: Worker[]
       <label className="crew-search crew-pick-search">
         <Icon name="select" size={18} />
         <span className="sr-only">Arbeiter suchen</span>
-        <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Arbeiter suchen: Name, Funktion, Nr." data-testid="times-pick-search" />
+        <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Arbeiter suchen: Name, Qualifikation, Nr." data-testid="times-pick-search" />
       </label>
       {needle && shown.length === 0 && <p className="muted small">Kein Arbeiter gefunden.</p>}
       <ul className="crew-pick">

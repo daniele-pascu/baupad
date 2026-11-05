@@ -267,7 +267,7 @@ function regieForm(ctx: Ctx, r: Report & { type: 'regie' }, opts: ReportPdfOptio
   f.table(
     M,
     cols,
-    ws.map((w) => [w.name, w.role, w.from, w.to, w.pause ? `${w.pause} min` : '', fmtHours(workerHours(w)), fmtHours(naz(w)), fmtHours(w.ot50 ?? null), fmtHours(w.ot100 ?? null)]),
+    ws.map((w) => [w.name, w.role || (WORKER_GRADES.find((g) => g.id === w.grade)?.label ?? ''), w.from, w.to, w.pause ? `${w.pause} min` : '', fmtHours(workerHours(w)), fmtHours(naz(w)), fmtHours(w.ot50 ?? null), fmtHours(w.ot100 ?? null)]),
     {
       minRows: 6,
       groups: [
@@ -386,7 +386,7 @@ function dailyForm(ctx: Ctx, r: Report & { type: 'tag' }, opts: ReportPdfOptions
   ];
   const rows = Array.from({ length: n }, (_, i) => {
     const w = present[i];
-    return [w ? [w.name, w.role].filter(Boolean).join(' · ') : '', w ? fmtHours(workerHours(w)) : '', eq[i]?.text ?? '', eq[i] ? qtyUnit(eq[i]) : '', mat[i]?.text ?? '', mat[i] ? qtyUnit(mat[i]) : ''];
+    return [w ? [w.name, w.role !== WORKER_GRADES.find((g) => g.id === w.grade)?.label ? w.role : ''].filter(Boolean).join(' · ') : '', w ? fmtHours(workerHours(w)) : '', eq[i]?.text ?? '', eq[i] ? qtyUnit(eq[i]) : '', mat[i]?.text ?? '', mat[i] ? qtyUnit(mat[i]) : ''];
   });
   const hours = sumHours(present);
   f.table(M, cols, rows, { sum: hours !== null ? ['Summe', fmtHours(hours), '', '', '', ''] : undefined });

@@ -76,7 +76,7 @@ export function StaffPage() {
   const setGrade = (w: Worker, grade: string) =>
     run(async () => {
       await persist({ ...w, grade: (grade || undefined) as WorkerGrade | undefined, updatedAt: Date.now() });
-      toast(`${workerName(w)}: ${grade ? gradeLabel(grade as WorkerGrade) : 'keine Funktion'}.`, 'success');
+      toast(`${workerName(w)}: ${grade ? gradeLabel(grade as WorkerGrade) : 'keine Qualifikation'}.`, 'success');
     }, 'Speichern fehlgeschlagen');
   const toggleActive = (w: Worker) => run(() => persist({ ...w, active: !w.active, updatedAt: Date.now() }), 'Speichern fehlgeschlagen');
   const remove = async (w: Worker) => {
@@ -117,7 +117,7 @@ export function StaffPage() {
     }, 'Löschen fehlgeschlagen');
 
   /** Gruppenüberschrift je Funktion (nur bei Sortierung nach Funktion) */
-  const groupOf = (w: Worker) => (sort === 'grade' ? (WORKER_GRADES[gradeRank(w)]?.label ?? 'Ohne Funktion') : '');
+  const groupOf = (w: Worker) => (sort === 'grade' ? (WORKER_GRADES[gradeRank(w)]?.label ?? 'Ohne Qualifikation') : '');
   const today = isoDate(new Date());
   const upcoming = (w: Worker) => absences.filter((a) => a.workerId === w.id && a.to >= today).sort((a, b) => a.from.localeCompare(b.from));
 
@@ -132,7 +132,7 @@ export function StaffPage() {
             </a>
             <div>
               <h1 data-testid="staff-title">Personalliste</h1>
-              <span className="muted small">{activeCount} aktiv · Funktion und Qualifikation nur im Tool – nie auf Ausdrucken</span>
+              <span className="muted small">{activeCount} aktiv</span>
             </div>
           </div>
         </header>
@@ -140,7 +140,7 @@ export function StaffPage() {
         <button type="button" className="account-tile staff-new" onClick={() => setDialog({ kind: 'new' })} data-testid="staff-new">
           <div>
             <strong>+ Neuer Mitarbeiter</strong>
-            <span className="muted">Vorname, Nachname, Funktion, Qualifikation, Personalnummer, Telefon</span>
+            <span className="muted">Vorname, Nachname, Qualifikation, Tätigkeit, Personalnummer, Telefon</span>
           </div>
           <Icon name="next" size={18} />
         </button>
@@ -149,14 +149,14 @@ export function StaffPage() {
           <label className="crew-search">
             <Icon name="select" size={18} />
             <span className="sr-only">Suchen</span>
-            <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Name, Funktion oder Personalnummer suchen" data-testid="staff-search" />
+            <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Name, Qualifikation oder Personalnummer suchen" data-testid="staff-search" />
           </label>
           <div className="segmented" role="radiogroup" aria-label="Sortierung">
             <button type="button" role="radio" aria-checked={sort === 'name'} onClick={() => changeSort('name')} data-testid="staff-sort-name">
               A–Z
             </button>
             <button type="button" role="radio" aria-checked={sort === 'grade'} onClick={() => changeSort('grade')} data-testid="staff-sort-grade">
-              Nach Funktion
+              Nach Qualifikation
             </button>
           </div>
         </div>
@@ -193,7 +193,7 @@ export function StaffPage() {
                 {isOpen && (
                   <div className="staff-options" data-testid="worker-options">
                     <label className="field">
-                      <span>Funktion</span>
+                      <span>Qualifikation</span>
                       <select value={w.grade ?? ''} onChange={(e) => void setGrade(w, e.target.value)} data-testid="worker-grade-inline">
                         <option value="">– keine –</option>
                         {WORKER_GRADES.map((x) => (
@@ -371,7 +371,7 @@ function WorkerDialog({ worker, others, onClose, onSave }: { worker: Worker | nu
           </div>
         )}
         <label className="field">
-          <span>Funktion</span>
+          <span>Qualifikation</span>
           <select value={v.grade} onChange={(e) => setV({ ...v, grade: e.target.value })} data-testid="worker-grade">
             <option value="">– bitte wählen –</option>
             {WORKER_GRADES.map((g) => (
@@ -381,7 +381,7 @@ function WorkerDialog({ worker, others, onClose, onSave }: { worker: Worker | nu
             ))}
           </select>
         </label>
-        {field('role', 'Qualifikation / Zusatz', { placeholder: 'z. B. Maurer, Kranführer' })}
+        {field('role', 'Tätigkeit / Zusatz', { placeholder: 'z. B. Maurer, Kranführer' })}
         {field('staffNo', 'Personalnummer')}
         {field('phone', 'Telefon', { type: 'tel', inputMode: 'tel' })}
         {show && !v.firstName.trim() && <p className="error small">Bitte einen Vornamen eingeben.</p>}
