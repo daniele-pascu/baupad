@@ -641,8 +641,11 @@ test('Personalliste: eigene Seite, alphabetisch oder nach Funktion; Einteilung u
   }
   // alphabetisch nach Nachname
   await expect(sp.getByTestId('worker-row').locator('strong')).toHaveText(['Adler Zoe', 'Berg Anna', 'Leit Pia', 'Muster Max']);
+  // alphabetisch durchnummeriert, nach Funktion ohne Nummern
+  await expect(sp.getByTestId('worker-no')).toHaveText(['1.', '2.', '3.', '4.']);
   // nach Funktion: Projektleiter → Polier → Facharbeiter → Hilfsarbeiter, mit Gruppenüberschriften
   await sp.getByTestId('staff-sort-grade').click();
+  await expect(sp.getByTestId('worker-no')).toHaveCount(0);
   await expect(sp.getByTestId('worker-row').locator('strong')).toHaveText(['Leit Pia', 'Muster Max', 'Berg Anna', 'Adler Zoe']);
   await expect(sp.getByTestId('staff-group')).toHaveText(['Projektleiter', 'Polier', 'Facharbeiter', 'Hilfsarbeiter']);
   // Suche

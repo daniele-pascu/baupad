@@ -10823,3 +10823,14 @@ html[data-theme='dark'] .crew-search {
   outline-offset: 4px;
   border-radius: 6px;
 }
+
+/* Personalliste alphabetisch: laufende Nummer vor dem Namen */
+.staff-no {
+  flex: 0 0 auto;
+  min-width: 2.2em;
+  padding-left: 10px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}

@@ -175,6 +175,11 @@ export function StaffPage() {
                   </div>
                 )}
                 <div className="staff-row">
+                  {sort === 'name' && (
+                    <span className="staff-no" data-testid="worker-no">
+                      {i + 1}.
+                    </span>
+                  )}
                   <button type="button" className="crew-worker-main" onClick={() => setOpen(isOpen ? null : w.id)} aria-expanded={isOpen} data-testid="worker-open">
                     <strong>{workerName(w)}</strong>
                     <span className="muted small">

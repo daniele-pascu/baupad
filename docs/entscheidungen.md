@@ -135,3 +135,7 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - iPad: Stift-Vorrang – sobald ein Stift benutzt wurde, zeichnet nur der Stift; Finger verschieben/zoomen; aufliegende Hand wird ignoriert, ihr Abheben löst keinen Klick aus.
 - „BauPad als App installieren“ bleibt für den Betreiber (operator) auch in der installierten App sichtbar.
 
+
+## Sicherung (05.11.2026)
+- Laufende Daten bleiben in Supabase (kostenloser Tarif), **Sicherungen bei Hetzner** (anderer Anbieter, Deutschland): jede Nacht über die Funktion `backup` (pg_cron), 30 Sicherungen + Monatsstände für 12 Monate, Wiederherstellung je Firma. Keine Zusatzkosten. Supabase Pro (~25 $/Monat) erst mit zahlenden Kunden. Einrichtung: `docs/backup-einrichten.md`.
+- Materialverwaltung: gleiche Architektur (Supabase + Hetzner), Symbol „Wagen mit Material“ (Variante N); vorher Versionsprüfung gegen stilles Überschreiben und Schutz vor Doppelten im Abgleich.
