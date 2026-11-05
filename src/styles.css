@@ -5494,6 +5494,12 @@ a.tool-tile:focus-visible {
 .empty .tile-icon {
   margin: 0 auto 8px;
 }
+/* Kacheln der Tools-Übersicht: größeres Symbolfeld, Symbol darin ebenfalls größer */
+.tool-tile .tile-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 14px;
+}
 @media (max-width: 519px) {
   .tools-grid {
     gap: 10px;
@@ -5506,6 +5512,15 @@ a.tool-tile:focus-visible {
   .tile-icon {
     width: 40px;
     height: 40px;
+  }
+  .tool-tile .tile-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+  }
+  .tool-tile .tile-icon svg {
+    width: 30px;
+    height: 30px;
   }
   .tile-mark {
     width: 112px;

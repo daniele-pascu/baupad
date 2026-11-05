@@ -62,7 +62,7 @@ export function ToolsPage() {
                 <ToolIcon name={t.id} weight="thin" size={132} className="tile-mark" />
                 <span className="tile-top">
                   <span className="tile-icon" aria-hidden="true">
-                    <ToolIcon name={t.id} size={22} />
+                    <ToolIcon name={t.id} size={34} />
                   </span>
                 </span>
                 <span className="tile-text">
