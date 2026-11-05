@@ -524,7 +524,7 @@ test('Tools per Finger: 2 Kacheln pro Reihe, nichts zu breit, Aufmaß & Abrechnu
   await page.addInitScript(() => Object.defineProperty(navigator, 'standalone', { get: () => true }));
   await page.goto('./#/tools');
   const tiles = page.locator('.tool-tile');
-  await expect(tiles).toHaveCount(6); // sechs Werkzeuge seit der Zeitaufzeichnung
+  await expect(tiles).toHaveCount(7); // sieben Werkzeuge seit der Materialverwaltung
   const [a, b, c] = await Promise.all([tiles.nth(0).boundingBox(), tiles.nth(1).boundingBox(), tiles.nth(2).boundingBox()]);
   expect(Math.abs(a!.y - b!.y)).toBeLessThan(1); // zwei nebeneinander
   expect(c!.y).toBeGreaterThan(a!.y + a!.height - 1);
