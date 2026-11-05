@@ -15,7 +15,7 @@ import { ACCENT } from './ReportsPage';
 /**
  * Felder einer Firmenvorlage einrichten: PDF als Bild, darauf die Kästen. Feld zeichnen (ziehen), verschieben,
  * an der Ecke vergrößern, in der Seitenleiste Name, Typ, Hinweis, Pflicht, Zeilen, Auswahl usw. festlegen.
- * „Beispiel“ zeigt, wie ausgefüllte Felder später aussehen. Speichern erhöht die Vorlagenversion.
+ * Jeder Kasten zeigt seinen Feldnamen als Muster (Schrift, Größe, Farbe). Speichern erhöht die Vorlagenversion.
  */
 
 const SAMPLE: Record<CustomFieldType, string> = {
@@ -48,7 +48,6 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
   const [name, setName] = useState('');
   const [sel, setSel] = useState<string | null>(null);
   const [drawing, setDrawing] = useState(false);
-  const [sample, setSample] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [pxPerPt, setPxPerPt] = useState(1);
@@ -411,9 +410,6 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
             <button type="button" className="btn btn-sm" onClick={suggest} data-testid="form-editor-suggest" title="Beschriftungen und Linien der PDF auswerten">
               Felder vorschlagen
             </button>
-            <button type="button" className={`btn btn-sm${sample ? ' btn-primary' : ''}`} onClick={() => setSample((s) => !s)} aria-pressed={sample} data-testid="form-editor-sample">
-              Beispiel
-            </button>
             <button type="button" className="btn btn-primary" onClick={() => void save()} disabled={busy || !dirty} data-testid="form-editor-save">
               Speichern
             </button>
@@ -464,14 +460,14 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
                           </>
                         )}
                         <span className="form-sample base" style={{ ...ink(f), fontSize: fontPx(f), paddingBottom: BASELINE_PT * pxPerPt }}>
-                          {sample ? (SAMPLE.multiline.split('\n')[i] ?? '') : i === 0 ? f.name || '?' : ''}
+                          {i === 0 ? f.name || '?' : ''}
                         </span>
                       </i>
                     ))
                   ) : f.type === 'multiline' ? (
                     <>
                       <span className="form-sample multi" style={{ ...ink(f), fontSize: fontPx(f), lineHeight: `${(f.box.h / lineCapacity(f)) * pxPerPt}px` }}>
-                        {(sample ? SAMPLE.multiline.split('\n') : [f.name || '?'])
+                        {[f.name || '?']
                           .slice(0, lineCapacity(f))
                           .map((x, i) => (
                             <span key={i}>{x}</span>
@@ -486,7 +482,7 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
                   ) : (
                     // Muster: Feldname in Schrift, Größe und Farbe – sitzt 0,5 mm über der Unterkante
                     <span className={`form-sample${f.type === 'checkbox' ? '' : ' base'}`} style={{ ...ink(f), fontSize: fontPx(f), paddingBottom: f.type === 'checkbox' ? undefined : BASELINE_PT * pxPerPt, justifyContent: f.align === 'right' || f.type === 'amount' || f.type === 'number' ? 'flex-end' : f.type === 'checkbox' || f.align === 'center' ? 'center' : 'flex-start' }}>
-                      {sample ? SAMPLE[f.type] : f.type === 'checkbox' ? 'X' : f.name || '?'}
+                      {f.type === 'checkbox' ? 'X' : f.name || '?'}
                     </span>
                   )}
                   {f.type === 'multiline' && <em className="form-box-lines">{lineCapacity(f)} Zeilen</em>}
