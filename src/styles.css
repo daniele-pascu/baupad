@@ -10604,3 +10604,15 @@ html[data-theme='dark'] .crew-search {
   font-style: normal;
   opacity: 0.75;
 }
+
+/* Fotos: lange drücken wählt aus – kein Kontextmenü/Bild-Menü des Systems, kein Markieren von Text */
+.photo-stream .photo-card,
+.photo-stream .photo-thumb img {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.photo-stream .photo-thumb img {
+  -webkit-user-drag: none;
+  pointer-events: none;
+}

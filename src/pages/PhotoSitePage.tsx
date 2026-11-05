@@ -19,6 +19,7 @@ import { navigate, paths } from '../lib/router';
 import type { Photo } from '../lib/types';
 import { loadPhotoSites } from './PhotosPage';
 import { usePageTitle } from '../lib/page-title';
+import { useDragSelect } from '../components/useDragSelect';
 
 /** Foto-Kachel: Bild, darunter Uhrzeit, Benutzer und Beschreibung; im Auswahlmodus mit Häkchen */
 function Thumb({ photo, selectable, selected, onOpen, onToggle }: { photo: Photo; selectable: boolean; selected: boolean; onOpen(): void; onToggle(): void }) {
@@ -150,6 +151,10 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
     setSelecting(true);
     setIntent(why);
   };
+  // lange drücken → Auswahl; gedrückt ziehen markiert mehrere (wie mit der Maus)
+  const [streamEl, setStreamEl] = useState<HTMLDivElement | null>(null);
+  const order = useMemo(() => groups.slice(0, limit).flatMap((g) => g.days.flatMap((d) => d.photos.map((p) => p.id))), [groups, limit]);
+  useDragSelect({ container: streamEl, order, selected, start: () => setSelecting(true), setSelected });
   // Scrollen: Projektinfo ausblenden (runter) bzw. einblenden (ein Stück hoch); Pfeil „nach oben“ ab 600 px
   useEffect(() => {
     let last = window.scrollY;
@@ -448,7 +453,7 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
         {all && photos.length === 0 && <p className="muted" data-testid="photo-site-empty">Noch keine Fotos auf dieser Baustelle.</p>}
         {photos.length > 0 && shown.length === 0 && <p className="muted">Keine Fotos gefunden.</p>}
 
-        <div className="photo-stream" data-testid="photo-stream">
+        <div ref={setStreamEl} className="photo-stream" data-testid="photo-stream">
           {groups.slice(0, limit).map((g) => {
             const ids = g.days.flatMap((d) => d.photos.map((p) => p.id));
             const allOn = ids.every((id) => selected.has(id));

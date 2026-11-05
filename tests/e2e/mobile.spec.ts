@@ -642,16 +642,44 @@ test('Fotodokumentation per Finger: großer Aufnahme-Knopf, Speichern, Galerie u
   expect((await pick.boundingBox())!.height).toBeGreaterThanOrEqual(52);
   await expect(page.getByTestId('photo-shoot')).toHaveCount(0);
   await expect(page.getByTestId('photo-camera-input')).toHaveAttribute('capture', 'environment');
-  await page.getByTestId('photo-file-input').setInputFiles([join(FIXTURES, 'foto.jpg'), join(FIXTURES, 'parkdeck.png')]);
+  await page.getByTestId('photo-file-input').setInputFiles([join(FIXTURES, 'foto.jpg'), join(FIXTURES, 'parkdeck.png'), join(FIXTURES, 'farbplan.png')]);
   const dlg = page.getByTestId('photo-save-dialog');
   await expect(dlg.getByTestId('photo-site')).toHaveValue(/\|Halle 3$/);
   await dlg.getByTestId('photo-user').fill('Max');
   await dlg.getByTestId('photo-save').tap();
-  await expect(page.locator('.toast', { hasText: '2 Fotos gespeichert' })).toHaveCount(1);
+  await expect(page.locator('.toast', { hasText: '3 Fotos gespeichert' })).toHaveCount(1);
   await noHorizontalScroll(page);
-  await expect(page.getByTestId('photo-thumb')).toHaveCount(2);
+  await expect(page.getByTestId('photo-thumb')).toHaveCount(3);
   await noHorizontalScroll(page);
   await page.screenshot({ path: join(OUT, `fotos-${info.project.name}.png`), fullPage: true });
+  // lange drücken → Auswahl; Finger liegen lassen und ziehen markiert mehrere (wie mit der Maus)
+  const thumbs = page.getByTestId('photo-thumb');
+  const c = async (i: number) => {
+    const b = (await thumbs.nth(i).locator('.photo-thumb').boundingBox())!;
+    return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+  };
+  await thumbs.first().scrollIntoViewIfNeeded();
+  const cdp = await page.context().newCDPSession(page);
+  const p0 = await c(0);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: p0.x, y: p0.y, id: 1 }] });
+  await pause(700);
+  await expect(page.getByTestId('photo-selection-bar')).toBeVisible(); // Auswahlmodus durch langes Drücken
+  await expect(page.locator('[data-testid="photo-thumb"][data-selected="true"]')).toHaveCount(1);
+  const p2 = await c(1); // Lage nach dem Einblenden der Auswahlleiste (bei langen Galerien scrollt die Seite nach)
+  for (let i = 1; i <= 8; i++) {
+    await pause(16);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: p0.x + ((p2.x - p0.x) * i) / 8, y: p0.y + ((p2.y - p0.y) * i) / 8, id: 1 }] });
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await expect(page.locator('[data-testid="photo-thumb"][data-selected="true"]')).toHaveCount(2);
+  await expect(page.getByTestId('lightbox-image')).toHaveCount(0); // kein Öffnen durch den Langdruck
+  // kurzes Tippen wählt einzeln dazu bzw. ab; „Fertig“ beendet die Auswahl
+  await thumbs.nth(2).locator('.photo-thumb').tap();
+  await expect(page.locator('[data-testid="photo-thumb"][data-selected="true"]')).toHaveCount(3);
+  await thumbs.nth(1).locator('.photo-thumb').tap();
+  await expect(page.locator('[data-testid="photo-thumb"][data-selected="true"]')).toHaveCount(2);
+  await page.getByTestId('photo-select').tap();
+  await expect(page.locator('[data-testid="photo-thumb"][data-selected="true"]')).toHaveCount(0);
   await page.getByTestId('photo-thumb').first().tap();
   await expect(page.getByTestId('lightbox-image')).toBeVisible();
   await noHorizontalScroll(page);
