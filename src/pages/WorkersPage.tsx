@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { ActionMenu, type MenuAction } from '../components/ActionMenu';
 import { Icon } from '../components/Icon';
 import { Modal } from '../components/Modal';
+import { useSwipe } from '../components/useSwipe';
 import { PhotoSiteDialog } from '../components/PhotoSitePicker';
 import { ProjectPicker } from '../components/ProjectPicker';
 import { SiteNav } from '../components/SiteNav';
@@ -122,6 +123,18 @@ export function WorkersPage() {
       /* egal */
     }
   };
+  /** Wischen nach links = nächste Woche, nach rechts = vorige Woche (Handy/Tablet) */
+  const pageRef = useRef<HTMLDivElement>(null);
+  const weekRef = useRef(weekId);
+  weekRef.current = weekId;
+  const setWeekIdRef = useRef(setWeekId);
+  setWeekIdRef.current = setWeekId;
+  const onSwipe = useCallback((dir: 'left' | 'right') => {
+    const next = addDays(weekRef.current, dir === 'left' ? 7 : -7);
+    setWeekIdRef.current(next);
+    toast(`KW ${isoWeekNo(next)}`, 'info', 1200);
+  }, []);
+
   const [plan, setPlan] = useState<WeekPlan | null>(null);
   /** nicht gespeicherte Woche: aus dieser Woche weitergeführt (bzw. leer) */
   const [draftFrom, setDraftFrom] = useState<string | null>(null);
@@ -420,6 +433,8 @@ export function WorkersPage() {
       toast(`Sicherung eingelesen: ${r.workers} Arbeiter, ${r.weeks} Wochen übernommen.`, 'success', 5000);
     });
 
+  useSwipe(pageRef, onSwipe, !!(workers && times !== undefined && plan));
+
   if (!workers || times === undefined || !plan)
     return (
       <>
@@ -534,7 +549,7 @@ export function WorkersPage() {
   return (
     <>
       <SiteNav />
-      <div className="page crew-page">
+      <div className="page crew-page" ref={pageRef}>
         <header className="page-head page-head-row">
           <div className="page-head-title">
             <a href={paths.tools()} className="icon-link" aria-label="Zu den Tools" title="Zu den Tools" data-testid="to-tools">

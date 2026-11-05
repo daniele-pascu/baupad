@@ -816,3 +816,31 @@ test('Formular-Editor per Finger: PDF mit zwei Fingern vergrößern, mit einem F
   await expect.poll(() => vpl.evaluate((el) => el.scrollLeft + el.scrollTop)).toBeGreaterThan(before + 50);
   await noHorizontalScroll(page);
 });
+
+test('Arbeitereinteilung per Finger: Woche nicht fixiert, Wischen links/rechts wechselt die Woche', async ({ page }) => {
+  await freshStart(page);
+  await page.goto('./baupad/arbeitereinteilung');
+  await page.getByTestId('week-date').fill('2026-11-09');
+  await expect(page.getByTestId('week-label')).toHaveText('KW 46');
+  // nicht mehr fixiert (verdeckt sonst die Baustellen)
+  expect(await page.getByTestId('crew-sticky').evaluate((el) => getComputedStyle(el).position)).toBe('static');
+  const cdp = await page.context().newCDPSession(page);
+  const swipe = async (fromX: number, toX: number, y: number) => {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: fromX, y, id: 1 }] });
+    for (let i = 1; i <= 6; i++) {
+      await pause(16);
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: fromX + ((toX - fromX) * i) / 6, y: y + i, id: 1 }] });
+    }
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  };
+  const w = page.viewportSize()!.width;
+  const y = (await page.getByTestId('crew-week').boundingBox())!.y + 120;
+  await swipe(w * 0.8, w * 0.2, y); // nach links → nächste Woche
+  await expect(page.getByTestId('week-label')).toHaveText('KW 47');
+  await swipe(w * 0.2, w * 0.8, y); // nach rechts → zurück
+  await swipe(w * 0.2, w * 0.8, y);
+  await expect(page.getByTestId('week-label')).toHaveText('KW 45');
+  // kurze oder senkrechte Bewegung wechselt nicht
+  await swipe(w * 0.5, w * 0.5 + 30, y);
+  await expect(page.getByTestId('week-label')).toHaveText('KW 45');
+});

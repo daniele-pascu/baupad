@@ -5586,6 +5586,15 @@ a.tool-tile:focus-visible {
   padding: 8px 16px 0;
   background: var(--bg);
 }
+/* Handy/Tablet: Woche und Urlaub/Krank nicht fixieren (verdeckt sonst die Baustellen) – Woche per Wischen wechseln */
+@media (max-width: 1024px), (pointer: coarse) {
+  .crew-sticky {
+    position: static;
+  }
+}
+html:has(.crew-page) {
+  overscroll-behavior-x: none;
+}
 .crew-sticky .crew-vacations {
   margin-bottom: 8px;
   padding: 6px 12px;
