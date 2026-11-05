@@ -271,6 +271,13 @@ test('Felder: Namen vorschlagen, Schrift (Größe, Art, Farbe), Wochentag/KW aus
   await panel.getByTestId('form-name-suggestion').filter({ hasText: 'Wochentag' }).click();
   await expect(panel.getByTestId('form-field-name')).toHaveValue('Wochentag');
   await expect(panel.getByTestId('form-field-type')).toHaveValue('weekday');
+  // Name schon drin → trotzdem aus der Liste einen anderen wählen (Typ passt sich an), dann zurück
+  await panel.getByTestId('form-name-pick').selectOption('Datum');
+  await expect(panel.getByTestId('form-field-name')).toHaveValue('Datum');
+  await expect(panel.getByTestId('form-field-type')).toHaveValue('date');
+  await panel.getByTestId('form-name-pick').selectOption('Wochentag');
+  await expect(panel.getByTestId('form-field-name')).toHaveValue('Wochentag');
+  await expect(panel.getByTestId('form-field-type')).toHaveValue('weekday');
   // Schrift: Größe, Times New Roman, fett, Farbe Rot
   await panel.getByTestId('form-field-font').fill('11');
   await panel.getByTestId('form-field-fontface').selectOption('times');

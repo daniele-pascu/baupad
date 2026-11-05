@@ -552,7 +552,6 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
                   <input
                     ref={nameInput}
                     value={field.name}
-                    list="form-name-suggestions"
                     onChange={(e) => {
                       // Vorschlag gewählt (z. B. „Wochentag“) → passender Feldtyp, solange noch „Einzeiliger Text“
                       const sg = suggestionFor(e.target.value);
@@ -561,11 +560,24 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
                     placeholder="z. B. Baustelle – Vorschlag wählen oder selbst schreiben"
                     data-testid="form-field-name"
                   />
-                  <datalist id="form-name-suggestions">
+                  {/* Auswahlliste: immer alle Vorschläge, auch wenn schon ein Name drinsteht */}
+                  <select
+                    className="form-name-pick"
+                    value=""
+                    onChange={(e) => {
+                      const x = NAME_SUGGESTIONS.find((n) => n.name === e.target.value);
+                      if (x) patch(field.id, { name: x.name, type: x.type, ...(x.source ? { source: x.source } : {}), ...(x.timeOf ? { timeOf: x.timeOf } : {}) });
+                    }}
+                    aria-label="Feldname aus der Liste wählen"
+                    data-testid="form-name-pick"
+                  >
+                    <option value="">Name aus der Liste wählen …</option>
                     {NAME_SUGGESTIONS.map((x) => (
-                      <option key={x.name} value={x.name} />
+                      <option key={x.name} value={x.name}>
+                        {x.name}
+                      </option>
                     ))}
-                  </datalist>
+                  </select>
                   <span className="form-name-chips">
                     {NAME_SUGGESTIONS.filter((x) => !fields.some((g) => g.name.trim().toLowerCase() === x.name.toLowerCase()))
                       .slice(0, 8)

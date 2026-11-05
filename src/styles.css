@@ -10774,3 +10774,7 @@ html[data-theme='dark'] .crew-search {
   flex-wrap: wrap;
   max-width: 100%;
 }
+.form-name-pick {
+  margin-top: 6px;
+  width: 100%;
+}
