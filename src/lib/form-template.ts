@@ -117,7 +117,16 @@ export interface Box {
   h: number;
 }
 
-export interface FormField {
+/** Schrift eines Feldes bzw. der Tabelle (wie bei eigenen Feldern) – ohne Angabe: automatisch, dunkelblau */
+export interface FieldStyle {
+  fontSize?: number;
+  font?: 'helvetica' | 'times' | 'courier';
+  bold?: boolean;
+  color?: string;
+  align?: 'left' | 'center' | 'right';
+}
+
+export interface FormField extends FieldStyle {
   id: string;
   key: FieldKey | '';
   /** Beschriftung im Formular (zur Anzeige) */
@@ -141,6 +150,8 @@ export interface FormTable {
   cols: { key: ColKey; x: number; w: number }[];
   /** Wochenblatt (Spalten je Wochentag) */
   weekly: boolean;
+  /** Schrift der Tabelle */
+  style?: FieldStyle;
 }
 
 export interface FormLayout {

@@ -10778,3 +10778,27 @@ html[data-theme='dark'] .crew-search {
   margin-top: 6px;
   width: 100%;
 }
+/* Vorlage für BauPad-Berichte: Tabelle antippen → Schrift der Tabelle */
+.form-tpl-cell {
+  cursor: pointer;
+  pointer-events: auto;
+}
+.form-tpl-cell.sel {
+  border-color: rgba(10, 91, 211, 0.8);
+  background: rgba(10, 91, 211, 0.08);
+}
+.form-tpl-cell .form-sample {
+  position: absolute;
+  inset: 0;
+  padding: 0 2px;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  overflow: hidden;
+  pointer-events: none;
+}
+.form-tpl-table.sel {
+  outline: 2px solid rgba(10, 91, 211, 0.5);
+  outline-offset: 4px;
+  border-radius: 6px;
+}

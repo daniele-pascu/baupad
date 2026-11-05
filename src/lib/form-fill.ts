@@ -1,7 +1,7 @@
 import { PDFDocument, rgb, StandardFonts, type PDFFont, type PDFPage, type RGB } from 'pdf-lib';
 import { safeFileName, type ExportFile } from './aufmass';
 import { isoWeekNo, parseDate, weekOf } from './crew';
-import { type Box, type ColKey, type FieldKey, type FormLayout, type FormTemplate, MULTILINE } from './form-template';
+import { type Box, type ColKey, type FieldKey, type FieldStyle, type FormLayout, type FormTemplate, MULTILINE } from './form-template';
 import { fmtDate, fmtHours, staffTotal, workerHours } from './reports';
 import type { Report, ReportItem, ReportWorker, StaffCount } from './types';
 
@@ -100,27 +100,51 @@ export function hexColor(hex: string | undefined): RGB | undefined {
 }
 
 /** PDF der Vorlage mit Werten beschreiben */
+/** Standardschriften je Art und fett – je Dokument einmal eingebettet */
+export function fontCache(doc: PDFDocument) {
+  const STD = {
+    helvetica: [StandardFonts.Helvetica, StandardFonts.HelveticaBold],
+    times: [StandardFonts.TimesRoman, StandardFonts.TimesRomanBold],
+    courier: [StandardFonts.Courier, StandardFonts.CourierBold],
+  } as const;
+  const cache = new Map<string, PDFFont>();
+  return async (s: FieldStyle | undefined) => {
+    const k = `${s?.font ?? 'helvetica'}:${s?.bold ? 1 : 0}`;
+    if (!cache.has(k)) cache.set(k, await doc.embedFont(STD[s?.font ?? 'helvetica'][s?.bold ? 1 : 0]));
+    return cache.get(k)!;
+  };
+}
+
+/** Schrift 0,5 mm über der Unterkante (wie im Editor) */
+const BASE = 0.5 * (72 / 25.4);
+
 export async function fillForm(pdf: ArrayBuffer, layout: FormLayout, values: FillValues): Promise<Uint8Array> {
   const doc = await PDFDocument.load(pdf, { ignoreEncryption: true });
-  const font = await doc.embedFont(StandardFonts.Helvetica);
+  const fontOf = fontCache(doc);
   const page = doc.getPage(0);
   const pageH = page.getHeight();
   for (const f of layout.fields) {
     if (!f.key) continue;
     const v = values.fields[f.key];
     if (!v) continue;
-    if (MULTILINE.has(f.key) && (f.lines?.length || v.includes('\n'))) drawLines(page, font, pageH, [f.box, ...(f.lines ?? [])], v);
-    else drawInBox(page, font, pageH, f.box, v.replace(/\s*\n\s*/g, ' · '));
+    const font = await fontOf(f);
+    const color = hexColor(f.color) ?? INK;
+    // eingestellte Schriftgröße: genau und auf der Schreiblinie; sonst wie bisher (passend zum Kasten, mittig)
+    const set = f.fontSize ? { max: f.fontSize, exact: true, baseline: BASE } : {};
+    if (MULTILINE.has(f.key) && (f.lines?.length || v.includes('\n'))) drawLines(page, font, pageH, [f.box, ...(f.lines ?? [])], v, f.fontSize, color, f.fontSize ? BASE : undefined, f.align ?? 'left');
+    else drawInBox(page, font, pageH, f.box, v.replace(/\s*\n\s*/g, ' · '), { ...set, align: f.align, color });
   }
   const t = layout.table;
   if (t) {
+    const font = await fontOf(t.style);
+    const color = hexColor(t.style?.color) ?? INK;
     values.rows.slice(0, t.rows).forEach((row, i) => {
       const y = t.top + i * t.rowHeight;
       for (const c of t.cols) {
         const v = row[c.key];
         if (!v) continue;
         const numeric = c.key !== 'name' && c.key !== 'role';
-        drawInBox(page, font, pageH, { x: c.x + 1, y: y + 1, w: c.w - 2, h: t.rowHeight - 2 }, v, { max: numeric ? 8.5 : 9, align: numeric ? 'center' : 'left' });
+        drawInBox(page, font, pageH, { x: c.x + 1, y: y + 1, w: c.w - 2, h: t.rowHeight - 2 }, v, { max: t.style?.fontSize ?? (numeric ? 8.5 : 9), exact: !!t.style?.fontSize, align: numeric ? 'center' : (t.style?.align ?? 'left'), color });
       }
     });
   }

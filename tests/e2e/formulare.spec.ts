@@ -75,6 +75,48 @@ test('Regieliste der Firma: Wochentabelle wird erkannt', async ({ page }) => {
   const dlg = page.getByTestId('form-template-dialog');
   await expect(dlg.getByTestId('form-template-type')).toHaveValue('regie');
   await expect(dlg.getByTestId('form-template-summary')).toContainText('Tabelle 10 Zeilen × 29 Spalten (Wochenblatt)');
+  // gleiche Werkzeuge wie bei eigenen Feldern: Zoom, Schrift je Feld, Pfeiltasten, Zeichnen, Entf, Tabelle
+  await dlg.getByTestId('form-zoom-in').click();
+  await expect(dlg.getByTestId('form-zoom-level')).toHaveText('125 %');
+  await dlg.getByTestId('form-zoom-fit').click();
+  const box = dlg.locator('[data-testid="form-tpl-box"][data-key="project"]');
+  await box.click();
+  const fp = dlg.getByTestId('form-tpl-field');
+  await fp.getByTestId('form-field-font').fill('11');
+  await fp.getByTestId('form-field-fontface').selectOption('times');
+  await fp.locator('[data-testid="form-field-color"][data-color="#000000"]').click();
+  await fp.getByTestId('form-field-align-center').click();
+  await expect(box.locator('.form-sample')).toHaveCSS('justify-content', 'center');
+  await expect(box.locator('.form-sample')).toHaveText('Bauvorhaben / Projekt');
+  await box.click();
+  const x0 = Number(await fp.getByTestId('form-tpl-x').inputValue());
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
+  expect(Number(await fp.getByTestId('form-tpl-x').inputValue())).toBeCloseTo(x0 + 2, 0);
+  // neues Feld wie Text ziehen → übernimmt die zuletzt gewählte Schrift; Entf entfernt es wieder
+  const n0 = await dlg.getByTestId('form-tpl-box').count();
+  await dlg.getByTestId('form-template-add').click();
+  const vb = (await dlg.getByTestId('form-editor-viewport').boundingBox())!;
+  await page.mouse.move(vb.x + vb.width * 0.3, vb.y + vb.height * 0.85);
+  await page.mouse.down();
+  await page.mouse.move(vb.x + vb.width * 0.5, vb.y + vb.height * 0.85, { steps: 4 });
+  await page.mouse.up();
+  await expect(dlg.getByTestId('form-tpl-box')).toHaveCount(n0 + 1);
+  await expect(fp.getByTestId('form-field-fontface')).toHaveValue('times');
+  await expect(fp.getByTestId('form-field-font')).toHaveValue('11');
+  await page.keyboard.press('Delete');
+  await expect(dlg.getByTestId('form-tpl-box')).toHaveCount(n0);
+  // Tabelle antippen → Schrift der Tabelle
+  await dlg.locator('.form-tpl-cell').first().click();
+  await dlg.getByTestId('form-tpl-table').getByTestId('form-tpl-table-font').fill('8');
+  await dlg.getByTestId('form-tpl-table').locator('[data-testid="form-tpl-table-color"][data-color="#000000"]').click();
   await dlg.getByTestId('form-template-save').click();
+  await expect(dlg).toHaveCount(0);
+  // gemerkt
+  await page.getByTestId('form-template-edit').click();
+  await page.locator('[data-testid="form-tpl-box"][data-key="project"]').click();
+  await expect(page.getByTestId('form-tpl-field').getByTestId('form-field-fontface')).toHaveValue('times');
+  await expect(page.getByTestId('form-tpl-table').getByTestId('form-tpl-table-font')).toHaveValue('8');
+  await page.getByTestId('form-template-save').click();
   await expect(page.getByTestId('form-template-row')).toContainText('Regieliste · 11 Felder zugeordnet');
 });
