@@ -94,7 +94,8 @@ test('Vorlage einrichten, im Projekt ausfüllen, PDF, Nummern, Vorlagenversion',
   const row = page.getByTestId('form-template-row');
   await expect(row).toHaveCount(1);
   await expect(row).toContainText('Tagesbericht Muster');
-  await expect(row).toContainText('14 Felder · 1 Pflicht · 0 Formulare');
+  await expect(row).toContainText('14 Felder · 0 Formulare ausgefüllt');
+  await expect(row).not.toContainText('Pflicht');
   await expect(row).not.toContainText('Version');
   await expect(row.getByTestId('form-template-fields')).toContainText('Baustelle *');
   await expect(row.getByTestId('form-template-fields')).toContainText('Wetter');

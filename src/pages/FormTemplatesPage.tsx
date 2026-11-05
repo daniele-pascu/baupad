@@ -238,7 +238,7 @@ export function FormTemplatesPage() {
                     <div className="form-template-main">
                       <strong>{t.name}</strong>
                       <span className="muted small">
-                        {fields.length} {fields.length === 1 ? 'Feld' : 'Felder'} · {fields.filter((f) => f.required).length} Pflicht · {n} {n === 1 ? 'Formular' : 'Formulare'} ausgefüllt
+                        {fields.length} {fields.length === 1 ? 'Feld' : 'Felder'} · {n} {n === 1 ? 'Formular' : 'Formulare'} ausgefüllt
                       </span>
                       {fields.length > 0 ? (
                         <ul className="form-field-chips" data-testid="form-template-fields">
