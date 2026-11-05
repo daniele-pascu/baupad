@@ -75,7 +75,9 @@ test('Freie Maße ohne Raster; Formen bleiben auf dem Blatt', async () => {
   const sb = (await sheet().boundingBox())!;
   const s = await scale();
   const x1 = sb.x + 41;
-  const y1 = sb.y + 37;
+  // Eingabeleiste liegt oben über dem Plan – unterhalb davon ziehen
+  const bar = (await page.getByTestId('insert-bar').boundingBox())!;
+  const y1 = Math.max(sb.y + 37, bar.y + bar.height + 20);
   await drag(x1, y1, x1 + 137, y1 + 61);
   await waitSaved(page);
   const r = (await stored('elements'))[0];
@@ -174,7 +176,8 @@ test('Mauszeiger: Pfeil im Auswahlmodus, „Verschieben“ nur über dem ausgew�
   const sb = (await sheet().boundingBox())!;
   await page.mouse.move(sb.x + sb.width / 2, sb.y + 10);
   expect(await viewer.evaluate((el) => getComputedStyle(el).cursor)).toBe('default');
-  const rect = page.locator('[data-element="freehand"] path:last-child').first();
+  // die Fläche weiter unten (die Bearbeitungsleiste oben deckt den oberen Planrand ab)
+  const rect = page.locator('[data-element="freehand"] path:last-child').last();
   const rb = (await rect.boundingBox())!;
   await page.mouse.click(rb.x + rb.width / 2, rb.y + rb.height / 2);
   await page.mouse.move(rb.x + rb.width / 2 + 3, rb.y + rb.height / 2 + 3);
