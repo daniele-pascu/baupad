@@ -121,3 +121,26 @@ test('Kamera-Modus: Blitz-Symbol wechselt Aus (durchgestrichen) → Auto (A, her
   await btn.click();
   await btn.screenshot({ path: 'tests/output/blitz-auto.png' });
 });
+
+test('Installierte App: Kamera → Menü „Fotos der Baustelle“ öffnet die Fotos des gewählten Projekts (nicht die Tools); Neuladen bleibt dort', async ({ page }) => {
+  await page.addInitScript(() => Object.defineProperty(navigator, 'standalone', { get: () => true }));
+  await freshStart(page);
+  await page.goto('/baupad/aufmass-und-abrechnung');
+  await createProject(page, 'Wohnanlage Süd', {});
+  await page.goto('/baupad/tools');
+  await page.getByTestId('tools-camera').click();
+  await page.getByTestId('cam-site').click();
+  await page.getByTestId('cam-site-row').filter({ hasText: 'Wohnanlage Süd' }).click();
+  await expect(page.getByTestId('camera-page')).toHaveAttribute('data-ready', 'true');
+  await expect.poll(() => page.getByTestId('cam-video').evaluate((v: HTMLVideoElement) => v.videoWidth)).toBeGreaterThan(0);
+  await page.getByTestId('cam-shutter').click();
+  await expect(page.getByTestId('cam-counter')).toHaveText('1');
+  await page.getByTestId('cam-menu').click();
+  await page.getByTestId('cam-site-photos').click();
+  await expect(page.getByTestId('photo-site-title')).toHaveText('Wohnanlage Süd');
+  await expect(page.getByTestId('photo-thumb')).toHaveCount(1);
+  await expect(page.getByTestId('tools-title')).toHaveCount(0);
+  // Neuladen während die App läuft: bleibt auf der Seite (nur ein echter App-Start beginnt in den Tools)
+  await page.reload();
+  await expect(page.getByTestId('photo-site-title')).toHaveText('Wohnanlage Süd');
+});

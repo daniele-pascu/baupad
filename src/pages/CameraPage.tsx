@@ -643,7 +643,16 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
           <nav className="cam-drawer" onClick={(e) => e.stopPropagation()} aria-label="Menü" data-testid="cam-drawer">
             <strong className="cam-drawer-title">{site ? [site.number, site.name].filter(Boolean).join(' · ') : 'BauPad'}</strong>
             {siteKeyNow && (
-              <a href={paths.photoSite(siteKeyNow)}>
+              <a
+                href={paths.photoSite(siteKeyNow)}
+                onClick={(e) => {
+                  // das Menü hält Klicks an (stopPropagation) – daher selbst in der App bleiben, statt neu zu laden
+                  e.preventDefault();
+                  setMenu(false);
+                  navigate(paths.photoSite(siteKeyNow));
+                }}
+                data-testid="cam-site-photos"
+              >
                 <Icon name="images" size={20} /> Fotos der Baustelle
               </a>
             )}

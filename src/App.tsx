@@ -57,7 +57,17 @@ const PUBLIC_ROUTES_AT_START = new Set(['login', 'register', 'newPassword', 'imp
 // Die installierte App startet immer in der Werkzeug-Übersicht („Tools“) – bzw. im Kamera-Modus, wenn der zuletzt
 // offen war. Auch Symbole, die vor der neuen Startseite angelegt wurden (Adresse „./“), und Android, das die
 // letzte Adresse wiederherstellt.
-if (typeof window !== 'undefined' && isInstalledApp()) {
+/** schon gestartet (nur neu geladen, z. B. über einen Link)? Dann bleibt die Seite, wie sie ist */
+const reloaded = (() => {
+  try {
+    const was = sessionStorage.getItem('appStarted') === '1';
+    sessionStorage.setItem('appStarted', '1');
+    return was;
+  } catch {
+    return false;
+  }
+})();
+if (typeof window !== 'undefined' && isInstalledApp() && !reloaded) {
   const name = parseRoute(currentPath()).name;
   let resume = false;
   try {
