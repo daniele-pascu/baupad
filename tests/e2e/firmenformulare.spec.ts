@@ -399,6 +399,12 @@ test('Felder: Namen vorschlagen, Schrift (Größe, Art, Farbe), Wochentag/KW aus
   await expect(fld('Wochentag')).toHaveValue('Mittwoch');
   await expect(fld('KW')).toHaveValue('45');
   await expect(fld('Arbeitsbeginn')).toHaveValue('07:00'); // Arbeitszeiten der Firma (Standard Mo–Fr 07:00–16:00)
+  // Enter im einzeiligen Feld springt zum nächsten Feld
+  await fld('Wochentag').focus();
+  await fld('Wochentag').press('Enter');
+  await expect(fld('Wochentag')).not.toBeFocused();
+  await expect(page.locator('[data-testid="form-entry-field"]:focus')).toHaveCount(1);
+  await expect(fld('Wochentag')).toHaveValue('Mittwoch');
   // Datum ändern → beides zieht mit
   await page.locator('[data-testid="form-entry-field"][type="date"]').first().fill('2026-11-09');
   await expect(fld('Wochentag')).toHaveValue('Montag');

@@ -325,7 +325,16 @@ function FieldInput({ f, value, measure, people, onChange, onFocus }: { f: Custo
     </span>
   );
   const hint = f.hint ? <small className="muted form-entry-hint">{f.hint}</small> : null;
-  const common = { id, onFocus, 'data-testid': 'form-entry-field', 'data-name': f.name, 'aria-invalid': (f.required && !value.trim()) || !fit.ok ? true : undefined };
+  // einzeilige Felder: Enter springt zum nächsten Feld (mehrzeilig bleibt Enter = neue Zeile)
+  const onKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
+    if (e.key !== 'Enter' || f.type === 'multiline' || e.nativeEvent.isComposing) return;
+    e.preventDefault();
+    const all = [...document.querySelectorAll<HTMLElement>('[data-testid="form-entry-field"]')];
+    const next = all[all.indexOf(e.currentTarget) + 1];
+    if (next) next.focus();
+    else e.currentTarget.blur();
+  };
+  const common = { id, onFocus, onKeyDown, 'data-testid': 'form-entry-field', 'data-name': f.name, 'aria-invalid': (f.required && !value.trim()) || !fit.ok ? true : undefined };
   const suggestion = people.filter((p) => !value.toLowerCase().includes(p.toLowerCase()));
   const append = (...ns: string[]) => onChange([value.trim(), ...ns].filter(Boolean).join(', '));
   switch (f.type) {
