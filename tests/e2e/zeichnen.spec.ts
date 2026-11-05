@@ -135,23 +135,28 @@ test('Linien mit Länge und Richtung schließen aneinander an; Kreis, Dreieck, M
   await page.getByTestId('insert-submit').click();
   await expect(dim('Ø 1,20 m')).toBeVisible();
 
-  // Maßlinie durch Ziehen (rastet am Raster ein) – Länge wird angezeigt
+  // Maßlinie wie im CAD: Punkt A, Punkt B, dann auf den Abstand ziehen (rastet am Raster ein) – bleibt auf A und B bezogen
   await deselect();
   await pickTool(page, 'draw-dimension');
   await page.getByTestId('grid-toggle').click(); // Raster nur auf Wunsch (Standard: aus)
   await expect(page.getByTestId('grid-toggle')).toHaveAttribute('aria-pressed', 'true');
   const sb = (await sheet().boundingBox())!;
-  await page.mouse.move(sb.x + sb.width * 0.1, sb.y + sb.height * 0.85);
-  await page.mouse.down();
-  await page.mouse.move(sb.x + sb.width * 0.3, sb.y + sb.height * 0.85, { steps: 6 });
+  const y0 = sb.y + sb.height * 0.85;
+  await page.mouse.click(sb.x + sb.width * 0.1, y0);
+  await expect(page.getByTestId('op-hint')).toContainText('Punkt A gesetzt');
+  await page.mouse.click(sb.x + sb.width * 0.3, y0);
+  await expect(page.getByTestId('op-hint')).toContainText('Punkt B gesetzt');
+  await page.mouse.move(sb.x + sb.width * 0.2, y0 - 60, { steps: 6 });
+  await expect(page.getByTestId('dimension-preview')).toBeVisible(); // Hilfslinien und Maßzahl in der Vorschau
   await page.screenshot({ path: join(OUT, 'zeichnen-live.png') });
-  await expect(page.getByTestId('live-dim').first()).toBeVisible(); // Live-Maß beim Zeichnen
-  await page.mouse.up();
+  await page.mouse.click(sb.x + sb.width * 0.2, y0 - 60);
   await expect(page.locator('[data-element="dimension"]')).toHaveCount(1);
+  await expect(page.locator('[data-element="dimension"] [data-testid="dim-extension"]')).toHaveCount(1);
   await waitSaved(page);
-  const dimEl = (await stored(page, 'elements')).find((e) => e.type === 'dimension')!;
-  expect(dimEl.shape.h).toBeLessThan(0.001); // waagerecht eingerastet
+  const dimEl = (await stored(page, 'elements')).find((e) => e.type === 'dimension')! as unknown as { shape: { w: number; h: number; y: number }; offset: number };
+  expect(dimEl.shape.h).toBeLessThan(0.001); // waagerecht
   expect(Math.abs(dimEl.shape.w * 100 - Math.round(dimEl.shape.w * 100))).toBeLessThan(1e-6); // Rasterwert
+  expect(Math.abs(dimEl.offset)).toBeGreaterThan(0.1); // Maßlinie im Abstand, Hilfslinien zu den Punkten
   await page.getByTestId('grid-toggle').click(); // wieder aus
 
   // Text

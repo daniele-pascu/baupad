@@ -66,6 +66,7 @@ const INSERT_TOOLS = new Set<DrawTool>(['line', 'rect', 'ellipse', 'triangle', '
 /** Hinweise zu den Befehlen im Zeichenmodus */
 const OP_HINTS: Partial<Record<DrawTool, string>> = {
   arc: 'Anfangspunkt, einen Punkt auf dem Bogen und den Endpunkt antippen.',
+  dimension: 'Maßlinie: 1. Punkt A anklicken, 2. Punkt B anklicken, 3. auf den gewünschten Abstand ziehen und klicken – die Maßlinie bleibt auf A und B bezogen.',
   move: 'Objekt auswählen, dann vom Basispunkt zum Zielpunkt ziehen (Fang nutzt Ecken und Endpunkte).',
   copy: 'Objekt auswählen, dann vom Basispunkt zum Zielpunkt ziehen – die Kopie wird dort eingefügt.',
   stretch: '1. Fenster über die Eckpunkte ziehen, die sich bewegen sollen.',
@@ -703,6 +704,13 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         return;
       }
       if (e.ctrlKey || e.metaKey || e.altKey) return;
+      // F11 wie in CAD-Programmen: Spurlinien ein/aus
+      if (e.key === 'F11' && drawMode) {
+        e.preventDefault();
+        drawing.setTrackOn(!drawing.trackOn);
+        toast(`Spurlinien ${drawing.trackOn ? 'aus' : 'ein'}`, 'info', 1500);
+        return;
+      }
       // F8 wie in CAD-Programmen: 90° / Orthogonal ein/aus (nur beim Zeichnen)
       if (e.key === 'F8' && drawMode) {
         e.preventDefault();
@@ -1214,6 +1222,17 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               >
                 <Icon name="grid" size={18} /> <span className="hide-sm">Raster {drawing.gridOn ? 'ein' : 'aus'}</span>
               </button>
+              <button
+                type="button"
+                className={`btn btn-sm${drawing.trackOn ? ' active-toggle' : ''}`}
+                onClick={() => drawing.setTrackOn(!drawing.trackOn)}
+                aria-pressed={drawing.trackOn}
+                aria-label="Spurlinien"
+                title="Spurlinien (F11): waagrechte und senkrechte Hilfslinien durch angefahrene Fangpunkte – rastet an der Flucht und an Schnittpunkten ein"
+                data-testid="track-toggle"
+              >
+                <Icon name="grid" size={18} /> <span className="hide-sm">Spuren {drawing.trackOn ? 'ein' : 'aus'}</span>
+              </button>
               <OrthoButtons drawing={drawing} />
               <button type="button" className="btn btn-sm btn-primary mode-next" onClick={() => switchMode('measure')} data-testid="mode-measure">
                 Weiter<span className="hide-sm"> zum Aufmaß</span> <Icon name="next" size={18} />
@@ -1293,6 +1312,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               onSelect={(id) => drawing.setSelectedId(id)}
               onCreate={drawing.onCreate}
               onFence={drawing.onFence}
+              onDimension={drawing.onDimension}
+              formatLength={drawing.formatLength}
               onShapeChange={drawing.onShapeChange}
               onLabelChange={() => {}}
               onHistoryChange={() => setHistoryTick((n) => n + 1)}
@@ -1504,8 +1525,12 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               <span className="muted small" data-testid="op-hint">
                 {drawing.tool === 'stretch' && drawing.stretchWin
                   ? '2. Basispunkt zum Zielpunkt ziehen – die Punkte im Fenster werden verschoben.'
-                  : drawing.tool === 'arc' && polyCount
-                    ? `${polyCount} von 3 Punkten gesetzt`
+                  : (drawing.tool === 'arc' || drawing.tool === 'dimension') && polyCount
+                    ? drawing.tool === 'dimension'
+                      ? polyCount === 1
+                        ? '1. Punkt A gesetzt – jetzt Punkt B anklicken.'
+                        : '2. Punkt B gesetzt – jetzt auf den gewünschten Abstand ziehen und klicken.'
+                      : `${polyCount} von 3 Punkten gesetzt`
                     : OP_HINTS[drawing.tool]}
               </span>
               {drawing.selected && (drawing.tool === 'copy' || drawing.tool === 'move') && (

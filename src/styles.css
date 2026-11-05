@@ -10855,3 +10855,18 @@ html[data-theme='dark'] .crew-search {
 .materials-tabs {
   margin-bottom: 12px;
 }
+
+/* Plan zeichnen: Spurlinien (Objektfang-Spuren) und gemerkte Fangpunkte */
+.track-line {
+  stroke: #12a150;
+  stroke-width: 1;
+  stroke-dasharray: 6 5;
+  fill: none;
+  pointer-events: none;
+}
+.track-acquired {
+  stroke: #12a150;
+  stroke-width: 1.5;
+  fill: none;
+  pointer-events: none;
+}

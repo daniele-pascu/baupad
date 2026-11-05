@@ -81,9 +81,10 @@ test('Kopieren und Verschieben per Basis- und Zielpunkt (mit Fang), Drehen, Skal
   const c = els[1].shape;
   near(c.w, r0.shape.w, 1e-6); // Größe unverändert
   near(c.h, r0.shape.h, 1e-6);
-  // Verschiebung = Vektor; der Basispunkt rastet exakt auf der Ecke ein (Ziel 1 px tiefer, frei)
+  // Verschiebung = Vektor; der Basispunkt rastet exakt auf der Ecke ein; das Ziel 1 px tiefer rastet über die
+  // Spurlinie genau auf die Höhe der Ecke ein (waagrecht verschoben)
   near(c.x - r0.shape.x, (await m(420 - 100)) - r0.shape.w);
-  near(c.y - r0.shape.y, (await m(101 - 100)), 0.005);
+  near(c.y - r0.shape.y, 0, 1e-6);
 
   // Verschieben der Kopie um 80 px nach unten
   await pickTool(page, 'draw-move');
@@ -219,6 +220,34 @@ test('Stutzen mit Zaun (mehrere Linien auf einmal) und an einem Rechteck', async
   const opened = els.find((e) => e.type === 'freehand' && e.shape.closed === false);
   expect(opened).toBeTruthy();
   near(opened!.shape.w, await m(100), 0.05); // nur noch die linke Hälfte (100 px breit)
+});
+
+test('Spurlinien: Ecke anfahren, dann waagrecht in der Flucht einrasten (Linie endet genau auf der Höhe der Ecke)', async () => {
+  await deselect();
+  const sb = (await sheet().boundingBox())!;
+  await expect(page.getByTestId('track-toggle')).toHaveAttribute('aria-pressed', 'true'); // Standard: ein
+  // Rechteck als Bezug
+  await pickTool(page, 'draw-rect');
+  await drag(sb.x + 650, sb.y + 450, sb.x + 750, sb.y + 520);
+  await waitSaved(page);
+  const rect = (await elements()).filter((e) => e.type === 'rect').pop()!;
+  await deselect();
+  await pickTool(page, 'draw-line');
+  // Klick-Klick-Linie: Startpunkt frei, dann die Ecke (750, 450) anfahren → gemerkt
+  await page.mouse.click(sb.x + 450, sb.y + 600);
+  await page.mouse.move(sb.x + 750, sb.y + 450, { steps: 4 });
+  // weiter nach links, knapp neben der Höhe der Ecke → Spurlinie waagrecht, Punkt rastet auf die Höhe ein
+  await page.mouse.move(sb.x + 560, sb.y + 453, { steps: 6 });
+  await expect(page.locator('[data-testid="track-line"][data-axis="h"]')).toHaveCount(1);
+  await page.mouse.click(sb.x + 560, sb.y + 453);
+  await waitSaved(page);
+  const line = (await elements()).filter((e) => e.type === 'line').pop()!;
+  const ys = (line.shape.points ?? []).map(([, py]) => line.shape.y + py * line.shape.h);
+  near(Math.min(...ys), rect.shape.y, 1e-6); // genau in der Flucht der Rechteck-Oberkante
+  // Spuren aus (F11) → keine Spurlinie
+  await page.keyboard.press('F11');
+  await expect(page.getByTestId('track-toggle')).toHaveAttribute('aria-pressed', 'false');
+  await page.keyboard.press('F11');
 });
 
 test('Bogen aus drei Punkten: Länge und Radius', async () => {

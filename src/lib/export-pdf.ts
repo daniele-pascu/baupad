@@ -18,7 +18,7 @@ import {
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { componentsOf, costCenterLabel, damagesOf, elementsOf, findPosition, planTitle, safeFileName, type ExportFile } from './aufmass';
 import { dimsVisible, visibleDamages, visibleElements } from './layers';
-import { annotationsOf, contentRegion, dimGeometry, isDrawingPlan, PAPER, PRINT_HEADER_MM, PRINT_MARGIN_MM, printFit, printScale, shapeToPage, unitsPerMeter } from './drawing';
+import { annotationsOf, contentRegion, dimGeometry, isDrawingPlan, lineEnds, PAPER, PRINT_HEADER_MM, PRINT_MARGIN_MM, printFit, printScale, shapeToPage, unitsPerMeter } from './drawing';
 import { getBlob } from './db';
 import { MADE_WITH } from './crew-pdf';
 import { damageNo } from './numbering';
@@ -536,6 +536,21 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
         return { x: q.x, y: -q.y };
       });
       page.drawSvgPath(svg, { x: 0, y: 0, borderColor: color, borderWidth: 0.6 });
+      if (e.offset) {
+        // Hilfslinien zu den gemessenen Punkten
+        const [a, b] = lineEnds(shape);
+        const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+        const nx = -(b.y - a.y) / len;
+        const ny = (b.x - a.x) / len;
+        const off = e.offset * k;
+        const s = Math.sign(off);
+        const over = 1.2 / u; // 1,2 pt Überstand
+        for (const p of [a, b]) {
+          const from = map({ x: p.x + nx * off * 0.97, y: p.y + ny * off * 0.97 });
+          const to = map({ x: p.x - nx * s * over, y: p.y - ny * s * over });
+          page.drawLine({ start: from, end: to, thickness: 0.4, color });
+        }
+      }
       continue;
     }
     drawStyledShape(page, map, shape, visibleHex(e.color), e.style, e.style?.lineWidth ?? 1.1, DEFAULT_TRANSPARENCY.element, null);

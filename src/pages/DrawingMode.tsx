@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { elementLabel } from '../components/DrawPanel';
 import { renderDims, renderElement, renderPreviewDims, renderSheet } from '../components/DrawingLayer';
 import type { PlanViewerHandle, SnapFn, Tool, ViewerItem } from '../components/PlanViewer';
@@ -8,6 +8,7 @@ import { damageNo } from '../lib/numbering';
 import {
   applyMeasures,
   circleFromMeasures,
+  formatM,
   gridStep,
   lineEnds,
   lineFromMeasures,
@@ -27,7 +28,7 @@ import {
 import { type OrthoDir, extendLine, ORTHO_DIRS, orthoPoint, rotateShapeBy, scaleShape, stretchShape, translateShape, trimByFence, trimShape } from '../lib/cad';
 import { edgesOf, findSnap, type SnapKind } from '../lib/snap';
 import { dimsVisible, visibleDamages, visibleElements } from '../lib/layers';
-import { distToSegment, isOpenShape, pathToSvg, rectsOverlap, removeVertex, setPolylineClosed, shapeAABB, shapePath, toScreen, type Point, type View } from '../lib/geometry';
+import { distToSegment, isOpenShape, lineShape, pathToSvg, rectsOverlap, removeVertex, setPolylineClosed, shapeAABB, shapePath, toScreen, type Point, type View } from '../lib/geometry';
 import { newMeta, putRecord, putRecords, softDelete, type ProjectState } from '../lib/store';
 import type { Damage, DrawElement, DrawElementType, Plan, Rect, Shape, ShapeStyle } from '../lib/types';
 
@@ -154,6 +155,14 @@ export function useDrawing(opts: {
     const d = pref('orthoDir', 'auto') as OrthoDir;
     return ORTHO_DIRS.includes(d) ? d : 'auto';
   });
+  /** Spurlinien (wie die Objektfang-Spuren im CAD): waagrecht/senkrecht durch angefahrene Fangpunkte */
+  const [trackOn, setTrackOnState] = useState(() => pref('track', '1') !== '0');
+  const setTrackOn = (on: boolean) => {
+    setTrackOnState(on);
+    storePref('track', on ? '1' : '0');
+  };
+  /** angefahrene Fangpunkte (zuletzt bis zu 4) und aktuelle Spurlinien – nur für die Anzeige */
+  const track = useRef<{ acquired: Point[]; lines: { from: Point; axis: 'h' | 'v' }[] }>({ acquired: [], lines: [] });
   /** Ende der zuletzt eingefügten Linie – die nächste Linie schließt dort an (Wände) */
   const [lastLineEnd, setLastLineEnd] = useState<Point | null>(null);
 
@@ -208,6 +217,7 @@ export function useDrawing(opts: {
   // ausdrücklich eingeschaltet – sonst folgen Formen genau der Bewegung (keine erzwungene Rundung)
 
   const snap: SnapFn = (p, ctx) => {
+    track.current.lines = [];
     if (!snapOn && !gridOn && !orthoOn) return p;
     const pm = { x: p.x / k, y: p.y / k };
     const pxPerM = ctx.scale * k;
@@ -233,6 +243,26 @@ export function useDrawing(opts: {
       return { x: q.x * k, y: q.y * k, kind };
     }
     if (!snapOn && !gridOn) return p;
+    // Spurlinien: eindeutige Fangpunkte merken; ohne Fangpunkt an der Waagrechten/Senkrechten durch einen
+    // gemerkten Punkt (oder den letzten Punkt) einrasten – an zweien davon im Schnittpunkt
+    if (trackOn && snapOn && hit && hit.kind !== 'nearest' && hit.kind !== 'grid') {
+      const acq = track.current.acquired.filter((a) => Math.hypot(a.x - hit.point.x, a.y - hit.point.y) > 1e-6);
+      track.current.acquired = [...acq, hit.point].slice(-4);
+    }
+    if (trackOn && snapOn && (!hit || hit.kind === 'nearest')) {
+      const refs = [...track.current.acquired, ...(ctx.from ? [{ x: ctx.from.x / k, y: ctx.from.y / k }] : [])];
+      let h: Point | null = null;
+      let v: Point | null = null;
+      for (const r of refs) {
+        if (Math.abs(pm.y - r.y) < tol && (!h || Math.abs(pm.y - r.y) < Math.abs(pm.y - h.y))) h = r;
+        if (Math.abs(pm.x - r.x) < tol && (!v || Math.abs(pm.x - r.x) < Math.abs(pm.x - v.x))) v = r;
+      }
+      if (h || v) {
+        q = { x: v ? v.x : pm.x, y: h ? h.y : pm.y };
+        track.current.lines = [...(h ? [{ from: h, axis: 'h' as const }] : []), ...(v ? [{ from: v, axis: 'v' as const }] : [])];
+        return { x: q.x * k, y: q.y * k, kind: 'track' };
+      }
+    }
     if (hit) {
       q = hit.point;
       kind = hit.kind;
@@ -279,6 +309,12 @@ export function useDrawing(opts: {
     if (!keepTool) setTool('select');
     onCreated?.();
   };
+
+  /** Maßlinie aus drei Punkten (Seitenkoordinaten): Lage der Maßlinie und Abstand zu den gemessenen Punkten */
+  const onDimension = (a2: Point, b2: Point, offset: number) => {
+    create('dimension', lineShape({ x: a2.x / k, y: a2.y / k }, { x: b2.x / k, y: b2.y / k }), { offset: Math.round((offset / k) * 10000) / 10000 || undefined }, true);
+  };
+  const formatLength = (len: number) => formatM(len / k);
 
   /** Im Plan gezogene Form übernehmen (Seitenkoordinaten → Meter) bzw. Befehl ausführen */
   const onCreate = (pageShape: Shape) => {
@@ -530,7 +566,7 @@ export function useDrawing(opts: {
 
   const renderItem = (item: ViewerItem, view: View, sel: boolean): ReactNode => {
     const e = byId.get(item.id);
-    return e ? renderElement(e, item.shape, view, sel) : null;
+    return e ? renderElement(e, item.shape, view, sel, false, k) : null;
   };
 
   const markerPaths = (view: View) => (
@@ -554,7 +590,7 @@ export function useDrawing(opts: {
     <>
       {renderSheet(view, size, region, k, false, true)}
       {elements.map((e) => (
-        <g key={e.id}>{renderElement(e, shapeToPage(e.shape, k), view, false)}</g>
+        <g key={e.id}>{renderElement(e, shapeToPage(e.shape, k), view, false, false, k)}</g>
       ))}
       {showDims && renderDims(view, elements, k, { color: '#5b6b80' })}
     </>
@@ -589,6 +625,18 @@ export function useDrawing(opts: {
           />
         )}
         {ghost}
+        {trackOn && snapOn && tool !== 'select' && (
+          <g className="track-lines" data-testid="track-lines">
+            {track.current.acquired.map((a, i) => {
+              const s2 = toScreen(view, { x: a.x * k, y: a.y * k });
+              return <path key={`a${i}`} d={`M${s2.x - 4} ${s2.y}H${s2.x + 4}M${s2.x} ${s2.y - 4}V${s2.y + 4}`} className="track-acquired" />;
+            })}
+            {track.current.lines.map((l, i) => {
+              const s2 = toScreen(view, { x: l.from.x * k, y: l.from.y * k });
+              return <path key={`l${i}`} d={l.axis === 'h' ? `M-20000 ${s2.y}H20000` : `M${s2.x} -20000V20000`} className="track-line" data-testid="track-line" data-axis={l.axis} />;
+            })}
+          </g>
+        )}
       </>
     );
   };
@@ -606,6 +654,10 @@ export function useDrawing(opts: {
     gridOn,
     setGridOn,
     orthoOn,
+    trackOn,
+    setTrackOn,
+    onDimension,
+    formatLength,
     setOrthoOn,
     orthoDir,
     setOrthoDir,

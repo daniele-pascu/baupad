@@ -8,7 +8,7 @@ import type { Shape } from './types';
  * Genauigkeit hängt nicht vom Zoom ab; nur der Fangradius wird in Bildschirmpixeln gewählt.
  */
 
-export type SnapKind = 'end' | 'intersection' | 'mid' | 'center' | 'nearest' | 'grid';
+export type SnapKind = 'end' | 'intersection' | 'mid' | 'center' | 'nearest' | 'grid' | 'track';
 
 export const SNAP_LABELS: Record<SnapKind, string> = {
   end: 'Endpunkt',
@@ -17,6 +17,7 @@ export const SNAP_LABELS: Record<SnapKind, string> = {
   center: 'Mittelpunkt (Kreis)',
   nearest: 'Auf Linie',
   grid: 'Raster',
+  track: 'Spurlinie',
 };
 
 export interface SnapHit {
@@ -25,7 +26,7 @@ export interface SnapHit {
 }
 
 /** Rangfolge bei mehreren Treffern im Fangradius: eindeutige Punkte vor „auf Linie“ */
-const RANK: Record<SnapKind, number> = { end: 0, intersection: 1, mid: 2, center: 3, nearest: 4, grid: 5 };
+const RANK: Record<SnapKind, number> = { end: 0, intersection: 1, mid: 2, center: 3, nearest: 4, grid: 5, track: 6 };
 
 type Seg = [Point, Point];
 

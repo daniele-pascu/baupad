@@ -78,7 +78,7 @@ export function renderSheet(view: View, size: { w: number; h: number }, region: 
 }
 
 /** Zeichnungsobjekt in Bildschirmkoordinaten (shape in Seitenkoordinaten). */
-export function renderElement(e: Pick<DrawElement, 'id' | 'type' | 'color' | 'text' | 'style'>, pageShape: Shape, view: View, selected: boolean, faded = false): ReactNode {
+export function renderElement(e: Pick<DrawElement, 'id' | 'type' | 'color' | 'text' | 'style'> & { offset?: number }, pageShape: Shape, view: View, selected: boolean, faded = false, k = 100): ReactNode {
   const stroke = visibleStroke(e.color);
   const w = e.style?.lineWidth && e.type !== 'dimension' ? Math.max(1, e.style.lineWidth * PX_PER_PT) : selected ? 3 : 2;
   if (e.type === 'text') {
@@ -109,8 +109,11 @@ export function renderElement(e: Pick<DrawElement, 'id' | 'type' | 'color' | 'te
     // Maßlinie: Linie mit Endstrichen; die Maßzahl zeichnet renderDims
     const [a, b] = endsOnScreen(pageShape, view);
     const t = ticks(a, b, 6);
+    // Hilfslinien zu den gemessenen Punkten (Maßlinie mit Abstand, wie im CAD)
+    const ext = e.offset ? extensionLines(a, b, e.offset * k * view.scale) : '';
     return (
       <g data-element="dimension" data-element-id={e.id} opacity={faded ? 0.55 : 1}>
+        {ext && <path d={ext} stroke={stroke} strokeWidth={0.9} data-testid="dim-extension" />}
         <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={stroke} strokeWidth={selected ? 2.4 : 1.4} />
         <path d={t} stroke={stroke} strokeWidth={selected ? 2.4 : 1.6} />
         {/* breitere unsichtbare Fläche zum Antippen */}
@@ -140,6 +143,17 @@ export function renderElement(e: Pick<DrawElement, 'id' | 'type' | 'color' | 'te
       />
     </g>
   );
+}
+
+/** Hilfslinien einer Maßlinie a–b zu den Punkten im Abstand off (Bildschirm, Normale links von a→b): kleine Lücke am Punkt, kurzer Überstand */
+export function extensionLines(a: Point, b: Point, off: number): string {
+  const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+  const nx = -(b.y - a.y) / len;
+  const ny = (b.x - a.x) / len;
+  const s = Math.sign(off);
+  const gap = Math.min(3, Math.abs(off) / 3);
+  const seg = (p: Point) => `M${p.x + nx * (off - s * gap)} ${p.y + ny * (off - s * gap)}L${p.x - nx * s * 4} ${p.y - ny * s * 4}`;
+  return seg(a) + seg(b);
 }
 
 function endsOnScreen(pageShape: Shape, view: View): [Point, Point] {

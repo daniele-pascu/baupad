@@ -66,7 +66,21 @@ export type Tool =
   | 'extend';
 
 /** Werkzeuge, die Punkt für Punkt gesetzt werden (Polygon = immer geschlossen, Polylinie = offen oder geschlossen) */
-const isPointTool = (t: Tool) => t === 'polygon' || t === 'polyline' || t === 'wall' || t === 'arc' || t === 'probe';
+const isPointTool = (t: Tool) => t === 'polygon' || t === 'polyline' || t === 'wall' || t === 'arc' || t === 'probe' || t === 'dimension';
+/** Bezugspunkt für Fang/90° beim nächsten Punkt – bei der Maßlinie ist der dritte Punkt (Abstand) frei */
+const snapFrom = (t: Tool, pts: Point[]) => (t === 'dimension' && pts.length >= 2 ? undefined : pts[pts.length - 1]);
+
+/** Maßlinie aus Punkt A, Punkt B und dem Abstand (Punkt C): Lage der Maßlinie und Abstand zu den Punkten (Seiteneinheiten) */
+export function dimensionFrom(a: Point, b: Point, c: Point): { a2: Point; b2: Point; offset: number; len: number } {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const nx = -dy / len;
+  const ny = dx / len;
+  const d = (c.x - a.x) * nx + (c.y - a.y) * ny;
+  // offset: von der Maßlinie zurück zu den gemessenen Punkten (entlang der Normalen der Maßlinie)
+  return { a2: { x: a.x + nx * d, y: a.y + ny * d }, b2: { x: b.x + nx * d, y: b.y + ny * d }, offset: -d, len: Math.hypot(dx, dy) };
+}
 /** Strecken auch per Klick, Klick (Punkt A, Punkt B) – dazwischen z. B. mit X zoomen */
 const CLICK_LINE = new Set<string>(['line', 'calibrate']);
 
@@ -173,6 +187,10 @@ interface Props {
   vertexEdit?: boolean;
   /** Punktwerkzeuge: Anzahl gesetzter Punkte (0 = keine Form im Aufbau) */
   onPolygonChange?(points: number): void;
+  /** Maßlinie fertig: Lage der Maßlinie (a2, b2) und Abstand zu den gemessenen Punkten (Seiteneinheiten) */
+  onDimension?(a2: Point, b2: Point, offset: number): void;
+  /** Länge (Seiteneinheiten) als Text für die Vorschau der Maßlinie */
+  formatLength?(len: number): string;
   /** Ausgewählter Eckpunkt (nur mit vertexEdit) – z. B. zum Entfernen */
   selectedVertex?: number | null;
   onVertexSelect?(index: number | null): void;
@@ -859,7 +877,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       const t = propsRef.current.tool;
       if (e.pointerType === 'mouse' && propsRef.current.snap && t !== 'select' && viewRef.current) {
         const before = snapMark.current;
-        const last = poly.current[poly.current.length - 1];
+        const last = snapFrom(t, poly.current);
         snapAt(clampP(toPage(viewRef.current, localPoint(e))), { tool: t, scale: viewRef.current.scale, from: last });
         if (before?.kind !== snapMark.current?.kind || before?.p.x !== snapMark.current?.p.x || before?.p.y !== snapMark.current?.p.y) forceRender((n) => n + 1);
       }
@@ -872,7 +890,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       // Vorschau der nächsten Kante beim Setzen von Flächenpunkten (mit Fang bzw. 90°, wie der Klick)
       if (isPointTool(propsRef.current.tool) && (poly.current.length || propsRef.current.tool === 'probe') && viewRef.current) {
         const hp = clampP(toPage(viewRef.current, localPoint(e)));
-        const last = propsRef.current.tool === 'probe' ? (propsRef.current.probeFrom ?? undefined) : poly.current[poly.current.length - 1];
+        const last = propsRef.current.tool === 'probe' ? (propsRef.current.probeFrom ?? undefined) : snapFrom(propsRef.current.tool, poly.current);
         polyHover.current = e.pointerType === 'mouse' && propsRef.current.snap ? clampP(snapAt(hp, { tool: t, scale: viewRef.current.scale, from: last })) : hp;
         forceRender((n) => n + 1);
       }
@@ -1116,7 +1134,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         const snap = propsRef.current.snap;
         const pts = poly.current;
         const probing = propsRef.current.tool === 'probe';
-        const pp = clampP(snap ? snapAt(raw, { scale: v.scale, tool: propsRef.current.tool, from: probing ? (propsRef.current.probeFrom ?? undefined) : pts[pts.length - 1] }) : raw);
+        const pp = clampP(snap ? snapAt(raw, { scale: v.scale, tool: propsRef.current.tool, from: probing ? (propsRef.current.probeFrom ?? undefined) : snapFrom(propsRef.current.tool, pts) }) : raw);
         // Messung: Punkt nur melden – keine Form, keine Auswahl, nichts wird verändert
         if (probing) {
           propsRef.current.onProbePoint?.(pp, v.scale);
@@ -1146,6 +1164,21 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
           return;
         }
         poly.current = [...pts, pp];
+        if (propsRef.current.tool === 'dimension' && poly.current.length === 3) {
+          // Maßlinie: Punkt A, Punkt B (fest), dann Abstand der Maßlinie – bleibt auf A und B bezogen
+          const [p1, p2, p3] = poly.current;
+          poly.current = [];
+          polyHover.current = null;
+          propsRef.current.onPolygonChange?.(0);
+          forceRender((n) => n + 1);
+          if (Math.hypot(p2.x - p1.x, p2.y - p1.y) < 1e-6) return;
+          const dm = dimensionFrom(p1, p2, p3);
+          if (propsRef.current.onDimension) {
+            propsRef.current.onDimension(dm.a2, dm.b2, dm.offset);
+            usedRef.current = true;
+          } else create(lineShape(dm.a2, dm.b2));
+          return;
+        }
         if (propsRef.current.tool === 'arc' && poly.current.length === 3) {
           // Bogen: Anfangspunkt, Punkt auf dem Bogen, Endpunkt
           const [p1, p2, p3] = poly.current;
@@ -1330,6 +1363,28 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
           })}
           {pending && renderShape(pending.shape, pending.color, { dashed: true, key: 'pending' })}
           {drawPreview && renderShape(drawPreview, color, { dashed: true, key: 'draw' })}
+          {tool === 'dimension' && poly.current.length === 2 && polyHover.current && (() => {
+            // Vorschau: Hilfslinien von A und B zur Maßlinie, Maßlinie mit Maßzahl
+            const dm = dimensionFrom(poly.current[0], poly.current[1], polyHover.current);
+            const [a, b, a2, b2] = [poly.current[0], poly.current[1], dm.a2, dm.b2].map((q) => toScreen(view, q));
+            const mid = { x: (a2.x + b2.x) / 2, y: (a2.y + b2.y) / 2 };
+            let ang = (Math.atan2(b2.y - a2.y, b2.x - a2.x) * 180) / Math.PI;
+            if (ang > 90) ang -= 180;
+            if (ang <= -90) ang += 180;
+            return (
+              <g className="dim-preview" data-testid="dimension-preview">
+                <path d={`M${a.x} ${a.y}L${a2.x} ${a2.y}M${b.x} ${b.y}L${b2.x} ${b2.y}`} stroke={visibleStroke(color)} strokeWidth={1} strokeDasharray="4 3" />
+                <line x1={a2.x} y1={a2.y} x2={b2.x} y2={b2.y} stroke={visibleStroke(color)} strokeWidth={1.6} />
+                <circle cx={a.x} cy={a.y} r={4} className="poly-point" />
+                <circle cx={b.x} cy={b.y} r={4} className="poly-point" />
+                {props.formatLength && (
+                  <text x={mid.x} y={mid.y - 8} transform={`rotate(${ang} ${mid.x} ${mid.y - 8})`} textAnchor="middle" className="dim-text" fill={visibleStroke(color)}>
+                    {props.formatLength(dm.len)}
+                  </text>
+                )}
+              </g>
+            );
+          })()}
           {tool === 'arc' && poly.current.length === 2 && polyHover.current && (() => {
             const a = arcShape(poly.current[0], poly.current[1], polyHover.current);
             return a ? renderShape(a, color, { dashed: true, key: 'arc-preview' }) : null;
@@ -1344,7 +1399,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
               </g>
             );
           })()}
-          {isPointTool(tool) && poly.current.length > 0 && (
+          {isPointTool(tool) && poly.current.length > 0 && !(tool === 'dimension' && poly.current.length >= 2) && (
             <g className="poly-preview" data-testid="polygon-preview">
               <polyline
                 points={[...poly.current, ...(polyHover.current ? [polyHover.current] : [])].map((q) => { const s2 = toScreen(view, q); return `${s2.x},${s2.y}`; }).join(' ')}
