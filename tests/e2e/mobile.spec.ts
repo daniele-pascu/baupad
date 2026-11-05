@@ -775,3 +775,44 @@ test('Projektregister per Finger: passt auf den Bildschirm', async ({ page }, in
   await noHorizontalScroll(page);
   await page.screenshot({ path: join(OUT, `register-${info.project.name}.png`), fullPage: true });
 });
+
+test('Formular-Editor per Finger: PDF mit zwei Fingern vergrößern, mit einem Finger verschieben (Seitenleiste bleibt)', async ({ page }) => {
+  await freshStart(page);
+  await page.goto('./baupad/berichte-und-formulare/vorlagen');
+  await page.getByTestId('form-template-input').setInputFiles(join(FIXTURES, 'forms', 'mst-tagesbericht.pdf'));
+  await page.getByTestId('form-new-dialog').getByTestId('form-new-name').fill('Regie');
+  await page.getByTestId('form-new-dialog').getByTestId('form-new-create').tap();
+  await expect(page.getByTestId('form-field-box').first()).toBeVisible();
+  const vpl = page.getByTestId('form-editor-viewport');
+  await vpl.scrollIntoViewIfNeeded();
+  const v = (await vpl.boundingBox())!;
+  const cdp = await page.context().newCDPSession(page);
+  const cx = v.x + v.width / 2;
+  const cy = v.y + Math.min(v.height, 300) / 2;
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: cx - 40, y: cy, id: 1 }, { x: cx + 40, y: cy, id: 2 }] });
+  for (let i = 1; i <= 8; i++) {
+    await pause(16);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: cx - 40 - i * 10, y: cy, id: 1 }, { x: cx + 40 + i * 10, y: cy, id: 2 }] });
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await expect.poll(async () => parseInt(await page.getByTestId('form-zoom-level').innerText(), 10)).toBeGreaterThan(150);
+  expect((await vpl.boundingBox())!.width).toBeCloseTo(v.width, 0); // nur die PDF wird größer
+  // ein Finger auf freier Fläche verschiebt die Ansicht
+  const before = await vpl.evaluate((el) => el.scrollLeft + el.scrollTop);
+  // freie Stelle (kein Feld) in der Mitte der Ansicht suchen
+  const free = await vpl.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    const bottom = Math.min(r.bottom, innerHeight) - 10;
+    const top = Math.max(r.top, 0) + 10;
+    for (let y = top + (bottom - top) * 0.3; y < bottom; y += 8)
+      for (let x = r.left + r.width * 0.3; x < Math.min(r.right, innerWidth) - 10; x += 8) {
+        const hit = document.elementFromPoint(x, y);
+        if (hit && !hit.closest('[data-testid="form-field-box"]') && hit.closest('[data-testid="form-editor-stage"]')) return { x, y };
+      }
+    return null;
+  });
+  expect(free).not.toBeNull();
+  await touchDrag(cdp, free!, { x: free!.x - 120, y: free!.y - 120 });
+  await expect.poll(() => vpl.evaluate((el) => el.scrollLeft + el.scrollTop)).toBeGreaterThan(before + 50);
+  await noHorizontalScroll(page);
+});

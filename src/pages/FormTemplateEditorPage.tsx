@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { Icon } from '../components/Icon';
 import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, showError, toast } from '../components/ui';
@@ -37,7 +37,7 @@ const SAMPLE: Record<CustomFieldType, string> = {
 /** Schrift wie im ausgefüllten PDF */
 const ink = (f: CustomField) => ({ color: f.color || DEFAULT_FORM_COLOR, fontFamily: fontCss(f), fontWeight: f.bold ? 700 : 400 });
 
-type Drag = { kind: 'move' | 'resize' | 'draw' | 'inset'; id: string; x: number; y: number; box: CustomField['box']; moved?: boolean; line?: number; side?: 'left' | 'right'; insets?: { left: number; right: number }[] };
+type Drag = { kind: 'move' | 'resize' | 'draw' | 'inset' | 'pan'; sl?: number; st?: number; id: string; x: number; y: number; box: CustomField['box']; moved?: boolean; line?: number; side?: 'left' | 'right'; insets?: { left: number; right: number }[] };
 
 export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
   const session = useSession();
@@ -53,6 +53,84 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
   const [busy, setBusy] = useState(false);
   const [pxPerPt, setPxPerPt] = useState(1);
   const wrap = useRef<HTMLDivElement>(null);
+  /** Ansicht der PDF: eigener Zoom (unabhängig von Seite und Seitenleiste) */
+  const vp = useRef<HTMLDivElement>(null);
+  const [zoom, setZoom] = useState(1);
+  const anchor = useRef<{ fx: number; fy: number; cx: number; cy: number } | null>(null);
+  const ZMIN = 1;
+  const ZMAX = 6;
+  /** zoomen und dabei den Punkt unter Finger/Maus (bzw. die Mitte) festhalten */
+  const zoomAt = (next: number, clientX?: number, clientY?: number) => {
+    const v = vp.current;
+    const st = wrap.current;
+    if (!v || !st) return;
+    const z = Math.max(ZMIN, Math.min(ZMAX, next));
+    const vr = v.getBoundingClientRect();
+    const sr = st.getBoundingClientRect();
+    const cx = (clientX ?? vr.left + vr.width / 2) - vr.left;
+    const cy = (clientY ?? vr.top + vr.height / 2) - vr.top;
+    anchor.current = { fx: (cx + v.scrollLeft) / sr.width, fy: (cy + v.scrollTop) / sr.height, cx, cy };
+    setZoom(z);
+  };
+  useLayoutEffect(() => {
+    const v = vp.current;
+    const st = wrap.current;
+    const a = anchor.current;
+    if (!v || !st || !a) return;
+    anchor.current = null;
+    const sr = st.getBoundingClientRect();
+    v.scrollLeft = a.fx * sr.width - a.cx;
+    v.scrollTop = a.fy * sr.height - a.cy;
+  }, [zoom]);
+  // PC: Strg/⌘ + Mausrad zoomt die PDF (nicht die Seite)
+  useEffect(() => {
+    const v = vp.current;
+    if (!v) return;
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      zoomAt(zoomRef.current * Math.exp(-e.deltaY * 0.002), e.clientX, e.clientY);
+    };
+    v.addEventListener('wheel', onWheel, { passive: false });
+    return () => v.removeEventListener('wheel', onWheel);
+  });
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+  // Handy/Tablet: zwei Finger zoomen (und verschieben)
+  const touches = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<{ d: number; z: number; mx: number; my: number } | null>(null);
+  const pinchPoints = () => [...touches.current.values()];
+  const onVpDown = (e: ReactPointerEvent) => {
+    if (e.pointerType !== 'touch') return;
+    touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (touches.current.size === 2) {
+      // zweiter Finger: laufendes Ziehen abbrechen (ein gerade begonnenes Feld wieder entfernen)
+      const d = drag.current;
+      if (d?.kind === 'draw') setFields((l) => l.filter((f) => f.id !== d.id || f.box.w >= 8));
+      drag.current = null;
+      const [a, b] = pinchPoints();
+      pinch.current = { d: Math.hypot(a.x - b.x, a.y - b.y), z: zoomRef.current, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
+    }
+  };
+  const onVpMove = (e: ReactPointerEvent) => {
+    if (e.pointerType !== 'touch' || !touches.current.has(e.pointerId)) return;
+    touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const p = pinch.current;
+    const v = vp.current;
+    if (!p || touches.current.size < 2 || !v) return;
+    const [a, b] = pinchPoints();
+    const mx = (a.x + b.x) / 2;
+    const my = (a.y + b.y) / 2;
+    v.scrollLeft -= mx - p.mx;
+    v.scrollTop -= my - p.my;
+    p.mx = mx;
+    p.my = my;
+    zoomAt((p.z * Math.hypot(a.x - b.x, a.y - b.y)) / Math.max(1, p.d), mx, my);
+  };
+  const onVpUp = (e: ReactPointerEvent) => {
+    touches.current.delete(e.pointerId);
+    if (touches.current.size < 2) pinch.current = null;
+  };
   const drag = useRef<Drag | null>(null);
   const nameInput = useRef<HTMLInputElement>(null);
   usePageTitle(t ? `${t.name} – Felder – BauPad` : 'Vorlage – BauPad');
@@ -128,8 +206,14 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
   const onStageDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (pinch.current) return;
     if (!drawing) {
       setSel(null);
+      // freie Fläche mit dem Finger ziehen = Ansicht verschieben (gezoomte PDF)
+      if (e.pointerType === 'touch' && vp.current) {
+        drag.current = { kind: 'pan', id: '', x: e.clientX, y: e.clientY, box: { x: 0, y: 0, w: 0, h: 0 }, sl: vp.current.scrollLeft, st: vp.current.scrollTop };
+        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      }
       return;
     }
     // wie Text: angetippte Stelle = Schreiblinie (Schrift 0,5 mm darüber), nach rechts = Länge, nach unten = weitere Zeilen
@@ -142,7 +226,14 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
   };
   const onMove = (e: ReactPointerEvent) => {
     const d = drag.current;
-    if (!d || !wrap.current) return;
+    if (!d || !wrap.current || pinch.current) return;
+    if (d.kind === 'pan') {
+      if (vp.current) {
+        vp.current.scrollLeft = (d.sl ?? 0) - (e.clientX - d.x);
+        vp.current.scrollTop = (d.st ?? 0) - (e.clientY - d.y);
+      }
+      return;
+    }
     const k = width / wrap.current.getBoundingClientRect().width;
     const dx = (e.clientX - d.x) * k;
     const dy = (e.clientY - d.y) * k;
@@ -182,7 +273,7 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
   const onUp = () => {
     const d = drag.current;
     drag.current = null;
-    if (!d) return;
+    if (!d || d.kind === 'pan') return;
     if (d.moved || d.kind === 'draw') setDirty(true);
     if (d.kind === 'draw') {
       setDrawing(false);
@@ -334,7 +425,23 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
             <p className="muted small">
               {drawing ? 'Mit gedrückter Maus bzw. dem Finger einen Kasten über das Feld der PDF ziehen.' : 'Feld antippen, um es zu bearbeiten oder zu verschieben; an der Ecke rechts unten die Größe ändern.'}
             </p>
-            <div ref={wrap} className={`form-tpl-editor${drawing ? ' adding' : ''}`} style={{ aspectRatio: `${width} / ${height}` }} onPointerDown={onStageDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} data-testid="form-editor-stage">
+            <div className="form-zoom-bar" role="group" aria-label="PDF vergrößern">
+              <button type="button" className="icon-btn" onClick={() => zoomAt(zoom / 1.25)} disabled={zoom <= ZMIN} aria-label="Verkleinern" title="Verkleinern" data-testid="form-zoom-out">
+                <Icon name="minus" />
+              </button>
+              <span className="form-zoom-level" data-testid="form-zoom-level">
+                {Math.round(zoom * 100)} %
+              </span>
+              <button type="button" className="icon-btn" onClick={() => zoomAt(zoom * 1.25)} disabled={zoom >= ZMAX} aria-label="Vergrößern" title="Vergrößern" data-testid="form-zoom-in">
+                <Icon name="plus" />
+              </button>
+              <button type="button" className="btn btn-sm" onClick={() => zoomAt(1)} disabled={zoom === 1} data-testid="form-zoom-fit">
+                Ganze Breite
+              </button>
+              <span className="muted small hide-mobile">Strg + Mausrad · am Handy mit zwei Fingern</span>
+            </div>
+            <div ref={vp} className="form-tpl-viewport" onPointerDownCapture={onVpDown} onPointerMoveCapture={onVpMove} onPointerUpCapture={onVpUp} onPointerCancelCapture={onVpUp} data-testid="form-editor-viewport">
+            <div ref={wrap} className={`form-tpl-editor${drawing ? ' adding' : ''}`} style={{ aspectRatio: `${width} / ${height}`, width: `${zoom * 100}%` }} onPointerDown={onStageDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} data-testid="form-editor-stage">
               {img && <img src={img} alt="Formular" draggable={false} />}
               {fields.map((f) => (
                 <div
@@ -386,6 +493,7 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
                   {sel === f.id && <b className="form-resize" onPointerDown={(e) => onBoxDown(e, f, 'resize')} data-testid="form-field-resize" />}
                 </div>
               ))}
+            </div>
             </div>
           </div>
 

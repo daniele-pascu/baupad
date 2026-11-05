@@ -241,6 +241,21 @@ test('Felder: Namen vorschlagen, Schrift (Größe, Art, Farbe), Wochentag/KW aus
   await nd.getByTestId('form-new-create').click();
   await expect(page.getByTestId('form-field-box')).toHaveCount(14);
   const panel = page.getByTestId('form-field-panel');
+  // PDF vergrößern: Tasten und Strg + Mausrad zoomen nur die PDF-Ansicht (Seitenleiste bleibt)
+  const stageW = async () => (await page.getByTestId('form-editor-stage').boundingBox())!.width;
+  const vpBox = (await page.getByTestId('form-editor-viewport').boundingBox())!;
+  const w0 = await stageW();
+  await page.getByTestId('form-zoom-in').click();
+  await expect(page.getByTestId('form-zoom-level')).toHaveText('125 %');
+  expect(await stageW()).toBeCloseTo(w0 * 1.25, 0);
+  expect((await page.getByTestId('form-editor-viewport').boundingBox())!.width).toBeCloseTo(vpBox.width, 0); // Ansicht bleibt gleich groß
+  await page.mouse.move(vpBox.x + vpBox.width / 2, vpBox.y + 100);
+  await page.keyboard.down('Control');
+  await page.mouse.wheel(0, -300);
+  await page.keyboard.up('Control');
+  await expect.poll(stageW).toBeGreaterThan(w0 * 1.4);
+  await page.getByTestId('form-zoom-fit').click();
+  await expect(page.getByTestId('form-zoom-level')).toHaveText('100 %');
   // neues Feld zeichnen → Vorschlag „Wochentag“ setzt den passenden Typ
   const draw = async (fx: number, fy: number) => {
     await page.getByTestId('form-editor-draw').click();
@@ -250,7 +265,7 @@ test('Felder: Namen vorschlagen, Schrift (Größe, Art, Farbe), Wochentag/KW aus
     await page.mouse.move(st.x + st.width * (fx + 0.2), st.y + st.height * fy, { steps: 4 });
     await page.mouse.up();
   };
-  await draw(0.55, 0.55);
+  await draw(0.55, 0.22);
   await panel.getByTestId('form-name-suggestion').filter({ hasText: 'Wochentag' }).click();
   await expect(panel.getByTestId('form-field-name')).toHaveValue('Wochentag');
   await expect(panel.getByTestId('form-field-type')).toHaveValue('weekday');
@@ -262,7 +277,7 @@ test('Felder: Namen vorschlagen, Schrift (Größe, Art, Farbe), Wochentag/KW aus
   await expect(panel.locator('[data-testid="form-field-color"][data-color="#c92a2a"]')).toHaveAttribute('aria-checked', 'true');
   await panel.screenshot({ path: join(OUT, 'formular-feld-schrift.png') });
   // selbst geschriebener Name, der einem Vorschlag entspricht → Typ automatisch (KW)
-  await draw(0.55, 0.62);
+  await draw(0.55, 0.28);
   await panel.getByTestId('form-field-name').fill('KW');
   await expect(panel.getByTestId('form-field-type')).toHaveValue('week');
   // mehrzeiliges Feld zeigt die Zeilen an
@@ -289,9 +304,9 @@ test('Felder: Namen vorschlagen, Schrift (Größe, Art, Farbe), Wochentag/KW aus
   // nach unten ziehen beim Zeichnen = weitere Zeilen, jede Zeile einzeln; Zeilenabstand einstellbar
   await page.getByTestId('form-editor-draw').click();
   const st = (await page.getByTestId('form-editor-stage').boundingBox())!;
-  await page.mouse.move(st.x + st.width * 0.1, st.y + st.height * 0.45);
+  await page.mouse.move(st.x + st.width * 0.1, st.y + st.height * 0.34);
   await page.mouse.down();
-  await page.mouse.move(st.x + st.width * 0.5, st.y + st.height * 0.45 + (st.height / 842) * 7 * 2.835 * 2, { steps: 6 });
+  await page.mouse.move(st.x + st.width * 0.5, st.y + st.height * 0.34 + (st.height / 842) * 7 * 2.835 * 2, { steps: 6 });
   await page.mouse.up();
   await expect(panel.getByTestId('form-field-type')).toHaveValue('multiline');
   const strips = page.locator('[data-testid="form-field-box"]').last().getByTestId('form-line-strip');

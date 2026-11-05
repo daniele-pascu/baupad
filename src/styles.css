@@ -10703,3 +10703,47 @@ html[data-theme='dark'] .crew-search {
 .form-line-insets summary {
   cursor: pointer;
 }
+
+/* Formular-Editor: PDF mit eigenem Zoom (unabhängig vom Menü) */
+.form-zoom-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.form-zoom-level {
+  min-width: 52px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.form-tpl-viewport {
+  overflow: auto;
+  max-height: calc(100dvh - 190px);
+  border-radius: 8px;
+  background: var(--surface-2, #ececf1);
+  overscroll-behavior: contain;
+}
+.form-tpl-viewport > .form-tpl-editor {
+  max-width: none;
+}
+@media (max-width: 760px) {
+  .form-tpl-viewport {
+    max-height: 70dvh;
+  }
+}
+.form-tpl-stage {
+  min-width: 0;
+}
+.form-tpl-viewport {
+  max-width: 100%;
+}
+/* Formular-Editor am Handy: Tasten oben umbrechen statt über den Rand */
+.form-editor-page .page-head-row {
+  flex-wrap: wrap;
+}
+.form-editor-page .report-actions {
+  flex-wrap: wrap;
+  max-width: 100%;
+}
