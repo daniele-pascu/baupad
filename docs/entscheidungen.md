@@ -139,3 +139,9 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 ## Sicherung (05.11.2026)
 - Laufende Daten bleiben in Supabase (kostenloser Tarif), **Sicherungen bei Hetzner** (anderer Anbieter, Deutschland): jede Nacht über die Funktion `backup` (pg_cron), 30 Sicherungen + Monatsstände für 12 Monate, Wiederherstellung je Firma. Keine Zusatzkosten. Supabase Pro (~25 $/Monat) erst mit zahlenden Kunden. Einrichtung: `docs/backup-einrichten.md` (eingerichtet und erster Lauf erfolgreich am 05.11.2026).
 - Materialverwaltung: gleiche Architektur (Supabase + Hetzner), Symbol „Wagen mit Material“ (Variante N); vorher Versionsprüfung gegen stilles Überschreiben und Schutz vor Doppelten im Abgleich.
+
+## Materialverwaltung (05.11.2026)
+- Ein Tool „Materialverwaltung“ (Kachel mit Wagen-Symbol), in Etappen: 1. Materialstamm (Bezeichnung, Artikelnummer, Einheit, Preis netto, Lieferant, Kategorie, Notiz) und Lieferanten – **umgesetzt**; 2. Materiallisten je Baustelle mit Bestellmenge, Liefertermin, Status und Verlauf; 3. Angebote/Lieferscheine als PDF, PDF-Export.
+- Doppelte Einträge: Hinweis schon beim Tippen und Rückfrage beim Speichern (gleiche Artikelnummer beim selben Lieferanten bzw. gleicher Name mit gleicher Einheit; Schreibweise, Umlaute, „m2“/„m²“, „Stück“/„Stk“ egal). Lieferanten: gleicher Name, Rechtsform egal.
+- Abgleich wie alle Tools (Datenarten `materials`, `suppliers`). Solange die Funktion `storage` nicht neu veröffentlicht ist, bleiben nur diese Datensätze in der Warteschlange – alles andere wird normal übertragen.
+- Standardfreigabe: Admin, Büro und Polier; bestehende Benutzer bekommen das Tool vom Admin unter Benutzer & Rollen.

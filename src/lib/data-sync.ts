@@ -34,6 +34,8 @@ import { getState, hasUnsavedChanges, flush as flushStore, reloadProject } from 
  *   (die zuletzt übertragene Änderung).
  */
 
+/** Datenarten, die eine ältere Funktion „storage“ noch abweist (Materialverwaltung, 05.11.2026) */
+const NEW_STORES = new Set<string>(['materials', 'suppliers']);
 const CURSOR = 'dataSyncCursor';
 const ADOPTED = 'dataSyncWorkspace';
 const PULL_EVERY = 5 * 60_000;
@@ -300,6 +302,21 @@ export class DataSync {
   }
 
   private async pushRecords(entries: OutboxEntry[]): Promise<void> {
+    // Neue Datenarten getrennt senden: kennt die Funktion „storage“ sie noch nicht (nicht neu veröffentlicht),
+    // bleiben nur diese in der Warteschlange – der Abgleich aller anderen Werkzeuge läuft weiter
+    const fresh = entries.filter((e) => NEW_STORES.has(e.store));
+    const known = entries.filter((e) => !NEW_STORES.has(e.store));
+    if (known.length) await this.upsertRows(known);
+    if (fresh.length) {
+      try {
+        await this.upsertRows(fresh);
+      } catch (err) {
+        if (!(err instanceof CloudError && err.status === 422)) throw err;
+      }
+    }
+  }
+
+  private async upsertRows(entries: OutboxEntry[]): Promise<void> {
     const rows: Record<string, unknown>[] = [];
     for (const e of entries) {
       const data = e.deleted ? undefined : await readSyncRecord(e.store as SyncStore, e.recordId);

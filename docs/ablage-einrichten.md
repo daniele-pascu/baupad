@@ -25,6 +25,8 @@ auch Firmenformulare und Zeitaufzeichnung (`formEntries`, `timeDays`, `timeMonth
 prüft, dass die Funktion jede Datenart der App annimmt. Die Funktion mit der Adresse `…/functions/v1/rapid-proce…`
 war ein Fehlversuch und wird nicht gebraucht (löschen).
 
+**05.11.2026:** Funktion `storage` neu veröffentlichen – sie kennt jetzt die Materialverwaltung (`materials`, `suppliers`). Bis dahin bleiben Materialien und Lieferanten nur auf dem Gerät.
+
 ## 2. Funktion veröffentlichen (erledigt 30.10.2026, aktualisiert 03.11.2026)
 Supabase → Edge Functions → „Deploy a new function“ → „Via Editor“:
 - **Zuerst** unten rechts „Function name“ auf `storage` ändern (der zufällige Vorschlag wird sonst zur festen

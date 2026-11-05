@@ -35,6 +35,7 @@ import { PhotosPage } from './pages/PhotosPage';
 import { RecentPhotosPage } from './pages/RecentPhotosPage';
 import { PhotoSitePage } from './pages/PhotoSitePage';
 import { DefectsPage } from './pages/DefectsPage';
+import { MaterialsPage } from './pages/MaterialsPage';
 import { DefectSitePage } from './pages/DefectSitePage';
 import { DefectPlanPage } from './pages/DefectPlanPage';
 
@@ -322,6 +323,9 @@ export function App() {
       break;
     case 'defects':
       content = <DefectsPage />;
+      break;
+    case 'materials':
+      content = <MaterialsPage tab={route.tab === 'lieferanten' ? 'suppliers' : 'materials'} />;
       break;
     case 'defectSite':
       content = <DefectSitePage key={route.siteKey} siteKey={route.siteKey} />;

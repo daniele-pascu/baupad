@@ -162,6 +162,24 @@ describe('Datenabgleich', () => {
     expect([...outbox.keys()]).toEqual(['timeDays:w1|2026-11-02']);
     sync.stop();
   });
+
+  it('Materialverwaltung mit noch nicht neu veröffentlichter Funktion: Materialien warten, alles andere wird übertragen, keine Fehlermeldung', async () => {
+    rejectStores.add('materials');
+    records.set('plans:pl1', { id: 'pl1', projectId: 'p1', title: 'EG', rev: 1 });
+    records.set('materials:m1', { id: 'm1', name: 'Estrich', unit: 'm²' });
+    outbox.set('plans:pl1', entry('plans', 'pl1'));
+    outbox.set('materials:m1', entry('materials', 'm1'));
+    const sync = new DataSync('ws1', fakeFetch);
+    await sync.push();
+    expect(server.has('plans:pl1')).toBe(true);
+    expect([...outbox.keys()]).toEqual(['materials:m1']);
+    // nach dem Veröffentlichen der Funktion geht das Material mit
+    rejectStores.clear();
+    await sync.push();
+    expect(server.has('materials:m1')).toBe(true);
+    expect(outbox.size).toBe(0);
+    sync.stop();
+  });
 });
 
 describe('Funktion „storage“ kennt alle Datenarten der App', () => {

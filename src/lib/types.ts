@@ -466,6 +466,36 @@ export const SHAPE_LABELS: Record<ShapeType, string> = {
 /** Funktion eines Arbeiters (Auswahl in der Arbeitereinteilung; Personalstand in Berichten und Firmenformulare) */
 export type WorkerGrade = 'projektleiter' | 'techniker' | 'bautechniker' | 'polier' | 'vorarbeiter' | 'facharbeiter' | 'hilfsarbeiter';
 
+/** Materialverwaltung: Lieferant der Firma */
+export interface Supplier {
+  id: string;
+  name: string;
+  contact?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  note?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** Materialverwaltung: Material im Materialstamm der Firma (einmal angelegt, auf allen Geräten verfügbar) */
+export interface Material {
+  id: string;
+  name: string;
+  /** Artikelnummer (des Lieferanten) */
+  articleNo?: string;
+  /** Einheit, z. B. Stk, m, m², m³, kg, Sack, Palette */
+  unit: string;
+  /** Preis je Einheit in € (netto); null = unbekannt */
+  price?: number | null;
+  supplierId?: string | null;
+  category?: string;
+  note?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 /** Arbeiter der Firma – einmal angelegt, jede Woche wiederverwendet */
 export interface Worker {
   id: string;

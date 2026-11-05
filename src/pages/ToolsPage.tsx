@@ -26,6 +26,7 @@ const TOOLS: Tool[] = [
   { id: 'reports', title: 'Berichte & Formulare', text: 'Regielisten, Bautages- und Wochenberichte', color: '#a259ff', href: paths.reports() },
   { id: 'defects', title: 'Mängelplan', text: 'Mängel im Plan markieren, Fotos und PDF', color: '#d6242b', href: paths.defects() },
   { id: 'times', title: 'Zeitaufzeichnung', text: 'Stunden je Arbeiter und Tag, Monatszettel, Excel', color: '#0f9d76', href: paths.times(), tool: 'workers' },
+  { id: 'materials', title: 'Materialverwaltung', text: 'Materialien und Lieferanten der Firma', color: '#c2850c', href: paths.materials() },
 ];
 
 /** Start nach der Anmeldung: alle Werkzeuge als gleich große Kacheln, zwei pro Reihe (Industrie-Stil, hell). */
