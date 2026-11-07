@@ -19,6 +19,7 @@ import { usePageTitle } from '../lib/page-title';
 import { useAccess } from '../lib/access';
 import { useCanCreateProjects } from '../lib/sites';
 import { usedIn } from '../lib/crew-link';
+import { pcStyle, useProjectColors } from '../lib/project-colors';
 
 const ACCENT = { '--tool': '#111111' } as CSSProperties;
 
@@ -47,6 +48,7 @@ const fmt = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString('de-DE',
 export function PhotosPage() {
   const mayCreate = useCanCreateProjects();
   usePageTitle('Fotodokumentation – BauPad');
+  const colorOf = useProjectColors();
   const [photos, setPhotos] = useState<Photo[] | null>(null);
   const access = useAccess();
   const [allSites, setAllSites] = useState<PhotoSite[]>([]);
@@ -177,7 +179,7 @@ export function PhotosPage() {
 
         <div className="photo-sites">
           {groups.map((g) => (
-            <a key={g.key} href={paths.photoSite(g.key)} className="photo-site" data-testid="photo-site" data-site={g.name}>
+            <a key={g.key} href={paths.photoSite(g.key)} className="photo-site pc-stripe" style={pcStyle(colorOf(g.key))} data-testid="photo-site" data-site={g.name}>
               <div className="photo-site-preview" aria-hidden="true">
                 {(latest.get(g.key) ?? []).map((p) => (
                   <PhotoImg key={p.id} id={p.id} />
@@ -202,7 +204,7 @@ export function PhotosPage() {
             </a>
           ))}
           {empty.map((f) => (
-            <a key={`empty:${f.projectId ?? f.name}`} href={paths.photoSite(photoSiteKey({ projectId: f.projectId, siteName: f.name }))} className="photo-site photo-site-empty" data-testid="photo-site" data-site={f.name}>
+            <a key={`empty:${f.projectId ?? f.name}`} href={paths.photoSite(photoSiteKey({ projectId: f.projectId, siteName: f.name }))} className="photo-site photo-site-empty pc-stripe" style={pcStyle(colorOf(photoSiteKey({ projectId: f.projectId, siteName: f.name })))} data-testid="photo-site" data-site={f.name}>
               <div className="photo-site-preview" aria-hidden="true">
                 <span className="photo-thumb-empty" />
               </div>

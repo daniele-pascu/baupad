@@ -15,6 +15,7 @@ import { useSession } from '../lib/use-session';
 import type { Worker, WorkTimes } from '../lib/types';
 import { Modal } from '../components/Modal';
 import { setMeta } from '../lib/db';
+import { pcStyle, useProjectColors } from '../lib/project-colors';
 
 export const TIMES_ACCENT = { '--tool': '#0f9d76' } as CSSProperties;
 const WEEKDAY_LONG = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
@@ -370,9 +371,12 @@ function PickWorkers({ workers, selected, onSave, onClose }: { workers: Worker[]
 export function SiteSelect({ value, sites, onChange, disabled, testId }: { value: { projectId: string | null; siteName: string } | null; sites: TimesData['sites']; onChange(v: { projectId: string | null; siteName: string }): void; disabled?: boolean; testId?: string }) {
   const key = (p: string | null, n: string) => (p ? `p:${p}` : `n:${n}`);
   const list = value && !sites.some((s) => key(s.projectId, s.name) === key(value.projectId, value.siteName)) ? [...sites, { projectId: value.projectId, name: value.siteName }] : sites;
+  const colorOf = useProjectColors();
   return (
     <select
       value={value ? key(value.projectId, value.siteName) : ''}
+      className={value ? 'pc-select' : undefined}
+      style={value ? pcStyle(colorOf(value.projectId ? `p:${value.projectId}` : `n:${value.siteName.trim().toLowerCase()}`)) : undefined}
       disabled={disabled}
       data-testid={testId}
       onChange={(e) => {

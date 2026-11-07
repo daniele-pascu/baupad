@@ -11,6 +11,7 @@ import { listProjects } from '../lib/db';
 import { labelFromProject } from '../lib/project-label';
 import { createRegisterProject, useCanCreateProjects } from '../lib/sites';
 import type { Project } from '../lib/types';
+import { pcStyle, useProjectColors } from '../lib/project-colors';
 
 /**
  * Ein Fenster „Projekt“ für alle Werkzeuge: oben „Neues Projekt anlegen“ (gleicher Dialog überall), darunter alle
@@ -34,6 +35,7 @@ export function ProjectPicker({
   const mayCreate = useCanCreateProjects();
   const access = useAccess(tool as ToolId);
   const [projects, setProjects] = useState<Project[] | null>(null);
+  const colorOf = useProjectColors();
   const [ccs, setCcs] = useState<Map<string, string>>(() => new Map());
   const [q, setQ] = useState('');
   const [creating, setCreating] = useState(false);
@@ -112,7 +114,7 @@ export function ProjectPicker({
             const where = projectTools(p).filter((t) => t !== tool && t !== 'register');
             return (
               <li key={p.id}>
-                <button type="button" className="picker-item" onClick={() => void pick(p)} disabled={busy} data-testid="picker-item" data-project={p.name}>
+                <button type="button" className="picker-item pc-stripe" style={pcStyle(colorOf(p.id))} onClick={() => void pick(p)} disabled={busy} data-testid="picker-item" data-project={p.name}>
                   <ProjectHeading
                     info={labelFromProject(p, ccs.get(p.id) ?? '')}
                     extra={

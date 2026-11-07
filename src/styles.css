@@ -10933,3 +10933,14 @@ html[data-theme='dark'] .crew-search {
     margin-top: 0;
   }
 }
+
+/* Projektfarben (in allen Tools gleich; nur Akzent) */
+.pc-stripe,
+.pc-stripe:hover { border-left: 4px solid var(--pc) !important; }
+.pc-dot { display: inline-block; flex: none; width: 10px; height: 10px; margin-right: 7px; border-radius: 50%; background: var(--pc); vertical-align: 0; }
+.color-swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.color-swatch { width: 32px; height: 32px; min-height: 0; padding: 0; border: 2px solid transparent; border-radius: 50%; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.85); cursor: pointer; }
+.color-swatch[aria-checked='true'] { border-color: var(--text, #111); box-shadow: inset 0 0 0 3px #fff; }
+.pc-select { border-left: 4px solid var(--pc) !important; }
+.project-card.pc-stripe { border-left: 1px solid var(--border) !important; box-shadow: inset 4px 0 0 var(--pc), var(--shadow); }
+.project-card.pc-stripe:hover { border-left-color: var(--border-strong) !important; box-shadow: inset 4px 0 0 var(--pc), var(--shadow-md); }

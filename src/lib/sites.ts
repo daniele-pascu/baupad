@@ -95,6 +95,8 @@ export interface ProjectEditFields {
   date: string;
   notes: string;
   siteManager?: SiteManager | null;
+  /** Projektfarbe (nur wenn im Dialog gewählt) */
+  color?: string;
 }
 export interface CostCenterEdit {
   id?: string;
@@ -123,6 +125,7 @@ export async function saveProjectEverywhere(projectId: string, f: ProjectEditFie
     date: f.date.trim(),
     notes: f.notes.trim(),
     ...(f.siteManager !== undefined ? { siteManager: f.siteManager } : {}),
+    ...(f.color ? { color: f.color } : {}),
     rev: project.rev + 1,
     updatedAt: Date.now(),
     deviceId: getDeviceId(),

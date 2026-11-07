@@ -184,3 +184,27 @@ test('Projektregister sortieren: Name, Kostenstelle auf-/absteigend, neueste/äl
   await expect(page.getByTestId('register-order')).toHaveValue('old');
   await expect.poll(names).toEqual(['Beta', 'Alpha', 'Gamma']);
 });
+
+test('Projektfarben: automatisch verschieden, im Register änderbar, in allen Tools gleich', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'Alpha');
+  await page.goto('./baupad/aufmass-und-abrechnung');
+  await createProject(page, 'Beta');
+  await page.goto('./baupad/projektregister');
+  const color = (name: string) => page.locator(`[data-testid="register-row"][data-name="${name}"]`).evaluate((el) => getComputedStyle(el).getPropertyValue('--pc').trim());
+  const a = await color('Alpha');
+  expect(a).toMatch(/^#[0-9a-f]{6}$/);
+  expect(await color('Beta')).not.toBe(a);
+  // im Register ändern
+  await page.locator('[data-testid="register-row"][data-name="Alpha"]').getByTestId('register-edit').click();
+  const dlg = page.getByTestId('photo-site-dialog');
+  await expect(dlg.locator(`[data-testid="project-color-option"][data-color="${a}"]`)).toHaveAttribute('aria-checked', 'true');
+  await dlg.locator('[data-testid="project-color-option"][data-color="#c026d3"]').click();
+  await dlg.getByTestId('photo-site-save').click();
+  await expect(dlg).toHaveCount(0);
+  await expect.poll(() => color('Alpha')).toBe('#c026d3');
+  // dieselbe Farbe in Aufmaß & Abrechnung
+  await page.goto('./baupad/aufmass-und-abrechnung');
+  const card = page.locator('li.project-card', { hasText: 'Alpha' });
+  await expect.poll(() => card.evaluate((el) => getComputedStyle(el).getPropertyValue('--pc').trim())).toBe('#c026d3');
+});

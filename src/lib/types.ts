@@ -64,6 +64,8 @@ export interface Project extends SyncMeta {
    * in allen anderen steht es zum Übernehmen in der Projektauswahl.
    */
   tools?: string[];
+  /** Erkennungsfarbe in allen Tools (#rrggbb aus PROJECT_COLORS); fehlt = feste Farbe aus der ID */
+  color?: string;
 }
 
 /**

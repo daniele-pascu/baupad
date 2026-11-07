@@ -19,6 +19,7 @@ import { photoSiteKey } from '../lib/photos';
 import { ProjectHeading } from '../components/ProjectHeading';
 import { dropProjectFromTool, usedIn } from '../lib/crew-link';
 import { useDataChanged } from '../lib/data-events';
+import { pcStyle, useProjectColors } from '../lib/project-colors';
 
 export const DEFECT_ACCENT = { '--tool': '#d6242b' } as CSSProperties;
 
@@ -26,6 +27,7 @@ export const DEFECT_ACCENT = { '--tool': '#d6242b' } as CSSProperties;
 export function DefectsPage() {
   const mayCreate = useCanCreateProjects();
   usePageTitle('Mängelplan – BauPad');
+  const colorOf = useProjectColors();
   const access = useAccess();
   const [allSummaries, setAllSummaries] = useState<DefectSiteSummary[] | null>(null);
   const [allSites, setAllSites] = useState<PhotoSite[]>([]);
@@ -162,7 +164,7 @@ export function DefectsPage() {
             const total = KINDS.reduce((n, k) => n + s.counts[k.id], 0);
             return (
               <div key={s.key} className="defect-row">
-              <a href={paths.defectSite(s.key)} className="report-site" data-testid="defect-site" data-site={s.site.name}>
+              <a href={paths.defectSite(s.key)} className="report-site pc-stripe" style={pcStyle(colorOf(s.key))} data-testid="defect-site" data-site={s.site.name}>
                 <div className="report-site-main">
                   <ProjectHeading info={sites.find((x) => photoSiteKey({ projectId: x.projectId, siteName: x.name }) === s.key) ?? s.site} />
                   <span className="small">
@@ -185,7 +187,7 @@ export function DefectsPage() {
           })}
           {empty.map((f) => (
             <div key={`empty:${f.projectId ?? f.name}`} className="defect-row">
-            <a href={paths.defectSite(photoSiteKey({ projectId: f.projectId, siteName: f.name }))} className="report-site report-site-empty" data-testid="defect-site-empty" data-site={f.name}>
+            <a href={paths.defectSite(photoSiteKey({ projectId: f.projectId, siteName: f.name }))} className="report-site report-site-empty pc-stripe" style={pcStyle(colorOf(photoSiteKey({ projectId: f.projectId, siteName: f.name })))} data-testid="defect-site-empty" data-site={f.name}>
               <div className="report-site-main">
                 <ProjectHeading info={f} />
                 <span className="small muted">Noch kein Mängelplan</span>

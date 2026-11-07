@@ -1,12 +1,14 @@
 import { useRef, useSyncExternalStore } from 'react';
 import {
   ConflictError,
+  listProjects,
   loadProjectData,
   setMeta,
   writeRecords,
   type PendingWrite,
 } from './db';
 import { getDeviceId, uuid } from './ids';
+import { nextProjectColor } from './project-colors';
 import type { Component, CostCenter, Damage, DrawElement, EntityMap, EntityStore, LvDocument, Plan, Project, SourceFile } from './types';
 
 /**
@@ -378,7 +380,7 @@ export function updateProject(patch: Partial<Project>): void {
 
 /** Für frisch erzeugte Projekte vor dem Öffnen. */
 export async function createProjectRecord(fields: Omit<Project, keyof ReturnType<typeof newMeta>>): Promise<Project> {
-  const project: Project = { ...newMeta(), ...fields, rev: 1 };
+  const project: Project = { ...newMeta(), ...fields, color: fields.color ?? nextProjectColor(await listProjects()), rev: 1 };
   await writeRecords([{ store: 'projects', record: project, baseRev: 0 }]);
   return project;
 }
@@ -388,7 +390,7 @@ export async function createProjectWithCostCenters(
   fields: Omit<Project, keyof ReturnType<typeof newMeta>>,
   costCenterInputs: { number: string; name: string }[],
 ): Promise<{ project: Project; costCenters: CostCenter[] }> {
-  const project: Project = { ...newMeta(), ...fields, rev: 1 };
+  const project: Project = { ...newMeta(), ...fields, color: fields.color ?? nextProjectColor(await listProjects()), rev: 1 };
   const costCenters: CostCenter[] = costCenterInputs.map((c, i) => ({
     ...newMeta(),
     rev: 1,

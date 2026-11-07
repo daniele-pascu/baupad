@@ -64,6 +64,8 @@ import { navigate, paths } from '../lib/router';
 import type { Absence, PhotoSite, Project, SiteManager, WeekPlan, WeekSite, Worker, WorkTimes } from '../lib/types';
 import { usePageTitle } from '../lib/page-title';
 import { useDataChanged } from '../lib/data-events';
+import { useProjectColors } from '../lib/project-colors';
+import { photoSiteKey } from '../lib/photos';
 
 const WEEKDAYS = [0, 1, 2, 3, 4];
 const ACCENT = { '--tool': '#2f80ed' } as CSSProperties;
@@ -85,6 +87,8 @@ export function WorkersPage() {
   // Projekte anlegen nur Admin/Büro (Polier und Arbeiter übernehmen aus dem Register)
   const mayCreateProjects = useCanCreateProjects();
   usePageTitle('Arbeitereinteilung – BauPad');
+  const colorOf = useProjectColors();
+  const crewColor = (s: Pick<WeekSite, 'projectId' | 'name'>) => ({ '--crew': colorOf(photoSiteKey({ projectId: s.projectId ?? null, siteName: s.name })) }) as CSSProperties;
   const [workers, setWorkers] = useState<Worker[] | null>(null);
   const [times, setTimes] = useState<WorkTimes | null | undefined>(undefined);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -758,7 +762,7 @@ export function WorkersPage() {
             const isOpen = openKeys.has(siteKey(s)) || !!q;
             const count = new Set(s.days.flat()).size;
             return (
-              <article key={s.id} className={`crew-site${s.finished ? ' finished' : ''}`} data-testid="site-card" data-site={s.name}>
+              <article key={s.id} className={`crew-site${s.finished ? ' finished' : ''}`} style={crewColor(s)} data-testid="site-card" data-site={s.name}>
                 <header className="crew-site-head">
                   <button type="button" className="crew-site-toggle" aria-expanded={isOpen} onClick={() => toggle(siteKey(s))} data-testid="site-toggle">
                     <Icon name="next" size={18} />
@@ -850,7 +854,7 @@ export function WorkersPage() {
                 Pausiert <span className="muted small">· Standby, ohne Arbeiter, läuft weiter bis „Fortsetzen“</span>
               </h2>
               {pausedShown.map((s) => (
-                <article key={s.id} className="crew-site paused" data-testid="site-card" data-site={s.name}>
+                <article key={s.id} className="crew-site paused" style={crewColor(s)} data-testid="site-card" data-site={s.name}>
                   <header className="crew-site-head">
                     <span className="crew-site-toggle">
                       <Icon name="pause" size={18} />

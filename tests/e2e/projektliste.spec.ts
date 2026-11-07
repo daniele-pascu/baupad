@@ -51,7 +51,7 @@ test('Projekte suchen und sortieren', async ({ page }) => {
 
   // Kompakte Karten: niedrige Höhe am PC
   const h = (await page.getByTestId('project-card').first().boundingBox())!.height;
-  expect(h).toBeLessThan(80);
+  expect(h).toBeLessThan(86); // größere Symbole (Toolkasten)
   await page.screenshot({ path: 'tests/output/projektliste.png' });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: 'tests/output/projektliste-schmal.png' });

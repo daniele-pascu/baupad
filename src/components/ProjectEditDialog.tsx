@@ -3,6 +3,7 @@ import { ProjectForm, type CostCenterInput } from './ProjectForm';
 import { showError } from './ui';
 import { getDB } from '../lib/db';
 import { saveProjectEverywhere, updateSiteEverywhere } from '../lib/sites';
+import { projectColor, refreshProjectColors } from '../lib/project-colors';
 import type { PhotoSite, Project } from '../lib/types';
 
 /**
@@ -37,13 +38,15 @@ export function ProjectEditDialog({ site, onClose, onSaved }: { site: PhotoSite;
       title="Projektangaben bearbeiten"
       submitLabel="Speichern"
       ids={{ dialog: 'photo-site-dialog', name: 'photo-site-name', number: 'photo-site-number', address: 'photo-site-address', save: 'photo-site-save' }}
-      initial={{ name: site.name, number: p?.number ?? site.number, address: p?.address ?? site.address, client: p?.client ?? '', date: p?.date ?? '', notes: p?.notes ?? '', siteManager: p?.siteManager ?? null }}
+      initial={{ name: site.name, number: p?.number ?? site.number, address: p?.address ?? site.address, client: p?.client ?? '', date: p?.date ?? '', notes: p?.notes ?? '', siteManager: p?.siteManager ?? null, color: p ? projectColor(p) : undefined }}
       costCenters={loaded.ccs}
       onClose={onClose}
       onSubmit={async (f, ccs) => {
         try {
-          const fields = { name: f.name, number: f.number ?? '', address: f.address, client: f.client, date: f.date, notes: f.notes, siteManager: f.siteManager ?? null };
-          onSaved(p && site.projectId ? await saveProjectEverywhere(site.projectId, fields, ccs) : await updateSiteEverywhere(site, fields));
+          const fields = { name: f.name, number: f.number ?? '', address: f.address, client: f.client, date: f.date, notes: f.notes, siteManager: f.siteManager ?? null, color: f.color };
+          const next = p && site.projectId ? await saveProjectEverywhere(site.projectId, fields, ccs) : await updateSiteEverywhere(site, fields);
+          refreshProjectColors();
+          onSaved(next);
         } catch (e) {
           showError(e, 'Projekt konnte nicht gespeichert werden');
         }

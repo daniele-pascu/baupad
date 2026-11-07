@@ -17,6 +17,7 @@ import { useCanCreateProjects, deleteProjectEverywhere } from '../lib/sites';
 import { linkSitesToProject, usedIn } from '../lib/crew-link';
 import type { Project } from '../lib/types';
 import { useDataChanged } from '../lib/data-events';
+import { pcStyle, useProjectColors } from '../lib/project-colors';
 
 interface Row {
   project: Project;
@@ -68,6 +69,7 @@ function filterAndSort(rows: Row[], query: string, sort: { key: SortKey; dir: 'a
 
 export function HomePage() {
   const mayCreate = useCanCreateProjects();
+  const colorOf = useProjectColors();
   const [rows, setRows] = useState<Row[] | null>(null);
   /** zentrale Ablage: Projekte mit noch nicht übertragenen Änderungen */
   const sync = useDataSyncState();
@@ -331,7 +333,7 @@ export function HomePage() {
         {!!rows?.length && query && !visible.length && <p className="muted">Kein Projekt gefunden.</p>}
         <ul className="card-list" data-testid="project-list">
           {visible.map((r) => (
-            <li key={r.project.id} className="card project-card">
+            <li key={r.project.id} className="card project-card pc-stripe" style={pcStyle(colorOf(r.project.id))}>
               <a className="card-main" href={paths.project(r.project.id)} data-testid="project-card">
                 <ProjectHeading
                   info={labelFromProject(r.project, r.stats.costCenterNumbers[0] ?? '')}

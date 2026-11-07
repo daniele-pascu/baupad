@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import type { Project } from '../lib/types';
 import { Modal } from './Modal';
+import { PROJECT_COLORS } from '../lib/project-colors';
 
-export type ProjectFields = Pick<Project, 'name' | 'number' | 'site' | 'address' | 'client' | 'editor' | 'date' | 'notes' | 'siteManager'>;
+export type ProjectFields = Pick<Project, 'name' | 'number' | 'site' | 'address' | 'client' | 'editor' | 'date' | 'notes' | 'siteManager' | 'color'>;
 
 /** Kostenstelle im Formular; `id` ist bei bereits gespeicherten Kostenstellen gesetzt. */
 export interface CostCenterInput {
@@ -176,6 +177,28 @@ export function ProjectForm({ title, initial, costCenters, submitLabel, onSubmit
           <span>Bemerkung</span>
           <textarea value={f.notes} onChange={set('notes')} name="notes" rows={2} data-testid="project-notes" />
         </label>
+        {initial?.color && (
+          <div className="field span-2">
+            <span id="project-color-label">Projektfarbe (in allen Tools)</span>
+            <div className="color-swatches" role="radiogroup" aria-labelledby="project-color-label" data-testid="project-color">
+              {PROJECT_COLORS.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={f.color === c.id}
+                  aria-label={c.label}
+                  title={c.label}
+                  className="color-swatch"
+                  style={{ background: c.id }}
+                  onClick={() => setF({ ...f, color: c.id })}
+                  data-testid="project-color-option"
+                  data-color={c.id}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </form>
     </Modal>
   );

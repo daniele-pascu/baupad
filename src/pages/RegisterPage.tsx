@@ -28,6 +28,7 @@ import { paths } from '../lib/router';
 import { canEditSites, createRegisterProject, deleteProjectEverywhere, projectUsage } from '../lib/sites';
 import { useSession } from '../lib/use-session';
 import type { Project } from '../lib/types';
+import { pcStyle, useProjectColors } from '../lib/project-colors';
 
 /** Werkzeug-Namen wie in den Tools-Kacheln */
 const TOOL_LABEL: Record<ToolId, string> = { projects: 'Aufmaß & Abrechnung', workers: 'Arbeitereinteilung', times: 'Zeitaufzeichnung', reports: 'Berichte & Formulare', photos: 'Fotodokumentation', defects: 'Mängelplan', materials: 'Materialverwaltung' };
@@ -46,6 +47,7 @@ const toolPath = (tool: ToolId, id: string) =>
  */
 export function RegisterPage() {
   usePageTitle('Projektregister – BauPad');
+  const colorOf = useProjectColors();
   const session = useSession();
   const access = useAccess();
   const mayCreate = canEditSites(session);
@@ -240,7 +242,7 @@ export function RegisterPage() {
             const missing = TOOLS.map((t) => t.id).filter((t) => !used.includes(t) && usable(t));
             const facts = [p.client ? `Auftraggeber ${p.client}` : '', p.date ? `Baubeginn ${fmtDay(p.date)}` : ''].filter(Boolean);
             return (
-              <li key={p.id} className="register-card" data-testid="register-row" data-name={p.site || p.name}>
+              <li key={p.id} className="register-card pc-stripe" style={pcStyle(colorOf(p.id))} data-testid="register-row" data-name={p.site || p.name}>
                 <div className="register-main">
                   <ProjectHeading info={labelFromProject(p, ccs.get(p.id) ?? '')} />
                   {facts.length > 0 && <span className="small">{facts.join(' · ')}</span>}

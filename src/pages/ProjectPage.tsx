@@ -31,6 +31,7 @@ import { useDataSyncState } from '../lib/data-sync';
 import { renderSource } from '../lib/thumbs';
 import type { AufmassSheet, CostCenter, Plan } from '../lib/types';
 import type { AufmassRow } from '../lib/aufmass';
+import { projectColor, refreshProjectColors } from '../lib/project-colors';
 
 /**
  * Projektseite: Projektinformationen (inklusive Kostenstelle) und direkt darunter die
@@ -172,6 +173,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
 
   const saveProject = (fields: Parameters<typeof updateProject>[0], inputs: CostCenterInput[]) => {
     updateProject(fields);
+    refreshProjectColors();
     // Baustellenangaben in den anderen Werkzeugen nachziehen (Fotos, Berichte, Einteilung, Mängelplan)
     void flush()
       .then(() => propagateProject({ ...project, ...fields }))
@@ -727,7 +729,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
         <ProjectForm
           title="Projektangaben bearbeiten"
           submitLabel="Speichern"
-          initial={project}
+          initial={{ ...project, color: projectColor(project) }}
           costCenters={ccs.map((c) => ({ id: c.id, number: c.number ?? '', name: c.name }))}
           onClose={() => setEditing(false)}
           onSubmit={saveProject}

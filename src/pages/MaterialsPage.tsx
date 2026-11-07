@@ -13,6 +13,7 @@ import { fmtPrice, materialDuplicates, matchesMaterial, normKey, parsePrice, sor
 import { usePageTitle } from '../lib/page-title';
 import { navigate, paths } from '../lib/router';
 import type { Material, MaterialItem, Project, Supplier } from '../lib/types';
+import { pcStyle, useProjectColors } from '../lib/project-colors';
 
 type Tab = 'sites' | 'materials' | 'suppliers';
 
@@ -22,6 +23,7 @@ type Tab = 'sites' | 'materials' | 'suppliers';
  */
 export function MaterialsPage({ tab }: { tab: Tab }) {
   usePageTitle('Materialverwaltung – BauPad');
+  const colorOf = useProjectColors();
   const [materials, setMaterials] = useState<Material[] | null>(null);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [query, setQuery] = useState('');
@@ -133,7 +135,10 @@ export function MaterialsPage({ tab }: { tab: Tab }) {
                 <li key={p.id} data-testid="material-site" data-name={p.site || p.name}>
                   <div className="staff-row">
                     <a href={paths.materialSite(p.id)} className="crew-worker-main" data-testid="material-site-open">
-                      <strong>{[p.number, p.site || p.name].filter(Boolean).join(' · ')}</strong>
+                      <strong>
+                        <span className="pc-dot" style={pcStyle(colorOf(p.id))} aria-hidden="true" />
+                        {[p.number, p.site || p.name].filter(Boolean).join(' · ')}
+                      </strong>
                       <span className="muted small">
                         {sum.total ? [sum.count.offen && `${sum.count.offen} offen`, sum.count.bestellt && `${sum.count.bestellt} bestellt`, sum.count.geliefert && `${sum.count.geliefert} geliefert`].filter(Boolean).join(' · ') : 'Noch keine Materialliste'}
                       </span>

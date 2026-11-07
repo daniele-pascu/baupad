@@ -22,6 +22,7 @@ import { listFormTemplates } from '../lib/db';
 import { isCustomTemplate, type FormTemplate } from '../lib/form-template';
 import { entrySiteKey, type FormEntry } from '../lib/forms';
 import { useDataChanged } from '../lib/data-events';
+import { pcStyle, useProjectColors } from '../lib/project-colors';
 
 export const ACCENT = { '--tool': '#a259ff' } as CSSProperties;
 
@@ -65,6 +66,7 @@ interface SiteCard {
 export function ReportsPage() {
   const access = useAccess();
   usePageTitle('Berichte & Formulare – BauPad');
+  const colorOf = useProjectColors();
   const [reports, setReports] = useState<Report[] | null>(null);
   const [entries, setEntries] = useState<FormEntry[]>([]);
   const [allSites, setAllSites] = useState<PhotoSite[]>([]);
@@ -242,7 +244,7 @@ export function ReportsPage() {
             const forms = [...c.forms.values()];
             const formsTotal = forms.reduce((n, f) => n + f.count, 0);
             return (
-              <a key={c.key} href={paths.reportSite(c.key)} className="report-site" data-testid="report-site" data-site={c.site.name}>
+              <a key={c.key} href={paths.reportSite(c.key)} className="report-site pc-stripe" style={pcStyle(colorOf(c.key))} data-testid="report-site" data-site={c.site.name}>
                 <div className="report-site-main">
                   <ProjectHeading info={{ name: c.site.name, number: c.head.number, costCenter: c.head.costCenter, address: c.head.address, client: c.head.client }} />
                   <span className="small">
@@ -271,7 +273,8 @@ export function ReportsPage() {
             <a
               key={`empty:${f.projectId ?? f.name}`}
               href={paths.reportSite(f.projectId ? `p:${f.projectId}` : `n:${f.name.trim().toLowerCase()}`)}
-              className="report-site report-site-empty"
+              className="report-site report-site-empty pc-stripe"
+              style={pcStyle(colorOf(f.projectId ? `p:${f.projectId}` : `n:${f.name.trim().toLowerCase()}`))}
               data-testid="report-site-empty"
               data-site={f.name}
             >
