@@ -10879,3 +10879,57 @@ html[data-theme='dark'] .crew-search {
   fill: none;
   pointer-events: none;
 }
+
+/* Einteilung: je Tag die Arbeiter untereinander (eine Zeile je Arbeiter) statt nebeneinander */
+.crew-days .crew-chips {
+  flex: 1;
+  align-self: stretch;
+  width: 100%;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 4px;
+}
+.crew-days .crew-chip {
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+  min-height: 32px;
+  padding: 4px 12px;
+  border-radius: 10px;
+  text-align: left;
+}
+.crew-days .crew-chip .crew-chip-also {
+  margin-left: auto;
+}
+.crew-days .crew-day-label {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  width: 132px;
+  padding-top: 2px;
+}
+.crew-days .crew-day-label .crew-holiday {
+  flex-basis: 100%;
+  order: 3;
+}
+.crew-days .crew-day-label .crew-add {
+  width: 30px;
+  height: 30px;
+  min-height: 0;
+  margin-left: auto;
+  padding: 0;
+}
+@media (max-width: 720px) {
+  .crew-days .crew-day-label {
+    align-items: center;
+    width: 100%;
+  }
+  .crew-days .crew-day-label .crew-add {
+    margin-left: auto;
+  }
+  .crew-days .crew-day-label .crew-add {
+    margin-top: 0;
+  }
+}

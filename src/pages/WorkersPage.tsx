@@ -813,6 +813,9 @@ export function WorkersPage() {
                               {holidayOf(d)}
                             </span>
                           ) : null}
+                          <button type="button" className="crew-add" onClick={() => setDialog({ kind: 'assign', siteId: s.id, days: restOfWeek(d) })} aria-label={`Arbeiter für ${DAY_NAMES[d]} einteilen`} data-testid="day-add">
+                            <Icon name="plus" size={16} />
+                          </button>
                         </span>
                         <span className="crew-chips">
                           {s.days[d].map((id) => (
@@ -833,9 +836,6 @@ export function WorkersPage() {
                               )}
                             </button>
                           ))}
-                          <button type="button" className="crew-add" onClick={() => setDialog({ kind: 'assign', siteId: s.id, days: restOfWeek(d) })} aria-label={`Arbeiter für ${DAY_NAMES[d]} einteilen`} data-testid="day-add">
-                            <Icon name="plus" size={16} />
-                          </button>
                         </span>
                       </div>
                     ))}
