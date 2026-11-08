@@ -48,6 +48,17 @@ describe('Aufmaßblatt (Firmenvorlage)', () => {
     expect(ws).toContain('>Fläche aus Plan<');
   });
 
+  it('Bewehrung (lfm): eigene Tabelle je Nummer mit Summe, nur wenn erfasst', () => {
+    expect(sheet).not.toContain('>Bewehrung<');
+    const withRebar = { ...data, damages: { d1: dmg('d1', 1, { rebar: 3.5 }), d2: dmg('d2', 2, { kind: 'line', width: null, area: null, length: 4.5, rebar: 1.25 }) } } as unknown as ProjectState;
+    const ws = strFromU8(unzipSync(exportAufmassblatt(withRebar, { kind: 'plan', planId: 'p1' }, { no: '011', period: '' }).data)['xl/worksheets/sheet1.xml']);
+    expect(ws).toContain('>Bewehrung<');
+    expect(ws).toContain('>lfm<');
+    expect(ws).toContain('<v>3.5</v>');
+    expect(ws).toContain('<v>1.25</v>');
+    expect(ws).toMatch(/<f>SUM\(C\d+:C\d+\)<\/f><v>4.75<\/v>/);
+  });
+
   it('Abzüge/Zuschläge: eigene Zeilen mit Formel und Bemerkung, Summe = netto; Position rechnet netto', () => {
     // Wand 5,50 × 2,30 = 12,65 m², abzüglich 2 Fenster 1,00 × 1,20 und einer Tür 1,00 × 2,10, zuzüglich Nische 0,50 × 1,00
     const deductions = [

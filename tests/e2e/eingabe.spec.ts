@@ -1,7 +1,7 @@
 import { expect, test, type Page } from './fixtures';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { excelExport, catchDownload, drawRect, FIXTURES, freshStart, OUT, pickTool, planBox, blattRows, readXlsx, saveDownload, waitForPlan, waitSaved } from './helpers';
+import { excelExport, catchDownload, drawRect, FIXTURES, freshStart, OUT, pickTool, planBox, blattRows, blattRebar, readXlsx, saveDownload, waitForPlan, waitSaved } from './helpers';
 
 /**
  * Paket J: Werkzeugleiste klappt nach dem Zeichnen zu (zurück zur Auswahl); nur die Länge ist
@@ -248,16 +248,25 @@ test('Messung: Bemerkung / Notiz im Dialog, in der Aufmaß-Tabelle und im Excel'
   await dlg.getByTestId('input-length').fill('5');
   await dlg.getByTestId('input-width').fill('2');
   await dlg.getByTestId('input-note').fill('Ecke beschädigt');
+  // Bewehrung: ungültige Eingabe wird gemeldet, dann 3,5 lfm
+  await dlg.getByTestId('input-rebar').fill('abc');
+  await dlg.getByTestId('damage-save').click();
+  await expect(dlg).toContainText('Bitte eine Zahl ab 0 eingeben');
+  await dlg.getByTestId('input-rebar').fill('3,5');
   await dlg.getByTestId('damage-save').click();
   await expect(dlg).toBeHidden();
   await waitSaved(page);
   const ds = await stored(page, 'damages');
   expect(ds.map((d) => d.note ?? null)).toEqual([null, 'Ecke beschädigt']);
+  expect(ds.map((d) => d.rebar ?? null)).toEqual([null, 3.5]);
+  await expect(page.getByTestId('row-rebar')).toHaveText(['', '3,50']);
+  await expect(page.getByTestId('sum-rebar')).toHaveText('3,50 lfm');
   await expect(page.getByTestId('aufmass-table').locator('th.note-col')).toHaveText('Bemerkung');
   await expect(page.getByTestId('row-note')).toHaveText(['', 'Ecke beschädigt']);
   // Notiz bleibt beim Bearbeiten erhalten
   await page.locator('[data-testid="aufmass-row"][data-number="2"]').getByRole('button', { name: /2 bearbeiten/ }).click();
   await expect(dlg.getByTestId('input-note')).toHaveValue('Ecke beschädigt');
+  await expect(dlg.getByTestId('input-rebar')).toHaveValue('3,5');
   await dlg.getByTestId('damage-cancel').click();
   // Excel: Spalte „Bemerkung“
   const xdl = await catchDownload(page, () => excelExport(page, 'export-xlsx-plan'));
@@ -265,7 +274,8 @@ test('Messung: Bemerkung / Notiz im Dialog, in der Aufmaß-Tabelle und im Excel'
   expect(rows.map((r) => [r.nr, r.note])).toEqual([
     [1, null],
     [2, 'Ecke beschädigt'],
-  ]);
+  ]);  // Bewehrung: eigene Tabelle mit Nr. und lfm
+  expect(blattRebar(readXlsx(await saveDownload(xdl, 'notiz2.xlsx')))).toEqual([[2, 3.5]]);
 });
 
 test('Messung: Fotos wie im Mängelplan (Galerie → Fotodokumentation), Taste Fotodokumentation im Projekt', async ({ page }) => {

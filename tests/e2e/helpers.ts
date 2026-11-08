@@ -135,7 +135,8 @@ export function blattRows(wb: Record<string, XlsxCell[][]>, plan?: string | numb
   for (const r of ws) {
     const a = r[0]?.v;
     if (a === 'Plan' && r[1]?.v === 'Nr.') {
-      head = r.map((c) => String(c?.v ?? ''));
+      // Tabelle „Bewehrung“ (Plan | Nr. | lfm) gehört nicht zu den Messzeilen – siehe blattRebar
+      head = r[2]?.v === 'lfm' ? null : r.map((c) => String(c?.v ?? ''));
       continue;
     }
     if (!head || a === undefined || a === null || a === '') {
@@ -150,6 +151,19 @@ export function blattRows(wb: Record<string, XlsxCell[][]>, plan?: string | numb
     out.push({ plan: a, nr: r[1]?.v as string | number, values, note: ni >= 0 ? ((r[ni]?.v as string) ?? null) : null, cells: r, head });
   }
   return plan === undefined ? out : out.filter((x) => String(x.plan) === String(plan));
+}
+
+/** Tabelle „Bewehrung“ im Aufmaßblatt: [Nr., lfm] je Zeile */
+export function blattRebar(wb: Record<string, XlsxCell[][]>): [string | number, number][] {
+  const ws = wb[Object.keys(wb).find((n) => n.startsWith('Aufmaßblatt'))!];
+  const at = ws.findIndex((r) => r[0]?.v === 'Plan' && r[1]?.v === 'Nr.' && r[2]?.v === 'lfm');
+  if (at < 0) return [];
+  const out: [string | number, number][] = [];
+  for (const r of ws.slice(at + 1)) {
+    if (r[0]?.v === undefined || r[0]?.v === null || r[0]?.v === '') break;
+    out.push([r[1]?.v as string | number, Number(r[2]?.v)]);
+  }
+  return out;
 }
 
 export function readXlsx(path: string): Record<string, XlsxCell[][]> {

@@ -55,8 +55,11 @@ export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, on
   const actions = !!(onEdit || onDelete);
   // Spalte „Bemerkung“ nur, wenn eine Messung eine Notiz hat (am Handy als Zeile darunter)
   const notes = damages.some((d) => d.note?.trim());
+  // Spalte „Bewehrung“ nur, wenn mindestens eine Messung eine Angabe hat
+  const rebar = damages.some((d) => (d.rebar ?? 0) > 0);
+  const rebarSum = Math.round(damages.reduce((a, d) => a + (d.rebar ?? 0), 0) * 100) / 100;
   const before = showPlan ? 5 : 4; // Spalten vor „Fläche“
-  const after = 1 + (notes ? 1 : 0) + (actions ? 1 : 0); // Spalten nach „Fläche“
+  const after = 1 + (rebar ? 1 : 0) + (notes ? 1 : 0) + (actions ? 1 : 0); // Spalten nach „Fläche“
   return (
     <div className="table-wrap">
       <table className="aufmass-table" data-testid="aufmass-table">
@@ -77,6 +80,11 @@ export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, on
               Fläche <span className="unit-h">(m²)</span>
             </th>
             <th title="Messart und Bauteil">Art</th>
+            {rebar && (
+              <th className="num" title="Bewehrung in Laufmetern">
+                Bew. (lfm)
+              </th>
+            )}
             {notes && <th className="note-col">Bemerkung</th>}
             {actions && <th className="actions-col"><span className="sr-only">Aktionen</span></th>}
           </tr>
@@ -144,6 +152,11 @@ export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, on
                     </span>
                   )}
                 </td>
+                {rebar && (
+                  <td className="num" data-testid="row-rebar">
+                    {r.damage.rebar ? formatMeasure(r.damage.rebar) : ''}
+                  </td>
+                )}
                 {notes && (
                   <td className="note-col" data-testid="row-note">
                     {r.damage.note}
@@ -228,6 +241,15 @@ export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, on
               </td>
               <td className="num" data-testid="sum-length">
                 {formatMeasure(sumLengths(damages))} m
+              </td>
+              <td colSpan={after} />
+            </tr>
+          )}
+          {rebar && (
+            <tr className="sum-lines">
+              <td colSpan={before}>Summe Bewehrung</td>
+              <td className="num" data-testid="sum-rebar">
+                {formatMeasure(rebarSum)} lfm
               </td>
               <td colSpan={after} />
             </tr>

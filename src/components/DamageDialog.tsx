@@ -36,6 +36,8 @@ export interface DamageValues {
   deductions: Deduction[];
   /** freie Bemerkung / Notiz; null = keine */
   note: string | null;
+  /** Bewehrung in lfm; null = keine Angabe */
+  rebar: number | null;
   /** Fotos (Fotodokumentation) zur Messung */
   photoIds: string[];
 }
@@ -76,7 +78,7 @@ export type Renumber = 'none' | 'swap' | 'shift';
 interface Props {
   mode: 'new' | 'edit';
   damage: Pick<Damage, 'id' | 'number' | 'color' | 'labelOffset'> &
-    Partial<Pick<Damage, 'length' | 'width' | 'depth' | 'componentId' | 'positionRef' | 'label' | 'areaFromShape' | 'deductions' | 'note' | 'photoIds'>> & { shapeType: ShapeType; kind: MeasureKind };
+    Partial<Pick<Damage, 'length' | 'width' | 'depth' | 'componentId' | 'positionRef' | 'label' | 'areaFromShape' | 'deductions' | 'note' | 'rebar' | 'photoIds'>> & { shapeType: ShapeType; kind: MeasureKind };
   others: Pick<Damage, 'id' | 'number' | 'area' | 'label'>[];
   /** Bauteilkennzeichnungen des Plans für die optionale Zuordnung */
   components: Pick<Component, 'id' | 'letter' | 'name'>[];
@@ -132,6 +134,9 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const [positionRef, setPositionRef] = useState<string | null>(damage.positionRef ?? null);
   const [pickPos, setPickPos] = useState(false);
   const [note, setNote] = useState(damage.note ?? '');
+  const [rebar, setRebar] = useState(toInputValue(damage.rebar ?? null));
+  const rebarValue = parseDecimal(rebar);
+  const rebarError = rebar.trim() && (rebarValue === null || rebarValue < 0) ? 'Bitte eine Zahl ab 0 eingeben (z. B. 3,5).' : null;
   const [photoIds, setPhotoIds] = useState<string[]>(damage.photoIds ?? []);
   // erst LV bzw. MFK wählen, dann deren Positionen (Verweis „Dokument:Position“)
   const docOf = (ref: string) => ref.slice(0, ref.indexOf(':'));
@@ -245,7 +250,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
     width: B && !B.ok ? B.error : null,
     depth: T && !T.ok ? T.error : null,
   };
-  const valid = fields.every((f) => !errors[f]) && dedErrors.every((e) => !e);
+  const valid = fields.every((f) => !errors[f]) && dedErrors.every((e) => !e) && !rebarError;
 
   const submit = (renumber: Renumber = 'none') => {
     setShowErrors(true);
@@ -272,6 +277,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
         area: geo ? geo.area : null,
         deductions,
         note: note.trim() || null,
+        rebar: rebarValue !== null && rebarValue > 0 && !rebarError ? round2(rebarValue) : null,
         photoIds,
       },
       renumber,
@@ -696,6 +702,19 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             </button>
           </div>
         )}
+        <label className="field">
+          <span>Bewehrung (lfm)</span>
+          <input
+            type="text"
+            inputMode="decimal"
+            value={rebar}
+            onChange={(e) => setRebar(e.target.value)}
+            placeholder="optional, z. B. 3,5"
+            aria-invalid={showErrors && !!rebarError}
+            data-testid="input-rebar"
+          />
+          {showErrors && rebarError && <small className="error">{rebarError}</small>}
+        </label>
         <label className="field">
           <span>Bemerkung / Notiz</span>
           <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="optional, z. B. Hinweis zur Messung" data-testid="input-note" />

@@ -300,6 +300,8 @@ export interface Damage extends SyncMeta {
   deductions?: Deduction[];
   /** freie Bemerkung / Notiz zur Messung (Aufmaß-Tabelle, Excel-Spalte „Bemerkung“) */
   note?: string | null;
+  /** Bewehrung in Laufmetern (lfm) zu dieser Messung, optional; null/fehlt = keine Angabe */
+  rebar?: number | null;
   /** Fotos aus der Fotodokumentation (IDs) zu dieser Messung */
   photoIds?: string[];
 }

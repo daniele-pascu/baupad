@@ -146,6 +146,23 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
   }
   if (!items.length) add([str('Noch keine Messungen erfasst.', 'amNote')]);
 
+  // Bewehrung je Messnummer (lfm), falls erfasst – eigene Tabelle mit Summe
+  const rebarItems = items.filter((x) => (x.d.rebar ?? 0) > 0);
+  if (rebarItems.length) {
+    add([str('Bewehrung', 'amPos')]);
+    add([str('Plan', 'amTh'), str('Nr.', 'amTh'), str('lfm', 'amTh')]);
+    const first = rows.length + 1;
+    rebarItems.forEach(({ plan, d }, i) => {
+      const last = i === rebarItems.length - 1;
+      const pn = planNo(plan);
+      const planCell: Cell = /^[1-9]\d{0,8}$/.test(pn) ? num(Number(pn), last ? 'amCenterLast' : 'amCenter') : str(pn, last ? 'amCenterLast' : 'amCenter');
+      add([planCell, nrCell(d, last), num(d.rebar ?? 0, last ? 'amQtyLast' : 'amQty')]);
+    });
+    const total = Math.round(rebarItems.reduce((a, x) => a + (x.d.rebar ?? 0), 0) * 10000) / 10000;
+    add([null, null, { t: 'formula', f: `SUM(C${first}:C${rows.length})`, v: total, s: 'amQtyBold' }, str('lfm', 'amBold')]);
+    add();
+  }
+
   /**
    * Abschnitt eines LV bzw. einer MFK: je Position Spaltenkopf, Position (Nr. fett), Menge · EH · Einheitspreis €
    * · Positionspreis €, darunter die Messtabelle; am Ende die Zusammenstellung mit Gesamtpreis.

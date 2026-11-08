@@ -136,7 +136,8 @@ export const XLSX_HEADERS = ['Plannummer', 'Schadstellennummer', 'Länge (m)', '
 
 /** Tabellenblatt mit genau den Spalten A–F und einer Summenzeile. */
 export function aufmassSheet(name: string, rows: AufmassRow[]): Omit<Sheet, 'name'> & { name: string } {
-  const header: Cell[] = XLSX_HEADERS.map((h) => str(h, 'header'));
+  const withRebar = rows.some(({ damage }) => (damage.rebar ?? 0) > 0);
+  const header: Cell[] = [...XLSX_HEADERS, ...(withRebar ? ['Bewehrung (lfm)'] : [])].map((h) => str(h, 'header'));
   const body: Cell[][] = rows.map(({ plan, damage }) => [
     str(plan.planNumber || plan.planName || ''),
     (damage.label ? str(damage.label) : num(damage.number, 'int')),
@@ -145,6 +146,7 @@ export function aufmassSheet(name: string, rows: AufmassRow[]): Omit<Sheet, 'nam
     damage.width === null ? null : num(damage.width, 'measure'),
     damage.depth === null ? null : num(damage.depth, 'measure'),
     damage.area === null ? null : num(damage.area, 'area'),
+    ...(withRebar ? [damage.rebar ? num(damage.rebar, 'measure') : null] : []),
   ]);
   const last = rows.length + 1;
   const total = sumArea(rows.map((r) => r.damage));
@@ -155,13 +157,14 @@ export function aufmassSheet(name: string, rows: AufmassRow[]): Omit<Sheet, 'nam
     null,
     null,
     rows.length ? { t: 'formula', f: `SUM(F2:F${last})`, v: total, s: 'boldArea' } : num(0, 'boldArea'),
+    ...(withRebar ? [{ t: 'formula', f: `SUM(G2:G${last})`, v: Math.round(rows.reduce((a, r) => a + (r.damage.rebar ?? 0), 0) * 100) / 100, s: 'boldArea' } as Cell] : []),
   ];
   return {
     name,
     rows: [header, ...body, [], sumRow],
-    widths: [16, 20, 12, 12, 12, 14],
+    widths: [16, 20, 12, 12, 12, 14, ...(withRebar ? [16] : [])],
     freezeHeader: true,
-    autoFilter: `A1:F${Math.max(2, last)}`,
+    autoFilter: `A1:${withRebar ? 'G' : 'F'}${Math.max(2, last)}`,
   };
 }
 
@@ -535,11 +538,14 @@ function summarySheet(data: ProjectState, plans: Plan[], ccList: CostCenter[], b
 /** Messliste: alle Messungen in einer filterbaren Tabelle; Summen berücksichtigen den Filter */
 function measureListSheet(data: ProjectState, plans: Plan[], used: Set<string>, subtitle: string): Sheet {
   const items = aufmassRows(data, plans);
-  const head = ['Plan', 'Nr.', 'Messart', 'Pos.', 'Leistung', 'Länge (m)', 'Breite (m)', 'Tiefe (m)', 'Fläche (m²)', 'Volumen (m³)'];
+  // Spalte „Bewehrung (lfm)“ nur, wenn eine Messung eine Angabe hat
+  const withRebar = items.some(({ damage }) => (damage.rebar ?? 0) > 0);
+  const head = ['Plan', 'Nr.', 'Messart', 'Pos.', 'Leistung', 'Länge (m)', 'Breite (m)', 'Tiefe (m)', 'Fläche (m²)', 'Volumen (m³)', ...(withRebar ? ['Bewehrung (lfm)'] : [])];
   const rows: Cell[][] = [[str('Messliste', 'title')], [str(subtitle, 'subtitle')], head.map((h) => str(h, 'gridHead'))];
   const first = rows.length + 1;
   let area = 0;
   let vol = 0;
+  let rebar = 0;
   for (const { plan, damage: d } of items) {
     const pos = findPosition(data, d.positionRef)?.pos;
     const v = d.area !== null && d.depth !== null && kindOf(d) !== 'line' ? Math.round(d.area * d.depth * 10000) / 10000 : null;
@@ -556,7 +562,9 @@ function measureListSheet(data: ProjectState, plans: Plan[], used: Set<string>, 
       d.depth === null ? blank('gridMeasure') : num(d.depth, 'gridMeasure'),
       d.area === null || kindOf(d) === 'line' ? blank('gridArea') : num(d.area, 'gridArea'),
       v === null ? blank('gridMeasure') : num(v, 'gridMeasure'),
+      ...(withRebar ? [d.rebar ? num(d.rebar, 'gridMeasure') : blank('gridMeasure')] : []),
     ]);
+    rebar += d.rebar ?? 0;
   }
   const last = Math.max(first, rows.length);
   if (!items.length) rows.push([str('Noch keine Messungen erfasst.', 'note')]);
@@ -571,14 +579,15 @@ function measureListSheet(data: ProjectState, plans: Plan[], used: Set<string>, 
     str('Summe', 'sumLabel'),
     { t: 'formula', f: `SUBTOTAL(109,I${first}:I${last})`, v: Math.round(area * 10000) / 10000, s: 'sumValue' },
     { t: 'formula', f: `SUBTOTAL(109,J${first}:J${last})`, v: Math.round(vol * 10000) / 10000, s: 'sumMeasure' },
+    ...(withRebar ? [{ t: 'formula', f: `SUBTOTAL(109,K${first}:K${last})`, v: Math.round(rebar * 100) / 100, s: 'sumMeasure' } as Cell] : []),
   ]);
   rows.push([str('Tipp: Über die Pfeile in der Kopfzeile filtern und sortieren (z. B. nach Plan oder Leistung) – die Summen passen sich an.', 'subtitle')]);
   return {
     name: sheetName('Messliste', used),
     rows,
-    widths: [10, 7, 12, 10, 30, 11, 11, 10, 12, 13],
+    widths: [10, 7, 12, 10, 30, 11, 11, 10, 12, 13, ...(withRebar ? [15] : [])],
     headerRows: 3,
-    autoFilter: `A3:J${last}`,
+    autoFilter: `A3:${withRebar ? 'K' : 'J'}${last}`,
     landscape: true,
     print: true,
   };

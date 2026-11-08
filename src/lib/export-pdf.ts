@@ -683,7 +683,7 @@ export async function exportPhotosPdf(data: ProjectState, planIds: string[]): Pr
         const l2 = clean(ctx, pos ? `Position ${pos.number}  ${pos.shortText}` : 'Position: ohne Leistungszuordnung');
         const qty = d.area !== null ? `${formatArea(d.area)} m²` : `${formatMeasure(d.length)} m`;
         const taken = photoMeta.get(id)?.takenAt;
-        const l3 = clean(ctx, [measureLabel(d), qty, d.note?.trim() ?? '', taken ? `Foto vom ${new Date(taken).toLocaleDateString('de-DE')}` : ''].filter(Boolean).join('  ·  '));
+        const l3 = clean(ctx, [measureLabel(d), qty, d.rebar ? `Bewehrung ${formatMeasure(d.rebar)} lfm` : '', d.note?.trim() ?? '', taken ? `Foto vom ${new Date(taken).toLocaleDateString('de-DE')}` : ''].filter(Boolean).join('  ·  '));
         pg.drawText(fitText(bold, l1, 13, W - 2 * M - 20), { x: M + 14, y: top - 17, size: 13, font: bold, color: INK });
         pg.drawText(fitText(font, l2, 10.5, W - 2 * M - 20), { x: M + 14, y: top - 31, size: 10.5, font, color: INK });
         pg.drawText(fitText(font, l3, 8.5, W - 2 * M - 20), { x: M + 14, y: top - 44, size: 8.5, font, color: MUTED });

@@ -916,6 +916,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       positionRef: v.positionRef,
       label: v.label,
       note: v.note,
+      rebar: v.rebar,
       photoIds: v.photoIds.length ? v.photoIds : undefined,
     };
     // Kennzeichnung (z. B. „A“): Die Nummer dient nur der Reihenfolge – bestehende bleibt, neue ans Ende
