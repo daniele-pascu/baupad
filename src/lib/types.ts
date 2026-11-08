@@ -300,10 +300,19 @@ export interface Damage extends SyncMeta {
   deductions?: Deduction[];
   /** freie Bemerkung / Notiz zur Messung (Aufmaß-Tabelle, Excel-Spalte „Bemerkung“) */
   note?: string | null;
-  /** Bewehrung in Laufmetern (lfm) zu dieser Messung, optional; null/fehlt = keine Angabe */
+  /** Bewehrung in Laufmetern (lfm) zu dieser Messung = Summe aus `rebarItems`; null/fehlt = keine Angabe */
   rebar?: number | null;
+  /** Bewehrung als Zeilen „Stück × Länge (m)“; fehlt bei älteren Einträgen (dann nur `rebar`) */
+  rebarItems?: RebarItem[] | null;
   /** Fotos aus der Fotodokumentation (IDs) zu dieser Messung */
   photoIds?: string[];
+}
+
+/** Bewehrungszeile einer Messung: Anzahl Stäbe × Länge je Stab in m */
+export interface RebarItem {
+  id: string;
+  count: number;
+  length: number;
 }
 
 /** Teilfläche bzw. Teillänge, die von einer Messung abgezogen (bzw. hinzugerechnet) wird */

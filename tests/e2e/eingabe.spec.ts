@@ -248,25 +248,37 @@ test('Messung: Bemerkung / Notiz im Dialog, in der Aufmaß-Tabelle und im Excel'
   await dlg.getByTestId('input-length').fill('5');
   await dlg.getByTestId('input-width').fill('2');
   await dlg.getByTestId('input-note').fill('Ecke beschädigt');
-  // Bewehrung: ungültige Eingabe wird gemeldet, dann 3,5 lfm
-  await dlg.getByTestId('input-rebar').fill('abc');
+  // Bewehrung: Zeilen Stück × Länge, Summe automatisch; ungültige Länge wird gemeldet
+  await dlg.getByTestId('rebar-add').click();
+  await dlg.getByTestId('rebar-count').nth(0).fill('4');
+  await dlg.getByTestId('rebar-length').nth(0).fill('1,2');
+  await dlg.getByTestId('rebar-add').click();
+  await dlg.getByTestId('rebar-count').nth(1).fill('2');
+  await dlg.getByTestId('rebar-length').nth(1).fill('abc');
   await dlg.getByTestId('damage-save').click();
-  await expect(dlg).toContainText('Bitte eine Zahl ab 0 eingeben');
-  await dlg.getByTestId('input-rebar').fill('3,5');
+  await expect(dlg).toContainText('Bewehrung: Stück als ganze Zahl');
+  await dlg.getByTestId('rebar-length').nth(1).fill('0,8');
+  await expect(dlg.getByTestId('rebar-line')).toHaveText(['= 4,80 lfm', '= 1,60 lfm']);
+  await expect(dlg.getByTestId('rebar-sum')).toHaveText('Summe 6,40 lfm');
   await dlg.getByTestId('damage-save').click();
   await expect(dlg).toBeHidden();
   await waitSaved(page);
   const ds = await stored(page, 'damages');
   expect(ds.map((d) => d.note ?? null)).toEqual([null, 'Ecke beschädigt']);
-  expect(ds.map((d) => d.rebar ?? null)).toEqual([null, 3.5]);
-  await expect(page.getByTestId('row-rebar')).toHaveText(['', '3,50']);
-  await expect(page.getByTestId('sum-rebar')).toHaveText('3,50 lfm');
+  expect(ds.map((d) => d.rebar ?? null)).toEqual([null, 6.4]);
+  expect(ds[1].rebarItems.map((x: { count: number; length: number }) => [x.count, x.length])).toEqual([
+    [4, 1.2],
+    [2, 0.8],
+  ]);
+  await expect(page.getByTestId('row-rebar')).toHaveText(['', '6,40']);
+  await expect(page.getByTestId('sum-rebar')).toHaveText('6,40 lfm');
   await expect(page.getByTestId('aufmass-table').locator('th.note-col')).toHaveText('Bemerkung');
   await expect(page.getByTestId('row-note')).toHaveText(['', 'Ecke beschädigt']);
   // Notiz bleibt beim Bearbeiten erhalten
   await page.locator('[data-testid="aufmass-row"][data-number="2"]').getByRole('button', { name: /2 bearbeiten/ }).click();
   await expect(dlg.getByTestId('input-note')).toHaveValue('Ecke beschädigt');
-  await expect(dlg.getByTestId('input-rebar')).toHaveValue('3,5');
+  await expect(dlg.getByTestId('rebar-length')).toHaveCount(2);
+  await expect(dlg.getByTestId('rebar-sum')).toHaveText('Summe 6,40 lfm');
   await dlg.getByTestId('damage-cancel').click();
   // Excel: Spalte „Bemerkung“
   const xdl = await catchDownload(page, () => excelExport(page, 'export-xlsx-plan'));
@@ -275,7 +287,10 @@ test('Messung: Bemerkung / Notiz im Dialog, in der Aufmaß-Tabelle und im Excel'
     [1, null],
     [2, 'Ecke beschädigt'],
   ]);  // Bewehrung: eigene Tabelle mit Nr. und lfm
-  expect(blattRebar(readXlsx(await saveDownload(xdl, 'notiz2.xlsx')))).toEqual([[2, 3.5]]);
+  expect(blattRebar(readXlsx(await saveDownload(xdl, 'notiz2.xlsx')))).toEqual([
+    [2, 4, 1.2, 4.8],
+    [2, 2, 0.8, 1.6],
+  ]);
 });
 
 test('Messung: Fotos wie im Mängelplan (Galerie → Fotodokumentation), Taste Fotodokumentation im Projekt', async ({ page }) => {

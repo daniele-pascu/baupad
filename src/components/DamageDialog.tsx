@@ -2,13 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { PhotoAttach } from './PhotoAttach';
 import type { PhotoSite } from '../lib/types';
 import { uuid } from '../lib/ids';
+import { rebarLine, rebarTotal } from '../lib/rebar';
 import { deductionArea, deductionLength, hasArea, KIND_LABELS, netArea } from '../lib/measure';
-import { round2, checkMeasure, computeArea, formatArea, parseDecimal, toInputValue } from '../lib/numbers';
+import { round2, checkMeasure, computeArea, formatArea, formatMeasure, parseDecimal, toInputValue } from '../lib/numbers';
 
 /** Maße im Eingabefeld: kaufmännisch auf 2 Stellen gerundet (ältere Werte mit 3 Stellen) */
 const up2 = (n: number | null | undefined) => (n === null || n === undefined ? n : round2(n));
 import { damageNo, findByNumber, parseDamageNumber } from '../lib/numbering';
-import { COLORS, SHAPE_LABELS, type Component, type Damage, type Deduction, type MeasureKind, type Shape, type ShapeType } from '../lib/types';
+import { COLORS, SHAPE_LABELS, type Component, type Damage, type Deduction, type MeasureKind, type RebarItem, type Shape, type ShapeType } from '../lib/types';
 import { Icon } from './Icon';
 import { Modal } from './Modal';
 
@@ -38,6 +39,8 @@ export interface DamageValues {
   note: string | null;
   /** Bewehrung in lfm; null = keine Angabe */
   rebar: number | null;
+  /** Bewehrungszeilen (Stück × Länge); leer = keine */
+  rebarItems: RebarItem[];
   /** Fotos (Fotodokumentation) zur Messung */
   photoIds: string[];
 }
@@ -78,7 +81,7 @@ export type Renumber = 'none' | 'swap' | 'shift';
 interface Props {
   mode: 'new' | 'edit';
   damage: Pick<Damage, 'id' | 'number' | 'color' | 'labelOffset'> &
-    Partial<Pick<Damage, 'length' | 'width' | 'depth' | 'componentId' | 'positionRef' | 'label' | 'areaFromShape' | 'deductions' | 'note' | 'rebar' | 'photoIds'>> & { shapeType: ShapeType; kind: MeasureKind };
+    Partial<Pick<Damage, 'length' | 'width' | 'depth' | 'componentId' | 'positionRef' | 'label' | 'areaFromShape' | 'deductions' | 'note' | 'rebar' | 'rebarItems' | 'photoIds'>> & { shapeType: ShapeType; kind: MeasureKind };
   others: Pick<Damage, 'id' | 'number' | 'area' | 'label'>[];
   /** Bauteilkennzeichnungen des Plans für die optionale Zuordnung */
   components: Pick<Component, 'id' | 'letter' | 'name'>[];
@@ -134,9 +137,21 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const [positionRef, setPositionRef] = useState<string | null>(damage.positionRef ?? null);
   const [pickPos, setPickPos] = useState(false);
   const [note, setNote] = useState(damage.note ?? '');
-  const [rebar, setRebar] = useState(toInputValue(damage.rebar ?? null));
-  const rebarValue = parseDecimal(rebar);
-  const rebarError = rebar.trim() && (rebarValue === null || rebarValue < 0) ? 'Bitte eine Zahl ab 0 eingeben (z. B. 3,5).' : null;
+  // Bewehrung: Zeilen „Stück × Länge“ (Texte, damit Kommas und leere Felder möglich sind)
+  const [rebarRows, setRebarRows] = useState<{ id: string; count: string; length: string }[]>(() =>
+    (damage.rebarItems?.length ? damage.rebarItems : damage.rebar ? [{ id: uuid(), count: 1, length: damage.rebar }] : []).map((x) => ({ id: 'id' in x ? x.id : uuid(), count: String(x.count), length: toInputValue(x.length) })),
+  );
+  const rebarParsed = rebarRows
+    .filter((r) => r.count.trim() || r.length.trim())
+    .map((r) => {
+      const count = parseDecimal(r.count || '1');
+      const length = parseDecimal(r.length);
+      const ok = count !== null && Number.isInteger(count) && count >= 1 && length !== null && length > 0;
+      return { id: r.id, count: count ?? 0, length: length ?? 0, ok };
+    });
+  const rebarError = rebarParsed.some((x) => !x.ok) ? 'Bewehrung: Stück als ganze Zahl ab 1 und Länge in m (z. B. 1,20) eingeben.' : null;
+  const rebarSum = rebarTotal(rebarParsed.filter((x) => x.ok));
+  const setRebarRow = (id: string, patch: Partial<{ count: string; length: string }>) => setRebarRows((list) => list.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   const [photoIds, setPhotoIds] = useState<string[]>(damage.photoIds ?? []);
   // erst LV bzw. MFK wählen, dann deren Positionen (Verweis „Dokument:Position“)
   const docOf = (ref: string) => ref.slice(0, ref.indexOf(':'));
@@ -277,7 +292,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
         area: geo ? geo.area : null,
         deductions,
         note: note.trim() || null,
-        rebar: rebarValue !== null && rebarValue > 0 && !rebarError ? round2(rebarValue) : null,
+        rebar: rebarParsed.length && !rebarError ? rebarSum : null,
+        rebarItems: rebarError ? [] : rebarParsed.map(({ id, count, length }) => ({ id, count, length })),
         photoIds,
       },
       renumber,
@@ -702,19 +718,53 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             </button>
           </div>
         )}
-        <label className="field">
-          <span>Bewehrung (lfm)</span>
-          <input
-            type="text"
-            inputMode="decimal"
-            value={rebar}
-            onChange={(e) => setRebar(e.target.value)}
-            placeholder="optional, z. B. 3,5"
-            aria-invalid={showErrors && !!rebarError}
-            data-testid="input-rebar"
-          />
+        <div className="field rebar-field" data-testid="rebar">
+          <span>Bewehrung (optional)</span>
+          {rebarRows.map((r, i) => {
+            const p = rebarParsed.find((x) => x.id === r.id);
+            return (
+              <div key={r.id} className="rebar-row" data-testid="rebar-row">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={r.count}
+                  onChange={(e) => setRebarRow(r.id, { count: e.target.value })}
+                  placeholder="1"
+                  aria-label={`Bewehrung ${i + 1}: Stück`}
+                  aria-invalid={showErrors && !!p && !p.ok}
+                  data-testid="rebar-count"
+                />
+                <span className="muted">Stk ×</span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={r.length}
+                  onChange={(e) => setRebarRow(r.id, { length: e.target.value })}
+                  placeholder="Länge"
+                  aria-label={`Bewehrung ${i + 1}: Länge in m`}
+                  aria-invalid={showErrors && !!p && !p.ok}
+                  data-testid="rebar-length"
+                />
+                <span className="muted">m</span>
+                <span className="rebar-line" data-testid="rebar-line">
+                  {p?.ok ? `= ${formatMeasure(rebarLine(p))} lfm` : ''}
+                </span>
+                <button type="button" className="icon-btn icon-btn-sm" onClick={() => setRebarRows((list) => list.filter((x) => x.id !== r.id))} aria-label={`Bewehrung ${i + 1} entfernen`} data-testid="rebar-remove">
+                  ✕
+                </button>
+              </div>
+            );
+          })}
+          <div className="row gap wrap rebar-foot">
+            <button type="button" className="btn btn-sm" onClick={() => setRebarRows((list) => [...list, { id: uuid(), count: '1', length: '' }])} data-testid="rebar-add">
+              + Bewehrung
+            </button>
+            {rebarParsed.some((x) => x.ok) && (
+              <strong data-testid="rebar-sum">Summe {formatMeasure(rebarSum)} lfm</strong>
+            )}
+          </div>
           {showErrors && rebarError && <small className="error">{rebarError}</small>}
-        </label>
+        </div>
         <label className="field">
           <span>Bemerkung / Notiz</span>
           <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="optional, z. B. Hinweis zur Messung" data-testid="input-note" />

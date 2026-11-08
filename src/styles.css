@@ -10944,3 +10944,10 @@ html[data-theme='dark'] .crew-search {
 .pc-select { border-left: 4px solid var(--pc) !important; }
 .project-card.pc-stripe { border-left: 1px solid var(--border) !important; box-shadow: inset 4px 0 0 var(--pc), var(--shadow); }
 .project-card.pc-stripe:hover { border-left-color: var(--border-strong) !important; box-shadow: inset 4px 0 0 var(--pc), var(--shadow-md); }
+
+/* Bewehrung im Messdialog: Zeilen „Stück × Länge = lfm“ */
+.rebar-field { display: flex; flex-direction: column; gap: 6px; }
+.rebar-row { display: grid; grid-template-columns: 64px auto minmax(70px, 110px) auto 1fr auto; align-items: center; gap: 6px; }
+.rebar-row input { min-width: 0; }
+.rebar-line { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rebar-foot { align-items: center; justify-content: space-between; }

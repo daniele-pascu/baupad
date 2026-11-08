@@ -136,7 +136,7 @@ export function blattRows(wb: Record<string, XlsxCell[][]>, plan?: string | numb
     const a = r[0]?.v;
     if (a === 'Plan' && r[1]?.v === 'Nr.') {
       // Tabelle „Bewehrung“ (Plan | Nr. | lfm) gehört nicht zu den Messzeilen – siehe blattRebar
-      head = r[2]?.v === 'lfm' ? null : r.map((c) => String(c?.v ?? ''));
+      head = r.some((c) => c?.v === 'lfm') ? null : r.map((c) => String(c?.v ?? ''));
       continue;
     }
     if (!head || a === undefined || a === null || a === '') {
@@ -153,15 +153,17 @@ export function blattRows(wb: Record<string, XlsxCell[][]>, plan?: string | numb
   return plan === undefined ? out : out.filter((x) => String(x.plan) === String(plan));
 }
 
-/** Tabelle „Bewehrung“ im Aufmaßblatt: [Nr., lfm] je Zeile */
-export function blattRebar(wb: Record<string, XlsxCell[][]>): [string | number, number][] {
+/** Tabelle „Bewehrung“ im Aufmaßblatt: [Nr., Stück, Länge, lfm] je Zeile (lfm aus der Formel gerechnet) */
+export function blattRebar(wb: Record<string, XlsxCell[][]>): [string | number, number, number, number][] {
   const ws = wb[Object.keys(wb).find((n) => n.startsWith('Aufmaßblatt'))!];
-  const at = ws.findIndex((r) => r[0]?.v === 'Plan' && r[1]?.v === 'Nr.' && r[2]?.v === 'lfm');
+  const at = ws.findIndex((r) => r[0]?.v === 'Plan' && r[1]?.v === 'Nr.' && r[4]?.v === 'lfm');
   if (at < 0) return [];
-  const out: [string | number, number][] = [];
+  const out: [string | number, number, number, number][] = [];
   for (const r of ws.slice(at + 1)) {
     if (r[0]?.v === undefined || r[0]?.v === null || r[0]?.v === '') break;
-    out.push([r[1]?.v as string | number, Number(r[2]?.v)]);
+    const c = Number(r[2]?.v);
+    const l = Number(r[3]?.v);
+    out.push([r[1]?.v as string | number, c, l, Math.round(c * l * 100) / 100]);
   }
   return out;
 }
