@@ -418,3 +418,35 @@ test('Messung: Fotos wie im Mängelplan (Galerie → Fotodokumentation), Taste F
   await expect(page.getByTestId('photo-thumb')).toHaveCount(3, { timeout: 15_000 });
   await expect(page.locator('body')).toContainText('Fotos Aufmaß');
 });
+
+test('Stil-Menü (Darstellung neuer Messungen) schließt bei Klick auf den Plan oder ein anderes Werkzeug', async ({ page }) => {
+  await freshStart(page);
+  await projectWithoutCostCenter(page, 'Stil');
+  await page.getByTestId('plan-file-input').setInputFiles(join(FIXTURES, 'parkdeck.png'));
+  const wiz = page.getByTestId('import-wizard');
+  await wiz.getByTestId('areas-next').click();
+  await wiz.locator('[data-field="planNumber"]').fill('S-1');
+  await wiz.getByTestId('import-save').click();
+  await waitForPlan(page);
+  const box = await planBox(page);
+  const pop = page.getByTestId('default-style');
+  await pickTool(page, 'tool-select'); // Klick auf den Plan legt dann keine Messung an
+  // Klicks im Menü lassen es offen
+  await page.getByTestId('tool-style').click();
+  await expect(pop).toBeVisible();
+  await pop.click({ position: { x: 10, y: 10 } });
+  await expect(pop).toBeVisible();
+  // Klick auf den Plan
+  await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
+  await expect(pop).toHaveCount(0);
+  // anderes Werkzeug
+  await page.getByTestId('tool-style').click();
+  await expect(pop).toBeVisible();
+  await pickTool(page, 'tool-rect');
+  await expect(pop).toHaveCount(0);
+  // Taste „Stil“ schaltet weiterhin auf und zu
+  await page.getByTestId('tool-style').click();
+  await expect(pop).toBeVisible();
+  await page.getByTestId('tool-style').click();
+  await expect(pop).toHaveCount(0);
+});

@@ -366,6 +366,16 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   /** Darstellung: Bedienfeld der ausgewählten Messung bzw. Voreinstellung für neue Messungen */
   const [styleOpen, setStyleOpen] = useState(false);
   const [stylePopOpen, setStylePopOpen] = useState(false);
+  const stylePopRef = useRef<HTMLDivElement>(null);
+  // Stil-Menü schließt bei einem Klick außerhalb (Plan, Werkzeuge, Messleiste) – wie das Kalibrieren
+  useEffect(() => {
+    if (!stylePopOpen) return;
+    const close = (e: PointerEvent) => {
+      if (!stylePopRef.current?.contains(e.target as Node)) setStylePopOpen(false);
+    };
+    document.addEventListener('pointerdown', close, true);
+    return () => document.removeEventListener('pointerdown', close, true);
+  }, [stylePopOpen]);
   const [measureStyle, setMeasureStyleState] = useState<ShapeStyle>(() => readStyle('measureStyle'));
   const setMeasureStyle = (patch: Partial<ShapeStyle>) => {
     const next = { ...measureStyle, ...patch };
@@ -395,6 +405,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
 
   const setTool = (t: Tool) => {
     if (t !== 'calibrate') setChecking(false);
+    // anderes Werkzeug: Stil-Menü schließen (wie beim Kalibrieren)
+    setStylePopOpen(false);
     // Punktfang (blau) ist bei jedem Werkzeug an
     if (t !== 'select' && !drawing.snapOn) drawing.setSnapOn(true);
     setToolState(t);
@@ -1799,7 +1811,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 />
               ))}
             </div>
-            <div className="tool-group color-pick">
+            <div className="tool-group color-pick" ref={stylePopRef}>
               <button
                 type="button"
                 className={`tool-btn${stylePopOpen ? ' active' : ''}`}
