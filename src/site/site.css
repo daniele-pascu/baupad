@@ -2091,3 +2091,8 @@
   height: 64px;
   margin-bottom: 14px;
 }
+
+/* ungerade Zahl an Werkzeugen (z. B. sieben): die letzte Karte geht über die ganze Breite */
+@media (min-width: 761px) {
+  .ps-toolcards > .ps-toolcard:last-child:nth-child(odd) { grid-column: 1 / -1; }
+}

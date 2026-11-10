@@ -32,12 +32,13 @@ test('Website: Startseite, Produkte, BauPad, Unternehmen, Kontaktformular, Sprac
   await expect(page.locator('.ps-badge-plan')).toHaveText('Bald verfügbar'); // BauPad in der Testphase
   await page.getByTestId('product-open-baupad').click();
 
-  // BauPad: fünf Werkzeuge, Werkzeug-Seite, Werkzeug nur mit Anmeldung
+  // BauPad: sieben Werkzeuge, Werkzeug-Seite, Werkzeug nur mit Anmeldung
   await expect(page.getByTestId('product-title')).toContainText('in einer App');
-  await expect(page.getByTestId('product-card')).toHaveCount(6);
+  await expect(page.getByTestId('product-card')).toHaveCount(7);
   await expect(page.getByTestId('product-card').nth(3)).toContainText('Fotodokumentation');
   await expect(page.getByTestId('product-card').nth(4)).toContainText('Mängelplan');
   await expect(page.getByTestId('product-card').nth(5)).toContainText('Zeitaufzeichnung');
+  await expect(page.getByTestId('product-card').nth(6)).toContainText('Materialverwaltung');
   await expect(page.getByTestId('problem-pairs').locator('article')).toHaveCount(3); // Problem → Lösung
   await page.getByTestId('product-card').nth(3).click();
   await expect(page.getByTestId('product-title')).toHaveText('Fotodokumentation');
@@ -261,11 +262,11 @@ test('Installierte App mit gespeicherter Anmeldung startet direkt in den Tools (
   await context.close();
 });
 
-test('Tools: sechs gleich große Kacheln, zwei pro Reihe; alle Werkzeuge antippbar', async ({ page }) => {
+test('Tools: sieben gleich große Kacheln, zwei pro Reihe; alle Werkzeuge antippbar', async ({ page }) => {
   await page.goto('./#/tools');
   const tiles = page.locator('.tool-tile');
-  await expect(tiles).toHaveCount(6);
-  await expect(tiles.locator('strong')).toHaveText(['Aufmaß & Abrechnung', 'Arbeitereinteilung', 'Fotodokumentation', 'Berichte & Formulare', 'Mängelplan', 'Zeitaufzeichnung']);
+  await expect(tiles).toHaveCount(7);
+  await expect(tiles.locator('strong')).toHaveText(['Aufmaß & Abrechnung', 'Arbeitereinteilung', 'Fotodokumentation', 'Berichte & Formulare', 'Mängelplan', 'Zeitaufzeichnung', 'Materialverwaltung']);
   const boxes = await Promise.all((await tiles.all()).map((t) => t.boundingBox()));
   // 3 × 2, alle gleich groß
   for (const r of [0, 2, 4]) expect(Math.abs(boxes[r]!.y - boxes[r + 1]!.y)).toBeLessThan(1);
@@ -498,4 +499,20 @@ test('Aufmaß-Tabelle am PC nach rechts einklappen und wieder ausklappen', async
   await expect(page.getByTestId('side-resizer')).toBeHidden();
   await page.getByTestId('side-toggle').click();
   await expect(side).toBeVisible();
+});
+
+test.describe('Website Materialverwaltung ohne Anmeldung', () => {
+  test.use({ signedIn: false });
+test('Website: Werkzeugseite Materialverwaltung (DE/EN), öffnet das Werkzeug', async ({ page }) => {
+  await page.goto('./baupad/funktionen/materialverwaltung');
+  await expect(page.getByTestId('product-title')).toHaveText('Materialverwaltung');
+  await expect(page.locator('body')).toContainText('offen → bestellt → geliefert');
+  await expect(page).toHaveTitle(/Materialverwaltung/);
+  await page.goto('./en/baupad/features/materialverwaltung');
+  await expect(page.getByTestId('product-title')).toHaveText('Material Management');
+  // BauPad-Seite nennt sieben Werkzeuge
+  await page.goto('./baupad');
+  await expect(page.locator('body')).toContainText('Sieben Werkzeuge in einer App.');
+  await expect(page.locator('body')).not.toContainText(/sechs Werkzeuge/i);
+});
 });

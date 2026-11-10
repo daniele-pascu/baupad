@@ -50,7 +50,7 @@ export const de = {
   },
   home: {
     title: 'PAD Software – Den Arbeitstag leichter gemacht',
-    description: 'PAD Software entwickelt Software, die den Arbeitstag leichter macht. Erstes Produkt: BauPad für Baufirmen – Aufmaß, Arbeitereinteilung, Berichte, Fotodokumentation, Mängelplan und Zeitaufzeichnung in einer App.',
+    description: 'PAD Software entwickelt Software, die den Arbeitstag leichter macht. Erstes Produkt: BauPad für Baufirmen – Aufmaß, Arbeitereinteilung, Berichte, Fotodokumentation, Mängelplan, Zeitaufzeichnung und Materialverwaltung in einer App.',
     hero: {
       eyebrow: 'PAD Software',
       title: ['Software.', 'Den Arbeitstag', 'leichter gemacht.'],
@@ -78,7 +78,7 @@ export const de = {
     baupad: {
       eyebrow: 'Erstes Produkt',
       title: 'BauPad. Die Baustelle in einer App.',
-      text: 'Aufmaß & Abrechnung, Arbeitereinteilung, Berichte & Formulare, Fotodokumentation, Mängelplan und Zeitaufzeichnung – sechs Werkzeuge, ein Stand. Am Handy auf der Baustelle, am PC im Büro, auch ohne Internet.',
+      text: 'Aufmaß & Abrechnung, Arbeitereinteilung, Berichte & Formulare, Fotodokumentation, Mängelplan, Zeitaufzeichnung und Materialverwaltung – sieben Werkzeuge, ein Stand. Am Handy auf der Baustelle, am PC im Büro, auch ohne Internet.',
       cta: 'Mehr über BauPad erfahren',
       stageTitle: 'BauPad – Werkzeugübersicht',
     },
@@ -118,11 +118,11 @@ export const de = {
   },
   baupad: {
     title: 'BauPad – Die Baustelle in einer App | PAD Software',
-    description: 'BauPad vereint Aufmaß & Abrechnung, Arbeitereinteilung, Berichte & Formulare, Fotodokumentation, Mängelplan und Zeitaufzeichnung in einer App – am Handy, Tablet und PC, auch ohne Empfang.',
+    description: 'BauPad vereint Aufmaß & Abrechnung, Arbeitereinteilung, Berichte & Formulare, Fotodokumentation, Mängelplan, Zeitaufzeichnung und Materialverwaltung in einer App – am Handy, Tablet und PC, auch ohne Empfang.',
     hero: {
       eyebrow: 'BauPad · Produkt von PAD Software',
       title: ['Die Baustelle', 'in einer App.'],
-      lead: 'Aufmaß, Einteilung, Berichte, Fotos, Mängelplan und Zeiten – sechs Werkzeuge, ein Konto, ein Stand für alle. Erfasst auf der Baustelle, fertig im Büro.',
+      lead: 'Aufmaß, Einteilung, Berichte, Fotos, Mängelplan, Zeiten und Material – sieben Werkzeuge, ein Konto, ein Stand für alle. Erfasst auf der Baustelle, fertig im Büro.',
       primary: 'Kontakt aufnehmen',
       secondary: 'BauPad öffnen',
       status: 'Testphase – Abo folgt zum Start',
@@ -135,9 +135,9 @@ export const de = {
       items: [
         {
           problem: 'Für jede Arbeit eine eigene App.',
-          detail: 'Aufmaß hier, Fotos dort, die Stunden auf Papier. Sechs Apps, sechs Logins, sechsmal dieselbe Baustelle eintippen.',
-          solution: 'Sechs Werkzeuge in einer App.',
-          points: ['Aufmaß & Abrechnung, Arbeitereinteilung, Berichte & Formulare, Fotodokumentation, Mängelplan, Zeitaufzeichnung', 'Ein Konto, eine Firma, eine Projektliste', 'Am Handy, am Tablet und am PC – dieselbe Oberfläche'],
+          detail: 'Aufmaß hier, Fotos dort, die Stunden auf Papier. Sieben Apps, sieben Logins, siebenmal dieselbe Baustelle eintippen.',
+          solution: 'Sieben Werkzeuge in einer App.',
+          points: ['Aufmaß & Abrechnung, Arbeitereinteilung, Berichte & Formulare, Fotodokumentation, Mängelplan, Zeitaufzeichnung, Materialverwaltung', 'Ein Konto, eine Firma, eine Projektliste', 'Am Handy, am Tablet und am PC – dieselbe Oberfläche'],
         },
         {
           problem: 'Kein Empfang auf der Baustelle.',
@@ -157,7 +157,7 @@ export const de = {
       eyebrow: 'Ein Projekt',
       title: 'Einmal anlegen, überall da.',
       text: 'Ein Projekt wird in einem Werkzeug angelegt und bei Bedarf in jedes andere übernommen – mit einem Tipp.',
-      points: ['Projektname, Bauvorhaben, Projektnummer, Kostenstelle, Auftraggeber, Baubeginn – einmal eingetragen', 'In Aufmaß, Einteilung, Berichten, Fotos und Mängelplan dieselbe Liste', 'Keine Dubletten, keine Tippfehler bei der dritten Eingabe'],
+      points: ['Projektname, Bauvorhaben, Projektnummer, Kostenstelle, Auftraggeber, Baubeginn – einmal eingetragen', 'Im Projektregister: dieselbe Liste in allen Werkzeugen', 'Jedes Projekt mit eigener Farbe – in jedem Werkzeug gleich, auf einen Blick erkennbar', 'Keine Dubletten, keine Tippfehler bei der dritten Eingabe'],
     },
     roles: {
       eyebrow: 'Benutzerrollen',
@@ -166,7 +166,7 @@ export const de = {
       items: [{ title: 'Admin', text: '' }, { title: 'Büro', text: '' }, { title: 'Polier', text: '' }, { title: 'Arbeiter', text: '' }],
     },
     tools: {
-      eyebrow: 'Die sechs Werkzeuge',
+      eyebrow: 'Die sieben Werkzeuge',
       title: 'Was BauPad kann.',
       text: 'Kurz und ohne Umwege – so, wie es auf der Baustelle gebraucht wird.',
       more: 'Mehr erfahren',
@@ -179,6 +179,8 @@ export const de = {
             'LV und MFK hochladen – Positionen werden erkannt und sind je Messung wählbar',
             'Kein Plan dabei? Eigenen Plan schnell skizzieren',
             'Linie, Rechteck, Kreis, Fläche, Wand, Freihand, Messung – je nach Bedarf',
+            'Bewehrung je Nummer: Stück × Länge, Summe in Laufmetern – im Excel als Formel',
+            'Farblegende in jedem Plan, Fotos je Messung',
             'Export: Pläne als PDF, Aufmaßaufstellung als PDF oder Excel, mit Preisen, falls vorhanden',
           ],
         },
@@ -188,6 +190,7 @@ export const de = {
             'Arbeiter nach Funktion eintragen und auf Baustellen einteilen',
             'Jede Woche läuft weiter, bis jemand umgeteilt, krank oder im Urlaub ist',
             'Baustellen pausieren, abschließen oder löschen',
+            'Je Tag die Arbeiter untereinander, jede Baustelle in ihrer Projektfarbe',
             'Sehr einfach zu bedienen, klare Übersicht',
             'Wochenliste als PDF',
           ],
@@ -217,6 +220,16 @@ export const de = {
             'Urlaub und Krank per Antippen, österreichische Feiertage automatisch',
             'Monatszettel je Arbeiter mit Soll, Ist und Wegzeit, Freigabe durch das Büro',
             'Excel je Arbeiter in der Firmenvorlage, jedes Jahr fortgesetzt – Resturlaub und Stunden werden übertragen',
+            'Polier sieht nur seine Projekte, Arbeiter nur die eigenen Stunden – auch am Server geschützt',
+          ],
+        },
+        materials: {
+          hook: 'Wer hat was bestellt – und ist es schon da?',
+          points: [
+            'Materialstamm und Lieferanten der Firma, doppelte Einträge werden erkannt',
+            'Materialliste je Baustelle mit Menge, Einheit, Preis und Liefertermin',
+            'Status offen, bestellt, geliefert – mit Verlauf, wer was wann bestellt hat',
+            'Überfällige Lieferungen fallen sofort auf, Summe je Baustelle',
           ],
         },
         defects: {
@@ -253,8 +266,8 @@ export const de = {
       tagline: 'Schadstellen und Flächen direkt im Plan erfassen – fertig abgerechnet als Excel und PDF.',
       intro: 'Plan als PDF oder Foto öffnen oder selbst zeichnen, Maßstab erkennen oder kalibrieren, dann Flächen, Linien, Wände und Freihandformen mit Länge, Breite und Tiefe erfassen. Jede Messung bekommt eine Nummer im Plan und eine Zeile im Aufmaß.',
       groups: [
-        { title: 'Messen', items: ['Fläche, Linie, Dreieck, Polygon, Kreis, Freihand und Wand', 'Abzüge und Zuschläge, z. B. Türen und Öffnungen', 'Fünf Messarten mit Bauteilbuchstaben A, B, C', 'Punktfang, Zoom auf Auswahl, Rückgängig und Wiederholen'] },
-        { title: 'Pläne', items: ['PDF-Pläne importieren, Maßstab automatisch erkennen', 'Eigene Pläne zeichnen: Raster, Bemaßung, Schraffur, Ebenen', 'Mini-CAD: kopieren, drehen, strecken, trimmen', 'Papierformat A4/A3 für den Druck'] },
+        { title: 'Messen', items: ['Fläche, Linie, Dreieck, Polygon, Kreis, Freihand und Wand', 'Abzüge und Zuschläge, z. B. Türen und Öffnungen', 'Bewehrung je Nummer: Stück × Länge, Summe in Laufmetern', 'Fotos je Messung, Farblegende in jedem Plan', 'Punktfang, Zoom auf Auswahl, Rückgängig und Wiederholen'] },
+        { title: 'Pläne', items: ['PDF-Pläne importieren, Maßstab automatisch erkennen', 'Eigene Pläne zeichnen auf unbegrenzter Fläche: Raster, Schraffur, Ebenen', 'Bemaßung mit Hilfslinien wie im CAD', 'Mini-CAD: kopieren, drehen, strecken, trimmen', 'Papierformat A4/A3 mit Maßstab oder ohne – beim Messen sieht man das Blatt wie im PDF'] },
         { title: 'Abrechnen', items: ['Leistungsverzeichnis (LV) einlesen, Positionen mit Langtext', 'Aufmaß je Plan oder je Rechnung', 'Rechnungen aufteilen, abgerechnete Pläne gesperrt', 'Excel-Aufmaßblatt und PDF-Plan mit Logo'] },
         { title: 'Sicher', items: ['Alles am Gerät, auch ohne Internet', 'Projektsicherung als ZIP mit allen Plänen', 'Übernahme auf ein anderes Gerät'] },
       ],
@@ -266,7 +279,7 @@ export const de = {
       tagline: 'Wer arbeitet wann auf welchem Projekt – die Woche auf einen Blick, als PDF für alle.',
       intro: 'Arbeiter einmal anlegen, Projekte übernehmen, dann per Klick oder Ziehen auf die Tage verteilen. Urlaub und Krankenstand werden angezeigt, die Woche lässt sich weiterführen und als PDF mit Firmenlogo ausgeben.',
       groups: [
-        { title: 'Planen', items: ['Woche Mo–So je Projekt', 'Zuweisen per Klick oder Ziehen, Arbeiter bleibt bis zur Änderung', 'Woche in die nächste weiterführen', 'Projekt abschließen oder pausieren'] },
+        { title: 'Planen', items: ['Woche Mo–So je Projekt, je Tag die Arbeiter untereinander', 'Zuweisen per Klick oder Ziehen, Arbeiter bleibt bis zur Änderung', 'Woche in die nächste weiterführen – am Handy einfach wischen', 'Projekt abschließen oder pausieren, jedes Projekt in seiner Farbe'] },
         { title: 'Abwesenheiten', items: ['Urlaub und Krankenstand von–bis', 'Warnung bei Doppelbelegung', 'Suche nach Arbeiter oder Projekt'] },
         { title: 'Ausgeben', items: ['Wochenplan A4 quer mit Logo und KW', 'Tagesliste je Projekt', 'Drucken oder als PDF teilen', 'Sicherung aller Wochen'] },
       ],
@@ -305,7 +318,7 @@ export const de = {
       intro: 'Der Polier tippt je Tag für seine Arbeiter Baustelle, von, bis und Pause – BauPad schlägt die Baustelle aus der Arbeitereinteilung und die gewohnten Zeiten vor. Urlaub und Krank gehen per Antippen, Feiertage in Österreich sind hinterlegt. Das Büro gibt den Monat je Arbeiter frei und bekommt die Excel-Datei in der eigenen Firmenvorlage – mit allen Formeln, jedes Jahr fortgesetzt.',
       groups: [
         { title: 'Erfassen', items: ['Tag erfassen: alle Arbeiter eines Tages auf einen Blick', 'Vorschlag aus der Einteilung, einmal eingetragene Zeiten bleiben', 'Zweite Baustelle am selben Tag, Wegzeit optional', 'Urlaub und Krank per Antippen'] },
-        { title: 'Prüfen', items: ['Monatszettel je Arbeiter: Soll, Ist, Plus/Minus', 'Österreichische Feiertage automatisch', 'Freigabe durch das Büro, danach gesperrt'] },
+        { title: 'Prüfen', items: ['Monatszettel je Arbeiter: Soll, Ist, Plus/Minus', 'Österreichische Feiertage automatisch', 'Freigabe durch das Büro, danach gesperrt', 'Rechte: Polier nur seine Projekte, Arbeiter nur die eigenen Stunden'] },
         { title: 'Ausgeben', items: ['Excel je Arbeiter in der Firmenvorlage, alle Formeln bleiben', 'Jedes Jahr fortgesetzt: Resturlaub und Stunden werden übertragen', 'Beim Freigeben als Monatsstand online gespeichert', 'Alle Arbeiter als ZIP'] },
       ],
     },
@@ -319,6 +332,18 @@ export const de = {
         { title: 'Markieren', items: ['Pin, Rechteck, Kreis, Linie, Freihand, Text', 'Fünf Farben, Art: Mangel, Ausbesserung, Hinweis, Erledigt', 'Nummern laufen je Plan automatisch', 'Verschieben, Zoom, Liste mit Filter'] },
         { title: 'Beschreiben', items: ['Titel und Beschreibung je Markierung', 'Fotos aufnehmen, aus der Galerie oder aus der Fotodokumentation', 'Vermerk „Mängelplan Nr. 3“ im Foto'] },
         { title: 'Ausgeben', items: ['PDF: Plan mit Nummern, danach die Liste mit Fotos', 'Logo und Firmendaten im Kopf', 'Je Projekt beliebig viele Pläne'] },
+      ],
+    },
+    materials: {
+      title: 'Materialverwaltung',
+      short: 'Material und Lieferanten der Firma, Materiallisten je Baustelle – bestellt, geliefert, im Blick.',
+      points: ['Materialstamm und Lieferanten', 'Materialliste je Baustelle mit Status', 'Verlauf: wer hat was wann bestellt'],
+      tagline: 'Material und Lieferanten der Firma an einem Ort – und je Baustelle die Liste, was offen, bestellt oder geliefert ist.',
+      intro: 'Das Büro pflegt den Materialstamm und die Lieferanten einmal für die ganze Firma – doppelte Einträge werden beim Anlegen erkannt. Je Baustelle entsteht daraus eine Materialliste mit Menge, Einheit, Preis und Liefertermin. Ein Tipp setzt den Status auf bestellt oder geliefert, der Verlauf zeigt, wer was wann gemacht hat.',
+      groups: [
+        { title: 'Stammdaten', items: ['Materialien mit Artikelnummer, Einheit, Preis und Kategorie', 'Lieferanten mit Ansprechpartner, Telefon, E-Mail und Adresse', 'Doppelte Einträge werden erkannt – auch bei anderer Schreibweise', 'Suche nach Name, Artikelnummer, Kategorie oder Lieferant'] },
+        { title: 'Je Baustelle', items: ['Materialliste mit Menge, Einheit, Preis und Liefertermin', 'Aus dem Materialstamm wählen oder frei eintragen', 'Hinweis, wenn dasselbe Material schon offen oder bestellt ist', 'Summe der Liste, Zähler offen, bestellt, geliefert'] },
+        { title: 'Bestellen', items: ['Status offen → bestellt → geliefert mit einem Tipp', 'Verlauf: wer hat was wann bestellt bzw. als geliefert markiert', 'Überfällige Liefertermine fallen sofort auf', 'Für alle Geräte der Firma derselbe Stand'] },
       ],
     },
   },
@@ -401,7 +426,7 @@ export const de = {
     badge: 'In Planung',
     items: [
       { title: 'BauPad in den App Stores', text: 'BauPad zusätzlich als App im App Store und bei Google Play. Die Web-App bleibt.' },
-      { title: 'Weitere Werkzeuge für den Baualltag', text: 'Wir sammeln Themen aus dem Betrieb: Zeiterfassung, Material, Geräte. Was davon ein Produkt wird, entscheidet die Praxis.' },
+      { title: 'Weitere Werkzeuge für den Baualltag', text: 'Wir sammeln Themen aus dem Betrieb: Geräte, Fuhrpark, Lager. Was davon ein Produkt wird, entscheidet die Praxis.' },
     ],
     note: 'Alle Angaben auf dieser Seite beschreiben Vorhaben, keine verfügbaren Funktionen. Reihenfolge und Umfang können sich ändern.',
     cta: { title: 'Sie haben ein Thema, das Software lösen sollte?', text: 'Schreiben Sie uns. Anregungen aus dem Betrieb bestimmen, was wir als Nächstes bauen.', button: 'Kontakt aufnehmen' },
@@ -444,7 +469,7 @@ export const de = {
         {
           h: 'Welche Daten BauPad verarbeitet',
           p: [
-            'Alle Inhalte, die Sie in BauPad erfassen (Projekte, Pläne, Messungen, Arbeiter, Berichte, Fotos), werden zuerst im Speicher Ihres Geräts abgelegt (Browser-Datenbank), damit BauPad auch ohne Internet funktioniert. Gehört Ihr Konto zu einer Firma, werden sie zusätzlich in die zentrale Ablage Ihrer Firma übertragen (siehe unten), damit alle Geräte der Firma denselben Stand sehen. Ohne Firma bleiben sie nur auf dem Gerät.',
+            'Alle Inhalte, die Sie in BauPad erfassen (Projekte, Pläne, Messungen, Arbeiter, Berichte, Fotos, Stunden, Material), werden zuerst im Speicher Ihres Geräts abgelegt (Browser-Datenbank), damit BauPad auch ohne Internet funktioniert. Gehört Ihr Konto zu einer Firma, werden sie zusätzlich in die zentrale Ablage Ihrer Firma übertragen (siehe unten), damit alle Geräte der Firma denselben Stand sehen. Ohne Firma bleiben sie nur auf dem Gerät.',
             'Exporte (Excel, PDF, ZIP) erstellen Sie selbst auf dem Gerät und geben sie selbst weiter. Beim Teilen über Apps Ihres Geräts gelten deren Datenschutzbestimmungen.',
             'Fotos können Aufnahmezeit und den am Gerät eingetragenen Namen enthalten. Ortsangaben werden nicht gespeichert.',
           ],
@@ -461,7 +486,7 @@ export const de = {
         {
           h: 'Zentrale Ablage',
           p: [
-            'Die zentrale Ablage speichert die Inhalte eines Unternehmens (Projekte, Pläne, Aufmaße, Berichte, Einteilung, Mängelpläne, Formulare, Fotos) für alle Geräte und Benutzer dieser Firma. Zugriff haben nur angemeldete Benutzer der Firma im Rahmen der vom Admin vergebenen Rechte. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung).',
+            'Die zentrale Ablage speichert die Inhalte eines Unternehmens (Projekte, Pläne, Aufmaße, Berichte, Einteilung, Mängelpläne, Formulare, Fotos, Stunden, Materiallisten) für alle Geräte und Benutzer dieser Firma. Zugriff haben nur angemeldete Benutzer der Firma im Rahmen der vom Admin vergebenen Rechte. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung).',
             'Datensätze (Angaben zu Projekten, Messungen, Berichten, Einteilung, Markierungen) speichert unser Auftragsverarbeiter Supabase Inc. in einem Rechenzentrum in der EU (Irland). Dateien (Originalpläne, Planbilder, Formular-PDFs, Fotos) speichert unser Auftragsverarbeiter Hetzner Online GmbH in einem Rechenzentrum in Nürnberg (Deutschland). Die Übertragung erfolgt verschlüsselt über kurzlebige, auf die Firma beschränkte Zugriffslinks; PAD Software hat keinen Zugriff auf die Inhalte Ihrer Firma, nur auf Kontodaten und Abrechnung.',
             'Die Inhalte bleiben gespeichert, bis Sie sie in BauPad löschen oder die Firma ihren Arbeitsbereich auflöst; Löschen gilt für alle Geräte der Firma. Mit beiden Dienstleistern bestehen Auftragsverarbeitungsverträge nach Art. 28 DSGVO.',
           ],

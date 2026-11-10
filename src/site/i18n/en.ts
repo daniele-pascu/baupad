@@ -48,7 +48,7 @@ export const en: Dict = {
   },
   home: {
     title: 'PAD Software – The working day, made easier',
-    description: 'PAD Software builds software that makes the working day easier. First product: BauPad for construction companies – measurement, crew scheduling, reports, photo documentation, defect plans and time recording in one app.',
+    description: 'PAD Software builds software that makes the working day easier. First product: BauPad for construction companies – measurement, crew scheduling, reports, photo documentation, defect plans, time recording and material management in one app.',
     hero: {
       eyebrow: 'PAD Software',
       title: ['Software.', 'The working day,', 'made easier.'],
@@ -76,7 +76,7 @@ export const en: Dict = {
     baupad: {
       eyebrow: 'First product',
       title: 'BauPad. The job site in one app.',
-      text: 'Measurement & billing, crew scheduling, reports & forms, photo documentation, defect plans and time recording – six tools, one source of truth. On the phone on site, on the PC in the office, even offline.',
+      text: 'Measurement & billing, crew scheduling, reports & forms, photo documentation, defect plans, time recording and material management – seven tools, one source of truth. On the phone on site, on the PC in the office, even offline.',
       cta: 'Learn more about BauPad',
       stageTitle: 'BauPad – tool overview',
     },
@@ -116,11 +116,11 @@ export const en: Dict = {
   },
   baupad: {
     title: 'BauPad – The construction site in one app | PAD Software',
-    description: 'BauPad combines measurement & billing, crew scheduling, reports & forms, photo documentation, defect plan and time recording in one app – on phone, tablet and PC, even without reception.',
+    description: 'BauPad combines measurement & billing, crew scheduling, reports & forms, photo documentation, defect plan, time recording and material management in one app – on phone, tablet and PC, even without reception.',
     hero: {
       eyebrow: 'BauPad · Product by PAD Software',
       title: ['The construction site', 'in one app.'],
-      lead: 'Measurement, scheduling, reports, photos, defect plan and time recording – six tools, one account, one state for everyone. Recorded on site, ready in the office.',
+      lead: 'Measurement, scheduling, reports, photos, defect plan, time recording and material – seven tools, one account, one state for everyone. Recorded on site, ready in the office.',
       primary: 'Get in touch',
       secondary: 'Open BauPad',
       status: 'Test phase – subscription follows at launch',
@@ -133,9 +133,9 @@ export const en: Dict = {
       items: [
         {
           problem: 'A separate app for every job.',
-          detail: 'Measurement here, photos there, the hours on paper. Six apps, six logins, the same site typed in six times.',
-          solution: 'Six tools in one app.',
-          points: ['Measurement & billing, crew scheduling, reports & forms, photo documentation, defect plan, time recording', 'One account, one company, one project list', 'On phone, tablet and PC – the same interface'],
+          detail: 'Measurement here, photos there, the hours on paper. Seven apps, seven logins, the same site typed in seven times.',
+          solution: 'Seven tools in one app.',
+          points: ['Measurement & billing, crew scheduling, reports & forms, photo documentation, defect plan, time recording, material management', 'One account, one company, one project list', 'On phone, tablet and PC – the same interface'],
         },
         {
           problem: 'No reception on site.',
@@ -155,7 +155,7 @@ export const en: Dict = {
       eyebrow: 'One project',
       title: 'Create once, available everywhere.',
       text: 'A project is created in one tool and adopted into any other when needed – with one tap.',
-      points: ['Project name, site, project number, cost centre, client, start – entered once', 'The same list in measurement, scheduling, reports, photos and defect plan', 'No duplicates, no typos on the third entry'],
+      points: ['Project name, site, project number, cost centre, client, start – entered once', 'Project register: the same list in every tool', 'Every project with its own colour – the same in every tool, recognisable at a glance', 'No duplicates, no typos on the third entry'],
     },
     roles: {
       eyebrow: 'User roles',
@@ -164,7 +164,7 @@ export const en: Dict = {
       items: [{ title: 'Admin', text: '' }, { title: 'Office', text: '' }, { title: 'Foreman', text: '' }, { title: 'Worker', text: '' }],
     },
     tools: {
-      eyebrow: 'The six tools',
+      eyebrow: 'The seven tools',
       title: 'What BauPad does.',
       text: 'Short and direct – the way it is needed on site.',
       more: 'Learn more',
@@ -177,6 +177,8 @@ export const en: Dict = {
             'Upload bill of quantities and MFK – positions are detected and selectable per measurement',
             'No plan at hand? Sketch your own plan quickly',
             'Line, rectangle, circle, area, wall, freehand, measure – whatever is needed',
+            'Reinforcement per number: count × length, total in running metres – as a formula in Excel',
+            'Colour legend on every plan, photos per measurement',
             'Export: plans as PDF, measurement list as PDF or Excel, with prices if available',
           ],
         },
@@ -186,6 +188,7 @@ export const en: Dict = {
             'Enter workers by function and assign them to sites',
             'Every week carries on until someone is reassigned, sick or on holiday',
             'Pause, finish or delete sites',
+            'Workers listed per day, every site in its project colour',
             'Very easy to use, clear overview',
             'Weekly list as PDF',
           ],
@@ -215,6 +218,16 @@ export const en: Dict = {
             'Holiday and sick leave with one tap, Austrian public holidays built in',
             'Monthly sheet per worker with target, actual and travel time, approved by the office',
             'Excel per worker in your own company template, continued every year – remaining leave and hours carried over',
+            'Foremen see only their projects, workers only their own hours – protected on the server too',
+          ],
+        },
+        materials: {
+          hook: 'Who ordered what – and has it arrived?',
+          points: [
+            'Company material catalogue and suppliers, duplicates are detected',
+            'Material list per site with quantity, unit, price and delivery date',
+            'Status open, ordered, delivered – with a history of who ordered what and when',
+            'Overdue deliveries stand out immediately, total per site',
           ],
         },
         defects: {
@@ -251,8 +264,8 @@ export const en: Dict = {
       tagline: 'Record damaged areas and surfaces directly on the plan – billed and ready as Excel and PDF.',
       intro: 'Open a plan as PDF or photo or draw your own, detect or calibrate the scale, then record areas, lines, walls and freehand shapes with length, width and depth. Every measurement gets a number on the plan and a row in the measurement sheet.',
       groups: [
-        { title: 'Measure', items: ['Area, line, triangle, polygon, circle, freehand and wall', 'Deductions and additions, e.g. doors and openings', 'Five measurement types with component letters A, B, C', 'Snapping, zoom to selection, undo and redo'] },
-        { title: 'Plans', items: ['Import PDF plans, detect the scale automatically', 'Draw your own plans: grid, dimensions, hatching, layers', 'Mini CAD: copy, rotate, stretch, trim', 'Paper size A4/A3 for printing'] },
+        { title: 'Measure', items: ['Area, line, triangle, polygon, circle, freehand and wall', 'Deductions and additions, e.g. doors and openings', 'Reinforcement per number: count × length, total in running metres', 'Photos per measurement, colour legend on every plan', 'Snapping, zoom to selection, undo and redo'] },
+        { title: 'Plans', items: ['Import PDF plans, detect the scale automatically', 'Draw your own plans on an unlimited canvas: grid, hatching, layers', 'Dimensions with tracking lines like in CAD', 'Mini CAD: copy, rotate, stretch, trim', 'Paper size A4/A3 with or without scale – when measuring you see the sheet as in the PDF'] },
         { title: 'Bill', items: ['Import the bill of quantities, items with long text', 'Measurement per plan or per invoice', 'Split invoices, billed plans are locked', 'Excel measurement sheet and PDF plan with logo'] },
         { title: 'Safe', items: ['Everything on the device, even offline', 'Project backup as ZIP with all plans', 'Transfer to another device'] },
       ],
@@ -264,7 +277,7 @@ export const en: Dict = {
       tagline: 'Who works when on which project – the week at a glance, as a PDF for everyone.',
       intro: 'Create workers once, take over projects, then distribute them to the days by click or drag. Holidays and sick leave are shown, the week can be carried forward and exported as a PDF with the company logo.',
       groups: [
-        { title: 'Plan', items: ['Week Mon–Sun per project', 'Assign by click or drag, the worker stays until changed', 'Carry the week forward', 'Finish or pause a project'] },
+        { title: 'Plan', items: ['Week Mon–Sun per project, workers listed per day', 'Assign by click or drag, the worker stays until changed', 'Carry the week forward – on the phone simply swipe', 'Finish or pause a project, every project in its colour'] },
         { title: 'Absences', items: ['Holidays and sick leave from–to', 'Warning on double bookings', 'Search by worker or project'] },
         { title: 'Export', items: ['Weekly schedule A4 landscape with logo and week number', 'Daily list per project', 'Print or share as PDF', 'Backup of all weeks'] },
       ],
@@ -303,7 +316,7 @@ export const en: Dict = {
       intro: 'The foreman enters site, from, to and break per day for his workers – BauPad suggests the site from the crew schedule and the usual times. Holiday and sick leave take one tap, Austrian public holidays are built in. The office approves each worker’s month and gets the Excel file in its own company template – with all formulas, continued every year.',
       groups: [
         { title: 'Record', items: ['Record the day: all workers of a day at a glance', 'Suggestion from the schedule, times once entered are kept', 'Second site on the same day, travel time optional', 'Holiday and sick leave with one tap'] },
-        { title: 'Check', items: ['Monthly sheet per worker: target, actual, plus/minus', 'Austrian public holidays automatically', 'Approval by the office, locked afterwards'] },
+        { title: 'Check', items: ['Monthly sheet per worker: target, actual, plus/minus', 'Austrian public holidays automatically', 'Approval by the office, locked afterwards', 'Rights: foremen only their projects, workers only their own hours'] },
         { title: 'Export', items: ['Excel per worker in the company template, all formulas kept', 'Continued every year: remaining leave and hours carried over', 'Saved online as monthly state on approval', 'All workers as ZIP'] },
       ],
     },
@@ -317,6 +330,18 @@ export const en: Dict = {
         { title: 'Mark', items: ['Pin, rectangle, circle, line, freehand, text', 'Five colours, type: defect, repair, note, done', 'Numbers run automatically per plan', 'Move, zoom, list with filter'] },
         { title: 'Describe', items: ['Title and description per mark', 'Take photos, from the gallery or from the photo documentation', 'Note “Defect plan no. 3” in the photo'] },
         { title: 'Export', items: ['PDF: plan with numbers, then the list with photos', 'Logo and company details in the header', 'Any number of plans per project'] },
+      ],
+    },
+    materials: {
+      title: 'Material Management',
+      short: 'Company materials and suppliers, material lists per site – ordered, delivered, in view.',
+      points: ['Material catalogue and suppliers', 'Material list per site with status', 'History: who ordered what and when'],
+      tagline: 'The company’s materials and suppliers in one place – and per site the list of what is open, ordered or delivered.',
+      intro: 'The office maintains the material catalogue and the suppliers once for the whole company – duplicates are detected when entering. Per site this becomes a material list with quantity, unit, price and delivery date. One tap sets the status to ordered or delivered, the history shows who did what and when.',
+      groups: [
+        { title: 'Master data', items: ['Materials with article number, unit, price and category', 'Suppliers with contact person, phone, e-mail and address', 'Duplicates are detected – even with different spelling', 'Search by name, article number, category or supplier'] },
+        { title: 'Per site', items: ['Material list with quantity, unit, price and delivery date', 'Pick from the catalogue or enter freely', 'Notice when the same material is already open or ordered', 'Total of the list, counters open, ordered, delivered'] },
+        { title: 'Order', items: ['Status open → ordered → delivered with one tap', 'History: who ordered or marked as delivered, and when', 'Overdue delivery dates stand out immediately', 'The same state on all devices of the company'] },
       ],
     },
   },
@@ -399,7 +424,7 @@ export const en: Dict = {
     badge: 'Planned',
     items: [
       { title: 'BauPad in the app stores', text: 'BauPad additionally as an app in the App Store and on Google Play. The web app stays.' },
-      { title: 'Further tools for the construction day', text: 'We collect topics from the field: time tracking, material, equipment. Practice decides which of them becomes a product.' },
+      { title: 'Further tools for the construction day', text: 'We collect topics from the field: equipment, fleet, warehouse. Practice decides which of them becomes a product.' },
     ],
     note: 'Everything on this page describes plans, not available features. Order and scope may change.',
     cta: { title: 'Do you have a topic software should solve?', text: 'Write to us. Feedback from the field decides what we build next.', button: 'Get in touch' },
@@ -442,7 +467,7 @@ export const en: Dict = {
         {
           h: 'Which data BauPad processes',
           p: [
-            'All content you record in BauPad (projects, plans, measurements, workers, reports, photos) is first stored on your device (browser database) so that BauPad works without internet. If your account belongs to a company, it is additionally transferred to the central storage of your company (see below) so that all devices of the company see the same state. Without a company it stays on the device only.',
+            'All content you record in BauPad (projects, plans, measurements, workers, reports, photos, hours, material) is first stored on your device (browser database) so that BauPad works without internet. If your account belongs to a company, it is additionally transferred to the central storage of your company (see below) so that all devices of the company see the same state. Without a company it stays on the device only.',
             'Exports (Excel, PDF, ZIP) are created by you on the device and shared by you. When sharing via apps on your device, their privacy policies apply.',
             'Photos may contain the capture time and the name entered on the device. Location data is not stored.',
           ],
@@ -459,7 +484,7 @@ export const en: Dict = {
         {
           h: 'Central storage',
           p: [
-            'Central storage keeps the content of a company (projects, plans, measurements, reports, scheduling, defect plans, forms, photos) for all devices and users of that company. Only signed-in users of the company have access, within the rights granted by the admin. The legal basis is Art. 6 (1) (b) GDPR (performance of contract).',
+            'Central storage keeps the content of a company (projects, plans, measurements, reports, scheduling, defect plans, forms, photos, hours, material lists) for all devices and users of that company. Only signed-in users of the company have access, within the rights granted by the admin. The legal basis is Art. 6 (1) (b) GDPR (performance of contract).',
             'Records (details of projects, measurements, reports, scheduling, markers) are stored by our processor Supabase Inc. in a data centre in the EU (Ireland). Files (original plans, plan images, form PDFs, photos) are stored by our processor Hetzner Online GmbH in a data centre in Nuremberg (Germany). Transfers are encrypted via short-lived access links restricted to the company; PAD Software has no access to the content of your company, only to account data and billing.',
             'Content stays stored until you delete it in BauPad or the company dissolves its workspace; deletion applies to all devices of the company. Data processing agreements under Art. 28 GDPR are in place with both providers.',
           ],

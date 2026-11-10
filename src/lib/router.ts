@@ -25,7 +25,7 @@ export type Route =
   | { name: 'imprint' }
   | { name: 'privacy' }
   | { name: 'deleteAccountInfo' }
-  | { name: 'product'; product: 'projects' | 'workers' | 'reports' | 'photos' | 'defects' | 'times' }
+  | { name: 'product'; product: 'projects' | 'workers' | 'reports' | 'photos' | 'defects' | 'times' | 'materials' }
   | { name: 'projects' }
   | { name: 'tools' }
   | { name: 'workers' }
@@ -65,9 +65,9 @@ export const SITE_SLUGS: Record<Lang, Record<SiteRouteName, string>> = {
 
 /** Website-Infoseiten der Werkzeuge: /baupad/funktionen/<slug> bzw. /en/baupad/features/<slug> */
 export const PRODUCT_INFO_SEGMENT: Record<Lang, string> = { de: 'funktionen', en: 'features' };
-export const PRODUCT_SLUGS = { aufmass: 'projects', arbeitereinteilung: 'workers', berichte: 'reports', fotos: 'photos', maengelplan: 'defects', zeitaufzeichnung: 'times' } as const;
+export const PRODUCT_SLUGS = { aufmass: 'projects', arbeitereinteilung: 'workers', berichte: 'reports', fotos: 'photos', maengelplan: 'defects', zeitaufzeichnung: 'times', materialverwaltung: 'materials' } as const;
 export type ProductId = (typeof PRODUCT_SLUGS)[keyof typeof PRODUCT_SLUGS];
-export const PRODUCT_SLUG_OF: Record<ProductId, string> = { projects: 'aufmass', workers: 'arbeitereinteilung', reports: 'berichte', photos: 'fotos', defects: 'maengelplan', times: 'zeitaufzeichnung' };
+export const PRODUCT_SLUG_OF: Record<ProductId, string> = { projects: 'aufmass', workers: 'arbeitereinteilung', reports: 'berichte', photos: 'fotos', defects: 'maengelplan', times: 'zeitaufzeichnung', materials: 'materialverwaltung' };
 
 /** App unter /baupad/<Werkzeug>: neuer Abschnitt → früherer erster Pfadteil (so bleibt die Erkennung unten unverändert) */
 const APP_SEGMENTS: Record<string, string> = {

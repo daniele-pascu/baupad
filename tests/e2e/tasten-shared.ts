@@ -42,7 +42,7 @@ async function pruefe(page: Page, wo: string, out: string[]) {
   });
 }
 
-const WEBSITE = ['/', '/produkte', '/baupad', '/unternehmen', '/kontakt', '/zukunft', '/impressum', '/datenschutz', '/baupad/funktionen/aufmass', '/en'];
+const WEBSITE = ['/', '/produkte', '/baupad', '/unternehmen', '/kontakt', '/zukunft', '/impressum', '/datenschutz', '/baupad/funktionen/aufmass', '/baupad/funktionen/materialverwaltung', '/en', '/en/baupad/features/materialverwaltung'];
 const APP = [
   'tools',
   'aufmass-und-abrechnung',
@@ -61,14 +61,24 @@ const APP = [
 ];
 
 export function tastenTests() {
-  test('Tasten: Website und alle Tools – nichts überlappt, verdeckt oder abgeschnitten', async ({ page }) => {
+  // Website abgemeldet prüfen (angemeldet leitet die Website direkt zu den Tools weiter)
+  test.describe('Website ohne Anmeldung', () => {
+    test.use({ signedIn: false });
+    test('Tasten: Website – nichts überlappt, verdeckt oder abgeschnitten', async ({ page }) => {
+      const out: string[] = [];
+      for (const p of WEBSITE) {
+        await page.goto(`.${p}`);
+        await page.waitForLoadState('networkidle');
+        expect(new URL(page.url()).pathname, `Website ${p} wurde umgeleitet`).toBe(p);
+        await pruefe(page, `Website ${p}`, out);
+      }
+      expect(out, out.join('\n')).toEqual([]);
+    });
+  });
+
+  test('Tasten: alle Tools – nichts überlappt, verdeckt oder abgeschnitten', async ({ page }) => {
     const out: string[] = [];
     await freshStart(page);
-    for (const p of WEBSITE) {
-      await page.goto(`.${p}`);
-      await page.waitForLoadState('networkidle');
-      await pruefe(page, `Website ${p}`, out);
-    }
     for (const p of APP) {
       await page.goto(`./baupad/${p}`);
       await page.waitForLoadState('networkidle');
