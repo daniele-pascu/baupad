@@ -350,3 +350,34 @@ test('Pläne von einem anderen Gerät (ohne Vorschaubilder): geöffneter Plan bl
   await expect(detail).toBeVisible();
   expect(problems).toEqual([]);
 });
+
+test('Gezeichneter Plan: Plan bearbeiten unbegrenzt, Plan messen zeigt das gewählte Blatt wie im PDF', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'Blatt', {}, ['Keller']);
+  await page.getByTestId('draw-plan').click();
+  const nd = page.getByTestId('new-drawing');
+  await nd.locator('[data-field="planNumber"]').fill('B-1');
+  await nd.getByTestId('sheet-paper').selectOption('A4-quer');
+  await nd.getByTestId('new-drawing-save').click();
+  // Plan bearbeiten: unbegrenzte weiße Fläche
+  await expect(page.locator('.drawing-bg')).toHaveCount(1);
+  const box = (await page.getByTestId('plan-viewer').boundingBox())!;
+  await pickTool(page, 'draw-rect');
+  await drawRect(page, box.x + box.width * 0.3, box.y + box.height * 0.3, box.x + box.width * 0.5, box.y + box.height * 0.5);
+  await waitSaved(page);
+  // Plan messen: Blatt A4 quer (Planbereich 277 × 176 mm), ganz im Bild, keine unbegrenzte Fläche
+  await page.getByTestId('mode-measure').click();
+  await expect(page.locator('.drawing-bg')).toHaveCount(0);
+  const sheet = page.getByTestId('drawing-sheet');
+  await expect(sheet).toBeVisible();
+  const s = (await sheet.boundingBox())!;
+  expect(s.width / s.height).toBeCloseTo(277 / 176, 1);
+  const v = (await page.getByTestId('plan-viewer').boundingBox())!;
+  expect(s.x).toBeGreaterThanOrEqual(v.x - 1);
+  expect(s.x + s.width).toBeLessThanOrEqual(v.x + v.width + 1);
+  // die Zeichnung liegt auf dem Blatt
+  const r = (await page.locator('[data-element="rect"]').first().boundingBox())!;
+  expect(r.x).toBeGreaterThan(s.x);
+  expect(r.x + r.width).toBeLessThan(s.x + s.width);
+  await page.screenshot({ path: join(OUT, 'blatt-messen.png') });
+});

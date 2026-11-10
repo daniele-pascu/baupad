@@ -25,7 +25,7 @@ import { ExcelExportDialog } from '../components/ExcelExportDialog';
 import { calibrationFrom, detectScale, sourceText } from '../lib/scale-detect';
 import { visibleDamages } from '../lib/layers';
 import { LayerMenu } from '../components/LayerMenu';
-import { drawingRegion, isDrawingPlan, lineEnds, paperLabel, shapeToMeters, shapeToPage, suggestMeasures, unitsPerMeter } from '../lib/drawing';
+import { drawingRegion, printSheetRect, isDrawingPlan, lineEnds, paperLabel, shapeToMeters, shapeToPage, suggestMeasures, unitsPerMeter } from '../lib/drawing';
 import { convertShape, isOpenShape, lineShape, moveVertex, polygonShape, removeVertex, rotatePoint, shapeVertices, toPage, toScreen, type Point, type View } from '../lib/geometry';
 import { probeTarget, type ProbeKind } from '../lib/probe';
 import { ProbeBar, ProbeMenu, ProbeOverlay, type ProbeState } from '../components/ProbeLayer';
@@ -562,6 +562,12 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     () => (plan && drawingPlan ? drawingRegion(plan, drawing.allElements, stored) : undefined),
     [plan, drawingPlan, drawing.allElements, stored],
   );
+  // Plan messen: das gewählte Blatt (Format, Maßstab, zentriert) wie im PDF; Plan bearbeiten bleibt unbegrenzt
+  const sheetRect = useMemo(
+    () => (plan && drawingPlan ? printSheetRect(plan, drawing.allElements, stored) : null),
+    [plan, drawingPlan, drawing.allElements, stored],
+  );
+  const measureRegion = sheetRect ?? region;
 
   /** Gültiger Bereich für neue Formen: gezeichnete Pläne unbegrenzt (wie der Modellbereich im CAD,
    *  der PDF-Export skaliert passend aufs Format), importierte Pläne der Planausschnitt */
@@ -1418,8 +1424,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               ref={viewer}
               plan={plan}
               file={file}
-              region={region}
-              infinite={drawingPlan}
+              region={drawingPlan ? measureRegion : region}
+              infinite={drawingPlan && !sheetRect}
               onToolDone={tool !== 'select' && tool !== 'probe' && tool !== 'calibrate' ? () => setTool('select') : undefined}
               onExitTool={() => {
                 // außerhalb des Plans getippt: Auswahl, alle Werkzeuge (auch Kalibrieren und Messung) aus
@@ -1429,7 +1435,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 setChecking(false);
                 setTool('select');
               }}
-              underlay={drawingPlan && region ? drawing.measureUnderlay(region) : undefined}
+              underlay={drawingPlan && measureRegion ? drawing.measureUnderlay(measureRegion, !!sheetRect) : undefined}
               bounds={markerBounds}
               onPolygonChange={setPolyCount}
               damages={shownDamages}

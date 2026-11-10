@@ -594,9 +594,10 @@ export function useDrawing(opts: {
   );
 
   /** Aufmaß: Zeichnung als ruhender Hintergrund mit Maßen */
-  const measureUnderlay = (region: Rect) => (view: View, size: { w: number; h: number }) => (
+  /** sheet: Blatt des gewählten Formats (wie im PDF) – sonst unbegrenzte weiße Fläche */
+  const measureUnderlay = (region: Rect, sheet = false) => (view: View, size: { w: number; h: number }) => (
     <>
-      {renderSheet(view, size, region, k, false, true)}
+      {renderSheet(view, size, region, k, false, !sheet)}
       {elements.map((e) => (
         <g key={e.id}>{renderElement(e, shapeToPage(e.shape, k), view, false, false, k)}</g>
       ))}

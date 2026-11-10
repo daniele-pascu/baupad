@@ -536,3 +536,26 @@ export function printFit(
   return { region, scale, fitted: scale !== chosen };
 }
 
+
+/**
+ * Blatt im Aufmaß (Plan messen): der Planbereich des gewählten Papierformats in Seiteneinheiten – genau der
+ * Ausschnitt, der im PDF auf dem Blatt steht (Maßstab bzw. passend verkleinert, „ohne Maßstab“ = ausgefüllt,
+ * jeweils zentriert). Ohne Papierformat (ältere Pläne) null.
+ */
+export function printSheetRect(
+  plan: Pick<Plan, 'pageWidth' | 'pageHeight' | 'drawing'>,
+  elements: Pick<DrawElement, 'shape'>[],
+  damages: Pick<Damage, 'shape'>[],
+): Rect | null {
+  const fmt = plan.drawing?.paper ? PAPER[plan.drawing.paper] : null;
+  if (!fmt) return null;
+  const k = unitsPerMeter(plan);
+  const avail = { w: fmt.w - 2 * PRINT_MARGIN_MM, h: fmt.h - 2 * PRINT_MARGIN_MM - PRINT_HEADER_MM };
+  const fit = printFit(plan, elements, damages, avail);
+  const region = plan.drawing?.fit ? contentRegion(plan, elements, damages) : fit.region;
+  // mm auf dem Papier je Seiteneinheit
+  const mmPerUnit = plan.drawing?.fit ? Math.min(avail.w / region.w, avail.h / region.h) : 1000 / k / fit.scale;
+  const w = avail.w / mmPerUnit;
+  const h = avail.h / mmPerUnit;
+  return { x: region.x + region.w / 2 - w / 2, y: region.y + region.h / 2 - h / 2, w, h };
+}
