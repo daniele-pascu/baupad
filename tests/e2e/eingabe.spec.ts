@@ -287,10 +287,7 @@ test('Messung: Bemerkung / Notiz im Dialog, in der Aufmaß-Tabelle und im Excel'
     [1, null],
     [2, 'Ecke beschädigt'],
   ]);  // Bewehrung: eigene Tabelle mit Nr. und lfm
-  expect(blattRebar(readXlsx(await saveDownload(xdl, 'notiz2.xlsx')))).toEqual([
-    [2, 4, 1.2, 4.8],
-    [2, 2, 0.8, 1.6],
-  ]);
+  expect(blattRebar(readXlsx(await saveDownload(xdl, 'notiz2.xlsx')))).toEqual([[2, '=4*1.2+2*0.8']]);
 });
 
 test('Messung: Fotos wie im Mängelplan (Galerie → Fotodokumentation), Taste Fotodokumentation im Projekt', async ({ page }) => {
@@ -485,4 +482,56 @@ test('Foto einer Messung: Vermerk in der Fotodokumentation folgt beim Umnummerie
   await waitSaved(page);
   await expect(page.locator('[data-testid="aufmass-row"][data-number="2"]').getByTestId('row-photos')).toHaveText('1');
   await expect.poll(note).toEqual(['Aufmaß F-1 Nr. 2']);
+});
+
+test('Farblegende: in einem Plan eingeschaltet → in allen Plänen des Projekts, jeder Plan mit eigener Legende', async ({ page }) => {
+  await freshStart(page);
+  await projectWithoutCostCenter(page, 'Legenden');
+  const dlg = page.getByTestId('damage-dialog');
+  const importPlan = async (no: string) => {
+    await page.getByTestId('plan-file-input').setInputFiles(join(FIXTURES, 'parkdeck.png'));
+    const wiz = page.getByTestId('import-wizard');
+    await wiz.getByTestId('areas-next').click();
+    await wiz.locator('[data-field="planNumber"]').fill(no);
+    await wiz.getByTestId('import-save').click();
+    await waitForPlan(page);
+  };
+  const measure = async () => {
+    const box = await planBox(page);
+    await pickTool(page, 'tool-rect');
+    await drawRect(page, box.x + box.width * 0.1, box.y + box.height * 0.1, box.x + box.width * 0.2, box.y + box.height * 0.2);
+    await dlg.getByTestId('input-length').fill('2');
+    await dlg.getByTestId('damage-save').click();
+    await expect(dlg).toBeHidden();
+  };
+  await importPlan('A-1');
+  await measure();
+  await page.getByRole('link', { name: 'Zurück zur Planliste' }).click();
+  await importPlan('B-1');
+  await measure();
+  // in Plan B einschalten, Bezeichnung vergeben, für alle Pläne
+  await page.getByTestId('editor-legend').click();
+  const lg = page.getByTestId('legend-dialog');
+  await lg.getByTestId('legend-input').fill('Betonsanierung');
+  await expect(lg.getByTestId('legend-all')).toBeChecked();
+  await lg.getByTestId('legend-pos-tr').click();
+  await lg.getByTestId('legend-save').click();
+  await expect(page.getByTestId('plan-legend')).toContainText('Betonsanierung');
+  await waitSaved(page);
+  // Plan A: Legende ebenfalls an (oben rechts), Bezeichnung übernommen
+  await page.getByRole('link', { name: 'Zurück zur Planliste' }).click();
+  await page.getByTestId('plan-row').filter({ hasText: 'A-1' }).first().getByTestId('plan-open').click();
+  await waitForPlan(page);
+  await expect(page.getByTestId('plan-legend')).toContainText('Betonsanierung');
+  await expect(page.getByTestId('plan-legend')).toHaveAttribute('data-pos', 'tr');
+  // eigene Bezeichnung in Plan A – Plan B behält seine
+  await page.getByTestId('editor-legend').click();
+  await lg.getByTestId('legend-input').fill('Spachteln');
+  await lg.getByTestId('legend-save').click();
+  await expect(page.getByTestId('plan-legend')).toContainText('Spachteln');
+  await waitSaved(page);
+  await page.getByRole('link', { name: 'Zurück zur Planliste' }).click();
+  await page.getByTestId('plan-row').filter({ hasText: 'B-1' }).first().getByTestId('plan-open').click();
+  await waitForPlan(page);
+  await expect(page.getByTestId('plan-legend')).toContainText('Betonsanierung');
 });

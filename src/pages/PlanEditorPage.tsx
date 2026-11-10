@@ -13,7 +13,7 @@ import { invoiceLabel, invoiceOfPlan } from '../lib/invoices';
 import { confirmDialog, promptDialog, showError, toast } from '../components/ui';
 import { getPhotoStorage } from '../lib/photo-storage';
 import { photoNoteUpdates } from '../lib/photo-notes';
-import { legendEntries } from '../lib/legend';
+import { legendEntries, resolveLegend } from '../lib/legend';
 import { LegendBox, LegendDialog } from '../components/LegendDialog';
 import type { PhotoSite } from '../lib/types';
 import { positionGrouping, costCenterLabel, damagesOf, elementsOf, findPosition, lvDocLabel, lvDocsOf, plansOf, planTitle, positionRef, sumArea } from '../lib/aufmass';
@@ -385,6 +385,16 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   };
   /** Werkzeugleiste aufgeklappt (klappt nach dem Zeichnen zu, damit der Plan frei bleibt) */
   const [toolsOpen, setToolsOpen] = useState(true);
+  /** Leiste wurde durch Tippen auf den Plan zugeklappt (iPad/Handy) – nach dem Fertigstellen wieder öffnen */
+  const autoClosed = useRef(false);
+  const reopenTools = () => {
+    if (!autoClosed.current) return false;
+    autoClosed.current = false;
+    // Tablet: Leiste wieder auf; Handy: bleibt zu (sie würde den kleinen Plan verdecken)
+    if (typeof window !== 'undefined' && !window.matchMedia('(min-width: 700px)').matches) return false;
+    setToolsOpen(true);
+    return true;
+  };
   // Höhe der Werkzeugleiste (kann umbrechen) – Leisten darüber werden passend versetzt
   // Zeichenmodus: Registerkarten-Leiste oben – die Planfläche beginnt darunter
   useLayoutEffect(() => {
@@ -470,7 +480,10 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     })().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photoSig, photoPrefixText]);
-  const legend = useMemo(() => (plan ? legendEntries(plan, stored) : []), [plan, stored]);
+  const projectPlans = useMemo(() => Object.values(data.plans).filter((p) => !p.deletedAt), [data.plans]);
+  // Legende: je Plan eigene Farben; an/aus, Lage und Bezeichnungen mit Vorgaben aus den anderen Plänen des Projekts
+  const legendInfo = useMemo(() => (plan ? resolveLegend(plan, Object.values(data.plans)) : null), [plan, data.plans]);
+  const legend = useMemo(() => (legendInfo ? legendEntries({ legendLabels: legendInfo.labels }, stored) : []), [legendInfo, stored]);
   /** gespeicherte, im Plan gezeichnete Abzüge (schraffiert, Nummer „A1“ … je Messung) */
   const planDeds = useMemo(
     () =>
@@ -523,7 +536,21 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     return duplicateIds(stored);
   }, [stored]);
   const selected = damages.find((d) => d.id === selectedId) ?? null;
-  const drawing = useDrawing({ plan, data, damages, viewer, onCreated: () => setToolsOpen(false) });
+  const drawing = useDrawing({ plan, data, damages, viewer, onCreated: () => void (reopenTools() || setToolsOpen(false)) });
+  // fertig (Messung gespeichert bzw. abgebrochen, Kalibrieren beendet) → zugeklappte Leiste wieder öffnen
+  const hadDialog = useRef(false);
+  useEffect(() => {
+    if (dialog) hadDialog.current = true;
+    else if (hadDialog.current) {
+      hadDialog.current = false;
+      reopenTools();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dialog]);
+  useEffect(() => {
+    if ((drawMode ? drawing.tool : tool) === 'select') reopenTools();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tool, drawing.tool, drawMode]);
   // Aufmaß: Messung endet mit einem anderen Werkzeug; Zeichenmodus: mit einem Zeichenwerkzeug bzw. Moduswechsel
   useEffect(() => {
     if (mode !== 'draw' && tool !== 'probe') setProbe(null);
@@ -1316,7 +1343,18 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       </div>
 
       <div className={`editor-main show-${mobileTab}${sideCollapsed ? ' side-collapsed' : ''}`} style={{ '--side-w': `${sideWidth}px` } as React.CSSProperties}>
-        <div className="editor-plan" ref={planRef}>
+        <div
+          className="editor-plan"
+          ref={planRef}
+          onPointerDownCapture={(e) => {
+            // iPad/Handy: Werkzeug gewählt und auf den Plan getippt → Leiste unten zuklappen, damit der Plan frei ist
+            if (e.pointerType === 'mouse' || (drawMode ? drawing.tool : tool) === 'select' || !toolsOpen) return;
+            const t = e.target as Element;
+            if (!t.closest?.('[data-testid="plan-viewer"]') || t.closest('button, a, input, select, textarea, label')) return;
+            autoClosed.current = true;
+            setToolsOpen(false);
+          }}
+        >
           <button
             type="button"
             className="side-toggle"
@@ -1472,7 +1510,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             </div>
           )}
 
-          {plan.showLegend && !drawMode && <LegendBox entries={legend} pos={plan.legendPos ?? 'bl'} onOpen={() => setLegendOpen(true)} />}
+          {legendInfo?.show && !drawMode && <LegendBox entries={legend} pos={legendInfo.pos} onOpen={() => setLegendOpen(true)} />}
           <div className="zoom-controls">
             <LayerMenu
               hidden={plan.hiddenLayers ?? []}
@@ -1504,7 +1542,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               <Icon name="fit" />
             </button>
             {!drawMode && (
-              <button type="button" className={`icon-btn${plan.showLegend ? ' active' : ''}`} onClick={() => setLegendOpen(true)} aria-label="Farblegende" title="Farblegende: Bezeichnung je Farbe (im Plan und im PDF)" data-testid="editor-legend">
+              <button type="button" className={`icon-btn${legendInfo?.show ? ' active' : ''}`} onClick={() => setLegendOpen(true)} aria-label="Farblegende" title="Farblegende: Bezeichnung je Farbe (im Plan und im PDF)" data-testid="editor-legend">
                 <Icon name="legend" />
               </button>
             )}
@@ -1986,12 +2024,16 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       {legendOpen && plan && (
         <LegendDialog
           entries={legend}
-          show={!!plan.showLegend}
-          labels={plan.legendLabels ?? {}}
-          pos={plan.legendPos ?? 'bl'}
+          show={!!legendInfo?.show}
+          labels={legendInfo?.labels ?? {}}
+          pos={legendInfo?.pos ?? 'bl'}
+          planCount={projectPlans.length}
           onClose={() => setLegendOpen(false)}
-          onSave={(show, labels, pos) => {
-            putRecord('plans', { ...data.plans[plan.id], showLegend: show, legendLabels: labels, legendPos: pos });
+          onSave={(show, labels, pos, all) => {
+            // Bezeichnungen gehören zum Plan; an/aus und Lage auf Wunsch für alle Pläne des Projekts
+            const own = Object.fromEntries(Object.entries(labels).filter(([c, t]) => t !== (legendInfo?.labels[c] ?? '') || plan.legendLabels?.[c] !== undefined));
+            const others = all ? projectPlans.filter((p) => p.id !== plan.id).map((p) => ({ ...p, showLegend: show, legendPos: pos })) : [];
+            putRecords({ plans: [{ ...data.plans[plan.id], showLegend: show, legendLabels: own, legendPos: pos }, ...others] });
             setLegendOpen(false);
           }}
         />

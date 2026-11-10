@@ -37,7 +37,7 @@ import { DEFAULT_TRANSPARENCY, fillOf, fillPaths, strokeGeometry } from './style
 import type { Component, Damage, LegendPos, Plan, Rect, Shape, ShapeStyle } from './types';
 import { deductionNumbers } from './numbering';
 import { measureLabel } from './measure';
-import { legendEntries, type LegendEntry } from './legend';
+import { planLegend, type LegendEntry } from './legend';
 import { formatArea, formatMeasure } from './numbers';
 
 /**
@@ -61,6 +61,8 @@ interface Ctx {
   jsDocs: Map<string, PDFDocumentProxy>;
   overview: PdfExportOptions['overview'];
   projectName: string;
+  /** alle Pläne des Projekts (Vorgaben der Legende) */
+  plans: Plan[];
 }
 
 function hexToRgb(hex: string) {
@@ -116,6 +118,7 @@ export async function exportPlansPdf(data: ProjectState, opts: PdfExportOptions)
     jsDocs: new Map(),
     overview: opts.overview,
     projectName: data.project.name,
+    plans: Object.values(data.plans),
   };
   try {
     for (const planId of opts.planIds) {
@@ -271,7 +274,8 @@ async function finishSheet(ctx: Ctx, page: PDFPage, plan: Plan, L: SheetLayout, 
   const target: Target = { page, map, textRotation: 0, ptPerUnit: L.u };
   drawSheetHeader(ctx, page, L.h, L.header, plan, plan.showPaper ? [PAPER[exportPaper(plan)].label] : []);
   drawDamages(ctx, target, region, damages, []);
-  if (plan.showLegend) drawLegend(ctx, page, { x: L.plan.x, y: L.h - (L.plan.y + L.plan.h), w: L.plan.w, h: L.plan.h }, plan.legendPos ?? 'bl', legendEntries(plan, damages));
+  const lg = planLegend(plan, ctx.plans, damages);
+  if (lg.show) drawLegend(ctx, page, { x: L.plan.x, y: L.h - (L.plan.y + L.plan.h), w: L.plan.w, h: L.plan.h }, lg.pos, lg.entries);
   if (L.overview && full && plan.crop) await drawOverview(ctx, page, L, plan, L.overview, full);
 }
 
@@ -606,7 +610,8 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   }
   // Messungen und Bauteilbuchstaben darüber
   drawDamages(ctx, target, region, damages, components);
-  if (plan.showLegend) drawLegend(ctx, page, { x: margin - 2, y: margin - 2, w: W - 2 * margin + 4, h: H - 2 * margin - headerPt + 4 }, plan.legendPos ?? 'bl', legendEntries(plan, damages));
+  const lg = planLegend(plan, Object.values(data.plans), damages);
+  if (lg.show) drawLegend(ctx, page, { x: margin - 2, y: margin - 2, w: W - 2 * margin + 4, h: H - 2 * margin - headerPt + 4 }, lg.pos, lg.entries);
   // Maßstabsleiste rechts im Kopfbereich (nur wenn der Maßstab angezeigt werden soll)
   if (!plan.showScale || fill) return;
   const lblW = ctx.font.widthOfTextAtSize(`${String(barM).replace('.', ',')} m`, 6.5);

@@ -16,6 +16,7 @@ export function LegendDialog({
   show,
   labels,
   pos: initialPos,
+  planCount = 1,
   onClose,
   onSave,
 }: {
@@ -23,9 +24,12 @@ export function LegendDialog({
   show: boolean;
   labels: Record<string, string>;
   pos: LegendPos;
+  /** Pläne im Projekt – ab 2 Auswahl „in allen Plänen“ */
+  planCount?: number;
   onClose(): void;
-  onSave(show: boolean, labels: Record<string, string>, pos: LegendPos): void;
+  onSave(show: boolean, labels: Record<string, string>, pos: LegendPos, allPlans: boolean): void;
 }) {
+  const [all, setAll] = useState(true);
   const [pos, setPos] = useState<LegendPos>(initialPos);
   const [on, setOn] = useState(show || !entries.length ? show : true);
   const [txt, setTxt] = useState<Record<string, string>>(() => Object.fromEntries(entries.map((e) => [e.color, labels[e.color] ?? ''])));
@@ -49,7 +53,7 @@ export function LegendDialog({
                 if (t.trim()) next[c] = t.trim();
                 else delete next[c];
               }
-              onSave(on, next, pos);
+              onSave(on, next, pos, planCount > 1 && all);
             }}
             data-testid="legend-save"
           >
@@ -75,6 +79,12 @@ export function LegendDialog({
         <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} data-testid="legend-show" />
         <span>Legende im Plan und im PDF anzeigen</span>
       </label>
+      {planCount > 1 && (
+        <label className="check-row">
+          <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} data-testid="legend-all" />
+          <span>Anzeigen und Lage für alle {planCount} Pläne des Projekts (jeder Plan mit seinen eigenen Farben)</span>
+        </label>
+      )}
       <div className="field">
         <span>Lage im Plan und im PDF</span>
         <div className="legend-pos" role="radiogroup" aria-label="Lage der Legende">

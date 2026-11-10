@@ -48,19 +48,20 @@ describe('Aufmaßblatt (Firmenvorlage)', () => {
     expect(ws).toContain('>Fläche aus Plan<');
   });
 
-  it('Bewehrung: Zeilen Stück × Länge mit Formel je Nummer, Summe in lfm; ältere Einträge 1 × Summe', () => {
+  it('Bewehrung: eine Zeile je Nummer, lfm als Formel aus allen Längen (2*0.2+3*0.2+0.54+3*0.9), Summe', () => {
     expect(sheet).not.toContain('>Bewehrung<');
     const items = [
-      { id: 'r1', count: 4, length: 1.2 },
-      { id: 'r2', count: 2, length: 0.8 },
+      { id: 'r1', count: 2, length: 0.2 },
+      { id: 'r2', count: 3, length: 0.2 },
+      { id: 'r3', count: 1, length: 0.54 },
+      { id: 'r4', count: 3, length: 0.9 },
     ];
-    const withRebar = { ...data, damages: { d1: dmg('d1', 1, { rebar: 6.4, rebarItems: items }), d2: dmg('d2', 2, { kind: 'line', width: null, area: null, length: 4.5, rebar: 1.25 }) } } as unknown as ProjectState;
+    const withRebar = { ...data, damages: { d1: dmg('d1', 1, { rebar: 4.24, rebarItems: items }), d2: dmg('d2', 2, { kind: 'line', width: null, area: null, length: 4.5, rebar: 1.25 }) } } as unknown as ProjectState;
     const ws = strFromU8(unzipSync(exportAufmassblatt(withRebar, { kind: 'plan', planId: 'p1' }, { no: '011', period: '' }).data)['xl/worksheets/sheet1.xml']);
-    for (const t of ['Bewehrung', 'Stk.', 'Länge', 'lfm']) expect(ws).toContain(`>${t}<`);
-    expect(ws).toMatch(/<f>ROUND\(C(\d+)\*D\1,2\)<\/f><v>4.8<\/v>/);
-    expect(ws).toMatch(/<f>ROUND\(C(\d+)\*D\1,2\)<\/f><v>1.6<\/v>/);
-    expect(ws).toMatch(/<f>ROUND\(C(\d+)\*D\1,2\)<\/f><v>1.25<\/v>/);
-    expect(ws).toMatch(/<f>SUM\(E\d+:E\d+\)<\/f><v>7.65<\/v>/);
+    for (const t of ['Bewehrung', 'lfm']) expect(ws).toContain(`>${t}<`);
+    expect(ws).toContain('<f>2*0.2+3*0.2+0.54+3*0.9</f><v>4.24</v>');
+    expect(ws).toContain('<f>1.25</f><v>1.25</v>'); // ältere Messung: nur die Summe
+    expect(ws).toMatch(/<f>SUM\(C\d+:C\d+\)<\/f><v>5.49<\/v>/);
   });
 
   it('Abzüge/Zuschläge: eigene Zeilen mit Formel und Bemerkung, Summe = netto; Position rechnet netto', () => {

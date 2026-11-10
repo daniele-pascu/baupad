@@ -153,17 +153,15 @@ export function blattRows(wb: Record<string, XlsxCell[][]>, plan?: string | numb
   return plan === undefined ? out : out.filter((x) => String(x.plan) === String(plan));
 }
 
-/** Tabelle „Bewehrung“ im Aufmaßblatt: [Nr., Stück, Länge, lfm] je Zeile (lfm aus der Formel gerechnet) */
-export function blattRebar(wb: Record<string, XlsxCell[][]>): [string | number, number, number, number][] {
+/** Tabelle „Bewehrung“ im Aufmaßblatt: [Nr., Formel] je Nummer (z. B. [2, '=4*1.2+2*0.8']) */
+export function blattRebar(wb: Record<string, XlsxCell[][]>): [string | number, string | number][] {
   const ws = wb[Object.keys(wb).find((n) => n.startsWith('Aufmaßblatt'))!];
-  const at = ws.findIndex((r) => r[0]?.v === 'Plan' && r[1]?.v === 'Nr.' && r[4]?.v === 'lfm');
+  const at = ws.findIndex((r) => r[0]?.v === 'Plan' && r[1]?.v === 'Nr.' && r[2]?.v === 'lfm');
   if (at < 0) return [];
-  const out: [string | number, number, number, number][] = [];
+  const out: [string | number, string | number][] = [];
   for (const r of ws.slice(at + 1)) {
     if (r[0]?.v === undefined || r[0]?.v === null || r[0]?.v === '') break;
-    const c = Number(r[2]?.v);
-    const l = Number(r[3]?.v);
-    out.push([r[1]?.v as string | number, c, l, Math.round(c * l * 100) / 100]);
+    out.push([r[1]?.v as string | number, r[2]?.v as string | number]);
   }
   return out;
 }

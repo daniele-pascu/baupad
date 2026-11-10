@@ -1,5 +1,5 @@
 import { round2 } from './numbers';
-import { rebarItemsOf, rebarLine } from './rebar';
+import { rebarExact, rebarFormula, rebarItemsOf } from './rebar';
 import { deductionNumbers } from './numbering';
 import { aufmassRows, costCenterLabel, costCentersOf, lvDocsOf, plansOf, positionRef, safeFileName, type ExportFile, type XlsxScope } from './aufmass';
 import { invoiceLabel, invoiceShort } from './invoices';
@@ -147,22 +147,23 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
   }
   if (!items.length) add([str('Noch keine Messungen erfasst.', 'amNote')]);
 
-  // Bewehrung je Messnummer: Zeilen „Stück × Länge“ (ältere Einträge: 1 × Summe), lfm als Formel, Summe
+  // Bewehrung je Messnummer: eine Zeile, lfm als Formel aus allen Längen (z. B. =2*0,2+3*0,2+0,54+3*0,9), darunter die Summe
   const rebarItems = items.filter((x) => (x.d.rebar ?? 0) > 0);
   if (rebarItems.length) {
     add([str('Bewehrung', 'amPos')]);
-    add([str('Plan', 'amTh'), str('Nr.', 'amTh'), str('Stk.', 'amTh'), str('Länge', 'amTh'), str('lfm', 'amTh')]);
-    const lines = rebarItems.flatMap(({ plan, d }) => rebarItemsOf(d).map((x) => ({ plan, d, x })));
+    add([str('Plan', 'amTh'), str('Nr.', 'amTh'), str('lfm', 'amTh')]);
     const first = rows.length + 1;
-    lines.forEach(({ plan, d, x }, i) => {
-      const last = i === lines.length - 1;
-      const r = rows.length + 1;
+    let total = 0;
+    rebarItems.forEach(({ plan, d }, i) => {
+      const last = i === rebarItems.length - 1;
+      const parts = rebarItemsOf(d);
+      const v = rebarExact(parts);
+      total += v;
       const pn = planNo(plan);
       const planCell: Cell = /^[1-9]\d{0,8}$/.test(pn) ? num(Number(pn), last ? 'amCenterLast' : 'amCenter') : str(pn, last ? 'amCenterLast' : 'amCenter');
-      add([planCell, nrCell(d, last), num(x.count, last ? 'amCenterLast' : 'amCenter'), n(x.length, last), { t: 'formula', f: `ROUND(C${r}*D${r},2)`, v: rebarLine(x), s: last ? 'amQtyLast' : 'amQty' }]);
+      add([planCell, nrCell(d, last), { t: 'formula', f: rebarFormula(parts), v, s: last ? 'amQtyLast' : 'amQty' }]);
     });
-    const total = Math.round(lines.reduce((a, l) => a + rebarLine(l.x), 0) * 10000) / 10000;
-    add([null, null, null, null, { t: 'formula', f: `SUM(E${first}:E${rows.length})`, v: total, s: 'amQtyBold' }, str('lfm', 'amBold')]);
+    add([null, null, { t: 'formula', f: `SUM(C${first}:C${rows.length})`, v: Math.round(total * 10000) / 10000, s: 'amQtyBold' }, str('lfm', 'amBold')]);
     add();
   }
 

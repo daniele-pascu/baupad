@@ -4,6 +4,7 @@ import type { ProjectState } from './store';
 import { alive } from './store';
 import type { Component, CostCenter, Damage, DrawElement, LvDocument, LvPosition, Plan } from './types';
 import { blank, buildXlsx, colName, num, sheetName, str, type Cell, type HeaderImage, type Sheet } from './xlsx';
+import { rebarExact, rebarFormula, rebarItemsOf } from './rebar';
 
 /** Pläne einer Kostenstelle, sortiert nach Plannummer; mit `invoiceId` nur die Pläne dieser Rechnung (nach Rechnungen aufgeteilt). */
 export function plansOf(data: ProjectState, costCenterId: string, invoiceId?: string | null): Plan[] {
@@ -562,7 +563,7 @@ function measureListSheet(data: ProjectState, plans: Plan[], used: Set<string>, 
       d.depth === null ? blank('gridMeasure') : num(d.depth, 'gridMeasure'),
       d.area === null || kindOf(d) === 'line' ? blank('gridArea') : num(d.area, 'gridArea'),
       v === null ? blank('gridMeasure') : num(v, 'gridMeasure'),
-      ...(withRebar ? [d.rebar ? num(d.rebar, 'gridMeasure') : blank('gridMeasure')] : []),
+      ...(withRebar ? [d.rebar ? ({ t: 'formula', f: rebarFormula(rebarItemsOf(d)), v: rebarExact(rebarItemsOf(d)), s: 'gridMeasure' } as Cell) : blank('gridMeasure')] : []),
     ]);
     rebar += d.rebar ?? 0;
   }

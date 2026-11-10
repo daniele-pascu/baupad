@@ -168,11 +168,16 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   await expect(dlg.getByTestId('area-result')).toContainText('0,50 m²');
   await dlg.getByTestId('damage-save').tap();
   await expect(dlg).toBeHidden();
+  // Tablet: Leiste nach dem Speichern wieder offen; Handy: bleibt zugeklappt (Plan frei)
+  if (isPhone) await expect(page.getByTestId('tools-open')).toBeVisible();
+  else await expect(page.getByTestId('tool-rect')).toBeVisible();
 
   // 2) Rechteck mit dem Finger aufziehen
   await pickTool(page, 'tool-rect', 'tap');
   await touchDrag(cdp, { x: box.x + box.width * 0.55, y: box.y + box.height * 0.5 }, { x: box.x + box.width * 0.75, y: box.y + box.height * 0.65 });
   await expect(dlg).toBeVisible();
+  // Tippen auf den Plan mit gewähltem Werkzeug hat die Leiste unten zugeklappt
+  await expect(page.getByTestId('tools-open')).toBeVisible();
   await expect(dlg.getByTestId('input-number')).toHaveValue('2');
   await dlg.getByTestId('input-length').fill('2,4');
   await dlg.getByTestId('input-width').fill('1,1');
@@ -194,8 +199,12 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   expect(await page.locator('.damage-label').count()).toBe(2);
   await expect(dlg).toBeHidden();
 
-  // 4) Verschieben mit einem Finger: nach dem Speichern ist das Werkzeug von selbst wieder „Auswahl“ (Leiste zugeklappt)
-  await expect(page.getByTestId('tools-open')).toBeVisible();
+  // 4) Verschieben mit einem Finger: nach dem Speichern ist das Werkzeug von selbst wieder „Auswahl“, die Leiste wieder offen
+  if (isPhone) await expect(page.getByTestId('tools-open')).toBeVisible();
+  else {
+    await expect(page.getByTestId('tools-open')).toHaveCount(0);
+    await expect(page.getByTestId('tool-rect')).toBeVisible();
+  }
   await touchDrag(cdp, { x: vb.x + 60, y: vb.y + 80 }, { x: vb.x + 160, y: vb.y + 150 });
   const afterPan = await markerRelPos(page, 2);
   for (const k of ['x', 'y', 'w', 'h'] as const) expect(Math.abs(afterPan[k] - before[k])).toBeLessThan(0.003);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { rebarItemsOf, rebarLine, rebarTotal } from '../../src/lib/rebar';
+import { rebarExact, rebarFormula, rebarItemsOf, rebarLine, rebarTotal } from '../../src/lib/rebar';
 
 describe('Bewehrung', () => {
   it('Stück × Länge, Summe in lfm (auf 2 Stellen)', () => {
@@ -12,5 +12,11 @@ describe('Bewehrung', () => {
     expect(rebarItemsOf({ rebar: null })).toEqual([]);
     const items = [{ id: 'a', count: 2, length: 1 }];
     expect(rebarItemsOf({ rebar: 2, rebarItems: items })).toBe(items);
+  });
+  it('Excel-Formel je Nummer', () => {
+    const items = [{ count: 2, length: 0.2 }, { count: 3, length: 0.2 }, { count: 1, length: 0.54 }, { count: 3, length: 0.9 }];
+    expect(rebarFormula(items)).toBe('2*0.2+3*0.2+0.54+3*0.9');
+    expect(rebarExact(items)).toBe(4.24);
+    expect(rebarFormula([])).toBe('0');
   });
 });
