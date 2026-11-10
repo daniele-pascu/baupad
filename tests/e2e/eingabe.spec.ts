@@ -450,3 +450,39 @@ test('Stil-Menü (Darstellung neuer Messungen) schließt bei Klick auf den Plan 
   await page.getByTestId('tool-style').click();
   await expect(pop).toHaveCount(0);
 });
+
+test('Foto einer Messung: Vermerk in der Fotodokumentation folgt beim Umnummerieren der neuen Nummer', async ({ page }) => {
+  await freshStart(page);
+  await projectWithoutCostCenter(page, 'Foto Nummer');
+  await page.getByTestId('plan-file-input').setInputFiles(join(FIXTURES, 'parkdeck.png'));
+  const wiz = page.getByTestId('import-wizard');
+  await wiz.getByTestId('areas-next').click();
+  await wiz.locator('[data-field="planNumber"]').fill('F-1');
+  await wiz.getByTestId('import-save').click();
+  await waitForPlan(page);
+  const box = await planBox(page);
+  const dlg = page.getByTestId('damage-dialog');
+  // Nr. 1 mit Foto
+  await pickTool(page, 'tool-rect');
+  await drawRect(page, box.x + box.width * 0.1, box.y + box.height * 0.1, box.x + box.width * 0.2, box.y + box.height * 0.2);
+  await dlg.getByTestId('input-length').fill('2');
+  await dlg.getByTestId('photo-file-input').setInputFiles(join(FIXTURES, 'foto.jpg'));
+  const ps = page.getByTestId('photo-save-dialog');
+  await ps.getByTestId('photo-save').click();
+  await expect(dlg.getByTestId('attach-photo')).toHaveCount(1, { timeout: 15_000 });
+  await dlg.getByTestId('damage-save').click();
+  await expect(dlg).toBeHidden();
+  await waitSaved(page);
+  const note = async () => (await stored(page, 'photos')).map((p) => p.description);
+  await expect.poll(note).toEqual(['Aufmaß F-1 Nr. 1']);
+  // neue Messung bekommt Nr. 1, die bisherige rückt auf Nr. 2 – das Foto bleibt bei ihr, der Vermerk zieht nach
+  await pickTool(page, 'tool-rect');
+  await drawRect(page, box.x + box.width * 0.4, box.y + box.height * 0.1, box.x + box.width * 0.5, box.y + box.height * 0.2);
+  await dlg.getByTestId('input-number').fill('1');
+  await dlg.getByTestId('input-length').fill('3');
+  await dlg.getByTestId('renumber-shift').click();
+  await expect(dlg).toBeHidden();
+  await waitSaved(page);
+  await expect(page.locator('[data-testid="aufmass-row"][data-number="2"]').getByTestId('row-photos')).toHaveText('1');
+  await expect.poll(note).toEqual(['Aufmaß F-1 Nr. 2']);
+});

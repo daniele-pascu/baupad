@@ -12,6 +12,7 @@ import { SaveErrorBanner, SaveStatus } from '../components/SaveStatus';
 import { invoiceLabel, invoiceOfPlan } from '../lib/invoices';
 import { confirmDialog, promptDialog, showError, toast } from '../components/ui';
 import { getPhotoStorage } from '../lib/photo-storage';
+import { photoNoteUpdates } from '../lib/photo-notes';
 import { legendEntries } from '../lib/legend';
 import { LegendBox, LegendDialog } from '../components/LegendDialog';
 import type { PhotoSite } from '../lib/types';
@@ -451,6 +452,24 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   }, [planId]);
 
   const stored = useMemo(() => (plan ? damagesOf(data, plan.id) : []), [data, plan]);
+  // Fotos folgen der Messung: Vermerk „Aufmaß <Plan> Nr. …“ in der Fotodokumentation bei neuer Nummer nachziehen
+  const photoPrefixText = plan ? `Aufmaß ${plan.planNumber || planTitle(plan)}` : '';
+  const photoSig = stored
+    .filter((d) => d.photoIds?.length)
+    .map((d) => `${d.id}:${damageNo(d)}:${d.photoIds!.join(',')}`)
+    .join('|');
+  useEffect(() => {
+    if (!photoSig || !photoPrefixText) return;
+    void (async () => {
+      const storage = getPhotoStorage();
+      const photos = await storage.list();
+      for (const u of photoNoteUpdates(photoPrefixText, stored, photos)) {
+        const p = photos.find((x) => x.id === u.id);
+        if (p) await storage.update({ ...p, description: u.description });
+      }
+    })().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [photoSig, photoPrefixText]);
   const legend = useMemo(() => (plan ? legendEntries(plan, stored) : []), [plan, stored]);
   /** gespeicherte, im Plan gezeichnete Abzüge (schraffiert, Nummer „A1“ … je Messung) */
   const planDeds = useMemo(
