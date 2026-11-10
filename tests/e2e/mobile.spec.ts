@@ -843,9 +843,14 @@ test('Arbeitereinteilung per Finger: Woche nicht fixiert, Wischen links/rechts w
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   };
   const w = page.viewportSize()!.width;
-  const y = (await page.getByTestId('crew-week').boundingBox())!.y + 120;
-  await swipe(w * 0.8, w * 0.2, y); // nach links → nächste Woche
-  await expect(page.getByTestId('week-label')).toHaveText('KW 47');
+  // unterhalb der Wochenleiste wischen (auf Eingabefeldern wie dem Datum ist Wischen bewusst aus)
+  const sb = (await page.getByTestId('crew-sticky').boundingBox())!;
+  const y = Math.min(sb.y + sb.height + 40, page.viewportSize()!.height - 40);
+  // nach links → nächste Woche (Wischen ist erst aktiv, wenn die Woche geladen ist – ggf. wiederholen)
+  await expect(async () => {
+    if ((await page.getByTestId('week-label').textContent()) !== 'KW 47') await swipe(w * 0.8, w * 0.2, y);
+    await expect(page.getByTestId('week-label')).toHaveText('KW 47', { timeout: 1500 });
+  }).toPass({ timeout: 15_000 });
   await swipe(w * 0.2, w * 0.8, y); // nach rechts → zurück
   await swipe(w * 0.2, w * 0.8, y);
   await expect(page.getByTestId('week-label')).toHaveText('KW 45');

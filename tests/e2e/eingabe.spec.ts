@@ -271,7 +271,7 @@ test('Messung: Bemerkung / Notiz im Dialog, in der Aufmaß-Tabelle und im Excel'
     [2, 0.8],
   ]);
   await expect(page.getByTestId('row-rebar')).toHaveText(['', '6,40']);
-  await expect(page.getByTestId('sum-rebar')).toHaveText('6,40 lfm');
+  await expect(page.getByTestId('sum-rebar')).toHaveText('6,40');
   await expect(page.getByTestId('aufmass-table').locator('th.note-col')).toHaveText('Bemerkung');
   await expect(page.getByTestId('row-note')).toHaveText(['', 'Ecke beschädigt']);
   // Notiz bleibt beim Bearbeiten erhalten

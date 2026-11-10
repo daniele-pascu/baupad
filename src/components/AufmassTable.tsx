@@ -247,11 +247,12 @@ export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, on
           )}
           {rebar && (
             <tr className="sum-lines">
-              <td colSpan={before}>Summe Bewehrung</td>
+              {/* Summe unter der Spalte „Bew. (lfm)“ */}
+              <td colSpan={before + 2}>Summe Bewehrung (lfm)</td>
               <td className="num" data-testid="sum-rebar">
-                {formatMeasure(rebarSum)} lfm
+                {formatMeasure(rebarSum)}
               </td>
-              <td colSpan={after} />
+              {after > 2 && <td colSpan={after - 2} />}
             </tr>
           )}
           {hasVolume(damages) && (
