@@ -73,6 +73,10 @@ test('Plan zeichnen: Raum 5,00 × 3,65 m über Maßeingabe, Maß ändern, Zoom �
   await page.getByTestId('insert-width').fill('3,65');
   await page.getByTestId('insert-submit').click();
   await expect(page.locator('[data-element="rect"]')).toHaveCount(1);
+  // neue Formen kommen ohne Maße (Plan bearbeiten); je Form über „Maße anzeigen“ einschaltbar
+  await expect(page.locator('.dims [data-dim]')).toHaveCount(0);
+  await expect(page.getByTestId('element-showdims')).not.toBeChecked();
+  await page.getByTestId('element-showdims').check();
   await expect(dim('5,00 m')).toBeVisible();
   await expect(dim('3,65 m')).toBeVisible();
   await expect(page.getByTestId('element-length')).toHaveValue('5,00');
@@ -109,6 +113,8 @@ test('Linien mit Länge und Richtung schließen aneinander an; Kreis, Dreieck, M
   await page.getByTestId('insert-length').fill('3');
   await page.getByRole('button', { name: 'Richtung nach unten' }).click();
   await page.getByTestId('insert-submit').click();
+  await expect(dim('3,00 m')).toHaveCount(0); // ohne Maße eingefügt
+  await page.getByTestId('element-showdims').check();
   await expect(dim('3,00 m')).toBeVisible();
   await deselect(); // Esc schaltet auf „Auswahl“ – Linie wieder wählen, sie schließt weiter an
   await pickTool(page, 'draw-line');
@@ -116,6 +122,8 @@ test('Linien mit Länge und Richtung schließen aneinander an; Kreis, Dreieck, M
   await page.getByTestId('insert-length').fill('2,5');
   await page.getByRole('button', { name: 'Richtung nach rechts' }).click();
   await page.getByTestId('insert-submit').click();
+  await expect(dim('2,50 m')).toHaveCount(0); // ohne Maße eingefügt
+  await page.getByTestId('element-showdims').check();
   await expect(dim('2,50 m')).toBeVisible();
   await waitSaved(page);
   const lines = (await stored(page, 'elements')).filter((e) => e.type === 'line');
@@ -133,6 +141,8 @@ test('Linien mit Länge und Richtung schließen aneinander an; Kreis, Dreieck, M
   await pickTool(page, 'draw-ellipse');
   await page.getByTestId('insert-diameter').fill('1,2');
   await page.getByTestId('insert-submit').click();
+  await expect(dim('Ø 1,20 m')).toHaveCount(0); // ohne Maße eingefügt
+  await page.getByTestId('element-showdims').check();
   await expect(dim('Ø 1,20 m')).toBeVisible();
 
   // Maßlinie wie im CAD: Punkt A, Punkt B, dann auf den Abstand ziehen (rastet am Raster ein) – bleibt auf A und B bezogen
@@ -248,8 +258,8 @@ test('Weiter zum Aufmaß: Messung auf gezeichnetem Plan, Maßvorschlag; Planänd
 
 test('Nach dem Neuladen ist alles da; PDF-Export mit Maßstab; Sicherung und Wiederherstellung', async () => {
   await page.reload();
-  // Plan mit Inhalt öffnet im Aufmaß
-  await expect(page.getByTestId('mode-measure-tab')).toHaveAttribute('aria-selected', 'true');
+  // zuletzt war „Plan bearbeiten“ gewählt – bleibt auch nach dem Neuladen (springt nicht ins Aufmaß)
+  await expect(page.getByTestId('mode-draw')).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('[data-element]')).toHaveCount(7);
   await expect(page.locator('[data-testid="aufmass-row"]')).toHaveCount(1);
   await expect(dim('6,20 m')).toBeVisible();

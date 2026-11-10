@@ -16,7 +16,7 @@ import { photoNoteUpdates } from '../lib/photo-notes';
 import { legendEntries, resolveLegend } from '../lib/legend';
 import { LegendBox, LegendDialog } from '../components/LegendDialog';
 import type { PhotoSite } from '../lib/types';
-import { positionGrouping, costCenterLabel, damagesOf, elementsOf, findPosition, lvDocLabel, lvDocsOf, plansOf, planTitle, positionRef, sumArea } from '../lib/aufmass';
+import { positionGrouping, costCenterLabel, damagesOf, findPosition, lvDocLabel, lvDocsOf, plansOf, planTitle, positionRef, sumArea } from '../lib/aufmass';
 import { calibrationStatus, checkDeviation, checkError, formatCm, formatPercent, geometryMeasures, MAX_ERROR_M, planUnitsPerMeter } from '../lib/calibration';
 import { ViewMenu } from '../components/ViewMenu';
 import { isTouchDevice } from '../lib/platform';
@@ -361,8 +361,27 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const planRef = useRef<HTMLDivElement>(null);
   const drawingPlan = isDrawingPlan(plan);
   /** Gezeichnete Pläne: Planbearbeitung („draw“) oder Aufmaß („measure“) */
-  const initialMode = () => (isDrawingPlan(data.plans[planId]) && !elementsOf(data, planId).length ? 'draw' : 'measure');
-  const [mode, setMode] = useState<'draw' | 'measure'>(initialMode);
+  // Gezeichnete Pläne: zuletzt gewählter Modus je Plan (sonst „Plan bearbeiten“) – auch nach Neuladen bzw. Abgleich
+  const modeKey = `editorMode:${planId}`;
+  const initialMode = (): 'draw' | 'measure' => {
+    if (!isDrawingPlan(data.plans[planId])) return 'measure';
+    try {
+      const m = localStorage.getItem(modeKey);
+      if (m === 'draw' || m === 'measure') return m;
+    } catch {
+      /* egal */
+    }
+    return 'draw';
+  };
+  const [mode, setModeState] = useState<'draw' | 'measure'>(initialMode);
+  const setMode = (m: 'draw' | 'measure') => {
+    setModeState(m);
+    try {
+      localStorage.setItem(modeKey, m);
+    } catch {
+      /* egal */
+    }
+  };
   const drawMode = drawingPlan && mode === 'draw';
   /** Darstellung: Bedienfeld der ausgewählten Messung bzw. Voreinstellung für neue Messungen */
   const [styleOpen, setStyleOpen] = useState(false);
@@ -456,7 +475,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   // Rückgängig/Wiederholen gilt je geöffnetem Plan
   useEffect(() => {
     clearHistory();
-    setMode(initialMode());
+    setModeState(initialMode());
     setLastPositionState(loadLastPosition(planId));
     return () => clearHistory();
   }, [planId]);

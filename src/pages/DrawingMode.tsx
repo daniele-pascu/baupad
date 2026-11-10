@@ -291,7 +291,8 @@ export function useDrawing(opts: {
    */
   const create = (type: DrawElementType, shape: Shape, extra: Partial<DrawElement> = {}, keepTool = false) => {
     if (!plan) return;
-    // Formen: Linientyp/-stärke der Voreinstellung, immer ohne Füllung (Füllung nur nachträglich)
+    // Formen: Linientyp/-stärke der Voreinstellung, immer ohne Füllung (Füllung nur nachträglich) und ohne Maße
+    // (Maße je Form nachträglich über „Maße anzeigen“; Bemaßung macht das Werkzeug Bemaßung)
     const styled = type !== 'text' && type !== 'dimension';
     const rec: DrawElement = {
       ...newMeta(),
@@ -300,7 +301,7 @@ export function useDrawing(opts: {
       type,
       shape: roundShape(shape),
       color,
-      ...(styled ? { style: newElementStyle(defaultStyle) } : {}),
+      ...(styled ? { style: newElementStyle(defaultStyle), showDims: false } : {}),
       ...extra,
     };
     putRecord('elements', rec);

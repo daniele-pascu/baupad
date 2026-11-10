@@ -213,6 +213,7 @@ test('Zeichenmodus: nach dem Zeichnen Auswahl aktiv, Objekt bearbeitbar, Leiste 
   // Objekt bleibt bearbeitbar (exakte Maße)
   await page.getByTestId('element-length').fill('2,5');
   await page.getByTestId('element-length').press('Enter');
+  await page.getByTestId('element-showdims').check(); // neue Formen kommen ohne Maße – hier einschalten
   await expect(page.locator('.dims [data-dim="2,50 m"]').first()).toBeVisible();
   // Linien über die Maßeingabe schließen weiterhin aneinander an (Werkzeug bleibt aktiv)
   await page.locator('.side-head h2').click();

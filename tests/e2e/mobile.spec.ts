@@ -413,6 +413,7 @@ test('Plan zeichnen per Finger: Raum über Maßeingabe, Bemaßung sichtbar, Weit
   await page.getByTestId('insert-length').fill('5');
   await page.getByTestId('insert-width').fill('3,65');
   await page.getByTestId('insert-submit').tap();
+  await page.getByTestId('element-showdims').tap(); // neue Formen kommen ohne Maße – hier einschalten
   await expect(page.locator('.dims [data-dim="5,00 m"]')).toBeVisible();
   await expect(page.locator('.dims [data-dim="3,65 m"]')).toBeVisible();
   await expect(page.getByTestId('element-bar')).toBeVisible();

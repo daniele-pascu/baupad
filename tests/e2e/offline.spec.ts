@@ -99,6 +99,7 @@ test('Offline: Projekt anlegen, PDF importieren, Schadstellen erfassen, exportie
   await page.getByTestId('insert-length').fill('5');
   await page.getByTestId('insert-width').fill('3,65');
   await page.getByTestId('insert-submit').click();
+  await page.getByTestId('element-showdims').check(); // neue Formen kommen ohne Maße – hier einschalten
   await expect(page.locator('.dims [data-dim="3,65 m"]')).toBeVisible();
   await waitSaved(page);
 

@@ -87,6 +87,7 @@ test('Freie Maße ohne Raster; Formen bleiben auf dem Blatt', async () => {
   // Exakte Eingabe danach, z. B. 1,38 m
   await page.getByTestId('element-length').fill('1,38');
   await page.getByTestId('element-length').press('Enter');
+  await page.getByTestId('element-showdims').check(); // neue Formen kommen ohne Maße – hier einschalten
   await expect(page.locator('.dims [data-dim="1,38 m"]').first()).toBeVisible();
 
   // Unbegrenzte Zeichenfläche: über den Blattrand (9,50 × 13,15 m) hinaus ziehen → Form geht darüber hinaus
@@ -125,6 +126,7 @@ test('Linie: Endpunkte einzeln verschieben, Länge bleibt bearbeitbar', async ()
   // Länge exakt setzen
   await page.getByTestId('element-length').fill('4,25');
   await page.getByTestId('element-length').press('Enter');
+  await page.getByTestId('element-showdims').check(); // neue Formen kommen ohne Maße – hier einschalten
   await expect(page.locator('.dims [data-dim="4,25 m"]').first()).toBeVisible();
 });
 

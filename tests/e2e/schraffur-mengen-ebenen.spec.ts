@@ -282,6 +282,8 @@ test('Ebenen: Zeichnung, Bemaßung, Text und Messungen ein-/ausblenden – Ansic
   await drag(page, sb.x + 60, sb.y + 80, sb.x + 360, sb.y + 80);
   await pickTool(page, 'draw-rect');
   await drag(page, sb.x + 80, sb.y + 160, sb.x + 300, sb.y + 300);
+  await page.getByTestId('element-showdims').check(); // neue Formen kommen ohne Maße
+  await page.getByTestId('element-showdims').blur(); // Esc im Kästchen hebt die Auswahl nicht auf
   await page.keyboard.press('Escape');
   await waitSaved(page);
   await expect(page.locator('[data-element]')).toHaveCount(2);

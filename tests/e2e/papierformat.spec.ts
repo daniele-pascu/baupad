@@ -381,3 +381,25 @@ test('Gezeichneter Plan: Plan bearbeiten unbegrenzt, Plan messen zeigt das gewä
   expect(r.x + r.width).toBeLessThan(s.x + s.width);
   await page.screenshot({ path: join(OUT, 'blatt-messen.png') });
 });
+
+test('Gezeichneter Plan bleibt in „Plan bearbeiten“ – auch nach Neuladen; zuletzt gewählter Modus je Plan', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'Modus', {}, ['Keller']);
+  await page.getByTestId('draw-plan').click();
+  const nd = page.getByTestId('new-drawing');
+  await nd.locator('[data-field="planNumber"]').fill('M-1');
+  await nd.getByTestId('new-drawing-save').click();
+  await pickTool(page, 'draw-rect');
+  await page.getByTestId('insert-length').fill('4');
+  await page.getByTestId('insert-width').fill('3');
+  await page.getByTestId('insert-submit').click();
+  await expect(page.locator('[data-element="rect"]')).toHaveCount(1);
+  await waitSaved(page);
+  // Plan mit Formen neu laden: bleibt beim Zeichnen (früher sprang er ins Aufmaß)
+  await page.reload();
+  await expect(page.getByTestId('mode-draw')).toHaveAttribute('aria-selected', 'true');
+  // Aufmaß gewählt → beim nächsten Öffnen wieder Aufmaß
+  await page.getByTestId('mode-measure').click();
+  await page.reload();
+  await expect(page.getByTestId('mode-measure-tab')).toHaveAttribute('aria-selected', 'true');
+});
