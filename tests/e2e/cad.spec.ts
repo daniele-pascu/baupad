@@ -204,7 +204,7 @@ test('Stutzen mit Zaun (mehrere Linien auf einmal) und an einem Rechteck', async
   // je Linie bleiben 60 px links und 60 px rechts der Querwände
   near(pieces.reduce((sum, e) => sum + e.shape.w, 0), await m(240), 0.05);
 
-  // Rechteck mit einer Linie quer durch: rechte Hälfte wegstutzen → offene Polylinie
+  // Rechteck mit einer Linie quer durch: nur die angeklickte rechte Seite (Ecke zu Ecke) verschwindet → offene Polylinie
   await deselect();
   await pickTool(page, 'draw-rect');
   await drag(sb.x + 650, sb.y + 300, sb.x + 850, sb.y + 380);
@@ -219,7 +219,9 @@ test('Stutzen mit Zaun (mehrere Linien auf einmal) und an einem Rechteck', async
   expect(els).toHaveLength(n1);
   const opened = els.find((e) => e.type === 'freehand' && e.shape.closed === false);
   expect(opened).toBeTruthy();
-  near(opened!.shape.w, await m(100), 0.05); // nur noch die linke Hälfte (100 px breit)
+  near(opened!.shape.w, await m(200), 0.05); // Ober- und Unterkante bleiben ganz
+  near(opened!.shape.h, await m(80), 0.05);
+  expect(opened!.shape.points).toHaveLength(4); // C → D → A → B
 });
 
 test('Spurlinien: Ecke anfahren, dann waagrecht in der Flucht einrasten (Linie endet genau auf der Höhe der Ecke)', async () => {
@@ -268,4 +270,43 @@ test('Bogen aus drei Punkten: Länge und Radius', async () => {
   near(num(/Radius ([\d.,]+) m/), await m(100), 0.03);
   near(num(/Bogenlänge ([\d.,]+) m/), Math.PI * (await m(100)), 0.05);
   await page.screenshot({ path: 'tests/output/cad-bogen.png' });
+});
+
+test('Stutzen: frei gezogener Zaun über nicht parallele Linien', async () => {
+  await deselect();
+  const sb = (await sheet().boundingBox())!;
+  const line = async (x1: number, y1: number, x2: number, y2: number) => {
+    await deselect();
+    await pickTool(page, 'draw-line');
+    await drag(sb.x + x1, sb.y + y1, sb.x + x2, sb.y + y2);
+  };
+  // waagrechte Linie zwischen zwei senkrechten Wänden, schräge Linie zwischen zwei waagrechten Wänden
+  await line(330, 390, 440, 390);
+  await line(360, 375, 360, 405);
+  await line(410, 375, 410, 405);
+  await line(470, 375, 530, 440);
+  await line(460, 385, 560, 385);
+  await line(460, 430, 560, 430);
+  await waitSaved(page);
+  const n0 = (await elements()).length;
+  await deselect();
+  await pickTool(page, 'draw-trim');
+  // Zaun: senkrecht durch die waagrechte Linie, um die Wände herum und waagrecht durch die schräge Linie
+  await page.mouse.move(sb.x + 385, sb.y + 372);
+  await page.mouse.down();
+  await page.mouse.move(sb.x + 385, sb.y + 412, { steps: 6 });
+  await page.mouse.move(sb.x + 455, sb.y + 412, { steps: 6 });
+  await page.mouse.move(sb.x + 455, sb.y + 395, { steps: 4 });
+  await page.mouse.move(sb.x + 530, sb.y + 395, { steps: 8 });
+  const fence = page.getByTestId('trim-fence');
+  expect(((await fence.getAttribute('points')) ?? '').split(' ').length).toBeGreaterThan(2); // folgt der Maus
+  await page.mouse.up();
+  await waitSaved(page);
+  const els = await elements();
+  expect(els).toHaveLength(n0 + 2); // beide Linien je in zwei Teile geteilt, Wände unverändert
+  const y388 = await m(388);
+  const y392 = await m(392);
+  const horiz = els.filter((e) => e.type === 'line' && e.shape.h < 0.01 && e.shape.y > y388 && e.shape.y < y392);
+  expect(horiz).toHaveLength(2);
+  near(horiz[0].shape.w + horiz[1].shape.w, await m(60)); // 110 px minus 50 px zwischen den Wänden
 });

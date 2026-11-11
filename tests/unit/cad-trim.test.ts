@@ -25,14 +25,14 @@ describe('Stutzen (trimShape)', () => {
     expect(trimShape(lineShape({ x: 0, y: 0 }, { x: 10, y: 0 }), { x: 5, y: 0 }, [])).toBeNull();
   });
 
-  it('öffnet ein Rechteck zwischen zwei Schnittpunkten (Rest als offene Polylinie)', () => {
+  it('öffnet ein Rechteck nur zwischen Schnittpunkt und nächster Ecke (Rest als offene Polylinie)', () => {
     // senkrechte Linie bei x = 5 schneidet Ober- und Unterkante
     const out = trimShape(rect(0, 0, 10, 4), { x: 8, y: 0 }, [lineShape({ x: 5, y: -1 }, { x: 5, y: 5 })])!;
     expect(out).toHaveLength(1);
     expect(out[0].type).toBe('freehand');
     expect(out[0].closed).toBe(false);
-    // rechte Hälfte entfernt: Rest läuft von (5,4) über die linken Ecken nach (5,0)
-    expect(pts(out[0])).toEqual([[5, 4], [0, 4], [0, 0], [5, 0]]);
+    // nur das Stück der Unterkante von (5,0) bis zur Ecke (10,0) ist weg, alles andere bleibt
+    expect(pts(out[0])).toEqual([[10, 0], [10, 4], [0, 4], [0, 0], [5, 0]]);
   });
 
   it('stutzt eine offene Polylinie über Eckpunkte hinweg', () => {
@@ -55,6 +55,38 @@ describe('Stutzen mit Zaun (trimByFence)', () => {
     expect([...res.keys()].sort()).toEqual([0, 1]);
     expect(res.get(0)!.map(pts)).toEqual([[[0, 0], [3, 0]], [[7, 0], [10, 0]]]);
     expect(res.get(1)!.map(pts)).toEqual([[[0, 2], [3, 2]], [[7, 2], [10, 2]]]);
+  });
+  it('entfernt beim Quadrat A–D nur die Seite B–C (ohne andere Linien)', () => {
+    // A(0,0) B(10,0) C(10,10) D(0,10), Zaun quer über B–C
+    const res = trimByFence([rect(0, 0, 10, 10)], [{ x: 9, y: 5 }, { x: 11, y: 5 }]);
+    const out = res.get(0)!;
+    expect(out).toHaveLength(1);
+    expect(out[0].closed).toBe(false);
+    expect(pts(out[0])).toEqual([[10, 10], [0, 10], [0, 0], [10, 0]]);
+  });
+
+  it('nur das angeklickte Stück einer Polylinie zwischen zwei Eckpunkten', () => {
+    const poly: Shape = { type: 'freehand', closed: false, x: 0, y: 0, w: 10, h: 10, points: [[0, 0], [0.5, 0], [0.5, 1], [1, 1]] };
+    const out = trimShape(poly, { x: 5, y: 5 }, [])!;
+    expect(out.map(pts)).toEqual([[[0, 0], [5, 0]], [[5, 10], [10, 10]]]);
+  });
+
+  it('frei gezogener Zaun stutzt mehrere nicht parallele Linien', () => {
+    const shapes = [
+      lineShape({ x: 0, y: 0 }, { x: 10, y: 0 }),
+      lineShape({ x: 3, y: -2 }, { x: 3, y: 2 }),
+      lineShape({ x: 7, y: -2 }, { x: 7, y: 2 }),
+      // schräge Linie zwischen zwei Wänden
+      lineShape({ x: 20, y: -4 }, { x: 30, y: 4 }),
+      lineShape({ x: 22, y: -6 }, { x: 22, y: 6 }),
+      lineShape({ x: 28, y: -6 }, { x: 28, y: 6 }),
+    ];
+    // Zaun: runter über die erste Linie, rüber, wieder hoch über die schräge
+    const path = [{ x: 5, y: -1 }, { x: 5, y: 8 }, { x: 25, y: 8 }, { x: 25, y: -3 }];
+    const res = trimByFence(shapes, path);
+    expect([...res.keys()].sort()).toEqual([0, 3]);
+    expect(res.get(0)!.map(pts)).toEqual([[[0, 0], [3, 0]], [[7, 0], [10, 0]]]);
+    expect(res.get(3)!.map(pts)).toEqual([[[20, -4], [22, -2.4]], [[28, 2.4], [30, 4]]]);
   });
 });
 

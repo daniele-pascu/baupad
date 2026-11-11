@@ -71,7 +71,7 @@ const OP_HINTS: Partial<Record<DrawTool, string>> = {
   move: 'Objekt auswählen, dann vom Basispunkt zum Zielpunkt ziehen (Fang nutzt Ecken und Endpunkte).',
   copy: 'Objekt auswählen, dann vom Basispunkt zum Zielpunkt ziehen – die Kopie wird dort eingefügt.',
   stretch: '1. Fenster über die Eckpunkte ziehen, die sich bewegen sollen.',
-  trim: 'Stutzen: Abschnitt anklicken, der bis zu den nächsten Kanten entfernt wird – oder über mehrere Linien ziehen (Zaun), um alle gekreuzten Abschnitte zu stutzen.',
+  trim: 'Stutzen: Abschnitt anklicken, der bis zu den nächsten Kanten bzw. Eckpunkten entfernt wird – oder frei über mehrere Linien ziehen (Zaun), um alle gekreuzten Abschnitte zu stutzen.',
   extend: 'Die Linie nahe dem Ende anklicken, das bis zur nächsten Kante verlängert werden soll.',
 };
 

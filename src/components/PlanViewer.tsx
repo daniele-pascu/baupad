@@ -165,7 +165,7 @@ interface Props {
   /** Werkzeug „Bauteil“ bzw. „Text“: Stelle im Plan angetippt */
   onPlace(p: Point): void;
   /** Stutzen: über Linien gezogener Zaun (Seitenkoordinaten); fehlt = Ziehen verschiebt den Plan */
-  onFence?(a: Point, b: Point): void;
+  onFence?(path: Point[]): void;
   /** Nummernschilder der Objekte anzeigen (Standard: ja) */
   showLabels?: boolean;
   /** Eigene Darstellung eines Objekts (undefined = Standard-Markierung) */
@@ -215,7 +215,7 @@ type Gesture =
   | { kind: 'rotate'; id: string; orig: Shape; startAngle: number }
   | { kind: 'label'; id: string; start: Point; orig: Rect; moved: boolean }
   | { kind: 'component'; id: string; start: Point; orig: Point; moved: boolean }
-  | { kind: 'place'; start: Point; view: View; moved: boolean; fence?: Point }
+  | { kind: 'place'; start: Point; view: View; moved: boolean; fence?: Point[] }
   | { kind: 'ignore' };
 
 const isCoarse = () => matchMedia('(pointer: coarse)').matches;
@@ -921,8 +921,15 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         if (!g.moved && Math.hypot(dx, dy) < 6) return;
         g.moved = true;
         if (g.kind === 'place' && propsRef.current.tool === 'trim' && propsRef.current.onFence) {
-          // Stutzen: Ziehen legt einen Zaun über die zu stutzenden Linien
-          g.fence = p;
+          // Stutzen: Ziehen legt einen Zaun über die zu stutzenden Linien – er folgt dem Finger bzw. der Maus,
+          // so kann man auch über mehrere nicht parallele Linien ziehen. Letzter Punkt läuft mit.
+          if (!g.fence) g.fence = [g.start, p];
+          else {
+            const f = g.fence;
+            const prev = f[f.length - 2];
+            if (Math.hypot(p.x - prev.x, p.y - prev.y) > 8) f.push(p);
+            else f[f.length - 1] = p;
+          }
           forceRender((n) => n + 1);
           return;
         }
@@ -1060,7 +1067,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         return;
       case 'place':
         if (g.fence) {
-          if (!cancelled) propsRef.current.onFence?.(toPage(g.view, g.start), toPage(g.view, g.fence));
+          if (!cancelled) propsRef.current.onFence?.(g.fence.map((q) => toPage(g.view, q)));
           forceRender((n) => n + 1);
           return;
         }
@@ -1418,9 +1425,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
             <SnapMarker view={view} mark={snapMark.current} hold={!!lupe.current} />
           )}
           {g.kind === 'place' && g.fence && (() => {
-            const a = toScreen(view, toPage(g.view, g.start));
-            const b = toScreen(view, toPage(g.view, g.fence));
-            return <line className="trim-fence" data-testid="trim-fence" x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#e5484d" strokeWidth={2} strokeDasharray="6 4" />;
+            const pts = g.fence.map((q) => toScreen(view, toPage(g.view, q)));
+            return <polyline className="trim-fence" data-testid="trim-fence" points={pts.map((q) => `${q.x},${q.y}`).join(' ')} fill="none" stroke="#e5484d" strokeWidth={2} strokeDasharray="6 4" strokeLinejoin="round" />;
           })()}
           {props.overlay?.(view, drawPreview, polyHover.current)}
           {/* Verbindungslinien zuerst, damit sie unter den Nummern liegen */}

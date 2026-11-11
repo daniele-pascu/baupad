@@ -56,7 +56,7 @@ export const DRAW_TOOLS: { id: DrawTool; label: string; short?: string; icon: st
   { id: 'move', label: 'Verschieben: Basispunkt zum Zielpunkt ziehen (mit Fang)', short: 'Verschieben', icon: 'move', key: 'g', group: 'modify' },
   { id: 'copy', label: 'Kopieren: Basispunkt zum Zielpunkt ziehen (mit Fang)', short: 'Kopieren', icon: 'copy', key: 'c', group: 'modify' },
   { id: 'stretch', label: 'Strecken: Fenster über Eckpunkte ziehen, dann Verschiebung ziehen', short: 'Strecken', icon: 'stretch', key: 's', group: 'modify' },
-  { id: 'trim', label: 'Stutzen: Abschnitt bis zu den nächsten Kanten entfernen – anklicken oder über mehrere Linien ziehen (Zaun)', short: 'Stutzen', icon: 'trim', key: 'z', group: 'modify' },
+  { id: 'trim', label: 'Stutzen: Abschnitt bis zu den nächsten Kanten bzw. Eckpunkten entfernen – anklicken oder frei über mehrere Linien ziehen (Zaun)', short: 'Stutzen', icon: 'trim', key: 'z', group: 'modify' },
   { id: 'extend', label: 'Verlängern: Linie bis zur nächsten Kante verlängern', short: 'Verlängern', icon: 'extend', key: 'e', group: 'modify' },
 ];
 
@@ -429,13 +429,12 @@ export function useDrawing(opts: {
     else putRecords({ elements: trimmedRecords(line, parts) });
   };
 
-  /** Stutzen mit Zaun: alle gekreuzten Linien zwischen ihren Schnittkanten entfernen (ein Rückgängig-Schritt) */
-  const onFence = (a: Point, b: Point) => {
+  /** Stutzen mit Zaun (frei gezogen): alle gekreuzten Linien zwischen ihren Schnittkanten bzw. Eckpunkten entfernen (ein Rückgängig-Schritt) */
+  const onFence = (path: Point[]) => {
     const list = stored.filter((e) => e.type !== 'text');
     const res = trimByFence(
       list.map((e) => e.shape),
-      { x: a.x / k, y: a.y / k },
-      { x: b.x / k, y: b.y / k },
+      path.map((q) => ({ x: q.x / k, y: q.y / k })),
     );
     const changed: DrawElement[] = [];
     const removed: DrawElement[] = [];

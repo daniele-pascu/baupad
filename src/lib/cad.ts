@@ -145,6 +145,11 @@ export function trimShape(shape: Shape, click: Point, others: Shape[]): Shape[] 
       }
     }
   });
+  // Eckpunkte der Form selbst sind ebenfalls Grenzen: bei Rechteck, Dreieck, Polylinie wird nur das Stück
+  // von Punkt zu Punkt entfernt (z. B. beim Quadrat A–D nur die Seite B–C). Nicht bei Kreisen und Bögen bzw.
+  // Freihand-Linien mit sehr vielen Punkten (dort sind die Eckpunkte nur Näherung).
+  const polygonal = shape.type !== 'ellipse' && segs.length <= 24;
+  if (polygonal) for (let i = closed ? 0 : 1; i < segs.length; i++) cuts.push(starts[i]);
   const uniq = cuts
     .map((d) => (closed ? ((d % total) + total) % total : d))
     .filter((d) => closed || (d > TRIM_EPS && d < total - TRIM_EPS))
@@ -168,38 +173,45 @@ export function trimShape(shape: Shape, click: Point, others: Shape[]): Shape[] 
   const piece = (pts: Point[]): Shape =>
     pts.length === 2 ? lineShape(pts[0], pts[1]) : shapeFromVertices({ type: 'freehand', x: 0, y: 0, w: 0, h: 0, closed: false }, pts);
   if (closed) {
-    const lo = uniq.filter((d) => d <= dc).pop() ?? uniq[uniq.length - 1] - total;
-    const hi = uniq.find((d) => d >= dc) ?? uniq[0] + total;
+    // genau auf einer Grenze (z. B. Eckpunkt): die beiden angrenzenden Stücke zählen
+    const lo = uniq.filter((d) => d < dc - TRIM_EPS).pop() ?? uniq[uniq.length - 1] - total;
+    const hi = uniq.find((d) => d > dc + TRIM_EPS) ?? uniq[0] + total;
+    // alles entfernt (nur ein Abschnitt übrig wäre leer)
+    if (hi - lo >= total - TRIM_EPS) return [];
     // Rest: vom oberen Schnittpunkt einmal herum bis zum unteren
     return [piece(subPath(segs, starts, total, hi, lo + total, true))];
   }
-  const lo = [0, ...uniq].filter((d) => d <= dc).pop()!;
-  const hi = [...uniq, total].find((d) => d >= dc)!;
+  const lo = [0, ...uniq].filter((d) => d < dc - TRIM_EPS).pop() ?? 0;
+  const hi = [...uniq, total].find((d) => d > dc + TRIM_EPS) ?? total;
   const out: Shape[] = [];
   if (lo > TRIM_EPS) out.push(piece(subPath(segs, starts, total, 0, lo, false)));
   if (hi < total - TRIM_EPS) out.push(piece(subPath(segs, starts, total, hi, total, false)));
   return out;
 }
 
-/** Schnittpunkte eines Zauns (Strecke a–b) mit einer Form */
-export function fenceHits(shape: Shape, a: Point, b: Point): Point[] {
+/** Schnittpunkte eines Zauns (Linienzug, z. B. frei gezogen) mit einer Form */
+export function fenceHits(shape: Shape, path: Point[]): Point[] {
   const out: Point[] = [];
-  for (const e of edgesOf(shape)) {
-    const x = segmentIntersection([a, b], e);
-    if (x && !out.some((q) => Math.hypot(q.x - x.x, q.y - x.y) < TRIM_EPS)) out.push(x);
+  for (let i = 1; i < path.length; i++) {
+    for (const e of edgesOf(shape)) {
+      const x = segmentIntersection([path[i - 1], path[i]], e);
+      if (x && !out.some((q) => Math.hypot(q.x - x.x, q.y - x.y) < TRIM_EPS)) out.push(x);
+    }
   }
   return out;
 }
 
 /**
  * Stutzen mit Zaun: Jede Form, die der gezogene Zaun kreuzt, wird an jeder Kreuzungsstelle
- * gestutzt (wie mehrfaches Anklicken). Schnittkanten sind alle übrigen Formen im Ausgangszustand.
+ * gestutzt (wie mehrfaches Anklicken). Der Zaun ist eine Strecke oder ein frei gezogener Linienzug
+ * (z. B. über mehrere nicht parallele Linien). Schnittkanten sind alle übrigen Formen im Ausgangszustand.
  * Ergebnis je betroffener Form (Index in shapes): verbleibende Teile.
  */
-export function trimByFence(shapes: Shape[], a: Point, b: Point): Map<number, Shape[]> {
+export function trimByFence(shapes: Shape[], fence: Point[] | Point, b?: Point): Map<number, Shape[]> {
+  const path = Array.isArray(fence) ? fence : [fence, b!];
   const result = new Map<number, Shape[]>();
   shapes.forEach((s, i) => {
-    const hits = fenceHits(s, a, b);
+    const hits = fenceHits(s, path);
     if (!hits.length) return;
     const others = shapes.filter((_, j) => j !== i);
     let parts: Shape[] = [s];
