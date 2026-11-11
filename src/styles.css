@@ -11609,3 +11609,51 @@ html[data-theme='dark'] .crew-search {
 .crew-move-search {
   margin-bottom: 8px;
 }
+
+/* Aufmaß & Abrechnung: Bereiche (Pläne, Aufmaß, LV/MFK, Export) als eigene Karten mit Farbstreifen und Symbol */
+.project-block {
+  --block: #8e8e93;
+  margin-top: 22px;
+  padding: 14px 18px 18px;
+  border: 1px solid var(--border);
+  border-top: 4px solid var(--block);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--block) 4%, var(--surface));
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+.project-block.block-plans {
+  --block: #2f6fdf;
+}
+.project-block.block-aufmass {
+  --block: #1f9d55;
+}
+.project-block.block-lv {
+  --block: #d98a0b;
+}
+.project-block > .section-head {
+  margin-top: 0;
+}
+.project-block .section-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin-top: 0;
+  font-size: 1.2rem;
+}
+.project-block .block-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--block) 15%, transparent);
+  color: var(--block);
+}
+@media (max-width: 600px) {
+  .project-block {
+    margin-top: 16px;
+    padding: 12px 12px 14px;
+    border-radius: 16px;
+  }
+}

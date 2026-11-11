@@ -506,9 +506,12 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
           </button>
         </div>
       ) : (
-        <section>
+        <section className="project-block block-plans" data-testid="plans-section">
           <div className="section-head">
             <h2 className="section-title plans-title">
+              <span className="block-icon" aria-hidden="true">
+                <Icon name="map" size={20} />
+              </span>
               Pläne
               {ccs.length > 1 ? (
                 <>
@@ -593,9 +596,12 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
 
       {/* Aufmaß: alle Messungen der Kostenstelle, darüber der Excel-Export (Aufmaßblatt) */}
       {active && (
-        <section data-testid="aufmass-section">
+        <section className="project-block block-aufmass" data-testid="aufmass-section">
           <div className="section-head">
             <h2 className="section-title">
+              <span className="block-icon" aria-hidden="true">
+                <Icon name="table" size={20} />
+              </span>
               Aufmaß
               {invoice && (
                 <>
@@ -718,13 +724,23 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
       )}
 
       {/* LV und MFK des Projekts: LV zuerst, darunter die MFKs */}
-      <section data-testid="lv-section">
-        <h2 className="section-title">LV / MFK</h2>
+      <section className="project-block block-lv" data-testid="lv-section">
+        <h2 className="section-title">
+          <span className="block-icon" aria-hidden="true">
+            <Icon name="file" size={20} />
+          </span>
+          LV / MFK
+        </h2>
         <LvPanel data={data} />
       </section>
 
-      <section>
-        <h2 className="section-title">Export und Sicherung</h2>
+      <section className="project-block block-export">
+        <h2 className="section-title">
+          <span className="block-icon" aria-hidden="true">
+            <Icon name="download" size={20} />
+          </span>
+          Export und Sicherung
+        </h2>
         <div className="button-row">
           <button type="button" className="btn" onClick={() => setPdfPlans(plans.map((p) => p.id))} disabled={!plans.length}>
             <Icon name="pdf" /> PDF – Pläne auswählen
