@@ -73,6 +73,8 @@ const PATHS: Record<string, string> = {
   plug: 'M6 5a6 6 0 0012 0M4 10h16M12 10v10',
   shaft: 'M5 5h14v14H5zM5 19L19 5M5 5h14L5 19z',
   room: 'M3 4h18v16H3zM8 10h8M9.5 14h5',
+  /** Messart (Aufmaß): Liste mit Häkchen */
+  mtype: 'M9 6h11M9 12h11M9 18h11M4 5.5l1 1 2-2M4 11.5l1 1 2-2M4 17.5l1 1 2-2',
   /** Schraffur: Fläche mit schrägen Linien */
   hatch: 'M4 4h16v16H4zM4 12l8-8M4 20L20 4M12 20l8-8',
   /** Abrunden: Ecke mit Bogen */

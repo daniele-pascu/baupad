@@ -11414,3 +11414,23 @@ html[data-theme='dark'] .crew-search {
     height: 30px;
   }
 }
+/* Handy/Tablet hochkant: Messart-Taste zeigt die gewählte Messart als kurzen Text */
+@media (max-width: 900px) {
+  .editor-plan > .toolbar:not([data-testid='dp-toolbar']) .tool-btn.mtype-btn {
+    width: auto;
+    padding: 0 8px;
+    gap: 4px;
+  }
+  .editor-plan > .toolbar:not([data-testid='dp-toolbar']) .tool-btn.mtype-btn > span.mtype-text {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+  .mtype-btn .mtype-prefix {
+    display: none;
+  }
+}

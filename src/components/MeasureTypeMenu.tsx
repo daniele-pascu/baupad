@@ -7,7 +7,7 @@ import { Icon } from './Icon';
 export type MeasureChoice = MeasureType | 'auto';
 export const MEASURE_CHOICES: MeasureChoice[] = ['auto', ...MEASURE_TYPES.map((t) => t.id)];
 export const choiceLabel = (c: MeasureChoice) => (c === 'auto' ? 'Automatisch' : typeInfo(c).label);
-export const choiceIcon = (c: MeasureChoice) => (c === 'auto' ? 'select' : typeInfo(c).icon);
+export const choiceIcon = (c: MeasureChoice) => (c === 'auto' ? 'mtype' : typeInfo(c).icon);
 
 /**
  * Messart wählen (Aufmaß): zuerst festlegen, was gemessen wird – danach liefert jedes Werkzeug (Linie, Rechteck,

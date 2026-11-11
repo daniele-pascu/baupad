@@ -2185,7 +2185,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               <ToolsOpenButton tool={TOOLS.find((t) => t.id === tool)} onOpen={() => setToolsOpen(true)} />
             ) : (
             <>
-            <div className="tool-group mtype-anchor">
+            <div className="tool-group">
+              <span className="mtype-anchor">
               <button
                 type="button"
                 className={`tool-btn mtype-btn${mtypeMenu ? ' active' : ''}`}
@@ -2203,8 +2204,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 data-value={mtype}
               >
                 <Icon name={choiceIcon(mtype)} />
-                <span>
-                  Messart: <span className="mtype-current">{choiceLabel(mtype)}</span>
+                <span className="mtype-text">
+                  <span className="mtype-prefix">Messart: </span>
+                  <span className="mtype-current">{choiceLabel(mtype)}</span>
                 </span>
               </button>
               {mtypeMenu && (
@@ -2220,8 +2222,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                   onClose={() => setMtypeMenu(false)}
                 />
               )}
-            </div>
-            <div className="tool-group">
+            </span>
               {TOOLS.filter((t) => (t.id !== 'calibrate' || !drawingPlan) && (t.id !== 'select' || !isTouchDevice())).map((t) => (
                 <button
                   key={t.id}
