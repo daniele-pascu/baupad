@@ -61,8 +61,10 @@ test('Import: Format wählbar (Standard A4 passend), Überschrift, PDF genau A3 
   await wiz.getByTestId('pages-next').click();
   await wiz.getByTestId('areas-next').click();
   // Standard: A4, Ausrichtung passend zum Plan (Querformat)
-  await expect(wiz.getByTestId('export-paper')).toHaveValue('A4-quer');
-  await wiz.getByTestId('export-paper').selectOption('A3-hoch');
+  await expect(wiz.getByTestId('export-paper')).toHaveValue('A4');
+  await expect(wiz.getByTestId('export-orient')).toHaveValue('quer');
+  await wiz.getByTestId('export-paper').selectOption('A3');
+  await wiz.getByTestId('export-orient').selectOption('hoch');
   await wiz.locator('[data-field="planNumber"]').fill('F-1');
   await expect(wiz.locator('[data-field="title"]')).toHaveAttribute('placeholder', 'z. B. Aufmaßplan');
   // Standard: Nummer und Planbezeichnung (hier aus dem Dateinamen); ohne Titel
@@ -112,7 +114,8 @@ test('Plandetails: Format und Überschrift ändern, nach Neuladen erhalten', asy
   await page.getByTestId('plan-actions').click();
   await page.getByTestId('action-edit').click();
   const det = page.getByTestId('plan-details');
-  await det.getByTestId('export-paper').selectOption('A4-hoch');
+  await det.getByTestId('export-paper').selectOption('A4');
+  await det.getByTestId('export-orient').selectOption('hoch');
   await det.locator('[data-field="title"]').fill('Aufmaß Hof');
   await det.locator('[data-field="description"]').fill('Nur Bereich Nord');
   await det.getByTestId('show-note').check();
@@ -129,7 +132,8 @@ test('Plandetails: Format und Überschrift ändern, nach Neuladen erhalten', asy
   await page.reload();
   await page.getByTestId('plan-actions').click();
   await page.getByTestId('action-edit').click();
-  await expect(det.getByTestId('export-paper')).toHaveValue('A4-hoch');
+  await expect(det.getByTestId('export-paper')).toHaveValue('A4');
+  await expect(det.getByTestId('export-orient')).toHaveValue('hoch');
   await expect(det.locator('[data-field="title"]')).toHaveValue('Aufmaß Hof');
   await expect(det.getByTestId('show-note')).toBeChecked();
   await expect(det.getByTestId('show-name')).toBeChecked();
@@ -159,7 +163,8 @@ test('Gezeichneter Plan: Überschrift frei wählbar, Format des Zeichenblatts', 
   await nd.locator('[data-field="title"]').fill('Aufmaßplan');
   await nd.locator('[data-field="planNumber"]').fill('067');
   await nd.locator('[data-field="description"]').fill('Interne Notiz');
-  await nd.getByTestId('sheet-paper').selectOption('A4-quer');
+  await nd.getByTestId('sheet-paper').selectOption('A4');
+  await nd.getByTestId('sheet-orient').selectOption('quer');
   await nd.getByTestId('new-drawing-save').click();
   await expect(page.getByTestId('drawing-sheet')).toBeVisible();
   const r = await exportPdf(page, 'format-zeichnung');
@@ -357,7 +362,8 @@ test('Gezeichneter Plan: Plan bearbeiten unbegrenzt, Plan messen zeigt das gewä
   await page.getByTestId('draw-plan').click();
   const nd = page.getByTestId('new-drawing');
   await nd.locator('[data-field="planNumber"]').fill('B-1');
-  await nd.getByTestId('sheet-paper').selectOption('A4-quer');
+  await nd.getByTestId('sheet-paper').selectOption('A4');
+  await nd.getByTestId('sheet-orient').selectOption('quer');
   await nd.getByTestId('new-drawing-save').click();
   // Plan bearbeiten: unbegrenzte weiße Fläche
   await expect(page.locator('.drawing-bg')).toHaveCount(1);
@@ -411,8 +417,10 @@ test('Plan zeichnen: alle A-Formate (A4 bis A0, hoch/quer); im Aufmaßplan füll
   const nd = page.getByTestId('new-drawing');
   await nd.locator('[data-field="planNumber"]').fill('F-2');
   const opts = await nd.getByTestId('sheet-paper').locator('option').evaluateAll((os) => os.map((o) => (o as HTMLOptionElement).value).filter(Boolean));
-  expect(opts).toEqual(['A4-hoch', 'A4-quer', 'A3-hoch', 'A3-quer', 'A2-hoch', 'A2-quer', 'A1-hoch', 'A1-quer', 'A0-hoch', 'A0-quer']);
-  await nd.getByTestId('sheet-paper').selectOption('A2-quer');
+  expect(opts).toEqual(['A4', 'A3', 'A2', 'A1', 'A0']); // Format und Ausrichtung getrennt
+  expect(await nd.getByTestId('sheet-orient').locator('option').allTextContents()).toEqual(['Hochformat', 'Querformat']);
+  await nd.getByTestId('sheet-paper').selectOption('A2');
+  await nd.getByTestId('sheet-orient').selectOption('quer');
   await nd.getByTestId('sheet-scale').selectOption('100');
   await nd.getByTestId('new-drawing-save').click();
   // kleiner Raum 4 × 3 m – auf A2 1:100 wäre er winzig

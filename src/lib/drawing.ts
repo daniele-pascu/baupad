@@ -32,6 +32,13 @@ export const PAPER: Record<PaperFormat, { w: number; h: number; label: string }>
   'A0-quer': { w: 1189, h: 841, label: 'A0 Querformat' },
 };
 export const PAPER_FORMATS = Object.keys(PAPER) as PaperFormat[];
+/** Format (A4 … A0) und Ausrichtung getrennt wählbar – gespeichert wird weiter „A3-quer“ usw. */
+export const PAPER_SIZES = ['A4', 'A3', 'A2', 'A1', 'A0'] as const;
+export type PaperSize = (typeof PAPER_SIZES)[number];
+export type PaperOrient = 'hoch' | 'quer';
+export const paperSize = (p: PaperFormat) => p.split('-')[0] as PaperSize;
+export const paperOrient = (p: PaperFormat) => p.split('-')[1] as PaperOrient;
+export const makePaper = (size: PaperSize, orient: PaperOrient) => `${size}-${orient}` as PaperFormat;
 /** Übliche Maßstäbe 1:n */
 export const SCALES = [20, 25, 50, 75, 100, 200, 250, 500, 1000];
 /** Druckränder und Kopfzeile in mm – das Zeichenblatt ist der Bereich innerhalb davon */

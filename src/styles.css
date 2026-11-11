@@ -11248,3 +11248,13 @@ html[data-theme='dark'] .crew-search {
   text-decoration: none;
   color: inherit;
 }
+
+/* Format und Ausrichtung nebeneinander */
+.paper-pick {
+  display: flex;
+  gap: 8px;
+}
+.paper-pick select {
+  flex: 1;
+  min-width: 0;
+}

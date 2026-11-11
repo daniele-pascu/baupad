@@ -50,7 +50,8 @@ test('Obere Werkzeugleiste: Registerkarten Zeichnen, √Ñndern, Eigenschaften, Pr√
   await page.getByTestId('draw-plan').click();
   const nd = page.getByTestId('new-drawing');
   await nd.locator('[data-field="planNumber"]').fill('PL-1');
-  await nd.getByTestId('sheet-paper').selectOption('A4-quer');
+  await nd.getByTestId('sheet-paper').selectOption('A4');
+  await nd.getByTestId('sheet-orient').selectOption('quer');
   await nd.getByTestId('sheet-scale').selectOption('50');
   await nd.getByTestId('new-drawing-save').click();
   await expect(sheet()).toBeVisible();

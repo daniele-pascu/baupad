@@ -1,6 +1,6 @@
 import { invoiceLabel, invoicesOf } from '../lib/invoices';
 import { useId, useState } from 'react';
-import { isDrawingPlan, PAPER, PAPER_FORMATS, PRINT_HEADER_MM, PRINT_MARGIN_MM, printFit, SCALES, sheetFields, sheetMeters } from '../lib/drawing';
+import { isDrawingPlan, makePaper, PAPER, PAPER_SIZES, paperOrient, paperSize, PRINT_HEADER_MM, PRINT_MARGIN_MM, printFit, SCALES, sheetFields, sheetMeters } from '../lib/drawing';
 import { formatMeasure } from '../lib/numbers';
 import { elementsOf } from '../lib/aufmass';
 import { planNumberStart } from '../lib/numbering';
@@ -8,6 +8,7 @@ import { sameNumberScope } from '../lib/invoices';
 import { alive, newMeta, putRecord, type ProjectState } from '../lib/store';
 import { exportPaper, planHeading } from '../lib/sheet-layout';
 import type { PaperFormat, Plan } from '../lib/types';
+import type { PaperOrient, PaperSize } from '../lib/drawing';
 import { Modal } from './Modal';
 
 export interface PlanFieldValues {
@@ -389,14 +390,27 @@ export function ExportPaperField({
         <label htmlFor={id}>Format (PDF)</label>
         {onShow && <ShowInPlan checked={!!show} onChange={onShow} testId="show-paper" />}
       </span>
-      <select id={id} value={value} onChange={(e) => onChange(e.target.value as PaperFormat)} data-testid="export-paper">
-        {PAPER_FORMATS.map((f) => (
-          <option key={f} value={f}>
-            {PAPER[f].label}
-          </option>
-        ))}
-      </select>
+      <span className="paper-pick">
+        <select id={id} value={paperSize(value)} onChange={(e) => onChange(makePaper(e.target.value as PaperSize, paperOrient(value)))} data-testid="export-paper">
+          {PAPER_SIZES.map((f) => (
+            <option key={f} value={f}>
+              {f}
+            </option>
+          ))}
+        </select>
+        <OrientSelect value={paperOrient(value)} onChange={(o) => onChange(makePaper(paperSize(value), o))} testId="export-orient" />
+      </span>
     </div>
+  );
+}
+
+/** Ausrichtung: Hochformat oder Querformat */
+function OrientSelect({ value, onChange, disabled, testId }: { value: PaperOrient; onChange: (o: PaperOrient) => void; disabled?: boolean; testId: string }) {
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value as PaperOrient)} disabled={disabled} aria-label="Ausrichtung" data-testid={testId}>
+      <option value="hoch">Hochformat</option>
+      <option value="quer">Querformat</option>
+    </select>
   );
 }
 
@@ -427,14 +441,22 @@ function SheetFields({
           <label htmlFor="sheet-paper">Format</label>
           {onShow && <ShowInPlan checked={showPaper} onChange={(v) => onShow({ showPaper: v })} testId="show-paper" />}
         </span>
-        <select id="sheet-paper" value={paper} onChange={(e) => onChange(e.target.value as PaperFormat | '', scale)} data-testid="sheet-paper">
-          {allowNone && <option value="">Ohne Format (Zeichenfläche wächst mit)</option>}
-          {PAPER_FORMATS.map((p) => (
-            <option key={p} value={p}>
-              {PAPER[p].label}
-            </option>
-          ))}
-        </select>
+        <span className="paper-pick">
+          <select
+            id="sheet-paper"
+            value={paper ? paperSize(paper) : ''}
+            onChange={(e) => onChange(e.target.value ? makePaper(e.target.value as PaperSize, paper ? paperOrient(paper) : 'quer') : '', scale)}
+            data-testid="sheet-paper"
+          >
+            {allowNone && <option value="">Ohne Format (wächst mit)</option>}
+            {PAPER_SIZES.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+          <OrientSelect value={paper ? paperOrient(paper) : 'quer'} onChange={(o) => paper && onChange(makePaper(paperSize(paper), o), scale)} disabled={!paper} testId="sheet-orient" />
+        </span>
       </div>
       <div className="field">
         <span className="field-head">

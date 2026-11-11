@@ -54,7 +54,8 @@ test('Papierformat wählen: A4 hoch 1:50 – Blattgröße, Anzeige und gespeiche
   await page.getByTestId('draw-plan').click();
   const nd = page.getByTestId('new-drawing');
   await nd.locator('[data-field="planNumber"]').fill('F-1');
-  await nd.getByTestId('sheet-paper').selectOption('A4-hoch');
+  await nd.getByTestId('sheet-paper').selectOption('A4');
+  await nd.getByTestId('sheet-orient').selectOption('hoch');
   await nd.getByTestId('sheet-scale').selectOption('50');
   // (210 − 2·10 mm) × 50 = 9,50 m; (297 − 2·10 − 14 mm) × 50 = 13,15 m
   await expect(nd.getByTestId('sheet-size')).toContainText('9,50 × 13,15 m');
@@ -237,7 +238,8 @@ test('Format ändern und PDF im gewählten Format; Format/Maßstab nur auf Wunsc
   // Format nachträglich ändern: A3 quer 1:100
   await page.getByTestId('sheet-label').click();
   const pd = page.getByTestId('plan-details');
-  await pd.getByTestId('sheet-paper').selectOption('A3-quer');
+  await pd.getByTestId('sheet-paper').selectOption('A3');
+  await pd.getByTestId('sheet-orient').selectOption('quer');
   await pd.getByTestId('sheet-scale').selectOption('100');
   await expect(pd.getByTestId('sheet-size')).toContainText('40,00 × 26,30 m');
   // Format und Maßstab ausdrücklich im Plan anzeigen
@@ -262,7 +264,8 @@ test('Format ändern und PDF im gewählten Format; Format/Maßstab nur auf Wunsc
 
   // Zeichnung größer als das Blatt (A4 hoch 1:20 = 3,80 × 5,26 m): steht trotzdem ganz, zentriert und blattfüllend
   await page.getByTestId('sheet-label').click();
-  await pd.getByTestId('sheet-paper').selectOption('A4-hoch');
+  await pd.getByTestId('sheet-paper').selectOption('A4');
+  await pd.getByTestId('sheet-orient').selectOption('hoch');
   await pd.getByTestId('sheet-scale').selectOption('20');
   await expect(pd.getByTestId('sheet-outside')).toContainText('zentriert und blattfüllend');
   await pd.getByRole('button', { name: 'Speichern' }).click();
@@ -279,7 +282,8 @@ test('Format ändern und PDF im gewählten Format; Format/Maßstab nur auf Wunsc
 
   // Ohne Maßstab: Zeichnung füllt das Blatt (zentriert), kein Maßstab im PDF – auch wenn „Maßstab anzeigen“ an ist
   await page.getByTestId('sheet-label').click();
-  await pd.getByTestId('sheet-paper').selectOption('A3-quer');
+  await pd.getByTestId('sheet-paper').selectOption('A3');
+  await pd.getByTestId('sheet-orient').selectOption('quer');
   await pd.getByTestId('sheet-scale').selectOption('0');
   await expect(pd.getByTestId('sheet-size')).toContainText('so groß wie möglich auf das Blatt gesetzt und zentriert');
   await expect(pd.getByTestId('sheet-outside')).toHaveCount(0);
