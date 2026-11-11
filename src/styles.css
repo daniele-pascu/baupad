@@ -11497,3 +11497,64 @@ html[data-theme='dark'] .crew-search {
     margin-left: 0;
   }
 }
+
+/* Positionsauswahl am Handy: jede Position als kompakte Zeile – oben Nummer und Einheit, darunter der Kurztext
+   über die ganze Breite (statt schmaler Tabellenspalten mit vielen Umbrüchen) */
+@media (max-width: 600px) {
+  .position-table,
+  .position-table tbody {
+    display: block;
+  }
+  .position-table colgroup,
+  .position-table thead {
+    display: none;
+  }
+  .position-table tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 2px 12px;
+    padding: 9px 12px;
+    border-top: 1px solid var(--border);
+    cursor: pointer;
+  }
+  .position-table tr:first-child {
+    border-top: 0;
+  }
+  .position-table td {
+    padding: 0;
+    border-top: 0;
+    background: none !important;
+  }
+  .position-table tr:hover,
+  .position-table tr.sel {
+    background: var(--primary-soft);
+  }
+  .position-table td[colspan] {
+    grid-column: 1 / -1;
+  }
+  .position-table .pos-no {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--muted);
+  }
+  .position-table td:nth-child(3) {
+    justify-self: end;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--muted);
+  }
+  .position-table td:nth-child(2) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    font-size: 0.95rem;
+    line-height: 1.35;
+    overflow-wrap: break-word;
+  }
+  .position-table td:nth-child(4) {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+  .position-table-wrap {
+    max-height: calc(100dvh - 230px);
+  }
+}

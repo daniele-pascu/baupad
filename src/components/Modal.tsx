@@ -1,4 +1,5 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from './Icon';
 
 interface Props {
@@ -13,6 +14,9 @@ interface Props {
   testId?: string;
   className?: string;
 }
+
+/** Fenster in einem Fenster (z. B. Positionsauswahl im Messdialog) – wird ganz oben angezeigt, nicht im äußeren Fenster */
+const InModal = createContext(false);
 
 export function Modal({ title, onClose, children, footer, wide, full, persistent, testId, className }: Props) {
   const ref = useRef<HTMLDivElement>(null);
@@ -42,7 +46,8 @@ export function Modal({ title, onClose, children, footer, wide, full, persistent
     };
   }, []);
 
-  return (
+  const nested = useContext(InModal);
+  const node = (
     <div
       className="modal-backdrop"
       onPointerDown={(e) => {
@@ -69,4 +74,7 @@ export function Modal({ title, onClose, children, footer, wide, full, persistent
       </div>
     </div>
   );
+  const content = <InModal.Provider value={true}>{node}</InModal.Provider>;
+  // geschachtelt: an den Seitenkörper hängen, damit es über dem äußeren Fenster (samt dessen Tasten) liegt
+  return nested ? createPortal(content, document.body) : content;
 }

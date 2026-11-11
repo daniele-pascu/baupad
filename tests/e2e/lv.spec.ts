@@ -1,6 +1,7 @@
 import { expect, test } from './fixtures';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
+import { tastenBefunde } from './tasten-check';
 import { catchDownload, createProject, drawRect, FIXTURES, freshStart, OUT, planBox, readXlsx, readXlsxPrint, saveDownload, waitForPlan, waitSaved, pickTool } from './helpers';
 
 /** Phase 4: LV/MFK aus PDF importieren, prüfen, durchsuchen, Messungen zuordnen, Mengen. */
@@ -54,10 +55,17 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   await expect(picker.locator('thead th').first()).toHaveText('Position');
   // nur senkrecht scrollen: Tabelle passt in die Breite (Kurztext bricht um)
   for (const w of [1280, 820, 390]) {
-    await page.setViewportSize({ width: w, height: 900 });
+    await page.setViewportSize({ width: w, height: w === 390 ? 844 : 900 });
     const over = await picker.locator('.position-table-wrap').evaluate((el) => el.scrollWidth - el.clientWidth);
     expect(over).toBeLessThanOrEqual(1);
   }
+  // Handy: Positionen als kompakte Zeilen (Nummer + EH oben, Kurztext darunter), Fenster liegt über dem Messdialog
+  await page.screenshot({ path: join(OUT, 'position-picker-handy.png') });
+  expect(await tastenBefunde(page)).toEqual([]);
+  const opt = picker.getByTestId('position-option').first();
+  const [no, text] = await Promise.all([opt.locator('.pos-no').boundingBox(), opt.locator('td').nth(1).boundingBox()]);
+  expect(text!.y).toBeGreaterThan(no!.y + no!.height - 1); // Kurztext unter der Nummer
+  expect(text!.width).toBeGreaterThan(250); // volle Breite
   await page.setViewportSize({ width: 1440, height: 900 });
   await picker.getByTestId('position-search').fill('sperr');
   await expect(picker.getByTestId('position-option')).toHaveCount(1);
