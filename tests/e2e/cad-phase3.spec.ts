@@ -78,13 +78,13 @@ test('Eigenschaften: Linienart, Musterlänge, Deckkraft, Baustoff-Schraffur, Fl�
   els = await elements();
   for (const e of els) {
     expect(e.style?.hatch?.pattern).toBe('concrete');
-    expect(e.style?.fillColor).toBe('#00b000');
+    expect(e.style?.fillColor).toBe('#1c1c1e'); // ÖNORM „Graphisch“: schwarzes Muster (Fläche dahinter gewählt: weiß)
     expect(e.style?.hatchBg).toBe('#ffffff');
   }
   await expect(page.locator('[data-fill="hatch"][data-pattern="concrete"]')).toHaveCount(2);
   await expect(page.locator('[data-fill="hatch-bg"]')).toHaveCount(2);
   // weitere Muster zeichnen ohne Fehler
-  for (const m of ['mat:ziegel', 'mat:erdreich', 'mat:daemm-weich', 'mat:holz', 'mat:kies', 'mat:glas', 'grid']) {
+  for (const m of ['mat:stein', 'mat:erdreich', 'mat:daemm-weich', 'mat:holz', 'mat:abtrag', 'mat:glas', 'grid']) {
     await st.getByTestId('style-hatch-open').click();
     await hp.getByTestId(m.startsWith('mat:') ? 'hatch-tab-material' : 'hatch-tab-pattern').click();
     await hp.getByTestId(`hatch-tile-${m}`).click();

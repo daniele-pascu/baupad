@@ -114,31 +114,31 @@ export const HATCH_PATTERNS: { id: HatchPattern; label: string }[] = [
   { id: 'plastic', label: 'Kunststoff' },
   { id: 'gypsum', label: 'Gips' },
   { id: 'sealing', label: 'Dichtstoff' },
+  { id: 'demolish', label: 'Abbruch (Y-Zeichen)' },
 ];
 
 /**
  * Baustoffe nach ÖNORM A 6240 (Kennzeichnung von Baumaterialien): Muster, Farbe (RGB laut Tabelle),
  * Winkel und Abstand – wählt man einen Baustoff, werden diese Werte übernommen (danach frei änderbar).
  */
-export const MATERIALS: { id: string; label: string; pattern: HatchPattern; color: string; angle: number; spacing: number }[] = [
-  { id: 'mw-daemmend', label: 'Mauerwerk (wärmedämmend)', pattern: 'lines', color: '#ff0000', angle: 45, spacing: 5 },
-  { id: 'mw', label: 'Mauerwerk (nicht wärmedämmend)', pattern: 'lines', color: '#a00000', angle: 45, spacing: 4 },
-  { id: 'mw-abbruch', label: 'Abzubrechendes Mauerwerk', pattern: 'cross', color: '#ffff00', angle: 45, spacing: 5 },
-  { id: 'ziegel', label: 'Ziegel', pattern: 'brick', color: '#c03a2b', angle: 0, spacing: 5 },
-  { id: 'beton', label: 'Beton (unbewehrt)', pattern: 'concrete', color: '#00b000', angle: 0, spacing: 7 },
-  { id: 'stahlbeton', label: 'Stahlbeton', pattern: 'reinforced', color: '#008000', angle: 45, spacing: 6 },
-  { id: 'stein', label: 'Stein (Naturstein)', pattern: 'stone', color: '#7fbf7f', angle: 45, spacing: 7 },
-  { id: 'stahl', label: 'Stahl (allgemein)', pattern: 'metal', color: '#0000ff', angle: 45, spacing: 3 },
-  { id: 'holz', label: 'Holz (allgemein)', pattern: 'wood', color: '#b8860b', angle: 0, spacing: 5 },
-  { id: 'holzwerkstoff', label: 'Holzwerkstoffe', pattern: 'woodBased', color: '#d2a050', angle: 45, spacing: 5 },
+export const MATERIALS: { id: string; label: string; pattern: HatchPattern; color: string; angle: number; spacing: number; note?: string; solid?: boolean }[] = [
+  { id: 'mw-daemmend', label: 'Mauerwerk (wärmedämmend)', pattern: 'lines', color: '#ff0000', angle: 135, spacing: 3 },
+  { id: 'mw', label: 'Mauerwerk (nicht wärmedämmend)', pattern: 'lines', color: '#c40000', angle: 135, spacing: 5 },
+  { id: 'abtrag', label: 'Abzutragendes Mauerwerk (allgemein)', pattern: 'demolish', color: '#ffff00', angle: 0, spacing: 5, note: 'gilt für alle Werkstoffe bei Abtrag' },
+  { id: 'beton', label: 'Unbewehrter Beton', pattern: 'concrete', color: '#00ff00', angle: 135, spacing: 3 },
+  { id: 'stahlbeton', label: 'Bewehrter Beton', pattern: 'reinforced', color: '#008000', angle: 135, spacing: 3, note: 'im kleinen Maßstab schwarz' },
+  { id: 'stein', label: 'Stein', pattern: 'stone', color: '#a1cda1', angle: 0, spacing: 4 },
+  { id: 'stahl', label: 'Stahl (allgemein)', pattern: 'metal', color: '#0000ff', angle: 135, spacing: 4 },
+  { id: 'holz', label: 'Holz (allgemein)', pattern: 'wood', color: '#d2b48c', angle: 135, spacing: 4 },
+  { id: 'holzwerkstoff', label: 'Holzwerkstoffe', pattern: 'woodBased', color: '#b85600', angle: 90, spacing: 4 },
   { id: 'daemm-hart', label: 'Dämmstoff (hart)', pattern: 'insulationHard', color: '#ff00ff', angle: 0, spacing: 6 },
   { id: 'daemm-weich', label: 'Dämmstoff (weich)', pattern: 'insulationSoft', color: '#ffaa00', angle: 0, spacing: 7 },
-  { id: 'kunststoff', label: 'Kunststoff (allgemein)', pattern: 'plastic', color: '#ffaac8', angle: 45, spacing: 5 },
-  { id: 'dichtstoff', label: 'Dichtstoff (allgemein)', pattern: 'sealing', color: '#000000', angle: 45, spacing: 2 },
-  { id: 'glas', label: 'Glas', pattern: 'glass', color: '#00c8ff', angle: 45, spacing: 8 },
-  { id: 'gips', label: 'Gips (Gipskarton, Putz)', pattern: 'gypsum', color: '#ff6400', angle: 0, spacing: 4 },
-  { id: 'erdreich', label: 'Erdreich', pattern: 'earth', color: '#8c6e4b', angle: 45, spacing: 8 },
-  { id: 'kies', label: 'Kies / Schüttung', pattern: 'gravel', color: '#8a8a8a', angle: 0, spacing: 6 },
+  { id: 'kunststoff', label: 'Kunststoff (allgemein)', pattern: 'plastic', color: '#ffaacd', angle: 45, spacing: 2 },
+  { id: 'dichtstoff', label: 'Dichtstoff (allgemein)', pattern: 'sealing', color: '#000000', angle: 0, spacing: 3 },
+  { id: 'glas', label: 'Glas', pattern: 'glass', color: '#00ffff', angle: 45, spacing: 3 },
+  { id: 'gips', label: 'Gips (z. B. Gipskarton-, Gipsfaserplatte)', pattern: 'gypsum', color: '#ff6400', angle: 0, spacing: 4 },
+  { id: 'bestand', label: 'Bestand', pattern: 'lines', color: '#aaaaaa', angle: 45, spacing: 4, solid: true },
+  { id: 'erdreich', label: 'Erdmaterial (allgemein)', pattern: 'earth', color: '#aa6446', angle: 45, spacing: 4 },
 ];
 export const DEFAULT_HATCH = { pattern: 'lines' as HatchPattern, angle: 45, spacing: 6 };
 
@@ -281,6 +281,74 @@ export function hatchGeometry(poly: Point[], pattern: HatchPattern, angle: numbe
       }
     });
 
+  /**
+   * Parallele Linien mit Wiederholung `period`: je Linie Versatz `at` und Strichlänge `dash` (0 = durchgezogen).
+   */
+  const stripes = (deg: number, period: number, lines: { at: number; dash: number }[]) => {
+    const a = (deg * Math.PI) / 180;
+    const cos = Math.cos(a);
+    const sin = Math.sin(a);
+    const rot = poly.map((p) => ({ x: p.x * cos + p.y * sin, y: -p.x * sin + p.y * cos }));
+    const back = (x: number, y: number): Point => ({ x: x * cos - y * sin, y: x * sin + y * cos });
+    const ys = rot.map((p) => p.y);
+    const y0 = Math.floor(Math.min(...ys) / period) * period;
+    const y1 = Math.max(...ys);
+    let count = 0;
+    for (let base = y0; base <= y1 && count < MAX_HATCH_LINES; base += period) {
+      for (const l of lines) {
+        const y = base + l.at;
+        const xs: number[] = [];
+        for (let i = 0; i < rot.length; i++) {
+          const p = rot[i];
+          const q = rot[(i + 1) % rot.length];
+          if ((p.y <= y && q.y > y) || (q.y <= y && p.y > y)) xs.push(p.x + ((y - p.y) / (q.y - p.y)) * (q.x - p.x));
+        }
+        xs.sort((u, v) => u - v);
+        for (let i = 0; i + 1 < xs.length; i += 2) {
+          if (!l.dash) {
+            segments.push([back(xs[i], y), back(xs[i + 1], y)]);
+            continue;
+          }
+          // Strichlinie: Striche im festen Raster (unabhängig vom Anfang der Fläche)
+          const step = l.dash * 2;
+          for (let x = Math.ceil(xs[i] / step) * step; x < xs[i + 1] && segments.length < MAX_HATCH_SEGMENTS; x += step) segments.push([back(x, y), back(Math.min(x + l.dash, xs[i + 1]), y)]);
+        }
+        count++;
+      }
+    }
+  };
+  /**
+   * Striche innen am Rand der Fläche (Stein, Glas): alle `every` ein Strich bzw. eine Gruppe von `group` Strichen
+   * (Abstand `gap`), Länge `len`, Winkel `deg` zur Kante (90 = senkrecht nach innen).
+   */
+  const edgeTicks = (every: number, len: number, deg: number, group = 1, gap = 0) => {
+    const area2 = poly.reduce((acc, p, i) => acc + p.x * poly[(i + 1) % poly.length].y - poly[(i + 1) % poly.length].x * p.y, 0);
+    const inward = area2 > 0 ? 1 : -1; // Normale nach innen (Bildschirm: y nach unten)
+    for (let i = 0; i < poly.length; i++) {
+      const p = poly[i];
+      const q = poly[(i + 1) % poly.length];
+      const L = Math.hypot(q.x - p.x, q.y - p.y);
+      if (L < every * 0.5) continue;
+      const ux = (q.x - p.x) / L;
+      const uy = (q.y - p.y) / L;
+      const nx = -uy * inward;
+      const ny = ux * inward;
+      const a = (deg * Math.PI) / 180;
+      const dx = ux * Math.cos(a) + nx * Math.sin(a);
+      const dy = uy * Math.cos(a) + ny * Math.sin(a);
+      const n = Math.floor((L - every * 0.3) / every);
+      const start = (L - n * every) / 2;
+      for (let k = 0; k <= n && segments.length < MAX_HATCH_SEGMENTS; k++) {
+        for (let g = 0; g < group; g++) {
+          const t = start + k * every + (g - (group - 1) / 2) * gap;
+          if (t < 0 || t > L) continue;
+          const b = { x: p.x + ux * t, y: p.y + uy * t };
+          segments.push(...clipSegment(b, { x: b.x + dx * len, y: b.y + dy * len }, poly));
+        }
+      }
+    }
+  };
+
   const s = spacing;
   switch (pattern) {
     case 'dots':
@@ -304,12 +372,38 @@ export function hatchGeometry(poly: Point[], pattern: HatchPattern, angle: numbe
       run(angle, false, s / 2.5);
       break;
     case 'sealing':
-      run(angle, false, s / 3);
-      run(angle + 90, false, s / 3);
+      // Dichtstoff: Band aus abwechselnd schwarzen und weißen Feldern (schwarz = dichte Striche)
+      cells(angle, s * 3, s * 1.2, (i, j, x, y, add) => {
+        if ((i + j) % 2) return;
+        for (let k = 0; k <= 4; k++) add({ x, y: y + (k * s) / 5 }, { x: x + s * 3, y: y + (k * s) / 5 });
+      });
       break;
     case 'metal':
-      // Stahl: dichte Linien
-      run(angle, false, s / 2);
+      // Stahl: je zwei Linien, dazwischen eine Strichlinie (ÖNORM A 6240)
+      stripes(angle, s * 3, [
+        { at: 0, dash: 0 },
+        { at: s * 0.6, dash: 0 },
+        { at: s * 1.8, dash: s * 0.5 },
+      ]);
+      break;
+    case 'demolish':
+      // Abtrag: Reihen kleiner Y-Zeichen, jede zweite Reihe umgekehrt
+      cells(angle, s, s, (_i, j, x, y, add) => {
+        const cx = x + s / 2;
+        const up = j % 2 === 0;
+        const top = y + s * 0.2;
+        const mid = y + s * 0.5;
+        const bot = y + s * 0.8;
+        if (up) {
+          add({ x: cx, y: mid }, { x: cx, y: bot });
+          add({ x: cx - s * 0.22, y: top }, { x: cx, y: mid });
+          add({ x: cx + s * 0.22, y: top }, { x: cx, y: mid });
+        } else {
+          add({ x: cx, y: top }, { x: cx, y: mid });
+          add({ x: cx, y: mid }, { x: cx - s * 0.22, y: bot });
+          add({ x: cx, y: mid }, { x: cx + s * 0.22, y: bot });
+        }
+      });
       break;
     case 'brick':
       // Ziegelverband: Lagerfugen waagrecht, Stoßfugen versetzt
@@ -321,22 +415,15 @@ export function hatchGeometry(poly: Point[], pattern: HatchPattern, angle: numbe
       });
       break;
     case 'concrete':
+      // Unbewehrter Beton: schräge Reihen kurzer Striche (ÖNORM A 6240)
+      stripes(angle, s, [{ at: 0, dash: s * 0.45 }]);
+      break;
     case 'reinforced':
-      // Beton: verstreute kleine Dreiecke und Punkte (fest pseudozufällig)
-      cells(0, s * 1.4, s * 1.4, (i, j, x, y, add, dot) => {
-        const cx = x + rnd(i, j) * s * 1.2;
-        const cy = y + rnd(i, j, 1) * s * 1.2;
-        if (rnd(i, j, 2) < 0.45) {
-          const r = s * 0.28;
-          const a0 = rnd(i, j, 3) * Math.PI * 2;
-          const p = [0, 1, 2].map((k) => ({ x: cx + Math.cos(a0 + (k * Math.PI * 2) / 3) * r, y: cy + Math.sin(a0 + (k * Math.PI * 2) / 3) * r }));
-          add(p[0], p[1]);
-          add(p[1], p[2]);
-          add(p[2], p[0]);
-        } else dot({ x: cx, y: cy });
-        if (rnd(i, j, 4) < 0.5) dot({ x: x + rnd(i, j, 5) * s * 1.4, y: y + rnd(i, j, 6) * s * 1.4 });
-      });
-      if (pattern === 'reinforced') run(angle, false, s * 1.6);
+      // Bewehrter Beton: abwechselnd durchgezogene und gestrichelte Schräglinien (ÖNORM A 6240)
+      stripes(angle, s * 2, [
+        { at: 0, dash: 0 },
+        { at: s, dash: s * 0.5 },
+      ]);
       break;
     case 'earth':
       // Erdreich: Gruppen kurzer Schrägstriche, versetzt
@@ -352,47 +439,48 @@ export function hatchGeometry(poly: Point[], pattern: HatchPattern, angle: numbe
       });
       break;
     case 'insulationSoft':
-      // weiche Dämmung: Schlaufenlinie
+      // Dämmstoff weich: Schlaufenlinie (ÖNORM A 6240)
       waves(angle, s, s * 0.45, s * 1.2, false, true);
       break;
     case 'insulationHard':
-      // harte Dämmung: Zickzack
-      waves(angle, s, s * 0.45, s, true);
+      // Dämmstoff hart: Zickzack (ÖNORM A 6240)
+      waves(angle, s, s * 0.48, s * 0.6, true);
       break;
     case 'wood':
-      // Holzmaserung: flache Wellen
-      waves(angle, s, s * 0.18, s * 5, false);
+      // Holz: Schräglinien in unregelmäßigen Gruppen (Paar, einzeln)
+      stripes(angle, s * 3, [
+        { at: 0, dash: 0 },
+        { at: s * 0.5, dash: 0 },
+        { at: s * 1.8, dash: 0 },
+      ]);
       break;
     case 'woodBased':
-      run(angle, false, s);
-      cells(angle, s * 2, s, (i, j, x, y, add) => {
-        if ((i + j) % 3 === 0) add({ x: x + s * 0.3, y: y + s * 0.15 }, { x: x + s * 0.3, y: y + s * 0.85 });
-      });
+      // Holzwerkstoffe: Linien in Paaren (ÖNORM A 6240: senkrecht)
+      stripes(angle, s * 2.6, [
+        { at: 0, dash: 0 },
+        { at: s * 0.45, dash: 0 },
+        { at: s * 1.5, dash: 0 },
+      ]);
       break;
     case 'stone':
-      // Naturstein: unregelmäßige kurze Striche in zwei Richtungen
-      cells(angle, s * 1.6, s * 1.6, (i, j, x, y, add) => {
-        const l = s * (0.6 + rnd(i, j) * 0.7);
-        const cx = x + rnd(i, j, 1) * s;
-        const cy = y + rnd(i, j, 2) * s;
-        if (rnd(i, j, 3) < 0.5) add({ x: cx, y: cy }, { x: cx + l, y: cy + l * 0.15 });
-        else add({ x: cx, y: cy }, { x: cx + l * 0.2, y: cy + l });
-      });
+      // Stein: kurze Kammstriche innen am Rand (ÖNORM A 6240)
+      edgeTicks(s, s * 0.7, 90);
       break;
     case 'glass':
-      // Glas: je Zelle drei feine kurze Schrägstriche
-      cells(0, s * 2.5, s * 2.5, (i, j, x, y, add) => {
-        if ((i + j) % 2) return;
-        for (let k = 0; k < 3; k++) add({ x: x + k * s * 0.3, y: y + s * 0.9 }, { x: x + k * s * 0.3 + s * 0.5, y: y + s * 0.4 });
-      });
+      // Glas: Gruppen aus drei kurzen Schrägstrichen innen am Rand (ÖNORM A 6240)
+      edgeTicks(s * 4, s * 1.2, angle, 3, s * 0.45);
       break;
     case 'plastic':
-      // Kunststoff: Strich-Lücke in Schraffurrichtung
-      cells(angle, s * 2, s, (_i, _j, x, y, add) => add({ x, y }, { x: x + s * 1.3, y }));
+      // Kunststoff: dichte Kreuzschraffur (ÖNORM A 6240)
+      run(angle, false, s);
+      run(angle + 90, false, s);
       break;
     case 'gypsum':
-      run(angle, true, s / 1.5);
-      run(angle + 90, false, s * 3);
+      // Gips (Gipskarton-, Gipsfaserplatte): Doppellinien
+      stripes(angle, s * 2, [
+        { at: 0, dash: 0 },
+        { at: s * 0.35, dash: 0 },
+      ]);
       break;
     default:
       run(angle, false);

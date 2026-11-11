@@ -264,7 +264,7 @@ export function tastenTests() {
     await pickTool(page, 'draw-hatch');
     await expect(page.getByTestId('hatch-picker')).toBeVisible();
     await page.getByTestId('hatch-tab-material').click();
-    await page.getByTestId('hatch-tile-mat:ziegel').click();
+    await page.getByTestId('hatch-tile-mat:stein').click();
     await page.getByTestId('hatch-ok').click();
     await expect(page.getByTestId('hatch-prompt')).toBeVisible();
     await pruefe(page, 'Befehlsleiste Schraffur', out);

@@ -432,7 +432,8 @@ export type HatchPattern =
   | 'glass'
   | 'plastic'
   | 'gypsum'
-  | 'sealing';
+  | 'sealing'
+  | 'demolish';
 
 /** Bauteilkennzeichnung im Plan, z. B. „A – Wand“. */
 export interface Component extends SyncMeta {

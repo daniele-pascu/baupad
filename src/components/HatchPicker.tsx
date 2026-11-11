@@ -16,6 +16,29 @@ export interface HatchSetting {
   bg?: string;
   /** Schraffur entfernen (keine Füllung) */
   none?: boolean;
+  /** Vollfläche statt Schraffur (ÖNORM „Farbe“ bzw. „Bestand“) */
+  solid?: boolean;
+}
+
+/** Darstellung eines Baustoffs nach ÖNORM A 6240: schwarzes Muster, Farbfläche oder beides */
+export type MatMode = 'graphic' | 'color' | 'both';
+const MAT_MODE_KEY = 'hatchMatMode';
+const readMatMode = (): MatMode => {
+  try {
+    const v = localStorage.getItem(MAT_MODE_KEY);
+    return v === 'graphic' || v === 'color' || v === 'both' ? v : 'both';
+  } catch {
+    return 'both';
+  }
+};
+const BLACK = '#1c1c1e';
+/** Einstellung eines Baustoffs in der gewählten Darstellung */
+export function materialSetting(m: (typeof MATERIALS)[number], mode: MatMode): HatchSetting {
+  const hatch = { pattern: m.pattern, angle: m.angle, spacing: m.spacing };
+  if (m.solid) return { hatch, color: m.color, solid: true };
+  if (mode === 'color') return { hatch, color: m.color, solid: true };
+  if (mode === 'graphic') return { hatch, color: BLACK };
+  return { hatch, color: BLACK, bg: m.color };
 }
 
 export const DEFAULT_HATCH_SETTING: HatchSetting = { hatch: { ...DEFAULT_HATCH }, color: '#1c1c1e' };
@@ -23,11 +46,13 @@ export const DEFAULT_HATCH_SETTING: HatchSetting = { hatch: { ...DEFAULT_HATCH }
 /** Stil-Änderung für ein Objekt aus der Auswahl */
 export function hatchStyle(s: HatchSetting): Partial<ShapeStyle> {
   if (s.none) return { noFill: true };
+  if (s.solid) return { noFill: false, fillType: 'solid', fillColor: s.color, fillTransparency: 0, hatchBg: undefined };
   return { noFill: false, fillType: 'hatch', hatch: { ...s.hatch }, fillColor: s.color, fillTransparency: 0, hatchBg: s.bg };
 }
 
 /** Auswahl aus einem bestehenden Stil (zum Bearbeiten) */
 export function settingFromStyle(style: ShapeStyle | undefined, color: string): HatchSetting {
+  if (style && !style.noFill && style.fillType !== 'hatch' && style.fillColor) return { hatch: { ...(style.hatch ?? DEFAULT_HATCH) }, color: style.fillColor, solid: true };
   return { hatch: { ...(style?.hatch ?? DEFAULT_HATCH) }, color: style?.fillColor ?? color, ...(style?.hatchBg ? { bg: style.hatchBg } : {}) };
 }
 
@@ -37,7 +62,11 @@ export function hatchLabel(s: HatchSetting): string {
   const m = materialOf(s);
   return m?.label ?? HATCH_PATTERNS.find((p) => p.id === s.hatch.pattern)?.label ?? s.hatch.pattern;
 }
-const materialOf = (s: HatchSetting) => MATERIALS.find((x) => x.pattern === s.hatch.pattern && x.angle === s.hatch.angle && x.spacing === s.hatch.spacing && x.color === s.color.toLowerCase());
+/** Baustoff zur Einstellung: Muster, Winkel und Abstand (Farbe je nach Darstellung); Vollfläche über die Farbe */
+const materialOf = (s: HatchSetting) =>
+  s.solid
+    ? MATERIALS.find((x) => x.color === s.color.toLowerCase() && (x.solid || (x.pattern === s.hatch.pattern && x.angle === s.hatch.angle && x.spacing === s.hatch.spacing)))
+    : MATERIALS.find((x) => !x.solid && x.pattern === s.hatch.pattern && x.angle === s.hatch.angle && x.spacing === s.hatch.spacing);
 
 /** kleine Vorschau einer Schraffur (SVG) */
 export function HatchPreview({ s, w = 64, h = 40 }: { s: HatchSetting; w?: number; h?: number }) {
@@ -47,10 +76,10 @@ export function HatchPreview({ s, w = 64, h = 40 }: { s: HatchSetting; w?: numbe
     { x: w - 1, y: h - 1 },
     { x: 1, y: h - 1 },
   ];
-  const geo = s.none ? { segments: [], dots: [] } : hatchGeometry(poly, s.hatch.pattern, s.hatch.angle, Math.max(2, s.hatch.spacing) * 1.1);
+  const geo = s.none || s.solid ? { segments: [], dots: [] } : hatchGeometry(poly, s.hatch.pattern, s.hatch.angle, Math.max(2, s.hatch.spacing) * 1.1);
   return (
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden="true" className="hatch-preview">
-      <rect x={1} y={1} width={w - 2} height={h - 2} fill={s.bg ?? '#ffffff'} stroke="#868e96" strokeWidth={1} />
+      <rect x={1} y={1} width={w - 2} height={h - 2} fill={s.solid ? s.color : (s.bg ?? '#ffffff')} stroke="#868e96" strokeWidth={1} />
       <path d={hatchSvg(geo)} fill="none" stroke={s.color} strokeWidth={s.hatch.pattern === 'dots' ? 1.6 : 0.9} strokeLinecap="round" />
       {s.none && <path d={`M4 ${h - 4}L${w - 4} 4`} stroke="#e03131" strokeWidth={1.5} />}
     </svg>
@@ -60,11 +89,22 @@ export function HatchPreview({ s, w = 64, h = 40 }: { s: HatchSetting; w?: numbe
 function HatchPickerView({ init, title, allowNone, close }: { init: HatchSetting; title: string; allowNone: boolean; close(v: HatchSetting | null): void }) {
   const [s, setS] = useState<HatchSetting>({ ...init, none: false });
   const [tab, setTab] = useState<'pattern' | 'material'>(() => (materialOf(init) ? 'material' : 'pattern'));
+  const [mode, setModeState] = useState<MatMode>(readMatMode);
+  const setMode = (m: MatMode) => {
+    setModeState(m);
+    try {
+      localStorage.setItem(MAT_MODE_KEY, m);
+    } catch {
+      /* nur Komfort */
+    }
+    const cur = materialOf(s);
+    if (cur) setS(materialSetting(cur, m));
+  };
   const custom = useCustomColors();
   const tiles: { key: string; label: string; set: HatchSetting }[] = [
-    ...HATCH_PATTERNS.map((p) => ({ key: p.id, label: p.label, set: { ...s, none: false, hatch: { ...s.hatch, pattern: p.id } } })),
+    ...HATCH_PATTERNS.map((p) => ({ key: p.id, label: p.label, set: { ...s, none: false, solid: false, hatch: { ...s.hatch, pattern: p.id } } })),
   ];
-  const mats = MATERIALS.map((m) => ({ key: `mat:${m.id}`, label: m.label, set: { ...s, none: false, color: m.color, hatch: { pattern: m.pattern, angle: m.angle, spacing: m.spacing } } }));
+  const mats = MATERIALS.map((m) => ({ key: `mat:${m.id}`, label: m.label, set: materialSetting(m, mode) }));
   const current = materialOf(s) ? `mat:${materialOf(s)!.id}` : s.hatch.pattern;
   const tile = (t: { key: string; label: string; set: HatchSetting }) => (
     <button key={t.key} type="button" className={`hatch-tile${current === t.key ? ' active' : ''}`} aria-pressed={current === t.key} onClick={() => setS(t.set)} title={t.label} data-testid={`hatch-tile-${t.key}`}>
@@ -105,7 +145,28 @@ function HatchPickerView({ init, title, allowNone, close }: { init: HatchSetting
           Baustoffe (ÖNORM)
         </button>
       </div>
+      {tab === 'material' && (
+        <div className="hatch-mode" role="group" aria-label="Darstellung nach ÖNORM A 6240">
+          <span className="small muted">Darstellung:</span>
+          {(
+            [
+              ['graphic', 'Schraffur (schwarz)'],
+              ['color', 'Farbe'],
+              ['both', 'Schraffur + Farbe'],
+            ] as const
+          ).map(([m, l]) => (
+            <button key={m} type="button" className={`btn btn-sm${mode === m ? ' active' : ''}`} aria-pressed={mode === m} onClick={() => setMode(m)} data-testid={`hatch-mode-${m}`}>
+              {l}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="hatch-grid" data-testid="hatch-grid">{(tab === 'pattern' ? tiles : mats).map(tile)}</div>
+      {tab === 'material' && materialOf(s)?.note && (
+        <p className="small muted" data-testid="hatch-note">
+          Hinweis ÖNORM: {materialOf(s)!.note}
+        </p>
+      )}
       <div className="hatch-opts">
         <label className="field">
           <span>Winkel</span>
