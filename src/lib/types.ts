@@ -431,7 +431,7 @@ export interface TextFont {
 
 /** Objektart eines gezeichneten Plans */
 /** 'arc': Bogen aus drei Punkten, gespeichert als fein unterteilte offene Polylinie */
-export type DrawElementType = ShapeType | 'dimension' | 'text' | 'arc';
+export type DrawElementType = ShapeType | 'dimension' | 'text' | 'arc' | 'symbol' | 'wall';
 
 /**
  * Zeichnungsobjekt eines selbst gezeichneten Plans (eigener Datensatz je Objekt).
@@ -454,6 +454,10 @@ export interface DrawElement extends SyncMeta {
   text?: string;
   /** Schrift (nur Textobjekte): Schriftart, fett, kursiv; fehlt = Standardschrift normal */
   font?: TextFont;
+  /** Wand: Form ist die Achse (Linie/Polylinie); Stärke und Höhe in m */
+  wall?: { thickness: number; height?: number };
+  /** Bauteil/Symbol (Tür, Fenster, Elektro …) – Form ist das Begrenzungsrechteck */
+  symbol?: { id: string; flipX?: boolean; flipY?: boolean };
   /** Maße am Objekt anzeigen (Standard: ja) */
   showDims?: boolean;
   /** Maßlinie: Abstand der Maßlinie von der gemessenen Strecke in m (Vorzeichen = Seite) */

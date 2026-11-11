@@ -109,3 +109,29 @@ describe('Reihe', () => {
     expect(rotateAround(box, { x: 0, y: 0 }, 90).rotation).toBe(270);
   });
 });
+
+import { wallGeometry, axisLength } from '../../src/lib/walls';
+describe('Wand', () => {
+  it('gerade Wand 4 m × 0,3 m: Fläche, Enden', () => {
+    const g = wallGeometry([{ x: 0, y: 0 }, { x: 4, y: 0 }], false, 0.3);
+    expect(g.quads).toHaveLength(1);
+    expect(polygonArea(g.quads[0])).toBeCloseTo(1.2, 9);
+    expect(g.lines).toHaveLength(4); // zwei Seiten, zwei Enden
+  });
+  it('Tür 0,9 m in der Mitte schneidet die Öffnung aus (zwei Stücke, Laibungen)', () => {
+    const g = wallGeometry([{ x: 0, y: 0 }, { x: 4, y: 0 }], false, 0.3, [{ c: { x: 2, y: -0.15 }, w: 0.9, angle: 0 }]);
+    expect(g.quads).toHaveLength(2);
+    const area = g.quads.reduce((a, q) => a + polygonArea(q), 0);
+    expect(area).toBeCloseTo((4 - 0.9) * 0.3, 9);
+    expect(g.lines).toHaveLength(2 * 2 + 2 + 2);
+    // quer liegendes Bauteil schneidet nichts
+    expect(wallGeometry([{ x: 0, y: 0 }, { x: 4, y: 0 }], false, 0.3, [{ c: { x: 2, y: 0 }, w: 0.9, angle: 90 }]).quads).toHaveLength(1);
+  });
+  it('L-Wand mit Gehrung, Länge der Achse', () => {
+    const axis = [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 3 }];
+    const g = wallGeometry(axis, false, 0.2);
+    const area = g.quads.reduce((a, q) => a + polygonArea(q), 0);
+    expect(area).toBeCloseTo(7 * 0.2, 9); // Gehrung: Fläche = Achslänge × Stärke
+    expect(axisLength(axis, false)).toBe(7);
+  });
+});

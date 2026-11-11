@@ -40,6 +40,7 @@ import { clearHistory, newMeta, putRecord, putRecords, redo, softDelete, undo, u
 import { COLORS, SHAPE_LABELS, type Damage, type DrawElementType, type MeasureKind, type Plan, type Shape, type ShapeStyle, type ShapeType } from '../lib/types';
 import { DRAW_TOOLS, readStyle, SELECT_FIRST, useDrawing, VECTOR_COMMANDS, type DrawTool } from './DrawingMode';
 import { CommandBar } from '../components/CommandBar';
+import { symbolDef } from '../lib/symbols';
 import { DrawRibbon, OrthoButtons } from '../components/DrawRibbon';
 import { StylePanel } from '../components/StylePanel';
 
@@ -1657,13 +1658,22 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               </button>
             </div>
           )}
-          {drawMode && !probe && !dialog && (SELECT_FIRST.has(drawing.tool) || drawing.tool === 'offset' || (drawing.tool === 'line' && drawing.cmdBase)) && !(drawing.tool === 'array' && !drawing.cmdSelecting && !drawing.arrayPolar) && (() => {
+          {drawMode && !probe && !dialog && (SELECT_FIRST.has(drawing.tool) || drawing.tool === 'offset' || drawing.tool === 'symbol' || (drawing.tool === 'wall' && !polyCount) || (drawing.tool === 'line' && drawing.cmdBase)) && !(drawing.tool === 'array' && !drawing.cmdSelecting && !drawing.arrayPolar) && (() => {
             const t = drawing.tool;
             const n = drawing.selection.length;
             const plural = (k: number, one: string, many: string) => `${k} ${k === 1 ? one : many}`;
             const prompt =
               SELECT_FIRST.has(t) && drawing.cmdSelecting
                 ? `Objekte wählen: antippen oder Fenster aufziehen (nach links = auch berührte) – dann „${t === 'join' ? 'Verbinden' : 'Weiter'}“. Ausgewählt: ${n}${t === 'join' ? ` · Lücken bis ${formatMeasure(drawing.joinTol)} m werden geschlossen (Wert eingeben zum Ändern)` : ''}`
+                : t === 'wall'
+                  ? `Wand ${formatMeasure(drawing.wallThickness)} m stark${drawing.wallHeight ? `, ${formatMeasure(drawing.wallHeight)} m hoch` : ''}: Anfangspunkt und Knicke antippen, Enter bzw. „Fertig“ beendet. Stärke eintippen (bzw. Stärke;Höhe).`
+                : t === 'symbol'
+                  ? (() => {
+                      const def = symbolDef(drawing.symbolId);
+                      const w = drawing.symbolSize?.w ?? def?.w ?? 0;
+                      const h = drawing.symbolSize?.h ?? def?.h ?? 0;
+                      return `${def?.label ?? 'Bauteil'} ${formatMeasure(w)} × ${formatMeasure(h)} m: Stelle antippen – auf einer Linie bzw. Wand richtet es sich aus. Größe eintippen (Breite bzw. Breite;Tiefe).`;
+                    })()
                 : t === 'array'
                   ? 'Mittelpunkt der Reihe antippen (Fang hilft, z. B. Kreismitte).'
                   : t === 'mirror'
@@ -1690,7 +1700,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 title={DRAW_TOOLS.find((x) => x.id === t)?.short ?? ''}
                 prompt={prompt}
                 onInput={withInput ? drawing.applyInput : undefined}
-                placeholder={t === 'offset' ? 'Abstand, z. B. 0,25' : t === 'join' ? 'Lücke, z. B. 0,05' : undefined}
+                placeholder={t === 'wall' ? 'Stärke, z. B. 0,25' : t === 'offset' ? 'Abstand, z. B. 0,25' : t === 'join' ? 'Lücke, z. B. 0,05' : t === 'symbol' ? 'Breite, z. B. 0,9' : undefined}
               >
                 {SELECT_FIRST.has(t) && drawing.cmdSelecting && (
                   <button type="button" className="btn btn-sm btn-primary" disabled={!n} onClick={drawing.cmdNext} data-testid="command-next">
@@ -1708,15 +1718,20 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                     <span>Original behalten</span>
                   </label>
                 )}
-                {(SELECT_FIRST.has(t) || t === 'offset') && (
+                {t === 'symbol' && (
+                  <button type="button" className="btn btn-sm" onClick={() => void drawing.pickSymbol(symbolDef(drawing.symbolId)?.group ?? 'door')} data-testid="symbol-change">
+                    Anderes Bauteil
+                  </button>
+                )}
+                {(SELECT_FIRST.has(t) || t === 'offset' || t === 'symbol') && (
                   <button type="button" className="btn btn-sm" onClick={drawing.finishCommand} data-testid="command-done">
-                    {(t === 'copy' && drawing.copies) || t === 'offset' ? 'Fertig' : 'Abbrechen'}
+                    {(t === 'copy' && drawing.copies) || t === 'offset' || t === 'symbol' ? 'Fertig' : 'Abbrechen'}
                   </button>
                 )}
               </CommandBar>
             );
           })()}
-          {drawMode && !probe && !dialog && !SELECT_FIRST.has(drawing.tool) && drawing.tool !== 'offset' && drawing.selection.length > 1 && (
+          {drawMode && !probe && !dialog && !SELECT_FIRST.has(drawing.tool) && drawing.tool !== 'offset' && drawing.tool !== 'symbol' && drawing.selection.length > 1 && (
             <div className="draw-bar multi-bar" data-testid="multi-bar">
               <strong className="draw-bar-title">{drawing.selection.length} Objekte ausgewählt</strong>
               <button type="button" className="btn btn-sm" onClick={() => drawing.setTool('move')} data-testid="multi-move">
@@ -1742,7 +1757,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               </button>
             </div>
           )}
-          {drawMode && !probe && !OP_HINTS[drawing.tool] && !SELECT_FIRST.has(drawing.tool) && drawing.tool !== 'offset' && !(drawing.tool === 'line' && drawing.cmdBase) &&
+          {drawMode && !probe && !OP_HINTS[drawing.tool] && !SELECT_FIRST.has(drawing.tool) && drawing.tool !== 'offset' && drawing.tool !== 'symbol' && !(drawing.tool === 'wall' && !polyCount && !drawing.selected) && !(drawing.tool === 'line' && drawing.cmdBase) &&
             (drawing.selected && !polyCount ? (
               <ElementBar
                 key={drawing.selected.id}
@@ -1761,6 +1776,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 onColor={(c) => drawing.recolor(drawing.selected!.id, c)}
                 onExtGap={(mm) => drawing.setExtGap(drawing.selected!.id, mm)}
                 onFont={(f) => drawing.setFont(drawing.selected!.id, f)}
+                onFlip={(axis) => drawing.flipSymbol(drawing.selected!.id, axis)}
+                onWall={(patch) => drawing.setWall(drawing.selected!.id, patch)}
                 onDelete={() => void drawing.remove(drawing.selected!)}
                 onClose={() => drawing.setSelectedId(null)}
               />
@@ -1789,8 +1806,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               onClose={closeProbe}
             />
           )}
-          {!probe && (drawMode ? isPointTool(drawing.viewerTool) && (polyCount > 0 || !drawing.selected) : isPointTool(tool) && (polyCount > 0 || !selected)) && !dialog && (
-            <PolylineBar polyline={(drawMode ? drawing.tool : tool) === 'polyline'} wall={!drawMode && tool === 'wall'} count={polyCount} viewer={viewer} lineName="Freie Form" />
+          {!probe && (drawMode ? isPointTool(drawing.viewerTool) && (polyCount > 0 || (!drawing.selected && drawing.tool !== 'wall')) : isPointTool(tool) && (polyCount > 0 || !selected)) && !dialog && (
+            <PolylineBar polyline={(drawMode ? drawing.tool : tool) === 'polyline'} wall={(drawMode ? drawing.tool : tool) === 'wall'} count={polyCount} viewer={viewer} lineName="Freie Form" />
           )}
 
           {!drawMode && tool === 'calibrate' && !dialog && (

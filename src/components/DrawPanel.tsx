@@ -6,6 +6,7 @@ import { checkMeasure, formatArea, formatMeasure, parseDecimal } from '../lib/nu
 import type { DrawElement, DrawElementType, ShapeStyle, TextFont } from '../lib/types';
 import { FontControls } from './TextDialog';
 import { StylePanel } from './StylePanel';
+import { symbolDef } from '../lib/symbols';
 import { Icon } from './Icon';
 
 /** Bezeichnungen der Zeichnungsobjekte */
@@ -18,11 +19,13 @@ export const ELEMENT_LABELS: Record<DrawElementType, string> = {
   arc: 'Bogen',
   dimension: 'Maßlinie',
   text: 'Text',
+  symbol: 'Bauteil',
+  wall: 'Wand',
 };
 
 /** Bezeichnung eines Objekts (geschlossene Form = „Fläche“, offene = „Freie Form“) */
-export const elementLabel = (e: Pick<DrawElement, 'type' | 'shape'>) =>
-  e.type === 'freehand' && e.shape.closed !== false ? 'Fläche' : ELEMENT_LABELS[e.type];
+export const elementLabel = (e: Pick<DrawElement, 'type' | 'shape'> & { symbol?: DrawElement['symbol'] }) =>
+  e.type === 'symbol' ? (symbolDef(e.symbol?.id)?.label ?? 'Bauteil') : e.type === 'freehand' && e.shape.closed !== false ? 'Fläche' : ELEMENT_LABELS[e.type];
 
 type Field = keyof Measures;
 const FIELDS: Record<Field, { label: string; unit: string; degrees?: boolean }> = {
@@ -188,6 +191,8 @@ export function ElementBar({
   onToggleStyle,
   onExtGap,
   onFont,
+  onFlip,
+  onWall,
 }: {
   element: DrawElement;
   /** Darstellungsfeld geöffnet (bleibt beim Wechsel der Auswahl offen) */
@@ -206,6 +211,10 @@ export function ElementBar({
   onExtGap?(mm: number): void;
   /** Text: Schriftart, fett, kursiv */
   onFont?(f: TextFont | undefined): void;
+  /** Bauteil: Anschlag (x) bzw. Öffnungsrichtung (y) umschalten */
+  onFlip?(axis: 'x' | 'y'): void;
+  /** Wand: Stärke bzw. Höhe ändern */
+  onWall?(patch: { thickness?: number; height?: number }): void;
   /** Anzahl Messungen, die auf dem Objekt liegen (nur Hinweis) */
   overlapping: number;
   onApply(m: Measures): void;
@@ -216,7 +225,7 @@ export function ElementBar({
 }) {
   const current = measuresOf(element);
   const info = shapeInfo(element);
-  const fields = (Object.keys(current) as Field[]).filter((f) => element.type !== 'freehand' || f === 'rotation');
+  const fields = element.type === 'wall' ? [] : (Object.keys(current) as Field[]).filter((f) => element.type !== 'freehand' || f === 'rotation');
   const fmt = (f: Field, n: number | undefined) =>
     n === undefined ? '' : FIELDS[f].degrees ? String(Math.round(n * 100) / 100).replace('.', ',') : meterInput(n);
   const [values, setValues] = useState<Record<string, string>>({});
@@ -310,6 +319,17 @@ export function ElementBar({
             data-testid="element-text"
           />
         </label>
+      )}
+      {element.type === 'wall' && element.wall && onWall && <WallFields element={element} onWall={onWall} />}
+      {element.type === 'symbol' && onFlip && symbolDef(element.symbol?.id)?.flippable && (
+        <span className="row gap">
+          <button type="button" className="btn btn-sm" onClick={() => onFlip('x')} title="Anschlag links/rechts wechseln" data-testid="symbol-flip-x">
+            ⇄ {symbolDef(element.symbol?.id)?.group === 'door' ? 'Anschlag' : 'Seite'}
+          </button>
+          <button type="button" className="btn btn-sm" onClick={() => onFlip('y')} title="Öffnungsrichtung bzw. Wandseite wechseln" data-testid="symbol-flip-y">
+            ⇅ {symbolDef(element.symbol?.id)?.group === 'door' ? 'Öffnung' : 'Richtung'}
+          </button>
+        </span>
       )}
       {element.type === 'text' && onFont && onColor && <FontControls font={element.font} color={element.color} onFont={onFont} onColor={onColor} compact />}
       {fields.map((f) => (
@@ -443,5 +463,46 @@ export function ElementBar({
       )}
       {error && <small className="error span-all">{error}</small>}
     </div>
+  );
+}
+
+/** Wand: Stärke und Höhe (Übernahme beim Verlassen des Felds), Länge und Wandfläche zur Kontrolle */
+function WallFields({ element, onWall }: { element: DrawElement; onWall(p: { thickness?: number; height?: number }): void }) {
+  const w = element.wall!;
+  const [t, setT] = useState(String(w.thickness).replace('.', ','));
+  const [h, setH] = useState(w.height ? String(w.height).replace('.', ',') : '');
+  useEffect(() => {
+    setT(String(w.thickness).replace('.', ','));
+    setH(w.height ? String(w.height).replace('.', ',') : '');
+  }, [w.thickness, w.height]);
+  const len = pathLength(element.shape) + (element.shape.closed ? 0 : 0);
+  const commitT = () => {
+    const v = parseDecimal(t);
+    if (v !== null && v > 0 && Math.abs(v - w.thickness) > 1e-9) onWall({ thickness: v });
+  };
+  const commitH = () => {
+    const v = h.trim() ? parseDecimal(h) : 0;
+    if (v !== null && v >= 0 && Math.abs(v - (w.height ?? 0)) > 1e-9) onWall({ height: v || undefined });
+  };
+  return (
+    <>
+      <label className="draw-field">
+        <span>Stärke</span>
+        <span className="input-unit">
+          <input value={t} onChange={(e) => setT(e.target.value)} onBlur={commitT} onKeyDown={(e) => e.key === 'Enter' && commitT()} inputMode="decimal" data-testid="wall-thickness" />
+          <span className="unit">m</span>
+        </span>
+      </label>
+      <label className="draw-field">
+        <span>Höhe</span>
+        <span className="input-unit">
+          <input value={h} onChange={(e) => setH(e.target.value)} onBlur={commitH} onKeyDown={(e) => e.key === 'Enter' && commitH()} inputMode="decimal" placeholder="–" data-testid="wall-height" />
+          <span className="unit">m</span>
+        </span>
+      </label>
+      <span className="muted small" data-testid="wall-info">
+        Länge {formatMeasure(len)} m{w.height ? ` · Fläche ${formatArea(len * w.height)} m²` : ''}
+      </span>
+    </>
   );
 }

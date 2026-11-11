@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { symbolDef } from '../lib/symbols';
 import { DRAW_TOOLS, ORTHO_DIR_LABELS, type DrawTool, type useDrawing } from '../pages/DrawingMode';
 import { ORTHO_DIRS } from '../lib/cad';
 import { Icon } from './Icon';
@@ -163,6 +164,12 @@ export function DrawRibbon({
             <div className="tool-group" role="group" aria-label="Zeichnen">
               {DRAW_IDS.filter((id) => id !== 'select' || !isTouchDevice()).map(toolBtn)}
             </div>
+            <div className="tool-group" role="group" aria-label="Bauteile">
+              {toolBtn('wall')}
+              {btn('draw-door', 'door', 'Tür', () => void drawing.pickSymbol('door'), { pressed: drawing.tool === 'symbol' && symbolDef(drawing.symbolId)?.group === 'door', title: 'Tür einsetzen (ein-/zweiflügelig, Schiebe-, Falt-, Pendeltür)' })}
+              {btn('draw-window', 'window', 'Fenster', () => void drawing.pickSymbol('window'), { pressed: drawing.tool === 'symbol' && symbolDef(drawing.symbolId)?.group === 'window', title: 'Fenster einsetzen (ein-/zweiflügelig, Festverglasung, Schiebefenster)' })}
+              {btn('draw-electro', 'plug', 'Elektro', () => void drawing.pickSymbol('electro'), { pressed: drawing.tool === 'symbol' && ['electro', 'appliance', 'heating'].includes(symbolDef(drawing.symbolId)?.group ?? ''), title: 'Elektro-, Geräte- und Heizungssymbole (ÖNORM)' })}
+            </div>
             {editGroup}
           </>
         )}
@@ -196,7 +203,7 @@ export function DrawRibbon({
         {tab === 'style' && (() => {
           const many = drawing.selection.filter((e) => e.type !== 'text' && e.type !== 'dimension');
           const first = many[0];
-          const isOpen = (e: NonNullable<typeof first>) => e.type === 'line' || e.type === 'arc' || (e.type === 'freehand' && e.shape.closed === false);
+          const isOpen = (e: NonNullable<typeof first>) => e.type !== 'wall' && (e.type === 'line' || e.type === 'arc' || (e.type === 'freehand' && e.shape.closed === false));
           return (
             <div className="ribbon-style" data-testid="ribbon-style">
               <span className="ribbon-context" title={first ? 'Einstellungen der ausgewählten Objekte' : 'Einstellungen für neue Objekte'} data-testid="ribbon-style-context">

@@ -219,6 +219,21 @@ export function tastenTests() {
     await page.getByTestId('ribbon-style').getByTestId('style-hatch-pattern').selectOption('mat:beton');
     await page.getByTestId('ribbon-style').getByTestId('style-hatch-bg-on').selectOption('on');
     await pruefe(page, 'Eigenschaften Schraffur', out);
+    // Phase 4: Bauteil-Auswahl, Bauteil-Leiste und Wand
+    await page.locator('body').press('Escape');
+    await pickTool(page, 'draw-door');
+    await expect(page.getByTestId('symbol-picker')).toBeVisible();
+    await pruefe(page, 'Dialog Bauteile', out);
+    await page.getByTestId('symbol-group-electro').click();
+    await pruefe(page, 'Dialog Bauteile Elektro', out);
+    await page.getByTestId('symbol-socket').click();
+    await expect(page.getByTestId('command-bar')).toBeVisible();
+    await pruefe(page, 'Befehlsleiste Bauteil', out);
+    await page.getByTestId('command-done').click();
+    await pickTool(page, 'draw-wall');
+    await expect(page.getByTestId('command-bar')).toBeVisible();
+    await pruefe(page, 'Befehlsleiste Wand', out);
+    await page.locator('body').press('Escape');
     // Registerkarten Ändern und Präzision
     for (const t of ['modify', 'precision']) {
       await page.getByTestId(`ribbon-tab-${t}`).click();

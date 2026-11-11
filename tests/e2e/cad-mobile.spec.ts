@@ -216,3 +216,24 @@ test('Phase 3 mit Finger bzw. Stift: Reihe rechteckig und polar (Mittelpunkt ant
   expect(await elements(page)).toHaveLength(6);
   await expect(page.getByTestId('command-bar')).toHaveCount(0);
 });
+
+test('Phase 4 mit Finger bzw. Stift: Wand zeichnen (Fertig), Tür einsetzen schneidet die Öffnung aus', async ({ page }, info) => {
+  const { cdp, at } = await setup(page);
+  const tap = info.project.name === 'iphone' ? fingerTap : (c: CDPSession, p: { x: number; y: number }) => penTap(c, p);
+  await fingerTap(cdp, at(0.03, -0.17));
+  await pickTool(page, 'draw-wall', 'tap');
+  await expect(page.getByTestId('command-prompt')).toContainText('Wand');
+  await tap(cdp, at(0.1, 0.05));
+  await tap(cdp, at(0.78, 0.05)); // rechts liegt am iPad quer die Zoom-Leiste
+  await page.getByTestId('wall-finish').tap();
+  await waitSaved(page);
+  const wall = (await elements(page)).at(-1)!;
+  expect(wall.type).toBe('wall');
+  await fingerTap(cdp, at(0.03, -0.17));
+  await pickTool(page, 'draw-door', 'tap');
+  await page.getByTestId('symbol-picker').getByTestId('symbol-door1').tap();
+  await tap(cdp, at(0.5, 0.05));
+  await waitSaved(page);
+  await page.getByTestId('command-done').tap();
+  await expect(page.locator('[data-element="wall"]')).toHaveAttribute('data-openings', '1');
+});

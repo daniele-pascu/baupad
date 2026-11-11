@@ -152,7 +152,7 @@ function lineX(p1: Point, d1: Point, p2: Point, d2: Point): Point | null {
 }
 
 /** Linienzug um d versetzen (Vorzeichen = Seite der linken Normalen), Ecken auf Gehrung */
-function offsetPath(pts: Point[], d: number, closed: boolean): Point[] {
+export function offsetPath(pts: Point[], d: number, closed: boolean): Point[] {
   const n = pts.length;
   const segs: { p: Point; dir: Point }[] = [];
   const m = closed ? n : n - 1;

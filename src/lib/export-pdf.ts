@@ -29,6 +29,8 @@ import {
   shapeAABB,
   shapePath,
   type Point,
+  polygonShape,
+  shapeVertices,
 } from './geometry';
 import { canvasToBlob, closePdf, clampRenderScale, imageToCanvas, loadImageBitmap, openPdf, pageViewport, renderPdfRegion, renderPdfToCanvas } from './pdf';
 import type { ProjectState } from './store';
@@ -36,6 +38,8 @@ import { exportPaper, layoutSheet, planHeading, type OverviewCorner, type SheetL
 import { DEFAULT_TRANSPARENCY, fillOf, fillPaths, strokeGeometry } from './style';
 import type { Component, Damage, DrawElement, LegendPos, Plan, Rect, Shape, ShapeStyle, TextFont } from './types';
 import { pdfStandardFont } from './text-font';
+import { symbolGeometry } from './symbols';
+import { wallGeometry, wallOpenings } from './walls';
 import { deductionNumbers } from './numbering';
 import { measureLabel } from './measure';
 import { planLegend, type LegendEntry } from './legend';
@@ -553,6 +557,7 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
 
   // Zeichnungsobjekte
   const dimColor = rgb(0.16, 0.3, 0.5);
+  const openingsPage = wallOpenings(elements, k);
   for (const e of elements) {
     const shape = shapeToPage(e.shape, k);
     const color = hexToRgb(visibleHex(e.color));
@@ -582,6 +587,51 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
           const to = map({ x: p.x - nx * s * over, y: p.y - ny * s * over });
           page.drawLine({ start: from, end: to, thickness: 0.4, color });
         }
+      }
+      continue;
+    }
+    if (e.type === 'wall' && e.wall) {
+      // Wand: Flächenstücke (Füllung/Schraffur) und Umriss; Öffnungen der Türen/Fenster ausgespart
+      const geo = wallGeometry(shapeVertices(shape), shape.closed === true, e.wall.thickness * k, openingsPage);
+      for (const q of geo.quads) {
+        const qs = polygonShape(q, true);
+        const f = fillOf(qs, visibleHex(e.color), e.style, DEFAULT_TRANSPARENCY.element);
+        if (!f || f.opacity <= 0) continue;
+        const svgMap = (p: Point) => {
+          const m = map(p);
+          return { x: m.x, y: -m.y };
+        };
+        const fp = fillPaths(qs, svgMap, f, 1);
+        if (fp.solid) page.drawSvgPath(fp.solid, { x: 0, y: 0, color: hexToRgb(f.color), opacity: f.opacity });
+        else if (fp.hatch) {
+          if (fp.bg && f.bg) page.drawSvgPath(fp.bg, { x: 0, y: 0, color: hexToRgb(f.bg) });
+          page.drawSvgPath(fp.hatch, { x: 0, y: 0, borderColor: hexToRgb(f.color), borderWidth: fp.hatchWidth, borderOpacity: f.opacity, borderLineCap: LineCapStyle.Round });
+        }
+      }
+      for (const [a, b] of geo.lines) page.drawLine({ start: map(a), end: map(b), thickness: e.style?.lineWidth ?? 0.9, color, lineCap: LineCapStyle.Round });
+      continue;
+    }
+    if (e.type === 'symbol' && e.symbol) {
+      // Bauteil/Symbol als Vektor (wie am Bildschirm)
+      const geo = symbolGeometry(e.symbol, shape);
+      const lw = e.style?.lineWidth ?? 0.8;
+      for (const l of geo.lines) {
+        const d = l.pts.map((p, i) => {
+          const q = map(p);
+          return `${i ? 'L' : 'M'}${q.x.toFixed(2)} ${(-q.y).toFixed(2)}`;
+        }).join('') + (l.closed ? 'Z' : '');
+        page.drawSvgPath(d, { x: 0, y: 0, borderColor: color, borderWidth: l.dashed ? lw * 0.6 : lw, borderDashArray: l.dashed ? [3, 2] : undefined, borderLineCap: LineCapStyle.Round, ...(l.fill ? { color } : {}) });
+      }
+      for (const t of geo.texts) {
+        const size = t.size * u;
+        const txt = clean(ctx, t.text);
+        const w = ctx.bold.widthOfTextAtSize(txt, size);
+        const c = map(t.at);
+        const a = (-t.angle * Math.PI) / 180;
+        // Mitte → linke Grundlinie (gedreht)
+        const ox = -w / 2;
+        const oy = -size * 0.35;
+        page.drawText(txt, { x: c.x + ox * Math.cos(a) - oy * Math.sin(a), y: c.y + ox * Math.sin(a) + oy * Math.cos(a), size, font: ctx.bold, color, rotate: degrees(-t.angle) });
       }
       continue;
     }

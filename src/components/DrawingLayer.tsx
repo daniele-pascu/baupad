@@ -1,10 +1,12 @@
 import type { ReactNode } from 'react';
 import { annotationsOf, dimGeometry, dimLeader, gridStep, majorStep, shapeToMeters } from '../lib/drawing';
-import { shapeCenter, shapePath, toPage, toScreen, type Point, type View } from '../lib/geometry';
+import { pathToSvg, polygonShape, shapeCenter, shapePath, shapeVertices, toPage, toScreen, type Point, type View } from '../lib/geometry';
 import { DEFAULT_TRANSPARENCY, fillOf, PX_PER_PT, strokeGeometry } from '../lib/style';
 import type { DrawElement, DrawElementType, Rect, Shape } from '../lib/types';
 import { FillPaths, visibleStroke } from './PlanViewer';
 import { fontProps } from '../lib/text-font';
+import { symbolGeometry } from '../lib/symbols';
+import { wallGeometry, type WallOpening } from '../lib/walls';
 
 /**
  * Darstellung selbst gezeichneter Pläne in Bildschirmkoordinaten: Zeichenfläche mit Raster,
@@ -79,7 +81,7 @@ export function renderSheet(view: View, size: { w: number; h: number }, region: 
 }
 
 /** Zeichnungsobjekt in Bildschirmkoordinaten (shape in Seitenkoordinaten). */
-export function renderElement(e: Pick<DrawElement, 'id' | 'type' | 'color' | 'text' | 'style'> & { font?: DrawElement['font'] } & { offset?: number; extGap?: number }, pageShape: Shape, view: View, selected: boolean, faded = false, k = 100): ReactNode {
+export function renderElement(e: Pick<DrawElement, 'id' | 'type' | 'color' | 'text' | 'style'> & { font?: DrawElement['font']; symbol?: DrawElement['symbol']; wall?: DrawElement['wall'] } & { offset?: number; extGap?: number }, pageShape: Shape, view: View, selected: boolean, faded = false, k = 100, openings: WallOpening[] = []): ReactNode {
   const stroke = visibleStroke(e.color);
   const w = e.style?.lineWidth && e.type !== 'dimension' ? Math.max(1, e.style.lineWidth * PX_PER_PT) : selected ? 3 : 2;
   if (e.type === 'text') {
@@ -103,6 +105,56 @@ export function renderElement(e: Pick<DrawElement, 'id' | 'type' | 'color' | 'te
         <text x={p.x} y={p.y} fontSize={fs} fill={stroke} className="drawing-text" style={fontProps(e.font)} data-font={e.font?.family ?? "sans"} data-bold={e.font?.bold ? "1" : undefined} data-italic={e.font?.italic ? "1" : undefined}>
           {e.text}
         </text>
+      </g>
+    );
+  }
+  if (e.type === 'wall' && e.wall) {
+    // Wand: Umriss beider Seiten (Gehrung), Öffnungen für Türen/Fenster ausgespart; Füllung/Schraffur je Stück
+    const axis = shapeVertices(pageShape);
+    const geo = wallGeometry(axis, pageShape.closed === true, e.wall.thickness * k, openings);
+    const toS = (p: Point) => toScreen(view, p);
+    const sw = e.style?.lineWidth ? Math.max(1, e.style.lineWidth * PX_PER_PT) : 1.8;
+    return (
+      <g data-element="wall" data-element-id={e.id} data-openings={geo.gaps} opacity={faded ? 0.55 : 1}>
+        {geo.quads.map((q, i) => {
+          const qs = polygonShape(q, true);
+          const fill = fillOf(qs, e.color, e.style, DEFAULT_TRANSPARENCY.element);
+          return fill ? <FillPaths key={`f${i}`} shape={qs} map={toS} fill={fill} /> : <path key={`f${i}`} d={pathToSvg(shapePath(qs), toS)} fill="transparent" stroke="none" />;
+        })}
+        {selected && <path d={axis.map((p, i) => `${i ? 'L' : 'M'}${toS(p).x} ${toS(p).y}`).join('') + (pageShape.closed ? 'Z' : '')} fill="none" stroke="#9cc0f5" strokeWidth={4} strokeDasharray="6 4" />}
+        <path d={geo.lines.map(([a, b]) => `M${toS(a).x.toFixed(1)} ${toS(a).y.toFixed(1)}L${toS(b).x.toFixed(1)} ${toS(b).y.toFixed(1)}`).join('')} fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" />
+      </g>
+    );
+  }
+  if (e.type === 'symbol' && e.symbol) {
+    // Bauteil/Symbol: Linien aus der Bibliothek im Begrenzungsrechteck; Rahmen nur bei Auswahl
+    const geo = symbolGeometry(e.symbol, pageShape);
+    const toS = (p: Point) => toScreen(view, p);
+    const sw = e.style?.lineWidth ? Math.max(1, e.style.lineWidth * PX_PER_PT) : 1.6;
+    const box = pathToSvg(shapePath(pageShape), toS);
+    return (
+      <g data-element="symbol" data-element-id={e.id} data-symbol={e.symbol.id} opacity={faded ? 0.55 : 1}>
+        <path d={box} fill="transparent" stroke={selected ? '#9cc0f5' : 'none'} strokeWidth={selected ? 3 : 0} strokeDasharray={selected ? '4 3' : undefined} />
+        {geo.lines.map((l, i) => (
+          <path
+            key={i}
+            d={l.pts.map((p, j) => `${j ? 'L' : 'M'}${toS(p).x.toFixed(1)} ${toS(p).y.toFixed(1)}`).join('') + (l.closed ? 'Z' : '')}
+            fill={l.fill ? stroke : 'none'}
+            stroke={stroke}
+            strokeWidth={l.dashed ? sw * 0.6 : sw}
+            strokeDasharray={l.dashed ? '4 3' : undefined}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+          />
+        ))}
+        {geo.texts.map((t, i) => {
+          const c = toS(t.at);
+          return (
+            <text key={`t${i}`} x={c.x} y={c.y} fontSize={t.size * view.scale} fill={stroke} textAnchor="middle" dominantBaseline="central" transform={t.angle ? `rotate(${t.angle} ${c.x} ${c.y})` : undefined} style={{ fontFamily: 'Helvetica, Arial, sans-serif', fontWeight: 600 }}>
+              {t.text}
+            </text>
+          );
+        })}
       </g>
     );
   }

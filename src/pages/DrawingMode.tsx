@@ -33,6 +33,9 @@ import { edgesOf, findSnap, segmentIntersection, type SnapKind } from '../lib/sn
 import { inputVector, parseCadInput, vectorInfo } from '../lib/cad-input';
 import { arrayOffsets, canOffset, distanceToShape, joinShapes, mirrorShape, offsetShape, polarAngles, rotateAround, type ArrayParams } from '../lib/cad-ops';
 import { arrayDialog } from '../components/ArrayDialog';
+import { symbolPicker } from '../components/SymbolPicker';
+import { symbolDef, symbolGeometry, type SymbolGroup } from '../lib/symbols';
+import { wallOpenings } from '../lib/walls';
 import { dimsVisible, visibleDamages, visibleElements } from '../lib/layers';
 import { distToSegment, isOpenShape, lineShape, pathToSvg, rectsOverlap, removeVertex, setPolylineClosed, shapeAABB, shapePath, toScreen, type Point, type View } from '../lib/geometry';
 import { newMeta, putRecord, putRecords, softDelete, type ProjectState } from '../lib/store';
@@ -43,7 +46,7 @@ import type { Damage, DrawElement, DrawElementType, Plan, Rect, Shape, ShapeStyl
 export type ToolGroup = 'select' | 'draw' | 'annotate' | 'modify';
 
 /** Werkzeuge des Zeichenmodus: Zeichnen sowie Ändern (Kopieren, Verschieben, Strecken …) */
-export type DrawTool = Tool | 'copy' | 'move' | 'stretch' | 'join' | 'offset' | 'mirror' | 'array';
+export type DrawTool = Tool | 'copy' | 'move' | 'stretch' | 'join' | 'offset' | 'mirror' | 'array' | 'symbol';
 
 /** Befehle, die ausgewählte Objekte brauchen (ohne Auswahl fragen sie zuerst danach) */
 export const NEEDS_SELECTION = new Set<DrawTool>(['copy', 'move']);
@@ -69,6 +72,8 @@ export const DRAW_TOOLS: { id: DrawTool; label: string; short?: string; icon: st
   { id: 'stretch', label: 'Strecken: Fenster über Eckpunkte ziehen, dann Verschiebung ziehen', short: 'Strecken', icon: 'stretch', key: 's', group: 'modify' },
   { id: 'mirror', label: 'Spiegeln: Objekte an einer Achse aus zwei Punkten spiegeln – Original behalten oder löschen', short: 'Spiegeln', icon: 'mirror', key: 'i', group: 'modify' },
   { id: 'offset', label: 'Versetzen: parallele Kopie im Abstand – Objekt antippen, dann die Seite (Wandstärke, parallele Linien, Rechteck nach innen/außen)', short: 'Versetzen', icon: 'offset', key: 'o', group: 'modify' },
+  { id: 'wall', label: 'Wand: Achse Punkt für Punkt setzen (Enter bzw. „Fertig“ beendet) – Wandstärke eingeben; Türen und Fenster schneiden die Öffnung aus', short: 'Wand', icon: 'wall', key: 'y', group: 'draw' },
+  { id: 'symbol', label: 'Bauteil einsetzen: Tür, Fenster, Elektro – Stelle antippen', short: 'Bauteil', icon: 'door', key: 'u', group: 'draw' },
   { id: 'array', label: 'Reihe: ausgewählte Objekte rechteckig (Spalten × Zeilen), linear oder im Kreis mehrfach anordnen', short: 'Reihe', icon: 'array', key: 'a', group: 'modify' },
   { id: 'join', label: 'Verbinden: Linien, Polylinien und Bögen an gemeinsamen Endpunkten zu einer Linie bzw. geschlossenen Fläche verbinden – kleine Lücken werden geschlossen', short: 'Verbinden', icon: 'join', key: 'j', group: 'modify' },
   { id: 'trim', label: 'Stutzen: Abschnitt bis zu den nächsten Kanten bzw. Eckpunkten entfernen – anklicken oder frei über mehrere Linien ziehen (Zaun)', short: 'Stutzen', icon: 'trim', key: 'z', group: 'modify' },
@@ -193,6 +198,20 @@ export function useDrawing(opts: {
     setMirrorKeepState(on);
     storePref('mirrorKeep', on ? '1' : '0');
   };
+  /** Wand: Stärke und Höhe (m) für neue Wände – je Gerät gemerkt */
+  const [wallThickness, setWallThicknessState] = useState(() => Number(pref('wallThickness', '0.25')) || 0.25);
+  const [wallHeight, setWallHeightState] = useState(() => Number(pref('wallHeight', '0')) || 0);
+  const setWallDefaults = (t: number, h?: number) => {
+    setWallThicknessState(t);
+    storePref('wallThickness', String(t));
+    if (h !== undefined) {
+      setWallHeightState(h);
+      storePref('wallHeight', String(h));
+    }
+  };
+  /** Bauteil einsetzen: gewähltes Symbol und Größe (null = Standardgröße) */
+  const [symbolId, setSymbolId] = useState(() => pref('symbolId', 'door1'));
+  const [symbolSize, setSymbolSize] = useState<{ w: number; h: number } | null>(null);
   /** Reihe (polar): Werte aus dem Dialog, Mittelpunkt wird noch angetippt */
   const [arrayPolar, setArrayPolar] = useState<Extract<ArrayParams, { kind: 'polar' }> | null>(null);
   /** Verbinden: Lücken bis zu diesem Abstand (m) schließen */
@@ -256,7 +275,7 @@ export function useDrawing(opts: {
     if (!NEEDS_SELECTION.has(t) && t !== 'selwin') storePref('drawTool', t);
   };
   /** Werkzeug der Planansicht: Befehle nutzen Vektor (Basis → Ziel) bzw. Fenster */
-  const viewerTool: Tool = tool === 'array' && arrayPolar ? 'pick' : SELECT_FIRST.has(tool) && cmdSelecting ? 'selwin' : VECTOR_COMMANDS.has(tool) ? 'vector' : tool === 'offset' ? 'pick' : tool === 'stretch' ? (stretchWin ? 'vector' : 'window') : (tool as Tool);
+  const viewerTool: Tool = tool === 'symbol' ? 'pick' : tool === 'array' && arrayPolar ? 'pick' : SELECT_FIRST.has(tool) && cmdSelecting ? 'selwin' : VECTOR_COMMANDS.has(tool) ? 'vector' : tool === 'offset' ? 'pick' : tool === 'stretch' ? (stretchWin ? 'vector' : 'window') : (tool as Tool);
   const setColor = (c: string) => {
     setColorState(c);
     storePref('drawColor', c);
@@ -295,6 +314,8 @@ export function useDrawing(opts: {
     [elements, k],
   );
   const selected = selectedId ? (byId.get(selectedId) ?? null) : null;
+  /** Öffnungen (Türen, Fenster) für die Wände – Seitenkoordinaten */
+  const openingsPage = useMemo(() => wallOpenings(elements, k), [elements, k]);
   /** alle ausgewählten (sichtbaren) Objekte */
   const selection = useMemo(() => selIds.map((id) => byId.get(id)).filter((e): e is DrawElement => !!e), [selIds, byId]);
   const selSet = useMemo(() => new Set(selection.map((e) => e.id)), [selection]);
@@ -485,6 +506,10 @@ export function useDrawing(opts: {
       runVector(b.x - a.x, b.y - a.y);
       return;
     }
+    if (tool === 'wall') {
+      create('wall', shape, { wall: { thickness: wallThickness, ...(wallHeight > 0 ? { height: wallHeight } : {}) } });
+      return;
+    }
     const type: DrawElementType = tool === 'dimension' ? 'dimension' : tool === 'arc' ? 'arc' : pageShape.type;
     create(type, shape);
   };
@@ -535,6 +560,25 @@ export function useDrawing(opts: {
    * Liefert eine Fehlermeldung oder null.
    */
   const applyInput = (text: string): string | null => {
+    if (tool === 'wall') {
+      const d = parseCadInput(text);
+      if (d?.kind === 'dist' && d.len > 0) return setWallDefaults(d.len), null;
+      if (d?.kind === 'rel' && d.dx > 0 && d.dy >= 0) return setWallDefaults(d.dx, d.dy), null;
+      return 'Bitte die Wandstärke in m eingeben, z. B. 0,25 – oder Stärke;Höhe, z. B. 0,25;2,8.';
+    }
+    if (tool === 'symbol') {
+      const def = symbolDef(symbolId);
+      const d = parseCadInput(text);
+      if (!def || !d || d.kind === 'polar') return 'Bitte die Breite in m eingeben, z. B. 0,9 – oder Breite;Tiefe, z. B. 1,2;0,3.';
+      if (d.kind === 'dist') {
+        if (!(d.len > 0)) return 'Die Breite muss größer als 0 sein.';
+        setSymbolSize({ w: d.len, h: def.keepAspect ? (d.len * def.h) / def.w : (symbolSize?.h ?? def.h) });
+      } else {
+        if (!(Math.abs(d.dx) > 0 && Math.abs(d.dy) > 0)) return 'Breite und Tiefe müssen größer als 0 sein.';
+        setSymbolSize({ w: Math.abs(d.dx), h: Math.abs(d.dy) });
+      }
+      return null;
+    }
     if (tool === 'offset') {
       const d = parseCadInput(text);
       if (!d || d.kind !== 'dist' || !(d.len > 0)) return 'Bitte den Abstand in m eingeben, z. B. 0,25.';
@@ -581,7 +625,7 @@ export function useDrawing(opts: {
 
   /** Verbinden: ausgewählte Linien, Polylinien und Bögen zu einer Geometrie (ein Rückgängig-Schritt) */
   const runJoin = (ids: string[] = selIds): boolean => {
-    const list = ids.map((id) => data.elements[id]).filter((e): e is DrawElement => !!e && !e.deletedAt && (e.type === 'line' || e.type === 'arc' || (e.type === 'freehand' && e.shape.closed === false)));
+    const list = ids.map((id) => data.elements[id]).filter((e): e is DrawElement => !!e && !e.deletedAt && (e.type === 'line' || e.type === 'arc' || ((e.type === 'freehand' || e.type === 'wall') && e.shape.closed !== true && (e.type === 'wall' || e.shape.closed === false))));
     if (!list.length) {
       toast('Verbinden geht mit offenen Linien, Polylinien und Bögen.', 'info', 3500);
       return false;
@@ -597,7 +641,7 @@ export function useDrawing(opts: {
     let closed = 0;
     for (const c of chains) {
       const first = list[c.members[0]];
-      const type: DrawElementType = c.shape.type === 'line' ? 'line' : 'freehand';
+      const type: DrawElementType = first.type === 'wall' ? 'wall' : c.shape.type === 'line' ? 'line' : 'freehand';
       changed.push({ ...first, type, shape: roundShape(c.shape) });
       keep.push(first.id);
       for (const m of c.members.slice(1)) changed.push({ ...list[m], deletedAt: now });
@@ -626,8 +670,8 @@ export function useDrawing(opts: {
     }
     const out = list.map((e) => {
       const shape = roundShape(mirrorShape(e.shape, a, b, e.type === 'text'));
-      // Maßlinie: Seite der Maßlinie mitspiegeln
-      const extra = e.type === 'dimension' && e.offset ? { offset: -e.offset } : {};
+      // Maßlinie: Seite der Maßlinie mitspiegeln; Bauteil: Öffnungsrichtung mitspiegeln
+      const extra = e.type === 'dimension' && e.offset ? { offset: -e.offset } : e.type === 'symbol' && e.symbol ? { symbol: { ...e.symbol, flipY: !e.symbol.flipY || undefined } } : {};
       return mirrorKeep ? { ...e, ...newMeta(), shape, ...extra } : { ...e, shape, ...extra };
     });
     putRecords({ elements: out });
@@ -647,7 +691,7 @@ export function useDrawing(opts: {
       toast(`Versetzen um ${formatMeasure(d)} m nicht möglich (nach innen zu groß?).`, 'error', 3500);
       return;
     }
-    const type: DrawElementType = e.type === 'triangle' || e.type === 'rect' || e.type === 'ellipse' || e.type === 'line' ? e.type : 'freehand';
+    const type: DrawElementType = e.type === 'triangle' || e.type === 'rect' || e.type === 'ellipse' || e.type === 'line' || e.type === 'wall' ? e.type : 'freehand';
     const rec: DrawElement = { ...e, ...newMeta(), type: shape.type === 'freehand' && e.type === 'arc' ? 'arc' : type, shape: roundShape(shape) };
     putRecord('elements', rec);
     toast(`Versetzt um ${formatMeasure(d)} m.`, 'success', 1800);
@@ -687,6 +731,75 @@ export function useDrawing(opts: {
     setArrayPolar(null);
     setToolState('select');
     setCmdSelecting(false);
+  };
+
+  /** Bauteil wählen (Tür, Fenster, Elektro …) und danach einsetzen */
+  const pickSymbol = async (group: SymbolGroup) => {
+    const id = await symbolPicker(group);
+    if (!id) return;
+    setSymbolId(id);
+    storePref('symbolId', id);
+    setSymbolSize(null);
+    setTool('symbol');
+    setSelectedId(null);
+  };
+
+  /**
+   * Lage eines neuen Bauteils am Punkt pm (m): Türen und Fenster richten sich an einer Linie/Kante in der Nähe aus
+   * (Drehung wie die Linie; Fenster mittig in der Linie, Türen mit der Öffnungslinie auf der Linie), sonst waagrecht.
+   */
+  const symbolPlacement = (pm: Point): Shape | null => {
+    const def = symbolDef(symbolId);
+    if (!def) return null;
+    const w = symbolSize?.w ?? def.w;
+    let h = symbolSize?.h ?? def.h;
+    let center = pm;
+    let rotation = 0;
+    if (def.group === 'door' || def.group === 'window') {
+      const tol = (isCoarse() ? 22 : 14) / ((viewer.current?.scale() ?? 1) * k);
+      let best: { q: Point; a: number; d: number; wallT?: number } | null = null;
+      for (const e of stored) {
+        if (e.type === 'text' || e.type === 'dimension' || e.type === 'symbol') continue;
+        for (const [u, v] of edgesOf(e.shape)) {
+          const d = distToSegment(pm, u, v);
+          if (d > tol || (best && d >= best.d)) continue;
+          const dx = v.x - u.x;
+          const dy = v.y - u.y;
+          const l2 = dx * dx + dy * dy || 1e-12;
+          const t = Math.max(0, Math.min(1, ((pm.x - u.x) * dx + (pm.y - u.y) * dy) / l2));
+          best = { q: { x: u.x + t * dx, y: u.y + t * dy }, a: (Math.atan2(dy, dx) * 180) / Math.PI, d, wallT: e.type === 'wall' ? e.wall?.thickness : undefined };
+        }
+      }
+      if (best) {
+        // Fenster in einer Wand: Tiefe = Wandstärke (wenn keine eigene Größe eingegeben)
+        if (def.group === 'window' && best.wallT && !symbolSize) h = best.wallT;
+        // Richtung so wählen, dass das Symbol „aufrecht“ bleibt (−90° … 90°)
+        let a = best.a;
+        if (a > 90) a -= 180;
+        if (a <= -90) a += 180;
+        rotation = ((a % 360) + 360) % 360;
+        const r = (a * Math.PI) / 180;
+        // Tür: Öffnungslinie (unten im Symbol) auf der Linie → Mitte um h/2 nach „oben“ (im Symbol) versetzt
+        const up = def.group === 'door' ? h / 2 : 0;
+        center = { x: best.q.x + up * Math.sin(r), y: best.q.y - up * Math.cos(r) };
+      }
+    }
+    return { type: 'rect', x: center.x - w / 2, y: center.y - h / 2, w, h, ...(rotation ? { rotation } : {}) };
+  };
+
+  /** Bauteil: Anschlag bzw. Öffnungsrichtung umschalten */
+  const flipSymbol = (id: string, axis: 'x' | 'y') => {
+    const e = data.elements[id];
+    if (!e?.symbol) return;
+    const next = !e.symbol[axis === 'x' ? 'flipX' : 'flipY'];
+    let shape = e.shape;
+    // Tür: Öffnungsrichtung wechseln = Flügel auf die andere Wandseite; die Öffnungslinie bleibt auf der Wand
+    if (axis === 'y' && symbolDef(e.symbol.id)?.group === 'door') {
+      const dy = next ? e.shape.h : -e.shape.h;
+      const r = ((e.shape.rotation ?? 0) * Math.PI) / 180;
+      shape = roundShape(translateShape(e.shape, -dy * Math.sin(r), dy * Math.cos(r)));
+    }
+    putRecord('elements', { ...e, shape, symbol: { ...e.symbol, [axis === 'x' ? 'flipX' : 'flipY']: next || undefined } });
   };
 
   /** Befehl „Weiter“ (nach dem Wählen der Objekte) */
@@ -750,14 +863,14 @@ export function useDrawing(opts: {
   };
 
   /** Elementtyp eines gestutzten Teilstücks (Bogen bleibt Bogen, sonst Linie bzw. offene Polylinie) */
-  const pieceType = (orig: DrawElement, piece: Shape): DrawElementType => (piece.type === 'line' ? 'line' : orig.type === 'arc' ? 'arc' : 'freehand');
+  const pieceType = (orig: DrawElement, piece: Shape): DrawElementType => (orig.type === 'wall' ? 'wall' : piece.type === 'line' ? 'line' : orig.type === 'arc' ? 'arc' : 'freehand');
 
   /** Ergebnis des Stutzens speichern: erstes Teil ersetzt das Original, weitere werden neu angelegt */
   const trimmedRecords = (e: DrawElement, parts: Shape[]): DrawElement[] =>
     parts.map((sh, i) => ({ ...e, ...(i ? newMeta() : {}), type: pieceType(e, sh), shape: roundShape(sh) }));
 
   /** Stutzen-fähige Objekte: alles mit Kanten außer Text und Maßlinien */
-  const trimmable = (e: DrawElement) => e.type !== 'text' && e.type !== 'dimension';
+  const trimmable = (e: DrawElement) => e.type !== 'text' && e.type !== 'dimension' && e.type !== 'symbol';
 
   /** Stutzen (Klick) bzw. Verlängern: angeklicktes Objekt gegen alle anderen Objekte */
   const trimOrExtend = (p: Point) => {
@@ -838,6 +951,11 @@ export function useDrawing(opts: {
 
   /** Werkzeug „Text“: Stelle angetippt */
   const onPlace = async (p: Point) => {
+    if (tool === 'symbol') {
+      const sh = symbolPlacement({ x: p.x / k, y: p.y / k });
+      if (sh) create('symbol', sh, { symbol: { id: symbolId } }, true);
+      return;
+    }
     if (tool === 'array' && arrayPolar) {
       runArrayAt(arrayPolar, { x: p.x / k, y: p.y / k });
       return;
@@ -849,7 +967,7 @@ export function useDrawing(opts: {
         const tol = (isCoarse() ? 18 : 10) / ((viewer.current?.scale() ?? 1) * k);
         let best: { id: string; d: number } | null = null;
         for (const e of stored) {
-          if (e.type === 'text' || e.type === 'dimension' || !canOffset(e.shape)) continue;
+          if (e.type === 'text' || e.type === 'dimension' || e.type === 'symbol' || !canOffset(e.shape)) continue;
           const d = distanceToShape(e.shape, pm);
           if (d <= tol && (!best || d < best.d)) best = { id: e.id, d };
         }
@@ -1061,7 +1179,7 @@ export function useDrawing(opts: {
 
   const renderItem = (item: ViewerItem, view: View, sel: boolean): ReactNode => {
     const e = byId.get(item.id);
-    return e ? renderElement(e, item.shape, view, sel || selSet.has(e.id), false, k) : null;
+    return e ? renderElement(e, item.shape, view, sel || selSet.has(e.id), false, k, openingsPage) : null;
   };
 
   const markerPaths = (view: View) => (
@@ -1086,7 +1204,7 @@ export function useDrawing(opts: {
     <>
       {renderSheet(view, size, region, k, false, !sheet)}
       {elements.map((e) => (
-        <g key={e.id}>{renderElement(e, shapeToPage(e.shape, k), view, false, false, k)}</g>
+        <g key={e.id}>{renderElement(e, shapeToPage(e.shape, k), view, false, false, k, openingsPage)}</g>
       ))}
       {showDims && renderDims(view, elements, k, { color: '#5b6b80' })}
     </>
@@ -1117,6 +1235,20 @@ export function useDrawing(opts: {
           ))}
         </g>
       );
+    }
+    // Bauteil: Vorschau an der Maus (ausgerichtet wie beim Einsetzen)
+    if (tool === 'symbol' && hover) {
+      const sh = symbolPlacement({ x: hover.x / k, y: hover.y / k });
+      if (sh) {
+        const geo = symbolGeometry({ id: symbolId }, shapeToPage(sh, k));
+        ghost = (
+          <g className="cad-ghost" data-testid="cad-ghost">
+            {geo.lines.map((l, i) => (
+              <path key={i} d={l.pts.map((q, j) => `${j ? 'L' : 'M'}${toScreen(view, q).x} ${toScreen(view, q).y}`).join('') + (l.closed ? 'Z' : '')} />
+            ))}
+          </g>
+        );
+      }
     }
     // Reihe (polar): Vorschau um den Mittelpunkt an der Maus
     if (tool === 'array' && arrayPolar && hover) {
@@ -1237,6 +1369,16 @@ export function useDrawing(opts: {
     setMirrorKeep,
     joinTol,
     arrayPolar,
+    symbolId,
+    symbolSize,
+    wallThickness,
+    wallHeight,
+    setWall: (id: string, patch: Partial<NonNullable<DrawElement['wall']>>) => {
+      const e = data.elements[id];
+      if (e?.wall) putRecord('elements', { ...e, wall: { ...e.wall, ...patch } });
+    },
+    pickSymbol,
+    flipSymbol,
     viewerTool,
     stretchWin,
     transformSelected,

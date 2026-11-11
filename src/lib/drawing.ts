@@ -182,6 +182,7 @@ export function measuresOf(e: Pick<DrawElement, 'type' | 'shape'>): Measures {
   const rotation = s.rotation ?? 0;
   switch (e.type) {
     case 'rect':
+    case 'symbol':
       return { length: s.w, width: s.h, rotation };
     case 'line':
     case 'dimension':
@@ -206,6 +207,7 @@ export function applyMeasures(e: Pick<DrawElement, 'type' | 'shape' | 'text' | '
   const s = e.shape;
   switch (e.type) {
     case 'rect':
+    case 'symbol':
       return withRotation(resizeKeeping(s, m.length ?? s.w, m.width ?? s.h, { x: 0, y: 0 }), m.rotation);
     case 'triangle':
       return withRotation(resizeKeeping(s, m.base ?? s.w, m.height ?? s.h, { x: 0, y: 1 }), m.rotation);
