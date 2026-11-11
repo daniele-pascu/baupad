@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { annotationsOf, dimGeometry, dimLeader, gridStep, majorStep, shapeToMeters } from '../lib/drawing';
+import { annotationsOf, dimGeometry, dimLeader, gridStep, majorStep, ROOM_LINE, shapeToMeters, textFontSize, textLines } from '../lib/drawing';
 import { pathToSvg, polygonShape, shapeCenter, shapePath, shapeVertices, toPage, toScreen, type Point, type View } from '../lib/geometry';
 import { DEFAULT_TRANSPARENCY, fillOf, hatchAnchor, PX_PER_PT, strokeGeometry } from '../lib/style';
 import type { DrawElement, DrawElementType, Rect, Shape } from '../lib/types';
@@ -82,7 +82,7 @@ export function renderSheet(view: View, size: { w: number; h: number }, region: 
 
 /** Zeichnungsobjekt in Bildschirmkoordinaten (shape in Seitenkoordinaten). */
 export function renderElement(
-  e: Pick<DrawElement, 'id' | 'type' | 'color' | 'text' | 'style'> & { font?: DrawElement['font']; symbol?: DrawElement['symbol']; wall?: DrawElement['wall'] } & { offset?: number; extGap?: number },
+  e: Pick<DrawElement, 'id' | 'type' | 'color' | 'text' | 'style'> & { font?: DrawElement['font']; symbol?: DrawElement['symbol']; wall?: DrawElement['wall']; room?: DrawElement['room'] } & { offset?: number; extGap?: number },
   pageShape: Shape,
   view: View,
   selected: boolean,
@@ -94,6 +94,35 @@ export function renderElement(
 ): ReactNode {
   const stroke = visibleStroke(e.color);
   const w = e.style?.lineWidth && e.type !== 'dimension' ? Math.max(1, e.style.lineWidth * PX_PER_PT) : selected ? 3 : 2;
+  if (e.type === 'text' && e.room) {
+    // Raumstempel: Name (fett), Fläche, Zusatz – mittig untereinander
+    const fsPage = textFontSize(e, pageShape.h);
+    const fs = fsPage * view.scale;
+    const c = toScreen(view, shapeCenter(pageShape));
+    const lines = textLines(e);
+    const rot = pageShape.rotation ?? 0;
+    const tl = toScreen(view, pageShape);
+    return (
+      <g data-element="text" data-room="1" data-element-id={e.id} data-area={e.room.area ?? ''} opacity={faded ? 0.55 : 1} transform={rot ? `rotate(${rot} ${c.x} ${c.y})` : undefined}>
+        {selected && <rect x={tl.x - 2} y={tl.y - 2} width={pageShape.w * view.scale + 4} height={pageShape.h * view.scale + 4} fill="none" stroke="#1f5fbf" strokeDasharray="4 3" />}
+        {lines.map((l, i) => (
+          <text
+            key={i}
+            x={c.x}
+            y={tl.y + (fsPage * 0.82 + i * ROOM_LINE * fsPage) * view.scale}
+            fontSize={fs}
+            fill={stroke}
+            textAnchor="middle"
+            className="drawing-text"
+            style={{ ...fontProps(e.font), ...(i === 0 ? { fontWeight: 700 } : {}) }}
+            data-testid={i === 1 ? 'room-area' : i === 0 ? 'room-name' : undefined}
+          >
+            {l}
+          </text>
+        ))}
+      </g>
+    );
+  }
   if (e.type === 'text') {
     const fs = pageShape.h * view.scale;
     const c = toScreen(view, shapeCenter(pageShape));

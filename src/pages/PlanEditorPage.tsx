@@ -1741,6 +1741,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                         In eine geschlossene Fläche tippen – sie wird mit <strong>{hatchLabel(drawing.hatchSet)}</strong> schraffiert (auch mehrere nacheinander; im Raum einer geschlossenen Wand bis zur Wandinnenseite).
                       </span>
                     )
+                : t === 'room'
+                  ? <span data-testid="room-prompt">In einen geschlossenen Raum tippen – Name eingeben, die Fläche (m²) wird automatisch ermittelt (auch aus einzelnen Wänden und Linien).</span>
                 : t === 'guide'
                   ? drawing.guideErase
                     ? `Hilfslinie antippen, die gelöscht werden soll (${drawing.guides.length} vorhanden).`
@@ -1804,7 +1806,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                           : 'Zielpunkt antippen – oder Abstand in Mausrichtung, ΔX;ΔY bzw. Länge<Winkel eingeben.'
                         : `${drawing.copies ? `${plural(drawing.copies, 'Kopie', 'Kopien')} erstellt. ` : ''}Basispunkt antippen (oder vom Basis- zum Zielpunkt ziehen) – oder Verschiebung ΔX;ΔY bzw. Länge<Winkel eingeben. ${plural(n, 'Objekt', 'Objekte')}.`
                       : 'Endpunkt antippen – oder Länge in Mausrichtung, ΔX;ΔY bzw. Länge<Winkel eingeben.';
-            const withInput = (!(SELECT_FIRST.has(t) && drawing.cmdSelecting) || t === 'join') && t !== 'array' && t !== 'align' && t !== 'distance' && t !== 'hatch' && !(t === 'guide' && drawing.guideErase);
+            const withInput = (!(SELECT_FIRST.has(t) && drawing.cmdSelecting) || t === 'join') && t !== 'array' && t !== 'align' && t !== 'distance' && t !== 'hatch' && t !== 'room' && !(t === 'guide' && drawing.guideErase);
             return (
               <CommandBar
                 key={t}
@@ -1936,6 +1938,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 onExtGap={(mm) => drawing.setExtGap(drawing.selected!.id, mm)}
                 onFont={(f) => drawing.setFont(drawing.selected!.id, f)}
                 onFlip={(axis) => drawing.flipSymbol(drawing.selected!.id, axis)}
+                onRoom={() => void drawing.editRoom(drawing.selected!.id)}
                 onWall={(patch) => drawing.setWall(drawing.selected!.id, patch)}
                 onSegment={(i, len) => drawing.setSegment(drawing.selected!.id, i, len)}
                 onDelete={() => void drawing.remove(drawing.selected!)}

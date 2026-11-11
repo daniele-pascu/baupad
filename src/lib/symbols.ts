@@ -8,14 +8,13 @@ import type { Shape } from './types';
  * gelegt – am Bildschirm und im PDF identisch. Erweiterbar um weitere Gruppen (Sanitär, Heizung, Lüftung …).
  */
 
-export type SymbolGroup = 'door' | 'window' | 'electro' | 'appliance' | 'heating' | 'sanitary' | 'shaft';
+export type SymbolGroup = 'door' | 'window' | 'electro' | 'appliance' | 'heating' | 'shaft';
 export const SYMBOL_GROUPS: { id: SymbolGroup; label: string }[] = [
   { id: 'door', label: 'Türen' },
   { id: 'window', label: 'Fenster' },
   { id: 'electro', label: 'Elektro' },
   { id: 'appliance', label: 'Geräte' },
   { id: 'heating', label: 'Heizung' },
-  { id: 'sanitary', label: 'Sanitär' },
   { id: 'shaft', label: 'Fänge, Durchbrüche' },
 ];
 
@@ -41,16 +40,15 @@ export interface SymbolDef {
   keepAspect?: boolean;
   /** Anschlag/Öffnungsrichtung umschaltbar (Türen, Fenster) */
   flippable?: boolean;
-  /** Lage der Wandlinie im Symbol (v 0…1): Türen 1 (unten), Pendeltür/Drehkreuz 0,5, Sanitär 0 (oben) */
+  /** Lage der Wandlinie im Symbol (v 0…1): Türen 1 (unten), Pendeltür/Drehkreuz/Kipptor 0,5 */
   wall?: number;
   /** Bezugspunkt beim Vergrößern in u (Anschlag), Standard 0,5 */
   hinge?: number;
   parts: SymbolPart[];
 }
 
-/** Wandlinie eines Symbols (v): nur Türen und Sanitärgegenstände liegen an der Wand */
-export const symbolWall = (def: SymbolDef | undefined): number | null =>
-  !def ? null : def.wall ?? (def.group === 'door' ? 1 : def.group === 'sanitary' ? 0 : null);
+/** Wandlinie eines Symbols (v): nur Türen liegen mit einer Linie auf der Wand */
+export const symbolWall = (def: SymbolDef | undefined): number | null => (!def ? null : def.wall ?? (def.group === 'door' ? 1 : null));
 
 /* Hilfen im Einheitsquadrat */
 const arc = (cx: number, cy: number, rx: number, ry: number, a0: number, a1: number, n = 18): UV[] =>
@@ -72,16 +70,6 @@ const arm = (a: UV, b: UV, hook: UV): SymbolPart[] => [line(a, b), line(b, hook)
 const flue = (u0: number, u1: number, v1: number, v0 = 0.04): SymbolPart[] => [line([u0, v0], [u1, v0]), line([0.42, v0], [0.42, v1]), line([0.58, v0], [0.58, v1])];
 /** Kennzeichen Festbrennstoff (Kreuz mit Raute) */
 const star = (u: number, v: number, r: number, ry = r): SymbolPart[] => [line([u - r, v], [u + r, v]), line([u, v - ry], [u, v + ry]), { pts: [[u, v - ry * 0.55], [u + r * 0.55, v], [u, v + ry * 0.55], [u - r * 0.55, v]], closed: true }];
-const dot = (u: number, v: number, r = 0.035, ry = r): SymbolPart => ({ pts: arc(u, v, r, ry, 0, 360, 12).slice(0, -1), closed: true });
-/** Rechteck mit gerundeten Ecken (Radien als Anteile) */
-const roundRect = (u0: number, v0: number, u1: number, v1: number, ru: number, rv: number, n = 6): SymbolPart => ({
-  pts: [...arc(u1 - ru, v0 + rv, ru, rv, 90, 0, n), ...arc(u1 - ru, v1 - rv, ru, rv, 0, -90, n), ...arc(u0 + ru, v1 - rv, ru, rv, -90, -180, n), ...arc(u0 + ru, v0 + rv, ru, rv, 180, 90, n)],
-  closed: true,
-});
-/** WC-/Becken-Form: oben gerade (Wand), unten rund */
-const bowl = (u0: number, u1: number, v0: number, vs: number, v1: number): SymbolPart => ({ pts: [[u0, v0], [u1, v0], ...arc((u0 + u1) / 2, vs, (u1 - u0) / 2, v1 - vs, 0, -180, 16)], closed: true });
-/** Abtropffläche einer Spüle (Rillen) */
-const ribs = (u0: number, u1: number, v0: number, v1: number, n: number): SymbolPart[] => Array.from({ length: n }, (_, i) => line([u0, v0 + ((v1 - v0) * (i + 0.5)) / n], [u1, v0 + ((v1 - v0) * (i + 0.5)) / n]));
 /** Pfeil von a nach b (offene Spitze) */
 const arrow = (a: UV, b: UV, head = 0.1): SymbolPart[] => {
   const dx = b[0] - a[0];
@@ -181,47 +169,6 @@ export const SYMBOLS: SymbolDef[] = [
   { id: 'iron-stove', label: 'Eiserner Ofen', group: 'heating', w: 0.5, h: 0.5, keepAspect: true, parts: [...flue(0.15, 0.85, 0.235), circle(0.5, 0.6, 0.38, 32), ...star(0.5, 0.6, 0.12)] },
   { id: 'stove-oil', label: 'Ofen Öl (Ö)', group: 'heating', w: 0.5, h: 0.5, keepAspect: true, parts: [...flue(0.15, 0.85, 0.235), circle(0.5, 0.6, 0.38, 32), text('Ö', 0.5, 0.62, 0.36)] },
   { id: 'stove-gas', label: 'Ofen Gas (G)', group: 'heating', w: 0.5, h: 0.5, keepAspect: true, parts: [...flue(0.15, 0.85, 0.235), circle(0.5, 0.6, 0.38, 32), text('G', 0.5, 0.62, 0.36)] },
-
-  // Sanitärgegenstände nach ÖNORM A 6240 (Kap. 15) – Wandseite oben
-  { id: 'wc-wall', label: 'WC (Spülkasten in der Wand)', group: 'sanitary', w: 0.38, h: 0.55, keepAspect: true, flippable: true, parts: [bowl(0, 1, 0, 0.5, 1), bowl(0.16, 0.84, 0.16, 0.5, 0.86)] },
-  { id: 'wc-tank', label: 'WC mit Spülkasten', group: 'sanitary', w: 0.4, h: 0.75, keepAspect: true, flippable: true, parts: [rect(0, 0, 1, 0.26), bowl(0, 1, 0.3, 0.64, 1), bowl(0.16, 0.84, 0.42, 0.64, 0.9)] },
-  { id: 'urinal', label: 'Urinal', group: 'sanitary', w: 0.36, h: 0.32, keepAspect: true, flippable: true, parts: [bowl(0, 1, 0, 0.3, 1), bowl(0.18, 0.82, 0.18, 0.3, 0.8)] },
-  { id: 'basin', label: 'Waschbecken', group: 'sanitary', w: 0.6, h: 0.45, keepAspect: true, flippable: true, parts: [bowl(0, 1, 0, 0.4, 1), bowl(0.08, 0.92, 0.14, 0.4, 0.88), dot(0.5, 0.52, 0.04, 0.05)] },
-  {
-    id: 'basin-double',
-    label: 'Doppelwaschbecken',
-    group: 'sanitary',
-    w: 1.3,
-    h: 0.5,
-    keepAspect: true,
-    flippable: true,
-    parts: [{ pts: [[0, 0], [1, 0], ...arc(0.86, 0.6, 0.14, 0.4, 0, -90, 6), ...arc(0.14, 0.6, 0.14, 0.4, -90, -180, 6)], closed: true }, { pts: arc(0.27, 0.52, 0.22, 0.34, 0, 360, 24).slice(0, -1), closed: true }, { pts: arc(0.73, 0.52, 0.22, 0.34, 0, 360, 24).slice(0, -1), closed: true }, dot(0.27, 0.5, 0.018, 0.05), dot(0.73, 0.5, 0.018, 0.05)],
-  },
-  { id: 'bidet', label: 'Sitzwaschbecken (Bidet)', group: 'sanitary', w: 0.38, h: 0.55, keepAspect: true, flippable: true, parts: [bowl(0, 1, 0, 0.5, 1), bowl(0.16, 0.84, 0.16, 0.5, 0.86), dot(0.5, 0.4, 0.05, 0.035)] },
-  { id: 'bathtub', label: 'Badewanne', group: 'sanitary', w: 1.7, h: 0.75, keepAspect: true, flippable: true, parts: [rect(0, 0, 1, 1), roundRect(0.03, 0.08, 0.97, 0.92, 0.1, 0.22), dot(0.08, 0.5, 0.01, 0.025)] },
-  { id: 'shower', label: 'Brausetasse', group: 'sanitary', w: 0.9, h: 0.9, keepAspect: true, flippable: true, parts: [rect(0, 0, 1, 1), roundRect(0.06, 0.06, 0.94, 0.94, 0.06, 0.06), line([0.14, 0.16], [0.8, 0.16]), line([0.86, 0.22], [0.86, 0.86]), line([0.14, 0.86], [0.8, 0.22]), dot(0.86, 0.16, 0.03)] },
-  {
-    id: 'sitz-bath',
-    label: 'Sitzbadewanne',
-    group: 'sanitary',
-    w: 1.2,
-    h: 0.75,
-    keepAspect: true,
-    flippable: true,
-    parts: [rect(0, 0, 1, 1), roundRect(0.03, 0.08, 0.97, 0.92, 0.18, 0.4), line([0.6, 0.08], [0.6, 0.92]), dot(0.1, 0.5, 0.015, 0.025)],
-  },
-  { id: 'sink1', label: 'Einbeckenspüle mit Abtropffläche', group: 'sanitary', w: 0.9, h: 0.6, keepAspect: true, flippable: true, parts: [rect(0, 0, 1, 1), line([0.6, 0], [0.6, 1]), ...ribs(0.05, 0.55, 0.1, 0.9, 7), roundRect(0.65, 0.12, 0.95, 0.88, 0.06, 0.1), dot(0.71, 0.22, 0.02, 0.03)] },
-  {
-    id: 'sink2',
-    label: 'Zweibeckenspüle mit Abtropffläche',
-    group: 'sanitary',
-    w: 1.2,
-    h: 0.6,
-    keepAspect: true,
-    flippable: true,
-    parts: [rect(0, 0, 1, 1), line([0.36, 0], [0.36, 1]), ...ribs(0.04, 0.32, 0.1, 0.9, 7), roundRect(0.4, 0.12, 0.66, 0.88, 0.05, 0.1), roundRect(0.7, 0.12, 0.96, 0.88, 0.05, 0.1), dot(0.6, 0.22, 0.015, 0.03), dot(0.75, 0.22, 0.015, 0.03)],
-  },
-  { id: 'slop-sink', label: 'Ausgussbecken', group: 'sanitary', w: 0.45, h: 0.45, keepAspect: true, parts: [rect(0, 0, 1, 1), dot(0.5, 0.5, 0.05)] },
 
   // Fänge (Kap. 13) und Durchbrüche/Aussparungen (Kap. 14)
   { id: 'chimney', label: 'Rauchfang', group: 'shaft', w: 0.2, h: 0.2, keepAspect: true, parts: [rect(0, 0, 1, 1), { pts: [[0, 0], [1, 0], [0, 1]], closed: true, fill: true }] },

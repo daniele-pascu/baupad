@@ -22,8 +22,10 @@ import {
   shapeToPage,
   snapAngle,
   snapToGrid,
+  textBoxHeight,
+  textBoxWidth,
+  textFontSize,
   textShape,
-  textWidth,
   triangleFromMeasures,
   unitsPerMeter,
   type Apex,
@@ -35,6 +37,8 @@ import { inputVector, parseCadInput, vectorInfo } from '../lib/cad-input';
 import { angleBetween, angleCcw, arrayOffsets, canOffset, distanceToShape, filletCorner, filletLines, joinShapes, offsetPath, mirrorShape, offsetShape, pointLineDistance, polarAngles, rotateAround, scaleAbout, segSegDistance, setSegmentLength, type ArrayParams } from '../lib/cad-ops';
 import { DEFAULT_HATCH_SETTING, hatchLabel, hatchPicker, hatchStyle, type HatchSetting } from '../components/HatchPicker';
 import { arrayDialog } from '../components/ArrayDialog';
+import { roomDialog } from '../components/RoomDialog';
+import { boundarySegments, regionAt, withRoomAreas } from '../lib/regions';
 import { symbolPicker } from '../components/SymbolPicker';
 import { symbolAnchor, symbolDef, symbolGeometry, symbolWall, type SymbolGroup } from '../lib/symbols';
 import { wallOpenings, wallGeometry } from '../lib/walls';
@@ -48,9 +52,9 @@ import type { Damage, DrawElement, DrawElementType, GuideLine, Plan, Rect, Shape
 export type ToolGroup = 'select' | 'draw' | 'annotate' | 'modify';
 
 /** Werkzeuge des Zeichenmodus: Zeichnen sowie Ändern (Kopieren, Verschieben, Strecken …) */
-export type DrawTool = Tool | 'copy' | 'move' | 'stretch' | 'join' | 'offset' | 'mirror' | 'array' | 'symbol' | 'rotate' | 'scale' | 'align' | 'guide' | 'fillet' | 'distance' | 'hatch';
+export type DrawTool = Tool | 'copy' | 'move' | 'stretch' | 'join' | 'offset' | 'mirror' | 'array' | 'symbol' | 'rotate' | 'scale' | 'align' | 'guide' | 'fillet' | 'distance' | 'hatch' | 'room';
 /** Hilfslinie, Abrunden, Abstand: Punkte bzw. Objekte antippen */
-export const PICK_TOOLS = new Set<DrawTool>(['guide', 'fillet', 'distance', 'hatch']);
+export const PICK_TOOLS = new Set<DrawTool>(['guide', 'fillet', 'distance', 'hatch', 'room']);
 /** Abstand-Werkzeug: angetippter Punkt, ggf. mit Kante und Objekt */
 export interface DistPick {
   point: Point;
@@ -103,6 +107,7 @@ export const DRAW_TOOLS: { id: DrawTool; label: string; short?: string; icon: st
   { id: 'trim', label: 'Stutzen: Abschnitt bis zu den nächsten Kanten bzw. Eckpunkten entfernen – anklicken oder frei über mehrere Linien ziehen (Zaun)', short: 'Stutzen', icon: 'trim', key: 'z', group: 'modify' },
   { id: 'extend', label: 'Verlängern: Linie bis zur nächsten Kante verlängern', short: 'Verlängern', icon: 'extend', key: 'e', group: 'modify' },
   { id: 'hatch', label: 'Schraffur: Muster bzw. Baustoff und Farbe wählen, dann in eine geschlossene Fläche tippen (Rechteck, Kreis, Fläche, Raum aus geschlossener Wand)', short: 'Schraffur', icon: 'hatch', key: '', group: 'draw' },
+  { id: 'room', label: 'Raumstempel: in einen geschlossenen Raum tippen – Name eingeben, die Fläche (m²) wird automatisch aus Wänden, Linien bzw. der Form ermittelt und passt sich bei Änderungen an', short: 'Raum', icon: 'room', key: '', group: 'draw' },
   { id: 'fillet', label: 'Abrunden: zwei Linien antippen – mit Radius gerundet bzw. bei Radius 0 zur Ecke gekürzt/verlängert; oder die Ecke einer Fläche/Polylinie antippen', short: 'Abrunden', icon: 'fillet', key: '', group: 'modify' },
   { id: 'guide', label: 'Hilfslinie: unendliche Konstruktionslinie (0°, 45°, 90°, 135° oder frei) – nur beim Zeichnen sichtbar, nicht im PDF; Fang an Schnittpunkten', short: 'Hilfslinie', icon: 'guide', key: 'n', group: 'annotate' },
   { id: 'distance', label: 'Abstand: zwei Punkte, Linien oder Objekte antippen – kürzester Abstand, parallel bzw. rechtwinklig wird erkannt (ändert nichts)', short: 'Abstand', icon: 'distance', key: '', group: 'annotate' },
@@ -417,7 +422,8 @@ export function useDrawing(opts: {
     storePref('orthoDir', d);
   };
 
-  const allStored = useMemo(() => (plan ? elementsOf(data, plan.id) : []), [data, plan]);
+  // Raumstempel: Fläche immer aus der aktuellen Zeichnung
+  const allStored = useMemo(() => (plan ? withRoomAreas(elementsOf(data, plan.id), (e, h) => textBoxWidth(e, h, e.font)) : []), [data, plan]);
   // Ausgeblendete Ebenen: nicht sichtbar, nicht fang-, auswähl- oder veränderbar
   const stored = useMemo(() => visibleElements(plan, allStored), [plan, allStored]);
   /** Schraffur am Plan fixiert: Abstand wie auf dem Papier beim Planmaßstab */
@@ -1009,7 +1015,59 @@ export function useDrawing(opts: {
       toast(`Raum schraffiert: ${hatchLabel(hatchSet)}.`, 'success', 1800);
       return;
     }
+    // Raum aus einzelnen Wänden/Linien: kleinste geschlossene Masche um den Punkt
+    const region = !hatchSet.none ? regionAt(pm, boundarySegments(stored)) : null;
+    if (region) {
+      create('freehand', shapeFromVertices({ type: 'freehand', x: 0, y: 0, w: 0, h: 0, closed: true }, region.outline), { style: { ...newElementStyle(defaultStyle), lineWidth: 0.25, ...style } }, true);
+      setSelectedId(null);
+      toast(`Fläche schraffiert: ${hatchLabel(hatchSet)}.`, 'success', 1800);
+      return;
+    }
     toast('Hier ist keine geschlossene Fläche. Tipp: Linien mit „Verbinden“ zu einer Fläche machen oder die Fläche mit „Fläche“ nachzeichnen.', 'info', 4500);
+  };
+
+  /** Raumstempel: in einen geschlossenen Raum getippt → Name abfragen, Stempel mittig an die Stelle */
+  const roomAt = async (pm: Point) => {
+    const region = regionAt(pm, boundarySegments(stored));
+    if (!region) {
+      toast('Hier ist kein geschlossener Raum. Wände bzw. Linien müssen rundum geschlossen sein (Türen und Fenster zählen als geschlossen).', 'info', 4500);
+      return;
+    }
+    const area = Math.round(region.area * 1e4) / 1e4;
+    const r = await roomDialog(area);
+    if (!r) return;
+    const room = { area, ...(r.note ? { note: r.note } : {}) };
+    const proto = { text: r.name, room };
+    // Schrift 3,5 mm auf dem Papier (Planmaßstab); passt der Stempel nicht in den Raum, kleiner
+    const xs = region.outline.map((q) => q.x);
+    const ys = region.outline.map((q) => q.y);
+    const bw = Math.max(...xs) - Math.min(...xs);
+    const bh = Math.max(...ys) - Math.min(...ys);
+    let fs = 0.0035 * (plan?.drawing?.scale ?? 100);
+    const w0 = textBoxWidth(proto, textBoxHeight(proto, fs));
+    const h0 = textBoxHeight(proto, fs);
+    fs *= Math.min(1, (0.85 * bw) / w0, (0.85 * bh) / h0);
+    const h = textBoxHeight(proto, Math.max(0.02, Math.round(fs * 1000) / 1000));
+    const w = textBoxWidth(proto, h);
+    create('text', { type: 'rect', x: pm.x - w / 2, y: pm.y - h / 2, w, h }, { text: r.name, room, color: pref('textColor', DRAW_DEFAULT_COLOR) }, true);
+    setSelectedId(null);
+    toast(`Raumstempel „${r.name}“: ${formatMeasure(area)} m².`, 'success', 1800);
+  };
+
+  /** Raumstempel bearbeiten (Name, Zusatz) */
+  const editRoom = async (id: string) => {
+    const e = data.elements[id];
+    if (!e?.room) return;
+    const r = await roomDialog(e.room.area, { name: e.text ?? '', note: e.room.note ?? '' });
+    if (!r) return;
+    const room = { area: e.room.area, ...(r.note ? { note: r.note } : {}) };
+    const next = { ...e, text: r.name, room };
+    // Zeilenzahl kann sich ändern: Schrifthöhe bleibt, Mitte bleibt
+    const fs = textFontSize(e, e.shape.h);
+    const h = textBoxHeight(next, fs);
+    const w = textBoxWidth(next, h, e.font);
+    const c = { x: e.shape.x + e.shape.w / 2, y: e.shape.y + e.shape.h / 2 };
+    putRecord('elements', { ...next, shape: roundShape({ ...e.shape, x: c.x - w / 2, y: c.y - h / 2, w, h }) });
   };
 
   // ---------------- Hilfslinien ----------------
@@ -1213,7 +1271,7 @@ export function useDrawing(opts: {
       if (e.type === 'symbol' && e.shape.rotation && !uniform) return null;
       let sh = scaleAbout(e.shape, c, sx, sy);
       if (!sh) return null;
-      if (e.type === 'text') sh = { ...sh, w: textWidth(e.text ?? '', sh.h, e.font) };
+      if (e.type === 'text') sh = { ...sh, w: textBoxWidth(e, sh.h, e.font) };
       const type: DrawElementType = e.type === 'rect' && sh.type === 'freehand' ? 'freehand' : e.type;
       return { ...e, type, shape: roundShape(sh) };
     }, `Skaliert ${uniform2(sx, sy)}.`);
@@ -1281,7 +1339,7 @@ export function useDrawing(opts: {
         if (a <= -90) a += 180;
         rotation = ((a % 360) + 360) % 360;
         const r = (a * Math.PI) / 180;
-        // Tür/Sanitär: Wandlinie des Symbols (Türen unten, Sanitär oben, Pendeltür Mitte) auf der Linie
+        // Tür: Wandlinie des Symbols (unten, bei Pendeltür/Drehkreuz/Kipptor in der Mitte) auf der Linie
         const up = wallV !== null ? (wallV - 0.5) * h : 0;
         center = { x: best.q.x + up * Math.sin(r), y: best.q.y - up * Math.cos(r) };
       }
@@ -1361,7 +1419,7 @@ export function useDrawing(opts: {
     if (!e) return;
     let shape = kind === 'rotate' ? rotateShapeBy(e.shape, value) : scaleShape(e.shape, value);
     // Text: Breite folgt der Schrifthöhe
-    if (e.type === 'text' && kind === 'scale') shape = { ...shape, w: textWidth(e.text ?? '', shape.h, e.font) };
+    if (e.type === 'text' && kind === 'scale') shape = { ...shape, w: textBoxWidth(e, shape.h, e.font) };
     putRecord('elements', { ...e, shape: roundShape(shape) });
   };
 
@@ -1456,6 +1514,7 @@ export function useDrawing(opts: {
   const onPlace = async (p: Point) => {
     if (tool === 'guide') return guidePoint({ x: p.x / k, y: p.y / k });
     if (tool === 'hatch') return hatchAt({ x: p.x / k, y: p.y / k });
+    if (tool === 'room') return roomAt({ x: p.x / k, y: p.y / k });
     if (tool === 'fillet') return filletPoint({ x: p.x / k, y: p.y / k });
     if (tool === 'distance') return distancePoint({ x: p.x / k, y: p.y / k });
     if (TRANSFORM_TOOLS.has(tool)) {
@@ -1551,7 +1610,7 @@ export function useDrawing(opts: {
     const font = cleanFont(r.font);
     const h = roundM(e.shape.h * r.scale);
     const { font: _f, ...rest } = e;
-    putRecord('elements', { ...rest, ...(font ? { font } : {}), text: r.text.trim(), color: r.color, shape: { ...e.shape, h, w: textWidth(r.text.trim(), h, font) } });
+    putRecord('elements', { ...rest, ...(font ? { font } : {}), text: r.text.trim(), color: r.color, shape: { ...e.shape, h, w: textBoxWidth({ ...e, text: r.text.trim() }, h, font) } });
   };
 
   /** Aufmaß: Text verschieben (Verschiebung in Seitenkoordinaten); commit speichert */
@@ -1602,7 +1661,9 @@ export function useDrawing(opts: {
   const setText = (id: string, text: string) => {
     const e = data.elements[id];
     if (!e) return;
-    putRecord('elements', { ...e, text, shape: { ...e.shape, w: textWidth(text, e.shape.h, e.font) } });
+    const w = textBoxWidth({ ...e, text }, e.shape.h, e.font);
+    // Raumstempel bleibt mittig stehen, Text wächst nach rechts
+    putRecord('elements', { ...e, text, shape: { ...e.shape, w, ...(e.room ? { x: roundM(e.shape.x + (e.shape.w - w) / 2) } : {}) } });
   };
 
   /** Schrift eines Textes ändern (Breite folgt) */
@@ -1612,7 +1673,8 @@ export function useDrawing(opts: {
     const { font: _f, ...rest } = e;
     const f = cleanFont(font);
     if (f) storePref('textFont', JSON.stringify(f));
-    putRecord('elements', { ...rest, ...(f ? { font: f } : {}), shape: { ...e.shape, w: textWidth(e.text ?? '', e.shape.h, f) } });
+    const w = textBoxWidth(e, e.shape.h, f);
+    putRecord('elements', { ...rest, ...(f ? { font: f } : {}), shape: { ...e.shape, w, ...(e.room ? { x: roundM(e.shape.x + (e.shape.w - w) / 2) } : {}) } });
   };
 
   /** Ausgewählten Eckpunkt entfernen bzw. Polylinie öffnen/schließen */
@@ -1992,6 +2054,7 @@ export function useDrawing(opts: {
     polyNext,
     hatchSet,
     pickHatch,
+    editRoom,
     guides,
     guidesOn,
     setGuidesOn,

@@ -24,8 +24,8 @@ export const ELEMENT_LABELS: Record<DrawElementType, string> = {
 };
 
 /** Bezeichnung eines Objekts (geschlossene Form = „Fläche“, offene = „Freie Form“) */
-export const elementLabel = (e: Pick<DrawElement, 'type' | 'shape'> & { symbol?: DrawElement['symbol'] }) =>
-  e.type === 'symbol' ? (symbolDef(e.symbol?.id)?.label ?? 'Bauteil') : e.type === 'freehand' && e.shape.closed !== false ? 'Fläche' : ELEMENT_LABELS[e.type];
+export const elementLabel = (e: Pick<DrawElement, 'type' | 'shape'> & { symbol?: DrawElement['symbol']; room?: DrawElement['room'] }) =>
+  e.room ? 'Raumstempel' : e.type === 'symbol' ? (symbolDef(e.symbol?.id)?.label ?? 'Bauteil') : e.type === 'freehand' && e.shape.closed !== false ? 'Fläche' : ELEMENT_LABELS[e.type];
 
 type Field = keyof Measures;
 const FIELDS: Record<Field, { label: string; unit: string; degrees?: boolean }> = {
@@ -192,6 +192,7 @@ export function ElementBar({
   onExtGap,
   onFont,
   onFlip,
+  onRoom,
   onWall,
   onSegment,
 }: {
@@ -214,6 +215,8 @@ export function ElementBar({
   onFont?(f: TextFont | undefined): void;
   /** Bauteil: Anschlag (x) bzw. Öffnungsrichtung (y) umschalten */
   onFlip?(axis: 'x' | 'y'): void;
+  /** Raumstempel: Name und Zusatz bearbeiten */
+  onRoom?(): void;
   /** Wand: Stärke bzw. Höhe ändern */
   onWall?(patch: { thickness?: number; height?: number }): void;
   /** Polylinie, Fläche, Wand: Länge eines Abschnitts (Knick zu Knick) ändern */
@@ -308,7 +311,7 @@ export function ElementBar({
       <strong className="draw-bar-title">{elementLabel(element)}</strong>
       {element.type === 'text' && (
         <label className="draw-field draw-field-wide">
-          <span>Text</span>
+          <span>{element.room ? 'Raumname' : 'Text'}</span>
           <input
             value={text}
             onChange={(e) => {
@@ -323,6 +326,18 @@ export function ElementBar({
             data-testid="element-text"
           />
         </label>
+      )}
+      {element.room && (
+        <span className="row gap room-bar-info">
+          <span className="draw-bar-value" data-testid="room-bar-area" title="Fläche des Raums, in dem der Stempel steht – passt sich an, wenn Wände oder Linien geändert werden">
+            {element.room.area === null ? '– m²' : `${formatArea(element.room.area)} m²`}
+          </span>
+          {onRoom && (
+            <button type="button" className="btn btn-sm" onClick={onRoom} title="Raumname und Zusatz (z. B. Bodenbelag, Raumhöhe) bearbeiten" data-testid="room-edit">
+              Zusatz …
+            </button>
+          )}
+        </span>
       )}
       {element.type === 'wall' && element.wall && onWall && <WallFields element={element} onWall={onWall} />}
       {(element.type === 'freehand' || element.type === 'wall') && onSegment && shapeVertices(element.shape).length >= 2 && (

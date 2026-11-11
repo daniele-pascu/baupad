@@ -18,7 +18,9 @@ import {
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { componentsOf, costCenterLabel, damagesOf, elementsOf, findPosition, planTitle, safeFileName, type ExportFile } from './aufmass';
 import { dimsVisible, visibleDamages, visibleElements } from './layers';
-import { annotationsOf, dimGeometry, dimLeader, isDrawingPlan, lineEnds, PAPER, PRINT_HEADER_MM, PRINT_MARGIN_MM, fillRegion, aufmassPaper, shapeToPage, unitsPerMeter } from './drawing';
+import { annotationsOf, dimGeometry, dimLeader, isDrawingPlan, ROOM_LINE, textBoxWidth, textFontSize, textLines, lineEnds, PAPER, PRINT_HEADER_MM, PRINT_MARGIN_MM, fillRegion, aufmassPaper, shapeToPage, unitsPerMeter } from './drawing';
+import { withRoomAreas } from './regions';
+const textBoxWidthOf = (e: DrawElement, h: number) => textBoxWidth(e, h, e.font);
 import { getBlob } from './db';
 import { MADE_WITH } from './crew-pdf';
 import { damageNo } from './numbering';
@@ -79,6 +81,24 @@ const textFont = (ctx: Ctx, f: TextFont | undefined) => ctx.textFonts.get(pdfSta
 
 /** Text eines Textobjekts (Seitenkoordinaten) auf das Blatt zeichnen */
 function drawTextElement(ctx: Ctx, page: PDFPage, e: DrawElement, shape: Shape, map: (p: Point) => Point, ptPerUnit: number) {
+  if (e.room) {
+    // Raumstempel: Zeilen mittig um die Mitte der Form (gedreht wie die Form)
+    const fs = textFontSize(e, shape.h);
+    const r = ((shape.rotation ?? 0) * Math.PI) / 180;
+    const cx = shape.x + shape.w / 2;
+    const cy = shape.y + shape.h / 2;
+    textLines(e).forEach((line, i) => {
+      const f = textFont(ctx, i === 0 ? { ...e.font, bold: true } : e.font);
+      const txt = clean(ctx, line);
+      const wPage = f.widthOfTextAtSize(txt, fs * ptPerUnit) / ptPerUnit;
+      // Grundlinie links der Zeile relativ zur Mitte, dann drehen
+      const lx = -wPage / 2;
+      const ly = -shape.h / 2 + fs * 0.82 + i * ROOM_LINE * fs;
+      const at = map({ x: cx + lx * Math.cos(r) - ly * Math.sin(r), y: cy + lx * Math.sin(r) + ly * Math.cos(r) });
+      page.drawText(txt, { x: at.x, y: at.y, size: fs * ptPerUnit, font: f, color: hexToRgb(visibleHex(e.color)), rotate: degrees(-(shape.rotation ?? 0)) });
+    });
+    return;
+  }
   const at = map({ x: shape.x, y: shape.y + shape.h * 0.82 });
   page.drawText(clean(ctx, e.text ?? ''), { x: at.x, y: at.y, size: shape.h * ptPerUnit, font: textFont(ctx, e.font), color: hexToRgb(visibleHex(e.color)), rotate: degrees(-(shape.rotation ?? 0)) });
 }
@@ -143,10 +163,11 @@ export async function exportPlansPdf(data: ProjectState, opts: PdfExportOptions)
   // Schriften der Texte auf den gewählten Plänen vorab einbetten
   for (const planId of opts.planIds)
     for (const e of elementsOf(data, planId))
-      if (e.type === 'text') {
-        const name = pdfStandardFont(e.font);
-        if (!ctx.textFonts.has(name)) ctx.textFonts.set(name, name === StandardFonts.Helvetica ? font : name === StandardFonts.HelveticaBold ? bold : await out.embedFont(name));
-      }
+      if (e.type === 'text')
+        for (const f of e.room ? [e.font, { ...e.font, bold: true }] : [e.font]) {
+          const name = pdfStandardFont(f);
+          if (!ctx.textFonts.has(name)) ctx.textFonts.set(name, name === StandardFonts.Helvetica ? font : name === StandardFonts.HelveticaBold ? bold : await out.embedFont(name));
+        }
   try {
     for (const planId of opts.planIds) {
       const plan = data.plans[planId];
@@ -510,7 +531,7 @@ const MM = 72 / 25.4;
 function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   const k = unitsPerMeter(plan);
   // Ausgeblendete Ebenen werden nicht gedruckt; der Blattausschnitt folgt dem gesamten Inhalt
-  const allElements = elementsOf(data, plan.id);
+  const allElements = withRoomAreas(elementsOf(data, plan.id), textBoxWidthOf);
   const allDamages = damagesOf(data, plan.id);
   const elements = visibleElements(plan, allElements);
   const damages = visibleDamages(plan, allDamages);

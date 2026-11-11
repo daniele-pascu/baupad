@@ -482,6 +482,12 @@ export interface DrawElement extends SyncMeta {
   text?: string;
   /** Schrift (nur Textobjekte): Schriftart, fett, kursiv; fehlt = Standardschrift normal */
   font?: TextFont;
+  /**
+   * Raumstempel (Textobjekt): text = Raumname; darunter die Fläche des Raums, in dem der Stempel steht
+   * (automatisch aus den umgebenden Wänden/Linien ermittelt; null = kein geschlossener Raum) und ein Zusatz.
+   * Die Form umfasst alle Zeilen (shape.h = Gesamthöhe).
+   */
+  room?: { area: number | null; note?: string };
   /** Wand: Form ist die Achse (Linie/Polylinie); Stärke und Höhe in m */
   wall?: { thickness: number; height?: number };
   /** Bauteil/Symbol (Tür, Fenster, Elektro …) – Form ist das Begrenzungsrechteck */

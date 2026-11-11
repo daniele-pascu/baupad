@@ -71,7 +71,8 @@ const PATHS: Record<string, string> = {
   door: 'M3 21h18M5 21V5M5 5a16 16 0 0116 16',
   window: 'M3 9h18v6H3zM3 11.5h18M3 12.5h18',
   plug: 'M6 5a6 6 0 0012 0M4 10h16M12 10v10',
-  bath: 'M6 3h12v5H6zM7 8v5a5 5 0 0010 0V8M10 10v3a2 2 0 004 0v-3',
+  shaft: 'M5 5h14v14H5zM5 19L19 5M5 5h14L5 19z',
+  room: 'M3 4h18v16H3zM8 10h8M9.5 14h5',
   /** Schraffur: Fläche mit schrägen Linien */
   hatch: 'M4 4h16v16H4zM4 12l8-8M4 20L20 4M12 20l8-8',
   /** Abrunden: Ecke mit Bogen */

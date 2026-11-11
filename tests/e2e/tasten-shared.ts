@@ -269,6 +269,19 @@ export function tastenTests() {
     await expect(page.getByTestId('hatch-prompt')).toBeVisible();
     await pruefe(page, 'Befehlsleiste Schraffur', out);
     await page.getByTestId('command-done').click();
+    // Raumstempel: Befehlsleiste und (wenn das Rechteck frei antippbar ist) Dialog
+    await pickTool(page, 'draw-room');
+    await expect(page.getByTestId('room-prompt')).toBeVisible();
+    await pruefe(page, 'Befehlsleiste Raumstempel', out);
+    {
+      const r = await page.locator('[data-element="rect"]').first().boundingBox();
+      if (r) await page.mouse.click(r.x + r.width / 2, r.y + r.height / 2);
+      if (await page.getByTestId('room-dialog').isVisible({ timeout: 1500 }).catch(() => false)) {
+        await pruefe(page, 'Dialog Raumstempel', out);
+        await page.getByTestId('room-dialog').getByRole('button', { name: 'Abbrechen' }).click();
+      }
+    }
+    await page.getByTestId('command-done').click();
     // Phase 4: Bauteil-Auswahl, Bauteil-Leiste und Wand
     await page.locator('body').press('Escape');
     await pickTool(page, 'draw-door');
@@ -276,8 +289,6 @@ export function tastenTests() {
     await pruefe(page, 'Dialog Bauteile', out);
     await page.getByTestId('symbol-group-electro').click();
     await pruefe(page, 'Dialog Bauteile Elektro', out);
-    await page.getByTestId('symbol-group-sanitary').click();
-    await pruefe(page, 'Dialog Bauteile Sanitär', out);
     await page.getByTestId('symbol-group-shaft').click();
     await pruefe(page, 'Dialog Bauteile Fänge/Durchbrüche', out);
     await page.getByTestId('symbol-group-electro').click();

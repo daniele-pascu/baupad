@@ -185,7 +185,7 @@ export interface Measures {
   textHeight?: number;
 }
 
-export function measuresOf(e: Pick<DrawElement, 'type' | 'shape'>): Measures {
+export function measuresOf(e: Pick<DrawElement, 'type' | 'shape'> & Partial<Pick<DrawElement, 'text' | 'room'>>): Measures {
   const s = e.shape;
   const rotation = s.rotation ?? 0;
   switch (e.type) {
@@ -201,7 +201,7 @@ export function measuresOf(e: Pick<DrawElement, 'type' | 'shape'>): Measures {
       // Nach dem Verschieben einzelner Ecken: Seiten und Fläche nur zur Kontrolle (siehe shapeInfo)
       return isRegularTriangle(s) ? { base: s.w, height: s.h, rotation } : { rotation };
     case 'text':
-      return { textHeight: s.h, rotation };
+      return { textHeight: roundM(textFontSize(e, s.h)), rotation };
     default:
       return { rotation };
   }
@@ -240,8 +240,8 @@ export function applyMeasures(e: Pick<DrawElement, 'type' | 'shape' | 'text' | '
       return lineFromMeasures(a, m.length ?? lineLength(s), m.angle ?? lineAngle(s), 'line');
     }
     case 'text': {
-      const h = m.textHeight ?? s.h;
-      const w = textWidth(e.text ?? '', h, e.font);
+      const h = m.textHeight !== undefined ? textBoxHeight(e, m.textHeight) : s.h;
+      const w = textBoxWidth(e, h, e.font);
       return withRotation(resizeKeeping(s, w, h, { x: 0, y: 0 }), m.rotation);
     }
     default:
@@ -269,6 +269,27 @@ export function resizeKeeping(s: Shape, w: number, h: number, anchor: Point): Sh
 /** Geschätzte Textbreite in m bei Schrifthöhe h (je nach Schriftart, fett etwas breiter). */
 export function textWidth(text: string, h: number, font?: TextFont): number {
   return roundM(Math.max(1, text.length) * h * charWidthFactor(font));
+}
+
+/** Raumstempel: Zeilenabstand in Schrifthöhen */
+export const ROOM_LINE = 1.35;
+/** Zeilen eines Textobjekts (Raumstempel: Name, Fläche, Zusatz) */
+export function textLines(e: { text?: string; room?: { area: number | null; note?: string } }): string[] {
+  if (!e.room) return [e.text ?? ''];
+  return [e.text ?? '', e.room.area === null ? '– m²' : `${formatMeasure(roundM(e.room.area))} m²`, ...(e.room.note ? [e.room.note] : [])];
+}
+/** Schrifthöhe eines Textobjekts mit Gesamthöhe h */
+export function textFontSize(e: { text?: string; room?: { area: number | null; note?: string } }, h: number): number {
+  const n = textLines(e).length;
+  return h / (1 + (n - 1) * ROOM_LINE);
+}
+/** Gesamthöhe aus Schrifthöhe */
+export const textBoxHeight = (e: { text?: string; room?: { area: number | null; note?: string } }, fs: number) => roundM(fs * (1 + (textLines(e).length - 1) * ROOM_LINE));
+/** Breite eines Textobjekts mit Gesamthöhe h (längste Zeile) */
+export function textBoxWidth(e: { text?: string; room?: { area: number | null; note?: string } }, h: number, font?: TextFont): number {
+  const fs = textFontSize(e, h);
+  // Raumstempel: Name fett
+  return Math.max(...textLines(e).map((l, i) => textWidth(l, fs, e.room && i === 0 ? { ...font, bold: true } : font)));
 }
 
 export function textShape(at: Point, text: string, h: number, font?: TextFont): Shape {

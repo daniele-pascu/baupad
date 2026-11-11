@@ -11353,3 +11353,13 @@ html[data-theme='dark'] .crew-search {
   gap: 6px 8px;
   margin-top: 8px;
 }
+
+/* Raumstempel: Fläche in der Objektleiste */
+.draw-bar-value {
+  align-self: center;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.room-area-info {
+  margin: 0 0 12px;
+}
