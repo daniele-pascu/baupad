@@ -83,6 +83,17 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   await pickTool(page, 'tool-rect');
   await drawRect(page, box.x + box.width * 0.6, box.y + box.height * 0.6, box.x + box.width * 0.7, box.y + box.height * 0.7);
   await expect(dlg.getByTestId('input-position')).toHaveAttribute('data-value', '');
+  // Suche direkt im Dialog: tippen, Treffer antippen; ✕ entfernt die Position wieder
+  await dlg.getByTestId('input-position-search').fill('sperr');
+  await expect(dlg.getByTestId('position-suggestion')).toHaveCount(1);
+  await dlg.getByTestId('position-suggestion').click();
+  await expect(dlg.getByTestId('input-position')).toHaveText('92 01 01 B Sperrflaeche (m²)');
+  await expect(dlg.getByTestId('input-position-search')).toHaveValue('');
+  await dlg.getByTestId('input-position-clear').click();
+  await expect(dlg.getByTestId('input-position')).toHaveAttribute('data-value', '');
+  await expect(dlg.getByTestId('input-position-clear')).toHaveCount(0);
+  await dlg.getByTestId('input-position-search').fill('xyz-gibt-es-nicht');
+  await expect(dlg.getByTestId('position-hits')).toContainText('Keine Position gefunden');
   await dlg.getByTestId('damage-cancel').click();
 
   // Planliste zeigt die Leistungen, LV die Aufmaßmengen: 10 m² × 25 € + 12 m × 3 € = 286 €

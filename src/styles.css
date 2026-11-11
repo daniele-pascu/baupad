@@ -11002,3 +11002,12 @@ html[data-theme='dark'] .crew-search {
   gap: 14px;
 }
 .auth-card form .auth-submit { margin-top: 4px; }
+
+/* Messdialog: Leistungsposition mit ✕ und Suche direkt im Dialog */
+.position-row { display: flex; gap: 8px; align-items: stretch; }
+.position-row .position-field { flex: 1; min-width: 0; }
+.position-row .position-clear { flex: none; width: 44px; min-height: 44px; }
+.position-inline { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.position-hits { display: flex; flex-direction: column; gap: 4px; max-height: 240px; overflow-y: auto; }
+.position-hit { display: block; width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); text-align: left; font: inherit; cursor: pointer; }
+.position-hit:hover, .position-hit.sel { border-color: var(--border-strong); background: rgba(0, 0, 0, 0.04); }

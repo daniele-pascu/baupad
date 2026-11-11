@@ -136,6 +136,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const [componentId, setComponentId] = useState<string | null>(damage.componentId ?? null);
   const [positionRef, setPositionRef] = useState<string | null>(damage.positionRef ?? null);
   const [pickPos, setPickPos] = useState(false);
+  /** Suche direkt im Dialog: Positionsnummer oder Kurztext */
+  const [posQ, setPosQ] = useState('');
   const [note, setNote] = useState(damage.note ?? '');
   // Bewehrung: Zeilen „Stück × Länge“ (Texte, damit Kommas und leere Felder möglich sind)
   const [rebarRows, setRebarRows] = useState<{ id: string; count: string; length: string }[]>(() =>
@@ -706,16 +708,66 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
           <div className="field">
             <span>Leistungsposition</span>
             {/* Antippen öffnet das Suchfenster (Position, Kurztext, EH) */}
-            <button
-              type="button"
-              className="position-field"
-              onClick={() => setPickPos(true)}
-              data-value={positionRef ?? ''}
-              data-testid="input-position"
-            >
-              <span className={positionRef ? '' : 'muted'}>{positions.find((p) => p.ref === positionRef)?.label ?? '– keine Leistungszuordnung –'}</span>
-              <Icon name="search" size={18} />
-            </button>
+            <div className="position-row">
+              <button
+                type="button"
+                className="position-field"
+                onClick={() => setPickPos(true)}
+                title="Alle Positionen anzeigen"
+                data-value={positionRef ?? ''}
+                data-testid="input-position"
+              >
+                <span className={positionRef ? '' : 'muted'}>{positions.find((p) => p.ref === positionRef)?.label ?? '– keine Leistungszuordnung –'}</span>
+                <Icon name="search" size={18} />
+              </button>
+              {positionRef && (
+                <button type="button" className="icon-btn position-clear" onClick={() => setPositionRef(null)} aria-label="Leistungsposition entfernen" title="Leistungsposition entfernen" data-testid="input-position-clear">
+                  ✕
+                </button>
+              )}
+            </div>
+            {(() => {
+              const needle = posQ.trim().toLowerCase();
+              const hits = needle
+                ? positions
+                    .filter((p) => !docId || docOf(p.ref) === docId)
+                    .filter((p) => [p.number ?? '', p.shortText ?? p.label].some((t) => t.toLowerCase().includes(needle)))
+                    .slice(0, 6)
+                : [];
+              return (
+                <div className="position-inline">
+                  <input
+                    type="search"
+                    value={posQ}
+                    onChange={(e) => setPosQ(e.target.value)}
+                    placeholder="Position suchen: Nummer oder Kurztext"
+                    aria-label="Leistungsposition suchen"
+                    data-testid="input-position-search"
+                  />
+                  {needle && (
+                    <div className="position-hits" data-testid="position-hits">
+                      {hits.map((p) => (
+                        <button
+                          key={p.ref}
+                          type="button"
+                          className={`position-hit${p.ref === positionRef ? ' sel' : ''}`}
+                          onClick={() => {
+                            setPositionRef(p.ref);
+                            setDocId(docOf(p.ref));
+                            setPosQ('');
+                          }}
+                          data-testid="position-suggestion"
+                        >
+                          <strong>{p.number ?? ''}</strong> <span>{p.shortText ?? p.label}</span>
+                          {p.unit && <span className="muted"> ({p.unit})</span>}
+                        </button>
+                      ))}
+                      {!hits.length && <span className="muted small">Keine Position gefunden.</span>}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         )}
         <div className="field rebar-field" data-testid="rebar">
