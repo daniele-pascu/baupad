@@ -293,3 +293,25 @@ test('Nach dem Neuladen ist alles da; PDF-Export mit Maßstab; Sicherung und Wie
   await expect(dim('6,20 m')).toBeVisible();
   await expect(page.locator('[data-testid="aufmass-row"]')).toHaveCount(1);
 });
+
+test('Maß einer Form: eintippen und auf den Plan tippen übernimmt sofort (ohne Enter)', async () => {
+  await deselect();
+  await pickTool(page, 'draw-rect');
+  await page.getByTestId('insert-length').fill('3');
+  await page.getByTestId('insert-width').fill('2');
+  await page.getByTestId('insert-submit').click();
+  await expect(page.getByTestId('element-length')).toHaveValue('3,00');
+  await waitSaved(page);
+  const before = (await stored(page, 'elements')).length;
+  // Länge und Breite ändern, dann direkt auf eine freie Stelle im Plan tippen
+  await page.getByTestId('element-length').fill('4,5');
+  await page.getByTestId('element-width').fill('1,25');
+  const v = (await page.getByTestId('plan-viewer').boundingBox())!;
+  await page.mouse.click(v.x + v.width - 60, v.y + v.height - 120);
+  await waitSaved(page);
+  const els = await stored(page, 'elements');
+  expect(els.length).toBe(before);
+  const r = els.sort((a, b) => b.updatedAt - a.updatedAt)[0];
+  expect(Math.max(r.shape.w, r.shape.h)).toBeCloseTo(4.5, 6);
+  expect(Math.min(r.shape.w, r.shape.h)).toBeCloseTo(1.25, 6);
+});

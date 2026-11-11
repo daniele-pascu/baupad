@@ -859,3 +859,36 @@ test('Arbeitereinteilung per Finger: Woche nicht fixiert, Wischen links/rechts w
   await swipe(w * 0.5, w * 0.5 + 30, y);
   await expect(page.getByTestId('week-label')).toHaveText('KW 45');
 });
+
+test('Plan zeichnen per Finger: Maß eintippen und auf den Plan tippen übernimmt sofort', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'Maß tippen', {}, ['Keller']);
+  await page.getByTestId('draw-plan').tap();
+  const nd = page.getByTestId('new-drawing');
+  await nd.locator('[data-field="planNumber"]').fill('T-1');
+  await nd.getByTestId('new-drawing-save').tap();
+  await expect(page.getByTestId('drawing-sheet')).toBeVisible();
+  await pickTool(page, 'draw-rect', 'tap');
+  await page.getByTestId('insert-length').fill('3');
+  await page.getByTestId('insert-width').fill('2');
+  await page.getByTestId('insert-submit').tap();
+  await expect(page.getByTestId('element-length')).toHaveValue('3,00');
+  // eintippen (Feld bleibt fokussiert), dann mit dem Finger auf eine freie Stelle im Plan
+  await page.getByTestId('element-length').tap();
+  await page.getByTestId('element-length').fill('4,5');
+  const v = (await page.getByTestId('plan-viewer').boundingBox())!;
+  await page.touchscreen.tap(v.x + v.width * 0.15, v.y + v.height * 0.85);
+  await waitSaved(page);
+  const els = await page.evaluate(
+    () =>
+      new Promise<{ shape: { w: number; h: number } }[]>((resolve) => {
+        const req = indexedDB.open('schadstellen-aufmass');
+        req.onsuccess = () => {
+          const all = req.result.transaction('elements').objectStore('elements').getAll();
+          all.onsuccess = () => resolve(all.result);
+        };
+      }),
+  );
+  expect(els).toHaveLength(1);
+  expect(Math.max(els[0].shape.w, els[0].shape.h)).toBeCloseTo(4.5, 6);
+});

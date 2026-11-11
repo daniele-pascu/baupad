@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { apexOf, isRegularTriangle, measuresOf, pathLength, shapeInfo, type Apex, type Measures } from '../lib/drawing';
 import { arcRadius } from '../lib/cad';
 import { shapeVertices } from '../lib/geometry';
@@ -229,7 +229,20 @@ export function ElementBar({
     setError(null);
   }, [key]);
 
+  // Geänderte, noch nicht übernommene Felder: werden spätestens beim Antippen außerhalb der Leiste übernommen
+  // (ein Tipp auf den Plan nimmt dem Feld nicht immer den Fokus bzw. wählt die Form ab, bevor „blur“ käme)
+  const dirty = useRef(new Set<Field>());
+  const textDirty = useRef(false);
+  const barRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    dirty.current.clear();
+    textDirty.current = false;
+  }, [key]);
+
   const commit = (f: Field) => {
+    // schon übernommen (z. B. beim Antippen außerhalb) – nicht doppelt
+    if (!dirty.current.has(f)) return;
+    dirty.current.delete(f);
     const input = values[f] ?? '';
     const r = check(f, input);
     if (!r.ok) {
@@ -239,17 +252,56 @@ export function ElementBar({
     setError(null);
     if (Math.abs((current[f] ?? NaN) - r.value) > 1e-9) onApply({ [f]: r.value });
   };
+  /** alle offenen Eingaben auf einmal übernehmen */
+  const commitAll = () => {
+    if (textDirty.current) {
+      textDirty.current = false;
+      if (text.trim() && text !== element.text) onText(text.trim());
+    }
+    if (!dirty.current.size) return;
+    const patch: Record<string, number> = {};
+    for (const f of dirty.current) {
+      const r = check(f, values[f] ?? '');
+      if (!r.ok) {
+        setError(r.error);
+        continue;
+      }
+      if (Math.abs((current[f] ?? NaN) - r.value) > 1e-9) patch[f] = r.value;
+    }
+    dirty.current.clear();
+    if (Object.keys(patch).length) onApply(patch as Measures);
+  };
+  const commitAllRef = useRef(commitAll);
+  commitAllRef.current = commitAll;
+  useEffect(() => {
+    const outside = (e: PointerEvent) => {
+      if (barRef.current && !barRef.current.contains(e.target as Node)) commitAllRef.current();
+    };
+    // Erfassungsphase: vor dem Plan, der die Auswahl aufhebt
+    document.addEventListener('pointerdown', outside, true);
+    return () => {
+      document.removeEventListener('pointerdown', outside, true);
+      // Leiste verschwindet (Form abgewählt, anderes Werkzeug): offene Eingaben noch übernehmen
+      commitAllRef.current();
+    };
+  }, []);
 
   return (
-    <div className="draw-bar element-bar" data-testid="element-bar">
+    <div className="draw-bar element-bar" data-testid="element-bar" ref={barRef}>
       <strong className="draw-bar-title">{elementLabel(element)}</strong>
       {element.type === 'text' && (
         <label className="draw-field draw-field-wide">
           <span>Text</span>
           <input
             value={text}
-            onChange={(e) => setText(e.target.value)}
-            onBlur={() => text.trim() && text !== element.text && onText(text.trim())}
+            onChange={(e) => {
+              textDirty.current = true;
+              setText(e.target.value);
+            }}
+            onBlur={() => {
+              textDirty.current = false;
+              if (text.trim() && text !== element.text) onText(text.trim());
+            }}
             onKeyDown={(e) => e.key === 'Enter' && (e.currentTarget as HTMLInputElement).blur()}
             data-testid="element-text"
           />
@@ -261,7 +313,10 @@ export function ElementBar({
           <span className="input-unit">
             <input
               value={values[f] ?? ''}
-              onChange={(e) => setValues({ ...values, [f]: e.target.value })}
+              onChange={(e) => {
+                dirty.current.add(f);
+                setValues({ ...values, [f]: e.target.value });
+              }}
               onBlur={() => commit(f)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
