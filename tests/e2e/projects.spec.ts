@@ -2,7 +2,7 @@ import { expect, test } from './fixtures';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { strToU8, zipSync } from 'fflate';
-import { FIXTURES, OUT, createProject, freshStart, openPlan, selectCostCenter, tableRows, waitForPlan, waitSaved } from './helpers';
+import { FIXTURES, OUT, catchDownload, createProject, freshStart, openPlan, selectCostCenter, tableRows, waitForPlan, waitSaved } from './helpers';
 
 /**
  * Phase 2: Website und Navigation, Projektinformationen mit Kostenstelle, kompakte Planliste.
@@ -537,4 +537,34 @@ test.describe('Tab-Symbol', () => {
     // die Symbole sind erreichbar
     for (const f of ['pad-favicon-64.png', 'pad-icon-180.png', 'pad-icon-512.png', 'favicon-64.png']) expect((await page.request.get(`./icons/${f}`)).status()).toBe(200);
   });
+});
+
+test('Planliste: Pläne direkt als PDF herunterladen – je Plan im Menü und alle unter der Liste', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'PDF Liste', {}, ['Keller']);
+  for (const nr of ['L-1', 'L-2']) {
+    await page.getByTestId('plan-file-input').setInputFiles(join(FIXTURES, 'parkdeck.png'));
+    const wiz = page.getByTestId('import-wizard');
+    await wiz.getByTestId('areas-next').click();
+    await wiz.locator('[data-field="planNumber"]').fill(nr);
+    await wiz.getByTestId('import-save').click();
+    await waitForPlan(page);
+    await page.getByRole('link', { name: 'Zurück zur Planliste' }).click();
+  }
+  await expect(page.getByTestId('plan-row')).toHaveCount(2);
+  const checked = () => page.locator('.modal input[type="checkbox"]:checked').count();
+  // je Plan: Menü → „Als PDF herunterladen“ – nur dieser Plan ist gewählt
+  await page.locator('[data-testid="plan-row"][data-plan="L-2"]').getByTestId('plan-actions').click();
+  await page.getByTestId('action-pdf').click();
+  await expect(page.getByTestId('pdf-export-run')).toBeVisible();
+  const one = await page.locator('.modal').innerText();
+  expect(one).toContain('L-2');
+  const dl = await catchDownload(page, () => page.getByTestId('pdf-export-run').click());
+  expect(dl.suggestedFilename()).toMatch(/L-2.*\.pdf$|\.pdf$/);
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('pdf-export-run')).toHaveCount(0);
+  // alle: Taste direkt unter der Liste
+  await page.getByTestId('plans-pdf').click();
+  await expect(page.getByTestId('pdf-export-run')).toBeVisible();
+  expect(await checked()).toBeGreaterThanOrEqual(2);
 });

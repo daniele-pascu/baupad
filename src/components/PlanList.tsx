@@ -19,6 +19,8 @@ interface Props {
   /** Planunterlage drehen */
   onRotate: (plan: Plan) => void;
   onDelete: (plan: Plan) => void;
+  /** Plan als PDF herunterladen (Auswahl-Dialog mit diesem Plan) */
+  onPdf?: (plan: Plan) => void;
 }
 
 /**
@@ -26,7 +28,7 @@ interface Props {
  * Leistungszuordnung, Anzahl der Messungen und Flächensumme. Auf dem Smartphone werden
  * die Angaben zweizeilig unter der Plannummer angeordnet.
  */
-export function PlanList({ data, plans, onEdit, onRename, onCrop, onReuse, onDuplicate, onRotate, onDelete }: Props) {
+export function PlanList({ data, plans, onEdit, onRename, onCrop, onReuse, onDuplicate, onRotate, onDelete, onPdf }: Props) {
   return (
     <div className="plan-list" role="table" aria-label="Pläne" data-testid="plan-list">
       <div className="plan-row plan-head" role="row">
@@ -96,6 +98,7 @@ export function PlanList({ data, plans, onEdit, onRename, onCrop, onReuse, onDup
                 testId="plan-actions"
                 actions={[
                   { label: 'Öffnen', icon: 'map', onSelect: () => navigate(href), testId: 'action-open' },
+                  ...(onPdf ? [{ label: 'Als PDF herunterladen', icon: 'pdf' as const, onSelect: () => onPdf(plan), testId: 'action-pdf' }] : []),
                   { label: 'Angaben bearbeiten', icon: 'edit', onSelect: () => onEdit(plan), testId: 'action-edit' },
                   { label: 'Umbenennen', icon: 'hash', onSelect: () => onRename(plan), testId: 'action-rename' },
                   { label: 'Duplizieren (mit Messungen)', icon: 'copy', onSelect: () => onDuplicate(plan), testId: 'action-duplicate' },

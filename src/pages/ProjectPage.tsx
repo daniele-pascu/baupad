@@ -50,7 +50,8 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
   }, [ccs.length, project.id]);
   const fileRef = useRef<HTMLInputElement>(null);
   const [editing, setEditing] = useState(false);
-  const [pdfOpen, setPdfOpen] = useState(false);
+  /** PDF-Dialog: vorausgewählte Pläne (null = zu) */
+  const [pdfPlans, setPdfPlans] = useState<string[] | null>(null);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [details, setDetails] = useState<Plan | null>(null);
   const [cropping, setCropping] = useState<{ plan: Plan; image: HTMLCanvasElement } | null>(null);
@@ -563,8 +564,17 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
                 onDuplicate={duplicatePlan}
                 onRotate={setRotating}
                 onDelete={(p) => void deletePlan(p)}
+                onPdf={(p) => setPdfPlans([p.id])}
               />
-            ) : (
+            ) : null}
+          {plans.length > 0 && (
+            <div className="row gap wrap plan-list-foot">
+              <button type="button" className="btn" onClick={() => setPdfPlans(plans.map((p) => p.id))} data-testid="plans-pdf">
+                <Icon name="pdf" /> Pläne als PDF herunterladen
+              </button>
+            </div>
+          )}
+          {plans.length ? null : (
               <div className="empty">
                 <p data-testid="plans-empty">Noch keine Pläne{invoice ? ` in der ${invoiceLabel(invoice)}` : ''}{ccs.length > 1 ? ' in dieser Kostenstelle' : ''}.</p>
                 <p className="muted">Importieren Sie einen Plan als PDF, JPG oder PNG – auf iPhone/iPad aus „Dateien“ oder der Fotomediathek.</p>
@@ -716,7 +726,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
       <section>
         <h2 className="section-title">Export und Sicherung</h2>
         <div className="button-row">
-          <button type="button" className="btn" onClick={() => setPdfOpen(true)} disabled={!plans.length}>
+          <button type="button" className="btn" onClick={() => setPdfPlans(plans.map((p) => p.id))} disabled={!plans.length}>
             <Icon name="pdf" /> PDF – Pläne auswählen
           </button>
           <button type="button" className="btn" onClick={() => void backup()} data-testid="backup-project">
@@ -824,7 +834,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
           }}
         />
       )}
-      {pdfOpen && <PdfExportDialog data={data} costCenterId={active?.id} initial={plans.map((p) => p.id)} onClose={() => setPdfOpen(false)} />}
+      {pdfPlans && <PdfExportDialog data={data} costCenterId={active?.id} initial={pdfPlans} onClose={() => setPdfPlans(null)} />}
     </div>
     </>
   );

@@ -10993,3 +10993,4 @@ html[data-theme='dark'] .crew-search {
   .aufmass-table th .unit-h { display: block; }
   .aufmass-table .actions-col .icon-btn-sm { width: 32px; height: 32px; min-width: 0; min-height: 0; }
 }
+.plan-list-foot { margin-top: 12px; }
