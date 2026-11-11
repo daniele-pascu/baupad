@@ -9,12 +9,12 @@ import { usePageMeta, type PageMeta } from '../seo';
 import { useParallax, useReveal } from './Reveal';
 
 /**
- * Wortmarke PAD Software – der bestehende Schriftzug (Text), unverändert in Form, Schrift und Farben.
- * Eine Logo-Datei für PAD Software liegt nicht vor; sobald sie da ist, wird sie hier eins zu eins eingesetzt.
+ * Logo PAD Software: Zeichen (P/D, weiß auf transparent) links, daneben der Schriftzug PAD Software.
  */
 export function Wordmark({ lang }: { lang: Lang }) {
   return (
     <a href={paths.landing(lang)} className="site-wordmark ps-wordmark" aria-label="PAD Software">
+      <img className="wm-mark" src="/icons/pad-mark.png" alt="" width={144} height={128} data-testid="pad-mark" />
       <span className="wm-pad">PAD</span>
       <span className="wm-soft">Software</span>
     </a>

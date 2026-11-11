@@ -2096,3 +2096,7 @@
 @media (min-width: 761px) {
   .ps-toolcards > .ps-toolcard:last-child:nth-child(odd) { grid-column: 1 / -1; }
 }
+
+/* Logo-Zeichen links vom Schriftzug PAD Software (Kopf- und Fußzeile) */
+.ps-wordmark { align-items: center; }
+.ps-wordmark .wm-mark { display: block; width: auto; height: 1.5em; margin-right: 4px; flex: none; }
