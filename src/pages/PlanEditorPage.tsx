@@ -38,7 +38,7 @@ import { findSnap } from '../lib/snap';
 import { SegIndex } from '../lib/pdf-snap';
 import { clearHistory, newMeta, putRecord, putRecords, redo, softDelete, undo, useAppState, type ProjectState } from '../lib/store';
 import { COLORS, SHAPE_LABELS, type Damage, type DrawElementType, type MeasureKind, type Plan, type Shape, type ShapeStyle, type ShapeType } from '../lib/types';
-import { DRAW_TOOLS, readStyle, SELECT_FIRST, useDrawing, VECTOR_COMMANDS, type DrawTool } from './DrawingMode';
+import { DRAW_TOOLS, PICK_TOOLS, readStyle, SELECT_FIRST, useDrawing, VECTOR_COMMANDS, type DrawTool } from './DrawingMode';
 import { CommandBar } from '../components/CommandBar';
 import { symbolDef } from '../lib/symbols';
 import { DrawRibbon, OrthoButtons } from '../components/DrawRibbon';
@@ -1658,7 +1658,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               </button>
             </div>
           )}
-          {drawMode && !probe && !dialog && (SELECT_FIRST.has(drawing.tool) || drawing.tool === 'offset' || drawing.tool === 'symbol' || (drawing.tool === 'wall' && !polyCount) || (drawing.tool === 'line' && drawing.cmdBase)) && !(drawing.tool === 'array' && !drawing.cmdSelecting && !drawing.arrayPolar) && (() => {
+          {drawMode && !probe && !dialog && (SELECT_FIRST.has(drawing.tool) || PICK_TOOLS.has(drawing.tool) || drawing.tool === 'offset' || drawing.tool === 'symbol' || (drawing.tool === 'wall' && !polyCount) || (drawing.tool === 'line' && drawing.cmdBase)) && !(drawing.tool === 'array' && !drawing.cmdSelecting && !drawing.arrayPolar) && (() => {
             const t = drawing.tool;
             const n = drawing.selection.length;
             const plural = (k: number, one: string, many: string) => `${k} ${k === 1 ? one : many}`;
@@ -1674,6 +1674,30 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                       const h = drawing.symbolSize?.h ?? def?.h ?? 0;
                       return `${def?.label ?? 'Bauteil'} ${formatMeasure(w)} × ${formatMeasure(h)} m: Stelle antippen – auf einer Linie bzw. Wand richtet es sich aus. Größe eintippen (Breite bzw. Breite;Tiefe).`;
                     })()
+                : t === 'guide'
+                  ? drawing.guideErase
+                    ? `Hilfslinie antippen, die gelöscht werden soll (${drawing.guides.length} vorhanden).`
+                    : drawing.guideAngle === 'free'
+                      ? drawing.pickPts.length
+                        ? '2. Punkt antippen – bestimmt die Richtung – oder Winkel eintippen.'
+                        : '1. Punkt der Hilfslinie antippen (Fang hilft).'
+                      : `Punkt antippen – Hilfslinie unter ${drawing.guideAngle.replace('.', ',')}°. Anderen Winkel eintippen, z. B. 30.`
+                : t === 'fillet'
+                  ? drawing.filletSrc
+                    ? `Zweite Linie antippen – Radius ${formatMeasure(drawing.filletR)} m.`
+                    : `Erste Linie antippen (der angetippte Teil bleibt) – oder die Ecke einer Fläche. Radius ${formatMeasure(drawing.filletR)} m${drawing.filletR ? '' : ' = scharfe Ecke'} (Wert eingeben zum Ändern).`
+                : t === 'distance'
+                  ? drawing.distRes
+                    ? (
+                        <span data-testid="distance-result">
+                          Abstand <strong>{formatMeasure(drawing.distRes.d)} m</strong>
+                          {drawing.distRes.rel === 'parallel' ? ' · parallel' : drawing.distRes.rel === 'perpendicular' ? ' · rechtwinklig' : drawing.distRes.angle !== undefined ? ` · Winkel ${String(Math.round(drawing.distRes.angle * 10) / 10).replace('.', ',')}°` : ''}
+                          {` · ΔX ${formatMeasure(Math.abs(drawing.distRes.q.x - drawing.distRes.p.x))} · ΔY ${formatMeasure(Math.abs(drawing.distRes.q.y - drawing.distRes.p.y))}`} – nächsten Punkt antippen für eine neue Messung.
+                        </span>
+                      )
+                    : drawing.distPicks.length
+                      ? 'Zweiten Punkt, Linie oder Objekt antippen.'
+                      : 'Punkt, Linie oder Objekt antippen – dann das zweite. Ändert nichts an der Zeichnung.'
                 : t === 'rotate'
                   ? (() => {
                       const m = drawing.pickPts.length;
@@ -1713,14 +1737,14 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                           : 'Zielpunkt antippen – oder Abstand in Mausrichtung, ΔX;ΔY bzw. Länge<Winkel eingeben.'
                         : `${drawing.copies ? `${plural(drawing.copies, 'Kopie', 'Kopien')} erstellt. ` : ''}Basispunkt antippen (oder vom Basis- zum Zielpunkt ziehen) – oder Verschiebung ΔX;ΔY bzw. Länge<Winkel eingeben. ${plural(n, 'Objekt', 'Objekte')}.`
                       : 'Endpunkt antippen – oder Länge in Mausrichtung, ΔX;ΔY bzw. Länge<Winkel eingeben.';
-            const withInput = (!(SELECT_FIRST.has(t) && drawing.cmdSelecting) || t === 'join') && t !== 'array' && t !== 'align';
+            const withInput = (!(SELECT_FIRST.has(t) && drawing.cmdSelecting) || t === 'join') && t !== 'array' && t !== 'align' && t !== 'distance' && !(t === 'guide' && drawing.guideErase);
             return (
               <CommandBar
                 key={t}
                 title={DRAW_TOOLS.find((x) => x.id === t)?.short ?? ''}
                 prompt={prompt}
                 onInput={withInput ? drawing.applyInput : undefined}
-                placeholder={t === 'wall' ? 'Stärke, z. B. 0,25' : t === 'offset' ? 'Abstand, z. B. 0,25' : t === 'join' ? 'Lücke, z. B. 0,05' : t === 'symbol' ? 'Breite, z. B. 0,9' : t === 'rotate' ? 'Winkel, z. B. 90' : t === 'scale' ? (drawing.refMode ? 'Länge, z. B. 4,5' : 'Faktor, z. B. 2') : undefined}
+                placeholder={t === 'wall' ? 'Stärke, z. B. 0,25' : t === 'offset' ? 'Abstand, z. B. 0,25' : t === 'join' ? 'Lücke, z. B. 0,05' : t === 'symbol' ? 'Breite, z. B. 0,9' : t === 'rotate' || t === 'guide' ? 'Winkel, z. B. 90' : t === 'fillet' ? 'Radius, z. B. 0,5' : t === 'scale' ? (drawing.refMode ? 'Länge, z. B. 4,5' : 'Faktor, z. B. 2') : undefined}
               >
                 {SELECT_FIRST.has(t) && drawing.cmdSelecting && (
                   <button type="button" className="btn btn-sm btn-primary" disabled={!n} onClick={drawing.cmdNext} data-testid="command-next">
@@ -1737,6 +1761,29 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                     <input type="checkbox" checked={drawing.mirrorKeep} onChange={(e) => drawing.setMirrorKeep(e.target.checked)} data-testid="mirror-keep" />
                     <span>Original behalten</span>
                   </label>
+                )}
+                {t === 'guide' && (
+                  <>
+                    <select value={['free', '0', '45', '90', '135'].includes(drawing.guideAngle) ? drawing.guideAngle : 'custom'} onChange={(e) => (drawing.setGuideAngle(e.target.value), drawing.setGuideErase(false))} aria-label="Winkel der Hilfslinie" data-testid="guide-angle">
+                      <option value="0">0° waagrecht</option>
+                      <option value="45">45°</option>
+                      <option value="90">90° senkrecht</option>
+                      <option value="135">135°</option>
+                      <option value="free">frei (2 Punkte)</option>
+                      {!['free', '0', '45', '90', '135'].includes(drawing.guideAngle) && <option value="custom">{drawing.guideAngle.replace('.', ',')}°</option>}
+                    </select>
+                    <button type="button" className={`btn btn-sm${drawing.guideErase ? ' active-toggle' : ''}`} aria-pressed={drawing.guideErase} onClick={() => drawing.setGuideErase(!drawing.guideErase)} disabled={!drawing.guides.length} data-testid="guide-erase">
+                      Löschen
+                    </button>
+                    <button type="button" className="btn btn-sm" onClick={drawing.clearGuides} disabled={!drawing.guides.length} data-testid="guide-clear">
+                      Alle löschen
+                    </button>
+                  </>
+                )}
+                {t === 'distance' && drawing.distRes && drawing.distRes.d > 1e-6 && (
+                  <button type="button" className="btn btn-sm" onClick={drawing.distToDimension} data-testid="distance-dimension">
+                    Als Maß einfügen
+                  </button>
                 )}
                 {(t === 'rotate' || t === 'scale') && !drawing.cmdSelecting && (
                   <button type="button" className={`btn btn-sm${drawing.refMode ? ' active-toggle' : ''}`} aria-pressed={drawing.refMode} onClick={() => drawing.setRefMode(!drawing.refMode)} title={t === 'rotate' ? 'Bezug: eine vorhandene Richtung (zwei Punkte) auf eine neue Richtung drehen' : 'Bezug: eine bekannte Strecke (zwei Punkte) auf eine neue Länge bringen'} data-testid="transform-ref">
@@ -1763,15 +1810,15 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                     Anderes Bauteil
                   </button>
                 )}
-                {(SELECT_FIRST.has(t) || t === 'offset' || t === 'symbol') && (
+                {(SELECT_FIRST.has(t) || PICK_TOOLS.has(t) || t === 'offset' || t === 'symbol') && (
                   <button type="button" className="btn btn-sm" onClick={drawing.finishCommand} data-testid="command-done">
-                    {(t === 'copy' && drawing.copies) || t === 'offset' || t === 'symbol' ? 'Fertig' : 'Abbrechen'}
+                    {(t === 'copy' && drawing.copies) || t === 'offset' || t === 'symbol' || PICK_TOOLS.has(t) ? 'Fertig' : 'Abbrechen'}
                   </button>
                 )}
               </CommandBar>
             );
           })()}
-          {drawMode && !probe && !dialog && !SELECT_FIRST.has(drawing.tool) && drawing.tool !== 'offset' && drawing.tool !== 'symbol' && drawing.selection.length > 1 && (
+          {drawMode && !probe && !dialog && !SELECT_FIRST.has(drawing.tool) && !PICK_TOOLS.has(drawing.tool) && drawing.tool !== 'offset' && drawing.tool !== 'symbol' && drawing.selection.length > 1 && (
             <div className="draw-bar multi-bar" data-testid="multi-bar">
               <strong className="draw-bar-title">{drawing.selection.length} Objekte ausgewählt</strong>
               <button type="button" className="btn btn-sm" onClick={() => drawing.setTool('move')} data-testid="multi-move">
@@ -1797,7 +1844,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               </button>
             </div>
           )}
-          {drawMode && !probe && !OP_HINTS[drawing.tool] && !SELECT_FIRST.has(drawing.tool) && drawing.tool !== 'offset' && drawing.tool !== 'symbol' && !(drawing.tool === 'wall' && !polyCount && !drawing.selected) && !(drawing.tool === 'line' && drawing.cmdBase) &&
+          {drawMode && !probe && !OP_HINTS[drawing.tool] && !SELECT_FIRST.has(drawing.tool) && !PICK_TOOLS.has(drawing.tool) && drawing.tool !== 'offset' && drawing.tool !== 'symbol' && !(drawing.tool === 'wall' && !polyCount && !drawing.selected) && !(drawing.tool === 'line' && drawing.cmdBase) &&
             (drawing.selected && !polyCount ? (
               <ElementBar
                 key={drawing.selected.id}

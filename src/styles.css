@@ -11185,3 +11185,51 @@ html[data-theme='dark'] .crew-search {
 .command-bar select {
   min-height: 34px;
 }
+
+/* Hilfslinien (nur beim Zeichnen, nicht im PDF) und Abstand */
+.guide-line {
+  fill: none;
+  stroke: #d6336c;
+  stroke-width: 1;
+  stroke-dasharray: 8 3 2 3;
+  opacity: 0.75;
+  pointer-events: none;
+}
+.guide-preview {
+  opacity: 0.45;
+}
+.parallel-edge {
+  fill: none;
+  stroke: #e8590c;
+  stroke-width: 3;
+  opacity: 0.6;
+  pointer-events: none;
+}
+.dist-line {
+  fill: none;
+  stroke: #e8590c;
+  stroke-width: 1.6;
+  stroke-dasharray: 5 3;
+  pointer-events: none;
+}
+.snap-kinds {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.snap-kind-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+}
+.snap-kind-move {
+  display: inline-flex;
+  gap: 6px;
+  flex: none;
+}

@@ -286,7 +286,8 @@ export function putRecords(items: { [S in ChildStore]?: EntityMap[S][] }, opts: 
     const map = { ...(next[store] as Record<string, EntityMap[ChildStore]>) };
     for (const rec of recs) {
       const bumped = bump(rec);
-      if (HISTORY_STORES.has(store)) step.push({ store, id: rec.id, before: map[rec.id], after: bumped });
+      // history: true nimmt auch andere Datensätze auf (z. B. Hilfslinien am Plan) – sonst nur Messungen, Bauteile, Zeichnungsobjekte
+      if (HISTORY_STORES.has(store) || opts.history === true) step.push({ store, id: rec.id, before: map[rec.id], after: bumped });
       map[rec.id] = bumped;
       enqueue(store, bumped);
     }

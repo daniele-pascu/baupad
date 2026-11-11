@@ -891,7 +891,9 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     }
     const raw = clampP(toPage(v, p));
     const snap = propsRef.current.snap;
-    const pp = clampP(snap && currentTool !== 'freehand' ? snapAt(raw, { tool: currentTool, scale: v.scale }) : raw);
+    // Klick-Klick-Linie: der zweite Punkt fängt wie die Vorschau (vom ersten Punkt aus: Winkel, 90°, parallel, Lotpunkt)
+    const from = CLICK_LINE.has(currentTool) && clickStart.current ? clickStart.current : undefined;
+    const pp = clampP(snap && currentTool !== 'freehand' ? snapAt(raw, { tool: currentTool, scale: v.scale, from }) : raw);
     gesture.current = { kind: 'draw', tool: currentTool as DrawGestureTool, start: pp, current: pp, points: [pp] };
     forceRender((n) => n + 1);
   };
@@ -1667,6 +1669,14 @@ function SnapMarker({ view, mark, hold = false }: { view: View; mark: { p: Point
       <circle cx={c.x} cy={c.y} r={r} />
     ) : mark.kind === 'nearest' ? (
       <path d={`M${c.x - r} ${c.y - r}H${c.x + r}L${c.x - r} ${c.y + r}H${c.x + r}Z`} />
+    ) : mark.kind === 'quadrant' ? (
+      <path d={`M${c.x} ${c.y - r}L${c.x + r} ${c.y}L${c.x} ${c.y + r}L${c.x - r} ${c.y}Z`} />
+    ) : mark.kind === 'perpendicular' || mark.kind === 'square' ? (
+      <path d={`M${c.x - r} ${c.y + r}H${c.x + r}M${c.x - r} ${c.y + r}V${c.y - r}M${c.x - r} ${c.y}H${c.x}V${c.y + r}`} />
+    ) : mark.kind === 'tangent' ? (
+      <path d={`M${c.x - r} ${c.y - r}H${c.x + r}M${c.x + r * 0.8} ${c.y + r * 0.1}A${r * 0.8} ${r * 0.8} 0 1 1 ${c.x + r * 0.79} ${c.y + r * 0.08}`} />
+    ) : mark.kind === 'parallel' ? (
+      <path d={`M${c.x - r} ${c.y + r * 0.4}L${c.x - r * 0.2} ${c.y - r}M${c.x + r * 0.2} ${c.y + r}L${c.x + r} ${c.y - r * 0.4}`} />
     ) : (
       <path d={`M${c.x - r} ${c.y}H${c.x + r}M${c.x} ${c.y - r}V${c.y + r}`} />
     );

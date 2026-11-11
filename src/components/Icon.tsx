@@ -71,6 +71,14 @@ const PATHS: Record<string, string> = {
   door: 'M3 21h18M5 21V5M5 5a16 16 0 0116 16',
   window: 'M3 9h18v6H3zM3 11.5h18M3 12.5h18',
   plug: 'M5 18h14M12 18v3M6 18a6 6 0 0112 0M6 10h12',
+  /** Abrunden: Ecke mit Bogen */
+  fillet: 'M4 20V12a8 8 0 018-8h8M4 4h3M4 4v3',
+  /** Hilfslinie: strichpunktierte Gerade mit Punkt */
+  guide: 'M2 22l3-3M7 17l2-2M11 13l2-2M15 9l2-2M19 5l3-3M12 12m-2 0a2 2 0 104 0a2 2 0 10-4 0',
+  /** Abstand: zwei Linien mit Maßpfeil dazwischen */
+  distance: 'M4 3v18M20 3v18M7 12h10M7 12l3-3M7 12l3 3M17 12l-3-3M17 12l-3 3',
+  /** Fangarten: Fadenkreuz mit Liste */
+  snapkinds: 'M8 3v4M8 13v4M3 10h4M13 10h4M8 10m-2 0a2 2 0 104 0a2 2 0 10-4 0M14 18h7M14 21h7M17 15h4',
   /** Ausrichten: Linie, die sich an eine andere legt */
   align: 'M4 20h16M6 16l10-10M14 6h2v2M10 20l-4-4',
   /** Reihe: vier gleiche Quadrate im Raster */

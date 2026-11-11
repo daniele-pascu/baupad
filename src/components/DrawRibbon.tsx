@@ -8,6 +8,7 @@ import { ProbeMenu } from './ProbeLayer';
 import type { ProbeKind } from '../lib/probe';
 import type { PlanViewerHandle } from './PlanViewer';
 import { StylePanel } from './StylePanel';
+import { snapKindsDialog } from './SnapKindsDialog';
 
 /**
  * Obere Werkzeugleiste des Zeichenmodus mit Registerkarten (nach dem Vorbild von CAD-Programmen):
@@ -95,7 +96,7 @@ export function DrawRibbon({
         }}
         aria-pressed={drawing.tool === id}
         disabled={needsSel}
-        title={`${t.label} (${t.key.toUpperCase()})`}
+        title={t.key ? `${t.label} (${t.key.toUpperCase()})` : t.label}
         data-testid={`draw-${id}`}
       >
         <Icon name={t.icon} />
@@ -118,6 +119,11 @@ export function DrawRibbon({
       <span>{label}</span>
     </button>
   );
+
+  const openSnapKinds = async () => {
+    const c = await snapKindsDialog(drawing.snapCfg);
+    if (c) drawing.setSnapCfg(c);
+  };
 
   const editGroup = (
     <div className="tool-group" role="group" aria-label="Bearbeiten">
@@ -178,6 +184,7 @@ export function DrawRibbon({
               {toolBtn('stretch')}
               {toolBtn('trim')}
               {toolBtn('extend')}
+              {toolBtn('fillet')}
             </div>
             {editGroup}
           </>
@@ -225,9 +232,15 @@ export function DrawRibbon({
               {btn('view-track', 'ruler', 'Spuren', () => drawing.setTrackOn(!drawing.trackOn), { pressed: drawing.trackOn, title: 'Spurlinien (F11): waagrecht und senkrecht durch angefahrene Fangpunkte' })}
               {btn('view-ortho', 'ortho', '90°', () => drawing.setOrthoOn(!drawing.orthoOn), { pressed: drawing.orthoOn, title: '90° / Orthogonal: nur waagrecht und senkrecht zeichnen (F8)' })}
               {btn('view-grid', 'grid', 'Raster', () => drawing.setGridOn(!drawing.gridOn), { pressed: drawing.gridOn, title: 'Am Raster einrasten' })}
+              {btn('view-snap-kinds', 'snapkinds', 'Fangarten', () => void openSnapKinds(), { title: 'Objektfang-Arten ein-/ausschalten und Vorrang festlegen (je Gerät)' })}
+            </div>
+            <div className="tool-group" role="group" aria-label="Hilfslinien">
+              {toolBtn('guide')}
+              {btn('view-guides', 'layers', 'Anzeigen', () => drawing.setGuidesOn(!drawing.guidesOn), { pressed: drawing.guidesOn, title: 'Hilfslinien anzeigen bzw. ausblenden (im PDF nie sichtbar)' })}
             </div>
             <div className="tool-group" role="group" aria-label="Messen">
               {toolBtn('dimension')}
+              {toolBtn('distance')}
               {onProbe && (
                 <span className="probe-anchor" data-probe-toggle>
                   {btn('ribbon-probe', 'ruler', 'Messung', () => setProbeMenu(!probeMenu), {

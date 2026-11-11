@@ -223,6 +223,24 @@ export function tastenTests() {
     await expect(page.getByTestId('align-move')).toBeVisible();
     await pruefe(page, 'Befehlsleiste Ausrichten', out);
     await page.getByTestId('command-done').click();
+    // Phase 6: Hilfslinie, Abrunden, Abstand, Fangarten-Dialog
+    await pickTool(page, 'draw-guide');
+    await expect(page.getByTestId('guide-angle')).toBeVisible();
+    await pruefe(page, 'Befehlsleiste Hilfslinie', out);
+    await page.getByTestId('command-done').click();
+    await pickTool(page, 'draw-fillet');
+    await expect(page.getByTestId('command-bar')).toBeVisible();
+    await pruefe(page, 'Befehlsleiste Abrunden', out);
+    await page.getByTestId('command-done').click();
+    await pickTool(page, 'draw-distance');
+    await expect(page.getByTestId('command-bar')).toBeVisible();
+    await pruefe(page, 'Befehlsleiste Abstand', out);
+    await page.getByTestId('command-done').click();
+    await page.getByTestId('ribbon-tab-precision').click();
+    await page.getByTestId('view-snap-kinds').click();
+    await expect(page.getByTestId('snap-kinds-dialog')).toBeVisible();
+    await pruefe(page, 'Dialog Fangarten', out);
+    await page.getByTestId('snap-kinds-dialog').getByRole('button', { name: 'Abbrechen' }).click();
     // Phase 3: Reihe-Dialog und Eigenschaften mit Baustoff-Schraffur für mehrere Objekte
     await pickTool(page, 'draw-select-all');
     await page.getByTestId('multi-array').click();

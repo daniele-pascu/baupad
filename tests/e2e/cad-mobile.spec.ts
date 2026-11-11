@@ -280,3 +280,37 @@ for (const input of ['finger', 'stift'] as const)
     a = ((await elements(page)) as ElR[]).find((e) => e.id === a0.id)!;
     expect(Math.abs(((a.shape.rotation ?? 0) + 360) % 360)).toBeLessThan(1); // 90 − 90 ≈ 0 (Tippen ±1 px)
   });
+
+for (const input of ['finger', 'stift'] as const)
+  test(`Phase 6 mit ${input === 'finger' ? 'Finger' : 'Stift'}: Hilfslinie antippen, Abstand zweier Kanten, Ecke abrunden`, async ({ page }, info) => {
+    test.skip(input === 'stift' && info.project.name === 'iphone');
+    const { cdp, at } = await setup(page);
+    const tap = (p: { x: number; y: number }) => (input === 'finger' ? fingerTap(cdp, p) : penTap(cdp, p));
+    type ElR = El & { type: string };
+    const [a0] = (await elements(page)) as ElR[];
+    await tap(at(0.03, -0.17));
+    // Hilfslinie 90° durch einen angetippten Punkt
+    await pickTool(page, 'draw-guide', 'tap');
+    await page.getByTestId('guide-angle').selectOption('90');
+    await tap(at(0.47, 0.1));
+    await expect(page.getByTestId('guide-line')).toHaveCount(1);
+    await page.getByTestId('command-done').tap();
+
+    // Abstand: Ober- und Unterkante von Rechteck A → parallel, Abstand = Höhe
+    await pickTool(page, 'draw-distance', 'tap');
+    await tap(at(0.27, 0.25));
+    await tap(at(0.27, 0.4));
+    await expect(page.getByTestId('distance-result')).toContainText('parallel');
+    const h = a0.shape.h.toFixed(2).replace('.', ',');
+    await expect(page.getByTestId('distance-result')).toContainText(`${h} m`);
+    await page.getByTestId('command-done').tap();
+
+    // Ecke links oben von Rechteck A abrunden
+    await pickTool(page, 'draw-fillet', 'tap');
+    await page.getByTestId('command-input').fill('0,1');
+    await page.getByTestId('command-ok').tap();
+    await tap(at(0.15, 0.25));
+    await waitSaved(page);
+    const a = ((await elements(page)) as ElR[]).find((e) => e.id === a0.id)!;
+    expect(a.type).toBe('freehand');
+  });

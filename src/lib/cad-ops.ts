@@ -343,3 +343,158 @@ export function angleCcw(a: Point, b: Point): number {
   const d = (Math.atan2(-(b.y - a.y), b.x - a.x) * 180) / Math.PI;
   return (d + 360) % 360;
 }
+
+/* ───────────── Abrunden ───────────── */
+
+type Seg2 = [Point, Point];
+const sub = (a: Point, b: Point) => ({ x: a.x - b.x, y: a.y - b.y });
+const dot = (a: Point, b: Point) => a.x * b.x + a.y * b.y;
+const unit = (v: Point) => {
+  const l = Math.hypot(v.x, v.y);
+  return l > 1e-12 ? { x: v.x / l, y: v.y / l } : null;
+};
+
+/** Schnittpunkt zweier (unendlicher) Geraden; null = parallel */
+export function lineLineIntersection([a, b]: Seg2, [c, d]: Seg2): Point | null {
+  const r = sub(b, a);
+  const s = sub(d, c);
+  const den = r.x * s.y - r.y * s.x;
+  if (Math.abs(den) < 1e-12 * Math.max(1, Math.hypot(r.x, r.y) * Math.hypot(s.x, s.y))) return null;
+  const t = ((c.x - a.x) * s.y - (c.y - a.y) * s.x) / den;
+  return { x: a.x + t * r.x, y: a.y + t * r.y };
+}
+
+/** Endpunkt der Linie, der beim Abrunden bleibt: auf der Seite des angetippten Punkts (vom Schnittpunkt aus) */
+function keptEnd([a, b]: Seg2, tap: Point, x: Point): Point {
+  const dir = unit(sub(b, a)) ?? { x: 1, y: 0 };
+  const st = dot(sub(tap, x), dir);
+  const sa = dot(sub(a, x), dir);
+  const sb = dot(sub(b, x), dir);
+  if (Math.sign(sa) === Math.sign(st) && Math.sign(sb) !== Math.sign(st)) return a;
+  if (Math.sign(sb) === Math.sign(st) && Math.sign(sa) !== Math.sign(st)) return b;
+  return Math.abs(sa) >= Math.abs(sb) ? a : b;
+}
+
+export type FilletResult = { a: Seg2; b: Seg2; arc: [Point, Point, Point] | null } | { error: string };
+
+/**
+ * Zwei Linien abrunden (wie „Abrunden“ im CAD): beide Linien werden bis zu den Tangentenpunkten gekürzt bzw.
+ * verlängert und mit einem Bogen (Radius r) verbunden; r = 0 ergibt eine scharfe Ecke. Die angetippten Punkte
+ * bestimmen, welcher Teil jeder Linie bleibt. Ergebnis: neue Linien (bleibender Endpunkt zuerst) und der Bogen
+ * (Anfang, Mitte, Ende).
+ */
+export function filletLines(l1: Seg2, tap1: Point, l2: Seg2, tap2: Point, r: number): FilletResult {
+  const x = lineLineIntersection(l1, l2);
+  if (!x) return { error: 'Die Linien sind parallel – sie treffen sich nicht.' };
+  const k1 = keptEnd(l1, tap1, x);
+  const k2 = keptEnd(l2, tap2, x);
+  const u1 = unit(sub(k1, x));
+  const u2 = unit(sub(k2, x));
+  if (!u1 || !u2) return { error: 'Eine Linie endet genau im Schnittpunkt – bitte den anderen Teil antippen.' };
+  const theta = Math.acos(Math.max(-1, Math.min(1, dot(u1, u2))));
+  if (theta < 1e-6 || Math.PI - theta < 1e-6) return { error: 'Die Linien liegen auf einer Geraden.' };
+  if (r <= 1e-9)
+    return {
+      a: [k1, x],
+      b: [k2, x],
+      arc: null,
+    };
+  const d = r / Math.tan(theta / 2);
+  if (d > Math.hypot(k1.x - x.x, k1.y - x.y) + 1e-9 || d > Math.hypot(k2.x - x.x, k2.y - x.y) + 1e-9) return { error: 'Der Radius ist für diese Linien zu groß.' };
+  const t1 = { x: x.x + u1.x * d, y: x.y + u1.y * d };
+  const t2 = { x: x.x + u2.x * d, y: x.y + u2.y * d };
+  const bis = unit({ x: u1.x + u2.x, y: u1.y + u2.y })!;
+  const c = { x: x.x + (bis.x * r) / Math.sin(theta / 2), y: x.y + (bis.y * r) / Math.sin(theta / 2) };
+  const m = { x: c.x - bis.x * r, y: c.y - bis.y * r };
+  return { a: [k1, t1], b: [k2, t2], arc: [t1, m, t2] };
+}
+
+/**
+ * Ecke i einer Polylinie bzw. Fläche abrunden: der Eckpunkt wird durch einen fein unterteilten Bogen ersetzt
+ * (r = 0: unverändert). Fehler, wenn die Ecke ein offenes Ende ist oder der Radius nicht passt.
+ */
+export function filletCorner(pts: Point[], closed: boolean, i: number, r: number, segs = 12): Point[] | { error: string } {
+  const n = pts.length;
+  if (!closed && (i === 0 || i === n - 1)) return { error: 'Ein offenes Ende hat keine Ecke zum Abrunden.' };
+  if (r <= 1e-9) return pts;
+  const v = pts[i];
+  const prev = pts[(i - 1 + n) % n];
+  const next = pts[(i + 1) % n];
+  const u1 = unit(sub(prev, v));
+  const u2 = unit(sub(next, v));
+  if (!u1 || !u2) return { error: 'Doppelter Eckpunkt.' };
+  const theta = Math.acos(Math.max(-1, Math.min(1, dot(u1, u2))));
+  if (theta < 1e-6 || Math.PI - theta < 1e-6) return { error: 'Hier ist keine Ecke (gerader Verlauf).' };
+  const d = r / Math.tan(theta / 2);
+  if (d > Math.hypot(prev.x - v.x, prev.y - v.y) + 1e-9 || d > Math.hypot(next.x - v.x, next.y - v.y) + 1e-9) return { error: 'Der Radius ist für diese Ecke zu groß.' };
+  const t1 = { x: v.x + u1.x * d, y: v.y + u1.y * d };
+  const t2 = { x: v.x + u2.x * d, y: v.y + u2.y * d };
+  const bis = unit({ x: u1.x + u2.x, y: u1.y + u2.y })!;
+  const c = { x: v.x + (bis.x * r) / Math.sin(theta / 2), y: v.y + (bis.y * r) / Math.sin(theta / 2) };
+  const a1 = Math.atan2(t1.y - c.y, t1.x - c.x);
+  let sweep = Math.atan2(t2.y - c.y, t2.x - c.x) - a1;
+  while (sweep > Math.PI) sweep -= 2 * Math.PI;
+  while (sweep < -Math.PI) sweep += 2 * Math.PI;
+  const arc = Array.from({ length: segs + 1 }, (_, j) => {
+    const a = a1 + (sweep * j) / segs;
+    return { x: c.x + Math.cos(a) * r, y: c.y + Math.sin(a) * r };
+  });
+  return [...pts.slice(0, i), ...arc, ...pts.slice(i + 1)];
+}
+
+/* ───────────── Abstände ───────────── */
+
+function closestOnSeg(p: Point, [a, b]: Seg2): Point {
+  const d = sub(b, a);
+  const l2 = dot(d, d);
+  const t = l2 ? Math.max(0, Math.min(1, dot(sub(p, a), d) / l2)) : 0;
+  return { x: a.x + t * d.x, y: a.y + t * d.y };
+}
+
+/** kürzester Abstand zweier Strecken mit den nächstgelegenen Punkten */
+export function segSegDistance(s1: Seg2, s2: Seg2): { d: number; p: Point; q: Point } {
+  const [a, b] = s1;
+  const [c, e] = s2;
+  // Schnitt?
+  const r = sub(b, a);
+  const s = sub(e, c);
+  const den = r.x * s.y - r.y * s.x;
+  if (Math.abs(den) > 1e-15) {
+    const t = ((c.x - a.x) * s.y - (c.y - a.y) * s.x) / den;
+    const u = ((c.x - a.x) * r.y - (c.y - a.y) * r.x) / den;
+    if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
+      const x = { x: a.x + t * r.x, y: a.y + t * r.y };
+      return { d: 0, p: x, q: x };
+    }
+  }
+  const cands = [
+    { p: a, q: closestOnSeg(a, s2) },
+    { p: b, q: closestOnSeg(b, s2) },
+    { p: closestOnSeg(c, s1), q: c },
+    { p: closestOnSeg(e, s1), q: e },
+  ];
+  let best = { d: Infinity, p: a, q: c };
+  for (const k of cands) {
+    const d = Math.hypot(k.p.x - k.q.x, k.p.y - k.q.y);
+    if (d < best.d) best = { d, ...k };
+  }
+  return best;
+}
+
+/** kleinster Winkel (0…90°) zwischen zwei Strecken */
+export function angleBetween(s1: Seg2, s2: Seg2): number {
+  const u = unit(sub(s1[1], s1[0]));
+  const v = unit(sub(s2[1], s2[0]));
+  if (!u || !v) return 0;
+  const a = (Math.acos(Math.min(1, Math.abs(dot(u, v)))) * 180) / Math.PI;
+  return a;
+}
+
+/** Abstand eines Punkts zur unendlichen Geraden durch die Strecke, mit Lotfußpunkt */
+export function pointLineDistance(p: Point, [a, b]: Seg2): { d: number; foot: Point } {
+  const dir = unit(sub(b, a));
+  if (!dir) return { d: Math.hypot(p.x - a.x, p.y - a.y), foot: a };
+  const t = dot(sub(p, a), dir);
+  const foot = { x: a.x + dir.x * t, y: a.y + dir.y * t };
+  return { d: Math.hypot(p.x - foot.x, p.y - foot.y), foot };
+}

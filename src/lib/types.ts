@@ -229,6 +229,16 @@ export interface DrawingInfo {
   scale?: number;
   /** ohne Maßstab: im PDF füllt die Zeichnung das Blatt (so groß wie möglich, zentriert) */
   fit?: boolean;
+  /** Hilfslinien (Konstruktionslinien, unendlich lang): nur beim Zeichnen sichtbar, nie im PDF */
+  guides?: GuideLine[];
+}
+
+/** Hilfslinie durch Punkt (x|y in m) unter Winkel (Grad gegen den Uhrzeigersinn, 0 = waagrecht) */
+export interface GuideLine {
+  id: string;
+  x: number;
+  y: number;
+  angle: number;
 }
 
 export type PaperFormat = 'A4-hoch' | 'A4-quer' | 'A3-hoch' | 'A3-quer' | 'A2-hoch' | 'A2-quer' | 'A1-hoch' | 'A1-quer' | 'A0-hoch' | 'A0-quer';

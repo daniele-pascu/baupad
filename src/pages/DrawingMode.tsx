@@ -28,25 +28,42 @@ import {
   type Apex,
   type Measures,
 } from '../lib/drawing';
-import { type OrthoDir, extendLine, ORTHO_DIRS, orthoPoint, rotateShapeBy, scaleShape, stretchShape, translateShape, trimByFence, trimShape } from '../lib/cad';
-import { edgesOf, findSnap, segmentIntersection, type SnapKind } from '../lib/snap';
+import { type OrthoDir, arcShape, circleThrough, extendLine, ORTHO_DIRS, orthoPoint, rotateShapeBy, scaleShape, stretchShape, translateShape, trimByFence, trimShape } from '../lib/cad';
+import { edgesOf, findSnap, normalizeSnapKinds, segmentIntersection, type SnapKind, type SnapSeg } from '../lib/snap';
 import { inputVector, parseCadInput, vectorInfo } from '../lib/cad-input';
-import { angleCcw, arrayOffsets, canOffset, distanceToShape, joinShapes, mirrorShape, offsetShape, polarAngles, rotateAround, scaleAbout, type ArrayParams } from '../lib/cad-ops';
+import { angleBetween, angleCcw, arrayOffsets, canOffset, distanceToShape, filletCorner, filletLines, joinShapes, mirrorShape, offsetShape, pointLineDistance, polarAngles, rotateAround, scaleAbout, segSegDistance, type ArrayParams } from '../lib/cad-ops';
 import { arrayDialog } from '../components/ArrayDialog';
 import { symbolPicker } from '../components/SymbolPicker';
 import { symbolDef, symbolGeometry, type SymbolGroup } from '../lib/symbols';
 import { wallOpenings } from '../lib/walls';
 import { dimsVisible, visibleDamages, visibleElements } from '../lib/layers';
-import { distToSegment, isOpenShape, lineShape, pathToSvg, rectsOverlap, removeVertex, setPolylineClosed, shapeAABB, shapePath, toScreen, type Point, type View } from '../lib/geometry';
+import { distToSegment, isOpenShape, lineShape, pathToSvg, rectsOverlap, removeVertex, setPolylineClosed, shapeAABB, shapeFromVertices, shapePath, shapeVertices, toScreen, type Point, type View } from '../lib/geometry';
 import { newMeta, putRecord, putRecords, softDelete, type ProjectState } from '../lib/store';
-import type { Damage, DrawElement, DrawElementType, Plan, Rect, Shape, ShapeStyle, TextFont } from '../lib/types';
+import type { Damage, DrawElement, DrawElementType, GuideLine, Plan, Rect, Shape, ShapeStyle, TextFont } from '../lib/types';
 
 /** Werkzeuge der Planbearbeitung (selbst gezeichnete Pläne) */
 /** Gruppen der Werkzeugleiste (wie in CAD-Programmen) */
 export type ToolGroup = 'select' | 'draw' | 'annotate' | 'modify';
 
 /** Werkzeuge des Zeichenmodus: Zeichnen sowie Ändern (Kopieren, Verschieben, Strecken …) */
-export type DrawTool = Tool | 'copy' | 'move' | 'stretch' | 'join' | 'offset' | 'mirror' | 'array' | 'symbol' | 'rotate' | 'scale' | 'align';
+export type DrawTool = Tool | 'copy' | 'move' | 'stretch' | 'join' | 'offset' | 'mirror' | 'array' | 'symbol' | 'rotate' | 'scale' | 'align' | 'guide' | 'fillet' | 'distance';
+/** Hilfslinie, Abrunden, Abstand: Punkte bzw. Objekte antippen */
+export const PICK_TOOLS = new Set<DrawTool>(['guide', 'fillet', 'distance']);
+/** Abstand-Werkzeug: angetippter Punkt, ggf. mit Kante und Objekt */
+export interface DistPick {
+  point: Point;
+  seg?: [Point, Point];
+  id?: string;
+}
+export interface DistResult {
+  p: Point;
+  q: Point;
+  d: number;
+  /** parallel bzw. rechtwinklig (nur bei zwei angetippten geraden Kanten) */
+  rel?: 'parallel' | 'perpendicular';
+  /** Winkel zwischen zwei Kanten (0…90°) */
+  angle?: number;
+}
 /** Drehen, Skalieren, Ausrichten: Punkte antippen (Basis, Bezug, Ziel) */
 export const TRANSFORM_TOOLS = new Set<DrawTool>(['rotate', 'scale', 'align']);
 
@@ -83,6 +100,9 @@ export const DRAW_TOOLS: { id: DrawTool; label: string; short?: string; icon: st
   { id: 'join', label: 'Verbinden: Linien, Polylinien und Bögen an gemeinsamen Endpunkten zu einer Linie bzw. geschlossenen Fläche verbinden – kleine Lücken werden geschlossen', short: 'Verbinden', icon: 'join', key: 'j', group: 'modify' },
   { id: 'trim', label: 'Stutzen: Abschnitt bis zu den nächsten Kanten bzw. Eckpunkten entfernen – anklicken oder frei über mehrere Linien ziehen (Zaun)', short: 'Stutzen', icon: 'trim', key: 'z', group: 'modify' },
   { id: 'extend', label: 'Verlängern: Linie bis zur nächsten Kante verlängern', short: 'Verlängern', icon: 'extend', key: 'e', group: 'modify' },
+  { id: 'fillet', label: 'Abrunden: zwei Linien antippen – mit Radius gerundet bzw. bei Radius 0 zur Ecke gekürzt/verlängert; oder die Ecke einer Fläche/Polylinie antippen', short: 'Abrunden', icon: 'fillet', key: '', group: 'modify' },
+  { id: 'guide', label: 'Hilfslinie: unendliche Konstruktionslinie (0°, 45°, 90°, 135° oder frei) – nur beim Zeichnen sichtbar, nicht im PDF; Fang an Schnittpunkten', short: 'Hilfslinie', icon: 'guide', key: 'n', group: 'annotate' },
+  { id: 'distance', label: 'Abstand: zwei Punkte, Linien oder Objekte antippen – kürzester Abstand, parallel bzw. rechtwinklig wird erkannt (ändert nichts)', short: 'Abstand', icon: 'distance', key: '', group: 'annotate' },
 ];
 
 export const DRAW_DEFAULT_COLOR = '#1c1c1e';
@@ -120,6 +140,20 @@ export function readStyle(key: string): ShapeStyle {
 export const ORTHO_DIR_LABELS: Record<OrthoDir, string> = { auto: 'Richtung automatisch', h: 'Nur waagrecht', v: 'Nur senkrecht' };
 /** Werkzeuge mit Ausgangspunkt, für die der 90°-Modus gilt (auch Endpunkte ziehen und Vektoren) */
 const ORTHO_TOOLS = new Set<string>(['line', 'dimension', 'polyline', 'polygon', 'vector']);
+/** Fangpunkte, die als Spurlinien-Bezug gemerkt werden */
+const TRACK_KINDS = new Set<SnapKind>(['end', 'intersection', 'mid', 'center', 'quadrant']);
+/** Parallel/rechtwinklig zu einer angefahrenen Kante: beim Zeichnen von Linien, Polylinien, Wänden, Vektoren */
+const PARALLEL_TOOLS = new Set<string>(['line', 'dimension', 'polyline', 'polygon', 'vector', 'wall']);
+/** Hilfslinie als sehr lange Strecke (m) – für Fang und Anzeige */
+export function guideSeg(g: { x: number; y: number; angle: number }, half = 5000): [Point, Point] {
+  const a = (g.angle * Math.PI) / 180;
+  const dx = Math.cos(a) * half;
+  const dy = -Math.sin(a) * half;
+  return [
+    { x: g.x - dx, y: g.y - dy },
+    { x: g.x + dx, y: g.y + dy },
+  ];
+}
 
 /**
  * Darstellung eines neu gezeichneten Objekts: nur Linientyp und -stärke aus der Voreinstellung,
@@ -187,6 +221,28 @@ export function useDrawing(opts: {
   const [copies, setCopies] = useState(0);
   /** Versetzen: gewähltes Objekt, Abstand (m), „durch Punkt“ */
   const [offsetSrc, setOffsetSrc] = useState<string | null>(null);
+  /** Hilfslinien: Winkel ('free' = durch zwei Punkte), Löschen-Modus, Anzeige an/aus (je Gerät) */
+  const [guideAngle, setGuideAngleState] = useState(() => pref('guideAngle', '0'));
+  const setGuideAngle = (v: string) => {
+    setGuideAngleState(v);
+    storePref('guideAngle', v);
+  };
+  const [guideErase, setGuideErase] = useState(false);
+  const [guidesOn, setGuidesOnState] = useState(() => pref('guides', '1') !== '0');
+  const setGuidesOn = (on: boolean) => {
+    setGuidesOnState(on);
+    storePref('guides', on ? '1' : '0');
+  };
+  /** Abrunden: Radius (m, je Gerät) und erste angetippte Linie */
+  const [filletR, setFilletRState] = useState(() => Math.max(0, Number(pref('filletR', '0')) || 0));
+  const setFilletR = (r: number) => {
+    setFilletRState(r);
+    storePref('filletR', String(r));
+  };
+  const [filletSrc, setFilletSrc] = useState<{ id: string; tap: Point } | null>(null);
+  /** Abstand: angetippte Punkte/Objekte und Ergebnis */
+  const [distPicks, setDistPicks] = useState<DistPick[]>([]);
+  const [distRes, setDistRes] = useState<DistResult | null>(null);
   const [offsetDist, setOffsetDistState] = useState(() => Number(pref('offsetDist', '0.25')) || 0.25);
   const [offsetThrough, setOffsetThroughState] = useState(() => pref('offsetThrough', '0') === '1');
   const setOffsetDist = (d: number) => {
@@ -263,8 +319,25 @@ export function useDrawing(opts: {
     setTrackOnState(on);
     storePref('track', on ? '1' : '0');
   };
-  /** angefahrene Fangpunkte (zuletzt bis zu 4) und aktuelle Spurlinien – nur für die Anzeige */
-  const track = useRef<{ acquired: Point[]; lines: { from: Point; axis: 'h' | 'v' }[] }>({ acquired: [], lines: [] });
+  /** Objektfang-Arten: Reihenfolge = Vorrang, eingeschaltete – je Gerät gemerkt */
+  const [snapCfg, setSnapCfgState] = useState(() => {
+    try {
+      const o = JSON.parse(pref('snapKinds', 'null')) as { order?: unknown; enabled?: unknown } | null;
+      return normalizeSnapKinds(o?.order, o?.enabled);
+    } catch {
+      return normalizeSnapKinds(null, null);
+    }
+  });
+  const setSnapCfg = (c: { order: SnapKind[]; enabled: SnapKind[] }) => {
+    setSnapCfgState(c);
+    storePref('snapKinds', JSON.stringify(c));
+  };
+  const snapKinds = useMemo(() => snapCfg.order.filter((x) => snapCfg.enabled.includes(x)), [snapCfg]);
+  /**
+   * angefahrene Fangpunkte (zuletzt bis zu 4), aktuelle Spurlinien, zuletzt angefahrene Kante
+   * (für Parallel/Rechtwinklig) und deren aktuelle Richtungslinie – nur für die Anzeige
+   */
+  const track = useRef<{ acquired: Point[]; lines: { from: Point; axis: 'h' | 'v' }[]; edge: SnapSeg | null; par: { from: Point; to: Point } | null }>({ acquired: [], lines: [], edge: null, par: null });
   /** Ende der zuletzt eingefügten Linie – die nächste Linie schließt dort an (Wände) */
   const [lastLineEnd, setLastLineEnd] = useState<Point | null>(null);
 
@@ -276,6 +349,10 @@ export function useDrawing(opts: {
     setArrayPolar(null);
     setPickPts([]);
     setRefMode(false);
+    setGuideErase(false);
+    setFilletSrc(null);
+    setDistPicks([]);
+    setDistRes(null);
     // Reihe mit Auswahl: gleich die Werte abfragen
     if (t === 'array' && selIds.length) {
       setCmdSelecting(false);
@@ -297,7 +374,7 @@ export function useDrawing(opts: {
     if (!NEEDS_SELECTION.has(t) && t !== 'selwin') storePref('drawTool', t);
   };
   /** Werkzeug der Planansicht: Befehle nutzen Vektor (Basis → Ziel) bzw. Fenster */
-  const viewerTool: Tool = TRANSFORM_TOOLS.has(tool) && !cmdSelecting ? 'pick' : tool === 'symbol' ? 'pick' : tool === 'array' && arrayPolar ? 'pick' : SELECT_FIRST.has(tool) && cmdSelecting ? 'selwin' : VECTOR_COMMANDS.has(tool) ? 'vector' : tool === 'offset' ? 'pick' : tool === 'stretch' ? (stretchWin ? 'vector' : 'window') : (tool as Tool);
+  const viewerTool: Tool = PICK_TOOLS.has(tool) || (TRANSFORM_TOOLS.has(tool) && !cmdSelecting) ? 'pick' : tool === 'symbol' ? 'pick' : tool === 'array' && arrayPolar ? 'pick' : SELECT_FIRST.has(tool) && cmdSelecting ? 'selwin' : VECTOR_COMMANDS.has(tool) ? 'vector' : tool === 'offset' ? 'pick' : tool === 'stretch' ? (stretchWin ? 'vector' : 'window') : (tool as Tool);
   const setColor = (c: string) => {
     setColorState(c);
     storePref('drawColor', c);
@@ -327,6 +404,18 @@ export function useDrawing(opts: {
   const allStored = useMemo(() => (plan ? elementsOf(data, plan.id) : []), [data, plan]);
   // Ausgeblendete Ebenen: nicht sichtbar, nicht fang-, auswähl- oder veränderbar
   const stored = useMemo(() => visibleElements(plan, allStored), [plan, allStored]);
+  /** Hilfslinien des Plans (nur beim Zeichnen) und als Fanglinien */
+  const guides = plan?.drawing?.guides ?? [];
+  const guideSegs = useMemo(() => (guidesOn ? (plan?.drawing?.guides ?? []).map((g) => guideSeg(g)) : []), [plan?.drawing?.guides, guidesOn]);
+  /** Bögen als Kreis (Mitte, Radius) für Fang: Bogenmitte, Lotpunkt, Tangente */
+  const arcCircles = (movingId?: string) =>
+    stored
+      .filter((e) => e.type === 'arc' && e.id !== movingId)
+      .map((e) => {
+        const v = shapeVertices(e.shape);
+        return v.length >= 3 ? circleThrough(v[0], v[Math.floor(v.length / 2)], v[v.length - 1]) : null;
+      })
+      .filter((c): c is { c: Point; r: number } => !!c);
   const showDims = dimsVisible(plan);
   const shownDamages = visibleDamages(plan, damages);
   const elements = useMemo(() => stored.map((e) => (overrides[e.id] ? { ...e, shape: overrides[e.id] } : e)), [stored, overrides]);
@@ -396,6 +485,7 @@ export function useDrawing(opts: {
 
   const snap: SnapFn = (p, ctx) => {
     track.current.lines = [];
+    track.current.par = null;
     if (ctx.tool === 'selwin') return p;
     if (!snapOn && !gridOn && !orthoOn) return p;
     const pm = { x: p.x / k, y: p.y / k };
@@ -403,7 +493,9 @@ export function useDrawing(opts: {
     const tol = (isCoarse() ? 16 : 9) / pxPerM;
     // Fangpunkte: End-/Eckpunkte, Schnittpunkte, Mittelpunkte, nächster Punkt auf Linien
     const others = stored.filter((e) => e.id !== ctx.movingId && e.type !== 'text').map((e) => e.shape);
-    const hit = snapOn ? findSnap(pm, others, tol) : null;
+    const from0 = ctx.from ? { x: ctx.from.x / k, y: ctx.from.y / k } : null;
+    const hit = snapOn ? findSnap(pm, others, tol, [], { kinds: snapKinds, from: from0, circles: arcCircles(ctx.movingId), lines: guideSegs }) : null;
+    if (hit?.kind === 'nearest' && hit.seg) track.current.edge = hit.seg;
     let q: Point = pm;
     let kind: SnapKind | undefined;
     if (orthoOn && ctx.from && ctx.tool && ORTHO_TOOLS.has(ctx.tool)) {
@@ -424,9 +516,31 @@ export function useDrawing(opts: {
     if (!snapOn && !gridOn) return p;
     // Spurlinien: eindeutige Fangpunkte merken; ohne Fangpunkt an der Waagrechten/Senkrechten durch einen
     // gemerkten Punkt (oder den letzten Punkt) einrasten – an zweien davon im Schnittpunkt
-    if (trackOn && snapOn && hit && hit.kind !== 'nearest' && hit.kind !== 'grid') {
+    // nur feste Objektpunkte merken (Lotpunkt/Tangente hängen vom letzten Punkt ab)
+    if (trackOn && snapOn && hit && TRACK_KINDS.has(hit.kind)) {
       const acq = track.current.acquired.filter((a) => Math.hypot(a.x - hit.point.x, a.y - hit.point.y) > 1e-6);
       track.current.acquired = [...acq, hit.point].slice(-4);
+    }
+    // Parallel / rechtwinklig zur zuletzt angefahrenen Kante (vom letzten Punkt aus)
+    if (snapOn && !hit && from0 && track.current.edge && snapKinds.includes('parallel') && ctx.tool && PARALLEL_TOOLS.has(ctx.tool)) {
+      const [ea, eb] = track.current.edge;
+      const el = Math.hypot(eb.x - ea.x, eb.y - ea.y);
+      if (el > 1e-9) {
+        const ex = (eb.x - ea.x) / el;
+        const ey = (eb.y - ea.y) / el;
+        for (const [dx, dy, kind] of [
+          [ex, ey, 'parallel'],
+          [-ey, ex, 'square'],
+        ] as const) {
+          const t = (pm.x - from0.x) * dx + (pm.y - from0.y) * dy;
+          const qx = from0.x + t * dx;
+          const qy = from0.y + t * dy;
+          if (Math.abs(t) > tol * 2 && Math.hypot(pm.x - qx, pm.y - qy) < tol) {
+            track.current.par = { from: from0, to: { x: qx, y: qy } };
+            return { x: qx * k, y: qy * k, kind };
+          }
+        }
+      }
     }
     if (trackOn && snapOn && (!hit || hit.kind === 'nearest')) {
       const refs = [...track.current.acquired, ...(ctx.from ? [{ x: ctx.from.x / k, y: ctx.from.y / k }] : [])];
@@ -582,6 +696,23 @@ export function useDrawing(opts: {
    * Liefert eine Fehlermeldung oder null.
    */
   const applyInput = (text: string): string | null => {
+    if (tool === 'fillet') {
+      const d = parseCadInput(text);
+      if (!d || d.kind !== 'dist' || d.len < 0) return 'Bitte den Radius in m eingeben, z. B. 0,5 (0 = Ecke).';
+      setFilletR(d.len);
+      return null;
+    }
+    if (tool === 'guide') {
+      const d = parseCadInput(text);
+      if (!d || d.kind !== 'dist') return 'Bitte den Winkel in Grad eingeben, z. B. 30.';
+      if (pickPts.length) {
+        addGuide(pickPts[0], d.len);
+        return null;
+      }
+      setGuideAngle(String(((d.len % 180) + 180) % 180));
+      setGuideErase(false);
+      return null;
+    }
     if (tool === 'rotate') {
       const d = parseCadInput(text);
       if (!d || d.kind !== 'dist') return 'Bitte den Winkel in Grad eingeben, z. B. 90 oder -45.';
@@ -780,6 +911,152 @@ export function useDrawing(opts: {
     setArrayPolar(null);
     setToolState('select');
     setCmdSelecting(false);
+  };
+
+  /** Fangradius in m für das Antippen von Objekten */
+  const pickTol = () => (isCoarse() ? 18 : 10) / ((viewer.current?.scale() ?? 1) * k);
+
+  // ---------------- Hilfslinien ----------------
+  const saveGuides = (list: GuideLine[]) => {
+    const pl = plan ? data.plans[plan.id] : undefined;
+    if (!pl?.drawing) return;
+    const drawingInfo = { ...pl.drawing, guides: list.length ? list : undefined };
+    if (!list.length) delete drawingInfo.guides;
+    putRecords({ plans: [{ ...pl, drawing: drawingInfo }] }, { history: true }); // Rückgängig wie bei Zeichnungsobjekten
+  };
+  const addGuide = (at: Point, angle: number) => {
+    const a = ((angle % 180) + 180) % 180;
+    saveGuides([...guides, { id: newMeta().id, x: Math.round(at.x * 10000) / 10000, y: Math.round(at.y * 10000) / 10000, angle: Math.round(a * 10000) / 10000 }]);
+    if (!guidesOn) setGuidesOn(true);
+    setPickPts([]);
+  };
+  const clearGuides = () => {
+    if (!guides.length) return;
+    saveGuides([]);
+    toast('Alle Hilfslinien gelöscht (Rückgängig holt sie zurück).', 'success', 2500);
+  };
+  const guidePoint = (pm: Point) => {
+    if (guideErase) {
+      let best: { id: string; d: number } | null = null;
+      for (const g of guides) {
+        const d = pointLineDistance(pm, guideSeg(g)).d;
+        if (!best || d < best.d) best = { id: g.id, d };
+      }
+      if (!best || best.d > pickTol()) return toast('Keine Hilfslinie an dieser Stelle.', 'info', 2000);
+      saveGuides(guides.filter((g) => g.id !== best!.id));
+      return;
+    }
+    if (guideAngle !== 'free') return addGuide(pm, Number(guideAngle) || 0);
+    if (!pickPts.length) return setPickPts([pm]);
+    if (dist2(pickPts[0], pm) < 1e-9) return;
+    addGuide(pickPts[0], angleCcw(pickPts[0], pm));
+  };
+
+  // ---------------- Abrunden ----------------
+  const filletPoint = (pm: Point) => {
+    const tol = pickTol();
+    let best: { e: DrawElement; d: number } | null = null;
+    for (const e of stored) {
+      if (e.type === 'text' || e.type === 'dimension' || e.type === 'symbol' || e.type === 'arc' || e.shape.type === 'ellipse') continue;
+      const d = distanceToShape(e.shape, pm);
+      if (d <= tol && (!best || d < best.d)) best = { e, d };
+    }
+    if (!best) return toast(filletSrc ? 'Bitte die zweite Linie antippen.' : 'Bitte eine Linie oder die Ecke einer Fläche antippen.', 'info', 2500);
+    const e = best.e;
+    if (e.type === 'line') {
+      if (!filletSrc) {
+        setFilletSrc({ id: e.id, tap: pm });
+        setSelectedId(e.id);
+        return;
+      }
+      if (filletSrc.id === e.id) return toast('Bitte eine andere Linie antippen.', 'info', 2500);
+      const e1 = data.elements[filletSrc.id];
+      if (!e1) return setFilletSrc(null);
+      const r = filletLines(lineEnds(e1.shape), filletSrc.tap, lineEnds(e.shape), pm, filletR);
+      if ('error' in r) {
+        toast(r.error, 'error', 3500);
+        return;
+      }
+      const out: DrawElement[] = [
+        { ...e1, shape: roundShape(lineShape(r.a[0], r.a[1])) },
+        { ...e, shape: roundShape(lineShape(r.b[0], r.b[1])) },
+      ];
+      const arc = r.arc ? arcShape(r.arc[0], r.arc[1], r.arc[2]) : null;
+      if (arc) out.push({ ...e1, ...newMeta(), type: 'arc', shape: roundShape(arc), showDims: false });
+      putRecords({ elements: out });
+      toast(filletR > 0 ? `Abgerundet (Radius ${formatMeasure(filletR)} m).` : 'Ecke gebildet.', 'success', 2500);
+      setFilletSrc(null);
+      setSelectedId(null);
+      return;
+    }
+    // Ecke einer Fläche, Polylinie, eines Rechtecks oder einer Wand
+    if (filletSrc) return toast('Bitte eine zweite Linie antippen – oder „Abbrechen“.', 'info', 2500);
+    const pts = shapeVertices(e.shape);
+    let vi = -1;
+    let vd = Infinity;
+    pts.forEach((v, i) => {
+      const d = dist2(v, pm);
+      if (d < vd) {
+        vd = d;
+        vi = i;
+      }
+    });
+    if (vi < 0 || vd > tol * 2.5) return toast('Bitte nahe an der Ecke antippen.', 'info', 2500);
+    if (filletR <= 0) return toast('Zuerst einen Radius eingeben (z. B. 0,5).', 'info', 3000);
+    const closed = !isOpenShape(e.shape);
+    const res = filletCorner(pts, closed, vi, filletR);
+    if ('error' in res) return toast(res.error, 'error', 3500);
+    const sh = shapeFromVertices({ type: 'freehand', x: 0, y: 0, w: 0, h: 0, closed }, res);
+    putRecords({ elements: [{ ...e, type: e.type === 'wall' ? 'wall' : 'freehand', shape: roundShape(sh) }] });
+    toast(`Ecke abgerundet (Radius ${formatMeasure(filletR)} m).`, 'success', 2500);
+  };
+
+  // ---------------- Abstand ----------------
+  const distancePoint = (pm: Point) => {
+    const tol = pickTol();
+    let best: { e: DrawElement; seg: [Point, Point]; d: number } | null = null;
+    for (const e of stored) {
+      if (e.type === 'text') continue;
+      for (const seg of edgesOf(e.shape)) {
+        const d = distToSegment(pm, seg[0], seg[1]);
+        if (d <= tol && (!best || d < best.d)) best = { e, seg, d };
+      }
+    }
+    const pick: DistPick = best ? { point: pm, seg: best.seg, id: best.e.id } : { point: pm };
+    const picks = distPicks.length >= 2 ? [pick] : [...distPicks, pick];
+    setDistPicks(picks);
+    setDistRes(picks.length === 2 ? measureDistance(picks[0], picks[1]) : null);
+  };
+  const measureDistance = (a: DistPick, b: DistPick): DistResult => {
+    let rel: DistResult['rel'];
+    let angle: number | undefined;
+    if (a.seg && b.seg) {
+      angle = angleBetween(a.seg, b.seg);
+      if (angle < 0.5) rel = 'parallel';
+      else if (angle > 89.5) rel = 'perpendicular';
+    }
+    if (rel === 'parallel' && a.seg) {
+      const r = pointLineDistance(b.point, a.seg);
+      return { p: r.foot, q: b.point, d: r.d, rel, angle };
+    }
+    const edges = (pk: DistPick, other: DistPick): [Point, Point][] => {
+      const e = pk.id ? byId.get(pk.id) : undefined;
+      if (e && pk.id !== other.id) return edgesOf(e.shape);
+      return pk.seg ? [pk.seg] : [[pk.point, pk.point]];
+    };
+    let out = { d: Infinity, p: a.point, q: b.point };
+    for (const s1 of edges(a, b)) for (const s2 of edges(b, a)) {
+      const r = segSegDistance(s1, s2);
+      if (r.d < out.d) out = r;
+    }
+    return { ...out, rel, angle };
+  };
+  /** Abstand als Maßlinie einfügen */
+  const distToDimension = () => {
+    if (!distRes || distRes.d < 1e-6) return;
+    create('dimension', lineShape(distRes.p, distRes.q), {}, true);
+    setDistPicks([]);
+    setDistRes(null);
   };
 
   /** Winkel auf Winkelschritte runden */
@@ -1079,6 +1356,9 @@ export function useDrawing(opts: {
 
   /** Werkzeug „Text“: Stelle angetippt */
   const onPlace = async (p: Point) => {
+    if (tool === 'guide') return guidePoint({ x: p.x / k, y: p.y / k });
+    if (tool === 'fillet') return filletPoint({ x: p.x / k, y: p.y / k });
+    if (tool === 'distance') return distancePoint({ x: p.x / k, y: p.y / k });
     if (TRANSFORM_TOOLS.has(tool)) {
       transformPoint({ x: p.x / k, y: p.y / k });
       return;
@@ -1472,6 +1752,63 @@ export function useDrawing(opts: {
             d={pathToSvg(shapePath(shapeToPage({ type: 'rect', ...stretchWin }, k)), (p) => toScreen(view, p))}
           />
         )}
+        {guidesOn && guides.length > 0 && (
+          <g className="guide-lines" data-testid="guide-lines">
+            {guides.map((g) => {
+              const [u, v] = guideSeg(g).map((q) => toScreen(view, { x: q.x * k, y: q.y * k }));
+              return <path key={g.id} d={`M${u.x} ${u.y}L${v.x} ${v.y}`} className="guide-line" data-testid="guide-line" data-angle={g.angle} />;
+            })}
+          </g>
+        )}
+        {tool === 'guide' && !guideErase && hover && (() => {
+          const hm = { x: hover.x / k, y: hover.y / k };
+          const g = guideAngle !== 'free' ? { x: hm.x, y: hm.y, angle: Number(guideAngle) || 0 } : pickPts[0] && dist2(pickPts[0], hm) > 1e-9 ? { ...pickPts[0], angle: angleCcw(pickPts[0], hm) } : null;
+          if (!g) return null;
+          const [u, v] = guideSeg(g).map((q) => toScreen(view, { x: q.x * k, y: q.y * k }));
+          return <path d={`M${u.x} ${u.y}L${v.x} ${v.y}`} className="guide-line guide-preview" data-testid="guide-preview" />;
+        })()}
+        {tool === 'guide' &&
+          pickPts.map((q, i) => {
+            const sq = toScreen(view, { x: q.x * k, y: q.y * k });
+            return <circle key={`gp${i}`} cx={sq.x} cy={sq.y} r={5} className="poly-point" data-testid="pick-point" />;
+          })}
+        {track.current.par && (() => {
+          const { from, to } = track.current.par;
+          const a2 = toScreen(view, { x: from.x * k, y: from.y * k });
+          const b2 = toScreen(view, { x: to.x * k, y: to.y * k });
+          const l = Math.hypot(b2.x - a2.x, b2.y - a2.y) || 1;
+          const ex = ((b2.x - a2.x) / l) * 4000;
+          const ey = ((b2.y - a2.y) / l) * 4000;
+          const edge = track.current.edge;
+          const e1 = edge && toScreen(view, { x: edge[0].x * k, y: edge[0].y * k });
+          const e2 = edge && toScreen(view, { x: edge[1].x * k, y: edge[1].y * k });
+          return (
+            <g className="parallel-hint" data-testid="parallel-hint">
+              <path d={`M${a2.x - ex} ${a2.y - ey}L${a2.x + ex} ${a2.y + ey}`} className="track-line" />
+              {e1 && e2 && <path d={`M${e1.x} ${e1.y}L${e2.x} ${e2.y}`} className="parallel-edge" />}
+            </g>
+          );
+        })()}
+        {tool === 'distance' && (
+          <g className="dist-overlay" data-testid="dist-overlay">
+            {distPicks.map((pk, i) => {
+              const sq = toScreen(view, { x: pk.point.x * k, y: pk.point.y * k });
+              return <circle key={i} cx={sq.x} cy={sq.y} r={4.5} className="poly-point" data-testid="pick-point" />;
+            })}
+            {distRes && (() => {
+              const a2 = toScreen(view, { x: distRes.p.x * k, y: distRes.p.y * k });
+              const b2 = toScreen(view, { x: distRes.q.x * k, y: distRes.q.y * k });
+              return (
+                <>
+                  <path d={`M${a2.x} ${a2.y}L${b2.x} ${b2.y}`} className="dist-line" data-testid="dist-line" />
+                  <text x={(a2.x + b2.x) / 2 + 8} y={(a2.y + b2.y) / 2 - 8} className="transform-label" data-testid="distance-label">
+                    {formatMeasure(distRes.d)} m
+                  </text>
+                </>
+              );
+            })()}
+          </g>
+        )}
         {ghost}
         {transformLabel}
         {trackOn && snapOn && tool !== 'select' && (
@@ -1553,6 +1890,24 @@ export function useDrawing(opts: {
     },
     rotStep,
     setRotStep,
+    guides,
+    guidesOn,
+    setGuidesOn,
+    guideAngle,
+    setGuideAngle,
+    guideErase,
+    setGuideErase: (on: boolean) => {
+      setGuideErase(on);
+      setPickPts([]);
+    },
+    clearGuides,
+    filletR,
+    filletSrc,
+    distPicks,
+    distRes,
+    distToDimension,
+    snapCfg,
+    setSnapCfg,
     alignMove,
     setAlignMove,
     wallThickness,
