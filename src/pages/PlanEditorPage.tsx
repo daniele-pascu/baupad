@@ -582,10 +582,11 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     () => (plan && drawingPlan ? drawingRegion(plan, drawing.allElements, stored) : undefined),
     [plan, drawingPlan, drawing.allElements, stored],
   );
-  // Plan messen: das gewählte Blatt (Format, Maßstab, zentriert) wie im PDF; Plan bearbeiten bleibt unbegrenzt
+  // Plan messen: Blatt im gewählten Format, die Zeichnung füllt es zentriert (wie im PDF); Plan bearbeiten bleibt
+  // unbegrenzt. Nur die Zeichnung bestimmt das Blatt – neue Messungen verschieben die Ansicht nicht.
   const sheetRect = useMemo(
-    () => (plan && drawingPlan ? printSheetRect(plan, drawing.allElements, stored) : null),
-    [plan, drawingPlan, drawing.allElements, stored],
+    () => (plan && drawingPlan ? printSheetRect(plan, drawing.allElements, []) : null),
+    [plan, drawingPlan, drawing.allElements],
   );
   const measureRegion = sheetRect ?? region;
 
@@ -1446,6 +1447,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               file={file}
               region={drawingPlan ? measureRegion : region}
               infinite={drawingPlan && !sheetRect}
+              restoreView={!drawingPlan}
               onToolDone={tool !== 'select' && tool !== 'probe' && tool !== 'calibrate' ? () => setTool('select') : undefined}
               onExitTool={() => {
                 // außerhalb des Plans getippt: Auswahl, alle Werkzeuge (auch Kalibrieren und Messung) aus

@@ -471,7 +471,7 @@ function OutsideHint({ plan, data, paper, scale }: { plan: Plan; data: ProjectSt
   const fit = printFit({ ...plan, ...f }, elementsOf(data, plan.id), [], { w: p.w - 2 * PRINT_MARGIN_MM, h: p.h - 2 * PRINT_MARGIN_MM - PRINT_HEADER_MM });
   return fit.fitted ? (
     <p className="small muted" data-testid="sheet-outside">
-      Die Zeichnung ist größer als das Blatt bei 1:{scale}. Im PDF wird sie automatisch auf 1:{fit.scale} verkleinert, damit alles auf {p.label} passt.
+      Die Zeichnung ist größer als das Blatt bei 1:{scale}. Im Aufmaßplan und im PDF steht sie trotzdem ganz auf {p.label} – zentriert und blattfüllend.
     </p>
   ) : null;
 }

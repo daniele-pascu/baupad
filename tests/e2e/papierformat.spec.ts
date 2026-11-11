@@ -403,3 +403,39 @@ test('Gezeichneter Plan bleibt in „Plan bearbeiten“ – auch nach Neuladen; 
   await page.reload();
   await expect(page.getByTestId('mode-measure-tab')).toHaveAttribute('aria-selected', 'true');
 });
+
+test('Plan zeichnen: alle A-Formate (A4 bis A0, hoch/quer); im Aufmaßplan füllt die Zeichnung das Blatt zentriert – auch im PDF', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'Formate', {}, ['Keller']);
+  await page.getByTestId('draw-plan').click();
+  const nd = page.getByTestId('new-drawing');
+  await nd.locator('[data-field="planNumber"]').fill('F-2');
+  const opts = await nd.getByTestId('sheet-paper').locator('option').evaluateAll((os) => os.map((o) => (o as HTMLOptionElement).value).filter(Boolean));
+  expect(opts).toEqual(['A4-hoch', 'A4-quer', 'A3-hoch', 'A3-quer', 'A2-hoch', 'A2-quer', 'A1-hoch', 'A1-quer', 'A0-hoch', 'A0-quer']);
+  await nd.getByTestId('sheet-paper').selectOption('A2-quer');
+  await nd.getByTestId('sheet-scale').selectOption('100');
+  await nd.getByTestId('new-drawing-save').click();
+  // kleiner Raum 4 × 3 m – auf A2 1:100 wäre er winzig
+  await pickTool(page, 'draw-rect');
+  await page.getByTestId('insert-length').fill('4');
+  await page.getByTestId('insert-width').fill('3');
+  await page.getByTestId('insert-submit').click();
+  await waitSaved(page);
+  await page.getByTestId('mode-measure').click();
+  const sheet = page.getByTestId('drawing-sheet');
+  await expect(sheet).toBeVisible();
+  const s = (await sheet.boundingBox())!;
+  const r = (await page.locator('[data-element="rect"]').first().boundingBox())!;
+  expect(s.width / s.height).toBeCloseTo(574 / 376, 1); // A2 quer ohne Ränder und Kopf
+  // füllt das Blatt (Höhe fast ganz), zentriert
+  expect(r.height / s.height).toBeGreaterThan(0.85);
+  expect(Math.abs(r.x + r.width / 2 - (s.x + s.width / 2))).toBeLessThan(3);
+  expect(Math.abs(r.y + r.height / 2 - (s.y + s.height / 2))).toBeLessThan(3);
+  // PDF: A2 quer, Raum füllt das Blatt
+  const dl = await catchDownload(page, async () => {
+    await page.getByTestId('export-pdf-plan').click();
+    await page.getByTestId('pdf-export-run').click();
+  });
+  const pdf = await saveDownload(dl, 'format-a2-fuellen.pdf');
+  expect(execFileSync('pdfinfo', [pdf], { encoding: 'utf8' })).toMatch(/Page size:\s+1683\.7\d* x 1190\.5\d*/);
+});

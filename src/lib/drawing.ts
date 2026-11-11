@@ -24,6 +24,12 @@ export const PAPER: Record<PaperFormat, { w: number; h: number; label: string }>
   'A4-quer': { w: 297, h: 210, label: 'A4 Querformat' },
   'A3-hoch': { w: 297, h: 420, label: 'A3 Hochformat' },
   'A3-quer': { w: 420, h: 297, label: 'A3 Querformat' },
+  'A2-hoch': { w: 420, h: 594, label: 'A2 Hochformat' },
+  'A2-quer': { w: 594, h: 420, label: 'A2 Querformat' },
+  'A1-hoch': { w: 594, h: 841, label: 'A1 Hochformat' },
+  'A1-quer': { w: 841, h: 594, label: 'A1 Querformat' },
+  'A0-hoch': { w: 841, h: 1189, label: 'A0 Hochformat' },
+  'A0-quer': { w: 1189, h: 841, label: 'A0 Querformat' },
 };
 export const PAPER_FORMATS = Object.keys(PAPER) as PaperFormat[];
 /** Übliche Maßstäbe 1:n */
@@ -539,23 +545,41 @@ export function printFit(
 
 
 /**
- * Blatt im Aufmaß (Plan messen): der Planbereich des gewählten Papierformats in Seiteneinheiten – genau der
- * Ausschnitt, der im PDF auf dem Blatt steht (Maßstab bzw. passend verkleinert, „ohne Maßstab“ = ausgefüllt,
- * jeweils zentriert). Ohne Papierformat (ältere Pläne) null.
+ * Inhalt (Zeichnung und Markierungen) mit kleinem Rand: 4 % der größeren Seite, mindestens 10 cm.
+ * Im Aufmaßplan füllt dieser Bereich immer das Blatt – egal wie groß die Zeichnung ist.
+ */
+export function fillRegion(plan: Pick<Plan, 'pageWidth' | 'pageHeight' | 'drawing'>, elements: Pick<DrawElement, 'shape'>[], damages: Pick<Damage, 'shape'>[] = []): Rect {
+  const k = unitsPerMeter(plan);
+  const boxes = [...elements.map((e) => shapeAABB(shapeToPage(e.shape, k))), ...damages.map((d) => shapeAABB(d.shape))];
+  if (!boxes.length) return { x: 0, y: 0, w: plan.pageWidth, h: plan.pageHeight };
+  const x1 = Math.min(...boxes.map((b) => b.x));
+  const y1 = Math.min(...boxes.map((b) => b.y));
+  const x2 = Math.max(...boxes.map((b) => b.x + b.w));
+  const y2 = Math.max(...boxes.map((b) => b.y + b.h));
+  const pad = Math.max(0.1 * k, 0.04 * Math.max(x2 - x1, y2 - y1));
+  return { x: x1 - pad, y: y1 - pad, w: x2 - x1 + 2 * pad, h: y2 - y1 + 2 * pad };
+}
+
+/** Papierformat im Aufmaßplan: das gewählte, sonst A3 passend zur Zeichnung (quer/hoch) */
+export function aufmassPaper(plan: Pick<Plan, 'drawing'>, region: { w: number; h: number }): PaperFormat {
+  return plan.drawing?.paper ?? (region.w >= region.h ? 'A3-quer' : 'A3-hoch');
+}
+
+/**
+ * Blatt im Aufmaß (Plan messen): der Planbereich des Papierformats in Seiteneinheiten – genau der Ausschnitt,
+ * der im PDF auf dem Blatt steht. Die Zeichnung füllt das Blatt immer und steht zentriert (der Maßstab des
+ * Zeichenblatts wird dafür nicht eingehalten).
  */
 export function printSheetRect(
   plan: Pick<Plan, 'pageWidth' | 'pageHeight' | 'drawing'>,
   elements: Pick<DrawElement, 'shape'>[],
   damages: Pick<Damage, 'shape'>[],
 ): Rect | null {
-  const fmt = plan.drawing?.paper ? PAPER[plan.drawing.paper] : null;
-  if (!fmt) return null;
-  const k = unitsPerMeter(plan);
+  const region = fillRegion(plan, elements, damages);
+  const fmt = PAPER[aufmassPaper(plan, region)];
   const avail = { w: fmt.w - 2 * PRINT_MARGIN_MM, h: fmt.h - 2 * PRINT_MARGIN_MM - PRINT_HEADER_MM };
-  const fit = printFit(plan, elements, damages, avail);
-  const region = plan.drawing?.fit ? contentRegion(plan, elements, damages) : fit.region;
   // mm auf dem Papier je Seiteneinheit
-  const mmPerUnit = plan.drawing?.fit ? Math.min(avail.w / region.w, avail.h / region.h) : 1000 / k / fit.scale;
+  const mmPerUnit = Math.min(avail.w / region.w, avail.h / region.h);
   const w = avail.w / mmPerUnit;
   const h = avail.h / mmPerUnit;
   return { x: region.x + region.w / 2 - w / 2, y: region.y + region.h / 2 - h / 2, w, h };

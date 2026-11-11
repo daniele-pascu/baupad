@@ -18,7 +18,7 @@ import {
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { componentsOf, costCenterLabel, damagesOf, elementsOf, findPosition, planTitle, safeFileName, type ExportFile } from './aufmass';
 import { dimsVisible, visibleDamages, visibleElements } from './layers';
-import { annotationsOf, contentRegion, dimGeometry, dimLeader, isDrawingPlan, lineEnds, PAPER, PRINT_HEADER_MM, PRINT_MARGIN_MM, printFit, printScale, shapeToPage, unitsPerMeter } from './drawing';
+import { annotationsOf, dimGeometry, dimLeader, isDrawingPlan, lineEnds, PAPER, PRINT_HEADER_MM, PRINT_MARGIN_MM, fillRegion, aufmassPaper, shapeToPage, unitsPerMeter } from './drawing';
 import { getBlob } from './db';
 import { MADE_WITH } from './crew-pdf';
 import { damageNo } from './numbering';
@@ -493,8 +493,6 @@ function drawDamages(ctx: Ctx, t: Target, region: Rect, damages: Damage[], compo
 // ---------------------------------------------------------------------------
 // Selbst gezeichnete Pläne
 
-/** A3 in PDF-Punkten und Millimetern */
-const A3 = { wPt: 1190.55, hPt: 841.89, wMm: 420, hMm: 297 };
 const MM = 72 / 25.4;
 
 /**
@@ -510,23 +508,17 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   const damages = visibleDamages(plan, allDamages);
   // Bauteilbuchstaben werden nicht mehr verwendet (Daten bleiben gespeichert, erscheinen aber nicht im Export)
   const components: ReturnType<typeof componentsOf> = [];
-  // Mit Papierformat: das Zeichenblatt im gewählten Maßstab bzw. – wenn die Zeichnung über das
-  // Blatt hinausgeht – der ganze Inhalt, passend verkleinert; sonst (ältere Pläne) Inhalt auf A3
-  // mit passendem Normmaßstab
-  const paperFmt = plan.drawing?.paper ? PAPER[plan.drawing.paper] : null;
-  const fitMm = paperFmt ? { w: paperFmt.w - 2 * PRINT_MARGIN_MM, h: paperFmt.h - 2 * PRINT_MARGIN_MM - PRINT_HEADER_MM } : null;
-  const fit = fitMm ? printFit(plan, allElements, allDamages, fitMm) : null;
-  const region = plan.drawing?.fit ? contentRegion(plan, allElements, allDamages) : fit ? fit.region : contentRegion(plan, allElements, allDamages);
-  const portrait = paperFmt ? paperFmt.h > paperFmt.w : region.h > region.w;
-  const W = paperFmt ? paperFmt.w * MM : portrait ? A3.hPt : A3.wPt;
-  const H = paperFmt ? paperFmt.h * MM : portrait ? A3.wPt : A3.hPt;
-  const margin = (paperFmt ? PRINT_MARGIN_MM : 12) * MM;
-  const headerPt = (paperFmt ? PRINT_HEADER_MM : 16) * MM;
+  // Aufmaßplan: die Zeichnung füllt immer das Blatt (gewähltes Format, sonst A3 passend) und steht zentriert –
+  // egal wie groß sie ist; der Maßstab des Zeichenblatts wird dafür nicht eingehalten
+  const region = fillRegion(plan, allElements, allDamages);
+  const paperFmt = PAPER[aufmassPaper(plan, region)];
+  const W = paperFmt.w * MM;
+  const H = paperFmt.h * MM;
+  const margin = PRINT_MARGIN_MM * MM;
+  const headerPt = PRINT_HEADER_MM * MM;
   const avail = { w: (W - 2 * margin) / MM, h: (H - 2 * margin - headerPt) / MM };
-  // ohne Maßstab: so groß wie möglich auf das Blatt, zentriert (krummer Maßstab, wird nicht angezeigt)
-  const fill = !!paperFmt && !!plan.drawing?.fit;
-  const fillU = fill ? Math.min((avail.w * MM) / region.w, (avail.h * MM) / region.h) : 0;
-  const scaleN = fill ? (1000 / k) * MM / fillU : fit ? fit.scale : printScale({ w: region.w / k, h: region.h / k }, avail);
+  const fillU = Math.min((avail.w * MM) / region.w, (avail.h * MM) / region.h);
+  const scaleN = ((1000 / k) * MM) / fillU;
   // Seiteneinheit (1/k m) → Punkte auf dem Papier
   const u = (1000 / k / scaleN) * MM;
   const ox = (W - region.w * u) / 2;
@@ -539,7 +531,9 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   const target: Target = { page, map, textRotation: 0, ptPerUnit: u };
 
   // Kopf: Plannummer | Titel; Format und Maßstab nur, wenn ausdrücklich eingeschaltet
-  const fmtLabel = paperFmt ? paperFmt.label : portrait ? 'A3 Hochformat' : 'A3 Querformat';
+  const fmtLabel = paperFmt.label;
+  // „ohne Maßstab“ gewählt: nie anzeigen
+  const showScale = !!plan.showScale && !plan.drawing?.fit;
   const barM = [0.5, 1, 2, 5, 10, 20, 50, 100, 200].find((m) => (m * 1000) / scaleN >= 35) ?? 200;
   const barPt = ((barM * 1000) / scaleN) * MM;
   drawSheetHeader(
@@ -548,8 +542,9 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
     H,
     { x: margin, y: margin, w: W - 2 * margin, h: headerPt },
     plan,
-    [plan.showPaper ? fmtLabel : '', plan.showScale && !fill ? `Maßstab 1:${scaleN}` : ''].filter(Boolean),
-    plan.showScale && !fill ? barPt + 12 : 0,
+    // tatsächlicher Maßstab auf dem Blatt (Zeichnung füllt das Blatt, daher meist kein Normmaßstab)
+    [plan.showPaper ? fmtLabel : '', showScale ? `Maßstab 1:${Math.round(scaleN)}` : ''].filter(Boolean),
+    showScale ? barPt + 12 : 0,
   );
 
   // Zeichnungsobjekte
@@ -637,7 +632,7 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   const lg = planLegend(plan, Object.values(data.plans), damages);
   if (lg.show) drawLegend(ctx, page, { x: margin - 2, y: margin - 2, w: W - 2 * margin + 4, h: H - 2 * margin - headerPt + 4 }, lg.pos, lg.entries);
   // Maßstabsleiste rechts im Kopfbereich (nur wenn der Maßstab angezeigt werden soll)
-  if (!plan.showScale || fill) return;
+  if (!showScale) return;
   const lblW = ctx.font.widthOfTextAtSize(`${String(barM).replace('.', ',')} m`, 6.5);
   const bx = W - margin - barPt - lblW / 2;
   const by = H - margin - 28;

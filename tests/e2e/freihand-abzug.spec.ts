@@ -153,7 +153,8 @@ test('Abzüge: Wand 5,50 × 2,30 abzüglich Tür und 2 Fenster, zuzüglich Nisch
 
   // Bearbeiten: Höhe ändern → netto neu; Abzüge bleiben
   await row.click();
-  await page.getByTestId('selection-bar').getByRole('button', { name: /bearbeiten/i }).first().click();
+  // Zeile antippen öffnet die Messung direkt (sonst über die Auswahlleiste)
+  if (!(await dlg.isVisible())) await page.getByTestId('selection-bar').getByRole('button', { name: /bearbeiten/i }).first().click();
   await expect(dlg.getByTestId('deduction-row')).toHaveCount(3);
   await dlg.getByTestId('input-width').fill('2,5'); // 13,75 − 4,50 + 0,50 = 9,75
   await expect(dlg.getByTestId('deduction-sum')).toContainText('netto 9,75 m²');

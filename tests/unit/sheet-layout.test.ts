@@ -5,7 +5,7 @@ import type { PaperFormat, Plan, Rect } from '../../src/lib/types';
 const inside = (r: Rect, box: Rect, eps = 0.01) =>
   r.x >= box.x - eps && r.y >= box.y - eps && r.x + r.w <= box.x + box.w + eps && r.y + r.h <= box.y + box.h + eps;
 const overlap = (a: Rect, b: Rect) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
-const SIZES: Record<PaperFormat, [number, number]> = { 'A4-hoch': [210, 297], 'A4-quer': [297, 210], 'A3-hoch': [297, 420], 'A3-quer': [420, 297] };
+const SIZES: Record<PaperFormat, [number, number]> = { 'A4-hoch': [210, 297], 'A4-quer': [297, 210], 'A3-hoch': [297, 420], 'A3-quer': [420, 297], 'A2-hoch': [420, 594], 'A2-quer': [594, 420], 'A1-hoch': [594, 841], 'A1-quer': [841, 594], 'A0-hoch': [841, 1189], 'A0-quer': [1189, 841] };
 
 describe('Blattlayout A4/A3', () => {
   for (const paper of Object.keys(SIZES) as PaperFormat[]) {

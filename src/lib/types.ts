@@ -231,7 +231,7 @@ export interface DrawingInfo {
   fit?: boolean;
 }
 
-export type PaperFormat = 'A4-hoch' | 'A4-quer' | 'A3-hoch' | 'A3-quer';
+export type PaperFormat = 'A4-hoch' | 'A4-quer' | 'A3-hoch' | 'A3-quer' | 'A2-hoch' | 'A2-quer' | 'A1-hoch' | 'A1-quer' | 'A0-hoch' | 'A0-quer';
 
 export type ShapeType = 'ellipse' | 'rect' | 'freehand' | 'line' | 'triangle';
 

@@ -164,6 +164,8 @@ interface Props {
   onComponentMove(id: string, x: number, y: number, commit: boolean): void;
   /** Werkzeug „Bauteil“ bzw. „Text“: Stelle im Plan angetippt */
   onPlace(p: Point): void;
+  /** false: immer mit dem ganzen Bereich beginnen (keine zuletzt verwendete Ansicht) */
+  restoreView?: boolean;
   /** Texte im Aufmaß (Seitenkoordinaten): mit „Auswählen“ antippen = bearbeiten, ziehen = verschieben */
   notes?: { id: string; shape: Shape }[];
   onNoteTap?(id: string): void;
@@ -388,6 +390,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     initialised.current = true;
     const fit = fitView(region, size.w, size.h);
     setView(fit);
+    if (props.restoreView === false) return;
     getView(plan.id)
       .then((saved) => {
         if (!saved || !viewRef.current) return;

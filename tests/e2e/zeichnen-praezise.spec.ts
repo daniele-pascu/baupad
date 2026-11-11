@@ -255,17 +255,16 @@ test('Format ändern und PDF im gewählten Format; Format/Maßstab nur auf Wunsc
   pdf = await saveDownload(dl, 'format-a3.pdf');
   expect(execFileSync('pdfinfo', [pdf], { encoding: 'utf8' })).toMatch(/Page size:\s+1190\.5\d* x 841\.8\d*/);
   text = execFileSync('pdftotext', [pdf, '-'], { encoding: 'utf8' });
-  expect(text).toContain('A3 Querformat · Maßstab 1:100');
-  expect(text).toMatch(/^5\s?m$/m); // Maßstabsleiste
+  // Zeichnung füllt das Blatt: angezeigt wird der tatsächliche Maßstab auf dem Blatt
+  expect(text).toMatch(/A3 Querformat · Maßstab 1:\d+/);
   expect(text).toContain('4,25 m');
   execFileSync('pdftoppm', ['-png', '-r', '50', pdf, 'tests/output/format-a3']);
 
-  // Zeichnung größer als das Blatt (A4 hoch 1:20 = 3,80 × 5,26 m): PDF verkleinert automatisch passend
+  // Zeichnung größer als das Blatt (A4 hoch 1:20 = 3,80 × 5,26 m): steht trotzdem ganz, zentriert und blattfüllend
   await page.getByTestId('sheet-label').click();
   await pd.getByTestId('sheet-paper').selectOption('A4-hoch');
   await pd.getByTestId('sheet-scale').selectOption('20');
-  await expect(pd.getByTestId('sheet-outside')).toContainText(/automatisch auf 1:(50|75|100|125|200)/);
-  const auto = (await pd.getByTestId('sheet-outside').textContent())!.match(/auf 1:(\d+)/)![1];
+  await expect(pd.getByTestId('sheet-outside')).toContainText('zentriert und blattfüllend');
   await pd.getByRole('button', { name: 'Speichern' }).click();
   await waitSaved(page);
   dl = await catchDownload(page, async () => {
@@ -275,7 +274,7 @@ test('Format ändern und PDF im gewählten Format; Format/Maßstab nur auf Wunsc
   pdf = await saveDownload(dl, 'format-a4-auto.pdf');
   expect(execFileSync('pdfinfo', [pdf], { encoding: 'utf8' })).toMatch(/Page size:\s+595\.2\d* x 841\.8\d*/);
   text = execFileSync('pdftotext', [pdf, '-'], { encoding: 'utf8' });
-  expect(text).toContain(`Maßstab 1:${auto}`);
+  expect(text).toMatch(/Maßstab 1:\d+/);
   expect(text).toContain('4,25 m');
 
   // Ohne Maßstab: Zeichnung füllt das Blatt (zentriert), kein Maßstab im PDF – auch wenn „Maßstab anzeigen“ an ist
