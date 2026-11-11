@@ -314,3 +314,36 @@ for (const input of ['finger', 'stift'] as const)
     const a = ((await elements(page)) as ElR[]).find((e) => e.id === a0.id)!;
     expect(a.type).toBe('freehand');
   });
+
+for (const input of ['finger', 'stift'] as const)
+  test(`Linie mit ${input === 'finger' ? 'Finger' : 'Stift'}: Punkt A antippen, dann ziehen – zielt von A aus, Spurlinie über einen anderen Punkt`, async ({ page }, info) => {
+    test.skip(input === 'stift' && info.project.name === 'iphone');
+    const { cdp, at } = await setup(page);
+    const [a0] = (await elements(page)) as (El & { type: string })[];
+    await (input === 'finger' ? fingerTap(cdp, at(0.03, -0.17)) : penTap(cdp, at(0.03, -0.17)));
+    await pickTool(page, 'draw-line', 'tap');
+    const A = at(0.1, 0.55);
+    if (input === 'finger') await fingerTap(cdp, A);
+    else await penTap(cdp, A);
+    // vom anderen Punkt aus ziehen: über die rechte untere Ecke von Rechteck A fahren, dann senkrecht darunter loslassen
+    const vb = (await page.getByTestId('plan-viewer').boundingBox())!;
+    const scale = Number(await page.getByTestId('plan-viewer').getAttribute('data-scale'));
+    const sb = (await page.getByTestId('drawing-sheet').boundingBox())!;
+    const corner = { x: sb.x + (a0.shape.x + a0.shape.w) * 100 * scale, y: sb.y + (a0.shape.y + a0.shape.h) * 100 * scale };
+    const end = { x: corner.x + 3, y: A.y };
+    void vb;
+    if (input === 'finger') await touchDrag(cdp, { x: corner.x + 1, y: corner.y + 1 }, end, 12);
+    else {
+      await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: corner.x + 1, y: corner.y + 1, button: 'left', buttons: 1, clickCount: 1, pointerType: 'pen' } as never);
+      for (let i = 1; i <= 12; i++) await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: corner.x + 1 + ((end.x - corner.x - 1) * i) / 12, y: corner.y + 1 + ((end.y - corner.y - 1) * i) / 12, button: 'left', buttons: 1, pointerType: 'pen' } as never);
+      await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: end.x, y: end.y, button: 'left', buttons: 0, clickCount: 1, pointerType: 'pen' } as never);
+    }
+    await waitSaved(page);
+    const els = (await elements(page)) as (El & { type: string; shape: { points?: number[][] } })[];
+    const line = els.find((e) => e.type === 'line')!;
+    expect(line).toBeTruthy();
+    // Linie beginnt bei A (nicht dort, wo der Zug begann) und endet senkrecht unter der Ecke (Spurlinie)
+    const pts = (line.shape.points ?? []).map(([u, v]) => ({ x: line.shape.x + u * line.shape.w, y: line.shape.y + v * line.shape.h }));
+    const xs = pts.map((p) => p.x);
+    expect(Math.abs(Math.max(...xs) - (a0.shape.x + a0.shape.w))).toBeLessThan(0.02);
+  });

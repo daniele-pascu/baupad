@@ -52,7 +52,10 @@ async function drag(x1: number, y1: number, x2: number, y2: number) {
 async function drawLine(x1: number, y1: number, x2: number, y2: number) {
   await deselect();
   await pickTool(page, 'draw-line');
-  await drag(x1, y1, x2, y2);
+  // Linie am PC: Klick – Klick
+  await page.mouse.click(x1, y1);
+  await page.mouse.move(x2, y2, { steps: 8 });
+  await page.mouse.click(x2, y2);
   await waitSaved(page);
   const els = await elements();
   return verts(els[els.length - 1].shape);
@@ -122,7 +125,7 @@ test('90° / Orthogonal: F8 schaltet um, Linien nur waagrecht/senkrecht, Richtun
   expect(isHoriz(await drawLine(x + 560, y, x + 620, y + 250))).toBe(true);
   await dir.click();
   await expect(dir).toHaveAttribute('data-dir', 'v');
-  expect(isVert(await drawLine(x + 640, y + 40, x + 900, y + 90))).toBe(true);
+  expect(isVert(await drawLine(x + 640, y + 40, x + 760, y + 70))).toBe(true); // Ende innerhalb des Plans (rechts liegen die Zoom-Tasten)
   await dir.click();
   await expect(dir).toHaveAttribute('data-dir', 'auto');
   // auch unter „Präzision“ sichtbar
@@ -229,7 +232,9 @@ test('Linientypen fein: kleine Welle/Zickzack (zoomunabhängig), gleichmäßige 
   const sb = (await sheet().boundingBox())!;
   await deselect();
   await pickTool(page, 'draw-line');
-  await drag(sb.x + 100, sb.y + 600, sb.x + 460, sb.y + 600);
+  await page.mouse.click(sb.x + 100, sb.y + 600);
+  await page.mouse.move(sb.x + 460, sb.y + 600, { steps: 6 });
+  await page.mouse.click(sb.x + 460, sb.y + 600);
   await waitSaved(page);
   const line = (await elements()).at(-1)!;
   const bar = page.getByTestId('element-bar');

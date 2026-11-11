@@ -198,6 +198,10 @@ interface Props {
   hatchUnit?: number;
   /** Wand darf geschlossen werden (Plan zeichnen: Raum ringsum) – Antippen des Startpunkts bzw. „Schließen“ */
   closableWall?: boolean;
+  /** Linie mit der Maus nur durch Klick – Klick (nicht durch Ziehen) */
+  lineClickOnly?: boolean;
+  /** Werkzeug benutzt: der nächste Kontakt (auch Maus und Stift) beendet es – Tipp = Auswahl, Ziehen = Plan verschieben */
+  toolDoneAnyPointer?: boolean;
   /** Eigene Darstellung eines Objekts (undefined = Standard-Markierung) */
   renderItem?(item: ViewerItem, view: View, selected: boolean): ReactNode | undefined;
   /** Zusätzliche Ebene unter bzw. über den Objekten (Bildschirmkoordinaten) */
@@ -237,7 +241,7 @@ type Gesture =
   | { kind: 'none' }
   | { kind: 'pan'; start: Point; view: View; moved: boolean; tapTarget: string | null; navOnly?: boolean; exit?: boolean }
   | { kind: 'pinch'; dist: number; mid: Point; view: View }
-  | { kind: 'draw'; tool: DrawGestureTool; start: Point; current: Point; points: Point[] }
+  | { kind: 'draw'; tool: DrawGestureTool; start: Point; current: Point; points: Point[]; aim?: boolean; mouse?: boolean }
   | { kind: 'move'; id: string; start: Point; orig: Shape; moved: boolean; ref: Point }
   | { kind: 'resize'; id: string; handle: string; orig: Shape }
   | { kind: 'vertex'; id: string; index: number; orig: Shape; start: Point; moved: boolean }
@@ -869,7 +873,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       return;
     }
     let currentTool = propsRef.current.tool;
-    if (e.pointerType === 'touch' && usedRef.current && currentTool !== 'select' && propsRef.current.onToolDone) {
+    if ((e.pointerType === 'touch' || propsRef.current.toolDoneAnyPointer) && usedRef.current && currentTool !== 'select' && propsRef.current.onToolDone && !clickStart.current && !poly.current.length && (e.pointerType !== 'mouse' || e.button === 0)) {
       // Handy/Tablet: Werkzeug wurde benutzt – dieser Fingerkontakt beendet es (Tipp = Auswahl, Ziehen = Plan verschieben).
       // Mit dem Stift bleibt das Werkzeug aktiv (mehrere Messungen hintereinander).
       usedRef.current = false;
@@ -934,7 +938,11 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     // Klick-Klick-Linie: der zweite Punkt fängt wie die Vorschau (vom ersten Punkt aus: Winkel, 90°, parallel, Lotpunkt)
     const from = CLICK_LINE.has(currentTool) && clickStart.current ? clickStart.current : undefined;
     const pp = clampP(snap && currentTool !== 'freehand' ? snapAt(raw, { tool: currentTool, scale: v.scale, from }) : raw);
-    gesture.current = { kind: 'draw', tool: currentTool as DrawGestureTool, start: pp, current: pp, points: [pp] };
+    // Punkt A gesetzt (Linie, Vektor): jeder Zug zielt von A aus – überfahrene Punkte werden für Spurlinien gemerkt,
+    // beim Loslassen ist Punkt B gesetzt (auch mit Finger bzw. Stift)
+    const aim = !!from && currentTool !== 'calibrate';
+    gesture.current = { kind: 'draw', tool: currentTool as DrawGestureTool, start: pp, current: pp, points: [pp], aim, mouse: e.pointerType === 'mouse' };
+    if (aim) polyHover.current = pp;
     forceRender((n) => n + 1);
   };
 
@@ -966,7 +974,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       }
       // Fangpunkt schon vor dem Klicken anzeigen (Zeichenwerkzeuge)
       const t = propsRef.current.tool;
-      if (e.pointerType === 'mouse' && propsRef.current.snap && t !== 'select' && viewRef.current) {
+      if (e.pointerType !== 'touch' && propsRef.current.snap && t !== 'select' && viewRef.current) {
         const before = snapMark.current;
         const last = snapFrom(t, poly.current);
         snapAt(clampP(toPage(viewRef.current, localPoint(e))), { tool: t, scale: viewRef.current.scale, from: last });
@@ -975,7 +983,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       // Klick-Klick-Strich: Vorschau von Punkt A zur Maus (mit Fang wie der Klick)
       if (clickStart.current && viewRef.current) {
         const hp = clampP(toPage(viewRef.current, localPoint(e)));
-        polyHover.current = e.pointerType === 'mouse' && propsRef.current.snap ? clampP(snapAt(hp, { tool: t, scale: viewRef.current.scale, from: clickStart.current })) : hp;
+        polyHover.current = e.pointerType !== 'touch' && propsRef.current.snap ? clampP(snapAt(hp, { tool: t, scale: viewRef.current.scale, from: clickStart.current })) : hp;
         forceRender((n) => n + 1);
       }
       // Antippen-Werkzeug: Mausposition für die Vorschau (z. B. Versetzen)
@@ -989,7 +997,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       if (isPointTool(propsRef.current.tool) && (poly.current.length || propsRef.current.tool === 'probe') && viewRef.current) {
         const hp = clampP(toPage(viewRef.current, localPoint(e)));
         const last = propsRef.current.tool === 'probe' ? (propsRef.current.probeFrom ?? undefined) : snapFrom(propsRef.current.tool, poly.current);
-        polyHover.current = e.pointerType === 'mouse' && propsRef.current.snap ? clampP(snapAt(hp, { tool: t, scale: viewRef.current.scale, from: last })) : hp;
+        polyHover.current = e.pointerType !== 'touch' && propsRef.current.snap ? clampP(snapAt(hp, { tool: t, scale: viewRef.current.scale, from: last })) : hp;
         forceRender((n) => n + 1);
       }
       return;
@@ -1057,8 +1065,10 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       case 'draw': {
         const raw = clampP(toPage(v, p));
         const snap = propsRef.current.snap;
-        const pp = clampP(snap && g.tool !== 'freehand' ? snapAt(raw, { from: g.start, tool: g.tool, scale: v.scale }) : raw);
+        const from = g.aim && clickStart.current ? clickStart.current : g.start;
+        const pp = clampP(snap && g.tool !== 'freehand' ? snapAt(raw, { from, tool: g.tool, scale: v.scale }) : raw);
         g.current = pp;
+        if (g.aim) polyHover.current = pp;
         if (g.tool === 'freehand') {
           // Alle Zwischenpunkte übernehmen, damit die Linie genau dem Finger folgt
           const native = e.nativeEvent as PointerEvent;
@@ -1219,7 +1229,17 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
           propsRef.current.onSelect(hit?.id ?? null);
           return;
         }
-        if (CLICK_LINE.has(g.tool) && Math.max(r0.w, r0.h) * v.scale < 8) {
+        if (g.aim && clickStart.current) {
+          // von Punkt A gezielt: Punkt B = Ende des Zugs (bzw. angetippte Stelle)
+          const a = clickStart.current;
+          const b = Math.max(r0.w, r0.h) * v.scale < 8 ? g.start : g.current;
+          clearClickStart();
+          if (Math.hypot(a.x - b.x, a.y - b.y) * v.scale >= 4) create(lineShape(a, b));
+          return;
+        }
+        // Am PC (Maus): Linie nur mit Klick – Klick (Ziehen zählt wie ein Klick am Anfangspunkt)
+        const clickOnly = g.mouse && g.tool === 'line' && !!propsRef.current.lineClickOnly;
+        if (CLICK_LINE.has(g.tool) && (clickOnly || Math.max(r0.w, r0.h) * v.scale < 8)) {
           const a = clickStart.current;
           if (!a) {
             clickStart.current = g.start;
@@ -1394,7 +1414,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   // Darstellung
 
   const g = gesture.current;
-  const drawPreview = g.kind === 'draw' && view ? shapeFromDraw(g, view, true) : null;
+  // Vorschau des Zugs – nicht beim Zielen von Punkt A (dort Vorschau A → Finger) und nicht bei „Linie nur mit Klick“ (Maus)
+  const drawPreview = g.kind === 'draw' && view && !g.aim && !(g.mouse && g.tool === 'line' && props.lineClickOnly) ? shapeFromDraw(g, view, true) : null;
   const selected = damages.find((d) => d.id === selectedId) ?? null;
 
   const strokeW = isCoarse() ? 2.5 : 2;
@@ -1493,7 +1514,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
             return custom !== undefined ? <g key={d.id}>{custom}</g> : renderShape(d.shape, d.color, { selected: d.id === selectedId, key: d.id, id: d.id, style: d.style });
           })}
           {pending && renderShape(pending.shape, pending.color, { dashed: true, key: 'pending' })}
-          {drawPreview && renderShape(drawPreview, color, { dashed: true, key: 'draw' })}
+          {/* Auswahlfenster: nur das Rechteck (Überlagerung), keine Diagonale */}
+          {drawPreview && !(g.kind === 'draw' && g.tool === 'selwin') && <g data-testid="draw-preview">{renderShape(drawPreview, color, { dashed: true, key: 'draw' })}</g>}
           {tool === 'dimension' && poly.current.length === 2 && polyHover.current && (() => {
             // Vorschau: Hilfslinien von A und B zur Maßlinie, Maßlinie mit Maßzahl
             const dm = dimensionFrom(poly.current[0], poly.current[1], polyHover.current);

@@ -222,11 +222,10 @@ test('Linie mit eingefügtem Punkt wird zur offenen Polylinie; Mindestpunktzahl 
   const sb = (await sheet().boundingBox())!;
   const x = sb.x + 450;
   const y = sb.y + 330;
-  await page.mouse.move(x, y);
-  await page.mouse.down();
-  await page.mouse.move(x + 100, y, { steps: 4 });
-  await page.mouse.move(x + 200, y, { steps: 4 });
-  await page.mouse.up();
+  // Linie am PC: Klick – Klick
+  await page.mouse.click(x, y);
+  await page.mouse.move(x + 200, y, { steps: 8 });
+  await page.mouse.click(x + 200, y);
   await pickTool(page, 'draw-select');
   await expect(page.getByTestId('element-bar')).toContainText('Linie');
   await page.mouse.dblclick(x + 100, y);

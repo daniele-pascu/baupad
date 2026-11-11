@@ -1465,6 +1465,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             <PlanViewer
               key="draw"
               closableWall
+              lineClickOnly
+              toolDoneAnyPointer
               hatchUnit={hatchAnchor(unitsPerMeter(plan), plan.drawing?.scale ?? 100)}
               ref={viewer}
               plan={plan}

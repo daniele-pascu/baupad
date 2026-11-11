@@ -286,7 +286,10 @@ test('Importierter Plan: Fläche aus Plan erst nach dem Kalibrieren', async ({ p
 test('Ebenen: Zeichnung, Bemaßung, Text und Messungen ein-/ausblenden – Ansicht, Fang und PDF', async ({ page }) => {
   const sb = await newDrawing(page, 'Ebenen', 'E-1');
   await pickTool(page, 'draw-line');
-  await drag(page, sb.x + 60, sb.y + 80, sb.x + 360, sb.y + 80);
+  // Linie am PC: Klick – Klick
+  await page.mouse.click(sb.x + 60, sb.y + 80);
+  await page.mouse.move(sb.x + 360, sb.y + 80, { steps: 6 });
+  await page.mouse.click(sb.x + 360, sb.y + 80);
   await pickTool(page, 'draw-rect');
   await drag(page, sb.x + 80, sb.y + 160, sb.x + 300, sb.y + 300);
   await page.getByTestId('element-showdims').check(); // neue Formen kommen ohne Maße

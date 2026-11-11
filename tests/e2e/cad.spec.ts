@@ -142,7 +142,10 @@ test('Trimmen und Verlängern von Linien an anderen Linien', async () => {
   const line = async (x1: number, y1: number, x2: number, y2: number) => {
     await deselect();
     await pickTool(page, 'draw-line');
-    await drag(sb.x + x1, sb.y + y1, sb.x + x2, sb.y + y2);
+    // Linie am PC: Klick – Klick
+    await page.mouse.click(sb.x + x1, sb.y + y1);
+    await page.mouse.move(sb.x + x2, sb.y + y2, { steps: 8 });
+    await page.mouse.click(sb.x + x2, sb.y + y2);
   };
   // Waagrechte Wand mit zwei Querwänden
   await line(100, 300, 600, 300);
@@ -183,23 +186,26 @@ test('Stutzen mit Zaun (mehrere Linien auf einmal) und an einem Rechteck', async
   const line = async (x1: number, y1: number, x2: number, y2: number) => {
     await deselect();
     await pickTool(page, 'draw-line');
-    await drag(sb.x + x1, sb.y + y1, sb.x + x2, sb.y + y2);
+    // Linie am PC: Klick – Klick
+    await page.mouse.click(sb.x + x1, sb.y + y1);
+    await page.mouse.move(sb.x + x2, sb.y + y2, { steps: 8 });
+    await page.mouse.click(sb.x + x2, sb.y + y2);
   };
   // zwei waagrechte Linien zwischen zwei Querwänden
-  await line(650, 150, 900, 150);
-  await line(650, 200, 900, 200);
-  await line(710, 120, 710, 230);
-  await line(840, 120, 840, 230);
+  await line(650, 300, 900, 300);
+  await line(650, 350, 900, 350);
+  await line(710, 270, 710, 380);
+  await line(840, 270, 840, 380);
   await waitSaved(page);
   const n0 = (await elements()).length;
   await deselect();
   await pickTool(page, 'draw-trim');
   // Zaun senkrecht durch beide Linien ziehen
-  await page.mouse.move(sb.x + 775, sb.y + 130);
+  await page.mouse.move(sb.x + 775, sb.y + 280);
   await page.mouse.down();
-  await page.mouse.move(sb.x + 775, sb.y + 170, { steps: 4 });
+  await page.mouse.move(sb.x + 775, sb.y + 320, { steps: 4 });
   await expect(page.getByTestId('trim-fence')).toHaveCount(1);
-  await page.mouse.move(sb.x + 775, sb.y + 220, { steps: 4 });
+  await page.mouse.move(sb.x + 775, sb.y + 370, { steps: 4 });
   await page.mouse.up();
   await waitSaved(page);
   let els = await elements();
@@ -214,13 +220,13 @@ test('Stutzen mit Zaun (mehrere Linien auf einmal) und an einem Rechteck', async
   // Rechteck mit einer Linie quer durch: nur die angeklickte rechte Seite (Ecke zu Ecke) verschwindet → offene Polylinie
   await deselect();
   await pickTool(page, 'draw-rect');
-  await drag(sb.x + 650, sb.y + 300, sb.x + 850, sb.y + 380);
-  await line(750, 280, 750, 400);
+  await drag(sb.x + 650, sb.y + 450, sb.x + 850, sb.y + 530);
+  await line(750, 430, 750, 550);
   await waitSaved(page);
   const n1 = (await elements()).length;
   await deselect();
   await pickTool(page, 'draw-trim');
-  await page.mouse.click(sb.x + 850, sb.y + 340);
+  await page.mouse.click(sb.x + 850, sb.y + 490);
   await waitSaved(page);
   els = await elements();
   expect(els).toHaveLength(n1);
@@ -285,7 +291,10 @@ test('Stutzen: frei gezogener Zaun über nicht parallele Linien', async () => {
   const line = async (x1: number, y1: number, x2: number, y2: number) => {
     await deselect();
     await pickTool(page, 'draw-line');
-    await drag(sb.x + x1, sb.y + y1, sb.x + x2, sb.y + y2);
+    // Linie am PC: Klick – Klick
+    await page.mouse.click(sb.x + x1, sb.y + y1);
+    await page.mouse.move(sb.x + x2, sb.y + y2, { steps: 8 });
+    await page.mouse.click(sb.x + x2, sb.y + y2);
   };
   // waagrechte Linie zwischen zwei senkrechten Wänden, schräge Linie zwischen zwei waagrechten Wänden
   await line(330, 390, 440, 390);
