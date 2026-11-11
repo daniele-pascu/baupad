@@ -270,6 +270,25 @@ export function tastenTests() {
     await expect(page.getByTestId('command-bar')).toBeVisible();
     await pruefe(page, 'Befehlsleiste Wand', out);
     await page.locator('body').press('Escape');
+    // Polylinie: Länge je Knick eintippen, danach Abschnitte der ausgewählten Polylinie
+    await pickTool(page, 'draw-polyline');
+    {
+      const vb = (await page.getByTestId('plan-viewer').boundingBox())!;
+      const pt = { x: vb.x + vb.width * 0.3, y: vb.y + vb.height * 0.55 };
+      await page.mouse.click(pt.x, pt.y);
+    }
+    await expect(page.getByTestId('polygon-bar').getByTestId('command-input')).toBeVisible();
+    await page.getByTestId('command-input').fill('2;0');
+    await page.getByTestId('command-input').press('Enter');
+    await pruefe(page, 'Polylinie mit Längeneingabe', out);
+    await page.getByTestId('command-input').fill('0;2');
+    await page.getByTestId('command-input').press('Enter');
+    await page.getByTestId('polyline-open').click();
+    await expect(page.getByTestId('element-bar')).toBeVisible();
+    await page.getByTestId('segments-toggle').click();
+    await expect(page.getByTestId('segment-fields')).toBeVisible();
+    await pruefe(page, 'Polylinie Abschnitte', out);
+    await page.locator('body').press('Escape');
     // Registerkarten Ändern und Präzision
     for (const t of ['modify', 'precision']) {
       await page.getByTestId(`ribbon-tab-${t}`).click();

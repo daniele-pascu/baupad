@@ -34,6 +34,7 @@ import {
   shapeVertices,
   type Point,
   type View,
+  type AspectAnchor,
 } from '../lib/geometry';
 import { clampRenderScale, drawImageRegion, dropPdfDocument, getImageBitmap, getPdfDocument, pinPdfDocument, renderPdfRegion, type RenderJob } from '../lib/pdf';
 import { getView, putView } from '../lib/db';
@@ -96,6 +97,8 @@ export type ViewerItem = Pick<Damage, 'id' | 'number' | 'shape' | 'color' | 'lab
   Partial<Pick<Damage, 'label' | 'style'>> & {
     /** Eckpunkte nicht einzeln bearbeiten (z. B. Bogen) */
     noVertexEdit?: boolean;
+    /** nur gleichmäßig skalieren (z. B. Tür: Flügel passt immer zur Breite), mit Bezugspunkt */
+    keepAspect?: AspectAnchor | null;
   };
 /** Angezeigte Nummer bzw. Kennzeichnung */
 const noOf = (d: ViewerItem) => d.label?.trim() || String(d.number);
@@ -131,6 +134,10 @@ export interface PlanViewerHandle {
   armClick(p: Point | null): void;
   /** Zuletzt gesetzten Punkt entfernen */
   undoPolygonPoint(): void;
+  /** Punktwerkzeuge: Punkt exakt setzen (Seitenkoordinaten), z. B. aus einer eingetippten Länge */
+  addPolygonPoint(p: Point): void;
+  /** Punktwerkzeuge: zuletzt gesetzter Punkt (Seitenkoordinaten) */
+  lastPolygonPoint(): Point | null;
   /** Bildschirmpixel je Seiteneinheit */
   scale(): number;
   /** Ausgewähltes Objekt formatfüllend anzeigen („Zoom auf Auswahl“) */
@@ -585,6 +592,12 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     canGoBack: () => history.current.length > 0,
     center: () => (viewRef.current && size ? toPage(viewRef.current, { x: size.w / 2, y: size.h / 2 }) : null),
     finishPolygon: (closed?: boolean) => finishPolygon(closed),
+    addPolygonPoint: (p: Point) => {
+      poly.current = [...poly.current, clampP(p)];
+      propsRef.current.onPolygonChange?.(poly.current.length);
+      forceRender((n) => n + 1);
+    },
+    lastPolygonPoint: () => poly.current[poly.current.length - 1] ?? null,
     undoPolygonPoint: () => {
       if (clickStart.current) return clearClickStart();
       poly.current = poly.current.slice(0, -1);
@@ -1090,7 +1103,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       case 'resize': {
         const raw = clampP(toPage(v, p));
         const pp = propsRef.current.snap ? snapAt(raw, { scale: v.scale, movingId: g.id }) : raw;
-        propsRef.current.onShapeChange(g.id, resizeRotatedShape(g.orig, g.handle, pp, 6 / v.scale), false);
+        const keep = propsRef.current.damages.find((d) => d.id === g.id)?.keepAspect;
+        propsRef.current.onShapeChange(g.id, resizeRotatedShape(g.orig, g.handle, pp, 6 / v.scale, keep), false);
         return;
       }
       case 'rotate': {

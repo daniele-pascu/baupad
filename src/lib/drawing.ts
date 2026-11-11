@@ -3,6 +3,7 @@ import { fromShapeLocal, freehandPoints, lineShape, polygonArea, shapeAABB, shap
 import { formatMeasure } from './numbers';
 import type { Damage, DrawElement, DrawingInfo, PaperFormat, Plan, Rect, Shape, TextFont } from './types';
 import { charWidthFactor } from './text-font';
+import { symbolAnchor } from './symbols';
 
 /**
  * Maßsystem selbst gezeichneter Pläne.
@@ -210,11 +211,19 @@ export function measuresOf(e: Pick<DrawElement, 'type' | 'shape'>): Measures {
  * Ändert die Maße eines Objekts. Ein Bezugspunkt bleibt dabei fest:
  * Rechteck/Text links oben, Dreieck links unten, Linie Startpunkt, Kreis Mittelpunkt.
  */
-export function applyMeasures(e: Pick<DrawElement, 'type' | 'shape' | 'text' | 'font'>, m: Measures): Shape {
+export function applyMeasures(e: Pick<DrawElement, 'type' | 'shape' | 'text' | 'font'> & Partial<Pick<DrawElement, 'symbol'>>, m: Measures): Shape {
   const s = e.shape;
   switch (e.type) {
+    case 'symbol': {
+      // Tür & Co.: nur gleichmäßig – Breite und Tiefe gekoppelt, Bezugspunkt (Öffnungslinie, Anschlag) bleibt
+      const anchor = symbolAnchor(e.symbol);
+      if (anchor && s.w > 0 && s.h > 0) {
+        const f = m.length !== undefined && Math.abs(m.length - s.w) > 1e-9 ? m.length / s.w : m.width !== undefined ? m.width / s.h : 1;
+        return withRotation(resizeKeeping(s, s.w * f, s.h * f, anchor), m.rotation);
+      }
+      return withRotation(resizeKeeping(s, m.length ?? s.w, m.width ?? s.h, { x: 0, y: 0 }), m.rotation);
+    }
     case 'rect':
-    case 'symbol':
       return withRotation(resizeKeeping(s, m.length ?? s.w, m.width ?? s.h, { x: 0, y: 0 }), m.rotation);
     case 'triangle':
       return withRotation(resizeKeeping(s, m.base ?? s.w, m.height ?? s.h, { x: 0, y: 1 }), m.rotation);

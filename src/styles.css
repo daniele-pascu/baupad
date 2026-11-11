@@ -11258,3 +11258,20 @@ html[data-theme='dark'] .crew-search {
   flex: 1;
   min-width: 0;
 }
+
+/* Abschnitte einer Polylinie: Länge je Knick */
+.segment-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  align-items: center;
+}
+.segment-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.segment-field input {
+  width: 72px;
+  min-height: 32px;
+}

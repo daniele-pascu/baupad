@@ -11,6 +11,7 @@ export function CommandBar({
   onInput,
   placeholder = 'z. B. 1,25 · 2,5;0 · 3<45',
   children,
+  testId = 'command-bar',
 }: {
   title: string;
   prompt: ReactNode;
@@ -19,6 +20,7 @@ export function CommandBar({
   placeholder?: string;
   /** weitere Tasten (Weiter, Fertig, Abbrechen …) */
   children?: ReactNode;
+  testId?: string;
 }) {
   const [value, setValue] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +47,7 @@ export function CommandBar({
   return (
     <form
       className="draw-bar command-bar"
-      data-testid="command-bar"
+      data-testid={testId}
       onSubmit={(e) => {
         e.preventDefault();
         if (!onInput || !value.trim()) return;

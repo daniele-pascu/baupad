@@ -498,3 +498,25 @@ export function pointLineDistance(p: Point, [a, b]: Seg2): { d: number; foot: Po
   const foot = { x: a.x + dir.x * t, y: a.y + dir.y * t };
   return { d: Math.hypot(p.x - foot.x, p.y - foot.y), foot };
 }
+
+/* ───────────── Abschnittslänge ───────────── */
+
+/**
+ * Länge des Abschnitts i (Punkt i → i+1) einer Polylinie bzw. Fläche ändern: der Endpunkt wandert in Richtung des
+ * Abschnitts, alle folgenden Punkte gehen mit (ihre Längen und Richtungen bleiben). Bei Flächen ändert sich dadurch
+ * nur der schließende Abschnitt; beim schließenden Abschnitt selbst wandert der Startpunkt.
+ */
+export function setSegmentLength(pts: Point[], closed: boolean, i: number, len: number): Point[] | null {
+  const n = pts.length;
+  const j = (i + 1) % n;
+  if (i < 0 || (!closed && i >= n - 1) || (closed && i >= n) || !(len > 0)) return null;
+  const a = pts[i];
+  const b = pts[j];
+  const cur = Math.hypot(b.x - a.x, b.y - a.y);
+  if (cur < 1e-12) return null;
+  const dx = ((b.x - a.x) / cur) * (len - cur);
+  const dy = ((b.y - a.y) / cur) * (len - cur);
+  const move = (p: Point) => ({ x: p.x + dx, y: p.y + dy });
+  if (closed && j === 0) return pts.map((p, k) => (k === 0 ? move(p) : p));
+  return pts.map((p, k) => (k > i ? move(p) : p));
+}

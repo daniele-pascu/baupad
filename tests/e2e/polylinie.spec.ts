@@ -89,7 +89,7 @@ test('Offene Polylinie: Enter beendet, nur Länge (keine Fläche); schließen/ö
   const sb = (await sheet().boundingBox())!;
   const s = await scale();
   const ox = sb.x + 80;
-  const oy = sb.y + 120;
+  const oy = sb.y + 240; // unter der Leiste (mit Längeneingabe etwas höher)
   // L-Form: 200 px nach rechts, 100 px nach unten, 80 px nach rechts
   for (const [dx, dy] of [[0, 0], [200, 0], [200, 100], [280, 100]]) await page.mouse.click(ox + dx, oy + dy);
   await expect(page.getByTestId('polygon-bar')).toContainText('Freie Form: 4 Punkte'); // im Zeichenmodus „Freie Form“

@@ -132,3 +132,17 @@ export function symbolGeometry(ref: SymbolRef, s: Shape): { lines: { pts: Point[
   }
   return { lines, texts };
 }
+
+/**
+ * Bezugspunkt beim gleichmäßigen Vergrößern/Verkleinern (Anteile 0…1 der Begrenzung) – nur für Symbole mit festem
+ * Seitenverhältnis. Türen: Öffnungslinie (Wandseite) bleibt immer auf der Wand, Anschlag bleibt stehen; so passt der
+ * Flügelaufschlag immer zur Türbreite. lockY: senkrecht immer an diesem Punkt, egal welcher Anfasser gezogen wird.
+ */
+export function symbolAnchor(ref: { id: string; flipX?: boolean; flipY?: boolean } | undefined): { x: number; y: number; lockY: boolean } | null {
+  const def = symbolDef(ref?.id);
+  if (!def?.keepAspect || !ref) return null;
+  const base: [number, number] = def.id === 'door1' ? [0, 1] : def.id === 'door2' ? [0.5, 1] : def.id === 'door-swing' ? [0, 0.5] : [0.5, 0.5];
+  const x = ref.flipX ? 1 - base[0] : base[0];
+  const y = ref.flipY ? 1 - base[1] : base[1];
+  return { x, y, lockY: def.group === 'door' };
+}

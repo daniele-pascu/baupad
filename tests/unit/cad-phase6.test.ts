@@ -92,3 +92,17 @@ describe('Objektfang-Arten', () => {
     expect(n.enabled).not.toContain('end');
   });
 });
+
+import { setSegmentLength } from '../../src/lib/cad-ops';
+describe('Abschnittslänge ändern', () => {
+  it('offen: Endpunkt und folgende Punkte wandern mit', () => {
+    const r = setSegmentLength([P(0, 0), P(2, 0), P(2, 3)], false, 0, 5)!;
+    expect(r).toEqual([P(0, 0), P(5, 0), P(5, 3)]);
+  });
+  it('geschlossen: nur der schließende Abschnitt ändert sich; schließender Abschnitt bewegt den Startpunkt', () => {
+    const sq = [P(0, 0), P(4, 0), P(4, 4), P(0, 4)];
+    expect(setSegmentLength(sq, true, 1, 6)).toEqual([P(0, 0), P(4, 0), P(4, 6), P(0, 6)]);
+    expect(setSegmentLength(sq, true, 3, 5)).toEqual([P(0, -1), P(4, 0), P(4, 4), P(0, 4)]);
+    expect(setSegmentLength(sq, false, 3, 5)).toBeNull();
+  });
+});

@@ -79,8 +79,57 @@ const OP_HINTS: Partial<Record<DrawTool, string>> = {
 const isPointTool = (t: Tool) => t === 'polygon' || t === 'polyline' || t === 'wall';
 
 /** Leiste beim Setzen von Punkten: Polylinie (im Zeichenmodus „Freie Form“) offen beenden oder schließen, Fläche schließen */
-function PolylineBar({ polyline, count, viewer, lineName = 'Polylinie', wall = false }: { polyline: boolean; count: number; viewer: React.RefObject<PlanViewerHandle | null>; lineName?: string; wall?: boolean }) {
+function PolylineBar({
+  polyline,
+  count,
+  viewer,
+  lineName = 'Polylinie',
+  wall = false,
+  onInput,
+}: {
+  polyline: boolean;
+  count: number;
+  viewer: React.RefObject<PlanViewerHandle | null>;
+  lineName?: string;
+  wall?: boolean;
+  /** Plan zeichnen: Länge des nächsten Abschnitts eintippen (liefert Fehlermeldung oder null) */
+  onInput?: (text: string) => string | null;
+}) {
   const name = wall ? 'Wand' : polyline ? lineName : 'Fläche';
+  // nach jedem Knick: Länge des nächsten Abschnitts eintippen (Zeigerrichtung, ΔX;ΔY oder Länge<Winkel)
+  if (onInput && count > 0)
+    return (
+      <CommandBar
+        testId="polygon-bar"
+        title={`${name}: ${count} Punkt${count === 1 ? '' : 'e'}`}
+        prompt="Nächsten Punkt antippen – oder Länge eintippen: in Zeigerrichtung (2,5), ΔX;ΔY (2,5;0) bzw. Länge<Winkel (3<90)."
+        onInput={onInput}
+        placeholder="z. B. 2,5 · 2,5;0 · 3<90"
+      >
+        {wall ? (
+          <button type="button" className="btn btn-sm btn-primary" onClick={() => viewer.current?.finishPolygon(false)} disabled={count < 2} data-testid="wall-finish">
+            <Icon name="check" size={18} /> Fertig
+          </button>
+        ) : (
+          <>
+            {polyline && (
+              <button type="button" className="btn btn-sm btn-primary" onClick={() => viewer.current?.finishPolygon(false)} disabled={count < 2} data-testid="polyline-open">
+                <Icon name="check" size={18} /> Offen beenden
+              </button>
+            )}
+            <button type="button" className={`btn btn-sm${polyline ? '' : ' btn-primary'}`} onClick={() => viewer.current?.finishPolygon(true)} disabled={count < 3} data-testid="polygon-finish">
+              {!polyline && <Icon name="check" size={18} />} {polyline ? 'Schließen (Fläche)' : 'Fläche schließen'}
+            </button>
+          </>
+        )}
+        <button type="button" className="btn btn-sm" onClick={() => viewer.current?.undoPolygonPoint()} title="Letzten Punkt entfernen (Rücktaste)" data-testid="polygon-undo-point">
+          <Icon name="undo" size={18} /> Punkt
+        </button>
+        <button type="button" className="btn btn-sm" onClick={() => viewer.current?.cancelPolygon()} data-testid="polygon-cancel">
+          Abbrechen
+        </button>
+      </CommandBar>
+    );
   if (wall)
     return (
       <div className="draw-bar" data-testid="polygon-bar">
@@ -1865,6 +1914,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 onFont={(f) => drawing.setFont(drawing.selected!.id, f)}
                 onFlip={(axis) => drawing.flipSymbol(drawing.selected!.id, axis)}
                 onWall={(patch) => drawing.setWall(drawing.selected!.id, patch)}
+                onSegment={(i, len) => drawing.setSegment(drawing.selected!.id, i, len)}
                 onDelete={() => void drawing.remove(drawing.selected!)}
                 onClose={() => drawing.setSelectedId(null)}
               />
@@ -1894,7 +1944,25 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             />
           )}
           {!probe && (drawMode ? isPointTool(drawing.viewerTool) && (polyCount > 0 || (!drawing.selected && drawing.tool !== 'wall')) : isPointTool(tool) && (polyCount > 0 || !selected)) && !dialog && (
-            <PolylineBar polyline={(drawMode ? drawing.tool : tool) === 'polyline'} wall={(drawMode ? drawing.tool : tool) === 'wall'} count={polyCount} viewer={viewer} lineName="Freie Form" />
+            <PolylineBar
+              polyline={(drawMode ? drawing.tool : tool) === 'polyline'}
+              wall={(drawMode ? drawing.tool : tool) === 'wall'}
+              count={polyCount}
+              viewer={viewer}
+              lineName="Freie Form"
+              onInput={
+                drawMode
+                  ? (text) => {
+                      const last = viewer.current?.lastPolygonPoint();
+                      if (!last) return 'Zuerst den Anfangspunkt antippen.';
+                      const next = drawing.polyNext(text, last);
+                      if (typeof next === 'string') return next;
+                      viewer.current?.addPolygonPoint(next);
+                      return null;
+                    }
+                  : undefined
+              }
+            />
           )}
 
           {!drawMode && tool === 'calibrate' && !dialog && (

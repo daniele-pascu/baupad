@@ -193,6 +193,7 @@ export function ElementBar({
   onFont,
   onFlip,
   onWall,
+  onSegment,
 }: {
   element: DrawElement;
   /** Darstellungsfeld geöffnet (bleibt beim Wechsel der Auswahl offen) */
@@ -215,6 +216,8 @@ export function ElementBar({
   onFlip?(axis: 'x' | 'y'): void;
   /** Wand: Stärke bzw. Höhe ändern */
   onWall?(patch: { thickness?: number; height?: number }): void;
+  /** Polylinie, Fläche, Wand: Länge eines Abschnitts (Knick zu Knick) ändern */
+  onSegment?(index: number, length: number): void;
   /** Anzahl Messungen, die auf dem Objekt liegen (nur Hinweis) */
   overlapping: number;
   onApply(m: Measures): void;
@@ -232,6 +235,7 @@ export function ElementBar({
   const [text, setText] = useState(element.text ?? '');
   const [gap, setGap] = useState(String(element.extGap ?? 1).replace('.', ','));
   const [error, setError] = useState<string | null>(null);
+  const [segOpen, setSegOpen] = useState(false);
   const styled = element.type !== 'text' && element.type !== 'dimension' && !!onStyle && !!onColor && !!onToggleStyle;
   // Werte neu übernehmen, wenn sich das Objekt ändert (Ziehen, Rückgängig …)
   const key = `${element.id}:${element.rev}`;
@@ -321,6 +325,11 @@ export function ElementBar({
         </label>
       )}
       {element.type === 'wall' && element.wall && onWall && <WallFields element={element} onWall={onWall} />}
+      {(element.type === 'freehand' || element.type === 'wall') && onSegment && shapeVertices(element.shape).length >= 2 && (
+        <button type="button" className={`btn btn-sm${segOpen ? ' active' : ''}`} aria-expanded={segOpen} onClick={() => setSegOpen(!segOpen)} title="Länge jedes Abschnitts (von Knick zu Knick) ansehen und ändern" data-testid="segments-toggle">
+          Abschnitte
+        </button>
+      )}
       {element.type === 'symbol' && onFlip && symbolDef(element.symbol?.id)?.flippable && (
         <span className="row gap">
           <button type="button" className="btn btn-sm" onClick={() => onFlip('x')} title="Anschlag links/rechts wechseln" data-testid="symbol-flip-x">
@@ -442,6 +451,7 @@ export function ElementBar({
           <Icon name="close" size={18} />
         </button>
       </span>
+      {segOpen && onSegment && (element.type === 'freehand' || element.type === 'wall') && <SegmentFields key={key} element={element} onSegment={onSegment} />}
       {styled && styleOpen && (
         <div className="span-all">
           <StylePanel
@@ -462,6 +472,48 @@ export function ElementBar({
         </small>
       )}
       {error && <small className="error span-all">{error}</small>}
+    </div>
+  );
+}
+
+/**
+ * Abschnitte einer Polylinie, Fläche bzw. Wand: je Knick die Länge (Übernahme bei Enter bzw. Verlassen des Felds).
+ * Der Endpunkt wandert in Richtung des Abschnitts, die folgenden Punkte gehen mit.
+ */
+function SegmentFields({ element, onSegment }: { element: DrawElement; onSegment(i: number, len: number): void }) {
+  const pts = shapeVertices(element.shape);
+  const closed = element.type !== 'wall' && element.shape.closed !== false;
+  const lens = pts.slice(0, closed ? pts.length : pts.length - 1).map((p, i) => {
+    const q = pts[(i + 1) % pts.length];
+    return Math.hypot(q.x - p.x, q.y - p.y);
+  });
+  const [vals, setVals] = useState(() => lens.map((l) => meterInput(l)));
+  const [err, setErr] = useState<string | null>(null);
+  const commit = (i: number) => {
+    const r = checkMeasure(vals[i] ?? '', `Abschnitt ${i + 1}`);
+    if (!r.ok) return setErr(r.error);
+    setErr(null);
+    if (Math.abs(r.value - lens[i]) > 1e-6) onSegment(i, r.value);
+  };
+  return (
+    <div className="segment-fields span-all" data-testid="segment-fields">
+      {lens.map((_, i) => (
+        <label key={i} className="segment-field">
+          <span className="small muted">{i + 1}</span>
+          <input
+            value={vals[i] ?? ''}
+            onChange={(e) => setVals(vals.map((v, j) => (j === i ? e.target.value : v)))}
+            onBlur={() => commit(i)}
+            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), commit(i))}
+            inputMode="decimal"
+            enterKeyHint="done"
+            aria-label={`Länge Abschnitt ${i + 1} in m`}
+            data-testid={`segment-${i}`}
+          />
+          <span className="small muted">m</span>
+        </label>
+      ))}
+      {err && <small className="error">{err}</small>}
     </div>
   );
 }

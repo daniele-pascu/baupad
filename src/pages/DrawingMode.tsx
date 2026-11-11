@@ -31,10 +31,10 @@ import {
 import { type OrthoDir, arcShape, circleThrough, extendLine, ORTHO_DIRS, orthoPoint, rotateShapeBy, scaleShape, stretchShape, translateShape, trimByFence, trimShape } from '../lib/cad';
 import { edgesOf, findSnap, normalizeSnapKinds, segmentIntersection, type SnapKind, type SnapSeg } from '../lib/snap';
 import { inputVector, parseCadInput, vectorInfo } from '../lib/cad-input';
-import { angleBetween, angleCcw, arrayOffsets, canOffset, distanceToShape, filletCorner, filletLines, joinShapes, mirrorShape, offsetShape, pointLineDistance, polarAngles, rotateAround, scaleAbout, segSegDistance, type ArrayParams } from '../lib/cad-ops';
+import { angleBetween, angleCcw, arrayOffsets, canOffset, distanceToShape, filletCorner, filletLines, joinShapes, mirrorShape, offsetShape, pointLineDistance, polarAngles, rotateAround, scaleAbout, segSegDistance, setSegmentLength, type ArrayParams } from '../lib/cad-ops';
 import { arrayDialog } from '../components/ArrayDialog';
 import { symbolPicker } from '../components/SymbolPicker';
-import { symbolDef, symbolGeometry, type SymbolGroup } from '../lib/symbols';
+import { symbolAnchor, symbolDef, symbolGeometry, type SymbolGroup } from '../lib/symbols';
 import { wallOpenings } from '../lib/walls';
 import { dimsVisible, visibleDamages, visibleElements } from '../lib/layers';
 import { distToSegment, isOpenShape, lineShape, pathToSvg, rectsOverlap, removeVertex, setPolylineClosed, shapeAABB, shapeFromVertices, shapePath, shapeVertices, toScreen, type Point, type View } from '../lib/geometry';
@@ -421,7 +421,7 @@ export function useDrawing(opts: {
   const elements = useMemo(() => stored.map((e) => (overrides[e.id] ? { ...e, shape: overrides[e.id] } : e)), [stored, overrides]);
   const byId = useMemo(() => new Map(elements.map((e) => [e.id, e])), [elements]);
   const items: ViewerItem[] = useMemo(
-    () => elements.map((e) => ({ id: e.id, number: 0, shape: shapeToPage(e.shape, k), color: e.color, labelOffset: null, noVertexEdit: e.type === 'arc' })),
+    () => elements.map((e) => ({ id: e.id, number: 0, shape: shapeToPage(e.shape, k), color: e.color, labelOffset: null, noVertexEdit: e.type === 'arc', keepAspect: e.type === 'symbol' ? symbolAnchor(e.symbol) : null })),
     [elements, k],
   );
   const selected = selectedId ? (byId.get(selectedId) ?? null) : null;
@@ -911,6 +911,21 @@ export function useDrawing(opts: {
     setArrayPolar(null);
     setToolState('select');
     setCmdSelecting(false);
+  };
+
+  /**
+   * Polylinie, Fläche, Wand: nächsten Knick aus einer Eingabe – Länge in Zeigerrichtung, ΔX;ΔY oder Länge<Winkel
+   * (vom zuletzt gesetzten Punkt, Seitenkoordinaten). Liefert den Punkt oder eine Fehlermeldung.
+   */
+  const polyNext = (text: string, last: Point): Point | string => {
+    const inp = parseCadInput(text);
+    if (!inp) return 'Bitte z. B. 2,5 (Länge in Zeigerrichtung), 2,5;0 (ΔX;ΔY) oder 3<90 (Länge<Winkel) eingeben.';
+    const hover = hoverRef.current;
+    const dir = hover ? { x: (hover.x - last.x) / k, y: (hover.y - last.y) / k } : null;
+    const v = inputVector(inp, dir && Math.hypot(dir.x, dir.y) > 1e-6 ? dir : null);
+    if (!v) return 'Richtung fehlt: mit Maus bzw. Stift in die Richtung zeigen – oder ΔX;ΔY bzw. Länge<Winkel eingeben (z. B. 3<90 = 3 m nach oben).';
+    if (Math.hypot(v.x, v.y) < 1e-9) return 'Die Länge muss größer als 0 sein.';
+    return { x: last.x + v.x * k, y: last.y + v.y * k };
   };
 
   /** Fangradius in m für das Antippen von Objekten */
@@ -1890,6 +1905,7 @@ export function useDrawing(opts: {
     },
     rotStep,
     setRotStep,
+    polyNext,
     guides,
     guidesOn,
     setGuidesOn,
@@ -1912,6 +1928,16 @@ export function useDrawing(opts: {
     setAlignMove,
     wallThickness,
     wallHeight,
+    /** Länge eines Abschnitts (Knick zu Knick) einer Polylinie, Fläche bzw. Wand ändern */
+    setSegment: (id: string, i: number, len: number) => {
+      const e = data.elements[id];
+      if (!e) return;
+      const closed = e.type !== 'wall' && !isOpenShape(e.shape);
+      const pts = setSegmentLength(shapeVertices(e.shape), closed, i, len);
+      if (!pts) return;
+      const shape = e.shape.type === 'line' && pts.length === 2 ? lineShape(pts[0], pts[1]) : shapeFromVertices({ type: 'freehand', x: 0, y: 0, w: 0, h: 0, closed }, pts);
+      putRecord('elements', { ...e, shape: roundShape(shape) });
+    },
     setWall: (id: string, patch: Partial<NonNullable<DrawElement['wall']>>) => {
       const e = data.elements[id];
       if (e?.wall) putRecord('elements', { ...e, wall: { ...e.wall, ...patch } });

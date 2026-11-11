@@ -283,7 +283,10 @@ export function pathToSvg(cmds: PathCmd[], map: (p: Point) => Point = (p) => p):
 }
 
 /** Ändert die Größe einer Form über einen Anfasser (nw, n, ne, e, se, s, sw, w). */
-export function resizeShape(s: Shape, handle: string, p: Point, minSize: number): Shape {
+/** Gleichmäßig skalieren (festes Seitenverhältnis): Bezugspunkt als Anteil der Begrenzung; lockY = senkrecht immer dort */
+export type AspectAnchor = { x: number; y: number; lockY?: boolean };
+
+export function resizeShape(s: Shape, handle: string, p: Point, minSize: number, aspect?: AspectAnchor | null): Shape {
   let x1 = s.x;
   let y1 = s.y;
   let x2 = s.x + s.w;
@@ -292,17 +295,28 @@ export function resizeShape(s: Shape, handle: string, p: Point, minSize: number)
   if (handle.includes('e')) x2 = Math.max(p.x, x1 + minSize);
   if (handle.includes('n')) y1 = Math.min(p.y, y2 - minSize);
   if (handle.includes('s')) y2 = Math.max(p.y, y1 + minSize);
-  return { ...s, x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+  if (!aspect || !(s.w > 0) || !(s.h > 0)) return { ...s, x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+  // gleichmäßig: Faktor aus der gezogenen Richtung (Ecke: die größere Änderung), Gegenseite bzw. Bezugspunkt bleibt
+  const horiz = handle.includes('e') || handle.includes('w');
+  const vert = handle.includes('n') || handle.includes('s');
+  const fw = (x2 - x1) / s.w;
+  const fh = (y2 - y1) / s.h;
+  const f = Math.max(horiz && vert ? Math.max(fw, fh) : horiz ? fw : fh, minSize / Math.min(s.w, s.h));
+  const w = s.w * f;
+  const h = s.h * f;
+  const x = handle.includes('w') ? s.x + s.w - w : handle.includes('e') ? s.x : s.x + (s.w - w) * aspect.x;
+  const y = aspect.lockY || !vert ? s.y + (s.h - h) * aspect.y : handle.includes('n') ? s.y + s.h - h : s.y;
+  return { ...s, x, y, w, h };
 }
 
 /**
  * Größenänderung einer gedrehten Form: Der Zeiger wird ins Bezugssystem der Form
  * umgerechnet, und die gegenüberliegende Seite bleibt auf dem Plan fest stehen.
  */
-export function resizeRotatedShape(s: Shape, handle: string, pWorld: Point, minSize: number): Shape {
+export function resizeRotatedShape(s: Shape, handle: string, pWorld: Point, minSize: number, aspect?: AspectAnchor | null): Shape {
   const rot = s.rotation ?? 0;
   const local = rotatePoint(pWorld, shapeCenter(s), -rot);
-  const r = resizeShape(s, handle, local, minSize);
+  const r = resizeShape(s, handle, local, minSize, aspect);
   if (!rot) return r;
   const newCenter = shapeCenter(r);
   const worldCenter = rotatePoint(newCenter, shapeCenter(s), rot);
