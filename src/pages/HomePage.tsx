@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '../components/Icon';
 import { ProjectPicker } from '../components/ProjectPicker';
 import { ProjectHeading } from '../components/ProjectHeading';
+import { ProjectEditDialog } from '../components/ProjectEditDialog';
 import { labelFromProject } from '../lib/project-label';
 import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, offerFile, promptDialog, showError, toast } from '../components/ui';
@@ -15,7 +16,7 @@ import { closeProject } from '../lib/store';
 import { useAccess } from '../lib/access';
 import { useCanCreateProjects, deleteProjectEverywhere } from '../lib/sites';
 import { linkSitesToProject, usedIn } from '../lib/crew-link';
-import type { Project } from '../lib/types';
+import type { PhotoSite, Project } from '../lib/types';
 import { useDataChanged } from '../lib/data-events';
 import { pcStyle, useProjectColors } from '../lib/project-colors';
 
@@ -69,6 +70,8 @@ function filterAndSort(rows: Row[], query: string, sort: { key: SortKey; dir: 'a
 
 export function HomePage() {
   const mayCreate = useCanCreateProjects();
+  /** Projekt bearbeiten (wie in allen Tools: Projektangaben samt Kostenstellen) */
+  const [editing, setEditing] = useState<PhotoSite | null>(null);
   const colorOf = useProjectColors();
   const [rows, setRows] = useState<Row[] | null>(null);
   /** zentrale Ablage: Projekte mit noch nicht übertragenen Änderungen */
@@ -361,9 +364,21 @@ export function HomePage() {
                 </div>
               </a>
               <div className="card-actions">
-                <button type="button" className="btn btn-sm" onClick={() => void rename(r.project)}>
-                  <Icon name="edit" size={18} /> Umbenennen
-                </button>
+                {mayCreate ? (
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    onClick={() => setEditing({ projectId: r.project.id, name: r.project.name, number: r.project.number ?? '', address: r.project.address ?? '' })}
+                    title="Projektangaben bearbeiten: Name, Nummer, Kostenstellen, Adresse, Auftraggeber, Baubeginn, Bauleitung, Farbe – gilt in allen Tools"
+                    data-testid="project-edit"
+                  >
+                    <Icon name="edit" size={18} /> Bearbeiten
+                  </button>
+                ) : (
+                  <button type="button" className="btn btn-sm" onClick={() => void rename(r.project)}>
+                    <Icon name="edit" size={18} /> Umbenennen
+                  </button>
+                )}
                 <button type="button" className="btn btn-sm" onClick={() => void backup(r.project)}>
                   <Icon name="download" size={18} /> Sichern
                 </button>
@@ -389,6 +404,17 @@ export function HomePage() {
         )}
       </section>
 
+      {editing && (
+        <ProjectEditDialog
+          site={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            toast('Projekt gespeichert – in allen Tools übernommen.', 'success');
+            void load();
+          }}
+        />
+      )}
       {creating && (
         <ProjectPicker
           tool="projects"

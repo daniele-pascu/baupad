@@ -11233,3 +11233,18 @@ html[data-theme='dark'] .crew-search {
   gap: 6px;
   flex: none;
 }
+
+/* Materialverwaltung: Projekt wie in Aufmaß & Abrechnung (Farbpunkt + Kostenstelle/Name, darunter Angaben) */
+.mat-site-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.mat-site-head .pc-dot {
+  flex: none;
+}
+.materials-page a.crew-worker-main {
+  text-decoration: none;
+  color: inherit;
+}

@@ -14,6 +14,9 @@ import { usePageTitle } from '../lib/page-title';
 import { navigate, paths } from '../lib/router';
 import type { Material, MaterialItem, Project, Supplier } from '../lib/types';
 import { pcStyle, useProjectColors } from '../lib/project-colors';
+import { ProjectHeading } from '../components/ProjectHeading';
+import { labelFromProject } from '../lib/project-label';
+import { costCenterByProject, costCenterSearchByProject } from '../lib/crew-link';
 
 type Tab = 'sites' | 'materials' | 'suppliers';
 
@@ -31,15 +34,18 @@ export function MaterialsPage({ tab }: { tab: Tab }) {
   const [editSup, setEditSup] = useState<Supplier | 'new' | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [items, setItems] = useState<MaterialItem[]>([]);
+  /** erste Kostenstelle je Projekt (Anzeige wie in Aufmaß & Abrechnung) und alle Kostenstellen für die Suche */
+  const [ccs, setCcs] = useState<{ first: Map<string, string>; all: Map<string, string> }>(() => ({ first: new Map(), all: new Map() }));
   const session = useSession();
 
   const reload = () =>
-    Promise.all([listMaterials(), listSuppliers(), listProjects(), listMaterialItems()])
-      .then(([m, s, p, i]) => {
+    Promise.all([listMaterials(), listSuppliers(), listProjects(), listMaterialItems(), costCenterByProject(), costCenterSearchByProject()])
+      .then(([m, s, p, i, first, all]) => {
         setMaterials(m);
         setSuppliers(s);
         setProjects(p);
         setItems(i);
+        setCcs({ first, all });
       })
       .catch((e) => showError(e, 'Materialien konnten nicht geladen werden'));
   useEffect(() => void reload(), []);
@@ -65,10 +71,10 @@ export function MaterialsPage({ tab }: { tab: Tab }) {
   const siteList = useMemo(() => {
     const k = normKey(query);
     return projects
-      .filter((p) => canSite(session, `p:${p.id}`, 'materials') && (!k || [p.name, p.site, p.number, p.address].some((v) => normKey(v).includes(k))))
+      .filter((p) => canSite(session, `p:${p.id}`, 'materials') && (!k || [p.name, p.site, p.number, p.address, p.client, ccs.all.get(p.id)].some((v) => normKey(v).includes(k))))
       .map((p) => ({ p, sum: listSummary(items.filter((x) => x.projectId === p.id)) }))
       .sort((a, b) => Number(b.sum.total > 0) - Number(a.sum.total > 0) || (a.p.site || a.p.name).localeCompare(b.p.site || b.p.name, 'de'));
-  }, [projects, items, query, session]);
+  }, [projects, items, query, session, ccs]);
 
   return (
     <>
@@ -135,11 +141,12 @@ export function MaterialsPage({ tab }: { tab: Tab }) {
                 <li key={p.id} data-testid="material-site" data-name={p.site || p.name}>
                   <div className="staff-row">
                     <a href={paths.materialSite(p.id)} className="crew-worker-main" data-testid="material-site-open">
-                      <strong>
+                      {/* wie in Aufmaß & Abrechnung: Kostenstelle bzw. Projektnummer vor dem Namen, darunter Adresse, Auftraggeber … */}
+                      <span className="mat-site-head">
                         <span className="pc-dot" style={pcStyle(colorOf(p.id))} aria-hidden="true" />
-                        {[p.number, p.site || p.name].filter(Boolean).join(' · ')}
-                      </strong>
-                      <span className="muted small">
+                        <ProjectHeading info={labelFromProject(p, ccs.first.get(p.id) ?? '')} />
+                      </span>
+                      <span className="muted small" data-testid="material-site-count">
                         {sum.total ? [sum.count.offen && `${sum.count.offen} offen`, sum.count.bestellt && `${sum.count.bestellt} bestellt`, sum.count.geliefert && `${sum.count.geliefert} geliefert`].filter(Boolean).join(' · ') : 'Noch keine Materialliste'}
                       </span>
                     </a>
