@@ -27,7 +27,10 @@ export function ActionMenu({ label, actions, testId }: { label: string; actions:
     const h = menu.current?.offsetHeight ?? actions.length * 46;
     const w = menu.current?.offsetWidth ?? 220;
     const up = r.bottom + h + 8 > window.innerHeight && r.top - h - 8 > 0;
-    setPos({ top: up ? r.top - h - 4 : r.bottom + 4, left: Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8)), up });
+    // passt es weder ganz nach unten noch ganz nach oben: so weit hochschieben, dass es vollständig im Bild bleibt
+    const top0 = up ? r.top - h - 4 : r.bottom + 4;
+    const top = Math.max(8, Math.min(top0, window.innerHeight - h - 8));
+    setPos({ top, left: Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8)), up });
   }, [open, actions.length]);
 
   useEffect(() => {
