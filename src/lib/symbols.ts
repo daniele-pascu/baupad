@@ -8,12 +8,12 @@ import type { Shape } from './types';
  * gelegt – am Bildschirm und im PDF identisch. Erweiterbar um weitere Gruppen (Sanitär, Heizung, Lüftung …).
  */
 
+/** 'appliance' (Küchengeräte): nicht mehr wählbar, nur noch für bestehende Zeichnungen */
 export type SymbolGroup = 'door' | 'window' | 'electro' | 'appliance' | 'heating' | 'shaft';
 export const SYMBOL_GROUPS: { id: SymbolGroup; label: string }[] = [
   { id: 'door', label: 'Türen' },
   { id: 'window', label: 'Fenster' },
   { id: 'electro', label: 'Elektro' },
-  { id: 'appliance', label: 'Geräte' },
   { id: 'heating', label: 'Heizung' },
   { id: 'shaft', label: 'Fänge, Durchbrüche' },
 ];

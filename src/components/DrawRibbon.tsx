@@ -155,7 +155,7 @@ export function DrawRibbon({
               {toolBtn('wall')}
               {btn('draw-door', 'door', 'Tür', () => void drawing.pickSymbol('door'), { pressed: drawing.tool === 'symbol' && symbolDef(drawing.symbolId)?.group === 'door', title: 'Tür einsetzen (Dreh-, Pendel-, Schiebe-, Falttür, Tore, Drehkreuz)' })}
               {btn('draw-window', 'window', 'Fenster', () => void drawing.pickSymbol('window'), { pressed: drawing.tool === 'symbol' && symbolDef(drawing.symbolId)?.group === 'window', title: 'Fenster einsetzen (ein-/zweiflügelig, Festverglasung, Schiebefenster)' })}
-              {btn('draw-electro', 'plug', 'Elektro', () => void drawing.pickSymbol('electro'), { pressed: drawing.tool === 'symbol' && ['electro', 'appliance', 'heating'].includes(symbolDef(drawing.symbolId)?.group ?? ''), title: 'Elektro-, Geräte- und Heizungssymbole (ÖNORM)' })}
+              {btn('draw-electro', 'plug', 'Elektro', () => void drawing.pickSymbol('electro'), { pressed: drawing.tool === 'symbol' && ['electro', 'heating'].includes(symbolDef(drawing.symbolId)?.group ?? ''), title: 'Elektro- und Heizungssymbole (ÖNORM)' })}
               {btn('draw-shaft', 'shaft', 'Durchbruch', () => void drawing.pickSymbol('shaft'), { pressed: drawing.tool === 'symbol' && symbolDef(drawing.symbolId)?.group === 'shaft', title: 'Fänge (Rauch-, Abgas-, Luftfang), Durchbrüche und Aussparungen (ÖNORM)' })}
             </div>
             <div className="tool-group" role="group" aria-label="Schraffur und Raum">

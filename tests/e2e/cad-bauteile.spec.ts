@@ -115,21 +115,21 @@ test('Fenster mittig in senkrechter Wand, Elektro frei, Geräte im PDF', async (
   expect(win.symbol?.id).toBe('win2');
   expect([90, 270]).toContain(win.shape.rotation);
   near(win.shape.x + win.shape.w / 2, wall.shape.x); // Mitte auf der Wandlinie
-  // Elektro: Steckdose und Geschirrspüler frei im Raum
+  // Elektro: Steckdose und TV-Anschluss frei im Raum
   await page.getByTestId('symbol-change').click();
   const pk = page.getByTestId('symbol-picker');
   await pk.getByTestId('symbol-group-electro').click();
   await pk.getByTestId('symbol-socket').click();
   await page.mouse.click(sb.x + 400, sb.y + 450);
   await page.getByTestId('symbol-change').click();
-  await pk.getByTestId('symbol-group-appliance').click();
-  await pk.getByTestId('symbol-dishwasher').click();
+  await expect(pk.getByTestId('symbol-group-appliance')).toHaveCount(0); // Küchengeräte nicht mehr wählbar
+  await pk.getByTestId('symbol-socket-tv').click();
   await page.mouse.click(sb.x + 480, sb.y + 450);
   await waitSaved(page);
   await page.getByTestId('command-done').click();
   const syms = (await elements()).filter((e) => e.type === 'symbol').map((e) => e.symbol?.id);
-  expect(syms).toEqual(['door1', 'door1', 'win2', 'socket', 'dishwasher']);
-  await expect(page.locator('[data-symbol="dishwasher"] text')).toHaveText('GS');
+  expect(syms).toEqual(['door1', 'door1', 'win2', 'socket', 'socket-tv']);
+  await expect(page.locator('[data-symbol="socket-tv"] text')).toHaveText('TV');
   // Spiegeln eines Bauteils schaltet die Öffnungsrichtung mit
   await page.keyboard.press('Control+a');
   await page.getByTestId('multi-clear').click();
@@ -140,9 +140,9 @@ test('Fenster mittig in senkrechter Wand, Elektro frei, Geräte im PDF', async (
     await page.getByTestId('pdf-export-run').click();
   });
   const pdf = await saveDownload(dl, 'bauteile.pdf');
-  expect(execFileSync('pdftotext', [pdf, '-'], { encoding: 'utf8' })).toContain('GS');
+  expect(execFileSync('pdftotext', [pdf, '-'], { encoding: 'utf8' })).toContain('TV');
   execFileSync('pdftoppm', ['-png', '-r', '60', pdf, 'tests/output/bauteile']);
-  expect(dw.symbol?.id).toBe('dishwasher');
+  expect(dw.symbol?.id).toBe('socket-tv');
 });
 
 test('Wand: Stärke und Höhe, Länge/Fläche, Tür und Fenster schneiden die Öffnung aus, PDF', async () => {
