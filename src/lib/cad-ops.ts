@@ -310,3 +310,36 @@ export function rotateAround(s: Shape, c: Point, degCcw: number, rotateItem = tr
   if (s.type === 'line') return lineShape(pts[0], pts[1]);
   return shapeFromVertices({ ...s, rotation: undefined }, pts);
 }
+
+/* ───────────── Skalieren ───────────── */
+
+/**
+ * Form vom Punkt c aus skalieren: sx/sy (gleich = gleichmäßig). Rechteck/Kreis bleiben Rechteck/Kreis,
+ * solange nicht gedreht oder gleichmäßig; gedrehte Rechtecke werden bei ungleichmäßiger Skalierung zur
+ * Fläche (Polylinie). null: nicht möglich (gedrehter Kreis ungleichmäßig).
+ */
+export function scaleAbout(s: Shape, c: Point, sx: number, sy = sx): Shape | null {
+  if (!(sx > 0) || !(sy > 0)) return null;
+  const uniform = Math.abs(sx - sy) < 1e-12;
+  const rotated = !!s.rotation;
+  const tp = (p: Point) => ({ x: c.x + (p.x - c.x) * sx, y: c.y + (p.y - c.y) * sy });
+  if (s.type === 'rect' || s.type === 'ellipse') {
+    if (uniform || !rotated) {
+      const ctr = tp(shapeCenter(s));
+      const w = s.w * (uniform ? sx : sx);
+      const h = s.h * (uniform ? sx : sy);
+      return { ...s, x: ctr.x - w / 2, y: ctr.y - h / 2, w, h };
+    }
+    if (s.type === 'ellipse') return null;
+    return shapeFromVertices({ ...s, type: 'rect', rotation: undefined }, shapeVertices(s).map(tp));
+  }
+  const pts = shapeVertices(s).map(tp);
+  if (s.type === 'line') return lineShape(pts[0], pts[1]);
+  return shapeFromVertices({ ...s, rotation: undefined }, pts);
+}
+
+/** Winkel der Richtung a→b in Grad, gegen den Uhrzeigersinn (y nach oben), 0…360 */
+export function angleCcw(a: Point, b: Point): number {
+  const d = (Math.atan2(-(b.y - a.y), b.x - a.x) * 180) / Math.PI;
+  return (d + 360) % 360;
+}

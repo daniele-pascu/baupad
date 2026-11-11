@@ -31,7 +31,7 @@ import {
 import { type OrthoDir, extendLine, ORTHO_DIRS, orthoPoint, rotateShapeBy, scaleShape, stretchShape, translateShape, trimByFence, trimShape } from '../lib/cad';
 import { edgesOf, findSnap, segmentIntersection, type SnapKind } from '../lib/snap';
 import { inputVector, parseCadInput, vectorInfo } from '../lib/cad-input';
-import { arrayOffsets, canOffset, distanceToShape, joinShapes, mirrorShape, offsetShape, polarAngles, rotateAround, type ArrayParams } from '../lib/cad-ops';
+import { angleCcw, arrayOffsets, canOffset, distanceToShape, joinShapes, mirrorShape, offsetShape, polarAngles, rotateAround, scaleAbout, type ArrayParams } from '../lib/cad-ops';
 import { arrayDialog } from '../components/ArrayDialog';
 import { symbolPicker } from '../components/SymbolPicker';
 import { symbolDef, symbolGeometry, type SymbolGroup } from '../lib/symbols';
@@ -46,14 +46,16 @@ import type { Damage, DrawElement, DrawElementType, Plan, Rect, Shape, ShapeStyl
 export type ToolGroup = 'select' | 'draw' | 'annotate' | 'modify';
 
 /** Werkzeuge des Zeichenmodus: Zeichnen sowie Ändern (Kopieren, Verschieben, Strecken …) */
-export type DrawTool = Tool | 'copy' | 'move' | 'stretch' | 'join' | 'offset' | 'mirror' | 'array' | 'symbol';
+export type DrawTool = Tool | 'copy' | 'move' | 'stretch' | 'join' | 'offset' | 'mirror' | 'array' | 'symbol' | 'rotate' | 'scale' | 'align';
+/** Drehen, Skalieren, Ausrichten: Punkte antippen (Basis, Bezug, Ziel) */
+export const TRANSFORM_TOOLS = new Set<DrawTool>(['rotate', 'scale', 'align']);
 
 /** Befehle, die ausgewählte Objekte brauchen (ohne Auswahl fragen sie zuerst danach) */
 export const NEEDS_SELECTION = new Set<DrawTool>(['copy', 'move']);
 /** Befehle mit Basispunkt → Zielpunkt bzw. Eingabe im Befehlsfeld */
 export const VECTOR_COMMANDS = new Set<DrawTool>(['copy', 'move', 'mirror']);
 /** Befehle, die zuerst Objekte brauchen (ohne Auswahl: wählen, dann „Weiter“) */
-export const SELECT_FIRST = new Set<DrawTool>(['copy', 'move', 'mirror', 'join', 'array']);
+export const SELECT_FIRST = new Set<DrawTool>(['copy', 'move', 'mirror', 'join', 'array', 'rotate', 'scale', 'align']);
 
 export const DRAW_TOOLS: { id: DrawTool; label: string; short?: string; icon: string; key: string; group: ToolGroup }[] = [
   { id: 'select', label: 'Auswahl: Objekte verschieben, Eckpunkte bearbeiten', short: 'Auswahl', icon: 'select', key: 'v', group: 'select' },
@@ -70,6 +72,9 @@ export const DRAW_TOOLS: { id: DrawTool; label: string; short?: string; icon: st
   { id: 'move', label: 'Verschieben: Basispunkt zum Zielpunkt ziehen (mit Fang)', short: 'Verschieben', icon: 'move', key: 'g', group: 'modify' },
   { id: 'copy', label: 'Kopieren: Basispunkt zum Zielpunkt ziehen (mit Fang)', short: 'Kopieren', icon: 'copy', key: 'c', group: 'modify' },
   { id: 'stretch', label: 'Strecken: Fenster über Eckpunkte ziehen, dann Verschiebung ziehen', short: 'Strecken', icon: 'stretch', key: 's', group: 'modify' },
+  { id: 'rotate', label: 'Drehen: Drehpunkt antippen, dann Winkel mit der Maus bzw. dem Finger oder eintippen (positiv = gegen den Uhrzeigersinn) – oder Bezug über zwei Punkte', short: 'Drehen', icon: 'rotate', key: 'd', group: 'modify' },
+  { id: 'scale', label: 'Skalieren: Basispunkt antippen, Faktor eintippen (X;Y getrennt möglich) – oder Bezugsstrecke über zwei Punkte und neue Länge', short: 'Skalieren', icon: 'scale', key: 'q', group: 'modify' },
+  { id: 'align', label: 'Ausrichten: zwei Punkte am Objekt, dann zwei Punkte auf der Ziellinie – nur drehen oder drehen und verschieben', short: 'Ausrichten', icon: 'align', key: 'h', group: 'modify' },
   { id: 'mirror', label: 'Spiegeln: Objekte an einer Achse aus zwei Punkten spiegeln – Original behalten oder löschen', short: 'Spiegeln', icon: 'mirror', key: 'i', group: 'modify' },
   { id: 'offset', label: 'Versetzen: parallele Kopie im Abstand – Objekt antippen, dann die Seite (Wandstärke, parallele Linien, Rechteck nach innen/außen)', short: 'Versetzen', icon: 'offset', key: 'o', group: 'modify' },
   { id: 'wall', label: 'Wand: Achse Punkt für Punkt setzen (Enter bzw. „Fertig“ beendet) – Wandstärke eingeben; Türen und Fenster schneiden die Öffnung aus', short: 'Wand', icon: 'wall', key: 'y', group: 'draw' },
@@ -214,6 +219,21 @@ export function useDrawing(opts: {
   const [symbolSize, setSymbolSize] = useState<{ w: number; h: number } | null>(null);
   /** Reihe (polar): Werte aus dem Dialog, Mittelpunkt wird noch angetippt */
   const [arrayPolar, setArrayPolar] = useState<Extract<ArrayParams, { kind: 'polar' }> | null>(null);
+  /** Drehen/Skalieren/Ausrichten: angetippte Punkte (m) und Bezug-Modus */
+  const [pickPts, setPickPts] = useState<Point[]>([]);
+  const [refMode, setRefMode] = useState(false);
+  /** Drehen in festen Winkelschritten (0 = frei) – je Gerät gemerkt */
+  const [rotStep, setRotStepState] = useState(() => Number(pref('rotStep', '0')) || 0);
+  const setRotStep = (v: number) => {
+    setRotStepState(v);
+    storePref('rotStep', String(v));
+  };
+  /** Ausrichten: auch verschieben (Standard) oder nur drehen */
+  const [alignMove, setAlignMoveState] = useState(() => pref('alignMove', '1') !== '0');
+  const setAlignMove = (on: boolean) => {
+    setAlignMoveState(on);
+    storePref('alignMove', on ? '1' : '0');
+  };
   /** Verbinden: Lücken bis zu diesem Abstand (m) schließen */
   const [joinTol, setJoinTolState] = useState(() => Number(pref('joinTol', '0.02')) || 0.02);
   const setJoinTol = (t: number) => {
@@ -254,6 +274,8 @@ export function useDrawing(opts: {
     setCmdBase(null);
     setCopies(0);
     setArrayPolar(null);
+    setPickPts([]);
+    setRefMode(false);
     // Reihe mit Auswahl: gleich die Werte abfragen
     if (t === 'array' && selIds.length) {
       setCmdSelecting(false);
@@ -275,7 +297,7 @@ export function useDrawing(opts: {
     if (!NEEDS_SELECTION.has(t) && t !== 'selwin') storePref('drawTool', t);
   };
   /** Werkzeug der Planansicht: Befehle nutzen Vektor (Basis → Ziel) bzw. Fenster */
-  const viewerTool: Tool = tool === 'symbol' ? 'pick' : tool === 'array' && arrayPolar ? 'pick' : SELECT_FIRST.has(tool) && cmdSelecting ? 'selwin' : VECTOR_COMMANDS.has(tool) ? 'vector' : tool === 'offset' ? 'pick' : tool === 'stretch' ? (stretchWin ? 'vector' : 'window') : (tool as Tool);
+  const viewerTool: Tool = TRANSFORM_TOOLS.has(tool) && !cmdSelecting ? 'pick' : tool === 'symbol' ? 'pick' : tool === 'array' && arrayPolar ? 'pick' : SELECT_FIRST.has(tool) && cmdSelecting ? 'selwin' : VECTOR_COMMANDS.has(tool) ? 'vector' : tool === 'offset' ? 'pick' : tool === 'stretch' ? (stretchWin ? 'vector' : 'window') : (tool as Tool);
   const setColor = (c: string) => {
     setColorState(c);
     storePref('drawColor', c);
@@ -560,6 +582,33 @@ export function useDrawing(opts: {
    * Liefert eine Fehlermeldung oder null.
    */
   const applyInput = (text: string): string | null => {
+    if (tool === 'rotate') {
+      const d = parseCadInput(text);
+      if (!d || d.kind !== 'dist') return 'Bitte den Winkel in Grad eingeben, z. B. 90 oder -45.';
+      if (!pickPts.length) return 'Zuerst den Drehpunkt antippen.';
+      if (!refMode) return runRotate(pickPts[0], d.len), null;
+      if (pickPts.length === 1) {
+        // Bezugswinkel direkt eingegeben
+        const a = (d.len * Math.PI) / 180;
+        setPickPts([pickPts[0], pickPts[0], { x: pickPts[0].x + Math.cos(a), y: pickPts[0].y - Math.sin(a) }]);
+        return null;
+      }
+      if (pickPts.length < 3) return 'Zweiten Bezugspunkt antippen.';
+      return runRotate(pickPts[0], d.len - angleCcw(pickPts[1], pickPts[2])), null;
+    }
+    if (tool === 'scale') {
+      const d = parseCadInput(text);
+      if (!pickPts.length) return 'Zuerst den Basispunkt antippen.';
+      if (refMode) {
+        if (pickPts.length < 3) return 'Zuerst zwei Punkte der bekannten Strecke antippen.';
+        if (!d || d.kind !== 'dist' || !(d.len > 0)) return 'Bitte die neue Länge in m eingeben, z. B. 4,5.';
+        const ref = dist2(pickPts[1], pickPts[2]);
+        return runScale(pickPts[0], d.len / ref), null;
+      }
+      if (d?.kind === 'dist' && d.len > 0) return runScale(pickPts[0], d.len), null;
+      if (d?.kind === 'rel' && d.dx > 0 && d.dy > 0) return runScale(pickPts[0], d.dx, d.dy), null;
+      return 'Bitte einen Faktor eingeben, z. B. 2 oder 0,5 – oder X;Y getrennt, z. B. 2;1.';
+    }
     if (tool === 'wall') {
       const d = parseCadInput(text);
       if (d?.kind === 'dist' && d.len > 0) return setWallDefaults(d.len), null;
@@ -731,6 +780,85 @@ export function useDrawing(opts: {
     setArrayPolar(null);
     setToolState('select');
     setCmdSelecting(false);
+  };
+
+  /** Winkel auf Winkelschritte runden */
+  const stepAngle = (a: number) => (rotStep > 0 ? Math.round(a / rotStep) * rotStep : Math.round(a * 100) / 100);
+  const dist2 = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
+
+  /** Drehen, Skalieren, Ausrichten: nächster angetippter Punkt */
+  const transformPoint = (pm: Point) => {
+    const pts = [...pickPts, pm];
+    if (tool === 'rotate') {
+      if (pts.length === 1) return setPickPts(pts);
+      if (!refMode) return runRotate(pts[0], stepAngle(angleCcw(pts[0], pm)));
+      if (pts.length < 4) return setPickPts(pts);
+      return runRotate(pts[0], stepAngle(angleCcw(pts[0], pm)) - angleCcw(pts[1], pts[2]));
+    }
+    if (tool === 'scale') {
+      if (pts.length === 1) return setPickPts(pts);
+      if (!refMode) {
+        toast('Faktor eintippen (z. B. 2 oder 0,5) – oder „Bezug“ wählen und zwei Punkte einer bekannten Strecke antippen.', 'info', 4000);
+        return;
+      }
+      if (pts.length < 4) return setPickPts(pts);
+      const ref = dist2(pts[1], pts[2]);
+      return ref > 1e-9 ? runScale(pts[0], dist2(pts[1], pm) / ref) : undefined;
+    }
+    if (tool === 'align') {
+      if (pts.length < 4) return setPickPts(pts);
+      return runAlign(pts[0], pts[1], pts[2], pts[3]);
+    }
+  };
+
+  /** Auswahl als Datensätze, Ergebnis speichern (ein Rückgängig-Schritt), Auswahl bleibt */
+  const applyTransform = (fn: (e: DrawElement) => DrawElement | null, done: string) => {
+    const list = selection.map((x) => data.elements[x.id]).filter(Boolean);
+    const out: DrawElement[] = [];
+    for (const e of list) {
+      const r = fn(e);
+      if (!r) {
+        toast(`${elementLabel(e)}: so nicht möglich (z. B. gedrehter Kreis bzw. Text nur gleichmäßig).`, 'error', 4000);
+        return;
+      }
+      out.push(r);
+    }
+    putRecords({ elements: out });
+    toast(done, 'success', 2500);
+    setToolState('select');
+    setPickPts([]);
+    setRefMode(false);
+  };
+
+  const runRotate = (c: Point, deg: number) =>
+    applyTransform((e) => ({ ...e, shape: roundShape(rotateAround(e.shape, c, deg, true)) }), `Gedreht um ${String(Math.round(deg * 100) / 100).replace('.', ',')}°.`);
+
+  const runScale = (c: Point, sx: number, sy = sx) =>
+    applyTransform((e) => {
+      const uniform = Math.abs(sx - sy) < 1e-12;
+      if (e.type === 'text' && !uniform) return null;
+      if (e.type === 'symbol' && e.shape.rotation && !uniform) return null;
+      let sh = scaleAbout(e.shape, c, sx, sy);
+      if (!sh) return null;
+      if (e.type === 'text') sh = { ...sh, w: textWidth(e.text ?? '', sh.h, e.font) };
+      const type: DrawElementType = e.type === 'rect' && sh.type === 'freehand' ? 'freehand' : e.type;
+      return { ...e, type, shape: roundShape(sh) };
+    }, `Skaliert ${uniform2(sx, sy)}.`);
+  const uniform2 = (sx: number, sy: number) => (Math.abs(sx - sy) < 1e-12 ? `mit Faktor ${formatFactor(sx)}` : `X ${formatFactor(sx)}, Y ${formatFactor(sy)}`);
+  const formatFactor = (f: number) => String(Math.round(f * 10000) / 10000).replace('.', ',');
+
+  const runAlign = (s1: Point, s2: Point, d1: Point, d2: Point) => {
+    if (dist2(s1, s2) < 1e-9 || dist2(d1, d2) < 1e-9) {
+      toast('Die Punkte je Richtung müssen verschieden sein.', 'error');
+      setPickPts([]);
+      return;
+    }
+    const deg = angleCcw(d1, d2) - angleCcw(s1, s2);
+    applyTransform((e) => {
+      let sh = rotateAround(e.shape, s1, deg, true);
+      if (alignMove) sh = translateShape(sh, d1.x - s1.x, d1.y - s1.y);
+      return { ...e, shape: roundShape(sh) };
+    }, alignMove ? 'Ausgerichtet (gedreht und verschoben).' : 'Ausgerichtet (nur gedreht).');
   };
 
   /** Bauteil wählen (Tür, Fenster, Elektro …) und danach einsetzen */
@@ -951,6 +1079,10 @@ export function useDrawing(opts: {
 
   /** Werkzeug „Text“: Stelle angetippt */
   const onPlace = async (p: Point) => {
+    if (TRANSFORM_TOOLS.has(tool)) {
+      transformPoint({ x: p.x / k, y: p.y / k });
+      return;
+    }
     if (tool === 'symbol') {
       const sh = symbolPlacement({ x: p.x / k, y: p.y / k });
       if (sh) create('symbol', sh, { symbol: { id: symbolId } }, true);
@@ -1236,6 +1368,47 @@ export function useDrawing(opts: {
         </g>
       );
     }
+    // Drehen/Skalieren/Ausrichten: Vorschau und Wert an der Maus, angetippte Punkte markiert
+    let transformLabel: ReactNode = null;
+    if (TRANSFORM_TOOLS.has(tool) && !cmdSelecting && pickPts.length) {
+      const hm = hover ? { x: hover.x / k, y: hover.y / k } : null;
+      let shapes: Shape[] = [];
+      let label = '';
+      if (hm && tool === 'rotate' && (!refMode || pickPts.length === 3)) {
+        const deg = stepAngle(angleCcw(pickPts[0], hm)) - (refMode ? angleCcw(pickPts[1], pickPts[2]) : 0);
+        shapes = selection.map((e) => rotateAround(e.shape, pickPts[0], deg, true));
+        label = `${String(Math.round(deg * 10) / 10).replace('.', ',')}°`;
+      } else if (hm && tool === 'scale' && refMode && pickPts.length === 3) {
+        const f = dist2(pickPts[1], hm) / (dist2(pickPts[1], pickPts[2]) || 1);
+        shapes = selection.map((e) => scaleAbout(e.shape, pickPts[0], f)).filter((x): x is Shape => !!x);
+        label = `${formatMeasure(dist2(pickPts[1], hm))} m · ×${formatFactor(Math.round(f * 1000) / 1000)}`;
+      } else if (hm && tool === 'align' && pickPts.length === 3) {
+        const deg = angleCcw(pickPts[2], hm) - angleCcw(pickPts[0], pickPts[1]);
+        shapes = selection.map((e) => {
+          const r = rotateAround(e.shape, pickPts[0], deg, true);
+          return alignMove ? translateShape(r, pickPts[2].x - pickPts[0].x, pickPts[2].y - pickPts[0].y) : r;
+        });
+      }
+      ghost = (
+        <g className="cad-ghost" data-testid="cad-ghost">
+          {shapes.map((sh, i) => (
+            <path key={i} d={pathToSvg(shapePath(shapeToPage(sh, k)), (q) => toScreen(view, q))} />
+          ))}
+          {pickPts.map((q, i) => {
+            const sq = toScreen(view, { x: q.x * k, y: q.y * k });
+            return <circle key={`p${i}`} cx={sq.x} cy={sq.y} r={5} className="poly-point" data-testid="pick-point" />;
+          })}
+        </g>
+      );
+      if (label && hover) {
+        const sh = toScreen(view, hover);
+        transformLabel = (
+          <text x={sh.x + 14} y={sh.y - 10} className="transform-label" data-testid="transform-label">
+            {label}
+          </text>
+        );
+      }
+    }
     // Bauteil: Vorschau an der Maus (ausgerichtet wie beim Einsetzen)
     if (tool === 'symbol' && hover) {
       const sh = symbolPlacement({ x: hover.x / k, y: hover.y / k });
@@ -1300,6 +1473,7 @@ export function useDrawing(opts: {
           />
         )}
         {ghost}
+        {transformLabel}
         {trackOn && snapOn && tool !== 'select' && (
           <g className="track-lines" data-testid="track-lines">
             {track.current.acquired.map((a, i) => {
@@ -1371,6 +1545,16 @@ export function useDrawing(opts: {
     arrayPolar,
     symbolId,
     symbolSize,
+    pickPts,
+    refMode,
+    setRefMode: (on: boolean) => {
+      setRefMode(on);
+      setPickPts((p) => p.slice(0, 1));
+    },
+    rotStep,
+    setRotStep,
+    alignMove,
+    setAlignMove,
     wallThickness,
     wallHeight,
     setWall: (id: string, patch: Partial<NonNullable<DrawElement['wall']>>) => {

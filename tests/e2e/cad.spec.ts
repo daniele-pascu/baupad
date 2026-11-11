@@ -47,11 +47,6 @@ async function deselect() {
   await page.locator('.side-head h2').click();
   await page.keyboard.press('Escape');
 }
-async function prompt(value: string, button: string) {
-  const d = page.getByTestId('prompt-dialog');
-  await d.locator('input').fill(value);
-  await d.getByRole('button', { name: button }).click();
-}
 const near = (a: number, b: number, tol = 0.02) => expect(Math.abs(a - b)).toBeLessThan(tol);
 
 test('Kopieren und Verschieben per Basis- und Zielpunkt (mit Fang), Drehen, Skalieren', async () => {
@@ -98,18 +93,25 @@ test('Kopieren und Verschieben per Basis- und Zielpunkt (mit Fang), Drehen, Skal
   near(els[1].shape.y - r0.shape.y, await m(80));
   expect(els).toHaveLength(2);
 
-  // Drehen um 90° und Skalieren auf die Hälfte (um den Mittelpunkt)
+  // Drehen um 90° im Uhrzeigersinn (Eingabe -90) und Skalieren auf die Hälfte – Bezugspunkt: Mittelpunkt
+  const s1 = (await elements())[1].shape;
+  const sc = await scale();
+  const mid = { x: sb.x + (s1.x + s1.w / 2) * 100 * sc, y: sb.y + (s1.y + s1.h / 2) * 100 * sc };
   await pickTool(page, 'draw-rotate');
-  await prompt('90', 'Drehen');
+  await page.mouse.click(mid.x, mid.y);
+  await page.getByTestId('command-input').fill('-90');
+  await page.getByTestId('command-input').press('Enter');
   await waitSaved(page);
   expect((await elements())[1].shape.rotation).toBe(90);
   const before = (await elements())[1].shape;
   await pickTool(page, 'draw-scale');
-  await prompt('0,5', 'Skalieren');
+  await page.mouse.click(mid.x, mid.y);
+  await page.getByTestId('command-input').fill('0,5');
+  await page.getByTestId('command-input').press('Enter');
   await waitSaved(page);
   const after = (await elements())[1].shape;
   near(after.w, before.w / 2, 1e-4);
-  near(after.x + after.w / 2, before.x + before.w / 2, 1e-4); // Mittelpunkt bleibt
+  near(after.x + after.w / 2, before.x + before.w / 2); // Mittelpunkt bleibt (Klick auf ±1 px)
   await page.screenshot({ path: 'tests/output/cad-kopieren.png' });
 });
 

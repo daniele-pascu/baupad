@@ -11171,3 +11171,17 @@ html[data-theme='dark'] .crew-search {
 .symbol-tile:hover {
   border-color: var(--text);
 }
+
+/* Drehen/Skalieren: Wert an der Maus */
+.transform-label {
+  font-size: 13px;
+  font-weight: 600;
+  fill: #1f5fbf;
+  paint-order: stroke;
+  stroke: #fff;
+  stroke-width: 3px;
+  pointer-events: none;
+}
+.command-bar select {
+  min-height: 34px;
+}

@@ -237,3 +237,46 @@ test('Phase 4 mit Finger bzw. Stift: Wand zeichnen (Fertig), Tür einsetzen schn
   await page.getByTestId('command-done').tap();
   await expect(page.locator('[data-element="wall"]')).toHaveAttribute('data-openings', '1');
 });
+
+for (const input of ['finger', 'stift'] as const)
+  test(`Phase 5 mit ${input === 'finger' ? 'Finger' : 'Stift'}: Drehen (Drehpunkt + Richtung in 90°-Schritten), Skalieren (Faktor), Ausrichten`, async ({ page }, info) => {
+    test.skip(input === 'stift' && info.project.name === 'iphone');
+    const { cdp, at } = await setup(page);
+    const tap = (p: { x: number; y: number }) => (input === 'finger' ? fingerTap(cdp, p) : penTap(cdp, p));
+    type ElR = El & { type: string; shape: { rotation?: number } };
+    const [a0] = (await elements(page)) as ElR[];
+    // Rechteck A ist noch nicht gewählt (zuletzt B gezogen) – antippen
+    await tap(at(0.03, -0.17));
+    await tap(at(0.27, 0.25));
+    await expect(page.getByTestId('element-bar')).toBeVisible();
+    await pickTool(page, 'draw-rotate', 'tap');
+    await page.getByTestId('rotate-step').selectOption('90');
+    await tap(at(0.04, 0.0)); // Drehpunkt
+    await expect(page.getByTestId('pick-point')).toHaveCount(1);
+    await tap(at(0.04, 0.3)); // senkrecht darunter = 270° → 90° im Uhrzeigersinn
+    await waitSaved(page);
+    let a = ((await elements(page)) as ElR[]).find((e) => e.id === a0.id)!;
+    expect(a.shape.rotation).toBe(90);
+    expect(Math.abs(a.shape.w - a0.shape.w)).toBeLessThan(1e-9);
+
+    // Skalieren: Basispunkt antippen, Faktor eintippen
+    await pickTool(page, 'draw-scale', 'tap');
+    await tap(at(0.04, 0.0));
+    await page.getByTestId('command-input').fill('2');
+    await page.getByTestId('command-ok').tap();
+    await waitSaved(page);
+    a = ((await elements(page)) as ElR[]).find((e) => e.id === a0.id)!;
+    expect(Math.abs(a.shape.w - a0.shape.w * 2)).toBeLessThan(1e-6);
+
+    // Ausrichten: vier Punkte antippen (nur prüfen, dass es mit Tippen durchläuft und dreht)
+    await pickTool(page, 'draw-align', 'tap');
+    await expect(page.getByTestId('command-prompt')).toContainText('1. Punkt am Objekt');
+    await tap(at(0.04, 0.0));
+    await tap(at(0.04, 0.3)); // Richtung nach unten
+    await expect(page.getByTestId('command-prompt')).toContainText('1. Zielpunkt');
+    await tap(at(0.04, 0.0));
+    await tap(at(0.3, 0.0)); // Ziel: nach rechts → 90° gegen den Uhrzeigersinn
+    await waitSaved(page);
+    a = ((await elements(page)) as ElR[]).find((e) => e.id === a0.id)!;
+    expect(Math.abs(((a.shape.rotation ?? 0) + 360) % 360)).toBeLessThan(1); // 90 − 90 ≈ 0 (Tippen ±1 px)
+  });

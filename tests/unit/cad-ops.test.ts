@@ -135,3 +135,22 @@ describe('Wand', () => {
     expect(axisLength(axis, false)).toBe(7);
   });
 });
+
+import { scaleAbout, angleCcw } from '../../src/lib/cad-ops';
+describe('Skalieren und Winkel', () => {
+  it('gleichmäßig vom Basispunkt: Rechteck bleibt Rechteck', () => {
+    const r: Shape = { type: 'rect', x: 1, y: 1, w: 2, h: 1 };
+    expect(scaleAbout(r, { x: 1, y: 1 }, 2)).toMatchObject({ type: 'rect', x: 1, y: 1, w: 4, h: 2 });
+  });
+  it('X und Y getrennt; gedrehtes Rechteck wird Fläche, gedrehter Kreis nicht möglich', () => {
+    expect(scaleAbout({ type: 'rect', x: 0, y: 0, w: 2, h: 1 }, { x: 0, y: 0 }, 2, 3)).toMatchObject({ w: 4, h: 3 });
+    expect(scaleAbout({ type: 'rect', x: 0, y: 0, w: 2, h: 1, rotation: 30 }, { x: 0, y: 0 }, 2, 1)!.type).toBe('freehand');
+    expect(scaleAbout({ type: 'ellipse', x: 0, y: 0, w: 2, h: 1, rotation: 30 }, { x: 0, y: 0 }, 2, 1)).toBeNull();
+    expect(pts(scaleAbout(L(1, 1, 3, 1), { x: 1, y: 1 }, 0.5)!)).toEqual([[1, 1], [2, 1]]);
+  });
+  it('Winkel gegen den Uhrzeigersinn (Plan: y nach unten)', () => {
+    expect(angleCcw({ x: 0, y: 0 }, { x: 1, y: 0 })).toBe(0);
+    expect(angleCcw({ x: 0, y: 0 }, { x: 0, y: -1 })).toBe(90);
+    expect(angleCcw({ x: 0, y: 0 }, { x: -1, y: 0 })).toBe(180);
+  });
+});

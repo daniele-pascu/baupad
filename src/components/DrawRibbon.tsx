@@ -8,7 +8,6 @@ import { ProbeMenu } from './ProbeLayer';
 import type { ProbeKind } from '../lib/probe';
 import type { PlanViewerHandle } from './PlanViewer';
 import { StylePanel } from './StylePanel';
-import { promptDialog, toast } from './ui';
 
 /**
  * Obere Werkzeugleiste des Zeichenmodus mit Registerkarten (nach dem Vorbild von CAD-Programmen):
@@ -120,24 +119,6 @@ export function DrawRibbon({
     </button>
   );
 
-  /** Drehen bzw. Skalieren mit Zahleneingabe (um den Mittelpunkt) */
-  const transform = async (kind: 'rotate' | 'scale') => {
-    if (!sel) return;
-    const input = await promptDialog({
-      title: kind === 'rotate' ? 'Drehen' : 'Skalieren',
-      label: kind === 'rotate' ? 'Winkel in Grad (im Uhrzeigersinn, z. B. 90 oder -45)' : 'Faktor (z. B. 2 = doppelt so groß, 0,5 = halb so groß)',
-      value: kind === 'rotate' ? '90' : '2',
-      confirmLabel: kind === 'rotate' ? 'Drehen' : 'Skalieren',
-    });
-    if (input === null) return;
-    const v = Number(input.trim().replace(',', '.').replace('°', ''));
-    if (!Number.isFinite(v) || (kind === 'scale' && v <= 0)) {
-      toast(kind === 'rotate' ? 'Bitte einen Winkel in Grad eingeben.' : 'Bitte einen Faktor größer als 0 eingeben.', 'error');
-      return;
-    }
-    drawing.transformSelected(kind, v);
-  };
-
   const editGroup = (
     <div className="tool-group" role="group" aria-label="Bearbeiten">
       {btn('draw-delete', 'trash', 'Löschen', () => sel && !drawing.removeSelectedVertex() && void drawing.remove(sel), {
@@ -191,8 +172,9 @@ export function DrawRibbon({
               {toolBtn('offset')}
               {toolBtn('array')}
               {toolBtn('join')}
-              {btn('draw-rotate', 'rotate', 'Drehen', () => void transform('rotate'), { disabled: !sel, title: sel ? 'Ausgewähltes Objekt um einen Winkel drehen' : 'Zuerst genau ein Objekt auswählen' })}
-              {btn('draw-scale', 'scale', 'Skalieren', () => void transform('scale'), { disabled: !sel, title: sel ? 'Ausgewähltes Objekt mit einem Faktor skalieren' : 'Zuerst genau ein Objekt auswählen' })}
+              {toolBtn('rotate')}
+              {toolBtn('scale')}
+              {toolBtn('align')}
               {toolBtn('stretch')}
               {toolBtn('trim')}
               {toolBtn('extend')}

@@ -70,7 +70,7 @@ test('Obere Werkzeugleiste: Registerkarten Zeichnen, Ändern, Eigenschaften, Pr�
   }
   await bar.getByTestId('ribbon-tab-modify').click();
   await expect(bar.getByTestId('draw-copy')).toBeEnabled(); // ohne Auswahl fragt Kopieren nach den Objekten
-  await expect(bar.getByTestId('draw-rotate')).toBeDisabled();
+  await expect(bar.getByTestId('draw-rotate')).toBeEnabled(); // Drehen fragt ohne Auswahl ebenfalls nach den Objekten
   await bar.getByTestId('ribbon-tab-draw').click();
   await expect(bar.getByTestId('draw-freehand')).toHaveCount(0); // Freihand durch Polylinie ersetzt
   await expect(bar.getByTestId('draw-triangle')).toHaveCount(0); // Dreieck über „Freie Form“

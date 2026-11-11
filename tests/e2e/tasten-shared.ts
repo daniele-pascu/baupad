@@ -205,6 +205,24 @@ export function tastenTests() {
     await expect(page.getByTestId('offset-through')).toBeVisible();
     await pruefe(page, 'Befehlsleiste Versetzen', out);
     await page.getByTestId('command-done').click();
+    // Phase 5: Drehen (Bezug, Winkelschritte), Skalieren, Ausrichten
+    await pickTool(page, 'draw-select-all');
+    await pickTool(page, 'draw-rotate');
+    await expect(page.getByTestId('rotate-step')).toBeVisible();
+    await pruefe(page, 'Befehlsleiste Drehen', out);
+    await page.getByTestId('transform-ref').click();
+    await pruefe(page, 'Befehlsleiste Drehen Bezug', out);
+    await page.getByTestId('command-done').click();
+    await pickTool(page, 'draw-select-all');
+    await pickTool(page, 'draw-scale');
+    await expect(page.getByTestId('transform-ref')).toBeVisible();
+    await pruefe(page, 'Befehlsleiste Skalieren', out);
+    await page.getByTestId('command-done').click();
+    await pickTool(page, 'draw-select-all');
+    await pickTool(page, 'draw-align');
+    await expect(page.getByTestId('align-move')).toBeVisible();
+    await pruefe(page, 'Befehlsleiste Ausrichten', out);
+    await page.getByTestId('command-done').click();
     // Phase 3: Reihe-Dialog und Eigenschaften mit Baustoff-Schraffur für mehrere Objekte
     await pickTool(page, 'draw-select-all');
     await page.getByTestId('multi-array').click();

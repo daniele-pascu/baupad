@@ -71,6 +71,8 @@ const PATHS: Record<string, string> = {
   door: 'M3 21h18M5 21V5M5 5a16 16 0 0116 16',
   window: 'M3 9h18v6H3zM3 11.5h18M3 12.5h18',
   plug: 'M5 18h14M12 18v3M6 18a6 6 0 0112 0M6 10h12',
+  /** Ausrichten: Linie, die sich an eine andere legt */
+  align: 'M4 20h16M6 16l10-10M14 6h2v2M10 20l-4-4',
   /** Reihe: vier gleiche Quadrate im Raster */
   array: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z',
   /** Verbinden: zwei Linien treffen sich in einem Punkt */

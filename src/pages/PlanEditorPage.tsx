@@ -1674,6 +1674,26 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                       const h = drawing.symbolSize?.h ?? def?.h ?? 0;
                       return `${def?.label ?? 'Bauteil'} ${formatMeasure(w)} × ${formatMeasure(h)} m: Stelle antippen – auf einer Linie bzw. Wand richtet es sich aus. Größe eintippen (Breite bzw. Breite;Tiefe).`;
                     })()
+                : t === 'rotate'
+                  ? (() => {
+                      const m = drawing.pickPts.length;
+                      if (!m) return `Drehpunkt antippen (Fang hilft). ${plural(n, 'Objekt', 'Objekte')}.`;
+                      if (!drawing.refMode) return `Winkel zeigen und antippen${drawing.rotStep ? ` (in ${drawing.rotStep}°-Schritten)` : ''} – oder eintippen, z. B. 90 bzw. -45 (positiv = gegen den Uhrzeigersinn).`;
+                      if (m === 1) return 'Bezug: 1. Punkt der Bezugsrichtung antippen – oder Bezugswinkel eintippen.';
+                      if (m === 2) return 'Bezug: 2. Punkt der Bezugsrichtung antippen.';
+                      return 'Neue Richtung zeigen und antippen – oder neuen Winkel eintippen.';
+                    })()
+                : t === 'scale'
+                  ? (() => {
+                      const m = drawing.pickPts.length;
+                      if (!m) return `Basispunkt antippen – er bleibt beim Skalieren stehen. ${plural(n, 'Objekt', 'Objekte')}.`;
+                      if (!drawing.refMode) return 'Faktor eintippen, z. B. 2 oder 0,5 – X;Y getrennt z. B. 2;1 – oder „Bezug“ wählen.';
+                      if (m === 1) return 'Bezug: Anfangspunkt einer bekannten Strecke antippen.';
+                      if (m === 2) return 'Bezug: Endpunkt der Strecke antippen.';
+                      return 'Neue Länge eintippen (m) – oder neuen Endpunkt antippen.';
+                    })()
+                : t === 'align'
+                  ? ['1. Punkt am Objekt antippen (Quelle).', '2. Punkt am Objekt antippen – bestimmt die Richtung.', '1. Zielpunkt antippen.', '2. Zielpunkt antippen – bestimmt die neue Richtung.'][Math.min(3, drawing.pickPts.length)]
                 : t === 'array'
                   ? 'Mittelpunkt der Reihe antippen (Fang hilft, z. B. Kreismitte).'
                   : t === 'mirror'
@@ -1693,14 +1713,14 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                           : 'Zielpunkt antippen – oder Abstand in Mausrichtung, ΔX;ΔY bzw. Länge<Winkel eingeben.'
                         : `${drawing.copies ? `${plural(drawing.copies, 'Kopie', 'Kopien')} erstellt. ` : ''}Basispunkt antippen (oder vom Basis- zum Zielpunkt ziehen) – oder Verschiebung ΔX;ΔY bzw. Länge<Winkel eingeben. ${plural(n, 'Objekt', 'Objekte')}.`
                       : 'Endpunkt antippen – oder Länge in Mausrichtung, ΔX;ΔY bzw. Länge<Winkel eingeben.';
-            const withInput = (!(SELECT_FIRST.has(t) && drawing.cmdSelecting) || t === 'join') && t !== 'array';
+            const withInput = (!(SELECT_FIRST.has(t) && drawing.cmdSelecting) || t === 'join') && t !== 'array' && t !== 'align';
             return (
               <CommandBar
                 key={t}
                 title={DRAW_TOOLS.find((x) => x.id === t)?.short ?? ''}
                 prompt={prompt}
                 onInput={withInput ? drawing.applyInput : undefined}
-                placeholder={t === 'wall' ? 'Stärke, z. B. 0,25' : t === 'offset' ? 'Abstand, z. B. 0,25' : t === 'join' ? 'Lücke, z. B. 0,05' : t === 'symbol' ? 'Breite, z. B. 0,9' : undefined}
+                placeholder={t === 'wall' ? 'Stärke, z. B. 0,25' : t === 'offset' ? 'Abstand, z. B. 0,25' : t === 'join' ? 'Lücke, z. B. 0,05' : t === 'symbol' ? 'Breite, z. B. 0,9' : t === 'rotate' ? 'Winkel, z. B. 90' : t === 'scale' ? (drawing.refMode ? 'Länge, z. B. 4,5' : 'Faktor, z. B. 2') : undefined}
               >
                 {SELECT_FIRST.has(t) && drawing.cmdSelecting && (
                   <button type="button" className="btn btn-sm btn-primary" disabled={!n} onClick={drawing.cmdNext} data-testid="command-next">
@@ -1716,6 +1736,26 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                   <label className="check-row small" data-testid="mirror-keep-row">
                     <input type="checkbox" checked={drawing.mirrorKeep} onChange={(e) => drawing.setMirrorKeep(e.target.checked)} data-testid="mirror-keep" />
                     <span>Original behalten</span>
+                  </label>
+                )}
+                {(t === 'rotate' || t === 'scale') && !drawing.cmdSelecting && (
+                  <button type="button" className={`btn btn-sm${drawing.refMode ? ' active-toggle' : ''}`} aria-pressed={drawing.refMode} onClick={() => drawing.setRefMode(!drawing.refMode)} title={t === 'rotate' ? 'Bezug: eine vorhandene Richtung (zwei Punkte) auf eine neue Richtung drehen' : 'Bezug: eine bekannte Strecke (zwei Punkte) auf eine neue Länge bringen'} data-testid="transform-ref">
+                    Bezug
+                  </button>
+                )}
+                {t === 'rotate' && !drawing.cmdSelecting && (
+                  <select value={drawing.rotStep} onChange={(e) => drawing.setRotStep(Number(e.target.value))} aria-label="Winkelschritte" title="Winkel beim Zeigen auf Schritte runden" data-testid="rotate-step">
+                    <option value={0}>frei</option>
+                    <option value={5}>5°</option>
+                    <option value={15}>15°</option>
+                    <option value={45}>45°</option>
+                    <option value={90}>90°</option>
+                  </select>
+                )}
+                {t === 'align' && !drawing.cmdSelecting && (
+                  <label className="check-row small" data-testid="align-move-row">
+                    <input type="checkbox" checked={drawing.alignMove} onChange={(e) => drawing.setAlignMove(e.target.checked)} data-testid="align-move" />
+                    <span>auch verschieben</span>
                   </label>
                 )}
                 {t === 'symbol' && (
