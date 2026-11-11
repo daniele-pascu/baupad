@@ -1497,6 +1497,11 @@ function ChipDialog({
   const site = plan.sites.find((s) => s.id === siteId);
   const others = plan.sites.filter((s) => s.id !== siteId && !s.paused);
   const [to, setTo] = useState(others[0]?.id ?? '');
+  /** Suche nach dem Zielprojekt (Name, Kostenstelle/Nummer, Adresse) */
+  const [moveQ, setMoveQ] = useState('');
+  const mq = moveQ.trim().toLowerCase();
+  const targets = mq ? others.filter((s) => [s.name, s.number ?? '', s.address ?? ''].some((t) => t.toLowerCase().includes(mq))) : others;
+  const target = targets.some((s) => s.id === to) ? to : (targets[0]?.id ?? '');
   const [keep, setKeep] = useState(false);
   const also = sitesOf(plan, workerId, day, siteId);
   return (
@@ -1547,19 +1552,32 @@ function ChipDialog({
           <div className="crew-move">
             <label className="field">
               <span>Ab {DAY_NAMES[day]} auf anderes Projekt</span>
-              <select value={to} onChange={(e) => setTo(e.target.value)} data-testid="chip-move-to">
-                {others.map((s) => (
+              {others.length > 1 && (
+                <input
+                  type="search"
+                  className="crew-move-search"
+                  value={moveQ}
+                  onChange={(e) => setMoveQ(e.target.value)}
+                  placeholder="Projekt suchen: Name, Kostenstelle, Adresse"
+                  aria-label="Projekt suchen"
+                  autoComplete="off"
+                  data-testid="chip-move-search"
+                />
+              )}
+              <select value={target} onChange={(e) => setTo(e.target.value)} disabled={!targets.length} data-testid="chip-move-to">
+                {targets.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
                   </option>
                 ))}
               </select>
+              {!targets.length && <small className="muted" data-testid="chip-move-none">Kein Projekt gefunden.</small>}
             </label>
             <label className="check-row small">
               <input type="checkbox" checked={keep} onChange={(e) => setKeep(e.target.checked)} data-testid="chip-move-keep" />
               Zusätzlich (doppelt) – auf diesem Projekt bleiben
             </label>
-            <button type="button" className="btn btn-primary" onClick={() => onMove(to, keep)} data-testid="chip-move">
+            <button type="button" className="btn btn-primary" onClick={() => target && onMove(target, keep)} disabled={!target} data-testid="chip-move">
               {keep ? 'Zusätzlich einteilen' : 'Umsetzen'}
             </button>
           </div>

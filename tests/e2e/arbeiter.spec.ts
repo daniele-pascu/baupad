@@ -1,3 +1,4 @@
+import { tastenBefunde } from './tasten-check';
 import { expect, test, type Page } from './fixtures';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
@@ -20,6 +21,11 @@ async function moveTo(page: Page, from: ReturnType<Page['locator']>, toSite: str
     return;
   }
   const cd = page.getByTestId('chip-dialog');
+  // mehrere Zielprojekte: über die Suche finden (Teil des Namens genügt), danach steht es in der Auswahl
+  if (await cd.getByTestId('chip-move-search').isVisible()) {
+    await cd.getByTestId('chip-move-search').fill(toSite.slice(0, Math.max(3, toSite.length - 2)).toLowerCase());
+    await expect(cd.getByTestId('chip-move-to').locator('option', { hasText: toSite })).toHaveCount(1);
+  }
   await cd.getByTestId('chip-move-to').selectOption({ label: toSite });
   await cd.getByTestId('chip-move').click();
   await expect(cd).toHaveCount(0);
@@ -1076,4 +1082,44 @@ test('Einstellungen der Einteilung: Bezeichnung der Projekte, Reihenfolge, Funkt
   await page.getByTestId('crew-times').click();
   await expect(page.getByTestId('set-site-label')).toHaveValue('name-number');
   await expect(page.getByTestId('set-pdf-grades')).toBeChecked();
+});
+
+test('Namensfenster: Zielprojekt zum Umsetzen über die Suche finden', async ({ page }) => {
+  await freshStart(page);
+  await page.goto('./arbeitereinteilung');
+  await page.getByTestId('week-date').fill('2026-10-26');
+  await page.getByTestId('crew-workers').click();
+  const sp = page.getByTestId('staff-page');
+  await sp.getByTestId('staff-new').click();
+  await sp.getByTestId('worker-firstName').fill('Max');
+  await sp.getByTestId('worker-save').click();
+  await expect(page.getByTestId('worker-dialog')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  for (const n of ['Baustelle A', 'Halle Süd', 'Wohnbau Nord']) {
+    await page.getByTestId('add-site').click();
+    await newWeekProject(page, n);
+  }
+  await addFromMonday(page, 'Baustelle A', ['Max']);
+  await chips(page, 'Baustelle A', 2).click();
+  const cd = page.getByTestId('chip-dialog');
+  await expect(cd.getByTestId('chip-move-to').locator('option')).toHaveText(['Halle Süd', 'Wohnbau Nord']);
+  // Tasten-Prüfung des Fensters am iPhone und am PC
+  for (const [w, h] of [[390, 844], [1440, 900]]) {
+    await page.setViewportSize({ width: w, height: h });
+    await expect(cd.getByTestId('chip-move-search')).toBeVisible();
+    expect(await tastenBefunde(page)).toEqual([]);
+  }
+  await cd.getByTestId('chip-move-search').fill('nord');
+  await expect(cd.getByTestId('chip-move-to').locator('option')).toHaveText(['Wohnbau Nord']);
+  await cd.getByTestId('chip-move-search').fill('xyz');
+  await expect(cd.getByTestId('chip-move-none')).toBeVisible();
+  await expect(cd.getByTestId('chip-move')).toBeDisabled();
+  await cd.getByTestId('chip-move-search').fill('süd');
+  await expect(cd.getByTestId('chip-move-to')).toHaveValue(/.+/);
+  await cd.getByTestId('chip-move').click();
+  await expect(cd).toHaveCount(0);
+  // ab Mittwoch auf Halle Süd, Mo/Di bleibt auf Baustelle A
+  await expect(chips(page, 'Baustelle A', 1)).toHaveText(['Max']);
+  await expect(chips(page, 'Baustelle A', 2)).toHaveCount(0);
+  await expect(chips(page, 'Halle Süd', 2)).toHaveText(['Max']);
 });

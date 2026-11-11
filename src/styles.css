@@ -11605,3 +11605,7 @@ html[data-theme='dark'] .crew-search {
   font-weight: 700;
   line-height: 1.5;
 }
+/* Namensfenster: Suche nach dem Zielprojekt über der Auswahl */
+.crew-move-search {
+  margin-bottom: 8px;
+}
