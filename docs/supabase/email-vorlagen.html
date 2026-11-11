@@ -1,0 +1,90 @@
+<!-- E-Mail-Vorlagen für Supabase (Authentication → Emails → Templates). Anleitung: docs/emails-einrichten.md -->
+
+<!-- ### Reset Password | Betreff: Passwort zurücksetzen – BauPad -->
+<div style="background:#f3f3f5;padding:24px 12px;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111">
+  <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden">
+    <div style="background:#000;padding:18px 24px"><img src="https://pad-software.at/icons/pad-icon-180.png" width="56" height="56" alt="PAD Software" style="display:block;border:0"></div>
+    <div style="padding:28px 24px 8px">
+      <h1 style="margin:0 0 14px;font-size:20px">Neues Passwort festlegen</h1>
+      <p style="margin:0 0 20px;font-size:15px;line-height:1.5">Für Ihr BauPad-Konto ({{ .Email }}) wurde ein neues Passwort angefordert. Über die Taste legen Sie es fest.</p>
+      <p style="margin:0 0 24px"><a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;font-weight:600;padding:12px 22px;border-radius:999px">Neues Passwort festlegen</a></p>
+      <p style="margin:0 0 20px;font-size:13px;color:#666">Funktioniert die Taste nicht? Diesen Link in den Browser kopieren:<br><a href="{{ .ConfirmationURL }}" style="color:#111;word-break:break-all">{{ .ConfirmationURL }}</a></p>
+      <p style="margin:0 0 24px;font-size:13px;line-height:1.5;color:#666">Der Link gilt eine Stunde. Haben Sie das nicht angefordert, können Sie diese E-Mail ignorieren – Ihr Passwort bleibt unverändert.</p>
+    </div>
+    <div style="padding:14px 24px;background:#fafafa;font-size:12px;color:#888">PAD Software · BauPad · <a href="https://pad-software.at" style="color:#888">pad-software.at</a></div>
+  </div>
+</div>
+
+<!-- ### Confirm signup | Betreff: Willkommen bei BauPad – E-Mail-Adresse bestätigen -->
+<div style="background:#f3f3f5;padding:24px 12px;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111">
+  <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden">
+    <div style="background:#000;padding:18px 24px"><img src="https://pad-software.at/icons/pad-icon-180.png" width="56" height="56" alt="PAD Software" style="display:block;border:0"></div>
+    <div style="padding:28px 24px 8px">
+      <h1 style="margin:0 0 14px;font-size:20px">Willkommen bei BauPad</h1>
+      <p style="margin:0 0 20px;font-size:15px;line-height:1.5">Bitte bestätigen Sie Ihre E-Mail-Adresse ({{ .Email }}), damit Ihr Konto aktiv wird.</p>
+      <p style="margin:0 0 24px"><a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;font-weight:600;padding:12px 22px;border-radius:999px">E-Mail-Adresse bestätigen</a></p>
+      <p style="margin:0 0 20px;font-size:13px;color:#666">Funktioniert die Taste nicht? Diesen Link in den Browser kopieren:<br><a href="{{ .ConfirmationURL }}" style="color:#111;word-break:break-all">{{ .ConfirmationURL }}</a></p>
+      <p style="margin:0 0 24px;font-size:13px;line-height:1.5;color:#666">Haben Sie sich nicht bei BauPad registriert, können Sie diese E-Mail ignorieren.</p>
+    </div>
+    <div style="padding:14px 24px;background:#fafafa;font-size:12px;color:#888">PAD Software · BauPad · <a href="https://pad-software.at" style="color:#888">pad-software.at</a></div>
+  </div>
+</div>
+
+<!-- ### Change Email Address | Betreff: Neue E-Mail-Adresse bestätigen – BauPad -->
+<div style="background:#f3f3f5;padding:24px 12px;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111">
+  <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden">
+    <div style="background:#000;padding:18px 24px"><img src="https://pad-software.at/icons/pad-icon-180.png" width="56" height="56" alt="PAD Software" style="display:block;border:0"></div>
+    <div style="padding:28px 24px 8px">
+      <h1 style="margin:0 0 14px;font-size:20px">Neue E-Mail-Adresse bestätigen</h1>
+      <p style="margin:0 0 20px;font-size:15px;line-height:1.5">Ihr BauPad-Konto soll künftig die Adresse {{ .NewEmail }} verwenden (bisher {{ .Email }}). Bitte bestätigen Sie die Änderung.</p>
+      <p style="margin:0 0 24px"><a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;font-weight:600;padding:12px 22px;border-radius:999px">Änderung bestätigen</a></p>
+      <p style="margin:0 0 20px;font-size:13px;color:#666">Funktioniert die Taste nicht? Diesen Link in den Browser kopieren:<br><a href="{{ .ConfirmationURL }}" style="color:#111;word-break:break-all">{{ .ConfirmationURL }}</a></p>
+      <p style="margin:0 0 24px;font-size:13px;line-height:1.5;color:#666">Haben Sie das nicht veranlasst, ignorieren Sie diese E-Mail und ändern Sie zur Sicherheit Ihr Passwort.</p>
+    </div>
+    <div style="padding:14px 24px;background:#fafafa;font-size:12px;color:#888">PAD Software · BauPad · <a href="https://pad-software.at" style="color:#888">pad-software.at</a></div>
+  </div>
+</div>
+
+<!-- ### Magic Link | Betreff: Ihr Anmeldelink – BauPad -->
+<div style="background:#f3f3f5;padding:24px 12px;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111">
+  <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden">
+    <div style="background:#000;padding:18px 24px"><img src="https://pad-software.at/icons/pad-icon-180.png" width="56" height="56" alt="PAD Software" style="display:block;border:0"></div>
+    <div style="padding:28px 24px 8px">
+      <h1 style="margin:0 0 14px;font-size:20px">Bei BauPad anmelden</h1>
+      <p style="margin:0 0 20px;font-size:15px;line-height:1.5">Mit der Taste melden Sie sich ohne Passwort bei BauPad an ({{ .Email }}).</p>
+      <p style="margin:0 0 24px"><a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;font-weight:600;padding:12px 22px;border-radius:999px">Jetzt anmelden</a></p>
+      <p style="margin:0 0 20px;font-size:13px;color:#666">Funktioniert die Taste nicht? Diesen Link in den Browser kopieren:<br><a href="{{ .ConfirmationURL }}" style="color:#111;word-break:break-all">{{ .ConfirmationURL }}</a></p>
+      <p style="margin:0 0 24px;font-size:13px;line-height:1.5;color:#666">Der Link gilt eine Stunde und nur einmal. Haben Sie ihn nicht angefordert, ignorieren Sie diese E-Mail.</p>
+    </div>
+    <div style="padding:14px 24px;background:#fafafa;font-size:12px;color:#888">PAD Software · BauPad · <a href="https://pad-software.at" style="color:#888">pad-software.at</a></div>
+  </div>
+</div>
+
+<!-- ### Invite user | Betreff: Einladung zu BauPad -->
+<div style="background:#f3f3f5;padding:24px 12px;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111">
+  <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden">
+    <div style="background:#000;padding:18px 24px"><img src="https://pad-software.at/icons/pad-icon-180.png" width="56" height="56" alt="PAD Software" style="display:block;border:0"></div>
+    <div style="padding:28px 24px 8px">
+      <h1 style="margin:0 0 14px;font-size:20px">Sie wurden zu BauPad eingeladen</h1>
+      <p style="margin:0 0 20px;font-size:15px;line-height:1.5">Ihre Firma nutzt BauPad für Aufmaß, Einteilung, Berichte, Fotos und mehr. Über die Taste nehmen Sie die Einladung an und legen Ihr Passwort fest.</p>
+      <p style="margin:0 0 24px"><a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;font-weight:600;padding:12px 22px;border-radius:999px">Einladung annehmen</a></p>
+      <p style="margin:0 0 20px;font-size:13px;color:#666">Funktioniert die Taste nicht? Diesen Link in den Browser kopieren:<br><a href="{{ .ConfirmationURL }}" style="color:#111;word-break:break-all">{{ .ConfirmationURL }}</a></p>
+      <p style="margin:0 0 24px;font-size:13px;line-height:1.5;color:#666">Erwarten Sie keine Einladung, können Sie diese E-Mail ignorieren.</p>
+    </div>
+    <div style="padding:14px 24px;background:#fafafa;font-size:12px;color:#888">PAD Software · BauPad · <a href="https://pad-software.at" style="color:#888">pad-software.at</a></div>
+  </div>
+</div>
+
+<!-- ### Reauthentication | Betreff: Ihr Bestätigungscode – BauPad -->
+<div style="background:#f3f3f5;padding:24px 12px;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111">
+  <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden">
+    <div style="background:#000;padding:18px 24px"><img src="https://pad-software.at/icons/pad-icon-180.png" width="56" height="56" alt="PAD Software" style="display:block;border:0"></div>
+    <div style="padding:28px 24px 8px">
+      <h1 style="margin:0 0 14px;font-size:20px">Bestätigungscode</h1>
+      <p style="margin:0 0 20px;font-size:15px;line-height:1.5">Bitte geben Sie diesen Code in BauPad ein, um die Änderung zu bestätigen:</p>
+      <p style="margin:0 0 24px;font-size:28px;font-weight:700;letter-spacing:6px;color:#111">{{ .Token }}</p>
+      <p style="margin:0 0 24px;font-size:13px;line-height:1.5;color:#666">Der Code gilt nur kurz. Haben Sie das nicht angefordert, ändern Sie zur Sicherheit Ihr Passwort.</p>
+    </div>
+    <div style="padding:14px 24px;background:#fafafa;font-size:12px;color:#888">PAD Software · BauPad · <a href="https://pad-software.at" style="color:#888">pad-software.at</a></div>
+  </div>
+</div>
