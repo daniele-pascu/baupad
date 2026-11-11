@@ -253,3 +253,60 @@ export function offsetShape(s: Shape, d: number, side: Point): Shape | null {
   if (inside && (area >= orig || area < EPS || out.some((q) => distanceToPolyline(q, pts, true) < d * (1 - 1e-6)))) return null;
   return shapeFromVertices({ ...s, rotation: undefined }, out);
 }
+
+/* ───────────── Reihe ───────────── */
+
+export type ArrayParams =
+  /** rechteckig: Spalten × Zeilen, Abstand nach rechts (dx) und nach oben (dy) in m */
+  | { kind: 'rect'; cols: number; rows: number; dx: number; dy: number }
+  /** linear: Anzahl (einschließlich Original), Abstand, Richtung (0° = rechts, gegen den Uhrzeigersinn) */
+  | { kind: 'linear'; count: number; dist: number; angle: number }
+  /** polar: Anzahl (einschließlich Original), Gesamtwinkel (360 = ganzer Kreis), Objekte mitdrehen */
+  | { kind: 'polar'; count: number; total: number; rotate: boolean };
+
+/** Verschiebungen der Kopien (Plan: y nach unten) – ohne das Original */
+export function arrayOffsets(p: Exclude<ArrayParams, { kind: 'polar' }>): Point[] {
+  const out: Point[] = [];
+  if (p.kind === 'rect') {
+    for (let r = 0; r < Math.max(1, Math.round(p.rows)); r++)
+      for (let c = 0; c < Math.max(1, Math.round(p.cols)); c++) if (r || c) out.push({ x: c * p.dx, y: -r * p.dy });
+    return out;
+  }
+  const a = (p.angle * Math.PI) / 180;
+  for (let i = 1; i < Math.max(1, Math.round(p.count)); i++) out.push({ x: round9(i * p.dist * Math.cos(a)), y: round9(-i * p.dist * Math.sin(a)) });
+  return out;
+}
+const round9 = (v: number) => Math.round(v * 1e9) / 1e9;
+
+/** Winkel der Kopien bei polarer Reihe (gegen den Uhrzeigersinn, ohne das Original) */
+export function polarAngles(count: number, total: number): number[] {
+  const n = Math.max(1, Math.round(count));
+  if (n < 2) return [];
+  const full = Math.abs(Math.abs(total) - 360) < 1e-9;
+  const step = full ? total / n : total / (n - 1);
+  return Array.from({ length: n - 1 }, (_, i) => step * (i + 1));
+}
+
+/** Form um den Punkt c drehen (Grad gegen den Uhrzeigersinn); rotateItem = false: nur verschieben (Ausrichtung bleibt) */
+export function rotateAround(s: Shape, c: Point, degCcw: number, rotateItem = true): Shape {
+  const rot = (p: Point) => {
+    const a = (-degCcw * Math.PI) / 180; // Plan: y nach unten → im Uhrzeigersinn gemessen
+    const dx = p.x - c.x;
+    const dy = p.y - c.y;
+    return { x: c.x + dx * Math.cos(a) - dy * Math.sin(a), y: c.y + dx * Math.sin(a) + dy * Math.cos(a) };
+  };
+  const center = shapeCenter(s);
+  const nc = rot(center);
+  if (!rotateItem || s.type === 'rect' || s.type === 'ellipse') {
+    const out: Shape = { ...s, x: s.x + nc.x - center.x, y: s.y + nc.y - center.y };
+    if (rotateItem) {
+      const r = normDeg((s.rotation ?? 0) - degCcw);
+      if (r) out.rotation = r;
+      else delete out.rotation;
+    }
+    return out;
+  }
+  const pts = shapeVertices(s).map(rot);
+  if (s.type === 'line') return lineShape(pts[0], pts[1]);
+  return shapeFromVertices({ ...s, rotation: undefined }, pts);
+}

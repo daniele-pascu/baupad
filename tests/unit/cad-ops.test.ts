@@ -81,3 +81,31 @@ describe('Spiegeln', () => {
     expect(mirrorShape(r, { x: 10, y: 0 }, { x: 10, y: 1 }, true).rotation).toBe(30);
   });
 });
+
+import { arrayOffsets, polarAngles, rotateAround } from '../../src/lib/cad-ops';
+describe('Reihe', () => {
+  it('rechteckig 3 × 2: 5 Kopien, ΔY nach oben = im Plan nach unten negativ', () => {
+    const o = arrayOffsets({ kind: 'rect', cols: 3, rows: 2, dx: 1.5, dy: 2 });
+    expect(o).toHaveLength(5);
+    expect(o).toContainEqual({ x: 3, y: -0 });
+    expect(o).toContainEqual({ x: 1.5, y: -2 });
+  });
+  it('linear 4 Stück im Abstand 2 m unter 90° (nach oben)', () => {
+    const o = arrayOffsets({ kind: 'linear', count: 4, dist: 2, angle: 90 });
+    expect(o.map((p) => [Math.round(p.x * 1e6) / 1e6, p.y])).toEqual([[0, -2], [0, -4], [0, -6]]);
+  });
+  it('polar: 6 Stück im Vollkreis → 60°-Schritte; 3 Stück über 90° → 45°-Schritte', () => {
+    expect(polarAngles(6, 360)).toEqual([60, 120, 180, 240, 300]);
+    expect(polarAngles(3, 90)).toEqual([45, 90]);
+  });
+  it('um einen Punkt drehen: Linie 90° gegen den Uhrzeigersinn', () => {
+    const r = rotateAround(L(1, 0, 2, 0), { x: 0, y: 0 }, 90);
+    expect(pts(r)).toEqual([[0, -1], [0, -2]]);
+    const box: Shape = { type: 'rect', x: 1, y: -0.5, w: 2, h: 1 };
+    const kept = rotateAround(box, { x: 0, y: 0 }, 90, false);
+    expect(kept.rotation).toBeUndefined();
+    expect(kept.x + kept.w / 2).toBeCloseTo(0, 9);
+    expect(kept.y + kept.h / 2).toBeCloseTo(-2, 9);
+    expect(rotateAround(box, { x: 0, y: 0 }, 90).rotation).toBe(270);
+  });
+});

@@ -1657,14 +1657,16 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               </button>
             </div>
           )}
-          {drawMode && !probe && !dialog && (SELECT_FIRST.has(drawing.tool) || drawing.tool === 'offset' || (drawing.tool === 'line' && drawing.cmdBase)) && (() => {
+          {drawMode && !probe && !dialog && (SELECT_FIRST.has(drawing.tool) || drawing.tool === 'offset' || (drawing.tool === 'line' && drawing.cmdBase)) && !(drawing.tool === 'array' && !drawing.cmdSelecting && !drawing.arrayPolar) && (() => {
             const t = drawing.tool;
             const n = drawing.selection.length;
             const plural = (k: number, one: string, many: string) => `${k} ${k === 1 ? one : many}`;
             const prompt =
               SELECT_FIRST.has(t) && drawing.cmdSelecting
                 ? `Objekte wählen: antippen oder Fenster aufziehen (nach links = auch berührte) – dann „${t === 'join' ? 'Verbinden' : 'Weiter'}“. Ausgewählt: ${n}${t === 'join' ? ` · Lücken bis ${formatMeasure(drawing.joinTol)} m werden geschlossen (Wert eingeben zum Ändern)` : ''}`
-                : t === 'mirror'
+                : t === 'array'
+                  ? 'Mittelpunkt der Reihe antippen (Fang hilft, z. B. Kreismitte).'
+                  : t === 'mirror'
                   ? drawing.cmdBase
                     ? '2. Punkt der Spiegelachse antippen – oder Richtung eingeben, z. B. 1<90 (senkrecht) bzw. 1<0 (waagrecht).'
                     : `1. Punkt der Spiegelachse antippen (oder Achse ziehen) – mit 90° waagrecht/senkrecht. ${plural(n, 'Objekt', 'Objekte')}.`
@@ -1681,7 +1683,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                           : 'Zielpunkt antippen – oder Abstand in Mausrichtung, ΔX;ΔY bzw. Länge<Winkel eingeben.'
                         : `${drawing.copies ? `${plural(drawing.copies, 'Kopie', 'Kopien')} erstellt. ` : ''}Basispunkt antippen (oder vom Basis- zum Zielpunkt ziehen) – oder Verschiebung ΔX;ΔY bzw. Länge<Winkel eingeben. ${plural(n, 'Objekt', 'Objekte')}.`
                       : 'Endpunkt antippen – oder Länge in Mausrichtung, ΔX;ΔY bzw. Länge<Winkel eingeben.';
-            const withInput = !(SELECT_FIRST.has(t) && drawing.cmdSelecting) || t === 'join';
+            const withInput = (!(SELECT_FIRST.has(t) && drawing.cmdSelecting) || t === 'join') && t !== 'array';
             return (
               <CommandBar
                 key={t}
@@ -1692,7 +1694,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               >
                 {SELECT_FIRST.has(t) && drawing.cmdSelecting && (
                   <button type="button" className="btn btn-sm btn-primary" disabled={!n} onClick={drawing.cmdNext} data-testid="command-next">
-                    {t === 'join' ? 'Verbinden' : 'Weiter'}
+                    {t === 'join' ? 'Verbinden' : t === 'array' ? 'Weiter: Werte' : 'Weiter'}
                   </button>
                 )}
                 {t === 'offset' && (
@@ -1725,6 +1727,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               </button>
               <button type="button" className="btn btn-sm" onClick={() => drawing.setTool('mirror')} data-testid="multi-mirror">
                 <Icon name="mirror" size={16} /> Spiegeln
+              </button>
+              <button type="button" className="btn btn-sm" onClick={() => drawing.setTool('array')} data-testid="multi-array">
+                <Icon name="array" size={16} /> Reihe
               </button>
               <button type="button" className="btn btn-sm" onClick={() => drawing.setTool('join')} data-testid="multi-join">
                 <Icon name="join" size={16} /> Verbinden

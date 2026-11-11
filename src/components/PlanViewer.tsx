@@ -1362,7 +1362,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     const base = st?.lineWidth ? Math.max(1, st.lineWidth * PX_PER_PT) : strokeW;
     const w = opts.selected ? base + 1.5 : base;
     // Umrandung (Linientyp) und Füllung getrennt; die Füllung folgt immer der eigentlichen Form
-    const line = strokeGeometry(shape, toS, opts.dashed ? 'dashed' : st?.lineType, w);
+    const line = strokeGeometry(shape, toS, opts.dashed ? 'dashed' : st?.lineType, w, w, st?.dashScale);
     const fill = fillOf(shape, col, st, DEFAULT_TRANSPARENCY.damage);
     return (
       <g key={opts.key}>
@@ -1640,7 +1640,10 @@ export function FillPaths({ shape, map, fill, boost = false }: { shape: Shape; m
   const f = fillPaths(shape, map, fill, PX_PER_PT);
   if (f.solid) return <path d={f.solid} fill={fill.color} fillOpacity={boost ? Math.min(1, fill.opacity + 0.08) : fill.opacity} stroke="none" data-fill="solid" />;
   return (
-    <path d={f.hatch} fill="none" stroke={fill.color} strokeOpacity={fill.opacity} strokeWidth={f.hatchWidth} strokeLinecap="round" data-fill="hatch" />
+    <>
+      {f.bg && <path d={f.bg} fill={fill.bg} stroke="none" data-fill="hatch-bg" />}
+      <path d={f.hatch} fill="none" stroke={fill.color} strokeOpacity={fill.opacity} strokeWidth={f.hatchWidth} strokeLinecap="round" data-fill="hatch" data-pattern={fill.hatch?.pattern} />
+    </>
   );
 }
 

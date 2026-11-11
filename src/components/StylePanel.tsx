@@ -1,6 +1,42 @@
 import { useEffect, useState } from 'react';
-import { DEFAULT_HATCH, DEFAULT_TRANSPARENCY, HATCH_PATTERNS, LINE_TYPES, LINE_WIDTH_MAX, LINE_WIDTH_MIN } from '../lib/style';
-import { COLORS, type HatchPattern, type LineType, type ShapeStyle } from '../lib/types';
+import { DASH_SCALES, dashArray, DEFAULT_HATCH, DEFAULT_TRANSPARENCY, HATCH_PATTERNS, LINE_TYPES, LINE_WIDTH_MAX, LINE_WIDTH_MIN, MATERIALS } from '../lib/style';
+import { DRAW_COLORS, type HatchPattern, type LineType, type ShapeStyle } from '../lib/types';
+import { rememberCustomColorSoon, useCustomColors } from '../lib/custom-colors';
+
+/** Muster-Auswahl: allgemeine Muster und Baustoffe nach ÖNORM A 6240 (übernimmt Muster, Farbe, Winkel, Abstand) */
+function PatternOptions() {
+  return (
+    <>
+      <optgroup label="Muster">
+        {HATCH_PATTERNS.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.label}
+          </option>
+        ))}
+      </optgroup>
+      <optgroup label="Baustoffe (ÖNORM A 6240)">
+        {MATERIALS.map((m) => (
+          <option key={m.id} value={`mat:${m.id}`}>
+            {m.label}
+          </option>
+        ))}
+      </optgroup>
+    </>
+  );
+}
+/** Auswahl eines Musters bzw. Baustoffs als Änderung */
+function patternPatch(value: string, hatch: { pattern: HatchPattern; angle: number; spacing: number }): Partial<ShapeStyle> {
+  if (value.startsWith('mat:')) {
+    const m = MATERIALS.find((x) => `mat:${x.id}` === value);
+    if (m) return { fillType: 'hatch', noFill: false, fillColor: m.color, fillTransparency: 0, hatch: { pattern: m.pattern, angle: m.angle, spacing: m.spacing } };
+  }
+  return { hatch: { ...hatch, pattern: value as HatchPattern } };
+}
+/** angezeigter Wert: Baustoff, wenn Muster/Winkel/Abstand/Farbe genau einem Baustoff entsprechen */
+function patternValue(style: ShapeStyle, hatch: { pattern: HatchPattern; angle: number; spacing: number }): string {
+  const m = MATERIALS.find((x) => x.pattern === hatch.pattern && x.angle === hatch.angle && x.spacing === hatch.spacing && x.color === (style.fillColor ?? '').toLowerCase());
+  return m ? `mat:${m.id}` : hatch.pattern;
+}
 
 /**
  * Darstellung einer Linie bzw. Form: Linientyp, Linienstärke, Linienfarbe und – nur bei
@@ -15,9 +51,12 @@ export function StylePanel({
   kind,
   hideColor = false,
   compact = false,
+  openHint = false,
   onColor,
   onStyle,
 }: {
+  /** offene Polylinie: Hinweis, dass sie für Füllung/Schraffur erst geschlossen werden muss */
+  openHint?: boolean;
   /**
    * Kompakte Leiste (Zeichnen): alle Einstellungen in einer Zeile mit kleiner Beschriftung,
    * Füllung als Auswahl „Keine / Vollton / Schraffur“
@@ -85,7 +124,34 @@ export function StylePanel({
               <output className="style-value">{w.toLocaleString('de-DE', { minimumFractionDigits: 2 })} pt</output>
             </span>
           </label>
+          {dashArray(style.lineType, 1) && (
+            <label className="sc-field">
+              <span>Musterlänge</span>
+              <select value={style.dashScale ?? 1} onChange={(e) => onStyle({ dashScale: Number(e.target.value) })} data-testid="style-dash-scale">
+                {DASH_SCALES.map((f) => (
+                  <option key={f} value={f}>
+                    {String(f).replace('.', ',')}×
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <label className="sc-field">
+            <span>Deckkraft</span>
+            <select value={style.lineTransparency ?? 0} onChange={(e) => onStyle({ lineTransparency: Number(e.target.value) })} data-testid="style-line-transparency">
+              {[0, 25, 50, 75].map((v) => (
+                <option key={v} value={v}>
+                  {100 - v} %
+                </option>
+              ))}
+            </select>
+          </label>
           {!hideColor && <MiniColors label={open ? 'Farbe' : 'Linienfarbe'} name="Farbe" value={color} onChange={onColor} testId="style-line-color" />}
+          {openHint && (
+            <span className="sc-hint small" data-testid="style-open-hint">
+              Offene Kontur – für Füllung oder Schraffur zuerst „Verbinden“ bzw. „Schließen (Fläche)“.
+            </span>
+          )}
         </div>
         {!open && (
           <div className="sc-group" role="group" aria-label="Füllung">
@@ -108,12 +174,8 @@ export function StylePanel({
               <>
                 <label className="sc-field">
                   <span>Muster</span>
-                  <select value={hatch.pattern} onChange={(e) => onStyle({ hatch: { ...hatch, pattern: e.target.value as HatchPattern } })} data-testid="style-hatch-pattern">
-                    {HATCH_PATTERNS.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.label}
-                      </option>
-                    ))}
+                  <select value={patternValue(style, hatch)} onChange={(e) => onStyle(patternPatch(e.target.value, hatch))} data-testid="style-hatch-pattern">
+                    <PatternOptions />
                   </select>
                 </label>
                 <label className="sc-field">
@@ -149,6 +211,16 @@ export function StylePanel({
             {!style.noFill && (
               <>
                 <MiniColors label={hatchOn ? 'Schraffurfarbe' : 'Füllfarbe'} name={hatchOn ? 'Schraffurfarbe' : 'Füllfarbe'} value={style.fillColor ?? color} onChange={(c) => onStyle({ fillColor: c })} testId="style-fill-color" />
+                {hatchOn && (
+                  <label className="sc-field">
+                    <span>Flächenfarbe</span>
+                    <select value={style.hatchBg ? 'on' : 'off'} onChange={(e) => onStyle({ hatchBg: e.target.value === 'on' ? '#ffffff' : undefined })} data-testid="style-hatch-bg-on">
+                      <option value="off">Keine</option>
+                      <option value="on">Farbig</option>
+                    </select>
+                  </label>
+                )}
+                {hatchOn && style.hatchBg && <MiniColors label="Fläche hinter der Schraffur" name="Flächenfarbe" value={style.hatchBg} onChange={(c) => onStyle({ hatchBg: c })} testId="style-hatch-bg" />}
                 <label className="sc-field">
                   <span>Transparenz</span>
                   <span className="sc-range">
@@ -227,12 +299,8 @@ export function StylePanel({
                 <>
                   <label className="style-row">
                     <span>Muster</span>
-                    <select value={hatch.pattern} onChange={(e) => onStyle({ hatch: { ...hatch, pattern: e.target.value as HatchPattern } })} data-testid="style-hatch-pattern">
-                      {HATCH_PATTERNS.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.label}
-                        </option>
-                      ))}
+                    <select value={patternValue(style, hatch)} onChange={(e) => onStyle(patternPatch(e.target.value, hatch))} data-testid="style-hatch-pattern">
+                      <PatternOptions />
                     </select>
                   </label>
                   <label className="style-row">
@@ -290,11 +358,12 @@ export function StylePanel({
 
 /** Farbfelder plus freie Farbwahl */
 function ColorRow({ label, value, onChange, testId }: { label: string; value: string; onChange(c: string): void; testId: string }) {
+  const custom = useCustomColors();
   return (
     <div className="style-row">
       <span>{label}</span>
       <span className="style-colors" role="group" aria-label={label}>
-        {COLORS.map((c) => (
+        {[...DRAW_COLORS, ...custom.map((c) => ({ value: c, name: `Eigene Farbe ${c}` }))].map((c) => (
           <button
             key={c.value}
             type="button"
@@ -305,7 +374,7 @@ function ColorRow({ label, value, onChange, testId }: { label: string; value: st
             aria-pressed={value.toLowerCase() === c.value}
           />
         ))}
-        <input type="color" value={value} onChange={(e) => onChange(e.target.value)} aria-label={`${label} frei wählen`} title="Farbe frei wählen" data-testid={testId} />
+        <input type="color" value={value} onChange={(e) => (onChange(e.target.value), rememberCustomColorSoon(e.target.value, DRAW_COLORS.map((c) => c.value)))} aria-label={`${label} frei wählen`} title="Farbe frei wählen – wird als eigene Farbe gemerkt" data-testid={testId} />
       </span>
     </div>
   );
@@ -313,11 +382,12 @@ function ColorRow({ label, value, onChange, testId }: { label: string; value: st
 
 /** Kompakte Farbwahl: kleine Farbfelder in zwei Reihen plus freie Farbe */
 function MiniColors({ label, name, value, onChange, testId }: { label: string; name: string; value: string; onChange(c: string): void; testId: string }) {
+  const custom = useCustomColors();
   return (
     <div className="sc-field">
       <span>{label}</span>
       <span className="sc-colors" role="group" aria-label={label}>
-        {COLORS.map((c) => (
+        {[...DRAW_COLORS, ...custom.map((c) => ({ value: c, name: `Eigene Farbe ${c}` }))].map((c) => (
           <button
             key={c.value}
             type="button"
@@ -329,7 +399,7 @@ function MiniColors({ label, name, value, onChange, testId }: { label: string; n
             title={`${name} ${c.name}`}
           />
         ))}
-        <input type="color" value={value} onChange={(e) => onChange(e.target.value)} aria-label={`${name} frei wählen`} title="Farbe frei wählen" data-testid={testId} />
+        <input type="color" value={value} onChange={(e) => (onChange(e.target.value), rememberCustomColorSoon(e.target.value, DRAW_COLORS.map((c) => c.value)))} aria-label={`${name} frei wählen`} title="Farbe frei wählen – wird als eigene Farbe gemerkt" data-testid={testId} />
       </span>
     </div>
   );

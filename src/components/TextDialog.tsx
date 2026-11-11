@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { COLORS, type TextFont } from '../lib/types';
+import { DRAW_COLORS, type TextFont } from '../lib/types';
+import { rememberCustomColorSoon, useCustomColors } from '../lib/custom-colors';
 import { cleanFont, FONT_FAMILIES, fontProps } from '../lib/text-font';
 import { visibleStroke } from './PlanViewer';
 import { Modal } from './Modal';
@@ -12,6 +13,7 @@ import { customDialog } from './ui';
 
 export function FontControls({ font, color, onFont, onColor, compact = false }: { font: TextFont | undefined; color: string; onFont(f: TextFont | undefined): void; onColor(c: string): void; compact?: boolean }) {
   const f = font ?? {};
+  const custom = useCustomColors();
   return (
     <div className={`font-controls${compact ? ' compact' : ''}`} data-testid="font-controls">
       <select value={f.family ?? 'sans'} onChange={(e) => onFont(cleanFont({ ...f, family: e.target.value as TextFont['family'] }))} aria-label="Schriftart" data-testid="font-family">
@@ -32,7 +34,7 @@ export function FontControls({ font, color, onFont, onColor, compact = false }: 
         </button>
       </span>
       <span className="font-colors" role="radiogroup" aria-label="Textfarbe">
-        {COLORS.map((c) => (
+        {[...DRAW_COLORS, ...custom.map((c) => ({ value: c, name: `Eigene Farbe ${c}` }))].map((c) => (
           <button
             key={c.value}
             type="button"
@@ -46,6 +48,7 @@ export function FontControls({ font, color, onFont, onColor, compact = false }: 
             data-testid={`text-color-${c.name}`}
           />
         ))}
+        <input type="color" className="font-color-free" value={color} onChange={(e) => (onColor(e.target.value), rememberCustomColorSoon(e.target.value, DRAW_COLORS.map((c) => c.value)))} aria-label="Textfarbe frei wählen" title="Farbe frei wählen – wird als eigene Farbe gemerkt" data-testid="text-color-free" />
       </span>
     </div>
   );

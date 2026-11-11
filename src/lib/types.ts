@@ -339,7 +339,23 @@ export interface Deduction {
 }
 
 /** Linientypen (wie in CAD-Programmen); Wellen- und Zickzacklinie sind reine Darstellung */
-export type LineType = 'solid' | 'dashed' | 'dotted' | 'dashdot' | 'dashdotdot' | 'wave' | 'zigzag';
+export type LineType =
+  | 'solid'
+  | 'dashed'
+  | 'dashedShort'
+  | 'dashedLong'
+  | 'dotted'
+  | 'dottedDense'
+  | 'dashdot'
+  | 'dashdotdot'
+  | 'dash2dot'
+  | 'doubleDash'
+  | 'center'
+  | 'axis'
+  | 'border'
+  | 'hidden'
+  | 'wave'
+  | 'zigzag';
 
 /**
  * Darstellung einer Linie bzw. Form – ändert weder Geometrie noch Messwerte.
@@ -359,9 +375,37 @@ export interface ShapeStyle {
   fillType?: 'solid' | 'hatch';
   /** Schraffur: Muster, Winkel in Grad, Linienabstand in Punkt */
   hatch?: { pattern: HatchPattern; angle: number; spacing: number };
+  /** Flächenfarbe hinter der Schraffur (unabhängig von der Schraffurfarbe); fehlt = keine */
+  hatchBg?: string;
+  /** Musterlänge der Striche (Faktor, 1 = Standard) */
+  dashScale?: number;
+  /** Transparenz der Linie in % (0 = deckend) */
+  lineTransparency?: number;
 }
 
-export type HatchPattern = 'lines' | 'cross' | 'dots';
+export type HatchPattern =
+  | 'lines'
+  | 'cross'
+  | 'dots'
+  | 'horizontal'
+  | 'vertical'
+  | 'grid'
+  | 'dense'
+  | 'brick'
+  | 'concrete'
+  | 'reinforced'
+  | 'earth'
+  | 'gravel'
+  | 'insulationSoft'
+  | 'insulationHard'
+  | 'wood'
+  | 'woodBased'
+  | 'metal'
+  | 'stone'
+  | 'glass'
+  | 'plastic'
+  | 'gypsum'
+  | 'sealing';
 
 /** Bauteilkennzeichnung im Plan, z. B. „A – Wand“. */
 export interface Component extends SyncMeta {
@@ -478,6 +522,8 @@ export const COLORS: { value: string; name: string }[] = [
   { value: '#f76707', name: 'Orange' },
   { value: '#9c36b5', name: 'Violett' },
 ];
+/** Farben im Zeichenmodus (Darstellung, Text): Standardfarben plus Grau; dazu eigene Farben je Gerät */
+export const DRAW_COLORS: { value: string; name: string }[] = [...COLORS, { value: '#868e96', name: 'Grau' }];
 
 export const SHAPE_LABELS: Record<ShapeType, string> = {
   line: 'Linie',

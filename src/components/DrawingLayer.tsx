@@ -126,7 +126,7 @@ export function renderElement(e: Pick<DrawElement, 'id' | 'type' | 'color' | 'te
   // Füllung (unveränderte Form) und Umrandung (Linientyp) getrennt
   // Muster nach der normalen Stärke: beim Auswählen bleibt es gleich (Hervorhebung nur dicker)
   const base = e.style?.lineWidth ? w : 2;
-  const line = strokeGeometry(pageShape, toS, e.style?.lineType, w, base);
+  const line = strokeGeometry(pageShape, toS, e.style?.lineType, w, base, e.style?.dashScale);
   const fill = fillOf(pageShape, e.color, e.style, DEFAULT_TRANSPARENCY.element);
   return (
     <g data-element={e.type} data-element-id={e.id} opacity={faded ? 0.55 : 1}>
@@ -138,6 +138,7 @@ export function renderElement(e: Pick<DrawElement, 'id' | 'type' | 'color' | 'te
         stroke={stroke}
         strokeWidth={w}
         strokeDasharray={line.dash?.join(' ')}
+        strokeOpacity={e.style?.lineTransparency ? 1 - Math.min(100, e.style.lineTransparency) / 100 : undefined}
         strokeLinejoin="round"
         strokeLinecap="round"
         data-line-type={e.style?.lineType ?? 'solid'}

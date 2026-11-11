@@ -125,7 +125,7 @@ test('Apple Pencil: Objekt antippen und mit Basis- und Zielpunkt kopieren', asyn
   await waitSaved(page);
   expect(await elements(page)).toHaveLength(3);
   // zweite Kopie: derselbe Basispunkt, nur noch den Zielpunkt antippen
-  await penTap(cdp, at(0.15, -0.25));
+  await penTap(cdp, at(0.15, 0.85));
   await waitSaved(page);
   expect(await elements(page)).toHaveLength(4);
   const els = await elements(page);
@@ -157,9 +157,10 @@ test('Phase 2 mit Finger: Versetzen (Objekt, dann Seite antippen) und Spiegeln (
   await expect(page.getByTestId('element-bar')).toBeVisible();
   await pickTool(page, 'draw-mirror', 'tap');
   await expect(page.getByTestId('command-prompt')).toContainText('1. Punkt');
-  await fingerTap(cdp, at(0.5, -0.15));
+  // Achse am linken Rand (oben liegt am Tablet die Befehlsleiste, am Handy unten)
+  await fingerTap(cdp, at(0.04, 0.0));
   await expect(page.getByTestId('command-prompt')).toContainText('2. Punkt');
-  await fingerTap(cdp, at(0.5, 0.2));
+  await fingerTap(cdp, at(0.04, 0.3));
   await waitSaved(page);
   expect(await elements(page)).toHaveLength(4);
 });
@@ -179,8 +180,39 @@ test('Phase 2 mit Stift: Versetzen und Spiegeln', async ({ page }, info) => {
   await page.getByTestId('command-done').tap();
   await penTap(cdp, at(0.67, 0.25));
   await pickTool(page, 'draw-mirror', 'tap');
-  await penTap(cdp, at(0.5, -0.15));
-  await penTap(cdp, at(0.5, 0.2));
+  await penTap(cdp, at(0.04, 0.0));
+  await penTap(cdp, at(0.04, 0.3));
   await waitSaved(page);
   expect(await elements(page)).toHaveLength(4);
+});
+
+test('Phase 3 mit Finger bzw. Stift: Reihe rechteckig und polar (Mittelpunkt antippen)', async ({ page }, info) => {
+  const { cdp, at } = await setup(page);
+  const tap = info.project.name === 'iphone' ? fingerTap : (c: CDPSession, p: { x: number; y: number }) => penTap(c, p);
+  await fingerTap(cdp, at(0.03, -0.17));
+  await tap(cdp, at(0.27, 0.25)); // Rechteck A
+  await expect(page.getByTestId('element-bar')).toBeVisible();
+  await pickTool(page, 'draw-array', 'tap');
+  const dlg = page.getByTestId('array-dialog');
+  await dlg.getByTestId('array-kind-linear').tap();
+  await dlg.getByTestId('array-count').fill('3');
+  await dlg.getByTestId('array-dist').fill('2');
+  await dlg.getByTestId('array-angle').fill('-90');
+  await dlg.getByTestId('array-ok').tap();
+  await waitSaved(page);
+  expect(await elements(page)).toHaveLength(4);
+  // polar um einen angetippten Punkt (zuerst Auswahl aufheben – die Leiste verdeckt am Handy sonst die Mitte)
+  await fingerTap(cdp, at(0.03, -0.17));
+  await tap(cdp, at(0.67, 0.25)); // Rechteck B
+  await expect(page.getByTestId('element-bar')).toBeVisible();
+  await pickTool(page, 'draw-array', 'tap');
+  await dlg.getByTestId('array-kind-polar').tap();
+  await dlg.getByTestId('array-pcount').fill('3');
+  await dlg.getByTestId('array-total').fill('360');
+  await dlg.getByTestId('array-ok').tap();
+  await expect(page.getByTestId('command-prompt')).toContainText('Mittelpunkt');
+  await tap(cdp, at(0.67, 0.05));
+  await waitSaved(page);
+  expect(await elements(page)).toHaveLength(6);
+  await expect(page.getByTestId('command-bar')).toHaveCount(0);
 });

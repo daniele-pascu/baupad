@@ -148,7 +148,6 @@ export function DrawRibbon({
     </div>
   );
 
-  const styled = sel && sel.type !== 'text' && sel.type !== 'dimension';
   return (
     <div className="ribbon" role="toolbar" aria-label="Zeichenwerkzeuge" data-testid="draw-toolbar">
       <div className="ribbon-tabs" role="tablist">
@@ -183,6 +182,7 @@ export function DrawRibbon({
               {toolBtn('copy')}
               {toolBtn('mirror')}
               {toolBtn('offset')}
+              {toolBtn('array')}
               {toolBtn('join')}
               {btn('draw-rotate', 'rotate', 'Drehen', () => void transform('rotate'), { disabled: !sel, title: sel ? 'Ausgewähltes Objekt um einen Winkel drehen' : 'Zuerst genau ein Objekt auswählen' })}
               {btn('draw-scale', 'scale', 'Skalieren', () => void transform('scale'), { disabled: !sel, title: sel ? 'Ausgewähltes Objekt mit einem Faktor skalieren' : 'Zuerst genau ein Objekt auswählen' })}
@@ -193,45 +193,42 @@ export function DrawRibbon({
             {editGroup}
           </>
         )}
-        {tab === 'style' && (
-          <div className="ribbon-style" data-testid="ribbon-style">
-            <span className="ribbon-context" title={styled ? 'Einstellungen des ausgewählten Objekts' : 'Einstellungen für neue Objekte'}>
-              {styled ? 'Auswahl' : 'Neue Objekte'}
-            </span>
-            {styled ? (
-              <StylePanel
-                compact
-                color={sel.color}
-                style={sel.style}
-                open={sel.type === 'line' || sel.type === 'arc' || (sel.type === 'freehand' && sel.shape.closed === false)}
-                defaultWidth={1.1}
-                kind="element"
-                onColor={(c) => {
-                  drawing.setColor(c);
-                  drawing.recolor(sel.id, c);
-                }}
-                onStyle={(p) => drawing.restyle(sel.id, p)}
-              />
-            ) : (
-              // Voreinstellung nur für die Linie: neue Formen sind immer ohne Füllung
-              <StylePanel
-                compact
-                color={drawing.color}
-                style={drawing.defaultStyle}
-                open
-                defaultWidth={1.1}
-                kind="element"
-                onColor={drawing.setColor}
-                onStyle={drawing.setDefaultStyle}
-              />
-            )}
-            {!styled && (
-              <span className="ribbon-hint" data-testid="ribbon-no-fill-hint">
-                Neue Formen: keine Füllung
+        {tab === 'style' && (() => {
+          const many = drawing.selection.filter((e) => e.type !== 'text' && e.type !== 'dimension');
+          const first = many[0];
+          const isOpen = (e: NonNullable<typeof first>) => e.type === 'line' || e.type === 'arc' || (e.type === 'freehand' && e.shape.closed === false);
+          return (
+            <div className="ribbon-style" data-testid="ribbon-style">
+              <span className="ribbon-context" title={first ? 'Einstellungen der ausgewählten Objekte' : 'Einstellungen für neue Objekte'} data-testid="ribbon-style-context">
+                {many.length > 1 ? `Auswahl (${many.length})` : first ? 'Auswahl' : 'Neue Objekte'}
               </span>
-            )}
-          </div>
-        )}
+              {first ? (
+                <StylePanel
+                  compact
+                  color={first.color}
+                  style={first.style}
+                  open={many.every(isOpen)}
+                  openHint={many.some((e) => e.type === 'freehand' && e.shape.closed === false)}
+                  defaultWidth={1.1}
+                  kind="element"
+                  onColor={(c) => {
+                    drawing.setColor(c);
+                    drawing.recolorMany(c);
+                  }}
+                  onStyle={(p) => drawing.restyleMany(p)}
+                />
+              ) : (
+                // Voreinstellung nur für die Linie: neue Formen sind immer ohne Füllung
+                <StylePanel compact color={drawing.color} style={drawing.defaultStyle} open defaultWidth={1.1} kind="element" onColor={drawing.setColor} onStyle={drawing.setDefaultStyle} />
+              )}
+              {!first && (
+                <span className="ribbon-hint" data-testid="ribbon-no-fill-hint">
+                  Neue Formen: keine Füllung
+                </span>
+              )}
+            </div>
+          );
+        })()}
         {tab === 'precision' && (
           <>
             <div className="tool-group" role="group" aria-label="Fang und Hilfen">

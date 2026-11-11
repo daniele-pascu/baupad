@@ -67,6 +67,8 @@ const PATHS: Record<string, string> = {
   move: 'M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3',
   copy: 'M8 8h11v11H8zM5 16V5h11',
   stretch: 'M4 4h7v7H4zM14 14l6 6M20 14v6h-6',
+  /** Reihe: vier gleiche Quadrate im Raster */
+  array: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z',
   /** Verbinden: zwei Linien treffen sich in einem Punkt */
   join: 'M3 18l7-7M14 11l7 7M10 11h4M12 11a1.5 1.5 0 100 .01',
   /** Versetzen: Linie mit paralleler Kopie und Abstandspfeil */

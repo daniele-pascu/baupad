@@ -389,13 +389,17 @@ function drawStyledShape(
   if (fill && fill.opacity > 0) {
     const f = fillPaths(shape, svgMap, fill, 1);
     if (f.solid) page.drawSvgPath(f.solid, { x: 0, y: 0, color: hexToRgb(fill.color), opacity: fill.opacity });
-    else if (f.hatch)
+    else if (f.hatch) {
+      // Flächenfarbe hinter der Schraffur
+      if (f.bg && fill.bg) page.drawSvgPath(f.bg, { x: 0, y: 0, color: hexToRgb(fill.bg) });
       page.drawSvgPath(f.hatch, { x: 0, y: 0, borderColor: hexToRgb(fill.color), borderWidth: f.hatchWidth, borderOpacity: fill.opacity, borderLineCap: LineCapStyle.Round });
+    }
   }
-  const line = strokeGeometry(shape, svgMap, style?.lineType, width);
+  const line = strokeGeometry(shape, svgMap, style?.lineType, width, width, style?.dashScale);
   const common = { x: 0, y: 0, borderDashArray: line.dash, borderLineCap: LineCapStyle.Round };
-  if (halo) page.drawSvgPath(line.d, { ...common, borderColor: halo, borderWidth: width + 1.6, borderOpacity: 0.75 });
-  page.drawSvgPath(line.d, { ...common, borderColor: hexToRgb(color), borderWidth: width, borderOpacity: 1 });
+  const lineOpacity = 1 - Math.min(100, Math.max(0, style?.lineTransparency ?? 0)) / 100;
+  if (halo) page.drawSvgPath(line.d, { ...common, borderColor: halo, borderWidth: width + 1.6, borderOpacity: 0.75 * lineOpacity });
+  page.drawSvgPath(line.d, { ...common, borderColor: hexToRgb(color), borderWidth: width, borderOpacity: lineOpacity });
 }
 
 /** Gut sichtbare Strichfarbe (Weiß wäre auf weißem Plan unsichtbar) */

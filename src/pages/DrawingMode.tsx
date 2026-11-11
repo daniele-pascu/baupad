@@ -31,7 +31,8 @@ import {
 import { type OrthoDir, extendLine, ORTHO_DIRS, orthoPoint, rotateShapeBy, scaleShape, stretchShape, translateShape, trimByFence, trimShape } from '../lib/cad';
 import { edgesOf, findSnap, segmentIntersection, type SnapKind } from '../lib/snap';
 import { inputVector, parseCadInput, vectorInfo } from '../lib/cad-input';
-import { canOffset, distanceToShape, joinShapes, mirrorShape, offsetShape } from '../lib/cad-ops';
+import { arrayOffsets, canOffset, distanceToShape, joinShapes, mirrorShape, offsetShape, polarAngles, rotateAround, type ArrayParams } from '../lib/cad-ops';
+import { arrayDialog } from '../components/ArrayDialog';
 import { dimsVisible, visibleDamages, visibleElements } from '../lib/layers';
 import { distToSegment, isOpenShape, lineShape, pathToSvg, rectsOverlap, removeVertex, setPolylineClosed, shapeAABB, shapePath, toScreen, type Point, type View } from '../lib/geometry';
 import { newMeta, putRecord, putRecords, softDelete, type ProjectState } from '../lib/store';
@@ -42,14 +43,14 @@ import type { Damage, DrawElement, DrawElementType, Plan, Rect, Shape, ShapeStyl
 export type ToolGroup = 'select' | 'draw' | 'annotate' | 'modify';
 
 /** Werkzeuge des Zeichenmodus: Zeichnen sowie Ändern (Kopieren, Verschieben, Strecken …) */
-export type DrawTool = Tool | 'copy' | 'move' | 'stretch' | 'join' | 'offset' | 'mirror';
+export type DrawTool = Tool | 'copy' | 'move' | 'stretch' | 'join' | 'offset' | 'mirror' | 'array';
 
 /** Befehle, die ausgewählte Objekte brauchen (ohne Auswahl fragen sie zuerst danach) */
 export const NEEDS_SELECTION = new Set<DrawTool>(['copy', 'move']);
 /** Befehle mit Basispunkt → Zielpunkt bzw. Eingabe im Befehlsfeld */
 export const VECTOR_COMMANDS = new Set<DrawTool>(['copy', 'move', 'mirror']);
 /** Befehle, die zuerst Objekte brauchen (ohne Auswahl: wählen, dann „Weiter“) */
-export const SELECT_FIRST = new Set<DrawTool>(['copy', 'move', 'mirror', 'join']);
+export const SELECT_FIRST = new Set<DrawTool>(['copy', 'move', 'mirror', 'join', 'array']);
 
 export const DRAW_TOOLS: { id: DrawTool; label: string; short?: string; icon: string; key: string; group: ToolGroup }[] = [
   { id: 'select', label: 'Auswahl: Objekte verschieben, Eckpunkte bearbeiten', short: 'Auswahl', icon: 'select', key: 'v', group: 'select' },
@@ -68,6 +69,7 @@ export const DRAW_TOOLS: { id: DrawTool; label: string; short?: string; icon: st
   { id: 'stretch', label: 'Strecken: Fenster über Eckpunkte ziehen, dann Verschiebung ziehen', short: 'Strecken', icon: 'stretch', key: 's', group: 'modify' },
   { id: 'mirror', label: 'Spiegeln: Objekte an einer Achse aus zwei Punkten spiegeln – Original behalten oder löschen', short: 'Spiegeln', icon: 'mirror', key: 'i', group: 'modify' },
   { id: 'offset', label: 'Versetzen: parallele Kopie im Abstand – Objekt antippen, dann die Seite (Wandstärke, parallele Linien, Rechteck nach innen/außen)', short: 'Versetzen', icon: 'offset', key: 'o', group: 'modify' },
+  { id: 'array', label: 'Reihe: ausgewählte Objekte rechteckig (Spalten × Zeilen), linear oder im Kreis mehrfach anordnen', short: 'Reihe', icon: 'array', key: 'a', group: 'modify' },
   { id: 'join', label: 'Verbinden: Linien, Polylinien und Bögen an gemeinsamen Endpunkten zu einer Linie bzw. geschlossenen Fläche verbinden – kleine Lücken werden geschlossen', short: 'Verbinden', icon: 'join', key: 'j', group: 'modify' },
   { id: 'trim', label: 'Stutzen: Abschnitt bis zu den nächsten Kanten bzw. Eckpunkten entfernen – anklicken oder frei über mehrere Linien ziehen (Zaun)', short: 'Stutzen', icon: 'trim', key: 'z', group: 'modify' },
   { id: 'extend', label: 'Verlängern: Linie bis zur nächsten Kante verlängern', short: 'Verlängern', icon: 'extend', key: 'e', group: 'modify' },
@@ -191,6 +193,8 @@ export function useDrawing(opts: {
     setMirrorKeepState(on);
     storePref('mirrorKeep', on ? '1' : '0');
   };
+  /** Reihe (polar): Werte aus dem Dialog, Mittelpunkt wird noch angetippt */
+  const [arrayPolar, setArrayPolar] = useState<Extract<ArrayParams, { kind: 'polar' }> | null>(null);
   /** Verbinden: Lücken bis zu diesem Abstand (m) schließen */
   const [joinTol, setJoinTolState] = useState(() => Number(pref('joinTol', '0.02')) || 0.02);
   const setJoinTol = (t: number) => {
@@ -230,6 +234,13 @@ export function useDrawing(opts: {
     setStretchWin(null);
     setCmdBase(null);
     setCopies(0);
+    setArrayPolar(null);
+    // Reihe mit Auswahl: gleich die Werte abfragen
+    if (t === 'array' && selIds.length) {
+      setCmdSelecting(false);
+      void openArray(selIds);
+      return;
+    }
     // Versetzen: ein gewähltes Objekt wird gleich übernommen
     setOffsetSrc(t === 'offset' && selIds.length === 1 ? selIds[0] : null);
     // Verbinden mit Auswahl: sofort ausführen
@@ -245,7 +256,7 @@ export function useDrawing(opts: {
     if (!NEEDS_SELECTION.has(t) && t !== 'selwin') storePref('drawTool', t);
   };
   /** Werkzeug der Planansicht: Befehle nutzen Vektor (Basis → Ziel) bzw. Fenster */
-  const viewerTool: Tool = SELECT_FIRST.has(tool) && cmdSelecting ? 'selwin' : VECTOR_COMMANDS.has(tool) ? 'vector' : tool === 'offset' ? 'pick' : tool === 'stretch' ? (stretchWin ? 'vector' : 'window') : (tool as Tool);
+  const viewerTool: Tool = tool === 'array' && arrayPolar ? 'pick' : SELECT_FIRST.has(tool) && cmdSelecting ? 'selwin' : VECTOR_COMMANDS.has(tool) ? 'vector' : tool === 'offset' ? 'pick' : tool === 'stretch' ? (stretchWin ? 'vector' : 'window') : (tool as Tool);
   const setColor = (c: string) => {
     setColorState(c);
     storePref('drawColor', c);
@@ -645,8 +656,46 @@ export function useDrawing(opts: {
     setSelectedId(null);
   };
 
+  /** Reihe: Werte abfragen (Dialog); polar wartet danach auf den Mittelpunkt */
+  const openArray = async (ids: string[] = selIds) => {
+    const p = await arrayDialog(ids.length);
+    if (!p) {
+      setToolState('select');
+      setCmdSelecting(false);
+      return;
+    }
+    if (p.kind === 'polar') {
+      setArrayPolar(p);
+      setToolState('array');
+      setCmdSelecting(false);
+      return;
+    }
+    runArrayAt(p, null, ids);
+  };
+
+  /** Reihe anlegen: Kopien mit allen Eigenschaften (ein Rückgängig-Schritt) */
+  const runArrayAt = (p: ArrayParams, center: Point | null, ids: string[] = selIds) => {
+    const list = ids.map((id) => data.elements[id]).filter((e): e is DrawElement => !!e && !e.deletedAt);
+    if (!list.length) return;
+    const copies: DrawElement[] = [];
+    if (p.kind === 'polar') {
+      if (!center) return;
+      for (const a of polarAngles(p.count, p.total)) for (const e of list) copies.push({ ...e, ...newMeta(), shape: roundShape(rotateAround(e.shape, center, a, p.rotate || e.type === 'dimension')) });
+    } else for (const o of arrayOffsets(p)) for (const e of list) copies.push({ ...e, ...newMeta(), shape: roundShape(translateShape(e.shape, o.x, o.y)) });
+    putRecords({ elements: copies });
+    toast(`Reihe: ${copies.length} Kopie${copies.length === 1 ? '' : 'n'} angelegt.`, 'success', 2500);
+    setArrayPolar(null);
+    setToolState('select');
+    setCmdSelecting(false);
+  };
+
   /** Befehl „Weiter“ (nach dem Wählen der Objekte) */
   const cmdNext = () => {
+    if (tool === 'array') {
+      setCmdSelecting(false);
+      void openArray();
+      return;
+    }
     if (tool === 'join') {
       if (runJoin()) {
         setToolState('select');
@@ -789,6 +838,10 @@ export function useDrawing(opts: {
 
   /** Werkzeug „Text“: Stelle angetippt */
   const onPlace = async (p: Point) => {
+    if (tool === 'array' && arrayPolar) {
+      runArrayAt(arrayPolar, { x: p.x / k, y: p.y / k });
+      return;
+    }
     if (tool === 'offset') {
       const pm = { x: p.x / k, y: p.y / k };
       if (!offsetSrc) {
@@ -959,6 +1012,16 @@ export function useDrawing(opts: {
     if (e) putRecord('elements', { ...e, color: c });
   };
 
+  /** Darstellung bzw. Farbe aller ausgewählten Objekte (Linien/Formen) ändern – ein Rückgängig-Schritt */
+  const restyleMany = (patch: Partial<ShapeStyle>) => {
+    const list = selection.filter((e) => e.type !== 'text' && e.type !== 'dimension').map((e) => data.elements[e.id]);
+    if (list.length) putRecords({ elements: list.map((e) => ({ ...e, style: { ...e.style, ...patch } })) });
+  };
+  const recolorMany = (c: string) => {
+    const list = selection.map((e) => data.elements[e.id]);
+    if (list.length) putRecords({ elements: list.map((e) => ({ ...e, color: c })) });
+  };
+
   /** Darstellung nur dieses Objekts ändern – Geometrie und Maße bleiben unverändert */
   const restyle = (id: string, patch: Partial<ShapeStyle>) => {
     const e = data.elements[id];
@@ -1052,6 +1115,17 @@ export function useDrawing(opts: {
           {targets.map((t, i) => (
             <path key={i} d={pathToSvg(shapePath(shapeToPage(t, k)), (p) => toScreen(view, p))} />
           ))}
+        </g>
+      );
+    }
+    // Reihe (polar): Vorschau um den Mittelpunkt an der Maus
+    if (tool === 'array' && arrayPolar && hover) {
+      const c = { x: hover.x / k, y: hover.y / k };
+      ghost = (
+        <g className="cad-ghost" data-testid="cad-ghost">
+          {polarAngles(arrayPolar.count, arrayPolar.total).flatMap((a) =>
+            selection.map((e) => <path key={`${a}-${e.id}`} d={pathToSvg(shapePath(shapeToPage(rotateAround(e.shape, c, a, arrayPolar.rotate), k)), (q) => toScreen(view, q))} />),
+          )}
         </g>
       );
     }
@@ -1162,6 +1236,7 @@ export function useDrawing(opts: {
     mirrorKeep,
     setMirrorKeep,
     joinTol,
+    arrayPolar,
     viewerTool,
     stretchWin,
     transformSelected,
@@ -1181,6 +1256,8 @@ export function useDrawing(opts: {
     setShowDims,
     recolor,
     restyle,
+    restyleMany,
+    recolorMany,
     defaultStyle,
     setDefaultStyle,
     overlapping,

@@ -205,6 +205,20 @@ export function tastenTests() {
     await expect(page.getByTestId('offset-through')).toBeVisible();
     await pruefe(page, 'Befehlsleiste Versetzen', out);
     await page.getByTestId('command-done').click();
+    // Phase 3: Reihe-Dialog und Eigenschaften mit Baustoff-Schraffur für mehrere Objekte
+    await pickTool(page, 'draw-select-all');
+    await page.getByTestId('multi-array').click();
+    await expect(page.getByTestId('array-dialog')).toBeVisible();
+    await pruefe(page, 'Dialog Reihe', out);
+    await page.getByTestId('array-kind-polar').click();
+    await pruefe(page, 'Dialog Reihe polar', out);
+    await page.getByTestId('array-dialog').getByRole('button', { name: 'Abbrechen' }).click();
+    await pickTool(page, 'draw-select-all');
+    await page.getByTestId('ribbon-tab-style').click();
+    await page.getByTestId('ribbon-style').getByTestId('style-fill-type').selectOption('hatch');
+    await page.getByTestId('ribbon-style').getByTestId('style-hatch-pattern').selectOption('mat:beton');
+    await page.getByTestId('ribbon-style').getByTestId('style-hatch-bg-on').selectOption('on');
+    await pruefe(page, 'Eigenschaften Schraffur', out);
     // Registerkarten Ändern und Präzision
     for (const t of ['modify', 'precision']) {
       await page.getByTestId(`ribbon-tab-${t}`).click();
