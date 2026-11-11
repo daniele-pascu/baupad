@@ -153,9 +153,10 @@ export function DrawRibbon({
             </div>
             <div className="tool-group" role="group" aria-label="Bauteile">
               {toolBtn('wall')}
-              {btn('draw-door', 'door', 'Tür', () => void drawing.pickSymbol('door'), { pressed: drawing.tool === 'symbol' && symbolDef(drawing.symbolId)?.group === 'door', title: 'Tür einsetzen (ein-/zweiflügelig, Schiebe-, Falt-, Pendeltür)' })}
+              {btn('draw-door', 'door', 'Tür', () => void drawing.pickSymbol('door'), { pressed: drawing.tool === 'symbol' && symbolDef(drawing.symbolId)?.group === 'door', title: 'Tür einsetzen (Dreh-, Pendel-, Schiebe-, Falttür, Tore, Drehkreuz)' })}
               {btn('draw-window', 'window', 'Fenster', () => void drawing.pickSymbol('window'), { pressed: drawing.tool === 'symbol' && symbolDef(drawing.symbolId)?.group === 'window', title: 'Fenster einsetzen (ein-/zweiflügelig, Festverglasung, Schiebefenster)' })}
               {btn('draw-electro', 'plug', 'Elektro', () => void drawing.pickSymbol('electro'), { pressed: drawing.tool === 'symbol' && ['electro', 'appliance', 'heating'].includes(symbolDef(drawing.symbolId)?.group ?? ''), title: 'Elektro-, Geräte- und Heizungssymbole (ÖNORM)' })}
+              {btn('draw-sanitary', 'bath', 'Sanitär', () => void drawing.pickSymbol('sanitary'), { pressed: drawing.tool === 'symbol' && ['sanitary', 'shaft'].includes(symbolDef(drawing.symbolId)?.group ?? ''), title: 'Sanitärgegenstände, Fänge und Durchbrüche (ÖNORM)' })}
             </div>
             <div className="tool-group" role="group" aria-label="Schraffur">
               {btn('draw-hatch', 'hatch', 'Schraffur', () => void drawing.pickHatch(), { pressed: drawing.tool === 'hatch', title: 'Schraffur: Muster bzw. Baustoff und Farbe wählen, dann in eine geschlossene Fläche tippen' })}

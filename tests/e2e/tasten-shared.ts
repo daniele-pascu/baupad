@@ -276,6 +276,11 @@ export function tastenTests() {
     await pruefe(page, 'Dialog Bauteile', out);
     await page.getByTestId('symbol-group-electro').click();
     await pruefe(page, 'Dialog Bauteile Elektro', out);
+    await page.getByTestId('symbol-group-sanitary').click();
+    await pruefe(page, 'Dialog Bauteile Sanitär', out);
+    await page.getByTestId('symbol-group-shaft').click();
+    await pruefe(page, 'Dialog Bauteile Fänge/Durchbrüche', out);
+    await page.getByTestId('symbol-group-electro').click();
     await page.getByTestId('symbol-socket').click();
     await expect(page.getByTestId('command-bar')).toBeVisible();
     await pruefe(page, 'Befehlsleiste Bauteil', out);

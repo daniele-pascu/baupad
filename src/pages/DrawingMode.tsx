@@ -36,7 +36,7 @@ import { angleBetween, angleCcw, arrayOffsets, canOffset, distanceToShape, fille
 import { DEFAULT_HATCH_SETTING, hatchLabel, hatchPicker, hatchStyle, type HatchSetting } from '../components/HatchPicker';
 import { arrayDialog } from '../components/ArrayDialog';
 import { symbolPicker } from '../components/SymbolPicker';
-import { symbolAnchor, symbolDef, symbolGeometry, type SymbolGroup } from '../lib/symbols';
+import { symbolAnchor, symbolDef, symbolGeometry, symbolWall, type SymbolGroup } from '../lib/symbols';
 import { wallOpenings, wallGeometry } from '../lib/walls';
 import { dimsVisible, visibleDamages, visibleElements } from '../lib/layers';
 import { distToSegment, isOpenShape, lineShape, pathToSvg, rectsOverlap, removeVertex, setPolylineClosed, shapeAABB, pointInPolygon, polygonArea, shapeFromVertices, shapePath, shapeVertices, toScreen, type Point, type View } from '../lib/geometry';
@@ -1256,7 +1256,8 @@ export function useDrawing(opts: {
     let h = symbolSize?.h ?? def.h;
     let center = pm;
     let rotation = 0;
-    if (def.group === 'door' || def.group === 'window') {
+    const wallV = symbolWall(def);
+    if (wallV !== null || def.group === 'window') {
       const tol = (isCoarse() ? 22 : 14) / ((viewer.current?.scale() ?? 1) * k);
       let best: { q: Point; a: number; d: number; wallT?: number } | null = null;
       for (const e of stored) {
@@ -1280,8 +1281,8 @@ export function useDrawing(opts: {
         if (a <= -90) a += 180;
         rotation = ((a % 360) + 360) % 360;
         const r = (a * Math.PI) / 180;
-        // Tür: Öffnungslinie (unten im Symbol) auf der Linie → Mitte um h/2 nach „oben“ (im Symbol) versetzt
-        const up = def.group === 'door' ? h / 2 : 0;
+        // Tür/Sanitär: Wandlinie des Symbols (Türen unten, Sanitär oben, Pendeltür Mitte) auf der Linie
+        const up = wallV !== null ? (wallV - 0.5) * h : 0;
         center = { x: best.q.x + up * Math.sin(r), y: best.q.y - up * Math.cos(r) };
       }
     }
@@ -1295,8 +1296,9 @@ export function useDrawing(opts: {
     const next = !e.symbol[axis === 'x' ? 'flipX' : 'flipY'];
     let shape = e.shape;
     // Tür: Öffnungsrichtung wechseln = Flügel auf die andere Wandseite; die Öffnungslinie bleibt auf der Wand
-    if (axis === 'y' && symbolDef(e.symbol.id)?.group === 'door') {
-      const dy = next ? e.shape.h : -e.shape.h;
+    const wallV = symbolWall(symbolDef(e.symbol.id));
+    if (axis === 'y' && wallV !== null && wallV !== 0.5) {
+      const dy = (next ? 1 : -1) * (2 * wallV - 1) * e.shape.h;
       const r = ((e.shape.rotation ?? 0) * Math.PI) / 180;
       shape = roundShape(translateShape(e.shape, -dy * Math.sin(r), dy * Math.cos(r)));
     }
