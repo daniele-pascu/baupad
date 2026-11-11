@@ -2801,7 +2801,7 @@ tr.lv-flagged td {
   .editor-topbar {
     gap: 4px;
     flex-wrap: wrap;
-    row-gap: 2px;
+    row-gap: 8px; /* Planauswahl und Tasten darunter nicht aneinander */
   }
   .editor-topbar .topbar-title {
     flex: 1 1 0;
@@ -10994,3 +10994,11 @@ html[data-theme='dark'] .crew-search {
   .aufmass-table .actions-col .icon-btn-sm { width: 32px; height: 32px; min-width: 0; min-height: 0; }
 }
 .plan-list-foot { margin-top: 12px; }
+
+/* Anmelden, Registrieren, neues Passwort: Abstand zwischen Feldern und Tasten (nichts klebt aneinander) */
+.auth-card form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.auth-card form .auth-submit { margin-top: 4px; }

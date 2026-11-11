@@ -2,8 +2,8 @@
 
 ## Tasten-Regel (PC, Handy, Tablet)
 
-Alle Tasten müssen auf jedem Gerät gut platziert sein: nichts darf sich überlappen, verdeckt oder am Rand
-abgeschnitten sein – am PC (1440×900), iPhone (390×844), iPad hochkant (820×1180) und iPad quer (1180×820).
+Alle Tasten müssen auf jedem Gerät gut platziert sein: nichts darf sich überlappen, verdeckt, am Rand
+abgeschnitten sein oder aneinander kleben (Eingabefeld direkt über/unter einer Taste ohne Abstand) – am PC (1440×900), iPhone (390×844), iPad hochkant (820×1180) und iPad quer (1180×820).
 
 - Nach **jeder Änderung an Oberfläche oder CSS** den Tasten-Test auf allen vier Geräten laufen lassen:
   ```
@@ -13,6 +13,7 @@ abgeschnitten sein – am PC (1440×900), iPhone (390×844), iPad hochkant (820�
   ```
 - **Neue Seite, neuer Dialog, neue Leiste** → in `tests/e2e/tasten-shared.ts` ergänzen (Seitenliste `APP`/`WEBSITE`,
   Dialogliste `DIALOGE` bzw. eigener Ablauf), damit sie künftig mitgeprüft werden.
-- Die Prüfung selbst steht in `tests/e2e/tasten-check.ts` (überlappen, verdeckt, abgeschnitten; Inhalt, der beim
+- Die Prüfung selbst steht in `tests/e2e/tasten-check.ts` (überlappen, verdeckt, abgeschnitten, kleben; Inhalt, der beim
   Scrollen unter eine feste Kopf- bzw. Werkzeugleiste rutscht, zählt nicht).
 - Befunde beheben, nicht wegdefinieren: lieber Tasten verschieben, kompakter machen oder umbrechen lassen.
+- Website und Anmelden/Registrieren werden **abgemeldet** geprüft (angemeldet leitet die Website zu den Tools um).

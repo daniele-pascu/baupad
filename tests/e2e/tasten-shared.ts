@@ -42,7 +42,7 @@ async function pruefe(page: Page, wo: string, out: string[]) {
   });
 }
 
-const WEBSITE = ['/', '/produkte', '/baupad', '/unternehmen', '/kontakt', '/zukunft', '/impressum', '/datenschutz', '/baupad/funktionen/aufmass', '/baupad/funktionen/materialverwaltung', '/en', '/en/baupad/features/materialverwaltung'];
+const WEBSITE = ['/', '/produkte', '/baupad', '/unternehmen', '/kontakt', '/zukunft', '/impressum', '/datenschutz', '/baupad/funktionen/aufmass', '/baupad/funktionen/materialverwaltung', '/en', '/en/baupad/features/materialverwaltung', '/baupad/anmelden', '/baupad/registrieren'];
 const APP = [
   'tools',
   'aufmass-und-abrechnung',

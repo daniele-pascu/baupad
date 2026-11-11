@@ -92,6 +92,19 @@ export async function tastenBefunde(page: Page): Promise<string[]> {
         const h = Math.min(a.vr.b, b.vr.b) - Math.max(a.vr.t, b.vr.t);
         if (w > 3 && h > 3) out.push(`überlappen: ${name(a.el)} und ${name(b.el)} (${Math.round(w)}×${Math.round(h)} px)`);
       }
+    // Kleben: Eingabefeld und Taste direkt übereinander ohne Abstand (unter 4 px) – z. B. Passwortfeld und „Anmelden“
+    const isField = (el: Element) => el.matches('input:not([type="checkbox"]):not([type="radio"]), select, textarea');
+    const isButton = (el: Element) => el.matches('button, a[href], [role="button"]');
+    for (let i = 0; i < items.length; i++)
+      for (let j = 0; j < items.length; j++) {
+        const a = items[i], b = items[j];
+        if (i === j || !isField(a.el) || !isButton(b.el) || related(a.el, b.el)) continue;
+        if (pinnedOf(a.el) !== pinnedOf(b.el)) continue; // Inhalt unter fester Kopf- bzw. Werkzeugleiste
+        const overlapX = Math.min(a.r.right, b.r.right) - Math.max(a.r.left, b.r.left);
+        if (overlapX < Math.min(a.r.width, b.r.width) * 0.5) continue;
+        const gap = a.r.bottom <= b.r.top + 1 ? b.r.top - a.r.bottom : b.r.bottom <= a.r.top + 1 ? a.r.top - b.r.bottom : null;
+        if (gap !== null && gap < 4) out.push(`kleben: ${name(a.el)} und ${name(b.el)} (Abstand ${Math.round(gap)} px)`);
+      }
     return [...new Set(out)];
   });
 }
