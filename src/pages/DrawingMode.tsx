@@ -362,7 +362,13 @@ export function useDrawing(opts: {
    * angefahrene Fangpunkte (zuletzt bis zu 4), aktuelle Spurlinien, zuletzt angefahrene Kante
    * (für Parallel/Rechtwinklig) und deren aktuelle Richtungslinie – nur für die Anzeige
    */
-  const track = useRef<{ acquired: Point[]; lines: { from: Point; axis: 'h' | 'v' }[]; edge: SnapSeg | null; par: { from: Point; to: Point } | null }>({ acquired: [], lines: [], edge: null, par: null });
+  const track = useRef<{ acquired: Point[]; lines: { from: Point; axis: 'h' | 'v' }[]; edge: SnapSeg | null; par: { from: Point; to: Point } | null; held: { h: Point | null; v: Point | null } }>({
+    acquired: [],
+    lines: [],
+    edge: null,
+    par: null,
+    held: { h: null, v: null },
+  });
   /** Ende der zuletzt eingefügten Linie – die nächste Linie schließt dort an (Wände) */
   const [lastLineEnd, setLastLineEnd] = useState<Point | null>(null);
 
@@ -512,6 +518,9 @@ export function useDrawing(opts: {
   // ausdrücklich eingeschaltet – sonst folgen Formen genau der Bewegung (keine erzwungene Rundung)
 
   const snap: SnapFn = (p, ctx) => {
+    // eingerastete Spurlinien des letzten Schritts (halten etwas weiter, damit sie nicht flackern)
+    const held = track.current.held;
+    track.current.held = { h: null, v: null };
     track.current.lines = [];
     track.current.par = null;
     if (ctx.tool === 'selwin') return p;
@@ -519,6 +528,24 @@ export function useDrawing(opts: {
     const pm = { x: p.x / k, y: p.y / k };
     const pxPerM = ctx.scale * k;
     const tol = (isCoarse() ? 16 : 9) / pxPerM;
+    /**
+     * Spurlinien: gemerkter Punkt, unter/über bzw. neben dem der Zeiger steht (Senkrechte bzw. Waagrechte durch den
+     * Punkt). Eine schon eingerastete Spurlinie hält mit doppelter Toleranz – sie bleibt fix, solange man genau
+     * darunter bleibt.
+     */
+    const trackRefs = (extra: Point[] = []) => {
+      const refs = [...track.current.acquired, ...extra];
+      let h: Point | null = null;
+      let v: Point | null = null;
+      const same = (a: Point | null, b: Point) => !!a && Math.abs(a.x - b.x) < 1e-9 && Math.abs(a.y - b.y) < 1e-9;
+      for (const r of refs) {
+        const th = same(held.h, r) ? tol * 2 : tol;
+        const tv = same(held.v, r) ? tol * 2 : tol;
+        if (Math.abs(pm.y - r.y) < th && (!h || Math.abs(pm.y - r.y) < Math.abs(pm.y - h.y))) h = r;
+        if (Math.abs(pm.x - r.x) < tv && (!v || Math.abs(pm.x - r.x) < Math.abs(pm.x - v.x))) v = r;
+      }
+      return { h, v };
+    };
     // Fangpunkte: End-/Eckpunkte, Schnittpunkte, Mittelpunkte, nächster Punkt auf Linien
     const others = stored.filter((e) => e.id !== ctx.movingId && e.type !== 'text').map((e) => e.shape);
     const from0 = ctx.from ? { x: ctx.from.x / k, y: ctx.from.y / k } : null;
@@ -532,6 +559,18 @@ export function useDrawing(opts: {
       const from = { x: ctx.from.x / k, y: ctx.from.y / k };
       const target = hit ? hit.point : pm;
       const o = orthoPoint(from, target, orthoDir);
+      // Spurlinie quer zur Ortho-Richtung: waagrecht zeichnen und genau unter einem gemerkten Punkt → dort einrasten
+      if (!hit && trackOn && snapOn) {
+        const horiz = o.y === from.y;
+        const { h, v } = trackRefs();
+        const r = horiz ? v : h;
+        if (r) {
+          q = horiz ? { x: r.x, y: from.y } : { x: from.x, y: r.y };
+          track.current.lines = [{ from: r, axis: horiz ? 'v' : 'h' }];
+          track.current.held = horiz ? { h: null, v: r } : { h: r, v: null };
+          return { x: q.x * k, y: q.y * k, kind: 'track' };
+        }
+      }
       if (!hit && gridOn) {
         const step = gridStep(pxPerM, 14);
         const len = o.x === from.x ? o.y - from.y : o.x - from.x;
@@ -571,16 +610,22 @@ export function useDrawing(opts: {
       }
     }
     if (trackOn && snapOn && (!hit || hit.kind === 'nearest')) {
-      const refs = [...track.current.acquired, ...(ctx.from ? [{ x: ctx.from.x / k, y: ctx.from.y / k }] : [])];
-      let h: Point | null = null;
-      let v: Point | null = null;
-      for (const r of refs) {
-        if (Math.abs(pm.y - r.y) < tol && (!h || Math.abs(pm.y - r.y) < Math.abs(pm.y - h.y))) h = r;
-        if (Math.abs(pm.x - r.x) < tol && (!v || Math.abs(pm.x - r.x) < Math.abs(pm.x - v.x))) v = r;
-      }
+      const { h, v } = trackRefs(from0 ? [from0] : []);
       if (h || v) {
         q = { x: v ? v.x : pm.x, y: h ? h.y : pm.y };
+        // nur eine Spurlinie und eine Richtung vom letzten Punkt (15°-Schritte, z. B. waagrecht): im Schnittpunkt
+        // von Richtung und Spurlinie einrasten – die Linie bleibt waagrecht, die Senkrechte bleibt sichtbar
+        if (from0 && !(h && v) && ctx.tool && PARALLEL_TOOLS.has(ctx.tool)) {
+          const dir = snapAngle(from0, pm);
+          const dx = dir.x - from0.x;
+          const dy = dir.y - from0.y;
+          if ((dir.x !== pm.x || dir.y !== pm.y) && Math.hypot(dx, dy) > 1e-9) {
+            if (v && Math.abs(dx) > 1e-9 && Math.abs(v.x - from0.x) > 1e-9) q = { x: v.x, y: from0.y + ((v.x - from0.x) * dy) / dx };
+            else if (h && Math.abs(dy) > 1e-9 && Math.abs(h.y - from0.y) > 1e-9) q = { x: from0.x + ((h.y - from0.y) * dx) / dy, y: h.y };
+          }
+        }
         track.current.lines = [...(h ? [{ from: h, axis: 'h' as const }] : []), ...(v ? [{ from: v, axis: 'v' as const }] : [])];
+        track.current.held = { h, v };
         return { x: q.x * k, y: q.y * k, kind: 'track' };
       }
     }

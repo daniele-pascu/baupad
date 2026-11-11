@@ -265,6 +265,38 @@ test('Spurlinien: Ecke anfahren, dann waagrecht in der Flucht einrasten (Linie e
   await page.keyboard.press('F11');
 });
 
+test('Spurlinien: waagrecht zeichnen, genau unter der Ecke → senkrechte Spurlinie bleibt, Linie bleibt waagrecht (auch mit 90°)', async () => {
+  await deselect();
+  const sb = (await sheet().boundingBox())!;
+  const rect = (await elements()).filter((e) => e.type === 'rect').pop()!;
+  const right = rect.shape.x + rect.shape.w;
+  const endOf = (l: (typeof rect)) => (l.shape.points ?? []).map(([px, py]) => ({ x: l.shape.x + px * l.shape.w, y: l.shape.y + py * l.shape.h }));
+  for (const ortho of [false, true]) {
+    if (ortho) await pickTool(page, 'ortho-toggle');
+    await pickTool(page, 'draw-line');
+    const y0 = ortho ? 650 : 600;
+    await page.mouse.click(sb.x + 450, sb.y + y0);
+    // Ecke rechts unten (750, 520) anfahren → gemerkt
+    await page.mouse.move(sb.x + 750, sb.y + 520, { steps: 4 });
+    // fast waagrecht (12 px tiefer, außerhalb der Waagrecht-Spur des Startpunkts) genau unter die Ecke
+    await page.mouse.move(sb.x + 752, sb.y + y0 + 12, { steps: 6 });
+    await expect(page.locator('[data-testid="track-line"][data-axis="v"]')).toHaveCount(1);
+    // ein wenig hin und her: Spurlinie bleibt fix
+    await page.mouse.move(sb.x + 764, sb.y + y0 + 10, { steps: 3 });
+    await expect(page.locator('[data-testid="track-line"][data-axis="v"]')).toHaveCount(1);
+    await page.mouse.click(sb.x + 764, sb.y + y0 + 10);
+    await waitSaved(page);
+    const line = (await elements()).filter((e) => e.type === 'line').pop()!;
+    const [a, b] = endOf(line);
+    const end = Math.abs(a.x - right) < Math.abs(b.x - right) ? a : b;
+    const start = end === a ? b : a;
+    near(end.x, right, 1e-6); // genau unter der Ecke
+    near(end.y, start.y, 1e-6); // Linie exakt waagrecht
+    await deselect();
+    if (ortho) await pickTool(page, 'ortho-toggle');
+  }
+});
+
 test('Bogen aus drei Punkten: Länge und Radius', async () => {
   await deselect();
   const sb = (await sheet().boundingBox())!;
