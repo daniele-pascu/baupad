@@ -59,3 +59,5 @@ In der App abmelden → **Anmelden** → **Passwort vergessen?** → eigene Adre
 Kommt nichts an: Spam-Ordner prüfen; in Resend unter **Emails** sieht man jede Mail mit Status. Steht dort nichts,
 in Supabase unter **Authentication** → **Logs** nach Fehlern sehen (häufig: Schlüssel falsch kopiert oder Domain
 nicht verifiziert).
+
+**Eingerichtet am 11.11.2026** – Absender PAD Software über Resend, deutsche Vorlagen, Test „Passwort vergessen?“ erfolgreich.
