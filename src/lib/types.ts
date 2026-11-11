@@ -268,6 +268,9 @@ export interface Shape {
  */
 export type MeasureKind = 'damage' | 'area' | 'line';
 
+/** Messart (fachlich): Fläche, Wand, Länge, Volumen, Stück, Schadstelle, Frei – siehe measure-types.ts */
+export type MeasureType = 'flaeche' | 'wand' | 'laenge' | 'volumen' | 'stueck' | 'schadstelle' | 'frei';
+
 /** Messung bzw. Schadstelle (Name „Damage“ aus Version 1 beibehalten). */
 export interface Damage extends SyncMeta {
   projectId: string;
@@ -316,6 +319,20 @@ export interface Damage extends SyncMeta {
   rebarItems?: RebarItem[] | null;
   /** Fotos aus der Fotodokumentation (IDs) zu dieser Messung */
   photoIds?: string[];
+  /** Messart; fehlt bei älteren Einträgen und wird dann aus `kind` (und der Form) abgeleitet */
+  measureType?: MeasureType;
+  /** Anzahl gleicher Teile (Faktor); fehlt = 1. Fläche `area` enthält die Anzahl bereits, `length` ist je Stück */
+  count?: number;
+  /** Arbeitsbereich (Beton, Mauerwerk …); fehlt = keiner */
+  workArea?: string | null;
+  /** Schadstelle: Schadensart (Abplatzung, Riss …) */
+  damageType?: string | null;
+  /** Länge: von/bis, z. B. „Achse A bis C“ */
+  span?: string | null;
+  /** Freies Aufmaß: Einheit, Rechnung und berechnete Menge */
+  unit?: string | null;
+  formula?: string | null;
+  qty?: number | null;
 }
 
 /** Bewehrungszeile einer Messung: Anzahl Stäbe × Länge je Stab in m */

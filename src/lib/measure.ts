@@ -45,10 +45,21 @@ export const deductionArea = (x: Pick<Deduction, 'count' | 'length' | 'width' | 
 /** Teillänge einer Abzugs- bzw. Zuschlagszeile einer Linie mit Vorzeichen (Abzug negativ) */
 export const deductionLength = (x: Pick<Deduction, 'count' | 'length' | 'add'>) => clean((x.add ? 1 : -1) * x.count * x.length);
 
-/** Nettolänge: Linien mit Abzügen/Zuschlägen; sonst die gemessene Länge (bei Flächen z. B. der Umfang) */
-export function netLength(d: Pick<Damage, 'kind' | 'length' | 'deductions'>): number {
-  if (kindOf(d) !== 'line' || !d.deductions?.length) return d.length;
-  return clean(d.deductions.reduce((s, x) => s + deductionLength(x), d.length));
+/** Stück und Frei haben keine Länge (gespeichert als Linie mit 0 m, damit ältere App-Stände sie lesen) */
+const noLength = (d: { measureType?: string }) => d.measureType === 'stueck' || d.measureType === 'frei';
+/** Anzahl (Faktor) einer Messung; fehlt = 1 */
+const countOf = (d: { count?: number }) => (d.count && d.count > 0 ? d.count : 1);
+
+/**
+ * Nettolänge: Linien mit Anzahl und Abzügen/Zuschlägen; sonst die gemessene Länge (bei Flächen z. B. der Umfang).
+ * Stück und Frei: 0 (keine Länge).
+ */
+export function netLength(d: Pick<Damage, 'kind' | 'length' | 'deductions'> & Partial<Pick<Damage, 'measureType' | 'count'>>): number {
+  if (noLength(d)) return 0;
+  if (kindOf(d) !== 'line') return d.length;
+  const n = countOf(d);
+  if (!d.deductions?.length) return n === 1 ? d.length : clean(n * d.length);
+  return clean(d.deductions.reduce((s, x) => s + deductionLength(x), n * d.length));
 }
 
 /** Nettofläche: Bruttofläche (Länge × Breite bzw. aus dem Plan) mit Abzügen und Zuschlägen */
@@ -81,7 +92,7 @@ export function sumAreas(damages: Pick<Damage, 'kind' | 'area'>[]): number {
 }
 
 /** Summe der Linienlängen (m) – getrennt von den Flächen. */
-export function sumLengths(damages: Pick<Damage, 'kind' | 'length' | 'deductions'>[]): number {
+export function sumLengths(damages: (Pick<Damage, 'kind' | 'length' | 'deductions'> & Partial<Pick<Damage, 'measureType' | 'count'>>)[]): number {
   return clean(damages.reduce((s, d) => (kindOf(d) === 'line' ? s + netLength(d) : s), 0));
 }
 
@@ -111,15 +122,29 @@ export function quantityBasis(unit: string): QuantityBasis {
  * m² = Summe der Flächen, m = Summe der Längen, m³ = Fläche × Tiefe (nur mit Tiefe),
  * Stk = Anzahl. Bei anderen Einheiten null (nicht automatisch berechenbar).
  */
-export function quantityFor(unit: string, damages: Pick<Damage, 'kind' | 'length' | 'area' | 'depth' | 'deductions'>[]): { value: number | null; missing: number } {
+export function quantityFor(
+  unit: string,
+  damages: (Pick<Damage, 'kind' | 'length' | 'area' | 'depth' | 'deductions'> & Partial<Pick<Damage, 'measureType' | 'count' | 'qty' | 'unit'>>)[],
+): { value: number | null; missing: number } {
   const basis = quantityBasis(unit);
-  if (!basis) return { value: null, missing: 0 };
-  if (basis === 'count') return { value: damages.length, missing: 0 };
-  if (basis === 'length') return { value: clean(damages.reduce((s, d) => s + netLength(d), 0)), missing: 0 };
-  if (basis === 'area') {
-    const withArea = damages.filter((d) => hasArea(kindOf(d)) && d.area !== null);
-    return { value: sumAreas(withArea), missing: damages.length - withArea.length };
+  if (!basis) {
+    // eigene Einheit (z. B. kg, h): nur freie Messungen mit genau dieser Einheit
+    const u = unit.trim().toLowerCase();
+    const free = damages.filter((d) => d.measureType === 'frei' && d.qty !== null && d.qty !== undefined && (d.unit ?? '').trim().toLowerCase() === u && u);
+    return free.length ? { value: clean(free.reduce((s, d) => s + d.qty!, 0)), missing: damages.length - free.length } : { value: null, missing: 0 };
   }
-  const withDepth = damages.filter((d) => hasArea(kindOf(d)) && d.area !== null && d.depth !== null);
-  return { value: clean(withDepth.reduce((s, d) => s + round2(d.area! * d.depth!), 0)), missing: damages.length - withDepth.length };
+  // freie Messung zählt, wenn ihre Einheit zur Position passt
+  const freeQty = (d: (typeof damages)[number]) => (d.measureType === 'frei' && d.qty !== null && d.qty !== undefined && quantityBasis(d.unit ?? '') === basis ? d.qty : 0);
+  const free = clean(damages.reduce((s, d) => s + freeQty(d), 0));
+  const rest = damages.filter((d) => d.measureType !== 'frei');
+  const freeMissing = damages.filter((d) => d.measureType === 'frei' && !freeQty(d)).length;
+  // Stück: Anzahl je Messung (Stück-Messungen bzw. sonst 1 je Messung wie bisher)
+  if (basis === 'count') return { value: clean(rest.reduce((s, d) => s + countOf(d), 0) + free), missing: freeMissing };
+  if (basis === 'length') return { value: clean(rest.reduce((s, d) => s + netLength(d), 0) + free), missing: freeMissing };
+  if (basis === 'area') {
+    const withArea = rest.filter((d) => hasArea(kindOf(d)) && d.area !== null);
+    return { value: clean(sumAreas(withArea) + free), missing: rest.length - withArea.length + freeMissing };
+  }
+  const withDepth = rest.filter((d) => hasArea(kindOf(d)) && d.area !== null && d.depth !== null);
+  return { value: clean(withDepth.reduce((s, d) => s + round2(d.area! * d.depth!), 0) + free), missing: rest.length - withDepth.length + freeMissing };
 }
