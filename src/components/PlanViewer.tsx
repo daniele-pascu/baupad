@@ -56,6 +56,8 @@ export type Tool =
   | 'wall'
   /** Messung (Kontrollmessung): Punkte antippen, nichts wird verändert */
   | 'probe'
+  /** Stück zählen: Punkte antippen (jeder Tipp = ein Stück) */
+  | 'points'
   | 'calibrate'
   /** Bogen aus drei Punkten */
   | 'arc'
@@ -90,7 +92,7 @@ export function dimensionFrom(a: Point, b: Point, c: Point): { a2: Point; b2: Po
 const CLICK_LINE = new Set<string>(['line', 'calibrate', 'vector']);
 
 /** Werkzeuge, die eine Stelle antippen statt eine Form zu zeichnen */
-const PLACE_TOOLS = new Set<Tool>(['component', 'text', 'trim', 'extend', 'pick']);
+const PLACE_TOOLS = new Set<Tool>(['component', 'text', 'trim', 'extend', 'pick', 'points']);
 
 /** Bearbeitbares Objekt der Planansicht (Messung bzw. Zeichnungsobjekt in Seitenkoordinaten). */
 export type ViewerItem = Pick<Damage, 'id' | 'number' | 'shape' | 'color' | 'labelOffset'> &
@@ -1197,7 +1199,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
           const snap = propsRef.current.snap;
           propsRef.current.onPlace(clampP(snap ? snapAt(raw, { tool: propsRef.current.tool, scale: v.scale }) : raw));
           // Handy/Tablet: Platzieren ist ein einmaliger Vorgang – danach wieder Auswahl
-          if (e.pointerType !== 'mouse') propsRef.current.onToolDone?.();
+          if (e.pointerType !== 'mouse' && propsRef.current.tool !== 'points') propsRef.current.onToolDone?.();
         }
         return;
       case 'note': {
@@ -1429,6 +1431,21 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     const base = st?.lineWidth ? Math.max(1, st.lineWidth * PX_PER_PT) : strokeW;
     const w = opts.selected ? base + 1.5 : base;
     // Umrandung (Linientyp) und Füllung getrennt; die Füllung folgt immer der eigentlichen Form
+    if (st?.points) {
+      // Stück mit Punkten: nur die Punkte (Kreis mit Kontur), keine Linie dazwischen
+      const pts = uniquePoints(shapeVertices(shape)).map(toS);
+      const r = (isCoarse() ? 7 : 6) + (opts.selected ? 2 : 0);
+      return (
+        <g key={opts.key} data-damage={opts.id} data-points={pts.length}>
+          {pts.map((q, i) => (
+            <g key={i}>
+              <circle cx={q.x} cy={q.y} r={r + 2} fill={haloColor(col)} fillOpacity={0.8} />
+              <circle cx={q.x} cy={q.y} r={r} fill={col} stroke={opts.selected ? '#1f5fbf' : 'none'} strokeWidth={2} />
+            </g>
+          ))}
+        </g>
+      );
+    }
     const line = strokeGeometry(shape, toS, opts.dashed ? 'dashed' : st?.lineType, w, w, st?.dashScale);
     const fill = fillOf(shape, col, st, DEFAULT_TRANSPARENCY.damage);
     return (
@@ -1856,3 +1873,8 @@ function shapeFromDraw(g: Extract<Gesture, { kind: 'draw' }>, v: View, preview =
 
 /** Bildschirmradius der Bauteilkennzeichnung */
 const badgeRadius = () => (isCoarse() ? 15 : 13);
+
+/** Punkte ohne Doppelte (Stück mit einem Punkt wird als zwei gleiche Punkte gespeichert) */
+function uniquePoints(pts: Point[]): Point[] {
+  return pts.filter((p, i) => pts.findIndex((q) => Math.abs(q.x - p.x) < 1e-9 && Math.abs(q.y - p.y) < 1e-9) === i);
+}

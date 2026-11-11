@@ -180,3 +180,47 @@ test('Messart wählen, dann mit beliebigem Werkzeug messen: Wand, Stück, Frei, 
   await page.reload();
   await expect(page.getByTestId('tool-mtype')).toHaveAttribute('data-value', 'laenge');
 });
+
+test('Werkzeuge je Messart: Wand nur bei Wand, Punkte bei Stück – Punkte antippen zählt die Stück', async () => {
+  const sb = (await page.getByTestId('drawing-sheet').boundingBox())!;
+  // Fläche und Schadstelle: kein Wand-Werkzeug
+  for (const t of ['flaeche', 'schadstelle', 'laenge']) {
+    await chooseType(t);
+    await expect(page.getByTestId('tool-wall')).toHaveCount(0);
+    await expect(page.getByTestId('tool-points')).toHaveCount(0);
+    await expect(page.getByTestId('tool-rect')).toBeVisible();
+  }
+  // Wand: Wand-Werkzeug da und gleich gewählt
+  await chooseType('wand');
+  await expect(page.getByTestId('tool-wall')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('tool-points')).toHaveCount(0);
+  // Stück: Punkte statt Wand, gleich gewählt
+  await chooseType('stueck');
+  await expect(page.getByTestId('tool-wall')).toHaveCount(0);
+  await expect(page.getByTestId('tool-points')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('points-bar')).toBeVisible();
+  for (const [dx, dy] of [
+    [300, 520],
+    [360, 540],
+    [420, 520],
+  ])
+    await page.mouse.click(sb.x + dx, sb.y + dy);
+  await expect(page.getByTestId('point-mark')).toHaveCount(3);
+  await expect(page.getByTestId('points-count')).toHaveText('3 Stk');
+  // letzten Punkt zurück, neu setzen
+  await page.getByTestId('points-undo').click();
+  await expect(page.getByTestId('points-count')).toHaveText('2 Stk');
+  await page.mouse.click(sb.x + 480, sb.y + 540);
+  await page.getByTestId('points-done').click();
+  await expect(dlg()).toContainText('Neue Messung: Stück');
+  await expect(dlg().getByTestId('input-count')).toHaveValue('3');
+  await expect(dlg().getByTestId('count-result')).toHaveText('3 Stk');
+  await dlg().getByTestId('damage-save').click();
+  await expect(dlg()).toBeHidden();
+  const d = await lastDmg();
+  expect(d.measureType).toBe('stueck');
+  expect(d.count).toBe(3);
+  // im Plan nur die Punkte (keine Linie dazwischen)
+  await expect(page.locator(`[data-damage="${d.id}"][data-points="3"]`)).toHaveCount(1);
+  await expect(page.locator('[data-testid="aufmass-row"]').last().getByTestId('row-qty')).toHaveText('3 Stk');
+});

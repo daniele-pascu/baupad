@@ -115,6 +115,7 @@ export function tastenTests() {
   });
 
   test('Tasten: Aufmaß mit Plan, Messung und Dialogen – nichts überlappt, verdeckt oder abgeschnitten', async ({ page }) => {
+    test.setTimeout(150_000); // viele Dialoge und Leisten (Messarten) – auf dem Handy langsamer
     const out: string[] = [];
     await freshStart(page);
     await createProject(page, 'Tastentest', { address: 'Teststraße 1' }, ['Tiefgarage']);
@@ -148,6 +149,16 @@ export function tastenTests() {
     await pickTool(page, 'tool-mtype');
     await expect(page.getByTestId('mtype-menu')).toBeVisible();
     await pruefe(page, 'Menü Messart', out);
+    // Stück: Punkte antippen, Leiste mit Anzahl
+    await page.getByTestId('mtype-stueck').click();
+    {
+      const b = await planBox(page);
+      await page.mouse.click(b.x + b.width * 0.6, b.y + b.height * 0.4);
+    }
+    await expect(page.getByTestId('points-count')).toBeVisible();
+    await pruefe(page, 'Leiste Stück-Punkte', out);
+    await page.getByTestId('points-cancel').click();
+    await pickTool(page, 'tool-mtype');
     await page.getByTestId('mtype-frei').click();
     await pickTool(page, 'tool-rect');
     {

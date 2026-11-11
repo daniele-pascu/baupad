@@ -442,6 +442,17 @@ function drawDamages(ctx: Ctx, t: Target, region: Rect, damages: Damage[], compo
   const stroke = Math.max(0.8, fs * 0.14);
   // Formen
   for (const d of damages) {
+    if (d.style?.points) {
+      // Stück mit Punkten: gefüllte Kreise an jedem Punkt
+      const seen = new Set<string>();
+      for (const p of shapeVertices(d.shape)) {
+        const key = `${p.x.toFixed(6)},${p.y.toFixed(6)}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        t.page.drawCircle({ ...t.map(p), size: fs * 0.42, color: hexToRgb(visibleHex(d.color)), borderColor: rgb(1, 1, 1), borderWidth: stroke * 0.6 });
+      }
+      continue;
+    }
     const width = d.style?.lineWidth ?? stroke;
     drawStyledShape(t.page, (p) => t.map(p), d.shape, d.color, d.style, width, DEFAULT_TRANSPARENCY.damage, haloRgb(d.color));
   }

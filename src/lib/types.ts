@@ -408,6 +408,8 @@ export interface ShapeStyle {
   dashScale?: number;
   /** Transparenz der Linie in % (0 = deckend) */
   lineTransparency?: number;
+  /** Stück gezählt mit Punkten: nur die Punkte zeigen (keine Linie dazwischen) */
+  points?: boolean;
 }
 
 export type HatchPattern =

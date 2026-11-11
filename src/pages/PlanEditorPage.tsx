@@ -48,7 +48,7 @@ import { symbolDef } from '../lib/symbols';
 import { DrawRibbon, OrthoButtons } from '../components/DrawRibbon';
 import { StylePanel } from '../components/StylePanel';
 
-type DialogState = { mode: 'new'; shape: Shape; number: number; label: string | null; kind: MeasureKind; measureType: MeasureType; fromShape?: boolean } | { mode: 'edit'; id: string } | null;
+type DialogState = { mode: 'new'; shape: Shape; number: number; label: string | null; kind: MeasureKind; measureType: MeasureType; fromShape?: boolean; points?: number } | { mode: 'edit'; id: string } | null;
 
 const TOOLS: { id: Tool; label: string; short?: string; icon: string; key: string }[] = [
   { id: 'select', label: 'Auswählen / Verschieben', short: 'Auswahl', icon: 'select', key: 'v' },
@@ -60,6 +60,8 @@ const TOOLS: { id: Tool; label: string; short?: string; icon: string; key: strin
   // Freihand: ohne Absetzen zeichnen – bleibt genau so (z. B. Risse); am Startpunkt beendet = Fläche
   { id: 'freehand', label: 'Freihand: ohne Absetzen zeichnen – Linie genau wie gezeichnet (z. B. Riss), am Startpunkt beenden ergibt eine Fläche', short: 'Freihand', icon: 'freehand', key: 'h' },
   { id: 'wall', label: 'Wand: Verlauf mit Knicken setzen, Enter oder Doppelklick beendet – danach Wandhöhe eingeben', short: 'Wand', icon: 'wall', key: 'w' },
+  // nur bei der Messart Stück: jeder angetippte Punkt zählt ein Stück
+  { id: 'points', label: 'Punkte: jedes Stück im Plan antippen – jeder Punkt zählt, „Fertig“ übernimmt die Anzahl', short: 'Punkte', icon: 'pin', key: 'z' },
   { id: 'text', label: 'Text: Stelle antippen und Text eingeben – Farbe, Schriftart, fett, kursiv; mit „Auswahl“ antippen zum Ändern, ziehen zum Verschieben', short: 'Text', icon: 'text', key: 't' },
   // Kontrollmessung: Menü mit Länge, Fläche, Winkel, Radius, Abstand – verändert nichts
   { id: 'probe', label: 'Messung: Länge, Fläche, Winkel, Radius oder Abstand nachmessen – ändert nichts', short: 'Messung', icon: 'dimension', key: 'n' },
@@ -391,6 +393,26 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     () => [...new Set([...DEFAULT_WORK_AREAS, ...Object.values(data.damages).filter((d) => d.projectId === plan?.projectId && !d.deletedAt && d.workArea).map((d) => d.workArea!)])],
     [data.damages, plan?.projectId],
   );
+  /** Werkzeuge je Messart: Wand nur bei Wand (bzw. automatisch), Punkte nur bei Stück */
+  const toolVisible = (id: Tool, c: MeasureChoice = mtype) => (id === 'wall' ? c === 'wand' || c === 'auto' : id === 'points' ? c === 'stueck' : true);
+  /** Stück zählen: angetippte Punkte (Seitenkoordinaten), bis „Fertig“ */
+  const [pointMarks, setPointMarks] = useState<Point[]>([]);
+  useEffect(() => {
+    if (tool !== 'points') setPointMarks([]);
+  }, [tool]);
+  // gemerktes Werkzeug passt nicht zur Messart (z. B. Wand bei Fläche) → Rechteck
+  useEffect(() => {
+    if (!toolVisible(tool)) setToolState(mtype === 'stueck' ? 'points' : 'rect');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mtype]);
+  /** Punkte übernehmen: eine Stück-Messung mit allen Punkten, Anzahl = Zahl der Punkte */
+  const finishPoints = () => {
+    if (!plan || !pointMarks.length) return;
+    const pts = pointMarks.length === 1 ? [pointMarks[0], pointMarks[0]] : pointMarks;
+    const shape = polygonShape(pts, false);
+    setDialog({ mode: 'new', shape, ...suggestNext(stored, planNumberStart(plan)), kind: 'line', measureType: 'stueck', points: pointMarks.length });
+    setPointMarks([]);
+  };
   /** Messart für eine neu gezeichnete Form */
   const typeForNew = (shape: Shape): MeasureType => (tool === 'wall' ? 'wand' : mtype === 'auto' ? defaultTypeFor(shape) : mtype);
   /** Aufmaß: ausgewählter Eckpunkt der ausgewählten Messung (zum Entfernen) */
@@ -921,7 +943,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         }
       }
       const t = TOOLS.find((x) => x.key === key);
-      if (t && !drawMode) setTool(t.id);
+      if (t && !drawMode && toolVisible(t.id)) setTool(t.id);
+      else if (e.key === 'Enter' && tool === 'points' && pointMarks.length) finishPoints();
       else if (e.key === '+' || e.key === '=') viewer.current?.zoomIn();
       else if (e.key === '-') viewer.current?.zoomOut();
       else if (e.key === '0') viewer.current?.fit();
@@ -1140,7 +1163,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         shape: convertShape(dialog.shape, v.shapeType),
         color: v.color,
         labelOffset: null,
-        ...(Object.keys(measureStyle).length ? { style: { ...measureStyle } } : {}),
+        ...(Object.keys(measureStyle).length || dialog.points ? { style: { ...measureStyle, ...(dialog.points ? { points: true } : {}) } } : {}),
         ...measures,
       };
       if (renumber !== 'none' && !v.label) {
@@ -1608,6 +1631,18 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                     </>
                   )}
                   {tool === 'probe' && probe && <ProbeOverlay view={view} probe={probe} hover={hover ?? null} k={k} />}
+                  {tool === 'points' &&
+                    pointMarks.map((p, i) => {
+                      const q = toScreen(view, p);
+                      return (
+                        <g key={i} className="point-mark" data-testid="point-mark">
+                          <circle cx={q.x} cy={q.y} r={9} fill={color} stroke="#fff" strokeWidth={2} />
+                          <text x={q.x} y={q.y + 0.5} textAnchor="middle" dominantBaseline="central" fontSize={10} fontWeight={700} fill="#fff">
+                            {i + 1}
+                          </text>
+                        </g>
+                      );
+                    })}
                   <DeductionOverlay view={view} items={[...planDeds, ...sessionDeds]} onMoveLabel={moveDedLabel} onEditShape={k ? editDedShape : undefined} tapToEdit={tool === 'select'} />
                 </>
               )}
@@ -1632,6 +1667,10 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               onSelectComponent={() => {}}
               onComponentMove={() => {}}
               onPlace={(p) => {
+                if (tool === 'points') {
+                  setPointMarks((m) => [...m, p]);
+                  return;
+                }
                 if (tool !== 'text') return;
                 void drawing.placeText(p).then((ok) => ok && setTool('select'));
               }}
@@ -2008,6 +2047,28 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               onClose={closeProbe}
             />
           )}
+          {!probe && !drawMode && tool === 'points' && !dialog && !mtypeMenu && (
+            <div className="draw-bar" data-testid="points-bar">
+              {pointMarks.length === 0 ? (
+                <span className="muted small">Stück: jedes Stück im Plan antippen – jeder Punkt zählt. „Fertig“ übernimmt die Anzahl.</span>
+              ) : (
+                <>
+                  <strong className="draw-bar-title" data-testid="points-count">
+                    {pointMarks.length} Stk
+                  </strong>
+                  <button type="button" className="btn btn-sm btn-primary" onClick={finishPoints} data-testid="points-done">
+                    <Icon name="check" size={18} /> Fertig
+                  </button>
+                  <button type="button" className="btn btn-sm" onClick={() => setPointMarks((m) => m.slice(0, -1))} title="Letzten Punkt entfernen" data-testid="points-undo">
+                    <Icon name="undo" size={18} /> Punkt
+                  </button>
+                  <button type="button" className="btn btn-sm" onClick={() => setPointMarks([])} data-testid="points-cancel">
+                    Abbrechen
+                  </button>
+                </>
+              )}
+            </div>
+          )}
           {!probe && (drawMode ? isPointTool(drawing.viewerTool) && (polyCount > 0 || (!drawing.selected && drawing.tool !== 'wall')) : isPointTool(tool) && (polyCount > 0 || !selected)) && !dialog && (
             <PolylineBar
               polyline={(drawMode ? drawing.tool : tool) === 'polyline'}
@@ -2216,14 +2277,16 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                     setMtype(c);
                     setMtypeMenu(false);
                     // gleich zeichnen: ohne Werkzeug (Auswahl) → Rechteck bzw. Linie für Länge
-                    if (tool === 'select' || tool === 'calibrate' || tool === 'probe' || tool === 'text') setTool(c === 'laenge' ? 'line' : c === 'wand' ? 'polyline' : 'rect');
+                    if (c === 'stueck') setTool('points');
+                    else if (c === 'wand') setTool('wall');
+                    else if (tool === 'select' || tool === 'calibrate' || tool === 'probe' || tool === 'text' || !toolVisible(tool, c)) setTool(c === 'laenge' ? 'line' : 'rect');
                     toast(c === 'auto' ? 'Messart automatisch: offene Linien = Länge, geschlossene Formen = Fläche.' : `Messart ${choiceLabel(c)}: jetzt mit einem Werkzeug im Plan zeichnen.`, 'info', 2200);
                   }}
                   onClose={() => setMtypeMenu(false)}
                 />
               )}
             </span>
-              {TOOLS.filter((t) => (t.id !== 'calibrate' || !drawingPlan) && (t.id !== 'select' || !isTouchDevice())).map((t) => (
+              {TOOLS.filter((t) => (t.id !== 'calibrate' || !drawingPlan) && (t.id !== 'select' || !isTouchDevice()) && toolVisible(t.id)).map((t) => (
                 <button
                   key={t.id}
                   type="button"
@@ -2369,6 +2432,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             shapeType: dialog.shape.type,
             kind: dialog.kind,
             measureType: dialog.measureType,
+            ...(dialog.points ? { count: dialog.points } : {}),
             positionRef: activePosition ? lastPosition : null,
             // aus einer Messung übernommen: Maße aus dem Plan vorgewählt
             areaFromShape: dialog.fromShape,
