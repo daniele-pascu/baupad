@@ -135,7 +135,10 @@ test('Arbeitereinteilung: Woche nach Baustellen planen und in die nächste Woche
   await assignDialog(page, ['Stein Thomas']);
   await expect(page.locator('.toast', { hasText: 'Doppelt eingeteilt auf Neubau Musterstraße: Stein Thomas' })).toHaveCount(1);
   await expect(chips(page, 'Neubau Musterstraße', 0)).toHaveText(['Muster Max', 'Bau Peter', /Stein Thomas/]);
-  await expect(chips(page, 'Neubau Musterstraße', 0).nth(2).getByTestId('chip-also')).toHaveText('+ Sanierung Hauptplatz');
+  // doppelt eingeteilt: nur roter Rand, Hinweis nur im Tooltip (kein Text im Kästchen)
+  await expect(chips(page, 'Neubau Musterstraße', 0).nth(2)).toHaveClass(/conflict/);
+  await expect(chips(page, 'Neubau Musterstraße', 0).nth(2)).toHaveAttribute('title', /Sanierung Hauptplatz/);
+  await expect(chips(page, 'Neubau Musterstraße', 0).nth(2)).toHaveText('Stein Thomas');
   await expect(chips(page, 'Sanierung Hauptplatz', 0)).toHaveText([/Stein Thomas/]);
   await expect(chips(page, 'Sanierung Hauptplatz', 1)).toHaveText(['Stein Thomas']);
   // antippen → ab Montag zurück auf B
@@ -150,7 +153,7 @@ test('Arbeitereinteilung: Woche nach Baustellen planen und in die nächste Woche
   await cd.getByTestId('chip-move').click();
   await expect(chips(page, 'Neubau Musterstraße', 1)).toHaveText(['Muster Max', 'Bau Peter']);
   await expect(chips(page, 'Neubau Musterstraße', 2)).toHaveText(['Muster Max']);
-  await expect(chips(page, 'Sanierung Hauptplatz', 2)).toHaveText(['Stein Thomas', 'Bau Peter']);
+  await expect(chips(page, 'Sanierung Hauptplatz', 2)).toHaveText(['Bau Peter', 'Stein Thomas']);
 
   // Baustelle B ist diese Woche fertig
   await site(page, 'Sanierung Hauptplatz').getByTestId('site-actions').click();
@@ -164,7 +167,7 @@ test('Arbeitereinteilung: Woche nach Baustellen planen und in die nächste Woche
   // beim Öffnen sind alle Projekte zugeklappt
   await expect(page.locator('[data-testid="site-toggle"][aria-expanded="true"]')).toHaveCount(0);
   await expandAll(page);
-  await expect(chips(page, 'Sanierung Hauptplatz', 3)).toHaveText(['Stein Thomas', 'Bau Peter']);
+  await expect(chips(page, 'Sanierung Hauptplatz', 3)).toHaveText(['Bau Peter', 'Stein Thomas']);
 
   // nächste Woche läuft weiter: nur Baustelle A, gleiche Arbeiter je Wochentag, kein Urlaub übernommen
   await page.getByTestId('week-next').click();
@@ -422,7 +425,7 @@ test('Antippen: offenen Arbeiter einteilen, umsetzen ab Tag; bereits geplante Fo
   for (const d of [0, 1, 2]) await expect(chips(page, 'Baustelle A', d)).toHaveText(['Max']);
   for (const d of [3, 4]) {
     await expect(chips(page, 'Baustelle A', d)).toHaveCount(0);
-    await expect(chips(page, 'Baustelle B', d)).toHaveText(['Peter', 'Max']);
+    await expect(chips(page, 'Baustelle B', d)).toHaveText(['Max', 'Peter']);
   }
   // Peter am Freitag antippen → „Umsetzen“ auf A: ab Freitag dort, ebenfalls in KW 45
   await chips(page, 'Baustelle B', 4).filter({ hasText: 'Peter' }).click();
@@ -430,7 +433,7 @@ test('Antippen: offenen Arbeiter einteilen, umsetzen ab Tag; bereits geplante Fo
   await cd.getByTestId('chip-move-to').selectOption({ label: 'Baustelle A' });
   await cd.getByTestId('chip-move').click();
   await expect(page.locator('.toast', { hasText: 'Auch übernommen in KW 45' }).first()).toBeVisible();
-  await expect(chips(page, 'Baustelle B', 3)).toHaveText(['Peter', 'Max']);
+  await expect(chips(page, 'Baustelle B', 3)).toHaveText(['Max', 'Peter']);
   await expect(chips(page, 'Baustelle B', 4)).toHaveText(['Max']);
   await expect(chips(page, 'Baustelle A', 4)).toHaveText(['Peter']);
   await page.getByTestId('week-next').click();
@@ -615,7 +618,7 @@ test('Sa/So wie jeder andere Tag: Wochenend-Partie einteilen, Umsetzen nimmt Sa/
   await moveTo(page, chips(page, 'Baustelle A', 2), 'Baustelle B');
   for (const d of [0, 1]) await expect(chips(page, 'Baustelle A', d)).toHaveText(['Max']);
   for (const d of [2, 3, 4, 5, 6]) await expect(chips(page, 'Baustelle A', d)).toHaveCount(0);
-  await expect(chips(page, 'Baustelle B', 6)).toHaveText(['Willi', 'Max']);
+  await expect(chips(page, 'Baustelle B', 6)).toHaveText(['Max', 'Willi']);
   // kein Hinweis „Arbeitszeit festlegen“ mehr – Arbeitszeit ist nur Info
   await expect(page.getByTestId('crew-setup-times')).toHaveCount(0);
 });
@@ -699,7 +702,13 @@ test('Personalliste: eigene Seite, alphabetisch oder nach Funktion; Einteilung u
   const ad = page.getByTestId('assign-dialog');
   // Projektleiter (Pia) ist nicht einteilbar
   await expect(ad.getByTestId('assign-worker')).toHaveText([/Muster Max · Polier/, /Berg Anna · Vorarbeiter/, /Adler Zoe · Hilfsarbeiter/]);
-  await page.keyboard.press('Escape');
+  // eingeteilt: je Tag von der höchsten zur niedrigsten Funktion, Kästchen je Funktion eingefärbt
+  await assignDialog(page, ['Adler Zoe', 'Berg Anna', 'Muster Max']);
+  await expect(chips(page, 'Halle Nord', 0)).toHaveText(['Muster Max', 'Berg Anna', 'Adler Zoe']);
+  await expect(chips(page, 'Halle Nord', 0).nth(0)).toHaveClass(/grade-polier/);
+  await expect(chips(page, 'Halle Nord', 0).nth(1)).toHaveClass(/grade-vorarbeiter/);
+  await expect(chips(page, 'Halle Nord', 0).nth(2)).toHaveClass(/grade-hilfsarbeiter/);
+  await expect(page.getByTestId('crew-grade-legend')).toContainText('PO');
 });
 
 test('Doppelt einteilen: Arbeiter bleibt auf der ersten Baustelle und steht zusätzlich auf der zweiten, mit Kennzeichnung wo', async ({ page }) => {
@@ -731,17 +740,19 @@ test('Doppelt einteilen: Arbeiter bleibt auf der ersten Baustelle und steht zus�
     await expect(chips(page, 'Baustelle A', d)).toHaveText([/Max/]);
     await expect(chips(page, 'Baustelle B', d)).toHaveText([/Max/]);
   }
-  // Kennzeichnung: rot und „+ andere Baustelle“ auf beiden Seiten
+  // Kennzeichnung: roter Rand auf beiden Seiten, andere Baustelle nur im Tooltip
   await expect(chips(page, 'Baustelle A', 0)).toHaveClass(/conflict/);
-  await expect(chips(page, 'Baustelle A', 0).getByTestId('chip-also')).toHaveText('+ Baustelle B');
-  await expect(chips(page, 'Baustelle B', 0).getByTestId('chip-also')).toHaveText('+ Baustelle A');
+  await expect(chips(page, 'Baustelle A', 0).first()).toHaveClass(/conflict/);
+  await expect(chips(page, 'Baustelle A', 0).first()).toHaveAttribute('title', /Baustelle B/);
+  await expect(chips(page, 'Baustelle B', 0).first()).toHaveAttribute('title', /Baustelle A/);
+  await expect(page.getByTestId('chip-also')).toHaveCount(0); // kein „+ Baustelle …“ mehr in den Kästchen
   // Hinweis im Namensdialog; nur hier entfernen lässt A unberührt
   await chips(page, 'Baustelle B', 0).click();
   await expect(page.getByTestId('chip-dialog').getByTestId('chip-also-hint')).toContainText('auch auf Baustelle A');
   await page.getByTestId('chip-dialog').getByTestId('chip-remove').click();
   await expect(chips(page, 'Baustelle B', 0)).toHaveCount(0);
   await expect(chips(page, 'Baustelle A', 0)).toHaveText(['Max']);
-  await expect(chips(page, 'Baustelle A', 0).getByTestId('chip-also')).toHaveCount(0);
+  await expect(chips(page, 'Baustelle A', 0).first()).not.toHaveClass(/conflict/);
   // Peter ist die ganze Woche frei → kleine Meldung, antippen zeigt ihn
   const toggle = page.getByTestId('crew-open-toggle');
   await expect(toggle).toContainText('Diese Woche nicht eingeteilt: 1');

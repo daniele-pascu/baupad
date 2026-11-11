@@ -11558,3 +11558,50 @@ html[data-theme='dark'] .crew-search {
     max-height: calc(100dvh - 230px);
   }
 }
+
+/* Einteilung: Kästchen je Funktion eingefärbt (höchste zuerst); doppelt eingeteilt nur noch roter Rand */
+.crew-chip.grade-polier,
+.crew-grade-key.grade-polier {
+  border-color: #6f9be8;
+  background: #e3edff;
+  color: #123a75;
+}
+.crew-chip.grade-vorarbeiter,
+.crew-grade-key.grade-vorarbeiter {
+  border-color: #5cb87a;
+  background: #e2f6e8;
+  color: #14532d;
+}
+.crew-chip.grade-facharbeiter,
+.crew-grade-key.grade-facharbeiter {
+  border-color: #e0a43a;
+  background: #fff2d9;
+  color: #6b4100;
+}
+.crew-chip.grade-hilfsarbeiter,
+.crew-grade-key.grade-hilfsarbeiter {
+  border-color: #a3a3ad;
+  background: #efeff3;
+  color: #3a3a44;
+}
+.crew-chip.conflict {
+  border: 2px solid var(--danger);
+}
+.crew-chip.conflict:not([class*='grade-']) {
+  background: var(--danger-soft);
+}
+.crew-grade-legend {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-right: auto;
+}
+.crew-grade-key {
+  display: inline-block;
+  padding: 1px 7px;
+  border: 1px solid;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.5;
+}

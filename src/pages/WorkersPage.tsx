@@ -31,6 +31,8 @@ import {
   siteFromProject,
   sitesOf,
   sortByGrade,
+  gradeRank,
+  WORKER_GRADES,
   SITE_LABELS,
   siteTitle,
   type SiteLabel,
@@ -235,6 +237,19 @@ export function WorkersPage() {
   const crew = useMemo(() => active.filter((w) => !isProjectLead(w)), [active]);
   const workTimes = times ?? DEFAULT_WORK_TIMES;
   const nameOf = (id: string) => (byId.get(id) ? workerName(byId.get(id)!) : 'Unbekannt');
+  /** Farbe des Kästchens nach Funktion (Polier, Vorarbeiter …) */
+  const gradeClass = (id: string) => {
+    const w = byId.get(id);
+    const g = w ? knownGrade(w) : null;
+    return g ? ` grade-${g}` : '';
+  };
+  /** Arbeiter eines Tages: höhere Funktion zuerst, innerhalb der Funktion alphabetisch */
+  const byGrade = (ids: string[]) =>
+    [...ids].sort((a, b) => {
+      const wa = byId.get(a);
+      const wb = byId.get(b);
+      return (wa ? gradeRank(wa) : 99) - (wb ? gradeRank(wb) : 99) || nameOf(a).localeCompare(nameOf(b), 'de');
+    });
   /** Projekt-Schlüssel fürs Auf-/Zuklappen (bleibt beim Wochenwechsel gleich) */
   const siteKey = (s: Pick<WeekSite, 'projectId' | 'name'>) => s.projectId || s.name;
   /** angetippter Arbeiter: seine Tage werden in den Projekten markiert */
@@ -693,7 +708,7 @@ export function WorkersPage() {
                     <button
                       key={w.id}
                       type="button"
-                      className="crew-chip open"
+                      className={`crew-chip open${gradeClass(w.id)}`}
                       onClick={() => setDialog({ kind: 'open', day: firstOpenDay(w.id), workerId: w.id })}
                       data-testid="open-chip"
                     >
@@ -718,6 +733,13 @@ export function WorkersPage() {
               <strong className="crew-sites-count" data-testid="crew-sites-count">
                 {plan.sites.length} {plan.sites.length === 1 ? 'Projekt' : 'Projekte'}
               </strong>
+              <span className="crew-grade-legend" data-testid="crew-grade-legend" aria-label="Farben nach Funktion">
+                {WORKER_GRADES.filter((g) => g.id !== 'projektleiter').map((g) => (
+                  <span key={g.id} className={`crew-grade-key grade-${g.id}`} title={g.label}>
+                    {g.short}
+                  </span>
+                ))}
+              </span>
               {plan.sites.length > 1 && (
                 <span className="crew-sort">
                   <label>
@@ -822,22 +844,17 @@ export function WorkersPage() {
                           </button>
                         </span>
                         <span className="crew-chips">
-                          {s.days[d].map((id) => (
+                          {byGrade(s.days[d]).map((id) => (
                             <button
                               key={id}
                               type="button"
-                              className={`crew-chip${byId.get(id)?.active === false ? ' inactive' : ''}${sitesOf(plan, id, d, s.id).length ? ' conflict' : ''}${hit(id) ? ' hit' : ''}${picked === id ? ' picked' : ''}${absenceOn(absences, id, weekId, d) === 'krank' ? ' sick' : absenceOn(absences, id, weekId, d) ? ' away' : ''}`}
+                              className={`crew-chip${gradeClass(id)}${byId.get(id)?.active === false ? ' inactive' : ''}${sitesOf(plan, id, d, s.id).length ? ' conflict' : ''}${hit(id) ? ' hit' : ''}${picked === id ? ' picked' : ''}${absenceOn(absences, id, weekId, d) === 'krank' ? ' sick' : absenceOn(absences, id, weekId, d) ? ' away' : ''}`}
                               onClick={() => setDialog({ kind: 'chip', siteId: s.id, day: d, workerId: id })}
                               data-testid="crew-chip"
                               data-worker={nameOf(id)}
                               title={sitesOf(plan, id, d, s.id).length ? `Auch eingeteilt auf: ${sitesOf(plan, id, d, s.id).map((x) => x.name).join(', ')}` : undefined}
                             >
                               {nameOf(id)}
-                              {sitesOf(plan, id, d, s.id).length > 0 && (
-                                <small className="crew-chip-also" data-testid="chip-also">
-                                  + {sitesOf(plan, id, d, s.id).map((x) => x.name).join(', ')}
-                                </small>
-                              )}
                             </button>
                           ))}
                         </span>
