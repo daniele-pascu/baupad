@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { apexOf, isRegularTriangle, measuresOf, pathLength, shapeInfo, type Apex, type Measures } from '../lib/drawing';
 import { arcRadius } from '../lib/cad';
-import { canEditVertexCount, shapeVertices } from '../lib/geometry';
+import { shapeVertices } from '../lib/geometry';
 import { checkMeasure, formatArea, formatMeasure, parseDecimal } from '../lib/numbers';
 import type { DrawElement, DrawElementType, ShapeStyle } from '../lib/types';
 import { StylePanel } from './StylePanel';
@@ -309,12 +309,12 @@ export function ElementBar({
       )}
       {element.type === 'triangle' && isRegularTriangle(element.shape) && <span className="muted small">Spitze {APEX_LABELS[apexOf(element.shape)]}</span>}
       {element.type === 'arc' && (
-        <span className="small element-info" data-testid="element-info">
+        <span className="sr-only" data-testid="element-info">
           Bogenlänge {formatMeasure(pathLength(element.shape))} m · Radius {formatMeasure(arcRadius(element.shape) ?? 0)} m
         </span>
       )}
       {element.type === 'freehand' && element.shape.closed === false && (
-        <span className="small element-info" data-testid="element-info">
+        <span className="sr-only" data-testid="element-info">
           Länge gesamt {formatMeasure(pathLength(element.shape))} m · {shapeVertices(element.shape).length} Punkte · keine Fläche
         </span>
       )}
@@ -341,11 +341,9 @@ export function ElementBar({
           <Icon name="trash" size={16} /> Eckpunkt {vertex + 1}
         </button>
       )}
-      {canEditVertexCount(element.shape) && element.type !== 'line' && element.type !== 'arc' && vertex === null && (
-        <span className="muted small hide-sm">Eckpunkt anklicken zum Auswählen · Doppelklick auf eine Kante fügt einen Punkt ein</span>
-      )}
+      {/* Umfang/Fläche bzw. Bogenlänge: nicht mehr sichtbar (aufgeräumte Leiste), nur für Screenreader */}
       {info && (element.type === 'triangle' || element.type === 'freehand' || element.type === 'rect') && (
-        <span className="small element-info" data-testid="element-info">
+        <span className="sr-only" data-testid="element-info">
           {info.sides.length > 0 && element.type !== 'rect' && <>Seiten {info.sides.map((x) => formatMeasure(x)).join(' · ')} m · </>}
           Umfang {formatMeasure(info.perimeter)} m{info.area !== null && <> · Fläche {formatArea(info.area)} m²</>}
         </span>

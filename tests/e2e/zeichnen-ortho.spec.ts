@@ -278,8 +278,9 @@ test('Aufmaß unverändert: Messungen werden weiterhin leicht gefüllt dargestel
   await deselect();
   await page.getByTestId('mode-measure').click();
   await pickTool(page, 'tool-rect');
+  // beim Messen ist das Blatt das gewählte Papierformat (wie im PDF) – Messung innerhalb des Blatts
   const sb = (await sheet().boundingBox())!;
-  await drag(sb.x + 100, sb.y + 700, sb.x + 260, sb.y + 800);
+  await drag(sb.x + sb.width * 0.1, sb.y + sb.height * 0.75, sb.x + sb.width * 0.25, sb.y + sb.height * 0.88);
   const dlg = page.getByTestId('damage-dialog');
   await dlg.getByTestId('input-length').fill('2');
   await dlg.getByTestId('damage-save').click();
