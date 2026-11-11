@@ -184,7 +184,10 @@ export function findSnap(p: Point, shapes: Shape[], tol: number, planSegs: PlanS
     for (let j = i + 1; j < near.length; j++) {
       const A = near[i];
       const B = near[j];
-      if (A.owner === B.owner && (Math.abs(A.index - B.index) <= 1 || sharesEnd(A.seg, B.seg))) continue; // benachbarte Kanten treffen sich in einer Ecke (auch erste/letzte)
+      if (A.owner === B.owner && Math.abs(A.index - B.index) <= 1) continue; // benachbarte Kanten treffen sich in einer Ecke
+      // gezeichnete Formen: erste/letzte Kante treffen sich in einer Ecke (Ecken liefert pointsOf; beim Kreis wäre es kein Schnittpunkt).
+      // PDF-Linien bleiben wie bisher – dort sind solche Ecken nur als Schnittpunkt fangbar.
+      if (A.owner === B.owner && A.owner >= 0 && A.owner < shapes.length && sharesEnd(A.seg, B.seg)) continue;
       const x = segmentIntersection(A.seg, B.seg);
       if (x) cands.push({ point: x, kind: 'intersection' });
     }

@@ -667,9 +667,30 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   // Verschieben bleibt sie unverändert, beim Zoomen wird nicht bei jedem Bild neu gerechnet.
   const qScale = view ? Math.pow(2, Math.round(Math.log2(view.scale) * 6) / 6) : 1;
   const labelFont = Math.max(10, Math.min(14, 11 * Math.pow(qScale / fitScale, 0.2)));
+  /** zuletzt vollständig berechnete Anordnung (Grundlage, solange ein Objekt gezogen wird) */
+  const layoutBase = useRef<{ map: Map<string, Rect>; damages: ViewerItem[]; key: string } | null>(null);
   const labelLayout = useMemo(() => {
+    // ohne Beschriftungen (Zeichenmodus) nichts anordnen – die Anordnung ist aufwendig und liefe sonst bei jedem Zugschritt
+    if (!showLabels) return new Map<string, Rect>();
+    const key = `${qScale}|${labelFont}|${region.x}|${region.y}|${region.w}|${region.h}`;
+    // Objekt wird gezogen (verschieben, Größe, Eckpunkt, drehen): nur seine Nummer wandert mit, die übrigen bleiben –
+    // vollständig neu angeordnet wird beim Loslassen (sonst ruckelt das Ziehen bei vielen Messungen)
+    const g = gesture.current;
+    const base = layoutBase.current;
+    if (base && base.key === key && (g.kind === 'move' || g.kind === 'resize' || g.kind === 'vertex' || g.kind === 'rotate') && base.damages.length === damages.length) {
+      const before = base.damages.find((d) => d.id === g.id);
+      const now = damages.find((d) => d.id === g.id);
+      const r = base.map.get(g.id);
+      if (before && now && r) {
+        const a = shapeAABB(before.shape);
+        const b = shapeAABB(now.shape);
+        const out = new Map(base.map);
+        out.set(g.id, { ...r, x: r.x + (b.x + b.w / 2) - (a.x + a.w / 2), y: r.y + (b.y + b.h / 2) - (a.y + a.h / 2) });
+        return out;
+      }
+    }
     const k = 1.08 / qScale; // Bildschirmpixel → Seiteneinheiten, mit Reserve für Zwischenstufen
-    return layoutLabels(
+    const map = layoutLabels(
       damages.map((d) => ({
         id: d.id,
         bounds: shapeAABB(d.shape),
@@ -681,7 +702,9 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       3 / qScale,
       { area: region },
     );
-  }, [damages, qScale, labelFont, region]);
+    layoutBase.current = { map, damages, key };
+    return map;
+  }, [damages, qScale, labelFont, region, showLabels]);
   const labels = useMemo(() => {
     const out = new Map<string, Rect>();
     if (!view || !showLabels) return out;
