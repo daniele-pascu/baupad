@@ -427,8 +427,8 @@ test('Plan zeichnen per Finger: Raum über Maßeingabe, Bemaßung sichtbar, Weit
   // Registerkarten der oberen Leiste: jede Zeile per Finger wischbar, Knöpfe mindestens 44 px
   for (const [tab, ids] of [
     ['draw', ['line', 'polyline', 'polygon', 'rect', 'ellipse', 'arc', 'text', 'delete', 'undo', 'redo']],
-    ['modify', ['move', 'copy', 'rotate', 'scale', 'stretch', 'trim', 'extend']],
-    ['measure', ['dimension']],
+    ['modify', ['selwin', 'multi', 'select-all', 'move', 'copy', 'rotate', 'scale', 'stretch', 'trim', 'extend']],
+    ['precision', ['dimension']],
   ] as const) {
     await page.getByTestId(`ribbon-tab-${tab}`).tap();
     for (const t of ids) {

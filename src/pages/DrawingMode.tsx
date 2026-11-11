@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { elementLabel } from '../components/DrawPanel';
 import { renderDims, renderElement, renderPreviewDims, renderSheet } from '../components/DrawingLayer';
 import type { PlanViewerHandle, SnapFn, Tool, ViewerItem } from '../components/PlanViewer';
@@ -7,6 +7,7 @@ import { textDialog } from '../components/TextDialog';
 import { cleanFont } from '../lib/text-font';
 import { elementsOf } from '../lib/aufmass';
 import { damageNo } from '../lib/numbering';
+import { formatMeasure } from '../lib/numbers';
 import {
   applyMeasures,
   circleFromMeasures,
@@ -28,7 +29,8 @@ import {
   type Measures,
 } from '../lib/drawing';
 import { type OrthoDir, extendLine, ORTHO_DIRS, orthoPoint, rotateShapeBy, scaleShape, stretchShape, translateShape, trimByFence, trimShape } from '../lib/cad';
-import { edgesOf, findSnap, type SnapKind } from '../lib/snap';
+import { edgesOf, findSnap, segmentIntersection, type SnapKind } from '../lib/snap';
+import { inputVector, parseCadInput, vectorInfo } from '../lib/cad-input';
 import { dimsVisible, visibleDamages, visibleElements } from '../lib/layers';
 import { distToSegment, isOpenShape, lineShape, pathToSvg, rectsOverlap, removeVertex, setPolylineClosed, shapeAABB, shapePath, toScreen, type Point, type View } from '../lib/geometry';
 import { newMeta, putRecord, putRecords, softDelete, type ProjectState } from '../lib/store';
@@ -41,11 +43,14 @@ export type ToolGroup = 'select' | 'draw' | 'annotate' | 'modify';
 /** Werkzeuge des Zeichenmodus: Zeichnen sowie Ändern (Kopieren, Verschieben, Strecken …) */
 export type DrawTool = Tool | 'copy' | 'move' | 'stretch';
 
-/** Befehle, die ein ausgewähltes Objekt brauchen */
+/** Befehle, die ausgewählte Objekte brauchen (ohne Auswahl fragen sie zuerst danach) */
 export const NEEDS_SELECTION = new Set<DrawTool>(['copy', 'move']);
+/** Befehle mit Basispunkt → Zielpunkt bzw. Eingabe im Befehlsfeld */
+export const VECTOR_COMMANDS = new Set<DrawTool>(['copy', 'move']);
 
 export const DRAW_TOOLS: { id: DrawTool; label: string; short?: string; icon: string; key: string; group: ToolGroup }[] = [
   { id: 'select', label: 'Auswahl: Objekte verschieben, Eckpunkte bearbeiten', short: 'Auswahl', icon: 'select', key: 'v', group: 'select' },
+  { id: 'selwin', label: 'Fenster: mehrere Objekte auswählen – nach rechts aufziehen = nur ganz Enthaltenes, nach links = alles Berührte; antippen wählt einzeln', short: 'Fenster', icon: 'crop', key: 'w', group: 'select' },
   { id: 'line', label: 'Linie (z. B. Wand)', short: 'Linie', icon: 'line', key: 'l', group: 'draw' },
   { id: 'polyline', label: 'Freie Form: Punkte nacheinander setzen – offen (Länge) oder geschlossen (Fläche), z. B. ein Dreieck', short: 'Freie Form', icon: 'polyline', key: 'f', group: 'draw' },
   { id: 'rect', label: 'Rechteck (z. B. Raum)', short: 'Rechteck', icon: 'rect', key: 'r', group: 'draw' },
@@ -139,7 +144,29 @@ export function useDrawing(opts: {
     // einmalige Übernahme der bisherigen Voreinstellung, dabei „Keine Füllung“ setzen
     return pref('drawStyle2', '') ? readStyle('drawStyle2') : { ...readStyle('drawStyle'), noFill: true };
   });
-  const [selectedId, setSelectedIdState] = useState<string | null>(null);
+  /** Auswahl: ein oder mehrere Objekte (ein Objekt = bisherige Einzelauswahl mit Griffen und Leiste) */
+  const [selIds, setSelIds] = useState<string[]>([]);
+  const selectedId = selIds.length === 1 ? selIds[0] : null;
+  const setSelectedIdState = (id: string | null) => setSelIds(id ? [id] : []);
+  /** Mehrfachauswahl (Handy/Tablet): Antippen fügt hinzu bzw. nimmt heraus; am PC mit Umschalt- oder Strg-Taste */
+  const [multi, setMulti] = useState(false);
+  const addKey = useRef(false);
+  useEffect(() => {
+    const on = (e: KeyboardEvent) => (addKey.current = e.shiftKey || e.ctrlKey || e.metaKey);
+    window.addEventListener('keydown', on);
+    window.addEventListener('keyup', on);
+    return () => {
+      window.removeEventListener('keydown', on);
+      window.removeEventListener('keyup', on);
+    };
+  }, []);
+  /** Verschieben/Kopieren ohne Auswahl: zuerst Objekte wählen, dann „Weiter“ */
+  const [cmdSelecting, setCmdSelecting] = useState(false);
+  /** Basispunkt des laufenden Befehls (Seitenkoordinaten) und Mausposition (für Abstand in Mausrichtung) */
+  const [cmdBase, setCmdBase] = useState<Point | null>(null);
+  const hoverRef = useRef<Point | null>(null);
+  /** Kopieren: Anzahl der Kopien in diesem Befehl */
+  const [copies, setCopies] = useState(0);
   /** Ausgewählter Eckpunkt des ausgewählten Objekts (zum Entfernen) */
   const [vertex, setVertex] = useState<number | null>(null);
   const setSelectedId = (id: string | null) => {
@@ -171,10 +198,14 @@ export function useDrawing(opts: {
   const setTool = (t: DrawTool) => {
     setToolState(t);
     setStretchWin(null);
-    storePref('drawTool', t);
+    setCmdBase(null);
+    setCopies(0);
+    // Verschieben/Kopieren ohne Auswahl: zuerst Objekte wählen
+    setCmdSelecting(VECTOR_COMMANDS.has(t) && !selIds.length);
+    if (!NEEDS_SELECTION.has(t) && t !== 'selwin') storePref('drawTool', t);
   };
   /** Werkzeug der Planansicht: Befehle nutzen Vektor (Basis → Ziel) bzw. Fenster */
-  const viewerTool: Tool = tool === 'copy' || tool === 'move' ? 'vector' : tool === 'stretch' ? (stretchWin ? 'vector' : 'window') : tool;
+  const viewerTool: Tool = VECTOR_COMMANDS.has(tool) ? (cmdSelecting ? 'selwin' : 'vector') : tool === 'stretch' ? (stretchWin ? 'vector' : 'window') : (tool as Tool);
   const setColor = (c: string) => {
     setColorState(c);
     storePref('drawColor', c);
@@ -213,6 +244,52 @@ export function useDrawing(opts: {
     [elements, k],
   );
   const selected = selectedId ? (byId.get(selectedId) ?? null) : null;
+  /** alle ausgewählten (sichtbaren) Objekte */
+  const selection = useMemo(() => selIds.map((id) => byId.get(id)).filter((e): e is DrawElement => !!e), [selIds, byId]);
+  const selSet = useMemo(() => new Set(selection.map((e) => e.id)), [selection]);
+
+  /** Antippen eines Objekts: auswählen – mit Mehrfachauswahl (bzw. Umschalt/Strg) hinzufügen oder herausnehmen */
+  const select = (id: string | null) => {
+    const add = multi || addKey.current || cmdSelecting;
+    if (!add) return setSelectedId(id);
+    if (!id) return; // ins Leere getippt: Mehrfachauswahl bleibt
+    setVertex(null);
+    setSelIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+  };
+  const selectAll = () => {
+    setVertex(null);
+    setSelIds(stored.map((e) => e.id));
+  };
+  const clearSelection = () => setSelectedId(null);
+
+  /**
+   * Auswahlfenster (Meter): nach rechts aufgezogen nur Objekte, die ganz im Fenster liegen; nach links
+   * aufgezogen alles, was das Fenster berührt (wie in AutoCAD). Mit Mehrfachauswahl wird ergänzt.
+   */
+  const selectWindow = (a: Point, b: Point) => {
+    const win = { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(b.x - a.x), h: Math.abs(b.y - a.y) };
+    const crossing = b.x < a.x;
+    const inside = (p: Point) => p.x >= win.x - 1e-9 && p.x <= win.x + win.w + 1e-9 && p.y >= win.y - 1e-9 && p.y <= win.y + win.h + 1e-9;
+    const box: [Point, Point][] = [
+      [{ x: win.x, y: win.y }, { x: win.x + win.w, y: win.y }],
+      [{ x: win.x + win.w, y: win.y }, { x: win.x + win.w, y: win.y + win.h }],
+      [{ x: win.x + win.w, y: win.y + win.h }, { x: win.x, y: win.y + win.h }],
+      [{ x: win.x, y: win.y + win.h }, { x: win.x, y: win.y }],
+    ];
+    const hits = stored
+      .filter((e) => {
+        const bb = shapeAABB(e.shape);
+        const whole = inside({ x: bb.x, y: bb.y }) && inside({ x: bb.x + bb.w, y: bb.y + bb.h });
+        if (whole || !crossing) return whole;
+        if (!rectsOverlap(bb, win)) return false;
+        return edgesOf(e.shape).some(([u, v]) => inside(u) || inside(v) || box.some((edge) => segmentIntersection([u, v], edge)));
+      })
+      .map((e) => e.id);
+    setVertex(null);
+    const add = multi || addKey.current || cmdSelecting;
+    setSelIds((ids) => (add ? [...ids, ...hits.filter((id) => !ids.includes(id))] : hits));
+    if (!hits.length && !add) toast(crossing ? 'Das Fenster berührt kein Objekt.' : 'Kein Objekt liegt ganz im Fenster (nach links aufziehen wählt auch berührte Objekte).', 'info', 3000);
+  };
 
   // -------------------------------------------------------------------------
   // Einrasten: Fangpunkte anderer Objekte und 15°-Richtungen (abschaltbar); Raster nur, wenn
@@ -220,6 +297,7 @@ export function useDrawing(opts: {
 
   const snap: SnapFn = (p, ctx) => {
     track.current.lines = [];
+    if (ctx.tool === 'selwin') return p;
     if (!snapOn && !gridOn && !orthoOn) return p;
     const pm = { x: p.x / k, y: p.y / k };
     const pxPerM = ctx.scale * k;
@@ -330,7 +408,18 @@ export function useDrawing(opts: {
   /** Im Plan gezogene Form übernehmen (Seitenkoordinaten → Meter) bzw. Befehl ausführen */
   const onCreate = (pageShape: Shape) => {
     const shape = shapeToMeters(pageShape, k);
-    if (tool === 'copy' || tool === 'move' || tool === 'stretch') {
+    if (tool === 'selwin' || (VECTOR_COMMANDS.has(tool) && cmdSelecting)) {
+      const [a, b] = lineEnds(shape);
+      selectWindow(a, b);
+      return;
+    }
+    if (VECTOR_COMMANDS.has(tool)) {
+      // Basispunkt → Zielpunkt (gezogen oder Klick, Klick)
+      const [a, b] = lineEnds(shape);
+      runVector(b.x - a.x, b.y - a.y, { x: a.x * k, y: a.y * k });
+      return;
+    }
+    if (tool === 'stretch') {
       if (tool === 'stretch' && !stretchWin) {
         setStretchWin({ x: shape.x, y: shape.y, w: shape.w, h: shape.h });
         return;
@@ -343,8 +432,8 @@ export function useDrawing(opts: {
     create(type, shape);
   };
 
-  /** Kopieren, Verschieben bzw. Strecken um den gezogenen Vektor (in m) */
-  const runVector = (dx: number, dy: number) => {
+  /** Kopieren, Verschieben bzw. Strecken um den gezogenen Vektor (in m); base: Basispunkt (Seitenkoordinaten) für weitere Kopien */
+  const runVector = (dx: number, dy: number, base: Point | null = null) => {
     if (tool === 'stretch' && stretchWin) {
       const changed: DrawElement[] = [];
       for (const e of stored) {
@@ -362,20 +451,87 @@ export function useDrawing(opts: {
       toast(`${changed.length} Objekt(e) gestreckt.`, 'success', 2000);
       return;
     }
-    const e = selected ? data.elements[selected.id] : undefined;
-    if (!e) {
-      toast('Bitte zuerst ein Objekt auswählen.', 'info');
+    const list = selection.map((x) => data.elements[x.id]).filter(Boolean);
+    if (!list.length) {
+      toast('Bitte zuerst Objekte auswählen.', 'info');
       return;
     }
-    const shape = roundShape(translateShape(e.shape, dx, dy));
+    const moved = list.map((e) => ({ ...e, shape: roundShape(translateShape(e.shape, dx, dy)) }));
     if (tool === 'copy') {
-      const rec: DrawElement = { ...e, ...newMeta(), shape };
-      putRecord('elements', rec);
-      setSelectedId(rec.id);
-      toast(`${elementLabel(e)} kopiert.`, 'success', 2000);
-    } else {
-      putRecord('elements', { ...e, shape });
+      // alle Eigenschaften übernehmen (Linienart, Farbe, Stärke, Füllung/Schraffur, Maße, Text …), neue Kennung
+      putRecords({ elements: moved.map((e) => ({ ...e, ...newMeta() })) }); // ein Rückgängig-Schritt
+      const n = copies + 1;
+      setCopies(n);
+      toast(list.length === 1 ? `${elementLabel(list[0])} kopiert (${n}).` : `${list.length} Objekte kopiert (${n}).`, 'success', 2000);
+      // Mehrfachkopie: derselbe Basispunkt gilt für die nächste Kopie, das Werkzeug bleibt aktiv
+      if (base) viewer.current?.armClick(base);
+      return;
     }
+    putRecords({ elements: moved });
+    toast(list.length === 1 ? `${elementLabel(list[0])} verschoben.` : `${list.length} Objekte verschoben.`, 'success', 2000);
+    setTool('select');
+  };
+
+  /**
+   * Eingabe im Befehlsfeld (Meter): „ΔX;ΔY“, „Länge<Winkel“ oder ein Abstand in Mausrichtung –
+   * für Verschieben/Kopieren und für den Endpunkt einer Linie (Klick, dann Länge eingeben).
+   * Liefert eine Fehlermeldung oder null.
+   */
+  const applyInput = (text: string): string | null => {
+    const inp = parseCadInput(text);
+    if (!inp) return 'Bitte z. B. 1,25 oder 2,5;0 oder 3<45 eingeben.';
+    const base = cmdBase ? { x: cmdBase.x / k, y: cmdBase.y / k } : null;
+    const hover = hoverRef.current ? { x: hoverRef.current.x / k, y: hoverRef.current.y / k } : null;
+    const dir = base && hover ? { x: hover.x - base.x, y: hover.y - base.y } : null;
+    const v = inputVector(inp, dir);
+    if (!v) return base ? 'Richtung fehlt: mit der Maus in die Richtung zeigen – oder ΔX;ΔY bzw. Länge<Winkel eingeben.' : 'Zuerst den Basispunkt antippen – oder ΔX;ΔY bzw. Länge<Winkel eingeben.';
+    if (VECTOR_COMMANDS.has(tool)) {
+      if (cmdSelecting) return 'Zuerst die Objekte wählen und „Weiter“ tippen.';
+      const b = cmdBase;
+      viewer.current?.armClick(null);
+      runVector(v.x, v.y, b);
+      return null;
+    }
+    if (tool === 'line' && base) {
+      viewer.current?.armClick(null);
+      if (Math.hypot(v.x, v.y) < 1e-6) return 'Die Länge muss größer als 0 sein.';
+      create('line', lineShape(base, { x: base.x + v.x, y: base.y + v.y }));
+      return null;
+    }
+    return 'Hier ist keine Eingabe möglich.';
+  };
+
+  /** Befehl beenden (Kopieren: „Fertig“) */
+  const finishCommand = () => {
+    viewer.current?.armClick(null);
+    setTool('select');
+  };
+
+  /** Text am Cursor: Abstand, ΔX, ΔY (nach oben positiv) und Winkel – laufend beim Zeichnen bzw. Verschieben */
+  const tipText = (a: Point, b: Point): string | null => {
+    const i = vectorInfo((b.x - a.x) / k, (b.y - a.y) / k);
+    if (i.len < 1e-9) return null;
+    const n = (v: number) => (Math.abs(v) < 0.005 ? '0,00' : `${v < 0 ? '−' : ''}${formatMeasure(Math.abs(v))}`);
+    return `${formatMeasure(i.len)} m · ΔX ${n(i.dx)} · ΔY ${n(i.dy)} · ${String(i.angle).replace('.', ',')}°`;
+  };
+
+  /** Ausgewählte Objekte löschen (ein Rückgängig-Schritt) */
+  const removeSelection = async () => {
+    if (selection.length === 1) return remove(selection[0]);
+    if (!selection.length) return;
+    const over = new Set(selection.flatMap((e) => overlapping(e).map((d) => d.id)));
+    if (over.size) {
+      const ok = await confirmDialog({
+        title: `${selection.length} Objekte löschen?`,
+        message: <p>Auf den Objekten liegen <strong>{over.size} Messung(en)</strong>. Die Messungen bleiben erhalten – nur die Zeichnungsobjekte werden entfernt. Mit „Rückgängig“ lassen sie sich wiederherstellen.</p>,
+        confirmLabel: 'Objekte löschen',
+        danger: true,
+      });
+      if (!ok) return;
+    }
+    softDelete({ elements: selection.map((e) => data.elements[e.id]) });
+    toast(`${selection.length} Objekte gelöscht.`, 'info', 2000);
+    setSelectedId(null);
   };
 
   /** Drehen bzw. Skalieren des ausgewählten Objekts um seinen Mittelpunkt */
@@ -664,7 +820,7 @@ export function useDrawing(opts: {
 
   const renderItem = (item: ViewerItem, view: View, sel: boolean): ReactNode => {
     const e = byId.get(item.id);
-    return e ? renderElement(e, item.shape, view, sel, false, k) : null;
+    return e ? renderElement(e, item.shape, view, sel || selSet.has(e.id), false, k) : null;
   };
 
   const markerPaths = (view: View) => (
@@ -695,15 +851,17 @@ export function useDrawing(opts: {
     </>
   );
 
-  const drawOverlay = (view: View, preview: Shape | null) => {
+  const drawOverlay = (view: View, preview: Shape | null, hover: Point | null = null) => {
     const previewType: DrawElementType | null = DRAW_SHAPE_TOOLS.has(tool) ? (tool as DrawElementType) : null;
     // Kopieren/Verschieben/Strecken: Vorschau des Ergebnisses (gestrichelt)
     let ghost: ReactNode = null;
-    if (preview && (tool === 'copy' || tool === 'move' || (tool === 'stretch' && stretchWin))) {
-      const [a, b] = lineEnds(shapeToMeters(preview, k));
+    // Vektor: gezogen (preview) bzw. Klick-Klick vom Basispunkt zur Maus
+    const vec = preview && (VECTOR_COMMANDS.has(tool) || (tool === 'stretch' && stretchWin)) ? lineEnds(shapeToMeters(preview, k)) : VECTOR_COMMANDS.has(tool) && cmdBase && hover ? [{ x: cmdBase.x / k, y: cmdBase.y / k }, { x: hover.x / k, y: hover.y / k }] : null;
+    if (vec && !(VECTOR_COMMANDS.has(tool) && cmdSelecting)) {
+      const [a, b] = vec;
       const dx = b.x - a.x;
       const dy = b.y - a.y;
-      const targets = tool === 'stretch' ? stored.map((e) => stretchShape(e.shape, stretchWin!, dx, dy)).filter((x): x is Shape => !!x) : selected ? [translateShape(selected.shape, dx, dy)] : [];
+      const targets = tool === 'stretch' ? stored.map((e) => stretchShape(e.shape, stretchWin!, dx, dy)).filter((x): x is Shape => !!x) : selection.map((e) => translateShape(e.shape, dx, dy));
       ghost = (
         <g className="cad-ghost" data-testid="cad-ghost">
           {targets.map((t, i) => (
@@ -716,6 +874,21 @@ export function useDrawing(opts: {
       <>
         {showDims && renderDims(view, elements, k)}
         {renderPreviewDims(view, preview, previewType, k)}
+        {/* Mehrfachauswahl: jedes ausgewählte Objekt blau umrandet */}
+        {selection.length > 1 && (
+          <g className="multi-sel" data-testid="multi-sel">
+            {selection.map((e) => (
+              <path key={e.id} d={pathToSvg(shapePath(shapeToPage(e.shape, k)), (p) => toScreen(view, p))} />
+            ))}
+          </g>
+        )}
+        {/* Auswahlfenster: nach rechts = durchgezogen (ganz enthalten), nach links = gestrichelt (berührt) */}
+        {preview && (tool === 'selwin' || (VECTOR_COMMANDS.has(tool) && cmdSelecting)) && (() => {
+          const [a, b] = lineEnds(preview);
+          const p = toScreen(view, a);
+          const q = toScreen(view, b);
+          return <rect className={`sel-window${q.x < p.x ? ' crossing' : ''}`} data-testid="sel-window" x={Math.min(p.x, q.x)} y={Math.min(p.y, q.y)} width={Math.abs(q.x - p.x)} height={Math.abs(q.y - p.y)} />;
+        })()}
         {stretchWin && (
           <path
             className="cad-window"
@@ -767,6 +940,22 @@ export function useDrawing(opts: {
     selected,
     selectedId,
     setSelectedId,
+    selection,
+    select,
+    selectAll,
+    clearSelection,
+    multi,
+    setMulti,
+    cmdSelecting,
+    setCmdSelecting,
+    cmdBase,
+    setCmdBase,
+    copies,
+    onHover: (p: Point | null) => void (hoverRef.current = p),
+    applyInput,
+    finishCommand,
+    tipText,
+    removeSelection,
     viewerTool,
     stretchWin,
     transformSelected,

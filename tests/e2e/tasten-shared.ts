@@ -181,6 +181,25 @@ export function tastenTests() {
     await page.getByTestId('text-save').click();
     await expect(page.getByTestId('element-bar')).toBeVisible();
     await pruefe(page, 'Text-Leiste', out);
+    // Mehrfachauswahl und Befehlsleiste (Kopieren mit Eingabefeld): dazu ein Rechteck einfügen
+    await page.locator('body').press('Escape');
+    await expect(page.getByTestId('element-bar')).toHaveCount(0);
+    await pickTool(page, 'draw-rect');
+    await page.getByTestId('insert-length').fill('4');
+    await page.getByTestId('insert-width').fill('3');
+    await page.getByTestId('insert-submit').click();
+    await pickTool(page, 'draw-select-all');
+    await expect(page.getByTestId('multi-bar')).toBeVisible();
+    await pruefe(page, 'Mehrfachauswahl', out);
+    await page.getByTestId('multi-copy').click();
+    await expect(page.getByTestId('command-bar')).toBeVisible();
+    await pruefe(page, 'Befehlsleiste', out);
+    await page.getByTestId('command-done').click();
+    // Registerkarten Ändern und Präzision
+    for (const t of ['modify', 'precision']) {
+      await page.getByTestId(`ribbon-tab-${t}`).click();
+      await pruefe(page, `Registerkarte ${t}`, out);
+    }
     expect(out, out.join('\n')).toEqual([]);
   });
 }

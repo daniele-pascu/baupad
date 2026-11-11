@@ -38,9 +38,9 @@ import { findSnap } from '../lib/snap';
 import { SegIndex } from '../lib/pdf-snap';
 import { clearHistory, newMeta, putRecord, putRecords, redo, softDelete, undo, useAppState, type ProjectState } from '../lib/store';
 import { COLORS, SHAPE_LABELS, type Damage, type DrawElementType, type MeasureKind, type Plan, type Shape, type ShapeStyle, type ShapeType } from '../lib/types';
-import { DRAW_TOOLS, readStyle, useDrawing, type DrawTool } from './DrawingMode';
+import { DRAW_TOOLS, readStyle, useDrawing, VECTOR_COMMANDS, type DrawTool } from './DrawingMode';
+import { CommandBar } from '../components/CommandBar';
 import { DrawRibbon, OrthoButtons } from '../components/DrawRibbon';
-import { elementLabel } from '../components/DrawPanel';
 import { StylePanel } from '../components/StylePanel';
 
 type DialogState = { mode: 'new'; shape: Shape; number: number; label: string | null; kind: MeasureKind; fromShape?: boolean } | { mode: 'edit'; id: string } | null;
@@ -69,8 +69,6 @@ const INSERT_TOOLS = new Set<DrawTool>(['line', 'rect', 'ellipse', 'triangle', '
 const OP_HINTS: Partial<Record<DrawTool, string>> = {
   arc: 'Anfangspunkt, einen Punkt auf dem Bogen und den Endpunkt antippen.',
   dimension: 'Maßlinie: 1. Punkt A anklicken, 2. Punkt B anklicken, 3. auf den gewünschten Abstand ziehen und klicken – die Maßlinie bleibt auf A und B bezogen.',
-  move: 'Objekt auswählen, dann vom Basispunkt zum Zielpunkt ziehen (Fang nutzt Ecken und Endpunkte).',
-  copy: 'Objekt auswählen, dann vom Basispunkt zum Zielpunkt ziehen – die Kopie wird dort eingefügt.',
   stretch: '1. Fenster über die Eckpunkte ziehen, die sich bewegen sollen.',
   trim: 'Stutzen: Abschnitt anklicken, der bis zu den nächsten Kanten bzw. Eckpunkten entfernt wird – oder frei über mehrere Linien ziehen (Zaun), um alle gekreuzten Abschnitte zu stutzen.',
   extend: 'Die Linie nahe dem Ende anklicken, das bis zur nächsten Kante verlängert werden soll.',
@@ -788,6 +786,12 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         else doUndo();
         return;
       }
+      // Strg+A: alle Objekte auswählen (Plan bearbeiten)
+      if (drawMode && (e.ctrlKey || e.metaKey) && !e.altKey && key === 'a') {
+        e.preventDefault();
+        drawing.selectAll();
+        return;
+      }
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       // F11 wie in CAD-Programmen: Spurlinien ein/aus
       if (e.key === 'F11' && drawMode) {
@@ -813,6 +817,13 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       if (drawMode) {
         const dt = DRAW_TOOLS.find((x) => x.key === key);
         if (dt) drawing.setTool(dt.id);
+        else if (e.key === 'Enter' && VECTOR_COMMANDS.has(drawing.tool)) {
+          // Enter beendet Kopieren/Verschieben (bzw. „Weiter“ nach dem Wählen)
+          if (drawing.cmdSelecting && drawing.selection.length) drawing.setCmdSelecting(false);
+          else drawing.finishCommand();
+          e.preventDefault();
+          return;
+        } else if ((e.key === 'Delete' || e.key === 'Backspace') && drawing.selection.length > 1) void drawing.removeSelection();
         else if ((e.key === 'Delete' || e.key === 'Backspace') && drawing.selected) {
           // ausgewählter Eckpunkt zuerst, sonst das ganze Objekt
           if (!drawing.removeSelectedVertex()) void drawing.remove(drawing.selected);
@@ -1407,7 +1418,10 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               tool={probe ? 'probe' : drawing.viewerTool}
               color={drawing.color}
               pending={null}
-              onSelect={(id) => drawing.setSelectedId(id)}
+              onSelect={(id) => drawing.select(id)}
+              onClickStart={drawing.setCmdBase}
+              onHover={drawing.onHover}
+              tipText={drawing.tipText}
               onCreate={drawing.onCreate}
               onFence={drawing.onFence}
               onDimension={drawing.onDimension}
@@ -1425,7 +1439,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               underlay={region ? drawing.drawUnderlay(region) : undefined}
               overlay={(view, preview, hover) => (
                 <>
-                  {drawing.drawOverlay(view, preview)}
+                  {drawing.drawOverlay(view, preview, hover ?? null)}
                   {probe && <ProbeOverlay view={view} probe={probe} hover={hover ?? null} k={k} />}
                 </>
               )}
@@ -1638,15 +1652,58 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                       : `${polyCount} von 3 Punkten gesetzt`
                     : OP_HINTS[drawing.tool]}
               </span>
-              {drawing.selected && (drawing.tool === 'copy' || drawing.tool === 'move') && (
-                <span className="small">Ausgewählt: {elementLabel(drawing.selected)}</span>
-              )}
               <button type="button" className="btn btn-sm" onClick={() => drawing.setTool('select')} data-testid="op-cancel">
                 Fertig
               </button>
             </div>
           )}
-          {drawMode && !probe && !OP_HINTS[drawing.tool] &&
+          {drawMode && !probe && !dialog && (VECTOR_COMMANDS.has(drawing.tool) || (drawing.tool === 'line' && drawing.cmdBase)) && (
+            <CommandBar
+              key={drawing.tool}
+              title={DRAW_TOOLS.find((t) => t.id === drawing.tool)?.short ?? ''}
+              prompt={
+                VECTOR_COMMANDS.has(drawing.tool)
+                  ? drawing.cmdSelecting
+                    ? `Objekte wählen: antippen oder Fenster aufziehen (nach links = auch berührte) – dann „Weiter“. Ausgewählt: ${drawing.selection.length}`
+                    : drawing.cmdBase
+                      ? drawing.copies
+                        ? `${drawing.copies} Kopie${drawing.copies === 1 ? '' : 'n'} erstellt – nächsten Zielpunkt antippen (gleicher Basispunkt) oder „Fertig“.`
+                        : 'Zielpunkt antippen – oder Abstand in Mausrichtung, ΔX;ΔY bzw. Länge<Winkel eingeben.'
+                      : `${drawing.copies ? `${drawing.copies} Kopie${drawing.copies === 1 ? '' : 'n'} erstellt. ` : ''}Basispunkt antippen (oder vom Basis- zum Zielpunkt ziehen) – oder Verschiebung ΔX;ΔY bzw. Länge<Winkel eingeben. ${drawing.selection.length} Objekt${drawing.selection.length === 1 ? '' : 'e'}.`
+                  : 'Endpunkt antippen – oder Länge in Mausrichtung, ΔX;ΔY bzw. Länge<Winkel eingeben.'
+              }
+              onInput={drawing.cmdSelecting ? undefined : drawing.applyInput}
+            >
+              {VECTOR_COMMANDS.has(drawing.tool) && drawing.cmdSelecting && (
+                <button type="button" className="btn btn-sm btn-primary" disabled={!drawing.selection.length} onClick={() => drawing.setCmdSelecting(false)} data-testid="command-next">
+                  Weiter
+                </button>
+              )}
+              {VECTOR_COMMANDS.has(drawing.tool) && (
+                <button type="button" className="btn btn-sm" onClick={drawing.finishCommand} data-testid="command-done">
+                  {drawing.tool === 'copy' && drawing.copies ? 'Fertig' : 'Abbrechen'}
+                </button>
+              )}
+            </CommandBar>
+          )}
+          {drawMode && !probe && !dialog && !VECTOR_COMMANDS.has(drawing.tool) && drawing.selection.length > 1 && (
+            <div className="draw-bar multi-bar" data-testid="multi-bar">
+              <strong className="draw-bar-title">{drawing.selection.length} Objekte ausgewählt</strong>
+              <button type="button" className="btn btn-sm" onClick={() => drawing.setTool('move')} data-testid="multi-move">
+                <Icon name="move" size={16} /> Verschieben
+              </button>
+              <button type="button" className="btn btn-sm" onClick={() => drawing.setTool('copy')} data-testid="multi-copy">
+                <Icon name="copy" size={16} /> Kopieren
+              </button>
+              <button type="button" className="btn btn-sm btn-danger-text" onClick={() => void drawing.removeSelection()} data-testid="multi-delete">
+                <Icon name="trash" size={16} /> Löschen
+              </button>
+              <button type="button" className="icon-btn icon-btn-sm" onClick={drawing.clearSelection} aria-label="Auswahl aufheben" data-testid="multi-clear">
+                <Icon name="close" size={18} />
+              </button>
+            </div>
+          )}
+          {drawMode && !probe && !OP_HINTS[drawing.tool] && !VECTOR_COMMANDS.has(drawing.tool) && !(drawing.tool === 'line' && drawing.cmdBase) &&
             (drawing.selected && !polyCount ? (
               <ElementBar
                 key={drawing.selected.id}

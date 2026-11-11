@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { DRAW_TOOLS, NEEDS_SELECTION, ORTHO_DIR_LABELS, type DrawTool, type useDrawing } from '../pages/DrawingMode';
+import { DRAW_TOOLS, ORTHO_DIR_LABELS, type DrawTool, type useDrawing } from '../pages/DrawingMode';
 import { ORTHO_DIRS } from '../lib/cad';
 import { Icon } from './Icon';
 import { isTouchDevice } from '../lib/platform';
@@ -15,17 +15,16 @@ import { promptDialog, toast } from './ui';
  * Zeile waagrecht wischen.
  */
 
-type Tab = 'draw' | 'modify' | 'style' | 'measure' | 'view';
+type Tab = 'draw' | 'modify' | 'style' | 'precision' | 'view';
 const TABS: { id: Tab; label: string }[] = [
   { id: 'draw', label: 'Zeichnen' },
   { id: 'modify', label: 'Ändern' },
-  { id: 'style', label: 'Darstellung' },
-  { id: 'measure', label: 'Messen' },
+  { id: 'style', label: 'Eigenschaften' },
+  { id: 'precision', label: 'Präzision' },
   { id: 'view', label: 'Ansicht' },
 ];
 
-const DRAW_IDS: DrawTool[] = ['select', 'line', 'polyline', 'polygon', 'rect', 'ellipse', 'arc', 'text'];
-const MODIFY_IDS: DrawTool[] = ['select', 'move', 'copy', 'stretch', 'trim', 'extend'];
+const DRAW_IDS: DrawTool[] = ['select', 'line', 'polyline', 'polygon', 'rect', 'ellipse', 'arc', 'text', 'dimension'];
 
 function readTab(): Tab {
   try {
@@ -80,7 +79,8 @@ export function DrawRibbon({
 
   const toolBtn = (id: DrawTool) => {
     const t = DRAW_TOOLS.find((x) => x.id === id)!;
-    const needsSel = NEEDS_SELECTION.has(id) && !sel;
+    // Verschieben/Kopieren fragen ohne Auswahl selbst nach den Objekten
+    const needsSel = false;
     // nie zwei zugleich: während Messung (Menü oder laufend) leuchtet nur „Messung“
     const lit = drawing.tool === id && !probeMenu && !probeActive;
     return (
@@ -95,7 +95,7 @@ export function DrawRibbon({
         }}
         aria-pressed={drawing.tool === id}
         disabled={needsSel}
-        title={`${t.label} (${t.key.toUpperCase()})${needsSel ? ' – zuerst ein Objekt auswählen' : ''}`}
+        title={`${t.label} (${t.key.toUpperCase()})`}
         data-testid={`draw-${id}`}
       >
         <Icon name={t.icon} />
@@ -169,13 +169,23 @@ export function DrawRibbon({
         )}
         {tab === 'modify' && (
           <>
+            <div className="tool-group" role="group" aria-label="Auswahl">
+              {!isTouchDevice() && toolBtn('select')}
+              {toolBtn('selwin')}
+              {btn('draw-multi', 'plus', 'Mehrfach', () => drawing.setMulti(!drawing.multi), {
+                pressed: drawing.multi,
+                title: 'Mehrfachauswahl: Antippen fügt Objekte hinzu bzw. nimmt sie heraus (am PC auch mit Umschalt- oder Strg-Taste)',
+              })}
+              {btn('draw-select-all', 'select', 'Alles', drawing.selectAll, { title: 'Alle Objekte auswählen (Strg+A)' })}
+            </div>
             <div className="tool-group" role="group" aria-label="Ändern">
-              {MODIFY_IDS.slice(0, 3)
-                .filter((id) => id !== 'select' || !isTouchDevice())
-                .map(toolBtn)}
-              {btn('draw-rotate', 'rotate', 'Drehen', () => void transform('rotate'), { disabled: !sel, title: 'Ausgewähltes Objekt um einen Winkel drehen' })}
-              {btn('draw-scale', 'scale', 'Skalieren', () => void transform('scale'), { disabled: !sel, title: 'Ausgewähltes Objekt mit einem Faktor skalieren' })}
-              {MODIFY_IDS.slice(3).map(toolBtn)}
+              {toolBtn('move')}
+              {toolBtn('copy')}
+              {btn('draw-rotate', 'rotate', 'Drehen', () => void transform('rotate'), { disabled: !sel, title: sel ? 'Ausgewähltes Objekt um einen Winkel drehen' : 'Zuerst genau ein Objekt auswählen' })}
+              {btn('draw-scale', 'scale', 'Skalieren', () => void transform('scale'), { disabled: !sel, title: sel ? 'Ausgewähltes Objekt mit einem Faktor skalieren' : 'Zuerst genau ein Objekt auswählen' })}
+              {toolBtn('stretch')}
+              {toolBtn('trim')}
+              {toolBtn('extend')}
             </div>
             {editGroup}
           </>
@@ -219,29 +229,37 @@ export function DrawRibbon({
             )}
           </div>
         )}
-        {tab === 'measure' && (
-          <div className="tool-group" role="group" aria-label="Messen">
-            {toolBtn('dimension')}
-            {onProbe && (
-              <span className="probe-anchor" data-probe-toggle>
-                {btn('ribbon-probe', 'dimension', 'Messung', () => setProbeMenu(!probeMenu), {
-                  pressed: probeActive || probeMenu,
-                  title: 'Messung: Länge, Fläche, Winkel, Radius oder Abstand nachmessen – ändert nichts',
-                })}
-                {probeMenu && (
-                  <ProbeMenu
-                    down
-                    onClose={() => setProbeMenu(false)}
-                    onPick={(kind) => {
-                      setProbeMenu(false);
-                      onProbe(kind);
-                    }}
-                  />
-                )}
-              </span>
-            )}
-            {btn('ribbon-measure', 'table', 'Zum Aufmaß', onMeasure, { title: 'Weiter zum Aufmaß: Messungen erfassen' })}
-          </div>
+        {tab === 'precision' && (
+          <>
+            <div className="tool-group" role="group" aria-label="Fang und Hilfen">
+              {btn('view-snap', 'snap', 'Fang', () => drawing.setSnapOn(!drawing.snapOn), { pressed: drawing.snapOn, title: 'Punktfang: Endpunkt, Mittelpunkt, Schnittpunkt, Kreismitte, auf Linie (Umschalt+X) · X gedrückt halten vergrößert an der Maus' })}
+              {btn('view-track', 'ruler', 'Spuren', () => drawing.setTrackOn(!drawing.trackOn), { pressed: drawing.trackOn, title: 'Spurlinien (F11): waagrecht und senkrecht durch angefahrene Fangpunkte' })}
+              {btn('view-ortho', 'ortho', '90°', () => drawing.setOrthoOn(!drawing.orthoOn), { pressed: drawing.orthoOn, title: '90° / Orthogonal: nur waagrecht und senkrecht zeichnen (F8)' })}
+              {btn('view-grid', 'grid', 'Raster', () => drawing.setGridOn(!drawing.gridOn), { pressed: drawing.gridOn, title: 'Am Raster einrasten' })}
+            </div>
+            <div className="tool-group" role="group" aria-label="Messen">
+              {toolBtn('dimension')}
+              {onProbe && (
+                <span className="probe-anchor" data-probe-toggle>
+                  {btn('ribbon-probe', 'ruler', 'Messung', () => setProbeMenu(!probeMenu), {
+                    pressed: probeActive || probeMenu,
+                    title: 'Messung: Länge, Fläche, Winkel, Radius oder Abstand nachmessen – ändert nichts',
+                  })}
+                  {probeMenu && (
+                    <ProbeMenu
+                      down
+                      onClose={() => setProbeMenu(false)}
+                      onPick={(kind) => {
+                        setProbeMenu(false);
+                        onProbe(kind);
+                      }}
+                    />
+                  )}
+                </span>
+              )}
+              {btn('ribbon-measure', 'table', 'Zum Aufmaß', onMeasure, { title: 'Weiter zum Aufmaß: Messungen erfassen' })}
+            </div>
+          </>
         )}
         {tab === 'view' && (
           <div className="tool-group" role="group" aria-label="Ansicht">
@@ -250,9 +268,6 @@ export function DrawRibbon({
             {btn('view-fit', 'fit', 'Alles', () => viewer.current?.fit(), { title: 'Gesamten Plan anzeigen (0)' })}
             {btn('view-zoom-sel', 'zoomSel', 'Auswahl', () => sel && viewer.current?.zoomTo(sel.id), { disabled: !sel, title: 'Zoom auf Auswahl' })}
             {btn('view-back', 'undoView', 'Vorherige', () => viewer.current?.back(), { title: 'Zur vorherigen Ansicht' })}
-            {btn('view-grid', 'grid', 'Raster', () => drawing.setGridOn(!drawing.gridOn), { pressed: drawing.gridOn, title: 'Am Raster einrasten' })}
-            {btn('view-snap', 'snap', 'Fang', () => drawing.setSnapOn(!drawing.snapOn), { pressed: drawing.snapOn, title: 'Punktfang (Umschalt+X) · X vergrößert an der Maus' })}
-            {btn('view-ortho', 'ortho', '90°', () => drawing.setOrthoOn(!drawing.orthoOn), { pressed: drawing.orthoOn, title: '90° / Orthogonal: nur waagrecht und senkrecht zeichnen (F8)' })}
           </div>
         )}
       </div>

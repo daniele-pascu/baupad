@@ -73,7 +73,7 @@ test('Kopieren und Verschieben per Basis- und Zielpunkt (mit Fang), Drehen, Skal
 
   // Kopieren: von der rechten oberen Ecke (Fang) 200 px nach rechts
   await pickTool(page, 'draw-copy');
-  await expect(page.getByTestId('op-hint')).toContainText('Basispunkt');
+  await expect(page.getByTestId('command-prompt')).toContainText('Basispunkt');
   await drag(sb.x + 222, sb.y + 101, sb.x + 420, sb.y + 101);
   await waitSaved(page);
   let els = await elements();
@@ -86,7 +86,11 @@ test('Kopieren und Verschieben per Basis- und Zielpunkt (mit Fang), Drehen, Skal
   near(c.x - r0.shape.x, (await m(420 - 100)) - r0.shape.w);
   near(c.y - r0.shape.y, 0, 1e-6);
 
-  // Verschieben der Kopie um 80 px nach unten
+  // Kopieren bleibt aktiv (Mehrfachkopie) – „Fertig“ beendet; dann die Kopie wählen und 80 px nach unten verschieben
+  await page.getByTestId('command-done').click();
+  await pickTool(page, 'draw-select');
+  await page.mouse.click(sb.x + 360, sb.y + 100);
+  await expect(page.getByTestId('element-bar')).toBeVisible();
   await pickTool(page, 'draw-move');
   await drag(sb.x + 400, sb.y + 130, sb.x + 400, sb.y + 210);
   await waitSaved(page);

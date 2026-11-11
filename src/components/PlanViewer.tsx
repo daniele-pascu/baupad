@@ -61,6 +61,8 @@ export type Tool =
   /** Fenster aufziehen (z. B. Strecken) bzw. Vektor von Basis- zu Zielpunkt (Kopieren, Verschieben) */
   | 'window'
   | 'vector'
+  /** Auswahlfenster: links → rechts nur ganz Enthaltenes, rechts → links alles Berührte */
+  | 'selwin'
   /** Linie anklicken: Trimmen bzw. Verlängern */
   | 'trim'
   | 'extend';
@@ -82,7 +84,7 @@ export function dimensionFrom(a: Point, b: Point, c: Point): { a2: Point; b2: Po
   return { a2: { x: a.x + nx * d, y: a.y + ny * d }, b2: { x: b.x + nx * d, y: b.y + ny * d }, offset: -d, len: Math.hypot(dx, dy) };
 }
 /** Strecken auch per Klick, Klick (Punkt A, Punkt B) – dazwischen z. B. mit X zoomen */
-const CLICK_LINE = new Set<string>(['line', 'calibrate']);
+const CLICK_LINE = new Set<string>(['line', 'calibrate', 'vector']);
 
 /** Werkzeuge, die eine Stelle antippen statt eine Form zu zeichnen */
 const PLACE_TOOLS = new Set<Tool>(['component', 'text', 'trim', 'extend']);
@@ -123,6 +125,8 @@ export interface PlanViewerHandle {
    */
   finishPolygon(closed?: boolean): void;
   cancelPolygon(): void;
+  /** Klick-Klick-Strecke: Punkt A setzen (z. B. Basispunkt für die nächste Kopie) bzw. aufheben (null) */
+  armClick(p: Point | null): void;
   /** Zuletzt gesetzten Punkt entfernen */
   undoPolygonPoint(): void;
   /** Bildschirmpixel je Seiteneinheit */
@@ -164,6 +168,12 @@ interface Props {
   onComponentMove(id: string, x: number, y: number, commit: boolean): void;
   /** Werkzeug „Bauteil“ bzw. „Text“: Stelle im Plan angetippt */
   onPlace(p: Point): void;
+  /** Klick-Klick-Strecke: Punkt A gesetzt (Seitenkoordinaten) bzw. aufgehoben (null) */
+  onClickStart?(p: Point | null): void;
+  /** Maus über dem Plan (Seitenkoordinaten, mit Fang, falls aktiv) – z. B. Richtung für eine Abstandseingabe */
+  onHover?(p: Point | null): void;
+  /** Text am Cursor beim Zeichnen einer Strecke von a nach b (Abstand, ΔX, ΔY, Winkel); null = nichts */
+  tipText?(a: Point, b: Point): string | null;
   /** false: immer mit dem ganzen Bereich beginnen (keine zuletzt verwendete Ansicht) */
   restoreView?: boolean;
   /** Texte im Aufmaß (Seitenkoordinaten): mit „Auswählen“ antippen = bearbeiten, ziehen = verschieben */
@@ -248,7 +258,7 @@ export const PEN_IDLE_MS = 4000;
 const penActive = () => Date.now() - lastPenAt < PEN_IDLE_MS;
 
 /** Werkzeuge, die durch Ziehen eine Form erzeugen */
-type DrawGestureTool = ShapeType | 'dimension' | 'calibrate' | 'window' | 'vector';
+type DrawGestureTool = ShapeType | 'dimension' | 'calibrate' | 'window' | 'vector' | 'selwin';
 
 /**
  * Planansicht mit Zoom (Schaltflächen, Mausrad, zwei Finger), Verschieben und Markierungen.
@@ -308,6 +318,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     if (!clickStart.current) return;
     clickStart.current = null;
     polyHover.current = null;
+    propsRef.current.onClickStart?.(null);
     propsRef.current.onPolygonChange?.(0);
   };
   const polyHover = useRef<Point | null>(null);
@@ -576,6 +587,14 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       if (clickStart.current) return clearClickStart();
       poly.current = poly.current.slice(0, -1);
       propsRef.current.onPolygonChange?.(poly.current.length);
+      forceRender((n) => n + 1);
+    },
+    armClick: (p: Point | null) => {
+      if (!p) clearClickStart();
+      else {
+        clickStart.current = p;
+        propsRef.current.onClickStart?.(p);
+      }
       forceRender((n) => n + 1);
     },
     cancelPolygon: () => {
@@ -915,6 +934,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         polyHover.current = e.pointerType === 'mouse' && propsRef.current.snap ? clampP(snapAt(hp, { tool: t, scale: viewRef.current.scale, from: clickStart.current })) : hp;
         forceRender((n) => n + 1);
       }
+      if (propsRef.current.onHover && viewRef.current) propsRef.current.onHover(clickStart.current ? polyHover.current : toPage(viewRef.current, localPoint(e)));
       // Vorschau der nächsten Kante beim Setzen von Flächenpunkten (mit Fang bzw. 90°, wie der Klick)
       if (isPointTool(propsRef.current.tool) && (poly.current.length || propsRef.current.tool === 'probe') && viewRef.current) {
         const hp = clampP(toPage(viewRef.current, localPoint(e)));
@@ -1142,10 +1162,17 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         if (cancelled) return;
         // Linie/Kalibrieren angetippt: Punkt A setzen bzw. mit Punkt B abschließen
         const r0 = normalizeRect(g.start, g.current);
+        // Auswahlfenster nur angetippt: Objekt unter dem Finger wählen (bzw. hinzufügen)
+        if (g.tool === 'selwin' && Math.max(r0.w, r0.h) * v.scale < 8) {
+          const hit = hitDamage(p);
+          propsRef.current.onSelect(hit?.id ?? null);
+          return;
+        }
         if (CLICK_LINE.has(g.tool) && Math.max(r0.w, r0.h) * v.scale < 8) {
           const a = clickStart.current;
           if (!a) {
             clickStart.current = g.start;
+            propsRef.current.onClickStart?.(g.start);
             propsRef.current.onPolygonChange?.(1);
             return;
           }
@@ -1579,6 +1606,21 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
           )}
         </svg>
       )}
+      {view && size && props.tipText && (() => {
+        // Anzeige am Cursor: Strecke vom letzten Punkt zur Maus bzw. zum Finger
+        let ab: [Point, Point] | null = null;
+        if (g.kind === 'draw' && drawPreview && (g.tool === 'line' || g.tool === 'vector' || g.tool === 'dimension')) ab = [g.start, g.current];
+        else if (clickStart.current && polyHover.current) ab = [clickStart.current, polyHover.current];
+        else if (isPointTool(tool) && tool !== 'probe' && poly.current.length && polyHover.current) ab = [poly.current[poly.current.length - 1], polyHover.current];
+        const text = ab ? props.tipText!(ab[0], ab[1]) : null;
+        if (!ab || !text) return null;
+        const at = toScreen(view, ab[1]);
+        return (
+          <div className="cursor-tip" data-testid="cursor-tip" style={{ left: Math.max(4, Math.min(at.x + 16, size.w - 250)), top: Math.max(4, Math.min(at.y + 16, size.h - 34)) }}>
+            {text}
+          </div>
+        );
+      })()}
       {status === 'loading' && <div className="viewer-msg">Plan wird geladen …</div>}
       {status === 'error' && <div className="viewer-msg error">Plan konnte nicht angezeigt werden: {errorMsg}</div>}
     </div>
@@ -1688,7 +1730,7 @@ function shapeFromDraw(g: Extract<Gesture, { kind: 'draw' }>, v: View, preview =
   const tiny = Math.max(r.w, r.h) * v.scale < 8;
   if (tiny) {
     // Kalibrieren, Fenster und Vektor brauchen eine echte Strecke
-    if (preview || g.tool === 'calibrate' || g.tool === 'window' || g.tool === 'vector') return null;
+    if (preview || g.tool === 'calibrate' || g.tool === 'window' || g.tool === 'vector' || g.tool === 'selwin') return null;
     // Antippen: Markierung in Standardgröße anlegen
     const s = 36 / v.scale;
     const base = { x: g.start.x - s / 2, y: g.start.y - s / 2, w: s, h: s };
@@ -1718,7 +1760,7 @@ function shapeFromDraw(g: Extract<Gesture, { kind: 'draw' }>, v: View, preview =
     const closeDist = Math.max(18 / v.scale, 0.08 * Math.hypot(r.w, r.h));
     return freehandShape(g.points, 0.5 / v.scale, closeDist) ?? { type: 'ellipse', ...r };
   }
-  if (g.tool === 'line' || g.tool === 'dimension' || g.tool === 'calibrate' || g.tool === 'vector') return lineShape(g.start, g.current);
+  if (g.tool === 'line' || g.tool === 'dimension' || g.tool === 'calibrate' || g.tool === 'vector' || g.tool === 'selwin') return lineShape(g.start, g.current);
   if (g.tool === 'window') return { type: 'rect', ...r };
   if (g.tool === 'triangle') return triangleShape(r);
   return { type: g.tool, ...r };

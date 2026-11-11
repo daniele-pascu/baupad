@@ -264,7 +264,8 @@ export async function pickTool(page: Page, testId: string, how: 'click' | 'tap' 
   const press = (l: ReturnType<Page['getByTestId']>) => (how === 'tap' ? l.tap() : l.click());
   if (!(await btn.isVisible())) {
     const open = page.getByTestId('tools-open');
-    if (await open.isVisible()) await press(open);
+    // die Leiste kann sich gerade selbst wieder öffnen (z. B. nach dem Speichern) – dann ist die Taste schon weg
+    if (await open.isVisible()) await (how === 'tap' ? open.tap({ timeout: 3000 }) : open.click({ timeout: 3000 })).catch(() => {});
   }
   // Zeichenmodus: Werkzeug ggf. auf einer anderen Registerkarte der oberen Leiste
   if (!(await btn.isVisible())) {

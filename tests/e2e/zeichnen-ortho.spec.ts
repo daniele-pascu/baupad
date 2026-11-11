@@ -72,7 +72,7 @@ test('Einheitliche Werkzeugleiste: alle Registerkarten gleich hoch, Darstellung 
   await expect(sheet()).toBeVisible();
   const bar = page.getByTestId('draw-toolbar');
   const heights: number[] = [];
-  for (const t of ['draw', 'modify', 'style', 'measure', 'view']) {
+  for (const t of ['draw', 'modify', 'style', 'precision', 'view']) {
     await bar.getByTestId(`ribbon-tab-${t}`).click();
     heights.push(Math.round((await bar.boundingBox())!.height));
   }
@@ -125,8 +125,8 @@ test('90° / Orthogonal: F8 schaltet um, Linien nur waagrecht/senkrecht, Richtun
   expect(isVert(await drawLine(x + 640, y + 40, x + 900, y + 90))).toBe(true);
   await dir.click();
   await expect(dir).toHaveAttribute('data-dir', 'auto');
-  // auch über „Ansicht“ sichtbar
-  await page.getByTestId('ribbon-tab-view').click();
+  // auch unter „Präzision“ sichtbar
+  await page.getByTestId('ribbon-tab-precision').click();
   await expect(page.getByTestId('view-ortho')).toHaveAttribute('aria-pressed', 'true');
   await page.getByTestId('ribbon-tab-draw').click();
 });

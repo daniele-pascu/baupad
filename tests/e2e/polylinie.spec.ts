@@ -44,7 +44,7 @@ async function deselect() {
   await page.keyboard.press('Escape');
 }
 
-test('Obere Werkzeugleiste: Registerkarten Zeichnen, Ändern, Darstellung, Messen, Ansicht', async () => {
+test('Obere Werkzeugleiste: Registerkarten Zeichnen, Ändern, Eigenschaften, Präzision, Ansicht', async () => {
   await freshStart(page);
   await createProject(page, 'Polylinie', {}, ['Halle']);
   await page.getByTestId('draw-plan').click();
@@ -59,17 +59,17 @@ test('Obere Werkzeugleiste: Registerkarten Zeichnen, Ändern, Darstellung, Messe
   const bb = (await bar.boundingBox())!;
   expect(bb.y + bb.height).toBeLessThanOrEqual((await sheet().boundingBox())!.y + 1);
   for (const [tab, ids] of [
-    ['draw', ['draw-select', 'draw-line', 'draw-polyline', 'draw-rect', 'draw-ellipse', 'draw-arc', 'draw-polygon', 'draw-text', 'draw-delete', 'draw-undo', 'draw-redo']],
-    ['modify', ['draw-move', 'draw-copy', 'draw-rotate', 'draw-scale', 'draw-stretch', 'draw-trim', 'draw-extend']],
+    ['draw', ['draw-select', 'draw-line', 'draw-polyline', 'draw-rect', 'draw-ellipse', 'draw-arc', 'draw-polygon', 'draw-text', 'draw-dimension', 'draw-delete', 'draw-undo', 'draw-redo']],
+    ['modify', ['draw-selwin', 'draw-multi', 'draw-select-all', 'draw-move', 'draw-copy', 'draw-rotate', 'draw-scale', 'draw-stretch', 'draw-trim', 'draw-extend']],
     ['style', ['ribbon-style']],
-    ['measure', ['draw-dimension', 'ribbon-measure']],
-    ['view', ['view-zoom-in', 'view-zoom-out', 'view-fit', 'view-zoom-sel', 'view-grid', 'view-snap']],
+    ['precision', ['view-snap', 'view-track', 'view-ortho', 'view-grid', 'draw-dimension', 'ribbon-measure']],
+    ['view', ['view-zoom-in', 'view-zoom-out', 'view-fit', 'view-zoom-sel']],
   ] as const) {
     await bar.getByTestId(`ribbon-tab-${tab}`).click();
     for (const id of ids) await expect(bar.getByTestId(id)).toBeVisible();
   }
   await bar.getByTestId('ribbon-tab-modify').click();
-  await expect(bar.getByTestId('draw-copy')).toBeDisabled(); // nichts ausgewählt
+  await expect(bar.getByTestId('draw-copy')).toBeEnabled(); // ohne Auswahl fragt Kopieren nach den Objekten
   await expect(bar.getByTestId('draw-rotate')).toBeDisabled();
   await bar.getByTestId('ribbon-tab-draw').click();
   await expect(bar.getByTestId('draw-freehand')).toHaveCount(0); // Freihand durch Polylinie ersetzt
@@ -469,7 +469,7 @@ test('Messung unter „Plan bearbeiten“: Reiter Messen, Abstand und Fläche, i
   const s = await scale();
   const m = (px: number) => px / s / 100;
   const bar = page.getByTestId('draw-toolbar');
-  await bar.getByTestId('ribbon-tab-measure').click();
+  await bar.getByTestId('ribbon-tab-precision').click();
   await bar.getByTestId('ribbon-probe').click();
   await expect(bar.getByTestId('probe-menu').getByRole('menuitem')).toHaveCount(5);
   await bar.getByTestId('probe-menu-distance').click();
@@ -509,7 +509,7 @@ test('Plan bearbeiten: Esc beendet Punkte, Messung und Auswahl und schaltet auf 
   await page.mouse.click(sb.x + 300, sb.y + 420);
   expect((await elements()).length).toBe(count);
   // laufende Messung: Esc schließt sie
-  await bar.getByTestId('ribbon-tab-measure').click();
+  await bar.getByTestId('ribbon-tab-precision').click();
   await bar.getByTestId('ribbon-probe').click();
   await bar.getByTestId('probe-menu-length').click();
   await page.mouse.click(sb.x + 120, sb.y + 380);
