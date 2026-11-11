@@ -145,8 +145,10 @@ export function tastenTests() {
     await pruefe(page, 'Plan-Editor mit Messung', out);
     if (await page.getByTestId('tools-open').isVisible()) await page.getByTestId('tools-open').click();
     await pruefe(page, 'Plan-Editor Leiste offen', out);
-    // Messart wählen: Menü und Messdialog je Messart (Stück, Frei, Volumen)
+    // Messart wählen: Menü und Messdialog je Messart (Stück, Frei, Volumen) – mit Wand-Werkzeug (Hinweisleiste darf nicht über dem Menü liegen)
+    await pickTool(page, 'tool-wall');
     await pickTool(page, 'tool-mtype');
+    await expect(page.getByTestId('polygon-bar')).toHaveCount(0);
     await expect(page.getByTestId('mtype-menu')).toBeVisible();
     await pruefe(page, 'Menü Messart', out);
     // Stück: Punkte antippen, Leiste mit Anzahl

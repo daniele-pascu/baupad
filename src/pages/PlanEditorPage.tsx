@@ -2047,7 +2047,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               onClose={closeProbe}
             />
           )}
-          {!probe && !drawMode && tool === 'points' && !dialog && !mtypeMenu && (
+          {!probe && !drawMode && tool === 'points' && !dialog && !mtypeMenu && !probeMenu && !stylePopOpen && (
             <div className="draw-bar" data-testid="points-bar">
               {pointMarks.length === 0 ? (
                 <span className="muted small">Stück: jedes Stück im Plan antippen – jeder Punkt zählt. „Fertig“ übernimmt die Anzahl.</span>
@@ -2069,7 +2069,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               )}
             </div>
           )}
-          {!probe && (drawMode ? isPointTool(drawing.viewerTool) && (polyCount > 0 || (!drawing.selected && drawing.tool !== 'wall')) : isPointTool(tool) && (polyCount > 0 || !selected)) && !dialog && (
+          {!probe && !(!drawMode && (mtypeMenu || probeMenu || stylePopOpen)) && (drawMode ? isPointTool(drawing.viewerTool) && (polyCount > 0 || (!drawing.selected && drawing.tool !== 'wall')) : isPointTool(tool) && (polyCount > 0 || !selected)) && !dialog && (
             <PolylineBar
               polyline={(drawMode ? drawing.tool : tool) === 'polyline'}
               wall={(drawMode ? drawing.tool : tool) === 'wall'}

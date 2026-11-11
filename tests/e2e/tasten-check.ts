@@ -6,6 +6,7 @@ import type { Page } from '@playwright/test';
  *  - überlappen sich zwei Tasten (z. B. zwei Knöpfe übereinander bzw. ineinander)?
  *  - ist eine Taste von etwas anderem verdeckt (Mitte nicht antippbar)?
  *  - ragt eine Taste über den Bildschirmrand hinaus (abgeschnitten, ohne dass man dorthin scrollen kann)?
+ *  - ragt der Text aus einer Taste heraus (Taste zu schmal für ihre Beschriftung, ohne „…“)?
  * Ist ein Dialog offen, wird nur der Dialog geprüft. Liefert eine Liste lesbarer Befunde (leer = alles gut).
  */
 export async function tastenBefunde(page: Page): Promise<string[]> {
@@ -81,6 +82,11 @@ export async function tastenBefunde(page: Page): Promise<string[]> {
       }
       // abgeschnitten am Bildschirmrand (ohne waagrechtes Scrollen dorthin)
       if ((x.r.left < -1 || x.r.right > vw + 1) && !hScroll(x.el)) out.push(`abgeschnitten: ${name(x.el)} (links ${Math.round(x.r.left)}, rechts ${Math.round(x.r.right)}, Breite ${vw})`);
+      // Text ragt aus der Taste (Inhalt breiter als die Taste und nicht absichtlich gekürzt)
+      if (x.el.matches('button, a.btn') && getComputedStyle(x.el).overflowX === 'visible') {
+        const h = x.el as HTMLElement;
+        if (h.scrollWidth > h.clientWidth + 2) out.push(`Text ragt heraus: ${name(x.el)} (Inhalt ${h.scrollWidth} px, Taste ${h.clientWidth} px)`);
+      }
     }
     // Überlappung zweier Tasten (sichtbare Teile, mehr als 3 px in beide Richtungen)
     for (let i = 0; i < items.length; i++)
