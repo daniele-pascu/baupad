@@ -25,7 +25,9 @@ type DialogSpec =
       confirmLabel: string;
       resolve: (v: string | null) => void;
     }
-  | { kind: 'file'; file: ExportFile; resolve: () => void };
+  | { kind: 'file'; file: ExportFile; resolve: () => void }
+  /** eigener Dialog (z. B. Text mit Schrift und Farbe): render bekommt die Schließen-Funktion */
+  | { kind: 'custom'; render: (close: (v: unknown) => void) => ReactNode; resolve: (v: unknown) => void };
 
 interface Toast {
   id: number;
@@ -66,6 +68,11 @@ export function promptDialog(opts: { title: string; label: string; value?: strin
   return new Promise((resolve) =>
     pushDialog({ kind: 'prompt', value: '', confirmLabel: 'Speichern', ...opts, resolve }),
   );
+}
+
+/** eigener Dialog über den globalen Dialog-Host; close(null) = abgebrochen */
+export function customDialog<T>(render: (close: (v: T | null) => void) => ReactNode): Promise<T | null> {
+  return new Promise((resolve) => pushDialog({ kind: 'custom', render: render as (close: (v: unknown) => void) => ReactNode, resolve: resolve as (v: unknown) => void }));
 }
 
 let toastId = 0;
@@ -120,6 +127,15 @@ export function DialogHost() {
 
 function DialogView({ d }: { d: DialogSpec }) {
   const [value, setValue] = useState(d.kind === 'prompt' ? d.value : '');
+  if (d.kind === 'custom')
+    return (
+      <>
+        {d.render((v) => {
+          popDialog(d);
+          d.resolve(v);
+        })}
+      </>
+    );
   if (d.kind === 'confirm') {
     const close = (v: boolean) => {
       popDialog(d);

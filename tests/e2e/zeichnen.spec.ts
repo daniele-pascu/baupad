@@ -194,9 +194,9 @@ test('Linien mit Länge und Richtung schließen aneinander an; Kreis, Dreieck, M
   await deselect();
   await pickTool(page, 'draw-text');
   await page.mouse.click(sb.x + sb.width * 0.6, sb.y + sb.height * 0.15);
-  const pd = page.getByTestId('prompt-dialog');
-  await pd.locator('input').fill('Kellerraum 1');
-  await pd.getByRole('button', { name: 'Einfügen' }).click();
+  const td = page.getByTestId('text-dialog');
+  await td.getByTestId('text-input').fill('Kellerraum 1');
+  await td.getByRole('button', { name: 'Einfügen' }).click();
   await expect(page.locator('[data-element="text"]')).toContainText('Kellerraum 1');
 
   // Rückgängig / Wiederholen gilt auch für Zeichnungsobjekte

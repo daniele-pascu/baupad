@@ -34,7 +34,8 @@ import { canvasToBlob, closePdf, clampRenderScale, imageToCanvas, loadImageBitma
 import type { ProjectState } from './store';
 import { exportPaper, layoutSheet, planHeading, type OverviewCorner, type SheetLayout } from './sheet-layout';
 import { DEFAULT_TRANSPARENCY, fillOf, fillPaths, strokeGeometry } from './style';
-import type { Component, Damage, LegendPos, Plan, Rect, Shape, ShapeStyle } from './types';
+import type { Component, Damage, DrawElement, LegendPos, Plan, Rect, Shape, ShapeStyle, TextFont } from './types';
+import { pdfStandardFont } from './text-font';
 import { deductionNumbers } from './numbering';
 import { measureLabel } from './measure';
 import { planLegend, type LegendEntry } from './legend';
@@ -63,6 +64,19 @@ interface Ctx {
   projectName: string;
   /** alle Pläne des Projekts (Vorgaben der Legende) */
   plans: Plan[];
+  /** Projektdaten (Texte auf importierten Plänen) */
+  data: ProjectState;
+  /** Schriften der Textobjekte (Standardschriften, vorab eingebettet) */
+  textFonts: Map<string, PDFFont>;
+}
+
+/** Schrift eines Textobjekts (Helvetica, Times, Courier – normal, fett, kursiv) */
+const textFont = (ctx: Ctx, f: TextFont | undefined) => ctx.textFonts.get(pdfStandardFont(f)) ?? ctx.font;
+
+/** Text eines Textobjekts (Seitenkoordinaten) auf das Blatt zeichnen */
+function drawTextElement(ctx: Ctx, page: PDFPage, e: DrawElement, shape: Shape, map: (p: Point) => Point, ptPerUnit: number) {
+  const at = map({ x: shape.x, y: shape.y + shape.h * 0.82 });
+  page.drawText(clean(ctx, e.text ?? ''), { x: at.x, y: at.y, size: shape.h * ptPerUnit, font: textFont(ctx, e.font), color: hexToRgb(visibleHex(e.color)), rotate: degrees(-(shape.rotation ?? 0)) });
 }
 
 function hexToRgb(hex: string) {
@@ -119,7 +133,16 @@ export async function exportPlansPdf(data: ProjectState, opts: PdfExportOptions)
     overview: opts.overview,
     projectName: data.project.name,
     plans: Object.values(data.plans),
+    data,
+    textFonts: new Map(),
   };
+  // Schriften der Texte auf den gewählten Plänen vorab einbetten
+  for (const planId of opts.planIds)
+    for (const e of elementsOf(data, planId))
+      if (e.type === 'text') {
+        const name = pdfStandardFont(e.font);
+        if (!ctx.textFonts.has(name)) ctx.textFonts.set(name, name === StandardFonts.Helvetica ? font : name === StandardFonts.HelveticaBold ? bold : await out.embedFont(name));
+      }
   try {
     for (const planId of opts.planIds) {
       const plan = data.plans[planId];
@@ -274,6 +297,9 @@ async function finishSheet(ctx: Ctx, page: PDFPage, plan: Plan, L: SheetLayout, 
   const target: Target = { page, map, textRotation: 0, ptPerUnit: L.u };
   drawSheetHeader(ctx, page, L.h, L.header, plan, plan.showPaper ? [PAPER[exportPaper(plan)].label] : []);
   drawDamages(ctx, target, region, damages, []);
+  // Texte (Werkzeug „Text“ im Aufmaß)
+  const k = unitsPerMeter(plan);
+  for (const e of visibleElements(plan, elementsOf(ctx.data, plan.id))) if (e.type === 'text') drawTextElement(ctx, page, e, shapeToPage(e.shape, k), map, L.u);
   const lg = planLegend(plan, ctx.plans, damages);
   if (lg.show) drawLegend(ctx, page, { x: L.plan.x, y: L.h - (L.plan.y + L.plan.h), w: L.plan.w, h: L.plan.h }, lg.pos, lg.entries);
   if (L.overview && full && plan.crop) await drawOverview(ctx, page, L, plan, L.overview, full);
@@ -532,9 +558,7 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
     const shape = shapeToPage(e.shape, k);
     const color = hexToRgb(visibleHex(e.color));
     if (e.type === 'text') {
-      const size = shape.h * u;
-      const at = map({ x: shape.x, y: shape.y + shape.h * 0.82 });
-      page.drawText(clean(ctx, e.text ?? ''), { x: at.x, y: at.y, size, font: ctx.font, color, rotate: degrees(-(shape.rotation ?? 0)) });
+      drawTextElement(ctx, page, e, shape, map, u);
       continue;
     }
     if (e.type === 'dimension') {

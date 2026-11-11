@@ -55,6 +55,7 @@ const TOOLS: { id: Tool; label: string; short?: string; icon: string; key: strin
   // Freihand: ohne Absetzen zeichnen – bleibt genau so (z. B. Risse); am Startpunkt beendet = Fläche
   { id: 'freehand', label: 'Freihand: ohne Absetzen zeichnen – Linie genau wie gezeichnet (z. B. Riss), am Startpunkt beenden ergibt eine Fläche', short: 'Freihand', icon: 'freehand', key: 'h' },
   { id: 'wall', label: 'Wand: Verlauf mit Knicken setzen, Enter oder Doppelklick beendet – danach Wandhöhe eingeben', short: 'Wand', icon: 'wall', key: 'w' },
+  { id: 'text', label: 'Text: Stelle antippen und Text eingeben – Farbe, Schriftart, fett, kursiv; mit „Auswahl“ antippen zum Ändern, ziehen zum Verschieben', short: 'Text', icon: 'text', key: 't' },
   // Kontrollmessung: Menü mit Länge, Fläche, Winkel, Radius, Abstand – verändert nichts
   { id: 'probe', label: 'Messung: Länge, Fläche, Winkel, Radius oder Abstand nachmessen – ändert nichts', short: 'Messung', icon: 'dimension', key: 'n' },
   // nur importierte Pläne (gezeichnete haben ihren Maßstab bereits)
@@ -1454,7 +1455,10 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 setChecking(false);
                 setTool('select');
               }}
-              underlay={drawingPlan && measureRegion ? drawing.measureUnderlay(measureRegion, !!sheetRect) : undefined}
+              underlay={drawingPlan && measureRegion ? drawing.measureUnderlay(measureRegion, !!sheetRect) : drawing.textUnderlay}
+              notes={tool === 'select' ? drawing.textNotes : undefined}
+              onNoteTap={(id) => void drawing.editText(id)}
+              onNoteMove={drawing.moveText}
               bounds={markerBounds}
               onPolygonChange={setPolyCount}
               damages={shownDamages}
@@ -1510,7 +1514,10 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               selectedComponentId={null}
               onSelectComponent={() => {}}
               onComponentMove={() => {}}
-              onPlace={() => {}}
+              onPlace={(p) => {
+                if (tool !== 'text') return;
+                void drawing.placeText(p).then((ok) => ok && setTool('select'));
+              }}
               vertexEdit
               selectedVertex={measureVertex}
               onVertexSelect={setMeasureVertex}
@@ -1655,6 +1662,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 onToggleStyle={() => setStyleOpen(!styleOpen)}
                 onColor={(c) => drawing.recolor(drawing.selected!.id, c)}
                 onExtGap={(mm) => drawing.setExtGap(drawing.selected!.id, mm)}
+                onFont={(f) => drawing.setFont(drawing.selected!.id, f)}
                 onDelete={() => void drawing.remove(drawing.selected!)}
                 onClose={() => drawing.setSelectedId(null)}
               />

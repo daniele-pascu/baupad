@@ -147,10 +147,40 @@ export function tastenTests() {
     await page.getByTestId('editor-legend').click();
     await pruefe(page, 'Legende', out);
     await page.getByTestId('legend-save').click();
+    // Textfeld (Schrift, fett, kursiv, Farbe)
+    await pickTool(page, 'tool-text');
+    const b2 = await planBox(page);
+    await page.mouse.click(b2.x + b2.width * 0.6, b2.y + b2.height * 0.2);
+    await expect(page.getByTestId('text-dialog')).toBeVisible();
+    await page.getByTestId('text-input').fill('Achse A');
+    await pruefe(page, 'Text-Dialog', out);
+    await page.getByTestId('text-save').click();
+    await expect(page.getByTestId('text-dialog')).toHaveCount(0);
     if (await page.getByTestId('mobile-tab-table').isVisible()) {
       await page.getByTestId('mobile-tab-table').click();
       await pruefe(page, 'Plan-Editor Tabelle', out);
     }
+    expect(out, out.join('\n')).toEqual([]);
+  });
+
+  test('Tasten: Plan zeichnen mit Text-Dialog und Text-Leiste – nichts überlappt, verdeckt oder abgeschnitten', async ({ page }) => {
+    const out: string[] = [];
+    await freshStart(page);
+    await createProject(page, 'Tastentest Zeichnen', {}, ['EG']);
+    await page.getByTestId('draw-plan').click();
+    await page.getByTestId('new-drawing').locator('[data-field="planNumber"]').fill('Z-1');
+    await page.getByTestId('new-drawing-save').click();
+    await expect(page.getByTestId('drawing-sheet')).toBeVisible();
+    await pruefe(page, 'Plan zeichnen', out);
+    await pickTool(page, 'draw-text');
+    const sb = (await page.getByTestId('drawing-sheet').boundingBox())!;
+    await page.mouse.click(sb.x + sb.width * 0.4, sb.y + sb.height * 0.3);
+    await expect(page.getByTestId('text-dialog')).toBeVisible();
+    await page.getByTestId('text-input').fill('Stiege 1');
+    await pruefe(page, 'Text-Dialog (Zeichnen)', out);
+    await page.getByTestId('text-save').click();
+    await expect(page.getByTestId('element-bar')).toBeVisible();
+    await pruefe(page, 'Text-Leiste', out);
     expect(out, out.join('\n')).toEqual([]);
   });
 }

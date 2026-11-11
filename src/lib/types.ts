@@ -377,6 +377,14 @@ export interface Component extends SyncMeta {
   y: number;
 }
 
+/** Schriftart eines Textobjekts: Standard (Helvetica/Arial), Serif (Times), Schreibmaschine (Courier) */
+export type FontFamily = 'sans' | 'serif' | 'mono';
+export interface TextFont {
+  family?: FontFamily;
+  bold?: boolean;
+  italic?: boolean;
+}
+
 /** Objektart eines gezeichneten Plans */
 /** 'arc': Bogen aus drei Punkten, gespeichert als fein unterteilte offene Polylinie */
 export type DrawElementType = ShapeType | 'dimension' | 'text' | 'arc';
@@ -400,6 +408,8 @@ export interface DrawElement extends SyncMeta {
   color: string;
   /** Text (nur Textobjekte) */
   text?: string;
+  /** Schrift (nur Textobjekte): Schriftart, fett, kursiv; fehlt = Standardschrift normal */
+  font?: TextFont;
   /** Maße am Objekt anzeigen (Standard: ja) */
   showDims?: boolean;
   /** Maßlinie: Abstand der Maßlinie von der gemessenen Strecke in m (Vorzeichen = Seite) */

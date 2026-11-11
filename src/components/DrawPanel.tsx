@@ -3,7 +3,8 @@ import { apexOf, isRegularTriangle, measuresOf, pathLength, shapeInfo, type Apex
 import { arcRadius } from '../lib/cad';
 import { shapeVertices } from '../lib/geometry';
 import { checkMeasure, formatArea, formatMeasure, parseDecimal } from '../lib/numbers';
-import type { DrawElement, DrawElementType, ShapeStyle } from '../lib/types';
+import type { DrawElement, DrawElementType, ShapeStyle, TextFont } from '../lib/types';
+import { FontControls } from './TextDialog';
 import { StylePanel } from './StylePanel';
 import { Icon } from './Icon';
 
@@ -186,6 +187,7 @@ export function ElementBar({
   styleOpen = false,
   onToggleStyle,
   onExtGap,
+  onFont,
 }: {
   element: DrawElement;
   /** Darstellungsfeld geöffnet (bleibt beim Wechsel der Auswahl offen) */
@@ -202,6 +204,8 @@ export function ElementBar({
   onSetClosed?(closed: boolean): void;
   /** Maßlinie: Abstand der Hilfslinien zum Objekt (mm) ändern */
   onExtGap?(mm: number): void;
+  /** Text: Schriftart, fett, kursiv */
+  onFont?(f: TextFont | undefined): void;
   /** Anzahl Messungen, die auf dem Objekt liegen (nur Hinweis) */
   overlapping: number;
   onApply(m: Measures): void;
@@ -307,6 +311,7 @@ export function ElementBar({
           />
         </label>
       )}
+      {element.type === 'text' && onFont && onColor && <FontControls font={element.font} color={element.color} onFont={onFont} onColor={onColor} compact />}
       {fields.map((f) => (
         <label key={f} className="draw-field">
           <span>{FIELDS[f].label}</span>

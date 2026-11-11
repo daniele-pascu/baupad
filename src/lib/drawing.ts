@@ -1,7 +1,8 @@
 import { round2 } from './numbers';
 import { fromShapeLocal, freehandPoints, lineShape, polygonArea, shapeAABB, shapeCenter, shapeVertices, type Point } from './geometry';
 import { formatMeasure } from './numbers';
-import type { Damage, DrawElement, DrawingInfo, PaperFormat, Plan, Rect, Shape } from './types';
+import type { Damage, DrawElement, DrawingInfo, PaperFormat, Plan, Rect, Shape, TextFont } from './types';
+import { charWidthFactor } from './text-font';
 
 /**
  * Maßsystem selbst gezeichneter Pläne.
@@ -195,7 +196,7 @@ export function measuresOf(e: Pick<DrawElement, 'type' | 'shape'>): Measures {
  * Ändert die Maße eines Objekts. Ein Bezugspunkt bleibt dabei fest:
  * Rechteck/Text links oben, Dreieck links unten, Linie Startpunkt, Kreis Mittelpunkt.
  */
-export function applyMeasures(e: Pick<DrawElement, 'type' | 'shape' | 'text'>, m: Measures): Shape {
+export function applyMeasures(e: Pick<DrawElement, 'type' | 'shape' | 'text' | 'font'>, m: Measures): Shape {
   const s = e.shape;
   switch (e.type) {
     case 'rect':
@@ -216,7 +217,7 @@ export function applyMeasures(e: Pick<DrawElement, 'type' | 'shape' | 'text'>, m
     }
     case 'text': {
       const h = m.textHeight ?? s.h;
-      const w = textWidth(e.text ?? '', h);
+      const w = textWidth(e.text ?? '', h, e.font);
       return withRotation(resizeKeeping(s, w, h, { x: 0, y: 0 }), m.rotation);
     }
     default:
@@ -241,13 +242,13 @@ export function resizeKeeping(s: Shape, w: number, h: number, anchor: Point): Sh
   return { ...next, x: roundM(next.x + before.x - after.x), y: roundM(next.y + before.y - after.y) };
 }
 
-/** Geschätzte Textbreite (Helvetica-ähnlich) in m bei Schrifthöhe h. */
-export function textWidth(text: string, h: number): number {
-  return roundM(Math.max(1, text.length) * h * 0.56);
+/** Geschätzte Textbreite in m bei Schrifthöhe h (je nach Schriftart, fett etwas breiter). */
+export function textWidth(text: string, h: number, font?: TextFont): number {
+  return roundM(Math.max(1, text.length) * h * charWidthFactor(font));
 }
 
-export function textShape(at: Point, text: string, h: number): Shape {
-  return { type: 'rect', x: roundM(at.x), y: roundM(at.y - h / 2), w: textWidth(text, h), h: roundM(h) };
+export function textShape(at: Point, text: string, h: number, font?: TextFont): Shape {
+  return { type: 'rect', x: roundM(at.x), y: roundM(at.y - h / 2), w: textWidth(text, h, font), h: roundM(h) };
 }
 
 // ---------------------------------------------------------------------------

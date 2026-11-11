@@ -4,6 +4,7 @@ import { shapeCenter, shapePath, toPage, toScreen, type Point, type View } from 
 import { DEFAULT_TRANSPARENCY, fillOf, PX_PER_PT, strokeGeometry } from '../lib/style';
 import type { DrawElement, DrawElementType, Rect, Shape } from '../lib/types';
 import { FillPaths, visibleStroke } from './PlanViewer';
+import { fontProps } from '../lib/text-font';
 
 /**
  * Darstellung selbst gezeichneter Pläne in Bildschirmkoordinaten: Zeichenfläche mit Raster,
@@ -78,7 +79,7 @@ export function renderSheet(view: View, size: { w: number; h: number }, region: 
 }
 
 /** Zeichnungsobjekt in Bildschirmkoordinaten (shape in Seitenkoordinaten). */
-export function renderElement(e: Pick<DrawElement, 'id' | 'type' | 'color' | 'text' | 'style'> & { offset?: number; extGap?: number }, pageShape: Shape, view: View, selected: boolean, faded = false, k = 100): ReactNode {
+export function renderElement(e: Pick<DrawElement, 'id' | 'type' | 'color' | 'text' | 'style'> & { font?: DrawElement['font'] } & { offset?: number; extGap?: number }, pageShape: Shape, view: View, selected: boolean, faded = false, k = 100): ReactNode {
   const stroke = visibleStroke(e.color);
   const w = e.style?.lineWidth && e.type !== 'dimension' ? Math.max(1, e.style.lineWidth * PX_PER_PT) : selected ? 3 : 2;
   if (e.type === 'text') {
@@ -99,7 +100,7 @@ export function renderElement(e: Pick<DrawElement, 'id' | 'type' | 'color' | 'te
             strokeDasharray="4 3"
           />
         )}
-        <text x={p.x} y={p.y} fontSize={fs} fill={stroke} className="drawing-text">
+        <text x={p.x} y={p.y} fontSize={fs} fill={stroke} className="drawing-text" style={fontProps(e.font)} data-font={e.font?.family ?? "sans"} data-bold={e.font?.bold ? "1" : undefined} data-italic={e.font?.italic ? "1" : undefined}>
           {e.text}
         </text>
       </g>

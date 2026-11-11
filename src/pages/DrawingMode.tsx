@@ -2,7 +2,9 @@ import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { elementLabel } from '../components/DrawPanel';
 import { renderDims, renderElement, renderPreviewDims, renderSheet } from '../components/DrawingLayer';
 import type { PlanViewerHandle, SnapFn, Tool, ViewerItem } from '../components/PlanViewer';
-import { confirmDialog, promptDialog, toast } from '../components/ui';
+import { confirmDialog, toast } from '../components/ui';
+import { textDialog } from '../components/TextDialog';
+import { cleanFont } from '../lib/text-font';
 import { elementsOf } from '../lib/aufmass';
 import { damageNo } from '../lib/numbering';
 import {
@@ -30,7 +32,7 @@ import { edgesOf, findSnap, type SnapKind } from '../lib/snap';
 import { dimsVisible, visibleDamages, visibleElements } from '../lib/layers';
 import { distToSegment, isOpenShape, lineShape, pathToSvg, rectsOverlap, removeVertex, setPolylineClosed, shapeAABB, shapePath, toScreen, type Point, type View } from '../lib/geometry';
 import { newMeta, putRecord, putRecords, softDelete, type ProjectState } from '../lib/store';
-import type { Damage, DrawElement, DrawElementType, Plan, Rect, Shape, ShapeStyle } from '../lib/types';
+import type { Damage, DrawElement, DrawElementType, Plan, Rect, Shape, ShapeStyle, TextFont } from '../lib/types';
 
 /** Werkzeuge der Planbearbeitung (selbst gezeichnete Pläne) */
 /** Gruppen der Werkzeugleiste (wie in CAD-Programmen) */
@@ -382,7 +384,7 @@ export function useDrawing(opts: {
     if (!e) return;
     let shape = kind === 'rotate' ? rotateShapeBy(e.shape, value) : scaleShape(e.shape, value);
     // Text: Breite folgt der Schrifthöhe
-    if (e.type === 'text' && kind === 'scale') shape = { ...shape, w: textWidth(e.text ?? '', shape.h) };
+    if (e.type === 'text' && kind === 'scale') shape = { ...shape, w: textWidth(e.text ?? '', shape.h, e.font) };
     putRecord('elements', { ...e, shape: roundShape(shape) });
   };
 
@@ -480,10 +482,88 @@ export function useDrawing(opts: {
       return;
     }
     if (tool !== 'text') return;
-    const text = await promptDialog({ title: 'Text einfügen', label: 'Text', confirmLabel: 'Einfügen' });
-    if (!text?.trim()) return;
-    create('text', textShape({ x: p.x / k, y: p.y / k }, text.trim(), textHeightNow()), { text: text.trim() });
+    const r = await askNewText();
+    if (!r) return;
+    create('text', textShape({ x: p.x / k, y: p.y / k }, r.text, textHeightNow() * r.scale, r.font), { text: r.text, color: r.color, font: r.font });
   };
+
+  /** Neuer Text: Dialog mit der zuletzt benutzten Schrift und Farbe (wird gemerkt) */
+  const askNewText = async () => {
+    const lastFont = (() => {
+      try {
+        return JSON.parse(pref('textFont', '{}')) as TextFont;
+      } catch {
+        return {};
+      }
+    })();
+    const r = await textDialog({ title: 'Text einfügen', confirmLabel: 'Einfügen', color: pref('textColor', DRAW_DEFAULT_COLOR), font: cleanFont(lastFont) });
+    if (!r || !r.text.trim()) return null;
+    storePref('textFont', JSON.stringify(r.font ?? {}));
+    storePref('textColor', r.color);
+    return { ...r, text: r.text.trim(), font: cleanFont(r.font) };
+  };
+
+  /** Aufmaß: Text an der angetippten Stelle (Seitenkoordinaten) einfügen – Werkzeug und Auswahl des Zeichenmodus bleiben */
+  const placeText = async (p: Point) => {
+    if (!plan) return false;
+    const r = await askNewText();
+    if (!r) return false;
+    const rec: DrawElement = {
+      ...newMeta(),
+      projectId: plan.projectId,
+      planId: plan.id,
+      type: 'text',
+      shape: roundShape(textShape({ x: p.x / k, y: p.y / k }, r.text, textHeightNow() * r.scale, r.font)),
+      color: r.color,
+      text: r.text,
+      ...(r.font ? { font: r.font } : {}),
+    };
+    putRecord('elements', rec);
+    return true;
+  };
+
+  /** Aufmaß: angetippten Text bearbeiten (Text, Schrift, Farbe, Größe) oder löschen */
+  const editText = async (id: string) => {
+    const e = data.elements[id];
+    if (!e || e.type !== 'text') return;
+    const r = await textDialog({ title: 'Text bearbeiten', text: e.text, color: e.color, font: e.font, canDelete: true, canResize: true });
+    if (!r) return;
+    if (r.remove) {
+      softDelete({ elements: [e] });
+      return;
+    }
+    const font = cleanFont(r.font);
+    const h = roundM(e.shape.h * r.scale);
+    const { font: _f, ...rest } = e;
+    putRecord('elements', { ...rest, ...(font ? { font } : {}), text: r.text.trim(), color: r.color, shape: { ...e.shape, h, w: textWidth(r.text.trim(), h, font) } });
+  };
+
+  /** Aufmaß: Text verschieben (Verschiebung in Seitenkoordinaten); commit speichert */
+  const moveText = (id: string, dx: number, dy: number, commit: boolean) => {
+    const e = data.elements[id];
+    if (!e) return;
+    const shape = { ...e.shape, x: roundM(e.shape.x + dx / k), y: roundM(e.shape.y + dy / k) };
+    if (!commit) {
+      setOverrides((o) => ({ ...o, [id]: shape }));
+      return;
+    }
+    setOverrides(({ [id]: _, ...rest }) => rest);
+    if (dx || dy) putRecord('elements', { ...e, shape });
+  };
+
+  /** Aufmaß: Texte zum Antippen/Verschieben (Seitenkoordinaten) */
+  const textNotes = useMemo(() => elements.filter((e) => e.type === 'text').map((e) => ({ id: e.id, shape: shapeToPage(e.shape, k) })), [elements, k]);
+
+  /** Aufmaß auf importierten Plänen: nur die Texte über dem Plan */
+  const textUnderlay = (view: View) => (
+    <>
+      {elements
+        .filter((e) => e.type === 'text')
+        .map((e) => (
+          <g key={e.id}>{renderElement(e, shapeToPage(e.shape, k), view, false, false, k)}</g>
+        ))}
+    </>
+  );
 
   /** Einfügen über die Maßeingabe (Position: Mitte der Ansicht bzw. Ende der letzten Linie) */
   const insert = (m: Measures, apex: Apex) => {
@@ -506,7 +586,17 @@ export function useDrawing(opts: {
   const setText = (id: string, text: string) => {
     const e = data.elements[id];
     if (!e) return;
-    putRecord('elements', { ...e, text, shape: { ...e.shape, w: textWidth(text, e.shape.h) } });
+    putRecord('elements', { ...e, text, shape: { ...e.shape, w: textWidth(text, e.shape.h, e.font) } });
+  };
+
+  /** Schrift eines Textes ändern (Breite folgt) */
+  const setFont = (id: string, font: TextFont | undefined) => {
+    const e = data.elements[id];
+    if (!e) return;
+    const { font: _f, ...rest } = e;
+    const f = cleanFont(font);
+    if (f) storePref('textFont', JSON.stringify(f));
+    putRecord('elements', { ...rest, ...(f ? { font: f } : {}), shape: { ...e.shape, w: textWidth(e.text ?? '', e.shape.h, f) } });
   };
 
   /** Ausgewählten Eckpunkt entfernen bzw. Polylinie öffnen/schließen */
@@ -704,6 +794,12 @@ export function useDrawing(opts: {
     onFence,
     drawUnderlay,
     measureUnderlay,
+    textUnderlay,
+    textNotes,
+    placeText,
+    editText,
+    moveText,
+    setFont,
     drawOverlay,
     resetOverrides,
   };

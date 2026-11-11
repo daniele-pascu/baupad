@@ -164,6 +164,11 @@ interface Props {
   onComponentMove(id: string, x: number, y: number, commit: boolean): void;
   /** Werkzeug „Bauteil“ bzw. „Text“: Stelle im Plan angetippt */
   onPlace(p: Point): void;
+  /** Texte im Aufmaß (Seitenkoordinaten): mit „Auswählen“ antippen = bearbeiten, ziehen = verschieben */
+  notes?: { id: string; shape: Shape }[];
+  onNoteTap?(id: string): void;
+  /** Verschiebung in Seitenkoordinaten; commit = loslassen */
+  onNoteMove?(id: string, dx: number, dy: number, commit: boolean): void;
   /** Stutzen: über Linien gezogener Zaun (Seitenkoordinaten); fehlt = Ziehen verschiebt den Plan */
   onFence?(path: Point[]): void;
   /** Nummernschilder der Objekte anzeigen (Standard: ja) */
@@ -215,6 +220,7 @@ type Gesture =
   | { kind: 'rotate'; id: string; orig: Shape; startAngle: number }
   | { kind: 'label'; id: string; start: Point; orig: Rect; moved: boolean }
   | { kind: 'component'; id: string; start: Point; orig: Point; moved: boolean }
+  | { kind: 'note'; id: string; start: Point; moved: boolean; d: Point }
   | { kind: 'place'; start: Point; view: View; moved: boolean; fence?: Point[] }
   | { kind: 'ignore' };
 
@@ -688,6 +694,19 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     return null;
   };
 
+  /** Text unter dem Finger (Begrenzungsrechteck mit etwas Zugabe) */
+  const hitNote = (p: Point): string | null => {
+    const v = viewRef.current!;
+    const list = propsRef.current.notes ?? [];
+    const pad = (isCoarse() ? 10 : 4) / v.scale;
+    const q = toPage(v, p);
+    for (let i = list.length - 1; i >= 0; i--) {
+      const b = shapeAABB(list[i].shape);
+      if (q.x >= b.x - pad && q.x <= b.x + b.w + pad && q.y >= b.y - pad && q.y <= b.y + b.h + pad) return list[i].id;
+    }
+    return null;
+  };
+
   /** Bauteilkennzeichnung unter dem Finger (Kreis mit festem Bildschirmradius) */
   const hitComponent = (p: Point): Component | null => {
     const v = viewRef.current!;
@@ -742,6 +761,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       if (d) propsRef.current.onLabelChange(g.id, d.labelOffset ?? { dx: 0, dy: 0 }, false);
     }
     if (g.kind === 'component') propsRef.current.onComponentMove(g.id, g.orig.x, g.orig.y, false);
+    if (g.kind === 'note') propsRef.current.onNoteMove?.(g.id, 0, 0, true);
     gesture.current = { kind: 'none' };
   };
 
@@ -809,6 +829,11 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       const comp = hitComponent(p);
       if (comp) {
         gesture.current = { kind: 'component', id: comp.id, start: toPage(v, p), orig: { x: comp.x, y: comp.y }, moved: false };
+        return;
+      }
+      const note = hitNote(p);
+      if (note) {
+        gesture.current = { kind: 'note', id: note, start: toPage(v, p), moved: false, d: { x: 0, y: 0 } };
         return;
       }
       const handle = hitHandle(p);
@@ -935,6 +960,16 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         }
         setCursor('grabbing');
         setView({ ...g.view, tx: g.view.tx + dx, ty: g.view.ty + dy });
+        return;
+      }
+      case 'note': {
+        const pp = toPage(v, p);
+        const dx = pp.x - g.start.x;
+        const dy = pp.y - g.start.y;
+        if (!g.moved && Math.hypot(dx, dy) * v.scale < 5) return;
+        g.moved = true;
+        g.d = { x: dx, y: dy };
+        propsRef.current.onNoteMove?.(g.id, dx, dy, false);
         return;
       }
       case 'component': {
@@ -1079,6 +1114,14 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
           if (e.pointerType !== 'mouse') propsRef.current.onToolDone?.();
         }
         return;
+      case 'note': {
+        if (!g.moved) {
+          if (!cancelled) propsRef.current.onNoteTap?.(g.id);
+          return;
+        }
+        propsRef.current.onNoteMove?.(g.id, cancelled ? 0 : g.d.x, cancelled ? 0 : g.d.y, true);
+        return;
+      }
       case 'component': {
         if (!g.moved) {
           propsRef.current.onSelectComponent(g.id);
