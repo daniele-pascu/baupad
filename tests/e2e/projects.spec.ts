@@ -516,3 +516,25 @@ test('Website: Werkzeugseite Materialverwaltung (DE/EN), öffnet das Werkzeug', 
   await expect(page.locator('body')).not.toContainText(/sechs Werkzeuge/i);
 });
 });
+
+test.describe('Tab-Symbol', () => {
+  test.use({ signedIn: false });
+  test('Website zeigt das PAD-Software-Logo im Tab, die geöffnete App das BauPad-Logo', async ({ page }) => {
+    const icon = () => page.locator('link[rel="icon"]').getAttribute('href');
+    const touch = () => page.locator('link[rel="apple-touch-icon"]').getAttribute('href');
+    for (const p of ['./', './unternehmen', './baupad/funktionen/materialverwaltung', './en']) {
+      await page.goto(p);
+      await expect.poll(icon).toBe('/icons/pad-favicon-64.png');
+      await expect.poll(touch).toBe('/icons/pad-icon-180.png');
+    }
+    // App (Anmelden gehört zur App)
+    await page.goto('./baupad/anmelden');
+    await expect.poll(icon).toBe('/icons/favicon-64.png');
+    await expect.poll(touch).toBe('/icons/icon-180.png');
+    // zurück zur Website: wieder PAD
+    await page.goto('./kontakt');
+    await expect.poll(icon).toBe('/icons/pad-favicon-64.png');
+    // die Symbole sind erreichbar
+    for (const f of ['pad-favicon-64.png', 'pad-icon-180.png', 'pad-icon-512.png', 'favicon-64.png']) expect((await page.request.get(`./icons/${f}`)).status()).toBe(200);
+  });
+});

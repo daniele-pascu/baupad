@@ -111,9 +111,30 @@ const SITE_ROUTES = new Set(['landing', 'products', 'baupad', 'company', 'contac
 /** App-Seiten: Standardtitel „BauPad“ (die vorgerenderte index.html trägt den Titel der Startseite); Seiten mit eigenem Titel überschreiben ihn danach */
 function TitleReset({ route }: { route: string }) {
   useEffect(() => {
-    if (!SITE_ROUTES.has(route)) document.title = 'BauPad';
+    const site = SITE_ROUTES.has(route);
+    if (!site) document.title = 'BauPad';
+    setTabIcon(site ? 'pad' : 'baupad');
   }, [route]);
   return null;
+}
+
+/** Symbol im Browser-Tab: Website = PAD-Software-Logo, geöffnete App = BauPad-Logo */
+const TAB_ICONS = {
+  pad: { icon: '/icons/pad-favicon-64.png', touch: '/icons/pad-icon-180.png' },
+  baupad: { icon: '/icons/favicon-64.png', touch: '/icons/icon-180.png' },
+} as const;
+function setTabIcon(kind: keyof typeof TAB_ICONS) {
+  const set = (rel: string, href: string) => {
+    let l = document.head.querySelector<HTMLLinkElement>(`link[rel="${rel}"]`);
+    if (!l) {
+      l = document.createElement('link');
+      l.rel = rel;
+      document.head.appendChild(l);
+    }
+    if (l.getAttribute('href') !== href) l.setAttribute('href', href);
+  };
+  set('icon', TAB_ICONS[kind].icon);
+  set('apple-touch-icon', TAB_ICONS[kind].touch);
 }
 
 /** Seiten ohne Anmeldung: Website, Anmelden/Registrieren, neues Passwort */

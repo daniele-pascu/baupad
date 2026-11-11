@@ -18,7 +18,7 @@ const DICT = { de, en };
 /** @returns {{path:string, lang:string, title:string, description:string, alternates:Record<string,string>, jsonLd:object[], noindex?:boolean}[]} */
 function routes() {
   const out = [];
-  const org = { '@context': 'https://schema.org', '@type': 'Organization', name: 'PAD Software', url: ORIGIN, email: contactData.email, logo: `${ORIGIN}/icons/icon-512.png`, areaServed: 'AT' };
+  const org = { '@context': 'https://schema.org', '@type': 'Organization', name: 'PAD Software', url: ORIGIN, email: contactData.email, logo: `${ORIGIN}/icons/pad-icon-512.png`, areaServed: 'AT' };
   const sw = (lang, description) => ({ '@context': 'https://schema.org', '@type': 'SoftwareApplication', name: 'BauPad', applicationCategory: 'BusinessApplication', operatingSystem: 'Web, iOS, Android, Windows, macOS', url: `${ORIGIN}${lang === 'en' ? '/en' : ''}/baupad`, description, publisher: { '@type': 'Organization', name: 'PAD Software', url: ORIGIN }, inLanguage: lang });
   const meta = (lang, t) => ({
     landing: [t.home.title, t.home.description, [org, sw(lang, t.baupad.description)]],
@@ -74,6 +74,8 @@ function render(base, r) {
   let html = base.replace(/<html lang="[^"]*"/, `<html lang="${r.lang}"`);
   html = html.replace(/<title>[^<]*<\/title>/, '').replace(/<meta name="description"[^>]*>\n?/, '');
   html = html.replace('</head>', `    ${head}\n  </head>`);
+  // Website: Symbol im Browser-Tab ist das PAD-Software-Logo (die App zeigt das BauPad-Logo)
+  html = html.replace('href="/icons/favicon-64.png"', 'href="/icons/pad-favicon-64.png"').replace('<link rel="apple-touch-icon" href="/icons/icon-180.png"', '<link rel="apple-touch-icon" href="/icons/pad-icon-180.png"');
   return html;
 }
 
