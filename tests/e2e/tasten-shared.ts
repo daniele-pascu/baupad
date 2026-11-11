@@ -252,9 +252,23 @@ export function tastenTests() {
     await pickTool(page, 'draw-select-all');
     await page.getByTestId('ribbon-tab-style').click();
     await page.getByTestId('ribbon-style').getByTestId('style-fill-type').selectOption('hatch');
-    await page.getByTestId('ribbon-style').getByTestId('style-hatch-pattern').selectOption('mat:beton');
-    await page.getByTestId('ribbon-style').getByTestId('style-hatch-bg-on').selectOption('on');
+    await page.getByTestId('ribbon-style').getByTestId('style-hatch-open').click();
+    await expect(page.getByTestId('hatch-picker')).toBeVisible();
+    await pruefe(page, 'Dialog Schraffur', out);
+    await page.getByTestId('hatch-tab-material').click();
+    await page.getByTestId('hatch-tile-mat:beton').click();
+    await page.getByTestId('hatch-ok').click();
     await pruefe(page, 'Eigenschaften Schraffur', out);
+    // Werkzeug Schraffur: Auswahl, danach Befehlsleiste
+    await page.locator('body').press('Escape');
+    await pickTool(page, 'draw-hatch');
+    await expect(page.getByTestId('hatch-picker')).toBeVisible();
+    await page.getByTestId('hatch-tab-material').click();
+    await page.getByTestId('hatch-tile-mat:ziegel').click();
+    await page.getByTestId('hatch-ok').click();
+    await expect(page.getByTestId('hatch-prompt')).toBeVisible();
+    await pruefe(page, 'Befehlsleiste Schraffur', out);
+    await page.getByTestId('command-done').click();
     // Phase 4: Bauteil-Auswahl, Bauteil-Leiste und Wand
     await page.locator('body').press('Escape');
     await pickTool(page, 'draw-door');

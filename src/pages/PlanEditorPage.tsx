@@ -35,6 +35,8 @@ import { round2, checkMeasure, computeArea, formatArea, formatMeasure, toInputVa
 import { compactNumbers, damageNo, duplicateIds, nextNumber, planNumberStart, shiftNumbers, suggestNext, swapNumbers } from '../lib/numbering';
 import { navigate, paths } from '../lib/router';
 import { findSnap } from '../lib/snap';
+import { HatchPreview, hatchLabel } from '../components/HatchPicker';
+import { hatchAnchor } from '../lib/style';
 import { SegIndex } from '../lib/pdf-snap';
 import { clearHistory, newMeta, putRecord, putRecords, redo, softDelete, undo, useAppState, type ProjectState } from '../lib/store';
 import { COLORS, SHAPE_LABELS, type Damage, type DrawElementType, type MeasureKind, type Plan, type Shape, type ShapeStyle, type ShapeType } from '../lib/types';
@@ -107,9 +109,14 @@ function PolylineBar({
         placeholder="z. B. 2,5 · 2,5;0 · 3<90"
       >
         {wall ? (
-          <button type="button" className="btn btn-sm btn-primary" onClick={() => viewer.current?.finishPolygon(false)} disabled={count < 2} data-testid="wall-finish">
-            <Icon name="check" size={18} /> Fertig
-          </button>
+          <>
+            <button type="button" className="btn btn-sm btn-primary" onClick={() => viewer.current?.finishPolygon(false)} disabled={count < 2} data-testid="wall-finish">
+              <Icon name="check" size={18} /> Fertig
+            </button>
+            <button type="button" className="btn btn-sm" onClick={() => viewer.current?.finishPolygon(true)} disabled={count < 3} title="Raum schließen: letzte Wand zurück zum Anfang (oder Startpunkt antippen)" data-testid="wall-close">
+              Schließen
+            </button>
+          </>
         ) : (
           <>
             {polyline && (
@@ -1457,6 +1464,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           {drawMode ? (
             <PlanViewer
               key="draw"
+              closableWall
+              hatchUnit={hatchAnchor(unitsPerMeter(plan), plan.drawing?.scale ?? 100)}
               ref={viewer}
               plan={plan}
               file={null}
@@ -1506,6 +1515,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           ) : file || drawingPlan ? (
             <PlanViewer
               key="measure"
+              hatchUnit={drawingPlan ? hatchAnchor(unitsPerMeter(plan), plan.drawing?.scale ?? 100) : 1}
               ref={viewer}
               plan={plan}
               file={file}
@@ -1715,7 +1725,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               SELECT_FIRST.has(t) && drawing.cmdSelecting
                 ? `Objekte wählen: antippen oder Fenster aufziehen (nach links = auch berührte) – dann „${t === 'join' ? 'Verbinden' : 'Weiter'}“. Ausgewählt: ${n}${t === 'join' ? ` · Lücken bis ${formatMeasure(drawing.joinTol)} m werden geschlossen (Wert eingeben zum Ändern)` : ''}`
                 : t === 'wall'
-                  ? `Wand ${formatMeasure(drawing.wallThickness)} m stark${drawing.wallHeight ? `, ${formatMeasure(drawing.wallHeight)} m hoch` : ''}: Anfangspunkt und Knicke antippen, Enter bzw. „Fertig“ beendet. Stärke eintippen (bzw. Stärke;Höhe).`
+                  ? `Wand ${formatMeasure(drawing.wallThickness)} m stark${drawing.wallHeight ? `, ${formatMeasure(drawing.wallHeight)} m hoch` : ''}: Anfangspunkt und Knicke antippen, Enter bzw. „Fertig“ beendet – Startpunkt antippen bzw. „Schließen“ schließt den Raum. Stärke eintippen (bzw. Stärke;Höhe).`
                 : t === 'symbol'
                   ? (() => {
                       const def = symbolDef(drawing.symbolId);
@@ -1723,6 +1733,12 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                       const h = drawing.symbolSize?.h ?? def?.h ?? 0;
                       return `${def?.label ?? 'Bauteil'} ${formatMeasure(w)} × ${formatMeasure(h)} m: Stelle antippen – auf einer Linie bzw. Wand richtet es sich aus. Größe eintippen (Breite bzw. Breite;Tiefe).`;
                     })()
+                : t === 'hatch'
+                  ? (
+                      <span data-testid="hatch-prompt">
+                        In eine geschlossene Fläche tippen – sie wird mit <strong>{hatchLabel(drawing.hatchSet)}</strong> schraffiert (auch mehrere nacheinander; im Raum einer geschlossenen Wand bis zur Wandinnenseite).
+                      </span>
+                    )
                 : t === 'guide'
                   ? drawing.guideErase
                     ? `Hilfslinie antippen, die gelöscht werden soll (${drawing.guides.length} vorhanden).`
@@ -1786,7 +1802,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                           : 'Zielpunkt antippen – oder Abstand in Mausrichtung, ΔX;ΔY bzw. Länge<Winkel eingeben.'
                         : `${drawing.copies ? `${plural(drawing.copies, 'Kopie', 'Kopien')} erstellt. ` : ''}Basispunkt antippen (oder vom Basis- zum Zielpunkt ziehen) – oder Verschiebung ΔX;ΔY bzw. Länge<Winkel eingeben. ${plural(n, 'Objekt', 'Objekte')}.`
                       : 'Endpunkt antippen – oder Länge in Mausrichtung, ΔX;ΔY bzw. Länge<Winkel eingeben.';
-            const withInput = (!(SELECT_FIRST.has(t) && drawing.cmdSelecting) || t === 'join') && t !== 'array' && t !== 'align' && t !== 'distance' && !(t === 'guide' && drawing.guideErase);
+            const withInput = (!(SELECT_FIRST.has(t) && drawing.cmdSelecting) || t === 'join') && t !== 'array' && t !== 'align' && t !== 'distance' && t !== 'hatch' && !(t === 'guide' && drawing.guideErase);
             return (
               <CommandBar
                 key={t}
@@ -1828,6 +1844,11 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                       Alle löschen
                     </button>
                   </>
+                )}
+                {t === 'hatch' && (
+                  <button type="button" className="btn btn-sm hatch-open" onClick={() => void drawing.pickHatch()} data-testid="hatch-change">
+                    <HatchPreview s={drawing.hatchSet} w={34} h={20} /> <span>Muster ändern</span>
+                  </button>
                 )}
                 {t === 'distance' && drawing.distRes && drawing.distRes.d > 1e-6 && (
                   <button type="button" className="btn btn-sm" onClick={drawing.distToDimension} data-testid="distance-dimension">

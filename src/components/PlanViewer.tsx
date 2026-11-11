@@ -194,6 +194,10 @@ interface Props {
   onFence?(path: Point[]): void;
   /** Nummernschilder der Objekte anzeigen (Standard: ja) */
   showLabels?: boolean;
+  /** Schraffur am Plan fixiert: Seiteneinheiten je pt auf dem Papier (importierte Pläne: 1 = PDF-Punkte) */
+  hatchUnit?: number;
+  /** Wand darf geschlossen werden (Plan zeichnen: Raum ringsum) – Antippen des Startpunkts bzw. „Schließen“ */
+  closableWall?: boolean;
   /** Eigene Darstellung eines Objekts (undefined = Standard-Markierung) */
   renderItem?(item: ViewerItem, view: View, selected: boolean): ReactNode | undefined;
   /** Zusätzliche Ebene unter bzw. über den Objekten (Bildschirmkoordinaten) */
@@ -1276,8 +1280,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         // (Polygon: geschlossen, Polylinie: offen)
         // (auch im 90°-Modus: maßgeblich ist der angetippte Punkt)
         const nearFirst = (q: Point) => Math.hypot((first.x - q.x) * v.scale, (first.y - q.y) * v.scale) < (isCoarse() ? 22 : 12);
-        // Wand bleibt immer offen (Antippen des Startpunkts setzt einen weiteren Punkt)
-        const onFirst = propsRef.current.tool !== 'wall' && pts.length >= 3 && (nearFirst(pp) || nearFirst(raw));
+        // Wand: im Aufmaß immer offen (Antippen des Startpunkts setzt einen weiteren Punkt); beim Zeichnen schließt es den Raum
+        const onFirst = (propsRef.current.tool !== 'wall' || !!propsRef.current.closableWall) && pts.length >= 3 && (nearFirst(pp) || nearFirst(raw));
         if (onFirst) {
           finishPolygon(true);
           return;
@@ -1350,7 +1354,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   function finishPolygon(closed?: boolean) {
     const pts = poly.current;
     const tool = propsRef.current.tool;
-    const close = tool === 'wall' ? false : (closed ?? tool !== 'polyline');
+    const close = tool === 'wall' ? !!propsRef.current.closableWall && closed === true : (closed ?? tool !== 'polyline');
     if (pts.length < (close ? 3 : 2)) return;
     poly.current = [];
     polyHover.current = null;
@@ -1405,7 +1409,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     const fill = fillOf(shape, col, st, DEFAULT_TRANSPARENCY.damage);
     return (
       <g key={opts.key}>
-        {fill && <FillPaths shape={shape} map={toS} fill={fill} boost={opts.selected && st?.fillTransparency === undefined && !fill.hatch} />}
+        {fill && <FillPaths shape={shape} map={toS} fill={fill} anchor={propsRef.current.hatchUnit ?? 1} boost={opts.selected && st?.fillTransparency === undefined && !fill.hatch} />}
         {/* Kontur für gute Sichtbarkeit auf hellen und dunklen Planbereichen */}
         <path
           d={line.d}
@@ -1675,8 +1679,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
 });
 
 /** Füllung am Bildschirm: Vollton bzw. Schraffur (gleiche Berechnung wie im PDF) */
-export function FillPaths({ shape, map, fill, boost = false }: { shape: Shape; map: (p: Point) => Point; fill: Fill; boost?: boolean }) {
-  const f = fillPaths(shape, map, fill, PX_PER_PT);
+export function FillPaths({ shape, map, fill, boost = false, anchor }: { shape: Shape; map: (p: Point) => Point; fill: Fill; boost?: boolean; anchor?: number }) {
+  const f = fillPaths(shape, map, fill, PX_PER_PT, anchor);
   if (f.solid) return <path d={f.solid} fill={fill.color} fillOpacity={boost ? Math.min(1, fill.opacity + 0.08) : fill.opacity} stroke="none" data-fill="solid" />;
   return (
     <>

@@ -508,10 +508,26 @@ export function strokeGeometry(
  * Füllung als Pfade in Ausgabekoordinaten: Vollton als Fläche (`solid`) bzw. Schraffur als
  * Linien (`hatch`, Strichstärke `hatchWidth`). `unit` = Ausgabeeinheiten je Punkt (Bildschirm: PX_PER_PT).
  */
-export function fillPaths(shape: Shape, map: (p: Point) => Point, fill: Fill, unit: number): { solid?: string; hatch?: string; hatchWidth: number; bg?: string } {
+/**
+ * Füllung bzw. Schraffur als SVG-Pfade. `unit` = Ausgabe-Einheiten je pt (Strichstärke).
+ * `anchor` (Einheiten der Form je pt auf dem Papier): Schraffur in den Koordinaten der Form berechnen – sie ist dann
+ * am Plan fixiert (wandert beim Verschieben nicht mit) und wird beim Zoomen mit vergrößert wie auf dem Papier.
+ * Ohne `anchor`: in Ausgabe-Koordinaten (PDF: Papier).
+ */
+export function fillPaths(shape: Shape, map: (p: Point) => Point, fill: Fill, unit: number, anchor?: number): { solid?: string; hatch?: string; hatchWidth: number; bg?: string } {
   if (!fill.hatch) return { solid: pathToSvg(shapePath(shape), map), hatchWidth: 0 };
-  const poly = outlinePoints(shape).points.map(map);
   const h = fill.hatch;
+  const bg = fill.bg ? { bg: pathToSvg(shapePath(shape), map) } : {};
+  const hatchWidth = (h.pattern === 'dots' ? 1.6 : 0.6) * unit;
+  if (anchor && anchor > 0) {
+    const geo = hatchGeometry(outlinePoints(shape).points, h.pattern, h.angle, Math.max(1.5, h.spacing) * anchor);
+    const mapped = { segments: geo.segments.map(([a, b]) => [map(a), map(b)] as [Point, Point]), dots: geo.dots.map(map) };
+    return { hatch: hatchSvg(mapped), hatchWidth, ...bg };
+  }
+  const poly = outlinePoints(shape).points.map(map);
   const geo = hatchGeometry(poly, h.pattern, h.angle, Math.max(1.5, h.spacing) * unit);
-  return { hatch: hatchSvg(geo), hatchWidth: (h.pattern === 'dots' ? 1.6 : 0.6) * unit, ...(fill.bg ? { bg: pathToSvg(shapePath(shape), map) } : {}) };
+  return { hatch: hatchSvg(geo), hatchWidth, ...bg };
 }
+
+/** Schraffur am Bildschirm: Seiteneinheiten je pt auf dem Papier – gezeichnete Pläne nach Maßstab (k Einheiten je m) */
+export const hatchAnchor = (k: number, scale = 100) => (k * scale * 0.352778) / 1000;

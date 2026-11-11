@@ -90,15 +90,22 @@ test('Schraffur: Muster, Winkel und Abstand je Fläche, gespeichert und als Vekt
   await expect(hatch).toHaveCount(1);
   await expect(page.locator('[data-element="rect"] path[data-fill="solid"]')).toHaveCount(0);
   const d1 = (await hatch.getAttribute('d'))!;
-  // Kreuzschraffur 30°: mehr Linien als die einfache Schraffur
-  await panel.getByTestId('style-hatch-pattern').selectOption('cross');
-  await panel.getByTestId('style-hatch-angle').selectOption('30');
+  // Kreuzschraffur 30° (im Schraffur-Fenster): mehr Linien als die einfache Schraffur
+  const hp = page.getByTestId('hatch-picker');
+  const pick = async (tile: string, more?: () => Promise<void>) => {
+    await panel.getByTestId('style-hatch-open').click();
+    await hp.getByTestId('hatch-tab-pattern').click();
+    await hp.getByTestId(`hatch-tile-${tile}`).click();
+    if (more) await more();
+    await hp.getByTestId('hatch-ok').click();
+  };
+  await pick('cross', () => hp.getByTestId('hatch-angle').selectOption('30').then(() => {}));
   await expect.poll(async () => ((await hatch.getAttribute('d')) ?? '').split('M').length).toBeGreaterThan(d1.split('M').length * 1.5);
   // Abstand größer → weniger Linien
   const before = ((await hatch.getAttribute('d')) ?? '').split('M').length;
-  const sp = panel.getByTestId('style-hatch-spacing');
-  await sp.fill('16');
-  await sp.blur();
+  await panel.getByTestId('style-hatch-open').click();
+  await hp.getByTestId('hatch-spacing').fill('16');
+  await hp.getByTestId('hatch-ok').click();
   await expect.poll(async () => ((await hatch.getAttribute('d')) ?? '').split('M').length).toBeLessThan(before);
   await waitSaved(page);
   const el = (await stored(page, 'elements'))[0];
@@ -106,13 +113,13 @@ test('Schraffur: Muster, Winkel und Abstand je Fläche, gespeichert und als Vekt
   expect(el.shape.type).toBe('rect'); // Geometrie unverändert
 
   // Punkte
-  await panel.getByTestId('style-hatch-pattern').selectOption('dots');
+  await pick('dots');
   await expect(hatch).toHaveCount(1);
   // Zurück auf Vollton: Fläche wieder flächig gefüllt
   await panel.getByTestId('style-fill-type').selectOption('solid');
   await expect(page.locator('[data-element="rect"] path[data-fill="solid"]')).toHaveCount(1);
   await panel.getByTestId('style-fill-type').selectOption('hatch');
-  await panel.getByTestId('style-hatch-pattern').selectOption('lines');
+  await pick('lines');
   await waitSaved(page);
 
   // Nach dem Neuladen erhalten

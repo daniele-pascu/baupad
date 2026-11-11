@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { annotationsOf, dimGeometry, dimLeader, gridStep, majorStep, shapeToMeters } from '../lib/drawing';
 import { pathToSvg, polygonShape, shapeCenter, shapePath, shapeVertices, toPage, toScreen, type Point, type View } from '../lib/geometry';
-import { DEFAULT_TRANSPARENCY, fillOf, PX_PER_PT, strokeGeometry } from '../lib/style';
+import { DEFAULT_TRANSPARENCY, fillOf, hatchAnchor, PX_PER_PT, strokeGeometry } from '../lib/style';
 import type { DrawElement, DrawElementType, Rect, Shape } from '../lib/types';
 import { FillPaths, visibleStroke } from './PlanViewer';
 import { fontProps } from '../lib/text-font';
@@ -81,7 +81,17 @@ export function renderSheet(view: View, size: { w: number; h: number }, region: 
 }
 
 /** Zeichnungsobjekt in Bildschirmkoordinaten (shape in Seitenkoordinaten). */
-export function renderElement(e: Pick<DrawElement, 'id' | 'type' | 'color' | 'text' | 'style'> & { font?: DrawElement['font']; symbol?: DrawElement['symbol']; wall?: DrawElement['wall'] } & { offset?: number; extGap?: number }, pageShape: Shape, view: View, selected: boolean, faded = false, k = 100, openings: WallOpening[] = []): ReactNode {
+export function renderElement(
+  e: Pick<DrawElement, 'id' | 'type' | 'color' | 'text' | 'style'> & { font?: DrawElement['font']; symbol?: DrawElement['symbol']; wall?: DrawElement['wall'] } & { offset?: number; extGap?: number },
+  pageShape: Shape,
+  view: View,
+  selected: boolean,
+  faded = false,
+  k = 100,
+  openings: WallOpening[] = [],
+  /** Schraffur am Plan fixiert (Seiteneinheiten je pt auf dem Papier) */
+  hatchUnit = hatchAnchor(k),
+): ReactNode {
   const stroke = visibleStroke(e.color);
   const w = e.style?.lineWidth && e.type !== 'dimension' ? Math.max(1, e.style.lineWidth * PX_PER_PT) : selected ? 3 : 2;
   if (e.type === 'text') {
@@ -119,7 +129,7 @@ export function renderElement(e: Pick<DrawElement, 'id' | 'type' | 'color' | 'te
         {geo.quads.map((q, i) => {
           const qs = polygonShape(q, true);
           const fill = fillOf(qs, e.color, e.style, DEFAULT_TRANSPARENCY.element);
-          return fill ? <FillPaths key={`f${i}`} shape={qs} map={toS} fill={fill} /> : <path key={`f${i}`} d={pathToSvg(shapePath(qs), toS)} fill="transparent" stroke="none" />;
+          return fill ? <FillPaths key={`f${i}`} shape={qs} map={toS} fill={fill} anchor={hatchUnit} /> : <path key={`f${i}`} d={pathToSvg(shapePath(qs), toS)} fill="transparent" stroke="none" />;
         })}
         {selected && <path d={axis.map((p, i) => `${i ? 'L' : 'M'}${toS(p).x} ${toS(p).y}`).join('') + (pageShape.closed ? 'Z' : '')} fill="none" stroke="#9cc0f5" strokeWidth={4} strokeDasharray="6 4" />}
         <path d={geo.lines.map(([a, b]) => `M${toS(a).x.toFixed(1)} ${toS(a).y.toFixed(1)}L${toS(b).x.toFixed(1)} ${toS(b).y.toFixed(1)}`).join('')} fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" />
@@ -182,7 +192,7 @@ export function renderElement(e: Pick<DrawElement, 'id' | 'type' | 'color' | 'te
   const fill = fillOf(pageShape, e.color, e.style, DEFAULT_TRANSPARENCY.element);
   return (
     <g data-element={e.type} data-element-id={e.id} opacity={faded ? 0.55 : 1}>
-      {fill && <FillPaths shape={pageShape} map={toS} fill={fill} />}
+      {fill && <FillPaths shape={pageShape} map={toS} fill={fill} anchor={hatchUnit} />}
       {selected && <path d={line.d} fill="none" stroke="#9cc0f5" strokeWidth={w + 5} strokeLinejoin="round" strokeLinecap="round" />}
       <path
         d={line.d}

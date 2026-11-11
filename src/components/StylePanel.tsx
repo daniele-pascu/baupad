@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { DASH_SCALES, dashArray, DEFAULT_HATCH, DEFAULT_TRANSPARENCY, HATCH_PATTERNS, LINE_TYPES, LINE_WIDTH_MAX, LINE_WIDTH_MIN, MATERIALS } from '../lib/style';
 import { DRAW_COLORS, type HatchPattern, type LineType, type ShapeStyle } from '../lib/types';
 import { rememberCustomColorSoon, useCustomColors } from '../lib/custom-colors';
+import { HatchPreview, hatchLabel, hatchPicker, hatchStyle, settingFromStyle } from './HatchPicker';
 
 /** Muster-Auswahl: allgemeine Muster und Baustoffe nach ÖNORM A 6240 (übernimmt Muster, Farbe, Winkel, Abstand) */
 function PatternOptions() {
@@ -171,56 +172,27 @@ export function StylePanel({
               </select>
             </label>
             {hatchOn && !style.noFill && (
-              <>
-                <label className="sc-field">
-                  <span>Muster</span>
-                  <select value={patternValue(style, hatch)} onChange={(e) => onStyle(patternPatch(e.target.value, hatch))} data-testid="style-hatch-pattern">
-                    <PatternOptions />
-                  </select>
-                </label>
-                <label className="sc-field">
-                  <span>Winkel</span>
-                  <select value={hatch.angle} onChange={(e) => onStyle({ hatch: { ...hatch, angle: Number(e.target.value) } })} data-testid="style-hatch-angle">
-                    {[0, 15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165].map((a) => (
-                      <option key={a} value={a}>
-                        {a}°
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="sc-field">
-                  <span>Abstand</span>
-                  <span className="sc-range">
-                    <input
-                      type="range"
-                      min={2}
-                      max={20}
-                      step={1}
-                      value={sp}
-                      onChange={(e) => setSp(Number(e.target.value))}
-                      onPointerUp={commitSp}
-                      onKeyUp={commitSp}
-                      onBlur={commitSp}
-                      data-testid="style-hatch-spacing"
-                    />
-                    <output className="style-value">{sp} pt</output>
-                  </span>
-                </label>
-              </>
+              // Schraffur: Auswahl im eigenen Fenster (Kacheln mit Vorschau) – die Leiste bleibt schmal (iPad)
+              <span className="sc-field">
+                <span>Muster</span>
+                <button
+                  type="button"
+                  className="btn btn-sm hatch-open"
+                  onClick={async () => {
+                    const r = await hatchPicker(settingFromStyle(style, color), { title: 'Schraffur' });
+                    if (r) onStyle(hatchStyle(r));
+                  }}
+                  title="Muster, Baustoff, Winkel, Abstand und Farben wählen"
+                  data-testid="style-hatch-open"
+                >
+                  <HatchPreview s={settingFromStyle(style, color)} w={34} h={20} />
+                  <span>{hatchLabel(settingFromStyle(style, color))}</span>
+                </button>
+              </span>
             )}
-            {!style.noFill && (
+            {!style.noFill && !hatchOn && (
               <>
-                <MiniColors label={hatchOn ? 'Schraffurfarbe' : 'Füllfarbe'} name={hatchOn ? 'Schraffurfarbe' : 'Füllfarbe'} value={style.fillColor ?? color} onChange={(c) => onStyle({ fillColor: c })} testId="style-fill-color" />
-                {hatchOn && (
-                  <label className="sc-field">
-                    <span>Flächenfarbe</span>
-                    <select value={style.hatchBg ? 'on' : 'off'} onChange={(e) => onStyle({ hatchBg: e.target.value === 'on' ? '#ffffff' : undefined })} data-testid="style-hatch-bg-on">
-                      <option value="off">Keine</option>
-                      <option value="on">Farbig</option>
-                    </select>
-                  </label>
-                )}
-                {hatchOn && style.hatchBg && <MiniColors label="Fläche hinter der Schraffur" name="Flächenfarbe" value={style.hatchBg} onChange={(c) => onStyle({ hatchBg: c })} testId="style-hatch-bg" />}
+                <MiniColors label="Füllfarbe" name="Füllfarbe" value={style.fillColor ?? color} onChange={(c) => onStyle({ fillColor: c })} testId="style-fill-color" />
                 <label className="sc-field">
                   <span>Transparenz</span>
                   <span className="sc-range">

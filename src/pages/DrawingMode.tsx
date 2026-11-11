@@ -8,6 +8,7 @@ import { cleanFont } from '../lib/text-font';
 import { elementsOf } from '../lib/aufmass';
 import { damageNo } from '../lib/numbering';
 import { formatMeasure } from '../lib/numbers';
+import { hatchAnchor } from '../lib/style';
 import {
   applyMeasures,
   circleFromMeasures,
@@ -31,13 +32,14 @@ import {
 import { type OrthoDir, arcShape, circleThrough, extendLine, ORTHO_DIRS, orthoPoint, rotateShapeBy, scaleShape, stretchShape, translateShape, trimByFence, trimShape } from '../lib/cad';
 import { edgesOf, findSnap, normalizeSnapKinds, segmentIntersection, type SnapKind, type SnapSeg } from '../lib/snap';
 import { inputVector, parseCadInput, vectorInfo } from '../lib/cad-input';
-import { angleBetween, angleCcw, arrayOffsets, canOffset, distanceToShape, filletCorner, filletLines, joinShapes, mirrorShape, offsetShape, pointLineDistance, polarAngles, rotateAround, scaleAbout, segSegDistance, setSegmentLength, type ArrayParams } from '../lib/cad-ops';
+import { angleBetween, angleCcw, arrayOffsets, canOffset, distanceToShape, filletCorner, filletLines, joinShapes, offsetPath, mirrorShape, offsetShape, pointLineDistance, polarAngles, rotateAround, scaleAbout, segSegDistance, setSegmentLength, type ArrayParams } from '../lib/cad-ops';
+import { DEFAULT_HATCH_SETTING, hatchLabel, hatchPicker, hatchStyle, type HatchSetting } from '../components/HatchPicker';
 import { arrayDialog } from '../components/ArrayDialog';
 import { symbolPicker } from '../components/SymbolPicker';
 import { symbolAnchor, symbolDef, symbolGeometry, type SymbolGroup } from '../lib/symbols';
-import { wallOpenings } from '../lib/walls';
+import { wallOpenings, wallGeometry } from '../lib/walls';
 import { dimsVisible, visibleDamages, visibleElements } from '../lib/layers';
-import { distToSegment, isOpenShape, lineShape, pathToSvg, rectsOverlap, removeVertex, setPolylineClosed, shapeAABB, shapeFromVertices, shapePath, shapeVertices, toScreen, type Point, type View } from '../lib/geometry';
+import { distToSegment, isOpenShape, lineShape, pathToSvg, rectsOverlap, removeVertex, setPolylineClosed, shapeAABB, pointInPolygon, polygonArea, shapeFromVertices, shapePath, shapeVertices, toScreen, type Point, type View } from '../lib/geometry';
 import { newMeta, putRecord, putRecords, softDelete, type ProjectState } from '../lib/store';
 import type { Damage, DrawElement, DrawElementType, GuideLine, Plan, Rect, Shape, ShapeStyle, TextFont } from '../lib/types';
 
@@ -46,9 +48,9 @@ import type { Damage, DrawElement, DrawElementType, GuideLine, Plan, Rect, Shape
 export type ToolGroup = 'select' | 'draw' | 'annotate' | 'modify';
 
 /** Werkzeuge des Zeichenmodus: Zeichnen sowie Ändern (Kopieren, Verschieben, Strecken …) */
-export type DrawTool = Tool | 'copy' | 'move' | 'stretch' | 'join' | 'offset' | 'mirror' | 'array' | 'symbol' | 'rotate' | 'scale' | 'align' | 'guide' | 'fillet' | 'distance';
+export type DrawTool = Tool | 'copy' | 'move' | 'stretch' | 'join' | 'offset' | 'mirror' | 'array' | 'symbol' | 'rotate' | 'scale' | 'align' | 'guide' | 'fillet' | 'distance' | 'hatch';
 /** Hilfslinie, Abrunden, Abstand: Punkte bzw. Objekte antippen */
-export const PICK_TOOLS = new Set<DrawTool>(['guide', 'fillet', 'distance']);
+export const PICK_TOOLS = new Set<DrawTool>(['guide', 'fillet', 'distance', 'hatch']);
 /** Abstand-Werkzeug: angetippter Punkt, ggf. mit Kante und Objekt */
 export interface DistPick {
   point: Point;
@@ -100,6 +102,7 @@ export const DRAW_TOOLS: { id: DrawTool; label: string; short?: string; icon: st
   { id: 'join', label: 'Verbinden: Linien, Polylinien und Bögen an gemeinsamen Endpunkten zu einer Linie bzw. geschlossenen Fläche verbinden – kleine Lücken werden geschlossen', short: 'Verbinden', icon: 'join', key: 'j', group: 'modify' },
   { id: 'trim', label: 'Stutzen: Abschnitt bis zu den nächsten Kanten bzw. Eckpunkten entfernen – anklicken oder frei über mehrere Linien ziehen (Zaun)', short: 'Stutzen', icon: 'trim', key: 'z', group: 'modify' },
   { id: 'extend', label: 'Verlängern: Linie bis zur nächsten Kante verlängern', short: 'Verlängern', icon: 'extend', key: 'e', group: 'modify' },
+  { id: 'hatch', label: 'Schraffur: Muster bzw. Baustoff und Farbe wählen, dann in eine geschlossene Fläche tippen (Rechteck, Kreis, Fläche, Raum aus geschlossener Wand)', short: 'Schraffur', icon: 'hatch', key: '', group: 'draw' },
   { id: 'fillet', label: 'Abrunden: zwei Linien antippen – mit Radius gerundet bzw. bei Radius 0 zur Ecke gekürzt/verlängert; oder die Ecke einer Fläche/Polylinie antippen', short: 'Abrunden', icon: 'fillet', key: '', group: 'modify' },
   { id: 'guide', label: 'Hilfslinie: unendliche Konstruktionslinie (0°, 45°, 90°, 135° oder frei) – nur beim Zeichnen sichtbar, nicht im PDF; Fang an Schnittpunkten', short: 'Hilfslinie', icon: 'guide', key: 'n', group: 'annotate' },
   { id: 'distance', label: 'Abstand: zwei Punkte, Linien oder Objekte antippen – kürzester Abstand, parallel bzw. rechtwinklig wird erkannt (ändert nichts)', short: 'Abstand', icon: 'distance', key: '', group: 'annotate' },
@@ -232,6 +235,19 @@ export function useDrawing(opts: {
   const setGuidesOn = (on: boolean) => {
     setGuidesOnState(on);
     storePref('guides', on ? '1' : '0');
+  };
+  /** Schraffur-Werkzeug: gewähltes Muster und Farben (je Gerät gemerkt) */
+  const [hatchSet, setHatchSetState] = useState<HatchSetting>(() => {
+    try {
+      const v = JSON.parse(pref('hatchSet', 'null')) as HatchSetting | null;
+      return v?.hatch?.pattern ? v : DEFAULT_HATCH_SETTING;
+    } catch {
+      return DEFAULT_HATCH_SETTING;
+    }
+  });
+  const setHatchSet = (h: HatchSetting) => {
+    setHatchSetState(h);
+    storePref('hatchSet', JSON.stringify(h));
   };
   /** Abrunden: Radius (m, je Gerät) und erste angetippte Linie */
   const [filletR, setFilletRState] = useState(() => Math.max(0, Number(pref('filletR', '0')) || 0));
@@ -404,6 +420,8 @@ export function useDrawing(opts: {
   const allStored = useMemo(() => (plan ? elementsOf(data, plan.id) : []), [data, plan]);
   // Ausgeblendete Ebenen: nicht sichtbar, nicht fang-, auswähl- oder veränderbar
   const stored = useMemo(() => visibleElements(plan, allStored), [plan, allStored]);
+  /** Schraffur am Plan fixiert: Abstand wie auf dem Papier beim Planmaßstab */
+  const hatchUnit = hatchAnchor(k, plan?.drawing?.scale ?? 100);
   /** Hilfslinien des Plans (nur beim Zeichnen) und als Fanglinien */
   const guides = plan?.drawing?.guides ?? [];
   const guideSegs = useMemo(() => (guidesOn ? (plan?.drawing?.guides ?? []).map((g) => guideSeg(g)) : []), [plan?.drawing?.guides, guidesOn]);
@@ -931,6 +949,69 @@ export function useDrawing(opts: {
   /** Fangradius in m für das Antippen von Objekten */
   const pickTol = () => (isCoarse() ? 18 : 10) / ((viewer.current?.scale() ?? 1) * k);
 
+  // ---------------- Schraffur ----------------
+  /** Muster wählen, danach Flächen antippen */
+  const pickHatch = async () => {
+    const r = await hatchPicker(hatchSet, { title: 'Schraffur wählen – danach in die Fläche tippen' });
+    if (!r) return;
+    setHatchSet({ ...r, none: false });
+    setTool('hatch');
+    setSelectedId(null);
+  };
+  /**
+   * In eine geschlossene Fläche getippt: die innerste geschlossene Form unter dem Punkt bekommt die Schraffur
+   * (Rechteck, Kreis, Dreieck, Fläche, Wand-Band). Innerhalb einer geschlossenen Wand (Raum) entsteht eine
+   * schraffierte Fläche bis zur Wandinnenseite.
+   */
+  const hatchAt = (pm: Point) => {
+    const style = hatchStyle(hatchSet);
+    let best: { e: DrawElement; area: number } | null = null;
+    let room: { e: DrawElement; inner: Point[]; area: number } | null = null;
+    for (const e of stored) {
+      if (e.type === 'text' || e.type === 'dimension' || e.type === 'symbol' || e.type === 'line' || e.type === 'arc') continue;
+      if (e.type === 'wall') {
+        const axis = shapeVertices(e.shape);
+        const closedWall = !isOpenShape(e.shape);
+        const t = e.wall?.thickness ?? 0.25;
+        const band = wallGeometry(axis, closedWall, t).quads;
+        if (band.some((q) => pointInPolygon(pm, q))) {
+          const a = band.reduce((s2, q) => s2 + polygonArea(q), 0);
+          if (!best || a < best.area) best = { e, area: a };
+          continue;
+        }
+        if (closedWall && axis.length >= 3 && pointInPolygon(pm, axis)) {
+          // Raum: Wandachse um die halbe Stärke nach innen (die kleinere der beiden Seiten)
+          const a1 = offsetPath(axis, t / 2, true);
+          const a2 = offsetPath(axis, -t / 2, true);
+          const inner = polygonArea(a1) < polygonArea(a2) ? a1 : a2;
+          const area = polygonArea(inner);
+          if (!room || area < room.area) room = { e, inner, area };
+        }
+        continue;
+      }
+      if (isOpenShape(e.shape)) continue;
+      const poly = shapeVertices(e.shape);
+      const outline = e.shape.type === 'ellipse' ? edgesOf(e.shape).map(([a]) => a) : poly;
+      if (outline.length >= 3 && pointInPolygon(pm, outline)) {
+        const a = polygonArea(outline);
+        if (!best || a < best.area) best = { e, area: a };
+      }
+    }
+    if (best && (!room || best.area <= room.area)) {
+      const e = best.e;
+      putRecord('elements', { ...e, style: { ...e.style, ...style } });
+      toast(hatchSet.none ? 'Schraffur entfernt.' : `Schraffiert: ${hatchLabel(hatchSet)}.`, 'success', 1800);
+      return;
+    }
+    if (room && !hatchSet.none) {
+      create('freehand', shapeFromVertices({ type: 'freehand', x: 0, y: 0, w: 0, h: 0, closed: true }, room.inner), { style: { ...newElementStyle(defaultStyle), lineWidth: 0.25, ...style } }, true);
+      setSelectedId(null);
+      toast(`Raum schraffiert: ${hatchLabel(hatchSet)}.`, 'success', 1800);
+      return;
+    }
+    toast('Hier ist keine geschlossene Fläche. Tipp: Linien mit „Verbinden“ zu einer Fläche machen oder die Fläche mit „Fläche“ nachzeichnen.', 'info', 4500);
+  };
+
   // ---------------- Hilfslinien ----------------
   const saveGuides = (list: GuideLine[]) => {
     const pl = plan ? data.plans[plan.id] : undefined;
@@ -1372,6 +1453,7 @@ export function useDrawing(opts: {
   /** Werkzeug „Text“: Stelle angetippt */
   const onPlace = async (p: Point) => {
     if (tool === 'guide') return guidePoint({ x: p.x / k, y: p.y / k });
+    if (tool === 'hatch') return hatchAt({ x: p.x / k, y: p.y / k });
     if (tool === 'fillet') return filletPoint({ x: p.x / k, y: p.y / k });
     if (tool === 'distance') return distancePoint({ x: p.x / k, y: p.y / k });
     if (TRANSFORM_TOOLS.has(tool)) {
@@ -1492,7 +1574,7 @@ export function useDrawing(opts: {
       {elements
         .filter((e) => e.type === 'text')
         .map((e) => (
-          <g key={e.id}>{renderElement(e, shapeToPage(e.shape, k), view, false, false, k)}</g>
+          <g key={e.id}>{renderElement(e, shapeToPage(e.shape, k), view, false, false, k, [], hatchUnit)}</g>
         ))}
     </>
   );
@@ -1606,7 +1688,7 @@ export function useDrawing(opts: {
 
   const renderItem = (item: ViewerItem, view: View, sel: boolean): ReactNode => {
     const e = byId.get(item.id);
-    return e ? renderElement(e, item.shape, view, sel || selSet.has(e.id), false, k, openingsPage) : null;
+    return e ? renderElement(e, item.shape, view, sel || selSet.has(e.id), false, k, openingsPage, hatchUnit) : null;
   };
 
   const markerPaths = (view: View) => (
@@ -1631,7 +1713,7 @@ export function useDrawing(opts: {
     <>
       {renderSheet(view, size, region, k, false, !sheet)}
       {elements.map((e) => (
-        <g key={e.id}>{renderElement(e, shapeToPage(e.shape, k), view, false, false, k, openingsPage)}</g>
+        <g key={e.id}>{renderElement(e, shapeToPage(e.shape, k), view, false, false, k, openingsPage, hatchUnit)}</g>
       ))}
       {showDims && renderDims(view, elements, k, { color: '#5b6b80' })}
     </>
@@ -1906,6 +1988,8 @@ export function useDrawing(opts: {
     rotStep,
     setRotStep,
     polyNext,
+    hatchSet,
+    pickHatch,
     guides,
     guidesOn,
     setGuidesOn,
@@ -1932,7 +2016,7 @@ export function useDrawing(opts: {
     setSegment: (id: string, i: number, len: number) => {
       const e = data.elements[id];
       if (!e) return;
-      const closed = e.type !== 'wall' && !isOpenShape(e.shape);
+      const closed = !isOpenShape(e.shape);
       const pts = setSegmentLength(shapeVertices(e.shape), closed, i, len);
       if (!pts) return;
       const shape = e.shape.type === 'line' && pts.length === 2 ? lineShape(pts[0], pts[1]) : shapeFromVertices({ type: 'freehand', x: 0, y: 0, w: 0, h: 0, closed }, pts);

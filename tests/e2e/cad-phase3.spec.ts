@@ -66,9 +66,14 @@ test('Eigenschaften: Linienart, Musterlänge, Deckkraft, Baustoff-Schraffur, Fl�
   await expect(page.locator('[data-element="rect"] path[data-line-type="center"]')).toHaveCount(2);
   // Baustoff Beton (ÖNORM-Farbe) mit weißer Fläche dahinter
   await st.getByTestId('style-fill-type').selectOption('hatch');
-  await st.getByTestId('style-hatch-pattern').selectOption('mat:beton');
-  await expect(st.getByTestId('style-hatch-pattern')).toHaveValue('mat:beton');
-  await st.getByTestId('style-hatch-bg-on').selectOption('on');
+  // Muster im eigenen Fenster (Kacheln) – die Leiste bleibt schmal
+  await st.getByTestId('style-hatch-open').click();
+  const hp = page.getByTestId('hatch-picker');
+  await hp.getByTestId('hatch-tab-material').click();
+  await hp.getByTestId('hatch-tile-mat:beton').click();
+  await hp.getByTestId('hatch-bg-#ffffff').click();
+  await hp.getByTestId('hatch-ok').click();
+  await expect(st.getByTestId('style-hatch-open')).toContainText('Beton');
   await waitSaved(page);
   els = await elements();
   for (const e of els) {
@@ -80,7 +85,10 @@ test('Eigenschaften: Linienart, Musterlänge, Deckkraft, Baustoff-Schraffur, Fl�
   await expect(page.locator('[data-fill="hatch-bg"]')).toHaveCount(2);
   // weitere Muster zeichnen ohne Fehler
   for (const m of ['mat:ziegel', 'mat:erdreich', 'mat:daemm-weich', 'mat:holz', 'mat:kies', 'mat:glas', 'grid']) {
-    await st.getByTestId('style-hatch-pattern').selectOption(m);
+    await st.getByTestId('style-hatch-open').click();
+    await hp.getByTestId(m.startsWith('mat:') ? 'hatch-tab-material' : 'hatch-tab-pattern').click();
+    await hp.getByTestId(`hatch-tile-${m}`).click();
+    await hp.getByTestId('hatch-ok').click();
     await expect(page.locator('[data-fill="hatch"]').first()).toHaveAttribute('d', /M/);
   }
   await page.screenshot({ path: 'tests/output/cad-schraffuren.png' });

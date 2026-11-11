@@ -482,7 +482,7 @@ export function ElementBar({
  */
 function SegmentFields({ element, onSegment }: { element: DrawElement; onSegment(i: number, len: number): void }) {
   const pts = shapeVertices(element.shape);
-  const closed = element.type !== 'wall' && element.shape.closed !== false;
+  const closed = element.shape.type !== 'line' && element.shape.closed !== false;
   const lens = pts.slice(0, closed ? pts.length : pts.length - 1).map((p, i) => {
     const q = pts[(i + 1) % pts.length];
     return Math.hypot(q.x - p.x, q.y - p.y);

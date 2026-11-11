@@ -157,6 +157,9 @@ export function DrawRibbon({
               {btn('draw-window', 'window', 'Fenster', () => void drawing.pickSymbol('window'), { pressed: drawing.tool === 'symbol' && symbolDef(drawing.symbolId)?.group === 'window', title: 'Fenster einsetzen (ein-/zweiflügelig, Festverglasung, Schiebefenster)' })}
               {btn('draw-electro', 'plug', 'Elektro', () => void drawing.pickSymbol('electro'), { pressed: drawing.tool === 'symbol' && ['electro', 'appliance', 'heating'].includes(symbolDef(drawing.symbolId)?.group ?? ''), title: 'Elektro-, Geräte- und Heizungssymbole (ÖNORM)' })}
             </div>
+            <div className="tool-group" role="group" aria-label="Schraffur">
+              {btn('draw-hatch', 'hatch', 'Schraffur', () => void drawing.pickHatch(), { pressed: drawing.tool === 'hatch', title: 'Schraffur: Muster bzw. Baustoff und Farbe wählen, dann in eine geschlossene Fläche tippen' })}
+            </div>
             {editGroup}
           </>
         )}
