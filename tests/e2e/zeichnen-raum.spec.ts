@@ -165,3 +165,59 @@ test('Pendeltür mittig auf der Wand, Durchbrüche über eigene Taste', async ()
   await pk.getByTestId('symbol-chimney').click();
   await page.getByTestId('command-done').click();
 });
+
+test('Ziehen an Eckpunkt/Anfasser: Wand bleibt Wand, Raumstempel bleibt Raumstempel', async () => {
+  await escape();
+  const sb = (await page.getByTestId('drawing-sheet').boundingBox())!;
+  await pickTool(page, 'draw-wall');
+  const s = Number(await page.getByTestId('plan-viewer').getAttribute('data-scale'));
+  const m = (v: number) => v * 100 * s;
+  const x0 = sb.x + 150;
+  const y0 = sb.y + 520;
+  await page.mouse.click(x0, y0);
+  await page.mouse.click(x0 + m(4), y0);
+  await page.mouse.click(x0 + m(4), y0 + m(2));
+  await page.keyboard.press('Enter');
+  await waitSaved(page);
+  const wall = (await elements()).at(-1)!;
+  expect(wall.type).toBe('wall');
+  await expect(page.getByTestId('element-bar')).toContainText('Wand');
+  // Wand mit der Auswahl antippen → Anfasser
+  await escape();
+  await page.mouse.click(x0 + m(2), y0);
+  await expect(page.getByTestId('vertex-2')).toHaveCount(1);
+  // Eckpunkt ziehen
+  const drag = async (sel: string, dx: number, dy: number) => {
+    const b = (await page.locator(sel).first().boundingBox())!;
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(b.x + b.width / 2 + dx / 2, b.y + b.height / 2 + dy / 2, { steps: 3 });
+    await page.mouse.move(b.x + b.width / 2 + dx, b.y + b.height / 2 + dy, { steps: 3 });
+    await page.mouse.up();
+    await waitSaved(page);
+  };
+  await drag('[data-testid="vertex-2"]', m(1), 0);
+  let w2 = (await elements()).find((e) => e.id === wall.id)!;
+  expect(w2.type).toBe('wall');
+  expect(JSON.stringify(w2.shape)).not.toBe(JSON.stringify(wall.shape));
+  // zweiten Eckpunkt ziehen
+  await drag('[data-testid="vertex-0"]', -m(1), 0);
+  w2 = (await elements()).find((e) => e.id === wall.id)!;
+  expect(w2.type).toBe('wall');
+  await expect(page.locator(`[data-element="wall"][data-element-id="${wall.id}"]`)).toHaveCount(1);
+
+  // Raumstempel: keine Eckpunkt-Anfasser, Ecke ziehen vergrößert gleichmäßig
+  await escape();
+  const stamp = (await elements()).find((e) => e.room)!;
+  const c = await screenOf({ x: stamp.shape.x + stamp.shape.w / 2, y: stamp.shape.y + stamp.shape.h / 2 });
+  await page.mouse.click(c.x, c.y);
+  await expect(page.getByTestId('room-bar-area')).toBeVisible();
+  await expect(page.getByTestId('vertex-0')).toHaveCount(0);
+  await drag('[data-handle="se"]', 40, 30);
+  const st2 = (await elements()).find((e) => e.id === stamp.id)!;
+  expect(st2.type).toBe('text');
+  expect(st2.room).toBeTruthy();
+  expect(st2.shape.h).toBeGreaterThan(stamp.shape.h * 1.1);
+  near(st2.shape.w / st2.shape.h, stamp.shape.w / stamp.shape.h, 0.05);
+  await expect(page.locator(`[data-room="1"][data-element-id="${stamp.id}"]`)).toHaveCount(1);
+});

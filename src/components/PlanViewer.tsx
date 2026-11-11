@@ -99,6 +99,8 @@ export type ViewerItem = Pick<Damage, 'id' | 'number' | 'shape' | 'color' | 'lab
     noVertexEdit?: boolean;
     /** nur gleichmäßig skalieren (z. B. Tür: Flügel passt immer zur Breite), mit Bezugspunkt */
     keepAspect?: AspectAnchor | null;
+    /** nur als Rahmen bearbeiten (Text, Raumstempel, Bauteil): keine Eckpunkte ziehen/einfügen */
+    boxOnly?: boolean;
   };
 /** Angezeigte Nummer bzw. Kennzeichnung */
 const noOf = (d: ViewerItem) => d.label?.trim() || String(d.number);
@@ -799,7 +801,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     // nächstgelegener Anfasser innerhalb der Toleranz
     let best: string | null = null;
     let bestD = Infinity;
-    for (const { h, p: hp } of screenHandles(sel.shape, viewRef.current!, !!propsRef.current.vertexEdit && !sel.noVertexEdit, !!sel.noVertexEdit)) {
+    for (const { h, p: hp } of screenHandles(sel.shape, viewRef.current!, !!propsRef.current.vertexEdit && !sel.noVertexEdit && !sel.boxOnly, !!sel.noVertexEdit, !!sel.boxOnly)) {
       const d = Math.max(Math.abs(hp.x - p.x), Math.abs(hp.y - p.y));
       if (d <= tol && d < bestD) {
         bestD = d;
@@ -1263,7 +1265,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
           // Doppelklick auf eine Kante des ausgewählten Objekts: Eckpunkt einfügen
           if (!cancelled && propsRef.current.vertexEdit && lt?.moveId === g.id && now - lt.t < 320 && Math.hypot(lt.p.x - p.x, lt.p.y - p.y) < 30) {
             lastTap.current = null;
-            if (canEditVertexCount(g.orig) && !propsRef.current.damages.find((x) => x.id === g.id)?.noVertexEdit) {
+            const it = propsRef.current.damages.find((x) => x.id === g.id);
+            if (canEditVertexCount(g.orig) && !it?.noVertexEdit && !it?.boxOnly) {
               const near = nearestEdge(g.orig, toPage(v, p));
               if (near && near.dist * v.scale <= (isCoarse() ? 22 : 12)) {
                 propsRef.current.onShapeChange(g.id, insertVertex(g.orig, near.edge, near.point), true);
@@ -1644,7 +1647,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
                   </>
                 );
               })()}
-              {screenHandles(selected.shape, view, !!props.vertexEdit && !selected.noVertexEdit, !!selected.noVertexEdit).map(({ h, p }) => {
+              {screenHandles(selected.shape, view, !!props.vertexEdit && !selected.noVertexEdit && !selected.boxOnly, !!selected.noVertexEdit, !!selected.boxOnly).map(({ h, p }) => {
                 // Touch: größere Griffe; Eckpunkte rund (○), Seiten-/Größengriffe eckig (□)
                 const s = isCoarse() ? 16 : 10;
                 const hover = hoverHandle === h;
@@ -1777,7 +1780,7 @@ function vertexHandles(shape: Shape, v: View): { h: string; p: Point }[] {
   return cornerIndices(scr, !isOpenShape(shape)).map((i) => ({ h: `v${i}`, p: scr[i] }));
 }
 
-function screenHandles(shape: Shape, v: View, vertexEdit = false, fixedShape = false): { h: string; p: Point }[] {
+function screenHandles(shape: Shape, v: View, vertexEdit = false, fixedShape = false, boxOnly = false): { h: string; p: Point }[] {
   // Linie: nur die beiden Endpunkte (eigenständiges 2D-Objekt, kein schmales Rechteck)
   if (shape.type === 'line') return shapeVertices(shape).map((p, i) => ({ h: `v${i}`, p: toScreen(v, p) }));
   const verts = vertexEdit && hasEditableVertices(shape) ? vertexHandles(shape, v) : null;
@@ -1787,7 +1790,8 @@ function screenHandles(shape: Shape, v: View, vertexEdit = false, fixedShape = f
   const small = Math.min(b.w, b.h) * v.scale < 64;
   // Mit Eckpunkten: Ecken über die Punkte, Größe über die Seitenmitten (nicht bei Vielecken)
   // Form mit fester Geometrie (z. B. Bogen): nur Drehen, keine Größenänderung (würde sie verzerren)
-  const list = fixedShape ? [] : verts ? (shape.type === 'freehand' ? [] : HANDLES.filter((h) => h.length === 1)) : small ? HANDLES.filter((h) => h.length === 2) : HANDLES;
+  // Bauteil/Text (nur Rahmen): immer Ecken und Seiten, auch wenn klein
+  const list = fixedShape ? [] : verts ? (shape.type === 'freehand' ? [] : HANDLES.filter((h) => h.length === 1)) : small && !boxOnly ? HANDLES.filter((h) => h.length === 2) : HANDLES;
   const off = (small ? 8 : 0) / v.scale;
   const out = list.map((h) => {
     const q = handlePosition(b, h);

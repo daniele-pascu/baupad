@@ -54,6 +54,10 @@ export type ToolGroup = 'select' | 'draw' | 'annotate' | 'modify';
 /** Werkzeuge des Zeichenmodus: Zeichnen sowie Ändern (Kopieren, Verschieben, Strecken …) */
 export type DrawTool = Tool | 'copy' | 'move' | 'stretch' | 'join' | 'offset' | 'mirror' | 'array' | 'symbol' | 'rotate' | 'scale' | 'align' | 'guide' | 'fillet' | 'distance' | 'hatch' | 'room';
 /** Hilfslinie, Abrunden, Abstand: Punkte bzw. Objekte antippen */
+/** Objektarten, die beim Ziehen von Ecken bzw. Anfassern nie zu einer freien Form werden */
+const KEEP_TYPE = new Set<DrawElementType>(['wall', 'text', 'symbol', 'dimension', 'arc']);
+/** Text/Raumstempel: nur gleichmäßig um die Mitte vergrößern */
+const TEXT_ASPECT = { x: 0.5, y: 0.5 };
 export const PICK_TOOLS = new Set<DrawTool>(['guide', 'fillet', 'distance', 'hatch', 'room']);
 /** Abstand-Werkzeug: angetippter Punkt, ggf. mit Kante und Objekt */
 export interface DistPick {
@@ -445,7 +449,7 @@ export function useDrawing(opts: {
   const elements = useMemo(() => stored.map((e) => (overrides[e.id] ? { ...e, shape: overrides[e.id] } : e)), [stored, overrides]);
   const byId = useMemo(() => new Map(elements.map((e) => [e.id, e])), [elements]);
   const items: ViewerItem[] = useMemo(
-    () => elements.map((e) => ({ id: e.id, number: 0, shape: shapeToPage(e.shape, k), color: e.color, labelOffset: null, noVertexEdit: e.type === 'arc', keepAspect: e.type === 'symbol' ? symbolAnchor(e.symbol) : null })),
+    () => elements.map((e) => ({ id: e.id, number: 0, shape: shapeToPage(e.shape, k), color: e.color, labelOffset: null, noVertexEdit: e.type === 'arc', boxOnly: e.type === 'text' || e.type === 'symbol', keepAspect: e.type === 'symbol' ? symbolAnchor(e.symbol) : e.type === 'text' ? TEXT_ASPECT : null })),
     [elements, k],
   );
   const selected = selectedId ? (byId.get(selectedId) ?? null) : null;
@@ -1500,9 +1504,15 @@ export function useDrawing(opts: {
     setOverrides(({ [id]: _, ...rest }) => rest);
     const e = data.elements[id];
     // Rechteck/Dreieck mit verschobener, eingefügter oder entfernter Ecke ist danach eine Polylinie
-    // (geschlossen = Fläche); eine Linie mit eingefügtem Punkt eine offene Polylinie
-    const type = e && e.type !== 'dimension' && e.type !== 'arc' && shape.type === 'freehand' ? 'freehand' : e?.type;
-    if (e && type && JSON.stringify(e.shape) !== JSON.stringify(shape)) putRecord('elements', { ...e, type, shape });
+    // (geschlossen = Fläche); eine Linie mit eingefügtem Punkt eine offene Polylinie.
+    // Wand, Text/Raumstempel, Bauteil, Maß und Bogen bleiben immer, was sie sind.
+    const type = e && !KEEP_TYPE.has(e.type) && shape.type === 'freehand' ? 'freehand' : e?.type;
+    // Text/Raumstempel: Breite folgt der Schrifthöhe (Mitte bleibt)
+    const fixed = e?.type === 'text' ? (() => {
+      const w = textBoxWidth(e, shape.h, e.font);
+      return roundShape({ ...shape, x: shape.x + (shape.w - w) / 2, w });
+    })() : shape;
+    if (e && type && JSON.stringify(e.shape) !== JSON.stringify(fixed)) putRecord('elements', { ...e, type, shape: fixed });
   };
 
   const textHeightNow = () => {
@@ -1682,7 +1692,7 @@ export function useDrawing(opts: {
     const e = data.elements[id];
     const next = e ? change(e.shape) : null;
     if (!e || !next) return false;
-    putRecord('elements', { ...e, type: 'freehand', shape: roundShape(next) });
+    putRecord('elements', { ...e, type: e.type === 'wall' ? 'wall' : 'freehand', shape: roundShape(next) });
     return true;
   };
   const removeSelectedVertex = () => {
