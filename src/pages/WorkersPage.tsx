@@ -800,7 +800,7 @@ export function WorkersPage() {
                   </p>
                 )}
                 {isOpen && (
-                  <div className="crew-days">
+                  <div className="crew-days" style={{ ['--days' as string]: days.length } as React.CSSProperties} data-testid="crew-days">
                     {days.map((d) => (
                       <div
                         key={d}
