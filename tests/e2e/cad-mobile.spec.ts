@@ -133,3 +133,54 @@ test('Apple Pencil: Objekt antippen und mit Basis- und Zielpunkt kopieren', asyn
   expect(Math.abs(c1.shape.x - a.shape.x)).toBeLessThan(0.011);
   expect(Math.abs(c2.shape.y - c1.shape.y)).toBeGreaterThan(0.1);
 });
+
+type ElS = { id: string; type: string; shape: { x: number; y: number; w: number; h: number; rotation?: number } };
+test('Phase 2 mit Finger: Versetzen (Objekt, dann Seite antippen) und Spiegeln (zwei Achsenpunkte)', async ({ page }) => {
+  const { cdp, at } = await setup(page);
+  const [a] = (await elements(page)) as ElS[];
+  await fingerTap(cdp, at(0.03, -0.17)); // Auswahl aufheben
+  await pickTool(page, 'draw-offset', 'tap');
+  await expect(page.getByTestId('command-prompt')).toContainText('Objekt antippen');
+  await fingerTap(cdp, at(0.27, 0.25)); // Oberkante Rechteck A
+  await expect(page.getByTestId('command-prompt')).toContainText('Seite antippen');
+  await fingerTap(cdp, at(0.05, 0.32)); // links daneben = außen
+  await waitSaved(page);
+  const els = (await elements(page)) as ElS[];
+  expect(els).toHaveLength(3);
+  const off = els[2];
+  expect(off.type).toBe('rect');
+  expect(Math.abs(off.shape.w - (a.shape.w + 0.5))).toBeLessThan(0.011); // Standardabstand 0,25 m je Seite
+  await page.getByTestId('command-done').tap();
+
+  // Spiegeln: Rechteck B antippen, Achse aus zwei Punkten
+  await fingerTap(cdp, at(0.67, 0.25));
+  await expect(page.getByTestId('element-bar')).toBeVisible();
+  await pickTool(page, 'draw-mirror', 'tap');
+  await expect(page.getByTestId('command-prompt')).toContainText('1. Punkt');
+  await fingerTap(cdp, at(0.5, -0.15));
+  await expect(page.getByTestId('command-prompt')).toContainText('2. Punkt');
+  await fingerTap(cdp, at(0.5, 0.2));
+  await waitSaved(page);
+  expect(await elements(page)).toHaveLength(4);
+});
+
+test('Phase 2 mit Stift: Versetzen und Spiegeln', async ({ page }, info) => {
+  test.skip(info.project.name === 'iphone');
+  const { cdp, at } = await setup(page);
+  await penTap(cdp, at(0.03, -0.17));
+  await pickTool(page, 'draw-offset', 'tap');
+  await penTap(cdp, at(0.27, 0.25));
+  await expect(page.getByTestId('command-prompt')).toContainText('Seite antippen');
+  await penTap(cdp, at(0.27, 0.32)); // innen
+  await waitSaved(page);
+  const els = (await elements(page)) as ElS[];
+  expect(els).toHaveLength(3);
+  expect(els[2].shape.w).toBeLessThan(els[0].shape.w);
+  await page.getByTestId('command-done').tap();
+  await penTap(cdp, at(0.67, 0.25));
+  await pickTool(page, 'draw-mirror', 'tap');
+  await penTap(cdp, at(0.5, -0.15));
+  await penTap(cdp, at(0.5, 0.2));
+  await waitSaved(page);
+  expect(await elements(page)).toHaveLength(4);
+});

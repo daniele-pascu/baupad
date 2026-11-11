@@ -181,6 +181,9 @@ export function DrawRibbon({
             <div className="tool-group" role="group" aria-label="Ändern">
               {toolBtn('move')}
               {toolBtn('copy')}
+              {toolBtn('mirror')}
+              {toolBtn('offset')}
+              {toolBtn('join')}
               {btn('draw-rotate', 'rotate', 'Drehen', () => void transform('rotate'), { disabled: !sel, title: sel ? 'Ausgewähltes Objekt um einen Winkel drehen' : 'Zuerst genau ein Objekt auswählen' })}
               {btn('draw-scale', 'scale', 'Skalieren', () => void transform('scale'), { disabled: !sel, title: sel ? 'Ausgewähltes Objekt mit einem Faktor skalieren' : 'Zuerst genau ein Objekt auswählen' })}
               {toolBtn('stretch')}

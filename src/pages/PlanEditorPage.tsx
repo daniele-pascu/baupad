@@ -38,7 +38,7 @@ import { findSnap } from '../lib/snap';
 import { SegIndex } from '../lib/pdf-snap';
 import { clearHistory, newMeta, putRecord, putRecords, redo, softDelete, undo, useAppState, type ProjectState } from '../lib/store';
 import { COLORS, SHAPE_LABELS, type Damage, type DrawElementType, type MeasureKind, type Plan, type Shape, type ShapeStyle, type ShapeType } from '../lib/types';
-import { DRAW_TOOLS, readStyle, useDrawing, VECTOR_COMMANDS, type DrawTool } from './DrawingMode';
+import { DRAW_TOOLS, readStyle, SELECT_FIRST, useDrawing, VECTOR_COMMANDS, type DrawTool } from './DrawingMode';
 import { CommandBar } from '../components/CommandBar';
 import { DrawRibbon, OrthoButtons } from '../components/DrawRibbon';
 import { StylePanel } from '../components/StylePanel';
@@ -817,9 +817,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       if (drawMode) {
         const dt = DRAW_TOOLS.find((x) => x.key === key);
         if (dt) drawing.setTool(dt.id);
-        else if (e.key === 'Enter' && VECTOR_COMMANDS.has(drawing.tool)) {
-          // Enter beendet Kopieren/Verschieben (bzw. „Weiter“ nach dem Wählen)
-          if (drawing.cmdSelecting && drawing.selection.length) drawing.setCmdSelecting(false);
+        else if (e.key === 'Enter' && (SELECT_FIRST.has(drawing.tool) || drawing.tool === 'offset')) {
+          // Enter beendet Kopieren/Verschieben/Versetzen (bzw. „Weiter“ nach dem Wählen)
+          if (drawing.cmdSelecting && drawing.selection.length) drawing.cmdNext();
           else drawing.finishCommand();
           e.preventDefault();
           return;
@@ -1657,36 +1657,64 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               </button>
             </div>
           )}
-          {drawMode && !probe && !dialog && (VECTOR_COMMANDS.has(drawing.tool) || (drawing.tool === 'line' && drawing.cmdBase)) && (
-            <CommandBar
-              key={drawing.tool}
-              title={DRAW_TOOLS.find((t) => t.id === drawing.tool)?.short ?? ''}
-              prompt={
-                VECTOR_COMMANDS.has(drawing.tool)
-                  ? drawing.cmdSelecting
-                    ? `Objekte wählen: antippen oder Fenster aufziehen (nach links = auch berührte) – dann „Weiter“. Ausgewählt: ${drawing.selection.length}`
-                    : drawing.cmdBase
-                      ? drawing.copies
-                        ? `${drawing.copies} Kopie${drawing.copies === 1 ? '' : 'n'} erstellt – nächsten Zielpunkt antippen (gleicher Basispunkt) oder „Fertig“.`
-                        : 'Zielpunkt antippen – oder Abstand in Mausrichtung, ΔX;ΔY bzw. Länge<Winkel eingeben.'
-                      : `${drawing.copies ? `${drawing.copies} Kopie${drawing.copies === 1 ? '' : 'n'} erstellt. ` : ''}Basispunkt antippen (oder vom Basis- zum Zielpunkt ziehen) – oder Verschiebung ΔX;ΔY bzw. Länge<Winkel eingeben. ${drawing.selection.length} Objekt${drawing.selection.length === 1 ? '' : 'e'}.`
-                  : 'Endpunkt antippen – oder Länge in Mausrichtung, ΔX;ΔY bzw. Länge<Winkel eingeben.'
-              }
-              onInput={drawing.cmdSelecting ? undefined : drawing.applyInput}
-            >
-              {VECTOR_COMMANDS.has(drawing.tool) && drawing.cmdSelecting && (
-                <button type="button" className="btn btn-sm btn-primary" disabled={!drawing.selection.length} onClick={() => drawing.setCmdSelecting(false)} data-testid="command-next">
-                  Weiter
-                </button>
-              )}
-              {VECTOR_COMMANDS.has(drawing.tool) && (
-                <button type="button" className="btn btn-sm" onClick={drawing.finishCommand} data-testid="command-done">
-                  {drawing.tool === 'copy' && drawing.copies ? 'Fertig' : 'Abbrechen'}
-                </button>
-              )}
-            </CommandBar>
-          )}
-          {drawMode && !probe && !dialog && !VECTOR_COMMANDS.has(drawing.tool) && drawing.selection.length > 1 && (
+          {drawMode && !probe && !dialog && (SELECT_FIRST.has(drawing.tool) || drawing.tool === 'offset' || (drawing.tool === 'line' && drawing.cmdBase)) && (() => {
+            const t = drawing.tool;
+            const n = drawing.selection.length;
+            const plural = (k: number, one: string, many: string) => `${k} ${k === 1 ? one : many}`;
+            const prompt =
+              SELECT_FIRST.has(t) && drawing.cmdSelecting
+                ? `Objekte wählen: antippen oder Fenster aufziehen (nach links = auch berührte) – dann „${t === 'join' ? 'Verbinden' : 'Weiter'}“. Ausgewählt: ${n}${t === 'join' ? ` · Lücken bis ${formatMeasure(drawing.joinTol)} m werden geschlossen (Wert eingeben zum Ändern)` : ''}`
+                : t === 'mirror'
+                  ? drawing.cmdBase
+                    ? '2. Punkt der Spiegelachse antippen – oder Richtung eingeben, z. B. 1<90 (senkrecht) bzw. 1<0 (waagrecht).'
+                    : `1. Punkt der Spiegelachse antippen (oder Achse ziehen) – mit 90° waagrecht/senkrecht. ${plural(n, 'Objekt', 'Objekte')}.`
+                  : t === 'offset'
+                    ? drawing.offsetSrc
+                      ? drawing.offsetThrough
+                        ? 'Durch Punkt: Stelle antippen, durch die die parallele Kopie laufen soll.'
+                        : `Seite antippen – die Kopie entsteht im Abstand ${formatMeasure(drawing.offsetDist)} m.`
+                      : `Objekt antippen, das versetzt werden soll · Abstand ${drawing.offsetThrough ? 'durch Punkt' : `${formatMeasure(drawing.offsetDist)} m`} (Wert eingeben zum Ändern).`
+                    : VECTOR_COMMANDS.has(t)
+                      ? drawing.cmdBase
+                        ? drawing.copies
+                          ? `${plural(drawing.copies, 'Kopie', 'Kopien')} erstellt – nächsten Zielpunkt antippen (gleicher Basispunkt) oder „Fertig“.`
+                          : 'Zielpunkt antippen – oder Abstand in Mausrichtung, ΔX;ΔY bzw. Länge<Winkel eingeben.'
+                        : `${drawing.copies ? `${plural(drawing.copies, 'Kopie', 'Kopien')} erstellt. ` : ''}Basispunkt antippen (oder vom Basis- zum Zielpunkt ziehen) – oder Verschiebung ΔX;ΔY bzw. Länge<Winkel eingeben. ${plural(n, 'Objekt', 'Objekte')}.`
+                      : 'Endpunkt antippen – oder Länge in Mausrichtung, ΔX;ΔY bzw. Länge<Winkel eingeben.';
+            const withInput = !(SELECT_FIRST.has(t) && drawing.cmdSelecting) || t === 'join';
+            return (
+              <CommandBar
+                key={t}
+                title={DRAW_TOOLS.find((x) => x.id === t)?.short ?? ''}
+                prompt={prompt}
+                onInput={withInput ? drawing.applyInput : undefined}
+                placeholder={t === 'offset' ? 'Abstand, z. B. 0,25' : t === 'join' ? 'Lücke, z. B. 0,05' : undefined}
+              >
+                {SELECT_FIRST.has(t) && drawing.cmdSelecting && (
+                  <button type="button" className="btn btn-sm btn-primary" disabled={!n} onClick={drawing.cmdNext} data-testid="command-next">
+                    {t === 'join' ? 'Verbinden' : 'Weiter'}
+                  </button>
+                )}
+                {t === 'offset' && (
+                  <button type="button" className={`btn btn-sm${drawing.offsetThrough ? ' active-toggle' : ''}`} aria-pressed={drawing.offsetThrough} onClick={() => drawing.setOffsetThrough(!drawing.offsetThrough)} data-testid="offset-through">
+                    Durch Punkt
+                  </button>
+                )}
+                {t === 'mirror' && (
+                  <label className="check-row small" data-testid="mirror-keep-row">
+                    <input type="checkbox" checked={drawing.mirrorKeep} onChange={(e) => drawing.setMirrorKeep(e.target.checked)} data-testid="mirror-keep" />
+                    <span>Original behalten</span>
+                  </label>
+                )}
+                {(SELECT_FIRST.has(t) || t === 'offset') && (
+                  <button type="button" className="btn btn-sm" onClick={drawing.finishCommand} data-testid="command-done">
+                    {(t === 'copy' && drawing.copies) || t === 'offset' ? 'Fertig' : 'Abbrechen'}
+                  </button>
+                )}
+              </CommandBar>
+            );
+          })()}
+          {drawMode && !probe && !dialog && !SELECT_FIRST.has(drawing.tool) && drawing.tool !== 'offset' && drawing.selection.length > 1 && (
             <div className="draw-bar multi-bar" data-testid="multi-bar">
               <strong className="draw-bar-title">{drawing.selection.length} Objekte ausgewählt</strong>
               <button type="button" className="btn btn-sm" onClick={() => drawing.setTool('move')} data-testid="multi-move">
@@ -1694,6 +1722,12 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               </button>
               <button type="button" className="btn btn-sm" onClick={() => drawing.setTool('copy')} data-testid="multi-copy">
                 <Icon name="copy" size={16} /> Kopieren
+              </button>
+              <button type="button" className="btn btn-sm" onClick={() => drawing.setTool('mirror')} data-testid="multi-mirror">
+                <Icon name="mirror" size={16} /> Spiegeln
+              </button>
+              <button type="button" className="btn btn-sm" onClick={() => drawing.setTool('join')} data-testid="multi-join">
+                <Icon name="join" size={16} /> Verbinden
               </button>
               <button type="button" className="btn btn-sm btn-danger-text" onClick={() => void drawing.removeSelection()} data-testid="multi-delete">
                 <Icon name="trash" size={16} /> Löschen
@@ -1703,7 +1737,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               </button>
             </div>
           )}
-          {drawMode && !probe && !OP_HINTS[drawing.tool] && !VECTOR_COMMANDS.has(drawing.tool) && !(drawing.tool === 'line' && drawing.cmdBase) &&
+          {drawMode && !probe && !OP_HINTS[drawing.tool] && !SELECT_FIRST.has(drawing.tool) && drawing.tool !== 'offset' && !(drawing.tool === 'line' && drawing.cmdBase) &&
             (drawing.selected && !polyCount ? (
               <ElementBar
                 key={drawing.selected.id}

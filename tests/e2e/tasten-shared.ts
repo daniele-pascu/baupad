@@ -195,6 +195,16 @@ export function tastenTests() {
     await expect(page.getByTestId('command-bar')).toBeVisible();
     await pruefe(page, 'Befehlsleiste', out);
     await page.getByTestId('command-done').click();
+    // Phase 2: Spiegeln (Original behalten) und Versetzen (Abstand / durch Punkt)
+    await pickTool(page, 'draw-select-all');
+    await page.getByTestId('multi-mirror').click();
+    await expect(page.getByTestId('mirror-keep')).toBeVisible();
+    await pruefe(page, 'Befehlsleiste Spiegeln', out);
+    await page.getByTestId('command-done').click();
+    await pickTool(page, 'draw-offset');
+    await expect(page.getByTestId('offset-through')).toBeVisible();
+    await pruefe(page, 'Befehlsleiste Versetzen', out);
+    await page.getByTestId('command-done').click();
     // Registerkarten Ändern und Präzision
     for (const t of ['modify', 'precision']) {
       await page.getByTestId(`ribbon-tab-${t}`).click();

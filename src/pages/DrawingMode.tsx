@@ -31,6 +31,7 @@ import {
 import { type OrthoDir, extendLine, ORTHO_DIRS, orthoPoint, rotateShapeBy, scaleShape, stretchShape, translateShape, trimByFence, trimShape } from '../lib/cad';
 import { edgesOf, findSnap, segmentIntersection, type SnapKind } from '../lib/snap';
 import { inputVector, parseCadInput, vectorInfo } from '../lib/cad-input';
+import { canOffset, distanceToShape, joinShapes, mirrorShape, offsetShape } from '../lib/cad-ops';
 import { dimsVisible, visibleDamages, visibleElements } from '../lib/layers';
 import { distToSegment, isOpenShape, lineShape, pathToSvg, rectsOverlap, removeVertex, setPolylineClosed, shapeAABB, shapePath, toScreen, type Point, type View } from '../lib/geometry';
 import { newMeta, putRecord, putRecords, softDelete, type ProjectState } from '../lib/store';
@@ -41,12 +42,14 @@ import type { Damage, DrawElement, DrawElementType, Plan, Rect, Shape, ShapeStyl
 export type ToolGroup = 'select' | 'draw' | 'annotate' | 'modify';
 
 /** Werkzeuge des Zeichenmodus: Zeichnen sowie Ändern (Kopieren, Verschieben, Strecken …) */
-export type DrawTool = Tool | 'copy' | 'move' | 'stretch';
+export type DrawTool = Tool | 'copy' | 'move' | 'stretch' | 'join' | 'offset' | 'mirror';
 
 /** Befehle, die ausgewählte Objekte brauchen (ohne Auswahl fragen sie zuerst danach) */
 export const NEEDS_SELECTION = new Set<DrawTool>(['copy', 'move']);
 /** Befehle mit Basispunkt → Zielpunkt bzw. Eingabe im Befehlsfeld */
-export const VECTOR_COMMANDS = new Set<DrawTool>(['copy', 'move']);
+export const VECTOR_COMMANDS = new Set<DrawTool>(['copy', 'move', 'mirror']);
+/** Befehle, die zuerst Objekte brauchen (ohne Auswahl: wählen, dann „Weiter“) */
+export const SELECT_FIRST = new Set<DrawTool>(['copy', 'move', 'mirror', 'join']);
 
 export const DRAW_TOOLS: { id: DrawTool; label: string; short?: string; icon: string; key: string; group: ToolGroup }[] = [
   { id: 'select', label: 'Auswahl: Objekte verschieben, Eckpunkte bearbeiten', short: 'Auswahl', icon: 'select', key: 'v', group: 'select' },
@@ -63,6 +66,9 @@ export const DRAW_TOOLS: { id: DrawTool; label: string; short?: string; icon: st
   { id: 'move', label: 'Verschieben: Basispunkt zum Zielpunkt ziehen (mit Fang)', short: 'Verschieben', icon: 'move', key: 'g', group: 'modify' },
   { id: 'copy', label: 'Kopieren: Basispunkt zum Zielpunkt ziehen (mit Fang)', short: 'Kopieren', icon: 'copy', key: 'c', group: 'modify' },
   { id: 'stretch', label: 'Strecken: Fenster über Eckpunkte ziehen, dann Verschiebung ziehen', short: 'Strecken', icon: 'stretch', key: 's', group: 'modify' },
+  { id: 'mirror', label: 'Spiegeln: Objekte an einer Achse aus zwei Punkten spiegeln – Original behalten oder löschen', short: 'Spiegeln', icon: 'mirror', key: 'i', group: 'modify' },
+  { id: 'offset', label: 'Versetzen: parallele Kopie im Abstand – Objekt antippen, dann die Seite (Wandstärke, parallele Linien, Rechteck nach innen/außen)', short: 'Versetzen', icon: 'offset', key: 'o', group: 'modify' },
+  { id: 'join', label: 'Verbinden: Linien, Polylinien und Bögen an gemeinsamen Endpunkten zu einer Linie bzw. geschlossenen Fläche verbinden – kleine Lücken werden geschlossen', short: 'Verbinden', icon: 'join', key: 'j', group: 'modify' },
   { id: 'trim', label: 'Stutzen: Abschnitt bis zu den nächsten Kanten bzw. Eckpunkten entfernen – anklicken oder frei über mehrere Linien ziehen (Zaun)', short: 'Stutzen', icon: 'trim', key: 'z', group: 'modify' },
   { id: 'extend', label: 'Verlängern: Linie bis zur nächsten Kante verlängern', short: 'Verlängern', icon: 'extend', key: 'e', group: 'modify' },
 ];
@@ -167,6 +173,30 @@ export function useDrawing(opts: {
   const hoverRef = useRef<Point | null>(null);
   /** Kopieren: Anzahl der Kopien in diesem Befehl */
   const [copies, setCopies] = useState(0);
+  /** Versetzen: gewähltes Objekt, Abstand (m), „durch Punkt“ */
+  const [offsetSrc, setOffsetSrc] = useState<string | null>(null);
+  const [offsetDist, setOffsetDistState] = useState(() => Number(pref('offsetDist', '0.25')) || 0.25);
+  const [offsetThrough, setOffsetThroughState] = useState(() => pref('offsetThrough', '0') === '1');
+  const setOffsetDist = (d: number) => {
+    setOffsetDistState(d);
+    storePref('offsetDist', String(d));
+  };
+  const setOffsetThrough = (on: boolean) => {
+    setOffsetThroughState(on);
+    storePref('offsetThrough', on ? '1' : '0');
+  };
+  /** Spiegeln: Original behalten (Standard) */
+  const [mirrorKeep, setMirrorKeepState] = useState(() => pref('mirrorKeep', '1') !== '0');
+  const setMirrorKeep = (on: boolean) => {
+    setMirrorKeepState(on);
+    storePref('mirrorKeep', on ? '1' : '0');
+  };
+  /** Verbinden: Lücken bis zu diesem Abstand (m) schließen */
+  const [joinTol, setJoinTolState] = useState(() => Number(pref('joinTol', '0.02')) || 0.02);
+  const setJoinTol = (t: number) => {
+    setJoinTolState(t);
+    storePref('joinTol', String(t));
+  };
   /** Ausgewählter Eckpunkt des ausgewählten Objekts (zum Entfernen) */
   const [vertex, setVertex] = useState<number | null>(null);
   const setSelectedId = (id: string | null) => {
@@ -200,12 +230,22 @@ export function useDrawing(opts: {
     setStretchWin(null);
     setCmdBase(null);
     setCopies(0);
-    // Verschieben/Kopieren ohne Auswahl: zuerst Objekte wählen
-    setCmdSelecting(VECTOR_COMMANDS.has(t) && !selIds.length);
+    // Versetzen: ein gewähltes Objekt wird gleich übernommen
+    setOffsetSrc(t === 'offset' && selIds.length === 1 ? selIds[0] : null);
+    // Verbinden mit Auswahl: sofort ausführen
+    if (t === 'join' && selIds.length) {
+      const ok = runJoin(selIds);
+      // nicht verbunden (Lücke zu groß): Leiste bleibt offen – größere Lücke eingeben, erneut „Verbinden“
+      setToolState(ok ? 'select' : 'join');
+      setCmdSelecting(!ok);
+      return;
+    }
+    // Verschieben/Kopieren/Spiegeln/Verbinden ohne Auswahl: zuerst Objekte wählen
+    setCmdSelecting(SELECT_FIRST.has(t) && !selIds.length);
     if (!NEEDS_SELECTION.has(t) && t !== 'selwin') storePref('drawTool', t);
   };
   /** Werkzeug der Planansicht: Befehle nutzen Vektor (Basis → Ziel) bzw. Fenster */
-  const viewerTool: Tool = VECTOR_COMMANDS.has(tool) ? (cmdSelecting ? 'selwin' : 'vector') : tool === 'stretch' ? (stretchWin ? 'vector' : 'window') : (tool as Tool);
+  const viewerTool: Tool = SELECT_FIRST.has(tool) && cmdSelecting ? 'selwin' : VECTOR_COMMANDS.has(tool) ? 'vector' : tool === 'offset' ? 'pick' : tool === 'stretch' ? (stretchWin ? 'vector' : 'window') : (tool as Tool);
   const setColor = (c: string) => {
     setColorState(c);
     storePref('drawColor', c);
@@ -250,6 +290,11 @@ export function useDrawing(opts: {
 
   /** Antippen eines Objekts: auswählen – mit Mehrfachauswahl (bzw. Umschalt/Strg) hinzufügen oder herausnehmen */
   const select = (id: string | null) => {
+    if (tool === 'offset') {
+      // Versetzen: angetipptes Objekt ist das zu versetzende
+      setOffsetSrc(id);
+      return setSelectedId(id);
+    }
     const add = multi || addKey.current || cmdSelecting;
     if (!add) return setSelectedId(id);
     if (!id) return; // ins Leere getippt: Mehrfachauswahl bleibt
@@ -408,7 +453,7 @@ export function useDrawing(opts: {
   /** Im Plan gezogene Form übernehmen (Seitenkoordinaten → Meter) bzw. Befehl ausführen */
   const onCreate = (pageShape: Shape) => {
     const shape = shapeToMeters(pageShape, k);
-    if (tool === 'selwin' || (VECTOR_COMMANDS.has(tool) && cmdSelecting)) {
+    if (tool === 'selwin' || (SELECT_FIRST.has(tool) && cmdSelecting)) {
       const [a, b] = lineEnds(shape);
       selectWindow(a, b);
       return;
@@ -416,7 +461,8 @@ export function useDrawing(opts: {
     if (VECTOR_COMMANDS.has(tool)) {
       // Basispunkt → Zielpunkt (gezogen oder Klick, Klick)
       const [a, b] = lineEnds(shape);
-      runVector(b.x - a.x, b.y - a.y, { x: a.x * k, y: a.y * k });
+      if (tool === 'mirror') runMirror(a, b);
+      else runVector(b.x - a.x, b.y - a.y, { x: a.x * k, y: a.y * k });
       return;
     }
     if (tool === 'stretch') {
@@ -478,6 +524,19 @@ export function useDrawing(opts: {
    * Liefert eine Fehlermeldung oder null.
    */
   const applyInput = (text: string): string | null => {
+    if (tool === 'offset') {
+      const d = parseCadInput(text);
+      if (!d || d.kind !== 'dist' || !(d.len > 0)) return 'Bitte den Abstand in m eingeben, z. B. 0,25.';
+      setOffsetDist(d.len);
+      setOffsetThrough(false);
+      return null;
+    }
+    if (tool === 'join') {
+      const d = parseCadInput(text);
+      if (!d || d.kind !== 'dist' || d.len < 0) return 'Bitte die größte Lücke in m eingeben, z. B. 0,05.';
+      setJoinTol(d.len);
+      return null;
+    }
     const inp = parseCadInput(text);
     if (!inp) return 'Bitte z. B. 1,25 oder 2,5;0 oder 3<45 eingeben.';
     const base = cmdBase ? { x: cmdBase.x / k, y: cmdBase.y / k } : null;
@@ -485,6 +544,14 @@ export function useDrawing(opts: {
     const dir = base && hover ? { x: hover.x - base.x, y: hover.y - base.y } : null;
     const v = inputVector(inp, dir);
     if (!v) return base ? 'Richtung fehlt: mit der Maus in die Richtung zeigen – oder ΔX;ΔY bzw. Länge<Winkel eingeben.' : 'Zuerst den Basispunkt antippen – oder ΔX;ΔY bzw. Länge<Winkel eingeben.';
+    if (tool === 'mirror') {
+      if (cmdSelecting) return 'Zuerst die Objekte wählen und „Weiter“ tippen.';
+      if (!base) return 'Zuerst den 1. Punkt der Spiegelachse antippen – dann z. B. 1<90 (senkrechte Achse) eingeben.';
+      viewer.current?.armClick(null);
+      if (Math.hypot(v.x, v.y) < 1e-9) return 'Die Achse braucht zwei verschiedene Punkte.';
+      runMirror(base, { x: base.x + v.x, y: base.y + v.y });
+      return null;
+    }
     if (VECTOR_COMMANDS.has(tool)) {
       if (cmdSelecting) return 'Zuerst die Objekte wählen und „Weiter“ tippen.';
       const b = cmdBase;
@@ -499,6 +566,95 @@ export function useDrawing(opts: {
       return null;
     }
     return 'Hier ist keine Eingabe möglich.';
+  };
+
+  /** Verbinden: ausgewählte Linien, Polylinien und Bögen zu einer Geometrie (ein Rückgängig-Schritt) */
+  const runJoin = (ids: string[] = selIds): boolean => {
+    const list = ids.map((id) => data.elements[id]).filter((e): e is DrawElement => !!e && !e.deletedAt && (e.type === 'line' || e.type === 'arc' || (e.type === 'freehand' && e.shape.closed === false)));
+    if (!list.length) {
+      toast('Verbinden geht mit offenen Linien, Polylinien und Bögen.', 'info', 3500);
+      return false;
+    }
+    const { chains, minGap } = joinShapes(list.map((e) => e.shape), joinTol);
+    if (!chains.length) {
+      toast(minGap !== null ? `Nichts verbunden: kleinste Lücke ${formatMeasure(minGap)} m (geschlossen werden Lücken bis ${formatMeasure(joinTol)} m).` : 'Nichts zu verbinden.', 'info', 4500);
+      return false;
+    }
+    const now = Date.now();
+    const changed: DrawElement[] = [];
+    const keep: string[] = [];
+    let closed = 0;
+    for (const c of chains) {
+      const first = list[c.members[0]];
+      const type: DrawElementType = c.shape.type === 'line' ? 'line' : 'freehand';
+      changed.push({ ...first, type, shape: roundShape(c.shape) });
+      keep.push(first.id);
+      for (const m of c.members.slice(1)) changed.push({ ...list[m], deletedAt: now });
+      if (c.closed) closed++;
+    }
+    putRecords({ elements: changed }); // ein Rückgängig-Schritt
+    setVertex(null);
+    setSelIds(keep);
+    const n = chains.reduce((a, c) => a + c.members.length, 0);
+    toast(
+      closed
+        ? `${n === 1 ? 'Linie' : `${n} Teile`} zu ${closed === 1 ? 'einer geschlossenen Fläche' : `${closed} geschlossenen Flächen`} verbunden – Füllung und Schraffur unter „Eigenschaften“.`
+        : `${n} Teile zu ${chains.length === 1 ? 'einer Linie' : `${chains.length} Linien`} verbunden${minGap !== null ? ` · offen bleibt eine Lücke von ${formatMeasure(minGap)} m` : ''}.`,
+      'success',
+      4500,
+    );
+    return true;
+  };
+
+  /** Spiegeln an der Achse a–b (Meter): Original behalten oder ersetzen (ein Rückgängig-Schritt) */
+  const runMirror = (a: Point, b: Point) => {
+    const list = selection.map((x) => data.elements[x.id]).filter(Boolean);
+    if (!list.length) {
+      toast('Bitte zuerst Objekte auswählen.', 'info');
+      return;
+    }
+    const out = list.map((e) => {
+      const shape = roundShape(mirrorShape(e.shape, a, b, e.type === 'text'));
+      // Maßlinie: Seite der Maßlinie mitspiegeln
+      const extra = e.type === 'dimension' && e.offset ? { offset: -e.offset } : {};
+      return mirrorKeep ? { ...e, ...newMeta(), shape, ...extra } : { ...e, shape, ...extra };
+    });
+    putRecords({ elements: out });
+    toast(`${list.length === 1 ? elementLabel(list[0]) : `${list.length} Objekte`} gespiegelt${mirrorKeep ? ' (Original bleibt)' : ''}.`, 'success', 2500);
+    setToolState('select');
+    setCmdBase(null);
+    setSelIds(out.map((e) => e.id));
+  };
+
+  /** Versetzen: Seite (bzw. Punkt bei „durch Punkt“) angetippt – parallele Kopie mit allen Eigenschaften */
+  const runOffset = (pm: Point) => {
+    const e = offsetSrc ? data.elements[offsetSrc] : undefined;
+    if (!e || e.deletedAt) return;
+    const d = offsetThrough ? distanceToShape(e.shape, pm) : offsetDist;
+    const shape = offsetShape(e.shape, d, pm);
+    if (!shape) {
+      toast(`Versetzen um ${formatMeasure(d)} m nicht möglich (nach innen zu groß?).`, 'error', 3500);
+      return;
+    }
+    const type: DrawElementType = e.type === 'triangle' || e.type === 'rect' || e.type === 'ellipse' || e.type === 'line' ? e.type : 'freehand';
+    const rec: DrawElement = { ...e, ...newMeta(), type: shape.type === 'freehand' && e.type === 'arc' ? 'arc' : type, shape: roundShape(shape) };
+    putRecord('elements', rec);
+    toast(`Versetzt um ${formatMeasure(d)} m.`, 'success', 1800);
+    // nächstes Objekt (AutoCAD-Ablauf): das neue bleibt gewählt, kann gleich weiter versetzt werden
+    setOffsetSrc(null);
+    setSelectedId(null);
+  };
+
+  /** Befehl „Weiter“ (nach dem Wählen der Objekte) */
+  const cmdNext = () => {
+    if (tool === 'join') {
+      if (runJoin()) {
+        setToolState('select');
+        setCmdSelecting(false);
+      }
+      return;
+    }
+    setCmdSelecting(false);
   };
 
   /** Befehl beenden (Kopieren: „Fertig“) */
@@ -633,6 +789,28 @@ export function useDrawing(opts: {
 
   /** Werkzeug „Text“: Stelle angetippt */
   const onPlace = async (p: Point) => {
+    if (tool === 'offset') {
+      const pm = { x: p.x / k, y: p.y / k };
+      if (!offsetSrc) {
+        // Objekt unter dem Finger (Kante in der Nähe)
+        const tol = (isCoarse() ? 18 : 10) / ((viewer.current?.scale() ?? 1) * k);
+        let best: { id: string; d: number } | null = null;
+        for (const e of stored) {
+          if (e.type === 'text' || e.type === 'dimension' || !canOffset(e.shape)) continue;
+          const d = distanceToShape(e.shape, pm);
+          if (d <= tol && (!best || d < best.d)) best = { id: e.id, d };
+        }
+        if (!best) {
+          toast('Bitte eine Linie oder Kante antippen.', 'info', 2500);
+          return;
+        }
+        setOffsetSrc(best.id);
+        setSelectedId(best.id);
+        return;
+      }
+      runOffset(pm);
+      return;
+    }
     if (tool === 'trim' || tool === 'extend') {
       trimOrExtend(p);
       return;
@@ -861,7 +1039,14 @@ export function useDrawing(opts: {
       const [a, b] = vec;
       const dx = b.x - a.x;
       const dy = b.y - a.y;
-      const targets = tool === 'stretch' ? stored.map((e) => stretchShape(e.shape, stretchWin!, dx, dy)).filter((x): x is Shape => !!x) : selection.map((e) => translateShape(e.shape, dx, dy));
+      const targets =
+        tool === 'stretch'
+          ? stored.map((e) => stretchShape(e.shape, stretchWin!, dx, dy)).filter((x): x is Shape => !!x)
+          : tool === 'mirror'
+            ? Math.hypot(dx, dy) > 1e-9
+              ? selection.map((e) => mirrorShape(e.shape, a, b, e.type === 'text'))
+              : []
+            : selection.map((e) => translateShape(e.shape, dx, dy));
       ghost = (
         <g className="cad-ghost" data-testid="cad-ghost">
           {targets.map((t, i) => (
@@ -869,6 +1054,18 @@ export function useDrawing(opts: {
           ))}
         </g>
       );
+    }
+    // Versetzen: Vorschau der parallelen Kopie an der Maus
+    if (tool === 'offset' && offsetSrc && hover && byId.get(offsetSrc)) {
+      const src = byId.get(offsetSrc)!;
+      const hm = { x: hover.x / k, y: hover.y / k };
+      const sh = offsetShape(src.shape, offsetThrough ? distanceToShape(src.shape, hm) : offsetDist, hm);
+      if (sh)
+        ghost = (
+          <g className="cad-ghost" data-testid="cad-ghost">
+            <path d={pathToSvg(shapePath(shapeToPage(sh, k)), (p) => toScreen(view, p))} />
+          </g>
+        );
     }
     return (
       <>
@@ -956,6 +1153,15 @@ export function useDrawing(opts: {
     finishCommand,
     tipText,
     removeSelection,
+    runJoin,
+    cmdNext,
+    offsetSrc,
+    offsetDist,
+    offsetThrough,
+    setOffsetThrough,
+    mirrorKeep,
+    setMirrorKeep,
+    joinTol,
     viewerTool,
     stretchWin,
     transformSelected,

@@ -63,6 +63,8 @@ export type Tool =
   | 'vector'
   /** Auswahlfenster: links → rechts nur ganz Enthaltenes, rechts → links alles Berührte */
   | 'selwin'
+  /** Punkt bzw. Objekt antippen (z. B. Versetzen: Objekt, dann Seite) – mit Vorschau an der Maus */
+  | 'pick'
   /** Linie anklicken: Trimmen bzw. Verlängern */
   | 'trim'
   | 'extend';
@@ -87,7 +89,7 @@ export function dimensionFrom(a: Point, b: Point, c: Point): { a2: Point; b2: Po
 const CLICK_LINE = new Set<string>(['line', 'calibrate', 'vector']);
 
 /** Werkzeuge, die eine Stelle antippen statt eine Form zu zeichnen */
-const PLACE_TOOLS = new Set<Tool>(['component', 'text', 'trim', 'extend']);
+const PLACE_TOOLS = new Set<Tool>(['component', 'text', 'trim', 'extend', 'pick']);
 
 /** Bearbeitbares Objekt der Planansicht (Messung bzw. Zeichnungsobjekt in Seitenkoordinaten). */
 export type ViewerItem = Pick<Damage, 'id' | 'number' | 'shape' | 'color' | 'labelOffset'> &
@@ -932,6 +934,12 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       if (clickStart.current && viewRef.current) {
         const hp = clampP(toPage(viewRef.current, localPoint(e)));
         polyHover.current = e.pointerType === 'mouse' && propsRef.current.snap ? clampP(snapAt(hp, { tool: t, scale: viewRef.current.scale, from: clickStart.current })) : hp;
+        forceRender((n) => n + 1);
+      }
+      // Antippen-Werkzeug: Mausposition für die Vorschau (z. B. Versetzen)
+      if (t === 'pick' && viewRef.current) {
+        const hp = clampP(toPage(viewRef.current, localPoint(e)));
+        polyHover.current = propsRef.current.snap ? clampP(snapAt(hp, { tool: t, scale: viewRef.current.scale })) : hp;
         forceRender((n) => n + 1);
       }
       if (propsRef.current.onHover && viewRef.current) propsRef.current.onHover(clickStart.current ? polyHover.current : toPage(viewRef.current, localPoint(e)));
