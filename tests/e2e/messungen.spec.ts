@@ -78,7 +78,7 @@ test('Messart aus der Form (Linie / Fläche), keine Auswahl beim Einfügen: Lini
   await drawRect(page, box.x + box.width * 0.1, box.y + box.height * 0.2, box.x + box.width * 0.35, box.y + box.height * 0.3);
   await expect(dlg).toBeVisible();
   // keine Messart-Auswahl mehr – Linie ergibt sich aus dem Werkzeug; Höhe und Tiefe optional
-  await expect(dlg).toContainText('Neue Linie');
+  await expect(dlg).toContainText('Neue Messung: Länge');
   await expect(dlg.locator('[data-testid^="kind-"]')).toHaveCount(0);
   await expect(dlg).toContainText('Höhe');
   await expect(dlg.getByTestId('input-width')).not.toHaveAttribute('placeholder', /./);
@@ -103,7 +103,7 @@ test('Messart aus der Form (Linie / Fläche), keine Auswahl beim Einfügen: Lini
     [0.45, 0.4],
   ];
   for (const [fx, fy] of tri) await page.mouse.click(box.x + box.width * fx, box.y + box.height * fy);
-  await expect(dlg).toContainText('Neue Fläche');
+  await expect(dlg).toContainText('Neue Messung: Fläche');
   await expect(dlg.getByTestId('input-number')).toHaveValue('2');
   await expect(dlg.getByTestId('input-depth')).not.toHaveAttribute('placeholder', /./);
   await dlg.getByTestId('input-length').fill('2');
@@ -119,7 +119,7 @@ test('Messart aus der Form (Linie / Fläche), keine Auswahl beim Einfügen: Lini
   await page.getByRole('button', { name: 'Farbe Weiß' }).click();
   await pickTool(page, 'tool-rect');
   await drawRect(page, box.x + box.width * 0.2, box.y + box.height * 0.55, box.x + box.width * 0.4, box.y + box.height * 0.7);
-  await expect(dlg).toContainText('Neue Fläche');
+  await expect(dlg).toContainText('Neue Messung: Fläche');
   await dlg.getByTestId('input-length').fill('1');
   await dlg.getByTestId('input-width').fill('0,5');
   await dlg.getByTestId('input-depth').fill('0,1');

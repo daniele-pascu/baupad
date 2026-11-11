@@ -29,8 +29,10 @@ import { drawingRegion, printSheetRect, isDrawingPlan, lineEnds, paperLabel, sha
 import { convertShape, isOpenShape, lineShape, moveVertex, polygonShape, removeVertex, rotatePoint, shapeVertices, toPage, toScreen, type Point, type View } from '../lib/geometry';
 import { probeTarget, type ProbeKind } from '../lib/probe';
 import { ProbeBar, ProbeMenu, ProbeOverlay, type ProbeState } from '../components/ProbeLayer';
+import { choiceIcon, choiceLabel, MEASURE_CHOICES, MeasureTypeMenu, type MeasureChoice } from '../components/MeasureTypeMenu';
+import { calcPath, defaultTypeFor, DEFAULT_WORK_AREAS, quantityOfMeasure, typeInfo, typeOf } from '../lib/measure-types';
 import { circleThrough } from '../lib/cad';
-import { countKind, deductionText, defaultKindFor, grossArea, hasArea, isWall, KIND_LABELS, kindOf, measureLabel, netArea, netLength, sumLengths } from '../lib/measure';
+import { countKind, deductionText, grossArea, hasArea, isWall, kindOf, measureLabel, netArea, netLength, sumLengths } from '../lib/measure';
 import { round2, checkMeasure, computeArea, formatArea, formatMeasure, toInputValue } from '../lib/numbers';
 import { compactNumbers, damageNo, duplicateIds, nextNumber, planNumberStart, shiftNumbers, suggestNext, swapNumbers } from '../lib/numbering';
 import { navigate, paths } from '../lib/router';
@@ -39,14 +41,14 @@ import { HatchPreview, hatchLabel } from '../components/HatchPicker';
 import { hatchAnchor } from '../lib/style';
 import { SegIndex } from '../lib/pdf-snap';
 import { clearHistory, newMeta, putRecord, putRecords, redo, softDelete, undo, useAppState, type ProjectState } from '../lib/store';
-import { COLORS, SHAPE_LABELS, type Damage, type DrawElementType, type MeasureKind, type Plan, type Shape, type ShapeStyle, type ShapeType } from '../lib/types';
+import { COLORS, SHAPE_LABELS, type Damage, type DrawElementType, type MeasureKind, type MeasureType, type Plan, type Shape, type ShapeStyle, type ShapeType } from '../lib/types';
 import { DRAW_TOOLS, PICK_TOOLS, readStyle, SELECT_FIRST, useDrawing, VECTOR_COMMANDS, type DrawTool } from './DrawingMode';
 import { CommandBar } from '../components/CommandBar';
 import { symbolDef } from '../lib/symbols';
 import { DrawRibbon, OrthoButtons } from '../components/DrawRibbon';
 import { StylePanel } from '../components/StylePanel';
 
-type DialogState = { mode: 'new'; shape: Shape; number: number; label: string | null; kind: MeasureKind; fromShape?: boolean } | { mode: 'edit'; id: string } | null;
+type DialogState = { mode: 'new'; shape: Shape; number: number; label: string | null; kind: MeasureKind; measureType: MeasureType; fromShape?: boolean } | { mode: 'edit'; id: string } | null;
 
 const TOOLS: { id: Tool; label: string; short?: string; icon: string; key: string }[] = [
   { id: 'select', label: 'Auswählen / Verschieben', short: 'Auswahl', icon: 'select', key: 'v' },
@@ -282,22 +284,35 @@ function storePref(key: string, value: string) {
  * Messung mit Fläche aus der Plangeometrie: Fläche und Umfang aus der (geänderten) Form
  * neu berechnen. Ohne Ergebnis (z. B. offene Form, kein Maßstab) bleiben die Werte stehen.
  */
-function withShapeMeasures<T extends Pick<Damage, 'areaFromShape' | 'kind' | 'length' | 'area' | 'width' | 'deductions'>>(d: T, shape: Shape, k: number | null): T {
+function withShapeMeasures<T extends Pick<Damage, 'areaFromShape' | 'kind' | 'length' | 'area' | 'width' | 'deductions'> & Partial<Pick<Damage, 'measureType' | 'count'>>>(d: T, shape: Shape, k: number | null): T {
   if (!d.areaFromShape) return d;
-  // Linie mit Länge aus dem Plan: Gesamtlänge aller Abschnitte (Höhe/Tiefe bleiben)
-  if (!hasArea(kindOf(d))) return k ? { ...d, length: suggestMeasures(shape, k).length } : d;
-  // Wand: Länge aus allen Abschnitten, Höhe bleibt → Wandfläche neu
-  if (isWall({ kind: d.kind, shape })) {
+  if (d.measureType === 'stueck' || d.measureType === 'frei') return d;
+  const n = d.count && d.count > 1 ? d.count : 1;
+  // Linie mit Länge aus dem Plan: Gesamtlänge aller Abschnitte bzw. Umfang (Höhe/Tiefe bleiben)
+  if (!hasArea(kindOf(d))) return k ? { ...d, length: pathLengthOf(shape, k) } : d;
+  // Wand: Länge aus allen Abschnitten (bzw. Umfang), Höhe bleibt → Wandfläche neu
+  if (isWall({ kind: d.kind, shape, measureType: d.measureType })) {
     if (!k) return d;
-    const length = suggestMeasures(shape, k).length;
-    return { ...d, length, area: d.width !== null ? netArea(computeArea(length, d.width), d.deductions) : null };
+    const length = pathLengthOf(shape, k);
+    return { ...d, length, area: d.width !== null ? netArea(times(computeArea(length, d.width), n), d.deductions) : null };
   }
   const g = geometryMeasures(shape, k);
-  return g ? { ...d, length: g.perimeter, width: null, area: netArea(g.area, d.deductions) } : d;
+  return g ? { ...d, length: g.perimeter, width: null, area: netArea(times(g.area, n), d.deductions) } : d;
+}
+
+/** Fläche × Anzahl (ohne Rundungsrauschen) */
+const times = (a: number, n: number) => (n === 1 ? a : Math.round(a * n * 1e9) / 1e9);
+
+/** Länge aus dem Plan: offene Form = alle Abschnitte, geschlossene Form = Umfang */
+function pathLengthOf(shape: Shape, k: number): number {
+  if (isOpenShape(shape)) return suggestMeasures(shape, k).length;
+  return geometryMeasures(shape, k)?.perimeter ?? suggestMeasures(shape, k).length;
 }
 
 /** Kurzbeschreibung der Maße je Messart */
-function measureSummary(d: Pick<Damage, 'kind' | 'length' | 'width' | 'depth' | 'area' | 'areaFromShape' | 'shape' | 'deductions'>): string {
+function measureSummary(d: Pick<Damage, 'kind' | 'length' | 'width' | 'depth' | 'area' | 'areaFromShape' | 'shape' | 'deductions'> & Partial<Pick<Damage, 'measureType' | 'count' | 'qty' | 'unit' | 'formula'>>): string {
+  // Stück, Frei, Volumen und Anzahl > 1: Rechenweg der Messart
+  if (d.measureType === 'stueck' || d.measureType === 'frei' || d.measureType === 'volumen' || (d.count ?? 1) > 1) return calcPath(d) || '–';
   if (!hasArea(kindOf(d))) return `L ${formatMeasure(d.length)} m${d.deductions?.length ? ` ${deductionText(d.deductions, true)} = ${formatMeasure(netLength(d))} m` : ''}`;
   const depth = d.depth !== null ? ` · T ${formatMeasure(d.depth)} m` : '';
   // Abzüge/Zuschläge: Brutto ± Teilflächen = Netto
@@ -364,6 +379,20 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   /** Kontrollmessung (Werkzeug „Messung“) – wird nicht gespeichert */
   const [probe, setProbe] = useState<ProbeState | null>(null);
   const [probeMenu, setProbeMenu] = useState(false);
+  /** Messart neuer Messungen (zuerst wählen, dann mit jedem Werkzeug zeichnen); „auto“ = aus der Form */
+  const [mtype, setMtypeState] = useState<MeasureChoice>(() => loadPref('measureType', MEASURE_CHOICES, 'auto'));
+  const [mtypeMenu, setMtypeMenu] = useState(false);
+  const setMtype = (c: MeasureChoice) => {
+    setMtypeState(c);
+    storePref('measureType', c);
+  };
+  /** Arbeitsbereiche zur Auswahl: Vorgaben und alle im Projekt schon benutzten */
+  const workAreas = useMemo(
+    () => [...new Set([...DEFAULT_WORK_AREAS, ...Object.values(data.damages).filter((d) => d.projectId === plan?.projectId && !d.deletedAt && d.workArea).map((d) => d.workArea!)])],
+    [data.damages, plan?.projectId],
+  );
+  /** Messart für eine neu gezeichnete Form */
+  const typeForNew = (shape: Shape): MeasureType => (tool === 'wall' ? 'wand' : mtype === 'auto' ? defaultTypeFor(shape) : mtype);
   /** Aufmaß: ausgewählter Eckpunkt der ausgewählten Messung (zum Entfernen) */
   const [measureVertex, setMeasureVertex] = useState<number | null>(null);
   useEffect(() => setMeasureVertex(null), [selectedId]);
@@ -1031,7 +1060,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     if (drawMode) switchMode('measure');
     setProbe(null);
     setTool('select');
-    setDialog({ mode: 'new', shape, ...suggestNext(stored, planNumberStart(plan)), kind: probe.kind === 'area' ? 'area' : 'line', fromShape: true });
+    const mt: MeasureType = mtype !== 'auto' ? mtype : probe.kind === 'area' ? 'flaeche' : 'laenge';
+    setDialog({ mode: 'new', shape, ...suggestNext(stored, planNumberStart(plan)), kind: typeInfo(mt).kind, measureType: mt, fromShape: true });
   };
 
   /** Ausgewählten Eckpunkt der Messung entfernen (Maße aus dem Plan werden nachgeführt) */
@@ -1048,20 +1078,30 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     if (!dialog) return;
     // Fläche aus der Geometrie: aus der endgültigen Form (auch nach einem Formwechsel) berechnen
     const finalShape = convertShape(dialog.mode === 'new' ? dialog.shape : data.damages[dialog.id].shape, v.shapeType);
-    const geo = v.areaFromShape && hasArea(v.kind) ? geometryMeasures(finalShape, k) : null;
-    // Linie mit Länge aus dem Plan: Gesamtlänge aller Abschnitte, wird bei Formänderungen nachgeführt
-    const wall = isWall({ kind: v.kind, shape: finalShape });
-    const lineFromPlan = v.areaFromShape && (!hasArea(v.kind) || wall) && k ? suggestMeasures(finalShape, k).length : null;
-    const gross = geo ? geo.area : hasArea(v.kind) && v.width !== null ? computeArea(lineFromPlan ?? v.length, v.width) : null;
+    const noDims = v.measureType === 'stueck' || v.measureType === 'frei';
+    // Linie mit Länge aus dem Plan: Gesamtlänge aller Abschnitte (bzw. Umfang), wird bei Formänderungen nachgeführt
+    const wall = isWall({ kind: v.kind, shape: finalShape, measureType: v.measureType });
+    const geo = !noDims && v.areaFromShape && hasArea(v.kind) && !wall ? geometryMeasures(finalShape, k) : null;
+    const lineFromPlan = !noDims && v.areaFromShape && (!hasArea(v.kind) || wall) && k ? pathLengthOf(finalShape, k) : null;
+    const gross1 = noDims ? null : geo ? geo.area : hasArea(v.kind) && v.width !== null ? computeArea(lineFromPlan ?? v.length, v.width) : null;
+    // Anzahl: Fläche × Anzahl (Länge bleibt je Stück, die Summe rechnet mit der Anzahl)
+    const gross = gross1 === null ? null : times(gross1, v.count);
     // Abzüge/Zuschläge (Tür, Öffnung …): Flächen mit berechneter Fläche bzw. Linien (Teillängen)
-    const deductions = v.deductions.length && (hasArea(v.kind) ? gross !== null : true) ? v.deductions : undefined;
+    const deductions = !noDims && v.deductions.length && (hasArea(v.kind) ? gross !== null : true) ? v.deductions : undefined;
     const area = netArea(gross, deductions);
     const measures = {
       kind: v.kind,
-      length: geo ? geo.perimeter : (lineFromPlan ?? v.length),
+      measureType: v.measureType,
+      count: v.count > 1 ? v.count : undefined,
+      workArea: v.workArea,
+      damageType: v.damageType,
+      formula: v.formula,
+      unit: v.unit,
+      qty: v.qty,
+      length: noDims ? 0 : geo ? geo.perimeter : (lineFromPlan ?? v.length),
       // Linie: Breite = Höhe, getrennt von der Länge – ergibt keine Fläche
-      width: geo ? null : v.width,
-      depth: v.depth,
+      width: geo || noDims ? null : v.width,
+      depth: noDims ? null : v.depth,
       area,
       deductions,
       areaFromShape: geo || lineFromPlan !== null ? true : undefined,
@@ -1119,8 +1159,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       // Fertig: zurück zur Auswahl (Messung bleibt ausgewählt und bearbeitbar), Leiste zuklappen
       setTool('select');
       setToolsOpen(false);
-      const amount = area !== null ? `${formatArea(area)} m²` : `${formatMeasure(netLength({ kind: v.kind, length: measures.length, deductions }))} m`;
-      toast(`${wall ? 'Wand' : KIND_LABELS[v.kind]} ${shown} gespeichert (${amount}).`, 'success', 2500);
+      const q = quantityOfMeasure({ ...measures, shape: finalShape });
+      const amount = q.value !== null ? `${formatArea(q.value)}${q.unit ? ` ${q.unit}` : ''}` : area !== null ? `${formatArea(area)} m²` : `${formatMeasure(netLength({ kind: v.kind, length: measures.length, deductions, measureType: v.measureType, count: v.count }))} m`;
+      toast(`${measureLabel({ kind: v.kind, shape: finalShape, measureType: v.measureType })} ${shown} gespeichert (${amount}).`, 'success', 2500);
     } else {
       const d = data.damages[dialog.id];
       const patch = {
@@ -1550,13 +1591,11 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                   ? finishDedDraw(shape)
                   : tool === 'calibrate'
                   ? void (checking ? runCheck(shape) : calibrate(shape))
-                  : setDialog({
-                      mode: 'new',
-                      shape,
-                      ...suggestNext(stored, planNumberStart(plan)),
-                      // Wand: Fläche mit offenem Verlauf (Länge × Höhe)
-                      kind: tool === 'wall' ? 'area' : defaultKindFor(shape),
-                    })
+                  : (() => {
+                      // Messart: im Aufmaß gewählt (Werkzeug Wand → Wand), sonst aus der Form
+                      const mt = typeForNew(shape);
+                      setDialog({ mode: 'new', shape, ...suggestNext(stored, planNumberStart(plan)), kind: typeInfo(mt).kind, measureType: mt });
+                    })()
               }
               snap={drawing.snapOn ? measureSnap : undefined}
               onLupeChange={setLupeOn}
@@ -2146,6 +2185,42 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               <ToolsOpenButton tool={TOOLS.find((t) => t.id === tool)} onOpen={() => setToolsOpen(true)} />
             ) : (
             <>
+            <div className="tool-group mtype-anchor">
+              <button
+                type="button"
+                className={`tool-btn mtype-btn${mtypeMenu ? ' active' : ''}`}
+                onClick={() => {
+                  setProbeMenu(false);
+                  setStylePopOpen(false);
+                  // neue Messung beginnt: Auswahl aufheben (die Leiste der Auswahl läge unter dem Menü)
+                  if (!mtypeMenu) setSelectedId(null);
+                  setMtypeMenu(!mtypeMenu);
+                }}
+                data-mtype-toggle=""
+                aria-expanded={mtypeMenu}
+                title="Messart wählen – danach misst jedes Werkzeug in dieser Art (Fläche, Wand, Länge, Volumen, Stück, Schadstelle, Frei)"
+                data-testid="tool-mtype"
+                data-value={mtype}
+              >
+                <Icon name={choiceIcon(mtype)} />
+                <span>
+                  Messart: <span className="mtype-current">{choiceLabel(mtype)}</span>
+                </span>
+              </button>
+              {mtypeMenu && (
+                <MeasureTypeMenu
+                  value={mtype}
+                  onPick={(c) => {
+                    setMtype(c);
+                    setMtypeMenu(false);
+                    // gleich zeichnen: ohne Werkzeug (Auswahl) → Rechteck bzw. Linie für Länge
+                    if (tool === 'select' || tool === 'calibrate' || tool === 'probe' || tool === 'text') setTool(c === 'laenge' ? 'line' : c === 'wand' ? 'polyline' : 'rect');
+                    toast(c === 'auto' ? 'Messart automatisch: offene Linien = Länge, geschlossene Formen = Fläche.' : `Messart ${choiceLabel(c)}: jetzt mit einem Werkzeug im Plan zeichnen.`, 'info', 2200);
+                  }}
+                  onClose={() => setMtypeMenu(false)}
+                />
+              )}
+            </div>
             <div className="tool-group">
               {TOOLS.filter((t) => (t.id !== 'calibrate' || !drawingPlan) && (t.id !== 'select' || !isTouchDevice())).map((t) => (
                 <button
@@ -2292,13 +2367,16 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             labelOffset: null,
             shapeType: dialog.shape.type,
             kind: dialog.kind,
+            measureType: dialog.measureType,
             positionRef: activePosition ? lastPosition : null,
             // aus einer Messung übernommen: Maße aus dem Plan vorgewählt
             areaFromShape: dialog.fromShape,
           }}
           suggestion={k ? suggestMeasures(dialog.shape, k) : null}
           geometry={geometryMeasures(dialog.shape, k)}
-          wall={isWall({ kind: dialog.kind, shape: dialog.shape })}
+          wall={isWall({ kind: dialog.kind, shape: dialog.shape, measureType: dialog.measureType })}
+          openShape={isOpenShape(dialog.shape)}
+          workAreas={workAreas}
           others={stored}
           components={[]}
           positions={positionOptions}
@@ -2315,10 +2393,12 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           photoSite={photoSite}
           photoPrefix={`Aufmaß ${plan.planNumber || planTitle(plan)}`}
           mode="edit"
-          damage={{ ...dialogDamage, shapeType: dialogDamage.shape.type as ShapeType, kind: kindOf(dialogDamage) }}
+          damage={{ ...dialogDamage, shapeType: dialogDamage.shape.type as ShapeType, kind: kindOf(dialogDamage), measureType: typeOf(dialogDamage) }}
           suggestion={k ? suggestMeasures(dialogDamage.shape, k) : null}
           geometry={geometryMeasures(dialogDamage.shape, k)}
           wall={isWall(dialogDamage)}
+          openShape={isOpenShape(dialogDamage.shape)}
+          workAreas={workAreas}
           others={stored}
           components={[]}
           positions={positionOptions}

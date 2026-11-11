@@ -23,7 +23,7 @@ export function Modal({ title, onClose, children, footer, wide, full, persistent
     const prev = document.activeElement as HTMLElement | null;
     const el = ref.current;
     // Erstes Eingabefeld fokussieren (nicht auf Touch-Geräten, um die Tastatur nicht ungefragt zu öffnen)
-    const first = el?.querySelector<HTMLElement>('[data-autofocus], input, select, textarea');
+    const first = el?.querySelector<HTMLElement>('[data-autofocus]') ?? el?.querySelector<HTMLElement>('input, select, textarea');
     if (first && (first.dataset.autofocus !== undefined || !matchMedia('(pointer: coarse)').matches)) first.focus();
     else el?.focus();
     const onKey = (e: KeyboardEvent) => {

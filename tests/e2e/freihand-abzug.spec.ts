@@ -54,7 +54,7 @@ test('Freihand: wellige Linie bleibt genau wie gezeichnet (Linie mit Länge); am
   for (let i = 1; i <= 40; i++) await page.mouse.move(x + i * 8, y + Math.sin(i / 3) * 25);
   await page.mouse.up();
   const dlg = page.getByTestId('damage-dialog');
-  await expect(dlg).toContainText('Neue Linie');
+  await expect(dlg).toContainText('Neue Messung: Länge');
   await dlg.getByTestId('damage-save').click();
   await expect(dlg).toBeHidden();
   await waitSaved(page);
@@ -76,7 +76,7 @@ test('Freihand: wellige Linie bleibt genau wie gezeichnet (Linie mit Länge); am
     await page.mouse.move(cx + Math.cos(a) * (80 + (i % 2) * 6), cy + Math.sin(a) * 60);
   }
   await page.mouse.up();
-  await expect(dlg).toContainText('Neue Fläche');
+  await expect(dlg).toContainText('Neue Messung: Fläche');
   await dlg.getByTestId('use-geometry').click();
   await dlg.getByTestId('damage-save').click();
   await waitSaved(page);
@@ -171,7 +171,7 @@ test('Abzüge auch bei Linien: Sockelleiste 12,40 m abzüglich 2 Türöffnungen 
   await page.mouse.move(sb.x + 760, sb.y + 330, { steps: 5 });
   await page.mouse.up();
   const dlg = page.getByTestId('damage-dialog');
-  await expect(dlg).toContainText('Neue Linie');
+  await expect(dlg).toContainText('Neue Messung: Länge');
   // Länge von Hand statt aus dem Plan
   const geo = dlg.getByTestId('use-geometry');
   if ((await geo.getAttribute('aria-pressed')) === 'true') await geo.click();

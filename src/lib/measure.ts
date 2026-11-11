@@ -25,11 +25,23 @@ export const hasArea = (k: MeasureKind) => k !== 'line';
  * Wand: Flächenmessung mit offenem Verlauf (Linie mit Knicken). Länge = alle Abschnitte,
  * Höhe im Feld „Breite/Höhe“, Wandfläche = Länge × Höhe (ohne Höhe keine Fläche).
  */
-export const isWall = (d: Pick<Damage, 'kind' | 'shape'>) =>
-  hasArea(kindOf(d)) && (d.shape.type === 'line' || (d.shape.type === 'freehand' && d.shape.closed === false));
+export const isWall = (d: Pick<Damage, 'kind' | 'shape'> & { measureType?: Damage['measureType'] }) =>
+  d.measureType === 'wand' || (hasArea(kindOf(d)) && (d.shape.type === 'line' || (d.shape.type === 'freehand' && d.shape.closed === false)));
 
-/** Bezeichnung einer Messung: „Wand“ bzw. die Messart */
-export const measureLabel = (d: Pick<Damage, 'kind' | 'shape'>) => (isWall(d) ? 'Wand' : KIND_LABELS[kindOf(d)]);
+/** Bezeichnung einer Messung: die gewählte Messart (Fläche, Wand, Länge …); ältere Einträge: „Wand“ bzw. die Art */
+export const measureLabel = (d: Pick<Damage, 'kind' | 'shape'> & { measureType?: Damage['measureType'] }) =>
+  d.measureType ? MEASURE_TYPE_LABELS[d.measureType] : isWall(d) ? 'Wand' : KIND_LABELS[kindOf(d)];
+
+/** Bezeichnungen der Messarten (wie in measure-types, hier ohne Abhängigkeit) */
+const MEASURE_TYPE_LABELS: Record<NonNullable<Damage['measureType']>, string> = {
+  flaeche: 'Fläche',
+  wand: 'Wand',
+  laenge: 'Länge',
+  volumen: 'Volumen',
+  stueck: 'Stück',
+  schadstelle: 'Schadstelle',
+  frei: 'Frei',
+};
 
 /** Messart aus der Form (keine Auswahl beim Einfügen): offene Linien → Linie, geschlossene Formen → Fläche. */
 export function defaultKindFor(shape: Shape): MeasureKind {

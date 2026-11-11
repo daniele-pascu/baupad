@@ -11363,3 +11363,54 @@ html[data-theme='dark'] .crew-search {
 .room-area-info {
   margin: 0 0 12px;
 }
+
+/* Messdialog: Messart und Zusatzangaben (Anzahl, Arbeitsbereich, Schadensart) */
+.mtype-field {
+  margin-bottom: 10px;
+}
+.mtype-field small {
+  display: block;
+  margin-top: 4px;
+}
+.measure-extra {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px 12px;
+  margin-top: 10px;
+}
+.measure-field-wide {
+  grid-column: span 1;
+}
+/* Aufmaß: Messart-Taste mit Menü */
+.mtype-anchor {
+  position: relative;
+  display: inline-flex;
+}
+.mtype-btn .mtype-current {
+  font-weight: 700;
+}
+.mtype-menu {
+  max-height: min(70vh, 520px);
+  overflow-y: auto;
+}
+.mtype-menu button.active {
+  background: var(--primary-soft);
+}
+.mtype-menu-icon {
+  background: var(--primary-soft);
+  color: var(--text);
+}
+/* Handy: Menü kompakt (ohne Erklärzeile), damit es nicht bis zur oberen Leiste reicht */
+@media (max-width: 600px) {
+  .mtype-menu .probe-menu-text .muted {
+    display: none;
+  }
+  .mtype-menu button {
+    align-items: center;
+    padding: 6px 10px;
+  }
+  .mtype-menu .probe-menu-icon {
+    width: 30px;
+    height: 30px;
+  }
+}

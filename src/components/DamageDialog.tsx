@@ -3,13 +3,14 @@ import { PhotoAttach } from './PhotoAttach';
 import type { PhotoSite } from '../lib/types';
 import { uuid } from '../lib/ids';
 import { rebarLine, rebarTotal } from '../lib/rebar';
-import { deductionArea, deductionLength, hasArea, KIND_LABELS, netArea } from '../lib/measure';
+import { deductionArea, deductionLength, hasArea, netArea } from '../lib/measure';
+import { DAMAGE_TYPES, DEFAULT_WORK_AREAS, evalFormula, FREE_UNITS, MEASURE_TYPES, typeInfo } from '../lib/measure-types';
 import { round2, checkMeasure, computeArea, formatArea, formatMeasure, parseDecimal, toInputValue } from '../lib/numbers';
 
 /** Maße im Eingabefeld: kaufmännisch auf 2 Stellen gerundet (ältere Werte mit 3 Stellen) */
 const up2 = (n: number | null | undefined) => (n === null || n === undefined ? n : round2(n));
 import { damageNo, findByNumber, parseDamageNumber } from '../lib/numbering';
-import { COLORS, SHAPE_LABELS, type Component, type Damage, type Deduction, type MeasureKind, type RebarItem, type Shape, type ShapeType } from '../lib/types';
+import { COLORS, SHAPE_LABELS, type Component, type Damage, type Deduction, type MeasureKind, type MeasureType, type RebarItem, type Shape, type ShapeType } from '../lib/types';
 import { Icon } from './Icon';
 import { Modal } from './Modal';
 
@@ -43,6 +44,18 @@ export interface DamageValues {
   rebarItems: RebarItem[];
   /** Fotos (Fotodokumentation) zur Messung */
   photoIds: string[];
+  /** Messart (Fläche, Wand, Länge, Volumen, Stück, Schadstelle, Frei) */
+  measureType: MeasureType;
+  /** Anzahl gleicher Teile (Faktor), mindestens 1 */
+  count: number;
+  /** Arbeitsbereich (Beton, Mauerwerk …) */
+  workArea: string | null;
+  /** Schadstelle: Schadensart */
+  damageType: string | null;
+  /** Frei: Rechnung, Einheit und Ergebnis */
+  formula: string | null;
+  unit: string | null;
+  qty: number | null;
 }
 
 /** Eingabezeile eines Abzugs (Texte, damit Kommas und leere Felder möglich sind) */
@@ -81,7 +94,7 @@ export type Renumber = 'none' | 'swap' | 'shift';
 interface Props {
   mode: 'new' | 'edit';
   damage: Pick<Damage, 'id' | 'number' | 'color' | 'labelOffset'> &
-    Partial<Pick<Damage, 'length' | 'width' | 'depth' | 'componentId' | 'positionRef' | 'label' | 'areaFromShape' | 'deductions' | 'note' | 'rebar' | 'rebarItems' | 'photoIds'>> & { shapeType: ShapeType; kind: MeasureKind };
+    Partial<Pick<Damage, 'length' | 'width' | 'depth' | 'componentId' | 'positionRef' | 'label' | 'areaFromShape' | 'deductions' | 'note' | 'rebar' | 'rebarItems' | 'photoIds' | 'measureType' | 'count' | 'workArea' | 'damageType' | 'formula' | 'unit' | 'qty'>> & { shapeType: ShapeType; kind: MeasureKind };
   others: Pick<Damage, 'id' | 'number' | 'area' | 'label'>[];
   /** Bauteilkennzeichnungen des Plans für die optionale Zuordnung */
   components: Pick<Component, 'id' | 'letter' | 'name'>[];
@@ -93,6 +106,10 @@ interface Props {
   geometry?: { area: number; perimeter: number; formula: string } | null;
   /** Wand: offener Verlauf, Länge aus allen Abschnitten, dazu Wandhöhe → Wandfläche */
   wall?: boolean;
+  /** Form ist offen (Linie, offene Polylinie): Länge aus dem Verlauf */
+  openShape?: boolean;
+  /** Arbeitsbereiche zur Auswahl (Vorgaben und im Projekt benutzte) */
+  workAreas?: string[];
   onSave: (v: DamageValues, renumber: Renumber) => void;
   /** Baustelle der Fotodokumentation (Projekt): Fotos zur Messung aufnehmen bzw. wählen */
   photoSite?: PhotoSite | null;
@@ -110,16 +127,33 @@ interface Props {
   dedFromPlan?: (shape: Shape) => { length: number; width: number } | null;
 }
 
-type Field = 'number' | 'length' | 'width' | 'depth';
+type Field = 'number' | 'length' | 'width' | 'depth' | 'count';
 
 /**
  * Eingabe einer Messung bzw. Schadstelle. Öffnet sich automatisch nach dem Einzeichnen.
  * Enter/Weiter springt zum nächsten Feld; im letzten Feld wird gespeichert.
  */
-export function DamageDialog({ mode, damage, others, components, positions = [], suggestion, geometry, wall = false, onSave, onCancel, onDelete, onDrawDeduction, drawnDeduction, hidden, dedFromPlan, photoSite, photoPrefix }: Props) {
+export function DamageDialog({ mode, damage, others, components, positions = [], suggestion, geometry, wall: wallProp = false, openShape = wallProp, workAreas = DEFAULT_WORK_AREAS, onSave, onCancel, onDelete, onDrawDeduction, drawnDeduction, hidden, dedFromPlan, photoSite, photoPrefix }: Props) {
+  // Messart: im Aufmaß vorgewählt (bzw. aus der Form), hier jederzeit umstellbar
+  const [type, setTypeState] = useState<MeasureType>(
+    damage.measureType ?? (damage.kind === 'damage' ? 'schadstelle' : damage.kind === 'line' ? 'laenge' : wallProp ? 'wand' : 'flaeche'),
+  );
+  const kind: MeasureKind = typeInfo(type).kind;
+  const counted = type === 'stueck';
+  const free = type === 'frei';
+  /** Länge aus dem Plan je Messart: Verlauf (offene Form) bzw. Umfang (geschlossene Form) */
+  const lineSuggestFor = (t: MeasureType) => {
+    if (t === 'stueck' || t === 'frei') return null;
+    const k = typeInfo(t).kind;
+    const wm = t === 'wand' || (hasArea(k) && openShape);
+    if (hasArea(k) && !wm) return null;
+    return openShape ? (suggestion?.length ?? null) : (geometry?.perimeter ?? null);
+  };
+  // Länge × Höhe/Breite entlang des Verlaufs: Wand (auch rundum: Umfang × Höhe) bzw. Fläche entlang einer Linie
+  const wall = type === 'wand' || (hasArea(kind) && openShape);
   /** Fläche und Umfang aus dem Plan übernehmen (nur bei Flächen-Messarten) */
   // Linie: Länge aus dem Plan (kalibriert) – bei neuen Linien vorgewählt, wird bei Formänderung nachgeführt
-  const lineSuggest = (!hasArea(damage.kind) || wall) && suggestion ? suggestion.length : null;
+  const lineSuggest = lineSuggestFor(type);
   const [fromShape, setFromShape] = useState(
     damage.areaFromShape ? !!geometry || lineSuggest !== null : mode === 'new' && lineSuggest !== null && lineSuggest > 0,
   );
@@ -128,9 +162,20 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
     length: toInputValue(up2(damage.length)),
     width: toInputValue(up2(damage.width)),
     depth: toInputValue(up2(damage.depth)),
+    count: String(damage.count && damage.count > 0 ? damage.count : 1),
   });
-  // Messart ergibt sich aus der Form (keine Auswahl beim Einfügen); bestehende bleibt erhalten
-  const kind: MeasureKind = damage.kind;
+  const [workArea, setWorkArea] = useState(damage.workArea ?? '');
+  const [damageType, setDamageType] = useState(damage.damageType ?? '');
+  const [formula, setFormula] = useState(damage.formula ?? (damage.qty !== null && damage.qty !== undefined ? toInputValue(damage.qty) : ''));
+  const [unit, setUnit] = useState(damage.unit ?? '');
+  /** Messart wechseln: bei neuen Messungen die Länge aus dem Plan gleich vorwählen */
+  const setType = (t: MeasureType) => {
+    setTypeState(t);
+    if (mode !== 'new') return;
+    const ls = lineSuggestFor(t);
+    const k = typeInfo(t).kind;
+    setFromShape(ls !== null && ls > 0 ? true : hasArea(k) && !(t === 'wand' || openShape) ? !!damage.areaFromShape && !!geometry : false);
+  };
   const [color, setColor] = useState(damage.color);
   const [shapeType, setShapeType] = useState<ShapeType>(damage.shapeType);
   const [componentId, setComponentId] = useState<string | null>(damage.componentId ?? null);
@@ -194,10 +239,18 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
 
   const withArea = hasArea(kind);
   // Aus der Geometrie: Fläche und Umfang kommen aus der Form, nur Nummer und Tiefe sind einzugeben
-  const geo = withArea && fromShape && geometry ? geometry : null;
+  const geo = withArea && !wall && !counted && !free && fromShape && geometry ? geometry : null;
   // Linie: Länge, dazu optional Höhe und Tiefe (getrennt, keine Fläche)
   const lineGeo = (!withArea || wall) && fromShape && lineSuggest !== null && lineSuggest > 0 ? lineSuggest : null;
-  const fields: Field[] = geo ? ['number', 'depth'] : lineGeo !== null ? ['number', 'width', 'depth'] : ['number', 'length', 'width', 'depth'];
+  const fields: Field[] = counted ? ['number', 'count'] : free ? ['number'] : geo ? ['number', 'depth'] : lineGeo !== null ? ['number', 'width', 'depth'] : ['number', 'length', 'width', 'depth'];
+  // Anzahl (Faktor): ganze Zahl ab 1
+  const nRaw = v.count.trim();
+  const nVal = nRaw ? parseDecimal(nRaw) : 1;
+  const countErr = nVal === null || !Number.isInteger(nVal) || nVal < 1 || nVal > 99999 ? 'Anzahl: ganze Zahl ab 1.' : null;
+  const n = countErr || free ? 1 : nVal!;
+  // Frei: eigene Rechnung, z. B. 2*3,5+1,2
+  const qty = free ? evalFormula(formula) : null;
+  const freeErr = free && qty === null ? (formula.trim() ? 'Rechnung ungültig – erlaubt sind Zahlen, + − × / und Klammern.' : 'Bitte die Menge bzw. Rechnung eingeben, z. B. 2*3,5+1,2.') : null;
 
   // Reine Zahl = Nummer; sonst Kennzeichnung aus Buchstaben (z. B. „A“, „Wand B“, „1A“).
   // Eine unveränderte bestehende Nummer (auch eine ältere 0) bleibt gültig; neue Nummern ab 1
@@ -206,12 +259,15 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const num = isNumeric ? (!damage.label && raw === String(damage.number) ? damage.number : parseDamageNumber(raw)) : null;
   const label = !isNumeric && raw ? raw : null;
   const labelTaken = label ? others.find((o) => o.id !== damage.id && damageNo(o).toLowerCase() === label.toLowerCase()) : undefined;
-  const L = geo ? ({ ok: true, value: geo.perimeter } as const) : lineGeo !== null ? ({ ok: true, value: lineGeo } as const) : checkMeasure(v.length, 'Länge');
+  const L = counted || free ? ({ ok: true, value: 0 } as const) : geo ? ({ ok: true, value: geo.perimeter } as const) : lineGeo !== null ? ({ ok: true, value: lineGeo } as const) : checkMeasure(v.length, 'Länge');
   // Nur die Länge ist Pflicht. Breite/Höhe und Tiefe sind optional: leer bleibt leer (null,
   // nicht 0), eine Eingabe muss aber gültig sein
-  const B = !geo && v.width.trim() ? checkMeasure(v.width, withArea && !wall ? 'Breite/Höhe' : 'Höhe') : null;
-  const T = v.depth.trim() ? checkMeasure(v.depth, 'Tiefe') : null;
-  const gross = geo ? geo.area : withArea && L.ok && B?.ok ? computeArea(L.value, B.value) : null;
+  const B = !geo && !counted && !free && v.width.trim() ? checkMeasure(v.width, withArea && !wall ? 'Breite/Höhe' : type === 'wand' ? 'Wandhöhe' : wall ? 'Breite' : 'Höhe') : null;
+  // Volumen: Höhe bzw. Tiefe ist Pflicht
+  const T = counted || free ? null : v.depth.trim() ? checkMeasure(v.depth, type === 'volumen' ? 'Höhe/Tiefe' : 'Tiefe') : type === 'volumen' ? ({ ok: false, error: 'Für das Volumen die Höhe bzw. Tiefe eingeben.' } as const) : null;
+  const gross1 = geo ? geo.area : withArea && L.ok && B?.ok ? computeArea(L.value, B.value) : null;
+  // Anzahl: Fläche je Stück × Anzahl (Abzüge/Zuschläge gelten für alle zusammen)
+  const gross = gross1 === null || n === 1 ? gross1 : Math.round(gross1 * n * 1e9) / 1e9;
   // Abzüge/Zuschläge: Flächen mit Breite × Höhe, Linien nur mit Länge; nur vollständige Zeilen zählen
   const lineDeds = !withArea;
   const dedErrors = deds.map((r) => {
@@ -245,7 +301,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const area = netArea(gross, deductions);
   const dedValue = (x: Deduction) => (lineDeds ? deductionLength(x) : deductionArea(x));
   // Linie: gemessene Länge (von Hand oder aus dem Plan) und Nettolänge mit Abzügen
-  const lineGross = lineDeds && L.ok ? L.value : null;
+  const lineGross = lineDeds && L.ok ? Math.round(L.value * n * 1e9) / 1e9 : null;
   const lineNet = lineGross === null ? null : Math.round(deductions.reduce((s, x) => s + deductionLength(x), lineGross) * 1e9) / 1e9;
   const setDed = (id: string, patch: Partial<DeductionRow>) => setDeds((list) => list.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   /** automatische Nummer eines im Plan gezeichneten Abzugs („3-A1“) */
@@ -266,13 +322,14 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
     length: L.ok ? null : L.error,
     width: B && !B.ok ? B.error : null,
     depth: T && !T.ok ? T.error : null,
+    count: free ? null : countErr,
   };
-  const valid = fields.every((f) => !errors[f]) && dedErrors.every((e) => !e) && !rebarError;
+  const valid = fields.every((f) => !errors[f]) && (free || !countErr) && !freeErr && (counted || free || dedErrors.every((e) => !e)) && !rebarError;
 
   const submit = (renumber: Renumber = 'none') => {
     setShowErrors(true);
     if (!valid || (num === null && !label) || !L.ok) {
-      const first = fields.find((f) => errors[f]);
+      const first = fields.find((f) => errors[f]) ?? (errors.count ? 'count' : undefined);
       if (first) refs.current[first]?.focus();
       return;
     }
@@ -282,6 +339,13 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
         number: num ?? (damage.label ? damage.number : 0),
         label,
         kind,
+        measureType: type,
+        count: n,
+        workArea: workArea.trim() || null,
+        damageType: type === 'schadstelle' ? damageType.trim() || null : null,
+        formula: free ? formula.trim() || null : null,
+        unit: free ? unit.trim() || null : null,
+        qty: free ? qty : null,
         length: L.value,
         width: B?.ok ? B.value : null,
         depth: T?.ok ? T.value : null,
@@ -292,7 +356,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
         resetLabel,
         areaFromShape: !!geo || lineGeo !== null,
         area: geo ? geo.area : null,
-        deductions,
+        deductions: counted || free ? [] : deductions,
         note: note.trim() || null,
         rebar: rebarParsed.length && !rebarError ? rebarSum : null,
         rebarItems: rebarError ? [] : rebarParsed.map(({ id, count, length }) => ({ id, count, length })),
@@ -346,7 +410,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
 
   return (
     <Modal
-      title={mode === 'new' ? `Neue ${wall ? 'Wand' : KIND_LABELS[kind]}` : `${wall ? 'Wand' : KIND_LABELS[kind]} ${damageNo(damage)} bearbeiten`}
+      title={mode === 'new' ? `Neue Messung: ${typeInfo(type).label}` : `${typeInfo(type).label} ${damageNo(damage)} bearbeiten`}
       onClose={onCancel}
       persistent
       testId="damage-dialog"
@@ -374,9 +438,54 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
           submit();
         }}
       >
+        <label className="field mtype-field">
+          <span>Messart</span>
+          <select value={type} onChange={(e) => setType(e.target.value as MeasureType)} data-testid="measure-type-select">
+            {MEASURE_TYPES.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.label} {t.unit ? `(${t.unit})` : '(eigene Einheit)'}
+              </option>
+            ))}
+          </select>
+          <small className="muted">{typeInfo(type).hint}</small>
+        </label>
         <div className="measure-grid">
           {field('number', 'Nr. / Kennz.', 'Nr.')}
-          {geo ? (
+          {counted ? (
+            field('count', 'Anzahl *', 'Stk')
+          ) : free ? (
+            <>
+              <label className="field measure-field measure-field-wide">
+                <span>Menge / Rechnung *</span>
+                <input
+                  value={formula}
+                  onChange={(e) => setFormula(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      submit();
+                    }
+                  }}
+                  inputMode="text"
+                  autoComplete="off"
+                  placeholder="z. B. 2*3,5+1,2"
+                  aria-invalid={showErrors && !!freeErr}
+                  data-autofocus={mode === 'new' ? '' : undefined}
+                  data-testid="input-formula"
+                />
+                {showErrors && freeErr && <small className="error">{freeErr}</small>}
+              </label>
+              <label className="field measure-field">
+                <span>Einheit</span>
+                <input value={unit} onChange={(e) => setUnit(e.target.value)} list="free-units" autoComplete="off" placeholder="z. B. kg" data-testid="input-unit" />
+                <datalist id="free-units">
+                  {FREE_UNITS.map((u) => (
+                    <option key={u} value={u} />
+                  ))}
+                </datalist>
+              </label>
+            </>
+          ) : geo ? (
             <label className="field measure-field">
               <span>Umfang (aus Plan)</span>
               <div className="input-unit">
@@ -395,10 +504,59 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
           ) : (
             field('length', 'Länge *', 'm')
           )}
-          {!geo && field('width', wall ? 'Wandhöhe' : withArea ? 'Breite / Höhe' : 'Höhe', 'm')}
-          {field('depth', 'Tiefe', 'm')}
+          {!counted && !free && !geo && field('width', type === 'wand' ? 'Wandhöhe' : wall ? 'Breite' : withArea ? 'Breite / Höhe' : 'Höhe', 'm')}
+          {!counted && !free && field('depth', type === 'volumen' ? 'Höhe / Tiefe *' : 'Tiefe', 'm')}
         </div>
-        {withArea && geometry && (
+        <div className="measure-extra">
+          {!counted && !free && (
+            <label className="field measure-field measure-count">
+              <span>Anzahl</span>
+              <div className="input-unit">
+                <input
+                  ref={(el) => {
+                    refs.current.count = el;
+                  }}
+                  value={v.count}
+                  onChange={(e) => setV({ ...v, count: e.target.value })}
+                  onFocus={(e) => e.target.select()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      submit();
+                    }
+                  }}
+                  inputMode="numeric"
+                  autoComplete="off"
+                  aria-invalid={showErrors && !!countErr}
+                  data-testid="input-count"
+                />
+                <span className="unit">×</span>
+              </div>
+              {showErrors && countErr && <small className="error">{countErr}</small>}
+            </label>
+          )}
+          <label className="field measure-field">
+            <span>Arbeitsbereich</span>
+            <input value={workArea} onChange={(e) => setWorkArea(e.target.value)} list="work-areas" autoComplete="off" placeholder="z. B. Beton" data-testid="input-work-area" />
+            <datalist id="work-areas">
+              {[...new Set([...workAreas, ...DEFAULT_WORK_AREAS])].map((w) => (
+                <option key={w} value={w} />
+              ))}
+            </datalist>
+          </label>
+          {type === 'schadstelle' && (
+            <label className="field measure-field">
+              <span>Schadensart</span>
+              <input value={damageType} onChange={(e) => setDamageType(e.target.value)} list="damage-types" autoComplete="off" placeholder="z. B. Abplatzung" data-testid="input-damage-type" />
+              <datalist id="damage-types">
+                {DAMAGE_TYPES.map((d) => (
+                  <option key={d} value={d} />
+                ))}
+              </datalist>
+            </label>
+          )}
+        </div>
+        {withArea && !wall && geometry && (
           <button
             type="button"
             className={`btn btn-sm suggest-btn${geo ? ' active' : ''}`}
@@ -409,7 +567,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             {geo ? 'Maße wieder von Hand eingeben' : `Fläche aus Plan übernehmen: ${formatArea(geometry.area)} m²`}
           </button>
         )}
-        {(!withArea || wall) && lineSuggest !== null && lineSuggest > 0 && (
+        {lineSuggest !== null && lineSuggest > 0 && (
           <button
             type="button"
             className={`btn btn-sm suggest-btn${lineGeo !== null ? ' active' : ''}`}
@@ -417,10 +575,10 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             aria-pressed={lineGeo !== null}
             data-testid="use-geometry"
           >
-            {lineGeo !== null ? 'Länge wieder von Hand eingeben' : `Länge aus Plan übernehmen: ${formatArea(lineSuggest)} m (alle Abschnitte)`}
+            {lineGeo !== null ? 'Länge wieder von Hand eingeben' : `Länge aus Plan übernehmen: ${formatArea(lineSuggest)} m (${openShape ? 'alle Abschnitte' : 'Umfang'})`}
           </button>
         )}
-        {suggestion && !geo && withArea && !wall && (
+        {suggestion && !geo && withArea && !wall && !counted && !free && (
           <button
             type="button"
             className="btn btn-sm suggest-btn"
@@ -440,7 +598,17 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
           </button>
         )}
         <div className="area-result" data-testid="area-result">
-          {geo ? (
+          {counted ? (
+            <>
+              <span>Stückzahl</span>
+              <strong data-testid="count-result">{countErr ? '–' : `${n} Stk`}</strong>
+            </>
+          ) : free ? (
+            <>
+              <span>Menge (eigene Rechnung)</span>
+              <strong data-testid="free-result">{qty === null ? '–' : `${formatArea(qty)}${unit.trim() ? ` ${unit.trim()}` : ''}`}</strong>
+            </>
+          ) : geo ? (
             <>
               <span>Fläche aus Plan ({geo.formula}){deductions.length ? ', netto mit Abzügen' : ''} – wird bei Formänderung nachgeführt</span>
               <strong>{formatArea(area)} m²</strong>
@@ -458,13 +626,20 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
           ) : (
             <>
               <span>
-                {lineGeo !== null ? 'Länge aus Plan (alle Abschnitte) – wird bei Formänderung nachgeführt' : 'Linienmessung (keine Fläche)'}
+                {lineGeo !== null ? `Länge aus Plan (${openShape ? 'alle Abschnitte' : 'Umfang'}) – wird bei Formänderung nachgeführt` : 'Längenmessung (keine Fläche)'}
+                {n > 1 ? ` · ${n} ×` : ''}
                 {deductions.length > 0 && lineNet !== null ? ' · netto mit Abzügen' : ''}
               </span>
-              <strong>{deductions.length > 0 && lineNet !== null ? `${formatArea(lineNet)} m` : lineGeo !== null ? `${formatArea(lineGeo)} m` : lengthValue && lengthValue > 0 ? `${formatArea(lengthValue)} m` : '–'}</strong>
+              <strong data-testid="line-result">{lineNet !== null && L.ok && L.value > 0 ? `${formatArea(lineNet)} m` : '–'}</strong>
             </>
           )}
         </div>
+        {type === 'volumen' && (
+          <div className="area-result" data-testid="volume-result">
+            <span>Volumen (Fläche × Höhe/Tiefe)</span>
+            <strong>{area !== null && T?.ok ? `${formatArea(round2(area * T.value))} m³` : '–'}</strong>
+          </div>
+        )}
         {pickPos && (
           <PositionPicker
             positions={positions.filter((p) => !docId || docOf(p.ref) === docId)}
@@ -482,6 +657,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             <option key={n} value={n} />
           ))}
         </datalist>
+        {!counted && !free && (
         <div className="deductions" data-testid="deductions">
           <div className="deductions-head">
             <strong>Abzüge / Zuschläge</strong>
@@ -655,6 +831,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             </div>
           )}
         </div>
+        )}
         {conflict && num !== null && (
           <div className="banner banner-warn" data-testid="number-conflict">
             <p>

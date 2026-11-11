@@ -1,4 +1,4 @@
-import { KIND_LABELS, kindOf, quantityBasis, quantityFor, sumAreas, sumLengths } from './measure';
+import { KIND_LABELS, kindOf, measureLabel, quantityBasis, quantityFor, sumAreas, sumLengths } from './measure';
 import { naturalCompare } from './numbers';
 import type { ProjectState } from './store';
 import { alive } from './store';
@@ -555,7 +555,7 @@ function measureListSheet(data: ProjectState, plans: Plan[], used: Set<string>, 
     rows.push([
       str(plan.planNumber || plan.planName, 'gridText'),
       d.label ? str(d.label, 'gridText') : num(d.number, 'gridInt'),
-      str(KIND_LABELS[kindOf(d)], 'gridText'),
+      str(measureLabel(d), 'gridText'),
       str(pos?.number ?? '', 'gridText'),
       str(pos?.shortText ?? '', 'gridLeft'),
       num(d.length, 'gridMeasure'),
@@ -729,7 +729,7 @@ function positionSheet(doc: LvDocument, p: LvPosition, items: { plan: Plan; d: D
     return [
       str(plan.planNumber || plan.planName),
       d.label ? str(d.label) : num(d.number, 'int'),
-      str(KIND_LABELS[kindOf(d)]),
+      str(measureLabel(d)),
       ...measureCols(d),
       q.value === null ? blank() : num(q.value, style),
       str(q.note, 'note'),
@@ -790,7 +790,7 @@ function freeSheet(items: { plan: Plan; d: Damage }[], title: string, used: Set<
       ...items.map(({ plan, d }) => [
         str(plan.planNumber || plan.planName),
         d.label ? str(d.label) : num(d.number, 'int'),
-        str(KIND_LABELS[kindOf(d)]),
+        str(measureLabel(d)),
         ...measureCols(d),
         d.area === null ? blank() : num(d.area, 'area'),
       ]),

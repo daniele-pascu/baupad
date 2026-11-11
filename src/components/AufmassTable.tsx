@@ -4,6 +4,7 @@ import type { AufmassRow } from '../lib/aufmass';
 import { sumArea } from '../lib/aufmass';
 import { countKind, deductionText, grossArea, hasArea, hasVolume, isWall, kindOf, measureLabel, netLength, sumLengths, sumVolumes } from '../lib/measure';
 import { formatArea, formatMeasure } from '../lib/numbers';
+import { calcPath, typeOf } from '../lib/measure-types';
 import { damageNo } from '../lib/numbering';
 import type { Component } from '../lib/types';
 import { Icon } from './Icon';
@@ -96,6 +97,7 @@ export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, on
             const newGroup = gk !== null && (ri === 0 || groupKey(rows[ri - 1]) !== gk);
             const groupRows = newGroup ? rows.filter((x) => groupKey(x) === gk).map((x) => x.damage) : [];
             const kind = kindOf(r.damage);
+            const mt = typeOf(r.damage);
             const comp = r.damage.componentId ? components?.[r.damage.componentId] : undefined;
             const label = `${measureLabel(r.damage)} ${damageNo(r.damage)}`;
             const deds = (hasArea(kind) ? r.damage.area !== null : true) && r.damage.deductions?.length ? r.damage.deductions : null;
@@ -125,7 +127,13 @@ export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, on
                   <span className="color-dot" style={{ background: r.damage.color }} /> {damageNo(r.damage)}
                 </td>
                 <td className="num" title={r.damage.areaFromShape && hasArea(kind) && !isWall(r.damage) ? 'Umfang – Fläche aus dem Plan berechnet' : undefined}>
-                  {r.damage.areaFromShape && hasArea(kind) && !isWall(r.damage) ? `U ${formatMeasure(r.damage.length)}` : formatMeasure(r.damage.length)}
+                  {mt === 'stueck' || mt === 'frei' ? (
+                    <span data-testid="row-qty">{calcPath(r.damage)}</span>
+                  ) : r.damage.areaFromShape && hasArea(kind) && !isWall(r.damage) ? (
+                    `U ${formatMeasure(r.damage.length)}`
+                  ) : (
+                    `${(r.damage.count ?? 1) > 1 ? `${r.damage.count} × ` : ''}${formatMeasure(r.damage.length)}`
+                  )}
                 </td>
                 <td className="num">{formatMeasure(r.damage.width)}</td>
                 <td className="num">{formatMeasure(r.damage.depth)}</td>

@@ -255,7 +255,7 @@ test('Aufmaß: offene Polylinie = Linienmessung mit Länge, geschlossene = Fläc
   for (const [dx, dy] of [[0, 0], [150, 0], [150, 80]]) await page.mouse.click(x + dx, y + dy);
   await page.getByTestId('polyline-open').click();
   const dlg = page.getByTestId('damage-dialog');
-  await expect(dlg).toContainText('Neue Linie');
+  await expect(dlg).toContainText('Neue Messung: Länge');
   await expect(dlg).toContainText('Höhe');
   // Länge aus dem Plan = Summe aller Abschnitte (vorgewählt, wird nachgeführt)
   await expect(dlg.getByTestId('use-geometry')).toHaveText('Länge wieder von Hand eingeben');
@@ -291,7 +291,7 @@ test('Aufmaß: offene Polylinie = Linienmessung mit Länge, geschlossene = Fläc
   await pickTool(page, 'tool-polyline');
   for (const [dx, dy] of [[-260, -40], [-160, -40], [-160, 40], [-260, 40]]) await page.mouse.click(x + dx, y + dy);
   await page.getByTestId('polygon-finish').click();
-  await expect(dlg).toContainText('Neue Fläche');
+  await expect(dlg).toContainText('Neue Messung: Fläche');
   await expect(dlg).toContainText('Breite / Höhe');
   await dlg.getByTestId('damage-cancel').click();
 
@@ -334,7 +334,7 @@ test('Wand: Verlauf mit Knicken, Länge aus allen Abschnitten, danach Höhe → 
   // Antippen des Startpunkts schließt eine Wand nicht – Enter beendet den Verlauf
   await page.keyboard.press('Enter');
   const dlg = page.getByTestId('damage-dialog');
-  await expect(dlg).toContainText('Neue Wand');
+  await expect(dlg).toContainText('Neue Messung: Wand');
   const len = num(await dlg.getByTestId('geometry-length').inputValue());
   expect(Math.abs(len - 400 / s / 100)).toBeLessThan(0.03);
   // gleich nach der Wandhöhe gefragt
@@ -453,7 +453,7 @@ test('Messung: Menü mit fünf Messarten; Länge, Winkel, Radius, Abstand, Fläc
   await expect(rows).toHaveCount(before);
   await page.getByTestId('probe-adopt').click();
   const dlg = page.getByTestId('damage-dialog');
-  await expect(dlg).toContainText('Neue Fläche');
+  await expect(dlg).toContainText('Neue Messung: Fläche');
   await expect(dlg.getByTestId('use-geometry')).toHaveAttribute('aria-pressed', 'true'); // Fläche aus dem Plan
   await dlg.getByTestId('damage-save').click();
   await expect(rows).toHaveCount(before + 1);
@@ -490,7 +490,7 @@ test('Messung unter „Plan bearbeiten“: Reiter Messen, Abstand und Fläche, i
   await page.getByTestId('probe-adopt').click();
   await expect(page.getByTestId('mode-measure-tab')).toHaveAttribute('aria-selected', 'true');
   const dlg = page.getByTestId('damage-dialog');
-  await expect(dlg).toContainText('Neue Fläche');
+  await expect(dlg).toContainText('Neue Messung: Fläche');
   await dlg.getByTestId('damage-cancel').click();
 });
 

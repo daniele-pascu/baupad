@@ -144,6 +144,27 @@ export function tastenTests() {
     await pruefe(page, 'Plan-Editor mit Messung', out);
     if (await page.getByTestId('tools-open').isVisible()) await page.getByTestId('tools-open').click();
     await pruefe(page, 'Plan-Editor Leiste offen', out);
+    // Messart wählen: Menü und Messdialog je Messart (Stück, Frei, Volumen)
+    await pickTool(page, 'tool-mtype');
+    await expect(page.getByTestId('mtype-menu')).toBeVisible();
+    await pruefe(page, 'Menü Messart', out);
+    await page.getByTestId('mtype-frei').click();
+    await pickTool(page, 'tool-rect');
+    {
+      const b = await planBox(page);
+      await drawRect(page, b.x + b.width * 0.55, b.y + b.height * 0.55, b.x + b.width * 0.65, b.y + b.height * 0.65);
+    }
+    await expect(dlg).toBeVisible();
+    await pruefe(page, 'Messdialog Frei', out);
+    await dlg.getByTestId('measure-type-select').selectOption('stueck');
+    await pruefe(page, 'Messdialog Stück', out);
+    await dlg.getByTestId('measure-type-select').selectOption('volumen');
+    await pruefe(page, 'Messdialog Volumen', out);
+    await dlg.getByTestId('damage-cancel').click();
+    await expect(dlg).toBeHidden();
+    await pickTool(page, 'tool-mtype');
+    await page.getByTestId('mtype-auto').click();
+    if (await page.getByTestId('tools-open').isVisible()) await page.getByTestId('tools-open').click();
     await page.getByTestId('editor-legend').click();
     await pruefe(page, 'Legende', out);
     await page.getByTestId('legend-save').click();
