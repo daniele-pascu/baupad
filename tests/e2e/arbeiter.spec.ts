@@ -21,14 +21,20 @@ async function moveTo(page: Page, from: ReturnType<Page['locator']>, toSite: str
     return;
   }
   const cd = page.getByTestId('chip-dialog');
-  // mehrere Zielprojekte: über die Suche finden (Teil des Namens genügt), danach steht es in der Auswahl
-  if (await cd.getByTestId('chip-move-search').isVisible()) {
-    await cd.getByTestId('chip-move-search').fill(toSite.slice(0, Math.max(3, toSite.length - 2)).toLowerCase());
-    await expect(cd.getByTestId('chip-move-to').locator('option', { hasText: toSite })).toHaveCount(1);
-  }
-  await cd.getByTestId('chip-move-to').selectOption({ label: toSite });
+  await chooseMove(page, toSite);
   await cd.getByTestId('chip-move').click();
   await expect(cd).toHaveCount(0);
+}
+
+/** Namensfenster: „Projekt auswählen“ → eigenes Fenster mit Suche (Teil des Namens genügt) → Projekt antippen */
+async function chooseMove(page: Page, toSite: string) {
+  const cd = page.getByTestId('chip-dialog');
+  await cd.getByTestId('chip-move-pick').click();
+  const mp = page.getByTestId('move-picker');
+  await mp.getByTestId('move-picker-search').fill(toSite.slice(0, Math.max(3, toSite.length - 2)).toLowerCase());
+  await mp.locator(`[data-testid="move-picker-item"][data-site="${toSite}"]`).click();
+  await expect(mp).toHaveCount(0);
+  await expect(cd.getByTestId('chip-move-pick')).toHaveAttribute('data-site', toSite);
 }
 
 /** Projekte sind beim Öffnen der Einteilung zugeklappt – alle aufklappen */
@@ -155,7 +161,7 @@ test('Arbeitereinteilung: Woche nach Baustellen planen und in die nächste Woche
   // Peter ab Mittwoch auf die andere Baustelle
   await chips(page, 'Neubau Musterstraße', 2).nth(1).click();
   const cd = page.getByTestId('chip-dialog');
-  await cd.getByTestId('chip-move-to').selectOption({ label: 'Sanierung Hauptplatz' });
+  await chooseMove(page, 'Sanierung Hauptplatz');
   await cd.getByTestId('chip-move').click();
   await expect(chips(page, 'Neubau Musterstraße', 1)).toHaveText(['Muster Max', 'Bau Peter']);
   await expect(chips(page, 'Neubau Musterstraße', 2)).toHaveText(['Muster Max']);
@@ -436,7 +442,7 @@ test('Antippen: offenen Arbeiter einteilen, umsetzen ab Tag; bereits geplante Fo
   // Peter am Freitag antippen → „Umsetzen“ auf A: ab Freitag dort, ebenfalls in KW 45
   await chips(page, 'Baustelle B', 4).filter({ hasText: 'Peter' }).click();
   const cd = page.getByTestId('chip-dialog');
-  await cd.getByTestId('chip-move-to').selectOption({ label: 'Baustelle A' });
+  await chooseMove(page, 'Baustelle A');
   await cd.getByTestId('chip-move').click();
   await expect(page.locator('.toast', { hasText: 'Auch übernommen in KW 45' }).first()).toBeVisible();
   await expect(chips(page, 'Baustelle B', 3)).toHaveText(['Max', 'Peter']);
@@ -492,7 +498,7 @@ test('Baustelle pausieren (Standby): Arbeiter werden frei, läuft ohne Arbeiter 
   await expect(page.getByTestId('crew-open').getByTestId('open-chip')).toHaveText(['Peter']);
   // pausierte Baustelle steht nicht in der Auswahl zum Umsetzen
   await chips(page, 'Baustelle A', 0).click();
-  await expect(page.getByTestId('chip-dialog').getByTestId('chip-move-to')).toHaveCount(0);
+  await expect(page.getByTestId('chip-dialog').getByTestId('chip-move-pick')).toHaveCount(0);
   await page.keyboard.press('Escape');
   // gespeicherte KW 45 ebenfalls pausiert, neue KW 46 führt sie pausiert weiter
   await page.getByTestId('week-next').click();
@@ -1113,7 +1119,7 @@ test('Einstellungen der Einteilung: Bezeichnung der Projekte, Reihenfolge, Funkt
   await expect(page.getByTestId('set-pdf-grades')).toBeChecked();
 });
 
-test('Namensfenster: Zielprojekt zum Umsetzen über die Suche finden', async ({ page }) => {
+test('Namensfenster: „Projekt auswählen“ öffnet ein Fenster mit Suche, Kostenstelle/Nummer und Adresse', async ({ page }) => {
   await freshStart(page);
   await page.goto('./arbeitereinteilung');
   await page.getByTestId('week-date').fill('2026-10-26');
@@ -1131,20 +1137,33 @@ test('Namensfenster: Zielprojekt zum Umsetzen über die Suche finden', async ({ 
   await addFromMonday(page, 'Baustelle A', ['Max']);
   await chips(page, 'Baustelle A', 2).click();
   const cd = page.getByTestId('chip-dialog');
-  await expect(cd.getByTestId('chip-move-to').locator('option')).toHaveText(['Halle Süd', 'Wohnbau Nord']);
-  // Tasten-Prüfung des Fensters am iPhone und am PC
+  // erst „Projekt auswählen“ – vorher ist nichts gewählt und „Umsetzen“ gesperrt
+  await expect(cd.getByTestId('chip-move-pick')).toHaveText(/Projekt auswählen/);
+  await expect(cd.getByTestId('chip-move')).toBeDisabled();
+  await cd.getByTestId('chip-move-pick').click();
+  const mp = page.getByTestId('move-picker');
+  await expect(mp.getByTestId('move-picker-item')).toHaveCount(2);
+  await expect(mp.locator('[data-testid="move-picker-item"][data-site="Baustelle A"]')).toHaveCount(0);
+  // Tasten-Prüfung beider Fenster am iPhone und am PC
   for (const [w, h] of [[390, 844], [1440, 900]]) {
     await page.setViewportSize({ width: w, height: h });
-    await expect(cd.getByTestId('chip-move-search')).toBeVisible();
+    await expect(mp.getByTestId('move-picker-search')).toBeVisible();
     expect(await tastenBefunde(page)).toEqual([]);
   }
-  await cd.getByTestId('chip-move-search').fill('nord');
-  await expect(cd.getByTestId('chip-move-to').locator('option')).toHaveText(['Wohnbau Nord']);
-  await cd.getByTestId('chip-move-search').fill('xyz');
-  await expect(cd.getByTestId('chip-move-none')).toBeVisible();
-  await expect(cd.getByTestId('chip-move')).toBeDisabled();
-  await cd.getByTestId('chip-move-search').fill('süd');
-  await expect(cd.getByTestId('chip-move-to')).toHaveValue(/.+/);
+  await mp.getByTestId('move-picker-search').fill('nord');
+  await expect(mp.getByTestId('move-picker-item')).toHaveCount(1);
+  await expect(mp.getByTestId('move-picker-item')).toHaveAttribute('data-site', 'Wohnbau Nord');
+  await mp.getByTestId('move-picker-search').fill('xyz');
+  await expect(mp.getByTestId('move-picker-empty')).toBeVisible();
+  await mp.getByTestId('move-picker-search').fill('süd');
+  await mp.getByTestId('move-picker-item').click();
+  await expect(mp).toHaveCount(0);
+  // gewähltes Projekt als Karte; antippen öffnet die Auswahl erneut
+  await expect(cd.getByTestId('chip-move-pick')).toHaveAttribute('data-site', 'Halle Süd');
+  for (const [w, h] of [[390, 844], [1440, 900]]) {
+    await page.setViewportSize({ width: w, height: h });
+    expect(await tastenBefunde(page)).toEqual([]);
+  }
   await cd.getByTestId('chip-move').click();
   await expect(cd).toHaveCount(0);
   // ab Mittwoch auf Halle Süd, Mo/Di bleibt auf Baustelle A

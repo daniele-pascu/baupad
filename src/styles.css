@@ -11618,8 +11618,28 @@ html[data-theme='dark'] .crew-search {
   cursor: pointer;
 }
 /* Namensfenster: Suche nach dem Zielprojekt über der Auswahl */
-.crew-move-search {
-  margin-bottom: 8px;
+/* Umsetzen: „Projekt auswählen“ öffnet ein eigenes Fenster; gewähltes Projekt als Karte (antippen = ändern) */
+.crew-move-label {
+  flex: 1 1 100%;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.crew-move-pick {
+  flex: 1 1 100%;
+  justify-content: center;
+}
+.crew-move .crew-move-chosen {
+  flex: 1 1 100%;
+  padding: 8px 10px 8px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+}
+.crew-move-change {
+  flex: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
 }
 
 /* Aufmaß & Abrechnung: Bereiche (Pläne, Aufmaß, LV/MFK, Export) als eigene Karten, schwarz abgesetzt mit Symbol */

@@ -598,7 +598,12 @@ test('Arbeitereinteilung per Finger: Arbeiter, Baustelle, Einteilung – passt a
   await expect(cd.getByTestId('chip-urlaub')).toBeVisible();
   await noHorizontalScroll(page);
   await page.screenshot({ path: join(OUT, `arbeiter-menue-${info.project.name}.png`) });
-  await cd.getByTestId('chip-move-to').selectOption({ label: 'Sanierung' });
+  await cd.getByTestId('chip-move-pick').tap();
+  const mp = page.getByTestId('move-picker');
+  await noHorizontalScroll(page);
+  await page.screenshot({ path: join(OUT, `arbeiter-projektwahl-${info.project.name}.png`) });
+  await mp.locator('[data-testid="move-picker-item"][data-site="Sanierung"]').tap();
+  await expect(mp).toHaveCount(0);
   await cd.getByTestId('chip-move').tap();
   for (const d of [0, 4]) {
     await expect(page.locator(`[data-site="Sanierung"] [data-day="${d}"] [data-testid="crew-chip"]`)).toHaveText(['Max']);

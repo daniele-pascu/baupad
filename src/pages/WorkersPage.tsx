@@ -63,7 +63,7 @@ import { absenceDays, absenceOn, absenceRange, absenceSummary, cleanAbsences, cl
 import { exportCrewBackup, importCrewBackup } from '../lib/crew-backup';
 import { costCenterByProject, costCenterSearchByProject, linkSitesToProject, projectFromSite } from '../lib/crew-link';
 import { ProjectHeading } from '../components/ProjectHeading';
-import { labelFromProject, projectPrefix, type ProjectLabelInfo } from '../lib/project-label';
+import { labelFromProject, projectPrefix, projectSubline, type ProjectLabelInfo } from '../lib/project-label';
 import { setProjectManager, useCanCreateProjects, useProjectIn } from '../lib/sites';
 import { crewDayPdf, crewWeekPdf } from '../lib/crew-pdf';
 import { uuid } from '../lib/ids';
@@ -1022,6 +1022,8 @@ export function WorkersPage() {
           workerId={dialog.workerId}
           siteId={dialog.siteId}
           day={dialog.day}
+          infoOf={siteInfo}
+          styleOf={(s) => ({ '--pc': colorOf(photoSiteKey({ projectId: s.projectId ?? null, siteName: s.name })) }) as CSSProperties}
           onClose={() => setDialog(null)}
           onToggleDay={(d, on) => {
             if (on) void run(() => place([dialog.workerId], dialog.siteId, [d], true));
@@ -1519,6 +1521,8 @@ function ChipDialog({
   workerId,
   siteId,
   day,
+  infoOf,
+  styleOf,
   onToggleDay,
   onRemove,
   onRemoveWeek,
@@ -1534,6 +1538,9 @@ function ChipDialog({
   workerId: string;
   siteId: string;
   day: number;
+  /** Angaben und Farbe eines Projekts wie in der Einteilung (Kostenstelle/Nummer, Name, Adresse) */
+  infoOf(s: WeekSite): ProjectLabelInfo;
+  styleOf(s: WeekSite): CSSProperties;
   onToggleDay(day: number, on: boolean): void;
   onRemove(): void;
   onRemoveWeek(): void;
@@ -1543,12 +1550,11 @@ function ChipDialog({
 }) {
   const site = plan.sites.find((s) => s.id === siteId);
   const others = plan.sites.filter((s) => s.id !== siteId && !s.paused);
-  const [to, setTo] = useState(others[0]?.id ?? '');
-  /** Suche nach dem Zielprojekt (Name, Kostenstelle/Nummer, Adresse) */
-  const [moveQ, setMoveQ] = useState('');
-  const mq = moveQ.trim().toLowerCase();
-  const targets = mq ? others.filter((s) => [s.name, s.number ?? '', s.address ?? ''].some((t) => t.toLowerCase().includes(mq))) : others;
-  const target = targets.some((s) => s.id === to) ? to : (targets[0]?.id ?? '');
+  /** Zielprojekt: über „Projekt auswählen“ (eigenes Fenster mit Suche) */
+  const [to, setTo] = useState('');
+  const [picking, setPicking] = useState(false);
+  const targetSite = others.find((s) => s.id === to) ?? null;
+  const target = targetSite?.id ?? '';
   const [keep, setKeep] = useState(false);
   const also = sitesOf(plan, workerId, day, siteId);
   return (
@@ -1597,29 +1603,17 @@ function ChipDialog({
         </div>
         {others.length > 0 && (
           <div className="crew-move">
-            <label className="field">
-              <span>Ab {DAY_NAMES[day]} auf anderes Projekt</span>
-              {others.length > 1 && (
-                <input
-                  type="search"
-                  className="crew-move-search"
-                  value={moveQ}
-                  onChange={(e) => setMoveQ(e.target.value)}
-                  placeholder="Projekt suchen: Name, Kostenstelle, Adresse"
-                  aria-label="Projekt suchen"
-                  autoComplete="off"
-                  data-testid="chip-move-search"
-                />
-              )}
-              <select value={target} onChange={(e) => setTo(e.target.value)} disabled={!targets.length} data-testid="chip-move-to">
-                {targets.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-              {!targets.length && <small className="muted" data-testid="chip-move-none">Kein Projekt gefunden.</small>}
-            </label>
+            <span className="crew-move-label">Ab {DAY_NAMES[day]} auf anderes Projekt</span>
+            {targetSite ? (
+              <button type="button" className="picker-item pc-stripe crew-move-chosen" style={styleOf(targetSite)} onClick={() => setPicking(true)} data-testid="chip-move-pick" data-site={targetSite.name}>
+                <ProjectHeading info={infoOf(targetSite)} />
+                <span className="crew-move-change">Ändern</span>
+              </button>
+            ) : (
+              <button type="button" className="btn crew-move-pick" onClick={() => setPicking(true)} data-testid="chip-move-pick">
+                <Icon name="select" size={18} /> Projekt auswählen
+              </button>
+            )}
             <label className="check-row small">
               <input type="checkbox" checked={keep} onChange={(e) => setKeep(e.target.checked)} data-testid="chip-move-keep" />
               Zusätzlich (doppelt) – auf diesem Projekt bleiben
@@ -1638,6 +1632,18 @@ function ChipDialog({
           </button>
         </div>
       </div>
+      {picking && (
+        <MovePicker
+          sites={others}
+          infoOf={infoOf}
+          styleOf={styleOf}
+          onClose={() => setPicking(false)}
+          onPick={(id) => {
+            setTo(id);
+            setPicking(false);
+          }}
+        />
+      )}
     </Modal>
   );
 }
@@ -1821,6 +1827,43 @@ export function AbsenceDialog({
           ))}
         </div>
       )}
+    </Modal>
+  );
+}
+
+/** Zielprojekt zum Umsetzen wählen: Fenster wie „Projekt“ in allen Werkzeugen – Suche, je Projekt Kostenstelle/Nummer, Name, Adresse */
+function MovePicker({ sites, infoOf, styleOf, onPick, onClose }: { sites: WeekSite[]; infoOf(s: WeekSite): ProjectLabelInfo; styleOf(s: WeekSite): CSSProperties; onPick(id: string): void; onClose(): void }) {
+  const [q, setQ] = useState('');
+  const needle = q.trim().toLowerCase();
+  const list = sites
+    .map((s) => ({ s, info: infoOf(s) }))
+    .filter(({ s, info }) => !needle || [projectPrefix(info), info.name, projectSubline(info), s.name, s.number ?? '', s.address ?? ''].join(' ').toLowerCase().includes(needle))
+    .sort((a, b) => naturalCompare(projectPrefix(a.info) || '~', projectPrefix(b.info) || '~') || a.info.name.localeCompare(b.info.name, 'de'));
+  return (
+    <Modal title="Projekt auswählen" onClose={onClose} testId="move-picker">
+      <div className="picker">
+        <label className="crew-search picker-search">
+          <Icon name="select" size={18} />
+          <span className="sr-only">Suchen</span>
+          <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Kostenstelle, Projektnummer, Name, Adresse …" autoComplete="off" data-autofocus data-testid="move-picker-search" />
+        </label>
+        {list.length === 0 && (
+          <p className="muted small" data-testid="move-picker-empty">
+            Kein Projekt gefunden.
+          </p>
+        )}
+        <ul className="picker-list">
+          {list.map(({ s, info }) => (
+            <li key={s.id}>
+              <button type="button" className="picker-item pc-stripe" style={styleOf(s)} onClick={() => onPick(s.id)} data-testid="move-picker-item" data-site={s.name}>
+                <ProjectHeading info={info} />
+                <Icon name="next" size={18} />
+              </button>
+            </li>
+          ))}
+        </ul>
+        <p className="muted small">Nur Projekte dieser Woche. Antippen wählt das Projekt – danach „Umsetzen“.</p>
+      </div>
     </Modal>
   );
 }
