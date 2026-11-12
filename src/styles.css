@@ -11548,30 +11548,28 @@ html[data-theme='dark'] .crew-search {
   }
 }
 
-/* Einteilung: Kästchen je Funktion eingefärbt (höchste zuerst); doppelt eingeteilt nur noch roter Rand */
+/* Einteilung: Kästchen je Funktion eingefärbt (höchste zuerst; Farben in den Einstellungen wählbar,
+   Rand = gewählte Farbe, Hintergrund und Schrift daraus abgeleitet); doppelt eingeteilt nur noch roter Rand */
 .crew-chip.grade-polier,
 .crew-grade-key.grade-polier {
-  border-color: #6f9be8;
-  background: #e3edff;
-  color: #123a75;
+  --grade: var(--grade-polier, #6f9be8);
 }
 .crew-chip.grade-vorarbeiter,
 .crew-grade-key.grade-vorarbeiter {
-  border-color: #5cb87a;
-  background: #e2f6e8;
-  color: #14532d;
+  --grade: var(--grade-vorarbeiter, #5cb87a);
 }
 .crew-chip.grade-facharbeiter,
 .crew-grade-key.grade-facharbeiter {
-  border-color: #e0a43a;
-  background: #fff2d9;
-  color: #6b4100;
+  --grade: var(--grade-facharbeiter, #e0a43a);
 }
 .crew-chip.grade-hilfsarbeiter,
 .crew-grade-key.grade-hilfsarbeiter {
-  border-color: #a3a3ad;
-  background: #efeff3;
-  color: #3a3a44;
+  --grade: var(--grade-hilfsarbeiter, #a3a3ad);
+}
+.crew-chip[class*='grade-'] {
+  border-color: var(--grade);
+  background: color-mix(in srgb, var(--grade) 18%, var(--surface));
+  color: color-mix(in srgb, var(--grade) 45%, var(--text));
 }
 .crew-chip.conflict {
   border: 2px solid var(--danger);
@@ -11588,11 +11586,36 @@ html[data-theme='dark'] .crew-search {
 .crew-grade-key {
   display: inline-block;
   padding: 1px 7px;
-  border: 1px solid;
+  border: 1px solid var(--grade, currentColor);
+  background: color-mix(in srgb, var(--grade, transparent) 18%, var(--surface));
+  color: color-mix(in srgb, var(--grade, currentColor) 45%, var(--text));
   border-radius: 6px;
   font-size: 0.72rem;
   font-weight: 700;
   line-height: 1.5;
+}
+/* Einstellungen: Farbe je Qualifikation */
+.crew-grade-colors {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px 12px;
+  margin-bottom: 10px;
+}
+.crew-grade-color {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+}
+.crew-grade-color input[type='color'] {
+  flex: none;
+  width: 44px;
+  height: 36px;
+  padding: 2px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  cursor: pointer;
 }
 /* Namensfenster: Suche nach dem Zielprojekt über der Auswahl */
 .crew-move-search {

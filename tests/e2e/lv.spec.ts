@@ -25,6 +25,10 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   await expect(review.getByTestId('lv-review-summary')).toContainText('1 Position(en) mit unsicheren Angaben');
   await expect(review.getByTestId('lv-name')).toHaveValue('Sanierung Tiefgarage Musterstrasse');
   await review.getByTestId('lv-review-save').click();
+  // nach dem Import zugeklappt – erst Antippen klappt das Dokument auf
+  await expect(page.getByTestId('lv-row')).toHaveCount(0);
+  await expect(page.getByTestId('lv-doc-tab').last()).toHaveAttribute('aria-expanded', 'false');
+  await page.getByTestId('lv-doc-tab').last().click();
   await expect(page.getByTestId('lv-row')).toHaveCount(4);
   await expect(page.getByTestId('lv-flagged')).toContainText('1 Position');
 
@@ -108,6 +112,9 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   await page.getByRole('link', { name: 'Zurück zur Planliste' }).click();
   await expect(page.getByTestId('plan-services')).toContainText('92 01 01 A');
   await expect(page.getByTestId('plan-services')).toContainText('92 01 01 B');
+  // zurück auf der Projektseite ist das LV wieder zugeklappt
+  await expect(page.getByTestId('lv-row')).toHaveCount(0);
+  await page.getByTestId('lv-doc-tab').click();
   await expect(page.locator('[data-testid="lv-row"][data-number="92 01 01 B"] [data-testid="lv-measured"]')).toHaveText('10,00');
   await expect(page.locator('[data-testid="lv-row"][data-number="92 01 01 A"] [data-testid="lv-measured"]')).toHaveText('12,00');
   await expect(page.getByTestId('lv-measured-total')).toHaveText('286,00 €');
@@ -115,6 +122,7 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   // Nach dem Neuladen bleibt alles erhalten
   await waitSaved(page);
   await page.reload();
+  await page.getByTestId('lv-doc-tab').click();
   await expect(page.getByTestId('lv-row')).toHaveCount(4);
   await expect(page.getByTestId('lv-measured-total')).toHaveText('286,00 €');
   await page.screenshot({ path: join(process.cwd(), 'tests', 'output', 'lv-pc.png'), fullPage: true });
@@ -210,6 +218,10 @@ test('Kurz-LV (eine Zeile je Position, Punkt-Nummern) importieren: alle Position
   await expect(summary).not.toContainText('unsicheren Angaben');
   await expect(review.getByTestId('lv-name')).toHaveValue('Musterarbeiten Tiefgarage');
   await review.getByTestId('lv-review-save').click();
+  // nach dem Import zugeklappt – erst Antippen klappt das Dokument auf
+  await expect(page.getByTestId('lv-row')).toHaveCount(0);
+  await expect(page.getByTestId('lv-doc-tab').last()).toHaveAttribute('aria-expanded', 'false');
+  await page.getByTestId('lv-doc-tab').last().click();
   await expect(page.getByTestId('lv-row')).toHaveCount(8);
   await expect(page.getByTestId('lv-flagged')).toHaveCount(0);
   // Punkt-Nummern, Wahlposition ohne GP, Pauschale ohne Nummer
@@ -221,6 +233,7 @@ test('Kurz-LV (eine Zeile je Position, Punkt-Nummern) importieren: alle Position
   // bleibt nach dem Neuladen erhalten
   await waitSaved(page);
   await page.reload();
+  await page.getByTestId('lv-doc-tab').click();
   await expect(page.getByTestId('lv-row')).toHaveCount(8);
 });
 
@@ -240,6 +253,10 @@ test('MFK mit Punkt-Nummern und EP-Zeile importieren: als MFK samt Nummer erkann
   await expect(review.getByTestId('lv-name')).toHaveValue('Musterhalle Beschichtungen'); // Nummer steht im eigenen Feld
   await expect(review.getByTestId('lv-longtext-count')).toContainText('Langtext bei 5 von 5 Positionen erkannt');
   await review.getByTestId('lv-review-save').click();
+  // nach dem Import zugeklappt – erst Antippen klappt das Dokument auf
+  await expect(page.getByTestId('lv-row')).toHaveCount(0);
+  await expect(page.getByTestId('lv-doc-tab').last()).toHaveAttribute('aria-expanded', 'false');
+  await page.getByTestId('lv-doc-tab').last().click();
   await expect(page.getByTestId('lv-row')).toHaveCount(5);
   await expect(page.getByTestId('lv-flagged')).toHaveCount(0);
   const row = (n: string) => page.locator(`[data-testid="lv-row"][data-number="${n}"]`);
@@ -385,6 +402,10 @@ test('LV/MFK manuell: Positionen als Tabelle eingeben, Enter = nächste Zeile mi
   // bleibt nach dem Neuladen erhalten; weiteres manuelles Dokument wird als MFK vorgeschlagen
   await waitSaved(page);
   await page.reload();
+  // nach dem Neuladen zugeklappt
+  await expect(page.getByTestId('lv-row')).toHaveCount(0);
+  await expect(page.getByTestId('lv-doc-tab')).toHaveAttribute('aria-expanded', 'false');
+  await page.getByTestId('lv-doc-tab').click();
   await expect(page.getByTestId('lv-row')).toHaveCount(2);
   await page.getByTestId('lv-new').click();
   await expect(dlg.getByTestId('lv-doc-kind')).toHaveValue('mfk');

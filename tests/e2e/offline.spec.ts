@@ -108,6 +108,10 @@ test('Offline: Projekt anlegen, PDF importieren, Schadstellen erfassen, exportie
   await page.getByTestId('lv-file-input').setInputFiles(join(FIXTURES, 'lv-beispiel.pdf'));
   await expect(page.getByTestId('lv-review-summary')).toContainText('4 Positionen');
   await page.getByTestId('lv-review-save').click();
+  // nach dem Import zugeklappt – erst Antippen klappt das Dokument auf
+  await expect(page.getByTestId('lv-row')).toHaveCount(0);
+  await expect(page.getByTestId('lv-doc-tab').last()).toHaveAttribute('aria-expanded', 'false');
+  await page.getByTestId('lv-doc-tab').last().click();
   await expect(page.getByTestId('lv-row')).toHaveCount(4);
   await page.getByTestId('lv-search').fill('Sperr');
   await expect(page.getByTestId('lv-row')).toHaveCount(1);

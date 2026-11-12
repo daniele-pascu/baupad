@@ -31,9 +31,9 @@ function measured(data: ProjectState, doc: LvDocument, pos: LvPosition) {
  */
 export function LvPanel({ data }: { data: ProjectState }) {
   const docs = lvDocsOf(data);
-  // aufgeklapptes Dokument: anfangs das erste (LV vor MFK); '' = alle zugeklappt
+  // aufgeklapptes Dokument: anfangs (und nach dem Import) alle zugeklappt – erst Antippen klappt eines auf
   const [activeId, setActiveId] = useState<string | null>(null);
-  const active = docs.find((d) => d.id === activeId) ?? (activeId === null ? docs[0] : null) ?? null;
+  const active = docs.find((d) => d.id === activeId) ?? null;
   const fileRef = useRef<HTMLInputElement>(null);
   const [importKind, setImportKind] = useState<'lv' | 'mfk'>('lv');
   const [review, setReview] = useState<{ parsed: ParsedLv; fileName: string; kind: 'lv' | 'mfk' } | null>(null);
@@ -143,7 +143,7 @@ export function LvPanel({ data }: { data: ProjectState }) {
           onCancel={() => setReview(null)}
           onSave={(doc) => {
             putRecord('lvDocs', { ...doc, projectId: data.project.id });
-            setActiveId(doc.id);
+            setActiveId(null);
             setReview(null);
             toast(`${lvDocLabel(doc)} mit ${doc.positions.length} Positionen übernommen.`, 'success');
           }}

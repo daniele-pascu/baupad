@@ -130,10 +130,10 @@ export const sitesOf = (w: WeekPlan, workerId: string, day: number, exceptSiteId
 
 /**
  * Noch nicht eingeteilt: aktive Arbeiter, die an einem Arbeitstag auf keiner Baustelle und nicht im Urlaub sind.
- * (Krank zählt nicht – wer krank ist, bleibt trotzdem eingeteilt.)
+ * (Krank zählt nicht – wer krank ist, bleibt trotzdem eingeteilt.) Projektleiter werden nicht eingeteilt und zählen nie.
  */
 export function unassigned(w: WeekPlan, workers: Worker[], day: number): Worker[] {
-  return workers.filter((x) => x.active && !w.vacation[day]?.includes(x.id) && !w.sites.some((s) => s.days[day]?.includes(x.id)));
+  return workers.filter((x) => x.active && !isProjectLead(x) && !w.vacation[day]?.includes(x.id) && !w.sites.some((s) => s.days[day]?.includes(x.id)));
 }
 
 /** angezeigte Tage: Mo–Fr, mit Wochenende Mo–So */
@@ -152,6 +152,22 @@ export const WORKER_GRADES: { id: WorkerGrade; label: string; short: string }[] 
   { id: 'hilfsarbeiter', label: 'Hilfsarbeiter', short: 'HA' },
 ];
 export const gradeLabel = (g: WorkerGrade | undefined) => WORKER_GRADES.find((x) => x.id === g)?.label ?? '';
+
+/** Farben der Kästchen je Funktion (Projektleiter werden nicht eingeteilt und haben keine) – einstellbar je Firma */
+export type ColoredGrade = 'polier' | 'vorarbeiter' | 'facharbeiter' | 'hilfsarbeiter';
+export type GradeColors = Partial<Record<ColoredGrade, string>>;
+export const DEFAULT_GRADE_COLORS: Record<ColoredGrade, string> = {
+  polier: '#6f9be8',
+  vorarbeiter: '#5cb87a',
+  facharbeiter: '#e0a43a',
+  hilfsarbeiter: '#a3a3ad',
+};
+export const COLORED_GRADES = Object.keys(DEFAULT_GRADE_COLORS) as ColoredGrade[];
+const HEX = /^#[0-9a-f]{6}$/i;
+/** gültige Farbe je Funktion (eigene Wahl, sonst Standard) */
+export const gradeColor = (c: GradeColors | null | undefined, g: ColoredGrade) => (c?.[g] && HEX.test(c[g]!) ? c[g]!.toLowerCase() : DEFAULT_GRADE_COLORS[g]);
+/** nur die vom Standard abweichenden Farben (zum Speichern) */
+export const customGradeColors = (c: GradeColors) => Object.fromEntries(COLORED_GRADES.filter((g) => gradeColor(c, g) !== DEFAULT_GRADE_COLORS[g]).map((g) => [g, gradeColor(c, g)])) as GradeColors;
 
 /**
  * Funktion eines Arbeiters: ausdrücklich gewählt, sonst aus der Tätigkeit erraten („Polier“, „Hilfsarbeiter“ …);

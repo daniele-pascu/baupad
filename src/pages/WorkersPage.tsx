@@ -48,6 +48,11 @@ import {
   knownGrade,
   siteManagerOf,
   siteManagerText,
+  COLORED_GRADES,
+  customGradeColors,
+  DEFAULT_GRADE_COLORS,
+  gradeColor,
+  type GradeColors,
 } from '../lib/crew';
 import { getMeta, getWeek, listProjects, listWeeks, listWorkers, previousWeek, saveWeek, setMeta } from '../lib/db';
 import { naturalCompare } from '../lib/numbers';
@@ -154,6 +159,16 @@ export function WorkersPage() {
   /** Einstellungen: Bezeichnung der Projekte, Funktion der Arbeiter im PDF */
   const [siteLabel, setSiteLabel] = useState<SiteLabel>('number-name');
   const [pdfGrades, setPdfGrades] = useState(false);
+  /** Farben der Kästchen je Qualifikation (Einstellungen) */
+  const [gradeColors, setGradeColors] = useState<GradeColors>({});
+  // als CSS-Variablen an der Seite (auch für Fenster, die außerhalb der Seite liegen)
+  useEffect(() => {
+    const root = document.documentElement.style;
+    for (const g of COLORED_GRADES) root.setProperty(`--grade-${g}`, gradeColor(gradeColors, g));
+    return () => {
+      for (const g of COLORED_GRADES) root.removeProperty(`--grade-${g}`);
+    };
+  }, [gradeColors]);
   /** Urlaub / Krank von–bis (über Wochen hinweg) */
   const [absences, setAbsences] = useState<Absence[]>([]);
   const [query, setQuery] = useState('');
@@ -173,8 +188,9 @@ export function WorkersPage() {
   >(null);
 
   const loadBase = () =>
-    Promise.all([listWorkers(), getMeta<WorkTimes>('workTimes'), listProjects(), getMeta<string>('companyName'), getMeta<boolean>('pdfShowTimes'), getMeta<SiteLabel>('crewSiteLabel'), getMeta<boolean>('pdfShowGrades')])
-      .then(([w, t, p, c, pt, sl, pg]) => {
+    Promise.all([listWorkers(), getMeta<WorkTimes>('workTimes'), listProjects(), getMeta<string>('companyName'), getMeta<boolean>('pdfShowTimes'), getMeta<SiteLabel>('crewSiteLabel'), getMeta<boolean>('pdfShowGrades'), getMeta<GradeColors>('crewGradeColors')])
+      .then(([w, t, p, c, pt, sl, pg, gc]) => {
+        setGradeColors(gc && typeof gc === 'object' ? gc : {});
         setPdfTimes(pt !== false);
         setSiteLabel(sl && sl in SITE_LABELS ? sl : 'number-name');
         setPdfGrades(pg === true);
@@ -909,6 +925,7 @@ export function WorkersPage() {
           pdfTimes={pdfTimes}
           siteLabel={siteLabel}
           pdfGrades={pdfGrades}
+          gradeColors={gradeColors}
           siteSort={siteSort}
           onClose={() => setDialog(null)}
           onSave={(t, c, pt, x) => {
@@ -917,10 +934,12 @@ export function WorkersPage() {
             setPdfTimes(pt);
             setSiteLabel(x.siteLabel);
             setPdfGrades(x.pdfGrades);
+            const gc = customGradeColors(x.gradeColors);
+            setGradeColors(gc);
             changeSiteSort(x.siteSort);
             setDialog(null);
             // erst nach dem Speichern melden (Seitenwechsel direkt danach verliert sonst nichts)
-            void Promise.all([setMeta('workTimes', t), setMeta('companyName', c), setMeta('pdfShowTimes', pt), setMeta('crewSiteLabel', x.siteLabel), setMeta('pdfShowGrades', x.pdfGrades)])
+            void Promise.all([setMeta('workTimes', t), setMeta('companyName', c), setMeta('pdfShowTimes', pt), setMeta('crewSiteLabel', x.siteLabel), setMeta('pdfShowGrades', x.pdfGrades), setMeta('crewGradeColors', gc)])
               .then(() => toast('Einstellungen gespeichert.', 'success'))
               .catch((e) => showError(e, 'Speichern fehlgeschlagen'));
           }}
@@ -1074,15 +1093,16 @@ export function WorkersPage() {
 }
 
 /** Arbeiterliste: anlegen, bearbeiten, aktiv/inaktiv */
-type CrewSettings = { siteLabel: SiteLabel; pdfGrades: boolean; siteSort: { key: SiteSort; desc: boolean } };
+type CrewSettings = { siteLabel: SiteLabel; pdfGrades: boolean; gradeColors: GradeColors; siteSort: { key: SiteSort; desc: boolean } };
 
-/** Einstellungen der Arbeitereinteilung: Arbeitszeit, Projektbezeichnung, Reihenfolge, PDF (Uhrzeiten, Funktion, Firmenname) */
+/** Einstellungen der Arbeitereinteilung: Arbeitszeit, Projektbezeichnung, Reihenfolge, Farben je Qualifikation, PDF (Uhrzeiten, Funktion, Firmenname) */
 function TimesDialog({
   times,
   company,
   pdfTimes,
   siteLabel,
   pdfGrades,
+  gradeColors,
   siteSort,
   onSave,
   onClose,
@@ -1092,6 +1112,7 @@ function TimesDialog({
   pdfTimes: boolean;
   siteLabel: SiteLabel;
   pdfGrades: boolean;
+  gradeColors: GradeColors;
   siteSort: { key: SiteSort; desc: boolean };
   onSave(t: WorkTimes, company: string, pdfTimes: boolean, x: CrewSettings): void;
   onClose(): void;
@@ -1099,7 +1120,7 @@ function TimesDialog({
   const [t, setT] = useState<WorkTimes>(() => times.map((x) => (x ? { ...x } : null)));
   const [c, setC] = useState(company);
   const [pt, setPt] = useState(pdfTimes);
-  const [x, setX] = useState<CrewSettings>({ siteLabel, pdfGrades, siteSort });
+  const [x, setX] = useState<CrewSettings>({ siteLabel, pdfGrades, gradeColors, siteSort });
   const set = (d: number, x: WorkTimes[number]) => setT(t.map((y, i) => (i === d ? x : y)));
   return (
     <Modal
@@ -1147,6 +1168,32 @@ function TimesDialog({
           </select>
         </label>
       </div>
+      <h3 className="crew-set-title">Farben je Qualifikation</h3>
+      <p className="muted small">Farbe der Namenskästchen in der Einteilung – nach Geschmack wählbar.</p>
+      <div className="crew-grade-colors" data-testid="set-grade-colors">
+        {COLORED_GRADES.map((g) => {
+          const label = WORKER_GRADES.find((w) => w.id === g)!;
+          const value = gradeColor(x.gradeColors, g);
+          return (
+            <label key={g} className="crew-grade-color">
+              <input type="color" value={value} onChange={(e) => setX({ ...x, gradeColors: { ...x.gradeColors, [g]: e.target.value } })} aria-label={`Farbe ${label.label}`} data-testid={`set-grade-color-${g}`} />
+              <span className={`crew-grade-key grade-${g}`} style={{ '--grade': value } as CSSProperties}>
+                {label.short}
+              </span>
+              <span className="small">{label.label}</span>
+            </label>
+          );
+        })}
+      </div>
+      <button
+        type="button"
+        className="btn btn-sm"
+        onClick={() => setX({ ...x, gradeColors: {} })}
+        disabled={COLORED_GRADES.every((g) => gradeColor(x.gradeColors, g) === DEFAULT_GRADE_COLORS[g])}
+        data-testid="set-grade-colors-reset"
+      >
+        Standardfarben
+      </button>
       <h3 className="crew-set-title">PDF</h3>
       <label className="check-row">
         <input type="checkbox" checked={x.pdfGrades} onChange={(e) => setX({ ...x, pdfGrades: e.target.checked })} data-testid="set-pdf-grades" />

@@ -63,6 +63,16 @@ describe('Arbeitereinteilung', () => {
     expect(w.vacation[1]).toEqual([]);
   });
 
+  it('Projektleiter gelten nie als „nicht eingeteilt“ (auch im PDF)', () => {
+    const { w } = twoSites();
+    const pl = { ...workers[0], id: 'pl', grade: 'projektleiter' as const };
+    const bl = { ...workers[0], id: 'bl', grade: undefined, role: 'Bauleiter' };
+    const ids = unassigned(w, [...workers, pl, bl], 0).map((x) => x.id);
+    expect(ids).not.toContain('pl');
+    expect(ids).not.toContain('bl');
+    expect(ids).toContain('tom');
+  });
+
   it('nächste Woche läuft weiter: gleiche Baustellen und Arbeiter, fertiggestellte nicht, Vorwoche unverändert', () => {
     let { w, a, b } = twoSites();
     w = assign(w, a, [0, 1, 2, 3, 4], ['max', 'peter']);

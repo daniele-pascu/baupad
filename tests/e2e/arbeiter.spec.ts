@@ -715,6 +715,33 @@ test('Personalliste: eigene Seite, alphabetisch oder nach Funktion; Einteilung u
   await expect(chips(page, 'Halle Nord', 0).nth(1)).toHaveClass(/grade-vorarbeiter/);
   await expect(chips(page, 'Halle Nord', 0).nth(2)).toHaveClass(/grade-hilfsarbeiter/);
   await expect(page.getByTestId('crew-grade-legend')).toContainText('PO');
+
+  // Farben je Qualifikation nach Geschmack: Einstellungen → Polier rot; bleibt nach dem Neuladen; Standardfarben zurück
+  const border = (l: ReturnType<Page['locator']>) => l.evaluate((el) => getComputedStyle(el).borderTopColor);
+  const poKey = page.locator('[data-testid="crew-grade-legend"] .grade-polier');
+  expect(await border(chips(page, 'Halle Nord', 0).nth(0))).toBe('rgb(111, 155, 232)');
+  await page.getByTestId('crew-times').click();
+  const td = page.getByTestId('times-dialog');
+  await expect(td.getByTestId('set-grade-colors-reset')).toBeDisabled();
+  await td.getByTestId('set-grade-color-polier').fill('#ff0000');
+  await expect.poll(() => border(td.locator('.crew-grade-key.grade-polier'))).toBe('rgb(255, 0, 0)'); // Vorschau im Fenster
+  await td.getByTestId('times-save').click();
+  await expect(td).toHaveCount(0);
+  await expect.poll(() => border(chips(page, 'Halle Nord', 0).nth(0))).toBe('rgb(255, 0, 0)');
+  expect(await border(poKey)).toBe('rgb(255, 0, 0)');
+  expect(await border(chips(page, 'Halle Nord', 0).nth(1))).toBe('rgb(92, 184, 122)'); // Vorarbeiter unverändert
+  await page.waitForTimeout(500);
+  await page.reload();
+  await page.getByTestId('week-date').fill('2026-10-26');
+  await expect.poll(() => border(poKey)).toBe('rgb(255, 0, 0)');
+  await expandAll(page);
+  await expect.poll(() => border(chips(page, 'Halle Nord', 0).nth(0))).toBe('rgb(255, 0, 0)');
+  await page.getByTestId('crew-times').click();
+  await expect(td.getByTestId('set-grade-color-polier')).toHaveValue('#ff0000');
+  await td.getByTestId('set-grade-colors-reset').click();
+  await expect(td.getByTestId('set-grade-color-polier')).toHaveValue('#6f9be8');
+  await td.getByTestId('times-save').click();
+  await expect.poll(() => border(chips(page, 'Halle Nord', 0).nth(0))).toBe('rgb(111, 155, 232)');
 });
 
 test('Doppelt einteilen: Arbeiter bleibt auf der ersten Baustelle und steht zusätzlich auf der zweiten, mit Kennzeichnung wo', async ({ page }) => {
@@ -913,6 +940,8 @@ test('Projektleiter in der Einteilung: aus dem Personal wählen, Anzeige bei der
   const dl = await catchDownload(page, () => page.getByTestId('crew-pdf').click());
   const txt = execFileSync('pdftotext', ['-layout', await saveDownload(dl, 'projektleiter.pdf'), '-'], { encoding: 'utf8' });
   expect(txt).toContain('PL: Leiter Paul · 0664 123');
+  // Projektleiter werden nicht eingeteilt – also auch nicht als „nicht eingeteilt“ im PDF
+  expect(txt).not.toContain('Nicht eingeteilt');
   await page.keyboard.press('Escape');
   // Vertretung nur diese Woche
   await card.getByTestId('site-actions').click();
