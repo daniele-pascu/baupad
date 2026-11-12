@@ -1,3 +1,4 @@
+import { PRICES_PERM } from '../lib/price-access';
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Icon } from '../components/Icon';
 import { SiteFooter, SiteNav } from '../components/SiteNav';
@@ -1238,6 +1239,27 @@ function UserDialog({ value, session, onClose, onSaved }: { value: Omit<CompanyU
             })}
           </div>
           {allSites.length === 0 && u.role !== 'admin' && <p className="muted small">Noch keine Projekte angelegt – Zugriff gilt daher für alle.</p>}
+        </fieldset>
+        <fieldset className="field" data-testid="user-perms">
+          <span>Weitere Rechte</span>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={u.role === 'admin' || u.role === 'buero' || (u.toolSites[PRICES_PERM]?.length ?? 0) > 0}
+              disabled={u.role === 'admin' || u.role === 'buero'}
+              onChange={(e) =>
+                setU((p) => {
+                  const ts = { ...p.toolSites };
+                  if (e.target.checked) ts[PRICES_PERM] = ['1'];
+                  else delete ts[PRICES_PERM];
+                  return { ...p, toolSites: ts };
+                })
+              }
+              data-testid="user-perm-prices"
+            />{' '}
+            <strong>Preise und Summen</strong>
+            <span className="muted small"> – Einheits- und Positionspreise sowie Summen der LV/MFK{u.role === 'admin' || u.role === 'buero' ? ' (Admin und Büro immer)' : ''}</span>
+          </label>
         </fieldset>
         <label className="field">
           <span>Paket (vorläufig)</span>

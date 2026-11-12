@@ -81,7 +81,12 @@ export function plansIn(data: ProjectState, scope: BlattScope): Plan[] {
   return costCentersOf(data).flatMap((cc) => plansOf(data, cc.id));
 }
 
-export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: BlattInfo, opts: { logo?: HeaderImage | null } = {}): ExportFile {
+/**
+ * `opts.prices === false`: ohne Einheits-/Positionspreise und ohne Zusammenstellung (Benutzer ohne Freigabe
+ * „Preise und Summen“) – Mengen und Messtabellen bleiben.
+ */
+export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: BlattInfo, opts: { logo?: HeaderImage | null; prices?: boolean } = {}): ExportFile {
+  const prices = opts.prices !== false;
   const plans = plansIn(data, scope);
   const items: Item[] = aufmassRows(data, plans).map(({ plan, damage }) => ({ plan, d: damage }));
   const ccs =
@@ -181,8 +186,10 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
       head[0] = str('Pos. / Positionstext', 'amColHead');
       head[2] = str('Menge', 'amColHeadR');
       head[3] = str('EH', 'amColHead');
-      head[5] = str('Einheitspreis', 'amColHeadR');
-      head[8] = str('Positionspreis', 'amColHeadR');
+      if (prices) {
+        head[5] = str('Einheitspreis', 'amColHeadR');
+        head[8] = str('Positionspreis', 'amColHeadR');
+      }
       add(head);
       add();
       add([str(pos.number, 'amPos'), null, str(pos.shortText || '', 'amText')]);
@@ -192,23 +199,22 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
       // Flächen mit Tiefe: Spalte „Tiefe“ zur Angabe (Menge bleibt m²)
       const kind = kindOfUnit(pos.unit);
       const sumRef = table(list, kind === 'area' && list.some((x) => x.d.depth !== null) ? 'areaDepth' : kind, pos.unit);
-      rows[qtyRow - 1] = [
-        null,
-        null,
-        sumRef ? { t: 'formula', f: sumRef.ref, v: sumRef.value, s: 'amNum' } : blank('amText'),
-        str(unitText(pos.unit), 'amText'),
+      const qtyCells: Cell[] = [null, null, sumRef ? { t: 'formula', f: sumRef.ref, v: sumRef.value, s: 'amNum' } : blank('amText'), str(unitText(pos.unit), 'amText')];
+      rows[qtyRow - 1] = prices ? [
+        ...qtyCells,
         null,
         pos.unitPrice === null ? blank('amText') : num(pos.unitPrice, 'amNum'),
         str('€', 'amText'),
         null,
         { t: 'formula', f: `F${qtyRow}*C${qtyRow}`, v: Math.round((sumRef?.value ?? 0) * (pos.unitPrice ?? 0) * 100) / 100, s: 'amNumBold' },
         str('€', 'amBold'),
-      ];
+      ] : qtyCells;
       priceRows.push({ pos, row: qtyRow });
       add();
       add();
     });
-    // Zusammenstellung: Kasten mit dem Namen des LV bzw. der MFK, je Position der Positionspreis
+    // Zusammenstellung: Kasten mit dem Namen des LV bzw. der MFK, je Position der Positionspreis (nur mit Preisen)
+    if (!prices) return;
     const box = add([str(title, 'amBox'), ...Array.from({ length: COLS.length - 1 }, () => blank('amBox'))], 15.75);
     merges.push(`A${box}:J${box}`);
     add();

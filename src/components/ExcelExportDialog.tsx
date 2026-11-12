@@ -1,3 +1,4 @@
+import { usePricesVisible } from '../lib/price-access';
 import { useMemo, useState } from 'react';
 import { costCenterName, costCentersOf, damagesOf, planTitle, plansOf } from '../lib/aufmass';
 import { defaultPeriod, exportAufmassblatt, plansIn, type BlattScope } from '../lib/aufmassblatt';
@@ -16,6 +17,8 @@ export const nextSheetNo = (data: ProjectState) => String((data.project.sheetNo 
  * Leistungszeitraum aus den Messungen vorgeschlagen).
  */
 export function ExcelExportDialog({ data, scope, onClose, sheetId }: { data: ProjectState; scope: BlattScope; onClose: () => void; sheetId?: string }) {
+  /** ohne Freigabe „Preise und Summen“: Aufmaßblatt ohne Preise und Zusammenstellung */
+  const prices = usePricesVisible();
   const [no, setNo] = useState(() => nextSheetNo(data));
   // Pläne frei zusammenstellen: vorausgewählt ist, was exportiert werden soll (Plan, Kostenstelle, Projekt)
   const initial = useMemo(() => plansIn(data, scope).map((p) => p.id), []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -45,7 +48,7 @@ export function ExcelExportDialog({ data, scope, onClose, sheetId }: { data: Pro
       if (!sel.size && pickable) throw new Error('Bitte mindestens einen Plan wählen.');
       const nr = no.trim() || nextSheetNo(data);
       // Firmenlogo (Konto → Einstellungen) kommt automatisch links in die Kopfzeile
-      void offerFile(exportAufmassblatt(data, effective, { no: nr, period: period.trim() }, { logo: cachedExcelLogo() }));
+      void offerFile(exportAufmassblatt(data, effective, { no: nr, period: period.trim() }, { logo: cachedExcelLogo(), prices }));
       const n = Number(nr);
       const patch: Partial<typeof data.project> = {};
       if (Number.isInteger(n) && n > (data.project.sheetNo ?? 0)) patch.sheetNo = n;

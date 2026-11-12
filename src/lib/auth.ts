@@ -23,7 +23,12 @@ export const ROLES: { id: Role; label: string; text: string }[] = [
 
 export type ToolId = 'projects' | 'workers' | 'times' | 'reports' | 'photos' | 'defects' | 'materials';
 /** je Werkzeug: Projekt-Schlüssel (p:<Projekt>), auf die der Benutzer zugreifen darf; fehlt/leer = alle Projekte */
-export type ToolSites = Partial<Record<ToolId, string[]>>;
+export type ToolSites = Partial<Record<ToolId | Permission, string[]>>;
+/**
+ * Zusätzliche Rechte je Benutzer (gespeichert bei den Freigaben, Eintrag vorhanden = erlaubt):
+ * 'perm:prices' – Preise und Summen der LV/MFK sehen (Admin und Büro immer)
+ */
+export type Permission = 'perm:prices';
 export const TOOLS: { id: ToolId; label: string }[] = [
   { id: 'projects', label: 'Aufmaß & Abrechnung' },
   { id: 'workers', label: 'Arbeitereinteilung' },

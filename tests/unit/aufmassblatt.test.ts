@@ -159,3 +159,28 @@ describe('Rechnungen', () => {
     expect(aufmassNameOf(two, { ...two.plans.p2, aufmassName: ' Keller Nord ' })).toBe('Keller Nord');
   });
 });
+
+describe('Preise nur mit Freigabe „Preise und Summen“', () => {
+  const pos = { id: 'a', number: '01', shortText: 'Beton', longText: '', unit: 'm²', quantity: 5, unitPrice: 12.5, totalPrice: 62.5, group: '', issues: [] };
+  const withLv = {
+    ...data,
+    lvDocs: { l1: { ...meta, id: 'l1', projectId: 'x', kind: 'lv', name: 'Haupt-LV', number: '', fileName: '', groups: [], positions: [pos] } },
+    damages: { d1: dmg('d1', 1, { positionRef: 'l1:a' }) },
+  } as unknown as ProjectState;
+  const sheet = (prices?: boolean) =>
+    strFromU8(unzipSync(exportAufmassblatt(withLv, { kind: 'plan', planId: 'p1' }, { no: '020', period: '' }, prices === undefined ? {} : { prices }).data)['xl/worksheets/sheet1.xml']);
+  it('mit Freigabe (Standard): Einheitspreis, Positionspreis und Gesamtpreis', () => {
+    const ws = sheet();
+    expect(ws).toContain('Einheitspreis');
+    expect(ws).toContain('Gesamtpreis in EUR');
+    expect(ws).toContain('12.5');
+  });
+  it('ohne Freigabe: Position und Menge ja, aber keine Preise und keine Zusammenstellung', () => {
+    const ws = sheet(false);
+    expect(ws).toContain('Beton');
+    expect(ws).not.toContain('Einheitspreis');
+    expect(ws).not.toContain('Positionspreis');
+    expect(ws).not.toContain('Gesamtpreis in EUR');
+    expect(ws).not.toContain('12.5');
+  });
+});

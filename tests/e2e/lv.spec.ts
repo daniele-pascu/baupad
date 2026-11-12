@@ -410,3 +410,33 @@ test('LV/MFK manuell: Positionen als Tabelle eingeben, Enter = nächste Zeile mi
   await page.getByTestId('lv-new').click();
   await expect(dlg.getByTestId('lv-doc-kind')).toHaveValue('mfk');
 });
+
+test('Preise und Summen der LV nur für Admin/Büro bzw. mit Freigabe „Preise und Summen“', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'Preise', {}, ['Garage']);
+  await page.getByTestId('lv-file-input').setInputFiles(join(FIXTURES, 'lv-beispiel.pdf'));
+  await page.getByTestId('lv-review').getByTestId('lv-review-save').click();
+  await page.getByTestId('lv-doc-tab').click();
+  await expect(page.getByTestId('lv-panel')).toContainText('6.010,00 €'); // Admin (Standard im Test)
+  await waitSaved(page);
+  const url = page.url();
+  const ctx = (toolSites: Record<string, string[]>) => ({ workspace_id: '11111111-1111-4111-8111-111111111111', workspace_name: 'Testfirma', role: 'polier', pkg: 'team', tools: ['projects'], sites: [], tool_sites: toolSites, operator: false, name: 'Polier', phone: '' });
+  let current = ctx({});
+  await page.route('**/rest/v1/rpc/my_context', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(current) }));
+  // Polier ohne Freigabe: Positionen und Mengen ja, keine Preise/Summen, kein Import/Bearbeiten
+  await page.goto(url);
+  await page.getByTestId('lv-doc-tab').click();
+  await expect(page.getByTestId('lv-row')).toHaveCount(4);
+  await expect(page.getByTestId('lv-panel')).not.toContainText('€');
+  await expect(page.getByTestId('lv-table').locator('th')).toHaveText(['Pos.-Nr.', 'Kurztext', 'EH', 'LV-Menge', 'Aufmaß']);
+  await expect(page.getByTestId('lv-import')).toHaveCount(0);
+  await expect(page.getByTestId('lv-doc-actions')).toHaveCount(0);
+  await page.getByTestId('lv-row').first().click();
+  await expect(page.getByTestId('lv-edit-position')).toHaveCount(0);
+  // mit Freigabe „Preise und Summen“ unter Benutzer und Rollen
+  current = ctx({ 'perm:prices': ['1'] });
+  await page.goto(url);
+  await page.getByTestId('lv-doc-tab').click();
+  await expect(page.getByTestId('lv-panel')).toContainText('6.010,00 €');
+  await expect(page.getByTestId('lv-table').locator('th')).toHaveCount(7);
+});

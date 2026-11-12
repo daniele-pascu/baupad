@@ -214,8 +214,23 @@ test('Angemeldet: Tools, Einstellungen und Benutzerliste', async ({ page }) => {
   await expect(ud.getByTestId('user-tool-projects')).not.toBeChecked();
   await ud.getByTestId('user-tool-workers').check();
   await expect(ud.getByTestId('user-sites-all-photos')).toHaveAttribute('aria-checked', 'true'); // Standard: alle Projekte je Werkzeug
+  // Kasten „Preise und Summen“: Admin/Büro immer, Polier nur mit Haken
+  const prices = ud.getByTestId('user-perm-prices');
+  await expect(prices).not.toBeChecked();
+  await expect(prices).toBeEnabled();
+  await ud.locator('.role-option', { hasText: 'Büro' }).click();
+  await expect(prices).toBeChecked();
+  await expect(prices).toBeDisabled();
+  await ud.locator('.role-option', { hasText: 'Polier' }).click();
+  await ud.getByTestId('user-tool-workers').check();
+  await expect(prices).not.toBeChecked();
+  await prices.check();
   await ud.getByTestId('user-save').click();
   await expect(page.getByTestId('user-row')).toHaveCount(1);
+  await page.getByTestId('user-open').click();
+  await expect(ud.getByTestId('user-perm-prices')).toBeChecked();
+  await page.keyboard.press('Escape');
+  await expect(ud).toHaveCount(0);
   await expect(page.getByTestId('user-row')).toContainText('Polier');
   await expect(page.getByTestId('user-row')).toContainText('Arbeitereinteilung');
   await page.getByTestId('user-add').click();

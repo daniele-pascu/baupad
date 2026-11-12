@@ -1,3 +1,4 @@
+import { usePricesVisible } from '../lib/price-access';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { damagesForPosition, lvDocLabel, lvDocsOf, planTitle, positionRef } from '../lib/aufmass';
 import { uuid } from '../lib/ids';
@@ -31,6 +32,8 @@ function measured(data: ProjectState, doc: LvDocument, pos: LvPosition) {
  */
 export function LvPanel({ data }: { data: ProjectState }) {
   const docs = lvDocsOf(data);
+  /** Preise und Summen nur für Admin/Büro bzw. mit Freigabe „Preise und Summen“ (dann auch Import/Bearbeiten) */
+  const prices = usePricesVisible();
   // aufgeklapptes Dokument: anfangs (und nach dem Import) alle zugeklappt – erst Antippen klappt eines auf
   const [activeId, setActiveId] = useState<string | null>(null);
   const active = docs.find((d) => d.id === activeId) ?? null;
@@ -85,6 +88,7 @@ export function LvPanel({ data }: { data: ProjectState }) {
 
   return (
     <div className="lv-panel" data-testid="lv-panel">
+      {prices && (
       <div className="lv-toolbar">
         <div className="row gap wrap">
           <button type="button" className="btn btn-sm" onClick={() => startImport('lv')} disabled={busy} data-testid="lv-import">
@@ -110,11 +114,16 @@ export function LvPanel({ data }: { data: ProjectState }) {
           }}
         />
       </div>
+      )}
       {busy && <p className="muted">PDF wird gelesen …</p>}
       {!docs.length && !busy && (
         <div className="empty">
           <p>Noch kein Leistungsverzeichnis.</p>
-          <p className="muted">Importieren Sie ein LV oder eine MFK als PDF (ÖNORM-Ausdruck mit Positionsnummern) oder legen Sie eine MFK manuell an.</p>
+          <p className="muted">
+            {prices
+              ? 'Importieren Sie ein LV oder eine MFK als PDF (ÖNORM-Ausdruck mit Positionsnummern) oder legen Sie eine MFK manuell an.'
+              : 'LV und MFK legt das Büro an.'}
+          </p>
         </div>
       )}
       {docs.length > 0 && (
@@ -127,11 +136,11 @@ export function LvPanel({ data }: { data: ProjectState }) {
                   <span className={`lv-kind lv-kind-${d.kind}`}>{d.kind === 'lv' ? 'LV' : 'MFK'}</span>
                   <span className="lv-doc-name">{[d.number, d.name].filter(Boolean).join(' – ') || lvDocLabel(d)}</span>
                   <span className="lv-doc-meta muted small">
-                    {d.positions.length} Pos. · {eur(sumPositions(d.positions))}
+                    {d.positions.length} Pos.{prices && <> · {eur(sumPositions(d.positions))}</>}
                   </span>
                   <Icon name={open ? 'minus' : 'plus'} size={18} />
                 </button>
-                {open && <LvDocView data={data} doc={d} onEdit={() => setDocDialog({ doc: d, kind: d.kind })} onDelete={() => void removeDoc(d)} />}
+                {open && <LvDocView data={data} doc={d} prices={prices} onEdit={() => setDocDialog({ doc: d, kind: d.kind })} onDelete={() => void removeDoc(d)} />}
               </li>
             );
           })}
@@ -305,7 +314,9 @@ function LvReviewDialog({
 }
 
 /** Ansicht eines LV bzw. einer MFK: Suche, Gruppen, Positionen mit Aufmaßmengen. */
-function LvDocView({ data, doc, onEdit, onDelete }: { data: ProjectState; doc: LvDocument; onEdit: () => void; onDelete: () => void }) {
+function LvDocView({ data, doc, prices, onEdit, onDelete }: { data: ProjectState; doc: LvDocument; prices: boolean; onEdit: () => void; onDelete: () => void }) {
+  /** Spalten der Tabelle (ohne Preis-Freigabe ohne EP und GP) */
+  const cols = prices ? 7 : 5;
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState<string | null>(null);
   const [editing, setEditing] = useState<LvPosition | 'new' | null>(null);
@@ -330,8 +341,13 @@ function LvDocView({ data, doc, onEdit, onDelete }: { data: ProjectState; doc: L
             {lvDocLabel(doc)}
           </h3>
           <p className="muted small">
-            {doc.positions.length} Positionen · LV-Summe {eur(lvTotal)} · Aufmaß {query ? '(Auswahl) ' : ''}
-            <span data-testid="lv-measured-total">{eur(measuredTotal)}</span>
+            {doc.positions.length} Positionen
+            {prices && (
+              <>
+                {' '}· LV-Summe {eur(lvTotal)} · Aufmaß {query ? '(Auswahl) ' : ''}
+                <span data-testid="lv-measured-total">{eur(measuredTotal)}</span>
+              </>
+            )}
             {doc.fileName && ` · Quelle: ${doc.fileName}`}
           </p>
           {flagged > 0 && (
@@ -340,6 +356,7 @@ function LvDocView({ data, doc, onEdit, onDelete }: { data: ProjectState; doc: L
             </p>
           )}
         </div>
+        {prices && (
         <ActionMenu
           label={`Aktionen für ${lvDocLabel(doc)}`}
           testId="lv-doc-actions"
@@ -349,6 +366,7 @@ function LvDocView({ data, doc, onEdit, onDelete }: { data: ProjectState; doc: L
             { label: 'Dokument löschen', icon: 'trash', danger: true, onSelect: onDelete, testId: 'lv-delete' },
           ]}
         />
+        )}
       </div>
       <input
         type="search"
@@ -367,8 +385,8 @@ function LvDocView({ data, doc, onEdit, onDelete }: { data: ProjectState; doc: L
               <th>EH</th>
               <th className="num">LV-Menge</th>
               <th className="num">Aufmaß</th>
-              <th className="num hide-sm">EP</th>
-              <th className="num hide-sm">GP Aufmaß</th>
+              {prices && <th className="num hide-sm">EP</th>}
+              {prices && <th className="num hide-sm">GP Aufmaß</th>}
             </tr>
           </thead>
           <tbody>
@@ -379,7 +397,7 @@ function LvDocView({ data, doc, onEdit, onDelete }: { data: ProjectState; doc: L
                 <Fragment key={pos.id}>
                   {showGroup && pos.group && (
                     <tr className="lv-group">
-                      <td colSpan={7}>
+                      <td colSpan={cols}>
                         {pos.group} {groupTitle(pos.group)}
                       </td>
                     </tr>
@@ -400,12 +418,12 @@ function LvDocView({ data, doc, onEdit, onDelete }: { data: ProjectState; doc: L
                     <td className="num lv-c-meas" data-label="Aufmaß" data-testid="lv-measured">
                       {m.damages.length ? (m.value !== null ? qty(m.value) : `${m.damages.length} Mess.`) : '–'}
                     </td>
-                    <td className="num hide-sm lv-c-ep" data-label="EP">{eur(pos.unitPrice)}</td>
-                    <td className="num hide-sm lv-c-gp" data-label="GP">{m.amount !== null && m.damages.length ? eur(m.amount) : '–'}</td>
+                    {prices && <td className="num hide-sm lv-c-ep" data-label="EP">{eur(pos.unitPrice)}</td>}
+                    {prices && <td className="num hide-sm lv-c-gp" data-label="GP">{m.amount !== null && m.damages.length ? eur(m.amount) : '–'}</td>}
                   </tr>
                   {isOpen && (
                     <tr className="lv-detail">
-                      <td colSpan={7}>
+                      <td colSpan={cols}>
                         {pos.issues.length > 0 && <p className="error small">⚠ {pos.issues.join(' · ')}</p>}
                         <div className="lv-longtext" data-testid="lv-longtext">
                           <strong>Langtext</strong>
@@ -416,7 +434,8 @@ function LvDocView({ data, doc, onEdit, onDelete }: { data: ProjectState; doc: L
                           )}
                         </div>
                         <p className="small muted">
-                          LV: {qty(pos.quantity)} {pos.unit} × {eur(pos.unitPrice)} = {eur(pos.totalPrice)}
+                          LV: {qty(pos.quantity)} {pos.unit}
+                          {prices && <> × {eur(pos.unitPrice)} = {eur(pos.totalPrice)}</>}
                           {!quantityBasis(pos.unit) && ' · Einheit nicht aus Messungen ableitbar (Menge manuell)'}
                           {m.missing > 0 && ` · ${m.missing} Messung(en) ohne passende Größe (z. B. Linie bei m²) nicht mitgezählt`}
                         </p>
@@ -439,9 +458,11 @@ function LvDocView({ data, doc, onEdit, onDelete }: { data: ProjectState; doc: L
                         ) : (
                           <p className="small muted">Noch keine Messungen zugeordnet (Zuordnung im Messdialog des Plans).</p>
                         )}
-                        <button type="button" className="btn btn-sm" onClick={() => setEditing(pos)} data-testid="lv-edit-position">
-                          <Icon name="edit" size={18} /> {pos.issues.length ? 'Prüfen und bestätigen' : 'Bearbeiten'}
-                        </button>
+                        {prices && (
+                          <button type="button" className="btn btn-sm" onClick={() => setEditing(pos)} data-testid="lv-edit-position">
+                            <Icon name="edit" size={18} /> {pos.issues.length ? 'Prüfen und bestätigen' : 'Bearbeiten'}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   )}
@@ -450,7 +471,7 @@ function LvDocView({ data, doc, onEdit, onDelete }: { data: ProjectState; doc: L
             })}
             {!rows.length && (
               <tr>
-                <td colSpan={7} className="muted empty-cell">
+                <td colSpan={cols} className="muted empty-cell">
                   {query ? 'Keine Position gefunden.' : 'Noch keine Positionen.'}
                 </td>
               </tr>
