@@ -435,13 +435,13 @@ function SheetFields({
 }) {
   const m = paper ? sheetMeters(paper, scale || 100) : null;
   return (
-    <div className="form-grid">
+    <div className="form-grid sheet-fields">
       <div className="field">
         <span className="field-head">
           <label htmlFor="sheet-paper">Format</label>
           {onShow && <ShowInPlan checked={showPaper} onChange={(v) => onShow({ showPaper: v })} testId="show-paper" />}
         </span>
-        <span className="paper-pick">
+        <span className={`paper-pick${paper ? '' : ' no-paper'}`}>
           <select
             id="sheet-paper"
             value={paper ? paperSize(paper) : ''}

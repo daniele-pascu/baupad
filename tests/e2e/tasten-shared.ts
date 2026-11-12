@@ -206,9 +206,25 @@ export function tastenTests() {
     await createProject(page, 'Tastentest Zeichnen', {}, ['EG']);
     await page.getByTestId('draw-plan').click();
     await page.getByTestId('new-drawing').locator('[data-field="planNumber"]').fill('Z-1');
+    await pruefe(page, 'Neuen Plan zeichnen (Fenster)', out);
     await page.getByTestId('new-drawing-save').click();
     await expect(page.getByTestId('drawing-sheet')).toBeVisible();
     await pruefe(page, 'Plan zeichnen', out);
+    // Planangaben: Format (Größe + Ausrichtung) und Maßstab nebeneinander
+    await page.getByTitle('Planangaben').click();
+    await expect(page.getByTestId('plan-details')).toBeVisible();
+    await page.getByTestId('sheet-paper').scrollIntoViewIfNeeded();
+    await pruefe(page, 'Planangaben bearbeiten', out);
+    // „Querformat“ muss im Auswahlfeld ganz Platz haben (Text + Pfeil des Auswahlfelds)
+    const orient = await page.getByTestId('sheet-orient').evaluate((el: HTMLSelectElement) => {
+      const cs = getComputedStyle(el);
+      const ctx = document.createElement('canvas').getContext('2d')!;
+      ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+      return { need: ctx.measureText('Querformat').width, room: el.getBoundingClientRect().width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 24 };
+    });
+    if (orient.need > orient.room) out.push(`Planangaben: „Querformat“ passt nicht ins Auswahlfeld (${Math.round(orient.need)} > ${Math.round(orient.room)} px)`);
+    await page.getByTestId('plan-details').getByRole('button', { name: 'Abbrechen' }).click();
+    await expect(page.getByTestId('plan-details')).toHaveCount(0);
     await pickTool(page, 'draw-text');
     const sb = (await page.getByTestId('drawing-sheet').boundingBox())!;
     await page.mouse.click(sb.x + sb.width * 0.4, sb.y + sb.height * 0.3);
