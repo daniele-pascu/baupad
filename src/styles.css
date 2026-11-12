@@ -2606,7 +2606,7 @@ tr.lv-flagged td {
 }
 .plan-row {
   display: grid;
-  grid-template-columns: minmax(70px, 0.7fr) minmax(120px, 1.4fr) minmax(120px, 1.6fr) minmax(175px, 1.2fr) 84px 96px 48px;
+  grid-template-columns: minmax(70px, 0.7fr) minmax(120px, 1.4fr) minmax(120px, 1.6fr) minmax(175px, 1.2fr) 96px 48px;
   align-items: center;
   gap: 12px;
   padding: 8px 6px 8px 16px;
@@ -2666,9 +2666,6 @@ tr.lv-flagged td {
 .pl-services {
   font-size: 0.88rem;
   white-space: nowrap;
-}
-.pl-unit {
-  display: none;
 }
 .pl-actions {
   display: flex;
@@ -2730,12 +2727,12 @@ tr.lv-flagged td {
     gap: 8px 12px;
   }
   .plan-row {
-    grid-template-columns: auto auto minmax(0, 1fr) 44px;
+    grid-template-columns: auto minmax(0, 1fr) 44px;
     grid-template-areas:
-      'num   num   num   act'
-      'name  name  name  act'
-      'note  note  note  act'
-      'count area  svc   act';
+      'num   num   act'
+      'name  name  act'
+      'note  note  act'
+      'area  svc   act';
     gap: 2px 12px;
     padding: 10px 4px 10px 14px;
   }
@@ -2753,9 +2750,6 @@ tr.lv-flagged td {
   .pl-note .pl-empty {
     display: none;
   }
-  .pl-count {
-    grid-area: count;
-  }
   .pl-area {
     grid-area: area;
   }
@@ -2763,19 +2757,14 @@ tr.lv-flagged td {
     grid-area: svc;
     text-align: right;
   }
-  .pl-count,
   .pl-area,
   .pl-services {
     font-size: 0.85rem;
     margin-top: 4px;
   }
-  .pl-count,
   .pl-area {
     text-align: left !important;
     color: var(--muted);
-  }
-  .pl-unit {
-    display: inline;
   }
   .pl-actions {
     grid-area: act;

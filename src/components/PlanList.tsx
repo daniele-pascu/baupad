@@ -25,7 +25,7 @@ interface Props {
 
 /**
  * Kompakte Planliste: eine Zeile je Plan mit Plannummer, Bezeichnung/Ebene, Bemerkung,
- * Leistungszuordnung, Anzahl der Messungen und Flächensumme. Auf dem Smartphone werden
+ * Leistungszuordnung und Flächensumme (ohne Anzahl der Messungen). Auf dem Smartphone werden
  * die Angaben zweizeilig unter der Plannummer angeordnet.
  */
 export function PlanList({ data, plans, onEdit, onRename, onCrop, onReuse, onDuplicate, onRotate, onDelete, onPdf }: Props) {
@@ -36,9 +36,6 @@ export function PlanList({ data, plans, onEdit, onRename, onCrop, onReuse, onDup
         <span role="columnheader">Bezeichnung / Ebene</span>
         <span role="columnheader">Bemerkung</span>
         <span role="columnheader">Leistungen</span>
-        <span role="columnheader" className="num">
-          Messungen
-        </span>
         <span role="columnheader" className="num">
           Fläche
         </span>
@@ -84,10 +81,6 @@ export function PlanList({ data, plans, onEdit, onRename, onCrop, onReuse, onDup
                     </span>
                   ))
                 : 'Keine Leistungszuordnung'}
-            </span>
-            <span role="cell" className="pl-count num" data-testid="plan-count">
-              {damages.length}
-              <span className="pl-unit"> Messung{damages.length === 1 ? '' : 'en'}</span>
             </span>
             <span role="cell" className="pl-area num" data-testid="plan-area">
               {damages.length ? `${formatArea(sumArea(damages))} m²` : <span className="muted">–</span>}

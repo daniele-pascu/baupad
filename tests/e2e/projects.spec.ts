@@ -356,13 +356,15 @@ test('Bestehendes Projekt mit mehreren Kostenstellen: nichts geht verloren, Plan
   await expect(page.getByTestId('project-cost-centers')).toHaveText('Tiefgarage, Stiege 1');
   await expect(page.getByTestId('cost-center-select').locator('option')).toHaveText(['Tiefgarage (1)', 'Stiege 1 (1)']);
 
-  // Planliste: Plannummer, Bezeichnung, Ebene, Bemerkung, Leistungen, Anzahl, Fläche
+  // Planliste: Plannummer, Bezeichnung, Ebene, Bemerkung, Leistungen, Fläche – keine Anzahl der Messungen
   const row = page.getByTestId('plan-row').filter({ hasText: '067' });
   await expect(row).toContainText('Untergeschoss');
   await expect(row).toContainText('UG2');
   await expect(row.getByTestId('plan-note')).toHaveText('Bereich Tiefgarage Nord');
   await expect(row).toContainText('Keine Leistungszuordnung');
-  await expect(row.getByTestId('plan-count')).toContainText('2');
+  await expect(row.getByTestId('plan-count')).toHaveCount(0);
+  await expect(row).not.toContainText('Messung');
+  await expect(page.getByTestId('plan-list').getByRole('columnheader', { name: 'Messungen' })).toHaveCount(0);
   await expect(row.getByTestId('plan-area')).toHaveText('3,70 m²');
 
   await selectCostCenter(page, 'Stiege 1');

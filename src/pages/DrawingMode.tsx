@@ -42,7 +42,7 @@ import { boundarySegments, regionAt, withRoomAreas } from '../lib/regions';
 import { symbolPicker } from '../components/SymbolPicker';
 import { symbolAnchor, symbolDef, symbolGeometry, symbolWall, type SymbolGroup } from '../lib/symbols';
 import { wallOpenings, wallGeometry } from '../lib/walls';
-import { dimsVisible, visibleDamages, visibleElements } from '../lib/layers';
+import { dimsVisible, visibleElements } from '../lib/layers';
 import { distToSegment, isOpenShape, lineShape, pathToSvg, rectsOverlap, removeVertex, setPolylineClosed, shapeAABB, pointInPolygon, polygonArea, shapeFromVertices, shapePath, shapeVertices, toScreen, type Point, type View } from '../lib/geometry';
 import { newMeta, putRecord, putRecords, softDelete, type ProjectState } from '../lib/store';
 import type { Damage, DrawElement, DrawElementType, GuideLine, Plan, Rect, Shape, ShapeStyle, TextFont } from '../lib/types';
@@ -451,7 +451,6 @@ export function useDrawing(opts: {
       })
       .filter((c): c is { c: Point; r: number } => !!c);
   const showDims = dimsVisible(plan);
-  const shownDamages = visibleDamages(plan, damages);
   const elements = useMemo(() => stored.map((e) => (overrides[e.id] ? { ...e, shape: overrides[e.id] } : e)), [stored, overrides]);
   const byId = useMemo(() => new Map(elements.map((e) => [e.id, e])), [elements]);
   const items: ViewerItem[] = useMemo(
@@ -1810,19 +1809,10 @@ export function useDrawing(opts: {
     return e ? renderElement(e, item.shape, view, sel || selSet.has(e.id), false, k, openingsPage, hatchUnit) : null;
   };
 
-  const markerPaths = (view: View) => (
-    <g className="faded-markers" opacity={0.35} key="faded">
-      {shownDamages.map((d) => (
-        <path key={d.id} d={pathToSvg(shapePath(d.shape), (p) => toScreen(view, p))} fill="none" stroke={d.color} strokeWidth={2} strokeDasharray="5 4" />
-      ))}
-    </g>
-  );
-
-  /** Planbearbeitung: Zeichenfläche mit Raster, Messungen nur blass zur Orientierung */
+  /** Planbearbeitung: nur die Zeichenfläche mit Raster – Messungen gehören ins Aufmaß und werden hier nicht gezeigt */
   const drawUnderlay = (region: Rect) => (view: View, size: { w: number; h: number }) => (
     <>
       {renderSheet(view, size, region, k, true, true)}
-      {markerPaths(view)}
     </>
   );
 
