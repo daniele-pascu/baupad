@@ -5,7 +5,7 @@ import { aufmassRows, costCenterLabel, costCentersOf, lvDocsOf, plansOf, positio
 import { invoiceLabel, invoiceShort } from './invoices';
 import { deductionArea, deductionLength, grossArea, hasArea, kindOf, quantityBasis, quantityFor } from './measure';
 import { MEASURE_TYPES, typeOf } from './measure-types';
-import { bookingFactor } from './pos-rules';
+import { activeRule, bookingFactor } from './pos-rules';
 import type { ProjectState } from './store';
 import type { Damage, Deduction, LvDocument, LvPosition, Plan } from './types';
 import { A4_HEIGHT_IN, BLATT_BOTTOM_IN, blank, blattTopMargin, buildXlsx, num, str, type Cell, type HeaderImage, type Sheet } from './xlsx';
@@ -36,7 +36,7 @@ const COLS = 'ABCDEFGHIJ';
 const QTY = 5;
 
 /** `factor`: Schadstelle zählt über die Regel der Position mehrfach (Zulage: Zahl der Stufen) */
-type Item = { plan: Plan; d: Damage; factor?: number };
+type Item = { plan: Plan; d: Damage; factor?: number; /** Bewehrungsposition: zählt die bei der Schadstelle eingetragenen lfm */ rebar?: boolean };
 /** Tabellenart; `areaDepth` = Flächen mit Tiefe als Angabe (Summe m², ohne Position); `free` = freie Menge mit eigener Einheit */
 type Kind = 'count' | 'length' | 'area' | 'areaDepth' | 'volume' | 'liter' | 'other' | 'free';
 
@@ -153,7 +153,8 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
       .map((pos) => {
         // von Hand zugeordnet oder automatisch über die Regel der Position (Größe, Tiefe, Zulage mit Stufen)
         const ref = positionRef(doc.id, pos.id);
-        return { pos, list: items.flatMap((x): Item[] => ((f) => (f > 0 ? [{ ...x, factor: f }] : []))(bookingFactor(data, x.d, ref))) };
+        const rebar = !!activeRule(pos)?.rebar;
+        return { pos, list: items.flatMap((x): Item[] => ((f) => (f > 0 ? [{ ...x, factor: f, rebar: rebar && x.d.positionRef !== ref }] : []))(bookingFactor(data, x.d, ref))) };
       })
       .filter((b) => b.list.length);
     if (!blocks.length) continue;
@@ -310,7 +311,9 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
     const notes = lines.map(({ item, ded }) =>
       ded
         ? dedNote(ded, !areaTable)
-        : [steps(item) ? `${item.factor} Stufen${item.d.depth !== null ? ` (Tiefe ${Math.round(item.d.depth * 1000 * 10) / 10} mm)` : ''}` : '', remark(item.d, kind)].filter(Boolean).join(' · '),
+        : [item.rebar ? 'Bewehrung der Schadstelle' : '', steps(item) ? `${item.factor} Stufen${item.d.depth !== null ? ` (Tiefe ${Math.round(item.d.depth * 1000 * 10) / 10} mm)` : ''}` : '', remark(item.d, kind)]
+            .filter(Boolean)
+            .join(' · '),
     );
     add(
       fillRow(
@@ -360,6 +363,13 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
       }
       let cells: Cell[];
       const baseUnit = kind === 'area' || kind === 'areaDepth' ? 'm²' : kind === 'volume' ? 'm³' : kind === 'count' ? 'Stk' : kind === 'length' ? 'm' : null;
+      if (item.rebar) {
+        // Bewehrungsposition: Länge der Bewehrung, die bei der Schadstelle eingetragen ist
+        const qty = d.rebar ?? null;
+        total += qty ?? 0;
+        add(fillRow([planCell(plan), nrCell(d), null, null, null, qn(qty), null, noteCell], 'amRowBlank'));
+        return;
+      }
       if (steps(item) && baseUnit) {
         // Zulage: Stufen × Nettomenge der Schadstelle (als Formel, damit man die Stufen sieht)
         const base = quantityFor(baseUnit, [d]).value;

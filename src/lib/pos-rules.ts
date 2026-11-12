@@ -25,8 +25,17 @@ function normalize(text: string): string {
     .replace(/≥|>=|>/g, 'über ');
 }
 
+/** Folgeleistungen einer Schadstelle: Arbeiten, die zu jeder instand gesetzten Stelle gehören */
+const FOLLOW = /(reprofil|betonersatz|haftbr(ü|ue)cke|haftschl(ä|ae)mme|korrosionsschutz|nachbehand|vorn(ä|ae)ssen|feinm(ö|oe)rtel|schadstelle|ausbruchstelle|abtragstelle|fehlstelle)/;
+/** Bewehrung bearbeiten (entrosten, beschichten, ergänzen) – abgerechnet nach Länge */
+const REBAR = /(bewehrung|betonstahl|bewehrungsstahl|bewehrungsst(ä|ae)b)/;
+const unitKind = (unit: string | undefined) => {
+  const u = (unit ?? '').trim().toLowerCase().replace(/[\s.]/g, '');
+  return ['m²', 'm2', 'qm'].includes(u) ? 'area' : ['m', 'lfm', 'lm', 'lfdm'].includes(u) ? 'length' : ['stk', 'st', 'stück', 'stueck'].includes(u) ? 'count' : null;
+};
+
 /** Regel aus dem Text einer Position vorschlagen (null = nichts erkannt). */
-export function detectRule(pos: Pick<LvPosition, 'shortText' | 'longText'>): PosRule | null {
+export function detectRule(pos: Pick<LvPosition, 'shortText' | 'longText'> & Partial<Pick<LvPosition, 'unit'>>): PosRule | null {
   const text = normalize(`${pos.shortText}\n${pos.longText ?? ''}`);
   // streifenförmige Schadstellen (Abrechnung nach Länge) werden noch nicht automatisch zugeordnet – kein Vorschlag
   if (/streifen/.test(text)) return null;
@@ -66,12 +75,18 @@ export function detectRule(pos: Pick<LvPosition, 'shortText' | 'longText'>): Pos
     } else if (dTo) rule.depthTo = mm(dTo[1], dTo[2]);
     else if (dFrom) rule.depthFrom = mm(dFrom[1], dFrom[2]);
   }
-  return hasRule(rule) ? rule : null;
+  if (hasRule(rule)) return rule;
+  // ohne Klasse: Bewehrung nach Länge bzw. Folgeleistung je Schadstelle (nach Fläche oder Stück)
+  const kind = unitKind(pos.unit);
+  if (REBAR.test(text) && kind === 'length') return { rebar: true };
+  if (FOLLOW.test(text) && (kind === 'area' || kind === 'count')) return { always: true };
+  return null;
 }
 
+const hasBounds = (r: PosRule) => [r.areaFrom, r.areaTo, r.depthFrom, r.depthTo, r.stepMm].some((v) => v !== null && v !== undefined);
+
 /** Regel enthält mindestens eine Angabe */
-export const hasRule = (r: PosRule | null | undefined): r is PosRule =>
-  !!r && [r.areaFrom, r.areaTo, r.depthFrom, r.depthTo, r.stepMm].some((v) => v !== null && v !== undefined);
+export const hasRule = (r: PosRule | null | undefined): r is PosRule => !!r && (hasBounds(r) || !!r.always || !!r.rebar);
 
 const de = (n: number) => n.toLocaleString('de-DE', { maximumFractionDigits: 3 });
 const range = (from: number | null | undefined, to: number | null | undefined, unit: string) =>
@@ -79,7 +94,9 @@ const range = (from: number | null | undefined, to: number | null | undefined, u
 
 /** Regel in Worten, z. B. „über 0,25 bis 1,5 m² · Tiefe bis 40 mm“ oder „je weitere 10 mm ab 60 mm“ */
 export function ruleText(r: PosRule, stepFrom?: number | null): string {
+  if (r.rebar) return 'Bewehrung der Schadstelle (lfm)';
   const parts: string[] = [];
+  if (r.always && !hasBounds(r)) return 'jede Schadstelle';
   const a = range(r.areaFrom, r.areaTo, 'm²');
   if (a) parts.push(`Größe ${a}`);
   const d = range(r.depthFrom, r.depthTo, 'mm');
@@ -98,8 +115,10 @@ const EPS = 1e-6;
  * n = Anzahl der Stufen einer Zulage (jede angefangene Stufe zählt: 1 mm über der Grenze ist schon die nächste).
  * `maxDepthTo`: größte Tiefenklasse der zugehörigen Positionen (Beginn der Zulage, wenn die Regel keinen nennt).
  */
-export function ruleFactor(r: PosRule, d: Pick<Damage, 'area' | 'depth' | 'count'>, maxDepthTo: number | null = null): number {
+export function ruleFactor(r: PosRule, d: Pick<Damage, 'area' | 'depth' | 'count'> & Partial<Pick<Damage, 'rebar'>>, maxDepthTo: number | null = null): number {
   if (!hasRule(r)) return 0;
+  // Bewehrung: nur Schadstellen, bei denen eine Bewehrungslänge eingetragen ist
+  if (r.rebar) return (d.rebar ?? 0) > 0 ? 1 : 0;
   if (r.areaFrom != null || r.areaTo != null) {
     if (d.area === null) return 0;
     const a = d.area / countOf(d); // Größe je einzelner Schadstelle

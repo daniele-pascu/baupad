@@ -530,6 +530,13 @@ export interface PosRule {
   stepMm?: number | null;
   /** Tiefe in mm, ab der die Zulage beginnt; fehlt = ab der größten Tiefenposition des LV */
   stepFrom?: number | null;
+  /**
+   * Folgeleistung: zählt bei jeder Schadstelle (z. B. Haftbrücke, Reprofilierung ohne Klassen) – auch ohne
+   * Größen- oder Tiefengrenze; angegebene Grenzen gelten zusätzlich.
+   */
+  always?: boolean;
+  /** Bewehrung: zählt die Bewehrungslänge (lfm), die bei der Schadstelle eingetragen ist */
+  rebar?: boolean;
   /** vom Benutzer bestätigt – nur bestätigte Regeln werden angewendet */
   confirmed?: boolean;
 }

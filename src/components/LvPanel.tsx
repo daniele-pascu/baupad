@@ -26,12 +26,13 @@ function measured(data: ProjectState, doc: LvDocument, pos: LvPosition) {
   const booked = bookedForPosition(data, positionRef(doc.id, pos.id));
   const damages = booked.map((b) => b.d);
   let q = quantityFor(pos.unit, damages);
-  if (booked.some((b) => b.factor !== 1)) {
-    // Zulage: jede Schadstelle zählt mit ihrer Stufenzahl
+  const rebar = !!activeRule(pos)?.rebar;
+  if (rebar || booked.some((b) => b.factor !== 1)) {
+    // Zulage: jede Schadstelle zählt mit ihrer Stufenzahl · Bewehrung: die bei der Schadstelle eingetragenen lfm
     let value: number | null = null;
     let missing = 0;
     for (const b of booked) {
-      const one = quantityFor(pos.unit, [b.d]);
+      const one = rebar && b.auto ? { value: b.d.rebar ?? null, missing: 0 } : quantityFor(pos.unit, [b.d]);
       missing += one.missing;
       if (one.value !== null) value = (value ?? 0) + b.factor * one.value;
     }
@@ -375,7 +376,7 @@ function LvDocView({ data, doc, prices, onEdit, onDelete }: { data: ProjectState
           {prices && suggestions > 0 && (
             <p className="lv-rules-hint" data-testid="lv-rules-hint">
               <span>
-                {suggestions} Schadstellen-Position{suggestions === 1 ? '' : 'en'} erkannt (Größe, Tiefe oder Zulage im Text). Nach dem Bestätigen zählt jede Schadstelle automatisch bei der passenden Position.
+                {suggestions} Schadstellen-Position{suggestions === 1 ? '' : 'en'} erkannt (Größe, Tiefe, Zulage oder Folgeleistung im Text). Nach dem Bestätigen zählt jede Schadstelle automatisch bei den passenden Positionen.
               </span>
               <button type="button" className="btn btn-sm btn-primary" onClick={() => setRulesOpen(true)} data-testid="lv-rules-review">
                 Prüfen und bestätigen
@@ -483,6 +484,7 @@ function LvDocView({ data, doc, prices, onEdit, onDelete }: { data: ProjectState
                                   </a>{' '}
                                   <span className="muted">
                                     {formatMeasure(netLength(d))} m{d.area !== null ? ` · ${formatArea(d.area)} m²` : ''}
+                                    {auto && activeRule(pos)?.rebar ? ` · Bewehrung ${formatMeasure(d.rebar ?? 0)} lfm` : ''}
                                     {d.depth !== null && d.depth !== undefined && auto ? ` · Tiefe ${formatMeasure(d.depth * 1000)} mm` : ''}
                                     {factor > 1 ? ` · ${factor} Stufen` : ''}
                                     {auto ? ' · automatisch' : ''}
@@ -862,7 +864,8 @@ function DocDialog({
   );
 }
 
-type RuleRow = { id: string; use: boolean; areaFrom: string; areaTo: string; depthFrom: string; depthTo: string; stepMm: string; stepFrom: string };
+type RuleMode = 'class' | 'always' | 'rebar';
+type RuleRow = { id: string; use: boolean; mode: RuleMode; areaFrom: string; areaTo: string; depthFrom: string; depthTo: string; stepMm: string; stepFrom: string };
 const numIn = (v: number | null | undefined) => (v === null || v === undefined ? '' : String(v).replace('.', ','));
 const numOut = (v: string) => (v.trim() ? parseDecimal(v) : null);
 
@@ -874,6 +877,7 @@ function RulesDialog({ doc, onClose, onSave }: { doc: LvDocument; onClose: () =>
   const rowOf = (p: LvPosition, r: PosRule | null, use: boolean): RuleRow => ({
     id: p.id,
     use,
+    mode: r?.rebar ? 'rebar' : r?.always ? 'always' : 'class',
     areaFrom: numIn(r?.areaFrom),
     areaTo: numIn(r?.areaTo),
     depthFrom: numIn(r?.depthFrom),
@@ -892,8 +896,20 @@ function RulesDialog({ doc, onClose, onSave }: { doc: LvDocument; onClose: () =>
   );
   const [add, setAdd] = useState('');
   const set = (id: string, patch: Partial<RuleRow>) => setRows((list) => list.map((r) => (r.id === id ? { ...r, ...patch } : r)));
-  const ruleOf = (r: RuleRow): PosRule => ({ areaFrom: numOut(r.areaFrom), areaTo: numOut(r.areaTo), depthFrom: numOut(r.depthFrom), depthTo: numOut(r.depthTo), stepMm: numOut(r.stepMm), stepFrom: numOut(r.stepFrom) });
-  const bad = (r: RuleRow) => r.use && ([r.areaFrom, r.areaTo, r.depthFrom, r.depthTo, r.stepMm, r.stepFrom].some((v) => v.trim() && (numOut(v) === null || numOut(v)! < 0)) || !hasRule(ruleOf(r)));
+  const ruleOf = (r: RuleRow): PosRule =>
+    r.mode === 'rebar'
+      ? { rebar: true }
+      : {
+          areaFrom: numOut(r.areaFrom),
+          areaTo: numOut(r.areaTo),
+          depthFrom: numOut(r.depthFrom),
+          depthTo: numOut(r.depthTo),
+          stepMm: numOut(r.stepMm),
+          stepFrom: numOut(r.stepFrom),
+          ...(r.mode === 'always' ? { always: true } : {}),
+        };
+  const bad = (r: RuleRow) =>
+    r.use && ((r.mode !== 'rebar' && [r.areaFrom, r.areaTo, r.depthFrom, r.depthTo, r.stepMm, r.stepFrom].some((v) => v.trim() && (numOut(v) === null || numOut(v)! < 0))) || !hasRule(ruleOf(r)));
   const invalid = rows.some(bad);
   const others = doc.positions.filter((p) => !rows.some((r) => r.id === p.id));
   const used = rows.filter((r) => r.use).length;
@@ -938,8 +954,9 @@ function RulesDialog({ doc, onClose, onSave }: { doc: LvDocument; onClose: () =>
       }
     >
       <p className="muted small">
-        Positionen, die nach Größe je Schadstelle, nach Tiefe oder als Zulage ausgeschrieben sind. Die Werte sind aus dem Positionstext gelesen – bitte prüfen. Danach zählt jede Schadstelle
-        automatisch bei allen Positionen, deren Angaben zu ihrer Fläche und Tiefe passen. Leeres Feld = keine Grenze; „über“ schließt den Wert aus, „bis“ schließt ihn ein.
+        Positionen, die zu einer Schadstelle gehören: nach Größe und Tiefe ausgeschrieben, als Zulage, als Folgeleistung (z. B. Reprofilierung, Haftbrücke) oder für die Bewehrung. Die Angaben
+        sind aus dem Positionstext gelesen – bitte prüfen. Danach zählt jede Schadstelle automatisch bei allen passenden Positionen, so ist die Leistung von A bis Z erfasst. Leeres Feld = keine
+        Grenze; „über“ schließt den Wert aus, „bis“ schließt ihn ein.
       </p>
       {!rows.length && <p className="muted">Im Text dieses LV wurden keine Größen- oder Tiefenangaben erkannt. Unten kannst du eine Position von Hand hinzufügen.</p>}
       <div className="rule-list">
@@ -953,7 +970,15 @@ function RulesDialog({ doc, onClose, onSave }: { doc: LvDocument; onClose: () =>
                   <strong>{p.number}</strong> {p.shortText}
                 </span>
               </label>
-              <div className="rule-fields">
+              <label className="rule-mode">
+                <span>Zählt</span>
+                <select value={r.mode} onChange={(e) => set(r.id, { mode: e.target.value as RuleMode })} disabled={!r.use} data-testid="rule-mode">
+                  <option value="class">nach Größe und Tiefe der Schadstelle</option>
+                  <option value="always">bei jeder Schadstelle (Folgeleistung)</option>
+                  <option value="rebar">mit der Bewehrung der Schadstelle (lfm)</option>
+                </select>
+              </label>
+              <div className="rule-fields" hidden={r.mode === 'rebar'}>
                 {field(r, 'areaFrom', 'Größe über', 'm²')}
                 {field(r, 'areaTo', 'Größe bis', 'm²')}
                 {field(r, 'depthFrom', 'Tiefe über', 'mm')}
@@ -966,7 +991,7 @@ function RulesDialog({ doc, onClose, onSave }: { doc: LvDocument; onClose: () =>
                   {ruleText(ruleOf(r))}
                 </p>
               )}
-              {bad(r) && <p className="small error">Bitte mindestens einen gültigen Wert (Zahl ab 0) eingeben oder die Position abwählen.</p>}
+              {bad(r) && <p className="small error">Bitte mindestens einen gültigen Wert (Zahl ab 0) eingeben, „bei jeder Schadstelle“ wählen oder die Position abwählen.</p>}
             </div>
           );
         })}

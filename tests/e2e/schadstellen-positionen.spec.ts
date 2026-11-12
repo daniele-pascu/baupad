@@ -145,36 +145,115 @@ test('Positionen nach Größe und Tiefe werden erkannt, bestätigt und Schadstel
 
 });
 
-test('Beispiel-LV „Betoninstandsetzung“ (PDF) importieren: alle Positionen, Schadstellen-Positionen werden erkannt', async ({ page }) => {
+test('Beispiel-LV „Betoninstandsetzung“ (PDF): Klassen, Zulage, Folgeleistungen und Bewehrung erkannt – eine Schadstelle zählt von A bis Z', async ({ page }) => {
   await freshStart(page);
   await createProject(page, 'Beispiel-LV', {}, ['UG']);
   await page.getByTestId('lv-file-input').setInputFiles(join(FIXTURES, 'schadstellen-lv.pdf'));
   const review = page.getByTestId('lv-review');
   const summary = review.getByTestId('lv-review-summary');
-  await expect(summary).toContainText('15 Positionen');
-  await expect(summary).toContainText('193.142,13 €');
+  await expect(summary).toContainText('18 Positionen');
+  await expect(summary).toContainText('230.612,13 €');
   await expect(review.getByTestId('lv-total-check')).toContainText('Summe stimmt mit dem Dokument überein');
   await expect(summary).not.toContainText('unsicheren Angaben');
   await review.getByTestId('lv-review-save').click();
   await page.getByTestId('lv-doc-tab').last().click();
-  await expect(page.getByTestId('lv-row')).toHaveCount(15);
+  await expect(page.getByTestId('lv-row')).toHaveCount(18);
   await expect(page.getByTestId('lv-flagged')).toHaveCount(0);
-  // fünf Klassen und die Zulage erkannt; Streifen (lfm), Sandstrahlen, Egalisierung … nicht
-  await expect(page.getByTestId('lv-rules-hint')).toContainText('6 Schadstellen-Positionen erkannt');
+  // erkannt: fünf Klassen, Zulage, Reprofilierung (zwei Tiefen), Haftbrücke (Folgeleistung), Bewehrung –
+  // nicht: Streifen (lfm), Sandstrahlen, Egalisierung, Risse …
+  await expect(page.getByTestId('lv-rules-hint')).toContainText('10 Schadstellen-Positionen erkannt');
   await page.getByTestId('lv-rules-review').click();
   const rules = page.getByTestId('lv-rules-dialog');
   const numbers = await rules.getByTestId('rule-row').evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.number));
-  expect(numbers).toEqual(['01.14.20.01A.', '01.14.20.01B.', '01.14.20.01C.', '01.14.20.01D.', '01.14.20.01E.', '01.14.20.02A.']);
-  const summaries = await rules.getByTestId('rule-summary').allTextContents();
-  expect(summaries).toEqual([
+  expect(numbers).toEqual([
+    '01.14.20.01A.',
+    '01.14.20.01B.',
+    '01.14.20.01C.',
+    '01.14.20.01D.',
+    '01.14.20.01E.',
+    '01.14.20.02A.',
+    '01.14.25.01A.',
+    '01.14.25.01B.',
+    '01.14.25.02A.',
+    '01.14.40.02A.',
+  ]);
+  expect(await rules.getByTestId('rule-summary').allTextContents()).toEqual([
     'Größe bis 0,25 m² · Tiefe bis 20 mm',
     'Größe bis 0,25 m² · Tiefe über 20 bis 40 mm',
     'Größe über 0,25 bis 1,5 m² · Tiefe bis 20 mm',
     'Größe über 0,25 bis 1,5 m² · Tiefe über 20 bis 40 mm',
     'Größe über 1,5 m² · Tiefe bis 40 mm',
     'je weitere 10 mm ab der größten Tiefenposition',
+    'Tiefe bis 20 mm',
+    'Tiefe über 20 bis 40 mm',
+    'jede Schadstelle',
+    'Bewehrung der Schadstelle (lfm)',
   ]);
+  const mode = (no: string) => rules.locator(`[data-testid="rule-row"][data-number="${no}"]`).getByTestId('rule-mode');
+  await expect(mode('01.14.20.01A.')).toHaveValue('class');
+  await expect(mode('01.14.25.02A.')).toHaveValue('always');
+  await expect(mode('01.14.40.02A.')).toHaveValue('rebar');
   await rules.getByTestId('lv-rules-save').click();
-  await expect(page.getByTestId('lv-rule')).toHaveCount(6);
+  await expect(page.getByTestId('lv-rule')).toHaveCount(10);
   await expect(page.locator('[data-testid="lv-row"][data-number="01.14.20.02A."]').getByTestId('lv-rule')).toHaveText('je weitere 10 mm ab 40 mm');
+  await waitSaved(page);
+  const projectUrl = page.url();
+
+  // eine Schadstelle: 0,40 × 0,50 m, 61 mm tief, 2 × 0,60 m Bewehrung
+  await page.getByTestId('draw-plan').click();
+  const nd = page.getByTestId('new-drawing');
+  await nd.locator('[data-field="planNumber"]').fill('S-1');
+  await nd.getByTestId('new-drawing-save').click();
+  await page.getByTestId('mode-measure').click();
+  await chooseMeasureType(page, 'schadstelle');
+  const sb = (await page.getByTestId('drawing-sheet').boundingBox())!;
+  await pickTool(page, 'tool-rect');
+  await page.mouse.move(sb.x + 150, sb.y + 150);
+  await page.mouse.down();
+  await page.mouse.move(sb.x + 190, sb.y + 180, { steps: 4 });
+  await page.mouse.move(sb.x + 230, sb.y + 210, { steps: 4 });
+  await page.mouse.up();
+  const md = page.getByTestId('damage-dialog');
+  await md.getByTestId('input-length').fill('0,4');
+  await md.getByTestId('input-width').fill('0,5');
+  await md.getByTestId('input-depth').fill('0,061');
+  const auto = () => md.getByTestId('auto-position').evaluateAll((els) => els.map((e) => [(e as HTMLElement).closest('label')!.textContent!.trim().split(' ')[0], Number((e as HTMLElement).dataset.factor)]));
+  // Abtrag (größte Tiefenklasse), Zulage 3 Stufen, Reprofilierung (größte Tiefe), Haftbrücke – Bewehrung erst mit Länge
+  expect(await auto()).toEqual([
+    ['01.14.20.01B.', 1],
+    ['01.14.20.02A.', 3],
+    ['01.14.25.01B.', 1],
+    ['01.14.25.02A.', 1],
+  ]);
+  await md.getByTestId('rebar-add').click();
+  await md.getByTestId('rebar-count').nth(0).fill('2');
+  await md.getByTestId('rebar-length').nth(0).fill('0,6');
+  expect((await auto()).at(-1)).toEqual(['01.14.40.02A.', 1]);
+  expect(await auto()).toHaveLength(5);
+  await md.getByTestId('damage-save').click();
+  await expect(md).toBeHidden();
+  await waitSaved(page);
+
+  // Excel: die Schadstelle steht bei allen fünf Positionen – Bewehrung mit ihren 1,20 lfm
+  const dl = await catchDownload(page, () => excelExport(page, 'export-xlsx-plan'));
+  const wb = readXlsx(await saveDownload(dl, 'schadstelle-a-bis-z.xlsx'));
+  const ws = wb[Object.keys(wb)[0]].map((r) => r.map((c) => c?.v ?? null));
+  const band = (no: string) => ws.findIndex((r, i) => r[0] === no && ws[i + 1]?.[0] === 'Plan');
+  for (const no of ['01.14.20.01B.', '01.14.20.02A.', '01.14.25.01B.', '01.14.25.02A.', '01.14.40.02A.']) expect(band(no), no).toBeGreaterThan(0);
+  expect(band('01.14.20.01A.')).toBe(-1);
+  const rb = band('01.14.40.02A.');
+  expect([ws[rb + 2][0], ws[rb + 2][1], ws[rb + 2][5]]).toEqual(['S-1', 1, 1.2]);
+  expect(String(ws[rb + 2][7])).toContain('Bewehrung der Schadstelle');
+  expect(ws.some((r) => r[0] === 'Aufmaß ohne Leistungsposition')).toBe(false);
+
+  // LV-Liste: Mengen ohne eine einzige Zuordnung von Hand
+  await page.goto(projectUrl);
+  if (!(await page.getByTestId('lv-table').isVisible())) await page.getByTestId('lv-doc-tab').first().click();
+  const measured = (no: string) => page.locator(`[data-testid="lv-row"][data-number="${no}"]`).getByTestId('lv-measured');
+  await expect(measured('01.14.20.01B.')).toHaveText('1,00'); // Stück
+  await expect(measured('01.14.20.02A.')).toHaveText('0,60'); // 3 Stufen × 0,20 m²
+  await expect(measured('01.14.25.01B.')).toHaveText('0,20');
+  await expect(measured('01.14.25.02A.')).toHaveText('0,20');
+  await expect(measured('01.14.40.02A.')).toHaveText('1,20'); // lfm Bewehrung
+  await expect(measured('01.14.10.02A.')).toHaveText('–'); // Sandstrahlen: keine Schadstellen-Position
 });

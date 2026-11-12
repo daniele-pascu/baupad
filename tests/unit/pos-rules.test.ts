@@ -36,6 +36,33 @@ describe('Regel aus dem Positionstext erkennen', () => {
   });
 });
 
+describe('Folgeleistungen und Bewehrung erkennen', () => {
+  const d2 = (shortText: string, unit: string) => detectRule({ shortText, longText: '', unit });
+  it('Folgeleistung ohne Klasse (m² oder Stk): zählt bei jeder Schadstelle', () => {
+    expect(d2('Haftbrücke auf die Schadstelle auftragen', 'm²')).toEqual({ always: true });
+    expect(d2('Reprofilierung mit PCC-Mörtel', 'm²')).toEqual({ always: true });
+    expect(d2('Korrosionsschutz auftragen', 'Stk')).toEqual({ always: true });
+  });
+  it('mit Klasse bleibt es die Klasse', () => {
+    expect(d2('Reprofilierung mit PCC-Mörtel, Schichtdicke über 20 bis 40 mm', 'm²')).toEqual({ depthFrom: 20, depthTo: 40 });
+  });
+  it('Bewehrung nach Länge: zählt die lfm der Schadstelle', () => {
+    expect(d2('Bewehrung entrosten und beschichten', 'm')).toEqual({ rebar: true });
+    expect(d2('Bewehrung entrosten und beschichten', 'kg')).toBeNull();
+  });
+  it('flächige Arbeiten ohne Bezug zur Schadstelle bleiben außen vor', () => {
+    for (const t of ['Sandstrahlen der Betonoberfläche', 'Egalisierung', 'Betonretusche', 'Schutz der Betonstützen nach der Sanierung']) expect(d2(t, 'm²')).toBeNull();
+    expect(d2('Risse verpressen mit Injektionsharz', 'm')).toBeNull();
+  });
+  it('Anwendung: Folgeleistung immer, Bewehrung nur mit eingetragener Länge', () => {
+    expect(ruleFactor({ always: true }, dmg(0.2, null))).toBe(1);
+    expect(ruleFactor({ rebar: true }, dmg(0.2, 30))).toBe(0);
+    expect(ruleFactor({ rebar: true }, dmg(0.2, 30, { rebar: 1.2 }))).toBe(1);
+    expect(ruleText({ always: true })).toBe('jede Schadstelle');
+    expect(ruleText({ rebar: true })).toBe('Bewehrung der Schadstelle (lfm)');
+  });
+});
+
 describe('Regel anwenden', () => {
   it('Größe je Schadstelle: untere Grenze ausgeschlossen, obere eingeschlossen', () => {
     const small: PosRule = { areaTo: 0.25 };

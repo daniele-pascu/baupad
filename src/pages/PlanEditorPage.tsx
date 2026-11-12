@@ -1324,8 +1324,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   );
 
   /** Schadstellen-Positionen: Positionen, deren Regel (Größe, Tiefe, Zulage) zu diesen Werten passt */
-  const autoPositions = (m: { area: number | null; depth: number | null; count: number }) =>
-    autoBookings(data, { kind: 'damage', measureType: 'schadstelle', shape: { type: 'rect' }, area: m.area, depth: m.depth, count: m.count } as unknown as Damage).map((b) => ({
+  const autoPositions = (m: { area: number | null; depth: number | null; count: number; rebar: number }) =>
+    autoBookings(data, { kind: 'damage', measureType: 'schadstelle', shape: { type: 'rect' }, area: m.area, depth: m.depth, count: m.count, rebar: m.rebar } as unknown as Damage).map((b) => ({
       ...b,
       label: positionOptions.find((p) => p.ref === b.ref)?.label ?? b.ref,
     }));

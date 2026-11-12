@@ -106,7 +106,7 @@ interface Props {
    * Schadstellen-Positionen des LV: liefert zu Fläche (m²), Tiefe (m) und Anzahl alle Positionen, deren Regel
    * passt (Größen-/Tiefenklasse, Zulage mit Stufen) – dort zählt die Schadstelle automatisch.
    */
-  autoPositions?: (m: { area: number | null; depth: number | null; count: number }) => { ref: string; label: string; factor: number }[];
+  autoPositions?: (m: { area: number | null; depth: number | null; count: number; rebar: number }) => { ref: string; label: string; factor: number }[];
   /** Gezeichnete Pläne: Maße aus der Markierung (Maßstab bekannt) als Vorschlag */
   suggestion?: { length: number; width: number | null } | null;
   /** Kalibrierter bzw. gezeichneter Plan, geschlossene Form: Fläche und Umfang aus der Geometrie */
@@ -892,7 +892,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
         )}
         {(() => {
           // Schadstellen-Positionen: wo diese Schadstelle nach Größe und Tiefe automatisch zählt (abwählbar)
-          const auto = type === 'schadstelle' && autoPositions ? autoPositions({ area, depth: T?.ok ? T.value : null, count: n }) : [];
+          const auto = type === 'schadstelle' && autoPositions ? autoPositions({ area, depth: T?.ok ? T.value : null, count: n, rebar: rebarParsed.length && !rebarError ? rebarSum : 0 }) : [];
           if (!auto.length) return null;
           return (
             <div className="field auto-positions" data-testid="auto-positions">

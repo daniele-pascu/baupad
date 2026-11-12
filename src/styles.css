@@ -12119,3 +12119,24 @@ html[data-theme='dark'] .crew-search {
 .auto-positions .check-row input {
   margin-top: 1px;
 }
+/* Schadstellen-Positionen: Art der Zuordnung (Klasse, Folgeleistung, Bewehrung) */
+.rule-mode {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 8px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.rule-mode select {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: #fff;
+  font-size: 16px;
+}
+.rule-fields[hidden] {
+  display: none;
+}
