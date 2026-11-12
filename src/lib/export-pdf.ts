@@ -711,7 +711,28 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
       const textOff = dm.inline ? 5 : 4;
       drawRotatedText(dm.text, { x: g.mid.x + g.nx * textOff, y: g.mid.y + g.ny * textOff }, g.angle);
     }
-    for (const l of labels) drawRotatedText(l.text, paper({ x: l.at.x * k, y: l.at.y * k }), 0);
+    for (const l of labels) {
+      const at = paper({ x: l.at.x * k, y: l.at.y * k });
+      if (l.angle === undefined && !l.lines) {
+        drawRotatedText(l.text, at, 0);
+        continue;
+      }
+      // gedreht/mehrzeilig (Fenster nach ÖNORM): Zeilen quer zur Leserichtung, Bündigkeit wie am Bildschirm
+      const lines = l.lines ?? [l.text];
+      const anchor = l.anchor ?? 'middle';
+      const a = ((l.angle ?? 0) * Math.PI) / 180;
+      const d = { x: Math.cos(a), y: Math.sin(a) };
+      const down = { x: -Math.sin(a), y: Math.cos(a) };
+      const along = anchor === 'middle' ? 0 : (anchor === 'end' ? -1 : 1) * (l.pad ?? 0) * fs;
+      lines.forEach((ln, j) => {
+        const t = clean(ctx, ln);
+        const w = ctx.bold.widthOfTextAtSize(t, fs);
+        const x0 = (anchor === 'end' ? -w : anchor === 'middle' ? -w / 2 : 0) + along;
+        const y0 = (anchor === 'middle' ? (l.pad ?? 0) * fs : 0) + (j - (lines.length - 1) / 2) * fs * 1.15 + fs * 0.35;
+        const start = pdf({ x: at.x + d.x * x0 + down.x * y0, y: at.y + d.y * x0 + down.y * y0 });
+        page.drawText(t, { x: start.x, y: start.y, size: fs, font: ctx.bold, color: dimColor, rotate: degrees(-(l.angle ?? 0)) });
+      });
+    }
   }
   // Messungen und Bauteilbuchstaben darüber
   drawDamages(ctx, target, region, damages, components);

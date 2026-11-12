@@ -3,7 +3,7 @@ import { fromShapeLocal, freehandPoints, lineShape, polygonArea, shapeAABB, shap
 import { formatMeasure } from './numbers';
 import type { Damage, DrawElement, DrawingInfo, PaperFormat, Plan, Rect, Shape, TextFont } from './types';
 import { charWidthFactor } from './text-font';
-import { symbolAnchor } from './symbols';
+import { symbolAnchor, symbolDef } from './symbols';
 
 /**
  * Maßsystem selbst gezeichneter Pläne.
@@ -406,16 +406,61 @@ export function dimLeader(a2: Point, b2: Point, textW: number, fs: number): { pa
   return { path: [start, elbow, end], center, angle };
 }
 
-/** Freistehende Beschriftung (z. B. „Ø 2,00 m“). */
+/**
+ * Freistehende Beschriftung (z. B. „Ø 2,00 m“). Optional gedreht (`angle` in Grad, wie im Plan), mehrzeilig
+ * (`lines` nebeneinander quer zur Leserichtung) und mit Bündigkeit; `pad` = Abstand vom Bezugspunkt in Schrifthöhen
+ * (entlang der Leserichtung, bei `anchor` 'middle' quer dazu: negativ = darüber).
+ */
 export interface DimLabel {
   at: Point;
   text: string;
+  angle?: number;
+  anchor?: 'start' | 'middle' | 'end';
+  lines?: string[];
+  pad?: number;
+}
+
+const cm = (m: number) => String(Math.round(m * 100));
+
+/**
+ * Fenster nach ÖNORM A 6240: Breite und Höhe in cm, um 90° gedreht nebeneinander unter dem Fenster (z. B. 130 | 150),
+ * die Rohbauparapethöhe „RPH 90“ darüber. Ohne eingegebene Höhe steht nur die Breite.
+ */
+export function windowLabels(e: Pick<DrawElement, 'type' | 'shape' | 'showDims' | 'symbol' | 'opening'>): DimLabel[] {
+  if (e.type !== 'symbol' || e.showDims === false || symbolDef(e.symbol?.id)?.group !== 'window') return [];
+  const s = e.shape;
+  const rot = s.rotation ?? 0;
+  const L = (p: Point) => fromShapeLocal(s, p);
+  const bottom = L({ x: s.x + s.w / 2, y: s.y + s.h });
+  const top = L({ x: s.x + s.w / 2, y: s.y });
+  const h = e.opening?.height;
+  const lines = [cm(s.w), ...(h ? [cm(h)] : [])];
+  // Leserichtung vom Fenster weg nach außen gedreht (aufwärts lesbar); nie auf dem Kopf
+  let angle = rot - 90;
+  let anchor: DimLabel['anchor'] = 'end';
+  const norm = ((angle % 360) + 360) % 360;
+  // auf dem Kopf (zwischen 90° und 270°) → um 180° drehen; senkrecht lesbar (aufwärts bzw. abwärts) bleibt
+  if (norm > 90 && norm < 270) {
+    angle -= 180;
+    anchor = 'start';
+  }
+  const out: DimLabel[] = [{ at: bottom, text: lines.join('/'), angle, anchor, lines: anchor === 'start' ? [...lines].reverse() : lines, pad: 0.4 }];
+  const sill = e.opening?.sill;
+  if (sill !== null && sill !== undefined) {
+    let a2 = rot;
+    const n2 = ((a2 % 360) + 360) % 360;
+    const flip = n2 > 90 && n2 < 270;
+    if (flip) a2 -= 180;
+    // über dem Fenster (Seite gegenüber der Breite/Höhe); gedrehter Text bleibt lesbar, Abstand nach außen
+    out.push({ at: top, text: `RPH ${cm(sill)}`, angle: a2, anchor: 'middle', pad: flip ? 0.9 : -0.9 });
+  }
+  return out;
 }
 
 export const formatM = (n: number) => `${formatMeasure(roundM(n))} m`;
 
 /** Maßangaben eines Objekts (in m). */
-export function annotationsOf(e: Pick<DrawElement, 'type' | 'shape' | 'showDims'>): { dims: DimAnnotation[]; labels: DimLabel[] } {
+export function annotationsOf(e: Pick<DrawElement, 'type' | 'shape' | 'showDims'> & Partial<Pick<DrawElement, 'symbol' | 'opening'>>): { dims: DimAnnotation[]; labels: DimLabel[] } {
   const dims: DimAnnotation[] = [];
   const labels: DimLabel[] = [];
   const s = e.shape;
@@ -425,6 +470,7 @@ export function annotationsOf(e: Pick<DrawElement, 'type' | 'shape' | 'showDims'
     return { dims, labels };
   }
   if (e.showDims === false) return { dims, labels };
+  if (e.type === 'symbol') return { dims, labels: windowLabels(e) };
   // Unregelmäßiges Dreieck bzw. Polylinie: jede Seite mit ihrer Länge (aus den Eckpunkten berechnet);
   // offene Polylinie ohne Schlusskante
   if ((e.type === 'triangle' && !isRegularTriangle(s)) || (e.type === 'freehand' && (s.points?.length ?? 0) <= 12)) {

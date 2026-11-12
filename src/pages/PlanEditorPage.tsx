@@ -2005,6 +2005,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 onApply={(m) => drawing.apply(drawing.selected!.id, m)}
                 onText={(t) => drawing.setText(drawing.selected!.id, t)}
                 onShowDims={(v) => drawing.setShowDims(drawing.selected!.id, v)}
+                onOpening={(o) => drawing.setOpening(drawing.selected!.id, o)}
                 vertex={drawing.vertex}
                 canRemoveVertex={drawing.canRemoveVertex}
                 onRemoveVertex={() => drawing.removeSelectedVertex()}

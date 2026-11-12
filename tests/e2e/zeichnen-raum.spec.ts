@@ -221,3 +221,67 @@ test('Ziehen an Eckpunkt/Anfasser: Wand bleibt Wand, Raumstempel bleibt Raumstem
   near(st2.shape.w / st2.shape.h, stamp.shape.w / stamp.shape.h, 0.05);
   await expect(page.locator(`[data-room="1"][data-element-id="${stamp.id}"]`)).toHaveCount(1);
 });
+
+test('Fenster: ÖNORM-Beschriftung Breite/Höhe (cm) und RPH – nur mit „Maße anzeigen“, auch im PDF', async () => {
+  await escape();
+  await pickTool(page, 'draw-window');
+  const pk = page.getByTestId('symbol-picker');
+  await pk.getByTestId('symbol-win1').click();
+  const at = await screenOf({ x: 3, y: 12 });
+  await page.mouse.click(at.x, at.y);
+  await waitSaved(page);
+  const win = (await elements()).at(-1)!;
+  expect(win.symbol?.id).toBe('win1');
+  await page.getByTestId('command-done').click();
+  await escape();
+  const c = await screenOf({ x: win.shape.x + win.shape.w / 2, y: win.shape.y + win.shape.h / 2 });
+  await page.mouse.click(c.x, c.y);
+  const bar = page.getByTestId('element-bar');
+  await expect(bar).toContainText('Breite');
+  await expect(bar).toContainText('Tiefe');
+  const cm = String(Math.round(win.shape.w * 100));
+  // wie jede Form: neu ohne Maße; „Maße anzeigen“ an → ohne Höhe nur die Breite
+  await expect(page.getByTestId('window-label')).toHaveCount(0);
+  await bar.getByTestId('element-showdims').check();
+  await waitSaved(page);
+  await expect(page.locator(`[data-testid="window-label"][data-dim="${cm}"]`)).toHaveCount(1);
+  // Höhe eingeben → Breite und Höhe nebeneinander (gedreht)
+  await bar.getByTestId('window-height').fill('1,5');
+  await bar.getByTestId('window-height').press('Enter');
+  await waitSaved(page);
+  const lbl = page.locator(`[data-testid="window-label"][data-dim="${cm}/150"]`);
+  await expect(lbl).toHaveCount(1);
+  await expect(lbl.locator('text')).toHaveText([cm, '150']);
+  expect(await lbl.getAttribute('transform')).toContain('rotate(-90)');
+  // Brüstung RPH darüber
+  await bar.getByTestId('window-sill').fill('0,9');
+  await bar.getByTestId('window-sill').press('Enter');
+  await waitSaved(page);
+  await expect(page.locator('[data-testid="window-label"][data-dim="RPH 90"]')).toHaveCount(1);
+  {
+    const wc = await screenOf({ x: win.shape.x + win.shape.w / 2, y: win.shape.y + win.shape.h / 2 });
+    await page.mouse.move(wc.x, wc.y);
+    for (let i = 0; i < 4; i++) await page.mouse.wheel(0, -400);
+    await page.waitForTimeout(300);
+    const b = await screenOf({ x: win.shape.x - 0.8, y: win.shape.y - 0.8 });
+    const e2 = await screenOf({ x: win.shape.x + win.shape.w + 0.8, y: win.shape.y + win.shape.h + 1.2 });
+    await page.screenshot({ path: 'tests/output/fenster-oenorm.png', clip: { x: b.x, y: b.y, width: e2.x - b.x, height: e2.y - b.y } });
+  }
+  // Maße aus → keine Beschriftung; wieder an → da
+  await bar.getByTestId('element-showdims').uncheck();
+  await waitSaved(page);
+  await expect(page.getByTestId('window-label')).toHaveCount(0);
+  await bar.getByTestId('element-showdims').check();
+  await waitSaved(page);
+  await expect(page.getByTestId('window-label')).toHaveCount(2);
+
+  // PDF: Breite, Höhe und RPH als Text
+  await escape();
+  const dl = await catchDownload(page, async () => {
+    await page.getByTestId('export-pdf-plan').click();
+    await page.getByTestId('pdf-export-run').click();
+  });
+  const txt = execFileSync('pdftotext', [await saveDownload(dl, 'fenster.pdf'), '-'], { encoding: 'utf8' });
+  expect(txt).toContain('RPH 90');
+  expect(txt).toContain('150');
+});

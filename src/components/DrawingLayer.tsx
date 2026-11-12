@@ -268,7 +268,7 @@ function ticks(a: Point, b: Point, len: number): string {
 /** Maßangaben (Maßketten und Beschriftungen) für Objekte, alle Werte aus Metern. */
 export function renderDims(
   view: View,
-  items: { id: string; type: DrawElementType; shape: Shape; showDims?: boolean }[],
+  items: { id: string; type: DrawElementType; shape: Shape; showDims?: boolean; symbol?: DrawElement['symbol']; opening?: DrawElement['opening'] }[],
   k: number,
   opts: { color?: string; testId?: string } = {},
 ): ReactNode {
@@ -276,7 +276,7 @@ export function renderDims(
   const toS = (p: Point) => toScreen(view, { x: p.x * k, y: p.y * k });
   const out: ReactNode[] = [];
   for (const it of items) {
-    const { dims, labels } = annotationsOf({ type: it.type, shape: it.shape, showDims: it.showDims });
+    const { dims, labels } = annotationsOf({ type: it.type, shape: it.shape, showDims: it.showDims, symbol: it.symbol, opening: it.opening });
     dims.forEach((dm, i) => {
       const a = toS(dm.a);
       const b = toS(dm.b);
@@ -324,6 +324,24 @@ export function renderDims(
     });
     labels.forEach((l, i) => {
       const p = toS(l.at);
+      // gedreht/mehrzeilig (Fenster nach ÖNORM: Breite und Höhe nebeneinander, RPH): Zeilen quer zur Leserichtung
+      if (l.angle !== undefined || l.lines) {
+        const FS = 12;
+        const lines = l.lines ?? [l.text];
+        const anchor = l.anchor ?? 'middle';
+        const along = anchor === 'middle' ? 0 : (anchor === 'end' ? -1 : 1) * (l.pad ?? 0) * FS;
+        const across = anchor === 'middle' ? (l.pad ?? 0) * FS : 0;
+        out.push(
+          <g key={`${it.id}-l${i}`} transform={`translate(${p.x} ${p.y}) rotate(${l.angle ?? 0})`} className="dim dim-label" data-dim={l.text} data-testid={opts.testId ?? 'window-label'}>
+            {lines.map((t, j) => (
+              <text key={j} x={along} y={across + (j - (lines.length - 1) / 2) * FS * 1.15} textAnchor={anchor} dominantBaseline="central" className="dim-text" fill={color}>
+                {t}
+              </text>
+            ))}
+          </g>,
+        );
+        return;
+      }
       out.push(
         <text key={`${it.id}-l${i}`} x={p.x} y={p.y} textAnchor="middle" dominantBaseline="central" className="dim-text" fill={color} data-dim={l.text} data-testid={opts.testId}>
           {l.text}

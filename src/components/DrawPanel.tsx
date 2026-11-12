@@ -179,6 +179,7 @@ export function ElementBar({
   onApply,
   onText,
   onShowDims,
+  onOpening,
   onDelete,
   onClose,
   vertex = null,
@@ -226,6 +227,8 @@ export function ElementBar({
   onApply(m: Measures): void;
   onText(text: string): void;
   onShowDims(show: boolean): void;
+  /** Fenster: Höhe und Rohbauparapethöhe (m) ändern */
+  onOpening?(patch: { height?: number | null; sill?: number | null }): void;
   onDelete(): void;
   onClose(): void;
 }) {
@@ -240,6 +243,8 @@ export function ElementBar({
   const [error, setError] = useState<string | null>(null);
   const [segOpen, setSegOpen] = useState(false);
   const styled = element.type !== 'text' && element.type !== 'dimension' && !!onStyle && !!onColor && !!onToggleStyle;
+  /** Fenster: Breite (entlang der Wand), Tiefe, dazu Höhe und Brüstung für die ÖNORM-Beschriftung */
+  const isWindow = element.type === 'symbol' && symbolDef(element.symbol?.id)?.group === 'window';
   // Werte neu übernehmen, wenn sich das Objekt ändert (Ziehen, Rückgängig …)
   const key = `${element.id}:${element.rev}`;
   useEffect(() => {
@@ -358,7 +363,7 @@ export function ElementBar({
       {element.type === 'text' && onFont && onColor && <FontControls font={element.font} color={element.color} onFont={onFont} onColor={onColor} compact />}
       {fields.map((f) => (
         <label key={f} className="draw-field">
-          <span>{FIELDS[f].label}</span>
+          <span>{isWindow && f === 'length' ? 'Breite' : isWindow && f === 'width' ? 'Tiefe' : FIELDS[f].label}</span>
           <span className="input-unit">
             <input
               value={values[f] ?? ''}
@@ -382,6 +387,7 @@ export function ElementBar({
           </span>
         </label>
       ))}
+      {isWindow && onOpening && <WindowFields key={element.id} opening={element.opening} onOpening={onOpening} />}
       {element.type === 'dimension' && !!element.offset && onExtGap && (
         <label className="draw-field">
           <span>Abstand zum Objekt</span>
@@ -570,6 +576,68 @@ function WallFields({ element, onWall }: { element: DrawElement; onWall(p: { thi
       <span className="muted small" data-testid="wall-info">
         Länge {formatMeasure(len)} m{w.height ? ` · Fläche ${formatArea(len * w.height)} m²` : ''}
       </span>
+    </>
+  );
+}
+
+/**
+ * Fenster nach ÖNORM A 6240: Höhe (Rohbaulichte) und Rohbauparapethöhe RPH. Die Breite ist die Breite des Symbols.
+ * Beschriftung im Plan nur mit „Maße anzeigen“: Breite/Höhe in cm unter dem Fenster, „RPH …“ darüber.
+ */
+function WindowFields({ opening, onOpening }: { opening: DrawElement['opening']; onOpening(patch: { height?: number | null; sill?: number | null }): void }) {
+  const fmt = (n: number | null | undefined) => (n === null || n === undefined ? '' : meterInput(n));
+  const [vals, setVals] = useState({ height: fmt(opening?.height), sill: fmt(opening?.sill) });
+  const [error, setError] = useState<string | null>(null);
+  // gespeicherte Werte übernehmen (anderes Fenster, Rückgängig …) – ohne das Feld neu aufzubauen
+  useEffect(() => {
+    setVals({ height: fmt(opening?.height), sill: fmt(opening?.sill) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [opening?.height, opening?.sill]);
+  const commit = (f: 'height' | 'sill') => {
+    const t = vals[f].trim();
+    if (!t) {
+      setError(null);
+      if (opening?.[f] !== null && opening?.[f] !== undefined) onOpening({ [f]: null });
+      return;
+    }
+    const r = checkMeasure(t, f === 'height' ? 'Höhe' : 'Brüstung (RPH)');
+    if (!r.ok) {
+      setError(r.error);
+      return;
+    }
+    setError(null);
+    const cur = opening?.[f];
+    if (cur === null || cur === undefined || Math.abs(cur - r.value) > 1e-9) onOpening({ [f]: r.value });
+  };
+  const field = (f: 'height' | 'sill', label: string, title: string) => (
+    <label className="draw-field" title={title}>
+      <span>{label}</span>
+      <span className="input-unit">
+        <input
+          value={vals[f]}
+          onChange={(e) => setVals({ ...vals, [f]: e.target.value })}
+          onBlur={() => commit(f)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              commit(f);
+            }
+          }}
+          inputMode="decimal"
+          enterKeyHint="done"
+          autoComplete="off"
+          placeholder="–"
+          data-testid={`window-${f}`}
+        />
+        <span className="unit">m</span>
+      </span>
+    </label>
+  );
+  return (
+    <>
+      {field('height', 'Höhe', 'Fensterhöhe (Rohbaulichte) – steht mit „Maße anzeigen“ neben der Breite (ÖNORM)')}
+      {field('sill', 'RPH', 'Rohbauparapethöhe – steht mit „Maße anzeigen“ über dem Fenster (leer = keine Angabe)')}
+      {error && <small className="error">{error}</small>}
     </>
   );
 }

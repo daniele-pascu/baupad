@@ -93,8 +93,8 @@ export const SYMBOLS: SymbolDef[] = [
     flippable: true,
     parts: [line([0, 1], [0, 0]), { pts: arc(0, 1, 0.5, 1, 90, 0) }, line([1, 1], [1, 0]), { pts: arc(1, 1, 0.5, 1, 90, 180) }, line([0, 1], [1, 1], { dashed: true })],
   },
-  { id: 'door-slide', label: 'Schiebetür', group: 'door', w: 1.0, h: 0.15, flippable: true, parts: [rect(0, 0.05, 0.62, 0.45), rect(0.38, 0.55, 1, 0.95), line([0.66, 0.25], [0.9, 0.25]), line([0.9, 0.25], [0.84, 0.12]), line([0.9, 0.25], [0.84, 0.38])] },
-  { id: 'door-fold', label: 'Falttür', group: 'door', w: 0.9, h: 0.3, flippable: true, parts: [{ pts: [[0, 1], [0.25, 0.1], [0.5, 1], [0.75, 0.1], [1, 1]] }, line([0, 1], [1, 1], { dashed: true })] },
+  { id: 'door-slide', label: 'Schiebetür', group: 'door', keepAspect: true, w: 1.0, h: 0.15, flippable: true, parts: [rect(0, 0.05, 0.62, 0.45), rect(0.38, 0.55, 1, 0.95), line([0.66, 0.25], [0.9, 0.25]), line([0.9, 0.25], [0.84, 0.12]), line([0.9, 0.25], [0.84, 0.38])] },
+  { id: 'door-fold', label: 'Falttür', group: 'door', keepAspect: true, w: 0.9, h: 0.3, flippable: true, parts: [{ pts: [[0, 1], [0.25, 0.1], [0.5, 1], [0.75, 0.1], [1, 1]] }, line([0, 1], [1, 1], { dashed: true })] },
   { id: 'door-swing', label: 'Pendeltür', group: 'door', w: 0.9, h: 1.8, keepAspect: true, flippable: true, wall: 0.5, hinge: 0, parts: [line([0, 0.5], [1, 0.5], { dashed: true }), line([0, 0.5], [0, 0]), { pts: arc(0, 0.5, 1, 0.5, 90, 0) }, line([0, 0.5], [0, 1]), { pts: arc(0, 0.5, 1, 0.5, -90, 0) }] },
   // weitere Öffnungsarten nach ÖNORM A 6240 (Bild 30)
   {
@@ -108,11 +108,11 @@ export const SYMBOLS: SymbolDef[] = [
     hinge: 0,
     parts: [line([0, 1], [0, 0]), { pts: arc(0, 1, 1, 1, 90, 0) }, line([0.09, 0.96], [0.09, 0.62]), { pts: [[0.09, 0.5], [0.15, 0.64], [0.03, 0.64]], closed: true, fill: true }],
   },
-  { id: 'door-slide2', label: 'Schiebetür zweiflügelig', group: 'door', w: 1.6, h: 0.2, flippable: true, parts: [rect(0, 0.05, 0.5, 0.4), rect(0.5, 0.05, 1, 0.4), ...arrow([0.4, 0.72], [0.12, 0.72]), ...arrow([0.6, 0.72], [0.88, 0.72])] },
-  { id: 'door-lift-slide', label: 'Hebeschiebetür', group: 'door', w: 1.0, h: 0.15, flippable: true, parts: [rect(0, 0.05, 0.62, 0.45), rect(0.38, 0.55, 1, 0.95), line([0.66, 0.45], [0.66, 0.25]), ...arrow([0.66, 0.25], [0.92, 0.25])] },
-  { id: 'door-fold-slide', label: 'Faltschiebetür', group: 'door', w: 0.9, h: 0.35, flippable: true, parts: [{ pts: [[0.55, 1], [0.66, 0.15], [0.77, 1], [0.88, 0.15], [1, 1]] }, line([0, 1], [0.55, 1], { dashed: true }), ...arrow([0.48, 0.45], [0.12, 0.45])] },
-  { id: 'door-tilt-gate', label: 'Kipptor', group: 'door', w: 2.5, h: 2.5, wall: 0.5, parts: [line([0, 0.5], [1, 0.5]), rect(0.02, 0, 0.98, 1, { dashed: true })] },
-  { id: 'door-section-gate', label: 'Sektionaltor', group: 'door', w: 2.5, h: 2.1, parts: [line([0, 1], [1, 1]), { pts: [[0.02, 1], [0.02, 0], [0.98, 0], [0.98, 1]], dashed: true }] },
+  { id: 'door-slide2', label: 'Schiebetür zweiflügelig', group: 'door', keepAspect: true, w: 1.6, h: 0.2, flippable: true, parts: [rect(0, 0.05, 0.5, 0.4), rect(0.5, 0.05, 1, 0.4), ...arrow([0.4, 0.72], [0.12, 0.72]), ...arrow([0.6, 0.72], [0.88, 0.72])] },
+  { id: 'door-lift-slide', label: 'Hebeschiebetür', group: 'door', keepAspect: true, w: 1.0, h: 0.15, flippable: true, parts: [rect(0, 0.05, 0.62, 0.45), rect(0.38, 0.55, 1, 0.95), line([0.66, 0.45], [0.66, 0.25]), ...arrow([0.66, 0.25], [0.92, 0.25])] },
+  { id: 'door-fold-slide', label: 'Faltschiebetür', group: 'door', keepAspect: true, w: 0.9, h: 0.35, flippable: true, parts: [{ pts: [[0.55, 1], [0.66, 0.15], [0.77, 1], [0.88, 0.15], [1, 1]] }, line([0, 1], [0.55, 1], { dashed: true }), ...arrow([0.48, 0.45], [0.12, 0.45])] },
+  { id: 'door-tilt-gate', label: 'Kipptor', group: 'door', keepAspect: true, w: 2.5, h: 2.5, wall: 0.5, parts: [line([0, 0.5], [1, 0.5]), rect(0.02, 0, 0.98, 1, { dashed: true })] },
+  { id: 'door-section-gate', label: 'Sektionaltor', group: 'door', keepAspect: true, w: 2.5, h: 2.1, parts: [line([0, 1], [1, 1]), { pts: [[0.02, 1], [0.02, 0], [0.98, 0], [0.98, 1]], dashed: true }] },
   {
     id: 'door-revolving',
     label: 'Drehkreuztür (Karusselltür)',
@@ -171,17 +171,17 @@ export const SYMBOLS: SymbolDef[] = [
   { id: 'stove-gas', label: 'Ofen Gas (G)', group: 'heating', w: 0.5, h: 0.5, keepAspect: true, parts: [...flue(0.15, 0.85, 0.235), circle(0.5, 0.6, 0.38, 32), text('G', 0.5, 0.62, 0.36)] },
 
   // Fänge (Kap. 13) und Durchbrüche/Aussparungen (Kap. 14)
-  { id: 'chimney', label: 'Rauchfang', group: 'shaft', w: 0.2, h: 0.2, keepAspect: true, parts: [rect(0, 0, 1, 1), { pts: [[0, 0], [1, 0], [0, 1]], closed: true, fill: true }] },
-  { id: 'chimney-round', label: 'Rauchfang rund', group: 'shaft', w: 0.2, h: 0.2, keepAspect: true, parts: [circle(0.5, 0.5, 0.5, 32), { pts: [...arc(0.5, 0.5, 0.5, 0.5, 45, 225, 16)], closed: true, fill: true }] },
-  { id: 'flue-gas', label: 'Abgasfang', group: 'shaft', w: 0.2, h: 0.2, keepAspect: true, parts: [rect(0, 0, 1, 1), line([0, 0], [1, 1]), line([1, 0], [0, 1])] },
-  { id: 'flue-gas-round', label: 'Abgasfang rund', group: 'shaft', w: 0.2, h: 0.2, keepAspect: true, parts: [circle(0.5, 0.5, 0.5, 32), line([0.15, 0.15], [0.85, 0.85]), line([0.85, 0.15], [0.15, 0.85])] },
-  { id: 'air-shaft', label: 'Luftfang', group: 'shaft', w: 0.2, h: 0.2, keepAspect: true, parts: [rect(0, 0, 1, 1), line([0, 1], [1, 0])] },
-  { id: 'air-shaft-round', label: 'Luftfang rund', group: 'shaft', w: 0.2, h: 0.2, keepAspect: true, parts: [circle(0.5, 0.5, 0.5, 32), line([0.15, 0.85], [0.85, 0.15])] },
+  { id: 'chimney', label: 'Rauchfang', group: 'shaft', w: 0.2, h: 0.2, parts: [rect(0, 0, 1, 1), { pts: [[0, 0], [1, 0], [0, 1]], closed: true, fill: true }] },
+  { id: 'chimney-round', label: 'Rauchfang rund', group: 'shaft', w: 0.2, h: 0.2, parts: [circle(0.5, 0.5, 0.5, 32), { pts: [...arc(0.5, 0.5, 0.5, 0.5, 45, 225, 16)], closed: true, fill: true }] },
+  { id: 'flue-gas', label: 'Abgasfang', group: 'shaft', w: 0.2, h: 0.2, parts: [rect(0, 0, 1, 1), line([0, 0], [1, 1]), line([1, 0], [0, 1])] },
+  { id: 'flue-gas-round', label: 'Abgasfang rund', group: 'shaft', w: 0.2, h: 0.2, parts: [circle(0.5, 0.5, 0.5, 32), line([0.15, 0.15], [0.85, 0.85]), line([0.85, 0.15], [0.15, 0.85])] },
+  { id: 'air-shaft', label: 'Luftfang', group: 'shaft', w: 0.2, h: 0.2, parts: [rect(0, 0, 1, 1), line([0, 1], [1, 0])] },
+  { id: 'air-shaft-round', label: 'Luftfang rund', group: 'shaft', w: 0.2, h: 0.2, parts: [circle(0.5, 0.5, 0.5, 32), line([0.15, 0.85], [0.85, 0.15])] },
   { id: 'floor-opening', label: 'Fußbodendurchbruch (FBD)', group: 'shaft', w: 0.7, h: 0.5, parts: [rect(0, 0, 1, 1), { pts: [[0, 0], [1, 0], [0.18, 0.22], [0, 1]], closed: true, fill: true }] },
   { id: 'ceiling-opening', label: 'Deckendurchbruch (DD, darüber)', group: 'shaft', w: 0.7, h: 0.5, parts: [rect(0, 0, 1, 1, { dashed: true }), { pts: [[0, 1], [0.18, 0.22], [1, 0]], dashed: true }] },
   { id: 'floor-recess', label: 'Fußbodenaussparung (FBA)', group: 'shaft', w: 0.7, h: 0.5, parts: [rect(0, 0, 1, 1), { pts: [[0, 1], [0.18, 0.22], [1, 0]] }] },
-  { id: 'opening-small', label: 'Kleiner Durchbruch', group: 'shaft', w: 0.2, h: 0.2, keepAspect: true, parts: [rect(0, 0, 1, 1), line([0, 0], [1, 1]), line([1, 0], [0, 1])] },
-  { id: 'recess-small', label: 'Kleine Aussparung', group: 'shaft', w: 0.2, h: 0.2, keepAspect: true, parts: [rect(0, 0, 1, 1), line([0, 1], [1, 0])] },
+  { id: 'opening-small', label: 'Kleiner Durchbruch', group: 'shaft', w: 0.2, h: 0.2, parts: [rect(0, 0, 1, 1), line([0, 0], [1, 1]), line([1, 0], [0, 1])] },
+  { id: 'recess-small', label: 'Kleine Aussparung', group: 'shaft', w: 0.2, h: 0.2, parts: [rect(0, 0, 1, 1), line([0, 1], [1, 0])] },
 ];
 
 export const symbolDef = (id: string | undefined) => SYMBOLS.find((s) => s.id === id);

@@ -1751,6 +1751,11 @@ export function useDrawing(opts: {
     const e = data.elements[id];
     if (e) putRecord('elements', { ...e, showDims: show });
   };
+  /** Fenster: Höhe und Rohbauparapethöhe (ÖNORM-Beschriftung) */
+  const setOpening = (id: string, patch: { height?: number | null; sill?: number | null }) => {
+    const e = data.elements[id];
+    if (e) putRecord('elements', { ...e, opening: { ...e.opening, ...patch } });
+  };
 
   const recolor = (id: string, c: string) => {
     const e = data.elements[id];
@@ -2155,6 +2160,7 @@ export function useDrawing(opts: {
     apply,
     setText,
     setShowDims,
+    setOpening,
     recolor,
     restyle,
     restyleMany,

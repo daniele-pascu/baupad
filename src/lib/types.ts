@@ -494,6 +494,11 @@ export interface DrawElement extends SyncMeta {
   wall?: { thickness: number; height?: number };
   /** Bauteil/Symbol (Tür, Fenster, Elektro …) – Form ist das Begrenzungsrechteck */
   symbol?: { id: string; flipX?: boolean; flipY?: boolean };
+  /**
+   * Fenster: Höhe (Rohbaulichte) und Rohbauparapethöhe RPH in m – die Breite ist die Breite des Symbols.
+   * Beschriftung nach ÖNORM A 6240 (Breite/Höhe in cm unter dem Fenster, RPH darüber), nur mit „Maße anzeigen“.
+   */
+  opening?: { height?: number | null; sill?: number | null };
   /** Maße am Objekt anzeigen (Standard: ja) */
   showDims?: boolean;
   /** Maßlinie: Abstand der Maßlinie von der gemessenen Strecke in m (Vorzeichen = Seite) */
