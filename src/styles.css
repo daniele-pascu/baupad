@@ -3687,6 +3687,29 @@ tr.lv-flagged td {
   background: none;
   cursor: pointer;
 }
+/* Finger/Stift (iPad, Handy): Farbfelder so groß, dass man sie sicher trifft */
+@media (pointer: coarse) {
+  .sc-colors {
+    grid-template-rows: repeat(2, 28px);
+    grid-auto-columns: 28px;
+    gap: 8px;
+    height: auto;
+  }
+  .sc-colors .swatch.swatch-xs,
+  .sc-colors input[type='color'] {
+    width: 28px;
+    height: 28px;
+  }
+  .sc-colors .swatch.swatch-xs {
+    border-width: 2px;
+  }
+  .sc-colors .swatch.swatch-xs.active {
+    box-shadow: 0 0 0 2.5px var(--text);
+  }
+  .sc-colors input[type='color'] {
+    border-radius: 8px;
+  }
+}
 /* Objektleiste unten: kompakte Darstellung darf umbrechen */
 .draw-bar .style-panel.style-compact {
   flex-wrap: wrap;
@@ -3697,6 +3720,11 @@ tr.lv-flagged td {
 }
 .draw-bar .style-compact .sc-group {
   flex-wrap: wrap;
+  /* darf schmaler werden als ihr Inhalt – sonst bricht sie nicht um und ragt seitlich aus der Leiste (Handy) */
+  flex: 0 1 auto;
+  min-width: 0;
+  justify-content: center;
+  row-gap: 8px;
 }
 .draw-bar:has(.style-compact) {
   width: max-content;
