@@ -371,7 +371,7 @@ function LvDocView({ data, doc, prices, onEdit, onDelete }: { data: ProjectState
       <input
         type="search"
         className="lv-search"
-        placeholder="Suchen: Positionsnummer oder Text, z. B. „Sperrfläche“"
+        placeholder="Suchen: Nummer oder Text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         data-testid="lv-search"
