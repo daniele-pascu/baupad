@@ -163,7 +163,7 @@ export function InsertBar({
           ))}
         </span>
       )}
-      <button type="submit" className="btn btn-sm btn-primary" data-testid="insert-submit">
+      <button type="submit" className="btn btn-sm btn-primary draw-bar-actions" data-testid="insert-submit">
         <Icon name="plus" size={18} /> Einfügen
       </button>
       {tool === 'line' && continues && <span className="muted small">schließt an die letzte Linie an</span>}
@@ -411,12 +411,6 @@ export function ElementBar({
           </span>
         </label>
       )}
-      {element.type !== 'text' && element.type !== 'dimension' && (
-        <label className="check-row small">
-          <input type="checkbox" checked={element.showDims !== false} onChange={(e) => onShowDims(e.target.checked)} data-testid="element-showdims" />
-          <span>Maße anzeigen</span>
-        </label>
-      )}
       {element.type === 'triangle' && isRegularTriangle(element.shape) && <span className="muted small">Spitze {APEX_LABELS[apexOf(element.shape)]}</span>}
       {element.type === 'arc' && (
         <span className="sr-only" data-testid="element-info">
@@ -428,29 +422,6 @@ export function ElementBar({
           Länge gesamt {formatMeasure(pathLength(element.shape))} m · {shapeVertices(element.shape).length} Punkte · keine Fläche
         </span>
       )}
-      {element.type === 'freehand' && onSetClosed && (
-        <button
-          type="button"
-          className="btn btn-sm"
-          onClick={() => onSetClosed(element.shape.closed === false)}
-          disabled={element.shape.closed === false && shapeVertices(element.shape).length < 3}
-          data-testid="element-toggle-closed"
-        >
-          {element.shape.closed === false ? 'Schließen (Fläche)' : 'Öffnen (nur Linie)'}
-        </button>
-      )}
-      {vertex !== null && onRemoveVertex && (
-        <button
-          type="button"
-          className="btn btn-sm"
-          onClick={onRemoveVertex}
-          disabled={!canRemoveVertex}
-          title={canRemoveVertex ? 'Ausgewählten Eckpunkt entfernen (Entf)' : 'Zu wenige Eckpunkte zum Entfernen'}
-          data-testid="vertex-remove"
-        >
-          <Icon name="trash" size={16} /> Eckpunkt {vertex + 1}
-        </button>
-      )}
       {/* Umfang/Fläche bzw. Bogenlänge: nicht mehr sichtbar (aufgeräumte Leiste), nur für Screenreader */}
       {info && (element.type === 'triangle' || element.type === 'freehand' || element.type === 'rect') && (
         <span className="sr-only" data-testid="element-info">
@@ -458,19 +429,54 @@ export function ElementBar({
           Umfang {formatMeasure(info.perimeter)} m{info.area !== null && <> · Fläche {formatArea(info.area)} m²</>}
         </span>
       )}
-      <span className="row gap">
-        {styled && (
-          <button type="button" className={`btn btn-sm${styleOpen ? ' active' : ''}`} onClick={onToggleStyle} aria-expanded={styleOpen} data-testid="style-toggle">
-            Darstellung
+      {/* Schluss der Leiste: links Kästchen und Zusatztasten, rechts angehängt Darstellung, Löschen, Schließen –
+          passt alles in eine Zeile, steht es dort; sonst rutscht dieser Teil gemeinsam in die nächste */}
+      <span className="draw-bar-tail">
+        <span className="row gap draw-bar-opts">
+          {element.type !== 'text' && element.type !== 'dimension' && (
+            <label className="check-row small">
+              <input type="checkbox" checked={element.showDims !== false} onChange={(e) => onShowDims(e.target.checked)} data-testid="element-showdims" />
+              <span>Maße anzeigen</span>
+            </label>
+          )}
+          {element.type === 'freehand' && onSetClosed && (
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={() => onSetClosed(element.shape.closed === false)}
+              disabled={element.shape.closed === false && shapeVertices(element.shape).length < 3}
+              data-testid="element-toggle-closed"
+            >
+              {element.shape.closed === false ? 'Schließen (Fläche)' : 'Öffnen (nur Linie)'}
+            </button>
+          )}
+          {vertex !== null && onRemoveVertex && (
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={onRemoveVertex}
+              disabled={!canRemoveVertex}
+              title={canRemoveVertex ? 'Ausgewählten Eckpunkt entfernen (Entf)' : 'Zu wenige Eckpunkte zum Entfernen'}
+              data-testid="vertex-remove"
+            >
+              <Icon name="trash" size={16} /> Eckpunkt {vertex + 1}
+            </button>
+          )}
+        </span>
+        <span className="row gap draw-bar-actions">
+          {styled && (
+            <button type="button" className={`btn btn-sm${styleOpen ? ' active' : ''}`} onClick={onToggleStyle} aria-expanded={styleOpen} data-testid="style-toggle">
+              Darstellung
+            </button>
+          )}
+          <button type="button" className="btn btn-sm btn-danger-text" onClick={onDelete} data-testid="element-delete">
+            <Icon name="trash" size={18} />
+            <span className="sr-only">Objekt löschen</span>
           </button>
-        )}
-        <button type="button" className="btn btn-sm btn-danger-text" onClick={onDelete} data-testid="element-delete">
-          <Icon name="trash" size={18} />
-          <span className="sr-only">Objekt löschen</span>
-        </button>
-        <button type="button" className="icon-btn icon-btn-sm" onClick={onClose} aria-label="Auswahl aufheben">
-          <Icon name="close" size={18} />
-        </button>
+          <button type="button" className="icon-btn icon-btn-sm" onClick={onClose} aria-label="Auswahl aufheben">
+            <Icon name="close" size={18} />
+          </button>
+        </span>
       </span>
       {segOpen && onSegment && (element.type === 'freehand' || element.type === 'wall') && <SegmentFields key={key} element={element} onSegment={onSegment} />}
       {styled && styleOpen && (

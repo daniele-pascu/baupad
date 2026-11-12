@@ -2027,12 +2027,15 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               <button type="button" className="btn btn-sm" onClick={() => drawing.setTool('join')} data-testid="multi-join">
                 <Icon name="join" size={16} /> Verbinden
               </button>
-              <button type="button" className="btn btn-sm btn-danger-text" onClick={() => void drawing.removeSelection()} data-testid="multi-delete">
-                <Icon name="trash" size={16} /> Löschen
-              </button>
-              <button type="button" className="icon-btn icon-btn-sm" onClick={drawing.clearSelection} aria-label="Auswahl aufheben" data-testid="multi-clear">
-                <Icon name="close" size={18} />
-              </button>
+              <span className="row gap draw-bar-actions">
+                <button type="button" className="btn btn-sm btn-danger-text" onClick={() => void drawing.removeSelection()} title="Ausgewählte Objekte löschen" data-testid="multi-delete">
+                  <Icon name="trash" size={18} />
+                  <span className="sr-only">Auswahl löschen</span>
+                </button>
+                <button type="button" className="icon-btn icon-btn-sm" onClick={drawing.clearSelection} aria-label="Auswahl aufheben" data-testid="multi-clear">
+                  <Icon name="close" size={18} />
+                </button>
+              </span>
             </div>
           )}
           {drawMode && !probe && !OP_HINTS[drawing.tool] && !SELECT_FIRST.has(drawing.tool) && !PICK_TOOLS.has(drawing.tool) && drawing.tool !== 'offset' && drawing.tool !== 'symbol' && !(drawing.tool === 'wall' && !polyCount && !drawing.selected) && !(drawing.tool === 'line' && drawing.cmdBase) &&

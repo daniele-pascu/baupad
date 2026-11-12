@@ -3281,10 +3281,108 @@ tr.lv-flagged td {
 }
 /* Plan zeichnen: Eingabe- und Bearbeitungsleisten oben unter der Werkzeugleiste statt unten (Platz für die Zoom-Leiste rechts) */
 .editor-plan:has(> .ribbon) .draw-bar {
+  /* mittig im freien Bereich links der Zoom-Leiste – so breit wie möglich, damit alles in eine Zeile passt */
+  --zoom-space: 72px;
   top: calc(var(--ribbon-h, 96px) + 10px);
   bottom: auto;
+  left: 10px;
+  right: var(--zoom-space);
+  transform: none;
+  margin: 0 auto;
+  max-width: calc(100% - 10px - var(--zoom-space));
+}
+@media (min-width: 900px) {
+  .editor-plan:has(> .ribbon) .draw-bar {
+    --zoom-space: 96px;
+  }
+}
+
+/* Leisten mit Eingabefeldern: alles auf einer Linie – Titel, Kästchen und Tasten stehen auf Höhe der Eingabefelder
+   (die kleine Beschriftung sitzt darüber), nichts höher oder tiefer. Zeilen beginnen links, die Schluss-Tasten
+   (Darstellung, Löschen, Schließen) hängen rechts an. */
+.draw-bar:has(> .draw-field),
+.draw-bar:has(.draw-bar-actions) {
+  justify-content: flex-start;
+}
+.draw-bar:not(:has(> .draw-field)) {
   align-items: center;
-  max-width: calc(100% - 200px);
+}
+.draw-bar:has(> .draw-field) > .draw-bar-title,
+.draw-bar:has(> .draw-field) > .draw-bar-value,
+.draw-bar:has(> .draw-field) > .dir-btns,
+.draw-bar:has(> .draw-field) > .row,
+.draw-bar:has(> .draw-field) > .muted.small:not(.span-all) {
+  align-self: flex-end;
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+}
+.draw-bar .btn-sm {
+  min-height: 40px;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+/* etwas enger, damit Felder, Kästchen und Schluss-Tasten möglichst in eine Zeile passen */
+@media (min-width: 601px) {
+  .editor-plan:has(> .ribbon) .draw-bar {
+    gap: 8px;
+    padding: 7px 12px;
+  }
+}
+.draw-bar > .draw-field .unit {
+  min-width: 26px;
+  padding: 0 5px;
+}
+.draw-bar .icon-btn-sm {
+  width: 40px;
+  height: 40px;
+}
+.draw-bar .check-row {
+  min-height: 40px;
+  gap: 8px;
+  white-space: nowrap;
+}
+/* wird umgebrochen, füllen die Felder ihre Zeile (keine Lücke rechts) */
+.draw-bar > .draw-field {
+  flex: 1 1 auto;
+}
+.draw-bar > .draw-field .input-unit {
+  width: 100%;
+}
+.draw-bar > .draw-field input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.draw-bar-tail {
+  flex: 1 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 40px;
+}
+.draw-bar-opts:empty {
+  display: none;
+}
+.draw-bar-actions {
+  margin-left: auto;
+  flex-wrap: nowrap;
+}
+/* Mehrfachauswahl: etwas schmalere Tasten, damit alle in eine Zeile passen */
+.multi-bar .btn-sm {
+  padding-left: 11px;
+  padding-right: 11px;
+}
+@media (max-width: 600px) {
+  /* Handy: Kästchen und Schluss-Tasten bleiben gemeinsam in einer Zeile */
+  .draw-bar .btn-sm {
+    padding-left: 11px;
+    padding-right: 11px;
+  }
+  .draw-bar .icon-btn-sm {
+    width: 36px;
+  }
 }
 .ribbon-tabs {
   display: flex;
@@ -11022,6 +11120,8 @@ html[data-theme='dark'] .crew-search {
   .editor-plan:has(> .ribbon) .draw-bar {
     top: auto;
     bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    left: 8px;
+    right: 8px;
     max-width: calc(100% - 16px);
     max-height: 45%;
     overflow-y: auto;

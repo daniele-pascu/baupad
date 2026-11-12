@@ -268,7 +268,7 @@ export async function pickTool(page: Page, testId: string, how: 'click' | 'tap' 
     if (await open.isVisible()) await (how === 'tap' ? open.tap({ timeout: 3000 }) : open.click({ timeout: 3000 })).catch(() => {});
   }
   // Aufmaß: Werkzeuge erscheinen erst nach der Messart (je Messart nur die passenden) – passende Messart wählen
-  const mtypeFor: Record<string, string> = { 'tool-line': 'laenge', 'tool-polyline': 'laenge', 'tool-freehand': 'laenge', 'tool-rect': 'flaeche', 'tool-ellipse': 'flaeche', 'tool-polygon': 'flaeche', 'tool-wall': 'wand', 'tool-points': 'stueck' };
+  const mtypeFor: Record<string, string> = { 'tool-line': 'laenge', 'tool-polyline': 'laenge', 'tool-freehand': 'laenge', 'tool-rect': 'flaeche', 'tool-ellipse': 'flaeche', 'tool-polygon': 'flaeche', 'tool-wall': 'wand', 'tool-points': 'stueck', 'tool-text': 'frei' };
   if (!(await btn.isVisible()) && mtypeFor[testId] && (await page.getByTestId('tool-mtype').isVisible())) await chooseMeasureType(page, mtypeFor[testId], how);
   // Zeichenmodus: Werkzeug ggf. auf einer anderen Registerkarte der oberen Leiste
   if (!(await btn.isVisible())) {

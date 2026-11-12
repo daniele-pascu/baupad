@@ -224,7 +224,14 @@ export function tastenTests() {
     await pickTool(page, 'draw-rect');
     await page.getByTestId('insert-length').fill('4');
     await page.getByTestId('insert-width').fill('3');
+    await pruefe(page, 'Einfügeleiste Rechteck', out);
     await page.getByTestId('insert-submit').click();
+    // Objektleiste mit Feldern, Kästchen und angehängten Schluss-Tasten (Darstellung, Löschen, Schließen)
+    await expect(page.getByTestId('element-bar')).toBeVisible();
+    await pruefe(page, 'Rechteck-Leiste', out);
+    await page.getByTestId('style-toggle').click();
+    await pruefe(page, 'Rechteck-Leiste mit Darstellung', out);
+    await page.getByTestId('style-toggle').click();
     await pickTool(page, 'draw-select-all');
     await expect(page.getByTestId('multi-bar')).toBeVisible();
     await pruefe(page, 'Mehrfachauswahl', out);
