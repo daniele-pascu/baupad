@@ -1,5 +1,6 @@
+import { join } from 'node:path';
 import { expect, test } from './fixtures';
-import { catchDownload, chooseMeasureType, createProject, excelExport, freshStart, pickTool, readXlsx, saveDownload, waitSaved } from './helpers';
+import { catchDownload, chooseMeasureType, createProject, excelExport, FIXTURES, freshStart, pickTool, readXlsx, saveDownload, waitSaved } from './helpers';
 
 /**
  * Schadstellen-Positionen: Das LV nennt Positionen nach Größe je Schadstelle, nach Tiefe und als Zulage
@@ -142,4 +143,38 @@ test('Positionen nach Größe und Tiefe werden erkannt, bestätigt und Schadstel
   await expect(li).toContainText('automatisch');
   await expect(li).toContainText('Tiefe 61,00 mm');
 
+});
+
+test('Beispiel-LV „Betoninstandsetzung“ (PDF) importieren: alle Positionen, Schadstellen-Positionen werden erkannt', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'Beispiel-LV', {}, ['UG']);
+  await page.getByTestId('lv-file-input').setInputFiles(join(FIXTURES, 'schadstellen-lv.pdf'));
+  const review = page.getByTestId('lv-review');
+  const summary = review.getByTestId('lv-review-summary');
+  await expect(summary).toContainText('15 Positionen');
+  await expect(summary).toContainText('193.142,13 €');
+  await expect(review.getByTestId('lv-total-check')).toContainText('Summe stimmt mit dem Dokument überein');
+  await expect(summary).not.toContainText('unsicheren Angaben');
+  await review.getByTestId('lv-review-save').click();
+  await page.getByTestId('lv-doc-tab').last().click();
+  await expect(page.getByTestId('lv-row')).toHaveCount(15);
+  await expect(page.getByTestId('lv-flagged')).toHaveCount(0);
+  // fünf Klassen und die Zulage erkannt; Streifen (lfm), Sandstrahlen, Egalisierung … nicht
+  await expect(page.getByTestId('lv-rules-hint')).toContainText('6 Schadstellen-Positionen erkannt');
+  await page.getByTestId('lv-rules-review').click();
+  const rules = page.getByTestId('lv-rules-dialog');
+  const numbers = await rules.getByTestId('rule-row').evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.number));
+  expect(numbers).toEqual(['01.14.20.01A.', '01.14.20.01B.', '01.14.20.01C.', '01.14.20.01D.', '01.14.20.01E.', '01.14.20.02A.']);
+  const summaries = await rules.getByTestId('rule-summary').allTextContents();
+  expect(summaries).toEqual([
+    'Größe bis 0,25 m² · Tiefe bis 20 mm',
+    'Größe bis 0,25 m² · Tiefe über 20 bis 40 mm',
+    'Größe über 0,25 bis 1,5 m² · Tiefe bis 20 mm',
+    'Größe über 0,25 bis 1,5 m² · Tiefe über 20 bis 40 mm',
+    'Größe über 1,5 m² · Tiefe bis 40 mm',
+    'je weitere 10 mm ab der größten Tiefenposition',
+  ]);
+  await rules.getByTestId('lv-rules-save').click();
+  await expect(page.getByTestId('lv-rule')).toHaveCount(6);
+  await expect(page.locator('[data-testid="lv-row"][data-number="01.14.20.02A."]').getByTestId('lv-rule')).toHaveText('je weitere 10 mm ab 40 mm');
 });

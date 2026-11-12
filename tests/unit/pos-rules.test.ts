@@ -29,6 +29,7 @@ describe('Regel aus dem Positionstext erkennen', () => {
   });
   it('kein Tiefenmaß: Höhe eines Streifens, Durchmesser, Körnung; Positionen ohne Klassen', () => {
     expect(detect('Schadstelle streifenförmig, Höhe bis 30 cm')).toBeNull();
+    expect(detect('Schadstelle streifenförmig, Höhe bis 30 cm, Abtragstiefe bis 20 mm')).toBeNull(); // Streifen: noch nicht unterstützt
     expect(detect('Sandstrahlen der Betonoberfläche')).toBeNull();
     expect(detect('Bewehrung ergänzen, Durchmesser bis 12 mm')).toBeNull();
     expect(detect('Egalisierung, Körnung bis 2 mm')).toBeNull();

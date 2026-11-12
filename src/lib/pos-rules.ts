@@ -28,6 +28,8 @@ function normalize(text: string): string {
 /** Regel aus dem Text einer Position vorschlagen (null = nichts erkannt). */
 export function detectRule(pos: Pick<LvPosition, 'shortText' | 'longText'>): PosRule | null {
   const text = normalize(`${pos.shortText}\n${pos.longText ?? ''}`);
+  // streifenförmige Schadstellen (Abrechnung nach Länge) werden noch nicht automatisch zugeordnet – kein Vorschlag
+  if (/streifen/.test(text)) return null;
   const rule: PosRule = {};
 
   // Größe je Schadstelle in m²
