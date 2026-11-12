@@ -28,13 +28,25 @@ export function round2(n: number): number {
 export type MeasureCheck = { ok: true; value: number } | { ok: false; error: string };
 
 /** Prüft ein Maß: Pflichtfeld, positive Zahl, plausibel begrenzt. */
-export function checkMeasure(input: string, label: string): MeasureCheck {
+/** `decimals`: Nachkommastellen in Metern – 2 (cm) für Längen, 3 (mm) für die Tiefe einer Schadstelle */
+export function checkMeasure(input: string, label: string, decimals: 2 | 3 = 2): MeasureCheck {
   if (!input.trim()) return { ok: false, error: `${label} fehlt.` };
   const n = parseDecimal(input);
   if (n === null) return { ok: false, error: `${label}: „${input}“ ist keine gültige Zahl.` };
   if (n <= 0) return { ok: false, error: `${label} muss größer als 0 sein.` };
   if (n >= 10000) return { ok: false, error: `${label} ist unplausibel groß.` };
-  return { ok: true, value: round2(n) };
+  return { ok: true, value: decimals === 3 ? round3(n) : round2(n) };
+}
+
+/** auf Millimeter gerundet (Tiefe in Metern mit 3 Nachkommastellen) */
+export function round3(n: number): number {
+  return Number.isFinite(n) ? Math.round(n * 1000 + 1e-7) / 1000 || 0 : n;
+}
+
+/** Tiefe: 2 Nachkommastellen, eine dritte nur wenn nötig (0,10 · 0,061) */
+export function formatDepth(n: number | null | undefined): string {
+  if (n === null || n === undefined || !Number.isFinite(n)) return '–';
+  return fmt(2, 3).format(round3(n));
 }
 
 /**

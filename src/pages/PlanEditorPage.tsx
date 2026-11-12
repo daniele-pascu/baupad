@@ -17,6 +17,7 @@ import { legendEntries, resolveLegend } from '../lib/legend';
 import { LegendBox, LegendDialog } from '../components/LegendDialog';
 import type { PhotoSite } from '../lib/types';
 import { positionGrouping, costCenterLabel, damagesOf, findPosition, lvDocLabel, lvDocsOf, plansOf, planTitle, positionRef, sumArea } from '../lib/aufmass';
+import { autoBookings } from '../lib/pos-rules';
 import { calibrationStatus, checkDeviation, checkError, formatCm, formatPercent, geometryMeasures, MAX_ERROR_M, planUnitsPerMeter } from '../lib/calibration';
 import { ViewMenu } from '../components/ViewMenu';
 import { isTouchDevice } from '../lib/platform';
@@ -1167,6 +1168,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       areaFromShape: geo || lineFromPlan !== null ? true : undefined,
       componentId: v.componentId,
       positionRef: v.positionRef,
+      autoOff: v.autoOff.length ? v.autoOff : undefined,
       label: v.label,
       note: v.note,
       rebar: v.rebar,
@@ -1320,6 +1322,13 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const positionOptions = lvDocsOf(data).flatMap((doc) =>
     doc.positions.map((p) => ({ ref: positionRef(doc.id, p.id), doc: lvDocLabel(doc), label: `${p.number} ${p.shortText} (${p.unit || '–'})`, number: p.number, shortText: p.shortText, unit: p.unit })),
   );
+
+  /** Schadstellen-Positionen: Positionen, deren Regel (Größe, Tiefe, Zulage) zu diesen Werten passt */
+  const autoPositions = (m: { area: number | null; depth: number | null; count: number }) =>
+    autoBookings(data, { kind: 'damage', measureType: 'schadstelle', shape: { type: 'rect' }, area: m.area, depth: m.depth, count: m.count } as unknown as Damage).map((b) => ({
+      ...b,
+      label: positionOptions.find((p) => p.ref === b.ref)?.label ?? b.ref,
+    }));
 
   return (
     <div className="editor">
@@ -2486,6 +2495,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           others={stored}
           components={[]}
           positions={positionOptions}
+          autoPositions={autoPositions}
           onSave={save}
           onCancel={() => setDialog(null)}
           onDrawDeduction={k ? startDedDraw : undefined}
@@ -2508,6 +2518,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           others={stored}
           components={[]}
           positions={positionOptions}
+          autoPositions={autoPositions}
           onSave={save}
           onCancel={() => setDialog(null)}
           onDelete={() => void removeDamage(dialogDamage)}

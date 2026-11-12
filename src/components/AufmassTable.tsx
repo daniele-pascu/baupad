@@ -3,7 +3,7 @@ import { Fragment, useEffect, useRef, type ReactNode } from 'react';
 import type { AufmassRow } from '../lib/aufmass';
 import { sumArea } from '../lib/aufmass';
 import { deductionText, grossArea, hasArea, hasVolume, isWall, kindOf, measureLabel, netLength, sumLengths, sumVolumes } from '../lib/measure';
-import { formatArea, formatMeasure } from '../lib/numbers';
+import { formatArea, formatDepth, formatMeasure } from '../lib/numbers';
 import { calcPath, countOf, MEASURE_TYPES, totalsByUnit, typeOf } from '../lib/measure-types';
 import { damageNo } from '../lib/numbering';
 import type { Component, Damage, MeasureType } from '../lib/types';
@@ -118,7 +118,7 @@ function columnsOf(type: MeasureType, list: Damage[]): TypeColumns {
               <td className="num">{formatMeasure(d.width)}</td>
             </>
           )}
-          <td className="num">{formatMeasure(d.depth)}</td>
+          <td className="num">{formatDepth(d.depth)}</td>
           <td className="num" data-testid="row-volume">
             {d.area !== null && d.depth !== null ? formatArea(Math.round(d.area * d.depth * 100) / 100) : ''}
           </td>
@@ -135,7 +135,7 @@ function columnsOf(type: MeasureType, list: Damage[]): TypeColumns {
       <>
         {lengthCell(d)}
         <td className="num">{formatMeasure(d.width)}</td>
-        {depth && <td className="num">{formatMeasure(d.depth)}</td>}
+        {depth && <td className="num">{formatDepth(d.depth)}</td>}
         {areaCell(d)}
       </>
     ),

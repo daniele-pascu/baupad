@@ -5,6 +5,7 @@ import { aufmassRows, costCenterLabel, costCentersOf, lvDocsOf, plansOf, positio
 import { invoiceLabel, invoiceShort } from './invoices';
 import { deductionArea, deductionLength, grossArea, hasArea, kindOf, quantityBasis, quantityFor } from './measure';
 import { MEASURE_TYPES, typeOf } from './measure-types';
+import { bookingFactor } from './pos-rules';
 import type { ProjectState } from './store';
 import type { Damage, Deduction, LvDocument, LvPosition, Plan } from './types';
 import { A4_HEIGHT_IN, BLATT_BOTTOM_IN, blank, blattTopMargin, buildXlsx, num, str, type Cell, type HeaderImage, type Sheet } from './xlsx';
@@ -34,7 +35,8 @@ const COLS = 'ABCDEFGHIJ';
 /** Spalte F: Menge (Ergebnis jeder Messzeile, Summe der Tabelle, Menge der Position) */
 const QTY = 5;
 
-type Item = { plan: Plan; d: Damage };
+/** `factor`: Schadstelle zählt über die Regel der Position mehrfach (Zulage: Zahl der Stufen) */
+type Item = { plan: Plan; d: Damage; factor?: number };
 /** Tabellenart; `areaDepth` = Flächen mit Tiefe als Angabe (Summe m², ohne Position); `free` = freie Menge mit eigener Einheit */
 type Kind = 'count' | 'length' | 'area' | 'areaDepth' | 'volume' | 'liter' | 'other' | 'free';
 
@@ -54,6 +56,8 @@ const planNo = (p: Plan) => p.planNumber || p.planName;
 const nrCell = (d: Damage): Cell => (d.label ? str(d.label, 'amRowCenter') : num(d.number, 'amRowCenter'));
 /** Maß (Länge, Breite, Tiefe); `ded` = Zeile eines Abzugs bzw. Zuschlags */
 const n = (v: number | null, ded = false): Cell => (v === null ? blank('amRowBlank') : num(v, ded ? 'amDedNum' : 'amRowNum'));
+/** Tiefe in Metern: Millimeter bleiben sichtbar (0,061) */
+const dn = (v: number | null): Cell => (v === null ? blank('amRowBlank') : num(v, 'amRowDepth'));
 /** Menge (Ergebnis-Spalte der Messtabelle) mit 3 Nachkommastellen wie in der Vorlage */
 const qn = (v: number | null): Cell => (v === null ? blank('amRowBlank') : num(v, 'amRowQty'));
 /** Zeile über alle Spalten: fehlende Zellen bekommen das Format `style` (durchgehende Linie bzw. Fläche) */
@@ -146,7 +150,11 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
   const assigned = new Set<string>();
   for (const doc of lvDocsOf(data)) {
     const blocks = doc.positions
-      .map((pos) => ({ pos, list: items.filter((x) => x.d.positionRef === positionRef(doc.id, pos.id)) }))
+      .map((pos) => {
+        // von Hand zugeordnet oder automatisch über die Regel der Position (Größe, Tiefe, Zulage mit Stufen)
+        const ref = positionRef(doc.id, pos.id);
+        return { pos, list: items.flatMap((x): Item[] => ((f) => (f > 0 ? [{ ...x, factor: f }] : []))(bookingFactor(data, x.d, ref))) };
+      })
       .filter((b) => b.list.length);
     if (!blocks.length) continue;
     blocks.forEach((b) => b.list.forEach((x) => assigned.add(x.d.id)));
@@ -296,8 +304,14 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
     // (Teilflächen) bzw. Längen-Tabellen (Teillängen von Linien)
     const dedsOf = (d: Damage) => (areaTable ? (d.area !== null ? d.deductions : undefined) : kind === 'length' && kindOf(d) === 'line' ? d.deductions : undefined) ?? [];
     type Line = { item: Item; ded?: Deduction };
-    const lines: Line[] = list.flatMap((item) => [{ item }, ...dedsOf(item.d).map((ded) => ({ item, ded }))]);
-    const notes = lines.map(({ item, ded }) => (ded ? dedNote(ded, !areaTable) : remark(item.d, kind)));
+    const steps = (item: Item) => (item.factor ?? 1) > 1;
+    // Zulage (mehrere Stufen): eine Zeile mit der Nettomenge × Stufen – die Abzüge stehen bei der Grundposition
+    const lines: Line[] = list.flatMap((item) => [{ item }, ...(steps(item) ? [] : dedsOf(item.d)).map((ded) => ({ item, ded }))]);
+    const notes = lines.map(({ item, ded }) =>
+      ded
+        ? dedNote(ded, !areaTable)
+        : [steps(item) ? `${item.factor} Stufen${item.d.depth !== null ? ` (Tiefe ${Math.round(item.d.depth * 1000 * 10) / 10} mm)` : ''}` : '', remark(item.d, kind)].filter(Boolean).join(' · '),
+    );
     add(
       fillRow(
         [
@@ -316,7 +330,8 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
     );
     const first = rows.length + 1;
     let total = 0;
-    lines.forEach(({ item: { plan, d }, ded }, i) => {
+    lines.forEach(({ item, ded }, i) => {
+      const { plan, d } = item;
       const r = rows.length + 1;
       const note = notes[i];
       const q = (v: number, f: string): Cell => ({ t: 'formula', f, v, s: ded ? 'amDedQty' : 'amRowQty' });
@@ -344,18 +359,29 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
         return;
       }
       let cells: Cell[];
+      const baseUnit = kind === 'area' || kind === 'areaDepth' ? 'm²' : kind === 'volume' ? 'm³' : kind === 'count' ? 'Stk' : kind === 'length' ? 'm' : null;
+      if (steps(item) && baseUnit) {
+        // Zulage: Stufen × Nettomenge der Schadstelle (als Formel, damit man die Stufen sieht)
+        const base = quantityFor(baseUnit, [d]).value;
+        const v = base === null ? null : Math.round(item.factor! * base * 10000) / 10000;
+        total += v ?? 0;
+        const qty = v === null ? qn(null) : q(v, `${item.factor}*${base}`);
+        cells = areaTable ? [n(d.areaFromShape ? null : d.length), n(d.areaFromShape ? null : d.width), withDepth ? dn(d.depth) : null, qty] : [null, null, null, qty];
+        add(fillRow([planCell(plan), nrCell(d), ...cells, null, noteCell], 'amRowBlank'));
+        return;
+      }
       // Bruttofläche (Länge × Breite bzw. aus dem Plan); die Abzüge folgen in eigenen Zeilen
       const g = grossArea(d);
       if (kind === 'area' || kind === 'areaDepth') {
         const v = g ?? 0;
         total += v;
         const formula = d.width !== null && !d.areaFromShape;
-        cells = [n(d.areaFromShape ? null : d.length), n(d.areaFromShape ? null : d.width), kind === 'areaDepth' ? n(d.depth) : null, formula ? q(v, `ROUND(C${r}*D${r},2)`) : qn(g)];
+        cells = [n(d.areaFromShape ? null : d.length), n(d.areaFromShape ? null : d.width), kind === 'areaDepth' ? dn(d.depth) : null, formula ? q(v, `ROUND(C${r}*D${r},2)`) : qn(g)];
       } else if (kind === 'volume') {
         const v = g !== null && d.depth !== null ? round2(g * d.depth) : null;
         total += v ?? 0;
         const formula = d.width !== null && d.depth !== null && !d.areaFromShape;
-        cells = [n(d.areaFromShape ? null : d.length), n(d.areaFromShape ? null : d.width), n(d.depth), formula ? q(v ?? 0, `ROUND(ROUND(C${r}*D${r},2)*E${r},2)`) : qn(v)];
+        cells = [n(d.areaFromShape ? null : d.length), n(d.areaFromShape ? null : d.width), dn(d.depth), formula ? q(v ?? 0, `ROUND(ROUND(C${r}*D${r},2)*E${r},2)`) : qn(v)];
       } else {
         // Linie mit Abzügen: gemessene Länge, die Abzüge folgen in eigenen Zeilen
         const qty =

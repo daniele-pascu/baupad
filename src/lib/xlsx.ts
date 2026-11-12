@@ -104,7 +104,8 @@ export type CellStyle =
   | 'amSumNum'
   | 'amSumUnitC'
   | 'amSumMoney'
-  | 'amTitleBig';
+  | 'amTitleBig'
+  | 'amRowDepth';
 
 export type Cell =
   | null
@@ -262,6 +263,7 @@ const STYLE_INDEX: Record<CellStyle, number> = {
   amSumUnitC: 86,
   amSumMoney: 87,
   amTitleBig: 88,
+  amRowDepth: 89,
 };
 
 export const str = (v: string, s: CellStyle = 'text'): Cell => ({ t: 'str', v, s });
@@ -422,7 +424,7 @@ const STYLES_XML =
   '<border><left/><right/><top style="thin"><color rgb="FF8E8E93"/></top><bottom style="thin"><color rgb="FF8E8E93"/></bottom><diagonal/></border>' + // 11 Linien oben/unten (Gesamtzeile)
   '</borders>' +
   '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
-  '<cellXfs count="89">' +
+  '<cellXfs count="90">' +
   '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' + // 0 Standard
   '<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment wrapText="1" vertical="center"/></xf>' + // 1 Kopf
   '<xf numFmtId="49" fontId="0" fillId="0" borderId="3" xfId="0" applyNumberFormat="1" applyBorder="1"/>' + // 2 Text
@@ -514,6 +516,7 @@ const STYLES_XML =
   '<xf numFmtId="0" fontId="4" fillId="0" borderId="6" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment indent="1"/></xf>' + // 86 Zusammenstellung Einheit
   '<xf numFmtId="165" fontId="4" fillId="0" borderId="6" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"></xf>' + // 87 Zusammenstellung Betrag
   '<xf numFmtId="0" fontId="12" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>' + // 88 Titel 16 fett
+  '<xf numFmtId="164" fontId="4" fillId="0" borderId="6" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1"/>' + // 89 Zeile Tiefe (0,10 · 0,061)
   '</cellXfs>' +
   '<cellStyles count="1"><cellStyle name="Standard" xfId="0" builtinId="0"/></cellStyles>' +
   '</styleSheet>';

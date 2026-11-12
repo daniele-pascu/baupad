@@ -1,6 +1,7 @@
 import { usePricesVisible } from '../lib/price-access';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import { damagesForPosition, lvDocLabel, lvDocsOf, planTitle, positionRef } from '../lib/aufmass';
+import { lvDocLabel, lvDocsOf, planTitle, positionRef } from '../lib/aufmass';
+import { activeRule, bookedForPosition, detectRule, hasRule, ruleText, stepStart, suggestedRule } from '../lib/pos-rules';
 import { uuid } from '../lib/ids';
 import { damageNo, nextPositionNumber } from '../lib/numbering';
 import { readLvFromPdf } from '../lib/lv-import';
@@ -10,7 +11,7 @@ import { formatArea, formatMeasure, parseDecimal } from '../lib/numbers';
 import { closePdf, openPdf } from '../lib/pdf';
 import { paths } from '../lib/router';
 import { newMeta, putRecord, putRecords, type ProjectState } from '../lib/store';
-import type { LvDocument, LvPosition } from '../lib/types';
+import type { LvDocument, LvPosition, PosRule } from '../lib/types';
 import { ActionMenu } from './ActionMenu';
 import { Icon } from './Icon';
 import { Modal } from './Modal';
@@ -21,9 +22,22 @@ const qty = (n: number | null | undefined) => (n === null || n === undefined ? '
 
 /** Aufmaßmenge und -betrag einer Position aus den zugeordneten Messungen */
 function measured(data: ProjectState, doc: LvDocument, pos: LvPosition) {
-  const damages = damagesForPosition(data, positionRef(doc.id, pos.id));
-  const q = quantityFor(pos.unit, damages);
-  return { damages, ...q, amount: q.value !== null && pos.unitPrice !== null ? Math.round(q.value * pos.unitPrice * 100) / 100 : null };
+  // von Hand zugeordnete Messungen und Schadstellen, die über die Regel der Position automatisch zählen
+  const booked = bookedForPosition(data, positionRef(doc.id, pos.id));
+  const damages = booked.map((b) => b.d);
+  let q = quantityFor(pos.unit, damages);
+  if (booked.some((b) => b.factor !== 1)) {
+    // Zulage: jede Schadstelle zählt mit ihrer Stufenzahl
+    let value: number | null = null;
+    let missing = 0;
+    for (const b of booked) {
+      const one = quantityFor(pos.unit, [b.d]);
+      missing += one.missing;
+      if (one.value !== null) value = (value ?? 0) + b.factor * one.value;
+    }
+    q = { value: value === null ? null : Math.round(value * 1e6) / 1e6, missing };
+  }
+  return { damages, booked, ...q, amount: q.value !== null && pos.unitPrice !== null ? Math.round(q.value * pos.unitPrice * 100) / 100 : null };
 }
 
 /**
@@ -320,6 +334,9 @@ function LvDocView({ data, doc, prices, onEdit, onDelete }: { data: ProjectState
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState<string | null>(null);
   const [editing, setEditing] = useState<LvPosition | 'new' | null>(null);
+  const [rulesOpen, setRulesOpen] = useState(false);
+  // Schadstellen-Positionen: aus dem Text erkannt, aber noch nicht geprüft
+  const suggestions = doc.positions.filter((p) => suggestedRule(p)).length;
   const q = query.trim().toLowerCase();
   const rows = useMemo(
     () =>
@@ -355,6 +372,16 @@ function LvDocView({ data, doc, prices, onEdit, onDelete }: { data: ProjectState
               ⚠ {flagged} Position(en) mit unsicheren Angaben – bitte prüfen und bestätigen.
             </p>
           )}
+          {prices && suggestions > 0 && (
+            <p className="lv-rules-hint" data-testid="lv-rules-hint">
+              <span>
+                {suggestions} Schadstellen-Position{suggestions === 1 ? '' : 'en'} erkannt (Größe, Tiefe oder Zulage im Text). Nach dem Bestätigen zählt jede Schadstelle automatisch bei der passenden Position.
+              </span>
+              <button type="button" className="btn btn-sm btn-primary" onClick={() => setRulesOpen(true)} data-testid="lv-rules-review">
+                Prüfen und bestätigen
+              </button>
+            </p>
+          )}
         </div>
         {prices && (
         <ActionMenu
@@ -362,6 +389,7 @@ function LvDocView({ data, doc, prices, onEdit, onDelete }: { data: ProjectState
           testId="lv-doc-actions"
           actions={[
             { label: 'Position hinzufügen', icon: 'plus', onSelect: () => setEditing('new'), testId: 'lv-add-position' },
+            { label: 'Schadstellen-Positionen', icon: 'ellipse', onSelect: () => setRulesOpen(true), testId: 'lv-rules' },
             { label: doc.fileName ? 'Bezeichnung bearbeiten' : 'Positionen bearbeiten', icon: 'edit', onSelect: onEdit, testId: 'lv-doc-edit' },
             { label: 'Dokument löschen', icon: 'trash', danger: true, onSelect: onDelete, testId: 'lv-delete' },
           ]}
@@ -411,6 +439,11 @@ function LvDocView({ data, doc, prices, onEdit, onDelete }: { data: ProjectState
                     <td className="nowrap lv-c-no">{pos.number}</td>
                     <td className="lv-text lv-c-text">
                       {pos.shortText}
+                      {activeRule(pos) && (
+                        <span className="lv-rule" data-testid="lv-rule" title="Schadstellen-Position: Schadstellen mit passender Größe und Tiefe zählen hier automatisch">
+                          {ruleText(activeRule(pos)!, stepStart(doc, pos))}
+                        </span>
+                      )}
                       {pos.issues.length > 0 && <span className="lv-warn" title={pos.issues.join(' · ')}> ⚠</span>}
                     </td>
                     <td className="lv-c-unit" data-label="EH">{pos.unit}</td>
@@ -441,15 +474,18 @@ function LvDocView({ data, doc, prices, onEdit, onDelete }: { data: ProjectState
                         </p>
                         {m.damages.length > 0 ? (
                           <ul className="lv-measures">
-                            {m.damages.map((d) => {
+                            {m.booked.map(({ d, factor, auto }) => {
                               const plan = data.plans[d.planId];
                               return (
-                                <li key={d.id}>
+                                <li key={d.id} data-testid="lv-measure" data-auto={auto ? '1' : '0'} data-factor={factor}>
                                   <a href={paths.plan(data.project.id, d.planId, d.id)}>
                                     {plan ? planTitle(plan) : 'Plan'} · Nr. {damageNo(d)}
                                   </a>{' '}
                                   <span className="muted">
                                     {formatMeasure(netLength(d))} m{d.area !== null ? ` · ${formatArea(d.area)} m²` : ''}
+                                    {d.depth !== null && d.depth !== undefined && auto ? ` · Tiefe ${formatMeasure(d.depth * 1000)} mm` : ''}
+                                    {factor > 1 ? ` · ${factor} Stufen` : ''}
+                                    {auto ? ' · automatisch' : ''}
                                   </span>
                                 </li>
                               );
@@ -479,6 +515,17 @@ function LvDocView({ data, doc, prices, onEdit, onDelete }: { data: ProjectState
           </tbody>
         </table>
       </div>
+      {rulesOpen && (
+        <RulesDialog
+          doc={doc}
+          onClose={() => setRulesOpen(false)}
+          onSave={(positions) => {
+            putRecord('lvDocs', { ...doc, positions });
+            setRulesOpen(false);
+            toast('Schadstellen-Positionen gespeichert', 'success');
+          }}
+        />
+      )}
       {editing && (
         <PositionDialog
           position={editing === 'new' ? null : editing}
@@ -811,6 +858,140 @@ function DocDialog({
         </>
       )}
       {show && !name.trim() && <p className="error">Bitte eine Bezeichnung eingeben.</p>}
+    </Modal>
+  );
+}
+
+type RuleRow = { id: string; use: boolean; areaFrom: string; areaTo: string; depthFrom: string; depthTo: string; stepMm: string; stepFrom: string };
+const numIn = (v: number | null | undefined) => (v === null || v === undefined ? '' : String(v).replace('.', ','));
+const numOut = (v: string) => (v.trim() ? parseDecimal(v) : null);
+
+/**
+ * Schadstellen-Positionen prüfen: je Position die aus dem Text erkannte Regel (Größe je Schadstelle, Tiefe,
+ * Zulage „je weitere … mm“) ansehen, korrigieren und bestätigen. Nur bestätigte Regeln werden angewendet.
+ */
+function RulesDialog({ doc, onClose, onSave }: { doc: LvDocument; onClose: () => void; onSave: (positions: LvPosition[]) => void }) {
+  const rowOf = (p: LvPosition, r: PosRule | null, use: boolean): RuleRow => ({
+    id: p.id,
+    use,
+    areaFrom: numIn(r?.areaFrom),
+    areaTo: numIn(r?.areaTo),
+    depthFrom: numIn(r?.depthFrom),
+    depthTo: numIn(r?.depthTo),
+    stepMm: numIn(r?.stepMm),
+    stepFrom: numIn(r?.stepFrom),
+  });
+  // gelistet: Positionen mit bestätigter Regel und alle mit einem Vorschlag aus dem Text (auch früher abgelehnte)
+  const [rows, setRows] = useState<RuleRow[]>(() =>
+    doc.positions.flatMap((p) => {
+      const active = activeRule(p);
+      if (active) return [rowOf(p, active, true)];
+      const guess = detectRule(p);
+      return guess ? [rowOf(p, guess, p.rule === undefined)] : [];
+    }),
+  );
+  const [add, setAdd] = useState('');
+  const set = (id: string, patch: Partial<RuleRow>) => setRows((list) => list.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  const ruleOf = (r: RuleRow): PosRule => ({ areaFrom: numOut(r.areaFrom), areaTo: numOut(r.areaTo), depthFrom: numOut(r.depthFrom), depthTo: numOut(r.depthTo), stepMm: numOut(r.stepMm), stepFrom: numOut(r.stepFrom) });
+  const bad = (r: RuleRow) => r.use && ([r.areaFrom, r.areaTo, r.depthFrom, r.depthTo, r.stepMm, r.stepFrom].some((v) => v.trim() && (numOut(v) === null || numOut(v)! < 0)) || !hasRule(ruleOf(r)));
+  const invalid = rows.some(bad);
+  const others = doc.positions.filter((p) => !rows.some((r) => r.id === p.id));
+  const used = rows.filter((r) => r.use).length;
+  const field = (r: RuleRow, key: keyof Omit<RuleRow, 'id' | 'use'>, label: string, unit: string) => (
+    <label className="rule-field">
+      <span>{label}</span>
+      <span className="input-unit">
+        <input value={r[key]} onChange={(e) => set(r.id, { [key]: e.target.value })} inputMode="decimal" disabled={!r.use} aria-label={`${label} (${unit})`} data-testid={`rule-${key}`} />
+        <span className="unit">{unit}</span>
+      </span>
+    </label>
+  );
+  return (
+    <Modal
+      title="Schadstellen-Positionen"
+      onClose={onClose}
+      persistent
+      testId="lv-rules-dialog"
+      footer={
+        <>
+          <button type="button" className="btn" onClick={onClose}>
+            Abbrechen
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={invalid}
+            onClick={() =>
+              onSave(
+                doc.positions.map((p) => {
+                  const r = rows.find((x) => x.id === p.id);
+                  // gelistet und angehakt → bestätigte Regel; gelistet und abgewählt → geprüft, keine Regel
+                  return r ? { ...p, rule: r.use ? { ...ruleOf(r), confirmed: true } : null } : p;
+                }),
+              )
+            }
+            data-testid="lv-rules-save"
+          >
+            Bestätigen ({used})
+          </button>
+        </>
+      }
+    >
+      <p className="muted small">
+        Positionen, die nach Größe je Schadstelle, nach Tiefe oder als Zulage ausgeschrieben sind. Die Werte sind aus dem Positionstext gelesen – bitte prüfen. Danach zählt jede Schadstelle
+        automatisch bei allen Positionen, deren Angaben zu ihrer Fläche und Tiefe passen. Leeres Feld = keine Grenze; „über“ schließt den Wert aus, „bis“ schließt ihn ein.
+      </p>
+      {!rows.length && <p className="muted">Im Text dieses LV wurden keine Größen- oder Tiefenangaben erkannt. Unten kannst du eine Position von Hand hinzufügen.</p>}
+      <div className="rule-list">
+        {rows.map((r) => {
+          const p = doc.positions.find((x) => x.id === r.id)!;
+          return (
+            <div key={r.id} className={`rule-row${r.use ? '' : ' off'}${bad(r) ? ' invalid' : ''}`} data-testid="rule-row" data-number={p.number}>
+              <label className="check-row rule-head">
+                <input type="checkbox" checked={r.use} onChange={(e) => set(r.id, { use: e.target.checked })} data-testid="rule-use" />
+                <span>
+                  <strong>{p.number}</strong> {p.shortText}
+                </span>
+              </label>
+              <div className="rule-fields">
+                {field(r, 'areaFrom', 'Größe über', 'm²')}
+                {field(r, 'areaTo', 'Größe bis', 'm²')}
+                {field(r, 'depthFrom', 'Tiefe über', 'mm')}
+                {field(r, 'depthTo', 'Tiefe bis', 'mm')}
+                {field(r, 'stepMm', 'Zulage je', 'mm')}
+                {field(r, 'stepFrom', 'Zulage ab', 'mm')}
+              </div>
+              {r.use && !bad(r) && (
+                <p className="small muted rule-summary" data-testid="rule-summary">
+                  {ruleText(ruleOf(r))}
+                </p>
+              )}
+              {bad(r) && <p className="small error">Bitte mindestens einen gültigen Wert (Zahl ab 0) eingeben oder die Position abwählen.</p>}
+            </div>
+          );
+        })}
+      </div>
+      {others.length > 0 && (
+        <label className="field">
+          <span>Weitere Position als Schadstellen-Position festlegen</span>
+          <select
+            value={add}
+            onChange={(e) => {
+              const p = doc.positions.find((x) => x.id === e.target.value);
+              if (p) setRows((list) => [...list, rowOf(p, null, true)]);
+              setAdd('');
+            }}
+            data-testid="rule-add"
+          >
+            <option value="">– Position wählen –</option>
+            {others.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.number} {p.shortText}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
     </Modal>
   );
 }

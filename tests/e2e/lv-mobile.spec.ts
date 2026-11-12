@@ -16,7 +16,7 @@ test('LV-Positionen: Nummer, Kurztext und Werte überlappen nicht und bleiben in
     ['03.14.80.90A.', 'Sandstrahlen', 'm²', '37,75'],
     ['03.14.80.90D.', 'Schutz der Betonstützen nach der Sanierung', 'm²', '10,84'],
     ['S1.12.25.24.03A.', 'Vorbereiten der Betonunterlage für 2K-Fl.Kunstst.-Abdichtung', 'm²', '7,85'],
-    ['S1.12.25.24.03B.', 'Kernbohrung', 'Stk', '1.234,50'],
+    ['S1.12.25.24.03B.', 'Schadstelle über 0,25 bis 1,5 m², Abtragstiefe über 20 bis 40 mm', 'Stk', '1.234,50'],
   ];
   await dlg.getByTestId('lv-doc-name').press('Enter');
   const rows = dlg.getByTestId('lv-grid-row');
@@ -68,4 +68,14 @@ test('LV-Positionen: Nummer, Kurztext und Werte überlappen nicht und bleiben in
   await expect(page.getByTestId('lv-longtext')).toBeVisible();
   expect(await tastenBefunde(page)).toEqual([]);
   await page.screenshot({ path: `tests/output/lv-${info.project.name}-offen.png` });
+  // Schadstellen-Positionen prüfen: Fenster mit den aus dem Text gelesenen Werten
+  await page.getByTestId('lv-rules-review').click();
+  const rules = page.getByTestId('lv-rules-dialog');
+  await expect(rules.getByTestId('rule-row')).toHaveCount(1);
+  expect(await tastenBefunde(page)).toEqual([]);
+  await page.screenshot({ path: `tests/output/lv-${info.project.name}-regeln.png` });
+  await rules.getByTestId('lv-rules-save').click();
+  await expect(rules).toBeHidden();
+  await expect(page.getByTestId('lv-rule')).toHaveText('Größe über 0,25 bis 1,5 m² · Tiefe über 20 bis 40 mm');
+  expect(await tastenBefunde(page)).toEqual([]);
 });

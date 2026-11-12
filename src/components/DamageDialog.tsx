@@ -5,7 +5,7 @@ import { uuid } from '../lib/ids';
 import { rebarLine, rebarTotal } from '../lib/rebar';
 import { deductionArea, deductionLength, hasArea, netArea } from '../lib/measure';
 import { DAMAGE_TYPES, DEFAULT_WORK_AREAS, evalFormula, FREE_UNITS, MEASURE_TYPES, typeInfo } from '../lib/measure-types';
-import { round2, checkMeasure, computeArea, formatArea, formatMeasure, parseDecimal, toInputValue } from '../lib/numbers';
+import { round2, round3, checkMeasure, computeArea, formatArea, formatMeasure, parseDecimal, toInputValue } from '../lib/numbers';
 
 /** Maße im Eingabefeld: kaufmännisch auf 2 Stellen gerundet (ältere Werte mit 3 Stellen) */
 const up2 = (n: number | null | undefined) => (n === null || n === undefined ? n : round2(n));
@@ -29,6 +29,8 @@ export interface DamageValues {
   shapeType: ShapeType;
   componentId: string | null;
   positionRef: string | null;
+  /** Positionen, bei denen die Schadstelle trotz passender Regel nicht automatisch zählen soll */
+  autoOff: string[];
   resetLabel: boolean;
   /** Fläche/Umfang aus der Plangeometrie: `area` = Fläche der Form, `length` = Umfang */
   areaFromShape: boolean;
@@ -94,12 +96,17 @@ export type Renumber = 'none' | 'swap' | 'shift';
 interface Props {
   mode: 'new' | 'edit';
   damage: Pick<Damage, 'id' | 'number' | 'color' | 'labelOffset'> &
-    Partial<Pick<Damage, 'length' | 'width' | 'depth' | 'componentId' | 'positionRef' | 'label' | 'areaFromShape' | 'deductions' | 'note' | 'rebar' | 'rebarItems' | 'photoIds' | 'measureType' | 'count' | 'workArea' | 'damageType' | 'formula' | 'unit' | 'qty'>> & { shapeType: ShapeType; kind: MeasureKind };
+    Partial<Pick<Damage, 'length' | 'width' | 'depth' | 'componentId' | 'positionRef' | 'label' | 'areaFromShape' | 'deductions' | 'note' | 'rebar' | 'rebarItems' | 'photoIds' | 'autoOff' | 'measureType' | 'count' | 'workArea' | 'damageType' | 'formula' | 'unit' | 'qty'>> & { shapeType: ShapeType; kind: MeasureKind };
   others: Pick<Damage, 'id' | 'number' | 'area' | 'label'>[];
   /** Bauteilkennzeichnungen des Plans für die optionale Zuordnung */
   components: Pick<Component, 'id' | 'letter' | 'name'>[];
   /** Leistungspositionen (LV/MFK) für die optionale Zuordnung */
   positions?: { ref: string; label: string; doc: string; number?: string; shortText?: string; unit?: string }[];
+  /**
+   * Schadstellen-Positionen des LV: liefert zu Fläche (m²), Tiefe (m) und Anzahl alle Positionen, deren Regel
+   * passt (Größen-/Tiefenklasse, Zulage mit Stufen) – dort zählt die Schadstelle automatisch.
+   */
+  autoPositions?: (m: { area: number | null; depth: number | null; count: number }) => { ref: string; label: string; factor: number }[];
   /** Gezeichnete Pläne: Maße aus der Markierung (Maßstab bekannt) als Vorschlag */
   suggestion?: { length: number; width: number | null } | null;
   /** Kalibrierter bzw. gezeichneter Plan, geschlossene Form: Fläche und Umfang aus der Geometrie */
@@ -133,7 +140,7 @@ type Field = 'number' | 'length' | 'width' | 'depth' | 'count';
  * Eingabe einer Messung bzw. Schadstelle. Öffnet sich automatisch nach dem Einzeichnen.
  * Enter/Weiter springt zum nächsten Feld; im letzten Feld wird gespeichert.
  */
-export function DamageDialog({ mode, damage, others, components, positions = [], suggestion, geometry, wall: wallProp = false, openShape = wallProp, workAreas = DEFAULT_WORK_AREAS, onSave, onCancel, onDelete, onDrawDeduction, drawnDeduction, hidden, dedFromPlan, photoSite, photoPrefix }: Props) {
+export function DamageDialog({ mode, damage, others, components, positions = [], autoPositions, suggestion, geometry, wall: wallProp = false, openShape = wallProp, workAreas = DEFAULT_WORK_AREAS, onSave, onCancel, onDelete, onDrawDeduction, drawnDeduction, hidden, dedFromPlan, photoSite, photoPrefix }: Props) {
   // Messart: im Aufmaß vorgewählt (bzw. aus der Form), hier jederzeit umstellbar
   const [type, setTypeState] = useState<MeasureType>(
     damage.measureType ?? (damage.kind === 'damage' ? 'schadstelle' : damage.kind === 'line' ? 'laenge' : wallProp ? 'wand' : 'flaeche'),
@@ -161,7 +168,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
     number: damage.label ?? String(damage.number),
     length: toInputValue(up2(damage.length)),
     width: toInputValue(up2(damage.width)),
-    depth: toInputValue(up2(damage.depth)),
+    depth: toInputValue(damage.depth === null || damage.depth === undefined ? damage.depth : round3(damage.depth)),
     count: String(damage.count && damage.count > 0 ? damage.count : 1),
   });
   const [workArea, setWorkArea] = useState(damage.workArea ?? '');
@@ -204,6 +211,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const docOf = (ref: string) => ref.slice(0, ref.indexOf(':'));
   const docs = [...new Map(positions.map((p) => [docOf(p.ref), p.doc])).entries()].map(([id, label]) => ({ id, label }));
   const [docId, setDocId] = useState<string>(() => (damage.positionRef && positions.some((p) => p.ref === damage.positionRef) ? docOf(damage.positionRef) : (docs[0]?.id ?? '')));
+  const [autoOff, setAutoOff] = useState<string[]>(damage.autoOff ?? []);
   const [resetLabel, setResetLabel] = useState(false);
   const [deds, setDeds] = useState<DeductionRow[]>(() =>
     (damage.deductions ?? []).map((x) => ({ id: x.id, label: x.label, count: String(x.count), length: toInputValue(up2(x.length)), width: toInputValue(up2(x.width)), add: !!x.add, ...(x.shape ? { shape: x.shape } : {}), ...(x.labelAt ? { labelAt: x.labelAt } : {}), ...(x.color ? { color: x.color } : {}), ...(x.no ? { no: x.no } : {}) })),
@@ -264,7 +272,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   // nicht 0), eine Eingabe muss aber gültig sein
   const B = !geo && !counted && !free && v.width.trim() ? checkMeasure(v.width, withArea && !wall ? 'Breite/Höhe' : type === 'wand' ? 'Wandhöhe' : wall ? 'Breite' : 'Höhe') : null;
   // Volumen: Höhe bzw. Tiefe ist Pflicht
-  const T = counted || free ? null : v.depth.trim() ? checkMeasure(v.depth, type === 'volumen' ? 'Höhe/Tiefe' : 'Tiefe') : type === 'volumen' ? ({ ok: false, error: 'Für das Volumen die Höhe bzw. Tiefe eingeben.' } as const) : null;
+  const T = counted || free ? null : v.depth.trim() ? checkMeasure(v.depth, type === 'volumen' ? 'Höhe/Tiefe' : 'Tiefe', 3) : type === 'volumen' ? ({ ok: false, error: 'Für das Volumen die Höhe bzw. Tiefe eingeben.' } as const) : null;
   const gross1 = geo ? geo.area : withArea && L.ok && B?.ok ? computeArea(L.value, B.value) : null;
   // Anzahl: Fläche je Stück × Anzahl (Abzüge/Zuschläge gelten für alle zusammen)
   const gross = gross1 === null || n === 1 ? gross1 : Math.round(gross1 * n * 1e9) / 1e9;
@@ -353,6 +361,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
         shapeType,
         componentId,
         positionRef,
+        autoOff: type === 'schadstelle' ? autoOff : [],
         resetLabel,
         areaFromShape: !!geo || lineGeo !== null,
         area: geo ? geo.area : null,
@@ -881,6 +890,32 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             </select>
           </label>
         )}
+        {(() => {
+          // Schadstellen-Positionen: wo diese Schadstelle nach Größe und Tiefe automatisch zählt (abwählbar)
+          const auto = type === 'schadstelle' && autoPositions ? autoPositions({ area, depth: T?.ok ? T.value : null, count: n }) : [];
+          if (!auto.length) return null;
+          return (
+            <div className="field auto-positions" data-testid="auto-positions">
+              <span>Zählt automatisch bei</span>
+              {auto.map((b) => (
+                <label key={b.ref} className="check-row small">
+                  <input
+                    type="checkbox"
+                    checked={!autoOff.includes(b.ref)}
+                    onChange={(e) => setAutoOff((list) => (e.target.checked ? list.filter((x) => x !== b.ref) : [...list, b.ref]))}
+                    data-testid="auto-position"
+                    data-ref={b.ref}
+                    data-factor={b.factor}
+                  />
+                  <span>
+                    {b.label}
+                    {b.factor > 1 && <strong> · {b.factor} Stufen</strong>}
+                  </span>
+                </label>
+              ))}
+            </div>
+          );
+        })()}
         {positions.length > 0 && (
           <div className="field">
             <span>Leistungsposition</span>

@@ -12004,3 +12004,118 @@ html[data-theme='dark'] .crew-search {
   margin-bottom: 0;
 }
 
+
+/* ---------- Schadstellen-Positionen (Regeln nach Größe, Tiefe, Zulage) ---------- */
+.lv-rules-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--surface-2);
+  font-size: 0.9rem;
+}
+.lv-rules-hint > span {
+  flex: 1 1 220px;
+}
+/* Regel einer Position unter dem Kurztext */
+.lv-rule {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.lv-rule::before {
+  content: '⌖ ';
+}
+.rule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 12px 0;
+}
+.rule-row {
+  padding: 10px 12px 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.rule-row.off {
+  background: var(--surface-2);
+}
+.rule-row.off .rule-fields {
+  opacity: 0.5;
+}
+.rule-row.invalid {
+  border-color: var(--danger);
+}
+.rule-head {
+  align-items: flex-start;
+  min-height: 0;
+  margin-bottom: 8px;
+}
+.rule-head input {
+  margin-top: 2px;
+}
+.rule-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px 10px;
+}
+.rule-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.rule-field .input-unit {
+  min-width: 0;
+}
+.rule-field input {
+  width: 100%;
+  min-width: 0;
+  height: 40px;
+  padding: 0 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px 0 0 10px;
+  font-size: 16px;
+  background: #fff;
+}
+.rule-field .unit {
+  display: flex;
+  align-items: center;
+  padding: 0 7px;
+  border: 1px solid var(--border-strong);
+  border-left: none;
+  border-radius: 0 10px 10px 0;
+  background: var(--surface-2);
+  font-size: 0.85rem;
+}
+.rule-summary {
+  margin: 8px 0 0;
+}
+@media (max-width: 480px) {
+  .rule-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+/* Messdialog: wo die Schadstelle automatisch zählt */
+.auto-positions {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+.auto-positions .check-row {
+  min-height: 36px;
+  align-items: flex-start;
+  padding: 4px 0;
+}
+.auto-positions .check-row input {
+  margin-top: 1px;
+}

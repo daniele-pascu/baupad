@@ -298,6 +298,11 @@ export interface Damage extends SyncMeta {
   componentId?: string | null;
   /** Zugeordnete Leistungsposition „<LV-Dokument-ID>:<Positions-ID>“, optional */
   positionRef?: string | null;
+  /**
+   * Positionen, bei denen diese Schadstelle nicht automatisch zählen soll (Verweise wie `positionRef`), obwohl
+   * ihre Regel zu Fläche und Tiefe passt – siehe `pos-rules`.
+   */
+  autoOff?: string[];
   /** Darstellung (Linientyp, -stärke, Füllung); fehlt = Standarddarstellung. Farbe = `color` */
   style?: ShapeStyle;
   /**
@@ -510,6 +515,25 @@ export interface DrawElement extends SyncMeta {
 }
 
 /** Leistungsposition eines LV bzw. einer MFK */
+/**
+ * Regel einer Schadstellen-Position: wann eine Schadstelle bei dieser Position zählt. Grenzen wie im LV
+ * („über … bis …“): untere Grenze ausgeschlossen, obere eingeschlossen; fehlt eine Grenze, ist sie offen.
+ */
+export interface PosRule {
+  /** Größe je einzelner Schadstelle in m² */
+  areaFrom?: number | null;
+  areaTo?: number | null;
+  /** Tiefe in mm */
+  depthFrom?: number | null;
+  depthTo?: number | null;
+  /** Zulage „je weitere … mm“: Stufenhöhe in mm (jede angefangene Stufe zählt) */
+  stepMm?: number | null;
+  /** Tiefe in mm, ab der die Zulage beginnt; fehlt = ab der größten Tiefenposition des LV */
+  stepFrom?: number | null;
+  /** vom Benutzer bestätigt – nur bestätigte Regeln werden angewendet */
+  confirmed?: boolean;
+}
+
 export interface LvPosition {
   id: string;
   /** Positionsnummer, z. B. „92 01 01 B1“ */
@@ -528,6 +552,11 @@ export interface LvPosition {
   group: string;
   /** Beim Import nicht sicher erkannte Angaben; leer = geprüft */
   issues: string[];
+  /**
+   * Regel als Schadstellen-Position (Größe, Tiefe, Zulage). `undefined` = noch nie geprüft (Vorschlag aus dem
+   * Text), `null` = geprüft: keine Regel.
+   */
+  rule?: PosRule | null;
 }
 
 /** Leistungsverzeichnis (LV) oder Mehrkostenforderung (MFK) eines Projekts. */
