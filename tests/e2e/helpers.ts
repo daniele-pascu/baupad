@@ -139,7 +139,8 @@ export function blattRows(wb: Record<string, XlsxCell[][]>, plan?: string | numb
       head = r.some((c) => c?.v === 'lfm') ? null : r.map((c) => String(c?.v ?? ''));
       continue;
     }
-    if (!head || a === undefined || a === null || a === '') {
+    // Tabelle endet an der Summenzeile („Summe“ in Spalte A) bzw. an einer Zeile ohne Plan
+    if (!head || a === undefined || a === null || a === '' || a === 'Summe') {
       head = null;
       continue;
     }
@@ -156,12 +157,14 @@ export function blattRows(wb: Record<string, XlsxCell[][]>, plan?: string | numb
 /** Tabelle „Bewehrung“ im Aufmaßblatt: [Nr., Formel] je Nummer (z. B. [2, '=4*1.2+2*0.8']) */
 export function blattRebar(wb: Record<string, XlsxCell[][]>): [string | number, string | number][] {
   const ws = wb[Object.keys(wb).find((n) => n.startsWith('Aufmaßblatt'))!];
-  const at = ws.findIndex((r) => r[0]?.v === 'Plan' && r[1]?.v === 'Nr.' && r[2]?.v === 'lfm');
+  // Kopf „Plan | Nr. | … | lfm“ – die Menge steht in der Spalte mit „lfm“
+  const at = ws.findIndex((r) => r[0]?.v === 'Plan' && r[1]?.v === 'Nr.' && r.some((c) => c?.v === 'lfm'));
   if (at < 0) return [];
+  const col = ws[at].findIndex((c) => c?.v === 'lfm');
   const out: [string | number, string | number][] = [];
   for (const r of ws.slice(at + 1)) {
-    if (r[0]?.v === undefined || r[0]?.v === null || r[0]?.v === '') break;
-    out.push([r[1]?.v as string | number, r[2]?.v as string | number]);
+    if (r[0]?.v === undefined || r[0]?.v === null || r[0]?.v === '' || r[0]?.v === 'Summe') break;
+    out.push([r[1]?.v as string | number, r[col]?.v as string | number]);
   }
   return out;
 }

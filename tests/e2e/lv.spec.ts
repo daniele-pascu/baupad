@@ -156,38 +156,41 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   const v = (r: number, c: number) => ws[r]?.[c]?.v ?? null;
   const rowOf = (text: string, col = 0) => ws.findIndex((r) => r[col]?.v === text);
   expect(v(0, 0)).toBe('Aufmaßblatt 001');
+  // Kopfkasten: Bauvorhaben, Kostenstelle, Plan, Leistungszeitraum
   expect([v(2, 0), v(2, 2)]).toEqual(['Bauvorhaben', 'LV-Test']);
   expect([v(3, 0), v(3, 2)]).toEqual(['Kostenstelle', 'Garage']);
-  expect(v(4, 0)).toBe('Leistungszeitraum');
-  expect(String(v(6, 0))).toMatch(/^LV - .*Sanierung Tiefgarage Musterstrasse/);
-  expect(ws[8].map((c) => c?.v ?? null).filter(Boolean)).toEqual(['Pos. / Positionstext', 'Menge', 'EH', 'Einheitspreis', 'Positionspreis']);
-  // Position B (m²): Menge = Summe der Tabelle, Positionspreis = EP × Menge
-  const pb = rowOf('92 01 01 B');
-  expect(v(pb, 2)).toBe('Sperrflaeche'); // neue Vorlage: Text ohne Einrückung
-  const q = ws[pb + 1];
-  // Spalten A–J: Menge C, EH D, Einheitspreis F, € G, Positionspreis I, € J
-  expect([q[3]?.v, q[5]?.v, q[6]?.v, q[8]?.v, q[9]?.v]).toEqual(['m²', 25, '€', `=F${pb + 2}*C${pb + 2}`, '€']);
-  expect(ws[pb - 2].map((c) => c?.v ?? null).filter(Boolean)).toEqual(['Pos. / Positionstext', 'Menge', 'EH', 'Einheitspreis', 'Positionspreis']); // Kopf je Position
-  const th = pb + 3;
-  expect(ws[th].map((c) => c?.v ?? null).filter((x) => x !== null)).toEqual(['Plan', 'Nr.', 'Länge', 'Breite', 'm²']); // ohne Bemerkung keine Spalte „Bemerkung“
-  expect(ws[th + 1].slice(0, 5).map((c) => c?.v ?? null)).toEqual(['P-1', 1, 4, 2.5, `=ROUND(C${th + 2}*D${th + 2},2)`]);
-  expect(ws[th + 2].slice(4, 6).map((c) => c?.v ?? null)).toEqual([`=SUM(E${th + 2}:E${th + 2})`, 'm²']);
-  expect(q[2]?.v).toBe(`=E${th + 3}`); // Menge verweist auf die Summe
-  // Position A (m): Plan | Nr. | m
-  const pa = rowOf('92 01 01 A');
-  expect(ws[pa + 3].map((c) => c?.v ?? null).filter((x) => x !== null)).toEqual(['Plan', 'Nr.', 'm']);
-  expect(ws[pa + 4].slice(0, 3).map((c) => c?.v ?? null)).toEqual(['P-1', 2, 12]);
-  // Zusammenstellung und Gesamtpreis (Formeln)
-  // Zusammenstellung: Kasten mit dem Namen des LV
-  const boxRow = ws.findIndex((r, i) => i > pb && r[0]?.v === v(6, 0));
-  expect(boxRow).toBeGreaterThan(pb);
-  const total = ws.find((r) => r[6]?.v === 'Gesamtpreis in EUR')!;
+  expect([v(4, 0), v(4, 2)]).toEqual(['Plan', 'P-1']);
+  expect(v(5, 0)).toBe('Leistungszeitraum');
+  expect(String(v(7, 0))).toMatch(/^LV - .*Sanierung Tiefgarage Musterstrasse/);
+  const vals = (r: number) => ws[r].map((c) => c?.v ?? null).filter((x) => x !== null);
+  /** alle Zeilen mit diesem Text in Spalte A: zuerst die Zusammenstellung, dann der Balken der Position */
+  const rowsOf = (text: string) => ws.map((r, i) => (r[0]?.v === text ? i : -1)).filter((i) => i >= 0);
+  // Zusammenstellung steht zuerst: Kopf, je Position eine Zeile, Gesamtpreis (Formeln)
+  expect(vals(9)).toEqual(['Pos.', 'Leistung', 'Menge', 'EH', 'Einheitspreis', 'Positionspreis']);
+  const total = ws.find((r) => r[0]?.v === 'Gesamtpreis in EUR')!;
   expect(String(total[8]?.v)).toMatch(/^=SUM\(I\d+:I\d+\)$/);
-  // ohne Position: Fläche und Linie mit Plan und Nr.
+  // Position B (m²): heller Balken mit Nr., Text, Menge (= Summe der Tabelle), EH, Einheitspreis, Positionspreis = EP × Menge
+  const [sb, pb] = rowsOf('92 01 01 B');
+  expect(pb).toBeGreaterThan(ws.indexOf(total));
+  expect(v(pb, 2)).toBe('Sperrflaeche');
+  const th = pb + 1;
+  // Spalten A–J: Menge F, EH G, Einheitspreis H, Positionspreis I
+  expect([v(pb, 5), v(pb, 6), v(pb, 7), v(pb, 8)]).toEqual([`=F${th + 3}`, 'm²', 25, `=H${pb + 1}*F${pb + 1}`]);
+  // die Zusammenstellung verweist auf den Balken
+  expect([v(sb, 2), v(sb, 5), v(sb, 6), v(sb, 7), v(sb, 8)]).toEqual(['Sperrflaeche', `=F${pb + 1}`, 'm²', `=H${pb + 1}`, `=I${pb + 1}`]);
+  // Messtabelle: immer dieselben Spalten (Plan, Nr., Länge, Breite, Tiefe, Menge); ohne Bemerkung keine Spalte „Bemerkung“
+  expect(vals(th)).toEqual(['Plan', 'Nr.', 'Länge', 'Breite', 'm²']);
+  expect(ws[th + 1].slice(0, 6).map((c) => c?.v ?? null)).toEqual(['P-1', 1, 4, 2.5, null, `=ROUND(C${th + 2}*D${th + 2},2)`]);
+  expect([v(th + 2, 0), v(th + 2, 5), v(th + 2, 6)]).toEqual(['Summe', `=SUM(F${th + 2}:F${th + 2})`, 'm²']);
+  // Position A (m): Plan | Nr. | m – die Menge steht ebenfalls in Spalte F
+  const pa = rowsOf('92 01 01 A')[1];
+  expect(vals(pa + 1)).toEqual(['Plan', 'Nr.', 'm']);
+  expect([v(pa + 2, 0), v(pa + 2, 1), v(pa + 2, 5)]).toEqual(['P-1', 2, 12]);
+  // ohne Position: je Messart eine Tabelle, mit Plan und Nr.
   const free3 = rowOf('Aufmaß ohne Leistungsposition');
-  expect(free3).toBeGreaterThan(boxRow);
+  expect(free3).toBeGreaterThan(pb);
   expect(ws.slice(free3).some((r) => r[0]?.v === 'P-1' && r[2]?.v === 3 && r[3]?.v === 2)).toBe(true);
-  expect(ws.slice(free3).some((r) => r[0]?.v === 'P-1' && r[2]?.v === 5.5)).toBe(true);
+  expect(ws.slice(free3).some((r) => r[0]?.v === 'P-1' && r[5]?.v === 5.5)).toBe(true);
   // Druck: Kopfzeile wie Vorlage (rechts „Seite von Seiten“), Seitenbreite
   // jede LV/MFK und das Aufmaß ohne Position auf einer eigenen Seite (Umbruch vor der Zeile), Zoom statt „an Seite anpassen“
   const pr3 = readXlsxPrint(file3)['Aufmaßblatt 001'];

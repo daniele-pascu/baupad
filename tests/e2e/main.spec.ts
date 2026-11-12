@@ -401,8 +401,8 @@ test('10. Excel-Export (Plan): Aufmaßblatt mit echten Zahlenwerten auf einer Se
   // Dezimaltrennzeichen hängt von der Ländereinstellung des Programms ab
   // (Zahlenformat der Vorlage mit Leerraum links/rechts)
   // Mengen (m²) mit 3 Nachkommastellen wie in der Vorlage
-  expect(csv).toMatch(/^A-101;1; *0[.,]60 *; *0[.,]40 *; *0[.,]03 *; *0[.,]240 *;?$/m);
-  expect(csv).toMatch(/^;;;;; *5[.,]440 *;m²$/m); // Summenformel wird berechnet
+  expect(csv).toMatch(/^A-101;1; *0[.,]60 *; *0[.,]40 *; *0[.,]03 *; *0[.,]240 *;*$/m);
+  expect(csv).toMatch(/^Summe;;;;; *5[.,]440 *;m²;*$/m); // Summenformel wird berechnet
   // Ausdruck (LibreOffice → PDF): genau eine Seite
   execFileSync('soffice', ['--headless', '--convert-to', 'pdf', '--outdir', join(OUT, 'xlsx-pdf'), file], { timeout: 90_000 });
   expect(execFileSync('pdfinfo', [join(OUT, 'xlsx-pdf', 'Wohnanlage_Sued_Tiefgarage_A-101_Aufmassblatt_001.pdf')], { encoding: 'utf8' })).toMatch(/Pages:\s+1\n/);

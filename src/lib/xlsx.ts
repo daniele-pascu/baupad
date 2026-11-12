@@ -70,7 +70,41 @@ export type CellStyle =
   /** Menge mit 3 Nachkommastellen, rechtsbündig (Ergebnis-Spalte der Messtabelle) */
   | 'amQty'
   | 'amQtyLast'
-  | 'amQtyBold';
+  | 'amQtyBold'
+  | 'amBand'
+  | 'amBandFirst'
+  | 'amBandNum'
+  | 'amBandUnit'
+  | 'amBandMoney'
+  | 'amBandMoneyBold'
+  | 'amHead'
+  | 'amHeadL'
+  | 'amHeadR'
+  | 'amSection'
+  | 'amInfoLabel'
+  | 'amInfoValue'
+  | 'amSumLabel'
+  | 'amSumQty'
+  | 'amSumUnit'
+  | 'amSumBlank'
+  | 'amTotalLabel'
+  | 'amTotalMoney'
+  | 'amTotalBlank'
+  | 'amRowCenter'
+  | 'amRowNum'
+  | 'amRowQty'
+  | 'amRowNote'
+  | 'amRowBlank'
+  | 'amDedCenter'
+  | 'amDedNum'
+  | 'amDedQty'
+  | 'amDedNote'
+  | 'amSumPos'
+  | 'amSumText'
+  | 'amSumNum'
+  | 'amSumUnitC'
+  | 'amSumMoney'
+  | 'amTitleBig';
 
 export type Cell =
   | null
@@ -193,6 +227,41 @@ const STYLE_INDEX: Record<CellStyle, number> = {
   amQty: 52,
   amQtyLast: 53,
   amQtyBold: 54,
+  // 55–88 Aufmaßblatt, hellgraues Layout (Balken je Position, einheitliche Tabellen, Zusammenstellung)
+  amBand: 55,
+  amBandFirst: 56,
+  amBandNum: 57,
+  amBandUnit: 58,
+  amBandMoney: 59,
+  amBandMoneyBold: 60,
+  amHead: 61,
+  amHeadL: 62,
+  amHeadR: 63,
+  amSection: 64,
+  amInfoLabel: 65,
+  amInfoValue: 66,
+  amSumLabel: 67,
+  amSumQty: 68,
+  amSumUnit: 69,
+  amSumBlank: 70,
+  amTotalLabel: 71,
+  amTotalMoney: 72,
+  amTotalBlank: 73,
+  amRowCenter: 74,
+  amRowNum: 75,
+  amRowQty: 76,
+  amRowNote: 77,
+  amRowBlank: 78,
+  amDedCenter: 79,
+  amDedNum: 80,
+  amDedQty: 81,
+  amDedNote: 82,
+  amSumPos: 83,
+  amSumText: 84,
+  amSumNum: 85,
+  amSumUnitC: 86,
+  amSumMoney: 87,
+  amTitleBig: 88,
 };
 
 export const str = (v: string, s: CellStyle = 'text'): Cell => ({ t: 'str', v, s });
@@ -309,7 +378,7 @@ const STYLES_XML =
   '<numFmt numFmtId="166" formatCode="_-* #,##0.00_-;\\-* #,##0.00_-;_-* &quot;-&quot;??_-;_-@_-"/>' +
   // dto. mit 3 Nachkommastellen (Mengen der Messtabellen)
   '<numFmt numFmtId="167" formatCode="_-* #,##0.000_-;\\-* #,##0.000_-;_-* &quot;-&quot;??_-;_-@_-"/></numFmts>' +
-  '<fonts count="11">' +
+  '<fonts count="17">' +
   '<font><sz val="11"/><color theme="1"/><name val="Calibri"/><family val="2"/><scheme val="minor"/></font>' +
   '<font><b/><sz val="11"/><color theme="1"/><name val="Calibri"/><family val="2"/><scheme val="minor"/></font>' +
   '<font><b/><sz val="14"/><color theme="1"/><name val="Calibri"/><family val="2"/><scheme val="minor"/></font>' +
@@ -322,23 +391,38 @@ const STYLES_XML =
   '<font><b/><sz val="12"/><color theme="1"/><name val="Aptos Narrow"/><family val="2"/></font>' +
   '<font><i/><sz val="9"/><color theme="1"/><name val="Aptos Narrow"/><family val="2"/></font>' +
   '<font><i/><sz val="11"/><color theme="1"/><name val="Aptos Narrow"/><family val="2"/></font>' +
+  // 11–16: hellgraues Aufmaßblatt (9 fett grau, 16 fett, 10 grau, 9 grau, 11 kursiv rotbraun, 9 kursiv rotbraun)
+  '<font><b/><sz val="9"/><color rgb="FF6E6E73"/><name val="Aptos Narrow"/><family val="2"/></font>' +
+  '<font><b/><sz val="16"/><color theme="1"/><name val="Aptos Narrow"/><family val="2"/></font>' +
+  '<font><sz val="10"/><color rgb="FF6E6E73"/><name val="Aptos Narrow"/><family val="2"/></font>' +
+  '<font><sz val="9"/><color rgb="FF6E6E73"/><name val="Aptos Narrow"/><family val="2"/></font>' +
+  '<font><i/><sz val="11"/><color rgb="FFB4573A"/><name val="Aptos Narrow"/><family val="2"/></font>' +
+  '<font><i/><sz val="9"/><color rgb="FFB4573A"/><name val="Aptos Narrow"/><family val="2"/></font>' +
   '</fonts>' +
-  '<fills count="4">' +
+  '<fills count="6">' +
   '<fill><patternFill patternType="none"/></fill>' +
   '<fill><patternFill patternType="gray125"/></fill>' +
   '<fill><patternFill patternType="solid"><fgColor rgb="FFDCE6F1"/><bgColor indexed="64"/></patternFill></fill>' +
   '<fill><patternFill patternType="solid"><fgColor rgb="FFF2F2F2"/><bgColor indexed="64"/></patternFill></fill>' + // 3 hellgrau
+  '<fill><patternFill patternType="solid"><fgColor rgb="FFECECEF"/><bgColor indexed="64"/></patternFill></fill>' + // 4 Balken hellgrau
+  '<fill><patternFill patternType="solid"><fgColor rgb="FFF6F6F8"/><bgColor indexed="64"/></patternFill></fill>' + // 5 sehr hell (Kopfkasten, Gesamtzeile)
   '</fills>' +
-  '<borders count="6">' +
+  '<borders count="12">' +
   '<border><left/><right/><top/><bottom/><diagonal/></border>' +
   '<border><left/><right/><top/><bottom style="thin"><color auto="1"/></bottom><diagonal/></border>' +
   '<border><left/><right/><top style="thin"><color auto="1"/></top><bottom style="double"><color auto="1"/></bottom><diagonal/></border>' +
   '<border><left/><right/><top/><bottom style="thin"><color rgb="FFD9DEE5"/></bottom><diagonal/></border>' + // 3 dezente Zeilenlinie
   '<border><left style="thin"><color auto="1"/></left><right style="thin"><color auto="1"/></right><top style="thin"><color auto="1"/></top><bottom style="thin"><color auto="1"/></bottom><diagonal/></border>' + // 4 Rahmen
   '<border><left style="thin"><color rgb="FFB4B4B4"/></left><right style="thin"><color rgb="FFB4B4B4"/></right><top style="thin"><color rgb="FFB4B4B4"/></top><bottom style="thin"><color rgb="FFB4B4B4"/></bottom><diagonal/></border>' + // 5 feines Gitter
+  '<border><left/><right/><top/><bottom style="thin"><color rgb="FFE3E3E8"/></bottom><diagonal/></border>' + // 6 feine Zeilenlinie
+  '<border><left style="thick"><color rgb="FF8E8E93"/></left><right/><top/><bottom/><diagonal/></border>' + // 7 Strich links (Balken)
+  '<border><left/><right/><top style="thin"><color rgb="FFB9B9BF"/></top><bottom/><diagonal/></border>' + // 8 Linie oben (Summe)
+  '<border><left/><right/><top/><bottom style="thin"><color rgb="FFB9B9BF"/></bottom><diagonal/></border>' + // 9 Linie unten (Abschnitt, Tabellenkopf)
+  '<border><left/><right/><top style="thin"><color rgb="FFD0D0D5"/></top><bottom style="thin"><color rgb="FFD0D0D5"/></bottom><diagonal/></border>' + // 10 Linien oben/unten (Kopfkasten)
+  '<border><left/><right/><top style="thin"><color rgb="FF8E8E93"/></top><bottom style="thin"><color rgb="FF8E8E93"/></bottom><diagonal/></border>' + // 11 Linien oben/unten (Gesamtzeile)
   '</borders>' +
   '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
-  '<cellXfs count="55">' +
+  '<cellXfs count="89">' +
   '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' + // 0 Standard
   '<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment wrapText="1" vertical="center"/></xf>' + // 1 Kopf
   '<xf numFmtId="49" fontId="0" fillId="0" borderId="3" xfId="0" applyNumberFormat="1" applyBorder="1"/>' + // 2 Text
@@ -395,6 +479,41 @@ const STYLES_XML =
   '<xf numFmtId="167" fontId="4" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyAlignment="1"><alignment horizontal="right"/></xf>' + // 52 Menge 0,000
   '<xf numFmtId="167" fontId="4" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right"/></xf>' + // 53 dto. letzte Zeile
   '<xf numFmtId="167" fontId="5" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyAlignment="1"><alignment horizontal="right"/></xf>' + // 54 Summe 0,000 fett
+  // 55–88 Aufmaßblatt, hellgraues Layout
+  '<xf numFmtId="49" fontId="5" fillId="4" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>' + // 55 Balken Text
+  '<xf numFmtId="49" fontId="5" fillId="4" borderId="7" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" indent="1"/></xf>' + // 56 Balken erste Zelle (Strich links)
+  '<xf numFmtId="4" fontId="5" fillId="4" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>' + // 57 Balken Menge
+  '<xf numFmtId="0" fontId="4" fillId="4" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" indent="1"/></xf>' + // 58 Balken Einheit
+  '<xf numFmtId="165" fontId="4" fillId="4" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>' + // 59 Balken Einheitspreis
+  '<xf numFmtId="165" fontId="5" fillId="4" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>' + // 60 Balken Positionspreis fett
+  '<xf numFmtId="0" fontId="11" fillId="0" borderId="9" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' + // 61 Tabellenkopf
+  '<xf numFmtId="0" fontId="11" fillId="0" borderId="9" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>' + // 62 Tabellenkopf links
+  '<xf numFmtId="0" fontId="11" fillId="0" borderId="9" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>' + // 63 Tabellenkopf rechts
+  '<xf numFmtId="0" fontId="8" fillId="0" borderId="9" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>' + // 64 Abschnitt (LV/MFK, Aufmaß)
+  '<xf numFmtId="0" fontId="13" fillId="5" borderId="10" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>' + // 65 Kopfkasten Beschriftung
+  '<xf numFmtId="49" fontId="5" fillId="0" borderId="10" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1" indent="1"/></xf>' + // 66 Kopfkasten Wert
+  '<xf numFmtId="0" fontId="5" fillId="0" borderId="8" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"></xf>' + // 67 Summe Beschriftung
+  '<xf numFmtId="167" fontId="5" fillId="0" borderId="8" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right"/></xf>' + // 68 Summe Menge
+  '<xf numFmtId="0" fontId="5" fillId="0" borderId="8" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment indent="1"/></xf>' + // 69 Summe Einheit
+  '<xf numFmtId="0" fontId="4" fillId="0" borderId="8" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"></xf>' + // 70 Summe leer
+  '<xf numFmtId="0" fontId="8" fillId="5" borderId="11" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" indent="1"/></xf>' + // 71 Gesamtpreis Beschriftung
+  '<xf numFmtId="165" fontId="8" fillId="5" borderId="11" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>' + // 72 Gesamtpreis
+  '<xf numFmtId="0" fontId="4" fillId="5" borderId="11" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"></xf>' + // 73 Gesamtzeile leer
+  '<xf numFmtId="0" fontId="4" fillId="0" borderId="6" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf>' + // 74 Zeile zentriert (Plan, Nr.)
+  '<xf numFmtId="166" fontId="4" fillId="0" borderId="6" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"></xf>' + // 75 Zeile Maß
+  '<xf numFmtId="167" fontId="4" fillId="0" borderId="6" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right"/></xf>' + // 76 Zeile Menge
+  '<xf numFmtId="49" fontId="14" fillId="0" borderId="6" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"></xf>' + // 77 Zeile Bemerkung
+  '<xf numFmtId="0" fontId="4" fillId="0" borderId="6" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"></xf>' + // 78 Zeile leer
+  '<xf numFmtId="0" fontId="15" fillId="0" borderId="6" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf>' + // 79 Abzug zentriert
+  '<xf numFmtId="166" fontId="15" fillId="0" borderId="6" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"></xf>' + // 80 Abzug Maß
+  '<xf numFmtId="167" fontId="15" fillId="0" borderId="6" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right"/></xf>' + // 81 Abzug Menge
+  '<xf numFmtId="49" fontId="16" fillId="0" borderId="6" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"></xf>' + // 82 Abzug Bemerkung
+  '<xf numFmtId="49" fontId="5" fillId="0" borderId="6" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment indent="1"/></xf>' + // 83 Zusammenstellung Position
+  '<xf numFmtId="49" fontId="4" fillId="0" borderId="6" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>' + // 84 Zusammenstellung Text
+  '<xf numFmtId="4" fontId="4" fillId="0" borderId="6" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"></xf>' + // 85 Zusammenstellung Menge
+  '<xf numFmtId="0" fontId="4" fillId="0" borderId="6" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment indent="1"/></xf>' + // 86 Zusammenstellung Einheit
+  '<xf numFmtId="165" fontId="4" fillId="0" borderId="6" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"></xf>' + // 87 Zusammenstellung Betrag
+  '<xf numFmtId="0" fontId="12" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>' + // 88 Titel 16 fett
   '</cellXfs>' +
   '<cellStyles count="1"><cellStyle name="Standard" xfId="0" builtinId="0"/></cellStyles>' +
   '</styleSheet>';

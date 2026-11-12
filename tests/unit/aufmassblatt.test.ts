@@ -34,12 +34,11 @@ describe('Aufmaßblatt (Firmenvorlage)', () => {
     expect(strFromU8(zip['xl/styles.xml'])).toContain('Aptos Narrow');
   });
   it('ohne LV: Kopf mit Nummer, Bauvorhaben, Kostenstelle, Leistungszeitraum; Flächen und Linien mit Plan und Nr.', () => {
-    for (const t of ['Aufmaßblatt 007', 'Bauvorhaben X', '91092 – Ebene 1', '01.10.2026', 'Aufmaß', 'Flächen', 'Linien und Längen']) expect(sheet).toContain(`>${t}<`);
-    expect(sheet).toContain('<f>ROUND(C11*D11,2)</f>'); // m² = Länge × Breite als Formel
-    expect(sheet).toMatch(/<f>SUM\(C\d+:C\d+\)<\/f>/); // Summe Linien
-    // nichts zu bemerken → keine Spalte „Bemerkung“, keine Messart
+    for (const t of ['Aufmaßblatt 007', 'Bauvorhaben X', '91092 – Ebene 1', '01.10.2026', 'Aufmaß', 'Schadstelle', 'Länge', 'Summe']) expect(sheet).toContain(`>${t}<`); // je Messart eine Tabelle
+    expect(sheet).toMatch(/<f>ROUND\(C(\d+)\*D\1,2\)<\/f>/); // m² = Länge × Breite als Formel
+    expect(sheet.match(/<f>SUM\(F\d+:F\d+\)<\/f>/g)).toHaveLength(2); // Menge immer in Spalte F: Summe Fläche und Summe Länge
+    // nichts zu bemerken → keine Spalte „Bemerkung“
     expect(sheet).not.toContain('>Bemerkung<');
-    expect(sheet).not.toContain('>Schadstelle<');
   });
   it('Spalte „Bemerkung“ nur mit Hinweis (z. B. Fläche aus dem Plan)', () => {
     const withNote = { ...data, damages: { ...data.damages, d1: dmg('d1', 1, { areaFromShape: true }) } } as unknown as ProjectState;
@@ -61,7 +60,7 @@ describe('Aufmaßblatt (Firmenvorlage)', () => {
     for (const t of ['Bewehrung', 'lfm']) expect(ws).toContain(`>${t}<`);
     expect(ws).toContain('<f>2*0.2+3*0.2+0.54+3*0.9</f><v>4.24</v>');
     expect(ws).toContain('<f>1.25</f><v>1.25</v>'); // ältere Messung: nur die Summe
-    expect(ws).toMatch(/<f>SUM\(C\d+:C\d+\)<\/f><v>5.49<\/v>/);
+    expect(ws).toMatch(/<f>SUM\(F\d+:F\d+\)<\/f><v>5.49<\/v>/);
   });
 
   it('Abzüge/Zuschläge: eigene Zeilen mit Formel und Bemerkung, Summe = netto; Position rechnet netto', () => {
@@ -85,7 +84,7 @@ describe('Aufmaßblatt (Firmenvorlage)', () => {
     expect(ws).toContain(`<f>-2*ROUND(C${r + 1}*D${r + 1},2)</f><v>-2.4</v>`);
     expect(ws).toContain(`<f>-ROUND(C${r + 2}*D${r + 2},2)</f><v>-2.1</v>`);
     expect(ws).toContain(`<f>ROUND(C${r + 3}*D${r + 3},2)</f><v>0.5</v>`);
-    expect(ws).toContain(`<f>SUM(E${r}:E${r + 3})</f><v>8.65</v>`); // 12,65 − 2,40 − 2,10 + 0,50
+    expect(ws).toContain(`<f>SUM(F${r}:F${r + 3})</f><v>8.65</v>`); // 12,65 − 2,40 − 2,10 + 0,50
   });
 
   it('Abzüge bei Linien: gemessene Länge, darunter Teillängen; Summe = netto', () => {
@@ -97,7 +96,7 @@ describe('Aufmaßblatt (Firmenvorlage)', () => {
     expect(ws).toContain('>Tür (2 × 1,00 m)<');
     expect(ws).toContain('<v>12.4</v>');
     expect(ws).toContain('<v>-2</v>');
-    expect(ws).toMatch(/<f>SUM\(C\d+:C\d+\)<\/f><v>10.4<\/v>/);
+    expect(ws).toMatch(/<f>SUM\(F\d+:F\d+\)<\/f><v>10.4<\/v>/);
   });
 
   it('jede LV/MFK und das Aufmaß ohne Position beginnt auf einer neuen Seite; fester Zoom, damit die Umbrüche gelten', () => {
@@ -145,7 +144,7 @@ describe('Rechnungen', () => {
     const ws = strFromU8(unzipSync(f.data)['xl/worksheets/sheet1.xml']);
     expect(ws).toContain('>Aufmaßblatt 004 – 2. Teilrechnung<');
     expect(ws.match(/>01</g)).toHaveLength(2); // Position einmal (dazu in der Zusammenstellung) …
-    expect(ws).toMatch(/<f>SUM\(E15:E16\)<\/f><v>3<\/v>/); // … mit 1 + 2 m² aus beiden Plänen, ohne TR 1 (6 m²)
+    expect(ws).toMatch(/<f>SUM\(F(\d+):F(\d+)\)<\/f><v>3<\/v>/); // … mit 1 + 2 m² aus beiden Plänen, ohne TR 1 (6 m²)
   });
 
   it('Leistungszeitraum der Rechnung als Vorschlag', () => {
