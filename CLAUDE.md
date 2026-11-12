@@ -14,6 +14,6 @@ abgeschnitten sein oder aneinander kleben (Eingabefeld direkt über/unter einer 
 - **Neue Seite, neuer Dialog, neue Leiste** → in `tests/e2e/tasten-shared.ts` ergänzen (Seitenliste `APP`/`WEBSITE`,
   Dialogliste `DIALOGE` bzw. eigener Ablauf), damit sie künftig mitgeprüft werden.
 - Die Prüfung selbst steht in `tests/e2e/tasten-check.ts` (überlappen, verdeckt, abgeschnitten, kleben, Text ragt aus der Taste; Inhalt, der beim
-  Scrollen unter eine feste Kopf- bzw. Werkzeugleiste rutscht, zählt nicht).
+  Scrollen unter eine feste Kopf- bzw. Werkzeugleiste oder die Fußleiste eines Fensters rutscht, zählt nicht).
 - Befunde beheben, nicht wegdefinieren: lieber Tasten verschieben, kompakter machen oder umbrechen lassen.
 - Website und Anmelden/Registrieren werden **abgemeldet** geprüft (angemeldet leitet die Website zu den Tools um).

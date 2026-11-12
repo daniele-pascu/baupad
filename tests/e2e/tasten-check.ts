@@ -108,7 +108,8 @@ export async function tastenBefunde(page: Page): Promise<string[]> {
         if (pinnedOf(a.el) !== pinnedOf(b.el)) continue; // Inhalt unter fester Kopf- bzw. Werkzeugleiste
         const overlapX = Math.min(a.r.right, b.r.right) - Math.max(a.r.left, b.r.left);
         if (overlapX < Math.min(a.r.width, b.r.width) * 0.5) continue;
-        const gap = a.r.bottom <= b.r.top + 1 ? b.r.top - a.r.bottom : b.r.bottom <= a.r.top + 1 ? a.r.top - b.r.bottom : null;
+        // sichtbarer Teil: ein Feld, das beim Scrollen unter die feste Fußleiste eines Fensters rutscht, endet an deren Rand
+        const gap = a.vr.b <= b.vr.t + 1 ? b.vr.t - a.vr.b : b.vr.b <= a.vr.t + 1 ? a.vr.t - b.vr.b : null;
         if (gap !== null && gap < 4) out.push(`kleben: ${name(a.el)} und ${name(b.el)} (Abstand ${Math.round(gap)} px)`);
       }
     return [...new Set(out)];

@@ -174,6 +174,8 @@ export function tastenTests() {
     await pruefe(page, 'Messdialog Stück', out);
     await dlg.getByTestId('measure-type-select').selectOption('volumen');
     await pruefe(page, 'Messdialog Volumen', out);
+    await dlg.getByTestId('measure-type-select').selectOption('schadstelle');
+    await pruefe(page, 'Messdialog Schadstelle', out);
     await dlg.getByTestId('damage-cancel').click();
     await expect(dlg).toBeHidden();
     await pickTool(page, 'tool-mtype');

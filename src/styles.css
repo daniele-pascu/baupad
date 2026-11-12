@@ -11770,3 +11770,15 @@ html[data-theme='dark'] .crew-search {
   border-radius: 10px;
 }
 
+/* Messdialog: einheitlicher Abstand zwischen allen Abschnitten (Felder, „aus Plan übernehmen“, Ergebnis, Abzüge,
+   Bewehrung, Bemerkung, Fotos …) – nichts klebt mehr an der Zeile darüber */
+.damage-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.damage-form > * {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
