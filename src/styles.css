@@ -11610,25 +11610,15 @@ html[data-theme='dark'] .crew-search {
   margin-bottom: 8px;
 }
 
-/* Aufmaß & Abrechnung: Bereiche (Pläne, Aufmaß, LV/MFK, Export) als eigene Karten mit Farbstreifen und Symbol */
+/* Aufmaß & Abrechnung: Bereiche (Pläne, Aufmaß, LV/MFK, Export) als eigene Karten, schwarz abgesetzt mit Symbol */
 .project-block {
-  --block: #8e8e93;
   margin-top: 22px;
   padding: 14px 18px 18px;
-  border: 1px solid var(--border);
-  border-top: 4px solid var(--block);
+  border: 1px solid var(--border-strong);
+  border-top: 4px solid var(--text);
   border-radius: 18px;
-  background: color-mix(in srgb, var(--block) 4%, var(--surface));
+  background: var(--surface);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-}
-.project-block.block-plans {
-  --block: #2f6fdf;
-}
-.project-block.block-aufmass {
-  --block: #1f9d55;
-}
-.project-block.block-lv {
-  --block: #d98a0b;
 }
 .project-block > .section-head {
   margin-top: 0;
@@ -11647,8 +11637,8 @@ html[data-theme='dark'] .crew-search {
   width: 32px;
   height: 32px;
   border-radius: 9px;
-  background: color-mix(in srgb, var(--block) 15%, transparent);
-  color: var(--block);
+  background: var(--text);
+  color: var(--surface);
 }
 @media (max-width: 600px) {
   .project-block {
