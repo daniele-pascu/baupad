@@ -3365,6 +3365,16 @@ tr.lv-flagged td {
 .draw-bar-opts:empty {
   display: none;
 }
+/* ganze Zeile (Darstellung, Hinweise): zählt nicht zur Breite der Leiste – sie bleibt beim Aufklappen gleich breit,
+   die Tasten springen nicht unter dem Finger weg; schmale Leisten werden nur so breit, dass die Darstellung in eine Zeile passt */
+.draw-bar .span-all {
+  flex: 0 0 auto;
+  width: 0;
+  min-width: 100%;
+}
+.draw-bar:has(.style-compact) {
+  min-width: min(660px, calc(100% - 110px));
+}
 .draw-bar-actions {
   margin-left: auto;
   flex-wrap: nowrap;
