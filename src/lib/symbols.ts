@@ -5,16 +5,15 @@ import type { Shape } from './types';
  * Bauteil- und Symbolbibliothek für „Plan zeichnen“: Türen, Fenster, Elektro (Zeichen nach ÖNORM wie im
  * Skriptum „Elektroinstallationen“). Jedes Symbol ist in einem Einheitsquadrat (u nach rechts, v nach unten,
  * 0…1) beschrieben und wird in das Begrenzungsrechteck des Objekts (Breite × Tiefe in m, Drehung, Spiegelung)
- * gelegt – am Bildschirm und im PDF identisch. Erweiterbar um weitere Gruppen (Sanitär, Heizung, Lüftung …).
+ * gelegt – am Bildschirm und im PDF identisch. Erweiterbar um weitere Gruppen.
  */
 
 /** 'appliance' (Küchengeräte): nicht mehr wählbar, nur noch für bestehende Zeichnungen */
-export type SymbolGroup = 'door' | 'window' | 'electro' | 'appliance' | 'heating' | 'shaft';
+export type SymbolGroup = 'door' | 'window' | 'electro' | 'appliance' | 'shaft';
 export const SYMBOL_GROUPS: { id: SymbolGroup; label: string }[] = [
   { id: 'door', label: 'Türen' },
   { id: 'window', label: 'Fenster' },
   { id: 'electro', label: 'Elektro' },
-  { id: 'heating', label: 'Heizung' },
   { id: 'shaft', label: 'Fänge, Durchbrüche' },
 ];
 
@@ -24,6 +23,8 @@ export interface SymbolPart {
   closed?: boolean;
   dashed?: boolean;
   fill?: boolean;
+  /** Fenster: Glaslinie – immer gleich dick (wie bei der Standardtiefe) und mittig, nur der Rahmen wächst mit der Wand */
+  glass?: boolean;
   /** Text (Mitte bei u/v, Höhe als Anteil der kleineren Seite) */
   text?: string;
   at?: UV;
@@ -66,10 +67,8 @@ const dome: SymbolPart[] = [{ pts: arc(0.5, 0.22, 0.34, 0.34, 180, 360) }, line(
 const cup = (t: string, size = 0.3): SymbolPart[] => [{ pts: [[0.18, 0.12], [0.18, 0.56], [0.82, 0.56], [0.82, 0.12]] }, line([0.5, 0.56], [0.5, 1]), text(t, 0.5, 0.33, size)];
 /** Schalterarm mit Haken (vom Kreisrand zur Spitze, Haken quer nach außen) */
 const arm = (a: UV, b: UV, hook: UV): SymbolPart[] => [line(a, b), line(b, hook)];
-/** Abgasanschluss über dem Gerät (Strich mit zwei kurzen Stutzen) */
-const flue = (u0: number, u1: number, v1: number, v0 = 0.04): SymbolPart[] => [line([u0, v0], [u1, v0]), line([0.42, v0], [0.42, v1]), line([0.58, v0], [0.58, v1])];
-/** Kennzeichen Festbrennstoff (Kreuz mit Raute) */
-const star = (u: number, v: number, r: number, ry = r): SymbolPart[] => [line([u - r, v], [u + r, v]), line([u, v - ry], [u, v + ry]), { pts: [[u, v - ry * 0.55], [u + r * 0.55, v], [u, v + ry * 0.55], [u - r * 0.55, v]], closed: true }];
+/** Glaslinie im Fenster (feste Dicke, mittig) */
+const glass = (a: UV, b: UV): SymbolPart => ({ ...line(a, b), glass: true });
 /** Pfeil von a nach b (offene Spitze) */
 const arrow = (a: UV, b: UV, head = 0.1): SymbolPart[] => {
   const dx = b[0] - a[0];
@@ -125,10 +124,10 @@ export const SYMBOLS: SymbolDef[] = [
     parts: [circle(0.5, 0.5, 0.42, 32), line([0.2, 0.2], [0.8, 0.8]), line([0.8, 0.2], [0.2, 0.8]), { pts: arc(0.5, 0.5, 0.49, 0.49, 65, 112, 8) }, ...arrow([0.4, 0.04], [0.31, 0.07], 0.07)],
   },
   // Fenster (Grundriss): Rahmen in der Wand, Glas als Doppellinie
-  { id: 'win1', label: 'Fenster einflügelig', group: 'window', w: 1.2, h: 0.3, flippable: true, parts: [rect(0, 0, 1, 1), line([0, 0.42], [1, 0.42]), line([0, 0.58], [1, 0.58])] },
-  { id: 'win2', label: 'Fenster zweiflügelig', group: 'window', w: 1.6, h: 0.3, flippable: true, parts: [rect(0, 0, 1, 1), line([0, 0.42], [1, 0.42]), line([0, 0.58], [1, 0.58]), line([0.5, 0], [0.5, 1])] },
-  { id: 'win-fixed', label: 'Festverglasung', group: 'window', w: 1.2, h: 0.3, parts: [rect(0, 0, 1, 1), line([0, 0.5], [1, 0.5])] },
-  { id: 'win-slide', label: 'Schiebefenster', group: 'window', w: 1.6, h: 0.3, flippable: true, parts: [rect(0, 0, 1, 1), line([0, 0.38], [0.6, 0.38]), line([0.4, 0.62], [1, 0.62])] },
+  { id: 'win1', label: 'Fenster einflügelig', group: 'window', w: 1.2, h: 0.3, flippable: true, parts: [rect(0, 0, 1, 1), glass([0, 0.42], [1, 0.42]), glass([0, 0.58], [1, 0.58])] },
+  { id: 'win2', label: 'Fenster zweiflügelig', group: 'window', w: 1.6, h: 0.3, flippable: true, parts: [rect(0, 0, 1, 1), glass([0, 0.42], [1, 0.42]), glass([0, 0.58], [1, 0.58]), line([0.5, 0], [0.5, 1])] },
+  { id: 'win-fixed', label: 'Festverglasung', group: 'window', w: 1.2, h: 0.3, parts: [rect(0, 0, 1, 1), glass([0, 0.5], [1, 0.5])] },
+  { id: 'win-slide', label: 'Schiebefenster', group: 'window', w: 1.6, h: 0.3, flippable: true, parts: [rect(0, 0, 1, 1), glass([0, 0.38], [0.6, 0.38]), glass([0.4, 0.62], [1, 0.62])] },
   // Elektro (ÖNORM-Sinnbilder)
   { id: 'light-ceiling', label: 'Deckenleuchte', group: 'electro', w: 0.4, h: 0.4, keepAspect: true, parts: [line([0.1, 0.1], [0.9, 0.9]), line([0.9, 0.1], [0.1, 0.9])] },
   { id: 'light-wall', label: 'Wandleuchte', group: 'electro', w: 0.4, h: 0.4, keepAspect: true, flippable: true, parts: [line([0.1, 1], [0.9, 1]), line([0.5, 0.05], [0.5, 0.78]), line([0.28, 0.56], [0.72, 1]), line([0.72, 0.56], [0.28, 1])] },
@@ -157,18 +156,6 @@ export const SYMBOLS: SymbolDef[] = [
   { id: 'dryer', label: 'Wäschetrockner', group: 'appliance', w: 0.6, h: 0.6, keepAspect: true, parts: [rect(0, 0, 1, 1), text('WT')] },
   { id: 'fridge', label: 'Kühlschrank', group: 'appliance', w: 0.6, h: 0.6, keepAspect: true, parts: [rect(0, 0, 1, 1), text('KS')] },
   { id: 'microwave', label: 'Mikrowelle', group: 'appliance', w: 0.5, h: 0.4, parts: [rect(0, 0, 1, 1), text('MK')] },
-  // Heizung
-  // Heizgeräte nach ÖNORM A 6240 (Kap. 16): Strich mit Stutzen = Abgasanschluss; Buchstabe = Energie (G Gas, Ö Öl, K Koks/Kohle, E Strom)
-  { id: 'radiator', label: 'Heizkörper', group: 'heating', w: 1.0, h: 0.1, parts: [rect(0, 0, 1, 1)] },
-  { id: 'storage-heater', label: 'Elektrospeicher', group: 'heating', w: 0.5, h: 0.5, keepAspect: true, parts: [circle(0.5, 0.5, 0.45, 32), text('E', 0.5, 0.52, 0.4)] },
-  { id: 'heat-stove', label: 'Herd (EH Elektro, KH Kohle)', group: 'heating', w: 0.6, h: 0.6, keepAspect: true, parts: [rect(0, 0, 1, 1), circle(0.5, 0.5, 0.47, 32), text('EH', 0.5, 0.52, 0.32)] },
-  { id: 'gas-boiler', label: 'Gasgerät (Therme)', group: 'heating', w: 0.5, h: 0.5, keepAspect: true, parts: [...flue(0.05, 0.95, 0.3), rect(0.1, 0.3, 0.9, 1), text('G', 0.5, 0.66, 0.4)] },
-  { id: 'boiler-gas', label: 'Heizkessel Gas', group: 'heating', w: 0.6, h: 0.8, keepAspect: true, parts: [...flue(0.05, 0.95, 0.16), rect(0.12, 0.16, 0.88, 1), text('G', 0.5, 0.6, 0.4)] },
-  { id: 'boiler-oil', label: 'Heizkessel Öl', group: 'heating', w: 0.6, h: 0.8, keepAspect: true, parts: [...flue(0.05, 0.95, 0.16), rect(0.12, 0.16, 0.88, 1), text('Ö', 0.5, 0.6, 0.4)] },
-  { id: 'tiled-stove', label: 'Kachelofen', group: 'heating', w: 1.0, h: 0.6, parts: [...flue(0.3, 0.7, 0.16), rect(0, 0.16, 1, 1), rect(0.05, 0.26, 0.95, 0.9), ...star(0.5, 0.58, 0.06, 0.1)] },
-  { id: 'iron-stove', label: 'Eiserner Ofen', group: 'heating', w: 0.5, h: 0.5, keepAspect: true, parts: [...flue(0.15, 0.85, 0.235), circle(0.5, 0.6, 0.38, 32), ...star(0.5, 0.6, 0.12)] },
-  { id: 'stove-oil', label: 'Ofen Öl (Ö)', group: 'heating', w: 0.5, h: 0.5, keepAspect: true, parts: [...flue(0.15, 0.85, 0.235), circle(0.5, 0.6, 0.38, 32), text('Ö', 0.5, 0.62, 0.36)] },
-  { id: 'stove-gas', label: 'Ofen Gas (G)', group: 'heating', w: 0.5, h: 0.5, keepAspect: true, parts: [...flue(0.15, 0.85, 0.235), circle(0.5, 0.6, 0.38, 32), text('G', 0.5, 0.62, 0.36)] },
 
   // Fänge (Kap. 13) und Durchbrüche/Aussparungen (Kap. 14)
   { id: 'chimney', label: 'Rauchfang', group: 'shaft', w: 0.2, h: 0.2, parts: [rect(0, 0, 1, 1), { pts: [[0, 0], [1, 0], [0, 1]], closed: true, fill: true }] },
@@ -195,14 +182,18 @@ export interface SymbolRef {
 }
 
 /** Geometrie eines Symbols in den Koordinaten der Form (Begrenzungsrechteck, Drehung, Spiegelung) */
-export function symbolGeometry(ref: SymbolRef, s: Shape): { lines: { pts: Point[]; closed: boolean; dashed: boolean; fill: boolean }[]; texts: { at: Point; size: number; text: string; angle: number }[] } {
+/** `k`: Einheiten je Meter der Form – damit Glaslinien immer gleich dick bleiben (ohne `k`: alles anteilig, z. B. Vorschau) */
+export function symbolGeometry(ref: SymbolRef, s: Shape, k?: number): { lines: { pts: Point[]; closed: boolean; dashed: boolean; fill: boolean }[]; texts: { at: Point; size: number; text: string; angle: number }[] } {
   const def = symbolDef(ref.id);
   const lines: { pts: Point[]; closed: boolean; dashed: boolean; fill: boolean }[] = [];
   const texts: { at: Point; size: number; text: string; angle: number }[] = [];
   if (!def) return { lines: [{ pts: [{ x: s.x, y: s.y }, { x: s.x + s.w, y: s.y }, { x: s.x + s.w, y: s.y + s.h }, { x: s.x, y: s.y + s.h }].map((p) => fromShapeLocal(s, p)), closed: true, dashed: true, fill: false }], texts };
   const map = ([u, v]: UV): Point => fromShapeLocal(s, { x: s.x + (ref.flipX ? 1 - u : u) * s.w, y: s.y + (ref.flipY ? 1 - v : v) * s.h });
+  // Glas: Abstand zur Mitte wie bei der Standardtiefe (in m), höchstens bis knapp an den Rahmen
+  const gf = k && s.h > 0 ? (def.h * k) / s.h : 1;
+  const glassV = (v: number) => Math.min(0.97, Math.max(0.03, 0.5 + (v - 0.5) * gf));
   for (const p of def.parts) {
-    if (p.pts) lines.push({ pts: p.pts.map(map), closed: !!p.closed, dashed: !!p.dashed, fill: !!p.fill });
+    if (p.pts) lines.push({ pts: p.pts.map(p.glass ? ([u, v]) => map([u, glassV(v)]) : map), closed: !!p.closed, dashed: !!p.dashed, fill: !!p.fill });
     if (p.text && p.at) texts.push({ at: map(p.at), size: (p.size ?? 0.4) * Math.min(s.w, s.h), text: p.text, angle: s.rotation ?? 0 });
   }
   return { lines, texts };

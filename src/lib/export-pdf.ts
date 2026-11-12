@@ -645,7 +645,7 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
     }
     if (e.type === 'symbol' && e.symbol) {
       // Bauteil/Symbol als Vektor (wie am Bildschirm)
-      const geo = symbolGeometry(e.symbol, shape);
+      const geo = symbolGeometry(e.symbol, shape, k);
       const lw = e.style?.lineWidth ?? 0.8;
       for (const l of geo.lines) {
         const d = l.pts.map((p, i) => {

@@ -167,7 +167,7 @@ export function renderElement(
   }
   if (e.type === 'symbol' && e.symbol) {
     // Bauteil/Symbol: Linien aus der Bibliothek im Begrenzungsrechteck; Rahmen nur bei Auswahl
-    const geo = symbolGeometry(e.symbol, pageShape);
+    const geo = symbolGeometry(e.symbol, pageShape, k);
     const toS = (p: Point) => toScreen(view, p);
     const sw = e.style?.lineWidth ? Math.max(1, e.style.lineWidth * PX_PER_PT) : 1.6;
     const box = pathToSvg(shapePath(pageShape), toS);
