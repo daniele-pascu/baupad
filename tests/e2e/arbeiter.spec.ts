@@ -729,13 +729,22 @@ test('Personalliste: eigene Seite, alphabetisch oder nach Funktion; Einteilung u
   await page.getByTestId('crew-times').click();
   const td = page.getByTestId('times-dialog');
   await expect(td.getByTestId('set-grade-colors-reset')).toBeDisabled();
+  // Vorschlagsfarben direkt antippen: Vorarbeiter lila
+  await td.locator('[data-testid="grade-swatch-vorarbeiter"][data-color="#9b6bdf"]').click();
+  await expect(td.locator('[data-testid="grade-swatch-vorarbeiter"][data-color="#9b6bdf"]')).toHaveAttribute('aria-checked', 'true');
+  await expect(td.getByTestId('set-grade-color-vorarbeiter')).toHaveValue('#9b6bdf');
+  for (const [w, h] of [[390, 844], [1440, 900]]) {
+    await page.setViewportSize({ width: w, height: h });
+    expect(await tastenBefunde(page)).toEqual([]);
+  }
+  // eigene Farbe frei wählen
   await td.getByTestId('set-grade-color-polier').fill('#ff0000');
   await expect.poll(() => border(td.locator('.crew-grade-key.grade-polier'))).toBe('rgb(255, 0, 0)'); // Vorschau im Fenster
   await td.getByTestId('times-save').click();
   await expect(td).toHaveCount(0);
   await expect.poll(() => border(chips(page, 'Halle Nord', 0).nth(0))).toBe('rgb(255, 0, 0)');
   expect(await border(poKey)).toBe('rgb(255, 0, 0)');
-  expect(await border(chips(page, 'Halle Nord', 0).nth(1))).toBe('rgb(92, 184, 122)'); // Vorarbeiter unverändert
+  expect(await border(chips(page, 'Halle Nord', 0).nth(1))).toBe('rgb(155, 107, 223)'); // Vorarbeiter: Vorschlagsfarbe lila
   await page.waitForTimeout(500);
   await page.reload();
   await page.getByTestId('week-date').fill('2026-10-26');
@@ -779,9 +788,21 @@ test('Doppelt einteilen: Arbeiter bleibt auf der ersten Baustelle und steht zus�
     await expect(chips(page, 'Baustelle A', d)).toHaveText([/Max/]);
     await expect(chips(page, 'Baustelle B', d)).toHaveText([/Max/]);
   }
-  // Kennzeichnung: roter Rand auf beiden Seiten, andere Baustelle nur im Tooltip
+  // Kennzeichnung: dickerer Rahmen (in der Farbe, nicht rot) auf beiden Seiten, andere Baustelle nur im Tooltip
   await expect(chips(page, 'Baustelle A', 0)).toHaveClass(/conflict/);
   await expect(chips(page, 'Baustelle A', 0).first()).toHaveClass(/conflict/);
+  const shadow = (l: ReturnType<Page['locator']>) => l.evaluate((el) => getComputedStyle(el).boxShadow);
+  expect(await shadow(chips(page, 'Baustelle A', 0).first())).toMatch(/inset/);
+  expect(await chips(page, 'Baustelle A', 0).first().evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe(
+    await page.evaluate(() => {
+      const d = document.createElement('div');
+      d.style.background = 'var(--danger-soft)';
+      document.body.append(d);
+      const c = getComputedStyle(d).backgroundColor;
+      d.remove();
+      return c;
+    }),
+  );
   await expect(chips(page, 'Baustelle A', 0).first()).toHaveAttribute('title', /Baustelle B/);
   await expect(chips(page, 'Baustelle B', 0).first()).toHaveAttribute('title', /Baustelle A/);
   await expect(page.getByTestId('chip-also')).toHaveCount(0); // kein „+ Baustelle …“ mehr in den Kästchen
@@ -792,6 +813,7 @@ test('Doppelt einteilen: Arbeiter bleibt auf der ersten Baustelle und steht zus�
   await expect(chips(page, 'Baustelle B', 0)).toHaveCount(0);
   await expect(chips(page, 'Baustelle A', 0)).toHaveText(['Max']);
   await expect(chips(page, 'Baustelle A', 0).first()).not.toHaveClass(/conflict/);
+  expect(await shadow(chips(page, 'Baustelle A', 0).first())).not.toMatch(/inset/); // wieder normaler Rahmen
   // Peter ist die ganze Woche frei → kleine Meldung, antippen zeigt ihn
   const toggle = page.getByTestId('crew-open-toggle');
   await expect(toggle).toContainText('Diese Woche nicht eingeteilt: 1');

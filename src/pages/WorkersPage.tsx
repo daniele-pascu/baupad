@@ -1070,6 +1070,9 @@ export function WorkersPage() {
 }
 
 /** Arbeiterliste: anlegen, bearbeiten, aktiv/inaktiv */
+/** Farbvorschläge je Qualifikation (direkt antippen); daneben bleibt die freie Farbwahl */
+const GRADE_PALETTE = ['#6f9be8', '#5cb87a', '#e0a43a', '#a3a3ad', '#e5484d', '#9b6bdf', '#2bb3b3', '#e86fb5'];
+
 type CrewSettings = { siteLabel: SiteLabel; pdfGrades: boolean; gradeColors: GradeColors; siteSort: { key: SiteSort; desc: boolean } };
 
 /** Einstellungen der Arbeitereinteilung: Arbeitszeit, Projektbezeichnung, Reihenfolge, Farben je Qualifikation, PDF (Uhrzeiten, Funktion, Firmenname) */
@@ -1152,13 +1155,32 @@ function TimesDialog({
           const label = WORKER_GRADES.find((w) => w.id === g)!;
           const value = gradeColor(x.gradeColors, g);
           return (
-            <label key={g} className="crew-grade-color">
-              <input type="color" value={value} onChange={(e) => setX({ ...x, gradeColors: { ...x.gradeColors, [g]: e.target.value } })} aria-label={`Farbe ${label.label}`} data-testid={`set-grade-color-${g}`} />
-              <span className={`crew-grade-key grade-${g}`} style={{ '--grade': value } as CSSProperties}>
-                {label.short}
-              </span>
-              <span className="small">{label.label}</span>
-            </label>
+            <div key={g} className="crew-grade-color" data-testid="set-grade-row" data-grade={g}>
+              <label className="crew-grade-color-head">
+                <input type="color" value={value} onChange={(e) => setX({ ...x, gradeColors: { ...x.gradeColors, [g]: e.target.value } })} aria-label={`Farbe ${label.label} frei wählen`} title="Eigene Farbe" data-testid={`set-grade-color-${g}`} />
+                <span className={`crew-grade-key grade-${g}`} style={{ '--grade': value } as CSSProperties}>
+                  {label.short}
+                </span>
+                <span className="small">{label.label}</span>
+              </label>
+              {/* ein paar Farben direkt zum Antippen */}
+              <div className="color-swatches crew-grade-swatches" role="radiogroup" aria-label={`Farbe ${label.label}`}>
+                {GRADE_PALETTE.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    role="radio"
+                    aria-checked={value === c}
+                    aria-label={`${label.label}: Farbe ${c}`}
+                    className="color-swatch"
+                    style={{ background: c }}
+                    onClick={() => setX({ ...x, gradeColors: { ...x.gradeColors, [g]: c } })}
+                    data-testid={`grade-swatch-${g}`}
+                    data-color={c}
+                  />
+                ))}
+              </div>
+            </div>
           );
         })}
       </div>

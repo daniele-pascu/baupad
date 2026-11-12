@@ -94,6 +94,7 @@ export function tastenTests() {
       ['aufmass-und-abrechnung', 'new-project'],
       ['projektregister', 'register-new'],
       ['arbeitereinteilung', 'add-site'],
+      ['arbeitereinteilung', 'crew-times'], // Einstellungen: Farben je Qualifikation mit Vorschlagsfarben
       ['arbeitereinteilung/personal', 'staff-new'],
       ['berichte-und-formulare', 'report-new-site'],
       ['fotodokumentation', 'photo-new-site'],
