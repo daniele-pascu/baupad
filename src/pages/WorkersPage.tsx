@@ -980,6 +980,8 @@ export function WorkersPage() {
           days={days}
           initialDays={dialog.days}
           workers={crew}
+          infoOf={siteInfo}
+          styleOf={(s) => ({ '--pc': colorOf(photoSiteKey({ projectId: s.projectId ?? null, siteName: s.name })) }) as CSSProperties}
           onClose={() => setDialog(null)}
           onSave={(ids, ds, keep) => {
             setDialog(null);
@@ -1413,6 +1415,8 @@ function AssignDialog({
   days,
   initialDays,
   workers,
+  infoOf,
+  styleOf,
   onSave,
   onClose,
 }: {
@@ -1421,6 +1425,9 @@ function AssignDialog({
   days: number[];
   initialDays: number[];
   workers: Worker[];
+  /** Angaben und Farbe eines Projekts (für das Fenster „Einteilung dieser Woche“) */
+  infoOf(s: WeekSite): ProjectLabelInfo;
+  styleOf(s: WeekSite): CSSProperties;
   onSave(ids: string[], days: number[], keep: boolean): void;
   onClose(): void;
 }) {
@@ -1431,10 +1438,13 @@ function AssignDialog({
   const shown = needle ? workers.filter((w) => [workerName(w), w.role ?? '', w.staffNo ?? '', gradeLabel(knownGrade(w) ?? undefined)].join(' ').toLowerCase().includes(needle)) : workers;
   /** immer zusätzlich hier einteilen: wer schon auf einer anderen Baustelle ist, bleibt dort (wird gekennzeichnet) */
   const keep = true;
-  const status = (w: Worker) => {
+  /** Fenster „Einteilung dieser Woche“ eines Arbeiters (Antippen der Projektzahl) */
+  const [weekOf, setWeekOf] = useState<Worker | null>(null);
+  const status = (w: Worker): { text: string; here?: boolean; warn?: boolean; count?: number } => {
     if (ds.length && ds.every((d) => site.days[d].includes(w.id))) return { text: 'schon hier', here: true };
-    const other = [...new Set(ds.flatMap((d) => sitesOf(plan, w.id, d, site.id).map((s) => s.name)))];
-    if (other.length) return { text: keep ? `auch auf ${other.join(', ')} (doppelt)` : `auf ${other.join(', ')} → wird umgesetzt`, warn: true };
+    // an den gewählten Tagen schon auf anderen Projekten: nur die Zahl (wo genau zeigt das Fenster beim Antippen)
+    const other = new Set(ds.flatMap((d) => sitesOf(plan, w.id, d, site.id).map((s) => s.id)));
+    if (other.size) return { text: other.size === 1 ? '1 Projekt' : `${other.size} Projekte`, warn: true, count: other.size };
     if (ds.some((d) => plan.vacation[d].includes(w.id))) return { text: 'Urlaub', warn: true };
     return { text: 'frei' };
   };
@@ -1498,12 +1508,26 @@ function AssignDialog({
                   {workerName(w)}
                   {knownGrade(w) && <span className="muted small"> · {gradeLabel(knownGrade(w)!)}</span>}
                 </span>
-                <span className={`crew-pick-status${st.warn ? ' warn' : ''}`}>{st.text}</span>
+                {!st.count && <span className={`crew-pick-status${st.warn ? ' warn' : ''}`}>{st.text}</span>}
               </label>
+              {!!st.count && (
+                <button
+                  type="button"
+                  className="crew-pick-count"
+                  onClick={() => setWeekOf(w)}
+                  title="Schon eingeteilt – antippen zeigt alle Projekte dieser Woche"
+                  aria-label={`${workerName(w)}: an den gewählten Tagen auf ${st.text} – Einteilung der Woche anzeigen`}
+                  data-testid="assign-count"
+                  data-count={st.count}
+                >
+                  {st.text}
+                </button>
+              )}
             </li>
           );
         })}
       </ul>
+      {weekOf && <WorkerWeekDialog plan={plan} worker={weekOf} days={days} current={site.id} infoOf={infoOf} styleOf={styleOf} onClose={() => setWeekOf(null)} />}
     </Modal>
   );
 }
@@ -1860,6 +1884,30 @@ function MovePicker({ sites, infoOf, styleOf, onPick, onClose }: { sites: WeekSi
           ))}
         </ul>
         <p className="muted small">Nur Projekte dieser Woche. Antippen wählt das Projekt – danach „Umsetzen“.</p>
+      </div>
+    </Modal>
+  );
+}
+
+/** Einteilung eines Arbeiters in dieser Woche: alle Projekte mit den Tagen (aus dem Einteilen-Fenster, Antippen der Projektzahl) */
+function WorkerWeekDialog({ plan, worker, days, current, infoOf, styleOf, onClose }: { plan: WeekPlan; worker: Worker; days: number[]; current: string; infoOf(s: WeekSite): ProjectLabelInfo; styleOf(s: WeekSite): CSSProperties; onClose(): void }) {
+  const list = plan.sites.map((s) => ({ s, ds: days.filter((d) => s.days[d]?.includes(worker.id)) })).filter((x) => x.ds.length);
+  const vac = days.filter((d) => plan.vacation[d]?.includes(worker.id));
+  return (
+    <Modal title={`${workerName(worker)} – diese Woche`} onClose={onClose} testId="worker-week-dialog">
+      <div className="picker">
+        {list.length === 0 && <p className="muted small">In dieser Woche noch auf keinem Projekt eingeteilt.</p>}
+        <ul className="picker-list">
+          {list.map(({ s, ds }) => (
+            <li key={s.id}>
+              <div className="picker-item pc-stripe crew-week-site" style={styleOf(s)} data-testid="worker-week-site" data-site={s.name} data-days={dayList(ds)}>
+                <ProjectHeading info={infoOf(s)} extra={s.id === current ? <span className="crew-finished">dieses Projekt</span> : undefined} />
+                <strong className="crew-week-days">{dayList(ds)}</strong>
+              </div>
+            </li>
+          ))}
+        </ul>
+        {vac.length > 0 && <p className="small muted">Urlaub: {dayList(vac)}</p>}
       </div>
     </Modal>
   );

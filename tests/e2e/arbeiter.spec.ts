@@ -142,7 +142,9 @@ test('Arbeitereinteilung: Woche nach Baustellen planen und in die nächste Woche
   await site(page, 'Neubau Musterstraße').locator('[data-day="0"] [data-testid="day-add"]').click();
   const ad = page.getByTestId('assign-dialog');
   await expect(ad.getByTestId('assign-keep')).toHaveCount(0); // kein Kästchen mehr
-  await expect(ad.locator('[data-worker="Stein Thomas"]')).toContainText('auch auf Sanierung Hauptplatz (doppelt)');
+  // schon auf einem anderen Projekt: nur die Zahl (wo genau zeigt das Fenster beim Antippen)
+  await expect(ad.locator('li', { has: page.locator('[data-worker="Stein Thomas"]') }).getByTestId('assign-count')).toHaveText('1 Projekt');
+  await expect(ad).not.toContainText('Sanierung Hauptplatz');
   for (const d of [1, 2, 3, 4]) await ad.getByTestId(`assign-day-${d}`).click(); // „+“ schlägt ab Montag die ganze Woche vor – hier nur Montag
   await assignDialog(page, ['Stein Thomas']);
   await expect(page.locator('.toast', { hasText: 'Doppelt eingeteilt auf Neubau Musterstraße: Stein Thomas' })).toHaveCount(1);
@@ -780,7 +782,29 @@ test('Doppelt einteilen: Arbeiter bleibt auf der ersten Baustelle und steht zus�
   // immer doppelt (ohne Kästchen): Max bleibt auf A und kommt zusätzlich auf B
   await site(page, 'Baustelle B').locator('[data-day="0"] [data-testid="day-add"]').click();
   const dlg = page.getByTestId('assign-dialog');
-  await expect(dlg.locator('[data-testid="assign-worker"][data-worker="Max"]')).toContainText('auch auf Baustelle A (doppelt)');
+  // nur die Zahl der Projekte; Antippen zeigt alle Projekte der Woche mit den Tagen
+  const cnt = dlg.locator('li', { has: page.locator('[data-testid="assign-worker"][data-worker="Max"]') }).getByTestId('assign-count');
+  await expect(cnt).toHaveText('1 Projekt');
+  await expect(dlg.locator('[data-testid="assign-worker"][data-worker="Max"]')).not.toContainText('Baustelle A');
+  await expect(dlg.locator('li', { has: page.locator('[data-testid="assign-worker"][data-worker="Peter"]') })).toContainText('frei');
+  await cnt.click();
+  const wk = page.getByTestId('worker-week-dialog');
+  await expect(wk).toContainText('Max – diese Woche');
+  await expect(wk.getByTestId('worker-week-site')).toHaveCount(1);
+  await expect(wk.getByTestId('worker-week-site')).toHaveAttribute('data-site', 'Baustelle A');
+  await expect(wk.getByTestId('worker-week-site')).toHaveAttribute('data-days', 'Mo–Fr');
+  for (const [w, h] of [[390, 844], [1440, 900]]) {
+    await page.setViewportSize({ width: w, height: h });
+    expect(await tastenBefunde(page)).toEqual([]);
+  }
+  await page.keyboard.press('Escape');
+  await expect(wk).toHaveCount(0);
+  // das Antippen der Zahl hakt den Arbeiter nicht an
+  await expect(dlg.locator('[data-testid="assign-worker"][data-worker="Max"] input')).not.toBeChecked();
+  for (const [w, h] of [[390, 844], [1440, 900]]) {
+    await page.setViewportSize({ width: w, height: h });
+    expect(await tastenBefunde(page)).toEqual([]);
+  }
   await dlg.locator('[data-testid="assign-worker"][data-worker="Max"] input').check();
   await dlg.getByTestId('assign-save').click();
   await expect(page.locator('.toast', { hasText: 'Doppelt eingeteilt' })).toHaveCount(1);

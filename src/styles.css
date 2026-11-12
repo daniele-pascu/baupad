@@ -5949,6 +5949,43 @@ html:has(.crew-page) {
 .crew-pick .muted .crew-pick-status {
   color: var(--muted);
 }
+/* Einteilen: schon auf anderen Projekten → nur die Zahl als Taste (Antippen zeigt die Woche des Arbeiters) */
+.crew-pick li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.crew-pick li > .check-row {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.crew-pick-count {
+  flex: none;
+  min-height: 34px;
+  padding: 4px 12px;
+  border: 1px solid #e7b77a;
+  border-radius: 999px;
+  background: #fff6e8;
+  color: #92400e;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.crew-pick-count:hover {
+  background: #ffedd1;
+}
+.picker-item.crew-week-site {
+  cursor: default;
+}
+.picker-item.crew-week-site:hover {
+  background: none;
+}
+.crew-week-days {
+  flex: none;
+  white-space: nowrap;
+}
 .crew-chip-actions {
   display: grid;
   gap: 8px;
