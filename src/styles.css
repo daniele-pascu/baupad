@@ -11679,3 +11679,34 @@ html[data-theme='dark'] .crew-search {
     border-radius: 16px;
   }
 }
+
+/* Sortierung – überall gleich: Art + eigener Pfeil ↑/↓ daneben */
+.sort-control {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.sort-control label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.sort-control select {
+  min-height: 40px;
+  max-width: 100%;
+  padding: 0 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+.sort-control .sort-dir {
+  flex: none;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+}
+

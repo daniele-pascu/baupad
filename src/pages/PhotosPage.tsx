@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Icon } from '../components/Icon';
+import { SortControl } from '../components/SortControl';
+import { sortList, useListSort } from '../lib/list-sort';
+import { projectPrefix } from '../lib/project-label';
 import { type PhotoSite } from '../components/PhotoCapture';
 import { PhotoImg } from '../components/PhotoImg';
 import { ProjectPicker } from '../components/ProjectPicker';
@@ -45,6 +48,9 @@ const fmt = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString('de-DE',
  * Fotodokumentation – Übersicht: alle Baustellen mit Anzahl, Zeitraum und Kalenderwochen; Suche über Baustelle,
  * Nummer, Adresse, KW, Datum, Benutzer und Beschreibung. Fotos aufnehmen/auswählen erst im Projekt.
  */
+type PhotoSort = 'changed' | 'number' | 'name';
+const PHOTO_SORT_LABELS: Record<PhotoSort, string> = { changed: 'Zuletzt aktiv', number: 'Kostenstelle / Projektnr.', name: 'Name' };
+
 export function PhotosPage() {
   const mayCreate = useCanCreateProjects();
   usePageTitle('Fotodokumentation – BauPad');
@@ -55,7 +61,8 @@ export function PhotosPage() {
   /** nur freigegebene Projekte (Filter beim Rendern, damit er auch greift, wenn die Sitzung später kommt) */
   const sites = useMemo(() => access.filterSites(allSites, (s) => (s.projectId ? `p:${s.projectId}` : `n:${s.name.trim().toLowerCase()}`)), [allSites, access.session]);
   const [query, setQuery] = useState('');
-  const [sort, setSort] = useState<'recent' | 'name'>('recent');
+  // Sortierung je Person gemerkt (Art + Richtung)
+  const [sort, setSort] = useListSort<PhotoSort>('photos-sites', PHOTO_SORT_LABELS, { key: 'changed', dir: 'desc' });
   const [creating, setCreating] = useState(false);
 
   const reload = () =>
@@ -77,9 +84,10 @@ export function PhotosPage() {
   const groups = useMemo(() => {
     const list = (photos ?? []).filter((p) => matchesPhoto(p, query) && access.canSite(photoSiteKey(p)));
     const g = groupBySite(list);
-    return sort === 'name' ? g.sort((a, b) => a.name.localeCompare(b.name, 'de')) : g.sort((a, b) => b.lastAt - a.lastAt);
+    const info = (x: (typeof g)[number]) => infoOf(x.key, { name: x.name, number: x.number, address: x.address });
+    return sortList(g, sort, { changed: (x) => x.lastAt, name: (x) => info(x).name, number: (x) => projectPrefix(info(x)) }, (a, b) => b.lastAt - a.lastAt);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [photos, query, sort, access.session]);
+  }, [photos, query, sort, sites, access.session]);
   /** die letzten vier Fotos je Baustelle als Vorschau */
   const latest = useMemo(() => {
     const m = new Map<string, Photo[]>();
@@ -165,14 +173,7 @@ export function PhotosPage() {
               <span className="sr-only">Suchen</span>
               <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Baustelle, Nummer, Adresse, KW 44, 28.10., Name, Beschreibung" data-testid="photo-search" />
             </label>
-            <div className="segmented" role="radiogroup" aria-label="Sortierung">
-              <button type="button" role="radio" aria-checked={sort === 'recent'} aria-selected={sort === 'recent'} onClick={() => setSort('recent')} data-testid="photo-sort-recent">
-                Zuletzt aktiv
-              </button>
-              <button type="button" role="radio" aria-checked={sort === 'name'} aria-selected={sort === 'name'} onClick={() => setSort('name')} data-testid="photo-sort-name">
-                A–Z
-              </button>
-            </div>
+            <SortControl value={sort} labels={PHOTO_SORT_LABELS} onChange={setSort} newestFirst={['changed']} testId="photo-sort" />
           </div>
         )}
         {photos && photos.length > 0 && groups.length === 0 && empty.length === 0 && <p className="muted">Keine Fotos gefunden.</p>}

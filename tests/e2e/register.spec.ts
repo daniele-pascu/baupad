@@ -171,17 +171,22 @@ test('Projektregister sortieren: Name, Kostenstelle auf-/absteigend, neueste/äl
   await page.getByTestId('tools-register').click();
   const names = () => page.getByTestId('register-row').evaluateAll((els) => els.map((e) => e.getAttribute('data-name')));
   await expect.poll(names).toEqual(['Alpha', 'Beta', 'Gamma']);
-  await page.getByTestId('register-order').selectOption('cc-asc');
+  // Art wählen, daneben eigener Pfeil für die Richtung
+  await expect(page.getByTestId('register-order-dir')).toHaveAttribute('data-dir', 'asc');
+  await page.getByTestId('register-order').selectOption('cc');
   await expect.poll(names).toEqual(['Alpha', 'Gamma', 'Beta']); // 91200, 91300, 91500
-  await page.getByTestId('register-order').selectOption('cc-desc');
+  await page.getByTestId('register-order-dir').click();
+  await expect(page.getByTestId('register-order-dir')).toHaveAttribute('data-dir', 'desc');
   await expect.poll(names).toEqual(['Beta', 'Gamma', 'Alpha']);
-  await page.getByTestId('register-order').selectOption('new');
+  await page.getByTestId('register-order').selectOption('created'); // Datum: neueste zuerst
+  await expect(page.getByTestId('register-order-dir')).toHaveAttribute('data-dir', 'desc');
   await expect.poll(names).toEqual(['Gamma', 'Alpha', 'Beta']);
-  await page.getByTestId('register-order').selectOption('old');
+  await page.getByTestId('register-order-dir').click();
   await expect.poll(names).toEqual(['Beta', 'Alpha', 'Gamma']);
   // bleibt gemerkt
   await page.reload();
-  await expect(page.getByTestId('register-order')).toHaveValue('old');
+  await expect(page.getByTestId('register-order')).toHaveValue('created');
+  await expect(page.getByTestId('register-order-dir')).toHaveAttribute('data-dir', 'asc');
   await expect.poll(names).toEqual(['Beta', 'Alpha', 'Gamma']);
 });
 

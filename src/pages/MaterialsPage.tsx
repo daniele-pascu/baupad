@@ -1,3 +1,5 @@
+import { SortControl } from '../components/SortControl';
+import { sortList, useListSort } from '../lib/list-sort';
 import { useEffect, useMemo, useState, type InputHTMLAttributes } from 'react';
 import { Icon } from '../components/Icon';
 import { Modal } from '../components/Modal';
@@ -15,7 +17,7 @@ import { navigate, paths } from '../lib/router';
 import type { Material, MaterialItem, Project, Supplier } from '../lib/types';
 import { pcStyle, useProjectColors } from '../lib/project-colors';
 import { ProjectHeading } from '../components/ProjectHeading';
-import { labelFromProject } from '../lib/project-label';
+import { labelFromProject, projectPrefix } from '../lib/project-label';
 import { costCenterByProject, costCenterSearchByProject } from '../lib/crew-link';
 
 type Tab = 'sites' | 'materials' | 'suppliers';
@@ -24,7 +26,12 @@ type Tab = 'sites' | 'materials' | 'suppliers';
  * Materialverwaltung (Teil 1): Materialstamm und Lieferanten der Firma – einmal angelegt, auf allen Geräten
  * verfügbar (Abgleich wie alle Werkzeuge). Doppelte Einträge werden beim Anlegen gemeldet.
  */
+type MatSiteSort = 'items' | 'number' | 'name';
+const MAT_SORT_LABELS: Record<MatSiteSort, string> = { items: 'Mit Materialliste zuerst', number: 'Kostenstelle / Projektnr.', name: 'Name' };
+
 export function MaterialsPage({ tab }: { tab: Tab }) {
+  // Sortierung der Baustellen je Person gemerkt (Art + Richtung)
+  const [siteSort, setSiteSort] = useListSort<MatSiteSort>('materials-sites', MAT_SORT_LABELS, { key: 'items', dir: 'desc' });
   usePageTitle('Materialverwaltung – BauPad');
   const colorOf = useProjectColors();
   const [materials, setMaterials] = useState<Material[] | null>(null);
@@ -70,11 +77,11 @@ export function MaterialsPage({ tab }: { tab: Tab }) {
   /** Baustellen (Projekte aus dem Register, nur freigegebene): mit Materialliste zuerst, dann A–Z */
   const siteList = useMemo(() => {
     const k = normKey(query);
-    return projects
+    const list = projects
       .filter((p) => canSite(session, `p:${p.id}`, 'materials') && (!k || [p.name, p.site, p.number, p.address, p.client, ccs.all.get(p.id)].some((v) => normKey(v).includes(k))))
-      .map((p) => ({ p, sum: listSummary(items.filter((x) => x.projectId === p.id)) }))
-      .sort((a, b) => Number(b.sum.total > 0) - Number(a.sum.total > 0) || (a.p.site || a.p.name).localeCompare(b.p.site || b.p.name, 'de'));
-  }, [projects, items, query, session, ccs]);
+      .map((p) => ({ p, sum: listSummary(items.filter((x) => x.projectId === p.id)) }));
+    return sortList(list, siteSort, { items: (x) => x.sum.total, number: (x) => projectPrefix(labelFromProject(x.p, ccs.first.get(x.p.id) ?? '')), name: (x) => x.p.site || x.p.name }, (a, b) => (a.p.site || a.p.name).localeCompare(b.p.site || b.p.name, 'de'));
+  }, [projects, items, query, session, ccs, siteSort]);
 
   return (
     <>
@@ -128,6 +135,7 @@ export function MaterialsPage({ tab }: { tab: Tab }) {
               data-testid="materials-search"
             />
           </label>
+          {tab === 'sites' && <SortControl value={siteSort} labels={MAT_SORT_LABELS} onChange={setSiteSort} newestFirst={['items']} testId="material-site-sort" />}
         </div>
 
         {tab === 'sites' ? (

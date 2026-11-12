@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { SortControl } from '../components/SortControl';
+import { useListSort } from '../lib/list-sort';
 import { ActionMenu, type MenuAction } from '../components/ActionMenu';
 import { Icon } from '../components/Icon';
 import { Modal } from '../components/Modal';
@@ -100,22 +102,17 @@ export function WorkersPage() {
   const [times, setTimes] = useState<WorkTimes | null | undefined>(undefined);
   const [projects, setProjects] = useState<Project[]>([]);
   /** Baustellen sortieren (nur Anzeige, gemerkt): wonach und auf-/absteigend */
-  const [siteSort, setSiteSort] = useState<{ key: SiteSort; desc: boolean }>(() => {
+  // je Person gemerkt (früher gerätweit unter „crewSiteSort“ – wird übernommen)
+  const [sortState, setSortState] = useListSort<SiteSort>('workers-sites', SITE_SORT_LABELS, { key: 'manual', dir: 'asc' }, () => {
     try {
       const v = JSON.parse(localStorage.getItem('crewSiteSort') ?? 'null') as { key?: string; desc?: boolean } | null;
-      return v?.key && v.key in SITE_SORT_LABELS ? { key: v.key as SiteSort, desc: !!v.desc } : { key: 'manual', desc: false };
+      return v?.key && v.key in SITE_SORT_LABELS ? { key: v.key as SiteSort, dir: v.desc ? 'desc' : 'asc' } : null;
     } catch {
-      return { key: 'manual', desc: false };
+      return null;
     }
   });
-  const changeSiteSort = (next: { key: SiteSort; desc: boolean }) => {
-    setSiteSort(next);
-    try {
-      localStorage.setItem('crewSiteSort', JSON.stringify(next));
-    } catch {
-      /* egal */
-    }
-  };
+  const siteSort = { key: sortState.key, desc: sortState.dir === 'desc' };
+  const changeSiteSort = (next: { key: SiteSort; desc: boolean }) => setSortState({ key: next.key, dir: next.desc ? 'desc' : 'asc' });
   // zuletzt angezeigte Woche bleibt beim Wechsel zur Personalliste und zurück erhalten (je Browser-Tab)
   const [weekId, setWeekIdState] = useState(() => {
     try {
@@ -757,29 +754,7 @@ export function WorkersPage() {
                 ))}
               </span>
               {plan.sites.length > 1 && (
-                <span className="crew-sort">
-                  <label>
-                    <span className="muted small">Sortieren nach</span>
-                    <select value={siteSort.key} onChange={(e) => changeSiteSort({ ...siteSort, key: e.target.value as SiteSort })} aria-label="Projekte sortieren nach" data-testid="crew-order">
-                      {(Object.keys(SITE_SORT_LABELS) as SiteSort[]).map((o) => (
-                        <option key={o} value={o}>
-                          {SITE_SORT_LABELS[o]}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <button
-                    type="button"
-                    className="icon-btn crew-sort-dir"
-                    onClick={() => changeSiteSort({ ...siteSort, desc: !siteSort.desc })}
-                    aria-label={siteSort.desc ? 'Absteigend – tippen für aufsteigend' : 'Aufsteigend – tippen für absteigend'}
-                    title={siteSort.desc ? 'Absteigend' : 'Aufsteigend'}
-                    data-testid="crew-order-dir"
-                    data-dir={siteSort.desc ? 'desc' : 'asc'}
-                  >
-                    <Icon name={siteSort.desc ? 'down' : 'up'} size={20} />
-                  </button>
-                </span>
+                <SortControl value={sortState} labels={SITE_SORT_LABELS} onChange={setSortState} newestFirst={['created']} testId="crew-order" />
               )}
             </div>
           )}

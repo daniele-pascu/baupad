@@ -1,3 +1,6 @@
+import { SortControl } from '../components/SortControl';
+import { sortList, useListSort } from '../lib/list-sort';
+import { projectPrefix } from '../lib/project-label';
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { ActionMenu } from '../components/ActionMenu';
 import { Icon } from '../components/Icon';
@@ -24,7 +27,12 @@ import { pcStyle, useProjectColors } from '../lib/project-colors';
 export const DEFECT_ACCENT = { '--tool': '#d6242b' } as CSSProperties;
 
 /** Mängelplan – Übersicht: Projekte mit Plänen und Markierungen; Plan hochladen erst im Projekt */
+type DefectSort = 'changed' | 'number' | 'name';
+const DEFECT_SORT_LABELS: Record<DefectSort, string> = { changed: 'Zuletzt bearbeitet', number: 'Kostenstelle / Projektnr.', name: 'Name' };
+
 export function DefectsPage() {
+  // Sortierung je Person gemerkt (Art + Richtung)
+  const [sort, setSort] = useListSort<DefectSort>('defects-sites', DEFECT_SORT_LABELS, { key: 'changed', dir: 'desc' });
   const mayCreate = useCanCreateProjects();
   usePageTitle('Mängelplan – BauPad');
   const colorOf = useProjectColors();
@@ -96,8 +104,11 @@ export function DefectsPage() {
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return (summaries ?? []).filter((s) => !q || [s.site.name, s.site.number, s.site.address, ...s.plans.map((p) => p.title)].join(' ').toLowerCase().includes(q));
-  }, [summaries, query]);
+    const hits = (summaries ?? []).filter((s) => !q || [s.site.name, s.site.number, s.site.address, ...s.plans.map((p) => p.title)].join(' ').toLowerCase().includes(q));
+    const info = (x: (typeof hits)[number]) => sites.find((f) => photoSiteKey({ projectId: f.projectId, siteName: f.name }) === x.key) ?? x.site;
+    return sortList(hits, sort, { changed: (x) => x.lastAt, number: (x) => projectPrefix(info(x)), name: (x) => info(x).name }, (a, b) => b.lastAt - a.lastAt);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [summaries, query, sort, sites]);
   /** im Mängelplan angelegte oder übernommene Projekte, die noch keinen Plan haben */
   const empty = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -156,6 +167,7 @@ export function DefectsPage() {
               <span className="sr-only">Suchen</span>
               <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Baustelle, Nummer, Adresse, Plan" data-testid="defect-search" />
             </label>
+            <SortControl value={sort} labels={DEFECT_SORT_LABELS} onChange={setSort} newestFirst={['changed']} testId="defect-sort" />
           </div>
         )}
 

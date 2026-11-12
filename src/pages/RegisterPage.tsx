@@ -1,3 +1,5 @@
+import { SortControl } from '../components/SortControl';
+import { sortList, useListSort, type ListSort } from '../lib/list-sort';
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Icon } from '../components/Icon';
 import { Modal } from '../components/Modal';
@@ -10,16 +12,24 @@ import { confirmDialog, showError, toast } from '../components/ui';
 import { useAccess } from '../lib/access';
 import { TOOLS, type ToolId } from '../lib/auth';
 import { adoptProject, costCenterByProject, projectTools } from '../lib/crew-link';
-import { naturalCompare } from '../lib/numbers';
 
-type RegisterOrder = 'name' | 'cc-asc' | 'cc-desc' | 'new' | 'old';
+type RegisterOrder = 'name' | 'cc' | 'number' | 'created';
 const ORDER_LABELS: Record<RegisterOrder, string> = {
-  name: 'Name A–Z',
-  'cc-asc': 'Kostenstelle aufsteigend',
-  'cc-desc': 'Kostenstelle absteigend',
-  new: 'Neueste zuerst',
-  old: 'Älteste zuerst',
+  name: 'Name',
+  cc: 'Kostenstelle',
+  number: 'Projektnummer',
+  created: 'Anlegedatum',
 };
+/** frühere, gerätweite Reihenfolge (wird für die angemeldete Person übernommen) */
+function legacyOrder(): ListSort<RegisterOrder> | null {
+  try {
+    const v = localStorage.getItem('registerOrder');
+    const m: Record<string, ListSort<RegisterOrder>> = { name: { key: 'name', dir: 'asc' }, 'cc-asc': { key: 'cc', dir: 'asc' }, 'cc-desc': { key: 'cc', dir: 'desc' }, new: { key: 'created', dir: 'desc' }, old: { key: 'created', dir: 'asc' } };
+    return v ? (m[v] ?? null) : null;
+  } catch {
+    return null;
+  }
+}
 import { useDataChanged } from '../lib/data-events';
 import { listProjects, projectStats } from '../lib/db';
 import { labelFromProject } from '../lib/project-label';
@@ -55,22 +65,8 @@ export function RegisterPage() {
   const [ccs, setCcs] = useState<Map<string, string>>(() => new Map());
   const [q, setQ] = useState('');
   /** Reihenfolge (gemerkt): Name, Kostenstelle auf-/absteigend, neueste/älteste zuerst */
-  const [order, setOrder] = useState<RegisterOrder>(() => {
-    try {
-      const v = localStorage.getItem('registerOrder');
-      return v && v in ORDER_LABELS ? (v as RegisterOrder) : 'name';
-    } catch {
-      return 'name';
-    }
-  });
-  const changeOrder = (o: RegisterOrder) => {
-    setOrder(o);
-    try {
-      localStorage.setItem('registerOrder', o);
-    } catch {
-      /* egal */
-    }
-  };
+  // je Person gemerkt: Art + Richtung
+  const [order, changeOrder] = useListSort<RegisterOrder>('register', ORDER_LABELS, { key: 'name', dir: 'asc' }, legacyOrder);
   const [adopt, setAdopt] = useState<Project | null>(null);
   const [editing, setEditing] = useState<Project | null>(null);
   const [creating, setCreating] = useState(false);
@@ -87,23 +83,10 @@ export function RegisterPage() {
 
   const list = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    return (projects ?? [])
+    const hits = (projects ?? [])
       .filter((p) => access.canSite(`p:${p.id}`))
-      .filter((p) => !needle || [p.name, p.site, p.number ?? '', ccs.get(p.id) ?? '', p.address, p.client, p.notes].join(' ').toLowerCase().includes(needle))
-      .sort((a, b) => {
-        const byName = (a.site || a.name).localeCompare(b.site || b.name, 'de');
-        if (order === 'new') return b.createdAt - a.createdAt || byName;
-        if (order === 'old') return a.createdAt - b.createdAt || byName;
-        if (order === 'cc-asc' || order === 'cc-desc') {
-          const ca = ccs.get(a.id) ?? '';
-          const cb = ccs.get(b.id) ?? '';
-          // ohne Kostenstelle immer am Ende
-          if (!ca || !cb) return ca ? -1 : cb ? 1 : byName;
-          const c = naturalCompare(ca, cb);
-          return (order === 'cc-asc' ? c : -c) || byName;
-        }
-        return byName;
-      });
+      .filter((p) => !needle || [p.name, p.site, p.number ?? '', ccs.get(p.id) ?? '', p.address, p.client, p.notes].join(' ').toLowerCase().includes(needle));
+    return sortList(hits, order, { name: (p) => p.site || p.name, cc: (p) => ccs.get(p.id) ?? '', number: (p) => p.number ?? '', created: (p) => p.createdAt }, (a, b) => (a.site || a.name).localeCompare(b.site || b.name, 'de'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projects, ccs, q, order, access.session]);
   const usable = (t: ToolId) => access.canTool(t);
@@ -206,16 +189,7 @@ export function RegisterPage() {
               <span className="sr-only">Suchen</span>
               <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Baustelle, Nummer, Kostenstelle oder Auftraggeber suchen" data-testid="register-search" />
             </label>
-            <label className="register-order">
-              <span className="sr-only">Sortieren</span>
-              <select value={order} onChange={(e) => changeOrder(e.target.value as RegisterOrder)} aria-label="Sortieren" data-testid="register-order">
-                {(Object.keys(ORDER_LABELS) as RegisterOrder[]).map((o) => (
-                  <option key={o} value={o}>
-                    {ORDER_LABELS[o]}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <SortControl value={order} labels={ORDER_LABELS} onChange={changeOrder} newestFirst={['created']} testId="register-order" />
           </div>
         )}
         {projects && projects.length === 0 && (

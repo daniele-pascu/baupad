@@ -1,3 +1,5 @@
+import { SortControl } from '../components/SortControl';
+import { useListSort } from '../lib/list-sort';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '../components/Icon';
 import { ProjectPicker } from '../components/ProjectPicker';
@@ -36,14 +38,15 @@ const SORT_LABELS: Record<SortKey, string> = {
   costCenter: 'Kostenstellennummer',
 };
 
-function loadSort(): { key: SortKey; dir: 'asc' | 'desc' } {
+/** frühere, gerätweite Sortierung (wird für die angemeldete Person übernommen) */
+function legacySort(): { key: SortKey; dir: 'asc' | 'desc' } | null {
   try {
     const s = JSON.parse(localStorage.getItem('projectSort') ?? 'null');
     if (s && s.key in SORT_LABELS && (s.dir === 'asc' || s.dir === 'desc')) return s;
   } catch {
     /* Standard */
   }
-  return { key: 'changed', dir: 'desc' };
+  return null;
 }
 
 /** Projekte nach Suchbegriff filtern und sortieren (leere Werte stehen immer am Ende). */
@@ -89,15 +92,8 @@ export function HomePage() {
   const [storage, setStorage] = useState<{ usage: number; quota: number; persisted: boolean } | null>(null);
   const [upgraded, setUpgraded] = useState(false);
   const [query, setQuery] = useState('');
-  const [sort, setSortState] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>(loadSort);
-  const setSort = (s: { key: SortKey; dir: 'asc' | 'desc' }) => {
-    setSortState(s);
-    try {
-      localStorage.setItem('projectSort', JSON.stringify(s));
-    } catch {
-      /* optional */
-    }
-  };
+  // Sortierung je Person gemerkt (Art + Richtung)
+  const [sort, setSort] = useListSort<SortKey>('projects', SORT_LABELS, { key: 'changed', dir: 'desc' }, legacySort);
   // Suche und Sortierung ändern nur die Anzeige, nie die Projektdaten
   const access = useAccess();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -303,34 +299,7 @@ export function HomePage() {
               aria-label="Projekte suchen"
               data-testid="project-search"
             />
-            <div className="row gap">
-              <select
-                value={sort.key}
-                onChange={(e) => {
-                  const key = e.target.value as SortKey;
-                  // Texte zunächst A→Z, Datumsangaben zunächst neueste zuerst
-                  setSort({ key, dir: key === 'changed' || key === 'created' ? 'desc' : 'asc' });
-                }}
-                aria-label="Sortieren nach"
-                data-testid="project-sort"
-              >
-                {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
-                  <option key={k} value={k}>
-                    {SORT_LABELS[k]}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                className="btn btn-sm"
-                onClick={() => setSort({ ...sort, dir: sort.dir === 'asc' ? 'desc' : 'asc' })}
-                aria-label={sort.dir === 'asc' ? 'Aufsteigend sortiert – umschalten' : 'Absteigend sortiert – umschalten'}
-                title="Sortierrichtung umschalten"
-                data-testid="project-sort-dir"
-              >
-                {sort.dir === 'asc' ? '↑ Aufsteigend' : '↓ Absteigend'}
-              </button>
-            </div>
+            <SortControl value={sort} labels={SORT_LABELS} onChange={setSort} newestFirst={['changed', 'created']} testId="project-sort" />
           </div>
         )}
         {!!rows?.length && query && !visible.length && <p className="muted">Kein Projekt gefunden.</p>}

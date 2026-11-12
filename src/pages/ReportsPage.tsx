@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { ActionMenu } from '../components/ActionMenu';
+import { projectPrefix } from '../lib/project-label';
+import { SortControl } from '../components/SortControl';
+import { sortList, useListSort } from '../lib/list-sort';
 import { ProjectHeading } from '../components/ProjectHeading';
 import { Icon } from '../components/Icon';
 import { Modal } from '../components/Modal';
@@ -63,7 +66,12 @@ interface SiteCard {
  * Berichte & Formulare – Übersicht je Baustelle: Anzahl Regielisten, Tagesberichte und Wochenberichte,
  * letzter Bericht; Tippen öffnet die Berichte der Baustelle (getrennte Listen je Typ).
  */
+type ReportSort = 'changed' | 'number' | 'name';
+const REPORT_SORT_LABELS: Record<ReportSort, string> = { changed: 'Zuletzt bearbeitet', number: 'Kostenstelle / Projektnr.', name: 'Name' };
+
 export function ReportsPage() {
+  // Sortierung je Person gemerkt (Art + Richtung)
+  const [sort, setSort] = useListSort<ReportSort>('reports-sites', REPORT_SORT_LABELS, { key: 'changed', dir: 'desc' });
   const access = useAccess();
   usePageTitle('Berichte & Formulare – BauPad');
   const colorOf = useProjectColors();
@@ -119,12 +127,12 @@ export function ReportsPage() {
       if (e.updatedAt > c.lastAt) c.lastAt = e.updatedAt;
       if (e.status !== 'done') c.open++;
     }
-    return [...map.values()]
+    const list = [...map.values()]
       .filter((c) => access.canSite(c.key))
-      .filter((c) => !q || [c.site.name, c.head.project, c.head.number, c.head.client, c.head.address].some((t) => t?.toLowerCase().includes(q)))
-      .sort((a, b) => b.lastAt - a.lastAt);
+      .filter((c) => !q || [c.site.name, c.head.project, c.head.number, c.head.client, c.head.address].some((t) => t?.toLowerCase().includes(q)));
+    return sortList(list, sort, { changed: (c) => c.lastAt, number: (c) => projectPrefix({ name: c.site.name, number: c.head.number, costCenter: c.head.costCenter }), name: (c) => c.site.name }, (a, b) => b.lastAt - a.lastAt);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reports, entries, q, access.session]);
+  }, [reports, entries, q, sort, access.session]);
   /** in Berichten angelegte oder übernommene Projekte, die noch keinen Bericht haben */
   const emptySites = useMemo(() => {
     const have = new Set(cards.map((c) => c.key));
@@ -219,6 +227,7 @@ export function ReportsPage() {
               <span className="sr-only">Suchen</span>
               <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Baustelle, Nummer oder Auftraggeber suchen" data-testid="report-search" />
             </label>
+            <SortControl value={sort} labels={REPORT_SORT_LABELS} onChange={setSort} newestFirst={['changed']} testId="report-sort" />
           </div>
         )}
 
