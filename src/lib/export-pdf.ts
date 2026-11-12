@@ -16,6 +16,7 @@ import {
   type PDFPage,
 } from 'pdf-lib';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { baupadLogoBytes } from './baupad-logo';
 import { componentsOf, costCenterLabel, damagesOf, elementsOf, findPosition, planTitle, safeFileName, type ExportFile } from './aufmass';
 import { dimsVisible, visibleDamages, visibleElements } from './layers';
 import { annotationsOf, dimGeometry, dimLeader, isDrawingPlan, ROOM_LINE, textBoxWidth, textFontSize, textLines, lineEnds, PAPER, PRINT_HEADER_MM, PRINT_MARGIN_MM, fillRegion, aufmassPaper, shapeToPage, unitsPerMeter } from './drawing';
@@ -74,7 +75,13 @@ interface Ctx {
   data: ProjectState;
   /** Schriften der Textobjekte (Standardschriften, vorab eingebettet) */
   textFonts: Map<string, PDFFont>;
+  /** BauPad-Logo (schwarzes Viereck wie die App) für die Kopfzeile rechts oben */
+  baupad: PDFImage | null;
 }
+
+/** Kantenlänge des BauPad-Logos in der Kopfzeile (pt) und der Platz, den es rechts samt Abstand belegt */
+const LOGO_PT = 28;
+const logoSpace = (ctx: Ctx) => (ctx.baupad ? LOGO_PT + 10 : 0);
 
 /** Schrift eines Textobjekts (Helvetica, Times, Courier – normal, fett, kursiv) */
 const textFont = (ctx: Ctx, f: TextFont | undefined) => ctx.textFonts.get(pdfStandardFont(f)) ?? ctx.font;
@@ -159,7 +166,13 @@ export async function exportPlansPdf(data: ProjectState, opts: PdfExportOptions)
     plans: Object.values(data.plans),
     data,
     textFonts: new Map(),
+    baupad: null,
   };
+  try {
+    ctx.baupad = await out.embedPng(baupadLogoBytes());
+  } catch {
+    ctx.baupad = null; // das Logo ist Zugabe – ohne es bleibt der Plan vollständig
+  }
   // Schriften der Texte auf den gewählten Plänen vorab einbetten
   for (const planId of opts.planIds)
     for (const e of elementsOf(data, planId))
@@ -338,11 +351,14 @@ function drawSheetHeader(ctx: Ctx, page: PDFPage, pageH: number, header: Rect, p
   const size = 15;
   const rightText = clean(ctx, right.join(' · '));
   const rw = rightText ? ctx.font.widthOfTextAtSize(rightText, 10) : 0;
-  const maxW = header.w - Math.max(rw, reserveRight) - (rw || reserveRight ? 16 : 0);
+  // BauPad-Logo ganz rechts oben; Format, Maßstab und Maßstabsleiste rücken links daneben
+  const logo = logoSpace(ctx);
+  if (ctx.baupad) page.drawImage(ctx.baupad, { x: header.x + header.w - LOGO_PT, y: pageH - header.y - LOGO_PT, width: LOGO_PT, height: LOGO_PT });
+  const maxW = header.w - logo - Math.max(rw, reserveRight) - (rw || reserveRight ? 16 : 0);
   page.drawText(fitText(ctx.bold, clean(ctx, planHeading(plan)), size, maxW), { x: header.x, y: pageH - header.y - size, size, font: ctx.bold, color: rgb(0.1, 0.1, 0.12) });
   const note = plan.showNote ? plan.description.trim().replace(/\s+/g, ' ') : '';
   if (note) page.drawText(fitText(ctx.font, clean(ctx, note), 8, maxW), { x: header.x, y: pageH - header.y - size - 11, size: 8, font: ctx.font, color: rgb(0.3, 0.33, 0.38) });
-  if (rightText) page.drawText(rightText, { x: header.x + header.w - rw, y: pageH - header.y - 14, size: 10, font: ctx.font, color: rgb(0.3, 0.33, 0.38) });
+  if (rightText) page.drawText(rightText, { x: header.x + header.w - logo - rw, y: pageH - header.y - 14, size: 10, font: ctx.font, color: rgb(0.3, 0.33, 0.38) });
   const ly = pageH - (header.y + header.h) + 6;
   page.drawLine({ start: { x: header.x, y: ly }, end: { x: header.x + header.w, y: ly }, thickness: 0.5, color: rgb(0.8, 0.82, 0.85) });
 }
@@ -741,7 +757,7 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   // Maßstabsleiste rechts im Kopfbereich (nur wenn der Maßstab angezeigt werden soll)
   if (!showScale) return;
   const lblW = ctx.font.widthOfTextAtSize(`${String(barM).replace('.', ',')} m`, 6.5);
-  const bx = W - margin - barPt - lblW / 2;
+  const bx = W - margin - logoSpace(ctx) - barPt - lblW / 2;
   const by = H - margin - 28;
   const seg = 4;
   for (let i = 0; i < seg; i++)

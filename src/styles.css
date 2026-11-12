@@ -9848,9 +9848,54 @@ html[data-theme='dark'] .crew-search {
   color: var(--muted);
 }
 /* nur senkrecht scrollen: Tabelle passt in die Breite (Spalten schmaler, Art bricht um) */
-.table-wrap:has(> .aufmass-table) {
+.table-wrap:has(> .aufmass-table),
+.table-wrap.aufmass-tables {
   overflow-x: hidden;
   overflow-y: auto;
+}
+/* je Messart eine eigene Tabelle: Überschrift mit Symbol und Anzahl, darunter Spalten und Summe der Messart */
+.aufmass-type + .aufmass-type {
+  border-top: 6px solid var(--bg);
+}
+.aufmass-type-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 10px 8px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  background: var(--surface);
+}
+.aufmass-type-count {
+  margin-left: auto;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+.aufmass-tables .aufmass-table th {
+  /* mehrere Tabellen untereinander: Köpfe bleiben an ihrer Tabelle, nichts überlagert die nächste Überschrift */
+  position: static;
+}
+/* Gesamtsummen unter allen Tabellen */
+.aufmass-total {
+  border-top: 6px solid var(--bg);
+}
+.aufmass-tables .aufmass-total:first-child,
+.aufmass-tables .aufmass-table:not(.aufmass-total) + .aufmass-total {
+  border-top: none;
+}
+.aufmass-total td:last-child {
+  width: 1%;
+}
+.type-sum-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+/* Nummer schmal halten – der Platz gehört den Maßen */
+.aufmass-table .nr-col {
+  width: 1%;
 }
 .aufmass-table {
   table-layout: auto;
@@ -11166,7 +11211,8 @@ html[data-theme='dark'] .crew-search {
   }
 }
 /* Aufmaß-Tabelle: bei vielen Spalten (z. B. Bewehrung) waagrecht scrollen statt die Tasten abzuschneiden */
-.table-wrap:has(> .aufmass-table) { overflow-x: auto; }
+.table-wrap:has(> .aufmass-table),
+.table-wrap.aufmass-tables { overflow-x: auto; }
 /* Seitenleiste wächst nicht mit breiten Tabellen mit (sonst ragen Tasten über den Rand) */
 .editor-main > .editor-side { min-width: 0; max-width: 100%; }
 @media (max-width: 600px) {

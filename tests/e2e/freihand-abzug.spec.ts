@@ -137,7 +137,9 @@ test('Abzüge: Wand 5,50 × 2,30 abzüglich Tür und 2 Fenster, zuzüglich Nisch
   await expect(dlg).toBeHidden();
   await expect(page.locator('.toast', { hasText: '8,65 m²' })).toHaveCount(1);
 
-  const row = page.locator('[data-testid="aufmass-row"]').last();
+  // Zeile über ihre Nummer merken (die Tabellen sind nach Messart getrennt, „letzte Zeile“ gilt nicht mehr)
+  const rowNo = await page.locator('[data-testid="aufmass-row"]').filter({ has: page.locator('[data-testid="row-area"]', { hasText: '8,65' }) }).getAttribute('data-number');
+  const row = page.locator(`[data-testid="aufmass-row"][data-number="${rowNo}"]`);
   await expect(row.getByTestId('row-area')).toHaveText('8,65');
   const sub = page.getByTestId('row-deductions').last();
   await expect(sub).toContainText('brutto 12,65 m²');

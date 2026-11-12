@@ -347,7 +347,7 @@ test('Wand: Verlauf mit Knicken, Länge aus allen Abschnitten, danach Höhe → 
   expect(Math.abs(area - len * 2.5)).toBeLessThan(0.01);
   await dlg.getByTestId('damage-save').click();
   await expect(dlg).toBeHidden();
-  const row = page.locator('[data-testid="aufmass-row"]').last();
+  const row = page.locator('[data-testid="aufmass-row"][data-type="wand"]').last();
   await expect(row.getByTestId('row-kind')).toHaveAttribute('title', 'Wand');
   await expect(page.getByTestId('selection-bar')).toContainText('Wand Nr.');
   // letzten Knick verschieben (100 px weiter nach rechts) → Länge und Wandfläche werden nachgeführt, Höhe bleibt

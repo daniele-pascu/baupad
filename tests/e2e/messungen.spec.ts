@@ -94,8 +94,11 @@ test('Messart aus der Form (Linie / Fläche), keine Auswahl beim Einfügen: Lini
   await dlg.getByTestId('damage-save').click();
   await expect(dlg).toBeHidden();
   await expect(row(1)).toHaveAttribute('data-kind', 'line');
-  await expect(row(1).getByTestId('row-area')).toHaveText('–');
-  await expect(page.getByTestId('sum-area')).toHaveText('0,00');
+  // Längen stehen in ihrer eigenen Tabelle (ohne Flächenspalte, mit Gesamtlänge)
+  await expect(row(1)).toHaveAttribute('data-type', 'laenge');
+  await expect(row(1).getByTestId('row-area')).toHaveCount(0);
+  await expect(row(1).getByTestId('row-total')).toHaveText('3,50');
+  await expect(page.getByTestId('sum-area')).toHaveCount(0); // nur eine Länge: keine „Summe Fläche“
   await expect(page.getByTestId('sum-length')).toHaveText('3,50 m');
 
   // 2) Dreieck über „Freie Form“ (drei Eckpunkte, Startpunkt schließt) in Schwarz, ohne Tiefe
@@ -117,7 +120,9 @@ test('Messart aus der Form (Linie / Fläche), keine Auswahl beim Einfügen: Lini
   await dlg.getByTestId('input-width').fill('1');
   await dlg.getByTestId('damage-save').click(); // Tiefe bleibt leer → trotzdem speicherbar
   await expect(dlg).toBeHidden();
-  await expect(row(2).locator('td').nth(3)).toHaveText('–');
+  // Tabelle „Fläche“: solange keine Messung eine Tiefe hat, gibt es keine Spalte „Tiefe“
+  const flaecheHead = page.locator('[data-testid="aufmass-type"][data-type="flaeche"] thead');
+  await expect(flaecheHead).not.toContainText('Tiefe');
   await expect(row(2).getByTestId('row-area')).toHaveText('2,00');
 
   // 3) Rechteck in Weiß als Fläche mit Tiefe (Auswahl vorher aufheben – sonst würde Nr. 2 umgefärbt)
@@ -133,6 +138,10 @@ test('Messart aus der Form (Linie / Fläche), keine Auswahl beim Einfügen: Lini
   await dlg.getByTestId('damage-save').click();
   await expect(dlg).toBeHidden();
   await expect(row(3).getByTestId('row-kind')).toHaveText('Fläche');
+  // jetzt mit Spalte „Tiefe“ – bei Nr. 2 bleibt sie leer (nicht 0)
+  await expect(flaecheHead).toContainText('Tiefe');
+  await expect(row(2).locator('td').nth(3)).toHaveText('–');
+  await expect(row(3).locator('td').nth(3)).toHaveText('0,10');
   await expect(page.getByTestId('sum-area')).toHaveText('2,50'); // 2,00 + 0,50 – Linie zählt nicht
   await expect(page.getByTestId('side-summary')).toContainText('Linien 3,50 m');
 
