@@ -1,5 +1,5 @@
 import { expect, test, type Page } from './fixtures';
-import { createProject, freshStart, waitSaved, pickTool } from './helpers';
+import { createProject, freshStart, waitSaved, pickTool, chooseMeasureType } from './helpers';
 
 /**
  * Paket G: Werkzeugleiste wie in CAD-Programmen, Polylinie offen/geschlossen, Eckpunkte
@@ -288,6 +288,8 @@ test('Aufmaß: offene Polylinie = Linienmessung mit Länge, geschlossene = Fläc
   await expect(page.locator('circle[data-testid^="vertex-"]')).toHaveCount(3);
   await waitSaved(page);
 
+  // Messart Fläche: Freie Form ergibt eine Fläche
+  await chooseMeasureType(page, 'flaeche');
   await pickTool(page, 'tool-polyline');
   for (const [dx, dy] of [[-260, -40], [-160, -40], [-160, 40], [-260, 40]]) await page.mouse.click(x + dx, y + dy);
   await page.getByTestId('polygon-finish').click();
@@ -381,7 +383,8 @@ test('Messung: Menü mit fünf Messarten; Länge, Winkel, Radius, Abstand, Fläc
   const result = () => page.getByTestId('probe-result').locator('strong');
   const val = async () => num((await result().textContent())!.replace(/^r = /, '').replace(/\s*(m²|m|°)$/, ''));
 
-  // Menü mit Symbolen; ein anderes Werkzeug schließt es
+  // Menü mit Symbolen; ein anderes Werkzeug schließt es (Messart Länge: Freie Form ist dabei)
+  await chooseMeasureType(page, 'laenge');
   await page.getByTestId('tool-probe').click();
   const menu = page.getByTestId('probe-menu');
   await expect(menu.getByRole('menuitem')).toHaveText([/Länge/, /Fläche/, /Winkel/, /Radius/, /Abstand/]);

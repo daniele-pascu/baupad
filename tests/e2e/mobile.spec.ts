@@ -19,6 +19,7 @@ import {
   pickTool,
   openTools,
   newWeekProject,
+  chooseMeasureType,
 } from './helpers';
 
 /**
@@ -130,7 +131,9 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
 
   // Bedienelemente groß genug für Touch; „Auswahl“ gibt es am Handy/Tablet nicht als Knopf (automatisch nach Gebrauch)
   await expect(page.getByTestId('tool-select')).toHaveCount(0);
-  for (const id of ['tool-ellipse', 'tool-rect', 'tool-polyline']) {
+  // zuerst die Messart wählen – dann erscheinen die Werkzeuge
+  await chooseMeasureType(page, 'flaeche', 'tap');
+  for (const id of ['tool-mtype', 'tool-ellipse', 'tool-rect', 'tool-polyline']) {
     const b = await page.getByTestId(id).boundingBox();
     expect(b!.height).toBeGreaterThanOrEqual(44);
     expect(b!.width).toBeGreaterThanOrEqual(44);
@@ -233,7 +236,10 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   // Alle Werkzeuge und Rückgängig/Wiederholen sind per Finger erreichbar, nichts ragt über den Rand (Leiste war zugeklappt)
   await openTools(page, 'tap');
   const vw = page.viewportSize()!.width;
-  for (const t of ['line', 'rect', 'ellipse', 'polyline', 'wall', 'probe']) {
+  // Messart Fläche: Messart-Taste, Rechteck, Kreis, Freie Form, Messung (Linie und Wand gehören zu anderen Messarten)
+  await expect(page.getByTestId('tool-line')).toHaveCount(0);
+  await expect(page.getByTestId('tool-wall')).toHaveCount(0);
+  for (const t of ['mtype', 'rect', 'ellipse', 'polyline', 'probe']) {
     const b = (await page.getByTestId(`tool-${t}`).boundingBox())!;
     expect(b.x).toBeGreaterThanOrEqual(0);
     expect(b.x + b.width).toBeLessThanOrEqual(vw + 0.5);
@@ -443,6 +449,7 @@ test('Plan zeichnen per Finger: Raum über Maßeingabe, Bemaßung sichtbar, Weit
   await page.screenshot({ path: join(OUT, `${info.project.name}-zeichnen.png`) });
   // Weiter zum Aufmaß: Zeichnung bleibt, Markierungswerkzeuge erscheinen
   await page.getByTestId('mode-measure').tap();
+  await chooseMeasureType(page, 'flaeche', 'tap');
   await expect(page.getByTestId('tool-rect')).toBeVisible();
   await expect(page.locator('[data-element="rect"]')).toHaveCount(1);
   await waitSaved(page);
@@ -857,8 +864,13 @@ test('Arbeitereinteilung per Finger: Woche nicht fixiert, Wischen links/rechts w
     if ((await page.getByTestId('week-label').textContent()) !== 'KW 47') await swipe(w * 0.8, w * 0.2, y);
     await expect(page.getByTestId('week-label')).toHaveText('KW 47', { timeout: 1500 });
   }).toPass({ timeout: 15_000 });
-  await swipe(w * 0.2, w * 0.8, y); // nach rechts → zurück
-  await swipe(w * 0.2, w * 0.8, y);
+  // nach rechts → zurück, zweimal; jeweils erst weiterwischen, wenn die Woche geladen ist
+  for (const kw of ['KW 46', 'KW 45']) {
+    await expect(async () => {
+      if ((await page.getByTestId('week-label').textContent()) !== kw) await swipe(w * 0.2, w * 0.8, y);
+      await expect(page.getByTestId('week-label')).toHaveText(kw, { timeout: 1500 });
+    }).toPass({ timeout: 15_000 });
+  }
   await expect(page.getByTestId('week-label')).toHaveText('KW 45');
   // kurze oder senkrechte Bewegung wechselt nicht
   await swipe(w * 0.5, w * 0.5 + 30, y);

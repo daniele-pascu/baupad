@@ -1,7 +1,7 @@
 import { expect, test, type Page } from './fixtures';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { catchDownload, createProject, freshStart, OUT, saveDownload, waitSaved, pickTool } from './helpers';
+import { catchDownload, createProject, freshStart, OUT, saveDownload, waitSaved, pickTool, chooseMeasureType } from './helpers';
 
 /** Phase 3b: Pläne selbst zeichnen – maßhaltig, mit Maßeingabe, Bemaßung, Aufmaß und Export. */
 
@@ -210,6 +210,7 @@ test('Linien mit Länge und Richtung schließen aneinander an; Kreis, Dreieck, M
 test('Weiter zum Aufmaß: Messung auf gezeichnetem Plan, Maßvorschlag; Planänderung lässt Messung unverändert', async () => {
   await page.getByTestId('mode-measure').click();
   await expect(page.getByTestId('draw-toolbar')).toHaveCount(0);
+  await chooseMeasureType(page, 'flaeche');
   await expect(page.getByTestId('tool-rect')).toBeVisible();
   await expect(page.locator('[data-element="rect"]')).toHaveCount(1); // Zeichnung bleibt sichtbar
 

@@ -11428,6 +11428,28 @@ html[data-theme='dark'] .crew-search {
   }
 }
 
+/* Noch keine Messart gewählt: Taste deutlich mit Text „Messart wählen“ (auf allen Geräten) – erst danach erscheinen die Werkzeuge */
+.editor-plan > .toolbar:not([data-testid='dp-toolbar']) .tool-btn.mtype-btn.mtype-empty {
+  width: auto;
+  padding: 0 14px;
+  gap: 6px;
+  background: var(--text);
+  color: var(--surface);
+}
+.editor-plan > .toolbar:not([data-testid='dp-toolbar']) .tool-btn.mtype-btn.mtype-empty > span.mtype-text {
+  position: static;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  clip: auto;
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.mtype-btn.mtype-empty .mtype-prefix {
+  display: inline;
+}
+
 /* Einteilung am PC und Tablet: Tage nebeneinander in Spalten (Handy: untereinander in Zeilen) */
 @media (min-width: 721px) {
   .crew-days {

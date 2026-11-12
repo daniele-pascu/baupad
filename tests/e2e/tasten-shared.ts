@@ -177,7 +177,7 @@ export function tastenTests() {
     await dlg.getByTestId('damage-cancel').click();
     await expect(dlg).toBeHidden();
     await pickTool(page, 'tool-mtype');
-    await page.getByTestId('mtype-auto').click();
+    await page.getByTestId('mtype-flaeche').click();
     if (await page.getByTestId('tools-open').isVisible()) await page.getByTestId('tools-open').click();
     await page.getByTestId('editor-legend').click();
     await pruefe(page, 'Legende', out);

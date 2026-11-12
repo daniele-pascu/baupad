@@ -69,6 +69,21 @@ const TOOLS: { id: Tool; label: string; short?: string; icon: string; key: strin
   { id: 'calibrate', label: 'Maßstab kalibrieren: Strecke bekannter Länge im Plan ziehen', short: 'Kalibrieren', icon: 'calibrate', key: 'm' },
 ];
 
+/**
+ * Werkzeuge je Messart (Aufmaß). Dazu immer: Auswahl, Text, Messung (Kontrolle), Kalibrieren.
+ * Fläche: alles außer Linie · Wand: nur Wand · Länge: Linie, Freie Form, Freihand · Volumen: Fläche, Kreis, Rechteck,
+ * Freie Form · Stück: nur Punkte · Schadstelle: alles außer Wand und Fläche (geschlossene Freie Form ist eine Fläche) · Frei: alle.
+ */
+const TOOLS_BY_TYPE: Record<MeasureType, readonly Tool[]> = {
+  flaeche: ['rect', 'ellipse', 'polygon', 'polyline', 'freehand'],
+  wand: ['wall'],
+  laenge: ['line', 'polyline', 'freehand'],
+  volumen: ['polygon', 'ellipse', 'rect', 'polyline'],
+  stueck: ['points'],
+  schadstelle: ['rect', 'line', 'ellipse', 'polyline', 'freehand'],
+  frei: ['rect', 'line', 'ellipse', 'polygon', 'polyline', 'freehand', 'wall', 'points'],
+};
+
 /** Werkzeuge mit Maßeingabe bzw. Hinweis vor dem Einfügen */
 const INSERT_TOOLS = new Set<DrawTool>(['line', 'rect', 'ellipse', 'triangle', 'dimension', 'text']);
 
@@ -394,7 +409,16 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     [data.damages, plan?.projectId],
   );
   /** Werkzeuge je Messart: Wand nur bei Wand (bzw. automatisch), Punkte nur bei Stück */
-  const toolVisible = (id: Tool, c: MeasureChoice = mtype) => (id === 'wall' ? c === 'wand' || c === 'auto' : id === 'points' ? c === 'stueck' : true);
+  /** Werkzeuge je Messart; ohne gewählte Messart nur Auswahl und Kalibrieren (erst Messart wählen, dann öffnet sich die Leiste) */
+  const toolVisible = (id: Tool, c: MeasureChoice = mtype) => {
+    // Auswahl und Kalibrieren (Vorbereitung des Plans) immer; alles Messende erst nach der Messart
+    if (id === 'select' || id === 'calibrate') return true;
+    if (c === 'auto') return false;
+    if (id === 'text' || id === 'probe') return true;
+    return (TOOLS_BY_TYPE[c] as readonly Tool[]).includes(id);
+  };
+  /** erstes Werkzeug einer Messart (zum gleich Zeichnen) */
+  const firstTool = (c: MeasureChoice): Tool => (c === 'auto' ? 'select' : TOOLS_BY_TYPE[c][0]);
   /** Stück zählen: angetippte Punkte (Seitenkoordinaten), bis „Fertig“ */
   const [pointMarks, setPointMarks] = useState<Point[]>([]);
   useEffect(() => {
@@ -402,7 +426,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   }, [tool]);
   // gemerktes Werkzeug passt nicht zur Messart (z. B. Wand bei Fläche) → Rechteck
   useEffect(() => {
-    if (!toolVisible(tool)) setToolState(mtype === 'stueck' ? 'points' : 'rect');
+    if (!toolVisible(tool)) setToolState(firstTool(mtype));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mtype]);
   /** Punkte übernehmen: eine Stück-Messung mit allen Punkten, Anzahl = Zahl der Punkte */
@@ -530,6 +554,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     const ribbon = host.querySelector('.ribbon');
     // Abstand von der Oberkante der unteren Leiste bis zum unteren Rand der Planfläche
     const update = () => {
+      // Planfläche ausgeblendet (Reiter „Tabelle“ am Handy/Tablet): letzten Wert behalten
+      if (!host.getBoundingClientRect().height) return;
       host.style.setProperty('--toolbar-h', bar ? `${Math.round(host.getBoundingClientRect().bottom - bar.getBoundingClientRect().top)}px` : '0px');
       host.style.setProperty('--ribbon-h', ribbon ? `${Math.round(ribbon.getBoundingClientRect().height)}px` : '0px');
     };
@@ -539,6 +565,15 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     if (ribbon) ro.observe(ribbon);
     return () => ro.disconnect();
   }, [drawMode]);
+  // zusätzlich nach jedem Neuzeichnen sofort (Werkzeuge je Messart, Leiste auf/zu, Reiterwechsel) – ohne auf den
+  // Beobachter zu warten, damit die Leisten darüber nie kurz in die Werkzeugleiste rutschen
+  useLayoutEffect(() => {
+    const host = planRef.current;
+    const bar = host?.querySelector('.toolbar');
+    if (!host || !bar || !host.getBoundingClientRect().height) return;
+    const h = `${Math.round(host.getBoundingClientRect().bottom - bar.getBoundingClientRect().top)}px`;
+    if (host.style.getPropertyValue('--toolbar-h') !== h) host.style.setProperty('--toolbar-h', h);
+  });
 
   const setTool = (t: Tool) => {
     if (t !== 'calibrate') setChecking(false);
@@ -1083,7 +1118,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     if (drawMode) switchMode('measure');
     setProbe(null);
     setTool('select');
-    const mt: MeasureType = mtype !== 'auto' ? mtype : probe.kind === 'area' ? 'flaeche' : 'laenge';
+    // nachgemessene Fläche → Fläche, Strecke → Länge; die gewählte Messart gilt nur, wenn sie dazu passt
+    const fits = probe.kind === 'area' ? ['flaeche', 'volumen', 'schadstelle', 'frei'] : ['laenge', 'schadstelle', 'frei'];
+    const mt: MeasureType = mtype !== 'auto' && fits.includes(mtype) ? mtype : probe.kind === 'area' ? 'flaeche' : 'laenge';
     setDialog({ mode: 'new', shape, ...suggestNext(stored, planNumberStart(plan)), kind: typeInfo(mt).kind, measureType: mt, fromShape: true });
   };
 
@@ -1617,6 +1654,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                   : (() => {
                       // Messart: im Aufmaß gewählt (Werkzeug Wand → Wand), sonst aus der Form
                       const mt = typeForNew(shape);
+                      // Fläche/Volumen: offen beendete Freie Form bzw. Freihand wird geschlossen (immer eine Fläche)
+                      if ((mt === 'flaeche' || mt === 'volumen') && shape.type === 'freehand' && shape.closed === false && (shape.points?.length ?? 0) >= 3) shape = { ...shape, closed: true };
                       setDialog({ mode: 'new', shape, ...suggestNext(stored, planNumberStart(plan)), kind: typeInfo(mt).kind, measureType: mt });
                     })()
               }
@@ -2251,7 +2290,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               <span className="mtype-anchor">
               <button
                 type="button"
-                className={`tool-btn mtype-btn${mtypeMenu ? ' active' : ''}`}
+                className={`tool-btn mtype-btn${mtypeMenu ? ' active' : ''}${mtype === 'auto' ? ' mtype-empty' : ''}`}
                 onClick={() => {
                   setProbeMenu(false);
                   setStylePopOpen(false);
@@ -2267,7 +2306,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               >
                 <Icon name={choiceIcon(mtype)} />
                 <span className="mtype-text">
-                  <span className="mtype-prefix">Messart: </span>
+                  <span className="mtype-prefix">{mtype === 'auto' ? 'Messart ' : 'Messart: '}</span>
                   <span className="mtype-current">{choiceLabel(mtype)}</span>
                 </span>
               </button>
@@ -2277,11 +2316,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                   onPick={(c) => {
                     setMtype(c);
                     setMtypeMenu(false);
-                    // gleich zeichnen: ohne Werkzeug (Auswahl) → Rechteck bzw. Linie für Länge
-                    if (c === 'stueck') setTool('points');
-                    else if (c === 'wand') setTool('wall');
-                    else if (tool === 'select' || tool === 'calibrate' || tool === 'probe' || tool === 'text' || !toolVisible(tool, c)) setTool(c === 'laenge' ? 'line' : 'rect');
-                    toast(c === 'auto' ? 'Messart automatisch: offene Linien = Länge, geschlossene Formen = Fläche.' : `Messart ${choiceLabel(c)}: jetzt mit einem Werkzeug im Plan zeichnen.`, 'info', 2200);
+                    // gleich zeichnen: ohne passendes Werkzeug → erstes Werkzeug der Messart
+                    if (tool === 'select' || tool === 'calibrate' || tool === 'probe' || tool === 'text' || !toolVisible(tool, c)) setTool(firstTool(c));
+                    toast(`Messart ${choiceLabel(c)}: jetzt mit einem Werkzeug im Plan zeichnen.`, 'info', 2200);
                   }}
                   onClose={() => setMtypeMenu(false)}
                 />

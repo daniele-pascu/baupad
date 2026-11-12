@@ -267,6 +267,9 @@ export async function pickTool(page: Page, testId: string, how: 'click' | 'tap' 
     // die Leiste kann sich gerade selbst wieder öffnen (z. B. nach dem Speichern) – dann ist die Taste schon weg
     if (await open.isVisible()) await (how === 'tap' ? open.tap({ timeout: 3000 }) : open.click({ timeout: 3000 })).catch(() => {});
   }
+  // Aufmaß: Werkzeuge erscheinen erst nach der Messart (je Messart nur die passenden) – passende Messart wählen
+  const mtypeFor: Record<string, string> = { 'tool-line': 'laenge', 'tool-polyline': 'laenge', 'tool-freehand': 'laenge', 'tool-rect': 'flaeche', 'tool-ellipse': 'flaeche', 'tool-polygon': 'flaeche', 'tool-wall': 'wand', 'tool-points': 'stueck' };
+  if (!(await btn.isVisible()) && mtypeFor[testId] && (await page.getByTestId('tool-mtype').isVisible())) await chooseMeasureType(page, mtypeFor[testId], how);
   // Zeichenmodus: Werkzeug ggf. auf einer anderen Registerkarte der oberen Leiste
   if (!(await btn.isVisible())) {
     for (const tab of await page.locator('[data-testid^="ribbon-tab-"]').all()) {
@@ -275,6 +278,18 @@ export async function pickTool(page: Page, testId: string, how: 'click' | 'tap' 
     }
   }
   await press(btn);
+}
+
+/** Aufmaß: Messart wählen (Fläche, Wand, Länge, Volumen, Stück, Schadstelle, Frei) – danach erscheinen die passenden Werkzeuge */
+export async function chooseMeasureType(page: Page, type: string, how: 'click' | 'tap' = 'click') {
+  const mt = page.getByTestId('tool-mtype');
+  // Leiste nach einer Messung zugeklappt → aufklappen
+  if (!(await mt.isVisible())) await openTools(page, how);
+  if ((await mt.getAttribute('data-value')) === type) return;
+  await (how === 'tap' ? mt.tap() : mt.click());
+  const item = page.getByTestId(`mtype-${type}`);
+  await (how === 'tap' ? item.tap() : item.click());
+  await page.getByTestId('mtype-menu').waitFor({ state: 'detached' });
 }
 
 /** Zugeklappte Werkzeugleiste öffnen (z. B. für die Farbwahl). */

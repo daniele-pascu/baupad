@@ -71,12 +71,19 @@ test('Messart wählen, dann mit beliebigem Werkzeug messen: Wand, Stück, Frei, 
   const x = sb.x + 120;
   const y = sb.y + 120;
 
-  // Standard: automatisch
-  await expect(page.getByTestId('tool-mtype')).toContainText('Automatisch');
+  // kein „Automatisch“ mehr: zuerst die Messart wählen, vorher keine Zeichenwerkzeuge
+  await expect(page.getByTestId('tool-mtype')).toContainText('Messart wählen');
+  await expect(page.getByTestId('tool-rect')).toHaveCount(0);
+  await pickTool(page, 'tool-mtype');
+  await expect(page.getByTestId('mtype-menu')).toBeVisible();
+  await expect(page.getByTestId('mtype-auto')).toHaveCount(0);
+  await page.getByTestId('tool-mtype').click(); // Menü wieder zu
 
-  // 1) Wand mit einem Rechteck: Umfang aus dem Plan × Höhe
+  // 1) Wand (nur Werkzeug Wand): Verlauf rundum 4 × 3 m, Enter beendet → Länge aus dem Plan × Höhe
   await chooseType('wand');
-  await rect(x, y, px(4), px(3));
+  await expect(page.getByTestId('tool-wall')).toHaveAttribute('aria-pressed', 'true');
+  for (const [dx, dy] of [[0, 0], [4, 0], [4, 3], [0, 3], [0, 0.0001]]) await page.mouse.click(x + px(dx), y + px(dy));
+  await page.keyboard.press('Enter');
   await expect(dlg()).toContainText('Neue Messung: Wand');
   await expect(dlg().getByTestId('measure-type-select')).toHaveValue('wand');
   const len = num(await dlg().getByTestId('geometry-length').inputValue());
@@ -93,9 +100,10 @@ test('Messart wählen, dann mit beliebigem Werkzeug messen: Wand, Stück, Frei, 
   expect(Math.abs(d.area! - len * 2.5)).toBeLessThan(0.02);
   await expect(page.locator('[data-testid="aufmass-row"]').last().getByTestId('row-kind')).toHaveAttribute('title', 'Wand');
 
-  // 2) Stück mit einem Rechteck: Anzahl
+  // 2) Stück (nur Punkte): einen Punkt setzen, „Fertig“ – Anzahl im Dialog änderbar
   await chooseType('stueck');
-  await rect(x + px(6), y, px(1), px(1));
+  await page.mouse.click(x + px(6), y);
+  await page.getByTestId('points-done').click();
   await expect(dlg()).toContainText('Neue Messung: Stück');
   await expect(dlg().getByTestId('input-length')).toHaveCount(0);
   await dlg().getByTestId('input-count').fill('4');
@@ -149,9 +157,11 @@ test('Messart wählen, dann mit beliebigem Werkzeug messen: Wand, Stück, Frei, 
   expect(d.count).toBe(3);
   expect(d.area).toBe(9);
 
-  // 6) Länge mit einem Rechteck: Umfang
+  // 6) Länge (Linie, Freie Form, Freihand): geschlossene Freie Form 2 × 1 m → Umfang
   await chooseType('laenge');
-  await rect(x + px(8), y + px(5), px(2), px(1));
+  await expect(page.getByTestId('tool-rect')).toHaveCount(0);
+  await pickTool(page, 'tool-polyline');
+  for (const [dx, dy] of [[8, 5], [10, 5], [10, 6], [8, 6], [8, 5]]) await page.mouse.click(x + px(dx), y + px(dy));
   await expect(dlg()).toContainText('Neue Messung: Länge');
   const l2 = num(await dlg().getByTestId('geometry-length').inputValue());
   expect(Math.abs(l2 - 6)).toBeLessThan(0.1);
@@ -178,17 +188,30 @@ test('Messart wählen, dann mit beliebigem Werkzeug messen: Wand, Stück, Frei, 
 
   // Messart bleibt gemerkt (nach Neuladen)
   await page.reload();
-  await expect(page.getByTestId('tool-mtype')).toHaveAttribute('data-value', 'laenge');
+  await expect(page.getByTestId('tool-mtype')).toHaveAttribute('data-value', 'flaeche'); // zuletzt für das Rechteck gewählt
 });
 
 test('Werkzeuge je Messart: Wand nur bei Wand, Punkte bei Stück – Punkte antippen zählt die Stück', async () => {
   const sb = (await page.getByTestId('drawing-sheet').boundingBox())!;
-  // Fläche und Schadstelle: kein Wand-Werkzeug
+  // Werkzeuge je Messart (immer dazu: Auswahl/Text/Messung/Kalibrieren)
+  const ALL = ['line', 'rect', 'ellipse', 'polygon', 'polyline', 'freehand', 'wall', 'points'];
+  const EXPECT: Record<string, string[]> = {
+    flaeche: ['rect', 'ellipse', 'polygon', 'polyline', 'freehand'], // alles außer Linien
+    wand: ['wall'], // nur Wand
+    laenge: ['line', 'polyline', 'freehand'], // Linie, Freie Form, Freihand
+    volumen: ['rect', 'ellipse', 'polygon', 'polyline'], // Fläche, Kreis, Rechteck, beliebige Form
+    stueck: ['points'], // nur Punkte
+    schadstelle: ['line', 'rect', 'ellipse', 'polyline', 'freehand'], // alles außer Wand und Fläche
+    frei: ALL, // alle Werkzeuge
+  };
+  for (const [t, tools] of Object.entries(EXPECT)) {
+    await chooseType(t);
+    for (const id of ALL) await expect(page.getByTestId(`tool-${id}`), `${t}: ${id}`).toHaveCount(tools.includes(id) ? 1 : 0);
+  }
   for (const t of ['flaeche', 'schadstelle', 'laenge']) {
     await chooseType(t);
     await expect(page.getByTestId('tool-wall')).toHaveCount(0);
     await expect(page.getByTestId('tool-points')).toHaveCount(0);
-    await expect(page.getByTestId('tool-rect')).toBeVisible();
   }
   // Wand: Wand-Werkzeug da und gleich gewählt
   await chooseType('wand');

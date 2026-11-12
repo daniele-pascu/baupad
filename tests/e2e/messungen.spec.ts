@@ -17,6 +17,7 @@ import {
   waitSaved,
   pickTool,
   openTools,
+  chooseMeasureType,
 } from './helpers';
 
 /** Phase 3a: Messarten, neue Formen, Farben, Bauteile, Rückgängig/Wiederholen, Messleiste. */
@@ -66,8 +67,13 @@ test('Messart aus der Form (Linie / Fläche), keine Auswahl beim Einfügen: Lini
   const box = await planBox(page);
   const dlg = page.getByTestId('damage-dialog');
 
-  // Neue Werkzeuge und Farben sind vorhanden
-  for (const t of ['select', 'line', 'rect', 'ellipse', 'polygon', 'polyline']) await expect(page.getByTestId(`tool-${t}`)).toBeVisible();
+  // erst die Messart wählen – vorher keine Zeichenwerkzeuge; danach nur die passenden
+  await expect(page.getByTestId('tool-mtype')).toHaveAttribute('data-value', 'auto');
+  await expect(page.getByTestId('tool-mtype')).toContainText('Messart wählen');
+  for (const t of ['line', 'rect', 'ellipse', 'polygon', 'polyline', 'freehand', 'wall', 'points']) await expect(page.getByTestId(`tool-${t}`)).toHaveCount(0);
+  await chooseMeasureType(page, 'flaeche');
+  for (const t of ['select', 'rect', 'ellipse', 'polygon', 'polyline']) await expect(page.getByTestId(`tool-${t}`)).toBeVisible();
+  await expect(page.getByTestId('tool-line')).toHaveCount(0); // Fläche: alles außer Linie
   await expect(page.getByTestId('tool-triangle')).toHaveCount(0); // Dreieck über „Freie Form“
   await expect(page.getByTestId('tool-polyline')).toContainText('Freie Form');
   await expect(page.getByRole('button', { name: 'Farbe Schwarz' })).toBeVisible();
@@ -95,6 +101,7 @@ test('Messart aus der Form (Linie / Fläche), keine Auswahl beim Einfügen: Lini
   // 2) Dreieck über „Freie Form“ (drei Eckpunkte, Startpunkt schließt) in Schwarz, ohne Tiefe
   await openTools(page); // Leiste klappt nach jeder Messung zu
   await page.getByRole('button', { name: 'Farbe Schwarz' }).click();
+  await chooseMeasureType(page, 'flaeche');
   await pickTool(page, 'tool-polyline');
   const tri = [
     [0.45, 0.4],

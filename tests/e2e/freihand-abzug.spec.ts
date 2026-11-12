@@ -1,6 +1,6 @@
 import { expect, test, type Page } from './fixtures';
 import { join } from 'node:path';
-import { createProject, freshStart, OUT, pickTool, waitSaved } from './helpers';
+import { createProject, freshStart, OUT, pickTool, waitSaved, chooseMeasureType } from './helpers';
 
 /**
  * Aufmaß: Freihand-Werkzeug (Linie bzw. Fläche genau wie gezeichnet, z. B. Risse) und
@@ -65,7 +65,8 @@ test('Freihand: wellige Linie bleibt genau wie gezeichnet (Linie mit Länge); am
   expect(list[0].shape.points!.length).toBeGreaterThan(30); // alle Wellen bleiben erhalten
   expect(list[0].length).toBeGreaterThan(0);
 
-  // geschlossene Freihandform → Fläche
+  // geschlossene Freihandform → Messart Fläche
+  await chooseMeasureType(page, 'flaeche');
   await pickTool(page, 'tool-freehand');
   const cx = sb.x + 300;
   const cy = sb.y + 420;

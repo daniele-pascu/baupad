@@ -3,10 +3,15 @@ import { MEASURE_TYPES, typeInfo } from '../lib/measure-types';
 import type { MeasureType } from '../lib/types';
 import { Icon } from './Icon';
 
-/** Gewählte Messart im Aufmaß: eine der sieben Messarten oder „Automatisch“ (aus der Form) */
+/**
+ * Gewählte Messart im Aufmaß: eine der sieben Messarten; 'auto' = noch keine gewählt (dann gibt es noch keine
+ * Zeichenwerkzeuge – erst die Messart wählen, danach erscheinen die passenden Werkzeuge). „Automatisch“ gibt es nicht mehr.
+ */
 export type MeasureChoice = MeasureType | 'auto';
 export const MEASURE_CHOICES: MeasureChoice[] = ['auto', ...MEASURE_TYPES.map((t) => t.id)];
-export const choiceLabel = (c: MeasureChoice) => (c === 'auto' ? 'Automatisch' : typeInfo(c).label);
+/** im Menü wählbar: nur die Messarten */
+const MENU_CHOICES: MeasureType[] = MEASURE_TYPES.map((t) => t.id);
+export const choiceLabel = (c: MeasureChoice) => (c === 'auto' ? 'wählen' : typeInfo(c).label);
 export const choiceIcon = (c: MeasureChoice) => (c === 'auto' ? 'mtype' : typeInfo(c).icon);
 
 /**
@@ -28,7 +33,7 @@ export function MeasureTypeMenu({ value, onPick, onClose }: { value: MeasureChoi
   }, []);
   return (
     <div ref={ref} className="probe-menu mtype-menu" role="menu" aria-label="Messart" data-testid="mtype-menu">
-      {MEASURE_CHOICES.map((c) => (
+      {MENU_CHOICES.map((c) => (
         <button key={c} type="button" role="menuitemradio" aria-checked={value === c} className={value === c ? 'active' : undefined} onClick={() => onPick(c)} data-testid={`mtype-${c}`}>
           <span className="probe-menu-icon mtype-menu-icon">
             <Icon name={choiceIcon(c)} size={22} />
@@ -36,9 +41,9 @@ export function MeasureTypeMenu({ value, onPick, onClose }: { value: MeasureChoi
           <span className="probe-menu-text">
             <strong>
               {choiceLabel(c)}
-              {c !== 'auto' && typeInfo(c).unit ? ` · ${typeInfo(c).unit}` : ''}
+              {typeInfo(c).unit ? ` · ${typeInfo(c).unit}` : ''}
             </strong>
-            <span className="muted small">{c === 'auto' ? 'nach der Form: offen = Länge, geschlossen = Fläche' : typeInfo(c).hint}</span>
+            <span className="muted small">{typeInfo(c).hint}</span>
           </span>
         </button>
       ))}
