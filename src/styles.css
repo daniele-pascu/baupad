@@ -4849,7 +4849,7 @@ tr.lv-flagged td {
   padding: 0 10px;
   border: 1px solid color-mix(in srgb, var(--tool) 35%, var(--border));
   border-radius: 999px;
-  background: color-mix(in srgb, var(--tool) 7%, #fff);
+  background: color-mix(in srgb, var(--tool) 7%, var(--surface));
   color: var(--text);
   font-size: 0.78rem;
   font-weight: 600;
@@ -4861,7 +4861,7 @@ tr.lv-flagged td {
   flex-shrink: 0;
 }
 a.register-tool:hover {
-  background: color-mix(in srgb, var(--tool) 14%, #fff);
+  background: color-mix(in srgb, var(--tool) 14%, var(--surface));
 }
 .register-tool.off {
   color: var(--muted);
@@ -5715,7 +5715,7 @@ a.tool-tile:focus-visible {
   margin-bottom: 12px;
   border: 1px solid color-mix(in srgb, var(--tool) 30%, var(--border));
   border-radius: 14px;
-  background: color-mix(in srgb, var(--tool) 6%, #fff);
+  background: color-mix(in srgb, var(--tool) 6%, var(--surface));
 }
 .crew-setup > div {
   flex: 1;
@@ -6621,7 +6621,7 @@ html:has(.crew-page) {
   overscroll-behavior: contain;
 }
 .report-item.selected {
-  background: color-mix(in srgb, var(--tool) 8%, #fff);
+  background: color-mix(in srgb, var(--tool) 8%, var(--surface));
 }
 button.report-link {
   width: 100%;
@@ -6694,7 +6694,7 @@ button.report-link {
   text-decoration: none;
 }
 .report-link:hover {
-  background: color-mix(in srgb, var(--tool) 5%, #fff);
+  background: color-mix(in srgb, var(--tool) 5%, var(--surface));
 }
 .report-main {
   flex: 1;
@@ -6925,7 +6925,7 @@ button.report-link {
   padding: 10px 12px;
   border: 1px solid color-mix(in srgb, var(--tool) 30%, var(--border));
   border-radius: 12px;
-  background: color-mix(in srgb, var(--tool) 5%, #fff);
+  background: color-mix(in srgb, var(--tool) 5%, var(--surface));
 }
 .rp-suggest p {
   margin: 0 0 6px;
@@ -7172,7 +7172,7 @@ button.report-link {
 .photo-week-chip {
   padding: 3px 9px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--tool) 10%, #fff);
+  background: color-mix(in srgb, var(--tool) 10%, var(--surface));
   color: color-mix(in srgb, var(--tool) 70%, #000);
   font-size: 0.8rem;
   font-weight: 600;
@@ -12162,4 +12162,179 @@ html[data-theme='dark'] .crew-search {
 .position-mismatch {
   display: block;
   margin-top: 6px;
+}
+
+/* =====================================================================
+   Gestaltung 3 – gilt für alle Tools
+   Akzentfarbe je Tool, kräftigere Haupttasten, weichere Bewegung, klarere Flächen.
+   Am Handy liegt die Haupttaste einer Übersicht unten rechts in Daumennähe.
+   ===================================================================== */
+
+/* Akzentfarbe je Tool (wie die Kacheln auf der Tools-Seite) */
+.page {
+  --tool: #1d1d1f;
+}
+.home,
+.page-under-nav {
+  --tool: #ff6a13;
+}
+.crew-page,
+.staff-page {
+  --tool: #2f80ed;
+}
+.photos-page {
+  --tool: #3a3a3c;
+}
+.reports-page,
+.report-page {
+  --tool: #a259ff;
+}
+.defects-page {
+  --tool: #d6242b;
+}
+.times-page {
+  --tool: #0f9d76;
+}
+.materials-page {
+  --tool: #c2850c;
+}
+html[data-theme='dark'] .photos-page {
+  --tool: #c7c7cc;
+}
+
+/* Seite: weicher Farbschein des Tools oben rechts, sanftes Einblenden */
+.page:not(.tools-page):not(.loading) {
+  background-image: radial-gradient(560px 220px at 100% 0, color-mix(in srgb, var(--tool) 14%, transparent), transparent 72%);
+  background-repeat: no-repeat;
+  animation: page-fade 0.26s ease both;
+}
+@keyframes page-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Kopf: kräftiger Titel mit Farbbalken, Zurück als runde Taste */
+.page-head h1 {
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+.page-head-title h1::after {
+  content: '';
+  display: block;
+  width: 40px;
+  height: 4px;
+  margin-top: 6px;
+  border-radius: 4px;
+  background: var(--tool);
+}
+.page-head-title .icon-link {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  margin-left: 0;
+  margin-right: 8px;
+  flex: none;
+  transition: transform 0.18s var(--ease), box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.page-head-title .icon-link:hover {
+  background: var(--surface);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+  transform: translateX(-2px);
+}
+
+/* Tasten: Haupttaste klar vorne, alle Tasten reagieren spürbar */
+.btn {
+  font-weight: 550;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.18s ease, transform 0.18s var(--ease);
+}
+.btn-primary {
+  font-weight: 600;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 60%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 8px 18px -8px rgba(0, 0, 0, 0.55), 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+.btn-danger {
+  font-weight: 600;
+  box-shadow: 0 8px 18px -8px color-mix(in srgb, var(--danger) 70%, transparent);
+}
+@media (hover: hover) {
+  .btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px -6px rgba(0, 0, 0, 0.22);
+  }
+  .btn-primary:hover:not(:disabled) {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 12px 24px -8px rgba(0, 0, 0, 0.6), 0 2px 4px rgba(0, 0, 0, 0.2);
+  }
+  .card-list > .card:hover,
+  .project-card:hover {
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-md);
+  }
+}
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+html[data-theme='dark'] .btn-primary {
+  background-image: none;
+  box-shadow: 0 8px 18px -8px rgba(0, 0, 0, 0.8);
+}
+
+/* Flächen: etwas rundere Karten, Eingabefelder mit Farbring des Tools */
+.card {
+  border-radius: 18px;
+}
+.field input:focus,
+.field textarea:focus,
+.field select:focus {
+  border-color: var(--tool, var(--primary));
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--tool, #1d1d1f) 16%, transparent);
+  outline: none;
+}
+.empty {
+  border-radius: 20px;
+  border-color: color-mix(in srgb, var(--tool, #1d1d1f) 28%, var(--border-strong));
+  background: color-mix(in srgb, var(--tool, #1d1d1f) 4%, var(--surface-2));
+}
+
+/* Handy: Haupttaste der Übersicht unten rechts (Daumen), Inhalt lässt darunter Platz */
+@media (max-width: 640px) {
+  .page-head .btn-primary:is([data-testid='report-new-site'], [data-testid='photo-new-site'], [data-testid='defect-new-site'], [data-testid='register-new'], [data-testid='add-site']) {
+    position: fixed;
+    right: 16px;
+    bottom: calc(18px + var(--safe-bottom));
+    z-index: 40;
+    width: 60px;
+    height: 60px;
+    min-height: 60px;
+    padding: 0;
+    border-radius: 50%;
+    font-size: 0;
+    gap: 0;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 16px 30px -10px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.25);
+  }
+  .page-head .btn-primary:is([data-testid='report-new-site'], [data-testid='photo-new-site'], [data-testid='defect-new-site'], [data-testid='register-new'], [data-testid='add-site']) svg {
+    width: 26px;
+    height: 26px;
+  }
+  .page:has(.page-head .btn-primary:is([data-testid='report-new-site'], [data-testid='photo-new-site'], [data-testid='defect-new-site'], [data-testid='register-new'], [data-testid='add-site'])) {
+    padding-bottom: calc(100px + var(--safe-bottom));
+  }
+  .page-head-title .icon-link {
+    margin-left: -6px;
+    margin-right: 4px;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page:not(.tools-page):not(.loading) {
+    animation: none;
+  }
+  .btn,
+  .page-head-title .icon-link {
+    transition: none;
+  }
 }

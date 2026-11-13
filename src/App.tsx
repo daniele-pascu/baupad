@@ -1,44 +1,13 @@
 import { useAppearance } from './lib/appearance';
 import { preloadExcelLogo } from './lib/company';
-import { useEffect, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useState, type ComponentType, type ReactNode } from 'react';
 import { DialogHost, toast } from './components/ui';
 import { Icon } from './components/Icon';
 import { canonicalPath, currentPath, langOf, navigate, parseRoute, paths, usePath } from './lib/router';
 import { flush, openProject, useAppState } from './lib/store';
-import { HomePage } from './pages/HomePage';
-import { ProjectPage } from './pages/ProjectPage';
-import { PlanEditorPage } from './pages/PlanEditorPage';
-import { HomePage as SiteHomePage } from './site/pages/HomePage';
-import { ProductsPage } from './site/pages/ProductsPage';
-import { BauPadPage } from './site/pages/BauPadPage';
-import { ToolPage } from './site/pages/ToolPage';
-import { CompanyPage } from './site/pages/CompanyPage';
-import { ContactPage, ThanksPage } from './site/pages/ContactPage';
-import { DeleteAccountPage, ImprintPage, NotFoundPage, PrivacyPage } from './site/pages/LegalPages';
 import './site/site.css';
-import { AccountPage, AccountSectionPage, LoginPage, NewPasswordPage } from './pages/AccountPages';
 import { AccessPendingPage } from './pages/AccessPendingPage';
 import { ToolsPage } from './pages/ToolsPage';
-import { WorkersPage } from './pages/WorkersPage';
-import { StaffPage } from './pages/StaffPage';
-import { ReportsPage } from './pages/ReportsPage';
-import { ReportSitePage } from './pages/ReportSitePage';
-import { CameraPage } from './pages/CameraPage';
-import { ReportEditorPage } from './pages/ReportEditorPage';
-import { FormTemplatesPage } from './pages/FormTemplatesPage';
-import { FormTemplateEditorPage } from './pages/FormTemplateEditorPage';
-import { FormEntryPage } from './pages/FormEntryPage';
-import { TimesPage } from './pages/TimesPage';
-import { RegisterPage } from './pages/RegisterPage';
-import { TimesheetPage } from './pages/TimesheetPage';
-import { PhotosPage } from './pages/PhotosPage';
-import { RecentPhotosPage } from './pages/RecentPhotosPage';
-import { PhotoSitePage } from './pages/PhotoSitePage';
-import { DefectsPage } from './pages/DefectsPage';
-import { MaterialsPage } from './pages/MaterialsPage';
-import { MaterialSitePage } from './pages/MaterialSitePage';
-import { DefectSitePage } from './pages/DefectSitePage';
-import { DefectPlanPage } from './pages/DefectPlanPage';
 
 import { isInstalledApp } from './lib/platform';
 import { getAuth } from './lib/auth';
@@ -50,6 +19,101 @@ import { adoptFreeSites } from './lib/sites';
 import { notifyDataChanged, useDataChanged } from './lib/data-events';
 import { canTool, isLocked, ROUTE_TOOL } from './lib/access';
 import { hasStoredSession, initAuth } from './lib/auth-init';
+
+/**
+ * Seiten werden erst beim Öffnen geladen (eigene Dateien je Seite) – der Start lädt nur den Rahmen und die Tools-Übersicht.
+ * Angemeldet werden die Seiten im Leerlauf vorgewärmt; eine schon geladene Seite erscheint ohne Zwischenbild.
+ */
+const PRELOADS: (() => Promise<void>)[] = [];
+function page<K extends string>(load: () => Promise<Record<K, unknown>>, name: K) {
+  type Any = ComponentType<any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+  let Loaded: Any | null = null;
+  let pending: Promise<void> | null = null;
+  const ensure = () =>
+    (pending ??= load().then(
+      (m) => {
+        Loaded = m[name] as Any;
+      },
+      (e) => {
+        pending = null; // nächster Versuch lädt neu (z. B. nach kurzem Funkloch)
+        throw e;
+      },
+    ));
+  const Lazy = lazy(() => ensure().then(() => ({ default: Loaded! })));
+  // je Einbau einmal entscheiden: schon geladen → direkt (kein Zwischenbild), sonst über Suspense
+  const Page = (props: Record<string, unknown>) => {
+    const [Direct] = useState<Any | null>(() => Loaded);
+    return Direct ? <Direct {...props} /> : <Lazy {...props} />;
+  };
+  PRELOADS.push(ensure);
+  return Page as Any;
+}
+const HomePage = page(() => import('./pages/HomePage'), 'HomePage');
+const ProjectPage = page(() => import('./pages/ProjectPage'), 'ProjectPage');
+const PlanEditorPage = page(() => import('./pages/PlanEditorPage'), 'PlanEditorPage');
+const SiteHomePage = page(() => import('./site/pages/HomePage'), 'HomePage');
+const ProductsPage = page(() => import('./site/pages/ProductsPage'), 'ProductsPage');
+const BauPadPage = page(() => import('./site/pages/BauPadPage'), 'BauPadPage');
+const ToolPage = page(() => import('./site/pages/ToolPage'), 'ToolPage');
+const CompanyPage = page(() => import('./site/pages/CompanyPage'), 'CompanyPage');
+const ContactPage = page(() => import('./site/pages/ContactPage'), 'ContactPage');
+const ThanksPage = page(() => import('./site/pages/ContactPage'), 'ThanksPage');
+const DeleteAccountPage = page(() => import('./site/pages/LegalPages'), 'DeleteAccountPage');
+const ImprintPage = page(() => import('./site/pages/LegalPages'), 'ImprintPage');
+const NotFoundPage = page(() => import('./site/pages/LegalPages'), 'NotFoundPage');
+const PrivacyPage = page(() => import('./site/pages/LegalPages'), 'PrivacyPage');
+const AccountPage = page(() => import('./pages/AccountPages'), 'AccountPage');
+const AccountSectionPage = page(() => import('./pages/AccountPages'), 'AccountSectionPage');
+const LoginPage = page(() => import('./pages/AccountPages'), 'LoginPage');
+const NewPasswordPage = page(() => import('./pages/AccountPages'), 'NewPasswordPage');
+const WorkersPage = page(() => import('./pages/WorkersPage'), 'WorkersPage');
+const StaffPage = page(() => import('./pages/StaffPage'), 'StaffPage');
+const ReportsPage = page(() => import('./pages/ReportsPage'), 'ReportsPage');
+const ReportSitePage = page(() => import('./pages/ReportSitePage'), 'ReportSitePage');
+const CameraPage = page(() => import('./pages/CameraPage'), 'CameraPage');
+const ReportEditorPage = page(() => import('./pages/ReportEditorPage'), 'ReportEditorPage');
+const FormTemplatesPage = page(() => import('./pages/FormTemplatesPage'), 'FormTemplatesPage');
+const FormTemplateEditorPage = page(() => import('./pages/FormTemplateEditorPage'), 'FormTemplateEditorPage');
+const FormEntryPage = page(() => import('./pages/FormEntryPage'), 'FormEntryPage');
+const TimesPage = page(() => import('./pages/TimesPage'), 'TimesPage');
+const RegisterPage = page(() => import('./pages/RegisterPage'), 'RegisterPage');
+const TimesheetPage = page(() => import('./pages/TimesheetPage'), 'TimesheetPage');
+const PhotosPage = page(() => import('./pages/PhotosPage'), 'PhotosPage');
+const RecentPhotosPage = page(() => import('./pages/RecentPhotosPage'), 'RecentPhotosPage');
+const PhotoSitePage = page(() => import('./pages/PhotoSitePage'), 'PhotoSitePage');
+const DefectsPage = page(() => import('./pages/DefectsPage'), 'DefectsPage');
+const MaterialsPage = page(() => import('./pages/MaterialsPage'), 'MaterialsPage');
+const MaterialSitePage = page(() => import('./pages/MaterialSitePage'), 'MaterialSitePage');
+const DefectSitePage = page(() => import('./pages/DefectSitePage'), 'DefectSitePage');
+const DefectPlanPage = page(() => import('./pages/DefectPlanPage'), 'DefectPlanPage');
+
+/** Seiten nacheinander im Leerlauf laden, damit der erste Klick auf ein Tool sofort reagiert */
+function warmPages() {
+  let i = 0;
+  const next = () => {
+    const load = PRELOADS[i++];
+    if (!load) return;
+    void load()
+      .catch(() => undefined)
+      .then(() => window.setTimeout(next, 40));
+  };
+  const idle = (window as unknown as { requestIdleCallback?: (cb: () => void) => void }).requestIdleCallback;
+  if (idle) idle(next);
+  else window.setTimeout(next, 1500);
+}
+// Nach einer neuen Version fehlen alte Seitendateien am Server: einmal neu laden statt leerer Seite
+if (typeof window !== 'undefined') {
+  window.addEventListener('vite:preloadError', () => {
+    try {
+      const last = Number(sessionStorage.getItem('chunk-reload') || 0);
+      if (Date.now() - last < 30_000) return;
+      sessionStorage.setItem('chunk-reload', String(Date.now()));
+    } catch {
+      /* ohne sessionStorage trotzdem neu laden */
+    }
+    location.reload();
+  });
+}
 
 initAuth();
 
@@ -221,6 +285,10 @@ function usePhotoCloud() {
 }
 
 export function App() {
+  // angemeldet: die Tools im Leerlauf vorladen (Besucher der Website laden nur die Website)
+  useEffect(() => {
+    if (hasStoredSession()) warmPages();
+  }, []);
   const path = usePath();
   const route = parseRoute(path);
   // Darstellung (Größe, hell/dunkel) und feste Größe nur in der App, nicht auf der Website
@@ -397,6 +465,7 @@ export function App() {
     default:
       content = <NotFoundPage />;
   }
+  content = <Suspense fallback={<div className="page loading" aria-busy="true" />}>{content}</Suspense>;
 
   return (
     <>
