@@ -3737,3 +3737,13 @@
   box-shadow: 0 0 0 4px rgba(77, 149, 245, 0.18);
   outline: none;
 }
+
+/* Kopfleiste am Handy und Tablet: ganz oben deckend schwarz (sonst scheint der helle Seitengrund grau durch), beim Scrollen leicht durchscheinend */
+@media (max-width: 900px) {
+  .ps-header {
+    background: #08090a;
+  }
+  .ps-header.is-scrolled {
+    background: rgba(8, 9, 10, 0.88);
+  }
+}
