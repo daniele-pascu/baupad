@@ -646,6 +646,14 @@ export interface Material {
   supplierId?: string | null;
   category?: string;
   note?: string;
+  /** 'geraet' = Gerät/Werkzeug (Stückzahl und Standorte); fehlt = Material */
+  kind?: 'geraet';
+  /** Gerät: Stück gesamt in der Firma */
+  total?: number;
+  /** Gerät: wie viele Stück auf welcher Baustelle (Projekt aus dem Register); der Rest ist im Lager */
+  places?: { siteId: string; qty: number }[];
+  /** Gerät: Verlauf (wer hat wann wie viele wohin gegeben) */
+  log?: { at: number; by: string; text: string }[];
   createdAt: number;
   updatedAt: number;
 }
@@ -669,6 +677,10 @@ export interface MaterialItem {
   deliveryDate?: string;
   status: MaterialStatus;
   note?: string;
+  /** Bestellnummer (B-JJJJ-NNN): alle Positionen einer Bestellung beim selben Lieferanten */
+  orderNo?: string;
+  /** bestellt am (Zeitstempel) */
+  orderedAt?: number;
   /** Verlauf: wer hat wann was geändert (Status, Menge, Termin) */
   history: { at: number; by: string; text: string }[];
   createdAt: number;

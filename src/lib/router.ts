@@ -206,7 +206,7 @@ export const paths = {
   photosRecent: () => `${APP}/fotodokumentation/zuletzt`,
   defects: () => `${APP}/maengelplan`,
   /** Materialverwaltung: Materialien bzw. Lieferanten (t=lieferanten) */
-  materials: (tab?: 'material' | 'lieferanten') => `${APP}/materialverwaltung${tab ? `?t=${tab}` : ''}`,
+  materials: (tab?: 'baustellen' | 'bestellungen' | 'geraete' | 'material' | 'lieferanten') => `${APP}/materialverwaltung${tab ? `?t=${tab}` : ''}`,
   materialSite: (projectId: string) => `${APP}/materialverwaltung/b/${encodeURIComponent(projectId)}`,
   defectSite: (key: string) => `${APP}/maengelplan/b/${encodeURIComponent(key)}`,
   defectPlan: (planId: string, markId?: string | null) => `${APP}/maengelplan/plan/${planId}${markId ? `?m=${encodeURIComponent(markId)}` : ''}`,

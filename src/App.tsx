@@ -1,6 +1,6 @@
 import { useAppearance } from './lib/appearance';
 import { preloadExcelLogo } from './lib/company';
-import { lazy, Suspense, useEffect, useState, type ComponentType, type ReactNode } from 'react';
+import { Component, lazy, Suspense, useEffect, useState, type ComponentType, type ReactNode } from 'react';
 import { DialogHost, toast } from './components/ui';
 import { Icon } from './components/Icon';
 import { canonicalPath, currentPath, langOf, navigate, parseRoute, paths, usePath } from './lib/router';
@@ -39,11 +39,22 @@ function page<K extends string>(load: () => Promise<Record<K, unknown>>, name: K
         throw e;
       },
     ));
-  const Lazy = lazy(() => ensure().then(() => ({ default: Loaded! })));
+  // React merkt sich einen Fehlschlag dauerhaft – nach einem Fehler deshalb ein neuer Versuch mit frischem Lader
+  const make = () =>
+    lazy(() =>
+      ensure().then(
+        () => ({ default: Loaded! }),
+        (e) => {
+          Lazy = make();
+          throw e;
+        },
+      ),
+    );
+  let Lazy = make();
   // je Einbau einmal entscheiden: schon geladen → direkt (kein Zwischenbild), sonst über Suspense
   const Page = (props: Record<string, unknown>) => {
-    const [Direct] = useState<Any | null>(() => Loaded);
-    return Direct ? <Direct {...props} /> : <Lazy {...props} />;
+    const [Use] = useState<Any>(() => Loaded ?? Lazy);
+    return <Use {...props} />;
   };
   PRELOADS.push(ensure);
   return Page as Any;
@@ -101,18 +112,51 @@ function warmPages() {
   if (idle) idle(next);
   else window.setTimeout(next, 1500);
 }
-// Nach einer neuen Version fehlen alte Seitendateien am Server: einmal neu laden statt leerer Seite
-if (typeof window !== 'undefined') {
-  window.addEventListener('vite:preloadError', () => {
+const CHUNK_ERROR = /dynamically imported module|module script failed|error loading|failed to fetch/i;
+
+/**
+ * Fängt Fehler einer Seite ab, statt die ganze App leer zu lassen. Konnte eine Seitendatei nicht geladen werden:
+ * mit Empfang einmal neu laden (nach einer neuen Version fehlen alte Dateien am Server), ohne Empfang Hinweis mit
+ * „Erneut versuchen“. Ein Seitenwechsel setzt die Grenze zurück.
+ */
+class PageBoundary extends Component<{ resetKey: string; children: ReactNode }, { error: unknown }> {
+  state = { error: null as unknown };
+  static getDerivedStateFromError(error: unknown) {
+    return { error };
+  }
+  componentDidCatch(error: unknown) {
+    if (!CHUNK_ERROR.test(String(error)) || !navigator.onLine) return;
     try {
       const last = Number(sessionStorage.getItem('chunk-reload') || 0);
       if (Date.now() - last < 30_000) return;
       sessionStorage.setItem('chunk-reload', String(Date.now()));
     } catch {
-      /* ohne sessionStorage trotzdem neu laden */
+      return;
     }
     location.reload();
-  });
+  }
+  componentDidUpdate(prev: { resetKey: string }) {
+    if (prev.resetKey !== this.props.resetKey && this.state.error) this.setState({ error: null });
+  }
+  render() {
+    if (!this.state.error) return this.props.children;
+    const chunk = CHUNK_ERROR.test(String(this.state.error));
+    return (
+      <div className="page">
+        <div className="banner banner-warn" data-testid="page-load-failed">
+          <p>{chunk ? 'Diese Seite konnte nicht geladen werden – wahrscheinlich kein Empfang.' : 'Diese Seite konnte nicht angezeigt werden.'}</p>
+          <div className="row gap wrap">
+            <button type="button" className="btn btn-primary" onClick={() => this.setState({ error: null })} data-testid="page-retry">
+              Erneut versuchen
+            </button>
+            <a href={paths.tools()} className="btn">
+              Zu den Tools
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
 }
 
 initAuth();
@@ -415,7 +459,7 @@ export function App() {
       content = <DefectsPage />;
       break;
     case 'materials':
-      content = <MaterialsPage tab={route.tab === 'lieferanten' ? 'suppliers' : route.tab === 'material' ? 'materials' : 'sites'} />;
+      content = <MaterialsPage tab={({ baustellen: 'sites', bestellungen: 'orders', geraete: 'equipment', material: 'materials', lieferanten: 'suppliers' } as const)[route.tab ?? ''] ?? 'overview'} />;
       break;
     case 'materialSite':
       content = <MaterialSitePage key={route.projectId} projectId={route.projectId} />;
@@ -465,7 +509,11 @@ export function App() {
     default:
       content = <NotFoundPage />;
   }
-  content = <Suspense fallback={<div className="page loading" aria-busy="true" />}>{content}</Suspense>;
+  content = (
+    <PageBoundary resetKey={path}>
+      <Suspense fallback={<div className="page loading" aria-busy="true" />}>{content}</Suspense>
+    </PageBoundary>
+  );
 
   return (
     <>

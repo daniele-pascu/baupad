@@ -7,7 +7,10 @@ test('Materialverwaltung: Lieferant und Materialien anlegen, Dublette melden, su
   await page.goto('./baupad/tools');
   await page.getByTestId('tool-materials').click();
   await expect(page.getByTestId('materials-title')).toHaveText('Materialverwaltung');
-  await expect(page.getByTestId('material-sites-empty')).toBeVisible(); // erster Bereich: Baustellen
+  await expect(page.getByTestId('hub-overview')).toBeVisible(); // erster Bereich: Übersicht
+  await page.getByTestId('mat-tab-sites').click();
+  await expect(page).toHaveURL(/materialverwaltung\?t=baustellen/);
+  await expect(page.getByTestId('material-sites-empty')).toBeVisible();
   await page.getByTestId('mat-tab-materials').click();
   await expect(page.getByTestId('materials-empty')).toBeVisible();
 
@@ -155,4 +158,157 @@ test('Materialliste je Baustelle: aus dem Materialstamm, gleiches Material wird 
   await expect(page.getByTestId('item-row')).toHaveCount(1);
   await page.getByTestId('material-site-back').click();
   await expect(page.getByTestId('material-site')).toContainText('1 geliefert');
+});
+
+test('Übersicht, Bestellen je Lieferant mit Bestellnummer, Wareneingang und Geräte mit Stückzahl je Baustelle', async ({ page }) => {
+  test.setTimeout(120_000);
+  await freshStart(page);
+  await createProject(page, 'Wohnanlage Sonnenhof', { number: '2026-04', address: 'Hauptstraße 1, 4020 Linz' });
+  const today = await page.evaluate(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
+  const year = today.slice(0, 4);
+
+  // Lieferant mit E-Mail
+  await page.goto('./baupad/materialverwaltung?t=lieferanten');
+  await page.getByTestId('supplier-new').click();
+  const sd = page.getByTestId('supplier-dialog');
+  await sd.getByTestId('supplier-name').fill('Baustoff Muster GmbH');
+  await sd.getByTestId('supplier-email').fill('bestellung@muster.example');
+  await sd.getByTestId('supplier-save').click();
+  await expect(page.getByTestId('supplier-row')).toHaveCount(1);
+
+  // Übersicht: noch nichts zu tun
+  await page.getByTestId('mat-tab-overview').click();
+  await expect(page).toHaveURL(/materialverwaltung$/);
+  await expect(page.getByTestId('hub-kpi-open')).toContainText('0');
+  await expect(page.getByTestId('hub-next-empty')).toBeVisible();
+
+  // Bedarf melden: Baustelle wählen → Fenster „Material hinzufügen“ ist gleich offen
+  const need = async (name: string, qty: string, unit: string, supplier: boolean, date = '') => {
+    await page.goto('./baupad/materialverwaltung');
+    await page.getByTestId('hub-need').click();
+    await page.getByTestId('need-dialog').getByTestId('need-site').click();
+    const d = page.getByTestId('item-dialog');
+    await expect(d).toBeVisible();
+    await d.getByTestId('item-name').fill(name);
+    await d.getByTestId('item-unit').selectOption(unit);
+    await d.getByTestId('item-qty').fill(qty);
+    if (supplier) await d.getByTestId('item-supplier').selectOption({ label: 'Baustoff Muster GmbH' });
+    if (date) await d.getByTestId('item-date').fill(date);
+    await d.getByTestId('item-save').click();
+    await expect(d).toHaveCount(0);
+  };
+  await need('Reprofiliermörtel R4', '40', 'Sack', true, today);
+  await need('Korrosionsschutz 1K', '6', 'Eimer', true);
+  await need('Schalöl', '20', 'l', false);
+  await expect(page.getByTestId('item-row')).toHaveCount(3);
+
+  // Übersicht zeigt den Bedarf und die Lieferung von heute
+  await page.goto('./baupad/materialverwaltung');
+  await expect(page.getByTestId('hub-kpi-open')).toContainText('3');
+  await expect(page.getByTestId('hub-next-row')).toHaveCount(1);
+  await expect(page.getByTestId('hub-next-row')).toContainText('40 Sack Reprofiliermörtel R4');
+  await expect(page.getByTestId('hub-next-row')).toContainText('Wohnanlage Sonnenhof · noch nicht bestellt');
+  await expect(page.getByTestId('hub-next-row')).toContainText('heute');
+
+  // Bestellungen: je Lieferant, ohne Lieferant zuletzt
+  await page.getByTestId('hub-order').click();
+  await expect(page).toHaveURL(/t=bestellungen/);
+  const groups = page.getByTestId('order-open-group');
+  await expect(groups).toHaveCount(2);
+  await expect(groups.nth(0)).toHaveAttribute('data-supplier', 'Baustoff Muster GmbH');
+  await expect(groups.nth(0).getByTestId('order-line')).toHaveCount(2);
+  await expect(groups.nth(1)).toContainText('Ohne Lieferant');
+  await expect(page.getByTestId('orders-transit-empty')).toBeVisible();
+
+  // Bestellung mit Nummer: Text für den Lieferanten, E-Mail-Link, als bestellt markieren
+  await groups.nth(0).getByTestId('order-create').click();
+  const od = page.getByTestId('order-dialog');
+  await expect(od).toContainText(`Bestellung B-${year}-001 – Baustoff Muster GmbH`);
+  const text = await od.getByTestId('order-text').inputValue();
+  expect(text).toContain(`Bestellung B-${year}-001`);
+  expect(text).toContain('Baustelle: Wohnanlage Sonnenhof\nLieferadresse: Hauptstraße 1, 4020 Linz');
+  expect(text).toContain('- 40 Sack Reprofiliermörtel R4 – Liefertermin ');
+  expect(text).toContain('- 6 Eimer Korrosionsschutz 1K');
+  expect(text).not.toContain('Schalöl');
+  await expect(od.getByTestId('order-mail')).toHaveAttribute('href', new RegExp(`^mailto:bestellung%40muster\\.example\\?subject=Bestellung%20B-${year}-001&body=`));
+  await od.getByTestId('order-confirm').click();
+  await expect(od).toHaveCount(0);
+  await expect(page.getByTestId('order-open-group')).toHaveCount(1); // nur noch „Ohne Lieferant“
+  const transit = page.getByTestId('order-transit-group');
+  await expect(transit).toHaveCount(1);
+  await expect(transit).toHaveAttribute('data-order', `B-${year}-001`);
+  await expect(transit.getByTestId('order-line')).toHaveCount(2);
+
+  // nächste Bestellung bekommt die nächste Nummer
+  await page.getByTestId('order-open-group').getByTestId('order-create').click();
+  await expect(od).toContainText(`Bestellung B-${year}-002`);
+  await expect(od.getByTestId('order-mail')).toHaveCount(0); // ohne Lieferant keine E-Mail
+  await od.getByRole('button', { name: 'Abbrechen' }).click();
+
+  // Wareneingang: eine Position einzeln, dann der Rest
+  await transit.locator('[data-testid="order-line"][data-name="Korrosionsschutz 1K"]').getByTestId('order-delivered').click();
+  await expect(transit.getByTestId('order-line')).toHaveCount(1);
+  await transit.getByTestId('order-delivered-all').click();
+  await expect(page.getByTestId('orders-transit-empty')).toBeVisible();
+  await page.goto('./baupad/materialverwaltung?t=baustellen');
+  await expect(page.getByTestId('material-site-count')).toHaveText('1 offen · 2 geliefert');
+  // Verlauf auf der Baustelle nennt die Bestellnummer
+  await page.getByTestId('material-site-open').click();
+  await page.locator('[data-testid="item-row"][data-name="Reprofiliermörtel R4"]').getByTestId('item-open').click();
+  await expect(page.getByTestId('item-history')).toContainText(`Bestellt (B-${year}-001)`);
+  await page.getByTestId('item-dialog').getByRole('button', { name: 'Abbrechen' }).click();
+
+  // Geräte: Stückzahl und wo sie sind
+  await page.goto('./baupad/materialverwaltung?t=geraete');
+  await expect(page.getByTestId('devices-empty')).toBeVisible();
+  await page.getByTestId('device-new').click();
+  const dd = page.getByTestId('device-dialog');
+  await dd.getByTestId('device-name').fill('Betonfräse');
+  await dd.getByTestId('device-total').fill('3');
+  await expect(dd.getByTestId('device-stock')).toHaveText('3 Stk');
+  await dd.getByTestId('device-add-site').selectOption({ label: 'Wohnanlage Sonnenhof' });
+  await expect(dd.getByTestId('device-qty')).toHaveText('1');
+  await dd.getByTestId('device-plus').click();
+  await expect(dd.getByTestId('device-qty')).toHaveText('2');
+  await expect(dd.getByTestId('device-stock')).toHaveText('1 Stk');
+  await dd.getByTestId('device-save').click();
+  await expect(dd).toHaveCount(0);
+  await expect(page.getByTestId('device-row')).toContainText('Betonfräse · 3 Stk');
+  await expect(page.getByTestId('device-where')).toHaveText('Lager 1 · Wohnanlage Sonnenhof 2');
+  await expect(page.getByTestId('devices-summary')).toHaveText('1 Geräte · 3 Stück · 2 auf Baustellen · 1 im Lager');
+
+  // gleicher Name nochmal → Hinweis; mehr verteilt als vorhanden → Hinweis, kein Speichern
+  await page.getByTestId('device-new').click();
+  await dd.getByTestId('device-name').fill('betonfräse');
+  await expect(dd.getByTestId('device-duplicate')).toContainText('gibt es schon');
+  await dd.getByRole('button', { name: 'Abbrechen' }).click();
+  await page.getByTestId('device-open').click();
+  await dd.getByTestId('device-total').fill('1');
+  await expect(dd.getByTestId('device-over')).toContainText('mehr Stück verteilt als vorhanden (2 von 1)');
+  await dd.getByTestId('device-save').click();
+  await expect(dd).toBeVisible();
+  // ein Stück zurück ins Lager, Gesamtzahl wieder 3
+  await dd.getByTestId('device-total').fill('3');
+  await dd.getByTestId('device-minus').click();
+  await dd.getByTestId('device-save').click();
+  await expect(dd).toHaveCount(0);
+  await expect(page.getByTestId('device-where')).toHaveText('Lager 2 · Wohnanlage Sonnenhof 1');
+  await page.getByTestId('device-open').click();
+  await dd.getByTestId('device-log').locator('summary').click();
+  await expect(dd.getByTestId('device-log').locator('li').first()).toContainText('Wohnanlage Sonnenhof: 2 → 1 Stk');
+  await dd.getByRole('button', { name: 'Abbrechen' }).click();
+
+  // Geräte tauchen nicht im Materialstamm auf, aber in der Übersicht und auf der Baustelle; bleibt nach dem Neuladen
+  await page.getByTestId('mat-tab-materials').click();
+  await expect(page.getByTestId('materials-empty')).toBeVisible();
+  await page.reload();
+  await page.getByTestId('mat-tab-overview').click();
+  await expect(page.getByTestId('hub-kpi-out')).toContainText('1');
+  await expect(page.getByTestId('materials-title').locator('..')).toContainText('0 Materialien · 1 Geräte · 1 Lieferanten');
+  await page.goto('./baupad/materialverwaltung?t=baustellen');
+  await page.getByTestId('material-site-open').click();
+  await expect(page.getByTestId('site-device')).toContainText('1 Stk Betonfräse');
 });

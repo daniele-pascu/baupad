@@ -8,7 +8,7 @@ import { isoDate } from '../lib/crew';
 import { useDataChanged } from '../lib/data-events';
 import { deleteMaterialItem, listMaterialItems, listMaterials, listProjects, listSuppliers, saveMaterialItem } from '../lib/db';
 import { uuid } from '../lib/ids';
-import { fmtPrice, fmtQty, itemValue, listSummary, matchesMaterial, overdue, parsePrice, parseQty, pendingDuplicate, setStatus, sortMaterials, sortSuppliers, STATUS, statusLabel, UNITS, withHistory } from '../lib/materials';
+import { equipmentAt, isEquipment, fmtPrice, fmtQty, itemValue, listSummary, matchesMaterial, overdue, parsePrice, parseQty, pendingDuplicate, setStatus, sortMaterials, sortSuppliers, STATUS, statusLabel, UNITS, withHistory } from '../lib/materials';
 import { usePageTitle } from '../lib/page-title';
 import { paths } from '../lib/router';
 import type { Material, MaterialItem, MaterialStatus, Project, Supplier } from '../lib/types';
@@ -30,6 +30,18 @@ export function MaterialSitePage({ projectId }: { projectId: string }) {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [edit, setEdit] = useState<MaterialItem | 'new' | null>(null);
+  const [devices, setDevices] = useState<Material[]>([]);
+  // aus der Übersicht („Bedarf melden“): gleich das Fenster „Material hinzufügen“ öffnen
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem('mat-new')) {
+        sessionStorage.removeItem('mat-new');
+        setEdit('new');
+      }
+    } catch {
+      /* ohne sessionStorage */
+    }
+  }, []);
   const today = isoDate(new Date());
   const name = project ? [project.number, project.site || project.name].filter(Boolean).join(' · ') : '';
   usePageTitle(project ? `${project.site || project.name} – Material – BauPad` : 'Material – BauPad');
@@ -39,7 +51,8 @@ export function MaterialSitePage({ projectId }: { projectId: string }) {
       .then(([ps, i, m, s]) => {
         setProject(ps.find((p) => p.id === projectId) ?? null);
         setItems(i);
-        setMaterials(sortMaterials(m));
+        setMaterials(sortMaterials(m.filter((x) => !isEquipment(x))));
+        setDevices(m.filter((x) => isEquipment(x) && equipmentAt(x, projectId) > 0).sort((a, b) => a.name.localeCompare(b.name, 'de')));
         setSuppliers(sortSuppliers(s));
       })
       .catch((e) => showError(e, 'Materialliste konnte nicht geladen werden'));
@@ -68,7 +81,7 @@ export function MaterialSitePage({ projectId }: { projectId: string }) {
         <SiteNav />
         <div className="page">
           <p className="muted" data-testid="material-site-missing">
-            Diese Baustelle gibt es nicht (mehr) oder sie ist für dich nicht freigegeben. <a href={paths.materials()}>Zur Materialverwaltung</a>
+            Diese Baustelle gibt es nicht (mehr) oder sie ist für dich nicht freigegeben. <a href={paths.materials('baustellen')}>Zur Materialverwaltung</a>
           </p>
         </div>
       </>
@@ -80,7 +93,7 @@ export function MaterialSitePage({ projectId }: { projectId: string }) {
       <div className="page staff-page materials-page" data-testid="material-site-page">
         <header className="page-head page-head-row">
           <div className="page-head-title">
-            <a href={paths.materials()} className="icon-link" aria-label="Zur Materialverwaltung" title="Zur Materialverwaltung" data-testid="material-site-back">
+            <a href={paths.materials('baustellen')} className="icon-link" aria-label="Zur Materialverwaltung" title="Zur Materialverwaltung" data-testid="material-site-back">
               <Icon name="back" />
             </a>
             <div>
@@ -142,6 +155,26 @@ export function MaterialSitePage({ projectId }: { projectId: string }) {
               </ul>
             </section>
           ))}
+        {!!devices.length && (
+          <section className="material-group" data-testid="site-devices">
+            <div className="staff-group">Geräte auf dieser Baustelle ({devices.reduce((n, m) => n + equipmentAt(m, projectId), 0)} Stk)</div>
+            <ul className="crew-worker-list staff-list">
+              {devices.map((m) => (
+                <li key={m.id} data-testid="site-device" data-name={m.name}>
+                  <div className="staff-row">
+                    <a href={paths.materials('geraete')} className="crew-worker-main">
+                      <strong>
+                        {equipmentAt(m, projectId)} Stk {m.name}
+                      </strong>
+                      <span className="muted small">Stückzahl ändern unter „Geräte“</span>
+                    </a>
+                    <Icon name="next" size={18} className="staff-chevron" />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </div>
 
       {edit && (

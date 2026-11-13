@@ -46,13 +46,20 @@ export function markSent() {
     /* ohne Speicher keine Danke-Seite, der Hinweis erscheint dann im Formular */
   }
 }
-export function consumeSent(): boolean {
+/** Wurde gerade erfolgreich gesendet? Nur lesen – das Rendern darf mehrfach laufen (Seiten werden nachgeladen) */
+export function peekSent(): boolean {
   try {
     const v = sessionStorage.getItem(SENT_KEY);
-    if (!v) return false;
-    sessionStorage.removeItem(SENT_KEY);
-    return Date.now() - Number(v) < 10 * 60 * 1000;
+    return !!v && Date.now() - Number(v) < 10 * 60 * 1000;
   } catch {
     return false;
+  }
+}
+/** Merker entfernen, sobald die Danke-Seite angezeigt ist */
+export function clearSent() {
+  try {
+    sessionStorage.removeItem(SENT_KEY);
+  } catch {
+    /* ohne Speicher nichts zu tun */
   }
 }

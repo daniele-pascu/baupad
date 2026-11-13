@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Icon } from '../../components/Icon';
 import { navigate, paths } from '../../lib/router';
-import { consumeSent, markSent, sendContact, type ContactPayload } from '../contact-api';
+import { clearSent, peekSent, markSent, sendContact, type ContactPayload } from '../contact-api';
 import { contactData } from '../contact-data';
 import { fill, useLang } from '../i18n';
 import { organizationJsonLd, siteAlternates } from '../seo';
@@ -194,9 +194,10 @@ export function ContactPage() {
 export function ThanksPage() {
   const { lang, t } = useLang();
   const c = t.contactPage.thanks;
-  const [allowed] = useState(() => consumeSent());
+  const [allowed] = useState(() => peekSent());
   useEffect(() => {
-    if (!allowed) navigate(paths.contact(lang), true);
+    if (allowed) clearSent();
+    else navigate(paths.contact(lang), true);
   }, [allowed, lang]);
   if (!allowed) return null;
   return (

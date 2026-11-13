@@ -55,6 +55,9 @@ const APP = [
   'fotodokumentation',
   'maengelplan',
   'materialverwaltung',
+  'materialverwaltung?t=baustellen',
+  'materialverwaltung?t=bestellungen',
+  'materialverwaltung?t=geraete',
   'materialverwaltung?t=material',
   'materialverwaltung?t=lieferanten',
   'konto',
@@ -99,6 +102,8 @@ export function tastenTests() {
       ['berichte-und-formulare', 'report-new-site'],
       ['fotodokumentation', 'photo-new-site'],
       ['maengelplan', 'defect-new-site'],
+      ['materialverwaltung', 'hub-need'], // Bedarf melden: Baustelle wählen
+      ['materialverwaltung?t=geraete', 'device-new'],
       ['materialverwaltung?t=material', 'material-new'],
       ['materialverwaltung?t=lieferanten', 'supplier-new'],
     ];

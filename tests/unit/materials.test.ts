@@ -71,3 +71,79 @@ describe('Materialliste je Baustelle', () => {
     expect(parseQty('0')).toBeUndefined();
   });
 });
+
+import { canOrder, equipmentAt, equipmentInStock, equipmentOut, isEquipment, markOrdered, nextOrderNo, openBySupplier, orderText, ordersInTransit, overviewCounts, placeEquipment } from '../../src/lib/materials';
+import type { Material as Mat, MaterialItem as Item } from '../../src/lib/types';
+
+describe('Übersicht, Bestellungen, Geräte', () => {
+  const item = (o: Partial<Item>): Item => ({ id: o.id ?? 'i', projectId: 'p1', name: 'Mörtel', unit: 'Sack', qty: 10, status: 'offen', history: [], createdAt: 1, updatedAt: 1, ...o });
+  const dev = (o: Partial<Mat>): Mat => ({ id: 'g', name: 'Fräse', unit: 'Stk', kind: 'geraet', createdAt: 1, updatedAt: 1, ...o });
+
+  it('bestellen dürfen Admin, Büro und Polier, Arbeiter nicht', () => {
+    expect(canOrder({ companyId: 'c', role: 'admin' })).toBe(true);
+    expect(canOrder({ companyId: 'c', role: 'buero' })).toBe(true);
+    expect(canOrder({ companyId: 'c', role: 'polier' })).toBe(true);
+    expect(canOrder({ companyId: 'c', role: 'arbeiter' })).toBe(false);
+    expect(canOrder(null)).toBe(true); // ohne Firma (Einzelgerät) keine Einschränkung
+  });
+
+  it('Bestellnummer zählt je Jahr hoch', () => {
+    expect(nextOrderNo([], 2026)).toBe('B-2026-001');
+    expect(nextOrderNo([{ orderNo: 'B-2026-007' }, { orderNo: 'B-2025-040' }, {}], 2026)).toBe('B-2026-008');
+  });
+
+  it('offener Bedarf je Lieferant, ohne Lieferant zuletzt; nur offene Positionen', () => {
+    const g = openBySupplier(
+      [item({ id: 'a', supplierId: 's2' }), item({ id: 'b', supplierId: null }), item({ id: 'c', supplierId: 's1', deliveryDate: '2026-11-20' }), item({ id: 'd', supplierId: 's1', deliveryDate: '2026-11-18' }), item({ id: 'e', supplierId: 's1', status: 'bestellt' })],
+      (id) => ({ s1: 'Alpha', s2: 'Beta' })[id] ?? '',
+    );
+    expect(g.map((x) => x.supplierId)).toEqual(['s1', 's2', '']);
+    expect(g[0].items.map((x) => x.id)).toEqual(['d', 'c']);
+  });
+
+  it('als bestellt markieren: Nummer, Zeit, Verlauf; unterwegs je Bestellnummer mit frühestem Termin', () => {
+    const done = markOrdered([item({ id: 'a', deliveryDate: '2026-11-20' }), item({ id: 'b', deliveryDate: '2026-11-18' })], 'B-2026-001', 'Max', 5);
+    expect(done.every((x) => x.status === 'bestellt' && x.orderNo === 'B-2026-001' && x.orderedAt === 5)).toBe(true);
+    expect(done[0].history.at(-1)).toEqual({ at: 5, by: 'Max', text: 'Bestellt (B-2026-001)' });
+    const t = ordersInTransit([...done, item({ id: 'c', status: 'bestellt', supplierId: 's9' }), item({ id: 'd', status: 'geliefert', orderNo: 'B-2026-001' })]);
+    expect(t.map((x) => [x.orderNo, x.items.length, x.due])).toEqual([
+      ['B-2026-001', 2, '2026-11-18'],
+      ['', 1, ''],
+    ]);
+  });
+
+  it('Bestelltext: je Baustelle mit Lieferadresse, Artikelnummer und Termin', () => {
+    const text = orderText({
+      orderNo: 'B-2026-003',
+      company: 'Testfirma',
+      by: 'Max Polier',
+      items: [item({ materialId: 'm1', deliveryDate: '2026-11-18' }), item({ id: 'x', projectId: 'p2', name: 'Schalöl', unit: 'l', qty: 20.5, note: 'früh' })],
+      articleNo: (id) => (id === 'm1' ? 'R4-25' : ''),
+      site: (id) => (id === 'p1' ? { name: 'Tiefgarage Nord', address: 'Hauptstraße 1, 4020 Linz' } : { name: 'Halle Süd', address: '' }),
+    });
+    expect(text).toContain('Bestellung B-2026-003 – Testfirma');
+    expect(text).toContain('Baustelle: Tiefgarage Nord\nLieferadresse: Hauptstraße 1, 4020 Linz\n- 10 Sack Mörtel (Art.-Nr. R4-25) – Liefertermin 18.11.2026');
+    expect(text).toContain('Baustelle: Halle Süd\n- 20,5 l Schalöl – früh');
+    expect(text.trim().endsWith('Max Polier')).toBe(true);
+  });
+
+  it('Geräte: Stück je Baustelle, Rest im Lager, Verlauf, Kennzahlen', () => {
+    expect(isEquipment(dev({}))).toBe(true);
+    expect(isEquipment({})).toBe(false);
+    let m = dev({ total: 5 });
+    expect([equipmentOut(m), equipmentInStock(m)]).toEqual([0, 5]);
+    m = placeEquipment(m, 'p1', 2, 'Tiefgarage Nord', 'Büro', 7);
+    m = placeEquipment(m, 'p2', 1, 'Halle Süd', 'Büro', 8);
+    expect([equipmentAt(m, 'p1'), equipmentAt(m, 'p2'), equipmentOut(m), equipmentInStock(m)]).toEqual([2, 1, 3, 2]);
+    expect(m.log).toEqual([
+      { at: 7, by: 'Büro', text: 'Tiefgarage Nord: 0 → 2 Stk' },
+      { at: 8, by: 'Büro', text: 'Halle Süd: 0 → 1 Stk' },
+    ]);
+    expect(placeEquipment(m, 'p1', 2, 'Tiefgarage Nord', 'Büro')).toBe(m); // nichts geändert
+    m = placeEquipment(m, 'p1', 0, 'Tiefgarage Nord', 'Polier', 9); // alle zurück
+    expect(m.places).toEqual([{ siteId: 'p2', qty: 1 }]);
+    expect(equipmentInStock({ total: 1, places: [{ siteId: 'p1', qty: 3 }] })).toBe(0); // nie negativ
+    const c = overviewCounts([item({}), item({ status: 'bestellt', deliveryDate: '2026-11-01' }), item({ status: 'geliefert' })], [m, dev({ total: 2, places: [{ siteId: 'p1', qty: 2 }] })], '2026-11-13');
+    expect(c).toEqual({ open: 1, ordered: 1, late: 1, out: 3 });
+  });
+});

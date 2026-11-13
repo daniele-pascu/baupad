@@ -9,7 +9,9 @@ import { useDataChanged } from '../lib/data-events';
 import { deleteMaterial, deleteSupplier, listMaterialItems, listMaterials, listProjects, listSuppliers, saveMaterial, saveSupplier } from '../lib/db';
 import { canSite } from '../lib/access';
 import { useSession } from '../lib/use-session';
-import { listSummary } from '../lib/materials';
+import { isEquipment, listSummary } from '../lib/materials';
+import { isoDate } from '../lib/crew';
+import { HubEquipment, HubOrders, HubOverview, type HubData } from '../components/MaterialHub';
 import { uuid } from '../lib/ids';
 import { fmtPrice, materialDuplicates, matchesMaterial, normKey, parsePrice, sortMaterials, sortSuppliers, supplierDuplicates, UNITS, type MaterialDuplicate } from '../lib/materials';
 import { usePageTitle } from '../lib/page-title';
@@ -20,11 +22,21 @@ import { ProjectHeading } from '../components/ProjectHeading';
 import { labelFromProject, projectPrefix } from '../lib/project-label';
 import { costCenterByProject, costCenterSearchByProject } from '../lib/crew-link';
 
-type Tab = 'sites' | 'materials' | 'suppliers';
+type Tab = 'overview' | 'sites' | 'orders' | 'equipment' | 'materials' | 'suppliers';
+const TAB_PARAM: Record<Tab, 'baustellen' | 'bestellungen' | 'geraete' | 'material' | 'lieferanten' | undefined> = { overview: undefined, sites: 'baustellen', orders: 'bestellungen', equipment: 'geraete', materials: 'material', suppliers: 'lieferanten' };
+const TABS: { id: Tab; label: string; testId: string }[] = [
+  { id: 'overview', label: 'Übersicht', testId: 'mat-tab-overview' },
+  { id: 'sites', label: 'Baustellen', testId: 'mat-tab-sites' },
+  { id: 'orders', label: 'Bestellungen', testId: 'mat-tab-orders' },
+  { id: 'equipment', label: 'Geräte', testId: 'mat-tab-equipment' },
+  { id: 'materials', label: 'Material', testId: 'mat-tab-materials' },
+  { id: 'suppliers', label: 'Lieferanten', testId: 'mat-tab-suppliers' },
+];
 
 /**
- * Materialverwaltung (Teil 1): Materialstamm und Lieferanten der Firma – einmal angelegt, auf allen Geräten
- * verfügbar (Abgleich wie alle Werkzeuge). Doppelte Einträge werden beim Anlegen gemeldet.
+ * Materialverwaltung: Übersicht (was ist zu tun), Baustellen mit Materiallisten, Bestellungen je Lieferant über alle
+ * Baustellen, Geräte (Stückzahl und Standorte), Materialstamm und Lieferanten der Firma – einmal angelegt, auf allen
+ * Geräten verfügbar (Abgleich wie alle Werkzeuge). Doppelte Einträge werden beim Anlegen gemeldet.
  */
 type MatSiteSort = 'items' | 'number' | 'name';
 const MAT_SORT_LABELS: Record<MatSiteSort, string> = { items: 'Mit Materialliste zuerst', number: 'Kostenstelle / Projektnr.', name: 'Name' };
@@ -39,6 +51,8 @@ export function MaterialsPage({ tab }: { tab: Tab }) {
   const [query, setQuery] = useState('');
   const [editMat, setEditMat] = useState<Material | 'new' | null>(null);
   const [editSup, setEditSup] = useState<Supplier | 'new' | null>(null);
+  const [editDev, setEditDev] = useState<Material | 'new' | null>(null);
+  const [equipment, setEquipment] = useState<Material[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [items, setItems] = useState<MaterialItem[]>([]);
   /** erste Kostenstelle je Projekt (Anzeige wie in Aufmaß & Abrechnung) und alle Kostenstellen für die Suche */
@@ -48,7 +62,9 @@ export function MaterialsPage({ tab }: { tab: Tab }) {
   const reload = () =>
     Promise.all([listMaterials(), listSuppliers(), listProjects(), listMaterialItems(), costCenterByProject(), costCenterSearchByProject()])
       .then(([m, s, p, i, first, all]) => {
-        setMaterials(m);
+        // Geräte liegen im selben Speicher wie der Materialstamm, werden aber getrennt geführt
+        setMaterials(m.filter((x) => !isEquipment(x)));
+        setEquipment(m.filter(isEquipment));
         setSuppliers(s);
         setProjects(p);
         setItems(i);
@@ -72,7 +88,7 @@ export function MaterialsPage({ tab }: { tab: Tab }) {
 
   const switchTab = (t: Tab) => {
     setQuery('');
-    navigate(paths.materials(t === 'suppliers' ? 'lieferanten' : t === 'materials' ? 'material' : undefined));
+    navigate(paths.materials(TAB_PARAM[t]));
   };
   /** Baustellen (Projekte aus dem Register, nur freigegebene): mit Materialliste zuerst, dann A–Z */
   const siteList = useMemo(() => {
@@ -82,6 +98,14 @@ export function MaterialsPage({ tab }: { tab: Tab }) {
       .map((p) => ({ p, sum: listSummary(items.filter((x) => x.projectId === p.id)) }));
     return sortList(list, siteSort, { items: (x) => x.sum.total, number: (x) => projectPrefix(labelFromProject(x.p, ccs.first.get(x.p.id) ?? '')), name: (x) => x.p.site || x.p.name }, (a, b) => (a.p.site || a.p.name).localeCompare(b.p.site || b.p.name, 'de'));
   }, [projects, items, query, session, ccs, siteSort]);
+
+  /** Daten für Übersicht, Bestellungen und Geräte: nur freigegebene Baustellen und deren Positionen */
+  const hub: HubData = useMemo(() => {
+    const allowed = projects.filter((p) => canSite(session, `p:${p.id}`, 'materials'));
+    const ids = new Set(allowed.map((p) => p.id));
+    return { items: items.filter((x) => ids.has(x.projectId)), equipment, materials: materials ?? [], suppliers, projects: allowed, session, today: isoDate(new Date()), reload: () => void reload() };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projects, items, equipment, materials, suppliers, session]);
 
   return (
     <>
@@ -95,25 +119,34 @@ export function MaterialsPage({ tab }: { tab: Tab }) {
             <div>
               <h1 data-testid="materials-title">Materialverwaltung</h1>
               <span className="muted small">
-                {materials?.length ?? 0} Materialien · {suppliers.length} Lieferanten
+                {materials?.length ?? 0} Materialien · {equipment.length} Geräte · {suppliers.length} Lieferanten
               </span>
             </div>
           </div>
         </header>
 
         <div className="segmented materials-tabs" role="tablist" aria-label="Bereich">
-          <button type="button" role="tab" aria-selected={tab === 'sites'} aria-checked={tab === 'sites'} onClick={() => switchTab('sites')} data-testid="mat-tab-sites">
-            Baustellen
-          </button>
-          <button type="button" role="tab" aria-selected={tab === 'materials'} aria-checked={tab === 'materials'} onClick={() => switchTab('materials')} data-testid="mat-tab-materials">
-            Materialien
-          </button>
-          <button type="button" role="tab" aria-selected={tab === 'suppliers'} aria-checked={tab === 'suppliers'} onClick={() => switchTab('suppliers')} data-testid="mat-tab-suppliers">
-            Lieferanten
-          </button>
+          {TABS.map((t) => (
+            <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} aria-checked={tab === t.id} onClick={() => switchTab(t.id)} data-testid={t.testId}>
+              {t.label}
+            </button>
+          ))}
         </div>
 
-        {tab !== 'sites' && (
+        {tab === 'overview' && (
+          <HubOverview
+            d={hub}
+            onTab={switchTab}
+            onNewDevice={() => {
+              switchTab('equipment');
+              setEditDev('new');
+            }}
+          />
+        )}
+        {tab === 'orders' && <HubOrders d={hub} />}
+        {tab === 'equipment' && <HubEquipment d={hub} edit={editDev} setEdit={setEditDev} />}
+
+        {(tab === 'materials' || tab === 'suppliers') && (
         <button type="button" className="account-tile staff-new" onClick={() => (tab === 'materials' ? setEditMat('new') : setEditSup('new'))} data-testid={tab === 'materials' ? 'material-new' : 'supplier-new'}>
           <div>
             <strong>{tab === 'materials' ? '+ Neues Material' : '+ Neuer Lieferant'}</strong>
@@ -123,6 +156,7 @@ export function MaterialsPage({ tab }: { tab: Tab }) {
         </button>
         )}
 
+        {(tab === 'sites' || tab === 'materials' || tab === 'suppliers') && (
         <div className="staff-tools">
           <label className="crew-search">
             <Icon name="select" size={18} />
@@ -137,8 +171,9 @@ export function MaterialsPage({ tab }: { tab: Tab }) {
           </label>
           {tab === 'sites' && <SortControl value={siteSort} labels={MAT_SORT_LABELS} onChange={setSiteSort} newestFirst={['items']} testId="material-site-sort" />}
         </div>
+        )}
 
-        {tab === 'sites' ? (
+        {tab === 'overview' || tab === 'orders' || tab === 'equipment' ? null : tab === 'sites' ? (
           !siteList.length ? (
             <p className="muted" data-testid="material-sites-empty">
               Noch keine Baustellen. Projekte kommen aus dem Projektregister – sie stehen in allen Tools gleich zur Verfügung.
