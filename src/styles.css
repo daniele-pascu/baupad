@@ -5523,20 +5523,20 @@ button.status-pill:hover {
 .tools-quick:hover {
   background: #2c2c2e;
 }
-/* Kacheln und Register: am PC auf 820px, an Handy und Tablet von Rand zu Rand */
+/* Tools-Seite: Überschrift, Kacheln und Register als eine Spalte, auf jedem Gerät mittig
+   (höchstens 820px breit; am Handy von Rand zu Rand) */
+.page.tools-page {
+  max-width: 852px;
+}
 .tools-grid {
   display: grid;
   grid-auto-rows: 1fr;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
-  max-width: 820px;
   margin-top: 14px;
 }
-@media (max-width: 1366px) {
-  .tools-grid,
-  .tools-register {
-    max-width: none;
-  }
+.tools-page .tools-register {
+  max-width: none;
 }
 /* Hinweis: Klassen der Kacheln heißen „tile-…“ – „tool-…“ ist in der Planansicht schon vergeben (tool-text, tool-rect …) */
 /* Industrie-Stil (hell): weiße Karte, farbiges Symbolfeld, großes feines Symbol im Hintergrund */
@@ -5612,6 +5612,16 @@ a.tool-tile:focus-visible {
   /* lange Wörter nie über den Rand (sehr schmale Handys: Schrift wird kleiner, siehe unten) */
   overflow-wrap: anywhere;
 }
+/* Tools-Kacheln: der Name steht immer in einer Zeile – die Schrift passt sich der Kachelbreite an
+   („Berichte & Formulare“ am Handy kleiner, am PC normal groß) */
+.tool-tile {
+  container-type: inline-size;
+}
+.tool-tile .tile-text strong {
+  white-space: nowrap;
+  overflow-wrap: normal;
+  font-size: clamp(0.72rem, 7.4cqi, 1.12rem);
+}
 .tile-text span {
   color: var(--muted);
   font-size: 0.9rem;
@@ -5671,6 +5681,9 @@ a.tool-tile:focus-visible {
   .tile-text strong {
     /* „Projektverwaltung“, „Fotodokumentation“ bleiben auch auf kleinen Handys einzeilig */
     font-size: clamp(0.8rem, 3.7vw, 1rem);
+  }
+  .tool-tile .tile-text strong {
+    font-size: clamp(0.72rem, 7.4cqi, 1.12rem);
   }
   .tile-text span {
     font-size: 0.8rem;

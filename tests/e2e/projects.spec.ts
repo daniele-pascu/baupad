@@ -174,14 +174,15 @@ test('Installierte App ohne Anmeldung startet auf der Anmeldeseite', async ({ pa
 test('Angemeldet: Tools, Einstellungen und Benutzerliste', async ({ page }) => {
   await page.goto('./#/tools');
   await expect(page.getByTestId('tools-title')).toHaveText('Tools');
-  // Einstellungen (Zahnrad) nur auf der Tools-Seite, nicht mehr in Aufmaß & Abrechnung
+  // kein Zahnrad mehr – weder in Aufmaß & Abrechnung noch auf der Tools-Seite; Einstellungen über den Namen oben rechts
   await page.getByTestId('tool-projects').click();
   await expect(page.getByTestId('projects-title')).toHaveText('Aufmaß & Abrechnung');
   await expect(page.getByTestId('account-link')).toHaveCount(0);
   await page.getByTestId('to-tools').click();
+  await expect(page.getByTestId('account-link')).toHaveCount(0);
 
   // Einstellungen: angemeldete Person, geplante Bereiche inaktiv
-  await page.getByTestId('account-link').click();
+  await page.getByTestId('nav-account').click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Konto und Einstellungen');
   await expect(page.getByTestId('account-session')).toContainText('Angemeldet als Test Nutzer');
   await expect(page.getByTestId('nav-account')).toHaveText('T. Nutzer'); // erster Vorname abgekürzt + Nachname
@@ -477,7 +478,7 @@ test('Zurück-Links führen wirklich zurück: die Zurück-Taste springt danach n
   await freshStart(page); // /projekte
   await page.getByTestId('to-tools').click();
   await expect(page).toHaveURL(/\/baupad\/tools$/);
-  await page.getByTestId('account-link').click();
+  await page.getByTestId('nav-account').click();
   await expect(page).toHaveURL(/\/baupad\/konto$/);
   await page.locator('[data-testid="account-section"][data-tile="profil"]').click();
   await expect(page).toHaveURL(/\/baupad\/konto\/profil$/);
@@ -492,7 +493,7 @@ test('Zurück-Links führen wirklich zurück: die Zurück-Taste springt danach n
   await page.goForward();
   await expect(page).toHaveURL(/\/baupad\/tools$/);
   // Neuladen behält den Verlauf
-  await page.getByTestId('account-link').click();
+  await page.getByTestId('nav-account').click();
   await page.reload();
   await page.getByRole('link', { name: 'Zu den Tools' }).click();
   await expect(page).toHaveURL(/\/baupad\/tools$/);

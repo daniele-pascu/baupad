@@ -546,25 +546,31 @@ test('Tools per Finger: 2 Kacheln pro Reihe, nichts zu breit, Aufmaß & Abrechnu
   expect(Math.abs(a!.y - b!.y)).toBeLessThan(1); // zwei nebeneinander
   expect(c!.y).toBeGreaterThan(a!.y + a!.height - 1);
   expect(a!.width).toBeGreaterThan(130); // gut antippbar
-  // Ein-Wort-Titel einzeilig (keine abgebrochenen Wörter wie „Projektverwaltun-g“)
+  // alle Namen einzeilig und ganz zu lesen (auch „Berichte & Formulare“) – die Schrift passt sich der Kachel an
   for (const t of await tiles.locator('strong').all()) {
-    if ((await t.textContent())!.includes(' ')) continue;
     const lh = await t.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight) || parseFloat(getComputedStyle(el).fontSize) * 1.3);
     expect((await t.boundingBox())!.height).toBeLessThan(lh * 1.5);
+    expect(await t.evaluate((el) => el.getBoundingClientRect().right <= el.closest('.tool-tile')!.getBoundingClientRect().right - 8)).toBe(true);
   }
-  // Kacheln und Register von Rand zu Rand (bis zum Seitenrand wie die Kopfzeile), Foto-Taste kompakt
+  // Überschrift, Kacheln und Register als eine Spalte, auf jedem Gerät mittig (höchstens 820 px breit); Foto-Taste kompakt
   const quick = (await page.getByTestId('tools-camera').boundingBox())!;
   const regEl = page.getByTestId('tools-register'); // nur für Admin/Büro
-  const gear = (await page.getByTestId('account-link').boundingBox())!;
-  const right = gear.x + gear.width;
-  expect(Math.abs(b!.x + b!.width - right)).toBeLessThan(2);
+  const head = (await page.locator('.tools-page .page-head').boundingBox())!;
+  const right = b!.x + b!.width;
+  const vw = page.viewportSize()!.width;
+  expect(Math.abs(a!.x - (vw - right))).toBeLessThan(2); // links und rechts gleich viel Rand
+  expect(right - a!.x).toBeLessThanOrEqual(821);
+  expect(Math.abs(head.x - a!.x)).toBeLessThan(2);
   if (await regEl.count()) {
     const reg = (await regEl.boundingBox())!;
+    expect(Math.abs(reg.x - a!.x)).toBeLessThan(2);
     expect(Math.abs(reg.x + reg.width - right)).toBeLessThan(2);
   }
   expect(Math.abs(a!.x - quick.x)).toBeLessThan(2);
   expect(quick.width).toBeLessThan(260);
-  expect(page.viewportSize()!.width - right).toBeLessThan(64);
+  // kein Zahnrad mehr: Einstellungen über den Namen oben rechts
+  await expect(page.getByTestId('account-link')).toHaveCount(0);
+  await expect(page.getByTestId('nav-account')).toBeVisible();
   await noHorizontalScroll(page);
   await page.screenshot({ path: join(OUT, `tools-${info.project.name}.png`), fullPage: true });
   await page.getByTestId('tool-projects').tap();

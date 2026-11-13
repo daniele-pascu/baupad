@@ -29,7 +29,7 @@ const TOOLS: Tool[] = [
   { id: 'materials', title: 'Materialverwaltung', text: 'Materialien und Lieferanten der Firma', color: '#c2850c', href: paths.materials() },
 ];
 
-/** Start nach der Anmeldung: alle Werkzeuge als gleich große Kacheln, zwei pro Reihe (Industrie-Stil, hell). */
+/** Start nach der Anmeldung: alle Werkzeuge als gleich große Kacheln, zwei pro Reihe, auf jedem Gerät mittig (Industrie-Stil, hell). */
 export function ToolsPage() {
   usePageTitle('Tools – BauPad');
   const access = useAccess();
@@ -40,14 +40,12 @@ export function ToolsPage() {
     <>
       <SiteNav />
       <div className="page tools-page">
+        {/* Einstellungen: über den Namen oben rechts (kein eigenes Zahnrad mehr) */}
         <header className="page-head page-head-row">
           <div>
             <p className="tools-eyebrow">Willkommen zurück</p>
             <h1 data-testid="tools-title">Tools</h1>
           </div>
-          <a href={paths.account()} className="icon-link" aria-label="Konto und Einstellungen" title="Konto und Einstellungen" data-testid="account-link">
-            <Icon name="settings" />
-          </a>
         </header>
         {isInstalledApp() && access.canTool('photos') && (
         <a href={paths.camera()} className="tools-quick" data-testid="tools-camera">
