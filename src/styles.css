@@ -13028,6 +13028,10 @@ input,
     flex-wrap: wrap;
     row-gap: 10px;
   }
+  /* Köpfe, die Titel und Tasten schon untereinander stellen, bleiben einspaltig */
+  .report-page .page-head.page-head-row {
+    flex-wrap: nowrap;
+  }
   .page-head-title {
     max-width: 100%;
   }
