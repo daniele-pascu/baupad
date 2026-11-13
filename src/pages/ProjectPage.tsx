@@ -32,6 +32,7 @@ import { renderSource } from '../lib/thumbs';
 import type { AufmassSheet, CostCenter, Plan } from '../lib/types';
 import type { AufmassRow } from '../lib/aufmass';
 import { projectColor, refreshProjectColors } from '../lib/project-colors';
+import { ToolMark } from '../components/ToolIcon';
 
 /**
  * Projektseite: Projektinformationen (inklusive Kostenstelle) und direkt darunter die
@@ -352,6 +353,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
         <a className="icon-btn" href={paths.projects()} aria-label="Zu Aufmaß & Abrechnung">
           <Icon name="back" />
         </a>
+        <ToolMark name="projects" />
         <div className="topbar-title">
           <small>Projekt</small>
           <h1 data-testid="project-title">{project.name}</h1>

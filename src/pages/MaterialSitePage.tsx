@@ -13,6 +13,7 @@ import { usePageTitle } from '../lib/page-title';
 import { paths } from '../lib/router';
 import type { Material, MaterialItem, MaterialStatus, Project, Supplier } from '../lib/types';
 import { useSession } from '../lib/use-session';
+import { ToolMark } from '../components/ToolIcon';
 
 const fmtDay = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 const fmtAt = (ms: number) => new Date(ms).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -96,6 +97,7 @@ export function MaterialSitePage({ projectId }: { projectId: string }) {
             <a href={paths.materials('baustellen')} className="icon-link" aria-label="Zur Materialverwaltung" title="Zur Materialverwaltung" data-testid="material-site-back">
               <Icon name="back" />
             </a>
+            <ToolMark name="materials" />
             <div>
               <h1 data-testid="material-site-title">{name}</h1>
               <span className="muted small" data-testid="material-site-summary">

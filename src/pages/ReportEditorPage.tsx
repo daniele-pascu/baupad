@@ -35,6 +35,7 @@ import {
 } from '../lib/reports';
 import type { Absence, DailyData, RegieData, Report, ReportHead, ReportItem, ReportWorker, StaffCount, WeeklyData, Worker } from '../lib/types';
 import { usePageTitle } from '../lib/page-title';
+import { ToolMark } from '../components/ToolIcon';
 
 /** PDF eines Berichts mit Firmenname und Firmenlogo (Einstellungen) */
 export async function reportPdfFile(r: Report): Promise<ExportFile> {
@@ -187,6 +188,7 @@ export function ReportEditorPage({ reportId }: { reportId: string }) {
             <a href={paths.reportSite(siteKey(r))} className="icon-link" aria-label="Zur Baustelle" title="Zur Baustelle" data-testid="to-reports" onClick={flush}>
               <Icon name="back" />
             </a>
+            <ToolMark name="reports" />
             <div>
               <h1 data-testid="report-title">
                 {info.label} Nr. {r.no}

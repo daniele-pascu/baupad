@@ -16,6 +16,7 @@ import { usePageTitle } from '../lib/page-title';
 import { navigate, paths } from '../lib/router';
 import { useSession } from '../lib/use-session';
 import { ACCENT } from './ReportsPage';
+import { ToolMark } from '../components/ToolIcon';
 
 /**
  * Firmenformular ausfüllen: Eingabemaske nur mit den eingerichteten Feldern (Name, Hinweis, Pflicht, Typ),
@@ -189,6 +190,7 @@ export function FormEntryPage({ entryId }: { entryId: string }) {
             <a href={paths.reportSite(entrySiteKey(e))} className="icon-link" aria-label="Zum Projekt" title="Zum Projekt" data-testid="to-reports" onClick={flush}>
               <Icon name="back" />
             </a>
+            <ToolMark name="reports" />
             <div>
               <h1 data-testid="form-entry-title">
                 {e.templateName} Nr. {e.no}

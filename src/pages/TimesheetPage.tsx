@@ -12,6 +12,7 @@ import { dayHours, defaultTimes, fmtH, holidayOn, hoursOf, monthDays, monthId, m
 import { approveMonth, loadTimes, saveDay, storedMonthFile, suggestionFor, workerYearFile, type TimesData } from '../lib/times-data';
 import { useSession } from '../lib/use-session';
 import { SiteSelect, TimeInputs, timeValues, TIMES_ACCENT } from './TimesPage';
+import { ToolMark } from '../components/ToolIcon';
 
 /**
  * Monatszettel eines Arbeiters: eine Zeile je Tag mit Baustelle und Stunden (zweite Baustelle = zweite Zeile),
@@ -96,6 +97,7 @@ export function TimesheetPage({ workerId, month: m }: { workerId: string; month:
             <a href={paths.times({ month })} className="icon-link" aria-label="Zur Zeitaufzeichnung" title="Zur Zeitaufzeichnung" data-testid="to-times">
               <Icon name="back" />
             </a>
+            <ToolMark name="times" />
             <div>
               <h1 data-testid="timesheet-title">{workerName(worker)}</h1>
               <span className="muted small">{[worker.staffNo && `Nr. ${worker.staffNo}`, worker.role].filter(Boolean).join(' · ') || 'Monatszettel'}</span>

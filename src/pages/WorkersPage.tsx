@@ -8,7 +8,7 @@ import { useSwipe } from '../components/useSwipe';
 import { PhotoSiteDialog } from '../components/PhotoSitePicker';
 import { ProjectPicker } from '../components/ProjectPicker';
 import { SiteNav } from '../components/SiteNav';
-import { ToolIcon } from '../components/ToolIcon';
+import { ToolIcon, ToolMark } from '../components/ToolIcon';
 import { PdfPreview } from '../components/PdfPreview';
 import { confirmDialog, offerFile, showError, toast } from '../components/ui';
 import {
@@ -592,6 +592,7 @@ export function WorkersPage() {
             <a href={paths.tools()} className="icon-link" aria-label="Zu den Tools" title="Zu den Tools" data-testid="to-tools">
               <Icon name="back" />
             </a>
+            <ToolMark name="workers" />
             <h1 data-testid="workers-title">Arbeitereinteilung</h1>
           </div>
           {/* Projekte hinzufügen nur Admin/Büro – ohne dieses Recht keine Taste */}

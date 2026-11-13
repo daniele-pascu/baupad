@@ -15,6 +15,7 @@ import { DEFECT_ACCENT } from './DefectsPage';
 import { loadPhotoSites } from './PhotosPage';
 import { usePageTitle } from '../lib/page-title';
 import { useDataChanged } from '../lib/data-events';
+import { ToolMark } from '../components/ToolIcon';
 
 /** Vorschaubild eines Plans (aus der Datenbank, als Objekt-URL) */
 export function usePlanThumb(id: string, kind: 'thumb' | 'data' = 'thumb'): string | null {
@@ -152,6 +153,7 @@ export function DefectSitePage({ siteKey }: { siteKey: string }) {
             <a href={paths.defects()} className="icon-link" aria-label="Zur Übersicht" title="Zur Übersicht" data-testid="to-defects">
               <Icon name="back" />
             </a>
+            <ToolMark name="defects" />
             <div>
               <h1 data-testid="defect-site-title">{site?.name ?? '…'}</h1>
               {site && <p className="muted small page-sub">{[site.number, site.address].filter(Boolean).join(' · ') || 'Mängelplan'}</p>}

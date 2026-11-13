@@ -7,7 +7,7 @@ import { type PhotoSite } from '../components/PhotoCapture';
 import { PhotoImg } from '../components/PhotoImg';
 import { ProjectPicker } from '../components/ProjectPicker';
 import { SiteNav } from '../components/SiteNav';
-import { ToolIcon } from '../components/ToolIcon';
+import { ToolIcon, ToolMark } from '../components/ToolIcon';
 import { showError } from '../components/ui';
 import { listProjects, listReports, listWeeks } from '../lib/db';
 import { listFreePhotoSites } from '../lib/photo-sites';
@@ -111,6 +111,7 @@ export function PhotosPage() {
             <a href={paths.tools()} className="icon-link" aria-label="Zu den Tools" title="Zu den Tools" data-testid="to-tools">
               <Icon name="back" />
             </a>
+            <ToolMark name="photos" />
             <h1 data-testid="photos-title">Fotodokumentation</h1>
           </div>
           <div className="row gap">

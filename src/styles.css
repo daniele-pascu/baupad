@@ -12951,3 +12951,194 @@ html[data-theme='dark'] .hub-tag {
 .times-away[open] summary {
   border-bottom: 1px solid var(--border);
 }
+
+/* =====================================================================
+   Gestaltung 4 – Feinschliff für alle Tools
+   Eine Schrift auf jedem Gerät, Symbol des Tools im Seitenkopf, feinere Flächen und Schatten,
+   ruhigere Listen, Auswahlfelder und Rollbalken im eigenen Stil, sanftes Einblenden der Listen.
+   ===================================================================== */
+
+/* Schrift: dieselbe wie auf der Website – überall gleich (statt je Gerät eine andere Systemschrift) */
+:root {
+  font-family: 'Geist Variable', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Inter, Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --shadow: 0 0 0 0.5px rgba(16, 18, 27, 0.03), 0 1px 2px rgba(16, 18, 27, 0.05), 0 3px 8px -4px rgba(16, 18, 27, 0.07);
+  --shadow-md: 0 0 0 0.5px rgba(16, 18, 27, 0.04), 0 10px 26px -10px rgba(16, 18, 27, 0.18), 0 2px 6px rgba(16, 18, 27, 0.05);
+}
+/* Zahlen stehen sauber untereinander */
+table,
+input,
+.hub-kpi strong,
+.times-num,
+.card-meta {
+  font-variant-numeric: tabular-nums;
+}
+/* Häkchen, Auswahlpunkte und Regler in der Farbe des Tools */
+.page,
+.modal {
+  accent-color: var(--tool, var(--primary));
+}
+.page ::selection {
+  background: color-mix(in srgb, var(--tool, #1d1d1f) 22%, transparent);
+}
+
+/* Symbol des Tools im Seitenkopf */
+.tool-mark {
+  --tm: #1d1d1f;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-right: 10px;
+  border-radius: 12px;
+  background: var(--tm);
+  background-image: linear-gradient(160deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 55%);
+  color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 10px 18px -10px var(--tm);
+}
+.tool-mark[data-tool='projects'] {
+  --tm: #ff6a13;
+}
+.tool-mark[data-tool='workers'] {
+  --tm: #2f80ed;
+}
+.tool-mark[data-tool='photos'] {
+  --tm: #3a3a3c;
+}
+.tool-mark[data-tool='reports'] {
+  --tm: #a259ff;
+}
+.tool-mark[data-tool='defects'] {
+  --tm: #d6242b;
+}
+.tool-mark[data-tool='times'] {
+  --tm: #0f9d76;
+}
+.tool-mark[data-tool='materials'] {
+  --tm: #c2850c;
+}
+/* mit Symbol braucht der Titel keinen Farbbalken mehr */
+.page-head-title:has(> .tool-mark) h1::after {
+  display: none;
+}
+
+/* Handy: Titel zuerst in voller Breite, Tasten rutschen darunter statt den Titel zu zerquetschen */
+@media (max-width: 700px) {
+  .page-head.page-head-row {
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+  .page-head-title {
+    max-width: 100%;
+  }
+  .page-head-title h1 {
+    font-size: 1.5rem;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+    text-wrap: balance;
+  }
+  .tool-mark {
+    width: 34px;
+    height: 34px;
+    margin-right: 8px;
+    border-radius: 10px;
+  }
+  .tool-mark svg {
+    width: 19px;
+    height: 19px;
+  }
+}
+
+/* Projektliste: die Tasten je Zeile treten zurück, bis man sie braucht */
+.project-card .card-actions .btn {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+@media (hover: hover) {
+  .project-card .card-actions .btn:hover:not(:disabled) {
+    border-color: var(--border);
+    background: var(--surface-2);
+    box-shadow: none;
+    transform: none;
+  }
+}
+@media (max-width: 700px) {
+  .project-card .card-actions {
+    margin: 2px 12px 0;
+    padding: 4px 0 6px;
+    border-top: 1px solid var(--border);
+  }
+}
+
+/* Auswahlfelder: eigener Pfeil statt des Pfeils des Betriebssystems */
+.sort-control select,
+.project-tools select,
+.field select {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 24px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%236e6e73' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+.field select[multiple] {
+  padding-right: 0;
+  background-image: none;
+}
+
+/* Rollbalken am PC: schmal und ruhig */
+@media (hover: hover) and (pointer: fine) {
+  .modal-body,
+  .table-wrap {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--text) 26%, transparent) transparent;
+  }
+}
+
+/* Listen blenden beim Öffnen der Seite gestaffelt ein */
+@keyframes list-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+.page > .card-list > *,
+.page > section > .card-list > * {
+  animation: list-rise 0.3s var(--ease) backwards;
+}
+.page .card-list > *:nth-child(2) {
+  animation-delay: 0.03s;
+}
+.page .card-list > *:nth-child(3) {
+  animation-delay: 0.06s;
+}
+.page .card-list > *:nth-child(4) {
+  animation-delay: 0.09s;
+}
+.page .card-list > *:nth-child(5) {
+  animation-delay: 0.12s;
+}
+.page .card-list > *:nth-child(n + 6) {
+  animation-delay: 0.15s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .page .card-list > * {
+    animation: none;
+  }
+}
+
+/* Projektseite (Aufmaß & Abrechnung): Symbol und kräftiger Projektname wie in den anderen Tools */
+.page-under-nav > .topbar .tool-mark {
+  margin-right: 2px;
+}
+.page-under-nav > .topbar .topbar-title h1 {
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+@media (max-width: 700px) {
+  .page-under-nav > .topbar .topbar-title h1 {
+    font-size: 1.25rem;
+  }
+}

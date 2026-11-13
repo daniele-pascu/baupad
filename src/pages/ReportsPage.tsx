@@ -7,7 +7,7 @@ import { ProjectHeading } from '../components/ProjectHeading';
 import { Icon } from '../components/Icon';
 import { Modal } from '../components/Modal';
 import { SiteNav } from '../components/SiteNav';
-import { ToolIcon } from '../components/ToolIcon';
+import { ToolIcon, ToolMark } from '../components/ToolIcon';
 import { offerFile, showError, toast } from '../components/ui';
 import { exportReportsBackup, importReportsBackup } from '../lib/report-backup';
 import { listFormEntries, listPhotos, listReports, loadProjectData, saveReport } from '../lib/db';
@@ -163,6 +163,7 @@ export function ReportsPage() {
             <a href={paths.tools()} className="icon-link" aria-label="Zu den Tools" title="Zu den Tools" data-testid="to-tools">
               <Icon name="back" />
             </a>
+            <ToolMark name="reports" />
             <h1 data-testid="reports-title">Berichte &amp; Formulare</h1>
           </div>
           <div className="report-actions">

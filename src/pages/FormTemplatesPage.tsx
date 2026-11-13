@@ -4,7 +4,7 @@ import { FormTemplateDialog } from '../components/FormTemplates';
 import { Icon } from '../components/Icon';
 import { Modal } from '../components/Modal';
 import { SiteNav } from '../components/SiteNav';
-import { ToolIcon } from '../components/ToolIcon';
+import { ToolIcon, ToolMark } from '../components/ToolIcon';
 import { confirmDialog, promptDialog, showError, toast } from '../components/ui';
 import { deleteFormTemplate, getFormFile, listFormEntries, listFormTemplates, putFormFile, saveFormTemplate } from '../lib/db';
 import { analyzeForm, isCustomTemplate, templateFileId, type FormPage, type FormTemplate } from '../lib/form-template';
@@ -187,6 +187,7 @@ export function FormTemplatesPage() {
             <a href={paths.reports()} className="icon-link" aria-label="Zur Übersicht" title="Zur Übersicht" data-testid="to-reports">
               <Icon name="back" />
             </a>
+            <ToolMark name="reports" />
             <div>
               <h1 data-testid="form-templates-title">Formularvorlagen</h1>
               <span className="muted small">Eigene PDF-Formulare der Firma – Felder selbst einrichten, im Projekt ausfüllen</span>

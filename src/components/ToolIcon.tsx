@@ -89,3 +89,12 @@ export function ToolIcon({ name, weight = 'bold', size = 24, className }: { name
     </svg>
   );
 }
+
+/** Kennzeichen eines Tools im Seitenkopf: dasselbe Symbol im selben Farbfeld wie auf der Tools-Kachel */
+export function ToolMark({ name }: { name: ToolIconName }) {
+  return (
+    <span className="tool-mark" data-tool={name} aria-hidden="true">
+      <ToolIcon name={name} size={22} />
+    </span>
+  );
+}

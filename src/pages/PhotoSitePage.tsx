@@ -20,6 +20,7 @@ import type { Photo } from '../lib/types';
 import { loadPhotoSites } from './PhotosPage';
 import { usePageTitle } from '../lib/page-title';
 import { useDragSelect } from '../components/useDragSelect';
+import { ToolMark } from '../components/ToolIcon';
 
 /** Foto-Kachel: Bild, darunter Uhrzeit, Benutzer und Beschreibung; im Auswahlmodus mit Häkchen */
 function Thumb({ photo, selectable, selected, onOpen, onToggle }: { photo: Photo; selectable: boolean; selected: boolean; onOpen(): void; onToggle(): void }) {
@@ -348,6 +349,7 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
             <a href={paths.photos()} className="icon-link" aria-label="Zur Übersicht" title="Zur Übersicht" data-testid="to-photos">
               <Icon name="back" />
             </a>
+            <ToolMark name="photos" />
             <div>
               <h1 data-testid="photo-site-title">{site?.name ?? '…'}</h1>
               <span className="muted small">

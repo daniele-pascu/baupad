@@ -11,6 +11,7 @@ import { dayTitle, photoSiteKey, timeLabel } from '../lib/photos';
 import { paths } from '../lib/router';
 import { costCenterByProject } from '../lib/crew-link';
 import type { Photo } from '../lib/types';
+import { ToolMark } from '../components/ToolIcon';
 
 const PAGE = 60;
 const uploadDay = (ts: number) => {
@@ -100,6 +101,7 @@ export function RecentPhotosPage() {
             <a href={paths.photos()} className="icon-link" aria-label="Zur Fotodokumentation" title="Zur Fotodokumentation" data-testid="to-photos">
               <Icon name="back" />
             </a>
+            <ToolMark name="photos" />
             <h1 data-testid="recent-title">Zuletzt hochgeladen</h1>
           </div>
         </header>

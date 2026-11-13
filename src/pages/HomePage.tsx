@@ -21,6 +21,7 @@ import { linkSitesToProject, usedIn } from '../lib/crew-link';
 import type { PhotoSite, Project } from '../lib/types';
 import { useDataChanged } from '../lib/data-events';
 import { pcStyle, useProjectColors } from '../lib/project-colors';
+import { ToolMark } from '../components/ToolIcon';
 
 interface Row {
   project: Project;
@@ -232,6 +233,7 @@ export function HomePage() {
           <a href={paths.tools()} className="icon-link" aria-label="Zu den Tools" title="Zu den Tools" data-testid="to-tools">
             <Icon name="back" />
           </a>
+          <ToolMark name="projects" />
           <h1 data-testid="projects-title">Aufmaß & Abrechnung</h1>
         </div>
       </header>

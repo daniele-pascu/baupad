@@ -20,6 +20,7 @@ import { ProjectEditDialog } from '../components/ProjectEditDialog';
 import { canEditSites, siteKeyOfSite } from '../lib/sites';
 import { useSession } from '../lib/use-session';
 import { useDataChanged } from '../lib/data-events';
+import { ToolMark } from '../components/ToolIcon';
 
 const TYPE_ORDER: ReportType[] = ['regie', 'tag', 'woche'];
 
@@ -259,6 +260,7 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
             <a href={paths.reports()} className="icon-link" aria-label="Zur Übersicht" title="Zur Übersicht" data-testid="to-reports-overview">
               <Icon name="back" />
             </a>
+            <ToolMark name="reports" />
             <div>
               <h1 data-testid="report-site-title">{name}</h1>
               <span className="muted small">{first ? [first.head.number, first.head.address, first.head.client].filter(Boolean).join(' · ') : info ? [info.number, info.address].filter(Boolean).join(' · ') : ''}</span>

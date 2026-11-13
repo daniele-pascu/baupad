@@ -7,7 +7,7 @@ import { Icon } from '../components/Icon';
 import { ProjectEditDialog } from '../components/ProjectEditDialog';
 import { ProjectPicker } from '../components/ProjectPicker';
 import { SiteNav } from '../components/SiteNav';
-import { ToolIcon } from '../components/ToolIcon';
+import { ToolIcon, ToolMark } from '../components/ToolIcon';
 import { confirmDialog, showError, toast } from '../components/ui';
 import { deleteDefectPlanCompletely, listDefectMarks, listDefectPlans } from '../lib/db';
 import { defectSiteKey, KINDS, summarize, type DefectSiteSummary } from '../lib/defects';
@@ -125,6 +125,7 @@ export function DefectsPage() {
             <a href={paths.tools()} className="icon-link" aria-label="Zu den Tools" title="Zu den Tools" data-testid="to-tools">
               <Icon name="back" />
             </a>
+            <ToolMark name="defects" />
             <h1 data-testid="defects-title">Mängelplan</h1>
           </div>
           <div className="row gap">

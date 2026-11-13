@@ -12,6 +12,7 @@ import type { Absence, Worker, WorkerGrade } from '../lib/types';
 import { usePageTitle } from '../lib/page-title';
 import { AbsenceDialog } from './WorkersPage';
 import { useDataChanged } from '../lib/data-events';
+import { ToolMark } from '../components/ToolIcon';
 
 type Sort = 'name' | 'grade';
 type Form = { firstName: string; lastName: string; staffNo: string; phone: string; role: string; grade: string; userEmail: string };
@@ -130,6 +131,7 @@ export function StaffPage() {
             <a href={paths.workers()} className="icon-link" aria-label="Zurück zur Arbeitereinteilung" title="Zurück zur Arbeitereinteilung" data-testid="staff-back">
               <Icon name="back" />
             </a>
+            <ToolMark name="workers" />
             <div>
               <h1 data-testid="staff-title">Personalliste</h1>
               <span className="muted small">{activeCount} aktiv</span>

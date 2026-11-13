@@ -11,6 +11,7 @@ import { navigate, paths } from '../lib/router';
 import { canEditSites } from '../lib/sites';
 import { useSession } from '../lib/use-session';
 import { ACCENT } from './ReportsPage';
+import { ToolMark } from '../components/ToolIcon';
 
 /**
  * Felder einer Firmenvorlage einrichten: PDF als Bild, darauf die Kästen. Feld zeichnen (ziehen), verschieben,
@@ -436,6 +437,7 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
             <button type="button" className="icon-link" aria-label="Zu den Vorlagen" title="Zu den Vorlagen" onClick={() => void leave()} data-testid="to-form-templates">
               <Icon name="back" />
             </button>
+            <ToolMark name="reports" />
             <div>
               <h1 data-testid="form-editor-title">{name || t.name}</h1>
               <span className="muted small">

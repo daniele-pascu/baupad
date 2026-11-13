@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Icon } from '../components/Icon';
 import { TimeField } from '../components/TimeField';
 import { SiteNav } from '../components/SiteNav';
-import { ToolIcon } from '../components/ToolIcon';
+import { ToolIcon, ToolMark } from '../components/ToolIcon';
 import { offerFile, promptDialog, showError, toast } from '../components/ui';
 import { addDays, gradeLabel, isoDate, knownGrade, sortByGrade, workerName } from '../lib/crew';
 import { useDataChanged } from '../lib/data-events';
@@ -117,6 +117,7 @@ export function TimesPage({ month: m, date: d }: { month: string | null; date: s
             <a href={paths.tools()} className="icon-link" aria-label="Zu den Tools" title="Zu den Tools" data-testid="to-tools">
               <Icon name="back" />
             </a>
+            <ToolMark name="times" />
             <h1 data-testid="times-title">Zeitaufzeichnung</h1>
           </div>
           {office && (

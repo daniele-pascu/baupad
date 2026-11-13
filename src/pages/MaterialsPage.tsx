@@ -21,6 +21,7 @@ import { pcStyle, useProjectColors } from '../lib/project-colors';
 import { ProjectHeading } from '../components/ProjectHeading';
 import { labelFromProject, projectPrefix } from '../lib/project-label';
 import { costCenterByProject, costCenterSearchByProject } from '../lib/crew-link';
+import { ToolMark } from '../components/ToolIcon';
 
 type Tab = 'overview' | 'sites' | 'orders' | 'equipment' | 'materials' | 'suppliers';
 const TAB_PARAM: Record<Tab, 'baustellen' | 'bestellungen' | 'geraete' | 'material' | 'lieferanten' | undefined> = { overview: undefined, sites: 'baustellen', orders: 'bestellungen', equipment: 'geraete', materials: 'material', suppliers: 'lieferanten' };
@@ -116,6 +117,7 @@ export function MaterialsPage({ tab }: { tab: Tab }) {
             <a href={paths.tools()} className="icon-link" aria-label="Zurück zu den Tools" title="Zurück zu den Tools" data-testid="materials-back">
               <Icon name="back" />
             </a>
+            <ToolMark name="materials" />
             <div>
               <h1 data-testid="materials-title">Materialverwaltung</h1>
               <span className="muted small">
