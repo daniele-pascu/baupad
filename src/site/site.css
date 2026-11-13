@@ -3542,3 +3542,198 @@
     transition: none;
   }
 }
+
+/* =====================================================================
+   Website 3 – Unterseiten und Kopfleiste im Stil der Startseite
+   (Produkte, BauPad, Werkzeug-Seiten, Unternehmen, Kontakt, Rechtliches)
+   ===================================================================== */
+.ps-site {
+  --ps-midnight: #08090a;
+  --ps-navy: #0b0c0e;
+  --ps-ink: #0b0c0e;
+  --ps-ink-2: #55565c;
+  --ps-mist: #f3f3f6;
+  --ps-radius: 22px;
+  --ps-mono: 'Geist Mono Variable', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+/* Kopfleiste: am PC eine schwebende Leiste; ganz oben liegt sie auf dunklem Grund */
+@media (min-width: 901px) {
+  .ps-header {
+    padding: 14px clamp(16px, 4vw, 32px);
+    border-bottom: 0;
+    background: #08090a;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    pointer-events: none;
+    transition: background 0.3s ease;
+  }
+  .ps-header.is-scrolled {
+    border-bottom: 0;
+    background: transparent;
+  }
+  .ps-header .ps-header-inner {
+    max-width: 1136px;
+    height: 56px;
+    padding: 0 8px 0 22px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 999px;
+    background: rgba(18, 19, 22, 0.8);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 20px 50px -24px rgba(0, 0, 0, 0.9);
+    -webkit-backdrop-filter: saturate(160%) blur(18px);
+    backdrop-filter: saturate(160%) blur(18px);
+    pointer-events: auto;
+  }
+  .ps-header .ps-skip {
+    pointer-events: auto;
+  }
+}
+.ps-header .ps-btn {
+  min-height: 40px;
+  border-radius: 999px;
+}
+
+/* Schrift und Überschriften */
+.ps-eyebrow {
+  font-family: var(--ps-mono);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  color: #85868d;
+}
+.ps-eyebrow-light,
+.tone-navy .ps-eyebrow,
+.tone-midnight .ps-eyebrow {
+  color: rgba(255, 255, 255, 0.5);
+}
+.ps-display {
+  font-weight: 600;
+  letter-spacing: -0.045em;
+  line-height: 1.02;
+}
+.ps-display .ps-line {
+  background: linear-gradient(180deg, #fff 25%, rgba(255, 255, 255, 0.6));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  padding-bottom: 0.06em;
+}
+.ps-h1,
+.ps-h2 {
+  font-weight: 600;
+  letter-spacing: -0.035em;
+}
+.ps-h3,
+.ps-statement h3,
+.ps-toolcard-head h3 {
+  font-weight: 600;
+}
+.ps-lead {
+  color: #55565c;
+}
+.ps-lead-light,
+.tone-navy .ps-lead,
+.tone-midnight .ps-lead {
+  color: rgba(255, 255, 255, 0.64);
+}
+
+/* Tasten */
+.ps-btn {
+  min-height: 50px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+.ps-btn-lg {
+  min-height: 56px;
+}
+.ps-btn-light,
+.ps-btn-primary {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2), 0 12px 40px -8px rgba(255, 255, 255, 0.35);
+}
+.ps-btn-outline,
+.ps-btn-ghost {
+  border-width: 1px;
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+}
+.ps-btn-navy {
+  background: #0b0c0e;
+  border-color: #0b0c0e;
+  box-shadow: 0 12px 30px -12px rgba(11, 12, 14, 0.6);
+}
+.ps-btn-navy:hover {
+  background: #000;
+}
+.ps-btn-outline-dark {
+  border-width: 1px;
+  border-color: #d9d9de;
+  background: #fff;
+  color: #0b0c0e;
+}
+
+/* Flächen und Kopfbereiche */
+.tone-navy,
+.tone-midnight {
+  background-color: #08090a;
+  background-image: radial-gradient(ellipse 60% 80% at 85% 0%, rgba(110, 120, 255, 0.2), transparent 70%);
+}
+.ps-hero.tone-midnight,
+.ps-hero.tone-navy {
+  background-image: radial-gradient(ellipse 62% 90% at 50% 0%, rgba(110, 130, 255, 0.34), rgba(255, 140, 90, 0.08) 55%, transparent 78%);
+}
+.ps-contact-cta.tone-midnight {
+  background-image: radial-gradient(ellipse 50% 70% at 50% 110%, rgba(120, 130, 255, 0.5), rgba(255, 120, 90, 0.18) 50%, transparent 75%);
+}
+.bd-shape,
+.bd-glow {
+  display: none;
+}
+.bd-grid {
+  background-image: linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 72px 72px;
+  -webkit-mask-image: radial-gradient(ellipse 70% 80% at 50% 20%, #000 10%, transparent 75%);
+  mask-image: radial-gradient(ellipse 70% 80% at 50% 20%, #000 10%, transparent 75%);
+}
+
+/* Karten */
+.ps-product-card,
+.ps-pair,
+.ps-toolcard,
+.ps-feature-link,
+.ps-other,
+.ps-plan-item {
+  border: 1px solid #e6e6ea;
+  border-radius: 22px;
+  box-shadow: 0 1px 2px rgba(10, 10, 20, 0.04), 0 24px 48px -28px rgba(10, 10, 30, 0.22);
+}
+.ps-pair-problem {
+  background: #f3f3f6;
+}
+.tone-navy .ps-statement,
+.tone-midnight .ps-statement {
+  padding: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.015));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  height: 100%;
+}
+.ps-no {
+  font-family: var(--ps-mono);
+}
+.ps-badge {
+  font-family: var(--ps-mono);
+  font-weight: 600;
+}
+
+/* Kontaktformular */
+.ps-field input,
+.ps-field textarea {
+  border-radius: 12px;
+}
+.ps-field input:focus,
+.ps-field textarea:focus {
+  border-color: #4d95f5;
+  box-shadow: 0 0 0 4px rgba(77, 149, 245, 0.18);
+  outline: none;
+}
