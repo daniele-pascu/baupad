@@ -12750,14 +12750,14 @@ html[data-theme='dark'] .hub-tag {
 }
 .ribbon-tabs {
   gap: 6px;
-  padding: 7px 8px 6px;
+  padding: 5px 8px 4px;
   border-bottom: 1px solid var(--border);
 }
 .ribbon-tabs button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 34px;
+  min-height: 33px;
   padding: 0 12px 0 10px;
   border: 1px solid transparent;
   border-radius: 999px;
@@ -12780,18 +12780,15 @@ html[data-theme='dark'] .hub-tag {
 .ribbon-tabs button[aria-selected='true'] svg {
   opacity: 1;
 }
-/* Gruppen: eigene Felder statt Trennstriche */
-.ribbon-row {
-  gap: 8px;
-  padding: 6px 8px;
-}
+/* Gruppen: eigene Felder statt Trennstriche – die Leiste bleibt so hoch wie zuvor (Rahmen als Schatten nach innen) */
 .ribbon-row .tool-group,
 .ribbon-row .tool-group + .tool-group {
   position: relative;
-  padding: 3px 4px;
-  border: 1px solid color-mix(in srgb, var(--tab, #8e8e93) 22%, var(--border));
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--tab, #8e8e93) 4%, var(--surface));
+  padding: 0 3px;
+  border: 0;
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--tab, #8e8e93) 5%, var(--surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tab, #8e8e93) 24%, var(--border));
 }
 .ribbon-row .tool-btn svg {
   color: var(--tab, currentColor);
@@ -12810,24 +12807,36 @@ html[data-theme='dark'] .hub-tag {
 .ribbon-row .tool-btn:disabled svg {
   color: currentColor;
 }
-/* PC und Tablet quer: Gruppen tragen ihren Namen */
-@media (min-width: 1000px) and (min-height: 700px) {
+/* PC (Maus): Gruppen tragen ihren Namen; die Registerkarten sind dafür flacher – Gesamthöhe unverändert */
+@media (min-width: 1000px) and (min-height: 700px) and (hover: hover) and (pointer: fine) {
+  .ribbon-tabs {
+    padding: 3px 8px 2px;
+  }
+  .ribbon-tabs button {
+    min-height: 29px;
+  }
   .ribbon-row {
-    align-items: flex-start;
-    padding-bottom: 4px;
+    min-height: 62px;
+    padding: 3px 8px;
   }
   .ribbon-row .tool-group[aria-label] {
-    padding-bottom: 15px;
+    padding-bottom: 12px;
+  }
+  .ribbon-row .tool-group[aria-label] .tool-btn {
+    height: 44px;
+  }
+  .ribbon-row .tool-group[aria-label] .tool-btn.active {
+    box-shadow: none;
   }
   .ribbon-row .tool-group[aria-label]::after {
     content: attr(aria-label);
     position: absolute;
-    left: 0;
-    right: 0;
+    left: 4px;
+    right: 4px;
     bottom: 2px;
     overflow: hidden;
     color: var(--muted);
-    font-size: 0.62rem;
+    font-size: 0.58rem;
     font-weight: 600;
     letter-spacing: 0.04em;
     line-height: 1;
