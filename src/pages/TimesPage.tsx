@@ -14,16 +14,18 @@ import { loadTimes, saveDay, setDayAbsence, suggestionFor, workerYearFile, type 
 import { useSession } from '../lib/use-session';
 import type { Worker, WorkTimes } from '../lib/types';
 import { Modal } from '../components/Modal';
-import { setMeta } from '../lib/db';
+import { saveWorker, setMeta } from '../lib/db';
+import { uuid } from '../lib/ids';
 import { pcStyle, useProjectColors } from '../lib/project-colors';
 
 export const TIMES_ACCENT = { '--tool': '#0f9d76' } as CSSProperties;
 const WEEKDAY_LONG = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
 
 /**
- * Zeitaufzeichnung – Übersicht: „Tag erfassen“ (alle Arbeiter des Tages mit Baustelle und Stunden aus der
- * Einteilung vorgeschlagen; ändern oder übernehmen) und die Monatsliste je Arbeiter (Stunden, Soll, offene
- * Tage, Freigabe) mit Excel für die Lohnverrechnung.
+ * Zeitaufzeichnung – Übersicht: „Tag erfassen“ für die eigenen Arbeiter (oben als Leiste; „+ Arbeiter“ übernimmt
+ * aus der Personalliste oder legt mit Vor- und Nachname einen neuen an) bzw. – ohne eigene Auswahl – für die heute
+ * Eingeteilten mit Baustelle und Stunden als Vorschlag; darunter der Monat: nur Arbeiter mit Stunden in diesem Monat
+ * und die eigenen (Stunden, Soll, offene Tage, Freigabe) mit Excel für die Lohnverrechnung.
  */
 export function TimesPage({ month: m, date: d }: { month: string | null; date: string | null }) {
   usePageTitle('Zeitaufzeichnung – BauPad');
@@ -33,7 +35,6 @@ export function TimesPage({ month: m, date: d }: { month: string | null; date: s
   const month = m ?? monthOf(date);
   const [data, setData] = useState<TimesData | null>(null);
   const [dayData, setDayData] = useState<TimesData | null>(null);
-  const [extra, setExtra] = useState<string[]>([]);
   const by = session?.name || 'Unbekannt';
   /** Rechte: Büro alles, Polier nur seine Projekte, Arbeiter nur eigene Stunden (lesen) */
   const scope = useMemo(() => timesScope(session), [session]);
@@ -55,7 +56,6 @@ export function TimesPage({ month: m, date: d }: { month: string | null; date: s
   };
   useEffect(reload, [month, date, scopeKey]); // eslint-disable-line react-hooks/exhaustive-deps
   useDataChanged(reload);
-  useEffect(() => setExtra([]), [date]);
   /** „Meine Arbeiter“: Polier/Arbeiter wählt aus, wen er erfasst (gemerkt je Benutzer auf diesem Gerät); leer = alle */
   const mineKey = `timesMine:${by}`;
   const readMine = () => {
@@ -100,13 +100,13 @@ export function TimesPage({ month: m, date: d }: { month: string | null; date: s
   const rows = useMemo(() => {
     if (!data) return [];
     return [...data.workers]
-      .filter((w) => w.active || data.days.some((x) => x.workerId === w.id))
+      .filter((w) => scope.level === 'own' || mine.includes(w.id) || data.days.some((x) => x.workerId === w.id))
       .sort((a, b) => workerName(a).localeCompare(workerName(b), 'de'))
       .map((w) => {
         const days = new Map(data.days.filter((x) => x.workerId === w.id).map((x) => [x.date, x]));
         return { w, s: summarize(month, days, data.times, data.absences, w.id, today), approved: data.approvals.some((a) => a.id === monthId(w.id, month)) };
       });
-  }, [data, month, today]);
+  }, [data, month, today, mine, scope.level]);
 
   return (
     <>
@@ -174,15 +174,27 @@ export function TimesPage({ month: m, date: d }: { month: string | null; date: s
             </p>
           )}
           {scope.level !== 'own' && (
-          <div className="times-mine">
-            <button type="button" className="btn btn-sm" onClick={() => setPicking(true)} data-testid="times-pick">
-              <ToolIcon name="workers" size={16} /> {mine.length ? `Meine Arbeiter (${mine.length})` : 'Arbeiter auswählen'}
+          <div className="times-team" data-testid="times-team">
+            {mine
+              .map((id) => dayData?.workers.find((w) => w.id === id))
+              .filter((w): w is Worker => !!w)
+              .sort((a, b) => workerName(a).localeCompare(workerName(b), 'de'))
+              .map((w) => (
+                <span key={w.id} className="times-chip" data-testid="times-mine-chip" data-name={workerName(w)}>
+                  {workerName(w)}
+                  <button type="button" onClick={() => saveMine(mine.filter((x) => x !== w.id))} aria-label={`${workerName(w)} aus meiner Liste nehmen`} title="Aus meiner Liste nehmen" data-testid="times-mine-remove">
+                    <Icon name="close" size={14} />
+                  </button>
+                </span>
+              ))}
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => setPicking(true)} data-testid="times-pick">
+              <Icon name="plus" size={16} /> Arbeiter
             </button>
-            <span className="muted small">{mine.length ? 'Nur deine Arbeiter – je Arbeiter nur die Tage ausfüllen, an denen er bei dir war.' : 'Alle Arbeiter des Tages – oder deine Arbeiter auswählen.'}</span>
+            {!mine.length && <span className="muted small">Ohne eigene Auswahl siehst du die heute Eingeteilten. Mit „+ Arbeiter“ legst du fest, wen du erfasst.</span>}
           </div>
           )}
-          {picking && dayData && <PickWorkers workers={dayData.workers} selected={mine} onClose={() => setPicking(false)} onSave={(ids) => (saveMine(ids), setPicking(false))} />}
-          {dayData ? <DayList data={dayData} date={date} by={by} office={office} scope={scope} mine={mine} extra={extra} onExtra={(id) => setExtra((l) => [...l, id])} onSaved={reload} /> : <p className="muted small">Wird geladen …</p>}
+          {picking && dayData && <PickWorkers workers={dayData.workers} selected={mine} onCreated={reload} onClose={() => setPicking(false)} onSave={(ids) => (saveMine(ids), setPicking(false))} />}
+          {dayData ? <DayList data={dayData} date={date} by={by} office={office} scope={scope} mine={mine} onSaved={reload} /> : <p className="muted small">Wird geladen …</p>}
         </section>
 
         {scope.level === 'site' ? (
@@ -220,12 +232,17 @@ export function TimesPage({ month: m, date: d }: { month: string | null; date: s
               </span>
               <div>
                 <strong>Noch keine Arbeiter</strong>
-                <p className="muted small">Arbeiter werden in der Arbeitereinteilung unter „Personal“ angelegt.</p>
+                <p className="muted small">Oben mit „+ Arbeiter“ einfach einen Namen eingeben – oder die Personalliste der Arbeitereinteilung pflegen.</p>
               </div>
               <a href={paths.staff()} className="btn btn-primary">
                 Personal
               </a>
             </div>
+          )}
+          {data && rows.length === 0 && (data.workers.length > 0 || !office) && (
+            <p className="muted small" data-testid="times-month-empty">
+              Noch keine Stunden in diesem Monat. Hier erscheinen deine Arbeiter und alle, für die im Monat Stunden erfasst sind.
+            </p>
           )}
           <ul className="times-people">
             {rows.map(({ w, s, approved }) => (
@@ -263,16 +280,15 @@ export function TimesPage({ month: m, date: d }: { month: string | null; date: s
 }
 
 /** Arbeiter eines Tages: eingeteilte, bereits erfasste und dazugeholte */
-function DayList({ data, date, by, office, scope, mine, extra, onExtra, onSaved }: { data: TimesData; date: string; by: string; office: boolean; scope: TimesScope; mine: string[]; extra: string[]; onExtra(id: string): void; onSaved(): void }) {
+function DayList({ data, date, by, office, scope, mine, onSaved }: { data: TimesData; date: string; by: string; office: boolean; scope: TimesScope; mine: string[]; onSaved(): void }) {
   const readOnly = scope.level === 'own';
   const items = data.workers
-    .filter((w) => !mine.length || mine.includes(w.id) || extra.includes(w.id))
+    .filter((w) => !mine.length || mine.includes(w.id))
     .map((w) => ({ w, rec: data.days.find((x) => x.workerId === w.id && x.date === date) ?? null, sugg: suggestionFor(data, w.id, date), locked: readOnly || (data.approvals.some((a) => a.id === monthId(w.id, data.month)) && !office) }))
     // eigene Auswahl: alle gewählten zeigen (auch ohne Einteilung); sonst wie bisher die Arbeiter des Tages
-    .filter((x) => (mine.length && x.w.active) || x.rec || x.sugg.lines.length || x.sugg.absence || extra.includes(x.w.id))
+    .filter((x) => (mine.length && x.w.active) || x.rec || x.sugg.lines.length || x.sugg.absence)
     .sort((a, b) => (a.rec?.lines[0]?.siteName ?? a.sugg.lines[0]?.siteName ?? 'zzz').localeCompare(b.rec?.lines[0]?.siteName ?? b.sugg.lines[0]?.siteName ?? 'zzz', 'de') || workerName(a.w).localeCompare(workerName(b.w), 'de'));
   const pending = items.filter((x) => !x.rec && x.sugg.lines.length && !x.locked);
-  const others = readOnly ? [] : data.workers.filter((w) => w.active && !items.some((x) => x.w.id === w.id));
   const confirmAll = () =>
     void Promise.all(pending.map((x) => saveDay(x.w.id, date, x.sugg.lines, by, { scope })))
       .then(() => {
@@ -284,7 +300,7 @@ function DayList({ data, date, by, office, scope, mine, extra, onExtra, onSaved 
   return (
     <>
       {holiday && <p className="small times-holiday">Feiertag: {holiday}</p>}
-      {items.length === 0 && <p className="muted small">An diesem Tag ist niemand eingeteilt. Arbeiter unten hinzufügen.</p>}
+      {items.length === 0 && <p className="muted small" data-testid="times-day-empty">{readOnly ? 'Für diesen Tag sind keine Stunden erfasst.' : 'An diesem Tag ist niemand eingeteilt. Oben mit „+ Arbeiter“ hinzufügen.'}</p>}
       <ul className="times-day-list">
         {items.map((x) => (
           <DayRow key={`${x.w.id}-${date}`} w={x.w} date={date} rec={x.rec} sugg={x.sugg} data={data} by={by} scope={scope} locked={x.locked} onSaved={onSaved} />
@@ -296,31 +312,51 @@ function DayList({ data, date, by, office, scope, mine, extra, onExtra, onSaved 
             <Icon name="check" size={16} /> Alle Vorschläge übernehmen ({pending.length})
           </button>
         )}
-        {others.length > 0 && (
-          <select className="btn" value="" onChange={(e) => e.target.value && onExtra(e.target.value)} aria-label="Arbeiter hinzufügen" data-testid="times-add-worker">
-            <option value="">+ Arbeiter hinzufügen</option>
-            {others.map((w) => (
-              <option key={w.id} value={w.id}>
-                {workerName(w)}
-              </option>
-            ))}
-          </select>
-        )}
       </div>
     </>
   );
 }
 
 /** „Meine Arbeiter“ auswählen: Suche oder scrollen, ankreuzen (wie beim Einteilen) */
-function PickWorkers({ workers, selected, onSave, onClose }: { workers: Worker[]; selected: string[]; onSave(ids: string[]): void; onClose(): void }) {
+function PickWorkers({ workers, selected, onSave, onClose, onCreated }: { workers: Worker[]; selected: string[]; onSave(ids: string[]): void; onClose(): void; onCreated(): void }) {
   const [sel, setSel] = useState<Set<string>>(() => new Set(selected));
+  const [first, setFirst] = useState('');
+  const [last, setLast] = useState('');
+  const [busy, setBusy] = useState(false);
+  /** gerade angelegte Arbeiter – sofort in der Liste, bis die Seite neu geladen hat */
+  const [created, setCreated] = useState<Worker[]>([]);
+  const full = workerName({ firstName: first.trim(), lastName: last.trim() }).toLowerCase();
+  const exists = full ? [...workers, ...created].find((w) => workerName(w).trim().toLowerCase() === full) : undefined;
+  const create = async () => {
+    if (!first.trim() && !last.trim()) return;
+    if (exists) {
+      setSel(new Set(sel).add(exists.id));
+      setFirst('');
+      setLast('');
+      return;
+    }
+    setBusy(true);
+    try {
+      const now = Date.now();
+      const w: Worker = { id: uuid(), firstName: first.trim(), lastName: last.trim(), active: true, createdAt: now, updatedAt: now };
+      await saveWorker(w);
+      setCreated((c) => [...c, w]);
+      setSel(new Set(sel).add(w.id));
+      setFirst('');
+      setLast('');
+      onCreated();
+    } catch (e) {
+      showError(e, 'Arbeiter konnte nicht angelegt werden');
+    }
+    setBusy(false);
+  };
   const [q, setQ] = useState('');
   const needle = q.trim().toLowerCase();
-  const list = sortByGrade(workers.filter((w) => w.active));
+  const list = sortByGrade([...workers, ...created.filter((c) => !workers.some((w) => w.id === c.id))].filter((w) => w.active));
   const shown = needle ? list.filter((w) => [workerName(w), w.role ?? '', w.staffNo ?? '', gradeLabel(knownGrade(w) ?? undefined)].join(' ').toLowerCase().includes(needle)) : list;
   return (
     <Modal
-      title="Meine Arbeiter"
+      title="Arbeiter hinzufügen"
       onClose={onClose}
       testId="times-pick-dialog"
       footer={
@@ -329,12 +365,23 @@ function PickWorkers({ workers, selected, onSave, onClose }: { workers: Worker[]
             Keine
           </button>
           <button type="button" className="btn btn-primary" onClick={() => onSave(list.filter((w) => sel.has(w.id)).map((w) => w.id))} data-testid="times-pick-save">
-            {sel.size ? `${sel.size} übernehmen` : 'Alle zeigen'}
+            {sel.size ? `Fertig (${sel.size})` : 'Fertig'}
           </button>
         </>
       }
     >
-      <p className="muted small">Wähle die Arbeiter, die bei dir sind. „Tag erfassen“ zeigt dann nur diese – ohne Auswahl alle.</p>
+      <div className="times-new" data-testid="times-new">
+        <strong>Neuer Arbeiter</strong>
+        <div className="times-new-row">
+          <input value={first} onChange={(e) => setFirst(e.target.value)} placeholder="Vorname" aria-label="Vorname" autoComplete="off" data-testid="times-new-first" />
+          <input value={last} onChange={(e) => setLast(e.target.value)} placeholder="Nachname" aria-label="Nachname" autoComplete="off" onKeyDown={(e) => e.key === 'Enter' && void create()} data-testid="times-new-last" />
+          <button type="button" className="btn btn-primary" onClick={() => void create()} disabled={busy || (!first.trim() && !last.trim())} data-testid="times-new-add">
+            <Icon name="plus" size={16} /> {exists ? 'Übernehmen' : 'Anlegen'}
+          </button>
+        </div>
+        {exists && <span className="muted small">{workerName(exists)} gibt es schon – wird übernommen, nicht doppelt angelegt.</span>}
+      </div>
+      <p className="muted small times-pick-hint">{list.length ? 'Oder aus der Personalliste antippen. Deine Arbeiter stehen jeden Tag in „Tag erfassen“ – ohne Auswahl siehst du die heute Eingeteilten.' : 'Noch keine Personalliste – einfach Namen eingeben und anlegen.'}</p>
       <label className="crew-search crew-pick-search">
         <Icon name="select" size={18} />
         <span className="sr-only">Arbeiter suchen</span>
