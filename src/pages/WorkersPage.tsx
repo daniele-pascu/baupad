@@ -492,6 +492,11 @@ export function WorkersPage() {
   );
   const firstOpenDay = (id: string) => firmDays.find((d) => !plan.vacation[d]?.includes(id) && !absenceOn(absences, id, weekId, d)) ?? 0;
   const vacations = vacationSummary(plan, days);
+  /**
+   * Arbeiter, die an diesem Tag auf der Baustelle stehen: wer Urlaub hat (von–bis), bleibt zwar eingeteilt und ist
+   * danach von selbst wieder da, wird an den Urlaubstagen aber nicht unter der Baustelle gezeigt und nicht gezählt.
+   */
+  const present = (s: WeekSite, d: number) => s.days[d].filter((id) => absenceOn(absences, id, weekId, d) !== 'urlaub');
   // Urlaub: Tage aus der Woche selbst und aus den Zeiträumen (von–bis)
   const vacRanges = absenceSummary(absences, weekId, days, 'urlaub');
   for (const r of vacRanges) {
@@ -773,7 +778,7 @@ export function WorkersPage() {
           {shown.filter((s) => !s.paused).map((s) => {
             // zugeklappt, außer selbst aufgeklappt oder Treffer bei der Suche
             const isOpen = openKeys.has(siteKey(s)) || !!q;
-            const count = new Set(s.days.flat()).size;
+            const count = new Set(s.days.flatMap((_, d) => present(s, d))).size;
             return (
               <article key={s.id} className={`crew-site${s.finished ? ' finished' : ''}`} style={crewColor(s)} data-testid="site-card" data-site={s.name}>
                 <header className="crew-site-head">
@@ -835,7 +840,7 @@ export function WorkersPage() {
                           </button>
                         </span>
                         <span className="crew-chips">
-                          {byGrade(s.days[d]).map((id) => (
+                          {byGrade(present(s, d)).map((id) => (
                             <button
                               key={id}
                               type="button"
@@ -1029,6 +1034,7 @@ export function WorkersPage() {
           days={days}
           site={plan.sites.find((s) => s.id === dialog.siteId)!}
           weekId={weekId}
+          count={(d) => present(plan.sites.find((s) => s.id === dialog.siteId)!, d).length}
           onClose={() => setDialog(null)}
           onPick={(d) =>
             void run(async () => {
@@ -1713,14 +1719,14 @@ function OpenDialog({
 }
 
 /** Tagesliste: Tag wählen */
-function DayListDialog({ site, days, weekId, onPick, onClose }: { site: WeekSite; days: number[]; weekId: string; onPick(day: number): void; onClose(): void }) {
+function DayListDialog({ site, days, weekId, count, onPick, onClose }: { site: WeekSite; days: number[]; weekId: string; count(day: number): number; onPick(day: number): void; onClose(): void }) {
   return (
     <Modal title={`Tagesliste: ${site.name}`} onClose={onClose} testId="daylist-dialog">
       <p className="muted small">Liste der Arbeiter dieses Tages mit Tätigkeit und Telefon – zum Ausdrucken für das Projekt.</p>
       <div className="crew-chip-actions">
         {days.map((d) => (
           <button key={d} type="button" className="btn" onClick={() => onPick(d)} data-testid={`daylist-${d}`}>
-            {DAY_NAMES[d]}, {dayDate(weekId, d)} <span className="muted small">· {site.days[d].length} Arbeiter</span>
+            {DAY_NAMES[d]}, {dayDate(weekId, d)} <span className="muted small">· {count(d)} Arbeiter</span>
           </button>
         ))}
       </div>

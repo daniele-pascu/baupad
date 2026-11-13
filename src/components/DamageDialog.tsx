@@ -107,6 +107,11 @@ interface Props {
    * passt (Größen-/Tiefenklasse, Zulage mit Stufen) – dort zählt die Schadstelle automatisch.
    */
   autoPositions?: (m: { area: number | null; depth: number | null; count: number; rebar: number }) => { ref: string; label: string; factor: number }[];
+  /**
+   * Von Hand gewählte Position prüfen: liefert die Regel der Position in Worten, wenn sie zu dieser Schadstelle
+   * nicht passt (dann zählt die Schadstelle dort nicht), sonst null.
+   */
+  positionMismatch?: (ref: string, m: { area: number | null; depth: number | null; count: number; rebar: number }) => string | null;
   /** Gezeichnete Pläne: Maße aus der Markierung (Maßstab bekannt) als Vorschlag */
   suggestion?: { length: number; width: number | null } | null;
   /** Kalibrierter bzw. gezeichneter Plan, geschlossene Form: Fläche und Umfang aus der Geometrie */
@@ -140,7 +145,7 @@ type Field = 'number' | 'length' | 'width' | 'depth' | 'count';
  * Eingabe einer Messung bzw. Schadstelle. Öffnet sich automatisch nach dem Einzeichnen.
  * Enter/Weiter springt zum nächsten Feld; im letzten Feld wird gespeichert.
  */
-export function DamageDialog({ mode, damage, others, components, positions = [], autoPositions, suggestion, geometry, wall: wallProp = false, openShape = wallProp, workAreas = DEFAULT_WORK_AREAS, onSave, onCancel, onDelete, onDrawDeduction, drawnDeduction, hidden, dedFromPlan, photoSite, photoPrefix }: Props) {
+export function DamageDialog({ mode, damage, others, components, positions = [], autoPositions, positionMismatch, suggestion, geometry, wall: wallProp = false, openShape = wallProp, workAreas = DEFAULT_WORK_AREAS, onSave, onCancel, onDelete, onDrawDeduction, drawnDeduction, hidden, dedFromPlan, photoSite, photoPrefix }: Props) {
   // Messart: im Aufmaß vorgewählt (bzw. aus der Form), hier jederzeit umstellbar
   const [type, setTypeState] = useState<MeasureType>(
     damage.measureType ?? (damage.kind === 'damage' ? 'schadstelle' : damage.kind === 'line' ? 'laenge' : wallProp ? 'wand' : 'flaeche'),
@@ -938,6 +943,15 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
                 </button>
               )}
             </div>
+            {(() => {
+              // gewählte Position hat eine Regel (Größe/Tiefe), die zu dieser Schadstelle nicht passt
+              const why = type === 'schadstelle' && positionRef && positionMismatch ? positionMismatch(positionRef, { area, depth: T?.ok ? T.value : null, count: n, rebar: rebarParsed.length && !rebarError ? rebarSum : 0 }) : null;
+              return why ? (
+                <small className="error position-mismatch" data-testid="position-mismatch">
+                  Diese Position passt nicht zur Schadstelle (gilt für: {why}). Die Schadstelle zählt dort nicht – sie zählt bei den Positionen unter „Zählt automatisch bei“.
+                </small>
+              ) : null;
+            })()}
             {(() => {
               const needle = posQ.trim().toLowerCase();
               const hits = needle

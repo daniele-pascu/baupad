@@ -27,6 +27,8 @@ export interface CrewPdfOptions {
 }
 
 /** Kennzeichnung beim Namen: „ (Urlaub)“ bzw. „ (krank)“ */
+/** Arbeiter der Baustelle an diesem Tag – ohne die, die Urlaub haben (sie stehen in der Liste „Urlaub“) */
+const here = (opts: CrewPdfOptions, s: { days: string[][] }, day: number) => s.days[day].filter((id) => opts.absent?.(id, day) !== 'urlaub');
 const mark = (opts: CrewPdfOptions, id: string, day: number) => ({ urlaub: ' (Urlaub)', krank: ' (krank)', none: '' })[opts.absent?.(id, day) ?? 'none'];
 
 export const INK = rgb(0.11, 0.11, 0.12);
@@ -165,7 +167,7 @@ export async function crewWeekPdf(plan: WeekPlan, workers: Worker[], times: Work
   };
 
   const siteHeight = (s: WeekSite) => {
-    const rows = Math.max(1, ...days.map((d) => s.days[d].length));
+    const rows = Math.max(1, ...days.map((d) => here(opts, s, d).length));
     return 22 + 26 + rows * LH + 10 + (s.note ? 18 : 16);
   };
 
@@ -191,10 +193,10 @@ export async function crewWeekPdf(plan: WeekPlan, workers: Worker[], times: Work
     });
     y -= 26;
     page.drawLine({ start: { x: M, y }, end: { x: W - M, y }, thickness: 0.6, color: LINE });
-    const rows = Math.max(1, ...days.map((d) => s.days[d].length));
+    const rows = Math.max(1, ...days.map((d) => here(opts, s, d).length));
     days.forEach((d, i) => {
       const x = M + i * colW;
-      s.days[d].forEach((id, r) => {
+      here(opts, s, d).forEach((id, r) => {
         page.drawText(fit(ctx.font, clean(ctx, nameOf(id) + mark(opts, id, d)), NAME, colW - 12), { x: x + 6, y: y - 11 - r * LH, size: NAME, font: ctx.font, color: INK });
       });
       if (i > 0) page.drawLine({ start: { x, y: y + 26 }, end: { x, y: y - rows * LH - 6 }, thickness: 0.5, color: LINE });
@@ -288,7 +290,7 @@ export async function crewDayPdf(plan: WeekPlan, siteId: string, day: number, wo
     y -= row;
   };
   drawHead();
-  const ids = s.days[day];
+  const ids = here(opts, s, day);
   const list = ids.map((id) => byId.get(id)).filter(Boolean) as Worker[];
   // drei leere Zeilen für Ergänzungen von Hand
   const rows: (Worker | null)[] = [...sortByGrade(list), null, null, null];

@@ -234,6 +234,43 @@ test('Beispiel-LV „Betoninstandsetzung“ (PDF): Klassen, Zulage, Folgeleistun
   await expect(md).toBeHidden();
   await waitSaved(page);
 
+  // zweite Schadstelle, groß: 7,22 × 5,43 = 39,20 m², 75 mm tief – und von Hand die falsche Position gewählt
+  // („bis 0,25 m²“): Hinweis im Dialog, sie zählt dort nicht, sondern bei der passenden Klasse
+  await pickTool(page, 'tool-rect');
+  await page.mouse.move(sb.x + 420, sb.y + 150);
+  await page.mouse.down();
+  await page.mouse.move(sb.x + 470, sb.y + 190, { steps: 4 });
+  await page.mouse.move(sb.x + 520, sb.y + 230, { steps: 4 });
+  await page.mouse.up();
+  await md.getByTestId('input-length').fill('7,22');
+  await md.getByTestId('input-width').fill('5,43');
+  await md.getByTestId('input-depth').fill('0,075');
+  await expect(md.getByTestId('position-mismatch')).toHaveCount(0);
+  await md.getByTestId('input-position-search').fill('01.14.20.01B');
+  await md.getByTestId('position-suggestion').first().click();
+  await expect(md.getByTestId('input-position')).toContainText('01.14.20.01B.');
+  await expect(md.getByTestId('position-mismatch')).toContainText('Größe bis 0,25 m² · Tiefe über 20 bis 40 mm');
+  // automatisch: Klasse „über 1,5 m²“, Zulage 4 Stufen (75 mm ab 40 mm), Reprofilierung, Haftbrücke
+  expect(await auto()).toEqual([
+    ['01.14.20.01E.', 1],
+    ['01.14.20.02A.', 4],
+    ['01.14.25.01B.', 1],
+    ['01.14.25.02A.', 1],
+  ]);
+  await md.getByTestId('damage-save').click();
+  await expect(md).toBeHidden();
+  await waitSaved(page);
+  // Aufmaß-Tabelle: gruppiert nach der Position, bei der die Schadstelle wirklich zählt – nicht nach der falschen
+  const tr = (no: number) => page.locator(`[data-testid="aufmass-row"][data-number="${no}"]`);
+  await expect(tr(2).getByTestId('row-position')).toHaveText('01.14.20.01E.');
+  await expect(tr(2).getByTestId('row-position-more')).toHaveText('+3');
+  await expect(tr(1).getByTestId('row-position')).toHaveText('01.14.20.01B.');
+  await expect(tr(1).getByTestId('row-position-more')).toHaveText('+4');
+  expect(await page.getByTestId('position-group').allTextContents()).toEqual([
+    expect.stringContaining('01.14.20.01B. Schadstelle bis 0,25 m²'),
+    expect.stringContaining('01.14.20.01E. Schadstelle über 1,5 m²'),
+  ]);
+
   // Excel: die Schadstelle steht bei allen fünf Positionen – Bewehrung mit ihren 1,20 lfm
   const dl = await catchDownload(page, () => excelExport(page, 'export-xlsx-plan'));
   const wb = readXlsx(await saveDownload(dl, 'schadstelle-a-bis-z.xlsx'));
@@ -250,10 +287,11 @@ test('Beispiel-LV „Betoninstandsetzung“ (PDF): Klassen, Zulage, Folgeleistun
   await page.goto(projectUrl);
   if (!(await page.getByTestId('lv-table').isVisible())) await page.getByTestId('lv-doc-tab').first().click();
   const measured = (no: string) => page.locator(`[data-testid="lv-row"][data-number="${no}"]`).getByTestId('lv-measured');
-  await expect(measured('01.14.20.01B.')).toHaveText('1,00'); // Stück
-  await expect(measured('01.14.20.02A.')).toHaveText('0,60'); // 3 Stufen × 0,20 m²
-  await expect(measured('01.14.25.01B.')).toHaveText('0,20');
-  await expect(measured('01.14.25.02A.')).toHaveText('0,20');
+  await expect(measured('01.14.20.01B.')).toHaveText('1,00'); // Stück – die große Schadstelle zählt hier nicht mit
+  await expect(measured('01.14.20.01E.')).toHaveText('39,20');
+  await expect(measured('01.14.20.02A.')).toHaveText('157,40'); // 3 × 0,20 + 4 × 39,20 m²
+  await expect(measured('01.14.25.01B.')).toHaveText('39,40');
+  await expect(measured('01.14.25.02A.')).toHaveText('39,40');
   await expect(measured('01.14.40.02A.')).toHaveText('1,20'); // lfm Bewehrung
   await expect(measured('01.14.10.02A.')).toHaveText('–'); // Sandstrahlen: keine Schadstellen-Position
 });

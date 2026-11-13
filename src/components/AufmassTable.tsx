@@ -29,6 +29,11 @@ interface Props {
   positionTitle?: (ref: string) => string | null;
   /** Reihenfolge der Positionen (z. B. LV-Reihenfolge); fehlt = nach Positionsnummer */
   positionOrder?: (ref: string) => number;
+  /**
+   * Positionen, bei denen eine Messung zählt – die erste ist die Hauptposition (Gruppe). Fehlt = nur die von Hand
+   * zugeordnete. Schadstellen zählen über die Regeln des LV oft bei mehreren Positionen (Klasse, Zulage, Folgeleistung).
+   */
+  positionsOf?: (d: Damage) => string[];
 }
 
 /** Spaltenkopf mit Einheit, z. B. „Länge (m)“ */
@@ -147,14 +152,16 @@ function columnsOf(type: MeasureType, list: Damage[]): TypeColumns {
  * Aufmaß-Tabellen: je Messart eine eigene Tabelle mit passenden Spalten und eigener Summe
  * (Fläche, Wand, Länge, Volumen, Stück, Schadstelle, Frei – nur die vorkommenden), darunter die Gesamtsummen.
  */
-export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, onEdit, onDelete, duplicates, components, positionLabel, positionTitle, positionOrder }: Props) {
+export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, onEdit, onDelete, duplicates, components, positionLabel, positionTitle, positionOrder, positionsOf }: Props) {
+  const refsOf = (d: Damage): string[] => (positionsOf ? positionsOf(d) : d.positionRef ? [d.positionRef] : []);
+  const mainRef = (d: Damage): string | null => refsOf(d)[0] ?? null;
   const selRef = useRef<HTMLTableRowElement>(null);
   useEffect(() => {
     selRef.current?.scrollIntoView({ block: 'nearest' });
   }, [selectedId]);
   // nach LV-Position gruppieren (Positionsnummer aufsteigend), Messungen ohne Position gesammelt am Ende
-  const grouped = !!positionTitle && rawRows.some((r) => r.damage.positionRef);
-  const groupKey = (r: AufmassRow) => (r.damage.positionRef && positionTitle?.(r.damage.positionRef) ? r.damage.positionRef : '');
+  const grouped = !!positionTitle && rawRows.some((r) => mainRef(r.damage));
+  const groupKey = (r: AufmassRow) => ((ref) => (ref && positionTitle?.(ref) ? ref : ''))(mainRef(r.damage));
   const sorted = grouped
     ? [...rawRows].sort((a, b) => {
         const ka = groupKey(a);
@@ -249,11 +256,23 @@ export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, on
                     <Icon name={rows.length && typeIcon ? typeIcon : isWall(r.damage) ? 'wall' : KIND_ICONS[kind]} size={16} />
                     <span className="sr-only">{measureLabel(r.damage)}</span>
                     {comp && !comp.deletedAt && <span className="component-tag">{comp.letter}</span>}
-                    {r.damage.positionRef && positionLabel?.(r.damage.positionRef) && (
-                      <span className="pos-tag" data-testid="row-position">
-                        {positionLabel(r.damage.positionRef)}
-                      </span>
-                    )}
+                    {(() => {
+                      // Hauptposition als Marke; zählt die Messung bei weiteren Positionen, steht „+N“ daneben
+                      const refs = refsOf(r.damage).filter((ref) => positionLabel?.(ref));
+                      if (!refs.length) return null;
+                      return (
+                        <>
+                          <span className="pos-tag" data-testid="row-position">
+                            {positionLabel!(refs[0])}
+                          </span>
+                          {refs.length > 1 && (
+                            <span className="pos-tag pos-more" title={`Zählt auch bei: ${refs.slice(1).map((ref) => positionLabel!(ref)).join(', ')}`} data-testid="row-position-more">
+                              +{refs.length - 1}
+                            </span>
+                          )}
+                        </>
+                      );
+                    })()}
                     {!!r.damage.photoIds?.length && (
                       <span className="photo-tag" title={`${r.damage.photoIds.length} ${r.damage.photoIds.length === 1 ? 'Foto' : 'Fotos'}`} data-testid="row-photos">
                         <Icon name="camera" size={14} />

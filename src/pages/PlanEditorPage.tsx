@@ -17,7 +17,7 @@ import { legendEntries, resolveLegend } from '../lib/legend';
 import { LegendBox, LegendDialog } from '../components/LegendDialog';
 import type { PhotoSite } from '../lib/types';
 import { positionGrouping, costCenterLabel, damagesOf, findPosition, lvDocLabel, lvDocsOf, plansOf, planTitle, positionRef, sumArea } from '../lib/aufmass';
-import { autoBookings } from '../lib/pos-rules';
+import { autoBookings, refMismatch } from '../lib/pos-rules';
 import { calibrationStatus, checkDeviation, checkError, formatCm, formatPercent, geometryMeasures, MAX_ERROR_M, planUnitsPerMeter } from '../lib/calibration';
 import { ViewMenu } from '../components/ViewMenu';
 import { isTouchDevice } from '../lib/platform';
@@ -493,23 +493,31 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const planRef = useRef<HTMLDivElement>(null);
   const drawingPlan = isDrawingPlan(plan);
   /** Gezeichnete Pläne: Planbearbeitung („draw“) oder Aufmaß („measure“) */
-  // Gezeichnete Pläne: zuletzt gewählter Modus je Plan (sonst „Plan bearbeiten“) – auch nach Neuladen bzw. Abgleich
+  // Beim Öffnen: Hat der gezeichnete Plan schon Messungen, öffnet er im Aufmaß – sonst in „Plan bearbeiten“.
+  // Der zuletzt gewählte Modus gilt nur kurz weiter (Neuladen bzw. Abgleich mitten in der Arbeit), nicht beim
+  // späteren Wiederöffnen.
   const modeKey = `editorMode:${planId}`;
+  const MODE_KEEP_MS = 10 * 60 * 1000;
   const initialMode = (): 'draw' | 'measure' => {
     if (!isDrawingPlan(data.plans[planId])) return 'measure';
+    let stored: 'draw' | 'measure' | null = null;
     try {
-      const m = localStorage.getItem(modeKey);
-      if (m === 'draw' || m === 'measure') return m;
+      const [m, t] = (localStorage.getItem(modeKey) ?? '').split('|');
+      if (m === 'draw' || m === 'measure') {
+        if (Date.now() - Number(t || 0) < MODE_KEEP_MS) return m;
+        stored = m;
+      }
     } catch {
       /* egal */
     }
-    return 'draw';
+    if (damagesOf(data, planId).length > 0) return 'measure';
+    return stored ?? 'draw';
   };
   const [mode, setModeState] = useState<'draw' | 'measure'>(initialMode);
   const setMode = (m: 'draw' | 'measure') => {
     setModeState(m);
     try {
-      localStorage.setItem(modeKey, m);
+      localStorage.setItem(modeKey, `${m}|${Date.now()}`);
     } catch {
       /* egal */
     }
@@ -2496,6 +2504,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           components={[]}
           positions={positionOptions}
           autoPositions={autoPositions}
+          positionMismatch={(ref, m) =>
+            refMismatch(data, { kind: 'damage', measureType: 'schadstelle', shape: { type: 'rect' }, area: m.area, depth: m.depth, count: m.count, rebar: m.rebar } as unknown as Damage, ref)
+          }
           onSave={save}
           onCancel={() => setDialog(null)}
           onDrawDeduction={k ? startDedDraw : undefined}
@@ -2519,6 +2530,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           components={[]}
           positions={positionOptions}
           autoPositions={autoPositions}
+          positionMismatch={(ref, m) =>
+            refMismatch(data, { kind: 'damage', measureType: 'schadstelle', shape: { type: 'rect' }, area: m.area, depth: m.depth, count: m.count, rebar: m.rebar } as unknown as Damage, ref)
+          }
           onSave={save}
           onCancel={() => setDialog(null)}
           onDelete={() => void removeDamage(dialogDamage)}

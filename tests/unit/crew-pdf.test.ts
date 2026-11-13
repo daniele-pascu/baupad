@@ -51,7 +51,7 @@ describe('PDF der Arbeitereinteilung', () => {
     expect(t).toContain('Cosic Ivan');
   });
 
-  it('Uhrzeiten abwählbar; Urlaub/Krank (von–bis) beim Namen gekennzeichnet', async () => {
+  it('Uhrzeiten abwählbar; krank beim Namen gekennzeichnet, Urlaub nicht unter der Baustelle', async () => {
     const absent = (id: string, d: number) => (id === 'a' && d === 2 ? ('krank' as const) : id === 'c' && d === 4 ? ('urlaub' as const) : null);
     const f = await crewWeekPdf(week(), workers, DEFAULT_WORK_TIMES, { showTimes: false, absent });
     expect(await sizes(f.data)).toEqual([{ width: 841.89, height: 595.28 }]);
@@ -60,7 +60,9 @@ describe('PDF der Arbeitereinteilung', () => {
     expect(t).not.toContain('07:00');
     expect(t).toContain('(krank)');
     expect(t).toContain('Krank:');
-    expect(t).toContain('(Urlaub)');
+    // Urlaub: nicht mehr unter der Baustelle (kein „(Urlaub)“ beim Namen), dafür in der Liste „Urlaub:“
+    expect(t).not.toContain('(Urlaub)');
+    expect(t).toContain('Urlaub:');
   });
 
   it('Kopf oben links: Firmenlogo, sonst Firmenname', async () => {

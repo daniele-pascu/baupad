@@ -12140,3 +12140,13 @@ html[data-theme='dark'] .crew-search {
 .rule-fields[hidden] {
   display: none;
 }
+/* Aufmaß-Tabelle: Messung zählt bei weiteren Positionen (+N) */
+.pos-tag.pos-more {
+  margin-left: 3px;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+.position-mismatch {
+  display: block;
+  margin-top: 6px;
+}

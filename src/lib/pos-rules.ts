@@ -194,16 +194,42 @@ export function autoBookings(data: Pick<ProjectState, 'lvDocs'>, d: Damage): Boo
   return out;
 }
 
+const posOf = (data: Pick<ProjectState, 'lvDocs'>, ref: string) => {
+  const [docId, posId] = ref.split(':');
+  const doc = data.lvDocs?.[docId];
+  const pos = doc && !doc.deletedAt ? doc.positions.find((p) => p.id === posId) : undefined;
+  return doc && pos ? { doc, pos } : null;
+};
+
+/**
+ * Passt die Position zu dieser Messung? Positionen ohne bestätigte Regel passen immer (Zuordnung von Hand).
+ * Hat die Position eine Regel, muss eine Schadstelle sie erfüllen – eine 39 m² große Schadstelle zählt nicht bei
+ * „bis 0,25 m²“, auch wenn sie dort von Hand zugeordnet wurde. Liefert bei Nichtpassen die Regel in Worten.
+ */
+export function refMismatch(data: Pick<ProjectState, 'lvDocs'>, d: Damage, ref: string): string | null {
+  if (typeOf(d) !== 'schadstelle') return null;
+  const f = posOf(data, ref);
+  const r = f && activeRule(f.pos);
+  if (!f || !r) return null;
+  return ruleFactor(openTop(f.doc, f.pos, r), d, stepStart(f.doc, f.pos)) > 0 ? null : ruleText(r, stepStart(f.doc, f.pos));
+}
+
 /** Faktor, mit dem eine Messung bei einer Position zählt: von Hand zugeordnet (1) bzw. automatisch (Regel); 0 = gar nicht */
 export function bookingFactor(data: Pick<ProjectState, 'lvDocs'>, d: Damage, ref: string): number {
   const auto = autoBookings(data, d).find((b) => b.ref === ref);
   if (auto) return auto.factor;
-  return d.positionRef === ref ? 1 : 0;
+  // von Hand zugeordnet – zählt nur, wenn die Regel der Position (falls vorhanden) zur Schadstelle passt
+  return d.positionRef === ref && !refMismatch(data, d, ref) ? 1 : 0;
 }
 
-/** Zählt die Messung bei irgendeiner Position (von Hand oder automatisch)? */
-export const isBooked = (data: Pick<ProjectState, 'lvDocs'>, d: Damage, exists: (ref: string) => boolean): boolean =>
-  (!!d.positionRef && exists(d.positionRef)) || autoBookings(data, d).length > 0;
+/**
+ * Alle Positionen, bei denen die Messung zählt: zuerst die von Hand zugeordnete (wenn sie passt), dann die
+ * automatischen in LV-Reihenfolge. Die erste ist die Hauptposition (Gruppe in der Aufmaß-Tabelle).
+ */
+export function positionRefs(data: Pick<ProjectState, 'lvDocs'>, d: Damage): string[] {
+  const manual = d.positionRef && posOf(data, d.positionRef) && !refMismatch(data, d, d.positionRef) ? [d.positionRef] : [];
+  return [...new Set([...manual, ...autoBookings(data, d).map((b) => b.ref)])];
+}
 
 /** Messungen, die bei einer Position zählen – von Hand zugeordnet oder automatisch über die Regel – mit ihrem Faktor */
 export function bookedForPosition(data: ProjectState, ref: string): { d: Damage; factor: number; auto: boolean }[] {

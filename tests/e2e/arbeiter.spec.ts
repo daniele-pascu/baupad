@@ -526,7 +526,7 @@ test('Baustelle pausieren (Standby): Arbeiter werden frei, läuft ohne Arbeiter 
   await expect(site(page, 'Baustelle A')).toContainText('abgeschlossen');
 });
 
-test('Urlaub und Krank von–bis über mehrere Wochen: bleibt eingeteilt, wird markiert, danach wieder normal', async ({ page }) => {
+test('Urlaub und Krank von–bis über mehrere Wochen: im Urlaub nicht unter der Baustelle, krank markiert, danach wieder normal', async ({ page }) => {
   await freshStart(page);
   await page.goto('./#/arbeitereinteilung');
   await page.getByTestId('week-date').fill('2026-10-26');
@@ -568,10 +568,10 @@ test('Urlaub und Krank von–bis über mehrere Wochen: bleibt eingeteilt, wird m
   await expect(abs.getByTestId('absence-row')).toHaveCount(1);
   await abs.getByRole('button', { name: 'Schließen' }).first().click();
 
-  // bleibt eingeteilt, an den Tagen markiert; nichts „offen“
-  for (const d of [0, 1, 2, 3, 4]) await expect(chips(page, 'Baustelle A', d)).toHaveText(['Max', 'Peter']);
-  await expect(chips(page, 'Baustelle A', 1).filter({ hasText: 'Max' })).not.toHaveClass(/away/);
-  await expect(chips(page, 'Baustelle A', 2).filter({ hasText: 'Max' })).toHaveClass(/away/);
+  // Urlaub: an den Urlaubstagen steht Max nicht unter der Baustelle (er bleibt aber eingeteilt und ist danach
+  // von selbst wieder da); krank: bleibt sichtbar und wird markiert; nichts „offen“
+  for (const d of [0, 1]) await expect(chips(page, 'Baustelle A', d)).toHaveText(['Max', 'Peter']);
+  for (const d of [2, 3, 4]) await expect(chips(page, 'Baustelle A', d)).toHaveText(['Peter']);
   await expect(chips(page, 'Baustelle A', 3).filter({ hasText: 'Peter' })).toHaveClass(/sick/);
   await expect(page.getByTestId('vacation-chip')).toHaveText(['Max · Mi–So']); // Urlaub geht übers Wochenende
   await expect(page.getByTestId('sick-chip')).toHaveText(['Peter · Do, Fr']);
@@ -585,9 +585,8 @@ test('Urlaub und Krank von–bis über mehrere Wochen: bleibt eingeteilt, wird m
 
   // nächste Woche: Max Mo–Mi Urlaub, ab Donnerstag wieder normal auf seiner Baustelle
   await page.getByTestId('week-next').click();
-  for (const d of [0, 4]) await expect(chips(page, 'Baustelle A', d)).toHaveText(['Max', 'Peter']);
-  await expect(chips(page, 'Baustelle A', 2).filter({ hasText: 'Max' })).toHaveClass(/away/);
-  await expect(chips(page, 'Baustelle A', 3).filter({ hasText: 'Max' })).not.toHaveClass(/away/);
+  for (const d of [0, 1, 2]) await expect(chips(page, 'Baustelle A', d)).toHaveText(['Peter']);
+  for (const d of [3, 4]) await expect(chips(page, 'Baustelle A', d)).toHaveText(['Max', 'Peter']);
   await expect(page.getByTestId('vacation-chip')).toHaveText(['Max · Mo–Mi']);
   await expect(page.getByTestId('crew-sick')).toHaveCount(0);
 
@@ -597,7 +596,7 @@ test('Urlaub und Krank von–bis über mehrere Wochen: bleibt eingeteilt, wird m
   await expect(page.locator('.toast', { hasText: 'Urlaub gelöscht' })).toHaveCount(1);
   await abs.getByRole('button', { name: 'Schließen' }).first().click();
   await expect(page.getByTestId('crew-vacations')).toHaveCount(0);
-  await expect(chips(page, 'Baustelle A', 2).filter({ hasText: 'Max' })).not.toHaveClass(/away/);
+  await expect(chips(page, 'Baustelle A', 2)).toHaveText(['Max', 'Peter']); // wieder unter der Baustelle
 });
 
 test('Sa/So wie jeder andere Tag: Wochenend-Partie einteilen, Umsetzen nimmt Sa/So mit; Arbeitszeit nur Info', async ({ page }) => {

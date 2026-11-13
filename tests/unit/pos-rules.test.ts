@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { autoBookings, detectRule, ruleFactor, ruleText, stepStart } from '../../src/lib/pos-rules';
+import { autoBookings, bookingFactor, detectRule, positionRefs, refMismatch, ruleFactor, ruleText, stepStart } from '../../src/lib/pos-rules';
 import type { Damage, LvDocument, LvPosition, PosRule } from '../../src/lib/types';
 
 const detect = (shortText: string, longText = '') => detectRule({ shortText, longText });
@@ -126,6 +126,23 @@ describe('automatische Zuordnung im Projekt', () => {
     ]);
     // die kleinere Tiefenklasse bleibt geschlossen
     expect(autoBookings(data, dmg(0.2, 21)).map((b) => b.ref)).toEqual(['lv:klein40']);
+  });
+  it('von Hand zugeordnet: zählt nur, wenn die Regel der Position passt', () => {
+    // 39,20 m² von Hand bei „bis 0,25 m²“ → passt nicht, zählt dort nicht
+    const big = dmg(39.2, 30, { positionRef: 'lv:klein40' });
+    expect(refMismatch(data, big, 'lv:klein40')).toBe('Größe bis 0,25 m² · Tiefe über 20 bis 40 mm');
+    expect(bookingFactor(data, big, 'lv:klein40')).toBe(0);
+    expect(positionRefs(data, big)).toEqual([]); // keine Klasse für diese Größe im Test-LV
+    // passende Zuordnung von Hand bleibt Hauptposition
+    const ok = dmg(0.2, 30, { positionRef: 'lv:klein40' });
+    expect(refMismatch(data, ok, 'lv:klein40')).toBeNull();
+    expect(positionRefs(data, ok)).toEqual(['lv:klein40']);
+    // Position ohne Regel: Zuordnung von Hand gilt immer
+    const sand = dmg(39.2, 30, { positionRef: 'lv:sand' });
+    expect(bookingFactor(data, sand, 'lv:sand')).toBe(1);
+    expect(positionRefs(data, sand)).toEqual(['lv:sand']);
+    // andere Messarten sind von den Regeln nicht betroffen
+    expect(bookingFactor(data, dmg(39.2, 30, { positionRef: 'lv:klein40', measureType: 'flaeche', kind: 'area' }), 'lv:klein40')).toBe(1);
   });
   it('nur Schadstellen; abgewählte Positionen zählen nicht', () => {
     expect(autoBookings(data, dmg(0.2, 15, { measureType: 'flaeche', kind: 'area' }))).toEqual([]);
