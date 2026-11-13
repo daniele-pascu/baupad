@@ -772,7 +772,10 @@ test('Zeitaufzeichnung per Finger: Tag erfassen und Monatszettel passen auf den 
   await page.goto('./baupad/zeitaufzeichnung');
   await expect(page.getByTestId('times-title')).toHaveText('Zeitaufzeichnung');
   await page.getByTestId('worktimes-dialog').getByTestId('worktimes-later').tap();
-  await page.getByTestId('times-add-worker').selectOption({ label: 'Max Muster' });
+  await page.getByTestId('times-pick').tap();
+  await page.locator('[data-testid="times-pick-worker"][data-worker="Max Muster"] input').check();
+  await noHorizontalScroll(page);
+  await page.getByTestId('times-pick-save').tap();
   const row = page.locator('[data-testid="times-day-row"][data-name="Max Muster"]');
   await row.getByTestId('times-site').selectOption({ label: 'Andere Baustelle …' });
   await page.getByTestId('prompt-dialog').locator('input').fill('Halle 3');

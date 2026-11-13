@@ -23,7 +23,7 @@ test('Aufmaß & Abrechnung: Projekt in der Liste bearbeiten (alle Angaben, gilt 
   await expect(card).toContainText('Muster GmbH');
 
   // Materialverwaltung: gleiche Anzeige – Kostenstelle vor dem Namen, darunter Adresse und Auftraggeber
-  await page.goto('./baupad/materialverwaltung');
+  await page.goto('./baupad/materialverwaltung?t=baustellen');
   const site = page.getByTestId('material-site').first();
   await expect(site.locator('.proj-prefix')).toHaveText('4711');
   await expect(site.locator('.proj-title')).toContainText('Wohnanlage Sonnenhof');

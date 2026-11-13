@@ -117,6 +117,13 @@ export function tastenTests() {
       await pruefe(page, `Dialog ${p} (${id})`, out);
       await page.keyboard.press('Escape');
     }
+    // Zeitaufzeichnung: „+ Arbeiter“ (zuerst die einmalige Frage nach den Arbeitszeiten schließen)
+    await page.goto('./baupad/zeitaufzeichnung');
+    await page.getByTestId('worktimes-later').click();
+    await page.getByTestId('times-pick').click();
+    await expect(page.getByTestId('times-pick-dialog')).toBeVisible();
+    await pruefe(page, 'Dialog zeitaufzeichnung (times-pick)', out);
+    await page.keyboard.press('Escape');
     expect(out, out.join('\n')).toEqual([]);
   });
 

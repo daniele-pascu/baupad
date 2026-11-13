@@ -192,7 +192,7 @@ test('Arbeitszeiten des Unternehmens einmalig festlegen: Vorschlag je Tag, Abwei
   await expect(page.getByTestId('worktimes-dialog').locator('[data-day="1"]').getByTestId('worktimes-from')).toHaveValue('06:30');
 });
 
-test('Meine Arbeiter: Polier wählt mit Suche aus, „Tag erfassen“ zeigt nur diese; gemerkt; ohne Auswahl wieder alle', async ({ page }) => {
+test('Meine Arbeiter: mit Suche auswählen oder nur mit Namen neu anlegen, „Tag erfassen“ zeigt nur diese; gemerkt; Monat ohne die ganze Personalliste', async ({ page }) => {
   await setup(page);
   await page.goto('./baupad/zeitaufzeichnung');
   await page.getByTestId('worktimes-dialog').getByTestId('worktimes-later').click();
@@ -206,14 +206,14 @@ test('Meine Arbeiter: Polier wählt mit Suche aus, „Tag erfassen“ zeigt nur 
   await pd.getByTestId('times-pick-search').fill('');
   await expect(pd.getByTestId('times-pick-worker')).toHaveCount(2);
   await pd.getByTestId('times-pick-save').click();
-  await expect(page.getByTestId('times-pick')).toHaveText(/Meine Arbeiter \(1\)/);
+  await expect(page.getByTestId('times-mine-chip')).toHaveText(['Max']);
   await expect(page.getByTestId('times-day-row')).toHaveCount(1);
   await expect(row(page, 'Max')).toBeVisible();
   // Tag ohne Einteilung (Samstag): gewählter Arbeiter steht trotzdem da – nur ausfüllen, wenn er bei mir war
   await page.getByTestId('times-date').fill('2026-10-31');
   await expect(page.getByTestId('times-day-row')).toHaveCount(1);
   await page.reload();
-  await expect(page.getByTestId('times-pick')).toHaveText(/Meine Arbeiter \(1\)/);
+  await expect(page.getByTestId('times-mine-chip')).toHaveText(['Max']);
   await page.getByTestId('worktimes-dialog').getByTestId('worktimes-later').click();
   // keine Auswahl → wieder alle des Tages
   await page.getByTestId('times-pick').click();
@@ -221,6 +221,35 @@ test('Meine Arbeiter: Polier wählt mit Suche aus, „Tag erfassen“ zeigt nur 
   await pd.getByTestId('times-pick-save').click();
   await page.getByTestId('times-date').fill('2026-10-28');
   await expect(page.getByTestId('times-day-row')).toHaveCount(2);
+  await expect(page.getByTestId('times-mine-chip')).toHaveCount(0);
+  // Monat: noch keine Stunden → niemand, nicht die ganze Personalliste
+  await expect(page.getByTestId('times-person')).toHaveCount(0);
+  await expect(page.getByTestId('times-month-empty')).toBeVisible();
+
+  // neuen Arbeiter nur mit Namen anlegen – sofort angehakt; gleicher Name nochmal wird übernommen, nicht doppelt angelegt
+  await page.getByTestId('times-pick').click();
+  await pd.getByTestId('times-new-first').fill('Anna');
+  await pd.getByTestId('times-new-last').fill('Neu');
+  await pd.getByTestId('times-new-add').click();
+  await expect(pd.locator('[data-testid="times-pick-worker"][data-worker="Neu Anna"] input')).toBeChecked();
+  await pd.getByTestId('times-new-first').fill('anna');
+  await pd.getByTestId('times-new-last').fill('neu');
+  await expect(pd.getByTestId('times-new')).toContainText('gibt es schon');
+  await pd.getByTestId('times-new-add').click();
+  await expect(pd.getByTestId('times-pick-worker')).toHaveCount(3);
+  await pd.getByTestId('times-pick-save').click();
+  // steht in der Leiste, in „Tag erfassen“ und im Monat
+  await expect(page.getByTestId('times-mine-chip')).toHaveText(['Neu Anna']);
+  await expect(page.getByTestId('times-day-row')).toHaveCount(1);
+  await expect(row(page, 'Neu Anna')).toBeVisible();
+  await expect(page.getByTestId('times-person')).toHaveCount(1);
+  await expect(page.locator('[data-testid="times-person"][data-name="Neu Anna"]')).toBeVisible();
+  // aus der Leiste nehmen → wieder die heute Eingeteilten; der neue Arbeiter bleibt in der Personalliste
+  await page.getByTestId('times-mine-remove').click();
+  await expect(page.getByTestId('times-mine-chip')).toHaveCount(0);
+  await expect(page.getByTestId('times-day-row')).toHaveCount(2);
+  await page.goto('./baupad/arbeitereinteilung/personal');
+  await expect(page.getByTestId('worker-row').filter({ hasText: 'Anna' })).toHaveCount(1);
 });
 
 /** Kontext aus der Datenbank nachbauen (Rolle, Projekte je Werkzeug) */
