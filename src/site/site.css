@@ -2100,3 +2100,742 @@
 /* Logo-Zeichen links vom Schriftzug PAD Software (Kopf- und Fußzeile) */
 .ps-wordmark { align-items: center; }
 .ps-wordmark .wm-mark { display: block; width: auto; height: 1.5em; margin-right: 4px; flex: none; }
+
+/* =====================================================================
+   Startseite – Bewegung beim Scrollen
+   Kopf mit Plan-Raster in der Tiefe, Kennzahlen, BauPad als Gebäude, Können, Ablauf, Laufband, Unternehmen.
+   Ohne Bewegung (System-Einstellung) steht alles fertig da.
+   ===================================================================== */
+
+/* ───────────── Kopf ───────────── */
+.ps-hero-home {
+  display: flex;
+  align-items: center;
+  min-height: calc(100vh - 68px);
+  min-height: calc(100svh - 68px);
+  padding: clamp(48px, 7vw, 88px) 0 clamp(36px, 5vw, 64px);
+  overflow: hidden;
+  z-index: auto;
+}
+.ps-hero-home::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 70% 45% at 50% 100%, rgba(255, 255, 255, 0.1), transparent 70%);
+  pointer-events: none;
+}
+.ps-hero-home .ps-hero-inner {
+  max-width: var(--ps-wrap);
+  padding-bottom: 0;
+  transform: translate3d(0, calc(var(--hp, 0) * 70px), 0);
+  opacity: calc(1 - var(--hp, 0) * 1.35);
+}
+.ps-hero-home .ps-hero-lead {
+  max-width: 520px;
+}
+.ps-floor {
+  position: absolute;
+  left: -45%;
+  right: -45%;
+  bottom: -2px;
+  height: 1600px;
+  overflow: hidden;
+  pointer-events: none;
+  transform: perspective(700px) rotateX(55deg);
+  transform-origin: 50% 100%;
+  -webkit-mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, 0.55) 30%, transparent 78%);
+  mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, 0.55) 30%, transparent 78%);
+}
+.ps-floor i {
+  position: absolute;
+  inset: -96px 0 0;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.3) 2px, transparent 2px), linear-gradient(90deg, rgba(255, 255, 255, 0.3) 2px, transparent 2px);
+  background-size: 96px 96px;
+  background-position: 50% calc(var(--hp, 0) * 480px);
+  animation: ps-floor 7s linear infinite;
+  will-change: transform;
+}
+@keyframes ps-floor {
+  to {
+    transform: translate3d(0, 96px, 0);
+  }
+}
+.ps-scrollcue {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  margin-top: clamp(24px, 5vh, 52px);
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+.ps-scrollcue:hover {
+  color: #fff;
+}
+.ps-scrollcue span {
+  width: 1.5px;
+  height: 34px;
+  background: linear-gradient(#fff, rgba(255, 255, 255, 0));
+  transform-origin: 50% 0;
+  animation: ps-cue 1.9s var(--ps-ease) infinite;
+}
+@keyframes ps-cue {
+  0% {
+    transform: scaleY(0);
+    opacity: 1;
+  }
+  60% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleY(1);
+    opacity: 0;
+  }
+}
+
+/* ───────────── Kennzahlen ───────────── */
+.ps-stats {
+  padding: clamp(36px, 5vw, 64px) 0;
+  border-bottom: 1px solid var(--ps-line);
+}
+.ps-stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0 auto;
+  list-style: none;
+}
+.ps-stats-row li {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 2px clamp(12px, 2.4vw, 32px);
+  border-left: 1px solid var(--ps-line);
+}
+.ps-stats-row li:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+.ps-stats-row strong {
+  font-size: clamp(3rem, 7vw, 5.6rem);
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  line-height: 0.95;
+  font-variant-numeric: tabular-nums;
+}
+.ps-stats-row span {
+  max-width: 17ch;
+  color: var(--ps-ink-2);
+  font-size: 0.98rem;
+  line-height: 1.35;
+}
+
+/* ───────────── BauPad als Gebäude ───────────── */
+.ps-build {
+  position: relative;
+  padding: clamp(64px, 9vw, 110px) 0;
+  overflow: clip;
+  background-color: #0a0a0b;
+  background-image: radial-gradient(ellipse 55% 60% at 74% 55%, #1e1e22 0%, rgba(10, 10, 11, 0) 70%);
+  color: #fff;
+}
+.ps-build .ps-h2 {
+  color: #fff;
+}
+.ps-build-logo {
+  display: block;
+  width: 59px;
+  height: 56px;
+  margin-bottom: 18px;
+}
+.ps-build-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+  grid-template-areas: 'head stage' 'tools stage';
+  column-gap: clamp(24px, 4vw, 64px);
+  align-items: center;
+}
+.ps-build-head {
+  grid-area: head;
+  align-self: end;
+}
+.ps-build-head .ps-lead {
+  margin-bottom: 22px;
+}
+.ps-build-head .ps-badge {
+  margin-left: 6px;
+  vertical-align: 2px;
+  color: #ffd98a;
+}
+.ps-build-tools {
+  grid-area: tools;
+  align-self: start;
+}
+.ps-build-stage {
+  grid-area: stage;
+}
+.ps-build-stage svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: min(760px, calc(100vh - 110px));
+  margin: 0 auto;
+  overflow: visible;
+  font-family: var(--ps-font);
+}
+.ps-build-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ps-build-list a {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 12px;
+  min-height: 44px;
+  padding: 5px 12px 5px 6px;
+  border-radius: 12px;
+  color: #fff;
+  text-decoration: none;
+  transition: background 0.2s ease, opacity 0.45s ease;
+}
+.ps-build-ico {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: var(--c);
+  color: #fff;
+  transition: filter 0.45s ease, transform 0.45s var(--ps-ease);
+}
+.ps-build-list strong {
+  font-size: 1.02rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+.ps-build-list small {
+  display: none;
+  grid-column: 2 / 4;
+  grid-row: 2;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+.ps-build-list em {
+  grid-column: 3;
+  grid-row: 1;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.78rem;
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+}
+.ps-build.is-live .ps-build-list li:not(.is-on) a {
+  opacity: 0.42;
+}
+.ps-build.is-live .ps-build-list li:not(.is-on) .ps-build-ico {
+  filter: grayscale(1);
+  transform: scale(0.86);
+}
+.ps-build .ps-build-list li.is-hot a,
+.ps-build .ps-build-list a:hover {
+  background: rgba(255, 255, 255, 0.08);
+  opacity: 1;
+}
+.ps-build-cap {
+  min-height: 2.9em;
+  max-width: 46ch;
+  margin: 14px 0 0;
+  padding-left: 50px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+.ps-build-tools .ps-actions {
+  margin-top: 18px;
+}
+/* Zeichnung */
+.b-pad {
+  fill: #111113;
+  stroke: rgba(255, 255, 255, 0.16);
+  stroke-width: 1;
+}
+.b-grid line {
+  stroke: rgba(255, 255, 255, 0.07);
+  stroke-width: 1;
+}
+.b-shadow {
+  fill: #000;
+}
+.bf-top {
+  fill: #3a3a41;
+  stroke: rgba(255, 255, 255, 0.24);
+  stroke-width: 0.8;
+  stroke-linejoin: round;
+}
+.bf-left {
+  fill: #17171a;
+  stroke: rgba(255, 255, 255, 0.14);
+  stroke-width: 0.8;
+  stroke-linejoin: round;
+  transition: fill 0.25s ease;
+}
+.bf-right {
+  fill: #25252a;
+  stroke: rgba(255, 255, 255, 0.14);
+  stroke-width: 0.8;
+  stroke-linejoin: round;
+  transition: fill 0.25s ease;
+}
+.bf-band-l {
+  fill: #2e2e34;
+}
+.bf-band-r {
+  fill: #44444c;
+}
+.bf-win {
+  fill: var(--c);
+  opacity: 0.92;
+  transition: fill 0.5s ease, opacity 0.5s ease;
+  transition-delay: calc(var(--j) * 70ms);
+}
+.ps-build.is-live .bf:not(.is-on) .bf-win {
+  fill: #fff;
+  opacity: 0.07;
+  transition-delay: 0ms;
+}
+.bf-sign {
+  color: var(--c);
+  transition: opacity 0.5s ease;
+}
+.bf-sign text {
+  fill: #fff;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.ps-build.is-live .bf:not(.is-on) .bf-sign {
+  opacity: 0.45;
+}
+.bf.is-hot .bf-left {
+  fill: #26262b;
+}
+.bf.is-hot .bf-right {
+  fill: #38383f;
+}
+.b-crane line,
+.b-crane path,
+.b-crane rect,
+.b-crane polygon {
+  fill: none;
+  stroke: #d6d6dc;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.b-crane .bc-thin {
+  stroke: rgba(214, 214, 220, 0.6);
+  stroke-width: 0.9;
+}
+.b-crane .bc-weight,
+.b-crane .bc-base {
+  fill: #3a3a41;
+}
+.b-crane .bc-cab {
+  fill: #0a0a0b;
+}
+.b-crane .bc-trolley,
+.b-crane .bc-hook rect {
+  fill: #d6d6dc;
+}
+.b-crane .bc-cable {
+  stroke-width: 1.2;
+}
+.b-crane .bc-sling {
+  stroke: rgba(214, 214, 220, 0.75);
+  stroke-width: 0.9;
+  transition: opacity 0.2s ease;
+}
+.b-dim line {
+  stroke: rgba(255, 255, 255, 0.55);
+  stroke-width: 1;
+}
+.b-dim .bd-ext {
+  stroke: rgba(255, 255, 255, 0.3);
+  stroke-dasharray: 3 3;
+}
+.b-dim text {
+  fill: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+/* PC und Tablet quer: die Bühne bleibt stehen, während das Gebäude wächst */
+@media (min-width: 901px) and (min-height: 760px) and (prefers-reduced-motion: no-preference) {
+  .ps-build {
+    height: 340vh;
+    padding: 0;
+  }
+  .ps-build-pin {
+    position: sticky;
+    top: 68px;
+    display: flex;
+    align-items: center;
+    height: calc(100vh - 68px);
+  }
+}
+
+/* niedrige Bildschirme (Tablet quer, kleine Laptops): Bühne kompakter, damit nichts angeschnitten wird */
+@media (min-width: 901px) and (min-height: 760px) and (max-height: 880px) and (prefers-reduced-motion: no-preference) {
+  .ps-build-logo {
+    width: 42px;
+    height: 40px;
+    margin-bottom: 12px;
+  }
+  .ps-build .ps-h2 {
+    margin-bottom: 12px;
+    font-size: clamp(1.8rem, 3.3vw, 2.4rem);
+  }
+  .ps-build-head .ps-eyebrow {
+    margin-bottom: 10px;
+  }
+  .ps-build-head .ps-lead {
+    margin-bottom: 14px;
+    font-size: 1.02rem;
+    line-height: 1.5;
+  }
+  .ps-build-list a {
+    min-height: 40px;
+    padding-top: 3px;
+    padding-bottom: 3px;
+  }
+  .ps-build-cap {
+    margin-top: 10px;
+  }
+  .ps-build-tools .ps-actions {
+    margin-top: 12px;
+  }
+}
+
+/* ───────────── Was wir können ───────────── */
+.ps-can-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  perspective: 1200px;
+}
+.ps-can-item.ps-reveal:not(.is-in) {
+  transform: translateY(46px) rotateX(16deg);
+  transform-origin: 50% 100%;
+}
+.ps-can-card {
+  position: relative;
+  height: 100%;
+  padding: 26px 24px 28px;
+  overflow: hidden;
+  border: 1px solid var(--ps-line);
+  border-radius: var(--ps-radius);
+  background: #fff;
+  transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transition: transform 0.35s var(--ps-ease), box-shadow 0.35s ease;
+}
+.ps-can-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at var(--gx, 50%) var(--gy, 0%), rgba(10, 10, 11, 0.07), transparent 55%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+@media (hover: hover) {
+  .ps-can-card:hover {
+    box-shadow: 0 24px 50px rgba(10, 10, 11, 0.12);
+  }
+  .ps-can-card:hover::after {
+    opacity: 1;
+  }
+}
+.ps-can-card h3 {
+  margin: 0 0 8px;
+  font-size: 1.18rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+.ps-can-card p {
+  margin: 0;
+  color: var(--ps-ink-2);
+  font-size: 0.98rem;
+  line-height: 1.55;
+}
+.ps-glyph {
+  display: block;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 22px;
+  fill: none;
+  stroke: var(--ps-ink);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ps-glyph .fill {
+  fill: #fff;
+}
+.ps-glyph > * {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset 1.2s var(--ps-ease);
+  transition-delay: calc(var(--d, 0ms) + 250ms);
+}
+.ps-can-item.is-in .ps-glyph > * {
+  stroke-dashoffset: 0;
+}
+
+/* ───────────── Ablauf ───────────── */
+.ps-flow {
+  --p: 1;
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(20px, 4vw, 56px);
+  margin: 0;
+  padding: 52px 0 0;
+  list-style: none;
+}
+.ps-flow-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 15px;
+  height: 2px;
+  background: var(--ps-line);
+}
+.ps-flow-line i {
+  position: absolute;
+  inset: 0;
+  background: var(--ps-ink);
+  transform: scaleX(var(--p));
+  transform-origin: 0 50%;
+}
+.ps-flow-step {
+  --on: clamp(0, calc((var(--p) - var(--t)) * 7), 1);
+  position: relative;
+  opacity: calc(0.3 + 0.7 * var(--on));
+  transform: translateY(calc((1 - var(--on)) * 16px));
+}
+.ps-flow-dot {
+  position: absolute;
+  top: -52px;
+  left: 0;
+  z-index: 0;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--ps-ink);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--ps-ink);
+  color: color-mix(in srgb, #fff calc(var(--on) * 100%), var(--ps-ink));
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+.ps-flow-dot::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: 50%;
+  background: var(--ps-ink);
+  opacity: var(--on);
+}
+.ps-flow-step h3 {
+  margin: 0 0 8px;
+  font-size: clamp(1.3rem, 2.4vw, 1.7rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+.ps-flow-step p {
+  max-width: 30ch;
+  margin: 0;
+  color: var(--ps-ink-2);
+  line-height: 1.55;
+}
+
+/* ───────────── Laufband und Unternehmen ───────────── */
+.ps-marquee {
+  --p: 0.5;
+  padding-top: clamp(48px, 7vw, 96px);
+  overflow: hidden;
+  background: var(--ps-mist);
+}
+.ps-marquee > div {
+  display: flex;
+  gap: 0.3em;
+  width: max-content;
+  font-size: clamp(3.2rem, 11vw, 9.5rem);
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  line-height: 1.05;
+  white-space: nowrap;
+  transform: translate3d(calc(var(--p) * -16% + 1%), 0, 0);
+  will-change: transform;
+}
+.ps-marquee span {
+  color: var(--ps-ink);
+}
+.ps-marquee span.is-line {
+  color: transparent;
+  -webkit-text-stroke: 1.5px var(--ps-ink);
+}
+.ps-marquee span::after {
+  content: '·';
+  margin-left: 0.3em;
+  color: var(--ps-steel);
+  -webkit-text-stroke: 0;
+}
+.ps-company {
+  padding-top: clamp(32px, 5vw, 64px);
+}
+.ps-company-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: clamp(28px, 6vw, 88px);
+  align-items: start;
+}
+.ps-company .ps-head {
+  margin-bottom: 0;
+}
+.ps-promises {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ps-promises li {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 8px;
+  padding: 20px 0;
+  border-top: 1px solid var(--ps-line);
+}
+.ps-promises li:last-child {
+  border-bottom: 1px solid var(--ps-line);
+}
+.ps-promises li > span {
+  padding-top: 4px;
+  color: var(--ps-ink-3);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+.ps-promises h3 {
+  margin: 0 0 4px;
+  font-size: 1.12rem;
+  font-weight: 750;
+  letter-spacing: -0.015em;
+}
+.ps-promises p {
+  margin: 0;
+  color: var(--ps-ink-2);
+  line-height: 1.5;
+}
+
+/* ───────────── Startseite: kleinere Geräte ───────────── */
+@media (max-width: 1080px) {
+  .ps-can-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 900px) {
+  .ps-hero-home {
+    min-height: calc(100vh - 60px);
+    min-height: calc(100svh - 60px);
+  }
+  .ps-build-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'head' 'stage' 'tools';
+  }
+  .ps-build-stage svg {
+    max-width: 560px;
+    max-height: none;
+  }
+  .ps-build-list {
+    gap: 4px;
+    margin-top: 8px;
+  }
+  .ps-build-list a {
+    row-gap: 2px;
+    padding: 9px 12px 9px 6px;
+  }
+  .ps-build-list small {
+    display: block;
+  }
+  .ps-build-cap {
+    display: none;
+  }
+  .ps-company-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 760px) {
+  .ps-stats-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 28px;
+  }
+  .ps-stats-row li:nth-child(odd) {
+    padding-left: 0;
+    border-left: 0;
+  }
+  .ps-flow {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+    padding: 0 0 0 52px;
+  }
+  .ps-flow-line {
+    left: 15px;
+    right: auto;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    height: auto;
+  }
+  .ps-flow-line i {
+    transform: scaleY(var(--p));
+    transform-origin: 50% 0;
+  }
+  .ps-flow-dot {
+    top: 0;
+    left: -52px;
+  }
+}
+@media (max-width: 560px) {
+  .ps-can-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ps-floor i,
+  .ps-scrollcue span {
+    animation: none;
+  }
+  .ps-scrollcue span {
+    transform: none;
+  }
+  .ps-glyph > * {
+    stroke-dashoffset: 0;
+    transition: none;
+  }
+  .ps-can-card {
+    transform: none;
+    transition: none;
+  }
+}

@@ -1,25 +1,55 @@
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { Icon } from '../../components/Icon';
-import { ToolIcon } from '../../components/ToolIcon';
 import { paths } from '../../lib/router';
 import { contactData } from '../contact-data';
 import { useLang } from '../i18n';
-import { PRODUCTS, TOOL_ENTRIES, toolPath } from '../products';
 import { organizationJsonLd, siteAlternates, softwareJsonLd } from '../seo';
+import { BuildScene } from '../components/BuildScene';
 import { Reveal } from '../components/Reveal';
-import { Badge, Grid, Lines, Section, SectionHead, Statement } from '../components/Section';
+import { Lines, Section, SectionHead } from '../components/Section';
 import { Backdrop } from '../components/Shapes';
 import { SiteLayout } from '../components/SiteShell';
 
-/** Startseite: PAD Software als Dachmarke, dann Unternehmen, Produktwelt, BauPad, Ausblick, Haltung, Kontakt */
+/** Strichzeichnungen zu „Was wir können“ – zeichnen sich beim Einblenden selbst */
+const GLYPHS: ReactNode[] = [
+  // Geräte: PC, Tablet, Handy
+  <>
+    <rect x="4" y="12" width="36" height="25" rx="2.5" pathLength={1} />
+    <path d="M22 37v8M14 45h16" pathLength={1} />
+    <rect className="fill" x="30" y="22" width="20" height="28" rx="2.5" pathLength={1} />
+    <rect className="fill" x="46" y="30" width="13" height="24" rx="2.5" pathLength={1} />
+  </>,
+  // ohne Empfang: Balken, durchgestrichen
+  <>
+    <path d="M14 52v-8M26 52v-17M38 52V26M50 52V17" pathLength={1} />
+    <path d="M8 14l48 44" pathLength={1} />
+  </>,
+  // Unterlagen: Blatt mit Zeilen
+  <>
+    <path d="M16 8h22l10 10v38H16z" pathLength={1} />
+    <path d="M38 8v10h10" pathLength={1} />
+    <path d="M23 29h18M23 37h18M23 45h11" pathLength={1} />
+  </>,
+  // Formular: Klemmbrett mit Haken
+  <>
+    <path d="M26 12h-8v44h28V12h-8" pathLength={1} />
+    <rect x="26" y="8" width="12" height="8" rx="2" pathLength={1} />
+    <path d="M24 29l3 3 5-6M24 42l3 3 5-6" pathLength={1} />
+    <path d="M37 30h5M37 43h5" pathLength={1} />
+  </>,
+];
+
+/** Startseite: Kopf, Kennzahlen, BauPad als Gebäude (Produkt im Mittelpunkt), Können, Ablauf, Unternehmen, Kontakt */
 export function HomePage() {
   const { lang, t } = useLang();
   const h = t.home;
   return (
     <SiteLayout meta={{ title: h.title, description: h.description, lang, alternates: siteAlternates('landing'), jsonLd: [organizationJsonLd(contactData.email), softwareJsonLd(lang, t.baupad.description)] }} className="ps-home">
-      {/* 1. Hero */}
-      <section className="ps-hero tone-midnight" aria-labelledby="ps-hero-title">
-        <Backdrop variant="hero" />
+      {/* 1. Kopf: Plan-Raster in der Tiefe, bewegt sich mit dem Scrollen */}
+      <section className="ps-hero ps-hero-home tone-midnight" aria-labelledby="ps-hero-title" data-hero="">
+        <div className="ps-floor" aria-hidden="true">
+          <i />
+        </div>
         <div className="ps-wrap ps-hero-inner">
           <p className="ps-eyebrow ps-eyebrow-light ps-reveal is-in">{h.hero.eyebrow}</p>
           <h1 id="ps-hero-title" className="ps-display">
@@ -36,105 +66,104 @@ export function HomePage() {
               {h.hero.secondary}
             </a>
           </div>
-          <ul className="ps-facts ps-facts-light" data-reveal="" data-immediate="">
-            {h.hero.facts.map((f) => (
-              <li key={f}>
-                <Icon name="check" size={15} />
-                {f}
-              </li>
-            ))}
-          </ul>
+          <a href="#baupad" className="ps-scrollcue" data-reveal="" data-immediate="">
+            <span aria-hidden="true" />
+            {h.hero.scroll}
+          </a>
         </div>
       </section>
 
-      {/* 2. Unternehmen */}
-      <Section tone="white" id="unternehmen">
-        <SectionHead eyebrow={h.intro.eyebrow} title={h.intro.title} text={h.intro.text} />
-        <Grid cols={3}>
-          {h.intro.points.map((p, i) => (
-            <Statement key={p.title} no={`0${i + 1}`} title={p.title} text={p.text} />
+      {/* 2. Kennzahlen */}
+      <section className="ps-stats tone-white" aria-label={h.stats.label}>
+        <ul className="ps-wrap ps-stats-row">
+          {h.stats.items.map((s, i) => (
+            <Reveal key={s.label} as="li" delay={i * 80}>
+              <strong data-count={s.value}>{s.value}</strong>
+              <span>{s.label}</span>
+            </Reveal>
           ))}
-        </Grid>
-        <Reveal className="ps-inline-cta">
-          <a href={paths.company(lang)} className="ps-link">
-            {t.nav.company} <Icon name="next" size={14} />
-          </a>
-        </Reveal>
-      </Section>
+        </ul>
+      </section>
 
-      {/* 3. Produktwelt */}
-      <Section tone="mist" id="produkte">
-        <SectionHead eyebrow={h.products.eyebrow} title={h.products.title} text={h.products.text} />
-        <div className="ps-product-row">
-          {PRODUCTS.map((p) => (
-            <Reveal key={p.id} className="ps-product-card is-available" as="article">
-              <div className="ps-product-card-head">
-                <img className="ps-product-logo" src="/icons/baupad-icon.png" alt={t.product} width={59} height={56} />
-                <Badge kind="plan">{t.common.available}</Badge>
+      {/* 3. Produkt: BauPad als Gebäude */}
+      <BuildScene />
+
+      {/* 4. Was wir können */}
+      <Section tone="mist" id="koennen">
+        <SectionHead eyebrow={h.can.eyebrow} title={h.can.title} />
+        <div className="ps-can-grid">
+          {h.can.items.map((c, i) => (
+            <Reveal key={c.title} delay={i * 90} className="ps-can-item">
+              <div className="ps-can-card" data-tilt="">
+                <svg className="ps-glyph" viewBox="0 0 64 64" aria-hidden="true">
+                  {GLYPHS[i]}
+                </svg>
+                <h3>{c.title}</h3>
+                <p>{c.text}</p>
               </div>
-              <h3>{t.product}</h3>
-              <p>{t.baupad.description}</p>
-              <div className="ps-tool-dots" aria-hidden="true">
-                {p.tools.map((x) => (
-                  <span key={x.id} style={{ '--c': x.color } as CSSProperties}>
-                    <ToolIcon name={x.icon} size={14} />
-                  </span>
-                ))}
-              </div>
-              <a href={p.path(lang)} className="ps-link">
-                {t.products.open} <Icon name="next" size={14} />
-              </a>
             </Reveal>
           ))}
         </div>
-        <Reveal className="ps-inline-cta">
-          <a href={paths.products(lang)} className="ps-btn ps-btn-navy">
-            {h.products.cta}
-          </a>
-        </Reveal>
       </Section>
 
-      {/* 4. BauPad */}
-      <Section tone="navy" id="baupad" className="ps-baupad-teaser">
-        <Backdrop variant="dark" />
-        <div className="ps-split ps-split-text">
+      {/* 5. Ablauf: Linie zeichnet sich mit dem Scrollen */}
+      <Section tone="white" id="ablauf">
+        <SectionHead eyebrow={h.flow.eyebrow} title={h.flow.title} />
+        <ol className="ps-flow" data-progress="fill">
+          <li className="ps-flow-line" aria-hidden="true">
+            <i />
+          </li>
+          {h.flow.steps.map((s, i) => (
+            <li key={s.title} className="ps-flow-step" style={{ '--t': (i / 3 + 0.04).toFixed(3) } as CSSProperties}>
+              <span className="ps-flow-dot" aria-hidden="true">
+                {i + 1}
+              </span>
+              <h3>{s.title}</h3>
+              <p>{s.text}</p>
+            </li>
+          ))}
+        </ol>
+      </Section>
+
+      {/* 6. Werte als Laufband, bewegt sich mit dem Scrollen */}
+      <div className="ps-marquee" data-progress="through" role="img" aria-label={h.values.join(' · ')}>
+        <div aria-hidden="true">
+          {[0, 1, 2].map((r) =>
+            h.values.map((v, i) => (
+              <span key={`${r}-${v}`} className={(r * h.values.length + i) % 2 ? 'is-line' : ''}>
+                {v}
+              </span>
+            )),
+          )}
+        </div>
+      </div>
+
+      {/* 7. Unternehmen */}
+      <Section tone="white" id="unternehmen" className="ps-company">
+        <div className="ps-company-grid">
           <div>
-            <SectionHead eyebrow={h.baupad.eyebrow} title={h.baupad.title} text={h.baupad.text} />
-            <ul className="ps-tool-list" data-reveal="">
-              {TOOL_ENTRIES.map((x) => (
-                <li key={x.id}>
-                  <a href={toolPath(x.id, lang)} style={{ '--c': x.color } as CSSProperties}>
-                    <span className="ps-tool-icon">
-                      <ToolIcon name={x.icon} size={18} />
-                    </span>
-                    <span>
-                      <strong>{t.tools[x.id].title}</strong>
-                      <small>{t.tools[x.id].short}</small>
-                    </span>
-                  </a>
-                </li>
-              ))}
-            </ul>
-            <div className="ps-actions" data-reveal="">
-              <a href={paths.baupad(lang)} className="ps-btn ps-btn-light" data-testid="cta-baupad-2">
-                {h.baupad.cta} <Icon name="next" size={16} />
+            <SectionHead eyebrow={h.company.eyebrow} title={h.company.title} text={h.company.text} />
+            <Reveal className="ps-inline-cta">
+              <a href={paths.company(lang)} className="ps-link">
+                {h.company.cta} <Icon name="next" size={14} />
               </a>
-            </div>
+            </Reveal>
           </div>
+          <ul className="ps-promises">
+            {h.company.promises.map((p, i) => (
+              <Reveal key={p.title} as="li" delay={i * 80}>
+                <span aria-hidden="true">{`0${i + 1}`}</span>
+                <div>
+                  <h3>{p.title}</h3>
+                  <p>{p.text}</p>
+                </div>
+              </Reveal>
+            ))}
+          </ul>
         </div>
       </Section>
 
-      {/* 6. Haltung */}
-      <Section tone="mist" id="haltung">
-        <SectionHead eyebrow={h.philosophy.eyebrow} title={h.philosophy.title} />
-        <Grid cols={4}>
-          {h.philosophy.items.map((p, i) => (
-            <Statement key={p.title} no={`0${i + 1}`} title={p.title} text={p.text} />
-          ))}
-        </Grid>
-      </Section>
-
-      {/* 7. Kontakt */}
+      {/* 8. Kontakt */}
       <Section tone="midnight" id="kontakt" className="ps-contact-cta">
         <Backdrop variant="contact" />
         <SectionHead eyebrow={h.contact.eyebrow} title={h.contact.title} text={h.contact.text} align="center" />

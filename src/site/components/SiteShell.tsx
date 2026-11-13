@@ -6,6 +6,7 @@ import { contactData } from '../contact-data';
 import { useLang } from '../i18n';
 import { PRODUCTS } from '../products';
 import { usePageMeta, type PageMeta } from '../seo';
+import { useScrollMotion } from './Motion';
 import { useParallax, useReveal } from './Reveal';
 
 /**
@@ -175,6 +176,7 @@ export function SiteLayout({ meta, children, className = '' }: { meta: PageMeta;
   usePageMeta(meta);
   useReveal([path]);
   useParallax();
+  useScrollMotion([path]);
   return (
     <div className={`ps-site ${className}`} lang={langOf(path)}>
       <SiteHeader />

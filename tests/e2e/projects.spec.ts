@@ -11,6 +11,36 @@ import { FIXTURES, OUT, catchDownload, createProject, freshStart, openPlan, sele
 test.describe('ohne Anmeldung', () => {
   test.use({ signedIn: false });
 
+test('Website: das BauPad-Gebäude wächst beim Scrollen, ohne Bewegung steht es fertig da', async ({ page }) => {
+  await page.goto('./');
+  const scene = page.getByTestId('build-scene');
+  const count = page.getByTestId('build-count');
+  const on = page.getByTestId('build-list').locator('li.is-on');
+  // oben auf der Seite ist noch nichts gebaut
+  await expect(count).toHaveText('0/7');
+  await expect(on).toHaveCount(0);
+  // Kennzahlen zählen hoch, sobald man sie sieht, und enden auf ihren Werten
+  await page.locator('.ps-stats-row').scrollIntoViewIfNeeded();
+  await expect(page.locator('.ps-stats-row strong')).toHaveText(['7', '1', '3', '0']);
+  // mitten in der Bühne: ein Teil steht, die Liste zeigt genau diese Werkzeuge hell
+  const box = await scene.evaluate((el) => ({ top: el.getBoundingClientRect().top + window.scrollY, h: el.offsetHeight }));
+  await page.evaluate((y) => window.scrollTo(0, y), box.top + box.h * 0.35);
+  await expect.poll(async () => Number((await count.textContent())!.split('/')[0])).toBeGreaterThan(0);
+  const mid = Number((await count.textContent())!.split('/')[0]);
+  expect(mid).toBeLessThan(7);
+  await expect(on).toHaveCount(mid);
+  // am Ende der Bühne ist das Gebäude fertig
+  await page.evaluate((y) => window.scrollTo(0, y), box.top + box.h);
+  await expect(count).toHaveText('7/7');
+  await expect(on).toHaveCount(7);
+  // ohne Bewegung (System-Einstellung): sofort fertig, nichts bleibt versteckt
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('./');
+  await expect(count).toHaveText('7/7');
+  await expect(on).toHaveCount(7);
+  await expect(page.locator('.ps-stats-row strong')).toHaveText(['7', '1', '3', '0']);
+});
+
 test('Website: Startseite, Produkte, BauPad, Unternehmen, Kontaktformular, Sprache, Rechtliches', async ({ page }) => {
   await page.goto('./');
   await expect(page).toHaveTitle('PAD Software – Den Arbeitstag leichter gemacht');
@@ -19,11 +49,15 @@ test('Website: Startseite, Produkte, BauPad, Unternehmen, Kontaktformular, Sprac
   const h1 = page.getByRole('heading', { level: 1 });
   await expect(h1).toContainText('leichter gemacht');
   await expect(page.locator('html')).toHaveAttribute('lang', 'de');
-  // Dachmarke zuerst: Unternehmen, dann Produktwelt (1 verfügbar, 3 geplant), dann BauPad
-  await expect(page.locator('.ps-product-card.is-available')).toHaveCount(1);
-  await expect(page.locator('.ps-product-card.is-planned')).toHaveCount(0); // keine Vorschau-Produkte mehr
+  // Produkt im Mittelpunkt: BauPad als Gebäude – je Stockwerk ein Werkzeug, jedes mit Link zur Werkzeug-Seite
+  await expect(page.getByTestId('build-list').locator('a')).toHaveCount(7);
+  await expect(page.getByTestId('build-scene').locator('.bf')).toHaveCount(7);
+  await expect(page.getByTestId('build-list').locator('a').nth(6)).toHaveAttribute('href', '/baupad/funktionen/materialverwaltung');
+  await expect(page.locator('.ps-stats-row li')).toHaveCount(4); // Kennzahlen
+  await expect(page.locator('.ps-can-card')).toHaveCount(4); // Was wir können
+  await expect(page.locator('.ps-flow-step')).toHaveCount(3); // Ablauf
   await expect(page.locator('.ps-panel, .ps-panel-tag')).toHaveCount(0); // keine Bilder und Platzhalter
-  await expect(page.locator('.ps-main img:not(.ps-product-logo)')).toHaveCount(0); // keine Fotos/Platzhalter – nur das BauPad-Logo
+  await expect(page.locator('.ps-main img:not(.ps-build-logo)')).toHaveCount(0); // keine Fotos/Platzhalter – nur das BauPad-Logo
 
   // Produkte
   await nav.getByRole('link', { name: 'Produkte', exact: true }).click();
