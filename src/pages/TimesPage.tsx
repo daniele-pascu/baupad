@@ -480,19 +480,19 @@ export function TimeInputs({ from, to, pauseFrom, pauseTo, pause, disabled, onCh
   const bad = validTime(pauseFrom) && validTime(pauseTo) && (pauseTo <= pauseFrom || (validTime(from) && pauseFrom < from) || (validTime(to) && pauseTo > to));
   return (
     <>
-      <label className="times-time">
+      <label className="times-time tf">
         <span>Beginn</span>
         <TimeField value={from} disabled={disabled} onChange={(v) => emit({ from: v })} testId={`${testPrefix}-from`} />
       </label>
-      <label className="times-time">
+      <label className="times-time tt">
         <span>Ende</span>
         <TimeField value={to} disabled={disabled} onChange={(v) => emit({ to: v })} testId={`${testPrefix}-to`} />
       </label>
-      <label className="times-time">
+      <label className="times-time pause pf">
         <span>Pause von</span>
         <TimeField value={pauseFrom} disabled={disabled} onChange={(v) => emit({ pauseFrom: v })} testId={`${testPrefix}-pause-from`} />
       </label>
-      <label className="times-time">
+      <label className="times-time pause pt">
         <span>Pause bis</span>
         <TimeField value={pauseTo} disabled={disabled} onChange={(v) => emit({ pauseTo: v })} testId={`${testPrefix}-pause-to`} />
       </label>
@@ -514,6 +514,8 @@ function DayRow({ w, date, rec, sugg: rawSugg, data, by, scope, locked, onSaved 
   const [site, setSite] = useState<{ projectId: string | null; siteName: string } | null>(first ? { projectId: first.projectId, siteName: first.siteName } : null);
   const [t, setT] = useState<TimeValues>(() => timeValues(first?.from ? first : fallback));
   const [travel, setTravel] = useState(first?.travel ? fmtH(first.travel) : '');
+  /** Handy: Pause und Weg aufgeklappt */
+  const [more, setMore] = useState(false);
   // Änderung von außen (anderes Gerät, Vorschlag übernommen): Werte nachziehen – nicht während hier getippt wird
   const rowRef = useRef<HTMLLIElement>(null);
   useEffect(() => {
@@ -537,7 +539,7 @@ function DayRow({ w, date, rec, sugg: rawSugg, data, by, scope, locked, onSaved 
   const absence = sugg.absence;
   const setAbsence = (kind: 'urlaub' | 'krank' | null) => void setDayAbsence(w.id, date, kind, by, scope).then(onSaved, (e) => showError(e, 'Speichern fehlgeschlagen'));
   return (
-    <li ref={rowRef} className={`times-day-row${rec ? ' done' : ' suggested'}${multi ? ' multi' : ''}${absence ? ' absent' : ''}`} data-testid="times-day-row" data-name={workerName(w)} data-state={rec ? 'done' : 'suggested'}>
+    <li ref={rowRef} className={`times-day-row${rec ? ' done' : ' suggested'}${multi ? ' multi' : ''}${absence ? ' absent' : ''}${more ? ' more' : ''}`} data-testid="times-day-row" data-name={workerName(w)} data-state={rec ? 'done' : 'suggested'}>
       <span className="times-day-name">
         <strong>{workerName(w)}</strong>
         {rec && !absence ? <span className="times-badge ok">erfasst</span> : first && !absence ? <span className="times-badge">Vorschlag</span> : null}
@@ -577,6 +579,14 @@ function DayRow({ w, date, rec, sugg: rawSugg, data, by, scope, locked, onSaved 
               save({ t: v });
             }}
           />
+          {/* nur am Handy: Pause und Weg sind eingeklappt, die Taste zeigt die Pause und klappt beides auf */}
+          <button type="button" className="times-more" aria-expanded={more} onClick={() => setMore(!more)} data-testid="times-more">
+            <span>
+              Pause {fmtPause(t.pause)}
+              {travel ? ` · Weg ${travel} h` : ''}
+            </span>
+            <Icon name={more ? 'up' : 'down'} size={16} />
+          </button>
           <span className="times-hours" data-testid="times-hours">
             {fmtH(hours)} h
           </span>

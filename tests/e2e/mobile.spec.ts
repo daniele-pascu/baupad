@@ -780,6 +780,20 @@ test('Zeitaufzeichnung per Finger: Tag erfassen und Monatszettel passen auf den 
   await row.getByTestId('times-site').selectOption({ label: 'Andere Baustelle …' });
   await page.getByTestId('prompt-dialog').locator('input').fill('Halle 3');
   await page.getByTestId('prompt-dialog').getByRole('button', { name: 'Speichern' }).tap();
+  // am Handy sind Pause und Weg eingeklappt (die Taste zeigt die Pause); am Tablet stehen sie in der Zeile
+  if (page.viewportSize()!.width <= 720) {
+    await expect(row.getByTestId('times-pause-from')).toBeHidden();
+    await expect(row.getByTestId('times-more')).toContainText('Pause 0:30');
+    await row.getByTestId('times-more').tap();
+    await expect(row.getByTestId('times-pause-from')).toBeVisible();
+    await expect(row.getByTestId('times-travel')).toBeVisible();
+    await noHorizontalScroll(page);
+    await row.getByTestId('times-more').tap();
+    await expect(row.getByTestId('times-pause-from')).toBeHidden();
+  } else {
+    await expect(row.getByTestId('times-more')).toBeHidden();
+    await expect(row.getByTestId('times-pause-from')).toBeVisible();
+  }
   await row.getByTestId('times-to').fill('15:30');
   await expect(row).toHaveAttribute('data-state', 'done');
   await expect(row.getByTestId('times-hours')).toHaveText('8 h');

@@ -12662,3 +12662,59 @@ html[data-theme='dark'] .hub-tag {
     grid-column: 1 / -1;
   }
 }
+
+/* Zeitaufzeichnung am Handy: Pause und Weg eingeklappt – die Taste zeigt die Pause und klappt beides auf */
+.times-more {
+  display: none;
+}
+@media (max-width: 720px) {
+  .times-more {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    background: var(--surface);
+    color: var(--muted);
+    font: inherit;
+    font-size: 0.9rem;
+    cursor: pointer;
+    order: 4;
+  }
+  .times-day-row > .times-day-name {
+    order: 0;
+  }
+  .times-day-row > select,
+  .times-day-row > .times-day-multi {
+    order: 1;
+  }
+  .times-day-row > .times-time.tf {
+    order: 2;
+  }
+  .times-day-row > .times-time.tt {
+    order: 3;
+  }
+  .times-day-row > .times-hours {
+    order: 5;
+    align-self: center;
+    justify-self: end;
+  }
+  .times-day-row > .times-time.pause {
+    order: 6;
+  }
+  .times-day-row > .times-num.travel {
+    order: 8;
+  }
+  .times-day-row > .times-take {
+    order: 9;
+  }
+  /* die Pausendauer steht in der Taste */
+  .times-day-row > .times-pause-sum,
+  .times-day-row:not(.more) > .times-time.pause,
+  .times-day-row:not(.more) > .times-num.travel {
+    display: none;
+  }
+}
