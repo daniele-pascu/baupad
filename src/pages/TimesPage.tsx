@@ -288,7 +288,12 @@ function DayList({ data, date, by, office, scope, mine, onSaved }: { data: Times
     // eigene Auswahl: alle gewählten zeigen (auch ohne Einteilung); sonst wie bisher die Arbeiter des Tages
     .filter((x) => (mine.length && x.w.active) || x.rec || x.sugg.lines.length || x.sugg.absence)
     .sort((a, b) => (a.rec?.lines[0]?.siteName ?? a.sugg.lines[0]?.siteName ?? 'zzz').localeCompare(b.rec?.lines[0]?.siteName ?? b.sugg.lines[0]?.siteName ?? 'zzz', 'de') || workerName(a.w).localeCompare(workerName(b.w), 'de'));
-  const pending = items.filter((x) => !x.rec && x.sugg.lines.length && !x.locked);
+  // Urlaub: nicht oben in der Liste, sondern eingeklappt darunter (dort lässt sich „anwesend“ wieder einstellen)
+  // (Urlaub legt einen leeren Tageseintrag an – entscheidend ist, dass keine Stunden erfasst sind)
+  const onLeave = (x: (typeof items)[number]) => x.sugg.absence === 'urlaub' && !x.rec?.lines.length;
+  const away = items.filter(onLeave);
+  const here = items.filter((x) => !onLeave(x));
+  const pending = here.filter((x) => !x.rec && x.sugg.lines.length && !x.locked);
   const confirmAll = () =>
     void Promise.all(pending.map((x) => saveDay(x.w.id, date, x.sugg.lines, by, { scope })))
       .then(() => {
@@ -300,12 +305,24 @@ function DayList({ data, date, by, office, scope, mine, onSaved }: { data: Times
   return (
     <>
       {holiday && <p className="small times-holiday">Feiertag: {holiday}</p>}
-      {items.length === 0 && <p className="muted small" data-testid="times-day-empty">{readOnly ? 'Für diesen Tag sind keine Stunden erfasst.' : 'An diesem Tag ist niemand eingeteilt. Oben mit „+ Arbeiter“ hinzufügen.'}</p>}
+      {here.length === 0 && <p className="muted small" data-testid="times-day-empty">{readOnly ? 'Für diesen Tag sind keine Stunden erfasst.' : 'An diesem Tag ist niemand eingeteilt. Oben mit „+ Arbeiter“ hinzufügen.'}</p>}
       <ul className="times-day-list">
-        {items.map((x) => (
+        {here.map((x) => (
           <DayRow key={`${x.w.id}-${date}`} w={x.w} date={date} rec={x.rec} sugg={x.sugg} data={data} by={by} scope={scope} locked={x.locked} onSaved={onSaved} />
         ))}
       </ul>
+      {away.length > 0 && (
+        <details className="times-away" data-testid="times-away">
+          <summary>
+            Im Urlaub ({away.length}): {away.map((x) => workerName(x.w)).join(', ')}
+          </summary>
+          <ul className="times-day-list">
+            {away.map((x) => (
+              <DayRow key={`${x.w.id}-${date}`} w={x.w} date={date} rec={x.rec} sugg={x.sugg} data={data} by={by} scope={scope} locked={x.locked} onSaved={onSaved} />
+            ))}
+          </ul>
+        </details>
+      )}
       <div className="row gap wrap times-day-actions">
         {pending.length > 0 && (
           <button type="button" className="btn btn-primary" onClick={confirmAll} data-testid="times-confirm-all">

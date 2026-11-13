@@ -17,13 +17,14 @@ import { snapKindsDialog } from './SnapKindsDialog';
  */
 
 type Tab = 'draw' | 'parts' | 'modify' | 'style' | 'precision' | 'view';
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'draw', label: 'Zeichnen' },
-  { id: 'parts', label: 'Bauteile' },
-  { id: 'modify', label: 'Ändern' },
-  { id: 'style', label: 'Eigenschaften' },
-  { id: 'precision', label: 'Präzision' },
-  { id: 'view', label: 'Ansicht' },
+/** Registerkarten mit eigenem Symbol und eigener Farbe (die Werkzeuge der Karte tragen dieselbe Farbe) */
+const TABS: { id: Tab; label: string; icon: string }[] = [
+  { id: 'draw', label: 'Zeichnen', icon: 'drawPlan' },
+  { id: 'parts', label: 'Bauteile', icon: 'door' },
+  { id: 'modify', label: 'Ändern', icon: 'move' },
+  { id: 'style', label: 'Eigenschaften', icon: 'layers' },
+  { id: 'precision', label: 'Präzision', icon: 'snap' },
+  { id: 'view', label: 'Ansicht', icon: 'fit' },
 ];
 
 const DRAW_IDS: DrawTool[] = ['select', 'line', 'polyline', 'polygon', 'rect', 'ellipse', 'arc', 'text', 'dimension'];
@@ -141,7 +142,8 @@ export function DrawRibbon({
     <div className="ribbon" role="toolbar" aria-label="Zeichenwerkzeuge" data-testid="draw-toolbar">
       <div className="ribbon-tabs" role="tablist">
         {TABS.map((t) => (
-          <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)} data-testid={`ribbon-tab-${t.id}`}>
+          <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)} data-tab={t.id} data-testid={`ribbon-tab-${t.id}`}>
+            <Icon name={t.icon} size={16} />
             {t.label}
           </button>
         ))}

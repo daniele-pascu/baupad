@@ -91,6 +91,16 @@ test('Tag erfassen, Monatszettel mit Wegzeit und zweiter Baustelle, Excel, Freig
   await row(page, 'Peter').getByTestId('times-absence').selectOption('');
   await expect(row(page, 'Peter')).toHaveAttribute('data-state', 'suggested');
   await expect(row(page, 'Peter').getByTestId('times-to')).toHaveValue('15:00');
+  // Urlaub: steht nicht mehr oben in der Liste, sondern eingeklappt darunter – dort wieder auf „anwesend“ stellen
+  await row(page, 'Peter').getByTestId('times-absence').selectOption('urlaub');
+  await expect(page.getByTestId('times-away')).toContainText('Im Urlaub (1): Peter');
+  await expect(row(page, 'Peter')).toBeHidden();
+  await expect(page.locator('[data-testid="times-day-row"]:visible')).toHaveCount(1);
+  await page.getByTestId('times-away').locator('summary').click();
+  await expect(row(page, 'Peter')).toContainText('Urlaub – keine Stunden');
+  await row(page, 'Peter').getByTestId('times-absence').selectOption('');
+  await expect(page.getByTestId('times-away')).toHaveCount(0);
+  await expect(row(page, 'Peter')).toHaveAttribute('data-state', 'suggested');
 
   // Monatsliste: Oktober, Stunden je Person
   await page.getByTestId('times-prev').click();

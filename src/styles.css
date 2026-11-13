@@ -12718,3 +12718,227 @@ html[data-theme='dark'] .hub-tag {
     display: none;
   }
 }
+
+/* =====================================================================
+   Plan zeichnen und messen – Feinschliff der Werkzeugleisten
+   Registerkarten als farbige Schilder mit Symbol, Werkzeuggruppen als eigene Felder mit Beschriftung,
+   Werkzeuge in der Farbe ihrer Karte; Messarten mit eigener Farbe (Menü als Kacheln, aktive Werkzeuge in der Farbe).
+   ===================================================================== */
+.ribbon-tabs button[data-tab='draw'],
+.ribbon-row[data-tab='draw'] {
+  --tab: #2f80ed;
+}
+.ribbon-tabs button[data-tab='parts'],
+.ribbon-row[data-tab='parts'] {
+  --tab: #e8590c;
+}
+.ribbon-tabs button[data-tab='modify'],
+.ribbon-row[data-tab='modify'] {
+  --tab: #7c4dff;
+}
+.ribbon-tabs button[data-tab='style'],
+.ribbon-row[data-tab='style'] {
+  --tab: #0f9d76;
+}
+.ribbon-tabs button[data-tab='precision'],
+.ribbon-row[data-tab='precision'] {
+  --tab: #b7791f;
+}
+.ribbon-tabs button[data-tab='view'],
+.ribbon-row[data-tab='view'] {
+  --tab: #5f6368;
+}
+.ribbon-tabs {
+  gap: 6px;
+  padding: 7px 8px 6px;
+  border-bottom: 1px solid var(--border);
+}
+.ribbon-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 12px 0 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--muted);
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.ribbon-tabs button svg {
+  color: var(--tab);
+  opacity: 0.75;
+}
+.ribbon-tabs button:hover {
+  background: color-mix(in srgb, var(--tab) 7%, var(--surface));
+}
+.ribbon-tabs button[aria-selected='true'] {
+  border-color: color-mix(in srgb, var(--tab) 40%, var(--border));
+  background: color-mix(in srgb, var(--tab) 13%, var(--surface));
+  color: var(--text);
+  font-weight: 650;
+}
+.ribbon-tabs button[aria-selected='true'] svg {
+  opacity: 1;
+}
+/* Gruppen: eigene Felder statt Trennstriche */
+.ribbon-row {
+  gap: 8px;
+  padding: 6px 8px;
+}
+.ribbon-row .tool-group,
+.ribbon-row .tool-group + .tool-group {
+  position: relative;
+  padding: 3px 4px;
+  border: 1px solid color-mix(in srgb, var(--tab, #8e8e93) 22%, var(--border));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--tab, #8e8e93) 4%, var(--surface));
+}
+.ribbon-row .tool-btn svg {
+  color: var(--tab, currentColor);
+}
+.ribbon-row .tool-btn:hover:not(:disabled):not(.active) {
+  background: color-mix(in srgb, var(--tab, #8e8e93) 12%, var(--surface));
+}
+.ribbon-row .tool-btn.active {
+  background: var(--tab, var(--primary));
+  color: #fff;
+  box-shadow: 0 6px 14px -6px var(--tab, rgba(0, 0, 0, 0.4));
+}
+.ribbon-row .tool-btn.active svg {
+  color: #fff;
+}
+.ribbon-row .tool-btn:disabled svg {
+  color: currentColor;
+}
+/* PC und Tablet quer: Gruppen tragen ihren Namen */
+@media (min-width: 1000px) and (min-height: 700px) {
+  .ribbon-row {
+    align-items: flex-start;
+    padding-bottom: 4px;
+  }
+  .ribbon-row .tool-group[aria-label] {
+    padding-bottom: 15px;
+  }
+  .ribbon-row .tool-group[aria-label]::after {
+    content: attr(aria-label);
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 2px;
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    text-align: center;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+}
+
+/* Messarten: jede mit eigener Farbe */
+[data-testid='mtype-flaeche'],
+.toolbar[data-mtype='flaeche'] {
+  --mt: #2f80ed;
+}
+[data-testid='mtype-wand'],
+.toolbar[data-mtype='wand'] {
+  --mt: #8a5a2b;
+}
+[data-testid='mtype-laenge'],
+.toolbar[data-mtype='laenge'] {
+  --mt: #0f9d76;
+}
+[data-testid='mtype-volumen'],
+.toolbar[data-mtype='volumen'] {
+  --mt: #7c4dff;
+}
+[data-testid='mtype-stueck'],
+.toolbar[data-mtype='stueck'] {
+  --mt: #e8590c;
+}
+[data-testid='mtype-schadstelle'],
+.toolbar[data-mtype='schadstelle'] {
+  --mt: #d6242b;
+}
+[data-testid='mtype-frei'],
+.toolbar[data-mtype='frei'] {
+  --mt: #5f6368;
+}
+.mtype-menu .mtype-menu-icon {
+  background: color-mix(in srgb, var(--mt, #8e8e93) 14%, var(--surface));
+  color: var(--mt, var(--text));
+}
+.mtype-menu button {
+  border: 1px solid transparent;
+  border-radius: 12px;
+}
+.mtype-menu button:hover,
+.mtype-menu button:focus-visible {
+  background: color-mix(in srgb, var(--mt, #8e8e93) 8%, var(--surface));
+}
+.mtype-menu button.active {
+  border-color: color-mix(in srgb, var(--mt, #8e8e93) 45%, var(--border));
+  background: color-mix(in srgb, var(--mt, #8e8e93) 11%, var(--surface));
+}
+.mtype-menu button.active .mtype-menu-icon {
+  background: var(--mt, var(--primary));
+  color: #fff;
+}
+/* ab Tablet: Messarten als Kacheln in zwei Spalten */
+@media (min-width: 760px) {
+  .mtype-menu {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 4px;
+    width: min(580px, calc(100vw - 32px));
+    padding: 8px;
+    border-radius: 18px;
+  }
+  .mtype-menu::before {
+    content: 'Was wird gemessen?';
+    grid-column: 1 / -1;
+    padding: 4px 8px 6px;
+    color: var(--muted);
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+}
+/* gewählte Messart: Taste und aktives Werkzeug in ihrer Farbe */
+.toolbar[data-mtype]:not([data-mtype='auto']) .tool-btn.mtype-btn:not(.active) {
+  background: color-mix(in srgb, var(--mt) 13%, var(--surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mt) 40%, var(--border));
+  color: var(--text);
+}
+.toolbar[data-mtype]:not([data-mtype='auto']) .tool-btn.mtype-btn:not(.active) svg {
+  color: var(--mt);
+}
+.toolbar[data-mtype]:not([data-mtype='auto']) .tool-btn.active:not(.mtype-btn) {
+  background: var(--mt);
+  box-shadow: 0 6px 14px -6px var(--mt);
+}
+
+/* Zeitaufzeichnung: Arbeiter im Urlaub stehen eingeklappt unter der Tagesliste */
+.times-away {
+  margin-top: 10px;
+  padding: 4px 12px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+.times-away summary {
+  min-height: 40px;
+  padding: 9px 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.times-away[open] summary {
+  border-bottom: 1px solid var(--border);
+}

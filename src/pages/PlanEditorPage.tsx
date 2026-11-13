@@ -2301,7 +2301,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               onProbeCancel={() => setProbe(null)}
             />
           ) : (
-          <div className={`toolbar${toolsOpen ? '' : ' toolbar-collapsed'}`} role="toolbar" aria-label="Werkzeuge">
+          <div className={`toolbar${toolsOpen ? '' : ' toolbar-collapsed'}`} role="toolbar" aria-label="Werkzeuge" data-mtype={mtype}>
             {!toolsOpen ? (
               <ToolsOpenButton tool={TOOLS.find((t) => t.id === tool)} onOpen={() => setToolsOpen(true)} />
             ) : (
