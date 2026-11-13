@@ -5,6 +5,8 @@ import { DialogHost, toast } from './components/ui';
 import { Icon } from './components/Icon';
 import { canonicalPath, currentPath, langOf, navigate, parseRoute, paths, usePath } from './lib/router';
 import { flush, openProject, useAppState } from './lib/store';
+import '@fontsource-variable/geist/wght.css';
+import '@fontsource-variable/geist-mono/wght.css';
 import './site/site.css';
 import { AccessPendingPage } from './pages/AccessPendingPage';
 import { ToolsPage } from './pages/ToolsPage';

@@ -1,181 +1,233 @@
-import type { CSSProperties, ReactNode } from 'react';
-import { Icon } from '../../components/Icon';
+import type { CSSProperties } from 'react';
+import { ToolIcon } from '../../components/ToolIcon';
 import { paths } from '../../lib/router';
 import { contactData } from '../contact-data';
 import { useLang } from '../i18n';
+import { TOOL_ENTRIES } from '../products';
 import { organizationJsonLd, siteAlternates, softwareJsonLd } from '../seo';
-import { BuildScene } from '../components/BuildScene';
 import { Reveal } from '../components/Reveal';
-import { Lines, Section, SectionHead } from '../components/Section';
-import { Backdrop } from '../components/Shapes';
 import { SiteLayout } from '../components/SiteShell';
 
-/** Strichzeichnungen zu „Was wir können“ – zeichnen sich beim Einblenden selbst */
-const GLYPHS: ReactNode[] = [
-  // Geräte: PC, Tablet, Handy
-  <>
-    <rect x="4" y="12" width="36" height="25" rx="2.5" pathLength={1} />
-    <path d="M22 37v8M14 45h16" pathLength={1} />
-    <rect className="fill" x="30" y="22" width="20" height="28" rx="2.5" pathLength={1} />
-    <rect className="fill" x="46" y="30" width="13" height="24" rx="2.5" pathLength={1} />
-  </>,
-  // ohne Empfang: Balken, durchgestrichen
-  <>
-    <path d="M14 52v-8M26 52v-17M38 52V26M50 52V17" pathLength={1} />
-    <path d="M8 14l48 44" pathLength={1} />
-  </>,
-  // Unterlagen: Blatt mit Zeilen
-  <>
-    <path d="M16 8h22l10 10v38H16z" pathLength={1} />
-    <path d="M38 8v10h10" pathLength={1} />
-    <path d="M23 29h18M23 37h18M23 45h11" pathLength={1} />
-  </>,
-  // Formular: Klemmbrett mit Haken
-  <>
-    <path d="M26 12h-8v44h28V12h-8" pathLength={1} />
-    <rect x="26" y="8" width="12" height="8" rx="2" pathLength={1} />
-    <path d="M24 29l3 3 5-6M24 42l3 3 5-6" pathLength={1} />
-    <path d="M37 30h5M37 43h5" pathLength={1} />
-  </>,
-];
+/** Leuchtfarbe je Werkzeug auf dunklem Grund (dunkle Töne aufgehellt) */
+const LIT: Record<string, string> = { projects: '#ff7a2b', workers: '#4d95f5', reports: '#b47bff', photos: '#7fb2ff', defects: '#ff5b62', times: '#2fd6a7', materials: '#f2b632' };
+const VALUE_COLORS = ['#2f80ed', '#0f9d76', '#ff6a13'];
+const Arrow = () => <span aria-hidden="true">→</span>;
 
-/** Startseite: Kopf, Kennzahlen, BauPad als Gebäude (Produkt im Mittelpunkt), Können, Ablauf, Unternehmen, Kontakt */
+/**
+ * Startseite: zuerst das Unternehmen (Kopf, Werte, Können), dann BauPad als eine große antippbare Karte mit dem
+ * leuchtenden Stapel der sieben Werkzeuge (führt zur BauPad-Seite), Zusagen und Kontakt. Dunkle und weiße Flächen
+ * wechseln sich ab. Rein gezeichnet – keine Bilder der Software, keine Fotos.
+ */
 export function HomePage() {
   const { lang, t } = useLang();
   const h = t.home;
   return (
-    <SiteLayout meta={{ title: h.title, description: h.description, lang, alternates: siteAlternates('landing'), jsonLd: [organizationJsonLd(contactData.email), softwareJsonLd(lang, t.baupad.description)] }} className="ps-home">
-      {/* 1. Kopf: Plan-Raster in der Tiefe, bewegt sich mit dem Scrollen */}
-      <section className="ps-hero ps-hero-home tone-midnight" aria-labelledby="ps-hero-title" data-hero="">
-        <div className="ps-floor" aria-hidden="true">
-          <i />
-        </div>
-        <div className="ps-wrap ps-hero-inner">
-          <p className="ps-eyebrow ps-eyebrow-light ps-reveal is-in">{h.hero.eyebrow}</p>
-          <h1 id="ps-hero-title" className="ps-display">
-            <Lines lines={h.hero.title} />
-          </h1>
-          <p className="ps-lead ps-lead-light ps-hero-lead" data-reveal="" data-immediate="">
-            {h.hero.lead}
+    <SiteLayout meta={{ title: h.title, description: h.description, lang, alternates: siteAlternates('landing'), jsonLd: [organizationJsonLd(contactData.email), softwareJsonLd(lang, t.baupad.description)] }} className="ps-home hp">
+      {/* 1. Kopf: das Unternehmen */}
+      <section className="hp-hero hp-dark" aria-labelledby="hp-title">
+        <div className="hp-beam" aria-hidden="true" />
+        <div className="hp-gridbg" aria-hidden="true" />
+        <div className="hp-w">
+          <p className="hp-pill">
+            <i aria-hidden="true" />
+            {h.hero.badge}
           </p>
-          <div className="ps-actions" data-reveal="" data-immediate="">
-            <a href={paths.baupad(lang)} className="ps-btn ps-btn-light" data-testid="cta-baupad">
-              {h.hero.primary} <Icon name="next" size={16} />
+          <h1 id="hp-title" className="hp-h1 hp-grad">
+            {h.hero.title.map((l) => (
+              <span key={l}>{l} </span>
+            ))}
+          </h1>
+          <p className="hp-lead">{h.hero.lead}</p>
+          <div className="hp-btns">
+            <a href={paths.company(lang)} className="hp-b1" data-testid="cta-company">
+              {h.hero.primary} <Arrow />
             </a>
-            <a href={paths.contact(lang)} className="ps-btn ps-btn-outline" data-testid="cta-contact">
+            <a href={paths.contact(lang)} className="hp-b2" data-testid="cta-contact">
               {h.hero.secondary}
             </a>
           </div>
-          <a href="#baupad" className="ps-scrollcue" data-reveal="" data-immediate="">
-            <span aria-hidden="true" />
-            {h.hero.scroll}
-          </a>
+          <ul className="hp-facts">
+            {h.hero.facts.map((f) => (
+              <li key={f.k}>
+                <b>{f.k}</b>
+                <span>{f.text}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 
-      {/* 2. Kennzahlen */}
-      <section className="ps-stats tone-white" aria-label={h.stats.label}>
-        <ul className="ps-wrap ps-stats-row">
-          {h.stats.items.map((s, i) => (
-            <Reveal key={s.label} as="li" delay={i * 80}>
-              <strong data-count={s.value}>{s.value}</strong>
-              <span>{s.label}</span>
-            </Reveal>
-          ))}
-        </ul>
-      </section>
-
-      {/* 3. Produkt: BauPad als Gebäude */}
-      <BuildScene />
-
-      {/* 4. Was wir können */}
-      <Section tone="mist" id="koennen">
-        <SectionHead eyebrow={h.can.eyebrow} title={h.can.title} />
-        <div className="ps-can-grid">
-          {h.can.items.map((c, i) => (
-            <Reveal key={c.title} delay={i * 90} className="ps-can-item">
-              <div className="ps-can-card" data-tilt="">
-                <svg className="ps-glyph" viewBox="0 0 64 64" aria-hidden="true">
-                  {GLYPHS[i]}
-                </svg>
-                <h3>{c.title}</h3>
-                <p>{c.text}</p>
-              </div>
-            </Reveal>
-          ))}
-        </div>
-      </Section>
-
-      {/* 5. Ablauf: Linie zeichnet sich mit dem Scrollen */}
-      <Section tone="white" id="ablauf">
-        <SectionHead eyebrow={h.flow.eyebrow} title={h.flow.title} />
-        <ol className="ps-flow" data-progress="fill">
-          <li className="ps-flow-line" aria-hidden="true">
-            <i />
-          </li>
-          {h.flow.steps.map((s, i) => (
-            <li key={s.title} className="ps-flow-step" style={{ '--t': (i / 3 + 0.04).toFixed(3) } as CSSProperties}>
-              <span className="ps-flow-dot" aria-hidden="true">
-                {i + 1}
-              </span>
-              <h3>{s.title}</h3>
-              <p>{s.text}</p>
-            </li>
-          ))}
-        </ol>
-      </Section>
-
-      {/* 6. Werte als Laufband, bewegt sich mit dem Scrollen */}
-      <div className="ps-marquee" data-progress="through" role="img" aria-label={h.values.join(' · ')}>
-        <div aria-hidden="true">
-          {[0, 1, 2].map((r) =>
-            h.values.map((v, i) => (
-              <span key={`${r}-${v}`} className={(r * h.values.length + i) % 2 ? 'is-line' : ''}>
-                {v}
-              </span>
-            )),
-          )}
-        </div>
-      </div>
-
-      {/* 7. Unternehmen */}
-      <Section tone="white" id="unternehmen" className="ps-company">
-        <div className="ps-company-grid">
-          <div>
-            <SectionHead eyebrow={h.company.eyebrow} title={h.company.title} text={h.company.text} />
-            <Reveal className="ps-inline-cta">
-              <a href={paths.company(lang)} className="ps-link">
-                {h.company.cta} <Icon name="next" size={14} />
-              </a>
-            </Reveal>
-          </div>
-          <ul className="ps-promises">
-            {h.company.promises.map((p, i) => (
-              <Reveal key={p.title} as="li" delay={i * 80}>
-                <span aria-hidden="true">{`0${i + 1}`}</span>
+      {/* 2. Das Unternehmen */}
+      <section className="hp-sec hp-light" id="unternehmen">
+        <div className="hp-w hp-about">
+          <Reveal>
+            <p className="hp-mono">{h.about.eyebrow}</p>
+            <h2 className="hp-h2 hp-grad">
+              {h.about.title.map((l) => (
+                <span key={l}>{l} </span>
+              ))}
+            </h2>
+            <p className="hp-sub">{h.about.text}</p>
+            <a href={paths.company(lang)} className="hp-b2 hp-about-cta">
+              {h.about.cta} <Arrow />
+            </a>
+          </Reveal>
+          <ul className="hp-vals">
+            {h.about.values.map((v, i) => (
+              <Reveal key={v.title} as="li" delay={i * 90} className="hp-card hp-val" style={{ '--c': VALUE_COLORS[i] } as CSSProperties}>
+                <i aria-hidden="true">{`0${i + 1}`}</i>
                 <div>
-                  <h3>{p.title}</h3>
-                  <p>{p.text}</p>
+                  <h3>{v.title}</h3>
+                  <p>{v.text}</p>
                 </div>
               </Reveal>
             ))}
           </ul>
         </div>
-      </Section>
+      </section>
 
-      {/* 8. Kontakt */}
-      <Section tone="midnight" id="kontakt" className="ps-contact-cta">
-        <Backdrop variant="contact" />
-        <SectionHead eyebrow={h.contact.eyebrow} title={h.contact.title} text={h.contact.text} align="center" />
-        <Reveal className="ps-actions ps-actions-center">
-          <a href={paths.contact(lang)} className="ps-btn ps-btn-light ps-btn-lg" data-testid="cta-contact-2">
-            {h.contact.cta} <Icon name="next" size={16} />
-          </a>
-          <a href={`mailto:${contactData.email}`} className="ps-link ps-link-light">
-            {contactData.email}
-          </a>
-        </Reveal>
-      </Section>
+      {/* 3. Was wir können */}
+      <section className="hp-sec hp-mist" id="koennen">
+        <div className="hp-w">
+          <Reveal>
+            <p className="hp-mono">{h.can.eyebrow}</p>
+            <h2 className="hp-h2 hp-grad">{h.can.title}</h2>
+          </Reveal>
+          <div className="hp-feats">
+            <Reveal className="hp-card hp-f1">
+              <div className="hp-viz hp-v1" aria-hidden="true">
+                <i />
+                <i />
+                <i />
+              </div>
+              <h3>{h.can.items[0].title}</h3>
+              <p>{h.can.items[0].text}</p>
+            </Reveal>
+            <Reveal className="hp-card" delay={80}>
+              <div className="hp-viz hp-v2" aria-hidden="true">
+                {[1, 2, 3, 4].map((i) => (
+                  <i key={i} style={{ height: i * 18 }} />
+                ))}
+                <b />
+              </div>
+              <h3>{h.can.items[1].title}</h3>
+              <p>{h.can.items[1].text}</p>
+            </Reveal>
+            <Reveal className="hp-card" delay={160}>
+              <div className="hp-viz hp-v3" aria-hidden="true">
+                <span>XLSX</span>
+                <span>PDF</span>
+                <span>LV</span>
+              </div>
+              <h3>{h.can.items[2].title}</h3>
+              <p>{h.can.items[2].text}</p>
+            </Reveal>
+            <Reveal className="hp-card hp-f4" delay={120}>
+              <div className="hp-viz hp-v4">
+                {h.can.numbers.map((n) => (
+                  <span key={n.label}>
+                    <b>{n.value}</b>
+                    <small>{n.label}</small>
+                  </span>
+                ))}
+              </div>
+              <h3>{h.can.items[3].title}</h3>
+              <p>{h.can.items[3].text}</p>
+            </Reveal>
+          </div>
+        </div>
+      </section>
+
+      {/* 4. Unser Produkt: die ganze Karte führt zur BauPad-Seite */}
+      <section className="hp-sec hp-light hp-prod-sec" id="baupad">
+        <div className="hp-w">
+          <Reveal>
+            <p className="hp-mono">{h.product.eyebrow}</p>
+          </Reveal>
+          <Reveal>
+            <a href={paths.baupad(lang)} className="hp-prod hp-dark" aria-label={h.product.label} data-testid="home-product" data-progress="enter">
+              <div className="hp-prod-text">
+                <p className="hp-bp">
+                  <img src="/icons/baupad-icon.png" alt="" width={74} height={70} className="ps-build-logo" />
+                  <b>{t.product}</b>
+                  <span>{t.common.available}</span>
+                </p>
+                <h2 className="hp-h2 hp-grad">
+                  {h.product.title.map((l) => (
+                    <span key={l}>{l} </span>
+                  ))}
+                </h2>
+                <p className="hp-sub">{h.product.text}</p>
+                <ul className="hp-chips" data-testid="home-tools">
+                  {TOOL_ENTRIES.map((x) => (
+                    <li key={x.id} style={{ '--c': LIT[x.id] ?? x.color } as CSSProperties}>
+                      <i aria-hidden="true">
+                        <ToolIcon name={x.icon} size={14} />
+                      </i>
+                      {t.tools[x.id].title}
+                    </li>
+                  ))}
+                </ul>
+                <span className="hp-b1">
+                  {h.product.cta} <Arrow />
+                </span>
+              </div>
+              <div className="hp-scene" aria-hidden="true">
+                <div className="hp-stack">
+                  {TOOL_ENTRIES.map((x, i) => (
+                    <div key={x.id} className="hp-pl" style={{ '--c': LIT[x.id] ?? x.color, '--i': i } as CSSProperties}>
+                      <ToolIcon name={x.icon} size={19} />
+                      <span>{t.tools[x.id].title}</span>
+                    </div>
+                  ))}
+                  <div className="hp-pl hp-pl-top" style={{ '--i': TOOL_ENTRIES.length } as CSSProperties}>
+                    <img src="/icons/baupad-icon.png" alt="" width={170} height={161} className="ps-build-logo" />
+                  </div>
+                </div>
+              </div>
+            </a>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* 5. Was Sie erwarten können */}
+      <section className="hp-sec hp-light hp-prom-sec" id="zusagen">
+        <div className="hp-w">
+          <Reveal>
+            <p className="hp-mono">{h.promises.eyebrow}</p>
+            <h2 className="hp-h2 hp-grad">{h.promises.title}</h2>
+          </Reveal>
+          <ul className="hp-prom">
+            {h.promises.items.map((p, i) => (
+              <Reveal key={p.title} as="li" delay={i * 80}>
+                <span aria-hidden="true">{`0${i + 1}`}</span>
+                <h3>{p.title}</h3>
+                <p>{p.text}</p>
+              </Reveal>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {/* 6. Kontakt */}
+      <section className="hp-cta hp-dark" id="kontakt">
+        <div className="hp-halo" aria-hidden="true" />
+        <div className="hp-w">
+          <Reveal>
+            <p className="hp-mono">{h.contact.eyebrow}</p>
+            <h2 className="hp-h2 hp-grad">{h.contact.title}</h2>
+            <p className="hp-sub">{h.contact.text}</p>
+            <div className="hp-btns">
+              <a href={paths.contact(lang)} className="hp-b1" data-testid="cta-contact-2">
+                {h.contact.cta} <Arrow />
+              </a>
+              <a href={`mailto:${contactData.email}`} className="hp-b2">
+                {contactData.email}
+              </a>
+            </div>
+          </Reveal>
+        </div>
+      </section>
     </SiteLayout>
   );
 }

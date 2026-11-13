@@ -5,7 +5,7 @@ const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
 /**
  * Bewegung beim Scrollen (nur wenn das System Bewegung erlaubt):
- *  - data-progress="through|fill": setzt --p (0..1) – „through“ über den ganzen Weg durchs Bild,
+ *  - data-progress="through|fill|enter": setzt --p (0..1) – „through“ über den ganzen Weg durchs Bild, „enter“ bis das Element ganz im Bild steht,
  *    „fill“ bis das Element vollständig im Bild steht (z. B. Linie, die sich mit dem Scrollen zeichnet)
  *  - data-hero: setzt --hp (0..1), wie weit der Kopfbereich schon weggescrollt ist
  *  - data-count: Zahl zählt hoch (bzw. bei 0 herunter), sobald sie sichtbar wird
@@ -23,7 +23,9 @@ export function useScrollMotion(deps: unknown[] = []) {
       const vh = window.innerHeight;
       for (const el of prog) {
         const r = el.getBoundingClientRect();
-        const p = el.dataset.progress === 'fill' ? (vh * 0.85 - r.top) / (r.height + vh * 0.2) : (vh - r.top) / (vh + r.height);
+        const mode = el.dataset.progress;
+        // „enter“: fertig, sobald das Element ganz im Bild steht (bzw. den Bildschirm füllt)
+        const p = mode === 'enter' ? (vh * 0.95 - r.top) / Math.min(r.height, vh * 0.8) : mode === 'fill' ? (vh * 0.85 - r.top) / (r.height + vh * 0.2) : (vh - r.top) / (vh + r.height);
         el.style.setProperty('--p', clamp01(p).toFixed(4));
       }
       if (hero) hero.style.setProperty('--hp', clamp01(window.scrollY / Math.max(1, hero.offsetHeight)).toFixed(4));
