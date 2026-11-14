@@ -69,7 +69,7 @@ export const en: Dict = {
       open: 'Open BauPad',
       aria: 'BauPad – to the product page',
       more: 'Further solutions are in preparation.',
-      moreTag: 'Product 02 · to follow',
+      moreTag: 'To follow',
       wall: {
         aria: 'The seven tools of BauPad',
         tool: 'Tool',

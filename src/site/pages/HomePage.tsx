@@ -11,8 +11,23 @@ const Arrow = () => (
     <path d="M5 12h14M13 6l6 6-6 6" />
   </svg>
 );
-const no = (i: number) => String(i).padStart(2, '0');
 const IMG = '/site/baupad';
+/** Zeichen der vier Schritte: verstehen, entwickeln, Rückmeldung, verbessern – bewusst ohne Nummern */
+const STEP_GLYPHS = [
+  <path key="a" d="M11 17a6 6 0 100-12 6 6 0 000 12zM20 20l-4.700-4.700" />,
+  <path key="b" d="M8 8l-4 4 4 4M16 8l4 4-4 4M13.500 6l-3 12" />,
+  <path key="c" d="M5 5h14v10h-8.500L5 19z" />,
+  <path key="d" d="M4 17l5-5 4 4 7-8M15 8h5v5" />,
+];
+/** Zeichen der sechs Technik-Punkte – ebenfalls ohne Nummern */
+const TECH_GLYPHS = [
+  <path key="a" d="M8 8l-4 4 4 4M16 8l4 4-4 4M13.500 6l-3 12" />,
+  <path key="b" d="M5 5h14v6H5zM5 13h14v6H5zM8 8h.01M8 16h.01" />,
+  <path key="c" d="M5 6c0-1.700 3.100-3 7-3s7 1.300 7 3-3.100 3-7 3-7-1.300-7-3zM5 6v12c0 1.700 3.100 3 7 3s7-1.300 7-3V6M5 12c0 1.700 3.100 3 7 3s7-1.300 7-3" />,
+  <path key="d" d="M12 3l7 3v5c0 4.500-3 8-7 10-4-2-7-5.500-7-10V6zM9 12l2 2 4-4" />,
+  <path key="e" d="M12 3l9 5-9 5-9-5zM3 12l9 5 9-5M3 16l9 5 9-5" />,
+  <path key="f" d="M20 12a8 8 0 11-2.300-5.700M20 4v5h-5" />,
+];
 /** Zeichen der fünf Grundsätze (Hammer: Lucide, ISC-Lizenz) */
 const GLYPHS = [
   <path key="a" d="M12 21s-6-5.6-6-10a6 6 0 0112 0c0 4.400-6 10-6 10zM12 13a2 2 0 100-4 2 2 0 000 4z" />,
@@ -161,7 +176,9 @@ export function HomePage() {
             {h.process.steps.map((s, i) => (
               <Reveal key={s.title} as="li" className="ph-step" delay={i * 80}>
                 <span className="ph-step-no" aria-hidden="true">
-                  {i + 1}
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    {STEP_GLYPHS[i]}
+                  </svg>
                 </span>
                 <h3>{s.title}</h3>
                 <p>{s.text}</p>
@@ -187,7 +204,11 @@ export function HomePage() {
           <ul className="ph-tech">
             {h.tech.items.map((x, i) => (
               <Reveal key={x.title} as="li" delay={(i % 3) * 60}>
-                <span className="ph-mono">{no(i + 1)}</span>
+                <i aria-hidden="true">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    {TECH_GLYPHS[i]}
+                  </svg>
+                </i>
                 <h3>{x.title}</h3>
                 <p>{x.text}</p>
               </Reveal>

@@ -219,11 +219,9 @@ export function ToolWall() {
       </div>
       <div className="tw-veil" aria-hidden="true" />
       <div className="tw-text">
-        {TOOL_ENTRIES.map((x, k) => (
+        {TOOL_ENTRIES.map((x) => (
           <div key={x.id} className="tw-slide" data-testid="tool-wall-slide">
-            <span className="ph-mono">
-              {w.tool} {String(k + 1).padStart(2, '0')} / 07
-            </span>
+            <span className="ph-mono">{w.brand}</span>
             <h3>{t.tools[x.id].title}.</h3>
             <p>{t.baupad.tools.items[x.id].hook}</p>
           </div>

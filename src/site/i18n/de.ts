@@ -71,7 +71,7 @@ export const de = {
       open: 'BauPad öffnen',
       aria: 'BauPad – zur Produktseite',
       more: 'Weitere Lösungen sind in Vorbereitung.',
-      moreTag: 'Produkt 02 · folgt',
+      moreTag: 'Folgt',
       wall: {
         aria: 'Die sieben Werkzeuge von BauPad',
         tool: 'Werkzeug',

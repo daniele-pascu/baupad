@@ -4924,11 +4924,16 @@
   border-right: 1px solid var(--ln);
   border-bottom: 1px solid var(--ln);
 }
-.ph-tech .ph-mono {
+.ph-tech li > i {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border: 1px solid color-mix(in srgb, var(--l) 45%, transparent);
   color: var(--l);
 }
 .ph-tech h3 {
-  margin: 14px 0 6px;
+  margin: 18px 0 6px;
   font-size: 1.38rem;
   font-weight: 600;
   letter-spacing: -0.025em;
