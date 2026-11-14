@@ -60,7 +60,7 @@ export function applyMeta(m: PageMeta) {
   setMeta('meta[property="og:type"]', { property: 'og:type', content: 'website' });
   setMeta('meta[property="og:site_name"]', { property: 'og:site_name', content: 'PAD Software' });
   setMeta('meta[property="og:locale"]', { property: 'og:locale', content: m.lang === 'de' ? 'de_AT' : 'en_GB' });
-  setMeta('meta[property="og:image"]', { property: 'og:image', content: `${SITE_ORIGIN}/og-image.png` });
+  setMeta('meta[property="og:image"]', { property: 'og:image', content: `${SITE_ORIGIN}/og-pad-software.png` });
   setMeta('meta[name="twitter:card"]', { name: 'twitter:card', content: 'summary_large_image' });
   document.head.querySelectorAll('script[data-jsonld]').forEach((e) => e.remove());
   for (const obj of m.jsonLd ?? []) {

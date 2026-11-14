@@ -65,7 +65,7 @@ function render(base, r) {
     '<meta property="og:type" content="website" />',
     '<meta property="og:site_name" content="PAD Software" />',
     `<meta property="og:locale" content="${r.lang === 'de' ? 'de_AT' : 'en_GB'}" />`,
-    `<meta property="og:image" content="${ORIGIN}/og-image.png" />`,
+    `<meta property="og:image" content="${ORIGIN}/og-pad-software.png" />`,
     '<meta name="twitter:card" content="summary_large_image" />',
     ...r.jsonLd.map((o) => `<script type="application/ld+json" data-jsonld="1">${JSON.stringify(o)}</script>`),
   ]

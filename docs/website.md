@@ -75,7 +75,7 @@ supabase/functions/storage/   Edge Function der zentralen Ablage (Hetzner Object
   Sobald die Originaldatei da ist, wird sie in `SiteShell.tsx` unverändert eingesetzt (nie umfärben, nie verzerren).
 - Software-Ansichten sind schematische Platzhalter (`components/Stage.tsx`, gekennzeichnet). Echte Bildschirmfotos
   werden über `image` am `Panel` eingesetzt, ohne Umbau. Vorhandene Bildschirmfotos liegen in `public/site/`.
-- Social-Vorschaubild: `public/og-image.png` (1200 × 630, Schriftzug als Text).
+- Social-Vorschaubild: `public/og-pad-software.png` (1200 × 630, Logo, „PAD Software“ und Motto auf Schwarz; bei einem neuen Bild den Dateinamen ändern, weil WhatsApp und andere Dienste das alte Bild lange zwischenspeichern).
 
 ## Cookies und Analyse
 
