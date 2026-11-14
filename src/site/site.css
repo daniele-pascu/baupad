@@ -5370,3 +5370,135 @@
     transform: translateY(-50%);
   }
 }
+
+/* Produkte: schwarz, bildschirmfüllend, BauPad als Karte in der Mitte */
+.pp-hero {
+  display: flex;
+  align-items: center;
+  min-height: calc(100vh - 69px);
+  min-height: calc(100svh - 69px);
+  padding: 56px 0 72px;
+  background: var(--k);
+  color: #fff;
+  text-align: center;
+}
+.pp-in {
+  display: grid;
+  justify-items: center;
+  width: 100%;
+}
+.pp-h1 {
+  margin: 16px 0 40px;
+  font-size: clamp(1.5rem, 3vw, 2.4rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+.pp-card {
+  display: grid;
+  justify-items: center;
+  width: min(100%, 460px);
+  padding: 44px 32px 32px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: var(--a);
+  color: #fff;
+  text-decoration: none;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+.pp-card img {
+  display: block;
+  width: clamp(124px, 20vw, 168px);
+  height: auto;
+  border-radius: 22%;
+  box-shadow: 0 30px 60px -22px rgba(0, 0, 0, 0.8);
+}
+.pp-name {
+  margin-top: 26px;
+  font-size: clamp(2.8rem, 6vw, 4rem);
+  font-weight: 650;
+  letter-spacing: -0.05em;
+  line-height: 1;
+}
+.pp-line {
+  margin-top: 12px;
+  color: var(--l);
+  font-size: clamp(1.1rem, 1.6vw, 1.3rem);
+  letter-spacing: -0.01em;
+}
+.pp-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  color: rgba(255, 255, 255, 0.62);
+}
+.pp-tag i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--l);
+}
+.pp-go {
+  width: 100%;
+  margin-top: 30px;
+}
+@media (hover: hover) {
+  .pp-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--l);
+  }
+}
+.pp-card:focus-visible {
+  outline: 2px solid var(--l);
+  outline-offset: 4px;
+}
+.pp-slot {
+  flex-wrap: wrap;
+  width: min(100%, 460px);
+  margin-top: 14px;
+  padding: 20px 24px;
+  text-align: left;
+}
+@media (max-width: 700px) {
+  .pp-hero {
+    min-height: calc(100svh - 61px);
+    padding: 36px 0 48px;
+  }
+  .pp-h1 {
+    margin-bottom: 28px;
+  }
+  .pp-card {
+    padding: 34px 22px 22px;
+  }
+}
+
+/* Über uns: schwarzer Kopf, danach dieselben Abschnitte wie früher auf der Startseite */
+.ab-hero {
+  padding: 104px 0 96px;
+  background: var(--k);
+  color: #fff;
+}
+.ab-h1 {
+  max-width: 15ch;
+  margin: 22px 0 24px;
+  font-size: clamp(2.6rem, 6.4vw, 5.4rem);
+  font-weight: 650;
+  letter-spacing: -0.05em;
+  line-height: 0.98;
+}
+.ab-h1 em {
+  color: var(--l);
+  font-style: normal;
+}
+.ab-lead {
+  max-width: 640px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: clamp(1.06rem, 1.5vw, 1.3rem);
+  line-height: 1.5;
+}
+@media (max-width: 700px) {
+  .ab-hero {
+    padding: 56px 0 60px;
+  }
+}

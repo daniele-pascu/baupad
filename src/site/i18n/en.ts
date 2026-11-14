@@ -131,7 +131,7 @@ export const en: Dict = {
     availableTitle: 'Coming soon',
     plannedTitle: 'Planned',
     plannedNote: 'No names, no dates yet. We only name a product once it is in development.',
-    open: 'Product page',
+    open: 'Open',
   },
   baupad: {
     title: 'BauPad – The construction site in one app | PAD Software',

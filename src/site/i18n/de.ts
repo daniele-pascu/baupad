@@ -133,7 +133,7 @@ export const de = {
     availableTitle: 'Bald verfügbar',
     plannedTitle: 'In Planung',
     plannedNote: 'Noch keine Namen, keine Termine. Wir nennen ein Produkt erst, wenn es in Entwicklung ist.',
-    open: 'Produktseite',
+    open: 'Öffnen',
   },
   baupad: {
     title: 'BauPad – Die Baustelle in einer App | PAD Software',
