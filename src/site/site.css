@@ -5309,87 +5309,81 @@
   background: radial-gradient(64% 56% at 50% 46%, color-mix(in srgb, var(--bp-k) 88%, transparent) 0%, color-mix(in srgb, var(--bp-k) 66%, transparent) 55%, color-mix(in srgb, var(--bp-k) 14%, transparent) 100%), linear-gradient(transparent 74%, var(--bp-k) 100%);
 }
 .bp-row7 {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  display: flex;
+  justify-content: center;
   gap: 10px;
-  max-width: 1240px;
-  margin: 44px auto 64px;
+  max-width: 1040px;
+  margin: 48px auto 60px;
   padding: 0;
   list-style: none;
-  text-align: left;
 }
 .bp-row7 li {
   display: flex;
-}
-.bp-t7 {
-  position: relative;
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 8px;
+  flex: 0 1 132px;
   min-width: 0;
-  padding: 16px 14px 44px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-bottom: 3px solid var(--c);
-  background: rgba(37, 42, 39, 0.92);
+}
+/* wie im Schlussbild der Startseite: farbiges Symbol-Quadrat, Name darunter – das Ganze antippbar */
+.bp-t7 {
+  display: grid;
+  flex: 1;
+  justify-items: center;
+  align-content: start;
+  gap: 14px;
+  min-width: 0;
+  padding: 14px 4px 12px;
+  border-radius: 18px;
   color: #fff;
   text-decoration: none;
-  transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+  transition: transform 0.18s ease, background 0.18s ease;
 }
 .bp-t7-icon {
   display: grid;
   place-items: center;
-  width: 46px;
-  height: 46px;
-  margin-bottom: 6px;
-  border: 1px solid color-mix(in srgb, var(--c) 55%, transparent);
-  background: color-mix(in srgb, var(--c) 16%, transparent);
-  color: var(--c);
+  width: 88px;
+  height: 88px;
+  border-radius: 22px;
+  background: var(--c);
+  box-shadow: 0 20px 40px -18px var(--c);
+  color: #101211;
+  transition: transform 0.18s ease;
 }
 .bp-t7-name {
-  font-size: 1rem;
-  font-weight: 650;
+  font-size: 0.98rem;
+  font-weight: 600;
   letter-spacing: -0.01em;
   line-height: 1.2;
+  text-align: center;
+  text-shadow: 0 2px 14px var(--bp-k);
   overflow-wrap: anywhere;
   hyphens: auto;
 }
-.bp-t7-hook {
-  color: rgba(255, 255, 255, 0.66);
-  font-size: 0.82rem;
-  line-height: 1.35;
-}
-.bp-t7-go {
-  position: absolute;
-  right: 12px;
-  bottom: 12px;
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  background: var(--c);
-  color: #101211;
-}
 @media (hover: hover) {
   .bp-t7:hover {
-    transform: translateY(-4px);
-    border-color: var(--c);
-    background: #2f3531;
+    background: rgba(255, 255, 255, 0.07);
+  }
+  .bp-t7:hover .bp-t7-icon {
+    transform: translateY(-5px) scale(1.04);
   }
 }
 .bp-t7:focus-visible {
   outline: 2px solid var(--bp-l);
   outline-offset: 3px;
 }
-@media (max-width: 1100px) {
-  .bp-t7-hook {
-    display: none;
+@media (max-width: 1000px) {
+  .bp-row7 {
+    gap: 4px;
   }
-  .bp-t7 {
-    padding: 14px 10px 44px;
+  .bp-t7-icon {
+    width: 72px;
+    height: 72px;
+    border-radius: 18px;
+  }
+  .bp-t7-icon svg {
+    width: 34px;
+    height: 34px;
   }
   .bp-t7-name {
-    font-size: 0.86rem;
+    font-size: 0.82rem;
   }
 }
 @media (max-width: 700px) {
@@ -5398,34 +5392,30 @@
     padding: 44px 0 56px;
   }
   .bp-row7 {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 8px;
-    margin: 30px 0 44px;
+    flex-wrap: wrap;
+    gap: 6px 0;
+    margin: 34px 0 40px;
+  }
+  .bp-row7 li {
+    flex: 0 0 25%;
   }
   .bp-t7 {
-    flex-direction: row;
-    align-items: center;
-    gap: 14px;
-    padding: 10px 50px 10px 10px;
-    border-bottom-width: 1px;
-    border-left: 3px solid var(--c);
+    gap: 9px;
+    padding: 8px 2px;
   }
   .bp-t7-icon {
-    flex: none;
-    width: 42px;
-    height: 42px;
-    margin: 0;
+    width: 60px;
+    height: 60px;
+    border-radius: 15px;
+  }
+  .bp-t7-icon svg {
+    width: 28px;
+    height: 28px;
   }
   .bp-t7-name {
-    font-size: 1rem;
-  }
-  .bp-t7-go {
-    top: 50%;
-    bottom: auto;
-    transform: translateY(-50%);
+    font-size: 0.72rem;
   }
 }
-
 /* Produkte: schwarz, bildschirmfüllend, BauPad als Karte in der Mitte */
 .pp-hero {
   display: flex;

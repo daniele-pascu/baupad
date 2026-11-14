@@ -25,7 +25,7 @@ const Points = ({ items }: { items: string[] }) => (
 
 /**
  * Produktseite BauPad: erster Bildschirm mit stehendem Kachel-Hintergrund und allen sieben Werkzeugen in einer Reihe
- * (jedes anklickbar), dann Zahlen, Probleme → Antworten, ein Projekt + Rollen, Technik, Abschluss.
+ * (farbige Symbol-Quadrate mit Namen wie auf der Startseite, jedes anklickbar), dann Zahlen, Probleme → Antworten, ein Projekt + Rollen, Technik, Abschluss.
  */
 export function BauPadPage() {
   const { lang, t } = useLang();
@@ -59,14 +59,10 @@ export function BauPadPage() {
             {TOOL_ENTRIES.map((x) => (
               <li key={x.id}>
                 <a href={toolPath(x.id, lang)} className="bp-t7" style={{ '--c': LIT[x.id] } as CSSProperties} data-testid="product-card">
-                  <span className="bp-t7-icon">
-                    <ToolIcon name={x.icon} size={26} />
-                  </span>
+                  <b className="bp-t7-icon" aria-hidden="true">
+                    <ToolIcon name={x.icon} size={40} />
+                  </b>
                   <span className="bp-t7-name">{t.tools[x.id].title}</span>
-                  <span className="bp-t7-hook">{b.tools.items[x.id].hook}</span>
-                  <span className="bp-t7-go">
-                    <Icon name="next" size={16} />
-                  </span>
                 </a>
               </li>
             ))}
