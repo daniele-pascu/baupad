@@ -54,11 +54,22 @@ export default defineConfig({
       },
       workbox: {
         // Alles, was die App offline braucht – inklusive pdf.js-Worker, Schriften, CMaps und WASM.
-        globPatterns: ['**/*.{js,mjs,css,html,png,jpg,svg,ico,webmanifest,bcmap,pfb,ttf,wasm,icc}'],
+        globPatterns: ['**/*.{js,mjs,css,html,png,jpg,svg,ico,webmanifest,bcmap,pfb,ttf,woff2,wasm,icc}'],
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         navigateFallback: '/index.html',
-        // vorgerenderte Website-Seiten und Dateien mit Endung nicht auf die App umleiten
-        navigateFallbackDenylist: [/\.[a-z0-9]+$/i],
+        // Dateien mit Endung und die Website-Seiten nicht auf die gespeicherte App umleiten
+        navigateFallbackDenylist: [/\.[a-z0-9]+$/i, /^\/(?:$|\?|en(?:\/|$|\?)|baupad\/?(?:$|\?)|baupad\/funktionen\/|(?:produkte|unternehmen|kontakt|impressum|datenschutz|konto-loeschen)(?:\/|$|\?))/],
+        // „/“ nicht aus dem Speicher beantworten (sonst zeigt die Startseite nach einer Veröffentlichung den alten Stand)
+        directoryIndex: null,
+        // Website-Seiten: immer zuerst frisch aus dem Netz; nur ohne Verbindung der zuletzt gesehene Stand bzw. die App
+        runtimeCaching: [
+          {
+            urlPattern: ({ request, url }) =>
+              request.mode === 'navigate' && /^\/(?:$|en(?:\/|$)|baupad\/?$|baupad\/funktionen\/|(?:produkte|unternehmen|kontakt|impressum|datenschutz|konto-loeschen)(?:\/|$))/.test(url.pathname),
+            handler: 'NetworkFirst',
+            options: { cacheName: 'website-seiten', networkTimeoutSeconds: 4, precacheFallback: { fallbackURL: '/index.html' } },
+          },
+        ],
         cleanupOutdatedCaches: true,
       },
     }),
