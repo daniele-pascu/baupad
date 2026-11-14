@@ -96,10 +96,16 @@ export function BauPadPage() {
       {/* 1. Kopf: Aussage, Tasten, Bühne mit der App in Laptop, Tablet und Handy */}
       <section className="bp-hero" aria-labelledby="ps-bp-title" data-hero="">
         <div className="bp-wrap">
-          <p className="bp-pill" data-reveal="" data-immediate="">
-            <img src="/icons/baupad-icon.png" width={28} height={28} alt="" />
-            {b.hero.eyebrow}
-          </p>
+          <div className="bp-top" data-reveal="" data-immediate="">
+            <p className="bp-pill">
+              <img src="/icons/baupad-icon.png" width={28} height={28} alt="" />
+              {b.hero.eyebrow}
+            </p>
+            <p className="bp-status">
+              <i />
+              {b.hero.status}
+            </p>
+          </div>
           <h1 id="ps-bp-title" className="bp-h1" data-testid="product-title">
             {b.hero.title.map((line, i) => (
               <span key={line} className={i === b.hero.title.length - 1 ? 'bp-accent' : undefined}>
@@ -119,10 +125,6 @@ export function BauPadPage() {
               {b.hero.secondary}
             </a>
           </div>
-          <p className="bp-status" data-reveal="" data-immediate="">
-            <i />
-            {b.hero.status}
-          </p>
           <div className="bp-stage" role="group" aria-label={b.show.label} data-testid="bp-stage">
             <div className="bp-tabs" role="tablist">
               {b.show.tabs.map((label, i) => (
@@ -285,7 +287,8 @@ export function BauPadPage() {
                       <p className="bp-tool-hook">{tool.hook}</p>
                     </div>
                   </div>
-                  <Points items={tool.points} />
+                  {/* kurz gehalten: die vier wichtigsten Punkte – alle stehen auf der Seite des Werkzeugs */}
+                  <Points items={tool.points.slice(0, 4)} />
                   <a href={toolPath(x.id, lang)} className="bp-link">
                     {b.tools.more} <Icon name="next" size={14} />
                   </a>

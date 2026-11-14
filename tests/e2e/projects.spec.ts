@@ -11,7 +11,7 @@ import { FIXTURES, OUT, catchDownload, createProject, freshStart, openPlan, sele
 test.describe('ohne Anmeldung', () => {
   test.use({ signedIn: false });
 
-test('Website: BauPad-Karten der Startseite führen zur BauPad-Seite; ohne Bewegung steht alles fertig da', async ({ page }) => {
+test('Website: BauPad-Karte der Startseite führt zur BauPad-Seite; ohne Bewegung steht alles fertig da', async ({ page }) => {
   await page.goto('./');
   // Abschnitte: Kopf, Unternehmen, Produkt, Können, Zusagen, Kontakt
   await expect(page.locator('.fh-facts li')).toHaveCount(3);
@@ -20,13 +20,10 @@ test('Website: BauPad-Karten der Startseite führen zur BauPad-Seite; ohne Beweg
   await expect(page.locator('.fh-nums li')).toHaveCount(3);
   await expect(page.locator('.fh-prom li')).toHaveCount(4);
   await expect(page.getByTestId('cta-contact-2')).toBeVisible();
-  // Kopf: BauPad als schwarze Karte mit einem Bild der App – ein Tipp öffnet die Produktseite
-  const hero = page.getByTestId('home-hero-product');
-  await expect(hero).toHaveAttribute('href', '/baupad');
-  await expect(hero.locator('img[src="/site/baupad/pc-aufmass.jpg"]')).toBeVisible();
-  // Produkt: große Karte mit den sieben Werkzeugen, daneben „In Planung“ (führt zu den Produkten)
+  // BauPad als große schwarz-limettenfarbene Karte mit der App in Laptop und Handy und den sieben Werkzeugen
   const card = page.getByTestId('home-product');
   await expect(card).toHaveAttribute('href', '/baupad');
+  await expect(card.locator('img[src="/site/baupad/pc-aufmass.jpg"]')).toBeVisible();
   await expect(card.getByTestId('home-tools').locator('li')).toHaveCount(7);
   await expect(page.getByTestId('home-planned')).toHaveAttribute('href', '/produkte');
   await card.scrollIntoViewIfNeeded();
@@ -37,10 +34,9 @@ test('Website: BauPad-Karten der Startseite führen zur BauPad-Seite; ohne Beweg
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('./');
   for (const sel of ['.fh-val', '.fh-feats .fh-card', '.fh-prom li']) await expect(page.locator(sel).first()).toHaveCSS('opacity', '1');
-  // Englisch: Karten führen zur englischen Produktseite
+  // Englisch: Karte führt zur englischen Produktseite
   await page.goto('./en');
   await expect(page.getByTestId('home-product')).toHaveAttribute('href', '/en/baupad');
-  await expect(page.getByTestId('home-hero-product')).toHaveAttribute('href', '/en/baupad');
 });
 
 test('Website: Startseite, Produkte, BauPad, Unternehmen, Kontaktformular, Sprache, Rechtliches', async ({ page }) => {
