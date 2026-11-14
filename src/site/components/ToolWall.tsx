@@ -221,18 +221,14 @@ export function ToolWall() {
       <div className="tw-text">
         {TOOL_ENTRIES.map((x) => (
           <div key={x.id} className="tw-slide" data-testid="tool-wall-slide">
-            <span className="ph-mono">{w.brand}</span>
             <h3>{t.tools[x.id].title}.</h3>
-            <p>{t.baupad.tools.items[x.id].hook}</p>
           </div>
         ))}
         <div className="tw-slide" data-testid="tool-wall-final">
-          <span className="ph-mono">{w.brand}</span>
           <h3>
             {w.final[0]}
             <em>{w.final[1]}</em>
           </h3>
-          <p>{w.finalText}</p>
           {/* am Ende stehen alle sieben Werkzeuge da */}
           <ul className="tw-all" data-testid="tool-wall-all">
             {TOOL_ENTRIES.map((x) => (
