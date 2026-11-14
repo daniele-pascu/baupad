@@ -4296,6 +4296,13 @@
   letter-spacing: -0.05em;
   line-height: 0.95;
 }
+.ph-h1 strong {
+  font-weight: 800;
+}
+.ph-h1 span {
+  font-weight: 300;
+  letter-spacing: -0.045em;
+}
 .ph-motto {
   display: flex;
   flex-wrap: wrap;
@@ -4475,11 +4482,47 @@
   width: 100%;
 }
 /* Kachelwand der sieben Werkzeuge */
-.tw {
+/* Die Wand steht fest hinter der Seite (wie ein Hintergrund); ihr Platz im Seitenfluss ist ein durchsichtiges Fenster */
+.ps-home {
+  --hd: 69px;
+}
+.tw-slot {
   position: relative;
-  height: 640px;
+  height: calc((100vh - var(--hd)) * 1.700);
+  height: calc((100svh - var(--hd)) * 1.700);
+}
+.tw {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: var(--hd);
+  z-index: 0;
+  height: calc(100vh - var(--hd));
+  height: calc(100svh - var(--hd));
   overflow: hidden;
   background: var(--k);
+  visibility: hidden;
+}
+.tw.near {
+  visibility: visible;
+}
+/* alles andere liegt darüber und schiebt sich beim Scrollen über die Wand */
+.ps-home .ps-main > section,
+.ps-home .ps-footer {
+  position: relative;
+  z-index: 1;
+}
+/* kein Verschieben der Seite beim Einblenden – sonst würde die feste Wand mit der Seite mitlaufen */
+.ps-home .ps-main {
+  animation-name: ps-home-in;
+}
+@keyframes ps-home-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 .tw-scene {
   position: absolute;
@@ -4664,7 +4707,7 @@
   visibility: hidden;
   transition: opacity 0.4s ease, color 0.2s ease, visibility 0s linear 0.4s;
 }
-.tw-again.on {
+.tw.full .tw-again.on {
   opacity: 1;
   visibility: visible;
   transition: opacity 0.4s ease, color 0.2s ease, visibility 0s;
@@ -5079,8 +5122,8 @@
   .ph-bp::after {
     height: 44px;
   }
-  .tw {
-    height: 620px;
+  .ps-home {
+    --hd: 61px;
   }
   .tw-head {
     margin-bottom: 20px;

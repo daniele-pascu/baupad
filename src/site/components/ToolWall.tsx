@@ -82,6 +82,7 @@ const seeded = (s: number) => () => {
 export function ToolWall() {
   const { t } = useLang();
   const w = t.home.product.wall;
+  const slot = useRef<HTMLDivElement>(null);
   const wall = useRef<HTMLDivElement>(null);
   const plane = useRef<HTMLDivElement>(null);
   const again = useRef<HTMLButtonElement>(null);
@@ -89,6 +90,7 @@ export function ToolWall() {
 
   useEffect(() => {
     const el = wall.current;
+    const sl = slot.current;
     const pl = plane.current;
     if (!el || !pl) return;
     const head = el.querySelector<HTMLElement>('.tw-head');
@@ -172,14 +174,10 @@ export function ToolWall() {
       el.dataset.state = time >= END ? 'done' : time > 0 ? 'running' : 'idle';
     };
     build();
-    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches || !('IntersectionObserver' in window);
-    if (still) {
-      render(END);
-      restart.current = () => render(END);
-      return;
-    }
+    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let t0 = 0;
     let raf = 0;
+    let started = still;
     const tick = (now: number) => {
       const time = (now - t0) / 1000;
       render(time);
@@ -190,37 +188,61 @@ export function ToolWall() {
       t0 = performance.now();
       raf = requestAnimationFrame(tick);
     };
-    restart.current = start;
-    render(0);
-    const io = new IntersectionObserver(
-      (es) => {
-        if (es[0].isIntersecting) {
-          start();
-          io.disconnect();
-        }
-      },
-      { threshold: 0.45 },
-    );
-    io.observe(el);
+    restart.current = still ? () => render(END) : start;
+    render(still ? END : 0);
+    /**
+     * Die Wand steht fest hinter der Seite; ihr Platz im Seitenfluss ist ein durchsichtiges Fenster. Beim Scrollen
+     * schiebt sich der Bereich darüber weg und gibt die Wand frei, später schiebt sich der Bereich darunter darüber.
+     * - „near“: das Fenster ist im Bild → Wand sichtbar (sonst ausgeblendet, damit sie nichts kostet und nichts verdeckt)
+     * - „full“: die Wand ist ganz frei → „Nochmal ansehen“ ist bedienbar
+     * - Start, sobald gut die Hälfte der Wand frei ist
+     */
+    let sf = 0;
+    const update = () => {
+      sf = 0;
+      if (!sl) return;
+      const r = sl.getBoundingClientRect();
+      const w = el.getBoundingClientRect();
+      const near = r.bottom > w.top && r.top < w.bottom;
+      el.classList.toggle('near', near);
+      el.classList.toggle('full', r.top <= w.top + 1 && r.bottom >= w.bottom - 1);
+      if (!started && near && (Math.min(r.bottom, w.bottom) - Math.max(r.top, w.top)) / w.height >= 0.55) {
+        started = true;
+        start();
+      }
+    };
+    const onScroll = () => {
+      if (!sf) sf = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener('scroll', onScroll, { passive: true });
     let rt = 0;
+    let lastW = el.clientWidth;
     const onResize = () => {
+      onScroll();
+      // nur bei geänderter Breite neu aufbauen (am Handy ändert die ein-/ausfahrende Adressleiste nur die Höhe)
+      if (el.clientWidth === lastW) return;
       window.clearTimeout(rt);
       rt = window.setTimeout(() => {
+        lastW = el.clientWidth;
         cancelAnimationFrame(raf);
         build();
+        started = true;
         render(END);
       }, 200);
     };
     window.addEventListener('resize', onResize);
     return () => {
-      io.disconnect();
       cancelAnimationFrame(raf);
+      cancelAnimationFrame(sf);
       window.clearTimeout(rt);
+      window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onResize);
     };
   }, []);
 
   return (
+    <div className="tw-slot" ref={slot} data-testid="tool-wall-slot">
     <div className="tw" ref={wall} role="group" aria-label={w.aria} data-testid="tool-wall">
       <div className="tw-scene" aria-hidden="true">
         <div className="tw-plane" ref={plane} />
@@ -273,6 +295,7 @@ export function ToolWall() {
       <button type="button" className="ph-mono tw-again" ref={again} onClick={() => restart.current()} data-testid="tool-wall-again">
         {w.again}
       </button>
+    </div>
     </div>
   );
 }

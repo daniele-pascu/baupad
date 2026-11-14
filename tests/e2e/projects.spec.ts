@@ -31,7 +31,10 @@ test('Website: Startseite PAD Software – Grundsätze, Lösungen mit Kachelwand
   const wall = page.getByTestId('tool-wall');
   await expect(wall).toHaveAttribute('data-state', 'idle');
   await expect(wall.getByTestId('tool-wall-slide')).toHaveCount(7);
-  await wall.scrollIntoViewIfNeeded();
+  // die Wand steht fest hinter der Seite – ihr Fenster im Seitenfluss nach oben holen, dann ist sie ganz frei
+  await expect(wall).toBeHidden();
+  await page.getByTestId('tool-wall-slot').evaluate((e) => window.scrollTo(0, e.getBoundingClientRect().top + window.scrollY - 40));
+  await expect(wall).toBeVisible();
   await expect(wall).toHaveAttribute('data-state', 'running');
   await expect(wall.getByTestId('tool-wall-slide').first()).toHaveCSS('opacity', '1');
   await expect(wall).toHaveAttribute('data-state', 'done', { timeout: 30_000 });

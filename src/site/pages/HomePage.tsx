@@ -36,8 +36,9 @@ export function HomePage() {
         <div className="ph-w ph-hero-grid">
           <div className="ph-hero-text">
             <p className="ph-mono ph-eye">{h.hero.eyebrow}</p>
+            {/* „PAD“ kräftig, „Software“ dünn – wie im Schriftzug des Logos */}
             <h1 id="ph-title" className="ph-h1">
-              {h.hero.name}
+              <strong>{h.hero.name.split(' ')[0]}</strong> <span>{h.hero.name.split(' ').slice(1).join(' ')}</span>
             </h1>
             <p className="ph-motto" data-testid="home-motto">
               {h.hero.motto.map((m) => (
