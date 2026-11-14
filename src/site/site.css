@@ -4703,7 +4703,7 @@
 }
 /* Vier Werkzeuge groß im Bild */
 .ph-tools {
-  padding-top: 16px;
+  padding-top: 80px;
 }
 .ph-tiles {
   display: grid;
@@ -5078,7 +5078,7 @@
     padding-top: 0;
   }
   .ph-tools {
-    padding-top: 10px;
+    padding-top: 52px;
   }
   .ph-head {
     grid-template-columns: minmax(0, 1fr);
@@ -5253,7 +5253,7 @@
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 10px;
   max-width: 1240px;
-  margin: 44px auto 40px;
+  margin: 44px auto 64px;
   padding: 0;
   list-style: none;
   text-align: left;
@@ -5340,7 +5340,7 @@
   .bp-row7 {
     grid-template-columns: minmax(0, 1fr);
     gap: 8px;
-    margin: 30px 0 30px;
+    margin: 30px 0 44px;
   }
   .bp-t7 {
     flex-direction: row;
