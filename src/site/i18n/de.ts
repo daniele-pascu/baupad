@@ -103,7 +103,7 @@ export const de = {
         { title: 'Rückmeldung', text: 'Anwender sagen, was fehlt.' },
         { title: 'Verbessern', text: 'Laufend, Schritt für Schritt.' },
       ],
-      quote: ['Nicht möglichst viele Funktionen – sondern Funktionen mit ', 'wirklichem Nutzen', '.'],
+      quote: ['Wir entwickeln nur, was im Alltag ', 'wirklich hilft', '.'],
     },
     tech: {
       label: 'Technologie und Infrastruktur',

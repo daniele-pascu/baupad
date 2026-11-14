@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type CSSProperties } from 'react';
+import { ToolIcon } from '../../components/ToolIcon';
 import { useLang } from '../i18n';
 import { TOOL_ENTRIES } from '../products';
 
@@ -59,10 +60,10 @@ const svg = (k: string) => `<svg viewBox="0 0 24 24" fill="none" stroke="current
 export const LIT: Record<string, string> = { projects: '#ff7a2b', workers: '#4d95f5', reports: '#b47bff', photos: '#d0d0d6', defects: '#ff5b62', times: '#2fd6a7', materials: '#f2b632' };
 
 // Zeitplan in Sekunden: Vorlauf, Dauer je Werkzeug, Schlussbild
-const T0 = 0.5;
-const STEP = 2.2;
+const T0 = 0.3;
+const STEP = 1.05;
 const FIN = T0 + 7 * STEP;
-const END = FIN + 1.4;
+const END = FIN + 0.9;
 const clamp = (v: number) => Math.max(0, Math.min(1, v));
 const ease = (p: number) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
 /** fester Zufall – die Wand sieht bei jedem Besuch gleich aus */
@@ -74,7 +75,7 @@ const seeded = (s: number) => () => {
 /**
  * Kachelwand der sieben Werkzeuge: verschieden große Kacheln, jedes Symbol in der Farbe seines Werkzeugs.
  * Alle Kacheln liegen mit der Rückseite (Logo) nach oben. Kommt die Wand ins Bild,
- * erscheint Werkzeug für Werkzeug sein Name, und seine Kacheln drehen sich von der Mitte nach außen um (kurz ganz in
+ * erscheint Werkzeug für Werkzeug sein Name (rund eine Sekunde je Werkzeug), und seine Kacheln drehen sich von der Mitte nach außen um (kurz ganz in
  * der Farbe des Werkzeugs). Am Ende steht die volle Wand; „Nochmal ansehen“ startet den Ablauf neu. Der ganze Zustand hängt nur
  * von der Zeit ab (render(t)). Ohne Bewegung (System-Einstellung) steht sofort das Schlussbild.
  */
@@ -145,18 +146,18 @@ export function ToolWall() {
     };
     const render = (time: number) => {
       for (const q of tiles) {
-        const on = T0 + q.k * STEP + 0.2 + q.d * 1.2;
-        const a = ease(clamp((time - on) / 0.8));
-        const hi = clamp((time - on) / 0.3) * (1 - clamp((time - (T0 + (q.k + 1) * STEP - 0.1)) / 0.6));
-        q.el.style.transform = `translateZ(${(Math.sin(Math.PI * clamp((time - on) / 0.8)) * 56).toFixed(1)}px) rotateY(${(180 - 180 * a).toFixed(2)}deg)`;
+        const on = T0 + q.k * STEP + 0.08 + q.d * 0.55;
+        const a = ease(clamp((time - on) / 0.55));
+        const hi = clamp((time - on) / 0.2) * (1 - clamp((time - (T0 + (q.k + 1) * STEP - 0.05)) / 0.4));
+        q.el.style.transform = `translateZ(${(Math.sin(Math.PI * clamp((time - on) / 0.55)) * 56).toFixed(1)}px) rotateY(${(180 - 180 * a).toFixed(2)}deg)`;
         q.el.style.setProperty('--hi', hi.toFixed(3));
       }
       slides.forEach((sl, k) => {
         const from = k < 7 ? T0 + k * STEP : FIN;
         const to = k < 7 ? from + STEP : Infinity;
-        const p = clamp((time - from) / 0.45) * (1 - clamp((time - (to - 0.3)) / 0.3));
+        const p = clamp((time - from) / 0.28) * (1 - clamp((time - (to - 0.2)) / 0.2));
         sl.style.opacity = p.toFixed(3);
-        sl.style.transform = `translateY(calc(-50% + ${((1 - clamp((time - from) / 0.45)) * 22).toFixed(1)}px))`;
+        sl.style.transform = `translateY(calc(-50% + ${((1 - clamp((time - from) / 0.28)) * 22).toFixed(1)}px))`;
       });
       ticks.forEach((b, k) => (b.style.width = `${(clamp((time - (T0 + k * STEP)) / STEP) * 100).toFixed(1)}%`));
       again.current?.classList.toggle('on', time >= END);
@@ -234,6 +235,15 @@ export function ToolWall() {
             <em>{w.final[1]}</em>
           </h3>
           <p>{w.finalText}</p>
+          {/* am Ende stehen alle sieben Werkzeuge da */}
+          <ul className="tw-all" data-testid="tool-wall-all">
+            {TOOL_ENTRIES.map((x) => (
+              <li key={x.id} style={{ '--c': LIT[x.id] } as CSSProperties}>
+                <ToolIcon name={x.icon} size={18} />
+                {t.tools[x.id].title}
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
       <div className="tw-ticks" aria-hidden="true">

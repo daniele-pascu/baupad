@@ -4576,6 +4576,31 @@
   font-size: clamp(0.94rem, 1.5vw, 1.25rem);
   text-shadow: 0 2px 16px rgba(0, 0, 0, 0.9);
 }
+.tw-all {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  max-width: 980px;
+  margin: 24px auto 0;
+  padding: 0;
+  list-style: none;
+}
+.tw-all li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-bottom: 2px solid var(--c);
+  background: rgba(16, 18, 17, 0.82);
+  font-size: 0.92rem;
+  font-weight: 500;
+}
+.tw-all svg {
+  flex: none;
+  color: var(--c);
+}
 .tw-ticks {
   position: absolute;
   left: 0;
@@ -4816,49 +4841,53 @@
   position: relative;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 30px;
-  margin: 60px 0 0;
+  margin: 64px 0 0;
   padding: 0;
   list-style: none;
 }
-.ph-steps::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 9px;
-  height: 2px;
-  background: var(--g2);
-}
+/* Linie durch die Mitte der vier Punkte – füllt sich beim Scrollen */
+.ph-steps::before,
 .ph-steps::after {
   content: '';
   position: absolute;
-  left: 0;
-  top: 9px;
-  width: calc(var(--p, 1) * 100%);
-  height: 2px;
+  left: 32px;
+  top: 30px;
+  height: 4px;
+  border-radius: 2px;
+}
+.ph-steps::before {
+  width: calc(75% + 0px);
+  background: var(--g2);
+}
+.ph-steps::after {
+  width: calc(var(--p, 1) * 75%);
   background: var(--ink);
 }
 .ph-step {
   position: relative;
-  padding-top: 44px;
+  padding-right: 32px;
 }
-.ph-step::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
+.ph-step-no {
+  position: relative;
   z-index: 1;
-  width: 20px;
-  height: 20px;
-  border: 2px solid var(--ink);
-  background: var(--l);
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--ink);
+  box-shadow: 0 0 0 8px var(--g1);
+  color: var(--l);
+  font-family: var(--ps-mono);
+  font-size: 1.25rem;
+  font-weight: 600;
 }
-.ph-step .ph-mono {
-  color: var(--mut);
+.ph-step:last-child .ph-step-no {
+  background: var(--l);
+  color: var(--ink);
 }
 .ph-step h3 {
-  margin: 8px 0 6px;
+  margin: 28px 0 8px;
   font-size: clamp(1.6rem, 2.6vw, 2.25rem);
   font-weight: 650;
   letter-spacing: -0.035em;
@@ -4867,6 +4896,7 @@
   margin: 0;
   color: var(--mut);
   font-size: 1.06rem;
+  line-height: 1.45;
 }
 .ph-quote {
   margin: 80px 0 0;
@@ -5017,10 +5047,18 @@
     height: 44px;
   }
   .tw {
-    height: 560px;
+    height: 620px;
+  }
+  .tw-all {
+    gap: 6px;
+    margin-top: 16px;
+  }
+  .tw-all li {
+    padding: 6px 9px;
+    font-size: 0.8rem;
   }
   .tw-veil {
-    background: radial-gradient(95% 26% at 50% 50%, color-mix(in srgb, var(--k) 95%, transparent), color-mix(in srgb, var(--k) 70%, transparent) 62%, transparent 88%), linear-gradient(var(--k) 0%, transparent 14%, transparent 84%, var(--k) 100%);
+    background: radial-gradient(100% 40% at 50% 50%, color-mix(in srgb, var(--k) 95%, transparent), color-mix(in srgb, var(--k) 70%, transparent) 62%, transparent 88%), linear-gradient(var(--k) 0%, transparent 14%, transparent 84%, var(--k) 100%);
   }
   .tw-ticks {
     bottom: 56px;
@@ -5080,22 +5118,38 @@
   }
   .ph-steps {
     grid-template-columns: minmax(0, 1fr);
-    gap: 0;
     margin-top: 40px;
   }
+  /* am Handy läuft die Linie senkrecht durch die vier Punkte */
   .ph-steps::before {
-    left: 9px;
-    right: auto;
-    top: 0;
-    bottom: 0;
-    width: 2px;
+    left: 22px;
+    top: 24px;
+    bottom: 60px;
+    width: 4px;
     height: auto;
+    background: var(--ink);
   }
   .ph-steps::after {
     display: none;
   }
   .ph-step {
-    padding: 0 0 28px 44px;
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr);
+    column-gap: 18px;
+    padding: 0 0 30px;
+  }
+  .ph-step:last-child {
+    padding-bottom: 0;
+  }
+  .ph-step-no {
+    grid-row: span 2;
+    width: 48px;
+    height: 48px;
+    box-shadow: 0 0 0 6px var(--g1);
+    font-size: 1.05rem;
+  }
+  .ph-step h3 {
+    margin: 4px 0 4px;
   }
   .ph-quote {
     margin-top: 36px;

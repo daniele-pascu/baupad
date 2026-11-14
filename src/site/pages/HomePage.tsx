@@ -67,13 +67,10 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* 01 Über uns: fünf Grundsätze, je eine Zeile */}
+      {/* Über uns: fünf Grundsätze, je eine Zeile */}
       <section className="ph-sec ph-light" id="ueber-uns">
         <div className="ph-w">
           <Reveal className="ph-head">
-            <p className="ph-mono ph-label">
-              <b>01</b> {h.about.label}
-            </p>
             <h2 className="ph-h2">{h.about.title}</h2>
             <a href={paths.company(lang)} className="ph-more">
               {h.about.more} <Arrow />
@@ -154,20 +151,17 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* 02 Unsere Entwicklung: vier Schritte */}
+      {/* Unsere Entwicklung: vier Schritte auf einer Linie */}
       <section className="ph-sec ph-light ph-sec-tight" id="entwicklung">
         <div className="ph-w">
           <Reveal className="ph-head">
-            <p className="ph-mono ph-label">
-              <b>02</b> {h.process.label}
-            </p>
             <h2 className="ph-h2">{h.process.title}</h2>
           </Reveal>
           <ol className="ph-steps" data-progress="fill">
             {h.process.steps.map((s, i) => (
               <Reveal key={s.title} as="li" className="ph-step" delay={i * 80}>
-                <span className="ph-mono">
-                  {h.process.stepLabel} {no(i + 1)}
+                <span className="ph-step-no" aria-hidden="true">
+                  {i + 1}
                 </span>
                 <h3>{s.title}</h3>
                 <p>{s.text}</p>
@@ -184,13 +178,10 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* 03 Technologie und Infrastruktur: sechs Punkte */}
+      {/* Technologie und Infrastruktur: sechs Punkte */}
       <section className="ph-sec ph-black" id="technologie">
         <div className="ph-w">
           <Reveal className="ph-head">
-            <p className="ph-mono ph-label">
-              <b>03</b> {h.tech.label}
-            </p>
             <h2 className="ph-h2">{h.tech.title}</h2>
           </Reveal>
           <ul className="ph-tech">
