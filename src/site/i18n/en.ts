@@ -101,7 +101,6 @@ export const en: Dict = {
         { title: 'Feedback', text: 'Users tell us what is missing.' },
         { title: 'Improve', text: 'Continuously, step by step.' },
       ],
-      quote: ['We only build what ', 'really helps', ' in everyday work.'],
     },
     tech: {
       label: 'Technology and infrastructure',

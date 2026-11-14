@@ -185,13 +185,6 @@ export function HomePage() {
               </Reveal>
             ))}
           </ol>
-          <Reveal>
-            <p className="ph-quote">
-              {h.process.quote[0]}
-              <em>{h.process.quote[1]}</em>
-              {h.process.quote[2]}
-            </p>
-          </Reveal>
         </div>
       </section>
 
