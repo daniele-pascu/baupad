@@ -133,6 +133,35 @@ export const en: Dict = {
       secondary: 'Open BauPad',
       status: 'Test phase – subscription follows at launch',
     },
+    show: {
+      label: 'BauPad on PC, tablet and phone',
+      tabs: ['Measurement', 'Time', 'Material', 'Orders'],
+      chips: [
+        { title: 'Area 4 measured', text: '2.00 × 1.50 m · 3.00 m²' },
+        { title: 'Order B-2026-001', text: 'on its way to the site' },
+        { title: '4 workers recorded', text: 'today, Parkdeck Nord' },
+      ],
+      items: [
+        {
+          eyebrow: 'Measurement & Billing',
+          title: 'Measure where the plan is.',
+          text: 'Upload the plan, tap the area, enter the dimensions. The measurement sheet does the maths – and goes to the office as PDF or Excel with your logo.',
+          points: ['Areas, lengths, pieces and walls right on the plan', 'Numbers, colours and legend per plan', 'Measurement sheet per item – no retyping'],
+        },
+        {
+          eyebrow: 'Time Recording',
+          title: 'Hours in seconds.',
+          text: 'Your own workers are at the top, start and end are prefilled. One tap – and the day is recorded.',
+          points: ['Take workers over from the schedule', 'Break and travel only when needed', 'Monthly overview per worker'],
+        },
+        {
+          eyebrow: 'Material Management',
+          title: 'Ordered is what is needed.',
+          text: 'Report demand on site, order per supplier in the office, tick off the delivery. Equipment: where and how many pieces.',
+          points: ['Open, ordered, overdue – at a glance', 'Order as text or e-mail to the supplier', 'Equipment per site with history'],
+        },
+      ],
+    },
     problems: {
       eyebrow: 'Sound familiar?',
       title: 'Three problems. Three answers.',

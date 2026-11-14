@@ -13146,3 +13146,15 @@ input,
     font-size: 1.25rem;
   }
 }
+
+/* Zeitaufzeichnung am Handy: der Wochentag steht über der Datumszeile (lange Tage wie „Donnerstag“ rutschten sonst unter das Datumsfeld) */
+@media (max-width: 520px) {
+  .times-day-nav {
+    flex-wrap: wrap;
+  }
+  .times-day-nav .times-weekday {
+    order: -1;
+    flex: 1 1 100%;
+    text-align: left;
+  }
+}

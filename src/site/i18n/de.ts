@@ -135,6 +135,35 @@ export const de = {
       secondary: 'BauPad öffnen',
       status: 'Testphase – Abo folgt zum Start',
     },
+    show: {
+      label: 'BauPad am PC, Tablet und Handy',
+      tabs: ['Aufmaß', 'Zeiten', 'Material', 'Bestellungen'],
+      chips: [
+        { title: 'Fläche 4 gemessen', text: '2,00 × 1,50 m · 3,00 m²' },
+        { title: 'Bestellung B-2026-001', text: 'unterwegs zur Baustelle' },
+        { title: '4 Arbeiter eingetragen', text: 'heute, Tiefgarage Parkdeck Nord' },
+      ],
+      items: [
+        {
+          eyebrow: 'Aufmaß & Abrechnung',
+          title: 'Messen, wo der Plan ist.',
+          text: 'Plan hochladen, Fläche antippen, Maße eintragen. Das Aufmaßblatt rechnet mit – und geht mit Ihrem Logo als PDF oder Excel ins Büro.',
+          points: ['Flächen, Längen, Stück und Wände direkt am Plan', 'Nummern, Farben und Legende je Plan', 'Aufmaßblatt je Leistung – ohne Abtippen'],
+        },
+        {
+          eyebrow: 'Zeitaufzeichnung',
+          title: 'Stunden in Sekunden.',
+          text: 'Die eigenen Arbeiter stehen oben, Beginn und Ende sind vorbelegt. Ein Tipp – und der Tag ist eingetragen.',
+          points: ['Arbeiter aus der Einteilung übernehmen', 'Pause und Weg nur, wenn nötig', 'Monatsübersicht je Arbeiter'],
+        },
+        {
+          eyebrow: 'Materialverwaltung',
+          title: 'Bestellt ist, was gebraucht wird.',
+          text: 'Bedarf auf der Baustelle melden, im Büro je Lieferant bestellen, Lieferung abhaken. Geräte: wo und wie viele Stück.',
+          points: ['Offen, bestellt, überfällig – auf einen Blick', 'Bestellung als Text oder E-Mail an den Lieferanten', 'Geräte je Baustelle mit Verlauf'],
+        },
+      ],
+    },
     problems: {
       eyebrow: 'Kennen Sie das?',
       title: 'Drei Probleme. Drei Antworten.',
