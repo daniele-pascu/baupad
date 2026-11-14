@@ -13,7 +13,10 @@ test.describe('ohne Anmeldung', () => {
 
 test('Website: Startseite PAD Software – Grundsätze, Lösungen mit Kachelwand, Entwicklung, Technologie; ohne Bewegung steht alles fertig da', async ({ page }) => {
   await page.goto('./');
-  // Abschnitte: Aussage, BauPad im Bild, Kachelwand, vier Werkzeuge im Bild, 01 Über uns, 02 Entwicklung, 03 Technologie, Kontakt
+  // Abschnitte: erster Bildschirm (Name, Motto, Logo), 01 Über uns, BauPad im Bild, Kachelwand, vier Werkzeuge im Bild, 02 Entwicklung, 03 Technologie, Kontakt
+  await expect(page.getByTestId('home-motto')).toHaveText('Problem.Analysis.Development.');
+  // der erste Bildschirm füllt das Fenster: „Wofür wir stehen“ beginnt erst darunter
+  expect((await page.locator('#ueber-uns').boundingBox())!.y).toBeGreaterThanOrEqual(page.viewportSize()!.height - 2);
   await expect(page.getByTestId('home-stage').locator('img')).toHaveCount(2); // Laptop und Handy
   await expect(page.getByTestId('home-tile')).toHaveCount(4);
   await expect(page.getByTestId('home-tile').first()).toHaveAttribute('href', '/baupad/funktionen/aufmass');
@@ -52,7 +55,8 @@ test('Website: Startseite PAD Software – Grundsätze, Lösungen mit Kachelwand
   // Englisch: Taste führt zur englischen Produktseite
   await page.goto('./en');
   await expect(page.getByTestId('home-product')).toHaveAttribute('href', '/en/baupad');
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('comes from practice');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('PAD Software');
+  await expect(page.getByTestId('home-motto')).toHaveText('Problem.Analysis.Development.');
   // Menü: Home, Produkte (darunter BauPad), Über uns, Kontakt
   await page.goto('./');
   const nav = page.getByTestId('site-nav');
@@ -70,7 +74,7 @@ test('Website: Startseite, Produkte, BauPad, Unternehmen, Kontaktformular, Sprac
   const nav = page.getByTestId('site-nav');
   await expect(nav).toBeVisible();
   const h1 = page.getByRole('heading', { level: 1 });
-  await expect(h1).toContainText('aus der Praxis entsteht');
+  await expect(h1).toHaveText('PAD Software');
   await expect(page.locator('html')).toHaveAttribute('lang', 'de');
   // zuerst das Unternehmen, dann BauPad als antippbare Karte
   await expect(page.locator('.ph-val')).toHaveCount(5);
@@ -157,7 +161,7 @@ test('Website: Startseite, Produkte, BauPad, Unternehmen, Kontaktformular, Sprac
 
   // Wortmarke führt immer zur Startseite
   await nav.getByRole('link', { name: 'PAD Software' }).first().click();
-  await expect(h1).toContainText('aus der Praxis entsteht');
+  await expect(h1).toHaveText('PAD Software');
 
   // „Anmelden“: Anmeldeseite mit Supabase – der Dienst ist aus der Testumgebung nicht erreichbar,
   // deshalb werden seine Antworten hier nachgestellt (Anbieter-Weiterleitung, falsches Passwort, Registrierung)

@@ -51,10 +51,11 @@ export const en: Dict = {
     description: 'PAD Software develops digital solutions in Austria that simplify workflows, relieve people and make companies more efficient. First product: BauPad for the construction industry.',
     hero: {
       eyebrow: 'Software development from Austria',
-      title: ['Software that comes from ', 'practice', '.'],
-      lead: 'Digital solutions that simplify workflows, relieve people and make companies more efficient.',
-      primary: 'Our solutions',
-      secondary: 'More about PAD Software',
+      name: 'PAD Software',
+      motto: ['Problem.', 'Analysis.', 'Development.'],
+      lead: 'A software company from Austria. We develop digital solutions that come from practice.',
+      primary: 'Our products',
+      secondary: 'About us',
     },
     product: {
       label: 'Our solutions',

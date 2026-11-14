@@ -55,6 +55,9 @@ const SETS: Record<string, string[]> = {
 };
 const svg = (k: string) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${ICON[k]}</svg>`;
 
+/** Farbe des Symbols auf dunklem Grund (dunkle Werkzeugfarben aufgehellt, Fotodokumentation hellgrau) */
+const LIT: Record<string, string> = { projects: '#ff7a2b', workers: '#4d95f5', reports: '#b47bff', photos: '#d0d0d6', defects: '#ff5b62', times: '#2fd6a7', materials: '#f2b632' };
+
 // Zeitplan in Sekunden: Vorlauf, Dauer je Werkzeug, Schlussbild
 const T0 = 0.5;
 const STEP = 2.2;
@@ -69,9 +72,10 @@ const seeded = (s: number) => () => {
 };
 
 /**
- * Kachelwand der sieben Werkzeuge: Alle Kacheln liegen mit der Rückseite (Logo) nach oben. Kommt die Wand ins Bild,
- * erscheint Werkzeug für Werkzeug sein Name, und seine Kacheln drehen sich von der Mitte nach außen um (kurz in der
- * Akzentfarbe). Am Ende steht die volle Wand; „Nochmal ansehen“ startet den Ablauf neu. Der ganze Zustand hängt nur
+ * Kachelwand der sieben Werkzeuge: verschieden große Kacheln, jedes Symbol in der Farbe seines Werkzeugs.
+ * Alle Kacheln liegen mit der Rückseite (Logo) nach oben. Kommt die Wand ins Bild,
+ * erscheint Werkzeug für Werkzeug sein Name, und seine Kacheln drehen sich von der Mitte nach außen um (kurz ganz in
+ * der Farbe des Werkzeugs). Am Ende steht die volle Wand; „Nochmal ansehen“ startet den Ablauf neu. Der ganze Zustand hängt nur
  * von der Zeit ab (render(t)). Ohne Bewegung (System-Einstellung) steht sofort das Schlussbild.
  */
 export function ToolWall() {
@@ -94,31 +98,50 @@ export function ToolWall() {
       tiles = [];
       const W = el.clientWidth;
       const H = el.clientHeight;
-      const s = Math.max(64, Math.min(128, W / 11));
-      const stp = s * 1.2;
+      const s = Math.max(56, Math.min(104, W / 13));
+      const gap = s * 0.2;
+      const stp = s + gap;
       const cols = Math.ceil((W * 1.5) / stp) | 1;
       const rows = Math.ceil((H * 2.3) / stp) | 1;
       const r = seeded(7);
-      const n = cols * rows;
-      const order: number[] = [];
-      for (let i = 0; i < n; i++) order.push(i % 7);
-      for (let i = n - 1; i > 0; i--) {
+      // Raster belegen: zuerst einige große Kacheln (3×3 und 2×2), der Rest bleibt einfach
+      const used = new Uint8Array(cols * rows);
+      const spots: { x: number; y: number; n: number }[] = [];
+      const place = (n: number, share: number) => {
+        const want = Math.round((cols * rows * share) / (n * n));
+        for (let tries = 0, done = 0; done < want && tries < want * 30; tries++) {
+          const x = Math.floor(r() * (cols - n + 1));
+          const y = Math.floor(r() * (rows - n + 1));
+          let free = true;
+          for (let dy = 0; dy < n && free; dy++) for (let dx = 0; dx < n; dx++) if (used[(y + dy) * cols + x + dx]) free = false;
+          if (!free) continue;
+          for (let dy = 0; dy < n; dy++) for (let dx = 0; dx < n; dx++) used[(y + dy) * cols + x + dx] = 1;
+          spots.push({ x, y, n });
+          done++;
+        }
+      };
+      place(3, 0.14);
+      place(2, 0.3);
+      for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) if (!used[y * cols + x]) spots.push({ x, y, n: 1 });
+      // jedes Werkzeug bekommt gleich viele Kacheln, gut gemischt
+      const order = spots.map((_, i) => i % 7);
+      for (let i = order.length - 1; i > 0; i--) {
         const j = Math.floor(r() * (i + 1));
         [order[i], order[j]] = [order[j], order[i]];
       }
-      for (let y = 0; y < rows; y++)
-        for (let x = 0; x < cols; x++) {
-          const k = order[y * cols + x];
-          const tool = TOOL_ENTRIES[k];
-          const px = (x - (cols - 1) / 2) * stp;
-          const py = (y - (rows - 1) / 2) * stp;
-          const d = document.createElement('div');
-          d.className = 'tw-tile';
-          d.style.cssText = `--s:${s}px;--c:${tool.color};left:${px}px;top:${py}px`;
-          d.innerHTML = `<div class="tw-front">${svg(SETS[tool.id][Math.floor(r() * 6)])}</div><div class="tw-back"><img src="/icons/pad-mark.png" alt=""></div>`;
-          pl.appendChild(d);
-          tiles.push({ el: d, k, d: Math.hypot(px, py) / Math.hypot(W, H) });
-        }
+      spots.forEach((sp, i) => {
+        const k = order[i];
+        const tool = TOOL_ENTRIES[k];
+        const size = sp.n * s + (sp.n - 1) * gap;
+        const px = (sp.x + sp.n / 2 - cols / 2) * stp;
+        const py = (sp.y + sp.n / 2 - rows / 2) * stp;
+        const d = document.createElement('div');
+        d.className = 'tw-tile';
+        d.style.cssText = `--s:${size.toFixed(1)}px;--c:${tool.color};--ci:${LIT[tool.id] ?? tool.color};left:${px.toFixed(1)}px;top:${py.toFixed(1)}px`;
+        d.innerHTML = `<div class="tw-front">${svg(SETS[tool.id][Math.floor(r() * 6)])}</div><div class="tw-back"><img src="/icons/pad-mark.png" alt=""></div>`;
+        pl.appendChild(d);
+        tiles.push({ el: d, k, d: Math.hypot(px, py) / Math.hypot(W, H) });
+      });
     };
     const render = (time: number) => {
       for (const q of tiles) {

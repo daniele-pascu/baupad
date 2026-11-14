@@ -53,10 +53,11 @@ export const de = {
     description: 'PAD Software entwickelt in Österreich digitale Lösungen, die Arbeitsabläufe vereinfachen, Menschen entlasten und Unternehmen effizienter machen. Erstes Produkt: BauPad für die Baubranche.',
     hero: {
       eyebrow: 'Softwareentwicklung aus Österreich',
-      title: ['Software, die aus der ', 'Praxis', ' entsteht.'],
-      lead: 'Digitale Lösungen, die Arbeitsabläufe vereinfachen, Menschen entlasten und Unternehmen effizienter machen.',
-      primary: 'Unsere Lösungen',
-      secondary: 'Mehr über PAD Software',
+      name: 'PAD Software',
+      motto: ['Problem.', 'Analysis.', 'Development.'],
+      lead: 'Ein Softwareunternehmen aus Österreich. Wir entwickeln digitale Lösungen, die aus der Praxis entstehen.',
+      primary: 'Unsere Produkte',
+      secondary: 'Über uns',
     },
     product: {
       label: 'Unsere Lösungen',

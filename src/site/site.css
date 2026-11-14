@@ -3051,8 +3051,8 @@
    Erster Blick: die App in Laptop, Tablet und Handy. Danach helle Abschnitte mit schwarzen und limettenfarbenen Flächen.
    ===================================================================== */
 .ps-baupad {
-  --bp-l: #c6f432;
-  --bp-k: #0b0c0e;
+  --bp-l: #c5f52d;
+  --bp-k: #101211;
   --bp-ink: #141518;
   --bp-line: rgba(255, 255, 255, 0.1);
   --bp-card: #14161a;
@@ -3993,14 +3993,14 @@
    Die Palette steht nur hier (sechs Werte) und lässt sich an einer Stelle ändern.
    ===================================================================== */
 .ps-firm {
-  --k: #0c0d0f;
-  --a: #16181c;
-  --a2: #1f2227;
+  --k: #101211;
+  --a: #252a27;
+  --a2: #2f3531;
   --ln: rgba(255, 255, 255, 0.12);
-  --l: #c6f432;
-  --g1: #f4f5f2;
-  --g2: #e3e5e0;
-  --ink: #101113;
+  --l: #c5f52d;
+  --g1: #f4f5f1;
+  --g2: #e2e4dd;
+  --ink: #101211;
   --mut: #5b6068;
   --mutd: rgba(255, 255, 255, 0.62);
   --ps-mono: 'Geist Mono Variable', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
@@ -4009,7 +4009,7 @@
 /* Kopfleiste: flach über die ganze Breite, Haupttaste in Lime */
 .ps-firm .ps-header,
 .ps-firm .ps-header.is-scrolled {
-  background: rgba(12, 13, 15, 0.9);
+  background: rgba(16, 18, 17, 0.92);
   border-bottom: 1px solid var(--ln);
 }
 @media (min-width: 901px) {
@@ -4017,7 +4017,7 @@
   .ps-firm .ps-header.is-scrolled {
     padding: 0;
     border-bottom: 1px solid var(--ln);
-    background: rgba(12, 13, 15, 0.86);
+    background: rgba(16, 18, 17, 0.88);
     -webkit-backdrop-filter: blur(14px);
     backdrop-filter: blur(14px);
     pointer-events: auto;
@@ -4258,27 +4258,23 @@
 .ph-btn-dark-line:hover {
   border-color: var(--ink);
 }
-/* Aussage */
+/* Erster Bildschirm: schwarz, füllt den ganzen Bildschirm */
 .ph-hero {
   position: relative;
+  display: flex;
+  align-items: center;
+  min-height: calc(100vh - 69px);
+  min-height: calc(100svh - 69px);
   overflow: hidden;
-  padding: 96px 0 92px;
+  padding: 48px 0;
   background: var(--k);
-  text-align: center;
 }
-.ph-hero::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: linear-gradient(var(--ln) 1px, transparent 1px), linear-gradient(90deg, var(--ln) 1px, transparent 1px);
-  background-size: 80px 80px;
-  opacity: 0.4;
-  -webkit-mask-image: radial-gradient(70% 90% at 50% 100%, #000, transparent);
-  mask-image: radial-gradient(70% 90% at 50% 100%, #000, transparent);
-  pointer-events: none;
-}
-.ph-hero .ph-w {
-  position: relative;
+.ph-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 60px;
+  align-items: center;
+  width: 100%;
 }
 .ph-eye {
   display: inline-flex;
@@ -4287,36 +4283,53 @@
   margin: 0;
   color: var(--l);
 }
-.ph-eye::before,
-.ph-eye::after {
+.ph-eye::before {
   content: '';
   width: 34px;
   height: 1px;
   background: currentColor;
 }
 .ph-h1 {
-  max-width: 1000px;
-  margin: 24px auto 22px;
-  font-size: clamp(2.875rem, 6.6vw, 6rem);
+  margin: 22px 0 18px;
+  font-size: clamp(3rem, 7.6vw, 7rem);
   font-weight: 650;
-  letter-spacing: -0.045em;
-  line-height: 0.98;
-  text-wrap: balance;
+  letter-spacing: -0.05em;
+  line-height: 0.95;
 }
-.ph-h1 em,
+.ph-motto {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.7em;
+  margin: 0 0 26px;
+  color: var(--l);
+  font-family: var(--ps-mono);
+  font-size: clamp(0.95rem, 1.7vw, 1.45rem);
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
 .ph-h2 em,
 .ph-quote em {
   color: var(--l);
   font-style: normal;
 }
 .ph-lead {
-  max-width: 640px;
-  margin: 0 auto 34px;
+  max-width: 520px;
+  margin: 0 0 34px;
   color: rgba(255, 255, 255, 0.78);
   font-size: clamp(1.06rem, 1.5vw, 1.31rem);
   line-height: 1.5;
 }
-.ph-hero .ph-btns,
+.ph-hero-logo {
+  display: grid;
+  place-items: center;
+}
+.ph-hero-logo img {
+  display: block;
+  width: min(100%, 520px);
+  height: auto;
+}
 .ph-bp .ph-btns {
   justify-content: center;
 }
@@ -4449,14 +4462,14 @@
   inset: 0;
   display: grid;
   place-items: center;
-  border-radius: 16%;
+  border-radius: min(16%, 22px);
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
 }
 .tw-back {
   transform: rotateY(180deg);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  background: var(--a);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: #191d1b;
 }
 .tw-back img {
   width: 30%;
@@ -4464,22 +4477,13 @@
   opacity: 0.13;
 }
 .tw-front {
-  border: 1px solid color-mix(in srgb, var(--l) calc(var(--hi, 0) * 100%), rgba(255, 255, 255, 0.16));
-  background: color-mix(in srgb, var(--l) calc(var(--hi, 0) * 100%), var(--a2));
-  color: color-mix(in srgb, var(--k) calc(var(--hi, 0) * 100%), #fff);
-}
-.tw-front::after {
-  content: '';
-  position: absolute;
-  left: 12%;
-  top: 12%;
-  width: 9%;
-  height: 9%;
-  background: var(--c);
+  border: 1px solid color-mix(in srgb, var(--ci) calc(var(--hi, 0) * 100%), rgba(255, 255, 255, 0.14));
+  background: color-mix(in srgb, var(--c) calc(var(--hi, 0) * 100%), var(--a));
+  color: color-mix(in srgb, #fff calc(var(--hi, 0) * 100%), var(--ci));
 }
 .tw-front svg {
-  width: 44%;
-  height: 44%;
+  width: 42%;
+  height: 42%;
 }
 .tw-veil {
   position: absolute;
@@ -4909,7 +4913,23 @@
     padding: 0 22px;
   }
   .ph-hero {
-    padding: 60px 0 64px;
+    min-height: calc(100vh - 61px);
+    min-height: calc(100svh - 61px);
+    padding: 28px 0 36px;
+  }
+  .ph-hero-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 26px;
+  }
+  .ph-hero-logo {
+    order: -1;
+    justify-items: start;
+  }
+  .ph-hero-logo img {
+    width: min(46%, 360px);
+  }
+  .ph-h1 {
+    margin: 16px 0 14px;
   }
   .ph-btns .ph-btn {
     flex: 1 1 100%;
