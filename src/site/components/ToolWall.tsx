@@ -56,7 +56,7 @@ const SETS: Record<string, string[]> = {
 const svg = (k: string) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${ICON[k]}</svg>`;
 
 /** Farbe des Symbols auf dunklem Grund (dunkle Werkzeugfarben aufgehellt, Fotodokumentation hellgrau) */
-const LIT: Record<string, string> = { projects: '#ff7a2b', workers: '#4d95f5', reports: '#b47bff', photos: '#d0d0d6', defects: '#ff5b62', times: '#2fd6a7', materials: '#f2b632' };
+export const LIT: Record<string, string> = { projects: '#ff7a2b', workers: '#4d95f5', reports: '#b47bff', photos: '#d0d0d6', defects: '#ff5b62', times: '#2fd6a7', materials: '#f2b632' };
 
 // Zeitplan in Sekunden: Vorlauf, Dauer je Werkzeug, Schlussbild
 const T0 = 0.5;
@@ -246,6 +246,32 @@ export function ToolWall() {
       <button type="button" className="ph-mono tw-again" ref={again} onClick={() => restart.current()} data-testid="tool-wall-again">
         {w.again}
       </button>
+    </div>
+  );
+}
+
+/** Größe der Kacheln im stehenden Hintergrund: fest gemischt (1 = einfach, 2 = doppelt, 3 = dreifach) */
+const TILE_SIZES = (() => {
+  const r = seeded(11);
+  return Array.from({ length: 170 }, () => {
+    const v = r();
+    return { n: v < 0.07 ? 3 : v < 0.27 ? 2 : 1, tool: Math.floor(r() * 7), icon: Math.floor(r() * 6) };
+  });
+})();
+
+/**
+ * Stehender Kachel-Hintergrund (nicht animiert): verschieden große Kacheln, jedes Symbol in der Farbe seines Werkzeugs.
+ * Füllt den ganzen Bereich hinter dem Inhalt; rein dekorativ.
+ */
+export function ToolTiles() {
+  return (
+    <div className="tt" aria-hidden="true" data-testid="tool-tiles">
+      <div className="tt-grid">
+        {TILE_SIZES.map((x, i) => {
+          const tool = TOOL_ENTRIES[x.tool];
+          return <span key={i} className={`tt-tile tt-n${x.n}`} style={{ color: LIT[tool.id] }} dangerouslySetInnerHTML={{ __html: svg(SETS[tool.id][x.icon]) }} />;
+        })}
+      </div>
     </div>
   );
 }

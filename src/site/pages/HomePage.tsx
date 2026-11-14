@@ -1,9 +1,6 @@
-import type { CSSProperties } from 'react';
-import { ToolIcon } from '../../components/ToolIcon';
 import { paths } from '../../lib/router';
 import { contactData } from '../contact-data';
 import { useLang } from '../i18n';
-import { TOOL_ENTRIES, toolPath } from '../products';
 import { organizationJsonLd, siteAlternates, softwareJsonLd } from '../seo';
 import { Reveal } from '../components/Reveal';
 import { SiteLayout } from '../components/SiteShell';
@@ -16,13 +13,6 @@ const Arrow = () => (
 );
 const no = (i: number) => String(i).padStart(2, '0');
 const IMG = '/site/baupad';
-/** Vier Werkzeuge groß im Bild: welches Bild, welches Gerät, heller oder dunkler Grund */
-const TILES: { id: 'projects' | 'workers' | 'times' | 'materials'; img: string; device: 'pc' | 'handy' | 'tablet'; tone: 'dark' | 'light' }[] = [
-  { id: 'projects', img: 'pc-aufmass', device: 'pc', tone: 'dark' },
-  { id: 'workers', img: 'pc-einteilung', device: 'pc', tone: 'light' },
-  { id: 'times', img: 'handy-zeit', device: 'handy', tone: 'light' },
-  { id: 'materials', img: 'tablet-bestellungen', device: 'tablet', tone: 'dark' },
-];
 /** Zeichen der fünf Grundsätze (Hammer: Lucide, ISC-Lizenz) */
 const GLYPHS = [
   <path key="a" d="M12 21s-6-5.6-6-10a6 6 0 0112 0c0 4.400-6 10-6 10zM12 13a2 2 0 100-4 2 2 0 000 4z" />,
@@ -39,8 +29,8 @@ const GLYPHS = [
 /**
  * Startseite PAD Software („Lime Contrast“), gebaut wie eine Produktseite: wenig Text, große Bilder.
  * Erster Bildschirm (schwarz, bildschirmfüllend): Name, Motto, ein Satz, rechts groß das Logo → wofür wir stehen →
- * das Produkt BauPad in Laptop und Handy → Kachelwand der sieben Werkzeuge → vier Werkzeuge groß im Bild →
- * vier Schritte, sechs Technik-Punkte je in einer Zeile → Kontakt.
+ * BauPad (was es löst, drei kurze Punkte, Laptop + Tablet + Handy) → Kachelwand der sieben Werkzeuge → weiter zur
+ * Produktseite → vier Schritte, sechs Technik-Punkte je in einer Zeile → Kontakt.
  * Jeder Bereich hat eine Überschrift und höchstens eine kurze Zeile. Keine Zertifikate, Garantien oder unbelegten Zahlen.
  */
 export function HomePage() {
@@ -105,7 +95,7 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Das Produkt – sofort im Bild */}
+      {/* BauPad: was es löst, ganz kurz was es kann, Laptop + Tablet + Handy */}
       <section className="ph-bp" id="loesungen" aria-labelledby="ph-bp-title">
         <div className="ph-w">
           <p className="ph-mono ph-tag">
@@ -117,23 +107,32 @@ export function HomePage() {
             {h.product.name}
           </h2>
           <p className="ph-bp-line">{h.product.tagline}</p>
+          <p className="ph-bp-solves">{h.product.solves}</p>
+          <ul className="ph-bp-can" data-testid="home-can">
+            {h.product.can.map((c) => (
+              <li key={c}>{c}</li>
+            ))}
+          </ul>
           <div className="ph-btns">
-            <a href={paths.baupad(lang)} className="ph-btn ph-btn-black" aria-label={h.product.aria} data-testid="home-product">
+            <a href={paths.baupad(lang)} className="ph-btn ph-btn-lime" aria-label={h.product.aria} data-testid="home-product">
               {h.product.cta} <Arrow />
             </a>
-            <a href={paths.tools()} className="ph-btn ph-btn-dark-line" data-testid="home-open">
+            <a href={paths.tools()} className="ph-btn ph-btn-line" data-testid="home-open">
               {h.product.open}
             </a>
           </div>
           <a href={paths.baupad(lang)} className="ph-stage" tabIndex={-1} aria-hidden="true" data-testid="home-stage">
             <span className="ph-lap">
               <span className="ph-lap-scr">
-                <img src={`${IMG}/pc-aufmass.jpg`} width={1200} height={750} alt="" />
+                <img src={`${IMG}/pc-aufmass.jpg`} width={1440} height={900} alt="" loading="lazy" decoding="async" />
               </span>
               <span className="ph-lap-base" />
             </span>
+            <span className="ph-tab">
+              <img src={`${IMG}/tablet-einteilung.jpg`} width={1180} height={820} alt="" loading="lazy" decoding="async" />
+            </span>
             <span className="ph-phone">
-              <img src={`${IMG}/handy-zeit.jpg`} width={560} height={1212} alt="" />
+              <img src={`${IMG}/handy-fotos.jpg`} width={585} height={1266} alt="" loading="lazy" decoding="async" />
             </span>
           </a>
         </div>
@@ -142,28 +141,12 @@ export function HomePage() {
       {/* Die sieben Werkzeuge als Kachelwand */}
       <ToolWall />
 
-      {/* Vier Werkzeuge groß im Bild */}
+      {/* Weiter zu den Werkzeugen (Produktseite BauPad) */}
       <section className="ph-sec ph-black ph-tools">
         <div className="ph-w">
-          <ul className="ph-tiles" data-testid="home-tiles">
-            {TILES.map((x, i) => {
-              const tool = TOOL_ENTRIES.find((e) => e.id === x.id)!;
-              return (
-                <Reveal key={x.id} as="li" delay={(i % 2) * 80}>
-                  <a href={toolPath(x.id, lang)} className={`ph-tile ph-tile-${x.tone}`} style={{ '--c': tool.color } as CSSProperties} data-testid="home-tile">
-                    <span className="ph-tile-icon">
-                      <ToolIcon name={tool.icon} size={24} />
-                    </span>
-                    <span className="ph-tile-name">{t.tools[x.id].title}</span>
-                    <span className="ph-tile-line">{t.baupad.tools.items[x.id].hook}</span>
-                    <span className={`ph-tile-shot ph-tile-${x.device}`} aria-hidden="true">
-                      <img src={`${IMG}/${x.img}.jpg`} width={x.device === 'handy' ? 560 : x.device === 'tablet' ? 1000 : 1200} height={x.device === 'handy' ? 1212 : x.device === 'tablet' ? 695 : 750} alt="" loading="lazy" decoding="async" />
-                    </span>
-                  </a>
-                </Reveal>
-              );
-            })}
-          </ul>
+          <a href={paths.baupad(lang)} className="ph-btn ph-btn-lime" data-testid="home-tools">
+            {h.product.all} <Arrow />
+          </a>
           <Reveal className="ph-slot">
             <b>{h.product.more}</b>
             <span className="ph-mono">{h.product.moreTag}</span>

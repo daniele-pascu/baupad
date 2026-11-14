@@ -13,13 +13,13 @@ test.describe('ohne Anmeldung', () => {
 
 test('Website: Startseite PAD Software – Grundsätze, Lösungen mit Kachelwand, Entwicklung, Technologie; ohne Bewegung steht alles fertig da', async ({ page }) => {
   await page.goto('./');
-  // Abschnitte: erster Bildschirm (Name, Motto, Logo), 01 Über uns, BauPad im Bild, Kachelwand, vier Werkzeuge im Bild, 02 Entwicklung, 03 Technologie, Kontakt
+  // Abschnitte: erster Bildschirm (Name, Motto, Logo), 01 Über uns, BauPad (drei Punkte, Laptop + Tablet + Handy), Kachelwand, weiter zur Produktseite, 02 Entwicklung, 03 Technologie, Kontakt
   await expect(page.getByTestId('home-motto')).toHaveText('Problem.Analysis.Development.');
   // der erste Bildschirm füllt das Fenster: „Wofür wir stehen“ beginnt erst darunter
   expect((await page.locator('#ueber-uns').boundingBox())!.y).toBeGreaterThanOrEqual(page.viewportSize()!.height - 2);
-  await expect(page.getByTestId('home-stage').locator('img')).toHaveCount(2); // Laptop und Handy
-  await expect(page.getByTestId('home-tile')).toHaveCount(4);
-  await expect(page.getByTestId('home-tile').first()).toHaveAttribute('href', '/baupad/funktionen/aufmass');
+  await expect(page.getByTestId('home-stage').locator('img')).toHaveCount(3); // Laptop, Tablet und Handy
+  await expect(page.getByTestId('home-can').locator('li')).toHaveCount(3); // ganz kurz, was BauPad kann
+  await expect(page.getByTestId('home-tools')).toHaveAttribute('href', '/baupad'); // weiter zu den Werkzeugen auf der Produktseite
   await expect(page.locator('.ph-val')).toHaveCount(5);
   await expect(page.locator('.ph-step')).toHaveCount(4);
   await expect(page.locator('.ph-tech li')).toHaveCount(6);
@@ -93,6 +93,8 @@ test('Website: Startseite, Produkte, BauPad, Unternehmen, Kontaktformular, Sprac
   // BauPad: sieben Werkzeuge, Werkzeug-Seite, Werkzeug nur mit Anmeldung
   await expect(page.getByTestId('product-title')).toContainText('in einer App');
   await expect(page.getByTestId('product-card')).toHaveCount(7);
+  await expect(page.getByTestId('tool-tiles')).toBeVisible(); // stehender Kachel-Hintergrund hinter den sieben Werkzeugen
+  await expect(page.getByTestId('product-grid').locator('a')).toHaveCount(7); // alle sieben in einer Reihe, jedes anklickbar
   await expect(page.getByTestId('product-card').nth(3)).toContainText('Fotodokumentation');
   await expect(page.getByTestId('product-card').nth(4)).toContainText('Mängelplan');
   await expect(page.getByTestId('product-card').nth(5)).toContainText('Zeitaufzeichnung');

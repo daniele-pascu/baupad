@@ -4333,12 +4333,12 @@
 .ph-bp .ph-btns {
   justify-content: center;
 }
-/* Das Produkt: BauPad groß im Bild */
+/* Das Produkt: BauPad – anthrazit, Laptop, Tablet und Handy */
 .ph-bp {
   overflow: hidden;
-  padding: 96px 0 0;
-  background: var(--g1);
-  color: var(--ink);
+  padding: 104px 0 0;
+  background: var(--a);
+  color: #fff;
   text-align: center;
 }
 .ph-tag {
@@ -4346,13 +4346,13 @@
   align-items: center;
   gap: 10px;
   margin: 0;
-  color: var(--mut);
+  color: rgba(255, 255, 255, 0.62);
 }
 .ph-tag i {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #7fb800;
+  background: var(--l);
 }
 .ph-bp-name {
   display: flex;
@@ -4371,33 +4371,58 @@
   border-radius: 20%;
 }
 .ph-bp-line {
-  margin: 0 0 30px;
-  color: var(--mut);
+  margin: 0 0 14px;
+  color: var(--l);
   font-size: clamp(1.3rem, 2.4vw, 2rem);
   letter-spacing: -0.02em;
+}
+.ph-bp-solves {
+  max-width: 620px;
+  margin: 0 auto 26px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: clamp(1.02rem, 1.4vw, 1.2rem);
+  line-height: 1.5;
+}
+.ph-bp-can {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin: 0 0 34px;
+  padding: 0;
+  list-style: none;
+}
+.ph-bp-can li {
+  padding: 9px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  font-size: 0.95rem;
+  font-weight: 500;
 }
 .ph-stage {
   position: relative;
   display: block;
-  width: min(1040px, 100%);
+  width: min(1120px, 100%);
   margin: 64px auto 0;
+  padding-bottom: 7%;
 }
 .ph-lap {
   display: block;
-  width: 86%;
-  margin: 0 auto -1px;
-  filter: drop-shadow(0 40px 50px rgba(16, 17, 19, 0.28));
+  width: 70%;
+  margin: 0 auto;
+  filter: drop-shadow(0 40px 50px rgba(0, 0, 0, 0.45));
 }
 .ph-lap-scr {
   display: block;
   overflow: hidden;
-  aspect-ratio: 1200 / 750;
-  border: 11px solid #15161a;
-  border-bottom: 0;
+  aspect-ratio: 1440 / 900;
+  border: 11px solid #0c0d0d;
+  border-bottom-width: 14px;
   border-radius: 20px 20px 0 0;
-  background: #15161a;
+  background: #0c0d0d;
 }
-.ph-lap-scr img {
+.ph-lap-scr img,
+.ph-tab img,
+.ph-phone img {
   display: block;
   width: 100%;
   height: 100%;
@@ -4405,26 +4430,49 @@
   object-position: top left;
 }
 .ph-lap-base {
-  display: none;
+  display: block;
+  width: 116%;
+  height: 16px;
+  margin-left: -8%;
+  border-radius: 2px 2px 16px 16px;
+  background: linear-gradient(#5b615d, #2c302e 45%, #171918);
+}
+.ph-tab {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 37%;
+  aspect-ratio: 1180 / 820;
+  overflow: hidden;
+  border: 9px solid #0c0d0d;
+  border-radius: 18px;
+  background: #0c0d0d;
+  box-shadow: 0 40px 60px -20px rgba(0, 0, 0, 0.7);
 }
 .ph-phone {
   position: absolute;
-  right: 0;
-  bottom: -8%;
-  width: 21%;
+  right: 3%;
+  bottom: 0;
+  width: 15.500%;
+  aspect-ratio: 390 / 800;
   overflow: hidden;
-  border: 8px solid #15161a;
-  border-radius: 13% / 6%;
+  border: 7px solid #0c0d0d;
+  border-radius: 13% / 6.500%;
   background: #000;
-  box-shadow: 0 40px 60px -20px rgba(16, 17, 19, 0.6);
+  box-shadow: 0 40px 60px -20px rgba(0, 0, 0, 0.7);
 }
-.ph-phone img {
+.ph-bp::after {
+  content: '';
   display: block;
+  height: 64px;
+}
+.ph-tools .ph-w {
+  display: grid;
+  justify-items: center;
+  gap: 44px;
+}
+.ph-tools .ph-slot {
   width: 100%;
-  height: auto;
-  aspect-ratio: 390 / 760;
-  object-fit: cover;
-  object-position: top;
 }
 /* Kachelwand der sieben Werkzeuge */
 .tw {
@@ -4942,18 +4990,31 @@
   }
   .ph-stage {
     margin-top: 44px;
+    padding-bottom: 12%;
   }
   .ph-lap {
-    width: 100%;
+    width: 84%;
   }
   .ph-lap-scr {
-    border-width: 7px;
-    border-radius: 14px 14px 0 0;
+    border-width: 6px;
+    border-bottom-width: 8px;
+    border-radius: 12px 12px 0 0;
+  }
+  .ph-lap-base {
+    height: 9px;
+  }
+  .ph-tab {
+    width: 46%;
+    border-width: 5px;
+    border-radius: 10px;
   }
   .ph-phone {
-    right: -2px;
-    width: 27%;
-    border-width: 5px;
+    right: 0;
+    width: 21%;
+    border-width: 4px;
+  }
+  .ph-bp::after {
+    height: 44px;
   }
   .tw {
     height: 560px;
@@ -5062,5 +5123,191 @@
   .ph-btn,
   .ph-tile {
     transition: none;
+  }
+}
+@media (max-width: 520px) {
+  .ph-bp-can li {
+    flex: 1 1 100%;
+  }
+}
+
+/* BauPad-Produktseite: erster Bildschirm mit stehenden Kacheln und den sieben Werkzeugen in einer Reihe */
+.bp-hero.bp-hero-tiles {
+  display: flex;
+  align-items: center;
+  min-height: calc(100vh - 69px);
+  min-height: calc(100svh - 69px);
+  padding: 72px 0 80px;
+  background: var(--bp-k);
+}
+.bp-hero.bp-hero-tiles::before {
+  display: none;
+}
+.bp-hero-tiles > .bp-wrap {
+  position: relative;
+  width: 100%;
+}
+.bp-hero-tiles .bp-h1,
+.bp-hero-tiles .bp-lead {
+  text-shadow: 0 2px 22px var(--bp-k), 0 0 4px var(--bp-k);
+}
+.tt {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.tt-grid {
+  --s: clamp(46px, 6.200vw, 92px);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, var(--s));
+  grid-auto-rows: var(--s);
+  grid-auto-flow: dense;
+  gap: calc(var(--s) * 0.180);
+  justify-content: center;
+  width: 112%;
+  margin: calc(var(--s) * -0.400) 0 0 -6%;
+}
+.tt-tile {
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: min(16%, 20px);
+  background: #191d1b;
+}
+.tt-tile svg {
+  width: 42%;
+  height: 42%;
+  opacity: 0.75;
+}
+.tt-n2 {
+  grid-column: span 2;
+  grid-row: span 2;
+}
+.tt-n3 {
+  grid-column: span 3;
+  grid-row: span 3;
+}
+.tt::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(64% 56% at 50% 46%, color-mix(in srgb, var(--bp-k) 88%, transparent) 0%, color-mix(in srgb, var(--bp-k) 66%, transparent) 55%, color-mix(in srgb, var(--bp-k) 14%, transparent) 100%), linear-gradient(transparent 74%, var(--bp-k) 100%);
+}
+.bp-row7 {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+  max-width: 1240px;
+  margin: 44px auto 40px;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+.bp-row7 li {
+  display: flex;
+}
+.bp-t7 {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 16px 14px 44px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-bottom: 3px solid var(--c);
+  background: rgba(37, 42, 39, 0.92);
+  color: #fff;
+  text-decoration: none;
+  transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+}
+.bp-t7-icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  margin-bottom: 6px;
+  border: 1px solid color-mix(in srgb, var(--c) 55%, transparent);
+  background: color-mix(in srgb, var(--c) 16%, transparent);
+  color: var(--c);
+}
+.bp-t7-name {
+  font-size: 1rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+}
+.bp-t7-hook {
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+.bp-t7-go {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  background: var(--c);
+  color: #101211;
+}
+@media (hover: hover) {
+  .bp-t7:hover {
+    transform: translateY(-4px);
+    border-color: var(--c);
+    background: #2f3531;
+  }
+}
+.bp-t7:focus-visible {
+  outline: 2px solid var(--bp-l);
+  outline-offset: 3px;
+}
+@media (max-width: 1100px) {
+  .bp-t7-hook {
+    display: none;
+  }
+  .bp-t7 {
+    padding: 14px 10px 44px;
+  }
+  .bp-t7-name {
+    font-size: 0.86rem;
+  }
+}
+@media (max-width: 700px) {
+  .bp-hero.bp-hero-tiles {
+    min-height: calc(100svh - 61px);
+    padding: 44px 0 56px;
+  }
+  .bp-row7 {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+    margin: 30px 0 30px;
+  }
+  .bp-t7 {
+    flex-direction: row;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 50px 10px 10px;
+    border-bottom-width: 1px;
+    border-left: 3px solid var(--c);
+  }
+  .bp-t7-icon {
+    flex: none;
+    width: 42px;
+    height: 42px;
+    margin: 0;
+  }
+  .bp-t7-name {
+    font-size: 1rem;
+  }
+  .bp-t7-go {
+    top: 50%;
+    bottom: auto;
+    transform: translateY(-50%);
   }
 }
