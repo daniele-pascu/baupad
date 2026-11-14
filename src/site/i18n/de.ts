@@ -78,6 +78,8 @@ export const de = {
         brand: 'BauPad',
         final: ['Sieben Werkzeuge. ', 'Eine App.'],
         finalText: 'Ein Konto, ein Stand für alle.',
+        head: '7 Tools',
+        one: 'Eine App.',
         again: 'Nochmal ansehen',
       },
     },

@@ -4542,64 +4542,92 @@
 .tw-text {
   position: absolute;
   inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 0 22px 34px;
   text-align: center;
   pointer-events: none;
 }
-.tw-slide {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  padding: 0 22px;
+/* Block bleibt immer mittig: Überschrift oben, darunter liegen alle Bilder im selben Feld übereinander */
+.tw-stack {
+  display: grid;
+  justify-items: center;
+  width: 100%;
+}
+.tw-head {
+  margin: 0 0 26px;
   opacity: 0;
-  transform: translateY(-50%);
-}
-.tw-slide .ph-mono {
-  color: var(--l);
-}
-.tw-slide h3 {
-  margin: 0.14em 0 0.16em;
-  font-size: clamp(2.5rem, 7.2vw, 6.5rem);
+  font-size: clamp(2rem, 4.400vw, 3.800rem);
   font-weight: 650;
-  letter-spacing: -0.05em;
-  line-height: 1;
+  letter-spacing: -0.045em;
+  line-height: 1.05;
   text-shadow: 0 8px 40px rgba(0, 0, 0, 0.7);
 }
-.tw-slide h3 em {
-  color: var(--l);
-  font-style: normal;
+.tw-slides {
+  display: grid;
+  justify-items: center;
+  align-items: center;
+  width: 100%;
 }
-.tw-slide p {
-  max-width: 34em;
-  margin: 0 auto;
-  color: rgba(255, 255, 255, 0.82);
-  font-size: clamp(0.94rem, 1.5vw, 1.25rem);
-  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.9);
+.tw-slide {
+  grid-area: 1 / 1;
+  display: grid;
+  justify-items: center;
+  width: 100%;
+  opacity: 0;
+}
+.tw-ico {
+  display: grid;
+  place-items: center;
+  width: 108px;
+  height: 108px;
+  border-radius: 27px;
+  background: var(--c);
+  box-shadow: 0 22px 44px -18px var(--c);
+  color: #101211;
+}
+.tw-slide h3 {
+  margin: 22px 0 0;
+  font-size: clamp(2.300rem, 5.200vw, 4.500rem);
+  font-weight: 650;
+  letter-spacing: -0.05em;
+  line-height: 1.05;
+  text-shadow: 0 8px 40px rgba(0, 0, 0, 0.7);
+}
+.tw-slide .tw-one {
+  color: var(--l);
 }
 .tw-all {
   display: flex;
-  flex-wrap: wrap;
   justify-content: center;
   gap: 8px;
-  max-width: 980px;
-  margin: 24px auto 0;
+  width: 100%;
+  max-width: 900px;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
 .tw-all li {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 13px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-bottom: 2px solid var(--c);
-  background: rgba(16, 18, 17, 0.82);
-  font-size: 0.92rem;
+  display: grid;
+  flex: 0 1 112px;
+  justify-items: center;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+  font-size: 0.84rem;
   font-weight: 500;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  hyphens: auto;
 }
-.tw-all svg {
-  flex: none;
-  color: var(--c);
+.tw-all b {
+  display: grid;
+  place-items: center;
+  width: 68px;
+  height: 68px;
+  border-radius: 17px;
+  background: var(--c);
+  color: #101211;
 }
 .tw-ticks {
   position: absolute;
@@ -5054,13 +5082,40 @@
   .tw {
     height: 620px;
   }
+  .tw-head {
+    margin-bottom: 20px;
+  }
+  .tw-ico {
+    width: 88px;
+    height: 88px;
+    border-radius: 22px;
+  }
+  .tw-ico svg {
+    width: 42px;
+    height: 42px;
+  }
+  /* Platz für zwei Zeilen: das Symbol bleibt bei kurzen und langen Namen an derselben Stelle */
+  .tw-slide h3:not(.tw-one) {
+    min-height: 2.100em;
+  }
   .tw-all {
-    gap: 6px;
-    margin-top: 16px;
+    flex-wrap: wrap;
+    gap: 14px 0;
   }
   .tw-all li {
-    padding: 6px 9px;
-    font-size: 0.8rem;
+    flex: 0 0 25%;
+    padding: 0 2px;
+    font-size: 0.7rem;
+    gap: 7px;
+  }
+  .tw-all b {
+    width: 54px;
+    height: 54px;
+    border-radius: 14px;
+  }
+  .tw-all b svg {
+    width: 26px;
+    height: 26px;
   }
   .tw-veil {
     background: radial-gradient(100% 40% at 50% 50%, color-mix(in srgb, var(--k) 95%, transparent), color-mix(in srgb, var(--k) 70%, transparent) 62%, transparent 88%), linear-gradient(var(--k) 0%, transparent 14%, transparent 84%, var(--k) 100%);

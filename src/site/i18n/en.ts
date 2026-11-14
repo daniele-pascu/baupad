@@ -76,6 +76,8 @@ export const en: Dict = {
         brand: 'BauPad',
         final: ['Seven tools. ', 'One app.'],
         finalText: 'One account, one state for everyone.',
+        head: '7 Tools',
+        one: 'One app.',
         again: 'Watch again',
       },
     },

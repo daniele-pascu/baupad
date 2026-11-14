@@ -36,7 +36,8 @@ test('Website: Startseite PAD Software – Grundsätze, Lösungen mit Kachelwand
   await expect(wall.getByTestId('tool-wall-slide').first()).toHaveCSS('opacity', '1');
   await expect(wall).toHaveAttribute('data-state', 'done', { timeout: 30_000 });
   await expect(wall.getByTestId('tool-wall-final')).toHaveCSS('opacity', '1');
-  await expect(wall.getByTestId('tool-wall-final')).toContainText('Sieben Werkzeuge. Eine App.');
+  await expect(wall).toContainText('7 Tools'); // Überschrift steht die ganze Zeit in der Mitte
+  await expect(wall.getByTestId('tool-wall-final')).toContainText('Eine App.');
   await expect(wall.getByTestId('tool-wall-all').locator('li')).toHaveCount(7); // am Ende stehen alle sieben Werkzeuge da
   await expect(wall.getByTestId('tool-wall-all')).toContainText('Materialverwaltung');
   expect(await wall.locator('.tw-tile').count()).toBeGreaterThan(60);

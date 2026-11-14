@@ -60,8 +60,8 @@ const svg = (k: string) => `<svg viewBox="0 0 24 24" fill="none" stroke="current
 export const LIT: Record<string, string> = { projects: '#ff7a2b', workers: '#4d95f5', reports: '#b47bff', photos: '#d0d0d6', defects: '#ff5b62', times: '#2fd6a7', materials: '#f2b632' };
 
 // Zeitplan in Sekunden: Vorlauf, Dauer je Werkzeug, Schlussbild
-const T0 = 0.3;
-const STEP = 1.05;
+const T0 = 0.7;
+const STEP = 1.15;
 const FIN = T0 + 7 * STEP;
 const END = FIN + 0.9;
 const clamp = (v: number) => Math.max(0, Math.min(1, v));
@@ -91,6 +91,7 @@ export function ToolWall() {
     const el = wall.current;
     const pl = plane.current;
     if (!el || !pl) return;
+    const head = el.querySelector<HTMLElement>('.tw-head');
     const slides = Array.from(el.querySelectorAll<HTMLElement>('.tw-slide'));
     const ticks = Array.from(el.querySelectorAll<HTMLElement>('.tw-ticks b'));
     let tiles: { el: HTMLElement; k: number; d: number }[] = [];
@@ -152,12 +153,19 @@ export function ToolWall() {
         q.el.style.transform = `translateZ(${(Math.sin(Math.PI * clamp((time - on) / 0.55)) * 56).toFixed(1)}px) rotateY(${(180 - 180 * a).toFixed(2)}deg)`;
         q.el.style.setProperty('--hi', hi.toFixed(3));
       }
+      if (head) head.style.opacity = clamp(time / 0.35).toFixed(3);
       slides.forEach((sl, k) => {
         const from = k < 7 ? T0 + k * STEP : FIN;
         const to = k < 7 ? from + STEP : Infinity;
-        const p = clamp((time - from) / 0.28) * (1 - clamp((time - (to - 0.2)) / 0.2));
-        sl.style.opacity = p.toFixed(3);
-        sl.style.transform = `translateY(calc(-50% + ${((1 - clamp((time - from) / 0.28)) * 22).toFixed(1)}px))`;
+        const pin = clamp((time - from) / 0.22);
+        sl.style.opacity = (pin * (1 - clamp((time - (to - 0.16)) / 0.16))).toFixed(3);
+        // zuerst das Symbol (bzw. am Ende alle sieben), kurz danach der Name
+        const first = sl.firstElementChild as HTMLElement;
+        const second = sl.lastElementChild as HTMLElement;
+        first.style.transform = `scale(${(0.72 + 0.28 * ease(pin)).toFixed(3)})`;
+        const pn = clamp((time - (from + 0.28)) / 0.24);
+        second.style.opacity = pn.toFixed(3);
+        second.style.transform = `translateY(${((1 - pn) * 14).toFixed(1)}px)`;
       });
       ticks.forEach((b, k) => (b.style.width = `${(clamp((time - (T0 + k * STEP)) / STEP) * 100).toFixed(1)}%`));
       again.current?.classList.toggle('on', time >= END);
@@ -218,26 +226,33 @@ export function ToolWall() {
         <div className="tw-plane" ref={plane} />
       </div>
       <div className="tw-veil" aria-hidden="true" />
+      {/* immer mittig: oben „7 Tools“, darunter Symbol und Name des jeweiligen Werkzeugs; am Ende alle sieben + „Eine App.“ */}
       <div className="tw-text">
-        {TOOL_ENTRIES.map((x) => (
-          <div key={x.id} className="tw-slide" data-testid="tool-wall-slide">
-            <h3>{t.tools[x.id].title}.</h3>
-          </div>
-        ))}
-        <div className="tw-slide" data-testid="tool-wall-final">
-          <h3>
-            {w.final[0]}
-            <em>{w.final[1]}</em>
-          </h3>
-          {/* am Ende stehen alle sieben Werkzeuge da */}
-          <ul className="tw-all" data-testid="tool-wall-all">
+        <div className="tw-stack">
+          <p className="tw-head">{w.head}</p>
+          <div className="tw-slides">
             {TOOL_ENTRIES.map((x) => (
-              <li key={x.id} style={{ '--c': LIT[x.id] } as CSSProperties}>
-                <ToolIcon name={x.icon} size={18} />
-                {t.tools[x.id].title}
-              </li>
+              <div key={x.id} className="tw-slide" style={{ '--c': LIT[x.id] } as CSSProperties} data-testid="tool-wall-slide">
+                <b className="tw-ico" aria-hidden="true">
+                  <ToolIcon name={x.icon} size={52} />
+                </b>
+                <h3>{t.tools[x.id].title}</h3>
+              </div>
             ))}
-          </ul>
+            <div className="tw-slide tw-slide-final" data-testid="tool-wall-final">
+              <ul className="tw-all" data-testid="tool-wall-all">
+                {TOOL_ENTRIES.map((x) => (
+                  <li key={x.id} style={{ '--c': LIT[x.id] } as CSSProperties}>
+                    <b aria-hidden="true">
+                      <ToolIcon name={x.icon} size={30} />
+                    </b>
+                    <span>{t.tools[x.id].title}</span>
+                  </li>
+                ))}
+              </ul>
+              <h3 className="tw-one">{w.one}</h3>
+            </div>
+          </div>
         </div>
       </div>
       <div className="tw-ticks" aria-hidden="true">
