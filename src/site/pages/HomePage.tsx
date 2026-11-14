@@ -167,7 +167,7 @@ export function HomePage() {
       </section>
 
       {/* Unsere Entwicklung: vier Schritte auf einer Linie */}
-      <section className="ph-sec ph-light ph-sec-tight" id="entwicklung">
+      <section className="ph-sec ph-light" id="entwicklung">
         <div className="ph-w">
           <Reveal className="ph-head">
             <h2 className="ph-h2">{h.process.title}</h2>

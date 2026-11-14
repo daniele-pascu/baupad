@@ -22,7 +22,7 @@ const ICON: Record<string, string> = {
   flag: '<path d="M5 21V4M5 5h12l-2 4 2 4H5"/>',
   folder: '<path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>',
   grid: '<rect x="4" y="4" width="7" height="7" rx="1.500"/><rect x="13" y="4" width="7" height="7" rx="1.500"/><rect x="4" y="13" width="7" height="7" rx="1.500"/><rect x="13" y="13" width="7" height="7" rx="1.500"/>',
-  helmet: '<path d="M4 16a8 8 0 0116 0"/><path d="M2.500 16h19v2.500h-19zM10 8.300V5h4v3.300"/>',
+  badge: '<rect x="4" y="6" width="16" height="14" rx="2"/><circle cx="9" cy="11.500" r="1.800"/><path d="M6.300 16.500c.6-1.700 4.800-1.700 5.400 0M14.500 11h3M14.500 14.500h3M10 6V4h4v2"/>',
   image: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.800"/><path d="M4 18l5-5 4 4 3-3 4 4"/>',
   list: '<path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6h.01M4 12h.01M4 18h.01"/>',
   listcheck: '<path d="M11 6h9M11 12h9M11 18h9"/><path d="M3 6l1.500 1.500L7 5M3 12l1.500 1.500L7 11M3 18l1.500 1.500L7 17"/>',
@@ -47,7 +47,7 @@ const ICON: Record<string, string> = {
 /** je Werkzeug sechs Symbole */
 const SETS: Record<string, string[]> = {
   projects: ['plan', 'ruler', 'area', 'calc', 'pdf', 'table'],
-  workers: ['users', 'cal', 'usercheck', 'sun', 'list', 'helmet'],
+  workers: ['users', 'cal', 'usercheck', 'sun', 'list', 'badge'],
   reports: ['filetext', 'clip', 'pen', 'printer', 'check', 'folder'],
   photos: ['camera', 'image', 'grid', 'pin', 'cloud', 'week'],
   defects: ['alert', 'flag', 'shape', 'pin', 'camera', 'check'],
