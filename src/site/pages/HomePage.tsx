@@ -1,5 +1,3 @@
-import type { CSSProperties, ReactNode } from 'react';
-import { ToolIcon } from '../../components/ToolIcon';
 import { paths } from '../../lib/router';
 import { contactData } from '../contact-data';
 import { useLang } from '../i18n';
@@ -7,229 +5,214 @@ import { TOOL_ENTRIES } from '../products';
 import { organizationJsonLd, siteAlternates, softwareJsonLd } from '../seo';
 import { Reveal } from '../components/Reveal';
 import { SiteLayout } from '../components/SiteShell';
+import { ToolWall } from '../components/ToolWall';
 
-const Arrow = () => <span aria-hidden="true">→</span>;
-/** Zeichen der vier Stärken (Geräte, ohne Empfang, Unterlagen, alles greift ineinander) */
-const GLYPHS: ReactNode[] = [
-  <>
-    <rect x="2" y="5" width="13" height="10" rx="1.5" />
-    <path d="M1 18h15" />
-    <rect x="17" y="8" width="5" height="11" rx="1.2" />
-  </>,
-  <>
-    <path d="M3 9a14 14 0 0118 0M6.5 12.5a9 9 0 0111 0M10 16a4 4 0 014 0" />
-    <path d="M3 3l18 18" />
-  </>,
-  <>
-    <path d="M6 3h8l4 4v14H6z" />
-    <path d="M14 3v4h4M9 13h6M9 17h6" />
-  </>,
-  <>
-    <path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1" />
-    <path d="M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1" />
-  </>,
-];
-
-/** Laptop mit einem Bild der App (Beispieldaten) – in der BauPad-Karte */
-function Laptop({ name, eager = false }: { name: string; eager?: boolean }) {
-  return (
-    <div className="fh-lap" aria-hidden="true">
-      <div className="fh-lap-scr">
-        <img src={`/site/baupad/${name}.jpg`} width={1200} height={750} alt="" loading={eager ? 'eager' : 'lazy'} decoding="async" />
-      </div>
-      <div className="fh-lap-base" />
-    </div>
-  );
-}
+const Arrow = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M5 12h14M13 6l6 6-6 6" />
+  </svg>
+);
+const no = (i: number) => String(i).padStart(2, '0');
 
 /**
- * Startseite PAD Software: dunkel wie die BauPad-Seite, mit eigener Akzentfarbe der Firma – Aussage, Werte, Können, Zusagen.
- * BauPad erscheint als große schwarz-limettenfarbene Karte mit der App in Laptop und Handy; sie führt zur BauPad-Seite.
+ * Startseite PAD Software („Lime Contrast“: Anthrazit und Schwarz, Lime als Akzent, Weiß und helles Grau):
+ * Aussage und Logo, vier Kurzangaben, dann nummeriert Über uns (fünf Grundsätze), Unsere Lösungen (Kachelwand der
+ * sieben BauPad-Werkzeuge, BauPad als Produkt, Platz für weitere), Unsere Entwicklung (vier Schritte), Technologie
+ * und Infrastruktur (sechs Themen), Kontakt. Keine Zertifikate, Garantien oder Zahlen, die nicht belegt sind.
  */
 export function HomePage() {
   const { lang, t } = useLang();
   const h = t.home;
-  const words = [...h.about.values.map((v) => v.title), ...h.promises.items.map((p) => p.title)];
-  const band = words.map((w, i) => (i % 2 ? <i key={w}>{w}</i> : <span key={w}>{w}</span>));
   return (
-    <SiteLayout meta={{ title: h.title, description: h.description, lang, alternates: siteAlternates('landing'), jsonLd: [organizationJsonLd(contactData.email), softwareJsonLd(lang, t.baupad.description)] }} className="ps-home fh">
-      {/* 1. Kopf: das Unternehmen; darunter das Produkt als große Karte mit der App in Laptop und Handy */}
-      <section className="fh-hero" aria-labelledby="fh-title">
-        <div className="fh-w">
-          <p className="fh-badge">
-            <i aria-hidden="true" />
-            {h.hero.badge}
-          </p>
-          <h1 id="fh-title" className="fh-h1">
-            {h.hero.title.map((l, i) => (
-              <span key={l} className={i === h.hero.title.length - 1 ? 'fh-accent' : undefined}>
-                {l}{' '}
-              </span>
-            ))}
-          </h1>
-          <p className="fh-lead">{h.hero.lead}</p>
-          <div className="fh-btns">
-            <a href={paths.company(lang)} className="fh-b1" data-testid="cta-company">
-              {h.hero.primary} <Arrow />
-            </a>
-            <a href={paths.contact(lang)} className="fh-b2" data-testid="cta-contact">
-              {h.hero.secondary}
-            </a>
-          </div>
-          <ul className="fh-facts">
-            {h.hero.facts.map((f) => (
-              <li key={f.k}>
-                <b>{f.k}</b>
-                <span>{f.text}</span>
-              </li>
-            ))}
-          </ul>
-          <a href={paths.baupad(lang)} className="fh-bp" aria-label={h.product.label} data-testid="home-product">
-            <span className="fh-bp-copy">
-              <span className="fh-bp-head">
-                <img src="/icons/baupad-icon.png" width={54} height={54} alt="" />
-                <b>BauPad</b>
-                <em>{h.product.eyebrow}</em>
-              </span>
-              <span className="fh-bp-title">{h.product.title.join(' ')}</span>
-              <span className="fh-bp-text">{h.product.text}</span>
-              <ul className="fh-chips" data-testid="home-tools">
-                {TOOL_ENTRIES.map((x) => (
-                  <li key={x.id} style={{ '--c': x.color } as CSSProperties}>
-                    <i>
-                      <ToolIcon name={x.icon} size={14} />
-                    </i>
-                    {t.tools[x.id].title}
-                  </li>
-                ))}
-              </ul>
-              <span className="fh-bp-go">
-                {h.product.cta} <Arrow />
-              </span>
-            </span>
-            <span className="fh-bp-shots" aria-hidden="true">
-              <Laptop name="pc-aufmass" eager />
-              <span className="fh-ph">
-                <img src="/site/baupad/handy-zeit.jpg" width={560} height={1212} alt="" loading="eager" decoding="async" />
-              </span>
-            </span>
-          </a>
-        </div>
-      </section>
-
-      {/* Laufband: wofür die Firma steht */}
-      <div className="fh-words" aria-hidden="true">
-        <div>
-          {band}
-          {band}
-          {band}
-        </div>
-      </div>
-
-      {/* 2. Das Unternehmen */}
-      <section className="fh-sec" id="unternehmen">
-        <div className="fh-w fh-two">
-          <Reveal>
-            <p className="fh-eye">{h.about.eyebrow}</p>
-            <h2 className="fh-h2">
-              {h.about.title.map((l) => (
-                <span key={l}>{l} </span>
-              ))}
-            </h2>
-            <p className="fh-sub">{h.about.text}</p>
-            <a href={paths.company(lang)} className="fh-b2 fh-more">
-              {h.about.cta} <Arrow />
-            </a>
-          </Reveal>
-          <ul className="fh-vals">
-            {h.about.values.map((v, i) => (
-              <Reveal key={v.title} as="li" className="fh-val" delay={i * 80}>
-                <i aria-hidden="true">0{i + 1}</i>
-                <div>
-                  <h3>{v.title}</h3>
-                  <p>{v.text}</p>
-                </div>
-              </Reveal>
-            ))}
-          </ul>
-        </div>
-      </section>
-
-      {/* 3. Was wir können */}
-      <section className="fh-sec fh-sec-tight" id="koennen">
-        <div className="fh-w">
-          <Reveal>
-            <p className="fh-eye">{h.can.eyebrow}</p>
-            <h2 className="fh-h2">{h.can.title}</h2>
-          </Reveal>
-          <div className="fh-feats">
-            {h.can.items.map((c, i) => (
-              <Reveal key={c.title} className="fh-card" delay={i * 70}>
-                <i aria-hidden="true">
-                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-                    {GLYPHS[i]}
-                  </svg>
-                </i>
-                <h3>{c.title}</h3>
-                <p>{c.text}</p>
-              </Reveal>
-            ))}
-          </div>
-          <ul className="fh-nums">
-            {h.can.numbers.map((n) => (
-              <li key={n.label}>
-                <b data-count={n.value}>{n.value}</b>
-                <span>{n.label}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
-
-      {/* 4. Was als Nächstes kommt */}
-      <section className="fh-sec fh-sec-tight" id="produkte">
-        <div className="fh-w">
-          <a href={paths.products(lang)} className="fh-plan" data-testid="home-planned">
-            <small>{t.products.plannedTitle}</small>
-            <span>{t.products.plannedNote}</span>
-            <b>
-              {t.nav.products} <Arrow />
-            </b>
-          </a>
-        </div>
-      </section>
-
-      {/* 5. Zusagen */}
-      <section className="fh-sec" id="zusagen">
-        <div className="fh-w">
-          <Reveal>
-            <p className="fh-eye">{h.promises.eyebrow}</p>
-            <h2 className="fh-h2">{h.promises.title}</h2>
-          </Reveal>
-          <ul className="fh-prom">
-            {h.promises.items.map((p, i) => (
-              <Reveal key={p.title} as="li" delay={i * 70}>
-                <h3>{p.title}</h3>
-                <p>{p.text}</p>
-              </Reveal>
-            ))}
-          </ul>
-        </div>
-      </section>
-
-      {/* 6. Kontakt */}
-      <section className="fh-cta" id="kontakt">
-        <div className="fh-w">
-          <Reveal>
-            <p className="fh-eye">{h.contact.eyebrow}</p>
-            <h2 className="fh-h2">{h.contact.title}</h2>
-            <p className="fh-sub">{h.contact.text}</p>
-            <div className="fh-btns">
-              <a href={paths.contact(lang)} className="fh-b1" data-testid="cta-contact-2">
-                {h.contact.cta} <Arrow />
+    <SiteLayout meta={{ title: h.title, description: h.description, lang, alternates: siteAlternates('landing'), jsonLd: [organizationJsonLd(contactData.email), softwareJsonLd(lang, t.baupad.description)] }} className="ps-home ph">
+      {/* Erster Blick */}
+      <section className="ph-hero" aria-labelledby="ph-title">
+        <div className="ph-w ph-hero-grid">
+          <div>
+            <p className="ph-mono ph-eye">{h.hero.eyebrow}</p>
+            <h1 id="ph-title" className="ph-h1">
+              {h.hero.title[0]}
+              <em>{h.hero.title[1]}</em>
+              {h.hero.title[2]}
+            </h1>
+            <p className="ph-lead">{h.hero.lead}</p>
+            <div className="ph-btns">
+              <a href="#loesungen" className="ph-btn ph-btn-lime" data-testid="cta-solutions">
+                {h.hero.primary} <Arrow />
+              </a>
+              <a href={paths.company(lang)} className="ph-btn ph-btn-line" data-testid="cta-company">
+                {h.hero.secondary}
               </a>
             </div>
+          </div>
+          <div className="ph-frame" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+            <i />
+            <img src="/icons/pad-icon-512.png" width={512} height={512} alt="" />
+            <span className="ph-mono">PAD Software</span>
+            <span className="ph-mono">AT</span>
+          </div>
+        </div>
+        <div className="ph-spec">
+          <ul className="ph-w">
+            {h.hero.specs.map((s) => (
+              <li key={s.k}>
+                <small className="ph-mono">{s.k}</small>
+                <b>{s.v}</b>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {/* 01 Über uns */}
+      <section className="ph-sec ph-light" id="ueber-uns">
+        <div className="ph-w">
+          <div className="ph-head">
+            <p className="ph-mono ph-label">
+              <b>01</b> {h.about.label}
+            </p>
+            <Reveal>
+              <h2 className="ph-h2">{h.about.title}</h2>
+              <p className="ph-text">{h.about.text}</p>
+              <a href={paths.company(lang)} className="ph-more">
+                {h.about.more} <Arrow />
+              </a>
+            </Reveal>
+          </div>
+          <ul className="ph-vals">
+            {h.about.values.map((v, i) => (
+              <Reveal key={v.title} as="li" className="ph-val" delay={i * 50}>
+                <span className="ph-mono">{no(i + 1)}</span>
+                <h3>{v.title}</h3>
+                <p>{v.text}</p>
+              </Reveal>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {/* 02 Unsere Lösungen */}
+      <section className="ph-sec ph-anth" id="loesungen">
+        <div className="ph-w">
+          <div className="ph-head">
+            <p className="ph-mono ph-label">
+              <b>02</b> {h.solutions.label}
+            </p>
+            <Reveal>
+              <h2 className="ph-h2">{h.solutions.title}</h2>
+              <p className="ph-text">{h.solutions.text}</p>
+            </Reveal>
+          </div>
+        </div>
+        <ToolWall />
+        <div className="ph-w">
+          <Reveal className="ph-prod">
+            <div className="ph-prod-text">
+              <p className="ph-mono ph-tag">
+                <i aria-hidden="true" />
+                {h.solutions.tag}
+              </p>
+              <h3>
+                <img src="/icons/baupad-icon.png" width={58} height={58} alt="" />
+                BauPad
+              </h3>
+              <p>{h.solutions.productText}</p>
+              <ul className="ph-chips" data-testid="home-tools">
+                {TOOL_ENTRIES.map((x) => (
+                  <li key={x.id}>{t.tools[x.id].title}</li>
+                ))}
+              </ul>
+              <a href={paths.baupad(lang)} className="ph-btn ph-btn-lime" aria-label={h.solutions.label2} data-testid="home-product">
+                {h.solutions.cta} <Arrow />
+              </a>
+            </div>
+            <div className="ph-prod-shot" aria-hidden="true">
+              <img src="/site/baupad/pc-aufmass.jpg" width={1200} height={750} alt="" loading="lazy" decoding="async" />
+            </div>
           </Reveal>
+          <Reveal className="ph-slot">
+            <b>{h.solutions.more}</b>
+            <span className="ph-mono">{h.solutions.moreTag}</span>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* 03 Unsere Entwicklung */}
+      <section className="ph-sec ph-light" id="entwicklung">
+        <div className="ph-w">
+          <div className="ph-head">
+            <p className="ph-mono ph-label">
+              <b>03</b> {h.process.label}
+            </p>
+            <Reveal>
+              <h2 className="ph-h2">{h.process.title}</h2>
+              <p className="ph-text">{h.process.text}</p>
+            </Reveal>
+          </div>
+          <ol className="ph-steps" data-progress="fill">
+            {h.process.steps.map((s, i) => (
+              <Reveal key={s.title} as="li" className="ph-step" delay={i * 80}>
+                <span className="ph-mono">
+                  {h.process.stepLabel} {no(i + 1)}
+                </span>
+                <h3>{s.title}</h3>
+                <p>{s.text}</p>
+              </Reveal>
+            ))}
+          </ol>
+          <Reveal>
+            <p className="ph-quote">
+              {h.process.quote[0]}
+              <em>{h.process.quote[1]}</em>
+              {h.process.quote[2]}
+            </p>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* 04 Technologie und Infrastruktur */}
+      <section className="ph-sec ph-black" id="technologie">
+        <div className="ph-w">
+          <div className="ph-head">
+            <p className="ph-mono ph-label">
+              <b>04</b> {h.tech.label}
+            </p>
+            <Reveal>
+              <h2 className="ph-h2">{h.tech.title}</h2>
+              <p className="ph-text">{h.tech.text}</p>
+            </Reveal>
+          </div>
+          <ul className="ph-tech">
+            {h.tech.items.map((x, i) => (
+              <Reveal key={x.title} as="li" delay={(i % 3) * 60}>
+                <span className="ph-mono">{no(i + 1)}</span>
+                <h3>{x.title}</h3>
+                <p>{x.text}</p>
+              </Reveal>
+            ))}
+          </ul>
+          <p className="ph-mono ph-note">{h.tech.note}</p>
+        </div>
+      </section>
+
+      {/* Kontakt */}
+      <section className="ph-cta" id="kontakt">
+        <div className="ph-w">
+          <Reveal>
+            <h2 className="ph-h2">{h.contact.title}</h2>
+            <p>{h.contact.text}</p>
+          </Reveal>
+          <div className="ph-btns">
+            <a href={paths.contact(lang)} className="ph-btn ph-btn-black" data-testid="cta-contact-2">
+              {h.contact.primary} <Arrow />
+            </a>
+            <a href={paths.products(lang)} className="ph-btn ph-btn-dark-line" data-testid="cta-products">
+              {h.contact.secondary}
+            </a>
+          </div>
         </div>
       </section>
     </SiteLayout>

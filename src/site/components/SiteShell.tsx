@@ -32,7 +32,6 @@ export function switchLangPath(path: string, to: Lang): string {
 }
 
 const NAV: { key: SiteRouteName; label: 'home' | 'products' | 'baupad' | 'company' | 'contact' | 'future' }[] = [
-  { key: 'landing', label: 'home' },
   { key: 'products', label: 'products' },
   { key: 'baupad', label: 'baupad' },
   { key: 'company', label: 'company' },

@@ -195,7 +195,7 @@ export function BauPadPage() {
       {/* 4. Zahlen */}
       <div className="bp-nums">
         <div className="bp-wrap">
-          {t.home.can.numbers.map((n) => (
+          {b.numbers.map((n) => (
             <div key={n.label}>
               <b data-count={n.value}>{n.value}</b>
               <span>{n.label}</span>

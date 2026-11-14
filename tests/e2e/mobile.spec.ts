@@ -342,7 +342,7 @@ test('Website und Planliste auf Smartphone/Tablet: Menü, keine Überbreite, Akt
   await page.goto('./#/impressum');
   await signOutInPage(page);
   await page.goto('./');
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('leichter macht');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('aus der Praxis entsteht');
   await noHorizontalScroll(page);
   const nav = page.getByTestId('site-nav');
   const menuBtn = nav.getByRole('button', { name: 'Menü öffnen' });
