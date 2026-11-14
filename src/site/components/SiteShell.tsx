@@ -15,7 +15,7 @@ import { useParallax, useReveal } from './Reveal';
 export function Wordmark({ lang }: { lang: Lang }) {
   return (
     <a href={paths.landing(lang)} className="site-wordmark ps-wordmark" aria-label="PAD Software">
-      <img className="wm-mark" src="/icons/pad-mark.png" alt="" width={154} height={128} data-testid="pad-mark" />
+      <img className="wm-mark" src="/icons/pad-mark.png" alt="" width={132} height={128} data-testid="pad-mark" />
       <span className="wm-pad">PAD</span>
       <span className="wm-soft">Software</span>
     </a>
