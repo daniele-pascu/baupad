@@ -5557,3 +5557,8 @@
     padding: 56px 0 60px;
   }
 }
+@media (max-width: 600px) {
+  .tw-slide h3:not(.tw-one) span {
+    display: block;
+  }
+}
