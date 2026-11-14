@@ -3987,12 +3987,12 @@
 }
 
 /* =====================================================================
-   PAD Software (Firma) – dunkel wie die BauPad-Seite, mit eigener Akzentfarbe
+   PAD Software (Firma) – dunkel wie die BauPad-Seite, ebenfalls in Limette
    .ps-firm = alle Seiten der Firma (Akzent --fa), .ps-prod = BauPad-Seiten (Limette).
    Die Akzentfarbe steht nur hier – ein Wert ändert sie auf allen Firmenseiten.
    ===================================================================== */
 .ps-firm {
-  --fa: #9d8cff;
+  --fa: #c6f432;
   --fa-ink: #0b0c0e;
   --fh-k: #0b0c0e;
   --fh-card: #14161a;
