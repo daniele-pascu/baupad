@@ -178,7 +178,7 @@ export function SiteLayout({ meta, children, className = '' }: { meta: PageMeta;
   useParallax();
   useScrollMotion([path]);
   return (
-    <div className={`ps-site ${className}`} lang={langOf(path)}>
+    <div className={`ps-site ${/ps-baupad|ps-tool-page/.test(className) ? 'ps-prod' : 'ps-firm'} ${className}`} lang={langOf(path)}>
       <SiteHeader />
       <main id="ps-main" className="ps-main" tabIndex={-1} key={path.split('?')[0]}>
         {children}

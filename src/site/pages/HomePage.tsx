@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { ToolIcon } from '../../components/ToolIcon';
 import { paths } from '../../lib/router';
 import { contactData } from '../contact-data';
@@ -8,74 +8,135 @@ import { organizationJsonLd, siteAlternates, softwareJsonLd } from '../seo';
 import { Reveal } from '../components/Reveal';
 import { SiteLayout } from '../components/SiteShell';
 
-/** Leuchtfarbe je Werkzeug auf dunklem Grund (dunkle Töne aufgehellt) */
-const LIT: Record<string, string> = { projects: '#ff7a2b', workers: '#4d95f5', reports: '#b47bff', photos: '#7fb2ff', defects: '#ff5b62', times: '#2fd6a7', materials: '#f2b632' };
-const VALUE_COLORS = ['#2f80ed', '#0f9d76', '#ff6a13'];
 const Arrow = () => <span aria-hidden="true">→</span>;
+/** Zeichen der vier Stärken (Geräte, ohne Empfang, Unterlagen, alles greift ineinander) */
+const GLYPHS: ReactNode[] = [
+  <>
+    <rect x="2" y="5" width="13" height="10" rx="1.5" />
+    <path d="M1 18h15" />
+    <rect x="17" y="8" width="5" height="11" rx="1.2" />
+  </>,
+  <>
+    <path d="M3 9a14 14 0 0118 0M6.5 12.5a9 9 0 0111 0M10 16a4 4 0 014 0" />
+    <path d="M3 3l18 18" />
+  </>,
+  <>
+    <path d="M6 3h8l4 4v14H6z" />
+    <path d="M14 3v4h4M9 13h6M9 17h6" />
+  </>,
+  <>
+    <path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1" />
+    <path d="M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1" />
+  </>,
+];
+
+/** Laptop mit einem Bild der App (Beispieldaten) – in der BauPad-Karte */
+function Laptop({ name, eager = false }: { name: string; eager?: boolean }) {
+  return (
+    <div className="fh-lap" aria-hidden="true">
+      <div className="fh-lap-scr">
+        <img src={`/site/baupad/${name}.jpg`} width={1200} height={750} alt="" loading={eager ? 'eager' : 'lazy'} decoding="async" />
+      </div>
+      <div className="fh-lap-base" />
+    </div>
+  );
+}
 
 /**
- * Startseite: zuerst das Unternehmen (Kopf, Werte, Können), dann BauPad als eine große antippbare Karte mit dem
- * leuchtenden Stapel der sieben Werkzeuge (führt zur BauPad-Seite), Zusagen und Kontakt. Dunkle und weiße Flächen
- * wechseln sich ab. Rein gezeichnet – keine Bilder der Software, keine Fotos.
+ * Startseite PAD Software: die Firma in Weiß und Schwarz – Aussage, Werte, Können, Zusagen. Farbe bringt nur das Produkt:
+ * BauPad erscheint als schwarz-limettenfarbene Karte (im Kopf und im Abschnitt „Produkt“), beide führen zur BauPad-Seite.
  */
 export function HomePage() {
   const { lang, t } = useLang();
   const h = t.home;
+  const words = [...h.about.values.map((v) => v.title), ...h.promises.items.map((p) => p.title)];
+  const band = words.map((w, i) => (i % 2 ? <i key={w}>{w}</i> : <span key={w}>{w}</span>));
   return (
-    <SiteLayout meta={{ title: h.title, description: h.description, lang, alternates: siteAlternates('landing'), jsonLd: [organizationJsonLd(contactData.email), softwareJsonLd(lang, t.baupad.description)] }} className="ps-home hp">
-      {/* 1. Kopf: das Unternehmen */}
-      <section className="hp-hero hp-dark" aria-labelledby="hp-title">
-        <div className="hp-beam" aria-hidden="true" />
-        <div className="hp-gridbg" aria-hidden="true" />
-        <div className="hp-w">
-          <p className="hp-pill">
-            <i aria-hidden="true" />
-            {h.hero.badge}
-          </p>
-          <h1 id="hp-title" className="hp-h1 hp-grad">
-            {h.hero.title.map((l) => (
-              <span key={l}>{l} </span>
-            ))}
-          </h1>
-          <p className="hp-lead">{h.hero.lead}</p>
-          <div className="hp-btns">
-            <a href={paths.company(lang)} className="hp-b1" data-testid="cta-company">
-              {h.hero.primary} <Arrow />
-            </a>
-            <a href={paths.contact(lang)} className="hp-b2" data-testid="cta-contact">
-              {h.hero.secondary}
+    <SiteLayout meta={{ title: h.title, description: h.description, lang, alternates: siteAlternates('landing'), jsonLd: [organizationJsonLd(contactData.email), softwareJsonLd(lang, t.baupad.description)] }} className="ps-home fh">
+      {/* 1. Kopf: das Unternehmen, rechts das Produkt als Karte */}
+      <section className="fh-hero" aria-labelledby="fh-title">
+        <div className="fh-w fh-hero-grid">
+          <div>
+            <p className="fh-badge">
+              <i aria-hidden="true" />
+              {h.hero.badge}
+            </p>
+            <h1 id="fh-title" className="fh-h1">
+              {h.hero.title.map((l, i) => (
+                <span key={l} className={i === h.hero.title.length - 1 ? 'fh-mark' : undefined}>
+                  {l}{' '}
+                </span>
+              ))}
+            </h1>
+            <p className="fh-lead">{h.hero.lead}</p>
+            <div className="fh-btns">
+              <a href={paths.company(lang)} className="fh-b1" data-testid="cta-company">
+                {h.hero.primary} <Arrow />
+              </a>
+              <a href={paths.contact(lang)} className="fh-b2" data-testid="cta-contact">
+                {h.hero.secondary}
+              </a>
+            </div>
+            <ul className="fh-facts">
+              {h.hero.facts.map((f) => (
+                <li key={f.k}>
+                  <b>{f.k}</b>
+                  <span>{f.text}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="fh-stack">
+            <div className="fh-ghost fh-ghost-2" aria-hidden="true">
+              {t.products.plannedTitle}
+            </div>
+            <div className="fh-ghost fh-ghost-1" aria-hidden="true">
+              {t.products.plannedTitle}
+            </div>
+            <a href={paths.baupad(lang)} className="fh-bp" aria-label={h.product.label} data-testid="home-hero-product">
+              <span className="fh-bp-head">
+                <img src="/icons/baupad-icon.png" width={54} height={54} alt="" />
+                <b>BauPad</b>
+                <em>{h.product.eyebrow}</em>
+              </span>
+              <span className="fh-bp-text">{h.product.text}</span>
+              <Laptop name="pc-aufmass" eager />
+              <span className="fh-bp-go">
+                {h.product.cta} <Arrow />
+              </span>
             </a>
           </div>
-          <ul className="hp-facts">
-            {h.hero.facts.map((f) => (
-              <li key={f.k}>
-                <b>{f.k}</b>
-                <span>{f.text}</span>
-              </li>
-            ))}
-          </ul>
         </div>
       </section>
 
+      {/* Laufband: wofür die Firma steht */}
+      <div className="fh-words" aria-hidden="true">
+        <div>
+          {band}
+          {band}
+          {band}
+        </div>
+      </div>
+
       {/* 2. Das Unternehmen */}
-      <section className="hp-sec hp-light" id="unternehmen">
-        <div className="hp-w hp-about">
+      <section className="fh-sec" id="unternehmen">
+        <div className="fh-w fh-two">
           <Reveal>
-            <p className="hp-mono">{h.about.eyebrow}</p>
-            <h2 className="hp-h2 hp-grad">
+            <p className="fh-eye">{h.about.eyebrow}</p>
+            <h2 className="fh-h2">
               {h.about.title.map((l) => (
                 <span key={l}>{l} </span>
               ))}
             </h2>
-            <p className="hp-sub">{h.about.text}</p>
-            <a href={paths.company(lang)} className="hp-b2 hp-about-cta">
+            <p className="fh-sub">{h.about.text}</p>
+            <a href={paths.company(lang)} className="fh-b2 fh-more">
               {h.about.cta} <Arrow />
             </a>
           </Reveal>
-          <ul className="hp-vals">
+          <ul className="fh-vals">
             {h.about.values.map((v, i) => (
-              <Reveal key={v.title} as="li" delay={i * 90} className="hp-card hp-val" style={{ '--c': VALUE_COLORS[i] } as CSSProperties}>
-                <i aria-hidden="true">{`0${i + 1}`}</i>
+              <Reveal key={v.title} as="li" className="fh-val" delay={i * 80}>
+                <i aria-hidden="true">0{i + 1}</i>
                 <div>
                   <h3>{v.title}</h3>
                   <p>{v.text}</p>
@@ -86,121 +147,92 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* 3. Was wir können */}
-      <section className="hp-sec hp-mist" id="koennen">
-        <div className="hp-w">
+      {/* 3. Produkt: BauPad groß, daneben was in Planung ist */}
+      <section className="fh-sec fh-sec-tight" id="baupad">
+        <div className="fh-w">
           <Reveal>
-            <p className="hp-mono">{h.can.eyebrow}</p>
-            <h2 className="hp-h2 hp-grad">{h.can.title}</h2>
+            <p className="fh-eye">{h.product.eyebrow}</p>
+            <h2 className="fh-h2">
+              {h.product.title.map((l) => (
+                <span key={l}>{l} </span>
+              ))}
+            </h2>
           </Reveal>
-          <div className="hp-feats">
-            <Reveal className="hp-card hp-f1">
-              <div className="hp-viz hp-v1" aria-hidden="true">
-                <i />
-                <i />
-                <i />
-              </div>
-              <h3>{h.can.items[0].title}</h3>
-              <p>{h.can.items[0].text}</p>
-            </Reveal>
-            <Reveal className="hp-card" delay={80}>
-              <div className="hp-viz hp-v2" aria-hidden="true">
-                {[1, 2, 3, 4].map((i) => (
-                  <i key={i} style={{ height: i * 18 }} />
+          <div className="fh-prods">
+            <a href={paths.baupad(lang)} className="fh-bp fh-bp-wide" aria-label={h.product.label} data-testid="home-product">
+              <span className="fh-bp-head">
+                <img src="/icons/baupad-icon.png" width={54} height={54} alt="" />
+                <b>BauPad</b>
+                <em>{t.products.availableTitle}</em>
+              </span>
+              <span className="fh-bp-text">{h.product.text}</span>
+              <ul className="fh-chips" data-testid="home-tools">
+                {TOOL_ENTRIES.map((x) => (
+                  <li key={x.id} style={{ '--c': x.color } as CSSProperties}>
+                    <i>
+                      <ToolIcon name={x.icon} size={14} />
+                    </i>
+                    {t.tools[x.id].title}
+                  </li>
                 ))}
-                <b />
-              </div>
-              <h3>{h.can.items[1].title}</h3>
-              <p>{h.can.items[1].text}</p>
-            </Reveal>
-            <Reveal className="hp-card" delay={160}>
-              <div className="hp-viz hp-v3" aria-hidden="true">
-                <span>XLSX</span>
-                <span>PDF</span>
-                <span>LV</span>
-              </div>
-              <h3>{h.can.items[2].title}</h3>
-              <p>{h.can.items[2].text}</p>
-            </Reveal>
-            <Reveal className="hp-card hp-f4" delay={120}>
-              <div className="hp-viz hp-v4">
-                {h.can.numbers.map((n) => (
-                  <span key={n.label}>
-                    <b>{n.value}</b>
-                    <small>{n.label}</small>
-                  </span>
-                ))}
-              </div>
-              <h3>{h.can.items[3].title}</h3>
-              <p>{h.can.items[3].text}</p>
-            </Reveal>
+              </ul>
+              <Laptop name="pc-material" />
+              <span className="fh-bp-go">
+                {h.product.cta} <Arrow />
+              </span>
+            </a>
+            <a href={paths.products(lang)} className="fh-plan" data-testid="home-planned">
+              <small>{t.products.plannedTitle}</small>
+              <span>{t.products.plannedNote}</span>
+              <b>
+                {t.nav.products} <Arrow />
+              </b>
+            </a>
           </div>
         </div>
       </section>
 
-      {/* 4. Unser Produkt: die ganze Karte führt zur BauPad-Seite */}
-      <section className="hp-sec hp-light hp-prod-sec" id="baupad">
-        <div className="hp-w">
+      {/* 4. Was wir können */}
+      <section className="fh-sec fh-sec-tight" id="koennen">
+        <div className="fh-w">
           <Reveal>
-            <p className="hp-mono">{h.product.eyebrow}</p>
+            <p className="fh-eye">{h.can.eyebrow}</p>
+            <h2 className="fh-h2">{h.can.title}</h2>
           </Reveal>
-          <Reveal>
-            <a href={paths.baupad(lang)} className="hp-prod hp-dark" aria-label={h.product.label} data-testid="home-product" data-progress="enter">
-              <div className="hp-prod-text">
-                <p className="hp-bp">
-                  <img src="/icons/baupad-icon.png" alt="" width={74} height={70} className="ps-build-logo" />
-                  <b>{t.product}</b>
-                  <span>{t.common.available}</span>
-                </p>
-                <h2 className="hp-h2 hp-grad">
-                  {h.product.title.map((l) => (
-                    <span key={l}>{l} </span>
-                  ))}
-                </h2>
-                <p className="hp-sub">{h.product.text}</p>
-                <ul className="hp-chips" data-testid="home-tools">
-                  {TOOL_ENTRIES.map((x) => (
-                    <li key={x.id} style={{ '--c': LIT[x.id] ?? x.color } as CSSProperties}>
-                      <i aria-hidden="true">
-                        <ToolIcon name={x.icon} size={14} />
-                      </i>
-                      {t.tools[x.id].title}
-                    </li>
-                  ))}
-                </ul>
-                <span className="hp-b1">
-                  {h.product.cta} <Arrow />
-                </span>
-              </div>
-              <div className="hp-scene" aria-hidden="true">
-                <div className="hp-stack">
-                  {TOOL_ENTRIES.map((x, i) => (
-                    <div key={x.id} className="hp-pl" style={{ '--c': LIT[x.id] ?? x.color, '--i': i } as CSSProperties}>
-                      <ToolIcon name={x.icon} size={19} />
-                      <span>{t.tools[x.id].title}</span>
-                    </div>
-                  ))}
-                  <div className="hp-pl hp-pl-top" style={{ '--i': TOOL_ENTRIES.length } as CSSProperties}>
-                    <img src="/icons/baupad-icon.png" alt="" width={170} height={161} className="ps-build-logo" />
-                  </div>
-                </div>
-              </div>
-            </a>
-          </Reveal>
+          <div className="fh-feats">
+            {h.can.items.map((c, i) => (
+              <Reveal key={c.title} className="fh-card" delay={i * 70}>
+                <i aria-hidden="true">
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                    {GLYPHS[i]}
+                  </svg>
+                </i>
+                <h3>{c.title}</h3>
+                <p>{c.text}</p>
+              </Reveal>
+            ))}
+          </div>
+          <ul className="fh-nums">
+            {h.can.numbers.map((n) => (
+              <li key={n.label}>
+                <b data-count={n.value}>{n.value}</b>
+                <span>{n.label}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 
-      {/* 5. Was Sie erwarten können */}
-      <section className="hp-sec hp-light hp-prom-sec" id="zusagen">
-        <div className="hp-w">
+      {/* 5. Zusagen */}
+      <section className="fh-sec" id="zusagen">
+        <div className="fh-w">
           <Reveal>
-            <p className="hp-mono">{h.promises.eyebrow}</p>
-            <h2 className="hp-h2 hp-grad">{h.promises.title}</h2>
+            <p className="fh-eye">{h.promises.eyebrow}</p>
+            <h2 className="fh-h2">{h.promises.title}</h2>
           </Reveal>
-          <ul className="hp-prom">
+          <ul className="fh-prom">
             {h.promises.items.map((p, i) => (
-              <Reveal key={p.title} as="li" delay={i * 80}>
-                <span aria-hidden="true">{`0${i + 1}`}</span>
+              <Reveal key={p.title} as="li" delay={i * 70}>
                 <h3>{p.title}</h3>
                 <p>{p.text}</p>
               </Reveal>
@@ -210,19 +242,15 @@ export function HomePage() {
       </section>
 
       {/* 6. Kontakt */}
-      <section className="hp-cta hp-dark" id="kontakt">
-        <div className="hp-halo" aria-hidden="true" />
-        <div className="hp-w">
+      <section className="fh-cta" id="kontakt">
+        <div className="fh-w">
           <Reveal>
-            <p className="hp-mono">{h.contact.eyebrow}</p>
-            <h2 className="hp-h2 hp-grad">{h.contact.title}</h2>
-            <p className="hp-sub">{h.contact.text}</p>
-            <div className="hp-btns">
-              <a href={paths.contact(lang)} className="hp-b1" data-testid="cta-contact-2">
+            <p className="fh-eye">{h.contact.eyebrow}</p>
+            <h2 className="fh-h2">{h.contact.title}</h2>
+            <p className="fh-sub">{h.contact.text}</p>
+            <div className="fh-btns">
+              <a href={paths.contact(lang)} className="fh-b1" data-testid="cta-contact-2">
                 {h.contact.cta} <Arrow />
-              </a>
-              <a href={`mailto:${contactData.email}`} className="hp-b2">
-                {contactData.email}
               </a>
             </div>
           </Reveal>

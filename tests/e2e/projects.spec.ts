@@ -11,30 +11,36 @@ import { FIXTURES, OUT, catchDownload, createProject, freshStart, openPlan, sele
 test.describe('ohne Anmeldung', () => {
   test.use({ signedIn: false });
 
-test('Website: BauPad-Karte der Startseite führt zur BauPad-Seite; ohne Bewegung steht alles fertig da', async ({ page }) => {
+test('Website: BauPad-Karten der Startseite führen zur BauPad-Seite; ohne Bewegung steht alles fertig da', async ({ page }) => {
   await page.goto('./');
-  // sechs Abschnitte: Kopf, Unternehmen, Können, Produkt, Zusagen, Kontakt
-  await expect(page.locator('.hp-facts li')).toHaveCount(3);
-  await expect(page.locator('.hp-val')).toHaveCount(3);
-  await expect(page.locator('.hp-feats .hp-card')).toHaveCount(4);
-  await expect(page.locator('.hp-prom li')).toHaveCount(4);
+  // Abschnitte: Kopf, Unternehmen, Produkt, Können, Zusagen, Kontakt
+  await expect(page.locator('.fh-facts li')).toHaveCount(3);
+  await expect(page.locator('.fh-val')).toHaveCount(3);
+  await expect(page.locator('.fh-feats .fh-card')).toHaveCount(4);
+  await expect(page.locator('.fh-nums li')).toHaveCount(3);
+  await expect(page.locator('.fh-prom li')).toHaveCount(4);
   await expect(page.getByTestId('cta-contact-2')).toBeVisible();
-  // Produkt: eine große Taste mit dem Stapel der sieben Werkzeuge und dem BauPad-Zeichen obenauf
+  // Kopf: BauPad als schwarze Karte mit einem Bild der App – ein Tipp öffnet die Produktseite
+  const hero = page.getByTestId('home-hero-product');
+  await expect(hero).toHaveAttribute('href', '/baupad');
+  await expect(hero.locator('img[src="/site/baupad/pc-aufmass.jpg"]')).toBeVisible();
+  // Produkt: große Karte mit den sieben Werkzeugen, daneben „In Planung“ (führt zu den Produkten)
   const card = page.getByTestId('home-product');
   await expect(card).toHaveAttribute('href', '/baupad');
   await expect(card.getByTestId('home-tools').locator('li')).toHaveCount(7);
-  await expect(card.locator('.hp-pl')).toHaveCount(8);
+  await expect(page.getByTestId('home-planned')).toHaveAttribute('href', '/produkte');
   await card.scrollIntoViewIfNeeded();
-  await card.locator('.hp-stack').click({ force: true }); // auch ein Tipp auf die Abbildung öffnet die Seite
+  await card.locator('.fh-lap').click({ force: true }); // auch ein Tipp auf die Abbildung öffnet die Seite
   await expect(page.getByTestId('product-title')).toContainText('in einer App');
   expect(new URL(page.url()).pathname).toBe('/baupad');
   // ohne Bewegung (System-Einstellung): nichts bleibt versteckt
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('./');
-  for (const sel of ['.hp-val', '.hp-feats .hp-card', '.hp-prom li']) await expect(page.locator(sel).first()).toHaveCSS('opacity', '1');
-  // Englisch: Karte führt zur englischen Produktseite
+  for (const sel of ['.fh-val', '.fh-feats .fh-card', '.fh-prom li']) await expect(page.locator(sel).first()).toHaveCSS('opacity', '1');
+  // Englisch: Karten führen zur englischen Produktseite
   await page.goto('./en');
   await expect(page.getByTestId('home-product')).toHaveAttribute('href', '/en/baupad');
+  await expect(page.getByTestId('home-hero-product')).toHaveAttribute('href', '/en/baupad');
 });
 
 test('Website: Startseite, Produkte, BauPad, Unternehmen, Kontaktformular, Sprache, Rechtliches', async ({ page }) => {
@@ -46,10 +52,11 @@ test('Website: Startseite, Produkte, BauPad, Unternehmen, Kontaktformular, Sprac
   await expect(h1).toContainText('leichter macht');
   await expect(page.locator('html')).toHaveAttribute('lang', 'de');
   // zuerst das Unternehmen, dann BauPad als antippbare Karte
-  await expect(page.locator('.hp-val')).toHaveCount(3);
+  await expect(page.locator('.fh-val')).toHaveCount(3);
   await expect(page.getByTestId('home-product')).toHaveAttribute('href', '/baupad');
   await expect(page.locator('.ps-panel, .ps-panel-tag')).toHaveCount(0); // keine Bilder und Platzhalter
-  await expect(page.locator('.ps-main img:not(.ps-build-logo)')).toHaveCount(0); // keine Fotos/Platzhalter – nur das BauPad-Logo
+  // Bilder: nur das BauPad-Zeichen und die App in den zwei BauPad-Karten – keine Fotos
+  await expect(page.locator('.ps-main img:not([src^="/icons/"]):not([src^="/site/baupad/"])')).toHaveCount(0);
 
   // Produkte
   await nav.getByRole('link', { name: 'Produkte', exact: true }).click();
