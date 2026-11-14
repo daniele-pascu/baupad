@@ -4082,7 +4082,121 @@
   color: #fff;
 }
 
-/* ---------- Startseite ---------- */
+/* Menü: „Produkte“ mit den Produkten darunter */
+.ps-nav-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.ps-nav-group > a {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 2px;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.95rem;
+  font-weight: 550;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+.ps-nav-group > a::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 2px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--l, var(--ps-steel));
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.25s var(--ps-ease);
+}
+.ps-nav-group > a:hover,
+.ps-nav-group > a[aria-current='page'],
+.ps-nav-group:has(.ps-nav-sub a[aria-current='page']) > a {
+  color: #fff;
+}
+.ps-nav-group > a:hover::after,
+.ps-nav-group > a[aria-current='page']::after {
+  transform: scaleX(1);
+}
+.ps-nav-sub {
+  position: absolute;
+  left: -16px;
+  top: 100%;
+  z-index: 5;
+  padding-top: 12px;
+  opacity: 0;
+  transform: translateY(-4px);
+  visibility: hidden;
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s linear 0.2s;
+}
+.ps-nav-group:hover .ps-nav-sub,
+.ps-nav-group:focus-within .ps-nav-sub {
+  opacity: 1;
+  transform: none;
+  visibility: visible;
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s;
+}
+.ps-nav-sub a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 170px;
+  min-height: 48px;
+  padding: 0 18px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #16181c;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 550;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.ps-nav-sub a::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  background: var(--l, #c6f432);
+}
+.ps-nav-sub a:hover {
+  border-color: var(--l, #c6f432);
+}
+@media (max-width: 900px) {
+  .ps-nav-group {
+    display: block;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .ps-nav-group > a {
+    display: flex;
+    justify-content: space-between;
+    padding: 14px 2px;
+    font-size: 1.08rem;
+  }
+  .ps-nav-group > a::after {
+    display: none;
+  }
+  .ps-nav-sub {
+    position: static;
+    padding: 0 0 10px 18px;
+    opacity: 1;
+    transform: none;
+    visibility: inherit;
+    transition: none;
+  }
+  .ps-nav-sub a {
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 1.02rem;
+  }
+}
+
+/* ---------- Startseite: wenig Text, große Bilder ---------- */
 .ph {
   color: #fff;
 }
@@ -4144,11 +4258,13 @@
 .ph-btn-dark-line:hover {
   border-color: var(--ink);
 }
-/* Erster Blick */
+/* Aussage */
 .ph-hero {
   position: relative;
   overflow: hidden;
+  padding: 96px 0 92px;
   background: var(--k);
+  text-align: center;
 }
 .ph-hero::before {
   content: '';
@@ -4156,19 +4272,13 @@
   inset: 0;
   background-image: linear-gradient(var(--ln) 1px, transparent 1px), linear-gradient(90deg, var(--ln) 1px, transparent 1px);
   background-size: 80px 80px;
-  opacity: 0.45;
-  -webkit-mask-image: linear-gradient(90deg, transparent 30%, #000 100%);
-  mask-image: linear-gradient(90deg, transparent 30%, #000 100%);
+  opacity: 0.4;
+  -webkit-mask-image: radial-gradient(70% 90% at 50% 100%, #000, transparent);
+  mask-image: radial-gradient(70% 90% at 50% 100%, #000, transparent);
   pointer-events: none;
 }
-.ph-hero-grid {
+.ph-hero .ph-w {
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
-  gap: 60px;
-  align-items: center;
-  padding-top: 72px;
-  padding-bottom: 76px;
 }
 .ph-eye {
   display: inline-flex;
@@ -4177,240 +4287,137 @@
   margin: 0;
   color: var(--l);
 }
-.ph-eye::before {
+.ph-eye::before,
+.ph-eye::after {
   content: '';
   width: 34px;
   height: 1px;
   background: currentColor;
 }
 .ph-h1 {
-  margin: 26px 0;
-  font-size: clamp(2.875rem, 6.3vw, 5.75rem);
+  max-width: 1000px;
+  margin: 24px auto 22px;
+  font-size: clamp(2.875rem, 6.6vw, 6rem);
   font-weight: 650;
   letter-spacing: -0.045em;
   line-height: 0.98;
   text-wrap: balance;
 }
 .ph-h1 em,
+.ph-h2 em,
 .ph-quote em {
   color: var(--l);
   font-style: normal;
 }
 .ph-lead {
-  max-width: 560px;
-  margin: 0 0 36px;
+  max-width: 640px;
+  margin: 0 auto 34px;
   color: rgba(255, 255, 255, 0.78);
   font-size: clamp(1.06rem, 1.5vw, 1.31rem);
-  line-height: 1.55;
+  line-height: 1.5;
 }
-.ph-frame {
-  position: relative;
-  aspect-ratio: 1 / 1;
-  border: 1px solid var(--ln);
-  background: linear-gradient(160deg, var(--a), var(--k));
+.ph-hero .ph-btns,
+.ph-bp .ph-btns {
+  justify-content: center;
 }
-.ph-frame img {
-  position: absolute;
-  inset: 6%;
-  width: 88%;
-  height: 88%;
-  object-fit: contain;
-  mix-blend-mode: screen;
-}
-.ph-frame i {
-  position: absolute;
-  width: 22px;
-  height: 22px;
-  border: 2px solid var(--l);
-}
-.ph-frame i:nth-of-type(1) {
-  left: -1px;
-  top: -1px;
-  border-right: 0;
-  border-bottom: 0;
-}
-.ph-frame i:nth-of-type(2) {
-  right: -1px;
-  top: -1px;
-  border-left: 0;
-  border-bottom: 0;
-}
-.ph-frame i:nth-of-type(3) {
-  left: -1px;
-  bottom: -1px;
-  border-right: 0;
-  border-top: 0;
-}
-.ph-frame i:nth-of-type(4) {
-  right: -1px;
-  bottom: -1px;
-  border-left: 0;
-  border-top: 0;
-}
-.ph-frame span {
-  position: absolute;
-  left: 18px;
-  bottom: 16px;
-  color: var(--mutd);
-  font-size: 0.69rem;
-}
-.ph-frame span + span {
-  left: auto;
-  right: 18px;
-}
-.ph-spec {
-  position: relative;
-  border-top: 1px solid var(--ln);
-}
-.ph-spec ul {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin: 0 auto;
-  list-style: none;
-}
-.ph-spec li {
-  padding: 26px 26px 30px;
-  border-left: 1px solid var(--ln);
-}
-.ph-spec li:first-child {
-  padding-left: 0;
-  border-left: 0;
-}
-.ph-spec small {
-  display: block;
-  margin-bottom: 8px;
-  color: var(--mutd);
-  font-size: 0.72rem;
-}
-.ph-spec b {
-  font-size: 1.12rem;
-  font-weight: 600;
-  letter-spacing: -0.015em;
-}
-/* Abschnitte */
-.ph-sec {
-  padding: 130px 0;
-}
-.ph-light {
+/* Das Produkt: BauPad groß im Bild */
+.ph-bp {
+  overflow: hidden;
+  padding: 96px 0 0;
   background: var(--g1);
   color: var(--ink);
+  text-align: center;
 }
-.ph-anth {
-  background: var(--a);
-}
-.ph-black {
-  background: var(--k);
-}
-.ph-head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
-  gap: 60px;
-  align-items: start;
-}
-.ph-label {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 0;
-  color: var(--mutd);
-}
-.ph-label b {
-  color: var(--l);
-  font-weight: 600;
-}
-.ph-light .ph-label {
-  color: var(--mut);
-}
-.ph-light .ph-label b {
-  color: var(--ink);
-}
-.ph-h2 {
-  margin: 0;
-  font-size: clamp(2.1rem, 4.3vw, 3.75rem);
-  font-weight: 650;
-  letter-spacing: -0.04em;
-  line-height: 1.03;
-  text-wrap: balance;
-}
-.ph-text {
-  max-width: 620px;
-  margin: 22px 0 0;
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 1.19rem;
-  line-height: 1.6;
-}
-.ph-light .ph-text {
-  color: var(--mut);
-}
-.ph-more {
+.ph-tag {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  min-height: 44px;
-  margin-top: 22px;
-  border-bottom: 2px solid var(--l);
-  color: inherit;
-  font-weight: 600;
-  text-decoration: none;
-}
-/* 01 Grundsätze */
-.ph-vals {
-  margin: 70px 0 0;
-  padding: 0;
-  border-top: 1px solid var(--g2);
-  list-style: none;
-}
-.ph-val {
-  position: relative;
-  display: grid;
-  grid-template-columns: 90px minmax(0, 1fr) minmax(0, 1.5fr);
-  gap: 30px;
-  align-items: baseline;
-  padding: 30px 0;
-  border-bottom: 1px solid var(--g2);
-  transition: padding-left 0.3s ease, opacity 0.7s var(--ps-ease), transform 0.7s var(--ps-ease);
-}
-.ph-val::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: -1px;
-  bottom: -1px;
-  width: 0;
-  background: var(--l);
-  transition: width 0.3s ease;
-}
-@media (hover: hover) {
-  .ph-val:hover {
-    padding-left: 22px;
-  }
-  .ph-val:hover::before {
-    width: 6px;
-  }
-}
-.ph-val .ph-mono {
+  margin: 0;
   color: var(--mut);
 }
-.ph-val h3 {
-  margin: 0;
-  font-size: 1.62rem;
+.ph-tag i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #7fb800;
+}
+.ph-bp-name {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  margin: 18px 0 8px;
+  font-size: clamp(3.4rem, 8vw, 6.5rem);
   font-weight: 650;
-  letter-spacing: -0.03em;
-  line-height: 1.15;
+  letter-spacing: -0.05em;
+  line-height: 1;
 }
-.ph-val p {
-  margin: 0;
+.ph-bp-name img {
+  width: 0.72em;
+  height: 0.72em;
+  border-radius: 20%;
+}
+.ph-bp-line {
+  margin: 0 0 30px;
   color: var(--mut);
-  font-size: 1.09rem;
-  line-height: 1.55;
+  font-size: clamp(1.3rem, 2.4vw, 2rem);
+  letter-spacing: -0.02em;
 }
-/* 02 Lösungen: Kachelwand, BauPad, Platz für weitere */
+.ph-stage {
+  position: relative;
+  display: block;
+  width: min(1040px, 100%);
+  margin: 64px auto 0;
+}
+.ph-lap {
+  display: block;
+  width: 86%;
+  margin: 0 auto -1px;
+  filter: drop-shadow(0 40px 50px rgba(16, 17, 19, 0.28));
+}
+.ph-lap-scr {
+  display: block;
+  overflow: hidden;
+  aspect-ratio: 1200 / 750;
+  border: 11px solid #15161a;
+  border-bottom: 0;
+  border-radius: 20px 20px 0 0;
+  background: #15161a;
+}
+.ph-lap-scr img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top left;
+}
+.ph-lap-base {
+  display: none;
+}
+.ph-phone {
+  position: absolute;
+  right: 0;
+  bottom: -8%;
+  width: 21%;
+  overflow: hidden;
+  border: 8px solid #15161a;
+  border-radius: 13% / 6%;
+  background: #000;
+  box-shadow: 0 40px 60px -20px rgba(16, 17, 19, 0.6);
+}
+.ph-phone img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 390 / 760;
+  object-fit: cover;
+  object-position: top;
+}
+/* Kachelwand der sieben Werkzeuge */
 .tw {
   position: relative;
   height: 640px;
-  margin-top: 70px;
   overflow: hidden;
-  border-block: 1px solid var(--ln);
   background: var(--k);
 }
 .tw-scene {
@@ -4560,84 +4567,148 @@
 .tw-again:hover {
   color: #fff;
 }
-.ph-prod {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
-  margin-top: 70px;
-  border: 1px solid var(--ln);
+/* Abschnitte */
+.ph-sec {
+  padding: 120px 0;
+}
+.ph-sec-tight {
+  padding-top: 0;
+}
+.ph-light {
+  background: var(--g1);
+  color: var(--ink);
+}
+.ph-black {
   background: var(--k);
 }
-.ph-prod-text {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  padding: 48px;
+.ph-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px 40px;
+  align-items: end;
 }
-.ph-tag {
+.ph-label {
   display: flex;
+  grid-column: 1 / -1;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   margin: 0;
   color: var(--mutd);
 }
-.ph-tag i {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--l);
+.ph-label b {
+  color: var(--l);
+  font-weight: 600;
 }
-.ph-prod h3 {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin: 22px 0 16px;
-  font-size: 3.4rem;
-  font-weight: 650;
-  letter-spacing: -0.045em;
-  line-height: 1;
+.ph-light .ph-label {
+  color: var(--mut);
 }
-.ph-prod h3 img {
-  width: 58px;
-  height: 58px;
-  border-radius: 14px;
+.ph-light .ph-label b {
+  color: var(--ink);
 }
-.ph-prod-text > p:not(.ph-tag) {
-  max-width: 480px;
+.ph-h2 {
   margin: 0;
-  color: rgba(255, 255, 255, 0.74);
-  font-size: 1.12rem;
-  line-height: 1.6;
+  font-size: clamp(2.1rem, 4.6vw, 4rem);
+  font-weight: 650;
+  letter-spacing: -0.04em;
+  line-height: 1.03;
+  text-wrap: balance;
 }
-.ph-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 26px 0 34px;
+.ph-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  border-bottom: 2px solid var(--l);
+  color: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+/* Vier Werkzeuge groß im Bild */
+.ph-tools {
+  padding-top: 16px;
+}
+.ph-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
-.ph-chips li {
-  padding: 8px 13px;
-  border: 1px solid var(--ln);
-  color: rgba(255, 255, 255, 0.86);
-  font-size: 0.88rem;
-}
-.ph-prod-shot {
+.ph-tile {
   position: relative;
-  min-height: 480px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 600px;
   overflow: hidden;
-  border-left: 1px solid var(--ln);
-  background: linear-gradient(160deg, var(--a2), var(--a));
+  padding: 44px 30px 0;
+  color: #fff;
+  text-align: center;
+  text-decoration: none;
+  transition: transform 0.35s var(--ps-ease);
 }
-.ph-prod-shot img {
-  position: absolute;
-  left: 48px;
-  top: 56px;
-  width: 112%;
-  max-width: none;
+.ph-tile:hover {
+  transform: translateY(-6px);
+}
+.ph-tile-dark {
+  background: var(--a);
+}
+.ph-tile-light {
+  background: var(--g1);
+  color: var(--ink);
+}
+.ph-tile-icon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  background: var(--c);
+  color: #fff;
+}
+.ph-tile-name {
+  margin-top: 18px;
+  font-size: clamp(1.6rem, 2.6vw, 2.25rem);
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+}
+.ph-tile-line {
+  margin-top: 8px;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 1.1rem;
+}
+.ph-tile-light .ph-tile-line {
+  color: var(--mut);
+}
+.ph-tile-shot {
+  display: block;
+  margin-top: auto;
+  padding-top: 34px;
+}
+.ph-tile-shot img {
+  display: block;
   height: auto;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: 0 40px 80px -30px #000;
+  border: 9px solid #15161a;
+  border-bottom: 0;
+  box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.6);
+}
+.ph-tile-pc,
+.ph-tile-tablet {
+  width: 92%;
+}
+.ph-tile-pc img,
+.ph-tile-tablet img {
+  width: 100%;
+  border-radius: 14px 14px 0 0;
+}
+.ph-tile-handy {
+  width: 46%;
+}
+.ph-tile-handy img {
+  width: 100%;
+  border-radius: 28px 28px 0 0;
 }
 .ph-slot {
   display: flex;
@@ -4645,7 +4716,7 @@
   justify-content: space-between;
   gap: 20px;
   margin-top: 16px;
-  padding: 26px 48px;
+  padding: 26px 34px;
   border: 1px dashed rgba(255, 255, 255, 0.22);
   color: var(--mutd);
 }
@@ -4654,13 +4725,47 @@
   font-size: 1.12rem;
   font-weight: 600;
 }
-/* 03 Entwicklung */
+/* 01 Grundsätze: fünf Karten, je eine Zeile */
+.ph-vals {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+  margin: 56px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.ph-val {
+  padding: 28px 24px 30px;
+  background: #fff;
+}
+.ph-val > i {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 26px;
+  background: var(--ink);
+  color: var(--l);
+}
+.ph-val h3 {
+  margin: 0 0 8px;
+  font-size: 1.3rem;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+.ph-val p {
+  margin: 0;
+  color: var(--mut);
+  line-height: 1.45;
+}
+/* 02 Entwicklung */
 .ph-steps {
   position: relative;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 30px;
-  margin: 80px 0 0;
+  margin: 60px 0 0;
   padding: 0;
   list-style: none;
 }
@@ -4701,19 +4806,18 @@
   color: var(--mut);
 }
 .ph-step h3 {
-  margin: 8px 0;
-  font-size: 1.69rem;
+  margin: 8px 0 6px;
+  font-size: clamp(1.6rem, 2.6vw, 2.25rem);
   font-weight: 650;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.035em;
 }
 .ph-step p {
   margin: 0;
   color: var(--mut);
-  font-size: 1.03rem;
-  line-height: 1.55;
+  font-size: 1.06rem;
 }
 .ph-quote {
-  margin: 90px 0 0;
+  margin: 80px 0 0;
   padding: 44px 48px;
   border-left: 8px solid var(--l);
   background: var(--ink);
@@ -4723,32 +4827,26 @@
   letter-spacing: -0.03em;
   line-height: 1.15;
 }
-/* 04 Technologie */
+/* 03 Technologie */
 .ph-tech {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin: 70px 0 0;
+  margin: 56px 0 0;
   padding: 0;
   border-top: 1px solid var(--ln);
   border-left: 1px solid var(--ln);
   list-style: none;
 }
 .ph-tech li {
-  padding: 34px 32px 38px;
+  padding: 30px 30px 34px;
   border-right: 1px solid var(--ln);
   border-bottom: 1px solid var(--ln);
-  transition: background 0.3s ease, opacity 0.7s var(--ps-ease), transform 0.7s var(--ps-ease);
-}
-@media (hover: hover) {
-  .ph-tech li:hover {
-    background: var(--a);
-  }
 }
 .ph-tech .ph-mono {
   color: var(--l);
 }
 .ph-tech h3 {
-  margin: 16px 0 10px;
+  margin: 14px 0 6px;
   font-size: 1.38rem;
   font-weight: 600;
   letter-spacing: -0.025em;
@@ -4757,7 +4855,6 @@
 .ph-tech p {
   margin: 0;
   color: var(--mutd);
-  line-height: 1.55;
 }
 .ph-note {
   display: flex;
@@ -4799,67 +4896,47 @@
   justify-content: flex-end;
 }
 
+@media (max-width: 1100px) {
+  .ph-vals {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .ph-tile {
+    height: 520px;
+  }
+}
 @media (max-width: 900px) {
   .ph-w {
     padding: 0 22px;
   }
-  .ph-hero-grid {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 44px;
-    padding-top: 56px;
-    padding-bottom: 60px;
-  }
-  .ph-frame {
-    max-width: 320px;
+  .ph-hero {
+    padding: 60px 0 64px;
   }
   .ph-btns .ph-btn {
     flex: 1 1 100%;
   }
-  .ph-spec ul {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    padding: 0;
+  .ph-bp {
+    padding-top: 64px;
   }
-  .ph-spec li,
-  .ph-spec li:first-child {
-    padding: 18px 22px;
+  .ph-bp-name {
+    gap: 14px;
   }
-  .ph-spec li:nth-child(odd) {
-    border-left: 0;
+  .ph-stage {
+    margin-top: 44px;
   }
-  .ph-spec li:nth-child(n + 3) {
-    border-top: 1px solid var(--ln);
+  .ph-lap {
+    width: 100%;
   }
-  .ph-spec b {
-    font-size: 0.97rem;
+  .ph-lap-scr {
+    border-width: 7px;
+    border-radius: 14px 14px 0 0;
   }
-  .ph-sec {
-    padding: 76px 0;
-  }
-  .ph-head {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 18px;
-  }
-  .ph-text {
-    font-size: 1.06rem;
-  }
-  .ph-vals {
-    margin-top: 40px;
-  }
-  .ph-val {
-    grid-template-columns: 44px minmax(0, 1fr);
-    gap: 6px 14px;
-    padding: 22px 0;
-  }
-  .ph-val p {
-    grid-column: 2;
-    font-size: 1rem;
-  }
-  .ph-val h3 {
-    font-size: 1.31rem;
+  .ph-phone {
+    right: -2px;
+    width: 27%;
+    border-width: 5px;
   }
   .tw {
     height: 560px;
-    margin-top: 40px;
   }
   .tw-veil {
     background: radial-gradient(95% 26% at 50% 50%, color-mix(in srgb, var(--k) 95%, transparent), color-mix(in srgb, var(--k) 70%, transparent) 62%, transparent 88%), linear-gradient(var(--k) 0%, transparent 14%, transparent 84%, var(--k) 100%);
@@ -4875,39 +4952,55 @@
     right: 0;
     margin: 0 auto;
   }
-  .ph-prod {
+  .ph-sec {
+    padding: 72px 0;
+  }
+  .ph-sec-tight {
+    padding-top: 0;
+  }
+  .ph-tools {
+    padding-top: 10px;
+  }
+  .ph-head {
     grid-template-columns: minmax(0, 1fr);
-    margin-top: 40px;
   }
-  .ph-prod-text {
-    padding: 28px 22px;
+  .ph-tiles {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
   }
-  .ph-prod h3 {
-    font-size: 2.5rem;
-  }
-  .ph-prod h3 img {
-    width: 46px;
-    height: 46px;
-  }
-  .ph-prod-shot {
-    min-height: 250px;
-    border-left: 0;
-    border-top: 1px solid var(--ln);
-  }
-  .ph-prod-shot img {
-    left: 22px;
-    top: 26px;
-    width: 118%;
+  .ph-tile {
+    height: 460px;
+    padding: 32px 20px 0;
   }
   .ph-slot {
     flex-direction: column;
     align-items: flex-start;
     padding: 20px 22px;
   }
+  .ph-vals {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 10px;
+    margin-top: 36px;
+  }
+  .ph-val {
+    padding: 20px 16px 22px;
+  }
+  .ph-val > i {
+    width: 44px;
+    height: 44px;
+    margin-bottom: 18px;
+  }
+  .ph-val h3 {
+    font-size: 1.1rem;
+    overflow-wrap: anywhere;
+  }
+  .ph-val p {
+    font-size: 0.94rem;
+  }
   .ph-steps {
     grid-template-columns: minmax(0, 1fr);
     gap: 0;
-    margin-top: 44px;
+    margin-top: 40px;
   }
   .ph-steps::before {
     left: 9px;
@@ -4921,21 +5014,18 @@
     display: none;
   }
   .ph-step {
-    padding: 0 0 30px 44px;
-  }
-  .ph-step h3 {
-    font-size: 1.38rem;
+    padding: 0 0 28px 44px;
   }
   .ph-quote {
-    margin-top: 44px;
+    margin-top: 36px;
     padding: 28px 24px;
   }
   .ph-tech {
     grid-template-columns: minmax(0, 1fr);
-    margin-top: 40px;
+    margin-top: 36px;
   }
   .ph-tech li {
-    padding: 24px 22px 26px;
+    padding: 22px 22px 24px;
   }
   .ph-cta {
     padding: 70px 0;
@@ -4950,8 +5040,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .ph-btn,
-  .ph-val,
-  .ph-tech li {
+  .ph-tile {
     transition: none;
   }
 }

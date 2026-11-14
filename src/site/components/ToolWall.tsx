@@ -76,7 +76,7 @@ const seeded = (s: number) => () => {
  */
 export function ToolWall() {
   const { t } = useLang();
-  const w = t.home.solutions.wall;
+  const w = t.home.product.wall;
   const wall = useRef<HTMLDivElement>(null);
   const plane = useRef<HTMLDivElement>(null);
   const again = useRef<HTMLButtonElement>(null);

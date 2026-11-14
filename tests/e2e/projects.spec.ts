@@ -13,8 +13,10 @@ test.describe('ohne Anmeldung', () => {
 
 test('Website: Startseite PAD Software – Grundsätze, Lösungen mit Kachelwand, Entwicklung, Technologie; ohne Bewegung steht alles fertig da', async ({ page }) => {
   await page.goto('./');
-  // Abschnitte: Kopf mit vier Kurzangaben, 01 Über uns, 02 Lösungen, 03 Entwicklung, 04 Technologie, Kontakt
-  await expect(page.locator('.ph-spec li')).toHaveCount(4);
+  // Abschnitte: Aussage, BauPad im Bild, Kachelwand, vier Werkzeuge im Bild, 01 Über uns, 02 Entwicklung, 03 Technologie, Kontakt
+  await expect(page.getByTestId('home-stage').locator('img')).toHaveCount(2); // Laptop und Handy
+  await expect(page.getByTestId('home-tile')).toHaveCount(4);
+  await expect(page.getByTestId('home-tile').first()).toHaveAttribute('href', '/baupad/funktionen/aufmass');
   await expect(page.locator('.ph-val')).toHaveCount(5);
   await expect(page.locator('.ph-step')).toHaveCount(4);
   await expect(page.locator('.ph-tech li')).toHaveCount(6);
@@ -35,8 +37,7 @@ test('Website: Startseite PAD Software – Grundsätze, Lösungen mit Kachelwand
   expect(await wall.locator('.tw-tile').count()).toBeGreaterThan(60);
   await wall.getByTestId('tool-wall-again').click(); // „Nochmal ansehen“ startet den Ablauf neu
   await expect(wall).toHaveAttribute('data-state', 'running');
-  // BauPad als Produkt: sieben Bereiche, Taste führt zur Produktseite
-  await expect(page.getByTestId('home-tools').locator('li')).toHaveCount(7);
+  // BauPad als Produkt direkt unter der Aussage: Taste führt zur Produktseite
   const card = page.getByTestId('home-product');
   await expect(card).toHaveAttribute('href', '/baupad');
   await card.click();
@@ -52,6 +53,15 @@ test('Website: Startseite PAD Software – Grundsätze, Lösungen mit Kachelwand
   await page.goto('./en');
   await expect(page.getByTestId('home-product')).toHaveAttribute('href', '/en/baupad');
   await expect(page.getByRole('heading', { level: 1 })).toContainText('comes from practice');
+  // Menü: Home, Produkte (darunter BauPad), Über uns, Kontakt
+  await page.goto('./');
+  const nav = page.getByTestId('site-nav');
+  for (const n of ['Home', 'Produkte', 'Über uns', 'Kontakt']) await expect(nav.getByRole('link', { name: n, exact: true })).toBeVisible();
+  await expect(page.getByTestId('nav-baupad')).toBeHidden();
+  await page.getByTestId('nav-products').hover();
+  await expect(page.getByTestId('nav-baupad')).toBeVisible();
+  await page.getByTestId('nav-baupad').click();
+  expect(new URL(page.url()).pathname).toBe('/baupad');
 });
 
 test('Website: Startseite, Produkte, BauPad, Unternehmen, Kontaktformular, Sprache, Rechtliches', async ({ page }) => {
@@ -70,7 +80,7 @@ test('Website: Startseite, Produkte, BauPad, Unternehmen, Kontaktformular, Sprac
   await expect(page.locator('.ps-main img:not([src^="/icons/"]):not([src^="/site/baupad/"])')).toHaveCount(0);
 
   // Produkte
-  await nav.getByRole('link', { name: 'Lösungen', exact: true }).click();
+  await nav.getByRole('link', { name: 'Produkte', exact: true }).click();
   await expect(h1).toContainText('Produkte von PAD Software');
   await expect(page).toHaveTitle('Produkte – PAD Software');
   await expect(page.locator('.ps-badge-plan')).toHaveText('Bald verfügbar'); // BauPad in der Testphase
@@ -129,7 +139,7 @@ test('Website: Startseite, Produkte, BauPad, Unternehmen, Kontaktformular, Sprac
   expect(page.url()).toContain('/en/contact');
   await expect(h1).toHaveText('Write to us.');
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
-  await expect(nav.getByRole('link', { name: 'Solutions', exact: true })).toBeVisible();
+  await expect(nav.getByRole('link', { name: 'Products', exact: true })).toBeVisible();
   await expect(page).toHaveTitle('Contact – PAD Software');
   await page.locator('[data-testid="lang-de"]:visible').first().click();
   expect(page.url()).toContain('/kontakt');

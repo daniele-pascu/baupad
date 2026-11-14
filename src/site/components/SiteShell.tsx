@@ -32,8 +32,8 @@ export function switchLangPath(path: string, to: Lang): string {
 }
 
 const NAV: { key: SiteRouteName; label: 'home' | 'products' | 'baupad' | 'company' | 'contact' | 'future' }[] = [
+  { key: 'landing', label: 'home' },
   { key: 'products', label: 'products' },
-  { key: 'baupad', label: 'baupad' },
   { key: 'company', label: 'company' },
   { key: 'contact', label: 'contact' },
 ];
@@ -65,11 +65,28 @@ export function SiteHeader() {
       <div className="ps-wrap ps-header-inner">
         <Wordmark lang={lang} />
         <nav id="ps-nav" className={`ps-nav${open ? ' open' : ''}`} aria-label={lang === 'de' ? 'Hauptnavigation' : 'Main navigation'}>
-          {NAV.map((n) => (
-            <a key={n.key} href={sitePath(n.key, lang)} aria-current={active(n.key)}>
-              {t.nav[n.label]}
-            </a>
-          ))}
+          {NAV.map((n) =>
+            n.key === 'products' ? (
+              // Produkte: darunter die einzelnen Produkte (am PC klappt die Liste beim Darüberfahren auf, im Handy-Menü steht sie eingerückt)
+              <div key={n.key} className="ps-nav-group">
+                <a href={sitePath(n.key, lang)} aria-current={active(n.key)} data-testid="nav-products">
+                  {t.nav[n.label]}
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M6 9l6 6 6-6" />
+                  </svg>
+                </a>
+                <div className="ps-nav-sub">
+                  <a href={sitePath('baupad', lang)} aria-current={active('baupad')} data-testid="nav-baupad">
+                    {t.nav.baupad}
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <a key={n.key} href={sitePath(n.key, lang)} aria-current={active(n.key)}>
+                {t.nav[n.label]}
+              </a>
+            ),
+          )}
           <div className="ps-nav-mobile-extra">
             <LangSwitch lang={lang} path={path} label={t.nav.langSwitch} />
             {session ? (
