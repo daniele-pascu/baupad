@@ -348,3 +348,72 @@ html.app-fixed .page:not(.tools-page):not(.loading) {
   overflow: clip;
   border-radius: 30px;
 }
+
+/* ---------- Speichern-Anzeige: Ring läuft beim Speichern, danach kurz ein Haken, dann wieder der Punkt ----------
+   Nur Farbe, Drehung und Vergrößerung – die Größe im Layout bleibt 10 px, nichts verschiebt sich. */
+.save-dot {
+  position: relative;
+}
+.save-pending .save-dot,
+.save-saving .save-dot {
+  background: transparent;
+  border: 2px solid #e8a200;
+  border-top-color: transparent;
+  animation: save-spin 0.8s linear infinite;
+}
+.just-saved .save-dot {
+  animation: save-done 1.2s var(--ease) both;
+}
+.just-saved .save-dot::after {
+  content: '';
+  position: absolute;
+  left: 3.2px;
+  top: 1.4px;
+  width: 2.4px;
+  height: 4.6px;
+  border: solid #fff;
+  border-width: 0 1.3px 1.3px 0;
+  transform: rotate(45deg);
+  animation: save-check 1.2s ease both;
+}
+@keyframes save-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes save-done {
+  0% {
+    transform: scale(0.6);
+  }
+  25%,
+  75% {
+    transform: scale(1.9);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes save-check {
+  0%,
+  10% {
+    opacity: 0;
+  }
+  25%,
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .save-pending .save-dot,
+  .save-saving .save-dot,
+  .just-saved .save-dot,
+  .just-saved .save-dot::after {
+    animation: none;
+  }
+  .just-saved .save-dot::after {
+    opacity: 0;
+  }
+}

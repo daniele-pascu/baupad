@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { flush, reloadProject, useAppState } from '../lib/store';
 import { Icon } from './Icon';
 
@@ -13,8 +14,19 @@ const LABELS = {
 export function SaveStatus({ compact }: { compact?: boolean }) {
   const save = useAppState((s) => s.save);
   const label = LABELS[save.status];
+  // gerade fertig gespeichert: der Punkt zeigt kurz einen Haken (nur nach einem Speichern, nicht beim Öffnen der Seite)
+  const prev = useRef(save.status);
+  const [justSaved, setJustSaved] = useState(false);
+  useEffect(() => {
+    const was = prev.current;
+    prev.current = save.status;
+    if (save.status !== 'saved' || was === 'saved') return;
+    setJustSaved(true);
+    const t = setTimeout(() => setJustSaved(false), 1200);
+    return () => clearTimeout(t);
+  }, [save.status]);
   return (
-    <div className={`save-status save-${save.status}`} data-testid="save-status" data-status={save.status} title={save.error ?? label}>
+    <div className={`save-status save-${save.status}${justSaved ? ' just-saved' : ''}`} data-testid="save-status" data-status={save.status} title={save.error ?? label}>
       <span className="save-dot" aria-hidden="true" />
       {!compact && <span className="save-label">{label}</span>}
       {compact && <span className="sr-only">{label}</span>}
