@@ -315,3 +315,9 @@ html.app-fixed .tools-page a:hover .tile-go {
     transform: none;
   }
 }
+
+/* Fenster im Vordergrund: alles dahinter gleich verschwommen – auch die Kopfleiste.
+   Das Einblenden der Seite darf danach keine eigene Ebene mehr halten, sonst läge die Kopfleiste über dem Fenster. */
+html.app-fixed .page:not(.tools-page):not(.loading) {
+  animation-fill-mode: backwards;
+}
