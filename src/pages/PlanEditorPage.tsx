@@ -43,7 +43,7 @@ import { hatchAnchor } from '../lib/style';
 import { SegIndex } from '../lib/pdf-snap';
 import { clearHistory, newMeta, putRecord, putRecords, redo, softDelete, undo, useAppState, type ProjectState } from '../lib/store';
 import { COLORS, SHAPE_LABELS, type Damage, type DrawElementType, type MeasureKind, type MeasureType, type Plan, type Shape, type ShapeStyle, type ShapeType } from '../lib/types';
-import { DRAW_TOOLS, PICK_TOOLS, readStyle, SELECT_FIRST, useDrawing, VECTOR_COMMANDS, type DrawTool } from './DrawingMode';
+import { DRAW_TOOLS, guideSeg, PICK_TOOLS, readStyle, SELECT_FIRST, useDrawing, VECTOR_COMMANDS, type DrawTool } from './DrawingMode';
 import { CommandBar } from '../components/CommandBar';
 import { symbolDef } from '../lib/symbols';
 import { DrawRibbon, OrthoButtons } from '../components/DrawRibbon';
@@ -584,7 +584,10 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     if (host.style.getPropertyValue('--toolbar-h') !== h) host.style.setProperty('--toolbar-h', h);
   });
 
+  /** Aufmaß (gezeichnete Pläne): Hilfslinien setzen – dieselben wie beim Zeichnen */
+  const [guideTool, setGuideTool] = useState(false);
   const setTool = (t: Tool) => {
+    setGuideTool(false);
     if (t !== 'calibrate') setChecking(false);
     // anderes Werkzeug: Stil-Menü schließen (wie beim Kalibrieren)
     setStylePopOpen(false);
@@ -760,7 +763,10 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     const coarse = matchMedia('(pointer: coarse)').matches;
     const tol = (coarse ? 16 : 9) / ctx.scale;
     // Vektor-PDF: auch Ecken, Mittel- und Schnittpunkte der Planlinien; per Finger: klar auf der Linie getippt = Punkt auf der Linie
-    const hit = findSnap(p, shapes, tol, planLines?.index.near(p, tol) ?? [], coarse ? { free: { point: 10 / ctx.scale, line: 6 / ctx.scale } } : {});
+    // gezeichnete Pläne: auch an Hilfslinien (auf der Linie und an ihren Schnittpunkten)
+    const upm = drawingPlan ? unitsPerMeter(plan!) : 0;
+    const lines = drawingPlan && drawing.guidesOn ? drawing.guides.map((g) => guideSeg(g).map((q) => ({ x: q.x * upm, y: q.y * upm })) as [Point, Point]) : [];
+    const hit = findSnap(p, shapes, tol, planLines?.index.near(p, tol) ?? [], { lines, ...(coarse ? { free: { point: 10 / ctx.scale, line: 6 / ctx.scale } } : {}) });
     return hit ? { ...hit.point, kind: hit.kind } : p;
   };
   /** X gedrückt: vergrößert (Hinweis anzeigen) */
@@ -853,6 +859,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   };
 
   const switchMode = (m: 'draw' | 'measure') => {
+    setGuideTool(false);
     setMode(m);
     setToolsOpen(true);
     setSelectedId(null);
@@ -1698,7 +1705,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               onPolygonChange={setPolyCount}
               damages={shownDamages}
               selectedId={selectedId}
-              tool={tool}
+              tool={guideTool ? 'pick' : tool}
               color={color}
               pending={dialog?.mode === 'new' ? { shape: dialog.shape, color } : null}
               onSelect={(id) => select(id)}
@@ -1762,6 +1769,11 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               onSelectComponent={() => {}}
               onComponentMove={() => {}}
               onPlace={(p) => {
+                if (guideTool) {
+                  const upm = unitsPerMeter(plan);
+                  drawing.guidePoint({ x: p.x / upm, y: p.y / upm });
+                  return;
+                }
                 if (tool === 'points') {
                   setPointMarks((m) => [...m, p]);
                   return;
@@ -2146,6 +2158,48 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               onClose={closeProbe}
             />
           )}
+          {!drawMode && guideTool && !dialog && !mtypeMenu && !probeMenu && !stylePopOpen && (
+            <div className="draw-bar guide-bar" data-testid="guide-bar">
+              <strong className="draw-bar-title">Hilfslinie</strong>
+              <select
+                value={['free', '0', '45', '90', '135'].includes(drawing.guideAngle) ? drawing.guideAngle : 'custom'}
+                onChange={(e) => (drawing.setGuideAngle(e.target.value), drawing.setGuideErase(false))}
+                aria-label="Winkel der Hilfslinie"
+                data-testid="guide-angle-select"
+              >
+                <option value="0">waagrecht</option>
+                <option value="45">45°</option>
+                <option value="90">senkrecht</option>
+                <option value="135">135°</option>
+                <option value="free">frei (2 Punkte)</option>
+                {!['free', '0', '45', '90', '135'].includes(drawing.guideAngle) && <option value="custom">{drawing.guideAngle.replace('.', ',')}°</option>}
+              </select>
+              <button type="button" className={`btn btn-sm${drawing.guideErase ? ' active-toggle' : ''}`} aria-pressed={drawing.guideErase} onClick={() => drawing.setGuideErase(!drawing.guideErase)} disabled={!drawing.guides.length} data-testid="guide-erase">
+                Löschen
+              </button>
+              <button type="button" className="btn btn-sm" onClick={drawing.clearGuides} disabled={!drawing.guides.length} data-testid="guide-clear">
+                Alle löschen
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-primary draw-bar-actions"
+                onClick={() => {
+                  setGuideTool(false);
+                  setToolsOpen(true);
+                }}
+                data-testid="guide-done"
+              >
+                Fertig
+              </button>
+              <span className="muted small span-all" data-testid="guide-hint">
+                {drawing.guideErase
+                  ? 'Hilfslinie antippen, die gelöscht werden soll.'
+                  : drawing.guideAngle === 'free'
+                    ? 'Zwei Punkte antippen – die Hilfslinie läuft durch beide.'
+                    : 'Punkt im Plan antippen – die Hilfslinie läuft durch ihn. Messungen rasten an ihr ein.'}
+              </span>
+            </div>
+          )}
           {!probe && !drawMode && tool === 'points' && !dialog && !mtypeMenu && !probeMenu && !stylePopOpen && (
             <div className="draw-bar" data-testid="points-bar">
               {pointMarks.length === 0 ? (
@@ -2413,6 +2467,32 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                   <span>{t.short ?? t.label}</span>
                 </button>
               ))}
+              {drawingPlan && (
+                <button
+                  type="button"
+                  className={`tool-btn${guideTool ? ' active' : ''}`}
+                  onClick={() => {
+                    setStylePopOpen(false);
+                    setProbeMenu(false);
+                    setProbe(null);
+                    if (!guideTool) {
+                      // kein Mess-Werkzeug nebenher: dessen Leisten (Punkte, Auswahl) würden sich mit der Hilfslinien-Leiste überlagern
+                      setToolState('select');
+                      setSelectedId(null);
+                      if (!drawing.snapOn) drawing.setSnapOn(true);
+                      // Werkzeugleiste zuklappen: der Plan soll zum Antippen frei sein
+                      setToolsOpen(false);
+                    }
+                    setGuideTool(!guideTool);
+                  }}
+                  aria-pressed={guideTool}
+                  title="Hilfslinie: Konstruktionslinie zum Anlegen und Fangen – dieselben wie beim Zeichnen, nicht im PDF"
+                  data-testid="tool-guide"
+                >
+                  <Icon name="guide" />
+                  <span>Hilfslinie</span>
+                </button>
+              )}
               {probeMenu && <ProbeMenu onPick={startProbe} onClose={() => setProbeMenu(false)} />}
             </div>
             <div className="tool-group colors">

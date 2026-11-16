@@ -1833,6 +1833,15 @@ export function useDrawing(opts: {
         <g key={e.id}>{renderElement(e, shapeToPage(e.shape, k), view, false, false, k, openingsPage, hatchUnit)}</g>
       ))}
       {showDims && renderDims(view, elements, k, { color: '#5b6b80' })}
+      {/* Hilfslinien auch im Aufmaß (dieselben wie beim Zeichnen; nicht im PDF) */}
+      {guidesOn && guides.length > 0 && (
+        <g className="guide-lines" data-testid="guide-lines">
+          {guides.map((g) => {
+            const [u, v] = guideSeg(g).map((q) => toScreen(view, { x: q.x * k, y: q.y * k }));
+            return <path key={g.id} d={`M${u.x} ${u.y}L${v.x} ${v.y}`} className="guide-line" data-testid="guide-line" data-angle={g.angle} />;
+          })}
+        </g>
+      )}
     </>
   );
 
@@ -2119,6 +2128,8 @@ export function useDrawing(opts: {
       setPickPts([]);
     },
     clearGuides,
+    /** Hilfslinie an diesem Punkt (m) setzen bzw. löschen – auch aus dem Aufmaß */
+    guidePoint,
     filletR,
     filletSrc,
     distPicks,

@@ -463,6 +463,13 @@ export function tastenTests() {
       await ribbonGroup(page, t);
       await pruefe(page, `Registerkarte ${t}`, out);
     }
+    // Aufmaß: Hilfslinien-Leiste (Winkel, Löschen, Fertig)
+    await page.getByTestId('mode-measure').click();
+    if (!(await page.getByTestId('tool-guide').isVisible())) await page.getByTestId('tools-open').click();
+    await page.getByTestId('tool-guide').click();
+    await expect(page.getByTestId('guide-bar')).toBeVisible();
+    await pruefe(page, 'Aufmaß: Hilfslinie', out);
+    await page.getByTestId('guide-done').click();
     expect(out, out.join('\n')).toEqual([]);
   });
 }

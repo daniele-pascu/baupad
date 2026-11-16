@@ -1735,6 +1735,29 @@ input[type='range'] {
   font-size: 0.78rem;
   color: var(--muted);
 }
+/* Hilfslinien im Aufmaß: Auswahlfeld wie die Tasten daneben; am Handy ohne Überschrift (Platz für den Plan) */
+.guide-bar select {
+  min-height: 40px;
+  min-width: 0;
+  padding: 0 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  font: inherit;
+  color: var(--text);
+}
+@media (max-width: 600px) {
+  .guide-bar > .draw-bar-title {
+    display: none;
+  }
+  .guide-bar select {
+    flex: 1 1 0;
+  }
+  .guide-bar .btn-sm {
+    padding-left: 9px;
+    padding-right: 9px;
+  }
+}
 /* Pfeil am Maßfeld: waagrecht bzw. senkrecht im Plan */
 .axis-mark {
   margin-left: 4px;
