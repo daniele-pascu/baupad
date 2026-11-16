@@ -249,10 +249,14 @@ test('Weiter zum Aufmaß: Messung auf gezeichnetem Plan, Maßvorschlag; Planänd
   await page.getByTestId('element-width').fill('4');
   await page.getByTestId('element-width').press('Enter');
   await expect(dim('4,00 m')).toBeVisible();
-  // Löschen fragt nach, weil eine Messung darauf liegt
+  // Löschen ohne Rückfrage – auch wenn eine Messung darauf liegt: die Messung bleibt, „Rückgängig“ holt das Objekt zurück
   await page.getByTestId('element-delete').click();
-  await expect(page.getByTestId('confirm-dialog')).toContainText('Messungen und ihre Maße bleiben erhalten');
-  await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Abbrechen' }).click();
+  await expect(page.getByTestId('confirm-dialog')).toHaveCount(0);
+  await expect(page.locator('[data-element="rect"]')).toHaveCount(0);
+  await waitSaved(page);
+  expect(JSON.stringify((await stored(page, 'damages'))[0])).toBe(damageBefore);
+  await page.getByTestId('undo').click();
+  await expect(page.locator('[data-element="rect"]')).toHaveCount(1);
   await waitSaved(page);
   expect(JSON.stringify((await stored(page, 'damages'))[0])).toBe(damageBefore);
 });

@@ -2,11 +2,10 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { elementLabel } from '../components/DrawPanel';
 import { renderDims, renderElement, renderPreviewDims, renderSheet } from '../components/DrawingLayer';
 import type { PlanViewerHandle, SnapFn, Tool, ViewerItem } from '../components/PlanViewer';
-import { confirmDialog, toast } from '../components/ui';
+import { toast } from '../components/ui';
 import { textDialog } from '../components/TextDialog';
 import { cleanFont } from '../lib/text-font';
 import { elementsOf } from '../lib/aufmass';
-import { damageNo } from '../lib/numbering';
 import { formatMeasure } from '../lib/numbers';
 import { hatchAnchor } from '../lib/style';
 import {
@@ -1449,18 +1448,10 @@ export function useDrawing(opts: {
   const removeSelection = async () => {
     if (selection.length === 1) return remove(selection[0]);
     if (!selection.length) return;
+    // ohne Rückfrage: Messungen auf den Objekten bleiben erhalten, „Rückgängig“ holt die Objekte zurück
     const over = new Set(selection.flatMap((e) => overlapping(e).map((d) => d.id)));
-    if (over.size) {
-      const ok = await confirmDialog({
-        title: `${selection.length} Objekte löschen?`,
-        message: <p>Auf den Objekten liegen <strong>{over.size} Messung(en)</strong>. Die Messungen bleiben erhalten – nur die Zeichnungsobjekte werden entfernt. Mit „Rückgängig“ lassen sie sich wiederherstellen.</p>,
-        confirmLabel: 'Objekte löschen',
-        danger: true,
-      });
-      if (!ok) return;
-    }
     softDelete({ elements: selection.map((e) => data.elements[e.id]) });
-    toast(`${selection.length} Objekte gelöscht.`, 'info', 2000);
+    toast(`${selection.length} Objekte gelöscht.${over.size ? ` ${over.size} Messung(en) darauf bleiben erhalten.` : ''}`, 'info', over.size ? 3500 : 2000);
     setSelectedId(null);
   };
 
@@ -1788,25 +1779,12 @@ export function useDrawing(opts: {
     return damages.filter((d) => rectsOverlap(grown, shapeAABB(d.shape)));
   };
 
+  /** Objekt löschen – ohne Rückfrage: Messungen darauf bleiben erhalten, „Rückgängig“ holt das Objekt zurück */
   const remove = async (e: DrawElement) => {
     const over = overlapping(e);
-    if (over.length) {
-      const ok = await confirmDialog({
-        title: `${elementLabel(e)} löschen?`,
-        message: (
-          <p>
-            Auf diesem Objekt liegen <strong>{over.length} Messung(en)</strong> (Nr. {over.map((d) => damageNo(d)).join(', ')}). Die Messungen und
-            ihre Maße bleiben erhalten – nur das Zeichnungsobjekt wird entfernt. Mit „Rückgängig“ lässt es sich wiederherstellen.
-          </p>
-        ),
-        confirmLabel: 'Objekt löschen',
-        danger: true,
-      });
-      if (!ok) return;
-    }
     softDelete({ elements: [data.elements[e.id]] });
     if (selectedId === e.id) setSelectedId(null);
-    toast(`${elementLabel(e)} gelöscht.`, 'info', 2000);
+    toast(`${elementLabel(e)} gelöscht.${over.length ? ` ${over.length} Messung(en) darauf bleiben erhalten.` : ''}`, 'info', over.length ? 3500 : 2000);
   };
 
   // -------------------------------------------------------------------------
