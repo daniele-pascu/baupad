@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Project } from '../lib/types';
 import { Modal } from './Modal';
 import { PROJECT_COLORS } from '../lib/project-colors';
+import { ProjectAccessButton } from './ProjectAccess';
 
 export type ProjectFields = Pick<Project, 'name' | 'number' | 'site' | 'address' | 'client' | 'editor' | 'date' | 'notes' | 'siteManager' | 'color'>;
 
@@ -22,12 +23,14 @@ interface Props {
   onClose: () => void;
   /** Test-IDs (Standard project-form / project-*); die anderen Werkzeuge nutzen photo-site-*) */
   ids?: Partial<Record<'dialog' | 'name' | 'number' | 'address' | 'save', string>>;
+  /** bestehendes Projekt: Taste „Freigabe“ (Admin und Büro) – so in jedem Werkzeug erreichbar */
+  projectId?: string;
 }
 
 const ccKey = (c: CostCenterInput) => `${c.number.trim()}|${c.name.trim()}`.toLowerCase();
 
 /** Projektangaben – beim Anlegen (ein Kostenstellen-Feld, in allen Werkzeugen gleich) und beim Bearbeiten (mehrere Kostenstellen). */
-export function ProjectForm({ title, initial, costCenters, submitLabel, onSubmit, onClose, ids = {} }: Props) {
+export function ProjectForm({ title, initial, costCenters, submitLabel, onSubmit, onClose, ids = {}, projectId }: Props) {
   const id = { dialog: 'project-form', name: 'project-name', number: 'project-number', address: 'project-address', save: 'project-save', ...ids };
   const [f, setF] = useState<ProjectFields>({
     name: '',
@@ -64,6 +67,7 @@ export function ProjectForm({ title, initial, costCenters, submitLabel, onSubmit
       testId={id.dialog}
       footer={
         <>
+          {projectId && <ProjectAccessButton projectId={projectId} name={f.name} />}
           <button type="button" className="btn" onClick={onClose}>
             Abbrechen
           </button>

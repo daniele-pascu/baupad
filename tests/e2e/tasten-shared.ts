@@ -212,6 +212,29 @@ export function tastenTests() {
     expect(out, out.join('\n')).toEqual([]);
   });
 
+  test('Tasten: Freigabe im Projekt (Taste, Fenster, Projektangaben mit Freigabe) – nichts überlappt, verdeckt oder abgeschnitten', async ({ page }) => {
+    const out: string[] = [];
+    const json = (body: unknown) => ({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+    const people = ['Franz Huber', 'Mario Kovac', 'Max Muster', 'Peter Beispiel', 'Ali Demir', 'Jan Novak', 'Konstantin Mustermann-Beispielhuber'];
+    await freshStart(page);
+    await createProject(page, 'Tiefgarage Parkdeck Nord');
+    await page.route('**/rest/v1/rpc/my_context', (r) =>
+      r.fulfill(json({ workspace_id: '11111111-1111-4111-8111-111111111111', workspace_name: 'Testfirma', role: 'admin', pkg: 'team', tools: [], sites: [], tool_sites: {}, operator: false, name: 'Test Nutzer', phone: '', workspace_active: true })),
+    );
+    await page.route('**/rest/v1/rpc/project_access', (r) => r.fulfill(json(people.map((name, i) => ({ id: `u${i}`, name, email: `u${i}@firma.test`, role: i < 2 ? 'polier' : 'arbeiter', allowed: i % 2 === 0 })))));
+    await page.reload();
+    await expect(page.getByTestId('project-access')).toBeVisible();
+    await pruefe(page, 'Projekt mit Taste Freigabe', out);
+    await page.getByTestId('project-access').click();
+    await expect(page.getByTestId('project-access-user')).toHaveCount(people.length);
+    await pruefe(page, 'Fenster Freigabe', out);
+    await page.keyboard.press('Escape');
+    await page.getByTestId('edit-project').click();
+    await expect(page.getByTestId('project-form').getByTestId('project-access')).toBeVisible();
+    await pruefe(page, 'Projektangaben mit Freigabe', out);
+    expect(out, out.join('\n')).toEqual([]);
+  });
+
   test('Tasten: Plan zeichnen mit Text-Dialog und Text-Leiste – nichts überlappt, verdeckt oder abgeschnitten', async ({ page }) => {
     const out: string[] = [];
     await freshStart(page);

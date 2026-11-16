@@ -78,7 +78,8 @@ test('Projektregister: Angaben, in Tools übernehmen, dort öffnen, neues Projek
 test('Projektregister nur für Admin und Büro: Polier sieht weder Kachel noch Register, übernimmt Projekte im Tool', async ({ page }) => {
   await freshStart(page);
   await createProject(page, 'Parkring', { number: '91300' });
-  const context = { workspace_id: '11111111-1111-4111-8111-111111111111', workspace_name: 'Testfirma', role: 'polier', pkg: 'team', tools: ['projects', 'photos', 'reports', 'workers', 'defects'], sites: [], tool_sites: {}, operator: false, name: 'Polier Paul', phone: '' };
+  const sites = [`p:${new URL(page.url()).pathname.split('/').filter(Boolean).pop()}`]; // für den Polier freigegeben
+  const context = { workspace_id: '11111111-1111-4111-8111-111111111111', workspace_name: 'Testfirma', role: 'polier', pkg: 'team', tools: ['projects', 'photos', 'reports', 'workers', 'defects'], sites, tool_sites: {}, operator: false, name: 'Polier Paul', phone: '' };
   await page.route('**/rest/v1/rpc/my_context', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(context) }));
   await page.goto('./baupad/tools');
   await expect(page.getByTestId('tools-title')).toBeVisible();

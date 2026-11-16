@@ -4,6 +4,7 @@ import { SiteNav } from '../components/SiteNav';
 import { AreaEditor } from '../components/AreaEditor';
 import { AufmassTable } from '../components/AufmassTable';
 import { Icon } from '../components/Icon';
+import { ProjectAccessButton } from '../components/ProjectAccess';
 import { ImportWizard } from '../components/ImportWizard';
 import { InvoiceBar } from '../components/InvoiceBar';
 import { invoiceLabel, invoiceOfPlan, invoiceShort, invoicesOf } from '../lib/invoices';
@@ -429,6 +430,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
           <button type="button" className="btn btn-sm" onClick={() => navigate(paths.photoSite(`p:${project.id}`))} data-testid="project-photos">
             <Icon name="camera" size={18} /> Fotos
           </button>
+          <ProjectAccessButton projectId={project.id} name={project.name} />
         </div>
       </section>
 
@@ -757,6 +759,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
         <ProjectForm
           title="Projektangaben bearbeiten"
           submitLabel="Speichern"
+          projectId={project.id}
           initial={{ ...project, color: projectColor(project) }}
           costCenters={ccs.map((c) => ({ id: c.id, number: c.number ?? '', name: c.name }))}
           onClose={() => setEditing(false)}

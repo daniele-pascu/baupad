@@ -659,6 +659,7 @@ a {
 }
 .cc-add {
   align-self: flex-start;
+  margin-top: 4px;
 }
 .span-2 {
   grid-column: 1 / -1;
@@ -13155,4 +13156,20 @@ input,
     flex: 1 1 100%;
     text-align: left;
   }
+}
+
+/* Fenster „Freigabe“ im Projekt: Poliere und Arbeiter mit Häkchen */
+.access-group {
+  margin-top: 14px;
+}
+.access-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.access-row {
+  padding: 4px 2px;
+  border-bottom: 1px solid var(--border);
 }

@@ -213,11 +213,12 @@ test('Vorlage einrichten, im Projekt ausfüllen, PDF, Nummern, Vorlagenversion',
 test('Rechte: Polier richtet keine Vorlagen ein, kann aber Formulare ausfüllen', async ({ page }) => {
   await freshStart(page);
   await createProject(page, 'Neubau Musterstraße', { number: '2026-04' });
+  const sites = [`p:${new URL(page.url()).pathname.split('/').filter(Boolean).pop()}`]; // für den Polier freigegeben
   await page.goto('./baupad/berichte-und-formulare/vorlagen');
   await page.getByTestId('form-template-input').setInputFiles(form('mst-tagesbericht.pdf'));
   await page.getByTestId('form-new-dialog').getByTestId('form-new-create').click();
   await expect(page.getByTestId('form-editor-title')).toBeVisible();
-  const context = { workspace_id: '11111111-1111-4111-8111-111111111111', workspace_name: 'Testfirma', role: 'polier', pkg: 'team', tools: ['projects', 'photos', 'reports', 'workers', 'defects'], sites: [], tool_sites: {}, operator: false, name: 'Test Nutzer', phone: '' };
+  const context = { workspace_id: '11111111-1111-4111-8111-111111111111', workspace_name: 'Testfirma', role: 'polier', pkg: 'team', tools: ['projects', 'photos', 'reports', 'workers', 'defects'], sites, tool_sites: {}, operator: false, name: 'Test Nutzer', phone: '' };
   await page.route('**/rest/v1/rpc/my_context', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(context) }));
   await page.goto('./baupad/berichte-und-formulare/vorlagen');
   await expect(page.getByTestId('form-template-row')).toHaveCount(1);

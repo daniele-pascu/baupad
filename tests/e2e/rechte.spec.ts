@@ -19,10 +19,64 @@ const context = (role: string, extra: Record<string, unknown> = {}) => ({
   ...extra,
 });
 
+/** Projekt-ID aus der Adresse der Projektseite (…/p/<id>) */
+const projectIdFromUrl = (url: string) => new URL(url).pathname.split('/').filter(Boolean).pop()!;
+const json = (body: unknown) => ({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+
+test('Freigabe im Projekt: Admin wählt Poliere und Arbeiter; ohne Freigabe sieht der Polier das Projekt nicht', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'Neubau Musterstraße', { number: '2026-04' });
+  const key = `p:${projectIdFromUrl(page.url())}`;
+  await expect(page.getByTestId('project-access')).toHaveCount(0); // ohne Firma gibt es niemanden zum Freigeben
+  const rows = [
+    { id: 'u1', name: 'Franz Huber', email: 'franz@firma.test', role: 'polier', allowed: true },
+    { id: 'u2', name: 'Max Muster', email: 'max@firma.test', role: 'arbeiter', allowed: false },
+    { id: 'inv:peter@firma.test', name: 'Peter Beispiel', email: 'peter@firma.test', role: 'arbeiter', allowed: false },
+  ];
+  let saved: unknown = null;
+  await page.route('**/rest/v1/rpc/my_context', (r) => r.fulfill(json(context('admin'))));
+  await page.route('**/rest/v1/rpc/project_access', (r) => r.fulfill(json(rows)));
+  await page.route('**/rest/v1/rpc/set_project_access', (r) => {
+    saved = r.request().postDataJSON();
+    return r.fulfill(json(null));
+  });
+  await page.reload();
+  await page.getByTestId('project-access').click();
+  const dlg = page.getByTestId('project-access-dialog');
+  const user = (name: string) => dlg.locator(`[data-testid="project-access-user"][data-user="${name}"]`);
+  await expect(dlg.getByTestId('project-access-user')).toHaveCount(3);
+  await expect(user('Franz Huber')).toBeChecked();
+  await expect(user('Max Muster')).not.toBeChecked();
+  await dlg.getByTestId('project-access-all-arbeiter').click();
+  await expect(user('Max Muster')).toBeChecked();
+  await expect(user('Peter Beispiel')).toBeChecked();
+  await user('Franz Huber').uncheck();
+  await dlg.getByTestId('project-access-save').click();
+  await expect(dlg).toHaveCount(0);
+  expect(saved).toEqual({ p_key: key, p_ids: ['u2', 'inv:peter@firma.test'] });
+  // dieselbe Taste im Fenster „Projektangaben bearbeiten“ (so in jedem Werkzeug erreichbar)
+  await page.getByTestId('edit-project').click();
+  await expect(page.getByTestId('project-form').getByTestId('project-access')).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  // Polier ohne Freigabe: Projekt unsichtbar; nach der Freigabe sichtbar – die Taste „Freigabe“ hat er nie
+  await page.route('**/rest/v1/rpc/my_context', (r) => r.fulfill(json(context('polier'))));
+  await page.goto('./projekte');
+  await expect(page.getByTestId('projects-title')).toBeVisible();
+  await expect(page.getByTestId('project-card')).toHaveCount(0);
+  await page.route('**/rest/v1/rpc/my_context', (r) => r.fulfill(json(context('polier', { sites: [key] }))));
+  await page.goto('./projekte');
+  await expect(page.getByTestId('project-card')).toHaveCount(1);
+  await page.getByTestId('project-card').click();
+  await expect(page.getByTestId('project-title')).toHaveText('Neubau Musterstraße');
+  await expect(page.getByTestId('project-access')).toHaveCount(0);
+});
+
 test('Polier: kein „Neues Projekt“ in Aufmaß, Fotos, Mängelplan, Einteilung und in der Projektauswahl', async ({ page }) => {
   await freshStart(page);
   await createProject(page, 'Neubau Musterstraße', { number: '2026-04' }); // noch ohne Rollen-Kontext (Admin)
-  await page.route('**/rest/v1/rpc/my_context', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(context('polier')) }));
+  const sites = [`p:${projectIdFromUrl(page.url())}`]; // für den Polier freigegeben
+  await page.route('**/rest/v1/rpc/my_context', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(context('polier', { sites })) }));
   await page.goto('./projekte');
   await expect(page.getByTestId('project-card')).toHaveCount(1);
   await expect(page.getByTestId('new-project')).toHaveCount(0);
@@ -83,5 +137,6 @@ test('Büro darf Projekte anlegen; Projekte je Werkzeug: nur freigegebene sind w
   await expect(pp.getByTestId('picker-item')).toHaveText([/Sanierung Hauptplatz/]);
   await page.keyboard.press('Escape');
   await page.goto('./projekte');
-  await expect(page.getByTestId('project-card')).toHaveCount(2); // Aufmaß: keine Einschränkung eingetragen → alle
+  await expect(page.getByTestId('projects-title')).toBeVisible();
+  await expect(page.getByTestId('project-card')).toHaveCount(0); // Aufmaß: nichts freigegeben → kein Projekt
 });

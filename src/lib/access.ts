@@ -44,17 +44,23 @@ export function canTool(s: Session | null | undefined, tool: ToolId): boolean {
 }
 
 /**
- * Erlaubte Projekte eines Werkzeugs: zuerst die Einstellung je Werkzeug, sonst die ältere gemeinsame Liste;
- * leer = alle Projekte.
+ * Liste für die Zeiten (dort gilt am Server dieselbe Regel): zuerst die Einstellung je Werkzeug, sonst die gemeinsame
+ * Liste; leer = alle Projekte.
  */
 export function allowedSites(s: Session, tool?: ToolId): string[] {
   const perTool = tool ? (s.toolSites?.[tool] ?? []) : [];
   return perTool.length ? perTool : s.sites;
 }
 
-/** Baustellen-Schlüssel p:<Projekt> bzw. n:<Name in Kleinbuchstaben>; `tool` = Werkzeug, in dem gefragt wird */
+/**
+ * Baustellen-Schlüssel p:<Projekt> bzw. n:<Name in Kleinbuchstaben>; `tool` = Werkzeug, in dem gefragt wird.
+ * Projekte sehen Polier und Arbeiter erst nach der Freigabe (Taste „Freigabe“ im Projekt → gemeinsame Liste) oder
+ * wenn sie beim Benutzer für dieses Werkzeug ausgewählt sind. Admin, Büro und Betreiber sehen alle.
+ */
 export function canSite(s: Session | null | undefined, key: string, tool?: ToolId): boolean {
-  if (unrestricted(s)) return true;
+  if (unrestricted(s) || s!.role === 'buero') return true;
+  if (key.startsWith('p:')) return s!.sites.includes(key) || (tool ? (s!.toolSites?.[tool] ?? []).includes(key) : false);
+  // Baustellen ohne Projekt (frei eingegebener Name): wie bisher – ohne Auswahl sichtbar
   const list = allowedSites(s!, tool);
   return list.length === 0 || list.includes(key);
 }

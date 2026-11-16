@@ -1198,7 +1198,7 @@ function UserDialog({ value, session, onClose, onSaved }: { value: Omit<CompanyU
           </div>
         </fieldset>
         <fieldset className="field">
-          <span>Werkzeuge und Projekte{u.role === 'admin' ? ' (Admin hat immer alle Werkzeuge und Projekte)' : ' – je Werkzeug alle Projekte oder nur ausgewählte'}</span>
+          <span>Werkzeuge und Projekte{u.role === 'admin' ? ' (Admin hat immer alle Werkzeuge und Projekte)' : ' – Projekte gibst du im Projekt über „Freigabe“ frei; hier zusätzlich nur für ein Werkzeug'}</span>
           <div className="tool-access-list">
             {TOOLS.map((t) => {
               const on = u.tools.includes(t.id);
@@ -1209,14 +1209,14 @@ function UserDialog({ value, session, onClose, onSaved }: { value: Omit<CompanyU
                   <label className="check">
                     <input type="checkbox" checked={on} onChange={() => toggleTool(t.id)} data-testid={`user-tool-${t.id}`} /> <strong>{t.label}</strong>
                   </label>
-                  {on && u.role !== 'admin' && (
+                  {on && u.role !== 'admin' && u.role !== 'buero' && (
                     <div className="tool-access-sites">
                       <div className="segmented small" role="radiogroup" aria-label={`Projekte in ${t.label}`}>
                         <button type="button" role="radio" aria-checked={!some} aria-selected={!some} onClick={() => setToolSites(t.id, [])} data-testid={`user-sites-all-${t.id}`}>
-                          Alle Projekte
+                          Freigegebene Projekte
                         </button>
                         <button type="button" role="radio" aria-checked={some} aria-selected={some} onClick={() => allSites[0] && !some && setToolSites(t.id, [siteKeyOf(allSites[0].projectId, allSites[0].name)])} disabled={allSites.length === 0} data-testid={`user-sites-some-${t.id}`}>
-                          Nur ausgewählte
+                          Weitere nur hier
                         </button>
                       </div>
                       {some && (
@@ -1238,7 +1238,6 @@ function UserDialog({ value, session, onClose, onSaved }: { value: Omit<CompanyU
               );
             })}
           </div>
-          {allSites.length === 0 && u.role !== 'admin' && <p className="muted small">Noch keine Projekte angelegt – Zugriff gilt daher für alle.</p>}
         </fieldset>
         <fieldset className="field" data-testid="user-perms">
           <span>Weitere Rechte</span>

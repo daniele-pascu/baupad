@@ -40,6 +40,7 @@ export function ProjectEditDialog({ site, onClose, onSaved }: { site: PhotoSite;
       ids={{ dialog: 'photo-site-dialog', name: 'photo-site-name', number: 'photo-site-number', address: 'photo-site-address', save: 'photo-site-save' }}
       initial={{ name: site.name, number: p?.number ?? site.number, address: p?.address ?? site.address, client: p?.client ?? '', date: p?.date ?? '', notes: p?.notes ?? '', siteManager: p?.siteManager ?? null, color: p ? projectColor(p) : undefined }}
       costCenters={loaded.ccs}
+      projectId={p?.id}
       onClose={onClose}
       onSubmit={async (f, ccs) => {
         try {

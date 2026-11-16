@@ -104,6 +104,19 @@ export async function removeCompanyUser(u: Pick<CompanyUser, 'id' | 'email'>, se
   await setMeta(KEY, list.filter((x) => x.id !== u.id));
 }
 
+/** Polier bzw. Arbeiter der Firma mit dem Stand der Freigabe für ein Projekt */
+export interface ProjectAccessRow {
+  id: string;
+  name: string;
+  email: string;
+  role: 'polier' | 'arbeiter';
+  allowed: boolean;
+}
+
+/** Freigabe eines Projekts lesen bzw. setzen (Admin und Büro; docs/supabase/project-access.sql) */
+export const getProjectAccess = async (key: string) => (await rpc<ProjectAccessRow[]>('project_access', { p_key: key })) ?? [];
+export const setProjectAccess = (key: string, ids: string[]) => rpc<void>('set_project_access', { p_key: key, p_ids: ids });
+
 /** Firmenname des Arbeitsbereichs (nur Admin) */
 export async function renameWorkspace(name: string): Promise<void> {
   await rpc('rename_my_workspace', { p_name: name });
