@@ -536,14 +536,16 @@ test('Rechnung anlegen per Finger: vier Arten passen auf den Bildschirm', async 
   await expect(page.getByTestId('invoice-tab')).toContainText('R 1');
 });
 
-test('Tools per Finger: 2 Kacheln pro Reihe, nichts zu breit, Aufmaß & Abrechnung öffnet', async ({ page }, info) => {
+test('Tools per Finger: 2 Kacheln pro Reihe (ab 900 px Breite 4), nichts zu breit, Aufmaß & Abrechnung öffnet', async ({ page }, info) => {
   // wie in der installierten App (dort gibt es die Foto-Taste oben)
   await page.addInitScript(() => Object.defineProperty(navigator, 'standalone', { get: () => true }));
   await page.goto('./#/tools');
   const tiles = page.locator('.tool-tile');
   await expect(tiles).toHaveCount(7); // sieben Werkzeuge seit der Materialverwaltung
-  const [a, b, c] = await Promise.all([tiles.nth(0).boundingBox(), tiles.nth(1).boundingBox(), tiles.nth(2).boundingBox()]);
-  expect(Math.abs(a!.y - b!.y)).toBeLessThan(1); // zwei nebeneinander
+  const vw = page.viewportSize()!.width;
+  const cols = vw >= 900 ? 4 : 2;
+  const [a, b, c] = await Promise.all([tiles.nth(0).boundingBox(), tiles.nth(cols - 1).boundingBox(), tiles.nth(cols).boundingBox()]);
+  expect(Math.abs(a!.y - b!.y)).toBeLessThan(1); // nebeneinander: 2 bzw. 4 pro Reihe
   expect(c!.y).toBeGreaterThan(a!.y + a!.height - 1);
   expect(a!.width).toBeGreaterThan(130); // gut antippbar
   // alle Namen einzeilig und ganz zu lesen (auch „Berichte & Formulare“) – die Schrift passt sich der Kachel an
@@ -552,18 +554,19 @@ test('Tools per Finger: 2 Kacheln pro Reihe, nichts zu breit, Aufmaß & Abrechnu
     expect((await t.boundingBox())!.height).toBeLessThan(lh * 1.5);
     expect(await t.evaluate((el) => el.getBoundingClientRect().right <= el.closest('.tool-tile')!.getBoundingClientRect().right - 8)).toBe(true);
   }
-  // Überschrift, Kacheln und Register als eine Spalte, auf jedem Gerät mittig (höchstens 820 px breit); Foto-Taste kompakt
+  // Überschrift und Kacheln als eine Spalte, auf jedem Gerät mittig (höchstens 1240 px breit); Foto-Taste kompakt
   const quick = (await page.getByTestId('tools-camera').boundingBox())!;
   const regEl = page.getByTestId('tools-register'); // nur für Admin/Büro
   const head = (await page.locator('.tools-page .page-head').boundingBox())!;
   const right = b!.x + b!.width;
-  const vw = page.viewportSize()!.width;
   expect(Math.abs(a!.x - (vw - right))).toBeLessThan(2); // links und rechts gleich viel Rand
-  expect(right - a!.x).toBeLessThanOrEqual(821);
+  expect(right - a!.x).toBeLessThanOrEqual(1241);
   expect(Math.abs(head.x - a!.x)).toBeLessThan(2);
   if (await regEl.count()) {
     const reg = (await regEl.boundingBox())!;
-    expect(Math.abs(reg.x - a!.x)).toBeLessThan(2);
+    // das Projektregister ist die achte Kachel: gleich groß wie die Werkzeuge, am rechten Rand der letzten Reihe
+    expect(Math.abs(reg.width - a!.width)).toBeLessThan(2);
+    expect(Math.abs(reg.height - a!.height)).toBeLessThan(2);
     expect(Math.abs(reg.x + reg.width - right)).toBeLessThan(2);
   }
   expect(Math.abs(a!.x - quick.x)).toBeLessThan(2);

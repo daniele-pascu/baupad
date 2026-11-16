@@ -96,7 +96,7 @@ export function ToolsPage() {
           </span>
           <span className="tools-register-text">
             <strong>Projektregister</strong>
-            <span>Alle Projekte der Firma – ansehen, in Tools übernehmen, bearbeiten, löschen</span>
+            <span>Alle Projekte der Firma</span>
           </span>
           <span className="tile-go">
             Öffnen <span aria-hidden="true">→</span>

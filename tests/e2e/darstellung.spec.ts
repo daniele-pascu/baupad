@@ -21,7 +21,7 @@ test('Darstellung: Größe Klein/Mittel/Groß, Dunkelmodus an/aus/System, App oh
   await expect(html).toHaveAttribute('data-theme', 'light');
   await page.getByTestId('ui-theme-dark').click();
   await expect(html).toHaveAttribute('data-theme', 'dark');
-  expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(0, 0, 0)');
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor)).toBe('rgb(21, 24, 22)');
   await page.emulateMedia({ colorScheme: 'light' });
   await page.getByTestId('ui-theme-system').click();
   await expect(html).toHaveAttribute('data-theme', 'light');
