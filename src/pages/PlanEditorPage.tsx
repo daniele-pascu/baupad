@@ -1627,7 +1627,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               )}
               onProbePoint={probePoint}
               probeFrom={probe && !probe.done && probe.points.length ? probe.points[probe.points.length - 1] : null}
-              snap={drawing.snapOn || drawing.gridOn || drawing.orthoOn ? drawing.snap : undefined}
+              snap={drawing.snap /* auch ohne Fang/Raster: freie Punkte in ganzen Zentimetern */}
               onLupeChange={setLupeOn}
               infinite
               vertexEdit

@@ -514,7 +514,8 @@ export function useDrawing(opts: {
 
   // -------------------------------------------------------------------------
   // Einrasten: Fangpunkte anderer Objekte und 15°-Richtungen (abschaltbar); Raster nur, wenn
-  // ausdrücklich eingeschaltet – sonst folgen Formen genau der Bewegung (keine erzwungene Rundung)
+  // ausdrücklich eingeschaltet. Freie Punkte und Längen laufen in ganzen Zentimetern – gezogene Formen
+  // zeigen so 2,35 m statt 2,3478 m; wer Millimeter braucht, tippt das Maß danach ein.
 
   const snap: SnapFn = (p, ctx) => {
     // eingerastete Spurlinien des letzten Schritts (halten etwas weiter, damit sie nicht flackern)
@@ -523,7 +524,7 @@ export function useDrawing(opts: {
     track.current.lines = [];
     track.current.par = null;
     if (ctx.tool === 'selwin') return p;
-    if (!snapOn && !gridOn && !orthoOn) return p;
+    const cm = (n: number) => Math.round(n * 100) / 100;
     const pm = { x: p.x / k, y: p.y / k };
     const pxPerM = ctx.scale * k;
     const tol = (isCoarse() ? 16 : 9) / pxPerM;
@@ -572,16 +573,16 @@ export function useDrawing(opts: {
           return { x: q.x * k, y: q.y * k, kind: 'track' };
         }
       }
-      if (!hit && gridOn) {
-        const step = gridStep(pxPerM, 14);
+      if (!hit) {
+        // ohne Fangpunkt: Länge im Raster bzw. in ganzen Zentimetern
+        const step = gridOn ? gridStep(pxPerM, 14) : 0.01;
         const len = o.x === from.x ? o.y - from.y : o.x - from.x;
-        const L = Math.round(len / step) * step;
+        const L = roundM(Math.round(len / step) * step);
         q = o.x === from.x ? { x: from.x, y: from.y + L } : { x: from.x + L, y: from.y };
       } else q = o;
       if (hit && Math.hypot(q.x - hit.point.x, q.y - hit.point.y) < 1e-9) kind = hit.kind;
       return { x: q.x * k, y: q.y * k, kind };
     }
-    if (!snapOn && !gridOn) return p;
     // Spurlinien: eindeutige Fangpunkte merken; ohne Fangpunkt an der Waagrechten/Senkrechten durch einen
     // gemerkten Punkt (oder den letzten Punkt) einrasten – an zweien davon im Schnittpunkt
     // nur feste Objektpunkte merken (Lotpunkt/Tangente hängen vom letzten Punkt ab)
@@ -600,7 +601,7 @@ export function useDrawing(opts: {
           [ex, ey, 'parallel'],
           [-ey, ex, 'square'],
         ] as const) {
-          const t = (pm.x - from0.x) * dx + (pm.y - from0.y) * dy;
+          const t = cm((pm.x - from0.x) * dx + (pm.y - from0.y) * dy);
           const qx = from0.x + t * dx;
           const qy = from0.y + t * dy;
           if (Math.abs(t) > tol * 2 && Math.hypot(pm.x - qx, pm.y - qy) < tol) {
@@ -613,7 +614,7 @@ export function useDrawing(opts: {
     if (trackOn && snapOn && (!hit || hit.kind === 'nearest')) {
       const { h, v } = trackRefs(from0 ? [from0] : []);
       if (h || v) {
-        q = { x: v ? v.x : pm.x, y: h ? h.y : pm.y };
+        q = { x: v ? v.x : cm(pm.x), y: h ? h.y : cm(pm.y) };
         // nur eine Spurlinie und eine Richtung vom letzten Punkt (15°-Schritte, z. B. waagrecht): im Schnittpunkt
         // von Richtung und Spurlinie einrasten – die Linie bleibt waagrecht, die Senkrechte bleibt sichtbar
         if (from0 && !(h && v) && ctx.tool && PARALLEL_TOOLS.has(ctx.tool)) {
@@ -639,12 +640,12 @@ export function useDrawing(opts: {
         const from = { x: ctx.from.x / k, y: ctx.from.y / k };
         const dir = snapOn ? snapAngle(from, pm) : pm;
         const len = Math.hypot(dir.x - from.x, dir.y - from.y);
-        const L = gridOn ? Math.round(len / step) * step : len;
+        const L = gridOn ? Math.round(len / step) * step : cm(len);
         q = len > 1e-9 ? { x: from.x + ((dir.x - from.x) / len) * L, y: from.y + ((dir.y - from.y) / len) * L } : dir;
       } else if (gridOn) {
         q = snapToGrid(pm, step);
         kind = 'grid';
-      }
+      } else q = { x: cm(pm.x), y: cm(pm.y) };
     }
     return { x: q.x * k, y: q.y * k, kind };
   };
