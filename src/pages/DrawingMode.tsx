@@ -548,7 +548,9 @@ export function useDrawing(opts: {
     // Fangpunkte: End-/Eckpunkte, Schnittpunkte, Mittelpunkte, nächster Punkt auf Linien
     const others = stored.filter((e) => e.id !== ctx.movingId && e.type !== 'text').map((e) => e.shape);
     const from0 = ctx.from ? { x: ctx.from.x / k, y: ctx.from.y / k } : null;
-    const hit = snapOn ? findSnap(pm, others, tol, [], { kinds: snapKinds, from: from0, circles: arcCircles(ctx.movingId), lines: guideSegs }) : null;
+    // Messung per Finger: klar auf der Linie getippt = Punkt auf der Linie (Ecke/Mitte ziehen ihn nicht an sich)
+    const free = isCoarse() && ctx.tool === 'probe' ? { point: 10 / pxPerM, line: 6 / pxPerM } : undefined;
+    const hit = snapOn ? findSnap(pm, others, tol, [], { kinds: snapKinds, from: from0, circles: arcCircles(ctx.movingId), lines: guideSegs, free }) : null;
     if (hit?.kind === 'nearest' && hit.seg) track.current.edge = hit.seg;
     let q: Point = pm;
     let kind: SnapKind | undefined;

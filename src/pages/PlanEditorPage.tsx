@@ -755,9 +755,10 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       ...shownDamages.filter((d) => d.id !== ctx.movingId).map((d) => d.shape),
       ...(drawingPlan ? drawing.elements.filter((e) => e.type !== 'text').map((e) => shapeToPage(e.shape, unitsPerMeter(plan!))) : []),
     ];
-    const tol = (matchMedia('(pointer: coarse)').matches ? 16 : 9) / ctx.scale;
-    // Vektor-PDF: auch Ecken, Mittel- und Schnittpunkte der Planlinien
-    const hit = findSnap(p, shapes, tol, planLines?.index.near(p, tol) ?? []);
+    const coarse = matchMedia('(pointer: coarse)').matches;
+    const tol = (coarse ? 16 : 9) / ctx.scale;
+    // Vektor-PDF: auch Ecken, Mittel- und Schnittpunkte der Planlinien; per Finger: klar auf der Linie getippt = Punkt auf der Linie
+    const hit = findSnap(p, shapes, tol, planLines?.index.near(p, tol) ?? [], coarse ? { free: { point: 10 / ctx.scale, line: 6 / ctx.scale } } : {});
     return hit ? { ...hit.point, kind: hit.kind } : p;
   };
   /** X gedrückt: vergrößert (Hinweis anzeigen) */

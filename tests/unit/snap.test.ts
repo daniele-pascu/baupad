@@ -44,6 +44,28 @@ describe('Punktfang', () => {
   });
 });
 
+describe('Punktfang per Finger: beliebige Punkte auf einer Linie', () => {
+  const line = [lineShape({ x: 0, y: 0 }, { x: 100, y: 0 })];
+  const free = { point: 10, line: 6 };
+  it('ohne die Finger-Regel zieht die Ecke jeden Tipp im Fangradius an sich', () => {
+    expect(findSnap({ x: 12, y: 1 }, line, 16)?.kind).toBe('end');
+  });
+  it('klar auf der Linie und nicht direkt an der Ecke: Punkt auf der Linie', () => {
+    const hit = findSnap({ x: 12, y: 1 }, line, 16, [], { free });
+    expect(hit?.kind).toBe('nearest');
+    expect(hit?.point).toEqual({ x: 12, y: 0 });
+    // auch neben der Mitte
+    expect(findSnap({ x: 62, y: -2 }, line, 16, [], { free })?.kind).toBe('nearest');
+  });
+  it('direkt an der Ecke oder Mitte bleibt es Ecke bzw. Mitte', () => {
+    expect(findSnap({ x: 6, y: 1 }, line, 16, [], { free })?.kind).toBe('end');
+    expect(findSnap({ x: 54, y: 2 }, line, 16, [], { free })?.kind).toBe('mid');
+  });
+  it('neben der Linie gezielt (nicht darauf getippt): weiter die Ecke', () => {
+    expect(findSnap({ x: 9, y: 9 }, line, 16, [], { free })?.kind).toBe('end');
+  });
+});
+
 describe('Kalibrierung', () => {
   const base = { pageWidth: 1000, pageHeight: 700, crop: null, planNumber: '1' } as Plan;
   it('ohne Kalibrierung kein Maßstab, mit Strecke 200 Einheiten = 5 m → 40 Einheiten je m', () => {

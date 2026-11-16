@@ -67,6 +67,12 @@ export interface SnapOptions {
   circles?: { c: Point; r: number }[];
   /** zusätzliche (sehr lange) Linien, z. B. Hilfslinien – Schnittpunkte und „auf Linie“ */
   lines?: Seg[];
+  /**
+   * Finger (ohne Vorschau des Fangpunkts): Wer klar auf eine Linie tippt (näher als `line`) und nicht direkt an
+   * einem Eck-/Mittelpunkt (weiter als `point`), bekommt den Punkt auf der Linie – so lassen sich zwei beliebige
+   * Punkte einer Linie messen, ohne dass Ecke oder Mitte sie an sich ziehen.
+   */
+  free?: { point: number; line: number };
 }
 
 type Seg = [Point, Point];
@@ -212,6 +218,15 @@ export function findSnap(p: Point, shapes: Shape[], tol: number, planSegs: PlanS
       best = c;
       bestD = d;
     }
+  }
+  if (best && best.kind !== 'nearest' && opts.free && bestD > opts.free.point && rank('nearest') >= 0) {
+    let on: SnapHit | null = null;
+    let onD = opts.free.line;
+    for (const c of cands) {
+      const d = Math.hypot(c.point.x - p.x, c.point.y - p.y);
+      if (c.kind === 'nearest' && d <= onD) [on, onD] = [c, d];
+    }
+    if (on) return on;
   }
   return best;
 }
