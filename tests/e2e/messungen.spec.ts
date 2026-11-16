@@ -153,9 +153,10 @@ test('Messart aus der Form (Linie / Fläche), keine Auswahl beim Einfügen: Lini
       fill: p.getAttribute('fill'),
     })),
   );
-  expect(strokes[0].fill).toBe('none'); // Linie ohne Fläche
-  expect(strokes[1].stroke).toBe('#1c1c1e');
-  expect(strokes[2].stroke).toBe('#ffffff');
+  // Reihenfolge im Plan: Flächen unten (zuerst gezeichnet), die Linie liegt darüber (zuletzt)
+  expect(strokes[0].stroke).toBe('#1c1c1e');
+  expect(strokes[1].stroke).toBe('#ffffff');
+  expect(strokes[2].fill).toBe('none'); // Linie ohne Fläche
   for (const s of strokes) expect(s.halo).not.toBe(s.stroke);
 
   // Gespeicherte Werte: leere Tiefe ist null (nicht 0), Linie ohne Breite/Fläche
