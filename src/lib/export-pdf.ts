@@ -18,7 +18,7 @@ import {
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { baupadLogoBytes } from './baupad-logo';
 import { componentsOf, costCenterLabel, damagesOf, elementsOf, findPosition, planTitle, safeFileName, type ExportFile } from './aufmass';
-import { dimsVisible, visibleDamages, visibleElements } from './layers';
+import { areasBelow, dimsVisible, visibleDamages, visibleElements } from './layers';
 import { annotationsOf, dimGeometry, dimLeader, isDrawingPlan, ROOM_LINE, textBoxWidth, textFontSize, textLines, lineEnds, PAPER, PRINT_HEADER_MM, PRINT_MARGIN_MM, fillRegion, aufmassPaper, shapeToPage, unitsPerMeter } from './drawing';
 import { withRoomAreas } from './regions';
 const textBoxWidthOf = (e: DrawElement, h: number) => textBoxWidth(e, h, e.font);
@@ -456,8 +456,8 @@ function drawDamages(ctx: Ctx, t: Target, region: Rect, damages: Damage[], compo
   const u = 1 / t.ptPerUnit;
   const fs = labelFontPt(region, t.ptPerUnit);
   const stroke = Math.max(0.8, fs * 0.14);
-  // Formen
-  for (const d of damages) {
+  // Formen: Flächen zuerst, Linien darüber (wie am Bildschirm)
+  for (const d of areasBelow(damages)) {
     if (d.style?.points) {
       // Stück mit Punkten: gefüllte Kreise an jedem Punkt
       const seen = new Set<string>();

@@ -24,7 +24,7 @@ import { isTouchDevice } from '../lib/platform';
 import { DimensionReview } from '../components/DimensionReview';
 import { ExcelExportDialog } from '../components/ExcelExportDialog';
 import { calibrationFrom, detectScale, sourceText } from '../lib/scale-detect';
-import { visibleDamages } from '../lib/layers';
+import { areasBelow, visibleDamages } from '../lib/layers';
 import { LayerMenu } from '../components/LayerMenu';
 import { drawingRegion, printSheetRect, isDrawingPlan, lineEnds, paperLabel, shapeToMeters, shapeToPage, suggestMeasures, unitsPerMeter } from '../lib/drawing';
 import { convertShape, isOpenShape, lineShape, moveVertex, polygonShape, removeVertex, rotatePoint, shapeVertices, toPage, toScreen, type Point, type View } from '../lib/geometry';
@@ -701,7 +701,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   };
   const damages = useMemo(() => stored.map((d) => (overrides[d.id] ? { ...d, ...overrides[d.id] } : d)), [stored, overrides]);
   // Ebene „Messungen“ ausgeblendet: nicht im Plan (die Tabelle bleibt vollständig)
-  const shownDamages = useMemo(() => visibleDamages(plan, damages), [plan, damages]);
+  const shownDamages = useMemo(() => areasBelow(visibleDamages(plan, damages)), [plan, damages]);
   const dupIds = useMemo(() => {
     return duplicateIds(stored);
   }, [stored]);

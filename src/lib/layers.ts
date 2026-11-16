@@ -1,4 +1,5 @@
-import type { Damage, DrawElement, LayerId, Plan } from './types';
+import { isOpenShape } from './geometry';
+import type { Damage, DrawElement, LayerId, Plan, Shape } from './types';
 
 export type { LayerId };
 
@@ -32,6 +33,12 @@ export const dimsVisible = (plan: Pick<Plan, 'hiddenLayers'> | null | undefined)
 /** Sichtbare Messungen (Ebene „Messungen“) */
 export const visibleDamages = <T extends Pick<Damage, 'id'>>(plan: Pick<Plan, 'hiddenLayers'> | null | undefined, damages: T[]): T[] =>
   isLayerHidden(plan, 'measures') ? [] : damages;
+
+/**
+ * Zeichen-Reihenfolge im Aufmaß: Flächen unten, Linien (Laufmeter, Wand) darüber – eine Linie auf dem Rand
+ * einer Fläche bleibt so sichtbar und antippbar, egal was zuerst gemessen wurde. Sonst bleibt die Reihenfolge.
+ */
+export const areasBelow = <T extends { shape: Shape }>(list: T[]): T[] => [...list.filter((d) => !isOpenShape(d.shape)), ...list.filter((d) => isOpenShape(d.shape))];
 
 /** Namen der ausgeblendeten Ebenen (für Hinweise) */
 export const hiddenLayerNames = (plan: Pick<Plan, 'hiddenLayers'> | null | undefined) => LAYERS.filter((l) => isLayerHidden(plan, l.id)).map((l) => l.label);
