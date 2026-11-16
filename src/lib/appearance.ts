@@ -78,7 +78,9 @@ export function useAppearance(isApp: boolean) {
     const vv = window.visualViewport;
     const kb = () => {
       const h = vv ? window.innerHeight - vv.height - vv.offsetTop : 0;
-      document.documentElement.style.setProperty('--kb', `${h > 80 ? Math.round(h) : 0}px`); // kleine Abweichungen (Leisten des Browsers) sind keine Tastatur
+      const open = h > 80; // kleine Abweichungen (Leisten des Browsers) sind keine Tastatur
+      document.documentElement.style.setProperty('--kb', `${open ? Math.round(h) : 0}px`);
+      document.documentElement.classList.toggle('kb-open', open);
     };
     vv?.addEventListener('resize', kb);
     vv?.addEventListener('scroll', kb);

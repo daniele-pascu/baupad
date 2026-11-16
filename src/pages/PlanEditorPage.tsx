@@ -1341,7 +1341,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
 
   return (
     <div className="editor">
-      <header className="topbar editor-topbar">
+      {/* gezeichnete Pläne haben wenige Tasten im Kopf: am Handy alles in einer Zeile (mehr Höhe für die Zeichenfläche) */}
+      <header className={`topbar editor-topbar${drawingPlan ? ' one-row' : ''}`}>
         <a className="icon-btn" href={paths.costCenter(data.project.id, plan.costCenterId)} aria-label="Zurück zur Planliste">
           <Icon name="back" />
         </a>

@@ -2787,28 +2787,40 @@ tr.lv-flagged td {
     min-width: 72px;
     padding: 0 2px;
   }
-  /* eine Zeile: Zurück, Planwahl, Speicherstand, Aktionen – jede gesparte Zeile vergrößert die Zeichenfläche;
-     wird es zu eng, lassen sich die Aktionen seitlich schieben (die Plannummer behält ihren Platz) */
+  /* zwei Zeilen: oben Zurück, Planwahl, Speicherstand – darunter alle Aktionen (nichts überdeckt die Plannummer) */
   .editor-topbar {
     gap: 4px;
-    min-height: 48px;
-    padding-top: 2px;
-    padding-bottom: 2px;
+    flex-wrap: wrap;
+    row-gap: 8px; /* Planauswahl und Tasten darunter nicht aneinander */
   }
   .editor-topbar .topbar-title {
     flex: 1 1 0;
   }
   .editor-topbar .topbar-actions {
-    gap: 2px;
-    flex: 0 1 auto;
-    min-width: 0;
+    gap: 4px;
+    order: 3;
+    flex: 1 0 100%;
+    justify-content: flex-end;
     overflow-x: auto;
     scrollbar-width: none;
   }
-  .editor-topbar .topbar-title small {
+  /* gezeichnete Pläne (wenige Tasten): alles in einer Zeile – jede gesparte Zeile vergrößert die Zeichenfläche */
+  .editor-topbar.one-row {
+    flex-wrap: nowrap;
+    min-height: 48px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+  }
+  .editor-topbar.one-row .topbar-actions {
+    gap: 2px;
+    order: 0;
+    flex: 0 0 auto;
+    overflow-x: visible;
+  }
+  .editor-topbar.one-row .topbar-title small {
     line-height: 1.2;
   }
-  .editor-topbar .plan-switch select {
+  .editor-topbar.one-row .plan-switch select {
     height: 32px;
   }
   /* Umschalter Plan/Tabelle: flacher */
@@ -11256,6 +11268,11 @@ html[data-theme='dark'] .crew-search {
     max-width: calc(100% - 16px);
     max-height: 45%;
     overflow-y: auto;
+  }
+  /* Tastatur offen: wenig Höhe – die Leiste mit den Maßfeldern hat Vorrang und liegt notfalls über der Werkzeugleiste */
+  html.kb-open .editor-plan:has(> .ribbon) .draw-bar {
+    z-index: 40;
+    max-height: none;
   }
 }
 /* Aufmaß-Tabelle: bei vielen Spalten (z. B. Bewehrung) waagrecht scrollen statt die Tasten abzuschneiden */

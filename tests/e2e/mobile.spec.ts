@@ -968,6 +968,10 @@ test('Plan zeichnen am Handy: Kopf in einer Zeile; die Maß-Leiste rückt über 
   });
   const vh = page.viewportSize()!.height;
   await expect.poll(async () => { const b = (await bar.boundingBox())!; return b.y + b.height; }).toBeLessThanOrEqual(vh - 336);
+  // und kein Maßfeld liegt unter der Werkzeugleiste (bei wenig Höhe hat die Maß-Leiste Vorrang)
+  for (const input of await bar.locator('input').all()) {
+    expect(await input.evaluate((el) => { const r = el.getBoundingClientRect(); return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) === el; })).toBe(true);
+  }
   // Tastatur zu: wieder am unteren Rand
   await page.evaluate(() => {
     (window as unknown as { __kb: number }).__kb = 0;
