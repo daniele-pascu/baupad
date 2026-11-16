@@ -294,29 +294,6 @@ html.app-fixed .page:not(.tools-page):not(.loading) {
   animation-fill-mode: backwards;
 }
 
-/* ---------- Übergang Tools ⇄ Werkzeug: Kachel wächst zur Seite, Symbol wandert in den Kopf (lib/router.ts) ---------- */
-::view-transition {
-  /* Tippen geht sofort weiter – der Übergang fängt keine Eingaben ab */
-  pointer-events: none;
-}
-::view-transition-group(tool-page),
-::view-transition-group(tool-icon) {
-  animation-duration: 0.3s;
-  animation-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
-}
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation-duration: 0.2s;
-}
-/* Kopfleiste: eigenes, ruhendes Bild – sie blendet beim Seitenwechsel nicht mit um (sonst blitzt sie hell auf) */
-html.app-fixed .site-nav {
-  view-transition-name: site-nav;
-}
-::view-transition-old(site-nav),
-::view-transition-new(site-nav) {
-  animation: none;
-  mix-blend-mode: normal;
-}
 /* Seite lädt noch (erster Aufruf): Platzhalter für die Kopfleiste, damit oben nichts weiß wird */
 html.app-fixed .page.loading.with-nav::before {
   content: '';
@@ -327,18 +304,6 @@ html.app-fixed .page.loading.with-nav::before {
   z-index: 50;
   height: calc(var(--nav-h) + var(--safe-top));
   background: #101211;
-}
-/* Kachel und Seite in ihrer echten Größe zeigen (nichts wird gestreckt): der wachsende Rahmen deckt die Seite auf */
-::view-transition-old(tool-page),
-::view-transition-new(tool-page) {
-  height: 100%;
-  object-fit: none;
-  object-position: top left;
-  overflow: clip;
-}
-::view-transition-group(tool-page) {
-  overflow: clip;
-  border-radius: 30px;
 }
 
 /* ---------- Speichern-Anzeige: Ring läuft beim Speichern, danach kurz ein Haken, dann wieder der Punkt ----------
