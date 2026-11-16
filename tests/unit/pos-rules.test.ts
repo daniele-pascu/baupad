@@ -158,11 +158,12 @@ describe('Fläche der Schadstelle: Boden, Wand, Decke', () => {
     expect(detectSurface({ shortText: 'Schadstelle an Wand- und Deckenflächen', longText: '' })).toBeNull();
     expect(detectSurface({ shortText: 'Schadstelle bis 0,25 m²', longText: '' })).toBeNull();
   });
-  it('Tiefe als „t=20mm“, Zulage „je cm Mehrtiefe“; Streifen mit „h=30cm“ bleiben außen vor', () => {
+  it('Tiefe als „t=20mm“, Zulage „je cm Mehrtiefe“; Wand-Positionen in m („h=30cm“) wie die anderen – die Menge folgt der Einheit', () => {
     expect(detectRule({ shortText: 'Betonabtrag, t=20mm', longText: 'Betonabtrag an Bodenflächen', unit: 'm²' })).toEqual({ surface: 'boden', depthTo: 20 });
     expect(detectRule({ shortText: 'StB-Reprofilierung, t=4cm', longText: 'an Deckenuntersichten', unit: 'm²' })).toEqual({ surface: 'decke', depthTo: 40 });
     expect(detectRule({ shortText: 'StB-Reprofilierung, je cm Mehrtiefe', longText: 'an Bodenflächen', unit: 'm²' })).toEqual({ surface: 'boden', stepMm: 10 });
-    expect(detectRule({ shortText: 'Betonabtrag h=30cm, t=20mm', longText: 'an Wänden und Stützen', unit: 'm' })).toBeNull();
+    expect(detectRule({ shortText: 'Betonabtrag h=30cm, t=20mm', longText: 'an Wänden und Stützen', unit: 'm' })).toEqual({ surface: 'wand', depthTo: 20 });
+    expect(detectRule({ shortText: 'StB-Reprofilierung, h=30cm je cm Mehrtiefe', longText: 'an Wänden und Stützen', unit: 'm' })).toEqual({ surface: 'wand', stepMm: 10 });
     expect(detectRule({ shortText: 'Haftbrücke auftragen', longText: 'Reprofilierung an Bodenflächen', unit: 'm²' })).toEqual({ always: true, surface: 'boden' });
   });
   it('Klassen ohne untere Grenze: die nächstkleinere Klasse derselben Gruppe und Fläche wird zur Grenze', () => {

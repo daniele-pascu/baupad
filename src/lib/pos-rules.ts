@@ -55,8 +55,7 @@ export function detectSurface(pos: Pick<LvPosition, 'shortText' | 'longText'>): 
 export function detectRule(pos: Pick<LvPosition, 'shortText' | 'longText'> & Partial<Pick<LvPosition, 'unit'>>): PosRule | null {
   const text = normalize(`${pos.shortText}\n${pos.longText ?? ''}`);
   // streifenförmige Schadstellen (Abrechnung nach Länge) werden noch nicht automatisch zugeordnet – kein Vorschlag
-  // ebenso Streifen mit Höhenangabe („h=30cm“, Abrechnung nach Länge)
-  if (/streifen/.test(text) || /\bh\s*=\s*\d/.test(text)) return null;
+  if (/streifen/.test(text)) return null;
   const rule: PosRule = {};
   const surface = detectSurface(pos);
   if (surface) rule.surface = surface;
