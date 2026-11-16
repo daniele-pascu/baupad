@@ -1,6 +1,6 @@
 import { countOf, typeOf } from './measure-types';
 import { alive, type ProjectState } from './store';
-import type { Damage, LvDocument, LvPosition, PosRule } from './types';
+import type { Damage, LvDocument, LvPosition, PosRule, Surface } from './types';
 
 /**
  * Schadstellen-Positionen eines LV: Positionen, die nach Größe je Schadstelle (m²), nach Tiefe (mm) oder als
@@ -34,12 +34,32 @@ const unitKind = (unit: string | undefined) => {
   return ['m²', 'm2', 'qm'].includes(u) ? 'area' : ['m', 'lfm', 'lm', 'lfdm'].includes(u) ? 'length' : ['stk', 'st', 'stück', 'stueck'].includes(u) ? 'count' : null;
 };
 
+export const SURFACES: { id: Surface; label: string }[] = [
+  { id: 'boden', label: 'Boden' },
+  { id: 'wand', label: 'Wand' },
+  { id: 'decke', label: 'Decke' },
+];
+const SURFACE_RE: Record<Surface, RegExp> = {
+  boden: /boden|sohle/,
+  wand: /w(a|ä|ae)nd|st(ü|ue)tze|pfeiler/,
+  decke: /decke|untersicht|unterz(u|ü|ue)g|tr(ä|ae)ger|(ü|ue)ber\s?kopf/,
+};
+/** Fläche aus Kurztext und Überschrift (erste Zeile des Langtexts = Grundtext); mehrere genannt = keine Einschränkung */
+export function detectSurface(pos: Pick<LvPosition, 'shortText' | 'longText'>): Surface | null {
+  const text = `${pos.shortText}\n${(pos.longText ?? '').split('\n')[0]}`.toLowerCase();
+  const hit = SURFACES.filter((s) => SURFACE_RE[s.id].test(text));
+  return hit.length === 1 ? hit[0].id : null;
+}
+
 /** Regel aus dem Text einer Position vorschlagen (null = nichts erkannt). */
 export function detectRule(pos: Pick<LvPosition, 'shortText' | 'longText'> & Partial<Pick<LvPosition, 'unit'>>): PosRule | null {
   const text = normalize(`${pos.shortText}\n${pos.longText ?? ''}`);
   // streifenförmige Schadstellen (Abrechnung nach Länge) werden noch nicht automatisch zugeordnet – kein Vorschlag
-  if (/streifen/.test(text)) return null;
+  // ebenso Streifen mit Höhenangabe („h=30cm“, Abrechnung nach Länge)
+  if (/streifen/.test(text) || /\bh\s*=\s*\d/.test(text)) return null;
   const rule: PosRule = {};
+  const surface = detectSurface(pos);
+  if (surface) rule.surface = surface;
 
   // Größe je Schadstelle in m²
   const aRange = new RegExp(`(?:über|ueber|von|größer(?: als)?|groesser(?: als)?|mehr als)\\s*${NUM}\\s*(?:m²)?\\s*(?:bis|-|–)\\s*(?:zu\\s*)?${NUM}\\s*m²`).exec(text);
@@ -56,9 +76,15 @@ export function detectRule(pos: Pick<LvPosition, 'shortText' | 'longText'> & Par
   // Zulage: „je weitere 10 mm“, „je weiterem cm“, „je angefangene 10 mm“
   const step = new RegExp(`je\\s+(?:weiter\\w*|zusätzlich\\w*|zusaetzlich\\w*|angefangen\\w*)\\s*(?:angefangen\\w*\\s*)?${NUM}?\\s*(mm|cm)`).exec(text);
   if (step) rule.stepMm = (step[1] ? toNum(step[1]) : 1) * (step[2] === 'cm' ? 10 : 1);
+  // „je cm Mehrtiefe“
+  const more = /je\s+(mm|cm)\s+mehrtiefe/.exec(text);
+  if (!step && more) rule.stepMm = more[1] === 'cm' ? 10 : 1;
 
   // Tiefe in mm (cm wird umgerechnet); nur wenn der Text von einer Tiefe handelt
-  if (DEPTH_CUE.test(text) || step) {
+  // Tiefenklasse als „t=20mm“ (Abtrag bzw. Auftrag bis zu dieser Tiefe)
+  const tEq = new RegExp(`\\bt\\s*=\\s*${NUM}\\s*(mm|cm)`).exec(text);
+  if (tEq && !rule.stepMm) rule.depthTo = toNum(tEq[1]) * (tEq[2] === 'cm' ? 10 : 1);
+  else if (DEPTH_CUE.test(text) || step) {
     const mm = (v: string, unit: string) => toNum(v) * (unit === 'cm' ? 10 : 1);
     const ok = (m: RegExpExecArray) => !NOT_DEPTH.test(text.slice(Math.max(0, m.index - 30), m.index)) && !(step && m.index >= step.index && m.index < step.index + step[0].length);
     const all = (re: RegExp) => [...text.matchAll(re)].filter((m) => ok(m as RegExpExecArray));
@@ -79,7 +105,7 @@ export function detectRule(pos: Pick<LvPosition, 'shortText' | 'longText'> & Par
   // ohne Klasse: Bewehrung nach Länge bzw. Folgeleistung je Schadstelle (nach Fläche oder Stück)
   const kind = unitKind(pos.unit);
   if (REBAR.test(text) && kind === 'length') return { rebar: true };
-  if (FOLLOW.test(text) && (kind === 'area' || kind === 'count')) return { always: true };
+  if (FOLLOW.test(text) && (kind === 'area' || kind === 'count')) return surface ? { always: true, surface } : { always: true };
   return null;
 }
 
@@ -94,9 +120,10 @@ const range = (from: number | null | undefined, to: number | null | undefined, u
 
 /** Regel in Worten, z. B. „über 0,25 bis 1,5 m² · Tiefe bis 40 mm“ oder „je weitere 10 mm ab 60 mm“ */
 export function ruleText(r: PosRule, stepFrom?: number | null): string {
+  const where = SURFACES.find((s) => s.id === r.surface)?.label;
   if (r.rebar) return 'Bewehrung der Schadstelle (lfm)';
-  const parts: string[] = [];
-  if (r.always && !hasBounds(r)) return 'jede Schadstelle';
+  const parts: string[] = where ? [where] : [];
+  if (r.always && !hasBounds(r)) return where ? `jede Schadstelle an ${where}` : 'jede Schadstelle';
   const a = range(r.areaFrom, r.areaTo, 'm²');
   if (a) parts.push(`Größe ${a}`);
   const d = range(r.depthFrom, r.depthTo, 'mm');
@@ -115,8 +142,10 @@ const EPS = 1e-6;
  * n = Anzahl der Stufen einer Zulage (jede angefangene Stufe zählt: 1 mm über der Grenze ist schon die nächste).
  * `maxDepthTo`: größte Tiefenklasse der zugehörigen Positionen (Beginn der Zulage, wenn die Regel keinen nennt).
  */
-export function ruleFactor(r: PosRule, d: Pick<Damage, 'area' | 'depth' | 'count'> & Partial<Pick<Damage, 'rebar'>>, maxDepthTo: number | null = null): number {
+export function ruleFactor(r: PosRule, d: Pick<Damage, 'area' | 'depth' | 'count'> & Partial<Pick<Damage, 'rebar' | 'surface'>>, maxDepthTo: number | null = null): number {
   if (!hasRule(r)) return 0;
+  // nach Fläche getrennte Position: nur Schadstellen an dieser Fläche (ohne Angabe zählt die Schadstelle dort nicht)
+  if (r.surface && d.surface !== r.surface) return 0;
   // Bewehrung: nur Schadstellen, bei denen eine Bewehrungslänge eingetragen ist
   if (r.rebar) return (d.rebar ?? 0) > 0 ? 1 : 0;
   if (r.areaFrom != null || r.areaTo != null) {
@@ -139,6 +168,25 @@ export function ruleFactor(r: PosRule, d: Pick<Damage, 'area' | 'depth' | 'count
   }
   return 1;
 }
+
+/**
+ * Vorschläge für Tiefenklassen ohne untere Grenze („t=20mm“, „bis 40 mm“): die nächstkleinere Klasse derselben
+ * Positionsgruppe (gleicher Grundtext, gleiche Fläche und Größenklasse) wird zur unteren Grenze – so zählt eine Schadstelle nur
+ * in einer Klasse. Bestätigte Regeln (`fixed`) bleiben unverändert und dienen nur als Nachbarn.
+ */
+export function withLowerBounds(list: { number: string; rule: PosRule; fixed?: boolean }[]): PosRule[] {
+  const base = (n: string) => n.replace(/\.$/, '').replace(/[ .][^ .]+$/, '');
+  const same = (a: PosRule, b: PosRule) => (a.surface ?? null) === (b.surface ?? null) && (a.areaFrom ?? null) === (b.areaFrom ?? null) && (a.areaTo ?? null) === (b.areaTo ?? null);
+  return list.map((x) => {
+    const r = x.rule;
+    if (x.fixed || r.depthTo == null || r.depthFrom != null || r.stepMm) return r;
+    const lower = list.filter((y) => y !== x && base(y.number) === base(x.number) && same(y.rule, r) && !y.rule.stepMm && y.rule.depthTo != null && y.rule.depthTo < r.depthTo!).map((y) => y.rule.depthTo!);
+    return lower.length ? { ...r, depthFrom: Math.max(...lower) } : r;
+  });
+}
+
+/** Gibt es im Projekt bestätigte Positionen, die nach Fläche (Boden, Wand, Decke) getrennt sind? */
+export const hasSurfaceRules = (data: Pick<ProjectState, 'lvDocs'>): boolean => lvDocs(data as ProjectState).some((doc) => doc.positions.some((p) => !!activeRule(p)?.surface));
 
 /** Bestätigte Regel einer Position (nur sie wird angewendet) */
 export const activeRule = (p: Pick<LvPosition, 'rule'>): PosRule | null => (p.rule && p.rule.confirmed && hasRule(p.rule) ? p.rule : null);

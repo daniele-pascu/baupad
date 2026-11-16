@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
-import { createProject, drawRect, FIXTURES, freshStart, pickTool, planBox, waitForPlan } from './helpers';
+import { chooseMeasureType, createProject, drawRect, FIXTURES, freshStart, pickTool, planBox, waitForPlan } from './helpers';
 import { tastenBefunde } from './tasten-check';
 
 /**
@@ -232,6 +232,42 @@ export function tastenTests() {
     await page.getByTestId('edit-project').click();
     await expect(page.getByTestId('project-form').getByTestId('project-access')).toBeVisible();
     await pruefe(page, 'Projektangaben mit Freigabe', out);
+    expect(out, out.join('\n')).toEqual([]);
+  });
+
+  test('Tasten: Schadstelle mit Fläche (Boden, Wand, Decke) und Fenster Schadstellen-Positionen – nichts überlappt, verdeckt oder abgeschnitten', async ({ page }) => {
+    const out: string[] = [];
+    await freshStart(page);
+    await createProject(page, 'Tastentest Fläche', {}, ['EG']);
+    // LV mit Schadstellen-Positionen, eine davon „nur Boden“ → der Messdialog fragt die Fläche ab
+    await page.getByTestId('lv-file-input').setInputFiles(join(FIXTURES, 'schadstellen-lv.pdf'));
+    await page.getByTestId('lv-review').getByTestId('lv-review-save').click();
+    await page.getByTestId('lv-doc-tab').last().click();
+    await page.getByTestId('lv-rules-review').click();
+    await page.getByTestId('lv-rules-dialog').getByTestId('rule-surface').first().selectOption('boden');
+    await pruefe(page, 'Schadstellen-Positionen', out);
+    await page.getByTestId('lv-rules-save').click();
+    await expect(page.getByTestId('lv-rules-dialog')).toHaveCount(0);
+    await page.getByTestId('draw-plan').click();
+    await page.getByTestId('new-drawing').locator('[data-field="planNumber"]').fill('F-1');
+    await page.getByTestId('new-drawing-save').click();
+    await expect(page.getByTestId('drawing-sheet')).toBeVisible();
+    await page.getByTestId('mode-measure').click();
+    await chooseMeasureType(page, 'schadstelle');
+    await pickTool(page, 'tool-rect');
+    const b = (await page.getByTestId('drawing-sheet').boundingBox())!;
+    await drawRect(page, b.x + b.width * 0.3, b.y + b.height * 0.3, b.x + b.width * 0.45, b.y + b.height * 0.45);
+    const dlg = page.getByTestId('damage-dialog');
+    await expect(dlg.getByTestId('input-surface')).toBeVisible();
+    await pruefe(page, 'Messdialog Schadstelle (Fläche fehlt)', out);
+    // alle drei Tasten ganz im Fenster (am Handy war „Decke“ abgeschnitten)
+    const dBox = (await dlg.boundingBox())!;
+    for (const s of ['boden', 'wand', 'decke']) {
+      const sBox = (await dlg.getByTestId(`surface-${s}`).boundingBox())!;
+      if (sBox.x < dBox.x || sBox.x + sBox.width > dBox.x + dBox.width) out.push(`Messdialog Schadstelle: Taste ${s} ragt aus dem Fenster`);
+    }
+    await dlg.getByTestId('surface-wand').click();
+    await pruefe(page, 'Messdialog Schadstelle mit Fläche', out);
     expect(out, out.join('\n')).toEqual([]);
   });
 

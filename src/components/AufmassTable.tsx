@@ -34,6 +34,8 @@ interface Props {
    * zugeordnete. Schadstellen zählen über die Regeln des LV oft bei mehreren Positionen (Klasse, Zulage, Folgeleistung).
    */
   positionsOf?: (d: Damage) => string[];
+  /** LV trennt nach Boden, Wand und Decke – Schadstellen ohne Fläche bekommen den Hinweis „Fläche wählen“ */
+  surfaceNeeded?: boolean;
 }
 
 /** Spaltenkopf mit Einheit, z. B. „Länge (m)“ */
@@ -152,7 +154,7 @@ function columnsOf(type: MeasureType, list: Damage[]): TypeColumns {
  * Aufmaß-Tabellen: je Messart eine eigene Tabelle mit passenden Spalten und eigener Summe
  * (Fläche, Wand, Länge, Volumen, Stück, Schadstelle, Frei – nur die vorkommenden), darunter die Gesamtsummen.
  */
-export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, onEdit, onDelete, duplicates, components, positionLabel, positionTitle, positionOrder, positionsOf }: Props) {
+export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, onEdit, onDelete, duplicates, components, positionLabel, positionTitle, positionOrder, positionsOf, surfaceNeeded }: Props) {
   const refsOf = (d: Damage): string[] => (positionsOf ? positionsOf(d) : d.positionRef ? [d.positionRef] : []);
   const mainRef = (d: Damage): string | null => refsOf(d)[0] ?? null;
   const selRef = useRef<HTMLTableRowElement>(null);
@@ -273,6 +275,11 @@ export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, on
                         </>
                       );
                     })()}
+                    {surfaceNeeded && typeOf(r.damage) === 'schadstelle' && !r.damage.surface && (
+                      <span className="pos-tag surface-missing" title="Boden, Wand oder Decke wählen – sonst zählt die Schadstelle bei den danach getrennten Positionen nicht" data-testid="row-surface-missing">
+                        Fläche wählen
+                      </span>
+                    )}
                     {!!r.damage.photoIds?.length && (
                       <span className="photo-tag" title={`${r.damage.photoIds.length} ${r.damage.photoIds.length === 1 ? 'Foto' : 'Fotos'}`} data-testid="row-photos">
                         <Icon name="camera" size={14} />

@@ -332,6 +332,8 @@ export interface Damage extends SyncMeta {
   workArea?: string | null;
   /** Schadstelle: Schadensart (Abplatzung, Riss …) */
   damageType?: string | null;
+  /** Schadstelle: Boden, Wand oder Decke – für LV-Positionen, die nach Fläche getrennt sind */
+  surface?: Surface | null;
   /** Länge: von/bis, z. B. „Achse A bis C“ */
   span?: string | null;
   /** Freies Aufmaß: Einheit, Rechnung und berechnete Menge */
@@ -519,7 +521,12 @@ export interface DrawElement extends SyncMeta {
  * Regel einer Schadstellen-Position: wann eine Schadstelle bei dieser Position zählt. Grenzen wie im LV
  * („über … bis …“): untere Grenze ausgeschlossen, obere eingeschlossen; fehlt eine Grenze, ist sie offen.
  */
+/** Fläche, an der eine Schadstelle liegt (LV schreiben Boden, Wand/Stütze und Decke/Unterzug oft getrennt aus) */
+export type Surface = 'boden' | 'wand' | 'decke';
+
 export interface PosRule {
+  /** gilt nur für Schadstellen an dieser Fläche; fehlt = für alle */
+  surface?: Surface | null;
   /** Größe je einzelner Schadstelle in m² */
   areaFrom?: number | null;
   areaTo?: number | null;

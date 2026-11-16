@@ -12155,6 +12155,20 @@ html[data-theme='dark'] .crew-search {
   display: none;
 }
 /* Aufmaß-Tabelle: Messung zählt bei weiteren Positionen (+N) */
+/* Schadstelle: Boden · Wand · Decke – ganze Zeile, drei gleich breite Tasten (am Handy sonst abgeschnitten) */
+.surface-field {
+  grid-column: 1 / -1;
+}
+.surface-field .segmented {
+  display: flex;
+}
+.surface-field .segmented button {
+  flex: 1;
+}
+.pos-tag.surface-missing {
+  background: var(--warn-soft);
+  color: #8a5a00;
+}
 .pos-tag.pos-more {
   margin-left: 3px;
   background: var(--surface-2);

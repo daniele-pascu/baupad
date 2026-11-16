@@ -17,7 +17,7 @@ import { legendEntries, resolveLegend } from '../lib/legend';
 import { LegendBox, LegendDialog } from '../components/LegendDialog';
 import type { PhotoSite } from '../lib/types';
 import { positionGrouping, costCenterLabel, damagesOf, findPosition, lvDocLabel, lvDocsOf, plansOf, planTitle, positionRef, sumArea } from '../lib/aufmass';
-import { autoBookings, refMismatch } from '../lib/pos-rules';
+import { autoBookings, hasSurfaceRules, refMismatch } from '../lib/pos-rules';
 import { calibrationStatus, checkDeviation, checkError, formatCm, formatPercent, geometryMeasures, MAX_ERROR_M, planUnitsPerMeter } from '../lib/calibration';
 import { ViewMenu } from '../components/ViewMenu';
 import { isTouchDevice } from '../lib/platform';
@@ -1164,6 +1164,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       count: v.count > 1 ? v.count : undefined,
       workArea: v.workArea,
       damageType: v.damageType,
+      surface: v.surface,
       formula: v.formula,
       unit: v.unit,
       qty: v.qty,
@@ -1332,8 +1333,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   );
 
   /** Schadstellen-Positionen: Positionen, deren Regel (Größe, Tiefe, Zulage) zu diesen Werten passt */
-  const autoPositions = (m: { area: number | null; depth: number | null; count: number; rebar: number }) =>
-    autoBookings(data, { kind: 'damage', measureType: 'schadstelle', shape: { type: 'rect' }, area: m.area, depth: m.depth, count: m.count, rebar: m.rebar } as unknown as Damage).map((b) => ({
+  const autoPositions = (m: { area: number | null; depth: number | null; count: number; rebar: number; surface: Damage['surface'] }) =>
+    autoBookings(data, { kind: 'damage', measureType: 'schadstelle', shape: { type: 'rect' }, area: m.area, depth: m.depth, count: m.count, rebar: m.rebar, surface: m.surface } as unknown as Damage).map((b) => ({
       ...b,
       label: positionOptions.find((p) => p.ref === b.ref)?.label ?? b.ref,
     }));
@@ -2504,8 +2505,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           components={[]}
           positions={positionOptions}
           autoPositions={autoPositions}
+          surfaces={hasSurfaceRules(data)}
           positionMismatch={(ref, m) =>
-            refMismatch(data, { kind: 'damage', measureType: 'schadstelle', shape: { type: 'rect' }, area: m.area, depth: m.depth, count: m.count, rebar: m.rebar } as unknown as Damage, ref)
+            refMismatch(data, { kind: 'damage', measureType: 'schadstelle', shape: { type: 'rect' }, area: m.area, depth: m.depth, count: m.count, rebar: m.rebar, surface: m.surface } as unknown as Damage, ref)
           }
           onSave={save}
           onCancel={() => setDialog(null)}
@@ -2530,8 +2532,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           components={[]}
           positions={positionOptions}
           autoPositions={autoPositions}
+          surfaces={hasSurfaceRules(data)}
           positionMismatch={(ref, m) =>
-            refMismatch(data, { kind: 'damage', measureType: 'schadstelle', shape: { type: 'rect' }, area: m.area, depth: m.depth, count: m.count, rebar: m.rebar } as unknown as Damage, ref)
+            refMismatch(data, { kind: 'damage', measureType: 'schadstelle', shape: { type: 'rect' }, area: m.area, depth: m.depth, count: m.count, rebar: m.rebar, surface: m.surface } as unknown as Damage, ref)
           }
           onSave={save}
           onCancel={() => setDialog(null)}

@@ -3,7 +3,7 @@ import { naturalCompare } from './numbers';
 import type { ProjectState } from './store';
 import { alive } from './store';
 import type { Component, CostCenter, Damage, DrawElement, LvDocument, LvPosition, Plan } from './types';
-import { positionRefs } from './pos-rules';
+import { hasSurfaceRules, positionRefs } from './pos-rules';
 import { blank, buildXlsx, colName, num, sheetName, str, type Cell, type HeaderImage, type Sheet } from './xlsx';
 import { rebarExact, rebarFormula, rebarItemsOf } from './rebar';
 
@@ -73,6 +73,8 @@ export function positionGrouping(data: ProjectState) {
     positionOrder: (ref: string) => order.get(ref) ?? 1e9,
     /** Positionen, bei denen die Messung zählt (von Hand, wenn sie passt, und automatisch über die Regeln) */
     positionsOf: (d: Damage) => positionRefs(data, d),
+    /** LV trennt nach Boden, Wand, Decke: Schadstellen ohne Fläche in der Tabelle kennzeichnen */
+    surfaceNeeded: hasSurfaceRules(data),
   };
 }
 

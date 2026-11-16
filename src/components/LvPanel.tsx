@@ -1,7 +1,7 @@
 import { usePricesVisible } from '../lib/price-access';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { lvDocLabel, lvDocsOf, planTitle, positionRef } from '../lib/aufmass';
-import { activeRule, bookedForPosition, detectRule, hasRule, ruleText, stepStart, suggestedRule } from '../lib/pos-rules';
+import { activeRule, bookedForPosition, detectRule, hasRule, ruleText, stepStart, suggestedRule, SURFACES, withLowerBounds } from '../lib/pos-rules';
 import { uuid } from '../lib/ids';
 import { damageNo, nextPositionNumber } from '../lib/numbering';
 import { readLvFromPdf } from '../lib/lv-import';
@@ -11,7 +11,7 @@ import { formatArea, formatMeasure, parseDecimal } from '../lib/numbers';
 import { closePdf, openPdf } from '../lib/pdf';
 import { paths } from '../lib/router';
 import { newMeta, putRecord, putRecords, type ProjectState } from '../lib/store';
-import type { LvDocument, LvPosition, PosRule } from '../lib/types';
+import type { LvDocument, LvPosition, PosRule, Surface } from '../lib/types';
 import { ActionMenu } from './ActionMenu';
 import { Icon } from './Icon';
 import { Modal } from './Modal';
@@ -865,7 +865,7 @@ function DocDialog({
 }
 
 type RuleMode = 'class' | 'always' | 'rebar';
-type RuleRow = { id: string; use: boolean; mode: RuleMode; areaFrom: string; areaTo: string; depthFrom: string; depthTo: string; stepMm: string; stepFrom: string };
+type RuleRow = { id: string; use: boolean; mode: RuleMode; surface: Surface | ''; areaFrom: string; areaTo: string; depthFrom: string; depthTo: string; stepMm: string; stepFrom: string };
 const numIn = (v: number | null | undefined) => (v === null || v === undefined ? '' : String(v).replace('.', ','));
 const numOut = (v: string) => (v.trim() ? parseDecimal(v) : null);
 
@@ -878,6 +878,7 @@ function RulesDialog({ doc, onClose, onSave }: { doc: LvDocument; onClose: () =>
     id: p.id,
     use,
     mode: r?.rebar ? 'rebar' : r?.always ? 'always' : 'class',
+    surface: r?.surface ?? '',
     areaFrom: numIn(r?.areaFrom),
     areaTo: numIn(r?.areaTo),
     depthFrom: numIn(r?.depthFrom),
@@ -886,20 +887,24 @@ function RulesDialog({ doc, onClose, onSave }: { doc: LvDocument; onClose: () =>
     stepFrom: numIn(r?.stepFrom),
   });
   // gelistet: Positionen mit bestätigter Regel und alle mit einem Vorschlag aus dem Text (auch früher abgelehnte)
-  const [rows, setRows] = useState<RuleRow[]>(() =>
-    doc.positions.flatMap((p) => {
+  const [rows, setRows] = useState<RuleRow[]>(() => {
+    const list = doc.positions.flatMap((p) => {
       const active = activeRule(p);
-      if (active) return [rowOf(p, active, true)];
+      if (active) return [{ p, rule: active as PosRule, fixed: true, use: true }];
       const guess = detectRule(p);
-      return guess ? [rowOf(p, guess, p.rule === undefined)] : [];
-    }),
-  );
+      return guess ? [{ p, rule: guess, fixed: false, use: p.rule === undefined }] : [];
+    });
+    // Vorschläge: Tiefenklassen ohne untere Grenze schließen an die nächstkleinere Klasse an
+    const bounded = withLowerBounds(list.map((x) => ({ number: x.p.number, rule: x.rule, fixed: x.fixed })));
+    return list.map((x, i) => rowOf(x.p, bounded[i], x.use));
+  });
   const [add, setAdd] = useState('');
   const set = (id: string, patch: Partial<RuleRow>) => setRows((list) => list.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   const ruleOf = (r: RuleRow): PosRule =>
     r.mode === 'rebar'
       ? { rebar: true }
       : {
+          ...(r.surface ? { surface: r.surface } : {}),
           areaFrom: numOut(r.areaFrom),
           areaTo: numOut(r.areaTo),
           depthFrom: numOut(r.depthFrom),
@@ -976,6 +981,17 @@ function RulesDialog({ doc, onClose, onSave }: { doc: LvDocument; onClose: () =>
                   <option value="class">nach Größe und Tiefe der Schadstelle</option>
                   <option value="always">bei jeder Schadstelle (Folgeleistung)</option>
                   <option value="rebar">mit der Bewehrung der Schadstelle (lfm)</option>
+                </select>
+              </label>
+              <label className="rule-mode" hidden={r.mode === 'rebar'}>
+                <span>Fläche</span>
+                <select value={r.surface} onChange={(e) => set(r.id, { surface: e.target.value as RuleRow['surface'] })} disabled={!r.use} data-testid="rule-surface">
+                  <option value="">alle Flächen</option>
+                  {SURFACES.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      nur {s.label}
+                    </option>
+                  ))}
                 </select>
               </label>
               <div className="rule-fields" hidden={r.mode === 'rebar'}>

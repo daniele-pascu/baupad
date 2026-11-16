@@ -295,3 +295,64 @@ test('Beispiel-LV „Betoninstandsetzung“ (PDF): Klassen, Zulage, Folgeleistun
   await expect(measured('01.14.40.02A.')).toHaveText('1,20'); // lfm Bewehrung
   await expect(measured('01.14.10.02A.')).toHaveText('–'); // Sandstrahlen: keine Schadstellen-Position
 });
+
+test('Fläche der Schadstelle: Positionen nur für Boden bzw. Decke zählen erst nach der Wahl; ohne Fläche Hinweis in der Tabelle', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'Flächen-LV', {}, ['UG']);
+  await page.getByTestId('lv-file-input').setInputFiles(join(FIXTURES, 'schadstellen-lv.pdf'));
+  await page.getByTestId('lv-review').getByTestId('lv-review-save').click();
+  await page.getByTestId('lv-doc-tab').last().click();
+  await page.getByTestId('lv-rules-review').click();
+  const rules = page.getByTestId('lv-rules-dialog');
+  const row = (no: string) => rules.locator(`[data-testid="rule-row"][data-number="${no}"]`);
+  // Abtrag 20–40 mm nur am Boden, Reprofilierung 20–40 mm nur an der Decke; die Haftbrücke bleibt für alle Flächen
+  await row('01.14.20.01B.').getByTestId('rule-surface').selectOption('boden');
+  await row('01.14.25.01B.').getByTestId('rule-surface').selectOption('decke');
+  await expect(row('01.14.20.01B.').getByTestId('rule-summary')).toHaveText('Boden · Größe bis 0,25 m² · Tiefe über 20 bis 40 mm');
+  await rules.getByTestId('lv-rules-save').click();
+  await waitSaved(page);
+
+  await page.getByTestId('draw-plan').click();
+  const nd = page.getByTestId('new-drawing');
+  await nd.locator('[data-field="planNumber"]').fill('S-1');
+  await nd.getByTestId('new-drawing-save').click();
+  await page.getByTestId('mode-measure').click();
+  await chooseMeasureType(page, 'schadstelle');
+  const sb = (await page.getByTestId('drawing-sheet').boundingBox())!;
+  const draw = async (x: number) => {
+    await pickTool(page, 'tool-rect');
+    await page.mouse.move(sb.x + x, sb.y + 150);
+    await page.mouse.down();
+    await page.mouse.move(sb.x + x + 40, sb.y + 180, { steps: 4 });
+    await page.mouse.move(sb.x + x + 80, sb.y + 210, { steps: 4 });
+    await page.mouse.up();
+  };
+  await draw(150);
+  const md = page.getByTestId('damage-dialog');
+  await md.getByTestId('input-length').fill('0,4');
+  await md.getByTestId('input-width').fill('0,5');
+  await md.getByTestId('input-depth').fill('0,03');
+  const auto = () => md.getByTestId('auto-position').evaluateAll((els) => els.map((e) => (e as HTMLElement).closest('label')!.textContent!.trim().split(' ')[0]));
+  // ohne Fläche: nur die Position für alle Flächen (Haftbrücke)
+  await expect(md.getByTestId('surface-missing')).toBeVisible();
+  expect(await auto()).toEqual(['01.14.25.02A.']);
+  await md.getByTestId('surface-boden').click();
+  await expect(md.getByTestId('surface-missing')).toHaveCount(0);
+  expect(await auto()).toEqual(['01.14.20.01B.', '01.14.25.02A.']);
+  await md.getByTestId('surface-decke').click();
+  expect(await auto()).toEqual(['01.14.25.01B.', '01.14.25.02A.']);
+  await md.getByTestId('damage-save').click();
+  await expect(md).toBeHidden();
+  await expect(page.getByTestId('row-surface-missing')).toHaveCount(0);
+
+  // nächste Schadstelle: zuletzt gewählte Fläche ist vorbelegt; abgewählt → Hinweis „Fläche wählen“ in der Tabelle
+  await draw(420);
+  await expect(md.getByTestId('surface-decke')).toHaveAttribute('aria-checked', 'true');
+  await md.getByTestId('surface-decke').click();
+  await md.getByTestId('input-length').fill('0,4');
+  await md.getByTestId('input-width').fill('0,5');
+  await md.getByTestId('input-depth').fill('0,03');
+  await md.getByTestId('damage-save').click();
+  await expect(md).toBeHidden();
+  await expect(page.getByTestId('row-surface-missing')).toHaveCount(1);
+});

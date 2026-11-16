@@ -5,12 +5,13 @@ import { uuid } from '../lib/ids';
 import { rebarLine, rebarTotal } from '../lib/rebar';
 import { deductionArea, deductionLength, hasArea, netArea } from '../lib/measure';
 import { DAMAGE_TYPES, DEFAULT_WORK_AREAS, evalFormula, FREE_UNITS, MEASURE_TYPES, typeInfo } from '../lib/measure-types';
+import { SURFACES } from '../lib/pos-rules';
 import { round2, round3, checkMeasure, computeArea, formatArea, formatMeasure, parseDecimal, toInputValue } from '../lib/numbers';
 
 /** Maße im Eingabefeld: kaufmännisch auf 2 Stellen gerundet (ältere Werte mit 3 Stellen) */
 const up2 = (n: number | null | undefined) => (n === null || n === undefined ? n : round2(n));
 import { damageNo, findByNumber, parseDamageNumber } from '../lib/numbering';
-import { COLORS, SHAPE_LABELS, type Component, type Damage, type Deduction, type MeasureKind, type MeasureType, type RebarItem, type Shape, type ShapeType } from '../lib/types';
+import { COLORS, SHAPE_LABELS, type Component, type Damage, type Deduction, type MeasureKind, type MeasureType, type RebarItem, type Shape, type ShapeType, type Surface } from '../lib/types';
 import { Icon } from './Icon';
 import { Modal } from './Modal';
 
@@ -54,6 +55,8 @@ export interface DamageValues {
   workArea: string | null;
   /** Schadstelle: Schadensart */
   damageType: string | null;
+  /** Schadstelle: Boden, Wand oder Decke (für LV-Positionen, die nach Fläche getrennt sind) */
+  surface: Surface | null;
   /** Frei: Rechnung, Einheit und Ergebnis */
   formula: string | null;
   unit: string | null;
@@ -93,10 +96,13 @@ export interface DrawnDeduction {
 
 export type Renumber = 'none' | 'swap' | 'shift';
 
+/** zuletzt gewählte Fläche einer Schadstelle (gilt bis zum Neuladen) */
+let lastSurface: Surface | null = null;
+
 interface Props {
   mode: 'new' | 'edit';
   damage: Pick<Damage, 'id' | 'number' | 'color' | 'labelOffset'> &
-    Partial<Pick<Damage, 'length' | 'width' | 'depth' | 'componentId' | 'positionRef' | 'label' | 'areaFromShape' | 'deductions' | 'note' | 'rebar' | 'rebarItems' | 'photoIds' | 'autoOff' | 'measureType' | 'count' | 'workArea' | 'damageType' | 'formula' | 'unit' | 'qty'>> & { shapeType: ShapeType; kind: MeasureKind };
+    Partial<Pick<Damage, 'length' | 'width' | 'depth' | 'componentId' | 'positionRef' | 'label' | 'areaFromShape' | 'deductions' | 'note' | 'rebar' | 'rebarItems' | 'photoIds' | 'autoOff' | 'measureType' | 'count' | 'workArea' | 'damageType' | 'surface' | 'formula' | 'unit' | 'qty'>> & { shapeType: ShapeType; kind: MeasureKind };
   others: Pick<Damage, 'id' | 'number' | 'area' | 'label'>[];
   /** Bauteilkennzeichnungen des Plans für die optionale Zuordnung */
   components: Pick<Component, 'id' | 'letter' | 'name'>[];
@@ -106,12 +112,12 @@ interface Props {
    * Schadstellen-Positionen des LV: liefert zu Fläche (m²), Tiefe (m) und Anzahl alle Positionen, deren Regel
    * passt (Größen-/Tiefenklasse, Zulage mit Stufen) – dort zählt die Schadstelle automatisch.
    */
-  autoPositions?: (m: { area: number | null; depth: number | null; count: number; rebar: number }) => { ref: string; label: string; factor: number }[];
+  autoPositions?: (m: { area: number | null; depth: number | null; count: number; rebar: number; surface: Surface | null }) => { ref: string; label: string; factor: number }[];
   /**
    * Von Hand gewählte Position prüfen: liefert die Regel der Position in Worten, wenn sie zu dieser Schadstelle
    * nicht passt (dann zählt die Schadstelle dort nicht), sonst null.
    */
-  positionMismatch?: (ref: string, m: { area: number | null; depth: number | null; count: number; rebar: number }) => string | null;
+  positionMismatch?: (ref: string, m: { area: number | null; depth: number | null; count: number; rebar: number; surface: Surface | null }) => string | null;
   /** Gezeichnete Pläne: Maße aus der Markierung (Maßstab bekannt) als Vorschlag */
   suggestion?: { length: number; width: number | null } | null;
   /** Kalibrierter bzw. gezeichneter Plan, geschlossene Form: Fläche und Umfang aus der Geometrie */
@@ -122,6 +128,8 @@ interface Props {
   openShape?: boolean;
   /** Arbeitsbereiche zur Auswahl (Vorgaben und im Projekt benutzte) */
   workAreas?: string[];
+  /** das LV hat Positionen, die nach Boden, Wand und Decke getrennt sind → Fläche der Schadstelle abfragen */
+  surfaces?: boolean;
   onSave: (v: DamageValues, renumber: Renumber) => void;
   /** Baustelle der Fotodokumentation (Projekt): Fotos zur Messung aufnehmen bzw. wählen */
   photoSite?: PhotoSite | null;
@@ -145,7 +153,7 @@ type Field = 'number' | 'length' | 'width' | 'depth' | 'count';
  * Eingabe einer Messung bzw. Schadstelle. Öffnet sich automatisch nach dem Einzeichnen.
  * Enter/Weiter springt zum nächsten Feld; im letzten Feld wird gespeichert.
  */
-export function DamageDialog({ mode, damage, others, components, positions = [], autoPositions, positionMismatch, suggestion, geometry, wall: wallProp = false, openShape = wallProp, workAreas = DEFAULT_WORK_AREAS, onSave, onCancel, onDelete, onDrawDeduction, drawnDeduction, hidden, dedFromPlan, photoSite, photoPrefix }: Props) {
+export function DamageDialog({ mode, damage, others, components, positions = [], autoPositions, positionMismatch, suggestion, geometry, wall: wallProp = false, openShape = wallProp, workAreas = DEFAULT_WORK_AREAS, surfaces = false, onSave, onCancel, onDelete, onDrawDeduction, drawnDeduction, hidden, dedFromPlan, photoSite, photoPrefix }: Props) {
   // Messart: im Aufmaß vorgewählt (bzw. aus der Form), hier jederzeit umstellbar
   const [type, setTypeState] = useState<MeasureType>(
     damage.measureType ?? (damage.kind === 'damage' ? 'schadstelle' : damage.kind === 'line' ? 'laenge' : wallProp ? 'wand' : 'flaeche'),
@@ -178,6 +186,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   });
   const [workArea, setWorkArea] = useState(damage.workArea ?? '');
   const [damageType, setDamageType] = useState(damage.damageType ?? '');
+  // neue Schadstelle: zuletzt gewählte Fläche vorbelegt (meist folgen mehrere an derselben Fläche)
+  const [surface, setSurface] = useState<Surface | ''>(damage.surface ?? (mode === 'new' && surfaces ? (lastSurface ?? '') : ''));
   const [formula, setFormula] = useState(damage.formula ?? (damage.qty !== null && damage.qty !== undefined ? toInputValue(damage.qty) : ''));
   const [unit, setUnit] = useState(damage.unit ?? '');
   /** Messart wechseln: bei neuen Messungen die Länge aus dem Plan gleich vorwählen */
@@ -347,6 +357,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
       return;
     }
     if (conflict && renumber === 'none') return; // Hinweis wird angezeigt
+    if (type === 'schadstelle' && surface) lastSurface = surface;
     onSave(
       {
         number: num ?? (damage.label ? damage.number : 0),
@@ -356,6 +367,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
         count: n,
         workArea: workArea.trim() || null,
         damageType: type === 'schadstelle' ? damageType.trim() || null : null,
+        surface: type === 'schadstelle' ? surface || null : null,
         formula: free ? formula.trim() || null : null,
         unit: free ? unit.trim() || null : null,
         qty: free ? qty : null,
@@ -568,6 +580,19 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
                 ))}
               </datalist>
             </label>
+          )}
+          {type === 'schadstelle' && (surfaces || !!surface) && (
+            <div className="field measure-field surface-field">
+              <span id="surface-label">Fläche</span>
+              <div className="segmented" role="radiogroup" aria-labelledby="surface-label" data-testid="input-surface">
+                {SURFACES.map((s) => (
+                  <button key={s.id} type="button" role="radio" aria-checked={surface === s.id} aria-selected={surface === s.id} onClick={() => setSurface(surface === s.id ? '' : s.id)} data-testid={`surface-${s.id}`}>
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+              {!surface && <small className="error" data-testid="surface-missing">Bitte wählen – sonst zählt die Schadstelle bei Positionen für Boden, Wand oder Decke nicht.</small>}
+            </div>
           )}
         </div>
         {withArea && !wall && geometry && (
@@ -897,7 +922,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
         )}
         {(() => {
           // Schadstellen-Positionen: wo diese Schadstelle nach Größe und Tiefe automatisch zählt (abwählbar)
-          const auto = type === 'schadstelle' && autoPositions ? autoPositions({ area, depth: T?.ok ? T.value : null, count: n, rebar: rebarParsed.length && !rebarError ? rebarSum : 0 }) : [];
+          const auto = type === 'schadstelle' && autoPositions ? autoPositions({ area, depth: T?.ok ? T.value : null, count: n, rebar: rebarParsed.length && !rebarError ? rebarSum : 0, surface: surface || null }) : [];
           if (!auto.length) return null;
           return (
             <div className="field auto-positions" data-testid="auto-positions">
@@ -945,7 +970,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             </div>
             {(() => {
               // gewählte Position hat eine Regel (Größe/Tiefe), die zu dieser Schadstelle nicht passt
-              const why = type === 'schadstelle' && positionRef && positionMismatch ? positionMismatch(positionRef, { area, depth: T?.ok ? T.value : null, count: n, rebar: rebarParsed.length && !rebarError ? rebarSum : 0 }) : null;
+              const why = type === 'schadstelle' && positionRef && positionMismatch ? positionMismatch(positionRef, { area, depth: T?.ok ? T.value : null, count: n, rebar: rebarParsed.length && !rebarError ? rebarSum : 0, surface: surface || null }) : null;
               return why ? (
                 <small className="error position-mismatch" data-testid="position-mismatch">
                   Diese Position passt nicht zur Schadstelle (gilt für: {why}). Die Schadstelle zählt dort nicht – sie zählt bei den Positionen unter „Zählt automatisch bei“.
