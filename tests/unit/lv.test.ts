@@ -122,6 +122,41 @@ describe('LV aus PDF-Text', () => {
     expect(sumPositions(lv.positions)).toBe(61874.08);
   });
 
+  it('ÖNORM-Punktnummern mit einer Zeile je Position („01.11.02.B | E | Stichwort | 1,00 Wo | EP | GP“), Summe am Deckblatt', () => {
+    const lv = parseLv(
+      [
+        L(1, 'LV-Bezeichnung', 'Musterstraße 1 - KS'),
+        L(1, 'Summe', '7 126,10'),
+        L(2, 'Pos. Nr.', 'Stichwort', 'Menge Einheit', 'Einheitspreis', 'Positionspreis'),
+        L(2, '01', 'Baustellengemeinkosten'),
+        L(2, '01.11', 'Zusammenfassung der Baustellengemeinkosten'),
+        L(2, '01.11.01', 'Einmalige Kosten der Baustelle'),
+        L(2, '01.11.01.A', 'Einrichten der Baustelle', '1,00 PA', '5 328,00', '5 328,00'),
+        L(2, '01.11.02', 'Zeitgebundene Vorhaltekosten der Baustelle.'),
+        L(2, '01.11.02.A', 'Vorhaltekosten Baubetrieb', '2,00 Wo', '760,00', '1 520,00'),
+        L(2, '01.11.02.B', 'E', 'Vorhaltekosten Stillliegezeit', '1,00 Wo', '356,10', '************'),
+        L(2, '01.11', 'Zusammenfassung der Baustellengemeinkosten', '6 848,00'),
+        L(2, '01.17', 'Schutzvorkehrungen und Abdeckungen'),
+        L(2, '01.17.04', 'Abdeckungen Boden/Wand'),
+        L(2, '01.17.04.A', 'Abdeckungen für Böden', '50,00 m²', '5,562', '278,10'),
+        L(2, 'Gesamtpreis', '7 126,10'),
+      ],
+      2,
+    );
+    expect(lv.title).toBe('Musterstraße 1 - KS');
+    expect(lv.positions.map((p) => [p.number, p.shortText, p.quantity, p.unit, p.unitPrice, p.totalPrice, p.group])).toEqual([
+      ['01.11.01.A', 'Einrichten der Baustelle', 1, 'PA', 5328, 5328, '01.11'],
+      ['01.11.02.A', 'Vorhaltekosten Baubetrieb', 2, 'Wo', 760, 1520, '01.11'],
+      ['01.11.02.B', 'Vorhaltekosten Stillliegezeit', 1, 'Wo', 356.1, null, '01.11'],
+      ['01.17.04.A', 'Abdeckungen für Böden', 50, 'm²', 5.562, 278.1, '01.17'],
+    ]);
+    expect(lv.positions[2].longText).toContain('Eventualposition (E)');
+    expect(lv.positions.flatMap((p) => p.issues)).toEqual([]);
+    expect(lv.groups.map((g) => g.number)).toEqual(['01', '01.11', '01.17']);
+    expect(lv.groupSums['01.11']).toBe(6848);
+    expect(sumPositions(lv.positions)).toBe(lv.total);
+  });
+
   it('Kurz-LV-Erkennung greift nicht, wenn das übliche Format Positionen liefert', () => {
     const lv = parseLv([L(1, '92 01 01 A', 'Vormarkierungen', 'Z'), L(1, '5 150,00 m', 'Einheitspreis :', '0,53 EUR', '2 729,50')], 1);
     expect(lv.positions.map((p) => p.number)).toEqual(['92 01 01 A']);

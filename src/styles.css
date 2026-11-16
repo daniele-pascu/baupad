@@ -12201,10 +12201,8 @@ html[data-theme='dark'] .photos-page {
   --tool: #c7c7cc;
 }
 
-/* Seite: weicher Farbschein des Tools oben rechts, sanftes Einblenden */
+/* Seite: sanftes Einblenden */
 .page:not(.tools-page):not(.loading) {
-  background-image: radial-gradient(560px 220px at 100% 0, color-mix(in srgb, var(--tool) 14%, transparent), transparent 72%);
-  background-repeat: no-repeat;
   animation: page-fade 0.26s ease both;
 }
 @keyframes page-fade {

@@ -215,6 +215,11 @@ export function parseLv(lines: Line[], pageCount: number): ParsedLv {
       }
       // Kennzeichen rechts (z. B. „E“, „Z“, „w Z“); E/W als Eventual-/Wahlposition vermerken
       const flags: string[] = [];
+      // LV mit einer Zeile je Position: „Nr | [E/W] | Stichwort | Menge Einheit | EP | GP“ – die Menge steht schon in der Positionszeile
+      let inline: RegExpExecArray | null = null;
+      if (lettered) for (let i = 1; i < cells.length && !inline; i++) if ((inline = SHORT_QTY_RE.exec(cells.slice(i).join(' ')))) cells = cells.slice(0, i);
+      if (inline?.[1]) flags.push(inline[1]);
+      if (inline && cells.length >= 2 && /^[EW]$/.test(cells[0])) flags.push(cells.shift()!);
       while (cells.length >= 2 && FLAGS_RE.test(cells[cells.length - 1])) flags.push(...cells.pop()!.split(/\s+/));
       // Kennzeichen „w“ (wesentliche Position) bzw. „ZZ“ kann am Text kleben
       const label = cells.join(' ').replace(/\s+(?:w|ZZ)(?:\s+[A-Z])?$/, '').trim();
@@ -248,6 +253,14 @@ export function parseLv(lines: Line[], pageCount: number): ParsedLv {
         hasQty: false,
         base: false,
       };
+      if (inline) {
+        current.quantity = parseGermanNumber(inline[2]);
+        current.unit = inline[3];
+        current.unitPrice = inline[4] ? parseGermanNumber(inline[4]) : null;
+        current.totalPrice = inline[5] && !inline[5].startsWith('*') ? parseGermanNumber(inline[5]) : null;
+        current.hasQty = true;
+        closed = true;
+      }
       continue;
     }
     if (!current || closed) continue;
