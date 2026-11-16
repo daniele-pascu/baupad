@@ -6,7 +6,7 @@ test('Materialverwaltung: Lieferant und Materialien anlegen, Dublette melden, su
   await freshStart(page);
   await page.goto('./baupad/tools');
   await page.getByTestId('tool-materials').click();
-  await expect(page.getByTestId('materials-title')).toHaveText('Materialverwaltung');
+  await expect(page.getByTestId('materials-title')).toHaveText('Material');
   await expect(page.getByTestId('hub-overview')).toBeVisible(); // erster Bereich: Übersicht
   await page.getByTestId('mat-tab-sites').click();
   await expect(page).toHaveURL(/materialverwaltung\?t=baustellen/);

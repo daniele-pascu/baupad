@@ -128,7 +128,7 @@ export function StaffPage() {
       <div className="page staff-page" data-testid="staff-page">
         <header className="page-head page-head-row">
           <div className="page-head-title">
-            <a href={paths.workers()} className="icon-link" aria-label="Zurück zur Arbeitereinteilung" title="Zurück zur Arbeitereinteilung" data-testid="staff-back">
+            <a href={paths.workers()} className="icon-link" aria-label="Zurück zu Team" title="Zurück zu Team" data-testid="staff-back">
               <Icon name="back" />
             </a>
             <ToolMark name="workers" />
@@ -232,7 +232,7 @@ export function StaffPage() {
 
         <div className="row gap wrap staff-foot">
           <a href={paths.workers()} className="btn">
-            <Icon name="back" /> Zurück zur Arbeitereinteilung
+            <Icon name="back" /> Zurück zu Team
           </a>
         </div>
 

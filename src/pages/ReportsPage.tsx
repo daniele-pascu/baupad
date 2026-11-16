@@ -73,7 +73,7 @@ export function ReportsPage() {
   // Sortierung je Person gemerkt (Art + Richtung)
   const [sort, setSort] = useListSort<ReportSort>('reports-sites', REPORT_SORT_LABELS, { key: 'changed', dir: 'desc' });
   const access = useAccess();
-  usePageTitle('Berichte & Formulare – BauPad');
+  usePageTitle('Berichte – BauPad');
   const colorOf = useProjectColors();
   const [reports, setReports] = useState<Report[] | null>(null);
   const [entries, setEntries] = useState<FormEntry[]>([]);
@@ -164,7 +164,7 @@ export function ReportsPage() {
               <Icon name="back" />
             </a>
             <ToolMark name="reports" />
-            <h1 data-testid="reports-title">Berichte &amp; Formulare</h1>
+            <h1 data-testid="reports-title">Berichte</h1>
           </div>
           <div className="report-actions">
             <button type="button" className="btn btn-primary" onClick={() => setPicking(true)} title="Projekt aus dem Register übernehmen oder neu anlegen" data-testid="report-new-site">

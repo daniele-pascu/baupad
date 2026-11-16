@@ -1053,7 +1053,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             ids={photoIds}
             onChange={setPhotoIds}
             description={`${photoPrefix ?? 'Aufmaß'} Nr. ${v.number.trim() || damage.label || damage.number}`}
-            hint="„Fotos aufnehmen“: Foto machen, beliebig viele, dann Haken – alle Fotos gehören zu dieser Nummer und landen auch in der Fotodokumentation."
+            hint="„Fotos aufnehmen“: Foto machen, beliebig viele, dann Haken – alle Fotos gehören zu dieser Nummer und landen auch in „Fotos“."
           />
         )}
         <fieldset className="option-row">

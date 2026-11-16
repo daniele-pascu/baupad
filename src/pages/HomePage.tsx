@@ -234,7 +234,7 @@ export function HomePage() {
             <Icon name="back" />
           </a>
           <ToolMark name="projects" />
-          <h1 data-testid="projects-title">Aufmaß & Abrechnung</h1>
+          <h1 data-testid="projects-title">Aufmaß</h1>
         </div>
       </header>
 

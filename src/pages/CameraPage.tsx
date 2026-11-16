@@ -67,7 +67,7 @@ export function cameraFraming(fw: number, fh: number, ratio: Ratio, orient: Orie
  */
 export function CameraPage({ siteKey }: { siteKey: string | null }) {
   const mayCreate = useCanCreateProjects();
-  usePageTitle('Kamera – Fotodokumentation – BauPad');
+  usePageTitle('Kamera – Fotos – BauPad');
   const [sites, setSites] = useState<PhotoSite[]>([]);
   const [site, setSite] = useState<PhotoSite | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);

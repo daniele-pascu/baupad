@@ -67,7 +67,7 @@ test('Arbeitereinteilung: Woche nach Baustellen planen und in die nächste Woche
   await createProject(page, 'Neubau Musterstraße', { number: '2026-04', address: 'Musterstraße 1' });
   await page.goto('./#/tools');
   await page.getByTestId('tool-workers').click();
-  await expect(page.getByTestId('workers-title')).toHaveText('Arbeitereinteilung');
+  await expect(page.getByTestId('workers-title')).toHaveText('Team');
   await expect(page.getByTestId('crew-setup-workers')).toBeVisible();
   await page.getByTestId('week-date').fill('2026-10-28'); // Mittwoch → KW 44
   await expect(page.getByTestId('week-label')).toHaveText('KW 44');
@@ -383,7 +383,7 @@ test('Baustelle ↔ Projekt: aus Aufmaß & Abrechnung wählen, als Projekt anleg
   await page.getByTestId('new-project').click();
   const pk = page.getByTestId('project-picker');
   await expect(pk.getByTestId('picker-item').locator('.proj-title')).toHaveText(['Halle Nord', 'Sanierung Hauptplatz', 'Umbau Gewerbepark']);
-  await expect(pk.getByTestId('picker-item').first()).toContainText('Arbeitereinteilung'); // Marke: wo das Projekt schon benutzt wird
+  await expect(pk.getByTestId('picker-item').first()).toContainText('Team'); // Marke: wo das Projekt schon benutzt wird
   await pk.getByTestId('picker-item').filter({ hasText: 'Halle Nord' }).click();
   await expect(page.getByTestId('project-title')).toHaveText('Halle Nord');
   await page.goto('./#/projekte');
@@ -704,7 +704,7 @@ test('Personalliste: eigene Seite, alphabetisch oder nach Funktion; Einteilung u
   await page.reload();
   await expect(sp.getByTestId('staff-sort-grade')).toHaveAttribute('aria-checked', 'true');
   await page.keyboard.press('Escape');
-  await expect(page.getByTestId('workers-title')).toHaveText('Arbeitereinteilung');
+  await expect(page.getByTestId('workers-title')).toHaveText('Team');
   await expect(page.getByTestId('crew-workers')).toContainText('Personal (4)');
 
   // Einteilung: offene Arbeiter und Auswahl nach Funktion geordnet
@@ -1131,7 +1131,7 @@ test('Einstellungen der Einteilung: Bezeichnung der Projekte, Reihenfolge, Funkt
   // Einstellungen: Name · Projektnummer, nach Projektnummer, Funktion im PDF
   await page.getByTestId('crew-times').click();
   const sd = page.getByTestId('times-dialog');
-  await expect(sd).toContainText('Einstellungen Arbeitereinteilung');
+  await expect(sd).toContainText('Einstellungen Team');
   await sd.getByTestId('set-site-label').selectOption('name-number');
   await sd.getByTestId('set-site-order').selectOption('number');
   await sd.getByTestId('set-pdf-grades').check();

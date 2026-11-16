@@ -60,7 +60,7 @@ test('Regieliste, Bautagesbericht und Wochenbericht: Übernahme aus Projekt und 
   // Tools → Berichte & Formulare (leer)
   await page.goto('./#/tools');
   await page.getByTestId('tool-reports').click();
-  await expect(page.getByTestId('reports-title')).toHaveText('Berichte & Formulare');
+  await expect(page.getByTestId('reports-title')).toHaveText('Berichte');
   await expect(page.getByTestId('reports-empty')).toBeVisible();
 
   // 1) Regieliste – Kopf aus dem Projekt

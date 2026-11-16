@@ -258,15 +258,7 @@ export function ToolWall() {
                 <b className="tw-ico" aria-hidden="true">
                   <ToolIcon name={x.icon} size={52} />
                 </b>
-                {/* Namen aus zwei Teilen („Aufmaß & Abrechnung“): am Handy steht der zweite Teil sauber in der Zeile darunter */}
-                <h3>
-                  {t.tools[x.id].title.split(/(?<=&) /).map((part, i) => (
-                    <span key={part}>
-                      {i > 0 ? ' ' : ''}
-                      {part}
-                    </span>
-                  ))}
-                </h3>
+                <h3>{t.tools[x.id].title}</h3>
               </div>
             ))}
             <div className="tw-slide tw-slide-final" data-testid="tool-wall-final">

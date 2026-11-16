@@ -97,7 +97,7 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
   const [limit, setLimit] = useState(4);
   const sentinel = useRef<HTMLDivElement>(null);
   const photos = useMemo(() => (all ?? []).filter((p) => photoSiteKey(p) === siteKey), [all, siteKey]);
-  usePageTitle(`${site?.name ?? 'Baustelle'} – Fotodokumentation – BauPad`);
+  usePageTitle(`${site?.name ?? 'Baustelle'} – Fotos – BauPad`);
 
   const reload = () =>
     getPhotoStorage()
@@ -332,7 +332,7 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
         <div className="page">
           <p>Baustelle nicht gefunden.</p>
           <a className="btn" href={paths.photos()}>
-            Zur Fotodokumentation
+            Zu Fotos
           </a>
         </div>
       </>

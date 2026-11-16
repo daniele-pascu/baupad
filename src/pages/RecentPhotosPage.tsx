@@ -53,7 +53,7 @@ function Card({ photo, cc, onOpen }: { photo: Photo; /** Kostenstelle des Projek
  * nach Hochlade-Tag gruppiert, jedes mit Projekt, Zeit und Benutzer. Antippen öffnet die Großansicht.
  */
 export function RecentPhotosPage() {
-  usePageTitle('Zuletzt hochgeladen – Fotodokumentation – BauPad');
+  usePageTitle('Zuletzt hochgeladen – Fotos – BauPad');
   const access = useAccess();
   const [all, setAll] = useState<Photo[] | null>(null);
   const [limit, setLimit] = useState(PAGE);
@@ -98,7 +98,7 @@ export function RecentPhotosPage() {
       <div className="page photos-page">
         <header className="page-head page-head-row">
           <div className="page-head-title">
-            <a href={paths.photos()} className="icon-link" aria-label="Zur Fotodokumentation" title="Zur Fotodokumentation" data-testid="to-photos">
+            <a href={paths.photos()} className="icon-link" aria-label="Zu Fotos" title="Zu Fotos" data-testid="to-photos">
               <Icon name="back" />
             </a>
             <ToolMark name="photos" />

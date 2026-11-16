@@ -41,7 +41,7 @@ import type { Project } from '../lib/types';
 import { pcStyle, useProjectColors } from '../lib/project-colors';
 
 /** Werkzeug-Namen wie in den Tools-Kacheln */
-const TOOL_LABEL: Record<ToolId, string> = { projects: 'Aufmaß & Abrechnung', workers: 'Arbeitereinteilung', times: 'Zeitaufzeichnung', reports: 'Berichte & Formulare', photos: 'Fotodokumentation', defects: 'Mängelplan', materials: 'Materialverwaltung' };
+const TOOL_LABEL: Record<ToolId, string> = { projects: 'Aufmaß', workers: 'Team', times: 'Zeiten', reports: 'Berichte', photos: 'Fotos', defects: 'Mängel', materials: 'Material' };
 /** Farben wie die Tools-Kacheln */
 const TOOL_COLOR: Record<ToolId, string> = { projects: '#ff6a13', workers: '#2f80ed', times: '#0f9d76', reports: '#a259ff', photos: '#111111', defects: '#d6242b', materials: '#c2850c' };
 const ACCENT = { '--tool': '#475467' } as CSSProperties;
@@ -97,7 +97,7 @@ export function RegisterPage() {
       const name = p.site || p.name;
       const [usage, stats] = await Promise.all([projectUsage(p.id), projectStats(p.id)]);
       const lost = [
-        ...(stats.plans + stats.damages > 0 ? [`Aufmaß & Abrechnung: ${stats.plans} Plan/Pläne, ${stats.damages} Schadstelle(n)`] : []),
+        ...(stats.plans + stats.damages > 0 ? [`Aufmaß: ${stats.plans} Plan/Pläne, ${stats.damages} Schadstelle(n)`] : []),
         ...usage.filter((u) => !u.label.startsWith('Tage')).map((u) => `${u.count} ${u.label}`),
       ];
       const days = usage.find((u) => u.label.startsWith('Tage'));
@@ -118,7 +118,7 @@ export function RegisterPage() {
                 </ul>
               </>
             )}
-            {days && <p className="muted small">Erfasste Stunden ({days.count} Tage in der Zeitaufzeichnung) bleiben erhalten – die Baustelle steht dort dann nur noch als Name.</p>}
+            {days && <p className="muted small">Erfasste Stunden ({days.count} Tage in „Zeiten“) bleiben erhalten – die Baustelle steht dort dann nur noch als Name.</p>}
             {lost.length > 0 && <p className="muted small">Das lässt sich nicht rückgängig machen. Wichtiges vorher sichern (Fotos, PDFs, Aufmaß „Sichern“).</p>}
           </>
         ),

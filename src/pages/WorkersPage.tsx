@@ -95,7 +95,7 @@ const SITE_SORT_LABELS: Record<SiteSort, string> = {
 export function WorkersPage() {
   // Projekte anlegen nur Admin/Büro (Polier und Arbeiter übernehmen aus dem Register)
   const mayCreateProjects = useCanCreateProjects();
-  usePageTitle('Arbeitereinteilung – BauPad');
+  usePageTitle('Team – BauPad');
   const colorOf = useProjectColors();
   const crewColor = (s: Pick<WeekSite, 'projectId' | 'name'>) => ({ '--crew': colorOf(photoSiteKey({ projectId: s.projectId ?? null, siteName: s.name })) }) as CSSProperties;
   const [workers, setWorkers] = useState<Worker[] | null>(null);
@@ -196,7 +196,7 @@ export function WorkersPage() {
         setProjects(p);
         setCompany(c ?? '');
       })
-      .catch((e) => showError(e, 'Arbeitereinteilung konnte nicht geladen werden'));
+      .catch((e) => showError(e, 'Team konnte nicht geladen werden'));
   useEffect(() => {
     void loadBase();
   }, []);
@@ -471,7 +471,7 @@ export function WorkersPage() {
     return (
       <>
         <SiteNav />
-        <div className="page loading">Arbeitereinteilung wird geladen …</div>
+        <div className="page loading">Team wird geladen …</div>
       </>
     );
 
@@ -593,7 +593,7 @@ export function WorkersPage() {
               <Icon name="back" />
             </a>
             <ToolMark name="workers" />
-            <h1 data-testid="workers-title">Arbeitereinteilung</h1>
+            <h1 data-testid="workers-title">Team</h1>
           </div>
           {/* Projekte hinzufügen nur Admin/Büro – ohne dieses Recht keine Taste */}
           {mayCreateProjects && (
@@ -1113,7 +1113,7 @@ function TimesDialog({
   const set = (d: number, x: WorkTimes[number]) => setT(t.map((y, i) => (i === d ? x : y)));
   return (
     <Modal
-      title="Einstellungen Arbeitereinteilung"
+      title="Einstellungen Team"
       onClose={onClose}
       testId="times-dialog"
       footer={

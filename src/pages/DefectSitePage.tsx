@@ -77,7 +77,7 @@ export function DefectSitePage({ siteKey }: { siteKey: string }) {
   const [site, setSite] = useState<PhotoSite | null>(null);
   const [uploading, setUploading] = useState<false | 'upload' | 'library'>(false);
   const [editing, setEditing] = useState(false);
-  /** Pläne in der Planbibliothek des Projekts (Aufmaß & Abrechnung) – Taste nur, wenn welche da sind */
+  /** Pläne in der Planbibliothek des Projekts (Aufmaß) – Taste nur, wenn welche da sind */
   const [libCount, setLibCount] = useState(0);
   useEffect(() => {
     setLibCount(0);
@@ -89,7 +89,7 @@ export function DefectSitePage({ siteKey }: { siteKey: string }) {
     };
   }, [site?.projectId]);
   const session = useSession();
-  usePageTitle(`${site?.name ?? 'Baustelle'} – Mängelplan`);
+  usePageTitle(`${site?.name ?? 'Baustelle'} – Mängel`);
 
   const reload = async () => {
     try {
@@ -132,7 +132,7 @@ export function DefectSitePage({ siteKey }: { siteKey: string }) {
       title: 'Plan löschen?',
       message: (
         <p>
-          „{p.title}“ mit {n} {n === 1 ? 'Markierung' : 'Markierungen'} wird gelöscht. Fotos bleiben in der Fotodokumentation.
+          „{p.title}“ mit {n} {n === 1 ? 'Markierung' : 'Markierungen'} wird gelöscht. Fotos bleiben erhalten.
         </p>
       ),
       confirmLabel: 'Löschen',
@@ -156,7 +156,7 @@ export function DefectSitePage({ siteKey }: { siteKey: string }) {
             <ToolMark name="defects" />
             <div>
               <h1 data-testid="defect-site-title">{site?.name ?? '…'}</h1>
-              {site && <p className="muted small page-sub">{[site.number, site.address].filter(Boolean).join(' · ') || 'Mängelplan'}</p>}
+              {site && <p className="muted small page-sub">{[site.number, site.address].filter(Boolean).join(' · ') || 'Mängel'}</p>}
             </div>
           </div>
           <div className="row gap">
@@ -166,7 +166,7 @@ export function DefectSitePage({ siteKey }: { siteKey: string }) {
               </button>
             )}
             {libCount > 0 && (
-              <button type="button" className="btn btn-sm" onClick={() => setUploading('library')} title="Pläne aus der Planbibliothek des Projekts (Aufmaß & Abrechnung)" data-testid="defect-library">
+              <button type="button" className="btn btn-sm" onClick={() => setUploading('library')} title="Pläne aus der Planbibliothek des Projekts (Aufmaß)" data-testid="defect-library">
                 <Icon name="folder" size={16} /> Planbibliothek ({libCount})
               </button>
             )}

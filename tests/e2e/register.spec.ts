@@ -11,7 +11,7 @@ test('Projektregister: Angaben, in Tools übernehmen, dort öffnen, neues Projek
   const row = page.locator('[data-testid="register-row"][data-name="Parkring"]');
   await expect(row).toContainText('Parkring 10, 1010 Wien');
   await expect(row).toContainText('Muster GmbH');
-  await expect(row.getByTestId('register-tool')).toHaveText([/Aufmaß & Abrechnung/]);
+  await expect(row.getByTestId('register-tool')).toHaveText([/Aufmaß/]);
 
   // in Fotodokumentation und Mängelplan übernehmen
   await row.getByTestId('register-adopt').click();
@@ -20,7 +20,7 @@ test('Projektregister: Angaben, in Tools übernehmen, dort öffnen, neues Projek
   await dlg.locator('[data-testid="register-adopt-tool"][data-tool="photos"] input').check();
   await dlg.locator('[data-testid="register-adopt-tool"][data-tool="defects"] input').check();
   await dlg.getByTestId('register-adopt-save').click();
-  await expect(row.getByTestId('register-tool')).toHaveText([/Aufmaß & Abrechnung/, /Fotodokumentation/, /Mängelplan/]);
+  await expect(row.getByTestId('register-tool')).toHaveText([/Aufmaß/, /Fotos/, /Mängel/]);
   // dort öffnen
   await row.locator('[data-testid="register-tool"][data-tool="defects"]').click();
   await expect(page.getByTestId('defect-site-title')).toHaveText('Parkring');
@@ -44,7 +44,7 @@ test('Projektregister: Angaben, in Tools übernehmen, dort öffnen, neues Projek
   await expect(page.getByTestId('report-site-page')).toHaveAttribute('data-site', 'Halle 3');
   await page.goto('./baupad/projektregister');
   await expect(page.getByTestId('register-row')).toHaveCount(2);
-  await expect(page.locator('[data-testid="register-row"][data-name="Halle 3"]').getByTestId('register-tool')).toHaveText([/Berichte & Formulare/]);
+  await expect(page.locator('[data-testid="register-row"][data-name="Halle 3"]').getByTestId('register-tool')).toHaveText([/Berichte/]);
   // nicht in Aufmaß & Abrechnung
   await page.goto('./baupad/aufmass-und-abrechnung');
   await expect(page.getByTestId('project-card')).toHaveCount(1);
@@ -65,7 +65,7 @@ test('Projektregister: Angaben, in Tools übernehmen, dort öffnen, neues Projek
   await expect(page.locator('[data-site="Parkring"]')).toHaveCount(1);
   await page.goto('./baupad/projektregister');
   await page.locator('[data-testid="register-row"][data-name="Parkring"]').getByTestId('register-delete').click();
-  await expect(page.getByTestId('register-delete-usage')).toContainText('1 Baustelle in Wochen der Arbeitereinteilung');
+  await expect(page.getByTestId('register-delete-usage')).toContainText('1 Woche(n) in „Team“');
   await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Endgültig löschen' }).click();
   await expect(page.getByTestId('register-row')).toHaveCount(0);
   // auch aus der Woche weg und nicht wieder angelegt

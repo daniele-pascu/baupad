@@ -294,12 +294,12 @@ export async function projectUsage(projectId: string): Promise<{ label: string; 
   const u = await collectUsage(projectId);
   const n = (label: string, count: number) => ({ label, count });
   return [
-    n('Baustelle in Wochen der Arbeitereinteilung', u.weeks.length),
+    n('Woche(n) in „Team“', u.weeks.length),
     n('Berichte', u.reports.length),
     n('Firmenformulare', u.forms.length),
     n('Fotos', u.photos.length),
     n('Mängelpläne', u.plans.length),
-    n('Tage in der Zeitaufzeichnung', u.days.length),
+    n('Tage in „Zeiten“', u.days.length),
   ].filter((x) => x.count > 0);
 }
 

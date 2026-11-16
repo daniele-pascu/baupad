@@ -30,13 +30,13 @@ export type ToolSites = Partial<Record<ToolId | Permission, string[]>>;
  */
 export type Permission = 'perm:prices';
 export const TOOLS: { id: ToolId; label: string }[] = [
-  { id: 'projects', label: 'Aufmaß & Abrechnung' },
-  { id: 'workers', label: 'Arbeitereinteilung' },
-  { id: 'times', label: 'Zeitaufzeichnung' },
-  { id: 'reports', label: 'Berichte & Formulare' },
-  { id: 'photos', label: 'Fotodokumentation' },
-  { id: 'defects', label: 'Mängelplan' },
-  { id: 'materials', label: 'Materialverwaltung' },
+  { id: 'projects', label: 'Aufmaß' },
+  { id: 'workers', label: 'Team' },
+  { id: 'times', label: 'Zeiten' },
+  { id: 'reports', label: 'Berichte' },
+  { id: 'photos', label: 'Fotos' },
+  { id: 'defects', label: 'Mängel' },
+  { id: 'materials', label: 'Material' },
 ];
 
 /** Standard-Freigaben je Rolle (der Admin kann sie je Benutzer ändern) */

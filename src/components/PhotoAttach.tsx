@@ -20,7 +20,7 @@ export function SitePhotosPicker({ photos, chosen, onClose, onDone }: { photos: 
   });
   return (
     <Modal
-      title="Fotos aus der Fotodokumentation"
+      title="Fotos der Baustelle"
       onClose={onClose}
       wide
       testId="dp-photo-picker"
@@ -109,7 +109,7 @@ export function PhotoAttach({ site, ids, onChange, hint, description = '' }: { s
           )}
         />
         <button type="button" className="btn btn-sm" onClick={() => setPicking(true)} data-testid="attach-from-doku">
-          <Icon name="folder" size={16} /> Aus Fotodokumentation
+          <Icon name="folder" size={16} /> Aus Fotos
         </button>
       </div>
       {hint && <p className="muted small">{hint}</p>}

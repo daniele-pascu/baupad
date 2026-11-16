@@ -42,7 +42,7 @@ test('Website: Startseite PAD Software – Grundsätze, Lösungen mit Kachelwand
   await expect(wall).toContainText('7 Tools'); // Überschrift steht die ganze Zeit in der Mitte
   await expect(wall.getByTestId('tool-wall-final')).toContainText('Eine App.');
   await expect(wall.getByTestId('tool-wall-all').locator('li')).toHaveCount(7); // am Ende stehen alle sieben Werkzeuge da
-  await expect(wall.getByTestId('tool-wall-all')).toContainText('Materialverwaltung');
+  await expect(wall.getByTestId('tool-wall-all')).toContainText('Material');
   expect(await wall.locator('.tw-tile').count()).toBeGreaterThan(60);
   await wall.getByTestId('tool-wall-again').click(); // „Nochmal ansehen“ startet den Ablauf neu
   await expect(wall).toHaveAttribute('data-state', 'running');
@@ -101,13 +101,13 @@ test('Website: Startseite, Produkte, BauPad, Unternehmen, Kontaktformular, Sprac
   await expect(page.getByTestId('product-card')).toHaveCount(7);
   await expect(page.getByTestId('tool-tiles')).toBeVisible(); // stehender Kachel-Hintergrund hinter den sieben Werkzeugen
   await expect(page.getByTestId('product-grid').locator('a')).toHaveCount(7); // alle sieben in einer Reihe, jedes anklickbar
-  await expect(page.getByTestId('product-card').nth(3)).toContainText('Fotodokumentation');
-  await expect(page.getByTestId('product-card').nth(4)).toContainText('Mängelplan');
-  await expect(page.getByTestId('product-card').nth(5)).toContainText('Zeitaufzeichnung');
-  await expect(page.getByTestId('product-card').nth(6)).toContainText('Materialverwaltung');
+  await expect(page.getByTestId('product-card').nth(3)).toContainText('Fotos');
+  await expect(page.getByTestId('product-card').nth(4)).toContainText('Mängel');
+  await expect(page.getByTestId('product-card').nth(5)).toContainText('Zeiten');
+  await expect(page.getByTestId('product-card').nth(6)).toContainText('Material');
   await expect(page.getByTestId('problem-pairs').locator('article')).toHaveCount(3); // Problem → Lösung
   await page.getByTestId('product-card').nth(3).click();
-  await expect(page.getByTestId('product-title')).toHaveText('Fotodokumentation');
+  await expect(page.getByTestId('product-title')).toHaveText('Fotos');
   expect(page.url()).toContain('/baupad/funktionen/fotos');
   await page.getByTestId('product-open').click();
   await expect(h1).toHaveText('Anmelden'); // Werkzeug nur mit Anmeldung
@@ -246,7 +246,7 @@ test('Angemeldet: Tools, Einstellungen und Benutzerliste', async ({ page }) => {
   await expect(page.getByTestId('tools-title')).toHaveText('Tools');
   // kein Zahnrad mehr – weder in Aufmaß & Abrechnung noch auf der Tools-Seite; Einstellungen über den Namen oben rechts
   await page.getByTestId('tool-projects').click();
-  await expect(page.getByTestId('projects-title')).toHaveText('Aufmaß & Abrechnung');
+  await expect(page.getByTestId('projects-title')).toHaveText('Aufmaß');
   await expect(page.getByTestId('account-link')).toHaveCount(0);
   await page.getByTestId('to-tools').click();
   await expect(page.getByTestId('account-link')).toHaveCount(0);
@@ -303,7 +303,7 @@ test('Angemeldet: Tools, Einstellungen und Benutzerliste', async ({ page }) => {
   await page.keyboard.press('Escape');
   await expect(ud).toHaveCount(0);
   await expect(page.getByTestId('user-row')).toContainText('Polier');
-  await expect(page.getByTestId('user-row')).toContainText('Arbeitereinteilung');
+  await expect(page.getByTestId('user-row')).toContainText('Team');
   await page.getByTestId('user-add').click();
   await ud.getByTestId('user-email').fill('polier@musterbau.at');
   await ud.getByTestId('user-name').fill('Doppelt');
@@ -352,7 +352,7 @@ test('Tools: sieben gleich große Kacheln, zwei pro Reihe; alle Werkzeuge antipp
   await page.goto('./#/tools');
   const tiles = page.locator('.tool-tile');
   await expect(tiles).toHaveCount(7);
-  await expect(tiles.locator('strong')).toHaveText(['Aufmaß & Abrechnung', 'Arbeitereinteilung', 'Fotodokumentation', 'Berichte & Formulare', 'Mängelplan', 'Zeitaufzeichnung', 'Materialverwaltung']);
+  await expect(tiles.locator('strong')).toHaveText(['Aufmaß', 'Team', 'Fotos', 'Berichte', 'Mängel', 'Zeiten', 'Material']);
   const boxes = await Promise.all((await tiles.all()).map((t) => t.boundingBox()));
   // 3 × 2, alle gleich groß
   for (const r of [0, 2, 4]) expect(Math.abs(boxes[r]!.y - boxes[r + 1]!.y)).toBeLessThan(1);
@@ -367,13 +367,13 @@ test('Tools: sieben gleich große Kacheln, zwei pro Reihe; alle Werkzeuge antipp
   await page.screenshot({ path: join(OUT, 'tools.png'), fullPage: true });
   // Arbeitereinteilung und zurück
   await page.getByTestId('tool-workers').click();
-  await expect(page.getByTestId('workers-title')).toHaveText('Arbeitereinteilung');
+  await expect(page.getByTestId('workers-title')).toHaveText('Team');
   await expect(page.getByTestId('crew-week')).toBeVisible();
   await page.getByTestId('to-tools').click();
   await expect(page.getByTestId('tools-title')).toBeVisible();
   // Aufmaß & Abrechnung → zurück zu den Tools
   await page.getByTestId('tool-projects').click();
-  await expect(page.getByTestId('projects-title')).toHaveText('Aufmaß & Abrechnung');
+  await expect(page.getByTestId('projects-title')).toHaveText('Aufmaß');
   await page.getByTestId('to-tools').click();
   await expect(page.getByTestId('tools-title')).toBeVisible();
 });
@@ -593,11 +593,11 @@ test.describe('Website Materialverwaltung ohne Anmeldung', () => {
   test.use({ signedIn: false });
 test('Website: Werkzeugseite Materialverwaltung (DE/EN), öffnet das Werkzeug', async ({ page }) => {
   await page.goto('./baupad/funktionen/materialverwaltung');
-  await expect(page.getByTestId('product-title')).toHaveText('Materialverwaltung');
+  await expect(page.getByTestId('product-title')).toHaveText('Material');
   await expect(page.locator('body')).toContainText('offen → bestellt → geliefert');
-  await expect(page).toHaveTitle(/Materialverwaltung/);
+  await expect(page).toHaveTitle(/Material/);
   await page.goto('./en/baupad/features/materialverwaltung');
-  await expect(page.getByTestId('product-title')).toHaveText('Material Management');
+  await expect(page.getByTestId('product-title')).toHaveText('Material');
   // BauPad-Seite nennt sieben Werkzeuge
   await page.goto('./baupad');
   await expect(page.locator('body')).toContainText('Sieben Werkzeuge in einer App.');

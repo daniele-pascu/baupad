@@ -45,7 +45,7 @@ const MAT_SORT_LABELS: Record<MatSiteSort, string> = { items: 'Mit Materialliste
 export function MaterialsPage({ tab }: { tab: Tab }) {
   // Sortierung der Baustellen je Person gemerkt (Art + Richtung)
   const [siteSort, setSiteSort] = useListSort<MatSiteSort>('materials-sites', MAT_SORT_LABELS, { key: 'items', dir: 'desc' });
-  usePageTitle('Materialverwaltung – BauPad');
+  usePageTitle('Material – BauPad');
   const colorOf = useProjectColors();
   const [materials, setMaterials] = useState<Material[] | null>(null);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -119,7 +119,7 @@ export function MaterialsPage({ tab }: { tab: Tab }) {
             </a>
             <ToolMark name="materials" />
             <div>
-              <h1 data-testid="materials-title">Materialverwaltung</h1>
+              <h1 data-testid="materials-title">Material</h1>
               <span className="muted small">
                 {materials?.length ?? 0} Materialien · {equipment.length} Geräte · {suppliers.length} Lieferanten
               </span>

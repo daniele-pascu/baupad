@@ -46,7 +46,7 @@ export function TimesheetPage({ workerId, month: m }: { workerId: string; month:
         <SiteNav />
         <div className="page">
           <p className="muted" data-testid="timesheet-office-only">
-            Monatszettel, Freigabe und Excel macht das Büro. <a href={paths.times()}>Zurück zur Zeitaufzeichnung</a>
+            Monatszettel, Freigabe und Excel macht das Büro. <a href={paths.times()}>Zurück zu Zeiten</a>
           </p>
         </div>
       </>
@@ -59,7 +59,7 @@ export function TimesheetPage({ workerId, month: m }: { workerId: string; month:
         <div className="page">
           <p>Arbeiter nicht gefunden.</p>
           <a className="btn" href={paths.times({ month })}>
-            Zur Zeitaufzeichnung
+            Zu Zeiten
           </a>
         </div>
       </>
@@ -94,7 +94,7 @@ export function TimesheetPage({ workerId, month: m }: { workerId: string; month:
       <div className="page times-page" style={TIMES_ACCENT}>
         <header className="page-head page-head-row">
           <div className="page-head-title">
-            <a href={paths.times({ month })} className="icon-link" aria-label="Zur Zeitaufzeichnung" title="Zur Zeitaufzeichnung" data-testid="to-times">
+            <a href={paths.times({ month })} className="icon-link" aria-label="Zu Zeiten" title="Zu Zeiten" data-testid="to-times">
               <Icon name="back" />
             </a>
             <ToolMark name="times" />

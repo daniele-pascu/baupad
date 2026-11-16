@@ -42,7 +42,7 @@ test('Tag erfassen, Monatszettel mit Wegzeit und zweiter Baustelle, Excel, Freig
   // Kachel in den Tools
   await page.goto('./baupad/tools');
   await page.getByTestId('tool-times').click();
-  await expect(page.getByTestId('times-title')).toHaveText('Zeitaufzeichnung');
+  await expect(page.getByTestId('times-title')).toHaveText('Zeiten');
   // einmalige Frage nach den Arbeitszeiten – hier später
   await page.getByTestId('worktimes-dialog').getByTestId('worktimes-later').click();
 

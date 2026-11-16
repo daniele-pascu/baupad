@@ -5137,10 +5137,6 @@
     width: 42px;
     height: 42px;
   }
-  /* Platz für zwei Zeilen: das Symbol bleibt bei kurzen und langen Namen an derselben Stelle */
-  .tw-slide h3:not(.tw-one) {
-    min-height: 2.100em;
-  }
   .tw-all {
     flex-wrap: wrap;
     gap: 14px 0;
@@ -5588,10 +5584,5 @@
 @media (max-width: 700px) {
   .ab-hero {
     padding: 56px 0 60px;
-  }
-}
-@media (max-width: 600px) {
-  .tw-slide h3:not(.tw-one) span {
-    display: block;
   }
 }

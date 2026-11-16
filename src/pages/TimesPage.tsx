@@ -28,7 +28,7 @@ const WEEKDAY_LONG = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag',
  * und die eigenen (Stunden, Soll, offene Tage, Freigabe) mit Excel für die Lohnverrechnung.
  */
 export function TimesPage({ month: m, date: d }: { month: string | null; date: string | null }) {
-  usePageTitle('Zeitaufzeichnung – BauPad');
+  usePageTitle('Zeiten – BauPad');
   const session = useSession();
   const today = isoDate(new Date());
   const [date, setDate] = useState(d ?? today);
@@ -49,7 +49,7 @@ export function TimesPage({ month: m, date: d }: { month: string | null; date: s
   const reload = () => {
     void loadTimes(month, scope)
       .then(setData)
-      .catch((e) => showError(e, 'Zeitaufzeichnung konnte nicht geladen werden'));
+      .catch((e) => showError(e, 'Zeiten konnten nicht geladen werden'));
     void loadTimes(monthOf(date), scope)
       .then(setDayData)
       .catch(() => setDayData(null));
@@ -118,7 +118,7 @@ export function TimesPage({ month: m, date: d }: { month: string | null; date: s
               <Icon name="back" />
             </a>
             <ToolMark name="times" />
-            <h1 data-testid="times-title">Zeitaufzeichnung</h1>
+            <h1 data-testid="times-title">Zeiten</h1>
           </div>
           {office && (
             <button type="button" className="btn btn-sm" onClick={() => setSetup('open')} title="Arbeitszeiten des Unternehmens (Vorschlag beim Erfassen)" data-testid="times-worktimes">
@@ -233,7 +233,7 @@ export function TimesPage({ month: m, date: d }: { month: string | null; date: s
               </span>
               <div>
                 <strong>Noch keine Arbeiter</strong>
-                <p className="muted small">Oben mit „+ Arbeiter“ einfach einen Namen eingeben – oder die Personalliste der Arbeitereinteilung pflegen.</p>
+                <p className="muted small">Oben mit „+ Arbeiter“ einfach einen Namen eingeben – oder die Personalliste in „Team“ pflegen.</p>
               </div>
               <a href={paths.staff()} className="btn btn-primary">
                 Personal

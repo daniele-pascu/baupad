@@ -740,10 +740,10 @@ function MarkDialog({
               )}
             />
             <button type="button" className="btn btn-sm" onClick={() => setPicking(true)} data-testid="dp-photo-from-doku">
-              <Icon name="folder" size={16} /> Aus Fotodokumentation
+              <Icon name="folder" size={16} /> Aus Fotos
             </button>
           </div>
-          <p className="muted small">Neue Fotos landen auch in der Fotodokumentation dieser Baustelle, mit Vermerk „Mängelplan Nr. {m.no}“.</p>
+          <p className="muted small">Neue Fotos landen auch in „Fotos“ bei dieser Baustelle, mit Vermerk „Mängelplan Nr. {m.no}“.</p>
         </div>
       </div>
       {series && (
@@ -822,7 +822,7 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
     };
   }, [planId]);
 
-  usePageTitle(`${plan?.title ?? 'Plan'} – Mängelplan`);
+  usePageTitle(`${plan?.title ?? 'Plan'} – Mängel`);
 
   const site: PhotoSite | null = plan ? { projectId: plan.projectId, name: plan.siteName, number: plan.siteNumber, address: plan.siteAddress } : null;
   const sitePhotos = useMemo(() => (site ? photos.filter((p) => !p.deletedAt && photoSiteKey(p) === defectSiteKey(plan!)) : []), [photos, site, plan]);
@@ -871,7 +871,7 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
     }
   };
   const del = async (m: DefectMark) => {
-    const ok = await confirmDialog({ title: `Markierung Nr. ${m.no} löschen?`, message: <p>Die Fotos bleiben in der Fotodokumentation. Die Nummern der folgenden Markierungen rücken nach.</p>, confirmLabel: 'Löschen', danger: true });
+    const ok = await confirmDialog({ title: `Markierung Nr. ${m.no} löschen?`, message: <p>Die Fotos bleiben erhalten. Die Nummern der folgenden Markierungen rücken nach.</p>, confirmLabel: 'Löschen', danger: true });
     if (!ok) return;
     await removeMark(m.id);
     setMarks(await renumber(planId));
@@ -933,7 +933,7 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
       <div className="page">
         <p>Plan nicht gefunden.</p>
         <a href={paths.defects()} className="btn">
-          Zum Mängelplan
+          Zu Mängel
         </a>
       </div>
     );
@@ -946,7 +946,7 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
             <Icon name="back" />
           </a>
           <div className="topbar-title">
-            <small>{[plan?.siteName, plan?.siteNumber].filter(Boolean).join(' · ')} · Mängelplan</small>
+            <small>{[plan?.siteName, plan?.siteNumber].filter(Boolean).join(' · ')} · Mängel</small>
             <div className="plan-switch">
               <button type="button" className="icon-btn icon-btn-sm" disabled={siblingIdx <= 0} onClick={() => navigate(paths.defectPlan(siblings[siblingIdx - 1].id))} aria-label="Vorheriger Plan">
                 <Icon name="back" size={18} />
@@ -1242,7 +1242,7 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
               <button type="button" className="btn btn-sm" onClick={() => void renumber(planId).then(setMarks)} disabled={!marks.length} data-testid="dp-renumber">
                 <Icon name="hash" size={18} /> Lückenlos neu nummerieren
               </button>
-              <span className="muted small">Fotos liegen auch in der Fotodokumentation.</span>
+              <span className="muted small">Fotos liegen auch in „Fotos“.</span>
             </div>
           </aside>
         </div>

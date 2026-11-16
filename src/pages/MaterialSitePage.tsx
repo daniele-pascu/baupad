@@ -82,7 +82,7 @@ export function MaterialSitePage({ projectId }: { projectId: string }) {
         <SiteNav />
         <div className="page">
           <p className="muted" data-testid="material-site-missing">
-            Diese Baustelle gibt es nicht (mehr) oder sie ist für dich nicht freigegeben. <a href={paths.materials('baustellen')}>Zur Materialverwaltung</a>
+            Diese Baustelle gibt es nicht (mehr) oder sie ist für dich nicht freigegeben. <a href={paths.materials('baustellen')}>Zu Material</a>
           </p>
         </div>
       </>
@@ -94,7 +94,7 @@ export function MaterialSitePage({ projectId }: { projectId: string }) {
       <div className="page staff-page materials-page" data-testid="material-site-page">
         <header className="page-head page-head-row">
           <div className="page-head-title">
-            <a href={paths.materials('baustellen')} className="icon-link" aria-label="Zur Materialverwaltung" title="Zur Materialverwaltung" data-testid="material-site-back">
+            <a href={paths.materials('baustellen')} className="icon-link" aria-label="Zu Material" title="Zu Material" data-testid="material-site-back">
               <Icon name="back" />
             </a>
             <ToolMark name="materials" />

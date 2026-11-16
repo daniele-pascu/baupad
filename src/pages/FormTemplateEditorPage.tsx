@@ -609,7 +609,7 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
                       <option value="to">Arbeitsende</option>
                       <option value="">nichts vorschlagen</option>
                     </select>
-                    <small className="muted">Je nach Wochentag des Datums (Zeitaufzeichnung bzw. Einteilung → Arbeitszeiten); beim Ausfüllen änderbar.</small>
+                    <small className="muted">Je nach Wochentag des Datums (Zeiten bzw. Team → Arbeitszeiten); beim Ausfüllen änderbar.</small>
                   </label>
                 )}
                 {field.type === 'project' && (

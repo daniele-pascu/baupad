@@ -45,7 +45,7 @@ test('Offline: Projekt anlegen, PDF importieren, Schadstellen erfassen, exportie
   await expect(page.getByTestId('offline-badge')).toBeVisible();
   // Navigation funktioniert offline (mit gespeicherter Anmeldung)
   await page.getByTestId('tool-projects').click();
-  await expect(page.getByTestId('projects-title')).toHaveText('Aufmaß & Abrechnung');
+  await expect(page.getByTestId('projects-title')).toHaveText('Aufmaß');
 
   await createProject(page, 'Offline-Baustelle', {}, ['Untergeschoss']);
   await page.getByTestId('plan-file-input').setInputFiles(join(FIXTURES, 'plaene.pdf'));

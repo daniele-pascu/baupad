@@ -34,7 +34,7 @@ export function DefectsPage() {
   // Sortierung je Person gemerkt (Art + Richtung)
   const [sort, setSort] = useListSort<DefectSort>('defects-sites', DEFECT_SORT_LABELS, { key: 'changed', dir: 'desc' });
   const mayCreate = useCanCreateProjects();
-  usePageTitle('Mängelplan – BauPad');
+  usePageTitle('Mängel – BauPad');
   const colorOf = useProjectColors();
   const access = useAccess();
   const [allSummaries, setAllSummaries] = useState<DefectSiteSummary[] | null>(null);
@@ -53,20 +53,20 @@ export function DefectsPage() {
       actions={[
         ...(site.projectId && mayCreate ? [{ label: 'Projekt bearbeiten', icon: 'edit' as const, onSelect: () => setEditing(site), testId: 'defect-site-edit' }] : []),
         {
-          label: 'Aus Mängelplan löschen',
+          label: 'Aus „Mängel“ löschen',
           icon: 'trash' as const,
           danger: true,
           testId: 'defect-site-delete',
           onSelect: () =>
             void confirmDialog({
-              title: 'Aus Mängelplan löschen?',
+              title: 'Aus „Mängel“ löschen?',
               message: (
                 <>
                   <p>
-                    „{site.name}“ wird aus dem Mängelplan entfernt
+                    „{site.name}“ wird aus „Mängel“ entfernt
                     {plans.length ? ` – mit ${plans.length} ${plans.length === 1 ? 'Plan' : 'Plänen'} und allen Markierungen` : ''}.
                   </p>
-                  <p className="muted small">Fotos bleiben in der Fotodokumentation, das Projekt bleibt im Register und in den anderen Tools.</p>
+                  <p className="muted small">Fotos bleiben erhalten, das Projekt bleibt im Register und in den anderen Tools.</p>
                 </>
               ),
               confirmLabel: 'Löschen',
@@ -76,7 +76,7 @@ export function DefectsPage() {
               try {
                 for (const pl of plans) await deleteDefectPlanCompletely(pl.id);
                 if (site.projectId) await dropProjectFromTool(site.projectId, 'defects');
-                toast(`„${site.name}“ aus dem Mängelplan gelöscht.`, 'success');
+                toast(`„${site.name}“ aus „Mängel“ gelöscht.`, 'success');
                 await reload();
               } catch (e) {
                 showError(e, 'Löschen fehlgeschlagen');
@@ -126,7 +126,7 @@ export function DefectsPage() {
               <Icon name="back" />
             </a>
             <ToolMark name="defects" />
-            <h1 data-testid="defects-title">Mängelplan</h1>
+            <h1 data-testid="defects-title">Mängel</h1>
           </div>
           <div className="row gap">
             <button type="button" className="btn btn-primary" onClick={() => setCreating(true)} title="Projekt aus dem Register übernehmen oder neu anlegen" data-testid="defect-new-site">

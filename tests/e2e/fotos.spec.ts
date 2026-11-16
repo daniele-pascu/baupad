@@ -18,7 +18,7 @@ test('Fotos je Baustelle, KW und Tag; Großansicht; Beschreibung; Suche; Duplika
   await createProject(page, 'Neubau Musterstraße', { number: '2026-04', address: 'Musterstraße 1, 4020 Linz' });
   await page.goto('./#/tools');
   await page.getByTestId('tool-photos').click();
-  await expect(page.getByTestId('photos-title')).toHaveText('Fotodokumentation');
+  await expect(page.getByTestId('photos-title')).toHaveText('Fotos');
   await expect(page.getByTestId('photos-empty')).toBeVisible(); // Projekt aus Aufmaß erscheint hier erst nach dem Übernehmen
   await expect(page.getByTestId('photo-file-input')).toHaveCount(0); // Fotos erst im Projekt
 

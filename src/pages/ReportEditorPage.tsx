@@ -381,7 +381,7 @@ function CrewTools({ r, date, rows, workers, onAdd }: { r: Report; date: string;
     <div className="rp-crew-tools">
       <div className="row gap wrap">
         <button type="button" className="btn btn-sm" onClick={load} data-testid="crew-import">
-          <Icon name="calendar" size={16} /> Aus Arbeitereinteilung ({fmtDate(date)})
+          <Icon name="calendar" size={16} /> Aus Team ({fmtDate(date)})
         </button>
         <select
           value=""
@@ -736,7 +736,7 @@ function WeeklyForm({ r, data, setData }: { r: Report; data: WeeklyData; setData
             Aus Bautagesberichten übernehmen
           </button>
           <button type="button" className="btn btn-sm" onClick={fromCrew} data-testid="rp-from-crew">
-            <Icon name="calendar" size={16} /> Mannschaft aus Arbeitereinteilung
+            <Icon name="calendar" size={16} /> Mannschaft aus Team
           </button>
         </div>
         <div className="rp-days">

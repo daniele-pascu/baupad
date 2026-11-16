@@ -53,7 +53,7 @@ const PHOTO_SORT_LABELS: Record<PhotoSort, string> = { changed: 'Zuletzt aktiv',
 
 export function PhotosPage() {
   const mayCreate = useCanCreateProjects();
-  usePageTitle('Fotodokumentation – BauPad');
+  usePageTitle('Fotos – BauPad');
   const colorOf = useProjectColors();
   const [photos, setPhotos] = useState<Photo[] | null>(null);
   const access = useAccess();
@@ -112,7 +112,7 @@ export function PhotosPage() {
               <Icon name="back" />
             </a>
             <ToolMark name="photos" />
-            <h1 data-testid="photos-title">Fotodokumentation</h1>
+            <h1 data-testid="photos-title">Fotos</h1>
           </div>
           <div className="row gap">
             {(access.session?.role === 'admin' || access.session?.role === 'buero') && (

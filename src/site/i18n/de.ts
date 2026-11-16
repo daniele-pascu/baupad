@@ -65,7 +65,7 @@ export const de = {
       name: 'BauPad',
       tagline: 'Die Baustelle in einer App.',
       solves: 'Schluss mit Zetteln, Excel-Listen und sieben verschiedenen Apps.',
-      can: ['Aufmaß direkt im Plan', 'Einteilung, Zeiten und Material', 'Fotos, Mängel und Berichte'],
+      can: ['Aufmaß direkt im Plan', 'Team, Zeiten und Material', 'Fotos, Mängel und Berichte'],
       all: 'Alle sieben Werkzeuge ansehen',
       cta: 'Mehr erfahren',
       open: 'BauPad öffnen',
@@ -139,11 +139,11 @@ export const de = {
   },
   baupad: {
     title: 'BauPad – Die Baustelle in einer App | PAD Software',
-    description: 'BauPad vereint Aufmaß & Abrechnung, Arbeitereinteilung, Berichte & Formulare, Fotodokumentation, Mängelplan, Zeitaufzeichnung und Materialverwaltung in einer App – am Handy, Tablet und PC, auch ohne Empfang.',
+    description: 'BauPad vereint Aufmaß, Team, Fotos, Zeiten, Berichte, Mängel und Material in einer App – am Handy, Tablet und PC, auch ohne Empfang.',
     hero: {
       eyebrow: 'BauPad · Produkt von PAD Software',
       title: ['Die Baustelle', 'in einer App.'],
-      lead: 'Aufmaß, Einteilung, Berichte, Fotos, Mängelplan, Zeiten und Material – sieben Werkzeuge, ein Konto, ein Stand für alle. Erfasst auf der Baustelle, fertig im Büro.',
+      lead: 'Aufmaß, Team, Fotos, Zeiten, Berichte, Mängel und Material – sieben Werkzeuge, ein Konto, ein Stand für alle. Erfasst auf der Baustelle, fertig im Büro.',
       primary: 'Kontakt aufnehmen',
       secondary: 'BauPad öffnen',
       status: 'Testphase – Abo folgt zum Start',
@@ -163,19 +163,19 @@ export const de = {
       ],
       items: [
         {
-          eyebrow: 'Aufmaß & Abrechnung',
+          eyebrow: 'Aufmaß',
           title: 'Messen, wo der Plan ist.',
           text: 'Plan hochladen, Fläche antippen, Maße eintragen. Das Aufmaßblatt rechnet mit – und geht mit Ihrem Logo als PDF oder Excel ins Büro.',
           points: ['Flächen, Längen, Stück und Wände direkt am Plan', 'Nummern, Farben und Legende je Plan', 'Aufmaßblatt je Leistung – ohne Abtippen'],
         },
         {
-          eyebrow: 'Zeitaufzeichnung',
+          eyebrow: 'Zeiten',
           title: 'Stunden in Sekunden.',
           text: 'Die eigenen Arbeiter stehen oben, Beginn und Ende sind vorbelegt. Ein Tipp – und der Tag ist eingetragen.',
           points: ['Arbeiter aus der Einteilung übernehmen', 'Pause und Weg nur, wenn nötig', 'Monatsübersicht je Arbeiter'],
         },
         {
-          eyebrow: 'Materialverwaltung',
+          eyebrow: 'Material',
           title: 'Bestellt ist, was gebraucht wird.',
           text: 'Bedarf auf der Baustelle melden, im Büro je Lieferant bestellen, Lieferung abhaken. Geräte: wo und wie viele Stück.',
           points: ['Offen, bestellt, überfällig – auf einen Blick', 'Bestellung als Text oder E-Mail an den Lieferanten', 'Geräte je Baustelle mit Verlauf'],
@@ -192,7 +192,7 @@ export const de = {
           problem: 'Für jede Arbeit eine eigene App.',
           detail: 'Aufmaß hier, Fotos dort, die Stunden auf Papier. Sieben Apps, sieben Logins, siebenmal dieselbe Baustelle eintippen.',
           solution: 'Sieben Werkzeuge in einer App.',
-          points: ['Aufmaß & Abrechnung, Arbeitereinteilung, Berichte & Formulare, Fotodokumentation, Mängelplan, Zeitaufzeichnung, Materialverwaltung', 'Ein Konto, eine Firma, eine Projektliste', 'Am Handy, am Tablet und am PC – dieselbe Oberfläche'],
+          points: ['Aufmaß, Team, Fotos, Zeiten, Berichte, Mängel, Material', 'Ein Konto, eine Firma, eine Projektliste', 'Am Handy, am Tablet und am PC – dieselbe Oberfläche'],
         },
         {
           problem: 'Kein Empfang auf der Baustelle.',
@@ -291,7 +291,7 @@ export const de = {
           hook: 'Mängel im Plan, nicht im Kopf.',
           points: [
             'Plan zum Projekt hochladen, Pins setzen, beschreiben, Fotos dazu',
-            'Fotos aus der Fotodokumentation auswählen oder direkt aufnehmen – neue Fotos landen auch dort',
+            'Vorhandene Fotos auswählen oder direkt aufnehmen – neue landen auch in „Fotos“',
             'Alles online gespeichert, für alle mit Zugang zum Projekt',
             'Linien und Formen für die bessere Übersicht',
             'Mängelliste mit Plan und Fotos als PDF fürs Angebot',
@@ -315,7 +315,7 @@ export const de = {
   },
   tools: {
     projects: {
-      title: 'Aufmaß & Abrechnung',
+      title: 'Aufmaß',
       short: 'Schadstellen und Flächen direkt im Plan erfassen, fertig als Excel und PDF.',
       points: ['Messen im Plan oder selbst zeichnen', 'Leistungsverzeichnis und Rechnungen', 'Excel-Aufmaßblatt und Plan-PDF'],
       tagline: 'Schadstellen und Flächen direkt im Plan erfassen – fertig abgerechnet als Excel und PDF.',
@@ -328,7 +328,7 @@ export const de = {
       ],
     },
     workers: {
-      title: 'Arbeitereinteilung',
+      title: 'Team',
       short: 'Wer arbeitet wann auf welchem Projekt – die Woche auf einen Blick.',
       points: ['Zuweisen per Klick oder Ziehen', 'Urlaub, Krankenstand, Doppelbelegung', 'Wochenplan als PDF mit Logo'],
       tagline: 'Wer arbeitet wann auf welchem Projekt – die Woche auf einen Blick, als PDF für alle.',
@@ -340,7 +340,7 @@ export const de = {
       ],
     },
     reports: {
-      title: 'Berichte & Formulare',
+      title: 'Berichte',
       short: 'Regielisten, Bautages- und Wochenberichte wie die gewohnten Formulare.',
       points: ['Mannschaft wird aus der Einteilung übernommen', 'Je Projekt getrennte Listen', 'Formular-PDF mit Unterschriftsfeldern'],
       tagline: 'Regielisten, Bautages- und Wochenberichte – ausgefüllt in Minuten, als Formular-PDF.',
@@ -353,7 +353,7 @@ export const de = {
       ],
     },
     photos: {
-      title: 'Fotodokumentation',
+      title: 'Fotos',
       short: 'Jedes Foto beim richtigen Projekt, in der richtigen Woche, am richtigen Tag.',
       points: ['Kamera-Modus mit Projekt oben', 'Galerie nach Woche und Tag, Zoom und Drehen', 'Foto-PDF und ZIP mit Datum'],
       tagline: 'Jedes Foto landet beim richtigen Projekt, in der richtigen Kalenderwoche und am richtigen Tag.',
@@ -366,11 +366,11 @@ export const de = {
       ],
     },
     times: {
-      title: 'Zeitaufzeichnung',
+      title: 'Zeiten',
       short: 'Stunden je Arbeiter und Tag – vom Polier erfasst, vom Büro freigegeben, als Excel in der Firmenvorlage.',
       points: ['Tag erfassen mit Vorschlag aus der Einteilung', 'Monatszettel mit Soll, Ist, Urlaub und Krank', 'Excel je Arbeiter in der eigenen Firmenvorlage'],
       tagline: 'Die Stunden der Mannschaft – täglich erfasst, monatlich freigegeben, fertig für die Lohnverrechnung.',
-      intro: 'Der Polier tippt je Tag für seine Arbeiter Baustelle, von, bis und Pause – BauPad schlägt die Baustelle aus der Arbeitereinteilung und die gewohnten Zeiten vor. Urlaub und Krank gehen per Antippen, Feiertage in Österreich sind hinterlegt. Das Büro gibt den Monat je Arbeiter frei und bekommt die Excel-Datei in der eigenen Firmenvorlage – mit allen Formeln, jedes Jahr fortgesetzt.',
+      intro: 'Der Polier tippt je Tag für seine Arbeiter Baustelle, von, bis und Pause – BauPad schlägt die Baustelle aus der Einteilung und die gewohnten Zeiten vor. Urlaub und Krank gehen per Antippen, Feiertage in Österreich sind hinterlegt. Das Büro gibt den Monat je Arbeiter frei und bekommt die Excel-Datei in der eigenen Firmenvorlage – mit allen Formeln, jedes Jahr fortgesetzt.',
       groups: [
         { title: 'Erfassen', items: ['Tag erfassen: alle Arbeiter eines Tages auf einen Blick', 'Vorschlag aus der Einteilung, einmal eingetragene Zeiten bleiben', 'Zweite Baustelle am selben Tag, Wegzeit optional', 'Urlaub und Krank per Antippen'] },
         { title: 'Prüfen', items: ['Monatszettel je Arbeiter: Soll, Ist, Plus/Minus', 'Österreichische Feiertage automatisch', 'Freigabe durch das Büro, danach gesperrt', 'Rechte: Polier nur seine Projekte, Arbeiter nur die eigenen Stunden'] },
@@ -378,19 +378,19 @@ export const de = {
       ],
     },
     defects: {
-      title: 'Mängelplan',
+      title: 'Mängel',
       short: 'Mängel, Ausbesserungen und Hinweise im Plan markieren – mit Fotos, als PDF fürs Angebot.',
       points: ['Plan als PDF oder Foto, ohne Maßstab', 'Pins, Formen und Text in Farben, nummeriert', 'PDF mit Plan, Liste und Fotos'],
       tagline: 'Mängel, Ausbesserungen und Hinweise direkt im Plan markieren – die Grundlage für Angebot und Mängelliste.',
-      intro: 'Plan als PDF oder Foto hochladen, ohne Maßstab und ohne Kalibrieren. Dann Pins, Rechtecke, Kreise, Linien, Freihand und Text in Farben setzen. Jede Markierung bekommt eine Nummer, eine Art, Titel, Beschreibung und Fotos. Die Fotos liegen gleichzeitig in der Fotodokumentation.',
+      intro: 'Plan als PDF oder Foto hochladen, ohne Maßstab und ohne Kalibrieren. Dann Pins, Rechtecke, Kreise, Linien, Freihand und Text in Farben setzen. Jede Markierung bekommt eine Nummer, eine Art, Titel, Beschreibung und Fotos. Die Fotos liegen gleichzeitig in „Fotos“.',
       groups: [
         { title: 'Markieren', items: ['Pin, Rechteck, Kreis, Linie, Freihand, Text', 'Fünf Farben, Art: Mangel, Ausbesserung, Hinweis, Erledigt', 'Nummern laufen je Plan automatisch', 'Verschieben, Zoom, Liste mit Filter'] },
-        { title: 'Beschreiben', items: ['Titel und Beschreibung je Markierung', 'Fotos aufnehmen, aus der Galerie oder aus der Fotodokumentation', 'Vermerk „Mängelplan Nr. 3“ im Foto'] },
+        { title: 'Beschreiben', items: ['Titel und Beschreibung je Markierung', 'Fotos aufnehmen, aus der Galerie oder aus „Fotos“', 'Vermerk „Mängelplan Nr. 3“ im Foto'] },
         { title: 'Ausgeben', items: ['PDF: Plan mit Nummern, danach die Liste mit Fotos', 'Logo und Firmendaten im Kopf', 'Je Projekt beliebig viele Pläne'] },
       ],
     },
     materials: {
-      title: 'Materialverwaltung',
+      title: 'Material',
       short: 'Material und Lieferanten der Firma, Materiallisten je Baustelle – bestellt, geliefert, im Blick.',
       points: ['Materialstamm und Lieferanten', 'Materialliste je Baustelle mit Status', 'Verlauf: wer hat was wann bestellt'],
       tagline: 'Material und Lieferanten der Firma an einem Ort – und je Baustelle die Liste, was offen, bestellt oder geliefert ist.',
@@ -407,7 +407,7 @@ export const de = {
     back: 'Alle Werkzeuge',
     open: 'öffnen',
     functions: 'Funktionen',
-    functionsTitle: 'Was {tool} kann.',
+    functionsTitle: '{tool} im Überblick.',
     others: 'Weitere Werkzeuge',
     stage: 'Schematische Darstellung des Werkzeugs – Platzhalter',
     titleSuffix: ' – BauPad | PAD Software',

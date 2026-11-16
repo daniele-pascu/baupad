@@ -589,7 +589,7 @@ test('Arbeitereinteilung per Finger: Arbeiter, Baustelle, Einteilung – passt a
   }
   await expect(wd.getByTestId('worker-row')).toHaveCount(2);
   await wd.getByTestId('staff-back').tap();
-  await expect(page.getByTestId('workers-title')).toHaveText('Arbeitereinteilung');
+  await expect(page.getByTestId('workers-title')).toHaveText('Team');
   await page.getByTestId('add-site').tap();
   await newWeekProject(page, 'Neubau Musterstraße', {}, 'tap');
   await page.locator('[data-testid="day-row"][data-day="0"] [data-testid="day-add"]').tap();
@@ -770,7 +770,7 @@ test('Zeitaufzeichnung per Finger: Tag erfassen und Monatszettel passen auf den 
     await expect(wd.getByTestId('worker-row').filter({ hasText: n })).toHaveCount(1);
   }
   await page.goto('./baupad/zeitaufzeichnung');
-  await expect(page.getByTestId('times-title')).toHaveText('Zeitaufzeichnung');
+  await expect(page.getByTestId('times-title')).toHaveText('Zeiten');
   await page.getByTestId('worktimes-dialog').getByTestId('worktimes-later').tap();
   await page.getByTestId('times-pick').tap();
   await page.locator('[data-testid="times-pick-worker"][data-worker="Max Muster"] input').check();

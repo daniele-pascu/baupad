@@ -113,7 +113,7 @@ export const FIELD_TYPES: { id: CustomFieldType; label: string; help: string }[]
   { id: 'time', label: 'Uhrzeit', help: 'Uhrzeit, z. B. Arbeitsbeginn/-ende – kommt aus den Arbeitszeiten der Firma für den Wochentag des Datums (änderbar)' },
   { id: 'number', label: 'Zahl', help: 'Zahl, z. B. Stunden oder Stück' },
   { id: 'amount', label: 'Betrag', help: 'Betrag mit zwei Nachkommastellen' },
-  { id: 'person', label: 'Mitarbeiter / Personen', help: 'Aus der Arbeiterliste wählen; Vorschlag aus der Arbeitereinteilung' },
+  { id: 'person', label: 'Mitarbeiter / Personen', help: 'Aus der Arbeiterliste wählen; Vorschlag aus „Team“' },
   { id: 'project', label: 'Baustelle / Projekt', help: 'Angabe aus dem Projekt (Name, Nummer, Adresse, Auftraggeber, Kostenstelle)' },
   { id: 'company', label: 'Eigene Firma', help: 'Firmenname aus den Firmeninformationen' },
   { id: 'select', label: 'Auswahlfeld', help: 'Eine von mehreren vorgegebenen Möglichkeiten' },

@@ -441,7 +441,7 @@ function FieldInput({ f, value, measure, people, onChange, onFocus }: { f: Custo
                   </button>
                 ))}
                 {suggestion.length > 1 && (
-                  <button type="button" className="btn btn-sm" onClick={() => append(...suggestion)} data-testid="form-entry-people-suggest" title="Laut Arbeitereinteilung an diesem Tag auf der Baustelle">
+                  <button type="button" className="btn btn-sm" onClick={() => append(...suggestion)} data-testid="form-entry-people-suggest" title="Laut „Team“ an diesem Tag auf der Baustelle">
                     Alle aus Einteilung: {suggestion.join(', ')}
                   </button>
                 )}

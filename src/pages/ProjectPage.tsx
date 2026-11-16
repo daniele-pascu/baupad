@@ -350,7 +350,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
     <SiteNav />
     <div className="page page-under-nav">
       <header className="topbar">
-        <a className="icon-btn" href={paths.projects()} aria-label="Zu Aufmaß & Abrechnung">
+        <a className="icon-btn" href={paths.projects()} aria-label="Zu Aufmaß">
           <Icon name="back" />
         </a>
         <ToolMark name="projects" />
@@ -427,7 +427,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
             <Icon name="edit" size={18} /> Projektangaben bearbeiten
           </button>
           <button type="button" className="btn btn-sm" onClick={() => navigate(paths.photoSite(`p:${project.id}`))} data-testid="project-photos">
-            <Icon name="camera" size={18} /> Fotodokumentation
+            <Icon name="camera" size={18} /> Fotos
           </button>
         </div>
       </section>

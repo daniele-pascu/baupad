@@ -63,7 +63,7 @@ export const en: Dict = {
       name: 'BauPad',
       tagline: 'The construction site in one app.',
       solves: 'No more paper notes, spreadsheets and seven different apps.',
-      can: ['Measurement right on the plan', 'Crew planning, hours and materials', 'Photos, defects and reports'],
+      can: ['Measurement right on the plan', 'Team, hours and material', 'Photos, defects and reports'],
       all: 'See all seven tools',
       cta: 'Learn more',
       open: 'Open BauPad',
@@ -137,11 +137,11 @@ export const en: Dict = {
   },
   baupad: {
     title: 'BauPad – The construction site in one app | PAD Software',
-    description: 'BauPad combines measurement & billing, crew scheduling, reports & forms, photo documentation, defect plan, time recording and material management in one app – on phone, tablet and PC, even without reception.',
+    description: 'BauPad combines takeoff, team, photos, hours, reports, defects and material in one app – on phone, tablet and PC, even without reception.',
     hero: {
       eyebrow: 'BauPad · Product by PAD Software',
       title: ['The construction site', 'in one app.'],
-      lead: 'Measurement, scheduling, reports, photos, defect plan, time recording and material – seven tools, one account, one state for everyone. Recorded on site, ready in the office.',
+      lead: 'Takeoff, team, photos, hours, reports, defects and material – seven tools, one account, one state for everyone. Recorded on site, ready in the office.',
       primary: 'Get in touch',
       secondary: 'Open BauPad',
       status: 'Test phase – subscription follows at launch',
@@ -161,19 +161,19 @@ export const en: Dict = {
       ],
       items: [
         {
-          eyebrow: 'Measurement & Billing',
+          eyebrow: 'Takeoff',
           title: 'Measure where the plan is.',
           text: 'Upload the plan, tap the area, enter the dimensions. The measurement sheet does the maths – and goes to the office as PDF or Excel with your logo.',
           points: ['Areas, lengths, pieces and walls right on the plan', 'Numbers, colours and legend per plan', 'Measurement sheet per item – no retyping'],
         },
         {
-          eyebrow: 'Time Recording',
+          eyebrow: 'Hours',
           title: 'Hours in seconds.',
           text: 'Your own workers are at the top, start and end are prefilled. One tap – and the day is recorded.',
           points: ['Take workers over from the schedule', 'Break and travel only when needed', 'Monthly overview per worker'],
         },
         {
-          eyebrow: 'Material Management',
+          eyebrow: 'Material',
           title: 'Ordered is what is needed.',
           text: 'Report demand on site, order per supplier in the office, tick off the delivery. Equipment: where and how many pieces.',
           points: ['Open, ordered, overdue – at a glance', 'Order as text or e-mail to the supplier', 'Equipment per site with history'],
@@ -190,7 +190,7 @@ export const en: Dict = {
           problem: 'A separate app for every job.',
           detail: 'Measurement here, photos there, the hours on paper. Seven apps, seven logins, the same site typed in seven times.',
           solution: 'Seven tools in one app.',
-          points: ['Measurement & billing, crew scheduling, reports & forms, photo documentation, defect plan, time recording, material management', 'One account, one company, one project list', 'On phone, tablet and PC – the same interface'],
+          points: ['Takeoff, Team, Photos, Hours, Reports, Defects, Material', 'One account, one company, one project list', 'On phone, tablet and PC – the same interface'],
         },
         {
           problem: 'No reception on site.',
@@ -289,7 +289,7 @@ export const en: Dict = {
           hook: 'Defects in the plan, not in your head.',
           points: [
             'Upload the plan to the project, set pins, describe, add photos',
-            'Pick photos from the photo documentation or take them right there – new photos appear there too',
+            'Pick existing photos or take them right there – new ones also appear in “Photos”',
             'Everything stored online, for everyone with access to the project',
             'Lines and shapes for a better overview',
             'Defect list with plan and photos as PDF for the quote',
@@ -313,7 +313,7 @@ export const en: Dict = {
   },
   tools: {
     projects: {
-      title: 'Measurement & Billing',
+      title: 'Takeoff',
       short: 'Record damaged areas and surfaces directly on the plan, ready as Excel and PDF.',
       points: ['Measure on the plan or draw your own', 'Bill of quantities and invoices', 'Excel measurement sheet and plan PDF'],
       tagline: 'Record damaged areas and surfaces directly on the plan – billed and ready as Excel and PDF.',
@@ -326,7 +326,7 @@ export const en: Dict = {
       ],
     },
     workers: {
-      title: 'Crew Scheduling',
+      title: 'Team',
       short: 'Who works when on which project – the week at a glance.',
       points: ['Assign by click or drag', 'Holidays, sick leave, double bookings', 'Weekly schedule as PDF with logo'],
       tagline: 'Who works when on which project – the week at a glance, as a PDF for everyone.',
@@ -338,7 +338,7 @@ export const en: Dict = {
       ],
     },
     reports: {
-      title: 'Reports & Forms',
+      title: 'Reports',
       short: 'Daywork sheets, daily and weekly site reports just like the familiar forms.',
       points: ['Crew is taken from the schedule', 'Separate lists per project', 'Form PDF with signature fields'],
       tagline: 'Daywork sheets, daily and weekly site reports – filled in within minutes, as a form PDF.',
@@ -351,7 +351,7 @@ export const en: Dict = {
       ],
     },
     photos: {
-      title: 'Photo Documentation',
+      title: 'Photos',
       short: 'Every photo with the right project, in the right week, on the right day.',
       points: ['Camera mode with the project on top', 'Gallery by week and day, zoom and rotate', 'Photo PDF and ZIP with date'],
       tagline: 'Every photo lands with the right project, in the right calendar week and on the right day.',
@@ -364,7 +364,7 @@ export const en: Dict = {
       ],
     },
     times: {
-      title: 'Time Recording',
+      title: 'Hours',
       short: 'Hours per worker and day – recorded by the foreman, approved by the office, as Excel in your company template.',
       points: ['Record the day with suggestions from the schedule', 'Monthly sheet with target, actual, holiday and sick leave', 'Excel per worker in your own company template'],
       tagline: 'Your crew’s hours – recorded daily, approved monthly, ready for payroll.',
@@ -376,19 +376,19 @@ export const en: Dict = {
       ],
     },
     defects: {
-      title: 'Defect Plan',
+      title: 'Defects',
       short: 'Mark defects, repairs and notes on the plan – with photos, as a PDF for the quote.',
       points: ['Plan as PDF or photo, no scale needed', 'Pins, shapes and text in colours, numbered', 'PDF with plan, list and photos'],
       tagline: 'Mark defects, repairs and notes directly on the plan – the basis for quote and defect list.',
-      intro: 'Upload a plan as PDF or photo, without scale and without calibration. Then place pins, rectangles, circles, lines, freehand and text in colours. Every mark gets a number, a type, title, description and photos. The photos are also in the photo documentation.',
+      intro: 'Upload a plan as PDF or photo, without scale and without calibration. Then place pins, rectangles, circles, lines, freehand and text in colours. Every mark gets a number, a type, title, description and photos. The photos also appear in “Photos”.',
       groups: [
         { title: 'Mark', items: ['Pin, rectangle, circle, line, freehand, text', 'Five colours, type: defect, repair, note, done', 'Numbers run automatically per plan', 'Move, zoom, list with filter'] },
-        { title: 'Describe', items: ['Title and description per mark', 'Take photos, from the gallery or from the photo documentation', 'Note “Defect plan no. 3” in the photo'] },
+        { title: 'Describe', items: ['Title and description per mark', 'Take photos, from the gallery or from “Photos”', 'Note “Defect plan no. 3” in the photo'] },
         { title: 'Export', items: ['PDF: plan with numbers, then the list with photos', 'Logo and company details in the header', 'Any number of plans per project'] },
       ],
     },
     materials: {
-      title: 'Material Management',
+      title: 'Material',
       short: 'Company materials and suppliers, material lists per site – ordered, delivered, in view.',
       points: ['Material catalogue and suppliers', 'Material list per site with status', 'History: who ordered what and when'],
       tagline: 'The company’s materials and suppliers in one place – and per site the list of what is open, ordered or delivered.',
@@ -405,7 +405,7 @@ export const en: Dict = {
     back: 'All tools',
     open: 'open',
     functions: 'Features',
-    functionsTitle: 'What {tool} can do.',
+    functionsTitle: '{tool} at a glance.',
     others: 'More tools',
     stage: 'Schematic view of the tool – placeholder',
     titleSuffix: ' – BauPad | PAD Software',

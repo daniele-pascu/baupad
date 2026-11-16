@@ -46,9 +46,9 @@ export async function importCrewBackup(file: File): Promise<{ workers: number; w
   try {
     data = JSON.parse(await file.text());
   } catch {
-    throw new Error('Die Datei ist keine Sicherung der Arbeitereinteilung.');
+    throw new Error('Die Datei ist keine Sicherung von „Team“.');
   }
-  if (data?.format !== FORMAT || !Array.isArray(data.workers) || !Array.isArray(data.weeks)) throw new Error('Die Datei ist keine Sicherung der Arbeitereinteilung.');
+  if (data?.format !== FORMAT || !Array.isArray(data.workers) || !Array.isArray(data.weeks)) throw new Error('Die Datei ist keine Sicherung von „Team“.');
   const haveW = new Map((await listWorkers()).map((w) => [w.id, w]));
   const haveK = new Map((await listWeeks()).map((w) => [w.id, w]));
   let workers = 0;

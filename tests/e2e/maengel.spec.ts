@@ -22,7 +22,7 @@ async function newProjectPlan(page: Page, name: string, file = 'parkdeck.png') {
 test('Mängelplan: Plan hochladen, Markierungen setzen und bearbeiten, PDF', async ({ page }) => {
   await freshStart(page);
   await page.goto('./#/maengel');
-  await expect(page.getByTestId('defects-title')).toHaveText('Mängelplan');
+  await expect(page.getByTestId('defects-title')).toHaveText('Mängel');
   await expect(page.getByTestId('defects-empty')).toBeVisible();
 
   // Projekt anlegen, im Projekt den Plan hochladen (in der Übersicht gibt es kein „Plan hochladen“)
@@ -405,7 +405,7 @@ test('Projektregister nachziehen: Plan ohne Projekt (z. B. von einem anderen Ger
   await page.getByTestId('new-project').click();
   await expect(page.getByTestId('project-picker').getByTestId('picker-item')).toHaveCount(1);
   await expect(page.getByTestId('project-picker').getByTestId('picker-item')).toContainText('Verwaistes Projekt');
-  await expect(page.getByTestId('project-picker').locator('.picker-tag')).toHaveText(['Mängelplan']);
+  await expect(page.getByTestId('project-picker').locator('.picker-tag')).toHaveText(['Mängel']);
 });
 
 test('Projekt übernehmen: Pläne aus der Planbibliothek (Aufmaß & Abrechnung) direkt wählbar, auch einzelne PDF-Seiten', async ({ page }) => {
@@ -471,7 +471,7 @@ test('Übersicht: Projekt bearbeiten und aus dem Mängelplan löschen (⋮), Pro
   await page.getByTestId('defect-site-delete').click();
   await expect(page.getByTestId('confirm-dialog')).toContainText('1 Plan');
   await page.getByRole('button', { name: 'Löschen' }).last().click();
-  await expect(page.locator('.toast', { hasText: 'aus dem Mängelplan gelöscht' })).toHaveCount(1);
+  await expect(page.locator('.toast', { hasText: 'aus „Mängel“ gelöscht' })).toHaveCount(1);
   await expect(page.locator('.defect-row')).toHaveCount(0);
   await expect(page.getByTestId('defects-empty')).toBeVisible();
   await page.reload();

@@ -24,7 +24,7 @@ test('alte Adressen → /baupad/<Werkzeug>', async ({ page }) => {
     await expect(page, from).toHaveURL(to);
   }
   await page.goto('./baupad/maengelplan');
-  await expect(page.getByTestId('defects-title')).toHaveText('Mängelplan');
+  await expect(page.getByTestId('defects-title')).toHaveText('Mängel');
   await page.goto('./baupad/arbeitereinteilung');
   await expect(page.getByTestId('add-site')).toBeVisible();
   // Projektseiten unter Aufmaß & Abrechnung
@@ -44,6 +44,6 @@ test.describe('ohne Anmeldung', () => {
     await page.goto('./en/baupad/fotos');
     await expect(page).toHaveURL(/\/en\/baupad\/features\/fotos$/);
     await page.goto('./baupad/funktionen/maengelplan');
-    await expect(page.getByTestId('product-title')).toHaveText('Mängelplan');
+    await expect(page.getByTestId('product-title')).toHaveText('Mängel');
   });
 });

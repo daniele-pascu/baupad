@@ -20,13 +20,13 @@ interface Tool {
 }
 
 const TOOLS: Tool[] = [
-  { id: 'projects', title: 'Aufmaß & Abrechnung', text: 'Pläne, Messungen, Excel und Rechnungen', color: '#ff6a13', href: paths.projects() },
-  { id: 'workers', title: 'Arbeitereinteilung', text: 'Wochenplanung nach Baustellen', color: '#2f80ed', href: paths.workers() },
-  { id: 'photos', title: 'Fotodokumentation', text: 'Fotos je Baustelle, Woche und Tag', color: '#111111', href: paths.photos() },
-  { id: 'reports', title: 'Berichte & Formulare', text: 'Regielisten, Bautages- und Wochenberichte', color: '#a259ff', href: paths.reports() },
-  { id: 'defects', title: 'Mängelplan', text: 'Mängel im Plan markieren, Fotos und PDF', color: '#d6242b', href: paths.defects() },
-  { id: 'times', title: 'Zeitaufzeichnung', text: 'Stunden je Arbeiter und Tag, Monatszettel, Excel', color: '#0f9d76', href: paths.times() },
-  { id: 'materials', title: 'Materialverwaltung', text: 'Materialien und Lieferanten der Firma', color: '#c2850c', href: paths.materials() },
+  { id: 'projects', title: 'Aufmaß', text: 'Pläne, Messungen, Excel und Rechnungen', color: '#ff6a13', href: paths.projects() },
+  { id: 'workers', title: 'Team', text: 'Wochenplanung nach Baustellen', color: '#2f80ed', href: paths.workers() },
+  { id: 'photos', title: 'Fotos', text: 'Fotos je Baustelle, Woche und Tag', color: '#111111', href: paths.photos() },
+  { id: 'reports', title: 'Berichte', text: 'Regielisten, Bautages- und Wochenberichte', color: '#a259ff', href: paths.reports() },
+  { id: 'defects', title: 'Mängel', text: 'Mängel im Plan markieren, Fotos und PDF', color: '#d6242b', href: paths.defects() },
+  { id: 'times', title: 'Zeiten', text: 'Stunden je Arbeiter und Tag, Monatszettel, Excel', color: '#0f9d76', href: paths.times() },
+  { id: 'materials', title: 'Material', text: 'Materialien und Lieferanten der Firma', color: '#c2850c', href: paths.materials() },
 ];
 
 /** Start nach der Anmeldung: alle Werkzeuge als gleich große Kacheln, zwei pro Reihe, auf jedem Gerät mittig (Industrie-Stil, hell). */

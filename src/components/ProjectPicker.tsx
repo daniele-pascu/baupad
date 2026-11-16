@@ -58,8 +58,7 @@ export function ProjectPicker({
     return hit.sort((a, b) => a.name.localeCompare(b.name, 'de'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projects, exclude, mode, tool, q, ccs, access.session]);
-  const SHORT: Record<string, string> = { projects: 'Aufmaß & Abrechnung', workers: 'Arbeitereinteilung', reports: 'Berichte & Formulare', photos: 'Fotodokumentation', defects: 'Mängelplan' };
-  const toolLabel = (id: string) => SHORT[id] ?? TOOLS.find((t) => t.id === id)?.label ?? id;
+  const toolLabel = (id: string) => TOOLS.find((t) => t.id === id)?.label ?? id;
   const pick = async (p: Project) => {
     setBusy(true);
     try {

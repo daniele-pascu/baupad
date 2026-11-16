@@ -102,7 +102,7 @@ test('Fotos werden hochgeladen, abgeglichen und für alle Geräte gelöscht', as
   await cloud.install(page);
   await freshStart(page);
   await page.goto('./fotos');
-  await expect(page.getByTestId('photos-title')).toHaveText('Fotodokumentation');
+  await expect(page.getByTestId('photos-title')).toHaveText('Fotos');
 
   // Foto speichern → Warteschlange → Upload (Bilddaten per Link, dann Verzeichnis) → zentral gespeichert
   await page.getByTestId('photo-new-site').click();
