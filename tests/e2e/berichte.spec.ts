@@ -167,10 +167,9 @@ test('Regieliste, Bautagesbericht und Wochenbericht: Übernahme aus Projekt und 
   // Teilen ohne Umweg: alle Berichte der Baustelle als ein PDF (am PC wird die Datei heruntergeladen)
   const shared = await catchDownload(page, () => page.getByTestId('report-share-all').click());
   expect(shared.suggestedFilename()).toMatch(/^Berichte_Wohnanlage_Sonnenhof_.*\.pdf$/);
-  // Übersicht: eine Baustelle mit Anzahl je Typ; zurück zur Baustelle, Kopie
+  // Übersicht: eine Baustelle; zurück zur Baustelle, Kopie
   await page.getByTestId('to-reports-overview').click();
   await expect(page.getByTestId('report-site')).toHaveCount(1);
-  await expect(page.getByTestId('report-site')).toContainText('3 Berichte');
   await page.getByTestId('report-search').fill('Halle');
   await expect(page.getByTestId('report-site')).toHaveCount(0);
   await page.getByTestId('report-search').fill('');
@@ -194,7 +193,6 @@ test('Regieliste, Bautagesbericht und Wochenbericht: Übernahme aus Projekt und 
   await expect(page.getByTestId('project-title')).toHaveText('Wohnanlage Sonnenhof');
   await page.goto('./#/berichte');
   await expect(page.getByTestId('report-site')).toHaveAttribute('data-site', 'Wohnanlage Sonnenhof');
-  await expect(page.getByTestId('report-site')).toContainText('4 Berichte');
   await page.getByTestId('report-site').click();
   await expect(page.getByTestId('report-item')).toHaveCount(4);
   // Liste nach Nummer: Standard absteigend, umschaltbar auf aufsteigend (wird gemerkt)

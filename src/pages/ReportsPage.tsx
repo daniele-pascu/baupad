@@ -54,9 +54,6 @@ interface SiteCard {
   key: string;
   site: SiteChoice;
   head: Report['head'];
-  counts: Record<ReportType, number>;
-  /** ausgefüllte Firmenformulare je Vorlage */
-  forms: Map<string, { name: string; count: number }>;
   last: string;
   lastAt: number;
   open: number;
@@ -102,10 +99,9 @@ export function ReportsPage() {
       const key = siteKey(r);
       let c = map.get(key);
       if (!c) {
-        c = { key, site: r.projectId ? { projectId: r.projectId, name: siteLabel(r) } : { projectId: null, name: siteLabel(r) }, head: r.head, counts: { regie: 0, tag: 0, woche: 0 }, forms: new Map(), last: r.date, lastAt: 0, open: 0 };
+        c = { key, site: r.projectId ? { projectId: r.projectId, name: siteLabel(r) } : { projectId: null, name: siteLabel(r) }, head: r.head, last: r.date, lastAt: 0, open: 0 };
         map.set(key, c);
       }
-      c.counts[r.type]++;
       if (r.date > c.last) c.last = r.date;
       if (r.updatedAt > c.lastAt) {
         c.lastAt = r.updatedAt;
@@ -117,12 +113,9 @@ export function ReportsPage() {
       const key = entrySiteKey(e);
       let c = map.get(key);
       if (!c) {
-        c = { key, site: { projectId: e.projectId, name: e.siteName }, head: { ...emptyHead(), site: e.siteName, project: e.siteName }, counts: { regie: 0, tag: 0, woche: 0 }, forms: new Map(), last: e.date, lastAt: 0, open: 0 };
+        c = { key, site: { projectId: e.projectId, name: e.siteName }, head: { ...emptyHead(), site: e.siteName, project: e.siteName }, last: e.date, lastAt: 0, open: 0 };
         map.set(key, c);
       }
-      const f = c.forms.get(e.templateId) ?? { name: e.templateName, count: 0 };
-      f.count++;
-      c.forms.set(e.templateId, f);
       if (e.date > c.last) c.last = e.date;
       if (e.updatedAt > c.lastAt) c.lastAt = e.updatedAt;
       if (e.status !== 'done') c.open++;
@@ -249,36 +242,18 @@ export function ReportsPage() {
         {reports && anyData && cards.length === 0 && emptySites.length === 0 && <p className="muted">Keine Baustelle gefunden.</p>}
 
         <div className="report-sites">
-          {cards.map((c) => {
-            const total = c.counts.regie + c.counts.tag + c.counts.woche;
-            const forms = [...c.forms.values()];
-            const formsTotal = forms.reduce((n, f) => n + f.count, 0);
-            return (
+          {cards.map((c) => (
               <a key={c.key} href={paths.reportSite(c.key)} className="report-site pc-stripe" style={pcStyle(colorOf(c.key))} data-testid="report-site" data-site={c.site.name}>
                 <div className="report-site-main">
                   <ProjectHeading info={{ name: c.site.name, number: c.head.number, costCenter: c.head.costCenter, address: c.head.address, client: c.head.client }} />
                   <span className="small">
-                    {[total ? `${total} ${total === 1 ? 'Bericht' : 'Berichte'}` : '', formsTotal ? `${formsTotal} ${formsTotal === 1 ? 'Formular' : 'Formulare'}` : ''].filter(Boolean).join(' · ')} · zuletzt {fmtDate(c.last, false)}
+                    zuletzt {fmtDate(c.last, false)}
                     {c.open > 0 && <span className="rp-badge"> {c.open} offen</span>}
                   </span>
-                  {forms.length > 0 && (
-                    <span className="small muted" data-testid="report-site-forms">
-                      {forms.map((f) => `${f.count} × ${f.name}`).join(' · ')}
-                    </span>
-                  )}
-                </div>
-                <div className="report-site-counts">
-                  {REPORT_TYPES.map((t) => (
-                    <span key={t.type} className={`report-count${c.counts[t.type] ? '' : ' empty'}`} title={t.plural}>
-                      <span className={`report-type t-${t.type}`}>{t.short}</span>
-                      <span>{c.counts[t.type]}</span>
-                    </span>
-                  ))}
                 </div>
                 <Icon name="next" size={18} />
               </a>
-            );
-          })}
+          ))}
           {emptySites.map((f) => (
             <a
               key={`empty:${f.projectId ?? f.name}`}
