@@ -321,30 +321,3 @@ html.app-fixed .tools-page a:hover .tile-go {
 html.app-fixed .page:not(.tools-page):not(.loading) {
   animation-fill-mode: backwards;
 }
-
-/* ---------- Übergang Tools ⇄ Werkzeug: Kachel wächst zur Seite, Symbol wandert in den Kopf (lib/router.ts) ---------- */
-::view-transition {
-  /* Tippen geht sofort weiter – der Übergang fängt keine Eingaben ab */
-  pointer-events: none;
-}
-::view-transition-group(tool-page),
-::view-transition-group(tool-icon) {
-  animation-duration: 0.3s;
-  animation-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
-}
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation-duration: 0.2s;
-}
-/* Kachel und Seite in ihrer echten Größe zeigen (nichts wird gestreckt): der wachsende Rahmen deckt die Seite auf */
-::view-transition-old(tool-page),
-::view-transition-new(tool-page) {
-  height: 100%;
-  object-fit: none;
-  object-position: top left;
-  overflow: clip;
-}
-::view-transition-group(tool-page) {
-  overflow: clip;
-  border-radius: 30px;
-}

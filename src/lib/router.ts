@@ -1,5 +1,4 @@
 import { useSyncExternalStore } from 'react';
-import { flushSync } from 'react-dom';
 
 /**
  * Router mit sauberen Adressen (History API): „/baupad“, „/kontakt“, „/en/contact“, „/baupad/tools“ …
@@ -307,48 +306,6 @@ export function canonicalPath(r: Route, lang: Lang = 'de'): string | null {
 const EVENT = 'baupad:navigate';
 const notify = () => window.dispatchEvent(new Event(EVENT));
 
-/** zuletzt angezeigte Adresse (für den Rückweg: welche Kachel gehört zur verlassenen Seite) */
-let shown = '';
-/**
- * Seitenwechsel melden. Zwischen Tools und einem Werkzeug als Übergang: Die Kachel wächst zur Seite, das Symbol
- * wandert in den Kopf (zurück umgekehrt). Nutzt „View Transitions“ des Browsers – ohne sie oder mit
- * „Bewegung reduzieren“ wechselt die Seite sofort. Die Namen werden nur für den Übergang gesetzt
- * (ein fester Name würde eine eigene Ebene bilden und die Kopfleiste über Fenster heben).
- */
-function show() {
-  const from = shown;
-  const to = (shown = currentPath());
-  const doc = document as Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void> } };
-  const wasTools = !!document.querySelector('.tools-page');
-  const toTools = parseRoute(to).name === 'tools';
-  const tileFor = (path: string) => [...document.querySelectorAll<HTMLElement>('.tools-page .tool-tile[href], .tools-page .tools-register')].find((a) => path.split('?')[0].startsWith(a.getAttribute('href') ?? ' '));
-  const startTile = wasTools ? tileFor(to) : undefined;
-  if (!doc.startViewTransition || wasTools === toTools || (wasTools && !startTile) || matchMedia('(prefers-reduced-motion: reduce)').matches) return notify();
-  const named: HTMLElement[] = [];
-  const name = (el: HTMLElement | null | undefined, n: string) => {
-    if (!el) return;
-    el.style.setProperty('view-transition-name', n);
-    named.push(el);
-  };
-  const tile = (t?: HTMLElement) => (name(t, 'tool-page'), name(t?.querySelector<HTMLElement>('.tile-icon, .tools-register-icon'), 'tool-icon'));
-  const page = () => (name(document.querySelector<HTMLElement>('.page:not(.tools-page)'), 'tool-page'), name(document.querySelector<HTMLElement>('.page-head .tool-mark'), 'tool-icon'));
-  if (wasTools) tile(startTile);
-  else page();
-  const clear = () => named.forEach((el) => el.style.removeProperty('view-transition-name'));
-  try {
-    doc
-      .startViewTransition(() => {
-        flushSync(notify);
-        if (wasTools) page();
-        else tile(tileFor(from));
-      })
-      .finished.then(clear, clear);
-  } catch {
-    clear();
-    notify();
-  }
-}
-
 /**
  * Aktuelle Adresse (Pfad + Abfrage), z. B. „/fotos/kamera?s=p:1“. Eine noch nicht umgeschriebene
  * „#/…“-Adresse zählt bereits als Ziel – so läuft keine Weiterleitung mit dem alten Pfad dazwischen.
@@ -429,7 +386,7 @@ export function navigate(path: string, replace = false) {
   }
   writeStack();
   if (!same && !replace) window.scrollTo(0, 0);
-  show();
+  notify();
 }
 
 /** Klicks auf interne Links (href „/…“) in der App halten, statt die Seite neu zu laden */
@@ -454,18 +411,20 @@ if (typeof window !== 'undefined') {
       notify();
     }
   });
-  shown = currentPath();
   window.addEventListener('popstate', () => {
     syncStack();
-    show();
+    notify();
   });
   document.addEventListener('click', onClick);
 }
 
 const subscribe = (l: () => void) => {
-  // Zurück/Vor (popstate) meldet der Router oben selbst über EVENT – so kann er den Wechsel als Übergang zeigen
   window.addEventListener(EVENT, l);
-  return () => window.removeEventListener(EVENT, l);
+  window.addEventListener('popstate', l);
+  return () => {
+    window.removeEventListener(EVENT, l);
+    window.removeEventListener('popstate', l);
+  };
 };
 
 /** aktuelle Adresse als Zustand (reagiert auf Navigation, Zurück/Vor und alte #-Links) */
