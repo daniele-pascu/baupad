@@ -1735,6 +1735,12 @@ input[type='range'] {
   font-size: 0.78rem;
   color: var(--muted);
 }
+/* Pfeil am Maßfeld: waagrecht bzw. senkrecht im Plan */
+.axis-mark {
+  margin-left: 4px;
+  vertical-align: -3px;
+  color: var(--text);
+}
 .draw-field input {
   width: 86px;
   height: 40px;

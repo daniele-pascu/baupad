@@ -961,6 +961,9 @@ test('Plan zeichnen am Handy: Kopf in einer Zeile; die Maß-Leiste rückt über 
   await noHorizontalScroll(page);
   // Tastatur 336 px hoch: die Leiste mit den Maßfeldern liegt ganz darüber
   const bar = page.locator('.draw-bar');
+  // Pfeile an den Maßfeldern: Länge waagrecht, Breite senkrecht
+  await expect(bar.locator('label', { hasText: 'Länge' }).locator('[data-axis="h"]')).toHaveCount(1);
+  await expect(bar.locator('label', { hasText: 'Breite' }).locator('[data-axis="v"]')).toHaveCount(1);
   await bar.locator('input').first().focus();
   await page.evaluate(() => {
     (window as unknown as { __kb: number }).__kb = 336;

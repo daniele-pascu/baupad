@@ -39,6 +39,24 @@ const FIELDS: Record<Field, { label: string; unit: string; degrees?: boolean }> 
   textHeight: { label: 'Schrifthöhe', unit: 'm' },
 };
 
+/**
+ * Pfeil am Maßfeld: zeigt, ob das Maß im Plan waagrecht oder senkrecht liegt (Länge/Grundseite waagrecht,
+ * Breite/Höhe senkrecht; um 90° gedreht vertauscht, schräg gedreht ohne Pfeil). Gezeichnet statt als Zeichen „↔“,
+ * das iPhones als buntes Bildzeichen darstellen.
+ */
+function AxisArrow({ field, type, rotation = 0 }: { field: Field; type: DrawElementType; rotation?: number }) {
+  if (type !== 'rect' && type !== 'triangle' && type !== 'ellipse') return null;
+  const base = field === 'length' || field === 'base' ? false : field === 'width' || field === 'height' ? true : null;
+  const turn = ((Math.round(rotation) % 180) + 180) % 180;
+  if (base === null || (turn !== 0 && turn !== 90)) return null;
+  const vertical = base !== (turn === 90);
+  return (
+    <svg className="axis-mark" viewBox="0 0 16 16" width="15" height="15" role="img" aria-label={vertical ? 'senkrecht' : 'waagrecht'} data-axis={vertical ? 'v' : 'h'}>
+      <path d={vertical ? 'M8 2v12M5 5l3-3 3 3M5 11l3 3 3-3' : 'M2 8h12M5 5 2 8l3 3M11 5l3 3-3 3'} fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function check(field: Field, input: string): { ok: true; value: number } | { ok: false; error: string } {
   if (FIELDS[field].degrees) {
     const n = parseDecimal(input.replace(/°$/, ''));
@@ -124,7 +142,10 @@ export function InsertBar({
       <strong className="draw-bar-title">{ELEMENT_LABELS[tool]} mit Maßen</strong>
       {fields.map((f) => (
         <label key={f} className="draw-field">
-          <span>{FIELDS[f].label}</span>
+          <span>
+            {FIELDS[f].label}
+            <AxisArrow field={f} type={tool} />
+          </span>
           <span className="input-unit">
             <input
               value={values[f] ?? ''}
@@ -363,7 +384,10 @@ export function ElementBar({
       {element.type === 'text' && onFont && onColor && <FontControls font={element.font} color={element.color} onFont={onFont} onColor={onColor} compact />}
       {fields.map((f) => (
         <label key={f} className="draw-field">
-          <span>{isWindow && f === 'length' ? 'Breite' : isWindow && f === 'width' ? 'Tiefe' : FIELDS[f].label}</span>
+          <span>
+            {isWindow && f === 'length' ? 'Breite' : isWindow && f === 'width' ? 'Tiefe' : FIELDS[f].label}
+            <AxisArrow field={f} type={element.type} rotation={current.rotation} />
+          </span>
           <span className="input-unit">
             <input
               value={values[f] ?? ''}
