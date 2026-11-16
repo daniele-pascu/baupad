@@ -2817,11 +2817,20 @@ tr.lv-flagged td {
     flex: 0 0 auto;
     overflow-x: visible;
   }
+  /* der Projektname steht schon auf der Seite davor – hier zählt die Höhe (am iPhone läge er zudem unter der Statusleiste) */
   .editor-topbar.one-row .topbar-title small {
-    line-height: 1.2;
+    display: none;
   }
-  .editor-topbar.one-row .plan-switch select {
-    height: 32px;
+  .editor-topbar.one-row {
+    min-height: 44px;
+  }
+  .editor-topbar.one-row ~ .mode-bar {
+    padding-top: 2px;
+    padding-bottom: 2px;
+  }
+  .editor-topbar.one-row ~ .mobile-tabs {
+    margin-top: 2px;
+    margin-bottom: 2px;
   }
   /* Umschalter Plan/Tabelle: flacher */
   .mobile-tabs {
