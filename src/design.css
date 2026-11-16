@@ -56,6 +56,37 @@ html.app-fixed[data-theme='dark'] {
 html.app-fixed body {
   background: transparent;
 }
+/*
+ * Seiten mit schwarzer Kopfleiste: Der Grund der Seite ist ebenfalls schwarz, das helle Licht malt der Seitenkörper –
+ * oben mit einem schwarzen Streifen in Höhe der Kopfleiste. Das iPhone färbt den Bereich hinter der Uhrzeit nach dem,
+ * was ganz oben liegt; während eines Seitenwechsels (Kachel wächst zur Seite) sieht es dort nur den Grund der Seite –
+ * wäre der hell, blitzt der Streifen oben weiß auf.
+ */
+html.app-fixed:has(.site-nav),
+html.app-fixed:has(.page.loading.with-nav) {
+  background-color: #101211;
+  background-image: none;
+}
+html.app-fixed:has(.site-nav) body,
+html.app-fixed:has(.page.loading.with-nav) body {
+  background-color: var(--bg);
+  background-image: linear-gradient(#101211, #101211), radial-gradient(900px 620px at 8% 40px, #fff 0, transparent 62%), radial-gradient(900px 700px at 96% 320px, rgba(16, 18, 17, 0.07) 0, transparent 60%);
+  /* 1 px weniger als die Kopfleiste: der Streifen liegt sicher unter ihr und schaut nirgends hervor */
+  background-size: 100% calc(var(--d-nav) + var(--safe-top) - 1px), auto, auto;
+  background-repeat: no-repeat;
+}
+html.app-fixed {
+  --d-nav: 64px;
+}
+@media (max-width: 720px) {
+  html.app-fixed {
+    --d-nav: 56px;
+  }
+}
+html.app-fixed[data-theme='dark']:has(.site-nav) body,
+html.app-fixed[data-theme='dark']:has(.page.loading.with-nav) body {
+  background-image: linear-gradient(#101211, #101211);
+}
 
 /* Kopfleiste: Markenschwarz, deckend */
 html.app-fixed .site-nav {
