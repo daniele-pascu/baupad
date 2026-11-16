@@ -20,9 +20,9 @@ interface Tool {
 }
 
 const TOOLS: Tool[] = [
-  { id: 'projects', title: 'Aufmaß', text: 'LV, Pläne, Abrechnung, PDF', color: '#ff6a13', href: paths.projects() },
+  { id: 'projects', title: 'Aufmaß', text: 'Pläne, LV, Messungen und Abrechnung', color: '#ff6a13', href: paths.projects() },
   { id: 'workers', title: 'Team', text: 'Wochenplanung nach Baustellen', color: '#2f80ed', href: paths.workers() },
-  { id: 'photos', title: 'Fotos', text: 'Dokumentation je Baustelle, Tag, Woche', color: '#111111', href: paths.photos() },
+  { id: 'photos', title: 'Fotos', text: 'Dokumentation je Baustelle, Woche und Tag', color: '#111111', href: paths.photos() },
   { id: 'reports', title: 'Berichte', text: 'Regielisten, Bautages- und Wochenberichte', color: '#a259ff', href: paths.reports() },
   { id: 'defects', title: 'Mängel', text: 'Mängel im Plan markieren, Fotos und PDF', color: '#d6242b', href: paths.defects() },
   { id: 'times', title: 'Zeiten', text: 'Stunden je Arbeiter und Tag, Monatszettel', color: '#0f9d76', href: paths.times() },
