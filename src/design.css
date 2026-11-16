@@ -411,9 +411,9 @@ html.app-fixed .page.loading.with-nav::before {
 }
 
 /* ---------- Planeditor am Handy: eine schwebende Leiste (gezeichnete Pläne) ----------
-   Oben bleiben Kopfzeile und ein Umschalter (Zeichnen · Aufmaß · Tabelle). Die Werkzeuge liegen unten als Glasleiste;
-   Gruppen (bisher Registerkarten) und Hilfen öffnen sich über die Gruppen-Taste. Beim Ziehen einer Form treten
-   alle Leisten zurück. Ab 601 px Breite bleibt alles wie bisher. */
+   Oben: Kopfzeile, ein Umschalter (Zeichnen · Aufmaß · Tabelle) und darunter die Werkzeuge als schwebende Glasleiste –
+   unten bleibt Platz zum Zeichnen. Gruppen (bisher Registerkarten) und Hilfen öffnen sich über die Gruppen-Taste.
+   Beim Ziehen einer Form treten alle Leisten zurück. Ab 601 px Breite bleibt alles wie bisher. */
 .mode-switch {
   display: flex;
   margin: 3px 8px;
@@ -427,10 +427,10 @@ html.app-fixed .page.loading.with-nav::before {
   white-space: nowrap;
 }
 .ribbon.ribbon-float {
-  top: auto;
+  top: 6px;
   left: 8px;
   right: 8px;
-  bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  bottom: auto;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -509,20 +509,15 @@ html.app-fixed .page.loading.with-nav::before {
   padding-left: 10px;
   padding-right: 10px;
 }
-/* Zeichenfläche bis ganz oben; Ansichts-Tasten oben rechts; Eingabeleisten über der Werkzeugleiste */
+/* Zeichenfläche bis ganz oben (die Leiste schwebt darüber); Ansichts-Tasten darunter; Eingabeleisten unten wie bisher */
 .editor-plan:has(> .ribbon-float) .viewer {
   top: 0;
 }
 .editor-plan:has(> .ribbon-float) .zoom-controls {
-  top: 8px;
+  top: calc(var(--ribbon-h, 58px) + 14px);
 }
 .editor-plan:has(> .ribbon-float) .draw-bar {
-  top: auto;
-  bottom: calc(var(--ribbon-h, 58px) + 16px + env(safe-area-inset-bottom, 0px));
   transition: opacity 0.15s ease;
-}
-html.kb-open .editor-plan:has(> .ribbon-float) .draw-bar {
-  bottom: calc(8px + var(--kb, 0px));
 }
 /* Gruppen offen: die Eingabeleiste macht Platz */
 .editor-plan:has(> .ribbon-float.groups-open) .draw-bar {
@@ -542,9 +537,13 @@ html.kb-open .editor-plan:has(> .ribbon-float) .draw-bar {
 }
 /* beim Ziehen einer Form: alle Leisten treten zurück, der Plan ist frei */
 .editor-plan:has(.viewer[data-drawing]) > .ribbon-float,
-.editor-plan:has(.viewer[data-drawing]) .draw-bar {
+.editor-plan:has(> .ribbon-float):has(.viewer[data-drawing]) .draw-bar,
+.editor-plan:has(> .ribbon-float):has(.viewer[data-drawing]) .zoom-controls {
   opacity: 0;
   pointer-events: none;
+}
+.editor-plan:has(> .ribbon-float) .zoom-controls {
+  transition: opacity 0.15s ease;
 }
 @media (prefers-reduced-motion: reduce) {
   .ribbon-float > * {

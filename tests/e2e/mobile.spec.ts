@@ -978,16 +978,14 @@ test('Plan zeichnen am Handy: Kopf in einer Zeile; die Maß-Leiste rückt über 
   for (const input of await bar.locator('input').all()) {
     expect(await input.evaluate((el) => { const r = el.getBoundingClientRect(); return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) === el; })).toBe(true);
   }
-  // Tastatur zu: wieder unten, direkt über der schwebenden Werkzeugleiste
+  // Tastatur zu: wieder am unteren Rand (die schwebende Werkzeugleiste liegt oben – unten bleibt Platz zum Zeichnen)
   await page.evaluate(() => {
     (window as unknown as { __kb: number }).__kb = 0;
     window.visualViewport!.dispatchEvent(new Event('resize'));
   });
-  await expect.poll(async () => { const b = (await bar.boundingBox())!; return b.y + b.height; }).toBeGreaterThan(vh - 110);
+  await expect.poll(async () => { const b = (await bar.boundingBox())!; return b.y + b.height; }).toBeGreaterThan(vh - 60);
   const tools = (await page.getByTestId('draw-toolbar').boundingBox())!;
-  const bb = (await bar.boundingBox())!;
-  expect(bb.y + bb.height).toBeLessThanOrEqual(tools.y); // liegt über der Werkzeugleiste, nicht darauf
-  expect(tools.y + tools.height).toBeGreaterThan(vh - 20); // Werkzeugleiste ganz unten
+  expect(tools.y).toBeLessThan(120); // Werkzeugleiste oben, direkt unter dem Umschalter
   // Zeichenfläche beginnt direkt unter Kopfzeile und Umschalter (keine Werkzeugzeilen mehr oben)
   expect((await page.locator('.editor-plan').boundingBox())!.y).toBeLessThan(110);
 });
