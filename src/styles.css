@@ -1750,12 +1750,19 @@ input[type='range'] {
   .guide-bar > .draw-bar-title {
     display: none;
   }
+  /* eng gesetzt, damit „waagrecht“ im Auswahlfeld ganz zu lesen ist */
+  .guide-bar {
+    gap: 6px;
+  }
   .guide-bar select {
     flex: 1 1 0;
+    padding: 0 0 0 6px;
+    font-size: 14px;
+    letter-spacing: -0.01em;
   }
-  .guide-bar .btn-sm {
-    padding-left: 9px;
-    padding-right: 9px;
+  .draw-bar.guide-bar .btn-sm {
+    padding-left: 8px;
+    padding-right: 8px;
   }
 }
 /* Pfeil am Maßfeld: waagrecht bzw. senkrecht im Plan */
