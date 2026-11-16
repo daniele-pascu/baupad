@@ -502,7 +502,8 @@ export const de = {
       description: 'Datenschutzerklärung von PAD Software für Website, Kontaktformular und BauPad.',
       heading: 'Datenschutz',
       stand: 'Stand',
-      summary: 'Kurz gesagt: Ihr Benutzerkonto liegt bei unserem Dienstleister in der EU, Ihre Projekte, Fotos und Berichte bleiben auf Ihrem Gerät. Die Website setzt keine Tracking-Cookies.',
+      standDate: 'November 2026',
+      summary: 'Kurz gesagt: Ihr Benutzerkonto liegt bei unserem Dienstleister in der EU. Ihre Projekte, Fotos und Berichte liegen auf Ihrem Gerät; gehört Ihr Konto zu einer Firma, zusätzlich in der zentralen Ablage dieser Firma in der EU. Die Website setzt keine Tracking-Cookies.',
       sections: [
         { h: 'Verantwortlicher', p: ['{company}{address}{email}. Weitere Angaben im Impressum.'] },
         {
@@ -515,7 +516,7 @@ export const de = {
         {
           h: 'Kontaktformular',
           p: [
-            'Wenn Sie das Kontaktformular nutzen, verarbeiten wir Name, Unternehmen (optional), E-Mail-Adresse, Betreff und Nachricht, um Ihre Anfrage zu beantworten (Art. 6 Abs. 1 lit. b DSGVO). Die Nachricht wird über unseren Dienstleister Supabase Inc. (Rechenzentrum in der EU, Irland) entgegengenommen und per E-Mail an uns zugestellt; für den Versand nutzen wir den E-Mail-Dienst Resend. Wir speichern Anfragen so lange, wie es für die Bearbeitung nötig ist, längstens zwölf Monate.',
+            'Wenn Sie das Kontaktformular nutzen, verarbeiten wir Name, Unternehmen (optional), E-Mail-Adresse, Betreff und Nachricht, um Ihre Anfrage zu beantworten (Art. 6 Abs. 1 lit. b DSGVO). Die Nachricht wird über unseren Dienstleister Supabase Inc. (Rechenzentrum in der EU, Irland) entgegengenommen und per E-Mail an uns zugestellt; für den Versand nutzen wir den E-Mail-Dienst Resend. Zusätzlich wird die IP-Adresse gespeichert, von der die Anfrage kommt (Schutz vor Missbrauch des Formulars). Wir speichern Anfragen so lange, wie es für die Bearbeitung nötig ist, längstens zwölf Monate; in Sicherungen können sie bis zu zwölf weitere Monate enthalten sein (siehe „Sicherungen“).',
           ],
         },
         {
@@ -545,6 +546,12 @@ export const de = {
             'Die zentrale Ablage speichert die Inhalte eines Unternehmens (Projekte, Pläne, Aufmaße, Berichte, Einteilung, Mängelpläne, Formulare, Fotos, Stunden, Materiallisten) für alle Geräte und Benutzer dieser Firma. Zugriff haben nur angemeldete Benutzer der Firma im Rahmen der vom Admin vergebenen Rechte. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung).',
             'Datensätze (Angaben zu Projekten, Messungen, Berichten, Einteilung, Markierungen) speichert unser Auftragsverarbeiter Supabase Inc. in einem Rechenzentrum in der EU (Irland). Dateien (Originalpläne, Planbilder, Formular-PDFs, Fotos) speichert unser Auftragsverarbeiter Hetzner Online GmbH in einem Rechenzentrum in Nürnberg (Deutschland). Die Übertragung erfolgt verschlüsselt über kurzlebige, auf die Firma beschränkte Zugriffslinks; PAD Software hat keinen Zugriff auf die Inhalte Ihrer Firma, nur auf Kontodaten und Abrechnung.',
             'Die Inhalte bleiben gespeichert, bis Sie sie in BauPad löschen oder die Firma ihren Arbeitsbereich auflöst; Löschen gilt für alle Geräte der Firma. Mit beiden Dienstleistern bestehen Auftragsverarbeitungsverträge nach Art. 28 DSGVO.',
+          ],
+        },
+        {
+          h: 'Sicherungen',
+          p: [
+            'Die Datenbank (Kontodaten ohne Passwörter, Arbeitsbereiche, Datensätze der zentralen Ablage, Verzeichnis der Fotos und Kontaktanfragen) wird täglich gesichert. Die Sicherungen liegen bei Hetzner Online GmbH im Rechenzentrum Nürnberg (Deutschland). Tägliche Stände werden 30 Tage aufbewahrt, der Stand vom Monatsersten zwölf Monate. Gelöschte Daten können deshalb bis zu zwölf Monate in einer Sicherung enthalten sein.',
           ],
         },
         {

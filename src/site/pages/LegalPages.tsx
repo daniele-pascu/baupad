@@ -1,6 +1,6 @@
 import { paths } from '../../lib/router';
 import { contactData } from '../contact-data';
-import { fill, monthYear, useLang } from '../i18n';
+import { fill, useLang } from '../i18n';
 import { siteAlternates } from '../seo';
 import { Reveal } from '../components/Reveal';
 import { Section } from '../components/Section';
@@ -54,7 +54,7 @@ export function PrivacyPage() {
         <Reveal className="ps-text">
           <h1 className="ps-h1">{p.heading}</h1>
           <p className="ps-lead ps-lead-dark">
-            {p.stand}: {monthYear(lang)}. {p.summary}
+            {p.stand}: {p.standDate}. {p.summary}
           </p>
           {p.sections.map((s) => (
             <section key={s.h} className="ps-legal-section">

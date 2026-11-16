@@ -19,7 +19,3 @@ export function fill(text: string, vars: Record<string, string>): string {
   return text.replace(/\{(\w+)\}/g, (_, k: string) => vars[k] ?? '');
 }
 
-/** Datumsanzeige je Sprache (Monat Jahr) */
-export function monthYear(lang: Lang, d = new Date()): string {
-  return d.toLocaleDateString(lang === 'de' ? 'de-AT' : 'en-GB', { month: 'long', year: 'numeric' });
-}

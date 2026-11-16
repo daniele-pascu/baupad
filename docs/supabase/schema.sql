@@ -40,7 +40,8 @@ create table if not exists public.memberships (
 create table if not exists public.operators (
   email text primary key
 );
-insert into public.operators (email) values ('danielepascu.a@gmail.com') on conflict do nothing;
+-- [BETREIBER-E-MAIL] vor dem Ausführen durch die E-Mail-Adresse des Betreiber-Kontos ersetzen
+insert into public.operators (email) values ('[BETREIBER-E-MAIL]') on conflict do nothing;
 -- Arbeitsbereiche, in denen ein Betreiber Mitglied ist, sind freigeschaltet
 update public.workspaces w set active = true, activated_at = coalesce(w.activated_at, now())
   where not w.active and exists (

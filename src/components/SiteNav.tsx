@@ -71,10 +71,14 @@ export function SiteNav() {
         </a>
         <nav className={`site-links${open ? ' open' : ''}`} aria-label="Hauptnavigation" id="site-links">
           {session ? (
-            // angemeldet: nur die App – Kontakt und Rechtliches stehen unter Konto und Einstellungen
-            <a href={paths.tools()} aria-current={current(paths.tools())}>
-              Tools
-            </a>
+            // angemeldet: die App; Impressum und Datenschutz von jeder Werkzeugseite mit einem Klick
+            <>
+              <a href={paths.tools()} aria-current={current(paths.tools())}>
+                Tools
+              </a>
+              <a href={paths.imprint()}>Impressum</a>
+              <a href={paths.privacy()}>Datenschutz</a>
+            </>
           ) : (
             <>
               <a href={paths.landing()}>Website</a>

@@ -39,7 +39,7 @@ Zugangsdaten in `src/lib/supabase-config.ts`.)
    Das legt an: Arbeitsbereiche, Profile, Mitgliedschaften, Betreiber-Liste, Zugriffsregeln, den Automatismus
    „Registrierung → eigener Arbeitsbereich mit Admin“, `my_context()` und „Konto löschen“.
 3. Betreiber: In der Tabelle `operators` (Table Editor) stehen die E-Mail-Adressen, die die Betreiber-Übersicht
-   sehen. Vorbelegt ist danielepascu.a@gmail.com; später office@pad-software.at ergänzen.
+   sehen. Im Skript vor dem Ausführen [BETREIBER-E-MAIL] durch die Adresse des Betreiber-Kontos ersetzen; später office@pad-software.at ergänzen.
 
 Das Skript kann jederzeit erneut ausgeführt werden, Daten bleiben erhalten (zuletzt geändert 30.10.2026: Projekte je Werkzeug `tool_sites` in Mitgliedschaften und Einladungen, `my_context`, `list_workspace_users`, `upsert_workspace_user`). Nach jeder Änderung an
 `schema.sql` (steht im Commit-Text) bitte erneut ausführen.

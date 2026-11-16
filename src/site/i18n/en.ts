@@ -500,7 +500,8 @@ export const en: Dict = {
       description: 'Privacy policy of PAD Software for the website, the contact form and BauPad.',
       heading: 'Privacy',
       stand: 'As of',
-      summary: 'In short: your user account is stored with our provider in the EU, your projects, photos and reports stay on your device. The website sets no tracking cookies.',
+      standDate: 'November 2026',
+      summary: 'In short: your user account is stored with our provider in the EU. Your projects, photos and reports are stored on your device; if your account belongs to a company, they are also stored in that company’s central storage in the EU. The website sets no tracking cookies.',
       sections: [
         { h: 'Controller', p: ['{company}{address}{email}. Further details in the imprint.'] },
         {
@@ -513,7 +514,7 @@ export const en: Dict = {
         {
           h: 'Contact form',
           p: [
-            'If you use the contact form, we process name, company (optional), e-mail address, subject and message in order to answer your enquiry (Art. 6 (1) (b) GDPR). The message is received via our provider Supabase Inc. (data centre in the EU, Ireland) and delivered to us by e-mail; for sending we use the e-mail service Resend. We keep enquiries as long as needed for processing, at most twelve months.',
+            'If you use the contact form, we process name, company (optional), e-mail address, subject and message in order to answer your enquiry (Art. 6 (1) (b) GDPR). The message is received via our provider Supabase Inc. (data centre in the EU, Ireland) and delivered to us by e-mail; for sending we use the e-mail service Resend. In addition, the IP address the enquiry comes from is stored (protection against misuse of the form). We keep enquiries as long as needed for processing, at most twelve months; backups may contain them for up to twelve further months (see “Backups”).',
           ],
         },
         {
@@ -543,6 +544,12 @@ export const en: Dict = {
             'Central storage keeps the content of a company (projects, plans, measurements, reports, scheduling, defect plans, forms, photos, hours, material lists) for all devices and users of that company. Only signed-in users of the company have access, within the rights granted by the admin. The legal basis is Art. 6 (1) (b) GDPR (performance of contract).',
             'Records (details of projects, measurements, reports, scheduling, markers) are stored by our processor Supabase Inc. in a data centre in the EU (Ireland). Files (original plans, plan images, form PDFs, photos) are stored by our processor Hetzner Online GmbH in a data centre in Nuremberg (Germany). Transfers are encrypted via short-lived access links restricted to the company; PAD Software has no access to the content of your company, only to account data and billing.',
             'Content stays stored until you delete it in BauPad or the company dissolves its workspace; deletion applies to all devices of the company. Data processing agreements under Art. 28 GDPR are in place with both providers.',
+          ],
+        },
+        {
+          h: 'Backups',
+          p: [
+            'The database (account data without passwords, workspaces, records of the central storage, the photo index and contact enquiries) is backed up daily. The backups are stored with Hetzner Online GmbH in the Nuremberg data centre (Germany). Daily backups are kept for 30 days, the backup of the first day of each month for twelve months. Deleted data may therefore remain in a backup for up to twelve months.',
           ],
         },
         {
