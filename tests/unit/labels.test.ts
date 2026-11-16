@@ -92,4 +92,12 @@ describe('Verbindungslinie zum echten Umriss', () => {
   it('Nummer direkt am Rechteck erhält keine Linie', () => {
     expect(leaderLine({ type: 'rect', x: 0, y: 0, w: 100, h: 100 }, { x: 103, y: 40, w: 16, h: 14 }, 7)).toBeNull();
   });
+  it('Nummer in der Fläche: keine Verbindungslinie – außerhalb schon', () => {
+    const flaeche = { type: 'rect' as const, x: 0, y: 0, w: 200, h: 120 };
+    expect(leaderLine(flaeche, { x: 92, y: 53, w: 16, h: 14 }, 5)).toBeNull(); // mittig in der Fläche
+    expect(leaderLine(flaeche, { x: 20, y: 20, w: 16, h: 14 }, 5)).toBeNull(); // innen, weit vom Rand
+    expect(leaderLine(flaeche, { x: 240, y: 53, w: 16, h: 14 }, 5)).not.toBeNull(); // außerhalb
+    // Kreis: innen keine Linie
+    expect(leaderLine({ type: 'ellipse', x: 0, y: 0, w: 100, h: 100 }, { x: 42, y: 43, w: 16, h: 14 }, 4)).toBeNull();
+  });
 });

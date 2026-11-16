@@ -711,6 +711,8 @@ function nearestOnSegment(p: Point, a: Point, b: Point): Point {
  */
 export function leaderLine(shape: Shape, label: Rect, minGap: number): { from: Point; to: Point } | null {
   const lc = { x: label.x + label.w / 2, y: label.y + label.h / 2 };
+  // Nummer steht in der Fläche: keine Linie – sie gehört sichtbar dazu; nur außerhalb braucht es die Verbindung
+  if (!isOpenShape(shape) && hitShape(shape, lc, 0)) return null;
   const to = outlinePointToward(shape, lc);
   const from = nearestPointOnRect(label, to);
   if (Math.hypot(from.x - to.x, from.y - to.y) <= minGap) return null;
