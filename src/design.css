@@ -1,0 +1,257 @@
+/*
+ * BauPad – neues Design (Entwurf, Phase 1/2).
+ * Gilt nur mit <html data-design="neu"> (Vorschau über „?design=neu“, zurück mit „?design=alt“) – ohne den Schalter
+ * bleibt die App unverändert. Umgesetzt sind die Grundwerte (Farben, Rundungen, Schatten, Glas) und als erster
+ * Bereich die Tools-Seite samt Kopfleiste (schwarz). Weitere Bereiche folgen erst nach Freigabe.
+ */
+html[data-design='neu'] {
+  /* Farben: neutral (Marke: Schwarz #101211, Anthrazit #252A27, Hell #F4F5F1); Akzent vorerst Anthrazit */
+  --n-bg: #f4f5f1;
+  --n-surface: #ffffff;
+  --n-ink: #101211;
+  --n-ink-2: #252a27;
+  --n-muted: #666c67;
+  --n-faint: #9a9f99;
+  --n-line: rgba(16, 18, 17, 0.08);
+  --n-line-strong: rgba(16, 18, 17, 0.16);
+  --n-accent: #252a27;
+  /* Glas: halbtransparent; Unschärfe nur bei schwebenden Leisten und Menüs */
+  --n-glass: rgba(255, 255, 255, 0.72);
+  --n-glass-solid: rgba(255, 255, 255, 0.94);
+  --n-blur: saturate(1.6) blur(18px);
+  /* Planpapier: feines Punktraster wie im Planeditor */
+  --n-dot: rgba(16, 18, 17, 0.07);
+  /* Rundungen: Bedienelemente 12, Karten 22, Tasten rund */
+  --n-r-s: 12px;
+  --n-r-m: 16px;
+  --n-r-l: 22px;
+  --n-r-pill: 999px;
+  --n-shadow-1: 0 1px 2px rgba(16, 18, 17, 0.04), 0 4px 14px -6px rgba(16, 18, 17, 0.08);
+  --n-shadow-2: 0 2px 4px rgba(16, 18, 17, 0.05), 0 18px 36px -18px rgba(16, 18, 17, 0.22);
+  --n-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* Seite: Planpapier */
+html[data-design='neu']:has(.tools-page) {
+  background: var(--n-bg) radial-gradient(var(--n-dot) 1px, transparent 1.3px) 0 0 / 24px 24px;
+}
+html[data-design='neu']:has(.tools-page) body {
+  background: transparent;
+}
+
+/* Kopfleiste: bleibt schwarz (Markenschwarz, deckend) */
+html[data-design='neu']:has(.tools-page) .site-nav {
+  background: var(--n-ink);
+}
+html[data-design='neu']:has(.tools-page) .site-links a,
+html[data-design='neu']:has(.tools-page) .site-login {
+  font-weight: 500;
+}
+html[data-design='neu']:has(.tools-page) .site-login {
+  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+html[data-design='neu']:has(.tools-page) .site-login:hover,
+html[data-design='neu']:has(.tools-page) .site-login[aria-current='page'] {
+  border-color: #fff;
+  background: rgba(255, 255, 255, 0.16);
+}
+@media (max-width: 720px) {
+  html[data-design='neu']:has(.tools-page) .site-links {
+    background: var(--n-ink);
+    border-radius: 0 0 var(--n-r-l) var(--n-r-l);
+    box-shadow: var(--n-shadow-2);
+  }
+  html[data-design='neu']:has(.tools-page) .site-links a {
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+  }
+  html[data-design='neu']:has(.tools-page) .site-links a:last-child {
+    border-bottom: 0;
+  }
+}
+
+/* Tools-Seite */
+html[data-design='neu'] .page.tools-page {
+  max-width: 1152px;
+}
+html[data-design='neu'] .tools-page .page-head {
+  padding: 28px 0 6px;
+}
+html[data-design='neu'] .tools-page .page-head h1 {
+  font-size: clamp(2rem, 4vw, 2.6rem);
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  color: var(--n-ink);
+}
+html[data-design='neu'] .tools-eyebrow {
+  margin-bottom: 4px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--n-muted);
+}
+html[data-design='neu'] .tools-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+html[data-design='neu'] .tool-tile {
+  min-height: 184px;
+  padding: 20px 20px 34px;
+  gap: 14px;
+  border: 1px solid var(--n-line);
+  border-radius: var(--n-r-l);
+  background: var(--n-glass);
+  box-shadow: var(--n-shadow-1);
+  color: var(--n-ink);
+  transition:
+    transform 0.22s var(--n-ease),
+    box-shadow 0.22s var(--n-ease),
+    background 0.22s var(--n-ease),
+    border-color 0.22s var(--n-ease);
+}
+html[data-design='neu'] a.tool-tile:hover {
+  transform: translateY(-2px);
+  border-color: var(--n-line-strong);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: var(--n-shadow-2);
+}
+html[data-design='neu'] a.tool-tile:active {
+  transform: scale(0.985);
+}
+html[data-design='neu'] a.tool-tile:focus-visible,
+html[data-design='neu'] .tools-register:focus-visible {
+  outline: 2px solid var(--n-ink);
+  outline-offset: 3px;
+  box-shadow: var(--n-shadow-1);
+}
+/* Maßstrich in der Farbe des Werkzeugs – das wiederkehrende Zeichen von BauPad */
+html[data-design='neu'] .tool-tile::after {
+  content: '';
+  position: absolute;
+  left: 20px;
+  bottom: 18px;
+  width: 22px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--tool);
+}
+html[data-design='neu'] .tile-mark {
+  display: none; /* großes Symbol im Hintergrund: weniger Unruhe */
+}
+html[data-design='neu'] .tool-tile .tile-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 15px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.26), 0 1px 2px rgba(16, 18, 17, 0.14);
+}
+html[data-design='neu'] .tile-text {
+  margin-top: 6px;
+  gap: 3px;
+}
+html[data-design='neu'] .tool-tile .tile-text strong {
+  font-size: clamp(0.8rem, 7.6cqi, 1.12rem);
+  font-weight: 620;
+  letter-spacing: -0.015em;
+}
+html[data-design='neu'] .tile-text span {
+  color: var(--n-muted);
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+/* „Öffnen“ wird zur runden, halbtransparenten Pfeiltaste oben rechts */
+html[data-design='neu'] .tool-tile .tile-go,
+html[data-design='neu'] .tools-register .tile-go {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin: 0;
+  border: 1px solid var(--n-line);
+  border-radius: 50%;
+  background: rgba(16, 18, 17, 0.045);
+  color: var(--n-ink);
+  font-size: 0;
+  transition: background 0.2s var(--n-ease), color 0.2s var(--n-ease), border-color 0.2s var(--n-ease);
+}
+html[data-design='neu'] .tool-tile .tile-go {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+}
+html[data-design='neu'] .tile-go span {
+  font-size: 1rem;
+  line-height: 1;
+}
+html[data-design='neu'] a.tool-tile:hover .tile-go,
+html[data-design='neu'] .tools-register:hover .tile-go {
+  border-color: transparent;
+  background: var(--n-ink);
+  color: #fff;
+}
+html[data-design='neu'] .tools-page .tools-register {
+  margin-top: 16px;
+  padding: 16px 20px;
+  border: 1px solid var(--n-line);
+  border-radius: var(--n-r-l);
+  background: var(--n-glass);
+  box-shadow: var(--n-shadow-1);
+  transition: transform 0.22s var(--n-ease), box-shadow 0.22s var(--n-ease), background 0.22s var(--n-ease), border-color 0.22s var(--n-ease);
+}
+html[data-design='neu'] .tools-page .tools-register:hover {
+  transform: translateY(-1px);
+  border-color: var(--n-line-strong);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: var(--n-shadow-2);
+}
+html[data-design='neu'] .tools-register-icon {
+  border-radius: 15px;
+  background: var(--n-ink-2);
+}
+html[data-design='neu'] .tools-quick {
+  border-radius: var(--n-r-pill);
+  background: var(--n-ink);
+}
+@media (max-width: 1099px) {
+  html[data-design='neu'] .tools-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 699px) {
+  html[data-design='neu'] .tools-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  html[data-design='neu'] .tool-tile {
+    min-height: 166px;
+    padding: 16px 16px 30px;
+    gap: 10px;
+  }
+  html[data-design='neu'] .tool-tile .tile-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+  }
+  html[data-design='neu'] .tool-tile .tile-go {
+    top: 16px;
+    right: 16px;
+    width: 32px;
+    height: 32px;
+  }
+  html[data-design='neu'] .tool-tile::after {
+    left: 16px;
+    bottom: 15px;
+  }
+  html[data-design='neu'] .tile-text span {
+    font-size: 0.82rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-design='neu'] .tool-tile,
+  html[data-design='neu'] .tools-page .tools-register,
+  html[data-design='neu'] .tile-go {
+    transition: none;
+  }
+}

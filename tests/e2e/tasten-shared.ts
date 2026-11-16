@@ -79,6 +79,20 @@ export function tastenTests() {
     });
   });
 
+  test('Tasten: Tools-Seite im neuen Design (Vorschau über ?design=neu) – nichts überlappt, verdeckt oder abgeschnitten', async ({ page }) => {
+    const out: string[] = [];
+    await freshStart(page);
+    await page.goto('./baupad/tools?design=neu');
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('html')).toHaveAttribute('data-design', 'neu');
+    await pruefe(page, 'Tools (neues Design)', out);
+    if (await page.locator('.site-menu-btn').isVisible()) {
+      await page.locator('.site-menu-btn').click();
+      await pruefe(page, 'Tools (neues Design) mit offenem Menü', out);
+    }
+    expect(out, out.join('\n')).toEqual([]);
+  });
+
   test('Tasten: alle Tools – nichts überlappt, verdeckt oder abgeschnitten', async ({ page }) => {
     const out: string[] = [];
     await freshStart(page);
