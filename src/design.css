@@ -139,7 +139,7 @@ html.app-fixed .project-block .block-icon {
   letter-spacing: -0.04em;
 }
 
-/* ---------- Tools: acht gleich große Kacheln (Projektregister als letzte) ---------- */
+/* ---------- Tools: gleich große Kacheln; Kamera und Projektregister als Tasten darüber ---------- */
 html.app-fixed .page.tools-page {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -150,6 +150,46 @@ html.app-fixed .page.tools-page {
 }
 html.app-fixed .tools-page > * {
   grid-column: 1 / -1;
+}
+/* Kamera (installierte App) und Projektregister (Admin, Büro): keine Werkzeuge – als Tasten über den Kacheln */
+.tools-quick-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.tools-quick-row .tools-quick {
+  margin: 0;
+  border-radius: 999px;
+}
+/* Handy: beide Tasten nebeneinander in einer Zeile (ohne Pfeil, etwas kleiner) */
+@media (max-width: 519px) {
+  .tools-quick-row {
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+  .tools-quick-row .tools-quick {
+    flex: 1 1 0;
+    min-width: 0;
+    justify-content: center;
+    gap: 7px;
+    padding: 11px 8px;
+    font-size: 0.92rem;
+    white-space: nowrap;
+  }
+  .tools-quick-row .tools-quick:only-child {
+    flex: 0 1 auto;
+    padding: 11px 16px;
+  }
+  .tools-quick-row .tools-quick svg:last-child {
+    display: none;
+  }
+}
+.tools-quick.tools-quick-light,
+.tools-quick.tools-quick-light:hover {
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
 }
 html.app-fixed .tools-page > .page-head {
   padding: 40px 4px 14px;
@@ -175,8 +215,7 @@ html.app-fixed .tools-page .tile-mark,
 html.app-fixed .tools-page .tool-tile::after {
   display: none;
 }
-html.app-fixed .tools-page .tool-tile,
-html.app-fixed .tools-page .tools-register {
+html.app-fixed .tools-page .tool-tile {
   position: relative;
   display: flex;
   flex-direction: column;
@@ -197,14 +236,12 @@ html.app-fixed .tools-page .tools-register {
   backdrop-filter: var(--d-blur);
   transition: transform 0.25s var(--ease), box-shadow 0.25s, background 0.25s;
 }
-html.app-fixed .tools-page a.tool-tile:hover,
-html.app-fixed .tools-page .tools-register:hover {
+html.app-fixed .tools-page a.tool-tile:hover {
   transform: translateY(-4px);
   border-color: var(--d-card-line);
   background: color-mix(in srgb, var(--d-card) 60%, var(--surface));
 }
-html.app-fixed .tools-page .tile-icon,
-html.app-fixed .tools-page .tools-register-icon {
+html.app-fixed .tools-page .tile-icon {
   flex: none;
   width: 58px;
   height: 58px;
@@ -214,25 +251,18 @@ html.app-fixed .tools-page .tile-icon svg {
   width: 30px;
   height: 30px;
 }
-html.app-fixed .tools-page .tools-register-icon {
-  background: var(--primary);
-  color: var(--bg);
-}
-html.app-fixed .tools-page .tile-text,
-html.app-fixed .tools-page .tools-register-text {
+html.app-fixed .tools-page .tile-text {
   flex: none;
   margin-top: auto;
   gap: 4px;
 }
-html.app-fixed .tools-page .tile-text strong,
-html.app-fixed .tools-page .tools-register-text strong {
+html.app-fixed .tools-page .tile-text strong {
   font-size: 1.32rem;
   font-weight: 640;
   letter-spacing: -0.025em;
   white-space: nowrap;
 }
-html.app-fixed .tools-page .tile-text span,
-html.app-fixed .tools-page .tools-register-text span {
+html.app-fixed .tools-page .tile-text span {
   color: var(--muted);
   font-size: 0.92rem;
   line-height: 1.35;
@@ -253,14 +283,12 @@ html.app-fixed .tools-page .tile-go {
   html.app-fixed .tools-page > .page-head {
     padding: 26px 2px 8px;
   }
-  html.app-fixed .tools-page .tool-tile,
-  html.app-fixed .tools-page .tools-register {
+  html.app-fixed .tools-page .tool-tile {
     min-height: 170px;
     padding: 16px;
     border-radius: 26px;
   }
-  html.app-fixed .tools-page .tile-icon,
-  html.app-fixed .tools-page .tools-register-icon {
+  html.app-fixed .tools-page .tile-icon {
     width: 48px;
     height: 48px;
   }
@@ -268,22 +296,18 @@ html.app-fixed .tools-page .tile-go {
     width: 25px;
     height: 25px;
   }
-  html.app-fixed .tools-page .tile-text strong,
-  html.app-fixed .tools-page .tools-register-text strong {
+  html.app-fixed .tools-page .tile-text strong {
     font-size: 1.12rem;
   }
-  html.app-fixed .tools-page .tile-text span,
-  html.app-fixed .tools-page .tools-register-text span {
+  html.app-fixed .tools-page .tile-text span {
     font-size: 0.82rem;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  html.app-fixed .tools-page .tool-tile,
-  html.app-fixed .tools-page .tools-register {
+  html.app-fixed .tools-page .tool-tile {
     transition: none;
   }
-  html.app-fixed .tools-page a.tool-tile:hover,
-  html.app-fixed .tools-page .tools-register:hover {
+  html.app-fixed .tools-page a.tool-tile:hover {
     transform: none;
   }
 }

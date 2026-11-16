@@ -567,10 +567,12 @@ test('Tools per Finger: 2 Kacheln pro Reihe (ab 900 px Breite 4), nichts zu brei
   expect(Math.abs(head.x - a!.x)).toBeLessThan(2);
   if (await regEl.count()) {
     const reg = (await regEl.boundingBox())!;
-    // das Projektregister ist die achte Kachel: gleich groß wie die Werkzeuge, am rechten Rand der letzten Reihe
-    expect(Math.abs(reg.width - a!.width)).toBeLessThan(2);
-    expect(Math.abs(reg.height - a!.height)).toBeLessThan(2);
-    expect(Math.abs(reg.x + reg.width - right)).toBeLessThan(2);
+    // das Projektregister ist kein Werkzeug: Taste neben der Kamera über den Kacheln, gleich hoch
+    expect(Math.abs(reg.y - quick.y)).toBeLessThan(2);
+    expect(Math.abs(reg.height - quick.height)).toBeLessThan(2);
+    expect(reg.x).toBeGreaterThan(quick.x + quick.width);
+    expect(reg.x + reg.width).toBeLessThanOrEqual(vw);
+    expect(reg.y + reg.height).toBeLessThanOrEqual(a!.y);
   }
   expect(Math.abs(a!.x - quick.x)).toBeLessThan(2);
   expect(quick.width).toBeLessThan(260);

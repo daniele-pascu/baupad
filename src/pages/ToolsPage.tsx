@@ -20,16 +20,16 @@ interface Tool {
 }
 
 const TOOLS: Tool[] = [
-  { id: 'projects', title: 'Aufmaß', text: 'Pläne, Messungen, Excel und Rechnungen', color: '#ff6a13', href: paths.projects() },
+  { id: 'projects', title: 'Aufmaß', text: 'LV, Pläne, Abrechnung, PDF', color: '#ff6a13', href: paths.projects() },
   { id: 'workers', title: 'Team', text: 'Wochenplanung nach Baustellen', color: '#2f80ed', href: paths.workers() },
-  { id: 'photos', title: 'Fotos', text: 'Fotos je Baustelle, Woche und Tag', color: '#111111', href: paths.photos() },
+  { id: 'photos', title: 'Fotos', text: 'Dokumentation je Baustelle, Tag, Woche', color: '#111111', href: paths.photos() },
   { id: 'reports', title: 'Berichte', text: 'Regielisten, Bautages- und Wochenberichte', color: '#a259ff', href: paths.reports() },
   { id: 'defects', title: 'Mängel', text: 'Mängel im Plan markieren, Fotos und PDF', color: '#d6242b', href: paths.defects() },
-  { id: 'times', title: 'Zeiten', text: 'Stunden je Arbeiter und Tag, Monatszettel, Excel', color: '#0f9d76', href: paths.times() },
+  { id: 'times', title: 'Zeiten', text: 'Stunden je Arbeiter und Tag, Monatszettel', color: '#0f9d76', href: paths.times() },
   { id: 'materials', title: 'Material', text: 'Materialien und Lieferanten der Firma', color: '#c2850c', href: paths.materials() },
 ];
 
-/** Start nach der Anmeldung: alle Werkzeuge als gleich große Kacheln, zwei pro Reihe, auf jedem Gerät mittig (Industrie-Stil, hell). */
+/** Start nach der Anmeldung: alle Werkzeuge als gleich große Kacheln; Kamera und Projektregister als Tasten darüber. */
 export function ToolsPage() {
   usePageTitle('Tools – BauPad');
   const access = useAccess();
@@ -47,12 +47,24 @@ export function ToolsPage() {
             <h1 data-testid="tools-title">Tools</h1>
           </div>
         </header>
-        {isInstalledApp() && access.canTool('photos') && (
-        <a href={paths.camera()} className="tools-quick" data-testid="tools-camera">
-          <Icon name="camera" size={22} />
-          <strong>Foto aufnehmen</strong>
-          <Icon name="next" size={16} />
-        </a>
+        {/* Kamera und Projektregister sind keine Werkzeuge: als Tasten über den Kacheln */}
+        {((isInstalledApp() && access.canTool('photos')) || register) && (
+          <div className="tools-quick-row">
+            {isInstalledApp() && access.canTool('photos') && (
+              <a href={paths.camera()} className="tools-quick" data-testid="tools-camera">
+                <Icon name="camera" size={22} />
+                <strong>Foto aufnehmen</strong>
+                <Icon name="next" size={16} />
+              </a>
+            )}
+            {register && (
+              <a href={paths.projectRegister()} className="tools-quick tools-quick-light" title="Alle Projekte der Firma" data-testid="tools-register">
+                <Icon name="folder" size={22} />
+                <strong>Projektregister</strong>
+                <Icon name="next" size={16} />
+              </a>
+            )}
+          </div>
         )}
         <nav className="tools-grid" aria-label="Werkzeuge">
           {tools.map((t) => {
@@ -89,20 +101,6 @@ export function ToolsPage() {
             );
           })}
         </nav>
-        {register && (
-        <a href={paths.projectRegister()} className="tools-register" data-testid="tools-register">
-          <span className="tools-register-icon" aria-hidden="true">
-            <Icon name="folder" size={24} />
-          </span>
-          <span className="tools-register-text">
-            <strong>Projektregister</strong>
-            <span>Alle Projekte der Firma</span>
-          </span>
-          <span className="tile-go">
-            Öffnen <span aria-hidden="true">→</span>
-          </span>
-        </a>
-        )}
       </div>
     </>
   );
