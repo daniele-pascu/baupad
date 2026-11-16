@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
-import { chooseMeasureType, createProject, drawRect, FIXTURES, freshStart, pickTool, planBox, waitForPlan } from './helpers';
+import { chooseMeasureType, createProject, drawRect, FIXTURES, freshStart, pickTool, planBox, ribbonGroup, waitForPlan } from './helpers';
 import { tastenBefunde } from './tasten-check';
 
 /**
@@ -281,6 +281,14 @@ export function tastenTests() {
     await page.getByTestId('new-drawing-save').click();
     await expect(page.getByTestId('drawing-sheet')).toBeVisible();
     await pruefe(page, 'Plan zeichnen', out);
+    // Handy: schwebende Leiste – Gruppen und Hilfen hinter der Gruppen-Taste
+    if (await page.getByTestId('ribbon-groups').isVisible()) {
+      await page.getByTestId('ribbon-groups').click();
+      await expect(page.getByTestId('grid-toggle')).toBeVisible();
+      await pruefe(page, 'Plan zeichnen: Gruppen und Hilfen', out);
+      await ribbonGroup(page, 'draw');
+      await pruefe(page, 'Plan zeichnen: Werkzeuge', out);
+    }
     // Planangaben: Format (Größe + Ausrichtung) und Maßstab nebeneinander
     await page.getByTitle('Planangaben').click();
     await expect(page.getByTestId('plan-details')).toBeVisible();
@@ -367,7 +375,7 @@ export function tastenTests() {
     await expect(page.getByTestId('command-bar')).toBeVisible();
     await pruefe(page, 'Befehlsleiste Abstand', out);
     await page.getByTestId('command-done').click();
-    await page.getByTestId('ribbon-tab-precision').click();
+    await ribbonGroup(page, 'precision');
     await page.getByTestId('view-snap-kinds').click();
     await expect(page.getByTestId('snap-kinds-dialog')).toBeVisible();
     await pruefe(page, 'Dialog Fangarten', out);
@@ -381,7 +389,7 @@ export function tastenTests() {
     await pruefe(page, 'Dialog Reihe polar', out);
     await page.getByTestId('array-dialog').getByRole('button', { name: 'Abbrechen' }).click();
     await pickTool(page, 'draw-select-all');
-    await page.getByTestId('ribbon-tab-style').click();
+    await ribbonGroup(page, 'style');
     await page.getByTestId('ribbon-style').getByTestId('style-fill-type').selectOption('hatch');
     await page.getByTestId('ribbon-style').getByTestId('style-hatch-open').click();
     await expect(page.getByTestId('hatch-picker')).toBeVisible();
@@ -452,7 +460,7 @@ export function tastenTests() {
     await page.locator('body').press('Escape');
     // Registerkarten Ändern und Präzision
     for (const t of ['modify', 'precision']) {
-      await page.getByTestId(`ribbon-tab-${t}`).click();
+      await ribbonGroup(page, t);
       await pruefe(page, `Registerkarte ${t}`, out);
     }
     expect(out, out.join('\n')).toEqual([]);

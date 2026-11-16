@@ -8,6 +8,7 @@ import {
   catchDownload,
   createProject,
   freshStart,
+  ribbonGroup,
   markerRelPos,
   planBox,
   blattRows,
@@ -426,6 +427,8 @@ test('Plan zeichnen per Finger: Raum über Maßeingabe, Bemaßung sichtbar, Weit
   // Leisten und Werkzeuge passen auf den Bildschirm
   const vw = page.viewportSize()!.width;
   for (const id of ['element-bar', 'draw-toolbar', 'mode-bar', 'mode-measure', 'grid-toggle']) {
+    // Hilfen (Raster …): am Handy hinter der Gruppen-Taste der schwebenden Leiste
+    if (id === 'grid-toggle' && (await page.getByTestId('ribbon-groups').isVisible())) await page.getByTestId('ribbon-groups').tap();
     const b = (await page.getByTestId(id).boundingBox())!;
     expect(b.x).toBeGreaterThanOrEqual(-0.5);
     expect(b.x + b.width).toBeLessThanOrEqual(vw + 0.5);
@@ -436,14 +439,14 @@ test('Plan zeichnen per Finger: Raum über Maßeingabe, Bemaßung sichtbar, Weit
     ['modify', ['selwin', 'multi', 'select-all', 'move', 'copy', 'rotate', 'scale', 'stretch', 'trim', 'extend']],
     ['precision', ['dimension']],
   ] as const) {
-    await page.getByTestId(`ribbon-tab-${tab}`).tap();
+    await ribbonGroup(page, tab, 'tap');
     for (const t of ids) {
       const b = page.getByTestId(`draw-${t}`);
       await b.scrollIntoViewIfNeeded();
       expect((await b.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     }
   }
-  await page.getByTestId('ribbon-tab-draw').tap();
+  await ribbonGroup(page, 'draw', 'tap');
   await expect(page.getByTestId('draw-select')).toHaveCount(0); // kein Knopf „Auswahl“ am Handy/Tablet
   await noHorizontalScroll(page);
   await page.screenshot({ path: join(OUT, `${info.project.name}-zeichnen.png`) });
@@ -975,10 +978,16 @@ test('Plan zeichnen am Handy: Kopf in einer Zeile; die Maß-Leiste rückt über 
   for (const input of await bar.locator('input').all()) {
     expect(await input.evaluate((el) => { const r = el.getBoundingClientRect(); return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) === el; })).toBe(true);
   }
-  // Tastatur zu: wieder am unteren Rand
+  // Tastatur zu: wieder unten, direkt über der schwebenden Werkzeugleiste
   await page.evaluate(() => {
     (window as unknown as { __kb: number }).__kb = 0;
     window.visualViewport!.dispatchEvent(new Event('resize'));
   });
-  await expect.poll(async () => { const b = (await bar.boundingBox())!; return b.y + b.height; }).toBeGreaterThan(vh - 60);
+  await expect.poll(async () => { const b = (await bar.boundingBox())!; return b.y + b.height; }).toBeGreaterThan(vh - 110);
+  const tools = (await page.getByTestId('draw-toolbar').boundingBox())!;
+  const bb = (await bar.boundingBox())!;
+  expect(bb.y + bb.height).toBeLessThanOrEqual(tools.y); // liegt über der Werkzeugleiste, nicht darauf
+  expect(tools.y + tools.height).toBeGreaterThan(vh - 20); // Werkzeugleiste ganz unten
+  // Zeichenfläche beginnt direkt unter Kopfzeile und Umschalter (keine Werkzeugzeilen mehr oben)
+  expect((await page.locator('.editor-plan').boundingBox())!.y).toBeLessThan(110);
 });

@@ -273,14 +273,24 @@ export async function pickTool(page: Page, testId: string, how: 'click' | 'tap' 
   // Aufmaß: Werkzeuge erscheinen erst nach der Messart (je Messart nur die passenden) – passende Messart wählen
   const mtypeFor: Record<string, string> = { 'tool-line': 'laenge', 'tool-polyline': 'laenge', 'tool-freehand': 'laenge', 'tool-rect': 'flaeche', 'tool-ellipse': 'flaeche', 'tool-polygon': 'flaeche', 'tool-wall': 'wand', 'tool-points': 'stueck', 'tool-text': 'frei' };
   if (!(await btn.isVisible()) && mtypeFor[testId] && (await page.getByTestId('tool-mtype').isVisible())) await chooseMeasureType(page, mtypeFor[testId], how);
-  // Zeichenmodus: Werkzeug ggf. auf einer anderen Registerkarte der oberen Leiste
+  // Zeichenmodus: Werkzeug ggf. in einer anderen Gruppe (Registerkarten der Leiste; am Handy hinter der Gruppen-Taste)
   if (!(await btn.isVisible())) {
-    for (const tab of await page.locator('[data-testid^="ribbon-tab-"]').all()) {
-      await press(tab);
+    const groups = page.getByTestId('ribbon-groups');
+    for (const id of ['draw', 'parts', 'modify', 'style', 'precision', 'view']) {
+      if (await groups.isVisible()) await press(groups);
+      await press(page.getByTestId(`ribbon-tab-${id}`));
       if (await btn.isVisible()) break;
     }
   }
   await press(btn);
+}
+
+/** Zeichnen: Gruppe der Werkzeugleiste wählen (Registerkarte; am Handy steckt sie hinter der Gruppen-Taste) */
+export async function ribbonGroup(page: Page, id: string, how: 'click' | 'tap' = 'click') {
+  const press = (l: ReturnType<Page['getByTestId']>) => (how === 'tap' ? l.tap() : l.click());
+  const groups = page.getByTestId('ribbon-groups');
+  if (await groups.isVisible()) await press(groups);
+  await press(page.getByTestId(`ribbon-tab-${id}`));
 }
 
 /** Aufmaß: Messart wählen (Fläche, Wand, Länge, Volumen, Stück, Schadstelle, Frei) – danach erscheinen die passenden Werkzeuge */

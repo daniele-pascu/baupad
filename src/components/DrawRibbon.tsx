@@ -49,7 +49,10 @@ export function DrawRibbon({
   onMeasure,
   probeActive = false,
   onProbe,
+  float = false,
 }: {
+  /** Handy: schwebende Leiste unten – die Registerkarten und Hilfen stecken hinter der Gruppen-Taste */
+  float?: boolean;
   drawing: ReturnType<typeof useDrawing>;
   viewer: React.RefObject<PlanViewerHandle | null>;
   canUndo: boolean;
@@ -69,8 +72,11 @@ export function DrawRibbon({
   // anderes Werkzeug bzw. andere Registerkarte: Menü der Messung zu
   useEffect(() => setProbeMenu(false), [drawing.tool]);
   const [tab, setTabState] = useState<Tab>(readTab);
+  /** Handy: Gruppen und Hilfen aufgeklappt (statt der Werkzeuge) */
+  const [groups, setGroups] = useState(false);
   const setTab = (t: Tab) => {
     setTabState(t);
+    setGroups(false);
     setProbeMenu(false);
     try {
       localStorage.setItem('ribbonTab', t);
@@ -139,7 +145,13 @@ export function DrawRibbon({
   );
 
   return (
-    <div className="ribbon" role="toolbar" aria-label="Zeichenwerkzeuge" data-testid="draw-toolbar">
+    <div className={`ribbon${float ? ' ribbon-float' : ''}${float && groups ? ' groups-open' : ''}`} role="toolbar" aria-label="Zeichenwerkzeuge" data-testid="draw-toolbar">
+      {float && !groups && (
+        <button type="button" className="ribbon-group-btn" data-tab={tab} onClick={() => setGroups(true)} aria-expanded={false} aria-label={`Gruppe: ${TABS.find((t) => t.id === tab)!.label} – andere Gruppe und Hilfen`} title="Gruppe und Hilfen" data-testid="ribbon-groups">
+          <Icon name={TABS.find((t) => t.id === tab)!.icon} size={20} />
+        </button>
+      )}
+      {(!float || groups) && (
       <div className="ribbon-tabs" role="tablist">
         {TABS.map((t) => (
           <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)} data-tab={t.id} data-testid={`ribbon-tab-${t.id}`}>
@@ -148,6 +160,22 @@ export function DrawRibbon({
           </button>
         ))}
       </div>
+      )}
+      {float && groups && (
+        <div className="ribbon-quick" role="group" aria-label="Hilfen">
+          <button type="button" className={`btn btn-sm${drawing.snapOn ? ' active-toggle' : ''}`} onClick={() => drawing.setSnapOn(!drawing.snapOn)} aria-pressed={drawing.snapOn} data-testid="snap-toggle">
+            <Icon name="snap" size={18} /> Einrasten
+          </button>
+          <button type="button" className={`btn btn-sm${drawing.gridOn ? ' active-toggle' : ''}`} onClick={() => drawing.setGridOn(!drawing.gridOn)} aria-pressed={drawing.gridOn} data-testid="grid-toggle">
+            <Icon name="grid" size={18} /> Raster
+          </button>
+          <button type="button" className={`btn btn-sm${drawing.trackOn ? ' active-toggle' : ''}`} onClick={() => drawing.setTrackOn(!drawing.trackOn)} aria-pressed={drawing.trackOn} data-testid="track-toggle">
+            <Icon name="grid" size={18} /> Spuren
+          </button>
+          <OrthoButtons drawing={drawing} />
+        </div>
+      )}
+      {(!float || !groups) && (
       <div className="ribbon-row" data-tab={tab}>
         {tab === 'draw' && (
           <>
@@ -288,6 +316,7 @@ export function DrawRibbon({
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

@@ -20,7 +20,7 @@ import { positionGrouping, costCenterLabel, damagesOf, findPosition, lvDocLabel,
 import { autoBookings, hasSurfaceRules, refMismatch } from '../lib/pos-rules';
 import { calibrationStatus, checkDeviation, checkError, formatCm, formatPercent, geometryMeasures, MAX_ERROR_M, planUnitsPerMeter } from '../lib/calibration';
 import { ViewMenu } from '../components/ViewMenu';
-import { isTouchDevice } from '../lib/platform';
+import { usePhone, isTouchDevice } from '../lib/platform';
 import { DimensionReview } from '../components/DimensionReview';
 import { ExcelExportDialog } from '../components/ExcelExportDialog';
 import { calibrationFrom, detectScale, sourceText } from '../lib/scale-detect';
@@ -702,6 +702,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const damages = useMemo(() => stored.map((d) => (overrides[d.id] ? { ...d, ...overrides[d.id] } : d)), [stored, overrides]);
   // Ebene „Messungen“ ausgeblendet: nicht im Plan (die Tabelle bleibt vollständig)
   const shownDamages = useMemo(() => areasBelow(visibleDamages(plan, damages)), [plan, damages]);
+  /** Handy: gezeichnete Pläne bekommen die schwebende Leiste (Werkzeuge unten, ein Umschalter oben) */
+  const phone = usePhone();
   const dupIds = useMemo(() => {
     return duplicateIds(stored);
   }, [stored]);
@@ -1458,7 +1460,39 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           </p>
         </div>
       )}
-      {drawingPlan && (
+      {drawingPlan && phone && (
+        // Handy: Zeichnen/Aufmaß und Plan/Tabelle als ein Umschalter (die Hilfen Einrasten, Raster … stecken in der Leiste unten)
+        <div className="mode-switch segmented" role="tablist" aria-label="Ansicht" data-testid="mode-bar">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={drawMode && mobileTab === 'plan'}
+            onClick={() => {
+              setMobileTab('plan');
+              if (!drawMode) switchMode('draw');
+            }}
+            data-testid="mode-draw"
+          >
+            <Icon name="drawPlan" size={18} /> Zeichnen
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={!drawMode && mobileTab === 'plan'}
+            onClick={() => {
+              setMobileTab('plan');
+              if (drawMode) switchMode('measure');
+            }}
+            data-testid="mode-measure"
+          >
+            <Icon name="map" size={18} /> Aufmaß
+          </button>
+          <button type="button" role="tab" aria-selected={mobileTab === 'table'} onClick={() => setMobileTab('table')} data-testid="mobile-tab-table">
+            <Icon name="table" size={18} /> Tabelle ({damages.length})
+          </button>
+        </div>
+      )}
+      {drawingPlan && !phone && (
         <div className={`mode-bar${drawMode ? ' drawing' : ''}`} data-testid="mode-bar">
           <div className="segmented" role="tablist" aria-label="Ansicht">
             <button type="button" role="tab" aria-selected={drawMode} onClick={() => switchMode('draw')} data-testid="mode-draw">
@@ -1549,6 +1583,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         </div>
       )}
 
+      {!(drawingPlan && phone) && (
       <div className="mobile-tabs segmented" role="tablist">
         <button type="button" role="tab" aria-selected={mobileTab === 'plan'} onClick={() => setMobileTab('plan')}>
           <Icon name="map" size={18} /> Plan
@@ -1557,6 +1592,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           <Icon name="table" size={18} /> Tabelle ({damages.length})
         </button>
       </div>
+      )}
 
       <div className={`editor-main show-${mobileTab}${sideCollapsed ? ' side-collapsed' : ''}`} style={{ '--side-w': `${sideWidth}px` } as React.CSSProperties}>
         <div
@@ -2302,6 +2338,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               probeActive={!!probe}
               onProbe={startProbe}
               onProbeCancel={() => setProbe(null)}
+              float={phone}
             />
           ) : (
           <div className={`toolbar${toolsOpen ? '' : ' toolbar-collapsed'}`} role="toolbar" aria-label="Werkzeuge" data-mtype={mtype}>

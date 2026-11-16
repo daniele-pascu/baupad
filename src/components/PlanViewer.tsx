@@ -1481,6 +1481,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     <div
       ref={containerRef}
       className={`viewer tool-${tool}`}
+      // gerade wird eine Form gezogen: Leisten treten zurück (Handy), der Plan ist frei
+      data-drawing={g?.kind === 'draw' && g.tool !== 'selwin' && drawPreview ? '' : undefined}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerLeave={(e) => e.pointerType === 'mouse' && (lastHover.current = null)}

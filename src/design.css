@@ -409,3 +409,145 @@ html.app-fixed .page.loading.with-nav::before {
     opacity: 0;
   }
 }
+
+/* ---------- Planeditor am Handy: eine schwebende Leiste (gezeichnete Pläne) ----------
+   Oben bleiben Kopfzeile und ein Umschalter (Zeichnen · Aufmaß · Tabelle). Die Werkzeuge liegen unten als Glasleiste;
+   Gruppen (bisher Registerkarten) und Hilfen öffnen sich über die Gruppen-Taste. Beim Ziehen einer Form treten
+   alle Leisten zurück. Ab 601 px Breite bleibt alles wie bisher. */
+.mode-switch {
+  display: flex;
+  margin: 3px 8px;
+}
+.mode-switch button {
+  flex: 1;
+  justify-content: center;
+  min-height: 36px;
+  padding: 4px 6px;
+  font-size: 0.86rem;
+  white-space: nowrap;
+}
+.ribbon.ribbon-float {
+  top: auto;
+  left: 8px;
+  right: 8px;
+  bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px;
+  border: 1px solid var(--d-card-line);
+  border-radius: 28px;
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  -webkit-backdrop-filter: var(--d-blur);
+  backdrop-filter: var(--d-blur);
+  box-shadow: 0 0 0 1px rgba(16, 18, 17, 0.06), 0 14px 30px -12px rgba(16, 18, 17, 0.45);
+  transition: opacity 0.15s ease;
+}
+.ribbon-float.groups-open {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  border-radius: 22px;
+}
+.ribbon-float > * {
+  animation: ribbon-morph 0.22s var(--ease) both;
+}
+@keyframes ribbon-morph {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+.ribbon-group-btn {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--primary);
+  color: var(--bg);
+  cursor: pointer;
+}
+.ribbon-float .ribbon-row {
+  flex: 1;
+  min-width: 0;
+  padding: 0 2px;
+  border-radius: 22px;
+  scrollbar-width: none;
+}
+.ribbon-float .ribbon-tabs {
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px;
+  overflow: visible;
+  border-bottom: 0;
+}
+.ribbon-float .ribbon-tabs button {
+  min-height: 38px;
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+.ribbon-float .ribbon-tabs button[aria-selected='true'] {
+  border-color: transparent;
+  background: var(--primary);
+  color: var(--bg);
+}
+.ribbon-float .ribbon-tabs button[aria-selected='true'] svg {
+  color: inherit;
+  opacity: 1;
+}
+.ribbon-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 8px 4px 4px;
+  border-top: 1px solid var(--border);
+}
+.ribbon-quick .btn {
+  padding-left: 10px;
+  padding-right: 10px;
+}
+/* Zeichenfläche bis ganz oben; Ansichts-Tasten oben rechts; Eingabeleisten über der Werkzeugleiste */
+.editor-plan:has(> .ribbon-float) .viewer {
+  top: 0;
+}
+.editor-plan:has(> .ribbon-float) .zoom-controls {
+  top: 8px;
+}
+.editor-plan:has(> .ribbon-float) .draw-bar {
+  top: auto;
+  bottom: calc(var(--ribbon-h, 58px) + 16px + env(safe-area-inset-bottom, 0px));
+  transition: opacity 0.15s ease;
+}
+html.kb-open .editor-plan:has(> .ribbon-float) .draw-bar {
+  bottom: calc(8px + var(--kb, 0px));
+}
+/* Gruppen offen: die Eingabeleiste macht Platz */
+.editor-plan:has(> .ribbon-float.groups-open) .draw-bar {
+  display: none;
+}
+/* Eingabeleiste kompakt: ohne Überschrift (das Werkzeug leuchtet in der Leiste darunter), Felder teilen sich eine Zeile */
+.editor-plan:has(> .ribbon-float) .draw-bar:has(> .draw-field) > .draw-bar-title {
+  display: none;
+}
+.editor-plan:has(> .ribbon-float) .draw-bar > .draw-field {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.editor-plan:has(> .ribbon-float) .draw-bar > .draw-field input {
+  width: 100%;
+  padding: 0 6px 0 8px;
+}
+/* beim Ziehen einer Form: alle Leisten treten zurück, der Plan ist frei */
+.editor-plan:has(.viewer[data-drawing]) > .ribbon-float,
+.editor-plan:has(.viewer[data-drawing]) .draw-bar {
+  opacity: 0;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ribbon-float > * {
+    animation: none;
+  }
+}
