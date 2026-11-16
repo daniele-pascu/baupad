@@ -48,7 +48,7 @@ export const en: Dict = {
   },
   home: {
     title: 'PAD Software – Software that comes from practice',
-    description: 'PAD Software develops digital solutions in Austria that simplify workflows, relieve people and make companies more efficient. First product: BauPad for the construction industry.',
+    description: 'PAD Software builds software in Austria that simplifies workflows and takes work off people. First product: BauPad for the construction industry.',
     hero: {
       eyebrow: 'Software development from Austria',
       name: 'PAD Software',
@@ -65,6 +65,7 @@ export const en: Dict = {
       solves: 'No more paper notes, spreadsheets and seven different apps.',
       can: ['Measurement right on the plan', 'Team, hours and material', 'Photos, defects and reports'],
       all: 'See all seven tools',
+      alts: ['BauPad on a PC: takeoff on the plan', 'BauPad on a tablet: weekly crew schedule', 'BauPad on a phone: site photos'],
       cta: 'Learn more',
       open: 'Open BauPad',
       aria: 'BauPad – to the product page',
@@ -408,11 +409,11 @@ export const en: Dict = {
     functionsTitle: '{tool} at a glance.',
     others: 'More tools',
     stage: 'Schematic view of the tool – placeholder',
-    titleSuffix: ' – BauPad | PAD Software',
+    titleSuffix: ' – a BauPad tool | PAD Software',
   },
   companyPage: {
     title: 'Company – PAD Software',
-    description: 'PAD Software is a software company from Austria. We build software that makes the working day easier – clear, reliable, honest. First product: BauPad for construction companies.',
+    description: 'PAD Software is a software company from Austria. We build software that makes the working day easier. First product: BauPad for construction companies.',
     hero: { eyebrow: 'Company', title: ['Software from practice,', 'for practice.'], lead: 'PAD Software is a young software company from Austria. We build software that makes the working day easier – started on the job sites of concrete repair, open to further industries.' },
     what: { eyebrow: 'What we do', title: 'We build software that makes the working day easier.', text: 'Our products help companies record work, schedule teams, keep proof and bill – on the phone on site and on the PC in the office. BauPad for construction companies is the first product; further industries and products are being planned.' },
     philosophy: {

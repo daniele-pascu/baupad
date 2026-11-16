@@ -87,18 +87,18 @@ export function HomePage() {
               {h.product.open}
             </a>
           </div>
-          <a href={paths.baupad(lang)} className="ph-stage" tabIndex={-1} aria-hidden="true" data-testid="home-stage">
+          <a href={paths.baupad(lang)} className="ph-stage" tabIndex={-1} data-testid="home-stage">
             <span className="ph-lap">
               <span className="ph-lap-scr">
-                <img src={`${IMG}/pc-aufmass.jpg`} width={1440} height={900} alt="" loading="lazy" decoding="async" />
+                <img src={`${IMG}/pc-aufmass.jpg`} width={1440} height={900} alt={h.product.alts[0]} loading="lazy" decoding="async" />
               </span>
               <span className="ph-lap-base" />
             </span>
             <span className="ph-tab">
-              <img src={`${IMG}/tablet-einteilung.jpg`} width={1180} height={820} alt="" loading="lazy" decoding="async" />
+              <img src={`${IMG}/tablet-einteilung.jpg`} width={1180} height={820} alt={h.product.alts[1]} loading="lazy" decoding="async" />
             </span>
             <span className="ph-phone">
-              <img src={`${IMG}/handy-fotos.jpg`} width={585} height={1266} alt="" loading="lazy" decoding="async" />
+              <img src={`${IMG}/handy-fotos.jpg`} width={585} height={1266} alt={h.product.alts[2]} loading="lazy" decoding="async" />
             </span>
           </a>
         </div>

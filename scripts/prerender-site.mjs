@@ -2,7 +2,7 @@
 // canonical, hreflang, Open Graph und JSON-LD), dazu sitemap.xml, robots.txt und 404.html.
 // Die App (Werkzeuge) bleibt eine Einzelseiten-Anwendung: unbekannte Adressen liefert GitHub Pages über 404.html.
 // Aufruf: node --experimental-strip-types scripts/prerender-site.mjs   (läuft im Build-Skript)
-import { mkdir, readFile, writeFile, copyFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { de } from '../src/site/i18n/de.ts';
@@ -88,7 +88,7 @@ async function main() {
     await writeFile(join(dir, 'index.html'), render(base, r));
   }
   // Fallback für alle anderen Adressen (App-Routen): GitHub Pages liefert 404.html mit der App
-  await copyFile(join(dist, 'index.html'), join(dist, '404.html'));
+  await writeFile(join(dist, '404.html'), base.replace('</head>', '  <meta name="robots" content="noindex" />\n  </head>'));
   // Sitemap mit Sprachalternativen (ohne Danke-Seite)
   const urls = rs
     .filter((r) => !r.noindex)

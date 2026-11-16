@@ -50,7 +50,7 @@ export const de = {
   },
   home: {
     title: 'PAD Software – Software, die aus der Praxis entsteht',
-    description: 'PAD Software entwickelt in Österreich digitale Lösungen, die Arbeitsabläufe vereinfachen, Menschen entlasten und Unternehmen effizienter machen. Erstes Produkt: BauPad für die Baubranche.',
+    description: 'PAD Software entwickelt in Österreich Software, die Arbeitsabläufe vereinfacht und Menschen entlastet. Erstes Produkt: BauPad für die Baubranche.',
     hero: {
       eyebrow: 'Softwareentwicklung aus Österreich',
       name: 'PAD Software',
@@ -67,6 +67,7 @@ export const de = {
       solves: 'Schluss mit Zetteln, Excel-Listen und sieben verschiedenen Apps.',
       can: ['Aufmaß direkt im Plan', 'Team, Zeiten und Material', 'Fotos, Mängel und Berichte'],
       all: 'Alle sieben Werkzeuge ansehen',
+      alts: ['BauPad am PC: Aufmaß im Plan', 'BauPad am Tablet: Einteilung der Arbeiter für die Woche', 'BauPad am Handy: Fotos der Baustelle'],
       cta: 'Mehr erfahren',
       open: 'BauPad öffnen',
       aria: 'BauPad – zur Produktseite',
@@ -410,11 +411,11 @@ export const de = {
     functionsTitle: '{tool} im Überblick.',
     others: 'Weitere Werkzeuge',
     stage: 'Schematische Darstellung des Werkzeugs – Platzhalter',
-    titleSuffix: ' – BauPad | PAD Software',
+    titleSuffix: ' – Werkzeug in BauPad | PAD Software',
   },
   companyPage: {
     title: 'Unternehmen – PAD Software',
-    description: 'PAD Software ist ein Softwareunternehmen aus Österreich. Wir entwickeln Software, die den Arbeitstag leichter macht – verständlich, verlässlich, ehrlich. Erstes Produkt: BauPad für Baufirmen.',
+    description: 'PAD Software ist ein Softwareunternehmen aus Österreich. Wir entwickeln Software, die den Arbeitstag leichter macht. Erstes Produkt: BauPad für Baufirmen.',
     hero: { eyebrow: 'Unternehmen', title: ['Software aus der Praxis,', 'für die Praxis.'], lead: 'PAD Software ist ein junges Softwareunternehmen aus Österreich. Wir entwickeln Software, die den Arbeitstag leichter macht – begonnen auf den Baustellen der Betoninstandsetzung, offen für weitere Branchen.' },
     what: { eyebrow: 'Was wir tun', title: 'Wir entwickeln Software, die den Arbeitstag leichter macht.', text: 'Unsere Produkte helfen Betrieben, Arbeit zu erfassen, Teams einzuteilen, Nachweise zu führen und abzurechnen – am Handy vor Ort und am PC im Büro. BauPad für Baufirmen ist das erste Produkt; weitere Branchen und Produkte sind in Planung.' },
     philosophy: {
