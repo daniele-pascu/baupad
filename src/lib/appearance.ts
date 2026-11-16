@@ -74,7 +74,17 @@ export function useAppearance(isApp: boolean) {
     // nicht auf Seiten mit Plan (Stift und Hand gleichzeitig dürfen dort nicht abgefangen werden)
     const block = (e: Event) => isApp && !document.querySelector('.viewer, .dp-canvas') && e.preventDefault();
     document.addEventListener('gesturestart', block);
+    // Bildschirmtastatur (iPhone/iPad): ihre Höhe als --kb, damit Eingabeleisten am unteren Rand darüber rücken
+    const vv = window.visualViewport;
+    const kb = () => {
+      const h = vv ? window.innerHeight - vv.height - vv.offsetTop : 0;
+      document.documentElement.style.setProperty('--kb', `${h > 80 ? Math.round(h) : 0}px`); // kleine Abweichungen (Leisten des Browsers) sind keine Tastatur
+    };
+    vv?.addEventListener('resize', kb);
+    vv?.addEventListener('scroll', kb);
     return () => {
+      vv?.removeEventListener('resize', kb);
+      vv?.removeEventListener('scroll', kb);
       window.removeEventListener(EVENT, apply);
       q?.removeEventListener?.('change', apply);
       document.removeEventListener('gesturestart', block);

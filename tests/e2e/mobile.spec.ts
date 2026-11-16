@@ -935,3 +935,43 @@ test('Plan zeichnen per Finger: Maß eintippen und auf den Plan tippen übernimm
   expect(els).toHaveLength(1);
   expect(Math.max(els[0].shape.w, els[0].shape.h)).toBeCloseTo(4.5, 6);
 });
+
+test('Plan zeichnen am Handy: Kopf in einer Zeile; die Maß-Leiste rückt über die Bildschirmtastatur', async ({ page }, info) => {
+  test.skip(info.project.name !== 'iphone', 'nur schmale Bildschirme');
+  // nachgestellte Tastatur: der Browser im Test hat keine – visualViewport liefert die Höhe aus window.__kb
+  await page.addInitScript(() => {
+    const vv = new EventTarget();
+    const w = window as unknown as { __kb: number };
+    w.__kb = 0;
+    Object.defineProperty(vv, 'height', { get: () => window.innerHeight - w.__kb });
+    Object.defineProperty(vv, 'offsetTop', { get: () => 0 });
+    Object.defineProperty(window, 'visualViewport', { get: () => vv });
+  });
+  await freshStart(page);
+  await createProject(page, 'Tastatur', {}, ['EG']);
+  await page.getByTestId('draw-plan').click();
+  await page.getByTestId('new-drawing').locator('[data-field="planNumber"]').fill('T-1');
+  await page.getByTestId('new-drawing-save').click();
+  await expect(page.getByTestId('drawing-sheet')).toBeVisible();
+  // Kopf: Zurück, Planwahl und Aktionen in einer Zeile (mehr Höhe für die Zeichenfläche)
+  const back = (await page.locator('.editor-topbar > .icon-btn').first().boundingBox())!;
+  const pdf = (await page.getByTestId('export-pdf-plan').boundingBox())!;
+  expect(Math.abs(back.y + back.height / 2 - (pdf.y + pdf.height / 2))).toBeLessThan(12);
+  expect((await page.locator('.editor-topbar').boundingBox())!.height).toBeLessThanOrEqual(56);
+  await noHorizontalScroll(page);
+  // Tastatur 336 px hoch: die Leiste mit den Maßfeldern liegt ganz darüber
+  const bar = page.locator('.draw-bar');
+  await bar.locator('input').first().focus();
+  await page.evaluate(() => {
+    (window as unknown as { __kb: number }).__kb = 336;
+    window.visualViewport!.dispatchEvent(new Event('resize'));
+  });
+  const vh = page.viewportSize()!.height;
+  await expect.poll(async () => { const b = (await bar.boundingBox())!; return b.y + b.height; }).toBeLessThanOrEqual(vh - 336);
+  // Tastatur zu: wieder am unteren Rand
+  await page.evaluate(() => {
+    (window as unknown as { __kb: number }).__kb = 0;
+    window.visualViewport!.dispatchEvent(new Event('resize'));
+  });
+  await expect.poll(async () => { const b = (await bar.boundingBox())!; return b.y + b.height; }).toBeGreaterThan(vh - 60);
+});
