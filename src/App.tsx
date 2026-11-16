@@ -513,7 +513,8 @@ export function App() {
   }
   content = (
     <PageBoundary resetKey={path}>
-      <Suspense fallback={<div className="page loading" aria-busy="true" />}>{content}</Suspense>
+      {/* Zwischenbild beim ersten Laden einer Seite: die schwarze Kopfleiste bleibt stehen (Planeditor und Kamera haben keine) */}
+      <Suspense fallback={<div className={`page loading${route.name === 'plan' || route.name === 'camera' ? '' : ' with-nav'}`} aria-busy="true" />}>{content}</Suspense>
     </PageBoundary>
   );
 

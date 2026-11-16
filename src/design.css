@@ -308,6 +308,26 @@ html.app-fixed .page:not(.tools-page):not(.loading) {
 ::view-transition-new(root) {
   animation-duration: 0.2s;
 }
+/* Kopfleiste: eigenes, ruhendes Bild – sie blendet beim Seitenwechsel nicht mit um (sonst blitzt sie hell auf) */
+html.app-fixed .site-nav {
+  view-transition-name: site-nav;
+}
+::view-transition-old(site-nav),
+::view-transition-new(site-nav) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+/* Seite lädt noch (erster Aufruf): Platzhalter für die Kopfleiste, damit oben nichts weiß wird */
+html.app-fixed .page.loading.with-nav::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  height: calc(var(--nav-h) + var(--safe-top));
+  background: #101211;
+}
 /* Kachel und Seite in ihrer echten Größe zeigen (nichts wird gestreckt): der wachsende Rahmen deckt die Seite auf */
 ::view-transition-old(tool-page),
 ::view-transition-new(tool-page) {
