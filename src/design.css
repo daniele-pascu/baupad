@@ -237,31 +237,9 @@ html.app-fixed .tools-page .tools-register-text span {
   font-size: 0.92rem;
   line-height: 1.35;
 }
-/* runde Pfeil-Taste oben rechts („Öffnen“ bleibt für Vorleser im Text) */
+/* kein eigener Pfeil: die ganze Kachel ist die Taste */
 html.app-fixed .tools-page .tile-go {
-  position: absolute;
-  top: 22px;
-  right: 22px;
-  display: grid;
-  place-items: center;
-  width: 42px;
-  height: 42px;
-  margin: 0;
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  background: var(--surface);
-  color: var(--text);
-  font-size: 0;
-  transition: background 0.2s, color 0.2s;
-}
-html.app-fixed .tools-page .tile-go span {
-  font-size: 1.1rem;
-  line-height: 1;
-}
-html.app-fixed .tools-page a:hover .tile-go {
-  border-color: transparent;
-  background: var(--primary);
-  color: var(--bg);
+  display: none;
 }
 @media (max-width: 899px) {
   html.app-fixed .page.tools-page {
@@ -289,12 +267,6 @@ html.app-fixed .tools-page a:hover .tile-go {
   html.app-fixed .tools-page .tile-icon svg {
     width: 25px;
     height: 25px;
-  }
-  html.app-fixed .tools-page .tile-go {
-    top: 16px;
-    right: 16px;
-    width: 36px;
-    height: 36px;
   }
   html.app-fixed .tools-page .tile-text strong,
   html.app-fixed .tools-page .tools-register-text strong {
