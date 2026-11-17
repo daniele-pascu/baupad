@@ -644,6 +644,14 @@ export function useDrawing(opts: {
       } else if (gridOn) {
         q = snapToGrid(pm, step);
         kind = 'grid';
+      } else if (from0 && ctx.tool && PARALLEL_TOOLS.has(ctx.tool)) {
+        // Abschnitt einer freien Form, Fläche oder Wand: Länge in ganzen Zentimetern, Richtung frei
+        const len = Math.hypot(pm.x - from0.x, pm.y - from0.y);
+        q = len > 1e-9 ? { x: from0.x + ((pm.x - from0.x) / len) * cm(len), y: from0.y + ((pm.y - from0.y) / len) * cm(len) } : pm;
+      } else if (from0) {
+        // gezogene Form (Rechteck, Kreis …): Breite und Höhe in ganzen Zentimetern vom Anfangspunkt aus –
+        // auch wenn der Anfang an einem Punkt mit Millimeterwert eingerastet ist
+        q = { x: from0.x + cm(pm.x - from0.x), y: from0.y + cm(pm.y - from0.y) };
       } else q = { x: cm(pm.x), y: cm(pm.y) };
     }
     return { x: q.x * k, y: q.y * k, kind };

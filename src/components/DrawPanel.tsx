@@ -63,7 +63,8 @@ function check(field: Field, input: string): { ok: true; value: number } | { ok:
     if (n === null) return { ok: false, error: `${FIELDS[field].label}: bitte eine Zahl in Grad eingeben.` };
     return { ok: true, value: ((n % 360) + 360) % 360 };
   }
-  return checkMeasure(input, FIELDS[field].label);
+  // getippte Maße millimetergenau (gezogen wird in ganzen Zentimetern – Millimeter gibt man ein)
+  return checkMeasure(input, FIELDS[field].label, 3);
 }
 
 /** Meter für ein Eingabefeld: mindestens 2, höchstens 4 Nachkommastellen, ohne Tausenderpunkt */

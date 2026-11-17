@@ -58,7 +58,7 @@ const nrCell = (d: Damage): Cell => (d.label ? str(d.label, 'amRowCenter') : num
 const n = (v: number | null, ded = false): Cell => (v === null ? blank('amRowBlank') : num(v, ded ? 'amDedNum' : 'amRowNum'));
 /** Tiefe in Metern: Millimeter bleiben sichtbar (0,061) */
 const dn = (v: number | null): Cell => (v === null ? blank('amRowBlank') : num(v, 'amRowDepth'));
-/** Menge (Ergebnis-Spalte der Messtabelle) mit 3 Nachkommastellen wie in der Vorlage */
+/** Menge (Ergebnis-Spalte der Messtabelle) – angezeigt mit zwei Nachkommastellen */
 const qn = (v: number | null): Cell => (v === null ? blank('amRowBlank') : num(v, 'amRowQty'));
 /** Zeile über alle Spalten: fehlende Zellen bekommen das Format `style` (durchgehende Linie bzw. Fläche) */
 const fillRow = (cells: Cell[], style: Parameters<typeof blank>[0]): Cell[] => Array.from({ length: COLS.length }, (_, i) => cells[i] ?? blank(style));
@@ -144,7 +144,8 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
   infoRow('Kostenstelle', ccs.map((c) => costCenterLabel(c)).filter(Boolean).join(', ') || '–');
   const planNames = plans.filter(Boolean).map(planNo);
   if (planNames.length) infoRow(planNames.length === 1 ? 'Plan' : 'Pläne', planNames.length > 12 ? `${planNames.slice(0, 12).join(', ')} … (${planNames.length} Pläne)` : planNames.join(', '));
-  infoRow('Leistungszeitraum', info.period);
+  // Leistungszeitraum nur, wenn einer eingetragen ist (keine leere Zeile im Kopf)
+  if (info.period.trim()) infoRow('Leistungszeitraum', info.period);
   add([], 10);
 
   // je LV/MFK: Zusammenstellung, dann die Positionen mit ihren Messungen – alles zusammen auf einer A4-Seite

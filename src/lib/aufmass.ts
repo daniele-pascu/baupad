@@ -381,7 +381,7 @@ export function aufmassBlocksSheet(data: ProjectState, plans: Plan[], used: Set<
     maxCols = Math.max(maxCols, n);
     const q = colName(n - 1);
     const isCount = /^(st|stk|stück|psch)/i.test(unit);
-    // Volumen: kleine Mengen mit bis zu 3 Nachkommastellen (0,036 m³ statt 0,04)
+    // Volumen: eigenes Format (angezeigt werden wie überall zwei Nachkommastellen, der genaue Wert bleibt in der Zelle)
     const fine = u === 'm³';
     rows.push([str(title, 'blockTitle'), ...Array.from({ length: n - 1 }, () => blank('blockTitle'))]);
     rows.push(head.map((h) => str(h, 'gridHead')));

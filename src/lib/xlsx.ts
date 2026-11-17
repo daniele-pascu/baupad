@@ -40,7 +40,7 @@ export type CellStyle =
   | 'kvMoney'
   | 'kvMoneyBold'
   | 'subtitle'
-  /** Summe mit bis zu 3 Nachkommastellen (z. B. m³) */
+  /** Summe einer Messgröße (z. B. m³) – wie alle Mengen mit zwei Nachkommastellen */
   | 'sumMeasure'
   /** Gitter: Text linksbündig mit Umbruch, Betrag, Hinweis (kursiv grau) */
   | 'gridLeft'
@@ -67,7 +67,7 @@ export type CellStyle =
   | 'amTotalNum'
   | 'amRule'
   | 'amNote'
-  /** Menge mit 3 Nachkommastellen, rechtsbündig (Ergebnis-Spalte der Messtabelle) */
+  /** Menge mit zwei Nachkommastellen, rechtsbündig (Ergebnis-Spalte der Messtabelle) */
   | 'amQty'
   | 'amQtyLast'
   | 'amQtyBold'
@@ -376,11 +376,11 @@ function sheetXml(sheet: Sheet, logo?: HeaderImage): string {
 const STYLES_XML =
   '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
   '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
-  '<numFmts count="4"><numFmt numFmtId="164" formatCode="0.00#"/><numFmt numFmtId="165" formatCode="#,##0.00\\ &quot;€&quot;"/>' +
+  '<numFmts count="4"><numFmt numFmtId="164" formatCode="0.00"/><numFmt numFmtId="165" formatCode="#,##0.00\\ &quot;€&quot;"/>' +
   // Buchhaltungsformat der Firmenvorlage: 1.234,50 · negative mit Minus · 0 als „-“
   '<numFmt numFmtId="166" formatCode="_-* #,##0.00_-;\\-* #,##0.00_-;_-* &quot;-&quot;??_-;_-@_-"/>' +
-  // dto. mit 3 Nachkommastellen (Mengen der Messtabellen)
-  '<numFmt numFmtId="167" formatCode="_-* #,##0.000_-;\\-* #,##0.000_-;_-* &quot;-&quot;??_-;_-@_-"/></numFmts>' +
+  // dto. für die Mengen der Messtabellen – immer zwei Nachkommastellen (nicht drei)
+  '<numFmt numFmtId="167" formatCode="_-* #,##0.00_-;\\-* #,##0.00_-;_-* &quot;-&quot;??_-;_-@_-"/></numFmts>' +
   '<fonts count="17">' +
   '<font><sz val="11"/><color theme="1"/><name val="Calibri"/><family val="2"/><scheme val="minor"/></font>' +
   '<font><b/><sz val="11"/><color theme="1"/><name val="Calibri"/><family val="2"/><scheme val="minor"/></font>' +
