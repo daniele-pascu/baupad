@@ -128,7 +128,7 @@ export function tastenTests() {
     expect(out, out.join('\n')).toEqual([]);
   });
 
-  test('Tasten: Kamera-Modus (X links, Übertragung rechts, letztes Foto mit Zähler) – nichts überlappt, verdeckt oder abgeschnitten', async ({ page }) => {
+  test('Tasten: Kamera-Modus (X links, Übertragung rechts, Zoom, Beschreibung, letztes Foto mit Zähler) – nichts überlappt, verdeckt oder abgeschnitten', async ({ page }) => {
     const out: string[] = [];
     await freshStart(page);
     await page.goto('./#/fotos/kamera');
@@ -143,7 +143,14 @@ export function tastenTests() {
     await expect(page.getByTestId('camera-page')).toHaveAttribute('data-ready', 'true');
     await page.getByTestId('cam-shutter').click();
     await expect(page.getByTestId('cam-counter')).toHaveText('1');
-    await pruefe(page, 'Kamera mit Foto', out);
+    // Zoom-Tasten unten in der Mitte, Beschreibung darüber, Seitenleiste rechts
+    await expect(page.getByTestId('cam-zoom')).toBeVisible();
+    await page.getByTestId('cam-zoom-2').click();
+    await page.getByTestId('cam-desc').click();
+    await page.getByTestId('cam-desc-input').fill('Riss in der Stütze B4 neben der Einfahrt zur Tiefgarage');
+    await page.getByTestId('cam-desc-save').click();
+    await expect(page.getByTestId('cam-desc-chip')).toBeVisible();
+    await pruefe(page, 'Kamera mit Foto, Zoom und Beschreibung', out);
     expect(out, out.join('\n')).toEqual([]);
   });
 

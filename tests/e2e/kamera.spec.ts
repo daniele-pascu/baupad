@@ -146,3 +146,108 @@ test('Installierte App: Kamera → X öffnet die Fotos des gewählten Projekts (
   await page.reload();
   await expect(page.getByTestId('photo-site-title')).toHaveText('Wohnanlage Süd');
 });
+
+test.describe('Kamera-Zoom', () => {
+  const openCamera = async (page: import('./fixtures').Page) => {
+    await freshStart(page);
+    await page.goto('./#/fotos/kamera');
+    await page.getByTestId('cam-site').click();
+    await page.getByTestId('cam-site-new').click();
+    await page.getByTestId('photo-site-name').fill('Zoom Halle');
+    await page.getByTestId('photo-site-save').click();
+    await expect(page.getByTestId('camera-page')).toHaveAttribute('data-ready', 'true');
+    await expect.poll(() => page.getByTestId('cam-video').evaluate((v: HTMLVideoElement) => v.videoWidth)).toBeGreaterThan(0);
+  };
+  const lastPhotoSize = async (page: import('./fixtures').Page) => {
+    await page.getByTestId('cam-last').click();
+    await expect(page.getByTestId('lightbox')).toBeVisible();
+    const m = /(\d+) × (\d+)/.exec(await page.getByTestId('lightbox').innerText());
+    return m ? [Number(m[1]), Number(m[2])] : null;
+  };
+
+  test('ohne Zoom der Kamera: digital 1× · 2× · 4×, Foto = Ausschnitt in echter Auflösung', async ({ page }) => {
+    await openCamera(page);
+    await expect(page.locator('.cam-view')).toHaveAttribute('data-zoom-mode', 'digital');
+    await expect(page.getByTestId('cam-zoom').getByRole('button')).toHaveText(['1×', '2×', '4×']);
+    await expect(page.getByTestId('cam-zoom-1')).toHaveAttribute('aria-pressed', 'true');
+    await page.getByTestId('cam-zoom-2').click();
+    await expect(page.getByTestId('cam-zoom-2')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('cam-video')).toHaveAttribute('style', /scale\(2\)/);
+    const [vw, vh] = await page.getByTestId('cam-video').evaluate((v: HTMLVideoElement) => [v.videoWidth, v.videoHeight]);
+    await page.getByTestId('cam-shutter').click();
+    await expect(page.getByTestId('cam-counter')).toHaveText('1');
+    // Testkamera 4:3 → mit 2× die Mitte in halber Breite und Höhe (nicht hochgerechnet)
+    const cw = Math.min(vw, (vh * 4) / 3); // 4:3-Ausschnitt des (queren) Testbilds
+    expect(await lastPhotoSize(page)).toEqual([Math.round(cw / 2), Math.round((cw * 3) / 4 / 2)]);
+  });
+
+  test('Kamera meldet einen Zoombereich (Android): Tasten 0,5 · 1× · 2× · 5× · 10×, die Kamera zoomt selbst', async ({ page }) => {
+    await page.addInitScript(() => {
+      const w = window as unknown as { __zooms: number[]; __zoom: number };
+      w.__zooms = [];
+      w.__zoom = 1;
+      const P = MediaStreamTrack.prototype;
+      const caps = P.getCapabilities;
+      const settings = P.getSettings;
+      P.getCapabilities = function (this: MediaStreamTrack) {
+        const c = caps ? caps.call(this) : {};
+        return this.kind === 'video' ? ({ ...c, zoom: { min: 0.5, max: 10, step: 0.1 } } as MediaTrackCapabilities) : c;
+      };
+      P.getSettings = function (this: MediaStreamTrack) {
+        return { ...settings.call(this), zoom: w.__zoom } as MediaTrackSettings;
+      };
+      P.applyConstraints = async function (c?: MediaTrackConstraints) {
+        const z = (c?.advanced?.[0] as { zoom?: number } | undefined)?.zoom;
+        if (z) {
+          w.__zooms.push(z);
+          w.__zoom = z;
+        }
+      };
+    });
+    await openCamera(page);
+    await expect(page.locator('.cam-view')).toHaveAttribute('data-zoom-mode', 'camera');
+    await expect(page.getByTestId('cam-zoom').getByRole('button')).toHaveText(['0,5', '1×', '2×', '5×', '10×']);
+    await page.getByTestId('cam-zoom-5').click();
+    await expect.poll(() => page.evaluate(() => (window as unknown as { __zooms: number[] }).__zooms.at(-1))).toBe(5);
+    await expect(page.getByTestId('cam-zoom-5')).toHaveAttribute('aria-pressed', 'true');
+    // die Kamera vergrößert selbst: kein digitaler Ausschnitt, volle Auflösung
+    await expect(page.getByTestId('cam-video')).not.toHaveAttribute('style', /scale/);
+    await page.getByTestId('cam-zoom-0.5').click();
+    await expect.poll(() => page.evaluate(() => (window as unknown as { __zooms: number[] }).__zooms.at(-1))).toBe(0.5);
+    const vw = await page.getByTestId('cam-video').evaluate((v: HTMLVideoElement) => v.videoWidth);
+    await page.getByTestId('cam-shutter').click();
+    await expect(page.getByTestId('cam-counter')).toHaveText('1');
+    expect((await lastPhotoSize(page))![0]).toBeGreaterThan(vw / 2); // kein Ausschnitt
+  });
+
+  test('iPhone meldet die Objektive: Tasten 0,5 · 1× · Tele wechseln das Objektiv (optischer Zoom)', async ({ page }) => {
+    await page.addInitScript(() => {
+      const w = window as unknown as { __asked: string[] };
+      w.__asked = [];
+      const md = navigator.mediaDevices;
+      const gum = md.getUserMedia.bind(md);
+      md.enumerateDevices = async () =>
+        [
+          { kind: 'videoinput', deviceId: 'cam-front', label: 'Frontkamera', groupId: 'g' },
+          { kind: 'videoinput', deviceId: 'cam-wide', label: 'Rückkamera', groupId: 'g' },
+          { kind: 'videoinput', deviceId: 'cam-ultra', label: 'Rückseitige Ultraweitwinkelkamera', groupId: 'g' },
+          { kind: 'videoinput', deviceId: 'cam-tele', label: 'Rückseitige Telekamera', groupId: 'g' },
+        ] as unknown as MediaDeviceInfo[];
+      md.getUserMedia = async (c?: MediaStreamConstraints) => {
+        const v = (c?.video ?? {}) as MediaTrackConstraints & { deviceId?: { exact?: string } };
+        w.__asked.push(v.deviceId?.exact ?? 'standard');
+        return gum({ video: { width: v.width, height: v.height }, audio: false });
+      };
+    });
+    await openCamera(page);
+    await expect(page.locator('.cam-view')).toHaveAttribute('data-zoom-mode', 'lens');
+    await expect(page.getByTestId('cam-zoom').getByRole('button')).toHaveText(['0,5', '1×', 'Tele']);
+    await expect(page.getByTestId('cam-lens-wide')).toHaveAttribute('aria-pressed', 'true');
+    await page.getByTestId('cam-lens-tele').click();
+    await expect(page.getByTestId('cam-lens-tele')).toHaveAttribute('aria-pressed', 'true');
+    await expect.poll(() => page.evaluate(() => (window as unknown as { __asked: string[] }).__asked.at(-1))).toBe('cam-tele');
+    await page.getByTestId('cam-lens-ultra').click();
+    await expect.poll(() => page.evaluate(() => (window as unknown as { __asked: string[] }).__asked.at(-1))).toBe('cam-ultra');
+    await expect(page.getByTestId('cam-lens-ultra')).toHaveAttribute('aria-pressed', 'true');
+  });
+});

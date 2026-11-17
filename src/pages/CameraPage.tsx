@@ -16,6 +16,7 @@ import type { Photo, PhotoSite } from '../lib/types';
 import { loadPhotoSites } from './PhotosPage';
 import { usePageTitle } from '../lib/page-title';
 import { syncPhotoCloud, useCloudState } from '../lib/photo-cloud';
+import { backLenses, clampZoom, DIGITAL_MAX, DIGITAL_STOPS, fmtZoom, pinchZoom, zoomCrop, zoomStops, type HwZoom, type LensKind, type Lenses } from '../lib/camera-zoom';
 import { FLASH_HINT, FLASH_LABEL, flashBeforeShot, loadFlash, nextFlash, saveFlash, setTorch as setTorchOn, type FlashMode } from '../lib/flash';
 
 const LAST_SITE = 'photoLastSite';
@@ -103,6 +104,16 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
   const viewRef = useRef<HTMLDivElement>(null);
   const video = useRef<HTMLVideoElement>(null);
   const stream = useRef<MediaStream | null>(null);
+  // Zoom (lib/camera-zoom.ts): Objektive, Zoom der Kamera oder digital
+  const [deviceId, setDeviceId] = useState<string | null>(null);
+  const [lenses, setLenses] = useState<Lenses>({});
+  const [lensNow, setLensNow] = useState<LensKind | null>(null);
+  const [hwZoom, setHwZoom] = useState<HwZoom | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [pinching, setPinching] = useState(false);
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<{ dist: number; zoom: number } | null>(null);
+  const hwPending = useRef<number | null>(null);
   const hashes = useMemo(() => new Set(photos.map((p) => p.hash)), [photos]);
 
   const reload = () =>
@@ -178,7 +189,7 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
       return;
     }
     navigator.mediaDevices
-      .getUserMedia({ video: { facingMode: facing, width: { ideal: 4096 }, height: { ideal: 3072 } }, audio: false })
+      .getUserMedia({ video: deviceId ? { deviceId: { exact: deviceId }, width: { ideal: 4096 }, height: { ideal: 3072 } } : { facingMode: facing, width: { ideal: 4096 }, height: { ideal: 3072 } }, audio: false })
       .then((s) => {
         if (cancelled) {
           s.getTracks().forEach((t) => t.stop());
@@ -191,8 +202,29 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
           void v.play().catch(() => undefined);
         }
         const track = s.getVideoTracks()[0];
-        const caps = (track?.getCapabilities?.() ?? {}) as MediaTrackCapabilities & { torch?: boolean };
+        const caps = (track?.getCapabilities?.() ?? {}) as MediaTrackCapabilities & { torch?: boolean; zoom?: { min: number; max: number; step?: number } };
         setTorchOk(!!caps.torch);
+        // Zoom der Kamera (sonst digital); jedes Objektiv beginnt bei seinem Grundwert
+        const z = caps.zoom && caps.zoom.max > caps.zoom.min ? { min: caps.zoom.min, max: caps.zoom.max, step: caps.zoom.step || 0.1 } : null;
+        setHwZoom(z);
+        const set = (track?.getSettings?.() ?? {}) as MediaTrackSettings & { zoom?: number };
+        setZoom(z ? clampZoom(set.zoom ?? 1, z.min, z.max) : 1);
+        // Objektive der Rückseite (Namen gibt es erst nach der Erlaubnis)
+        if (facing === 'environment')
+          void navigator.mediaDevices
+            .enumerateDevices?.()
+            .then((list) => {
+              if (cancelled) return;
+              const found = backLenses(list);
+              setLenses(found);
+              const now = deviceId ?? set.deviceId; // gewähltes Objektiv, sonst das, was der Browser genommen hat
+              setLensNow(found.ultra?.id === now ? 'ultra' : found.tele?.id === now ? 'tele' : found.wide ? 'wide' : null);
+            })
+            .catch(() => undefined);
+        else {
+          setLenses({});
+          setLensNow(null);
+        }
         setReady(true);
       })
       .catch((e: unknown) => {
@@ -212,7 +244,7 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
       window.removeEventListener('pagehide', stop);
       stop();
     };
-  }, [facing, tick]);
+  }, [facing, tick, deviceId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Drehung erkennen: Layout (wenn die Oberfläche mitdreht) und Lagesensor (auch bei Ausrichtungssperre)
   useEffect(() => {
@@ -280,6 +312,70 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
   /** Symbole mitdrehen, damit sie in Handlage aufrecht stehen */
   const iconStyle = angle && !layoutLandscape ? { transform: `rotate(${angle}deg)` } : undefined;
 
+  // ---- Zoom ----
+  const zMin = hwZoom ? hwZoom.min : 1;
+  const zMax = hwZoom ? hwZoom.max : DIGITAL_MAX;
+  /** digitaler Faktor (Ausschnitt) – 1, wenn die Kamera selbst zoomt */
+  const digital = hwZoom ? 1 : zoom;
+  const zoomTo = (z: number) => {
+    const v = clampZoom(z, zMin, zMax);
+    setZoom(v);
+    if (!hwZoom) return;
+    // Zoom der Kamera: höchstens einmal je Bild anfragen (beim Ziehen mit zwei Fingern)
+    hwPending.current = v;
+    requestAnimationFrame(() => {
+      const want = hwPending.current;
+      hwPending.current = null;
+      const track = stream.current?.getVideoTracks()[0];
+      if (want === null || !track) return;
+      void track.applyConstraints({ advanced: [{ zoom: want } as MediaTrackConstraintSet] }).catch(() => undefined);
+    });
+  };
+  const pickLens = (kind: 'ultra' | 'wide' | 'tele') => {
+    const lens = lenses[kind];
+    if (!lens) return;
+    setZoom(1);
+    if (kind === lensNow) {
+      if (hwZoom) zoomTo(1);
+      return;
+    }
+    setLensNow(kind);
+    setDeviceId(lens.id);
+  };
+  const lensBase: Record<string, number | null> = { ultra: 0.5, wide: 1, tele: null };
+  const lensLabel = (kind: 'ultra' | 'wide' | 'tele', active: boolean) => {
+    const base = lensBase[kind];
+    const z = active ? zoom : 1;
+    if (base === null) return z === 1 ? 'Tele' : `Tele ${fmtZoom(z)}`;
+    return fmtZoom(base * z);
+  };
+  /** Tasten: je Objektiv, sonst Stufen des Kamera-Zooms bzw. digital */
+  const lensKinds = (['ultra', 'wide', 'tele'] as const).filter((k) => lenses[k]);
+  const stops = hwZoom ? zoomStops(hwZoom.min, hwZoom.max) : DIGITAL_STOPS;
+  const activeStop = stops.reduce((best, s) => (Math.abs(Math.log(s / zoom)) < Math.abs(Math.log(best / zoom)) ? s : best), stops[0]);
+  const onPointerDown = (e: React.PointerEvent) => {
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.current.size === 2) {
+      const [a, b] = [...pointers.current.values()];
+      pinch.current = { dist: Math.hypot(a.x - b.x, a.y - b.y), zoom };
+      setPinching(true);
+    }
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!pointers.current.has(e.pointerId)) return;
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (!pinch.current || pointers.current.size < 2) return;
+    const [a, b] = [...pointers.current.values()];
+    zoomTo(pinchZoom(pinch.current.zoom, pinch.current.dist, Math.hypot(a.x - b.x, a.y - b.y), zMin, zMax));
+  };
+  const onPointerEnd = (e: React.PointerEvent) => {
+    pointers.current.delete(e.pointerId);
+    if (pointers.current.size < 2) {
+      pinch.current = null;
+      setPinching(false);
+    }
+  };
+
   // Blitz Aus / Auto / An (gemerkt): An = Lampe dauerhaft, Auto = bei Dunkelheit kurz beim Auslösen
   const [flashMode, setFlashMode] = useState<FlashMode>(loadFlash);
   useEffect(() => {
@@ -334,7 +430,9 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
       const off = await flashBeforeShot(flashMode, stream.current?.getVideoTracks()[0], v);
       const fw = v.videoWidth || 1280;
       const fh = v.videoHeight || 960;
-      const f = cameraFraming(fw, fh, ratio, orient, angle, layoutLandscape);
+      const f0 = cameraFraming(fw, fh, ratio, orient, angle, layoutLandscape);
+      // digitaler Zoom: kleinerer Ausschnitt um die Mitte, in seiner echten Auflösung (kein Hochrechnen)
+      const f = digital > 1 ? { ...f0, crop: zoomCrop(f0.crop, digital), out: { w: Math.round(f0.out.w / digital), h: Math.round(f0.out.h / digital) } } : f0;
       const canvas = document.createElement('canvas');
       canvas.width = f.out.w;
       canvas.height = f.out.h;
@@ -411,13 +509,14 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
         <CamUpload />
       </header>
 
-      <div className="cam-view" ref={viewRef}>
+      <div className={`cam-view${pinching ? ' pinching' : ''}`} ref={viewRef} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onPointerLeave={onPointerEnd} data-zoom={zoom} data-zoom-mode={native ? 'native' : lensKinds.length ? 'lens' : hwZoom ? 'camera' : 'digital'}>
         <video
           ref={video}
           playsInline
           muted
           autoPlay
           className={facing === 'user' ? 'mirror' : undefined}
+          style={digital !== 1 ? { transform: `${facing === 'user' ? 'scaleX(-1) ' : ''}scale(${digital})` } : undefined}
           onLoadedMetadata={(e) => setFrame({ w: e.currentTarget.videoWidth, h: e.currentTarget.videoHeight })}
           onResize={(e) => setFrame({ w: e.currentTarget.videoWidth, h: e.currentTarget.videoHeight })}
           data-testid="cam-video"
@@ -447,6 +546,27 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
             <p className="small">Du kannst die Kamera-App des Geräts verwenden – das Foto wird genauso gespeichert.</p>
           </div>
         )}
+        {!native && ready && !error && (
+          <div className="cam-zoom" role="group" aria-label="Zoom" data-testid="cam-zoom">
+            {lensKinds.length
+              ? lensKinds.map((k) => {
+                  const active = lensNow === k;
+                  return (
+                    <button key={k} type="button" className={active ? 'on' : undefined} aria-pressed={active} onClick={() => pickLens(k)} aria-label={k === 'ultra' ? 'Ultraweitwinkel' : k === 'tele' ? 'Tele-Objektiv' : 'Normales Objektiv'} data-testid={`cam-lens-${k}`}>
+                      {lensLabel(k, active)}
+                    </button>
+                  );
+                })
+              : stops.map((v) => {
+                  const active = v === activeStop;
+                  return (
+                    <button key={v} type="button" className={active ? 'on' : undefined} aria-pressed={active} onClick={() => zoomTo(v)} aria-label={`Zoom ${fmtZoom(v)}${hwZoom ? '' : ' (digital)'}`} data-testid={`cam-zoom-${v}`}>
+                      {active ? fmtZoom(zoom) : fmtZoom(v)}
+                    </button>
+                  );
+                })}
+          </div>
+        )}
         {desc && (
           <button type="button" className="cam-desc-chip" onClick={() => setDescOpen(true)} data-testid="cam-desc-chip">
             <Icon name="text" size={14} /> {desc}
@@ -467,7 +587,11 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
             </button>
           )}
           {!native && (
-          <button type="button" className={`cam-icon${facing === 'user' ? ' on' : ''}`} onClick={() => setFacing((f) => (f === 'environment' ? 'user' : 'environment'))} aria-label={facing === 'user' ? 'Zur Rückkamera' : 'Zur Frontkamera'} title={facing === 'user' ? 'Zur Rückkamera' : 'Zur Frontkamera'} style={iconStyle} data-testid="cam-flip">
+          <button type="button" className={`cam-icon${facing === 'user' ? ' on' : ''}`} onClick={() => {
+              setDeviceId(null);
+              setZoom(1);
+              setFacing((f) => (f === 'environment' ? 'user' : 'environment'));
+            }} aria-label={facing === 'user' ? 'Zur Rückkamera' : 'Zur Frontkamera'} title={facing === 'user' ? 'Zur Rückkamera' : 'Zur Frontkamera'} style={iconStyle} data-testid="cam-flip">
             <Icon name="flip" size={22} />
           </button>
           )}
