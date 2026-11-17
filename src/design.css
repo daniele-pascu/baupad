@@ -327,29 +327,24 @@ html.app-fixed .tools-page .tile-go {
   }
 }
 
-/* Kacheln in der Farbe ihres Werkzeugs: kräftiger Verlauf, heller Glanz oben, großes durchscheinendes Symbol,
-   Symbol im Glaskreis, weiße Schrift */
+/* Kacheln in der Farbe ihres Werkzeugs – matt: Farbe leicht entsättigt (mit Grau gemischt), sanfter Verlauf ohne Glanz,
+   schlichter neutraler Schatten statt farbigem Leuchten; großes Symbol im Hintergrund, Symbol im Kreis, weiße Schrift */
 html.app-fixed .tools-page .tool-tile {
+  --tool-m: color-mix(in srgb, var(--tool) 74%, #62666b);
   border: 0;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0) 38%),
-    radial-gradient(120% 90% at 18% 0%, color-mix(in srgb, var(--tool) 55%, #fff) 0%, rgba(255, 255, 255, 0) 60%),
-    linear-gradient(160deg, var(--tool) 0%, color-mix(in srgb, var(--tool) 62%, #000) 100%);
+  background: linear-gradient(160deg, var(--tool-m) 0%, color-mix(in srgb, var(--tool-m) 84%, #000) 100%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    0 26px 50px -28px color-mix(in srgb, var(--tool) 80%, #000);
+    0 1px 2px rgba(0, 0, 0, 0.06),
+    0 14px 28px -20px rgba(0, 0, 0, 0.35);
   color: #fff;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
 html.app-fixed .tools-page a.tool-tile:hover {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0) 40%),
-    radial-gradient(120% 90% at 18% 0%, color-mix(in srgb, var(--tool) 55%, #fff) 0%, rgba(255, 255, 255, 0) 60%),
-    linear-gradient(160deg, var(--tool) 0%, color-mix(in srgb, var(--tool) 62%, #000) 100%);
+  background: linear-gradient(160deg, var(--tool-m) 0%, color-mix(in srgb, var(--tool-m) 84%, #000) 100%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    0 32px 56px -26px color-mix(in srgb, var(--tool) 85%, #000);
+    0 1px 2px rgba(0, 0, 0, 0.06),
+    0 18px 32px -20px rgba(0, 0, 0, 0.4);
 }
 html.app-fixed .tools-page .tile-mark {
   display: block;
@@ -357,12 +352,12 @@ html.app-fixed .tools-page .tile-mark {
   right: -30px;
   bottom: auto;
   color: #fff;
-  opacity: 0.16;
+  opacity: 0.12;
 }
 html.app-fixed .tools-page .tile-icon,
 html.app-fixed[data-theme='dark'] .tools-page [data-testid='tool-photos'] .tile-icon {
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.14);
   color: #fff;
 }
 html.app-fixed .tools-page .tile-text strong {
