@@ -405,7 +405,7 @@ test('Bestand und Bedarf: Gebinde und Palette, schon geliefert, Verbrauch mit Du
   await row.getByTestId('stock-open').click();
   await expect(sd.getByTestId('calc-total')).toHaveValue('100');
   await expect(sd.getByTestId('use-row')).toHaveCount(1);
-  await expect(sd.getByTestId('use-row')).toContainText('6 Sack für 20 m²');
+  await expect(sd.getByTestId('use-row')).toContainText('6 Sack (150 kg) für 20 m²');
   await sd.getByTestId('use-row').click();
   await ud.getByTestId('use-qty').fill('8');
   await ud.getByTestId('use-save').click();
