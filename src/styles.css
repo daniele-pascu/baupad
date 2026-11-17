@@ -8226,6 +8226,56 @@ button.report-site-empty {
 .cam-view video.mirror {
   transform: scaleX(-1);
 }
+/* Zoom: zwei Finger ziehen (keine Seitenvergrößerung), digitaler Ausschnitt gleitet kurz nach */
+.cam-view {
+  touch-action: none;
+}
+.cam-view video {
+  transition: transform 0.2s cubic-bezier(0.23, 1, 0.32, 1);
+}
+.cam-view.pinching video {
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cam-view video {
+    transition: none;
+  }
+}
+/* Zoom-Tasten unten in der Mitte (0,5 · 1× · 2 … bzw. je Objektiv) */
+.cam-zoom {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+}
+.cam-zoom button {
+  min-width: 38px;
+  height: 38px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.cam-zoom button.on {
+  background: #fff;
+  color: #111;
+}
+/* Beschreibung über die Zoom-Tasten schieben */
+.cam-zoom ~ .cam-desc-chip {
+  bottom: 62px;
+}
 .cam-mask {
   position: absolute;
   inset: 0;
