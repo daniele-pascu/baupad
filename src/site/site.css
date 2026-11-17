@@ -4567,10 +4567,11 @@
   height: auto;
   opacity: 0.13;
 }
+/* schwarz-weiß: Symbole hellgrau auf Dunkel; beim Umdrehen nur ein heller Schimmer (Farbe tragen allein die Karten) */
 .tw-front {
-  border: 1px solid color-mix(in srgb, var(--ci) calc(var(--hi, 0) * 100%), rgba(255, 255, 255, 0.14));
-  background: color-mix(in srgb, var(--c) calc(var(--hi, 0) * 100%), var(--a));
-  color: color-mix(in srgb, #fff calc(var(--hi, 0) * 100%), var(--ci));
+  border: 1px solid color-mix(in srgb, rgba(255, 255, 255, 0.45) calc(var(--hi, 0) * 100%), rgba(255, 255, 255, 0.12));
+  background: color-mix(in srgb, #2b302d calc(var(--hi, 0) * 100%), var(--a));
+  color: color-mix(in srgb, #fff calc(var(--hi, 0) * 100%), rgba(232, 236, 233, 0.58));
 }
 .tw-front svg {
   width: 42%;
