@@ -34,8 +34,8 @@ import { getState, hasUnsavedChanges, flush as flushStore, reloadProject } from 
  *   (die zuletzt übertragene Änderung).
  */
 
-/** Datenarten, die eine ältere Funktion „storage“ noch abweist (Materialverwaltung, 05.11.2026) */
-const NEW_STORES = new Set<string>(['materials', 'suppliers', 'materialItems']);
+/** Datenarten, die eine ältere Funktion „storage“ noch abweist (Materialverwaltung 05.11.2026, Verbrauch und Bedarf 17.11.2026) */
+const NEW_STORES = new Set<string>(['materials', 'suppliers', 'materialItems', 'materialUses', 'materialPlans']);
 const CURSOR = 'dataSyncCursor';
 const ADOPTED = 'dataSyncWorkspace';
 const PULL_EVERY = 5 * 60_000;
@@ -304,10 +304,12 @@ export class DataSync {
   private async pushRecords(entries: OutboxEntry[]): Promise<void> {
     // Neue Datenarten getrennt senden: kennt die Funktion „storage“ sie noch nicht (nicht neu veröffentlicht),
     // bleiben nur diese in der Warteschlange – der Abgleich aller anderen Werkzeuge läuft weiter
-    const fresh = entries.filter((e) => NEW_STORES.has(e.store));
+    // – je Datenart einzeln, damit z. B. der Materialstamm weiterläuft, wenn nur der Verbrauch noch abgewiesen wird
     const known = entries.filter((e) => !NEW_STORES.has(e.store));
     if (known.length) await this.upsertRows(known);
-    if (fresh.length) {
+    for (const store of NEW_STORES) {
+      const fresh = entries.filter((e) => e.store === store);
+      if (!fresh.length) continue;
       try {
         await this.upsertRows(fresh);
       } catch (err) {

@@ -1,12 +1,13 @@
 import { usePricesVisible } from '../lib/price-access';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { lvDocLabel, lvDocsOf, planTitle, positionRef } from '../lib/aufmass';
-import { activeRule, bookedForPosition, detectRule, hasRule, ruleText, stepStart, suggestedRule, SURFACES, withLowerBounds } from '../lib/pos-rules';
+import { measuredForPosition } from '../lib/lv-measured';
+import { activeRule, detectRule, hasRule, ruleText, stepStart, suggestedRule, SURFACES, withLowerBounds } from '../lib/pos-rules';
 import { uuid } from '../lib/ids';
 import { damageNo, nextPositionNumber } from '../lib/numbering';
 import { readLvFromPdf } from '../lib/lv-import';
 import { longTextParagraphs, parseGermanNumber, sumPositions, type ParsedLv } from '../lib/lv-parse';
-import { netLength, quantityBasis, quantityFor } from '../lib/measure';
+import { netLength, quantityBasis } from '../lib/measure';
 import { formatArea, formatMeasure, parseDecimal } from '../lib/numbers';
 import { closePdf, openPdf } from '../lib/pdf';
 import { paths } from '../lib/router';
@@ -19,27 +20,6 @@ import { confirmDialog, showError, toast } from './ui';
 
 const eur = (n: number | null | undefined) => (n === null || n === undefined ? '–' : `${formatArea(n)} €`);
 const qty = (n: number | null | undefined) => (n === null || n === undefined ? '–' : formatMeasure(n));
-
-/** Aufmaßmenge und -betrag einer Position aus den zugeordneten Messungen */
-function measured(data: ProjectState, doc: LvDocument, pos: LvPosition) {
-  // von Hand zugeordnete Messungen und Schadstellen, die über die Regel der Position automatisch zählen
-  const booked = bookedForPosition(data, positionRef(doc.id, pos.id));
-  const damages = booked.map((b) => b.d);
-  let q = quantityFor(pos.unit, damages);
-  const rebar = !!activeRule(pos)?.rebar;
-  if (rebar || booked.some((b) => b.factor !== 1)) {
-    // Zulage: jede Schadstelle zählt mit ihrer Stufenzahl · Bewehrung: die bei der Schadstelle eingetragenen lfm
-    let value: number | null = null;
-    let missing = 0;
-    for (const b of booked) {
-      const one = rebar && b.auto ? { value: b.d.rebar ?? null, missing: 0 } : quantityFor(pos.unit, [b.d]);
-      missing += one.missing;
-      if (one.value !== null) value = (value ?? 0) + b.factor * one.value;
-    }
-    q = { value: value === null ? null : Math.round(value * 1e6) / 1e6, missing };
-  }
-  return { damages, booked, ...q, amount: q.value !== null && pos.unitPrice !== null ? Math.round(q.value * pos.unitPrice * 100) / 100 : null };
-}
 
 /**
  * Leistungsverzeichnisse (LV) und Mehrkostenforderungen (MFK) eines Projekts:
@@ -343,7 +323,7 @@ function LvDocView({ data, doc, prices, onEdit, onDelete }: { data: ProjectState
     () =>
       doc.positions
         .filter((p) => !q || `${p.number} ${p.shortText} ${p.longText}`.toLowerCase().includes(q))
-        .map((p) => ({ pos: p, m: measured(data, doc, p) })),
+        .map((p) => ({ pos: p, m: measuredForPosition(data, doc, p) })),
     [doc, q, data],
   );
   const groupTitle = (g: string) => doc.groups.find((x) => x.number === g)?.title ?? '';

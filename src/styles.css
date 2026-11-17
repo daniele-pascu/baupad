@@ -11202,6 +11202,118 @@ html[data-theme='dark'] .crew-search {
   margin-bottom: 12px;
 }
 
+/* Materialverwaltung: Bestand, Verbrauch und Bedarfsrechnung je Baustelle */
+.ok-text {
+  color: var(--success);
+  font-weight: 600;
+}
+.mat-site-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 0 12px;
+}
+.mat-sub-hint {
+  margin: -4px 0 0;
+}
+.stock-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.stock-kpi {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  min-width: 0;
+}
+.stock-kpi strong {
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.stock-kpi span {
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .stock-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.calc-rate-info ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+.calc-result {
+  display: grid;
+  gap: 0;
+  margin-top: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.calc-result > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+}
+.calc-result > div:first-child {
+  border-top: 0;
+}
+.calc-result > div > span {
+  color: var(--muted);
+  min-width: 0;
+}
+.calc-result > div > strong {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.calc-result .calc-total.warn {
+  background: var(--warn-soft);
+}
+.calc-result .calc-total.warn strong {
+  color: #8a5d00;
+}
+.calc-result .calc-total.ok strong {
+  color: var(--success);
+}
+html[data-theme='dark'] .calc-result .calc-total.warn strong {
+  color: #f2c94c;
+}
+.calc-order {
+  margin-top: 12px;
+  width: 100%;
+  justify-content: center;
+}
+.use-list {
+  margin-top: 8px;
+}
+.use-list button {
+  display: grid;
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 2px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.use-material {
+  margin: 0;
+}
+
 /* Plan zeichnen: Spurlinien (Objektfang-Spuren) und gemerkte Fangpunkte */
 .track-line {
   stroke: #12a150;

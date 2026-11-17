@@ -13,7 +13,7 @@ import { isEquipment, listSummary } from '../lib/materials';
 import { isoDate } from '../lib/crew';
 import { HubEquipment, HubOrders, HubOverview, type HubData } from '../components/MaterialHub';
 import { uuid } from '../lib/ids';
-import { fmtPrice, materialDuplicates, matchesMaterial, normKey, parsePrice, sortMaterials, sortSuppliers, supplierDuplicates, UNITS, type MaterialDuplicate } from '../lib/materials';
+import { BASES, fmtPrice, fmtQty, materialDuplicates, matchesMaterial, normKey, normUnit, PACK_UNITS, parsePrice, parseQty, sortMaterials, sortSuppliers, supplierDuplicates, UNITS, type MaterialDuplicate } from '../lib/materials';
 import { usePageTitle } from '../lib/page-title';
 import { navigate, paths } from '../lib/router';
 import type { Material, MaterialItem, Project, Supplier } from '../lib/types';
@@ -214,7 +214,17 @@ export function MaterialsPage({ tab }: { tab: Tab }) {
                     <button type="button" className="crew-worker-main" onClick={() => setEditMat(m)} data-testid="material-open">
                       <strong>{m.name}</strong>
                       <span className="muted small">
-                        {[m.articleNo && `Art.-Nr. ${m.articleNo}`, m.unit, m.price !== null && m.price !== undefined ? `${fmtPrice(m.price)} / ${m.unit}` : '', supName.get(m.supplierId ?? ''), m.category].filter(Boolean).join(' · ')}
+                        {[
+                          m.articleNo && `Art.-Nr. ${m.articleNo}`,
+                          m.unit,
+                          m.price !== null && m.price !== undefined ? `${fmtPrice(m.price)} / ${m.unit}` : '',
+                          supName.get(m.supplierId ?? ''),
+                          m.category,
+                          m.packSize && m.packUnit ? `1 ${m.unit} = ${fmtQty(m.packSize)} ${m.packUnit}` : '',
+                          m.perPallet ? `${fmtQty(m.perPallet)} ${m.unit}/Palette` : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
                       </span>
                     </button>
                     <Icon name="next" size={18} className="staff-chevron" />
@@ -284,16 +294,29 @@ function MaterialDialog({ material, all, suppliers, onClose, onSaved }: { materi
     supplierId: material?.supplierId ?? '',
     category: material?.category ?? '',
     note: material?.note ?? '',
+    packSize: material?.packSize ? fmtQty(material.packSize) : '',
+    packUnit: material?.packUnit ?? 'kg',
+    perPallet: material?.perPallet ? fmtQty(material.perPallet) : '',
+    usageRate: material?.usageRate ? fmtQty(material.usageRate) : '',
+    usage: `${material?.usageUnit ?? material?.unit ?? 'Stk'}|${material?.usageBasis ?? 'm²'}`,
   });
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const price = parsePrice(v.price);
+  const packSize = parseQty(v.packSize);
+  const perPallet = parseQty(v.perPallet);
+  const usageRate = parseQty(v.usageRate);
+  const isPallet = normUnit(v.unit) === 'palette';
+  /** Verbrauch je Bezugsgröße in der Einheit oder im Inhalt des Gebindes: „Sack je m²“, „kg je m²“ … */
+  const usageUnits = [...new Set([v.unit, ...(packSize ? [v.packUnit] : [])].filter(Boolean))];
+  const usageOptions = usageUnits.flatMap((u) => BASES.map((b) => ({ value: `${u}|${b}`, label: `${u} je ${b}` })));
+  const usageValue = usageOptions.some((o) => o.value === v.usage) ? v.usage : `${v.unit}|${v.usage.split('|')[1] || 'm²'}`;
   const dups = v.name.trim() || v.articleNo.trim() ? materialDuplicates({ id: material?.id, name: v.name, articleNo: v.articleNo, unit: v.unit, supplierId: v.supplierId || null }, all) : [];
   const units = UNITS.includes(v.unit) || !v.unit ? UNITS : [v.unit, ...UNITS];
 
   const submit = async () => {
     setShow(true);
-    if (!v.name.trim() || !v.unit.trim() || price === undefined) return;
+    if (!v.name.trim() || !v.unit.trim() || price === undefined || packSize === undefined || perPallet === undefined || usageRate === undefined) return;
     if (dups.length) {
       const ok = await confirmDialog({
         title: 'Material schon hinterlegt',
@@ -319,6 +342,12 @@ function MaterialDialog({ material, all, suppliers, onClose, onSaved }: { materi
       supplierId: v.supplierId || null,
       category: v.category.trim(),
       note: v.note.trim(),
+      packSize,
+      packUnit: packSize ? v.packUnit : undefined,
+      perPallet: isPallet ? null : perPallet,
+      usageRate,
+      usageUnit: usageRate ? usageValue.split('|')[0] : undefined,
+      usageBasis: usageRate ? usageValue.split('|')[1] : undefined,
       updatedAt: now,
     } as Material;
     setBusy(true);
@@ -413,9 +442,50 @@ function MaterialDialog({ material, all, suppliers, onClose, onSaved }: { materi
           </select>
         </label>
         {field('category', 'Kategorie', { placeholder: 'z. B. Beton, Dämmung, Kleinmaterial' })}
+        <h3 className="hub-sub">Gebinde, Palette und Verbrauch</h3>
+        <p className="muted small mat-sub-hint">Für die Bedarfsrechnung auf der Baustelle – alles optional.</p>
+        <div className="form-grid">
+          <label className="field">
+            <span>Inhalt je {v.unit || 'Einheit'}</span>
+            <input value={v.packSize} onChange={(e) => setV({ ...v, packSize: e.target.value })} inputMode="decimal" placeholder="z. B. 25" aria-invalid={show && packSize === undefined ? true : undefined} data-testid="material-packSize" />
+          </label>
+          <label className="field">
+            <span>Einheit des Inhalts</span>
+            <select value={v.packUnit} onChange={(e) => setV({ ...v, packUnit: e.target.value })} data-testid="material-packUnit">
+              {PACK_UNITS.map((u) => (
+                <option key={u} value={u}>
+                  {u}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        {!isPallet && (
+          <label className="field">
+            <span>{v.unit || 'Einheiten'} je Palette</span>
+            <input value={v.perPallet} onChange={(e) => setV({ ...v, perPallet: e.target.value })} inputMode="decimal" placeholder="z. B. 40" aria-invalid={show && perPallet === undefined ? true : undefined} data-testid="material-perPallet" />
+          </label>
+        )}
+        <div className="form-grid">
+          <label className="field">
+            <span>Verbrauch (Richtwert)</span>
+            <input value={v.usageRate} onChange={(e) => setV({ ...v, usageRate: e.target.value })} inputMode="decimal" placeholder="z. B. 2" aria-invalid={show && usageRate === undefined ? true : undefined} data-testid="material-usageRate" />
+          </label>
+          <label className="field">
+            <span>Einheit</span>
+            <select value={usageValue} onChange={(e) => setV({ ...v, usage: e.target.value })} data-testid="material-usage">
+              {usageOptions.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
         {field('note', 'Notiz')}
         {show && !v.name.trim() && <p className="error small">Bitte eine Bezeichnung eingeben.</p>}
         {show && price === undefined && <p className="error small">Preis bitte als Zahl, z. B. 12,50.</p>}
+        {show && (packSize === undefined || perPallet === undefined || usageRate === undefined) && <p className="error small">Inhalt, Palette und Verbrauch bitte als Zahl, z. B. 25 oder 0,5.</p>}
         <button type="submit" hidden />
       </form>
     </Modal>
