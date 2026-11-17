@@ -19,6 +19,9 @@ import { remoteConnected } from './lib/remote';
 import { isNativeApp } from './lib/native';
 import { adoptFreeSites } from './lib/sites';
 import { accessKey, setSyncAccess } from './lib/sync-access';
+import { useAppLocked, watchAppLock } from './lib/app-lock';
+import { guardMembership, takeWipeNotice } from './lib/device-wipe';
+import { AppLockScreen } from './components/AppLock';
 import { notifyDataChanged, useDataChanged } from './lib/data-events';
 import { canTool, isLocked, ROUTE_TOOL } from './lib/access';
 import { hasStoredSession, initAuth } from './lib/auth-init';
@@ -76,6 +79,7 @@ const DeleteAccountPage = page(() => import('./site/pages/LegalPages'), 'DeleteA
 const ImprintPage = page(() => import('./site/pages/LegalPages'), 'ImprintPage');
 const NotFoundPage = page(() => import('./site/pages/LegalPages'), 'NotFoundPage');
 const PrivacyPage = page(() => import('./site/pages/LegalPages'), 'PrivacyPage');
+const DpaPage = page(() => import('./site/pages/LegalPages'), 'DpaPage');
 const AccountPage = page(() => import('./pages/AccountPages'), 'AccountPage');
 const AccountSectionPage = page(() => import('./pages/AccountPages'), 'AccountSectionPage');
 const LoginPage = page(() => import('./pages/AccountPages'), 'LoginPage');
@@ -165,7 +169,7 @@ class PageBoundary extends Component<{ resetKey: string; children: ReactNode }, 
 initAuth();
 
 /** Seiten, die die installierte App beim Start nicht auf die Werkzeug-Übersicht umlenkt (Anmeldung, Rechtliches, Konto-Links aus E-Mails) */
-const PUBLIC_ROUTES_AT_START = new Set(['login', 'register', 'newPassword', 'imprint', 'privacy', 'contact', 'deleteAccountInfo', 'account', 'accountSection', 'camera']);
+const PUBLIC_ROUTES_AT_START = new Set(['login', 'register', 'newPassword', 'imprint', 'privacy', 'dpa', 'contact', 'deleteAccountInfo', 'account', 'accountSection', 'camera']);
 
 // Die installierte App startet immer in der Werkzeug-Übersicht („Tools“) – bzw. im Kamera-Modus, wenn der zuletzt
 // offen war. Auch Symbole, die vor der neuen Startseite angelegt wurden (Adresse „./“), und Android, das die
@@ -217,7 +221,7 @@ function NativeRedirect() {
 }
 
 /** Website-Seiten (eigener Rahmen mit Titel und Meta-Angaben) */
-const SITE_ROUTES = new Set(['landing', 'products', 'baupad', 'company', 'contact', 'thanks', 'future', 'imprint', 'privacy', 'deleteAccountInfo', 'product', 'notFound']);
+const SITE_ROUTES = new Set(['landing', 'products', 'baupad', 'company', 'contact', 'thanks', 'future', 'imprint', 'privacy', 'dpa', 'deleteAccountInfo', 'product', 'notFound']);
 
 /** App-Seiten: Standardtitel „BauPad“ (die vorgerenderte index.html trägt den Titel der Startseite); Seiten mit eigenem Titel überschreiben ihn danach */
 function TitleReset({ route }: { route: string }) {
@@ -249,7 +253,7 @@ function setTabIcon(kind: keyof typeof TAB_ICONS) {
 }
 
 /** Seiten ohne Anmeldung: Website, Anmelden/Registrieren, neues Passwort */
-const PUBLIC_ROUTES = new Set(['landing', 'products', 'baupad', 'company', 'contact', 'thanks', 'future', 'imprint', 'privacy', 'deleteAccountInfo', 'product', 'login', 'newPassword', 'notFound']);
+const PUBLIC_ROUTES = new Set(['landing', 'products', 'baupad', 'company', 'contact', 'thanks', 'future', 'imprint', 'privacy', 'dpa', 'deleteAccountInfo', 'product', 'login', 'newPassword', 'notFound']);
 
 /**
  * Zugangsschleuse für alle Werkzeuge: ohne Anmeldung geht es zur Anmeldeseite. Eine auf dem Gerät
@@ -272,9 +276,23 @@ function AuthGate({ route, children }: { route: string; children: ReactNode }) {
       navigate(paths.tools(), true);
     }
   }, [blocked, forbidden]);
+  const appLocked = useAppLocked();
   if (blocked || forbidden || (session === undefined && !stored)) return null;
-  if (locked) return <AccessPendingPage session={session!} />;
-  return <>{children}</>;
+  // App-Sperre: über der Seite (sie bleibt darunter erhalten, z. B. eine offene Zeichnung)
+  const lockScreen = appLocked ? <AppLockScreen name={session?.name || session?.email || ''} /> : null;
+  if (locked)
+    return (
+      <>
+        <AccessPendingPage session={session!} />
+        {lockScreen}
+      </>
+    );
+  return (
+    <>
+      {children}
+      {lockScreen}
+    </>
+  );
 }
 
 /**
@@ -322,16 +340,22 @@ function usePhotoCloud() {
   const userName = session?.name ?? '';
   // Freigaben (Rolle, Werkzeuge, Projekte, Preise): ändern sie sich, gleicht der nächste Abgleich alles neu ab
   const access = accessKey(session);
+  const checked = !!session?.contextLoaded;
   useEffect(() => {
     if (session === undefined) return;
     setSyncAccess(session);
-    void connectPhotoCloud(remoteConnected() ? companyId : null)
-      .catch(() => {})
+    void (async () => {
+      // nicht mehr in der Firma (gesperrt, entfernt, andere Firma)? Dann zuerst die Firmendaten vom Gerät löschen
+      if (await guardMembership(session).catch(() => false)) {
+        location.reload();
+        return;
+      }
+      await connectPhotoCloud(remoteConnected() ? companyId : null).catch(() => {});
       // nach der Anbindung: eigene Fotos ohne Namen bekommen den Namen der Anmeldung, danach Abgleich
-      .then(() => backfillPhotoUserNames(userId ? { id: userId, name: userName } : null))
-      .then(() => syncPhotoCloud().catch(() => {}))
-      .catch(() => {});
-  }, [session === undefined, companyId, userId, userName, access]);
+      await backfillPhotoUserNames(userId ? { id: userId, name: userName } : null).catch(() => {});
+      await syncPhotoCloud().catch(() => {});
+    })();
+  }, [session === undefined, companyId, userId, userName, access, checked]);
 }
 
 export function App() {
@@ -367,6 +391,12 @@ export function App() {
   // Firmenlogo für Excel-Exporte vorab laden (Export bleibt synchron im Klick)
   useEffect(preloadExcelLogo, []);
   useDataChanged(preloadExcelLogo); // Firmenlogo kann von einem anderen Gerät kommen
+  // App-Sperre: beim Wechsel in den Hintergrund; Hinweis nach dem Löschen der Gerätedaten
+  useEffect(() => watchAppLock(), []);
+  useEffect(() => {
+    const notice = takeWipeNotice();
+    if (notice) toast(notice, 'info', 8000);
+  }, []);
   useEffect(() => {
     try {
       if (sessionStorage.getItem('justUpdated')) {
@@ -406,6 +436,9 @@ export function App() {
       break;
     case 'privacy':
       content = <PrivacyPage />;
+      break;
+    case 'dpa':
+      content = <DpaPage />;
       break;
     case 'product':
       content = <ToolPage key={route.product} id={route.product} />;
@@ -526,7 +559,7 @@ export function App() {
     <>
       <OfflineBadge />
       <TitleReset route={route.name} />
-      {SITE_ROUTES_WHEN_SIGNED_IN.has(route.name) && hasStoredSession() ? <ToolsRedirect /> : isNativeApp() && SITE_ROUTES.has(route.name) && !['imprint', 'privacy', 'contact', 'deleteAccountInfo'].includes(route.name) ? <NativeRedirect /> : PUBLIC_ROUTES.has(route.name) ? content : <AuthGate route={route.name}>{content}</AuthGate>}
+      {SITE_ROUTES_WHEN_SIGNED_IN.has(route.name) && hasStoredSession() ? <ToolsRedirect /> : isNativeApp() && SITE_ROUTES.has(route.name) && !['imprint', 'privacy', 'dpa', 'contact', 'deleteAccountInfo'].includes(route.name) ? <NativeRedirect /> : PUBLIC_ROUTES.has(route.name) ? content : <AuthGate route={route.name}>{content}</AuthGate>}
       <DialogHost />
     </>
   );

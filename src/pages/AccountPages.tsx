@@ -17,6 +17,7 @@ import { Modal } from '../components/Modal';
 import { navigate, paths } from '../lib/router';
 import { confirmDialog, showError, toast } from '../components/ui';
 import { AppStorageSettings } from '../components/InstallApp';
+import { SecuritySettings } from '../components/SecuritySettings';
 import { usePageTitle } from '../lib/page-title';
 import { rpc } from '../lib/remote';
 import { setUiSize, setUiTheme, useAppearanceSettings, type UiSize, type UiTheme } from '../lib/appearance';
@@ -522,6 +523,7 @@ const ACCOUNT_TILES: TileDef[] = [
   },
   { id: 'darstellung', title: 'Darstellung', text: 'Größe von Schrift und Tasten, hell oder dunkel', body: () => <AppearanceSettings /> },
   { id: 'app', title: 'App und Speicher', text: 'Installation, dauerhafter Speicher und zentrale Ablage', body: () => <AppStorageSettings /> },
+  { id: 'sicherheit', title: 'Sicherheit', text: 'App-Sperre mit PIN oder Face ID, Daten auf diesem Gerät löschen', body: (s) => <SecuritySettings session={s} /> },
   { id: 'weitere', title: 'Weitere Einstellungen', text: 'Sprache, Benachrichtigungen, Kontakt und Datenschutz', body: () => <MoreSettings /> },
 ];
 const visibleTiles = (session: Session | null | undefined) => ACCOUNT_TILES.filter((t) => t.id !== 'betreiber' || session?.operator);

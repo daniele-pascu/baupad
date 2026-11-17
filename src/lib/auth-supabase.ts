@@ -261,6 +261,7 @@ export class SupabaseAuth implements AuthBackend {
       sites: ctx?.sites ?? [],
       toolSites: (ctx?.tool_sites ?? {}) as Session['toolSites'],
       providers: providers.length ? providers : raw.user.app_metadata?.provider ? [raw.user.app_metadata.provider] : [],
+      contextLoaded: ctx !== null,
     };
     this.cache = { userId: raw.user.id, session, partial: ctx === null };
     return session;

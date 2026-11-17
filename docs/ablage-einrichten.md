@@ -81,6 +81,7 @@ Secrets (Edge Functions → Secrets):
 
 ## Sicherheit und Datenschutz
 - Rechte am Server (seit 17.11.2026): Die Tabellen `records` und `photos` lassen direkt nur Admin, Büro und Betreiber zu. Polier und Arbeiter lesen und schreiben nur über die Funktion `storage`, die jeden Datensatz prüft: Projekt freigegeben (gemeinsame Liste oder bei einem Werkzeug), Werkzeug vorhanden (Personal, Einteilung, Material, Formularvorlagen), Preise nur mit „Preise und Summen“. Nicht Freigegebenes kommt als „gelöscht“ an; signierte Links gibt es nur für Dateien freigegebener Projekte (neue Dateien dürfen hochgeladen werden), Monatsdateien der Zeitaufzeichnung nur für das Büro.
+- Geräte (seit 17.11.2026): App-Sperre mit PIN/Face ID (Konto → Sicherheit), „Abmelden und Daten löschen“; endet der Zugang zur Firma, löscht die App deren Daten vom Gerät, sobald es online ist. Sicherungen verschlüsselt und getrennt: `docs/backup-einrichten.md` Schritt 5. Verträge (AVV): `docs/datenschutz-avv.md`.
 - Hetzner-Schlüssel nur als Supabase-Secrets; Links sind 15 Minuten (Upload) bzw. 60 Minuten (Download) gültig.
 - Dateien sind privat (kein öffentlicher Zugriff), Zugriff nur über signierte Links des eigenen Arbeitsbereichs.
 - Datenschutzerklärung: Abschnitt „Zentrale Ablage“ nennt Hetzner Online GmbH (Deutschland) als Auftragsverarbeiter.

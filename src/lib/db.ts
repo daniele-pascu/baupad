@@ -200,6 +200,22 @@ export function getDB(): Promise<IDBPDatabase<AufmassDB>> {
   return dbPromise;
 }
 
+/**
+ * Alle Daten dieses Geräts löschen (device-wipe.ts): Datenbank schließen und entfernen. Andere offene Tabs schließen
+ * ihre Verbindung von selbst (blocking); bleibt das Löschen hängen, wird es beim nächsten Öffnen fertig.
+ */
+export async function deleteLocalDatabase(): Promise<void> {
+  const open = dbPromise;
+  dbPromise = null;
+  if (open) (await open.catch(() => null))?.close();
+  await new Promise<void>((resolve) => {
+    const r = indexedDB.deleteDatabase(DB_NAME);
+    r.onsuccess = () => resolve();
+    r.onerror = () => resolve();
+    r.onblocked = () => resolve();
+  });
+}
+
 export async function getMeta<T>(key: string): Promise<T | undefined> {
   const db = await getDB();
   return (await db.get('meta', key))?.value as T | undefined;

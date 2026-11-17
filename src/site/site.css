@@ -5647,3 +5647,34 @@
     padding: 56px 0 60px;
   }
 }
+
+/* Auftragsverarbeitung (AVV): Unterpunkte, Aufzählungen, Druck ohne Kopf- und Fußleiste */
+.ps-legal-section h3 {
+  margin: 22px 0 6px;
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: var(--ps-ink);
+}
+.ps-legal-list {
+  margin: 6px 0 0;
+  padding-left: 1.2em;
+  display: grid;
+  gap: 6px;
+}
+@media (max-width: 560px) {
+  .ps-legal .ps-dl > div {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+}
+@media print {
+  .ps-header,
+  .ps-footer,
+  .ps-print-hide {
+    display: none !important;
+  }
+  .ps-reveal {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

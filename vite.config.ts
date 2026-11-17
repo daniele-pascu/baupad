@@ -58,14 +58,14 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         navigateFallback: '/index.html',
         // Dateien mit Endung und die Website-Seiten nicht auf die gespeicherte App umleiten
-        navigateFallbackDenylist: [/\.[a-z0-9]+$/i, /^\/(?:$|\?|en(?:\/|$|\?)|baupad\/?(?:$|\?)|baupad\/funktionen\/|(?:produkte|unternehmen|kontakt|impressum|datenschutz|konto-loeschen)(?:\/|$|\?))/],
+        navigateFallbackDenylist: [/\.[a-z0-9]+$/i, /^\/(?:$|\?|en(?:\/|$|\?)|baupad\/?(?:$|\?)|baupad\/funktionen\/|(?:produkte|unternehmen|kontakt|impressum|datenschutz|auftragsverarbeitung|konto-loeschen)(?:\/|$|\?))/],
         // „/“ nicht aus dem Speicher beantworten (sonst zeigt die Startseite nach einer Veröffentlichung den alten Stand)
         directoryIndex: null,
         // Website-Seiten: immer zuerst frisch aus dem Netz; nur ohne Verbindung der zuletzt gesehene Stand bzw. die App
         runtimeCaching: [
           {
             urlPattern: ({ request, url }) =>
-              request.mode === 'navigate' && /^\/(?:$|en(?:\/|$)|baupad\/?$|baupad\/funktionen\/|(?:produkte|unternehmen|kontakt|impressum|datenschutz|konto-loeschen)(?:\/|$))/.test(url.pathname),
+              request.mode === 'navigate' && /^\/(?:$|en(?:\/|$)|baupad\/?$|baupad\/funktionen\/|(?:produkte|unternehmen|kontakt|impressum|datenschutz|auftragsverarbeitung|konto-loeschen)(?:\/|$))/.test(url.pathname),
             handler: 'NetworkFirst',
             options: { cacheName: 'website-seiten', networkTimeoutSeconds: 4, precacheFallback: { fallbackURL: '/index.html' } },
           },

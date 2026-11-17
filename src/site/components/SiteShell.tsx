@@ -27,7 +27,7 @@ export function switchLangPath(path: string, to: Lang): string {
   const route = parseRoute(path);
   if (route.name === 'product') return paths.product(PRODUCT_SLUG_OF[route.product], to);
   const site = route.name as SiteRouteName;
-  const known: SiteRouteName[] = ['landing', 'products', 'baupad', 'company', 'contact', 'thanks', 'future', 'imprint', 'privacy', 'deleteAccountInfo'];
+  const known: SiteRouteName[] = ['landing', 'products', 'baupad', 'company', 'contact', 'thanks', 'future', 'imprint', 'privacy', 'dpa', 'deleteAccountInfo'];
   return known.includes(site) ? sitePath(site, to) : paths.landing(to);
 }
 
@@ -171,6 +171,7 @@ export function SiteFooter() {
           <h2>{t.footer.legal}</h2>
           <a href={paths.imprint(lang)}>{t.footer.imprint}</a>
           <a href={paths.privacy(lang)}>{t.footer.privacy}</a>
+          <a href={paths.dpa(lang)}>{t.footer.dpa}</a>
           <a href={paths.deleteAccountInfo(lang)}>{t.footer.deleteAccount}</a>
         </nav>
       </div>

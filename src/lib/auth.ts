@@ -106,6 +106,8 @@ export interface Session {
   toolSites: ToolSites;
   /** verbundene Anmeldemethoden (email, google, apple, azure) */
   providers: string[];
+  /** Kontext der Datenbank wurde gelesen (online); fehlt offline – dann sind Firma und Rolle nur angenommen */
+  contextLoaded?: boolean;
 }
 
 /** Ergebnis einer Registrierung: entweder sofort angemeldet oder E-Mail-Bestätigung ausstehend */

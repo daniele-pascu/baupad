@@ -40,11 +40,56 @@ Erwartet: `200` und `{"date":"…","counts":{"workspaces":…,"records":…},…
 - `401 UNAUTHORIZED_NO_AUTH_HEADER` → bei der Funktion ist „Verify JWT“ noch an (Supabase-Schleuse) – ausschalten.
 - `401 token` → Secret `BACKUP_TOKEN` stimmt nicht mit Schritt 2 überein.
 - `501 not-configured` → `BACKUP_TOKEN` oder Hetzner-Secrets fehlen.
+- `501 BACKUP_KEY …` bzw. `501 BACKUP_LOCK_MODE …` → Schlüssel nicht 32 Byte (Base64) bzw. Sperre nicht GOVERNANCE/COMPLIANCE –
+  dann wird absichtlich gar nicht gesichert (lieber keine als eine unverschlüsselte Sicherung).
+- `502 Hetzner PUT …: 400` mit Object Lock → der Bucket wurde ohne Object Lock angelegt: neuen Bucket mit Object Lock anlegen.
 - `502 Datenbank …: 401` → der Standardschlüssel ist abgeschaltet: unter Project Settings → API Keys einen
   Secret Key (`sb_secret_…`) anlegen und als Secret `BACKUP_SERVICE_KEY` eintragen.
 
 Lauf der letzten Nächte: `select status, start_time, return_message from cron.job_run_details order by start_time desc limit 5;`
 („succeeded“ heißt nur, dass der Aufruf abgeschickt wurde – das Ergebnis steht in `net._http_response`.)
+
+## 5. Sicherungen schützen: verschlüsselt, eigener Speicher, unlöschbar (17.11.2026)
+
+Bisher liegen die Sicherungen unverschlüsselt im selben Bucket wie die Fotos und Pläne. Wer an diesen Speicher kommt,
+käme auch an die Sicherungen – und könnte beides löschen. So wird das getrennt (einmalig, ca. 20 Minuten):
+
+**a) Eigener Speicher bei Hetzner** (eigenes Projekt = eigene Schlüssel, die die App nie sieht)
+1. https://console.hetzner.com → **Neues Projekt** „BauPad-Sicherungen“.
+2. Darin **Object Storage → Bucket erstellen**: Name z. B. `baupad-sicherungen`, Standort Nürnberg oder Falkenstein,
+   Sichtbarkeit **privat**, und **Object Lock einschalten** (geht nur beim Anlegen; schaltet die Versionierung mit ein).
+3. Im selben Projekt **Security → S3-Zugangsdaten → Erstellen** – Access Key und Secret Key notieren.
+
+**b) Schlüssel für die Verschlüsselung erzeugen**
+Supabase → SQL Editor: `select encode(extensions.gen_random_bytes(32), 'base64');` → das Ergebnis (44 Zeichen) ist
+der Schlüssel (meldet Supabase „function … does not exist“: vorher einmal `create extension if not exists pgcrypto with schema extensions;` ausführen). **Zusätzlich sicher außerhalb von Supabase aufbewahren** (Passwort-Manager oder ausgedruckt im Tresor):
+ohne ihn lassen sich die Sicherungen nicht mehr lesen – auch nicht von uns.
+
+**c) Secrets eintragen** (Supabase → Edge Functions → Secrets):
+
+| Name | Wert |
+|---|---|
+| `BACKUP_KEY` | Schlüssel aus b) |
+| `BACKUP_S3_BUCKET` | `baupad-sicherungen` |
+| `BACKUP_S3_KEY` / `BACKUP_S3_SECRET` | Zugangsdaten aus a) 3. |
+| `BACKUP_S3_ENDPOINT` | nur bei anderem Standort, z. B. `https://fsn1.your-objectstorage.com` (Nürnberg = wie bisher, weglassen) |
+| `BACKUP_LOCK_MODE` | `COMPLIANCE` (niemand kann vorher löschen, auch nicht Hetzner-Admins) – zum Ausprobieren erst `GOVERNANCE` |
+
+**d) Funktion `backup` neu veröffentlichen** (Code aus `supabase/functions/backup/index.ts` → Deploy).
+
+**e) Prüfen** – wie Schritt 4, nacheinander mit diesen `body`-Werten:
+- `'{"action":"setup"}'` → erwartet `"ok":true`, `"bucketObjectLock":true`, `"encrypted":true`, `"separate":true`
+  (setzt die Regel, die abgelaufene Stände nach der Sperrfrist wirklich entfernt).
+- `'{"action":"run"}'` → erwartet `"encrypted":true`, `"locked":{"mode":"COMPLIANCE",…}`. In der Hetzner-Konsole liegt
+  dann `backups/<heute>/` im neuen Bucket mit Dateien `….ndjson.gz.enc`.
+- `'{"action":"list"}'` → zeigt neue und alte Stände.
+
+Danach: Die alten, unverschlüsselten Sicherungen im Bucket `baupad-dateien` laufen von selbst aus (Tagesstände nach
+30 Tagen, Monatsstände nach 12 Monaten) und bleiben bis dahin wiederherstellbar. Gesperrt bleibt jede Datei gut einen
+Monat (Monatsstände gut 13 Monate) – passend zur Aufbewahrung.
+
+Eine einzelne Datei von Hand lesen (z. B. Firmen oder Benutzer-Zuordnungen einspielen): Datei aus der Hetzner-Konsole
+laden, dann `BACKUP_KEY='…' node scripts/sicherung-entschluesseln.mjs records.ndjson.gz.enc`.
 
 ## Wiederherstellen
 Vorhandene Sicherungen: wie Schritt 4, aber `body := '{"action":"list"}'::jsonb`.
