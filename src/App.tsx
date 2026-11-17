@@ -557,7 +557,8 @@ export function App() {
 
   return (
     <>
-      <OfflineBadge />
+      {/* Kamera: „kein Empfang“ zeigt dort die Anzeige der Übertragung oben rechts */}
+      {route.name !== 'camera' && <OfflineBadge />}
       <TitleReset route={route.name} />
       {SITE_ROUTES_WHEN_SIGNED_IN.has(route.name) && hasStoredSession() ? <ToolsRedirect /> : isNativeApp() && SITE_ROUTES.has(route.name) && !['imprint', 'privacy', 'dpa', 'contact', 'deleteAccountInfo'].includes(route.name) ? <NativeRedirect /> : PUBLIC_ROUTES.has(route.name) ? content : <AuthGate route={route.name}>{content}</AuthGate>}
       <DialogHost />

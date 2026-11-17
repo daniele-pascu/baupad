@@ -8175,12 +8175,40 @@ button.report-site-empty {
   background: #fff;
   color: #000;
 }
-.cam-count {
+/* oben rechts: Fotos, die noch auf die Übertragung warten (grün = alles oben, gelb = kein Empfang) */
+.cam-upload {
   width: auto;
-  gap: 6px;
+  min-width: 44px;
+  gap: 5px;
   padding: 0 10px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+.cam-upload.done {
+  color: #34c76f;
+  background: rgba(52, 199, 111, 0.14);
+}
+.cam-upload.waiting {
+  color: #ffcc4d;
+  background: rgba(255, 204, 77, 0.16);
+}
+.cam-upload.busy svg {
+  animation: cam-upload-pulse 1.2s ease-in-out infinite;
+}
+@keyframes cam-upload-pulse {
+  50% {
+    transform: translateY(-2px);
+    opacity: 0.55;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cam-upload.busy svg {
+    animation: none;
+  }
+}
+.cam-upload-space {
+  background: transparent;
+  pointer-events: none;
 }
 .cam-view {
   position: relative;
@@ -8286,6 +8314,26 @@ button.report-site-empty {
   background: #2c2c2e;
   border: 2px solid rgba(255, 255, 255, 0.5);
   display: block;
+}
+.cam-last {
+  position: relative;
+}
+/* Fotos dieser Sitzung – auf dem letzten Bild */
+.cam-last-count {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 .cam-last.empty {
   border-style: dashed;

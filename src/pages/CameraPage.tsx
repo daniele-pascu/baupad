@@ -9,12 +9,13 @@ import { showError, toast } from '../components/ui';
 import { uuid } from '../lib/ids';
 import { getPhotoStorage } from '../lib/photo-storage';
 import { photoSiteKey, preparePhoto } from '../lib/photos';
-import { navigate, paths } from '../lib/router';
+import { paths } from '../lib/router';
 import { isNativeApp, nativeTakePhoto } from '../lib/native';
 import { useProjectIn } from '../lib/sites';
 import type { Photo, PhotoSite } from '../lib/types';
 import { loadPhotoSites } from './PhotosPage';
 import { usePageTitle } from '../lib/page-title';
+import { syncPhotoCloud, useCloudState } from '../lib/photo-cloud';
 import { FLASH_HINT, FLASH_LABEL, flashBeforeShot, loadFlash, nextFlash, saveFlash, setTorch as setTorchOn, type FlashMode } from '../lib/flash';
 
 const LAST_SITE = 'photoLastSite';
@@ -85,7 +86,6 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
   const [error, setError] = useState<string | null>(null);
   const [flash, setFlash] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [menu, setMenu] = useState(false);
   const [siteOpen, setSiteOpen] = useState(false);
   const [siteQuery, setSiteQuery] = useState('');
   const [siteNew, setSiteNew] = useState(false);
@@ -399,19 +399,16 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
   return (
     <div className="cam" data-testid="camera-page" data-ready={ready || undefined}>
       <header className="cam-top">
-        <button type="button" className="cam-icon" onClick={() => setMenu(true)} aria-label="Menü" data-testid="cam-menu">
-          <Icon name="menu" size={24} />
-        </button>
+        <a className="cam-icon" href={back} aria-label="Kamera schließen" title="Kamera schließen" data-testid="cam-close">
+          <Icon name="close" size={24} />
+        </a>
         <button type="button" className="cam-site" onClick={() => setSiteOpen(true)} data-testid="cam-site" data-site={site?.name ?? ''}>
           <span className="cam-site-name">
             {site ? site.name : 'Baustelle wählen'} <Icon name="next" size={14} className="cam-site-caret" />
           </span>
           <span className="cam-site-sub">{site ? [site.number, site.costCenter ? `KST ${site.costCenter}` : '', site.address].filter(Boolean).join(' · ') || 'Baustelle' : 'Antippen und suchen'}</span>
         </button>
-        <a className="cam-icon cam-count" href={back} aria-label="Zu den Fotos" title="Zu den Fotos" data-testid="cam-close">
-          <span data-testid="cam-counter">{count}</span>
-          <Icon name="close" size={22} />
-        </a>
+        <CamUpload />
       </header>
 
       <div className="cam-view" ref={viewRef}>
@@ -481,6 +478,11 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
         {last ? (
           <a className="cam-last" href={paths.photoSite(keyOf(site!), { photoId: last.id })} aria-label="Letztes Foto ansehen" data-testid="cam-last">
             <PhotoImg id={last.id} />
+            {count > 0 && (
+              <span className="cam-last-count" aria-label={`${count} ${count === 1 ? 'Foto' : 'Fotos'} in dieser Sitzung`} data-testid="cam-counter">
+                {count}
+              </span>
+            )}
           </a>
         ) : (
           <span className="cam-last empty" />
@@ -638,39 +640,52 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
           </div>
         </div>
       )}
-      {menu && (
-        <div className="cam-sheet-backdrop" onClick={() => setMenu(false)}>
-          <nav className="cam-drawer" onClick={(e) => e.stopPropagation()} aria-label="Menü" data-testid="cam-drawer">
-            <strong className="cam-drawer-title">{site ? [site.number, site.name].filter(Boolean).join(' · ') : 'BauPad'}</strong>
-            {siteKeyNow && (
-              <a
-                href={paths.photoSite(siteKeyNow)}
-                onClick={(e) => {
-                  // das Menü hält Klicks an (stopPropagation) – daher selbst in der App bleiben, statt neu zu laden
-                  e.preventDefault();
-                  setMenu(false);
-                  navigate(paths.photoSite(siteKeyNow));
-                }}
-                data-testid="cam-site-photos"
-              >
-                <Icon name="images" size={20} /> Fotos der Baustelle
-              </a>
-            )}
-            <button
-              type="button"
-              onClick={() => {
-                setMenu(false);
-                setSiteOpen(true);
-              }}
-            >
-              <Icon name="swap" size={20} /> Baustelle wechseln
-            </button>
-            <button type="button" className="muted" onClick={() => navigate(back)}>
-              <Icon name="close" size={20} /> Kamera schließen
-            </button>
-          </nav>
-        </div>
-      )}
     </div>
+  );
+}
+
+/**
+ * Oben rechts: wie viele Fotos noch auf die Übertragung in die Ablage warten (ohne Empfang bleiben sie auf dem Gerät
+ * und gehen von selbst hoch). Antippen: Hinweis und sofort erneut versuchen. Ohne Ablage (nur Gerät) ein leerer Platz,
+ * damit die Baustelle in der Mitte bleibt.
+ */
+function CamUpload() {
+  const cloud = useCloudState();
+  const [online, setOnline] = useState(typeof navigator === 'undefined' || navigator.onLine !== false);
+  useEffect(() => {
+    const on = () => setOnline(true);
+    const off = () => setOnline(false);
+    window.addEventListener('online', on);
+    window.addEventListener('offline', off);
+    return () => {
+      window.removeEventListener('online', on);
+      window.removeEventListener('offline', off);
+    };
+  }, []);
+  if (cloud.status === 'off' || cloud.status === 'setup') return <span className="cam-icon cam-upload-space" aria-hidden="true" />;
+  const n = cloud.pending;
+  const waiting = n > 0 && (!online || cloud.status === 'error');
+  const label = n === 0 ? 'Alle Fotos sind übertragen' : `${n} ${n === 1 ? 'Foto wartet' : 'Fotos warten'} auf die Übertragung${waiting ? ' – kein Empfang' : ''}`;
+  const tap = () => {
+    if (n === 0) {
+      toast('Alle Fotos sind in der Ablage.', 'success');
+      return;
+    }
+    toast(online ? `${n} ${n === 1 ? 'Foto wird' : 'Fotos werden'} übertragen …` : `${n} ${n === 1 ? 'Foto bleibt' : 'Fotos bleiben'} auf dem Gerät und ${n === 1 ? 'geht' : 'gehen'} von selbst hoch, sobald wieder Empfang da ist.`);
+    if (online) void syncPhotoCloud().catch(() => {});
+  };
+  return (
+    <button
+      type="button"
+      className={`cam-icon cam-upload${n === 0 ? ' done' : ''}${waiting ? ' waiting' : ''}${n > 0 && cloud.busy ? ' busy' : ''}`}
+      onClick={tap}
+      aria-label={label}
+      title={label}
+      data-testid="cam-upload"
+      data-pending={n}
+    >
+      <Icon name={n === 0 ? 'check' : waiting ? 'wifiOff' : 'upload'} size={20} />
+      {n > 0 && <span className="cam-upload-n">{n}</span>}
+    </button>
   );
 }

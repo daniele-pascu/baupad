@@ -56,11 +56,14 @@ test('Kamera-Modus: Live-Bild, Auslöser speichert sofort, Zähler, letztes Foto
   await page.getByTestId('cam-shutter').click();
   await expect(page.getByTestId('cam-counter')).toHaveText('3');
   await expect(page.getByTestId('cam-last').locator('img')).toBeVisible();
-  // Menü: Fotos der Baustelle
-  await page.getByTestId('cam-menu').click();
-  // Menü nur: Fotos der Baustelle, Baustelle wechseln, Kamera schließen
-  await expect(page.getByTestId('cam-drawer').locator('a, button')).toHaveText([/Fotos der Baustelle/, /Baustelle wechseln/, /Kamera schließen/]);
-  await page.getByTestId('cam-drawer').getByRole('link', { name: 'Fotos der Baustelle' }).click();
+  // oben links X (schließen), oben rechts die Übertragung (ohne Firma: nur ein leerer Platz); kein Menü mehr
+  await expect(page.getByTestId('cam-menu')).toHaveCount(0);
+  await expect(page.getByTestId('cam-upload')).toHaveCount(0);
+  const closeBox = (await page.getByTestId('cam-close').boundingBox())!;
+  const siteBox = (await page.getByTestId('cam-site').boundingBox())!;
+  expect(closeBox.x).toBeLessThan(siteBox.x);
+  // X → Fotos der Baustelle
+  await page.getByTestId('cam-close').click();
   await expect(page.getByTestId('photo-site-title')).toHaveText('Garage Jagdschlossgasse');
   await expect(page.getByTestId('photo-thumb')).toHaveCount(3);
   await expect(page.getByTestId('photo-thumb').first()).toContainText('Rampe Einfahrt');
@@ -122,7 +125,7 @@ test('Kamera-Modus: Blitz-Symbol wechselt Aus (durchgestrichen) → Auto (A, her
   await btn.screenshot({ path: 'tests/output/blitz-auto.png' });
 });
 
-test('Installierte App: Kamera → Menü „Fotos der Baustelle“ öffnet die Fotos des gewählten Projekts (nicht die Tools); Neuladen bleibt dort', async ({ page }) => {
+test('Installierte App: Kamera → X öffnet die Fotos des gewählten Projekts (nicht die Tools); Neuladen bleibt dort', async ({ page }) => {
   await page.addInitScript(() => Object.defineProperty(navigator, 'standalone', { get: () => true }));
   await freshStart(page);
   await page.goto('/baupad/aufmass-und-abrechnung');
@@ -135,8 +138,7 @@ test('Installierte App: Kamera → Menü „Fotos der Baustelle“ öffnet die F
   await expect.poll(() => page.getByTestId('cam-video').evaluate((v: HTMLVideoElement) => v.videoWidth)).toBeGreaterThan(0);
   await page.getByTestId('cam-shutter').click();
   await expect(page.getByTestId('cam-counter')).toHaveText('1');
-  await page.getByTestId('cam-menu').click();
-  await page.getByTestId('cam-site-photos').click();
+  await page.getByTestId('cam-close').click();
   await expect(page.getByTestId('photo-site-title')).toHaveText('Wohnanlage Süd');
   await expect(page.getByTestId('photo-thumb')).toHaveCount(1);
   await expect(page.getByTestId('tools-title')).toHaveCount(0);
