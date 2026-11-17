@@ -1,7 +1,7 @@
 import { naturalCompare } from '../lib/numbers';
 import { Fragment, useEffect, useRef, type ReactNode } from 'react';
 import type { AufmassRow } from '../lib/aufmass';
-import { sumArea } from '../lib/aufmass';
+import { linesByType, sumArea } from '../lib/aufmass';
 import { deductionText, grossArea, hasArea, hasVolume, isWall, kindOf, measureLabel, netLength, sumLengths, sumVolumes } from '../lib/measure';
 import { formatArea, formatDepth, formatMeasure } from '../lib/numbers';
 import { calcPath, countOf, MEASURE_TYPES, totalsByUnit, typeOf } from '../lib/measure-types';
@@ -180,7 +180,14 @@ export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, on
   const total = sumArea(damages);
   const actions = !!(onEdit || onDelete);
   // je Messart eine Tabelle, in fester Reihenfolge; nur Messarten, die vorkommen
-  const tables = MEASURE_TYPES.map((info) => ({ info, rows: sorted.filter((r) => typeOf(r.damage) === info.id) })).filter((t) => t.rows.length > 0);
+  // Längen je Linienart getrennt (durchgezogen, gestrichelt, Wellenlinie …) – verschiedene Arten nie in einer Tabelle bzw. Summe
+  const tables = MEASURE_TYPES.flatMap((info) => {
+    const rows = sorted.filter((r) => typeOf(r.damage) === info.id);
+    if (!rows.length) return [];
+    const groups = info.id === 'laenge' ? linesByType(rows.map((row) => ({ d: row.damage, row }))) : [];
+    if (!groups.length || groups[0].only) return [{ info, label: info.label, rows }];
+    return groups.map((g) => ({ info, label: `${info.label} – ${g.label}`, rows: g.items.map((x) => x.row) }));
+  });
   const lead = (showPlan ? 1 : 0) + 1; // Plannr., Nr.
 
   const renderTable = (type: MeasureType, rows: AufmassRow[], withSum: boolean) => {
@@ -387,10 +394,10 @@ export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, on
   return (
     <div className="table-wrap aufmass-tables" data-testid="aufmass-table">
       {tables.map((t) => (
-        <section key={t.info.id} className="aufmass-type" data-testid="aufmass-type" data-type={t.info.id}>
+        <section key={t.label} className="aufmass-type" data-testid="aufmass-type" data-type={t.info.id}>
           <h3 className="aufmass-type-head">
             <Icon name={t.info.icon as IconName} size={16} />
-            <span>{t.info.label}</span>
+            <span>{t.label}</span>
             <span className="aufmass-type-count">
               {t.rows.length} {t.rows.length === 1 ? 'Messung' : 'Messungen'}
             </span>
