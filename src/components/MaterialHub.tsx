@@ -4,7 +4,7 @@ import { Modal } from './Modal';
 import { confirmDialog, showError, toast } from './ui';
 import { deleteMaterial, saveMaterial, saveMaterialItem } from '../lib/db';
 import { uuid } from '../lib/ids';
-import { canOrder, equipmentInStock, equipmentOut, fmtQty, markOrdered, matchesMaterial, nextOrderNo, openBySupplier, orderText, ordersInTransit, overdue, overviewCounts, placeEquipment, setStatus } from '../lib/materials';
+import { canOrder, equipmentInStock, equipmentOut, markOrdered, matchesMaterial, nextOrderNo, openBySupplier, orderText, ordersInTransit, overdue, overviewCounts, packDetail, placeEquipment, qtyText, setStatus } from '../lib/materials';
 import { navigate, paths } from '../lib/router';
 import type { Session } from '../lib/auth';
 import type { Material, MaterialItem, Project, Supplier } from '../lib/types';
@@ -102,7 +102,7 @@ export function HubOverview({ d, onTab, onNewDevice }: { d: HubData; onTab(t: 'o
       .map((x) => ({
         key: x.id,
         href: paths.materialSite(x.projectId),
-        title: `${fmtQty(x.qty)} ${x.unit} ${x.name}`,
+        title: `${qtyText(x.qty, x.unit)} ${x.name}`,
         sub: `${site(x.projectId)} · ${x.status === 'offen' ? 'noch nicht bestellt' : 'bestellt'}`,
         tag: overdue(x, d.today) ? `überfällig seit ${fmtDay(x.deliveryDate!)}` : x.deliveryDate === d.today ? 'heute' : fmtDay(x.deliveryDate!),
         kind: overdue(x, d.today) ? 'late' : 'due',
@@ -177,6 +177,8 @@ export function HubOrders({ d }: { d: HubData }) {
   const by = d.session?.name || 'Unbekannt';
   const open = useMemo(() => openBySupplier(d.items, (id) => sup.get(id)?.name ?? ''), [d.items, sup]);
   const transit = useMemo(() => ordersInTransit(d.items), [d.items]);
+  /** Material aus dem Stamm (Paletten und Inhalt zur Bestellmenge) */
+  const matOf = (id: string | null | undefined) => (id ? d.materials.find((m) => m.id === id) : undefined);
 
   const deliver = async (list: MaterialItem[]) => {
     try {
@@ -192,9 +194,9 @@ export function HubOrders({ d }: { d: HubData }) {
     <li key={x.id} data-testid="order-line" data-name={x.name}>
       <a href={paths.materialSite(x.projectId)}>
         <strong>
-          {fmtQty(x.qty)} {x.unit} {x.name}
+          {qtyText(x.qty, x.unit)} {x.name}
         </strong>
-        <span className={`small ${overdue(x, d.today) ? 'warn-text' : 'muted'}`}>{[site(x.projectId), x.deliveryDate && `${overdue(x, d.today) ? 'überfällig: ' : 'Liefertermin '}${fmtDay(x.deliveryDate)}`, x.note].filter(Boolean).join(' · ')}</span>
+        <span className={`small ${overdue(x, d.today) ? 'warn-text' : 'muted'}`}>{[packDetail(x.qty, x.unit, matOf(x.materialId)), site(x.projectId), x.deliveryDate && `${overdue(x, d.today) ? 'überfällig: ' : 'Liefertermin '}${fmtDay(x.deliveryDate)}`, x.note].filter(Boolean).join(' · ')}</span>
       </a>
     </li>
   );
@@ -265,9 +267,9 @@ export function HubOrders({ d }: { d: HubData }) {
                   <li key={x.id} className="with-action" data-testid="order-line" data-name={x.name}>
                     <a href={paths.materialSite(x.projectId)}>
                       <strong>
-                        {fmtQty(x.qty)} {x.unit} {x.name}
+                        {qtyText(x.qty, x.unit)} {x.name}
                       </strong>
-                      <span className={`small ${overdue(x, d.today) ? 'warn-text' : 'muted'}`}>{[site(x.projectId), x.deliveryDate && `${overdue(x, d.today) ? 'überfällig: ' : 'Liefertermin '}${fmtDay(x.deliveryDate)}`].filter(Boolean).join(' · ')}</span>
+                      <span className={`small ${overdue(x, d.today) ? 'warn-text' : 'muted'}`}>{[packDetail(x.qty, x.unit, matOf(x.materialId)), site(x.projectId), x.deliveryDate && `${overdue(x, d.today) ? 'überfällig: ' : 'Liefertermin '}${fmtDay(x.deliveryDate)}`].filter(Boolean).join(' · ')}</span>
                     </a>
                     {g.items.length > 1 && (
                       <button type="button" className="btn btn-sm" onClick={() => void deliver([x])} data-testid="order-delivered">
@@ -294,6 +296,7 @@ export function HubOrders({ d }: { d: HubData }) {
               by,
               items: ordering.items,
               articleNo: (id) => d.materials.find((m) => m.id === id)?.articleNo ?? '',
+              material: (id) => d.materials.find((m) => m.id === id),
               site: (id) => ({ name: siteLabel(proj.get(id)) || 'Baustelle', address: proj.get(id)?.address ?? '' }),
             })
           }

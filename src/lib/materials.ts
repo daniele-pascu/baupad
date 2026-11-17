@@ -6,7 +6,7 @@ import type { Material, MaterialItem, MaterialPlan, MaterialStatus, MaterialUse,
  */
 
 /** übliche Einheiten (frei erweiterbar) */
-export const UNITS = ['Stk', 'm', 'm²', 'm³', 'kg', 't', 'l', 'Sack', 'Palette', 'Rolle', 'Paket', 'Karton', 'Eimer', 'Std', 'psch'];
+export const UNITS = ['Stk', 'm', 'm²', 'm³', 'kg', 't', 'l', 'Sack', 'Dose', 'Kübel', 'Eimer', 'Kanister', 'Kartusche', 'Flasche', 'Palette', 'Rolle', 'Paket', 'Karton', 'Std', 'psch'];
 
 /** Vergleichsschlüssel: Kleinbuchstaben, Umlaute/ß ausgeschrieben, nur Buchstaben und Ziffern */
 export function normKey(s: string | undefined | null): string {
@@ -23,7 +23,27 @@ export function normKey(s: string | undefined | null): string {
 /** Einheit vereinheitlichen (m2 = m², Stück = Stk …) */
 export function normUnit(u: string | undefined | null): string {
   const k = normKey((u ?? '').replace('²', '2').replace('³', '3'));
-  const alias: Record<string, string> = { stueck: 'stk', st: 'stk', stck: 'stk', qm: 'm2', lfm: 'm', lm: 'm', kilogramm: 'kg', liter: 'l', pal: 'palette', sck: 'sack' };
+  const alias: Record<string, string> = {
+    stueck: 'stk',
+    st: 'stk',
+    stck: 'stk',
+    qm: 'm2',
+    lfm: 'm',
+    lm: 'm',
+    kilogramm: 'kg',
+    liter: 'l',
+    pal: 'palette',
+    paletten: 'palette',
+    sck: 'sack',
+    saecke: 'sack',
+    dosen: 'dose',
+    kuebeln: 'kuebel',
+    kartuschen: 'kartusche',
+    flaschen: 'flasche',
+    rollen: 'rolle',
+    kartons: 'karton',
+    pakete: 'paket',
+  };
   return alias[k] ?? k;
 }
 
@@ -188,7 +208,16 @@ export function ordersInTransit(items: MaterialItem[]): OrderGroup[] {
 const dayText = (iso: string) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}`;
 
 /** Text einer Bestellung (für E-Mail oder zum Kopieren): Positionen je Baustelle mit Lieferadresse und Termin */
-export function orderText(o: { orderNo: string; company: string; by: string; items: MaterialItem[]; articleNo: (materialId: string) => string; site: (projectId: string) => { name: string; address: string } }): string {
+export function orderText(o: {
+  orderNo: string;
+  company: string;
+  by: string;
+  items: MaterialItem[];
+  articleNo: (materialId: string) => string;
+  site: (projectId: string) => { name: string; address: string };
+  /** Materialstamm: Paletten und Inhalt je Position (z. B. „2 Paletten + 18 Dosen, 490 kg“) */
+  material?: (materialId: string) => Pick<Material, 'perPallet' | 'packSize' | 'packUnit'> | undefined;
+}): string {
   const lines: string[] = [`Bestellung ${o.orderNo}${o.company ? ` – ${o.company}` : ''}`, ''];
   const bySite = new Map<string, MaterialItem[]>();
   for (const x of o.items) bySite.set(x.projectId, [...(bySite.get(x.projectId) ?? []), x]);
@@ -198,7 +227,9 @@ export function orderText(o: { orderNo: string; company: string; by: string; ite
     if (s.address) lines.push(`Lieferadresse: ${s.address}`);
     for (const x of list) {
       const art = x.materialId ? o.articleNo(x.materialId) : '';
-      lines.push(`- ${fmtQty(x.qty)} ${x.unit} ${x.name}${art ? ` (Art.-Nr. ${art})` : ''}${x.deliveryDate ? ` – Liefertermin ${dayText(x.deliveryDate)}` : ''}${x.note ? ` – ${x.note}` : ''}`);
+      const m = x.materialId ? o.material?.(x.materialId) : undefined;
+      const pack = [palletText(x.qty, m?.perPallet, x.unit), packText(x.qty, m)].filter(Boolean).join(', ');
+      lines.push(`- ${qtyText(x.qty, x.unit)} ${x.name}${pack ? ` (${pack})` : ''}${art ? ` (Art.-Nr. ${art})` : ''}${x.deliveryDate ? ` – Liefertermin ${dayText(x.deliveryDate)}` : ''}${x.note ? ` – ${x.note}` : ''}`);
     }
     lines.push('');
   }
@@ -387,16 +418,33 @@ export function needCalc(total: number, rate: number, s: Pick<SiteStock, 'used' 
   return { need, remaining, covered, missing: Math.max(0, gap), reorder, surplus: Math.max(0, -gap) };
 }
 
+/** Mehrzahl der Gebinde-Einheiten (Dose → Dosen …); Sack, Kübel, Eimer, Stk und Maßeinheiten bleiben gleich */
+const PLURAL: Record<string, string> = { dose: 'Dosen', palette: 'Paletten', rolle: 'Rollen', karton: 'Kartons', paket: 'Pakete', kartusche: 'Kartuschen', flasche: 'Flaschen', tube: 'Tuben' };
+/** Einheit passend zur Menge: 1 Dose, 2 Dosen, 0,5 Dosen */
+export const unitFor = (qty: number | null | undefined, unit: string) => (qty === 1 ? unit : (PLURAL[normUnit(unit)] ?? unit));
+/** Menge mit Einheit: „18 Dosen“, „1 Dose“, „2,5 kg“ */
+export const qtyText = (qty: number | null | undefined, unit: string) => `${fmtQty(qty)} ${unitFor(qty, unit)}`.trim();
+
 /** „1 Palette + 8 Sack“ bzw. „2 Paletten“ (leer ohne Angabe je Palette oder unter einer Palette) */
-export function palletText(qty: number, perPallet: number | null | undefined, unit: string): string {
-  if (!perPallet || perPallet <= 0 || qty < perPallet) return '';
+export function palletText(qty: number | null | undefined, perPallet: number | null | undefined, unit: string): string {
+  if (!qty || !perPallet || perPallet <= 0 || qty < perPallet) return '';
   const full = Math.floor(qty / perPallet + 1e-9);
   const rest = r3(qty - full * perPallet);
-  return `${full} ${full === 1 ? 'Palette' : 'Paletten'}${rest > 0 ? ` + ${fmtQty(rest)} ${unit}` : ''}`;
+  return `${full} ${full === 1 ? 'Palette' : 'Paletten'}${rest > 0 ? ` + ${qtyText(rest, unit)}` : ''}`;
+}
+
+/** Bestellmenge so, wie man sie bestellt: „2 Paletten + 18 Dosen“, unter einer Palette „18 Dosen“ */
+export const orderQtyText = (qty: number | null | undefined, unit: string, m?: Pick<Material, 'perPallet'> | null) => palletText(qty, m?.perPallet, unit) || qtyText(qty, unit);
+/** Paletten und Inhalt zu einer Menge: „2 Paletten + 18 Dosen · 490 kg“ (leer ohne Angaben im Material) */
+export const packDetail = (qty: number | null | undefined, unit: string, m?: Pick<Material, 'perPallet' | 'packSize' | 'packUnit'> | null) => [palletText(qty, m?.perPallet, unit), packText(qty, m)].filter(Boolean).join(' · ');
+/** Zusatz zur Bestellmenge: Gebinde-Anzahl (bei Paletten) und Inhalt, z. B. „98 Dosen · 490 kg“ (leer, wenn nichts dazukommt) */
+export function orderQtyDetail(qty: number | null | undefined, unit: string, m?: Pick<Material, 'perPallet' | 'packSize' | 'packUnit'> | null): string {
+  if (!qty) return '';
+  return [palletText(qty, m?.perPallet, unit) && qtyText(qty, unit), packText(qty, m)].filter(Boolean).join(' · ');
 }
 
 /** Inhalt einer Menge: 28 Sack → „700 kg“ (leer ohne Gebinde-Angabe) */
-export const packText = (qty: number, m: Pick<Material, 'packSize' | 'packUnit'> | null | undefined) => (m?.packSize && m.packUnit && qty > 0 ? `${fmtQty(r3(qty * m.packSize))} ${m.packUnit}` : '');
+export const packText = (qty: number | null | undefined, m: Pick<Material, 'packSize' | 'packUnit'> | null | undefined) => (m?.packSize && m.packUnit && qty && qty > 0 ? `${fmtQty(r3(qty * m.packSize))} ${m.packUnit}` : '');
 
 /** Verbrauch je Bezugsgröße lesbar: „0,3 Sack/m²“ (bis 3 Nachkommastellen) */
 export const rateText = (rate: number, unit: string, basis: string) => `${rate.toLocaleString('de-AT', { maximumFractionDigits: 3 })} ${unit}/${basis}`;

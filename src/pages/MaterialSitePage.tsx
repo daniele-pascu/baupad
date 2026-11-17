@@ -22,13 +22,17 @@ import {
   matchesMaterial,
   normBasis,
   normUnit,
+  orderQtyDetail,
+  orderQtyText,
   overdue,
+  packDetail,
   packText,
   palletText,
   parsePrice,
   parseQty,
   pendingDuplicate,
   planId,
+  qtyText,
   RATE_SOURCE_TEXT,
   rateText,
   setStatus,
@@ -39,6 +43,7 @@ import {
   STATUS,
   statusLabel,
   UNITS,
+  unitFor,
   withHistory,
   type SiteCalc,
   type SiteStock,
@@ -52,6 +57,8 @@ import { ToolMark } from '../components/ToolIcon';
 
 const fmtDay = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 const fmtAt = (ms: number) => new Date(ms).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+/** Auswahl „Palette“ bei der Menge (Material mit Angabe je Palette): wird beim Speichern in die Einheit umgerechnet */
+const PALLET = '__palette';
 /** Status beim Hinzufügen: auch schon bestellt bzw. schon auf der Baustelle */
 const STATUS_ADD: Record<MaterialStatus, string> = { offen: 'Offen (noch zu bestellen)', bestellt: 'Bestellt (unterwegs)', geliefert: 'Geliefert (auf der Baustelle)' };
 
@@ -228,10 +235,11 @@ export function MaterialSitePage({ projectId }: { projectId: string }) {
                     <div className="staff-row">
                       <button type="button" className="crew-worker-main" onClick={() => setEdit(x)} data-testid="item-open">
                         <strong>
-                          {fmtQty(x.qty)} {x.unit} {x.name}
+                          {qtyText(x.qty, x.unit)} {x.name}
                         </strong>
                         <span className={`small ${overdue(x, today) ? 'warn-text' : 'muted'}`}>
                           {[
+                            packDetail(x.qty, x.unit, x.materialId ? matById.get(x.materialId) : null),
                             supName.get(x.supplierId ?? ''),
                             x.deliveryDate && `${overdue(x, today) ? 'überfällig: ' : 'Liefertermin '}${fmtDay(x.deliveryDate)}`,
                             itemValue(x) !== null && fmtPrice(itemValue(x)),
@@ -328,7 +336,7 @@ export function MaterialSitePage({ projectId }: { projectId: string }) {
 
 /** „vorhanden 28 Sack · verbraucht 52 · unterwegs 40 · gemeldet 10“ (Nullen außer „vorhanden“ weggelassen) */
 function stockLine(s: SiteStock): string {
-  return [`vorhanden ${fmtQty(s.onSite)} ${s.unit}`, s.used > 0 && `verbraucht ${fmtQty(s.used)}`, s.ordered > 0 && `unterwegs ${fmtQty(s.ordered)}`, s.open > 0 && `gemeldet ${fmtQty(s.open)}`].filter(Boolean).join(' · ');
+  return [`vorhanden ${qtyText(s.onSite, s.unit)}`, s.used > 0 && `verbraucht ${fmtQty(s.used)}`, s.ordered > 0 && `unterwegs ${fmtQty(s.ordered)}`, s.open > 0 && `gemeldet ${fmtQty(s.open)}`].filter(Boolean).join(' · ');
 }
 
 /** Ergebnis der Bedarfsrechnung in der Zeile: nachbestellen, reicht oder was noch fehlt */
@@ -341,14 +349,12 @@ function StockState({ s, c, plan, material }: { s: SiteStock; c: SiteCalc; plan:
         Rechnen: Verbrauch je {c.basis} fehlt
       </span>
     );
-  if (c.result.reorder > 0) {
-    const pal = palletText(c.result.reorder, material?.perPallet, s.unit);
+  if (c.result.reorder > 0)
     return (
       <span className="small warn-text" data-testid="stock-state" data-state="reorder">
-        {fmtQty(c.result.reorder)} {s.unit} nachbestellen{pal ? ` (${pal})` : ''}
+        {orderQtyText(c.result.reorder, s.unit, material)} nachbestellen
       </span>
     );
-  }
   return (
     <span className="small ok-text" data-testid="stock-state" data-state="ok">
       reicht für {fmtQty(c.total)} {c.basis}
@@ -481,7 +487,7 @@ function CalcDialog({
           updatedAt: now,
         });
       }
-      toast(`${fmtQty(r.reorder)} ${s.unit} ${s.name} als Bedarf eingetragen – zu bestellen unter „Bestellungen“.`, 'success');
+      toast(`${orderQtyText(r.reorder, s.unit, material)} ${s.name} als Bedarf eingetragen – zu bestellen unter „Bestellungen“.`, 'success');
       onSaved();
     } catch (e) {
       showError(e, 'Speichern fehlgeschlagen');
@@ -523,12 +529,16 @@ function CalcDialog({
           <div key={k.id} className="stock-kpi" data-testid={`stock-kpi-${k.id}`}>
             <strong>{fmtQty(k.n)}</strong>
             <span>
-              {s.unit} {k.label}
+              {unitFor(k.n, s.unit)} {k.label}
             </span>
           </div>
         ))}
       </div>
-      {packText(s.onSite, material) && <p className="muted small">vorhanden = {packText(s.onSite, material)}{palletText(s.onSite, material?.perPallet, s.unit) ? ` · ${palletText(s.onSite, material?.perPallet, s.unit)}` : ''}</p>}
+      {packDetail(s.onSite, s.unit, material) && (
+        <p className="muted small" data-testid="stock-pack">
+          vorhanden = {packDetail(s.onSite, s.unit, material)}
+        </p>
+      )}
 
       <h3 className="hub-sub">Was brauche ich noch?</h3>
       <div className="stack-fields">
@@ -626,9 +636,7 @@ function CalcDialog({
         <div className="calc-result" data-testid="calc-result">
           <div>
             <span>Bedarf für {fmtQty(c.total)} {c.basis}</span>
-            <strong data-testid="calc-need">
-              {fmtQty(r.need)} {s.unit}
-            </strong>
+            <strong data-testid="calc-need">{qtyText(r.need, s.unit)}</strong>
           </div>
           <div>
             <span>davon verbraucht</span>
@@ -645,22 +653,24 @@ function CalcDialog({
           {r.reorder > 0 ? (
             <div className="calc-total warn">
               <span>Nachbestellen</span>
-              <strong data-testid="calc-reorder">
-                {fmtQty(r.reorder)} {s.unit}
-                {palletText(r.reorder, material?.perPallet, s.unit) ? ` = ${palletText(r.reorder, material?.perPallet, s.unit)}` : ''}
-              </strong>
+              <span className="calc-amount">
+                <strong data-testid="calc-reorder">{orderQtyText(r.reorder, s.unit, material)}</strong>
+                {orderQtyDetail(r.reorder, s.unit, material) && (
+                  <small data-testid="calc-reorder-detail">= {orderQtyDetail(r.reorder, s.unit, material)}</small>
+                )}
+              </span>
             </div>
           ) : (
             <div className="calc-total ok">
               <span>Reicht</span>
-              <strong data-testid="calc-reorder">{r.surplus > 0 ? `${fmtQty(r.surplus)} ${s.unit} bleiben übrig` : 'genau'}</strong>
+              <strong data-testid="calc-reorder">{r.surplus > 0 ? `${qtyText(r.surplus, s.unit)} bleiben übrig` : 'genau'}</strong>
             </div>
           )}
         </div>
       )}
       {r && r.reorder > 0 && (
         <button type="button" className="btn btn-primary calc-order" onClick={() => void order()} disabled={busy} data-testid="calc-order">
-          <Icon name="plus" size={18} /> {fmtQty(r.reorder)} {s.unit} als Bedarf eintragen
+          <Icon name="plus" size={18} /> {orderQtyText(r.reorder, s.unit, material)} als Bedarf eintragen
         </button>
       )}
 
@@ -674,7 +684,8 @@ function CalcDialog({
             <li key={u.id}>
               <button type="button" onClick={() => onUse(u)} data-testid="use-row">
                 <strong>
-                  {fmtQty(u.qty)} {u.unit}
+                  {qtyText(u.qty, u.unit)}
+                  {packText(u.qty, material) ? ` (${packText(u.qty, material)})` : ''}
                   {u.done ? ` für ${fmtQty(u.done)} ${u.doneUnit ?? ''}` : ''}
                 </strong>
                 <span className="muted small">{[fmtDay(u.date), u.by, u.note].filter(Boolean).join(' · ')}</span>
@@ -722,7 +733,11 @@ function UseDialog({
     return m ? { key: m.id, materialId: m.id, name: m.name, unit: m.unit, onSite: null } : null;
   };
   const sel = chosen(key);
+  /** Material aus dem Stamm (Gebinde-Inhalt zum Umrechnen: 12,5 kg → 0,5 Sack) */
+  const mat = sel?.materialId ? (materials.find((m) => m.id === sel.materialId) ?? null) : null;
+  const canPack = !!(mat?.packSize && mat.packUnit && normUnit(mat.packUnit) !== normUnit(mat.unit));
   const [v, setV] = useState({
+    inPack: false,
     qty: use ? fmtQty(use.qty) : '',
     date: use?.date ?? today,
     done: use?.done ? fmtQty(use.done) : '',
@@ -731,7 +746,9 @@ function UseDialog({
   });
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
-  const qty = parseQty(v.qty);
+  const entered = parseQty(v.qty);
+  /** verbrauchte Menge in der Einheit des Materials (im Inhalt eingegeben → umgerechnet) */
+  const qty = entered && v.inPack && canPack ? Math.round((entered / mat!.packSize!) * 1000) / 1000 : entered;
   const done = parseQty(v.done);
   const fixed = !!use || !!presetKey;
   const pick = (k: string) => {
@@ -760,7 +777,7 @@ function UseDialog({
     setBusy(true);
     try {
       await saveMaterialUse(next);
-      toast(use ? 'Verbrauch gespeichert.' : `Verbrauch eingetragen: ${fmtQty(qty)} ${sel.unit} ${sel.name}.`, 'success', 2000);
+      toast(use ? 'Verbrauch gespeichert.' : `Verbrauch eingetragen: ${qtyText(qty, sel.unit)} ${sel.name}.`, 'success', 2000);
       onSaved();
     } catch (e) {
       showError(e, 'Speichern fehlgeschlagen');
@@ -814,7 +831,7 @@ function UseDialog({
             {sel.onSite !== null && (
               <span className="muted small">
                 {' '}
-                · vorhanden {fmtQty(sel.onSite)} {sel.unit}
+                · vorhanden {qtyText(sel.onSite, sel.unit)}
               </span>
             )}
           </p>
@@ -827,7 +844,7 @@ function UseDialog({
                 <optgroup label="Auf dieser Baustelle">
                   {stock.map((s) => (
                     <option key={s.key} value={s.key}>
-                      {s.name} – vorhanden {fmtQty(s.onSite)} {s.unit}
+                      {s.name} – vorhanden {qtyText(s.onSite, s.unit)}
                     </option>
                   ))}
                 </optgroup>
@@ -846,14 +863,37 @@ function UseDialog({
         )}
         <div className="form-grid">
           <label className="field">
-            <span>Verbraucht{sel ? ` (${sel.unit})` : ''} *</span>
+            <span>Verbraucht{sel && !canPack ? ` (${unitFor(2, sel.unit)})` : ''} *</span>
             <input value={v.qty} onChange={(e) => setV({ ...v, qty: e.target.value })} inputMode="decimal" placeholder="z. B. 12" aria-invalid={show && !qty ? true : undefined} data-autofocus data-testid="use-qty" />
           </label>
+          {canPack ? (
+            <label className="field">
+              <span>Einheit</span>
+              <select value={v.inPack ? 'pack' : 'unit'} onChange={(e) => setV({ ...v, inPack: e.target.value === 'pack' })} data-testid="use-qty-unit">
+                <option value="unit">{unitFor(2, sel!.unit)}</option>
+                <option value="pack">
+                  {mat!.packUnit} (1 {sel!.unit} = {fmtQty(mat!.packSize)} {mat!.packUnit})
+                </option>
+              </select>
+            </label>
+          ) : (
+            <label className="field">
+              <span>Tag</span>
+              <input type="date" value={v.date} onChange={(e) => setV({ ...v, date: e.target.value })} data-testid="use-date" />
+            </label>
+          )}
+        </div>
+        {canPack && v.inPack && !!qty && (
+          <p className="muted small" data-testid="use-qty-converted">
+            = {qtyText(qty, sel!.unit)}
+          </p>
+        )}
+        {canPack && (
           <label className="field">
             <span>Tag</span>
             <input type="date" value={v.date} onChange={(e) => setV({ ...v, date: e.target.value })} data-testid="use-date" />
           </label>
-        </div>
+        )}
         <div className="form-grid">
           <label className="field">
             <span>Dabei geschafft (optional)</span>
@@ -877,7 +917,7 @@ function UseDialog({
         </label>
         {over && (
           <p className="small warn-text" data-testid="use-over">
-            Mehr als laut BauPad vorhanden ({fmtQty(sel!.onSite!)} {sel!.unit}) – speichern geht trotzdem.
+            Mehr als laut BauPad vorhanden ({qtyText(sel!.onSite!, sel!.unit)}) – speichern geht trotzdem.
           </p>
         )}
         {show && !sel && <p className="error small">Bitte ein Material wählen.</p>}
@@ -907,9 +947,16 @@ function ItemDialog({ item, projectId, items, materials, suppliers, by, onClose,
   const [busy, setBusy] = useState(false);
   const supName = new Map(suppliers.map((s) => [s.id, s.name]));
   const found = materials.filter((m) => matchesMaterial(m, search, supName.get(m.supplierId ?? '') ?? '')).slice(0, 50);
-  const qty = parseQty(v.qty);
+  const entered = parseQty(v.qty);
   const price = parsePrice(v.price);
-  const units = UNITS.includes(v.unit) || !v.unit ? UNITS : [v.unit, ...UNITS];
+  /** Material aus dem Stamm: Menge auch in Paletten eingeben (wird in die Einheit umgerechnet) */
+  const mat = materialId ? (materials.find((m) => m.id === materialId) ?? null) : null;
+  const palletOk = !!(mat?.perPallet && normUnit(mat.unit) !== 'palette');
+  const inPallets = v.unit === PALLET && palletOk;
+  const qty = inPallets && entered ? Math.round(entered * mat!.perPallet! * 1000) / 1000 : entered;
+  const unit = inPallets ? mat!.unit : v.unit === PALLET ? (mat?.unit ?? 'Stk') : v.unit;
+  const units = UNITS.includes(unit) || !unit ? UNITS : [unit, ...UNITS];
+  const qtyHint = qty && mat ? [inPallets ? qtyText(qty, unit) : palletText(qty, mat.perPallet, unit), packText(qty, mat)].filter(Boolean).join(' · ') : '';
 
   /** Material aus dem Stamm gewählt: Bezeichnung, Einheit, Preis und Lieferant übernehmen */
   const pick = (id: string) => {
@@ -924,13 +971,13 @@ function ItemDialog({ item, projectId, items, materials, suppliers, by, onClose,
     const now = Date.now();
     // dasselbe Material ist auf dieser Baustelle schon offen/bestellt → Menge dazurechnen statt doppelt anlegen
     if (!item && v.status === 'offen') {
-      const dup = pendingDuplicate(items, { materialId: materialId || null, name: v.name, unit: v.unit });
+      const dup = pendingDuplicate(items, { materialId: materialId || null, name: v.name, unit });
       if (dup) {
         const ok = await confirmDialog({
           title: 'Schon auf der Materialliste',
           message: (
             <p>
-              {dup.name} steht schon auf der Liste ({statusLabel(dup.status)}, {fmtQty(dup.qty)} {dup.unit}). Menge {fmtQty(qty)} {v.unit} dazurechnen?
+              {dup.name} steht schon auf der Liste ({statusLabel(dup.status)}, {qtyText(dup.qty, dup.unit)}). Menge {qtyText(qty, unit)} dazurechnen?
             </p>
           ),
           confirmLabel: 'Dazurechnen',
@@ -938,7 +985,7 @@ function ItemDialog({ item, projectId, items, materials, suppliers, by, onClose,
         if (!ok) return;
         const total = (dup.qty ?? 0) + (qty ?? 0);
         await saveMaterialItem(withHistory({ ...dup, qty: total || null }, by, `Menge +${fmtQty(qty)} → ${fmtQty(total)} ${dup.unit}`, now));
-        toast(`${dup.name}: Menge auf ${fmtQty(total)} ${dup.unit} erhöht.`, 'success');
+        toast(`${dup.name}: Menge auf ${qtyText(total, dup.unit)} erhöht.`, 'success');
         onSaved();
         return;
       }
@@ -948,7 +995,7 @@ function ItemDialog({ item, projectId, items, materials, suppliers, by, onClose,
       ...base,
       materialId: materialId || null,
       name: v.name.trim(),
-      unit: v.unit.trim(),
+      unit: unit.trim(),
       qty,
       price,
       supplierId: v.supplierId || null,
@@ -1035,15 +1082,21 @@ function ItemDialog({ item, projectId, items, materials, suppliers, by, onClose,
           </label>
           <label className="field">
             <span>Einheit</span>
-            <select value={v.unit} onChange={(e) => setV({ ...v, unit: e.target.value })} data-testid="item-unit">
+            <select value={inPallets ? PALLET : unit} onChange={(e) => setV({ ...v, unit: e.target.value })} data-testid="item-unit">
               {units.map((u) => (
                 <option key={u} value={u}>
                   {u}
                 </option>
               ))}
+              {palletOk && <option value={PALLET}>Palette (je {qtyText(mat!.perPallet, mat!.unit)})</option>}
             </select>
           </label>
         </div>
+        {qtyHint && (
+          <p className="muted small mat-qty-hint" data-testid="item-qty-hint">
+            = {qtyHint}
+          </p>
+        )}
         <label className="field">
           <span>Status</span>
           <select value={v.status} onChange={(e) => setV({ ...v, status: e.target.value as MaterialStatus })} data-testid="item-status">

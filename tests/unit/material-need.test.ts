@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { aufmassSources } from '../../src/lib/material-sources';
-import { averageUse, chooseRate, guideRate, materialKey, needCalc, packText, palletText, planId, planTotal, roundUpQty, siteCalc, siteStock, toUnit } from '../../src/lib/materials';
+import { averageUse, chooseRate, guideRate, materialKey, needCalc, normUnit, orderQtyDetail, orderQtyText, orderText, packDetail, packText, palletText, planId, planTotal, qtyText, roundUpQty, siteCalc, siteStock, toUnit, unitFor } from '../../src/lib/materials';
 import type { ProjectState } from '../../src/lib/store';
 import type { Damage, LvDocument, Material, MaterialItem, MaterialPlan, MaterialUse, Plan, Project } from '../../src/lib/types';
 
@@ -176,5 +176,51 @@ describe('Material: Mengen aus dem Aufmaß', () => {
     const s = aufmassSources(state([dmg('a', { measureType: 'flaeche', kind: 'area', area: 42, positionRef: 'lv1:pos1' })], [lv]));
     expect(s.find((x) => x.id === 'lv:lv1:pos1')).toMatchObject({ label: 'Pos. 01.02 Betonersatz – laut LV', value: 150, unit: 'm²' });
     expect(s.find((x) => x.id === 'lvm:lv1:pos1')).toMatchObject({ label: 'Pos. 01.02 Betonersatz – gemessen', value: 42, unit: 'm²' });
+  });
+});
+
+describe('Material: Gebinde – Sack, Dose, Kübel – immer ganz und mit Paletten', () => {
+  const paint: Material = { id: 'm2', name: 'Betonschutz-Beschichtung', unit: 'Dose', packSize: 5, packUnit: 'kg', perPallet: 40, usageRate: 0.5, usageUnit: 'kg', usageBasis: 'm²', createdAt: 0, updatedAt: 0 };
+
+  it('Mehrzahl: 1 Dose, 18 Dosen, 2 Paletten; Sack, Kübel und Maßeinheiten bleiben', () => {
+    expect(qtyText(1, 'Dose')).toBe('1 Dose');
+    expect(qtyText(18, 'Dose')).toBe('18 Dosen');
+    expect(qtyText(2.5, 'Dose')).toBe('2,5 Dosen');
+    expect(qtyText(20, 'Sack')).toBe('20 Sack');
+    expect(qtyText(3, 'Kübel')).toBe('3 Kübel');
+    expect(qtyText(12.5, 'kg')).toBe('12,5 kg');
+    expect(unitFor(2, 'Palette')).toBe('Paletten');
+    expect(normUnit('Dosen')).toBe(normUnit('Dose'));
+    expect(normUnit('Kübel')).toBe('kuebel');
+  });
+
+  it('nicht 2,45 Paletten, sondern 2 Paletten + 18 Dosen – mit Inhalt', () => {
+    // 490 kg bei 0,5 kg/m² auf 980 m² = 98 Dosen à 5 kg
+    const r = needCalc(980, guideRate(paint, 'm²')!, { used: 0, onSite: 0, ordered: 0, open: 0, unit: 'Dose' });
+    expect(r.reorder).toBe(98);
+    expect(orderQtyText(r.reorder, 'Dose', paint)).toBe('2 Paletten + 18 Dosen');
+    expect(orderQtyDetail(r.reorder, 'Dose', paint)).toBe('98 Dosen · 490 kg');
+    expect(packDetail(r.reorder, 'Dose', paint)).toBe('2 Paletten + 18 Dosen · 490 kg');
+    // angefangene Dose wird ganz bestellt: 490,1 kg → 99 Dosen
+    expect(needCalc(980.2, 0.1, { used: 0, onSite: 0, ordered: 0, open: 0, unit: 'Dose' }).reorder).toBe(99);
+    // auf ganze Paletten: 120 Dosen = 3 Paletten
+    expect(orderQtyText(needCalc(980, 0.1, { used: 0, onSite: 0, ordered: 0, open: 0, unit: 'Dose' }, { perPallet: 40, pallets: true }).reorder, 'Dose', paint)).toBe('3 Paletten');
+    // unter einer Palette nur die Dosen
+    expect(orderQtyText(18, 'Dose', paint)).toBe('18 Dosen');
+    expect(orderQtyDetail(18, 'Dose', paint)).toBe('90 kg');
+    expect(orderQtyText(1, 'Kübel', null)).toBe('1 Kübel');
+  });
+
+  it('Bestelltext an den Lieferanten mit Paletten und Inhalt', () => {
+    const text = orderText({
+      orderNo: 'B-2026-001',
+      company: 'Testfirma',
+      by: 'Max',
+      items: [{ id: 'i', projectId: 'p1', materialId: 'm2', name: 'Betonschutz-Beschichtung', unit: 'Dose', qty: 98, status: 'offen', history: [], createdAt: 0, updatedAt: 0 }],
+      articleNo: () => 'BS-5',
+      site: () => ({ name: 'Parkhaus', address: '' }),
+      material: () => paint,
+    });
+    expect(text).toContain('- 98 Dosen Betonschutz-Beschichtung (2 Paletten + 18 Dosen, 490 kg) (Art.-Nr. BS-5)');
   });
 });

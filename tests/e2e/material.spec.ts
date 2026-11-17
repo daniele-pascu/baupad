@@ -378,7 +378,8 @@ test('Bestand und Bedarf: Gebinde und Palette, schon geliefert, Verbrauch mit Du
   await expect(sd.getByTestId('calc-reorder')).toHaveText('10 Sack');
   // ganze Paletten
   await sd.getByTestId('calc-pallets').check();
-  await expect(sd.getByTestId('calc-reorder')).toHaveText('40 Sack = 1 Palette');
+  await expect(sd.getByTestId('calc-reorder')).toHaveText('1 Palette');
+  await expect(sd.getByTestId('calc-reorder-detail')).toContainText('= 40 Sack · ');
   await sd.getByTestId('calc-pallets').uncheck();
   // eigener Wert in kg je m²: 10 kg/m² = 0,4 Sack/m² → 40 Sack, fehlen 20
   await sd.getByTestId('calc-mode').selectOption('own');
@@ -413,4 +414,27 @@ test('Bestand und Bedarf: Gebinde und Palette, schon geliefert, Verbrauch mit Du
   await expect(sd.getByTestId('calc-reorder')).toHaveText('10 Sack');
   await sd.getByTestId('calc-close').click();
   await expect(row.getByTestId('stock-state')).toHaveText('10 Sack nachbestellen');
+
+  // Verbrauch im Inhalt eingeben: 50 kg = 2 Sack
+  await row.getByTestId('stock-use').click();
+  await ud.getByTestId('use-qty').fill('50');
+  await ud.getByTestId('use-qty-unit').selectOption('pack');
+  await expect(ud.getByTestId('use-qty-converted')).toHaveText('= 2 Sack');
+  await ud.getByTestId('use-save').click();
+  await expect(ud).toHaveCount(0);
+  await expect(row.getByTestId('stock-numbers')).toHaveText('vorhanden 10 Sack · verbraucht 10 · gemeldet 10');
+
+  // Menge in Paletten: 2 Paletten bestellt = 80 Sack
+  await page.getByTestId('item-new').click();
+  await d.getByTestId('item-material').selectOption({ index: 1 });
+  await d.getByTestId('item-qty').fill('2');
+  await d.getByTestId('item-unit').selectOption({ label: 'Palette (je 40 Sack)' });
+  await expect(d.getByTestId('item-qty-hint')).toContainText('= 80 Sack · ');
+  await d.getByTestId('item-status').selectOption('bestellt');
+  await d.getByTestId('item-save').click();
+  await expect(d).toHaveCount(0);
+  const ordered = page.locator('[data-testid="item-row"][data-status="bestellt"]');
+  await expect(ordered).toContainText('80 Sack Reparaturmörtel R4');
+  await expect(ordered).toContainText('2 Paletten · ');
+  await expect(row.getByTestId('stock-numbers')).toHaveText('vorhanden 10 Sack · verbraucht 10 · unterwegs 80 · gemeldet 10');
 });

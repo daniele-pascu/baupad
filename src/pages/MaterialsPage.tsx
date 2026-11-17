@@ -13,7 +13,7 @@ import { isEquipment, listSummary } from '../lib/materials';
 import { isoDate } from '../lib/crew';
 import { HubEquipment, HubOrders, HubOverview, type HubData } from '../components/MaterialHub';
 import { uuid } from '../lib/ids';
-import { BASES, fmtPrice, fmtQty, materialDuplicates, matchesMaterial, normKey, normUnit, PACK_UNITS, parsePrice, parseQty, sortMaterials, sortSuppliers, supplierDuplicates, UNITS, type MaterialDuplicate } from '../lib/materials';
+import { BASES, fmtPrice, fmtQty, qtyText, unitFor, materialDuplicates, matchesMaterial, normKey, normUnit, PACK_UNITS, parsePrice, parseQty, sortMaterials, sortSuppliers, supplierDuplicates, UNITS, type MaterialDuplicate } from '../lib/materials';
 import { usePageTitle } from '../lib/page-title';
 import { navigate, paths } from '../lib/router';
 import type { Material, MaterialItem, Project, Supplier } from '../lib/types';
@@ -221,7 +221,7 @@ export function MaterialsPage({ tab }: { tab: Tab }) {
                           supName.get(m.supplierId ?? ''),
                           m.category,
                           m.packSize && m.packUnit ? `1 ${m.unit} = ${fmtQty(m.packSize)} ${m.packUnit}` : '',
-                          m.perPallet ? `${fmtQty(m.perPallet)} ${m.unit}/Palette` : '',
+                          m.perPallet ? `${qtyText(m.perPallet, m.unit)}/Palette` : '',
                         ]
                           .filter(Boolean)
                           .join(' · ')}
@@ -419,7 +419,7 @@ function MaterialDialog({ material, all, suppliers, onClose, onSaved }: { materi
         {field('articleNo', 'Artikelnummer')}
         <div className="form-grid">
           <label className="field">
-            <span>Einheit *</span>
+            <span>Einheit / Gebinde *</span>
             <select value={v.unit} onChange={(e) => setV({ ...v, unit: e.target.value })} data-testid="material-unit">
               {units.map((u) => (
                 <option key={u} value={u}>
@@ -443,7 +443,7 @@ function MaterialDialog({ material, all, suppliers, onClose, onSaved }: { materi
         </label>
         {field('category', 'Kategorie', { placeholder: 'z. B. Beton, Dämmung, Kleinmaterial' })}
         <h3 className="hub-sub">Gebinde, Palette und Verbrauch</h3>
-        <p className="muted small mat-sub-hint">Für die Bedarfsrechnung auf der Baustelle – alles optional.</p>
+        <p className="muted small mat-sub-hint">Für die Bedarfsrechnung auf der Baustelle – alles optional. Einheit = so, wie bestellt wird (Sack, Dose, Kübel …), Inhalt = was drin ist (z. B. 25 kg).</p>
         <div className="form-grid">
           <label className="field">
             <span>Inhalt je {v.unit || 'Einheit'}</span>
@@ -462,7 +462,7 @@ function MaterialDialog({ material, all, suppliers, onClose, onSaved }: { materi
         </div>
         {!isPallet && (
           <label className="field">
-            <span>{v.unit || 'Einheiten'} je Palette</span>
+            <span>{v.unit ? unitFor(2, v.unit) : 'Einheiten'} je Palette</span>
             <input value={v.perPallet} onChange={(e) => setV({ ...v, perPallet: e.target.value })} inputMode="decimal" placeholder="z. B. 40" aria-invalid={show && perPallet === undefined ? true : undefined} data-testid="material-perPallet" />
           </label>
         )}
