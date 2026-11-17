@@ -1,4 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { SelectionBar, SelectToggle, useSelection } from '../components/Selection';
+import { BulkDamageDialog, type DamagePatch } from '../components/BulkDamageDialog';
 import { AufmassTable } from '../components/AufmassTable';
 import { deductionNumbers } from '../lib/numbering';
 import { RotatePlanDialog } from '../components/RotatePlanDialog';
@@ -710,6 +712,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const dupIds = useMemo(() => {
     return duplicateIds(stored);
   }, [stored]);
+  /** Mehrfachauswahl in der Aufmaß-Tabelle: mehrere Messungen löschen bzw. Position/Farbe gemeinsam ändern */
+  const dmgSel = useSelection(damages.map((d) => d.id));
+  const [bulkDmg, setBulkDmg] = useState(false);
   const selected = damages.find((d) => d.id === selectedId) ?? null;
   const drawing = useDrawing({ plan, data, damages, viewer, onCreated: () => void (reopenTools() || setToolsOpen(false)) });
   // fertig (Messung gespeichert bzw. abgebrochen, Kalibrieren beendet) → zugeklappte Leiste wieder öffnen
@@ -1315,6 +1320,36 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     toast(`${label} gelöscht.`);
   };
 
+
+  /** mehrere Messungen löschen (Nummern der übrigen bleiben; „Rückgängig“ holt sie zurück) */
+  const removeDamages = async (ids: string[]) => {
+    const list = ids.map((id) => data.damages[id]).filter((d): d is Damage => !!d && !d.deletedAt);
+    if (!list.length) return;
+    const ok = await confirmDialog({
+      title: `${list.length} ${list.length === 1 ? 'Messung' : 'Messungen'} löschen?`,
+      message: (
+        <p>
+          {list.map((d) => `${measureLabel(d)} ${damageNo(d)}`).join(', ')} {list.length === 1 ? 'wird' : 'werden'} gelöscht. Die Nummern der übrigen Messungen bleiben
+          unverändert. Mit „Rückgängig“ lässt sich das Löschen zurücknehmen.
+          {settledInvoice && <strong className="error" data-testid="settled-confirm"> Achtung: {invoiceLabel(settledInvoice)} ist bereits abgerechnet.</strong>}
+        </p>
+      ),
+      confirmLabel: 'Löschen',
+      danger: true,
+    });
+    if (!ok) return;
+    softDelete({ damages: list });
+    if (selectedId && ids.includes(selectedId)) setSelectedId(null);
+    dmgSel.stop();
+    toast(`${list.length} ${list.length === 1 ? 'Messung' : 'Messungen'} gelöscht.`);
+  };
+  const patchDamages = (ids: string[], patch: DamagePatch) => {
+    const list = ids.map((id) => data.damages[id]).filter((d): d is Damage => !!d && !d.deletedAt);
+    putRecords({ damages: list.map((d) => ({ ...d, ...(patch.positionRef !== undefined ? { positionRef: patch.positionRef } : {}), ...(patch.color ? { color: patch.color } : {}) })) });
+    setBulkDmg(false);
+    dmgSel.stop();
+    toast(`${list.length} ${list.length === 1 ? 'Messung' : 'Messungen'} geändert.`, 'success');
+  };
 
   const compact = async () => {
     // Nur reine Nummern werden lückenlos gemacht; Kennzeichnungen (A, B …) bleiben unverändert
@@ -2624,6 +2659,11 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               {damages.length} Messung{damages.length === 1 ? '' : 'en'} · {formatArea(sumArea(damages))} m²
               {lineCount > 0 && ` · Linien ${formatMeasure(sumLengths(damages))} m`}
             </span>
+            {damages.length > 1 && (
+              <div className="side-head-tools">
+                <SelectToggle sel={dmgSel} testId="damages-select" />
+              </div>
+            )}
           </div>
           <AufmassTable
             rows={rows}
@@ -2638,6 +2678,17 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             }}
             onEdit={(r) => setDialog({ mode: 'edit', id: r.damage.id })}
             onDelete={(r) => void removeDamage(r.damage)}
+            sel={dmgSel}
+          />
+          <SelectionBar
+            inline
+            sel={dmgSel}
+            noun={['Messung', 'Messungen']}
+            testId="damages-select-bar"
+            actions={[
+              { label: 'Löschen', icon: 'trash', primary: true, danger: true, onSelect: () => void removeDamages(dmgSel.ids), testId: 'damages-bulk-delete' },
+              { label: 'Ändern', icon: 'edit', primary: true, onSelect: () => setBulkDmg(true), testId: 'damages-bulk-edit' },
+            ]}
           />
           <div className="side-foot">
             <button type="button" className="btn btn-sm" onClick={() => void compact()}>
@@ -2647,6 +2698,14 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         </aside>
       </div>
 
+      {bulkDmg && (
+        <BulkDamageDialog
+          data={data}
+          damages={dmgSel.ids.map((id) => data.damages[id]).filter((d): d is Damage => !!d)}
+          onClose={() => setBulkDmg(false)}
+          onSave={(p) => patchDamages(dmgSel.ids, p)}
+        />
+      )}
       {dialog?.mode === 'new' && (
         <DamageDialog
           photoSite={photoSite}

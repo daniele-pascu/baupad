@@ -445,3 +445,40 @@ test('Preise und Summen der LV nur für Admin/Büro bzw. mit Freigabe „Preise 
   await expect(page.getByTestId('lv-panel')).toContainText('6.010,00 €');
   await expect(page.getByTestId('lv-table').locator('th')).toHaveCount(7);
 });
+
+test('LV/MFK-Import: wahlweise ohne Preise übernehmen – Positionen und Mengen ja, Einheits- und Positionspreise leer', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'LV ohne Preise', {}, ['Garage']);
+  await page.getByTestId('lv-file-input').setInputFiles(join(FIXTURES, 'kurz-lv.pdf'));
+  const review = page.getByTestId('lv-review');
+  await expect(review.getByTestId('lv-prices')).toHaveValue('mit'); // Standard: mit Preisen
+  await review.getByTestId('lv-prices').selectOption('ohne');
+  await expect(review.getByTestId('lv-no-prices')).toBeVisible();
+  await review.getByTestId('lv-review-save').click();
+  await page.getByTestId('lv-doc-tab').last().click();
+  await expect(page.getByTestId('lv-row')).toHaveCount(8);
+  const row = page.locator('[data-testid="lv-row"][data-number="02.14.80.90A."]');
+  await expect(row).toContainText('Sandstrahlen');
+  await expect(row).not.toContainText('€');
+  await waitSaved(page);
+  // gespeichert: alle Positionen ohne Preis
+  const prices = await page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((res, rej) => {
+      const r = indexedDB.open('schadstellen-aufmass');
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+    const docs = await new Promise<{ positions: { unitPrice: number | null; totalPrice: number | null; quantity: number | null }[] }[]>((res) => {
+      const q = db.transaction('lvDocs').objectStore('lvDocs').getAll();
+      q.onsuccess = () => res(q.result);
+    });
+    db.close();
+    return docs.flatMap((d) => d.positions.map((p) => [p.unitPrice, p.totalPrice, p.quantity !== null]));
+  });
+  expect(prices).toHaveLength(8);
+  for (const [ep, gp] of prices) {
+    expect(ep).toBeNull();
+    expect(gp).toBeNull();
+  }
+  expect(prices.some(([, , q]) => q)).toBe(true); // Mengen bleiben
+});
