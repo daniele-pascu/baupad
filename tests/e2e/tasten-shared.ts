@@ -127,6 +127,59 @@ export function tastenTests() {
     expect(out, out.join('\n')).toEqual([]);
   });
 
+  test('Tasten: Material auf der Baustelle (Bestand, Verbrauch, Rechnen) – nichts überlappt, verdeckt oder abgeschnitten', async ({ page }) => {
+    const out: string[] = [];
+    await freshStart(page);
+    await createProject(page, 'Tastentest Material');
+    // Material mit Gebinde, Palette und Richtwert
+    await page.goto('./baupad/materialverwaltung?t=material');
+    await page.getByTestId('material-new').click();
+    const md = page.getByTestId('material-dialog');
+    await md.getByTestId('material-name').fill('Reparaturmörtel R4 Feinspachtel');
+    await md.getByTestId('material-unit').selectOption('Sack');
+    await md.getByTestId('material-packSize').fill('25');
+    await md.getByTestId('material-perPallet').fill('40');
+    await md.getByTestId('material-usageRate').fill('8');
+    await md.getByTestId('material-usage').selectOption('kg|m²');
+    await pruefe(page, 'Material mit Gebinde, Palette und Verbrauch', out);
+    await md.getByTestId('material-save').click();
+    await expect(md).toHaveCount(0);
+    // Baustelle: leer, Material hinzufügen (schon geliefert)
+    await page.getByTestId('mat-tab-sites').click();
+    await page.getByTestId('material-site-open').click();
+    await pruefe(page, 'Material-Baustelle leer', out);
+    await page.getByTestId('item-new').click();
+    const d = page.getByTestId('item-dialog');
+    await d.getByTestId('item-material').selectOption({ index: 1 });
+    await d.getByTestId('item-qty').fill('20');
+    await d.getByTestId('item-status').selectOption('geliefert');
+    await pruefe(page, 'Material hinzufügen mit Status', out);
+    await d.getByTestId('item-save').click();
+    await expect(d).toHaveCount(0);
+    // Verbrauch eintragen (mehr als vorhanden → Hinweis)
+    await page.getByTestId('use-new').click();
+    const ud = page.getByTestId('use-dialog');
+    await ud.getByTestId('use-qty').fill('30');
+    await ud.getByTestId('use-done').fill('20');
+    await expect(ud.getByTestId('use-over')).toBeVisible();
+    await pruefe(page, 'Verbrauch eintragen', out);
+    await ud.getByTestId('use-save').click();
+    await expect(ud).toHaveCount(0);
+    // Rechnen mit Ergebnis, Paletten und „als Bedarf eintragen“
+    await page.getByTestId('stock-open').click();
+    const sd = page.getByTestId('stock-dialog');
+    await sd.getByTestId('calc-total').fill('100');
+    await sd.getByTestId('calc-mode').selectOption('own');
+    await sd.getByTestId('calc-rate').fill('1');
+    await sd.getByTestId('calc-pallets').check();
+    await expect(sd.getByTestId('calc-order')).toBeVisible();
+    await pruefe(page, 'Material rechnen', out);
+    await sd.getByTestId('calc-save').click();
+    await expect(sd).toHaveCount(0);
+    await pruefe(page, 'Material-Baustelle mit Bestand und Bedarf', out);
+    expect(out, out.join('\n')).toEqual([]);
+  });
+
   test('Tasten: Aufmaß mit Plan, Messung und Dialogen – nichts überlappt, verdeckt oder abgeschnitten', async ({ page }) => {
     test.setTimeout(150_000); // viele Dialoge und Leisten (Messarten) – auf dem Handy langsamer
     const out: string[] = [];

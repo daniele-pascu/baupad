@@ -661,6 +661,69 @@ export interface Material {
   places?: { siteId: string; qty: number }[];
   /** Gerät: Verlauf (wer hat wann wie viele wohin gegeben) */
   log?: { at: number; by: string; text: string }[];
+  /** Gebinde: Inhalt je Einheit, z. B. 1 Sack = 25 kg (packSize 25, packUnit „kg“); null/fehlt = keine Angabe */
+  packSize?: number | null;
+  packUnit?: string;
+  /** Einheiten je Palette, z. B. 40 Sack; null/fehlt = keine Angabe */
+  perPallet?: number | null;
+  /**
+   * Richtwert für den Verbrauch (z. B. Herstellerangabe): `usageRate` in `usageUnit` (Einheit oder Inhalt-Einheit)
+   * je `usageBasis` (m², m, m³, Stk) – z. B. 2 kg je m²
+   */
+  usageRate?: number | null;
+  usageUnit?: string;
+  usageBasis?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** Materialverwaltung: Verbrauch eines Materials auf einer Baustelle (ein Eintrag je Erfassung) */
+export interface MaterialUse {
+  id: string;
+  projectId: string;
+  /** Material aus dem Materialstamm (fehlt = frei eingegeben, Zuordnung über Bezeichnung + Einheit) */
+  materialId?: string | null;
+  name: string;
+  unit: string;
+  /** Tag des Verbrauchs JJJJ-MM-TT */
+  date: string;
+  /** verbrauchte Menge in der Einheit des Materials */
+  qty: number;
+  /** dabei geschafft, z. B. 40 (m²) – daraus wird der Durchschnitt je m² erkannt; null = keine Angabe */
+  done?: number | null;
+  /** Bezugsgröße von `done`: m², m, m³, Stk */
+  doneUnit?: string;
+  note?: string;
+  /** erfasst von (Name) */
+  by: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/**
+ * Materialverwaltung: Bedarfsrechnung eines Materials auf einer Baustelle – Gesamtmenge der Baustelle (aus dem
+ * Aufmaß, dem LV oder eingetippt) × Verbrauch je Bezugsgröße. Kennung `<Projekt>:<Material>` (je Baustelle und
+ * Material genau eine, auch wenn zwei Geräte sie gleichzeitig anlegen).
+ */
+export interface MaterialPlan {
+  id: string;
+  projectId: string;
+  materialId?: string | null;
+  name: string;
+  unit: string;
+  /** Bezugsgröße: m², m, m³, Stk */
+  basis: string;
+  /** Gesamtmenge der Baustelle in der Bezugsgröße; null = noch nicht angegeben */
+  total: number | null;
+  /** Herkunft der Gesamtmenge (Kennung einer Aufmaß- bzw. LV-Menge, wird automatisch nachgeführt); fehlt = eingetippt */
+  source?: string | null;
+  /** Verbrauch: 'auto' = erkannter Durchschnitt (Baustelle, sonst alle Baustellen, sonst Richtwert); 'own' = eigener Wert */
+  rateMode: 'auto' | 'own';
+  /** eigener Wert: Menge in `rateUnit` (Einheit oder Inhalt-Einheit) je Bezugsgröße */
+  rate?: number | null;
+  rateUnit?: string;
+  /** Nachbestellung auf ganze Paletten aufrunden */
+  pallets?: boolean;
   createdAt: number;
   updatedAt: number;
 }

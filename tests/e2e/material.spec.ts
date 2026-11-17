@@ -312,3 +312,129 @@ test('Übersicht, Bestellen je Lieferant mit Bestellnummer, Wareneingang und Ger
   await page.getByTestId('material-site-open').click();
   await expect(page.getByTestId('site-device')).toContainText('1 Stk Betonfräse');
 });
+
+test('Bestand und Bedarf: Gebinde und Palette, schon geliefert, Verbrauch mit Durchschnitt, rechnen und Differenz als Bedarf eintragen', async ({ page }) => {
+  test.setTimeout(120_000);
+  await freshStart(page);
+  await createProject(page, 'Parkhaus Nord', { number: '2026-09' });
+
+  // Material mit Gebinde (1 Sack = 25 kg), 40 Sack je Palette und Richtwert 8 kg je m²
+  await page.goto('./baupad/materialverwaltung?t=material');
+  await page.getByTestId('material-new').click();
+  const md = page.getByTestId('material-dialog');
+  await md.getByTestId('material-name').fill('Reparaturmörtel R4');
+  await md.getByTestId('material-unit').selectOption('Sack');
+  await md.getByTestId('material-packSize').fill('25');
+  await md.getByTestId('material-packUnit').selectOption('kg');
+  await md.getByTestId('material-perPallet').fill('40');
+  await md.getByTestId('material-usageRate').fill('8');
+  await md.getByTestId('material-usage').selectOption('kg|m²');
+  await md.getByTestId('material-save').click();
+  await expect(md).toHaveCount(0);
+  await expect(page.getByTestId('material-row')).toContainText('1 Sack = 25 kg · 40 Sack/Palette');
+
+  // Baustelle: 20 Sack sind schon geliefert (Status gleich beim Hinzufügen)
+  await page.getByTestId('mat-tab-sites').click();
+  await page.getByTestId('material-site-open').click();
+  await page.getByTestId('item-new').click();
+  const d = page.getByTestId('item-dialog');
+  await d.getByTestId('item-material').selectOption({ index: 1 });
+  await d.getByTestId('item-qty').fill('20');
+  await d.getByTestId('item-status').selectOption('geliefert');
+  await d.getByTestId('item-save').click();
+  await expect(d).toHaveCount(0);
+  await expect(page.getByTestId('item-row')).toHaveAttribute('data-status', 'geliefert');
+  const row = page.locator('[data-testid="stock-row"][data-name="Reparaturmörtel R4"]');
+  await expect(row.getByTestId('stock-numbers')).toHaveText('vorhanden 20 Sack');
+
+  // Verbrauch: 6 Sack für 20 m² → Durchschnitt 0,3 Sack/m²
+  await row.getByTestId('stock-use').click();
+  const ud = page.getByTestId('use-dialog');
+  await expect(ud.getByTestId('use-material-fixed')).toContainText('Reparaturmörtel R4 · vorhanden 20 Sack');
+  await ud.getByTestId('use-qty').fill('6');
+  await ud.getByTestId('use-done').fill('20');
+  await expect(ud.getByTestId('use-done-unit')).toHaveValue('m²'); // Bezug aus dem Richtwert des Materials
+  await ud.getByTestId('use-save').click();
+  await expect(ud).toHaveCount(0);
+  await expect(row.getByTestId('stock-numbers')).toHaveText('vorhanden 14 Sack · verbraucht 6');
+
+  // mehr als vorhanden → Hinweis, speichern geht trotzdem (hier abbrechen)
+  await page.getByTestId('use-new').click();
+  await ud.getByTestId('use-material').selectOption({ label: 'Reparaturmörtel R4 – vorhanden 14 Sack' });
+  await ud.getByTestId('use-qty').fill('15');
+  await expect(ud.getByTestId('use-over')).toContainText('Mehr als laut BauPad vorhanden (14 Sack)');
+  await ud.getByRole('button', { name: 'Abbrechen' }).click();
+
+  // Rechnen: 100 m² Baustelle × Ø 0,3 = 30 Sack; verbraucht 6, vorhanden 14 → 10 Sack fehlen
+  await row.getByTestId('stock-open').click();
+  const sd = page.getByTestId('stock-dialog');
+  await expect(sd.getByTestId('stock-kpi-onSite')).toContainText('14');
+  await expect(sd).toContainText('vorhanden = 350 kg');
+  await expect(sd.getByTestId('calc-no-source')).toBeVisible(); // noch kein Aufmaß
+  await sd.getByTestId('calc-total').fill('100');
+  await expect(sd.getByTestId('calc-rate-info')).toContainText('Durchschnitt dieser Baustelle: 0,3 Sack/m²');
+  await expect(sd.getByTestId('calc-rate-info')).toContainText('Richtwert: 0,32 Sack/m²');
+  await expect(sd.getByTestId('calc-need')).toHaveText('30 Sack');
+  await expect(sd.getByTestId('calc-reorder')).toHaveText('10 Sack');
+  // ganze Paletten
+  await sd.getByTestId('calc-pallets').check();
+  await expect(sd.getByTestId('calc-reorder')).toHaveText('1 Palette');
+  await expect(sd.getByTestId('calc-reorder-detail')).toContainText('= 40 Sack · ');
+  await sd.getByTestId('calc-pallets').uncheck();
+  // eigener Wert in kg je m²: 10 kg/m² = 0,4 Sack/m² → 40 Sack, fehlen 20
+  await sd.getByTestId('calc-mode').selectOption('own');
+  await sd.getByTestId('calc-rate').fill('10');
+  await sd.getByTestId('calc-rate-unit').selectOption('kg');
+  await expect(sd.getByTestId('calc-reorder')).toHaveText('20 Sack');
+  await sd.getByTestId('calc-mode').selectOption('auto');
+  await expect(sd.getByTestId('calc-reorder')).toHaveText('10 Sack');
+
+  // Differenz als Bedarf eintragen → offene Position, danach reicht es
+  await sd.getByTestId('calc-order').click();
+  await expect(sd.getByTestId('calc-reorder')).toHaveText('genau');
+  await expect(sd.getByTestId('calc-order')).toHaveCount(0);
+  await sd.getByTestId('calc-save').click();
+  await expect(sd).toHaveCount(0);
+  await expect(page.locator('[data-testid="item-row"][data-status="offen"]')).toContainText('10 Sack Reparaturmörtel R4');
+  await expect(row.getByTestId('stock-numbers')).toHaveText('vorhanden 14 Sack · verbraucht 6 · gemeldet 10');
+  await expect(row.getByTestId('stock-state')).toHaveText('reicht für 100 m²');
+
+  // nach dem Neuladen: Rechnung und Verbrauch gespeichert; Verbrauch ändern
+  await page.reload();
+  await expect(row.getByTestId('stock-state')).toHaveText('reicht für 100 m²');
+  await row.getByTestId('stock-open').click();
+  await expect(sd.getByTestId('calc-total')).toHaveValue('100');
+  await expect(sd.getByTestId('use-row')).toHaveCount(1);
+  await expect(sd.getByTestId('use-row')).toContainText('6 Sack (150 kg) für 20 m²');
+  await sd.getByTestId('use-row').click();
+  await ud.getByTestId('use-qty').fill('8');
+  await ud.getByTestId('use-save').click();
+  await expect(ud).toHaveCount(0);
+  // Ø jetzt 0,4 → Bedarf 40, noch nötig 32, gedeckt 12 + 10 → 10 Sack fehlen
+  await expect(sd.getByTestId('calc-reorder')).toHaveText('10 Sack');
+  await sd.getByTestId('calc-close').click();
+  await expect(row.getByTestId('stock-state')).toHaveText('10 Sack nachbestellen');
+
+  // Verbrauch im Inhalt eingeben: 50 kg = 2 Sack
+  await row.getByTestId('stock-use').click();
+  await ud.getByTestId('use-qty').fill('50');
+  await ud.getByTestId('use-qty-unit').selectOption('pack');
+  await expect(ud.getByTestId('use-qty-converted')).toHaveText('= 2 Sack');
+  await ud.getByTestId('use-save').click();
+  await expect(ud).toHaveCount(0);
+  await expect(row.getByTestId('stock-numbers')).toHaveText('vorhanden 10 Sack · verbraucht 10 · gemeldet 10');
+
+  // Menge in Paletten: 2 Paletten bestellt = 80 Sack
+  await page.getByTestId('item-new').click();
+  await d.getByTestId('item-material').selectOption({ index: 1 });
+  await d.getByTestId('item-qty').fill('2');
+  await d.getByTestId('item-unit').selectOption({ label: 'Palette (je 40 Sack)' });
+  await expect(d.getByTestId('item-qty-hint')).toContainText('= 80 Sack · ');
+  await d.getByTestId('item-status').selectOption('bestellt');
+  await d.getByTestId('item-save').click();
+  await expect(d).toHaveCount(0);
+  const ordered = page.locator('[data-testid="item-row"][data-status="bestellt"]');
+  await expect(ordered).toContainText('80 Sack Reparaturmörtel R4');
+  await expect(ordered).toContainText('2 Paletten · ');
+  await expect(row.getByTestId('stock-numbers')).toHaveText('vorhanden 10 Sack · verbraucht 10 · unterwegs 80 · gemeldet 10');
+});

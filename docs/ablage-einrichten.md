@@ -27,6 +27,8 @@ war ein Fehlversuch und wird nicht gebraucht (löschen).
 
 **05.11.2026:** Funktion `storage` neu veröffentlichen – sie kennt jetzt die Materialverwaltung (`materials`, `suppliers`). Bis dahin bleiben Materialien und Lieferanten nur auf dem Gerät.
 
+**17.11.2026 (Material: Verbrauch und Bedarf):** Funktion `storage` neu veröffentlichen – sie kennt jetzt `materialUses` (Verbrauch je Baustelle) und `materialPlans` (Bedarfsrechnung je Baustelle und Material). Bis dahin bleiben nur diese beiden auf dem Gerät (Warteschlange); alles andere, auch Materialstamm und Materiallisten, wird normal übertragen.
+
 **05.11.2026 (Zeitaufzeichnung):** Funktion `storage` neu veröffentlichen (filtert Stunden für Polier/Arbeiter), **danach** `docs/supabase/time-access.sql` im SQL Editor ausführen. Andere Reihenfolge: Poliere könnten kurz keine Stunden hochladen.
 
 ## 2. Funktion veröffentlichen (erledigt 30.10.2026, aktualisiert 03.11.2026)

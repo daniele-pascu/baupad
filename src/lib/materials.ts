@@ -1,4 +1,4 @@
-import type { Material, MaterialItem, MaterialStatus, Supplier } from './types';
+import type { Material, MaterialItem, MaterialPlan, MaterialStatus, MaterialUse, Supplier } from './types';
 
 /**
  * Materialverwaltung: Materialstamm und Lieferanten der Firma. Doppelte Einträge werden beim Anlegen erkannt
@@ -6,7 +6,7 @@ import type { Material, MaterialItem, MaterialStatus, Supplier } from './types';
  */
 
 /** übliche Einheiten (frei erweiterbar) */
-export const UNITS = ['Stk', 'm', 'm²', 'm³', 'kg', 't', 'l', 'Sack', 'Palette', 'Rolle', 'Paket', 'Karton', 'Eimer', 'Std', 'psch'];
+export const UNITS = ['Stk', 'm', 'm²', 'm³', 'kg', 't', 'l', 'Sack', 'Dose', 'Kübel', 'Eimer', 'Kanister', 'Kartusche', 'Flasche', 'Palette', 'Rolle', 'Paket', 'Karton', 'Std', 'psch'];
 
 /** Vergleichsschlüssel: Kleinbuchstaben, Umlaute/ß ausgeschrieben, nur Buchstaben und Ziffern */
 export function normKey(s: string | undefined | null): string {
@@ -23,7 +23,27 @@ export function normKey(s: string | undefined | null): string {
 /** Einheit vereinheitlichen (m2 = m², Stück = Stk …) */
 export function normUnit(u: string | undefined | null): string {
   const k = normKey((u ?? '').replace('²', '2').replace('³', '3'));
-  const alias: Record<string, string> = { stueck: 'stk', st: 'stk', stck: 'stk', qm: 'm2', lfm: 'm', lm: 'm', kilogramm: 'kg', liter: 'l', pal: 'palette', sck: 'sack' };
+  const alias: Record<string, string> = {
+    stueck: 'stk',
+    st: 'stk',
+    stck: 'stk',
+    qm: 'm2',
+    lfm: 'm',
+    lm: 'm',
+    kilogramm: 'kg',
+    liter: 'l',
+    pal: 'palette',
+    paletten: 'palette',
+    sck: 'sack',
+    saecke: 'sack',
+    dosen: 'dose',
+    kuebeln: 'kuebel',
+    kartuschen: 'kartusche',
+    flaschen: 'flasche',
+    rollen: 'rolle',
+    kartons: 'karton',
+    pakete: 'paket',
+  };
   return alias[k] ?? k;
 }
 
@@ -188,7 +208,16 @@ export function ordersInTransit(items: MaterialItem[]): OrderGroup[] {
 const dayText = (iso: string) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}`;
 
 /** Text einer Bestellung (für E-Mail oder zum Kopieren): Positionen je Baustelle mit Lieferadresse und Termin */
-export function orderText(o: { orderNo: string; company: string; by: string; items: MaterialItem[]; articleNo: (materialId: string) => string; site: (projectId: string) => { name: string; address: string } }): string {
+export function orderText(o: {
+  orderNo: string;
+  company: string;
+  by: string;
+  items: MaterialItem[];
+  articleNo: (materialId: string) => string;
+  site: (projectId: string) => { name: string; address: string };
+  /** Materialstamm: Paletten und Inhalt je Position (z. B. „2 Paletten + 18 Dosen, 490 kg“) */
+  material?: (materialId: string) => Pick<Material, 'perPallet' | 'packSize' | 'packUnit'> | undefined;
+}): string {
   const lines: string[] = [`Bestellung ${o.orderNo}${o.company ? ` – ${o.company}` : ''}`, ''];
   const bySite = new Map<string, MaterialItem[]>();
   for (const x of o.items) bySite.set(x.projectId, [...(bySite.get(x.projectId) ?? []), x]);
@@ -198,7 +227,9 @@ export function orderText(o: { orderNo: string; company: string; by: string; ite
     if (s.address) lines.push(`Lieferadresse: ${s.address}`);
     for (const x of list) {
       const art = x.materialId ? o.articleNo(x.materialId) : '';
-      lines.push(`- ${fmtQty(x.qty)} ${x.unit} ${x.name}${art ? ` (Art.-Nr. ${art})` : ''}${x.deliveryDate ? ` – Liefertermin ${dayText(x.deliveryDate)}` : ''}${x.note ? ` – ${x.note}` : ''}`);
+      const m = x.materialId ? o.material?.(x.materialId) : undefined;
+      const pack = [palletText(x.qty, m?.perPallet, x.unit), packText(x.qty, m)].filter(Boolean).join(', ');
+      lines.push(`- ${qtyText(x.qty, x.unit)} ${x.name}${pack ? ` (${pack})` : ''}${art ? ` (Art.-Nr. ${art})` : ''}${x.deliveryDate ? ` – Liefertermin ${dayText(x.deliveryDate)}` : ''}${x.note ? ` – ${x.note}` : ''}`);
     }
     lines.push('');
   }
@@ -239,4 +270,222 @@ export function overviewCounts(items: MaterialItem[], equipment: Material[], tod
   }
   const out = equipment.reduce((n, m) => n + equipmentOut(m), 0);
   return { open, ordered, late, out };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Bestand, Verbrauch und Bedarf je Baustelle (Teil 3)
+//   Bestand:   bestellt (unterwegs), geliefert, verbraucht, vorhanden = geliefert − verbraucht
+//   Verbrauch: Einträge je Tag, optional mit „dabei geschafft“ (z. B. 40 m²) → Durchschnitt je m² wird erkannt
+//   Bedarf:    Gesamtmenge der Baustelle (Aufmaß, LV oder eingetippt) × Verbrauch je Bezugsgröße
+//              → noch nötig, fehlt, auf Einheit bzw. ganze Paletten aufgerundet nachbestellen
+// ---------------------------------------------------------------------------------------------
+
+/** Bezugsgrößen für den Verbrauch („je m²“ …) */
+export const BASES = ['m²', 'm', 'm³', 'Stk'];
+/** Einheiten für den Inhalt eines Gebindes (1 Sack = 25 kg) */
+export const PACK_UNITS = ['kg', 'l', 'm', 'm²', 'm³', 'Stk', 't'];
+
+const r3 = (n: number) => Math.round(n * 1000) / 1000;
+/** Bezugsgröße vereinheitlicht: m2/qm → m², lfm → m, m3 → m³, Stück → Stk */
+export function normBasis(u: string | null | undefined): string {
+  const k = normUnit(u);
+  return k === 'm2' ? 'm²' : k === 'm3' ? 'm³' : k === 'm' ? 'm' : k === 'stk' ? 'Stk' : (u ?? '').trim();
+}
+
+/** Material auf der Baustelle: Materialstamm-ID, sonst Bezeichnung + Einheit (frei eingegeben) */
+export const materialKey = (x: { materialId?: string | null; name: string; unit: string }) => (x.materialId ? x.materialId : `f-${normKey(x.name).slice(0, 24)}-${normUnit(x.unit)}`);
+/** Kennung der Bedarfsrechnung: je Baustelle und Material genau eine */
+export const planId = (projectId: string, x: { materialId?: string | null; name: string; unit: string }) => `${projectId}:${materialKey(x)}`;
+
+export interface SiteStock {
+  key: string;
+  materialId: string | null;
+  name: string;
+  unit: string;
+  /** Bedarf gemeldet, noch nicht bestellt */
+  open: number;
+  /** bestellt, unterwegs */
+  ordered: number;
+  delivered: number;
+  used: number;
+  /** vorhanden = geliefert − verbraucht (nie unter 0) */
+  onSite: number;
+}
+
+/** Bestand je Material auf einer Baustelle aus Materialliste, Verbrauch und Bedarfsrechnungen (nach Bezeichnung) */
+export function siteStock(items: MaterialItem[], uses: MaterialUse[], plans: MaterialPlan[] = []): SiteStock[] {
+  const map = new Map<string, SiteStock>();
+  const get = (x: { materialId?: string | null; name: string; unit: string }) => {
+    const key = materialKey(x);
+    let s = map.get(key);
+    if (!s) map.set(key, (s = { key, materialId: x.materialId ?? null, name: x.name, unit: x.unit, open: 0, ordered: 0, delivered: 0, used: 0, onSite: 0 }));
+    return s;
+  };
+  for (const x of items) {
+    const s = get(x);
+    const q = x.qty ?? 0;
+    if (x.status === 'offen') s.open += q;
+    else if (x.status === 'bestellt') s.ordered += q;
+    else s.delivered += q;
+  }
+  for (const u of uses) get(u).used += u.qty;
+  for (const p of plans) get(p);
+  return [...map.values()]
+    .map((s) => ({ ...s, open: r3(s.open), ordered: r3(s.ordered), delivered: r3(s.delivered), used: r3(s.used), onSite: Math.max(0, r3(s.delivered - s.used)) }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'de') || a.unit.localeCompare(b.unit, 'de'));
+}
+
+export interface UseAverage {
+  /** Verbrauch je Bezugsgröße in der Einheit des Materials */
+  rate: number;
+  qty: number;
+  done: number;
+  /** Anzahl der Einträge */
+  n: number;
+}
+
+/** Durchschnitt aus Verbrauchseinträgen mit „dabei geschafft“ in dieser Bezugsgröße (null = noch keiner) */
+export function averageUse(uses: Pick<MaterialUse, 'qty' | 'done' | 'doneUnit'>[], basis: string): UseAverage | null {
+  const b = normBasis(basis);
+  let qty = 0;
+  let done = 0;
+  let n = 0;
+  for (const u of uses) {
+    if (!u.done || u.done <= 0 || normBasis(u.doneUnit) !== b) continue;
+    qty += u.qty;
+    done += u.done;
+    n++;
+  }
+  return done > 0 ? { rate: qty / done, qty: r3(qty), done: r3(done), n } : null;
+}
+
+/** Menge in der Einheit des Materials umrechnen (rateUnit = Einheit oder Inhalt-Einheit des Gebindes); null = nicht umrechenbar */
+export function toUnit(value: number, from: string | undefined, m: { unit: string; packSize?: number | null; packUnit?: string }): number | null {
+  if (!from || normUnit(from) === normUnit(m.unit)) return value;
+  if (m.packSize && m.packSize > 0 && m.packUnit && normUnit(from) === normUnit(m.packUnit)) return value / m.packSize;
+  return null;
+}
+
+/** Richtwert aus dem Materialstamm in Einheit je Bezugsgröße (null = keiner oder andere Bezugsgröße) */
+export function guideRate(m: Pick<Material, 'unit' | 'packSize' | 'packUnit' | 'usageRate' | 'usageUnit' | 'usageBasis'> | null | undefined, basis: string): number | null {
+  if (!m?.usageRate || normBasis(m.usageBasis) !== normBasis(basis)) return null;
+  return toUnit(m.usageRate, m.usageUnit, m);
+}
+
+export type RateSource = 'site' | 'company' | 'guide' | 'own';
+export const RATE_SOURCE_TEXT: Record<RateSource, string> = { site: 'Durchschnitt dieser Baustelle', company: 'Durchschnitt aller Baustellen', guide: 'Richtwert aus dem Material', own: 'eigener Wert' };
+
+/** Verbrauch je Bezugsgröße: eigener Wert, sonst automatisch Baustelle → alle Baustellen → Richtwert */
+export function chooseRate(o: { mode: 'auto' | 'own'; own: number | null; site: UseAverage | null; company: UseAverage | null; guide: number | null }): { rate: number; source: RateSource } | null {
+  if (o.mode === 'own') return o.own && o.own > 0 ? { rate: o.own, source: 'own' } : null;
+  if (o.site) return { rate: o.site.rate, source: 'site' };
+  if (o.company) return { rate: o.company.rate, source: 'company' };
+  if (o.guide) return { rate: o.guide, source: 'guide' };
+  return null;
+}
+
+/** Einheiten, die man nur ganz bestellt (Sack, Stk, Eimer …); Maß- und Gewichtseinheiten auf 0,1 */
+const DECIMAL_UNITS = new Set(['m', 'm2', 'm3', 'kg', 't', 'l', 'g']);
+/** auf bestellbare Menge aufrunden */
+export function roundUpQty(q: number, unit: string): number {
+  if (q <= 0) return 0;
+  return DECIMAL_UNITS.has(normUnit(unit)) ? Math.ceil(q * 10 - 1e-9) / 10 : Math.ceil(q - 1e-9);
+}
+
+export interface NeedResult {
+  /** Bedarf für die ganze Baustelle */
+  need: number;
+  /** noch zu verbrauchen = Bedarf − verbraucht */
+  remaining: number;
+  /** vorhanden + unterwegs + gemeldet */
+  covered: number;
+  /** fehlt noch (0 = reicht) */
+  missing: number;
+  /** nachbestellen (aufgerundet; mit Paletten auf ganze Paletten) */
+  reorder: number;
+  /** bleibt übrig, wenn alles verbraucht ist */
+  surplus: number;
+}
+
+/** Bedarf, fehlende Menge und Nachbestellung aus Gesamtmenge × Verbrauch je Bezugsgröße und dem Bestand */
+export function needCalc(total: number, rate: number, s: Pick<SiteStock, 'used' | 'onSite' | 'ordered' | 'open' | 'unit'>, opts: { perPallet?: number | null; pallets?: boolean } = {}): NeedResult {
+  const need = r3(Math.max(0, total) * Math.max(0, rate));
+  const remaining = r3(Math.max(0, need - s.used));
+  const covered = r3(s.onSite + s.ordered + s.open);
+  const gap = r3(remaining - covered);
+  let reorder = roundUpQty(gap, s.unit);
+  if (reorder > 0 && opts.pallets && opts.perPallet && opts.perPallet > 0) reorder = Math.ceil(reorder / opts.perPallet - 1e-9) * opts.perPallet;
+  return { need, remaining, covered, missing: Math.max(0, gap), reorder, surplus: Math.max(0, -gap) };
+}
+
+/** Mehrzahl der Gebinde-Einheiten (Dose → Dosen …); Sack, Kübel, Eimer, Stk und Maßeinheiten bleiben gleich */
+const PLURAL: Record<string, string> = { dose: 'Dosen', palette: 'Paletten', rolle: 'Rollen', karton: 'Kartons', paket: 'Pakete', kartusche: 'Kartuschen', flasche: 'Flaschen', tube: 'Tuben' };
+/** Einheit passend zur Menge: 1 Dose, 2 Dosen, 0,5 Dosen */
+export const unitFor = (qty: number | null | undefined, unit: string) => (qty === 1 ? unit : (PLURAL[normUnit(unit)] ?? unit));
+/** Menge mit Einheit: „18 Dosen“, „1 Dose“, „2,5 kg“ */
+export const qtyText = (qty: number | null | undefined, unit: string) => `${fmtQty(qty)} ${unitFor(qty, unit)}`.trim();
+
+/** „1 Palette + 8 Sack“ bzw. „2 Paletten“ (leer ohne Angabe je Palette oder unter einer Palette) */
+export function palletText(qty: number | null | undefined, perPallet: number | null | undefined, unit: string): string {
+  if (!qty || !perPallet || perPallet <= 0 || qty < perPallet) return '';
+  const full = Math.floor(qty / perPallet + 1e-9);
+  const rest = r3(qty - full * perPallet);
+  return `${full} ${full === 1 ? 'Palette' : 'Paletten'}${rest > 0 ? ` + ${qtyText(rest, unit)}` : ''}`;
+}
+
+/** Bestellmenge so, wie man sie bestellt: „2 Paletten + 18 Dosen“, unter einer Palette „18 Dosen“ */
+export const orderQtyText = (qty: number | null | undefined, unit: string, m?: Pick<Material, 'perPallet'> | null) => palletText(qty, m?.perPallet, unit) || qtyText(qty, unit);
+/** Paletten und Inhalt zu einer Menge: „2 Paletten + 18 Dosen · 490 kg“ (leer ohne Angaben im Material) */
+export const packDetail = (qty: number | null | undefined, unit: string, m?: Pick<Material, 'perPallet' | 'packSize' | 'packUnit'> | null) => [palletText(qty, m?.perPallet, unit), packText(qty, m)].filter(Boolean).join(' · ');
+/** Zusatz zur Bestellmenge: Gebinde-Anzahl (bei Paletten) und Inhalt, z. B. „98 Dosen · 490 kg“ (leer, wenn nichts dazukommt) */
+export function orderQtyDetail(qty: number | null | undefined, unit: string, m?: Pick<Material, 'perPallet' | 'packSize' | 'packUnit'> | null): string {
+  if (!qty) return '';
+  return [palletText(qty, m?.perPallet, unit) && qtyText(qty, unit), packText(qty, m)].filter(Boolean).join(' · ');
+}
+
+/** Inhalt einer Menge: 28 Sack → „700 kg“ (leer ohne Gebinde-Angabe) */
+export const packText = (qty: number | null | undefined, m: Pick<Material, 'packSize' | 'packUnit'> | null | undefined) => (m?.packSize && m.packUnit && qty && qty > 0 ? `${fmtQty(r3(qty * m.packSize))} ${m.packUnit}` : '');
+
+/** Verbrauch je Bezugsgröße lesbar: „0,3 Sack/m²“ (bis 3 Nachkommastellen) */
+export const rateText = (rate: number, unit: string, basis: string) => `${rate.toLocaleString('de-AT', { maximumFractionDigits: 3 })} ${unit}/${basis}`;
+
+export interface SiteCalc {
+  basis: string;
+  /** Gesamtmenge der Baustelle (aus dem Aufmaß/LV nachgeführt, sonst eingetippt) */
+  total: number | null;
+  /** Bezeichnung der Aufmaß-/LV-Menge, aus der die Gesamtmenge kommt (null = eingetippt) */
+  totalFrom: string | null;
+  site: UseAverage | null;
+  company: UseAverage | null;
+  guide: number | null;
+  rate: { rate: number; source: RateSource } | null;
+  result: NeedResult | null;
+}
+
+/** Bezugsgröße einer Bedarfsrechnung: gespeichert, sonst Richtwert des Materials, sonst m² */
+export const calcBasis = (plan: Pick<MaterialPlan, 'basis'> | null | undefined, m: Pick<Material, 'usageBasis'> | null | undefined) => normBasis(plan?.basis || m?.usageBasis || 'm²');
+
+/** Gesamtmenge: aus der gemerkten Aufmaß-/LV-Menge (wenn es sie noch gibt und die Einheit passt), sonst die gespeicherte */
+export function planTotal(plan: Pick<MaterialPlan, 'total' | 'source' | 'basis'> | null | undefined, sources: { id: string; label: string; value: number; unit: string }[]): { total: number | null; from: string | null } {
+  if (!plan) return { total: null, from: null };
+  const src = plan.source ? sources.find((x) => x.id === plan.source && normBasis(x.unit) === normBasis(plan.basis)) : undefined;
+  return src ? { total: src.value, from: src.label } : { total: plan.total, from: null };
+}
+
+/** Alles für die Bedarfsrechnung eines Materials auf einer Baustelle (Bestand, Durchschnitte, Bedarf, Nachbestellung) */
+export function siteCalc(o: { projectId: string; stock: SiteStock; plan: MaterialPlan | null; material: Material | null; uses: MaterialUse[]; sources: { id: string; label: string; value: number; unit: string }[] }): SiteCalc {
+  const basis = calcBasis(o.plan, o.material);
+  const same = o.uses.filter((u) => materialKey(u) === o.stock.key);
+  const site = averageUse(
+    same.filter((u) => u.projectId === o.projectId),
+    basis,
+  );
+  const company = averageUse(same, basis);
+  const guide = guideRate(o.material, basis);
+  const m = { unit: o.stock.unit, packSize: o.material?.packSize, packUnit: o.material?.packUnit };
+  const own = o.plan?.rate ? toUnit(o.plan.rate, o.plan.rateUnit, m) : null;
+  const rate = chooseRate({ mode: o.plan?.rateMode ?? 'auto', own, site, company, guide });
+  const { total, from } = planTotal(o.plan, o.sources);
+  const result = total && rate ? needCalc(total, rate.rate, o.stock, { perPallet: o.material?.perPallet, pallets: o.plan?.pallets }) : null;
+  return { basis, total, totalFrom: from, site, company, guide, rate, result };
 }
