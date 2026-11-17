@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { DASH_SCALES, dashArray, DEFAULT_HATCH, DEFAULT_TRANSPARENCY, HATCH_PATTERNS, LINE_TYPES, LINE_WIDTH_MAX, LINE_WIDTH_MIN, MATERIALS } from '../lib/style';
 import { DRAW_COLORS, type HatchPattern, type LineType, type ShapeStyle } from '../lib/types';
 import { rememberCustomColorSoon, useCustomColors } from '../lib/custom-colors';
+import { Icon } from './Icon';
 import { HatchPreview, hatchLabel, hatchPicker, hatchStyle, settingFromStyle } from './HatchPicker';
 
 /** Muster-Auswahl: allgemeine Muster und Baustoffe nach ÖNORM A 6240 (übernimmt Muster, Farbe, Winkel, Abstand) */
@@ -107,6 +108,18 @@ export function StylePanel({
               ))}
             </select>
           </label>
+          {/* direkt zurück auf die durchgezogene Linie */}
+          <button
+            type="button"
+            className="icon-btn icon-btn-sm style-line-reset"
+            onClick={() => onStyle({ lineType: 'solid' })}
+            disabled={(style.lineType ?? 'solid') === 'solid'}
+            aria-label="Linientyp zurücksetzen: durchgezogene Linie"
+            title="Zurück auf durchgezogene Linie"
+            data-testid="style-line-reset"
+          >
+            <Icon name="undo" size={16} />
+          </button>
           <label className="sc-field">
             <span>Stärke</span>
             <span className="sc-range">
@@ -232,6 +245,17 @@ export function StylePanel({
               </option>
             ))}
           </select>
+          <button
+          type="button"
+          className="icon-btn icon-btn-sm style-line-reset"
+          onClick={() => onStyle({ lineType: 'solid' })}
+          disabled={(style.lineType ?? 'solid') === 'solid'}
+          aria-label="Linientyp zurücksetzen: durchgezogene Linie"
+          title="Zurück auf durchgezogene Linie"
+          data-testid="style-line-reset"
+        >
+          <Icon name="undo" size={16} />
+        </button>
         </label>
         <label className="style-row">
           <span>Stärke</span>

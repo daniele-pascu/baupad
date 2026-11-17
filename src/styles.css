@@ -3148,6 +3148,7 @@ tr.lv-flagged td {
 }
 .style-row select {
   flex: 1;
+  min-width: 0; /* neben der Zurücksetzen-Taste schrumpfen statt über den Rand ragen */
   min-height: 36px;
   border: 1px solid var(--border-strong);
   border-radius: 10px;
@@ -3683,6 +3684,17 @@ tr.lv-flagged td {
 .sc-group + .sc-group {
   padding-left: 12px;
   border-left: 1px solid var(--border);
+}
+/* Linientyp zurücksetzen (durchgezogen): neben dem Auswahlfeld, unten bündig */
+.style-line-reset {
+  flex: none;
+  align-self: flex-end;
+}
+.style-row .style-line-reset {
+  align-self: center;
+}
+.style-line-reset:disabled {
+  opacity: 0.35;
 }
 .sc-field {
   display: flex;

@@ -177,6 +177,17 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const [fromShape, setFromShape] = useState(
     damage.areaFromShape ? !!geometry || lineSuggest !== null : mode === 'new' && lineSuggest !== null && lineSuggest > 0,
   );
+  /** „aus Plan“-Feld doppelt angetippt bzw. doppelt geklickt: Maße selbst eingeben (Klick zählt für Maus und Finger) */
+  const lastFieldTap = useRef(0);
+  const tapToEdit = (e: { currentTarget: HTMLElement }) => {
+    const now = Date.now();
+    const dbl = now - lastFieldTap.current < 450;
+    lastFieldTap.current = now;
+    if (!dbl) return;
+    const dlg = e.currentTarget.closest('.modal');
+    setFromShape(false);
+    setTimeout(() => dlg?.querySelector<HTMLInputElement>('[data-testid="input-length"]')?.focus(), 0);
+  };
   const [v, setV] = useState({
     number: damage.label ?? String(damage.number),
     length: toInputValue(up2(damage.length)),
@@ -475,6 +486,23 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
           </select>
           <small className="muted">{typeInfo(type).hint}</small>
         </label>
+        {/* doppelte Nummer: direkt über der Nummernvergabe, damit man nicht nach unten scrollen muss */}
+        {conflict && num !== null && (
+          <div className="banner banner-warn" data-testid="number-conflict">
+            <p>
+              Die Nummer <strong>{num}</strong> ist in diesem Plan bereits vergeben
+              {conflict.area ? ` (Messung mit ${formatArea(conflict.area)} m²)` : ''}.
+            </p>
+            <div className="row gap wrap">
+              <button type="button" className="btn btn-sm" onClick={() => submit('swap')} data-testid="renumber-swap">
+                Nummern tauschen
+              </button>
+              <button type="button" className="btn btn-sm" onClick={() => submit('shift')} data-testid="renumber-shift">
+                Ab {num} alle um 1 erhöhen
+              </button>
+            </div>
+          </div>
+        )}
         <div className="measure-grid">
           {field('number', 'Nr. / Kennz.', 'Nr.')}
           {counted ? (
@@ -515,7 +543,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             <label className="field measure-field">
               <span>Umfang (aus Plan)</span>
               <div className="input-unit">
-                <input value={formatArea(geo.perimeter)} readOnly tabIndex={-1} data-testid="geometry-perimeter" />
+                <input value={formatArea(geo.perimeter)} readOnly tabIndex={-1} onClick={tapToEdit} title="Doppelt antippen, um die Maße selbst einzugeben" data-testid="geometry-perimeter" />
                 <span className="unit">m</span>
               </div>
             </label>
@@ -523,7 +551,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             <label className="field measure-field">
               <span>Länge (aus Plan)</span>
               <div className="input-unit">
-                <input value={formatArea(lineGeo)} readOnly tabIndex={-1} data-testid="geometry-length" />
+                <input value={formatArea(lineGeo)} readOnly tabIndex={-1} onClick={tapToEdit} title="Doppelt antippen, um die Länge selbst einzugeben" data-testid="geometry-length" />
                 <span className="unit">m</span>
               </div>
             </label>
@@ -603,7 +631,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             aria-pressed={!!geo}
             data-testid="use-geometry"
           >
-            {geo ? 'Maße wieder von Hand eingeben' : `Fläche aus Plan übernehmen: ${formatArea(geometry.area)} m²`}
+            {geo ? 'Maße selbst eingeben' : `Fläche aus Plan übernehmen: ${formatArea(geometry.area)} m²`}
           </button>
         )}
         {lineSuggest !== null && lineSuggest > 0 && (
@@ -614,7 +642,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             aria-pressed={lineGeo !== null}
             data-testid="use-geometry"
           >
-            {lineGeo !== null ? 'Länge wieder von Hand eingeben' : `Länge aus Plan übernehmen: ${formatArea(lineSuggest)} m (${openShape ? 'alle Abschnitte' : 'Umfang'})`}
+            {lineGeo !== null ? 'Länge selbst eingeben' : `Länge aus Plan übernehmen: ${formatArea(lineSuggest)} m (${openShape ? 'alle Abschnitte' : 'Umfang'})`}
           </button>
         )}
         {suggestion && !geo && withArea && !wall && !counted && !free && (
@@ -870,22 +898,6 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             </div>
           )}
         </div>
-        )}
-        {conflict && num !== null && (
-          <div className="banner banner-warn" data-testid="number-conflict">
-            <p>
-              Die Nummer <strong>{num}</strong> ist in diesem Plan bereits vergeben
-              {conflict.area ? ` (Messung mit ${formatArea(conflict.area)} m²)` : ''}.
-            </p>
-            <div className="row gap wrap">
-              <button type="button" className="btn btn-sm" onClick={() => submit('swap')} data-testid="renumber-swap">
-                Nummern tauschen
-              </button>
-              <button type="button" className="btn btn-sm" onClick={() => submit('shift')} data-testid="renumber-shift">
-                Ab {num} alle um 1 erhöhen
-              </button>
-            </div>
-          </div>
         )}
         {components.length > 0 && (
           <label className="field">

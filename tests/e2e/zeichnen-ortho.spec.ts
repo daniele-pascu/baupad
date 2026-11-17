@@ -258,6 +258,10 @@ test('Linientypen fein: kleine Welle/Zickzack (zoomunabhängig), gleichmäßige 
     expect(Math.abs((await amplitude()) - a)).toBeLessThan(0.3);
     await page.getByRole('button', { name: 'Gesamten Plan anzeigen' }).click();
   }
+  // Zurücksetzen: direkt wieder durchgezogen, danach ist die Taste ohne Wirkung
+  await bar.getByTestId('style-line-reset').click();
+  await expect(bar.getByTestId('style-line-type')).toHaveValue('solid');
+  await expect(bar.getByTestId('style-line-reset')).toBeDisabled();
   await bar.getByTestId('style-line-type').selectOption('dashed');
   const dash = (await path.getAttribute('stroke-dasharray'))!.split(' ').map(Number);
   expect(dash).toHaveLength(2);

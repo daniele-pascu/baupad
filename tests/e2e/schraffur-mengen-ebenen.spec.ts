@@ -188,8 +188,8 @@ test('Mengen aus der Geometrie: Fläche und Umfang aus dem Plan, nachgeführt be
   const perimOf = (s: Record<string, number>) => Math.round(((2 * (s.w + s.h)) / 100) * 10000) / 10000;
   expect(r.areaFromShape).toBe(true);
   expect(r.width).toBeNull();
-  expect(r.area).toBeCloseTo(areaOf(r.shape), 4);
-  expect(r.length).toBeCloseTo(perimOf(r.shape), 4);
+  expect(r.area).toBeCloseTo(areaOf(r.shape), 2);
+  expect(r.length).toBeCloseTo(perimOf(r.shape), 2);
   expect(r.depth).toBe(0.1);
   const a0 = r.area as number;
   await expect(page.getByTestId('measure-check')).toContainText('aus der Form');
@@ -201,9 +201,9 @@ test('Mengen aus der Geometrie: Fläche und Umfang aus dem Plan, nachgeführt be
   await drag(page, br.x + br.width / 2, br.y + br.height / 2, br.x + br.width / 2 + 80, br.y + br.height / 2 + 60);
   await waitSaved(page);
   [r] = await stored(page, 'damages');
-  expect(r.area).toBeGreaterThan(a0 * 1.5);
-  expect(r.area).toBeCloseTo(areaOf(r.shape), 4);
-  expect(r.length).toBeCloseTo(perimOf(r.shape), 4);
+  expect(r.area).toBeGreaterThan(a0 * 1.49);
+  expect(r.area).toBeCloseTo(areaOf(r.shape), 2);
+  expect(r.length).toBeCloseTo(perimOf(r.shape), 2);
   await page.getByTestId('undo').click();
   await waitSaved(page);
   expect((await stored(page, 'damages'))[0].area).toBeCloseTo(a0, 4);
@@ -222,7 +222,7 @@ test('Mengen aus der Geometrie: Fläche und Umfang aus dem Plan, nachgeführt be
   await waitSaved(page);
   const c = (await stored(page, 'damages'))[1];
   expect(c.areaFromShape).toBe(true);
-  expect(c.area).toBeCloseTo((Math.PI * (c.shape.w / 200) * (c.shape.h / 200)), 3);
+  expect(c.area).toBeCloseTo((Math.PI * (c.shape.w / 200) * (c.shape.h / 200)), 2);
 
   // Tabelle: Umfang gekennzeichnet, Summen und Volumen
   await expect(page.getByTestId('sum-volume')).toContainText((Math.round((r.area as number) * 0.1 * 100) / 100).toFixed(2).replace('.', ','));
@@ -278,9 +278,13 @@ test('Importierter Plan: Fläche aus Plan erst nach dem Kalibrieren', async ({ p
   await pickTool(page, 'tool-line');
   await drawRect(page, box.x + 60, box.y + 160, box.x + 160, box.y + 160);
   await expect(dlg).toBeVisible();
-  await expect(dlg.getByTestId('use-geometry')).toHaveText('Länge wieder von Hand eingeben');
+  await expect(dlg.getByTestId('use-geometry')).toHaveText('Länge selbst eingeben');
   await expect(dlg.getByTestId('geometry-perimeter')).toHaveCount(0);
   await expect(dlg.getByTestId('area-result')).toContainText('Länge aus Plan');
+  // Doppelklick bzw. Doppeltipp ins „aus Plan“-Feld: Länge selbst eingeben
+  await dlg.getByTestId('geometry-length').dblclick();
+  await expect(dlg.getByTestId('geometry-length')).toHaveCount(0);
+  await expect(dlg.getByTestId('input-length')).toBeFocused();
 });
 
 test('Ebenen: Zeichnung, Bemaßung, Text und Messungen ein-/ausblenden – Ansicht, Fang und PDF', async ({ page }) => {

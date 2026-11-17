@@ -257,6 +257,9 @@ test('8./9. Schadstelle bearbeiten, Nummer ändern, löschen – Plan und Tabell
   await dlg.getByTestId('input-number').fill('1');
   await dlg.getByTestId('damage-save').click();
   await expect(dlg.getByTestId('number-conflict')).toContainText('bereits vergeben');
+  // der Hinweis steht über der Nummernvergabe (kein Scrollen nötig)
+  const hint = (await dlg.getByTestId('number-conflict').boundingBox())!;
+  expect(hint.y + hint.height).toBeLessThanOrEqual((await dlg.getByTestId('input-number').boundingBox())!.y);
   await dlg.getByTestId('renumber-swap').click();
   await expect(dlg).toBeHidden();
   expect(sorted(await tableRows(page)).map((r) => [r[0], r[4]])).toEqual([
