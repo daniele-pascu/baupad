@@ -27,16 +27,21 @@ test('Website: Startseite PAD Software – Grundsätze, Lösungen mit Kachelwand
   await expect(page.getByTestId('cta-solutions')).toHaveAttribute('href', '#loesungen');
   // keine Zertifikate oder Garantien behauptet
   await expect(page.locator('.ph')).not.toContainText(/zertifiziert|DSGVO-konform|garantiert/i);
-  // Kachelwand: startet, sobald sie im Bild ist, zeigt nacheinander die sieben Werkzeuge und bleibt beim Schlussbild stehen
+  // Kachelwand: startet, sobald sie im Bild ist; die Karten der sieben Werkzeuge kommen eine nach der anderen nach vorn,
+  // bis der Kreis geschlossen ist, dann „Eine App.“; die Kacheln drehen sich in Wellen halb um
   const wall = page.getByTestId('tool-wall');
   await expect(wall).toHaveAttribute('data-state', 'idle');
-  await expect(wall.getByTestId('tool-wall-slide')).toHaveCount(7);
+  const cards = wall.getByTestId('tool-wall-card');
+  await expect(cards).toHaveCount(7);
   // die Wand steht fest hinter der Seite – ihr Fenster im Seitenfluss nach oben holen, dann ist sie ganz frei
   await expect(wall).toBeHidden();
   await page.getByTestId('tool-wall-slot').evaluate((e) => window.scrollTo(0, e.getBoundingClientRect().top + window.scrollY - 40));
   await expect(wall).toBeVisible();
   await expect(wall).toHaveAttribute('data-state', 'running');
-  await expect(wall.getByTestId('tool-wall-slide').first()).toHaveCSS('opacity', '1');
+  const frontCard = wall.locator('[data-testid="tool-wall-card"][data-front]');
+  await expect(frontCard).toHaveAttribute('data-tool', 'projects'); // zuerst Aufmaß vorne …
+  await expect(frontCard).toHaveCSS('opacity', '1');
+  await expect(frontCard).toHaveAttribute('data-tool', 'workers', { timeout: 5000 }); // … dann wandert sie nach links, Team kommt
   await expect(wall).toHaveAttribute('data-state', 'done', { timeout: 30_000 });
   await expect(wall.getByTestId('tool-wall-final')).toHaveCSS('opacity', '1');
   await expect(wall).toContainText('7 Tools'); // Überschrift steht die ganze Zeit in der Mitte
@@ -44,19 +49,13 @@ test('Website: Startseite PAD Software – Grundsätze, Lösungen mit Kachelwand
   await expect(wall.getByTestId('tool-wall-all').locator('li')).toHaveCount(7); // am Ende stehen alle sieben Werkzeuge da
   await expect(wall.getByTestId('tool-wall-all')).toContainText('Material');
   expect(await wall.locator('.tw-tile').count()).toBeGreaterThan(60);
-  // danach: Karussell der sieben Werkzeuge dreht sich ständig, die vordere Karte führt zur Werkzeug-Seite; die Kacheln drehen sich weiter
-  const cards = wall.getByTestId('tool-wall-card');
-  await expect(cards).toHaveCount(7);
-  await expect(wall.locator('[data-testid="tool-wall-card"][data-front]')).toHaveCount(1);
-  await expect(wall.locator('[data-testid="tool-wall-card"][data-front]')).toHaveAttribute('href', /^\/baupad\/funktionen\//);
-  const cardPos = () => cards.first().evaluate((e) => (e as HTMLElement).style.transform);
-  const c1 = await cardPos();
-  await page.waitForTimeout(400);
-  expect(await cardPos()).not.toBe(c1);
+  // Kreis geschlossen: wieder Aufmaß vorne; die vordere Karte führt zur Werkzeug-Seite; danach läuft der Kreis weiter, die Kacheln drehen sich weiter
+  await expect(frontCard).toHaveCount(1);
+  await expect(frontCard).toHaveAttribute('href', /^\/baupad\/funktionen\//);
+  await expect(frontCard).toHaveAttribute('data-tool', 'workers', { timeout: 5000 });
   const tilePos = () => wall.locator('.tw-tile').evaluateAll((els) => els.map((e) => (e as HTMLElement).style.transform).join());
   const t1 = await tilePos();
-  await page.waitForTimeout(1500);
-  expect(await tilePos()).not.toBe(t1);
+  await expect.poll(tilePos, { timeout: 8000 }).not.toBe(t1);
   await wall.getByTestId('tool-wall-again').click(); // „Nochmal ansehen“ startet den Ablauf neu
   await expect(wall).toHaveAttribute('data-state', 'running');
   // BauPad als Produkt direkt unter der Aussage: Taste führt zur Produktseite

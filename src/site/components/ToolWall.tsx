@@ -59,21 +59,22 @@ const svg = (k: string) => `<svg viewBox="0 0 24 24" fill="none" stroke="current
 /** Farbe des Symbols auf dunklem Grund (dunkle Werkzeugfarben aufgehellt, Fotodokumentation hellgrau) */
 export const LIT: Record<string, string> = { projects: '#ff7a2b', workers: '#4d95f5', reports: '#b47bff', photos: '#d0d0d6', defects: '#ff5b62', times: '#2fd6a7', materials: '#f2b632' };
 
-// Zeitplan in Sekunden: Vorlauf, Dauer je Werkzeug, Schlussbild
-const T0 = 0.7;
-const STEP = 1.15;
-const FIN = T0 + 7 * STEP;
-const END = FIN + 0.9;
-// nach dem Intro: alle CYCLE Sekunden eine Runde – abwechselnd Welle (links oben → rechts unten) und Gruppen (Werkzeug für Werkzeug)
-const CYCLE = 6;
-const ROUND_PAUSE = 0.6;
+// Zeitplan in Sekunden
+// Kacheln: Wellen von links oben nach rechts unten – jede Welle dreht die Kacheln einmal halb um
+// (erste Welle: Rückseite → Vorderseite, nächste: Vorderseite → Rückseite, und so weiter)
+const WAVE_START = 0.5;
 const WAVE_SPAN = 2.6;
-const GROUP_STEP = 0.38;
+const WAVE_EVERY = 6.5;
 const FLIP = 0.85;
-// Karussell: Sekunden je Platz, Auffächern ab dem Schlussbild
-const ORBIT_SLOT_S = 3.4;
-const ORBIT_IN = 0.9;
-const ORBIT_IN_STEP = 0.07;
+// Werkzeuge: eine Karte nach der anderen – sie steht kurz vorne, wandert nach links, die nächste kommt
+const PRES_START = 0.6;
+const HOLD = 1.25;
+const MOVE = 0.7;
+const SLOT = HOLD + MOVE;
+const N_TOOLS = TOOL_ENTRIES.length;
+/** Kreis einmal geschlossen (wieder die erste Karte vorne) – danach „Eine App.“ und „Nochmal ansehen“ */
+const END = PRES_START + N_TOOLS * SLOT;
+const CARD_IN = 0.55;
 const clamp = (v: number) => Math.max(0, Math.min(1, v));
 const ease = (p: number) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
 /** fester Zufall – die Wand sieht bei jedem Besuch gleich aus */
@@ -83,11 +84,14 @@ const seeded = (s: number) => () => {
 };
 
 /**
- * Kachelwand der sieben Werkzeuge: verschieden große Kacheln, jedes Symbol in der Farbe seines Werkzeugs.
- * Alle Kacheln liegen mit der Rückseite (Logo) nach oben. Kommt die Wand ins Bild,
- * erscheint Werkzeug für Werkzeug sein Name (rund eine Sekunde je Werkzeug), und seine Kacheln drehen sich von der Mitte nach außen um (kurz ganz in
- * der Farbe des Werkzeugs). Am Ende steht die volle Wand; „Nochmal ansehen“ startet den Ablauf neu. Der ganze Zustand hängt nur
- * von der Zeit ab (render(t)). Ohne Bewegung (System-Einstellung) steht sofort das Schlussbild.
+ * Kachelwand der sieben Werkzeuge: verschieden große Kacheln, jedes Symbol in der Farbe seines Werkzeugs; alle liegen
+ * zuerst mit der Rückseite (Logo) nach oben. Kommt die Wand ins Bild:
+ *  - Kacheln: Wellen von links oben nach rechts unten, jede Welle dreht sie einmal halb (auf die Vorderseite, dann
+ *    wieder auf die Rückseite …)
+ *  - Mitte: „7 Tools“ und die Karten der Werkzeuge – eine steht vorne, wandert nach links, die nächste kommt, bis der
+ *    Kreis geschlossen ist; dann „Eine App.“; der Kreis läuft im selben Takt weiter
+ * Der Zustand hängt nur von der Zeit ab (render(t)); gerechnet wird nur, solange die Wand zu sehen ist.
+ * „Nochmal ansehen“ startet von vorn. Ohne Bewegung (System-Einstellung) steht sofort das Schlussbild.
  */
 export function ToolWall() {
   const { t, lang } = useLang();
@@ -105,15 +109,13 @@ export function ToolWall() {
     const pl = plane.current;
     if (!el || !pl) return;
     const head = el.querySelector<HTMLElement>('.tw-head');
-    const slides = Array.from(el.querySelectorAll<HTMLElement>('.tw-slide'));
+    const one = el.querySelector<HTMLElement>('.tw-one');
     const ticks = Array.from(el.querySelectorAll<HTMLElement>('.tw-ticks b'));
-    let tiles: { el: HTMLElement; k: number; d: number; w: number; st: string }[] = [];
     const cards = Array.from(orbit.current?.querySelectorAll<HTMLElement>('.tw-card') ?? []);
-    const dots = Array.from(el.querySelectorAll<HTMLElement>('.tw-dots i'));
-    /** Drehung des Karussells (Grad); steht, solange die Maus darüber ist */
-    let angle = 0;
-    let hover = false;
+    let tiles: { el: HTMLElement; w: number; st: string }[] = [];
     let front = -1;
+    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
     const build = () => {
       pl.textContent = '';
       tiles = [];
@@ -150,9 +152,12 @@ export function ToolWall() {
         const j = Math.floor(r() * (i + 1));
         [order[i], order[j]] = [order[j], order[i]];
       }
+      // Lage für die Welle: 0 = links oben … 1 = rechts unten
+      const xs = spots.map((sp) => sp.x + sp.n / 2);
+      const ys = spots.map((sp) => sp.y + sp.n / 2);
+      const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
       spots.forEach((sp, i) => {
-        const k = order[i];
-        const tool = TOOL_ENTRIES[k];
+        const tool = TOOL_ENTRIES[order[i]];
         const size = sp.n * s + (sp.n - 1) * gap;
         const px = (sp.x + sp.n / 2 - cols / 2) * stp;
         const py = (sp.y + sp.n / 2 - rows / 2) * stp;
@@ -161,35 +166,47 @@ export function ToolWall() {
         d.style.cssText = `--s:${size.toFixed(1)}px;--c:${tool.color};--ci:${LIT[tool.id] ?? tool.color};left:${px.toFixed(1)}px;top:${py.toFixed(1)}px`;
         d.innerHTML = `<div class="tw-front">${svg(SETS[tool.id][Math.floor(r() * 6)])}</div><div class="tw-back"><img src="/icons/pad-mark.png" alt=""></div>`;
         pl.appendChild(d);
-        tiles.push({ el: d, k, d: Math.hypot(px, py) / Math.hypot(W, H), w: 0, st: '' });
+        tiles.push({ el: d, w: ((xs[i] - x0) / Math.max(1, x1 - x0) + (ys[i] - y0) / Math.max(1, y1 - y0)) / 2, st: '' });
       });
-      // Lage für die Welle: 0 = links oben … 1 = rechts unten
-      const xs = spots.map((sp) => sp.x + sp.n / 2);
-      const ys = spots.map((sp) => sp.y + sp.n / 2);
-      const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
-      tiles.forEach((q, i) => (q.w = ((xs[i] - x0) / Math.max(1, x1 - x0) + (ys[i] - y0) / Math.max(1, y1 - y0)) / 2));
     };
-    /** Karussell: vorne groß, seitlich schräg dahinter; fächert ab dem Schlussbild aus der Mitte auf */
-    const renderOrbit = (time: number) => {
-      const n = cards.length;
+
+    const setTile = (q: (typeof tiles)[number], z: number, rot: number, hi: number) => {
+      const st = `${z.toFixed(1)}|${rot.toFixed(2)}|${hi.toFixed(3)}`;
+      if (st === q.st) return; // unverändert – nichts schreiben (viele Kacheln, jede Bildschirmaktualisierung)
+      q.st = st;
+      q.el.style.transform = `translateZ(${z.toFixed(1)}px) rotateY(${rot.toFixed(2)}deg)`;
+      q.el.style.setProperty('--hi', hi.toFixed(3));
+    };
+
+    /** Karten: Platz im Kreis (Grad) – steht HOLD Sekunden, dreht dann in MOVE Sekunden eine Karte weiter */
+    const angleAt = (time: number) => {
+      const s = Math.max(0, time - PRES_START);
+      const k = Math.floor(s / SLOT);
+      const local = s - k * SLOT;
+      return ((k + (local < HOLD ? 0 : ease((local - HOLD) / MOVE))) * 360) / N_TOOLS;
+    };
+    const renderCards = (time: number, angle: number) => {
       const ow = orbit.current?.clientWidth ?? 0;
-      if (!n || !ow) return;
-      const step = 360 / n;
+      if (!cards.length || !ow) return;
+      const stepDeg = 360 / cards.length;
       const r = Math.max(110, Math.min(ow * 0.3, 380));
       const depth = Math.max(100, Math.min(ow * 0.26, 320));
+      // Einblenden: zuerst die erste Karte vorne, die übrigen kommen erst beim Weiterdrehen ins Bild
+      const shown = clamp((time - PRES_START) / CARD_IN);
       let best = -2;
       let bestIdx = 0;
       cards.forEach((card, i) => {
-        let theta = (i * step - angle) % 360;
+        let theta = (i * stepDeg - angle) % 360;
         if (theta > 180) theta -= 360;
         if (theta < -180) theta += 360;
         const rad = (theta * Math.PI) / 180;
         const sn = Math.sin(rad);
         const c = Math.cos(rad);
-        const p = ease(clamp((time - FIN - Math.round(Math.abs(theta) / step) * ORBIT_IN_STEP) / ORBIT_IN));
-        const scale = (0.7 + 0.3 * Math.max(c, 0)) * (0.8 + 0.2 * p);
-        card.style.transform = `translate3d(${(sn * r * p).toFixed(1)}px, 0, ${((c - 1) * depth * p - (1 - p) * 200).toFixed(1)}px) rotateY(${(-sn * 34 * p).toFixed(2)}deg) scale(${scale.toFixed(3)})`;
-        card.style.opacity = (clamp((c + 0.2) / 0.55) * (0.5 + 0.5 * Math.max(c, 0)) * p).toFixed(3);
+        // die vordere Karte groß und klar, die Nachbarn nur angedeutet
+        const vis = Math.pow(clamp((c - 0.3) / 0.7), 2);
+        const scale = (0.72 + 0.28 * Math.max(c, 0)) * (0.9 + 0.1 * ease(shown));
+        card.style.transform = `translate3d(${(sn * r).toFixed(1)}px, 0, ${((c - 1) * depth).toFixed(1)}px) rotateY(${(-sn * 34).toFixed(2)}deg) scale(${scale.toFixed(3)})`;
+        card.style.opacity = (vis * ease(shown)).toFixed(3);
         card.style.zIndex = String(Math.round((c + 1) * 100));
         if (c > best) {
           best = c;
@@ -199,83 +216,56 @@ export function ToolWall() {
       if (bestIdx !== front) {
         front = bestIdx;
         cards.forEach((card, i) => card.toggleAttribute('data-front', i === front));
-        dots.forEach((d, i) => d.toggleAttribute('data-on', i === front));
       }
     };
-    const setTile = (q: (typeof tiles)[number], z: number, rot: number, hi: number) => {
-      const st = `${z.toFixed(1)}|${rot.toFixed(2)}|${hi.toFixed(3)}`;
-      if (st === q.st) return; // unverändert – nichts schreiben (viele Kacheln, jede Bildschirmaktualisierung)
-      q.st = st;
-      q.el.style.transform = `translateZ(${z.toFixed(1)}px) rotateY(${rot.toFixed(2)}deg)`;
-      q.el.style.setProperty('--hi', hi.toFixed(3));
-    };
+
     const render = (time: number) => {
-      if (time < END) {
-        // Intro: Werkzeug für Werkzeug drehen sich seine Kacheln um (von der Mitte nach außen)
-        for (const q of tiles) {
-          const on = T0 + q.k * STEP + 0.08 + q.d * 0.55;
-          const a = ease(clamp((time - on) / 0.55));
-          const hi = clamp((time - on) / 0.2) * (1 - clamp((time - (T0 + (q.k + 1) * STEP - 0.05)) / 0.4));
-          setTile(q, Math.sin(Math.PI * clamp((time - on) / 0.55)) * 56, 180 - 180 * a, hi);
-        }
+      if (still) {
+        // Schlussbild: Vorderseiten, erste Karte vorne
+        for (const q of tiles) setTile(q, 0, 0, 0);
       } else {
-        // danach immer wieder eine ganze Drehung: abwechselnd als Welle von links oben nach rechts unten und gruppenweise
-        const lt = time - END;
-        const round = Math.floor(lt / CYCLE);
-        const local = lt - round * CYCLE;
-        const wave = round % 2 === 0;
         for (const q of tiles) {
-          const p = clamp((local - ROUND_PAUSE - (wave ? q.w * WAVE_SPAN : q.k * GROUP_STEP)) / FLIP);
-          const lift = Math.sin(Math.PI * p);
-          setTile(q, lift * 48, 360 * ease(p), lift * (wave ? 0.6 : 1));
+          const lt = time - WAVE_START - q.w * WAVE_SPAN;
+          let flips = 0;
+          let lift = 0;
+          if (lt > 0) {
+            const i = Math.floor(lt / WAVE_EVERY);
+            const p = clamp((lt - i * WAVE_EVERY) / FLIP);
+            flips = i + ease(p);
+            lift = Math.sin(Math.PI * p);
+          }
+          // 180° = Rückseite (Logo), 360° = Vorderseite; jede Welle eine halbe Drehung weiter
+          setTile(q, lift * 48, (180 + 180 * flips) % 720, lift * 0.55);
         }
       }
-      renderOrbit(time);
-      if (head) head.style.opacity = clamp(time / 0.35).toFixed(3);
-      slides.forEach((sl, k) => {
-        const from = k < 7 ? T0 + k * STEP : FIN;
-        const to = k < 7 ? from + STEP : Infinity;
-        const pin = clamp((time - from) / 0.22);
-        sl.style.opacity = (pin * (1 - clamp((time - (to - 0.16)) / 0.16))).toFixed(3);
-        // zuerst das Symbol (bzw. am Ende alle sieben), kurz danach der Name
-        const first = sl.firstElementChild as HTMLElement;
-        const second = sl.lastElementChild as HTMLElement;
-        first.style.transform = `scale(${(0.72 + 0.28 * ease(pin)).toFixed(3)})`;
-        const pn = clamp((time - (from + 0.28)) / 0.24);
-        second.style.opacity = pn.toFixed(3);
-        second.style.transform = `translateY(${((1 - pn) * 14).toFixed(1)}px)`;
-      });
-      ticks.forEach((b, k) => (b.style.width = `${(clamp((time - (T0 + k * STEP)) / STEP) * 100).toFixed(1)}%`));
-      again.current?.classList.toggle('on', time >= END);
-      el.dataset.state = time >= END ? 'done' : time > 0 ? 'running' : 'idle';
+      if (head) head.style.opacity = (still ? 1 : clamp(time / 0.35)).toFixed(3);
+      renderCards(still ? END : time, still ? 0 : angleAt(time));
+      const fin = still ? 1 : clamp((time - END) / 0.4);
+      if (one) {
+        one.style.opacity = fin.toFixed(3);
+        one.style.transform = `translateY(${((1 - fin) * 12).toFixed(1)}px)`;
+      }
+      ticks.forEach((b, k) => (b.style.width = `${((still ? 1 : clamp((time - (PRES_START + k * SLOT)) / SLOT)) * 100).toFixed(1)}%`));
+      again.current?.classList.toggle('on', still || time >= END);
+      el.dataset.state = still || time >= END ? 'done' : time > 0 ? 'running' : 'idle';
     };
     build();
-    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let t0 = 0;
     let raf = 0;
-    let last = 0;
     let started = still;
     let near = false;
     const tick = (now: number) => {
-      const time = (now - t0) / 1000;
-      const dt = Math.min(0.064, (now - last) / 1000);
-      last = now;
-      // Karussell dreht ab dem Schlussbild ständig weiter (außer die Maus ist darüber)
-      if (time >= FIN && !hover) angle = (angle + (360 / Math.max(1, cards.length) / ORBIT_SLOT_S) * dt) % 360;
-      render(time);
+      render((now - t0) / 1000);
       // nur rechnen, solange die Wand zu sehen ist
       raf = near ? requestAnimationFrame(tick) : 0;
     };
     const start = () => {
       cancelAnimationFrame(raf);
       t0 = performance.now();
-      last = t0;
-      angle = 0;
       raf = requestAnimationFrame(tick);
     };
     const resume = () => {
       if (still || !started || raf) return;
-      last = performance.now();
       raf = requestAnimationFrame(tick);
     };
     restart.current = still ? () => render(END) : start;
@@ -284,7 +274,7 @@ export function ToolWall() {
      * Die Wand steht fest hinter der Seite; ihr Platz im Seitenfluss ist ein durchsichtiges Fenster. Beim Scrollen
      * schiebt sich der Bereich darüber weg und gibt die Wand frei, später schiebt sich der Bereich darunter darüber.
      * - „near“: das Fenster ist im Bild → Wand sichtbar (sonst ausgeblendet, damit sie nichts kostet und nichts verdeckt)
-     * - „full“: die Wand ist ganz frei → „Nochmal ansehen“ ist bedienbar
+     * - „full“: die Wand ist ganz frei → „Nochmal ansehen“ und die vordere Karte sind bedienbar
      * - Start, sobald gut die Hälfte der Wand frei ist
      */
     let sf = 0;
@@ -292,12 +282,12 @@ export function ToolWall() {
       sf = 0;
       if (!sl) return;
       const r = sl.getBoundingClientRect();
-      const w = el.getBoundingClientRect();
-      near = r.bottom > w.top && r.top < w.bottom;
+      const wr = el.getBoundingClientRect();
+      near = r.bottom > wr.top && r.top < wr.bottom;
       el.classList.toggle('near', near);
+      el.classList.toggle('full', r.top <= wr.top + 1 && r.bottom >= wr.bottom - 1);
       if (near) resume();
-      el.classList.toggle('full', r.top <= w.top + 1 && r.bottom >= w.bottom - 1);
-      if (!started && near && (Math.min(r.bottom, w.bottom) - Math.max(r.top, w.top)) / w.height >= 0.55) {
+      if (!started && near && (Math.min(r.bottom, wr.bottom) - Math.max(r.top, wr.top)) / wr.height >= 0.55) {
         started = true;
         start();
       }
@@ -305,11 +295,6 @@ export function ToolWall() {
     const onScroll = () => {
       if (!sf) sf = requestAnimationFrame(update);
     };
-    const fine = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-    const enter = () => (hover = fine);
-    const leave = () => (hover = false);
-    orbit.current?.addEventListener('pointerenter', enter);
-    orbit.current?.addEventListener('pointerleave', leave);
     update();
     window.addEventListener('scroll', onScroll, { passive: true });
     let rt = 0;
@@ -321,12 +306,9 @@ export function ToolWall() {
       window.clearTimeout(rt);
       rt = window.setTimeout(() => {
         lastW = el.clientWidth;
-        cancelAnimationFrame(raf);
         build();
-        if (!started || still) {
-          started = true;
-          render(END);
-        } else resume();
+        if (!started || still) render(still ? END : 0);
+        else resume();
       }, 200);
     };
     window.addEventListener('resize', onResize);
@@ -336,84 +318,63 @@ export function ToolWall() {
       window.clearTimeout(rt);
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onResize);
-      orbit.current?.removeEventListener('pointerenter', enter);
-      orbit.current?.removeEventListener('pointerleave', leave);
     };
   }, []);
 
   return (
     <div className="tw-slot" ref={slot} data-testid="tool-wall-slot">
-    <div className="tw" ref={wall} role="group" aria-label={w.aria} data-testid="tool-wall">
-      <div className="tw-scene" aria-hidden="true">
-        <div className="tw-plane" ref={plane} />
-      </div>
-      <div className="tw-veil" aria-hidden="true" />
-      {/* immer mittig: oben „7 Tools“, darunter Symbol und Name des jeweiligen Werkzeugs; am Ende alle sieben + „Eine App.“ */}
-      <div className="tw-text">
-        <div className="tw-stack">
-          <p className="tw-head">{w.head}</p>
-          <div className="tw-slides">
-            {TOOL_ENTRIES.map((x) => (
-              <div key={x.id} className="tw-slide" style={{ '--c': LIT[x.id] } as CSSProperties} data-testid="tool-wall-slide">
-                <b className="tw-ico" aria-hidden="true">
-                  <ToolIcon name={x.icon} size={52} />
-                </b>
-                <h3>{t.tools[x.id].title}</h3>
-              </div>
-            ))}
-            <div className="tw-slide tw-slide-final" data-testid="tool-wall-final">
-              {/* Karussell der sieben Werkzeuge: dreht sich ständig; die vordere Karte führt zur Werkzeug-Seite */}
-              <div className="tw-orbit" ref={orbit} aria-hidden="true" data-testid="tool-wall-orbit">
-                {TOOL_ENTRIES.map((x) => (
-                  <a
-                    key={x.id}
-                    href={toolPath(x.id, lang)}
-                    className="tw-card"
-                    style={{ '--c': x.color, '--ci': LIT[x.id] } as CSSProperties}
-                    tabIndex={-1}
-                    draggable={false}
-                    data-testid="tool-wall-card"
-                    data-tool={x.id}
-                  >
-                    <ToolIcon name={x.icon} weight="thin" size={170} className="tw-card-mark" />
-                    <b className="tw-card-ico">
-                      <ToolIcon name={x.icon} size={28} />
-                    </b>
-                    <strong>{t.tools[x.id].title}</strong>
-                  </a>
-                ))}
-              </div>
-              <div className="tw-dots" aria-hidden="true">
-                {TOOL_ENTRIES.map((x) => (
-                  <i key={x.id} />
-                ))}
-              </div>
-              <ul className="tw-all sr-only" data-testid="tool-wall-all">
-                {TOOL_ENTRIES.map((x) => (
-                  <li key={x.id} style={{ '--c': LIT[x.id] } as CSSProperties}>
-                    <b aria-hidden="true">
-                      <ToolIcon name={x.icon} size={30} />
-                    </b>
-                    <span>{t.tools[x.id].title}</span>
-                  </li>
-                ))}
-              </ul>
-              <h3 className="tw-one">{w.one}</h3>
+      <div className="tw" ref={wall} role="group" aria-label={w.aria} data-testid="tool-wall">
+        <div className="tw-scene" aria-hidden="true">
+          <div className="tw-plane" ref={plane} />
+        </div>
+        <div className="tw-veil" aria-hidden="true" />
+        {/* immer mittig: oben „7 Tools“, darunter die Karten der Werkzeuge, am Ende „Eine App.“ */}
+        <div className="tw-text">
+          <div className="tw-stack">
+            <p className="tw-head">{w.head}</p>
+            {/* Karten der sieben Werkzeuge: eine nach der anderen nach vorn; die vordere führt zur Werkzeug-Seite */}
+            <div className="tw-orbit" ref={orbit} aria-hidden="true" data-testid="tool-wall-orbit">
+              {TOOL_ENTRIES.map((x) => (
+                <a
+                  key={x.id}
+                  href={toolPath(x.id, lang)}
+                  className="tw-card"
+                  style={{ '--c': x.color, '--ci': LIT[x.id] } as CSSProperties}
+                  tabIndex={-1}
+                  draggable={false}
+                  data-testid="tool-wall-card"
+                  data-tool={x.id}
+                >
+                  <ToolIcon name={x.icon} weight="thin" size={170} className="tw-card-mark" />
+                  <b className="tw-card-ico">
+                    <ToolIcon name={x.icon} size={28} />
+                  </b>
+                  <strong>{t.tools[x.id].title}</strong>
+                </a>
+              ))}
             </div>
+            <h3 className="tw-one" data-testid="tool-wall-final">
+              {w.one}
+            </h3>
+            {/* für Bildschirmleser: die sieben Werkzeuge als Liste */}
+            <ul className="tw-all sr-only" data-testid="tool-wall-all">
+              {TOOL_ENTRIES.map((x) => (
+                <li key={x.id}>{t.tools[x.id].title}</li>
+              ))}
+            </ul>
           </div>
         </div>
+        <div className="tw-ticks" aria-hidden="true">
+          {TOOL_ENTRIES.map((x) => (
+            <i key={x.id}>
+              <b />
+            </i>
+          ))}
+        </div>
+        <button type="button" className="ph-mono tw-again" ref={again} onClick={() => restart.current()} data-testid="tool-wall-again">
+          {w.again}
+        </button>
       </div>
-      <div className="tw-ticks" aria-hidden="true">
-        {TOOL_ENTRIES.map((x) => (
-          <i key={x.id}>
-            <b />
-          </i>
-        ))}
-      </div>
-      <button type="button" className="ph-mono tw-again" ref={again} onClick={() => restart.current()} data-testid="tool-wall-again">
-        {w.again}
-      </button>
-    </div>
     </div>
   );
 }
