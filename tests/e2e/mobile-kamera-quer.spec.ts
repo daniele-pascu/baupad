@@ -16,7 +16,7 @@ test('Kamera quer: Kamera-Modus mit Auslöser rechts, Foto quer gespeichert', as
   await page.goto('./#/fotos/kamera?s=n%3Aparkring');
   await expect(page.getByTestId('camera-page')).toHaveAttribute('data-ready', 'true');
   await expect.poll(() => page.getByTestId('cam-video').evaluate((v: HTMLVideoElement) => v.videoWidth)).toBeGreaterThan(0);
-  const video = (await page.getByTestId('cam-video').boundingBox())!;
+  const video = (await page.locator('.cam-view').boundingBox())!;
   const shutter = (await page.getByTestId('cam-shutter').boundingBox())!;
   // Auslöser rechts neben dem Bild, vertikal mittig; Bild nutzt fast die ganze Höhe
   expect(shutter.x).toBeGreaterThanOrEqual(video.x + video.width - 2);

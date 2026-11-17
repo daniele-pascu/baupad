@@ -16,7 +16,7 @@ import type { Photo, PhotoSite } from '../lib/types';
 import { loadPhotoSites } from './PhotosPage';
 import { usePageTitle } from '../lib/page-title';
 import { syncPhotoCloud, useCloudState } from '../lib/photo-cloud';
-import { formatCrop, loadOrient, loadQuality, loadRatio, QUALITIES, qualityMax, RATIOS, ratioValue, saveOrient, saveQuality, saveRatio, type Orient, type Quality, type Ratio } from '../lib/camera-format';
+import { formatCrop, loadQuality, loadRatio, previewLayout, QUALITIES, qualityMax, RATIOS, ratioLabel, ratioValue, saveQuality, saveRatio, tapToFrame, type Orient, type Quality, type Ratio } from '../lib/camera-format';
 import { backLenses, clampZoom, DIGITAL_MAX, DIGITAL_STOPS, fmtZoom, pinchZoom, zoomCrop, zoomStops, type HwZoom, type LensKind, type Lenses } from '../lib/camera-zoom';
 import { FLASH_HINT, FLASH_LABEL, flashBeforeShot, loadFlash, nextFlash, saveFlash, setTorch as setTorchOn, type FlashMode } from '../lib/flash';
 
@@ -79,7 +79,8 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
   const [tick, setTick] = useState(0);
   const [formatOpen, setFormatOpen] = useState(false);
   const [ratio, setRatio] = useState<Ratio>(loadRatio);
-  const [orient, setOrient] = useState<Orient>(loadOrient);
+  /** Ausrichtung immer automatisch – so, wie das Handy gehalten wird */
+  const orient: Orient = 'auto';
   const [quality, setQuality] = useState<Quality>(loadQuality);
   /** Lage des Handys laut Sensor: 0 aufrecht, 90 Oberkante links, −90 Oberkante rechts; null = unbekannt */
   const [angle, setAngle] = useState<number | null>(null);
@@ -100,6 +101,11 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const pinch = useRef<{ dist: number; zoom: number } | null>(null);
   const hwPending = useRef<number | null>(null);
+  // Antippen: Schärfe und Licht an dieser Stelle (nur wenn die Kamera es erlaubt), Helligkeit nachstellen
+  const [focusCaps, setFocusCaps] = useState<{ focus: string[]; exposure: string[]; ev: { min: number; max: number; step: number } | null } | null>(null);
+  const [focusAt, setFocusAt] = useState<{ x: number; y: number; n: number } | null>(null);
+  const [ev, setEv] = useState(0);
+  const tapStart = useRef<{ id: number; x: number; y: number; t: number; pinched: boolean } | null>(null);
   const hashes = useMemo(() => new Set(photos.map((p) => p.hash)), [photos]);
 
   const reload = () =>
@@ -193,6 +199,13 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
         // Zoom der Kamera (sonst digital); jedes Objektiv beginnt bei seinem Grundwert
         const z = caps.zoom && caps.zoom.max > caps.zoom.min ? { min: caps.zoom.min, max: caps.zoom.max, step: caps.zoom.step || 0.1 } : null;
         setHwZoom(z);
+        // Schärfe/Licht an einem Punkt: Kamera muss Punkte (pointsOfInterest) und eine Fokus- bzw. Belichtungsart kennen
+        const sup = (navigator.mediaDevices.getSupportedConstraints?.() ?? {}) as Record<string, boolean>;
+        const fc = caps as { focusMode?: string[]; exposureMode?: string[]; exposureCompensation?: { min: number; max: number; step?: number } };
+        const evc = fc.exposureCompensation && fc.exposureCompensation.max > fc.exposureCompensation.min ? { min: fc.exposureCompensation.min, max: fc.exposureCompensation.max, step: fc.exposureCompensation.step || 0.1 } : null;
+        setFocusCaps(sup.pointsOfInterest && (fc.focusMode?.length || fc.exposureMode?.length) ? { focus: fc.focusMode ?? [], exposure: fc.exposureMode ?? [], ev: evc } : null);
+        setFocusAt(null);
+        setEv(0);
         const set = (track?.getSettings?.() ?? {}) as MediaTrackSettings & { zoom?: number };
         setZoom(z ? clampZoom(set.zoom ?? 1, z.min, z.max) : 1);
         // Objektive der Rückseite (Namen gibt es erst nach der Erlaubnis)
@@ -268,24 +281,19 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
     };
   }, []);
   const framing = frame ? cameraFraming(frame.w, frame.h, ratio, orient, angle, layoutLandscape) : null;
+  /** wird das Foto hochkant? (Store-App: wie das Handy gerade gehalten wird) */
+  const portraitPhoto = framing ? framing.out.h > framing.out.w : native ? !(layoutLandscape || angle === 90 || angle === -90) : false;
   /** Maske über dem Live-Bild: so wird das Foto zugeschnitten */
+  // Vorschau füllt den Bildschirm: Ausschnitt des Fotos möglichst groß, der Rest des Kamerabilds abgedunkelt drumherum
+  const view = useMemo(() => (framing && frame && box ? previewLayout(box, frame, framing.crop) : null), [framing, frame, box]);
   const mask = useMemo(() => {
-    if (!framing || !frame || !box) return null;
-    const k = Math.min(box.w / frame.w, box.h / frame.h);
-    const vw = frame.w * k;
-    const vh = frame.h * k;
-    const ox = (box.w - vw) / 2;
-    const oy = (box.h - vh) / 2;
+    if (!framing || !view) return null;
     const c = framing.crop;
-    return { left: ox + c.x * k, top: oy + c.y * k, width: c.w * k, height: c.h * k };
-  }, [framing, frame, box]);
+    return { left: view.left + c.x * view.k, top: view.top + c.y * view.k, width: c.w * view.k, height: c.h * view.k };
+  }, [framing, view]);
   const setRatioStored = (r: Ratio) => {
     setRatio(r);
     saveRatio(r);
-  };
-  const setOrientStored = (o: Orient) => {
-    setOrient(o);
-    saveOrient(o);
   };
   const setQualityStored = (q: Quality) => {
     setQuality(q);
@@ -293,6 +301,12 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
   };
   /** Symbole mitdrehen, damit sie in Handlage aufrecht stehen */
   const iconStyle = angle && !layoutLandscape ? { transform: `rotate(${angle}deg)` } : undefined;
+
+  useEffect(() => {
+    if (!focusAt) return;
+    const t = window.setTimeout(() => setFocusAt(null), 3000);
+    return () => window.clearTimeout(t);
+  }, [focusAt, ev]);
 
   // ---- Zoom ----
   const zMin = hwZoom ? hwZoom.min : 1;
@@ -335,8 +349,33 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
   const lensKinds = (['ultra', 'wide', 'tele'] as const).filter((k) => lenses[k]);
   const stops = hwZoom ? zoomStops(hwZoom.min, hwZoom.max) : DIGITAL_STOPS;
   const activeStop = stops.reduce((best, s) => (Math.abs(Math.log(s / zoom)) < Math.abs(Math.log(best / zoom)) ? s : best), stops[0]);
+  const applyTrack = (c: Record<string, unknown>) => {
+    const track = stream.current?.getVideoTracks()[0];
+    if (track) void track.applyConstraints({ advanced: [c as MediaTrackConstraintSet] }).catch(() => undefined);
+  };
+  /** Antippen im Bild: dort scharfstellen und belichten */
+  const focusHere = (clientX: number, clientY: number) => {
+    const el = viewRef.current;
+    if (!focusCaps || !el || !box || !view) return;
+    const r = el.getBoundingClientRect();
+    const px = clientX - r.left;
+    const py = clientY - r.top;
+    const p = tapToFrame(px, py, box, view, digital, facing === 'user');
+    const pick = (list: string[]) => ['single-shot', 'continuous'].find((m) => list.includes(m));
+    const c: Record<string, unknown> = { pointsOfInterest: [p] };
+    const fm = pick(focusCaps.focus);
+    const em = pick(focusCaps.exposure);
+    if (fm) c.focusMode = fm;
+    if (em) c.exposureMode = em;
+    applyTrack(c);
+    setEv(0);
+    if (focusCaps.ev) applyTrack({ exposureCompensation: 0 });
+    setFocusAt({ x: Math.min(Math.max(px, 80), box.w - 80), y: Math.min(Math.max(py, 44), box.h - 90), n: Date.now() });
+  };
   const onPointerDown = (e: React.PointerEvent) => {
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.current.size === 1) tapStart.current = { id: e.pointerId, x: e.clientX, y: e.clientY, t: Date.now(), pinched: false };
+    else if (tapStart.current) tapStart.current.pinched = true;
     if (pointers.current.size === 2) {
       const [a, b] = [...pointers.current.values()];
       pinch.current = { dist: Math.hypot(a.x - b.x, a.y - b.y), zoom };
@@ -351,6 +390,9 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
     zoomTo(pinchZoom(pinch.current.zoom, pinch.current.dist, Math.hypot(a.x - b.x, a.y - b.y), zMin, zMax));
   };
   const onPointerEnd = (e: React.PointerEvent) => {
+    const t = tapStart.current;
+    if (e.type === 'pointerup' && t && t.id === e.pointerId && !t.pinched && Math.hypot(e.clientX - t.x, e.clientY - t.y) < 10 && Date.now() - t.t < 600 && !(e.target as HTMLElement).closest('button, a, input, label')) focusHere(e.clientX, e.clientY);
+    if (t?.id === e.pointerId) tapStart.current = null;
     pointers.current.delete(e.pointerId);
     if (pointers.current.size < 2) {
       pinch.current = null;
@@ -492,14 +534,17 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
         <CamUpload />
       </header>
 
-      <div className={`cam-view${pinching ? ' pinching' : ''}`} ref={viewRef} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onPointerLeave={onPointerEnd} data-zoom={zoom} data-zoom-mode={native ? 'native' : lensKinds.length ? 'lens' : hwZoom ? 'camera' : 'digital'}>
+      <div className={`cam-view${pinching ? ' pinching' : ''}`} ref={viewRef} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onPointerLeave={onPointerEnd} data-zoom={zoom} data-zoom-mode={native ? 'native' : lensKinds.length ? 'lens' : hwZoom ? 'camera' : 'digital'} data-focus={focusCaps ? 'yes' : 'no'}>
         <video
           ref={video}
           playsInline
           muted
           autoPlay
           className={facing === 'user' ? 'mirror' : undefined}
-          style={digital !== 1 ? { transform: `${facing === 'user' ? 'scaleX(-1) ' : ''}scale(${digital})` } : undefined}
+          style={{
+            ...(view ? { position: 'absolute', left: view.left, top: view.top, width: view.width, height: view.height, objectFit: 'fill', transformOrigin: `${box!.w / 2 - view.left}px ${box!.h / 2 - view.top}px` } : {}),
+            ...(digital !== 1 ? { transform: `${facing === 'user' ? 'scaleX(-1) ' : ''}scale(${digital})` } : {}),
+          }}
           onLoadedMetadata={(e) => setFrame({ w: e.currentTarget.videoWidth, h: e.currentTarget.videoHeight })}
           onResize={(e) => setFrame({ w: e.currentTarget.videoWidth, h: e.currentTarget.videoHeight })}
           data-testid="cam-video"
@@ -511,6 +556,30 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
             <div style={{ left: 0, top: mask.top, width: mask.left, height: mask.height }} />
             <div style={{ left: mask.left + mask.width, top: mask.top, right: 0, height: mask.height }} />
             <span className="cam-mask-frame" style={mask} />
+          </div>
+        )}
+        {focusAt && (
+          <div className="cam-focus" key={focusAt.n} style={{ left: focusAt.x, top: focusAt.y }} data-testid="cam-focus">
+            <span className="cam-focus-ring" />
+            {focusCaps?.ev && (
+              <label className="cam-focus-ev" title="Helligkeit">
+                <span aria-hidden="true">☀</span>
+                <input
+                  type="range"
+                  min={focusCaps.ev.min}
+                  max={focusCaps.ev.max}
+                  step={focusCaps.ev.step}
+                  value={ev}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    setEv(v);
+                    applyTrack({ exposureCompensation: v });
+                  }}
+                  aria-label="Helligkeit"
+                  data-testid="cam-ev"
+                />
+              </label>
+            )}
           </div>
         )}
         {flash && <div className="cam-flash" />}
@@ -556,7 +625,7 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
           </button>
         )}
         <div className="cam-side">
-          <button type="button" className="cam-icon" onClick={() => setFormatOpen(true)} aria-label="Format und Auflösung" title={`Format: ${ratio}, ${orient === 'auto' ? 'automatisch' : orient === 'portrait' ? 'hoch' : 'quer'}, Auflösung ${QUALITIES.find((q) => q.id === quality)?.label}`} style={iconStyle} data-testid="cam-format">
+          <button type="button" className="cam-icon" onClick={() => setFormatOpen(true)} aria-label="Format und Auflösung" title={`Format: ${ratioLabel(ratio, portraitPhoto)}, Auflösung ${QUALITIES.find((q) => q.id === quality)?.label}`} style={iconStyle} data-testid="cam-format">
             <Icon name="crop" size={22} />
           </button>
           <button type="button" className={`cam-icon${desc ? ' on' : ''}`} onClick={() => setDescOpen(true)} aria-label="Beschreibung für die nächsten Fotos" title="Beschreibung" style={iconStyle} data-testid="cam-desc">
@@ -718,29 +787,11 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
             <div className="segmented" role="radiogroup" aria-label="Seitenverhältnis">
               {RATIOS.map((r) => (
                 <button key={r} type="button" role="radio" aria-checked={ratio === r} aria-selected={ratio === r} onClick={() => setRatioStored(r)} data-testid={`cam-ratio-${r}`}>
-                  {r}
+                  {ratioLabel(r, portraitPhoto)}
                 </button>
               ))}
             </div>
-            <strong>Ausrichtung des Fotos</strong>
-            <div className="segmented" role="radiogroup" aria-label="Ausrichtung">
-              {(
-                [
-                  ['auto', 'Automatisch'],
-                  ['portrait', 'Hoch'],
-                  ['landscape', 'Quer'],
-                ] as const
-              ).map(([o, label]) => (
-                <button key={o} type="button" role="radio" aria-checked={orient === o} aria-selected={orient === o} onClick={() => setOrientStored(o)} data-testid={`cam-orient-${o}`}>
-                  {label}
-                </button>
-              ))}
-            </div>
-            <p className="muted small">
-              {native
-                ? 'Automatisch: so, wie das Foto mit der Kamera des Geräts aufgenommen wird. Hoch bzw. Quer schneidet es passend aus der Mitte zu.'
-                : `Automatisch: Wird das Handy quer gehalten, wird das Foto quer gespeichert – auch bei eingeschalteter Ausrichtungssperre (Lagesensor).${angle !== null ? ` Erkannt: ${angle === 0 ? 'hochkant' : 'quer'}.` : ''}`}
-            </p>
+            <p className="muted small">Hoch oder quer richtet sich nach dem Handy – auch bei eingeschalteter Ausrichtungssperre.</p>
             <strong>Auflösung</strong>
             <div className="segmented" role="radiogroup" aria-label="Auflösung">
               {QUALITIES.map((q) => (

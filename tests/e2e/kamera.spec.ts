@@ -40,19 +40,22 @@ test('Kamera-Modus: Live-Bild, Auslöser speichert sofort, Zähler, letztes Foto
   await page.getByTestId('cam-desc-save').click();
   await page.getByTestId('cam-shutter').click();
   await expect(page.getByTestId('cam-counter')).toHaveText('1');
-  // Format: 16:9 quer → Testkamera 640×480 wird auf 640×360 zugeschnitten; „Hoch“ dreht auf 480×640
+  // Format: 16:9 (am PC quer) – Ausrichtung gibt es nicht mehr, sie richtet sich nach dem Gerät
   await page.getByTestId('cam-format').click();
+  await expect(page.locator('[data-testid^="cam-orient-"]')).toHaveCount(0);
   await page.getByTestId('cam-ratio-16:9').click();
-  await page.getByTestId('cam-orient-landscape').click();
   await page.getByTestId('cam-format-sheet').getByRole('button', { name: 'Fertig' }).click();
   await expect(page.getByTestId('cam-mask')).toHaveAttribute('data-rot', '0');
   await page.getByTestId('cam-shutter').click();
   await expect(page.getByTestId('cam-counter')).toHaveText('2');
   await page.getByTestId('cam-format').click();
-  await page.getByTestId('cam-ratio-4:3').click();
-  await page.getByTestId('cam-orient-portrait').click();
+  await page.getByTestId('cam-ratio-1:1').click();
   await page.getByTestId('cam-format-sheet').getByRole('button', { name: 'Fertig' }).click();
-  await expect(page.getByTestId('cam-mask')).toHaveAttribute('data-rot', '90');
+  await expect(page.getByTestId('cam-mask')).toHaveAttribute('data-rot', '0');
+  // Vorschau füllt den Bereich: der quadratische Ausschnitt nutzt die volle Höhe (bzw. Breite) der Ansicht
+  const vb = (await page.locator('.cam-view').boundingBox())!;
+  const fr = (await page.locator('.cam-mask-frame').boundingBox())!;
+  expect(Math.max(fr.height / vb.height, fr.width / vb.width)).toBeGreaterThan(0.98);
   await page.getByTestId('cam-shutter').click();
   await expect(page.getByTestId('cam-counter')).toHaveText('3');
   await expect(page.getByTestId('cam-last').locator('img')).toBeVisible();
@@ -77,7 +80,7 @@ test('Kamera-Modus: Live-Bild, Auslöser speichert sofort, Zähler, letztes Foto
   await page.getByTestId('lightbox-next').click();
   expect(await ratio()).toBeCloseTo(16 / 9, 2); // 16:9 quer
   await page.getByTestId('lightbox-next').click();
-  expect(await ratio()).toBeCloseTo(3 / 4, 2); // „Hoch“ → gedreht, 4:3 hochkant
+  expect(await ratio()).toBeCloseTo(1, 2); // 1:1
 });
 
 test('Kamera-Modus: Projektsuche zeigt die Kostenstelle und findet Projekte über die Kostenstelle', async ({ page }) => {
@@ -155,6 +158,7 @@ test.describe('Kamera-Zoom', () => {
     await page.getByTestId('cam-site-new').click();
     await page.getByTestId('photo-site-name').fill('Zoom Halle');
     await page.getByTestId('photo-site-save').click();
+    await expect(page.locator('.modal')).toHaveCount(0);
     await expect(page.getByTestId('camera-page')).toHaveAttribute('data-ready', 'true');
     await expect.poll(() => page.getByTestId('cam-video').evaluate((v: HTMLVideoElement) => v.videoWidth)).toBeGreaterThan(0);
   };
@@ -206,6 +210,56 @@ test.describe('Kamera-Zoom', () => {
     await expect(page.getByTestId('cam-quality-hint')).toContainText('1280 px');
     await page.getByTestId('cam-format-sheet').getByRole('button', { name: 'Fertig' }).click();
     expect(await shotWith('hoch')).toEqual([Math.round(Math.min(full, 4096)), Math.round((Math.min(full, 4096) * 3) / 4)]);
+  });
+
+  test('Antippen im Bild: Schärfe und Licht an dieser Stelle, Helligkeit nachstellen', async ({ page }) => {
+    await page.addInitScript(() => {
+      const w = window as unknown as { __c: Record<string, unknown>[] };
+      w.__c = [];
+      const md = navigator.mediaDevices;
+      const sup = md.getSupportedConstraints.bind(md);
+      md.getSupportedConstraints = () => ({ ...sup(), pointsOfInterest: true }) as MediaTrackSupportedConstraints;
+      const P = MediaStreamTrack.prototype;
+      const caps = P.getCapabilities;
+      P.getCapabilities = function (this: MediaStreamTrack) {
+        const c = caps ? caps.call(this) : {};
+        return this.kind === 'video' ? ({ ...c, focusMode: ['continuous', 'single-shot'], exposureMode: ['continuous'], exposureCompensation: { min: -2, max: 2, step: 0.5 } } as MediaTrackCapabilities) : c;
+      };
+      P.applyConstraints = async function (c?: MediaTrackConstraints) {
+        if (c?.advanced?.[0]) w.__c.push(c.advanced[0] as Record<string, unknown>);
+      };
+    });
+    await openCamera(page);
+    await expect(page.locator('.cam-view')).toHaveAttribute('data-focus', 'yes');
+    const box = (await page.locator('.cam-view').boundingBox())!;
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await expect(page.getByTestId('cam-focus')).toBeVisible();
+    const sent = () => page.evaluate(() => (window as unknown as { __c: Record<string, unknown>[] }).__c);
+    await expect.poll(async () => (await sent()).find((c) => c.pointsOfInterest)).toMatchObject({ focusMode: 'single-shot', exposureMode: 'continuous' });
+    const poi = ((await sent()).find((c) => c.pointsOfInterest)!.pointsOfInterest as { x: number; y: number }[])[0];
+    expect(poi.x).toBeCloseTo(0.5, 1);
+    expect(poi.y).toBeCloseTo(0.5, 1);
+    // Helligkeit
+    await page.getByTestId('cam-ev').fill('1');
+    await expect.poll(async () => (await sent()).at(-1)).toEqual({ exposureCompensation: 1 });
+    // Tasten im Bild lösen kein Scharfstellen aus
+    const n = (await sent()).length;
+    await page.getByTestId('cam-zoom-2').click();
+    expect((await sent()).filter((c) => c.pointsOfInterest).length).toBe(1);
+    expect((await sent()).length).toBe(n);
+  });
+
+  test('ohne Unterstützung (z. B. iPhone-Browser): Antippen zeigt nichts an', async ({ page }) => {
+    await page.addInitScript(() => {
+      const md = navigator.mediaDevices;
+      const sup = md.getSupportedConstraints.bind(md);
+      md.getSupportedConstraints = () => ({ ...sup(), pointsOfInterest: false }) as MediaTrackSupportedConstraints;
+    });
+    await openCamera(page);
+    await expect(page.locator('.cam-view')).toHaveAttribute('data-focus', 'no');
+    const box = (await page.locator('.cam-view').boundingBox())!;
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await expect(page.getByTestId('cam-focus')).toHaveCount(0);
   });
 
   test('Kamera meldet einen Zoombereich (Android): Tasten 0,5 · 1× · 2× · 5× · 10×, die Kamera zoomt selbst', async ({ page }) => {
