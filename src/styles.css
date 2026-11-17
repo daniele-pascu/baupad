@@ -12518,8 +12518,9 @@ html[data-theme='dark'] .btn-primary {
 }
 .empty {
   border-radius: 20px;
-  border-color: color-mix(in srgb, var(--tool, #1d1d1f) 28%, var(--border-strong));
-  background: color-mix(in srgb, var(--tool, #1d1d1f) 4%, var(--surface-2));
+  /* neutral – ohne Farbstich des Tools */
+  border-color: var(--border-strong);
+  background: var(--surface-2);
 }
 
 /* Handy: Zurück-Taste schlicht (spart Platz neben dem Titel) */

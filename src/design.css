@@ -5,28 +5,27 @@
  * „:where(…)“ hält die Regeln so schwach wie die ursprünglichen – Zustände (ausgewählt, Fehler …) gewinnen weiter.
  */
 html.app-fixed {
-  --primary: #101211;
-  --primary-hover: #252a27;
-  --primary-soft: #eceee8;
-  --bg: #e9ebe5;
-  --surface: #fbfbf9;
-  --surface-2: #f3f4f0;
-  --border: rgba(16, 18, 17, 0.1);
-  --border-strong: rgba(16, 18, 17, 0.18);
-  --text: #101211;
-  --muted: #5d635e;
+  /* hell: reines Weiß und neutrale Grautöne (kein Gelb-/Grünstich) */
+  --primary: #111111;
+  --primary-hover: #2a2a2a;
+  --primary-soft: #f0f0f2;
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f5f5f7;
+  --border: rgba(0, 0, 0, 0.1);
+  --border-strong: rgba(0, 0, 0, 0.18);
+  --text: #111111;
+  --muted: #6b6b70;
   --radius: 22px;
   --radius-sm: 12px;
-  /* Glas: Karte (ohne Unschärfe – in langen Listen sonst zu langsam), Fenster und Kacheln (mit Unschärfe) */
-  --d-card: rgba(255, 255, 255, 0.58);
-  --d-card-line: rgba(255, 255, 255, 0.9);
-  --d-card-shadow: inset 0 1px 0 #fff, 0 1px 2px rgba(16, 18, 17, 0.05), 0 24px 44px -28px rgba(16, 18, 17, 0.3);
-  --d-window: rgba(251, 251, 249, 0.84);
+  /* Karten weiß mit feinem Rand und Schatten; Fenster und Kacheln leicht durchscheinend (mit Unschärfe) */
+  --d-card: #ffffff;
+  --d-card-line: rgba(0, 0, 0, 0.08);
+  --d-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 14px 30px -22px rgba(0, 0, 0, 0.28);
+  --d-window: rgba(255, 255, 255, 0.94);
   --d-blur: saturate(1.5) blur(24px);
-  /* weiches Licht oben – in Pixeln, damit es auch auf langen Seiten oben bleibt */
   background-color: var(--bg);
-  background-image: radial-gradient(900px 620px at 8% 40px, #fff 0, transparent 62%), radial-gradient(900px 700px at 96% 320px, rgba(16, 18, 17, 0.07) 0, transparent 60%);
-  background-repeat: no-repeat;
+  background-image: none;
 }
 html.app-fixed[data-theme='dark'] {
   --primary: #f4f5f1;
