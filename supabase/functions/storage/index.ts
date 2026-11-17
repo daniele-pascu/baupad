@@ -11,6 +11,8 @@
 //   records-pull   { since: ISO-Zeit | null, after: id }                           → Datensätze seit Cursor (Zeit + Kennung), 500 je Seite;
 //                  Antwort mit cursor/more. Zeitaufzeichnung: Polier nur Zeilen seiner Projekte, Arbeiter nur eigene Tage (s. TIME_STORES)
 //   delete      { keys: [...] }                                                     → Dateien löschen (Server)
+//   Rechte: Admin, Büro und Betreiber alles; Polier und Arbeiter nur freigegebene Projekte, firmenweite Daten nur mit dem
+//           passenden Werkzeug, Preise nur mit „Preise und Summen“ (s. accessOf) – lesen, schreiben, Fotos und Dateien
 //   usage       {}                                                                  → Anzahl und Bytes
 //   status      {}  (nur Betreiber)  → prüft Zugangsdaten gegen den Bucket
 //   setup-cors  {}  (nur Betreiber)  → CORS-Regeln am Bucket setzen (Browser darf direkt hoch-/herunterladen)
@@ -166,6 +168,8 @@ export interface Ctx {
   email: string;
   sites: string[];
   toolSites: Record<string, string[]>;
+  /** freigegebene Werkzeuge; leer = alle */
+  tools: string[];
 }
 /** E-Mail aus dem (von my_context schon geprüften) Anmelde-Token */
 function tokenEmail(token: string): string {
@@ -186,8 +190,8 @@ async function context(req: Request): Promise<Ctx | null> {
     body: '{}',
   });
   if (!r.ok) return null;
-  const ctx = (await r.json()) as { workspace_id: string | null; operator: boolean; role?: string; sites?: string[]; tool_sites?: Record<string, string[]> } | null;
-  return { ws: ctx?.workspace_id ?? null, operator: Boolean(ctx?.operator), token, role: ctx?.role ?? '', email: tokenEmail(token), sites: ctx?.sites ?? [], toolSites: ctx?.tool_sites ?? {} };
+  const ctx = (await r.json()) as { workspace_id: string | null; operator: boolean; role?: string; sites?: string[]; tool_sites?: Record<string, string[]>; tools?: string[] } | null;
+  return { ws: ctx?.workspace_id ?? null, operator: Boolean(ctx?.operator), token, role: ctx?.role ?? '', email: tokenEmail(token), sites: ctx?.sites ?? [], toolSites: ctx?.tool_sites ?? {}, tools: ctx?.tools ?? [] };
 }
 
 /** Datenbankzugriff mit der Anmeldung des Benutzers (Zugriffsregeln der Tabelle gelten) */
@@ -238,7 +242,182 @@ export function mergeTimeDay(existing: Record<string, unknown> | null, incoming:
   if (deleted && !hidden.length) return { data: {}, deleted: true };
   return { data: { ...(existing ?? {}), ...(deleted ? {} : incoming), lines: [...hidden, ...mine] }, deleted: false };
 }
-/** Datenbank mit dem Dienstschlüssel (nur für die gefilterte Zeitaufzeichnung) */
+
+// ---- Rechte je Projekt, Werkzeug und Preise (am Server wie in der App: src/lib/access.ts, src/lib/price-access.ts) --------
+// Admin, Büro und Betreiber („Büro“) sehen und ändern alles. Polier und Arbeiter:
+//  - Datensätze eines Projekts nur, wenn das Projekt für sie freigegeben ist (gemeinsame Liste „sites“ oder bei einem
+//    Werkzeug ausgewählt); sonst bekommen sie ihn als „gelöscht“ (alte Kopien verschwinden vom Gerät) und dürfen ihn
+//    nicht speichern. Projekte anlegen und löschen: nur das Büro (wie in der App).
+//  - firmenweite Daten nur mit einem passenden Werkzeug: Personalliste mit Team, Zeiten oder Berichte (Mannschaft im
+//    Tagesbericht; Arbeiter mit nur „Zeiten“ sehen nur sich selbst), Wochen-Einteilung mit Team, Zeiten, Berichte oder
+//    Fotos, Materialstamm und Lieferanten mit Material, Formularvorlagen (nur lesen) mit Berichte
+//  - Preise (LV, Material) nur mit der Freigabe „Preise und Summen“; ohne sie kommen Preise leer, und beim Speichern
+//    bleiben die gespeicherten Preise erhalten (sie können sie weder sehen noch ändern)
+// Die Tabellen records und photos lassen Polier und Arbeiter nicht direkt zu (docs/supabase/records-access.sql) – sie
+// lesen und schreiben ausschließlich über diese Funktion (Dienstschlüssel, gefiltert).
+export const PRICES_PERM = 'perm:prices';
+export interface Access {
+  office: boolean;
+  role: string;
+  email: string;
+  tools: string[];
+  sites: string[];
+  toolSites: Record<string, string[]>;
+  prices: boolean;
+}
+export function accessOf(c: Pick<Ctx, 'operator' | 'role' | 'email' | 'sites' | 'toolSites'> & { tools?: string[] | null }): Access {
+  const office = c.operator || c.role === 'admin' || c.role === 'buero' || !c.role;
+  const toolSites = c.toolSites ?? {};
+  return { office, role: c.role, email: (c.email ?? '').toLowerCase(), tools: c.tools ?? [], sites: c.sites ?? [], toolSites, prices: office || (toolSites[PRICES_PERM]?.length ?? 0) > 0 };
+}
+/** Werkzeug freigegeben (leere Liste = alle; Zeiten gehörten früher zur Einteilung) */
+export const hasTool = (a: Access, tool: string) => a.office || a.tools.length === 0 || a.tools.includes(tool) || (tool === 'times' && a.tools.includes('workers'));
+const anyTool = (a: Access, tools: string[]) => tools.some((t) => hasTool(a, t));
+/**
+ * Projekt freigegeben: in der gemeinsamen Liste oder bei irgendeinem Werkzeug ausgewählt. Einträge ohne Projekt (frei
+ * eingegebene Baustelle): wie in der App – ohne Auswahl sichtbar, sonst nur, wenn der Name ausgewählt ist.
+ */
+export function canProject(a: Access, projectId: string | null | undefined, name = '', tool?: string): boolean {
+  if (a.office) return true;
+  if (projectId) {
+    const k = `p:${projectId}`;
+    return a.sites.includes(k) || Object.entries(a.toolSites).some(([t, l]) => t !== PRICES_PERM && (l ?? []).includes(k));
+  }
+  const own = tool ? (a.toolSites[tool] ?? []) : [];
+  const list = own.length ? own : a.sites;
+  return list.length === 0 || list.includes(`n:${name.trim().toLowerCase()}`);
+}
+/** Datenarten, die zu einem Projekt gehören (Feld projectId; beim Projekt selbst die Kennung) */
+export const PROJECT_STORES = ['projects', 'costCenters', 'files', 'plans', 'damages', 'components', 'elements', 'lvDocs', 'reports', 'defectPlans', 'formEntries', 'materialItems', 'materialUses', 'materialPlans'];
+/** firmenweite Datenarten: lesen mit einem dieser Werkzeuge … */
+const READ_TOOLS: Record<string, string[]> = { workers: ['workers', 'times', 'reports'], weeks: ['workers', 'times', 'reports', 'photos'], materials: ['materials'], suppliers: ['materials'], formTemplates: ['reports'] };
+/** … speichern mit einem dieser (Formularvorlagen: nur das Büro) */
+const WRITE_TOOLS: Record<string, string[]> = { workers: ['workers'], weeks: ['workers', 'times', 'reports'], materials: ['materials'], suppliers: ['materials'], formTemplates: [] };
+/** Werkzeug je Datenart (für Einträge ohne Projekt: Auswahl bei diesem Werkzeug) */
+const STORE_TOOL: Record<string, string> = { reports: 'reports', formEntries: 'reports', defectPlans: 'defects', materialItems: 'materials', materialUses: 'materials', materialPlans: 'materials' };
+/** Firmen-Einstellungen, die Polier und Arbeiter speichern dürfen (Team und Zeiten); Firmendaten, Logo, gelöschte Projekte: nur das Büro */
+const META_WRITE = ['absences', 'timeDefaults', 'workTimes', 'crewSiteLabel', 'pdfShowGrades', 'pdfShowTimes'];
+const projectOfRow = (store: string, id: string, data: Record<string, unknown> | null | undefined) => (store === 'projects' ? id : ((data?.projectId as string | null | undefined) ?? null));
+/** Baustellenname eines Eintrags ohne Projekt (Berichte: Kopf, sonst siteName) */
+function nameOfRow(store: string, data: Record<string, unknown> | null | undefined): string {
+  if (store === 'reports') {
+    const h = (data?.head ?? {}) as { site?: string; project?: string };
+    return String(h.site || h.project || '');
+  }
+  return String(data?.siteName ?? '');
+}
+const rowAllowed = (a: Access, store: string, id: string, data: Record<string, unknown> | null | undefined) => canProject(a, projectOfRow(store, id, data), nameOfRow(store, data), STORE_TOOL[store]);
+/** Personalliste: alle (Team, Berichte, Polier mit Zeiten) oder nur der eigene Eintrag (Arbeiter mit Zeiten) */
+const allWorkers = (a: Access) => hasTool(a, 'workers') || hasTool(a, 'reports') || (a.role === 'polier' && hasTool(a, 'times'));
+const ownWorker = (a: Access, data: Record<string, unknown> | null | undefined) => !!a.email && String(data?.userEmail ?? '').toLowerCase() === a.email;
+const goneRow = (row: Row): Row => ({ ...row, data: {}, deleted_at: row.updated_at });
+/** Mängelplan: Projekt und Baustellenname (Mängelpunkte gehören zu ihrem Plan) */
+export type PlanSite = { projectId: string | null; siteName: string };
+const markAllowed = (a: Access, data: Record<string, unknown> | null | undefined, plans: Map<string, PlanSite>) => {
+  const plan = plans.get(String(data?.planId ?? ''));
+  return !!plan && canProject(a, plan.projectId, plan.siteName, 'defects');
+};
+
+/** Preise entfernen (LV: Einheits- und Positionspreise; Material und Positionen: Preis je Einheit) */
+export function stripPrices(store: string, data: Record<string, unknown>): Record<string, unknown> {
+  if (store === 'lvDocs') return { ...data, positions: ((data.positions as Record<string, unknown>[]) ?? []).map((p) => ({ ...p, unitPrice: null, totalPrice: null })) };
+  if (store === 'materials' || store === 'materialItems') return { ...data, price: null };
+  return data;
+}
+/** ohne Preis-Freigabe gespeichert: Preise aus dem gespeicherten Stand übernehmen (neue Positionen ohne Preis) */
+export function keepPrices(store: string, incoming: Record<string, unknown>, existing: Record<string, unknown> | null): Record<string, unknown> {
+  if (store === 'lvDocs') {
+    const old = new Map(((existing?.positions as Record<string, unknown>[]) ?? []).map((p) => [String(p.id), p]));
+    return {
+      ...incoming,
+      positions: ((incoming.positions as Record<string, unknown>[]) ?? []).map((p) => {
+        const o = old.get(String(p.id));
+        return { ...p, unitPrice: (o?.unitPrice as number | null | undefined) ?? null, totalPrice: (o?.totalPrice as number | null | undefined) ?? null };
+      }),
+    };
+  }
+  if (store === 'materials' || store === 'materialItems') return { ...incoming, price: (existing?.price as number | null | undefined) ?? null };
+  return incoming;
+}
+
+/** Datensatz für Polier/Arbeiter: unverändert, ohne Preise oder als „gelöscht“; Mängelpunkte über ihren Mängelplan */
+export function visibleRecord(row: Row, a: Access, plans: Map<string, PlanSite> = new Map()): Row {
+  if (a.office || row.deleted_at) return row;
+  const s = row.store;
+  if (s === 'meta') return row.id === 'absences' && !anyTool(a, ['workers', 'times', 'reports']) ? goneRow(row) : row;
+  if (READ_TOOLS[s]) {
+    if (!anyTool(a, READ_TOOLS[s])) return goneRow(row);
+    if (s === 'workers' && !allWorkers(a) && !ownWorker(a, row.data)) return goneRow(row);
+    return a.prices ? row : { ...row, data: stripPrices(s, row.data) };
+  }
+  if (s === 'defectMarks') return markAllowed(a, row.data, plans) ? row : goneRow(row);
+  if (PROJECT_STORES.includes(s)) {
+    if (!rowAllowed(a, s, row.id, row.data)) return goneRow(row);
+    return a.prices ? row : { ...row, data: stripPrices(s, row.data) };
+  }
+  return row;
+}
+
+/**
+ * Darf Polier/Arbeiter diesen Datensatz speichern bzw. löschen? `existing` = gespeicherter Stand (null = neu oder
+ * gelöscht). Liefert die zu speichernden Angaben (Preise ggf. aus dem gespeicherten Stand) oder null = nicht erlaubt.
+ * Zeitdaten laufen getrennt (mergeTimeDay).
+ */
+export function writableRecord(
+  a: Access,
+  store: string,
+  id: string,
+  incoming: Record<string, unknown>,
+  deleted: boolean,
+  existing: Record<string, unknown> | null,
+  plans: Map<string, PlanSite> = new Map(),
+): Record<string, unknown> | null {
+  if (a.office) return incoming;
+  if (TIME_STORES.includes(store)) return null;
+  if (store === 'meta') return META_WRITE.includes(id) ? incoming : null;
+  if (WRITE_TOOLS[store]) {
+    if (!anyTool(a, WRITE_TOOLS[store])) return null;
+    if (store === 'workers' && !hasTool(a, 'workers')) return null;
+  } else if (store === 'defectMarks') {
+    if ((!deleted && !markAllowed(a, incoming, plans)) || (existing && !markAllowed(a, existing, plans))) return null;
+  } else if (PROJECT_STORES.includes(store)) {
+    // Projekte anlegen und löschen: nur das Büro
+    if (store === 'projects' && (!existing || deleted)) return null;
+    if ((!deleted && !rowAllowed(a, store, id, incoming)) || (existing && !rowAllowed(a, store, id, existing))) return null;
+  } else return null;
+  if (deleted) return incoming;
+  return a.prices ? incoming : keepPrices(store, incoming, existing);
+}
+
+/** Foto-Eintrag (Tabelle photos) für Polier/Arbeiter: unverändert oder als „gelöscht“ */
+export function visiblePhoto<T extends { data: Record<string, unknown>; deleted_at: string | null; updated_at?: string }>(row: T, a: Access): T {
+  if (a.office || row.deleted_at) return row;
+  return photoAllowed(a, row.data) ? row : { ...row, data: {}, deleted_at: row.updated_at ?? new Date().toISOString() };
+}
+export const photoAllowed = (a: Access, data: Record<string, unknown> | null | undefined) =>
+  a.office || (!!data && anyTool(a, ['photos', 'reports', 'defects']) && canProject(a, data.projectId as string | null, String(data.siteName ?? ''), 'photos'));
+
+/**
+ * Datei-Schlüssel: photos/<id>/… gehört zum Foto, files/<id>/… zum Originalplan (files) bzw. Mängelplan (defectPlans),
+ * sonst zu einer Formularvorlage; files/zeit_… sind Monatsdateien der Zeitaufzeichnung (nur Büro).
+ */
+export function fileKeyOwner(key: string): { kind: 'photo' | 'file' | 'time'; id: string } {
+  const [top, id] = key.split('/');
+  if (top === 'photos') return { kind: 'photo', id };
+  return id.startsWith('zeit_') ? { kind: 'time', id } : { kind: 'file', id };
+}
+/**
+ * Darf Polier/Arbeiter auf diese Datei zugreifen? owner: known = gehört zu einem gespeicherten Foto, Plan oder Formular,
+ * allowed = dessen Projekt ist freigegeben (Formular-PDFs: lesen mit „Berichte“). Neue Dateien (noch ohne Eintrag) dürfen
+ * nur hochgeladen bzw. geprüft werden; Monatsdateien der Zeitaufzeichnung nur das Büro.
+ */
+export function fileAllowed(a: Access, kind: 'photo' | 'file' | 'time', method: Method | 'DELETE', owner: { known: boolean; allowed: boolean }): boolean {
+  if (a.office) return true;
+  if (kind === 'time') return false;
+  if (owner.known) return owner.allowed;
+  return method === 'PUT' || method === 'HEAD';
+}
+/** Datenbank mit dem Dienstschlüssel (gefilterter Zugriff für Polier und Arbeiter) */
 async function service(path: string, init: RequestInit & { prefer?: string } = {}) {
   const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
   if (!key) throw new Error('service-key');
@@ -256,10 +435,85 @@ async function ownWorkerIds(ws: string, email: string): Promise<Set<string>> {
   return new Set(rows.map((r) => r.id));
 }
 
+/** Liste für „in.(…)“ (Kennungen sind geprüft: keine Anführungszeichen, Kommas oder Klammern) */
+const inList = (ids: string[]) => `(${ids.map((i) => `"${encodeURIComponent(i)}"`).join(',')})`;
+const chunked = <T,>(list: T[], n = 50): T[][] => Array.from({ length: Math.ceil(list.length / n) }, (_, i) => list.slice(i * n, i * n + n));
+/** gespeicherte Stände (auch gelöschte), Schlüssel „store:id“ */
+async function storedRecords(ws: string, list: { store: string; id: string }[]): Promise<Map<string, Row>> {
+  const out = new Map<string, Row>();
+  const byStore = new Map<string, string[]>();
+  for (const r of list) byStore.set(r.store, [...(byStore.get(r.store) ?? []), r.id]);
+  for (const [store, ids] of byStore)
+    for (const part of chunked([...new Set(ids)])) {
+      const rows = (await service(`records?workspace_id=eq.${ws}&store=eq.${store}&id=in.${inList(part)}&select=store,id,data,rev,updated_at,deleted_at`)) as Row[];
+      for (const r of rows) out.set(`${r.store}:${r.id}`, r);
+    }
+  return out;
+}
+/** Projekt und Baustellenname je Mängelplan (für die Mängelpunkte) */
+async function planSites(ws: string, ids: string[]): Promise<Map<string, PlanSite>> {
+  const out = new Map<string, PlanSite>();
+  const want = [...new Set(ids.filter((i) => i && RECORD_ID_RE.test(i)))];
+  for (const part of chunked(want)) {
+    const rows = (await service(`records?workspace_id=eq.${ws}&store=eq.defectPlans&deleted_at=is.null&id=in.${inList(part)}&select=id,projectId:data->>projectId,siteName:data->>siteName`)) as { id: string; projectId: string | null; siteName: string | null }[];
+    for (const r of rows) out.set(r.id, { projectId: r.projectId || null, siteName: r.siteName ?? '' });
+  }
+  return out;
+}
+/** Benutzer-Kennung aus dem (von my_context schon geprüften) Anmelde-Token – „angelegt von“ bei Polier/Arbeiter */
+function tokenUser(token: string): string | null {
+  try {
+    const part = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const sub = String((JSON.parse(atob(part)) as { sub?: string }).sub ?? '');
+    return /^[0-9a-f-]{36}$/i.test(sub) ? sub : null;
+  } catch {
+    return null;
+  }
+}
+/**
+ * Zu welchen gespeicherten Einträgen gehören diese Dateien (Polier/Arbeiter)? Ergebnis je Schlüssel: known = Eintrag
+ * vorhanden, allowed = Zugriff erlaubt (für die gewünschte Methode).
+ */
+async function fileOwners(ws: string, a: Access, items: { key: string; method: Method | 'DELETE' }[]): Promise<Map<string, { known: boolean; allowed: boolean }>> {
+  const out = new Map<string, { known: boolean; allowed: boolean }>();
+  const owners = items.map((it) => ({ ...it, ...fileKeyOwner(it.key) }));
+  const photoIds = [...new Set(owners.filter((o) => o.kind === 'photo').map((o) => o.id))];
+  const fileIds = [...new Set(owners.filter((o) => o.kind === 'file').map((o) => o.id))];
+  const photos = new Map<string, Record<string, unknown>>();
+  for (const part of chunked(photoIds)) {
+    const rows = (await service(`photos?workspace_id=eq.${ws}&id=in.${inList(part)}&select=id,data`)) as { id: string; data: Record<string, unknown> }[];
+    for (const r of rows) photos.set(r.id, r.data ?? {});
+  }
+  // Originalpläne (files) und Mängelpläne: Projekt des Eintrags; gelöschte Einträge: kein Zugriff mehr
+  const plans = new Map<string, boolean>();
+  const forms = new Set<string>();
+  for (const part of chunked(fileIds)) {
+    const rows = (await service(`records?workspace_id=eq.${ws}&store=in.(files,defectPlans)&id=in.${inList(part)}&select=store,id,data,deleted_at`)) as Row[];
+    for (const r of rows) plans.set(r.id, (plans.get(r.id) ?? false) || (!r.deleted_at && rowAllowed(a, r.store, r.id, r.data)));
+    // Formular-PDFs: Vorlage (Kennung oder aktuelle Datei) oder ausgefülltes Formular (Datei seiner Vorlagenversion)
+    const list = inList(part);
+    const f = (await service(`records?workspace_id=eq.${ws}&store=in.(formTemplates,formEntries)&or=(and(store.eq.formTemplates,id.in.${list}),data->>fileId.in.${list})&select=id,fileId:data->>fileId,store`)) as { id: string; fileId: string | null; store: string }[];
+    for (const r of f) {
+      if (r.store === 'formTemplates') forms.add(r.id);
+      if (r.fileId) forms.add(r.fileId);
+    }
+  }
+  for (const o of owners) {
+    let owner = { known: false, allowed: false };
+    if (o.kind === 'photo' && photos.has(o.id)) owner = { known: true, allowed: photoAllowed(a, photos.get(o.id)) };
+    else if (o.kind === 'file' && plans.has(o.id)) owner = { known: true, allowed: plans.get(o.id)! };
+    else if (o.kind === 'file' && forms.has(o.id)) owner = { known: true, allowed: (o.method === 'GET' || o.method === 'HEAD') && hasTool(a, 'reports') };
+    out.set(`${o.method} ${o.key}`, owner);
+  }
+  return out;
+}
+
 const KEY_RE = /^(photos\/[A-Za-z0-9_-]{4,64}\/(data|thumb|original)\.jpg|files\/[A-Za-z0-9_-]{4,64}\/(data\.bin|data\.jpg|thumb\.jpg|pdf\.pdf))$/;
 const STORES = ['projects', 'costCenters', 'files', 'plans', 'damages', 'components', 'elements', 'lvDocs', 'workers', 'weeks', 'reports', 'defectPlans', 'defectMarks', 'formTemplates', 'formEntries', 'timeDays', 'timeMonths', 'materials', 'suppliers', 'materialItems', 'materialUses', 'materialPlans', 'meta'];
 /** Kennung eines Datensatzes; „|“ für Zeitaufzeichnung (Arbeiter|Datum) */
 const RECORD_ID_RE = /^[A-Za-z0-9_:.|-]{1,80}$/;
+const PHOTO_ID_RE = /^[A-Za-z0-9_-]{4,64}$/;
+const UPSERT = 'resolution=merge-duplicates,return=minimal';
 
 export async function handler(req: Request): Promise<Response> {
   const origin = req.headers.get('origin');
@@ -301,16 +555,25 @@ export async function handler(req: Request): Promise<Response> {
     // ---- Benutzer mit Arbeitsbereich ----
     if (!ctx.ws) return json(403, { error: 'no-workspace' }, origin);
     const prefix = `ws/${ctx.ws}/`;
+    const acc = accessOf(ctx);
 
     if (action === 'presign') {
       const items = Array.isArray(body.items) ? (body.items as { key: string; method: Method; contentType?: string }[]) : [];
       if (!items.length || items.length > 50) return json(422, { error: 'items' }, origin);
       const out: Record<string, string> = {};
+      for (const it of items) if (!KEY_RE.test(String(it.key)) || !['GET', 'PUT', 'HEAD'].includes(it.method)) return json(422, { error: 'key' }, origin);
+      // Polier/Arbeiter: nur Dateien freigegebener Projekte; neue Dateien hochladen
+      const owners = acc.office ? null : await fileOwners(ctx.ws, acc, items);
+      const denied: string[] = [];
       for (const it of items) {
-        if (!KEY_RE.test(String(it.key)) || !['GET', 'PUT', 'HEAD'].includes(it.method)) return json(422, { error: 'key' }, origin);
+        if (owners && !fileAllowed(acc, fileKeyOwner(it.key).kind, it.method, owners.get(`${it.method} ${it.key}`) ?? { known: false, allowed: false })) {
+          denied.push(it.key);
+          continue;
+        }
         out[`${it.method} ${it.key}`] = await presign(cfg, it.method, prefix + it.key, { expires: it.method === 'PUT' ? 900 : 3600, contentType: it.method === 'PUT' ? (it.contentType ?? 'image/jpeg') : undefined });
       }
-      return json(200, { urls: out }, origin);
+      if (denied.length && !Object.keys(out).length) return json(403, { error: 'forbidden', denied }, origin);
+      return json(200, { urls: out, ...(denied.length ? { denied } : {}) }, origin);
     }
 
     if (action === 'upsert') {
@@ -319,20 +582,50 @@ export async function handler(req: Request): Promise<Response> {
       const rows = photos.map((p) => ({
         id: String(p.id),
         workspace_id: ctx.ws,
-        data: p.data ?? {},
+        data: (p.data ?? {}) as Record<string, unknown>,
         size: Number(p.size ?? 0),
         has_original: Boolean(p.has_original),
         uploaded: Boolean(p.uploaded),
         deleted_at: p.deleted_at ? new Date(Number(p.deleted_at)).toISOString() : null,
       }));
-      await rest(ctx.token, 'photos?on_conflict=id', { method: 'POST', body: JSON.stringify(rows), prefer: 'resolution=merge-duplicates,return=minimal' });
-      return json(200, { ok: true }, origin);
+      if (acc.office) {
+        await rest(ctx.token, 'photos?on_conflict=id', { method: 'POST', body: JSON.stringify(rows), prefer: UPSERT });
+        return json(200, { ok: true }, origin);
+      }
+      // Polier/Arbeiter: nur Fotos freigegebener Projekte (neu und gespeichert); fremde Arbeitsbereiche nie
+      if (rows.some((r) => !PHOTO_ID_RE.test(r.id))) return json(422, { error: 'photo' }, origin);
+      const stored = new Map<string, { id: string; workspace_id: string; data: Record<string, unknown>; deleted_at: string | null; updated_at: string }>();
+      for (const part of chunked(rows.map((r) => r.id))) {
+        const got = (await service(`photos?id=in.${inList(part)}&select=id,workspace_id,data,deleted_at,updated_at`)) as { id: string; workspace_id: string; data: Record<string, unknown>; deleted_at: string | null; updated_at: string }[];
+        for (const g of got) stored.set(g.id, g);
+      }
+      const fresh: typeof rows = [];
+      const update: typeof rows = [];
+      const rejected: unknown[] = [];
+      for (const r of rows) {
+        const cur = stored.get(r.id);
+        if (cur && cur.workspace_id !== ctx.ws) continue;
+        if (!photoAllowed(acc, r.data) || (cur && !photoAllowed(acc, cur.data))) {
+          if (cur) rejected.push(visiblePhoto(cur, acc));
+          continue;
+        }
+        (cur ? update : fresh).push(r);
+      }
+      const uid = tokenUser(ctx.token);
+      if (fresh.length) await service('photos?on_conflict=id', { method: 'POST', body: JSON.stringify(fresh.map((r) => ({ ...r, created_by: uid }))), prefer: UPSERT });
+      if (update.length) await service('photos?on_conflict=id', { method: 'POST', body: JSON.stringify(update), prefer: UPSERT });
+      return json(200, { ok: true, rejected }, origin);
     }
 
     if (action === 'pull') {
       const since = typeof body.since === 'string' && body.since ? body.since : '1970-01-01T00:00:00Z';
-      const rows = (await rest(ctx.token, `photos?workspace_id=eq.${ctx.ws}&updated_at=gt.${encodeURIComponent(since)}&order=updated_at.asc&limit=500`)) as Record<string, unknown>[];
-      return json(200, { photos: rows, now: new Date().toISOString() }, origin);
+      const now = new Date().toISOString();
+      const q = `photos?workspace_id=eq.${ctx.ws}&updated_at=gt.${encodeURIComponent(since)}&order=updated_at.asc&limit=500`;
+      // filtered: diese Funktion prüft die Rechte (die App gleicht dann einmal alles neu ab, s. src/lib/sync-access.ts)
+      if (acc.office) return json(200, { photos: (await rest(ctx.token, q)) as Record<string, unknown>[], now, filtered: true }, origin);
+      // Polier/Arbeiter: Fotos nicht freigegebener Projekte als „gelöscht“ (gleiche Anzahl – das Blättern bleibt gleich)
+      const rows = (await service(q)) as { data: Record<string, unknown>; deleted_at: string | null; updated_at: string }[];
+      return json(200, { photos: rows.map((r) => visiblePhoto(r, acc)), now, filtered: true }, origin);
     }
 
     if (action === 'records-upsert') {
@@ -348,18 +641,44 @@ export async function handler(req: Request): Promise<Response> {
         deleted_at: r.deleted_at ? new Date(Number(r.deleted_at)).toISOString() : null,
       }));
       const scope = timeScopeOf(ctx);
-      const timeRows = scope.level === 'office' ? [] : rows.filter((r) => TIME_STORES.includes(r.store));
-      const other = scope.level === 'office' ? rows : rows.filter((r) => !TIME_STORES.includes(r.store));
-      if (other.length) await rest(ctx.token, 'records?on_conflict=workspace_id,store,id', { method: 'POST', body: JSON.stringify(other), prefer: 'resolution=merge-duplicates,return=minimal' });
-      // Polier: nur Tage, zusammengeführt mit dem gespeicherten Stand; Arbeiter und Monatsfreigaben: nichts
-      if (scope.level === 'site') {
+      if (acc.office) {
+        await rest(ctx.token, 'records?on_conflict=workspace_id,store,id', { method: 'POST', body: JSON.stringify(rows), prefer: UPSERT });
+        return json(200, { ok: true }, origin);
+      }
+      // Polier/Arbeiter: jeden Datensatz gegen den gespeicherten Stand prüfen (Projekt, Werkzeug, Preise)
+      const timeRows = rows.filter((r) => TIME_STORES.includes(r.store));
+      const other = rows.filter((r) => !TIME_STORES.includes(r.store));
+      const stored = await storedRecords(ctx.ws, other);
+      const keyOf = (r: { store: string; id: string }) => `${r.store}:${r.id}`;
+      const marks = other.filter((r) => r.store === 'defectMarks');
+      const plans = await planSites(ctx.ws, [...marks.map((r) => String(r.data.planId ?? '')), ...marks.map((r) => String(stored.get(keyOf(r))?.data?.planId ?? ''))]);
+      // Mängelplan im selben Paket (neu angelegt): seine Punkte gehören zu ihm
+      for (const r of other) if (r.store === 'defectPlans' && !r.deleted_at) plans.set(r.id, { projectId: (r.data.projectId as string | null) || null, siteName: String(r.data.siteName ?? '') });
+      const fresh: typeof rows = [];
+      const update: typeof rows = [];
+      const rejected: Row[] = [];
+      for (const r of other) {
+        const cur = stored.get(keyOf(r));
+        const data = writableRecord(acc, r.store, r.id, r.data, !!r.deleted_at, cur && !cur.deleted_at ? cur.data : null, plans);
+        // nicht erlaubt: gespeicherten Stand zurückgeben (so, wie die Person ihn sehen darf) – das Gerät übernimmt ihn
+        if (data === null) {
+          if (cur) rejected.push(visibleRecord(cur, acc, plans));
+          continue;
+        }
+        (cur ? update : fresh).push({ ...r, data });
+      }
+      const uid = tokenUser(ctx.token);
+      if (fresh.length) await service('records?on_conflict=workspace_id,store,id', { method: 'POST', body: JSON.stringify(fresh.map((r) => ({ ...r, created_by: uid }))), prefer: UPSERT });
+      if (update.length) await service('records?on_conflict=workspace_id,store,id', { method: 'POST', body: JSON.stringify(update), prefer: UPSERT });
+      // Polier mit „Zeiten“: nur Tage, zusammengeführt mit dem gespeicherten Stand; Arbeiter und Monatsfreigaben: nichts
+      if (scope.level === 'site' && hasTool(acc, 'times')) {
         for (const r of timeRows.filter((x) => x.store === 'timeDays')) {
           const cur = ((await service(`records?workspace_id=eq.${ctx.ws}&store=eq.timeDays&id=eq.${encodeURIComponent(r.id)}&select=data,deleted_at`)) as { data: Record<string, unknown>; deleted_at: string | null }[])[0];
           const m = mergeTimeDay(cur && !cur.deleted_at ? cur.data : null, r.data, !!r.deleted_at, scope);
-          await service('records?on_conflict=workspace_id,store,id', { method: 'POST', body: JSON.stringify([{ ...r, data: m.data, deleted_at: m.deleted ? new Date().toISOString() : null }]), prefer: 'resolution=merge-duplicates,return=minimal' });
+          await service('records?on_conflict=workspace_id,store,id', { method: 'POST', body: JSON.stringify([{ ...r, data: m.data, deleted_at: m.deleted ? new Date().toISOString() : null }]), prefer: UPSERT });
         }
       }
-      return json(200, { ok: true }, origin);
+      return json(200, { ok: true, rejected }, origin);
     }
 
     if (action === 'records-pull') {
@@ -369,34 +688,34 @@ export async function handler(req: Request): Promise<Response> {
       const t = encodeURIComponent(since);
       const filter = `or=(updated_at.gt.${t},and(updated_at.eq.${t},id.gt."${encodeURIComponent(after)}"))`;
       const scope = timeScopeOf(ctx);
-      if (scope.level === 'office') {
+      if (acc.office) {
         const rows = (await rest(ctx.token, `records?workspace_id=eq.${ctx.ws}&${filter}&order=updated_at.asc,id.asc&limit=500`)) as Row[];
         const last = rows[rows.length - 1];
-        return json(200, { records: rows, cursor: last ? { at: last.updated_at, id: last.id } : null, more: rows.length === 500 }, origin);
+        return json(200, { records: rows, cursor: last ? { at: last.updated_at, id: last.id } : null, more: rows.length === 500, filtered: true }, origin);
       }
-      // Polier/Arbeiter: übrige Daten wie bisher, Zeitdaten getrennt (Dienstschlüssel) und gefiltert; gemeinsamer Cursor
-      const notTime = `&store=not.in.(${TIME_STORES.join(',')})`;
-      const a = (await rest(ctx.token, `records?workspace_id=eq.${ctx.ws}${notTime}&${filter}&order=updated_at.asc,id.asc&limit=500`)) as Row[];
-      let b: Row[] = [];
-      let own = new Set<string>();
-      try {
-        b = (await service(`records?workspace_id=eq.${ctx.ws}&store=in.(${TIME_STORES.join(',')})&${filter}&order=updated_at.asc,id.asc&limit=500`)) as Row[];
-        if (scope.level === 'own') own = await ownWorkerIds(ctx.ws, scope.email);
-      } catch {
-        b = []; // ohne Dienstschlüssel: keine Zeitdaten
-      }
-      const merged = [...a, ...b].sort((x, y) => (x.updated_at < y.updated_at ? -1 : x.updated_at > y.updated_at ? 1 : x.id < y.id ? -1 : x.id > y.id ? 1 : 0)).slice(0, 500);
-      const last = merged[merged.length - 1];
-      const out = merged.map((r) => (TIME_STORES.includes(r.store) ? filterTimeRow(r, scope, own) : r));
-      return json(200, { records: out, cursor: last ? { at: last.updated_at, id: last.id } : null, more: a.length === 500 || b.length === 500 }, origin);
+      // Polier/Arbeiter: alles mit dem Dienstschlüssel, jeder Datensatz zugeschnitten oder als „gelöscht“ (gleiche Anzahl
+      // und Reihenfolge – der Cursor bleibt gültig)
+      const rows = (await service(`records?workspace_id=eq.${ctx.ws}&${filter}&order=updated_at.asc,id.asc&limit=500`)) as Row[];
+      const own = scope.level === 'own' ? await ownWorkerIds(ctx.ws, scope.email) : new Set<string>();
+      const plans = await planSites(ctx.ws, rows.filter((r) => r.store === 'defectMarks' && !r.deleted_at).map((r) => String(r.data.planId ?? '')));
+      const times = hasTool(acc, 'times');
+      const out = rows.map((r) => (TIME_STORES.includes(r.store) ? (times ? filterTimeRow(r, scope, own) : r.deleted_at ? r : { ...r, data: {}, deleted_at: r.updated_at }) : visibleRecord(r, acc, plans)));
+      const last = rows[rows.length - 1];
+      return json(200, { records: out, cursor: last ? { at: last.updated_at, id: last.id } : null, more: rows.length === 500, filtered: true }, origin);
     }
 
     if (action === 'delete') {
       const keys = Array.isArray(body.keys) ? (body.keys as string[]) : [];
       if (!keys.length || keys.length > 50) return json(422, { error: 'keys' }, origin);
       const failed: string[] = [];
+      for (const k of keys) if (!KEY_RE.test(k)) return json(422, { error: 'key' }, origin);
+      // Polier/Arbeiter: nur Dateien von Fotos bzw. Plänen freigegebener Projekte
+      const owners = acc.office ? null : await fileOwners(ctx.ws, acc, keys.map((key) => ({ key, method: 'DELETE' as const })));
       for (const k of keys) {
-        if (!KEY_RE.test(k)) return json(422, { error: 'key' }, origin);
+        if (owners && !fileAllowed(acc, fileKeyOwner(k).kind, 'DELETE', owners.get(`DELETE ${k}`) ?? { known: false, allowed: false })) {
+          failed.push(k);
+          continue;
+        }
         const { url, headers } = await signHeaders(cfg, 'DELETE', `/${encodePath(prefix + k)}`, {});
         const r = await fetch(url, { method: 'DELETE', headers });
         if (!r.ok && r.status !== 404) failed.push(k);

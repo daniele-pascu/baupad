@@ -21,6 +21,7 @@ import {
   type SyncStore,
 } from './db';
 import { getState, hasUnsavedChanges, flush as flushStore, reloadProject } from './store';
+import { needsFullPull, SERVER_FILTERS, syncAccess } from './sync-access';
 
 /**
  * Abgleich aller Daten mit der zentralen Ablage (Projekte, Kostenstellen, Pläne, Messungen, Zeichnungen, LV,
@@ -72,6 +73,8 @@ interface RemoteRow {
 interface Cursor {
   at: string;
   id: string;
+  /** Freigaben beim Abgleich (sync-access.ts) – ändern sie sich, beginnt der Abgleich von vorn */
+  access?: string;
 }
 
 export interface DataSyncState {
@@ -324,20 +327,33 @@ export class DataSync {
       const data = e.deleted ? undefined : await readSyncRecord(e.store as SyncStore, e.recordId);
       rows.push({ store: e.store, id: e.recordId, data: data ?? {}, rev: e.rev, deleted_at: e.deleted || !data ? e.updatedAt || Date.now() : null });
     }
-    await this.call('records-upsert', { records: rows });
+    const res = await this.call<{ rejected?: RemoteRow[] }>('records-upsert', { records: rows });
     await clearOutbox(entries);
+    // nicht erlaubt (Projekt nicht freigegeben, Werkzeug fehlt …): der Server schickt seinen Stand – den übernehmen
+    if (res?.rejected?.length) {
+      for (const row of res.rejected) await this.applyRow(row);
+      notifyDataChanged();
+    }
   }
 
   /** Änderungen anderer Geräte seit dem letzten Stand übernehmen */
   async pull(): Promise<void> {
-    let cursor = (await getMeta<Cursor>(CURSOR)) ?? { at: '', id: '' };
+    const saved = (await getMeta<Cursor>(CURSOR)) ?? { at: '', id: '' };
+    // Freigaben geändert (oder erster Abgleich mit Rechten am Server): einmal alles – der Server liefert entzogene
+    // Projekte als gelöscht, neu freigegebene vollständig. Nur, wenn die Funktion die Rechte schon prüft.
+    let filtering = (await getMeta<boolean>(SERVER_FILTERS)) === true;
+    let cursor: Cursor = filtering && needsFullPull(saved.access) ? { at: '', id: '', access: syncAccess() } : saved;
     const touchedProjects = new Set<string>();
     let changed = false;
     for (;;) {
       // neuere Funktion: eigener Cursor und „more“ (Zeitdaten werden für Polier/Arbeiter gefiltert – eine Seite kann
       // dann weniger Einträge haben, ohne dass es das Ende ist)
-      const res = await this.call<{ records: RemoteRow[]; cursor?: { at: string; id: string } | null; more?: boolean }>('records-pull', { since: cursor.at || null, after: cursor.id });
+      const res = await this.call<{ records: RemoteRow[]; cursor?: { at: string; id: string } | null; more?: boolean; filtered?: boolean }>('records-pull', { since: cursor.at || null, after: cursor.id });
       const { records } = res;
+      if (res.filtered && !filtering) {
+        filtering = true;
+        await setMeta(SERVER_FILTERS, true); // ab dem nächsten Abgleich: einmal alles neu (s. oben)
+      }
       if (!records.length && !res.more) break;
       const pending = new Set((await listOutbox()).map((e) => e.id));
       for (const row of records) {
@@ -347,7 +363,7 @@ export class DataSync {
         if (PROJECT_STORES.includes(row.store)) touchedProjects.add(row.store === 'projects' ? row.id : String(row.data.projectId ?? ''));
       }
       const last = records[records.length - 1];
-      cursor = res.cursor ?? { at: last.updated_at, id: last.id };
+      cursor = { ...(res.cursor ?? { at: last.updated_at, id: last.id }), access: cursor.access };
       await setMeta(CURSOR, cursor);
       if (res.more === undefined ? records.length < PAGE : !res.more) break;
     }

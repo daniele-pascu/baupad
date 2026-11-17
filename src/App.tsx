@@ -18,6 +18,7 @@ import { backfillPhotoUserNames, connectPhotoCloud, syncPhotoCloud } from './lib
 import { remoteConnected } from './lib/remote';
 import { isNativeApp } from './lib/native';
 import { adoptFreeSites } from './lib/sites';
+import { accessKey, setSyncAccess } from './lib/sync-access';
 import { notifyDataChanged, useDataChanged } from './lib/data-events';
 import { canTool, isLocked, ROUTE_TOOL } from './lib/access';
 import { hasStoredSession, initAuth } from './lib/auth-init';
@@ -319,15 +320,18 @@ function usePhotoCloud() {
   const companyId = session?.companyId ?? null;
   const userId = session?.userId ?? null;
   const userName = session?.name ?? '';
+  // Freigaben (Rolle, Werkzeuge, Projekte, Preise): ändern sie sich, gleicht der nächste Abgleich alles neu ab
+  const access = accessKey(session);
   useEffect(() => {
     if (session === undefined) return;
+    setSyncAccess(session);
     void connectPhotoCloud(remoteConnected() ? companyId : null)
       .catch(() => {})
       // nach der Anbindung: eigene Fotos ohne Namen bekommen den Namen der Anmeldung, danach Abgleich
       .then(() => backfillPhotoUserNames(userId ? { id: userId, name: userName } : null))
       .then(() => syncPhotoCloud().catch(() => {}))
       .catch(() => {});
-  }, [session === undefined, companyId, userId, userName]);
+  }, [session === undefined, companyId, userId, userName, access]);
 }
 
 export function App() {

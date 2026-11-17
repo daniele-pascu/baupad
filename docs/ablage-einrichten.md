@@ -27,6 +27,8 @@ war ein Fehlversuch und wird nicht gebraucht (löschen).
 
 **05.11.2026:** Funktion `storage` neu veröffentlichen – sie kennt jetzt die Materialverwaltung (`materials`, `suppliers`). Bis dahin bleiben Materialien und Lieferanten nur auf dem Gerät.
 
+**17.11.2026 (Rechte je Projekt, Werkzeug und Preise):** 1. Funktion `storage` neu veröffentlichen (Code aus `supabase/functions/storage/index.ts` ersetzen → Deploy, „Verify JWT“ bleibt aus). 2. **Danach** `docs/supabase/records-access.sql` im SQL Editor ausführen. Ab dann bekommen Polier und Arbeiter nur noch Daten und Fotos freigegebener Projekte, firmenweite Daten nur mit dem passenden Werkzeug und Preise nur mit „Preise und Summen“ – auch wer die App umgeht. Andere Reihenfolge: Polier und Arbeiter können bis zum Veröffentlichen nichts abgleichen. Ihre Geräte gleichen danach einmal alles neu ab; Daten nicht freigegebener Projekte verschwinden dabei vom Gerät.
+
 **17.11.2026 (Material: Verbrauch und Bedarf):** Funktion `storage` neu veröffentlichen – sie kennt jetzt `materialUses` (Verbrauch je Baustelle) und `materialPlans` (Bedarfsrechnung je Baustelle und Material). Bis dahin bleiben nur diese beiden auf dem Gerät (Warteschlange); alles andere, auch Materialstamm und Materiallisten, wird normal übertragen.
 
 **05.11.2026 (Zeitaufzeichnung):** Funktion `storage` neu veröffentlichen (filtert Stunden für Polier/Arbeiter), **danach** `docs/supabase/time-access.sql` im SQL Editor ausführen. Andere Reihenfolge: Poliere könnten kurz keine Stunden hochladen.
@@ -78,6 +80,7 @@ Secrets (Edge Functions → Secrets):
 - Ohne Anmeldung bei einer Firma (Konto ohne Arbeitsbereich) bleibt alles lokal.
 
 ## Sicherheit und Datenschutz
+- Rechte am Server (seit 17.11.2026): Die Tabellen `records` und `photos` lassen direkt nur Admin, Büro und Betreiber zu. Polier und Arbeiter lesen und schreiben nur über die Funktion `storage`, die jeden Datensatz prüft: Projekt freigegeben (gemeinsame Liste oder bei einem Werkzeug), Werkzeug vorhanden (Personal, Einteilung, Material, Formularvorlagen), Preise nur mit „Preise und Summen“. Nicht Freigegebenes kommt als „gelöscht“ an; signierte Links gibt es nur für Dateien freigegebener Projekte (neue Dateien dürfen hochgeladen werden), Monatsdateien der Zeitaufzeichnung nur für das Büro.
 - Hetzner-Schlüssel nur als Supabase-Secrets; Links sind 15 Minuten (Upload) bzw. 60 Minuten (Download) gültig.
 - Dateien sind privat (kein öffentlicher Zugriff), Zugriff nur über signierte Links des eigenen Arbeitsbereichs.
 - Datenschutzerklärung: Abschnitt „Zentrale Ablage“ nennt Hetzner Online GmbH (Deutschland) als Auftragsverarbeiter.

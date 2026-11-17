@@ -2,6 +2,8 @@
 -- Die Bilddaten liegen bei Hetzner unter ws/<workspace_id>/photos/<id>/…; hier stehen nur die Angaben
 -- (Projekt, Datum, Beschreibung …), damit alle Geräte einer Firma dieselbe Liste sehen.
 -- Im Supabase SQL Editor einmal ausführen (kann jederzeit erneut laufen).
+-- Seit 17.11.2026 gelten strengere Regeln (records-access.sql): wird diese Datei erneut ausgeführt, danach auch
+-- records-access.sql noch einmal ausführen.
 
 create table if not exists public.photos (
   id text primary key,

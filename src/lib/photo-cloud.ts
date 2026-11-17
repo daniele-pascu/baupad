@@ -3,6 +3,7 @@ import { cloudCall, CloudError, type FetchLike } from './cloud';
 import { deletePhotoBlob, deletePhotoCompletely, getMeta, getPhoto, getPhotoBlob, listAllPhotos, listPhotos, putPhotoBlob, savePhoto, setMeta } from './db';
 import { getPhotoStorage, LocalPhotoStorage, notifyPhotosChanged, type PhotoBlobs, type PhotoStorage, setPhotoStorage } from './photo-storage';
 import type { Photo } from './types';
+import { needsFullPull, SERVER_FILTERS, syncAccess } from './sync-access';
 import { connectDataSync, disconnectDataSync, syncData } from './data-sync';
 
 /**
@@ -15,6 +16,8 @@ import { connectDataSync, disconnectDataSync, syncData } from './data-sync';
  */
 
 const SYNC_AT = 'photoSyncAt';
+/** Freigaben beim letzten Abgleich (sync-access.ts) – ändern sie sich, beginnt der Abgleich von vorn */
+const SYNC_ACCESS = 'photoSyncAccess';
 const ACTIVE = 'photoCloudActive';
 const PULL_EVERY = 5 * 60_000;
 const RETRY_MIN = 10_000;
@@ -301,10 +304,20 @@ export class CloudPhotoStorage implements PhotoStorage {
 
   /** Änderungen anderer Geräte seit dem letzten Abgleich übernehmen */
   async pull(): Promise<void> {
-    let since = (await getMeta<string>(SYNC_AT)) ?? null;
+    const savedAccess = await getMeta<string>(SYNC_ACCESS);
+    let filtering = (await getMeta<boolean>(SERVER_FILTERS)) === true;
+    // Freigaben geändert: einmal alle Fotos – entzogene Projekte kommen als gelöscht, neu freigegebene vollständig
+    // (nur, wenn die Funktion die Rechte schon prüft)
+    const full = filtering && needsFullPull(savedAccess);
+    const access = full ? syncAccess() : savedAccess;
+    let since = full ? null : ((await getMeta<string>(SYNC_AT)) ?? null);
     let changed = false;
     for (;;) {
-      const { photos, now } = await this.call<{ photos: RemoteRow[]; now: string }>('pull', { since });
+      const { photos, now, filtered } = await this.call<{ photos: RemoteRow[]; now: string; filtered?: boolean }>('pull', { since });
+      if (filtered && !filtering) {
+        filtering = true;
+        await setMeta(SERVER_FILTERS, true);
+      }
       for (const row of photos) {
         const local = await getPhoto(row.id);
         if (local && pendingLocal(local)) continue;
@@ -334,10 +347,12 @@ export class CloudPhotoStorage implements PhotoStorage {
       }
       if (photos.length < PAGE) {
         await setMeta(SYNC_AT, now);
+        await setMeta(SYNC_ACCESS, access ?? null);
         break;
       }
       since = photos[photos.length - 1].updated_at;
       await setMeta(SYNC_AT, since);
+      await setMeta(SYNC_ACCESS, access ?? null);
     }
     setState({ status: 'ready', message: null, lastSyncAt: Date.now() });
     if (changed) notifyPhotosChanged();
