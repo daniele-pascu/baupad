@@ -21,8 +21,12 @@ describe('Stutzen (trimShape)', () => {
     expect(out.map(pts)).toEqual([[[0, 0], [7, 0]]]);
   });
 
-  it('gibt null ohne Schnittpunkte zurück', () => {
-    expect(trimShape(lineShape({ x: 0, y: 0 }, { x: 10, y: 0 }), { x: 5, y: 0 }, [])).toBeNull();
+  it('entfernt eine freie Linie ganz (keine Schnittpunkte)', () => {
+    expect(trimShape(lineShape({ x: 0, y: 0 }, { x: 10, y: 0 }), { x: 5, y: 0 }, [])).toEqual([]);
+  });
+
+  it('entfernt einen Kreis ganz, wenn er weniger als zwei Schnittpunkte hat', () => {
+    expect(trimShape({ type: 'ellipse', x: 0, y: 0, w: 4, h: 4 }, { x: 2, y: 0 }, [])).toEqual([]);
   });
 
   it('öffnet ein Rechteck nur zwischen Schnittpunkt und nächster Ecke (Rest als offene Polylinie)', () => {

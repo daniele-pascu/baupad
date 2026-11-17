@@ -1507,10 +1507,7 @@ export function useDrawing(opts: {
       return;
     }
     const parts = trimShape(line.shape, pm, others);
-    if (!parts) {
-      toast(line.type === 'line' || line.type === 'arc' || isOpenShape(line.shape) ? 'Die Linie schneidet keine andere Kante.' : 'Zum Stutzen einer geschlossenen Form braucht es mindestens zwei Schnittpunkte.', 'info');
-      return;
-    }
+    if (!parts) return; // Form ohne Länge
     if (selectedId === line.id) setSelectedId(null);
     if (!parts.length) softDelete({ elements: [line] });
     else putRecords({ elements: trimmedRecords(line, parts) });

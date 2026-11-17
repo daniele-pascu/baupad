@@ -119,8 +119,8 @@ const TRIM_EPS = 1e-6;
  * Stutzen (wie „Trimmen“ im CAD, Schnellmodus): Den angeklickten Abschnitt einer beliebigen Form
  * (Linie, Polylinie, Rechteck, Dreieck, Kreis, Bogen) zwischen den beiden nächsten Schnittpunkten
  * mit anderen Formen entfernen – liegt auf einer Seite kein Schnittpunkt, bis zum Linienende.
- * Ergebnis: verbleibende offene Linienzüge (leer = ganze Form entfernt); null = nichts zu stutzen
- * (keine Schnittpunkte bzw. bei geschlossenen Formen weniger als zwei).
+ * Ergebnis: verbleibende offene Linienzüge; leer = ganze Form entfernt – auch dann, wenn es keine Schnittpunkte
+ * gibt (bzw. bei Kreis und Ellipse weniger als zwei), wie im CAD-Schnellmodus; null = Form ohne Länge.
  */
 export function trimShape(shape: Shape, click: Point, others: Shape[]): Shape[] | null {
   const segs = edgesOf(shape) as [Point, Point][];
@@ -156,7 +156,8 @@ export function trimShape(shape: Shape, click: Point, others: Shape[]): Shape[] 
     .sort((x, y) => x - y)
     .filter((d, i, arr) => i === 0 || d - arr[i - 1] > TRIM_EPS);
   if (closed && uniq.length > 1 && total - uniq[uniq.length - 1] + uniq[0] <= TRIM_EPS) uniq.pop();
-  if (!uniq.length || (closed && uniq.length < 2)) return null;
+  // nichts, woran gestutzt werden könnte (freie Linie, Kreis ohne zwei Schnittpunkte): die ganze Form fällt weg
+  if (!uniq.length || (closed && uniq.length < 2)) return [];
   // Klickstelle als Bogenlänge (nächster Punkt auf der Form)
   let dc = 0;
   let best = Infinity;

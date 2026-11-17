@@ -235,6 +235,16 @@ test('Stutzen mit Zaun (mehrere Linien auf einmal) und an einem Rechteck', async
   near(opened!.shape.w, await m(200), 0.05); // Ober- und Unterkante bleiben ganz
   near(opened!.shape.h, await m(80), 0.05);
   expect(opened!.shape.points).toHaveLength(4); // C → D → A → B
+
+  // Freie Linie ohne Schnittpunkt: Stutzen entfernt sie ganz
+  await line(100, 610, 200, 610);
+  await waitSaved(page);
+  const n2 = (await elements()).length;
+  await deselect();
+  await pickTool(page, 'draw-trim');
+  await page.mouse.click(sb.x + 150, sb.y + 610);
+  await waitSaved(page);
+  expect(await elements()).toHaveLength(n2 - 1);
 });
 
 test('Spurlinien: Ecke anfahren, dann waagrecht in der Flucht einrasten (Linie endet genau auf der Höhe der Ecke)', async () => {
