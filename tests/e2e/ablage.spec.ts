@@ -1,7 +1,7 @@
 import { expect, test, type Page } from './fixtures';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { freshStart, FIXTURES } from './helpers';
+import { createProject, freshStart, FIXTURES } from './helpers';
 
 /**
  * Zentrale Ablage (Phase 1, Fotos): Die Supabase-Funktion „storage“ und die Hetzner-Links werden im Test
@@ -226,6 +226,47 @@ test('Ohne Empfang zuerst lokal, bei Empfang automatisch hochladen – auch bei 
   await context.setOffline(false);
   await expect.poll(() => [...cloud.records].some((k) => k.startsWith('projects:')), { timeout: 30_000 }).toBe(true);
   await expect(page.getByTestId('sync-badge')).toHaveCount(0);
+});
+
+test('Kamera: oben links X, oben rechts wartende Fotos – ohne Empfang gelb mit Anzahl, mit Empfang grüner Haken', async ({ page, context }) => {
+  test.setTimeout(90_000);
+  const cloud = fakeCloud();
+  await cloud.install(page);
+  await freshStart(page);
+  await createProject(page, 'Kellerabteil');
+  await expect.poll(() => cloud.calls.includes('records-pull'), { timeout: 15_000 }).toBe(true);
+  await page.goto('./#/fotos/kamera');
+  await page.getByTestId('cam-site').click();
+  await page.getByTestId('cam-site-row').filter({ hasText: 'Kellerabteil' }).click();
+  await expect(page.getByTestId('camera-page')).toHaveAttribute('data-ready', 'true');
+  await expect.poll(() => page.getByTestId('cam-video').evaluate((v: HTMLVideoElement) => v.videoWidth)).toBeGreaterThan(0);
+  const upload = page.getByTestId('cam-upload');
+  await expect(upload).toHaveAttribute('data-pending', '0');
+  await expect(upload).toHaveClass(/done/);
+  // X links, Übertragung rechts
+  const x = (await page.getByTestId('cam-close').boundingBox())!;
+  const u = (await upload.boundingBox())!;
+  expect(x.x).toBeLessThan(u.x);
+
+  // kein Empfang: zwei Fotos bleiben auf dem Gerät → „2“, gelb
+  cloud.net.offline = true;
+  await context.setOffline(true);
+  await page.getByTestId('cam-shutter').click();
+  await expect(page.getByTestId('cam-counter')).toHaveText('1');
+  await page.getByTestId('cam-shutter').click();
+  await expect(page.getByTestId('cam-counter')).toHaveText('2');
+  await expect(upload).toHaveAttribute('data-pending', '2', { timeout: 15_000 });
+  await expect(upload).toHaveClass(/waiting/);
+  await expect(upload).toHaveAttribute('aria-label', /2 Fotos warten auf die Übertragung – kein Empfang/);
+  await upload.click();
+  await expect(page.locator('.toast', { hasText: 'sobald wieder Empfang da ist' })).toHaveCount(1);
+
+  // Empfang wieder da: Fotos gehen hoch → grüner Haken
+  cloud.net.offline = false;
+  await context.setOffline(false);
+  await expect(upload).toHaveAttribute('data-pending', '0', { timeout: 30_000 });
+  await expect(upload).toHaveClass(/done/);
+  expect([...cloud.rows.values()].filter((r) => r.uploaded)).toHaveLength(2);
 });
 
 test('Veraltete Funktion „storage“ ohne Datenabgleich: roter Hinweis oben, Konto erklärt, was zu tun ist', async ({ page }) => {

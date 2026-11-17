@@ -128,6 +128,25 @@ export function tastenTests() {
     expect(out, out.join('\n')).toEqual([]);
   });
 
+  test('Tasten: Kamera-Modus (X links, Übertragung rechts, letztes Foto mit Zähler) – nichts überlappt, verdeckt oder abgeschnitten', async ({ page }) => {
+    const out: string[] = [];
+    await freshStart(page);
+    await page.goto('./#/fotos/kamera');
+    await expect(page.getByTestId('camera-page')).toBeVisible();
+    await expect(page.getByTestId('cam-close')).toBeVisible();
+    await pruefe(page, 'Kamera ohne Baustelle', out);
+    // Baustelle anlegen und ein Foto machen (Zähler auf dem letzten Foto)
+    await page.getByTestId('cam-site').click();
+    await page.getByTestId('cam-site-new').click();
+    await page.getByTestId('photo-site-name').fill('Tastentest Kamera mit einem recht langen Baustellennamen');
+    await page.getByTestId('photo-site-save').click();
+    await expect(page.getByTestId('camera-page')).toHaveAttribute('data-ready', 'true');
+    await page.getByTestId('cam-shutter').click();
+    await expect(page.getByTestId('cam-counter')).toHaveText('1');
+    await pruefe(page, 'Kamera mit Foto', out);
+    expect(out, out.join('\n')).toEqual([]);
+  });
+
   test('Tasten: Sicherheit (PIN-Fenster, Sperrbildschirm, PIN vergessen) – nichts überlappt, verdeckt oder abgeschnitten', async ({ page }) => {
     const out: string[] = [];
     await freshStart(page);
