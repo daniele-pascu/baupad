@@ -1,7 +1,7 @@
 import { useEffect, useRef, type CSSProperties } from 'react';
 import { ToolIcon } from '../../components/ToolIcon';
 import { useLang } from '../i18n';
-import { TOOL_ENTRIES } from '../products';
+import { TOOL_ENTRIES, toolPath } from '../products';
 
 /** Strichsymbole der Kacheln (24er Raster) – Platzhalter, bis die endgültigen Symbole feststehen */
 const ICON: Record<string, string> = {
@@ -64,6 +64,16 @@ const T0 = 0.7;
 const STEP = 1.15;
 const FIN = T0 + 7 * STEP;
 const END = FIN + 0.9;
+// nach dem Intro: alle CYCLE Sekunden eine Runde – abwechselnd Welle (links oben → rechts unten) und Gruppen (Werkzeug für Werkzeug)
+const CYCLE = 6;
+const ROUND_PAUSE = 0.6;
+const WAVE_SPAN = 2.6;
+const GROUP_STEP = 0.38;
+const FLIP = 0.85;
+// Karussell: Sekunden je Platz, Auffächern ab dem Schlussbild
+const ORBIT_SLOT_S = 3.4;
+const ORBIT_IN = 0.9;
+const ORBIT_IN_STEP = 0.07;
 const clamp = (v: number) => Math.max(0, Math.min(1, v));
 const ease = (p: number) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
 /** fester Zufall – die Wand sieht bei jedem Besuch gleich aus */
@@ -80,12 +90,13 @@ const seeded = (s: number) => () => {
  * von der Zeit ab (render(t)). Ohne Bewegung (System-Einstellung) steht sofort das Schlussbild.
  */
 export function ToolWall() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const w = t.home.product.wall;
   const slot = useRef<HTMLDivElement>(null);
   const wall = useRef<HTMLDivElement>(null);
   const plane = useRef<HTMLDivElement>(null);
   const again = useRef<HTMLButtonElement>(null);
+  const orbit = useRef<HTMLDivElement>(null);
   const restart = useRef<() => void>(() => undefined);
 
   useEffect(() => {
@@ -96,7 +107,13 @@ export function ToolWall() {
     const head = el.querySelector<HTMLElement>('.tw-head');
     const slides = Array.from(el.querySelectorAll<HTMLElement>('.tw-slide'));
     const ticks = Array.from(el.querySelectorAll<HTMLElement>('.tw-ticks b'));
-    let tiles: { el: HTMLElement; k: number; d: number }[] = [];
+    let tiles: { el: HTMLElement; k: number; d: number; w: number; st: string }[] = [];
+    const cards = Array.from(orbit.current?.querySelectorAll<HTMLElement>('.tw-card') ?? []);
+    const dots = Array.from(el.querySelectorAll<HTMLElement>('.tw-dots i'));
+    /** Drehung des Karussells (Grad); steht, solange die Maus darüber ist */
+    let angle = 0;
+    let hover = false;
+    let front = -1;
     const build = () => {
       pl.textContent = '';
       tiles = [];
@@ -144,17 +161,76 @@ export function ToolWall() {
         d.style.cssText = `--s:${size.toFixed(1)}px;--c:${tool.color};--ci:${LIT[tool.id] ?? tool.color};left:${px.toFixed(1)}px;top:${py.toFixed(1)}px`;
         d.innerHTML = `<div class="tw-front">${svg(SETS[tool.id][Math.floor(r() * 6)])}</div><div class="tw-back"><img src="/icons/pad-mark.png" alt=""></div>`;
         pl.appendChild(d);
-        tiles.push({ el: d, k, d: Math.hypot(px, py) / Math.hypot(W, H) });
+        tiles.push({ el: d, k, d: Math.hypot(px, py) / Math.hypot(W, H), w: 0, st: '' });
       });
+      // Lage für die Welle: 0 = links oben … 1 = rechts unten
+      const xs = spots.map((sp) => sp.x + sp.n / 2);
+      const ys = spots.map((sp) => sp.y + sp.n / 2);
+      const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+      tiles.forEach((q, i) => (q.w = ((xs[i] - x0) / Math.max(1, x1 - x0) + (ys[i] - y0) / Math.max(1, y1 - y0)) / 2));
+    };
+    /** Karussell: vorne groß, seitlich schräg dahinter; fächert ab dem Schlussbild aus der Mitte auf */
+    const renderOrbit = (time: number) => {
+      const n = cards.length;
+      const ow = orbit.current?.clientWidth ?? 0;
+      if (!n || !ow) return;
+      const step = 360 / n;
+      const r = Math.max(110, Math.min(ow * 0.3, 380));
+      const depth = Math.max(100, Math.min(ow * 0.26, 320));
+      let best = -2;
+      let bestIdx = 0;
+      cards.forEach((card, i) => {
+        let theta = (i * step - angle) % 360;
+        if (theta > 180) theta -= 360;
+        if (theta < -180) theta += 360;
+        const rad = (theta * Math.PI) / 180;
+        const sn = Math.sin(rad);
+        const c = Math.cos(rad);
+        const p = ease(clamp((time - FIN - Math.round(Math.abs(theta) / step) * ORBIT_IN_STEP) / ORBIT_IN));
+        const scale = (0.7 + 0.3 * Math.max(c, 0)) * (0.8 + 0.2 * p);
+        card.style.transform = `translate3d(${(sn * r * p).toFixed(1)}px, 0, ${((c - 1) * depth * p - (1 - p) * 200).toFixed(1)}px) rotateY(${(-sn * 34 * p).toFixed(2)}deg) scale(${scale.toFixed(3)})`;
+        card.style.opacity = (clamp((c + 0.2) / 0.55) * (0.5 + 0.5 * Math.max(c, 0)) * p).toFixed(3);
+        card.style.zIndex = String(Math.round((c + 1) * 100));
+        if (c > best) {
+          best = c;
+          bestIdx = i;
+        }
+      });
+      if (bestIdx !== front) {
+        front = bestIdx;
+        cards.forEach((card, i) => card.toggleAttribute('data-front', i === front));
+        dots.forEach((d, i) => d.toggleAttribute('data-on', i === front));
+      }
+    };
+    const setTile = (q: (typeof tiles)[number], z: number, rot: number, hi: number) => {
+      const st = `${z.toFixed(1)}|${rot.toFixed(2)}|${hi.toFixed(3)}`;
+      if (st === q.st) return; // unverändert – nichts schreiben (viele Kacheln, jede Bildschirmaktualisierung)
+      q.st = st;
+      q.el.style.transform = `translateZ(${z.toFixed(1)}px) rotateY(${rot.toFixed(2)}deg)`;
+      q.el.style.setProperty('--hi', hi.toFixed(3));
     };
     const render = (time: number) => {
-      for (const q of tiles) {
-        const on = T0 + q.k * STEP + 0.08 + q.d * 0.55;
-        const a = ease(clamp((time - on) / 0.55));
-        const hi = clamp((time - on) / 0.2) * (1 - clamp((time - (T0 + (q.k + 1) * STEP - 0.05)) / 0.4));
-        q.el.style.transform = `translateZ(${(Math.sin(Math.PI * clamp((time - on) / 0.55)) * 56).toFixed(1)}px) rotateY(${(180 - 180 * a).toFixed(2)}deg)`;
-        q.el.style.setProperty('--hi', hi.toFixed(3));
+      if (time < END) {
+        // Intro: Werkzeug für Werkzeug drehen sich seine Kacheln um (von der Mitte nach außen)
+        for (const q of tiles) {
+          const on = T0 + q.k * STEP + 0.08 + q.d * 0.55;
+          const a = ease(clamp((time - on) / 0.55));
+          const hi = clamp((time - on) / 0.2) * (1 - clamp((time - (T0 + (q.k + 1) * STEP - 0.05)) / 0.4));
+          setTile(q, Math.sin(Math.PI * clamp((time - on) / 0.55)) * 56, 180 - 180 * a, hi);
+        }
+      } else {
+        // danach immer wieder eine ganze Drehung: abwechselnd als Welle von links oben nach rechts unten und gruppenweise
+        const lt = time - END;
+        const round = Math.floor(lt / CYCLE);
+        const local = lt - round * CYCLE;
+        const wave = round % 2 === 0;
+        for (const q of tiles) {
+          const p = clamp((local - ROUND_PAUSE - (wave ? q.w * WAVE_SPAN : q.k * GROUP_STEP)) / FLIP);
+          const lift = Math.sin(Math.PI * p);
+          setTile(q, lift * 48, 360 * ease(p), lift * (wave ? 0.6 : 1));
+        }
       }
+      renderOrbit(time);
       if (head) head.style.opacity = clamp(time / 0.35).toFixed(3);
       slides.forEach((sl, k) => {
         const from = k < 7 ? T0 + k * STEP : FIN;
@@ -177,15 +253,29 @@ export function ToolWall() {
     const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let t0 = 0;
     let raf = 0;
+    let last = 0;
     let started = still;
+    let near = false;
     const tick = (now: number) => {
       const time = (now - t0) / 1000;
+      const dt = Math.min(0.064, (now - last) / 1000);
+      last = now;
+      // Karussell dreht ab dem Schlussbild ständig weiter (außer die Maus ist darüber)
+      if (time >= FIN && !hover) angle = (angle + (360 / Math.max(1, cards.length) / ORBIT_SLOT_S) * dt) % 360;
       render(time);
-      if (time < END + 0.2) raf = requestAnimationFrame(tick);
+      // nur rechnen, solange die Wand zu sehen ist
+      raf = near ? requestAnimationFrame(tick) : 0;
     };
     const start = () => {
       cancelAnimationFrame(raf);
       t0 = performance.now();
+      last = t0;
+      angle = 0;
+      raf = requestAnimationFrame(tick);
+    };
+    const resume = () => {
+      if (still || !started || raf) return;
+      last = performance.now();
       raf = requestAnimationFrame(tick);
     };
     restart.current = still ? () => render(END) : start;
@@ -203,8 +293,9 @@ export function ToolWall() {
       if (!sl) return;
       const r = sl.getBoundingClientRect();
       const w = el.getBoundingClientRect();
-      const near = r.bottom > w.top && r.top < w.bottom;
+      near = r.bottom > w.top && r.top < w.bottom;
       el.classList.toggle('near', near);
+      if (near) resume();
       el.classList.toggle('full', r.top <= w.top + 1 && r.bottom >= w.bottom - 1);
       if (!started && near && (Math.min(r.bottom, w.bottom) - Math.max(r.top, w.top)) / w.height >= 0.55) {
         started = true;
@@ -214,6 +305,11 @@ export function ToolWall() {
     const onScroll = () => {
       if (!sf) sf = requestAnimationFrame(update);
     };
+    const fine = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+    const enter = () => (hover = fine);
+    const leave = () => (hover = false);
+    orbit.current?.addEventListener('pointerenter', enter);
+    orbit.current?.addEventListener('pointerleave', leave);
     update();
     window.addEventListener('scroll', onScroll, { passive: true });
     let rt = 0;
@@ -227,8 +323,10 @@ export function ToolWall() {
         lastW = el.clientWidth;
         cancelAnimationFrame(raf);
         build();
-        started = true;
-        render(END);
+        if (!started || still) {
+          started = true;
+          render(END);
+        } else resume();
       }, 200);
     };
     window.addEventListener('resize', onResize);
@@ -238,6 +336,8 @@ export function ToolWall() {
       window.clearTimeout(rt);
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onResize);
+      orbit.current?.removeEventListener('pointerenter', enter);
+      orbit.current?.removeEventListener('pointerleave', leave);
     };
   }, []);
 
@@ -262,7 +362,33 @@ export function ToolWall() {
               </div>
             ))}
             <div className="tw-slide tw-slide-final" data-testid="tool-wall-final">
-              <ul className="tw-all" data-testid="tool-wall-all">
+              {/* Karussell der sieben Werkzeuge: dreht sich ständig; die vordere Karte führt zur Werkzeug-Seite */}
+              <div className="tw-orbit" ref={orbit} aria-hidden="true" data-testid="tool-wall-orbit">
+                {TOOL_ENTRIES.map((x) => (
+                  <a
+                    key={x.id}
+                    href={toolPath(x.id, lang)}
+                    className="tw-card"
+                    style={{ '--c': x.color, '--ci': LIT[x.id] } as CSSProperties}
+                    tabIndex={-1}
+                    draggable={false}
+                    data-testid="tool-wall-card"
+                    data-tool={x.id}
+                  >
+                    <ToolIcon name={x.icon} weight="thin" size={170} className="tw-card-mark" />
+                    <b className="tw-card-ico">
+                      <ToolIcon name={x.icon} size={28} />
+                    </b>
+                    <strong>{t.tools[x.id].title}</strong>
+                  </a>
+                ))}
+              </div>
+              <div className="tw-dots" aria-hidden="true">
+                {TOOL_ENTRIES.map((x) => (
+                  <i key={x.id} />
+                ))}
+              </div>
+              <ul className="tw-all sr-only" data-testid="tool-wall-all">
                 {TOOL_ENTRIES.map((x) => (
                   <li key={x.id} style={{ '--c': LIT[x.id] } as CSSProperties}>
                     <b aria-hidden="true">

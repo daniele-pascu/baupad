@@ -44,6 +44,19 @@ test('Website: Startseite PAD Software – Grundsätze, Lösungen mit Kachelwand
   await expect(wall.getByTestId('tool-wall-all').locator('li')).toHaveCount(7); // am Ende stehen alle sieben Werkzeuge da
   await expect(wall.getByTestId('tool-wall-all')).toContainText('Material');
   expect(await wall.locator('.tw-tile').count()).toBeGreaterThan(60);
+  // danach: Karussell der sieben Werkzeuge dreht sich ständig, die vordere Karte führt zur Werkzeug-Seite; die Kacheln drehen sich weiter
+  const cards = wall.getByTestId('tool-wall-card');
+  await expect(cards).toHaveCount(7);
+  await expect(wall.locator('[data-testid="tool-wall-card"][data-front]')).toHaveCount(1);
+  await expect(wall.locator('[data-testid="tool-wall-card"][data-front]')).toHaveAttribute('href', /^\/baupad\/funktionen\//);
+  const cardPos = () => cards.first().evaluate((e) => (e as HTMLElement).style.transform);
+  const c1 = await cardPos();
+  await page.waitForTimeout(400);
+  expect(await cardPos()).not.toBe(c1);
+  const tilePos = () => wall.locator('.tw-tile').evaluateAll((els) => els.map((e) => (e as HTMLElement).style.transform).join());
+  const t1 = await tilePos();
+  await page.waitForTimeout(1500);
+  expect(await tilePos()).not.toBe(t1);
   await wall.getByTestId('tool-wall-again').click(); // „Nochmal ansehen“ startet den Ablauf neu
   await expect(wall).toHaveAttribute('data-state', 'running');
   // BauPad als Produkt direkt unter der Aussage: Taste führt zur Produktseite
