@@ -151,6 +151,12 @@ export function tastenTests() {
     await page.getByTestId('cam-desc-save').click();
     await expect(page.getByTestId('cam-desc-chip')).toBeVisible();
     await pruefe(page, 'Kamera mit Foto, Zoom und Beschreibung', out);
+    // Format und Auflösung
+    await page.getByTestId('cam-format').click();
+    await expect(page.getByTestId('cam-format-sheet')).toBeVisible();
+    await page.getByTestId('cam-quality-hoch').click();
+    await pruefe(page, 'Kamera: Format und Auflösung', out);
+    await page.getByTestId('cam-format-sheet').getByRole('button', { name: 'Fertig' }).click();
     expect(out, out.join('\n')).toEqual([]);
   });
 

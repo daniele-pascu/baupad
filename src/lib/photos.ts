@@ -241,7 +241,7 @@ async function resize(bitmap: ImageBitmap, max: number, quality: number): Promis
  * Foto für die Ablage vorbereiten: Fingerabdruck, Aufnahmezeitpunkt (EXIF → Dateidatum → jetzt),
  * verkleinerte Version und Vorschaubild. Das Original bleibt unverändert (optional mitgespeichert).
  */
-export async function preparePhoto(file: File, now = Date.now()): Promise<PreparedPhoto> {
+export async function preparePhoto(file: File, now = Date.now(), opts: { max?: number; crop?: (w: number, h: number) => { x: number; y: number; w: number; h: number } } = {}): Promise<PreparedPhoto> {
   const buf = await file.arrayBuffer();
   const hash = await fileHash(buf);
   const exif = exifTakenAt(buf);
@@ -255,11 +255,16 @@ export async function preparePhoto(file: File, now = Date.now()): Promise<Prepar
   } catch {
     throw new Error(`„${file.name}“ ist kein unterstütztes Bild (JPG, PNG, WEBP, HEIC je nach Gerät).`);
   }
+  // Kamera-Modus: Ausschnitt (Seitenverhältnis) und Auflösung laut Einstellung; sonst ganzes Bild, Standardgröße
+  let src = bitmap;
   try {
-    const main = await resize(bitmap, PHOTO_MAX, 0.88);
-    const thumb = await resize(bitmap, THUMB_MAX, 0.8);
+    const c = opts.crop?.(bitmap.width, bitmap.height);
+    if (c && (c.w < bitmap.width || c.h < bitmap.height)) src = await createImageBitmap(bitmap, c.x, c.y, c.w, c.h);
+    const main = await resize(src, opts.max ?? PHOTO_MAX, 0.88);
+    const thumb = await resize(src, THUMB_MAX, 0.8);
     return { data: main.data, thumb: thumb.data, width: main.width, height: main.height, hash, takenAt, takenFrom };
   } finally {
+    if (src !== bitmap) src.close?.();
     bitmap.close?.();
   }
 }
