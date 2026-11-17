@@ -58,3 +58,32 @@ export const loadQuality = () => stored<Quality>('camQuality', ['klein', 'mittel
 export const saveRatio = (r: Ratio) => store('camRatio', r);
 export const saveOrient = (o: Orient) => store('camOrient', o);
 export const saveQuality = (q: Quality) => store('camQuality', q);
+
+/** Anzeige des Seitenverhältnisses: hochkant gespeicherte Fotos als 3:4, 9:16 … */
+export const ratioLabel = (r: Ratio, portrait: boolean) => (portrait && r !== '1:1' ? r.split(':').reverse().join(':') : r);
+
+/**
+ * Vorschau füllt den Bildschirm: Das Kamerabild wird so groß gezeigt, dass der Ausschnitt des Fotos (crop, im
+ * Kamerabild) möglichst groß und mittig im Bereich box liegt; was vom Kamerabild darüber hinausgeht, füllt den Rest
+ * (abgedunkelt). Liefert Lage und Größe des Kamerabilds im Bereich.
+ */
+export function previewLayout(box: { w: number; h: number }, frame: { w: number; h: number }, crop: { x: number; y: number; w: number; h: number }) {
+  const k = Math.min(box.w / crop.w, box.h / crop.h);
+  const cx = crop.x + crop.w / 2;
+  const cy = crop.y + crop.h / 2;
+  return { k, left: box.w / 2 - cx * k, top: box.h / 2 - cy * k, width: frame.w * k, height: frame.h * k };
+}
+
+/**
+ * Antippen im Bild → Punkt im Kamerabild (0…1), z. B. für Schärfe und Licht. Berücksichtigt digitalen Zoom (um die
+ * Mitte des Bereichs vergrößert) und die gespiegelte Frontkamera.
+ */
+export function tapToFrame(px: number, py: number, box: { w: number; h: number }, view: { left: number; top: number; width: number; height: number }, digital = 1, mirror = false): { x: number; y: number } {
+  const ux = box.w / 2 + (px - box.w / 2) / digital;
+  const uy = box.h / 2 + (py - box.h / 2) / digital;
+  let x = (ux - view.left) / view.width;
+  const y = (uy - view.top) / view.height;
+  if (mirror) x = 1 - x;
+  const c = (v: number) => Math.round(Math.min(1, Math.max(0, v)) * 1000) / 1000;
+  return { x: c(x), y: c(y) };
+}
