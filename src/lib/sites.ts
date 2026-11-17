@@ -202,6 +202,15 @@ export async function useProjectIn(projectId: string | null, tool: string): Prom
  * Liefert die Zahl der geänderten Einträge (neue Projekte und umgehängte Einträge).
  */
 export async function adoptFreeSites(purge = true): Promise<number> {
+  // Geräte einer Firma: nur Admin und Büro (Betreiber) mit bekannter Rolle. Polier und Arbeiter legen keine Projekte an,
+  // und ihre Geräte kennen nur freigegebene Projekte – Einträge anderer Projekte (z. B. in den Wochen) sähen sonst
+  // „verwaist“ aus und würden zu Doppel-Projekten. Offline ohne Firmenkontext ist die Rolle unbekannt → später.
+  if (await getMeta<string>('dataSyncWorkspace')) {
+    const me = await getAuth()
+      .session()
+      .catch(() => null);
+    if (!me?.companyId || !canCreateProjects(me)) return 0;
+  }
   const storage = getPhotoStorage();
   const [projects, weeks, reports, photos, plans, free, deleted] = await Promise.all([listProjects(), listWeeks(), listReports(), storage.list(), listDefectPlans(), listFreePhotoSites(), getMeta<string[]>(DELETED_KEY)]);
   const known = new Set(projects.map((p) => p.id));

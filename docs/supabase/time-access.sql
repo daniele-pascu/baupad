@@ -2,6 +2,8 @@
 -- `records` dürfen direkt nur Admin, Büro und Betreiber lesen und schreiben. Polier und Arbeiter bekommen sie
 -- ausschließlich gefiltert über die Funktion „storage“ (Polier: seine Projekte, Arbeiter: eigene Stunden).
 -- WICHTIG: zuerst die Funktion „storage“ neu veröffentlichen, dann dieses SQL ausführen.
+-- Seit 17.11.2026 gelten strengere Regeln (records-access.sql): wird diese Datei erneut ausgeführt, danach auch
+-- records-access.sql noch einmal ausführen.
 
 create or replace function public.is_office(ws uuid) returns boolean
 language sql stable security definer set search_path = public as $$

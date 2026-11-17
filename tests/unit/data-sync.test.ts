@@ -52,6 +52,10 @@ const store = await import('../../src/lib/store');
 const server = new Map<string, { store: string; id: string; data: unknown; rev: number; updated_at: string; deleted_at: string | null }>();
 const calls: string[] = [];
 const rejectStores = new Set<string>();
+/** Rechte am Server nachstellen: Änderungen dieser Datenarten lehnt der Server ab und schickt seinen Stand */
+const forbidStores = new Set<string>();
+/** Funktion prüft die Rechte schon (Antwort `filtered`) */
+let serverFilters = false;
 let clock = 0;
 const stamp = () => `2026-10-31T19:00:00.${String(++clock).padStart(6, '0')}+00:00`;
 const fakeFetch = async (_url: string, init: RequestInit) => {
@@ -66,15 +70,22 @@ const fakeFetch = async (_url: string, init: RequestInit) => {
     // veraltete Funktion nachstellen: kennt manche Datenarten nicht → ganze Lieferung 422
     if ((body.records as { store: string }[]).some((r) => rejectStores.has(r.store))) return new Response(JSON.stringify({ error: 'record' }), { status: 422 });
     const at = stamp(); // ein Upsert → gleiche Zeit für die ganze Gruppe
-    for (const r of body.records as { store: string; id: string; data: unknown; rev: number; deleted_at: number | null }[])
+    const rejected: unknown[] = [];
+    for (const r of body.records as { store: string; id: string; data: unknown; rev: number; deleted_at: number | null }[]) {
+      if (forbidStores.has(r.store)) {
+        const cur = server.get(`${r.store}:${r.id}`);
+        if (cur) rejected.push(cur);
+        continue;
+      }
       server.set(`${r.store}:${r.id}`, { ...r, updated_at: at, deleted_at: r.deleted_at ? new Date(r.deleted_at).toISOString() : null });
-    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    }
+    return new Response(JSON.stringify({ ok: true, rejected }), { status: 200 });
   }
   if (body.action === 'records-pull') {
     const since = (body.since as string | null) ?? '';
     const after = (body.after as string) ?? '';
     const rows = [...server.values()].filter((r) => r.updated_at > since || (r.updated_at === since && r.id > after)).sort((a, b) => a.updated_at.localeCompare(b.updated_at) || a.id.localeCompare(b.id));
-    return new Response(JSON.stringify({ records: rows }), { status: 200 });
+    return new Response(JSON.stringify({ records: rows, ...(serverFilters ? { filtered: true } : {}) }), { status: 200 });
   }
   return new Response(JSON.stringify({ error: 'action' }), { status: 400 });
 };
@@ -89,6 +100,8 @@ beforeEach(() => {
   deletedProjects.length = 0;
   calls.length = 0;
   rejectStores.clear();
+  forbidStores.clear();
+  serverFilters = false;
   s3.length = 0;
   globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
     s3.push(`${init?.method ?? 'GET'} ${String(url)}`);
@@ -215,3 +228,47 @@ describe('Pläne auf dem Gerät', () => {
   });
 });
 
+
+describe('Rechte am Server (Polier/Arbeiter)', () => {
+  it('abgelehnte Änderung: der Stand des Servers wird übernommen, die Warteschlange ist trotzdem leer', async () => {
+    const at = stamp();
+    server.set('plans:pl5', { store: 'plans', id: 'pl5', data: { id: 'pl5', projectId: 'p1', title: 'Server' }, rev: 2, updated_at: at, deleted_at: null });
+    records.set('plans:pl5', { id: 'pl5', projectId: 'p1', title: 'lokal' });
+    outbox.set('plans:pl5', entry('plans', 'pl5'));
+    forbidStores.add('plans');
+    const sync = new DataSync('ws1', fakeFetch);
+    await sync.push();
+    expect(outbox.size).toBe(0);
+    expect(server.get('plans:pl5')?.data).toEqual({ id: 'pl5', projectId: 'p1', title: 'Server' });
+    expect(applied).toEqual([{ store: 'plans', id: 'pl5', data: { id: 'pl5', projectId: 'p1', title: 'Server' } }]);
+  });
+
+  it('geänderte Freigaben: der Abgleich beginnt einmal von vorn (neu freigegebene Projekte kommen, entzogene gehen)', async () => {
+    const { setSyncAccess, accessKey } = await import('../../src/lib/sync-access');
+    const polier = (sites: string[]) => ({ userId: 'u', email: 'p@f.at', name: 'P', role: 'polier', companyId: 'ws1', companyName: 'F', operator: false, phone: '', pkg: null, workspaceActive: true, pricePerUser: 0, members: 2, tools: [], sites, toolSites: {}, providers: [] }) as unknown as Parameters<typeof accessKey>[0];
+    const at = stamp();
+    server.set('plans:alt', { store: 'plans', id: 'alt', data: { id: 'alt', projectId: 'p1', title: 'älter als der Cursor' }, rev: 1, updated_at: at, deleted_at: null });
+    meta.set('dataSyncCursor', { at: '2099-01-01T00:00:00Z', id: 'z' }); // Gerät von vor der Änderung: schon „alles“ geholt
+    setSyncAccess(polier(['p:p1']));
+    const sync = new DataSync('ws1', fakeFetch);
+    // Funktion noch nicht neu veröffentlicht (prüft keine Rechte): kein Neu-Abgleich – er käme ungefiltert
+    await sync.pull();
+    expect(applied).toEqual([]);
+    expect(meta.get('syncServerFilters')).toBeUndefined();
+    // neu veröffentlicht: die erste Antwort meldet es, ab dem nächsten Abgleich einmal alles
+    serverFilters = true;
+    await sync.pull();
+    expect(meta.get('syncServerFilters')).toBe(true);
+    await sync.pull();
+    expect(applied.map((a) => a.id)).toEqual(['alt']);
+    expect((meta.get('dataSyncCursor') as { access?: string }).access).toBe(accessKey(polier(['p:p1'])));
+    // gleiche Freigaben: nichts Neues
+    applied.length = 0;
+    await sync.pull();
+    expect(applied).toEqual([]);
+    // Projekt dazu freigegeben → noch einmal alles
+    expect(setSyncAccess(polier(['p:p1', 'p:p2']))).toBe(true);
+    await sync.pull();
+    expect(applied.map((a) => a.id)).toEqual(['alt']);
+  });
+});
