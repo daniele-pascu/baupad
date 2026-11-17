@@ -16,27 +16,12 @@ import type { Photo, PhotoSite } from '../lib/types';
 import { loadPhotoSites } from './PhotosPage';
 import { usePageTitle } from '../lib/page-title';
 import { syncPhotoCloud, useCloudState } from '../lib/photo-cloud';
+import { formatCrop, loadOrient, loadQuality, loadRatio, QUALITIES, qualityMax, RATIOS, ratioValue, saveOrient, saveQuality, saveRatio, type Orient, type Quality, type Ratio } from '../lib/camera-format';
 import { backLenses, clampZoom, DIGITAL_MAX, DIGITAL_STOPS, fmtZoom, pinchZoom, zoomCrop, zoomStops, type HwZoom, type LensKind, type Lenses } from '../lib/camera-zoom';
 import { FLASH_HINT, FLASH_LABEL, flashBeforeShot, loadFlash, nextFlash, saveFlash, setTorch as setTorchOn, type FlashMode } from '../lib/flash';
 
 const LAST_SITE = 'photoLastSite';
 const keyOf = (s: PhotoSite) => photoSiteKey({ projectId: s.projectId, siteName: s.name });
-
-type Ratio = '4:3' | '3:2' | '16:9' | '1:1';
-type Orient = 'auto' | 'portrait' | 'landscape';
-const RATIOS: Ratio[] = ['4:3', '3:2', '16:9', '1:1'];
-const ratioValue = (r: Ratio) => {
-  const [a, b] = r.split(':').map(Number);
-  return a / b;
-};
-function stored<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
-  try {
-    const v = localStorage.getItem(key);
-    return allowed.includes(v as T) ? (v as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
 
 /**
  * Drehung (Grad im Uhrzeigersinn) und Ausschnitt für ein Kamerabild: Das Bild des Sensors (fw × fh) wird
@@ -93,8 +78,9 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
   /** Kamera neu starten, wenn die App aus dem Hintergrund zurückkommt */
   const [tick, setTick] = useState(0);
   const [formatOpen, setFormatOpen] = useState(false);
-  const [ratio, setRatio] = useState<Ratio>(() => stored('camRatio', RATIOS, '4:3'));
-  const [orient, setOrient] = useState<Orient>(() => stored('camOrient', ['auto', 'portrait', 'landscape'] as const, 'auto'));
+  const [ratio, setRatio] = useState<Ratio>(loadRatio);
+  const [orient, setOrient] = useState<Orient>(loadOrient);
+  const [quality, setQuality] = useState<Quality>(loadQuality);
   /** Lage des Handys laut Sensor: 0 aufrecht, 90 Oberkante links, −90 Oberkante rechts; null = unbekannt */
   const [angle, setAngle] = useState<number | null>(null);
   const [layoutLandscape, setLayoutLandscape] = useState(() => matchMedia('(orientation: landscape)').matches);
@@ -295,19 +281,15 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
   }, [framing, frame, box]);
   const setRatioStored = (r: Ratio) => {
     setRatio(r);
-    try {
-      localStorage.setItem('camRatio', r);
-    } catch {
-      /* egal */
-    }
+    saveRatio(r);
   };
   const setOrientStored = (o: Orient) => {
     setOrient(o);
-    try {
-      localStorage.setItem('camOrient', o);
-    } catch {
-      /* egal */
-    }
+    saveOrient(o);
+  };
+  const setQualityStored = (q: Quality) => {
+    setQuality(q);
+    saveQuality(q);
   };
   /** Symbole mitdrehen, damit sie in Handlage aufrecht stehen */
   const iconStyle = angle && !layoutLandscape ? { transform: `rotate(${angle}deg)` } : undefined;
@@ -401,7 +383,8 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
     try {
       const file = await nativeTakePhoto();
       if (!file) return;
-      const pr = await preparePhoto(file);
+      // Foto der Gerätekamera: auf Seitenverhältnis/Ausrichtung zuschneiden (Mitte) und auf die Auflösung verkleinern
+      const pr = await preparePhoto(file, Date.now(), { max: qualityMax(quality), crop: (w, h) => formatCrop(w, h, ratio, orient) });
       const photo = photoFromPrepared(uuid(), file, pr, site, user, desc);
       const saved = await getPhotoStorage().put(photo, { data: pr.data, thumb: pr.thumb });
       await useProjectIn(site.projectId, 'photos');
@@ -447,7 +430,7 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
       const now = new Date();
       const stamp = now.toISOString().replace(/[-:]/g, '').slice(0, 15);
       const file = new File([blob], `BauPad_${stamp}.jpg`, { type: 'image/jpeg', lastModified: now.getTime() });
-      const pr = await preparePhoto(file);
+      const pr = await preparePhoto(file, now.getTime(), { max: qualityMax(quality) });
       const photo = photoFromPrepared(uuid(), file, { ...pr, takenAt: now.getTime(), takenFrom: 'now' }, site, user, desc);
       const saved = await getPhotoStorage().put(photo, { data: pr.data, thumb: pr.thumb });
       await useProjectIn(site.projectId, 'photos');
@@ -573,11 +556,9 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
           </button>
         )}
         <div className="cam-side">
-          {!native && (
-          <button type="button" className="cam-icon" onClick={() => setFormatOpen(true)} aria-label="Format" title={`Format: ${ratio}, ${orient === 'auto' ? 'automatisch' : orient === 'portrait' ? 'hoch' : 'quer'}`} style={iconStyle} data-testid="cam-format">
+          <button type="button" className="cam-icon" onClick={() => setFormatOpen(true)} aria-label="Format und Auflösung" title={`Format: ${ratio}, ${orient === 'auto' ? 'automatisch' : orient === 'portrait' ? 'hoch' : 'quer'}, Auflösung ${QUALITIES.find((q) => q.id === quality)?.label}`} style={iconStyle} data-testid="cam-format">
             <Icon name="crop" size={22} />
           </button>
-          )}
           <button type="button" className={`cam-icon${desc ? ' on' : ''}`} onClick={() => setDescOpen(true)} aria-label="Beschreibung für die nächsten Fotos" title="Beschreibung" style={iconStyle} data-testid="cam-desc">
             <Icon name="text" size={22} />
           </button>
@@ -651,7 +632,7 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
 
       {siteOpen && (
         <div className="cam-sheet-backdrop top" onClick={() => setSiteOpen(false)}>
-          <div className="cam-sheet cam-site-sheet" onClick={(e) => e.stopPropagation()} data-testid="cam-site-sheet">
+          <div className="cam-sheet cam-site-sheet" role="dialog" aria-modal="true" aria-label="Baustelle wählen" onClick={(e) => e.stopPropagation()} data-testid="cam-site-sheet">
             <strong>Baustelle wählen</strong>
             <input type="search" value={siteQuery} onChange={(e) => setSiteQuery(e.target.value)} placeholder="Name, Nummer, Kostenstelle oder Adresse suchen" autoFocus data-testid="cam-site-search" />
             <ul className="cam-site-list">
@@ -708,6 +689,9 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
         <div className="cam-sheet-backdrop top" onClick={() => setDescOpen(false)}>
           <form
             className="cam-sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Beschreibung"
             onClick={(e) => e.stopPropagation()}
             onSubmit={(e) => {
               e.preventDefault();
@@ -729,7 +713,7 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
       )}
       {formatOpen && (
         <div className="cam-sheet-backdrop" onClick={() => setFormatOpen(false)}>
-          <div className="cam-sheet" onClick={(e) => e.stopPropagation()} data-testid="cam-format-sheet">
+          <div className="cam-sheet" role="dialog" aria-modal="true" aria-label="Format und Auflösung" onClick={(e) => e.stopPropagation()} data-testid="cam-format-sheet">
             <strong>Seitenverhältnis</strong>
             <div className="segmented" role="radiogroup" aria-label="Seitenverhältnis">
               {RATIOS.map((r) => (
@@ -753,8 +737,20 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
               ))}
             </div>
             <p className="muted small">
-              Automatisch: Wird das Handy quer gehalten, wird das Foto quer gespeichert – auch bei eingeschalteter Ausrichtungssperre (Lagesensor).
-              {angle !== null ? ` Erkannt: ${angle === 0 ? 'hochkant' : 'quer'}.` : ''}
+              {native
+                ? 'Automatisch: so, wie das Foto mit der Kamera des Geräts aufgenommen wird. Hoch bzw. Quer schneidet es passend aus der Mitte zu.'
+                : `Automatisch: Wird das Handy quer gehalten, wird das Foto quer gespeichert – auch bei eingeschalteter Ausrichtungssperre (Lagesensor).${angle !== null ? ` Erkannt: ${angle === 0 ? 'hochkant' : 'quer'}.` : ''}`}
+            </p>
+            <strong>Auflösung</strong>
+            <div className="segmented" role="radiogroup" aria-label="Auflösung">
+              {QUALITIES.map((q) => (
+                <button key={q.id} type="button" role="radio" aria-checked={quality === q.id} aria-selected={quality === q.id} onClick={() => setQualityStored(q.id)} data-testid={`cam-quality-${q.id}`}>
+                  {q.label}
+                </button>
+              ))}
+            </div>
+            <p className="muted small" data-testid="cam-quality-hint">
+              {QUALITIES.find((q) => q.id === quality)?.hint}
             </p>
             <div className="row gap">
               <button type="button" className="btn btn-sm btn-primary" onClick={() => setFormatOpen(false)}>

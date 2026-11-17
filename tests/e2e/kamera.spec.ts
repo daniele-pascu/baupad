@@ -181,6 +181,33 @@ test.describe('Kamera-Zoom', () => {
     expect(await lastPhotoSize(page)).toEqual([Math.round(cw / 2), Math.round((cw * 3) / 4 / 2)]);
   });
 
+  test('Auflösung Klein · Mittel · Hoch: längste Kante 1280 / 2560 / volle Auflösung (nie vergrößert)', async ({ page }) => {
+    await openCamera(page);
+    const [vw, vh] = await page.getByTestId('cam-video').evaluate((v: HTMLVideoElement) => [v.videoWidth, v.videoHeight]);
+    const full = Math.min(vw, (vh * 4) / 3); // 4:3-Ausschnitt des Testbilds
+    const shotWith = async (q: string) => {
+      await page.getByTestId('cam-format').click();
+      await page.getByTestId(`cam-quality-${q}`).click();
+      await expect(page.getByTestId(`cam-quality-${q}`)).toHaveAttribute('aria-checked', 'true');
+      await page.getByTestId('cam-format-sheet').getByRole('button', { name: 'Fertig' }).click();
+      // (nach dem Zurückkommen zählt die Kamera neu)
+      await page.getByTestId('cam-shutter').click();
+      await expect(page.getByTestId('cam-counter')).toHaveText('1');
+      const size = await lastPhotoSize(page);
+      await page.keyboard.press('Escape');
+      await page.goBack();
+      await expect(page.getByTestId('camera-page')).toHaveAttribute('data-ready', 'true');
+      return size;
+    };
+    expect(await shotWith('klein')).toEqual([1280, 960]);
+    // Einstellung bleibt gemerkt
+    await page.getByTestId('cam-format').click();
+    await expect(page.getByTestId('cam-quality-klein')).toHaveAttribute('aria-checked', 'true');
+    await expect(page.getByTestId('cam-quality-hint')).toContainText('1280 px');
+    await page.getByTestId('cam-format-sheet').getByRole('button', { name: 'Fertig' }).click();
+    expect(await shotWith('hoch')).toEqual([Math.round(Math.min(full, 4096)), Math.round((Math.min(full, 4096) * 3) / 4)]);
+  });
+
   test('Kamera meldet einen Zoombereich (Android): Tasten 0,5 · 1× · 2× · 5× · 10×, die Kamera zoomt selbst', async ({ page }) => {
     await page.addInitScript(() => {
       const w = window as unknown as { __zooms: number[]; __zoom: number };
