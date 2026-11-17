@@ -1,4 +1,5 @@
-import type { CSSProperties } from 'react';
+import { useRef, type CSSProperties } from 'react';
+import { ToolOrbit, useTileSpins } from '../components/ToolOrbit';
 import { Icon } from '../components/Icon';
 import { ToolIcon, type ToolIconName } from '../components/ToolIcon';
 import { SiteNav } from '../components/SiteNav';
@@ -36,6 +37,8 @@ export function ToolsPage() {
   const tools = TOOLS.filter((t) => access.canTool((t.tool ?? t.id) as never));
   // Projektregister nur für Admin und Büro – die anderen übernehmen Projekte in den Tools („Projekt übernehmen“)
   const register = canEditSites(access.session);
+  const grid = useRef<HTMLElement>(null);
+  useTileSpins(grid, tools.length);
   return (
     <>
       <SiteNav />
@@ -66,7 +69,9 @@ export function ToolsPage() {
             )}
           </div>
         )}
-        <nav className="tools-grid" aria-label="Werkzeuge">
+        {/* Karussell (dreht sich ständig, Intro beim Betreten); die Kacheln darunter drehen sich immer wieder */}
+        <ToolOrbit tools={tools.filter((t) => t.href)} />
+        <nav className="tools-grid" aria-label="Werkzeuge" ref={grid}>
           {tools.map((t) => {
             const body = (
               <>
@@ -91,7 +96,7 @@ export function ToolsPage() {
             );
             const style = { '--tool': t.color } as CSSProperties;
             return t.href ? (
-              <a key={t.id} href={t.href} className="tool-tile" style={style} data-testid={`tool-${t.id}`}>
+              <a key={t.id} href={t.href} className="tool-tile" style={style} data-testid={`tool-${t.id}`} data-tool={t.id}>
                 {body}
               </a>
             ) : (
