@@ -278,6 +278,7 @@ test('Angemeldet: Tools, Einstellungen und Benutzerliste', async ({ page }) => {
     /Firmenformulare/,
     /Darstellung/,
     /App und Speicher/,
+    /Sicherheit/,
     /Weitere Einstellungen/,
   ]);
   await expect(page.getByTestId('account-logout')).toBeVisible();

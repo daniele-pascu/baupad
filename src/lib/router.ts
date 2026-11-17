@@ -12,7 +12,7 @@ import { useSyncExternalStore } from 'react';
 export type Lang = 'de' | 'en';
 export const LANGS: Lang[] = ['de', 'en'];
 
-export type SiteRouteName = 'landing' | 'products' | 'baupad' | 'company' | 'contact' | 'thanks' | 'future' | 'imprint' | 'privacy' | 'deleteAccountInfo';
+export type SiteRouteName = 'landing' | 'products' | 'baupad' | 'company' | 'contact' | 'thanks' | 'future' | 'imprint' | 'privacy' | 'deleteAccountInfo' | 'dpa';
 
 export type Route =
   | { name: 'landing' }
@@ -25,6 +25,7 @@ export type Route =
   | { name: 'imprint' }
   | { name: 'privacy' }
   | { name: 'deleteAccountInfo' }
+  | { name: 'dpa' }
   | { name: 'product'; product: 'projects' | 'workers' | 'reports' | 'photos' | 'defects' | 'times' | 'materials' }
   | { name: 'projects' }
   | { name: 'tools' }
@@ -59,8 +60,8 @@ export type Route =
 
 /** Adressen der Website je Sprache (ohne führenden Schrägstrich; Englisch bekommt das Präfix „en/“) */
 export const SITE_SLUGS: Record<Lang, Record<SiteRouteName, string>> = {
-  de: { landing: '', products: 'produkte', baupad: 'baupad', company: 'unternehmen', contact: 'kontakt', thanks: 'kontakt/danke', future: 'zukunft', imprint: 'impressum', privacy: 'datenschutz', deleteAccountInfo: 'konto-loeschen' },
-  en: { landing: '', products: 'products', baupad: 'baupad', company: 'company', contact: 'contact', thanks: 'contact/thank-you', future: 'future', imprint: 'imprint', privacy: 'privacy', deleteAccountInfo: 'delete-account' },
+  de: { landing: '', products: 'produkte', baupad: 'baupad', company: 'unternehmen', contact: 'kontakt', thanks: 'kontakt/danke', future: 'zukunft', imprint: 'impressum', privacy: 'datenschutz', deleteAccountInfo: 'konto-loeschen', dpa: 'auftragsverarbeitung' },
+  en: { landing: '', products: 'products', baupad: 'baupad', company: 'company', contact: 'contact', thanks: 'contact/thank-you', future: 'future', imprint: 'imprint', privacy: 'privacy', deleteAccountInfo: 'delete-account', dpa: 'data-processing' },
 };
 
 /** Website-Infoseiten der Werkzeuge: /baupad/funktionen/<slug> bzw. /en/baupad/features/<slug> */
@@ -169,6 +170,8 @@ export const paths = {
   imprint: (lang: Lang = 'de') => sitePath('imprint', lang),
   privacy: (lang: Lang = 'de') => sitePath('privacy', lang),
   deleteAccountInfo: (lang: Lang = 'de') => sitePath('deleteAccountInfo', lang),
+  /** Vertrag zur Auftragsverarbeitung (AVV) für Firmen */
+  dpa: (lang: Lang = 'de') => sitePath('dpa', lang),
   /** frühere Seite „Über uns“ → Unternehmen */
   about: (lang: Lang = 'de') => sitePath('company', lang),
   /** Werkzeug-Seite unter BauPad (Website) */

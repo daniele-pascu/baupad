@@ -42,7 +42,7 @@ async function pruefe(page: Page, wo: string, out: string[]) {
   });
 }
 
-const WEBSITE = ['/', '/produkte', '/baupad', '/unternehmen', '/kontakt', '/zukunft', '/impressum', '/datenschutz', '/baupad/funktionen/aufmass', '/baupad/funktionen/materialverwaltung', '/en', '/en/baupad/features/materialverwaltung', '/baupad/anmelden', '/baupad/registrieren'];
+const WEBSITE = ['/', '/produkte', '/baupad', '/unternehmen', '/kontakt', '/zukunft', '/impressum', '/datenschutz', '/auftragsverarbeitung', '/baupad/funktionen/aufmass', '/baupad/funktionen/materialverwaltung', '/en', '/en/baupad/features/materialverwaltung', '/baupad/anmelden', '/baupad/registrieren'];
 const APP = [
   'tools',
   'aufmass-und-abrechnung',
@@ -61,6 +61,7 @@ const APP = [
   'materialverwaltung?t=material',
   'materialverwaltung?t=lieferanten',
   'konto',
+  'konto/sicherheit',
 ];
 
 export function tastenTests() {
@@ -124,6 +125,37 @@ export function tastenTests() {
     await expect(page.getByTestId('times-pick-dialog')).toBeVisible();
     await pruefe(page, 'Dialog zeitaufzeichnung (times-pick)', out);
     await page.keyboard.press('Escape');
+    expect(out, out.join('\n')).toEqual([]);
+  });
+
+  test('Tasten: Sicherheit (PIN-Fenster, Sperrbildschirm, PIN vergessen) – nichts überlappt, verdeckt oder abgeschnitten', async ({ page }) => {
+    const out: string[] = [];
+    await freshStart(page);
+    await page.goto('./baupad/konto/sicherheit');
+    await page.getByTestId('lock-setup').click();
+    await expect(page.getByTestId('pin-dialog')).toBeVisible();
+    await pruefe(page, 'Dialog PIN festlegen', out);
+    await page.getByTestId('pin-new').fill('2468');
+    await page.getByTestId('pin-again').fill('2468');
+    await page.getByTestId('pin-save').click();
+    await expect(page.getByTestId('pin-dialog')).toBeHidden();
+    await pruefe(page, 'Konto Sicherheit (Sperre an)', out);
+    await page.getByTestId('lock-change').click();
+    await pruefe(page, 'Dialog PIN ändern', out);
+    await page.keyboard.press('Escape');
+    await page.getByTestId('lock-now').click();
+    await expect(page.getByTestId('app-lock')).toBeVisible();
+    for (const b of await tastenBefunde(page)) out.push(`Sperrbildschirm: ${b}`);
+    await page.getByTestId('lock-pin').fill('1111');
+    await page.getByTestId('lock-unlock').click();
+    await expect(page.getByTestId('lock-msg')).toContainText('Falsche PIN');
+    for (const b of await tastenBefunde(page)) out.push(`Sperrbildschirm (falsche PIN): ${b}`);
+    await page.getByTestId('lock-forgot').click();
+    for (const b of await tastenBefunde(page)) out.push(`Sperrbildschirm (PIN vergessen): ${b}`);
+    await page.getByTestId('lock-forgot-cancel').click();
+    await page.getByTestId('lock-pin').fill('2468');
+    await page.getByTestId('lock-unlock').click();
+    await expect(page.getByTestId('app-lock')).toBeHidden();
     expect(out, out.join('\n')).toEqual([]);
   });
 

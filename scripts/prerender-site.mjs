@@ -30,6 +30,7 @@ function routes() {
     imprint: [t.legal.imprint.title, t.legal.imprint.description, []],
     privacy: [t.legal.privacy.title, t.legal.privacy.description, []],
     deleteAccountInfo: [t.legal.deleteAccount.title, t.legal.deleteAccount.description, []],
+    dpa: [t.legal.dpa.title, t.legal.dpa.description, []],
   });
   for (const lang of LANGS) {
     const t = DICT[lang];
