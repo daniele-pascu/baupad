@@ -143,7 +143,7 @@ export interface Sheet {
   print?: boolean;
   /** Kopfzeile (nur mit print): links z. B. Projekt / Kostenstelle; Mitte: Seitenzahl; rechts: Firmenlogo */
   headerLeft?: string;
-  /** Öffnen in der Seitenlayout-Ansicht (Kopfzeile mit Logo sichtbar), ohne fixierte Zeilen */
+  /** Blatt ohne fixierte Zeilen (früher: Seitenlayout-Ansicht – geöffnet wird jetzt immer in der normalen Ansicht) */
   pageLayout?: boolean;
   /** Druck: alles auf eine Seite (Breite und Höhe) */
   onePage?: boolean;
@@ -330,7 +330,7 @@ function sheetXml(sheet: Sheet, logo?: HeaderImage): string {
     .join('');
   const maxCols = Math.max(1, sheet.widths.length, ...sheet.rows.map((r) => r.length));
   const dim = `A1:${colName(maxCols - 1)}${Math.max(1, sheet.rows.length)}`;
-  // Seitenlayout-Ansicht verträgt keine fixierten Zeilen (Drucktitel bleiben)
+  // Druckblätter ohne fixierte Zeilen (Drucktitel bleiben)
   const frozen = sheet.pageLayout ? 0 : (sheet.headerRows ?? (sheet.freezeHeader ? 1 : 0));
   const pane = frozen
     ? `<pane ySplit="${frozen}" topLeftCell="A${frozen + 1}" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A${frozen + 1}" sqref="A${frozen + 1}"/>`
@@ -343,7 +343,8 @@ function sheetXml(sheet: Sheet, logo?: HeaderImage): string {
     '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
     (sheet.print && !sheet.scale ? '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>' : '') +
     `<dimension ref="${dim}"/>` +
-    `<sheetViews><sheetView workbookViewId="0"${sheet.pageLayout ? ' view="pageLayout"' : ''}>${pane}</sheetView></sheetViews>` +
+    // immer die normale Ansicht (nicht „Seitenlayout“): die Datei soll sich wie jede andere Excel-Datei bearbeiten lassen
+    `<sheetViews><sheetView workbookViewId="0">${pane}</sheetView></sheetViews>` +
     '<sheetFormatPr defaultRowHeight="15"/>' +
     cols +
     `<sheetData>${rows}</sheetData>` +

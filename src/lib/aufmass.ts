@@ -1,5 +1,6 @@
 import { KIND_LABELS, kindOf, measureLabel, quantityBasis, quantityFor, sumAreas, sumLengths } from './measure';
 import { naturalCompare } from './numbers';
+import { LINE_TYPES } from './style';
 import type { ProjectState } from './store';
 import { alive } from './store';
 import type { Component, CostCenter, Damage, DrawElement, LvDocument, LvPosition, Plan } from './types';
@@ -443,7 +444,11 @@ export function aufmassBlocksSheet(data: ProjectState, plans: Plan[], used: Set<
   const areaTitle = withoutPos ? 'Flächen ohne Leistung' : 'Flächen';
   const lineTitle = withoutPos ? 'Linien ohne Leistung' : 'Linien';
   if (freeAreas.length) pushBlock(areaTitle, 'm²', freeAreas.map((x) => ({ ...x, q: x.d.area })), null, false, { pos: '', text: areaTitle });
-  if (freeLines.length) pushBlock(lineTitle, 'm', freeLines.map((x) => ({ ...x, q: x.d.length })), null, false, { pos: '', text: lineTitle });
+  // Linien je Linienart getrennt (durchgezogen, Wellenlinie, gestrichelt …) – verschiedene Arten nie in einer Summe
+  for (const g of linesByType(freeLines)) {
+    const title = lineTypeTitle(lineTitle, g.label, g.only);
+    pushBlock(title, 'm', g.items.map((x) => ({ ...x, q: x.d.length })), null, false, { pos: '', text: title });
+  }
   if (!items.length) rows.push([str('Noch keine Messungen erfasst.', 'note')]);
   if (totals.length > 1) {
     const r: Cell[] = Array.from({ length: maxCols }, () => null);
@@ -462,6 +467,18 @@ export function aufmassBlocksSheet(data: ProjectState, plans: Plan[], used: Set<
   };
 }
 
+
+/**
+ * Linien nach Linienart gruppiert, in der Reihenfolge der Linienarten der App. `only`: Es gibt nur
+ * durchgezogene Linien – dann bleibt die Überschrift ohne Zusatz.
+ */
+export function linesByType<T extends { d: Pick<Damage, 'style'> }>(items: T[]): { label: string; items: T[]; only: boolean }[] {
+  const typeOf = (x: T) => x.d.style?.lineType ?? 'solid';
+  const groups = LINE_TYPES.map((t) => ({ id: t.id, label: t.label, items: items.filter((x) => typeOf(x) === t.id) })).filter((g) => g.items.length);
+  const only = groups.length === 1 && groups[0].id === 'solid';
+  return groups.map((g) => ({ label: g.label, items: g.items, only }));
+}
+const lineTypeTitle = (title: string, label: string, only: boolean) => (only ? title : `${title} – ${label}`);
 
 /**
  * Übersicht (erstes Blatt): Projektdaten, Zusammenfassung je Leistung (Mengen per Formel aus dem
@@ -801,7 +818,13 @@ function freeSheet(items: { plan: Plan; d: Damage }[], title: string, used: Set<
       ]),
       [],
       [str('Summe Fläche (m²)', 'label'), null, null, null, null, null, { t: 'formula', f: `SUM(G${first}:G${last})`, v: sumAreas(ds), s: 'boldArea' }],
-      [str('Summe Länge Linien (m)', 'label'), null, null, { t: 'formula', f: `SUMIF(C${first}:C${last},"Linie",D${first}:D${last})`, v: sumLengths(ds), s: 'boldArea' }],
+      // Linien je Linienart getrennt summiert; nur durchgezogene: eine Summe per Formel wie bisher
+      ...(() => {
+        const groups = linesByType(items.filter((x) => kindOf(x.d) === 'line'));
+        return groups.length <= 1 && (groups[0]?.only ?? true)
+          ? [[str('Summe Länge Linien (m)', 'label'), null, null, { t: 'formula', f: `SUMIF(C${first}:C${last},"Linie",D${first}:D${last})`, v: sumLengths(ds), s: 'boldArea' }] as Cell[]]
+          : groups.map((g) => [str(`Summe Länge Linien – ${g.label} (m)`, 'label'), null, null, num(sumLengths(g.items.map((x) => x.d)), 'boldArea')] as Cell[]);
+      })(),
     ],
     widths: [14, 8, 13, 12, 12, 12, 13],
     headerRows: 2,

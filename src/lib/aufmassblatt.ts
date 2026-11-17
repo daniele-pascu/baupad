@@ -1,14 +1,14 @@
 import { round2 } from './numbers';
 import { rebarExact, rebarFormula, rebarItemsOf } from './rebar';
 import { deductionNumbers } from './numbering';
-import { aufmassRows, costCenterLabel, costCentersOf, lvDocsOf, plansOf, positionRef, safeFileName, type ExportFile, type XlsxScope } from './aufmass';
+import { aufmassRows, costCenterLabel, costCentersOf, linesByType, lvDocsOf, plansOf, positionRef, safeFileName, type ExportFile, type XlsxScope } from './aufmass';
 import { invoiceLabel, invoiceShort } from './invoices';
 import { deductionArea, deductionLength, grossArea, hasArea, kindOf, quantityBasis, quantityFor } from './measure';
 import { MEASURE_TYPES, typeOf } from './measure-types';
 import { activeRule, bookingFactor } from './pos-rules';
 import type { ProjectState } from './store';
 import type { Damage, Deduction, LvDocument, LvPosition, Plan } from './types';
-import { A4_HEIGHT_IN, BLATT_BOTTOM_IN, blank, blattTopMargin, buildXlsx, num, str, type Cell, type HeaderImage, type Sheet } from './xlsx';
+import { blank, buildXlsx, num, str, type Cell, type HeaderImage, type Sheet } from './xlsx';
 
 /**
  * Aufmaßblatt nach der Firmenvorlage (AMB): ein Blatt, Kopf mit Aufmaßblatt-Nummer,
@@ -119,7 +119,9 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
   const merges: string[] = [];
   const add = (cells: Cell[] = [], height?: number) => {
     rows.push(cells);
-    if (height) heights[rows.length] = height;
+    // Zeilenhöhe nur festlegen, wo umbrochener Text in verbundenen Zellen mehrere Zeilen braucht (das passt Excel nicht
+    // selbst an) – alle anderen Zeilen bleiben frei, damit Schrift, Höhen und Spalten wie gewohnt änderbar sind
+    if (height && height > 30) heights[rows.length] = height;
     return rows.length; // Excel-Zeilennummer
   };
   /** Abschnittstitel mit Linie darunter (LV/MFK bzw. Aufmaß ohne Position) */
@@ -145,8 +147,7 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
   infoRow('Leistungszeitraum', info.period);
   add([], 10);
 
-  // je LV/MFK: Zusammenstellung, dann die Positionen mit ihren Messungen; jede LV/MFK (und das Aufmaß ohne Position) beginnt auf einer neuen Seite
-  const starts: number[] = [];
+  // je LV/MFK: Zusammenstellung, dann die Positionen mit ihren Messungen – alles zusammen auf einer A4-Seite
   const assigned = new Set<string>();
   for (const doc of lvDocsOf(data)) {
     const blocks = doc.positions
@@ -159,14 +160,12 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
       .filter((b) => b.list.length);
     if (!blocks.length) continue;
     blocks.forEach((b) => b.list.forEach((x) => assigned.add(x.d.id)));
-    starts.push(rows.length + 1);
     docSection(doc, blocks);
   }
 
   // Messungen ohne Position: je Messart eine Tabelle (wie in der App), Bezug zum Plan über Plan und Nr.
   const free = items.filter((x) => !assigned.has(x.d.id));
   if (free.length) {
-    starts.push(rows.length + 1);
     section(assigned.size ? 'Aufmaß ohne Leistungsposition' : 'Aufmaß');
     // Flächenmessung ohne Fläche (nur die Länge erfasst, z. B. ein Riss): zählt wie bisher als Länge
     const onlyLength = (x: Item) => hasArea(kindOf(x.d)) && x.d.area === null && typeOf(x.d) !== 'volumen';
@@ -183,8 +182,17 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
         }
         continue;
       }
+      if (type.id === 'laenge') {
+        // Linien je Linienart getrennt (durchgezogen, Wellenlinie, gestrichelt …) – verschiedene Arten nie in einer Summe
+        for (const g of linesByType(list)) {
+          band(g.only ? type.label : `${type.label} – ${g.label}`);
+          table(g.items, 'length');
+          add([], 10);
+        }
+        continue;
+      }
       band(type.label);
-      const kind: Kind = type.id === 'laenge' ? 'length' : type.id === 'stueck' ? 'count' : type.id === 'volumen' ? 'volume' : list.some((x) => x.d.depth !== null) ? 'areaDepth' : 'area';
+      const kind: Kind = type.id === 'stueck' ? 'count' : type.id === 'volumen' ? 'volume' : list.some((x) => x.d.depth !== null) ? 'areaDepth' : 'area';
       table(list, kind, '', type.id === 'wand' ? { width: 'Höhe', depth: 'Stärke' } : undefined);
       add([], 10);
     }
@@ -425,23 +433,11 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
     merges,
     print: true,
     pageLayout: true,
+    // immer auf eine A4-Seite (Breite und Höhe) – ohne feste Seitenumbrüche oder festen Zoom
+    onePage: true,
     logoLeft: true,
     headerCenter: `Aufmaßblatt ${info.no}`,
   };
-  const breaks = starts.slice(1);
-  if (!breaks.length) {
-    // ein Abschnitt: immer auf eine Seite (Breite und Höhe)
-    sheet.onePage = true;
-  } else {
-    // mehrere LV/MFK: Seitenumbruch vor jedem weiteren Abschnitt; „auf eine Seite anpassen“ würde die Umbrüche
-    // aufheben, daher fester Zoom so, dass auch der längste Abschnitt auf eine Seite passt
-    sheet.rowBreaks = breaks;
-    const rowH = (r: number) => heights[r] ?? 15;
-    const bounds = [1, ...breaks, rows.length + 1];
-    const longest = Math.max(...bounds.slice(1).map((end, i) => Array.from({ length: end - bounds[i] }, (_, k) => rowH(bounds[i] + k)).reduce((a, b) => a + b, 0)));
-    const usable = (A4_HEIGHT_IN - blattTopMargin(opts.logo) - BLATT_BOTTOM_IN) * 72 * 0.97;
-    sheet.scale = Math.max(10, Math.min(100, Math.floor((usable / longest) * 100)));
-  }
   const scopeName =
     scope.kind === 'plan' || (scope.kind === 'plans' && plans.length === 1)
       ? [costCenterLabel(ccs[0]), planNo(plans[0])]

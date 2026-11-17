@@ -51,7 +51,7 @@ test('Logo hochladen, im Aufmaßblatt links in der Kopfzeile, rechts Seite von S
   const prB = readXlsxPrint(fileB)['Aufmaßblatt 001'];
   expect(prB.header.left).toBe('&G');
   expect(prB.header.right).toBe('&P von &N');
-  expect(unzipRead(fileB, 'xl/worksheets/sheet1.xml')).toContain('view="pageLayout"');
+  expect(unzipRead(fileB, 'xl/worksheets/sheet1.xml')).not.toContain('view="pageLayout"'); // normale Ansicht
 
   // Logo entfernen → Export ohne Bild
   await page.goto('./konto/firma');

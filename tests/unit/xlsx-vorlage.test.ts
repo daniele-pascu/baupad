@@ -36,6 +36,28 @@ const data = {
   lvDocs: { lv1: lv },
 } as unknown as ProjectState;
 
+describe('Excel: Linien verschiedener Linienart nie zusammen', () => {
+  const line = (id: string, n: number, length: number, lineType?: string) => dmg(id, n, { kind: 'line', width: null, area: null, length, ...(lineType ? { style: { lineType } } : {}) } as Partial<Damage>);
+  const withLines = (...ls: Damage[]) => ({ ...data, damages: Object.fromEntries(ls.map((d) => [d.id, d])), lvDocs: {} }) as unknown as ProjectState;
+  const titles = (st: ProjectState) => aufmassBlocksSheet(st, [plan], new Set()).rows.map((r) => (r[0] && typeof r[0] === 'object' && 'v' in r[0] ? String((r[0] as { v: unknown }).v) : ''));
+  const sums = (st: ProjectState) => aufmassBlocksSheet(st, [plan], new Set()).rows.flatMap((r) => r.filter((c) => c && typeof c === 'object' && 't' in c && (c as { t: string }).t === 'formula').map((c) => (c as { v: number }).v));
+
+  it('gerade und wellige Linien: je ein eigener Block mit eigener Summe', () => {
+    const st = withLines(line('a', 1, 4), line('b', 2, 2.5, 'wave'), line('c', 3, 1.5), line('d', 4, 3, 'wave'), line('e', 5, 7, 'dashed'));
+    const t = titles(st);
+    expect(t.filter((x) => x.startsWith('Linien'))).toEqual(['Linien – Durchgezogen', 'Linien – Gestrichelt', 'Linien – Wellenlinie']);
+    expect(sums(st)).toEqual([5.5, 7, 5.5]); // 4 + 1,5 · 7 · 2,5 + 3 – nie 18
+  });
+  it('nur durchgezogene Linien: ein Block „Linien“ wie bisher', () => {
+    const st = withLines(line('a', 1, 4), line('c', 3, 1.5));
+    expect(titles(st).filter((x) => x.startsWith('Linien'))).toEqual(['Linien']);
+    expect(sums(st)).toEqual([5.5]);
+  });
+  it('nur Wellenlinien: der Block nennt die Linienart', () => {
+    expect(titles(withLines(line('b', 2, 2.5, 'wave'))).filter((x) => x.startsWith('Linien'))).toEqual(['Linien – Wellenlinie']);
+  });
+});
+
 describe('Excel nach Vorlage', () => {
   it('Block je Leistung: Pos. + Kurztext, lückenlose Tabelle, Summe, Einheits- und Gesamtpreis (Formeln); Linien getrennt; eine Seite', () => {
     const sh = aufmassBlocksSheet(data, [plan], new Set(), 'Tiefgarage · 91092');
@@ -67,7 +89,7 @@ describe('Excel nach Vorlage', () => {
     const f = exportXlsx(data, { kind: 'costCenter', costCenterId: 'c1' }, 'standard', { logo });
     const z = unzipSync(f.data);
     const sheet1 = strFromU8(z['xl/worksheets/sheet1.xml']);
-    expect(sheet1).toContain('view="pageLayout"');
+    expect(sheet1).not.toContain('view="pageLayout"'); // normale Ansicht
     // Blatt 2 (Aufmaß nach Leistungen): alles auf einer Seite
     expect(strFromU8(z['xl/worksheets/sheet2.xml'])).toContain('fitToWidth="1" fitToHeight="1"');
     expect(sheet1).toContain('<oddHeader>&amp;L&amp;9Tiefgarage &amp;&amp; Co / 91092 – Ebene 1&amp;C&amp;9Seite &amp;P von &amp;N&amp;R&amp;G</oddHeader>');

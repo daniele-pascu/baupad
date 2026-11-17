@@ -24,12 +24,13 @@ const logo = { bytes: new Uint8Array([137, 80, 78, 71]), type: 'png' as const, w
 describe('Aufmaßblatt (Firmenvorlage)', () => {
   const zip = unzipSync(exportAufmassblatt(data, { kind: 'costCenter', costCenterId: 'c1' }, { no: '007', period: '01.10.2026' }, { logo }).data);
   const sheet = strFromU8(zip['xl/worksheets/sheet1.xml']);
-  it('Kopfzeile wie Vorlage: Logo links, „Seite von Seiten“ rechts; Seitenlayout, eine Seite', () => {
+  it('Kopfzeile wie Vorlage: Logo links, „Seite von Seiten“ rechts; normale Ansicht, eine Seite', () => {
     // Mitte: Aufmaßblatt-Nummer kursiv 9 pt wie in der neuen Vorlage
     expect(sheet).toContain('<oddHeader>&amp;L&amp;G&amp;C&amp;&quot;-,Kursiv&quot;&amp;9Aufmaßblatt 007&amp;R&amp;P von &amp;N</oddHeader>');
     expect(sheet).toContain('<pageMargins left="0.61" right="0.61"');
     expect(strFromU8(zip['xl/drawings/vmlDrawingHF1.vml'])).toContain('id="LH"');
-    expect(sheet).toContain('view="pageLayout"');
+    expect(sheet).not.toContain('view="pageLayout"'); // normale Ansicht – wie jede andere Excel-Datei
+    expect(sheet).not.toContain('<brk '); // keine festen Seitenumbrüche
     expect(sheet).toContain('fitToWidth="1" fitToHeight="1"'); // immer eine Seite
     expect(strFromU8(zip['xl/styles.xml'])).toContain('Aptos Narrow');
   });
@@ -99,7 +100,7 @@ describe('Aufmaßblatt (Firmenvorlage)', () => {
     expect(ws).toMatch(/<f>SUM\(F\d+:F\d+\)<\/f><v>10.4<\/v>/);
   });
 
-  it('jede LV/MFK und das Aufmaß ohne Position beginnt auf einer neuen Seite; fester Zoom, damit die Umbrüche gelten', () => {
+  it('mehrere LV/MFK und das Aufmaß ohne Position: immer eine A4-Seite, ohne feste Umbrüche oder festen Zoom', () => {
     const pos = (id: string, number: string, unit: string) => ({ id, number, shortText: `Text ${number}`, longText: '', unit, quantity: null, unitPrice: 10, totalPrice: null, group: '', issues: [] });
     const doc = (id: string, kind: 'lv' | 'mfk', number: string, p: ReturnType<typeof pos>) => ({ ...meta, id, projectId: 'x', kind, name: `Dok ${number}`, number, fileName: '', groups: [], positions: [p] });
     const many = Object.fromEntries(Array.from({ length: 60 }, (_, i) => [`m${i}`, dmg(`m${i}`, 10 + i, { positionRef: 'm1:b', kind: 'line', width: null, area: null, length: 1 })]));
@@ -109,15 +110,34 @@ describe('Aufmaßblatt (Firmenvorlage)', () => {
       damages: { ...data.damages, d3: dmg('d3', 3, { positionRef: 'l1:a' }), ...many },
     } as unknown as ProjectState;
     const ws = strFromU8(unzipSync(exportAufmassblatt(two, { kind: 'costCenter', costCenterId: 'c1' }, { no: '008', period: '' }, { logo }).data)['xl/worksheets/sheet1.xml']);
-    const rowOf = (text: string) => Number(new RegExp(`<row r="(\\d+)"[^>]*>(?:(?!</row>).)*>${text}<`).exec(ws)![1]);
-    const breaks = [...ws.matchAll(/<brk id="(\d+)" max="16383" man="1"\/>/g)].map((m) => Number(m[1]) + 1);
-    // Umbruch vor der MFK und vor dem Aufmaß ohne Position (nicht vor der ersten LV)
-    expect(breaks).toEqual([rowOf('MFK - 2 Dok 2'), rowOf('Aufmaß ohne Leistungsposition')]);
-    expect(ws).not.toContain('fitToPage');
-    // die lange MFK (60 Messungen) passt durch kleineren Zoom auf eine Seite
-    const scale = Number(/scale="(\d+)"/.exec(ws)![1]);
-    expect(scale).toBeLessThan(100);
-    expect(scale).toBeGreaterThanOrEqual(50);
+    expect(ws).not.toContain('<brk ');
+    expect(ws).not.toMatch(/scale="\d+"/);
+    expect(ws).toContain('<pageSetUpPr fitToPage="1"/>');
+    expect(ws).toContain('fitToWidth="1" fitToHeight="1"');
+    expect(ws).not.toContain('view="pageLayout"');
+    // Zeilenhöhen frei (Excel passt sie selbst an): nur umbrochene Texte in verbundenen Zellen bekommen eine Höhe
+    expect((ws.match(/customHeight="1"/g) ?? []).length).toBeLessThan(3);
+  });
+});
+
+describe('Aufmaßblatt: Linien verschiedener Linienart nie zusammen', () => {
+  const line = (id: string, n: number, length: number, lineType?: string) => dmg(id, n, { kind: 'line', width: null, area: null, length, ...(lineType ? { style: { lineType } } : {}) } as Partial<Damage>);
+  const sheetOf = (...ls: Damage[]) =>
+    strFromU8(unzipSync(exportAufmassblatt({ ...data, damages: Object.fromEntries(ls.map((d) => [d.id, d])) } as unknown as ProjectState, { kind: 'costCenter', costCenterId: 'c1' }, { no: '009', period: '' }, {}).data)['xl/worksheets/sheet1.xml']);
+  const sums = (ws: string) => [...ws.matchAll(/<f>SUM\(F\d+:F\d+\)<\/f><v>([\d.]+)<\/v>/g)].map((m) => Number(m[1]));
+
+  it('gerade und wellige Linien: je eine eigene Tabelle mit eigener Summe', () => {
+    const ws = sheetOf(line('a', 1, 4), line('b', 2, 2.5, 'wave'), line('c', 3, 1.5), line('d', 4, 3, 'wave'));
+    expect(ws).toContain('>Länge – Durchgezogen<');
+    expect(ws).toContain('>Länge – Wellenlinie<');
+    expect(ws.indexOf('>Länge – Durchgezogen<')).toBeLessThan(ws.indexOf('>Länge – Wellenlinie<'));
+    expect(sums(ws)).toEqual([5.5, 5.5]); // 4 + 1,5 und 2,5 + 3 – nie 11 in einer Summe
+  });
+  it('nur durchgezogene Linien: eine Tabelle „Länge“ wie bisher', () => {
+    const ws = sheetOf(line('a', 1, 4), line('c', 3, 1.5));
+    expect(ws).toContain('>Länge<');
+    expect(ws).not.toContain('Länge – ');
+    expect(sums(ws)).toEqual([5.5]);
   });
 });
 
