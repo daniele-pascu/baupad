@@ -34,6 +34,8 @@ import type { AufmassSheet, CostCenter, Plan } from '../lib/types';
 import type { AufmassRow } from '../lib/aufmass';
 import { projectColor, refreshProjectColors } from '../lib/project-colors';
 import { ToolMark } from '../components/ToolIcon';
+import { SelectBox, SelectionBar, SelectToggle, useSelection } from '../components/Selection';
+import { BulkPlanDialog } from '../components/BulkPlanDialog';
 
 /**
  * Projektseite: Projektinformationen (inklusive Kostenstelle) und direkt darunter die
@@ -121,12 +123,20 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
   };
   const plansAsc = active ? plansOf(data, active.id, invoiceFilter) : [];
   const plans = planDesc ? [...plansAsc].reverse() : plansAsc;
+  /** Mehrfachauswahl in der Planliste */
+  const planSel = useSelection(plans.map((p) => p.id));
+  const [bulkPlans, setBulkPlans] = useState<Plan[] | null>(null);
+  const selectedPlans = () => planSel.ids.map((id) => data.plans[id]).filter((p): p is Plan => !!p && !p.deletedAt);
   const rows = aufmassRows(data, plans);
   /** Aufmaß der Rechnung: alle Messungen ihrer Pläne über alle Kostenstellen */
   // angelegte Aufmaße (durchnummeriert über das Projekt), sichtbar in der Kostenstelle ihrer Pläne
   const sheets = (project.aufmassSheets ?? [])
     .map((sheet, i) => ({ sheet, name: sheet.name?.trim() || `Aufmaß ${i + 1}`, sheetPlans: sheet.planIds.map((id) => data.plans[id]).filter((p): p is Plan => !!p && !p.deletedAt) }))
     .filter((x) => x.sheetPlans.length && (!active || x.sheetPlans.some((p) => p.costCenterId === active.id)));
+  /** Mehrfachauswahl der Aufmaße (Zusammenstellungen) */
+  const sheetSel = useSelection(sheets.map((x) => x.sheet.id));
+  const pickedSheets = () => sheets.filter((x) => sheetSel.ids.includes(x.sheet.id));
+  const unionPlans = (list: typeof sheets) => [...new Set(list.flatMap((x) => x.sheetPlans.map((p) => p.id)))];
   const toggleOpen = (set: typeof setOpenAufmass, key: string) =>
     set((prev) => {
       const next = new Set(prev);
@@ -304,6 +314,43 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
     toast('Plan gelöscht.');
   };
 
+  /** mehrere Pläne auf einmal löschen – mit Übersicht, was mitgelöscht wird */
+  const deletePlans = async (list: Plan[]) => {
+    if (!list.length) return;
+    if (list.length === 1) return deletePlan(list[0]);
+    const damages = list.flatMap((p) => damagesOf(data, p.id));
+    const elements = list.flatMap((p) => elementsOf(data, p.id));
+    const components = list.flatMap((p) => componentsOf(data, p.id));
+    const settled = [...new Set(list.map((p) => invoiceOfPlan(project, p)).filter((i) => i?.settled))];
+    const ok = await confirmDialog({
+      title: `${list.length} Pläne löschen?`,
+      message: (
+        <>
+          <p>
+            Gelöscht werden die Pläne <strong>{list.map((p) => p.planNumber || planTitle(p)).join(', ')}</strong>. Betroffen sind:
+          </p>
+          <ul data-testid="delete-summary">
+            <li>{damages.length} Messung(en) bzw. Schadstelle(n) mit ihren Maßen</li>
+            {components.length > 0 && <li>{components.length} Bauteilkennzeichnung(en)</li>}
+            {elements.length > 0 && <li>{elements.length} Zeichnungsobjekt(e) selbst gezeichneter Pläne</li>}
+          </ul>
+          <p className="muted">Die Originaldateien bleiben in der Planbibliothek. Tipp: Vorher über „Projekt sichern“ eine Sicherung anlegen.</p>
+          {settled.length > 0 && (
+            <p className="error" data-testid="settled-confirm">
+              <strong>Achtung: {settled.map((i) => invoiceLabel(i!)).join(', ')} ist bereits abgerechnet.</strong>
+            </p>
+          )}
+        </>
+      ),
+      confirmLabel: `${list.length} Pläne löschen`,
+      danger: true,
+    });
+    if (!ok) return;
+    softDelete({ plans: list, damages, elements, components });
+    planSel.stop();
+    toast(`${list.length} Pläne gelöscht.`);
+  };
+
   const renamePlan = async (plan: Plan) => {
     const name = await promptDialog({ title: 'Plan umbenennen', label: 'Planbezeichnung', value: plan.planName });
     if (name === null || name === plan.planName) return;
@@ -317,6 +364,26 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
     const name = await promptDialog({ title: 'Aufmaß umbenennen', label: 'Name des Aufmaßes (leer = durchnummeriert)', value: current });
     if (name === null) return;
     patchSheet(id, { name: name.trim() });
+  };
+  const deleteSheets = async (list: typeof sheets) => {
+    if (!list.length) return;
+    if (!(await confirmDialog({ title: `${list.length} ${list.length === 1 ? 'Aufmaß' : 'Aufmaße'} löschen?`, message: `${list.map((x) => x.name).join(', ')} – nur die Zusammenstellungen werden gelöscht, die Messungen bleiben im Plan.`, confirmLabel: 'Löschen', danger: true }))) return;
+    const ids = new Set(list.map((x) => x.sheet.id));
+    updateProject({ aufmassSheets: (data.project.aufmassSheets ?? []).filter((x) => !ids.has(x.id)) });
+    sheetSel.stop();
+    toast(`${list.length} ${list.length === 1 ? 'Aufmaß' : 'Aufmaße'} gelöscht.`);
+  };
+  /** mehrere Aufmaße zu einem zusammenführen (alle Pläne darin; die einzelnen entfallen) */
+  const mergeSheets = (list: typeof sheets) => {
+    if (list.length < 2) return;
+    const ids = new Set(list.map((x) => x.sheet.id));
+    const all = data.project.aufmassSheets ?? [];
+    const at = all.findIndex((x) => ids.has(x.id));
+    const merged: AufmassSheet = { id: uuid(), planIds: unionPlans(list), createdAt: Date.now() };
+    const rest = all.filter((x) => !ids.has(x.id));
+    updateProject({ aufmassSheets: [...rest.slice(0, at), merged, ...rest.slice(at)] });
+    sheetSel.stop();
+    toast(`${list.length} Aufmaße zu einem zusammengeführt.`, 'success');
   };
   const deleteSheet = async (id: string, name: string) => {
     if (!(await confirmDialog({ title: `${name} löschen?`, message: 'Nur die Zusammenstellung wird gelöscht – die Messungen bleiben im Plan.', confirmLabel: 'Löschen', danger: true }))) return;
@@ -555,6 +622,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
 
           {plans.length > 1 && (
             <div className="plan-sort-row">
+              <SelectToggle sel={planSel} testId="plans-select" />
               <button type="button" className="btn btn-sm" onClick={toggleSort} title="Reihenfolge der Pläne umkehren" data-testid="plan-sort" data-order={planDesc ? 'desc' : 'asc'}>
                 <Icon name={planDesc ? 'down' : 'up'} size={16} /> Plannr. {planDesc ? 'absteigend' : 'aufsteigend'}
               </button>
@@ -572,8 +640,37 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
                 onRotate={setRotating}
                 onDelete={(p) => void deletePlan(p)}
                 onPdf={(p) => setPdfPlans([p.id])}
+                sel={planSel}
               />
             ) : null}
+          <SelectionBar
+            sel={planSel}
+            noun={['Plan', 'Pläne']}
+            testId="plans-select-bar"
+            actions={[
+              { label: 'Löschen', icon: 'trash', primary: true, danger: true, onSelect: () => void deletePlans(selectedPlans()), testId: 'plans-bulk-delete' },
+              { label: 'Ändern', icon: 'edit', primary: true, onSelect: () => setBulkPlans(selectedPlans()), testId: 'plans-bulk-edit' },
+              { label: 'Als PDF herunterladen', icon: 'pdf', onSelect: () => setPdfPlans(planSel.ids), testId: 'plans-bulk-pdf' },
+              {
+                label: 'Neues Aufmaß aus diesen Plänen (Excel)',
+                icon: 'excel',
+                onSelect: () => {
+                  setExcelSheet(undefined);
+                  setExcelScope({ kind: 'plans', planIds: planSel.ids });
+                },
+                testId: 'plans-bulk-aufmass',
+              },
+              {
+                label: 'Duplizieren (mit Messungen)',
+                icon: 'copy',
+                onSelect: () => {
+                  for (const p of selectedPlans()) duplicatePlan(p);
+                  planSel.stop();
+                },
+                testId: 'plans-bulk-duplicate',
+              },
+            ]}
+          />
           {plans.length > 0 && (
             <div className="row gap wrap plan-list-foot">
               <button type="button" className="btn" onClick={() => setPdfPlans(plans.map((p) => p.id))} data-testid="plans-pdf">
@@ -631,6 +728,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
                       <Icon name="excel" /> Excel – gesamtes Projekt
                     </button>
                   )}
+                  {sheets.length > 1 && <SelectToggle sel={sheetSel} testId="aufmass-select" onStart={() => setOpenAufmass(new Set())} />}
                 </>
               )}
             </div>
@@ -651,13 +749,14 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
                 const own = aufmassRows(data, sheetPlans);
                 const open = openAufmass.has(sheet.id);
                 return (
-                  <div key={sheet.id} className={`aufmass-block${open ? ' open' : ''}`} data-testid="aufmass-block">
+                  <div key={sheet.id} className={`aufmass-block${open ? ' open' : ''}`} data-testid="aufmass-block" data-selected={sheetSel.active ? sheetSel.has(sheet.id) : undefined}>
                     <div className="aufmass-block-head">
+                      {sheetSel.active && <SelectBox sel={sheetSel} id={sheet.id} label={name} testId="aufmass-check" />}
                       <button
                         type="button"
                         className="aufmass-toggle"
-                        aria-expanded={open}
-                        onClick={() => toggleOpen(setOpenAufmass, sheet.id)}
+                        aria-expanded={sheetSel.active ? undefined : open}
+                        onClick={() => (sheetSel.active ? sheetSel.toggle(sheet.id) : toggleOpen(setOpenAufmass, sheet.id))}
                         data-testid="aufmass-toggle"
                       >
                         <Icon name="next" size={18} />
@@ -669,6 +768,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
                           </span>
                         </span>
                       </button>
+                      {!sheetSel.active && (
                       <ActionMenu
                         label={`Aktionen für ${name}`}
                         testId="aufmass-actions"
@@ -687,8 +787,9 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
                           { label: 'Aufmaß löschen', icon: 'trash', onSelect: () => void deleteSheet(sheet.id, name), testId: 'aufmass-delete' },
                         ]}
                       />
+                      )}
                     </div>
-                    {open && (
+                    {open && !sheetSel.active && (
                       <>
                         {sheetPlans.length > 1 ? (
                           planGroups(sheet.id, sheetPlans, own)
@@ -727,6 +828,26 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
         </section>
       )}
 
+      <SelectionBar
+        sel={sheetSel}
+        noun={['Aufmaß', 'Aufmaße']}
+        testId="aufmass-select-bar"
+        actions={[
+          { label: 'Löschen', icon: 'trash', primary: true, danger: true, onSelect: () => void deleteSheets(pickedSheets()), testId: 'aufmass-bulk-delete' },
+          { label: 'Zusammenführen', icon: 'layers', primary: true, disabled: sheetSel.count < 2, onSelect: () => mergeSheets(pickedSheets()), testId: 'aufmass-bulk-merge' },
+          {
+            label: 'Gemeinsam als Excel (neues Aufmaß)',
+            icon: 'excel',
+            onSelect: () => {
+              setExcelSheet(undefined);
+              setExcelScope({ kind: 'plans', planIds: unionPlans(pickedSheets()) });
+              sheetSel.stop();
+            },
+            testId: 'aufmass-bulk-excel',
+          },
+        ]}
+      />
+
       {/* LV und MFK des Projekts: LV zuerst, darunter die MFKs */}
       <section className="project-block block-lv" data-testid="lv-section">
         <h2 className="section-title">
@@ -764,6 +885,17 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
           costCenters={ccs.map((c) => ({ id: c.id, number: c.number ?? '', name: c.name }))}
           onClose={() => setEditing(false)}
           onSubmit={saveProject}
+        />
+      )}
+      {bulkPlans && (
+        <BulkPlanDialog
+          plans={bulkPlans}
+          costCenters={ccs}
+          invoices={split ? invoices : []}
+          onClose={() => {
+            setBulkPlans(null);
+            planSel.stop();
+          }}
         />
       )}
       {excelScope && (

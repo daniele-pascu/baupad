@@ -6,14 +6,14 @@
  */
 import { getAuth, type Session } from './auth';
 import { useSession } from './use-session';
-import { deleteDefectPlanCompletely, deleteFormEntry, deleteProjectCompletely, deleteReport, getDB, getMeta, setMeta, listDefectPlans, listFormEntries, listProjects, listReports, listWeeks, saveDefectPlan, saveReport, saveTimeDay, saveWeek, writeRecords } from './db';
+import { deleteDefectPlanCompletely, deleteFormEntry, deleteProjectCompletely, deleteReport, deleteWorker, getDB, getMeta, setMeta, listDefectPlans, listFormEntries, listProjects, listReports, listWeeks, saveDefectPlan, saveReport, saveTimeDay, saveWeek, writeRecords } from './db';
 import { adoptProject, projectFromSite, usedIn } from './crew-link';
 import { getPhotoStorage } from './photo-storage';
 import { clearFreePhotoSites, listFreePhotoSites, updateFreePhotoSite } from './photo-sites';
 import { photoSiteKey } from './photos';
 import { getDeviceId } from './ids';
 import { newMeta } from './store';
-import type { CostCenter, PhotoSite, Project, SiteManager } from './types';
+import type { CostCenter, PhotoSite, Project, SiteManager, Worker } from './types';
 
 export interface SiteFields {
   name: string;
@@ -351,4 +351,26 @@ export async function setProjectManager(projectId: string, sm: SiteManager | nul
   const project = await db.get('projects', projectId);
   if (!project) throw new Error('Projekt nicht gefunden.');
   await writeRecords([{ store: 'projects', record: { ...project, siteManager: sm, rev: project.rev + 1, updatedAt: Date.now(), deviceId: getDeviceId() }, baseRev: project.rev }]);
+}
+
+/** Bauleitung eines Projekts ist dieser Mitarbeiter (über die Personalliste gewählt bzw. – ohne Verweis – gleicher Name) */
+export function isManagedBy(sm: SiteManager | null | undefined, w: Pick<Worker, 'id' | 'firstName' | 'lastName'>): boolean {
+  if (!sm) return false;
+  if (sm.workerId) return sm.workerId === w.id;
+  const n = sm.name.trim().toLowerCase().replace(/\s+/g, ' ');
+  const a = `${w.firstName} ${w.lastName}`.trim().toLowerCase();
+  const b = `${w.lastName} ${w.firstName}`.trim().toLowerCase();
+  return !!n && (n === a || n === b);
+}
+
+/**
+ * Mitarbeiter überall löschen: aus der Personalliste und den Wochen (deleteWorker) und als Bauleitung/Projektleiter
+ * aus allen Projekten, in denen er zuständig war. Liefert die Projekte, aus denen er ausgetragen wurde.
+ */
+export async function deleteWorkerEverywhere(w: Worker): Promise<Project[]> {
+  const db = await getDB();
+  const projects = (await db.getAll('projects')).filter((p) => !p.deletedAt && isManagedBy(p.siteManager, w));
+  if (projects.length) await writeRecords(projects.map((p) => ({ store: 'projects' as const, record: { ...p, siteManager: null, rev: p.rev + 1, updatedAt: Date.now(), deviceId: getDeviceId() }, baseRev: p.rev })));
+  await deleteWorker(w.id);
+  return projects;
 }

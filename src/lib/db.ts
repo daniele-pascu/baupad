@@ -430,8 +430,9 @@ export async function applyRemoteRecord(store: SyncStore, id: string, data: Reco
 }
 
 /**
- * Mitarbeiter endgültig löschen: aus der Personalliste, aus allen Wochen der Einteilung und aus Urlaub/Krank.
- * Berichte behalten die Kopie des Namens.
+ * Mitarbeiter endgültig löschen: aus der Personalliste, aus allen Wochen der Einteilung (auch als Vertretung der
+ * Bauleitung) und aus Urlaub/Krank. Berichte behalten die Kopie des Namens. Als Bauleitung/Projektleiter der Projekte
+ * trägt ihn `deleteWorkerEverywhere` (sites.ts) aus.
  */
 export async function deleteWorker(id: string): Promise<void> {
   const db = await getDB();
@@ -443,6 +444,11 @@ export async function deleteWorker(id: string): Promise<void> {
         touched = true;
         return ids.filter((x) => x !== id);
       });
+      // war er in dieser Woche Vertretung der Bauleitung: austragen
+      if (site.siteManager?.workerId === id) {
+        site.siteManager = null;
+        touched = true;
+      }
     }
     if (touched) await saveWeek({ ...week, updatedAt: Date.now() });
   }

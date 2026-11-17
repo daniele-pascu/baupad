@@ -5,6 +5,7 @@ import { navigate, paths } from '../lib/router';
 import type { ProjectState } from '../lib/store';
 import type { Plan } from '../lib/types';
 import { ActionMenu } from './ActionMenu';
+import { SelectBox, type Selection } from './Selection';
 
 interface Props {
   data: ProjectState;
@@ -21,6 +22,8 @@ interface Props {
   onDelete: (plan: Plan) => void;
   /** Plan als PDF herunterladen (Auswahl-Dialog mit diesem Plan) */
   onPdf?: (plan: Plan) => void;
+  /** Mehrfachauswahl: im Auswahlmodus wählt die Zeile aus (statt zu öffnen), Kästchen statt Menü */
+  sel?: Selection;
 }
 
 /**
@@ -28,9 +31,10 @@ interface Props {
  * Leistungszuordnung und Flächensumme (ohne Anzahl der Messungen). Auf dem Smartphone werden
  * die Angaben zweizeilig unter der Plannummer angeordnet.
  */
-export function PlanList({ data, plans, onEdit, onRename, onCrop, onReuse, onDuplicate, onRotate, onDelete, onPdf }: Props) {
+export function PlanList({ data, plans, onEdit, onRename, onCrop, onReuse, onDuplicate, onRotate, onDelete, onPdf, sel }: Props) {
+  const selecting = !!sel?.active;
   return (
-    <div className="plan-list" role="table" aria-label="Pläne" data-testid="plan-list">
+    <div className={`plan-list${selecting ? ' selecting' : ''}`} role="table" aria-label="Pläne" data-testid="plan-list">
       <div className="plan-row plan-head" role="row">
         <span role="columnheader">Plannr.</span>
         <span role="columnheader">Bezeichnung / Ebene</span>
@@ -40,7 +44,7 @@ export function PlanList({ data, plans, onEdit, onRename, onCrop, onReuse, onDup
           Fläche
         </span>
         <span role="columnheader">
-          <span className="sr-only">Aktionen</span>
+          <span className="sr-only">{selecting ? 'Auswahl' : 'Aktionen'}</span>
         </span>
       </div>
       {plans.map((plan) => {
@@ -55,16 +59,26 @@ export function PlanList({ data, plans, onEdit, onRename, onCrop, onReuse, onDup
             role="row"
             data-testid="plan-row"
             data-plan={plan.planNumber}
+            data-selected={selecting ? sel!.has(plan.id) : undefined}
             onClick={(e) => {
+              // Auswahlmodus: Zeile antippen wählt aus
+              if (selecting) {
+                if (!(e.target as Element).closest('input')) sel!.toggle(plan.id);
+                return;
+              }
               // Klick auf die Zeile öffnet den Plan (außer auf Schaltflächen/Links)
               if ((e.target as Element).closest('a, button')) return;
               navigate(href);
             }}
           >
             <span role="cell" className="pl-number">
-              <a href={href} data-testid="plan-open">
-                {title}
-              </a>
+              {selecting ? (
+                <strong>{title}</strong>
+              ) : (
+                <a href={href} data-testid="plan-open">
+                  {title}
+                </a>
+              )}
             </span>
             <span role="cell" className="pl-name">
               {plan.planName || <span className="muted">–</span>}
@@ -86,6 +100,9 @@ export function PlanList({ data, plans, onEdit, onRename, onCrop, onReuse, onDup
               {damages.length ? `${formatArea(sumArea(damages))} m²` : <span className="muted">–</span>}
             </span>
             <span role="cell" className="pl-actions">
+              {selecting ? (
+                <SelectBox sel={sel!} id={plan.id} label={`Plan ${title}`} testId="plan-select" />
+              ) : (
               <ActionMenu
                 label={`Aktionen für Plan ${title}`}
                 testId="plan-actions"
@@ -105,6 +122,7 @@ export function PlanList({ data, plans, onEdit, onRename, onCrop, onReuse, onDup
                   { label: 'Löschen', icon: 'trash', onSelect: () => onDelete(plan), danger: true, testId: 'action-delete' },
                 ]}
               />
+              )}
             </span>
           </div>
         );

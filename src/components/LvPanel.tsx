@@ -14,6 +14,7 @@ import { paths } from '../lib/router';
 import { newMeta, putRecord, putRecords, type ProjectState } from '../lib/store';
 import type { LvDocument, LvPosition, PosRule, Surface } from '../lib/types';
 import { ActionMenu } from './ActionMenu';
+import { SelectBox, SelectionBar, SelectToggle, useSelection } from './Selection';
 import { Icon } from './Icon';
 import { Modal } from './Modal';
 import { confirmDialog, showError, toast } from './ui';
@@ -61,6 +62,40 @@ export function LvPanel({ data }: { data: ProjectState }) {
     }
   };
 
+  /** Mehrfachauswahl der Dokumente (LV/MFK) */
+  const docSel = useSelection(docs.map((d) => d.id));
+  const picked = () => docs.filter((d) => docSel.ids.includes(d.id));
+  /** mehrere Dokumente löschen – Messungen bleiben, verlieren nur die Leistungszuordnung */
+  const removeDocs = async (list: LvDocument[]) => {
+    if (!list.length) return;
+    const refs = new Set(list.flatMap((doc) => doc.positions.map((p) => positionRef(doc.id, p.id))));
+    const linked = Object.values(data.damages).filter((d) => !d.deletedAt && d.positionRef && refs.has(d.positionRef));
+    const ok = await confirmDialog({
+      title: `${list.length} ${list.length === 1 ? 'Dokument' : 'Dokumente'} löschen?`,
+      message: (
+        <p>
+          {list.map(lvDocLabel).join(', ')} mit zusammen {list.reduce((n, d) => n + d.positions.length, 0)} Position(en) werden gelöscht.
+          {linked.length > 0 && ` ${linked.length} Messung(en) bleiben erhalten, verlieren aber die Leistungszuordnung.`}
+        </p>
+      ),
+      confirmLabel: 'Löschen',
+      danger: true,
+    });
+    if (!ok) return;
+    const now = Date.now();
+    putRecords({ lvDocs: list.map((d) => ({ ...d, deletedAt: now })), damages: linked.map((d) => ({ ...d, positionRef: null })) });
+    docSel.stop();
+    toast(`${list.length} ${list.length === 1 ? 'Dokument' : 'Dokumente'} gelöscht.`);
+  };
+  /** Preise aus Dokumenten entfernen (Einheits- und Positionspreise leer) */
+  const stripPrices = async (list: LvDocument[]) => {
+    if (!list.length) return;
+    if (!(await confirmDialog({ title: 'Preise entfernen?', message: <p>In {list.map(lvDocLabel).join(', ')} werden alle Einheits- und Positionspreise gelöscht. Positionen, Texte und Mengen bleiben.</p>, confirmLabel: 'Preise entfernen', danger: true }))) return;
+    putRecords({ lvDocs: list.map((d) => ({ ...d, positions: d.positions.map((p) => ({ ...p, unitPrice: null, totalPrice: null })) })) });
+    docSel.stop();
+    toast('Preise entfernt.', 'success');
+  };
+
   const removeDoc = async (doc: LvDocument) => {
     const refs = new Set(doc.positions.map((p) => positionRef(doc.id, p.id)));
     const linked = Object.values(data.damages).filter((d) => !d.deletedAt && d.positionRef && refs.has(d.positionRef));
@@ -95,6 +130,7 @@ export function LvPanel({ data }: { data: ProjectState }) {
           <button type="button" className="btn btn-sm" onClick={() => setDocDialog({ doc: null, kind: docs.some((d) => d.kind === 'lv') ? 'mfk' : 'lv' })} data-testid="lv-new">
             <Icon name="plus" size={18} /> Manuell anlegen
           </button>
+          {docs.length > 1 && <SelectToggle sel={docSel} testId="lv-docs-select" onStart={() => setActiveId(null)} />}
         </div>
         <input
           ref={fileRef}
@@ -126,7 +162,15 @@ export function LvPanel({ data }: { data: ProjectState }) {
           {docs.map((d) => {
             const open = active?.id === d.id;
             return (
-              <li key={d.id} className={`lv-doc-item card${open ? ' open' : ''}`}>
+              <li key={d.id} className={`lv-doc-item card${open ? ' open' : ''}`} data-selected={docSel.active ? docSel.has(d.id) : undefined}>
+                {docSel.active ? (
+                  <label className="lv-doc-row lv-doc-pick" data-testid="lv-doc-pick">
+                    <SelectBox sel={docSel} id={d.id} label={lvDocLabel(d)} testId="lv-doc-select" />
+                    <span className={`lv-kind lv-kind-${d.kind}`}>{d.kind === 'lv' ? 'LV' : 'MFK'}</span>
+                    <span className="lv-doc-name">{[d.number, d.name].filter(Boolean).join(' – ') || lvDocLabel(d)}</span>
+                    <span className="lv-doc-meta muted small">{d.positions.length} Pos.</span>
+                  </label>
+                ) : (
                 <button type="button" className="lv-doc-row" aria-expanded={open} onClick={() => setActiveId(open ? '' : d.id)} data-testid="lv-doc-tab">
                   <span className={`lv-kind lv-kind-${d.kind}`}>{d.kind === 'lv' ? 'LV' : 'MFK'}</span>
                   <span className="lv-doc-name">{[d.number, d.name].filter(Boolean).join(' – ') || lvDocLabel(d)}</span>
@@ -135,12 +179,22 @@ export function LvPanel({ data }: { data: ProjectState }) {
                   </span>
                   <Icon name={open ? 'minus' : 'plus'} size={18} />
                 </button>
-                {open && <LvDocView data={data} doc={d} prices={prices} onEdit={() => setDocDialog({ doc: d, kind: d.kind })} onDelete={() => void removeDoc(d)} />}
+                )}
+                {open && !docSel.active && <LvDocView data={data} doc={d} prices={prices} onEdit={() => setDocDialog({ doc: d, kind: d.kind })} onDelete={() => void removeDoc(d)} />}
               </li>
             );
           })}
         </ul>
       )}
+      <SelectionBar
+        sel={docSel}
+        noun={['Dokument', 'Dokumente']}
+        testId="lv-docs-select-bar"
+        actions={[
+          { label: 'Löschen', icon: 'trash', primary: true, danger: true, onSelect: () => void removeDocs(picked()), testId: 'lv-docs-bulk-delete' },
+          { label: 'Preise entfernen', icon: 'close', onSelect: () => void stripPrices(picked()), testId: 'lv-docs-bulk-noprices' },
+        ]}
+      />
       {review && (
         <LvReviewDialog
           review={review}
@@ -189,6 +243,8 @@ function LvReviewDialog({
     return short || title;
   });
   const [number, setNumber] = useState(parsed.number ?? '');
+  /** mit Preisen (EP und GP aus dem Dokument) oder ohne – dann nur Positionen, Texte und Mengen */
+  const [withPrices, setWithPrices] = useState(true);
   const total = sumPositions(parsed.positions);
   const flagged = parsed.positions.filter((p) => p.issues.length);
   // Summenkontrolle je Gruppe (mit direkt darunter liegenden Positionen) gegen die im Dokument ausgewiesenen Summen
@@ -223,7 +279,7 @@ function LvReviewDialog({
                 number: number.trim(),
                 fileName: review.fileName,
                 groups: parsed.groups,
-                positions: parsed.positions.map((p) => ({ ...p, id: uuid() })),
+                positions: parsed.positions.map((p) => ({ ...p, id: uuid(), ...(withPrices ? {} : { unitPrice: null, totalPrice: null }) })),
               })
             }
             data-testid="lv-review-save"
@@ -249,6 +305,13 @@ function LvReviewDialog({
           <span>Bezeichnung *</span>
           <input value={name} onChange={(e) => setName(e.target.value)} data-testid="lv-name" />
         </label>
+        <label className="field span-2">
+          <span>Preise</span>
+          <select value={withPrices ? 'mit' : 'ohne'} onChange={(e) => setWithPrices(e.target.value === 'mit')} data-testid="lv-prices">
+            <option value="mit">Mit Preisen übernehmen (Einheits- und Positionspreise)</option>
+            <option value="ohne">Ohne Preise übernehmen (nur Positionen, Texte und Mengen)</option>
+          </select>
+        </label>
       </div>
       <div className={`banner ${mismatches.length || flagged.length || totalOff ? 'banner-warn' : 'banner-info'}`} data-testid="lv-review-summary">
         <p>
@@ -273,6 +336,7 @@ function LvReviewDialog({
           Langtext bei {parsed.positions.filter((p) => p.longText.trim()).length} von {parsed.positions.length} Positionen erkannt – nach dem Übernehmen beim Antippen der Position lesbar.
         </p>
         {flagged.length > 0 && <p>{flagged.length} Position(en) mit unsicheren Angaben – bitte nach dem Übernehmen prüfen (markiert).</p>}
+        {!withPrices && <p data-testid="lv-no-prices">Ohne Preise: Einheits- und Positionspreise werden nicht übernommen (später je Position eintragbar).</p>}
       </div>
       <div className="table-wrap lv-review-table">
         <table className="aufmass-table">
@@ -297,8 +361,8 @@ function LvReviewDialog({
                 </td>
                 <td className="num">{qty(p.quantity)}</td>
                 <td>{p.unit || '–'}</td>
-                <td className="num">{eur(p.unitPrice)}</td>
-                <td className="num">{eur(p.totalPrice)}</td>
+                <td className="num">{withPrices ? eur(p.unitPrice) : '–'}</td>
+                <td className="num">{withPrices ? eur(p.totalPrice) : '–'}</td>
               </tr>
             ))}
           </tbody>
@@ -330,9 +394,40 @@ function LvDocView({ data, doc, prices, onEdit, onDelete }: { data: ProjectState
   const lvTotal = sumPositions(doc.positions);
   const measuredTotal = Math.round(rows.reduce((s, r) => s + (r.m.amount ?? 0), 0) * 100) / 100;
   const flagged = doc.positions.filter((p) => p.issues.length).length;
+  /** Mehrfachauswahl der Positionen (nur mit Bearbeitungsrecht) */
+  const posSel = useSelection(rows.map((r) => r.pos.id));
+  const [bulkEdit, setBulkEdit] = useState(false);
+  const pickedPos = () => doc.positions.filter((p) => posSel.ids.includes(p.id));
+  const deletePositions = async (list: LvPosition[]) => {
+    if (!list.length) return;
+    const refs = new Set(list.map((p) => positionRef(doc.id, p.id)));
+    const linked = Object.values(data.damages).filter((d) => !d.deletedAt && d.positionRef && refs.has(d.positionRef));
+    const ok = await confirmDialog({
+      title: `${list.length} ${list.length === 1 ? 'Position' : 'Positionen'} löschen?`,
+      message: (
+        <p>
+          {list.map((p) => p.number).join(', ')} {list.length === 1 ? 'wird' : 'werden'} aus {lvDocLabel(doc)} gelöscht.
+          {linked.length > 0 && ` ${linked.length} Messung(en) bleiben erhalten, verlieren aber die Leistungszuordnung.`}
+        </p>
+      ),
+      confirmLabel: 'Löschen',
+      danger: true,
+    });
+    if (!ok) return;
+    const ids = new Set(list.map((p) => p.id));
+    putRecords({ lvDocs: [{ ...doc, positions: doc.positions.filter((p) => !ids.has(p.id)) }], damages: linked.map((d) => ({ ...d, positionRef: null })) });
+    posSel.stop();
+    toast(`${list.length} ${list.length === 1 ? 'Position' : 'Positionen'} gelöscht.`);
+  };
+  const stripPositionPrices = (list: LvPosition[]) => {
+    const ids = new Set(list.map((p) => p.id));
+    putRecords({ lvDocs: [{ ...doc, positions: doc.positions.map((p) => (ids.has(p.id) ? { ...p, unitPrice: null, totalPrice: null } : p)) }] });
+    posSel.stop();
+    toast(`Preise bei ${list.length} ${list.length === 1 ? 'Position' : 'Positionen'} entfernt.`, 'success');
+  };
 
   return (
-    <section className="lv-doc" data-testid="lv-doc">
+    <section className={`lv-doc${posSel.active ? ' selecting' : ''}`} data-testid="lv-doc">
       <div className="lv-doc-head">
         <div>
           <h3 className="sr-only" data-testid="lv-doc-title">
@@ -377,14 +472,17 @@ function LvDocView({ data, doc, prices, onEdit, onDelete }: { data: ProjectState
         />
         )}
       </div>
-      <input
-        type="search"
-        className="lv-search"
-        placeholder="Suchen: Nummer oder Text"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        data-testid="lv-search"
-      />
+      <div className="lv-search-row">
+        <input
+          type="search"
+          className="lv-search"
+          placeholder="Suchen: Nummer oder Text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          data-testid="lv-search"
+        />
+        {prices && doc.positions.length > 1 && <SelectToggle sel={posSel} testId="lv-pos-select" onStart={() => setOpen(null)} />}
+      </div>
       <div className="table-wrap">
         <table className="aufmass-table lv-table" data-testid="lv-table">
           <thead>
@@ -413,11 +511,21 @@ function LvDocView({ data, doc, prices, onEdit, onDelete }: { data: ProjectState
                   )}
                   <tr
                     className={`${isOpen ? 'selected' : ''}${pos.issues.length ? ' lv-flagged' : ''}`}
-                    onClick={() => setOpen(isOpen ? null : pos.id)}
+                    onClick={(e) => {
+                      if (posSel.active) {
+                        if (!(e.target as Element).closest('input')) posSel.toggle(pos.id);
+                        return;
+                      }
+                      setOpen(isOpen ? null : pos.id);
+                    }}
                     data-testid="lv-row"
                     data-number={pos.number}
+                    data-selected={posSel.active ? posSel.has(pos.id) : undefined}
                   >
-                    <td className="nowrap lv-c-no">{pos.number}</td>
+                    <td className="nowrap lv-c-no">
+                      {posSel.active && <SelectBox sel={posSel} id={pos.id} label={`Position ${pos.number}`} testId="lv-pos-check" />}
+                      {pos.number}
+                    </td>
                     <td className="lv-text lv-c-text">
                       {pos.shortText}
                       {activeRule(pos) && (
@@ -435,7 +543,7 @@ function LvDocView({ data, doc, prices, onEdit, onDelete }: { data: ProjectState
                     {prices && <td className="num hide-sm lv-c-ep" data-label="EP">{eur(pos.unitPrice)}</td>}
                     {prices && <td className="num hide-sm lv-c-gp" data-label="GP">{m.amount !== null && m.damages.length ? eur(m.amount) : '–'}</td>}
                   </tr>
-                  {isOpen && (
+                  {isOpen && !posSel.active && (
                     <tr className="lv-detail">
                       <td colSpan={cols}>
                         {pos.issues.length > 0 && <p className="error small">⚠ {pos.issues.join(' · ')}</p>}
@@ -519,7 +627,138 @@ function LvDocView({ data, doc, prices, onEdit, onDelete }: { data: ProjectState
           }}
         />
       )}
+      <SelectionBar
+        sel={posSel}
+        noun={['Position', 'Positionen']}
+        testId="lv-pos-select-bar"
+        actions={[
+          { label: 'Löschen', icon: 'trash', primary: true, danger: true, onSelect: () => void deletePositions(pickedPos()), testId: 'lv-pos-bulk-delete' },
+          { label: 'Ändern', icon: 'edit', primary: true, onSelect: () => setBulkEdit(true), testId: 'lv-pos-bulk-edit' },
+          { label: 'Preise entfernen', icon: 'close', onSelect: () => stripPositionPrices(pickedPos()), testId: 'lv-pos-bulk-noprices' },
+        ]}
+      />
+      {bulkEdit && (
+        <BulkPositionDialog
+          doc={doc}
+          positions={pickedPos()}
+          onClose={() => setBulkEdit(false)}
+          onSave={(positions) => {
+            const byId = new Map(positions.map((p) => [p.id, p]));
+            putRecord('lvDocs', { ...doc, positions: doc.positions.map((p) => byId.get(p.id) ?? p) });
+            setBulkEdit(false);
+            posSel.stop();
+            toast(`${positions.length} ${positions.length === 1 ? 'Position' : 'Positionen'} geändert.`, 'success');
+          }}
+        />
+      )}
     </section>
+  );
+}
+
+/**
+ * Mehrere Positionen gemeinsam ändern: Einheit, Einheitspreis (Positionspreis = Menge × EP) und Gruppe.
+ * Nur geänderte Felder werden übernommen; „verschieden“ und leer gelassen = unverändert.
+ */
+function BulkPositionDialog({ doc, positions, onClose, onSave }: { doc: LvDocument; positions: LvPosition[]; onClose: () => void; onSave: (p: LvPosition[]) => void }) {
+  const same = <K extends 'unit' | 'unitPrice' | 'group'>(k: K) => (new Set(positions.map((p) => String(p[k] ?? ''))).size === 1 ? String(positions[0][k] ?? '') : null);
+  const [unit, setUnit] = useState(same('unit') ?? '');
+  const [ep, setEp] = useState(() => (same('unitPrice') ?? '').replace('.', ','));
+  const [group, setGroup] = useState(same('group') ?? '');
+  const [touched, setTouched] = useState<Set<string>>(() => new Set());
+  const touch = (k: string) => setTouched((t) => new Set(t).add(k));
+  const price = ep.trim() ? parseDecimal(ep) : null;
+  const bad = touched.has('ep') && ep.trim() !== '' && price === null;
+  const save = () => {
+    if (bad) return;
+    onSave(
+      positions.map((p) => {
+        const next = { ...p };
+        if (touched.has('unit')) next.unit = unit.trim();
+        if (touched.has('group')) next.group = group;
+        if (touched.has('ep')) {
+          next.unitPrice = price;
+          next.totalPrice = p.quantity !== null && price !== null ? Math.round(p.quantity * price * 100) / 100 : null;
+        }
+        return next;
+      }),
+    );
+  };
+  return (
+    <Modal
+      title={`${positions.length} Positionen gemeinsam ändern`}
+      onClose={onClose}
+      testId="lv-bulk-dialog"
+      footer={
+        <>
+          <button type="button" className="btn" onClick={onClose}>
+            Abbrechen
+          </button>
+          <button type="button" className="btn btn-primary" onClick={save} disabled={bad} data-testid="lv-bulk-save">
+            <Icon name="check" size={18} /> Übernehmen
+          </button>
+        </>
+      }
+    >
+      <form
+        className="stack-fields"
+        onSubmit={(e) => {
+          e.preventDefault();
+          save();
+        }}
+      >
+        <p className="muted small">Nur Felder, die du änderst, werden bei allen gewählten Positionen übernommen ({positions.map((p) => p.number).join(', ')}).</p>
+        <div className="form-grid">
+          <label className="field">
+            <span>Einheit</span>
+            <input
+              value={unit}
+              onChange={(e) => {
+                setUnit(e.target.value);
+                touch('unit');
+              }}
+              placeholder={same('unit') === null ? 'verschieden' : 'z. B. m²'}
+              data-testid="lv-bulk-unit"
+            />
+          </label>
+          <label className="field">
+            <span>Einheitspreis (€)</span>
+            <input
+              value={ep}
+              onChange={(e) => {
+                setEp(e.target.value);
+                touch('ep');
+              }}
+              inputMode="decimal"
+              placeholder={same('unitPrice') === null ? 'verschieden' : 'leer = ohne Preis'}
+              aria-invalid={bad || undefined}
+              data-testid="lv-bulk-ep"
+            />
+          </label>
+        </div>
+        {doc.groups.length > 0 && (
+          <label className="field">
+            <span>Gruppe</span>
+            <select
+              value={group}
+              onChange={(e) => {
+                setGroup(e.target.value);
+                touch('group');
+              }}
+              data-testid="lv-bulk-group"
+            >
+              {same('group') === null && <option value="">– verschieden, unverändert –</option>}
+              {doc.groups.map((g) => (
+                <option key={g.number} value={g.number}>
+                  {g.number} {g.title}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {bad && <p className="error small">Einheitspreis bitte als Zahl, z. B. 12,50 – oder leer für ohne Preis.</p>}
+        <button type="submit" hidden />
+      </form>
+    </Modal>
   );
 }
 

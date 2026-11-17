@@ -1,3 +1,4 @@
+import { SelectBox, type Selection } from './Selection';
 import { naturalCompare } from '../lib/numbers';
 import { Fragment, useEffect, useRef, type ReactNode } from 'react';
 import type { AufmassRow } from '../lib/aufmass';
@@ -36,6 +37,8 @@ interface Props {
   positionsOf?: (d: Damage) => string[];
   /** LV trennt nach Boden, Wand und Decke – Schadstellen ohne Fläche bekommen den Hinweis „Fläche wählen“ */
   surfaceNeeded?: boolean;
+  /** Mehrfachauswahl: Zeile antippen wählt aus (statt zu öffnen), Kästchen vor der Nummer */
+  sel?: Selection;
 }
 
 /** Spaltenkopf mit Einheit, z. B. „Länge (m)“ */
@@ -154,7 +157,9 @@ function columnsOf(type: MeasureType, list: Damage[]): TypeColumns {
  * Aufmaß-Tabellen: je Messart eine eigene Tabelle mit passenden Spalten und eigener Summe
  * (Fläche, Wand, Länge, Volumen, Stück, Schadstelle, Frei – nur die vorkommenden), darunter die Gesamtsummen.
  */
-export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, onEdit, onDelete, duplicates, components, positionLabel, positionTitle, positionOrder, positionsOf, surfaceNeeded }: Props) {
+export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, onEdit, onDelete, duplicates, components, positionLabel, positionTitle, positionOrder, positionsOf, surfaceNeeded, sel: pick }: Props) {
+  const picking = !!pick?.active;
+  const choose = (r: AufmassRow) => (picking ? pick!.toggle(r.damage.id) : onSelect?.(r));
   const refsOf = (d: Damage): string[] => (positionsOf ? positionsOf(d) : d.positionRef ? [d.positionRef] : []);
   const mainRef = (d: Damage): string | null => refsOf(d)[0] ?? null;
   const selRef = useRef<HTMLTableRowElement>(null);
@@ -178,7 +183,7 @@ export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, on
     : rawRows;
   const damages = sorted.map((r) => r.damage);
   const total = sumArea(damages);
-  const actions = !!(onEdit || onDelete);
+  const actions = !!(onEdit || onDelete) && !picking;
   // je Messart eine Tabelle, in fester Reihenfolge; nur Messarten, die vorkommen
   // Längen je Linienart getrennt (durchgezogen, gestrichelt, Wellenlinie …) – verschiedene Arten nie in einer Tabelle bzw. Summe
   const tables = MEASURE_TYPES.flatMap((info) => {
@@ -250,7 +255,11 @@ export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, on
                 <tr
                   ref={sel ? selRef : undefined}
                   className={`${sel ? 'selected' : ''}${duplicates?.has(r.damage.id) ? ' duplicate' : ''}`}
-                  onClick={() => onSelect?.(r)}
+                  onClick={(e) => {
+                    if (picking && (e.target as Element).closest('input')) return;
+                    choose(r);
+                  }}
+                  data-selected={picking ? pick!.has(r.damage.id) : undefined}
                   data-testid="aufmass-row"
                   data-number={damageNo(r.damage)}
                   data-kind={kind}
@@ -258,6 +267,7 @@ export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, on
                 >
                   {showPlan && <td>{r.plan.planNumber}</td>}
                   <td className="num nr-col">
+                    {picking && <SelectBox sel={pick!} id={r.damage.id} label={label} testId="aufmass-row-select" />}
                     <span className="color-dot" style={{ background: r.damage.color }} /> {damageNo(r.damage)}
                   </td>
                   {cols.cells(r.damage)}
@@ -336,12 +346,12 @@ export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, on
                   )}
                 </tr>
                 {notes && r.damage.note?.trim() && (
-                  <tr className={`note-subrow${sel ? ' selected' : ''}`} onClick={() => onSelect?.(r)} data-testid="row-note-sm">
+                  <tr className={`note-subrow${sel ? ' selected' : ''}`} onClick={() => choose(r)} data-testid="row-note-sm">
                     <td colSpan={all}>{r.damage.note}</td>
                   </tr>
                 )}
                 {deds && (
-                  <tr className={`deduction-subrow${sel ? ' selected' : ''}`} onClick={() => onSelect?.(r)} data-testid="row-deductions">
+                  <tr className={`deduction-subrow${sel ? ' selected' : ''}`} onClick={() => choose(r)} data-testid="row-deductions">
                     <td colSpan={all}>
                       {hasArea(kind) ? (
                         <>

@@ -24,11 +24,13 @@ export function ActionMenu({ label, actions, testId }: { label: string; actions:
   useLayoutEffect(() => {
     if (!open || !btn.current) return;
     const r = btn.current.getBoundingClientRect();
+    // in einer Leiste (Auswahlleiste unten): über bzw. unter der ganzen Leiste aufklappen, nicht über ihren anderen Tasten
+    const bar = btn.current.closest('.select-bar')?.getBoundingClientRect() ?? r;
     const h = menu.current?.offsetHeight ?? actions.length * 46;
     const w = menu.current?.offsetWidth ?? 220;
-    const up = r.bottom + h + 8 > window.innerHeight && r.top - h - 8 > 0;
+    const up = bar.bottom + h + 8 > window.innerHeight && bar.top - h - 8 > 0;
     // passt es weder ganz nach unten noch ganz nach oben: so weit hochschieben, dass es vollständig im Bild bleibt
-    const top0 = up ? r.top - h - 4 : r.bottom + 4;
+    const top0 = up ? bar.top - h - 4 : bar.bottom + 4;
     const top = Math.max(8, Math.min(top0, window.innerHeight - h - 8));
     setPos({ top, left: Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8)), up });
   }, [open, actions.length]);

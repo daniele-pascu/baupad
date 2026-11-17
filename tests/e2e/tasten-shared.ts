@@ -180,6 +180,96 @@ export function tastenTests() {
     expect(out, out.join('\n')).toEqual([]);
   });
 
+  test('Tasten: Mehrfachauswahl (Leisten und Fenster: Pläne, Messungen, LV, Mitarbeiter) – nichts überlappt, verdeckt oder abgeschnitten', async ({ page }) => {
+    test.setTimeout(180_000);
+    const out: string[] = [];
+    await freshStart(page);
+    await createProject(page, 'Tastentest Auswahl', {}, ['EG']);
+    // zwei Pläne, im ersten zwei Messungen
+    for (const nr of ['A-1', 'A-2']) {
+      await page.getByTestId('plan-file-input').setInputFiles(join(FIXTURES, 'parkdeck.png'));
+      const wiz = page.getByTestId('import-wizard');
+      await wiz.getByTestId('areas-next').click();
+      await wiz.locator('[data-field="planNumber"]').fill(nr);
+      await wiz.getByTestId('import-save').click();
+      await waitForPlan(page);
+      if (nr === 'A-1') {
+        const dlg = page.getByTestId('damage-dialog');
+        for (const f of [0.2, 0.5]) {
+          await pickTool(page, 'tool-rect');
+          const b = await planBox(page);
+          await drawRect(page, b.x + b.width * f, b.y + b.height * 0.3, b.x + b.width * (f + 0.15), b.y + b.height * 0.45);
+          await dlg.getByTestId('input-length').fill('2');
+          await dlg.getByTestId('damage-save').click();
+          await expect(dlg).toHaveCount(0);
+        }
+        if (await page.getByTestId('mobile-tab-table').isVisible()) await page.getByTestId('mobile-tab-table').click();
+        await page.getByTestId('damages-select').click();
+        await page.getByTestId('aufmass-row-select').first().check();
+        await expect(page.getByTestId('damages-select-bar')).toBeVisible();
+        await pruefe(page, 'Messungen auswählen', out);
+        await page.getByTestId('damages-bulk-edit').click();
+        await expect(page.getByTestId('bulk-damage-dialog')).toBeVisible();
+        await pruefe(page, 'Messungen ändern (Fenster)', out);
+        await page.getByTestId('bulk-damage-dialog').getByRole('button', { name: 'Abbrechen' }).click();
+        await page.getByTestId('damages-select-bar').getByTestId('select-close').click();
+      }
+      await page.getByRole('link', { name: 'Zurück zur Planliste' }).click();
+    }
+    // Planliste: Auswahl, Leiste, Menü „Mehr“, Fenster „gemeinsam ändern“
+    await page.getByTestId('plans-select').click();
+    await page.getByTestId('plan-select').first().check();
+    await expect(page.getByTestId('plans-select-bar')).toBeVisible();
+    await pruefe(page, 'Pläne auswählen', out);
+    await page.getByTestId('plans-select-bar').getByTestId('select-more').click();
+    await pruefe(page, 'Pläne auswählen: Menü Mehr', out);
+    await page.keyboard.press('Escape');
+    await page.getByTestId('plans-bulk-edit').click();
+    await expect(page.getByTestId('bulk-plan-dialog')).toBeVisible();
+    await pruefe(page, 'Pläne gemeinsam ändern (Fenster)', out);
+    await page.getByTestId('bulk-plan-dialog').getByRole('button', { name: 'Abbrechen' }).click();
+    // LV: Dokumente und Positionen
+    for (const f of ['kurz-lv.pdf', 'lv-beispiel.pdf']) {
+      await page.getByTestId('lv-file-input').setInputFiles(join(FIXTURES, f));
+      await page.getByTestId('lv-review').getByTestId('lv-review-save').click();
+      await expect(page.getByTestId('lv-review')).toHaveCount(0);
+    }
+    await page.getByTestId('lv-docs-select').click();
+    await page.getByTestId('lv-doc-select').first().check();
+    await pruefe(page, 'LV-Dokumente auswählen', out);
+    await page.getByTestId('lv-docs-select-bar').getByTestId('select-close').click();
+    await page.getByTestId('lv-doc-tab').first().click();
+    await page.getByTestId('lv-pos-select').click();
+    await page.getByTestId('lv-pos-check').nth(0).check();
+    await page.getByTestId('lv-pos-check').nth(1).check();
+    await pruefe(page, 'LV-Positionen auswählen', out);
+    await page.getByTestId('lv-pos-bulk-edit').click();
+    await expect(page.getByTestId('lv-bulk-dialog')).toBeVisible();
+    await pruefe(page, 'LV-Positionen ändern (Fenster)', out);
+    await page.getByTestId('lv-bulk-dialog').getByRole('button', { name: 'Abbrechen' }).click();
+    await page.getByTestId('lv-pos-select-bar').getByTestId('select-close').click();
+    // Personalliste: Auswahl und Fenster „Mitarbeiter ändern“ mit Urlaub von–bis
+    await page.goto('./baupad/arbeitereinteilung/personal');
+    for (const [first, last] of [
+      ['Konstantin', 'Mustermann-Beispielhuber'],
+      ['Ali', 'Demir'],
+    ]) {
+      await page.getByTestId('staff-new').click();
+      await page.getByTestId('worker-firstName').fill(first);
+      await page.getByTestId('worker-lastName').fill(last);
+      await page.getByTestId('worker-save').click();
+      await expect(page.getByTestId('worker-dialog')).toHaveCount(0);
+    }
+    await page.getByTestId('staff-select').click();
+    await page.getByTestId('worker-select').first().check();
+    await pruefe(page, 'Mitarbeiter auswählen', out);
+    await page.getByTestId('staff-bulk-edit').click();
+    await page.getByTestId('staff-bulk-absence').selectOption('urlaub');
+    await pruefe(page, 'Mitarbeiter ändern (Fenster)', out);
+    await page.getByTestId('staff-bulk-dialog').getByRole('button', { name: 'Abbrechen' }).click();
+    expect(out, out.join('\n')).toEqual([]);
+  });
+
   test('Tasten: Aufmaß mit Plan, Messung und Dialogen – nichts überlappt, verdeckt oder abgeschnitten', async ({ page }) => {
     test.setTimeout(150_000); // viele Dialoge und Leisten (Messarten) – auf dem Handy langsamer
     const out: string[] = [];

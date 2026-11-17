@@ -13400,3 +13400,139 @@ input,
   padding: 4px 2px;
   border-bottom: 1px solid var(--border);
 }
+
+/* Mehrfachauswahl (Pläne, LV, Mitarbeiter, Aufmaße): Taste „Auswählen“, Kästchen je Zeile, feste Leiste unten */
+.select-toggle.on {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #fff;
+}
+html[data-theme='dark'] .select-toggle.on {
+  color: #111;
+}
+.select-box {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--tool, var(--primary));
+}
+.select-bar-space {
+  height: 88px;
+}
+.select-bar {
+  position: fixed;
+  z-index: 90;
+  left: 50%;
+  bottom: calc(14px + var(--safe-bottom));
+  transform: translateX(-50%);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  width: max-content;
+  max-width: calc(100% - 24px);
+  padding: 8px 8px 8px 18px;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: var(--glass);
+  -webkit-backdrop-filter: saturate(1.6) blur(20px);
+  backdrop-filter: saturate(1.6) blur(20px);
+  box-shadow: var(--shadow-lg);
+  animation: select-bar-in 0.18s var(--ease);
+}
+@keyframes select-bar-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 12px);
+  }
+}
+.select-count {
+  font-weight: 700;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.select-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+.select-close {
+  width: 38px;
+  height: 38px;
+}
+@media (max-width: 600px) {
+  .select-bar {
+    left: 10px;
+    right: 10px;
+    width: auto;
+    max-width: none;
+    transform: none;
+    padding: 8px 8px 8px 14px;
+  }
+  @keyframes select-bar-in {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+  }
+}
+/* Zeilen im Auswahlmodus: ganze Zeile antippen wählt aus, ausgewählte Zeilen leicht hinterlegt */
+.selecting [data-selected='true'] {
+  background: color-mix(in srgb, var(--tool, var(--primary)) 8%, var(--surface));
+}
+/* LV: Suche und „Auswählen“ in einer Zeile; Kästchen vor der Positionsnummer bzw. vor dem Dokument */
+.lv-search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.lv-search-row .lv-search {
+  flex: 1;
+  min-width: 0;
+}
+.lv-c-no .select-box {
+  margin-right: 10px;
+  vertical-align: middle;
+}
+.lv-doc-pick {
+  cursor: pointer;
+}
+/* Auswahlleiste im Bereich (Messleiste im Plan): unten im Bereich statt fest am Bildschirm */
+.select-bar.inline {
+  position: sticky;
+  left: auto;
+  right: auto;
+  bottom: 0;
+  z-index: 5;
+  width: auto;
+  max-width: none;
+  margin: 8px 10px;
+  transform: none;
+  border-radius: 16px;
+  animation: none;
+}
+.side-head-tools {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+.aufmass-table .nr-col .select-box {
+  margin-right: 8px;
+  vertical-align: middle;
+}
+.aufmass-block-head > .select-box {
+  margin-left: 14px;
+}
+.bulk-colors {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.bulk-colors .btn.on {
+  border-color: var(--primary);
+}

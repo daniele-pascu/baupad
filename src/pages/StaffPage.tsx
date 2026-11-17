@@ -5,7 +5,9 @@ import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, showError, toast } from '../components/ui';
 import { WORKER_GRADES, gradeLabel, gradeRank, isoDate, sortByGrade, sortWorkers, workerName } from '../lib/crew';
 import { absenceRange, cleanAbsences, withAbsence } from '../lib/crew-absence';
-import { deleteWorker, getMeta, listWorkers, saveWorker, setMeta } from '../lib/db';
+import { getMeta, listWorkers, saveWorker, setMeta } from '../lib/db';
+import { deleteWorkerEverywhere } from '../lib/sites';
+import { SelectBox, SelectionBar, SelectToggle, useSelection } from '../components/Selection';
 import { uuid } from '../lib/ids';
 import { navigate, paths } from '../lib/router';
 import type { Absence, Worker, WorkerGrade } from '../lib/types';
@@ -64,6 +66,10 @@ export function StaffPage() {
     return sort === 'grade' ? sortByGrade(hit) : sortWorkers(hit);
   }, [workers, sort, query]);
   const activeCount = (workers ?? []).filter((w) => w.active).length;
+  /** Mehrfachauswahl: mehrere löschen oder gemeinsam ändern (Qualifikation, aktiv, Urlaub/Krank) */
+  const sel = useSelection(list.map((w) => w.id));
+  const [bulk, setBulk] = useState(false);
+  const picked = () => list.filter((w) => sel.ids.includes(w.id));
   const nameOf = (id: string) => {
     const w = (workers ?? []).find((x) => x.id === id);
     return w ? workerName(w) : 'Unbekannt';
@@ -80,27 +86,56 @@ export function StaffPage() {
       toast(`${workerName(w)}: ${grade ? gradeLabel(grade as WorkerGrade) : 'keine Qualifikation'}.`, 'success');
     }, 'Speichern fehlgeschlagen');
   const toggleActive = (w: Worker) => run(() => persist({ ...w, active: !w.active, updatedAt: Date.now() }), 'Speichern fehlgeschlagen');
-  const remove = async (w: Worker) => {
+  /** einen oder mehrere Mitarbeiter löschen – auch als Bauleitung/Projektleiter aus den Projekten */
+  const removeMany = async (list: Worker[]) => {
+    if (!list.length) return;
+    const one = list.length === 1;
     const ok = await confirmDialog({
-      title: `${workerName(w)} löschen?`,
+      title: one ? `${workerName(list[0])} löschen?` : `${list.length} Mitarbeiter löschen?`,
       message: (
         <>
-          <p>Der Mitarbeiter wird aus der Personalliste und aus allen Wochen der Einteilung entfernt. Das lässt sich nicht rückgängig machen.</p>
+          {!one && <p>{list.map(workerName).join(', ')}</p>}
+          <p>
+            {one ? 'Der Mitarbeiter wird' : 'Die Mitarbeiter werden'} aus der Personalliste und aus allen Wochen der Einteilung entfernt. Ist{' '}
+            {one ? 'er' : 'einer davon'} bei einem Projekt als Bauleitung bzw. Projektleiter eingetragen, wird {one ? 'er' : 'er'} dort ausgetragen. Das lässt sich nicht rückgängig machen.
+          </p>
           <p>Bereits erstellte Berichte behalten den Namen.</p>
         </>
       ),
-      confirmLabel: 'Löschen',
+      confirmLabel: one ? 'Löschen' : `${list.length} löschen`,
       danger: true,
     });
     if (!ok) return;
     await run(async () => {
-      await deleteWorker(w.id);
-      setWorkers((prev) => (prev ?? []).filter((x) => x.id !== w.id));
-      setAbsences((prev) => prev.filter((a) => a.workerId !== w.id));
+      let projects = 0;
+      for (const w of list) projects += (await deleteWorkerEverywhere(w)).length;
+      const ids = new Set(list.map((w) => w.id));
+      setWorkers((prev) => (prev ?? []).filter((x) => !ids.has(x.id)));
+      setAbsences((prev) => prev.filter((a) => !ids.has(a.workerId)));
       setOpen(null);
-      toast(`${workerName(w)} gelöscht.`, 'success');
+      sel.stop();
+      toast(`${one ? workerName(list[0]) : `${list.length} Mitarbeiter`} gelöscht.${projects ? ` Aus der Bauleitung von ${projects} ${projects === 1 ? 'Projekt' : 'Projekten'} ausgetragen.` : ''}`, 'success', 4000);
     }, 'Löschen fehlgeschlagen');
   };
+  const remove = (w: Worker) => removeMany([w]);
+  /** gemeinsam ändern: Qualifikation, aktiv/inaktiv, Urlaub bzw. Krank für alle gewählten */
+  const applyBulk = (list: Worker[], c: { grade?: string; active?: boolean; absence?: { kind: Absence['kind']; from: string; to: string } }) =>
+    run(async () => {
+      const now = Date.now();
+      for (const w of list) {
+        const next: Worker = { ...w, ...(c.grade !== undefined ? { grade: (c.grade || undefined) as WorkerGrade | undefined } : {}), ...(c.active !== undefined ? { active: c.active } : {}), updatedAt: now };
+        if (JSON.stringify(next) !== JSON.stringify({ ...w, updatedAt: now })) await saveWorker(next);
+      }
+      if (c.absence) {
+        let next = absences;
+        for (const w of list) next = withAbsence(next, { id: uuid(), workerId: w.id, kind: c.absence.kind, from: c.absence.from, to: c.absence.to, createdAt: now });
+        await saveAbsences(next);
+      }
+      await load();
+      setBulk(false);
+      sel.stop();
+      toast(`${list.length} Mitarbeiter geändert.`, 'success');
+    }, 'Speichern fehlgeschlagen');
   const saveAbsences = async (next: Absence[]) => {
     await setMeta('absences', next);
     setAbsences(next);
@@ -153,6 +188,7 @@ export function StaffPage() {
             <span className="sr-only">Suchen</span>
             <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Name, Qualifikation oder Personalnummer suchen" data-testid="staff-search" />
           </label>
+          <SelectToggle sel={sel} testId="staff-select" onStart={() => setOpen(null)} />
           <div className="segmented" role="radiogroup" aria-label="Sortierung">
             <button type="button" role="radio" aria-checked={sort === 'name'} onClick={() => changeSort('name')} data-testid="staff-sort-name">
               A–Z
@@ -163,26 +199,32 @@ export function StaffPage() {
           </div>
         </div>
 
-        <ul className="crew-worker-list staff-list" data-testid="worker-list">
+        <ul className={`crew-worker-list staff-list${sel.active ? ' selecting' : ''}`} data-testid="worker-list">
           {list.map((w, i) => {
             const g = groupOf(w);
             const head = g && (i === 0 || groupOf(list[i - 1]) !== g);
             const isOpen = open === w.id;
             const abs = upcoming(w);
             return (
-              <li key={w.id} className={`${w.active ? '' : 'inactive'}${isOpen ? ' open' : ''}`} data-testid="worker-row" data-group={g || undefined}>
+              <li key={w.id} className={`${w.active ? '' : 'inactive'}${isOpen ? ' open' : ''}`} data-testid="worker-row" data-group={g || undefined} data-selected={sel.active ? sel.has(w.id) : undefined}>
                 {head && (
                   <div className="staff-group" data-testid="staff-group">
                     {g}
                   </div>
                 )}
                 <div className="staff-row">
-                  {sort === 'name' && (
-                    <span className="staff-no" data-testid="worker-no">
-                      {i + 1}.
+                  {sel.active ? (
+                    <span className="staff-no">
+                      <SelectBox sel={sel} id={w.id} label={workerName(w)} testId="worker-select" />
                     </span>
+                  ) : (
+                    sort === 'name' && (
+                      <span className="staff-no" data-testid="worker-no">
+                        {i + 1}.
+                      </span>
+                    )
                   )}
-                  <button type="button" className="crew-worker-main" onClick={() => setOpen(isOpen ? null : w.id)} aria-expanded={isOpen} data-testid="worker-open">
+                  <button type="button" className="crew-worker-main" onClick={() => (sel.active ? sel.toggle(w.id) : setOpen(isOpen ? null : w.id))} aria-expanded={sel.active ? undefined : isOpen} data-testid="worker-open">
                     <strong>{workerName(w)}</strong>
                     <span className="muted small">
                       {[sort === 'grade' ? '' : gradeLabel(w.grade), w.role, w.staffNo && `Nr. ${w.staffNo}`, w.phone].filter(Boolean).join(' · ')}
@@ -192,7 +234,7 @@ export function StaffPage() {
                   </button>
                   <Icon name="next" size={18} className={`staff-chevron${isOpen ? ' open' : ''}`} />
                 </div>
-                {isOpen && (
+                {isOpen && !sel.active && (
                   <div className="staff-options" data-testid="worker-options">
                     <label className="field">
                       <span>Qualifikation</span>
@@ -230,6 +272,18 @@ export function StaffPage() {
           {workers && !list.length && <li className="muted">{query ? 'Niemand gefunden.' : 'Noch niemand angelegt.'}</li>}
         </ul>
 
+        <SelectionBar
+          sel={sel}
+          noun={['Mitarbeiter', 'Mitarbeiter']}
+          testId="staff-select-bar"
+          actions={[
+            { label: 'Löschen', icon: 'trash', primary: true, danger: true, onSelect: () => void removeMany(picked()), testId: 'staff-bulk-delete' },
+            { label: 'Ändern', icon: 'edit', primary: true, onSelect: () => setBulk(true), testId: 'staff-bulk-edit' },
+            { label: 'Deaktivieren', icon: 'pause', onSelect: () => void applyBulk(picked(), { active: false }), testId: 'staff-bulk-off' },
+            { label: 'Aktivieren', icon: 'play', onSelect: () => void applyBulk(picked(), { active: true }), testId: 'staff-bulk-on' },
+          ]}
+        />
+
         <div className="row gap wrap staff-foot">
           <a href={paths.workers()} className="btn">
             <Icon name="back" /> Zurück zu Team
@@ -248,6 +302,7 @@ export function StaffPage() {
           }}
         />
       )}
+      {bulk && <BulkStaffDialog workers={picked()} today={today} onClose={() => setBulk(false)} onSave={(c) => void applyBulk(picked(), c)} />}
       {dialog?.kind === 'absence' && (
         <AbsenceDialog
           workers={(workers ?? []).filter((w) => w.active || w.id === dialog.worker.id)}
@@ -264,6 +319,82 @@ export function StaffPage() {
       )}
       </div>
     </>
+  );
+}
+
+/** Mehrere Mitarbeiter gemeinsam ändern: Qualifikation, aktiv/inaktiv, Urlaub bzw. Krank von–bis */
+function BulkStaffDialog({ workers, today, onClose, onSave }: { workers: Worker[]; today: string; onClose(): void; onSave(c: { grade?: string; active?: boolean; absence?: { kind: Absence['kind']; from: string; to: string } }): void }) {
+  const [grade, setGrade] = useState('=');
+  const [active, setActive] = useState('=');
+  const [absence, setAbsence] = useState<'' | Absence['kind']>('');
+  const [from, setFrom] = useState(today);
+  const [to, setTo] = useState(today);
+  const bad = !!absence && (!from || !to || to < from);
+  const save = () => {
+    if (bad) return;
+    onSave({ ...(grade !== '=' ? { grade } : {}), ...(active !== '=' ? { active: active === 'on' } : {}), ...(absence ? { absence: { kind: absence, from, to } } : {}) });
+  };
+  return (
+    <Modal
+      title={`${workers.length} Mitarbeiter ändern`}
+      onClose={onClose}
+      testId="staff-bulk-dialog"
+      footer={
+        <>
+          <button type="button" className="btn" onClick={onClose}>
+            Abbrechen
+          </button>
+          <button type="button" className="btn btn-primary" onClick={save} disabled={bad} data-testid="staff-bulk-save">
+            <Icon name="check" size={18} /> Übernehmen
+          </button>
+        </>
+      }
+    >
+      <div className="stack-fields">
+        <p className="muted small">{workers.map(workerName).join(', ')}</p>
+        <label className="field">
+          <span>Qualifikation</span>
+          <select value={grade} onChange={(e) => setGrade(e.target.value)} data-testid="staff-bulk-grade">
+            <option value="=">– unverändert –</option>
+            <option value="">keine</option>
+            {WORKER_GRADES.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          <span>Status</span>
+          <select value={active} onChange={(e) => setActive(e.target.value)} data-testid="staff-bulk-active">
+            <option value="=">– unverändert –</option>
+            <option value="on">aktiv</option>
+            <option value="off">inaktiv (wird nicht mehr eingeteilt)</option>
+          </select>
+        </label>
+        <label className="field">
+          <span>Urlaub / Krank eintragen</span>
+          <select value={absence} onChange={(e) => setAbsence(e.target.value as '' | Absence['kind'])} data-testid="staff-bulk-absence">
+            <option value="">– nichts eintragen –</option>
+            <option value="urlaub">Urlaub</option>
+            <option value="krank">Krank</option>
+          </select>
+        </label>
+        {absence && (
+          <div className="form-grid">
+            <label className="field">
+              <span>von</span>
+              <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} data-testid="staff-bulk-from" />
+            </label>
+            <label className="field">
+              <span>bis</span>
+              <input type="date" value={to} onChange={(e) => setTo(e.target.value)} data-testid="staff-bulk-to" />
+            </label>
+          </div>
+        )}
+        {bad && <p className="error small">„bis“ darf nicht vor „von“ liegen.</p>}
+      </div>
+    </Modal>
   );
 }
 
