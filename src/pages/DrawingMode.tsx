@@ -152,7 +152,7 @@ export const ORTHO_DIR_LABELS: Record<OrthoDir, string> = { auto: 'Richtung auto
 /** Werkzeuge mit Ausgangspunkt, für die der 90°-Modus gilt (auch Endpunkte ziehen und Vektoren) */
 const ORTHO_TOOLS = new Set<string>(['line', 'dimension', 'polyline', 'polygon', 'vector']);
 /** Fangpunkte, die als Spurlinien-Bezug gemerkt werden */
-const TRACK_KINDS = new Set<SnapKind>(['end', 'intersection', 'mid', 'center', 'quadrant']);
+export const TRACK_KINDS = new Set<SnapKind>(['end', 'intersection', 'mid', 'center', 'quadrant']);
 /** Parallel/rechtwinklig zu einer angefahrenen Kante: beim Zeichnen von Linien, Polylinien, Wänden, Vektoren */
 const PARALLEL_TOOLS = new Set<string>(['line', 'dimension', 'polyline', 'polygon', 'vector', 'wall']);
 /** Hilfslinie als sehr lange Strecke (m) – für Fang und Anzeige */
@@ -370,6 +370,11 @@ export function useDrawing(opts: {
   });
   /** Ende der zuletzt eingefügten Linie – die nächste Linie schließt dort an (Wände) */
   const [lastLineEnd, setLastLineEnd] = useState<Point | null>(null);
+  /**
+   * Abstand auf der Spurlinie eintippen, bevor der Anfangspunkt der Linie gesetzt ist (wie die Objektfang-Spur im
+   * CAD): gemerkter Punkt, Richtung auf der Spurlinie (zur Seite des Zeigers) und der bisher getippte Text (Meter)
+   */
+  const [trackDist, setTrackDist] = useState<{ ref: Point; dir: Point; text: string } | null>(null);
 
   const setTool = (t: DrawTool) => {
     setToolState(t);
@@ -540,8 +545,9 @@ export function useDrawing(opts: {
       for (const r of refs) {
         const th = same(held.h, r) ? tol * 2 : tol;
         const tv = same(held.v, r) ? tol * 2 : tol;
-        if (Math.abs(pm.y - r.y) < th && (!h || Math.abs(pm.y - r.y) < Math.abs(pm.y - h.y))) h = r;
-        if (Math.abs(pm.x - r.x) < tv && (!v || Math.abs(pm.x - r.x) < Math.abs(pm.x - v.x))) v = r;
+        // bei gleicher Flucht zählt der zuletzt angefahrene Punkt (Bezug für einen eingetippten Abstand)
+        if (Math.abs(pm.y - r.y) < th && (!h || Math.abs(pm.y - r.y) <= Math.abs(pm.y - h.y))) h = r;
+        if (Math.abs(pm.x - r.x) < tv && (!v || Math.abs(pm.x - r.x) <= Math.abs(pm.x - v.x))) v = r;
       }
       return { h, v };
     };
@@ -859,6 +865,13 @@ export function useDrawing(opts: {
     const base = cmdBase ? { x: cmdBase.x / k, y: cmdBase.y / k } : null;
     const hover = hoverRef.current ? { x: hoverRef.current.x / k, y: hoverRef.current.y / k } : null;
     const dir = base && hover ? { x: hover.x - base.x, y: hover.y - base.y } : null;
+    // Linie: Zeiger auf der Spurlinie eines gemerkten Punkts → Endpunkt im getippten Abstand von diesem Punkt
+    const tracked = tool === 'line' && base && inp.kind === 'dist' && inp.len > 0 ? trackTarget(inp.len, base) : null;
+    if (tracked && base) {
+      viewer.current?.armClick(null);
+      create('line', lineShape(base, tracked));
+      return null;
+    }
     const v = inputVector(inp, dir);
     if (!v) return base ? 'Richtung fehlt: mit der Maus in die Richtung zeigen – oder ΔX;ΔY bzw. Länge<Winkel eingeben.' : 'Zuerst den Basispunkt antippen – oder ΔX;ΔY bzw. Länge<Winkel eingeben.';
     if (tool === 'mirror') {
@@ -996,12 +1009,64 @@ export function useDrawing(opts: {
   };
 
   /**
+   * Punkt auf der aktiven Spurlinie im getippten Abstand vom gemerkten Punkt, auf der Seite des Zeigers (Meter).
+   * Nur bei genau einer Spurlinie, die nicht durch den letzten Punkt geht – dort gilt wie bisher die Länge ab dem
+   * letzten Punkt. null = keine solche Spurlinie.
+   */
+  const trackTarget = (dist: number, last: Point | null): Point | null => {
+    const l = track.current.lines;
+    const hov = hoverRef.current;
+    if (!trackOn || !snapOn || l.length !== 1 || !hov) return null;
+    const { from, axis } = l[0];
+    if (last && Math.abs(axis === 'h' ? from.y - last.y : from.x - last.x) < 1e-6) return null;
+    const side = (axis === 'h' ? hov.x / k - from.x : hov.y / k - from.y) < 0 ? -1 : 1;
+    return axis === 'h' ? { x: from.x + side * dist, y: from.y } : { x: from.x, y: from.y + side * dist };
+  };
+  /** Erster Punkt aus einem getippten Abstand auf der Spurlinie (Seitenkoordinaten); null = keine Spurlinie bzw. kein Abstand */
+  const trackPoint = (text: string): Point | null => {
+    const inp = parseCadInput(text);
+    const t = inp?.kind === 'dist' && inp.len > 0 ? trackTarget(inp.len, null) : null;
+    return t && { x: t.x * k, y: t.y * k };
+  };
+  /**
+   * Tastatur beim Linienwerkzeug vor dem ersten Klick: steht der Zeiger auf einer Spurlinie, sammeln Ziffern den
+   * Abstand vom gemerkten Punkt, Enter setzt dort den Anfangspunkt. true = Taste verbraucht.
+   */
+  const trackKey = (e: KeyboardEvent): boolean => {
+    if (tool !== 'line' || cmdBase) return false;
+    if (!trackDist) {
+      const ref = /^[0-9]$/.test(e.key) ? trackTarget(0, null) : null;
+      const one = ref && trackTarget(1, null);
+      if (!ref || !one) return false;
+      setTrackDist({ ref, dir: { x: one.x - ref.x, y: one.y - ref.y }, text: e.key });
+      return true;
+    }
+    if (e.key === 'Escape') setTrackDist(null);
+    else if (e.key === 'Backspace') setTrackDist(trackDist.text.length > 1 ? { ...trackDist, text: trackDist.text.slice(0, -1) } : null);
+    else if (/^[0-9.,]$/.test(e.key)) setTrackDist({ ...trackDist, text: trackDist.text + e.key });
+    else if (e.key === 'Enter') {
+      const d = Number(trackDist.text.replace(',', '.'));
+      if (!(d > 0)) toast('Bitte einen Abstand größer als 0 eingeben, z. B. 1,25.', 'info');
+      else {
+        viewer.current?.armClick({ x: (trackDist.ref.x + trackDist.dir.x * d) * k, y: (trackDist.ref.y + trackDist.dir.y * d) * k });
+        setTrackDist(null);
+      }
+    } else return false;
+    return true;
+  };
+  // Werkzeug gewechselt bzw. Anfangspunkt gesetzt: angefangene Eingabe verwerfen
+  useEffect(() => setTrackDist(null), [tool, cmdBase]);
+
+  /**
    * Polylinie, Fläche, Wand: nächsten Knick aus einer Eingabe – Länge in Zeigerrichtung, ΔX;ΔY oder Länge<Winkel
    * (vom zuletzt gesetzten Punkt, Seitenkoordinaten). Liefert den Punkt oder eine Fehlermeldung.
    */
   const polyNext = (text: string, last: Point): Point | string => {
     const inp = parseCadInput(text);
     if (!inp) return 'Bitte z. B. 2,5 (Länge in Zeigerrichtung), 2,5;0 (ΔX;ΔY) oder 3<90 (Länge<Winkel) eingeben.';
+    // Zeiger auf der Spurlinie eines gemerkten Punkts: Abstand von diesem Punkt
+    const tracked = inp.kind === 'dist' && inp.len > 0 ? trackTarget(inp.len, { x: last.x / k, y: last.y / k }) : null;
+    if (tracked) return { x: tracked.x * k, y: tracked.y * k };
     const hover = hoverRef.current;
     const dir = hover ? { x: (hover.x - last.x) / k, y: (hover.y - last.y) / k } : null;
     const v = inputVector(inp, dir && Math.hypot(dir.x, dir.y) > 1e-6 ? dir : null);
@@ -2027,6 +2092,21 @@ export function useDrawing(opts: {
               const s2 = toScreen(view, { x: l.from.x * k, y: l.from.y * k });
               return <path key={`l${i}`} d={l.axis === 'h' ? `M-20000 ${s2.y}H20000` : `M${s2.x} -20000V20000`} className="track-line" data-testid="track-line" data-axis={l.axis} />;
             })}
+            {trackDist &&
+              (() => {
+                // getippter Abstand auf der Spurlinie: Strecke vom gemerkten Punkt zum neuen Anfangspunkt
+                const d = Number(trackDist.text.replace(',', '.')) || 0;
+                const a = toScreen(view, { x: trackDist.ref.x * k, y: trackDist.ref.y * k });
+                const b = toScreen(view, { x: (trackDist.ref.x + trackDist.dir.x * d) * k, y: (trackDist.ref.y + trackDist.dir.y * d) * k });
+                return (
+                  <g data-testid="track-dist">
+                    <path d={`M${a.x} ${a.y}L${b.x} ${b.y}M${b.x - 5} ${b.y - 5}l10 10m0 -10l-10 10`} className="track-acquired" />
+                    <text x={b.x + 10} y={b.y + 24} className="track-dist-label">
+                      {trackDist.text} m – Enter setzt den Punkt
+                    </text>
+                  </g>
+                );
+              })()}
           </g>
         )}
       </>
@@ -2073,6 +2153,8 @@ export function useDrawing(opts: {
     copies,
     onHover: (p: Point | null) => void (hoverRef.current = p),
     applyInput,
+    trackPoint,
+    trackKey,
     finishCommand,
     tipText,
     removeSelection,

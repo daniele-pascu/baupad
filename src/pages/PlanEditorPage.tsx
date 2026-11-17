@@ -43,7 +43,7 @@ import { hatchAnchor } from '../lib/style';
 import { SegIndex } from '../lib/pdf-snap';
 import { clearHistory, newMeta, putRecord, putRecords, redo, softDelete, undo, useAppState, type ProjectState } from '../lib/store';
 import { COLORS, SHAPE_LABELS, type Damage, type DrawElementType, type MeasureKind, type MeasureType, type Plan, type Shape, type ShapeStyle, type ShapeType } from '../lib/types';
-import { DRAW_TOOLS, guideSeg, PICK_TOOLS, readStyle, SELECT_FIRST, useDrawing, VECTOR_COMMANDS, type DrawTool } from './DrawingMode';
+import { DRAW_TOOLS, guideSeg, PICK_TOOLS, readStyle, SELECT_FIRST, TRACK_KINDS, useDrawing, VECTOR_COMMANDS, type DrawTool } from './DrawingMode';
 import { CommandBar } from '../components/CommandBar';
 import { symbolDef } from '../lib/symbols';
 import { DrawRibbon, OrthoButtons } from '../components/DrawRibbon';
@@ -755,6 +755,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
    * Punktfang im Aufmaß: an Markierungen (und bei gezeichneten Plänen an Zeichnungsobjekten) –
    * End-/Eckpunkte, Schnittpunkte, Mittelpunkte, nächster Punkt auf Linien.
    */
+  /** Aufmaß: gemerkte Fangpunkte (zuletzt bis zu 4) und aktuelle Spurlinien – nur für Fang und Anzeige */
+  const measureTrack = useRef<{ acquired: Point[]; lines: { from: Point; axis: 'h' | 'v' }[] }>({ acquired: [], lines: [] });
   const measureSnap: SnapFn = (p, ctx) => {
     const shapes = [
       ...shownDamages.filter((d) => d.id !== ctx.movingId).map((d) => d.shape),
@@ -767,6 +769,32 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     const upm = drawingPlan ? unitsPerMeter(plan!) : 0;
     const lines = drawingPlan && drawing.guidesOn ? drawing.guides.map((g) => guideSeg(g).map((q) => ({ x: q.x * upm, y: q.y * upm })) as [Point, Point]) : [];
     const hit = findSnap(p, shapes, tol, planLines?.index.near(p, tol) ?? [], { lines, ...(coarse ? { free: { point: 10 / ctx.scale, line: 6 / ctx.scale } } : {}) });
+    // Spurlinien wie beim Zeichnen (nur Maus/Stift – per Finger bleibt das Antippen wie bisher): angefahrene
+    // Ecken, Mitten und Schnittpunkte merken; ohne Fangpunkt in ihrer Flucht (waagrecht/senkrecht) einrasten
+    const t = measureTrack.current;
+    t.lines = [];
+    if (coarse || !drawing.trackOn || ctx.movingId || ctx.tool === 'select') return hit ? { ...hit.point, kind: hit.kind } : p;
+    if (hit && TRACK_KINDS.has(hit.kind)) t.acquired = [...t.acquired.filter((a) => Math.hypot(a.x - hit.point.x, a.y - hit.point.y) > 1e-6), hit.point].slice(-4);
+    if (!hit || hit.kind === 'nearest') {
+      let h: Point | null = null;
+      let v: Point | null = null;
+      for (const r of [...t.acquired, ...(ctx.from ? [ctx.from] : [])]) {
+        if (Math.abs(p.y - r.y) < tol && (!h || Math.abs(p.y - r.y) < Math.abs(p.y - h.y))) h = r;
+        if (Math.abs(p.x - r.x) < tol && (!v || Math.abs(p.x - r.x) < Math.abs(p.x - v.x))) v = r;
+      }
+      if (h || v) {
+        let q = { x: v ? v.x : p.x, y: h ? h.y : p.y };
+        // auf einer Linie: Schnittpunkt der Spurlinie mit dieser Linie (der Punkt bleibt auf der Linie)
+        if (hit?.seg && !(h && v)) {
+          const [a, b] = hit.seg;
+          if (v && Math.abs(b.x - a.x) > 1e-9) q = { x: v.x, y: a.y + ((v.x - a.x) * (b.y - a.y)) / (b.x - a.x) };
+          else if (h && Math.abs(b.y - a.y) > 1e-9) q = { x: a.x + ((h.y - a.y) * (b.x - a.x)) / (b.y - a.y), y: h.y };
+          else return { ...hit.point, kind: hit.kind };
+        }
+        t.lines = [...(h ? [{ from: h, axis: 'h' as const }] : []), ...(v ? [{ from: v, axis: 'v' as const }] : [])];
+        return { ...q, kind: 'track' };
+      }
+    }
     return hit ? { ...hit.point, kind: hit.kind } : p;
   };
   /** X gedrückt: vergrößert (Hinweis anzeigen) */
@@ -909,6 +937,11 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         return;
       }
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || document.querySelector('.modal')) return;
+      // Plan zeichnen, Linie: Abstand auf der Spurlinie eintippen (Ziffern, Enter, Esc, Rücktaste)
+      if (drawMode && !probe && !e.ctrlKey && !e.metaKey && !e.altKey && drawing.trackKey(e)) {
+        e.preventDefault();
+        return;
+      }
       // Esc beendet alles – gesetzte Punkte, Messung, Menü, Auswahl – und schaltet auf „Auswahl“
       // (im Aufmaß und unter „Plan bearbeiten“)
       if (e.key === 'Escape') {
@@ -1733,6 +1766,18 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                     </>
                   )}
                   {tool === 'probe' && probe && <ProbeOverlay view={view} probe={probe} hover={hover ?? null} k={k} />}
+                  {drawing.snapOn && drawing.trackOn && tool !== 'select' && (
+                    <g className="track-lines" data-testid="track-lines">
+                      {measureTrack.current.acquired.map((a, i) => {
+                        const q = toScreen(view, a);
+                        return <path key={`a${i}`} d={`M${q.x - 4} ${q.y}H${q.x + 4}M${q.x} ${q.y - 4}V${q.y + 4}`} className="track-acquired" />;
+                      })}
+                      {measureTrack.current.lines.map((l, i) => {
+                        const q = toScreen(view, l.from);
+                        return <path key={`l${i}`} d={l.axis === 'h' ? `M-20000 ${q.y}H20000` : `M${q.x} -20000V20000`} className="track-line" data-testid="track-line" data-axis={l.axis} />;
+                      })}
+                    </g>
+                  )}
                   {tool === 'points' &&
                     pointMarks.map((p, i) => {
                       const q = toScreen(view, p);
@@ -2233,7 +2278,13 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 drawMode
                   ? (text) => {
                       const last = viewer.current?.lastPolygonPoint();
-                      if (!last) return 'Zuerst den Anfangspunkt antippen.';
+                      if (!last) {
+                        // Anfangspunkt: Zeiger auf einer Spurlinie → Abstand vom gemerkten Punkt
+                        const first = drawing.trackPoint(text);
+                        if (!first) return 'Zuerst den Anfangspunkt antippen – oder auf einer Spurlinie den Abstand vom gemerkten Punkt eintippen.';
+                        viewer.current?.addPolygonPoint(first);
+                        return null;
+                      }
                       const next = drawing.polyNext(text, last);
                       if (typeof next === 'string') return next;
                       viewer.current?.addPolygonPoint(next);

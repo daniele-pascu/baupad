@@ -11216,6 +11216,15 @@ html[data-theme='dark'] .crew-search {
   fill: none;
   pointer-events: none;
 }
+.track-dist-label {
+  font-size: 13px;
+  font-weight: 600;
+  fill: #0b7a3b;
+  paint-order: stroke;
+  stroke: #fff;
+  stroke-width: 3px;
+  pointer-events: none;
+}
 
 /* Einteilung: je Tag die Arbeiter untereinander (eine Zeile je Arbeiter) statt nebeneinander */
 .crew-days .crew-chips {

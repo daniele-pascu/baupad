@@ -307,6 +307,39 @@ test('Spurlinien: waagrecht zeichnen, genau unter der Ecke → senkrechte Spurli
   }
 });
 
+test('Spurlinie: Abstand vom gemerkten Punkt eintippen – Anfangs- und Endpunkt der Linie', async () => {
+  await deselect();
+  const sb = (await sheet().boundingBox())!;
+  const rect = (await elements()).filter((e) => e.type === 'rect').pop()!;
+  const right = rect.shape.x + rect.shape.w;
+  const endsOf = (l: typeof rect) => (l.shape.points ?? []).map(([px, py]) => ({ x: l.shape.x + px * l.shape.w, y: l.shape.y + py * l.shape.h }));
+  await pickTool(page, 'draw-line');
+  // Ecke rechts oben (750, 450) kurz anfahren, dann rechts davon in ihrer Flucht stehen bleiben
+  await page.mouse.move(sb.x + 750, sb.y + 450, { steps: 4 });
+  await page.mouse.move(sb.x + 800, sb.y + 452, { steps: 6 });
+  await expect(page.locator('[data-testid="track-line"][data-axis="h"]')).toHaveCount(1);
+  // 0,5 m eintippen → Anfangspunkt liegt 0,5 m rechts der Ecke
+  await page.keyboard.type('0,5');
+  await expect(page.getByTestId('track-dist')).toContainText('0,5 m');
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('track-dist')).toHaveCount(0);
+  await expect(page.getByTestId('command-bar')).toBeVisible(); // Anfangspunkt gesetzt
+  // Endpunkt: Ecke rechts unten (750, 520) anfahren, darunter in ihrer Flucht bleiben, 1 m eintippen
+  await page.mouse.move(sb.x + 750, sb.y + 520, { steps: 4 });
+  await page.mouse.move(sb.x + 752, sb.y + 580); // in einem Schritt: keine anderen Punkte unterwegs anfahren
+  await page.mouse.move(sb.x + 752, sb.y + 581);
+  await expect(page.locator('[data-testid="track-line"][data-axis="v"]')).toHaveCount(1);
+  await page.keyboard.type('1');
+  await page.keyboard.press('Enter');
+  await waitSaved(page);
+  const line = (await elements()).filter((e) => e.type === 'line').pop()!;
+  const [a, b] = endsOf(line).sort((p, q) => p.y - q.y);
+  near(a.x, right + 0.5, 1e-6);
+  near(a.y, rect.shape.y, 1e-6);
+  near(b.x, right, 1e-6);
+  near(b.y, rect.shape.y + rect.shape.h + 1, 1e-6);
+});
+
 test('Bogen aus drei Punkten: Länge und Radius', async () => {
   await deselect();
   const sb = (await sheet().boundingBox())!;
