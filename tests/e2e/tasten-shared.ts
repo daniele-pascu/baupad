@@ -87,6 +87,10 @@ export function tastenTests() {
       await page.getByTestId('nav-products').click();
       await expect(page.getByTestId('products-panel')).toBeVisible();
       await page.waitForTimeout(300);
+      // Fenster klebt nicht an der Taste „Produkte“ (am Handy liegt es direkt darunter im Menü)
+      const tb = (await page.getByTestId('nav-products').boundingBox())!;
+      const pb = (await page.getByTestId('products-panel').boundingBox())!;
+      if (pb.y - (tb.y + tb.height) < 6) out.push(`Website Fenster Produkte: klebt an der Taste (${Math.round(pb.y - (tb.y + tb.height))} px Abstand)`);
       await pruefe(page, 'Website Fenster Produkte', out);
       expect(out, out.join('\n')).toEqual([]);
     });
