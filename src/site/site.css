@@ -9,8 +9,14 @@
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  background: #fff;
-  color: #111;
+  /* Seite in Anthrazit, helle Schrift */
+  --ps-bg: #1c1c1e;
+  --ps-fg: #f5f5f7;
+  --ps-soft: rgba(255, 255, 255, 0.66);
+  --ps-faint: rgba(255, 255, 255, 0.45);
+  --ps-line: rgba(255, 255, 255, 0.14);
+  background: var(--ps-bg);
+  color: var(--ps-fg);
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   font-size: 17px;
   line-height: 1.55;
@@ -21,11 +27,11 @@
   box-sizing: border-box;
 }
 .ps-site :focus-visible {
-  outline: 2px solid #111;
+  outline: 2px solid #fff;
   outline-offset: 2px;
 }
 .ps-site a {
-  color: #111;
+  color: var(--ps-fg);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -33,7 +39,7 @@
 .ps-site h2,
 .ps-site h3 {
   margin: 0 0 12px;
-  color: #111;
+  color: var(--ps-fg);
   font-weight: 700;
   line-height: 1.25;
   letter-spacing: 0;
@@ -134,16 +140,16 @@
 .ps-bar {
   transition: background-color 0.35s ease;
 }
-.ps-header.scrolled .ps-bar {
+.ps-chrome .ps-header.scrolled .ps-bar {
   background-color: rgba(0, 0, 0, 0.5);
 }
-.ps-header.scrolled.awake .ps-bar,
-.ps-header.scrolled.open .ps-bar,
-.ps-header.scrolled:focus-within .ps-bar {
+.ps-chrome .ps-header.scrolled.awake .ps-bar,
+.ps-chrome .ps-header.scrolled.open .ps-bar,
+.ps-chrome .ps-header.scrolled:focus-within .ps-bar {
   background-color: rgba(0, 0, 0, 0.9);
 }
 @media (hover: hover) {
-  .ps-header.scrolled:hover .ps-bar {
+  .ps-chrome .ps-header.scrolled:hover .ps-bar {
     background-color: rgba(0, 0, 0, 0.9);
   }
 }
@@ -192,6 +198,27 @@
 :is(.ps-site, .ps-chrome) .ps-nav a:hover {
   background: rgba(255, 255, 255, 0.08);
 }
+/* Website: Leiste aus zartem weißem Liquid Glass auf dem dunklen Grund – Logo, Links und Schrift bleiben weiß */
+.ps-site .ps-bar {
+  border-color: rgba(255, 255, 255, 0.28);
+  background-color: rgba(255, 255, 255, 0.1);
+  background-image: linear-gradient(rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0) 60%);
+  -webkit-backdrop-filter: blur(6px) saturate(180%);
+  backdrop-filter: blur(6px) saturate(180%);
+  box-shadow:
+    inset 0 1.5px rgba(255, 255, 255, 0.45),
+    inset 0 -1px rgba(255, 255, 255, 0.08),
+    0 16px 36px -18px rgba(0, 0, 0, 0.8);
+}
+.ps-site .ps-header.open .ps-bar {
+  background-color: rgba(34, 34, 37, 0.97);
+}
+:is(.ps-site, .ps-chrome) .ps-nav a:hover,
+.ps-site .ps-nav-products button:hover,
+.ps-site .ps-nav-products.is-open button {
+  background: rgba(255, 255, 255, 0.12);
+}
+
 /* Produkte: Taste wie die Links, mit kleinem Pfeil; darunter klappt das Fenster auf */
 .ps-nav {
   position: relative;
@@ -310,20 +337,32 @@
   display: inline-flex;
   align-items: center;
   min-height: 40px;
-  padding: 0 20px;
-  border: 1px solid rgba(255, 255, 255, 0.75);
+  padding: 0 22px;
+  border: 1.5px solid rgba(255, 255, 255, 0.95);
   border-radius: 999px;
-  background: #000;
+  /* Liquid Glass hell: fast weißes Glas mit Lichtkante; Maus darüber/Antippen: schwarz mit weißer Schrift */
+  background-color: rgba(255, 255, 255, 0.88);
+  background-image: linear-gradient(rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0));
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  backdrop-filter: blur(12px) saturate(180%);
+  color: #111 !important;
   font-size: 16px;
-  font-weight: 500;
+  font-weight: 600;
   box-shadow:
-    0 0 0 3px rgba(255, 255, 255, 0.06),
-    0 0 14px rgba(255, 255, 255, 0.18);
-  transition: background-color 0.15s ease, color 0.15s ease;
+    inset 0 1.5px #fff,
+    inset 0 -2px 4px rgba(0, 0, 0, 0.06),
+    0 8px 20px -8px rgba(0, 0, 0, 0.55);
+  transition: background-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
 }
-:is(.ps-site, .ps-chrome) .ps-login:hover {
-  background: #fff;
-  color: #000;
+:is(.ps-site, .ps-chrome) .ps-login:hover,
+:is(.ps-site, .ps-chrome) .ps-login:active {
+  background-color: #000;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0));
+  border-color: rgba(255, 255, 255, 0.35);
+  color: #fff !important;
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.3),
+    0 8px 20px -8px rgba(0, 0, 0, 0.7);
 }
 .ps-menu-btn {
   display: none;
@@ -428,7 +467,7 @@
 /* Kleine Zeile über Überschriften, Motto, Linkreihen */
 .ps-eyebrow {
   margin-bottom: 4px !important;
-  color: #666;
+  color: var(--ps-soft);
   font-size: 14px;
 }
 .ps-motto span {
@@ -455,10 +494,10 @@
   white-space: pre-line;
 }
 .ps-site .placeholder {
-  color: #999;
+  color: var(--ps-faint);
 }
 .ps-small {
-  color: #555;
+  color: var(--ps-soft);
   font-size: 14px;
 }
 
@@ -474,7 +513,7 @@
   font-weight: 600;
 }
 .ps-optional {
-  color: #666;
+  color: var(--ps-soft);
   font-weight: 400;
 }
 .ps-field input,
@@ -483,15 +522,15 @@
   width: 100%;
   min-height: 44px;
   padding: 8px 10px;
-  border: 1px solid #999;
-  border-radius: 0;
-  background: #fff;
-  color: #111;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ps-fg);
   font: inherit;
 }
 .ps-field.has-error input,
 .ps-field.has-error textarea {
-  border-color: #b00020;
+  border-color: #ff7a7a;
 }
 .ps-field-check label {
   display: flex;
@@ -508,7 +547,7 @@
 }
 .ps-error {
   margin: 4px 0 0 !important;
-  color: #b00020;
+  color: #ff8a8a;
   font-size: 15px;
 }
 /* Honigtopf gegen Bots: für Menschen nie sichtbar */
@@ -521,14 +560,22 @@
 }
 .ps-submit {
   justify-self: start;
-  min-height: 44px;
-  padding: 8px 20px;
-  border: 1px solid #111;
-  border-radius: 0;
-  background: #fff;
+  min-height: 46px;
+  padding: 0 24px;
+  border: 1.5px solid rgba(255, 255, 255, 0.95);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
   color: #111;
   font: inherit;
+  font-weight: 600;
   cursor: pointer;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+.ps-submit:hover:not(:disabled),
+.ps-submit:active:not(:disabled) {
+  background: #000;
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.35);
 }
 .ps-submit:disabled {
   opacity: 0.5;
@@ -539,7 +586,7 @@
 .ps-footer {
   padding-top: 24px;
   padding-bottom: 32px;
-  border-top: 1px solid #ddd;
+  border-top: 1px solid var(--ps-line);
   font-size: 15px;
 }
 .ps-footer-grid {
@@ -568,7 +615,7 @@
   justify-content: space-between;
   gap: 8px 24px;
   margin-top: 24px;
-  color: #666;
+  color: var(--ps-soft);
 }
 
 @media print {
@@ -577,4 +624,10 @@
   .ps-print-hide {
     display: none !important;
   }
+}
+
+/* Überscrollen am Rand: gleicher Grund wie die Seite */
+html:has(.ps-site),
+body:has(.ps-site) {
+  background: #1c1c1e;
 }
