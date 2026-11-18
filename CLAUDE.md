@@ -6,6 +6,9 @@ PAD Software ist eine Softwarefirma für **alle Richtungen** – nicht für die 
 Produkt **BauPad**. Website-Startseite, Firmenseiten, Texte und Gestaltung von PAD Software deshalb nie auf Bau, Baustelle,
 Pläne oder Bau-Motive ausrichten; das gehört ausschließlich auf die BauPad-Seiten.
 
+**PAD = Initialen von Pascu Andrea Daniele.** „Problem. Analysis. Development.“ ist das Motto, nicht die Bedeutung des
+Namens – nirgends behaupten oder darstellen, PAD stehe für Problem, Analysis, Development.
+
 ## Tasten-Regel (PC, Handy, Tablet)
 
 Alle Tasten müssen auf jedem Gerät gut platziert sein: nichts darf sich überlappen, verdeckt, am Rand
