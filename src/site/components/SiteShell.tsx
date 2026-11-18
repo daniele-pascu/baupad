@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { langOf, LANGS, navigate, parseRoute, paths, sitePath, usePath, type Lang, type SiteRouteName, PRODUCT_SLUG_OF } from '../../lib/router';
 import { useSession } from '../../lib/use-session';
 import { contactData } from '../contact-data';
@@ -77,17 +77,17 @@ export function SiteHeader() {
   useEffect(() => setOpen(false), [path]);
   // über hellem Grund wird die Leiste schwarzes Glas (Logo und Schrift bleiben weiß); nur über dem schwarzen Kopf der
   // Startseite bleibt sie weißes Glas. Seiten ohne schwarzen Kopf sind ganz hell.
-  const [light, setLight] = useState(false);
-  useEffect(() => {
+  // vor dem ersten Bild prüfen (useLayoutEffect), damit die Leiste beim Seitenwechsel nicht kurz im falschen Modus aufblitzt
+  const [light, setLight] = useState(true);
+  useLayoutEffect(() => {
     const check = () => {
       const top = document.querySelector('[data-dark-top]');
       setLight(!top || top.getBoundingClientRect().bottom < 44);
     };
-    const raf = requestAnimationFrame(check);
+    check();
     window.addEventListener('scroll', check, { passive: true });
     window.addEventListener('resize', check);
     return () => {
-      cancelAnimationFrame(raf);
       window.removeEventListener('scroll', check);
       window.removeEventListener('resize', check);
     };
