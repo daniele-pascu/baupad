@@ -152,8 +152,14 @@ test('PDF: abgerundete Linien, gedrehtes Rechteck, Maß aus Abstand, Hilfslinien
     await page.getByTestId('pdf-export-run').click();
   });
   const pdf = await saveDownload(dl, 'cad-phase7.pdf');
-  expect(execFileSync('pdfinfo', [pdf], { encoding: 'utf8' })).toMatch(/Pages:\s+1/);
-  expect(execFileSync('pdftotext', [pdf, '-'], { encoding: 'utf8' })).toContain('41'); // Maß 1,41 m (schräg gesetzt, daher zerlegt)
+  const info = execFileSync('pdfinfo', [pdf], { encoding: 'utf8' });
+  expect(info).toMatch(/Pages:\s+1/);
+  // kein BauPad-Zeichen auf dem Plan: weder Logo noch Text noch in den Datei-Eigenschaften
+  expect(info).not.toMatch(/BauPad|pdf-lib/i);
+  expect(execFileSync('pdfimages', ['-list', pdf], { encoding: 'utf8' }).trim().split('\n').length).toBe(2); // nur Kopfzeilen, kein Bild
+  const planText = execFileSync('pdftotext', [pdf, '-'], { encoding: 'utf8' });
+  expect(planText).toContain('41'); // Maß 1,41 m (schräg gesetzt, daher zerlegt)
+  expect(planText).not.toMatch(/BauPad|pad-software/i);
   execFileSync('pdftoppm', ['-png', '-r', '100', '-singlefile', pdf, 'tests/output/cad-phase7']);
   const stats = JSON.parse(
     execFileSync(
