@@ -37,12 +37,24 @@ test('Website (schlichte Fassung): Startseite – Name, Motto, BauPad, sieben We
   await expect(page.getByTestId('home-product')).toHaveAttribute('href', '/en/baupad');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('PAD Software');
   await expect(page.getByTestId('home-motto')).toHaveText('Problem.Analysis.Development.');
-  // Menü: Home, Produkte, Über uns, Kontakt, BauPad – alles direkt sichtbar
+  // Leiste: Logo mit „PAD Software“ links, Home · Produkte · Über uns · Kontakt in der Mitte, Anmelden rechts
   await page.goto('./');
   const nav = page.getByTestId('site-nav');
-  for (const n of ['Home', 'Produkte', 'Über uns', 'Kontakt', 'BauPad']) await expect(nav.getByRole('link', { name: n, exact: true })).toBeVisible();
-  await page.getByTestId('nav-baupad').click();
-  expect(new URL(page.url()).pathname).toBe('/baupad');
+  for (const n of ['Home', 'Produkte', 'Über uns', 'Kontakt']) await expect(nav.getByRole('link', { name: n, exact: true })).toBeVisible();
+  await expect(page.getByTestId('pad-mark')).toHaveText('PAD Software');
+  await expect(page.getByTestId('nav-login')).toHaveText('Anmelden');
+  // schwebt mit Abstand zum Rand; beim Scrollen leicht durchsichtig, Maus darüber holt sie wieder nach vorn
+  const bar = nav.locator('.ps-bar');
+  expect((await bar.boundingBox())!.y).toBeGreaterThanOrEqual(8);
+  await expect(bar).toHaveCSS('opacity', '1');
+  await page.mouse.move(700, 600);
+  await page.mouse.wheel(0, 800);
+  await expect(bar).toHaveCSS('opacity', '0.82');
+  expect((await bar.boundingBox())!.y).toBeGreaterThanOrEqual(8); // bleibt stehen
+  await bar.hover();
+  await expect(bar).toHaveCSS('opacity', '1');
+  await nav.getByRole('link', { name: 'Produkte', exact: true }).click();
+  expect(new URL(page.url()).pathname).toBe('/produkte');
 });
 
 test('Website: Startseite, Produkte, BauPad, Unternehmen, Kontaktformular, Sprache, Rechtliches', async ({ page }) => {

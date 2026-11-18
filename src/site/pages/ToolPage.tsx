@@ -1,7 +1,7 @@
-import { paths, PRODUCT_SLUG_OF, type ProductId } from "../../lib/router";
-import { fill, useLang } from "../i18n";
-import { TOOL_ENTRIES, toolPath } from "../products";
-import { SiteLayout } from "../components/SiteShell";
+import { paths, PRODUCT_SLUG_OF, type ProductId } from '../../lib/router';
+import { fill, useLang } from '../i18n';
+import { TOOL_ENTRIES, toolPath } from '../products';
+import { SiteLayout } from '../components/SiteShell';
 
 const OPEN: Record<ProductId, string> = {
   projects: paths.projects(),
@@ -26,8 +26,8 @@ export function ToolPage({ id }: { id: ProductId }) {
         description: tool.tagline,
         lang,
         alternates: {
-          de: paths.product(slug, "de"),
-          en: paths.product(slug, "en"),
+          de: paths.product(slug, 'de'),
+          en: paths.product(slug, 'en'),
         },
       }}
       className="ps-tool-page"
@@ -50,9 +50,7 @@ export function ToolPage({ id }: { id: ProductId }) {
 
       <section aria-labelledby="tp-functions">
         <p className="ps-eyebrow">{t.tool.functions}</p>
-        <h2 id="tp-functions">
-          {fill(t.tool.functionsTitle, { tool: tool.title })}
-        </h2>
+        <h2 id="tp-functions">{fill(t.tool.functionsTitle, { tool: tool.title })}</h2>
         {tool.groups.map((g) => (
           <div key={g.title}>
             <h3>{g.title}</h3>
@@ -71,8 +69,7 @@ export function ToolPage({ id }: { id: ProductId }) {
         <ul>
           {others.map((x) => (
             <li key={x.id}>
-              <a href={toolPath(x.id, lang)}>{t.tools[x.id].title}</a> –{" "}
-              {t.tools[x.id].short}
+              <a href={toolPath(x.id, lang)}>{t.tools[x.id].title}</a> – {t.tools[x.id].short}
             </li>
           ))}
         </ul>

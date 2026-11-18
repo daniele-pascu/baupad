@@ -1,9 +1,9 @@
-import { paths } from "../../lib/router";
-import { contactData } from "../contact-data";
-import { useLang } from "../i18n";
-import { TOOL_ENTRIES, toolPath } from "../products";
-import { organizationJsonLd, siteAlternates, softwareJsonLd } from "../seo";
-import { SiteLayout } from "../components/SiteShell";
+import { paths } from '../../lib/router';
+import { contactData } from '../contact-data';
+import { useLang } from '../i18n';
+import { TOOL_ENTRIES, toolPath } from '../products';
+import { organizationJsonLd, siteAlternates, softwareJsonLd } from '../seo';
+import { SiteLayout } from '../components/SiteShell';
 
 /**
  * Startseite PAD Software – schlicht, nur Inhalt: wer wir sind, BauPad, die sieben Werkzeuge, wie wir entwickeln, Kontakt.
@@ -19,11 +19,8 @@ export function HomePage() {
         title: h.title,
         description: h.description,
         lang,
-        alternates: siteAlternates("landing"),
-        jsonLd: [
-          organizationJsonLd(contactData.email),
-          softwareJsonLd(lang, t.baupad.description),
-        ],
+        alternates: siteAlternates('landing'),
+        jsonLd: [organizationJsonLd(contactData.email), softwareJsonLd(lang, t.baupad.description)],
       }}
       className="ps-home"
     >
@@ -69,13 +66,12 @@ export function HomePage() {
       </section>
 
       <section aria-labelledby="ph-tools-title" data-testid="home-tool-list">
-        <h2 id="ph-tools-title">{w.final.join("")}</h2>
+        <h2 id="ph-tools-title">{w.final.join('')}</h2>
         <p>{w.finalText}</p>
         <ul>
           {TOOL_ENTRIES.map((x) => (
             <li key={x.id}>
-              <a href={toolPath(x.id, lang)}>{t.tools[x.id].title}</a> –{" "}
-              {t.tools[x.id].short}
+              <a href={toolPath(x.id, lang)}>{t.tools[x.id].title}</a> – {t.tools[x.id].short}
             </li>
           ))}
         </ul>

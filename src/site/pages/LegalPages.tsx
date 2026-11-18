@@ -1,36 +1,15 @@
-import { paths } from "../../lib/router";
-import { contactData } from "../contact-data";
-import { fill, useLang } from "../i18n";
-import { siteAlternates } from "../seo";
-import { SiteLayout } from "../components/SiteShell";
-import {
-  AVV_INTRO,
-  AVV_SECTIONS,
-  AVV_STAND,
-  AVV_SUBPROCESSORS,
-  AVV_TOM,
-  type AvvSection,
-} from "../legal/avv";
+import { paths } from '../../lib/router';
+import { contactData } from '../contact-data';
+import { fill, useLang } from '../i18n';
+import { siteAlternates } from '../seo';
+import { SiteLayout } from '../components/SiteShell';
+import { AVV_INTRO, AVV_SECTIONS, AVV_STAND, AVV_SUBPROCESSORS, AVV_TOM, type AvvSection } from '../legal/avv';
 
-function LegalRow({
-  label,
-  value,
-  missing,
-}: {
-  label: string;
-  value: string;
-  missing: string;
-}) {
+function LegalRow({ label, value, missing }: { label: string; value: string; missing: string }) {
   return (
     <div>
       <dt>{label}</dt>
-      <dd>
-        {value ? (
-          <span className="pre">{value}</span>
-        ) : (
-          <span className="placeholder">{missing}</span>
-        )}
-      </dd>
+      <dd>{value ? <span className="pre">{value}</span> : <span className="placeholder">{missing}</span>}</dd>
     </div>
   );
 }
@@ -46,7 +25,7 @@ export function ImprintPage() {
         title: i.title,
         description: i.description,
         lang,
-        alternates: siteAlternates("imprint"),
+        alternates: siteAlternates('imprint'),
       }}
       className="ps-legal"
     >
@@ -54,25 +33,13 @@ export function ImprintPage() {
         <h1>{i.heading}</h1>
         <p>{i.intro}</p>
         <dl className="ps-dl" data-testid="imprint-list">
-          <LegalRow
-            label={i.rows.company}
-            value={c.company}
-            missing={i.missing}
-          />
+          <LegalRow label={i.rows.company} value={c.company} missing={i.missing} />
           <LegalRow label={i.rows.owner} value={c.person} missing={i.missing} />
-          <LegalRow
-            label={i.rows.address}
-            value={c.address}
-            missing={i.missing}
-          />
+          <LegalRow label={i.rows.address} value={c.address} missing={i.missing} />
           <LegalRow label={i.rows.email} value={c.email} missing={i.missing} />
           <LegalRow label={i.rows.phone} value={c.phone} missing={i.missing} />
           <LegalRow label={i.rows.uid} value={c.uid} missing={i.missing} />
-          <LegalRow
-            label={i.rows.register}
-            value={c.register}
-            missing={i.missing}
-          />
+          <LegalRow label={i.rows.register} value={c.register} missing={i.missing} />
         </dl>
         <p className="ps-small">{i.note}</p>
       </div>
@@ -87,10 +54,8 @@ export function PrivacyPage() {
   const c = contactData;
   const vars = {
     company: c.company,
-    address: c.address ? `, ${c.address}` : "",
-    email: c.email
-      ? `, ${lang === "de" ? "E-Mail" : "e-mail"}: ${c.email}`
-      : "",
+    address: c.address ? `, ${c.address}` : '',
+    email: c.email ? `, ${lang === 'de' ? 'E-Mail' : 'e-mail'}: ${c.email}` : '',
   };
   return (
     <SiteLayout
@@ -98,7 +63,7 @@ export function PrivacyPage() {
         title: p.title,
         description: p.description,
         lang,
-        alternates: siteAlternates("privacy"),
+        alternates: siteAlternates('privacy'),
       }}
       className="ps-legal"
     >
@@ -120,13 +85,7 @@ export function PrivacyPage() {
   );
 }
 
-function AvvBlock({
-  s,
-  vars,
-}: {
-  s: AvvSection;
-  vars: Record<string, string>;
-}) {
+function AvvBlock({ s, vars }: { s: AvvSection; vars: Record<string, string> }) {
   return (
     <section className="ps-legal-section">
       <h3>{s.h}</h3>
@@ -150,18 +109,18 @@ export function DpaPage() {
   const d = t.legal.dpa;
   const c = contactData;
   const vars = {
-    company: c.company + (c.person ? ` (${c.person})` : ""),
-    address: c.address ? `, ${c.address}` : "",
-    email: c.email ? `, E-Mail: ${c.email}` : "",
+    company: c.company + (c.person ? ` (${c.person})` : ''),
+    address: c.address ? `, ${c.address}` : '',
+    email: c.email ? `, E-Mail: ${c.email}` : '',
   };
-  const mail = { ...vars, email: c.email || "uns" };
+  const mail = { ...vars, email: c.email || 'uns' };
   return (
     <SiteLayout
       meta={{
         title: d.title,
         description: d.description,
         lang,
-        alternates: siteAlternates("dpa"),
+        alternates: siteAlternates('dpa'),
       }}
       className="ps-legal"
     >
@@ -172,12 +131,7 @@ export function DpaPage() {
         </p>
         {d.langNote && <p className="ps-small">{d.langNote}</p>}
         <p>
-          <button
-            type="button"
-            className="ps-print-hide"
-            onClick={() => window.print()}
-            data-testid="dpa-print"
-          >
+          <button type="button" className="ps-print-hide" onClick={() => window.print()} data-testid="dpa-print">
             {d.print}
           </button>
         </p>
@@ -222,7 +176,7 @@ export function DeleteAccountPage() {
         title: d.title,
         description: d.description,
         lang,
-        alternates: siteAlternates("deleteAccountInfo"),
+        alternates: siteAlternates('deleteAccountInfo'),
       }}
       className="ps-legal"
     >
