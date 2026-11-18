@@ -6,8 +6,8 @@ import { organizationJsonLd, siteAlternates, softwareJsonLd } from '../seo';
 import { SiteLayout } from '../components/SiteShell';
 
 /**
- * Startseite PAD Software: Hintergrund mit stehendem Licht in Violett und Petrol (siehe site.css).
- * Der erste Bereich steht frei, alles Weitere liegt in Fenstern aus Liquid Glass mit geschliffener Lichtkante:
+ * Startseite PAD Software: oben ein schwarzer Kopf mit der Firma (Licht in Violett und Petrol, kaum sichtbar das PAD-Zeichen),
+ * darunter heller Grund mit zarten Farblichtern; alles Weitere liegt in Fenstern aus hellem Liquid Glass:
  * BauPad, die sieben Werkzeuge, die Arbeitsweise als Linie und Kontakt. Keine Bewegung.
  */
 export function HomePage() {
@@ -24,29 +24,32 @@ export function HomePage() {
         jsonLd: [organizationJsonLd(contactData.email), softwareJsonLd(lang, t.baupad.description)],
       }}
       className="ps-home"
+      top={
+        <div className="ph-top" data-dark-top="">
+          <section className="ph-hero" aria-labelledby="ph-title">
+            <p className="ps-eyebrow">{h.hero.eyebrow}</p>
+            <h1 id="ph-title">
+              PAD <span>Software</span>
+            </h1>
+            <p className="ps-motto" data-testid="home-motto">
+              {/* in Großbuchstaben mit Mittelpunkt dazwischen – ohne die Punkte am Wortende */}
+              {h.hero.motto.map((m) => (
+                <span key={m}>{m.replace(/\.$/, '')}</span>
+              ))}
+            </p>
+            <p className="ph-lead">{h.hero.lead}</p>
+            <p className="ph-btns">
+              <a href="#loesungen" className="ph-b1" data-testid="cta-solutions">
+                {h.hero.primary}
+              </a>
+              <a href={paths.company(lang)} className="ph-b2" data-testid="cta-company">
+                {h.hero.secondary}
+              </a>
+            </p>
+          </section>
+        </div>
+      }
     >
-      <section className="ph-hero" aria-labelledby="ph-title">
-        <p className="ps-eyebrow">{h.hero.eyebrow}</p>
-        <h1 id="ph-title">
-          PAD <span>Software</span>
-        </h1>
-        <p className="ps-motto" data-testid="home-motto">
-          {/* in Großbuchstaben mit Mittelpunkt dazwischen – ohne die Punkte am Wortende */}
-          {h.hero.motto.map((m) => (
-            <span key={m}>{m.replace(/\.$/, '')}</span>
-          ))}
-        </p>
-        <p className="ph-lead">{h.hero.lead}</p>
-        <p className="ph-btns">
-          <a href="#loesungen" className="ph-b1" data-testid="cta-solutions">
-            {h.hero.primary}
-          </a>
-          <a href={paths.company(lang)} className="ph-b2" data-testid="cta-company">
-            {h.hero.secondary}
-          </a>
-        </p>
-      </section>
-
       <section id="loesungen" className="ph-win ph-prod" aria-labelledby="ph-bp-title">
         <div>
           <p className="ps-eyebrow">{h.product.eyebrow}</p>

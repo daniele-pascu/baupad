@@ -75,6 +75,22 @@ export function SiteHeader() {
   const [scrolled, setScrolled] = useState(false);
   const [awake, setAwake] = useState(false);
   useEffect(() => setOpen(false), [path]);
+  // über einem hellen Bereich wird die Leiste hell (dunkle Schrift); über dem schwarzen Kopf der Startseite bleibt sie weißes Glas
+  const [light, setLight] = useState(false);
+  useEffect(() => {
+    const check = () => {
+      const top = document.querySelector('[data-dark-top]');
+      setLight(!!top && top.getBoundingClientRect().bottom < 44);
+    };
+    const raf = requestAnimationFrame(check);
+    window.addEventListener('scroll', check, { passive: true });
+    window.addEventListener('resize', check);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('scroll', check);
+      window.removeEventListener('resize', check);
+    };
+  }, [path]);
   useEffect(() => {
     let last = window.scrollY;
     const on = () => {
@@ -117,7 +133,7 @@ export function SiteHeader() {
   const onLoginPage = route === 'login' || route === 'register' || route === 'newPassword';
   const active = (key: SiteRouteName) => (route === key || (key === 'products' && (route === 'baupad' || route === 'product')) ? 'page' : undefined);
   return (
-    <header className={`ps-header${open ? ' open' : ''}${scrolled ? ' scrolled' : ''}${awake ? ' awake' : ''}`} data-testid="site-nav" ref={headerRef} onPointerDown={() => setAwake(true)}>
+    <header className={`ps-header${open ? ' open' : ''}${scrolled ? ' scrolled' : ''}${awake ? ' awake' : ''}${light && !open ? ' on-light' : ''}`} data-testid="site-nav" ref={headerRef} onPointerDown={() => setAwake(true)}>
       <a href="#ps-main" className="ps-skip">
         {t.nav.skip}
       </a>
@@ -227,13 +243,17 @@ export function SiteFooter() {
   );
 }
 
-/** Rahmen jeder Website-Seite: Kopf, Inhalt, Fuß; setzt Titel und Meta-Angaben (schlicht, ohne Bewegung) */
-export function SiteLayout({ meta, children, className = '' }: { meta: PageMeta; children: ReactNode; className?: string }) {
+/**
+ * Rahmen jeder Website-Seite: Kopf, Inhalt, Fuß; setzt Titel und Meta-Angaben (schlicht, ohne Bewegung).
+ * `top`: Bereich in voller Breite direkt unter der Leiste (Startseite: schwarzer Kopf mit der Firma).
+ */
+export function SiteLayout({ meta, children, className = '', top }: { meta: PageMeta; children: ReactNode; className?: string; top?: ReactNode }) {
   const path = usePath();
   usePageMeta(meta);
   return (
     <div className={`ps-site ${className}`} lang={langOf(path)}>
       <SiteHeader />
+      {top}
       <main id="ps-main" className="ps-main" tabIndex={-1} key={path.split('?')[0]}>
         {children}
       </main>

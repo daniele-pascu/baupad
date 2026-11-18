@@ -28,7 +28,8 @@ test('Website: Startseite – Name, Motto, BauPad, sieben Werkzeuge, Arbeitsweis
   await expect(page.locator('.ps-main svg, .ps-main canvas')).toHaveCount(0);
   await expect(page.locator('.ph-win')).toHaveCount(4); // BauPad, Werkzeuge, Arbeitsweise, Kontakt
   // Farbe: Akzent Violett über den Überschriften, die Linie der Arbeitsweise läuft von Violett in Petrol
-  await expect(page.locator('.ph-win .ps-eyebrow').first()).toHaveCSS('color', 'rgb(157, 140, 255)');
+  await expect(page.locator('.ph-win .ps-eyebrow').first()).toHaveCSS('color', 'rgb(106, 85, 240)'); // auf hellem Grund dunkleres Violett
+  await expect(page.locator('.ph-top .ps-eyebrow')).toHaveCSS('color', 'rgb(157, 140, 255)');
   await expect(page.getByTestId('home-steps').locator('li').last()).toBeVisible();
   // keine Zertifikate oder Garantien behauptet
   await expect(page.locator('.ps-main')).not.toContainText(/zertifiziert|DSGVO-konform|garantiert/i);
@@ -53,17 +54,26 @@ test('Website: Startseite – Name, Motto, BauPad, sieben Werkzeuge, Arbeitsweis
   const bar = nav.locator('.ps-bar');
   expect((await bar.boundingBox())!.y).toBeGreaterThanOrEqual(8);
   await expect(bar).toHaveCSS('background-color', 'rgba(255, 255, 255, 0.1)');
-  await expect(page.locator('.ps-site')).toHaveCSS('background-color', 'rgb(10, 10, 11)');
-  await page.mouse.move(700, 600);
-  await page.mouse.wheel(0, 800);
-  await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(100);
-  expect((await bar.boundingBox())!.y).toBeGreaterThanOrEqual(8); // bleibt stehen
-  // Anmelden: helle Glas-Pille, Maus darüber → schwarz mit weißer Schrift
+  // Startseite: oben schwarzer Kopf mit der Firma, darunter heller Grund
+  await expect(page.locator('.ph-top')).toHaveCSS('background-color', 'rgb(10, 10, 11)');
+  await expect(page.locator('.ps-site')).toHaveCSS('background-color', 'rgb(244, 244, 246)');
+  // Anmelden über dem schwarzen Kopf: helle Glas-Pille, Maus darüber → schwarz mit weißer Schrift
   const login = page.getByTestId('nav-login');
   await expect(login).toHaveCSS('color', 'rgb(17, 17, 17)');
   await login.hover();
   await expect(login).toHaveCSS('background-color', 'rgb(0, 0, 0)');
   await expect(login).toHaveCSS('color', 'rgb(255, 255, 255)');
+  await page.mouse.move(700, 600);
+  await page.mouse.wheel(0, 800);
+  await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(100);
+  expect((await bar.boundingBox())!.y).toBeGreaterThanOrEqual(8); // bleibt stehen
+  // über hellem Grund: Leiste hell mit schwarzer Schrift, Anmelden schwarz
+  await expect(nav).toHaveClass(/on-light/);
+  await expect(nav.getByRole('link', { name: 'Kontakt', exact: true })).toHaveCSS('color', 'rgb(17, 17, 17)');
+  await expect(login).toHaveCSS('background-color', 'rgb(17, 17, 17)');
+  await expect(login).toHaveCSS('color', 'rgb(255, 255, 255)');
+  await page.evaluate(() => scrollTo(0, 0));
+  await expect(nav).not.toHaveClass(/on-light/);
   // Produkte: Fenster klappt auf (so breit wie die Links) – BauPad-Symbol, Name, Infos; Klick öffnet die BauPad-Seite
   await page.getByTestId('nav-products').click();
   const panel = page.getByTestId('products-panel');
