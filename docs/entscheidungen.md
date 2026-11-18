@@ -48,6 +48,7 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - Hosting weiter über GitHub Pages mit eigener Domain; E-Mail über World4You (E-Mail Grow). Einrichtung: `docs/domain-einrichten.md`.
 
 ## Website-Relaunch (30.10.2026)
+- **Später (vorgemerkt 18.11.2026): App nur mit BauPad-Anmeldung.** In der App (Store-App bzw. vom Home-Bildschirm) gibt es nur die BauPad-Anmeldung – ohne Website-Leiste, ohne Link „Zur Startseite“, Website-Seiten leiten zur Anmeldung um. Die Website öffnet man am Handy in Chrome oder Safari.
 - **PAD Software ist nicht Bau (18.11.2026):** Die Firma entwickelt Software in alle Richtungen. Bau, Baustelle und Pläne gehören nur zu BauPad – Startseite und Firmenseiten von PAD Software bleiben branchenneutral.
 - **Markenarchitektur:** PAD Software ist die Dachmarke, BauPad das erste Produkt; weitere Produkte sind als „In Planung“ sichtbar, ohne Namen und Termine (erst nennen, wenn in Entwicklung). Ein Konto gilt für alle Produkte.
 - **Seiten:** Home, Produkte, BauPad (mit fünf Werkzeug-Unterseiten), Unternehmen, Kontakt (+ Danke), Zukunft, Impressum, Datenschutz, Konto löschen. Sticky-Navigation, Hauptaktion „Kontakt aufnehmen“.
