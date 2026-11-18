@@ -44,17 +44,21 @@ test('Website (schlichte Fassung): Startseite – Name, Motto, BauPad, sieben We
   await expect(nav.getByRole('button', { name: 'Produkte', exact: true })).toBeVisible();
   await expect(page.getByTestId('pad-mark')).toHaveText('PAD Software');
   await expect(page.getByTestId('nav-login')).toHaveText('Anmelden');
-  // schwebt mit Abstand zum Rand; beim Scrollen leicht durchsichtig, Maus darüber holt sie wieder nach vorn
+  // schwebt mit Abstand zum Rand und bleibt beim Scrollen stehen; zartes weißes Glas auf dunklem Grund
   const bar = nav.locator('.ps-bar');
   expect((await bar.boundingBox())!.y).toBeGreaterThanOrEqual(8);
-  await expect(bar).toHaveCSS('background-color', 'rgba(0, 0, 0, 0.8)');
+  await expect(bar).toHaveCSS('background-color', 'rgba(255, 255, 255, 0.1)');
+  await expect(page.locator('.ps-site')).toHaveCSS('background-color', 'rgb(28, 28, 30)');
   await page.mouse.move(700, 600);
   await page.mouse.wheel(0, 800);
-  await expect(bar).toHaveCSS('background-color', 'rgba(0, 0, 0, 0.5)'); // Hintergrund durchsichtig, Schrift bleibt voll sichtbar
-  await expect(bar).toHaveCSS('opacity', '1');
+  await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(100);
   expect((await bar.boundingBox())!.y).toBeGreaterThanOrEqual(8); // bleibt stehen
-  await bar.hover();
-  await expect(bar).toHaveCSS('background-color', 'rgba(0, 0, 0, 0.9)');
+  // Anmelden: helle Glas-Pille, Maus darüber → schwarz mit weißer Schrift
+  const login = page.getByTestId('nav-login');
+  await expect(login).toHaveCSS('color', 'rgb(17, 17, 17)');
+  await login.hover();
+  await expect(login).toHaveCSS('background-color', 'rgb(0, 0, 0)');
+  await expect(login).toHaveCSS('color', 'rgb(255, 255, 255)');
   // Produkte: Fenster klappt auf (so breit wie die Links) – BauPad-Symbol, Name, Infos; Klick öffnet die BauPad-Seite
   await page.getByTestId('nav-products').click();
   const panel = page.getByTestId('products-panel');

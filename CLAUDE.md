@@ -20,6 +20,9 @@ abgeschnitten sein oder aneinander kleben (Eingabefeld direkt über/unter einer 
   npx vite build
   npx playwright test tests/e2e/tasten.spec.ts tests/e2e/tasten-mobile.spec.ts --reporter=line --workers=4
   ```
+- **Nur Website geändert** (`src/site/…`, Website-Texte): es reicht der Website-Teil auf allen vier Geräten (unter 1 Minute):
+  `npx playwright test tests/e2e/tasten.spec.ts tests/e2e/tasten-mobile.spec.ts -g "Website" --reporter=line --workers=4`.
+  Der komplette Tasten-Test läuft, sobald etwas an der App geändert ist.
 - **Neue Seite, neuer Dialog, neue Leiste** → in `tests/e2e/tasten-shared.ts` ergänzen (Seitenliste `APP`/`WEBSITE`,
   Dialogliste `DIALOGE` bzw. eigener Ablauf), damit sie künftig mitgeprüft werden.
 - Die Prüfung selbst steht in `tests/e2e/tasten-check.ts` (überlappen, verdeckt, abgeschnitten, kleben, Text ragt aus der Taste; Inhalt, der beim
