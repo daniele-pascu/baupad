@@ -34,6 +34,11 @@ export function BauPadPage() {
           {t.product}
         </h1>
         <p className="bp-tagline">{t.home.product.tagline}</p>
+        <p className="bp-safe" data-testid="bp-safe">
+          {b.hero.safe.map((l) => (
+            <span key={l}>{l}</span>
+          ))}
+        </p>
         <p className="bp-status">{b.hero.status}</p>
         <p className="bp-btns">
           <a href={paths.tools()} className="bp-b1" data-testid="cta-tools">

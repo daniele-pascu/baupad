@@ -144,6 +144,7 @@ export const de = {
     title: 'BauPad – Die Baustelle in einer App | PAD Software',
     description: 'BauPad vereint Aufmaß, Team, Fotos, Zeiten, Berichte, Mängel und Material in einer App – am Handy, Tablet und PC, auch ohne Empfang.',
     hero: {
+      safe: ['Speichert alles online.', 'Nichts geht verloren.'],
       eyebrow: 'BauPad · Produkt von PAD Software',
       title: ['Die Baustelle', 'in einer App.'],
       lead: 'Aufmaß, Team, Fotos, Zeiten, Berichte, Mängel und Material – sieben Werkzeuge, ein Konto, ein Stand für alle. Erfasst auf der Baustelle, fertig im Büro.',
