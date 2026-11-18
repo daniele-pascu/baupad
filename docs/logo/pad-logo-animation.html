@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PAD Logo Animation</title>
+<style>
+/* Einzige Fläche: Schwarz; das Zeichen (Vektor) wächst gleichzeitig von seinen zwei Anfangskanten, beide Linien enden zusammen */
+:root{--bg:#000;--fg:#fff;--muted:#8a8a8a;color-scheme:dark}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;display:grid;place-items:center;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));box-sizing:border-box}
+.stage{display:grid;justify-items:center;gap:40px}
+svg.logo{width:min(72vmin,480px);height:auto;display:block;overflow:visible}
+.s{fill:none;stroke-linecap:butt;stroke-dasharray:1 1;stroke-dashoffset:1}
+.again{background:none;border:1px solid #333;color:var(--muted);font:inherit;font-size:14px;padding:10px 18px;border-radius:99px;cursor:pointer;opacity:0;transition:opacity .4s,color .2s,border-color .2s}
+.again.show{opacity:1}
+.again:hover{color:var(--fg);border-color:#666}
+.again:focus-visible{outline:2px solid #fff;outline-offset:3px}
+</style>
+</head>
+<body>
+<div class="stage">
+<svg class="logo" id="logo" viewBox="-4 0 859 830" role="img" aria-label="PAD Software">
+  <defs>
+    <linearGradient id="tg" x1="0" y1="245" x2="0" y2="485" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#b4b4b4"/><stop offset=".42" stop-color="#d4d4d4"/><stop offset=".55" stop-color="#d8d8d8"/><stop offset=".67" stop-color="#b6b6b6"/><stop offset=".79" stop-color="#808080"/><stop offset=".92" stop-color="#4f4f4f"/><stop offset="1" stop-color="#3e3e3e"/>
+    </linearGradient>
+    <radialGradient id="th" cx="545" cy="335" r="95" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".38"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+    <clipPath id="cD"><path d="M242.85 0.63 L546.82 0.63 C710.14 0.63 854.78 131.35 854.78 311.97 C854.78 494.7 711.66 656.02 541.2 656.02 L306.77 656.02 L383.14 484.84 L562.68 484.84 C610.05 484.84 690.17 410.8 690.17 327.06 C690.17 212.94 600.07 165.81 527.98 165.81 L151.52 165.81 Z"/></clipPath>
+    <clipPath id="cL"><path d="M253.11 245.14 L480.25 245.14 L379.32 422.68 L185.01 829.9 L-3.54 829.9 Z"/></clipPath>
+    <clipPath id="cT"><path d="M480.25 245.14 L608.34 468.42 C592.2 478.87 576.12 484.84 562.68 484.84 L412.68 484.84 L379.32 422.68 Z"/></clipPath>
+  </defs>
+  <g clip-path="url(#cD)" stroke="#fff">
+    <g transform="translate(0 82) skewX(-29.94) translate(0 -82)"><path class="s" id="sA" pathLength="1" stroke-width="190" d="M197.8 82 L590 82"/></g>
+    <path class="s" id="sB" pathLength="1" stroke-width="190" d="M535 82 A240 245 0 0 1 535 572"/>
+    <path class="s" id="sC" pathLength="1" stroke-width="190" d="M547 572 L290 572"/>
+  </g>
+  <path class="s" id="sL" clip-path="url(#cL)" stroke="#fff" pathLength="1" stroke-width="700" d="M300 244 L300 832"/>
+  <g clip-path="url(#cT)">
+    <path class="s" id="sT" stroke="url(#tg)" pathLength="1" stroke-width="300" d="M492 244 L492 486"/>
+    <path class="s" id="sH" stroke="url(#th)" pathLength="1" stroke-width="300" d="M492 244 L492 486"/>
+  </g>
+</svg>
+<button class="again" id="again" type="button">Nochmal abspielen</button>
+</div>
+<script>
+(() => {
+  const DUR = 750;               // ganze Animation in ms
+  const R = 0.14;                // weicher Anlauf und Auslauf (Anteil), dazwischen gleichmäßig
+  const TOT = 1344.2;            // Weglänge der Linie oben (Balken, Rundung, Balken)
+  const el = (id) => document.getElementById(id);
+  const A = el('sA'), B = el('sB'), C = el('sC'), Lg = el('sL'), T = el('sT'), H = el('sH');
+  const btn = el('again');
+  const clamp = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+  const vmax = 1 / (1 - R);
+  const ease = (t) => (t < R ? vmax * t * t / (2 * R) : t > 1 - R ? 1 - vmax * (1 - t) * (1 - t) / (2 * R) : vmax * (t - R / 2));
+  function set(p) {
+    const s = p * TOT;
+    A.style.strokeDashoffset = 1 - clamp(s / 392.2);
+    B.style.strokeDashoffset = 1 - clamp((s - 337.2) / 762);
+    C.style.strokeDashoffset = 1 - clamp((s - 1087.2) / 257);
+    // Schrägbalken und Dreieck: beide kommen gleichzeitig mit der Linie oben an
+    Lg.style.strokeDashoffset = 1 - p;
+    const tp = p;
+    T.style.strokeDashoffset = H.style.strokeDashoffset = 1 - tp;
+  }
+  let raf, t0, hideT;
+  function frame(now) {
+    if (t0 === undefined) t0 = now;
+    const t = clamp((now - t0) / DUR);
+    set(ease(t));
+    if (t < 1) raf = requestAnimationFrame(frame);
+    else btn.classList.add('show');
+  }
+  function play() {
+    cancelAnimationFrame(raf); btn.classList.remove('show'); t0 = undefined; set(0);
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { set(1); btn.classList.add('show'); return; }
+    raf = requestAnimationFrame(frame);
+  }
+  btn.addEventListener('click', play);
+  set(0);
+  setTimeout(play, 350);
+})();
+</script>
+</body>
+</html>
