@@ -1155,14 +1155,14 @@ body:has(.ps-site) {
   text-decoration: underline;
 }
 
-/* Leiste über hellem Grund: schwarzes Glas – Logo, Schrift und Anmelden bleiben weiß wie oben */
+/* Leiste über hellem Grund: sattes Schwarz – Logo, Schrift und Anmelden bleiben weiß wie oben.
+   Ohne Unschärfe: sie zog an den runden Enden den hellen Grund als hellen Saum in die Kante. */
 .ps-site .ps-header.on-light .ps-bar {
-  border-color: rgba(255, 255, 255, 0.14);
-  background-color: rgba(8, 8, 10, 0.92);
-  background-image: linear-gradient(rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 60%);
-  box-shadow:
-    inset 0 1px rgba(255, 255, 255, 0.18),
-    0 12px 30px -14px rgba(0, 0, 0, 0.45);
+  --ps-bar-blur: none;
+  border-color: rgba(255, 255, 255, 0.08);
+  background-color: rgba(10, 10, 12, 0.96);
+  background-image: linear-gradient(rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 55%);
+  box-shadow: 0 12px 30px -14px rgba(0, 0, 0, 0.45);
 }
 
 @media (max-width: 800px) {

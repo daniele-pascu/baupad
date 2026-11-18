@@ -110,7 +110,7 @@ test('Website: Startseite – Name, Motto, BauPad mit den sieben Werkzeugen, Arb
   expect((await bar.boundingBox())!.y).toBeGreaterThanOrEqual(8); // bleibt stehen
   // über hellem Grund: Leiste schwarzes Glas, Logo und Schrift bleiben weiß; nicht ganz oben → verblasst, Maus darauf → wieder voll
   await expect(nav).toHaveClass(/on-light/);
-  await expect(bar).toHaveCSS('background-color', 'rgba(8, 8, 10, 0.92)');
+  await expect(bar).toHaveCSS('background-color', 'rgba(10, 10, 12, 0.96)');
   await expect(nav.getByRole('link', { name: 'Kontakt', exact: true })).toHaveCSS('color', 'rgba(255, 255, 255, 0.86)');
   await expect(login).toHaveCSS('color', 'rgb(17, 17, 17)');
   await expect(bar).toHaveCSS('opacity', '0.45');
