@@ -70,22 +70,22 @@ export function PadMarkGlass({ delay = 350 }: { delay?: number }) {
         </clipPath>
         {/* Glas: oben links heller, zur Mitte fast klar, unten rechts ein Hauch */}
         <linearGradient id="pmg-fill" x1="0" y1="0" x2="855" y2="830" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#fff" stopOpacity=".55" />
-          <stop offset=".42" stopColor="#fff" stopOpacity=".24" />
-          <stop offset=".72" stopColor="#fff" stopOpacity=".16" />
-          <stop offset="1" stopColor="#fff" stopOpacity=".3" />
+          <stop offset="0" stopColor="#fff" stopOpacity=".85" />
+          <stop offset=".42" stopColor="#fff" stopOpacity=".5" />
+          <stop offset=".72" stopColor="#fff" stopOpacity=".38" />
+          <stop offset="1" stopColor="#fff" stopOpacity=".55" />
         </linearGradient>
         {/* Dreieck (Falz): von oben hell nach unten fast klar – gibt die Tiefe */}
         <linearGradient id="pmg-fold" x1="0" y1="245" x2="0" y2="485" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#fff" stopOpacity=".42" />
-          <stop offset="1" stopColor="#fff" stopOpacity=".06" />
+          <stop offset="0" stopColor="#fff" stopOpacity=".7" />
+          <stop offset="1" stopColor="#fff" stopOpacity=".18" />
         </linearGradient>
         {/* Lichtsaum an der Kante: oben links kräftig, läuft aus, unten rechts ein Rest */}
         <linearGradient id="pmg-edge" x1="0" y1="0" x2="855" y2="830" gradientUnits="userSpaceOnUse">
           <stop offset="0" stopColor="#fff" stopOpacity="1" />
-          <stop offset=".35" stopColor="#fff" stopOpacity=".55" />
-          <stop offset=".62" stopColor="#fff" stopOpacity=".25" />
-          <stop offset="1" stopColor="#fff" stopOpacity=".65" />
+          <stop offset=".35" stopColor="#fff" stopOpacity=".8" />
+          <stop offset=".62" stopColor="#fff" stopOpacity=".5" />
+          <stop offset="1" stopColor="#fff" stopOpacity=".85" />
         </linearGradient>
         <mask id="pmg-reveal" maskUnits="userSpaceOnUse" x="-10" y="-10" width="880" height="850">
           <g clipPath="url(#pmg-cD)">
