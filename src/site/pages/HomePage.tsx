@@ -11,7 +11,7 @@ import { SiteLayout } from '../components/SiteShell';
 /**
  * Startseite PAD Software: oben ein schwarzer Kopf mit der Firma (Licht in Violett und Petrol, kaum sichtbar das PAD-Zeichen),
  * darunter heller Grund mit zarten Farblichtern; alles Weitere liegt in Fenstern aus hellem Liquid Glass:
- * BauPad mit allen Werkzeugen (wie in der App), die Arbeitsweise als Linie und Kontakt.
+ * BauPad mit allen Werkzeugen (wie in der App); Arbeitsweise (als Linie) und Kontakt stehen frei, ohne Fenster.
  */
 export function HomePage() {
   const { lang, t } = useLang();
@@ -95,7 +95,7 @@ export function HomePage() {
         </div>
       </section>
 
-      <section id="entwicklung" className="ph-win" aria-labelledby="ph-process-title">
+      <section id="entwicklung" className="ph-sec" aria-labelledby="ph-process-title">
         <p className="ps-eyebrow">{h.process.label}</p>
         <h2 id="ph-process-title">{h.process.title}</h2>
         <ol className="ph-steps" data-testid="home-steps">
@@ -105,7 +105,7 @@ export function HomePage() {
         </ol>
       </section>
 
-      <section id="kontakt" className="ph-win" aria-labelledby="ph-contact-title">
+      <section id="kontakt" className="ph-sec" aria-labelledby="ph-contact-title">
         <p className="ps-eyebrow">{h.contact.label}</p>
         <h2 id="ph-contact-title">{h.contact.title}</h2>
         <p>{h.contact.text}</p>
