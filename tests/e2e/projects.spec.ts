@@ -47,6 +47,7 @@ test('Website: Startseite – Name, Motto, BauPad mit den sieben Werkzeugen, Arb
   await expect(page.getByTestId('home-expand')).toBeAttached();
   await expect(page.getByTestId('product-title')).toHaveText('BauPad');
   await expect(page.locator('.bp-tagline')).toContainText('in einer App');
+  await expect(page.getByTestId('bp-safe')).toHaveText('Speichert alles online.Nichts geht verloren.');
   expect(new URL(page.url()).pathname).toBe('/baupad');
   await expect(page.getByTestId('home-expand')).toHaveCount(0); // Fläche ist wieder weg
   // Englisch

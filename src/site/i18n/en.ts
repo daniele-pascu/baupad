@@ -142,6 +142,7 @@ export const en: Dict = {
     title: 'BauPad – The construction site in one app | PAD Software',
     description: 'BauPad combines takeoff, team, photos, hours, reports, defects and material in one app – on phone, tablet and PC, even without reception.',
     hero: {
+      safe: ['Saves everything online.', 'Nothing gets lost.'],
       eyebrow: 'BauPad · Product by PAD Software',
       title: ['The construction site', 'in one app.'],
       lead: 'Takeoff, team, photos, hours, reports, defects and material – seven tools, one account, one state for everyone. Recorded on site, ready in the office.',
