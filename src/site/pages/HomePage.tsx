@@ -129,7 +129,7 @@ export function HomePage() {
 }
 
 /**
- * Arbeitsweise auf einer Linie: am Anfang ein Punkt, bei Schritt 2 und 3 nur ein kleiner Schnittpunkt.
+ * Arbeitsweise auf einer Linie: bei jedem Schritt nur ein kleiner Schnittpunkt (am Anfang bleibt kein Punkt stehen).
  * Ein Lichtpunkt läuft vom Anfang die Linie entlang, hält an jedem Schnittpunkt kurz, läuft ans Ende, verschwindet
  * und beginnt von vorne. Die Wege werden gemessen (nebeneinander am PC, untereinander am Handy).
  * „Bewegung reduzieren“ → kein laufender Punkt.
