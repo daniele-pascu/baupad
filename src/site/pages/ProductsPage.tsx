@@ -2,6 +2,7 @@ import { paths } from '../../lib/router';
 import { useLang } from '../i18n';
 import { siteAlternates } from '../seo';
 import { SiteLayout } from '../components/SiteShell';
+import { BauPadIcon } from '../components/BauPadIcon';
 
 /**
  * Produktübersicht: schwarzer, bildschirmfüllender Bereich, in der Mitte das Produkt BauPad (Logo, Name, eine Zeile).
@@ -20,7 +21,7 @@ export function ProductsPage() {
             {p.heading}
           </h1>
           <a href={paths.baupad(lang)} className="pp-card" aria-label={h.aria} data-testid="product-open-baupad">
-            <img src="/icons/baupad-icon.png" width={269} height={256} alt="" />
+            <BauPadIcon className="pp-icon" />
             <span className="pp-name">{t.product}</span>
             <span className="pp-line">{h.tagline}</span>
             <span className="ph-mono pp-tag" data-testid="product-status">

@@ -3218,9 +3218,8 @@
   font-size: 0.9rem;
   font-weight: 500;
 }
-.bp-pill img {
+.bp-pill .bp-icon {
   width: 28px;
-  height: 28px;
   border-radius: 8px;
 }
 .bp-h1 {
@@ -4372,9 +4371,8 @@
   letter-spacing: -0.05em;
   line-height: 1;
 }
-.ph-bp-name img {
+.ph-bp-name .bp-icon {
   width: 0.72em;
-  height: 0.72em;
   border-radius: 20%;
 }
 .ph-bp-line {
@@ -4591,6 +4589,13 @@
   padding: 0 22px 34px;
   text-align: center;
   pointer-events: none;
+}
+/* Überschriften über der Wand lassen sich markieren (die Wand darunter reagiert weiter auf die Maus) */
+.tw-head,
+.tw-one {
+  pointer-events: auto;
+  user-select: text;
+  -webkit-user-select: text;
 }
 /* Block bleibt immer mittig: Überschrift oben, darunter liegen alle Bilder im selben Feld übereinander */
 .tw-stack {
@@ -5550,10 +5555,8 @@
   text-decoration: none;
   transition: transform 0.2s ease, border-color 0.2s ease;
 }
-.pp-card img {
-  display: block;
+.pp-card .pp-icon {
   width: clamp(124px, 20vw, 168px);
-  height: auto;
   border-radius: 22%;
   box-shadow: 0 30px 60px -22px rgba(0, 0, 0, 0.8);
 }
@@ -5677,4 +5680,25 @@
     opacity: 1 !important;
     transform: none !important;
   }
+}
+
+/* BauPad-Zeichen als Text: schwarzes Quadrat, weißes „BauPad“ (markierbar, gestochen scharf) */
+.bp-icon {
+  container-type: inline-size;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  aspect-ratio: 1;
+  background: #000;
+  color: #fff;
+  overflow: hidden;
+  vertical-align: middle;
+  line-height: 1;
+}
+.bp-icon > span {
+  font-family: var(--ps-font);
+  font-size: 26cqw;
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  white-space: nowrap;
 }

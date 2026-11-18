@@ -4,6 +4,7 @@ import { useLang } from '../i18n';
 import { organizationJsonLd, siteAlternates, softwareJsonLd } from '../seo';
 import { Reveal } from '../components/Reveal';
 import { SiteLayout } from '../components/SiteShell';
+import { BauPadIcon } from '../components/BauPadIcon';
 import { ToolWall } from '../components/ToolWall';
 
 const Arrow = () => (
@@ -69,7 +70,7 @@ export function HomePage() {
             {h.product.tag}
           </p>
           <h2 id="ph-bp-title" className="ph-bp-name">
-            <img src="/icons/baupad-icon.png" width={72} height={72} alt="" />
+            <BauPadIcon />
             {h.product.name}
           </h2>
           <p className="ph-bp-line">{h.product.tagline}</p>
