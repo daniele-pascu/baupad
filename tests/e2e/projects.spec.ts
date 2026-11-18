@@ -54,7 +54,9 @@ test('Website: Startseite – Name, Motto, BauPad mit den sieben Werkzeugen, Arb
   await expect(page.locator('.ps-bar')).toHaveCSS('opacity', '1'); // nicht blass
   await expect(page.getByTestId('product-title')).toHaveText('BauPad');
   await expect(page.locator('.bp-tagline')).toContainText('in einer App');
+  // „Speichert alles online. Nichts geht verloren.“ ist die Überschrift der Speicher-Infos
   await expect(page.getByTestId('bp-safe')).toHaveText('Speichert alles online.Nichts geht verloren.');
+  await expect(page.locator('#bp-saving')).toHaveAttribute('data-testid', 'bp-safe');
   // Speichern (mit/ohne Empfang) und vier Rollen je Nutzerlizenz
   await expect(page.getByTestId('bp-saving').locator(':scope > li')).toHaveCount(3);
   await expect(page.getByTestId('bp-saving')).toContainText('Ohne Empfang');

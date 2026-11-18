@@ -34,11 +34,6 @@ export function BauPadPage() {
           {t.product}
         </h1>
         <p className="bp-tagline">{t.home.product.tagline}</p>
-        <p className="bp-safe" data-testid="bp-safe">
-          {b.hero.safe.map((l) => (
-            <span key={l}>{l}</span>
-          ))}
-        </p>
         <p className="bp-status">{b.hero.status}</p>
         <p className="bp-btns">
           <a href={paths.tools()} className="bp-b1" data-testid="cta-tools">
@@ -71,10 +66,15 @@ export function BauPadPage() {
         ))}
       </ul>
 
-      {/* Speichern: mit Empfang sofort online, ohne Empfang am Gerät, bei der ersten Verbindung automatisch online */}
+      {/* Speichern: „Speichert alles online. Nichts geht verloren.“ – mit Empfang sofort online, ohne Empfang am Gerät,
+          bei der ersten Verbindung automatisch online */}
       <section className="bp-sec" aria-labelledby="bp-saving">
         <p className="ps-eyebrow">{b.saving.eyebrow}</p>
-        <h2 id="bp-saving">{b.saving.title}</h2>
+        <h2 id="bp-saving" className="bp-safe" data-testid="bp-safe">
+          {b.hero.safe.map((l) => (
+            <span key={l}>{l}</span>
+          ))}
+        </h2>
         <ol className="bp-saving" data-testid="bp-saving">
           {b.saving.items.map((x, i) => (
             <li key={x.title}>
