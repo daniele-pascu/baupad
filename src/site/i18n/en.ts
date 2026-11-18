@@ -150,6 +150,28 @@ export const en: Dict = {
       secondary: 'Open BauPad',
       status: 'Test phase – subscription follows at launch',
     },
+    saving: {
+      eyebrow: 'Saving',
+      title: 'With and without reception.',
+      items: [
+        { title: 'With reception', text: 'Everything is saved online right away.' },
+        { title: 'Without reception', text: 'Everything stays safe on the device.' },
+        { title: 'Back online', text: 'Everything syncs automatically.' },
+      ],
+    },
+    access: {
+      eyebrow: 'Users and roles',
+      title: 'Four roles per user licence.',
+      text: 'For foremen and workers, the admin decides which tools and which projects they see.',
+      full: 'Access to everything',
+      limited: 'Access as released',
+      items: [
+        { role: 'Admin', full: true, points: ['All tools and projects', 'Manage users and rights', 'Prices and totals'] },
+        { role: 'Office', full: true, points: ['All tools and projects', 'Billing and administration', 'Prices and totals'] },
+        { role: 'Foreman', full: false, points: ['Tools: chosen by the admin', 'Projects: all or only some', 'Prices only if released'] },
+        { role: 'Worker', full: false, points: ['Tools: chosen by the admin', 'Projects: all or only some', 'Prices only if released'] },
+      ],
+    },
     numbers: [
       { value: '7', label: 'tools' },
       { value: '1', label: 'account' },

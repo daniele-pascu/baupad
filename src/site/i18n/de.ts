@@ -152,6 +152,28 @@ export const de = {
       secondary: 'BauPad öffnen',
       status: 'Testphase – Abo folgt zum Start',
     },
+    saving: {
+      eyebrow: 'Speichern',
+      title: 'Mit und ohne Empfang.',
+      items: [
+        { title: 'Mit Empfang', text: 'Alles wird sofort online gespeichert.' },
+        { title: 'Ohne Empfang', text: 'Alles bleibt sicher am Gerät.' },
+        { title: 'Wieder verbunden', text: 'Alles geht automatisch online.' },
+      ],
+    },
+    access: {
+      eyebrow: 'Benutzer und Rollen',
+      title: 'Vier Rollen je Nutzerlizenz.',
+      text: 'Für Polier und Arbeiter legt der Admin fest, welche Werkzeuge und welche Projekte sie sehen.',
+      full: 'Zugriff auf alles',
+      limited: 'Zugriff nach Freigabe',
+      items: [
+        { role: 'Admin', full: true, points: ['Alle Werkzeuge und Projekte', 'Benutzer und Rechte verwalten', 'Preise und Summen'] },
+        { role: 'Büro', full: true, points: ['Alle Werkzeuge und Projekte', 'Abrechnung und Verwaltung', 'Preise und Summen'] },
+        { role: 'Polier', full: false, points: ['Werkzeuge: vom Admin gewählt', 'Projekte: alle oder nur einzelne', 'Preise nur mit Freigabe'] },
+        { role: 'Arbeiter', full: false, points: ['Werkzeuge: vom Admin gewählt', 'Projekte: alle oder nur einzelne', 'Preise nur mit Freigabe'] },
+      ],
+    },
     numbers: [
       { value: '7', label: 'Werkzeuge' },
       { value: '1', label: 'Konto' },
