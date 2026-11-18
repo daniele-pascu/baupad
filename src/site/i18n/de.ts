@@ -189,8 +189,8 @@ export const de = {
       defects: {
         lead: 'Mängel markieren – direkt im Plan.',
         groups: [
-          { title: 'Markieren', items: ['Im Plan einzeichnen – mit Kategorie und Foto', 'Kategorien: Mangel, Ausbesserung, Hinweis'] },
-          { title: 'Ordnung', items: ['Je Projekt eingeteilt'] },
+          { title: 'Markieren', items: ['Pins im Plan setzen – mit Kategorie', 'Kategorien: Mangel, Ausbesserung, Hinweis', 'Fotos aufnehmen oder aus dem Foto-Tool'] },
+          { title: 'Überblick', items: ['Je Projekt eingeteilt', 'Alles im Blick – nichts wird übersehen'] },
           { title: 'Export', items: ['PDF mit Plan, Liste und Fotos'] },
         ],
       },
@@ -199,6 +199,14 @@ export const de = {
         groups: [
           { title: 'Erfassen', items: ['Stunden je Projekt und Tag', 'Polier trägt auch für seine Partie ein', 'Arbeiter sehen ihre eigenen Stunden'] },
           { title: 'Büro', items: ['Monatszettel mit Soll, Ist, Urlaub und Krank', 'Excel je Arbeiter'] },
+        ],
+      },
+      materials: {
+        lead: 'Material und Verbrauch im Blick.',
+        groups: [
+          { title: 'Materialliste', items: ['Alle verwendeten Materialien mit Menge'] },
+          { title: 'Je Baustelle', items: ['Geliefert, verbraucht, vorhanden', 'Nachbestellung melden'] },
+          { title: 'Überblick', items: ['Bestand und Verbrauch je Baustelle', 'Was nachbestellt werden muss – auf einen Blick'] },
         ],
       },
     },
