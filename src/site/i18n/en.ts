@@ -150,6 +150,24 @@ export const en: Dict = {
       secondary: 'Open BauPad',
       status: 'Test phase – subscription follows at launch',
     },
+    details: {
+      projects: {
+        lead: 'Quantity take-off and measurement sheets – right on the plan.',
+        groups: [
+          { title: 'Plan', items: ['Upload plans as PDF or image', 'Scaled automatically – or scale them yourself', 'Original resolution, fully sharp', 'No plan? Draw your own'] },
+          { title: 'Measuring', items: ['Seven measurement types: area, wall, volume, length, piece, concrete repair and free measurement', 'Dimensions read from the scaled plan – or entered by hand', 'Take photos or pick them from the Photos tool'] },
+          { title: 'Items and invoices', items: ['Import bills of quantities (LV, MFK) – or write your own items', 'Split measurements by invoice: invoice, partial invoice, final partial invoice, final invoice'] },
+          { title: 'Export', items: ['Measurement summary by item – as Excel or PDF', 'Plans as PDF'] },
+        ],
+      },
+    },
+    dialog: { more: 'Learn more', close: 'Close' },
+    register: {
+      eyebrow: 'Project register',
+      title: 'One project for every tool.',
+      points: ['Create a project once – in the project register or right in a tool', 'It is saved in the project register automatically', 'Take it into any tool with one tap when needed'],
+      label: 'Project register',
+    },
     saving: {
       eyebrow: 'Saving',
       title: 'Always backed up.',

@@ -152,6 +152,24 @@ export const de = {
       secondary: 'BauPad öffnen',
       status: 'Testphase – Abo folgt zum Start',
     },
+    details: {
+      projects: {
+        lead: 'Mengen ermitteln und Aufmaß erstellen – direkt im Plan.',
+        groups: [
+          { title: 'Plan', items: ['Plan als PDF oder Bild hochladen', 'Wird automatisch skaliert – oder selbst skalieren', 'Originalauflösung in voller Schärfe', 'Kein Plan vorhanden? Eigenen Plan zeichnen'] },
+          { title: 'Messen', items: ['Sieben Messarten: Fläche, Wand, Volumen, Länge, Stück, Betoninstandsetzung und freie Messung', 'Maße werden im skalierten Plan erkannt – oder von Hand eingetragen', 'Fotos aufnehmen oder aus dem Foto-Tool wählen'] },
+          { title: 'Positionen und Rechnungen', items: ['LV und MFK importieren – oder Positionen selbst formulieren', 'Aufmaß nach Rechnungen teilen: Rechnung, Teilrechnung, Schlussteilrechnung, Schlussrechnung'] },
+          { title: 'Export', items: ['Aufmaßaufstellung nach Positionen – als Excel oder PDF', 'Pläne als PDF'] },
+        ],
+      },
+    },
+    dialog: { more: 'Mehr erfahren', close: 'Schließen' },
+    register: {
+      eyebrow: 'Projektregister',
+      title: 'Ein Projekt für alle Tools.',
+      points: ['Projekt einmal anlegen – im Projektregister oder direkt in einem Tool', 'Es wird automatisch im Projektregister gespeichert', 'Bei Bedarf mit einem Tipp in jedes Tool übernehmen'],
+      label: 'Projektregister',
+    },
     saving: {
       eyebrow: 'Speichern',
       title: 'Immer gesichert.',
