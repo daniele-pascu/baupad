@@ -1,9 +1,9 @@
-import type { CSSProperties } from 'react';
+import { useRef, useState, type CSSProperties } from 'react';
 import { InstallButton } from '../../components/InstallApp';
 import { ToolIcon } from '../../components/ToolIcon';
 import { paths } from '../../lib/router';
 import { useLang } from '../i18n';
-import { TOOL_ENTRIES, toolPath } from '../products';
+import { TOOL_ENTRIES, toolPath, type ToolEntry } from '../products';
 import { siteAlternates, softwareJsonLd } from '../seo';
 import { SiteLayout } from '../components/SiteShell';
 
@@ -12,9 +12,50 @@ import { SiteLayout } from '../components/SiteShell';
  * in seiner Farbe – Symbol, Name und nur eine kurze Aufzählung (ohne Beschreibung). Jedes Fenster führt zur Werkzeug-Seite.
  * Die weiteren Inhalte (Probleme und Antworten, Rollen, Einführung) kommen später Werkzeug für Werkzeug dazu.
  */
+type Detail = { lead: string; groups: readonly { title: string; items: readonly string[] }[] };
+
 export function BauPadPage() {
   const { lang, t } = useLang();
   const b = t.baupad;
+  // Fenster eines Tools: geht aus der angetippten Kachel auf und schließt wieder dorthin
+  const [open, setOpen] = useState<ToolEntry | null>(null);
+  const dialog = useRef<HTMLDialogElement>(null);
+  const from = useRef<HTMLElement | null>(null);
+  const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches || !document.body.animate;
+  const morph = (d: HTMLElement, card: HTMLElement) => {
+    const a = card.getBoundingClientRect();
+    const z = d.getBoundingClientRect();
+    return `translate(${a.left + a.width / 2 - (z.left + z.width / 2)}px, ${a.top + a.height / 2 - (z.top + z.height / 2)}px) scale(${a.width / z.width}, ${a.height / z.height})`;
+  };
+  const openTool = (e: React.MouseEvent<HTMLAnchorElement>, x: ToolEntry) => {
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; // neuer Tab → Tool-Seite
+    e.preventDefault();
+    from.current = e.currentTarget;
+    setOpen(x);
+    requestAnimationFrame(() => {
+      const d = dialog.current;
+      if (!d) return;
+      if (!d.open) d.showModal();
+      if (still()) return;
+      d.animate([{ transform: morph(d, from.current!), opacity: 0.4 }, { transform: 'none', opacity: 1 }], {
+        duration: 380,
+        easing: 'cubic-bezier(.32,.72,0,1)',
+      });
+    });
+  };
+  const closeTool = () => {
+    const d = dialog.current;
+    if (!d) return;
+    const done = () => {
+      d.close();
+      setOpen(null);
+    };
+    if (still() || !from.current) return done();
+    d.animate([{ transform: 'none', opacity: 1 }, { transform: morph(d, from.current), opacity: 0 }], { duration: 240, easing: 'cubic-bezier(.4,0,1,1)' }).finished.then(done, done);
+  };
+  const detail: Detail | undefined = open
+    ? ((b.details as Record<string, Detail | undefined>)[open.id] ?? { lead: t.tools[open.id].tagline, groups: t.tools[open.id].groups })
+    : undefined;
   return (
     <SiteLayout
       meta={{
@@ -51,7 +92,7 @@ export function BauPadPage() {
       <ul id="werkzeuge" className="bp-tools" data-testid="product-grid" aria-label={t.home.product.wall.aria}>
         {TOOL_ENTRIES.map((x) => (
           <li key={x.id}>
-            <a href={toolPath(x.id, lang)} className="bp-tool" style={{ '--tool': x.color } as CSSProperties} data-testid="product-card">
+            <a href={toolPath(x.id, lang)} className="bp-tool" style={{ '--tool': x.color } as CSSProperties} data-testid="product-card" aria-haspopup="dialog" onClick={(e) => openTool(e, x)}>
               <span className="bp-tool-icon" aria-hidden="true">
                 <ToolIcon name={x.icon} size={26} />
               </span>
@@ -65,6 +106,89 @@ export function BauPadPage() {
           </li>
         ))}
       </ul>
+
+      {/* Fenster eines Tools: Kopf in der Tool-Farbe, darunter die Beschreibung in Blöcken */}
+      <dialog
+        ref={dialog}
+        className="bp-dialog"
+        aria-labelledby="bp-dialog-title"
+        data-testid="tool-dialog"
+        onCancel={(e) => {
+          e.preventDefault();
+          closeTool();
+        }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) closeTool(); // Klick neben das Fenster
+        }}
+        style={open ? ({ '--tool': open.color } as CSSProperties) : undefined}
+      >
+        {open && detail && (
+          <div className="bp-dialog-in">
+            <header className="bp-dialog-head">
+              <span className="bp-tool-icon" aria-hidden="true">
+                <ToolIcon name={open.icon} size={28} />
+              </span>
+              <div>
+                <h2 id="bp-dialog-title">{t.tools[open.id].title}</h2>
+                <p>{detail.lead}</p>
+              </div>
+              <button type="button" className="bp-dialog-x" aria-label={b.dialog.close} onClick={closeTool} data-testid="tool-dialog-close">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
+            </header>
+            <div className="bp-dialog-body">
+              {detail.groups.map((g) => (
+                <section key={g.title}>
+                  <h3>{g.title}</h3>
+                  <ul>
+                    {g.items.map((it) => (
+                      <li key={it}>{it}</li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
+            <footer className="bp-dialog-foot">
+              <a href={toolPath(open.id, lang)} className="bp-b1" data-testid="tool-dialog-more">
+                {b.dialog.more}
+              </a>
+              <button type="button" className="bp-b2" onClick={closeTool}>
+                {b.dialog.close}
+              </button>
+            </footer>
+          </div>
+        )}
+      </dialog>
+
+      {/* Projektregister: ein Projekt einmal anlegen, in jedes Tool übernehmen */}
+      <section className="bp-sec bp-register" aria-labelledby="bp-register" data-testid="bp-register">
+        <div>
+          <p className="ps-eyebrow">{b.register.eyebrow}</p>
+          <h2 id="bp-register">{b.register.title}</h2>
+          <ul className="bp-register-points">
+            {b.register.points.map((p) => (
+              <li key={p}>{p}</li>
+            ))}
+          </ul>
+        </div>
+        <div className="bp-register-art" aria-hidden="true">
+          <span className="bp-register-pill">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2.5h7.5A2.5 2.5 0 0 1 21 10v7.5a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5Z" />
+            </svg>
+            {b.register.label}
+          </span>
+          <span className="bp-register-icons">
+            {TOOL_ENTRIES.map((x) => (
+              <span key={x.id} className="ph-tool-icon" style={{ '--tool': x.color } as CSSProperties}>
+                <ToolIcon name={x.icon} size={18} />
+              </span>
+            ))}
+          </span>
+        </div>
+      </section>
 
       {/* Speichern: „Speichert alles online. Nichts geht verloren.“ – mit Empfang sofort online, ohne Empfang am Gerät,
           bei der ersten Verbindung automatisch online */}

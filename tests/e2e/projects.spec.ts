@@ -57,6 +57,10 @@ test('Website: Startseite – Name, Motto, BauPad mit den sieben Werkzeugen, Arb
   // Speicher-Infos: Überschrift „Immer gesichert.“, darunter „Speichert alles online. Nichts geht verloren.“
   await expect(page.locator('#bp-saving')).toHaveText('Immer gesichert.');
   await expect(page.getByTestId('bp-safe')).toHaveText('Speichert alles online. Nichts geht verloren.');
+  // Projektregister: ein Projekt einmal anlegen, in jedes Tool übernehmen
+  await expect(page.getByTestId('bp-register')).toContainText('Ein Projekt für alle Tools.');
+  await expect(page.getByTestId('bp-register').locator('.bp-register-points li')).toHaveCount(3);
+  await expect(page.getByTestId('bp-register').locator('.ph-tool-icon')).toHaveCount(7);
   // Speichern (mit/ohne Empfang) und vier Rollen je Nutzerlizenz
   await expect(page.getByTestId('bp-saving').locator(':scope > li')).toHaveCount(3);
   await expect(page.getByTestId('bp-saving')).toContainText('Ohne Empfang');
@@ -168,7 +172,24 @@ test('Website: Startseite, Produkte, BauPad, Unternehmen, Kontaktformular, Sprac
   await expect(page.locator('.bp-tool-icon')).toHaveCount(7);
   await expect(page.getByTestId('product-card').first().locator('.bp-points > span')).toHaveCount(3); // nur Aufzählung
   await expect(page.getByTestId('product-card').first()).toHaveCSS('background-image', /rgb\(255, 106, 19\)/); // Farbe des Werkzeugs
+  // Tipp auf ein Tool: Fenster geht auf (Aufmaß mit Beschreibung in Blöcken), schließen mit X oder Esc
+  await page.getByTestId('product-card').first().click();
+  const dlg = page.getByTestId('tool-dialog');
+  await expect(dlg).toBeVisible();
+  await expect(dlg.locator('#bp-dialog-title')).toHaveText('Aufmaß');
+  await expect(dlg).toContainText('Mengen ermitteln und Aufmaß erstellen');
+  await expect(dlg).toContainText('Sieben Messarten');
+  await expect(dlg).toContainText('LV und MFK importieren');
+  await expect(dlg.locator('h3')).toHaveText(['Plan', 'Messen', 'Positionen und Rechnungen', 'Export']);
+  await page.getByTestId('tool-dialog-close').click();
+  await expect(dlg).toBeHidden();
+  expect(new URL(page.url()).pathname).toBe('/baupad');
   await page.getByTestId('product-card').nth(3).click();
+  await expect(dlg.locator('#bp-dialog-title')).toHaveText('Fotos');
+  await page.keyboard.press('Escape');
+  await expect(dlg).toBeHidden();
+  await page.getByTestId('product-card').nth(3).click();
+  await page.getByTestId('tool-dialog-more').click();
   await expect(page.getByTestId('product-title')).toHaveText('Fotos');
   expect(page.url()).toContain('/baupad/funktionen/fotos');
   await page.getByTestId('product-open').click();

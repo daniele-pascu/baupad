@@ -1518,3 +1518,239 @@ body:has(.ps-site) {
   background: currentColor;
   opacity: 0.6;
 }
+
+/* Fenster eines Tools (BauPad-Seite): geht aus der Kachel auf; Kopf in der Tool-Farbe, Beschreibung in Blöcken */
+.bp-dialog {
+  width: min(640px, calc(100vw - 32px));
+  max-width: none;
+  max-height: min(86vh, 860px);
+  max-height: min(86dvh, 860px);
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 26px;
+  background: #f7f7f9;
+  color: #111;
+  box-shadow: 0 40px 90px -30px rgba(10, 5, 40, 0.55);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  transform-origin: center;
+}
+.bp-dialog::backdrop {
+  background: rgba(16, 14, 30, 0.42);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  animation: bp-fade 0.3s ease-out;
+}
+@keyframes bp-fade {
+  from {
+    opacity: 0;
+  }
+}
+.bp-dialog-in {
+  display: flex;
+  flex-direction: column;
+  max-height: inherit;
+}
+.bp-dialog-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 24px 64px 24px 24px;
+  background: linear-gradient(150deg, var(--tool), color-mix(in srgb, var(--tool), #000 28%));
+  color: #fff;
+}
+.bp-dialog-head h2 {
+  margin: 0 0 2px;
+  color: #fff;
+  font-size: 26px;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+.bp-dialog-head p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 16px;
+  line-height: 1.4;
+}
+.bp-dialog-head .bp-tool-icon {
+  flex: none;
+  width: 54px;
+  height: 54px;
+  margin: 0;
+  border-radius: 15px;
+}
+.bp-dialog-x {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  cursor: pointer;
+}
+.bp-dialog-x:hover {
+  background: rgba(255, 255, 255, 0.32);
+}
+.bp-dialog-body {
+  display: grid;
+  gap: 20px;
+  padding: 24px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.bp-dialog-body h3 {
+  margin: 0 0 8px;
+  color: color-mix(in srgb, var(--tool), #000 18%);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.bp-dialog-body ul {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.bp-dialog-body li {
+  display: flex;
+  gap: 10px;
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.45;
+}
+.bp-dialog-body li::before {
+  content: '';
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin-top: 0.6em;
+  border-radius: 50%;
+  background: var(--tool);
+}
+.bp-dialog-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 16px 24px 22px;
+  border-top: 1px solid rgba(0, 0, 0, 0.07);
+}
+.bp-dialog-foot .bp-b2 {
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.bp-dialog :focus-visible {
+  outline: 2px solid #111;
+  outline-offset: 2px;
+}
+.bp-dialog-head :focus-visible {
+  outline-color: #fff;
+}
+@media (max-width: 520px) {
+  .bp-dialog-head {
+    padding: 20px 56px 20px 20px;
+  }
+  .bp-dialog-body {
+    padding: 20px;
+  }
+  .bp-dialog-foot {
+    padding: 14px 20px 18px;
+  }
+}
+
+/* BauPad-Seite: Projektregister – Text links, rechts das Register mit Linien zu allen Tools */
+.ps-main .bp-register {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr);
+  align-items: center;
+  gap: clamp(20px, 4vw, 48px);
+  padding: clamp(24px, 3.6vw, 40px);
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.8),
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 18px 36px -24px rgba(30, 20, 80, 0.25);
+}
+.ps-site .bp-register-points {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.ps-site .bp-register-points li {
+  display: flex;
+  gap: 10px;
+  margin: 0;
+  line-height: 1.45;
+}
+.bp-register-points li::before {
+  content: '';
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin-top: 0.62em;
+  border-radius: 50%;
+  background: var(--ps-acc);
+}
+.bp-register-art {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 34px;
+  padding: 8px 0;
+}
+/* senkrechte Linie vom Register zur Reihe der Tools */
+.bp-register-art::before {
+  content: '';
+  position: absolute;
+  top: 46px;
+  left: 50%;
+  height: 34px;
+  border-left: 1.5px dashed rgba(var(--ps-c1), 0.5);
+}
+.bp-register-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: #111;
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 12px 24px -12px rgba(0, 0, 0, 0.5);
+}
+.bp-register-icons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  border: 1.5px dashed rgba(var(--ps-c1), 0.35);
+  border-radius: 18px;
+}
+.bp-register-icons .ph-tool-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+}
+@media (max-width: 800px) {
+  .ps-main .bp-register {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.ps-main .bp-dialog-body section {
+  margin: 0;
+}
