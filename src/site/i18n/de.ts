@@ -101,9 +101,9 @@ export const de = {
       title: 'So entsteht unsere Software.',
       stepLabel: 'Schritt',
       steps: [
-        { title: 'Das Problem erkennen' },
-        { title: 'Die Lösung entwickeln und im Alltag erproben' },
-        { title: 'Laufend verbessern' },
+        { title: 'Problem verstehen' },
+        { title: 'Lösung bauen' },
+        { title: 'Laufend verfeinern' },
       ],
     },
     tech: {
