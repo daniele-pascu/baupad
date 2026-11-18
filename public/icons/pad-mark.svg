@@ -1,12 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="-4 0 859 830" role="img" aria-label="PAD Software">
   <defs>
-    <linearGradient id="pad-tg" x1="0" y1="245" x2="0" y2="485" gradientUnits="userSpaceOnUse">
+    <linearGradient id="pad-tg" x1="0" y1="245" x2="0" y2="530" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#b4b4b4"/><stop offset=".42" stop-color="#d4d4d4"/><stop offset=".55" stop-color="#d8d8d8"/><stop offset=".67" stop-color="#b6b6b6"/><stop offset=".79" stop-color="#808080"/><stop offset=".92" stop-color="#4f4f4f"/><stop offset="1" stop-color="#3e3e3e"/>
     </linearGradient>
     <radialGradient id="pad-th" cx="545" cy="335" r="95" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".38"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
   </defs>
-  <path fill="#fff" d="M242.85 0.63 L546.82 0.63 C710.14 0.63 854.78 131.35 854.78 311.97 C854.78 494.7 711.66 656.02 541.2 656.02 L306.77 656.02 L383.14 484.84 L562.68 484.84 C610.05 484.84 690.17 410.8 690.17 327.06 C690.17 212.94 600.07 165.81 527.98 165.81 L151.52 165.81 Z"/>
+  <path fill="#fff" d="M242.85 0.63 L546.82 0.63 C710.14 0.63 854.78 131.35 854.78 311.97 L854.78 356.97 C854.78 539.70 711.66 701.02 541.2 701.02 L286.70 701.02 L363.07 529.84 L562.68 529.84 C610.05 529.84 690.17 455.80 690.17 372.06 L690.17 327.06 C690.17 212.94 600.07 165.81 527.98 165.81 L151.52 165.81 Z"/>
   <path fill="#fff" d="M253.11 245.14 L480.25 245.14 L379.32 422.68 L185.01 829.9 L-3.54 829.9 Z"/>
-  <path fill="url(#pad-tg)" d="M480.25 245.14 L608.34 468.42 C592.2 478.87 576.12 484.84 562.68 484.84 L412.68 484.84 L379.32 422.68 Z"/>
-  <path fill="url(#pad-th)" d="M480.25 245.14 L608.34 468.42 C592.2 478.87 576.12 484.84 562.68 484.84 L412.68 484.84 L379.32 422.68 Z"/>
+  <path fill="url(#pad-tg)" d="M480.25 245.14 L626.37 499.85 C604.63 518.57 581.16 529.84 562.68 529.84 L436.83 529.84 L379.32 422.68 Z"/>
+  <path fill="url(#pad-th)" d="M480.25 245.14 L626.37 499.85 C604.63 518.57 581.16 529.84 562.68 529.84 L436.83 529.84 L379.32 422.68 Z"/>
 </svg>

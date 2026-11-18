@@ -1,8 +1,14 @@
 # PAD-Logo: Vektor und Animation (vorgemerkt für die Website)
 
-Stand: 18.11.2026 · mit Daniele abgestimmt, wird später in die Website eingebaut.
+Stand: 18.11.2026 · mit Daniele abgestimmt. Eingebaut auf der Startseite (Glas-Zeichen, `src/site/components/PadMarkGlass.tsx`).
 
-- `public/icons/pad-mark.svg` – das PAD-Zeichen als Vektorgrafik (nach `pad-mark-gross.png` vermessen, gerade Kanten,
+**Variante 1 (18.11.2026):** Die untere Hälfte der Rundung ist um 45 Einheiten nach unten gerutscht (rechts ein gerades Stück
+dazwischen, Rundungen unverändert); dadurch ist die untere Linie länger (schräge Kante parallel weiter) und das Dreieck
+wächst entlang seiner Linien mit. Schrägbalken, obere Linie und Gesamthöhe unverändert. Gilt überall: `pad-mark.svg`,
+Tab- und App-Symbole (`pad-favicon-64.png`, `pad-icon-180.png`, `pad-icon-512.png`), `pad-mark.png`, `pad-mark-gross.png`,
+Hintergrund-Zeichen `public/site/pad-mark-bg.svg`, Glas-Zeichen und Animation.
+
+- `public/icons/pad-mark.svg` – das PAD-Zeichen als Vektorgrafik (ursprünglich nach dem Original-Bild vermessen, gerade Kanten,
   glatte Rundungen, Verlauf im Dreieck als echter Farbverlauf). Weiß auf transparent – für dunklen Hintergrund.
 - `docs/logo/pad-logo-animation.html` – Intro-Animation (im Browser öffnen):
   - Schwarz → das Zeichen wächst gleichzeitig von seinen zwei Anfangskanten: oben ab der schrägen linken Kante nach
