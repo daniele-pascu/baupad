@@ -11,8 +11,9 @@
   flex-direction: column;
   /* heller Grund mit zartem Licht in Violett (oben rechts) und Petrol (unten links), dunkle Schrift.
      Nur der Kopf der Startseite ist schwarz (.ph-top). */
+  /* bewusst KEINE eigene Ebene (isolation/z-index): so liegt die schwebende Leiste auch über Flächen, die direkt im
+     body liegen (Übergang „Mehr erfahren“). Der Grund kommt vom html-Element, die Lichter liegen dahinter (z-index -1). */
   position: relative;
-  isolation: isolate;
   --ps-bg: #f4f4f6;
   --ps-c1: 108, 92, 255;
   --ps-c2: 31, 209, 181;
@@ -22,7 +23,6 @@
   --ps-soft: rgba(0, 0, 0, 0.62);
   --ps-faint: rgba(0, 0, 0, 0.45);
   --ps-line: rgba(0, 0, 0, 0.1);
-  background: var(--ps-bg);
   color: var(--ps-fg);
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   font-size: 17px;
@@ -231,6 +231,9 @@
   .ps-site .ps-header.scrolled:hover .ps-bar {
     opacity: 1;
   }
+}
+.ph-expanding .ps-site .ps-bar {
+  opacity: 1 !important;
 }
 /* Website: Leiste aus zartem weißem Liquid Glass auf dem dunklen Grund – Logo, Links und Schrift bleiben weiß */
 .ps-site .ps-bar {
@@ -679,9 +682,11 @@
 }
 
 /* Überscrollen am Rand: gleicher Grund wie die Seite */
-html:has(.ps-site),
-body:has(.ps-site) {
+html:has(.ps-site) {
   background: #f4f4f6;
+}
+body:has(.ps-site) {
+  background: transparent;
 }
 
 /* =====================================================================
@@ -728,10 +733,7 @@ body:has(.ps-site) {
   --ps-acc: #6a55f0;
   --ps-acc2: #12a58e;
 }
-html:has(.ps-home),
-body:has(.ps-home) {
-  background: linear-gradient(#0a0a0b 50%, #f4f4f6 50%);
-}
+
 .ps-home::before {
   background:
     radial-gradient(var(--ps-l1, 42vw) var(--ps-l1, 42vw) at 88% 30%, rgba(var(--ps-c1), 0.2), rgba(var(--ps-c1), 0) 70%),
@@ -1403,7 +1405,8 @@ body:has(.ps-home) {
 .ph-expand {
   position: fixed;
   inset: 0;
-  z-index: 200;
+  /* unter der Leiste (z-index 50): die Leiste bleibt beim Übergang immer vorne */
+  z-index: 40;
   background: #f4f4f6 linear-gradient(160deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0) 45%);
   pointer-events: none;
 }

@@ -45,6 +45,13 @@ test('Website: Startseite – Name, Motto, BauPad mit den sieben Werkzeugen, Arb
   // „Mehr erfahren“: das Fenster vergrößert sich über den ganzen Bildschirm, dann öffnet sich die BauPad-Seite
   await card.click();
   await expect(page.getByTestId('home-expand')).toBeAttached();
+  // die Leiste bleibt während des Übergangs vorne (über der wachsenden Fläche)
+  expect(await page.evaluate(() => {
+    const bar = document.querySelector('.ps-bar')!.getBoundingClientRect();
+    const top = document.elementFromPoint(bar.left + 40, bar.top + bar.height / 2);
+    return !!top?.closest('.ps-header');
+  })).toBe(true);
+  await expect(page.locator('.ps-bar')).toHaveCSS('opacity', '1'); // nicht blass
   await expect(page.getByTestId('product-title')).toHaveText('BauPad');
   await expect(page.locator('.bp-tagline')).toContainText('in einer App');
   await expect(page.getByTestId('bp-safe')).toHaveText('Speichert alles online.Nichts geht verloren.');
@@ -74,7 +81,7 @@ test('Website: Startseite – Name, Motto, BauPad mit den sieben Werkzeugen, Arb
   // Startseite: oben schwarzer Kopf mit der Firma, darunter heller Grund
   await expect(page.locator('.ph-top')).toHaveCSS('background-color', 'rgb(10, 10, 11)');
   await expect(page.locator('.ph-top').getByTestId('pad-mark-glass')).toBeVisible(); // PAD-Zeichen aus weißem Glas im Kopf
-  await expect(page.locator('.ps-site')).toHaveCSS('background-color', 'rgb(244, 244, 246)');
+  await expect(page.locator('html')).toHaveCSS('background-color', 'rgb(244, 244, 246)');
   // Anmelden über dem schwarzen Kopf: helle Glas-Pille, Maus darüber → schwarz mit weißer Schrift
   const login = page.getByTestId('nav-login');
   await expect(login).toHaveCSS('color', 'rgb(17, 17, 17)');
@@ -148,7 +155,7 @@ test('Website: Startseite, Produkte, BauPad, Unternehmen, Kontaktformular, Sprac
 
   // BauPad (hell): groß Symbol und Name, darunter jedes Werkzeug als Fenster in seiner Farbe mit kurzer Aufzählung
   await expect(page.getByTestId('product-title')).toHaveText('BauPad');
-  await expect(page.locator('.ps-site')).toHaveCSS('background-color', 'rgb(244, 244, 246)');
+  await expect(page.locator('html')).toHaveCSS('background-color', 'rgb(244, 244, 246)');
   await expect(page.getByTestId('home-expand')).toHaveCount(0); // über Produkte ohne Übergang
   await expect(page.getByTestId('product-card')).toHaveCount(7);
   await expect(page.getByTestId('product-grid').locator('a')).toHaveCount(7); // alle sieben, jedes anklickbar
@@ -170,7 +177,7 @@ test('Website: Startseite, Produkte, BauPad, Unternehmen, Kontaktformular, Sprac
   await nav.getByRole('link', { name: 'Über uns', exact: true }).click();
   await expect(h1).toContainText('für die Praxis');
   // Über uns ist hell, die Leiste darüber schwarzes Glas
-  await expect(page.locator('.ps-site')).toHaveCSS('background-color', 'rgb(244, 244, 246)');
+  await expect(page.locator('html')).toHaveCSS('background-color', 'rgb(244, 244, 246)');
   await expect(nav).toHaveClass(/on-light/);
   // „Wofür wir stehen“ (fünf Grundsätze) und „Technik, die mitwächst“ (sechs Punkte) stehen hier – ohne Zertifikats-Werbung
   await expect(page.getByTestId('values').locator(':scope > li')).toHaveCount(5);

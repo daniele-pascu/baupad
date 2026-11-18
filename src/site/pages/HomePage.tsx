@@ -211,6 +211,8 @@ function expandToBauPad(e: React.MouseEvent<HTMLAnchorElement>) {
   o.setAttribute('aria-hidden', 'true');
   o.dataset.testid = 'home-expand';
   document.body.appendChild(o);
+  // die Leiste steht während des Übergangs ruhig und voll sichtbar vorne (nicht blass)
+  document.documentElement.classList.add('ph-expanding');
   const grow = o.animate(
     [
       { clipPath: from, opacity: 0 },
@@ -225,5 +227,8 @@ function expandToBauPad(e: React.MouseEvent<HTMLAnchorElement>) {
       return new Promise((done) => setTimeout(done, 140));
     })
     .then(() => o.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 320, easing: 'ease-out', fill: 'forwards' }).finished)
-    .finally(() => o.remove());
+    .finally(() => {
+      o.remove();
+      document.documentElement.classList.remove('ph-expanding');
+    });
 }
