@@ -89,10 +89,7 @@ export function HomePage() {
         <h2 id="ph-process-title">{h.process.title}</h2>
         <ol className="ps-steps" data-testid="home-steps">
           {h.process.steps.map((s) => (
-            <li key={s.title}>
-              <h3>{s.title}</h3>
-              <p>{s.text}</p>
-            </li>
+            <li key={s.title}>{s.title}</li>
           ))}
         </ol>
       </section>
