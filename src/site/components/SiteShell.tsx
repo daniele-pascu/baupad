@@ -114,6 +114,7 @@ export function SiteHeader() {
     };
   }, [open, products]);
   const route = parseRoute(path).name;
+  const onLoginPage = route === 'login' || route === 'register' || route === 'newPassword';
   const active = (key: SiteRouteName) => (route === key || (key === 'products' && (route === 'baupad' || route === 'product')) ? 'page' : undefined);
   return (
     <header className={`ps-header${open ? ' open' : ''}${scrolled ? ' scrolled' : ''}${awake ? ' awake' : ''}`} data-testid="site-nav" ref={headerRef} onPointerDown={() => setAwake(true)}>
@@ -142,7 +143,8 @@ export function SiteHeader() {
           )}
         </nav>
         <div className="ps-header-actions">
-          {session ? (
+          {/* auf Anmelden, Registrieren und Passwort festlegen braucht es die Taste nicht */}
+          {onLoginPage ? null : session ? (
             <a href={paths.account()} className="ps-login" data-testid="nav-account" title={session.email}>
               {session.name ? session.name.split(' ')[0] : t.nav.account}
             </a>

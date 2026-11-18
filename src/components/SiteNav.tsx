@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { navigate, paths, usePath } from '../lib/router';
 import { useSession } from '../lib/use-session';
+import { SiteHeader } from '../site/components/SiteShell';
 import { shortName } from '../lib/auth';
 import { useDataSyncState } from '../lib/data-sync';
 import { useCloudState } from '../lib/photo-cloud';
@@ -59,6 +60,20 @@ function SyncBadge() {
 export function SiteNav() {
   const hash = usePath();
   const session = useSession();
+  // nicht angemeldet (Anmelden, Registrieren, Passwort): dieselbe schwebende Leiste wie auf der Website
+  if (!session) return <WebsiteBar />;
+  return <AppNav hash={hash} session={session} />;
+}
+
+function WebsiteBar() {
+  return (
+    <div className="ps-chrome">
+      <SiteHeader />
+    </div>
+  );
+}
+
+function AppNav({ hash, session }: { hash: string; session: NonNullable<ReturnType<typeof useSession>> }) {
   const [open, setOpen] = useState(false);
   useEffect(() => setOpen(false), [hash]);
   const current = (p: string) => (hash === p ? 'page' : undefined);
