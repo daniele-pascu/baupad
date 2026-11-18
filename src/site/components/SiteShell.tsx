@@ -1,31 +1,19 @@
-import type { ReactNode } from "react";
-import {
-  langOf,
-  LANGS,
-  navigate,
-  parseRoute,
-  paths,
-  sitePath,
-  usePath,
-  type Lang,
-  type SiteRouteName,
-  PRODUCT_SLUG_OF,
-} from "../../lib/router";
-import { useSession } from "../../lib/use-session";
-import { contactData } from "../contact-data";
-import { useLang } from "../i18n";
-import { PRODUCTS } from "../products";
-import { usePageMeta, type PageMeta } from "../seo";
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { langOf, LANGS, navigate, parseRoute, paths, sitePath, usePath, type Lang, type SiteRouteName, PRODUCT_SLUG_OF } from '../../lib/router';
+import { useSession } from '../../lib/use-session';
+import { contactData } from '../contact-data';
+import { useLang } from '../i18n';
+import { PRODUCTS } from '../products';
+import { usePageMeta, type PageMeta } from '../seo';
 
-/** Name PAD Software als Text (Link zur Startseite) */
+/** Logo PAD Software (Zeichen, weiß) – Link zur Startseite */
 export function Wordmark({ lang }: { lang: Lang }) {
   return (
-    <a
-      href={paths.landing(lang)}
-      className="ps-wordmark"
-      data-testid="pad-mark"
-    >
-      PAD Software
+    <a href={paths.landing(lang)} className="ps-logo" data-testid="pad-mark">
+      <img src="/icons/pad-mark.svg" alt="" width={33} height={32} />
+      <span className="ps-logo-name">
+        <strong>PAD</strong> Software
+      </span>
     </a>
   );
 }
@@ -33,118 +21,156 @@ export function Wordmark({ lang }: { lang: Lang }) {
 /** Adresse derselben Seite in der anderen Sprache (Werkzeug-Seiten behalten ihren Pfad) */
 export function switchLangPath(path: string, to: Lang): string {
   const route = parseRoute(path);
-  if (route.name === "product")
-    return paths.product(PRODUCT_SLUG_OF[route.product], to);
+  if (route.name === 'product') return paths.product(PRODUCT_SLUG_OF[route.product], to);
   const site = route.name as SiteRouteName;
-  const known: SiteRouteName[] = [
-    "landing",
-    "products",
-    "baupad",
-    "company",
-    "contact",
-    "thanks",
-    "future",
-    "imprint",
-    "privacy",
-    "dpa",
-    "deleteAccountInfo",
-  ];
+  const known: SiteRouteName[] = ['landing', 'products', 'baupad', 'company', 'contact', 'thanks', 'future', 'imprint', 'privacy', 'dpa', 'deleteAccountInfo'];
   return known.includes(site) ? sitePath(site, to) : paths.landing(to);
 }
 
 const NAV: {
   key: SiteRouteName;
-  label: "home" | "products" | "baupad" | "company" | "contact" | "future";
+  label: 'home' | 'products' | 'baupad' | 'company' | 'contact' | 'future';
 }[] = [
-  { key: "landing", label: "home" },
-  { key: "products", label: "products" },
-  { key: "company", label: "company" },
-  { key: "contact", label: "contact" },
+  { key: 'landing', label: 'home' },
+  { key: 'products', label: 'products' },
+  { key: 'company', label: 'company' },
+  { key: 'contact', label: 'contact' },
 ];
 
+/** BauPad-App-Symbol wie auf dem Handy: schwarzes, abgerundetes Quadrat mit „BauPad“ (echter Text) */
+function AppIcon() {
+  return (
+    <span className="ps-app-icon" aria-hidden="true">
+      <span>BauPad</span>
+    </span>
+  );
+}
+
+/** Fenster unter „Produkte“: App-Symbol, Name, drei kurze Infos – ein Klick öffnet die BauPad-Seite */
+function ProductsPanel({ lang }: { lang: Lang }) {
+  const { t } = useLang();
+  const h = t.home.product;
+  const n = t.baupad.numbers;
+  return (
+    <div id="ps-products-panel" className="ps-products-panel" data-testid="products-panel">
+      <a href={paths.baupad(lang)} className="ps-product" data-testid="products-panel-baupad">
+        <AppIcon />
+        <strong>{t.product}</strong>
+        <span className="ps-product-line">{h.tagline}</span>
+        <span className="ps-product-info">{n.map((x) => `${x.value} ${x.label}`).join(' · ')}</span>
+        <span className="ps-product-info">{h.tag}</span>
+      </a>
+    </div>
+  );
+}
+
+/**
+ * Leiste oben: schwebt mit Abstand zum Rand, schwarz (95 %) mit Glas-Schimmer und ganz feinem Schatten.
+ * Links das Logo, in der Mitte Home · Produkte · Über uns · Kontakt, rechts Anmelden (angemeldet: Name).
+ * Schmale Bildschirme: die Links klappen über die Menü-Taste in der Leiste auf.
+ */
 export function SiteHeader() {
   const { lang, t } = useLang();
   const path = usePath();
   const session = useSession();
+  const [open, setOpen] = useState(false);
+  // beim Scrollen leicht durchsichtig; Antippen holt die Leiste wieder ganz nach vorne (bis weiter gescrollt wird)
+  const [scrolled, setScrolled] = useState(false);
+  const [awake, setAwake] = useState(false);
+  useEffect(() => setOpen(false), [path]);
+  useEffect(() => {
+    let last = window.scrollY;
+    const on = () => {
+      const y = window.scrollY;
+      setScrolled(y > 8);
+      if (Math.abs(y - last) > 40) {
+        setAwake(false);
+        last = y;
+      }
+    };
+    on();
+    window.addEventListener('scroll', on, { passive: true });
+    return () => window.removeEventListener('scroll', on);
+  }, []);
+  // Produkte: Fenster klappt unter der Leiste auf (so breit wie die Links); Klick daneben oder Esc schließt es
+  const [products, setProducts] = useState(false);
+  const headerRef = useRef<HTMLElement>(null);
+  useEffect(() => setProducts(false), [path]);
+  useEffect(() => {
+    if (!open && !products) return;
+    const esc = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      setProducts(false);
+      setOpen(false);
+    };
+    const outside = (e: PointerEvent) => {
+      if (headerRef.current && !headerRef.current.contains(e.target as Node)) {
+        setProducts(false);
+        setOpen(false);
+      }
+    };
+    window.addEventListener('keydown', esc);
+    document.addEventListener('pointerdown', outside);
+    return () => {
+      window.removeEventListener('keydown', esc);
+      document.removeEventListener('pointerdown', outside);
+    };
+  }, [open, products]);
   const route = parseRoute(path).name;
-  const active = (key: SiteRouteName) =>
-    route === key || (key === "baupad" && route === "product")
-      ? "page"
-      : undefined;
+  const active = (key: SiteRouteName) => (route === key || (key === 'products' && (route === 'baupad' || route === 'product')) ? 'page' : undefined);
   return (
-    <header className="ps-header" data-testid="site-nav">
+    <header className={`ps-header${open ? ' open' : ''}${scrolled ? ' scrolled' : ''}${awake ? ' awake' : ''}`} data-testid="site-nav" ref={headerRef} onPointerDown={() => setAwake(true)}>
       <a href="#ps-main" className="ps-skip">
         {t.nav.skip}
       </a>
-      <Wordmark lang={lang} />
-      <nav
-        className="ps-nav"
-        aria-label={lang === "de" ? "Hauptnavigation" : "Main navigation"}
-      >
-        {NAV.map((n) => (
-          <a
-            key={n.key}
-            href={sitePath(n.key, lang)}
-            aria-current={active(n.key)}
-            data-testid={n.key === "products" ? "nav-products" : undefined}
-          >
-            {t.nav[n.label]}
-          </a>
-        ))}
-        <a
-          href={sitePath("baupad", lang)}
-          aria-current={active("baupad")}
-          data-testid="nav-baupad"
-        >
-          {t.nav.baupad}
-        </a>
-      </nav>
-      <div className="ps-header-actions">
-        <LangSwitch lang={lang} path={path} label={t.nav.langSwitch} />
-        {session ? (
-          <a
-            href={paths.account()}
-            data-testid="nav-account"
-            title={session.email}
-          >
-            {session.name ? session.name.split(" ")[0] : t.nav.account}
-          </a>
-        ) : (
-          <a href={paths.login()} data-testid="nav-login">
-            {t.nav.login}
-          </a>
-        )}
+      <div className="ps-bar">
+        <Wordmark lang={lang} />
+        <nav id="ps-nav" className="ps-nav" aria-label={lang === 'de' ? 'Hauptnavigation' : 'Main navigation'}>
+          {NAV.map((n) =>
+            n.key === 'products' ? (
+              <div key={n.key} className={`ps-nav-products${products ? ' is-open' : ''}`}>
+                <button type="button" aria-current={active(n.key)} aria-expanded={products} aria-controls="ps-products-panel" onClick={() => setProducts(!products)} data-testid="nav-products">
+                  {t.nav[n.label]}
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M6 9l6 6 6-6" />
+                  </svg>
+                </button>
+                {products && <ProductsPanel lang={lang} />}
+              </div>
+            ) : (
+              <a key={n.key} href={sitePath(n.key, lang)} aria-current={active(n.key)}>
+                {t.nav[n.label]}
+              </a>
+            ),
+          )}
+        </nav>
+        <div className="ps-header-actions">
+          {session ? (
+            <a href={paths.account()} className="ps-login" data-testid="nav-account" title={session.email}>
+              {session.name ? session.name.split(' ')[0] : t.nav.account}
+            </a>
+          ) : (
+            <a href={paths.login()} className="ps-login" data-testid="nav-login">
+              {t.nav.login}
+            </a>
+          )}
+          <button type="button" className="ps-menu-btn" aria-label={open ? t.nav.menuClose : t.nav.menuOpen} aria-expanded={open} aria-controls="ps-nav" onClick={() => setOpen(!open)} data-testid="nav-menu">
+            <span />
+            <span />
+          </button>
+        </div>
       </div>
     </header>
   );
 }
 
-function LangSwitch({
-  lang,
-  path,
-  label,
-}: {
-  lang: Lang;
-  path: string;
-  label: string;
-}) {
+function LangSwitch({ lang, path, label }: { lang: Lang; path: string; label: string }) {
   return (
-    <div
-      className="ps-lang"
-      role="group"
-      aria-label={label}
-      data-testid="lang-switch"
-    >
+    <div className="ps-lang" role="group" aria-label={label} data-testid="lang-switch">
       {LANGS.map((l, i) => (
         <span key={l}>
           {i > 0 && <i aria-hidden="true">|</i>}
-          <a
-            href={switchLangPath(path, l)}
-            lang={l}
-            hrefLang={l}
-            aria-current={l === lang ? "true" : undefined}
-            data-testid={`lang-${l}`}
-          >
+          <a href={switchLangPath(path, l)} lang={l} hrefLang={l} aria-current={l === lang ? 'true' : undefined} data-testid={`lang-${l}`}>
             {l.toUpperCase()}
           </a>
         </span>
@@ -155,6 +181,7 @@ function LangSwitch({
 
 export function SiteFooter() {
   const { lang, t } = useLang();
+  const path = usePath();
   const session = useSession();
   return (
     <footer className="ps-footer" data-testid="site-footer">
@@ -181,11 +208,7 @@ export function SiteFooter() {
           <h2>{t.footer.companyCol}</h2>
           <a href={paths.company(lang)}>{t.nav.company}</a>
           <a href={paths.contact(lang)}>{t.nav.contact}</a>
-          {session ? (
-            <a href={paths.tools()}>{t.nav.tools}</a>
-          ) : (
-            <a href={paths.login()}>{t.footer.login}</a>
-          )}
+          {session ? <a href={paths.tools()}>{t.nav.tools}</a> : <a href={paths.login()}>{t.footer.login}</a>}
         </nav>
         <nav aria-label={t.footer.legal}>
           <h2>{t.footer.legal}</h2>
@@ -199,32 +222,20 @@ export function SiteFooter() {
         <span>
           © {new Date().getFullYear()} {t.company}. {t.footer.rights}
         </span>
+        <LangSwitch lang={lang} path={path} label={t.nav.langSwitch} />
       </div>
     </footer>
   );
 }
 
 /** Rahmen jeder Website-Seite: Kopf, Inhalt, Fuß; setzt Titel und Meta-Angaben (schlicht, ohne Bewegung) */
-export function SiteLayout({
-  meta,
-  children,
-  className = "",
-}: {
-  meta: PageMeta;
-  children: ReactNode;
-  className?: string;
-}) {
+export function SiteLayout({ meta, children, className = '' }: { meta: PageMeta; children: ReactNode; className?: string }) {
   const path = usePath();
   usePageMeta(meta);
   return (
     <div className={`ps-site ${className}`} lang={langOf(path)}>
       <SiteHeader />
-      <main
-        id="ps-main"
-        className="ps-main"
-        tabIndex={-1}
-        key={path.split("?")[0]}
-      >
+      <main id="ps-main" className="ps-main" tabIndex={-1} key={path.split('?')[0]}>
         {children}
       </main>
       <SiteFooter />

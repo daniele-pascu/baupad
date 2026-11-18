@@ -1,7 +1,7 @@
-import { paths } from "../../lib/router";
-import { useLang } from "../i18n";
-import { siteAlternates } from "../seo";
-import { SiteLayout } from "../components/SiteShell";
+import { paths } from '../../lib/router';
+import { useLang } from '../i18n';
+import { siteAlternates } from '../seo';
+import { SiteLayout } from '../components/SiteShell';
 
 /** Produktübersicht – schlicht: BauPad mit einer Zeile, Status und Link; darunter der Hinweis auf weitere Lösungen */
 export function ProductsPage() {
@@ -14,7 +14,7 @@ export function ProductsPage() {
         title: p.title,
         description: p.description,
         lang,
-        alternates: siteAlternates("products"),
+        alternates: siteAlternates('products'),
       }}
       className="ps-products"
     >

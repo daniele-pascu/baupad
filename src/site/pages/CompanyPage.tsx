@@ -1,8 +1,8 @@
-import { paths } from "../../lib/router";
-import { contactData } from "../contact-data";
-import { useLang } from "../i18n";
-import { organizationJsonLd, siteAlternates } from "../seo";
-import { SiteLayout } from "../components/SiteShell";
+import { paths } from '../../lib/router';
+import { contactData } from '../contact-data';
+import { useLang } from '../i18n';
+import { organizationJsonLd, siteAlternates } from '../seo';
+import { SiteLayout } from '../components/SiteShell';
 
 /** Über uns – schlicht: wer PAD Software ist, wofür wir stehen, Technik, Kontakt */
 export function CompanyPage() {
@@ -17,13 +17,13 @@ export function CompanyPage() {
         title: c.title,
         description: c.description,
         lang,
-        alternates: siteAlternates("company"),
+        alternates: siteAlternates('company'),
         jsonLd: [organizationJsonLd(contactData.email)],
       }}
       className="ps-company"
     >
       <p className="ps-eyebrow">{t.nav.company}</p>
-      <h1 id="ps-company-title">{c.hero.title.join(" ")}</h1>
+      <h1 id="ps-company-title">{c.hero.title.join(' ')}</h1>
       <p>{c.hero.lead}</p>
 
       <section id="werte" aria-labelledby="ab-values">

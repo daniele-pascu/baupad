@@ -1,36 +1,30 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import { navigate, paths } from "../../lib/router";
-import {
-  clearSent,
-  peekSent,
-  markSent,
-  sendContact,
-  type ContactPayload,
-} from "../contact-api";
-import { contactData } from "../contact-data";
-import { fill, useLang } from "../i18n";
-import { organizationJsonLd, siteAlternates } from "../seo";
-import { SiteLayout } from "../components/SiteShell";
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { navigate, paths } from '../../lib/router';
+import { clearSent, peekSent, markSent, sendContact, type ContactPayload } from '../contact-api';
+import { contactData } from '../contact-data';
+import { fill, useLang } from '../i18n';
+import { organizationJsonLd, siteAlternates } from '../seo';
+import { SiteLayout } from '../components/SiteShell';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-type Field = "name" | "company" | "email" | "subject" | "message" | "consent";
+type Field = 'name' | 'company' | 'email' | 'subject' | 'message' | 'consent';
 
 /** Kontaktseite: direkte Angaben und Formular mit Prüfung; Danke-Seite nur nach echtem Versand */
 export function ContactPage() {
   const { lang, t } = useLang();
   const c = t.contactPage;
   const [v, setV] = useState({
-    name: "",
-    company: "",
-    email: "",
-    subject: "",
-    message: "",
+    name: '',
+    company: '',
+    email: '',
+    subject: '',
+    message: '',
     consent: false,
-    website: "",
+    website: '',
   });
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
-  const [failure, setFailure] = useState("");
+  const [failure, setFailure] = useState('');
   const [busy, setBusy] = useState(false);
   const startedAt = useRef(Date.now());
   const firstError = useRef<HTMLElement | null>(null);
@@ -52,7 +46,7 @@ export function ContactPage() {
     ev.preventDefault();
     const e = validate();
     setErrors(e);
-    setFailure("");
+    setFailure('');
     if (Object.keys(e).length) {
       firstError.current?.focus();
       return;
@@ -75,17 +69,12 @@ export function ContactPage() {
       navigate(paths.thanks(lang));
       return;
     }
-    const msg =
-      r.reason === "offline"
-        ? c.form.errors.offline
-        : r.reason === "not-configured"
-          ? c.form.errors.notConfigured
-          : c.form.errors.failed;
+    const msg = r.reason === 'offline' ? c.form.errors.offline : r.reason === 'not-configured' ? c.form.errors.notConfigured : c.form.errors.failed;
     setFailure(fill(msg, { email: contactData.email }));
   };
 
   const field = (
-    name: Exclude<Field, "consent">,
+    name: Exclude<Field, 'consent'>,
     label: string,
     opts: {
       type?: string;
@@ -100,35 +89,24 @@ export function ContactPage() {
       id,
       name,
       value: v[name],
-      "aria-invalid": err ? true : undefined,
-      "aria-describedby": err ? `${id}-err` : undefined,
+      'aria-invalid': err ? true : undefined,
+      'aria-describedby': err ? `${id}-err` : undefined,
       required: !opts.optional,
       autoComplete: opts.autoComplete,
-      "data-testid": `contact-${name}`,
+      'data-testid': `contact-${name}`,
       ref: (el: HTMLElement | null) => {
         if (err && !firstError.current) firstError.current = el;
       },
     };
     return (
-      <div className={`ps-field${err ? " has-error" : ""}`}>
+      <div className={`ps-field${err ? ' has-error' : ''}`}>
         <label htmlFor={id}>
-          {label}{" "}
-          {opts.optional && (
-            <span className="ps-optional">({c.form.optional})</span>
-          )}
+          {label} {opts.optional && <span className="ps-optional">({c.form.optional})</span>}
         </label>
         {opts.textarea ? (
-          <textarea
-            {...common}
-            rows={6}
-            onChange={(e) => setV({ ...v, [name]: e.target.value })}
-          />
+          <textarea {...common} rows={6} onChange={(e) => setV({ ...v, [name]: e.target.value })} />
         ) : (
-          <input
-            {...common}
-            type={opts.type ?? "text"}
-            onChange={(e) => setV({ ...v, [name]: e.target.value })}
-          />
+          <input {...common} type={opts.type ?? 'text'} onChange={(e) => setV({ ...v, [name]: e.target.value })} />
         )}
         {err && (
           <p className="ps-error" id={`${id}-err`} role="alert">
@@ -143,12 +121,12 @@ export function ContactPage() {
   // leere Angaben (Telefon, Anschrift) erscheinen erst, wenn sie eingetragen sind
   const rows = (
     [
-      [c.direct.email, contactData.email, "mail"],
+      [c.direct.email, contactData.email, 'mail'],
       [c.direct.person, contactData.person, null],
       [c.direct.company, contactData.company, null],
-      [c.direct.phone, contactData.phone, "tel"],
+      [c.direct.phone, contactData.phone, 'tel'],
       [c.direct.address, contactData.address, null],
-    ] as [string, string, "mail" | "tel" | null][]
+    ] as [string, string, 'mail' | 'tel' | null][]
   ).filter((r) => r[1]);
 
   return (
@@ -157,7 +135,7 @@ export function ContactPage() {
         title: c.title,
         description: c.description,
         lang,
-        alternates: siteAlternates("contact"),
+        alternates: siteAlternates('contact'),
         jsonLd: [organizationJsonLd(contactData.email)],
       }}
       className="ps-contact-page"
@@ -175,10 +153,10 @@ export function ContactPage() {
               <dd>
                 {!value ? (
                   <span className="placeholder">{c.direct.missing}</span>
-                ) : kind === "mail" ? (
+                ) : kind === 'mail' ? (
                   <a href={`mailto:${value}`}>{value}</a>
-                ) : kind === "tel" ? (
-                  <a href={`tel:${value.replace(/[^\d+]/g, "")}`}>{value}</a>
+                ) : kind === 'tel' ? (
+                  <a href={`tel:${value.replace(/[^\d+]/g, '')}`}>{value}</a>
                 ) : (
                   value
                 )}
@@ -189,49 +167,28 @@ export function ContactPage() {
       </section>
       <section aria-labelledby="ps-contact-form">
         <h2 id="ps-contact-form">{c.form.title}</h2>
-        <form
-          className="ps-form"
-          onSubmit={(e) => void submit(e)}
-          noValidate
-          data-testid="contact-form"
-        >
-          {field("name", c.form.name, { autoComplete: "name" })}
-          {field("company", c.form.company, {
+        <form className="ps-form" onSubmit={(e) => void submit(e)} noValidate data-testid="contact-form">
+          {field('name', c.form.name, { autoComplete: 'name' })}
+          {field('company', c.form.company, {
             optional: true,
-            autoComplete: "organization",
+            autoComplete: 'organization',
           })}
-          {field("email", c.form.email, {
-            type: "email",
-            autoComplete: "email",
+          {field('email', c.form.email, {
+            type: 'email',
+            autoComplete: 'email',
           })}
-          {field("subject", c.form.subject)}
-          {field("message", c.form.message, { textarea: true })}
+          {field('subject', c.form.subject)}
+          {field('message', c.form.message, { textarea: true })}
           {/* Honigtopf: für Menschen unsichtbar, Bots füllen ihn aus */}
           <div className="ps-hp" aria-hidden="true">
             <label htmlFor="ps-f-website">Website</label>
-            <input
-              id="ps-f-website"
-              name="website"
-              type="text"
-              tabIndex={-1}
-              autoComplete="off"
-              value={v.website}
-              onChange={(e) => setV({ ...v, website: e.target.value })}
-            />
+            <input id="ps-f-website" name="website" type="text" tabIndex={-1} autoComplete="off" value={v.website} onChange={(e) => setV({ ...v, website: e.target.value })} />
           </div>
-          <div
-            className={`ps-field ps-field-check${errors.consent ? " has-error" : ""}`}
-          >
+          <div className={`ps-field ps-field-check${errors.consent ? ' has-error' : ''}`}>
             <label>
-              <input
-                type="checkbox"
-                checked={v.consent}
-                onChange={(e) => setV({ ...v, consent: e.target.checked })}
-                aria-invalid={errors.consent ? true : undefined}
-                data-testid="contact-consent"
-              />
+              <input type="checkbox" checked={v.consent} onChange={(e) => setV({ ...v, consent: e.target.checked })} aria-invalid={errors.consent ? true : undefined} data-testid="contact-consent" />
               <span>
-                {c.form.consent}{" "}
+                {c.form.consent}{' '}
                 <a href={paths.privacy(lang)} target="_blank" rel="noopener">
                   {c.form.privacyLink}
                 </a>
@@ -244,20 +201,11 @@ export function ContactPage() {
             )}
           </div>
           {failure && (
-            <p
-              className="ps-error ps-error-box"
-              role="alert"
-              data-testid="contact-failure"
-            >
+            <p className="ps-error ps-error-box" role="alert" data-testid="contact-failure">
               {failure}
             </p>
           )}
-          <button
-            type="submit"
-            className="ps-submit"
-            disabled={busy}
-            data-testid="contact-submit"
-          >
+          <button type="submit" className="ps-submit" disabled={busy} data-testid="contact-submit">
             {busy ? c.form.sending : c.form.submit}
           </button>
         </form>
@@ -282,7 +230,7 @@ export function ThanksPage() {
         title: c.title,
         description: c.text,
         lang,
-        alternates: siteAlternates("thanks"),
+        alternates: siteAlternates('thanks'),
       }}
     >
       <p className="ps-eyebrow">{t.contactPage.hero.eyebrow}</p>

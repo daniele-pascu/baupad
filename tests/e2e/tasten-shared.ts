@@ -76,6 +76,18 @@ export function tastenTests() {
         expect(new URL(page.url()).pathname, `Website ${p} wurde umgeleitet`).toBe(p);
         await pruefe(page, `Website ${p}`, out);
       }
+      // Leiste oben: Fenster „Produkte“ (am Handy im aufgeklappten Menü)
+      await page.goto('./');
+      await page.waitForLoadState('networkidle');
+      const menu = page.getByTestId('nav-menu');
+      if (await menu.isVisible()) {
+        await menu.click();
+        await pruefe(page, 'Website Menü offen', out);
+      }
+      await page.getByTestId('nav-products').click();
+      await expect(page.getByTestId('products-panel')).toBeVisible();
+      await page.waitForTimeout(300);
+      await pruefe(page, 'Website Fenster Produkte', out);
       expect(out, out.join('\n')).toEqual([]);
     });
   });

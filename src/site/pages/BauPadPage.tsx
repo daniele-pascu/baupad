@@ -1,9 +1,9 @@
-import { InstallButton } from "../../components/InstallApp";
-import { paths } from "../../lib/router";
-import { useLang } from "../i18n";
-import { TOOL_ENTRIES, toolPath } from "../products";
-import { siteAlternates, softwareJsonLd } from "../seo";
-import { SiteLayout } from "../components/SiteShell";
+import { InstallButton } from '../../components/InstallApp';
+import { paths } from '../../lib/router';
+import { useLang } from '../i18n';
+import { TOOL_ENTRIES, toolPath } from '../products';
+import { siteAlternates, softwareJsonLd } from '../seo';
+import { SiteLayout } from '../components/SiteShell';
 
 /** Produktseite BauPad – schlicht: Aussage, die sieben Werkzeuge, Zahlen, Probleme und Antworten, Rollen, Technik, Abschluss */
 export function BauPadPage() {
@@ -15,7 +15,7 @@ export function BauPadPage() {
         title: b.title,
         description: b.description,
         lang,
-        alternates: siteAlternates("baupad"),
+        alternates: siteAlternates('baupad'),
         jsonLd: [softwareJsonLd(lang, b.description)],
       }}
       className="ps-baupad"
@@ -25,7 +25,7 @@ export function BauPadPage() {
           {b.hero.eyebrow} · {b.hero.status}
         </p>
         <h1 id="ps-bp-title" data-testid="product-title">
-          {b.hero.title.join(" ")}
+          {b.hero.title.join(' ')}
         </h1>
         <p>{b.hero.lead}</p>
         <ul id="werkzeuge" data-testid="product-grid">
@@ -33,7 +33,7 @@ export function BauPadPage() {
             <li key={x.id}>
               <a href={toolPath(x.id, lang)} data-testid="product-card">
                 {t.tools[x.id].title}
-              </a>{" "}
+              </a>{' '}
               – {t.tools[x.id].short}
             </li>
           ))}

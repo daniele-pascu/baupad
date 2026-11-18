@@ -65,8 +65,7 @@
   margin-top: 0;
 }
 
-/* Spalte für Kopf, Inhalt und Fuß */
-.ps-header,
+/* Spalte für Inhalt und Fuß */
 .ps-main,
 .ps-footer {
   width: 100%;
@@ -76,7 +75,7 @@
 }
 .ps-main {
   flex: 1;
-  padding-top: 32px;
+  padding-top: 40px;
   padding-bottom: 64px;
 }
 .ps-main section {
@@ -86,44 +85,241 @@
   margin-top: 0;
 }
 
-/* Kopf: Name, Menü, Sprache und Anmelden – einfache Links, die bei Bedarf umbrechen */
+/* =====================================================================
+   Leiste oben: schwebt mit Abstand zum Rand (nicht angeheftet), schwarz zu 95 %,
+   leicht abgerundet, Glas-Schimmer wie beim iPhone, ganz feiner Schatten.
+   ===================================================================== */
 .ps-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 8px 24px;
-  padding-top: 16px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #ddd;
+  position: sticky;
+  top: 12px;
+  z-index: 50;
+  width: min(1200px, calc(100% - 24px));
+  margin: 12px auto 0;
 }
-.ps-wordmark {
-  font-weight: 700;
-  text-decoration: none !important;
+.ps-bar {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  min-height: 60px;
+  padding: 10px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.95);
+  -webkit-backdrop-filter: blur(24px) saturate(170%);
+  backdrop-filter: blur(24px) saturate(170%);
+  /* Glas: feine Lichtkante oben, zarter Glanz von oben nach unten; Schatten kaum sichtbar */
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0) 55%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04),
+    0 6px 18px -10px rgba(0, 0, 0, 0.35),
+    0 1px 2px rgba(0, 0, 0, 0.06);
 }
-.ps-nav,
-.ps-header-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 18px;
+/* Beim Scrollen: leicht durchsichtig – Maus darüber, Antippen, Tastatur oder offenes Menü holen sie wieder nach vorn */
+.ps-bar {
+  transition: opacity 0.3s ease, background-color 0.3s ease;
 }
-.ps-header-actions {
-  margin-left: auto;
+.ps-header.scrolled .ps-bar {
+  opacity: 0.82;
+  background-color: rgba(0, 0, 0, 0.86);
 }
-.ps-nav a[aria-current='page'] {
-  font-weight: 700;
+.ps-header.scrolled.awake .ps-bar,
+.ps-header.scrolled.open .ps-bar,
+.ps-header.scrolled:focus-within .ps-bar {
+  opacity: 1;
+  background-color: rgba(0, 0, 0, 0.95);
 }
-.ps-lang,
-.ps-lang span {
-  display: flex;
-  gap: 6px;
+@media (hover: hover) {
+  .ps-header.scrolled:hover .ps-bar {
+    opacity: 1;
+    background-color: rgba(0, 0, 0, 0.95);
+  }
 }
-.ps-lang i {
-  color: #999;
-  font-style: normal;
-}
-.ps-lang a[aria-current='true'] {
-  font-weight: 700;
+.ps-site .ps-bar a {
+  color: #fff;
   text-decoration: none;
+}
+.ps-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  justify-self: start;
+}
+.ps-logo-name {
+  line-height: 1;
+  font-size: 18px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+.ps-logo-name strong {
+  font-weight: 800;
+}
+.ps-logo img {
+  display: block;
+  width: 33px;
+  height: 32px;
+}
+.ps-nav {
+  display: flex;
+  gap: 8px;
+}
+.ps-site .ps-nav a {
+  padding: 8px 16px;
+  border-radius: 8px;
+  line-height: 1.25;
+  font-size: 16px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.86);
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+.ps-site .ps-nav a:hover,
+.ps-site .ps-nav a[aria-current='page'] {
+  color: #fff;
+}
+.ps-site .ps-nav a:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+/* Produkte: Taste wie die Links, mit kleinem Pfeil; darunter klappt das Fenster auf */
+.ps-nav {
+  position: relative;
+}
+.ps-nav-products button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.86);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.25;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+.ps-nav-products button:hover,
+.ps-nav-products button[aria-current='page'],
+.ps-nav-products.is-open button {
+  color: #fff;
+}
+.ps-nav-products button:hover,
+.ps-nav-products.is-open button {
+  background: rgba(255, 255, 255, 0.08);
+}
+.ps-nav-products svg {
+  transition: transform 0.2s ease;
+}
+.ps-nav-products.is-open svg {
+  transform: rotate(180deg);
+}
+/* Fenster: gleicher Glas-Look wie die Leiste, genau so breit wie die Links, klappt nach unten auf */
+.ps-products-panel {
+  position: absolute;
+  top: calc(100% + 21px);
+  left: 0;
+  right: 0;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  /* liegt in der Leiste: kein eigener Weichzeichner (verschachtelt stört er), dafür fast deckend */
+  background: #070707 linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0) 55%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 10px 24px -12px rgba(0, 0, 0, 0.4);
+  transform-origin: top center;
+  animation: ps-drop 0.2s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+@keyframes ps-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scaleY(0.96);
+  }
+}
+.ps-site .ps-product {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 20px 16px 18px;
+  border-radius: 10px;
+  text-align: center;
+  transition: background-color 0.15s ease;
+}
+.ps-site .ps-product:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.ps-product strong {
+  color: #fff;
+  margin-top: 8px;
+  font-size: 17px;
+  font-weight: 700;
+}
+.ps-product-line {
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 14px;
+}
+.ps-product-info {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 13px;
+}
+/* App-Symbol wie auf dem Handy-Bildschirm (Text statt Bild) */
+.ps-app-icon {
+  container-type: inline-size;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 22%;
+  background: #000;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.22),
+    0 6px 16px -6px rgba(0, 0, 0, 0.6);
+  color: #fff;
+  line-height: 1;
+}
+.ps-app-icon span {
+  font-size: 26cqw;
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  white-space: nowrap;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ps-products-panel {
+    animation: none;
+  }
+}
+.ps-header-actions {
+  display: flex;
+  justify-self: end;
+  align-items: center;
+  gap: 8px;
+}
+/* Anmelden: schwarze Pille mit hellem Ring und leichtem Schein */
+.ps-site .ps-login {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 20px;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 999px;
+  background: #000;
+  font-size: 16px;
+  font-weight: 500;
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.06),
+    0 0 14px rgba(255, 255, 255, 0.18);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.ps-site .ps-login:hover {
+  background: #fff;
+  color: #000;
+}
+.ps-menu-btn {
+  display: none;
 }
 .ps-skip {
   position: absolute;
@@ -131,6 +327,91 @@
 }
 .ps-skip:focus {
   position: static;
+}
+.ps-site .ps-bar :focus-visible {
+  outline-color: #fff;
+}
+
+/* Schmale Bildschirme: Logo links, Anmelden und Menü-Taste rechts; die Links klappen in der Leiste auf */
+@media (max-width: 800px) {
+  .ps-bar {
+    grid-template-columns: 1fr auto;
+    column-gap: 12px;
+    padding: 8px 6px 8px 16px;
+  }
+  .ps-logo {
+    gap: 8px;
+  }
+  .ps-logo img {
+    width: 28px;
+    height: 27px;
+  }
+  .ps-logo-name {
+    font-size: 16px;
+  }
+  .ps-header-actions {
+    gap: 4px;
+  }
+  .ps-site .ps-login {
+    min-height: 38px;
+    padding: 0 14px;
+    font-size: 15px;
+  }
+  .ps-nav {
+    display: none;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    flex-direction: column;
+    gap: 2px;
+    margin: 8px 10px 0 -8px;
+    padding: 8px 0 4px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .ps-header.open .ps-nav {
+    display: flex;
+  }
+  .ps-site .ps-nav a,
+  .ps-nav-products button {
+    padding: 12px 8px;
+    font-size: 17px;
+  }
+  .ps-nav-products button {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .ps-products-panel {
+    position: static;
+    order: 0;
+    margin: 0 0 4px;
+    background: rgba(255, 255, 255, 0.05);
+    box-shadow: none;
+  }
+  .ps-menu-btn {
+    display: inline-flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+    width: 44px;
+    height: 44px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    cursor: pointer;
+  }
+  .ps-menu-btn span {
+    display: block;
+    height: 2px;
+    border-radius: 1px;
+    background: #fff;
+    transition: transform 0.2s ease;
+  }
+  .ps-header.open .ps-menu-btn span:first-child {
+    transform: translateY(4px) rotate(45deg);
+  }
+  .ps-header.open .ps-menu-btn span:last-child {
+    transform: translateY(-4px) rotate(-45deg);
+  }
 }
 
 /* Kleine Zeile über Überschriften, Motto, Linkreihen */
@@ -271,6 +552,10 @@
   font-size: 15px;
 }
 .ps-footer-bottom {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 24px;
   margin-top: 24px;
   color: #666;
 }
