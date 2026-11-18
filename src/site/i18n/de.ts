@@ -186,6 +186,21 @@ export const de = {
           { title: 'Export', items: ['Für die Dokumentation – als PDF oder ZIP'] },
         ],
       },
+      defects: {
+        lead: 'Mängel markieren – direkt im Plan.',
+        groups: [
+          { title: 'Markieren', items: ['Im Plan einzeichnen – mit Kategorie und Foto', 'Kategorien: Mangel, Ausbesserung, Hinweis'] },
+          { title: 'Ordnung', items: ['Je Projekt eingeteilt'] },
+          { title: 'Export', items: ['PDF mit Plan, Liste und Fotos'] },
+        ],
+      },
+      times: {
+        lead: 'Arbeitsstunden erfassen – je Projekt.',
+        groups: [
+          { title: 'Erfassen', items: ['Stunden je Projekt und Tag', 'Polier trägt auch für seine Partie ein', 'Arbeiter sehen ihre eigenen Stunden'] },
+          { title: 'Büro', items: ['Monatszettel mit Soll, Ist, Urlaub und Krank', 'Excel je Arbeiter'] },
+        ],
+      },
     },
     dialog: { more: 'Mehr erfahren', close: 'Schließen' },
     register: {

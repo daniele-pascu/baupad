@@ -184,6 +184,21 @@ export const en: Dict = {
           { title: 'Export', items: ['For documentation – as PDF or ZIP'] },
         ],
       },
+      defects: {
+        lead: 'Mark defects – right on the plan.',
+        groups: [
+          { title: 'Marking', items: ['Draw on the plan – with category and photo', 'Categories: defect, repair, note'] },
+          { title: 'Order', items: ['Sorted by project'] },
+          { title: 'Export', items: ['PDF with plan, list and photos'] },
+        ],
+      },
+      times: {
+        lead: 'Record working hours – per project.',
+        groups: [
+          { title: 'Recording', items: ['Hours per project and day', 'Foremen also enter their crew', 'Workers see their own hours'] },
+          { title: 'Office', items: ['Monthly sheet with target, actual, holiday and sick leave', 'Excel per worker'] },
+        ],
+      },
     },
     dialog: { more: 'Learn more', close: 'Close' },
     register: {

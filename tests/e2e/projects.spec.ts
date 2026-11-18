@@ -199,6 +199,17 @@ test('Website: Startseite, Produkte, BauPad, Unternehmen, Kontaktformular, Sprac
   await expect(dlg).toContainText('Eingeteilte Arbeiter automatisch übernommen');
   await page.getByTestId('tool-dialog-close').click();
   await expect(dlg).toBeHidden();
+  // Mängel und Zeiten
+  await page.getByTestId('product-card').nth(4).click();
+  await expect(dlg.locator('#bp-dialog-title')).toHaveText('Mängel');
+  await expect(dlg).toContainText('mit Kategorie und Foto');
+  await page.getByTestId('tool-dialog-close').click();
+  await expect(dlg).toBeHidden();
+  await page.getByTestId('product-card').nth(5).click();
+  await expect(dlg.locator('#bp-dialog-title')).toHaveText('Zeiten');
+  await expect(dlg).toContainText('Polier trägt auch für seine Partie ein');
+  await page.getByTestId('tool-dialog-close').click();
+  await expect(dlg).toBeHidden();
   expect(new URL(page.url()).pathname).toBe('/baupad');
   await page.getByTestId('product-card').nth(3).click();
   await expect(dlg.locator('#bp-dialog-title')).toHaveText('Fotos');
