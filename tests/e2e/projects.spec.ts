@@ -47,14 +47,14 @@ test('Website (schlichte Fassung): Startseite – Name, Motto, BauPad, sieben We
   // schwebt mit Abstand zum Rand; beim Scrollen leicht durchsichtig, Maus darüber holt sie wieder nach vorn
   const bar = nav.locator('.ps-bar');
   expect((await bar.boundingBox())!.y).toBeGreaterThanOrEqual(8);
-  await expect(bar).toHaveCSS('background-color', 'rgba(0, 0, 0, 0.95)');
+  await expect(bar).toHaveCSS('background-color', 'rgba(0, 0, 0, 0.8)');
   await page.mouse.move(700, 600);
   await page.mouse.wheel(0, 800);
-  await expect(bar).toHaveCSS('background-color', 'rgba(0, 0, 0, 0.55)'); // Hintergrund durchsichtig, Schrift bleibt voll sichtbar
+  await expect(bar).toHaveCSS('background-color', 'rgba(0, 0, 0, 0.5)'); // Hintergrund durchsichtig, Schrift bleibt voll sichtbar
   await expect(bar).toHaveCSS('opacity', '1');
   expect((await bar.boundingBox())!.y).toBeGreaterThanOrEqual(8); // bleibt stehen
   await bar.hover();
-  await expect(bar).toHaveCSS('background-color', 'rgba(0, 0, 0, 0.95)');
+  await expect(bar).toHaveCSS('background-color', 'rgba(0, 0, 0, 0.9)');
   // Produkte: Fenster klappt auf (so breit wie die Links) – BauPad-Symbol, Name, Infos; Klick öffnet die BauPad-Seite
   await page.getByTestId('nav-products').click();
   const panel = page.getByTestId('products-panel');
