@@ -21,7 +21,7 @@ test('Website (schlichte Fassung): Startseite – Name, Motto, BauPad, sieben We
   await expect(page.getByTestId('home-tool-list').locator('li')).toHaveCount(7);
   await expect(page.getByTestId('home-tool-list')).toContainText('Material');
   await expect(page.getByTestId('home-tools')).toHaveAttribute('href', '/baupad');
-  await expect(page.getByTestId('home-steps').locator('li')).toHaveCount(4);
+  await expect(page.getByTestId('home-steps').locator('li')).toHaveText(['Das Problem erkennen', 'Die Lösung entwickeln und im Alltag erproben', 'Laufend verbessern']);
   await expect(page.getByTestId('cta-contact-2')).toBeVisible();
   // schlicht: keine Bilder, keine Animationen
   await expect(page.locator('.ps-main img, .ps-main svg, .ps-main canvas')).toHaveCount(0);
