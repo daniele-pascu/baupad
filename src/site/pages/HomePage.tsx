@@ -6,8 +6,9 @@ import { organizationJsonLd, siteAlternates, softwareJsonLd } from '../seo';
 import { SiteLayout } from '../components/SiteShell';
 
 /**
- * Startseite PAD Software – schlicht, nur Inhalt: wer wir sind, BauPad, die sieben Werkzeuge, wie wir entwickeln, Kontakt.
- * Keine Bilder, keine Animationen (Gestaltung kommt Schritt für Schritt dazu).
+ * Startseite PAD Software: Hintergrund mit stehendem Licht in Violett und Petrol (siehe site.css).
+ * Der erste Bereich steht frei, alles Weitere liegt in Fenstern aus Liquid Glass mit geschliffener Lichtkante:
+ * BauPad, die sieben Werkzeuge, die Arbeitsweise als Linie und Kontakt. Keine Bewegung.
  */
 export function HomePage() {
   const { lang, t } = useLang();
@@ -24,84 +25,107 @@ export function HomePage() {
       }}
       className="ps-home"
     >
-      <section aria-labelledby="ph-title">
+      <section className="ph-hero" aria-labelledby="ph-title">
         <p className="ps-eyebrow">{h.hero.eyebrow}</p>
-        <h1 id="ph-title">{h.hero.name}</h1>
+        <h1 id="ph-title">
+          PAD <span>Software</span>
+        </h1>
         <p className="ps-motto" data-testid="home-motto">
+          {/* in Großbuchstaben mit Mittelpunkt dazwischen – ohne die Punkte am Wortende */}
           {h.hero.motto.map((m) => (
-            <span key={m}>{m}</span>
+            <span key={m}>{m.replace(/\.$/, '')}</span>
           ))}
         </p>
-        <p>{h.hero.lead}</p>
-        <p className="ps-links">
-          <a href="#loesungen" data-testid="cta-solutions">
+        <p className="ph-lead">{h.hero.lead}</p>
+        <p className="ph-btns">
+          <a href="#loesungen" className="ph-b1" data-testid="cta-solutions">
             {h.hero.primary}
           </a>
-          <a href={paths.company(lang)} data-testid="cta-company">
+          <a href={paths.company(lang)} className="ph-b2" data-testid="cta-company">
             {h.hero.secondary}
           </a>
         </p>
       </section>
 
-      <section id="loesungen" aria-labelledby="ph-bp-title">
-        <p className="ps-eyebrow">{h.product.tag}</p>
-        <h2 id="ph-bp-title">{h.product.name}</h2>
-        <p>
-          <strong>{h.product.tagline}</strong>
-        </p>
-        <p>{h.product.solves}</p>
-        <ul data-testid="home-can">
-          {h.product.can.map((c) => (
-            <li key={c}>{c}</li>
-          ))}
-        </ul>
-        <p className="ps-links">
-          <a href={paths.baupad(lang)} data-testid="home-product">
-            {h.product.cta}
-          </a>
-          <a href={paths.tools()} data-testid="home-open">
-            {h.product.open}
-          </a>
-        </p>
+      <section id="loesungen" className="ph-win ph-prod" aria-labelledby="ph-bp-title">
+        <div>
+          <p className="ps-eyebrow">{h.product.eyebrow}</p>
+          <span className="ps-app-icon ph-app-icon" aria-hidden="true">
+            <span>BauPad</span>
+          </span>
+          <h2 id="ph-bp-title">
+            {h.product.name} <span className="ph-tag">{h.product.status}</span>
+          </h2>
+          <p className="ph-tagline">{h.product.tagline}</p>
+          <ul className="ph-pts" data-testid="home-can">
+            {h.product.can.map((c) => (
+              <li key={c}>{c}</li>
+            ))}
+          </ul>
+          <p className="ph-btns">
+            <a href={paths.baupad(lang)} className="ph-b1" data-testid="home-product">
+              {h.product.cta}
+            </a>
+            <a href={paths.tools()} className="ph-b2" data-testid="home-open">
+              {h.product.open}
+            </a>
+          </p>
+        </div>
+        <div className="ph-phone">
+          <img src="/site/fotos-baustelle-iphone.jpg" alt={h.product.alts[2]} width={600} height={1298} loading="lazy" decoding="async" />
+        </div>
       </section>
 
-      <section aria-labelledby="ph-tools-title" data-testid="home-tool-list">
+      <section className="ph-win" aria-labelledby="ph-tools-title" data-testid="home-tool-list">
+        <p className="ps-eyebrow">
+          {w.brand} · {w.head}
+        </p>
         <h2 id="ph-tools-title">{w.final.join('')}</h2>
         <p>{w.finalText}</p>
-        <ul>
+        <ul className="ph-tools">
           {TOOL_ENTRIES.map((x) => (
             <li key={x.id}>
-              <a href={toolPath(x.id, lang)}>{t.tools[x.id].title}</a> – {t.tools[x.id].short}
+              <a href={toolPath(x.id, lang)}>
+                <strong>{t.tools[x.id].title}</strong>
+                <span>{t.tools[x.id].short}</span>
+              </a>
             </li>
           ))}
         </ul>
-        <p className="ps-links">
-          <a href={paths.baupad(lang)} data-testid="home-tools">
+        <p className="ph-btns">
+          <a href={paths.baupad(lang)} className="ph-b2" data-testid="home-tools">
             {h.product.all}
           </a>
         </p>
-        <p>
+        <p className="ph-note">
           {h.product.more} ({h.product.moreTag})
         </p>
       </section>
 
-      <section id="entwicklung" aria-labelledby="ph-process-title">
+      <section id="entwicklung" className="ph-win" aria-labelledby="ph-process-title">
+        <p className="ps-eyebrow">{h.process.label}</p>
         <h2 id="ph-process-title">{h.process.title}</h2>
-        <ol className="ps-steps" data-testid="home-steps">
+        <ol className="ph-steps" data-testid="home-steps">
           {h.process.steps.map((s) => (
             <li key={s.title}>{s.title}</li>
           ))}
         </ol>
       </section>
 
-      <section id="kontakt" aria-labelledby="ph-contact-title">
+      <section id="kontakt" className="ph-win" aria-labelledby="ph-contact-title">
+        <p className="ps-eyebrow">{h.contact.label}</p>
         <h2 id="ph-contact-title">{h.contact.title}</h2>
         <p>{h.contact.text}</p>
-        <p className="ps-links">
-          <a href={paths.contact(lang)} data-testid="cta-contact-2">
+        <p>
+          <a href={`mailto:${contactData.email}`} className="ph-mail">
+            {contactData.email}
+          </a>
+        </p>
+        <p className="ph-btns">
+          <a href={paths.contact(lang)} className="ph-b1" data-testid="cta-contact-2">
             {h.contact.primary}
           </a>
-          <a href={paths.products(lang)} data-testid="cta-products">
+          <a href={paths.products(lang)} className="ph-b2" data-testid="cta-products">
             {h.contact.secondary}
           </a>
         </p>
