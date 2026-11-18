@@ -401,7 +401,8 @@
 :is(.ps-site, .ps-chrome) .ps-login:active {
   background-color: #000;
   background-image: linear-gradient(rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0));
-  border-color: rgba(255, 255, 255, 0.35);
+  /* weiße Taste: Maus darüber oder Antippen → schwarz, rundherum weiß */
+  border-color: #fff;
   color: #fff !important;
   box-shadow:
     inset 0 1px rgba(255, 255, 255, 0.3),
@@ -625,7 +626,7 @@
 .ps-submit:active:not(:disabled) {
   background: #000;
   color: #fff;
-  border-color: rgba(255, 255, 255, 0.35);
+  border-color: #fff;
 }
 .ps-submit:disabled {
   opacity: 0.5;
@@ -895,12 +896,16 @@ body:has(.ps-home) {
   background: #3a3a40;
 }
 .ps-site .ph-b2 {
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  border: 1.5px solid rgba(0, 0, 0, 0.1);
   background: rgba(255, 255, 255, 0.6);
   color: #111;
 }
-.ps-site .ph-b2:hover {
-  background: #fff;
+.ps-site .ph-b2:hover,
+.ps-site .ph-b2:active {
+  border-color: #fff;
+  background: #000;
+  color: #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12);
 }
 .ps-site .ph-top .ph-b1 {
   border-color: #fff;
@@ -910,7 +915,7 @@ body:has(.ps-home) {
 }
 .ps-site .ph-top .ph-b1:hover,
 .ps-site .ph-top .ph-b1:active {
-  border-color: rgba(255, 255, 255, 0.35);
+  border-color: #fff;
   background: #000;
   color: #fff;
 }
@@ -919,8 +924,12 @@ body:has(.ps-home) {
   background: rgba(255, 255, 255, 0.08);
   color: #fff;
 }
-.ps-site .ph-top .ph-b2:hover {
+/* dunkle Glas-Taste im schwarzen Kopf („Über uns“) bleibt dunkel */
+.ps-site .ph-top .ph-b2:hover,
+.ps-site .ph-top .ph-b2:active {
+  border-color: rgba(255, 255, 255, 0.3);
   background: rgba(255, 255, 255, 0.14);
+  box-shadow: none;
 }
 
 /* Fenster aus hellem Glas: milchig, die Farblichter schimmern durch; Kante als feiner heller Saum mit weichem Schatten */
