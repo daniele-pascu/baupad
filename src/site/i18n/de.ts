@@ -154,12 +154,36 @@ export const de = {
     },
     details: {
       projects: {
-        lead: 'Mengen ermitteln und Aufmaß erstellen – direkt im Plan.',
+        lead: 'Mengen ermitteln – direkt im Plan.',
         groups: [
-          { title: 'Plan', items: ['Plan als PDF oder Bild hochladen', 'Wird automatisch skaliert – oder selbst skalieren', 'Originalauflösung in voller Schärfe', 'Kein Plan vorhanden? Eigenen Plan zeichnen'] },
-          { title: 'Messen', items: ['Sieben Messarten: Fläche, Wand, Volumen, Länge, Stück, Betoninstandsetzung und freie Messung', 'Maße werden im skalierten Plan erkannt – oder von Hand eingetragen', 'Fotos aufnehmen oder aus dem Foto-Tool wählen'] },
-          { title: 'Positionen und Rechnungen', items: ['LV und MFK importieren – oder Positionen selbst formulieren', 'Aufmaß nach Rechnungen teilen: Rechnung, Teilrechnung, Schlussteilrechnung, Schlussrechnung'] },
-          { title: 'Export', items: ['Aufmaßaufstellung nach Positionen – als Excel oder PDF', 'Pläne als PDF'] },
+          { title: 'Plan', items: ['PDF oder Bild hochladen', 'Automatisch skaliert – oder selbst', 'Originalauflösung, volle Schärfe', 'Kein Plan? Selbst zeichnen'] },
+          { title: 'Messen', items: ['7 Messarten: Fläche, Wand, Volumen, Länge, Stück, Betoninstandsetzung, frei', 'Nach Position messen', 'Maße aus dem Plan – oder von Hand', 'Fotos aufnehmen oder aus dem Foto-Tool'] },
+          { title: 'Positionen und Rechnungen', items: ['LV und MFK importieren – oder selbst formulieren', 'Nach Rechnungen teilen: Teil-, Schlussteil-, Schlussrechnung'] },
+          { title: 'Export', items: ['Aufmaß nach Positionen – Excel oder PDF', 'Pläne als PDF'] },
+        ],
+      },
+      workers: {
+        lead: 'Wer arbeitet wo – die Woche auf einen Blick.',
+        groups: [
+          { title: 'Arbeiter', items: ['Name, Qualifikation, Tätigkeit, Personalnummer, Telefon', 'Urlaub und Krankenstand'] },
+          { title: 'Einteilung', items: ['Je Woche', 'Baustelle aus dem Projektregister', 'Arbeiter auf die Tage verteilen', 'Vorwoche übernehmen'] },
+          { title: 'Export', items: ['Wochenliste als PDF'] },
+        ],
+      },
+      reports: {
+        lead: 'Ihre Formulare – digital ausgefüllt.',
+        groups: [
+          { title: 'Vorlagen', items: ['Regieliste, Bautagesbericht & Co. einmal hochladen', 'Für immer digital hinterlegt'] },
+          { title: 'Ausfüllen', items: ['Nach Projekten geordnet', 'Projektangaben automatisch eingetragen', 'Eingeteilte Arbeiter automatisch übernommen'] },
+          { title: 'Export', items: ['Fertig als PDF'] },
+        ],
+      },
+      photos: {
+        lead: 'Baufortschritt im Blick – je Projekt.',
+        groups: [
+          { title: 'Speichern', items: ['Je Projekt, mit Datum, Uhrzeit und Nutzer', 'Laufender Fortschritt, klarer Überblick'] },
+          { title: 'Verbunden', items: ['Fotos aus Aufmaß und Mängelplan landen hier', 'Und lassen sich von hier dort auswählen'] },
+          { title: 'Export', items: ['Für die Dokumentation – als PDF oder ZIP'] },
         ],
       },
     },
@@ -167,7 +191,8 @@ export const de = {
     register: {
       eyebrow: 'Projektregister',
       title: 'Ein Projekt für alle Tools.',
-      points: ['Projekt einmal anlegen – im Projektregister oder direkt in einem Tool', 'Es wird automatisch im Projektregister gespeichert', 'Bei Bedarf mit einem Tipp in jedes Tool übernehmen'],
+      lead: 'Alle Tools sind miteinander verbunden.',
+      points: ['Projekt einmal anlegen – im Register oder in einem Tool', 'Automatisch im Projektregister gespeichert', 'Mit einem Tipp in jedes Tool übernehmen'],
       label: 'Projektregister',
     },
     saving: {
