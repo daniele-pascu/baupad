@@ -65,6 +65,16 @@ describe('PDF der Arbeitereinteilung', () => {
     expect(t).toContain('Urlaub:');
   });
 
+  it('nicht eingeteilte Leute stehen nicht im PDF', async () => {
+    const extra = [...workers, W('e', 'Otto', 'Frei')];
+    const f = await crewWeekPdf(week(), extra, DEFAULT_WORK_TIMES);
+    if (!hasPoppler) return;
+    const t = text(f.data, 'frei.pdf');
+    expect(t).not.toContain('Nicht eingeteilt');
+    expect(t).not.toContain('Frei Otto');
+    expect(t).toContain('Holz Stefan (Mo–Fr)'); // Urlaub steht weiter drin
+  });
+
   it('Kopf oben links: Firmenlogo, sonst Firmenname', async () => {
     // 1×1-PNG als Logo
     const png = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC'), (c) => c.charCodeAt(0));

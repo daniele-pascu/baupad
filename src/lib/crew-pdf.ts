@@ -2,7 +2,7 @@ import { PDFDocument, rgb, StandardFonts, type PDFFont, type PDFImage, type PDFP
 import { safeFileName, type ExportFile } from './aufmass';
 import type { CompanyLogo } from './company';
 import { baupadLogoBytes } from './baupad-logo';
-import { DAY_NAMES, DAY_SHORT, dayDate, dayList, isoWeekNo, parseDate, addDays, sortByGrade, siteTitle, timeLabel, unassigned, visibleDays, weekRange, workerName, workerWithGrade, type SiteLabel } from './crew';
+import { DAY_NAMES, DAY_SHORT, dayDate, dayList, isoWeekNo, parseDate, addDays, sortByGrade, siteTitle, timeLabel, visibleDays, weekRange, workerName, workerWithGrade, type SiteLabel } from './crew';
 import type { WeekPlan, WeekSite, Worker, WorkTimes } from './types';
 
 /**
@@ -210,11 +210,7 @@ export async function crewWeekPdf(plan: WeekPlan, workers: Worker[], times: Work
     y -= (s.note ? 18 : 16) + 12;
   }
 
-  // Urlaub und noch nicht eingeteilt (sollte leer sein)
-  const open = days
-    .filter((d) => d < 5) // Sa/So: nur wer dort eingeteilt ist
-    .map((d) => ({ d, list: unassigned(plan, sortByGrade(workers), d).filter((w) => !opts.absent?.(w.id, d)) }))
-    .filter((x) => x.list.length);
+  // Urlaub und Krank; nicht eingeteilte Leute stehen nicht im PDF (nur in der App unter „Nicht eingeteilt“)
   const lines: { label: string; text: string }[] = [];
   // Urlaub aus der Woche und aus den Zeiträumen (von–bis), krank nur aus den Zeiträumen
   const away = (kind: 'urlaub' | 'krank') =>
@@ -225,7 +221,6 @@ export async function crewWeekPdf(plan: WeekPlan, workers: Worker[], times: Work
       .join(', ');
   if (away('urlaub')) lines.push({ label: 'Urlaub:', text: away('urlaub') });
   if (away('krank')) lines.push({ label: 'Krank:', text: away('krank') });
-  for (const o of open) lines.push({ label: `Nicht eingeteilt ${DAY_SHORT[o.d]}:`, text: o.list.map(workerName).join(', ') });
   if (!plan.sites.length) lines.unshift({ label: 'Hinweis:', text: 'Keine Baustelle in dieser Woche.' });
   for (const l of lines) {
     if (y < M + 30) newPage();
