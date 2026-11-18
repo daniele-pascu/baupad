@@ -202,12 +202,18 @@ test('Website: Startseite, Produkte, BauPad, Unternehmen, Kontaktformular, Sprac
   // Mängel und Zeiten
   await page.getByTestId('product-card').nth(4).click();
   await expect(dlg.locator('#bp-dialog-title')).toHaveText('Mängel');
-  await expect(dlg).toContainText('mit Kategorie und Foto');
+  await expect(dlg).toContainText('Pins im Plan setzen');
+  await expect(dlg).toContainText('Alles im Blick – nichts wird übersehen');
   await page.getByTestId('tool-dialog-close').click();
   await expect(dlg).toBeHidden();
   await page.getByTestId('product-card').nth(5).click();
   await expect(dlg.locator('#bp-dialog-title')).toHaveText('Zeiten');
   await expect(dlg).toContainText('Polier trägt auch für seine Partie ein');
+  await page.getByTestId('tool-dialog-close').click();
+  await expect(dlg).toBeHidden();
+  await page.getByTestId('product-card').nth(6).click();
+  await expect(dlg.locator('#bp-dialog-title')).toHaveText('Material');
+  await expect(dlg.locator('h3')).toHaveText(['Materialliste', 'Je Baustelle', 'Überblick']);
   await page.getByTestId('tool-dialog-close').click();
   await expect(dlg).toBeHidden();
   expect(new URL(page.url()).pathname).toBe('/baupad');

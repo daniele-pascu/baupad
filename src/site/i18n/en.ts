@@ -187,8 +187,8 @@ export const en: Dict = {
       defects: {
         lead: 'Mark defects – right on the plan.',
         groups: [
-          { title: 'Marking', items: ['Draw on the plan – with category and photo', 'Categories: defect, repair, note'] },
-          { title: 'Order', items: ['Sorted by project'] },
+          { title: 'Marking', items: ['Set pins on the plan – with category', 'Categories: defect, repair, note', 'Take photos or pick from the Photos tool'] },
+          { title: 'Overview', items: ['Sorted by project', 'Everything in view – nothing gets missed'] },
           { title: 'Export', items: ['PDF with plan, list and photos'] },
         ],
       },
@@ -197,6 +197,14 @@ export const en: Dict = {
         groups: [
           { title: 'Recording', items: ['Hours per project and day', 'Foremen also enter their crew', 'Workers see their own hours'] },
           { title: 'Office', items: ['Monthly sheet with target, actual, holiday and sick leave', 'Excel per worker'] },
+        ],
+      },
+      materials: {
+        lead: 'Materials and usage at a glance.',
+        groups: [
+          { title: 'Material list', items: ['All materials used, with quantity'] },
+          { title: 'Per site', items: ['Delivered, used, on site', 'Report what needs reordering'] },
+          { title: 'Overview', items: ['Stock and usage per site', 'What needs reordering – at a glance'] },
         ],
       },
     },
