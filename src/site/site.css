@@ -975,28 +975,6 @@ body:has(.ps-home) {
 .ps-home .ph-win .ph-tagline {
   color: #111;
 }
-.ps-site .ph-pts {
-  display: grid;
-  gap: 8px;
-  margin: 14px 0 22px;
-  padding: 0;
-  list-style: none;
-  color: rgba(0, 0, 0, 0.75);
-}
-.ps-site .ph-pts li {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0;
-}
-.ph-pts li::before {
-  content: '';
-  flex: none;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--ps-acc);
-}
 .ph-phone {
   width: clamp(170px, 19vw, 230px);
   aspect-ratio: 9 / 19.3;
@@ -1017,12 +995,13 @@ body:has(.ps-home) {
   object-position: top;
 }
 
-/* sieben Werkzeuge: kleine helle Felder, jedes ein Link */
+/* alle Werkzeuge im BauPad-Fenster wie in der App: Symbol im farbigen Viereck, daneben der Name (jedes ein Link) */
 .ps-site .ph-tools {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 10px;
-  margin: 20px 0 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 16px;
+  max-width: 460px;
+  margin: 20px 0 26px;
   padding: 0;
   list-style: none;
 }
@@ -1031,29 +1010,30 @@ body:has(.ps-home) {
 }
 .ps-site .ph-tools a {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  height: 100%;
-  padding: 14px 16px;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.6);
+  align-items: center;
+  gap: 12px;
+  padding: 6px 10px 6px 6px;
+  border-radius: 14px;
+  color: #111;
+  font-weight: 600;
+  line-height: 1.25;
   text-decoration: none;
-  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+  transition: background-color 0.15s ease;
 }
 .ps-site .ph-tools a:hover {
-  background: #fff;
-  box-shadow: 0 8px 20px -12px rgba(30, 20, 80, 0.3);
+  background: rgba(255, 255, 255, 0.75);
 }
-.ph-tools span {
-  color: var(--ps-soft);
-  font-size: 15px;
-  line-height: 1.4;
-}
-.ps-home .ph-win .ph-note {
-  margin: 14px 0 0;
-  color: var(--ps-faint);
-  font-size: 14px;
+.ph-tool-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  background: var(--tool);
+  color: #fff;
+  box-shadow: 0 8px 16px -8px var(--tool);
 }
 
 /* Arbeitsweise auf einer Linie: Punkt je Schritt, die Linie läuft von Violett in Petrol und nach dem letzten weich aus */

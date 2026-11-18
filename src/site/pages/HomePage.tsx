@@ -1,3 +1,5 @@
+import type { CSSProperties } from 'react';
+import { ToolIcon } from '../../components/ToolIcon';
 import { paths } from '../../lib/router';
 import { contactData } from '../contact-data';
 import { useLang } from '../i18n';
@@ -9,7 +11,7 @@ import { SiteLayout } from '../components/SiteShell';
 /**
  * Startseite PAD Software: oben ein schwarzer Kopf mit der Firma (Licht in Violett und Petrol, kaum sichtbar das PAD-Zeichen),
  * darunter heller Grund mit zarten Farblichtern; alles Weitere liegt in Fenstern aus hellem Liquid Glass:
- * BauPad, die sieben Werkzeuge, die Arbeitsweise als Linie und Kontakt. Keine Bewegung.
+ * BauPad mit allen Werkzeugen (wie in der App), die Arbeitsweise als Linie und Kontakt.
  */
 export function HomePage() {
   const { lang, t } = useLang();
@@ -66,9 +68,17 @@ export function HomePage() {
             {h.product.name} <span className="ph-tag">{h.product.status}</span>
           </h2>
           <p className="ph-tagline">{h.product.tagline}</p>
-          <ul className="ph-pts" data-testid="home-can">
-            {h.product.can.map((c) => (
-              <li key={c}>{c}</li>
+          {/* alle Werkzeuge wie in der App: Symbol im farbigen Feld, daneben der Name – jedes führt zur Werkzeug-Seite */}
+          <ul className="ph-tools" data-testid="home-tool-list" aria-label={w.aria}>
+            {TOOL_ENTRIES.map((x) => (
+              <li key={x.id}>
+                <a href={toolPath(x.id, lang)} style={{ '--tool': x.color } as CSSProperties}>
+                  <span className="ph-tool-icon" aria-hidden="true">
+                    <ToolIcon name={x.icon} size={22} />
+                  </span>
+                  {t.tools[x.id].title}
+                </a>
+              </li>
             ))}
           </ul>
           <p className="ph-btns">
@@ -83,32 +93,6 @@ export function HomePage() {
         <div className="ph-phone">
           <img src="/site/fotos-baustelle-iphone.jpg" alt={h.product.alts[2]} width={600} height={1298} loading="lazy" decoding="async" />
         </div>
-      </section>
-
-      <section className="ph-win" aria-labelledby="ph-tools-title" data-testid="home-tool-list">
-        <p className="ps-eyebrow">
-          {w.brand} · {w.head}
-        </p>
-        <h2 id="ph-tools-title">{w.final.join('')}</h2>
-        <p>{w.finalText}</p>
-        <ul className="ph-tools">
-          {TOOL_ENTRIES.map((x) => (
-            <li key={x.id}>
-              <a href={toolPath(x.id, lang)}>
-                <strong>{t.tools[x.id].title}</strong>
-                <span>{t.tools[x.id].short}</span>
-              </a>
-            </li>
-          ))}
-        </ul>
-        <p className="ph-btns">
-          <a href={paths.baupad(lang)} className="ph-b2" data-testid="home-tools">
-            {h.product.all}
-          </a>
-        </p>
-        <p className="ph-note">
-          {h.product.more} ({h.product.moreTag})
-        </p>
       </section>
 
       <section id="entwicklung" className="ph-win" aria-labelledby="ph-process-title">
