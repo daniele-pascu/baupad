@@ -1091,11 +1091,11 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
               </span>
             </div>
 
-            <div className={`toolbar${toolsOpen ? '' : ' toolbar-collapsed'}`} role="toolbar" aria-label="Werkzeuge" data-testid="dp-toolbar">
+            <div className={`toolbar${toolsOpen ? '' : ' toolbar-collapsed'}`} role="toolbar" aria-label="Tools" data-testid="dp-toolbar">
               {!toolsOpen ? (
-                <button type="button" className="tool-btn tools-open" onClick={() => setToolsOpen(true)} aria-expanded={false} title="Werkzeugleiste öffnen" data-testid="dp-tools-open">
+                <button type="button" className="tool-btn tools-open" onClick={() => setToolsOpen(true)} aria-expanded={false} title="Tool-Leiste öffnen" data-testid="dp-tools-open">
                   <Icon name={tool === 'select' ? 'select' : (SHAPE_ICON[tool] as never)} />
-                  <span>Werkzeuge</span>
+                  <span>Tools</span>
                 </button>
               ) : (
                 <>
@@ -1138,7 +1138,7 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
                       ))}
                     </select>
                   </div>
-                  <button type="button" className="icon-btn icon-btn-sm tools-close" onClick={() => setToolsOpen(false)} aria-label="Werkzeugleiste ausblenden" title="Werkzeugleiste ausblenden" data-testid="dp-tools-close">
+                  <button type="button" className="icon-btn icon-btn-sm tools-close" onClick={() => setToolsOpen(false)} aria-label="Tool-Leiste ausblenden" title="Tool-Leiste ausblenden" data-testid="dp-tools-close">
                     <Icon name="close" size={18} />
                   </button>
                 </>
@@ -1231,7 +1231,7 @@ export function DefectPlanPage({ planId, markId }: { planId: string; markId: str
                   {marks.length === 0 && (
                     <tr>
                       <td colSpan={5} className="muted small">
-                        Noch keine Markierung. Unten „Werkzeuge“ öffnen, Pin oder Form wählen und im Plan antippen.
+                        Noch keine Markierung. Unten „Tools“ öffnen, Pin oder Form wählen und im Plan antippen.
                       </td>
                     </tr>
                   )}

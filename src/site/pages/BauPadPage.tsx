@@ -70,11 +70,10 @@ export function BauPadPage() {
           bei der ersten Verbindung automatisch online */}
       <section className="bp-sec" aria-labelledby="bp-saving">
         <p className="ps-eyebrow">{b.saving.eyebrow}</p>
-        <h2 id="bp-saving" className="bp-safe" data-testid="bp-safe">
-          {b.hero.safe.map((l) => (
-            <span key={l}>{l}</span>
-          ))}
-        </h2>
+        <h2 id="bp-saving">{b.saving.title}</h2>
+        <p className="bp-sec-text" data-testid="bp-safe">
+          {b.hero.safe.join(' ')}
+        </p>
         <ol className="bp-saving" data-testid="bp-saving">
           {b.saving.items.map((x, i) => (
             <li key={x.title}>

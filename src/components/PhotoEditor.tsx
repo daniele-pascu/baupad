@@ -647,7 +647,7 @@ export function PhotoEditor({ src, width, height, title, onClose, onSave }: { sr
         )}
       </div>
       <div className="pe-panel">
-        <div className="pe-tools" role="toolbar" aria-label="Werkzeuge">
+        <div className="pe-tools" role="toolbar" aria-label="Tools">
           {TOOLS.map((t) => (
             <button
               key={t.id}

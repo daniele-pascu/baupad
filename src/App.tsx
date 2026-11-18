@@ -272,7 +272,7 @@ function AuthGate({ route, children }: { route: string; children: ReactNode }) {
   useEffect(() => {
     if (blocked) navigate(paths.login(), true);
     else if (forbidden) {
-      toast('Dieses Werkzeug ist für dich nicht freigegeben. Bitte beim Admin deiner Firma nachfragen.', 'error');
+      toast('Dieses Tool ist für dich nicht freigegeben. Bitte beim Admin deiner Firma nachfragen.', 'error');
       navigate(paths.tools(), true);
     }
   }, [blocked, forbidden]);

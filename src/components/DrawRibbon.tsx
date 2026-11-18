@@ -145,7 +145,7 @@ export function DrawRibbon({
   );
 
   return (
-    <div className={`ribbon${float ? ' ribbon-float' : ''}${float && groups ? ' groups-open' : ''}`} role="toolbar" aria-label="Zeichenwerkzeuge" data-testid="draw-toolbar">
+    <div className={`ribbon${float ? ' ribbon-float' : ''}${float && groups ? ' groups-open' : ''}`} role="toolbar" aria-label="Zeichen-Tools" data-testid="draw-toolbar">
       {float && !groups && (
         <button type="button" className="ribbon-group-btn" data-tab={tab} onClick={() => setGroups(true)} aria-expanded={false} aria-label={`Gruppe: ${TABS.find((t) => t.id === tab)!.label} – andere Gruppe und Hilfen`} title="Gruppe und Hilfen" data-testid="ribbon-groups">
           <Icon name={TABS.find((t) => t.id === tab)!.icon} size={20} />

@@ -161,7 +161,7 @@ export function DefectSitePage({ siteKey }: { siteKey: string }) {
           </div>
           <div className="row gap">
             {canEditSites(session) && (
-              <button type="button" className="btn btn-sm" onClick={() => setEditing(true)} disabled={!site} title="Baustelle bearbeiten – gilt in allen Werkzeugen" aria-label="Baustelle bearbeiten" data-testid="defect-site-edit">
+              <button type="button" className="btn btn-sm" onClick={() => setEditing(true)} disabled={!site} title="Baustelle bearbeiten – gilt in allen Tools" aria-label="Baustelle bearbeiten" data-testid="defect-site-edit">
                 <Icon name="edit" size={16} /> <span className="lbl">Bearbeiten</span>
               </button>
             )}
@@ -181,7 +181,7 @@ export function DefectSitePage({ siteKey }: { siteKey: string }) {
             onClose={() => setEditing(false)}
             onSaved={(next) => {
               setEditing(false);
-              toast('Baustelle gespeichert – in allen Werkzeugen übernommen.', 'success');
+              toast('Baustelle gespeichert – in allen Tools übernommen.', 'success');
               const nk = siteKeyOfSite(next);
               if (nk !== siteKey) navigate(paths.defectSite(nk), true);
               else void reload();

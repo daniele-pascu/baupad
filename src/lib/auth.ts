@@ -15,8 +15,8 @@ export const PROVIDERS: { id: AuthProviderId; label: string }[] = [
 
 export type Role = 'admin' | 'polier' | 'arbeiter' | 'buero';
 export const ROLES: { id: Role; label: string; text: string }[] = [
-  { id: 'admin', label: 'Admin', text: 'Benutzer und Rechte verwalten, alle Werkzeuge' },
-  { id: 'buero', label: 'Büro', text: 'Alle Werkzeuge, Abrechnung und Verwaltung' },
+  { id: 'admin', label: 'Admin', text: 'Benutzer und Rechte verwalten, alle Tools' },
+  { id: 'buero', label: 'Büro', text: 'Alle Tools, Abrechnung und Verwaltung' },
   { id: 'polier', label: 'Polier', text: 'Fotos, Berichte und Formulare, Einteilung lesen' },
   { id: 'arbeiter', label: 'Arbeiter', text: 'Fotos der freigegebenen Baustellen' },
 ];

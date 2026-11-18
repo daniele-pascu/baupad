@@ -82,7 +82,7 @@ function ProjectAccessDialog({ projectKey, name, onClose }: { projectKey: string
         </>
       }
     >
-      <p className="muted small">Wer darf dieses Projekt sehen? Gilt in allen Werkzeugen. Admin und Büro sehen immer alles.</p>
+      <p className="muted small">Wer darf dieses Projekt sehen? Gilt in allen Tools. Admin und Büro sehen immer alles.</p>
       {rows?.length === 0 && <p>Noch keine Poliere oder Arbeiter angelegt – unter Konto → Benutzer und Rollen.</p>}
       {GROUPS.map((g) => {
         const list = (rows ?? []).filter((r) => r.role === g.role);

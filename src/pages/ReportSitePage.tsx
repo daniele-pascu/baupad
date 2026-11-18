@@ -268,7 +268,7 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
           </div>
           <div className="row gap">
             {canEditSites(session) && site && (
-              <button type="button" className="btn btn-sm" onClick={() => setEditing(true)} title="Baustelle bearbeiten – gilt in allen Werkzeugen" aria-label="Baustelle bearbeiten" data-testid="report-site-edit">
+              <button type="button" className="btn btn-sm" onClick={() => setEditing(true)} title="Baustelle bearbeiten – gilt in allen Tools" aria-label="Baustelle bearbeiten" data-testid="report-site-edit">
                 <Icon name="edit" size={16} /> <span className="lbl">Bearbeiten</span>
               </button>
             )}
@@ -464,7 +464,7 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
           onClose={() => setEditing(false)}
           onSaved={(next) => {
             setEditing(false);
-            toast('Baustelle gespeichert – in allen Werkzeugen übernommen.', 'success');
+            toast('Baustelle gespeichert – in allen Tools übernommen.', 'success');
             const nk = siteKeyOfSite(next);
             if (nk !== key) navigate(paths.reportSite(nk), true);
             else void reload();

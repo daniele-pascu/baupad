@@ -453,7 +453,7 @@ export function WorkersPage() {
       setProjects((list) => [p, ...list]);
       // aktuelle Woche ebenfalls verknüpfen (auch wenn sie noch nicht gespeichert war)
       save({ ...plan!, sites: plan!.sites.map((x) => (!x.projectId && x.name.trim().toLowerCase() === s.name.trim().toLowerCase() ? { ...x, projectId: p.id } : x)), updatedAt: Date.now() });
-      toast(`Projekt „${p.name}“ im Projektregister angelegt – in allen Werkzeugen verfügbar.`, 'success');
+      toast(`Projekt „${p.name}“ im Projektregister angelegt – in allen Tools verfügbar.`, 'success');
     });
   const restore = (f: File) =>
     run(async () => {
@@ -964,7 +964,7 @@ export function WorkersPage() {
                 const p = await projectFromSite(fields, 'workers');
                 setProjects((list) => [p, ...list]);
                 f = { ...fields, projectId: p.id };
-                toast(`Projekt „${p.name}“ im Projektregister angelegt – in allen Werkzeugen verfügbar.`, 'success');
+                toast(`Projekt „${p.name}“ im Projektregister angelegt – in allen Tools verfügbar.`, 'success');
               }
               await useProjectIn(f.projectId, 'workers');
               if (dialog.site) save(updateSite(plan, dialog.site.id, f));
@@ -1397,7 +1397,7 @@ function SiteDialog({
             )}
           </div>
         )}
-        <p className="muted small">Alle Projekte des Registers stehen zur Auswahl – egal, in welchem Werkzeug sie angelegt wurden.</p>
+        <p className="muted small">Alle Projekte des Registers stehen zur Auswahl – egal, in welchem Tool sie angelegt wurden.</p>
         <button type="submit" hidden />
       </form>
       {creating && (
