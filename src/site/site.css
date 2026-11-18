@@ -216,6 +216,21 @@
 :is(.ps-site, .ps-chrome) .ps-nav a:hover {
   background: rgba(255, 255, 255, 0.08);
 }
+/* Website: nicht ganz oben → die Leiste verblasst; Maus darüber, Antippen, Tastatur oder offenes Menü holen sie zurück */
+.ps-site .ps-bar {
+  transition:
+    background-color 0.35s ease,
+    border-color 0.35s ease,
+    opacity 0.35s ease;
+}
+.ps-site .ps-header.scrolled:not(.awake, .open, :focus-within) .ps-bar {
+  opacity: 0.45;
+}
+@media (hover: hover) {
+  .ps-site .ps-header.scrolled:hover .ps-bar {
+    opacity: 1;
+  }
+}
 /* Website: Leiste aus zartem weißem Liquid Glass auf dem dunklen Grund – Logo, Links und Schrift bleiben weiß */
 .ps-site .ps-bar {
   border-color: rgba(255, 255, 255, 0.28);
@@ -769,9 +784,10 @@ body:has(.ps-home) {
   flex-direction: column;
   justify-content: flex-end;
   max-width: 1000px;
-  min-height: calc(min(82vh, 760px) - 86px);
+  /* niedriger schwarzer Kopf: gut die Hälfte des Bildschirms statt fast alles */
+  min-height: calc(min(60vh, 560px) - 86px);
   margin: 0 auto;
-  padding: 48px clamp(4px, 3.6vw, 40px) clamp(48px, 10vh, 104px);
+  padding: 40px clamp(4px, 3.6vw, 40px) clamp(40px, 7vh, 72px);
 }
 /* PAD-Zeichen rechts, ganz sichtbar und bündig mit dem Inhalt: groß und ganz zart, mittig darauf das Glas-Zeichen */
 .ph-mark {
@@ -779,7 +795,7 @@ body:has(.ps-home) {
   top: 50%;
   right: 0;
   z-index: -1;
-  height: min(75%, 440px);
+  height: min(82%, 380px);
   aspect-ratio: 859 / 830;
   transform: translateY(-50%);
   pointer-events: none;
@@ -962,8 +978,19 @@ body:has(.ps-home) {
   align-items: center;
   gap: clamp(20px, 4vw, 48px);
 }
-.ph-app-icon {
-  margin-bottom: 16px;
+.ph-prod-head {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.ph-prod-head .ph-app-icon {
+  flex: none;
+}
+.ps-home .ph-prod-head h2 {
+  margin: 0 0 4px;
+}
+.ps-home .ph-prod-head .ph-tagline {
+  margin: 0;
 }
 .ph-tag {
   display: inline-block;
@@ -1080,14 +1107,35 @@ body:has(.ps-home) {
     0 0 0 4px rgba(var(--ps-c1), 0.16),
     0 0 14px rgba(var(--ps-c1), 0.45);
 }
-.ph-steps li:nth-child(2)::before {
+/* Schritt 2 und 3: nur ein kleiner Schnittpunkt quer zur Linie */
+.ph-steps li + li::before {
+  left: 5.75px;
+  width: 1.5px;
+  border-radius: 1px;
   background: #3e7dbf;
+  box-shadow: none;
 }
 .ph-steps li:nth-child(3)::before {
   background: var(--ps-acc2);
+}
+/* laufender Lichtpunkt (Weg und Zeit in HomePage.tsx) */
+.ph-steps-box {
+  position: relative;
+}
+.ph-steps-run {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--ps-acc);
   box-shadow:
-    0 0 0 4px rgba(var(--ps-c2), 0.18),
-    0 0 14px rgba(var(--ps-c2), 0.45);
+    0 0 0 4px rgba(var(--ps-c1), 0.14),
+    0 0 16px rgba(var(--ps-c1), 0.55);
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
 }
 
 .ps-site .ph-mail {
@@ -1101,61 +1149,14 @@ body:has(.ps-home) {
   text-decoration: underline;
 }
 
-/* Leiste über hellem Grund: helles Glas, schwarze Schrift, Anmelden schwarz (Maus darüber → dunkelgrau) */
+/* Leiste über hellem Grund: schwarzes Glas – Logo, Schrift und Anmelden bleiben weiß wie oben */
 .ps-site .ps-header.on-light .ps-bar {
-  border-color: rgba(255, 255, 255, 0.9);
-  background-color: rgba(255, 255, 255, 0.6);
-  background-image: linear-gradient(rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0) 60%);
+  border-color: rgba(255, 255, 255, 0.14);
+  background-color: rgba(8, 8, 10, 0.92);
+  background-image: linear-gradient(rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 60%);
   box-shadow:
-    inset 0 1.5px #fff,
-    0 12px 30px -14px rgba(30, 20, 80, 0.28);
-}
-.ps-site .ps-header.on-light .ps-bar a,
-.ps-site .ps-header.on-light .ps-nav-products button {
-  color: #111;
-}
-.ps-site .ps-header.on-light .ps-nav a:hover,
-.ps-site .ps-header.on-light .ps-nav-products button:hover,
-.ps-site .ps-header.on-light .ps-nav-products.is-open button {
-  background: rgba(0, 0, 0, 0.06);
-}
-.ps-site .ps-header.on-light .ps-logo img {
-  filter: invert(1);
-}
-.ps-site .ps-header.on-light .ps-menu-btn span {
-  background: #111;
-}
-.ps-site .ps-header.on-light .ps-bar :focus-visible {
-  outline-color: #111;
-}
-.ps-site .ps-header.on-light .ps-login {
-  border-color: #111;
-  background-color: #111;
-  background-image: none;
-  color: #fff !important;
-  box-shadow: 0 8px 20px -10px rgba(0, 0, 0, 0.45);
-}
-.ps-site .ps-header.on-light .ps-login:hover,
-.ps-site .ps-header.on-light .ps-login:active {
-  border-color: #3a3a40;
-  background-color: #3a3a40;
-}
-.ps-site .ps-header.on-light .ps-products-panel {
-  border-color: rgba(255, 255, 255, 0.9);
-  background-color: rgba(255, 255, 255, 0.72);
-  background-image: none;
-  box-shadow:
-    inset 0 1px #fff,
-    0 24px 48px -20px rgba(30, 20, 80, 0.35);
-}
-.ps-site .ps-header.on-light .ps-nav .ps-product:hover {
-  background: rgba(0, 0, 0, 0.05);
-}
-.ps-site .ps-header.on-light .ps-product strong {
-  color: #111;
-}
-.ps-site .ps-header.on-light .ps-product-line {
-  color: rgba(0, 0, 0, 0.6);
+    inset 0 1px rgba(255, 255, 255, 0.18),
+    0 12px 30px -14px rgba(0, 0, 0, 0.45);
 }
 
 @media (max-width: 800px) {
@@ -1182,9 +1183,16 @@ body:has(.ps-home) {
   .ps-site .ph-steps li {
     padding: 0 0 0 32px;
   }
+  /* untereinander: Schnittpunkt liegt waagrecht über der senkrechten Linie */
+  .ph-steps li + li::before {
+    left: 0;
+    top: 5.75px;
+    width: 13px;
+    height: 1.5px;
+  }
   .ph-hero {
     min-height: 0;
-    padding-top: 72px;
+    padding-top: 48px;
   }
   /* Handy: Zeichen über dem Text statt dahinter */
   .ph-mark {
@@ -1192,8 +1200,8 @@ body:has(.ps-home) {
     top: auto;
     right: auto;
     height: auto;
-    width: min(46vw, 180px);
-    margin: 0 0 28px;
+    width: min(36vw, 140px);
+    margin: 0 0 22px;
     transform: none;
   }
   .ps-home .ps-motto {

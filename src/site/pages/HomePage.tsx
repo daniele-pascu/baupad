@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { useEffect, useRef, type CSSProperties } from 'react';
 import { ToolIcon } from '../../components/ToolIcon';
 import { paths } from '../../lib/router';
 import { contactData } from '../contact-data';
@@ -61,13 +61,18 @@ export function HomePage() {
       <section id="loesungen" className="ph-win ph-prod" aria-labelledby="ph-bp-title">
         <div>
           <p className="ps-eyebrow">{h.product.eyebrow}</p>
-          <span className="ps-app-icon ph-app-icon" aria-hidden="true">
-            <span>BauPad</span>
-          </span>
-          <h2 id="ph-bp-title">
-            {h.product.name} <span className="ph-tag">{h.product.status}</span>
-          </h2>
-          <p className="ph-tagline">{h.product.tagline}</p>
+          {/* App-Symbol, daneben Name und „Die Baustelle in einer App.“ */}
+          <div className="ph-prod-head">
+            <span className="ps-app-icon ph-app-icon" aria-hidden="true">
+              <span>BauPad</span>
+            </span>
+            <div>
+              <h2 id="ph-bp-title">
+                {h.product.name} <span className="ph-tag">{h.product.status}</span>
+              </h2>
+              <p className="ph-tagline">{h.product.tagline}</p>
+            </div>
+          </div>
           {/* alle Werkzeuge wie in der App: Symbol im farbigen Feld, daneben der Name – jedes führt zur Werkzeug-Seite */}
           <ul className="ph-tools" data-testid="home-tool-list" aria-label={w.aria}>
             {TOOL_ENTRIES.map((x) => (
@@ -98,11 +103,7 @@ export function HomePage() {
       <section id="entwicklung" className="ph-sec" aria-labelledby="ph-process-title">
         <p className="ps-eyebrow">{h.process.label}</p>
         <h2 id="ph-process-title">{h.process.title}</h2>
-        <ol className="ph-steps" data-testid="home-steps">
-          {h.process.steps.map((s) => (
-            <li key={s.title}>{s.title}</li>
-          ))}
-        </ol>
+        <StepsLine steps={h.process.steps} />
       </section>
 
       <section id="kontakt" className="ph-sec" aria-labelledby="ph-contact-title">
@@ -124,5 +125,66 @@ export function HomePage() {
         </p>
       </section>
     </SiteLayout>
+  );
+}
+
+/**
+ * Arbeitsweise auf einer Linie: am Anfang ein Punkt, bei Schritt 2 und 3 nur ein kleiner Schnittpunkt.
+ * Ein Lichtpunkt läuft vom Anfang die Linie entlang, hält an jedem Schnittpunkt kurz, läuft ans Ende, verschwindet
+ * und beginnt von vorne. Die Wege werden gemessen (nebeneinander am PC, untereinander am Handy).
+ * „Bewegung reduzieren“ → kein laufender Punkt.
+ */
+function StepsLine({ steps }: { steps: { title: string }[] }) {
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = box.current;
+    if (!el || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const dot = el.querySelector<HTMLElement>('.ph-steps-run');
+    if (!dot || !dot.animate) return;
+    let anim: Animation | undefined;
+    const build = () => {
+      const b = el.getBoundingClientRect();
+      const ol = el.querySelector('ol')!.getBoundingClientRect();
+      const li = [...el.querySelectorAll('li')].map((x) => x.getBoundingClientRect());
+      if (li.length < 3 || !b.width) return;
+      const row = Math.abs(li[1].top - li[0].top) < 2;
+      // Mitte des Punkts bzw. Schnittpunkts jedes Schritts (13 px groß, oben links im Schritt)
+      const p = li.map((r) => [r.left - b.left + 6.5, r.top - b.top + 6.5]);
+      const end = row ? [ol.right - b.left + 8, p[0][1]] : [p[0][0], li[2].bottom - b.top + 14];
+      const at = ([x, y]: number[], s = 1) => `translate(${x}px, ${y}px) translate(-50%, -50%) scale(${s})`;
+      const c = ['#6a55f0', '#3e7dbf', '#12a58e'];
+      const move = 'cubic-bezier(.45,0,.25,1)';
+      anim?.cancel();
+      anim = dot.animate(
+        [
+          { offset: 0, transform: at(p[0], 0.4), opacity: 0, backgroundColor: c[0] },
+          { offset: 0.07, transform: at(p[0]), opacity: 1, backgroundColor: c[0], easing: move },
+          { offset: 0.25, transform: at(p[1]), opacity: 1, backgroundColor: c[1] },
+          { offset: 0.37, transform: at(p[1]), opacity: 1, backgroundColor: c[1], easing: move },
+          { offset: 0.55, transform: at(p[2]), opacity: 1, backgroundColor: c[2] },
+          { offset: 0.67, transform: at(p[2]), opacity: 1, backgroundColor: c[2], easing: 'cubic-bezier(.45,0,.6,1)' },
+          { offset: 0.86, transform: at(end, 0.5), opacity: 0, backgroundColor: c[2] },
+          { offset: 1, transform: at(end, 0.5), opacity: 0, backgroundColor: c[2] },
+        ],
+        { duration: 5000, iterations: Infinity },
+      );
+    };
+    build();
+    const ro = new ResizeObserver(build);
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      anim?.cancel();
+    };
+  }, []);
+  return (
+    <div className="ph-steps-box" ref={box}>
+      <ol className="ph-steps" data-testid="home-steps">
+        {steps.map((s) => (
+          <li key={s.title}>{s.title}</li>
+        ))}
+      </ol>
+      <span className="ph-steps-run" aria-hidden="true" />
+    </div>
   );
 }

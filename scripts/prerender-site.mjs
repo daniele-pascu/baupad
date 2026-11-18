@@ -18,7 +18,7 @@ const DICT = { de, en };
 /** @returns {{path:string, lang:string, title:string, description:string, alternates:Record<string,string>, jsonLd:object[], noindex?:boolean}[]} */
 function routes() {
   const out = [];
-  const org = { '@context': 'https://schema.org', '@type': 'Organization', name: 'PAD Software', url: ORIGIN, email: contactData.email, logo: `${ORIGIN}/icons/pad-icon-512.png`, areaServed: 'AT' };
+  const org = { '@context': 'https://schema.org', '@type': 'Organization', name: 'PAD Software', url: ORIGIN, email: contactData.email, logo: `${ORIGIN}/icons/pad-icon-512.png?v=2`, areaServed: 'AT' };
   const sw = (lang, description) => ({ '@context': 'https://schema.org', '@type': 'SoftwareApplication', name: 'BauPad', applicationCategory: 'BusinessApplication', operatingSystem: 'Web, iOS, Android, Windows, macOS', url: `${ORIGIN}${lang === 'en' ? '/en' : ''}/baupad`, description, publisher: { '@type': 'Organization', name: 'PAD Software', url: ORIGIN }, inLanguage: lang });
   const meta = (lang, t) => ({
     landing: [t.home.title, t.home.description, [org, sw(lang, t.baupad.description)]],
@@ -66,7 +66,7 @@ function render(base, r) {
     '<meta property="og:type" content="website" />',
     '<meta property="og:site_name" content="PAD Software" />',
     `<meta property="og:locale" content="${r.lang === 'de' ? 'de_AT' : 'en_GB'}" />`,
-    `<meta property="og:image" content="${ORIGIN}/og-pad-software.png" />`,
+    `<meta property="og:image" content="${ORIGIN}/og-pad-software.png?v=2" />`,
     '<meta name="twitter:card" content="summary_large_image" />',
     ...r.jsonLd.map((o) => `<script type="application/ld+json" data-jsonld="1">${JSON.stringify(o)}</script>`),
   ]
@@ -76,7 +76,7 @@ function render(base, r) {
   html = html.replace(/<title>[^<]*<\/title>/, '').replace(/<meta name="description"[^>]*>\n?/, '');
   html = html.replace('</head>', `    ${head}\n  </head>`);
   // Website: Symbol im Browser-Tab ist das PAD-Software-Logo (die App zeigt das BauPad-Logo)
-  html = html.replace('href="/icons/favicon-64.png"', 'href="/icons/pad-favicon-64.png"').replace('<link rel="apple-touch-icon" href="/icons/icon-180.png"', '<link rel="apple-touch-icon" href="/icons/pad-icon-180.png"');
+  html = html.replace('href="/icons/favicon-64.png"', 'href="/icons/pad-favicon-64.png?v=2"').replace('<link rel="apple-touch-icon" href="/icons/icon-180.png"', '<link rel="apple-touch-icon" href="/icons/pad-icon-180.png?v=2"');
   return html;
 }
 

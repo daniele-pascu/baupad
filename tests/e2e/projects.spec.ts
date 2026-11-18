@@ -36,6 +36,8 @@ test('Website: Startseite – Name, Motto, BauPad mit den sieben Werkzeugen, Arb
   await expect(page.locator('.ph-win .ps-eyebrow').first()).toHaveCSS('color', 'rgb(106, 85, 240)'); // auf hellem Grund dunkleres Violett
   await expect(page.locator('.ph-top .ps-eyebrow')).toHaveCSS('color', 'rgb(157, 140, 255)');
   await expect(page.getByTestId('home-steps').locator('li').last()).toBeVisible();
+  // Linie: laufender Lichtpunkt (Animation läuft endlos)
+  await expect.poll(() => page.locator('.ph-steps-run').evaluate((e) => e.getAnimations().length)).toBe(1);
   // keine Zertifikate oder Garantien behauptet
   await expect(page.locator('.ps-main')).not.toContainText(/zertifiziert|DSGVO-konform|garantiert/i);
   const card = page.getByTestId('home-product');
@@ -73,11 +75,14 @@ test('Website: Startseite – Name, Motto, BauPad mit den sieben Werkzeugen, Arb
   await page.mouse.wheel(0, 800);
   await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(100);
   expect((await bar.boundingBox())!.y).toBeGreaterThanOrEqual(8); // bleibt stehen
-  // über hellem Grund: Leiste hell mit schwarzer Schrift, Anmelden schwarz
+  // über hellem Grund: Leiste schwarzes Glas, Logo und Schrift bleiben weiß; nicht ganz oben → verblasst, Maus darauf → wieder voll
   await expect(nav).toHaveClass(/on-light/);
-  await expect(nav.getByRole('link', { name: 'Kontakt', exact: true })).toHaveCSS('color', 'rgb(17, 17, 17)');
-  await expect(login).toHaveCSS('background-color', 'rgb(17, 17, 17)');
-  await expect(login).toHaveCSS('color', 'rgb(255, 255, 255)');
+  await expect(bar).toHaveCSS('background-color', 'rgba(8, 8, 10, 0.92)');
+  await expect(nav.getByRole('link', { name: 'Kontakt', exact: true })).toHaveCSS('color', 'rgba(255, 255, 255, 0.86)');
+  await expect(login).toHaveCSS('color', 'rgb(17, 17, 17)');
+  await expect(bar).toHaveCSS('opacity', '0.45');
+  await bar.hover();
+  await expect(bar).toHaveCSS('opacity', '1');
   await page.evaluate(() => scrollTo(0, 0));
   await expect(nav).not.toHaveClass(/on-light/);
   // Produkte: Fenster klappt auf (so breit wie die Links) – BauPad-Symbol, Name, Infos; Klick öffnet die BauPad-Seite
@@ -637,8 +642,8 @@ test.describe('Tab-Symbol', () => {
     const touch = () => page.locator('link[rel="apple-touch-icon"]').getAttribute('href');
     for (const p of ['./', './unternehmen', './baupad/funktionen/materialverwaltung', './en']) {
       await page.goto(p);
-      await expect.poll(icon).toBe('/icons/pad-favicon-64.png');
-      await expect.poll(touch).toBe('/icons/pad-icon-180.png');
+      await expect.poll(icon).toBe('/icons/pad-favicon-64.png?v=2');
+      await expect.poll(touch).toBe('/icons/pad-icon-180.png?v=2');
     }
     // App (Anmelden gehört zur App)
     await page.goto('./baupad/anmelden');
@@ -646,7 +651,7 @@ test.describe('Tab-Symbol', () => {
     await expect.poll(touch).toBe('/icons/icon-180.png');
     // zurück zur Website: wieder PAD
     await page.goto('./kontakt');
-    await expect.poll(icon).toBe('/icons/pad-favicon-64.png');
+    await expect.poll(icon).toBe('/icons/pad-favicon-64.png?v=2');
     // die Symbole sind erreichbar
     for (const f of ['pad-favicon-64.png', 'pad-icon-180.png', 'pad-icon-512.png', 'favicon-64.png']) expect((await page.request.get(`./icons/${f}`)).status()).toBe(200);
   });
