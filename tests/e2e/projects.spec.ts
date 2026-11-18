@@ -71,6 +71,14 @@ test('Website: Startseite – Name, Motto, BauPad mit den sieben Werkzeugen, Arb
   await login.hover();
   await expect(login).toHaveCSS('background-color', 'rgb(0, 0, 0)');
   await expect(login).toHaveCSS('color', 'rgb(255, 255, 255)');
+  await expect(login).toHaveCSS('border-top-color', 'rgb(255, 255, 255)'); // schwarz, rundherum weiß
+  // weiße Tasten auf hellem Grund: Maus darauf → schwarz mit weißem Rand
+  const open = page.getByTestId('home-open');
+  await open.hover();
+  await expect(open).toHaveCSS('background-color', 'rgb(0, 0, 0)');
+  await expect(open).toHaveCSS('color', 'rgb(255, 255, 255)');
+  await expect(open).toHaveCSS('border-top-color', 'rgb(255, 255, 255)');
+  await page.evaluate(() => scrollTo(0, 0));
   await page.mouse.move(700, 600);
   await page.mouse.wheel(0, 800);
   await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(100);
