@@ -152,12 +152,36 @@ export const en: Dict = {
     },
     details: {
       projects: {
-        lead: 'Quantity take-off and measurement sheets – right on the plan.',
+        lead: 'Quantity take-off – right on the plan.',
         groups: [
-          { title: 'Plan', items: ['Upload plans as PDF or image', 'Scaled automatically – or scale them yourself', 'Original resolution, fully sharp', 'No plan? Draw your own'] },
-          { title: 'Measuring', items: ['Seven measurement types: area, wall, volume, length, piece, concrete repair and free measurement', 'Dimensions read from the scaled plan – or entered by hand', 'Take photos or pick them from the Photos tool'] },
-          { title: 'Items and invoices', items: ['Import bills of quantities (LV, MFK) – or write your own items', 'Split measurements by invoice: invoice, partial invoice, final partial invoice, final invoice'] },
-          { title: 'Export', items: ['Measurement summary by item – as Excel or PDF', 'Plans as PDF'] },
+          { title: 'Plan', items: ['Upload PDF or image', 'Scaled automatically – or by you', 'Original resolution, fully sharp', 'No plan? Draw your own'] },
+          { title: 'Measuring', items: ['7 types: area, wall, volume, length, piece, concrete repair, free', 'Measure by item', 'Dimensions from the plan – or by hand', 'Take photos or pick from the Photos tool'] },
+          { title: 'Items and invoices', items: ['Import LV and MFK – or write your own', 'Split by invoice: partial, final partial, final'] },
+          { title: 'Export', items: ['Measurements by item – Excel or PDF', 'Plans as PDF'] },
+        ],
+      },
+      workers: {
+        lead: 'Who works where – the week at a glance.',
+        groups: [
+          { title: 'Workers', items: ['Name, qualification, job, staff number, phone', 'Holidays and sick leave'] },
+          { title: 'Schedule', items: ['By week', 'Site from the project register', 'Spread workers over the days', 'Carry over last week'] },
+          { title: 'Export', items: ['Weekly list as PDF'] },
+        ],
+      },
+      reports: {
+        lead: 'Your forms – filled in digitally.',
+        groups: [
+          { title: 'Templates', items: ['Upload daily reports, time-and-material sheets & co. once', 'Stored digitally for good'] },
+          { title: 'Filling in', items: ['Sorted by project', 'Project details filled in automatically', 'Assigned workers added automatically'] },
+          { title: 'Export', items: ['Ready as PDF'] },
+        ],
+      },
+      photos: {
+        lead: 'Site progress at a glance – per project.',
+        groups: [
+          { title: 'Saving', items: ['Per project, with date, time and user', 'Ongoing progress, clear overview'] },
+          { title: 'Connected', items: ['Photos from measuring and defect plans land here', 'And can be picked from here there'] },
+          { title: 'Export', items: ['For documentation – as PDF or ZIP'] },
         ],
       },
     },
@@ -165,7 +189,8 @@ export const en: Dict = {
     register: {
       eyebrow: 'Project register',
       title: 'One project for every tool.',
-      points: ['Create a project once – in the project register or right in a tool', 'It is saved in the project register automatically', 'Take it into any tool with one tap when needed'],
+      lead: 'All tools are connected.',
+      points: ['Create a project once – in the register or in a tool', 'Saved in the project register automatically', 'Take it into any tool with one tap'],
       label: 'Project register',
     },
     saving: {

@@ -21,6 +21,8 @@ export function BauPadPage() {
   const [open, setOpen] = useState<ToolEntry | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const from = useRef<HTMLElement | null>(null);
+  // laufende Schließ-Animation: wird ein neues Fenster geöffnet, bevor sie fertig ist, darf sie es nicht mehr zumachen
+  const closing = useRef<Animation | null>(null);
   const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches || !document.body.animate;
   const morph = (d: HTMLElement, card: HTMLElement) => {
     const a = card.getBoundingClientRect();
@@ -30,6 +32,8 @@ export function BauPadPage() {
   const openTool = (e: React.MouseEvent<HTMLAnchorElement>, x: ToolEntry) => {
     if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; // neuer Tab → Tool-Seite
     e.preventDefault();
+    closing.current?.cancel();
+    closing.current = null;
     from.current = e.currentTarget;
     setOpen(x);
     requestAnimationFrame(() => {
@@ -50,8 +54,17 @@ export function BauPadPage() {
       d.close();
       setOpen(null);
     };
-    if (still() || !from.current) return done();
-    d.animate([{ transform: 'none', opacity: 1 }, { transform: morph(d, from.current), opacity: 0 }], { duration: 240, easing: 'cubic-bezier(.4,0,1,1)' }).finished.then(done, done);
+    if (still() || !from.current || !d.open) return done();
+    const anim = d.animate([{ transform: 'none', opacity: 1 }, { transform: morph(d, from.current), opacity: 0 }], { duration: 240, easing: 'cubic-bezier(.4,0,1,1)' });
+    closing.current = anim;
+    anim.finished.then(
+      () => {
+        if (closing.current !== anim) return;
+        closing.current = null;
+        done();
+      },
+      () => {}, // abgebrochen: inzwischen wurde ein anderes Fenster geöffnet
+    );
   };
   const detail: Detail | undefined = open
     ? ((b.details as Record<string, Detail | undefined>)[open.id] ?? { lead: t.tools[open.id].tagline, groups: t.tools[open.id].groups })
@@ -167,6 +180,7 @@ export function BauPadPage() {
         <div>
           <p className="ps-eyebrow">{b.register.eyebrow}</p>
           <h2 id="bp-register">{b.register.title}</h2>
+          <p className="bp-sec-text bp-register-lead">{b.register.lead}</p>
           <ul className="bp-register-points">
             {b.register.points.map((p) => (
               <li key={p}>{p}</li>

@@ -59,6 +59,7 @@ test('Website: Startseite – Name, Motto, BauPad mit den sieben Werkzeugen, Arb
   await expect(page.getByTestId('bp-safe')).toHaveText('Speichert alles online. Nichts geht verloren.');
   // Projektregister: ein Projekt einmal anlegen, in jedes Tool übernehmen
   await expect(page.getByTestId('bp-register')).toContainText('Ein Projekt für alle Tools.');
+  await expect(page.getByTestId('bp-register')).toContainText('Alle Tools sind miteinander verbunden.');
   await expect(page.getByTestId('bp-register').locator('.bp-register-points li')).toHaveCount(3);
   await expect(page.getByTestId('bp-register').locator('.ph-tool-icon')).toHaveCount(7);
   // Speichern (mit/ohne Empfang) und vier Rollen je Nutzerlizenz
@@ -177,15 +178,33 @@ test('Website: Startseite, Produkte, BauPad, Unternehmen, Kontaktformular, Sprac
   const dlg = page.getByTestId('tool-dialog');
   await expect(dlg).toBeVisible();
   await expect(dlg.locator('#bp-dialog-title')).toHaveText('Aufmaß');
-  await expect(dlg).toContainText('Mengen ermitteln und Aufmaß erstellen');
-  await expect(dlg).toContainText('Sieben Messarten');
+  await expect(dlg).toContainText('Mengen ermitteln – direkt im Plan.');
+  await expect(dlg).toContainText('7 Messarten');
+  await expect(dlg).toContainText('Nach Position messen');
   await expect(dlg).toContainText('LV und MFK importieren');
   await expect(dlg.locator('h3')).toHaveText(['Plan', 'Messen', 'Positionen und Rechnungen', 'Export']);
+  await page.getByTestId('tool-dialog-close').click();
+  await expect(dlg).toBeHidden();
+  // Team: Arbeiter, Einteilung je Woche, Export
+  await page.getByTestId('product-card').nth(1).click();
+  await expect(dlg.locator('#bp-dialog-title')).toHaveText('Team');
+  await expect(dlg.locator('h3')).toHaveText(['Arbeiter', 'Einteilung', 'Export']);
+  await expect(dlg).toContainText('Vorwoche übernehmen');
+  await page.getByTestId('tool-dialog-close').click();
+  await expect(dlg).toBeHidden();
+  // Berichte: Vorlagen einmal hochladen, nach Projekten, Projektangaben und Arbeiter automatisch
+  await page.getByTestId('product-card').nth(2).click();
+  await expect(dlg.locator('#bp-dialog-title')).toHaveText('Berichte');
+  await expect(dlg.locator('h3')).toHaveText(['Vorlagen', 'Ausfüllen', 'Export']);
+  await expect(dlg).toContainText('Eingeteilte Arbeiter automatisch übernommen');
   await page.getByTestId('tool-dialog-close').click();
   await expect(dlg).toBeHidden();
   expect(new URL(page.url()).pathname).toBe('/baupad');
   await page.getByTestId('product-card').nth(3).click();
   await expect(dlg.locator('#bp-dialog-title')).toHaveText('Fotos');
+  await expect(dlg).toBeVisible(); // erst wenn das Fenster offen ist
+  await expect(dlg.locator('h3')).toHaveText(['Speichern', 'Verbunden', 'Export']); // Fotos: je Projekt, mit Aufmaß und Mängelplan verbunden
+  await expect(dlg).toContainText('mit Datum, Uhrzeit und Nutzer');
   await page.keyboard.press('Escape');
   await expect(dlg).toBeHidden();
   await page.getByTestId('product-card').nth(3).click();
