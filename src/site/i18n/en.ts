@@ -19,7 +19,6 @@ export const en: Dict = {
     menuClose: 'Close menu',
     langSwitch: 'Language',
     skip: 'Skip to content',
-    cta: 'Get in touch',
   },
   footer: {
     claim: 'The working day, made easier – software from Austria.',
