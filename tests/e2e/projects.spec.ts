@@ -48,6 +48,11 @@ test('Website: Startseite – Name, Motto, BauPad mit den sieben Werkzeugen, Arb
   await expect(page.getByTestId('product-title')).toHaveText('BauPad');
   await expect(page.locator('.bp-tagline')).toContainText('in einer App');
   await expect(page.getByTestId('bp-safe')).toHaveText('Speichert alles online.Nichts geht verloren.');
+  // Speichern (mit/ohne Empfang) und vier Rollen je Nutzerlizenz
+  await expect(page.getByTestId('bp-saving').locator(':scope > li')).toHaveCount(3);
+  await expect(page.getByTestId('bp-saving')).toContainText('Ohne Empfang');
+  await expect(page.getByTestId('bp-roles').locator(':scope > li')).toHaveCount(4);
+  await expect(page.getByTestId('bp-roles').locator(':scope > li > strong')).toHaveText(['Admin', 'Büro', 'Polier', 'Arbeiter']);
   expect(new URL(page.url()).pathname).toBe('/baupad');
   await expect(page.getByTestId('home-expand')).toHaveCount(0); // Fläche ist wieder weg
   // Englisch
@@ -83,6 +88,12 @@ test('Website: Startseite – Name, Motto, BauPad mit den sieben Werkzeugen, Arb
   await expect(open).toHaveCSS('background-color', 'rgb(0, 0, 0)');
   await expect(open).toHaveCSS('color', 'rgb(255, 255, 255)');
   await expect(open).toHaveCSS('border-top-color', 'rgb(255, 255, 255)');
+  // schwarze Taste („Mehr erfahren“): Maus darauf → weiß mit schwarzem Rand
+  const more = page.getByTestId('home-product');
+  await more.hover();
+  await expect(more).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await expect(more).toHaveCSS('color', 'rgb(17, 17, 17)');
+  await expect(more).toHaveCSS('border-top-color', 'rgb(17, 17, 17)');
   await page.evaluate(() => scrollTo(0, 0));
   await page.mouse.move(700, 600);
   await page.mouse.wheel(0, 800);
