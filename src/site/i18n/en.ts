@@ -99,9 +99,9 @@ export const en: Dict = {
       title: 'How our software is made.',
       stepLabel: 'Step',
       steps: [
-        { title: 'Identify the problem' },
-        { title: 'Build the solution and test it in daily work' },
-        { title: 'Keep improving' },
+        { title: 'Understand the problem' },
+        { title: 'Build the solution' },
+        { title: 'Keep refining' },
       ],
     },
     tech: {
