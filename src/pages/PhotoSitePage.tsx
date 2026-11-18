@@ -359,7 +359,7 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
           </div>
           <div className="row gap photo-head-actions">
             {canEditSites(session) && (
-              <button type="button" className="btn btn-sm" onClick={() => setEditing(true)} disabled={!site} title="Baustelle bearbeiten (Name, Nummer, Adresse) – gilt in allen Werkzeugen" aria-label="Baustelle bearbeiten" data-testid="photo-site-edit">
+              <button type="button" className="btn btn-sm" onClick={() => setEditing(true)} disabled={!site} title="Baustelle bearbeiten (Name, Nummer, Adresse) – gilt in allen Tools" aria-label="Baustelle bearbeiten" data-testid="photo-site-edit">
                 <Icon name="edit" size={16} /> <span className="lbl">Bearbeiten</span>
               </button>
             )}

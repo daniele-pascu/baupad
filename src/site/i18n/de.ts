@@ -68,7 +68,7 @@ export const de = {
       tagline: 'Die Baustelle in einer App.',
       solves: 'Schluss mit Zetteln, Excel-Listen und sieben verschiedenen Apps.',
       can: ['Aufmaß direkt im Plan', 'Team, Zeiten und Material', 'Fotos, Mängel und Berichte'],
-      all: 'Alle sieben Werkzeuge ansehen',
+      all: 'Alle sieben Tools ansehen',
       alts: ['BauPad am PC: Aufmaß im Plan', 'BauPad am Tablet: Einteilung der Arbeiter für die Woche', 'BauPad am Handy: Fotos der Baustelle'],
       cta: 'Mehr erfahren',
       open: 'BauPad öffnen',
@@ -76,10 +76,10 @@ export const de = {
       more: 'Weitere Lösungen sind in Vorbereitung.',
       moreTag: 'Folgt',
       wall: {
-        aria: 'Die sieben Werkzeuge von BauPad',
-        tool: 'Werkzeug',
+        aria: 'Die sieben Tools von BauPad',
+        tool: 'Tool',
         brand: 'BauPad',
-        final: ['Sieben Werkzeuge. ', 'Eine App.'],
+        final: ['Sieben Tools. ', 'Eine App.'],
         finalText: 'Ein Konto, ein Stand für alle.',
         head: '7 Tools',
         one: 'Eine App.',
@@ -147,13 +147,14 @@ export const de = {
       safe: ['Speichert alles online.', 'Nichts geht verloren.'],
       eyebrow: 'BauPad · Produkt von PAD Software',
       title: ['Die Baustelle', 'in einer App.'],
-      lead: 'Aufmaß, Team, Fotos, Zeiten, Berichte, Mängel und Material – sieben Werkzeuge, ein Konto, ein Stand für alle. Erfasst auf der Baustelle, fertig im Büro.',
+      lead: 'Aufmaß, Team, Fotos, Zeiten, Berichte, Mängel und Material – sieben Tools, ein Konto, ein Stand für alle. Erfasst auf der Baustelle, fertig im Büro.',
       primary: 'Kontakt aufnehmen',
       secondary: 'BauPad öffnen',
       status: 'Testphase – Abo folgt zum Start',
     },
     saving: {
       eyebrow: 'Speichern',
+      title: 'Immer gesichert.',
       items: [
         { title: 'Mit Empfang', text: 'Alles wird sofort online gespeichert.' },
         { title: 'Ohne Empfang', text: 'Alles bleibt sicher am Gerät.' },
@@ -163,18 +164,18 @@ export const de = {
     access: {
       eyebrow: 'Benutzer und Rollen',
       title: 'Vier Rollen je Nutzerlizenz.',
-      text: 'Für Polier und Arbeiter legt der Admin fest, welche Werkzeuge und welche Projekte sie sehen.',
+      text: 'Für Polier und Arbeiter legt der Admin fest, welche Tools und welche Projekte sie sehen.',
       full: 'Zugriff auf alles',
       limited: 'Zugriff nach Freigabe',
       items: [
-        { role: 'Admin', full: true, points: ['Alle Werkzeuge und Projekte', 'Benutzer und Rechte verwalten', 'Preise und Summen'] },
-        { role: 'Büro', full: true, points: ['Alle Werkzeuge und Projekte', 'Abrechnung und Verwaltung', 'Preise und Summen'] },
-        { role: 'Polier', full: false, points: ['Werkzeuge: vom Admin gewählt', 'Projekte: alle oder nur einzelne', 'Preise nur mit Freigabe'] },
-        { role: 'Arbeiter', full: false, points: ['Werkzeuge: vom Admin gewählt', 'Projekte: alle oder nur einzelne', 'Preise nur mit Freigabe'] },
+        { role: 'Admin', full: true, points: ['Alle Tools und Projekte', 'Benutzer und Rechte verwalten', 'Preise und Summen'] },
+        { role: 'Büro', full: true, points: ['Alle Tools und Projekte', 'Abrechnung und Verwaltung', 'Preise und Summen'] },
+        { role: 'Polier', full: false, points: ['Tools: vom Admin gewählt', 'Projekte: alle oder nur einzelne', 'Preise nur mit Freigabe'] },
+        { role: 'Arbeiter', full: false, points: ['Tools: vom Admin gewählt', 'Projekte: alle oder nur einzelne', 'Preise nur mit Freigabe'] },
       ],
     },
     numbers: [
-      { value: '7', label: 'Werkzeuge' },
+      { value: '7', label: 'Tools' },
       { value: '1', label: 'Konto' },
       { value: '0', label: 'Zettel' },
     ],
@@ -216,7 +217,7 @@ export const de = {
         {
           problem: 'Für jede Arbeit eine eigene App.',
           detail: 'Aufmaß hier, Fotos dort, die Stunden auf Papier. Sieben Apps, sieben Logins, siebenmal dieselbe Baustelle eintippen.',
-          solution: 'Sieben Werkzeuge in einer App.',
+          solution: 'Sieben Tools in einer App.',
           points: ['Aufmaß, Team, Fotos, Zeiten, Berichte, Mängel, Material', 'Ein Konto, eine Firma, eine Projektliste', 'Am Handy, am Tablet und am PC – dieselbe Oberfläche'],
         },
         {
@@ -229,24 +230,24 @@ export const de = {
           problem: 'Jeder sieht alles.',
           detail: 'Ein Arbeiter soll seine Baustelle sehen, nicht die Zahlen der ganzen Firma.',
           solution: 'Rechte je Benutzer.',
-          points: ['Je Benutzer einstellbar: welche Werkzeuge, welche Projekte', 'Datenschutz zwischen Baustellen – jede Partie sieht nur ihre', 'Der Admin der Firma legt es in einer Minute fest'],
+          points: ['Je Benutzer einstellbar: welche Tools, welche Projekte', 'Datenschutz zwischen Baustellen – jede Partie sieht nur ihre', 'Der Admin der Firma legt es in einer Minute fest'],
         },
       ],
     },
     one: {
       eyebrow: 'Ein Projekt',
       title: 'Einmal anlegen, überall da.',
-      text: 'Ein Projekt wird in einem Werkzeug angelegt und bei Bedarf in jedes andere übernommen – mit einem Tipp.',
-      points: ['Projektname, Bauvorhaben, Projektnummer, Kostenstelle, Auftraggeber, Baubeginn – einmal eingetragen', 'Im Projektregister: dieselbe Liste in allen Werkzeugen', 'Jedes Projekt mit eigener Farbe – in jedem Werkzeug gleich, auf einen Blick erkennbar', 'Keine Dubletten, keine Tippfehler bei der dritten Eingabe'],
+      text: 'Ein Projekt wird in einem Tool angelegt und bei Bedarf in jedes andere übernommen – mit einem Tipp.',
+      points: ['Projektname, Bauvorhaben, Projektnummer, Kostenstelle, Auftraggeber, Baubeginn – einmal eingetragen', 'Im Projektregister: dieselbe Liste in allen Tools', 'Jedes Projekt mit eigener Farbe – in jedem Tool gleich, auf einen Blick erkennbar', 'Keine Dubletten, keine Tippfehler bei der dritten Eingabe'],
     },
     roles: {
       eyebrow: 'Benutzerrollen',
       title: 'Vier Rollen.',
-      text: 'Admin, Büro, Polier und Arbeiter – der Admin legt je Benutzer fest, welche Werkzeuge und welche Projekte er sieht.',
+      text: 'Admin, Büro, Polier und Arbeiter – der Admin legt je Benutzer fest, welche Tools und welche Projekte er sieht.',
       items: [{ title: 'Admin', text: '' }, { title: 'Büro', text: '' }, { title: 'Polier', text: '' }, { title: 'Arbeiter', text: '' }],
     },
     tools: {
-      eyebrow: 'Die sieben Werkzeuge',
+      eyebrow: 'Die sieben Tools',
       title: 'Was BauPad kann.',
       text: 'Kurz und ohne Umwege – so, wie es auf der Baustelle gebraucht wird.',
       more: 'Mehr erfahren',
@@ -428,14 +429,14 @@ export const de = {
     },
   },
   tool: {
-    eyebrow: 'BauPad · Werkzeug',
-    back: 'Alle Werkzeuge',
+    eyebrow: 'BauPad · Tool',
+    back: 'Alle Tools',
     open: 'öffnen',
     functions: 'Funktionen',
     functionsTitle: '{tool} im Überblick.',
-    others: 'Weitere Werkzeuge',
-    stage: 'Schematische Darstellung des Werkzeugs – Platzhalter',
-    titleSuffix: ' – Werkzeug in BauPad | PAD Software',
+    others: 'Weitere Tools',
+    stage: 'Schematische Darstellung des Tools – Platzhalter',
+    titleSuffix: ' – Tool in BauPad | PAD Software',
   },
   companyPage: {
     title: 'Unternehmen – PAD Software',
@@ -506,7 +507,7 @@ export const de = {
     badge: 'In Planung',
     items: [
       { title: 'BauPad in den App Stores', text: 'BauPad zusätzlich als App im App Store und bei Google Play. Die Web-App bleibt.' },
-      { title: 'Weitere Werkzeuge für den Baualltag', text: 'Wir sammeln Themen aus dem Betrieb: Geräte, Fuhrpark, Lager. Was davon ein Produkt wird, entscheidet die Praxis.' },
+      { title: 'Weitere Tools für den Baualltag', text: 'Wir sammeln Themen aus dem Betrieb: Geräte, Fuhrpark, Lager. Was davon ein Produkt wird, entscheidet die Praxis.' },
     ],
     note: 'Alle Angaben auf dieser Seite beschreiben Vorhaben, keine verfügbaren Funktionen. Reihenfolge und Umfang können sich ändern.',
     cta: { title: 'Sie haben ein Thema, das Software lösen sollte?', text: 'Schreiben Sie uns. Anregungen aus dem Betrieb bestimmen, was wir als Nächstes bauen.', button: 'Kontakt aufnehmen' },
@@ -545,7 +546,7 @@ export const de = {
         },
         {
           h: 'Cookies, Statistik, Werbung',
-          p: ['Die Website und BauPad verwenden keine Cookies zur Nachverfolgung, keine Statistik-Werkzeuge und keine Werbung. Einstellungen wie die gewählte Sprache oder Sortierungen werden nur lokal im Browser gespeichert.'],
+          p: ['Die Website und BauPad verwenden keine Cookies zur Nachverfolgung, keine Statistik-Tools und keine Werbung. Einstellungen wie die gewählte Sprache oder Sortierungen werden nur lokal im Browser gespeichert.'],
         },
         {
           h: 'Welche Daten BauPad verarbeitet',
@@ -566,7 +567,7 @@ export const de = {
         {
           h: 'Benutzerkonto',
           p: [
-            'Für die Werkzeuge ist ein Benutzerkonto nötig. Beim Registrieren werden E-Mail-Adresse, Name, optional der Firmenname sowie ein verschlüsselt gespeichertes Passwort verarbeitet; bei Anmeldung über Google, Apple oder Microsoft erhalten wir von dort Name und E-Mail-Adresse. Dazu kommen Arbeitsbereich (Firma), Funktion und freigegebene Werkzeuge, die der Admin Ihrer Firma festlegt.',
+            'Für die Tools ist ein Benutzerkonto nötig. Beim Registrieren werden E-Mail-Adresse, Name, optional der Firmenname sowie ein verschlüsselt gespeichertes Passwort verarbeitet; bei Anmeldung über Google, Apple oder Microsoft erhalten wir von dort Name und E-Mail-Adresse. Dazu kommen Arbeitsbereich (Firma), Funktion und freigegebene Tools, die der Admin Ihrer Firma festlegt.',
             'Diese Kontodaten speichert unser Auftragsverarbeiter Supabase Inc. in einem Rechenzentrum in der EU (Irland) auf Grundlage von Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung).',
             'E-Mails zum Konto (Bestätigung, Passwort zurücksetzen) versenden wir über Supabase bzw. den E-Mail-Dienst Resend (Plus Five Five, Inc., USA; Übermittlung auf Grundlage des EU-US Data Privacy Framework bzw. der Standardvertragsklauseln).',
             'Sie können Ihr Konto jederzeit unter „Konto und Einstellungen“ selbst löschen; damit werden Konto, Mitgliedschaften und ein nur von Ihnen genutzter Arbeitsbereich entfernt.',
@@ -575,7 +576,7 @@ export const de = {
         {
           h: 'Zentrale Ablage',
           p: [
-            'Die zentrale Ablage speichert die Inhalte eines Unternehmens (Projekte, Pläne, Aufmaße, Berichte, Einteilung, Mängelpläne, Formulare, Fotos, Stunden, Materiallisten) für alle Geräte und Benutzer dieser Firma. Zugriff haben nur angemeldete Benutzer der Firma im Rahmen der vom Admin vergebenen Rechte; das prüft der Server: Polier und Arbeiter erhalten nur Daten der für sie freigegebenen Projekte und Werkzeuge, Preise nur mit eigener Freigabe. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung).',
+            'Die zentrale Ablage speichert die Inhalte eines Unternehmens (Projekte, Pläne, Aufmaße, Berichte, Einteilung, Mängelpläne, Formulare, Fotos, Stunden, Materiallisten) für alle Geräte und Benutzer dieser Firma. Zugriff haben nur angemeldete Benutzer der Firma im Rahmen der vom Admin vergebenen Rechte; das prüft der Server: Polier und Arbeiter erhalten nur Daten der für sie freigegebenen Projekte und Tools, Preise nur mit eigener Freigabe. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung).',
             'Datensätze (Angaben zu Projekten, Messungen, Berichten, Einteilung, Markierungen) speichert unser Auftragsverarbeiter Supabase Inc. in einem Rechenzentrum in der EU (Irland). Dateien (Originalpläne, Planbilder, Formular-PDFs, Fotos) speichert unser Auftragsverarbeiter Hetzner Online GmbH in einem Rechenzentrum in Nürnberg (Deutschland). Die Übertragung erfolgt verschlüsselt über kurzlebige, auf die Firma beschränkte Zugriffslinks; PAD Software hat keinen Zugriff auf die Inhalte Ihrer Firma, nur auf Kontodaten und Abrechnung.',
             'Die Inhalte bleiben gespeichert, bis Sie sie in BauPad löschen oder die Firma ihren Arbeitsbereich auflöst; Löschen gilt für alle Geräte der Firma. Mit beiden Dienstleistern bestehen Auftragsverarbeitungsverträge nach Art. 28 DSGVO.',
           ],

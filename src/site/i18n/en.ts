@@ -152,6 +152,7 @@ export const en: Dict = {
     },
     saving: {
       eyebrow: 'Saving',
+      title: 'Always backed up.',
       items: [
         { title: 'With reception', text: 'Everything is saved online right away.' },
         { title: 'Without reception', text: 'Everything stays safe on the device.' },

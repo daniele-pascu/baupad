@@ -36,7 +36,7 @@ export function AccessPendingPage({ session }: { session: Session }) {
           Schritt für unsere Kunden freigeschaltet.
         </p>
         <p>
-          Der Zugang zu den Werkzeugen wird von PAD Software nach Abschluss der Bestellung aktiviert. Wir melden uns dazu persönlich bei Ihnen. Bis
+          Der Zugang zu den Tools wird von PAD Software nach Abschluss der Bestellung aktiviert. Wir melden uns dazu persönlich bei Ihnen. Bis
           dahin ist keine Zahlung fällig und es entstehen keine Kosten.
         </p>
         <p className="muted small">

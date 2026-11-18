@@ -35,7 +35,7 @@ export const AVV_SECTIONS: AvvSection[] = [
   {
     h: '3. Art der Daten und betroffene Personen',
     list: [
-      'Benutzer des Kunden: Name, E-Mail-Adresse, Telefon (freiwillig), Funktion, freigegebene Werkzeuge und Projekte, Zeitpunkte der Anmeldung.',
+      'Benutzer des Kunden: Name, E-Mail-Adresse, Telefon (freiwillig), Funktion, freigegebene Tools und Projekte, Zeitpunkte der Anmeldung.',
       'Beschäftigte des Kunden (Personalliste, Einteilung, Zeitaufzeichnung): Name, Personalnummer, Telefon, Qualifikation, Funktion, Einteilung auf Baustellen, Arbeitszeiten, Abwesenheiten (Urlaub, Krankenstand – ohne Diagnosen).',
       'Auftraggeber, Ansprechpartner und Lieferanten des Kunden: Name, Firma, Anschrift, Kontaktdaten, soweit der Kunde sie in Projekten, Berichten, Formularen oder Bestellungen erfasst.',
       'Inhalte der Projekte: Pläne, Aufmaße, Leistungsverzeichnisse mit Preisen, Berichte, Mängel, Formulare, Material und Fotos; Fotos können Personen und Aufnahmezeit zeigen bzw. enthalten (keine Ortsangaben).',
@@ -102,7 +102,7 @@ export const AVV_TOM: AvvSection[] = [
     h: 'Vertraulichkeit',
     list: [
       'Mandantentrennung: Jede Firma hat einen eigenen Arbeitsbereich; die Datenbank lässt nur Mitglieder dieses Arbeitsbereichs zu (Zugriffsregeln je Zeile), Dateien liegen je Firma in einem eigenen Bereich.',
-      'Rechte je Benutzer am Server: Polier und Arbeiter erhalten nur Daten der für sie freigegebenen Projekte und Werkzeuge, Preise nur mit eigener Freigabe; Stunden nur im freigegebenen Umfang. Die Prüfung erfolgt am Server, nicht nur in der App.',
+      'Rechte je Benutzer am Server: Polier und Arbeiter erhalten nur Daten der für sie freigegebenen Projekte und Tools, Preise nur mit eigener Freigabe; Stunden nur im freigegebenen Umfang. Die Prüfung erfolgt am Server, nicht nur in der App.',
       'Anmeldung mit E-Mail und Passwort (gespeichert nur als Prüfwert) oder über Google, Apple bzw. Microsoft; Konten können vom Admin gesperrt werden.',
       'Dateien (Pläne, Fotos, PDFs) sind privat und nur über kurzlebige, signierte Links erreichbar (15 Minuten zum Hochladen, 60 Minuten zum Ansehen); die Zugangsschlüssel zum Speicher kennt nur der Server.',
       'Geräte: optionale App-Sperre mit PIN oder Face ID/Fingerabdruck; nach 10 falschen PINs, beim Abmelden mit „Daten löschen“ und automatisch bei beendetem Zugang zur Firma löscht die App ihre Daten auf dem Gerät.',
@@ -130,7 +130,7 @@ export const AVV_TOM: AvvSection[] = [
     list: [
       'Automatische Tests der Zugriffsregeln und der Sicherung bei jeder Änderung der Software.',
       'Überprüfung dieser Maßnahmen mindestens einmal jährlich und bei wesentlichen Änderungen.',
-      'Datenschutz durch Voreinstellungen: keine Tracking-Cookies, keine Statistik- oder Werbewerkzeuge, Fotos ohne Ortsangaben.',
+      'Datenschutz durch Voreinstellungen: keine Tracking-Cookies, keine Statistik- oder Werbe-Tools, Fotos ohne Ortsangaben.',
     ],
   },
 ];

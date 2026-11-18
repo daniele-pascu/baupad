@@ -260,16 +260,16 @@ const DRAW_DONE_TOOLS = new Set<string>(['line', 'polyline', 'rect', 'ellipse', 
 /** Zugeklappte Werkzeugleiste: ein Knopf mit dem aktuellen Werkzeug öffnet sie wieder */
 function ToolsOpenButton({ tool, onOpen }: { tool?: { icon: string; label: string; short?: string }; onOpen: () => void }) {
   return (
-    <button type="button" className="tool-btn tools-open" onClick={onOpen} aria-expanded={false} title="Werkzeugleiste öffnen" data-testid="tools-open">
+    <button type="button" className="tool-btn tools-open" onClick={onOpen} aria-expanded={false} title="Tool-Leiste öffnen" data-testid="tools-open">
       <Icon name={tool?.icon ?? 'select'} />
-      <span>Werkzeuge</span>
+      <span>Tools</span>
     </button>
   );
 }
 
 function ToolsCloseButton({ onClose }: { onClose: () => void }) {
   return (
-    <button type="button" className="icon-btn icon-btn-sm tools-close" onClick={onClose} aria-label="Werkzeugleiste ausblenden" title="Werkzeugleiste ausblenden" data-testid="tools-close">
+    <button type="button" className="icon-btn icon-btn-sm tools-close" onClick={onClose} aria-label="Tool-Leiste ausblenden" title="Tool-Leiste ausblenden" data-testid="tools-close">
       <Icon name="close" size={18} />
     </button>
   );
@@ -2481,7 +2481,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               float={phone}
             />
           ) : (
-          <div className={`toolbar${toolsOpen ? '' : ' toolbar-collapsed'}`} role="toolbar" aria-label="Werkzeuge" data-mtype={mtype}>
+          <div className={`toolbar${toolsOpen ? '' : ' toolbar-collapsed'}`} role="toolbar" aria-label="Tools" data-mtype={mtype}>
             {!toolsOpen ? (
               <ToolsOpenButton tool={TOOLS.find((t) => t.id === tool)} onOpen={() => setToolsOpen(true)} />
             ) : (
@@ -2500,7 +2500,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 }}
                 data-mtype-toggle=""
                 aria-expanded={mtypeMenu}
-                title="Messart wählen – danach misst jedes Werkzeug in dieser Art (Fläche, Wand, Länge, Volumen, Stück, Schadstelle, Frei)"
+                title="Messart wählen – danach misst jedes Tool in dieser Art (Fläche, Wand, Länge, Volumen, Stück, Schadstelle, Frei)"
                 data-testid="tool-mtype"
                 data-value={mtype}
               >
@@ -2518,7 +2518,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                     setMtypeMenu(false);
                     // gleich zeichnen: ohne passendes Werkzeug → erstes Werkzeug der Messart
                     if (tool === 'select' || tool === 'calibrate' || tool === 'probe' || tool === 'text' || !toolVisible(tool, c)) setTool(firstTool(c));
-                    toast(`Messart ${choiceLabel(c)}: jetzt mit einem Werkzeug im Plan zeichnen.`, 'info', 2200);
+                    toast(`Messart ${choiceLabel(c)}: jetzt mit einem Tool im Plan zeichnen.`, 'info', 2200);
                   }}
                   onClose={() => setMtypeMenu(false)}
                 />

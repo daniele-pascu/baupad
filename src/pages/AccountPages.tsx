@@ -200,7 +200,7 @@ export function LoginPage({ register = false }: { register?: boolean }) {
         )}
 
         <p className="auth-note">
-          Für die Werkzeuge ist ein Konto nötig. Projekte, Fotos und Berichte bleiben auf dem Gerät; das Konto verbindet später alle Geräte deiner Firma.
+          Für die Tools ist ein Konto nötig. Projekte, Fotos und Berichte bleiben auf dem Gerät; das Konto verbindet später alle Geräte deiner Firma.
           {' '}
           <a href={paths.landing()}>Zur Startseite</a>
         </p>
@@ -434,7 +434,7 @@ function OperatorWorkspaceDetail({ w, onBack, onChanged }: { w: OperatorWorkspac
     void run({ p_price: price.trim() ? n : 0, p_note: note }, 'Gespeichert.');
   };
   const toggle = async () => {
-    if (w.active && !(await confirmDialog({ title: 'Zugang sperren?', message: `„${w.name}“ verliert sofort den Zugang zu allen Werkzeugen. Die Daten bleiben erhalten.`, confirmLabel: 'Sperren', danger: true }))) return;
+    if (w.active && !(await confirmDialog({ title: 'Zugang sperren?', message: `„${w.name}“ verliert sofort den Zugang zu allen Tools. Die Daten bleiben erhalten.`, confirmLabel: 'Sperren', danger: true }))) return;
     void run({ p_active: !w.active }, w.active ? `„${w.name}“ gesperrt.` : `„${w.name}“ freigeschaltet.`);
   };
   const monthly = Number(w.price_per_user) * w.members;
@@ -493,7 +493,7 @@ interface TileDef {
 
 const ACCOUNT_TILES: TileDef[] = [
   { id: 'betreiber', title: 'Betreiber: Kunden', text: 'Registrierte Firmen freischalten, Preis je Benutzer vereinbaren', body: () => <OperatorWorkspaces /> },
-  { id: 'benutzer', title: 'Benutzer & Rollen', text: 'Wer in deiner Firma BauPad nutzt – Funktion, Werkzeuge und Baustellen je Benutzer', body: () => <UsersSettings /> },
+  { id: 'benutzer', title: 'Benutzer & Rollen', text: 'Wer in deiner Firma BauPad nutzt – Funktion, Tools und Baustellen je Benutzer', body: () => <UsersSettings /> },
   { id: 'profil', title: 'Persönliche Daten', text: 'Name und Telefon – so erscheinst du bei Kollegen und auf Berichten', body: (s) => <ProfileForm session={s} /> },
   { id: 'email', title: 'E-Mail und Konto', text: 'E-Mail-Adresse (ändern nur als Admin), Konto löschen', body: (s) => <EmailForm session={s} /> },
   { id: 'passwort', title: 'Passwort und Anmeldemethoden', text: 'Passwort ändern, Google, Apple oder Microsoft (Outlook) verbinden', body: (s) => <PasswordForm session={s} /> },
@@ -811,7 +811,7 @@ function SubscriptionInfo({ session }: { session: Session | null | undefined }) 
         </p>
       )}
       <p className="muted small">
-        {session.companyId && !session.workspaceActive && !session.operator ? 'Dein Arbeitsbereich ist noch nicht freigeschaltet – der Zugang zu den Werkzeugen wird von PAD Software nach der Bestellung aktiviert. ' : ''}
+        {session.companyId && !session.workspaceActive && !session.operator ? 'Dein Arbeitsbereich ist noch nicht freigeschaltet – der Zugang zu den Tools wird von PAD Software nach der Bestellung aktiviert. ' : ''}
         Pakete werden {session.role === 'admin' ? 'von dir als Admin' : 'vom Admin deiner Firma'} auf der Website verwaltet – Zahlung per Karte, SEPA-Lastschrift oder Rechnung.
         Preise und Bestellung folgen; in der App gibt es keine Käufe.
       </p>
@@ -1065,8 +1065,8 @@ function UsersSettings() {
           <strong>Benutzer &amp; Rollen</strong>
           <span className="muted">
             {remote
-              ? `Du bist Admin der Firma „${session?.companyName}“ – das gilt für alle Werkzeuge. Je Benutzer legst du Funktion, Werkzeuge und die Baustellen fest, auf die er zugreifen darf. Wer noch kein Konto hat, registriert sich auf pad-software.at mit genau dieser E-Mail-Adresse und landet automatisch in deiner Firma.`
-              : 'Als Admin legst du fest, wer in deiner Firma BauPad nutzt: E-Mail, Name, Funktion, freigegebene Werkzeuge und Paket. Ohne Anmeldung ist das eine Vormerkliste auf diesem Gerät – nach dem Anmelden kannst du sie in deinen Arbeitsbereich übernehmen.'}
+              ? `Du bist Admin der Firma „${session?.companyName}“ – das gilt für alle Tools. Je Benutzer legst du Funktion, Tools und die Baustellen fest, auf die er zugreifen darf. Wer noch kein Konto hat, registriert sich auf pad-software.at mit genau dieser E-Mail-Adresse und landet automatisch in deiner Firma.`
+              : 'Als Admin legst du fest, wer in deiner Firma BauPad nutzt: E-Mail, Name, Funktion, freigegebene Tools und Paket. Ohne Anmeldung ist das eine Vormerkliste auf diesem Gerät – nach dem Anmelden kannst du sie in deinen Arbeitsbereich übernehmen.'}
           </span>
         </div>
         <button type="button" className="btn btn-sm btn-primary" onClick={() => setEditing(emptyUser())} data-testid="user-add">
@@ -1200,7 +1200,7 @@ function UserDialog({ value, session, onClose, onSaved }: { value: Omit<CompanyU
           </div>
         </fieldset>
         <fieldset className="field">
-          <span>Werkzeuge und Projekte{u.role === 'admin' ? ' (Admin hat immer alle Werkzeuge und Projekte)' : ' – Projekte gibst du im Projekt über „Freigabe“ frei; hier zusätzlich nur für ein Werkzeug'}</span>
+          <span>Tools und Projekte{u.role === 'admin' ? ' (Admin hat immer alle Tools und Projekte)' : ' – Projekte gibst du im Projekt über „Freigabe“ frei; hier zusätzlich nur für ein Tool'}</span>
           <div className="tool-access-list">
             {TOOLS.map((t) => {
               const on = u.tools.includes(t.id);

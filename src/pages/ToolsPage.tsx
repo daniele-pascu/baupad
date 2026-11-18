@@ -66,7 +66,7 @@ export function ToolsPage() {
             )}
           </div>
         )}
-        <nav className="tools-grid" aria-label="Werkzeuge">
+        <nav className="tools-grid" aria-label="Tools">
           {tools.map((t) => {
             const body = (
               <>

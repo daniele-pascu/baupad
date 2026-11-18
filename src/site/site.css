@@ -1250,10 +1250,6 @@ body:has(.ps-site) {
   margin: 0 0 12px;
   font-size: clamp(19px, 2.2vw, 24px);
 }
-.ps-baupad .bp-sec .bp-safe {
-  display: flex;
-  flex-direction: column;
-}
 .ps-baupad .bp-status {
   display: inline-block;
   margin: 0 0 24px;
