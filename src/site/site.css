@@ -116,23 +116,21 @@
     0 6px 18px -10px rgba(0, 0, 0, 0.35),
     0 1px 2px rgba(0, 0, 0, 0.06);
 }
-/* Beim Scrollen: leicht durchsichtig – Maus darüber, Antippen, Tastatur oder offenes Menü holen sie wieder nach vorn */
+/* Beim Scrollen: nur der Hintergrund wird durchsichtig (Glas) – Inhalt darunter scheint verschwommen durch,
+   Logo, Links und Anmelden bleiben voll sichtbar. Maus darüber, Antippen, Tastatur oder offenes Menü machen sie wieder deckend. */
 .ps-bar {
-  transition: opacity 0.3s ease, background-color 0.3s ease;
+  transition: background-color 0.35s ease;
 }
 .ps-header.scrolled .ps-bar {
-  opacity: 0.82;
-  background-color: rgba(0, 0, 0, 0.86);
+  background-color: rgba(0, 0, 0, 0.55);
 }
 .ps-header.scrolled.awake .ps-bar,
 .ps-header.scrolled.open .ps-bar,
 .ps-header.scrolled:focus-within .ps-bar {
-  opacity: 1;
   background-color: rgba(0, 0, 0, 0.95);
 }
 @media (hover: hover) {
   .ps-header.scrolled:hover .ps-bar {
-    opacity: 1;
     background-color: rgba(0, 0, 0, 0.95);
   }
 }
