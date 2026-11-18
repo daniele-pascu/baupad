@@ -181,6 +181,117 @@
 .ps-site .ps-nav a:hover {
   background: rgba(255, 255, 255, 0.08);
 }
+/* Produkte: Taste wie die Links, mit kleinem Pfeil; darunter klappt das Fenster auf */
+.ps-nav {
+  position: relative;
+}
+.ps-nav-products button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.86);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.25;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+.ps-nav-products button:hover,
+.ps-nav-products button[aria-current='page'],
+.ps-nav-products.is-open button {
+  color: #fff;
+}
+.ps-nav-products button:hover,
+.ps-nav-products.is-open button {
+  background: rgba(255, 255, 255, 0.08);
+}
+.ps-nav-products svg {
+  transition: transform 0.2s ease;
+}
+.ps-nav-products.is-open svg {
+  transform: rotate(180deg);
+}
+/* Fenster: gleicher Glas-Look wie die Leiste, genau so breit wie die Links, klappt nach unten auf */
+.ps-products-panel {
+  position: absolute;
+  top: calc(100% + 21px);
+  left: 0;
+  right: 0;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  /* liegt in der Leiste: kein eigener Weichzeichner (verschachtelt stört er), dafür fast deckend */
+  background: #070707 linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0) 55%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 10px 24px -12px rgba(0, 0, 0, 0.4);
+  transform-origin: top center;
+  animation: ps-drop 0.2s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+@keyframes ps-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scaleY(0.96);
+  }
+}
+.ps-site .ps-product {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 20px 16px 18px;
+  border-radius: 10px;
+  text-align: center;
+  transition: background-color 0.15s ease;
+}
+.ps-site .ps-product:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.ps-product strong {
+  color: #fff;
+  margin-top: 8px;
+  font-size: 17px;
+  font-weight: 700;
+}
+.ps-product-line {
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 14px;
+}
+.ps-product-info {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 13px;
+}
+/* App-Symbol wie auf dem Handy-Bildschirm (Text statt Bild) */
+.ps-app-icon {
+  container-type: inline-size;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 22%;
+  background: #000;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.22),
+    0 6px 16px -6px rgba(0, 0, 0, 0.6);
+  color: #fff;
+  line-height: 1;
+}
+.ps-app-icon span {
+  font-size: 26cqw;
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  white-space: nowrap;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ps-products-panel {
+    animation: none;
+  }
+}
 .ps-header-actions {
   display: flex;
   justify-self: end;
@@ -259,9 +370,21 @@
   .ps-header.open .ps-nav {
     display: flex;
   }
-  .ps-site .ps-nav a {
+  .ps-site .ps-nav a,
+  .ps-nav-products button {
     padding: 12px 8px;
     font-size: 17px;
+  }
+  .ps-nav-products button {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .ps-products-panel {
+    position: static;
+    order: 0;
+    margin: 0 0 4px;
+    background: rgba(255, 255, 255, 0.05);
+    box-shadow: none;
   }
   .ps-menu-btn {
     display: inline-flex;

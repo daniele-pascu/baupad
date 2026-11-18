@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { langOf, LANGS, navigate, parseRoute, paths, sitePath, usePath, type Lang, type SiteRouteName, PRODUCT_SLUG_OF } from '../../lib/router';
 import { useSession } from '../../lib/use-session';
 import { contactData } from '../contact-data';
@@ -37,6 +37,33 @@ const NAV: {
   { key: 'contact', label: 'contact' },
 ];
 
+/** BauPad-App-Symbol wie auf dem Handy: schwarzes, abgerundetes Quadrat mit „BauPad“ (echter Text) */
+function AppIcon() {
+  return (
+    <span className="ps-app-icon" aria-hidden="true">
+      <span>BauPad</span>
+    </span>
+  );
+}
+
+/** Fenster unter „Produkte“: App-Symbol, Name, drei kurze Infos – ein Klick öffnet die BauPad-Seite */
+function ProductsPanel({ lang }: { lang: Lang }) {
+  const { t } = useLang();
+  const h = t.home.product;
+  const n = t.baupad.numbers;
+  return (
+    <div id="ps-products-panel" className="ps-products-panel" data-testid="products-panel">
+      <a href={paths.baupad(lang)} className="ps-product" data-testid="products-panel-baupad">
+        <AppIcon />
+        <strong>{t.product}</strong>
+        <span className="ps-product-line">{h.tagline}</span>
+        <span className="ps-product-info">{n.map((x) => `${x.value} ${x.label}`).join(' · ')}</span>
+        <span className="ps-product-info">{h.tag}</span>
+      </a>
+    </div>
+  );
+}
+
 /**
  * Leiste oben: schwebt mit Abstand zum Rand, schwarz (95 %) mit Glas-Schimmer und ganz feinem Schatten.
  * Links das Logo, in der Mitte Home · Produkte · Über uns · Kontakt, rechts Anmelden (angemeldet: Name).
@@ -65,27 +92,57 @@ export function SiteHeader() {
     window.addEventListener('scroll', on, { passive: true });
     return () => window.removeEventListener('scroll', on);
   }, []);
+  // Produkte: Fenster klappt unter der Leiste auf (so breit wie die Links); Klick daneben oder Esc schließt es
+  const [products, setProducts] = useState(false);
+  const headerRef = useRef<HTMLElement>(null);
+  useEffect(() => setProducts(false), [path]);
   useEffect(() => {
-    if (!open) return;
-    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    if (!open && !products) return;
+    const esc = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      setProducts(false);
+      setOpen(false);
+    };
+    const outside = (e: PointerEvent) => {
+      if (headerRef.current && !headerRef.current.contains(e.target as Node)) {
+        setProducts(false);
+        setOpen(false);
+      }
+    };
     window.addEventListener('keydown', esc);
-    return () => window.removeEventListener('keydown', esc);
-  }, [open]);
+    document.addEventListener('pointerdown', outside);
+    return () => {
+      window.removeEventListener('keydown', esc);
+      document.removeEventListener('pointerdown', outside);
+    };
+  }, [open, products]);
   const route = parseRoute(path).name;
   const active = (key: SiteRouteName) => (route === key || (key === 'products' && (route === 'baupad' || route === 'product')) ? 'page' : undefined);
   return (
-    <header className={`ps-header${open ? ' open' : ''}${scrolled ? ' scrolled' : ''}${awake ? ' awake' : ''}`} data-testid="site-nav" onPointerDown={() => setAwake(true)}>
+    <header className={`ps-header${open ? ' open' : ''}${scrolled ? ' scrolled' : ''}${awake ? ' awake' : ''}`} data-testid="site-nav" ref={headerRef} onPointerDown={() => setAwake(true)}>
       <a href="#ps-main" className="ps-skip">
         {t.nav.skip}
       </a>
       <div className="ps-bar">
         <Wordmark lang={lang} />
         <nav id="ps-nav" className="ps-nav" aria-label={lang === 'de' ? 'Hauptnavigation' : 'Main navigation'}>
-          {NAV.map((n) => (
-            <a key={n.key} href={sitePath(n.key, lang)} aria-current={active(n.key)} data-testid={n.key === 'products' ? 'nav-products' : undefined}>
-              {t.nav[n.label]}
-            </a>
-          ))}
+          {NAV.map((n) =>
+            n.key === 'products' ? (
+              <div key={n.key} className={`ps-nav-products${products ? ' is-open' : ''}`}>
+                <button type="button" aria-current={active(n.key)} aria-expanded={products} aria-controls="ps-products-panel" onClick={() => setProducts(!products)} data-testid="nav-products">
+                  {t.nav[n.label]}
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M6 9l6 6 6-6" />
+                  </svg>
+                </button>
+                {products && <ProductsPanel lang={lang} />}
+              </div>
+            ) : (
+              <a key={n.key} href={sitePath(n.key, lang)} aria-current={active(n.key)}>
+                {t.nav[n.label]}
+              </a>
+            ),
+          )}
         </nav>
         <div className="ps-header-actions">
           {session ? (
