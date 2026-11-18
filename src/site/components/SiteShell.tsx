@@ -75,12 +75,13 @@ export function SiteHeader() {
   const [scrolled, setScrolled] = useState(false);
   const [awake, setAwake] = useState(false);
   useEffect(() => setOpen(false), [path]);
-  // über einem hellen Bereich wird die Leiste hell (dunkle Schrift); über dem schwarzen Kopf der Startseite bleibt sie weißes Glas
+  // über hellem Grund wird die Leiste schwarzes Glas (Logo und Schrift bleiben weiß); nur über dem schwarzen Kopf der
+  // Startseite bleibt sie weißes Glas. Seiten ohne schwarzen Kopf sind ganz hell.
   const [light, setLight] = useState(false);
   useEffect(() => {
     const check = () => {
       const top = document.querySelector('[data-dark-top]');
-      setLight(!!top && top.getBoundingClientRect().bottom < 44);
+      setLight(!top || top.getBoundingClientRect().bottom < 44);
     };
     const raf = requestAnimationFrame(check);
     window.addEventListener('scroll', check, { passive: true });

@@ -1,6 +1,6 @@
 import { useEffect, useRef, type CSSProperties } from 'react';
 import { ToolIcon } from '../../components/ToolIcon';
-import { paths } from '../../lib/router';
+import { navigate, paths } from '../../lib/router';
 import { contactData } from '../contact-data';
 import { useLang } from '../i18n';
 import { TOOL_ENTRIES, toolPath } from '../products';
@@ -17,6 +17,10 @@ export function HomePage() {
   const { lang, t } = useLang();
   const h = t.home;
   const w = h.product.wall;
+  // BauPad-Seite schon vorladen, damit sie nach dem Übergang sofort da ist
+  useEffect(() => {
+    void import('./BauPadPage');
+  }, []);
   return (
     <SiteLayout
       meta={{
@@ -87,7 +91,7 @@ export function HomePage() {
             ))}
           </ul>
           <p className="ph-btns">
-            <a href={paths.baupad(lang)} className="ph-b1" data-testid="home-product">
+            <a href={paths.baupad(lang)} className="ph-b1" data-testid="home-product" onClick={expandToBauPad}>
               {h.product.cta}
             </a>
             <a href={paths.tools()} className="ph-b2" data-testid="home-open">
@@ -187,4 +191,39 @@ function StepsLine({ steps }: { steps: { title: string }[] }) {
       <span className="ph-steps-run" aria-hidden="true" />
     </div>
   );
+}
+
+/**
+ * „Mehr erfahren“ im BauPad-Fenster: das Fenster vergrößert sich über den ganzen Bildschirm, dann öffnet sich die
+ * BauPad-Seite und die Fläche blendet weich aus. Nur von der Startseite aus (über Produkte geht es ohne Übergang).
+ * „Bewegung reduzieren“, neuer Tab (Strg/⌘) usw. → normaler Link.
+ */
+function expandToBauPad(e: React.MouseEvent<HTMLAnchorElement>) {
+  if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  const win = e.currentTarget.closest<HTMLElement>('.ph-win');
+  if (!win || !document.body.animate || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  e.preventDefault();
+  const href = e.currentTarget.getAttribute('href')!;
+  const r = win.getBoundingClientRect();
+  const from = `inset(${r.top}px ${innerWidth - r.right}px ${innerHeight - r.bottom}px ${r.left}px round 28px)`;
+  const o = document.createElement('div');
+  o.className = 'ph-expand';
+  o.setAttribute('aria-hidden', 'true');
+  o.dataset.testid = 'home-expand';
+  document.body.appendChild(o);
+  const grow = o.animate(
+    [
+      { clipPath: from, opacity: 0 },
+      { clipPath: from, opacity: 1, offset: 0.14 },
+      { clipPath: 'inset(0px 0px 0px 0px round 0px)', opacity: 1 },
+    ],
+    { duration: 560, easing: 'cubic-bezier(.32,.72,0,1)', fill: 'forwards' },
+  );
+  grow.finished
+    .then(() => {
+      navigate(href);
+      return new Promise((done) => setTimeout(done, 140));
+    })
+    .then(() => o.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 320, easing: 'ease-out', fill: 'forwards' }).finished)
+    .finally(() => o.remove());
 }

@@ -9,18 +9,19 @@
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  /* fast schwarzer Grund mit stehendem Licht in Violett (oben rechts) und Petrol (unten links), helle Schrift */
+  /* heller Grund mit zartem Licht in Violett (oben rechts) und Petrol (unten links), dunkle Schrift.
+     Nur der Kopf der Startseite ist schwarz (.ph-top). */
   position: relative;
   isolation: isolate;
-  --ps-bg: #0a0a0b;
+  --ps-bg: #f4f4f6;
   --ps-c1: 108, 92, 255;
   --ps-c2: 31, 209, 181;
-  --ps-acc: #9d8cff;
-  --ps-acc2: #3fe0c5;
-  --ps-fg: #f5f5f7;
-  --ps-soft: rgba(255, 255, 255, 0.66);
-  --ps-faint: rgba(255, 255, 255, 0.45);
-  --ps-line: rgba(255, 255, 255, 0.14);
+  --ps-acc: #6a55f0;
+  --ps-acc2: #12a58e;
+  --ps-fg: #111;
+  --ps-soft: rgba(0, 0, 0, 0.62);
+  --ps-faint: rgba(0, 0, 0, 0.45);
+  --ps-line: rgba(0, 0, 0, 0.1);
   background: var(--ps-bg);
   color: var(--ps-fg);
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -33,7 +34,7 @@
   box-sizing: border-box;
 }
 .ps-site :focus-visible {
-  outline: 2px solid #fff;
+  outline: 2px solid #111;
   outline-offset: 2px;
 }
 .ps-site a {
@@ -573,15 +574,15 @@
   width: 100%;
   min-height: 44px;
   padding: 8px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.28);
+  border: 1px solid rgba(0, 0, 0, 0.16);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.85);
   color: var(--ps-fg);
   font: inherit;
 }
 .ps-field.has-error input,
 .ps-field.has-error textarea {
-  border-color: #ff7a7a;
+  border-color: #d93025;
 }
 .ps-field-check label {
   display: flex;
@@ -598,7 +599,7 @@
 }
 .ps-error {
   margin: 4px 0 0 !important;
-  color: #ff8a8a;
+  color: #c5221f;
   font-size: 15px;
 }
 /* Honigtopf gegen Bots: für Menschen nie sichtbar */
@@ -613,10 +614,10 @@
   justify-self: start;
   min-height: 46px;
   padding: 0 24px;
-  border: 1.5px solid rgba(255, 255, 255, 0.95);
+  border: 1.5px solid #111;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  color: #111;
+  background: #111;
+  color: #fff;
   font: inherit;
   font-weight: 600;
   cursor: pointer;
@@ -624,9 +625,9 @@
 }
 .ps-submit:hover:not(:disabled),
 .ps-submit:active:not(:disabled) {
-  background: #000;
+  background: #3a3a40;
   color: #fff;
-  border-color: #fff;
+  border-color: #3a3a40;
 }
 .ps-submit:disabled {
   opacity: 0.5;
@@ -680,7 +681,7 @@
 /* Überscrollen am Rand: gleicher Grund wie die Seite */
 html:has(.ps-site),
 body:has(.ps-site) {
-  background: #0a0a0b;
+  background: #f4f4f6;
 }
 
 /* =====================================================================
@@ -697,12 +698,11 @@ body:has(.ps-site) {
 }
 .ps-site::before {
   background:
-    radial-gradient(var(--ps-l1, 42vw) var(--ps-l1, 42vw) at 88% 22%, rgba(var(--ps-c1), 0.3), rgba(var(--ps-c1), 0) 70%),
-    radial-gradient(var(--ps-l2, 38vw) var(--ps-l2, 38vw) at 6% 92%, rgba(var(--ps-c2), 0.22), rgba(var(--ps-c2), 0) 70%),
-    radial-gradient(70vw 55vh at 50% -8%, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 70%);
+    radial-gradient(var(--ps-l1, 42vw) var(--ps-l1, 42vw) at 88% 30%, rgba(var(--ps-c1), 0.2), rgba(var(--ps-c1), 0) 70%),
+    radial-gradient(var(--ps-l2, 38vw) var(--ps-l2, 38vw) at 6% 92%, rgba(var(--ps-c2), 0.18), rgba(var(--ps-c2), 0) 70%);
 }
 .ps-site::after {
-  opacity: 0.07;
+  opacity: 0.035;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
 }
 @media (max-width: 800px) {
@@ -1210,4 +1210,189 @@ body:has(.ps-home) {
     font-size: 12px;
     letter-spacing: 0.18em;
   }
+}
+
+/* =====================================================================
+   BauPad-Seite (hell): groß das App-Symbol und „BauPad“, darunter jedes Werkzeug als Fenster in seiner Farbe
+   ===================================================================== */
+.ps-baupad .ps-main,
+.ps-baupad .ps-footer {
+  max-width: 1040px;
+}
+.bp-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: clamp(24px, 6vw, 64px) 0 clamp(32px, 5vw, 56px);
+  text-align: center;
+}
+.ps-baupad .bp-icon {
+  width: clamp(96px, 12vw, 132px);
+  height: clamp(96px, 12vw, 132px);
+  margin-bottom: 22px;
+  border-radius: 23%;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.06),
+    0 24px 48px -20px rgba(20, 10, 60, 0.45);
+}
+.ps-baupad .bp-hero h1 {
+  margin: 0 0 10px;
+  font-size: clamp(56px, 9vw, 104px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+.ps-baupad .bp-tagline {
+  margin: 0 0 12px;
+  font-size: clamp(19px, 2.2vw, 24px);
+}
+.ps-baupad .bp-status {
+  display: inline-block;
+  margin: 0 0 24px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(var(--ps-c1), 0.12);
+  color: #3b2fb0;
+  font-size: 13px;
+  font-weight: 500;
+}
+.bp-btns {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin: 0 !important;
+}
+.ps-site .bp-b1,
+.ps-site .bp-b2 {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: 999px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+}
+.ps-site .bp-b1 {
+  border: 1.5px solid #111;
+  background: #111;
+  color: #fff;
+}
+.ps-site .bp-b1:hover,
+.ps-site .bp-b1:active {
+  border-color: #3a3a40;
+  background: #3a3a40;
+}
+/* weiße Taste: Maus darüber oder Antippen → schwarz, rundherum weiß */
+.ps-site .bp-b2 {
+  border: 1.5px solid rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.6);
+  color: #111;
+}
+.ps-site .bp-b2:hover,
+.ps-site .bp-b2:active {
+  border-color: #fff;
+  background: #000;
+  color: #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+.ps-baupad .bp-install {
+  margin: 14px 0 0;
+  font-size: 15px;
+}
+
+/* Werkzeuge: Fenster in der Farbe des Werkzeugs, Symbol, Name und kurze Aufzählung */
+.ps-site .bp-tools {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ps-site .bp-tools li {
+  margin: 0;
+}
+.ps-site .bp-tool {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  padding: 24px 24px 26px;
+  overflow: hidden;
+  border-radius: 26px;
+  background: linear-gradient(150deg, var(--tool), color-mix(in srgb, var(--tool), #000 28%));
+  color: #fff;
+  text-decoration: none;
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.28),
+    0 22px 44px -26px color-mix(in srgb, var(--tool), #000 30%);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+/* Glas-Schimmer oben links */
+.bp-tool::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 45%);
+  pointer-events: none;
+}
+.ps-site .bp-tool:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.28),
+    0 28px 52px -24px color-mix(in srgb, var(--tool), #000 30%);
+}
+.bp-tool-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 4px;
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.18);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.3);
+}
+.bp-tool strong {
+  font-size: 22px;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+.bp-points {
+  display: grid;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 15px;
+  line-height: 1.4;
+}
+.bp-points span {
+  display: flex;
+  gap: 9px;
+}
+.bp-points span::before {
+  content: '';
+  flex: none;
+  width: 5px;
+  height: 5px;
+  margin-top: 0.55em;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ps-site .bp-tool:hover {
+    transform: none;
+  }
+}
+
+/* Übergang von der Startseite: das BauPad-Fenster vergrößert sich über den ganzen Bildschirm (siehe HomePage.tsx) */
+.ph-expand {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: #f4f4f6 linear-gradient(160deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0) 45%);
+  pointer-events: none;
 }
