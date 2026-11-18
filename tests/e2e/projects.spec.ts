@@ -11,22 +11,26 @@ import { FIXTURES, OUT, catchDownload, createProject, freshStart, openPlan, sele
 test.describe('ohne Anmeldung', () => {
   test.use({ signedIn: false });
 
-test('Website: Startseite – Name, Motto, BauPad, sieben Werkzeuge, Arbeitsweise, Kontakt in Glasfenstern; Leiste und Menü', async ({ page }) => {
+test('Website: Startseite – Name, Motto, BauPad mit den sieben Werkzeugen, Arbeitsweise, Kontakt in Glasfenstern; Leiste und Menü', async ({ page }) => {
   await page.goto('./');
   await expect(page.getByTestId('home-motto')).toHaveText('ProblemAnalysisDevelopment');
   await expect(page.getByTestId('cta-company')).toHaveAttribute('href', '/unternehmen');
   await expect(page.getByTestId('cta-solutions')).toHaveAttribute('href', '#loesungen');
-  await expect(page.getByTestId('home-can').locator('li')).toHaveCount(3); // ganz kurz, was BauPad kann
-  // die sieben Werkzeuge als Liste mit Links
-  await expect(page.getByTestId('home-tool-list').locator('li')).toHaveCount(7);
-  await expect(page.getByTestId('home-tool-list')).toContainText('Material');
-  await expect(page.getByTestId('home-tools')).toHaveAttribute('href', '/baupad');
+  // im BauPad-Fenster alle sieben Werkzeuge wie in der App (farbiges Symbol und Name), jedes ein Link; kein eigenes Werkzeug-Fenster
+  const tools = page.getByTestId('home-tool-list');
+  await expect(tools.locator('li')).toHaveCount(7);
+  await expect(tools).toContainText('Material');
+  await expect(tools.locator('.ph-tool-icon')).toHaveCount(7);
+  await expect(tools.locator('.ph-tool-icon').first()).toHaveCSS('background-color', 'rgb(255, 106, 19)');
+  await expect(tools.getByRole('link', { name: 'Fotos' })).toHaveAttribute('href', '/baupad/funktionen/fotos');
+  await expect(page.locator('#loesungen').getByTestId('home-tool-list')).toBeVisible();
   await expect(page.getByTestId('home-steps').locator('li')).toHaveText(['Problem verstehen', 'Lösung bauen', 'Laufend verfeinern']);
   await expect(page.getByTestId('cta-contact-2')).toBeVisible();
-  // ein Bild (BauPad am Handy), sonst alles echter Text; keine Animationen
+  // ein Bild (BauPad am Handy), sonst alles echter Text; Grafiken nur die sieben Werkzeug-Symbole
   await expect(page.locator('.ps-main img')).toHaveCount(1);
-  await expect(page.locator('.ps-main svg, .ps-main canvas')).toHaveCount(0);
-  await expect(page.locator('.ph-win')).toHaveCount(4); // BauPad, Werkzeuge, Arbeitsweise, Kontakt
+  await expect(page.locator('.ps-main canvas')).toHaveCount(0);
+  await expect(page.locator('.ps-main svg')).toHaveCount(7);
+  await expect(page.locator('.ph-win')).toHaveCount(3); // BauPad (mit den Werkzeugen), Arbeitsweise, Kontakt
   // Farbe: Akzent Violett über den Überschriften, die Linie der Arbeitsweise läuft von Violett in Petrol
   await expect(page.locator('.ph-win .ps-eyebrow').first()).toHaveCSS('color', 'rgb(106, 85, 240)'); // auf hellem Grund dunkleres Violett
   await expect(page.locator('.ph-top .ps-eyebrow')).toHaveCSS('color', 'rgb(157, 140, 255)');
