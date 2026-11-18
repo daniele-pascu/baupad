@@ -111,9 +111,6 @@ export function SiteHeader() {
               {t.nav.login}
             </a>
           )}
-          <a href={paths.contact(lang)} className="ps-btn ps-btn-primary ps-hide-sm" data-testid="nav-cta">
-            {t.nav.cta}
-          </a>
           <button type="button" className="ps-menu-btn" aria-label={open ? t.nav.menuClose : t.nav.menuOpen} aria-expanded={open} aria-controls="ps-nav" onClick={() => setOpen(!open)}>
             <span />
             <span />

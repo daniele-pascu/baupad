@@ -21,7 +21,6 @@ export const de = {
     menuClose: 'Menü schließen',
     langSwitch: 'Sprache',
     skip: 'Zum Inhalt springen',
-    cta: 'Kontakt aufnehmen',
   },
   footer: {
     claim: 'Den Arbeitstag leichter gemacht – Software aus Österreich.',
