@@ -154,7 +154,6 @@ export const de = {
     },
     saving: {
       eyebrow: 'Speichern',
-      title: 'Mit und ohne Empfang.',
       items: [
         { title: 'Mit Empfang', text: 'Alles wird sofort online gespeichert.' },
         { title: 'Ohne Empfang', text: 'Alles bleibt sicher am Gerät.' },
