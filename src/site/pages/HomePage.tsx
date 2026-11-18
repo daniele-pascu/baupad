@@ -3,6 +3,7 @@ import { contactData } from '../contact-data';
 import { useLang } from '../i18n';
 import { TOOL_ENTRIES, toolPath } from '../products';
 import { organizationJsonLd, siteAlternates, softwareJsonLd } from '../seo';
+import { PadMarkGlass } from '../components/PadMarkGlass';
 import { SiteLayout } from '../components/SiteShell';
 
 /**
@@ -27,6 +28,11 @@ export function HomePage() {
       top={
         <div className="ph-top" data-dark-top="">
           <section className="ph-hero" aria-labelledby="ph-title">
+            {/* großes, ganz zartes PAD-Zeichen; mittig darauf das Zeichen aus weißem Liquid Glass (wächst beim Öffnen) */}
+            <div className="ph-mark" aria-hidden="true">
+              <img src="/site/pad-mark-bg.svg" alt="" width={859} height={830} />
+              <PadMarkGlass />
+            </div>
             <p className="ps-eyebrow">{h.hero.eyebrow}</p>
             <h1 id="ph-title">
               PAD <span>Software</span>
