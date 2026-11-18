@@ -9,13 +9,13 @@ import { useEffect, useRef } from 'react';
  * „Bewegung reduzieren“ → sofort fertig.
  */
 const D_PATH =
-  'M242.85 0.63 L546.82 0.63 C710.14 0.63 854.78 131.35 854.78 311.97 C854.78 494.7 711.66 656.02 541.2 656.02 L306.77 656.02 L383.14 484.84 L562.68 484.84 C610.05 484.84 690.17 410.8 690.17 327.06 C690.17 212.94 600.07 165.81 527.98 165.81 L151.52 165.81 Z';
+  'M242.85 0.63 L546.82 0.63 C710.14 0.63 854.78 131.35 854.78 311.97 L854.78 356.97 C854.78 539.70 711.66 701.02 541.2 701.02 L286.70 701.02 L363.07 529.84 L562.68 529.84 C610.05 529.84 690.17 455.80 690.17 372.06 L690.17 327.06 C690.17 212.94 600.07 165.81 527.98 165.81 L151.52 165.81 Z';
 const L_PATH = 'M253.11 245.14 L480.25 245.14 L379.32 422.68 L185.01 829.9 L-3.54 829.9 Z';
-const T_PATH = 'M480.25 245.14 L608.34 468.42 C592.2 478.87 576.12 484.84 562.68 484.84 L412.68 484.84 L379.32 422.68 Z';
+const T_PATH = 'M480.25 245.14 L626.37 499.85 C604.63 518.57 581.16 529.84 562.68 529.84 L436.83 529.84 L379.32 422.68 Z';
 
 const DUR = 750; // ganze Animation in ms
 const R = 0.14; // weicher Anlauf und Auslauf (Anteil), dazwischen gleichmäßig
-const TOT = 1344.2; // Weglänge der Linie oben (Balken, Rundung, Balken)
+const TOT = 1409.2; // Weglänge der Linie oben (Balken, Rundung, Balken)
 const clamp = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
 const VMAX = 1 / (1 - R);
 const ease = (t: number) => (t < R ? (VMAX * t * t) / (2 * R) : t > 1 - R ? 1 - (VMAX * (1 - t) * (1 - t)) / (2 * R) : VMAX * (t - R / 2));
@@ -30,8 +30,8 @@ export function PadMarkGlass({ delay = 350 }: { delay?: number }) {
     const set = (p: number) => {
       const s = p * TOT;
       A.style.strokeDashoffset = String(1 - clamp(s / 392.2));
-      B.style.strokeDashoffset = String(1 - clamp((s - 337.2) / 762));
-      C.style.strokeDashoffset = String(1 - clamp((s - 1087.2) / 257));
+      B.style.strokeDashoffset = String(1 - clamp((s - 337.2) / 807));
+      C.style.strokeDashoffset = String(1 - clamp((s - 1132.2) / 277));
       // Schrägbalken und Dreieck kommen gleichzeitig mit der Linie oben an
       L.style.strokeDashoffset = T.style.strokeDashoffset = String(1 - p);
     };
@@ -76,7 +76,7 @@ export function PadMarkGlass({ delay = 350 }: { delay?: number }) {
           <stop offset="1" stopColor="#fff" stopOpacity=".55" />
         </linearGradient>
         {/* Dreieck (Falz): von oben hell nach unten fast klar – gibt die Tiefe */}
-        <linearGradient id="pmg-fold" x1="0" y1="245" x2="0" y2="485" gradientUnits="userSpaceOnUse">
+        <linearGradient id="pmg-fold" x1="0" y1="245" x2="0" y2="530" gradientUnits="userSpaceOnUse">
           <stop offset="0" stopColor="#fff" stopOpacity=".7" />
           <stop offset="1" stopColor="#fff" stopOpacity=".18" />
         </linearGradient>
@@ -92,11 +92,11 @@ export function PadMarkGlass({ delay = 350 }: { delay?: number }) {
             <g transform="translate(0 82) skewX(-29.94) translate(0 -82)">
               <path data-s="a" pathLength={1} strokeWidth={190} d="M197.8 82 L590 82" style={line} />
             </g>
-            <path data-s="b" pathLength={1} strokeWidth={190} d="M535 82 A240 245 0 0 1 535 572" style={line} />
-            <path data-s="c" pathLength={1} strokeWidth={190} d="M547 572 L290 572" style={line} />
+            <path data-s="b" pathLength={1} strokeWidth={190} d="M535 82 A240 245 0 0 1 775 327 L775 372 A240 245 0 0 1 535 617" style={line} />
+            <path data-s="c" pathLength={1} strokeWidth={190} d="M547 617 L270 617" style={line} />
           </g>
           <path data-s="l" clipPath="url(#pmg-cL)" pathLength={1} strokeWidth={700} d="M300 244 L300 832" style={line} />
-          <path data-s="t" clipPath="url(#pmg-cT)" pathLength={1} strokeWidth={300} d="M492 244 L492 486" style={line} />
+          <path data-s="t" clipPath="url(#pmg-cT)" pathLength={1} strokeWidth={300} d="M492 244 L492 531" style={line} />
         </mask>
       </defs>
       <g mask="url(#pmg-reveal)">

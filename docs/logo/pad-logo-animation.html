@@ -22,23 +22,23 @@ svg.logo{width:min(72vmin,480px);height:auto;display:block;overflow:visible}
 <div class="stage">
 <svg class="logo" id="logo" viewBox="-4 0 859 830" role="img" aria-label="PAD Software">
   <defs>
-    <linearGradient id="tg" x1="0" y1="245" x2="0" y2="485" gradientUnits="userSpaceOnUse">
+    <linearGradient id="tg" x1="0" y1="245" x2="0" y2="530" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#b4b4b4"/><stop offset=".42" stop-color="#d4d4d4"/><stop offset=".55" stop-color="#d8d8d8"/><stop offset=".67" stop-color="#b6b6b6"/><stop offset=".79" stop-color="#808080"/><stop offset=".92" stop-color="#4f4f4f"/><stop offset="1" stop-color="#3e3e3e"/>
     </linearGradient>
     <radialGradient id="th" cx="545" cy="335" r="95" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".38"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
-    <clipPath id="cD"><path d="M242.85 0.63 L546.82 0.63 C710.14 0.63 854.78 131.35 854.78 311.97 C854.78 494.7 711.66 656.02 541.2 656.02 L306.77 656.02 L383.14 484.84 L562.68 484.84 C610.05 484.84 690.17 410.8 690.17 327.06 C690.17 212.94 600.07 165.81 527.98 165.81 L151.52 165.81 Z"/></clipPath>
+    <clipPath id="cD"><path d="M242.85 0.63 L546.82 0.63 C710.14 0.63 854.78 131.35 854.78 311.97 L854.78 356.97 C854.78 539.70 711.66 701.02 541.2 701.02 L286.70 701.02 L363.07 529.84 L562.68 529.84 C610.05 529.84 690.17 455.80 690.17 372.06 L690.17 327.06 C690.17 212.94 600.07 165.81 527.98 165.81 L151.52 165.81 Z"/></clipPath>
     <clipPath id="cL"><path d="M253.11 245.14 L480.25 245.14 L379.32 422.68 L185.01 829.9 L-3.54 829.9 Z"/></clipPath>
-    <clipPath id="cT"><path d="M480.25 245.14 L608.34 468.42 C592.2 478.87 576.12 484.84 562.68 484.84 L412.68 484.84 L379.32 422.68 Z"/></clipPath>
+    <clipPath id="cT"><path d="M480.25 245.14 L626.37 499.85 C604.63 518.57 581.16 529.84 562.68 529.84 L436.83 529.84 L379.32 422.68 Z"/></clipPath>
   </defs>
   <g clip-path="url(#cD)" stroke="#fff">
     <g transform="translate(0 82) skewX(-29.94) translate(0 -82)"><path class="s" id="sA" pathLength="1" stroke-width="190" d="M197.8 82 L590 82"/></g>
-    <path class="s" id="sB" pathLength="1" stroke-width="190" d="M535 82 A240 245 0 0 1 535 572"/>
-    <path class="s" id="sC" pathLength="1" stroke-width="190" d="M547 572 L290 572"/>
+    <path class="s" id="sB" pathLength="1" stroke-width="190" d="M535 82 A240 245 0 0 1 775 327 L775 372 A240 245 0 0 1 535 617"/>
+    <path class="s" id="sC" pathLength="1" stroke-width="190" d="M547 617 L270 617"/>
   </g>
   <path class="s" id="sL" clip-path="url(#cL)" stroke="#fff" pathLength="1" stroke-width="700" d="M300 244 L300 832"/>
   <g clip-path="url(#cT)">
-    <path class="s" id="sT" stroke="url(#tg)" pathLength="1" stroke-width="300" d="M492 244 L492 486"/>
-    <path class="s" id="sH" stroke="url(#th)" pathLength="1" stroke-width="300" d="M492 244 L492 486"/>
+    <path class="s" id="sT" stroke="url(#tg)" pathLength="1" stroke-width="300" d="M492 244 L492 531"/>
+    <path class="s" id="sH" stroke="url(#th)" pathLength="1" stroke-width="300" d="M492 244 L492 531"/>
   </g>
 </svg>
 <button class="again" id="again" type="button">Nochmal abspielen</button>
@@ -47,7 +47,7 @@ svg.logo{width:min(72vmin,480px);height:auto;display:block;overflow:visible}
 (() => {
   const DUR = 750;               // ganze Animation in ms
   const R = 0.14;                // weicher Anlauf und Auslauf (Anteil), dazwischen gleichmäßig
-  const TOT = 1344.2;            // Weglänge der Linie oben (Balken, Rundung, Balken)
+  const TOT = 1409.2;            // Weglänge der Linie oben (Balken, Rundung mit geradem Stück, Balken)
   const el = (id) => document.getElementById(id);
   const A = el('sA'), B = el('sB'), C = el('sC'), Lg = el('sL'), T = el('sT'), H = el('sH');
   const btn = el('again');
@@ -57,8 +57,8 @@ svg.logo{width:min(72vmin,480px);height:auto;display:block;overflow:visible}
   function set(p) {
     const s = p * TOT;
     A.style.strokeDashoffset = 1 - clamp(s / 392.2);
-    B.style.strokeDashoffset = 1 - clamp((s - 337.2) / 762);
-    C.style.strokeDashoffset = 1 - clamp((s - 1087.2) / 257);
+    B.style.strokeDashoffset = 1 - clamp((s - 337.2) / 807);
+    C.style.strokeDashoffset = 1 - clamp((s - 1132.2) / 277);
     // Schrägbalken und Dreieck: beide kommen gleichzeitig mit der Linie oben an
     Lg.style.strokeDashoffset = 1 - p;
     const tp = p;
