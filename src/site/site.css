@@ -262,10 +262,6 @@
   color: rgba(255, 255, 255, 0.86);
   font-size: 14px;
 }
-.ps-product-info {
-  color: rgba(255, 255, 255, 0.55);
-  font-size: 13px;
-}
 /* App-Symbol wie auf dem Handy-Bildschirm (Text statt Bild) */
 .ps-app-icon {
   container-type: inline-size;
