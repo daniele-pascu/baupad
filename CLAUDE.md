@@ -1,5 +1,11 @@
 # BauPad – Hinweise für die Arbeit am Code
 
+## Marke: PAD Software ist NICHT Bau
+
+PAD Software ist eine Softwarefirma für **alle Richtungen** – nicht für die Baubranche. Die Baubranche gehört nur zum
+Produkt **BauPad**. Website-Startseite, Firmenseiten, Texte und Gestaltung von PAD Software deshalb nie auf Bau, Baustelle,
+Pläne oder Bau-Motive ausrichten; das gehört ausschließlich auf die BauPad-Seiten.
+
 ## Tasten-Regel (PC, Handy, Tablet)
 
 Alle Tasten müssen auf jedem Gerät gut platziert sein: nichts darf sich überlappen, verdeckt, am Rand
