@@ -56,6 +56,7 @@ test('Website: Startseite – Name, Motto, BauPad, sieben Werkzeuge, Arbeitsweis
   await expect(bar).toHaveCSS('background-color', 'rgba(255, 255, 255, 0.1)');
   // Startseite: oben schwarzer Kopf mit der Firma, darunter heller Grund
   await expect(page.locator('.ph-top')).toHaveCSS('background-color', 'rgb(10, 10, 11)');
+  await expect(page.locator('.ph-top').getByTestId('pad-mark-glass')).toBeVisible(); // PAD-Zeichen aus weißem Glas im Kopf
   await expect(page.locator('.ps-site')).toHaveCSS('background-color', 'rgb(244, 244, 246)');
   // Anmelden über dem schwarzen Kopf: helle Glas-Pille, Maus darüber → schwarz mit weißer Schrift
   const login = page.getByTestId('nav-login');
