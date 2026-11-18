@@ -8,6 +8,7 @@ import { TOOL_ENTRIES, toolPath } from '../products';
 import { siteAlternates, softwareJsonLd } from '../seo';
 import { Reveal } from '../components/Reveal';
 import { SiteLayout } from '../components/SiteShell';
+import { BauPadIcon } from '../components/BauPadIcon';
 import { LIT, ToolTiles } from '../components/ToolWall';
 
 const Points = ({ items }: { items: string[] }) => (
@@ -38,7 +39,7 @@ export function BauPadPage() {
         <div className="bp-wrap">
           <div className="bp-top">
             <p className="bp-pill">
-              <img src="/icons/baupad-icon.png" width={28} height={28} alt="" />
+              <BauPadIcon />
               {b.hero.eyebrow}
             </p>
             <p className="bp-status">
