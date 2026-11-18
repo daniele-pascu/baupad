@@ -42,9 +42,13 @@ test('Website: Startseite – Name, Motto, BauPad mit den sieben Werkzeugen, Arb
   await expect(page.locator('.ps-main')).not.toContainText(/zertifiziert|DSGVO-konform|garantiert/i);
   const card = page.getByTestId('home-product');
   await expect(card).toHaveAttribute('href', '/baupad');
+  // „Mehr erfahren“: das Fenster vergrößert sich über den ganzen Bildschirm, dann öffnet sich die BauPad-Seite
   await card.click();
-  await expect(page.getByTestId('product-title')).toContainText('in einer App');
+  await expect(page.getByTestId('home-expand')).toBeAttached();
+  await expect(page.getByTestId('product-title')).toHaveText('BauPad');
+  await expect(page.locator('.bp-tagline')).toContainText('in einer App');
   expect(new URL(page.url()).pathname).toBe('/baupad');
+  await expect(page.getByTestId('home-expand')).toHaveCount(0); // Fläche ist wieder weg
   // Englisch
   await page.goto('./en');
   await expect(page.getByTestId('home-product')).toHaveAttribute('href', '/en/baupad');
@@ -130,15 +134,19 @@ test('Website: Startseite, Produkte, BauPad, Unternehmen, Kontaktformular, Sprac
   await expect(page.getByTestId('product-open-baupad')).toContainText('BauPad'); // Name als Link zur Produktseite
   await page.getByTestId('product-open-baupad').click();
 
-  // BauPad: sieben Werkzeuge, Werkzeug-Seite, Werkzeug nur mit Anmeldung
-  await expect(page.getByTestId('product-title')).toContainText('in einer App');
+  // BauPad (hell): groß Symbol und Name, darunter jedes Werkzeug als Fenster in seiner Farbe mit kurzer Aufzählung
+  await expect(page.getByTestId('product-title')).toHaveText('BauPad');
+  await expect(page.locator('.ps-site')).toHaveCSS('background-color', 'rgb(244, 244, 246)');
+  await expect(page.getByTestId('home-expand')).toHaveCount(0); // über Produkte ohne Übergang
   await expect(page.getByTestId('product-card')).toHaveCount(7);
   await expect(page.getByTestId('product-grid').locator('a')).toHaveCount(7); // alle sieben, jedes anklickbar
   await expect(page.getByTestId('product-card').nth(3)).toContainText('Fotos');
   await expect(page.getByTestId('product-card').nth(4)).toContainText('Mängel');
   await expect(page.getByTestId('product-card').nth(5)).toContainText('Zeiten');
   await expect(page.getByTestId('product-card').nth(6)).toContainText('Material');
-  await expect(page.getByTestId('problem-pairs').locator('article')).toHaveCount(3); // Problem → Lösung
+  await expect(page.locator('.bp-tool-icon')).toHaveCount(7);
+  await expect(page.getByTestId('product-card').first().locator('.bp-points > span')).toHaveCount(3); // nur Aufzählung
+  await expect(page.getByTestId('product-card').first()).toHaveCSS('background-image', /rgb\(255, 106, 19\)/); // Farbe des Werkzeugs
   await page.getByTestId('product-card').nth(3).click();
   await expect(page.getByTestId('product-title')).toHaveText('Fotos');
   expect(page.url()).toContain('/baupad/funktionen/fotos');
@@ -149,6 +157,9 @@ test('Website: Startseite, Produkte, BauPad, Unternehmen, Kontaktformular, Sprac
   // Unternehmen
   await nav.getByRole('link', { name: 'Über uns', exact: true }).click();
   await expect(h1).toContainText('für die Praxis');
+  // Über uns ist hell, die Leiste darüber schwarzes Glas
+  await expect(page.locator('.ps-site')).toHaveCSS('background-color', 'rgb(244, 244, 246)');
+  await expect(nav).toHaveClass(/on-light/);
   // „Wofür wir stehen“ (fünf Grundsätze) und „Technik, die mitwächst“ (sechs Punkte) stehen hier – ohne Zertifikats-Werbung
   await expect(page.getByTestId('values').locator(':scope > li')).toHaveCount(5);
   await expect(page.getByTestId('tech').locator(':scope > li')).toHaveCount(6);
@@ -638,7 +649,7 @@ test('Website: Werkzeugseite Materialverwaltung (DE/EN), öffnet das Werkzeug', 
   await expect(page.getByTestId('product-title')).toHaveText('Material');
   // BauPad-Seite nennt sieben Werkzeuge
   await page.goto('./baupad');
-  await expect(page.locator('body')).toContainText('Sieben Werkzeuge in einer App.');
+  await expect(page.getByTestId('product-card')).toHaveCount(7);
   await expect(page.locator('body')).not.toContainText(/sechs Werkzeuge/i);
 });
 });

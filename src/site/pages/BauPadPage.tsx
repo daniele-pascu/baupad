@@ -1,11 +1,17 @@
+import type { CSSProperties } from 'react';
 import { InstallButton } from '../../components/InstallApp';
+import { ToolIcon } from '../../components/ToolIcon';
 import { paths } from '../../lib/router';
 import { useLang } from '../i18n';
 import { TOOL_ENTRIES, toolPath } from '../products';
 import { siteAlternates, softwareJsonLd } from '../seo';
 import { SiteLayout } from '../components/SiteShell';
 
-/** Produktseite BauPad – schlicht: Aussage, die sieben Werkzeuge, Zahlen, Probleme und Antworten, Rollen, Technik, Abschluss */
+/**
+ * Produktseite BauPad (hell): oben groß das App-Symbol und „BauPad“, darunter jedes Werkzeug als eigenes Fenster
+ * in seiner Farbe – Symbol, Name und nur eine kurze Aufzählung (ohne Beschreibung). Jedes Fenster führt zur Werkzeug-Seite.
+ * Die weiteren Inhalte (Probleme und Antworten, Rollen, Einführung) kommen später Werkzeug für Werkzeug dazu.
+ */
 export function BauPadPage() {
   const { lang, t } = useLang();
   const b = t.baupad;
@@ -20,115 +26,45 @@ export function BauPadPage() {
       }}
       className="ps-baupad"
     >
-      <section aria-labelledby="ps-bp-title">
-        <p className="ps-eyebrow">
-          {b.hero.eyebrow} · {b.hero.status}
-        </p>
+      <section className="bp-hero" aria-labelledby="ps-bp-title">
+        <span className="ps-app-icon bp-icon" aria-hidden="true">
+          <span>BauPad</span>
+        </span>
         <h1 id="ps-bp-title" data-testid="product-title">
-          {b.hero.title.join(' ')}
+          {t.product}
         </h1>
-        <p>{b.hero.lead}</p>
-        <ul id="werkzeuge" data-testid="product-grid">
-          {TOOL_ENTRIES.map((x) => (
-            <li key={x.id}>
-              <a href={toolPath(x.id, lang)} data-testid="product-card">
-                {t.tools[x.id].title}
-              </a>{' '}
-              – {t.tools[x.id].short}
-            </li>
-          ))}
-        </ul>
-        <p className="ps-links">
-          <a href={paths.contact(lang)} data-testid="cta-contact">
-            {b.hero.primary}
-          </a>
-          <a href={paths.tools()} data-testid="cta-tools">
+        <p className="bp-tagline">{t.home.product.tagline}</p>
+        <p className="bp-status">{b.hero.status}</p>
+        <p className="bp-btns">
+          <a href={paths.tools()} className="bp-b1" data-testid="cta-tools">
             {b.hero.secondary}
           </a>
+          <a href={paths.contact(lang)} className="bp-b2" data-testid="cta-contact">
+            {b.hero.primary}
+          </a>
         </p>
-      </section>
-
-      <section>
-        <ul className="ps-numbers">
-          {b.numbers.map((n) => (
-            <li key={n.label}>
-              <strong>{n.value}</strong> {n.label}
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section aria-labelledby="bp-problems">
-        <p className="ps-eyebrow">{b.problems.eyebrow}</p>
-        <h2 id="bp-problems">{b.problems.title}</h2>
-        <div data-testid="problem-pairs">
-          {b.problems.items.map((p) => (
-            <article key={p.problem}>
-              <h3>
-                {b.problems.problemLabel}: {p.problem}
-              </h3>
-              <p>{p.detail}</p>
-              <p>
-                <strong>
-                  {b.problems.solutionLabel}: {p.solution}
-                </strong>
-              </p>
-              <ul>
-                {p.points.map((pt) => (
-                  <li key={pt}>{pt}</li>
-                ))}
-              </ul>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section aria-labelledby="bp-one">
-        <p className="ps-eyebrow">{b.one.eyebrow}</p>
-        <h2 id="bp-one">{b.one.title}</h2>
-        <p>{b.one.text}</p>
-        <ul>
-          {b.one.points.map((pt) => (
-            <li key={pt}>{pt}</li>
-          ))}
-        </ul>
-        <p className="ps-eyebrow">{b.roles.eyebrow}</p>
-        <h3>{b.roles.title}</h3>
-        <p>{b.roles.text}</p>
-        <ul data-testid="roles">
-          {b.roles.items.map((r) => (
-            <li key={r.title}>{r.title}</li>
-          ))}
-        </ul>
-      </section>
-
-      <section aria-labelledby="bp-intro">
-        <p className="ps-eyebrow">{b.intro.eyebrow}</p>
-        <h2 id="bp-intro">{b.intro.title}</h2>
-        <p>{b.intro.text}</p>
-        <ul>
-          {b.intro.facts.map((f) => (
-            <li key={f}>{f}</li>
-          ))}
-        </ul>
-        <p>
+        <p className="bp-install">
           <InstallButton variant="link" />
         </p>
       </section>
 
-      <section aria-labelledby="bp-cta">
-        <p className="ps-eyebrow">{b.cta.eyebrow}</p>
-        <h2 id="bp-cta">{b.cta.title}</h2>
-        <p>{b.cta.text}</p>
-        <p className="ps-links">
-          <a href={paths.contact(lang)} data-testid="cta-contact-2">
-            {b.cta.primary}
-          </a>
-          <a href={paths.register()} data-testid="cta-register">
-            {b.cta.secondary}
-          </a>
-        </p>
-      </section>
+      <ul id="werkzeuge" className="bp-tools" data-testid="product-grid" aria-label={t.home.product.wall.aria}>
+        {TOOL_ENTRIES.map((x) => (
+          <li key={x.id}>
+            <a href={toolPath(x.id, lang)} className="bp-tool" style={{ '--tool': x.color } as CSSProperties} data-testid="product-card">
+              <span className="bp-tool-icon" aria-hidden="true">
+                <ToolIcon name={x.icon} size={26} />
+              </span>
+              <strong>{t.tools[x.id].title}</strong>
+              <span className="bp-points">
+                {t.tools[x.id].points.map((pt) => (
+                  <span key={pt}>{pt}</span>
+                ))}
+              </span>
+            </a>
+          </li>
+        ))}
+      </ul>
     </SiteLayout>
   );
 }
