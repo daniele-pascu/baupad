@@ -11,9 +11,9 @@ import { FIXTURES, OUT, catchDownload, createProject, freshStart, openPlan, sele
 test.describe('ohne Anmeldung', () => {
   test.use({ signedIn: false });
 
-test('Website (schlichte Fassung): Startseite – Name, Motto, BauPad, sieben Werkzeuge, Entwicklung, Kontakt; Menü', async ({ page }) => {
+test('Website: Startseite – Name, Motto, BauPad, sieben Werkzeuge, Arbeitsweise, Kontakt in Glasfenstern; Leiste und Menü', async ({ page }) => {
   await page.goto('./');
-  await expect(page.getByTestId('home-motto')).toHaveText('Problem.Analysis.Development.');
+  await expect(page.getByTestId('home-motto')).toHaveText('ProblemAnalysisDevelopment');
   await expect(page.getByTestId('cta-company')).toHaveAttribute('href', '/unternehmen');
   await expect(page.getByTestId('cta-solutions')).toHaveAttribute('href', '#loesungen');
   await expect(page.getByTestId('home-can').locator('li')).toHaveCount(3); // ganz kurz, was BauPad kann
@@ -23,8 +23,13 @@ test('Website (schlichte Fassung): Startseite – Name, Motto, BauPad, sieben We
   await expect(page.getByTestId('home-tools')).toHaveAttribute('href', '/baupad');
   await expect(page.getByTestId('home-steps').locator('li')).toHaveText(['Problem verstehen', 'Lösung bauen', 'Laufend verfeinern']);
   await expect(page.getByTestId('cta-contact-2')).toBeVisible();
-  // schlicht: keine Bilder, keine Animationen
-  await expect(page.locator('.ps-main img, .ps-main svg, .ps-main canvas')).toHaveCount(0);
+  // ein Bild (BauPad am Handy), sonst alles echter Text; keine Animationen
+  await expect(page.locator('.ps-main img')).toHaveCount(1);
+  await expect(page.locator('.ps-main svg, .ps-main canvas')).toHaveCount(0);
+  await expect(page.locator('.ph-win')).toHaveCount(4); // BauPad, Werkzeuge, Arbeitsweise, Kontakt
+  // Farbe: Akzent Violett über den Überschriften, die Linie der Arbeitsweise läuft von Violett in Petrol
+  await expect(page.locator('.ph-win .ps-eyebrow').first()).toHaveCSS('color', 'rgb(157, 140, 255)');
+  await expect(page.getByTestId('home-steps').locator('li').last()).toBeVisible();
   // keine Zertifikate oder Garantien behauptet
   await expect(page.locator('.ps-main')).not.toContainText(/zertifiziert|DSGVO-konform|garantiert/i);
   const card = page.getByTestId('home-product');
@@ -36,7 +41,7 @@ test('Website (schlichte Fassung): Startseite – Name, Motto, BauPad, sieben We
   await page.goto('./en');
   await expect(page.getByTestId('home-product')).toHaveAttribute('href', '/en/baupad');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('PAD Software');
-  await expect(page.getByTestId('home-motto')).toHaveText('Problem.Analysis.Development.');
+  await expect(page.getByTestId('home-motto')).toHaveText('ProblemAnalysisDevelopment');
   // Leiste: Logo mit „PAD Software“ links, Home · Produkte · Über uns · Kontakt in der Mitte, Anmelden rechts
   await page.goto('./');
   const nav = page.getByTestId('site-nav');
@@ -48,7 +53,7 @@ test('Website (schlichte Fassung): Startseite – Name, Motto, BauPad, sieben We
   const bar = nav.locator('.ps-bar');
   expect((await bar.boundingBox())!.y).toBeGreaterThanOrEqual(8);
   await expect(bar).toHaveCSS('background-color', 'rgba(255, 255, 255, 0.1)');
-  await expect(page.locator('.ps-site')).toHaveCSS('background-color', 'rgb(28, 28, 30)');
+  await expect(page.locator('.ps-site')).toHaveCSS('background-color', 'rgb(10, 10, 11)');
   await page.mouse.move(700, 600);
   await page.mouse.wheel(0, 800);
   await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(100);
@@ -86,7 +91,7 @@ test('Website: Startseite, Produkte, BauPad, Unternehmen, Kontaktformular, Sprac
   await expect(page.locator('html')).toHaveAttribute('lang', 'de');
   // direkt nach dem ersten Bildschirm: BauPad
   await expect(page.getByTestId('home-product')).toHaveAttribute('href', '/baupad');
-  await expect(page.locator('.ps-main img')).toHaveCount(0); // schlicht: keine Bilder
+  await expect(page.locator('.ps-main img')).toHaveCount(1); // nur BauPad am Handy
 
   // Produkte
   await page.getByTestId('site-footer').getByRole('link', { name: 'Produkte', exact: true }).click();

@@ -61,6 +61,8 @@ export const de = {
     },
     product: {
       label: 'Unsere Lösungen',
+      eyebrow: 'Unsere Produkte',
+      status: 'Testphase',
       tag: 'Baubranche · Testphase',
       name: 'BauPad',
       tagline: 'Die Baustelle in einer App.',
@@ -97,7 +99,7 @@ export const de = {
       ],
     },
     process: {
-      label: 'Unsere Entwicklung',
+      label: 'Unsere Arbeitsweise',
       title: 'So entsteht unsere Software.',
       stepLabel: 'Schritt',
       steps: [
@@ -120,6 +122,7 @@ export const de = {
       note: 'Wir werben nicht mit Zertifikaten oder Garantien, die wir nicht nachweisen können.',
     },
     contact: {
+      label: 'Kontakt',
       title: 'Sprechen wir über Ihre Arbeitsabläufe.',
       text: 'Wir melden uns persönlich.',
       primary: 'Kontakt aufnehmen',

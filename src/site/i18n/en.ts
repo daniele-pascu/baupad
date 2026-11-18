@@ -59,6 +59,8 @@ export const en: Dict = {
     },
     product: {
       label: 'Our solutions',
+      eyebrow: 'Our products',
+      status: 'Test phase',
       tag: 'Construction · Test phase',
       name: 'BauPad',
       tagline: 'The construction site in one app.',
@@ -95,7 +97,7 @@ export const en: Dict = {
       ],
     },
     process: {
-      label: 'Our development',
+      label: 'How we work',
       title: 'How our software is made.',
       stepLabel: 'Step',
       steps: [
@@ -118,6 +120,7 @@ export const en: Dict = {
       note: 'We do not advertise certificates or guarantees that we cannot prove.',
     },
     contact: {
+      label: 'Contact',
       title: 'Let us talk about your workflows.',
       text: 'We will get back to you personally.',
       primary: 'Get in touch',
