@@ -700,30 +700,78 @@ body:has(.ps-site) {
 }
 
 /* =====================================================================
-   Startseite: erster Bereich frei, danach Fenster aus Liquid Glass mit geschliffener Lichtkante.
-   Groß und kaum sichtbar das PAD-Zeichen im Hintergrund (steht still).
+   Startseite: oben ein schwarzer Kopf mit der Firma (Licht in Violett und Petrol, kaum sichtbar das PAD-Zeichen),
+   darunter heller Grund mit zarten Farblichtern und Fenstern aus hellem Liquid Glass.
    ===================================================================== */
+.ps-home {
+  --ps-bg: #f4f4f6;
+  --ps-fg: #111;
+  --ps-soft: rgba(0, 0, 0, 0.62);
+  --ps-faint: rgba(0, 0, 0, 0.45);
+  --ps-line: rgba(0, 0, 0, 0.1);
+  --ps-acc: #6a55f0;
+  --ps-acc2: #12a58e;
+}
+html:has(.ps-home),
+body:has(.ps-home) {
+  background: linear-gradient(#0a0a0b 50%, #f4f4f6 50%);
+}
 .ps-home::before {
   background:
+    radial-gradient(var(--ps-l1, 42vw) var(--ps-l1, 42vw) at 88% 30%, rgba(var(--ps-c1), 0.2), rgba(var(--ps-c1), 0) 70%),
+    radial-gradient(var(--ps-l2, 38vw) var(--ps-l2, 38vw) at 6% 92%, rgba(var(--ps-c2), 0.18), rgba(var(--ps-c2), 0) 70%);
+}
+.ps-home::after {
+  opacity: 0.035;
+}
+.ps-home :focus-visible {
+  outline-color: #111;
+}
+
+/* schwarzer Kopf in voller Breite, reicht unter die schwebende Leiste; unten weich gerundet */
+.ph-top {
+  --ps-fg: #f5f5f7;
+  --ps-soft: rgba(255, 255, 255, 0.7);
+  --ps-acc: #9d8cff;
+  position: relative;
+  z-index: 0;
+  margin-top: -86px;
+  padding: 86px 20px 0;
+  overflow: hidden;
+  border-radius: 0 0 clamp(28px, 4vw, 48px) clamp(28px, 4vw, 48px);
+  background: #0a0a0b;
+  color: var(--ps-fg);
+}
+.ph-top::before,
+.ph-top::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+.ph-top::before {
+  background:
     url('/site/pad-mark-bg.svg') right -14vw top 8vh / min(78vw, 980px) auto no-repeat,
-    radial-gradient(var(--ps-l1, 42vw) var(--ps-l1, 42vw) at 88% 22%, rgba(var(--ps-c1), 0.3), rgba(var(--ps-c1), 0) 70%),
-    radial-gradient(var(--ps-l2, 38vw) var(--ps-l2, 38vw) at 6% 92%, rgba(var(--ps-c2), 0.22), rgba(var(--ps-c2), 0) 70%),
+    radial-gradient(var(--ps-l1, 42vw) var(--ps-l1, 42vw) at 88% 30%, rgba(var(--ps-c1), 0.34), rgba(var(--ps-c1), 0) 70%),
+    radial-gradient(var(--ps-l2, 38vw) var(--ps-l2, 38vw) at 4% 100%, rgba(var(--ps-c2), 0.26), rgba(var(--ps-c2), 0) 70%),
     radial-gradient(70vw 55vh at 50% -8%, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 70%);
 }
-.ps-home .ps-main,
-.ps-home .ps-footer {
-  max-width: 1040px;
+.ph-top::after {
+  opacity: 0.07;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
 }
-.ps-home .ps-main {
-  padding-top: 0;
-  padding-bottom: 80px;
+.ph-top :focus-visible {
+  outline-color: #fff;
 }
 .ph-hero {
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
+  max-width: 1000px;
   min-height: calc(min(82vh, 760px) - 86px);
-  padding: 48px clamp(4px, 3.6vw, 40px) clamp(40px, 9vh, 96px);
+  margin: 0 auto;
+  padding: 48px clamp(4px, 3.6vw, 40px) clamp(48px, 10vh, 104px);
 }
 .ps-home .ph-hero h1 {
   margin: 0 0 12px;
@@ -756,6 +804,20 @@ body:has(.ps-site) {
   max-width: 32em;
   color: var(--ps-soft);
 }
+
+.ps-home .ps-main,
+.ps-home .ps-footer {
+  max-width: 1040px;
+}
+.ps-home .ps-main {
+  padding-top: clamp(32px, 6vw, 64px);
+  padding-bottom: 80px;
+}
+#loesungen {
+  scroll-margin-top: 96px;
+}
+
+/* Tasten: im schwarzen Kopf hell (Maus darüber → schwarz), auf hellem Grund schwarz (Maus darüber → dunkelgrau) */
 .ph-btns {
   display: flex;
   flex-wrap: wrap;
@@ -773,50 +835,67 @@ body:has(.ps-site) {
   text-decoration: none;
   transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
 }
-/* hell wie Anmelden: Maus darüber oder Antippen → schwarz mit weißer Schrift */
 .ps-site .ph-b1 {
-  border: 1.5px solid #fff;
+  border: 1.5px solid #111;
+  background: #111;
+  color: #fff;
+}
+.ps-site .ph-b1:hover,
+.ps-site .ph-b1:active {
+  border-color: #3a3a40;
+  background: #3a3a40;
+}
+.ps-site .ph-b2 {
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.6);
+  color: #111;
+}
+.ps-site .ph-b2:hover {
+  background: #fff;
+}
+.ps-site .ph-top .ph-b1 {
+  border-color: #fff;
   background: rgba(255, 255, 255, 0.9);
   color: #111;
   box-shadow: inset 0 1.5px #fff;
 }
-.ps-site .ph-b1:hover,
-.ps-site .ph-b1:active {
+.ps-site .ph-top .ph-b1:hover,
+.ps-site .ph-top .ph-b1:active {
   border-color: rgba(255, 255, 255, 0.35);
   background: #000;
   color: #fff;
 }
-.ps-site .ph-b2 {
-  border: 1px solid rgba(255, 255, 255, 0.16);
+.ps-site .ph-top .ph-b2 {
+  border-color: rgba(255, 255, 255, 0.16);
   background: rgba(255, 255, 255, 0.08);
   color: #fff;
 }
-.ps-site .ph-b2:hover {
+.ps-site .ph-top .ph-b2:hover {
   background: rgba(255, 255, 255, 0.14);
 }
 
+/* Fenster aus hellem Glas: milchig, die Farblichter schimmern durch; Kante als feiner heller Saum mit weichem Schatten */
 .ps-main .ph-win {
   position: relative;
   margin: 0 0 22px;
   padding: clamp(24px, 3.6vw, 40px);
   border-radius: 28px;
-  background-color: rgba(255, 255, 255, 0.06);
-  background-image: linear-gradient(160deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0) 40%);
+  background-color: rgba(255, 255, 255, 0.55);
+  background-image: linear-gradient(160deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0) 45%);
   -webkit-backdrop-filter: blur(18px) saturate(160%);
   backdrop-filter: blur(18px) saturate(160%);
   box-shadow:
-    inset 0 0 24px rgba(255, 255, 255, 0.035),
-    0 0 40px -12px rgba(255, 255, 255, 0.06),
-    0 28px 56px -28px rgba(0, 0, 0, 0.85);
+    inset 0 0 0 1px rgba(255, 255, 255, 0.7),
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 24px 48px -24px rgba(30, 20, 80, 0.25);
 }
-/* geschliffene Kante: kein Rand, nur ein feiner Lichtsaum – oben links hell, läuft weich aus, unten rechts ein Hauch */
 .ph-win::after {
   content: '';
   position: absolute;
   inset: 0;
   padding: 1px;
   border-radius: inherit;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.12) 22%, rgba(255, 255, 255, 0) 45%, rgba(255, 255, 255, 0) 70%, rgba(255, 255, 255, 0.18));
+  background: linear-gradient(135deg, #fff, rgba(255, 255, 255, 0.4) 25%, rgba(0, 0, 0, 0) 50%, rgba(0, 0, 0, 0.06));
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
@@ -834,8 +913,8 @@ body:has(.ps-site) {
   line-height: 1.12;
   letter-spacing: -0.02em;
 }
-.ph-win p {
-  color: rgba(255, 255, 255, 0.72);
+.ph-win p:not(.ps-eyebrow) {
+  color: var(--ps-soft);
 }
 
 /* BauPad: Text links, Handy rechts */
@@ -853,15 +932,15 @@ body:has(.ps-site) {
   margin-left: 10px;
   padding: 3px 10px;
   border-radius: 999px;
-  background: rgba(var(--ps-c1), 0.22);
-  color: #fff;
+  background: rgba(var(--ps-c1), 0.14);
+  color: #3b2fb0;
   font-size: 12px;
   font-weight: 500;
   letter-spacing: 0;
   vertical-align: 5px;
 }
-.ps-home .ph-tagline {
-  color: #fff;
+.ps-home .ph-win .ph-tagline {
+  color: #111;
 }
 .ps-site .ph-pts {
   display: grid;
@@ -869,7 +948,7 @@ body:has(.ps-site) {
   margin: 14px 0 22px;
   padding: 0;
   list-style: none;
-  color: rgba(255, 255, 255, 0.82);
+  color: rgba(0, 0, 0, 0.75);
 }
 .ps-site .ph-pts li {
   display: flex;
@@ -893,8 +972,7 @@ body:has(.ps-site) {
   background: #0b0b0c;
   box-shadow:
     inset 0 0 0 2px #1d1d1f,
-    0 0 30px -10px rgba(255, 255, 255, 0.1),
-    0 30px 60px -24px rgba(0, 0, 0, 0.9);
+    0 30px 60px -24px rgba(20, 10, 60, 0.45);
   transform: rotate(3deg);
 }
 .ph-phone img {
@@ -906,7 +984,7 @@ body:has(.ps-site) {
   object-position: top;
 }
 
-/* sieben Werkzeuge: kleine Glasfelder, jedes ein Link */
+/* sieben Werkzeuge: kleine helle Felder, jedes ein Link */
 .ps-site .ph-tools {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -924,27 +1002,28 @@ body:has(.ps-site) {
   gap: 2px;
   height: 100%;
   padding: 14px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.06);
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.6);
   text-decoration: none;
-  transition: background-color 0.15s ease;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
 }
 .ps-site .ph-tools a:hover {
-  background: rgba(255, 255, 255, 0.09);
+  background: #fff;
+  box-shadow: 0 8px 20px -12px rgba(30, 20, 80, 0.3);
 }
 .ph-tools span {
-  color: rgba(255, 255, 255, 0.66);
+  color: var(--ps-soft);
   font-size: 15px;
   line-height: 1.4;
 }
-.ps-home .ph-note {
+.ps-home .ph-win .ph-note {
   margin: 14px 0 0;
   color: var(--ps-faint);
   font-size: 14px;
 }
 
-/* Arbeitsweise auf einer Linie: Lichtpunkt je Schritt, die Linie läuft von Violett in Petrol und nach dem letzten weich aus */
+/* Arbeitsweise auf einer Linie: Punkt je Schritt, die Linie läuft von Violett in Petrol und nach dem letzten weich aus */
 .ps-site .ph-steps {
   position: relative;
   display: grid;
@@ -960,8 +1039,8 @@ body:has(.ps-site) {
   left: 6px;
   right: -8px;
   top: 6px;
-  height: 1px;
-  background: linear-gradient(90deg, var(--ps-acc), var(--ps-acc2) 75%, rgba(var(--ps-c2), 0));
+  height: 1.5px;
+  background: linear-gradient(90deg, var(--ps-acc), var(--ps-acc2) 75%, rgba(18, 165, 142, 0));
 }
 .ps-site .ph-steps li {
   position: relative;
@@ -980,28 +1059,85 @@ body:has(.ps-site) {
   border-radius: 50%;
   background: var(--ps-acc);
   box-shadow:
-    0 0 0 4px rgba(var(--ps-c1), 0.18),
-    0 0 18px rgba(var(--ps-c1), 0.7);
+    0 0 0 4px rgba(var(--ps-c1), 0.16),
+    0 0 14px rgba(var(--ps-c1), 0.45);
 }
 .ph-steps li:nth-child(2)::before {
-  background: #6eb6e2;
+  background: #3e7dbf;
 }
 .ph-steps li:nth-child(3)::before {
   background: var(--ps-acc2);
   box-shadow:
     0 0 0 4px rgba(var(--ps-c2), 0.18),
-    0 0 18px rgba(var(--ps-c2), 0.7);
+    0 0 14px rgba(var(--ps-c2), 0.45);
 }
 
 .ps-site .ph-mail {
   display: inline-block;
   margin: 2px 0 6px;
-  color: #fff;
+  color: #111;
   font-size: clamp(19px, 2.2vw, 24px);
   text-decoration: none;
 }
 .ps-site .ph-mail:hover {
   text-decoration: underline;
+}
+
+/* Leiste über hellem Grund: helles Glas, schwarze Schrift, Anmelden schwarz (Maus darüber → dunkelgrau) */
+.ps-site .ps-header.on-light .ps-bar {
+  border-color: rgba(255, 255, 255, 0.9);
+  background-color: rgba(255, 255, 255, 0.6);
+  background-image: linear-gradient(rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0) 60%);
+  box-shadow:
+    inset 0 1.5px #fff,
+    0 12px 30px -14px rgba(30, 20, 80, 0.28);
+}
+.ps-site .ps-header.on-light .ps-bar a,
+.ps-site .ps-header.on-light .ps-nav-products button {
+  color: #111;
+}
+.ps-site .ps-header.on-light .ps-nav a:hover,
+.ps-site .ps-header.on-light .ps-nav-products button:hover,
+.ps-site .ps-header.on-light .ps-nav-products.is-open button {
+  background: rgba(0, 0, 0, 0.06);
+}
+.ps-site .ps-header.on-light .ps-logo img {
+  filter: invert(1);
+}
+.ps-site .ps-header.on-light .ps-menu-btn span {
+  background: #111;
+}
+.ps-site .ps-header.on-light .ps-bar :focus-visible {
+  outline-color: #111;
+}
+.ps-site .ps-header.on-light .ps-login {
+  border-color: #111;
+  background-color: #111;
+  background-image: none;
+  color: #fff !important;
+  box-shadow: 0 8px 20px -10px rgba(0, 0, 0, 0.45);
+}
+.ps-site .ps-header.on-light .ps-login:hover,
+.ps-site .ps-header.on-light .ps-login:active {
+  border-color: #3a3a40;
+  background-color: #3a3a40;
+}
+.ps-site .ps-header.on-light .ps-products-panel {
+  border-color: rgba(255, 255, 255, 0.9);
+  background-color: rgba(255, 255, 255, 0.72);
+  background-image: none;
+  box-shadow:
+    inset 0 1px #fff,
+    0 24px 48px -20px rgba(30, 20, 80, 0.35);
+}
+.ps-site .ps-header.on-light .ps-nav .ps-product:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+.ps-site .ps-header.on-light .ps-product strong {
+  color: #111;
+}
+.ps-site .ps-header.on-light .ps-product-line {
+  color: rgba(0, 0, 0, 0.6);
 }
 
 @media (max-width: 800px) {
@@ -1021,9 +1157,9 @@ body:has(.ps-site) {
     right: auto;
     top: 6px;
     bottom: -14px;
-    width: 1px;
+    width: 1.5px;
     height: auto;
-    background: linear-gradient(180deg, var(--ps-acc), var(--ps-acc2) 75%, rgba(var(--ps-c2), 0));
+    background: linear-gradient(180deg, var(--ps-acc), var(--ps-acc2) 75%, rgba(18, 165, 142, 0));
   }
   .ps-site .ph-steps li {
     padding: 0 0 0 32px;
