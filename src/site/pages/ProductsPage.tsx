@@ -1,46 +1,40 @@
-import { paths } from '../../lib/router';
-import { useLang } from '../i18n';
-import { siteAlternates } from '../seo';
-import { SiteLayout } from '../components/SiteShell';
-import { BauPadIcon } from '../components/BauPadIcon';
+import { paths } from "../../lib/router";
+import { useLang } from "../i18n";
+import { siteAlternates } from "../seo";
+import { SiteLayout } from "../components/SiteShell";
 
-/**
- * Produktübersicht: schwarzer, bildschirmfüllender Bereich, in der Mitte das Produkt BauPad (Logo, Name, eine Zeile).
- * Die ganze Karte ist antippbar und führt zur Produktseite. Darunter der Platz für weitere Lösungen.
- */
+/** Produktübersicht – schlicht: BauPad mit einer Zeile, Status und Link; darunter der Hinweis auf weitere Lösungen */
 export function ProductsPage() {
   const { lang, t } = useLang();
   const p = t.products;
   const h = t.home.product;
   return (
-    <SiteLayout meta={{ title: p.title, description: p.description, lang, alternates: siteAlternates('products') }} className="ph pp">
-      <section className="pp-hero" aria-labelledby="ps-products-title">
-        <div className="ph-w pp-in">
-          <p className="ph-mono ph-eye">{p.eyebrow}</p>
-          <h1 id="ps-products-title" className="pp-h1">
-            {p.heading}
-          </h1>
-          <a href={paths.baupad(lang)} className="pp-card" aria-label={h.aria} data-testid="product-open-baupad">
-            <BauPadIcon className="pp-icon" />
-            <span className="pp-name">{t.product}</span>
-            <span className="pp-line">{h.tagline}</span>
-            <span className="ph-mono pp-tag" data-testid="product-status">
-              <i aria-hidden="true" />
-              {h.tag}
-            </span>
-            <span className="ph-btn ph-btn-lime pp-go">
-              {p.open}
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M5 12h14M13 6l6 6-6 6" />
-              </svg>
-            </span>
+    <SiteLayout
+      meta={{
+        title: p.title,
+        description: p.description,
+        lang,
+        alternates: siteAlternates("products"),
+      }}
+      className="ps-products"
+    >
+      <p className="ps-eyebrow">{p.eyebrow}</p>
+      <h1>{p.heading}</h1>
+      <section aria-labelledby="pp-baupad">
+        <h2 id="pp-baupad">
+          <a href={paths.baupad(lang)} data-testid="product-open-baupad">
+            {t.product}
           </a>
-          <div className="ph-slot pp-slot">
-            <b>{h.more}</b>
-            <span className="ph-mono">{h.moreTag}</span>
-          </div>
-        </div>
+        </h2>
+        <p>{h.tagline}</p>
+        <p data-testid="product-status">{h.tag}</p>
+        <p className="ps-links">
+          <a href={paths.baupad(lang)}>{p.open}</a>
+        </p>
       </section>
+      <p>
+        {h.more} ({h.moreTag})
+      </p>
     </SiteLayout>
   );
 }

@@ -11,77 +11,36 @@ import { FIXTURES, OUT, catchDownload, createProject, freshStart, openPlan, sele
 test.describe('ohne Anmeldung', () => {
   test.use({ signedIn: false });
 
-test('Website: Startseite PAD Software – Grundsätze, Lösungen mit Kachelwand, Entwicklung, Technologie; ohne Bewegung steht alles fertig da', async ({ page }) => {
+test('Website (schlichte Fassung): Startseite – Name, Motto, BauPad, sieben Werkzeuge, Entwicklung, Kontakt; Menü', async ({ page }) => {
   await page.goto('./');
-  // Abschnitte: erster Bildschirm (Name, Motto, Logo), direkt darunter BauPad (drei Punkte, Laptop + Tablet + Handy), Kachelwand, weiter zur Produktseite, Entwicklung, Kontakt
   await expect(page.getByTestId('home-motto')).toHaveText('Problem.Analysis.Development.');
-  // der erste Bildschirm füllt das Fenster: BauPad beginnt direkt darunter; Grundsätze und Technik stehen auf „Über uns“
-  expect((await page.locator('#loesungen').boundingBox())!.y).toBeGreaterThanOrEqual(page.viewportSize()!.height - 2);
-  await expect(page.locator('.ph-val, .ph-tech li')).toHaveCount(0);
   await expect(page.getByTestId('cta-company')).toHaveAttribute('href', '/unternehmen');
-  await expect(page.getByTestId('home-stage').locator('img')).toHaveCount(3); // Laptop, Tablet und Handy
-  await expect(page.getByTestId('home-can').locator('li')).toHaveCount(3); // ganz kurz, was BauPad kann
-  await expect(page.getByTestId('home-tools')).toHaveAttribute('href', '/baupad'); // weiter zu den Werkzeugen auf der Produktseite
-  await expect(page.locator('.ph-step')).toHaveCount(4);
-  await expect(page.getByTestId('cta-contact-2')).toBeVisible();
   await expect(page.getByTestId('cta-solutions')).toHaveAttribute('href', '#loesungen');
+  await expect(page.getByTestId('home-can').locator('li')).toHaveCount(3); // ganz kurz, was BauPad kann
+  // die sieben Werkzeuge als Liste mit Links
+  await expect(page.getByTestId('home-tool-list').locator('li')).toHaveCount(7);
+  await expect(page.getByTestId('home-tool-list')).toContainText('Material');
+  await expect(page.getByTestId('home-tools')).toHaveAttribute('href', '/baupad');
+  await expect(page.getByTestId('home-steps').locator('li')).toHaveCount(4);
+  await expect(page.getByTestId('cta-contact-2')).toBeVisible();
+  // schlicht: keine Bilder, keine Animationen
+  await expect(page.locator('.ps-main img, .ps-main svg, .ps-main canvas')).toHaveCount(0);
   // keine Zertifikate oder Garantien behauptet
-  await expect(page.locator('.ph')).not.toContainText(/zertifiziert|DSGVO-konform|garantiert/i);
-  // Kachelwand: startet, sobald sie im Bild ist; die Karten der sieben Werkzeuge kommen eine nach der anderen nach vorn,
-  // bis der Kreis geschlossen ist, dann „Eine App.“; die Kacheln drehen sich in Wellen halb um
-  const wall = page.getByTestId('tool-wall');
-  await expect(wall).toHaveAttribute('data-state', 'idle');
-  const cards = wall.getByTestId('tool-wall-card');
-  await expect(cards).toHaveCount(7);
-  // die Wand steht fest hinter der Seite – ihr Fenster im Seitenfluss nach oben holen, dann ist sie ganz frei
-  await expect(wall).toBeHidden();
-  await page.getByTestId('tool-wall-slot').evaluate((e) => window.scrollTo(0, e.getBoundingClientRect().top + window.scrollY - 40));
-  await expect(wall).toBeVisible();
-  await expect(wall).toHaveAttribute('data-state', 'running');
-  const frontCard = wall.locator('[data-testid="tool-wall-card"][data-front]');
-  await expect(frontCard).toHaveAttribute('data-tool', 'projects'); // zuerst Aufmaß vorne …
-  await expect(frontCard).toHaveCSS('opacity', '1');
-  await expect(frontCard).toHaveAttribute('data-tool', 'workers', { timeout: 5000 }); // … dann wandert sie nach links, Team kommt
-  await expect(wall).toHaveAttribute('data-state', 'done', { timeout: 30_000 });
-  await expect(wall.getByTestId('tool-wall-final')).toHaveCSS('opacity', '1');
-  await expect(wall).toContainText('7 Tools'); // Überschrift steht die ganze Zeit in der Mitte
-  await expect(wall.getByTestId('tool-wall-final')).toContainText('Eine App.');
-  await expect(wall.getByTestId('tool-wall-all').locator('li')).toHaveCount(7); // am Ende stehen alle sieben Werkzeuge da
-  await expect(wall.getByTestId('tool-wall-all')).toContainText('Material');
-  expect(await wall.locator('.tw-tile').count()).toBeGreaterThan(60);
-  // Kreis geschlossen: wieder Aufmaß vorne; die vordere Karte führt zur Werkzeug-Seite; danach läuft der Kreis weiter, die Kacheln drehen sich weiter
-  await expect(frontCard).toHaveCount(1);
-  await expect(frontCard).toHaveAttribute('href', /^\/baupad\/funktionen\//);
-  await expect(frontCard).toHaveAttribute('data-tool', 'workers', { timeout: 5000 });
-  const tilePos = () => wall.locator('.tw-tile').evaluateAll((els) => els.map((e) => (e as HTMLElement).style.transform).join());
-  const t1 = await tilePos();
-  await expect.poll(tilePos, { timeout: 8000 }).not.toBe(t1);
-  await wall.getByTestId('tool-wall-again').click(); // „Nochmal ansehen“ startet den Ablauf neu
-  await expect(wall).toHaveAttribute('data-state', 'running');
-  // BauPad als Produkt direkt unter der Aussage: Taste führt zur Produktseite
+  await expect(page.locator('.ps-main')).not.toContainText(/zertifiziert|DSGVO-konform|garantiert/i);
   const card = page.getByTestId('home-product');
   await expect(card).toHaveAttribute('href', '/baupad');
   await card.click();
   await expect(page.getByTestId('product-title')).toContainText('in einer App');
   expect(new URL(page.url()).pathname).toBe('/baupad');
-  // ohne Bewegung (System-Einstellung): nichts bleibt versteckt, die Wand steht sofort beim Schlussbild
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.goto('./');
-  for (const sel of ['.ph-step']) await expect(page.locator(sel).first()).toHaveCSS('opacity', '1');
-  await expect(page.getByTestId('tool-wall')).toHaveAttribute('data-state', 'done');
-  await expect(page.getByTestId('tool-wall-final')).toHaveCSS('opacity', '1');
-  // Englisch: Taste führt zur englischen Produktseite
+  // Englisch
   await page.goto('./en');
   await expect(page.getByTestId('home-product')).toHaveAttribute('href', '/en/baupad');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('PAD Software');
   await expect(page.getByTestId('home-motto')).toHaveText('Problem.Analysis.Development.');
-  // Menü: Home, Produkte (darunter BauPad), Über uns, Kontakt
+  // Menü: Home, Produkte, Über uns, Kontakt, BauPad – alles direkt sichtbar
   await page.goto('./');
   const nav = page.getByTestId('site-nav');
-  for (const n of ['Home', 'Produkte', 'Über uns', 'Kontakt']) await expect(nav.getByRole('link', { name: n, exact: true })).toBeVisible();
-  await expect(page.getByTestId('nav-baupad')).toBeHidden();
-  await page.getByTestId('nav-products').hover();
-  await expect(page.getByTestId('nav-baupad')).toBeVisible();
+  for (const n of ['Home', 'Produkte', 'Über uns', 'Kontakt', 'BauPad']) await expect(nav.getByRole('link', { name: n, exact: true })).toBeVisible();
   await page.getByTestId('nav-baupad').click();
   expect(new URL(page.url()).pathname).toBe('/baupad');
 });
@@ -96,23 +55,20 @@ test('Website: Startseite, Produkte, BauPad, Unternehmen, Kontaktformular, Sprac
   await expect(page.locator('html')).toHaveAttribute('lang', 'de');
   // direkt nach dem ersten Bildschirm: BauPad
   await expect(page.getByTestId('home-product')).toHaveAttribute('href', '/baupad');
-  await expect(page.locator('.ps-panel, .ps-panel-tag')).toHaveCount(0); // keine Bilder und Platzhalter
-  // Bilder: nur das BauPad-Zeichen und die App in den zwei BauPad-Karten – keine Fotos
-  await expect(page.locator('.ps-main img:not([src^="/icons/"]):not([src^="/site/baupad/"])')).toHaveCount(0);
+  await expect(page.locator('.ps-main img')).toHaveCount(0); // schlicht: keine Bilder
 
   // Produkte
   await nav.getByRole('link', { name: 'Produkte', exact: true }).click();
   await expect(h1).toContainText('Produkte von PAD Software');
   await expect(page).toHaveTitle('Produkte – PAD Software');
   await expect(page.getByTestId('product-status')).toContainText('Testphase'); // BauPad in der Testphase
-  await expect(page.getByTestId('product-open-baupad')).toContainText('BauPad'); // Logo und Name in der Mitte, die ganze Karte führt zur Produktseite
+  await expect(page.getByTestId('product-open-baupad')).toContainText('BauPad'); // Name als Link zur Produktseite
   await page.getByTestId('product-open-baupad').click();
 
   // BauPad: sieben Werkzeuge, Werkzeug-Seite, Werkzeug nur mit Anmeldung
   await expect(page.getByTestId('product-title')).toContainText('in einer App');
   await expect(page.getByTestId('product-card')).toHaveCount(7);
-  await expect(page.getByTestId('tool-tiles')).toBeVisible(); // stehender Kachel-Hintergrund hinter den sieben Werkzeugen
-  await expect(page.getByTestId('product-grid').locator('a')).toHaveCount(7); // alle sieben in einer Reihe, jedes anklickbar
+  await expect(page.getByTestId('product-grid').locator('a')).toHaveCount(7); // alle sieben, jedes anklickbar
   await expect(page.getByTestId('product-card').nth(3)).toContainText('Fotos');
   await expect(page.getByTestId('product-card').nth(4)).toContainText('Mängel');
   await expect(page.getByTestId('product-card').nth(5)).toContainText('Zeiten');
@@ -129,9 +85,9 @@ test('Website: Startseite, Produkte, BauPad, Unternehmen, Kontaktformular, Sprac
   await nav.getByRole('link', { name: 'Über uns', exact: true }).click();
   await expect(h1).toContainText('für die Praxis');
   // „Wofür wir stehen“ (fünf Grundsätze) und „Technik, die mitwächst“ (sechs Punkte) stehen hier – ohne Zertifikats-Werbung
-  await expect(page.locator('.ph-val')).toHaveCount(5);
-  await expect(page.locator('.ph-tech li')).toHaveCount(6);
-  await expect(page.locator('.ph')).not.toContainText(/zertifiziert|DSGVO-konform|garantiert/i);
+  await expect(page.getByTestId('values').locator(':scope > li')).toHaveCount(5);
+  await expect(page.getByTestId('tech').locator(':scope > li')).toHaveCount(6);
+  await expect(page.locator('.ps-main')).not.toContainText(/zertifiziert|DSGVO-konform|garantiert/i);
   await expect(page).toHaveTitle('Unternehmen – PAD Software');
   await expect(nav.getByRole('link', { name: 'Zukunft', exact: true })).toHaveCount(0); // Seite abgeschaltet
 

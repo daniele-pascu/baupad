@@ -1,187 +1,133 @@
-import type { CSSProperties } from 'react';
-import { Icon } from '../../components/Icon';
-import { InstallButton } from '../../components/InstallApp';
-import { ToolIcon } from '../../components/ToolIcon';
-import { paths } from '../../lib/router';
-import { useLang } from '../i18n';
-import { TOOL_ENTRIES, toolPath } from '../products';
-import { siteAlternates, softwareJsonLd } from '../seo';
-import { Reveal } from '../components/Reveal';
-import { SiteLayout } from '../components/SiteShell';
-import { BauPadIcon } from '../components/BauPadIcon';
-import { LIT, ToolTiles } from '../components/ToolWall';
+import { InstallButton } from "../../components/InstallApp";
+import { paths } from "../../lib/router";
+import { useLang } from "../i18n";
+import { TOOL_ENTRIES, toolPath } from "../products";
+import { siteAlternates, softwareJsonLd } from "../seo";
+import { SiteLayout } from "../components/SiteShell";
 
-const Points = ({ items }: { items: string[] }) => (
-  <ul className="bp-points">
-    {items.map((pt) => (
-      <li key={pt}>
-        <i>
-          <Icon name="check" size={14} />
-        </i>
-        {pt}
-      </li>
-    ))}
-  </ul>
-);
-
-/**
- * Produktseite BauPad: erster Bildschirm mit stehendem Kachel-Hintergrund und allen sieben Werkzeugen in einer Reihe
- * (farbige Symbol-Quadrate mit Namen wie auf der Startseite, jedes anklickbar), dann Zahlen, Probleme → Antworten, ein Projekt + Rollen, Technik, Abschluss.
- */
+/** Produktseite BauPad – schlicht: Aussage, die sieben Werkzeuge, Zahlen, Probleme und Antworten, Rollen, Technik, Abschluss */
 export function BauPadPage() {
   const { lang, t } = useLang();
   const b = t.baupad;
   return (
-    <SiteLayout meta={{ title: b.title, description: b.description, lang, alternates: siteAlternates('baupad'), jsonLd: [softwareJsonLd(lang, b.description)] }} className="ps-baupad">
-      {/* 1. Kopf: Aussage, alle sieben Werkzeuge in einer Reihe, Tasten – dahinter die stehenden Kacheln */}
-      <section className="bp-hero bp-hero-tiles" aria-labelledby="ps-bp-title">
-        <ToolTiles />
-        <div className="bp-wrap">
-          <div className="bp-top">
-            <p className="bp-pill">
-              <BauPadIcon />
-              {b.hero.eyebrow}
-            </p>
-            <p className="bp-status">
-              <i />
-              {b.hero.status}
-            </p>
-          </div>
-          <h1 id="ps-bp-title" className="bp-h1" data-testid="product-title">
-            {b.hero.title.map((line, i) => (
-              <span key={line} className={i === b.hero.title.length - 1 ? 'bp-accent' : undefined}>
-                {line}
-                {i < b.hero.title.length - 1 ? ' ' : ''}
-              </span>
-            ))}
-          </h1>
-          <p className="bp-lead">{b.hero.lead}</p>
-          <ul className="bp-row7" id="werkzeuge" data-testid="product-grid">
-            {TOOL_ENTRIES.map((x) => (
-              <li key={x.id}>
-                <a href={toolPath(x.id, lang)} className="bp-t7" style={{ '--c': LIT[x.id] } as CSSProperties} data-testid="product-card">
-                  <b className="bp-t7-icon" aria-hidden="true">
-                    <ToolIcon name={x.icon} size={40} />
-                  </b>
-                  <span className="bp-t7-name">{t.tools[x.id].title}</span>
-                </a>
-              </li>
-            ))}
-          </ul>
-          <div className="bp-actions">
-            <a href={paths.contact(lang)} className="bp-btn bp-btn-lime" data-testid="cta-contact">
-              {b.hero.primary} <Icon name="next" size={16} />
-            </a>
-            <a href={paths.tools()} className="bp-btn bp-btn-ghost" data-testid="cta-tools">
-              {b.hero.secondary}
-            </a>
-          </div>
-        </div>
+    <SiteLayout
+      meta={{
+        title: b.title,
+        description: b.description,
+        lang,
+        alternates: siteAlternates("baupad"),
+        jsonLd: [softwareJsonLd(lang, b.description)],
+      }}
+      className="ps-baupad"
+    >
+      <section aria-labelledby="ps-bp-title">
+        <p className="ps-eyebrow">
+          {b.hero.eyebrow} · {b.hero.status}
+        </p>
+        <h1 id="ps-bp-title" data-testid="product-title">
+          {b.hero.title.join(" ")}
+        </h1>
+        <p>{b.hero.lead}</p>
+        <ul id="werkzeuge" data-testid="product-grid">
+          {TOOL_ENTRIES.map((x) => (
+            <li key={x.id}>
+              <a href={toolPath(x.id, lang)} data-testid="product-card">
+                {t.tools[x.id].title}
+              </a>{" "}
+              – {t.tools[x.id].short}
+            </li>
+          ))}
+        </ul>
+        <p className="ps-links">
+          <a href={paths.contact(lang)} data-testid="cta-contact">
+            {b.hero.primary}
+          </a>
+          <a href={paths.tools()} data-testid="cta-tools">
+            {b.hero.secondary}
+          </a>
+        </p>
       </section>
 
-      {/* 4. Zahlen */}
-      <div className="bp-nums">
-        <div className="bp-wrap">
+      <section>
+        <ul className="ps-numbers">
           {b.numbers.map((n) => (
-            <div key={n.label}>
-              <b data-count={n.value}>{n.value}</b>
-              <span>{n.label}</span>
-            </div>
+            <li key={n.label}>
+              <strong>{n.value}</strong> {n.label}
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section aria-labelledby="bp-problems">
+        <p className="ps-eyebrow">{b.problems.eyebrow}</p>
+        <h2 id="bp-problems">{b.problems.title}</h2>
+        <div data-testid="problem-pairs">
+          {b.problems.items.map((p) => (
+            <article key={p.problem}>
+              <h3>
+                {b.problems.problemLabel}: {p.problem}
+              </h3>
+              <p>{p.detail}</p>
+              <p>
+                <strong>
+                  {b.problems.solutionLabel}: {p.solution}
+                </strong>
+              </p>
+              <ul>
+                {p.points.map((pt) => (
+                  <li key={pt}>{pt}</li>
+                ))}
+              </ul>
+            </article>
           ))}
         </div>
-      </div>
-
-      {/* 5. Problem → Antwort */}
-      <section className="bp-sec">
-        <div className="bp-wrap">
-          <Reveal>
-            <span className="bp-eye">{b.problems.eyebrow}</span>
-            <h2 className="bp-h2">{b.problems.title}</h2>
-          </Reveal>
-          <div className="bp-pairs" data-testid="problem-pairs">
-            {b.problems.items.map((p, i) => (
-              <Reveal key={p.problem} delay={i * 80} as="article" className="bp-pair">
-                <div className="bp-pair-problem">
-                  <span className="bp-pair-label">{b.problems.problemLabel}</span>
-                  <h3>{p.problem}</h3>
-                  <p>{p.detail}</p>
-                </div>
-                <div className="bp-pair-solution">
-                  <span className="bp-pair-label">{b.problems.solutionLabel}</span>
-                  <h3>{p.solution}</h3>
-                  <Points items={p.points} />
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </div>
       </section>
 
-      {/* 6. Ein Projekt, alle Werkzeuge + Rollen */}
-      <section className="bp-dark">
-        <div className="bp-wrap">
-          <div className="bp-two">
-            <Reveal>
-              <span className="bp-eye">{b.one.eyebrow}</span>
-              <h2 className="bp-h2">{b.one.title}</h2>
-              <p className="bp-sub">{b.one.text}</p>
-            </Reveal>
-            <Reveal delay={80}>
-              <Points items={b.one.points} />
-            </Reveal>
-          </div>
-          <div className="bp-roles">
-            <Reveal>
-              <span className="bp-eye">{b.roles.eyebrow}</span>
-              <h3 className="bp-h3">{b.roles.title}</h3>
-              <p className="bp-sub">{b.roles.text}</p>
-            </Reveal>
-            <ul className="bp-role-list" data-testid="roles">
-              {b.roles.items.map((r) => (
-                <li key={r.title}>
-                  <Icon name="hand" size={18} />
-                  {r.title}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
+      <section aria-labelledby="bp-one">
+        <p className="ps-eyebrow">{b.one.eyebrow}</p>
+        <h2 id="bp-one">{b.one.title}</h2>
+        <p>{b.one.text}</p>
+        <ul>
+          {b.one.points.map((pt) => (
+            <li key={pt}>{pt}</li>
+          ))}
+        </ul>
+        <p className="ps-eyebrow">{b.roles.eyebrow}</p>
+        <h3>{b.roles.title}</h3>
+        <p>{b.roles.text}</p>
+        <ul data-testid="roles">
+          {b.roles.items.map((r) => (
+            <li key={r.title}>{r.title}</li>
+          ))}
+        </ul>
       </section>
 
-      {/* 8. Technik kurz */}
-      <section className="bp-sec bp-tint">
-        <div className="bp-wrap bp-two">
-          <Reveal>
-            <span className="bp-eye">{b.intro.eyebrow}</span>
-            <h2 className="bp-h2">{b.intro.title}</h2>
-            <p className="bp-sub">{b.intro.text}</p>
-          </Reveal>
-          <Reveal delay={80}>
-            <Points items={b.intro.facts} />
-            <div className="bp-install">
-              <InstallButton variant="link" />
-            </div>
-          </Reveal>
-        </div>
+      <section aria-labelledby="bp-intro">
+        <p className="ps-eyebrow">{b.intro.eyebrow}</p>
+        <h2 id="bp-intro">{b.intro.title}</h2>
+        <p>{b.intro.text}</p>
+        <ul>
+          {b.intro.facts.map((f) => (
+            <li key={f}>{f}</li>
+          ))}
+        </ul>
+        <p>
+          <InstallButton variant="link" />
+        </p>
       </section>
 
-      {/* 9. Abschluss */}
-      <section className="bp-cta">
-        <div className="bp-wrap">
-          <Reveal>
-            <span className="bp-eye">{b.cta.eyebrow}</span>
-            <h2 className="bp-h2">{b.cta.title}</h2>
-            <p className="bp-sub">{b.cta.text}</p>
-          </Reveal>
-          <Reveal className="bp-actions">
-            <a href={paths.contact(lang)} className="bp-btn bp-btn-dark" data-testid="cta-contact-2">
-              {b.cta.primary} <Icon name="next" size={16} />
-            </a>
-            <a href={paths.register()} className="bp-btn bp-btn-line" data-testid="cta-register">
-              {b.cta.secondary}
-            </a>
-          </Reveal>
-        </div>
+      <section aria-labelledby="bp-cta">
+        <p className="ps-eyebrow">{b.cta.eyebrow}</p>
+        <h2 id="bp-cta">{b.cta.title}</h2>
+        <p>{b.cta.text}</p>
+        <p className="ps-links">
+          <a href={paths.contact(lang)} data-testid="cta-contact-2">
+            {b.cta.primary}
+          </a>
+          <a href={paths.register()} data-testid="cta-register">
+            {b.cta.secondary}
+          </a>
+        </p>
       </section>
     </SiteLayout>
   );
