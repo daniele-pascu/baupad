@@ -30,7 +30,8 @@ test('Website: Startseite – Name, Motto, BauPad mit den sieben Werkzeugen, Arb
   await expect(page.locator('.ps-main img')).toHaveCount(1);
   await expect(page.locator('.ps-main canvas')).toHaveCount(0);
   await expect(page.locator('.ps-main svg')).toHaveCount(7);
-  await expect(page.locator('.ph-win')).toHaveCount(3); // BauPad (mit den Werkzeugen), Arbeitsweise, Kontakt
+  await expect(page.locator('.ph-win')).toHaveCount(1); // nur BauPad (mit den Werkzeugen) im Fenster
+  await expect(page.locator('#entwicklung.ph-sec, #kontakt.ph-sec')).toHaveCount(2); // Arbeitsweise und Kontakt frei, ohne Fenster
   // Farbe: Akzent Violett über den Überschriften, die Linie der Arbeitsweise läuft von Violett in Petrol
   await expect(page.locator('.ph-win .ps-eyebrow').first()).toHaveCSS('color', 'rgb(106, 85, 240)'); // auf hellem Grund dunkleres Violett
   await expect(page.locator('.ph-top .ps-eyebrow')).toHaveCSS('color', 'rgb(157, 140, 255)');

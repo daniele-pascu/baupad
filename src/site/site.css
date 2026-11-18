@@ -934,19 +934,24 @@ body:has(.ps-home) {
   mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
   pointer-events: none;
 }
-.ph-win .ps-eyebrow {
+.ps-main .ph-sec {
+  /* ohne Fenster: frei auf dem hellen Grund, Text bündig mit dem Inhalt der Fenster */
+  margin: clamp(48px, 7vw, 80px) 0 0;
+  padding: 0 clamp(24px, 3.6vw, 40px);
+}
+:is(.ph-win, .ph-sec) .ps-eyebrow {
   margin-bottom: 8px !important;
   font-size: 13px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
-.ps-home .ph-win h2 {
+.ps-home :is(.ph-win, .ph-sec) h2 {
   margin: 0 0 10px;
   font-size: clamp(26px, 3vw, 34px);
   line-height: 1.12;
   letter-spacing: -0.02em;
 }
-.ph-win p:not(.ps-eyebrow) {
+:is(.ph-win, .ph-sec) p:not(.ps-eyebrow) {
   color: var(--ps-soft);
 }
 
