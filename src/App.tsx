@@ -233,9 +233,9 @@ function TitleReset({ route }: { route: string }) {
   return null;
 }
 
-/** Symbol im Browser-Tab: Website = PAD-Software-Logo, geöffnete App = BauPad-Logo */
+/** Symbol im Browser-Tab: Website = PAD-Software-Logo, geöffnete App = BauPad-Logo (?v=… zwingt Browser, ein geändertes Logo neu zu laden) */
 const TAB_ICONS = {
-  pad: { icon: '/icons/pad-favicon-64.png', touch: '/icons/pad-icon-180.png' },
+  pad: { icon: '/icons/pad-favicon-64.png?v=2', touch: '/icons/pad-icon-180.png?v=2' },
   baupad: { icon: '/icons/favicon-64.png', touch: '/icons/icon-180.png' },
 } as const;
 function setTabIcon(kind: keyof typeof TAB_ICONS) {
