@@ -46,19 +46,16 @@ function AppIcon() {
   );
 }
 
-/** Fenster unter „Produkte“: App-Symbol, Name, drei kurze Infos – ein Klick öffnet die BauPad-Seite */
+/** Fenster unter „Produkte“: App-Symbol, Name und „Die Baustelle in einer App.“ – ein Klick öffnet die BauPad-Seite */
 function ProductsPanel({ lang }: { lang: Lang }) {
   const { t } = useLang();
   const h = t.home.product;
-  const n = t.baupad.numbers;
   return (
     <div id="ps-products-panel" className="ps-products-panel" data-testid="products-panel">
       <a href={paths.baupad(lang)} className="ps-product" data-testid="products-panel-baupad">
         <AppIcon />
         <strong>{t.product}</strong>
         <span className="ps-product-line">{h.tagline}</span>
-        <span className="ps-product-info">{n.map((x) => `${x.value} ${x.label}`).join(' · ')}</span>
-        <span className="ps-product-info">{h.tag}</span>
       </a>
     </div>
   );
