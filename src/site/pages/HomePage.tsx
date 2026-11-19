@@ -100,9 +100,6 @@ export function HomePage() {
             </a>
           </p>
         </div>
-        <div className="ph-phone">
-          <img src="/site/fotos-baustelle-iphone.jpg" alt={h.product.alts[2]} width={600} height={1298} loading="lazy" decoding="async" />
-        </div>
       </section>
 
       <section id="entwicklung" className="ph-sec" aria-labelledby="ph-process-title">

@@ -1,9 +1,9 @@
 /**
  * Zoom im Kamera-Modus (Browser bzw. App auf dem Home-Bildschirm; die Store-App nutzt die Kamera des Geräts mit
  * deren eigenem Zoom). Was das Handy kann, erkennt die App selbst – in dieser Reihenfolge:
- *  1. Objektive: Meldet der Browser die Kameras mit Namen (iPhone: „Rückseitige Ultraweitwinkelkamera“, „…Telekamera“),
- *     gibt es je Objektiv eine Taste (0,5 · 1× · Tele) – echter optischer Zoom. Wie stark das Tele vergrößert (2×, 3×,
- *     5×), verrät der Browser nicht; die Taste heißt deshalb „Tele“.
+ *  1. Objektive: Meldet der Browser die Kameras mit Namen (iPhone: „Rückseitige Ultraweitwinkelkamera“), gibt es die
+ *     Tasten 0,5 · 1× – echter optischer Wechsel. Das Tele-Objektiv bietet die App bewusst nicht an (Daniele, 19.11.2026):
+ *     auf der Baustelle reicht Weitwinkel und Normal; vergrößert wird mit zwei Fingern.
  *  2. Zoom der Kamera: Meldet die Kamera einen Zoombereich (viele Android-Handys, z. B. 0,6× bis 10×), stellt die App
  *     ihn direkt ein; viele Handys wechseln dabei selbst auf das Weitwinkel- bzw. Tele-Objektiv.
  *  3. Sonst digital: Ausschnitt des Bildes (bis 4×) – das Foto hat dann entsprechend weniger Pixel.
@@ -18,7 +18,6 @@ export interface Lens {
 export interface Lenses {
   ultra?: Lens;
   wide?: Lens;
-  tele?: Lens;
 }
 export interface HwZoom {
   min: number;
@@ -40,16 +39,16 @@ export function lensKind(label: string): LensKind {
   return 'other';
 }
 
-/** Objektive auf der Rückseite – nur, wenn außer dem normalen mindestens Ultraweitwinkel oder Tele erkannt ist */
+/** Objektive auf der Rückseite – nur, wenn außer dem normalen auch das Ultraweitwinkel erkannt ist (Tele: keine Taste) */
 export function backLenses(devices: { kind: string; deviceId: string; label: string }[]): Lenses {
   const out: Lenses = {};
   for (const d of devices) {
     if (d.kind !== 'videoinput' || !d.label) continue;
     const kind = lensKind(d.label);
     const lens = { id: d.deviceId, label: d.label, kind };
-    if ((kind === 'ultra' || kind === 'tele' || kind === 'wide') && !out[kind]) out[kind] = lens;
+    if ((kind === 'ultra' || kind === 'wide') && !out[kind]) out[kind] = lens;
   }
-  return out.wide && (out.ultra || out.tele) ? out : {};
+  return out.wide && out.ultra ? out : {};
 }
 
 /** Tasten für den Zoom der Kamera: kleinster Wert (wenn unter 1), 1 und bis zu drei größere */

@@ -217,7 +217,7 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
               const found = backLenses(list);
               setLenses(found);
               const now = deviceId ?? set.deviceId; // gewähltes Objektiv, sonst das, was der Browser genommen hat
-              setLensNow(found.ultra?.id === now ? 'ultra' : found.tele?.id === now ? 'tele' : found.wide ? 'wide' : null);
+              setLensNow(found.ultra?.id === now ? 'ultra' : found.wide ? 'wide' : null);
             })
             .catch(() => undefined);
         else {
@@ -327,7 +327,7 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
       void track.applyConstraints({ advanced: [{ zoom: want } as MediaTrackConstraintSet] }).catch(() => undefined);
     });
   };
-  const pickLens = (kind: 'ultra' | 'wide' | 'tele') => {
+  const pickLens = (kind: 'ultra' | 'wide') => {
     const lens = lenses[kind];
     if (!lens) return;
     setZoom(1);
@@ -338,15 +338,10 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
     setLensNow(kind);
     setDeviceId(lens.id);
   };
-  const lensBase: Record<string, number | null> = { ultra: 0.5, wide: 1, tele: null };
-  const lensLabel = (kind: 'ultra' | 'wide' | 'tele', active: boolean) => {
-    const base = lensBase[kind];
-    const z = active ? zoom : 1;
-    if (base === null) return z === 1 ? 'Tele' : `Tele ${fmtZoom(z)}`;
-    return fmtZoom(base * z);
-  };
-  /** Tasten: je Objektiv, sonst Stufen des Kamera-Zooms bzw. digital */
-  const lensKinds = (['ultra', 'wide', 'tele'] as const).filter((k) => lenses[k]);
+  const lensBase = { ultra: 0.5, wide: 1 };
+  const lensLabel = (kind: 'ultra' | 'wide', active: boolean) => fmtZoom(lensBase[kind] * (active ? zoom : 1));
+  /** Tasten: je Objektiv (0,5 · 1×, kein Tele), sonst Stufen des Kamera-Zooms bzw. digital */
+  const lensKinds = (['ultra', 'wide'] as const).filter((k) => lenses[k]);
   const stops = hwZoom ? zoomStops(hwZoom.min, hwZoom.max) : DIGITAL_STOPS;
   const activeStop = stops.reduce((best, s) => (Math.abs(Math.log(s / zoom)) < Math.abs(Math.log(best / zoom)) ? s : best), stops[0]);
   const applyTrack = (c: Record<string, unknown>) => {
@@ -604,7 +599,7 @@ export function CameraPage({ siteKey }: { siteKey: string | null }) {
               ? lensKinds.map((k) => {
                   const active = lensNow === k;
                   return (
-                    <button key={k} type="button" className={active ? 'on' : undefined} aria-pressed={active} onClick={() => pickLens(k)} aria-label={k === 'ultra' ? 'Ultraweitwinkel' : k === 'tele' ? 'Tele-Objektiv' : 'Normales Objektiv'} data-testid={`cam-lens-${k}`}>
+                    <button key={k} type="button" className={active ? 'on' : undefined} aria-pressed={active} onClick={() => pickLens(k)} aria-label={k === 'ultra' ? 'Ultraweitwinkel' : 'Normales Objektiv'} data-testid={`cam-lens-${k}`}>
                       {lensLabel(k, active)}
                     </button>
                   );

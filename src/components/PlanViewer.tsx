@@ -753,13 +753,18 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   // Die Anordnung wird in Seitenkoordinaten je Zoomstufe (ca. 12 %) berechnet – beim
   // Verschieben bleibt sie unverändert, beim Zoomen wird nicht bei jedem Bild neu gerechnet.
   const qScale = view ? Math.pow(2, Math.round(Math.log2(view.scale) * 6) / 6) : 1;
-  const labelFont = Math.max(10, Math.min(14, 11 * Math.pow(qScale / fitScale, 0.2)));
+  /** Übersicht (bis doppelt so groß wie „ganzer Plan“): Nummer direkt auf der Messung, etwas kleiner, ohne
+   *  Verbindungslinie; läge sie auf einer anderen Nummer → ausgeblendet, beim Vergrößern erscheinen alle wieder.
+   *  Die ausgewählte Messung zeigt ihre Nummer immer. */
+  const overview = qScale < fitScale * 2;
+  const labelFont = overview ? 9.5 : Math.max(10, Math.min(14, 11 * Math.pow(qScale / fitScale, 0.2)));
+  const keepLabel = overview ? selectedId : null;
   /** zuletzt vollständig berechnete Anordnung (Grundlage, solange ein Objekt gezogen wird) */
   const layoutBase = useRef<{ map: Map<string, Rect>; damages: ViewerItem[]; key: string } | null>(null);
   const labelLayout = useMemo(() => {
     // ohne Beschriftungen (Zeichenmodus) nichts anordnen – die Anordnung ist aufwendig und liefe sonst bei jedem Zugschritt
     if (!showLabels) return new Map<string, Rect>();
-    const key = `${qScale}|${labelFont}|${region.x}|${region.y}|${region.w}|${region.h}`;
+    const key = `${qScale}|${labelFont}|${region.x}|${region.y}|${region.w}|${region.h}|${overview ? `o${keepLabel ?? ''}` : ''}`;
     // Objekt wird gezogen (verschieben, Größe, Eckpunkt, drehen): nur seine Nummer wandert mit, die übrigen bleiben –
     // vollständig neu angeordnet wird beim Loslassen (sonst ruckelt das Ziehen bei vielen Messungen)
     const g = gesture.current;
@@ -787,11 +792,11 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         offset: d.labelOffset,
       })),
       3 / qScale,
-      { area: region },
+      { area: region, overview: overview ? { keep: keepLabel } : undefined },
     );
     layoutBase.current = { map, damages, key };
     return map;
-  }, [damages, qScale, labelFont, region, showLabels]);
+  }, [damages, qScale, labelFont, region, showLabels, overview, keepLabel]);
   const labels = useMemo(() => {
     const out = new Map<string, Rect>();
     if (!view || !showLabels) return out;
@@ -854,6 +859,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   };
 
   const hitLabel = (p: Point): string | null => {
+    // Übersicht: die Nummer liegt auf der Messung – Antippen/Ziehen gilt der Messung selbst (Nummer nicht verschiebbar)
+    if (overview) return null;
     for (const [id, r] of labels) if (rectContains(r, p, isCoarse() ? 6 : 2)) return id;
     return null;
   };
@@ -1600,6 +1607,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     <div
       ref={containerRef}
       className={`viewer tool-${tool}`}
+      data-labels={overview ? 'overview' : 'detail'}
       // gerade wird eine Form gezogen: Leisten treten zurück (Handy), der Plan ist frei
       data-drawing={g?.kind === 'draw' && g.tool !== 'selwin' && drawPreview ? '' : undefined}
       onPointerDown={onPointerDown}
@@ -1741,7 +1749,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
           })()}
           {props.overlay?.(view, drawPreview, polyHover.current)}
           {/* Verbindungslinien zuerst, damit sie unter den Nummern liegen */}
-          {damages.map((d) => {
+          {!overview && damages.map((d) => {
             const r = labels.get(d.id);
             if (!r) return null;
             const screenShape = { ...d.shape, ...toScreen(view, d.shape), w: d.shape.w * view.scale, h: d.shape.h * view.scale };

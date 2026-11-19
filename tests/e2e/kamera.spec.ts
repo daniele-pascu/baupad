@@ -301,7 +301,7 @@ test.describe('Kamera-Zoom', () => {
     expect((await lastPhotoSize(page))![0]).toBeGreaterThan(vw / 2); // kein Ausschnitt
   });
 
-  test('iPhone meldet die Objektive: Tasten 0,5 · 1× · Tele wechseln das Objektiv (optischer Zoom)', async ({ page }) => {
+  test('iPhone meldet die Objektive: Tasten 0,5 · 1× wechseln das Objektiv; keine Tele-Taste', async ({ page }) => {
     await page.addInitScript(() => {
       const w = window as unknown as { __asked: string[] };
       w.__asked = [];
@@ -322,11 +322,9 @@ test.describe('Kamera-Zoom', () => {
     });
     await openCamera(page);
     await expect(page.locator('.cam-view')).toHaveAttribute('data-zoom-mode', 'lens');
-    await expect(page.getByTestId('cam-zoom').getByRole('button')).toHaveText(['0,5', '1×', 'Tele']);
+    await expect(page.getByTestId('cam-zoom').getByRole('button')).toHaveText(['0,5', '1×']);
+    await expect(page.getByTestId('cam-lens-tele')).toHaveCount(0);
     await expect(page.getByTestId('cam-lens-wide')).toHaveAttribute('aria-pressed', 'true');
-    await page.getByTestId('cam-lens-tele').click();
-    await expect(page.getByTestId('cam-lens-tele')).toHaveAttribute('aria-pressed', 'true');
-    await expect.poll(() => page.evaluate(() => (window as unknown as { __asked: string[] }).__asked.at(-1))).toBe('cam-tele');
     await page.getByTestId('cam-lens-ultra').click();
     await expect.poll(() => page.evaluate(() => (window as unknown as { __asked: string[] }).__asked.at(-1))).toBe('cam-ultra');
     await expect(page.getByTestId('cam-lens-ultra')).toHaveAttribute('aria-pressed', 'true');

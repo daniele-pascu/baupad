@@ -69,7 +69,6 @@ export const de = {
       solves: 'Schluss mit Zetteln, Excel-Listen und sieben verschiedenen Apps.',
       can: ['Aufmaß direkt im Plan', 'Team, Zeiten und Material', 'Fotos, Mängel und Berichte'],
       all: 'Alle sieben Tools ansehen',
-      alts: ['BauPad am PC: Aufmaß im Plan', 'BauPad am Tablet: Einteilung der Arbeiter für die Woche', 'BauPad am Handy: Fotos der Baustelle'],
       cta: 'Mehr erfahren',
       open: 'BauPad öffnen',
       aria: 'BauPad – zur Produktseite',

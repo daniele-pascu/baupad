@@ -101,3 +101,43 @@ describe('Verbindungslinie zum echten Umriss', () => {
     expect(leaderLine({ type: 'ellipse', x: 0, y: 0, w: 100, h: 100 }, { x: 42, y: 43, w: 16, h: 14 }, 4)).toBeNull();
   });
 });
+
+describe('Übersicht (Plan verkleinert): Nummern dicht an der Messung, sonst ausgeblendet', () => {
+  // 30 winzige Messungen dicht gedrängt – wie ein ganzer Plan mit vielen Schadstellen von weitem
+  const crowd = Array.from({ length: 30 }, (_, i) => L(String(i + 1), 100 + (i % 6) * 6, 100 + Math.floor(i / 6) * 6, 4 + (i % 3), 4));
+
+  it('keine Nummer liegt auf einer anderen, keine steht weit weg', () => {
+    const res = layoutLabels(crowd, 3, { overview: {} });
+    const shown = crowd.filter((it) => res.has(it.id));
+    expect(shown.length).toBeGreaterThan(0);
+    expect(shown.length).toBeLessThan(crowd.length); // ausgedünnt
+    for (let i = 0; i < shown.length; i++)
+      for (let j = i + 1; j < shown.length; j++) expect(rectsOverlap(res.get(shown[i].id)!, res.get(shown[j].id)!)).toBe(false);
+    // jede Nummer steht direkt auf ihrer Messung (keine Linien quer über den Plan)
+    for (const it of shown) {
+      const r = res.get(it.id)!;
+      expect(distToRect({ x: r.x + r.w / 2, y: r.y + r.h / 2 }, it.bounds)).toBe(0);
+    }
+  });
+
+  it('die ausgewählte Messung zeigt ihre Nummer immer', () => {
+    const hidden = crowd.find((it) => !layoutLabels(crowd, 3, { overview: {} }).has(it.id))!;
+    expect(layoutLabels(crowd, 3, { overview: { keep: hidden.id } }).has(hidden.id)).toBe(true);
+  });
+
+  it('genug Platz: alle Nummern bleiben sichtbar', () => {
+    const spread = Array.from({ length: 6 }, (_, i) => L(String(i), 100 + i * 120, 100, 30, 30));
+    expect(layoutLabels(spread, 3, { overview: {} }).size).toBe(6);
+  });
+
+  it('offene Linie (Winkel): Nummer auf der Linie, nicht in der leeren Mitte', () => {
+    const line: LabelInput = { id: 'l', bounds: { x: 0, y: 0, w: 100, h: 100 }, shape: { type: 'freehand', closed: false, x: 0, y: 0, w: 100, h: 100, points: [[0, 0], [1, 0], [1, 1]] }, w: 16, h: 14, offset: null };
+    const r = layoutLabels([line], 3, { overview: {} }).get('l')!;
+    const c = { x: r.x + r.w / 2, y: r.y + r.h / 2 };
+    expect(Math.min(Math.abs(c.y), Math.abs(c.x - 100))).toBeLessThan(1);
+  });
+
+  it('vergrößert (ohne Übersicht) bekommt jede Messung eine Nummer', () => {
+    expect(layoutLabels(crowd, 3).size).toBe(crowd.length);
+  });
+});

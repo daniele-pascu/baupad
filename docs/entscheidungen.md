@@ -257,3 +257,10 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - App-Leiste: kein Eintrag „Tools“ mehr – das BauPad-Logo führt zu den Tools. Beim Öffnen der App blitzt die Website-Leiste nicht mehr auf.
 - Dunkelmodus ganz durchgesehen: helle Flächen, Rahmen und dunkle Schrift (Menüs, Marken, Tabellenzeilen, aktive Schalter, Feldbeschriftungen, Team/Zeit/Berichte) angepasst. Papier-Ansichten (Plan, Formularseite, PDF, Logo-Vorschau) und Kamera bleiben bewusst hell.
 - Prüfung: `TASTEN_DUNKEL=1` vor dem Tasten-Test öffnet alles im Dunkelmodus und meldet schwer lesbare Schrift (unter 3 : 1) und Tasten, die sich nicht vom Hintergrund abheben.
+
+## Nummern im verkleinerten Plan, Kamera ohne Tele, Startseite ohne Handy-Bild (19.11.2026)
+- **Plan verkleinert (Übersicht, bis 2× „ganzer Plan“):** Jede Nummer steht direkt auf ihrer Messung (Mitte der Fläche, auf der Linie), etwas kleiner, **ohne Verbindungslinien**. Läge sie dort auf einer anderen Nummer, wird sie ausgeblendet – beim Vergrößern erscheinen alle wieder (wie Karten-Apps). Große Messungen zuerst, die ausgewählte Messung zeigt ihre Nummer immer. In der Übersicht lässt sich eine Nummer nicht verschieben (Ziehen bewegt die Messung); von Hand verschobene Nummern gelten vergrößert und im PDF. PDF-Export unverändert (alle Nummern).
+- **Kamera:** keine Tele-Taste mehr (nur 0,5 · 1×; vergrößern mit zwei Fingern bzw. digital), auf Danieles Wunsch.
+- **Website-Startseite:** Handy-Bild neben/unter BauPad entfernt; am PC stehen die Tools in vier Spalten.
+- **Dunkelmodus:** „+“ bei „Neues Projekt anlegen“ und die Ansichtsleisten-Taste im Plan waren unsichtbar – behoben. Die Dunkel-Prüfung prüft jetzt auch Symbole und die installierte App (Fotos mit „Foto aufnehmen“).
+- **Marke:** Board K2 mit sechs weiteren Wegen (V5–V10) – Entscheidung offen.
