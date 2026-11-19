@@ -46,7 +46,7 @@ Grundregeln stehen in `CLAUDE.md`, Grundsätze in `docs/entscheidungen.md`.
 - Rote Tests behoben (19.11.2026): Fläche aus dem Plan rundet trotz PDF-Rauschen richtig (116,66 m²), messungen „Rückgängig … Verschieben“ und Datenbank-Version.
 
 ## Danieles Schritt
-- Funktion `storage` in Supabase neu veröffentlichen (siehe `docs/ablage-einrichten.md`).
+- Funktion `storage` wird automatisch von GitHub veröffentlicht (Secret `SUPABASE_ACCESS_TOKEN` ist eingetragen, 19.11.2026).
 - Später (Daniele, 19.11.2026): Betreiber-Papierkorb 30 Tage – Server hält Gelöschtes (Daten und Dateien) 30 Tage, der Betreiber stellt es **nur auf Anfrage des Kunden** wieder her (kostenpflichtig, **Pauschale** je Wiederherstellung – Höhe legt Daniele später fest). Vorher Datenschutzerklärung und AVV ergänzen (Betreiber-Zugriff, 30 Tage Aufbewahrung).
 
 ## Vorgemerkt (später)
