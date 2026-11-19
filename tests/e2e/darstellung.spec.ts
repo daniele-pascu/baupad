@@ -36,3 +36,21 @@ test('Darstellung: Größe Klein/Mittel/Groß, Dunkelmodus an/aus/System, App oh
   await expect(html).not.toHaveAttribute('data-theme', /./);
   expect(await viewport()).not.toContain('maximum-scale');
 });
+
+test('Darstellung: Transparenz reduzieren – Glas-Leisten im Aufmaß-Plan fest; Ansichtsleiste zu- und aufklappen; Tabellen-Taste schwarz', async ({ page }) => {
+  await freshStart(page);
+  await page.goto('/baupad/konto/darstellung');
+  const html = page.locator('html');
+  await expect(html).toHaveAttribute('data-glass', 'on');
+  await page.getByTestId('ui-glass-reduce').click();
+  await expect(html).toHaveAttribute('data-glass', 'off');
+  await page.getByTestId('ui-glass-normal').click();
+  await expect(html).toHaveAttribute('data-glass', 'on');
+  // bleibt nach dem Neuladen gespeichert
+  await page.evaluate(() => localStorage.setItem('uiReduceGlass', 'on'));
+  await page.reload();
+  await expect(html).toHaveAttribute('data-glass', 'off');
+  await page.evaluate(() => localStorage.setItem('uiReduceGlass', 'off'));
+  await page.reload();
+  await expect(html).toHaveAttribute('data-glass', 'on');
+});

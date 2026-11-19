@@ -20,7 +20,7 @@ import { AppStorageSettings } from '../components/InstallApp';
 import { SecuritySettings } from '../components/SecuritySettings';
 import { usePageTitle } from '../lib/page-title';
 import { rpc } from '../lib/remote';
-import { setUiSize, setUiTheme, useAppearanceSettings, type UiSize, type UiTheme } from '../lib/appearance';
+import { setReduceGlass, setUiSize, setUiTheme, useAppearanceSettings, type UiSize, type UiTheme } from '../lib/appearance';
 
 /*
  * Anmelden und Registrieren: Google, Apple, Microsoft (Outlook) und E-Mail mit Passwort über Supabase
@@ -521,7 +521,7 @@ const ACCOUNT_TILES: TileDef[] = [
       </div>
     ),
   },
-  { id: 'darstellung', title: 'Darstellung', text: 'Größe von Schrift und Tasten, hell oder dunkel', body: () => <AppearanceSettings /> },
+  { id: 'darstellung', title: 'Darstellung', text: 'Größe von Schrift und Tasten, hell oder dunkel, Transparenz', body: () => <AppearanceSettings /> },
   { id: 'app', title: 'App und Speicher', text: 'Installation, dauerhafter Speicher und zentrale Ablage', body: () => <AppStorageSettings /> },
   { id: 'sicherheit', title: 'Sicherheit', text: 'App-Sperre mit PIN oder Face ID, Daten auf diesem Gerät löschen', body: (s) => <SecuritySettings session={s} /> },
   { id: 'weitere', title: 'Weitere Einstellungen', text: 'Sprache, Benachrichtigungen, Kontakt und Datenschutz', body: () => <MoreSettings /> },
@@ -821,7 +821,7 @@ function SubscriptionInfo({ session }: { session: Session | null | undefined }) 
 
 /** Darstellung der App auf diesem Gerät: Größe (Schrift und Tasten) und hell/dunkel */
 function AppearanceSettings() {
-  const { size, theme } = useAppearanceSettings();
+  const { size, theme, reduceGlass } = useAppearanceSettings();
   const sizes: [UiSize, string][] = [['small', 'Klein'], ['medium', 'Mittel'], ['large', 'Groß']];
   const themes: [UiTheme, string][] = [['light', 'Aus'], ['dark', 'An'], ['system', 'Wie System']];
   return (
@@ -843,6 +843,17 @@ function AppearanceSettings() {
         <div className="segmented" role="radiogroup" aria-label="Dunkelmodus">
           {themes.map(([v, label]) => (
             <button key={v} type="button" role="radio" aria-checked={theme === v} aria-selected={theme === v} onClick={() => setUiTheme(v)} data-testid={`ui-theme-${v}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="appearance-row">
+        <strong>Transparenz reduzieren</strong>
+        <span className="muted small">Leisten im Plan fest weiß statt Glas – spart Grafikleistung und Akku.</span>
+        <div className="segmented" role="radiogroup" aria-label="Transparenz reduzieren">
+          {([[false, 'Aus'], [true, 'An']] as const).map(([v, label]) => (
+            <button key={label} type="button" role="radio" aria-checked={reduceGlass === v} aria-selected={reduceGlass === v} onClick={() => setReduceGlass(v)} data-testid={`ui-glass-${v ? 'reduce' : 'normal'}`}>
               {label}
             </button>
           ))}

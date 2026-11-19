@@ -389,6 +389,19 @@ function loadPref<T extends string>(key: string, allowed: readonly T[], fallback
   }
 }
 
+/** Glas-Leiste „wach“: nach dem Antippen kurz fest weiß, danach wieder Glas */
+function useAwake(): [boolean, () => void] {
+  const [awake, setAwake] = useState(false);
+  const timer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  const wake = () => {
+    setAwake(true);
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => setAwake(false), 2500);
+  };
+  return [awake, wake];
+}
+
 export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focusDamageId: string | null }) {
   const data = useAppState((s) => s.data) as ProjectState;
   const history = useAppState((s) => s.history);
@@ -477,6 +490,26 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const [pdfOpen, setPdfOpen] = useState<false | 'plans' | 'photos'>(false);
   const [sideWidth, setSideWidth] = useState(loadSideWidth);
   /** Messleiste am PC eingeklappt (nach rechts) – bleibt gemerkt */
+  // Leisten über dem Plan (Messleiste unten, Ansichtsleiste rechts): weißes Glas, beim Antippen kurz fest weiß
+  const [toolbarAwake, wakeToolbar] = useAwake();
+  const [zoomAwake, wakeZoom] = useAwake();
+  // Ansichtsleiste (Ebenen, +, −, Legende, Drehen …) zu- und aufklappen – je Gerät gemerkt
+  const [zoomOpen, setZoomOpen] = useState(() => {
+    try {
+      return localStorage.getItem('planViewBar') !== 'closed';
+    } catch {
+      return true;
+    }
+  });
+  const toggleZoomBar = () =>
+    setZoomOpen((o) => {
+      try {
+        localStorage.setItem('planViewBar', o ? 'closed' : 'open');
+      } catch {
+        /* optional */
+      }
+      return !o;
+    });
   const [sideCollapsed, setSideCollapsed] = useState(() => {
     try {
       return localStorage.getItem('sideCollapsed') === '1';
@@ -1687,7 +1720,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         >
           <button
             type="button"
-            className="side-toggle"
+            className="side-toggle side-toggle-dark"
             onClick={toggleSide}
             aria-expanded={!sideCollapsed}
             aria-label={sideCollapsed ? 'Aufmaß-Tabelle einblenden' : 'Aufmaß-Tabelle ausblenden'}
@@ -1889,7 +1922,18 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           )}
 
           {legendInfo?.show && !drawMode && <LegendBox entries={legend} pos={legendInfo.pos} onOpen={() => setLegendOpen(true)} />}
-          <div className="zoom-controls">
+          <div className={`zoom-controls liquid${zoomAwake ? ' awake' : ''}${zoomOpen ? '' : ' is-collapsed'}`} onPointerDown={wakeZoom} data-testid="zoom-controls">
+            <button
+              type="button"
+              className={`icon-btn zoom-toggle${zoomOpen ? ' is-open' : ''}`}
+              onClick={toggleZoomBar}
+              aria-expanded={zoomOpen}
+              aria-label={zoomOpen ? 'Ansichtsleiste zuklappen' : 'Ansichtsleiste aufklappen'}
+              title={zoomOpen ? 'Ansichtsleiste zuklappen' : 'Ansichtsleiste aufklappen (Ebenen, Zoom, Legende, Drehen …)'}
+              data-testid="zoom-toggle"
+            >
+              <Icon name="tune" />
+            </button>
             <LayerMenu
               hidden={plan.hiddenLayers ?? []}
               layers={drawingPlan ? undefined : ['measures']}
@@ -2484,7 +2528,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               float={phone}
             />
           ) : (
-          <div className={`toolbar${toolsOpen ? '' : ' toolbar-collapsed'}`} role="toolbar" aria-label="Tools" data-mtype={mtype}>
+          <div className={`toolbar liquid${toolbarAwake ? ' awake' : ''}${toolsOpen ? '' : ' toolbar-collapsed'}`} role="toolbar" aria-label="Tools" data-mtype={mtype} onPointerDown={wakeToolbar}>
             {!toolsOpen ? (
               <ToolsOpenButton tool={TOOLS.find((t) => t.id === tool)} onOpen={() => setToolsOpen(true)} />
             ) : (

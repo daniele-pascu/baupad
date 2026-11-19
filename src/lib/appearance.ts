@@ -6,6 +6,8 @@ export type UiTheme = 'light' | 'dark' | 'system';
 
 const SIZE_KEY = 'uiSize';
 const THEME_KEY = 'uiTheme';
+/** Transparenz reduzieren: Leisten im Plan fest statt Glas (spart Grafikleistung und Akku) */
+const GLASS_KEY = 'uiReduceGlass';
 const EVENT = 'appearance-change';
 
 function read<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
@@ -19,6 +21,18 @@ function read<T extends string>(key: string, allowed: readonly T[], fallback: T)
 
 export const getUiSize = (): UiSize => read(SIZE_KEY, ['small', 'medium', 'large'] as const, 'medium');
 export const getUiTheme = (): UiTheme => read(THEME_KEY, ['light', 'dark', 'system'] as const, 'light');
+export const getReduceGlass = (): boolean => read(GLASS_KEY, ['on', 'off'] as const, 'off') === 'on';
+
+export function setReduceGlass(on: boolean) {
+  try {
+    localStorage.setItem(GLASS_KEY, on ? 'on' : 'off');
+  } catch {
+    /* optional */
+  }
+  window.dispatchEvent(new Event(EVENT));
+}
+/** Gerät verlangt weniger Transparenz (Bedienungshilfen) */
+const lessGlassQuery = () => (typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-transparency: reduce)') : null);
 
 export function setUiSize(v: UiSize) {
   try {
@@ -49,6 +63,7 @@ export function applyAppearance(isApp: boolean) {
   if (!isApp) {
     delete html.dataset.size;
     delete html.dataset.theme;
+    delete html.dataset.glass;
     html.classList.remove('app-fixed');
     meta?.setAttribute('content', VIEWPORT_SITE);
     return;
@@ -57,6 +72,8 @@ export function applyAppearance(isApp: boolean) {
   const dark = theme === 'dark' || (theme === 'system' && !!darkQuery()?.matches);
   html.dataset.size = getUiSize();
   html.dataset.theme = dark ? 'dark' : 'light';
+  // Glas: aus, wenn hier eingestellt oder vom Gerät verlangt
+  html.dataset.glass = getReduceGlass() || !!lessGlassQuery()?.matches ? 'off' : 'on';
   html.classList.add('app-fixed');
   meta?.setAttribute('content', VIEWPORT_APP);
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#000000' : '#0a0a0b');
@@ -68,8 +85,10 @@ export function useAppearance(isApp: boolean) {
     const apply = () => applyAppearance(isApp);
     apply();
     const q = darkQuery();
+    const g = lessGlassQuery();
     window.addEventListener(EVENT, apply);
     q?.addEventListener?.('change', apply);
+    g?.addEventListener?.('change', apply);
     // Safari: Vergrößern mit zwei Fingern auf der Seite sperren (Pläne zoomen selbst über Zeiger-Ereignisse)
     // nicht auf Seiten mit Plan (Stift und Hand gleichzeitig dürfen dort nicht abgefangen werden)
     const block = (e: Event) => isApp && !document.querySelector('.viewer, .dp-canvas') && e.preventDefault();
@@ -89,6 +108,7 @@ export function useAppearance(isApp: boolean) {
       vv?.removeEventListener('scroll', kb);
       window.removeEventListener(EVENT, apply);
       q?.removeEventListener?.('change', apply);
+      g?.removeEventListener?.('change', apply);
       document.removeEventListener('gesturestart', block);
     };
   }, [isApp]);
@@ -96,9 +116,9 @@ export function useAppearance(isApp: boolean) {
 
 /** aktuelle Einstellungen für die Einstellungsseite */
 export function useAppearanceSettings() {
-  const [state, setState] = useState(() => ({ size: getUiSize(), theme: getUiTheme() }));
+  const [state, setState] = useState(() => ({ size: getUiSize(), theme: getUiTheme(), reduceGlass: getReduceGlass() }));
   useEffect(() => {
-    const on = () => setState({ size: getUiSize(), theme: getUiTheme() });
+    const on = () => setState({ size: getUiSize(), theme: getUiTheme(), reduceGlass: getReduceGlass() });
     window.addEventListener(EVENT, on);
     return () => window.removeEventListener(EVENT, on);
   }, []);
