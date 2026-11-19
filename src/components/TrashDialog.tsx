@@ -4,7 +4,7 @@ import { Icon } from './Icon';
 import { Modal } from './Modal';
 import { toast } from './ui';
 
-/** Papierkorb des Aufmaß-Projekts: gelöschte Pläne, Kostenstellen, LV/MFK und Originalpläne – 15 Tage wiederherstellbar */
+/** Papierkorb des Aufmaß-Projekts: gelöschte Pläne, Kostenstellen, LV/MFK und Originalpläne – 15 Tage, danach endgültig gelöscht */
 export function TrashDialog({ data, onClose }: { data: ProjectState; onClose: () => void }) {
   const entries = trashEntries(data);
   return (
@@ -18,7 +18,9 @@ export function TrashDialog({ data, onClose }: { data: ProjectState; onClose: ()
         </button>
       }
     >
-      <p className="muted small">Gelöschte Pläne (mit ihren Messungen), Kostenstellen, LV/MFK und Originalpläne lassen sich {TRASH_DAYS} Tage lang wiederherstellen.</p>
+      <p className="muted small" data-testid="trash-info">
+        Gelöschtes bleibt {TRASH_DAYS} Tage im Papierkorb und wird danach endgültig gelöscht.
+      </p>
       {!entries.length && (
         <p className="muted" data-testid="trash-empty">
           Der Papierkorb ist leer.

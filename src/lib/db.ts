@@ -366,6 +366,38 @@ export async function putView(view: { id: string; projectId: string; scale: numb
   await db.put('views', view);
 }
 
+/**
+ * Papierkorb leeren: weich gelöschte Aufmaß-Datensätze (deletedAt vor `before`) endgültig löschen – mit Tombstone, damit
+ * sie auch in der Ablage und auf den anderen Geräten verschwinden. Originalpläne samt Datei, Plänen Vorschau und Ansicht.
+ * Liefert die betroffenen Projekte.
+ */
+export async function purgeDeleted(before: number): Promise<Set<string>> {
+  const db = await getDB();
+  const stores = ['costCenters', 'plans', 'damages', 'components', 'elements', 'lvDocs', 'files'] as const;
+  const tx = db.transaction([...stores, 'blobs' as const, 'thumbs' as const, 'views' as const, 'outbox' as const], 'readwrite');
+  const touched = new Set<string>();
+  for (const s of stores) {
+    let cursor = await tx.objectStore(s).openCursor();
+    while (cursor) {
+      const r = cursor.value as { id: string; projectId: string; deletedAt?: number | null };
+      if (r.deletedAt && r.deletedAt < before) {
+        await cursor.delete();
+        await tx.objectStore('outbox').put(outboxEntry(s, r.id, r.projectId, { deleted: true }));
+        if (s === 'files') await tx.objectStore('blobs').delete(r.id);
+        if (s === 'plans') {
+          await tx.objectStore('thumbs').delete(r.id);
+          await tx.objectStore('views').delete(r.id);
+        }
+        touched.add(r.projectId);
+      }
+      cursor = await cursor.continue();
+    }
+  }
+  await tx.done;
+  if (touched.size) changed();
+  return touched;
+}
+
 /** Löscht ein Projekt mit allen zugehörigen Daten endgültig von diesem Gerät. */
 export async function deleteProjectCompletely(projectId: string, opts: { tombstone?: boolean } = {}): Promise<void> {
   const db = await getDB();
