@@ -37,7 +37,7 @@ function AppNav({ hash, session }: { hash: string; session: NonNullable<ReturnTy
   return (
     <header className="site-nav" data-testid="site-nav">
       <div className="site-nav-inner">
-        <a href={paths.tools()} className="site-logo" aria-label="BauPad – zu den Tools" aria-current={current(paths.tools())} data-testid="nav-tools">
+        <a href={paths.tools()} className="site-logo" aria-label="BauPad – Tools" aria-current={current(paths.tools())} data-testid="nav-tools">
           <img src="/icons/logo-header.png" alt="BauPad" height={30} />
         </a>
         <div className="site-actions">

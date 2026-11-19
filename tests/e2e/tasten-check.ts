@@ -239,6 +239,6 @@ export async function kontrastBefunde(page: Page): Promise<string[]> {
         seen.add(msg);
       }
     }
-    return out.slice(0, 20);
+    return out;
   });
 }

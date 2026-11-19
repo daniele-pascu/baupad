@@ -162,7 +162,7 @@ test('Messart aus der Form (Linie / Fläche), keine Auswahl beim Einfügen: Lini
   expect(stored.map((d) => [d.number, d.kind, d.depth])).toEqual([
     [1, 'line', null],
     [2, 'area', null],
-    [3, 'area', 0.1],
+    [3, 'area', null], // Fläche: keine Tiefe
   ]);
 
   // Excel: leere Zellen statt 0; Summe nur Flächen
@@ -172,8 +172,8 @@ test('Messart aus der Form (Linie / Fläche), keine Auswahl beim Einfügen: Lini
   const wb = readXlsx(file);
   const ml = blattRows(wb, 'M-1');
   expect(ml.map((r) => [r.nr, r.values, r.note])).toEqual([
-    [2, { Länge: 2, Breite: 1, Tiefe: null, 'm²': 2 }, null], // Tiefe leer, nicht 0
-    [3, { Länge: 1, Breite: 0.5, Tiefe: 0.1, 'm²': 0.5 }, null],
+    [2, { Länge: 2, Breite: 1, 'm²': 2 }, null], // Fläche: keine Spalte Tiefe
+    [3, { Länge: 1, Breite: 0.5, 'm²': 0.5 }, null],
     [1, { m: 3.5 }, null], // Linie: nur Länge
   ]);
   for (const r of ml) expect(r.head).not.toContain('Bemerkung');

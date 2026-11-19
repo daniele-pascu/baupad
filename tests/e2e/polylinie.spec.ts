@@ -295,7 +295,7 @@ test('Aufmaß: offene Polylinie = Linienmessung mit Länge, geschlossene = Fläc
   for (const [dx, dy] of [[-260, -40], [-160, -40], [-160, 40], [-260, 40]]) await page.mouse.click(x + dx, y + dy);
   await page.getByTestId('polygon-finish').click();
   await expect(dlg).toContainText('Neue Messung: Fläche');
-  await expect(dlg).toContainText('Breite / Höhe');
+  await expect(dlg.getByTestId('input-width')).toBeVisible(); // Fläche: Länge × Breite
   await dlg.getByTestId('damage-cancel').click();
 
   // Rechteck mit Fläche aus dem Plan: Ecke einzeln verschieben (→ Trapez), Fläche wird nachgeführt

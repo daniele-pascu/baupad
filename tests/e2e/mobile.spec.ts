@@ -197,6 +197,7 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   // Tippen auf den Plan mit gewähltem Werkzeug hat die Leiste unten zugeklappt
   await expect(page.getByTestId('tools-open')).toBeVisible();
   await expect(dlg.getByTestId('input-number')).toHaveValue('2');
+  await dlg.getByTestId('measure-type-select').selectOption('schadstelle'); // mit Tiefe: Betoninstandsetzung
   await dlg.getByTestId('input-length').fill('2,4');
   await dlg.getByTestId('input-width').fill('1,1');
   await dlg.getByTestId('input-depth').fill('0,06');

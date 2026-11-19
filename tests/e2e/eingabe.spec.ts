@@ -148,11 +148,11 @@ test('Messung: nur Länge Pflicht, Breite/Höhe und Tiefe optional; Werkzeugleis
   await page.getByTestId('tools-close').click();
   await expect(page.getByTestId('tools-open')).toBeVisible();
 
-  // Fläche (Messart) mit Länge und Tiefe, ohne Breite/Höhe → kein Volumen, keine Fläche
+  // Fläche (Messart) nur mit Länge, ohne Breite → keine Fläche; Tiefe gibt es bei der Fläche nicht
   await pickTool(page, 'tool-rect');
   await drawRect(page, box.x + box.width * 0.4, box.y + box.height * 0.1, box.x + box.width * 0.5, box.y + box.height * 0.2);
+  await expect(dlg.getByTestId('input-depth')).toHaveCount(0);
   await dlg.getByTestId('input-length').fill('3');
-  await dlg.getByTestId('input-depth').fill('0,1');
   await dlg.getByTestId('damage-save').click();
   await expect(dlg).toBeHidden();
   // Wand: Länge × Höhe = Wandfläche, Tiefe leer
@@ -169,14 +169,14 @@ test('Messung: nur Länge Pflicht, Breite/Höhe und Tiefe optional; Werkzeugleis
   await dlg.getByTestId('input-length').fill('1');
   await dlg.getByTestId('input-width').fill('0');
   await dlg.getByTestId('damage-save').click();
-  await expect(dlg).toContainText('Breite/Höhe muss größer als 0 sein');
+  await expect(dlg).toContainText('Breite muss größer als 0 sein');
   await dlg.getByTestId('damage-cancel').click();
   await waitSaved(page);
 
   const ds = await stored(page, 'damages');
   expect(ds.map((d) => [d.length, d.width, d.depth, d.area])).toEqual([
     [4.2, null, null, null], // leer bleibt leer, nicht 0
-    [3, null, 0.1, null],
+    [3, null, null, null],
     [5, 2.8, null, 14],
   ]);
   await expect(page.getByTestId('sum-area')).toHaveText('14,00');
