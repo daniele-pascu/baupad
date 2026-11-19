@@ -219,18 +219,22 @@ export async function drawRect(page: Page, x1: number, y1: number, x2: number, y
 export async function fillMeasures(page: Page, l: string, b: string, t: string, viaEnter = true) {
   const dlg = page.getByTestId('damage-dialog');
   await expect(dlg).toBeVisible();
+  // Tiefe gibt es nur bei Volumen und Betoninstandsetzung – mit Tiefe also Betoninstandsetzung wählen
+  if (t && !(await dlg.getByTestId('input-depth').count())) await dlg.getByTestId('measure-type-select').selectOption('schadstelle');
   await dlg.getByTestId('input-length').fill(l);
   if (viaEnter) {
     await dlg.getByTestId('input-length').press('Enter');
     await expect(dlg.getByTestId('input-width')).toBeFocused();
     await page.keyboard.type(b);
     await page.keyboard.press('Enter');
-    await expect(dlg.getByTestId('input-depth')).toBeFocused();
-    await page.keyboard.type(t);
-    await page.keyboard.press('Enter');
+    if (t) {
+      await expect(dlg.getByTestId('input-depth')).toBeFocused();
+      await page.keyboard.type(t);
+      await page.keyboard.press('Enter');
+    }
   } else {
     await dlg.getByTestId('input-width').fill(b);
-    await dlg.getByTestId('input-depth').fill(t);
+    if (t) await dlg.getByTestId('input-depth').fill(t);
     await dlg.getByTestId('damage-save').click();
   }
   await expect(dlg).toBeHidden();

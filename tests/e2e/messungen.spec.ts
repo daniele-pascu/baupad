@@ -86,9 +86,9 @@ test('Messart aus der Form (Linie / Fläche), keine Auswahl beim Einfügen: Lini
   // keine Messart-Auswahl mehr – Linie ergibt sich aus dem Werkzeug; Höhe und Tiefe optional
   await expect(dlg).toContainText('Neue Messung: Länge');
   await expect(dlg.locator('[data-testid^="kind-"]')).toHaveCount(0);
-  await expect(dlg).toContainText('Höhe');
-  await expect(dlg.getByTestId('input-width')).not.toHaveAttribute('placeholder', /./);
-  await expect(dlg.getByTestId('input-depth')).not.toHaveAttribute('placeholder', /./);
+  // Länge: nur die Länge – keine Höhe, keine Tiefe
+  await expect(dlg.getByTestId('input-width')).toHaveCount(0);
+  await expect(dlg.getByTestId('input-depth')).toHaveCount(0);
   await expect(dlg.getByTestId('area-result')).toContainText('keine Fläche');
   await dlg.getByTestId('input-length').fill('3,5');
   await dlg.getByTestId('damage-save').click();
@@ -115,17 +115,17 @@ test('Messart aus der Form (Linie / Fläche), keine Auswahl beim Einfügen: Lini
   for (const [fx, fy] of tri) await page.mouse.click(box.x + box.width * fx, box.y + box.height * fy);
   await expect(dlg).toContainText('Neue Messung: Fläche');
   await expect(dlg.getByTestId('input-number')).toHaveValue('2');
-  await expect(dlg.getByTestId('input-depth')).not.toHaveAttribute('placeholder', /./);
+  await expect(dlg.getByTestId('input-depth')).toHaveCount(0); // Fläche: nur Länge × Breite
   await dlg.getByTestId('input-length').fill('2');
   await dlg.getByTestId('input-width').fill('1');
-  await dlg.getByTestId('damage-save').click(); // Tiefe bleibt leer → trotzdem speicherbar
+  await dlg.getByTestId('damage-save').click();
   await expect(dlg).toBeHidden();
   // Tabelle „Fläche“: solange keine Messung eine Tiefe hat, gibt es keine Spalte „Tiefe“
   const flaecheHead = page.locator('[data-testid="aufmass-type"][data-type="flaeche"] thead');
   await expect(flaecheHead).not.toContainText('Tiefe');
   await expect(row(2).getByTestId('row-area')).toHaveText('2,00');
 
-  // 3) Rechteck in Weiß als Fläche mit Tiefe (Auswahl vorher aufheben – sonst würde Nr. 2 umgefärbt)
+  // 3) Rechteck in Weiß als Fläche (Auswahl vorher aufheben – sonst würde Nr. 2 umgefärbt)
   await page.getByRole('button', { name: 'Auswahl aufheben' }).click();
   await openTools(page);
   await page.getByRole('button', { name: 'Farbe Weiß' }).click();
@@ -134,14 +134,11 @@ test('Messart aus der Form (Linie / Fläche), keine Auswahl beim Einfügen: Lini
   await expect(dlg).toContainText('Neue Messung: Fläche');
   await dlg.getByTestId('input-length').fill('1');
   await dlg.getByTestId('input-width').fill('0,5');
-  await dlg.getByTestId('input-depth').fill('0,1');
   await dlg.getByTestId('damage-save').click();
   await expect(dlg).toBeHidden();
   await expect(row(3).getByTestId('row-kind')).toHaveText('Fläche');
-  // jetzt mit Spalte „Tiefe“ – bei Nr. 2 bleibt sie leer (nicht 0)
-  await expect(flaecheHead).toContainText('Tiefe');
-  await expect(row(2).locator('td').nth(3)).toHaveText('–');
-  await expect(row(3).locator('td').nth(3)).toHaveText('0,10');
+  // Fläche hat nie eine Spalte „Tiefe“
+  await expect(flaecheHead).not.toContainText('Tiefe');
   await expect(page.getByTestId('sum-area')).toHaveText('2,50'); // 2,00 + 0,50 – Linie zählt nicht
   await expect(page.getByTestId('side-summary')).toContainText('Linien 3,50 m');
 
@@ -165,7 +162,7 @@ test('Messart aus der Form (Linie / Fläche), keine Auswahl beim Einfügen: Lini
   expect(stored.map((d) => [d.number, d.kind, d.depth])).toEqual([
     [1, 'line', null],
     [2, 'area', null],
-    [3, 'area', 0.1],
+    [3, 'area', null], // Fläche: keine Tiefe
   ]);
 
   // Excel: leere Zellen statt 0; Summe nur Flächen
@@ -175,8 +172,8 @@ test('Messart aus der Form (Linie / Fläche), keine Auswahl beim Einfügen: Lini
   const wb = readXlsx(file);
   const ml = blattRows(wb, 'M-1');
   expect(ml.map((r) => [r.nr, r.values, r.note])).toEqual([
-    [2, { Länge: 2, Breite: 1, Tiefe: null, 'm²': 2 }, null], // Tiefe leer, nicht 0
-    [3, { Länge: 1, Breite: 0.5, Tiefe: 0.1, 'm²': 0.5 }, null],
+    [2, { Länge: 2, Breite: 1, 'm²': 2 }, null], // Fläche: keine Spalte Tiefe
+    [3, { Länge: 1, Breite: 0.5, 'm²': 0.5 }, null],
     [1, { m: 3.5 }, null], // Linie: nur Länge
   ]);
   for (const r of ml) expect(r.head).not.toContain('Bemerkung');

@@ -41,6 +41,9 @@ Grundregeln stehen in `CLAUDE.md`, Grundsätze in `docs/entscheidungen.md`.
   (`src/components/TrashButton.tsx`, Modell `src/lib/trash-items.ts`, Aufräumen `src/lib/trash-purge.ts`).
 
 ## Offen / wartet auf Daniele
+- **Marken-Zeile „BauPad by PAD Software“**: Variante wählen (Vorschlag: V2 in App/Website, V3 im PDF).
+- **Plan-Export:** Schalter „BauPad-Logo an/aus“ (Vorschlag: Standard aus) – Antwort offen.
+- **Plan verkleinert unübersichtlich:** Vorschlag A (Beschriftungen beim Verkleinern ausdünnen) – Antwort offen.
 - **Marke BauPad anmelden** (Empfehlung an Daniele, seine Sache). Website-Texte sind umgestellt: nur Nutzen, kein „Wie“.
 - Rote Tests behoben (19.11.2026): Fläche aus dem Plan rundet trotz PDF-Rauschen richtig (116,66 m²), messungen „Rückgängig … Verschieben“ und Datenbank-Version.
 

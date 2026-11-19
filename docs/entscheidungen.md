@@ -250,3 +250,10 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - Gewählt wegen Lesbarkeit auf der Baustelle: Rauchglas (M1) mit weißer Schrift kam über hellem Plan nur auf ~2,6 : 1 Kontrast.
 - Weichzeichner nur für Tasten über dem Plan; „Transparenz reduzieren“ macht alle Tasten fest. Nur in der App (`html.app-fixed`), die Website bleibt bei ihrem Design. Zustände (aktiv, umgeschaltet, Gefahr) unverändert.
 - Dunkelmodus: Status-Pillen (Maßstab) jetzt lesbar.
+
+## Messfelder je Messart, App-Leiste, Tool-Seiten, Dunkelmodus (19.11.2026)
+- Messfenster zeigt nur die Maße, die zur Messart gehören: **Fläche** Länge × Breite · **Volumen** Länge × Breite × Tiefe (Tiefe Pflicht) · **Länge** nur Länge · **Wand** Länge und Höhe · **Betoninstandsetzung** Länge × Breite × Tiefe.
+- Website: Tool-Karten auf der BauPad-Seite tragen „Mehr erfahren →“; Antippen vergrößert die Karte (gleicher Übergang wie BauPad auf der Startseite) zur eigenen Tool-Seite (Kopf in der Tool-Farbe, Funktionen in Gruppen, andere Tools).
+- App-Leiste: kein Eintrag „Tools“ mehr – das BauPad-Logo führt zu den Tools. Beim Öffnen der App blitzt die Website-Leiste nicht mehr auf.
+- Dunkelmodus ganz durchgesehen: helle Flächen, Rahmen und dunkle Schrift (Menüs, Marken, Tabellenzeilen, aktive Schalter, Feldbeschriftungen, Team/Zeit/Berichte) angepasst. Papier-Ansichten (Plan, Formularseite, PDF, Logo-Vorschau) und Kamera bleiben bewusst hell.
+- Prüfung: `TASTEN_DUNKEL=1` vor dem Tasten-Test öffnet alles im Dunkelmodus und meldet schwer lesbare Schrift (unter 3 : 1) und Tasten, die sich nicht vom Hintergrund abheben.

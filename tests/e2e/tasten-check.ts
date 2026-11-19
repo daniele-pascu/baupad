@@ -115,3 +115,130 @@ export async function tastenBefunde(page: Page): Promise<string[]> {
     return [...new Set(out)];
   });
 }
+
+/**
+ * Kontrast-Prüfung (vor allem für den Dunkelmodus): Jede sichtbare Schrift muss sich vom Hintergrund abheben
+ * (Kontrast mindestens 3 : 1 nach WCAG – darunter ist sie schlecht lesbar, z. B. hell auf hell), und Tasten mit eigener
+ * Fläche dürfen nicht in ihrem Untergrund verschwinden (z. B. schwarze Taste auf Schwarz ohne Rand).
+ * Übersprungen: Website (eigenes Design), Text in Grafiken (SVG, Plan), über Bildern und gesperrte Elemente.
+ */
+export async function kontrastBefunde(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    if (document.querySelector('.ps-site')) return [];
+    type C = { r: number; g: number; b: number; a: number };
+    const parse = (s: string): C | null => {
+      let m = s.match(/^rgba?\(([^)]+)\)$/);
+      if (m) {
+        const p = m[1].split(/[\s,/]+/).filter(Boolean).map(Number);
+        return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
+      }
+      m = s.match(/^color\(srgb ([^)]+)\)$/);
+      if (m) {
+        const p = m[1].split(/[\s/]+/).filter(Boolean).map(Number);
+        return { r: p[0] * 255, g: p[1] * 255, b: p[2] * 255, a: p.length > 3 ? p[3] : 1 };
+      }
+      return null;
+    };
+    const over = (top: C, bottom: C): C => {
+      const a = top.a + bottom.a * (1 - top.a);
+      if (a === 0) return { r: 0, g: 0, b: 0, a: 0 };
+      const mix = (t: number, b: number) => (t * top.a + b * bottom.a * (1 - top.a)) / a;
+      return { r: mix(top.r, bottom.r), g: mix(top.g, bottom.g), b: mix(top.b, bottom.b), a };
+    };
+    const lum = (c: C) => {
+      const f = (v: number) => {
+        const x = v / 255;
+        return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+      };
+      return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b);
+    };
+    const ratio = (a: C, b: C) => {
+      const l1 = lum(a);
+      const l2 = lum(b);
+      return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+    };
+    /** Hintergrund hinter einem Element (Schichten von innen nach außen gemischt); null = Bild dahinter, unbekannt */
+    const backdrop = (el: Element | null): C | null => {
+      const layers: C[] = [];
+      for (let n = el; n; n = n.parentElement) {
+        const cs = getComputedStyle(n);
+        if (cs.backgroundImage.includes('url(')) return null;
+        const bg = parse(cs.backgroundColor);
+        let c = bg && bg.a > 0 ? bg : null;
+        if (!c && cs.backgroundImage.includes('gradient')) {
+          const first = cs.backgroundImage.match(/(rgba?\([^)]+\)|color\(srgb [^)]+\))/);
+          const g = first ? parse(first[1]) : null;
+          if (g && g.a >= 0.6) c = g;
+        }
+        if (c) {
+          layers.push(c);
+          if (c.a >= 0.99) break;
+        }
+      }
+      let acc: C = { r: 255, g: 255, b: 255, a: 1 };
+      for (let i = layers.length - 1; i >= 0; i--) acc = over(layers[i], acc);
+      return acc;
+    };
+    const faded = (el: Element) => {
+      for (let n: Element | null = el; n; n = n.parentElement) {
+        if (Number(getComputedStyle(n).opacity) < 0.6) return true;
+        if ((n as HTMLButtonElement).disabled || n.getAttribute('aria-disabled') === 'true') return true;
+      }
+      return false;
+    };
+    const vw = document.documentElement.clientWidth;
+    const vh = window.innerHeight;
+    const visible = (el: Element) => {
+      const r = el.getBoundingClientRect();
+      if (r.width < 2 || r.height < 2 || r.bottom < 0 || r.top > vh || r.right < 0 || r.left > vw) return false;
+      const cs = getComputedStyle(el);
+      if (cs.visibility === 'hidden' || cs.display === 'none') return false;
+      return !el.closest('[aria-hidden="true"], [inert], .sr-only, svg, canvas, .viewer, video');
+    };
+    const name = (el: Element) => {
+      const t = ((el as HTMLElement).innerText || el.getAttribute('aria-label') || '').trim().replace(/\s+/g, ' ').slice(0, 36);
+      const id = el.closest('[data-testid]')?.getAttribute('data-testid');
+      return `${el.tagName.toLowerCase()}${typeof el.className === 'string' && el.className ? `.${el.className.split(' ')[0]}` : ''}${id ? `[${id}]` : ''} „${t}“`;
+    };
+    const modals = [...document.querySelectorAll('.modal, [role="dialog"]')].filter((m) => (m as HTMLElement).offsetParent !== null || getComputedStyle(m).position === 'fixed');
+    const root: ParentNode = modals.length ? modals[modals.length - 1] : document;
+    const out: string[] = [];
+    const seen = new Set<string>();
+    // 1) Schrift auf ihrem Hintergrund
+    for (const el of root.querySelectorAll('body *')) {
+      const own = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent!.trim());
+      const field = el.matches('input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), textarea, select');
+      if (!own && !(field && (el as HTMLInputElement).value)) continue;
+      if (!visible(el) || faded(el)) continue;
+      const fg = parse(getComputedStyle(el).color);
+      const bg = backdrop(el);
+      if (!fg || !bg) continue;
+      const r = ratio(over(fg, bg), bg);
+      if (r < 3) {
+        const msg = `Schrift kaum lesbar (Kontrast ${r.toFixed(1)} : 1): ${name(el)}`;
+        if (!seen.has(msg)) out.push(msg);
+        seen.add(msg);
+      }
+    }
+    // 2) Tasten mit eigener Fläche heben sich vom Untergrund ab (Fläche oder Rand)
+    for (const el of root.querySelectorAll('.btn, .chip, .tools-quick, .tool-card, .tools-grid > a, .seg-btn')) {
+      if (!visible(el) || faded(el)) continue;
+      const cs = getComputedStyle(el);
+      const own = parse(cs.backgroundColor);
+      if (!own || own.a < 0.5) continue;
+      const under = backdrop(el.parentElement);
+      if (!under) continue;
+      const fill = over(own, under);
+      const border = parse(cs.borderTopColor);
+      const borderW = parseFloat(cs.borderTopWidth) || 0;
+      const edge = border && borderW > 0 ? ratio(over(border, under), under) : 1;
+      const shadowRing = /(^|,)\s*(rgba?\([^)]+\)\s+)?0px 0px 0px [1-9]/.test(cs.boxShadow);
+      if (ratio(fill, under) < 1.15 && edge < 1.3 && !shadowRing) {
+        const msg = `Taste hebt sich nicht vom Hintergrund ab: ${name(el)}`;
+        if (!seen.has(msg)) out.push(msg);
+        seen.add(msg);
+      }
+    }
+    return out;
+  });
+}

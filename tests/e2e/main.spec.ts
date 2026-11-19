@@ -176,7 +176,7 @@ test('5.–7. Schadstellen einzeichnen, automatisch nummerieren, Maße eingeben,
   await dlg.getByTestId('input-width').fill('0');
   await dlg.getByTestId('damage-save').click();
   await expect(dlg).toContainText('ist keine gültige Zahl');
-  await expect(dlg).toContainText('Breite/Höhe muss größer als 0 sein');
+  await expect(dlg).toContainText('Breite muss größer als 0 sein');
   await expect(dlg).not.toContainText('Tiefe fehlt'); // Tiefe ist optional
   await expect(dlg.getByTestId('area-result')).toContainText('–');
   // Abbrechen verwirft die neue Markierung
@@ -186,6 +186,7 @@ test('5.–7. Schadstellen einzeichnen, automatisch nummerieren, Maße eingeben,
 
   await drawRect(page, box.x + box.width * 0.2, box.y + box.height * 0.3, box.x + box.width * 0.3, box.y + box.height * 0.42);
   await expect(dlg.getByTestId('input-number')).toHaveValue('1');
+  await dlg.getByTestId('measure-type-select').selectOption('schadstelle'); // Tiefe gibt es bei der Betoninstandsetzung
   await dlg.getByTestId('input-length').fill('1,5');
   await dlg.getByTestId('input-width').fill('0,8');
   await expect(dlg.getByTestId('area-result')).toContainText('1,20 m²'); // sofortige Aktualisierung
@@ -274,6 +275,7 @@ test('8./9. Schadstelle bearbeiten, Nummer ändern, löschen – Plan und Tabell
   await drawRect(page, box.x + box.width * 0.35, box.y + box.height * 0.56, box.x + box.width * 0.42, box.y + box.height * 0.64); // über der (ggf. zweizeiligen) Werkzeugleiste
   await expect(dlg.getByTestId('input-number')).toHaveValue('4');
   await dlg.getByTestId('input-number').fill('2');
+  if (!(await dlg.getByTestId('input-depth').count())) await dlg.getByTestId('measure-type-select').selectOption('schadstelle');
   await dlg.getByTestId('input-length').fill('1');
   await dlg.getByTestId('input-width').fill('1');
   await dlg.getByTestId('input-depth').fill('0,02');

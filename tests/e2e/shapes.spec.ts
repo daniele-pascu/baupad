@@ -34,7 +34,8 @@ test('Offene Polylinie (Riss) bleibt offen; Schadstellen nachträglich drehen un
   await expect(dlg.getByTestId('input-number')).toHaveValue('1');
   // Offene Linie → automatisch Linienmessung (nur Länge, keine Fläche)
   await expect(dlg).toContainText('Neue Messung: Länge');
-  await expect(dlg).toContainText('Höhe'); // Linie: Höhe und Tiefe optional, keine Fläche
+  await expect(dlg.getByTestId('input-width')).toHaveCount(0); // Länge: nur Länge, keine Höhe/Tiefe
+  await expect(dlg.getByTestId('input-depth')).toHaveCount(0);
   await dlg.getByTestId('input-length').fill('2,9');
   await dlg.getByTestId('damage-save').click();
   await expect(dlg).toBeHidden();

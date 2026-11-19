@@ -152,64 +152,6 @@ export const de = {
       secondary: 'BauPad öffnen',
       status: 'Testphase – Abo folgt zum Start',
     },
-    details: {
-      projects: {
-        lead: 'Mengen ermitteln – direkt im Plan.',
-        groups: [
-          { title: 'Plan', items: ['PDF oder Bild hochladen', 'Automatisch skaliert – oder selbst', 'Originalauflösung, volle Schärfe', 'Kein Plan? Selbst zeichnen'] },
-          { title: 'Messen', items: ['7 Messarten: Fläche, Wand, Volumen, Länge, Stück, Betoninstandsetzung, frei', 'Nach Position messen', 'Maße aus dem Plan – oder von Hand', 'Fotos aufnehmen oder aus dem Foto-Tool'] },
-          { title: 'Positionen und Rechnungen', items: ['LV und MFK importieren – oder selbst formulieren', 'Nach Rechnungen teilen: Teil-, Schlussteil-, Schlussrechnung'] },
-          { title: 'Export', items: ['Aufmaß nach Positionen – Excel oder PDF', 'Pläne als PDF'] },
-        ],
-      },
-      workers: {
-        lead: 'Wer arbeitet wo – die Woche auf einen Blick.',
-        groups: [
-          { title: 'Arbeiter', items: ['Name, Qualifikation, Tätigkeit, Personalnummer, Telefon', 'Urlaub und Krankenstand'] },
-          { title: 'Einteilung', items: ['Je Woche', 'Baustelle aus dem Projektregister', 'Arbeiter auf die Tage verteilen', 'Vorwoche übernehmen'] },
-          { title: 'Export', items: ['Wochenliste als PDF'] },
-        ],
-      },
-      reports: {
-        lead: 'Ihre Formulare – digital ausgefüllt.',
-        groups: [
-          { title: 'Vorlagen', items: ['Regieliste, Bautagesbericht & Co. einmal hochladen', 'Für immer digital hinterlegt'] },
-          { title: 'Ausfüllen', items: ['Nach Projekten geordnet', 'Projektangaben automatisch eingetragen', 'Eingeteilte Arbeiter automatisch übernommen'] },
-          { title: 'Export', items: ['Fertig als PDF'] },
-        ],
-      },
-      photos: {
-        lead: 'Baufortschritt im Blick – je Projekt.',
-        groups: [
-          { title: 'Speichern', items: ['Je Projekt, mit Datum, Uhrzeit und Nutzer', 'Laufender Fortschritt, klarer Überblick'] },
-          { title: 'Verbunden', items: ['Fotos aus Aufmaß und Mängelplan landen hier', 'Und lassen sich von hier dort auswählen'] },
-          { title: 'Export', items: ['Für die Dokumentation – als PDF oder ZIP'] },
-        ],
-      },
-      defects: {
-        lead: 'Mängel markieren – direkt im Plan.',
-        groups: [
-          { title: 'Markieren', items: ['Pins im Plan setzen – mit Kategorie', 'Kategorien: Mangel, Ausbesserung, Hinweis', 'Fotos aufnehmen oder aus dem Foto-Tool'] },
-          { title: 'Überblick', items: ['Je Projekt eingeteilt', 'Alles im Blick – nichts wird übersehen'] },
-          { title: 'Export', items: ['PDF mit Plan, Liste und Fotos'] },
-        ],
-      },
-      times: {
-        lead: 'Arbeitsstunden erfassen – je Projekt.',
-        groups: [
-          { title: 'Erfassen', items: ['Stunden je Projekt und Tag', 'Polier trägt auch für seine Partie ein', 'Arbeiter tragen ihre eigenen Stunden ein'] },
-          { title: 'Büro', items: ['Monatszettel mit Soll, Ist, Urlaub und Krank', 'Excel je Arbeiter'] },
-        ],
-      },
-      materials: {
-        lead: 'Material und Verbrauch im Blick.',
-        groups: [
-          { title: 'Materialliste', items: ['Alle verwendeten Materialien mit Menge'] },
-          { title: 'Je Baustelle', items: ['Geliefert, verbraucht, vorhanden', 'Nachbestellung melden'] },
-          { title: 'Überblick', items: ['Bestand und Verbrauch je Baustelle', 'Was nachbestellt werden muss – auf einen Blick'] },
-        ],
-      },
-    },
     dialog: { more: 'Mehr erfahren', close: 'Schließen' },
     register: {
       eyebrow: 'Projektregister',
