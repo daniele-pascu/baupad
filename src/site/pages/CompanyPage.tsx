@@ -4,7 +4,10 @@ import { useLang } from '../i18n';
 import { organizationJsonLd, siteAlternates } from '../seo';
 import { SiteLayout } from '../components/SiteShell';
 
-/** Über uns – schlicht: wer PAD Software ist, wofür wir stehen, Technik, Kontakt */
+/**
+ * Über uns – im Stil der Startseite: schwarzer Kopf mit Titel und Tasten, darunter Fenster aus hellem Glas
+ * (Wofür wir stehen, Technik) und Kontakt frei auf dem hellen Grund. Texte bleiben schlicht.
+ */
 export function CompanyPage() {
   const { lang, t } = useLang();
   const c = t.companyPage;
@@ -20,15 +23,31 @@ export function CompanyPage() {
         alternates: siteAlternates('company'),
         jsonLd: [organizationJsonLd(contactData.email)],
       }}
-      className="ps-company"
+      className="ps-home ps-subpage ps-company"
+      top={
+        <div className="ph-top" data-dark-top="">
+          <section className="ph-hero" aria-labelledby="ps-company-title">
+            <p className="ps-eyebrow">{t.nav.company}</p>
+            <h1 id="ps-company-title">
+              {c.hero.title[0]} <span>{c.hero.title[1]}</span>
+            </h1>
+            <p className="ph-lead">{c.hero.lead}</p>
+            <p className="ph-btns">
+              <a href={paths.contact(lang)} className="ph-b1">
+                {k.primary}
+              </a>
+              <a href={paths.products(lang)} className="ph-b2">
+                {k.secondary}
+              </a>
+            </p>
+          </section>
+        </div>
+      }
     >
-      <p className="ps-eyebrow">{t.nav.company}</p>
-      <h1 id="ps-company-title">{c.hero.title.join(' ')}</h1>
-      <p>{c.hero.lead}</p>
-
-      <section id="werte" aria-labelledby="ab-values">
+      <section id="werte" className="ph-win" aria-labelledby="ab-values">
+        <p className="ps-eyebrow">{a.label}</p>
         <h2 id="ab-values">{a.title}</h2>
-        <ul data-testid="values">
+        <ul className="ph-cards" data-testid="values">
           {a.values.map((v) => (
             <li key={v.title}>
               <h3>{v.title}</h3>
@@ -38,9 +57,10 @@ export function CompanyPage() {
         </ul>
       </section>
 
-      <section id="technologie" aria-labelledby="ab-tech">
+      <section id="technologie" className="ph-win" aria-labelledby="ab-tech">
+        <p className="ps-eyebrow">{x.label}</p>
         <h2 id="ab-tech">{x.title}</h2>
-        <ul data-testid="tech">
+        <ul className="ph-cards" data-testid="tech">
           {x.items.map((it) => (
             <li key={it.title}>
               <h3>{it.title}</h3>
@@ -48,17 +68,18 @@ export function CompanyPage() {
             </li>
           ))}
         </ul>
-        <p>{x.note}</p>
+        <p className="ph-note">{x.note}</p>
       </section>
 
-      <section id="kontakt" aria-labelledby="ab-contact">
+      <section id="kontakt" className="ph-sec" aria-labelledby="ab-contact">
+        <p className="ps-eyebrow">{k.label}</p>
         <h2 id="ab-contact">{k.title}</h2>
         <p>{k.text}</p>
-        <p className="ps-links">
-          <a href={paths.contact(lang)} data-testid="cta-contact-2">
+        <p className="ph-btns">
+          <a href={paths.contact(lang)} className="ph-b1" data-testid="cta-contact-2">
             {k.primary}
           </a>
-          <a href={paths.products(lang)} data-testid="cta-products">
+          <a href={paths.products(lang)} className="ph-b2" data-testid="cta-products">
             {k.secondary}
           </a>
         </p>

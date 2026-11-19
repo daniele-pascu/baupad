@@ -52,4 +52,4 @@ Grundregeln stehen in `CLAUDE.md`, Grundsätze in `docs/entscheidungen.md`.
 ## Vorgemerkt (später)
 - App nur mit BauPad-Anmeldung (`docs/entscheidungen.md`).
 - Visitenkarte auf die Kontaktseite.
-- Über uns und Kontakt gestalten (derzeit schlicht, hell).
+- Über uns und Kontakt: im Stil der Startseite (schwarzer Kopf, Fenster aus hellem Glas) – Feinschliff macht Daniele selbst.

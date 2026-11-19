@@ -235,9 +235,13 @@ test('Website: Startseite, Produkte, BauPad, Unternehmen, Kontaktformular, Sprac
   // Unternehmen
   await nav.getByRole('link', { name: 'Über uns', exact: true }).click();
   await expect(h1).toContainText('für die Praxis');
-  // Über uns ist hell, die Leiste darüber schwarzes Glas
+  // Über uns im Stil der Startseite: schwarzer Kopf (Leiste darüber weißes Glas), darunter heller Grund (Leiste schwarzes Glas)
   await expect(page.locator('html')).toHaveCSS('background-color', 'rgb(244, 244, 246)');
+  await expect(page.locator('[data-dark-top]')).toBeVisible();
+  await expect(nav).not.toHaveClass(/on-light/);
+  await page.evaluate(() => window.scrollTo(0, 900));
   await expect(nav).toHaveClass(/on-light/);
+  await page.evaluate(() => window.scrollTo(0, 0));
   // „Wofür wir stehen“ (fünf Grundsätze) und „Technik, die mitwächst“ (sechs Punkte) stehen hier – ohne Zertifikats-Werbung
   await expect(page.getByTestId('values').locator(':scope > li')).toHaveCount(5);
   await expect(page.getByTestId('tech').locator(':scope > li')).toHaveCount(6);

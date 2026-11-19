@@ -138,78 +138,93 @@ export function ContactPage() {
         alternates: siteAlternates('contact'),
         jsonLd: [organizationJsonLd(contactData.email)],
       }}
-      className="ps-contact-page"
-    >
-      <p className="ps-eyebrow">{c.hero.eyebrow}</p>
-      <h1 id="ps-contact-title">{c.hero.title}</h1>
-      <p>{c.hero.lead}</p>
-
-      <section aria-labelledby="ps-contact-direct">
-        <h2 id="ps-contact-direct">{c.direct.title}</h2>
-        <dl className="ps-dl" data-testid="contact-list">
-          {rows.map(([label, value, kind]) => (
-            <div key={label}>
-              <dt>{label}</dt>
-              <dd>
-                {!value ? (
-                  <span className="placeholder">{c.direct.missing}</span>
-                ) : kind === 'mail' ? (
-                  <a href={`mailto:${value}`}>{value}</a>
-                ) : kind === 'tel' ? (
-                  <a href={`tel:${value.replace(/[^\d+]/g, '')}`}>{value}</a>
-                ) : (
-                  value
-                )}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </section>
-      <section aria-labelledby="ps-contact-form">
-        <h2 id="ps-contact-form">{c.form.title}</h2>
-        <form className="ps-form" onSubmit={(e) => void submit(e)} noValidate data-testid="contact-form">
-          {field('name', c.form.name, { autoComplete: 'name' })}
-          {field('company', c.form.company, {
-            optional: true,
-            autoComplete: 'organization',
-          })}
-          {field('email', c.form.email, {
-            type: 'email',
-            autoComplete: 'email',
-          })}
-          {field('subject', c.form.subject)}
-          {field('message', c.form.message, { textarea: true })}
-          {/* Honigtopf: für Menschen unsichtbar, Bots füllen ihn aus */}
-          <div className="ps-hp" aria-hidden="true">
-            <label htmlFor="ps-f-website">Website</label>
-            <input id="ps-f-website" name="website" type="text" tabIndex={-1} autoComplete="off" value={v.website} onChange={(e) => setV({ ...v, website: e.target.value })} />
-          </div>
-          <div className={`ps-field ps-field-check${errors.consent ? ' has-error' : ''}`}>
-            <label>
-              <input type="checkbox" checked={v.consent} onChange={(e) => setV({ ...v, consent: e.target.checked })} aria-invalid={errors.consent ? true : undefined} data-testid="contact-consent" />
-              <span>
-                {c.form.consent}{' '}
-                <a href={paths.privacy(lang)} target="_blank" rel="noopener">
-                  {c.form.privacyLink}
+      className="ps-home ps-subpage ps-contact-page"
+      top={
+        <div className="ph-top" data-dark-top="">
+          <section className="ph-hero" aria-labelledby="ps-contact-title">
+            <p className="ps-eyebrow">{c.hero.eyebrow}</p>
+            <h1 id="ps-contact-title">{c.hero.title}</h1>
+            <p className="ph-lead">{c.hero.lead}</p>
+            {contactData.email && (
+              <p className="ph-btns">
+                <a href={`mailto:${contactData.email}`} className="ph-b1">
+                  {contactData.email}
                 </a>
-              </span>
-            </label>
-            {errors.consent && (
-              <p className="ps-error" role="alert">
-                {errors.consent}
               </p>
             )}
-          </div>
-          {failure && (
-            <p className="ps-error ps-error-box" role="alert" data-testid="contact-failure">
-              {failure}
-            </p>
-          )}
-          <button type="submit" className="ps-submit" disabled={busy} data-testid="contact-submit">
-            {busy ? c.form.sending : c.form.submit}
-          </button>
-        </form>
-      </section>
+          </section>
+        </div>
+      }
+    >
+      {/* Direkt und Formular als Fenster aus hellem Glas, am PC nebeneinander */}
+      <div className="ph-contact-grid">
+        <section className="ph-win" aria-labelledby="ps-contact-direct">
+          <h2 id="ps-contact-direct">{c.direct.title}</h2>
+          <dl className="ps-dl" data-testid="contact-list">
+            {rows.map(([label, value, kind]) => (
+              <div key={label}>
+                <dt>{label}</dt>
+                <dd>
+                  {!value ? (
+                    <span className="placeholder">{c.direct.missing}</span>
+                  ) : kind === 'mail' ? (
+                    <a href={`mailto:${value}`}>{value}</a>
+                  ) : kind === 'tel' ? (
+                    <a href={`tel:${value.replace(/[^\d+]/g, '')}`}>{value}</a>
+                  ) : (
+                    value
+                  )}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+        <section className="ph-win" aria-labelledby="ps-contact-form">
+          <h2 id="ps-contact-form">{c.form.title}</h2>
+          <form className="ps-form" onSubmit={(e) => void submit(e)} noValidate data-testid="contact-form">
+            {field('name', c.form.name, { autoComplete: 'name' })}
+            {field('company', c.form.company, {
+              optional: true,
+              autoComplete: 'organization',
+            })}
+            {field('email', c.form.email, {
+              type: 'email',
+              autoComplete: 'email',
+            })}
+            {field('subject', c.form.subject)}
+            {field('message', c.form.message, { textarea: true })}
+            {/* Honigtopf: für Menschen unsichtbar, Bots füllen ihn aus */}
+            <div className="ps-hp" aria-hidden="true">
+              <label htmlFor="ps-f-website">Website</label>
+              <input id="ps-f-website" name="website" type="text" tabIndex={-1} autoComplete="off" value={v.website} onChange={(e) => setV({ ...v, website: e.target.value })} />
+            </div>
+            <div className={`ps-field ps-field-check${errors.consent ? ' has-error' : ''}`}>
+              <label>
+                <input type="checkbox" checked={v.consent} onChange={(e) => setV({ ...v, consent: e.target.checked })} aria-invalid={errors.consent ? true : undefined} data-testid="contact-consent" />
+                <span>
+                  {c.form.consent}{' '}
+                  <a href={paths.privacy(lang)} target="_blank" rel="noopener">
+                    {c.form.privacyLink}
+                  </a>
+                </span>
+              </label>
+              {errors.consent && (
+                <p className="ps-error" role="alert">
+                  {errors.consent}
+                </p>
+              )}
+            </div>
+            {failure && (
+              <p className="ps-error ps-error-box" role="alert" data-testid="contact-failure">
+                {failure}
+              </p>
+            )}
+            <button type="submit" className="ps-submit" disabled={busy} data-testid="contact-submit">
+              {busy ? c.form.sending : c.form.submit}
+            </button>
+          </form>
+        </section>
+      </div>
     </SiteLayout>
   );
 }
