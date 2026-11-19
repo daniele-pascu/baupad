@@ -236,31 +236,9 @@ export async function fillMeasures(page: Page, l: string, b: string, t: string, 
   await expect(dlg).toBeHidden();
 }
 
-/** Messung in der Aufmaß-Liste auswählen – ist sie schon ausgewählt, nichts tun (sonst öffnete sich das Messfenster) */
-export async function selectRow(page: Page, no: string | number, tap = false) {
-  const row = page.locator(`[data-testid="aufmass-row"][data-number="${no}"]`);
-  if (!(await row.evaluate((el) => el.classList.contains('selected')))) await (tap ? row.tap() : row.click());
-  await expect(row).toHaveClass(/selected/);
-}
-
-/** Messung in der Aufmaß-Liste öffnen: antippen = auswählen (im Plan), noch einmal antippen = öffnen */
-export async function openRow(page: Page, no: string | number, tap = false) {
-  const row = page.locator(`[data-testid="aufmass-row"][data-number="${no}"]`);
-  const press = () => (tap ? row.tap() : row.click());
-  if (!(await row.evaluate((el) => el.classList.contains('selected')))) await press();
-  await expect(row).toHaveClass(/selected/);
-  await press();
-  await expect(page.getByTestId('damage-dialog')).toBeVisible();
-}
-
-/** Aufmaß-Zeilen als [Nr, Maße …, Ergebnis] – z. B. ['1', '1,50', '0,80', '0,05', '1,20'] (Länge × Breite × Tiefe = Fläche) */
 export async function tableRows(page: Page) {
   return page.locator('[data-testid="aufmass-row"]:visible').evaluateAll((rows) =>
-    rows.map((r) => [
-      r.querySelector('.row-nr')?.textContent?.trim() ?? '',
-      ...[...r.querySelectorAll('.row-dim')].map((x) => x.textContent?.trim() ?? ''),
-      r.querySelector('.row-value')?.textContent?.trim() ?? '',
-    ]),
+    rows.map((r) => [...r.querySelectorAll('td')].map((td) => td.textContent?.trim() ?? '')),
   );
 }
 

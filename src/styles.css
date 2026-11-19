@@ -1359,7 +1359,7 @@ input[type='range'] {
 }
 /* iPad/Handy: der Scroll-Balken liegt über dem Inhalt – rechts Platz lassen, damit er Kopfzeile und Tasten nicht verdeckt
    (am PC reserviert scrollbar-gutter den Platz fest) */
-.editor-side .table-wrap.aufmass-list {
+.editor-side .table-wrap.aufmass-tables {
   margin-right: 4px;
   padding-right: 8px;
   scrollbar-gutter: stable;
@@ -10218,30 +10218,43 @@ html[data-theme='dark'] .crew-search {
   padding-top: 0;
   margin-top: 8px;
 }
-/* Aufmaß-Liste (Messleiste, Projekt): eine Gruppen-Ebene, je Messung eine Zeile „Nr · Maße · Ergebnis“.
-   Jede Gruppe ist eine eigene Karte – kein Rahmen außen herum. */
-.table-wrap.aufmass-list {
-  overflow-x: hidden;
+/* Aufmaß-Tabelle: Gruppen je LV-Position, deutlich getrennt */
+.aufmass-table tr.position-group td {
+  background: var(--surface-2);
+  border-top: 2px solid var(--border-strong);
+  padding: 0;
+  font-weight: 700;
+  white-space: normal;
+  cursor: default;
+}
+.aufmass-table tr.position-group:first-child td {
+  border-top: none;
+}
+.position-group-title {
+  min-width: 0;
+}
+.position-group-sum {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* In der Standardbreite passt die Tabelle (Spalten schmaler, Art bricht um). Wird die Messleiste schmaler gezogen,
+   lässt sie sich seitlich wischen – abgeschnitten oder verdeckt wird nichts. */
+.table-wrap:has(> .aufmass-table),
+.table-wrap.aufmass-tables {
+  overflow-x: auto;
   overflow-y: auto;
-  background: none;
-  border: none;
-  border-radius: 0;
-  box-shadow: none;
+  overscroll-behavior-x: contain;
 }
-.aufmass-group {
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  overflow: hidden;
-  background: var(--surface);
+/* je Messart eine eigene Tabelle: Überschrift mit Symbol und Anzahl, darunter Spalten und Summe der Messart */
+.aufmass-type + .aufmass-type {
+  border-top: 6px solid var(--bg);
 }
-.aufmass-group + .aufmass-group {
-  margin-top: 10px;
-}
-.aufmass-group-head {
+.aufmass-type-head {
   margin: 0;
   font-size: 0.95rem;
   font-weight: 700;
-  background: var(--surface-2);
+  background: var(--surface);
 }
 /* Balken einer Gruppe (Messart bzw. Position): ganze Zeile antippen klappt auf/zu, Summe rechts */
 .group-toggle {
@@ -10268,129 +10281,55 @@ html[data-theme='dark'] .crew-search {
 .group-toggle[aria-expanded='true'] .group-chevron {
   transform: rotate(90deg);
 }
-/* Name und Anzahl untereinander, Summe rechts; reicht der Platz nicht, rutscht die Summe in die nächste Zeile */
-.aufmass-group-head .group-toggle {
+/* schmal: reicht der Platz nicht, rutscht die Summe in die nächste Zeile (rechts) statt den Namen zu zerstückeln */
+.aufmass-type-head .group-toggle {
   flex-wrap: wrap;
   row-gap: 2px;
-  padding: 10px 12px;
 }
-.aufmass-group-title {
+.aufmass-type-title {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
   min-width: 0;
-  line-height: 1.3;
+  line-height: 1.25;
 }
-.aufmass-group-label {
-  overflow-wrap: anywhere;
+.aufmass-type-label,
+.aufmass-type-count {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.aufmass-group-meta {
+.aufmass-type-count {
   font-size: 0.78rem;
   font-weight: 500;
   color: var(--muted);
 }
-.aufmass-group-sum {
+.aufmass-type-sum {
   flex: none;
   margin-left: auto;
   padding-left: 8px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.aufmass-row {
+.aufmass-tables .aufmass-table th {
+  /* mehrere Tabellen untereinander: Köpfe bleiben an ihrer Tabelle, nichts überlagert die nächste Überschrift */
+  position: static;
+}
+/* Gesamtsummen unter allen Tabellen */
+.aufmass-total {
+  border-top: 6px solid var(--bg);
+}
+.aufmass-tables .aufmass-total:first-child,
+.aufmass-tables .aufmass-table:not(.aufmass-total) + .aufmass-total {
+  border-top: none;
+}
+.aufmass-total td:last-child {
+  width: 1%;
+}
+.type-sum-line {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 10px 12px 10px 14px;
-  border-top: 1px solid var(--border);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.aufmass-row:focus-visible {
-  outline: 2px solid var(--text);
-  outline-offset: -2px;
-}
-@media (hover: hover) {
-  .aufmass-row:hover {
-    background: var(--surface-2);
-  }
-}
-.aufmass-row.selected {
-  background: var(--primary-soft);
-  box-shadow: inset 3px 0 var(--text);
-}
-.aufmass-row.duplicate .row-nr {
-  color: var(--danger);
-}
-.aufmass-row-main {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  min-width: 0;
-  font-variant-numeric: tabular-nums;
-}
-.aufmass-row-main .color-dot,
-.aufmass-row-main .select-box {
-  flex: none;
-  align-self: center;
-}
-.row-plan {
-  flex: none;
-  font-size: 0.82rem;
-  color: var(--muted);
-}
-.row-nr {
-  flex: none;
-  min-width: 1.6em;
-  font-weight: 600;
-  color: var(--muted);
-}
-.row-dims {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.row-x {
-  color: var(--muted);
-}
-.row-result {
-  flex: none;
-  margin-left: auto;
-  white-space: nowrap;
-}
-.aufmass-row-sub {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 10px;
-  padding-left: calc(10px + 1.6em + 20px);
-  font-size: 0.82rem;
-  color: var(--muted);
-}
-.aufmass-row-sub strong {
-  color: var(--text);
-}
-.aufmass-row-sub .component-tag {
-  margin-left: 0;
-  height: 20px;
-}
-.row-photos {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-}
-.row-note {
-  color: var(--text);
-  overflow-wrap: anywhere;
-}
-.row-warn {
-  color: var(--danger);
-  font-weight: 600;
-}
-.aufmass-empty {
-  padding: 20px;
-  text-align: center;
-}
-.aufmass-totals {
-  font-variant-numeric: tabular-nums;
+  justify-content: space-between;
+  gap: 12px;
 }
 /* Nummer schmal halten – der Platz gehört den Maßen */
 .aufmass-table .nr-col {
@@ -11860,8 +11799,9 @@ html[data-theme='dark'] .calc-result .calc-total.warn strong {
     max-height: none;
   }
 }
-/* Tabellen mit vielen Spalten (LV, Mängel): waagrecht scrollen statt die Tasten abzuschneiden */
-.table-wrap:has(> .aufmass-table) { overflow-x: auto; }
+/* Aufmaß-Tabelle: bei vielen Spalten (z. B. Bewehrung) waagrecht scrollen statt die Tasten abzuschneiden */
+.table-wrap:has(> .aufmass-table),
+.table-wrap.aufmass-tables { overflow-x: auto; }
 /* Seitenleiste wächst nicht mit breiten Tabellen mit (sonst ragen Tasten über den Rand) */
 .editor-main > .editor-side { min-width: 0; max-width: 100%; }
 @media (max-width: 600px) {

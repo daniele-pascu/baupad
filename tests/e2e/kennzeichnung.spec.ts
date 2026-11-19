@@ -1,6 +1,6 @@
 import { expect, test } from './fixtures';
 import { join } from 'node:path';
-import { excelExport, catchDownload, createProject, drawRect, FIXTURES, freshStart, planBox, blattRows, readXlsx, saveDownload, waitForPlan, waitSaved, pickTool, openRow } from './helpers';
+import { excelExport, catchDownload, createProject, drawRect, FIXTURES, freshStart, planBox, blattRows, readXlsx, saveDownload, waitForPlan, waitSaved, pickTool } from './helpers';
 
 /** Paket D: Nummern und Buchstaben kombinieren, Schema wird fortgesetzt. */
 test('Kennzeichnungen A, B, C, „Wand A“ und Zahlen – Fortsetzung, Doppelprüfung, Export', async ({ page }) => {
@@ -73,7 +73,7 @@ test('Kennzeichnungen A, B, C, „Wand A“ und Zahlen – Fortsetzung, Doppelpr
   await expect(page.locator('[data-testid="aufmass-row"][data-number="Wand B"]')).toContainText('Wand B');
 
   // Bearbeiten: Kennzeichnung ändern
-  await openRow(page, 'B');
+  await page.locator('[data-testid="aufmass-row"][data-number="B"]').getByRole('button', { name: /bearbeiten/ }).click();
   await expect(dlg).toContainText('Fläche B bearbeiten');
   await dlg.getByTestId('input-number').fill('B2');
   await dlg.getByTestId('damage-save').click();

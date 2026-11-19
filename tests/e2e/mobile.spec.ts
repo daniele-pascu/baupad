@@ -20,7 +20,8 @@ import {
   pickTool,
   openTools,
   newWeekProject,
-  chooseMeasureType, selectRow, openRow } from './helpers';
+  chooseMeasureType,
+} from './helpers';
 
 /**
  * Wesentliche Abläufe auf iPhone und iPad (Touch-Bedienung, Pinch-Zoom, kleine Bildschirme).
@@ -231,11 +232,9 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
     ['1', '0,50'],
     ['2', '2,64'],
   ]);
-  // Tabelle: 1. Messung antippen → ausgewählt (kein Fenster), noch einmal antippen → Bearbeitung der Maße (bleibt in der Tabelle)
-  await page.locator('[data-testid="aufmass-row"][data-number="1"]').tap();
-  await expect(page.locator('[data-testid="aufmass-row"][data-number="1"]')).toHaveClass(/selected/);
-  await expect(page.getByTestId('damage-dialog')).toBeHidden();
-  await openRow(page, 2, true);
+  // Tabelle antippen → Bearbeitung der Maße (bleibt in der Tabelle)
+  await page.locator('[data-testid="aufmass-row"][data-number="2"]').tap();
+  await expect(page.getByTestId('damage-dialog')).toBeVisible();
   await page.getByTestId('damage-cancel').tap();
   if (!sideBySide) await page.getByRole('tab', { name: /Plan/ }).tap();
   await expect(page.getByTestId('plan-viewer')).toBeVisible();
@@ -312,7 +311,8 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
     await expect(page.getByTestId('mobile-tab-table')).toBeHidden();
     await expect(page.getByTestId('aufmass-table')).toBeVisible();
     await expect(page.getByTestId('plan-viewer')).toBeVisible();
-    await selectRow(page, '1', true);
+    await page.locator('[data-testid="aufmass-row"][data-number="1"]').tap();
+    await page.getByTestId('damage-cancel').tap();
     await expect(page.getByTestId('selection-bar')).toContainText('Nr. 1');
     await noHorizontalScroll(page);
     await page.screenshot({ path: join(OUT, 'ipad-quer-editor.png') });

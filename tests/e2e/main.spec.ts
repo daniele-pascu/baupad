@@ -23,7 +23,8 @@ import {
   tableRows,
   waitForPlan,
   waitSaved,
-  pickTool, openRow, selectRow } from './helpers';
+  pickTool,
+} from './helpers';
 
 /**
  * Vollständiger Arbeitsablauf am PC – entspricht den Testfällen 1–12 der Projektbeschreibung.
@@ -243,7 +244,7 @@ test('Markierungen bleiben beim Zoomen und Verschieben an ihrer Position', async
 
 test('8./9. Schadstelle bearbeiten, Nummer ändern, löschen – Plan und Tabelle synchron', async () => {
   // Bearbeiten über die Tabelle
-  await openRow(page, '2');
+  await page.locator('[data-testid="aufmass-row"][data-number="2"]').getByRole('button', { name: /bearbeiten/ }).click();
   const dlg = page.getByTestId('damage-dialog');
   await dlg.getByTestId('input-length').fill('3');
   await expect(dlg.getByTestId('area-result')).toContainText('3,75 m²');
@@ -252,7 +253,7 @@ test('8./9. Schadstelle bearbeiten, Nummer ändern, löschen – Plan und Tabell
   await expect(page.getByTestId('sum-area')).toHaveText('5,19');
 
   // Nummer bereits vergeben → Tausch
-  await openRow(page, '3');
+  await page.locator('[data-testid="aufmass-row"][data-number="3"]').getByRole('button', { name: /bearbeiten/ }).click();
   await dlg.getByTestId('input-number').fill('1');
   await dlg.getByTestId('damage-save').click();
   await expect(dlg.getByTestId('number-conflict')).toContainText('bereits vergeben');
@@ -287,11 +288,8 @@ test('8./9. Schadstelle bearbeiten, Nummer ändern, löschen – Plan und Tabell
   ]);
   await expect(page.locator('.damage-label text')).toHaveText(['1', '2', '3', '4']);
 
-  // Tabelle antippen wählt die Messung aus (im Plan markiert), noch einmal antippen öffnet die Bearbeitung der Maße
+  // Tabelle antippen öffnet die Bearbeitung der Maße (nicht den Sprung in den Plan); Auswahl bleibt markiert
   await pickTool(page, 'tool-select');
-  await page.locator('[data-testid="aufmass-row"][data-number="3"]').click();
-  await expect(page.getByTestId('damage-dialog')).toBeHidden();
-  await expect(page.getByTestId('selection-bar')).toContainText('Nr. 3');
   await page.locator('[data-testid="aufmass-row"][data-number="3"]').click();
   await expect(page.getByTestId('damage-dialog')).toBeVisible();
   await expect(page.getByTestId('damage-dialog').getByTestId('input-number')).toHaveValue('3');
@@ -300,7 +298,8 @@ test('8./9. Schadstelle bearbeiten, Nummer ändern, löschen – Plan und Tabell
   await expect(page.locator('.damage-label.selected text')).toHaveText('3');
 
   // Löschen mit Sicherheitsabfrage – andere Nummern bleiben unverändert
-  await selectRow(page, '2');
+  await page.locator('[data-testid="aufmass-row"][data-number="2"]').click();
+  await page.getByTestId('damage-cancel').click();
   await page.getByTestId('delete-selected').click();
   const confirm = page.getByTestId('confirm-dialog');
   await expect(confirm).toContainText('Die Nummern der übrigen Messungen bleiben unverändert');
@@ -327,7 +326,8 @@ test('8./9. Schadstelle bearbeiten, Nummer ändern, löschen – Plan und Tabell
 
 test('Markierung verschieben, Größe ändern, Beschriftung verschieben, Farbe ändern', async () => {
   await pickTool(page, 'tool-select');
-  await selectRow(page, '4');
+  await page.locator('[data-testid="aufmass-row"][data-number="4"]').click();
+  await page.getByTestId('damage-cancel').click();
   const before = await markerRelPos(page, 4);
   const path = page.locator('.viewer-overlay path[data-damage]').nth(
     await page.locator('.damage-label').evaluateAll((ls) => ls.findIndex((l) => l.getAttribute('data-label') === '4')),
