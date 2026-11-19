@@ -150,64 +150,6 @@ export const en: Dict = {
       secondary: 'Open BauPad',
       status: 'Test phase – subscription follows at launch',
     },
-    details: {
-      projects: {
-        lead: 'Quantity take-off – right on the plan.',
-        groups: [
-          { title: 'Plan', items: ['Upload PDF or image', 'Scaled automatically – or by you', 'Original resolution, fully sharp', 'No plan? Draw your own'] },
-          { title: 'Measuring', items: ['7 types: area, wall, volume, length, piece, concrete repair, free', 'Measure by item', 'Dimensions from the plan – or by hand', 'Take photos or pick from the Photos tool'] },
-          { title: 'Items and invoices', items: ['Import LV and MFK – or write your own', 'Split by invoice: partial, final partial, final'] },
-          { title: 'Export', items: ['Measurements by item – Excel or PDF', 'Plans as PDF'] },
-        ],
-      },
-      workers: {
-        lead: 'Who works where – the week at a glance.',
-        groups: [
-          { title: 'Workers', items: ['Name, qualification, job, staff number, phone', 'Holidays and sick leave'] },
-          { title: 'Schedule', items: ['By week', 'Site from the project register', 'Spread workers over the days', 'Carry over last week'] },
-          { title: 'Export', items: ['Weekly list as PDF'] },
-        ],
-      },
-      reports: {
-        lead: 'Your forms – filled in digitally.',
-        groups: [
-          { title: 'Templates', items: ['Upload daily reports, time-and-material sheets & co. once', 'Stored digitally for good'] },
-          { title: 'Filling in', items: ['Sorted by project', 'Project details filled in automatically', 'Assigned workers added automatically'] },
-          { title: 'Export', items: ['Ready as PDF'] },
-        ],
-      },
-      photos: {
-        lead: 'Site progress at a glance – per project.',
-        groups: [
-          { title: 'Saving', items: ['Per project, with date, time and user', 'Ongoing progress, clear overview'] },
-          { title: 'Connected', items: ['Photos from measuring and defect plans land here', 'And can be picked from here there'] },
-          { title: 'Export', items: ['For documentation – as PDF or ZIP'] },
-        ],
-      },
-      defects: {
-        lead: 'Mark defects – right on the plan.',
-        groups: [
-          { title: 'Marking', items: ['Set pins on the plan – with category', 'Categories: defect, repair, note', 'Take photos or pick from the Photos tool'] },
-          { title: 'Overview', items: ['Sorted by project', 'Everything in view – nothing gets missed'] },
-          { title: 'Export', items: ['PDF with plan, list and photos'] },
-        ],
-      },
-      times: {
-        lead: 'Record working hours – per project.',
-        groups: [
-          { title: 'Recording', items: ['Hours per project and day', 'Foremen also enter their crew', 'Workers enter their own hours'] },
-          { title: 'Office', items: ['Monthly sheet with target, actual, holiday and sick leave', 'Excel per worker'] },
-        ],
-      },
-      materials: {
-        lead: 'Materials and usage at a glance.',
-        groups: [
-          { title: 'Material list', items: ['All materials used, with quantity'] },
-          { title: 'Per site', items: ['Delivered, used, on site', 'Report what needs reordering'] },
-          { title: 'Overview', items: ['Stock and usage per site', 'What needs reordering – at a glance'] },
-        ],
-      },
-    },
     dialog: { more: 'Learn more', close: 'Close' },
     register: {
       eyebrow: 'Project register',

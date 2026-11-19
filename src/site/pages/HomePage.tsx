@@ -1,12 +1,13 @@
 import { useEffect, useRef, type CSSProperties } from 'react';
 import { ToolIcon } from '../../components/ToolIcon';
-import { navigate, paths } from '../../lib/router';
+import { paths } from '../../lib/router';
 import { contactData } from '../contact-data';
 import { useLang } from '../i18n';
 import { TOOL_ENTRIES, toolPath } from '../products';
 import { organizationJsonLd, siteAlternates, softwareJsonLd } from '../seo';
 import { PadMarkGlass } from '../components/PadMarkGlass';
 import { SiteLayout } from '../components/SiteShell';
+import { expandTo } from '../expand';
 
 /**
  * Startseite PAD Software: oben ein schwarzer Kopf mit der Firma (Licht in Violett und Petrol, kaum sichtbar das PAD-Zeichen),
@@ -199,36 +200,5 @@ function StepsLine({ steps }: { steps: { title: string }[] }) {
  * „Bewegung reduzieren“, neuer Tab (Strg/⌘) usw. → normaler Link.
  */
 function expandToBauPad(e: React.MouseEvent<HTMLAnchorElement>) {
-  if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-  const win = e.currentTarget.closest<HTMLElement>('.ph-win');
-  if (!win || !document.body.animate || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  e.preventDefault();
-  const href = e.currentTarget.getAttribute('href')!;
-  const r = win.getBoundingClientRect();
-  const from = `inset(${r.top}px ${innerWidth - r.right}px ${innerHeight - r.bottom}px ${r.left}px round 28px)`;
-  const o = document.createElement('div');
-  o.className = 'ph-expand';
-  o.setAttribute('aria-hidden', 'true');
-  o.dataset.testid = 'home-expand';
-  document.body.appendChild(o);
-  // die Leiste steht während des Übergangs ruhig und voll sichtbar vorne (nicht blass)
-  document.documentElement.classList.add('ph-expanding');
-  const grow = o.animate(
-    [
-      { clipPath: from, opacity: 0 },
-      { clipPath: from, opacity: 1, offset: 0.14 },
-      { clipPath: 'inset(0px 0px 0px 0px round 0px)', opacity: 1 },
-    ],
-    { duration: 560, easing: 'cubic-bezier(.32,.72,0,1)', fill: 'forwards' },
-  );
-  grow.finished
-    .then(() => {
-      navigate(href);
-      return new Promise((done) => setTimeout(done, 140));
-    })
-    .then(() => o.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 320, easing: 'ease-out', fill: 'forwards' }).finished)
-    .finally(() => {
-      o.remove();
-      document.documentElement.classList.remove('ph-expanding');
-    });
+  expandTo(e, e.currentTarget.closest<HTMLElement>('.ph-win'), { radius: 28, testId: 'home-expand' });
 }

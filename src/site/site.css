@@ -1830,3 +1830,212 @@ body:has(.ps-site) {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* =====================================================================
+   BauPad-Seite: „Mehr erfahren →“ auf jeder Tool-Karte; Antippen lässt die Karte zur Tool-Seite wachsen
+   (Fläche in der Farbe des Werkzeugs, siehe expand.ts)
+   ===================================================================== */
+.bp-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  margin-top: auto;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.35);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 650;
+  transition: background-color 0.2s ease;
+}
+.bp-more svg {
+  transition: transform 0.2s ease;
+}
+.ps-site .bp-tool:hover .bp-more {
+  background: rgba(255, 255, 255, 0.32);
+}
+.ps-site .bp-tool:hover .bp-more svg {
+  transform: translateX(3px);
+}
+.ps-site .bp-points {
+  margin-bottom: 6px;
+}
+.ph-expand.bp-expand {
+  background: linear-gradient(150deg, var(--tool), color-mix(in srgb, var(--tool), #000 28%));
+}
+
+/* =====================================================================
+   Tool-Seite: Kopf in der Farbe des Werkzeugs, Funktionen als helle Kacheln, weitere Werkzeuge als Liste
+   ===================================================================== */
+.ps-tool-page .ps-main,
+.ps-tool-page .ps-footer {
+  max-width: 1040px;
+}
+.ps-site .tp-hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 8px 0 0;
+  padding: clamp(24px, 4vw, 44px);
+  overflow: hidden;
+  border-radius: 28px;
+  background: linear-gradient(150deg, var(--tool), color-mix(in srgb, var(--tool), #000 28%));
+  color: #fff;
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.28),
+    0 24px 48px -26px color-mix(in srgb, var(--tool), #000 30%);
+}
+.tp-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 45%);
+  pointer-events: none;
+}
+.ps-site .tp-hero a {
+  position: relative;
+  z-index: 1;
+}
+.ps-site .tp-back {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 15px;
+  text-decoration: none;
+}
+.ps-site .tp-back:hover {
+  text-decoration: underline;
+}
+.tp-icon {
+  margin-top: 6px;
+}
+.ps-site .tp-eyebrow {
+  margin: 4px 0 0;
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.8);
+}
+.ps-site .tp-hero h1 {
+  margin: 0;
+  font-size: clamp(36px, 6vw, 60px);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: #fff;
+}
+.ps-site .tp-tagline {
+  max-width: 34em;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 18px;
+}
+.ps-site .tp-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 10px 0 0;
+}
+.ps-site .tp-b1,
+.ps-site .tp-b2 {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: 999px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.ps-site .tp-b1 {
+  background: #fff;
+  color: #111;
+}
+.ps-site .tp-b2 {
+  border: 1.5px solid rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+.ps-site .tp-b1:hover {
+  background: #111;
+  color: #fff;
+}
+.ps-site .tp-b2:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+.ps-site .tp-intro {
+  max-width: 40em;
+  margin: clamp(28px, 4vw, 40px) 0 0;
+  font-size: 18px;
+  color: var(--ps-soft);
+}
+.ps-main .tp-functions,
+.ps-main .tp-more {
+  margin: clamp(40px, 6vw, 64px) 0 0;
+}
+.ps-site .tp-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+.ps-site .tp-group {
+  padding: 18px 20px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.85),
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 18px 36px -26px rgba(30, 20, 80, 0.25);
+}
+.ps-site .tp-group h3 {
+  margin: 0 0 8px;
+  font-size: 17px;
+}
+.ps-site .tp-group ul {
+  margin: 0;
+  padding-left: 18px;
+}
+.ps-site .tp-group li {
+  margin: 0 0 4px;
+  color: var(--ps-soft);
+}
+.ps-site .tp-others {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 10px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.ps-site .tp-others li {
+  margin: 0;
+}
+.ps-site .tp-others a {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  height: 100%;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.85), 0 1px 2px rgba(0, 0, 0, 0.04);
+  color: var(--ps-fg);
+  text-decoration: none;
+}
+.ps-site .tp-others a:hover {
+  background: rgba(255, 255, 255, 0.85);
+}
+.ps-site .tp-others a > span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 15px;
+  color: var(--ps-soft);
+}
+.ps-site .tp-others strong {
+  color: var(--ps-fg);
+  font-size: 16px;
+}

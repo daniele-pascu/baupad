@@ -295,7 +295,12 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const geo = withArea && !wall && !counted && !free && fromShape && geometry ? geometry : null;
   // Linie: Länge, dazu optional Höhe und Tiefe (getrennt, keine Fläche)
   const lineGeo = (!withArea || wall) && fromShape && lineSuggest !== null && lineSuggest > 0 ? lineSuggest : null;
-  const fields: Field[] = counted ? ['number', 'count'] : free ? ['number'] : geo ? ['number', 'depth'] : lineGeo !== null ? ['number', 'width', 'depth'] : ['number', 'length', 'width', 'depth'];
+  // Maße je Messart begrenzt: Fläche Länge × Breite, Wand Länge × Höhe, Länge nur Länge,
+  // Volumen und Betoninstandsetzung Länge × Breite × Tiefe
+  const usesWidth = type !== 'laenge';
+  const usesDepth = type === 'volumen' || type === 'schadstelle';
+  const dims = (list: Field[]) => list.filter((f) => (f !== 'width' || usesWidth) && (f !== 'depth' || usesDepth));
+  const fields: Field[] = counted ? ['number', 'count'] : free ? ['number'] : dims(geo ? ['number', 'depth'] : lineGeo !== null ? ['number', 'width', 'depth'] : ['number', 'length', 'width', 'depth']);
   // Anzahl (Faktor): ganze Zahl ab 1
   const nRaw = v.count.trim();
   const nVal = nRaw ? parseDecimal(nRaw) : 1;
@@ -315,9 +320,9 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const L = counted || free ? ({ ok: true, value: 0 } as const) : geo ? ({ ok: true, value: geo.perimeter } as const) : lineGeo !== null ? ({ ok: true, value: lineGeo } as const) : checkMeasure(v.length, 'Länge');
   // Nur die Länge ist Pflicht. Breite/Höhe und Tiefe sind optional: leer bleibt leer (null,
   // nicht 0), eine Eingabe muss aber gültig sein
-  const B = !geo && !counted && !free && v.width.trim() ? checkMeasure(v.width, withArea && !wall ? 'Breite/Höhe' : type === 'wand' ? 'Wandhöhe' : wall ? 'Breite' : 'Höhe') : null;
+  const B = !geo && !counted && !free && usesWidth && v.width.trim() ? checkMeasure(v.width, type === 'wand' ? 'Wandhöhe' : 'Breite') : null;
   // Volumen: Höhe bzw. Tiefe ist Pflicht
-  const T = counted || free ? null : v.depth.trim() ? checkMeasure(v.depth, type === 'volumen' ? 'Höhe/Tiefe' : 'Tiefe', 3) : type === 'volumen' ? ({ ok: false, error: 'Für das Volumen die Höhe bzw. Tiefe eingeben.' } as const) : null;
+  const T = counted || free || !usesDepth ? null : v.depth.trim() ? checkMeasure(v.depth, 'Tiefe', 3) : type === 'volumen' ? ({ ok: false, error: 'Für das Volumen die Tiefe eingeben.' } as const) : null;
   const gross1 = geo ? geo.area : withArea && L.ok && B?.ok ? computeArea(L.value, B.value) : null;
   // Anzahl: Fläche je Stück × Anzahl (Abzüge/Zuschläge gelten für alle zusammen)
   const gross = gross1 === null || n === 1 ? gross1 : Math.round(gross1 * n * 1e9) / 1e9;
@@ -577,8 +582,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
           ) : (
             field('length', 'Länge *', 'm')
           )}
-          {!counted && !free && !geo && field('width', type === 'wand' ? 'Wandhöhe' : wall ? 'Breite' : withArea ? 'Breite / Höhe' : 'Höhe', 'm')}
-          {!counted && !free && field('depth', type === 'volumen' ? 'Höhe / Tiefe *' : 'Tiefe', 'm')}
+          {!counted && !free && !geo && usesWidth && field('width', type === 'wand' ? 'Wandhöhe' : 'Breite', 'm')}
+          {!counted && !free && usesDepth && field('depth', type === 'volumen' ? 'Tiefe *' : 'Tiefe', 'm')}
         </div>
         <div className="measure-extra">
           {!counted && !free && (
@@ -706,7 +711,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             </>
           ) : withArea ? (
             <>
-              <span>{area !== null || !lengthValue ? (deductions.length && area !== null ? 'Fläche netto (mit Abzügen)' : 'Fläche (Länge × Breite/Höhe)') : 'Nur Länge – Fläche erst mit Breite/Höhe'}</span>
+              <span>{area !== null || !lengthValue ? (deductions.length && area !== null ? 'Fläche netto (mit Abzügen)' : 'Fläche (Länge × Breite)') : 'Nur Länge – Fläche erst mit Breite'}</span>
               <strong>{area !== null ? `${formatArea(area)} m²` : lengthValue && lengthValue > 0 && !v.width.trim() ? `${formatArea(lengthValue)} m` : '–'}</strong>
             </>
           ) : (
@@ -722,7 +727,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
         </div>
         {type === 'volumen' && (
           <div className="area-result" data-testid="volume-result">
-            <span>Volumen (Fläche × Höhe/Tiefe)</span>
+            <span>Volumen (Fläche × Tiefe)</span>
             <strong>{area !== null && T?.ok ? `${formatArea(round2(area * T.value))} m³` : '–'}</strong>
           </div>
         )}
@@ -872,7 +877,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
                   </>
                 )
               ) : gross === null ? (
-                'Abzüge wirken erst, wenn eine Fläche berechnet ist (Länge × Breite/Höhe).'
+                'Abzüge wirken erst, wenn eine Fläche berechnet ist (Länge × Breite).'
               ) : (
                 <>
                   Brutto {formatArea(gross)} m² {deductions.map((x) => `${dedValue(x) < 0 ? '−' : '+'} ${formatArea(Math.abs(dedValue(x)))}`).join(' ')} = <strong>netto {formatArea(area)} m²</strong>

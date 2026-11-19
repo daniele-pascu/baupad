@@ -92,13 +92,13 @@ export function tastenTests() {
       const pb = (await page.getByTestId('products-panel').boundingBox())!;
       if (pb.y - (tb.y + tb.height) < 6) out.push(`Website Fenster Produkte: klebt an der Taste (${Math.round(pb.y - (tb.y + tb.height))} px Abstand)`);
       await pruefe(page, 'Website Fenster Produkte', out);
-      // BauPad-Seite: Fenster eines Tools (Aufmaß)
+      // BauPad-Seite: Karte eines Tools (Aufmaß) wächst zur eigenen Seite des Tools
       await page.goto('./baupad');
       await page.waitForLoadState('networkidle');
       await page.getByTestId('product-card').first().click();
-      await expect(page.getByTestId('tool-dialog')).toBeVisible();
-      await page.waitForTimeout(500);
-      await pruefe(page, 'Website Tool-Fenster Aufmaß', out);
+      await expect(page.getByTestId('product-title')).toHaveText('Aufmaß');
+      await expect(page.getByTestId('tool-expand')).toHaveCount(0);
+      await pruefe(page, 'Website Tool-Seite Aufmaß', out);
       expect(out, out.join('\n')).toEqual([]);
     });
   });
