@@ -135,7 +135,7 @@ test('Messung: nur Länge Pflicht, Breite/Höhe und Tiefe optional; Werkzeugleis
   await expect(dlg).toBeVisible();
   // Nur Länge → speicherbar, keine Fläche
   await dlg.getByTestId('input-length').fill('4,2');
-  await expect(dlg.getByTestId('area-result')).toContainText('Fläche erst mit Breite/Höhe');
+  await expect(dlg.getByTestId('area-result')).toContainText('Fläche erst mit Breite');
   await dlg.getByTestId('damage-save').click();
   await expect(dlg).toBeHidden();
   // Leiste zu, Auswahl aktiv, neue Messung ausgewählt

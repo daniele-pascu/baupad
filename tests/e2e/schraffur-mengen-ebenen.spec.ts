@@ -174,6 +174,7 @@ test('Mengen aus der Geometrie: Fläche und Umfang aus dem Plan, nachgeführt be
   await pickTool(page, 'tool-rect');
   await drag(page, sb.x + 100, sb.y + 120, sb.x + 260, sb.y + 220);
   await expect(dlg).toBeVisible();
+  await dlg.getByTestId('measure-type-select').selectOption('schadstelle'); // mit Tiefe: Betoninstandsetzung
   const geo = dlg.getByTestId('use-geometry');
   await expect(geo).toContainText('Fläche aus Plan übernehmen');
   await geo.click();

@@ -176,7 +176,7 @@ test('5.–7. Schadstellen einzeichnen, automatisch nummerieren, Maße eingeben,
   await dlg.getByTestId('input-width').fill('0');
   await dlg.getByTestId('damage-save').click();
   await expect(dlg).toContainText('ist keine gültige Zahl');
-  await expect(dlg).toContainText('Breite/Höhe muss größer als 0 sein');
+  await expect(dlg).toContainText('Breite muss größer als 0 sein');
   await expect(dlg).not.toContainText('Tiefe fehlt'); // Tiefe ist optional
   await expect(dlg.getByTestId('area-result')).toContainText('–');
   // Abbrechen verwirft die neue Markierung

@@ -257,7 +257,7 @@ test('Aufmaß: offene Polylinie = Linienmessung mit Länge, geschlossene = Fläc
   await page.getByTestId('seg-done').click();
   const dlg = page.getByTestId('damage-dialog');
   await expect(dlg).toContainText('Neue Messung: Länge');
-  await expect(dlg).toContainText('Höhe');
+  await expect(dlg.getByTestId('input-width')).toHaveCount(0); // Länge: nur Länge
   // Länge aus dem Plan = Summe aller Abschnitte (vorgewählt, wird nachgeführt)
   await expect(dlg.getByTestId('use-geometry')).toHaveText('Länge selbst eingeben');
   const len0 = num(await dlg.getByTestId('geometry-length').inputValue());

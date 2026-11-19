@@ -134,7 +134,7 @@ test('Messart wählen, dann mit beliebigem Werkzeug messen: Wand, Stück, Frei, 
   await dlg().getByTestId('input-length').fill('2');
   await dlg().getByTestId('input-width').fill('1,5');
   await dlg().getByTestId('damage-save').click();
-  await expect(dlg()).toContainText('Für das Volumen die Höhe bzw. Tiefe eingeben.');
+  await expect(dlg()).toContainText('Für das Volumen die Tiefe eingeben.');
   await dlg().getByTestId('input-depth').fill('0,2');
   await expect(dlg().getByTestId('volume-result')).toContainText('0,60 m³');
   await dlg().getByTestId('damage-save').click();

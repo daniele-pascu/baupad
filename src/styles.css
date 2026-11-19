@@ -2453,6 +2453,8 @@ tr.lv-flagged td {
   color: #fff;
 }
 .site-actions {
+  /* immer ganz rechts (ohne Mittelspalte „Tools“ – das Logo führt zu den Tools) */
+  grid-column: -2;
   justify-self: end;
   display: flex;
   align-items: center;
@@ -2548,7 +2550,7 @@ tr.lv-flagged td {
 }
 
 @media (max-width: 720px) {
-  /* Handy: BauPad links, „Tools“ in der Mitte, rechts Speicherstand und Konto – ohne Menü */
+  /* Handy: BauPad links (führt zu den Tools), rechts Speicherstand und Konto – ohne Menü */
   .site-nav-inner {
     grid-template-columns: auto 1fr auto;
     gap: 10px;

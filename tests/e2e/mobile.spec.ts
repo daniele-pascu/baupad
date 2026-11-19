@@ -172,6 +172,8 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   await expect(dlg.getByTestId('input-length')).toHaveAttribute('inputmode', 'decimal');
   // Nr. erlaubt Zahlen und Buchstaben (z. B. 12a) – Texttastatur, Buchstaben groß
   await expect(dlg.getByTestId('input-number')).toHaveAttribute('inputmode', 'text');
+  // Tiefe gibt es nur bei Betoninstandsetzung und Volumen
+  await dlg.getByTestId('measure-type-select').selectOption('schadstelle');
   await expect(dlg.getByTestId('input-depth')).toHaveAttribute('enterkeyhint', 'done');
   if (isPhone) {
     // Dialog erscheint als Bottom-Sheet am unteren Rand (Einhandbedienung)
