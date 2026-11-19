@@ -217,7 +217,7 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - Papierkorb-Taste oben in Berichte, Mängel und Material sowie im jeweiligen Projekt bzw. auf der Baustelle.
 
 ## Vier Tasten beim Zeichnen (19.11.2026)
-- **Tasten-Design:** noch offen – Entwürfe als Vorschau (Glas G1–G5, Liquid L1–L3, Wunsch M1/M2: hell Rauchglas durchsichtiger, dunkel weiße Tasten). Abschalten später über „Transparenz reduzieren“ (Konto → Darstellung).
+- **Tasten-Design:** entschieden (19.11.2026) – L2 im hellen Modus (helles Liquid Glass, schwarze Haupttaste), M2 im Dunkelmodus (weiße Tasten). Siehe unten.
 - **Vier Tasten X · Zurück · Vor · Häkchen** im Aufmaß für alle Mehrpunkt-Tools (Freie Form, Vieleck, Wand, Stück-Punkte) und für Freihand – statt „Offen beenden“, „Schließen (Fläche)“, „Fertig“. Kein Tipp mehr als vorher; offen oder geschlossen ergibt sich aus der Messart. Stück zeigt die laufende Anzahl neben dem Häkchen.
 - **Freihand im Aufmaß:** Striche sind ein Entwurf (Zurück/Vor je Strich), das Häkchen übernimmt. Bei Länge zählen mehrere Striche als eine Messung (Lücken dazwischen), bei Flächen gilt der letzte Strich.
 - Ein-Zug-Tools (Rechteck, Kreis, Linie) bleiben ohne Häkchen (sonst +1 Tipp je Messung).
@@ -243,3 +243,10 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - Die Tool-Seiten und Karten zeigen nur, WAS ein Tool kann (Nutzen, Ergebnis), nicht WIE es im Detail funktioniert – damit Ideen nicht abgeschaut werden. Keine Abläufe, Regeln, Fang-/CAD-Funktionen, Erkennungslogik oder Excel-Formeln mehr.
 - Ungenutzte, sehr detaillierte Textblöcke (alte Abschnitte der BauPad-Seite) aus den Sprachdateien entfernt – sie standen sonst im Seitenquelltext.
 - Tasten-Design: wartet weiter (Vorschau M1/M2), Danieles Entscheidung.
+
+## Tasten L2 / M2 (19.11.2026)
+- **Heller Modus (L2):** Nebentasten helles Liquid Glass mit dunkler Schrift (heller Rand, Glanz von oben, weicher Schatten), Haupttaste (Speichern, + Neue Messung, schwarze Tasten, ✓) schwarzes Glas. Löschen rote Schrift.
+- **Dunkelmodus (M2):** Nebentasten fast weißes Glas mit schwarzer Schrift, Haupttaste ganz weiß.
+- Gewählt wegen Lesbarkeit auf der Baustelle: Rauchglas (M1) mit weißer Schrift kam über hellem Plan nur auf ~2,6 : 1 Kontrast.
+- Weichzeichner nur für Tasten über dem Plan; „Transparenz reduzieren“ macht alle Tasten fest. Nur in der App (`html.app-fixed`), die Website bleibt bei ihrem Design. Zustände (aktiv, umgeschaltet, Gefahr) unverändert.
+- Dunkelmodus: Status-Pillen (Maßstab) jetzt lesbar.

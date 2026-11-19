@@ -42,7 +42,6 @@ Grundregeln stehen in `CLAUDE.md`, Grundsätze in `docs/entscheidungen.md`.
 
 ## Offen / wartet auf Daniele
 - **Marke BauPad anmelden** (Empfehlung an Daniele, seine Sache). Website-Texte sind umgestellt: nur Nutzen, kein „Wie“.
-- **Tasten-Design:** Vorschau M1 (hell Rauchglas 42 %) / M2 (dunkel weiße Tasten) – Daniele will noch warten, nicht einbauen.
 - Rote Tests behoben (19.11.2026): Fläche aus dem Plan rundet trotz PDF-Rauschen richtig (116,66 m²), messungen „Rückgängig … Verschieben“ und Datenbank-Version.
 
 ## Danieles Schritt

@@ -14087,3 +14087,139 @@ html[data-theme='dark'] .select-toggle.on {
 .security-actions {
   margin-top: 4px;
 }
+
+/* =====================================================================
+   Tasten L2 (heller Modus) / M2 (Dunkelmodus) – Liquid Glass (Entscheidung 19.11.2026)
+   Nebentasten: helles Glas mit dunkler Schrift · Haupttaste: schwarzes Glas (Dunkelmodus: ganz weiß).
+   Heller Rand, Glanz von oben, weicher Schatten. Weichzeichner nur über dem Plan (auf festen Flächen wirkungslos,
+   kostet nur Akku). „Transparenz reduzieren“: feste Flächen ohne Glas. Nur in der App (nicht auf der Website).
+   Zustände bleiben unberührt: aktiv/umgeschaltet (.active, .active-toggle, .on), Gefahr (.btn-danger*).
+   ===================================================================== */
+html.app-fixed {
+  --lq-bg: rgba(255, 255, 255, 0.6);
+  --lq-bg-hover: rgba(255, 255, 255, 0.92);
+  --lq-border: rgba(255, 255, 255, 0.8);
+  --lq-sheen: linear-gradient(rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0));
+  --lq-shadow: inset 0 1.5px rgba(255, 255, 255, 0.95), 0 0 0 1px rgba(0, 0, 0, 0.1), 0 8px 18px -10px rgba(0, 0, 0, 0.28);
+  --lq-fg: #1d1d1f;
+  --lq-main-bg: rgba(17, 17, 17, 0.88);
+  --lq-main-bg-hover: rgba(17, 17, 17, 0.97);
+  --lq-main-border: rgba(255, 255, 255, 0.28);
+  --lq-main-sheen: linear-gradient(rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0));
+  --lq-main-shadow: inset 0 1.5px rgba(255, 255, 255, 0.3), 0 0 0 1px rgba(0, 0, 0, 0.55), 0 10px 22px -10px rgba(0, 0, 0, 0.45);
+  --lq-main-fg: #fff;
+  --lq-blur: blur(24px) saturate(180%);
+}
+html.app-fixed[data-theme='dark'] {
+  --lq-bg: rgba(255, 255, 255, 0.84);
+  --lq-bg-hover: rgba(255, 255, 255, 0.95);
+  --lq-border: rgba(255, 255, 255, 0.9);
+  --lq-sheen: linear-gradient(rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0));
+  --lq-shadow: inset 0 1.5px #fff, 0 8px 18px -10px rgba(0, 0, 0, 0.7);
+  --lq-fg: #111;
+  --lq-main-bg: #fff;
+  --lq-main-bg-hover: #fff;
+  --lq-main-border: #fff;
+  --lq-main-sheen: none;
+  --lq-main-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35), 0 10px 22px -10px rgba(0, 0, 0, 0.75);
+  --lq-main-fg: #000;
+}
+/* Transparenz reduzieren: feste Flächen, kein Weichzeichner */
+html.app-fixed[data-glass='off'] {
+  --lq-bg: #fff;
+  --lq-bg-hover: #f2f2f4;
+  --lq-border: rgba(0, 0, 0, 0.16);
+  --lq-sheen: none;
+  --lq-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --lq-main-bg: #111;
+  --lq-main-bg-hover: #2a2a2a;
+  --lq-main-sheen: none;
+  --lq-blur: none;
+}
+html.app-fixed[data-glass='off'][data-theme='dark'] {
+  --lq-bg: #ececee;
+  --lq-bg-hover: #fff;
+  --lq-border: #ececee;
+  --lq-shadow: none;
+  --lq-main-bg: #fff;
+  --lq-main-bg-hover: #fff;
+}
+/* Nebentasten */
+html.app-fixed .btn:not(.btn-primary):not(.btn-ink):not(.btn-danger):not(.btn-danger-outline):not(.active):not(.active-toggle):not(.on) {
+  border-color: var(--lq-border);
+  background-color: var(--lq-bg);
+  background-image: var(--lq-sheen);
+  color: var(--lq-fg);
+  box-shadow: var(--lq-shadow);
+}
+html.app-fixed .btn.btn-danger-text:not(.btn-primary) {
+  color: var(--danger);
+}
+html[data-theme='dark'].app-fixed .btn.btn-danger-text:not(.btn-primary) {
+  color: #d70015;
+}
+@media (hover: hover) {
+  html.app-fixed .btn:not(.btn-primary):not(.btn-ink):not(.btn-danger):not(.btn-danger-outline):not(.active):not(.active-toggle):not(.on):hover:not(:disabled) {
+    background-color: var(--lq-bg-hover);
+    border-color: var(--lq-border);
+  }
+}
+html.app-fixed .btn:not(.btn-primary):not(.btn-ink):not(.btn-danger):not(.btn-danger-outline):not(.active):not(.active-toggle):not(.on):active:not(:disabled) {
+  background-color: var(--lq-bg-hover);
+}
+/* Haupttaste (Speichern, + Neue Messung, schwarze Tasten) */
+html.app-fixed .btn.btn-primary,
+html.app-fixed .btn.btn-ink {
+  border-color: var(--lq-main-border);
+  background-color: var(--lq-main-bg);
+  background-image: var(--lq-main-sheen);
+  color: var(--lq-main-fg);
+  box-shadow: var(--lq-main-shadow);
+}
+@media (hover: hover) {
+  html.app-fixed .btn.btn-primary:hover:not(:disabled),
+  html.app-fixed .btn.btn-ink:hover:not(:disabled) {
+    border-color: var(--lq-main-border);
+    background-color: var(--lq-main-bg-hover);
+    color: var(--lq-main-fg);
+  }
+}
+html.app-fixed .btn.btn-primary:active:not(:disabled),
+html.app-fixed .btn.btn-ink:active:not(:disabled) {
+  border-color: var(--lq-main-border);
+  background-color: var(--lq-main-bg-hover);
+  color: var(--lq-main-fg);
+}
+/* über dem Plan: echtes Glas mit Weichzeichner */
+html.app-fixed .editor-plan .btn {
+  -webkit-backdrop-filter: var(--lq-blur);
+  backdrop-filter: var(--lq-blur);
+}
+/* Zeichen-Leiste im Aufmaß (X · Zurück · Vor · ✓): runde Tasten im selben Glas */
+html.app-fixed .editor-plan > .toolbar.seg-bar .tool-btn.seg-btn {
+  border: 1px solid var(--lq-border);
+  background-color: var(--lq-bg);
+  background-image: var(--lq-sheen);
+  color: var(--lq-fg);
+  box-shadow: var(--lq-shadow);
+}
+html.app-fixed .editor-plan > .toolbar.seg-bar .tool-btn.seg-done:not(:disabled) {
+  border-color: var(--lq-main-border);
+  background-color: var(--lq-main-bg);
+  background-image: var(--lq-main-sheen);
+  color: var(--lq-main-fg);
+  box-shadow: var(--lq-main-shadow);
+}
+html.app-fixed .editor-plan > .toolbar.seg-bar .tool-btn.seg-done:not(:disabled):active {
+  background-color: var(--lq-main-bg-hover);
+  color: var(--lq-main-fg);
+}
+/* Dunkelmodus: Status-Pillen (z. B. „Maßstab Nicht kalibriert“) lesbar – vorher dunkle Schrift auf dunklem Grund */
+html[data-theme='dark'] .status-pill {
+  background: #2c2c2e;
+  color: #f5f5f7;
+}
+html[data-theme='dark'] .status-pill.warn {
+  background: #3a3020;
+  color: #ffd27a;
+}
