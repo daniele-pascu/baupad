@@ -263,12 +263,10 @@ test('Beispiel-LV „Betoninstandsetzung“ (PDF): Klassen, Zulage, Folgeleistun
   await waitSaved(page);
   // Aufmaß-Tabelle: gruppiert nach der Position, bei der die Schadstelle wirklich zählt – nicht nach der falschen
   const tr = (no: number) => page.locator(`[data-testid="aufmass-row"][data-number="${no}"]`);
-  // Hauptposition steht im Gruppen-Balken, die weiteren als „auch bei …“ darunter
-  await expect(tr(2).getByTestId('row-position')).toHaveCount(0);
-  await expect(tr(2).getByTestId('row-position-more')).toHaveText('auch bei 01.14.20.02A., 01.14.25.01B., 01.14.25.02A.');
-  await expect(tr(1).getByTestId('row-position-more')).toContainText('auch bei ');
-  await expect(page.locator('[data-testid="position-group"]', { has: tr(2) })).toContainText('01.14.20.01E.');
-  await expect(page.locator('[data-testid="position-group"]', { has: tr(1) })).toContainText('01.14.20.01B.');
+  await expect(tr(2).getByTestId('row-position')).toHaveText('01.14.20.01E.');
+  await expect(tr(2).getByTestId('row-position-more')).toHaveText('+3');
+  await expect(tr(1).getByTestId('row-position')).toHaveText('01.14.20.01B.');
+  await expect(tr(1).getByTestId('row-position-more')).toHaveText('+4');
   expect(await page.getByTestId('position-group').allTextContents()).toEqual([
     expect.stringContaining('01.14.20.01B. Schadstelle bis 0,25 m²'),
     expect.stringContaining('01.14.20.01E. Schadstelle über 1,5 m²'),

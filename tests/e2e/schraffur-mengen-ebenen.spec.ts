@@ -1,7 +1,7 @@
 import { expect, test, type Page } from './fixtures';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { catchDownload, createProject, drawRect, FIXTURES, freshStart, pickTool, planBox, saveDownload, waitForPlan, waitSaved, openRow } from './helpers';
+import { catchDownload, createProject, drawRect, FIXTURES, freshStart, pickTool, planBox, saveDownload, waitForPlan, waitSaved } from './helpers';
 
 /**
  * Phase 3: Schraffuren (Linien, Kreuz, Punkte; Winkel und Abstand) in Ansicht und PDF, Mengen
@@ -225,12 +225,11 @@ test('Mengen aus der Geometrie: Fläche und Umfang aus dem Plan, nachgeführt be
   expect(c.area).toBeCloseTo((Math.PI * (c.shape.w / 200) * (c.shape.h / 200)), 2);
 
   // Tabelle: Umfang gekennzeichnet, Summen und Volumen
-  // Fläche mit Tiefe zählt in m² (abgerechnet wird die Fläche), m³ nur aus Volumen-Messungen; Fläche aus dem Plan gekennzeichnet
-  await expect(page.getByTestId('sum-volume')).toHaveCount(0);
-  await expect(page.getByTestId('aufmass-table')).toContainText('aus Plan');
+  await expect(page.getByTestId('sum-volume')).toContainText((Math.round((r.area as number) * 0.1 * 100) / 100).toFixed(2).replace('.', ','));
+  await expect(page.getByTestId('aufmass-table')).toContainText('U ');
 
   // Zurück zur Handeingabe: Breite wieder eingeben
-  await openRow(page, '1');
+  await page.getByRole('button', { name: /^\S+ 1 bearbeiten$/ }).click();
   await expect(dlg).toBeVisible();
   await dlg.getByTestId('use-geometry').click();
   await dlg.getByTestId('input-length').fill('2');

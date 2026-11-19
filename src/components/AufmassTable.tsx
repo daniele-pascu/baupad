@@ -1,31 +1,32 @@
 import { SelectBox, type Selection } from './Selection';
+import { naturalCompare } from '../lib/numbers';
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { AufmassRow } from '../lib/aufmass';
-import { linesByType } from '../lib/aufmass';
-import { deductionText, grossArea, hasArea, isWall, kindOf, measureLabel, netLength } from '../lib/measure';
-import { formatArea, formatDepth, formatMeasure, naturalCompare } from '../lib/numbers';
-import { countOf, MEASURE_TYPES, normUnit, quantityOfMeasure, totalsByUnit, typeInfo, typeOf } from '../lib/measure-types';
+import { linesByType, sumArea } from '../lib/aufmass';
+import { deductionText, grossArea, hasArea, hasVolume, isWall, kindOf, measureLabel, netLength, sumLengths, sumVolumes } from '../lib/measure';
+import { formatArea, formatDepth, formatMeasure } from '../lib/numbers';
+import { calcPath, countOf, MEASURE_TYPES, totalsByUnit, typeOf } from '../lib/measure-types';
 import { damageNo } from '../lib/numbering';
 import type { Component, Damage, MeasureType } from '../lib/types';
 import { Icon } from './Icon';
 
 type IconName = Parameters<typeof Icon>[0]['name'];
 
+const KIND_ICONS = { damage: 'ellipse', area: 'rect', line: 'line' } as const;
+
 interface Props {
   rows: AufmassRow[];
-  /** Plannummer vor der Messung (Aufmaß über mehrere Pläne) */
   showPlan?: boolean;
   selectedId?: string | null;
-  /** Antippen: Messung auswählen (im Plan zeigen) bzw. – ohne onEdit – öffnen */
   onSelect?: (row: AufmassRow) => void;
-  /** Ausgewählte Messung noch einmal antippen: Messung öffnen */
   onEdit?: (row: AufmassRow) => void;
+  onDelete?: (row: AufmassRow) => void;
   duplicates?: Set<string>;
-  /** Bauteilkennzeichnungen (id → Bauteil) */
+  /** Bauteilkennzeichnungen (id → Bauteil) für die Spalte „Art / Bauteil“ */
   components?: Record<string, Pick<Component, 'letter' | 'name' | 'deletedAt'>>;
-  /** Positionsnummer zu einem Leistungsverweis */
+  /** Positionsnummer zu einem Leistungsverweis (für die Spalte „Art“) */
   positionLabel?: (ref: string) => string | null;
-  /** Überschrift einer Positionsgruppe (z. B. „01.02 Spachteln (m²)“); mit Positionen wird nach LV-Position gruppiert */
+  /** Überschrift einer Positionsgruppe (z. B. „01.02 Spachteln“); mit Positionen wird nach LV-Position gruppiert */
   positionTitle?: (ref: string) => string | null;
   /** Reihenfolge der Positionen (z. B. LV-Reihenfolge); fehlt = nach Positionsnummer */
   positionOrder?: (ref: string) => number;
@@ -40,109 +41,128 @@ interface Props {
   sel?: Selection;
 }
 
-/** Zahl einer Menge in ihrer (normierten) Einheit: Stück ganz, sonst zwei Nachkommastellen */
-function formatQty(value: number | null, unit: string): string {
-  if (value === null) return '–';
-  if (unit === 'Stk') return String(Math.round(value));
-  return unit === 'm' ? formatMeasure(value) : formatArea(value);
-}
+/** Spaltenkopf mit Einheit, z. B. „Länge (m)“ */
+const withUnit = (label: string, unit: string) => (
+  <>
+    {label} <span className="unit-h">({unit})</span>
+  </>
+);
 
-/** Länge einer Messung: „Anzahl × Länge“ bzw. „U …“ (Umfang) bei aus dem Plan berechneten Flächen */
+/** Länge einer Messung: „U …“ bei aus dem Plan berechneten Flächen (Umfang), sonst „Anzahl × Länge“ */
 function lengthText(d: Damage): string {
   if (d.areaFromShape && hasArea(kindOf(d)) && !isWall(d)) return `U ${formatMeasure(d.length)}`;
   return `${(d.count ?? 1) > 1 ? `${d.count} × ` : ''}${formatMeasure(d.length)}`;
 }
+const lengthTitle = (d: Damage) => (d.areaFromShape && hasArea(kindOf(d)) && !isWall(d) ? 'Umfang – Fläche aus dem Plan berechnet' : undefined);
+
+/** Spalten einer Messart: Köpfe, Zellen je Zeile und die Summe unter der Ergebnis-Spalte */
+interface TypeColumns {
+  heads: ReactNode[];
+  cells(d: Damage): ReactNode;
+  /** Summe der Tabelle: Text und Position der Ergebnis-Spalte (0 = erste Spalte der Messart) */
+  sum(list: Damage[]): { at: number; text: string };
+}
 
 /**
- * Maße einer Messung für die Zeile – nur was zum Ergebnis führt: Fläche/Wand/Schadstelle Länge × Breite (× Tiefe),
- * Volumen Länge × Breite × Tiefe, Länge nur bei Anzahl > 1, Frei die eigene Rechnung, Stück nichts.
+ * Je Messart die passenden Spalten: Fläche/Schadstelle Länge × Breite (× Tiefe), Wand Länge × Höhe,
+ * Länge mit Gesamtlänge, Volumen mit m³, Stück nur die Anzahl, Frei die eigene Rechnung.
  */
-function dimsOf(d: Damage): string[] {
-  const t = typeOf(d);
-  if (t === 'stueck') return [];
-  if (t === 'frei') {
-    const f = d.formula?.trim();
-    return f && d.qty !== null && d.qty !== undefined && f.replace(',', '.') !== String(d.qty) ? [f] : [];
+function columnsOf(type: MeasureType, list: Damage[]): TypeColumns {
+  const anyDepth = list.some((d) => d.depth !== null && d.depth !== undefined);
+  const areaCell = (d: Damage) => (
+    <td className="num" data-testid="row-area">
+      {formatArea(d.area)}
+    </td>
+  );
+  const lengthCell = (d: Damage) => (
+    <td className="num" title={lengthTitle(d)}>
+      {lengthText(d)}
+    </td>
+  );
+  if (type === 'stueck' || type === 'frei') {
+    return {
+      heads: [type === 'stueck' ? 'Anzahl' : 'Menge'],
+      cells: (d) => (
+        <td className="num">
+          <span data-testid="row-qty">{calcPath(d)}</span>
+        </td>
+      ),
+      sum: (l) => ({
+        at: 0,
+        text:
+          type === 'stueck'
+            ? `${l.reduce((n, d) => n + countOf(d), 0)} Stk`
+            : totalsByUnit(l)
+                .map((t) => `${formatArea(t.value)} ${t.unit}`)
+                .join(' · '),
+      }),
+    };
   }
-  if (t === 'laenge') return countOf(d) > 1 ? [lengthText(d)] : [];
-  const depth = d.depth !== null && d.depth !== undefined ? [formatDepth(d.depth)] : [];
-  if (d.areaFromShape && !isWall(d)) return [`${formatArea(t === 'volumen' ? d.area : grossArea(d))} m² aus Plan`, ...depth];
-  return [lengthText(d), formatMeasure(d.width), ...depth];
-}
-
-/** Testkennung des Ergebnisses (je Messart wie bisher die Spalte) */
-const RESULT_ID: Record<MeasureType, string> = { flaeche: 'row-area', wand: 'row-area', schadstelle: 'row-area', laenge: 'row-total', volumen: 'row-volume', stueck: 'row-value', frei: 'row-value' };
-
-/** Summen je Einheit, wie abgerechnet: m², m, m³, Stk, eigene Einheiten (Frei) – Volumen nur aus Volumen-Messungen */
-const UNIT_ORDER = ['m²', 'm', 'm³', 'Stk'];
-export function aufmassTotals(damages: Damage[]): { unit: string; value: number }[] {
-  return totalsByUnit(damages).sort((a, b) => (UNIT_ORDER.indexOf(a.unit) + 1 || 99) - (UNIT_ORDER.indexOf(b.unit) + 1 || 99));
-}
-const qtyText = (value: number, unit: string) => `${formatQty(value, unit)}${unit === 'ohne Einheit' ? '' : ` ${unit}`}`;
-
-/** Gesamt je Einheit (Kopf der Messleiste): „95,70 m² · 4,18 m³ · 6,40 lfm Bewehrung“ */
-export function AufmassTotals({ damages }: { damages: Damage[] }) {
-  const rebar = Math.round(damages.reduce((a, d) => a + (d.rebar ?? 0), 0) * 100) / 100;
-  const parts: ReactNode[] = aufmassTotals(damages).map((t) =>
-    t.unit === 'm²' ? (
-      <Fragment key={t.unit}>
-        <span data-testid="sum-area">{formatArea(t.value)}</span> m²
-      </Fragment>
-    ) : (
-      <span key={t.unit} data-testid={t.unit === 'm' ? 'sum-length' : t.unit === 'm³' ? 'sum-volume' : t.unit === 'Stk' ? 'sum-count' : 'sum-free'}>
-        {qtyText(t.value, t.unit)}
-      </span>
+  if (type === 'laenge') {
+    return {
+      heads: [withUnit('Länge', 'm'), withUnit('Gesamt', 'm')],
+      cells: (d) => (
+        <>
+          {lengthCell(d)}
+          <td className="num" data-testid="row-total">
+            {formatMeasure(netLength(d))}
+          </td>
+        </>
+      ),
+      sum: (l) => ({ at: 1, text: `${formatMeasure(sumLengths(l))} m` }),
+    };
+  }
+  if (type === 'volumen') {
+    return {
+      heads: [withUnit('Länge', 'm'), withUnit('Breite', 'm'), withUnit('Tiefe', 'm'), withUnit('Volumen', 'm³')],
+      cells: (d) => (
+        <>
+          {d.areaFromShape ? (
+            // Fläche aus dem Plan: statt Länge × Breite steht die Fläche
+            <td className="num" colSpan={2} title="Fläche aus dem Plan berechnet" data-testid="row-area">
+              {formatArea(d.area)} m²
+            </td>
+          ) : (
+            <>
+              {lengthCell(d)}
+              <td className="num">{formatMeasure(d.width)}</td>
+            </>
+          )}
+          <td className="num">{formatDepth(d.depth)}</td>
+          <td className="num" data-testid="row-volume">
+            {d.area !== null && d.depth !== null ? formatArea(Math.round(d.area * d.depth * 100) / 100) : ''}
+          </td>
+        </>
+      ),
+      sum: (l) => ({ at: 3, text: `${formatArea(sumVolumes(l))} m³` }),
+    };
+  }
+  // Fläche, Wand, Schadstelle: Ergebnis in m²; Tiefe bzw. Wandstärke nur, wenn sie vorkommt (Schadstelle immer)
+  const depth = type === 'schadstelle' || anyDepth;
+  return {
+    heads: [withUnit('Länge', 'm'), withUnit(type === 'wand' ? 'Höhe' : 'Breite', 'm'), ...(depth ? [withUnit(type === 'wand' ? 'Stärke' : 'Tiefe', 'm')] : []), withUnit('Fläche', 'm²')],
+    cells: (d) => (
+      <>
+        {lengthCell(d)}
+        <td className="num">{formatMeasure(d.width)}</td>
+        {depth && <td className="num">{formatDepth(d.depth)}</td>}
+        {areaCell(d)}
+      </>
     ),
-  );
-  if (rebar > 0)
-    parts.push(
-      <Fragment key="rebar">
-        <span data-testid="sum-rebar">{formatMeasure(rebar)}</span> lfm Bewehrung
-      </Fragment>,
-    );
-  if (!parts.length) return null;
-  return (
-    <span className="aufmass-totals" data-testid="aufmass-total">
-      {parts.map((p, i) => (
-        <Fragment key={i}>
-          {i > 0 && ' · '}
-          {p}
-        </Fragment>
-      ))}
-    </span>
-  );
+    sum: (l) => ({ at: depth ? 3 : 2, text: `${formatArea(sumArea(l))} m²` }),
+  };
 }
 
-/** Summe einer Gruppe je Einheit (eine Position zählt meist in einer Einheit) */
-const sumText = (list: Damage[]) =>
-  aufmassTotals(list)
-    .map((t) => qtyText(t.value, t.unit))
-    .join(' · ') || '–';
-
+/**
+ * Aufmaß-Tabellen: je Messart eine eigene Tabelle mit passenden Spalten und eigener Summe
+ * (Fläche, Wand, Länge, Volumen, Stück, Schadstelle, Frei – nur die vorkommenden), darunter die Gesamtsummen.
+ */
 const COLLAPSED_KEY = 'aufmassCollapsed';
 
-interface Group {
-  key: string;
-  title: string;
-  /** Messart-Gruppe: Symbol und Kennung der Messart; null = Positionsgruppe */
-  type: MeasureType | null;
-  rows: AufmassRow[];
-}
-
-/**
- * Aufmaß als einfache Liste: eine Gruppen-Ebene – nach Leistungsposition, Messungen ohne Position nach Messart
- * (ohne LV nur nach Messart). Je Messung eine Zeile „Nr · Maße · Ergebnis“, darunter nur bei Bedarf eine kleine
- * Zeile (Abzüge, Bewehrung, weitere Positionen, Fotos, Notiz). Summe im Gruppen-Balken. Antippen wählt die Messung
- * aus (im Plan), noch einmal antippen öffnet sie; gelöscht wird im Messfenster oder über „Auswählen“.
- */
-export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, onEdit, duplicates, components, positionLabel, positionTitle, positionOrder, positionsOf, surfaceNeeded, sel: pick }: Props) {
+export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, onEdit, onDelete, duplicates, components, positionLabel, positionTitle, positionOrder, positionsOf, surfaceNeeded, sel: pick }: Props) {
   const picking = !!pick?.active;
-  const choose = (r: AufmassRow) => {
-    if (picking) return pick!.toggle(r.damage.id);
-    if (onEdit && r.damage.id === selectedId) return onEdit(r);
-    onSelect?.(r);
-  };
-  // Gruppen auf- und zuklappen – auf dem Gerät gemerkt
+  const choose = (r: AufmassRow) => (picking ? pick!.toggle(r.damage.id) : onSelect?.(r));
+  // Gruppen auf- und zuklappen (je Messart bzw. Linienart und je Position) – wie in der Einteilung, auf dem Gerät gemerkt
   const [closed, setClosed] = useState<Set<string>>(() => {
     try {
       return new Set(JSON.parse(localStorage.getItem(COLLAPSED_KEY) ?? '[]') as string[]);
@@ -163,186 +183,336 @@ export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, on
       return next;
     });
   const refsOf = (d: Damage): string[] => (positionsOf ? positionsOf(d) : d.positionRef ? [d.positionRef] : []);
-  const titledRef = (d: Damage): string | null => {
-    const ref = refsOf(d)[0];
-    return ref && positionTitle?.(ref) ? ref : null;
-  };
-  const selRef = useRef<HTMLDivElement>(null);
+  const mainRef = (d: Damage): string | null => refsOf(d)[0] ?? null;
+  const selRef = useRef<HTMLTableRowElement>(null);
   useEffect(() => {
     selRef.current?.scrollIntoView({ block: 'nearest' });
   }, [selectedId]);
+  // nach LV-Position gruppieren (Positionsnummer aufsteigend), Messungen ohne Position gesammelt am Ende
+  const grouped = !!positionTitle && rawRows.some((r) => mainRef(r.damage));
+  const groupKey = (r: AufmassRow) => ((ref) => (ref && positionTitle?.(ref) ? ref : ''))(mainRef(r.damage));
+  const sorted = grouped
+    ? [...rawRows].sort((a, b) => {
+        const ka = groupKey(a);
+        const kb = groupKey(b);
+        if (ka === kb) return 0;
+        if (!ka) return 1;
+        if (!kb) return -1;
+        const oa = positionOrder?.(ka) ?? 0;
+        const ob = positionOrder?.(kb) ?? 0;
+        return oa - ob || naturalCompare(positionLabel?.(ka) ?? ka, positionLabel?.(kb) ?? kb);
+      })
+    : rawRows;
+  const damages = sorted.map((r) => r.damage);
+  const total = sumArea(damages);
+  const actions = !!(onEdit || onDelete) && !picking;
+  // je Messart eine Tabelle, in fester Reihenfolge; nur Messarten, die vorkommen
+  // Längen je Linienart getrennt (durchgezogen, gestrichelt, Wellenlinie …) – verschiedene Arten nie in einer Tabelle bzw. Summe
+  const tables = MEASURE_TYPES.flatMap((info) => {
+    const rows = sorted.filter((r) => typeOf(r.damage) === info.id);
+    if (!rows.length) return [];
+    const groups = info.id === 'laenge' ? linesByType(rows.map((row) => ({ d: row.damage, row }))) : [];
+    if (!groups.length || groups[0].only) return [{ info, label: info.label, rows }];
+    return groups.map((g) => ({ info, label: `${info.label} – ${g.label}`, rows: g.items.map((x) => x.row) }));
+  });
+  const lead = (showPlan ? 1 : 0) + 1; // Plannr., Nr.
 
-  // Gruppen: Positionen (LV-Reihenfolge), danach Messungen ohne Position je Messart (Längen je Linienart getrennt)
-  const groups: Group[] = [];
-  const byPosition = !!positionTitle && rawRows.some((r) => titledRef(r.damage));
-  if (byPosition) {
-    const refs = [...new Set(rawRows.map((r) => titledRef(r.damage)).filter((x): x is string => !!x))].sort(
-      (a, b) => (positionOrder?.(a) ?? 0) - (positionOrder?.(b) ?? 0) || naturalCompare(positionLabel?.(a) ?? a, positionLabel?.(b) ?? b),
-    );
-    for (const ref of refs) groups.push({ key: `pos:${ref}`, title: positionTitle!(ref)!, type: null, rows: rawRows.filter((r) => titledRef(r.damage) === ref) });
-  }
-  const rest = byPosition ? rawRows.filter((r) => !titledRef(r.damage)) : rawRows;
-  for (const info of MEASURE_TYPES) {
-    const rows = rest.filter((r) => typeOf(r.damage) === info.id);
-    if (!rows.length) continue;
-    const parts = info.id === 'laenge' ? linesByType(rows.map((row) => ({ d: row.damage, row }))) : [];
-    const sets = !parts.length || parts[0].only ? [{ label: info.label, rows }] : parts.map((p) => ({ label: `${info.label} – ${p.label}`, rows: p.items.map((x) => x.row) }));
-    for (const s of sets) groups.push({ key: `type:${s.label}`, title: byPosition ? `${s.label} · ohne Position` : s.label, type: info.id, rows: s.rows });
-  }
-
-  const renderRow = (r: AufmassRow, inPosition: boolean) => {
-    const d = r.damage;
-    const t = typeOf(d);
-    const kind = kindOf(d);
-    const isSel = d.id === selectedId;
-    const comp = d.componentId ? components?.[d.componentId] : undefined;
-    const q = quantityOfMeasure(d);
-    const dims = dimsOf(d);
-    const deds = (hasArea(kind) ? d.area !== null : true) && d.deductions?.length ? d.deductions : null;
-    // Positionen: in der Positionsgruppe nur die weiteren („auch bei …“), sonst die Position selbst
-    const refs = refsOf(d).filter((ref) => positionLabel?.(ref));
-    const sub: ReactNode[] = [];
-    if (deds)
-      sub.push(
-        <span key="deds" data-testid="row-deductions">
-          {hasArea(kind) ? (
-            <>
-              brutto {formatArea(grossArea(d))} m² {deductionText(deds)} = <strong>netto {formatArea(d.area)} m²</strong>
-            </>
-          ) : (
-            <>
-              gemessen {formatMeasure(d.length)} m {deductionText(deds, true)} = <strong>netto {formatMeasure(netLength(d))} m</strong>
-            </>
-          )}
-        </span>,
-      );
-    if (d.rebar)
-      sub.push(
-        <span key="rebar">
-          Bewehrung <span data-testid="row-rebar">{formatMeasure(d.rebar)}</span> lfm
-        </span>,
-      );
-    if (comp && !comp.deletedAt)
-      sub.push(
-        <span key="comp" className="component-tag">
-          Bauteil {comp.letter}
-          {comp.name ? ` – ${comp.name}` : ''}
-        </span>,
-      );
-    if (!inPosition && refs.length)
-      sub.push(
-        <span key="pos">
-          Pos. <span data-testid="row-position">{positionLabel!(refs[0])}</span>
-        </span>,
-      );
-    const more = refs.slice(1);
-    if (more.length)
-      sub.push(
-        <span key="more" data-testid="row-position-more">
-          auch bei {more.map((ref) => positionLabel!(ref)).join(', ')}
-        </span>,
-      );
-    if (surfaceNeeded && t === 'schadstelle' && !d.surface)
-      sub.push(
-        <span key="surface" className="row-warn" title="Boden, Wand oder Decke wählen – sonst zählt die Schadstelle bei den danach getrennten Positionen nicht" data-testid="row-surface-missing">
-          Fläche wählen
-        </span>,
-      );
-    if (d.photoIds?.length)
-      sub.push(
-        <span key="photos" className="row-photos" title={`${d.photoIds.length} ${d.photoIds.length === 1 ? 'Foto' : 'Fotos'}`}>
-          <Icon name="camera" size={14} />
-          <span data-testid="row-photos">{d.photoIds.length}</span>
-        </span>,
-      );
-    if (d.note?.trim())
-      sub.push(
-        <span key="note" className="row-note" data-testid="row-note">
-          {d.note}
-        </span>,
-      );
-    const label = `${measureLabel(d)} ${damageNo(d)}`;
+  const renderTable = (type: MeasureType, rows: AufmassRow[], withSum: boolean) => {
+    const list = rows.map((r) => r.damage);
+    const cols = columnsOf(type, list);
+    // Symbol der Messart (wie in der Überschrift der Tabelle)
+    const typeIcon = MEASURE_TYPES.find((t) => t.id === type)?.icon as IconName | undefined;
+    // Spalte „Bemerkung“ nur, wenn eine Messung eine Notiz hat (am Handy als Zeile darunter)
+    const notes = list.some((d) => d.note?.trim());
+    // Spalte „Bewehrung“ nur, wenn mindestens eine Messung eine Angabe hat
+    const rebar = list.some((d) => (d.rebar ?? 0) > 0);
+    const trail = 1 + (rebar ? 1 : 0) + (notes ? 1 : 0) + (actions ? 1 : 0); // Art, Bewehrung, Bemerkung, Aktionen
+    const all = lead + cols.heads.length + trail;
+    const sum = cols.sum(list);
     return (
-      <div
-        key={d.id}
-        ref={isSel ? selRef : undefined}
-        role="button"
-        tabIndex={0}
-        aria-label={isSel && onEdit && !picking ? `${label} öffnen` : label}
-        className={`aufmass-row${isSel ? ' selected' : ''}${duplicates?.has(d.id) ? ' duplicate' : ''}`}
-        onClick={(e) => {
-          if (picking && (e.target as Element).closest('input')) return;
-          choose(r);
-        }}
-        onKeyDown={(e) => {
-          if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
-          e.preventDefault();
-          choose(r);
-        }}
-        data-selected={picking ? pick!.has(d.id) : undefined}
-        data-testid="aufmass-row"
-        data-number={damageNo(d)}
-        data-kind={kind}
-        data-type={t}
-      >
-        <span className="aufmass-row-main">
-          {picking && <SelectBox sel={pick!} id={d.id} label={label} testId="aufmass-row-select" />}
-          {showPlan && <span className="row-plan">{r.plan.planNumber}</span>}
-          <span className="color-dot" style={{ background: d.color }} />
-          <span className="row-nr">{damageNo(d)}</span>
-          <span className="row-dims">
-            {dims.map((x, i) => (
-              <Fragment key={i}>
-                {i > 0 && <span className="row-x"> × </span>}
-                <span className="row-dim">{x}</span>
-              </Fragment>
+      <table className="aufmass-table">
+        <thead>
+          <tr>
+            {showPlan && <th>Plannr.</th>}
+            <th className="num nr-col">Nr.</th>
+            {cols.heads.map((h, i) => (
+              <th key={i} className="num">
+                {h}
+              </th>
             ))}
-          </span>
-          <strong className="row-result" data-testid={t === 'stueck' || t === 'frei' ? 'row-qty' : undefined}>
-            <span className="row-value" data-testid={RESULT_ID[t]}>
-              {formatQty(q.value, normUnit(q.unit))}
-            </span>
-            {q.unit.trim() && ` ${q.unit.trim()}`}
-          </strong>
-          <span className="sr-only" data-testid="row-kind" title={comp ? `${measureLabel(d)} · Bauteil ${comp.letter}${comp.name ? ` – ${comp.name}` : ''}` : measureLabel(d)}>
-            {measureLabel(d)}
-          </span>
-        </span>
-        {sub.length > 0 && <span className="aufmass-row-sub">{sub}</span>}
-      </div>
+            <th title="Messart und Bauteil">Art</th>
+            {rebar && (
+              <th className="num" title="Bewehrung in Laufmetern">
+                Bew. (lfm)
+              </th>
+            )}
+            {notes && <th className="note-col">Bemerkung</th>}
+            {actions && (
+              <th className="actions-col">
+                <span className="sr-only">Aktionen</span>
+              </th>
+            )}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, ri) => {
+            const sel = r.damage.id === selectedId;
+            const gk = grouped ? groupKey(r) : null;
+            const newGroup = gk !== null && (ri === 0 || groupKey(rows[ri - 1]) !== gk);
+            const groupRows = newGroup ? rows.filter((x) => groupKey(x) === gk).map((x) => x.damage) : [];
+            const kind = kindOf(r.damage);
+            const comp = r.damage.componentId ? components?.[r.damage.componentId] : undefined;
+            const label = `${measureLabel(r.damage)} ${damageNo(r.damage)}`;
+            const deds = (hasArea(kind) ? r.damage.area !== null : true) && r.damage.deductions?.length ? r.damage.deductions : null;
+            const gKey = `pos:${type}:${gk}`;
+            const gClosed = gk !== null && closed.has(gKey);
+            const head = newGroup && (
+              <tr className={`position-group${gClosed ? ' is-closed' : ''}`} data-testid="position-group">
+                <td colSpan={all}>
+                  <button type="button" className="group-toggle" onClick={() => toggleGroup(gKey)} aria-expanded={!gClosed} data-testid="position-group-toggle">
+                    <Icon name="next" size={16} className="group-chevron" />
+                    <span className="position-group-title">{gk ? positionTitle!(gk) : 'Ohne Leistungsposition'}</span>
+                    <span className="position-group-sum">{cols.sum(groupRows).text}</span>
+                  </button>
+                </td>
+              </tr>
+            );
+            // zugeklappte Position: nur der Balken mit Summe
+            if (gClosed) return <Fragment key={r.damage.id}>{head}</Fragment>;
+            return (
+              <Fragment key={r.damage.id}>
+                {head}
+                <tr
+                  ref={sel ? selRef : undefined}
+                  className={`${sel ? 'selected' : ''}${duplicates?.has(r.damage.id) ? ' duplicate' : ''}`}
+                  onClick={(e) => {
+                    if (picking && (e.target as Element).closest('input')) return;
+                    choose(r);
+                  }}
+                  data-selected={picking ? pick!.has(r.damage.id) : undefined}
+                  data-testid="aufmass-row"
+                  data-number={damageNo(r.damage)}
+                  data-kind={kind}
+                  data-type={type}
+                >
+                  {showPlan && <td>{r.plan.planNumber}</td>}
+                  <td className="num nr-col">
+                    {picking && <SelectBox sel={pick!} id={r.damage.id} label={label} testId="aufmass-row-select" />}
+                    <span className="color-dot" style={{ background: r.damage.color }} /> {damageNo(r.damage)}
+                  </td>
+                  {cols.cells(r.damage)}
+                  <td className="kind-cell" data-testid="row-kind" title={comp ? `${measureLabel(r.damage)} · Bauteil ${comp.letter}${comp.name ? ` – ${comp.name}` : ''}` : measureLabel(r.damage)}>
+                    <Icon name={rows.length && typeIcon ? typeIcon : isWall(r.damage) ? 'wall' : KIND_ICONS[kind]} size={16} />
+                    <span className="sr-only">{measureLabel(r.damage)}</span>
+                    {comp && !comp.deletedAt && <span className="component-tag">{comp.letter}</span>}
+                    {(() => {
+                      // Hauptposition als Marke; zählt die Messung bei weiteren Positionen, steht „+N“ daneben
+                      const refs = refsOf(r.damage).filter((ref) => positionLabel?.(ref));
+                      if (!refs.length) return null;
+                      return (
+                        <>
+                          <span className="pos-tag" data-testid="row-position">
+                            {positionLabel!(refs[0])}
+                          </span>
+                          {refs.length > 1 && (
+                            <span className="pos-tag pos-more" title={`Zählt auch bei: ${refs.slice(1).map((ref) => positionLabel!(ref)).join(', ')}`} data-testid="row-position-more">
+                              +{refs.length - 1}
+                            </span>
+                          )}
+                        </>
+                      );
+                    })()}
+                    {surfaceNeeded && typeOf(r.damage) === 'schadstelle' && !r.damage.surface && (
+                      <span className="pos-tag surface-missing" title="Boden, Wand oder Decke wählen – sonst zählt die Schadstelle bei den danach getrennten Positionen nicht" data-testid="row-surface-missing">
+                        Fläche wählen
+                      </span>
+                    )}
+                    {!!r.damage.photoIds?.length && (
+                      <span className="photo-tag" title={`${r.damage.photoIds.length} ${r.damage.photoIds.length === 1 ? 'Foto' : 'Fotos'}`} data-testid="row-photos">
+                        <Icon name="camera" size={14} />
+                        {r.damage.photoIds.length}
+                      </span>
+                    )}
+                  </td>
+                  {rebar && (
+                    <td className="num" data-testid="row-rebar">
+                      {r.damage.rebar ? formatMeasure(r.damage.rebar) : ''}
+                    </td>
+                  )}
+                  {notes && (
+                    <td className="note-col" data-testid="row-note">
+                      {r.damage.note}
+                    </td>
+                  )}
+                  {actions && (
+                    <td className="actions-col">
+                      {onEdit && (
+                        <button
+                          type="button"
+                          className="icon-btn icon-btn-sm"
+                          aria-label={`${label} bearbeiten`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEdit(r);
+                          }}
+                        >
+                          <Icon name="edit" size={18} />
+                        </button>
+                      )}
+                      {onDelete && (
+                        <button
+                          type="button"
+                          className="icon-btn icon-btn-sm danger"
+                          aria-label={`${label} löschen`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDelete(r);
+                          }}
+                        >
+                          <Icon name="trash" size={18} />
+                        </button>
+                      )}
+                    </td>
+                  )}
+                </tr>
+                {notes && r.damage.note?.trim() && (
+                  <tr className={`note-subrow${sel ? ' selected' : ''}`} onClick={() => choose(r)} data-testid="row-note-sm">
+                    <td colSpan={all}>{r.damage.note}</td>
+                  </tr>
+                )}
+                {deds && (
+                  <tr className={`deduction-subrow${sel ? ' selected' : ''}`} onClick={() => choose(r)} data-testid="row-deductions">
+                    <td colSpan={all}>
+                      {hasArea(kind) ? (
+                        <>
+                          brutto {formatArea(grossArea(r.damage))} m² {deductionText(deds)} = <strong>netto {formatArea(r.damage.area)} m²</strong>
+                        </>
+                      ) : (
+                        <>
+                          gemessen {formatMeasure(r.damage.length)} m {deductionText(deds, true)} = <strong>netto {formatMeasure(netLength(r.damage))} m</strong>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            );
+          })}
+          {!rows.length && (
+            <tr>
+              <td colSpan={all} className="muted empty-cell">
+                Noch keine Messungen erfasst.
+              </td>
+            </tr>
+          )}
+        </tbody>
+        {withSum && (
+          <tfoot>
+            <tr data-testid="type-sum">
+              {/* Bezeichnung links, Wert rechts unter der Ergebnis-Spalte – in einer Zelle, damit „Summe“ die Nummernspalte nicht verbreitert */}
+              <td colSpan={lead + sum.at + 1}>
+                <span className="type-sum-line">
+                  <span>Summe</span>
+                  <span data-testid="type-sum-value">{sum.text}</span>
+                </span>
+              </td>
+              <td colSpan={cols.heads.length - sum.at - 1 + trail} />
+            </tr>
+          </tfoot>
+        )}
+      </table>
     );
   };
 
+  const lines = damages.filter((d) => typeOf(d) === 'laenge').length;
+  const pieces = damages.filter((d) => typeOf(d) === 'stueck');
+  const free = totalsByUnit(damages.filter((d) => typeOf(d) === 'frei'));
+  const rebarAny = damages.some((d) => (d.rebar ?? 0) > 0);
+  const rebarSum = Math.round(damages.reduce((a, d) => a + (d.rebar ?? 0), 0) * 100) / 100;
+  // „Summe Fläche“ steht auch bei leerer Tabelle; ohne Flächenmessung (nur Längen, Stück …) entfällt sie
+  const areaAny = !damages.length || damages.some((d) => hasArea(kindOf(d)));
   return (
-    <div className="table-wrap aufmass-list" data-testid="aufmass-table">
-      {groups.map((g) => {
-        const isClosed = closed.has(g.key);
-        const list = g.rows.map((r) => r.damage);
-        const isPos = g.type === null;
-        const types = isPos ? [...new Set(list.map((d) => typeInfo(typeOf(d)).label))] : [];
+    <div className="table-wrap aufmass-tables" data-testid="aufmass-table">
+      {tables.map((t) => {
+        const key = `type:${t.label}`;
+        const isClosed = closed.has(key);
+        const list = t.rows.map((r) => r.damage);
         return (
-          <section key={g.key} className={`aufmass-group${isClosed ? ' is-closed' : ''}`} data-testid={isPos ? 'position-group' : 'aufmass-type'} data-type={g.type ?? undefined}>
-            <h3 className="aufmass-group-head">
-              <button type="button" className="group-toggle" onClick={() => toggleGroup(g.key)} aria-expanded={!isClosed} data-testid={isPos ? 'position-group-toggle' : 'aufmass-type-toggle'}>
+          <section key={t.label} className={`aufmass-type${isClosed ? ' is-closed' : ''}`} data-testid="aufmass-type" data-type={t.info.id}>
+            <h3 className="aufmass-type-head">
+              <button type="button" className="group-toggle" onClick={() => toggleGroup(key)} aria-expanded={!isClosed} data-testid="aufmass-type-toggle">
                 <Icon name="next" size={16} className="group-chevron" />
-                {g.type && <Icon name={typeInfo(g.type).icon as IconName} size={16} />}
-                <span className="aufmass-group-title">
-                  <span className="aufmass-group-label">{g.title}</span>
-                  <span className="aufmass-group-meta">
-                    {g.rows.length} {g.rows.length === 1 ? 'Messung' : 'Messungen'}
-                    {types.length ? ` · ${types.join(', ')}` : ''}
+                <Icon name={t.info.icon as IconName} size={16} />
+                {/* Name und Anzahl untereinander: auch bei schmaler Leiste überlappt nichts die Summe */}
+                <span className="aufmass-type-title">
+                  <span className="aufmass-type-label">{t.label}</span>
+                  <span className="aufmass-type-count">
+                    {t.rows.length} {t.rows.length === 1 ? 'Messung' : 'Messungen'}
                   </span>
                 </span>
-                <strong className="aufmass-group-sum" data-testid="type-sum-value">
-                  {sumText(list)}
+                {/* Summe oben im Balken – zu und offen, ohne nach unten zu scrollen */}
+                <strong className="aufmass-type-sum" data-testid="type-sum-value">
+                  {columnsOf(t.info.id, list).sum(list).text}
                 </strong>
               </button>
             </h3>
-            {!isClosed && <div className="aufmass-rows">{g.rows.map((r) => renderRow(r, isPos))}</div>}
+            {!isClosed && renderTable(t.info.id, t.rows, false)}
           </section>
         );
       })}
-      {!groups.length && <p className="muted aufmass-empty">Noch keine Messungen erfasst.</p>}
+      {!tables.length && renderTable('schadstelle', [], false)}
+      <table className="aufmass-table aufmass-total" data-testid="aufmass-total">
+        <tfoot>
+          {areaAny && (
+            <tr>
+              <td>Summe Fläche</td>
+              <td className="num" data-testid="sum-area">
+                {formatArea(total)}
+              </td>
+            </tr>
+          )}
+          {lines > 0 && (
+            <tr className="sum-lines">
+              <td title="Linienlängen werden getrennt summiert und nicht zur Fläche gezählt">Summe Linien</td>
+              <td className="num" data-testid="sum-length">
+                {formatMeasure(sumLengths(damages))} m
+              </td>
+            </tr>
+          )}
+          {hasVolume(damages) && (
+            <tr className="sum-lines">
+              <td title="Summe aus Fläche × Tiefe aller Messungen mit Tiefe">Summe Volumen</td>
+              <td className="num" data-testid="sum-volume">
+                {formatArea(sumVolumes(damages))} m³
+              </td>
+            </tr>
+          )}
+          {pieces.length > 0 && (
+            <tr className="sum-lines">
+              <td>Summe Stück</td>
+              <td className="num" data-testid="sum-count">
+                {pieces.reduce((n, d) => n + countOf(d), 0)} Stk
+              </td>
+            </tr>
+          )}
+          {free.map((f) => (
+            <tr key={f.unit} className="sum-lines">
+              <td>Summe Frei ({f.unit})</td>
+              <td className="num" data-testid="sum-free">
+                {formatArea(f.value)} {f.unit}
+              </td>
+            </tr>
+          ))}
+          {rebarAny && (
+            <tr className="sum-lines">
+              <td>Summe Bewehrung (lfm)</td>
+              <td className="num" data-testid="sum-rebar">
+                {formatMeasure(rebarSum)}
+              </td>
+            </tr>
+          )}
+        </tfoot>
+      </table>
     </div>
   );
 }
