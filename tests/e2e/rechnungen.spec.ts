@@ -217,7 +217,7 @@ test('Ohne Aufteilung: Aufmaß entsteht erst über „Aufmaßblatt“ mit gewäh
   await expect(page.getByTestId('aufmass-section').getByTestId('aufmass-table')).toHaveCount(0);
   await blocks.nth(0).getByTestId('aufmass-toggle').click();
   await expect(blocks.nth(0).getByTestId('aufmass-toggle')).toHaveAttribute('aria-expanded', 'true');
-  await expect(blocks.nth(0).getByTestId('aufmass-table').locator('tbody tr')).toHaveCount(1);
+  await expect(blocks.nth(0).getByTestId('aufmass-table').getByTestId('aufmass-row')).toHaveCount(1);
   await blocks.nth(0).getByTestId('aufmass-toggle').click(); // wieder zu
   await expect(blocks.nth(0).getByTestId('aufmass-table')).toHaveCount(0);
   // Aufmaß mit zwei Plänen: jeder Plan einzeln aufklappbar

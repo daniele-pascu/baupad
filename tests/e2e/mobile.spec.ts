@@ -20,8 +20,7 @@ import {
   pickTool,
   openTools,
   newWeekProject,
-  chooseMeasureType,
-} from './helpers';
+  chooseMeasureType, selectRow, openRow } from './helpers';
 
 /**
  * Wesentliche Abläufe auf iPhone und iPad (Touch-Bedienung, Pinch-Zoom, kleine Bildschirme).
@@ -79,9 +78,21 @@ async function noOverlap(page: Page) {
     const root: ParentNode = overlays.length ? overlays[overlays.length - 1] : document;
     // schwebend über dem Plan bzw. dem Bild: Zoom-Knöpfe, Hinweise
     const floating = (el: Element) => !!el.closest('.toast, .zoom-controls, .dp-stage, .site-nav, [data-testid="plan-viewer"] .viewer-overlay');
+    // sichtbarer Teil: abgeschnitten von Vorfahren mit overflow (z. B. wischbare Werkzeugzeilen) – wie im Tasten-Test
+    const visibleRect = (el: Element) => {
+      const r = el.getBoundingClientRect();
+      let l = r.left, t = r.top, rt = r.right, b = r.bottom;
+      for (let p = el.parentElement; p; p = p.parentElement) {
+        const cs = getComputedStyle(p);
+        const pr = p.getBoundingClientRect();
+        if (/(auto|scroll|hidden|clip)/.test(cs.overflowX)) { l = Math.max(l, pr.left); rt = Math.min(rt, pr.right); }
+        if (/(auto|scroll|hidden|clip)/.test(cs.overflowY)) { t = Math.max(t, pr.top); b = Math.min(b, pr.bottom); }
+      }
+      return { left: l, top: t, right: rt, bottom: b, width: Math.max(0, rt - l), height: Math.max(0, b - t) };
+    };
     const els = [...root.querySelectorAll('input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([type=file]), select, textarea, button, a.btn')]
       .filter((el) => !floating(el))
-      .map((el) => ({ el, r: el.getBoundingClientRect() }))
+      .map((el) => ({ el, r: visibleRect(el) }))
       .filter(({ el, r }) => r.width > 2 && r.height > 2 && getComputedStyle(el).visibility !== 'hidden' && !(el as HTMLElement).hidden);
     const out: string[] = [];
     for (let i = 0; i < els.length; i++)
@@ -220,9 +231,11 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
     ['1', '0,50'],
     ['2', '2,64'],
   ]);
-  // Tabelle antippen → Bearbeitung der Maße (bleibt in der Tabelle)
-  await page.locator('[data-testid="aufmass-row"][data-number="2"]').tap();
-  await expect(page.getByTestId('damage-dialog')).toBeVisible();
+  // Tabelle: 1. Messung antippen → ausgewählt (kein Fenster), noch einmal antippen → Bearbeitung der Maße (bleibt in der Tabelle)
+  await page.locator('[data-testid="aufmass-row"][data-number="1"]').tap();
+  await expect(page.locator('[data-testid="aufmass-row"][data-number="1"]')).toHaveClass(/selected/);
+  await expect(page.getByTestId('damage-dialog')).toBeHidden();
+  await openRow(page, 2, true);
   await page.getByTestId('damage-cancel').tap();
   if (!sideBySide) await page.getByRole('tab', { name: /Plan/ }).tap();
   await expect(page.getByTestId('plan-viewer')).toBeVisible();
@@ -299,8 +312,7 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
     await expect(page.getByTestId('mobile-tab-table')).toBeHidden();
     await expect(page.getByTestId('aufmass-table')).toBeVisible();
     await expect(page.getByTestId('plan-viewer')).toBeVisible();
-    await page.locator('[data-testid="aufmass-row"][data-number="1"]').tap();
-    await page.getByTestId('damage-cancel').tap();
+    await selectRow(page, '1', true);
     await expect(page.getByTestId('selection-bar')).toContainText('Nr. 1');
     await noHorizontalScroll(page);
     await page.screenshot({ path: join(OUT, 'ipad-quer-editor.png') });

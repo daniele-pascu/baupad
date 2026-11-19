@@ -1,6 +1,6 @@
 import { expect, test } from './fixtures';
 import { join } from 'node:path';
-import { FIXTURES, createProject, drawRect, fillMeasures, freshStart, planBox, waitForPlan, waitSaved, pickTool } from './helpers';
+import { FIXTURES, createProject, drawRect, fillMeasures, freshStart, planBox, waitForPlan, waitSaved, pickTool, selectRow } from './helpers';
 
 /**
  * Autospeichern unter Last: Viele schnelle Änderungen am selben Datensatz – auch während eine
@@ -21,8 +21,7 @@ test('Schnelle Folgeänderungen an derselben Schadstelle werden ohne Fehlkonflik
   await drawRect(page, box.x + box.width * 0.3, box.y + box.height * 0.3, box.x + box.width * 0.45, box.y + box.height * 0.45);
   await fillMeasures(page, '1', '1', '0,02');
   await pickTool(page, 'tool-select');
-  await page.locator('[data-testid="aufmass-row"][data-number="1"]').click();
-  await page.getByTestId('damage-cancel').click(); // Tabelle öffnet die Bearbeitung – schließen, Auswahl bleibt
+  await selectRow(page, '1');
 
   // Farbwechsel in unregelmäßigen Abständen rund um die Speicherverzögerung (250 ms)
   const colors = ['Blau', 'Grün', 'Gelb', 'Orange', 'Violett', 'Rot'];
@@ -36,8 +35,7 @@ test('Schnelle Folgeänderungen an derselben Schadstelle werden ohne Fehlkonflik
   await waitSaved(page);
   await page.reload();
   await waitForPlan(page);
-  await page.locator('[data-testid="aufmass-row"][data-number="1"]').click();
-  await page.getByTestId('damage-cancel').click(); // Tabelle öffnet die Bearbeitung – schließen, Auswahl bleibt
+  await selectRow(page, '1');
   // Die zuletzt gewählte Farbe ist dauerhaft gespeichert
   const hex = { Rot: '#e03131', Blau: '#1c7ed6', Grün: '#2f9e44', Gelb: '#f5b800', Orange: '#f76707', Violett: '#9c36b5' }[last];
   await expect(page.locator('.viewer-overlay path[data-damage]').first()).toHaveAttribute('stroke', hex!);

@@ -120,9 +120,8 @@ test('Messart aus der Form (Linie / Fläche), keine Auswahl beim Einfügen: Lini
   await dlg.getByTestId('input-width').fill('1');
   await dlg.getByTestId('damage-save').click(); // Tiefe bleibt leer → trotzdem speicherbar
   await expect(dlg).toBeHidden();
-  // Tabelle „Fläche“: solange keine Messung eine Tiefe hat, gibt es keine Spalte „Tiefe“
-  const flaecheHead = page.locator('[data-testid="aufmass-type"][data-type="flaeche"] thead');
-  await expect(flaecheHead).not.toContainText('Tiefe');
+  // Zeile ohne Tiefe: nur Länge × Breite
+  await expect(row(2).locator('.row-dim')).toHaveCount(2);
   await expect(row(2).getByTestId('row-area')).toHaveText('2,00');
 
   // 3) Rechteck in Weiß als Fläche mit Tiefe (Auswahl vorher aufheben – sonst würde Nr. 2 umgefärbt)
@@ -138,12 +137,11 @@ test('Messart aus der Form (Linie / Fläche), keine Auswahl beim Einfügen: Lini
   await dlg.getByTestId('damage-save').click();
   await expect(dlg).toBeHidden();
   await expect(row(3).getByTestId('row-kind')).toHaveText('Fläche');
-  // jetzt mit Spalte „Tiefe“ – bei Nr. 2 bleibt sie leer (nicht 0)
-  await expect(flaecheHead).toContainText('Tiefe');
-  await expect(row(2).locator('td').nth(3)).toHaveText('–');
-  await expect(row(3).locator('td').nth(3)).toHaveText('0,10');
+  // Tiefe steht nur bei Nr. 3 (Länge × Breite × Tiefe) – bei Nr. 2 bleibt sie leer (nicht 0)
+  await expect(row(2).locator('.row-dim')).toHaveText(['2,00', '1,00']);
+  await expect(row(3).locator('.row-dim')).toHaveText(['1,00', '0,50', '0,10']);
   await expect(page.getByTestId('sum-area')).toHaveText('2,50'); // 2,00 + 0,50 – Linie zählt nicht
-  await expect(page.getByTestId('side-summary')).toContainText('Linien 3,50 m');
+  await expect(page.getByTestId('side-summary')).toContainText('3,50 m');
 
   // Schwarz und Weiß haben eine kontrastierende Kontur
   const strokes = await page.evaluate(() =>
@@ -260,7 +258,9 @@ test('Bauteile sind ausgeblendet; vorhandene Bauteil-Daten bleiben erhalten', as
   await page.reload();
   await waitForPlan(page);
   await expect(page.locator('[data-component]')).toHaveCount(0); // nicht mehr im Plan angezeigt
-  await row(2).getByRole('button', { name: 'Fläche 2 bearbeiten' }).click();
+  // Zeile antippen = auswählen, noch einmal antippen = öffnen (keine Stift-Taste mehr)
+  await row(2).click();
+  await row(2).click();
   const dlg = page.getByTestId('damage-dialog');
   await expect(dlg.getByTestId('input-component')).toHaveCount(0);
   await dlg.getByTestId('input-length').fill('2,5');

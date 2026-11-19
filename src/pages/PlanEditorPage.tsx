@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { SelectionBar, SelectToggle, useSelection } from '../components/Selection';
 import { BulkDamageDialog, type DamagePatch } from '../components/BulkDamageDialog';
-import { AufmassTable } from '../components/AufmassTable';
+import { AufmassTable, AufmassTotals } from '../components/AufmassTable';
 import { deductionNumbers } from '../lib/numbering';
 import { RotatePlanDialog } from '../components/RotatePlanDialog';
 import { DamageDialog, type DamageValues, type DrawnDeduction, type Renumber } from '../components/DamageDialog';
@@ -18,7 +18,7 @@ import { photoNoteUpdates } from '../lib/photo-notes';
 import { legendEntries, resolveLegend } from '../lib/legend';
 import { LegendBox, LegendDialog } from '../components/LegendDialog';
 import type { PhotoSite } from '../lib/types';
-import { positionGrouping, costCenterLabel, damagesOf, findPosition, lvDocLabel, lvDocsOf, plansOf, planTitle, positionRef, sumArea } from '../lib/aufmass';
+import { positionGrouping, costCenterLabel, damagesOf, findPosition, lvDocLabel, lvDocsOf, plansOf, planTitle, positionRef } from '../lib/aufmass';
 import { activeRule, autoBookings, hasSurfaceRules, refMismatch } from '../lib/pos-rules';
 import { NewMeasureDialog, type NewMeasureOption } from '../components/NewMeasureDialog';
 import { calibrationStatus, checkDeviation, checkError, formatCm, formatPercent, geometryMeasures, MAX_ERROR_M, planUnitsPerMeter } from '../lib/calibration';
@@ -36,7 +36,7 @@ import { ProbeBar, ProbeMenu, ProbeOverlay, type ProbeState } from '../component
 import { choiceIcon, choiceLabel, MEASURE_CHOICES, MeasureTypeMenu, type MeasureChoice } from '../components/MeasureTypeMenu';
 import { calcPath, defaultTypeFor, DEFAULT_WORK_AREAS, measureTypeForUnit, quantityOfMeasure, typeInfo, typeOf } from '../lib/measure-types';
 import { circleThrough } from '../lib/cad';
-import { countKind, deductionText, grossArea, hasArea, isWall, kindOf, measureLabel, netArea, netLength, sumLengths } from '../lib/measure';
+import { deductionText, grossArea, hasArea, isWall, kindOf, measureLabel, netArea, netLength } from '../lib/measure';
 import { round2, checkMeasure, computeArea, formatArea, formatMeasure, toInputValue } from '../lib/numbers';
 import { compactNumbers, damageNo, duplicateIds, nextNumber, planNumberStart, shiftNumbers, suggestNext, swapNumbers } from '../lib/numbering';
 import { navigate, paths } from '../lib/router';
@@ -1486,7 +1486,6 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
 
   const dialogDamage = dialog?.mode === 'edit' ? data.damages[dialog.id] : null;
   const rows = damages.map((damage) => ({ plan, damage }));
-  const lineCount = countKind(damages, 'line');
   const activePosition = findPosition(data, lastPosition);
   const positionOptions = lvDocsOf(data).flatMap((doc) =>
     doc.positions.map((p) => ({ ref: positionRef(doc.id, p.id), doc: lvDocLabel(doc), label: `${p.number} ${p.shortText} (${p.unit || '–'})`, number: p.number, shortText: p.shortText, unit: p.unit, type: measureTypeForUnit(p.unit, !!activeRule(p)) })),
@@ -2811,9 +2810,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             <h2>Aufmaß – {plan.planNumber || planTitle(plan)}</h2>
             <span className="muted small" data-testid="side-summary">
               {damages.length} Messung{damages.length === 1 ? '' : 'en'}
-              {/* nur vorhandene Einheiten – kein „0,00 m²“ bei reinen Längenmessungen */}
-              {(lineCount === 0 || sumArea(damages) > 0) && ` · ${formatArea(sumArea(damages))} m²`}
-              {lineCount > 0 && ` · Linien ${formatMeasure(sumLengths(damages))} m`}
+              {/* Gesamt je Einheit, wie abgerechnet (nur vorhandene Einheiten) */}
+              {damages.length > 0 && ' · '}
+              <AufmassTotals damages={damages} />
             </span>
             <div className="side-head-tools">
               <button type="button" className="btn btn-sm btn-primary" onClick={openNewMeasure} title="Neue Messung: Position bzw. frei wählen, dann im Plan zeichnen" data-testid="new-measure">
@@ -2828,13 +2827,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             duplicates={dupIds}
             positionLabel={(ref) => findPosition(data, ref)?.pos.number ?? null}
             {...positionGrouping(data)}
-            onSelect={(r) => {
-              // Tabelle antippen: Maße bearbeiten (nicht zur Stelle im Plan springen)
-              select(r.damage.id);
-              setDialog({ mode: 'edit', id: r.damage.id });
-            }}
+            // 1× antippen: im Plan zeigen (auswählen), noch einmal antippen: Messung öffnen
+            onSelect={(r) => select(r.damage.id, true)}
             onEdit={(r) => setDialog({ mode: 'edit', id: r.damage.id })}
-            onDelete={(r) => void removeDamage(r.damage)}
             sel={dmgSel}
           />
           <SelectionBar

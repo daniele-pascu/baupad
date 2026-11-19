@@ -1,7 +1,7 @@
 import { expect, test, type Page } from './fixtures';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { excelExport, catchDownload, drawRect, FIXTURES, freshStart, OUT, pickTool, planBox, blattRows, blattRebar, readXlsx, saveDownload, waitForPlan, waitSaved } from './helpers';
+import { excelExport, catchDownload, drawRect, FIXTURES, freshStart, OUT, pickTool, planBox, blattRows, blattRebar, readXlsx, saveDownload, waitForPlan, waitSaved, openRow } from './helpers';
 
 /**
  * Paket J: Werkzeugleiste klappt nach dem Zeichnen zu (zurück zur Auswahl); nur die Länge ist
@@ -242,7 +242,7 @@ test('Messung: Bemerkung / Notiz im Dialog, in der Aufmaß-Tabelle und im Excel'
   await dlg.getByTestId('input-width').fill('1');
   await dlg.getByTestId('damage-save').click();
   await expect(dlg).toBeHidden();
-  await expect(page.getByTestId('aufmass-table').locator('th.note-col')).toHaveCount(0);
+  await expect(page.getByTestId('row-note')).toHaveCount(0);
   // mit Notiz
   await pickTool(page, 'tool-rect');
   await drawRect(page, box.x + box.width * 0.4, box.y + box.height * 0.1, box.x + box.width * 0.5, box.y + box.height * 0.2);
@@ -279,10 +279,9 @@ test('Messung: Bemerkung / Notiz im Dialog, in der Aufmaß-Tabelle und im Excel'
   // eigene Tabelle je Messart: die Bewehrung steht bei der Betoninstandsetzung
   await expect(page.getByTestId('row-rebar')).toHaveText(['6,40']);
   await expect(page.getByTestId('sum-rebar')).toHaveText('6,40');
-  await expect(page.getByTestId('aufmass-table').locator('th.note-col')).toHaveText('Bemerkung');
   await expect(page.getByTestId('row-note')).toHaveText(['Ecke beschädigt']);
   // Notiz bleibt beim Bearbeiten erhalten
-  await page.locator('[data-testid="aufmass-row"][data-number="2"]').getByRole('button', { name: /2 bearbeiten/ }).click();
+  await openRow(page, '2');
   await expect(dlg.getByTestId('input-note')).toHaveValue('Ecke beschädigt');
   await expect(dlg.getByTestId('rebar-length')).toHaveCount(2);
   await expect(dlg.getByTestId('rebar-sum')).toHaveText('Summe 6,40 lfm');
@@ -365,7 +364,7 @@ test('Messung: Fotos wie im Mängelplan (Galerie → Fotodokumentation), Taste F
   const turned = ph.find((p) => p.id === (ds[0].photoIds as string[])[1])!;
   expect(Number(turned.height)).toBeGreaterThan(Number(turned.width));
   // erneut öffnen: Fotos sind dabei, aus der Fotodokumentation wählbar
-  await page.locator('[data-testid="aufmass-row"][data-number="1"]').getByRole('button', { name: /1 bearbeiten/ }).click();
+  await openRow(page, '1');
   await expect(dlg.getByTestId('attach-photo')).toHaveCount(3, { timeout: 15_000 });
   await dlg.getByTestId('attach-from-doku').click();
   await expect(page.getByTestId('dp-photo-pick')).toHaveCount(3);
