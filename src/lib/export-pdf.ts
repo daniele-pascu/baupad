@@ -810,18 +810,18 @@ export async function exportPhotosPdf(data: ProjectState, planIds: string[]): Pr
         if (slot >= 2) newPage();
         const pg = page as unknown as PDFPage;
         const top = H - M - HEAD - slot * (SLOT + 16);
-        // Beschriftung: Plan · Nr. groß, darunter Position, dann Art/Menge/Bemerkung
+        // Beschriftung: Plan · Nr. groß, darunter die Position (nur wenn zugeordnet – sonst keine Zeile), dann Art/Menge/Bemerkung
         pg.drawRectangle({ x: M, y: top - CAP, width: W - 2 * M, height: CAP, color: rgb(0.95, 0.95, 0.96) });
         pg.drawRectangle({ x: M, y: top - CAP, width: 6, height: CAP, color: hexToRgb(d.color) });
         const pos = findPosition(data, d.positionRef)?.pos;
         const l1 = clean(ctx, `Plan ${planTitle(plan)}   ·   Nr. ${damageNo(d)}`);
-        const l2 = clean(ctx, pos ? `Position ${pos.number}  ${pos.shortText}` : 'Position: ohne Leistungszuordnung');
+        const l2 = pos ? clean(ctx, `Position ${pos.number}  ${pos.shortText}`) : '';
         const qty = d.area !== null ? `${formatArea(d.area)} m²` : `${formatMeasure(d.length)} m`;
         const taken = photoMeta.get(id)?.takenAt;
         const l3 = clean(ctx, [measureLabel(d), qty, d.rebar ? `Bewehrung ${formatMeasure(d.rebar)} lfm` : '', d.note?.trim() ?? '', taken ? `Foto vom ${new Date(taken).toLocaleDateString('de-DE')}` : ''].filter(Boolean).join('  ·  '));
         pg.drawText(fitText(bold, l1, 13, W - 2 * M - 20), { x: M + 14, y: top - 17, size: 13, font: bold, color: INK });
-        pg.drawText(fitText(font, l2, 10.5, W - 2 * M - 20), { x: M + 14, y: top - 31, size: 10.5, font, color: INK });
-        pg.drawText(fitText(font, l3, 8.5, W - 2 * M - 20), { x: M + 14, y: top - 44, size: 8.5, font, color: MUTED });
+        if (l2) pg.drawText(fitText(font, l2, 10.5, W - 2 * M - 20), { x: M + 14, y: top - 31, size: 10.5, font, color: INK });
+        pg.drawText(fitText(font, l3, 8.5, W - 2 * M - 20), { x: M + 14, y: l2 ? top - 44 : top - 33, size: 8.5, font, color: MUTED });
         const maxW = W - 2 * M;
         const maxH = SLOT - CAP - 6;
         const s = Math.min(maxW / img.width, maxH / img.height);
