@@ -1487,6 +1487,10 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const dialogDamage = dialog?.mode === 'edit' ? data.damages[dialog.id] : null;
   const rows = damages.map((damage) => ({ plan, damage }));
   const lineCount = countKind(damages, 'line');
+  // Kopf der Messleiste: m² ohne die Grundfläche von Volumen-Messungen (die zählen als m³)
+  const billedArea = sumArea(damages.filter((d) => typeOf(d) !== 'volumen'));
+  const volumes = damages.filter((d) => typeOf(d) === 'volumen');
+  const volumeSum = volumes.reduce((s, d) => s + (quantityOfMeasure(d).value ?? 0), 0);
   const activePosition = findPosition(data, lastPosition);
   const positionOptions = lvDocsOf(data).flatMap((doc) =>
     doc.positions.map((p) => ({ ref: positionRef(doc.id, p.id), doc: lvDocLabel(doc), label: `${p.number} ${p.shortText} (${p.unit || '–'})`, number: p.number, shortText: p.shortText, unit: p.unit, type: measureTypeForUnit(p.unit, !!activeRule(p)) })),
@@ -2812,8 +2816,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             <span className="muted small" data-testid="side-summary">
               {damages.length} Messung{damages.length === 1 ? '' : 'en'}
               {/* nur vorhandene Einheiten – kein „0,00 m²“ bei reinen Längenmessungen */}
-              {(lineCount === 0 || sumArea(damages) > 0) && ` · ${formatArea(sumArea(damages))} m²`}
+              {(billedArea > 0 || (lineCount === 0 && !volumes.length)) && ` · ${formatArea(billedArea)} m²`}
               {lineCount > 0 && ` · Linien ${formatMeasure(sumLengths(damages))} m`}
+              {volumes.length > 0 && ` · ${formatArea(volumeSum)} m³`}
             </span>
             <div className="side-head-tools">
               <button type="button" className="btn btn-sm btn-primary" onClick={openNewMeasure} title="Neue Messung: Position bzw. frei wählen, dann im Plan zeichnen" data-testid="new-measure">

@@ -79,9 +79,21 @@ async function noOverlap(page: Page) {
     const root: ParentNode = overlays.length ? overlays[overlays.length - 1] : document;
     // schwebend über dem Plan bzw. dem Bild: Zoom-Knöpfe, Hinweise
     const floating = (el: Element) => !!el.closest('.toast, .zoom-controls, .dp-stage, .site-nav, [data-testid="plan-viewer"] .viewer-overlay');
+    // sichtbarer Teil: abgeschnitten von Vorfahren mit overflow (z. B. wischbare Werkzeugzeilen) – wie im Tasten-Test
+    const visibleRect = (el: Element) => {
+      const r = el.getBoundingClientRect();
+      let l = r.left, t = r.top, rt = r.right, b = r.bottom;
+      for (let p = el.parentElement; p; p = p.parentElement) {
+        const cs = getComputedStyle(p);
+        const pr = p.getBoundingClientRect();
+        if (/(auto|scroll|hidden|clip)/.test(cs.overflowX)) { l = Math.max(l, pr.left); rt = Math.min(rt, pr.right); }
+        if (/(auto|scroll|hidden|clip)/.test(cs.overflowY)) { t = Math.max(t, pr.top); b = Math.min(b, pr.bottom); }
+      }
+      return { left: l, top: t, right: rt, bottom: b, width: Math.max(0, rt - l), height: Math.max(0, b - t) };
+    };
     const els = [...root.querySelectorAll('input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([type=file]), select, textarea, button, a.btn')]
       .filter((el) => !floating(el))
-      .map((el) => ({ el, r: el.getBoundingClientRect() }))
+      .map((el) => ({ el, r: visibleRect(el) }))
       .filter(({ el, r }) => r.width > 2 && r.height > 2 && getComputedStyle(el).visibility !== 'hidden' && !(el as HTMLElement).hidden);
     const out: string[] = [];
     for (let i = 0; i < els.length; i++)

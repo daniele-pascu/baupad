@@ -204,7 +204,8 @@ export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, on
       })
     : rawRows;
   const damages = sorted.map((r) => r.damage);
-  const total = sumArea(damages);
+  // Summe Fläche: abgerechnete Flächen – die Grundfläche einer Volumen-Messung zählt nicht (die steht als m³ unten)
+  const total = sumArea(damages.filter((d) => typeOf(d) !== 'volumen'));
   const actions = !!(onEdit || onDelete) && !picking;
   // je Messart eine Tabelle, in fester Reihenfolge; nur Messarten, die vorkommen
   // Längen je Linienart getrennt (durchgezogen, gestrichelt, Wellenlinie …) – verschiedene Arten nie in einer Tabelle bzw. Summe
@@ -430,7 +431,7 @@ export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, on
   const rebarAny = damages.some((d) => (d.rebar ?? 0) > 0);
   const rebarSum = Math.round(damages.reduce((a, d) => a + (d.rebar ?? 0), 0) * 100) / 100;
   // „Summe Fläche“ steht auch bei leerer Tabelle; ohne Flächenmessung (nur Längen, Stück …) entfällt sie
-  const areaAny = !damages.length || damages.some((d) => hasArea(kindOf(d)));
+  const areaAny = !damages.length || damages.some((d) => hasArea(kindOf(d)) && typeOf(d) !== 'volumen');
   return (
     <div className="table-wrap aufmass-tables" data-testid="aufmass-table">
       {tables.map((t) => {
