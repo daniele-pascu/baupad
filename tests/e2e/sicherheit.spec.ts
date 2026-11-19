@@ -95,6 +95,8 @@ test('App-Sperre: „PIN vergessen?“ meldet ab und löscht die Daten auf dem G
   await expect(page.getByTestId('lock-forgot-confirm')).toContainText('Noch nicht übertragene Änderungen gehen verloren');
   await page.getByTestId('lock-forgot-wipe').click();
   await expect(page).toHaveURL(/\/baupad\/anmelden/);
+  // Seite lädt nach dem Löschen neu (Hinweis kommt erst danach) – vorher nichts auf der Seite abfragen
+  await expect(page.getByText(/von diesem Gerät gelöscht/)).toBeVisible();
   // gelöscht: Sperre weg, Projekt weg (der Test meldet sich danach von selbst wieder an)
   expect(await page.evaluate(() => localStorage.getItem('baupad.appLock'))).toBeNull();
   await page.goto('./baupad/aufmass-und-abrechnung');
@@ -135,6 +137,7 @@ test('Konto → Sicherheit: „Abmelden und Daten löschen“ mit Rückfrage', a
   await expect(dlg).toContainText('Abmelden und Daten löschen?');
   await dlg.getByRole('button', { name: 'Abmelden und löschen' }).click();
   await expect(page).toHaveURL(/\/baupad\/anmelden/);
+  await expect(page.getByText(/von diesem Gerät gelöscht/)).toBeVisible(); // nach dem Neuladen
   await page.goto('./baupad/aufmass-und-abrechnung');
   await expect(page.getByText('Altes Gerät')).toHaveCount(0);
 });
