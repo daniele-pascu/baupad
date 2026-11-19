@@ -393,6 +393,8 @@ test('Felder: Namen vorschlagen, Schrift (Größe, Art, Farbe), Wochentag/KW aus
   // Formular im ersten Projekt: Datum → KW und Wochentag automatisch
   const newForm = async (site: string, date: string) => {
     await page.goto('./baupad/berichte-und-formulare');
+    // Liste lädt nach dem Öffnen – erst danach entscheiden, ob das Projekt schon da ist
+    await page.locator('[data-testid="report-site"]').filter({ hasText: site }).first().waitFor({ timeout: 4000 }).catch(() => {});
     if ((await page.locator(`[data-testid="report-site"]`).filter({ hasText: site }).count()) > 0) await page.locator('[data-testid="report-site"]').filter({ hasText: site }).click();
     else {
       await page.getByTestId('report-new-site').click();

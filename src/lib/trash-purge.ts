@@ -1,4 +1,4 @@
-import { getDB, purgeDeleted } from './db';
+import { deleteDefectPlanCompletely, deleteFormEntry, deleteMaterial, deleteMaterialItem, deleteReport, getDB, purgeDeleted } from './db';
 import { getPhotoStorage } from './photo-storage';
 import { getState, hasUnsavedChanges, reloadProject } from './store';
 
@@ -27,8 +27,24 @@ export async function purgeExpiredTrash(now = Date.now()): Promise<number> {
     await getPhotoStorage().remove(ph.id);
     photos++;
   }
+  // Berichte, Formulare, Mängelpläne, Material: Einträge im Papierkorb, älter als 15 Tage
+  let docs = 0;
+  const DOCS = [
+    ['reports', deleteReport],
+    ['formEntries', deleteFormEntry],
+    ['defectPlans', (id: string) => deleteDefectPlanCompletely(id)],
+    ['materials', deleteMaterial],
+    ['materialItems', deleteMaterialItem],
+  ] as const;
+  for (const [store, del] of DOCS) {
+    for (const r of (await db.getAll(store)) as { id: string; trashedAt?: number | null }[]) {
+      if (!r.trashedAt || r.trashedAt >= before) continue;
+      await del(r.id);
+      docs++;
+    }
+  }
   const touched = await purgeDeleted(before);
   const open = getState().projectId;
   if (open && touched.has(open) && !hasUnsavedChanges()) await reloadProject();
-  return touched.size + projects.length + photos;
+  return touched.size + projects.length + photos + docs;
 }

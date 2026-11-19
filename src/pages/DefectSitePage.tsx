@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import { TrashButton } from '../components/TrashButton';
+import { trashDocs } from '../lib/trash-items';
 import { DefectPlanDialog } from '../components/DefectPlanDialog';
 import { ProjectEditDialog } from '../components/ProjectEditDialog';
 import { canEditSites, siteKeyOfSite } from '../lib/sites';
@@ -6,7 +8,7 @@ import { useSession } from '../lib/use-session';
 import { Icon } from '../components/Icon';
 import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, promptDialog, showError, toast } from '../components/ui';
-import { deleteDefectPlanCompletely, listDefectMarks, loadProjectData } from '../lib/db';
+import { listDefectMarks, loadProjectData } from '../lib/db';
 import { KINDS, planImage, plansOfSite, renameDefectPlan } from '../lib/defects';
 import { getPhotoStorage } from '../lib/photo-storage';
 import { navigate, paths } from '../lib/router';
@@ -132,15 +134,15 @@ export function DefectSitePage({ siteKey }: { siteKey: string }) {
       title: 'Plan löschen?',
       message: (
         <p>
-          „{p.title}“ mit {n} {n === 1 ? 'Markierung' : 'Markierungen'} wird gelöscht. Fotos bleiben erhalten.
+          „{p.title}“ mit {n} {n === 1 ? 'Markierung' : 'Markierungen'} kommt in den Papierkorb (15 Tage, danach endgültig gelöscht). Fotos bleiben erhalten.
         </p>
       ),
       confirmLabel: 'Löschen',
       danger: true,
     });
     if (!ok) return;
-    await deleteDefectPlanCompletely(p.id);
-    toast('Plan gelöscht.', 'success');
+    await trashDocs('defectPlans', [p.id]);
+    toast('Plan gelöscht – 15 Tage im Papierkorb.', 'success');
     void reload();
   };
 
@@ -160,6 +162,7 @@ export function DefectSitePage({ siteKey }: { siteKey: string }) {
             </div>
           </div>
           <div className="row gap">
+            <TrashButton scope={site?.projectId ? { tool: 'defects', projectId: site.projectId } : { tool: 'defects', siteName: site?.name ?? '' }} />
             {canEditSites(session) && (
               <button type="button" className="btn btn-sm" onClick={() => setEditing(true)} disabled={!site} title="Baustelle bearbeiten – gilt in allen Tools" aria-label="Baustelle bearbeiten" data-testid="defect-site-edit">
                 <Icon name="edit" size={16} /> <span className="lbl">Bearbeiten</span>

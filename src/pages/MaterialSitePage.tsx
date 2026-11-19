@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import { TrashButton } from '../components/TrashButton';
+import { trashDocs } from '../lib/trash-items';
 import { Icon } from '../components/Icon';
 import { Modal } from '../components/Modal';
 import { SiteNav } from '../components/SiteNav';
@@ -6,7 +8,7 @@ import { confirmDialog, showError, toast } from '../components/ui';
 import { canSite } from '../lib/access';
 import { isoDate } from '../lib/crew';
 import { useDataChanged } from '../lib/data-events';
-import { deleteMaterialItem, deleteMaterialUse, listMaterialItems, listMaterialPlans, listMaterials, listMaterialUses, listProjects, listSuppliers, loadProjectData, saveMaterialItem, saveMaterialPlan, saveMaterialUse } from '../lib/db';
+import { deleteMaterialUse, listMaterialItems, listMaterialPlans, listMaterials, listMaterialUses, listProjects, listSuppliers, loadProjectData, saveMaterialItem, saveMaterialPlan, saveMaterialUse } from '../lib/db';
 import { uuid } from '../lib/ids';
 import { aufmassSources, stateOf, type QtySource } from '../lib/material-sources';
 import {
@@ -170,6 +172,7 @@ export function MaterialSitePage({ projectId }: { projectId: string }) {
               </span>
             </div>
           </div>
+          <TrashButton scope={{ tool: 'materials', projectId }} />
         </header>
 
         <div className="mat-site-actions">
@@ -1024,8 +1027,8 @@ function ItemDialog({ item, projectId, items, materials, suppliers, by, onClose,
   };
   const remove = async () => {
     if (!item) return;
-    if (!(await confirmDialog({ title: 'Position löschen?', message: <p>{item.name} wird von der Materialliste dieser Baustelle gelöscht.</p>, confirmLabel: 'Löschen', danger: true }))) return;
-    await deleteMaterialItem(item.id);
+    if (!(await confirmDialog({ title: 'Position löschen?', message: <p>{item.name} kommt von der Materialliste in den Papierkorb (15 Tage, danach endgültig gelöscht).</p>, confirmLabel: 'Löschen', danger: true }))) return;
+    await trashDocs('materialItems', [item.id]);
     onSaved();
   };
 

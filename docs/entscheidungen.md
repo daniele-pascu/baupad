@@ -210,4 +210,9 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - **Tabelle:** Gruppen (Messart und Position) wie in der Einteilung auf-/zuklappbar (Winkel › / ⌄, auf dem Gerät gemerkt); die Summe steht oben im Balken – zu und offen.
 - „Auswählen“ steht oben neben dem Titel der Messleiste.
 - Speicher-Taste: „Online gespeichert“ statt „Gespeichert“. Papierkorb nur in den Tools, nicht in der Tool-Übersicht.
+- **Planliste im Projekt:** Spalte „Menge“ je vorkommender Einheit untereinander (m², m, m³, Stk …) statt immer m²; Leistungen höchstens zwei, dann „+n weitere“. Aufmaß-Karten ebenso (z. B. „114 Messungen · 556,70 m“).
+
+## Papierkorb in Berichte, Mängel, Material (19.11.2026)
+- Berichte, Firmenformulare, Mängelpläne, Material (Materialstamm, Geräte) und Positionen der Materialliste kommen beim Löschen 15 Tage in den Papierkorb (`trashedAt`), danach endgültig gelöscht. Verbrauchseinträge, Mängelpunkte und Lieferanten wie bisher direkt.
+- Papierkorb-Taste oben in Berichte, Mängel und Material sowie im jeweiligen Projekt bzw. auf der Baustelle.
 

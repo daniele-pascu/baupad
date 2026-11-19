@@ -131,6 +131,8 @@ export const PROJECT_SOURCES: { id: ProjectSource; label: string }[] = [
 
 /** Ausgefülltes Formular – hängt am Projekt, speichert Felder und Vorlagenversion als Schnappschuss */
 export interface FormEntry {
+  /** im Papierkorb seit (15 Tage wiederherstellbar, danach endgültig gelöscht) */
+  trashedAt?: number | null;
   id: string;
   templateId: string;
   templateName: string;

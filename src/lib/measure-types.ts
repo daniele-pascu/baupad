@@ -216,3 +216,16 @@ export function measureTypeForUnit(unit: string, damageRule = false): MeasureTyp
   if (['stk', 'st', 'stück', 'stck', 'pcs'].includes(u)) return 'stueck';
   return 'frei';
 }
+
+/** Reihenfolge der Einheiten in Übersichten: Fläche, Länge, Volumen, Stück, dann eigene Einheiten */
+const UNIT_ORDER = ['m²', 'm', 'm³', 'Stk'];
+
+/**
+ * Mengen einer Auswahl von Messungen für Übersichten (Planliste, Aufmaß): je vorkommender Einheit eine Angabe,
+ * z. B. ["556,70 m"] oder ["12,40 m²", "85,20 m", "7 Stk"] – statt immer nur m².
+ */
+export function quantityLines(list: Parameters<typeof quantityOfMeasure>[0][]): string[] {
+  return totalsByUnit(list)
+    .sort((a, b) => (UNIT_ORDER.indexOf(a.unit) + 1 || 99) - (UNIT_ORDER.indexOf(b.unit) + 1 || 99))
+    .map(({ unit, value }) => (unit === 'Stk' ? `${Math.round(value)} Stk` : unit === 'ohne Einheit' ? formatArea(value) : `${formatArea(value)} ${unit}`));
+}

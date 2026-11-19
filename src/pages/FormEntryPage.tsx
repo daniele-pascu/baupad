@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
+import { trashDocs } from '../lib/trash-items';
 import { ActionMenu } from '../components/ActionMenu';
 import { Icon } from '../components/Icon';
 import { PdfPreview } from '../components/PdfPreview';
 import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, showError, toast } from '../components/ui';
 import type { ExportFile } from '../lib/aufmass';
-import { deleteFormEntry, getFormEntry, getFormFile, getMeta, listFormEntries, saveFormEntry } from '../lib/db';
+import { getFormEntry, getFormFile, getMeta, listFormEntries, saveFormEntry } from '../lib/db';
 import { DEFAULT_WORK_TIMES } from '../lib/crew';
 import type { WorkTimes } from '../lib/types';
 import { useDataChanged } from '../lib/data-events';
@@ -163,13 +164,13 @@ export function FormEntryPage({ entryId }: { entryId: string }) {
       navigate(paths.formEntry(c.id));
     });
   const remove = () =>
-    void confirmDialog({ title: 'Formular löschen?', message: <p>{e.templateName} Nr. {e.no} wird endgültig gelöscht.</p>, confirmLabel: 'Löschen', danger: true }).then((ok) => {
+    void confirmDialog({ title: 'Formular löschen?', message: <p>{e.templateName} Nr. {e.no} kommt in den Papierkorb (15 Tage, danach endgültig gelöscht).</p>, confirmLabel: 'Löschen', danger: true }).then((ok) => {
       if (!ok) return;
       void run(async () => {
         pending.current = null;
         window.clearTimeout(timer.current);
-        await deleteFormEntry(e.id);
-        toast('Formular gelöscht.', 'success');
+        await trashDocs('formEntries', [e.id]);
+        toast('Formular gelöscht – 15 Tage im Papierkorb.', 'success');
         navigate(paths.reportSite(entrySiteKey(e)));
       });
     });

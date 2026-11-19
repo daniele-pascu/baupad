@@ -507,14 +507,18 @@ export async function deleteWorker(id: string): Promise<void> {
 }
 
 // ---- Materialverwaltung (Materialstamm und Lieferanten der Firma) ----
-export const listMaterials = async (): Promise<Material[]> => (await getDB()).getAll('materials');
+export const listMaterials = async (): Promise<Material[]> => (await (await getDB()).getAll('materials')).filter((m) => !m.trashedAt);
+/** alle Materialien, auch die im Papierkorb */
+export const listAllMaterials = async (): Promise<Material[]> => (await getDB()).getAll('materials');
 export const saveMaterial = (m: Material) => putSynced('materials', m);
 export const deleteMaterial = (id: string) => deleteSynced('materials', id);
 export const listSuppliers = async (): Promise<Supplier[]> => (await getDB()).getAll('suppliers');
 export const saveSupplier = (x: Supplier) => putSynced('suppliers', x);
 /** Lieferant löschen; Materialien behalten ihre Angaben, verlieren nur die Zuordnung */
 export const listMaterialItems = async (projectId?: string): Promise<MaterialItem[]> =>
-  projectId ? (await getDB()).getAllFromIndex('materialItems', 'projectId', projectId) : visible(await (await getDB()).getAll('materialItems'));
+  projectId ? (await (await getDB()).getAllFromIndex('materialItems', 'projectId', projectId)).filter((x) => !x.trashedAt) : visible(await (await getDB()).getAll('materialItems'));
+/** alle Materialpositionen, auch die im Papierkorb */
+export const listAllMaterialItems = async (): Promise<MaterialItem[]> => (await getDB()).getAll('materialItems');
 export const saveMaterialItem = (x: MaterialItem) => putSynced('materialItems', x, x.projectId);
 export const deleteMaterialItem = (id: string) => deleteSynced('materialItems', id);
 /** Verbrauch je Baustelle (ohne Projekt: alle Baustellen – für den Durchschnitt über alle Baustellen) */
@@ -555,9 +559,10 @@ export async function previousWeek(id: string): Promise<WeekPlan | undefined> {
 export async function trashedProjectIds(): Promise<Set<string>> {
   return new Set((await (await getDB()).getAll('projects')).filter((p) => p.deletedAt).map((p) => p.id));
 }
-const visible = async <T extends { projectId?: string | null }>(list: T[]): Promise<T[]> => {
+const visible = async <T extends { projectId?: string | null; trashedAt?: number | null }>(list: T[]): Promise<T[]> => {
   const hidden = await trashedProjectIds();
-  return hidden.size ? list.filter((x) => !x.projectId || !hidden.has(x.projectId)) : list;
+  // im Papierkorb (selbst oder mit dem Projekt): ausgeblendet
+  return list.filter((x) => !x.trashedAt && (!x.projectId || !hidden.has(x.projectId)));
 };
 
 export async function listReports(): Promise<Report[]> {

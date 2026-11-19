@@ -1,4 +1,6 @@
 import { SortControl } from '../components/SortControl';
+import { TrashButton } from '../components/TrashButton';
+import { trashDocs } from '../lib/trash-items';
 import { sortList, useListSort } from '../lib/list-sort';
 import { projectPrefix } from '../lib/project-label';
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
@@ -9,7 +11,7 @@ import { ProjectPicker } from '../components/ProjectPicker';
 import { SiteNav } from '../components/SiteNav';
 import { ToolIcon, ToolMark } from '../components/ToolIcon';
 import { confirmDialog, showError, toast } from '../components/ui';
-import { deleteDefectPlanCompletely, listDefectMarks, listDefectPlans } from '../lib/db';
+import { listDefectMarks, listDefectPlans } from '../lib/db';
 import { defectSiteKey, KINDS, summarize, type DefectSiteSummary } from '../lib/defects';
 import { getPhotoStorage } from '../lib/photo-storage';
 import { navigate, paths } from '../lib/router';
@@ -64,7 +66,7 @@ export function DefectsPage() {
                 <>
                   <p>
                     „{site.name}“ wird aus „Mängel“ entfernt
-                    {plans.length ? ` – mit ${plans.length} ${plans.length === 1 ? 'Plan' : 'Plänen'} und allen Markierungen` : ''}.
+                    {plans.length ? ` – ${plans.length === 1 ? 'der Plan kommt' : `${plans.length} Pläne kommen`} mit allen Markierungen 15 Tage in den Papierkorb` : ''}.
                   </p>
                   <p className="muted small">Fotos bleiben erhalten, das Projekt bleibt im Register und in den anderen Tools.</p>
                 </>
@@ -74,7 +76,7 @@ export function DefectsPage() {
             }).then(async (ok) => {
               if (!ok) return;
               try {
-                for (const pl of plans) await deleteDefectPlanCompletely(pl.id);
+                await trashDocs('defectPlans', plans.map((pl) => pl.id));
                 if (site.projectId) await dropProjectFromTool(site.projectId, 'defects');
                 toast(`„${site.name}“ aus „Mängel“ gelöscht.`, 'success');
                 await reload();
@@ -129,6 +131,7 @@ export function DefectsPage() {
             <h1 data-testid="defects-title">Mängel</h1>
           </div>
           <div className="row gap">
+            <TrashButton scope={{ tool: 'defects' }} />
             <button type="button" className="btn btn-primary" onClick={() => setCreating(true)} title="Projekt aus dem Register übernehmen oder neu anlegen" data-testid="defect-new-site">
               <Icon name="plus" size={16} /> <span className="lbl">{mayCreate ? 'Neues Projekt' : 'Projekt übernehmen'}</span>
             </button>
