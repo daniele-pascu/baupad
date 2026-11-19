@@ -884,8 +884,17 @@ test('Mitarbeiter schon hinterlegt: Meldung beim Anlegen, nur nach Rückfrage do
   await wd.getByTestId('worker-firstName').fill('Max');
   await wd.getByTestId('worker-lastName').fill('Muster');
   await wd.getByTestId('worker-staffNo').fill('17');
+  // SV-Nummer (nur Admin/Büro): 10 Ziffern, Leerzeichen egal
+  await wd.getByTestId('worker-svNumber').fill('123 0101');
+  await wd.getByTestId('worker-save').click();
+  await expect(page.getByTestId('worker-sv-error')).toHaveText('Die SV-Nummer hat 10 Ziffern.');
+  await wd.getByTestId('worker-svNumber').fill('1234 01 01 80');
   await wd.getByTestId('worker-save').click();
   await expect(page.getByTestId('worker-dialog')).toHaveCount(0);
+  await wd.getByTestId('worker-row').filter({ hasText: 'Max' }).getByTestId('worker-open').click();
+  await wd.getByTestId('worker-edit').click();
+  await expect(page.getByTestId('worker-svNumber')).toHaveValue('1234 010180');
+  await page.getByTestId('worker-cancel').click();
   // gleicher Name (andere Schreibweise): Hinweis schon beim Tippen
   await wd.getByTestId('staff-new').click();
   await wd.getByTestId('worker-firstName').fill('max ');
@@ -1033,6 +1042,8 @@ test('Feiertage in Österreich automatisch gekennzeichnet (jedes Jahr); Warnung 
     ['2027-05-06', '3', 'Christi Himmelfahrt'],
   ]) {
     await page.getByTestId('week-date').fill(date);
+    // Woche lädt nach dem Datumswechsel: Parkring kommt evtl. aus der letzten Woche mit – erst danach entscheiden
+    await site(page, 'Parkring').waitFor({ timeout: 5000 }).catch(() => {});
     if (!(await site(page, 'Parkring').count())) {
       await page.getByTestId('add-site').click();
       await pickWeekProject(page, 'Parkring');

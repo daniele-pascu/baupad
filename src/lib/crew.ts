@@ -332,3 +332,10 @@ export function nameWithGrade(w: Pick<Worker, 'firstName' | 'lastName' | 'grade'
   const short = g ? WORKER_GRADES.find((x) => x.id === g)?.short : '';
   return short ? `${short} ${workerName(w)}` : workerName(w);
 }
+
+/** SV-Nummer: 10 Ziffern (Leerzeichen egal), gespeichert als „1234 010180“; leer erlaubt. null = ungültig */
+export function cleanSvNumber(v: string): string | null {
+  const d = v.replace(/\s+/g, '');
+  if (!d) return '';
+  return /^\d{10}$/.test(d) ? `${d.slice(0, 4)} ${d.slice(4)}` : null;
+}

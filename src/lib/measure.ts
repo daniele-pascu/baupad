@@ -9,7 +9,7 @@ import type { Damage, Deduction, MeasureKind, Shape } from './types';
  */
 
 export const KIND_LABELS: Record<MeasureKind, string> = {
-  damage: 'Schadstelle',
+  damage: 'Betoninstandsetzung',
   area: 'Fläche',
   line: 'Linie',
 };
@@ -39,7 +39,7 @@ const MEASURE_TYPE_LABELS: Record<NonNullable<Damage['measureType']>, string> = 
   laenge: 'Länge',
   volumen: 'Volumen',
   stueck: 'Stück',
-  schadstelle: 'Schadstelle',
+  schadstelle: 'Betoninstandsetzung',
   frei: 'Frei',
 };
 

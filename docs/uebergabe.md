@@ -13,6 +13,12 @@ Grundregeln stehen in `CLAUDE.md`, Grundsätze in `docs/entscheidungen.md`.
 - **Nur behaupten, was die App wirklich kann** (Texte vorher im Code prüfen).
 - Überall **„Tool“**, nicht „Werkzeug“.
 - Perfektionist: auf Abstände, Kanten, Farben achten; Screenshots auf PC, iPhone, iPad prüfen und zeigen.
+- **Als strategischer Berater arbeiten** (Danieles Wunsch): Ideen kritisch prüfen statt zustimmen – Schwachstellen,
+  Annahmen, Alternativen nennen. Bei großen oder unklaren Vorhaben zuerst die 3 wichtigsten Fragen stellen, vom Ziel
+  rückwärts planen. Fakten, Annahmen und Empfehlungen trennen; nichts erfinden. Bestehende Architektur nutzen,
+  keine unnötige Komplexität oder Kosten. Bei PAD Software Marke und Erweiterbarkeit mitdenken.
+- **Funktion `storage` veröffentlicht Daniele von Hand** (Supabase → Edge Functions); nach jeder Änderung daran im
+  Abschluss deutlich sagen und in `docs/ablage-einrichten.md` eintragen.
 
 ## Marke und Design (Stand)
 - **PAD Software ist nicht Bau** – Bau nur bei BauPad. PAD = Initialen Pascu Andrea Daniele; „Problem. Analysis. Development.“ ist nur das Motto.
@@ -26,13 +32,15 @@ Grundregeln stehen in `CLAUDE.md`, Grundsätze in `docs/entscheidungen.md`.
   „Transparenz reduzieren“ unter Konto → Darstellung), Ansichtsleiste zuklappbar (Regler-Symbol), Papierkorb (30 Tage),
   eigene Taste „Fotos exportieren“, Planbibliothek mit „Plan ansehen“.
 
-## Offene Fragen an Daniele
-- **Zeiten:** Sollen Arbeiter ihre Stunden selbst eintragen können? (heute nur ansehen; Admin, Büro, Polier tragen ein)
-- **Material:** Meldung an den zuständigen Projektleiter bei Nachbestellung einbauen? (gibt es noch nicht)
-- **Team:** SV-Nummer beim Arbeiter ergänzen? (gibt es noch nicht)
-- **Aufmaß:** Messart heißt in der App „Schadstelle“, auf der Website „Betoninstandsetzung“ – angleichen?
-- **Excel:** Blatt „Freie Messungen (ohne Leistungszuordnung)“ umbenennen?
-- **Papierkorb:** 30 oder 15 Tage? Ganze Projekte auch in den Papierkorb (größerer Umbau: Löschen wirkt in allen Tools und Geräten)?
+## Erledigt am 19.11.2026 (Antworten von Daniele, Details in `docs/entscheidungen.md`)
+- Arbeiter tragen eigene Stunden ein; SV-Nummer (nur Admin/Büro); Messart „Betoninstandsetzung“; Excel „Freie Messungen“
+  ohne Überschrift; Papierkorb 15 Tage. Material-Meldung an den Projektleiter: vorerst nicht.
+
+## Als Nächstes: Papierkorb überall
+- Alles Gelöschte 15 Tage im Papierkorb (auch ganze Projekte), in Aufmaß, Material, Mängel, Fotos, Berichte.
+  Im Tool: alles Gelöschte des Tools; im Projekt: nur dessen Daten. Heute gibt es den Papierkorb nur im Aufmaß-Projekt
+  (`src/lib/trash.ts`, gelöscht = `deletedAt`).
+- Später: 30 Tage beim Betreiber, Wiederherstellung danach kostenpflichtig.
 
 ## Vorgemerkt (später)
 - App nur mit BauPad-Anmeldung (`docs/entscheidungen.md`).

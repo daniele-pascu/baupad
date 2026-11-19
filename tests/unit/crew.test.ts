@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addSite, assign, carryOver, emptyWeek, isoWeekNo, moveWorker, setVacation, siteFromProject, sitesOf, unassign, unassigned, updateSite, weekOf, weekRange, sortByGrade } from '../../src/lib/crew';
+import { addSite, assign, carryOver, cleanSvNumber, emptyWeek, isoWeekNo, moveWorker, setVacation, siteFromProject, sitesOf, unassign, unassigned, updateSite, weekOf, weekRange, sortByGrade } from '../../src/lib/crew';
 import type { Worker, WorkerGrade } from '../../src/lib/types';
 
 const W = (id: string, active = true): Worker => ({ id, firstName: id, lastName: '', active, createdAt: 0, updatedAt: 0 });
@@ -231,5 +231,15 @@ describe('Funktion der Arbeiter', () => {
     expect(gradeOf({ role: 'Maurer' })).toBe('facharbeiter');
     expect(gradeOf({})).toBe('facharbeiter');
     expect(countByGrade([{ role: 'Polier' }, { role: 'Maurer' }, { grade: 'hilfsarbeiter' }, {}])).toEqual({ projektleiter: 0, techniker: 0, bautechniker: 0, polier: 1, vorarbeiter: 0, facharbeiter: 2, hilfsarbeiter: 1 });
+  });
+});
+
+describe('SV-Nummer', () => {
+  it('10 Ziffern, Leerzeichen egal, gespeichert als „1234 010180“', () => {
+    expect(cleanSvNumber('1234010180')).toBe('1234 010180');
+    expect(cleanSvNumber(' 1234 01 01 80 ')).toBe('1234 010180');
+    expect(cleanSvNumber('')).toBe('');
+    expect(cleanSvNumber('123 010180')).toBeNull();
+    expect(cleanSvNumber('1234-010180')).toBeNull();
   });
 });

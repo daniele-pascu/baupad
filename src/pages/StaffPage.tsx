@@ -3,7 +3,7 @@ import { Icon } from '../components/Icon';
 import { Modal } from '../components/Modal';
 import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, showError, toast } from '../components/ui';
-import { WORKER_GRADES, gradeLabel, gradeRank, isoDate, sortByGrade, sortWorkers, workerName } from '../lib/crew';
+import { WORKER_GRADES, cleanSvNumber, gradeLabel, gradeRank, isoDate, sortByGrade, sortWorkers, workerName } from '../lib/crew';
 import { absenceRange, cleanAbsences, withAbsence } from '../lib/crew-absence';
 import { getMeta, listWorkers, saveWorker, setMeta } from '../lib/db';
 import { deleteWorkerEverywhere } from '../lib/sites';
@@ -12,13 +12,15 @@ import { uuid } from '../lib/ids';
 import { navigate, paths } from '../lib/router';
 import type { Absence, Worker, WorkerGrade } from '../lib/types';
 import { usePageTitle } from '../lib/page-title';
+import { isOfficeUser } from '../lib/access';
+import { useSession } from '../lib/use-session';
 import { AbsenceDialog } from './WorkersPage';
 import { useDataChanged } from '../lib/data-events';
 import { ToolMark } from '../components/ToolIcon';
 
 type Sort = 'name' | 'grade';
-type Form = { firstName: string; lastName: string; staffNo: string; phone: string; role: string; grade: string; userEmail: string };
-const BLANK: Form = { firstName: '', lastName: '', staffNo: '', phone: '', role: '', grade: '', userEmail: '' };
+type Form = { firstName: string; lastName: string; staffNo: string; svNumber: string; phone: string; role: string; grade: string; userEmail: string };
+const BLANK: Form = { firstName: '', lastName: '', staffNo: '', svNumber: '', phone: '', role: '', grade: '', userEmail: '' };
 
 /**
  * Personalliste der Arbeitereinteilung: oben „Neuer Mitarbeiter“ (Fenster), darunter die Liste. Ein Mitarbeiter
@@ -414,8 +416,11 @@ export function workerDuplicates(v: { firstName: string; lastName: string; staff
 
 function WorkerDialog({ worker, others, onClose, onSave }: { worker: Worker | null; others: Worker[]; onClose(): void; onSave(w: Worker): Promise<void> }) {
   const [v, setV] = useState<Form>(
-    worker ? { firstName: worker.firstName, lastName: worker.lastName, staffNo: worker.staffNo ?? '', phone: worker.phone ?? '', role: worker.role ?? '', grade: worker.grade ?? '', userEmail: worker.userEmail ?? '' } : BLANK,
+    worker ? { firstName: worker.firstName, lastName: worker.lastName, staffNo: worker.staffNo ?? '', svNumber: worker.svNumber ?? '', phone: worker.phone ?? '', role: worker.role ?? '', grade: worker.grade ?? '', userEmail: worker.userEmail ?? '' } : BLANK,
   );
+  // SV-Nummer: nur Admin und Büro (Polier/Arbeiter bekommen sie vom Server nicht, beim Speichern bleibt sie erhalten)
+  const office = isOfficeUser(useSession());
+  const sv = cleanSvNumber(v.svNumber);
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const dups = workerDuplicates(v, others);
@@ -423,7 +428,7 @@ function WorkerDialog({ worker, others, onClose, onSave }: { worker: Worker | nu
     `${workerName(d.worker)}${d.worker.staffNo ? ` (Personalnr. ${d.worker.staffNo})` : ''}${d.worker.active ? '' : ' – inaktiv'}${d.reason === 'staffNo' ? ' hat dieselbe Personalnummer' : ' ist schon hinterlegt'}`;
   const submit = async () => {
     setShow(true);
-    if (!v.firstName.trim()) return;
+    if (!v.firstName.trim() || (office && sv === null)) return;
     // doppelt? nur nach Rückfrage speichern
     if (dups.length) {
       const ok = await confirmDialog({
@@ -446,6 +451,7 @@ function WorkerDialog({ worker, others, onClose, onSave }: { worker: Worker | nu
       firstName: v.firstName.trim(),
       lastName: v.lastName.trim(),
       staffNo: v.staffNo.trim(),
+      ...(office ? { svNumber: sv || undefined } : {}),
       phone: v.phone.trim(),
       role: v.role.trim(),
       grade: (v.grade || undefined) as WorkerGrade | undefined,
@@ -517,8 +523,10 @@ function WorkerDialog({ worker, others, onClose, onSave }: { worker: Worker | nu
         </label>
         {field('role', 'Tätigkeit / Zusatz', { placeholder: 'z. B. Maurer, Kranführer' })}
         {field('staffNo', 'Personalnummer')}
+        {office && field('svNumber', 'SV-Nummer (nur Admin und Büro)', { inputMode: 'numeric', placeholder: '10 Ziffern, z. B. 1234 010180', 'aria-invalid': show && sv === null ? true : undefined } as Partial<InputHTMLAttributes<HTMLInputElement>>)}
+        {office && show && sv === null && <p className="error small" data-testid="worker-sv-error">Die SV-Nummer hat 10 Ziffern.</p>}
         {field('phone', 'Telefon', { type: 'tel', inputMode: 'tel' })}
-        {field('userEmail', 'BauPad-Konto (E-Mail) – sieht damit seine eigenen Stunden', { type: 'email', inputMode: 'email', placeholder: 'leer = kein Zugang zu eigenen Stunden' })}
+        {field('userEmail', 'BauPad-Konto (E-Mail) – trägt damit seine eigenen Stunden ein', { type: 'email', inputMode: 'email', placeholder: 'leer = kein Zugang zu eigenen Stunden' })}
         {show && !v.firstName.trim() && <p className="error small">Bitte einen Vornamen eingeben.</p>}
         <button type="submit" hidden />
       </form>

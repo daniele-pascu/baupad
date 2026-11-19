@@ -8,7 +8,8 @@ import type { Worker } from './types';
  * - office: Admin, Büro, Betreiber (und ohne Firma) – alle Arbeiter, alle Projekte, Monatszettel, Excel, Freigabe
  * - site:   Polier – nur Stunden auf seinen freigegebenen Projekten erfassen und sehen (leer = alle Projekte);
  *           keine Monatszettel, kein Excel, keine Freigabe
- * - own:    Arbeiter – nur die eigenen Stunden ansehen (Konto über die E-Mail in der Personalliste verknüpft)
+ * - own:    Arbeiter – nur die eigenen Stunden ansehen und eintragen, bis das Büro den Monat freigibt; Urlaub/Krank
+ *           trägt er nicht selbst ein (Konto über die E-Mail in der Personalliste verknüpft)
  * Dieselben Regeln gelten am Server (Funktion „storage“) – die App blendet nur zusätzlich aus.
  */
 export type TimesScope = { level: 'office' } | { level: 'site'; sites: string[] } | { level: 'own'; email: string };

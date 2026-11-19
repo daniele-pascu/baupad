@@ -18,7 +18,7 @@ export const ROLES: { id: Role; label: string; text: string }[] = [
   { id: 'admin', label: 'Admin', text: 'Benutzer und Rechte verwalten, alle Tools' },
   { id: 'buero', label: 'Büro', text: 'Alle Tools, Abrechnung und Verwaltung' },
   { id: 'polier', label: 'Polier', text: 'Fotos, Berichte und Formulare, Einteilung lesen' },
-  { id: 'arbeiter', label: 'Arbeiter', text: 'Fotos der freigegebenen Baustellen' },
+  { id: 'arbeiter', label: 'Arbeiter', text: 'Fotos der freigegebenen Baustellen, eigene Stunden' },
 ];
 
 export type ToolId = 'projects' | 'workers' | 'times' | 'reports' | 'photos' | 'defects' | 'materials';

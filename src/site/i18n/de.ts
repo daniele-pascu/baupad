@@ -197,7 +197,7 @@ export const de = {
       times: {
         lead: 'Arbeitsstunden erfassen – je Projekt.',
         groups: [
-          { title: 'Erfassen', items: ['Stunden je Projekt und Tag', 'Polier trägt auch für seine Partie ein', 'Arbeiter sehen ihre eigenen Stunden'] },
+          { title: 'Erfassen', items: ['Stunden je Projekt und Tag', 'Polier trägt auch für seine Partie ein', 'Arbeiter tragen ihre eigenen Stunden ein'] },
           { title: 'Büro', items: ['Monatszettel mit Soll, Ist, Urlaub und Krank', 'Excel je Arbeiter'] },
         ],
       },

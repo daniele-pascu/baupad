@@ -60,7 +60,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
   const [pdfPlans, setPdfPlans] = useState<string[] | null>(null);
   // eigene Taste „Fotos exportieren“: derselbe Auswahldialog, aber für das Foto-PDF
   const [photoPlans, setPhotoPlans] = useState<string[] | null>(null);
-  // Papierkorb: Gelöschtes 30 Tage wiederherstellbar
+  // Papierkorb: Gelöschtes 15 Tage wiederherstellbar
   const [trashOpen, setTrashOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [details, setDetails] = useState<Plan | null>(null);

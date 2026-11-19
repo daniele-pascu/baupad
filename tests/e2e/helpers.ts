@@ -293,7 +293,7 @@ export async function ribbonGroup(page: Page, id: string, how: 'click' | 'tap' =
   await press(page.getByTestId(`ribbon-tab-${id}`));
 }
 
-/** Aufmaß: Messart wählen (Fläche, Wand, Länge, Volumen, Stück, Schadstelle, Frei) – danach erscheinen die passenden Werkzeuge */
+/** Aufmaß: Messart wählen (Fläche, Wand, Länge, Volumen, Stück, Betoninstandsetzung, Frei) – danach erscheinen die passenden Werkzeuge */
 export async function chooseMeasureType(page: Page, type: string, how: 'click' | 'tap' = 'click') {
   const mt = page.getByTestId('tool-mtype');
   // Leiste nach einer Messung zugeklappt → aufklappen
