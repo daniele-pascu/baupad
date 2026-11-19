@@ -513,17 +513,17 @@ export const listSuppliers = async (): Promise<Supplier[]> => (await getDB()).ge
 export const saveSupplier = (x: Supplier) => putSynced('suppliers', x);
 /** Lieferant löschen; Materialien behalten ihre Angaben, verlieren nur die Zuordnung */
 export const listMaterialItems = async (projectId?: string): Promise<MaterialItem[]> =>
-  projectId ? (await getDB()).getAllFromIndex('materialItems', 'projectId', projectId) : (await getDB()).getAll('materialItems');
+  projectId ? (await getDB()).getAllFromIndex('materialItems', 'projectId', projectId) : visible(await (await getDB()).getAll('materialItems'));
 export const saveMaterialItem = (x: MaterialItem) => putSynced('materialItems', x, x.projectId);
 export const deleteMaterialItem = (id: string) => deleteSynced('materialItems', id);
 /** Verbrauch je Baustelle (ohne Projekt: alle Baustellen – für den Durchschnitt über alle Baustellen) */
 export const listMaterialUses = async (projectId?: string): Promise<MaterialUse[]> =>
-  projectId ? (await getDB()).getAllFromIndex('materialUses', 'projectId', projectId) : (await getDB()).getAll('materialUses');
+  projectId ? (await getDB()).getAllFromIndex('materialUses', 'projectId', projectId) : visible(await (await getDB()).getAll('materialUses'));
 export const saveMaterialUse = (x: MaterialUse) => putSynced('materialUses', x, x.projectId);
 export const deleteMaterialUse = (id: string) => deleteSynced('materialUses', id);
 /** Bedarfsrechnungen je Baustelle und Material */
 export const listMaterialPlans = async (projectId?: string): Promise<MaterialPlan[]> =>
-  projectId ? (await getDB()).getAllFromIndex('materialPlans', 'projectId', projectId) : (await getDB()).getAll('materialPlans');
+  projectId ? (await getDB()).getAllFromIndex('materialPlans', 'projectId', projectId) : visible(await (await getDB()).getAll('materialPlans'));
 export const saveMaterialPlan = (x: MaterialPlan) => putSynced('materialPlans', x, x.projectId);
 export async function deleteSupplier(id: string): Promise<void> {
   for (const m of await listMaterials()) if (m.supplierId === id) await saveMaterial({ ...m, supplierId: null, updatedAt: Date.now() });
@@ -550,9 +550,20 @@ export async function previousWeek(id: string): Promise<WeekPlan | undefined> {
 }
 
 /* Berichte & Formulare */
-export async function listReports(): Promise<Report[]> {
-  return (await getDB()).getAll('reports');
+/** Projekte im Papierkorb – ihre Daten (Berichte, Fotos, Mängelpläne, Material …) bleiben in allen Tools ausgeblendet */
+export async function trashedProjectIds(): Promise<Set<string>> {
+  return new Set((await (await getDB()).getAll('projects')).filter((p) => p.deletedAt).map((p) => p.id));
 }
+const visible = async <T extends { projectId?: string | null }>(list: T[]): Promise<T[]> => {
+  const hidden = await trashedProjectIds();
+  return hidden.size ? list.filter((x) => !x.projectId || !hidden.has(x.projectId)) : list;
+};
+
+export async function listReports(): Promise<Report[]> {
+  return visible(await (await getDB()).getAll('reports'));
+}
+/** alle Berichte, auch die von Projekten im Papierkorb (endgültig löschen) */
+export const listAllReports = async (): Promise<Report[]> => (await getDB()).getAll('reports');
 
 export async function getReport(id: string): Promise<Report | undefined> {
   return (await getDB()).get('reports', id);
@@ -568,7 +579,11 @@ export async function deleteReport(id: string): Promise<void> {
 
 /* Fotodokumentation */
 export async function listPhotos(): Promise<Photo[]> {
-  return (await (await getDB()).getAll('photos')).filter((p) => !p.deletedAt);
+  return visible((await (await getDB()).getAll('photos')).filter((p) => !p.deletedAt && !p.trashedAt));
+}
+/** Fotos im Papierkorb (noch nicht endgültig gelöscht) */
+export async function listTrashedPhotos(): Promise<Photo[]> {
+  return (await (await getDB()).getAll('photos')).filter((p) => !p.deletedAt && !!p.trashedAt);
 }
 
 /** alle Fotos einschließlich der zum Löschen vorgemerkten (Abgleich mit der Ablage) */
@@ -610,8 +625,9 @@ export async function deletePhotoCompletely(id: string): Promise<void> {
 
 export async function listDefectPlans(): Promise<DefectPlan[]> {
   const db = await getDB();
-  return db.getAll('defectPlans');
+  return visible(await db.getAll('defectPlans'));
 }
+export const listAllDefectPlans = async (): Promise<DefectPlan[]> => (await getDB()).getAll('defectPlans');
 export async function getDefectPlan(id: string): Promise<DefectPlan | undefined> {
   const db = await getDB();
   return db.get('defectPlans', id);
@@ -745,8 +761,9 @@ export async function deleteTimeMonth(id: string): Promise<void> {
 
 /* ausgefüllte Firmenformulare */
 export async function listFormEntries(): Promise<FormEntry[]> {
-  return (await (await getDB()).getAll('formEntries')).sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt);
+  return (await visible(await (await getDB()).getAll('formEntries'))).sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt);
 }
+export const listAllFormEntries = async (): Promise<FormEntry[]> => (await getDB()).getAll('formEntries');
 export async function getFormEntry(id: string): Promise<FormEntry | undefined> {
   return (await getDB()).get('formEntries', id);
 }

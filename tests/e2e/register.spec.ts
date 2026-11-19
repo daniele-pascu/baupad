@@ -57,7 +57,7 @@ test('Projektregister: Angaben, in Tools übernehmen, dort öffnen, neues Projek
 
   // Löschen: Halle 3 ohne Einträge; Parkring samt Baustelle in der Woche der Einteilung
   await page.locator('[data-testid="register-row"][data-name="Halle 3"]').getByTestId('register-delete').click();
-  await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Endgültig löschen' }).click();
+  await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Löschen', exact: true }).click();
   await expect(page.getByTestId('register-row')).toHaveCount(1);
   await page.goto('./baupad/arbeitereinteilung');
   await page.getByTestId('add-site').click();
@@ -66,13 +66,28 @@ test('Projektregister: Angaben, in Tools übernehmen, dort öffnen, neues Projek
   await page.goto('./baupad/projektregister');
   await page.locator('[data-testid="register-row"][data-name="Parkring"]').getByTestId('register-delete').click();
   await expect(page.getByTestId('register-delete-usage')).toContainText('1 Woche(n) in „Team“');
-  await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Endgültig löschen' }).click();
+  await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Löschen', exact: true }).click();
   await expect(page.getByTestId('register-row')).toHaveCount(0);
   // auch aus der Woche weg und nicht wieder angelegt
   await page.goto('./baupad/arbeitereinteilung');
   await expect(page.locator('[data-site="Parkring"]')).toHaveCount(0);
   await page.goto('./baupad/projektregister');
   await expect(page.getByTestId('register-row')).toHaveCount(0);
+  // Papierkorb (15 Tage): beide Projekte; Parkring zurückholen – kommt mit allem zurück, nur nicht in die Einteilung
+  await expect(page.getByTestId('trash-open')).toHaveAttribute('data-count', '2');
+  await page.getByTestId('trash-open').click();
+  const trash = page.getByTestId('trash-dialog');
+  await expect(trash.getByTestId('trash-info')).toHaveText('Gelöschtes bleibt 15 Tage im Papierkorb und wird danach endgültig gelöscht.');
+  await expect(trash.getByTestId('trash-entry')).toHaveCount(2);
+  await trash.getByTestId('trash-entry').filter({ hasText: 'Parkring' }).getByTestId('trash-restore').click();
+  await expect(trash.getByTestId('trash-entry')).toHaveCount(1);
+  await trash.getByRole('button', { name: 'Schließen' }).last().click();
+  await expect(page.locator('[data-testid="register-row"][data-name="Parkring"]')).toHaveCount(1);
+  // Tool-Übersicht: der Papierkorb zeigt alles (hier noch Halle 3)
+  await page.goto('./baupad/tools');
+  await expect(page.getByTestId('trash-open')).toHaveAttribute('data-count', '1');
+  await page.goto('./baupad/arbeitereinteilung');
+  await expect(page.locator('[data-site="Parkring"]')).toHaveCount(0);
 });
 
 test('Projektregister nur für Admin und Büro: Polier sieht weder Kachel noch Register, übernimmt Projekte im Tool', async ({ page }) => {
@@ -154,7 +169,7 @@ test('Projekt im Tool gelöscht → auch aus dem Projektregister weg', async ({ 
   await page.goto('./baupad/aufmass-und-abrechnung');
   const card = page.locator('.project-card').filter({ hasText: 'Weg damit' });
   await card.getByRole('button', { name: 'Löschen' }).click();
-  await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Endgültig löschen' }).click();
+  await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Löschen', exact: true }).click();
   await expect(page.locator('.project-card').filter({ hasText: 'Weg damit' })).toHaveCount(0);
   await page.goto('./baupad/projektregister');
   await expect(page.getByTestId('register-new')).toBeVisible();

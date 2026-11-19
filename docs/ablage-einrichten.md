@@ -31,6 +31,8 @@ war ein Fehlversuch und wird nicht gebraucht (löschen).
 
 **17.11.2026 (Material: Verbrauch und Bedarf):** Funktion `storage` neu veröffentlichen – sie kennt jetzt `materialUses` (Verbrauch je Baustelle) und `materialPlans` (Bedarfsrechnung je Baustelle und Material). Bis dahin bleiben nur diese beiden auf dem Gerät (Warteschlange); alles andere, auch Materialstamm und Materiallisten, wird normal übertragen.
 
+**19.11.2026 (Papierkorb):** Funktion `storage` neu veröffentlichen – ein Projekt in den Papierkorb legen darf nur das Büro (Polier/Arbeiter dürfen es zurückholen). Kein SQL nötig. Kann zusammen mit dem Schritt darunter passieren (eine Veröffentlichung reicht).
+
 **19.11.2026 (Arbeiter tragen eigene Stunden ein, SV-Nummer):** Funktion `storage` neu veröffentlichen (Code aus `supabase/functions/storage/index.ts` ersetzen → Deploy). Danach: Arbeiter speichern eigene Stunden (nicht im freigegebenen Monat), die SV-Nummer der Arbeiter kommt nur zu Admin/Büro. **Bis dahin** nimmt der Server Stunden von Arbeitern nicht an (sie blieben nur auf dem Gerät) – deshalb gleich nach dem Online-Stellen veröffentlichen. Kein SQL nötig.
 
 **05.11.2026 (Zeitaufzeichnung):** Funktion `storage` neu veröffentlichen (filtert Stunden für Polier/Arbeiter), **danach** `docs/supabase/time-access.sql` im SQL Editor ausführen. Andere Reihenfolge: Poliere könnten kurz keine Stunden hochladen.

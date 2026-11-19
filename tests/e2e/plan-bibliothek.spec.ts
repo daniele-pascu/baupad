@@ -159,7 +159,7 @@ test('Letztes Aufmaß gelöscht: Plan bleibt in der Bibliothek, neues Aufmaß oh
   await expect(page.getByTestId('plan-row')).toHaveCount(0);
   expect(live(await records(page, 'files'))).toHaveLength(1);
   // Papierkorb: gelöschter Plan 15 Tage wiederherstellbar (mit seinen Messungen)
-  await expect(page.getByTestId('open-trash')).toHaveText(/Papierkorb \(1\)/);
+  await expect(page.getByTestId('open-trash')).toHaveAttribute('data-count', '1');
   await page.getByTestId('open-trash').click();
   const trash = page.getByTestId('trash-dialog');
   await expect(trash.getByTestId('trash-entry')).toHaveCount(1);

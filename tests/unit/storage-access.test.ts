@@ -114,6 +114,10 @@ describe('Rechte am Server: schreiben', () => {
     expect(writableRecord(polier, 'projects', 'A', {}, true, { name: 'A' })).toBeNull();
     expect(writableRecord(polier, 'projects', 'A', { name: 'A neu' }, false, { name: 'A' })).toEqual({ name: 'A neu' });
     expect(writableRecord(buero, 'projects', 'X', { name: 'X' }, false, null)).toEqual({ name: 'X' });
+    // Papierkorb: hineinlegen nur das Büro, zurückholen jeder mit Zugriff
+    expect(writableRecord(polier, 'projects', 'A', { name: 'A', deletedAt: 5 }, false, { name: 'A', deletedAt: null })).toBeNull();
+    expect(writableRecord(polier, 'projects', 'A', { name: 'A', deletedAt: null }, false, { name: 'A', deletedAt: 5 })).toEqual({ name: 'A', deletedAt: null });
+    expect(writableRecord(buero, 'projects', 'A', { name: 'A', deletedAt: 5 }, false, { name: 'A' })).toEqual({ name: 'A', deletedAt: 5 });
   });
 
   it('Firmen-Einstellungen, Formularvorlagen und Zeitdaten', () => {

@@ -165,11 +165,29 @@ test('Fotos werden hochgeladen, abgeglichen und für alle Geräte gelöscht', as
   await expect(lb.getByTestId('lightbox-sync')).toHaveText('zentral gespeichert');
   await expect.poll(() => lb.getByTestId('lightbox-image').evaluate((i: HTMLImageElement) => i.naturalWidth)).toBeGreaterThan(1000);
 
-  // Löschen: Verzeichnis als gelöscht markiert, Dateien entfernt, Eintrag weg
+  // Löschen: in den Papierkorb – für alle Geräte ausgeblendet, die Dateien bleiben 15 Tage
   await lb.getByTestId('lightbox-delete').click();
   await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Löschen' }).click();
   await expect(page.locator('.toast', { hasText: 'Foto gelöscht' })).toHaveCount(1);
   await expect(page.getByTestId('photo-thumb')).toHaveCount(1);
+  await expect.poll(() => cloud.rows.get('other-1')?.data.trashedAt, { timeout: 15_000 }).toBeTruthy();
+  expect(cloud.rows.get('other-1')?.deleted_at).toBeNull();
+  expect(cloud.files.has('photos/other-1/data.jpg')).toBe(true);
+  // nach 15 Tagen: beim nächsten Abgleich endgültig gelöscht – Verzeichnis als gelöscht markiert, Dateien entfernt
+  await expect.poll(() => page.evaluate(() => new Promise<string>((res) => {
+    const r = indexedDB.open('schadstellen-aufmass');
+    r.onsuccess = () => {
+      const t = r.result.transaction('photos', 'readwrite');
+      const s = t.objectStore('photos');
+      const q = s.get('other-1');
+      q.onsuccess = () => {
+        if (q.result.sync === 'synced') s.put({ ...q.result, trashedAt: Date.now() - 16 * 24 * 3600 * 1000 });
+        res(q.result.sync);
+      };
+      t.oncomplete = () => r.result.close();
+    };
+  }))).toBe('synced');
+  await page.reload();
   await expect.poll(() => cloud.rows.get('other-1')?.deleted_at, { timeout: 15_000 }).toBeTruthy();
   await expect.poll(() => cloud.files.has('photos/other-1/data.jpg')).toBe(false);
   expect(cloud.calls).toContain('delete');

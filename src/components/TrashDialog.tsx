@@ -1,4 +1,5 @@
-import { restoreTrash, TRASH_DAYS, trashEntries } from '../lib/trash';
+import { restoreTrash, trashEntries } from '../lib/trash';
+import { TRASH_INFO } from './TrashButton';
 import type { ProjectState } from '../lib/store';
 import { Icon } from './Icon';
 import { Modal } from './Modal';
@@ -19,7 +20,7 @@ export function TrashDialog({ data, onClose }: { data: ProjectState; onClose: ()
       }
     >
       <p className="muted small" data-testid="trash-info">
-        Gelöschtes bleibt {TRASH_DAYS} Tage im Papierkorb und wird danach endgültig gelöscht.
+        {TRASH_INFO}
       </p>
       {!entries.length && (
         <p className="muted" data-testid="trash-empty">

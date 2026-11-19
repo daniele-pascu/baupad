@@ -495,8 +495,8 @@ test('12. Projekt speichern, schließen und vollständig wiederherstellen', asyn
   // Projekt löschen (mit Sicherheitsabfrage)
   await page.getByRole('link', { name: 'Zu Aufmaß' }).click();
   await page.getByRole('button', { name: 'Löschen' }).click();
-  await expect(page.getByTestId('confirm-dialog')).toContainText('endgültig');
-  await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Endgültig löschen' }).click();
+  await expect(page.getByTestId('confirm-dialog')).toContainText('Papierkorb');
+  await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Löschen', exact: true }).click();
   await expect(page.getByTestId('project-card')).toHaveCount(0);
 
   // Ungültige Datei wird abgelehnt
