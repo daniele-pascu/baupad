@@ -37,6 +37,13 @@ war ein Fehlversuch und wird nicht gebraucht (löschen).
 
 **05.11.2026 (Zeitaufzeichnung):** Funktion `storage` neu veröffentlichen (filtert Stunden für Polier/Arbeiter), **danach** `docs/supabase/time-access.sql` im SQL Editor ausführen. Andere Reihenfolge: Poliere könnten kurz keine Stunden hochladen.
 
+## Automatisch veröffentlichen (seit 19.11.2026)
+Die Funktion `storage` wird von GitHub selbst veröffentlicht, sobald sich ihr Code auf `main` ändert
+(`.github/workflows/supabase-storage.yml`, „Verify JWT“ aus). Per Hand: GitHub → Actions → „Supabase-Funktion storage
+veröffentlichen“ → „Run workflow“. Voraussetzung: Repository-Secret `SUPABASE_ACCESS_TOKEN` (Supabase → Account →
+Access Tokens, „Full access“). Ab jetzt muss niemand mehr Code im Dashboard kopieren; SQL-Dateien (falls eine
+Änderung eine braucht) weiterhin im SQL Editor ausführen.
+
 ## 2. Funktion veröffentlichen (erledigt 30.10.2026, aktualisiert 03.11.2026)
 Supabase → Edge Functions → „Deploy a new function“ → „Via Editor“:
 - **Zuerst** unten rechts „Function name“ auf `storage` ändern (der zufällige Vorschlag wird sonst zur festen
