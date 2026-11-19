@@ -243,7 +243,7 @@ export function SeriesCamera({ site, description, onDone, onClose }: { site: Pho
             <span key={s.url} className="series-cam-thumb" data-testid="series-thumb" data-rot={s.rot}>
               <img src={s.url} alt={`Foto ${i + 1}`} style={s.rot ? { transform: `rotate(${s.rot}deg)` } : undefined} />
               <button type="button" onClick={() => setShots((l) => l.filter((x) => x !== s))} aria-label="Foto verwerfen">
-                <Icon name="close" size={12} />
+                <Icon name="close" size={15} />
               </button>
               <button type="button" className="series-cam-turn" onClick={() => turn(s)} aria-label="Foto drehen" title="Foto um 90° drehen" data-testid="series-turn">
                 <Icon name="rotate" size={12} />

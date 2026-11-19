@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Project } from '../lib/types';
+import { Icon } from './Icon';
 import { Modal } from './Modal';
 import { PROJECT_COLORS } from '../lib/project-colors';
 import { ProjectAccessButton } from './ProjectAccess';
@@ -154,11 +155,11 @@ export function ProjectForm({ title, initial, costCenters, submitLabel, onSubmit
               {!c.id && ccs.length > 1 && (
                 <button
                   type="button"
-                  className="icon-btn icon-btn-sm"
+                  className="icon-btn icon-btn-sm x-btn"
                   onClick={() => setCcs(ccs.filter((_, j) => j !== i))}
                   aria-label={`Kostenstelle ${i + 1} entfernen`}
                 >
-                  ✕
+                  <Icon name="close" size={18} />
                 </button>
               )}
             </div>

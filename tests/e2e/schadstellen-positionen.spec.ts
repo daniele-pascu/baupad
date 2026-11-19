@@ -246,8 +246,9 @@ test('Beispiel-LV „Betoninstandsetzung“ (PDF): Klassen, Zulage, Folgeleistun
   await md.getByTestId('input-width').fill('5,43');
   await md.getByTestId('input-depth').fill('0,075');
   await expect(md.getByTestId('position-mismatch')).toHaveCount(0);
-  await md.getByTestId('input-position-search').fill('01.14.20.01B');
-  await md.getByTestId('position-suggestion').first().click();
+  await md.getByTestId('input-position').click();
+  await page.getByTestId('position-picker').getByTestId('position-search').fill('01.14.20.01B');
+  await page.getByTestId('position-picker').getByTestId('position-option').first().click();
   await expect(md.getByTestId('input-position')).toContainText('01.14.20.01B.');
   await expect(md.getByTestId('position-mismatch')).toContainText('Größe bis 0,25 m² · Tiefe über 20 bis 40 mm');
   // automatisch: Klasse „über 1,5 m²“, Zulage 4 Stufen (75 mm ab 40 mm), Reprofilierung, Haftbrücke

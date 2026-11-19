@@ -709,7 +709,7 @@ function MarkDialog({
                     <PhotoImg id={p.id} />
                   </button>
                   <button type="button" className="dp-photo-x" onClick={() => set('photoIds', m.photoIds.filter((x) => x !== p.id))} aria-label="Foto entfernen">
-                    <Icon name="close" size={12} />
+                    <Icon name="close" size={15} />
                   </button>
                 </span>
               ))}

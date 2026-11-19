@@ -233,7 +233,6 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const [positionRef, setPositionRef] = useState<string | null>(damage.positionRef ?? null);
   const [pickPos, setPickPos] = useState(false);
   /** Suche direkt im Dialog: Positionsnummer oder Kurztext */
-  const [posQ, setPosQ] = useState('');
   const [note, setNote] = useState(damage.note ?? '');
   // Bewehrung: Zeilen „Stück × Länge“ (Texte, damit Kommas und leere Felder möglich sind)
   const [rebarRows, setRebarRows] = useState<{ id: string; count: string; length: string }[]>(() =>
@@ -995,8 +994,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
                 <Icon name="search" size={18} />
               </button>
               {positionRef && (
-                <button type="button" className="icon-btn position-clear" onClick={() => setPositionRef(null)} aria-label="Leistungsposition entfernen" title="Leistungsposition entfernen" data-testid="input-position-clear">
-                  ✕
+                <button type="button" className="icon-btn x-btn position-clear" onClick={() => setPositionRef(null)} aria-label="Leistungsposition entfernen" title="Leistungsposition entfernen" data-testid="input-position-clear">
+                  <Icon name="close" size={20} />
                 </button>
               )}
             </div>
@@ -1008,48 +1007,6 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
                   Diese Position passt nicht zur Schadstelle (gilt für: {why}). Die Schadstelle zählt dort nicht – sie zählt bei den Positionen unter „Zählt automatisch bei“.
                 </small>
               ) : null;
-            })()}
-            {(() => {
-              const needle = posQ.trim().toLowerCase();
-              const hits = needle
-                ? positions
-                    .filter((p) => !docId || docOf(p.ref) === docId)
-                    .filter((p) => [p.number ?? '', p.shortText ?? p.label].some((t) => t.toLowerCase().includes(needle)))
-                    .slice(0, 6)
-                : [];
-              return (
-                <div className="position-inline">
-                  <input
-                    type="search"
-                    value={posQ}
-                    onChange={(e) => setPosQ(e.target.value)}
-                    placeholder="Position suchen: Nummer oder Kurztext"
-                    aria-label="Leistungsposition suchen"
-                    data-testid="input-position-search"
-                  />
-                  {needle && (
-                    <div className="position-hits" data-testid="position-hits">
-                      {hits.map((p) => (
-                        <button
-                          key={p.ref}
-                          type="button"
-                          className={`position-hit${p.ref === positionRef ? ' sel' : ''}`}
-                          onClick={() => {
-                            setPositionRef(p.ref);
-                            setDocId(docOf(p.ref));
-                            setPosQ('');
-                          }}
-                          data-testid="position-suggestion"
-                        >
-                          <strong>{p.number ?? ''}</strong> <span>{p.shortText ?? p.label}</span>
-                          {p.unit && <span className="muted"> ({p.unit})</span>}
-                        </button>
-                      ))}
-                      {!hits.length && <span className="muted small">Keine Position gefunden.</span>}
-                    </div>
-                  )}
-                </div>
-              );
             })()}
           </div>
         )}
@@ -1086,8 +1043,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
                 <span className="rebar-line" data-testid="rebar-line">
                   {p?.ok ? `= ${formatMeasure(rebarLine(p))} lfm` : ''}
                 </span>
-                <button type="button" className="icon-btn icon-btn-sm" onClick={() => setRebarRows((list) => list.filter((x) => x.id !== r.id))} aria-label={`Bewehrung ${i + 1} entfernen`} data-testid="rebar-remove">
-                  ✕
+                <button type="button" className="icon-btn icon-btn-sm x-btn" onClick={() => setRebarRows((list) => list.filter((x) => x.id !== r.id))} aria-label={`Bewehrung ${i + 1} entfernen`} data-testid="rebar-remove">
+                  <Icon name="close" size={18} />
                 </button>
               </div>
             );

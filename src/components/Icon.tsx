@@ -8,7 +8,7 @@ const PATHS: Record<string, string> = {
   minus: 'M5 12h14',
   back: 'M15 18l-6-6 6-6',
   next: 'M9 18l6-6-6-6',
-  close: 'M6 6l12 12M18 6L6 18',
+  close: 'M5 5l14 14M19 5L5 19',
   swap: 'M4 8h15M15 4l4 4-4 4M20 16H5M9 12l-4 4 4 4',
   trash: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3',
   edit: 'M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4',
@@ -114,15 +114,18 @@ const PATHS: Record<string, string> = {
 };
 
 export function Icon({ name, size = 22, className }: { name: keyof typeof PATHS | string; size?: number; className?: string }) {
+  // Schließen/Entfernen (×) überall größer und kräftiger – gut zu treffen und deutlich zu sehen
+  const x = name === 'close';
+  const px = x ? Math.round(size * 1.2) : size;
   return (
     <svg
       className={className}
-      width={size}
-      height={size}
+      width={px}
+      height={px}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth={2}
+      strokeWidth={x ? 2.6 : 2}
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"

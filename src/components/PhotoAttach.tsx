@@ -79,7 +79,7 @@ export function PhotoAttach({ site, ids, onChange, hint, description = '' }: { s
                 <PhotoImg id={p.id} />
               </button>
               <button type="button" className="dp-photo-x" onClick={() => onChange(ids.filter((x) => x !== p.id))} aria-label="Foto entfernen">
-                <Icon name="close" size={12} />
+                <Icon name="close" size={15} />
               </button>
             </span>
           ))}

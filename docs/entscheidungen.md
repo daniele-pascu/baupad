@@ -226,3 +226,7 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - Die Planbibliothek zeigt nur die Originalpläne – je Seite eine große Vorschau mit „Neues Aufmaß“. Keine Angabe mehr, in welchen Aufmaßen ein Plan verwendet wird (Suche findet ihn trotzdem auch über Plannummer/Bezeichnung).
 - „Neues Aufmaß“ übernimmt Kalibrierung, Papierformat und Nummernvorschlag vom ältesten Aufmaß mit der ganzen, ungedrehten Seite. Einen Planbereich (Ausschnitt) erneut verwenden geht weiter über das Aktionsmenü des Aufmaßes („Neues Aufmaß mit diesem Plan“).
 - „Plan ansehen“ nutzt die Planansicht des Aufmaßes: mit zwei Fingern bzw. Mausrad zoomen, beim Hineinzoomen scharf in voller Auflösung, Originalfarben; + / Ganzer Plan / − oben.
+
+## Eine Suche für Leistungspositionen, deutliche × (19.11.2026)
+- Messfenster: Die Leistungsposition wird nur noch im Fenster „Leistungsposition wählen“ gesucht (Antippen des Feldes). Die zweite Suchleiste darunter ist entfernt.
+- × (Schließen, Entfernen) überall größer und kräftiger; im Fensterkopf und bei Entfernen-Tasten mit runder, grauer Fläche. Foto-× auf Vorschaubildern 28 px.
