@@ -43,11 +43,11 @@ Grundregeln stehen in `CLAUDE.md`, Grundsätze in `docs/entscheidungen.md`.
 ## Offen / wartet auf Daniele
 - **Marke BauPad anmelden** (Empfehlung an Daniele, seine Sache). Website-Texte sind umgestellt: nur Nutzen, kein „Wie“.
 - **Tasten-Design:** Vorschau M1 (hell Rauchglas 42 %) / M2 (dunkel weiße Tasten) – Daniele will noch warten, nicht einbauen.
-- Schon auf `main` rote Tests (nicht von uns): punktfang-plan (2×, 116,65 statt 116,66 m²), messungen „Rückgängig … Verschieben“.
+- Rote Tests behoben (19.11.2026): Fläche aus dem Plan rundet trotz PDF-Rauschen richtig (116,66 m²), messungen „Rückgängig … Verschieben“ und Datenbank-Version.
 
 ## Danieles Schritt
 - Funktion `storage` in Supabase neu veröffentlichen (siehe `docs/ablage-einrichten.md`).
-- Später: 30 Tage beim Betreiber, Wiederherstellung danach kostenpflichtig.
+- Später: Betreiber-Papierkorb 30 Tage – der Betreiber kann gelöschte Daten jeder Firma bis 30 Tage nach dem Löschen für den Kunden wiederherstellen (kostenpflichtig). Offen: nur auf Anfrage? Preis? AVV/Datenschutz ergänzen.
 
 ## Vorgemerkt (später)
 - App nur mit BauPad-Anmeldung (`docs/entscheidungen.md`).

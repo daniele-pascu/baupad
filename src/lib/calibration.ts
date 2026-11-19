@@ -28,7 +28,10 @@ export function geometryMeasures(shape: Shape, k: number | null): { area: number
   if (!info || info.area === null) return null;
   const formula =
     s.type === 'rect' ? 'Länge × Breite' : s.type === 'ellipse' ? (Math.abs(s.w - s.h) < 1e-9 ? 'π · r²' : 'π · a · b') : 'Polygonfläche aus den Eckpunkten';
-  return { area: round2(info.area), perimeter: round2(info.perimeter), formula };
+  // Planmaße sind nie genauer als 1 cm² bzw. 0,1 mm: das Rauschen der PDF-Koordinaten (Float32) vor dem Runden entfernen –
+  // sonst wird z. B. 15,15 × 7,70 = 116,655 m² intern zu 116,654998… und auf 116,65 statt 116,66 abgerundet
+  const fine = (n: number) => Math.round(n * 1e4) / 1e4;
+  return { area: round2(fine(info.area)), perimeter: round2(fine(info.perimeter)), formula };
 }
 
 export type CalibrationState = 'none' | 'auto' | 'confirmed' | 'manual';
