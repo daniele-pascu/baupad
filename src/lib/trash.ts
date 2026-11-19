@@ -1,14 +1,16 @@
 import { costCenterName, planTitle } from './aufmass';
 import { putRecords, type ProjectState } from './store';
+import { DAY, TRASH_DAYS } from './trash-purge';
+
+export { TRASH_DAYS };
 
 /**
  * Papierkorb im Aufmaß-Projekt: Gelöschtes ist nur als gelöscht markiert (deletedAt). Was mit einem Mal gelöscht
  * wurde (Plan mit seinen Messungen, Kostenstelle mit ihren Plänen, LV, Originalplan), trägt denselben Zeitpunkt –
- * daraus entsteht je Löschung ein Eintrag, der sich 15 Tage lang als Ganzes wiederherstellen lässt.
+ * daraus entsteht je Löschung ein Eintrag, der sich 15 Tage lang als Ganzes wiederherstellen lässt. Danach wird er
+ * endgültig gelöscht (purgeExpiredTrash – auf allen Geräten und in der Ablage).
  * Einzeln gelöschte Messungen stehen nicht im Papierkorb (dafür gibt es „Rückgängig“ im Plan).
  */
-export const TRASH_DAYS = 15;
-const DAY = 24 * 60 * 60 * 1000;
 
 type Store = 'costCenters' | 'files' | 'plans' | 'damages' | 'components' | 'elements' | 'lvDocs';
 const STORES: Store[] = ['costCenters', 'plans', 'damages', 'components', 'elements', 'files', 'lvDocs'];

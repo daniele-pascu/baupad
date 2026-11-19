@@ -18,7 +18,7 @@ import { PlanList } from '../components/PlanList';
 import { RotatePlanDialog } from '../components/RotatePlanDialog';
 import { ExcelExportDialog } from '../components/ExcelExportDialog';
 import { ProjectForm, type CostCenterInput } from '../components/ProjectForm';
-import { SaveErrorBanner, SaveStatus } from '../components/SaveStatus';
+import { SaveErrorBanner } from '../components/SaveStatus';
 import { confirmDialog, offerFile, promptDialog, showError, toast } from '../components/ui';
 import { positionGrouping, aufmassRows, componentsOf, findPosition, costCenterLabel, costCenterName, costCentersOf, damagesOf, elementsOf, planTitle, plansOf, sumArea } from '../lib/aufmass';
 import type { BlattScope } from '../lib/aufmassblatt';
@@ -433,7 +433,6 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
           <small>Projekt</small>
           <h1 data-testid="project-title">{project.name}</h1>
         </div>
-        <SaveStatus />
       </header>
       <SaveErrorBanner />
       {backupInfo?.due && !reminderHidden && sync.status === 'off' && (

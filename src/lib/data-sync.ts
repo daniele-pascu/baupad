@@ -22,6 +22,7 @@ import {
 } from './db';
 import { getState, hasUnsavedChanges, flush as flushStore, reloadProject } from './store';
 import { needsFullPull, SERVER_FILTERS, syncAccess } from './sync-access';
+import { purgeExpiredTrash } from './trash-purge';
 
 /**
  * Abgleich aller Daten mit der zentralen Ablage (Projekte, Kostenstellen, Pläne, Messungen, Zeichnungen, LV,
@@ -44,6 +45,8 @@ const PAGE = 500;
 const BATCH = 200;
 const KICK_DELAY = 1500;
 const RETRY_MIN = 10_000;
+/** Papierkorb höchstens stündlich aufräumen */
+const PURGE_EVERY = 60 * 60 * 1000;
 const RETRY_MAX = 120_000;
 
 const FILE_STORES: SyncFileStore[] = ['blobs', 'defectPlanImages', 'formTemplateFiles', 'timeFiles'];
@@ -114,6 +117,8 @@ export class DataSync {
   private stopFns: (() => void)[] = [];
   /** Abgleich hat das geöffnete Projekt verändert, während dort ungespeicherte Änderungen waren */
   private reloadPending = false;
+  /** zuletzt der Papierkorb aufgeräumt */
+  private purgedAt = 0;
 
   constructor(
     readonly companyId: string,
@@ -368,6 +373,11 @@ export class DataSync {
       if (res.more === undefined ? records.length < PAGE : !res.more) break;
     }
     setState({ status: 'ready', message: null, lastSyncAt: Date.now() });
+    // Papierkorb: Abgelaufenes endgültig löschen – erst jetzt, mit dem aktuellen Stand aller Geräte (höchstens stündlich)
+    if (Date.now() - this.purgedAt > PURGE_EVERY) {
+      this.purgedAt = Date.now();
+      if (await purgeExpiredTrash().catch(() => 0)) this.kick();
+    }
     if (!changed) return;
     const open = getState().projectId;
     if (open && touchedProjects.has(open)) {

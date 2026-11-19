@@ -1,57 +1,8 @@
-import { useEffect, useState } from 'react';
-import { navigate, paths, usePath } from '../lib/router';
+import { paths, usePath } from '../lib/router';
 import { useSession } from '../lib/use-session';
 import { SiteHeader } from '../site/components/SiteShell';
 import { shortName } from '../lib/auth';
-import { useDataSyncState } from '../lib/data-sync';
-import { useCloudState } from '../lib/photo-cloud';
-
-/** Empfang des Geräts (online/offline-Ereignisse des Browsers) */
-function useOnline(): boolean {
-  const [on, setOn] = useState(() => typeof navigator === 'undefined' || navigator.onLine !== false);
-  useEffect(() => {
-    const up = () => setOn(true);
-    const down = () => setOn(false);
-    window.addEventListener('online', up);
-    window.addEventListener('offline', down);
-    return () => {
-      window.removeEventListener('online', up);
-      window.removeEventListener('offline', down);
-    };
-  }, []);
-  return on;
-}
-
-/**
- * Speicherstand: alles wird zuerst auf dem Gerät gespeichert und bei Empfang hochgeladen.
- * Ohne Empfang oder solange noch etwas wartet, steht das hier sichtbar (sonst nichts).
- */
-function SyncBadge() {
-  const data = useDataSyncState();
-  const photos = useCloudState();
-  const online = useOnline();
-  if (data.status === 'off' && photos.status === 'off') return null;
-  const waiting = data.pending + photos.pending;
-  // Fehler der Online-Ablage (nicht nur fehlender Empfang): deutlich zeigen, Antippen öffnet das Konto mit der Meldung
-  const failure = online && (data.status === 'error' || photos.status === 'error' || photos.status === 'setup') ? (data.status === 'error' ? data.message : photos.message) : null;
-  if (failure !== null)
-    return (
-      <button type="button" className="sync-badge error" title={failure || 'Online-Speichern fehlgeschlagen'} onClick={() => navigate(paths.accountSection('app'))} data-testid="sync-badge" data-error="1">
-        Online-Fehler{waiting ? ` · ${waiting} warten` : ''}
-      </button>
-    );
-  if (online && !waiting) return null;
-  const busy = online && (data.busy || photos.busy);
-  const text = !online ? (waiting ? `Offline · ${waiting} warten` : 'Offline') : busy ? 'Wird hochgeladen …' : `${waiting} warten auf Upload`;
-  const title = !online
-    ? 'Kein Empfang: alles wird auf dem Gerät gespeichert und automatisch hochgeladen, sobald wieder Empfang da ist.'
-    : 'Wird automatisch hochgeladen – bei schwachem Empfang mehrere Versuche.';
-  return (
-    <span className={`sync-badge${online ? '' : ' offline'}`} title={title} role="status" data-testid="sync-badge" data-online={online ? '1' : '0'}>
-      {text}
-    </span>
-  );
-}
+import { SaveButton } from './SaveButton';
 
 /**
  * Schwarze Navigationsleiste der öffentlichen Seiten und von Aufmaß & Abrechnung.
@@ -74,7 +25,7 @@ function WebsiteBar() {
 }
 
 /**
- * Leiste der App (angemeldet): links BauPad, in der Mitte nur „Tools“, rechts Speicherstand und Konto.
+ * Leiste der App (angemeldet): links BauPad, in der Mitte nur „Tools“, rechts Speicher-Taste und Konto.
  * Kein Menü, kein Kontakt, Impressum oder Datenschutz oben – die stehen unten im Konto.
  */
 function AppNav({ hash, session }: { hash: string; session: NonNullable<ReturnType<typeof useSession>> }) {
@@ -91,14 +42,22 @@ function AppNav({ hash, session }: { hash: string; session: NonNullable<ReturnTy
           </a>
         </nav>
         <div className="site-actions">
-          <SyncBadge />
-          <a href={paths.account()} className="site-login" aria-current={current(paths.account())} data-testid="nav-account" title={session.email}>
+          <SaveButton />
+          {/* am Handy nur die Initialen im Kreis (data-initials, CSS) – sonst ist neben der Speicher-Taste kein Platz */}
+          <a href={paths.account()} className="site-login" aria-current={current(paths.account())} data-testid="nav-account" data-initials={initials(session.name || 'Konto')} title={session.email}>
             {session.name ? shortName(session.name) : 'Konto'}
           </a>
         </div>
       </div>
     </header>
   );
+}
+
+/** Initialen für die Konto-Taste am Handy: „Daniele Pascu“ → „DP“, ein Wort → erster Buchstabe */
+export function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return '?';
+  return (parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0] : parts[0][0]).toUpperCase();
 }
 
 export function SiteFooter() {

@@ -48,8 +48,17 @@ export function SaveErrorBanner() {
   const save = useAppState((s) => s.save);
   if (save.status !== 'error' && save.status !== 'conflict') return null;
   return (
-    <div className="banner banner-error" role="alert">
-      {save.error}
+    <div className="banner banner-error save-error-banner" role="alert">
+      <p>{save.error}</p>
+      {save.status === 'error' ? (
+        <button type="button" className="btn btn-sm" onClick={() => void flush()} data-testid="save-retry">
+          Erneut versuchen
+        </button>
+      ) : (
+        <button type="button" className="btn btn-sm" onClick={() => void reloadProject()} data-testid="save-reload">
+          <Icon name="undoView" size={16} /> Neu laden
+        </button>
+      )}
     </div>
   );
 }

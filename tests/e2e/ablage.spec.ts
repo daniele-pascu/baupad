@@ -208,15 +208,25 @@ test('Ohne Empfang zuerst lokal, bei Empfang automatisch hochladen – auch bei 
   await expect(page.getByTestId('register-title')).toBeVisible();
   await expect.poll(() => cloud.calls.includes('records-pull'), { timeout: 15_000 }).toBe(true);
 
-  // kein Empfang: Projekt wird lokal angelegt, oben steht „Offline · … warten“
+  // Speicher-Taste oben: alles online → „Gespeichert“
+  const btn = page.getByTestId('save-status');
+  await expect(btn).toHaveAttribute('data-state', 'saved');
+  await expect(btn).toHaveText('Gespeichert');
+  // kein Empfang: Projekt wird lokal angelegt, oben steht „Lokal gesichert“
   cloud.net.offline = true;
   await context.setOffline(true);
-  await expect(page.getByTestId('sync-badge')).toHaveText(/^Offline/);
+  await expect(btn).toHaveAttribute('data-online', '0');
   await page.getByTestId('register-new').click();
   await page.getByTestId('project-name').fill('Funkloch');
   await page.getByTestId('project-save').click();
   await expect(page.locator('[data-testid="register-row"][data-name="Funkloch"]')).toHaveCount(1);
-  await expect(page.getByTestId('sync-badge')).toHaveText(/^Offline · \d+ warten$/);
+  await expect(btn).toHaveText('Lokal gesichert');
+  await expect(btn).toHaveAttribute('data-state', 'local');
+  await expect(btn).not.toHaveAttribute('data-waiting', '0');
+  // Antippen ohne Empfang: bleibt lokal, Hinweis
+  await btn.click();
+  await expect(page.locator('.toast', { hasText: 'sobald wieder Empfang da ist' })).toHaveCount(1);
+  await expect(btn).toHaveText('Lokal gesichert');
   await page.waitForTimeout(2500);
   expect([...cloud.records].some((k) => k.startsWith('projects:'))).toBe(false);
 
@@ -225,7 +235,17 @@ test('Ohne Empfang zuerst lokal, bei Empfang automatisch hochladen – auch bei 
   cloud.net.offline = false;
   await context.setOffline(false);
   await expect.poll(() => [...cloud.records].some((k) => k.startsWith('projects:')), { timeout: 30_000 }).toBe(true);
-  await expect(page.getByTestId('sync-badge')).toHaveCount(0);
+  await expect(btn).toHaveText('Gespeichert');
+
+  // neue Änderung, sofort antippen: Ladezeichen „Speichert …“, danach „Gespeichert“ und online
+  await page.getByTestId('register-new').click();
+  await page.getByTestId('project-name').fill('Sofort');
+  await page.getByTestId('project-save').click();
+  await btn.click();
+  await expect(btn).toHaveAttribute('data-state', 'saving');
+  await expect(btn.locator('.save-btn-spin')).toBeVisible();
+  await expect(btn).toHaveText('Gespeichert', { timeout: 15_000 });
+  await expect.poll(() => [...cloud.records].filter((k) => k.startsWith('projects:')).length).toBe(2);
 });
 
 test('Kamera: oben links X, oben rechts wartende Fotos – ohne Empfang gelb mit Anzahl, mit Empfang grüner Haken', async ({ page, context }) => {
@@ -278,8 +298,8 @@ test('Veraltete Funktion „storage“ ohne Datenabgleich: roter Hinweis oben, K
   await page.getByTestId('register-new').click();
   await page.getByTestId('project-name').fill('Parkring');
   await page.getByTestId('project-save').click();
-  const badge = page.getByTestId('sync-badge');
-  await expect(badge).toHaveText(/^Online-Fehler/, { timeout: 15_000 });
+  const badge = page.getByTestId('save-status');
+  await expect(badge).toHaveText('Online-Fehler', { timeout: 15_000 });
   await badge.click();
   await expect(page.getByTestId('data-message')).toContainText('Funktion „storage“ in Supabase ist veraltet');
 });

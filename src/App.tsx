@@ -14,6 +14,7 @@ import { ToolsPage } from './pages/ToolsPage';
 import { isInstalledApp } from './lib/platform';
 import { getAuth } from './lib/auth';
 import { useSession } from './lib/use-session';
+import { purgeExpiredTrash } from './lib/trash-purge';
 import { backfillPhotoUserNames, connectPhotoCloud, syncPhotoCloud } from './lib/photo-cloud';
 import { remoteConnected } from './lib/remote';
 import { isNativeApp } from './lib/native';
@@ -351,6 +352,8 @@ function usePhotoCloud() {
         return;
       }
       await connectPhotoCloud(remoteConnected() ? companyId : null).catch(() => {});
+      // ohne Online-Ablage (nur dieses Gerät): Papierkorb gleich beim Start aufräumen – mit Ablage nach dem Abgleich
+      if (!(remoteConnected() && companyId)) await purgeExpiredTrash().catch(() => {});
       // nach der Anbindung: eigene Fotos ohne Namen bekommen den Namen der Anmeldung, danach Abgleich
       await backfillPhotoUserNames(userId ? { id: userId, name: userName } : null).catch(() => {});
       await syncPhotoCloud().catch(() => {});

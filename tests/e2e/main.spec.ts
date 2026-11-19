@@ -550,6 +550,6 @@ test('Fehlerfälle: nicht unterstütztes Dateiformat, Konflikt zwischen zwei Tab
   await page.getByTestId('project-form').getByRole('button', { name: 'Speichern' }).click();
   await expect(page.getByTestId('save-status')).toHaveAttribute('data-status', 'conflict');
   await expect(page.locator('.banner-error')).toContainText('in einem anderen Fenster oder Tab geändert');
-  await page.getByTestId('save-status').getByRole('button', { name: 'Neu laden' }).click();
+  await page.getByTestId('save-reload').click();
   await expect(page.locator('.project-info')).toContainText('Geändert in Tab 2');
 });
