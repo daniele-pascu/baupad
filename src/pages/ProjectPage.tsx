@@ -10,6 +10,8 @@ import { InvoiceBar } from '../components/InvoiceBar';
 import { invoiceLabel, invoiceOfPlan, invoiceShort, invoicesOf } from '../lib/invoices';
 import { LvPanel } from '../components/LvPanel';
 import { PdfExportDialog } from '../components/PdfExportDialog';
+import { TrashDialog } from '../components/TrashDialog';
+import { trashEntries } from '../lib/trash';
 import { NewDrawingDialog, PlanDetailsDialog } from '../components/PlanFields';
 import { PlanLibrary, ReusePlanDialog, suggestNumber, type PlanSource } from '../components/PlanLibrary';
 import { PlanList } from '../components/PlanList';
@@ -58,6 +60,8 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
   const [pdfPlans, setPdfPlans] = useState<string[] | null>(null);
   // eigene Taste „Fotos exportieren“: derselbe Auswahldialog, aber für das Foto-PDF
   const [photoPlans, setPhotoPlans] = useState<string[] | null>(null);
+  // Papierkorb: Gelöschtes 30 Tage wiederherstellbar
+  const [trashOpen, setTrashOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [details, setDetails] = useState<Plan | null>(null);
   const [cropping, setCropping] = useState<{ plan: Plan; image: HTMLCanvasElement } | null>(null);
@@ -125,6 +129,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
   };
   const plansAsc = active ? plansOf(data, active.id, invoiceFilter) : [];
   const plans = planDesc ? [...plansAsc].reverse() : plansAsc;
+  const trashCount = trashEntries(data).length;
   /** Mehrfachauswahl in der Planliste */
   const planSel = useSelection(plans.map((p) => p.id));
   const [bulkPlans, setBulkPlans] = useState<Plan[] | null>(null);
@@ -598,13 +603,14 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
               )}
             </h2>
             <div className="row gap wrap">
-              <button type="button" className="btn btn-primary" onClick={() => fileRef.current?.click()} data-testid="import-plan">
+              {/* alle drei schwarz, beim Antippen weiß */}
+              <button type="button" className="btn btn-ink" onClick={() => fileRef.current?.click()} data-testid="import-plan">
                 <Icon name="upload" /> Plan importieren
               </button>
-              <button type="button" className="btn" onClick={() => setDrawingNew(true)} data-testid="draw-plan">
+              <button type="button" className="btn btn-ink" onClick={() => setDrawingNew(true)} data-testid="draw-plan">
                 <Icon name="drawPlan" /> Plan zeichnen
               </button>
-              <button type="button" className="btn btn-primary" onClick={() => setLibrary(true)} data-testid="open-plan-library">
+              <button type="button" className="btn btn-ink" onClick={() => setLibrary(true)} data-testid="open-plan-library">
                 <Icon name="folder" /> Planbibliothek
               </button>
             </div>
@@ -673,14 +679,23 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
               },
             ]}
           />
-          {plans.length > 0 && (
+          {(plans.length > 0 || trashCount > 0) && (
             <div className="row gap wrap plan-list-foot">
-              <button type="button" className="btn" onClick={() => setPdfPlans(plans.map((p) => p.id))} data-testid="plans-pdf">
-                <Icon name="pdf" /> Pläne als PDF herunterladen
-              </button>
-              <button type="button" className="btn" onClick={() => setPhotoPlans(plans.map((p) => p.id))} data-testid="plans-photos">
-                <Icon name="camera" /> Fotos exportieren
-              </button>
+              {plans.length > 0 && (
+                <>
+                  <button type="button" className="btn" onClick={() => setPdfPlans(plans.map((p) => p.id))} data-testid="plans-pdf">
+                    <Icon name="pdf" /> Pläne als PDF herunterladen
+                  </button>
+                  <button type="button" className="btn" onClick={() => setPhotoPlans(plans.map((p) => p.id))} data-testid="plans-photos">
+                    <Icon name="camera" /> Fotos exportieren
+                  </button>
+                </>
+              )}
+              {trashCount > 0 && (
+                <button type="button" className="btn" onClick={() => setTrashOpen(true)} data-testid="open-trash">
+                  <Icon name="trash" /> Papierkorb ({trashCount})
+                </button>
+              )}
             </div>
           )}
           {plans.length ? null : (
@@ -996,6 +1011,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
         />
       )}
       {pdfPlans && <PdfExportDialog data={data} costCenterId={active?.id} initial={pdfPlans} onClose={() => setPdfPlans(null)} />}
+      {trashOpen && <TrashDialog data={data} onClose={() => setTrashOpen(false)} />}
       {photoPlans && <PdfExportDialog data={data} costCenterId={active?.id} initial={photoPlans} mode="photos" onClose={() => setPhotoPlans(null)} />}
     </div>
     </>

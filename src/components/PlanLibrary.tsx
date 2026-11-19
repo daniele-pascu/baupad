@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { costCenterLabel, damagesOf } from '../lib/aufmass';
 import { closePdf, getImageBitmap, getPdfDocument, openPdf, pageSize } from '../lib/pdf';
 import { putBlob } from '../lib/db';
@@ -58,6 +59,8 @@ const kb = (n: number) => (n > 1024 * 1024 ? `${(n / 1024 / 1024).toLocaleString
  */
 export function PlanLibrary({ data, onClose, onReuse }: { data: ProjectState; onClose: () => void; onReuse: (s: PlanSource) => void }) {
   const [q, setQ] = useState('');
+  // Plan nur ansehen (Tipp auf die Vorschau): groß öffnen und wieder schließen, ohne etwas zu ändern
+  const [viewing, setViewing] = useState<{ file: SourceFile; pageIndex: number } | null>(null);
   const files = useMemo(() => alive(data.files).sort((a, b) => b.createdAt - a.createdAt), [data.files]);
   const needle = q.trim().toLowerCase();
   const shown = files
@@ -156,7 +159,9 @@ export function PlanLibrary({ data, onClose, onReuse }: { data: ProjectState; on
                 const base = group[0];
                 return (
                   <div key={base.id} className="lib-view" data-testid="library-view">
-                    <SourceThumb file={file} pageIndex={base.pageIndex} crop={base.crop} rotation={base.rotation} />
+                    <button type="button" className="lib-thumb-btn" onClick={() => setViewing({ file, pageIndex: base.pageIndex })} aria-label={`${file.name} ansehen`} data-testid="library-view-open">
+                      <SourceThumb file={file} pageIndex={base.pageIndex} crop={base.crop} rotation={base.rotation} />
+                    </button>
                     <div className="lib-view-body">
                       <span className="muted small">
                         {file.pageCount > 1 ? `Seite ${base.pageIndex + 1} · ` : ''}
@@ -187,7 +192,9 @@ export function PlanLibrary({ data, onClose, onReuse }: { data: ProjectState; on
               })}
               {freePages.map((i) => (
                 <div key={`page-${i}`} className="lib-view" data-testid="library-page">
-                  <SourceThumb file={file} pageIndex={i} crop={null} />
+                  <button type="button" className="lib-thumb-btn" onClick={() => setViewing({ file, pageIndex: i })} aria-label={`${file.name} ansehen`} data-testid="library-view-open">
+                    <SourceThumb file={file} pageIndex={i} crop={null} />
+                  </button>
                   <div className="lib-view-body">
                     <span className="muted small">{file.pageCount > 1 ? `Seite ${i + 1} · ` : ''}Ganze Seite · noch kein Aufmaß</span>
                     <button type="button" className="btn btn-sm" onClick={() => onReuse({ file, pageIndex: i, base: null })} data-testid="library-reuse-page">
@@ -205,7 +212,80 @@ export function PlanLibrary({ data, onClose, onReuse }: { data: ProjectState; on
           </section>
         ))}
       </div>
+      {viewing && <PlanViewOnly file={viewing.file} pageIndex={viewing.pageIndex} onClose={() => setViewing(null)} />}
     </Modal>
+  );
+}
+
+/**
+ * Plan nur ansehen: ganze Seite groß, ohne Bearbeiten. Größer/kleiner über + und −, mehrseitige PDFs blättern.
+ */
+function PlanViewOnly({ file, pageIndex, onClose }: { file: SourceFile; pageIndex: number; onClose: () => void }) {
+  const [page, setPage] = useState(pageIndex);
+  const [url, setUrl] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(1);
+  useEffect(() => {
+    let live = true;
+    setUrl(null);
+    renderSource(file, page, 2600, null, 0)
+      .then((c) => {
+        if (live) setUrl(c.toDataURL('image/jpeg', 0.9));
+        c.width = c.height = 0;
+      })
+      .catch(() => live && setUrl(''));
+    return () => {
+      live = false;
+    };
+  }, [file, page]);
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.stopPropagation();
+      onClose();
+    };
+    window.addEventListener('keydown', esc, true);
+    return () => window.removeEventListener('keydown', esc, true);
+  }, [onClose]);
+  const pages = file.pageCount || 1;
+  // eigene Ebene über allem (nicht im Fenster der Planbibliothek eingesperrt)
+  return createPortal(
+    <div className="lib-viewer" role="dialog" aria-modal="true" aria-label={`${file.name} ansehen`} data-testid="library-viewer">
+      <header className="lib-viewer-head">
+        <strong className="lib-viewer-name">{file.name}</strong>
+        {pages > 1 && (
+          <span className="lib-viewer-pages">
+            <button type="button" className="icon-btn" onClick={() => setPage(Math.max(0, page - 1))} disabled={page === 0} aria-label="Vorherige Seite">
+              <Icon name="back" size={18} />
+            </button>
+            <span className="small" data-testid="library-viewer-page">
+              Seite {page + 1} / {pages}
+            </span>
+            <button type="button" className="icon-btn" onClick={() => setPage(Math.min(pages - 1, page + 1))} disabled={page >= pages - 1} aria-label="Nächste Seite">
+              <Icon name="next" size={18} />
+            </button>
+          </span>
+        )}
+        <span className="lib-viewer-zoom">
+          <button type="button" className="icon-btn" onClick={() => setZoom(Math.max(1, zoom - 0.5))} disabled={zoom <= 1} aria-label="Verkleinern">
+            <Icon name="minus" size={18} />
+          </button>
+          <button type="button" className="icon-btn" onClick={() => setZoom(Math.min(4, zoom + 0.5))} disabled={zoom >= 4} aria-label="Vergrößern">
+            <Icon name="plus" size={18} />
+          </button>
+        </span>
+        <button type="button" className="icon-btn lib-viewer-close" onClick={onClose} aria-label="Schließen" data-testid="library-viewer-close">
+          <Icon name="close" size={20} />
+        </button>
+      </header>
+      <div className="lib-viewer-body">
+        {url ? (
+          <img src={url} alt={file.name} style={{ width: `${zoom * 100}%` }} data-testid="library-viewer-img" />
+        ) : (
+          <span className="muted">{url === '' ? 'Keine Vorschau möglich' : 'Plan wird geladen …'}</span>
+        )}
+      </div>
+    </div>,
+    document.body,
   );
 }
 
