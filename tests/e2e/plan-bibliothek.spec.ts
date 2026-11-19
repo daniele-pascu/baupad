@@ -158,12 +158,32 @@ test('Letztes Aufmaß gelöscht: Plan bleibt in der Bibliothek, neues Aufmaß oh
   await remove('F-1', 'bleibt in der Planbibliothek');
   await expect(page.getByTestId('plan-row')).toHaveCount(0);
   expect(live(await records(page, 'files'))).toHaveLength(1);
+  // Papierkorb: gelöschter Plan 30 Tage wiederherstellbar (mit seinen Messungen)
+  await expect(page.getByTestId('open-trash')).toHaveText(/Papierkorb \(1\)/);
+  await page.getByTestId('open-trash').click();
+  const trash = page.getByTestId('trash-dialog');
+  await expect(trash.getByTestId('trash-entry')).toHaveCount(1);
+  await expect(trash.getByTestId('trash-entry')).toContainText('Plan F-1');
+  await expect(trash.getByTestId('trash-entry')).toContainText('noch 30 Tage');
+  await trash.getByTestId('trash-restore').click();
+  await expect(trash.getByTestId('trash-empty')).toBeVisible();
+  await trash.getByRole('button', { name: 'Schließen' }).last().click();
+  await expect(page.getByTestId('plan-row')).toHaveCount(1);
+  await waitSaved(page);
+  await remove('F-1', 'bleibt in der Planbibliothek');
+  await expect(page.getByTestId('plan-row')).toHaveCount(0);
 
   await page.getByTestId('open-plan-library').click();
   const lib = page.getByTestId('plan-library');
   await expect(lib.getByTestId('library-usage')).toHaveText('nicht verwendet');
   await expect(lib.locator('.lib-thumb img')).toBeVisible();
   await page.screenshot({ path: join(OUT, 'plan-bibliothek.png') });
+  // Plan nur ansehen: Vorschau antippen → groß öffnen, wieder schließen
+  await lib.getByTestId('library-view-open').first().click();
+  await expect(page.getByTestId('library-viewer-img')).toBeVisible();
+  await page.getByTestId('library-viewer-close').click();
+  await expect(page.getByTestId('library-viewer')).toHaveCount(0);
+  await expect(lib).toBeVisible();
   await lib.getByTestId('library-reuse-page').click();
   const dlg = page.getByTestId('reuse-plan');
   await expect(dlg.locator('[data-field="planNumber"]')).toHaveValue('');
@@ -186,6 +206,11 @@ test('Letztes Aufmaß gelöscht: Plan bleibt in der Bibliothek, neues Aufmaß oh
   await page.getByRole('dialog').filter({ hasText: 'Originalplan entfernen?' }).getByRole('button', { name: 'Entfernen' }).click();
   await waitSaved(page);
   expect(live(await records(page, 'files'))).toHaveLength(0);
+  // auch der entfernte Originalplan liegt im Papierkorb
+  await lib.getByRole('button', { name: 'Schließen' }).first().click();
+  await page.getByTestId('open-trash').click();
+  await expect(page.getByTestId('trash-dialog').getByTestId('trash-entry').first()).toContainText('Originalplan');
+  await page.getByTestId('trash-dialog').getByRole('button', { name: 'Schließen' }).last().click();
   // Planbibliothek bleibt erreichbar (Hochladen ohne Aufmaß)
   await expect(page.getByTestId('open-plan-library')).toBeVisible();
 });
@@ -195,7 +220,7 @@ test('Planbibliothek: Pläne nur hochladen (ohne Aufmaß), später als neues Auf
   await createProject(page, 'Bibliothek hochladen', {}, ['EG']);
   // Taste schwarz (Hauptaktion) und ohne vorhandene Pläne sichtbar
   const open = page.getByTestId('open-plan-library');
-  await expect(open).toHaveClass(/btn-primary/);
+  await expect(open).toHaveClass(/btn-ink/); // schwarz, beim Antippen weiß
   await open.click();
   const lib = page.getByTestId('plan-library');
   await lib.getByTestId('library-file-input').setInputFiles([join(FIXTURES, 'plaene.pdf'), join(FIXTURES, 'parkdeck.png')]);

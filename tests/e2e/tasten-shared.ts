@@ -457,6 +457,36 @@ export function tastenTests() {
     expect(out, out.join('\n')).toEqual([]);
   });
 
+  test('Tasten: Pläne – Tasten, Papierkorb, Plan ansehen in der Planbibliothek – nichts überlappt, verdeckt oder abgeschnitten', async ({ page }) => {
+    const out: string[] = [];
+    await freshStart(page);
+    await createProject(page, 'Papierkorb', {}, ['EG']);
+    await page.getByTestId('plan-file-input').setInputFiles(join(FIXTURES, 'parkdeck.png'));
+    const wiz = page.getByTestId('import-wizard');
+    await wiz.getByTestId('areas-next').click();
+    await wiz.locator('[data-field="planNumber"]').fill('P-1');
+    await wiz.getByTestId('import-save').click();
+    await waitForPlan(page);
+    await page.getByRole('link', { name: 'Zurück zur Planliste' }).click();
+    await expect(page.getByTestId('plan-list')).toBeVisible();
+    await pruefe(page, 'Planliste mit schwarzen Tasten', out);
+    // Plan löschen → Papierkorb
+    await page.getByTestId('plan-row').first().getByTestId('plan-actions').click();
+    await page.getByTestId('action-delete').click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Plan löschen' }).click();
+    await page.getByTestId('open-trash').click();
+    await expect(page.getByTestId('trash-dialog')).toBeVisible();
+    await pruefe(page, 'Papierkorb', out);
+    await page.getByTestId('trash-dialog').getByRole('button', { name: 'Schließen' }).last().click();
+    // Planbibliothek: Plan nur ansehen
+    await page.getByTestId('open-plan-library').click();
+    await page.getByTestId('library-view-open').first().click();
+    await expect(page.getByTestId('library-viewer-img')).toBeVisible();
+    await pruefe(page, 'Plan ansehen (Planbibliothek)', out);
+    await page.getByTestId('library-viewer-close').click();
+    expect(out, out.join('\n')).toEqual([]);
+  });
+
   test('Tasten: Freigabe im Projekt (Taste, Fenster, Projektangaben mit Freigabe) – nichts überlappt, verdeckt oder abgeschnitten', async ({ page }) => {
     const out: string[] = [];
     const json = (body: unknown) => ({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });

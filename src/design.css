@@ -679,3 +679,160 @@ html.app-fixed .side-toggle.side-toggle-dark:hover {
   background: #2c2c2e;
   color: #fff;
 }
+
+/* Aufmaß, Pläne: Tasten schwarz – beim Antippen bzw. mit der Maus weiß, rundherum schwarz */
+.btn.btn-ink {
+  border: 1.5px solid #111;
+  background: #111;
+  color: #fff;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+.btn.btn-ink:hover,
+.btn.btn-ink:active {
+  border-color: #111;
+  background: #fff;
+  color: #111;
+}
+html[data-theme='dark'] .btn.btn-ink {
+  border-color: #f5f5f7;
+  background: #f5f5f7;
+  color: #111;
+}
+html[data-theme='dark'] .btn.btn-ink:hover,
+html[data-theme='dark'] .btn.btn-ink:active {
+  background: #111;
+  color: #f5f5f7;
+}
+
+/* Papierkorb */
+.trash-list {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.trash-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.trash-row > svg {
+  flex: none;
+  color: var(--muted);
+}
+.trash-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+.trash-text strong {
+  overflow-wrap: anywhere;
+}
+.trash-row .btn {
+  flex: none;
+}
+@media (max-width: 519px) {
+  .trash-row {
+    flex-wrap: wrap;
+  }
+  .trash-row .btn {
+    margin-left: 30px;
+  }
+}
+
+/* Planbibliothek: Vorschau antippen = Plan nur ansehen */
+.lib-thumb-btn {
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  cursor: zoom-in;
+}
+.lib-thumb-btn:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+.lib-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: flex;
+  flex-direction: column;
+  background: #0c0c0e;
+  color: #fff;
+}
+.lib-viewer-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: calc(10px + var(--safe-top, 0px)) 12px 10px 16px;
+}
+.lib-viewer-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lib-viewer-pages,
+.lib-viewer-zoom {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+}
+.lib-viewer .icon-btn {
+  color: #fff;
+}
+.lib-viewer .icon-btn:disabled {
+  opacity: 0.35;
+}
+.lib-viewer-close {
+  flex: none;
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 50%;
+}
+.lib-viewer-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 12px calc(16px + var(--safe-bottom, 0px));
+  text-align: center;
+  -webkit-overflow-scrolling: touch;
+}
+.lib-viewer-body img {
+  display: block;
+  max-width: none;
+  height: auto;
+  margin: 0 auto;
+  border-radius: 6px;
+  background: #fff;
+}
+@media (max-width: 519px) {
+  .lib-viewer-head {
+    flex-wrap: wrap;
+  }
+  .lib-viewer-name {
+    flex-basis: calc(100% - 56px);
+  }
+}
+@media (max-width: 519px) {
+  .lib-viewer-name {
+    order: 0;
+  }
+  .lib-viewer-close {
+    order: 1;
+  }
+  .lib-viewer-pages,
+  .lib-viewer-zoom {
+    order: 2;
+  }
+}
