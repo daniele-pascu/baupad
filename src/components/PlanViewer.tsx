@@ -461,15 +461,16 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       .catch(() => {});
   }, [size, region, plan.id, setView]);
 
-  // Ansicht speichern (nur lokal)
+  // Ansicht speichern (nur lokal; nicht, wo sie ohnehin nie wiederhergestellt wird)
+  const keepView = props.restoreView !== false;
   useEffect(() => {
-    if (!view || !size) return;
+    if (!view || !size || !keepView) return;
     const t = setTimeout(() => {
       const c = toPage(view, { x: size.w / 2, y: size.h / 2 });
       void putView({ id: plan.id, projectId: plan.projectId, scale: view.scale / fitScale, cx: c.x, cy: c.y }).catch(() => {});
     }, 800);
     return () => clearTimeout(t);
-  }, [view, size, plan.id, plan.projectId, fitScale]);
+  }, [view, size, plan.id, plan.projectId, fitScale, keepView]);
 
   // Quelle laden (PDF-Seite oder Bild)
   const source = useRef<{ page?: PDFPageProxy; bitmap?: ImageBitmap } | null>(null);

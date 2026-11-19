@@ -5047,7 +5047,7 @@ a.register-tool:hover {
   }
 }
 
-/* Planbibliothek: Originalpläne des Projekts und ihre Aufmaße */
+/* Planbibliothek: nur die Originalpläne des Projekts, je Seite groß */
 .lib-list {
   display: grid;
   gap: 14px;
@@ -5069,46 +5069,37 @@ a.register-tool:hover {
 .lib-file-name {
   overflow-wrap: anywhere;
 }
-.lib-usage {
-  margin-left: auto;
-  padding: 2px 10px;
-  border-radius: 999px;
-  background: var(--primary-soft);
-  white-space: nowrap;
-}
-.lib-views {
+.lib-pages {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  gap: 12px;
 }
-.lib-view {
-  display: grid;
-  grid-template-columns: 96px 1fr;
-  gap: 10px;
-  align-items: start;
+.lib-page {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
   padding: 8px;
   border-radius: var(--radius-sm);
   background: var(--surface-2);
 }
-.lib-view .thumb,
+.lib-page .lib-thumb-btn {
+  width: 100%;
+}
+.lib-page .thumb {
+  margin: 0;
+  aspect-ratio: 1 / 1.1;
+  background: #fff;
+}
+.lib-page-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 10px;
+}
 .reuse-source .thumb {
   margin: 0;
-}
-.lib-view-body {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  min-width: 0;
-}
-.lib-uses {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: 0.9rem;
-}
-.lib-uses li {
-  overflow-wrap: anywhere;
 }
 .lib-remove {
   margin-top: 10px;

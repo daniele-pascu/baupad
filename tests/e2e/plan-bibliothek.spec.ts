@@ -52,15 +52,16 @@ test('Plan erneut verwenden: neues leeres Aufmaß, Original bleibt, Datei nur ei
   await waitSaved(page);
   await backToList(page);
 
-  // Bibliothek: Datei, Verwendung, Suche
+  // Bibliothek: nur der Plan (je Seite), nicht wo er verwendet wird; Suche
   await page.getByTestId('open-plan-library').click();
   const lib = page.getByTestId('plan-library');
   await expect(lib.getByTestId('library-file')).toHaveCount(1);
   await expect(lib.getByTestId('library-file')).toContainText('massketten.pdf');
-  await expect(lib.getByTestId('library-usage')).toHaveText('verwendet in 1 Aufmaß');
-  await expect(lib.getByTestId('library-view')).toContainText('K-1');
-  await expect(lib.getByTestId('library-view')).toContainText('1 Messungen');
-  await expect(lib.getByTestId('library-view')).toContainText('kalibriert (automatisch)');
+  await expect(lib.getByTestId('library-page')).toHaveCount(1);
+  await expect(lib.locator('.lib-thumb img')).toBeVisible();
+  await expect(lib.getByTestId('library-file')).not.toContainText('K-1');
+  await expect(lib.getByTestId('library-file')).not.toContainText('Messungen');
+  await expect(lib.getByTestId('library-file')).not.toContainText('verwendet');
   await lib.getByTestId('library-search').fill('gibtsnicht');
   await expect(lib).toContainText('Kein Plan gefunden');
   await lib.getByTestId('library-search').fill('keller'); // Planbezeichnung
@@ -175,16 +176,25 @@ test('Letztes Aufmaß gelöscht: Plan bleibt in der Bibliothek, neues Aufmaß oh
 
   await page.getByTestId('open-plan-library').click();
   const lib = page.getByTestId('plan-library');
-  await expect(lib.getByTestId('library-usage')).toHaveText('nicht verwendet');
   await expect(lib.locator('.lib-thumb img')).toBeVisible();
   await page.screenshot({ path: join(OUT, 'plan-bibliothek.png') });
-  // Plan nur ansehen: Vorschau antippen → groß öffnen, wieder schließen
+  // Plan nur ansehen: Vorschau antippen → groß wie im Aufmaß-Plan (Zoom, scharf nachgezeichnet), wieder schließen
   await lib.getByTestId('library-view-open').first().click();
-  await expect(page.getByTestId('library-viewer-img')).toBeVisible();
+  const viewer = page.getByTestId('library-viewer');
+  await expect(viewer.getByTestId('plan-viewer')).toBeVisible();
+  const scale = async () => Number(await viewer.getByTestId('plan-viewer').getAttribute('data-scale'));
+  await expect.poll(scale).toBeGreaterThan(0);
+  const fit = await scale();
+  await viewer.getByTestId('library-viewer-zoom-in').click();
+  await viewer.getByTestId('library-viewer-zoom-in').click();
+  await expect.poll(scale).toBeGreaterThan(fit * 2);
+  await viewer.getByTestId('library-viewer-fit').click();
+  await expect.poll(scale).toBeCloseTo(fit, 3);
+  await page.screenshot({ path: join(OUT, 'plan-bibliothek-ansehen.png') });
   await page.getByTestId('library-viewer-close').click();
   await expect(page.getByTestId('library-viewer')).toHaveCount(0);
   await expect(lib).toBeVisible();
-  await lib.getByTestId('library-reuse-page').click();
+  await lib.getByTestId('library-reuse').click();
   const dlg = page.getByTestId('reuse-plan');
   await expect(dlg.locator('[data-field="planNumber"]')).toHaveValue('');
   await dlg.locator('[data-field="planNumber"]').fill('F-2');
@@ -225,12 +235,14 @@ test('Planbibliothek: Pläne nur hochladen (ohne Aufmaß), später als neues Auf
   const lib = page.getByTestId('plan-library');
   await lib.getByTestId('library-file-input').setInputFiles([join(FIXTURES, 'plaene.pdf'), join(FIXTURES, 'parkdeck.png')]);
   await expect(lib.getByTestId('library-file')).toHaveCount(2);
-  await expect(lib.getByTestId('library-usage').first()).toContainText('nicht verwendet');
+  // je PDF-Seite ein Plan
+  await expect(lib.locator('[data-testid="library-file"][data-file="plaene.pdf"]').getByTestId('library-page')).toHaveCount(4);
+  await expect(lib.locator('[data-testid="library-file"][data-file="parkdeck.png"]').getByTestId('library-page')).toHaveCount(1);
   // kein Aufmaß angelegt
   expect(live(await records(page, 'plans'))).toHaveLength(0);
   await waitSaved(page);
   // später: Seite des PDFs als neues Aufmaß wählen
-  await lib.locator('[data-testid="library-file"][data-file="plaene.pdf"]').getByTestId('library-reuse-page').first().click();
+  await lib.locator('[data-testid="library-file"][data-file="plaene.pdf"]').getByTestId('library-reuse').first().click();
   const dlg = page.getByTestId('reuse-plan');
   await expect(dlg).toBeVisible();
 });
