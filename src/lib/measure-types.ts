@@ -22,13 +22,13 @@ export interface MeasureTypeInfo {
 }
 
 export const MEASURE_TYPES: MeasureTypeInfo[] = [
-  { id: 'flaeche', label: 'Fläche', unit: 'm²', kind: 'area', icon: 'rect', hint: 'Länge × Breite × Anzahl, minus Abzüge' },
-  { id: 'wand', label: 'Wand', unit: 'm²', kind: 'area', icon: 'wall', hint: 'Länge × Höhe × Anzahl, minus Öffnungen; Wandstärke optional (m³)' },
-  { id: 'laenge', label: 'Länge', unit: 'm', kind: 'line', icon: 'line', hint: 'Länge × Anzahl, optional von/bis' },
-  { id: 'volumen', label: 'Volumen', unit: 'm³', kind: 'area', icon: 'component', hint: 'Länge × Breite × Höhe bzw. Tiefe × Anzahl' },
-  { id: 'stueck', label: 'Stück', unit: 'Stk', kind: 'line', icon: 'pin', hint: 'Anzahl, Bauteil und Beschreibung' },
-  { id: 'schadstelle', label: 'Betoninstandsetzung', unit: 'm²', kind: 'damage', icon: 'ellipse', hint: 'Länge × Breite × Tiefe, Schadensart, Fotos' },
-  { id: 'frei', label: 'Frei', unit: '', kind: 'line', icon: 'edit', hint: 'eigene Rechnung und Einheit, z. B. 2*3,5+1,2' },
+  { id: 'flaeche', label: 'Fläche', unit: 'm²', kind: 'area', icon: 'rect', hint: 'Länge × Breite · Böden, Decken, Grundrissflächen, Beschichtungen, Abdichtungen' },
+  { id: 'wand', label: 'Wand', unit: 'm²', kind: 'area', icon: 'wall', hint: 'Länge × Höhe · Wände, Brüstungen, Sockel, Fassaden; Wandstärke optional (m³)' },
+  { id: 'laenge', label: 'Länge', unit: 'm', kind: 'line', icon: 'line', hint: 'Meter · Risse, Fugen, Kanten, Anschlüsse, Leitungen – auch Linie für Linie' },
+  { id: 'volumen', label: 'Volumen', unit: 'm³', kind: 'area', icon: 'component', hint: 'Länge × Breite × Höhe · Beton, Estrich, Aushub, Abbruch' },
+  { id: 'stueck', label: 'Stück', unit: 'Stk', kind: 'line', icon: 'pin', hint: 'Anzahl · Bohrungen, Anker, Durchbrüche, Einbauteile' },
+  { id: 'schadstelle', label: 'Betoninstandsetzung', unit: 'm²', kind: 'damage', icon: 'ellipse', hint: 'Länge × Breite × Tiefe + lfm Bewehrung · Abplatzungen, Ausbrüche, Hohlstellen' },
+  { id: 'frei', label: 'Frei', unit: '', kind: 'line', icon: 'edit', hint: 'Beliebig messen mit eigener Rechnung und Einheit, z. B. 2*3,5+1,2' },
 ];
 export const MEASURE_TYPE_IDS = MEASURE_TYPES.map((t) => t.id);
 export const typeInfo = (t: MeasureType) => MEASURE_TYPES.find((x) => x.id === t)!;

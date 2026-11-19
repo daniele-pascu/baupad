@@ -197,6 +197,12 @@ test('Messart wählen, dann mit beliebigem Werkzeug messen: Wand, Stück, Frei, 
   await page.getByTestId('seg-cancel').click();
   await expect(page.getByTestId('segments-bar')).toHaveCount(0);
   await expect(page.getByTestId('tool-mtype')).toBeVisible();
+  // Tipp ins Leere (Auswahl): die untere Leiste klappt zu
+  await pickTool(page, 'tool-select');
+  await expect(page.getByTestId('tool-mtype')).toBeVisible();
+  await page.mouse.click(x + px(14), y + px(9));
+  await expect(page.getByTestId('tools-open')).toBeVisible();
+  await expect(page.getByTestId('tool-mtype')).toHaveCount(0);
 
   // 7) Messart im Dialog umstellen: Betoninstandsetzung mit Schadensart
   await rect(x + px(11), y, px(1), px(1));

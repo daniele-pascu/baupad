@@ -185,8 +185,26 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
     lastFieldTap.current = now;
     if (!dbl) return;
     const dlg = e.currentTarget.closest('.modal');
+    // Handy/Tablet: die Tastatur geht nur auf, wenn noch im selben Antippen ein Feld den Fokus bekommt – das echte
+    // Eingabefeld gibt es aber erst nach dem Umschalten. Deshalb sofort ein unsichtbares Feld an derselben Stelle
+    // fokussieren (Tastatur öffnet sich) und gleich danach ins Längenfeld wechseln (die Tastatur bleibt offen).
+    const r = e.currentTarget.getBoundingClientRect();
+    const proxy = document.createElement('input');
+    proxy.type = 'text';
+    proxy.inputMode = 'decimal';
+    proxy.tabIndex = -1;
+    proxy.setAttribute('aria-hidden', 'true');
+    proxy.dataset.testid = 'keyboard-proxy';
+    Object.assign(proxy.style, { position: 'fixed', left: `${r.left}px`, top: `${r.top}px`, width: '1px', height: '1px', opacity: '0', border: '0', padding: '0', fontSize: '16px' });
+    (dlg ?? document.body).appendChild(proxy);
+    proxy.focus({ preventScroll: true });
     setFromShape(false);
-    setTimeout(() => dlg?.querySelector<HTMLInputElement>('[data-testid="input-length"]')?.focus(), 0);
+    setTimeout(() => {
+      const input = dlg?.querySelector<HTMLInputElement>('[data-testid="input-length"]');
+      input?.focus();
+      input?.select();
+      proxy.remove();
+    }, 30);
   };
   const [v, setV] = useState({
     number: damage.label ?? String(damage.number),
@@ -229,7 +247,9 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
       const ok = count !== null && Number.isInteger(count) && count >= 1 && length !== null && length > 0;
       return { id: r.id, count: count ?? 0, length: length ?? 0, ok };
     });
-  const rebarError = rebarParsed.some((x) => !x.ok) ? 'Bewehrung: Stück als ganze Zahl ab 1 und Länge in m (z. B. 1,20) eingeben.' : null;
+  /** Bewehrung gibt es nur bei der Betoninstandsetzung – bei anderen Messarten wird sie nicht gezeigt und nicht gespeichert */
+  const rebarOn = type === 'schadstelle';
+  const rebarError = rebarOn && rebarParsed.some((x) => !x.ok) ? 'Bewehrung: Stück als ganze Zahl ab 1 und Länge in m (z. B. 1,20) eingeben.' : null;
   const rebarSum = rebarTotal(rebarParsed.filter((x) => x.ok));
   const setRebarRow = (id: string, patch: Partial<{ count: string; length: string }>) => setRebarRows((list) => list.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   const [photoIds, setPhotoIds] = useState<string[]>(damage.photoIds ?? []);
@@ -395,8 +415,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
         area: geo ? geo.area : null,
         deductions: counted || free ? [] : deductions,
         note: note.trim() || null,
-        rebar: rebarParsed.length && !rebarError ? rebarSum : null,
-        rebarItems: rebarError ? [] : rebarParsed.map(({ id, count, length }) => ({ id, count, length })),
+        rebar: rebarOn && rebarParsed.length && !rebarError ? rebarSum : null,
+        rebarItems: !rebarOn || rebarError ? [] : rebarParsed.map(({ id, count, length }) => ({ id, count, length })),
         photoIds,
       },
       renumber,
@@ -1033,6 +1053,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             })()}
           </div>
         )}
+        {/* Bewehrung nur bei Betoninstandsetzung */}
+        {rebarOn && (
         <div className="field rebar-field" data-testid="rebar">
           <span>Bewehrung (optional)</span>
           {rebarRows.map((r, i) => {
@@ -1080,6 +1102,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
           </div>
           {showErrors && rebarError && <small className="error">{rebarError}</small>}
         </div>
+        )}
         <label className="field">
           <span>Bemerkung / Notiz</span>
           <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="optional, z. B. Hinweis zur Messung" data-testid="input-note" />

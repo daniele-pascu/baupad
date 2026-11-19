@@ -195,4 +195,12 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - **Messart Länge mit „Freie Form“:** je zwei Tipps eine Linie (Anfang, Ende); die nächste Linie beginnt frei – mit Abstand oder per Fang an Ende bzw. Mitte einer schon gesetzten Linie (z. B. Risse, die nicht durchgehen). Eine Messung, Länge = Summe aller Linien. Gespeichert als offene Freihand-Form mit `breaks` (Punkt, an dem eine neue Linie beginnt); Darstellung, PDF, Antippen, Punkte verschieben/einfügen/entfernen berücksichtigen die Lücken.
 - Während des Zeichnens unten statt der Leiste nur vier Tasten in dieser Reihenfolge: **X** (verwerfen), **Zurück** (letzten Punkt), **Vor** (wiederherstellen), **Häkchen** (übernehmen). Kein Doppeltippen zum Beenden (Ende und nächster Anfang liegen oft auf demselben Punkt); Enter beendet am PC.
 - Andere Messarten behalten die Freie Form wie bisher (Knick an Knick, schließen = Fläche).
+- **Bewehrung** (lfm) gibt es nur bei der Messart Betoninstandsetzung; bei allen anderen Messarten wird sie weder gezeigt noch gespeichert.
+- **Beschreibung je Messart** („Was wird gemessen?“): Formel und typische Beispiele, z. B. Länge „Meter · Risse, Fugen, Kanten, Anschlüsse, Leitungen“ (`measure-types.ts`).
+- **Untere Leiste:** Tipp ins Leere (Auswahl, neben die Messungen oder außerhalb des Plans) klappt sie zu.
+- **Handy:** Hinweis „Neue Messungen: …“ (Leistung) steht unter der Ansichtsleiste statt darauf.
+- **Doppeltipp auf ein Maß „aus Plan“:** die Tastatur am Handy/Tablet geht sofort auf (unsichtbares Hilfsfeld im selben Antippen, dann ins Längenfeld).
+
+## Papierkorb: Auswählen (19.11.2026)
+- In jedem Papierkorb „Auswählen“: einzelne oder alle Einträge markieren, dann **Wiederherstellen** oder **Endgültig löschen** (Rückfrage; sofort auf allen Geräten).
 

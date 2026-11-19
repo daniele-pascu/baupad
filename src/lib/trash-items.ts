@@ -1,8 +1,8 @@
-import { getDB, getPhoto, listTrashedPhotos, writeRecords } from './db';
+import { getDB, getPhoto, listTrashedPhotos, purgeDeleted, writeRecords } from './db';
 import { getDeviceId } from './ids';
 import { getPhotoStorage, notifyPhotosChanged } from './photo-storage';
-import { listTrashedProjects, restoreProject } from './sites';
-import { getState, reloadProject, type ProjectState } from './store';
+import { deleteProjectEverywhere, listTrashedProjects, restoreProject } from './sites';
+import { flush, getState, reloadProject, type ProjectState } from './store';
 import { trashEntries } from './trash';
 import { DAY, TRASH_DAYS } from './trash-purge';
 import type { EntityStore, Photo } from './types';
@@ -26,6 +26,8 @@ export interface TrashItem {
   siteName?: string;
   daysLeft: number;
   restore(): Promise<void>;
+  /** sofort endgültig löschen (auf allen Geräten) */
+  purge(): Promise<void>;
 }
 
 /** Wo der Papierkorb geöffnet wird: ohne Angaben = Tool-Übersicht (alles) */
@@ -47,6 +49,20 @@ export async function trashPhotos(ids: string[], at = Date.now()): Promise<void>
     if (p && !p.deletedAt && !p.trashedAt) await storage.update({ ...p, trashedAt: at });
   }
   notifyPhotosChanged();
+}
+
+async function purgePhotos(list: Photo[]): Promise<void> {
+  const storage = getPhotoStorage();
+  for (const p of list) await storage.remove(p.id);
+  notifyPhotosChanged();
+}
+
+/** Aufmaß: eine Löschung endgültig entfernen (offenes Projekt vorher speichern, danach neu laden) */
+export async function purgeAufmass(projectId: string, at: number): Promise<void> {
+  const open = getState().projectId === projectId;
+  if (open) await flush();
+  await purgeDeleted(0, { projectId, at });
+  if (open) await reloadProject();
 }
 
 async function restorePhotos(list: Photo[]): Promise<void> {
@@ -77,13 +93,15 @@ async function aufmassItems(now: number, projectId?: string | null): Promise<Tra
     const project = projects.get(pid);
     if (!project || project.deletedAt) continue; // ganzes Projekt im Papierkorb: steht als Projekt da
     for (const e of trashEntries(st, now))
-      out.push({ key: `aufmass:${pid}:${e.at}`, kind: 'aufmass', at: e.at, title: e.title, detail: `${e.detail} · ${project.name}`, projectId: pid, daysLeft: e.daysLeft, restore: () => restoreAufmass(pid, e.at) });
+      out.push({ key: `aufmass:${pid}:${e.at}`, kind: 'aufmass', at: e.at, title: e.title, detail: `${e.detail} · ${project.name}`, projectId: pid, daysLeft: e.daysLeft, restore: () => restoreAufmass(pid, e.at), purge: () => purgeAufmass(pid, e.at) });
   }
   return out;
 }
 
 /** Aufmaß: alles, was zu diesem Zeitpunkt im Projekt gelöscht wurde, zurückholen (auch wenn das Projekt nicht offen ist) */
 async function restoreAufmass(projectId: string, at: number): Promise<void> {
+  // offenes Projekt: ausstehende Änderungen zuerst speichern (Neuladen verwirft die Warteschlange)
+  if (getState().projectId === projectId) await flush();
   const db = await getDB();
   const writes = [];
   for (const store of AUFMASS) {
@@ -104,7 +122,7 @@ export async function loadTrash(scope: TrashScope = {}, now = Date.now()): Promi
   if (!inProject) {
     for (const p of await listTrashedProjects()) {
       if ((p.deletedAt ?? 0) < since) continue;
-      out.push({ key: `project:${p.id}`, kind: 'project', at: p.deletedAt!, title: `Projekt „${p.name}“`, detail: 'mit allen Daten aus allen Tools (außer Einteilung)', projectId: p.id, daysLeft: daysLeft(p.deletedAt!, now), restore: () => restoreProject(p.id) });
+      out.push({ key: `project:${p.id}`, kind: 'project', at: p.deletedAt!, title: `Projekt „${p.name}“`, detail: 'mit allen Daten aus allen Tools (außer Einteilung)', projectId: p.id, daysLeft: daysLeft(p.deletedAt!, now), restore: () => restoreProject(p.id), purge: () => deleteProjectEverywhere(p.id) });
     }
   }
   if (!scope.tool || scope.tool === 'photos') {
@@ -118,7 +136,7 @@ export async function loadTrash(scope: TrashScope = {}, now = Date.now()): Promi
     }
     for (const [k, list] of groups) {
       const at = list[0].trashedAt!;
-      out.push({ key: `photos:${k}`, kind: 'photos', at, title: list.length === 1 ? `Foto vom ${new Date(list[0].takenAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}` : plural(list.length, 'Foto', 'Fotos'), detail: list[0].siteName || 'Fotos', projectId: list[0].projectId ?? null, siteName: list[0].siteName, daysLeft: daysLeft(at, now), restore: () => restorePhotos(list) });
+      out.push({ key: `photos:${k}`, kind: 'photos', at, title: list.length === 1 ? `Foto vom ${new Date(list[0].takenAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}` : plural(list.length, 'Foto', 'Fotos'), detail: list[0].siteName || 'Fotos', projectId: list[0].projectId ?? null, siteName: list[0].siteName, daysLeft: daysLeft(at, now), restore: () => restorePhotos(list), purge: () => purgePhotos(list) });
     }
   }
   if (!scope.tool || scope.tool === 'projects') out.push(...(await aufmassItems(now, scope.projectId ?? undefined)));

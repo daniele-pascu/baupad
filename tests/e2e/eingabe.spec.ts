@@ -249,6 +249,11 @@ test('Messung: Bemerkung / Notiz im Dialog, in der Aufmaß-Tabelle und im Excel'
   await dlg.getByTestId('input-length').fill('5');
   await dlg.getByTestId('input-width').fill('2');
   await dlg.getByTestId('input-note').fill('Ecke beschädigt');
+  // Bewehrung nur bei der Betoninstandsetzung (bei der Fläche gibt es das Feld nicht)
+  await expect(dlg.getByTestId('rebar')).toHaveCount(0);
+  await dlg.getByTestId('measure-type-select').selectOption('schadstelle');
+  await dlg.getByTestId('input-length').fill('5');
+  await dlg.getByTestId('input-width').fill('2');
   // Bewehrung: Zeilen Stück × Länge, Summe automatisch; ungültige Länge wird gemeldet
   await dlg.getByTestId('rebar-add').click();
   await dlg.getByTestId('rebar-count').nth(0).fill('4');
@@ -271,10 +276,11 @@ test('Messung: Bemerkung / Notiz im Dialog, in der Aufmaß-Tabelle und im Excel'
     [4, 1.2],
     [2, 0.8],
   ]);
-  await expect(page.getByTestId('row-rebar')).toHaveText(['', '6,40']);
+  // eigene Tabelle je Messart: die Bewehrung steht bei der Betoninstandsetzung
+  await expect(page.getByTestId('row-rebar')).toHaveText(['6,40']);
   await expect(page.getByTestId('sum-rebar')).toHaveText('6,40');
   await expect(page.getByTestId('aufmass-table').locator('th.note-col')).toHaveText('Bemerkung');
-  await expect(page.getByTestId('row-note')).toHaveText(['', 'Ecke beschädigt']);
+  await expect(page.getByTestId('row-note')).toHaveText(['Ecke beschädigt']);
   // Notiz bleibt beim Bearbeiten erhalten
   await page.locator('[data-testid="aufmass-row"][data-number="2"]').getByRole('button', { name: /2 bearbeiten/ }).click();
   await expect(dlg.getByTestId('input-note')).toHaveValue('Ecke beschädigt');

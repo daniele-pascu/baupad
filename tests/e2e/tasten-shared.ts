@@ -391,6 +391,8 @@ export function tastenTests() {
     await drawRect(page, box.x + box.width * 0.3, box.y + box.height * 0.3, box.x + box.width * 0.45, box.y + box.height * 0.45);
     const dlg = page.getByTestId('damage-dialog');
     await expect(dlg).toBeVisible();
+    // Bewehrung gibt es nur bei der Betoninstandsetzung
+    await dlg.getByTestId('measure-type-select').selectOption('schadstelle');
     await dlg.getByTestId('rebar-add').click();
     await pruefe(page, 'Messdialog', out);
     await dlg.getByTestId('input-length').fill('2');

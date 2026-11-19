@@ -1816,7 +1816,11 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               tool={guideTool ? 'pick' : tool}
               color={color}
               pending={dialog?.mode === 'new' ? { shape: dialog.shape, color } : null}
-              onSelect={(id) => select(id)}
+              onSelect={(id) => {
+                // Tipp ins Leere (neben die Messungen, außerhalb des Plans): untere Leiste zuklappen, der Plan ist frei
+                if (id === null && tool === 'select' && toolsOpen) setToolsOpen(false);
+                select(id);
+              }}
               onCreate={(shape) =>
                 dedDraw
                   ? finishDedDraw(shape)

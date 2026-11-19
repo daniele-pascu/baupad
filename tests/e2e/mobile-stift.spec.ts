@@ -1,6 +1,6 @@
 import { expect, test, type CDPSession } from './fixtures';
 import { join } from 'node:path';
-import { createProject, FIXTURES, freshStart, pickTool, waitForPlan } from './helpers';
+import { chooseMeasureType, createProject, FIXTURES, freshStart, pickTool, waitForPlan } from './helpers';
 
 /** Apple Pencil + Finger: Stift setzt Punkte, zwei Finger zoomen dazwischen; aufliegende Hand */
 const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -34,6 +34,8 @@ test('Stift setzt Punkte, zwei Finger zoomen dazwischen – Fläche bleibt erhal
   await waitForPlan(page);
   const cdp = await page.context().newCDPSession(page);
   const viewer = page.getByTestId('plan-viewer');
+  // Fläche mit Freier Form (bei Länge setzt die Freie Form einzelne Linien und schließt nicht)
+  await chooseMeasureType(page, 'flaeche', 'tap');
   await pickTool(page, 'tool-polyline', 'tap');
   const b = (await viewer.boundingBox())!;
   const at = (fx: number, fy: number) => ({ x: b.x + b.width * fx, y: b.y + b.height * fy });
