@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { Icon } from './Icon';
 import { PAPER } from '../lib/drawing';
 import { hiddenLayerNames } from '../lib/layers';
 import { exportPaper } from '../lib/sheet-layout';
@@ -16,11 +15,14 @@ interface Props {
   costCenterId?: string;
   /** vorausgewählte Pläne */
   initial: string[];
+  /** 'plans' = Pläne als PDF, 'photos' = Fotos der Messungen als eigenes PDF (eigene Taste „Fotos exportieren“) */
+  mode?: 'plans' | 'photos';
   onClose: () => void;
 }
 
-/** Auswahl der Pläne für den PDF-Export (einzelner Plan oder mehrere). */
-export function PdfExportDialog({ data, costCenterId, initial, onClose }: Props) {
+/** Auswahl der Pläne für den PDF-Export (einzelner Plan oder mehrere) bzw. für den Foto-Export. */
+export function PdfExportDialog({ data, costCenterId, initial, mode = 'plans', onClose }: Props) {
+  const photos = mode === 'photos';
   const groups = useMemo(
     () =>
       costCentersOf(data)
@@ -35,7 +37,8 @@ export function PdfExportDialog({ data, costCenterId, initial, onClose }: Props)
   // Übersicht des Gesamtplans (nur bei Plänen mit Ausschnitt); Einstellung wird gemerkt
   const [overview, setOverview] = useState(() => readPref('pdfOverview', '1') === '1');
   const [corner, setCorner] = useState<OverviewCorner>(() => (readPref('pdfOverviewCorner', 'tr') as OverviewCorner));
-  const photoCount = [...selected].reduce((n, id) => n + damagesOf(data, id).reduce((k, d) => k + (d.photoIds?.length ?? 0), 0), 0);
+  const photosOf = (id: string) => damagesOf(data, id).reduce((k, d) => k + (d.photoIds?.length ?? 0), 0);
+  const photoCount = [...selected].reduce((n, id) => n + photosOf(id), 0);
   const anyCrop = [...selected].some((id) => data.plans[id]?.crop && data.plans[id]?.source !== 'drawing');
   const allIds = groups.flatMap((g) => g.plans.map((p) => p.id));
   const toggle = (id: string) => {
@@ -77,30 +80,38 @@ export function PdfExportDialog({ data, costCenterId, initial, onClose }: Props)
   if (preview) return <PdfPreview file={preview} onBack={() => setPreview(null)} onClose={onClose} />;
   return (
     <Modal
-      title="Pläne als PDF exportieren"
+      title={photos ? 'Fotos exportieren' : 'Pläne als PDF exportieren'}
       onClose={onClose}
-      testId="pdf-export-dialog"
+      testId={photos ? 'photos-export-dialog' : 'pdf-export-dialog'}
       footer={
         <>
           <button type="button" className="btn" onClick={onClose}>
             Abbrechen
           </button>
-          {photoCount > 0 && (
-            <button type="button" className="btn" disabled={busy} onClick={() => void runPhotos()} data-testid="pdf-photos-run" title="Eigenes PDF: jedes Foto mit Plan, Nummer und Position">
-              <Icon name="camera" size={16} /> Foto-PDF ({photoCount})
+          {photos ? (
+            <button type="button" className="btn btn-primary" disabled={busy || !photoCount} onClick={() => void runPhotos()} data-testid="pdf-photos-run" title="Eigenes PDF: jedes Foto mit Plan, Nummer und Position">
+              {busy ? 'PDF wird erstellt …' : `${photoCount} ${photoCount === 1 ? 'Foto' : 'Fotos'} – Vorschau`}
+            </button>
+          ) : (
+            <button type="button" className="btn btn-primary" disabled={busy || !selected.size} onClick={() => void run()} data-testid="pdf-export-run">
+              {busy ? 'PDF wird erstellt …' : `${selected.size} Plan/Pläne – Vorschau`}
             </button>
           )}
-          <button type="button" className="btn btn-primary" disabled={busy || !selected.size} onClick={() => void run()} data-testid="pdf-export-run">
-            {busy ? 'PDF wird erstellt …' : `${selected.size} Plan/Pläne – Vorschau`}
-          </button>
         </>
       }
     >
-      <p className="muted">
-        Jeder ausgewählte Plan wird als eigene Seite im gewählten Papierformat (A4/A3) mit allen Markierungen und Nummern
-        ausgegeben – proportional eingepasst, mit 1 cm Rand. Das Format lässt sich in den Planangaben ändern. Die
-        Originaldateien bleiben unverändert.
-      </p>
+      {photos ? (
+        <p className="muted">
+          Alle Fotos der Messungen in den ausgewählten Plänen als eigenes PDF – je Foto ein großes Bild, beschriftet mit Plan
+          und Nummer der Messung (und der Position, wenn zugeordnet). Zwei Fotos je A4-Seite.
+        </p>
+      ) : (
+        <p className="muted">
+          Jeder ausgewählte Plan wird als eigene Seite im gewählten Papierformat (A4/A3) mit allen Markierungen und Nummern
+          ausgegeben – proportional eingepasst, mit 1 cm Rand. Das Format lässt sich in den Planangaben ändern. Die
+          Originaldateien bleiben unverändert.
+        </p>
+      )}
       <div className="row gap">
         <button type="button" className="btn btn-sm" onClick={() => setSelected(new Set(allIds))}>
           Alle auswählen
@@ -118,8 +129,14 @@ export function PdfExportDialog({ data, costCenterId, initial, onClose }: Props)
               <span>
                 {planTitle(p)}{' '}
                 <span className="muted">
-                  · {damagesOf(data, p.id).length} Schadstellen · <span data-testid="pdf-plan-paper">{PAPER[exportPaper(p)].label}</span>
-                  {hiddenLayerNames(p).length > 0 && (
+                  {photos ? (
+                    <> · {photosOf(p.id)} {photosOf(p.id) === 1 ? 'Foto' : 'Fotos'}</>
+                  ) : (
+                    <>
+                      · {damagesOf(data, p.id).length} Schadstellen · <span data-testid="pdf-plan-paper">{PAPER[exportPaper(p)].label}</span>
+                    </>
+                  )}
+                  {!photos && hiddenLayerNames(p).length > 0 && (
                     <span className="warn-text" data-testid="pdf-hidden-layers">
                       {' '}
                       · ausgeblendet: {hiddenLayerNames(p).join(', ')}
@@ -132,7 +149,7 @@ export function PdfExportDialog({ data, costCenterId, initial, onClose }: Props)
         </fieldset>
       ))}
       {!groups.length && <p>Keine Pläne vorhanden.</p>}
-      {anyCrop && (
+      {!photos && anyCrop && (
         <fieldset className="check-group" data-testid="pdf-overview-options">
           <legend>Planausschnitte</legend>
           <label className="check-row">

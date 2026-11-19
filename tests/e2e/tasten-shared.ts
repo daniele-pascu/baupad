@@ -439,6 +439,12 @@ export function tastenTests() {
       await page.getByTestId('mobile-tab-table').click();
       await pruefe(page, 'Plan-Editor Tabelle', out);
     }
+    // eigene Taste „Fotos“ neben „PDF“: Fenster Fotos exportieren
+    await page.getByTestId('export-photos-plan').click();
+    await expect(page.getByTestId('photos-export-dialog')).toBeVisible();
+    await pruefe(page, 'Fenster Fotos exportieren', out);
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('photos-export-dialog')).toHaveCount(0);
     expect(out, out.join('\n')).toEqual([]);
   });
 

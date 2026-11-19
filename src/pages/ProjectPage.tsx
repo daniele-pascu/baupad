@@ -56,6 +56,8 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
   const [editing, setEditing] = useState(false);
   /** PDF-Dialog: vorausgewählte Pläne (null = zu) */
   const [pdfPlans, setPdfPlans] = useState<string[] | null>(null);
+  // eigene Taste „Fotos exportieren“: derselbe Auswahldialog, aber für das Foto-PDF
+  const [photoPlans, setPhotoPlans] = useState<string[] | null>(null);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [details, setDetails] = useState<Plan | null>(null);
   const [cropping, setCropping] = useState<{ plan: Plan; image: HTMLCanvasElement } | null>(null);
@@ -676,6 +678,9 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
               <button type="button" className="btn" onClick={() => setPdfPlans(plans.map((p) => p.id))} data-testid="plans-pdf">
                 <Icon name="pdf" /> Pläne als PDF herunterladen
               </button>
+              <button type="button" className="btn" onClick={() => setPhotoPlans(plans.map((p) => p.id))} data-testid="plans-photos">
+                <Icon name="camera" /> Fotos exportieren
+              </button>
             </div>
           )}
           {plans.length ? null : (
@@ -870,6 +875,9 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
           <button type="button" className="btn" onClick={() => setPdfPlans(plans.map((p) => p.id))} disabled={!plans.length}>
             <Icon name="pdf" /> PDF – Pläne auswählen
           </button>
+          <button type="button" className="btn" onClick={() => setPhotoPlans(plans.map((p) => p.id))} disabled={!plans.length} data-testid="project-photos-export">
+            <Icon name="camera" /> Fotos exportieren
+          </button>
           <button type="button" className="btn" onClick={() => void backup()} data-testid="backup-project">
             <Icon name="download" /> Projekt sichern (Datei)
           </button>
@@ -988,6 +996,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
         />
       )}
       {pdfPlans && <PdfExportDialog data={data} costCenterId={active?.id} initial={pdfPlans} onClose={() => setPdfPlans(null)} />}
+      {photoPlans && <PdfExportDialog data={data} costCenterId={active?.id} initial={photoPlans} mode="photos" onClose={() => setPhotoPlans(null)} />}
     </div>
     </>
   );
