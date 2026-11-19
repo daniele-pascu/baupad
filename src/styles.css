@@ -2442,38 +2442,6 @@ tr.lv-flagged td {
   border-color: #fff;
   background: rgba(255, 255, 255, 0.08);
 }
-.site-menu-btn {
-  display: none;
-  width: 44px;
-  height: 44px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  position: relative;
-}
-.site-menu-btn span {
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  height: 1.5px;
-  background: #f5f5f7;
-  transition: transform 0.25s ease, top 0.25s ease;
-}
-.site-menu-btn span:first-child {
-  top: 17px;
-}
-.site-menu-btn span:last-child {
-  top: 25px;
-}
-.site-menu-btn[aria-expanded='true'] span:first-child {
-  top: 21px;
-  transform: rotate(45deg);
-}
-.site-menu-btn[aria-expanded='true'] span:last-child {
-  top: 21px;
-  transform: rotate(-45deg);
-}
-
 .site-main {
   flex: 1;
   width: 100%;
@@ -2534,39 +2502,18 @@ tr.lv-flagged td {
 }
 
 @media (max-width: 720px) {
+  /* Handy: BauPad links, „Tools“ in der Mitte, rechts Speicherstand und Konto – ohne Menü */
   .site-nav-inner {
-    grid-template-columns: auto 1fr;
+    grid-template-columns: auto 1fr auto;
+    gap: 10px;
     height: 56px;
     padding: 0 12px 0 16px;
   }
   .site-links {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    flex-direction: column;
-    gap: 0;
-    padding: 0 16px;
-    background: #000;
-    max-height: 0;
-    overflow: hidden;
-    /* zugeklappt auch für Tastatur und Bildschirmleser verborgen */
-    visibility: hidden;
-    transition: max-height 0.3s ease, padding 0.3s ease, visibility 0s linear 0.3s;
-  }
-  .site-links.open {
-    max-height: 200px;
-    padding: 4px 16px 16px;
-    visibility: visible;
-    transition: max-height 0.3s ease, padding 0.3s ease, visibility 0s;
+    justify-content: center;
   }
   .site-links a {
-    padding: 14px 4px;
-    font-size: 1.1rem;
-    border-bottom: 1px solid #1d1d1f;
-  }
-  .site-menu-btn {
-    display: block;
+    font-size: 1rem;
   }
 }
 

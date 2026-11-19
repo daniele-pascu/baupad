@@ -73,58 +73,28 @@ function WebsiteBar() {
   );
 }
 
+/**
+ * Leiste der App (angemeldet): links BauPad, in der Mitte nur „Tools“, rechts Speicherstand und Konto.
+ * Kein Menü, kein Kontakt, Impressum oder Datenschutz oben – die stehen unten im Konto.
+ */
 function AppNav({ hash, session }: { hash: string; session: NonNullable<ReturnType<typeof useSession>> }) {
-  const [open, setOpen] = useState(false);
-  useEffect(() => setOpen(false), [hash]);
   const current = (p: string) => (hash === p ? 'page' : undefined);
-
   return (
     <header className="site-nav" data-testid="site-nav">
       <div className="site-nav-inner">
         <a href={paths.landing()} className="site-logo" aria-label="BauPad – zur Startseite">
           <img src="/icons/logo-header.png" alt="BauPad" height={30} />
         </a>
-        <nav className={`site-links${open ? ' open' : ''}`} aria-label="Hauptnavigation" id="site-links">
-          {session ? (
-            // angemeldet: die App; Impressum und Datenschutz von jeder Werkzeugseite mit einem Klick
-            <>
-              <a href={paths.tools()} aria-current={current(paths.tools())}>
-                Tools
-              </a>
-              <a href={paths.imprint()}>Impressum</a>
-              <a href={paths.privacy()}>Datenschutz</a>
-            </>
-          ) : (
-            <>
-              <a href={paths.landing()}>Website</a>
-              <a href={paths.contact()} aria-current={current(paths.contact())}>
-                Kontakt
-              </a>
-            </>
-          )}
+        <nav className="site-links" aria-label="Hauptnavigation">
+          <a href={paths.tools()} aria-current={current(paths.tools())} data-testid="nav-tools">
+            Tools
+          </a>
         </nav>
         <div className="site-actions">
-          {session && <SyncBadge />}
-          {session ? (
-            <a href={paths.account()} className="site-login" aria-current={current(paths.account())} data-testid="nav-account" title={session.email}>
-              {session.name ? shortName(session.name) : 'Konto'}
-            </a>
-          ) : (
-            <a href={paths.login()} className="site-login" aria-current={current(paths.login())}>
-              Anmelden
-            </a>
-          )}
-          <button
-            type="button"
-            className="site-menu-btn"
-            aria-label={open ? 'Menü schließen' : 'Menü öffnen'}
-            aria-expanded={open}
-            aria-controls="site-links"
-            onClick={() => setOpen(!open)}
-          >
-            <span />
-            <span />
-          </button>
+          <SyncBadge />
+          <a href={paths.account()} className="site-login" aria-current={current(paths.account())} data-testid="nav-account" title={session.email}>
+            {session.name ? shortName(session.name) : 'Konto'}
+          </a>
         </div>
       </div>
     </header>

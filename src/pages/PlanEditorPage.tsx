@@ -474,7 +474,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     setLastPositionState(ref);
     storePref(`lastPosition:${planId}`, ref);
   };
-  const [pdfOpen, setPdfOpen] = useState(false);
+  const [pdfOpen, setPdfOpen] = useState<false | 'plans' | 'photos'>(false);
   const [sideWidth, setSideWidth] = useState(loadSideWidth);
   /** Messleiste am PC eingeklappt (nach rechts) – bleibt gemerkt */
   const [sideCollapsed, setSideCollapsed] = useState(() => {
@@ -1522,8 +1522,11 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           <button type="button" className="btn btn-sm" onClick={exportExcel} title="Aufmaß dieses Plans als Excel" data-testid="export-xlsx-plan">
             <Icon name="excel" size={18} /> <span className="hide-sm">Excel</span>
           </button>
-          <button type="button" className="btn btn-sm" onClick={() => setPdfOpen(true)} title="Plan als PDF" data-testid="export-pdf-plan">
+          <button type="button" className="btn btn-sm" onClick={() => setPdfOpen('plans')} title="Plan als PDF" data-testid="export-pdf-plan">
             <Icon name="pdf" size={18} /> <span className="hide-sm">PDF</span>
+          </button>
+          <button type="button" className="btn btn-sm" onClick={() => setPdfOpen('photos')} title="Fotos der Messungen exportieren (PDF, mit Nummer)" aria-label="Fotos exportieren" data-testid="export-photos-plan">
+            <Icon name="camera" size={18} /> <span className="hide-sm">Fotos</span>
           </button>
         </div>
       </header>
@@ -2811,7 +2814,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         />
       )}
       {rotateOpen && plan && <RotatePlanDialog data={data} plan={plan} onClose={() => setRotateOpen(false)} onReuse={() => setRotateOpen(false)} />}
-      {pdfOpen && <PdfExportDialog data={data} costCenterId={plan.costCenterId} initial={[plan.id]} onClose={() => setPdfOpen(false)} />}
+      {pdfOpen && <PdfExportDialog data={data} costCenterId={plan.costCenterId} initial={[plan.id]} mode={pdfOpen} onClose={() => setPdfOpen(false)} />}
     </div>
   );
 }

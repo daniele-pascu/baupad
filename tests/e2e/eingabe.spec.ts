@@ -397,10 +397,14 @@ test('Messung: Fotos wie im Mängelplan (Galerie → Fotodokumentation), Taste F
   expect(Number(word[2])).toBeLessThan(pageH / 2);
   expect(Number(/Pages:\s+(\d+)/.exec(execFileSync('pdfinfo', [pdf], { encoding: 'utf8' }))![1])).toBe(1);
   await page.keyboard.press('Escape');
-  // Foto-PDF separat: jedes Foto mit Plan, Nummer und Position
+  // Foto-PDF über die eigene Taste „Fotos“ neben „PDF“: jedes Foto mit Plan und Nummer
+  await page.getByTestId('export-pdf-plan').click();
+  await expect(page.getByTestId('pdf-photos-run')).toHaveCount(0); // im Plan-Export kein Foto-Knopf mehr
+  await page.keyboard.press('Escape');
   const fdl = await catchDownload(page, async () => {
-    await page.getByTestId('export-pdf-plan').click();
-    await expect(page.getByTestId('pdf-photos-run')).toContainText('Foto-PDF (3)');
+    await page.getByTestId('export-photos-plan').click();
+    await expect(page.getByTestId('photos-export-dialog')).toBeVisible();
+    await expect(page.getByTestId('pdf-photos-run')).toContainText('3 Fotos');
     await page.getByTestId('pdf-photos-run').click();
   });
   const fpdf = await saveDownload(fdl, 'fotos.pdf');
