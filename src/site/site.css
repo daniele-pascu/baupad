@@ -247,6 +247,9 @@
     0 16px 36px -18px rgba(0, 0, 0, 0.8);
 }
 .ps-site .ps-header.open .ps-bar {
+  /* offenes Menü: fest dunkel und ohne Weichzeichner – Safari zog sonst den hellen Grund über den dunklen Hintergrund
+     (Schrift weiß auf hell, kaum lesbar) */
+  --ps-bar-blur: none;
   background-color: rgba(34, 34, 37, 0.97);
 }
 :is(.ps-site, .ps-chrome) .ps-nav a:hover,
@@ -436,6 +439,11 @@
   /* aufgeklappt: Leiste wird höher – dann gleichmäßig gerundete Ecken statt Pillen-Enden */
   .ps-header.open .ps-bar {
     border-radius: 31px;
+  }
+  /* Die Leiste behält ihre Höhe im Seitenfluss: das offene Menü legt sich über die Seite, statt sie nach unten zu
+     schieben (sonst rutscht der schwarze Kopf weg und das Menü liegt über hellem Grund) */
+  .ps-header {
+    height: 60px;
   }
   .ps-logo {
     gap: 8px;
