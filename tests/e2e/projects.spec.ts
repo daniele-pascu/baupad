@@ -26,8 +26,8 @@ test('Website: Startseite – Name, Motto, BauPad mit den sieben Werkzeugen, Arb
   await expect(page.locator('#loesungen').getByTestId('home-tool-list')).toBeVisible();
   await expect(page.getByTestId('home-steps').locator('li')).toHaveText(['Problem verstehen', 'Lösung bauen', 'Laufend verfeinern']);
   await expect(page.getByTestId('cta-contact-2')).toBeVisible();
-  // ein Bild (BauPad am Handy), sonst alles echter Text; Grafiken nur die sieben Werkzeug-Symbole
-  await expect(page.locator('.ps-main img')).toHaveCount(1);
+  // kein Bild (Handy-Bild entfernt, 19.11.2026), alles echter Text; Grafiken nur die sieben Werkzeug-Symbole
+  await expect(page.locator('.ps-main img')).toHaveCount(0);
   await expect(page.locator('.ps-main canvas')).toHaveCount(0);
   await expect(page.locator('.ps-main svg')).toHaveCount(7);
   await expect(page.locator('.ph-win')).toHaveCount(1); // nur BauPad (mit den Werkzeugen) im Fenster
@@ -150,7 +150,7 @@ test('Website: Startseite, Produkte, BauPad, Unternehmen, Kontaktformular, Sprac
   await expect(page.locator('html')).toHaveAttribute('lang', 'de');
   // direkt nach dem ersten Bildschirm: BauPad
   await expect(page.getByTestId('home-product')).toHaveAttribute('href', '/baupad');
-  await expect(page.locator('.ps-main img')).toHaveCount(1); // nur BauPad am Handy
+  await expect(page.locator('.ps-main img')).toHaveCount(0); // kein Handy-Bild mehr
 
   // Produkte
   await page.getByTestId('site-footer').getByRole('link', { name: 'Produkte', exact: true }).click();
