@@ -1343,6 +1343,13 @@ input[type='range'] {
   flex: 1;
   margin: 0 10px;
 }
+/* iPad/Handy: der Scroll-Balken liegt über dem Inhalt – rechts Platz lassen, damit er Kopfzeile und Tasten nicht verdeckt
+   (am PC reserviert scrollbar-gutter den Platz fest) */
+.editor-side .table-wrap.aufmass-tables {
+  margin-right: 4px;
+  padding-right: 8px;
+  scrollbar-gutter: stable;
+}
 .side-foot {
   padding: 10px;
 }
