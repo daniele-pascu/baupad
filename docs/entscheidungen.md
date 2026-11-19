@@ -217,8 +217,12 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - Papierkorb-Taste oben in Berichte, Mängel und Material sowie im jeweiligen Projekt bzw. auf der Baustelle.
 
 ## Vier Tasten beim Zeichnen (19.11.2026)
-- **Tasten-Design:** noch offen – Daniele möchte Entwürfe in Glas-Optik sehen (Vorschau, nicht einbauen).
+- **Tasten-Design:** noch offen – Entwürfe als Vorschau (Glas G1–G5, Liquid L1–L3, Wunsch M1/M2: hell Rauchglas durchsichtiger, dunkel weiße Tasten). Abschalten später über „Transparenz reduzieren“ (Konto → Darstellung).
 - **Vier Tasten X · Zurück · Vor · Häkchen** im Aufmaß für alle Mehrpunkt-Tools (Freie Form, Vieleck, Wand, Stück-Punkte) und für Freihand – statt „Offen beenden“, „Schließen (Fläche)“, „Fertig“. Kein Tipp mehr als vorher; offen oder geschlossen ergibt sich aus der Messart. Stück zeigt die laufende Anzahl neben dem Häkchen.
 - **Freihand im Aufmaß:** Striche sind ein Entwurf (Zurück/Vor je Strich), das Häkchen übernimmt. Bei Länge zählen mehrere Striche als eine Messung (Lücken dazwischen), bei Flächen gilt der letzte Strich.
 - Ein-Zug-Tools (Rechteck, Kreis, Linie) bleiben ohne Häkchen (sonst +1 Tipp je Messung).
 
+## Planbibliothek nur mit Plänen (19.11.2026)
+- Die Planbibliothek zeigt nur die Originalpläne – je Seite eine große Vorschau mit „Neues Aufmaß“. Keine Angabe mehr, in welchen Aufmaßen ein Plan verwendet wird (Suche findet ihn trotzdem auch über Plannummer/Bezeichnung).
+- „Neues Aufmaß“ übernimmt Kalibrierung, Papierformat und Nummernvorschlag vom ältesten Aufmaß mit der ganzen, ungedrehten Seite. Einen Planbereich (Ausschnitt) erneut verwenden geht weiter über das Aktionsmenü des Aufmaßes („Neues Aufmaß mit diesem Plan“).
+- „Plan ansehen“ nutzt die Planansicht des Aufmaßes: mit zwei Fingern bzw. Mausrad zoomen, beim Hineinzoomen scharf in voller Auflösung, Originalfarben; + / Ganzer Plan / − oben.

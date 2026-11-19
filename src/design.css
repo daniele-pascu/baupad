@@ -801,20 +801,16 @@ html[data-theme='dark'] .btn.btn-ink:active {
   border-radius: 50%;
 }
 .lib-viewer-body {
+  position: relative;
   flex: 1;
   min-height: 0;
-  overflow: auto;
-  padding: 8px 12px calc(16px + var(--safe-bottom, 0px));
-  text-align: center;
-  -webkit-overflow-scrolling: touch;
+  overflow: hidden;
+  margin-bottom: var(--safe-bottom, 0px);
 }
-.lib-viewer-body img {
+.lib-viewer-msg {
   display: block;
-  max-width: none;
-  height: auto;
-  margin: 0 auto;
-  border-radius: 6px;
-  background: #fff;
+  padding: 24px;
+  text-align: center;
 }
 @media (max-width: 519px) {
   .lib-viewer-head {

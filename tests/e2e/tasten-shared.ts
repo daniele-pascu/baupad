@@ -489,8 +489,10 @@ export function tastenTests() {
     await page.getByTestId('trash-dialog').getByRole('button', { name: 'Schließen' }).last().click();
     // Planbibliothek: Plan nur ansehen
     await page.getByTestId('open-plan-library').click();
+    await expect(page.getByTestId('plan-library').locator('.lib-thumb img').first()).toBeVisible();
+    await pruefe(page, 'Planbibliothek', out);
     await page.getByTestId('library-view-open').first().click();
-    await expect(page.getByTestId('library-viewer-img')).toBeVisible();
+    await expect(page.getByTestId('library-viewer').getByTestId('plan-viewer')).toHaveAttribute('data-scale', /\d/);
     await pruefe(page, 'Plan ansehen (Planbibliothek)', out);
     await page.getByTestId('library-viewer-close').click();
     expect(out, out.join('\n')).toEqual([]);

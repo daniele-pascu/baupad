@@ -1,12 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { costCenterLabel, damagesOf } from '../lib/aufmass';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { costCenterLabel } from '../lib/aufmass';
 import { closePdf, getImageBitmap, getPdfDocument, openPdf, pageSize } from '../lib/pdf';
 import { putBlob } from '../lib/db';
 import { uuid } from '../lib/ids';
 import { detectKind, mimeOf } from './ImportWizard';
 import { sameNumberScope } from '../lib/invoices';
-import { paths } from '../lib/router';
 import { alive, newMeta, putRecord, softDelete, type ProjectState } from '../lib/store';
 import { renderSource } from '../lib/thumbs';
 import type { Plan, PlanRotation, Rect, SourceFile } from '../lib/types';
@@ -23,39 +21,57 @@ export interface PlanSource {
   base: Plan | null;
 }
 
-/** Ansichten einer Datei: je Seite/Ausschnitt die Aufmaße, die darauf verweisen */
-function viewsOf(data: ProjectState, file: SourceFile) {
-  const plans = alive(data.plans).filter((p) => p.fileId === file.id && p.source !== 'drawing');
-  const views = new Map<string, Plan[]>();
-  for (const p of plans.sort((a, b) => a.pageIndex - b.pageIndex || a.createdAt - b.createdAt)) {
-    const key = `${p.pageIndex}:${p.rotation ?? 0}:${JSON.stringify(p.crop)}`;
-    views.set(key, [...(views.get(key) ?? []), p]);
-  }
-  const usedPages = new Set(plans.map((p) => p.pageIndex));
-  const freePages = Array.from({ length: file.pageCount || 1 }, (_, i) => i).filter((i) => !usedPages.has(i));
-  return { plans, views: [...views.values()], freePages };
+// Plan groß ansehen (Planansicht wie im Aufmaß) erst bei Bedarf laden
+const PlanViewOnly = lazy(() => import('./PlanViewOnly').then((m) => ({ default: m.PlanViewOnly })));
+
+/**
+ * Seiten einer Datei. Je Seite das älteste Aufmaß mit der ganzen, ungedrehten Seite als Vorlage für „Neues Aufmaß“
+ * (Kalibrierung, Papierformat, Plannummer als Vorschlag); angezeigt wird es nicht.
+ */
+function pagesOf(data: ProjectState, file: SourceFile) {
+  const plans = alive(data.plans)
+    .filter((p) => p.fileId === file.id && p.source !== 'drawing')
+    .sort((a, b) => a.createdAt - b.createdAt);
+  const pages = Array.from({ length: file.pageCount || 1 }, (_, i) => ({
+    index: i,
+    base: plans.find((p) => p.pageIndex === i && !p.crop && !p.rotation) ?? null,
+  }));
+  return { plans, pages };
 }
 
-export function SourceThumb({ file, pageIndex, crop, rotation = 0 }: { file: SourceFile; pageIndex: number; crop: Rect | null; rotation?: PlanRotation }) {
+export function SourceThumb({
+  file,
+  pageIndex,
+  crop,
+  rotation = 0,
+  size = 360,
+}: {
+  file: SourceFile;
+  pageIndex: number;
+  crop: Rect | null;
+  rotation?: PlanRotation;
+  /** längste Seite der Vorschau in Pixeln */
+  size?: number;
+}) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
-    renderSource(file, pageIndex, 360, crop, rotation)
-      .then((c) => live && setUrl(c.toDataURL('image/jpeg', 0.75)))
+    renderSource(file, pageIndex, size, crop, rotation)
+      .then((c) => live && setUrl(c.toDataURL('image/jpeg', size > 360 ? 0.85 : 0.75)))
       .catch(() => live && setUrl(''));
     return () => {
       live = false;
     };
-  }, [file, pageIndex, crop, rotation]);
+  }, [file, pageIndex, crop, rotation, size]);
   return <div className="thumb lib-thumb">{url ? <img src={url} alt="" /> : <span className="muted small">{url === '' ? 'Keine Vorschau' : 'Vorschau …'}</span>}</div>;
 }
 
 const kb = (n: number) => (n > 1024 * 1024 ? `${(n / 1024 / 1024).toLocaleString('de-DE', { maximumFractionDigits: 1 })} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 
 /**
- * Planbibliothek des Projekts: alle importierten Originalpläne (PDF/Bild), wo sie verwendet
- * werden, und „Neues Aufmaß“ mit demselben Plan – ohne erneutes Hochladen, ohne die Messungen
- * des bisherigen Aufmaßes. Die Originaldatei wird nur einmal gespeichert.
+ * Planbibliothek des Projekts: nur die importierten Originalpläne (PDF/Bild), je Seite groß – ohne Angabe, wo sie
+ * verwendet werden. Antippen öffnet den Plan wie im Aufmaß (Finger-Zoom, volle Auflösung); „Neues Aufmaß“ mit
+ * demselben Plan ohne erneutes Hochladen und ohne die Messungen bisheriger Aufmaße. Die Datei wird nur einmal gespeichert.
  */
 export function PlanLibrary({ data, onClose, onReuse }: { data: ProjectState; onClose: () => void; onReuse: (s: PlanSource) => void }) {
   const [q, setQ] = useState('');
@@ -64,7 +80,7 @@ export function PlanLibrary({ data, onClose, onReuse }: { data: ProjectState; on
   const files = useMemo(() => alive(data.files).sort((a, b) => b.createdAt - a.createdAt), [data.files]);
   const needle = q.trim().toLowerCase();
   const shown = files
-    .map((f) => ({ file: f, ...viewsOf(data, f) }))
+    .map((f) => ({ file: f, ...pagesOf(data, f) }))
     .filter(({ file, plans }) => !needle || [file.name, ...plans.flatMap((p) => [p.planNumber, p.planName, p.title ?? '', p.floor])].some((s) => s.toLowerCase().includes(needle)));
 
   const removeFile = async (file: SourceFile) => {
@@ -141,63 +157,31 @@ export function PlanLibrary({ data, onClose, onReuse }: { data: ProjectState; on
       {!files.length && <p className="muted">Noch keine Pläne – oben hochladen oder einen Plan für ein Aufmaß importieren.</p>}
       {files.length > 0 && !shown.length && <p className="muted">Kein Plan gefunden.</p>}
       <div className="lib-list">
-        {shown.map(({ file, plans, views, freePages }) => (
+        {shown.map(({ file, plans, pages }) => (
           <section key={file.id} className="lib-file" data-testid="library-file" data-file={file.name}>
             <header className="lib-file-head">
               <Icon name={file.kind === 'pdf' ? 'pdf' : 'file'} size={18} />
               <strong className="lib-file-name">{file.name}</strong>
               <span className="muted small">
-                {file.kind === 'pdf' ? `PDF · ${file.pageCount} ${file.pageCount === 1 ? 'Seite' : 'Seiten'}` : 'Bild'} · {kb(file.size)} · importiert am{' '}
+                {file.kind === 'pdf' ? `PDF · ${file.pageCount} ${file.pageCount === 1 ? 'Seite' : 'Seiten'}` : 'Bild'} · {kb(file.size)} · hochgeladen am{' '}
                 {new Date(file.createdAt).toLocaleDateString('de-DE')}
               </span>
-              <span className="lib-usage small" data-testid="library-usage">
-                {plans.length ? `verwendet in ${plans.length} ${plans.length === 1 ? 'Aufmaß' : 'Aufmaßen'}` : 'nicht verwendet'}
-              </span>
             </header>
-            <div className="lib-views">
-              {views.map((group) => {
-                const base = group[0];
-                return (
-                  <div key={base.id} className="lib-view" data-testid="library-view">
-                    <button type="button" className="lib-thumb-btn" onClick={() => setViewing({ file, pageIndex: base.pageIndex })} aria-label={`${file.name} ansehen`} data-testid="library-view-open">
-                      <SourceThumb file={file} pageIndex={base.pageIndex} crop={base.crop} rotation={base.rotation} />
-                    </button>
-                    <div className="lib-view-body">
-                      <span className="muted small">
-                        {file.pageCount > 1 ? `Seite ${base.pageIndex + 1} · ` : ''}
-                        {base.crop ? 'Planbereich' : 'Ganze Seite'}
-                        {base.rotation ? ` · gedreht ${base.rotation}°` : ''}
-                        {base.calibration ? ` · kalibriert${base.calibration.auto ? (base.calibration.auto.confirmed ? ' (automatisch, bestätigt)' : ' (automatisch)') : ''}` : ''}
-                      </span>
-                      <ul className="lib-uses">
-                        {group.map((p) => (
-                          <li key={p.id}>
-                            <a href={paths.plan(data.project.id, p.id)} onClick={onClose} data-testid="library-open">
-                              {p.planNumber || 'Ohne Nummer'}
-                            </a>{' '}
-                            {p.planName && <span>{p.planName}</span>}{' '}
-                            <span className="muted small">
-                              · {damagesOf(data, p.id).length} Messungen
-                              {costCenterLabel(data.costCenters[p.costCenterId]) ? ` · ${costCenterLabel(data.costCenters[p.costCenterId])}` : ''}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                      <button type="button" className="btn btn-sm btn-primary" onClick={() => onReuse({ file, pageIndex: base.pageIndex, base })} data-testid="library-reuse">
-                        <Icon name="plus" size={16} /> Neues Aufmaß
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-              {freePages.map((i) => (
-                <div key={`page-${i}`} className="lib-view" data-testid="library-page">
-                  <button type="button" className="lib-thumb-btn" onClick={() => setViewing({ file, pageIndex: i })} aria-label={`${file.name} ansehen`} data-testid="library-view-open">
-                    <SourceThumb file={file} pageIndex={i} crop={null} />
+            <div className="lib-pages">
+              {pages.map(({ index, base }) => (
+                <div key={index} className="lib-page" data-testid="library-page">
+                  <button
+                    type="button"
+                    className="lib-thumb-btn"
+                    onClick={() => setViewing({ file, pageIndex: index })}
+                    aria-label={`${file.name}${file.pageCount > 1 ? `, Seite ${index + 1}` : ''} ansehen`}
+                    data-testid="library-view-open"
+                  >
+                    <SourceThumb file={file} pageIndex={index} crop={null} size={900} />
                   </button>
-                  <div className="lib-view-body">
-                    <span className="muted small">{file.pageCount > 1 ? `Seite ${i + 1} · ` : ''}Ganze Seite · noch kein Aufmaß</span>
-                    <button type="button" className="btn btn-sm" onClick={() => onReuse({ file, pageIndex: i, base: null })} data-testid="library-reuse-page">
+                  <div className="lib-page-foot">
+                    <span className="muted small">{file.pageCount > 1 ? `Seite ${index + 1}` : ''}</span>
+                    <button type="button" className="btn btn-sm" onClick={() => onReuse({ file, pageIndex: index, base })} data-testid="library-reuse">
                       <Icon name="plus" size={16} /> Neues Aufmaß
                     </button>
                   </div>
@@ -212,80 +196,12 @@ export function PlanLibrary({ data, onClose, onReuse }: { data: ProjectState; on
           </section>
         ))}
       </div>
-      {viewing && <PlanViewOnly file={viewing.file} pageIndex={viewing.pageIndex} onClose={() => setViewing(null)} />}
+      {viewing && (
+        <Suspense fallback={null}>
+          <PlanViewOnly file={viewing.file} pageIndex={viewing.pageIndex} onClose={() => setViewing(null)} />
+        </Suspense>
+      )}
     </Modal>
-  );
-}
-
-/**
- * Plan nur ansehen: ganze Seite groß, ohne Bearbeiten. Größer/kleiner über + und −, mehrseitige PDFs blättern.
- */
-function PlanViewOnly({ file, pageIndex, onClose }: { file: SourceFile; pageIndex: number; onClose: () => void }) {
-  const [page, setPage] = useState(pageIndex);
-  const [url, setUrl] = useState<string | null>(null);
-  const [zoom, setZoom] = useState(1);
-  useEffect(() => {
-    let live = true;
-    setUrl(null);
-    renderSource(file, page, 2600, null, 0)
-      .then((c) => {
-        if (live) setUrl(c.toDataURL('image/jpeg', 0.9));
-        c.width = c.height = 0;
-      })
-      .catch(() => live && setUrl(''));
-    return () => {
-      live = false;
-    };
-  }, [file, page]);
-  useEffect(() => {
-    const esc = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      e.stopPropagation();
-      onClose();
-    };
-    window.addEventListener('keydown', esc, true);
-    return () => window.removeEventListener('keydown', esc, true);
-  }, [onClose]);
-  const pages = file.pageCount || 1;
-  // eigene Ebene über allem (nicht im Fenster der Planbibliothek eingesperrt)
-  return createPortal(
-    <div className="lib-viewer" role="dialog" aria-modal="true" aria-label={`${file.name} ansehen`} data-testid="library-viewer">
-      <header className="lib-viewer-head">
-        <strong className="lib-viewer-name">{file.name}</strong>
-        {pages > 1 && (
-          <span className="lib-viewer-pages">
-            <button type="button" className="icon-btn" onClick={() => setPage(Math.max(0, page - 1))} disabled={page === 0} aria-label="Vorherige Seite">
-              <Icon name="back" size={18} />
-            </button>
-            <span className="small" data-testid="library-viewer-page">
-              Seite {page + 1} / {pages}
-            </span>
-            <button type="button" className="icon-btn" onClick={() => setPage(Math.min(pages - 1, page + 1))} disabled={page >= pages - 1} aria-label="Nächste Seite">
-              <Icon name="next" size={18} />
-            </button>
-          </span>
-        )}
-        <span className="lib-viewer-zoom">
-          <button type="button" className="icon-btn" onClick={() => setZoom(Math.max(1, zoom - 0.5))} disabled={zoom <= 1} aria-label="Verkleinern">
-            <Icon name="minus" size={18} />
-          </button>
-          <button type="button" className="icon-btn" onClick={() => setZoom(Math.min(4, zoom + 0.5))} disabled={zoom >= 4} aria-label="Vergrößern">
-            <Icon name="plus" size={18} />
-          </button>
-        </span>
-        <button type="button" className="icon-btn lib-viewer-close" onClick={onClose} aria-label="Schließen" data-testid="library-viewer-close">
-          <Icon name="close" size={20} />
-        </button>
-      </header>
-      <div className="lib-viewer-body">
-        {url ? (
-          <img src={url} alt={file.name} style={{ width: `${zoom * 100}%` }} data-testid="library-viewer-img" />
-        ) : (
-          <span className="muted">{url === '' ? 'Keine Vorschau möglich' : 'Plan wird geladen …'}</span>
-        )}
-      </div>
-    </div>,
-    document.body,
   );
 }
 
