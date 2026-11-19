@@ -406,7 +406,9 @@ test('Messung: Fotos wie im Mängelplan (Galerie → Fotodokumentation), Taste F
   const fpdf = await saveDownload(fdl, 'fotos.pdf');
   const ftext = execFileSync('pdftotext', [fpdf, '-'], { encoding: 'utf8' });
   expect(ftext.match(/Plan F-1 - parkdeck\s+·\s+Nr\. 1/g)?.length).toBe(3);
-  expect(ftext).toContain('Position: ohne Leistungszuordnung');
+  // ohne LV-Position keine Positionszeile (kein „ohne Leistungszuordnung“)
+  expect(ftext).not.toContain('Leistungszuordnung');
+  expect(ftext).not.toContain('Position');
   expect(Number(/Pages:\s+(\d+)/.exec(execFileSync('pdfinfo', [fpdf], { encoding: 'utf8' }))![1])).toBe(2);
   expect(execFileSync('pdfimages', ['-list', fpdf], { encoding: 'utf8' }).trim().split('\n').length - 2).toBe(3);
   // Projekt: Taste Fotodokumentation öffnet die Fotos des Projekts (mit Vermerk)
