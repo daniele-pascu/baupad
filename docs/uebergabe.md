@@ -47,7 +47,7 @@ Grundregeln stehen in `CLAUDE.md`, Grundsätze in `docs/entscheidungen.md`.
 
 ## Danieles Schritt
 - Funktion `storage` in Supabase neu veröffentlichen (siehe `docs/ablage-einrichten.md`).
-- Später (Daniele, 19.11.2026): Betreiber-Papierkorb 30 Tage – Server hält Gelöschtes (Daten und Dateien) 30 Tage, der Betreiber stellt es **nur auf Anfrage des Kunden** wieder her (kostenpflichtig). Offen: Preis. Vorher Datenschutzerklärung und AVV ergänzen (Betreiber-Zugriff, 30 Tage Aufbewahrung).
+- Später (Daniele, 19.11.2026): Betreiber-Papierkorb 30 Tage – Server hält Gelöschtes (Daten und Dateien) 30 Tage, der Betreiber stellt es **nur auf Anfrage des Kunden** wieder her (kostenpflichtig, **Pauschale** je Wiederherstellung – Höhe legt Daniele später fest). Vorher Datenschutzerklärung und AVV ergänzen (Betreiber-Zugriff, 30 Tage Aufbewahrung).
 
 ## Vorgemerkt (später)
 - App nur mit BauPad-Anmeldung (`docs/entscheidungen.md`).
