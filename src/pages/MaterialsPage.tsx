@@ -1,4 +1,6 @@
 import { SortControl } from '../components/SortControl';
+import { TrashButton } from '../components/TrashButton';
+import { trashDocs } from '../lib/trash-items';
 import { sortList, useListSort } from '../lib/list-sort';
 import { useEffect, useMemo, useState, type InputHTMLAttributes } from 'react';
 import { Icon } from '../components/Icon';
@@ -6,7 +8,7 @@ import { Modal } from '../components/Modal';
 import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, showError, toast } from '../components/ui';
 import { useDataChanged } from '../lib/data-events';
-import { deleteMaterial, deleteSupplier, listMaterialItems, listMaterials, listProjects, listSuppliers, saveMaterial, saveSupplier } from '../lib/db';
+import { deleteSupplier, listMaterialItems, listMaterials, listProjects, listSuppliers, saveMaterial, saveSupplier } from '../lib/db';
 import { canSite } from '../lib/access';
 import { useSession } from '../lib/use-session';
 import { isEquipment, listSummary } from '../lib/materials';
@@ -125,6 +127,7 @@ export function MaterialsPage({ tab }: { tab: Tab }) {
               </span>
             </div>
           </div>
+          <TrashButton scope={{ tool: 'materials' }} />
         </header>
 
         <div className="segmented materials-tabs" role="tablist" aria-label="Bereich">
@@ -363,10 +366,10 @@ function MaterialDialog({ material, all, suppliers, onClose, onSaved }: { materi
   };
   const remove = async () => {
     if (!material) return;
-    const ok = await confirmDialog({ title: 'Material löschen?', message: <p>{material.name} wird auf allen Geräten aus dem Materialstamm gelöscht.</p>, confirmLabel: 'Löschen', danger: true });
+    const ok = await confirmDialog({ title: 'Material löschen?', message: <p>{material.name} kommt aus dem Materialstamm in den Papierkorb (15 Tage, danach endgültig gelöscht).</p>, confirmLabel: 'Löschen', danger: true });
     if (!ok) return;
-    await deleteMaterial(material.id);
-    toast('Material gelöscht.', 'success', 2000);
+    await trashDocs('materials', [material.id]);
+    toast('Material gelöscht – 15 Tage im Papierkorb.', 'success', 2000);
     onSaved();
   };
   const field = (k: 'name' | 'articleNo' | 'price' | 'category' | 'note', label: string, extra: Partial<InputHTMLAttributes<HTMLInputElement>> = {}) => (

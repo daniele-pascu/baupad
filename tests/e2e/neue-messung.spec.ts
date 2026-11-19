@@ -1,5 +1,5 @@
 import { expect, test } from './fixtures';
-import { createProject, freshStart } from './helpers';
+import { chooseMeasureType, createProject, freshStart, pickTool, waitSaved } from './helpers';
 
 /**
  * Aufmaß „Neue Messung“: zuerst den Bereich wählen – Position (Messart kommt aus der Einheit bzw. der
@@ -47,4 +47,26 @@ test('Neue Messung: Position wählen stellt Messart und Bereich ein; frei öffne
   await nd.getByTestId('new-measure-free').click();
   await expect(page.getByTestId('current-position')).toContainText('ohne Leistungszuordnung');
   await expect(page.getByTestId('mtype-menu')).toBeVisible();
+});
+
+test('Planliste und Aufmaß zeigen die Mengen in ihrer Einheit (Längen in m, nicht 0,00 m²)', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'Längen', {}, ['EG']);
+  await page.getByTestId('draw-plan').click();
+  await page.getByTestId('new-drawing').locator('[data-field="planNumber"]').fill('L-1');
+  await page.getByTestId('new-drawing-save').click();
+  await page.getByTestId('mode-measure').click();
+  await chooseMeasureType(page, 'laenge');
+  await pickTool(page, 'tool-polyline');
+  const b = (await page.getByTestId('drawing-sheet').boundingBox())!;
+  for (const [fx, fy] of [[0.1, 0.5], [0.5, 0.5]]) await page.mouse.click(b.x + b.width * fx, b.y + b.height * fy);
+  await page.getByTestId('seg-done').click();
+  const dlg = page.getByTestId('damage-dialog');
+  await dlg.getByTestId('damage-save').click();
+  await expect(dlg).toBeHidden();
+  await waitSaved(page);
+  await page.getByRole('link', { name: 'Zurück zur Planliste' }).click();
+  const row = page.getByTestId('plan-row').filter({ hasText: 'L-1' });
+  await expect(row.getByTestId('plan-area')).toHaveText(/^\d+,\d\d m$/);
+  await expect(page.getByTestId('plan-list')).toContainText('Menge');
 });

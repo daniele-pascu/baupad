@@ -20,13 +20,14 @@ import { ExcelExportDialog } from '../components/ExcelExportDialog';
 import { ProjectForm, type CostCenterInput } from '../components/ProjectForm';
 import { SaveErrorBanner } from '../components/SaveStatus';
 import { confirmDialog, offerFile, promptDialog, showError, toast } from '../components/ui';
-import { positionGrouping, aufmassRows, componentsOf, findPosition, costCenterLabel, costCenterName, costCentersOf, damagesOf, elementsOf, planTitle, plansOf, sumArea } from '../lib/aufmass';
+import { positionGrouping, aufmassRows, componentsOf, findPosition, costCenterLabel, costCenterName, costCentersOf, damagesOf, elementsOf, planTitle, plansOf } from '../lib/aufmass';
+import { quantityLines } from '../lib/measure-types';
 import type { BlattScope } from '../lib/aufmassblatt';
 import { BACKUP_REMIND_DAYS, backupStatus, exportProjectBackup, type BackupStatus } from '../lib/backup';
 import { isDrawingPlan } from '../lib/drawing';
 import { uuid } from '../lib/ids';
 import { exportPaper } from '../lib/sheet-layout';
-import { formatArea, formatDate, formatDateTime } from '../lib/numbers';
+import { formatDate, formatDateTime } from '../lib/numbers';
 import { navigate, paths } from '../lib/router';
 import { flush, newMeta, putRecord, putRecords, softDelete, updateProject, useAppState, type ProjectState } from '../lib/store';
 import { propagateProject } from '../lib/sites';
@@ -169,7 +170,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
                   <strong data-testid="aufmass-plan-name">{planTitle(plan)}</strong>
                   <span className="muted small">
                     {own.length} {own.length === 1 ? 'Messung' : 'Messungen'}
-                    {own.length > 0 && ` · ${formatArea(sumArea(own.map((r) => r.damage)))} m²`}
+                    {own.length > 0 && quantityLines(own.map((r) => r.damage)).map((q) => ` · ${q}`).join('')}
                   </span>
                 </span>
               </button>
@@ -784,7 +785,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
                           <strong data-testid="aufmass-name">{name}</strong>
                           <span className="muted small" data-testid="aufmass-plans">
                             {sheetPlans.length === 1 ? 'Plan' : 'Pläne'} {sheetPlans.map((p) => p.planNumber || planTitle(p)).join(', ')} · {own.length} {own.length === 1 ? 'Messung' : 'Messungen'}
-                            {own.length > 0 && ` · ${formatArea(sumArea(own.map((r) => r.damage)))} m²`}
+                            {own.length > 0 && quantityLines(own.map((r) => r.damage)).map((q) => ` · ${q}`).join('')}
                           </span>
                         </span>
                       </button>

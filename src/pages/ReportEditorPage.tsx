@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { trashDocs } from '../lib/trash-items';
 import { ActionMenu } from '../components/ActionMenu';
 import { Icon } from '../components/Icon';
 import { PdfPreview } from '../components/PdfPreview';
@@ -7,7 +8,7 @@ import { confirmDialog, showError, toast } from '../components/ui';
 import type { ExportFile } from '../lib/aufmass';
 import { getCompanyLogo } from '../lib/company';
 import { addDays, DAY_NAMES, nameWithGrade, weekOf, WORKER_GRADES, workerName } from '../lib/crew';
-import { deleteReport, getMeta, getReport, getWeek, listReports, listWorkers, loadProjectData, previousWeek, saveReport } from '../lib/db';
+import { getMeta, getReport, getWeek, listReports, listWorkers, loadProjectData, previousWeek, saveReport } from '../lib/db';
 import { navigate, paths } from '../lib/router';
 import { reportPdf } from '../lib/report-pdf';
 import { companyFormFile, templatesFor } from '../lib/form-export';
@@ -154,13 +155,13 @@ export function ReportEditorPage({ reportId }: { reportId: string }) {
       navigate(paths.report(c.id));
     });
   const remove = () =>
-    void confirmDialog({ title: 'Bericht löschen?', message: <p>{info.label} Nr. {r.no} wird endgültig gelöscht.</p>, confirmLabel: 'Löschen', danger: true }).then((ok) => {
+    void confirmDialog({ title: 'Bericht löschen?', message: <p>{info.label} Nr. {r.no} kommt in den Papierkorb (15 Tage, danach endgültig gelöscht).</p>, confirmLabel: 'Löschen', danger: true }).then((ok) => {
       if (!ok) return;
       void run(async () => {
         pending.current = null;
         window.clearTimeout(timer.current);
-        await deleteReport(r.id);
-        toast('Bericht gelöscht.', 'success');
+        await trashDocs('reports', [r.id]);
+        toast('Bericht gelöscht – 15 Tage im Papierkorb.', 'success');
         navigate(paths.reportSite(siteKey(r)));
       });
     });

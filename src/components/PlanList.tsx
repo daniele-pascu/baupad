@@ -1,6 +1,6 @@
 import { isDrawingPlan } from '../lib/drawing';
-import { damagesOf, positionsOfPlan, sumArea } from '../lib/aufmass';
-import { formatArea } from '../lib/numbers';
+import { damagesOf, positionsOfPlan } from '../lib/aufmass';
+import { quantityLines } from '../lib/measure-types';
 import { navigate, paths } from '../lib/router';
 import type { ProjectState } from '../lib/store';
 import type { Plan } from '../lib/types';
@@ -28,7 +28,7 @@ interface Props {
 
 /**
  * Kompakte Planliste: eine Zeile je Plan mit Plannummer, Bezeichnung/Ebene, Bemerkung,
- * Leistungszuordnung und Flächensumme (ohne Anzahl der Messungen). Auf dem Smartphone werden
+ * Leistungen (höchstens zwei, dann „+n weitere“) und Mengen je Einheit (m², m, Stk … untereinander). Auf dem Smartphone werden
  * die Angaben zweizeilig unter der Plannummer angeordnet.
  */
 export function PlanList({ data, plans, onEdit, onRename, onCrop, onReuse, onDuplicate, onRotate, onDelete, onPdf, sel }: Props) {
@@ -41,7 +41,7 @@ export function PlanList({ data, plans, onEdit, onRename, onCrop, onReuse, onDup
         <span role="columnheader">Bemerkung</span>
         <span role="columnheader">Leistungen</span>
         <span role="columnheader" className="num">
-          Fläche
+          Menge
         </span>
         <span role="columnheader">
           <span className="sr-only">{selecting ? 'Auswahl' : 'Aktionen'}</span>
@@ -88,16 +88,34 @@ export function PlanList({ data, plans, onEdit, onRename, onCrop, onReuse, onDup
               {plan.description || <span className="muted pl-empty">–</span>}
             </span>
             <span role="cell" className={`pl-services${services.length ? '' : ' muted'}`} data-testid="plan-services">
-              {services.length
-                ? services.map(({ pos }) => (
+              {services.length ? (
+                <>
+                  {services.slice(0, 2).map(({ pos }) => (
                     <span key={pos.id} className="pl-service" title={pos.shortText}>
                       {pos.number} {pos.shortText}
                     </span>
-                  ))
-                : 'Keine Leistungszuordnung'}
+                  ))}
+                  {services.length > 2 && (
+                    <span className="pl-service pl-more muted" title={services.slice(2).map(({ pos }) => `${pos.number} ${pos.shortText}`).join('\n')} data-testid="plan-services-more">
+                      +{services.length - 2} weitere
+                    </span>
+                  )}
+                </>
+              ) : (
+                'Keine Leistungszuordnung'
+              )}
             </span>
             <span role="cell" className="pl-area num" data-testid="plan-area">
-              {damages.length ? `${formatArea(sumArea(damages))} m²` : <span className="muted">–</span>}
+              {/* Mengen je Einheit untereinander – Längen in m, Flächen in m², Stück … (nicht immer m²) */}
+              {damages.length && quantityLines(damages).length ? (
+                quantityLines(damages).map((q) => (
+                  <span key={q} className="pl-qty">
+                    {q}
+                  </span>
+                ))
+              ) : (
+                <span className="muted">–</span>
+              )}
             </span>
             <span role="cell" className="pl-actions">
               {selecting ? (

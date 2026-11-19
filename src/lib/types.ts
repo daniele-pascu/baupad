@@ -648,6 +648,8 @@ export interface Supplier {
 /** Materialverwaltung: Material im Materialstamm der Firma (einmal angelegt, auf allen Geräten verfügbar) */
 export interface Material {
   id: string;
+  /** im Papierkorb seit (15 Tage wiederherstellbar, danach endgültig gelöscht) */
+  trashedAt?: number | null;
   name: string;
   /** Artikelnummer (des Lieferanten) */
   articleNo?: string;
@@ -739,6 +741,8 @@ export type MaterialStatus = 'offen' | 'bestellt' | 'geliefert';
 /** Materialverwaltung: Position auf der Materialliste einer Baustelle (Projekt aus dem Register) */
 export interface MaterialItem {
   id: string;
+  /** im Papierkorb seit (15 Tage wiederherstellbar, danach endgültig gelöscht) */
+  trashedAt?: number | null;
   projectId: string;
   /** Material aus dem Materialstamm (fehlt = frei eingegeben) */
   materialId?: string | null;
@@ -957,6 +961,8 @@ interface ReportBase {
   head: ReportHead;
   createdAt: number;
   updatedAt: number;
+  /** im Papierkorb seit (15 Tage wiederherstellbar, danach endgültig gelöscht) */
+  trashedAt?: number | null;
 }
 
 export type Report =
@@ -1041,6 +1047,8 @@ export type MarkShape = 'pin' | 'rect' | 'ellipse' | 'line' | 'freehand' | 'text
 /** Plan einer Baustelle im Mängelplan: Bild (aus PDF-Seite oder Foto), ohne Maßstab */
 export interface DefectPlan {
   id: string;
+  /** im Papierkorb seit (15 Tage wiederherstellbar, danach endgültig gelöscht) */
+  trashedAt?: number | null;
   companyId: string | null;
   projectId: string | null;
   siteName: string;

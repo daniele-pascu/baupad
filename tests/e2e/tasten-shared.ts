@@ -134,6 +134,9 @@ export function tastenTests() {
       ['aufmass-und-abrechnung', 'trash-open'],
       ['projektregister', 'trash-open'],
       ['fotodokumentation', 'trash-open'],
+      ['berichte-und-formulare', 'trash-open'],
+      ['maengelplan', 'trash-open'],
+      ['materialverwaltung', 'trash-open'],
     ];
     for (const [p, id] of DIALOGE) {
       await page.goto(`./baupad/${p}`);

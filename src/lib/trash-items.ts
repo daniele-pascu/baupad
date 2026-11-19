@@ -1,4 +1,6 @@
-import { getDB, getPhoto, listTrashedPhotos, purgeDeleted, writeRecords } from './db';
+import { deleteDefectPlanCompletely, deleteFormEntry, deleteMaterial, deleteMaterialItem, deleteReport, getDB, getPhoto, listTrashedPhotos, purgeDeleted, saveDefectPlan, saveFormEntry, saveMaterial, saveMaterialItem, saveReport, writeRecords } from './db';
+import { typeInfo as reportType } from './reports';
+import { notifyDataChanged } from './data-events';
 import { getDeviceId } from './ids';
 import { getPhotoStorage, notifyPhotosChanged } from './photo-storage';
 import { deleteProjectEverywhere, listTrashedProjects, restoreProject } from './sites';
@@ -12,7 +14,7 @@ import type { EntityStore, Photo } from './types';
  * Originalpläne). Jeder sieht, was auf seinem Gerät liegt – also, wofür er Zugriff hat – und kann es wiederherstellen.
  * Ansicht je Ort (nur in den Tools, nicht in der Tool-Übersicht): im Tool alles dieses Tools, im Projekt bzw. auf der Baustelle nur deren Daten.
  */
-export type TrashKind = 'project' | 'photos' | 'aufmass';
+export type TrashKind = 'project' | 'photos' | 'aufmass' | DocStore;
 
 export interface TrashItem {
   key: string;
@@ -32,7 +34,7 @@ export interface TrashItem {
 
 /** Wo der Papierkorb geöffnet wird: ohne Angaben = alles (nur noch für Tests/Übersichten) */
 export interface TrashScope {
-  tool?: 'projects' | 'photos' | 'register';
+  tool?: 'projects' | 'photos' | 'register' | 'reports' | 'defects' | 'materials';
   projectId?: string | null;
   /** Fotos einer Baustelle ohne Projekt */
   siteName?: string;
@@ -69,6 +71,74 @@ async function restorePhotos(list: Photo[]): Promise<void> {
   const storage = getPhotoStorage();
   for (const p of list) await storage.update({ ...p, trashedAt: null });
   notifyPhotosChanged();
+}
+
+/**
+ * Berichte, Formulare, Mängelpläne, Material (Materialstamm und Materialliste der Baustelle): gelöscht = „im Papierkorb
+ * seit“ (trashedAt), überall ausgeblendet; nach 15 Tagen endgültig gelöscht (trash-purge.ts).
+ */
+export type DocStore = 'reports' | 'formEntries' | 'defectPlans' | 'materials' | 'materialItems';
+type AnyDoc = { id: string; projectId?: string | null; trashedAt?: number | null; updatedAt?: number };
+const SAVE: Record<DocStore, (x: never) => Promise<void>> = { reports: saveReport, formEntries: saveFormEntry, defectPlans: saveDefectPlan, materials: saveMaterial, materialItems: saveMaterialItem };
+export const PURGE_DOC: Record<DocStore, (id: string) => Promise<void>> = {
+  reports: deleteReport,
+  formEntries: deleteFormEntry,
+  defectPlans: (id) => deleteDefectPlanCompletely(id),
+  materials: deleteMaterial,
+  materialItems: deleteMaterialItem,
+};
+
+/** in den Papierkorb legen (eine Löschung = ein Eintrag) */
+export async function trashDocs(store: DocStore, ids: string[], at = Date.now()): Promise<void> {
+  const db = await getDB();
+  for (const id of ids) {
+    const r = (await db.get(store, id)) as AnyDoc | undefined;
+    if (r && !r.trashedAt) await SAVE[store]({ ...r, trashedAt: at, updatedAt: Date.now() } as never);
+  }
+  notifyDataChanged(); // Listen und Papierkorb-Taste (Zahl) sofort neu
+}
+async function restoreDocs(store: DocStore, list: AnyDoc[]): Promise<void> {
+  for (const r of list) await SAVE[store]({ ...r, trashedAt: null, updatedAt: Date.now() } as never);
+}
+async function purgeDocs(store: DocStore, list: AnyDoc[]): Promise<void> {
+  for (const r of list) await PURGE_DOC[store](r.id);
+}
+
+/** Titel je Datenart für die Liste des Papierkorbs */
+function docTitle(store: DocStore, list: AnyDoc[], projects: Map<string, string>): { title: string; detail: string; site: string } {
+  const one = list[0] as Record<string, unknown> & AnyDoc;
+  const site = one.projectId ? (projects.get(one.projectId) ?? '') : String(one.siteName ?? (one.head as { site?: string; project?: string } | undefined)?.site ?? (one.head as { project?: string } | undefined)?.project ?? '');
+  const n = list.length;
+  if (store === 'reports') return { title: n === 1 ? `${reportType(one.type as never)?.label ?? 'Bericht'} Nr. ${one.no}` : `${n} Berichte`, detail: site || 'Bericht', site };
+  if (store === 'formEntries') return { title: n === 1 ? `${String(one.templateName)} Nr. ${one.no}` : `${n} Formulare`, detail: site || 'Formular', site };
+  if (store === 'defectPlans') return { title: n === 1 ? `Mängelplan „${String(one.title || one.siteName)}“` : `${n} Mängelpläne`, detail: site || 'Mängel', site };
+  if (store === 'materials') return { title: n === 1 ? `Material „${String(one.name)}“` : `${n} Materialien`, detail: 'Materialstamm', site: '' };
+  return { title: n === 1 ? String(one.name) : `${n} Materialpositionen`, detail: site ? `Materialliste · ${site}` : 'Materialliste', site };
+}
+const DOC_TOOL: Record<DocStore, NonNullable<TrashScope['tool']>> = { reports: 'reports', formEntries: 'reports', defectPlans: 'defects', materials: 'materials', materialItems: 'materials' };
+
+async function docItems(scope: TrashScope, since: number, now: number): Promise<TrashItem[]> {
+  const db = await getDB();
+  const projects = new Map((await db.getAll('projects')).map((p) => [p.id, p.site || p.name]));
+  const out: TrashItem[] = [];
+  for (const store of Object.keys(SAVE) as DocStore[]) {
+    if (scope.tool && DOC_TOOL[store] !== scope.tool) continue;
+    if (store === 'materials' && (scope.projectId !== undefined || scope.siteName !== undefined)) continue; // Materialstamm gehört zu keinem Projekt
+    const groups = new Map<string, AnyDoc[]>();
+    for (const r of (await db.getAll(store)) as AnyDoc[]) {
+      if (!r.trashedAt || r.trashedAt < since) continue;
+      if (scope.projectId !== undefined && (r.projectId ?? null) !== scope.projectId) continue;
+      const k = `${r.trashedAt}|${r.projectId ?? ''}`;
+      groups.set(k, [...(groups.get(k) ?? []), r]);
+    }
+    for (const [k, list] of groups) {
+      const t = docTitle(store, list, projects);
+      if (scope.siteName !== undefined && (list[0].projectId || t.site.trim().toLowerCase() !== scope.siteName.trim().toLowerCase())) continue;
+      const at = list[0].trashedAt!;
+      out.push({ key: `${store}:${k}`, kind: store, at, title: t.title, detail: t.detail, projectId: list[0].projectId ?? null, daysLeft: daysLeft(at, now), restore: () => restoreDocs(store, list), purge: () => purgeDocs(store, list) });
+    }
+  }
+  return out;
 }
 
 const AUFMASS: EntityStore[] = ['costCenters', 'plans', 'damages', 'components', 'elements', 'files', 'lvDocs'];
@@ -140,5 +210,6 @@ export async function loadTrash(scope: TrashScope = {}, now = Date.now()): Promi
     }
   }
   if (!scope.tool || scope.tool === 'projects') out.push(...(await aufmassItems(now, scope.projectId ?? undefined)));
+  out.push(...(await docItems(scope, since, now)));
   return out.sort((a, b) => b.at - a.at);
 }

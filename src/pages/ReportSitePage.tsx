@@ -1,4 +1,6 @@
 import { PDFDocument } from 'pdf-lib';
+import { TrashButton } from '../components/TrashButton';
+import { trashDocs } from '../lib/trash-items';
 import { useEffect, useMemo, useState } from 'react';
 import { ActionMenu } from '../components/ActionMenu';
 import { Icon } from '../components/Icon';
@@ -6,7 +8,7 @@ import { PdfPreview } from '../components/PdfPreview';
 import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, offerFile, promptDialog, showError, toast } from '../components/ui';
 import { safeFileName, type ExportFile } from '../lib/aufmass';
-import { deleteFormEntry, deleteReport, listFormEntries, listFormTemplates, listReports, saveReport } from '../lib/db';
+import { listFormEntries, listFormTemplates, listReports, saveReport } from '../lib/db';
 import { isCustomTemplate, type FormTemplate } from '../lib/form-template';
 import { duplicateNos, entrySiteKey, fmtFieldDate, isoWeekLabel, parseNoRange, type FormEntry } from '../lib/forms';
 import { copyFormEntry, createFormEntry, formEntryPdf } from '../lib/forms-data';
@@ -141,12 +143,12 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
       navigate(paths.formEntry(c.id));
     });
   const removeEntry = (e: FormEntry) =>
-    void confirmDialog({ title: 'Formular löschen?', message: <p>{e.templateName} Nr. {e.no} vom {fmtFieldDate(e.date)} wird endgültig gelöscht.</p>, confirmLabel: 'Löschen', danger: true }).then((ok) => {
+    void confirmDialog({ title: 'Formular löschen?', message: <p>{e.templateName} Nr. {e.no} vom {fmtFieldDate(e.date)} kommt in den Papierkorb (15 Tage, danach endgültig gelöscht).</p>, confirmLabel: 'Löschen', danger: true }).then((ok) => {
       if (ok)
         void run(async () => {
-          await deleteFormEntry(e.id);
+          await trashDocs('formEntries', [e.id]);
           await reload();
-          toast('Formular gelöscht.', 'success');
+          toast('Formular gelöscht – 15 Tage im Papierkorb.', 'success');
         });
     });
   /** „+“ neben einer Liste: sofort anlegen (heutiges Datum, Datum im Formular änderbar) */
@@ -199,7 +201,7 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
       title: 'Bericht löschen?',
       message: (
         <p>
-          {typeInfo(r.type).label} Nr. {r.no} vom {periodLabel(r)} wird endgültig gelöscht.
+          {typeInfo(r.type).label} Nr. {r.no} vom {periodLabel(r)} kommt in den Papierkorb (15 Tage, danach endgültig gelöscht).
         </p>
       ),
       confirmLabel: 'Löschen',
@@ -207,9 +209,9 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
     }).then((ok) => {
       if (ok)
         void run(async () => {
-          await deleteReport(r.id);
+          await trashDocs('reports', [r.id]);
           await reload();
-          toast('Bericht gelöscht.', 'success');
+          toast('Bericht gelöscht – 15 Tage im Papierkorb.', 'success');
         });
     });
   const toggle = (id: string) =>
@@ -267,6 +269,7 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
             </div>
           </div>
           <div className="row gap">
+            <TrashButton scope={key.startsWith('p:') ? { tool: 'reports', projectId: key.slice(2) } : { tool: 'reports', siteName: name }} />
             {canEditSites(session) && site && (
               <button type="button" className="btn btn-sm" onClick={() => setEditing(true)} title="Baustelle bearbeiten – gilt in allen Tools" aria-label="Baustelle bearbeiten" data-testid="report-site-edit">
                 <Icon name="edit" size={16} /> <span className="lbl">Bearbeiten</span>

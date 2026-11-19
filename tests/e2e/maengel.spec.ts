@@ -469,7 +469,7 @@ test('Übersicht: Projekt bearbeiten und aus dem Mängelplan löschen (⋮), Pro
   // löschen (mit Rückfrage) → weg aus dem Mängelplan
   await page.locator('.defect-row').first().getByTestId('defect-site-actions').click();
   await page.getByTestId('defect-site-delete').click();
-  await expect(page.getByTestId('confirm-dialog')).toContainText('1 Plan');
+  await expect(page.getByTestId('confirm-dialog')).toContainText('der Plan kommt mit allen Markierungen 15 Tage in den Papierkorb');
   await page.getByRole('button', { name: 'Löschen' }).last().click();
   await expect(page.locator('.toast', { hasText: 'aus „Mängel“ gelöscht' })).toHaveCount(1);
   await expect(page.locator('.defect-row')).toHaveCount(0);

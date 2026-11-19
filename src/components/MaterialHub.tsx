@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
+import { trashDocs } from '../lib/trash-items';
 import { Icon } from './Icon';
 import { Modal } from './Modal';
 import { confirmDialog, showError, toast } from './ui';
-import { deleteMaterial, saveMaterial, saveMaterialItem } from '../lib/db';
+import { saveMaterial, saveMaterialItem } from '../lib/db';
 import { uuid } from '../lib/ids';
 import { canOrder, equipmentInStock, equipmentOut, markOrdered, matchesMaterial, nextOrderNo, openBySupplier, orderText, ordersInTransit, overdue, overviewCounts, packDetail, placeEquipment, qtyText, setStatus } from '../lib/materials';
 import { navigate, paths } from '../lib/router';
@@ -491,9 +492,9 @@ function DeviceDialog({ device, d, onClose, onSaved }: { device: Material | null
   };
   const remove = async () => {
     if (!device) return;
-    if (!(await confirmDialog({ title: 'Gerät löschen', message: <p>{device.name} wirklich löschen? Der Verlauf geht verloren.</p>, confirmLabel: 'Löschen', danger: true }))) return;
+    if (!(await confirmDialog({ title: 'Gerät löschen', message: <p>{device.name} kommt in den Papierkorb (15 Tage, danach endgültig gelöscht).</p>, confirmLabel: 'Löschen', danger: true }))) return;
     try {
-      await deleteMaterial(device.id);
+      await trashDocs('materials', [device.id]);
       toast('Gerät gelöscht.', 'success', 1800);
       onSaved();
     } catch (e) {

@@ -2240,6 +2240,15 @@ tr.lv-flagged td {
   white-space: nowrap;
   font-size: 0.85rem;
 }
+/* Planliste: Mengen je Einheit untereinander (m², m, Stk …) */
+.pl-qty {
+  display: block;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.pl-more {
+  font-weight: 500;
+}
 
 /* ---------- Kleine Bildschirme (iPhone) ---------- */
 

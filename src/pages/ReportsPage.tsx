@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { TrashButton } from '../components/TrashButton';
 import { ActionMenu } from '../components/ActionMenu';
 import { projectPrefix } from '../lib/project-label';
 import { SortControl } from '../components/SortControl';
@@ -160,6 +161,7 @@ export function ReportsPage() {
             <h1 data-testid="reports-title">Berichte</h1>
           </div>
           <div className="report-actions">
+            <TrashButton scope={{ tool: 'reports' }} />
             <button type="button" className="btn btn-primary" onClick={() => setPicking(true)} title="Projekt aus dem Register übernehmen oder neu anlegen" data-testid="report-new-site">
               <Icon name="plus" size={16} /> <span className="hide-sm">{mayCreate ? 'Neues Projekt' : 'Projekt übernehmen'}</span>
             </button>

@@ -101,3 +101,47 @@ test('Papierkorb „Auswählen“: alle wiederherstellen bzw. ausgewählte endg�
   await page.goto('./baupad/projektregister');
   await expect(page.getByTestId('register-row')).toHaveCount(2);
 });
+
+test('Berichte, Formulare, Mängelpläne und Material: löschen = Papierkorb des Tools, wiederherstellen, nach 15 Tagen endgültig', async ({ page }) => {
+  await freshStart(page);
+  // Material über die Oberfläche anlegen und löschen
+  await page.goto('./baupad/materialverwaltung?t=material');
+  await page.getByTestId('material-new').click();
+  const d = page.getByTestId('material-dialog');
+  await d.getByTestId('material-name').fill('Epoxidharz');
+  await d.getByTestId('material-unit').selectOption('kg');
+  await d.getByTestId('material-save').click();
+  await expect(d).toHaveCount(0);
+  await page.locator('[data-testid="material-row"][data-name="Epoxidharz"]').getByTestId('material-open').click();
+  await d.getByTestId('material-delete').click();
+  await expect(page.getByTestId('confirm-dialog')).toContainText('Papierkorb');
+  await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Löschen', exact: true }).click();
+  await expect(page.locator('[data-testid="material-row"][data-name="Epoxidharz"]')).toHaveCount(0);
+  await expect(page.getByTestId('trash-open')).toHaveAttribute('data-count', '1');
+  await page.getByTestId('trash-open').click();
+  const trash = page.getByTestId('trash-dialog');
+  await expect(trash.getByTestId('trash-entry')).toContainText('Material „Epoxidharz“');
+  await trash.getByTestId('trash-restore').click();
+  await expect(trash.getByTestId('trash-empty')).toBeVisible();
+  await trash.getByRole('button', { name: 'Schließen' }).last().click();
+  await expect(page.locator('[data-testid="material-row"][data-name="Epoxidharz"]')).toHaveCount(1);
+
+  // Bericht und Mängelplan im Papierkorb (vor 2 bzw. 16 Tagen): der jüngere steht im Papierkorb, der ältere ist weg
+  const now = Date.now();
+  await idb(page, putAll('reports'), [
+    { id: 'rep-neu', projectId: null, type: 'regie', no: '1', date: '2026-11-17', status: 'draft', head: { site: 'Halle 3', project: 'Halle 3' }, createdAt: 1, updatedAt: 1, trashedAt: now - 2 * DAY },
+    { id: 'rep-alt', projectId: null, type: 'regie', no: '2', date: '2026-11-01', status: 'draft', head: { site: 'Halle 3', project: 'Halle 3' }, createdAt: 1, updatedAt: 1, trashedAt: now - 16 * DAY },
+  ]);
+  await idb(page, putAll('defectPlans'), [{ id: 'dp-neu', companyId: null, projectId: null, siteName: 'Halle 3', siteNumber: '', siteAddress: '', title: 'EG', createdAt: 1, updatedAt: 1, trashedAt: now - DAY }]);
+  await page.goto('./baupad/berichte-und-formulare');
+  await expect.poll(async () => (await idb<{ id: string }[]>(page, getAll('reports'))).map((r) => r.id)).toEqual(['rep-neu']);
+  await expect(page.getByTestId('trash-open')).toHaveAttribute('data-count', '1');
+  await page.getByTestId('trash-open').click();
+  await expect(trash.getByTestId('trash-entry')).toContainText('Nr. 1');
+  await expect(trash.getByTestId('trash-entry')).toContainText('noch 13 Tage');
+  await trash.getByRole('button', { name: 'Schließen' }).last().click();
+  await page.goto('./baupad/maengelplan');
+  await expect(page.getByTestId('trash-open')).toHaveAttribute('data-count', '1');
+  await page.getByTestId('trash-open').click();
+  await expect(trash.getByTestId('trash-entry')).toContainText('Mängelplan „EG“');
+});

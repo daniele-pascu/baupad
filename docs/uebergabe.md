@@ -45,12 +45,8 @@ Grundregeln stehen in `CLAUDE.md`, Grundsätze in `docs/entscheidungen.md`.
   C Drei Stufen) – nach der Entscheidung überall einbauen.
 - Schon auf `main` rote Tests (nicht von uns): punktfang-plan (2×, 116,65 statt 116,66 m²), messungen „Rückgängig … Verschieben“.
 
-## Als Nächstes: Papierkorb für die restlichen Tools
-- Berichte und Formulare, Mängelpläne, Material (Materialstamm, Materiallisten der Baustelle): heute löschen sie
-  endgültig (`deleteSynced`). Umbauen wie Fotos: Feld „im Papierkorb seit“, in den Listen ausblenden, in
-  `trash-items.ts` als Einträge, in `trash-purge.ts` nach 15 Tagen endgültig löschen; Papierkorb-Taste in deren Kopf.
-  Nicht: Lieferanten, Einteilung, Zeiten.
-- **Danieles Schritt:** Funktion `storage` in Supabase neu veröffentlichen (siehe `docs/ablage-einrichten.md`).
+## Danieles Schritt
+- Funktion `storage` in Supabase neu veröffentlichen (siehe `docs/ablage-einrichten.md`).
 - Später: 30 Tage beim Betreiber, Wiederherstellung danach kostenpflichtig.
 
 ## Vorgemerkt (später)
