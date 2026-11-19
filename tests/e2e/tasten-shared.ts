@@ -2,7 +2,10 @@ import { join } from 'node:path';
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 import { chooseMeasureType, createProject, drawRect, FIXTURES, freshStart, pickTool, planBox, ribbonGroup, waitForPlan } from './helpers';
-import { tastenBefunde } from './tasten-check';
+import { kontrastBefunde, tastenBefunde } from './tasten-check';
+
+/** TASTEN_DUNKEL=1: alles im Dunkelmodus öffnen und statt der Lage die Lesbarkeit (Kontrast) prüfen */
+const DUNKEL = !!process.env.TASTEN_DUNKEL;
 
 /**
  * Tasten-Test für PC, Handy und Tablet (läuft in allen Projekten: pc, iphone, ipad, ipad-quer).
@@ -32,7 +35,7 @@ async function pruefe(page: Page, wo: string, out: string[]) {
       { y: Math.round(i * s.v * 0.8), modal: s.modal },
     );
     await page.waitForTimeout(80);
-    for (const b of await tastenBefunde(page)) out.push(`${wo}: ${b}`);
+    for (const b of DUNKEL ? await kontrastBefunde(page) : await tastenBefunde(page)) out.push(`${wo}${DUNKEL ? ' (dunkel)' : ''}: ${b}`);
   }
   await page.evaluate(() => {
     document.scrollingElement!.scrollTop = 0;
@@ -65,6 +68,8 @@ const APP = [
 ];
 
 export function tastenTests() {
+  // Dunkelmodus: vor jedem Laden der Seite einstellen (übersteht auch das Leeren des Speichers beim Start)
+  if (DUNKEL) test.beforeEach(async ({ page }) => page.addInitScript(() => localStorage.setItem('uiTheme', 'dark')));
   // Website abgemeldet prüfen (angemeldet leitet die Website direkt zu den Tools weiter)
   test.describe('Website ohne Anmeldung', () => {
     test.use({ signedIn: false });

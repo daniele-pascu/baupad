@@ -14263,3 +14263,14 @@ html[data-theme='dark'] .side-toggle:hover {
   background: #fff;
   color: #111;
 }
+/* Dunkelmodus: „Foto aufnehmen“ (schwarze Schnelltaste) war schwarz auf Schwarz – jetzt weiß wie die Haupttasten */
+html[data-theme='dark'] .tools-quick {
+  background: #fff;
+  color: #111;
+}
+html[data-theme='dark'] .tools-quick > span > span {
+  color: rgba(0, 0, 0, 0.6);
+}
+html[data-theme='dark'] .tools-quick:hover {
+  background: #e9e9eb;
+}
