@@ -372,6 +372,15 @@ export function tastenTests() {
     await wiz.getByTestId('import-save').click();
     await waitForPlan(page);
     await pruefe(page, 'Plan-Editor', out);
+    // Ansichtsleiste: Glas, zu- und aufklappen (Regler-Symbol); Tabellen-Taste schwarz
+    await expect(page.getByTestId('zoom-controls')).toHaveClass(/liquid/);
+    await page.getByTestId('zoom-toggle').click();
+    await expect(page.getByTestId('zoom-controls')).toHaveClass(/is-collapsed/);
+    await expect(page.getByTestId('editor-legend')).toBeHidden();
+    await pruefe(page, 'Ansichtsleiste zugeklappt', out);
+    await page.getByTestId('zoom-toggle').click();
+    await expect(page.getByTestId('editor-legend')).toBeVisible();
+    if (await page.getByTestId('side-toggle').isVisible()) await expect(page.getByTestId('side-toggle')).toHaveCSS('background-color', 'rgb(17, 17, 17)');
     const box = await planBox(page);
     await pickTool(page, 'tool-rect');
     await drawRect(page, box.x + box.width * 0.3, box.y + box.height * 0.3, box.x + box.width * 0.45, box.y + box.height * 0.45);

@@ -1,5 +1,7 @@
 const PATHS: Record<string, string> = {
   plus: 'M12 5v14M5 12h14',
+  /* Regler (drei Schieber): Ansichtsleiste im Plan auf- und zuklappen */
+  tune: 'M4 6h9M17 6h3M15 4v4M4 12h3M11 12h9M9 10v4M4 18h11M19 18h1M17 16v4',
   /* Farblegende: Kasten mit Einträgen */
   legend: 'M3 4h18v16H3zM6 8h3v3H6zM6 13h3v3H6zM12 9.5h6M12 14.5h6',
   calendar: 'M4 6a2 2 0 012-2h12a2 2 0 012 2v13a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM4 10h16M8 2v4M16 2v4',
