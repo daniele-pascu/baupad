@@ -2810,7 +2810,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           <div className="side-head">
             <h2>Aufmaß – {plan.planNumber || planTitle(plan)}</h2>
             <span className="muted small" data-testid="side-summary">
-              {damages.length} Messung{damages.length === 1 ? '' : 'en'} · {formatArea(sumArea(damages))} m²
+              {damages.length} Messung{damages.length === 1 ? '' : 'en'}
+              {/* nur vorhandene Einheiten – kein „0,00 m²“ bei reinen Längenmessungen */}
+              {(lineCount === 0 || sumArea(damages) > 0) && ` · ${formatArea(sumArea(damages))} m²`}
               {lineCount > 0 && ` · Linien ${formatMeasure(sumLengths(damages))} m`}
             </span>
             <div className="side-head-tools">

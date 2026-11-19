@@ -13949,37 +13949,39 @@ html[data-theme='dark'] .select-toggle.on {
   cursor: pointer;
 }
 /* Kopf der Messleiste: Titel und Summe links, „Auswählen“ rechts daneben (nicht darunter) */
+/* Kopf der Messleiste: Titel und Summe über die ganze Breite, darunter „Neue Messung“ und „Auswählen“ nebeneinander */
 .side-head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  column-gap: 10px;
-  align-items: start;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
 }
 .side-head > h2,
 .side-head > [data-testid='side-summary'] {
-  grid-column: 1;
   min-width: 0;
 }
 .side-head-tools {
-  grid-column: 2;
-  grid-row: 1 / span 2;
   display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 6px;
-  align-self: start;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
 }
-/* schmal gezogene Messleiste (PC/iPad quer): Titel über die ganze Breite, Tasten darunter (Titel bricht nicht Buchstabe für Buchstabe um) */
-@media (min-width: 900px) {
-  .editor-side.is-narrow .side-head {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .editor-side.is-narrow .side-head-tools {
-    grid-column: 1;
-    grid-row: auto;
-    justify-content: flex-start;
-    margin-top: 8px;
-  }
+.side-head-tools > .btn {
+  flex: 0 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+}
+.side-head-tools > .btn svg {
+  flex: none;
+}
+/* schmal gezogene Messleiste: beide Tasten teilen sich die Breite, ohne Symbol */
+.editor-side.is-narrow .side-head-tools > .btn {
+  flex: 1 1 0;
+  justify-content: center;
+  padding-inline: 10px;
+}
+.editor-side.is-narrow .side-head-tools > .btn svg {
+  display: none;
 }
 .aufmass-table .nr-col .select-box {
   margin-right: 8px;
