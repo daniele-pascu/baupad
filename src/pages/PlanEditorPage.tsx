@@ -2806,7 +2806,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           data-testid="side-resizer"
         />
 
-        <aside className="editor-side" data-testid="editor-side">
+        <aside className={`editor-side${sideWidth < 400 ? ' is-narrow' : ''}`} data-testid="editor-side">
           <div className="side-head">
             <h2>Aufmaß – {plan.planNumber || planTitle(plan)}</h2>
             <span className="muted small" data-testid="side-summary">

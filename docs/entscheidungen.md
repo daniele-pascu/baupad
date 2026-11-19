@@ -230,3 +230,8 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 ## Eine Suche für Leistungspositionen, deutliche × (19.11.2026)
 - Messfenster: Die Leistungsposition wird nur noch im Fenster „Leistungsposition wählen“ gesucht (Antippen des Feldes). Die zweite Suchleiste darunter ist entfernt.
 - × (Schließen, Entfernen) überall größer und kräftiger; im Fensterkopf und bei Entfernen-Tasten mit runder, grauer Fläche. Foto-× auf Vorschaubildern 28 px.
+
+## Schmale Messleiste (19.11.2026)
+- Messart-Balken: Name und Anzahl untereinander, Summe rechts; reicht der Platz nicht, rutscht die Summe in die nächste Zeile – nichts überlappt.
+- Messleiste schmaler als 400 px: Titel über die ganze Breite, „Neue Messung“/„Auswählen“ darunter.
+- Die Spalten-Tabelle braucht rund 430 px; schmaler lässt sie sich seitlich wischen statt abgeschnitten zu werden. Endgültige Lösung: vereinfachte Tabelle (Vorschau T1, eine Zeile je Messung) – wartet auf Danieles OK.

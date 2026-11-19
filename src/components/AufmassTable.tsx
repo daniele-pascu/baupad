@@ -443,9 +443,12 @@ export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, on
               <button type="button" className="group-toggle" onClick={() => toggleGroup(key)} aria-expanded={!isClosed} data-testid="aufmass-type-toggle">
                 <Icon name="next" size={16} className="group-chevron" />
                 <Icon name={t.info.icon as IconName} size={16} />
-                <span className="aufmass-type-label">{t.label}</span>
-                <span className="aufmass-type-count">
-                  {t.rows.length} {t.rows.length === 1 ? 'Messung' : 'Messungen'}
+                {/* Name und Anzahl untereinander: auch bei schmaler Leiste überlappt nichts die Summe */}
+                <span className="aufmass-type-title">
+                  <span className="aufmass-type-label">{t.label}</span>
+                  <span className="aufmass-type-count">
+                    {t.rows.length} {t.rows.length === 1 ? 'Messung' : 'Messungen'}
+                  </span>
                 </span>
                 {/* Summe oben im Balken – zu und offen, ohne nach unten zu scrollen */}
                 <strong className="aufmass-type-sum" data-testid="type-sum-value">
