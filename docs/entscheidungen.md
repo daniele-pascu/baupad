@@ -233,5 +233,5 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 
 ## Schmale Messleiste (19.11.2026)
 - Messart-Balken: Name und Anzahl untereinander, Summe rechts; reicht der Platz nicht, rutscht die Summe in die nächste Zeile – nichts überlappt.
-- Messleiste schmaler als 400 px: Titel über die ganze Breite, „Neue Messung“/„Auswählen“ darunter.
+- Kopf der Messleiste immer: Titel und Summe über die ganze Breite, darunter „Neue Messung“ und „Auswählen“ nebeneinander (schmaler als 400 px: beide gleich breit, ohne Symbol). Summe ohne „0,00 m²“, wenn nur Längen gemessen sind.
 - Die Spalten-Tabelle braucht rund 430 px; schmaler lässt sie sich seitlich wischen statt abgeschnitten zu werden. Endgültige Lösung: vereinfachte Tabelle (Vorschau T1, eine Zeile je Messung) – wartet auf Danieles OK.
