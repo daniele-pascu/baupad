@@ -187,6 +187,9 @@ test('Fotos werden hochgeladen, abgeglichen und für alle Geräte gelöscht', as
       t.oncomplete = () => r.result.close();
     };
   }))).toBe('synced');
+  // auch in der Ablage vor 16 Tagen (sonst holt der nächste Abgleich den jüngeren Stand zurück)
+  const cr = cloud.rows.get('other-1')!;
+  cr.data = { ...cr.data, trashedAt: Date.now() - 16 * 24 * 3600 * 1000 };
   await page.reload();
   await expect.poll(() => cloud.rows.get('other-1')?.deleted_at, { timeout: 15_000 }).toBeTruthy();
   await expect.poll(() => cloud.files.has('photos/other-1/data.jpg')).toBe(false);

@@ -400,7 +400,8 @@ test('Messung: Menü mit fünf Messarten; Länge, Winkel, Radius, Abstand, Fläc
   await expect(menu).toBeVisible();
   await page.mouse.click(sb.x + 30, sb.y + 30);
   await expect(menu).toHaveCount(0);
-  await page.getByTestId('tool-probe').click();
+  // Tipp ins Leere klappt auch die untere Leiste zu – pickTool öffnet sie wieder
+  await pickTool(page, 'tool-probe');
   await menu.getByTestId('probe-menu-length').click();
   await expect(page.getByTestId('probe-hint')).toContainText('Punkte nacheinander');
   // Werkzeugwahl schaltet den Punktfang ein – für exakte Pixelwerte hier ausschalten

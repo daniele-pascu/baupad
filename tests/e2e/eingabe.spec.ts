@@ -449,6 +449,9 @@ test('Stil-Menü (Darstellung neuer Messungen) schließt bei Klick auf den Plan 
   // Klick auf den Plan
   await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
   await expect(pop).toHaveCount(0);
+  // Tipp ins Leere klappt auch die untere Leiste zu
+  await expect(page.getByTestId('tools-open')).toBeVisible();
+  await page.getByTestId('tools-open').click();
   // anderes Werkzeug
   await page.getByTestId('tool-style').click();
   await expect(pop).toBeVisible();
