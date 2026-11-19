@@ -211,9 +211,11 @@ test('Rückgängig und Wiederholen: Anlegen, Verschieben, per Schaltfläche und 
   await page.keyboard.press('Control+Shift+Z');
   await expect.poll(rowCount).toBe(3);
 
-  // Verschieben zurücknehmen
+  // Verschieben zurücknehmen (Tabelle antippen öffnet die Bearbeitung – schließen, die Auswahl bleibt)
   await pickTool(page, 'tool-select');
   await row(3).click();
+  await page.getByTestId('damage-cancel').click();
+  await expect(page.getByTestId('damage-dialog')).toBeHidden();
   const before = await markerRelPos(page, 3);
   const box = await planBox(page);
   const cx = box.x + box.width * ((before.x + before.w / 2) * 1);
@@ -391,7 +393,7 @@ test('Datenbank-Umstellung von Version 1: vorhandene Projekte bleiben vollständ
         };
       }),
   );
-  expect(info.version).toBe(12); // aktuelle Version (12: Zeitaufzeichnung mit gespeicherten Monatsdateien)
+  expect(info.version).toBe(15); // aktuelle Version (15: siehe DB_VERSION in src/lib/db.ts)
   expect(info.stores).toEqual(expect.arrayContaining(['components', 'outbox', 'elements', 'lvDocs', 'workers', 'weeks', 'reports', 'photos', 'defectPlans', 'projects', 'damages']));
   expect(info.upgradedFrom).toBe(1);
   // Datensätze unverändert (keine neue Revision, keine Felder verändert)
