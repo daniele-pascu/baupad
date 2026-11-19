@@ -406,6 +406,8 @@ export function writableRecord(
   } else if (PROJECT_STORES.includes(store)) {
     // Projekte anlegen und löschen: nur das Büro
     if (store === 'projects' && (!existing || deleted)) return null;
+    // in den Papierkorb legen (deletedAt setzen) ebenfalls nur das Büro; zurückholen darf jeder mit Zugriff
+    if (store === 'projects' && incoming.deletedAt && !existing?.deletedAt) return null;
     if ((!deleted && !rowAllowed(a, store, id, incoming)) || (existing && !rowAllowed(a, store, id, existing))) return null;
   } else return null;
   if (deleted) return incoming;

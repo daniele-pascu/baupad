@@ -51,3 +51,18 @@ test('Nach 15 Tagen endgültig gelöscht (auch für die Ablage), jüngere bleibe
   await expect(trash.getByTestId('trash-entry')).toContainText('Gestern');
   await expect(trash.getByTestId('trash-entry')).toContainText('noch 14 Tage');
 });
+
+test('Projekt im Papierkorb: in allen Tools ausgeblendet, nach 15 Tagen überall endgültig gelöscht', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'Abriss');
+  const [p] = await idb<{ id: string; rev: number }[]>(page, getAll('projects'));
+  // vor 16 Tagen in den Papierkorb gelegt
+  await idb(page, putAll('projects'), [{ ...p, deletedAt: Date.now() - 16 * DAY, rev: p.rev + 1 }]);
+  await page.goto('./baupad/tools');
+  await expect.poll(async () => (await idb<{ id: string }[]>(page, getAll('projects'))).length).toBe(0);
+  const meta = await idb<{ key: string; value: unknown }[]>(page, getAll('meta'));
+  expect(meta.find((m) => m.key === 'deletedProjects')?.value).toEqual([p.id]);
+  const out = await idb<{ id: string; deleted?: boolean }[]>(page, getAll('outbox'));
+  expect(out.find((e) => e.id === `projects:${p.id}`)?.deleted).toBe(true);
+  await expect(page.getByTestId('trash-open')).toHaveAttribute('data-count', '0');
+});

@@ -6,7 +6,7 @@
  */
 import { getAuth, type Session } from './auth';
 import { useSession } from './use-session';
-import { deleteDefectPlanCompletely, deleteFormEntry, deleteProjectCompletely, deleteReport, deleteWorker, getDB, getMeta, setMeta, listDefectPlans, listFormEntries, listProjects, listReports, listWeeks, saveDefectPlan, saveReport, saveTimeDay, saveWeek, writeRecords } from './db';
+import { deleteDefectPlanCompletely, deleteFormEntry, deleteProjectCompletely, deleteReport, deleteWorker, getDB, getMeta, setMeta, listAllDefectPlans, listAllFormEntries, listAllPhotos, listAllReports, listDefectPlans, listProjects, listReports, listWeeks, saveDefectPlan, saveReport, saveTimeDay, saveWeek, writeRecords } from './db';
 import { adoptProject, projectFromSite, usedIn } from './crew-link';
 import { getPhotoStorage } from './photo-storage';
 import { clearFreePhotoSites, listFreePhotoSites, updateFreePhotoSite } from './photo-sites';
@@ -314,7 +314,8 @@ export async function projectUsage(projectId: string): Promise<{ label: string; 
 
 async function collectUsage(projectId: string) {
   const db = await getDB();
-  const [weeks, reports, photos, plans, forms, days] = await Promise.all([listWeeks(), listReports(), getPhotoStorage().list(), listDefectPlans(), listFormEntries(), db.getAll('timeDays')]);
+  // alle – auch die Daten, die im Papierkorb ausgeblendet sind (Projekt bzw. Foto im Papierkorb)
+  const [weeks, reports, photos, plans, forms, days] = await Promise.all([listWeeks(), listAllReports(), listAllPhotos(), listAllDefectPlans(), listAllFormEntries(), db.getAll('timeDays')]);
   return {
     weeks: weeks.filter((w) => w.sites.some((s) => s.projectId === projectId)),
     reports: reports.filter((r) => live(r) && r.projectId === projectId),
@@ -326,7 +327,35 @@ async function collectUsage(projectId: string) {
 }
 
 /**
- * Projekt aus dem Register und allen Tools endgültig löschen: Berichte, Firmenformulare, Fotos, Mängelpläne und
+ * Projekt löschen = in den Papierkorb (15 Tage): in allen Tools ausgeblendet, samt Berichten, Formularen, Fotos,
+ * Mängelplänen, Material und Aufmaß. Die Baustelle verschwindet sofort aus den Wochen der Einteilung (kommt beim
+ * Wiederherstellen nicht zurück); erfasste Stunden bleiben unverändert. Nach 15 Tagen: deleteProjectEverywhere.
+ */
+export async function trashProject(projectId: string): Promise<void> {
+  const project = await (await getDB()).get('projects', projectId);
+  if (!project || project.deletedAt) return;
+  const now = Date.now();
+  for (const w of await listWeeks()) {
+    if (!w.sites.some((s) => s.projectId === projectId)) continue;
+    await saveWeek({ ...w, sites: w.sites.filter((s) => s.projectId !== projectId), updatedAt: now });
+  }
+  await writeRecords([{ store: 'projects', record: { ...project, deletedAt: now, rev: project.rev + 1, updatedAt: now, deviceId: getDeviceId() }, baseRev: project.rev }]);
+}
+
+/** Projekt aus dem Papierkorb holen – mit allem, was dazugehört (außer der Einteilung) */
+export async function restoreProject(projectId: string): Promise<void> {
+  const project = await (await getDB()).get('projects', projectId);
+  if (!project?.deletedAt) return;
+  await writeRecords([{ store: 'projects', record: { ...project, deletedAt: null, rev: project.rev + 1, updatedAt: Date.now(), deviceId: getDeviceId() }, baseRev: project.rev }]);
+}
+
+/** Projekte im Papierkorb */
+export async function listTrashedProjects(): Promise<Project[]> {
+  return (await (await getDB()).getAll('projects')).filter((p) => !!p.deletedAt).sort((a, b) => (b.deletedAt ?? 0) - (a.deletedAt ?? 0));
+}
+
+/**
+ * Projekt aus dem Register und allen Tools endgültig löschen (nach 15 Tagen im Papierkorb): Berichte, Firmenformulare, Fotos, Mängelpläne und
  * Aufmaß-Daten werden gelöscht, die Baustelle verschwindet aus den Wochen der Einteilung. Erfasste Stunden bleiben
  * (Lohnverrechnung) – dort steht die Baustelle danach nur noch als Name.
  */

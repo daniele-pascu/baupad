@@ -36,10 +36,16 @@ Grundregeln stehen in `CLAUDE.md`, Grundsätze in `docs/entscheidungen.md`.
 - Arbeiter tragen eigene Stunden ein; SV-Nummer (nur Admin/Büro); Messart „Betoninstandsetzung“; Excel „Freie Messungen“
   ohne Überschrift; Papierkorb 15 Tage. Material-Meldung an den Projektleiter: vorerst nicht.
 
-## Als Nächstes: Papierkorb überall
-- Alles Gelöschte 15 Tage im Papierkorb (auch ganze Projekte), in Aufmaß, Material, Mängel, Fotos, Berichte.
-  Im Tool: alles Gelöschte des Tools; im Projekt: nur dessen Daten. Heute gibt es den Papierkorb nur im Aufmaß-Projekt
-  (`src/lib/trash.ts`, gelöscht = `deletedAt`).
+- Speicher-Taste oben in der Leiste (Gespeichert / Lokal gesichert / Speichert …), `src/components/SaveButton.tsx`.
+- Papierkorb (15 Tage, danach wirklich gelöscht) für Projekte, Aufmaß und Fotos; Taste oben im Seitenkopf
+  (`src/components/TrashButton.tsx`, Modell `src/lib/trash-items.ts`, Aufräumen `src/lib/trash-purge.ts`).
+
+## Als Nächstes: Papierkorb für die restlichen Tools
+- Berichte und Formulare, Mängelpläne, Material (Materialstamm, Materiallisten der Baustelle): heute löschen sie
+  endgültig (`deleteSynced`). Umbauen wie Fotos: Feld „im Papierkorb seit“, in den Listen ausblenden, in
+  `trash-items.ts` als Einträge, in `trash-purge.ts` nach 15 Tagen endgültig löschen; Papierkorb-Taste in deren Kopf.
+  Nicht: Lieferanten, Einteilung, Zeiten.
+- **Danieles Schritt:** Funktion `storage` in Supabase neu veröffentlichen (siehe `docs/ablage-einrichten.md`).
 - Später: 30 Tage beim Betreiber, Wiederherstellung danach kostenpflichtig.
 
 ## Vorgemerkt (später)

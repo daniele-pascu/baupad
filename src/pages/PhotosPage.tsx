@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Icon } from '../components/Icon';
+import { TrashButton } from '../components/TrashButton';
 import { SortControl } from '../components/SortControl';
 import { sortList, useListSort } from '../lib/list-sort';
 import { projectPrefix } from '../lib/project-label';
@@ -115,6 +116,7 @@ export function PhotosPage() {
             <h1 data-testid="photos-title">Fotos</h1>
           </div>
           <div className="row gap">
+            <TrashButton scope={{ tool: 'photos' }} />
             {(access.session?.role === 'admin' || access.session?.role === 'buero') && (
               <a href={paths.photosRecent()} className="btn btn-sm" title="Die neuesten Fotos aller Projekte als Galerie" data-testid="photo-recent">
                 <Icon name="images" size={16} /> <span className="lbl">Zuletzt hochgeladen</span>

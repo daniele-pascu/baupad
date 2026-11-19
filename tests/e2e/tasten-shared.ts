@@ -130,6 +130,11 @@ export function tastenTests() {
       ['materialverwaltung?t=geraete', 'device-new'],
       ['materialverwaltung?t=material', 'material-new'],
       ['materialverwaltung?t=lieferanten', 'supplier-new'],
+      // Papierkorb oben im Seitenkopf
+      ['tools', 'trash-open'],
+      ['aufmass-und-abrechnung', 'trash-open'],
+      ['projektregister', 'trash-open'],
+      ['fotodokumentation', 'trash-open'],
     ];
     for (const [p, id] of DIALOGE) {
       await page.goto(`./baupad/${p}`);

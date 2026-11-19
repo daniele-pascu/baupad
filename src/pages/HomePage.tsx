@@ -2,6 +2,7 @@ import { SortControl } from '../components/SortControl';
 import { useListSort } from '../lib/list-sort';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '../components/Icon';
+import { TrashButton } from '../components/TrashButton';
 import { ProjectPicker } from '../components/ProjectPicker';
 import { ProjectHeading } from '../components/ProjectHeading';
 import { ProjectEditDialog } from '../components/ProjectEditDialog';
@@ -16,7 +17,7 @@ import { formatDateTime, naturalCompare } from '../lib/numbers';
 import { navigate, paths } from '../lib/router';
 import { closeProject } from '../lib/store';
 import { useAccess } from '../lib/access';
-import { useCanCreateProjects, deleteProjectEverywhere } from '../lib/sites';
+import { useCanCreateProjects, trashProject } from '../lib/sites';
 import { linkSitesToProject, usedIn } from '../lib/crew-link';
 import type { PhotoSite, Project } from '../lib/types';
 import { useDataChanged } from '../lib/data-events';
@@ -153,18 +154,18 @@ export function HomePage() {
         <>
           <p>
             Das Projekt <strong>„{r.project.name}“</strong> mit {r.stats.costCenters} Kostenstelle(n), {r.stats.plans} Plan/Plänen und{' '}
-            {r.stats.damages} Schadstelle(n) wird <strong>endgültig</strong> gelöscht{sync.status !== 'off' ? ' – auf allen Geräten und für alle Benutzer, auch in den anderen Tools' : ''}.
+            {r.stats.damages} Messung(en) kommt in den Papierkorb{sync.status !== 'off' ? ' – auf allen Geräten, auch in den anderen Tools' : ''}.
           </p>
-          <p>Tipp: Wer es aufheben will, sichert das Projekt vorher über „Sichern“ als Datei.</p>
+          <p>Es bleibt 15 Tage im Papierkorb und wird danach endgültig gelöscht.</p>
         </>
       ),
-      confirmLabel: 'Endgültig löschen',
+      confirmLabel: 'Löschen',
       danger: true,
     });
     if (!ok) return;
-    // wie im Projektregister: überall löschen, damit es auf keinem Gerät aus Resten zurückkommt
-    await deleteProjectEverywhere(r.project.id);
-    toast('Projekt gelöscht.');
+    // wie im Projektregister: in allen Tools in den Papierkorb (nach 15 Tagen überall endgültig gelöscht)
+    await trashProject(r.project.id);
+    toast('Projekt gelöscht – 15 Tage im Papierkorb.');
     void load();
   };
 
@@ -236,6 +237,7 @@ export function HomePage() {
           <ToolMark name="projects" />
           <h1 data-testid="projects-title">Aufmaß</h1>
         </div>
+        <TrashButton scope={{ tool: 'projects' }} />
       </header>
 
       <div className="home-actions">

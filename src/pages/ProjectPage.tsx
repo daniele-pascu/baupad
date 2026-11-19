@@ -433,6 +433,12 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
           <small>Projekt</small>
           <h1 data-testid="project-title">{project.name}</h1>
         </div>
+        {/* Papierkorb dieses Projekts (Pläne, Kostenstellen, LV/MFK, Originalpläne) – oben wie in allen Tools */}
+        <button type="button" className="btn btn-sm trash-btn" onClick={() => setTrashOpen(true)} title="Papierkorb dieses Projekts" aria-label={`Papierkorb${trashCount ? ` (${trashCount})` : ''}`} data-testid="open-trash" data-count={trashCount}>
+          <Icon name="trash" size={16} />
+          <span className="lbl">Papierkorb</span>
+          {trashCount > 0 && <span className="trash-count">{trashCount}</span>}
+        </button>
       </header>
       <SaveErrorBanner />
       {backupInfo?.due && !reminderHidden && sync.status === 'off' && (
@@ -678,7 +684,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
               },
             ]}
           />
-          {(plans.length > 0 || trashCount > 0) && (
+          {plans.length > 0 && (
             <div className="row gap wrap plan-list-foot">
               {plans.length > 0 && (
                 <>
@@ -689,11 +695,6 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
                     <Icon name="camera" /> Fotos exportieren
                   </button>
                 </>
-              )}
-              {trashCount > 0 && (
-                <button type="button" className="btn" onClick={() => setTrashOpen(true)} data-testid="open-trash">
-                  <Icon name="trash" /> Papierkorb ({trashCount})
-                </button>
               )}
             </div>
           )}

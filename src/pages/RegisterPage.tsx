@@ -2,6 +2,7 @@ import { SortControl } from '../components/SortControl';
 import { sortList, useListSort, type ListSort } from '../lib/list-sort';
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Icon } from '../components/Icon';
+import { TrashButton } from '../components/TrashButton';
 import { Modal } from '../components/Modal';
 import { ProjectEditDialog } from '../components/ProjectEditDialog';
 import { ProjectForm } from '../components/ProjectForm';
@@ -35,7 +36,7 @@ import { listProjects, projectStats } from '../lib/db';
 import { labelFromProject } from '../lib/project-label';
 import { usePageTitle } from '../lib/page-title';
 import { paths } from '../lib/router';
-import { canEditSites, createRegisterProject, deleteProjectEverywhere, projectUsage } from '../lib/sites';
+import { canEditSites, createRegisterProject, trashProject, projectUsage } from '../lib/sites';
 import { useSession } from '../lib/use-session';
 import type { Project } from '../lib/types';
 import { pcStyle, useProjectColors } from '../lib/project-colors';
@@ -106,11 +107,11 @@ export function RegisterPage() {
         message: (
           <>
             <p>
-              <strong>„{name}“</strong> wird aus dem Projektregister und allen Tools <strong>endgültig</strong> gelöscht.
+              <strong>„{name}“</strong> kommt aus dem Projektregister und allen Tools in den Papierkorb.
             </p>
             {lost.length > 0 && (
               <>
-                <p>Dabei wird mitgelöscht:</p>
+                <p>Mit dabei:</p>
                 <ul data-testid="register-delete-usage">
                   {lost.map((x) => (
                     <li key={x}>{x}</li>
@@ -118,16 +119,16 @@ export function RegisterPage() {
                 </ul>
               </>
             )}
-            {days && <p className="muted small">Erfasste Stunden ({days.count} Tage in „Zeiten“) bleiben erhalten – die Baustelle steht dort dann nur noch als Name.</p>}
-            {lost.length > 0 && <p className="muted small">Das lässt sich nicht rückgängig machen. Wichtiges vorher sichern (Fotos, PDFs, Aufmaß „Sichern“).</p>}
+            {days && <p className="muted small">Erfasste Stunden ({days.count} Tage in „Zeiten“) bleiben erhalten.</p>}
+            <p className="muted small">Es bleibt 15 Tage im Papierkorb und wird danach endgültig gelöscht. Die Baustelle verschwindet sofort aus der Einteilung.</p>
           </>
         ),
-        confirmLabel: 'Endgültig löschen',
+        confirmLabel: 'Löschen',
         danger: true,
       });
       if (!ok) return;
-      await deleteProjectEverywhere(p.id);
-      toast(`„${name}“ gelöscht.`, 'success');
+      await trashProject(p.id);
+      toast(`„${name}“ gelöscht – 15 Tage im Papierkorb.`, 'success');
       reload();
     } catch (e) {
       showError(e, 'Projekt konnte nicht gelöscht werden');
@@ -175,11 +176,14 @@ export function RegisterPage() {
             </a>
             <h1 data-testid="register-title">Projektregister</h1>
           </div>
+          <div className="row gap">
+          <TrashButton scope={{ tool: 'register' }} />
           {mayCreate && (
             <button type="button" className="btn btn-primary" onClick={() => setCreating(true)} title="Projekt mit seinen Angaben anlegen – in Tools übernimmt man es später" data-testid="register-new">
               <Icon name="plus" size={16} /> <span className="hide-sm">Neues Projekt</span>
             </button>
           )}
+          </div>
         </header>
 
         {projects && projects.length > 0 && (

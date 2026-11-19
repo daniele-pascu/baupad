@@ -1020,6 +1020,8 @@ export interface Photo {
   /** Kennung in der zentralen Ablage (nach dem Upload) */
   remoteId?: string;
   syncError?: string;
+  /** im Papierkorb seit (15 Tage wiederherstellbar, danach endgültig gelöscht) – Datei bleibt bis dahin */
+  trashedAt?: number | null;
   deletedAt: number | null;
   createdAt: number;
   updatedAt: number;

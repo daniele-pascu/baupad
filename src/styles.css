@@ -9699,6 +9699,34 @@ canvas.dp-detail.dp-gray {
     font-size: 0.8rem;
   }
 }
+/* Papierkorb-Taste oben im Seitenkopf (Tool-Übersicht, Tools, Projekte): Zahl als kleine Plakette */
+.trash-btn {
+  gap: 6px;
+  flex-shrink: 0;
+}
+.trash-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--text);
+  color: var(--surface);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.trash-btn:active .trash-count {
+  background: var(--surface);
+  color: var(--text);
+}
+/* Handy: nur Symbol und Zahl – der Kopf bleibt einzeilig */
+@media (max-width: 600px) {
+  .trash-btn .lbl {
+    display: none;
+  }
+}
 /* Speichern fehlgeschlagen bzw. Konflikt: Meldung mit Taste daneben */
 .save-error-banner {
   display: flex;

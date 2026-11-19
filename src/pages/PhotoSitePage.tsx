@@ -1,6 +1,8 @@
 import { zipSync } from 'fflate';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '../components/Icon';
+import { TrashButton } from '../components/TrashButton';
+import { trashPhotos } from '../lib/trash-items';
 import { MovePhotosDialog } from '../components/MovePhotosDialog';
 import { PhotoPdfDialog } from '../components/PhotoPdfDialog';
 import { ProjectEditDialog } from '../components/ProjectEditDialog';
@@ -239,8 +241,7 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
       title: list.length === 1 ? 'Foto löschen?' : `${list.length} Fotos löschen?`,
       message: (
         <p>
-          {list.length === 1 ? `Das Foto vom ${dateTimeLabel(list[0].takenAt)} wird` : `${list.length} Fotos werden`} endgültig gelöscht
-          {list.some((p) => p.sync === 'local') ? ' – sie liegen nur auf diesem Gerät' : ''}.
+          {list.length === 1 ? `Das Foto vom ${dateTimeLabel(list[0].takenAt)} kommt` : `${list.length} Fotos kommen`} in den Papierkorb. Dort bleiben sie 15 Tage und werden danach endgültig gelöscht.
         </p>
       ),
       confirmLabel: 'Löschen',
@@ -248,14 +249,12 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
     }).then((ok) => {
       if (!ok) return;
       void run(async () => {
-        for (const p of list) {
-          await getPhotoStorage().remove(p.id);
-          forgetPhotoUrl(p.id);
-        }
+        await trashPhotos(list.map((p) => p.id));
+        for (const p of list) forgetPhotoUrl(p.id);
         if (current && list.some((p) => p.id === current.id)) show(null);
         setSelected(new Set());
         await reload();
-        toast(list.length === 1 ? 'Foto gelöscht.' : `${list.length} Fotos gelöscht.`, 'success');
+        toast(list.length === 1 ? 'Foto gelöscht – 15 Tage im Papierkorb.' : `${list.length} Fotos gelöscht – 15 Tage im Papierkorb.`, 'success');
       });
     });
   const remove = (p: Photo) => removeMany([p]);
@@ -358,6 +357,7 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
             </div>
           </div>
           <div className="row gap photo-head-actions">
+            {site && <TrashButton scope={site.projectId ? { tool: 'photos', projectId: site.projectId } : { tool: 'photos', siteName: site.name }} />}
             {canEditSites(session) && (
               <button type="button" className="btn btn-sm" onClick={() => setEditing(true)} disabled={!site} title="Baustelle bearbeiten (Name, Nummer, Adresse) – gilt in allen Tools" aria-label="Baustelle bearbeiten" data-testid="photo-site-edit">
                 <Icon name="edit" size={16} /> <span className="lbl">Bearbeiten</span>

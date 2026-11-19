@@ -164,13 +164,23 @@ test('Fotos je Baustelle, KW und Tag; Großansicht; Beschreibung; Suche; Duplika
   // Löschen mit Bestätigung; nach dem Neuladen bleibt der Rest
   await page.getByTestId('photo-group').nth(0).getByTestId('photo-thumb').first().click();
   await page.getByTestId('lightbox-delete').click();
-  await expect(page.getByTestId('confirm-dialog')).toContainText('endgültig gelöscht');
+  await expect(page.getByTestId('confirm-dialog')).toContainText('in den Papierkorb');
   await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Löschen' }).click();
   await expect(page.locator('.toast', { hasText: 'Foto gelöscht' })).toHaveCount(1);
   await page.reload();
   await expect(page.getByTestId('photo-site-title')).toHaveText('Neubau Musterstraße');
   await expect(page.getByTestId('photo-group')).toHaveCount(1);
   await expect(page.getByTestId('photo-site-title').locator('..')).toContainText('3 Fotos');
+  // Papierkorb der Baustelle: das Foto zurückholen
+  await expect(page.getByTestId('trash-open')).toHaveAttribute('data-count', '1');
+  await page.getByTestId('trash-open').click();
+  const trash = page.getByTestId('trash-dialog');
+  await expect(trash.getByTestId('trash-entry')).toContainText('Foto vom 02.11.2026');
+  await trash.getByTestId('trash-restore').click();
+  await expect(trash.getByTestId('trash-empty')).toBeVisible();
+  await trash.getByRole('button', { name: 'Schließen' }).last().click();
+  await expect(page.getByTestId('photo-site-title').locator('..')).toContainText('4 Fotos');
+  await expect(page.getByTestId('trash-open')).toHaveAttribute('data-count', '0');
 });
 
 test('Ohne Projekt: Baustelle aus der Arbeitereinteilung bzw. Berichten; Foto ohne EXIF bekommt das Dateidatum', async ({ page }) => {
