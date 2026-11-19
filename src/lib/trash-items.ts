@@ -10,7 +10,7 @@ import type { EntityStore, Photo } from './types';
 /**
  * Papierkorb über alle Tools: gelöschte Projekte (mit allen Daten), Fotos und Aufmaß (Pläne, Kostenstellen, LV,
  * Originalpläne). Jeder sieht, was auf seinem Gerät liegt – also, wofür er Zugriff hat – und kann es wiederherstellen.
- * Ansicht je Ort: Tool-Übersicht alles, im Tool alles dieses Tools, im Projekt bzw. auf der Baustelle nur deren Daten.
+ * Ansicht je Ort (nur in den Tools, nicht in der Tool-Übersicht): im Tool alles dieses Tools, im Projekt bzw. auf der Baustelle nur deren Daten.
  */
 export type TrashKind = 'project' | 'photos' | 'aufmass';
 
@@ -30,7 +30,7 @@ export interface TrashItem {
   purge(): Promise<void>;
 }
 
-/** Wo der Papierkorb geöffnet wird: ohne Angaben = Tool-Übersicht (alles) */
+/** Wo der Papierkorb geöffnet wird: ohne Angaben = alles (nur noch für Tests/Übersichten) */
 export interface TrashScope {
   tool?: 'projects' | 'photos' | 'register';
   projectId?: string | null;

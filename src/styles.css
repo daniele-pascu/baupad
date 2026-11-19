@@ -10196,7 +10196,7 @@ html[data-theme='dark'] .crew-search {
 .aufmass-table tr.position-group td {
   background: var(--surface-2);
   border-top: 2px solid var(--border-strong);
-  padding: 8px 10px;
+  padding: 0;
   font-weight: 700;
   white-space: normal;
   cursor: default;
@@ -10205,12 +10205,12 @@ html[data-theme='dark'] .crew-search {
   border-top: none;
 }
 .position-group-title {
-  margin-right: 10px;
+  min-width: 0;
 }
 .position-group-sum {
-  float: right;
+  margin-left: auto;
   font-variant-numeric: tabular-nums;
-  color: var(--muted);
+  white-space: nowrap;
 }
 /* nur senkrecht scrollen: Tabelle passt in die Breite (Spalten schmaler, Art bricht um) */
 .table-wrap:has(> .aufmass-table),
@@ -10223,20 +10223,49 @@ html[data-theme='dark'] .crew-search {
   border-top: 6px solid var(--bg);
 }
 .aufmass-type-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   margin: 0;
-  padding: 10px 10px 8px;
   font-size: 0.95rem;
   font-weight: 700;
   background: var(--surface);
+}
+/* Balken einer Gruppe (Messart bzw. Position): ganze Zeile antippen klappt auf/zu, Summe rechts */
+.group-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.group-chevron {
+  flex-shrink: 0;
+  color: var(--muted);
+  transition: transform 0.18s ease;
+}
+/* wie in der Einteilung: Winkel zeigt nach rechts (zu), offen nach unten */
+.group-toggle[aria-expanded='true'] .group-chevron {
+  transform: rotate(90deg);
+}
+.aufmass-type-label {
+  min-width: 0;
 }
 .aufmass-type-count {
   margin-left: auto;
   font-size: 0.78rem;
   font-weight: 500;
   color: var(--muted);
+  white-space: nowrap;
+}
+.aufmass-type-sum {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .aufmass-tables .aufmass-table th {
   /* mehrere Tabellen untereinander: Köpfe bleiben an ihrer Tabelle, nichts überlagert die nächste Überschrift */
@@ -13788,10 +13817,117 @@ html[data-theme='dark'] .select-toggle.on {
   border-radius: 16px;
   animation: none;
 }
-.side-head-tools {
+/* Fenster „Neue Messung“: Bereich wählen (frei oder Position mit passender Messart) */
+.nm-row {
   display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.nm-row.active {
+  border-color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--text);
+}
+.nm-row:active {
+  background: var(--primary-soft);
+}
+.nm-free {
+  margin: 4px 0 10px;
+}
+.nm-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--primary-soft);
+  flex-shrink: 0;
+}
+.nm-search {
+  margin-bottom: 10px;
+}
+.nm-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.nm-no {
+  flex-shrink: 0;
+  min-width: 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.86rem;
+}
+.nm-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.nm-text strong,
+.nm-short {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nm-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+@media (max-width: 600px) {
+  .nm-row {
+    flex-wrap: wrap;
+  }
+  .nm-type {
+    margin-left: auto;
+  }
+}
+/* Hinweis „Neue Messungen: …“ antippen öffnet die Auswahl */
+.position-chip-pick {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+/* Kopf der Messleiste: Titel und Summe links, „Auswählen“ rechts daneben (nicht darunter) */
+.side-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 10px;
+  align-items: start;
+}
+.side-head > h2,
+.side-head > [data-testid='side-summary'] {
+  grid-column: 1;
+  min-width: 0;
+}
+.side-head-tools {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
-  margin-top: 8px;
+  gap: 6px;
+  align-self: start;
 }
 .aufmass-table .nr-col .select-box {
   margin-right: 8px;

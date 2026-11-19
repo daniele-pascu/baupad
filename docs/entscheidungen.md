@@ -187,7 +187,7 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - **Aufmaß:** Messart heißt überall „Betoninstandsetzung“ (vorher in der App „Schadstelle“; die einzelne Stelle heißt weiter Schadstelle, gespeicherte Kennung bleibt `schadstelle`). Excel-Blatt „Freie Messungen“ ohne Überschrift.
 - **Papierkorb:** 15 Tage für die Benutzer, danach endgültig gelöscht (wirklich: Tombstone für Ablage und alle Geräte; mit Online-Ablage erst nach einem Abgleich, damit ein Gerät mit altem Stand nichts löscht, was woanders wiederhergestellt wurde). Später: 30 Tage beim Betreiber, Wiederherstellung danach kostenpflichtig.
 - **Was in den Papierkorb kommt:** Projekte, Pläne/Aufmaß (Kostenstellen, LV/MFK, Originalpläne), Berichte und alle Unterlagen, Fotos, Mängelpläne, Material. Nicht: Lieferanten, Einteilung, Zeiten; einzelne Messungen/Punkte nur über Rückgängig. Wiederherstellen darf jeder mit Zugriff; ein Projekt in den Papierkorb legen nur Admin/Büro (am Server geprüft).
-- **Papierkorb-Taste oben im Seitenkopf:** Tool-Übersicht zeigt alles, ein Tool alles Gelöschte des Tools (Projekte gehören allen Tools), Projekt bzw. Baustelle nur deren Daten. Die Speicher-Taste steht in der Leiste; für eine zweite Taste ist dort am iPhone kein Platz.
+- **Papierkorb-Taste oben im Seitenkopf – nur in den Tools, nicht in der Tool-Übersicht:** ein Tool zeigt alles Gelöschte des Tools (Projekte gehören allen Tools), Projekt bzw. Baustelle nur deren Daten. Die Speicher-Taste steht in der Leiste; für eine zweite Taste ist dort am iPhone kein Platz.
 - **Projekt im Papierkorb** (`deletedAt` am Projekt): in allen Tools samt seinen Daten ausgeblendet (zentral in den Listen von `db.ts`). Die Baustelle verschwindet sofort aus den Wochen der Einteilung und kommt beim Wiederherstellen nicht zurück; Stunden bleiben. Nach 15 Tagen wie früher „Projekt löschen“ (`deleteProjectEverywhere`).
 - **Fotos im Papierkorb** (`trashedAt`): Bilddateien bleiben 15 Tage in der Ablage, danach werden Eintrag und Dateien gelöscht.
 
@@ -203,4 +203,11 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 
 ## Papierkorb: Auswählen (19.11.2026)
 - In jedem Papierkorb „Auswählen“: einzelne oder alle Einträge markieren, dann **Wiederherstellen** oder **Endgültig löschen** (Rückfrage; sofort auf allen Geräten).
+
+## Aufmaß: Bereiche, Neue Messung, Tabelle (19.11.2026)
+- **Bereich** = Gruppe in der Aufmaß-Tabelle: je Position, ohne Position je Messart (Fläche, Wände, Linien, Volumen …).
+- **„Neue Messung“** (Messleiste oben bzw. Hinweis „Neue Messungen: …“ antippen): Position wählen → Messart stellt sich aus der Einheit ein (m² Fläche, m/lfm Länge, m³ Volumen, Stk Stück, sonst Frei; Positionen mit Betoninstandsetzungs-Regel → Betoninstandsetzung), alle neuen Messungen zählen dort. „Frei – ohne Position“ öffnet die Messarten. Ohne LV gleich die Messarten. Das Messfenster bleibt wie gewohnt (vorbelegt).
+- **Tabelle:** Gruppen (Messart und Position) wie in der Einteilung auf-/zuklappbar (Winkel › / ⌄, auf dem Gerät gemerkt); die Summe steht oben im Balken – zu und offen.
+- „Auswählen“ steht oben neben dem Titel der Messleiste.
+- Speicher-Taste: „Online gespeichert“ statt „Gespeichert“. Papierkorb nur in den Tools, nicht in der Tool-Übersicht.
 

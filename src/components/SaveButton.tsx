@@ -29,7 +29,7 @@ type Look = 'saved' | 'local' | 'saving' | 'error';
 
 /**
  * Speicher-Taste oben in der Leiste (alle Tools, Projekte, Tool-Übersicht). Sie zeigt immer, wo die Daten stehen:
- * „Gespeichert“ (online), „Lokal gesichert“ (auf dem Gerät, wartet auf Upload bzw. ohne Empfang oder ohne Firmen-Ablage)
+ * „Online gespeichert“, „Lokal gesichert“ (auf dem Gerät, wartet auf Upload bzw. ohne Empfang oder ohne Firmen-Ablage)
  * oder „Speichert …“. Antippen speichert sofort: lokal schreiben, hochladen, Neues holen – mit Ladezeichen.
  * data-status = Speicherstand des offenen Aufmaß-Projekts (wie bisher), data-state = was die Taste zeigt.
  */
@@ -50,7 +50,7 @@ export function SaveButton() {
 
   const look: Look = storeError || failure !== null ? 'error' : busy ? 'saving' : !cloudOn || !online || waiting > 0 ? 'local' : 'saved';
   const label =
-    look === 'error' ? (storeError ? 'Nicht gespeichert' : 'Online-Fehler') : look === 'saving' ? 'Speichert …' : look === 'local' ? 'Lokal gesichert' : 'Gespeichert';
+    look === 'error' ? (storeError ? 'Nicht gespeichert' : 'Online-Fehler') : look === 'saving' ? 'Speichert …' : look === 'local' ? 'Lokal gesichert' : 'Online gespeichert';
   const title =
     look === 'error'
       ? storeError

@@ -58,7 +58,7 @@ test('Projekt im Papierkorb: in allen Tools ausgeblendet, nach 15 Tagen überall
   const [p] = await idb<{ id: string; rev: number }[]>(page, getAll('projects'));
   // vor 16 Tagen in den Papierkorb gelegt
   await idb(page, putAll('projects'), [{ ...p, deletedAt: Date.now() - 16 * DAY, rev: p.rev + 1 }]);
-  await page.goto('./baupad/tools');
+  await page.goto('./baupad/projektregister');
   await expect.poll(async () => (await idb<{ id: string }[]>(page, getAll('projects'))).length).toBe(0);
   const meta = await idb<{ key: string; value: unknown }[]>(page, getAll('meta'));
   expect(meta.find((m) => m.key === 'deletedProjects')?.value).toEqual([p.id]);
@@ -79,7 +79,7 @@ test('Papierkorb „Auswählen“: alle wiederherstellen bzw. ausgewählte endg�
     await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Löschen', exact: true }).click();
     await expect(page.locator(`[data-testid="register-row"][data-name="${n}"]`)).toHaveCount(0);
   }
-  await page.goto('./baupad/tools');
+  await page.goto('./baupad/projektregister');
   await expect(page.getByTestId('trash-open')).toHaveAttribute('data-count', '3');
   await page.getByTestId('trash-open').click();
   const trash = page.getByTestId('trash-dialog');

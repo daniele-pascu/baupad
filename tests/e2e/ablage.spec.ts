@@ -232,7 +232,7 @@ test('Ohne Empfang zuerst lokal, bei Empfang automatisch hochladen – auch bei 
   // Speicher-Taste oben: alles online → „Gespeichert“
   const btn = page.getByTestId('save-status');
   await expect(btn).toHaveAttribute('data-state', 'saved');
-  await expect(btn).toHaveText('Gespeichert');
+  await expect(btn).toHaveText('Online gespeichert');
   // kein Empfang: Projekt wird lokal angelegt, oben steht „Lokal gesichert“
   cloud.net.offline = true;
   await context.setOffline(true);
@@ -256,7 +256,7 @@ test('Ohne Empfang zuerst lokal, bei Empfang automatisch hochladen – auch bei 
   cloud.net.offline = false;
   await context.setOffline(false);
   await expect.poll(() => [...cloud.records].some((k) => k.startsWith('projects:')), { timeout: 30_000 }).toBe(true);
-  await expect(btn).toHaveText('Gespeichert');
+  await expect(btn).toHaveText('Online gespeichert');
 
   // neue Änderung, sofort antippen: Ladezeichen „Speichert …“, danach „Gespeichert“ und online
   await page.getByTestId('register-new').click();
@@ -265,7 +265,7 @@ test('Ohne Empfang zuerst lokal, bei Empfang automatisch hochladen – auch bei 
   await btn.click();
   await expect(btn).toHaveAttribute('data-state', 'saving');
   await expect(btn.locator('.save-btn-spin')).toBeVisible();
-  await expect(btn).toHaveText('Gespeichert', { timeout: 15_000 });
+  await expect(btn).toHaveText('Online gespeichert', { timeout: 15_000 });
   await expect.poll(() => [...cloud.records].filter((k) => k.startsWith('projects:')).length).toBe(2);
 });
 

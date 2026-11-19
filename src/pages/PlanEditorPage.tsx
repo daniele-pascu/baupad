@@ -19,7 +19,8 @@ import { legendEntries, resolveLegend } from '../lib/legend';
 import { LegendBox, LegendDialog } from '../components/LegendDialog';
 import type { PhotoSite } from '../lib/types';
 import { positionGrouping, costCenterLabel, damagesOf, findPosition, lvDocLabel, lvDocsOf, plansOf, planTitle, positionRef, sumArea } from '../lib/aufmass';
-import { autoBookings, hasSurfaceRules, refMismatch } from '../lib/pos-rules';
+import { activeRule, autoBookings, hasSurfaceRules, refMismatch } from '../lib/pos-rules';
+import { NewMeasureDialog, type NewMeasureOption } from '../components/NewMeasureDialog';
 import { calibrationStatus, checkDeviation, checkError, formatCm, formatPercent, geometryMeasures, MAX_ERROR_M, planUnitsPerMeter } from '../lib/calibration';
 import { ViewMenu } from '../components/ViewMenu';
 import { usePhone, isTouchDevice } from '../lib/platform';
@@ -33,7 +34,7 @@ import { convertShape, isOpenShape, lineShape, moveVertex, polygonShape, removeV
 import { probeTarget, type ProbeKind } from '../lib/probe';
 import { ProbeBar, ProbeMenu, ProbeOverlay, type ProbeState } from '../components/ProbeLayer';
 import { choiceIcon, choiceLabel, MEASURE_CHOICES, MeasureTypeMenu, type MeasureChoice } from '../components/MeasureTypeMenu';
-import { calcPath, defaultTypeFor, DEFAULT_WORK_AREAS, quantityOfMeasure, typeInfo, typeOf } from '../lib/measure-types';
+import { calcPath, defaultTypeFor, DEFAULT_WORK_AREAS, measureTypeForUnit, quantityOfMeasure, typeInfo, typeOf } from '../lib/measure-types';
 import { circleThrough } from '../lib/cad';
 import { countKind, deductionText, grossArea, hasArea, isWall, kindOf, measureLabel, netArea, netLength, sumLengths } from '../lib/measure';
 import { round2, checkMeasure, computeArea, formatArea, formatMeasure, toInputValue } from '../lib/numbers';
@@ -472,6 +473,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   }, [dialog]);
   const [overrides, setOverrides] = useState<Record<string, Partial<Damage>>>({});
   const [mobileTab, setMobileTab] = useState<'plan' | 'table'>('plan');
+  /** Fenster „Neue Messung“ (Position bzw. frei wählen) */
+  const [newMeasure, setNewMeasure] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [rotateOpen, setRotateOpen] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
@@ -1443,8 +1446,29 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const lineCount = countKind(damages, 'line');
   const activePosition = findPosition(data, lastPosition);
   const positionOptions = lvDocsOf(data).flatMap((doc) =>
-    doc.positions.map((p) => ({ ref: positionRef(doc.id, p.id), doc: lvDocLabel(doc), label: `${p.number} ${p.shortText} (${p.unit || '–'})`, number: p.number, shortText: p.shortText, unit: p.unit })),
+    doc.positions.map((p) => ({ ref: positionRef(doc.id, p.id), doc: lvDocLabel(doc), label: `${p.number} ${p.shortText} (${p.unit || '–'})`, number: p.number, shortText: p.shortText, unit: p.unit, type: measureTypeForUnit(p.unit, !!activeRule(p)) })),
   );
+  /**
+   * Neue Messung: Bereich gewählt – Position (Messart aus ihrer Einheit) oder frei (Messart selbst wählen). Danach zählen
+   * alle neuen Messungen dort; das Messfenster ist vorbelegt.
+   */
+  const startMeasure = (ref: string, type: MeasureType | null) => {
+    setNewMeasure(false);
+    setLastPosition(ref);
+    setMobileTab('plan');
+    setToolsOpen(true);
+    setSelectedId(null);
+    if (!type) {
+      setMtypeMenu(true);
+      return;
+    }
+    setMtype(type);
+    if (tool === 'select' || tool === 'calibrate' || tool === 'probe' || tool === 'text' || !toolVisible(tool, type)) setTool(firstTool(type));
+    const p = positionOptions.find((o) => o.ref === ref);
+    toast(`${p ? `Neue Messungen: ${p.number}` : 'Neue Messung'} – Messart ${typeInfo(type).label}. Jetzt im Plan zeichnen.`, 'info', 2600);
+  };
+  /** „Neue Messung“: mit LV erst den Bereich wählen, ohne LV gleich die Messart */
+  const openNewMeasure = () => (positionOptions.length ? setNewMeasure(true) : startMeasure('', null));
 
   /** Schadstellen-Positionen: Positionen, deren Regel (Größe, Tiefe, Zulage) zu diesen Werten passt */
   const autoPositions = (m: { area: number | null; depth: number | null; count: number; rebar: number; surface: Damage['surface'] }) =>
@@ -1915,7 +1939,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
 
           {!drawMode && positionOptions.length > 0 && (
             <div className={`position-chip${activePosition ? ' active' : ''}`} data-testid="current-position" title="Leistung, die neue Messungen automatisch erhalten">
-              <span className="muted">Neue Messungen:</span>{' '}
+              <button type="button" className="position-chip-pick" onClick={() => setNewMeasure(true)} aria-label="Bereich für neue Messungen wählen" data-testid="current-position-pick">
+                <span className="muted">Neue Messungen:</span>
+              </button>{' '}
               {activePosition ? (
                 <>
                   <strong>{activePosition.pos.number}</strong> <span className="position-chip-text">{activePosition.pos.shortText}</span>
@@ -2735,11 +2761,12 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               {damages.length} Messung{damages.length === 1 ? '' : 'en'} · {formatArea(sumArea(damages))} m²
               {lineCount > 0 && ` · Linien ${formatMeasure(sumLengths(damages))} m`}
             </span>
-            {damages.length > 1 && (
-              <div className="side-head-tools">
-                <SelectToggle sel={dmgSel} testId="damages-select" />
-              </div>
-            )}
+            <div className="side-head-tools">
+              <button type="button" className="btn btn-sm btn-primary" onClick={openNewMeasure} title="Neue Messung: Position bzw. frei wählen, dann im Plan zeichnen" data-testid="new-measure">
+                <Icon name="plus" size={16} /> Neue Messung
+              </button>
+              {damages.length > 1 && <SelectToggle sel={dmgSel} testId="damages-select" />}
+            </div>
           </div>
           <AufmassTable
             rows={rows}
@@ -2887,6 +2914,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         />
       )}
       {rotateOpen && plan && <RotatePlanDialog data={data} plan={plan} onClose={() => setRotateOpen(false)} onReuse={() => setRotateOpen(false)} />}
+      {newMeasure && <NewMeasureDialog options={positionOptions satisfies NewMeasureOption[]} current={lastPosition} onPick={startMeasure} onClose={() => setNewMeasure(false)} />}
       {pdfOpen && <PdfExportDialog data={data} costCenterId={plan.costCenterId} initial={[plan.id]} mode={pdfOpen} onClose={() => setPdfOpen(false)} />}
     </div>
   );

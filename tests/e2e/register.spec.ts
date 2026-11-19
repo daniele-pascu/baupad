@@ -83,9 +83,10 @@ test('Projektregister: Angaben, in Tools übernehmen, dort öffnen, neues Projek
   await expect(trash.getByTestId('trash-entry')).toHaveCount(1);
   await trash.getByRole('button', { name: 'Schließen' }).last().click();
   await expect(page.locator('[data-testid="register-row"][data-name="Parkring"]')).toHaveCount(1);
-  // Tool-Übersicht: der Papierkorb zeigt alles (hier noch Halle 3)
+  // Papierkorb nur in den Tools, nicht in der Tool-Übersicht
   await page.goto('./baupad/tools');
-  await expect(page.getByTestId('trash-open')).toHaveAttribute('data-count', '1');
+  await expect(page.getByTestId('tools-title')).toBeVisible();
+  await expect(page.getByTestId('trash-open')).toHaveCount(0);
   await page.goto('./baupad/arbeitereinteilung');
   await expect(page.locator('[data-site="Parkring"]')).toHaveCount(0);
 });

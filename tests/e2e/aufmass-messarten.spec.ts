@@ -314,6 +314,13 @@ test('Je Messart eine eigene Tabelle mit passenden Spalten und eigener Summe, da
   // Überschrift mit Anzahl
   await expect(table('stueck').locator('.aufmass-type-head')).toContainText('Stück');
   await expect(table('stueck').locator('.aufmass-type-head')).toContainText('2 Messungen');
+  // Balken antippen klappt die Messart zu – die Summe bleibt oben sichtbar; nochmal antippen klappt auf
+  await table('flaeche').getByTestId('aufmass-type-toggle').click();
+  await expect(table('flaeche').getByTestId('aufmass-type-toggle')).toHaveAttribute('aria-expanded', 'false');
+  await expect(table('flaeche').locator('[data-testid="aufmass-row"]')).toHaveCount(0);
+  await expect(table('flaeche').getByTestId('type-sum-value')).toHaveText('9,00 m²');
+  await table('flaeche').getByTestId('aufmass-type-toggle').click();
+  await expect(table('flaeche').locator('[data-testid="aufmass-row"]')).not.toHaveCount(0);
   // Gesamtsummen unter allen Tabellen
   const total = page.getByTestId('aufmass-total');
   await expect(total.getByTestId('sum-count')).toHaveText('7 Stk');

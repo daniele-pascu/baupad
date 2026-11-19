@@ -202,3 +202,17 @@ export function calcPath(d: Pick<Damage, 'kind' | 'shape' | 'measureType' | 'cou
   }
   return areaTxt;
 }
+
+/**
+ * Messart passend zu einer LV-Position (Neue Messung → Position wählen): Betoninstandsetzungs-Position (Regel nach
+ * Größe/Tiefe) → Betoninstandsetzung, sonst nach der Einheit: m² Fläche, m³ Volumen, m/lfm Länge, Stk Stück, sonst Frei.
+ */
+export function measureTypeForUnit(unit: string, damageRule = false): MeasureType {
+  if (damageRule) return 'schadstelle';
+  const u = unit.trim().toLowerCase().replace(/\s+/g, '').replace('²', '2').replace('³', '3').replace(/\.$/, '');
+  if (['m2', 'qm'].includes(u)) return 'flaeche';
+  if (['m3', 'cbm'].includes(u)) return 'volumen';
+  if (['m', 'lfm', 'lm', 'lfdm'].includes(u)) return 'laenge';
+  if (['stk', 'st', 'stück', 'stck', 'pcs'].includes(u)) return 'stueck';
+  return 'frei';
+}
