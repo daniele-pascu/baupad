@@ -10238,11 +10238,13 @@ html[data-theme='dark'] .crew-search {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-/* nur senkrecht scrollen: Tabelle passt in die Breite (Spalten schmaler, Art bricht um) */
+/* In der Standardbreite passt die Tabelle (Spalten schmaler, Art bricht um). Wird die Messleiste schmaler gezogen,
+   lässt sie sich seitlich wischen – abgeschnitten oder verdeckt wird nichts. */
 .table-wrap:has(> .aufmass-table),
 .table-wrap.aufmass-tables {
-  overflow-x: hidden;
+  overflow-x: auto;
   overflow-y: auto;
+  overscroll-behavior-x: contain;
 }
 /* je Messart eine eigene Tabelle: Überschrift mit Symbol und Anzahl, darunter Spalten und Summe der Messart */
 .aufmass-type + .aufmass-type {
@@ -10279,17 +10281,33 @@ html[data-theme='dark'] .crew-search {
 .group-toggle[aria-expanded='true'] .group-chevron {
   transform: rotate(90deg);
 }
-.aufmass-type-label {
+/* schmal: reicht der Platz nicht, rutscht die Summe in die nächste Zeile (rechts) statt den Namen zu zerstückeln */
+.aufmass-type-head .group-toggle {
+  flex-wrap: wrap;
+  row-gap: 2px;
+}
+.aufmass-type-title {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
   min-width: 0;
+  line-height: 1.25;
+}
+.aufmass-type-label,
+.aufmass-type-count {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .aufmass-type-count {
-  margin-left: auto;
   font-size: 0.78rem;
   font-weight: 500;
   color: var(--muted);
-  white-space: nowrap;
 }
 .aufmass-type-sum {
+  flex: none;
+  margin-left: auto;
+  padding-left: 8px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -13950,6 +13968,18 @@ html[data-theme='dark'] .select-toggle.on {
   justify-content: flex-end;
   gap: 6px;
   align-self: start;
+}
+/* schmal gezogene Messleiste (PC/iPad quer): Titel über die ganze Breite, Tasten darunter (Titel bricht nicht Buchstabe für Buchstabe um) */
+@media (min-width: 900px) {
+  .editor-side.is-narrow .side-head {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .editor-side.is-narrow .side-head-tools {
+    grid-column: 1;
+    grid-row: auto;
+    justify-content: flex-start;
+    margin-top: 8px;
+  }
 }
 .aufmass-table .nr-col .select-box {
   margin-right: 8px;
