@@ -216,3 +216,9 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - Berichte, Firmenformulare, Mängelpläne, Material (Materialstamm, Geräte) und Positionen der Materialliste kommen beim Löschen 15 Tage in den Papierkorb (`trashedAt`), danach endgültig gelöscht. Verbrauchseinträge, Mängelpunkte und Lieferanten wie bisher direkt.
 - Papierkorb-Taste oben in Berichte, Mängel und Material sowie im jeweiligen Projekt bzw. auf der Baustelle.
 
+## Vier Tasten beim Zeichnen (19.11.2026)
+- **Tasten-Design:** noch offen – Daniele möchte Entwürfe in Glas-Optik sehen (Vorschau, nicht einbauen).
+- **Vier Tasten X · Zurück · Vor · Häkchen** im Aufmaß für alle Mehrpunkt-Tools (Freie Form, Vieleck, Wand, Stück-Punkte) und für Freihand – statt „Offen beenden“, „Schließen (Fläche)“, „Fertig“. Kein Tipp mehr als vorher; offen oder geschlossen ergibt sich aus der Messart. Stück zeigt die laufende Anzahl neben dem Häkchen.
+- **Freihand im Aufmaß:** Striche sind ein Entwurf (Zurück/Vor je Strich), das Häkchen übernimmt. Bei Länge zählen mehrere Striche als eine Messung (Lücken dazwischen), bei Flächen gilt der letzte Strich.
+- Ein-Zug-Tools (Rechteck, Kreis, Linie) bleiben ohne Häkchen (sonst +1 Tipp je Messung).
+

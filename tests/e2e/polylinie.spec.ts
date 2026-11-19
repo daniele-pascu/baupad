@@ -333,7 +333,9 @@ test('Wand: Verlauf mit Knicken, Länge aus allen Abschnitten, danach Höhe → 
   const y = sb.y + 80;
   // L-förmige Wand: 200 px nach rechts, 100 px nach unten, 100 px nach rechts → 400 px
   for (const [dx, dy] of [[0, 0], [200, 0], [200, 100], [300, 100]]) await page.mouse.click(x + dx, y + dy);
-  await expect(page.getByTestId('polygon-bar')).toContainText('Wand: 4 Punkte');
+  // unten nur Abbrechen, Zurück, Vor, Fertig – mit vier Punkten
+  await expect(page.getByTestId('draft-bar')).toHaveAttribute('data-count', '4');
+  await expect(page.getByTestId('draft-bar').locator('button')).toHaveCount(4);
   // Antippen des Startpunkts schließt eine Wand nicht – Enter beendet den Verlauf
   await page.keyboard.press('Enter');
   const dlg = page.getByTestId('damage-dialog');

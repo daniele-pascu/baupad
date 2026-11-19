@@ -9734,6 +9734,11 @@ canvas.dp-detail.dp-gray {
   color: var(--surface);
   border: 1px solid var(--text);
 }
+.editor-plan > .toolbar.seg-bar .seg-count {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
 .editor-plan > .toolbar.seg-bar .tool-btn.seg-done:not(:disabled):active {
   background: var(--surface);
   color: var(--text);

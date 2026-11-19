@@ -3,6 +3,7 @@ import type { PDFPageProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import {
   HANDLES,
   fitView,
+  freehandPoints,
   freehandShape,
   handlePosition,
   hitShape,
@@ -211,6 +212,13 @@ interface Props {
   closableWall?: boolean;
   /** Freie Form als Linien einzeln (Aufmaß, Länge): je zwei Punkte eine Linie, die nächste beginnt frei (z. B. Risse) */
   segments?: boolean;
+  /**
+   * Freihand als Entwurf (Aufmaß): Striche werden gesammelt – Zurück/Vor je Strich, „Fertig“ (finishPolygon)
+   * übernimmt. freehandMulti: mehrere Striche = eine Messung mit Lücken (Länge, z. B. ein Riss in Stücken);
+   * sonst gilt nur der letzte Strich.
+   */
+  freehandDraft?: boolean;
+  freehandMulti?: boolean;
   /** Linie mit der Maus nur durch Klick – Klick (nicht durch Ziehen) */
   lineClickOnly?: boolean;
   /** Werkzeug benutzt: der nächste Kontakt (auch Maus und Stift) beendet es – Tipp = Auswahl, Ziehen = Plan verschieben */
@@ -344,6 +352,10 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   const poly = useRef<Point[]>([]);
   /** mit „Zurück“ entfernte Punkte (für „Vor“); jeder neue Punkt leert die Liste */
   const redoPts = useRef<Point[]>([]);
+  /** Freihand als Entwurf: gezeichnete Striche und mit „Zurück“ entfernte (für „Vor“) */
+  const strokes = useRef<Point[][]>([]);
+  const redoStrokes = useRef<Point[][]>([]);
+  const fhDraft = () => !!propsRef.current.freehandDraft && propsRef.current.tool === 'freehand';
   /** Linie/Kalibrieren per Klick: gesetzter Punkt A (wartet auf Punkt B) */
   const clickStart = useRef<Point | null>(null);
   const clearClickStart = () => {
@@ -398,12 +410,17 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   // Werkzeugwechsel verwirft eine angefangene Fläche
   useEffect(() => {
     redoPts.current = [];
+    redoStrokes.current = [];
+    if (strokes.current.length) {
+      strokes.current = [];
+      propsRef.current.onPolygonChange?.(0);
+    }
     if (poly.current.length) {
       poly.current = [];
       polyHover.current = null;
       propsRef.current.onPolygonChange?.(0);
     }
-  }, [tool, props.segments]);
+  }, [tool, props.segments, props.freehandMulti]);
 
   // Containergröße beobachten
   useLayoutEffect(() => {
@@ -625,6 +642,14 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     lastPolygonPoint: () => poly.current[poly.current.length - 1] ?? null,
     undoPolygonPoint: () => {
       if (clickStart.current) return clearClickStart();
+      if (fhDraft()) {
+        const last = strokes.current[strokes.current.length - 1];
+        if (last) redoStrokes.current = [...redoStrokes.current, last];
+        strokes.current = strokes.current.slice(0, -1);
+        propsRef.current.onPolygonChange?.(strokes.current.length);
+        forceRender((n) => n + 1);
+        return;
+      }
       const last = poly.current[poly.current.length - 1];
       if (last) redoPts.current = [...redoPts.current, last];
       poly.current = poly.current.slice(0, -1);
@@ -632,6 +657,15 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       forceRender((n) => n + 1);
     },
     redoPolygonPoint: () => {
+      if (fhDraft()) {
+        const st = redoStrokes.current[redoStrokes.current.length - 1];
+        if (!st) return;
+        redoStrokes.current = redoStrokes.current.slice(0, -1);
+        strokes.current = propsRef.current.freehandMulti ? [...strokes.current, st] : [st];
+        propsRef.current.onPolygonChange?.(strokes.current.length);
+        forceRender((n) => n + 1);
+        return;
+      }
       const p = redoPts.current[redoPts.current.length - 1];
       if (!p) return;
       redoPts.current = redoPts.current.slice(0, -1);
@@ -639,7 +673,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       propsRef.current.onPolygonChange?.(poly.current.length);
       forceRender((n) => n + 1);
     },
-    canRedoPolygon: () => redoPts.current.length > 0,
+    canRedoPolygon: () => (fhDraft() ? redoStrokes.current.length > 0 : redoPts.current.length > 0),
     armClick: (p: Point | null) => {
       if (!p) clearClickStart();
       else {
@@ -653,6 +687,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       clearClickStart();
       redoPts.current = [];
       poly.current = [];
+      strokes.current = [];
+      redoStrokes.current = [];
       propsRef.current.onPolygonChange?.(0);
       forceRender((n) => n + 1);
     },
@@ -1283,6 +1319,18 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
           return;
         }
         clearClickStart(); // gezogen: wie bisher
+        if (g.tool === 'freehand' && propsRef.current.freehandDraft) {
+          // Aufmaß: Strich als Entwurf – erst „Fertig“ legt die Messung an (Zurück/Vor je Strich)
+          // Größe des ganzen Strichs (eine geschlossene Schlaufe endet fast am Anfang)
+          const xs = g.points.map((q) => q.x);
+          const ys = g.points.map((q) => q.y);
+          if (g.points.length < 2 || Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) * v.scale < 8) return;
+          strokes.current = propsRef.current.freehandMulti ? [...strokes.current, g.points] : [g.points];
+          redoStrokes.current = [];
+          propsRef.current.onPolygonChange?.(strokes.current.length);
+          forceRender((n) => n + 1);
+          return;
+        }
         const shape = shapeFromDraw(g, v);
         if (shape) create(shape);
         return;
@@ -1410,6 +1458,33 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   function finishPolygon(closed?: boolean) {
     const pts = poly.current;
     const tool = propsRef.current.tool;
+    if (fhDraft()) {
+      const list = strokes.current;
+      const v = viewRef.current;
+      if (!list.length || !v) return;
+      let shape: Shape | null;
+      if (propsRef.current.freehandMulti && list.length > 1) {
+        // mehrere Striche: eine offene Form mit Lücken zwischen den Strichen (Länge = Summe)
+        const parts = list.map((st) => freehandShape(st, 0.5 / v.scale, 0)).filter((x): x is Shape => !!x).map((x) => freehandPoints(x));
+        const all = parts.flat();
+        const breaks = parts.slice(0, -1).reduce<number[]>((acc, pt) => [...acc, (acc[acc.length - 1] ?? 0) + pt.length], []);
+        shape = all.length >= 2 ? { ...polygonShape(all, false), ...(breaks.length ? { breaks } : {}) } : null;
+      } else {
+        const st = list[list.length - 1];
+        const xs = st.map((p) => p.x);
+        const ys = st.map((p) => p.y);
+        const diag = Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+        // offene Messarten (Länge): nie schließen; sonst wie bisher: nahe am Startpunkt beendet → Fläche
+        const closeDist = propsRef.current.freehandMulti ? 0 : Math.max(18 / v.scale, 0.08 * diag);
+        shape = freehandShape(st, 0.5 / v.scale, closeDist);
+      }
+      strokes.current = [];
+      redoStrokes.current = [];
+      propsRef.current.onPolygonChange?.(0);
+      forceRender((n) => n + 1);
+      if (shape) create(shape);
+      return;
+    }
     if (propsRef.current.segments && tool === 'polyline') {
       // Linien einzeln: Punktpaare; ein angefangener letzter Punkt (ohne Ende) entfällt
       const shape = segmentsShape(pts);
@@ -1617,6 +1692,13 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
               </g>
             );
           })()}
+          {props.freehandDraft && tool === 'freehand' && strokes.current.length > 0 && (
+            <g className="poly-preview" data-testid="freehand-draft" data-strokes={strokes.current.length}>
+              {strokes.current.map((st, i) => (
+                <polyline key={i} points={st.map((q) => { const s2 = toScreen(view, q); return `${s2.x},${s2.y}`; }).join(' ')} fill="none" stroke={visibleStroke(color)} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+              ))}
+            </g>
+          )}
           {props.segments && tool === 'polyline' && poly.current.length > 0 && (() => {
             // Linien einzeln: fertige Linien durchgezogen, die angefangene gestrichelt bis zum Zeiger
             const pts = poly.current.map((q) => toScreen(view, q));
