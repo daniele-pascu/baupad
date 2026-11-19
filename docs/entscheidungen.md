@@ -234,4 +234,11 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 ## Schmale Messleiste (19.11.2026)
 - Messart-Balken: Name und Anzahl untereinander, Summe rechts; reicht der Platz nicht, rutscht die Summe in die nächste Zeile – nichts überlappt.
 - Kopf der Messleiste immer: Titel und Summe über die ganze Breite, darunter „Neue Messung“ und „Auswählen“ nebeneinander (schmaler als 400 px: beide gleich breit, ohne Symbol). Summe ohne „0,00 m²“, wenn nur Längen gemessen sind.
-- Die Spalten-Tabelle braucht rund 430 px; schmaler lässt sie sich seitlich wischen statt abgeschnitten zu werden. Endgültige Lösung: vereinfachte Tabelle (Vorschau T1, eine Zeile je Messung) – wartet auf Danieles OK.
+- Die Spalten-Tabelle ist durch die einfache Aufmaß-Liste (T1, unten) ersetzt – sie passt in jeder Breite.
+
+## Aufmaß-Liste statt Spalten-Tabelle (19.11.2026, T1)
+- **Eine Gruppen-Ebene:** nach Leistungsposition (LV-Reihenfolge); Messungen ohne Position nach Messart („Volumen · ohne Position“), ohne LV nur nach Messart. Längen weiter je Linienart getrennt.
+- **Eine Zeile je Messung:** Farbe · Nr · Maße mit „×“ · Ergebnis rechts. Keine Spaltenköpfe, keine Spalte „Art“, keine Positions-Marke. Darunter nur bei Bedarf eine kleine Zeile: Abzüge, Bewehrung, Bauteil, „auch bei …“ (weitere Positionen), „Fläche wählen“, Fotos, Notiz.
+- **Bedienen:** 1× antippen = auswählen und im Plan zeigen, 2× = Messung öffnen. Kein Stift, kein Mülleimer – gelöscht wird im Messfenster oder über „Auswählen“. In der Projektansicht springt Antippen wie bisher in den Plan.
+- **Summen:** im Gruppen-Balken und oben im Kopf je Einheit, wie abgerechnet (m², m, m³, Stk, eigene Einheiten, Bewehrung lfm). m³ nur aus Volumen-Messungen; die Grundfläche einer Volumen-Messung zählt nicht mehr zu m² (vorher z. B. 104,05 statt 95,70 m²). Die Summen unter der Tabelle entfallen.
+- Excel und PDF unverändert.

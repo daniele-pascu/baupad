@@ -2,7 +2,7 @@ import { expect, test } from './fixtures';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { tastenBefunde } from './tasten-check';
-import { catchDownload, createProject, drawRect, FIXTURES, freshStart, OUT, planBox, readXlsx, readXlsxPrint, saveDownload, waitForPlan, waitSaved, pickTool } from './helpers';
+import { catchDownload, createProject, drawRect, FIXTURES, freshStart, OUT, planBox, readXlsx, readXlsxPrint, saveDownload, waitForPlan, waitSaved, pickTool, openRow } from './helpers';
 
 /** Phase 4: LV/MFK aus PDF importieren, prüfen, durchsuchen, Messungen zuordnen, Mengen. */
 test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen', async ({ page }) => {
@@ -77,7 +77,8 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   await expect(picker).toHaveCount(0);
   await expect(dlg.getByTestId('input-position')).toHaveText('92 01 01 B Sperrflaeche (m²)');
   await dlg.getByTestId('damage-save').click();
-  await expect(page.locator('[data-testid="aufmass-row"][data-number="1"] [data-testid="row-position"]')).toHaveText('92 01 01 B');
+  // die Messung steht in der Gruppe ihrer Position
+  await expect(page.locator('[data-testid="position-group"]', { has: page.locator('[data-testid="aufmass-row"][data-number="1"]') })).toContainText('92 01 01 B');
   await expect(page.getByTestId('current-position')).toContainText('92 01 01 B');
   await pickTool(page, 'tool-line');
   await drawRect(page, box.x + box.width * 0.5, box.y + box.height * 0.3, box.x + box.width * 0.7, box.y + box.height * 0.35);
@@ -338,7 +339,7 @@ test('Projektseite: Pläne, Aufmaß und LV/MFK untereinander; LV steht immer vor
   await dlg.getByTestId('damage-save').click();
   await waitSaved(page);
   // Bearbeiten: MFK und Position sind wieder gewählt
-  await page.locator('[data-testid="aufmass-row"][data-number="1"]').getByRole('button', { name: /bearbeiten/ }).click();
+  await openRow(page, '1');
   await expect(dlg.getByTestId('input-position-doc').locator('option:checked')).toContainText('M9-001');
   await expect(dlg.getByTestId('input-position')).toHaveText(mfkPos);
   // anderes Dokument → Position zurückgesetzt

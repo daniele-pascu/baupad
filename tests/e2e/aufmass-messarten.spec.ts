@@ -281,29 +281,28 @@ test('Werkzeuge je Messart: Wand nur bei Wand, Punkte bei Stück – Punkte anti
   await expect(page.locator('[data-testid="aufmass-row"][data-type="stueck"]').last().getByTestId('row-qty')).toHaveText('3 Stk');
 });
 
-test('Je Messart eine eigene Tabelle mit passenden Spalten und eigener Summe, darunter die Gesamtsummen', async () => {
+test('Je Messart eine Gruppe mit eigener Summe, je Messung eine Zeile, oben die Gesamtsummen', async () => {
   // aus den Tests davor: Wand, Stück (4 + 3), Frei (kg), Volumen, Fläche, Länge, Schadstelle
   const tables = page.getByTestId('aufmass-type');
   const types = await tables.evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.type));
   // feste Reihenfolge der Messarten, nur die vorkommenden
   expect(types).toEqual(['flaeche', 'wand', 'laenge', 'volumen', 'stueck', 'schadstelle', 'frei']);
   const table = (t: string) => page.locator(`[data-testid="aufmass-type"][data-type="${t}"]`);
-  const heads = (t: string) => table(t).locator('thead th').evaluateAll((ths) => ths.map((th) => (th.textContent ?? '').replace(/\s+/g, ' ').trim()).filter(Boolean));
   // jede Zeile steht in der Tabelle ihrer Messart
   for (const t of types) {
     const rows = table(t!).locator('[data-testid="aufmass-row"]');
     expect(await rows.count()).toBeGreaterThan(0);
     expect(await rows.evaluateAll((rs, type) => rs.every((r) => (r as HTMLElement).dataset.type === type), t)).toBe(true);
   }
-  // Spalten je Messart
-  expect(await heads('flaeche')).toEqual(['Nr.', 'Länge (m)', 'Breite (m)', 'Fläche (m²)', 'Art', 'Aktionen']);
-  expect(await heads('wand')).toEqual(['Nr.', 'Länge (m)', 'Höhe (m)', 'Fläche (m²)', 'Art', 'Aktionen']);
-  expect(await heads('laenge')).toEqual(['Nr.', 'Länge (m)', 'Gesamt (m)', 'Art', 'Aktionen']);
-  expect(await heads('volumen')).toEqual(['Nr.', 'Länge (m)', 'Breite (m)', 'Tiefe (m)', 'Volumen (m³)', 'Art', 'Aktionen']);
-  expect(await heads('stueck')).toEqual(['Nr.', 'Anzahl', 'Art', 'Aktionen']);
-  expect(await heads('schadstelle')).toEqual(['Nr.', 'Länge (m)', 'Breite (m)', 'Tiefe (m)', 'Fläche (m²)', 'Art', 'Aktionen']);
-  expect(await heads('frei')).toEqual(['Nr.', 'Menge', 'Art', 'Aktionen']);
-  // eigene Summe je Tabelle
+  // je Messung eine Zeile „Nr · Maße · Ergebnis“ – keine Spaltenköpfe, keine Stift-/Löschtasten
+  await expect(page.getByTestId('aufmass-table').locator('th')).toHaveCount(0);
+  await expect(page.getByTestId('aufmass-table').getByRole('button', { name: /bearbeiten|löschen/ })).toHaveCount(0);
+  const dims = (t: string) => table(t).locator('[data-testid="aufmass-row"]').first().locator('.row-dim');
+  await expect(dims('flaeche')).toHaveCount(2);
+  await expect(dims('volumen')).toHaveCount(3);
+  await expect(dims('schadstelle')).toHaveCount(2); // ohne Tiefe: nur Länge × Breite
+  await expect(dims('stueck')).toHaveCount(0);
+  // eigene Summe je Gruppe
   await expect(table('stueck').getByTestId('type-sum-value')).toHaveText('7 Stk');
   await expect(table('frei').getByTestId('type-sum-value')).toHaveText('8,20 kg');
   await expect(table('volumen').getByTestId('type-sum-value')).toHaveText('0,60 m³');
@@ -312,8 +311,8 @@ test('Je Messart eine eigene Tabelle mit passenden Spalten und eigener Summe, da
   await expect(table('laenge').getByTestId('type-sum-value')).toContainText(' m');
   await expect(table('volumen').getByTestId('row-volume')).toHaveText('0,60');
   // Überschrift mit Anzahl
-  await expect(table('stueck').locator('.aufmass-type-head')).toContainText('Stück');
-  await expect(table('stueck').locator('.aufmass-type-head')).toContainText('2 Messungen');
+  await expect(table('stueck').locator('.aufmass-group-head')).toContainText('Stück');
+  await expect(table('stueck').locator('.aufmass-group-head')).toContainText('2 Messungen');
   // Balken antippen klappt die Messart zu – die Summe bleibt oben sichtbar; nochmal antippen klappt auf
   await table('flaeche').getByTestId('aufmass-type-toggle').click();
   await expect(table('flaeche').getByTestId('aufmass-type-toggle')).toHaveAttribute('aria-expanded', 'false');
@@ -321,7 +320,7 @@ test('Je Messart eine eigene Tabelle mit passenden Spalten und eigener Summe, da
   await expect(table('flaeche').getByTestId('type-sum-value')).toHaveText('9,00 m²');
   await table('flaeche').getByTestId('aufmass-type-toggle').click();
   await expect(table('flaeche').locator('[data-testid="aufmass-row"]')).not.toHaveCount(0);
-  // Gesamtsummen unter allen Tabellen
+  // Gesamtsummen oben im Kopf der Messleiste (je Einheit, wie abgerechnet)
   const total = page.getByTestId('aufmass-total');
   await expect(total.getByTestId('sum-count')).toHaveText('7 Stk');
   await expect(total.getByTestId('sum-free')).toHaveText('8,20 kg');
