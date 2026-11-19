@@ -108,6 +108,32 @@ export function freehandPoints(s: Shape): Point[] {
   return (s.points ?? []).map(([u, v]) => ({ x: s.x + u * s.w, y: s.y + v * s.h }));
 }
 
+/**
+ * Linien einzeln: Indizes der Punkte je Linie (ohne Lücken eine einzige Linie). Nur offene Formen haben Lücken.
+ */
+export function shapeParts<T>(s: Pick<Shape, 'breaks'>, pts: T[]): T[][] {
+  const br = [...new Set(s.breaks ?? [])].filter((i) => i > 0 && i < pts.length).sort((a, b) => a - b);
+  if (!br.length) return [pts];
+  const out: T[][] = [];
+  let from = 0;
+  for (const b of [...br, pts.length]) {
+    out.push(pts.slice(from, b));
+    from = b;
+  }
+  return out.filter((p) => p.length);
+}
+/** Lücken aus den Teilen (Anfang jeder weiteren Linie) */
+const breaksOf = (parts: unknown[][]) => parts.slice(0, -1).reduce<number[]>((acc, p) => [...acc, (acc[acc.length - 1] ?? 0) + p.length], []);
+
+/** Linien einzeln aus Punktpaaren (A, B, A, B …): eine offene Form mit Lücken – ein ungerader letzter Punkt entfällt */
+export function segmentsShape(pts: Point[]): Shape | null {
+  const n = pts.length - (pts.length % 2);
+  if (n < 2) return null;
+  const s = polygonShape(pts.slice(0, n), false);
+  const breaks = Array.from({ length: n / 2 - 1 }, (_, i) => 2 * (i + 1));
+  return breaks.length ? { ...s, breaks } : s;
+}
+
 /** Linie von a nach b. */
 export function lineShape(a: Point, b: Point): Shape {
   const x = Math.min(a.x, b.x);
@@ -146,7 +172,7 @@ export function hitShape(s: Shape, pWorld: Point, tol: number): boolean {
     return (dx * dx) / (rx * rx) + (dy * dy) / (ry * ry) <= 1;
   }
   const pts = freehandPoints(s);
-  if (isOpenShape(s)) return distanceToPolyline(p, pts, false) <= tol;
+  if (isOpenShape(s)) return shapeParts(s, pts).some((part) => distanceToPolyline(p, part, false) <= tol);
   return pointInPolygon(p, pts) || distanceToPolyline(p, pts, true) <= tol;
 }
 
@@ -255,7 +281,9 @@ function localShapePath(s: Shape): PathCmd[] {
     ];
   }
   const pts = freehandPoints(s);
-  const line = pts.map((p, i) => ({ c: i ? 'L' : 'M', p }) as PathCmd);
+  // Linien einzeln: an jeder Lücke neu ansetzen (M statt L)
+  const br = new Set(isOpenShape(s) ? (s.breaks ?? []) : []);
+  const line = pts.map((p, i) => ({ c: i && !br.has(i) ? 'L' : 'M', p }) as PathCmd);
   return isOpenShape(s) ? line : [...line, { c: 'Z' }];
 }
 
@@ -404,6 +432,8 @@ export function shapeFromVertices(s: Shape, pts: Point[]): Shape {
   const h = Math.max(...ys) - y || 1e-6;
   const out: Shape = { type, x, y, w, h, points: pts.map((p) => [round6((p.x - x) / w), round6((p.y - y) / h)] as [number, number]) };
   if (type === 'freehand') out.closed = s.type === 'rect' ? true : s.closed;
+  // Linien einzeln: Lücken bleiben (gleiche Punktzahl, z. B. Punkt verschoben)
+  if (type === 'freehand' && out.closed === false && s.breaks?.length && (s.points?.length ?? -1) === pts.length) out.breaks = s.breaks;
   return out;
 }
 
@@ -432,13 +462,26 @@ const minVertices = (s: Shape) => (isOpenShape(s) ? 2 : 3);
 export function insertVertex(s: Shape, edge: number, p: Point): Shape {
   const pts = shapeVertices(s);
   pts.splice(edge + 1, 0, p);
-  return shapeFromVertices({ ...s, type: 'freehand', closed: !isOpenShape(s) }, pts);
+  const out = shapeFromVertices({ ...s, type: 'freehand', closed: !isOpenShape(s) }, pts);
+  // Linien einzeln: spätere Linien beginnen einen Punkt weiter
+  const br = isOpenShape(s) ? (s.breaks ?? []).map((b) => (b > edge ? b + 1 : b)) : [];
+  return br.length ? { ...out, breaks: br } : out;
 }
 
 /** Eckpunkt entfernen (null, wenn sonst zu wenige Punkte übrig blieben). */
 export function removeVertex(s: Shape, index: number): Shape | null {
   const pts = shapeVertices(s);
   if (!canEditVertexCount(s) || pts.length <= minVertices(s) || index < 0 || index >= pts.length) return null;
+  if (isOpenShape(s) && s.breaks?.length) {
+    // Linien einzeln: Punkt aus seiner Linie nehmen; bleibt nur ein Punkt übrig, entfällt die ganze Linie
+    const parts = shapeParts(s, pts.map((p, i) => ({ p, i })));
+    const next = parts.map((part) => part.filter((x) => x.i !== index)).filter((part) => part.length >= 2);
+    if (!next.length) return null;
+    const flat = next.flat().map((x) => x.p);
+    const out = shapeFromVertices({ ...s, type: 'freehand', closed: false, breaks: undefined }, flat);
+    const br = breaksOf(next);
+    return br.length ? { ...out, breaks: br } : out;
+  }
   pts.splice(index, 1);
   return shapeFromVertices({ ...s, type: 'freehand', closed: !isOpenShape(s) }, pts);
 }
@@ -455,7 +498,9 @@ export function nearestEdge(s: Shape, p: Point): { edge: number; point: Point; d
   const n = pts.length;
   if (n < 2) return null;
   let best: { edge: number; point: Point; dist: number } | null = null;
+  const gaps = new Set(isOpenShape(s) ? (s.breaks ?? []) : []);
   for (let i = 0; i < n - (isOpenShape(s) ? 1 : 0); i++) {
+    if (gaps.has(i + 1)) continue; // Lücke zwischen zwei Linien ist keine Kante
     const a = pts[i];
     const b = pts[(i + 1) % n];
     const dx = b.x - a.x;
@@ -682,8 +727,10 @@ function localOutlinePointToward(shape: Shape, p: Point): Point {
     const pts = freehandPoints(shape);
     let best = pts[0] ?? p;
     let bestD = Infinity;
+    const gaps = new Set(isOpenShape(shape) ? (shape.breaks ?? []) : []);
     for (let i = 0; i < pts.length; i++) {
       if (isOpenShape(shape) && i === pts.length - 1) break;
+      if (gaps.has(i + 1)) continue;
       const q = nearestOnSegment(p, pts[i], pts[(i + 1) % pts.length]);
       const d = Math.hypot(q.x - p.x, q.y - p.y);
       if (d < bestD) {

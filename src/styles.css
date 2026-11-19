@@ -9699,6 +9699,29 @@ canvas.dp-detail.dp-gray {
     font-size: 0.8rem;
   }
 }
+/* Aufmaß, Länge mit Freier Form (Linien einzeln): unten nur Abbrechen, Zurück, Vor, Fertig – groß für den Daumen */
+.editor-plan > .toolbar.seg-bar {
+  justify-content: center;
+  gap: 12px;
+  padding: 6px 10px;
+}
+.editor-plan > .toolbar.seg-bar .tool-btn.seg-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+}
+.editor-plan > .toolbar.seg-bar .tool-btn.seg-btn:disabled {
+  opacity: 0.35;
+}
+.editor-plan > .toolbar.seg-bar .tool-btn.seg-done:not(:disabled) {
+  background: var(--text);
+  color: var(--surface);
+  border: 1px solid var(--text);
+}
+.editor-plan > .toolbar.seg-bar .tool-btn.seg-done:not(:disabled):active {
+  background: var(--surface);
+  color: var(--text);
+}
 /* Papierkorb-Taste oben im Seitenkopf (Tool-Übersicht, Tools, Projekte): Zahl als kleine Plakette */
 .trash-btn {
   gap: 6px;

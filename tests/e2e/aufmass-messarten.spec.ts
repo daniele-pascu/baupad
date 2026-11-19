@@ -158,18 +158,45 @@ test('Messart wählen, dann mit beliebigem Werkzeug messen: Wand, Stück, Frei, 
   expect(d.area).toBe(9);
 
   // 6) Länge (Linie, Freie Form, Freihand): geschlossene Freie Form 2 × 1 m → Umfang
+  // Länge mit Freier Form: Linie für Linie (z. B. ein Riss mit Lücken) – eine Messung, Länge = Summe
   await chooseType('laenge');
   await expect(page.getByTestId('tool-rect')).toHaveCount(0);
   await pickTool(page, 'tool-polyline');
-  for (const [dx, dy] of [[8, 5], [10, 5], [10, 6], [8, 6], [8, 5]]) await page.mouse.click(x + px(dx), y + px(dy));
+  await expect(page.getByTestId('segments-hint')).toBeVisible();
+  // A–B 2 m; C–D 1 m mit 0,5 m Abstand; E–F 1 m ab der Mitte von A–B
+  for (const [dx, dy] of [[8, 5], [10, 5]]) await page.mouse.click(x + px(dx), y + px(dy));
+  // unten statt der Leiste nur vier Tasten: Abbrechen, Zurück, Vor, Fertig
+  const bar = page.getByTestId('segments-bar');
+  await expect(bar).toBeVisible();
+  await expect(bar.locator('button')).toHaveCount(4);
+  expect(await bar.locator('button').evaluateAll((b) => b.map((x) => x.getAttribute('data-testid')))).toEqual(['seg-cancel', 'seg-undo', 'seg-redo', 'seg-done']);
+  await expect(page.getByTestId('tool-mtype')).toHaveCount(0);
+  await expect(bar.getByTestId('seg-redo')).toBeDisabled();
+  for (const [dx, dy] of [[10.5, 5], [10.5, 6], [9, 5], [9, 6]]) await page.mouse.click(x + px(dx), y + px(dy));
+  await expect(page.getByTestId('polygon-preview')).toHaveAttribute('data-segments', '3');
+  // Zurück nimmt den letzten Punkt, Vor setzt ihn wieder
+  await bar.getByTestId('seg-undo').click();
+  await expect(page.getByTestId('polygon-preview')).toHaveAttribute('data-segments', '2');
+  await bar.getByTestId('seg-redo').click();
+  await expect(page.getByTestId('polygon-preview')).toHaveAttribute('data-segments', '3');
+  await expect(bar.getByTestId('seg-redo')).toBeDisabled();
+  await bar.getByTestId('seg-done').click();
   await expect(dlg()).toContainText('Neue Messung: Länge');
   const l2 = num(await dlg().getByTestId('geometry-length').inputValue());
-  expect(Math.abs(l2 - 6)).toBeLessThan(0.1);
+  expect(Math.abs(l2 - 4)).toBeLessThan(0.1);
   await dlg().getByTestId('damage-save').click();
   await expect(dlg()).toBeHidden();
   d = await lastDmg();
   expect(d.measureType).toBe('laenge');
   expect(d.kind).toBe('line');
+  expect((d as unknown as { shape: { breaks?: number[] } }).shape.breaks).toEqual([2, 4]);
+  await expect(page.getByTestId('segments-bar')).toHaveCount(0);
+  // Abbrechen verwirft angefangene Linien
+  await pickTool(page, 'tool-polyline');
+  for (const [dx, dy] of [[8, 7], [10, 7]]) await page.mouse.click(x + px(dx), y + px(dy));
+  await page.getByTestId('seg-cancel').click();
+  await expect(page.getByTestId('segments-bar')).toHaveCount(0);
+  await expect(page.getByTestId('tool-mtype')).toBeVisible();
 
   // 7) Messart im Dialog umstellen: Betoninstandsetzung mit Schadensart
   await rect(x + px(11), y, px(1), px(1));

@@ -256,6 +256,11 @@ export interface Shape {
   points?: [number, number][];
   /** Nur Freihand: geschlossene Fläche (Standard) oder offene Linie, z. B. ein Riss */
   closed?: boolean;
+  /**
+   * Nur offene Freihand: Linien einzeln (z. B. Riss mit Lücken) – an diesen Punkten beginnt eine neue Linie, ohne
+   * Verbindung zum Punkt davor. Länge = Summe aller Linien.
+   */
+  breaks?: number[];
   /** Drehung in Grad im Uhrzeigersinn um die Mitte des Begrenzungsrechtecks (Standard 0) */
   rotation?: number;
 }

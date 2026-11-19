@@ -558,6 +558,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     }
   };
   const drawMode = drawingPlan && mode === 'draw';
+  /** Aufmaß, Messart Länge, Freie Form: Linien einzeln (je zwei Punkte eine Linie, z. B. Risse mit Lücken) */
+  const segMode = !drawMode && tool === 'polyline' && mtype === 'laenge';
   /** Darstellung: Bedienfeld der ausgewählten Messung bzw. Voreinstellung für neue Messungen */
   const [styleOpen, setStyleOpen] = useState(false);
   const [stylePopOpen, setStylePopOpen] = useState(false);
@@ -798,6 +800,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const measureSnap: SnapFn = (p, ctx) => {
     const shapes = [
       ...shownDamages.filter((d) => d.id !== ctx.movingId).map((d) => d.shape),
+      ...(ctx.draft ?? []), // Linien einzeln: Enden und Mitten der schon gesetzten Linien
       ...(drawingPlan ? drawing.elements.filter((e) => e.type !== 'text').map((e) => shapeToPage(e.shape, unitsPerMeter(plan!))) : []),
     ];
     const coarse = matchMedia('(pointer: coarse)').matches;
@@ -1807,6 +1810,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               onNoteMove={drawing.moveText}
               bounds={markerBounds}
               onPolygonChange={setPolyCount}
+              segments={segMode}
               damages={shownDamages}
               selectedId={selectedId}
               tool={guideTool ? 'pick' : tool}
@@ -2349,7 +2353,12 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               )}
             </div>
           )}
-          {!probe && !(!drawMode && (mtypeMenu || probeMenu || stylePopOpen)) && (drawMode ? isPointTool(drawing.viewerTool) && (polyCount > 0 || (!drawing.selected && drawing.tool !== 'wall')) : isPointTool(tool) && (polyCount > 0 || !selected)) && !dialog && (
+          {segMode && polyCount === 0 && !probe && !dialog && !mtypeMenu && !probeMenu && !stylePopOpen && !selected && (
+            <div className="draw-bar" data-testid="segments-hint">
+              <span className="muted small">Länge, Linie für Linie: Anfang und Ende antippen – die nächste Linie beginnt frei, z. B. mit Abstand oder an der Mitte einer Linie (Risse). Häkchen übernimmt die Summe.</span>
+            </div>
+          )}
+          {!segMode && !probe && !(!drawMode && (mtypeMenu || probeMenu || stylePopOpen)) && (drawMode ? isPointTool(drawing.viewerTool) && (polyCount > 0 || (!drawing.selected && drawing.tool !== 'wall')) : isPointTool(tool) && (polyCount > 0 || !selected)) && !dialog && (
             <PolylineBar
               polyline={(drawMode ? drawing.tool : tool) === 'polyline'}
               wall={(drawMode ? drawing.tool : tool) === 'wall'}
@@ -2527,6 +2536,22 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               onProbeCancel={() => setProbe(null)}
               float={phone}
             />
+          ) : segMode && polyCount > 0 && !dialog ? (
+            // Linien einzeln (Länge, Freie Form): unten nur Abbrechen, Zurück, Vor, Fertig
+            <div className="toolbar liquid seg-bar" role="toolbar" aria-label="Linien einzeln" data-testid="segments-bar">
+              <button type="button" className="tool-btn seg-btn" onClick={() => viewer.current?.cancelPolygon()} title="Abbrechen – Linien verwerfen" aria-label="Abbrechen" data-testid="seg-cancel">
+                <Icon name="close" />
+              </button>
+              <button type="button" className="tool-btn seg-btn" onClick={() => viewer.current?.undoPolygonPoint()} title="Zurück – letzten Punkt entfernen" aria-label="Zurück" data-testid="seg-undo">
+                <Icon name="undo" />
+              </button>
+              <button type="button" className="tool-btn seg-btn" onClick={() => viewer.current?.redoPolygonPoint()} disabled={!viewer.current?.canRedoPolygon()} title="Vor – Punkt wiederherstellen" aria-label="Vor" data-testid="seg-redo">
+                <Icon name="redo" />
+              </button>
+              <button type="button" className="tool-btn seg-btn seg-done" onClick={() => viewer.current?.finishPolygon(false)} disabled={polyCount < 2} title="Fertig – Länge übernehmen" aria-label="Fertig" data-testid="seg-done">
+                <Icon name="check" />
+              </button>
+            </div>
           ) : (
           <div className={`toolbar liquid${toolbarAwake ? ' awake' : ''}${toolsOpen ? '' : ' toolbar-collapsed'}`} role="toolbar" aria-label="Tools" data-mtype={mtype} onPointerDown={wakeToolbar}>
             {!toolsOpen ? (
