@@ -1,4 +1,4 @@
-import { expect, test } from './fixtures';
+import { expect, FAKE_SESSION, SESSION_KEY, test } from './fixtures';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { strToU8, zipSync } from 'fflate';
@@ -744,4 +744,19 @@ test('Planliste: Pläne direkt als PDF herunterladen – je Plan im Menü und al
   await page.getByTestId('plans-pdf').click();
   await expect(page.getByTestId('pdf-export-run')).toBeVisible();
   expect(await checked()).toBeGreaterThanOrEqual(2);
+});
+
+test.describe('App-Leiste ohne bestätigte Anmeldung', () => {
+  test.use({ signedIn: false });
+  test('abgelaufene, gespeicherte Anmeldung ohne Verbindung: App-Seiten zeigen die App-Leiste, nicht die der Website', async ({ page }) => {
+    // wie auf dem Handy ohne Empfang: Sitzung abgelaufen, der Dienst kann sie nicht erneuern
+    const expired = { ...FAKE_SESSION, expires_at: 1700000100, expires_in: 0 };
+    await page.addInitScript(({ key, value }) => localStorage.setItem(key, value), { key: SESSION_KEY, value: JSON.stringify(expired) });
+    await page.goto('./baupad/tools');
+    await expect(page.getByTestId('tools-title')).toBeVisible();
+    await expect(page.getByTestId('site-nav')).toBeVisible();
+    await expect(page.locator('.ps-chrome')).toHaveCount(0);
+    await expect(page.getByTestId('nav-tools')).toBeVisible();
+    await expect(page.getByTestId('nav-login')).toHaveCount(0); // gespeicherte Anmeldung: kein „Anmelden“
+  });
 });
