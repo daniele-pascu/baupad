@@ -208,7 +208,8 @@ async function rest(token: string, path: string, init: RequestInit & { prefer?: 
 // ---- Zeitaufzeichnung: wer bekommt welche Stunden ------------------------------------------------
 // Büro (Admin, Büro, Betreiber): alles. Polier: nur Zeilen auf seinen Projekten (Freigabe „Zeitaufzeichnung“, sonst
 // „Arbeitereinteilung“, sonst Baustellenliste; leer = alle). Arbeiter: nur Tage der Arbeiter, deren hinterlegte
-// Konto-E-Mail (Personalliste, userEmail) zu seiner Anmeldung passt; Arbeiter schreiben keine Stunden.
+// Konto-E-Mail (Personalliste, userEmail) zu seiner Anmeldung passt; er trägt auch nur diese Tage ein – nicht in einem
+// vom Büro freigegebenen Monat (ownTimeDayAllowed).
 // Die Tabelle `records` lässt Zeitdaten nur für das Büro zu (docs/supabase/time-access.sql) – Polier und Arbeiter
 // bekommen sie ausschließlich gefiltert über diese Funktion (mit dem Dienstschlüssel).
 export const TIME_STORES = ['timeDays', 'timeMonths'];
@@ -242,6 +243,16 @@ export function mergeTimeDay(existing: Record<string, unknown> | null, incoming:
   if (deleted && !hidden.length) return { data: {}, deleted: true };
   return { data: { ...(existing ?? {}), ...(deleted ? {} : incoming), lines: [...hidden, ...mine] }, deleted: false };
 }
+/**
+ * Speichern durch den Arbeiter: nur Tage der eigenen Person (Kennung „<Arbeiter>|<Datum>“, Angaben passend dazu) und
+ * nicht in einem vom Büro freigegebenen Monat (`approved`: Kennungen „<Arbeiter>|<Monat>“).
+ */
+export function ownTimeDayAllowed(id: string, data: Record<string, unknown>, deleted: boolean, own: Set<string>, approved: Set<string>): boolean {
+  const [workerId, date = '', ...rest] = id.split('|');
+  if (rest.length || !own.has(workerId) || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+  if (!deleted && (String(data.workerId ?? '') !== workerId || String(data.date ?? '') !== date)) return false;
+  return !approved.has(`${workerId}|${date.slice(0, 7)}`);
+}
 
 // ---- Rechte je Projekt, Werkzeug und Preise (am Server wie in der App: src/lib/access.ts, src/lib/price-access.ts) --------
 // Admin, Büro und Betreiber („Büro“) sehen und ändern alles. Polier und Arbeiter:
@@ -251,6 +262,7 @@ export function mergeTimeDay(existing: Record<string, unknown> | null, incoming:
 //  - firmenweite Daten nur mit einem passenden Werkzeug: Personalliste mit Team, Zeiten oder Berichte (Mannschaft im
 //    Tagesbericht; Arbeiter mit nur „Zeiten“ sehen nur sich selbst), Wochen-Einteilung mit Team, Zeiten, Berichte oder
 //    Fotos, Materialstamm und Lieferanten mit Material, Formularvorlagen (nur lesen) mit Berichte
+//  - SV-Nummer der Arbeiter nur für das Büro: Polier und Arbeiter bekommen sie nicht, beim Speichern bleibt die gespeicherte
 //  - Preise (LV, Material) nur mit der Freigabe „Preise und Summen“; ohne sie kommen Preise leer, und beim Speichern
 //    bleiben die gespeicherten Preise erhalten (sie können sie weder sehen noch ändern)
 // Die Tabellen records und photos lassen Polier und Arbeiter nicht direkt zu (docs/supabase/records-access.sql) – sie
@@ -324,6 +336,17 @@ export function stripPrices(store: string, data: Record<string, unknown>): Recor
   if (store === 'materials' || store === 'materialItems') return { ...data, price: null };
   return data;
 }
+/** SV-Nummer der Arbeiter: nur Admin und Büro – für Polier und Arbeiter kommt sie nicht mit */
+export function stripSv(data: Record<string, unknown>): Record<string, unknown> {
+  if (!('svNumber' in data)) return data;
+  const { svNumber: _, ...rest } = data;
+  return rest;
+}
+/** Speichern durch Polier/Arbeiter: die gespeicherte SV-Nummer bleibt (sie können sie weder sehen noch ändern) */
+export function keepSv(incoming: Record<string, unknown>, existing: Record<string, unknown> | null): Record<string, unknown> {
+  const rest = stripSv(incoming);
+  return existing?.svNumber ? { ...rest, svNumber: existing.svNumber } : rest;
+}
 /** ohne Preis-Freigabe gespeichert: Preise aus dem gespeicherten Stand übernehmen (neue Positionen ohne Preis) */
 export function keepPrices(store: string, incoming: Record<string, unknown>, existing: Record<string, unknown> | null): Record<string, unknown> {
   if (store === 'lvDocs') {
@@ -347,7 +370,7 @@ export function visibleRecord(row: Row, a: Access, plans: Map<string, PlanSite> 
   if (s === 'meta') return row.id === 'absences' && !anyTool(a, ['workers', 'times', 'reports']) ? goneRow(row) : row;
   if (READ_TOOLS[s]) {
     if (!anyTool(a, READ_TOOLS[s])) return goneRow(row);
-    if (s === 'workers' && !allWorkers(a) && !ownWorker(a, row.data)) return goneRow(row);
+    if (s === 'workers') return allWorkers(a) || ownWorker(a, row.data) ? { ...row, data: stripSv(row.data) } : goneRow(row);
     return a.prices ? row : { ...row, data: stripPrices(s, row.data) };
   }
   if (s === 'defectMarks') return markAllowed(a, row.data, plans) ? row : goneRow(row);
@@ -386,6 +409,7 @@ export function writableRecord(
     if ((!deleted && !rowAllowed(a, store, id, incoming)) || (existing && !rowAllowed(a, store, id, existing))) return null;
   } else return null;
   if (deleted) return incoming;
+  if (store === 'workers') return keepSv(incoming, existing);
   return a.prices ? incoming : keepPrices(store, incoming, existing);
 }
 
@@ -670,12 +694,30 @@ export async function handler(req: Request): Promise<Response> {
       const uid = tokenUser(ctx.token);
       if (fresh.length) await service('records?on_conflict=workspace_id,store,id', { method: 'POST', body: JSON.stringify(fresh.map((r) => ({ ...r, created_by: uid }))), prefer: UPSERT });
       if (update.length) await service('records?on_conflict=workspace_id,store,id', { method: 'POST', body: JSON.stringify(update), prefer: UPSERT });
-      // Polier mit „Zeiten“: nur Tage, zusammengeführt mit dem gespeicherten Stand; Arbeiter und Monatsfreigaben: nichts
+      // Polier mit „Zeiten“: nur Tage, zusammengeführt mit dem gespeicherten Stand; Monatsfreigaben: nichts
       if (scope.level === 'site' && hasTool(acc, 'times')) {
         for (const r of timeRows.filter((x) => x.store === 'timeDays')) {
           const cur = ((await service(`records?workspace_id=eq.${ctx.ws}&store=eq.timeDays&id=eq.${encodeURIComponent(r.id)}&select=data,deleted_at`)) as { data: Record<string, unknown>; deleted_at: string | null }[])[0];
           const m = mergeTimeDay(cur && !cur.deleted_at ? cur.data : null, r.data, !!r.deleted_at, scope);
           await service('records?on_conflict=workspace_id,store,id', { method: 'POST', body: JSON.stringify([{ ...r, data: m.data, deleted_at: m.deleted ? new Date().toISOString() : null }]), prefer: UPSERT });
+        }
+      }
+      // Arbeiter mit „Zeiten“: nur eigene Tage in nicht freigegebenen Monaten; sonst gespeicherten Stand zurück
+      const ownDays = timeRows.filter((x) => x.store === 'timeDays');
+      if (scope.level === 'own' && hasTool(acc, 'times') && ownDays.length) {
+        const own = await ownWorkerIds(ctx.ws, scope.email);
+        const months = [...new Set(ownDays.map((r) => `${r.id.split('|')[0]}|${(r.id.split('|')[1] ?? '').slice(0, 7)}`))];
+        const approved = new Set<string>();
+        for (const part of chunked(months))
+          for (const m of (await service(`records?workspace_id=eq.${ctx.ws}&store=eq.timeMonths&deleted_at=is.null&id=in.${inList(part)}&select=id`)) as { id: string }[]) approved.add(m.id);
+        const ok = ownDays.filter((r) => ownTimeDayAllowed(r.id, r.data, !!r.deleted_at, own, approved));
+        if (ok.length) await service('records?on_conflict=workspace_id,store,id', { method: 'POST', body: JSON.stringify(ok), prefer: UPSERT });
+        const refused = ownDays.filter((r) => !ok.includes(r));
+        if (refused.length) {
+          const stored = await storedRecords(ctx.ws, refused);
+          const now = new Date().toISOString();
+          // nicht gespeichert (z. B. neuer Tag im freigegebenen Monat): als „gelöscht“ zurück, damit das Gerät ihn entfernt
+          for (const r of refused) rejected.push(filterTimeRow(stored.get(`timeDays:${r.id}`) ?? { store: 'timeDays', id: r.id, data: {}, updated_at: now, deleted_at: now }, scope, own));
         }
       }
       return json(200, { ok: true, rejected }, origin);

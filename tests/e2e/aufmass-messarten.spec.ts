@@ -2,7 +2,7 @@ import { expect, test, type Page } from './fixtures';
 import { createProject, freshStart, pickTool, waitSaved } from './helpers';
 
 /**
- * Aufmaß: zuerst die Messart wählen (Fläche, Wand, Länge, Volumen, Stück, Schadstelle, Frei), danach misst jedes
+ * Aufmaß: zuerst die Messart wählen (Fläche, Wand, Länge, Volumen, Stück, Betoninstandsetzung, Frei), danach misst jedes
  * Werkzeug in dieser Art. Dialog mit Feldern je Messart, Tabelle und Rechenweg.
  */
 
@@ -171,10 +171,10 @@ test('Messart wählen, dann mit beliebigem Werkzeug messen: Wand, Stück, Frei, 
   expect(d.measureType).toBe('laenge');
   expect(d.kind).toBe('line');
 
-  // 7) Messart im Dialog umstellen: Schadstelle mit Schadensart
+  // 7) Messart im Dialog umstellen: Betoninstandsetzung mit Schadensart
   await rect(x + px(11), y, px(1), px(1));
   await dlg().getByTestId('measure-type-select').selectOption('schadstelle');
-  await expect(dlg()).toContainText('Neue Messung: Schadstelle');
+  await expect(dlg()).toContainText('Neue Messung: Betoninstandsetzung');
   await dlg().getByTestId('input-length').fill('1');
   await dlg().getByTestId('input-width').fill('1');
   await dlg().getByTestId('input-damage-type').fill('Abplatzung');

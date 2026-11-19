@@ -2547,7 +2547,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 }}
                 data-mtype-toggle=""
                 aria-expanded={mtypeMenu}
-                title="Messart wählen – danach misst jedes Tool in dieser Art (Fläche, Wand, Länge, Volumen, Stück, Schadstelle, Frei)"
+                title="Messart wählen – danach misst jedes Tool in dieser Art (Fläche, Wand, Länge, Volumen, Stück, Betoninstandsetzung, Frei)"
                 data-testid="tool-mtype"
                 data-value={mtype}
               >

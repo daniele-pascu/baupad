@@ -27,7 +27,7 @@ export const MEASURE_TYPES: MeasureTypeInfo[] = [
   { id: 'laenge', label: 'Länge', unit: 'm', kind: 'line', icon: 'line', hint: 'Länge × Anzahl, optional von/bis' },
   { id: 'volumen', label: 'Volumen', unit: 'm³', kind: 'area', icon: 'component', hint: 'Länge × Breite × Höhe bzw. Tiefe × Anzahl' },
   { id: 'stueck', label: 'Stück', unit: 'Stk', kind: 'line', icon: 'pin', hint: 'Anzahl, Bauteil und Beschreibung' },
-  { id: 'schadstelle', label: 'Schadstelle', unit: 'm²', kind: 'damage', icon: 'ellipse', hint: 'Länge × Breite × Tiefe, Schadensart, Fotos' },
+  { id: 'schadstelle', label: 'Betoninstandsetzung', unit: 'm²', kind: 'damage', icon: 'ellipse', hint: 'Länge × Breite × Tiefe, Schadensart, Fotos' },
   { id: 'frei', label: 'Frei', unit: '', kind: 'line', icon: 'edit', hint: 'eigene Rechnung und Einheit, z. B. 2*3,5+1,2' },
 ];
 export const MEASURE_TYPE_IDS = MEASURE_TYPES.map((t) => t.id);

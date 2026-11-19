@@ -799,15 +799,14 @@ function positionSheet(doc: LvDocument, p: LvPosition, items: { plan: Plan; d: D
   };
 }
 
-/** Messungen ohne Leistung, Flächen und Linien getrennt summiert. */
-function freeSheet(items: { plan: Plan; d: Damage }[], title: string, used: Set<string>): Sheet {
-  const first = 3;
+/** Messungen ohne Leistung, Flächen und Linien getrennt summiert (ohne Überschrift – der Blattname sagt es). */
+function freeSheet(items: { plan: Plan; d: Damage }[], used: Set<string>): Sheet {
+  const first = 2;
   const last = Math.max(first, first + items.length - 1);
   const ds = items.map((x) => x.d);
   return {
     name: sheetName('Freie Messungen', used),
     rows: [
-      [str(title, 'title')],
       ['Plan', 'Nr.', 'Messart', 'Länge (m)', 'Breite (m)', 'Tiefe (m)', 'Fläche (m²)'].map((h) => str(h, 'header')),
       ...items.map(({ plan, d }) => [
         str(plan.planNumber || plan.planName),
@@ -827,7 +826,7 @@ function freeSheet(items: { plan: Plan; d: Damage }[], title: string, used: Set<
       })(),
     ],
     widths: [14, 8, 13, 12, 12, 12, 13],
-    headerRows: 2,
+    headerRows: 1,
     print: true,
   };
 }
@@ -902,7 +901,7 @@ function exportByPositions(data: ProjectState, scope: XlsxScope, out: BuildOut):
     },
     ...posSheets,
   ];
-  if (free.length) sheets.push(freeSheet(free, 'Freie Messungen (ohne Leistungszuordnung)', used));
+  if (free.length) sheets.push(freeSheet(free, used));
   sheets.push(infoSheet(data, ccList, plans, used));
   return {
     name: `${safeFileName(data.project.name, label, 'Aufmass nach Leistungen')}.xlsx`,

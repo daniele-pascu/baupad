@@ -293,7 +293,7 @@ const idb = <T,>(page: Page, fn: string, arg?: unknown) =>
   );
 const getAll = (store: string) => `(db) => new Promise((res) => { const q = db.transaction('${store}').objectStore('${store}').getAll(); q.onsuccess = () => res(q.result); })`;
 
-test('Rechte: Polier nur Stunden seiner Projekte (andere bleiben erhalten), kein Monatszettel; Arbeiter nur eigene Stunden, nur lesen', async ({ page }) => {
+test('Rechte: Polier nur Stunden seiner Projekte (andere bleiben erhalten), kein Monatszettel; Arbeiter trägt nur eigene Stunden ein, bis zur Freigabe', async ({ page }) => {
   test.setTimeout(120_000);
   await setup(page);
   const projects = await idb<{ id: string; name: string }[]>(page, getAll('projects'));
@@ -326,19 +326,45 @@ test('Rechte: Polier nur Stunden seiner Projekte (andere bleiben erhalten), kein
   await page.goto(`./baupad/zeitaufzeichnung/${peter}?m=2026-10`);
   await expect(page.getByTestId('timesheet-office-only')).toBeVisible();
 
-  // Arbeiter: zuerst ohne Verknüpfung → Hinweis, dann Peter mit seiner Konto-E-Mail verknüpft → nur Peter, nur lesen
+  // Arbeiter: zuerst ohne Verknüpfung → Hinweis, dann Peter mit seiner Konto-E-Mail verknüpft → nur Peter, trägt selbst ein
   await page.unroute('**/rest/v1/rpc/my_context');
   await page.route('**/rest/v1/rpc/my_context', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ctxOf('arbeiter')) }));
   await page.goto('./baupad/zeitaufzeichnung?d=2026-10-27');
   await expect(page.getByTestId('times-scope-own')).toContainText('noch keinem Arbeiter zugeordnet');
   await idb(page, `(db, a) => new Promise((res) => { const t = db.transaction('workers', 'readwrite'); const s = t.objectStore('workers'); const q = s.get(a); q.onsuccess = () => s.put({ ...q.result, userEmail: 'test@baupad.local' }); t.oncomplete = () => res(1); })`, peter);
   await page.reload();
-  await expect(page.getByTestId('times-scope-own')).toContainText('Deine eigenen Stunden');
+  await expect(page.getByTestId('times-scope-own')).toContainText('Trag hier deine Stunden ein');
   await expect(page.getByTestId('times-day-row')).toHaveCount(1);
   await expect(row(page, 'Peter')).toBeVisible();
-  await expect(row(page, 'Peter').locator('select, input').first()).toBeDisabled();
   await expect(page.getByTestId('times-add-worker')).toHaveCount(0);
   await expect(page.getByTestId('times-pick')).toHaveCount(0);
   await expect(page.getByTestId('times-person')).toHaveCount(1); // nur der eigene Monatszettel
   await expect(page.getByTestId('times-year-files')).toHaveCount(0);
+  // Mittwoch: Vorschlag aus der Einteilung übernehmen, Ende ändern; Urlaub/Krank nicht selbst
+  await page.getByTestId('times-date').fill('2026-10-28');
+  await expect(row(page, 'Peter')).toHaveAttribute('data-state', 'suggested');
+  await expect(row(page, 'Peter').getByTestId('times-absence')).toBeDisabled();
+  await row(page, 'Peter').getByTestId('times-take').click();
+  await expect(row(page, 'Peter')).toHaveAttribute('data-state', 'done');
+  await row(page, 'Peter').getByTestId('times-to').fill('15:00');
+  await row(page, 'Peter').getByTestId('times-to').press('Enter');
+  await expect(row(page, 'Peter').getByTestId('times-hours')).toHaveText('7,5 h');
+  await expect.poll(async () => (await idb<{ id: string; lines: { to: string }[] }[]>(page, getAll('timeDays'))).find((d) => d.id === `${peter}|2026-10-28`)?.lines[0]?.to).toBe('15:00');
+  // Samstag ohne Einteilung: er steht trotzdem da und kann eine Baustelle wählen
+  await page.getByTestId('times-date').fill('2026-10-31');
+  await expect(row(page, 'Peter')).toBeVisible();
+  await expect(row(page, 'Peter').getByTestId('times-site')).toBeEnabled();
+  // Monatszettel: eigene Tage änderbar
+  await page.goto(`./baupad/zeitaufzeichnung/${peter}?m=2026-10`);
+  await expect(page.getByTestId('timesheet-add-line').first()).toBeVisible();
+  await expect(page.getByTestId('timesheet-approve')).toHaveCount(0);
+  // nach der Freigabe durch das Büro gesperrt
+  await idb(page, `(db, a) => new Promise((res) => { const t = db.transaction('timeMonths', 'readwrite'); t.objectStore('timeMonths').put(a); t.oncomplete = () => res(1); })`, {
+    id: `${peter}|2026-10`, workerId: peter, month: '2026-10', approvedAt: 1, approvedBy: 'Büro',
+  });
+  await page.reload();
+  await expect(page.getByTestId('timesheet-approved')).toContainText('Änderungen nur durch das Büro');
+  await expect(page.getByTestId('timesheet-add-line')).toHaveCount(0);
+  await page.goto('./baupad/zeitaufzeichnung?d=2026-10-28');
+  await expect(row(page, 'Peter').getByTestId('times-to')).toBeDisabled();
 });

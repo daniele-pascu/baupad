@@ -195,7 +195,7 @@ export const en: Dict = {
       times: {
         lead: 'Record working hours – per project.',
         groups: [
-          { title: 'Recording', items: ['Hours per project and day', 'Foremen also enter their crew', 'Workers see their own hours'] },
+          { title: 'Recording', items: ['Hours per project and day', 'Foremen also enter their crew', 'Workers enter their own hours'] },
           { title: 'Office', items: ['Monthly sheet with target, actual, holiday and sick leave', 'Excel per worker'] },
         ],
       },

@@ -38,8 +38,8 @@ export function TimesheetPage({ workerId, month: m }: { workerId: string; month:
 
   const days = useMemo(() => new Map((data?.days ?? []).filter((d) => d.workerId === workerId).map((d) => [d.date, d] as const)), [data, workerId]);
   const approval = data?.approvals.find((a) => a.id === monthId(workerId, month)) ?? null;
-  // Arbeiter: nur ansehen; Polier: Monatszettel macht das Büro
-  const locked = scope.level === 'own' || (!!approval && !office);
+  // Arbeiter: eigene Stunden bis zur Freigabe; Polier: Monatszettel macht das Büro
+  const locked = !!approval && !office;
   if (scope.level === 'site')
     return (
       <>

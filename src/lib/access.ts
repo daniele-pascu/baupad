@@ -34,6 +34,9 @@ export const ROUTE_TOOL: Record<string, ToolId> = {
 
 const unrestricted = (s: Session | null | undefined) => !s || !s.companyId || s.role === 'admin' || s.operator;
 
+/** Admin, Büro und Betreiber (bzw. ohne Firma) – sehen z. B. die SV-Nummer der Arbeiter */
+export const isOfficeUser = (s: Session | null | undefined) => !s || !s.companyId || s.operator || s.role === 'admin' || s.role === 'buero';
+
 /** Arbeitsbereich noch nicht freigeschaltet (Bestellung offen) – Betreiber sind nie gesperrt */
 export const isLocked = (s: Session | null | undefined) => !!s && !!s.companyId && !s.workspaceActive && !s.operator;
 

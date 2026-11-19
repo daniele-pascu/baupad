@@ -35,7 +35,7 @@ describe('Aufmaßblatt (Firmenvorlage)', () => {
     expect(strFromU8(zip['xl/styles.xml'])).toContain('Aptos Narrow');
   });
   it('ohne LV: Kopf mit Nummer, Bauvorhaben, Kostenstelle, Leistungszeitraum; Flächen und Linien mit Plan und Nr.', () => {
-    for (const t of ['Aufmaßblatt 007', 'Bauvorhaben X', '91092 – Ebene 1', '01.10.2026', 'Aufmaß', 'Schadstelle', 'Länge', 'Summe']) expect(sheet).toContain(`>${t}<`); // je Messart eine Tabelle
+    for (const t of ['Aufmaßblatt 007', 'Bauvorhaben X', '91092 – Ebene 1', '01.10.2026', 'Aufmaß', 'Betoninstandsetzung', 'Länge', 'Summe']) expect(sheet).toContain(`>${t}<`); // je Messart eine Tabelle
     expect(sheet).toMatch(/<f>ROUND\(C(\d+)\*D\1,2\)<\/f>/); // m² = Länge × Breite als Formel
     expect(sheet.match(/<f>SUM\(F\d+:F\d+\)<\/f>/g)).toHaveLength(2); // Menge immer in Spalte F: Summe Fläche und Summe Länge
     // nichts zu bemerken → keine Spalte „Bemerkung“

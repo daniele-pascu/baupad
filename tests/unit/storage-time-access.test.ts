@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { filterTimeRow, mergeTimeDay, timeScopeOf } from '../../supabase/functions/storage/index';
+import { filterTimeRow, mergeTimeDay, ownTimeDayAllowed, timeScopeOf } from '../../supabase/functions/storage/index';
 
 const row = (store: string, id: string, data: Record<string, unknown>) => ({ store, id, data, updated_at: '2026-11-05T10:00:00+00:00', deleted_at: null });
 const lines = (...l: [string | null, string][]) => l.map(([projectId, siteName]) => ({ projectId, siteName, hours: 4 }));
@@ -28,6 +28,22 @@ describe('Funktion „storage“: Zeitaufzeichnung am Server geschützt', () => 
     const scope = { level: 'own' as const, email: 'max@firma.at' };
     expect(filterTimeRow(row('timeDays', 'w1|d', { workerId: 'w1', lines: lines(['a', 'X']) }), scope, new Set(['w1'])).deleted_at).toBeNull();
     expect(filterTimeRow(row('timeDays', 'w2|d', { workerId: 'w2', lines: lines(['a', 'X']) }), scope, new Set(['w1'])).deleted_at).not.toBeNull();
+  });
+
+  it('Speichern durch den Arbeiter: nur eigene Tage, nicht im freigegebenen Monat', () => {
+    const own = new Set(['w1']);
+    const day = (w: string, d: string) => ({ workerId: w, date: d, lines: lines(['a', 'X']) });
+    expect(ownTimeDayAllowed('w1|2026-11-04', day('w1', '2026-11-04'), false, own, new Set())).toBe(true);
+    expect(ownTimeDayAllowed('w1|2026-11-04', {}, true, own, new Set())).toBe(true); // eigenen Tag zurücksetzen
+    expect(ownTimeDayAllowed('w2|2026-11-04', day('w2', '2026-11-04'), false, own, new Set())).toBe(false); // fremder Arbeiter
+    expect(ownTimeDayAllowed('w1|2026-11-04', day('w2', '2026-11-04'), false, own, new Set())).toBe(false); // Angaben passen nicht zur Kennung
+    expect(ownTimeDayAllowed('w1|2026-11-04', day('w1', '2026-11-05'), false, own, new Set())).toBe(false);
+    expect(ownTimeDayAllowed('w1|2026-11', day('w1', '2026-11'), false, own, new Set())).toBe(false);
+    expect(ownTimeDayAllowed('w1|2026-11-04|x', day('w1', '2026-11-04'), false, own, new Set())).toBe(false);
+    expect(ownTimeDayAllowed('w1|2026-11-04', day('w1', '2026-11-04'), false, own, new Set(['w1|2026-11']))).toBe(false); // freigegeben
+    expect(ownTimeDayAllowed('w1|2026-11-04', {}, true, own, new Set(['w1|2026-11']))).toBe(false);
+    expect(ownTimeDayAllowed('w1|2026-12-01', day('w1', '2026-12-01'), false, own, new Set(['w1|2026-11']))).toBe(true);
+    expect(ownTimeDayAllowed('w1|2026-11-04', day('w1', '2026-11-04'), false, new Set(), new Set())).toBe(false); // Konto nicht verknüpft
   });
 
   it('Speichern durch den Polier: Zeilen anderer Projekte bleiben am Server erhalten, auch beim Löschen', () => {

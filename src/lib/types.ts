@@ -763,6 +763,8 @@ export interface Worker {
   firstName: string;
   lastName: string;
   staffNo?: string;
+  /** Sozialversicherungsnummer (10 Ziffern) – nur Admin und Büro sehen sie (am Server für alle anderen entfernt) */
+  svNumber?: string;
   phone?: string;
   /** Qualifikation bzw. Tätigkeit (frei, z. B. Maurer) */
   role?: string;

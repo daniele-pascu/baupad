@@ -82,6 +82,13 @@ describe('Rechte am Server: lesen', () => {
     expect(visibleRecord(row('formTemplates', 't1', { name: 'Abnahme' }), polier).deleted_at).toBeNull();
   });
 
+  it('SV-Nummer der Arbeiter nur für das Büro', () => {
+    const anna = row('workers', 'w1', { firstName: 'Anna', svNumber: '1234 010180', userEmail: 'max@firma.at' });
+    expect(visibleRecord(anna, polier).data).toEqual({ firstName: 'Anna', userEmail: 'max@firma.at' });
+    expect(visibleRecord(anna, arbeiter).data.svNumber).toBeUndefined(); // auch die eigene nicht
+    expect(visibleRecord(anna, buero).data.svNumber).toBe('1234 010180');
+  });
+
   it('Mängelpunkte über ihren Mängelplan', () => {
     const plans = new Map<string, PlanSite>([
       ['dA', { projectId: 'A', siteName: '' }],
@@ -119,6 +126,13 @@ describe('Rechte am Server: schreiben', () => {
     expect(writableRecord(polier, 'workers', 'w1', { firstName: 'X' }, false, null)).toBeNull();
     expect(writableRecord(polier, 'materials', 'm1', { name: 'X' }, false, null)).toBeNull();
     expect(writableRecord(polier, 'weeks', '2026-W47', { sites: [] }, false, null)).toEqual({ sites: [] });
+  });
+
+  it('SV-Nummer: Polier mit Team ändert sie nicht, die gespeicherte bleibt', () => {
+    const team = accessOf({ ...base, role: 'polier', tools: ['workers'] });
+    expect(writableRecord(team, 'workers', 'w1', { firstName: 'Anna B.' }, false, { firstName: 'Anna', svNumber: '1234 010180' })).toEqual({ firstName: 'Anna B.', svNumber: '1234 010180' });
+    expect(writableRecord(team, 'workers', 'w1', { firstName: 'Anna', svNumber: '9999 999999' }, false, { firstName: 'Anna' })).toEqual({ firstName: 'Anna' });
+    expect(writableRecord(buero, 'workers', 'w1', { firstName: 'Anna', svNumber: '9999 999999' }, false, { firstName: 'Anna', svNumber: '1234 010180' })).toEqual({ firstName: 'Anna', svNumber: '9999 999999' });
   });
 
   it('ohne Preis-Freigabe bleiben gespeicherte Preise erhalten', () => {

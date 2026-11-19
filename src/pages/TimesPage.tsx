@@ -36,7 +36,7 @@ export function TimesPage({ month: m, date: d }: { month: string | null; date: s
   const [data, setData] = useState<TimesData | null>(null);
   const [dayData, setDayData] = useState<TimesData | null>(null);
   const by = session?.name || 'Unbekannt';
-  /** Rechte: Büro alles, Polier nur seine Projekte, Arbeiter nur eigene Stunden (lesen) */
+  /** Rechte: Büro alles, Polier nur seine Projekte, Arbeiter nur eigene Stunden */
   const scope = useMemo(() => timesScope(session), [session]);
   const scopeKey = JSON.stringify(scope);
   const office = scope.level === 'office';
@@ -171,7 +171,7 @@ export function TimesPage({ month: m, date: d }: { month: string | null; date: s
           )}
           {scope.level === 'own' && (
             <p className="muted small" data-testid="times-scope-own">
-              {data && !data.workers.length ? 'Dein Konto ist noch keinem Arbeiter zugeordnet – das Büro trägt deine E-Mail in der Personalliste ein.' : 'Deine eigenen Stunden – eintragen und ändern macht der Polier bzw. das Büro.'}
+              {data && !data.workers.length ? 'Dein Konto ist noch keinem Arbeiter zugeordnet – das Büro trägt deine E-Mail in der Personalliste ein.' : 'Trag hier deine Stunden ein. Nach der Freigabe durch das Büro ist der Monat gesperrt.'}
             </p>
           )}
           {scope.level !== 'own' && (
@@ -282,12 +282,13 @@ export function TimesPage({ month: m, date: d }: { month: string | null; date: s
 
 /** Arbeiter eines Tages: eingeteilte, bereits erfasste und dazugeholte */
 function DayList({ data, date, by, office, scope, mine, onSaved }: { data: TimesData; date: string; by: string; office: boolean; scope: TimesScope; mine: string[]; onSaved(): void }) {
-  const readOnly = scope.level === 'own';
+  // Arbeiter: nur er selbst (immer sichtbar, auch ohne Einteilung) – Polier/Büro: eigene Auswahl
+  const own = scope.level === 'own';
   const items = data.workers
-    .filter((w) => !mine.length || mine.includes(w.id))
-    .map((w) => ({ w, rec: data.days.find((x) => x.workerId === w.id && x.date === date) ?? null, sugg: suggestionFor(data, w.id, date), locked: readOnly || (data.approvals.some((a) => a.id === monthId(w.id, data.month)) && !office) }))
+    .filter((w) => own || !mine.length || mine.includes(w.id))
+    .map((w) => ({ w, rec: data.days.find((x) => x.workerId === w.id && x.date === date) ?? null, sugg: suggestionFor(data, w.id, date), locked: data.approvals.some((a) => a.id === monthId(w.id, data.month)) && !office }))
     // eigene Auswahl: alle gewählten zeigen (auch ohne Einteilung); sonst wie bisher die Arbeiter des Tages
-    .filter((x) => (mine.length && x.w.active) || x.rec || x.sugg.lines.length || x.sugg.absence)
+    .filter((x) => ((own || mine.length) && x.w.active) || x.rec || x.sugg.lines.length || x.sugg.absence)
     .sort((a, b) => (a.rec?.lines[0]?.siteName ?? a.sugg.lines[0]?.siteName ?? 'zzz').localeCompare(b.rec?.lines[0]?.siteName ?? b.sugg.lines[0]?.siteName ?? 'zzz', 'de') || workerName(a.w).localeCompare(workerName(b.w), 'de'));
   // Urlaub: nicht oben in der Liste, sondern eingeklappt darunter (dort lässt sich „anwesend“ wieder einstellen)
   // (Urlaub legt einen leeren Tageseintrag an – entscheidend ist, dass keine Stunden erfasst sind)
@@ -306,7 +307,7 @@ function DayList({ data, date, by, office, scope, mine, onSaved }: { data: Times
   return (
     <>
       {holiday && <p className="small times-holiday">Feiertag: {holiday}</p>}
-      {here.length === 0 && <p className="muted small" data-testid="times-day-empty">{readOnly ? 'Für diesen Tag sind keine Stunden erfasst.' : 'An diesem Tag ist niemand eingeteilt. Oben mit „+ Arbeiter“ hinzufügen.'}</p>}
+      {here.length === 0 && <p className="muted small" data-testid="times-day-empty">{own ? 'Für diesen Tag sind keine Stunden erfasst.' : 'An diesem Tag ist niemand eingeteilt. Oben mit „+ Arbeiter“ hinzufügen.'}</p>}
       <ul className="times-day-list">
         {here.map((x) => (
           <DayRow key={`${x.w.id}-${date}`} w={x.w} date={date} rec={x.rec} sugg={x.sugg} data={data} by={by} scope={scope} locked={x.locked} onSaved={onSaved} />
@@ -561,7 +562,8 @@ function DayRow({ w, date, rec, sugg: rawSugg, data, by, scope, locked, onSaved 
       <span className="times-day-name">
         <strong>{workerName(w)}</strong>
         {rec && !absence ? <span className="times-badge ok">erfasst</span> : first && !absence ? <span className="times-badge">Vorschlag</span> : null}
-        <select className={`times-absence${absence ? ` on ${absence}` : ''}`} value={absence ?? ''} disabled={locked} onChange={(e) => setAbsence((e.target.value || null) as 'urlaub' | 'krank' | null)} aria-label={`Anwesenheit ${workerName(w)}`} data-testid="times-absence">
+        {/* Urlaub/Krank trägt der Arbeiter nicht selbst ein (Polier/Büro) */}
+        <select className={`times-absence${absence ? ` on ${absence}` : ''}`} value={absence ?? ''} disabled={locked || scope.level === 'own'} onChange={(e) => setAbsence((e.target.value || null) as 'urlaub' | 'krank' | null)} aria-label={`Anwesenheit ${workerName(w)}`} data-testid="times-absence">
           <option value="">anwesend</option>
           <option value="urlaub">Urlaub</option>
           <option value="krank">Krank</option>
