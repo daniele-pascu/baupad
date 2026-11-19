@@ -38,7 +38,8 @@ jobs:
         with:
           version: latest
       - name: Funktion veröffentlichen
-        run: supabase functions deploy storage --project-ref "$PROJECT_REF" --no-verify-jwt
+        # --yes: im Ablauf kann die CLI nicht nachfragen; --remote ersetzt das alte --project-ref
+        run: supabase functions deploy storage --remote="$PROJECT_REF" --no-verify-jwt --yes
       - name: Funktion erreichbar?
         # ohne Anmeldung antwortet die Funktion mit 401 – Hauptsache, sie läuft (nicht 404/5xx)
         run: |
