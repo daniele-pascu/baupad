@@ -14225,3 +14225,18 @@ html[data-theme='dark'] .status-pill.warn {
   background: #3a3020;
   color: #ffd27a;
 }
+/* Dunkelmodus: Aufklapp-Menüs (Aktionsmenü „⋮“, Farben, Ebenen) dunkel – vorher hell mit heller Schrift, kaum lesbar */
+html[data-theme='dark'] .action-menu,
+html[data-theme='dark'] .color-pop,
+html[data-theme='dark'] .layer-pop {
+  background: rgba(36, 36, 38, 0.96);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--text);
+}
+html[data-theme='dark'] .action-menu button:hover,
+html[data-theme='dark'] .action-menu button:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+}
+html[data-theme='dark'] .action-menu button.danger {
+  color: #ff6b70;
+}
