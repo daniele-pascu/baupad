@@ -221,6 +221,7 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - **Vier Tasten X · Zurück · Vor · Häkchen** im Aufmaß für alle Mehrpunkt-Tools (Freie Form, Vieleck, Wand, Stück-Punkte) und für Freihand – statt „Offen beenden“, „Schließen (Fläche)“, „Fertig“. Kein Tipp mehr als vorher; offen oder geschlossen ergibt sich aus der Messart. Stück zeigt die laufende Anzahl neben dem Häkchen.
 - **Freihand im Aufmaß:** Striche sind ein Entwurf (Zurück/Vor je Strich), das Häkchen übernimmt. Bei Länge zählen mehrere Striche als eine Messung (Lücken dazwischen), bei Flächen gilt der letzte Strich.
 - Ein-Zug-Tools (Rechteck, Kreis, Linie) bleiben ohne Häkchen (sonst +1 Tipp je Messung).
+- Handy: Die Leiste bleibt über dem Home-Balken (Abstand unten = sicherer Bereich des Geräts + 12 px).
 
 ## Planbibliothek nur mit Plänen (19.11.2026)
 - Die Planbibliothek zeigt nur die Originalpläne – je Seite eine große Vorschau mit „Neues Aufmaß“. Keine Angabe mehr, in welchen Aufmaßen ein Plan verwendet wird (Suche findet ihn trotzdem auch über Plannummer/Bezeichnung).

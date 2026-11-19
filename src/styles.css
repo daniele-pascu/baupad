@@ -9748,6 +9748,12 @@ canvas.dp-detail.dp-gray {
   background: var(--surface);
   color: var(--text);
 }
+/* Handy: Leiste liegt unten am Rand – über dem Home-Balken bleiben (sonst sitzen die Tasten in der Ecke) */
+@media (max-width: 600px) {
+  .editor-plan > .toolbar.seg-bar {
+    padding: 8px 10px calc(12px + var(--safe-bottom));
+  }
+}
 /* Papierkorb-Taste oben im Seitenkopf (Tool-Übersicht, Tools, Projekte): Zahl als kleine Plakette */
 .trash-btn {
   gap: 6px;
