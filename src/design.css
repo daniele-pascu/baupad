@@ -237,10 +237,11 @@ html.app-fixed .tools-page .tool-tile {
   align-items: flex-start;
   grid-column: auto;
   gap: 0;
-  min-height: 232px;
+  /* größere Kacheln (Handy und Tablet: nicht zu klein, die Seite wirkt gefüllt) */
+  min-height: 276px;
   max-width: none;
   margin: 0;
-  padding: 22px;
+  padding: 26px;
   overflow: hidden;
   border: 1px solid var(--d-card-line);
   border-radius: 30px;
@@ -258,13 +259,13 @@ html.app-fixed .tools-page a.tool-tile:hover {
 }
 html.app-fixed .tools-page .tile-icon {
   flex: none;
-  width: 58px;
-  height: 58px;
+  width: 66px;
+  height: 66px;
   border-radius: 50%;
 }
 html.app-fixed .tools-page .tile-icon svg {
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
 }
 html.app-fixed .tools-page .tile-text {
   flex: none;
@@ -272,15 +273,15 @@ html.app-fixed .tools-page .tile-text {
   gap: 4px;
 }
 html.app-fixed .tools-page .tile-text strong {
-  font-size: 1.32rem;
+  font-size: 1.55rem;
   font-weight: 640;
   letter-spacing: -0.025em;
   white-space: nowrap;
 }
 html.app-fixed .tools-page .tile-text span {
   color: var(--muted);
-  font-size: 0.92rem;
-  line-height: 1.35;
+  font-size: 1rem;
+  line-height: 1.38;
 }
 /* kein eigener Pfeil: die ganze Kachel ist die Taste */
 html.app-fixed .tools-page .tile-go {
@@ -299,23 +300,23 @@ html.app-fixed .tools-page .tile-go {
     padding: 26px 2px 8px;
   }
   html.app-fixed .tools-page .tool-tile {
-    min-height: 170px;
-    padding: 16px;
+    min-height: 196px;
+    padding: 18px;
     border-radius: 26px;
   }
   html.app-fixed .tools-page .tile-icon {
-    width: 48px;
-    height: 48px;
+    width: 54px;
+    height: 54px;
   }
   html.app-fixed .tools-page .tile-icon svg {
-    width: 25px;
-    height: 25px;
+    width: 28px;
+    height: 28px;
   }
   html.app-fixed .tools-page .tile-text strong {
-    font-size: 1.12rem;
+    font-size: 1.24rem;
   }
   html.app-fixed .tools-page .tile-text span {
-    font-size: 0.82rem;
+    font-size: 0.88rem;
   }
 }
 @media (prefers-reduced-motion: reduce) {
