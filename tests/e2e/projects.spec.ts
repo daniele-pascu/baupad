@@ -721,7 +721,9 @@ test.describe('Website Materialverwaltung ohne Anmeldung', () => {
 test('Website: Werkzeugseite Materialverwaltung (DE/EN), öffnet das Werkzeug', async ({ page }) => {
   await page.goto('./baupad/funktionen/materialverwaltung');
   await expect(page.getByTestId('product-title')).toHaveText('Material');
-  await expect(page.locator('body')).toContainText('offen → bestellt → geliefert');
+  await expect(page.locator('body')).toContainText('was offen, bestellt oder geliefert ist');
+  // Website zeigt, was das Tool kann – keine Bedienungsdetails
+  await expect(page.locator('body')).not.toContainText('Schreibweise');
   await expect(page).toHaveTitle(/Material/);
   await page.goto('./en/baupad/features/materialverwaltung');
   await expect(page.getByTestId('product-title')).toHaveText('Material');

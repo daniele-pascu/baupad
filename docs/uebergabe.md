@@ -41,8 +41,8 @@ Grundregeln stehen in `CLAUDE.md`, Grundsätze in `docs/entscheidungen.md`.
   (`src/components/TrashButton.tsx`, Modell `src/lib/trash-items.ts`, Aufräumen `src/lib/trash-purge.ts`).
 
 ## Offen / wartet auf Daniele
-- **Website-Texte der Tools:** Vorschlag an Daniele – Nutzen zeigen, das „Wie“ (Abläufe, Regeln, Erkennungslogik) weglassen;
-  Marke BauPad anmelden. Auf seine Antwort warten.
+- **Marke BauPad anmelden** (Empfehlung an Daniele, seine Sache). Website-Texte sind umgestellt: nur Nutzen, kein „Wie“.
+- **Tasten-Design:** Vorschau M1 (hell Rauchglas 42 %) / M2 (dunkel weiße Tasten) – Daniele will noch warten, nicht einbauen.
 - Schon auf `main` rote Tests (nicht von uns): punktfang-plan (2×, 116,65 statt 116,66 m²), messungen „Rückgängig … Verschieben“.
 
 ## Danieles Schritt

@@ -237,3 +237,8 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - Die Spalten-Tabelle braucht rund 430 px; schmaler lässt sie sich seitlich wischen statt abgeschnitten zu werden.
 - Die einfache Liste (T1, eine Zeile je Messung ohne Spalten) war kurz online und ist auf Danieles Wunsch zurückgenommen: Die Spalten-Tabelle bleibt (Kopfzeile, Stift, Mülleimer, Summen unten).
 - Summe Fläche (unten und im Kopf) ohne die Grundfläche von Volumen-Messungen – die zählen als m³ (vorher z. B. 104,05 statt 95,70 m²). Im Kopf steht jetzt auch m³.
+
+## Website: Nutzen statt Bedienungsdetails (19.11.2026)
+- Die Tool-Seiten und Karten zeigen nur, WAS ein Tool kann (Nutzen, Ergebnis), nicht WIE es im Detail funktioniert – damit Ideen nicht abgeschaut werden. Keine Abläufe, Regeln, Fang-/CAD-Funktionen, Erkennungslogik oder Excel-Formeln mehr.
+- Ungenutzte, sehr detaillierte Textblöcke (alte Abschnitte der BauPad-Seite) aus den Sprachdateien entfernt – sie standen sonst im Seitenquelltext.
+- Tasten-Design: wartet weiter (Vorschau M1/M2), Danieles Entscheidung.
