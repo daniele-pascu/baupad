@@ -14240,3 +14240,26 @@ html[data-theme='dark'] .action-menu button:focus-visible {
 html[data-theme='dark'] .action-menu button.danger {
   color: #ff6b70;
 }
+/* Dunkelmodus: Auswahl-Chips (z. B. Tage beim Einteilen) und Abzeichen in der Hauptfarbe lesbar –
+   vorher weiße Flächen mit heller Schrift bzw. helle Hauptfarbe mit weißer Schrift */
+html[data-theme='dark'] .chip {
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+  color: var(--text);
+}
+html[data-theme='dark'] .chip:hover:not(.active) {
+  background: #2c2c2e;
+}
+html[data-theme='dark'] .chip.active {
+  border-color: #fff;
+  background: #fff;
+  color: #111;
+}
+html[data-theme='dark'] .lv-kind-lv,
+html[data-theme='dark'] .install-step-no {
+  color: #111;
+}
+html[data-theme='dark'] .side-toggle:hover {
+  background: #fff;
+  color: #111;
+}
