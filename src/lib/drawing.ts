@@ -164,8 +164,10 @@ export function lineAngle(s: Shape): number {
 /** Umfang bzw. Länge eines Freihandzugs in m. */
 export function pathLength(s: Shape): number {
   const pts = freehandPoints(s);
+  // Linien einzeln: Lücken zählen nicht
+  const gaps = new Set(s.closed === false ? (s.breaks ?? []) : []);
   let l = 0;
-  for (let i = 1; i < pts.length; i++) l += dist(pts[i - 1], pts[i]);
+  for (let i = 1; i < pts.length; i++) if (!gaps.has(i)) l += dist(pts[i - 1], pts[i]);
   if (s.closed !== false && pts.length > 2) l += dist(pts[pts.length - 1], pts[0]);
   return l;
 }

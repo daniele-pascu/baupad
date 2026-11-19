@@ -252,8 +252,9 @@ test('Aufmaß: offene Polylinie = Linienmessung mit Länge, geschlossene = Fläc
   const s = await scale();
   const x = sb.x + 600;
   const y = sb.y + 420;
-  for (const [dx, dy] of [[0, 0], [150, 0], [150, 80]]) await page.mouse.click(x + dx, y + dy);
-  await page.getByTestId('polyline-open').click();
+  // Länge = Linie für Linie: A–B und B–C (B zweimal antippen, Fang am Linienende)
+  for (const [dx, dy] of [[0, 0], [150, 0], [150, 0], [150, 80]]) await page.mouse.click(x + dx, y + dy);
+  await page.getByTestId('seg-done').click();
   const dlg = page.getByTestId('damage-dialog');
   await expect(dlg).toContainText('Neue Messung: Länge');
   await expect(dlg).toContainText('Höhe');
@@ -268,10 +269,10 @@ test('Aufmaß: offene Polylinie = Linienmessung mit Länge, geschlossene = Fläc
   // Nachträglich bearbeiten: Knick verschieben → Länge wird nachgeführt
   await pickTool(page, 'tool-select');
   await page.mouse.click(x + 75, y);
-  await expect(page.locator('circle[data-testid^="vertex-"]')).toHaveCount(3);
-  const v2 = (await page.getByTestId('vertex-2').boundingBox())!;
+  await expect(page.locator('circle[data-testid^="vertex-"]')).toHaveCount(4);
+  const v2 = (await page.getByTestId('vertex-3').boundingBox())!;
   await page.mouse.move(v2.x + v2.width / 2, v2.y + v2.height / 2);
-  await expect(page.getByTestId('vertex-2')).toHaveClass(/hover/); // Griff unter der Maus hervorgehoben
+  await expect(page.getByTestId('vertex-3')).toHaveClass(/hover/); // Griff unter der Maus hervorgehoben
   await page.mouse.down();
   await page.mouse.move(x + 150, y + 160, { steps: 6 });
   await page.mouse.up();
@@ -279,13 +280,13 @@ test('Aufmaß: offene Polylinie = Linienmessung mit Länge, geschlossene = Fläc
   expect(Math.abs((await barLen()) - 310 / s / 100)).toBeLessThan(0.03);
   // Doppelklick auf eine Kante fügt einen Punkt ein, Länge bleibt gleich
   await page.mouse.dblclick(x + 75, y);
-  await expect(page.locator('circle[data-testid^="vertex-"]')).toHaveCount(4);
+  await expect(page.locator('circle[data-testid^="vertex-"]')).toHaveCount(5);
   expect(Math.abs((await barLen()) - 310 / s / 100)).toBeLessThan(0.03);
   // Eckpunkt auswählen und entfernen
   const v1 = (await page.getByTestId('vertex-1').boundingBox())!;
   await page.mouse.click(v1.x + v1.width / 2, v1.y + v1.height / 2);
   await page.getByTestId('vertex-remove').click();
-  await expect(page.locator('circle[data-testid^="vertex-"]')).toHaveCount(3);
+  await expect(page.locator('circle[data-testid^="vertex-"]')).toHaveCount(4);
   await waitSaved(page);
 
   // Messart Fläche: Freie Form ergibt eine Fläche
@@ -399,7 +400,8 @@ test('Messung: Menü mit fünf Messarten; Länge, Winkel, Radius, Abstand, Fläc
   await expect(menu).toBeVisible();
   await page.mouse.click(sb.x + 30, sb.y + 30);
   await expect(menu).toHaveCount(0);
-  await page.getByTestId('tool-probe').click();
+  // Tipp ins Leere klappt auch die untere Leiste zu – pickTool öffnet sie wieder
+  await pickTool(page, 'tool-probe');
   await menu.getByTestId('probe-menu-length').click();
   await expect(page.getByTestId('probe-hint')).toContainText('Punkte nacheinander');
   // Werkzeugwahl schaltet den Punktfang ein – für exakte Pixelwerte hier ausschalten

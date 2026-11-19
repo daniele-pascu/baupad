@@ -1,13 +1,25 @@
 import { restoreTrash, trashEntries } from '../lib/trash';
-import { TRASH_INFO } from './TrashButton';
+import { purgeAufmass, type TrashItem } from '../lib/trash-items';
 import type { ProjectState } from '../lib/store';
-import { Icon } from './Icon';
 import { Modal } from './Modal';
-import { toast } from './ui';
+import { TrashList } from './TrashButton';
 
-/** Papierkorb des Aufmaß-Projekts: gelöschte Pläne, Kostenstellen, LV/MFK und Originalpläne – 15 Tage, danach endgültig gelöscht */
+/**
+ * Papierkorb des offenen Aufmaß-Projekts: gelöschte Pläne, Kostenstellen, LV/MFK und Originalpläne – 15 Tage, danach
+ * endgültig gelöscht. Wiederherstellen über den geöffneten Stand (sofort sichtbar), endgültig löschen in der Datenbank.
+ */
 export function TrashDialog({ data, onClose }: { data: ProjectState; onClose: () => void }) {
-  const entries = trashEntries(data);
+  const items: TrashItem[] = trashEntries(data).map((e) => ({
+    key: `aufmass:${data.project.id}:${e.at}`,
+    kind: 'aufmass',
+    at: e.at,
+    title: e.title,
+    detail: e.detail,
+    projectId: data.project.id,
+    daysLeft: e.daysLeft,
+    restore: async () => restoreTrash(data, e.at),
+    purge: () => purgeAufmass(data.project.id, e.at),
+  }));
   return (
     <Modal
       title="Papierkorb"
@@ -19,38 +31,7 @@ export function TrashDialog({ data, onClose }: { data: ProjectState; onClose: ()
         </button>
       }
     >
-      <p className="muted small" data-testid="trash-info">
-        {TRASH_INFO}
-      </p>
-      {!entries.length && (
-        <p className="muted" data-testid="trash-empty">
-          Der Papierkorb ist leer.
-        </p>
-      )}
-      <ul className="trash-list" data-testid="trash-list">
-        {entries.map((e) => (
-          <li key={e.at} className="trash-row" data-testid="trash-entry">
-            <Icon name="trash" size={18} />
-            <span className="trash-text">
-              <strong>{e.title}</strong>
-              <span className="muted small">
-                {e.detail} · gelöscht am {new Date(e.at).toLocaleDateString('de-DE')} · noch {e.daysLeft} {e.daysLeft === 1 ? 'Tag' : 'Tage'}
-              </span>
-            </span>
-            <button
-              type="button"
-              className="btn btn-sm"
-              onClick={() => {
-                restoreTrash(data, e.at);
-                toast(`${e.title} wiederhergestellt.`, 'success');
-              }}
-              data-testid="trash-restore"
-            >
-              Wiederherstellen
-            </button>
-          </li>
-        ))}
-      </ul>
+      <TrashList items={items} onChanged={() => {}} />
     </Modal>
   );
 }

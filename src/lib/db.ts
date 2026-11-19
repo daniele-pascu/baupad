@@ -371,7 +371,7 @@ export async function putView(view: { id: string; projectId: string; scale: numb
  * sie auch in der Ablage und auf den anderen Geräten verschwinden. Originalpläne samt Datei, Plänen Vorschau und Ansicht.
  * Liefert die betroffenen Projekte.
  */
-export async function purgeDeleted(before: number): Promise<Set<string>> {
+export async function purgeDeleted(before: number, only?: { projectId: string; at: number }): Promise<Set<string>> {
   const db = await getDB();
   const stores = ['costCenters', 'plans', 'damages', 'components', 'elements', 'lvDocs', 'files'] as const;
   const tx = db.transaction([...stores, 'blobs' as const, 'thumbs' as const, 'views' as const, 'outbox' as const], 'readwrite');
@@ -380,7 +380,8 @@ export async function purgeDeleted(before: number): Promise<Set<string>> {
     let cursor = await tx.objectStore(s).openCursor();
     while (cursor) {
       const r = cursor.value as { id: string; projectId: string; deletedAt?: number | null };
-      if (r.deletedAt && r.deletedAt < before) {
+      // only: genau diese Löschung eines Projekts (Papierkorb → „Endgültig löschen“)
+      if (r.deletedAt && (only ? r.projectId === only.projectId && r.deletedAt === only.at : r.deletedAt < before)) {
         await cursor.delete();
         await tx.objectStore('outbox').put(outboxEntry(s, r.id, r.projectId, { deleted: true }));
         if (s === 'files') await tx.objectStore('blobs').delete(r.id);

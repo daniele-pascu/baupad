@@ -66,3 +66,38 @@ test('Projekt im Papierkorb: in allen Tools ausgeblendet, nach 15 Tagen überall
   expect(out.find((e) => e.id === `projects:${p.id}`)?.deleted).toBe(true);
   await expect(page.getByTestId('trash-open')).toHaveAttribute('data-count', '0');
 });
+
+test('Papierkorb „Auswählen“: alle wiederherstellen bzw. ausgewählte endgültig löschen (mit Rückfrage)', async ({ page }) => {
+  await freshStart(page);
+  for (const n of ['Alt 1', 'Alt 2', 'Alt 3']) {
+    await page.goto('./baupad/projektregister');
+    await page.getByTestId('register-new').click();
+    await page.getByTestId('project-name').fill(n);
+    await page.getByTestId('project-save').click();
+    await expect(page.locator(`[data-testid="register-row"][data-name="${n}"]`)).toHaveCount(1);
+    await page.locator(`[data-testid="register-row"][data-name="${n}"]`).getByTestId('register-delete').click();
+    await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Löschen', exact: true }).click();
+    await expect(page.locator(`[data-testid="register-row"][data-name="${n}"]`)).toHaveCount(0);
+  }
+  await page.goto('./baupad/tools');
+  await expect(page.getByTestId('trash-open')).toHaveAttribute('data-count', '3');
+  await page.getByTestId('trash-open').click();
+  const trash = page.getByTestId('trash-dialog');
+  // einen auswählen → endgültig löschen (Rückfrage)
+  await trash.getByTestId('trash-select').click();
+  await trash.getByTestId('trash-entry').filter({ hasText: 'Alt 1' }).getByTestId('trash-pick').check();
+  await expect(trash.getByTestId('select-count')).toHaveText('1 Eintrag');
+  await trash.getByTestId('trash-purge-selected').click();
+  await expect(page.getByTestId('confirm-dialog')).toContainText('nicht rückgängig');
+  await page.getByTestId('confirm-dialog').getByRole('button', { name: 'Endgültig löschen' }).click();
+  await expect(trash.getByTestId('trash-entry')).toHaveCount(2);
+  expect((await idb<{ name: string }[]>(page, getAll('projects'))).map((p) => p.name).sort()).toEqual(['Alt 2', 'Alt 3']);
+  // alle auswählen → wiederherstellen
+  await trash.getByTestId('trash-select').click();
+  await trash.getByTestId('select-all').click();
+  await expect(trash.getByTestId('select-count')).toHaveText('2 Einträge');
+  await trash.getByTestId('trash-restore-selected').click();
+  await expect(trash.getByTestId('trash-empty')).toBeVisible();
+  await page.goto('./baupad/projektregister');
+  await expect(page.getByTestId('register-row')).toHaveCount(2);
+});

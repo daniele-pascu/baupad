@@ -285,6 +285,8 @@ test('Importierter Plan: Fläche aus Plan erst nach dem Kalibrieren', async ({ p
   await dlg.getByTestId('geometry-length').dblclick();
   await expect(dlg.getByTestId('geometry-length')).toHaveCount(0);
   await expect(dlg.getByTestId('input-length')).toBeFocused();
+  // Hilfsfeld für die Tastatur am Handy/Tablet ist wieder weg
+  await expect(page.locator('[data-testid="keyboard-proxy"]')).toHaveCount(0);
 });
 
 test('Ebenen: Zeichnung, Bemaßung, Text und Messungen ein-/ausblenden – Ansicht, Fang und PDF', async ({ page }) => {

@@ -23,12 +23,12 @@ test('Offene Polylinie (Riss) bleibt offen; Schadstellen nachträglich drehen un
   await waitForPlan(page);
   const box = await planBox(page);
 
-  // 1) Offene Polylinie (Riss): Zickzack von links nach rechts, Enter beendet offen
+  // 1) Riss mit Lücken (Länge, Freie Form = Linie für Linie): vier einzelne Linien, Enter beendet
   await pickTool(page, 'tool-polyline');
   const x0 = box.x + box.width * 0.15;
   const y0 = box.y + box.height * 0.3;
-  for (let i = 0; i <= 8; i++) await page.mouse.click(x0 + i * 36, y0 + (i % 2 ? 14 : 0));
-  await expect(page.getByTestId('polygon-bar')).toContainText('9 Punkte');
+  for (let i = 0; i < 8; i++) await page.mouse.click(x0 + i * 36, y0 + (i % 2 ? 14 : 0));
+  await expect(page.getByTestId('segments-bar')).toBeVisible();
   await page.keyboard.press('Enter');
   const dlg = page.getByTestId('damage-dialog');
   await expect(dlg.getByTestId('input-number')).toHaveValue('1');
@@ -41,7 +41,8 @@ test('Offene Polylinie (Riss) bleibt offen; Schadstellen nachträglich drehen un
   const crack = await pathOf(page, 1);
   expect(crack.d).not.toContain('Z'); // nicht automatisch geschlossen
   expect(crack.fill).toBe('none'); // keine Fläche
-  expect((crack.d.match(/L/g) ?? []).length).toBe(8); // alle 9 Punkte erhalten, keine Schlusskante
+  expect((crack.d.match(/M/g) ?? []).length).toBe(4); // vier einzelne Linien
+  expect((crack.d.match(/L/g) ?? []).length).toBe(4); // keine Verbindung über die Lücken, keine Schlusskante
 
   // 2) Rechteck zeichnen
   await pickTool(page, 'tool-rect');

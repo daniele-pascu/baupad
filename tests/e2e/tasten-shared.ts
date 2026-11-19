@@ -391,6 +391,8 @@ export function tastenTests() {
     await drawRect(page, box.x + box.width * 0.3, box.y + box.height * 0.3, box.x + box.width * 0.45, box.y + box.height * 0.45);
     const dlg = page.getByTestId('damage-dialog');
     await expect(dlg).toBeVisible();
+    // Bewehrung gibt es nur bei der Betoninstandsetzung
+    await dlg.getByTestId('measure-type-select').selectOption('schadstelle');
     await dlg.getByTestId('rebar-add').click();
     await pruefe(page, 'Messdialog', out);
     await dlg.getByTestId('input-length').fill('2');
@@ -548,6 +550,17 @@ export function tastenTests() {
     }
     await dlg.getByTestId('surface-wand').click();
     await pruefe(page, 'Messdialog Schadstelle mit Fläche', out);
+    await dlg.getByTestId('damage-cancel').click();
+    await expect(dlg).toBeHidden();
+    // Länge mit Freier Form: Linien einzeln – unten nur vier Tasten (Abbrechen, Zurück, Vor, Fertig)
+    await chooseMeasureType(page, 'laenge');
+    await pickTool(page, 'tool-polyline');
+    await pruefe(page, 'Länge Linien einzeln: Hinweis', out);
+    for (const [fx, fy] of [[0.3, 0.6], [0.45, 0.62], [0.5, 0.6], [0.6, 0.7]]) await page.mouse.click(b.x + b.width * fx, b.y + b.height * fy);
+    await expect(page.getByTestId('segments-bar')).toBeVisible();
+    await pruefe(page, 'Länge Linien einzeln: vier Tasten', out);
+    await page.getByTestId('seg-cancel').click();
+    await expect(page.getByTestId('segments-bar')).toHaveCount(0);
     expect(out, out.join('\n')).toEqual([]);
   });
 

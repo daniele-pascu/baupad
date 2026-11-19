@@ -28,6 +28,7 @@ import {
   isOpenShape,
   moveVertex,
   polygonShape,
+  segmentsShape,
   canEditVertexCount,
   insertVertex,
   nearestEdge,
@@ -75,7 +76,9 @@ export type Tool =
 /** Werkzeuge, die Punkt für Punkt gesetzt werden (Polygon = immer geschlossen, Polylinie = offen oder geschlossen) */
 const isPointTool = (t: Tool) => t === 'polygon' || t === 'polyline' || t === 'wall' || t === 'arc' || t === 'probe' || t === 'dimension';
 /** Bezugspunkt für Fang/90° beim nächsten Punkt – bei der Maßlinie ist der dritte Punkt (Abstand) frei */
-const snapFrom = (t: Tool, pts: Point[]) => (t === 'dimension' && pts.length >= 2 ? undefined : pts[pts.length - 1]);
+const snapFrom = (t: Tool, pts: Point[], segments = false) => (t === 'dimension' && pts.length >= 2 ? undefined : segments && pts.length % 2 === 0 ? undefined : pts[pts.length - 1]);
+/** Linien einzeln: fertige Linien der laufenden Messung (Fang an ihren Enden und Mitten) */
+const draftLines = (pts: Point[]): Shape[] => Array.from({ length: Math.floor(pts.length / 2) }, (_, i) => lineShape(pts[2 * i], pts[2 * i + 1]));
 
 /** Maßlinie aus Punkt A, Punkt B und dem Abstand (Punkt C): Lage der Maßlinie und Abstand zu den Punkten (Seiteneinheiten) */
 export function dimensionFrom(a: Point, b: Point, c: Point): { a2: Point; b2: Point; offset: number; len: number } {
@@ -108,7 +111,7 @@ export type ViewerItem = Pick<Damage, 'id' | 'number' | 'shape' | 'color' | 'lab
 const noOf = (d: ViewerItem) => d.label?.trim() || String(d.number);
 
 /** Einrasten: liefert den eingerasteten Punkt (Seitenkoordinaten). */
-export type SnapFn = (p: Point, ctx: { from?: Point; tool?: Tool; scale: number; movingId?: string }) => Point & { kind?: SnapKind };
+export type SnapFn = (p: Point, ctx: { from?: Point; tool?: Tool; scale: number; movingId?: string; draft?: Shape[] }) => Point & { kind?: SnapKind };
 
 /** Gut sichtbare Strichfarbe (Weiß wäre auf weißem Plan unsichtbar). */
 export const visibleStroke = (color: string) => (color.toLowerCase() === '#ffffff' ? '#8e8e93' : color);
@@ -138,6 +141,10 @@ export interface PlanViewerHandle {
   armClick(p: Point | null): void;
   /** Zuletzt gesetzten Punkt entfernen */
   undoPolygonPoint(): void;
+  /** Zuletzt entfernten Punkt wieder setzen (nach „Zurück“) */
+  redoPolygonPoint(): void;
+  /** Gibt es einen Punkt zum Wiederherstellen? */
+  canRedoPolygon(): boolean;
   /** Punktwerkzeuge: Punkt exakt setzen (Seitenkoordinaten), z. B. aus einer eingetippten Länge */
   addPolygonPoint(p: Point): void;
   /** Punktwerkzeuge: zuletzt gesetzter Punkt (Seitenkoordinaten) */
@@ -202,6 +209,8 @@ interface Props {
   hatchUnit?: number;
   /** Wand darf geschlossen werden (Plan zeichnen: Raum ringsum) – Antippen des Startpunkts bzw. „Schließen“ */
   closableWall?: boolean;
+  /** Freie Form als Linien einzeln (Aufmaß, Länge): je zwei Punkte eine Linie, die nächste beginnt frei (z. B. Risse) */
+  segments?: boolean;
   /** Linie mit der Maus nur durch Klick – Klick (nicht durch Ziehen) */
   lineClickOnly?: boolean;
   /** Werkzeug benutzt: der nächste Kontakt (auch Maus und Stift) beendet es – Tipp = Auswahl, Ziehen = Plan verschieben */
@@ -333,6 +342,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   };
   /** Werkzeug „Fläche (Punkte)“: bisher gesetzte Punkte und Mauszeigerposition für die Vorschau */
   const poly = useRef<Point[]>([]);
+  /** mit „Zurück“ entfernte Punkte (für „Vor“); jeder neue Punkt leert die Liste */
+  const redoPts = useRef<Point[]>([]);
   /** Linie/Kalibrieren per Klick: gesetzter Punkt A (wartet auf Punkt B) */
   const clickStart = useRef<Point | null>(null);
   const clearClickStart = () => {
@@ -386,12 +397,13 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
 
   // Werkzeugwechsel verwirft eine angefangene Fläche
   useEffect(() => {
+    redoPts.current = [];
     if (poly.current.length) {
       poly.current = [];
       polyHover.current = null;
       propsRef.current.onPolygonChange?.(0);
     }
-  }, [tool]);
+  }, [tool, props.segments]);
 
   // Containergröße beobachten
   useLayoutEffect(() => {
@@ -605,6 +617,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     center: () => (viewRef.current && size ? toPage(viewRef.current, { x: size.w / 2, y: size.h / 2 }) : null),
     finishPolygon: (closed?: boolean) => finishPolygon(closed),
     addPolygonPoint: (p: Point) => {
+      redoPts.current = [];
       poly.current = [...poly.current, clampP(p)];
       propsRef.current.onPolygonChange?.(poly.current.length);
       forceRender((n) => n + 1);
@@ -612,10 +625,21 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     lastPolygonPoint: () => poly.current[poly.current.length - 1] ?? null,
     undoPolygonPoint: () => {
       if (clickStart.current) return clearClickStart();
+      const last = poly.current[poly.current.length - 1];
+      if (last) redoPts.current = [...redoPts.current, last];
       poly.current = poly.current.slice(0, -1);
       propsRef.current.onPolygonChange?.(poly.current.length);
       forceRender((n) => n + 1);
     },
+    redoPolygonPoint: () => {
+      const p = redoPts.current[redoPts.current.length - 1];
+      if (!p) return;
+      redoPts.current = redoPts.current.slice(0, -1);
+      poly.current = [...poly.current, p];
+      propsRef.current.onPolygonChange?.(poly.current.length);
+      forceRender((n) => n + 1);
+    },
+    canRedoPolygon: () => redoPts.current.length > 0,
     armClick: (p: Point | null) => {
       if (!p) clearClickStart();
       else {
@@ -627,6 +651,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     cancelPolygon: () => {
       endLupe();
       clearClickStart();
+      redoPts.current = [];
       poly.current = [];
       propsRef.current.onPolygonChange?.(0);
       forceRender((n) => n + 1);
@@ -980,8 +1005,9 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       const t = propsRef.current.tool;
       if (e.pointerType !== 'touch' && propsRef.current.snap && t !== 'select' && viewRef.current) {
         const before = snapMark.current;
-        const last = snapFrom(t, poly.current);
-        snapAt(clampP(toPage(viewRef.current, localPoint(e))), { tool: t, scale: viewRef.current.scale, from: last });
+        const seg = !!propsRef.current.segments && t === 'polyline';
+        const last = snapFrom(t, poly.current, seg);
+        snapAt(clampP(toPage(viewRef.current, localPoint(e))), { tool: t, scale: viewRef.current.scale, from: last, ...(seg ? { draft: draftLines(poly.current) } : {}) });
         if (before?.kind !== snapMark.current?.kind || before?.p.x !== snapMark.current?.p.x || before?.p.y !== snapMark.current?.p.y) forceRender((n) => n + 1);
       }
       // Klick-Klick-Strich: Vorschau von Punkt A zur Maus (mit Fang wie der Klick)
@@ -1000,8 +1026,9 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       // Vorschau der nächsten Kante beim Setzen von Flächenpunkten (mit Fang bzw. 90°, wie der Klick)
       if (isPointTool(propsRef.current.tool) && (poly.current.length || propsRef.current.tool === 'probe') && viewRef.current) {
         const hp = clampP(toPage(viewRef.current, localPoint(e)));
-        const last = propsRef.current.tool === 'probe' ? (propsRef.current.probeFrom ?? undefined) : snapFrom(propsRef.current.tool, poly.current);
-        polyHover.current = e.pointerType !== 'touch' && propsRef.current.snap ? clampP(snapAt(hp, { tool: t, scale: viewRef.current.scale, from: last })) : hp;
+        const seg = !!propsRef.current.segments && t === 'polyline';
+        const last = propsRef.current.tool === 'probe' ? (propsRef.current.probeFrom ?? undefined) : snapFrom(propsRef.current.tool, poly.current, seg);
+        polyHover.current = e.pointerType !== 'touch' && propsRef.current.snap ? clampP(snapAt(hp, { tool: t, scale: viewRef.current.scale, from: last, ...(seg ? { draft: draftLines(poly.current) } : {}) })) : hp;
         forceRender((n) => n + 1);
       }
       return;
@@ -1290,7 +1317,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         const snap = propsRef.current.snap;
         const pts = poly.current;
         const probing = propsRef.current.tool === 'probe';
-        const pp = clampP(snap ? snapAt(raw, { scale: v.scale, tool: propsRef.current.tool, from: probing ? (propsRef.current.probeFrom ?? undefined) : snapFrom(propsRef.current.tool, pts) }) : raw);
+        const seg = !!propsRef.current.segments && propsRef.current.tool === 'polyline';
+        const pp = clampP(snap ? snapAt(raw, { scale: v.scale, tool: propsRef.current.tool, from: probing ? (propsRef.current.probeFrom ?? undefined) : snapFrom(propsRef.current.tool, pts, seg), ...(seg ? { draft: draftLines(pts) } : {}) }) : raw);
         // Messung: Punkt nur melden – keine Form, keine Auswahl, nichts wird verändert
         if (probing) {
           propsRef.current.onProbePoint?.(pp, v.scale);
@@ -1306,7 +1334,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         // (auch im 90°-Modus: maßgeblich ist der angetippte Punkt)
         const nearFirst = (q: Point) => Math.hypot((first.x - q.x) * v.scale, (first.y - q.y) * v.scale) < (isCoarse() ? 22 : 12);
         // Wand: im Aufmaß immer offen (Antippen des Startpunkts setzt einen weiteren Punkt); beim Zeichnen schließt es den Raum
-        const onFirst = (propsRef.current.tool !== 'wall' || !!propsRef.current.closableWall) && pts.length >= 3 && (nearFirst(pp) || nearFirst(raw));
+        // Linien einzeln: nichts schließt sich (der Startpunkt ist ein normaler Fangpunkt)
+        const onFirst = !seg && (propsRef.current.tool !== 'wall' || !!propsRef.current.closableWall) && pts.length >= 3 && (nearFirst(pp) || nearFirst(raw));
         if (onFirst) {
           finishPolygon(true);
           return;
@@ -1315,11 +1344,13 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         // (schnelles Setzen vieler Punkte darf keine verschlucken). Fläche verhält sich dabei wie die Polylinie.
         const tl = propsRef.current.tool;
         const need = tl === 'polyline' || tl === 'wall' ? 2 : 3;
-        if (dbl && pts.length >= need) {
+        // Linien einzeln: kein Doppeltippen (Ende einer Linie und Anfang der nächsten liegen oft auf demselben Punkt) – Häkchen beendet
+        if (dbl && !seg && pts.length >= need) {
           finishPolygon();
           return;
         }
         poly.current = [...pts, pp];
+        redoPts.current = [];
         if (propsRef.current.tool === 'dimension' && poly.current.length === 3) {
           // Maßlinie: Punkt A, Punkt B (fest), dann Abstand der Maßlinie – bleibt auf A und B bezogen
           const [p1, p2, p3] = poly.current;
@@ -1379,6 +1410,18 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   function finishPolygon(closed?: boolean) {
     const pts = poly.current;
     const tool = propsRef.current.tool;
+    if (propsRef.current.segments && tool === 'polyline') {
+      // Linien einzeln: Punktpaare; ein angefangener letzter Punkt (ohne Ende) entfällt
+      const shape = segmentsShape(pts);
+      if (!shape) return;
+      poly.current = [];
+      redoPts.current = [];
+      polyHover.current = null;
+      propsRef.current.onPolygonChange?.(0);
+      forceRender((n) => n + 1);
+      create(shape);
+      return;
+    }
     const close = tool === 'wall' ? !!propsRef.current.closableWall && closed === true : (closed ?? tool !== 'polyline');
     if (pts.length < (close ? 3 : 2)) return;
     poly.current = [];
@@ -1574,7 +1617,24 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
               </g>
             );
           })()}
-          {isPointTool(tool) && poly.current.length > 0 && !(tool === 'dimension' && poly.current.length >= 2) && (
+          {props.segments && tool === 'polyline' && poly.current.length > 0 && (() => {
+            // Linien einzeln: fertige Linien durchgezogen, die angefangene gestrichelt bis zum Zeiger
+            const pts = poly.current.map((q) => toScreen(view, q));
+            const open = pts.length % 2 === 1;
+            const hover = open && polyHover.current ? toScreen(view, polyHover.current) : null;
+            return (
+              <g className="poly-preview" data-testid="polygon-preview" data-segments={Math.floor(pts.length / 2)}>
+                {Array.from({ length: Math.floor(pts.length / 2) }, (_, i) => (
+                  <line key={i} x1={pts[2 * i].x} y1={pts[2 * i].y} x2={pts[2 * i + 1].x} y2={pts[2 * i + 1].y} stroke={visibleStroke(color)} strokeWidth={2.5} strokeLinecap="round" />
+                ))}
+                {hover && <line x1={pts[pts.length - 1].x} y1={pts[pts.length - 1].y} x2={hover.x} y2={hover.y} stroke={visibleStroke(color)} strokeWidth={2} strokeDasharray="6 4" />}
+                {pts.map((q, i) => (
+                  <circle key={i} cx={q.x} cy={q.y} r={i % 2 === 0 ? 5 : 4} className="poly-point" />
+                ))}
+              </g>
+            );
+          })()}
+          {isPointTool(tool) && !(props.segments && tool === 'polyline') && poly.current.length > 0 && !(tool === 'dimension' && poly.current.length >= 2) && (
             <g className="poly-preview" data-testid="polygon-preview">
               <polyline
                 points={[...poly.current, ...(polyHover.current ? [polyHover.current] : [])].map((q) => { const s2 = toScreen(view, q); return `${s2.x},${s2.y}`; }).join(' ')}
