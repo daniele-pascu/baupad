@@ -270,6 +270,12 @@ test('Beispiel-LV „Betoninstandsetzung“ (PDF): Klassen, Zulage, Folgeleistun
     expect.stringContaining('01.14.20.01B. Schadstelle bis 0,25 m²'),
     expect.stringContaining('01.14.20.01E. Schadstelle über 1,5 m²'),
   ]);
+  // Position zuklappen: nur noch der Balken mit Summe, die Messung darunter ist weg
+  await page.getByTestId('position-group-toggle').first().click();
+  await expect(tr(1)).toHaveCount(0);
+  await expect(page.getByTestId('position-group').first()).toContainText('01.14.20.01B.');
+  await page.getByTestId('position-group-toggle').first().click();
+  await expect(tr(1)).toHaveCount(1);
 
   // Excel: die Schadstelle steht bei allen fünf Positionen – Bewehrung mit ihren 1,20 lfm
   const dl = await catchDownload(page, () => excelExport(page, 'export-xlsx-plan'));

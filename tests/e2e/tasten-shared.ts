@@ -131,7 +131,6 @@ export function tastenTests() {
       ['materialverwaltung?t=material', 'material-new'],
       ['materialverwaltung?t=lieferanten', 'supplier-new'],
       // Papierkorb oben im Seitenkopf
-      ['tools', 'trash-open'],
       ['aufmass-und-abrechnung', 'trash-open'],
       ['projektregister', 'trash-open'],
       ['fotodokumentation', 'trash-open'],
@@ -561,6 +560,13 @@ export function tastenTests() {
     await pruefe(page, 'Länge Linien einzeln: vier Tasten', out);
     await page.getByTestId('seg-cancel').click();
     await expect(page.getByTestId('segments-bar')).toHaveCount(0);
+    // Neue Messung: Bereich wählen (Position oder frei) – in der Messleiste bzw. am Handy im Reiter Tabelle
+    if (await page.getByTestId('mobile-tab-table').isVisible()) await page.getByTestId('mobile-tab-table').click();
+    await page.getByTestId('new-measure').click();
+    await expect(page.getByTestId('new-measure-dialog')).toBeVisible();
+    await pruefe(page, 'Neue Messung (Bereich wählen)', out);
+    await page.getByTestId('new-measure-dialog').getByTestId('new-measure-pos').first().click();
+    await expect(page.getByTestId('new-measure-dialog')).toHaveCount(0);
     expect(out, out.join('\n')).toEqual([]);
   });
 

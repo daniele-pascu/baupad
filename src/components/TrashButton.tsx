@@ -12,7 +12,7 @@ import { confirmDialog, showError, toast } from './ui';
 export const TRASH_INFO = `Gelöschtes bleibt ${TRASH_DAYS} Tage im Papierkorb und wird danach endgültig gelöscht.`;
 
 /**
- * Papierkorb-Taste oben im Seitenkopf: Tool-Übersicht alles, im Tool alles dieses Tools, in Projekt bzw. Baustelle
+ * Papierkorb-Taste oben im Seitenkopf der Tools: im Tool alles dieses Tools, in Projekt bzw. Baustelle
  * nur deren Daten. Die Zahl zeigt, wie viele Einträge drin sind.
  */
 export function TrashButton({ scope }: { scope: TrashScope }) {

@@ -1,6 +1,6 @@
 import { SelectBox, type Selection } from './Selection';
 import { naturalCompare } from '../lib/numbers';
-import { Fragment, useEffect, useRef, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { AufmassRow } from '../lib/aufmass';
 import { linesByType, sumArea } from '../lib/aufmass';
 import { deductionText, grossArea, hasArea, hasVolume, isWall, kindOf, measureLabel, netLength, sumLengths, sumVolumes } from '../lib/measure';
@@ -157,9 +157,31 @@ function columnsOf(type: MeasureType, list: Damage[]): TypeColumns {
  * Aufmaß-Tabellen: je Messart eine eigene Tabelle mit passenden Spalten und eigener Summe
  * (Fläche, Wand, Länge, Volumen, Stück, Schadstelle, Frei – nur die vorkommenden), darunter die Gesamtsummen.
  */
+const COLLAPSED_KEY = 'aufmassCollapsed';
+
 export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, onEdit, onDelete, duplicates, components, positionLabel, positionTitle, positionOrder, positionsOf, surfaceNeeded, sel: pick }: Props) {
   const picking = !!pick?.active;
   const choose = (r: AufmassRow) => (picking ? pick!.toggle(r.damage.id) : onSelect?.(r));
+  // Gruppen auf- und zuklappen (je Messart bzw. Linienart und je Position) – wie in der Einteilung, auf dem Gerät gemerkt
+  const [closed, setClosed] = useState<Set<string>>(() => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem(COLLAPSED_KEY) ?? '[]') as string[]);
+    } catch {
+      return new Set();
+    }
+  });
+  const toggleGroup = (k: string) =>
+    setClosed((prev) => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      try {
+        localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...next].slice(-200)));
+      } catch {
+        /* egal */
+      }
+      return next;
+    });
   const refsOf = (d: Damage): string[] => (positionsOf ? positionsOf(d) : d.positionRef ? [d.positionRef] : []);
   const mainRef = (d: Damage): string | null => refsOf(d)[0] ?? null;
   const selRef = useRef<HTMLTableRowElement>(null);
@@ -242,16 +264,24 @@ export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, on
             const comp = r.damage.componentId ? components?.[r.damage.componentId] : undefined;
             const label = `${measureLabel(r.damage)} ${damageNo(r.damage)}`;
             const deds = (hasArea(kind) ? r.damage.area !== null : true) && r.damage.deductions?.length ? r.damage.deductions : null;
+            const gKey = `pos:${type}:${gk}`;
+            const gClosed = gk !== null && closed.has(gKey);
+            const head = newGroup && (
+              <tr className={`position-group${gClosed ? ' is-closed' : ''}`} data-testid="position-group">
+                <td colSpan={all}>
+                  <button type="button" className="group-toggle" onClick={() => toggleGroup(gKey)} aria-expanded={!gClosed} data-testid="position-group-toggle">
+                    <Icon name="next" size={16} className="group-chevron" />
+                    <span className="position-group-title">{gk ? positionTitle!(gk) : 'Ohne Leistungsposition'}</span>
+                    <span className="position-group-sum">{cols.sum(groupRows).text}</span>
+                  </button>
+                </td>
+              </tr>
+            );
+            // zugeklappte Position: nur der Balken mit Summe
+            if (gClosed) return <Fragment key={r.damage.id}>{head}</Fragment>;
             return (
               <Fragment key={r.damage.id}>
-                {newGroup && (
-                  <tr className="position-group" data-testid="position-group">
-                    <td colSpan={all}>
-                      <span className="position-group-title">{gk ? positionTitle!(gk) : 'Ohne Leistungsposition'}</span>
-                      <span className="position-group-sum">{cols.sum(groupRows).text}</span>
-                    </td>
-                  </tr>
-                )}
+                {head}
                 <tr
                   ref={sel ? selRef : undefined}
                   className={`${sel ? 'selected' : ''}${duplicates?.has(r.damage.id) ? ' duplicate' : ''}`}
@@ -403,18 +433,30 @@ export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, on
   const areaAny = !damages.length || damages.some((d) => hasArea(kindOf(d)));
   return (
     <div className="table-wrap aufmass-tables" data-testid="aufmass-table">
-      {tables.map((t) => (
-        <section key={t.label} className="aufmass-type" data-testid="aufmass-type" data-type={t.info.id}>
-          <h3 className="aufmass-type-head">
-            <Icon name={t.info.icon as IconName} size={16} />
-            <span>{t.label}</span>
-            <span className="aufmass-type-count">
-              {t.rows.length} {t.rows.length === 1 ? 'Messung' : 'Messungen'}
-            </span>
-          </h3>
-          {renderTable(t.info.id, t.rows, tables.length > 1)}
-        </section>
-      ))}
+      {tables.map((t) => {
+        const key = `type:${t.label}`;
+        const isClosed = closed.has(key);
+        const list = t.rows.map((r) => r.damage);
+        return (
+          <section key={t.label} className={`aufmass-type${isClosed ? ' is-closed' : ''}`} data-testid="aufmass-type" data-type={t.info.id}>
+            <h3 className="aufmass-type-head">
+              <button type="button" className="group-toggle" onClick={() => toggleGroup(key)} aria-expanded={!isClosed} data-testid="aufmass-type-toggle">
+                <Icon name="next" size={16} className="group-chevron" />
+                <Icon name={t.info.icon as IconName} size={16} />
+                <span className="aufmass-type-label">{t.label}</span>
+                <span className="aufmass-type-count">
+                  {t.rows.length} {t.rows.length === 1 ? 'Messung' : 'Messungen'}
+                </span>
+                {/* Summe oben im Balken – zu und offen, ohne nach unten zu scrollen */}
+                <strong className="aufmass-type-sum" data-testid="type-sum-value">
+                  {columnsOf(t.info.id, list).sum(list).text}
+                </strong>
+              </button>
+            </h3>
+            {!isClosed && renderTable(t.info.id, t.rows, false)}
+          </section>
+        );
+      })}
       {!tables.length && renderTable('schadstelle', [], false)}
       <table className="aufmass-table aufmass-total" data-testid="aufmass-total">
         <tfoot>

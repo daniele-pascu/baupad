@@ -1,6 +1,5 @@
 import type { CSSProperties } from 'react';
 import { Icon } from '../components/Icon';
-import { TrashButton } from '../components/TrashButton';
 import { ToolIcon, type ToolIconName } from '../components/ToolIcon';
 import { SiteNav } from '../components/SiteNav';
 import { isInstalledApp } from '../lib/platform';
@@ -47,7 +46,6 @@ export function ToolsPage() {
             <p className="tools-eyebrow">Willkommen zurück</p>
             <h1 data-testid="tools-title">Tools</h1>
           </div>
-          <TrashButton scope={{}} />
         </header>
         {/* Kamera und Projektregister sind keine Werkzeuge: als Tasten über den Kacheln */}
         {((isInstalledApp() && access.canTool('photos')) || register) && (
