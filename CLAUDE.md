@@ -29,3 +29,5 @@ abgeschnitten sein oder aneinander kleben (Eingabefeld direkt über/unter einer 
   Scrollen unter eine feste Kopf- bzw. Werkzeugleiste oder die Fußleiste eines Fensters rutscht, zählt nicht).
 - Befunde beheben, nicht wegdefinieren: lieber Tasten verschieben, kompakter machen oder umbrechen lassen.
 - Website und Anmelden/Registrieren werden **abgemeldet** geprüft (angemeldet leitet die Website zu den Tools um).
+- **Farben geändert** (App-CSS): zusätzlich den Dunkelmodus prüfen – `TASTEN_DUNKEL=1` vor denselben Befehl setzen
+  (meldet schwer lesbare Schrift und Tasten, die sich nicht vom Hintergrund abheben; die Website wird dabei übersprungen).
