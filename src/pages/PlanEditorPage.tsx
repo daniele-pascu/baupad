@@ -438,6 +438,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const firstTool = (c: MeasureChoice): Tool => (c === 'auto' ? 'select' : TOOLS_BY_TYPE[c][0]);
   /** Stück zählen: angetippte Punkte (Seitenkoordinaten), bis „Fertig“ */
   const [pointMarks, setPointMarks] = useState<Point[]>([]);
+  /** Stück: mit „Zurück“ entfernte Punkte (für „Vor“) */
+  const [pointRedo, setPointRedo] = useState<Point[]>([]);
   useEffect(() => {
     if (tool !== 'points') setPointMarks([]);
   }, [tool]);
@@ -563,6 +565,47 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const drawMode = drawingPlan && mode === 'draw';
   /** Aufmaß, Messart Länge, Freie Form: Linien einzeln (je zwei Punkte eine Linie, z. B. Risse mit Lücken) */
   const segMode = !drawMode && tool === 'polyline' && mtype === 'laenge';
+  /**
+   * Aufmaß: angefangene Messung mit mehreren Tipps bzw. Strichen (Freie Form, Vieleck, Wand, Stück, Freihand) –
+   * unten statt der Leiste nur Abbrechen, Zurück, Vor, Fertig.
+   */
+  const pointsDraft = !drawMode && tool === 'points' && pointMarks.length > 0;
+  const draftBar = !drawMode && (pointsDraft || (polyCount > 0 && (isPointTool(tool) || tool === 'freehand')));
+  /** Freie Form bei Flächen-Messarten: Fertig schließt die Fläche */
+  const closeOnDone = tool === 'polygon' || (tool === 'polyline' && !segMode && mtype !== 'auto' && mtype !== 'wand' && mtype !== 'laenge' && mtype !== 'frei' && mtype !== 'stueck');
+  const draftDone = () => {
+    if (pointsDraft) return finishPoints();
+    if (segMode || tool === 'wall') return viewer.current?.finishPolygon(false);
+    if (tool === 'freehand') return viewer.current?.finishPolygon();
+    viewer.current?.finishPolygon(closeOnDone);
+  };
+  const draftUndo = () => {
+    if (!pointsDraft) return viewer.current?.undoPolygonPoint();
+    setPointRedo((r) => [...r, pointMarks[pointMarks.length - 1]]);
+    setPointMarks((m) => m.slice(0, -1));
+  };
+  const draftRedo = () => {
+    if (!pointsDraft) return viewer.current?.redoPolygonPoint();
+    const p = pointRedo[pointRedo.length - 1];
+    if (!p) return;
+    setPointRedo((r) => r.slice(0, -1));
+    setPointMarks((m) => [...m, p]);
+  };
+  const draftCancel = () => {
+    if (!pointsDraft) return viewer.current?.cancelPolygon();
+    setPointMarks([]);
+    setPointRedo([]);
+  };
+  /** mindestens so viele Punkte bzw. Striche, bevor „Fertig“ geht */
+  const draftMin = pointsDraft || tool === 'freehand' ? 1 : closeOnDone ? 3 : 2;
+  const draftCount = pointsDraft ? pointMarks.length : polyCount;
+  const draftCanRedo = pointsDraft ? pointRedo.length > 0 : !!viewer.current?.canRedoPolygon();
+  /** Kennungen wie bisher (Tests, Hilfe): je Tool die gewohnte Bezeichnung der Tasten */
+  const draftIds = pointsDraft
+    ? { cancel: 'points-cancel', undo: 'points-undo', done: 'points-done' }
+    : segMode
+      ? { cancel: 'seg-cancel', undo: 'seg-undo', done: 'seg-done' }
+      : { cancel: 'polygon-cancel', undo: 'polygon-undo-point', done: tool === 'wall' ? 'wall-finish' : tool === 'freehand' ? 'freehand-done' : closeOnDone ? 'polygon-finish' : 'polyline-open' };
   /** Darstellung: Bedienfeld der ausgewählten Messung bzw. Voreinstellung für neue Messungen */
   const [styleOpen, setStyleOpen] = useState(false);
   const [stylePopOpen, setStylePopOpen] = useState(false);
@@ -1835,6 +1878,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               bounds={markerBounds}
               onPolygonChange={setPolyCount}
               segments={segMode}
+              freehandDraft={!drawMode}
+              freehandMulti={mtype === 'laenge'}
               damages={shownDamages}
               selectedId={selectedId}
               tool={guideTool ? 'pick' : tool}
@@ -1924,6 +1969,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 }
                 if (tool === 'points') {
                   setPointMarks((m) => [...m, p]);
+                  setPointRedo([]);
                   return;
                 }
                 if (tool !== 'text') return;
@@ -2361,7 +2407,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               </span>
             </div>
           )}
-          {!probe && !drawMode && tool === 'points' && !dialog && !mtypeMenu && !probeMenu && !stylePopOpen && (
+          {!probe && !drawMode && tool === 'points' && pointMarks.length === 0 && !dialog && !mtypeMenu && !probeMenu && !stylePopOpen && (
             <div className="draw-bar" data-testid="points-bar">
               {pointMarks.length === 0 ? (
                 <span className="muted small">Stück: jedes Stück im Plan antippen – jeder Punkt zählt. „Fertig“ übernimmt die Anzahl.</span>
@@ -2388,7 +2434,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               <span className="muted small">Länge, Linie für Linie: Anfang und Ende antippen – die nächste Linie beginnt frei, z. B. mit Abstand oder an der Mitte einer Linie (Risse). Häkchen übernimmt die Summe.</span>
             </div>
           )}
-          {!segMode && !probe && !(!drawMode && (mtypeMenu || probeMenu || stylePopOpen)) && (drawMode ? isPointTool(drawing.viewerTool) && (polyCount > 0 || (!drawing.selected && drawing.tool !== 'wall')) : isPointTool(tool) && (polyCount > 0 || !selected)) && !dialog && (
+          {!segMode && !probe && !(!drawMode && (mtypeMenu || probeMenu || stylePopOpen)) && (drawMode ? isPointTool(drawing.viewerTool) && (polyCount > 0 || (!drawing.selected && drawing.tool !== 'wall')) : isPointTool(tool) && polyCount === 0 && !selected) && !dialog && (
             <PolylineBar
               polyline={(drawMode ? drawing.tool : tool) === 'polyline'}
               wall={(drawMode ? drawing.tool : tool) === 'wall'}
@@ -2566,19 +2612,25 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               onProbeCancel={() => setProbe(null)}
               float={phone}
             />
-          ) : segMode && polyCount > 0 && !dialog ? (
-            // Linien einzeln (Länge, Freie Form): unten nur Abbrechen, Zurück, Vor, Fertig
-            <div className="toolbar liquid seg-bar" role="toolbar" aria-label="Linien einzeln" data-testid="segments-bar">
-              <button type="button" className="tool-btn seg-btn" onClick={() => viewer.current?.cancelPolygon()} title="Abbrechen – Linien verwerfen" aria-label="Abbrechen" data-testid="seg-cancel">
+          ) : draftBar && !dialog ? (
+            // angefangene Messung (Freie Form, Vieleck, Wand, Stück, Freihand): unten nur Abbrechen, Zurück, Vor, Fertig
+            <div className="toolbar liquid seg-bar" role="toolbar" aria-label="Messung zeichnen" data-testid={segMode ? 'segments-bar' : 'draft-bar'} data-tool={pointsDraft ? 'points' : tool} data-count={draftCount}>
+              <button type="button" className="tool-btn seg-btn" onClick={draftCancel} title="Abbrechen – verwerfen" aria-label="Abbrechen" data-testid={draftIds.cancel}>
                 <Icon name="close" />
               </button>
-              <button type="button" className="tool-btn seg-btn" onClick={() => viewer.current?.undoPolygonPoint()} title="Zurück – letzten Punkt entfernen" aria-label="Zurück" data-testid="seg-undo">
+              <button type="button" className="tool-btn seg-btn" onClick={draftUndo} disabled={draftCount === 0} title={tool === 'freehand' ? 'Zurück – letzten Strich entfernen' : 'Zurück – letzten Punkt entfernen'} aria-label="Zurück" data-testid={draftIds.undo}>
                 <Icon name="undo" />
               </button>
-              <button type="button" className="tool-btn seg-btn" onClick={() => viewer.current?.redoPolygonPoint()} disabled={!viewer.current?.canRedoPolygon()} title="Vor – Punkt wiederherstellen" aria-label="Vor" data-testid="seg-redo">
+              <button type="button" className="tool-btn seg-btn" onClick={draftRedo} disabled={!draftCanRedo} title="Vor – wiederherstellen" aria-label="Vor" data-testid="seg-redo">
                 <Icon name="redo" />
               </button>
-              <button type="button" className="tool-btn seg-btn seg-done" onClick={() => viewer.current?.finishPolygon(false)} disabled={polyCount < 2} title="Fertig – Länge übernehmen" aria-label="Fertig" data-testid="seg-done">
+              {/* Stück: laufende Anzahl neben dem Häkchen */}
+              {pointsDraft && (
+                <span className="seg-count" data-testid="points-count">
+                  {pointMarks.length} Stk
+                </span>
+              )}
+              <button type="button" className="tool-btn seg-btn seg-done" onClick={draftDone} disabled={draftCount < draftMin} title="Fertig – Messung übernehmen" aria-label="Fertig" data-testid={draftIds.done}>
                 <Icon name="check" />
               </button>
             </div>

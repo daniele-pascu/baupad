@@ -118,7 +118,7 @@ test('X gedrückt halten: vergrößert an der Maus, Fangpunkt blau markiert, Kli
     await page.mouse.down();
     await page.mouse.up();
     // Punkt gesetzt (grün), Ansicht bleibt vergrößert, solange X gehalten wird
-    await expect(page.getByTestId('polygon-bar')).toContainText(`${i + 1} Punkt`);
+    await expect(page.getByTestId('draft-bar')).toHaveAttribute('data-count', String(i + 1));
     expect(Number(await viewer.getAttribute('data-scale')) / scale0).toBeCloseTo(k, 6);
     await page.keyboard.up('x');
     await expect(page.getByTestId('lupe-hint')).toHaveCount(0);
@@ -130,14 +130,14 @@ test('X gedrückt halten: vergrößert an der Maus, Fangpunkt blau markiert, Kli
   await page.mouse.move(extra.x, extra.y);
   await page.mouse.down();
   await page.mouse.up();
-  await expect(page.getByTestId('polygon-bar')).toContainText('5 Punkte');
+  await expect(page.getByTestId('draft-bar')).toHaveAttribute('data-count', '5');
   await page.keyboard.press('Backspace');
-  await expect(page.getByTestId('polygon-bar')).toContainText('4 Punkte');
+  await expect(page.getByTestId('draft-bar')).toHaveAttribute('data-count', '4');
   const extra2 = scr(600, 420); // andere Stelle (sonst Doppelklick = fertig)
   await page.mouse.click(extra2.x, extra2.y);
-  await expect(page.getByTestId('polygon-bar')).toContainText('5 Punkte');
+  await expect(page.getByTestId('draft-bar')).toHaveAttribute('data-count', '5');
   await page.keyboard.press('Delete');
-  await expect(page.getByTestId('polygon-bar')).toContainText('4 Punkte');
+  await expect(page.getByTestId('draft-bar')).toHaveAttribute('data-count', '4');
 
   // Enter: fertig – Fläche exakt aus den Raumecken
   await page.keyboard.press('Enter');

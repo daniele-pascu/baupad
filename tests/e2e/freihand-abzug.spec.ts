@@ -17,7 +17,7 @@ test.afterAll(async () => {
   await page.close();
 });
 
-type Dmg = { kind: string; shape: { type: string; closed?: boolean; points?: number[][] }; length: number; width: number | null; area: number | null; deductions?: { label: string; count: number; length: number; width: number; add?: boolean }[] };
+type Dmg = { kind: string; shape: { type: string; closed?: boolean; points?: number[][]; breaks?: number[] }; length: number; width: number | null; area: number | null; deductions?: { label: string; count: number; length: number; width: number; add?: boolean }[] };
 async function damages(): Promise<Dmg[]> {
   return page.evaluate(
     () =>
@@ -48,11 +48,26 @@ test('Freihand: wellige Linie bleibt genau wie gezeichnet (Linie mit Länge); am
   const sb = (await sheet().boundingBox())!;
   const x = sb.x + 150;
   const y = sb.y + 200;
-  // Riss: Wellenlinie ohne Absetzen
+  // Riss: Wellenlinie ohne Absetzen – Strich bleibt Entwurf, unten nur Abbrechen, Zurück, Vor, Fertig
   await page.mouse.move(x, y);
   await page.mouse.down();
   for (let i = 1; i <= 40; i++) await page.mouse.move(x + i * 8, y + Math.sin(i / 3) * 25);
   await page.mouse.up();
+  const bar = page.getByTestId('draft-bar');
+  await expect(bar).toHaveAttribute('data-count', '1');
+  await expect(bar.locator('button')).toHaveCount(4);
+  // zweiter Strich (Riss geht nach einer Lücke weiter); Zurück nimmt ihn, Vor bringt ihn zurück
+  await page.mouse.move(x, y + 120);
+  await page.mouse.down();
+  for (let i = 1; i <= 10; i++) await page.mouse.move(x + i * 8, y + 120);
+  await page.mouse.up();
+  await expect(bar).toHaveAttribute('data-count', '2');
+  await bar.getByTestId('polygon-undo-point').click();
+  await expect(bar).toHaveAttribute('data-count', '1');
+  await bar.getByTestId('seg-redo').click();
+  await expect(bar).toHaveAttribute('data-count', '2');
+  await bar.getByTestId('polygon-undo-point').click();
+  await bar.getByTestId('freehand-done').click();
   const dlg = page.getByTestId('damage-dialog');
   await expect(dlg).toContainText('Neue Messung: Länge');
   await dlg.getByTestId('damage-save').click();
@@ -77,6 +92,7 @@ test('Freihand: wellige Linie bleibt genau wie gezeichnet (Linie mit Länge); am
     await page.mouse.move(cx + Math.cos(a) * (80 + (i % 2) * 6), cy + Math.sin(a) * 60);
   }
   await page.mouse.up();
+  await page.getByTestId('freehand-done').click();
   await expect(dlg).toContainText('Neue Messung: Fläche');
   await dlg.getByTestId('use-geometry').click();
   await dlg.getByTestId('damage-save').click();
@@ -201,4 +217,32 @@ test('Abzüge auch bei Linien: Sockelleiste 12,40 m abzüglich 2 Türöffnungen 
   expect(d).toMatchObject({ kind: 'line', length: 12.4 });
   expect(d.deductions).toEqual([expect.objectContaining({ label: 'Tür', count: 2, length: 1 })]);
   expect(d.deductions![0].width).toBeUndefined();
+});
+
+test('Länge mit Freihand: mehrere Striche = eine Messung, Länge = Summe (Lücken zählen nicht)', async () => {
+  await freshStart(page);
+  await createProject(page, 'Freihand Risse', {}, ['Halle']);
+  await page.getByTestId('draw-plan').click();
+  await page.getByTestId('new-drawing').locator('[data-field="planNumber"]').fill('FH-2');
+  await page.getByTestId('new-drawing-save').click();
+  await page.getByTestId('mode-measure').click();
+  await pickTool(page, 'tool-freehand');
+  const sb = (await page.getByTestId('drawing-sheet').boundingBox())!;
+  const x = sb.x + 150;
+  const y = sb.y + 200;
+  for (const dy of [0, 60, 120]) {
+    await page.mouse.move(x, y + dy);
+    await page.mouse.down();
+    for (let i = 1; i <= 10; i++) await page.mouse.move(x + i * 10, y + dy);
+    await page.mouse.up();
+  }
+  await expect(page.getByTestId('draft-bar')).toHaveAttribute('data-count', '3');
+  await page.getByTestId('freehand-done').click();
+  const dlg = page.getByTestId('damage-dialog');
+  await expect(dlg).toContainText('Neue Messung: Länge');
+  await dlg.getByTestId('damage-save').click();
+  await expect(dlg).toBeHidden();
+  await waitSaved(page);
+  const d = (await damages())[0];
+  expect(d.shape.breaks?.length).toBe(2); // drei Striche, zwei Lücken
 });
