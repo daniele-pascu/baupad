@@ -1,0 +1,27 @@
+# Nur prüfen, nichts ändern: Was bekommt der Browser von der Supabase-Funktion „storage“ zurück?
+# Per Hand starten (Actions → „Supabase-Funktion storage prüfen“ → Run workflow). Kein Secret nötig –
+# der Schlüssel unten ist der öffentliche Browser-Schlüssel, der ohnehin in der App steht.
+name: Supabase-Funktion storage prüfen
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      URL: https://knaskwuhjixxpnqjfqpx.supabase.co
+      APIKEY: sb_publishable_XfypEdkp9A-MK0B29NPiGA_SStJXHg4
+      ORIGIN: https://pad-software.at
+    steps:
+      - name: Voranfrage des Browsers (OPTIONS) – muss 200 und Access-Control-Allow-Origin liefern
+        run: curl -s -i -m 20 -X OPTIONS "$URL/functions/v1/storage" -H "Origin: $ORIGIN" -H 'Access-Control-Request-Method: POST' -H 'Access-Control-Request-Headers: authorization, apikey, content-type' | head -40
+      - name: POST wie die App, ohne Anmeldung – Antwort der Funktion selbst oder schon von Supabase?
+        run: curl -s -i -m 20 -X POST "$URL/functions/v1/storage" -H "Origin: $ORIGIN" -H "apikey: $APIKEY" -H 'content-type: application/json' -d '{"action":"usage"}' | head -40
+      - name: POST mit ungültiger Anmeldung
+        run: curl -s -i -m 20 -X POST "$URL/functions/v1/storage" -H "Origin: $ORIGIN" -H "apikey: $APIKEY" -H 'Authorization: Bearer ungueltig' -H 'content-type: application/json' -d '{"action":"usage"}' | head -40
+      - name: Anmeldedienst erreichbar?
+        run: curl -s -i -m 20 "$URL/auth/v1/health" -H "apikey: $APIKEY" | head -20
