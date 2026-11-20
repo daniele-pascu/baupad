@@ -280,9 +280,3 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - Ursache „Online-Fehler“: Die Verbindung zur Ablage nutzte `AbortSignal.timeout` (erst Chrome 103 / Safari 16) – ältere Browser scheiterten bei jedem Hochladen. Jetzt Ersatz in `src/lib/compat.ts` (`timeoutSignal`), ebenso `deepClone` statt `structuredClone` (Chrome 98 / Safari 15.4).
 - Leere Tool-Kacheln: Farben mit `color-mix()` (erst Chrome 111 / Safari 16.2). Für ältere Browser `@supports not (color-mix)`: reine Werkzeugfarbe mit leichtem Verlauf (App-Kacheln, Website-Toolkarten und Tool-Seite).
 - Regel: neue Browser-Funktionen nur mit Ersatz verwenden (compat.ts) – BauPad soll auch auf älteren Geräten der Baustelle laufen.
-
-## Nummern: Sammelblase nur an engen Stellen (20.11.2026, Daniele)
-- Verkleinert (Übersicht) bleibt Lösung A: Nummer direkt auf der Messung, ohne Linien.
-- Wo sich Nummern gegenseitig verdecken würden, steht statt ihrer **eine Sammelblase** („5–12“; nicht fortlaufend → „3, 5–7“ bzw. „12 Messungen“). Berührt eine Blase eine andere oder eine Nummer, wachsen sie zu einer Blase zusammen – je enger Stelle genau eine. Keine Nummer verschwindet mehr unbemerkt.
-- Blase antippen zoomt in diese Gruppe (alle Nummern einzeln). Die ausgewählte Messung zeigt ihre Nummer immer.
-- Nur Anzeige: gilt sofort für alle bestehenden Pläne, Daten und PDF unverändert (PDF immer alle Nummern).

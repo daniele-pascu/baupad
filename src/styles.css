@@ -14525,12 +14525,3 @@ html[data-theme='dark'] .auth-divider::after {
   height: 10px;
   flex: none;
 }
-
-/* Sammelblase im verkleinerten Plan: antippen zoomt hinein */
-.label-cluster {
-  cursor: zoom-in;
-}
-.label-cluster text {
-  font-family: inherit;
-  letter-spacing: 0.01em;
-}
