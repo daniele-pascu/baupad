@@ -285,3 +285,13 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - Sammelblasen (#92) bei einem echten Plan mit 114 Messungen zu grob („1–24“, „30 Messungen“) – auf Danieles Wunsch wieder raus. Es gilt wieder Lösung A: Nummer auf der Messung, eng → ausgedünnt.
 - „Ebenen“ (Taste in der Ansichtsleiste) ist jetzt ein eigenes Fenster wie bei der Messung (mit „Fertig“) – das Aufklappfeld ragte am Handy links aus dem Bildschirm. Fenster hängt ganz oben (über Leisten).
 - Dunkelmodus: aktive Taste in der Zeichen-Leiste mit weißer Schrift auf der Registerfarbe.
+
+## Tools-Seite neu – feste Vorgaben für die Entwürfe (21.11.2026, Daniele)
+- **Leiste oben immer schwarz** mit BauPad, Speicher-Taste und Nachname des Nutzers – bei jedem Entwurf, hell wie dunkel.
+- Darunter (noch in der schwarzen Leiste) **Projektliste und „Foto aufnehmen“**; am PC nur die Projektliste.
+- Dann die **Tools**, darunter **„Zuletzt verwendet“**: oben klein das Tool (z. B. AUFMASS), darunter etwas größer das Projekt.
+- Danach wahlweise eingeteilte Arbeiter, Arbeitsstunden oder nichts.
+- **Ganz unten nach dem Scrollen:** Linie mit PAD-Zeichen und „PAD SOFTWARE“ (wie heute).
+- **Erst Schwarz-Weiß** – es geht jetzt um Anordnung, Tasten und Gefühl; Farben kommen später. Keine grellen, zu satten Farben, nichts Altmodisches oder Pixeliges.
+- Wirkung: sehr modern und hochwertig, soll Spaß machen, angenehm wirken und Sicherheit geben.
+- Entwürfe: Board SW1–SW5 (40 Schwarz-Weiß-Entwürfe, Handy + PC) – Auswahl offen.
