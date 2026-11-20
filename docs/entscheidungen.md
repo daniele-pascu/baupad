@@ -275,3 +275,8 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - Vektor im PDF (scharf beim Drucken). Dateieigenschaften bleiben neutral (kein „BauPad“ als Ersteller). Foto-PDF unverändert ohne Logo.
 - **Tools-Seite unten (20.11.2026, Daniele):** über einer Linie nur klein „PAD SOFTWARE“ mit PAD-Zeichen – kein zweites „BauPad“ (steht schon oben in der Leiste), soll den Blick nicht von den Tools ablenken.
 - **Logo in der App-Leiste:** nur noch die weiße Schrift „BauPad“, ohne schwarzes Kästchen – dessen Rand war auf der dunklen Leiste zu sehen (hell und dunkel).
+
+## Ältere Browser (Fernseher, alte Handys) – „Online-Fehler“ und leere Kacheln (20.11.2026)
+- Ursache „Online-Fehler“: Die Verbindung zur Ablage nutzte `AbortSignal.timeout` (erst Chrome 103 / Safari 16) – ältere Browser scheiterten bei jedem Hochladen. Jetzt Ersatz in `src/lib/compat.ts` (`timeoutSignal`), ebenso `deepClone` statt `structuredClone` (Chrome 98 / Safari 15.4).
+- Leere Tool-Kacheln: Farben mit `color-mix()` (erst Chrome 111 / Safari 16.2). Für ältere Browser `@supports not (color-mix)`: reine Werkzeugfarbe mit leichtem Verlauf (App-Kacheln, Website-Toolkarten und Tool-Seite).
+- Regel: neue Browser-Funktionen nur mit Ersatz verwenden (compat.ts) – BauPad soll auch auf älteren Geräten der Baustelle laufen.

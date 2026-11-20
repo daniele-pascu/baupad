@@ -3,6 +3,7 @@ import { absenceOn } from './crew-absence';
 import { addDays, carryOver, countByGrade, gradeLabel, isoDate, knownGrade, nameWithGrade, parseDate, sortByGrade, weekOf } from './crew';
 import { uuid } from './ids';
 import type { Absence, CostCenter, DailyData, Project, RegieData, Report, ReportHead, ReportItem, ReportType, ReportWorker, StaffCount, WeekPlan, WeeklyData, Worker } from './types';
+import { deepClone } from './compat';
 
 /**
  * Berichte & Formulare: gemeinsame Grundlage aller Berichtstypen (Kopfdaten, Arbeiterübernahme, Nummern,
@@ -81,7 +82,7 @@ export function newReport(type: ReportType, opts: { projectId: string | null; he
 /** Kopie als neuer Bericht (Entwurf, neue Nummer, gewähltes Datum) */
 export function copyReport(r: Report, date: string, all: Report[]): Report {
   const fresh = newReport(r.type, { projectId: r.projectId, head: r.head, date, all });
-  const data = structuredClone(r.data) as Report['data'];
+  const data = deepClone(r.data) as Report['data'];
   // Wochenbericht: Tage auf die neue Woche verschieben
   if (fresh.type === 'woche' && r.type === 'woche') (data as WeeklyData).days = (data as WeeklyData).days.map((d, i) => ({ ...d, date: addDays(fresh.date, i) }));
   return { ...fresh, data } as Report;

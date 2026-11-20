@@ -832,3 +832,12 @@ html[data-theme='dark'] .btn.btn-ink:active {
     order: 2;
   }
 }
+
+/* Ältere Browser (z. B. Fernseher, alte Handys) kennen color-mix() nicht – ohne Ersatz waren die Tool-Kacheln weiß
+   mit weißer Schrift. Dann: reine Werkzeugfarbe mit leichtem dunklen Verlauf. */
+@supports not (color: color-mix(in srgb, red 50%, blue)) {
+  html.app-fixed .tools-page .tool-tile,
+  html.app-fixed .tools-page a.tool-tile:hover {
+    background: linear-gradient(160deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.18) 100%), var(--tool);
+  }
+}

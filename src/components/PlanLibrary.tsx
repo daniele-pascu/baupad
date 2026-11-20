@@ -12,6 +12,7 @@ import { Icon } from './Icon';
 import { Modal } from './Modal';
 import { PlanFields, planNumberError, type PlanFieldValues } from './PlanFields';
 import { confirmDialog, showError, toast } from './ui';
+import { deepClone } from '../lib/compat';
 
 /** Planquelle für ein neues Aufmaß: Originaldatei, Seite und Ausschnitt (aus einem vorhandenen Aufmaß oder ganze Seite) */
 export interface PlanSource {
@@ -290,7 +291,7 @@ export function ReusePlanDialog({
         numberStart: 1,
         sortIndex: siblings.length ? Math.max(...siblings.map((p) => p.sortIndex)) + 1 : 0,
         // gleiche Planunterlage: Kalibrierung, Papierformat und Darstellung gelten weiter
-        ...(base?.calibration ? { calibration: structuredClone(base.calibration) } : {}),
+        ...(base?.calibration ? { calibration: deepClone(base.calibration) } : {}),
         ...(base?.paper ? { paper: base.paper } : {}),
         ...(base ? { showPaper: base.showPaper, showScale: base.showScale, planColor: base.planColor } : {}),
         ...(base?.rotation ? { rotation: base.rotation } : {}),
