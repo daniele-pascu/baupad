@@ -67,7 +67,6 @@ export const en: Dict = {
       solves: 'No more paper notes, spreadsheets and seven different apps.',
       can: ['Measurement right on the plan', 'Team, hours and material', 'Photos, defects and reports'],
       all: 'See all seven tools',
-      alts: ['BauPad on a PC: takeoff on the plan', 'BauPad on a tablet: weekly crew schedule', 'BauPad on a phone: site photos'],
       cta: 'Learn more',
       open: 'Open BauPad',
       aria: 'BauPad – to the product page',

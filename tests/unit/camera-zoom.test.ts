@@ -16,12 +16,14 @@ describe('Kamera-Zoom', () => {
     expect(lensKind('camera2 0, facing back')).toBe('wide');
   });
 
-  it('Objektiv-Tasten nur, wenn außer dem normalen Ultraweitwinkel oder Tele da ist', () => {
+  it('Objektiv-Tasten nur, wenn außer dem normalen das Ultraweitwinkel da ist; Tele nie', () => {
     const d = (id: string, label: string) => ({ kind: 'videoinput', deviceId: id, label });
     const iphone = backLenses([d('f', 'Frontkamera'), d('w', 'Rückkamera'), d('u', 'Rückseitige Ultraweitwinkelkamera'), d('t', 'Rückseitige Telekamera'), d('3', 'Rückseitige Triple-Kamera')]);
     expect(iphone.ultra?.id).toBe('u');
     expect(iphone.wide?.id).toBe('w');
-    expect(iphone.tele?.id).toBe('t');
+    expect(iphone).not.toHaveProperty('tele');
+    // nur normal + Tele → keine Objektiv-Tasten (Zoom digital bzw. mit zwei Fingern)
+    expect(backLenses([d('w', 'Rückkamera'), d('t', 'Rückseitige Telekamera')])).toEqual({});
     // Android: nur „facing back“ ohne Art → keine Objektiv-Tasten (dort zoomt die Kamera selbst)
     expect(backLenses([d('0', 'camera2 0, facing back'), d('2', 'camera2 2, facing back'), d('1', 'camera2 1, facing front')])).toEqual({});
     // ohne Namen (vor der Erlaubnis) nichts

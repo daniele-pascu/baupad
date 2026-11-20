@@ -1,4 +1,4 @@
-import { expect, test } from './fixtures';
+import { expect, FAKE_SESSION, SESSION_KEY, test } from './fixtures';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { strToU8, zipSync } from 'fflate';
@@ -26,8 +26,8 @@ test('Website: Startseite – Name, Motto, BauPad mit den sieben Werkzeugen, Arb
   await expect(page.locator('#loesungen').getByTestId('home-tool-list')).toBeVisible();
   await expect(page.getByTestId('home-steps').locator('li')).toHaveText(['Problem verstehen', 'Lösung bauen', 'Laufend verfeinern']);
   await expect(page.getByTestId('cta-contact-2')).toBeVisible();
-  // ein Bild (BauPad am Handy), sonst alles echter Text; Grafiken nur die sieben Werkzeug-Symbole
-  await expect(page.locator('.ps-main img')).toHaveCount(1);
+  // kein Bild (Handy-Bild entfernt, 19.11.2026), alles echter Text; Grafiken nur die sieben Werkzeug-Symbole
+  await expect(page.locator('.ps-main img')).toHaveCount(0);
   await expect(page.locator('.ps-main canvas')).toHaveCount(0);
   await expect(page.locator('.ps-main svg')).toHaveCount(7);
   await expect(page.locator('.ph-win')).toHaveCount(1); // nur BauPad (mit den Werkzeugen) im Fenster
@@ -150,7 +150,7 @@ test('Website: Startseite, Produkte, BauPad, Unternehmen, Kontaktformular, Sprac
   await expect(page.locator('html')).toHaveAttribute('lang', 'de');
   // direkt nach dem ersten Bildschirm: BauPad
   await expect(page.getByTestId('home-product')).toHaveAttribute('href', '/baupad');
-  await expect(page.locator('.ps-main img')).toHaveCount(1); // nur BauPad am Handy
+  await expect(page.locator('.ps-main img')).toHaveCount(0); // kein Handy-Bild mehr
 
   // Produkte
   await page.getByTestId('site-footer').getByRole('link', { name: 'Produkte', exact: true }).click();
@@ -744,4 +744,19 @@ test('Planliste: Pläne direkt als PDF herunterladen – je Plan im Menü und al
   await page.getByTestId('plans-pdf').click();
   await expect(page.getByTestId('pdf-export-run')).toBeVisible();
   expect(await checked()).toBeGreaterThanOrEqual(2);
+});
+
+test.describe('App-Leiste ohne bestätigte Anmeldung', () => {
+  test.use({ signedIn: false });
+  test('abgelaufene, gespeicherte Anmeldung ohne Verbindung: App-Seiten zeigen die App-Leiste, nicht die der Website', async ({ page }) => {
+    // wie auf dem Handy ohne Empfang: Sitzung abgelaufen, der Dienst kann sie nicht erneuern
+    const expired = { ...FAKE_SESSION, expires_at: 1700000100, expires_in: 0 };
+    await page.addInitScript(({ key, value }) => localStorage.setItem(key, value), { key: SESSION_KEY, value: JSON.stringify(expired) });
+    await page.goto('./baupad/tools');
+    await expect(page.getByTestId('tools-title')).toBeVisible();
+    await expect(page.getByTestId('site-nav')).toBeVisible();
+    await expect(page.locator('.ps-chrome')).toHaveCount(0);
+    await expect(page.getByTestId('nav-tools')).toBeVisible();
+    await expect(page.getByTestId('nav-login')).toHaveCount(0); // gespeicherte Anmeldung: kein „Anmelden“
+  });
 });

@@ -220,6 +220,25 @@ export async function kontrastBefunde(page: Page): Promise<string[]> {
         seen.add(msg);
       }
     }
+    // 1b) Symbole (Icons in currentColor) auf ihrem Hintergrund – sonst z. B. weißes „+“ auf weißem Kreis
+    for (const svg of root.querySelectorAll('body svg')) {
+      if (svg.closest('.viewer, canvas, video, [aria-hidden="true"]:not(svg), .sr-only') || svg.parentElement?.closest('svg')) continue;
+      const r = svg.getBoundingClientRect();
+      if (r.width < 8 || r.width > 64 || r.height > 64 || r.bottom < 0 || r.top > vh || r.right < 0 || r.left > vw) continue;
+      const host = svg.parentElement;
+      if (!host || faded(svg) || getComputedStyle(svg).visibility === 'hidden') continue;
+      const paint = svg.querySelector('[stroke="currentColor"], [fill="currentColor"]') ?? (/currentcolor/i.test(`${svg.getAttribute('stroke')}${svg.getAttribute('fill')}`) ? svg : null);
+      if (!paint) continue;
+      const fg = parse(getComputedStyle(svg).color);
+      const bg = backdrop(host);
+      if (!fg || !bg) continue;
+      const k = ratio(over(fg, bg), bg);
+      if (k < 2) {
+        const msg = `Symbol kaum sichtbar (Kontrast ${k.toFixed(1)} : 1): ${name(host)}`;
+        if (!seen.has(msg)) out.push(msg);
+        seen.add(msg);
+      }
+    }
     // 2) Tasten mit eigener Fläche heben sich vom Untergrund ab (Fläche oder Rand)
     for (const el of root.querySelectorAll('.btn, .chip, .tools-quick, .tool-card, .tools-grid > a, .seg-btn')) {
       if (!visible(el) || faded(el)) continue;

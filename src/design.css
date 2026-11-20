@@ -653,16 +653,16 @@ html.app-fixed[data-glass='off'][data-theme='dark'] .editor-plan .liquid {
   display: none;
 }
 .zoom-controls .zoom-toggle.is-open {
-  color: var(--accent, #111);
+  color: var(--text); /* hell schwarz, dunkel weiß (vorher fest #111 – im Dunkelmodus unsichtbar) */
 }
 .zoom-controls:not(.is-collapsed) > .zoom-toggle {
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  border-bottom: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
   border-radius: 12px 12px 4px 4px;
 }
 @media (max-width: 600px) {
   .zoom-controls:not(.is-collapsed) > .zoom-toggle {
     border-bottom: 0;
-    border-right: 1px solid rgba(0, 0, 0, 0.08);
+    border-right: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
     border-radius: 12px 4px 4px 12px;
   }
 }

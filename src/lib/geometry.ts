@@ -561,6 +561,12 @@ export interface LabelInput {
 export interface LabelOptions {
   /** Bereich, in dem die Beschriftungen liegen sollen (z. B. Planausschnitt) */
   area?: Rect;
+  /**
+   * Übersicht (Plan verkleinert): jede Nummer steht direkt auf ihrer Messung (Mitte der Fläche, auf der Linie) – keine
+   * Verbindungslinien. Läge sie dort auf einer anderen Nummer, wird sie ausgeblendet; beim Vergrößern erscheint sie
+   * wieder. Große Messungen zuerst, dann nach Nummer; `keep` (z. B. die ausgewählte Messung) wird immer gezeigt.
+   */
+  overview?: { keep?: string | null };
 }
 
 const overlapArea = (a: Rect, b: Rect) =>
@@ -680,6 +686,27 @@ export function layoutLabels(items: LabelInput[], gap: number, opts: LabelOption
   };
 
   const auto = items.filter((i) => !i.offset);
+  if (opts.overview) {
+    // Übersicht: Nummer auf der Messung; ausgewählte zuerst, dann große vor kleinen; kein freier Platz → ausgeblendet
+    const keep = opts.overview.keep;
+    const size = (it: LabelInput) => Math.max(it.bounds.w, it.bounds.h);
+    const order = [...items].sort((a, b) => Number(b.id === keep) - Number(a.id === keep) || size(b) - size(a));
+    result.clear(); // von Hand verschobene Nummern zählen hier nicht – sie gelten erst vergrößert
+    const placed: Rect[] = [];
+    const pad = gap / 2;
+    for (const it of order) {
+      const b = it.bounds;
+      let at = { x: b.x + b.w / 2, y: b.y + b.h / 2 };
+      // Linie bzw. offene Form: auf die Linie, nicht in die leere Mitte
+      if (it.shape && isOpenShape(it.shape)) at = outlinePointToward(it.shape, at);
+      const r = { x: at.x - it.w / 2, y: at.y - it.h / 2, w: it.w, h: it.h };
+      const grown = { x: r.x - pad, y: r.y - pad, w: r.w + 2 * pad, h: r.h + 2 * pad };
+      if (it.id !== keep && placed.some((q) => overlapArea(grown, q) > 0)) continue;
+      placed.push(r);
+      result.set(it.id, r);
+    }
+    return result;
+  }
   // Eng beieinander liegende Schadstellen zuerst
   const crowd = (it: LabelInput) =>
     neighbours[indexOf.get(it)!].filter((o) => rectGap(it.bounds, o.bounds) <= reach).length;

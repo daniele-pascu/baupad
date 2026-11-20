@@ -351,7 +351,15 @@ test('Markierung verschieben, Größe ändern, Beschriftung verschieben, Farbe �
   await page.mouse.up();
   const resized = await markerRelPos(page, 4);
   expect(resized.w).toBeGreaterThan(moved.w + 0.01);
-  // Beschriftung verschieben, ohne die Markierung zu verändern
+  // ganzer Plan = Übersicht: Nummer steht auf der Messung, keine Verbindungslinien; Ziehen dort bewegt die Messung (oben)
+  await expect(page.locator('.viewer[data-labels]')).toHaveAttribute('data-labels', 'overview');
+  await expect(page.locator('.viewer-overlay line.leader')).toHaveCount(0);
+  // Beschriftung verschieben (vergrößert), ohne die Markierung zu verändern
+  for (let i = 0; i < 6 && (await page.locator('.viewer[data-labels]').getAttribute('data-labels')) !== 'detail'; i++) await page.getByRole('button', { name: 'Vergrößern' }).click();
+  await expect(page.locator('.viewer[data-labels]')).toHaveAttribute('data-labels', 'detail');
+  await page.locator('[data-testid="aufmass-row"][data-number="4"]').click(); // Messung 4 ins Bild holen
+  await page.getByTestId('damage-cancel').click();
+  const resizedZoomed = await markerRelPos(page, 4);
   const label = page.locator('.damage-label[data-label="4"] rect');
   const lb = (await label.boundingBox())!;
   await page.mouse.move(lb.x + lb.width / 2, lb.y + lb.height / 2);
@@ -361,7 +369,8 @@ test('Markierung verschieben, Größe ändern, Beschriftung verschieben, Farbe �
   const lb2 = (await label.boundingBox())!;
   expect(lb2.x).toBeGreaterThan(lb.x + 40);
   const afterLabel = await markerRelPos(page, 4);
-  for (const k of ['x', 'y', 'w', 'h'] as const) expect(Math.abs(afterLabel[k] - resized[k])).toBeLessThan(0.001);
+  for (const k of ['x', 'y', 'w', 'h'] as const) expect(Math.abs(afterLabel[k] - resizedZoomed[k])).toBeLessThan(0.001);
+  await page.getByRole('button', { name: 'Gesamten Plan anzeigen' }).click();
   // Farbe ändern
   await page.getByRole('button', { name: 'Farbe Blau' }).click();
   await expect(page.locator('[data-testid="aufmass-row"][data-number="4"] .color-dot')).toHaveAttribute('style', /28, 126, 214|#1c7ed6/);

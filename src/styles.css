@@ -9525,7 +9525,7 @@ canvas.dp-detail.dp-gray {
   height: 30px;
   border-radius: 50%;
   background: var(--text);
-  color: #fff;
+  color: var(--surface); /* hell: weiß auf schwarz, dunkel: dunkel auf weiß */
   flex: none;
 }
 .picker-label {

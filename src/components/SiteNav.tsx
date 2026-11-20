@@ -3,6 +3,7 @@ import { useSession } from '../lib/use-session';
 import { SiteHeader } from '../site/components/SiteShell';
 import { shortName } from '../lib/auth';
 import { SaveButton } from './SaveButton';
+import { hasStoredSession } from '../lib/auth-init';
 
 /**
  * Schwarze Navigationsleiste der öffentlichen Seiten und von Aufmaß & Abrechnung.
@@ -11,12 +12,12 @@ import { SaveButton } from './SaveButton';
 export function SiteNav() {
   const hash = usePath();
   const session = useSession();
-  // nicht angemeldet (Anmelden, Registrieren, Passwort): dieselbe schwebende Leiste wie auf der Website.
-  // Während die Anmeldung noch geladen wird (undefined), in der App gleich die App-Leiste – sonst blitzt beim Öffnen
-  // kurz die Website-Leiste auf. Nur auf den Anmeldeseiten selbst bleibt es die Website-Leiste.
+  // Nur die Anmeldeseiten (Anmelden, Passwort) tragen die Website-Leiste. Alle Seiten der App zeigen immer die
+  // App-Leiste – auch während die Anmeldung lädt oder wenn sie (z. B. ohne Empfang) nicht bestätigt werden konnte;
+  // dann steht rechts „Anmelden“. Vorher erschien dabei oben die Leiste der Website.
   const authPage = ['login', 'newPassword'].includes(parseRoute(hash).name);
-  if (session === null || (session === undefined && authPage)) return <WebsiteBar />;
-  return <AppNav hash={hash} session={session ?? null} />;
+  if (authPage && !session) return <WebsiteBar />;
+  return <AppNav hash={hash} session={session} />;
 }
 
 function WebsiteBar() {
@@ -28,11 +29,11 @@ function WebsiteBar() {
 }
 
 /**
- * Leiste der App (angemeldet): links BauPad – antippen führt direkt zu den Tools –, rechts Speicher-Taste und Konto.
+ * Leiste der App: links BauPad – antippen führt direkt zu den Tools –, rechts Speicher-Taste und Konto.
  * Kein Menü, kein Kontakt, Impressum oder Datenschutz oben – die stehen unten im Konto.
- * session = null: Anmeldung wird noch geladen (Konto-Taste erscheint, sobald sie da ist).
+ * session undefined: Anmeldung wird noch geladen (Konto-Taste erscheint, sobald sie da ist); null: „Anmelden“.
  */
-function AppNav({ hash, session }: { hash: string; session: NonNullable<ReturnType<typeof useSession>> | null }) {
+function AppNav({ hash, session }: { hash: string; session: ReturnType<typeof useSession> }) {
   const current = (p: string) => (hash === p ? 'page' : undefined);
   return (
     <header className="site-nav" data-testid="site-nav">
@@ -43,6 +44,17 @@ function AppNav({ hash, session }: { hash: string; session: NonNullable<ReturnTy
         <div className="site-actions">
           <SaveButton />
           {/* am Handy nur die Initialen im Kreis (data-initials, CSS) – sonst ist neben der Speicher-Taste kein Platz */}
+          {/* Anmeldung nicht bestätigt: mit gespeicherter Anmeldung (z. B. ohne Empfang) bleibt es „Konto“, sonst „Anmelden“ */}
+          {session === null &&
+            (hasStoredSession() ? (
+              <a href={paths.account()} className="site-login" aria-current={current(paths.account())} data-testid="nav-account">
+                Konto
+              </a>
+            ) : (
+              <a href={paths.login()} className="site-login" data-testid="nav-login">
+                Anmelden
+              </a>
+            ))}
           {session && (
             <a href={paths.account()} className="site-login" aria-current={current(paths.account())} data-testid="nav-account" data-initials={initials(session.name || 'Konto')} title={session.email}>
               {session.name ? shortName(session.name) : 'Konto'}

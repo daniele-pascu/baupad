@@ -163,6 +163,29 @@ export function tastenTests() {
     expect(out, out.join('\n')).toEqual([]);
   });
 
+  test('Tasten: installierte App – Fotos mit „Foto aufnehmen“, Projekt anlegen, Projektseite – nichts überlappt, verdeckt oder abgeschnitten', async ({ page }) => {
+    const out: string[] = [];
+    // wie auf dem Home-Bildschirm: Kamera-Tasten erscheinen nur in der installierten App
+    await page.addInitScript(() => Object.defineProperty(navigator, 'standalone', { get: () => true }));
+    await freshStart(page);
+    await page.goto('./baupad/tools');
+    await expect(page.getByTestId('tools-camera')).toBeVisible();
+    await pruefe(page, 'Installiert: Tools', out);
+    await page.goto('./baupad/fotodokumentation');
+    await expect(page.getByTestId('photos-camera')).toBeVisible();
+    await pruefe(page, 'Installiert: Fotos', out);
+    await page.getByTestId('photo-new-site').click();
+    await expect(page.getByTestId('project-picker')).toBeVisible();
+    await pruefe(page, 'Installiert: Projekt wählen', out);
+    await page.getByTestId('project-picker').getByTestId('picker-new').click();
+    await page.getByTestId('project-name').fill('Tastentest Fotos');
+    await page.getByTestId('project-save').click();
+    await expect(page.getByTestId('photo-site-title')).toHaveText('Tastentest Fotos');
+    await expect(page.getByTestId('photo-shoot')).toBeVisible();
+    await pruefe(page, 'Installiert: Fotos im Projekt', out);
+    expect(out, out.join('\n')).toEqual([]);
+  });
+
   test('Tasten: Kamera-Modus (X links, Übertragung rechts, Zoom, Beschreibung, letztes Foto mit Zähler) – nichts überlappt, verdeckt oder abgeschnitten', async ({ page }) => {
     const out: string[] = [];
     await freshStart(page);
