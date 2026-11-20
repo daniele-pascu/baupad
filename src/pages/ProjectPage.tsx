@@ -39,6 +39,7 @@ import { projectColor, refreshProjectColors } from '../lib/project-colors';
 import { ToolMark } from '../components/ToolIcon';
 import { SelectBox, SelectionBar, SelectToggle, useSelection } from '../components/Selection';
 import { BulkPlanDialog } from '../components/BulkPlanDialog';
+import { deepClone } from '../lib/compat';
 
 /**
  * Projektseite: Projektinformationen (inklusive Kostenstelle) und direkt darunter die
@@ -253,25 +254,25 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
   /** Aufmaßplan duplizieren: gleicher Plan mit allen Messungen, Bauteilen und Zeichnungsobjekten (neue Plannummer) */
   const duplicatePlan = (plan: Plan) => {
     const copy: Plan = {
-      ...structuredClone(plan),
+      ...deepClone(plan),
       ...newMeta(),
       planNumber: suggestNumber(data, plan.planNumber || planTitle(plan), plan.invoiceId ?? null),
       sortIndex: Math.max(0, ...plansOf(data, plan.costCenterId).map((p) => p.sortIndex)) + 1,
     };
     const compIds = new Map<string, string>();
     const components = componentsOf(data, plan.id).map((c) => {
-      const n = { ...structuredClone(c), ...newMeta(), planId: copy.id };
+      const n = { ...deepClone(c), ...newMeta(), planId: copy.id };
       compIds.set(c.id, n.id);
       return n;
     });
     const damages = damagesOf(data, plan.id).map((d) => ({
-      ...structuredClone(d),
+      ...deepClone(d),
       ...newMeta(),
       planId: copy.id,
       ...(d.componentId ? { componentId: compIds.get(d.componentId) ?? null } : {}),
-      ...(d.deductions ? { deductions: d.deductions.map((x) => ({ ...structuredClone(x), id: uuid() })) } : {}),
+      ...(d.deductions ? { deductions: d.deductions.map((x) => ({ ...deepClone(x), id: uuid() })) } : {}),
     }));
-    const elements = elementsOf(data, plan.id).map((e) => ({ ...structuredClone(e), ...newMeta(), planId: copy.id }));
+    const elements = elementsOf(data, plan.id).map((e) => ({ ...deepClone(e), ...newMeta(), planId: copy.id }));
     putRecords({ plans: [copy], components, damages, elements });
     toast(`Aufmaßplan dupliziert: „${copy.planNumber || planTitle(copy)}“ mit ${damages.length} ${damages.length === 1 ? 'Messung' : 'Messungen'}.`, 'success', 4500);
   };

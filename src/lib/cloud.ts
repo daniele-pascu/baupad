@@ -1,5 +1,6 @@
 import { accessToken } from './remote';
 import { SUPABASE_KEY, SUPABASE_URL } from './supabase-config';
+import { timeoutSignal } from './compat';
 
 /**
  * Zugang zur zentralen Ablage über die Supabase-Funktion „storage“. Die App schickt nur ihre Anmeldung mit;
@@ -45,7 +46,7 @@ export async function cloudCall<T>(action: string, body: Record<string, unknown>
       method: 'POST',
       headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` },
       body: JSON.stringify({ action, ...body }),
-      signal: AbortSignal.timeout(30_000),
+      signal: timeoutSignal(30_000),
     });
   } catch {
     throw new CloudError(0, 'offline', 'Keine Verbindung zur zentralen Ablage (offline, Funktion „storage“ nicht erreichbar oder vom Browser blockiert).');
