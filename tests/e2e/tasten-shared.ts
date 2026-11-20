@@ -434,6 +434,14 @@ export function tastenTests() {
     await pruefe(page, 'Plan-Editor mit Messung', out);
     if (await page.getByTestId('tools-open').isVisible()) await page.getByTestId('tools-open').click();
     await pruefe(page, 'Plan-Editor Leiste offen', out);
+    // Plan als PDF: Planauswahl und Kennzeichnung (BauPad-Logo)
+    if (await page.getByTestId('export-pdf-plan').isVisible()) {
+      await page.getByTestId('export-pdf-plan').click();
+      await expect(page.getByTestId('pdf-brand')).toBeVisible();
+      await pruefe(page, 'Dialog Plan als PDF', out);
+      await page.keyboard.press('Escape');
+      await expect(page.getByTestId('pdf-export-dialog')).toHaveCount(0);
+    }
     // Messart wählen: Menü und Messdialog je Messart (Stück, Frei, Volumen) – mit Wand-Werkzeug (Hinweisleiste darf nicht über dem Menü liegen)
     await pickTool(page, 'tool-wall');
     await pickTool(page, 'tool-mtype');

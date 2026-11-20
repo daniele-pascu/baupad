@@ -37,6 +37,8 @@ export function PdfExportDialog({ data, costCenterId, initial, mode = 'plans', o
   // Übersicht des Gesamtplans (nur bei Plänen mit Ausschnitt); Einstellung wird gemerkt
   const [overview, setOverview] = useState(() => readPref('pdfOverview', '1') === '1');
   const [corner, setCorner] = useState<OverviewCorner>(() => (readPref('pdfOverviewCorner', 'tr') as OverviewCorner));
+  // BauPad-Logo in der Kopfzeile: Standard aus (manche Baustellen wollen kein App-Zeichen); Wahl wird gemerkt
+  const [brand, setBrand] = useState(() => readPref('pdfBrand', '0') === '1');
   const photosOf = (id: string) => damagesOf(data, id).reduce((k, d) => k + (d.photoIds?.length ?? 0), 0);
   const photoCount = [...selected].reduce((n, id) => n + photosOf(id), 0);
   const anyCrop = [...selected].some((id) => data.plans[id]?.crop && data.plans[id]?.source !== 'drawing');
@@ -55,8 +57,9 @@ export function PdfExportDialog({ data, costCenterId, initial, mode = 'plans', o
       const ordered = allIds.filter((id) => selected.has(id));
       writePref('pdfOverview', overview ? '1' : '0');
       writePref('pdfOverviewCorner', corner);
+      writePref('pdfBrand', brand ? '1' : '0');
       // erst Vorschau, dort speichern (Ordner wählen, teilen oder herunterladen)
-      setPreview(await exportPlansPdf(data, { planIds: ordered, overview: { enabled: overview, corner } }));
+      setPreview(await exportPlansPdf(data, { planIds: ordered, overview: { enabled: overview, corner }, brand }));
     } catch (e) {
       showError(e, 'PDF-Export fehlgeschlagen');
     } finally {
@@ -149,6 +152,15 @@ export function PdfExportDialog({ data, costCenterId, initial, mode = 'plans', o
         </fieldset>
       ))}
       {!groups.length && <p>Keine Pläne vorhanden.</p>}
+      {!photos && (
+        <fieldset className="check-group" data-testid="pdf-brand-options">
+          <legend>Kennzeichnung</legend>
+          <label className="check-row">
+            <input type="checkbox" checked={brand} onChange={(e) => setBrand(e.target.checked)} data-testid="pdf-brand" />
+            <span>BauPad-Logo rechts in der Kopfzeile („PAD Software · BauPad“)</span>
+          </label>
+        </fieldset>
+      )}
       {!photos && anyCrop && (
         <fieldset className="check-group" data-testid="pdf-overview-options">
           <legend>Planausschnitte</legend>

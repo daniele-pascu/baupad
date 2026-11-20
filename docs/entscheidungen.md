@@ -267,3 +267,9 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - **App-Leiste:** App-Seiten zeigen immer die App-Leiste – auch wenn die Anmeldung beim Start nicht bestätigt werden kann (kein Empfang, abgelaufene Sitzung). Dann rechts „Konto“ (Anmeldung gespeichert) bzw. „Anmelden“. Nur Anmelden/Passwort tragen die Website-Leiste.
 - **Kopfzeile (Board K3):** Plan und Blatt sind immer weiß → nur helles Design (Daniele). Entwürfe P1–P4 (PDF) und A1/A2 (App-Leiste) – Auswahl offen.
 - **Nummern:** Lösung A fest eingebaut (Daniele).
+
+## Plan-Export: BauPad-Logo als Option (20.11.2026)
+- Marke **V10** (kleine Zeile „PAD SOFTWARE“ mit PAD-Zeichen über feiner Linie, darunter „BauPad“), Danieles Wahl.
+- Beim Plan-Export im Fenster „Pläne als PDF exportieren“ unter **Kennzeichnung**: „BauPad-Logo rechts in der Kopfzeile“. **Standard aus**, die Wahl wird je Gerät gemerkt.
+- Platz: rechts in der Kopfzeile (dort verdeckt der Plan nie etwas und jeder Drucker druckt es); Format/Maßstab rücken links daneben. Unten rechts hätte den Plan verkleinert.
+- Vektor im PDF (scharf beim Drucken). Dateieigenschaften bleiben neutral (kein „BauPad“ als Ersteller). Foto-PDF unverändert ohne Logo.
