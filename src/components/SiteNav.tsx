@@ -39,7 +39,8 @@ function AppNav({ hash, session }: { hash: string; session: ReturnType<typeof us
     <header className="site-nav" data-testid="site-nav">
       <div className="site-nav-inner">
         <a href={paths.tools()} className="site-logo" aria-label="BauPad – Tools" aria-current={current(paths.tools())} data-testid="nav-tools">
-          <img src="/icons/logo-header.png" alt="BauPad" height={30} />
+          {/* nur die weiße Schrift: das schwarze Kästchen hob sich auf der dunklen Leiste mit sichtbarem Rand ab */}
+          <img src="/icons/logo-header-white.png" alt="BauPad" height={21} className="logo-word" />
         </a>
         <div className="site-actions">
           <SaveButton />

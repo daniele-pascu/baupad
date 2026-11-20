@@ -14496,3 +14496,50 @@ html[data-theme='dark'] .auth-divider::before,
 html[data-theme='dark'] .auth-divider::after {
   border-color: var(--border);
 }
+
+/* App-Leiste: Logo nur als weiße Schrift (ohne schwarzes Kästchen – dessen Rand war auf der Leiste zu sehen) */
+.site-logo img.logo-word {
+  height: 21px;
+}
+
+/* Tools-Seite: ganz unten klein die Marke V10 („PAD SOFTWARE“ über feiner Linie, darunter „BauPad“) */
+.tools-brand {
+  display: flex;
+  justify-content: center;
+  margin: 36px 0 calc(12px + var(--safe-bottom));
+  padding-top: 22px;
+  border-top: 1px solid var(--border);
+}
+.brand-v10 {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  color: var(--text);
+  text-decoration: none;
+}
+.brand-v10-top {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  white-space: nowrap;
+}
+.brand-v10-top svg {
+  width: 9px;
+  height: 9px;
+  flex: none;
+}
+.brand-v10-rule {
+  height: 1px;
+  background: var(--border-strong);
+}
+.brand-v10-word {
+  font-weight: 800;
+  font-size: 18px;
+  letter-spacing: -0.03em;
+  line-height: 0.95;
+}
