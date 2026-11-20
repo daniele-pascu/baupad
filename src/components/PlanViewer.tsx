@@ -8,6 +8,8 @@ import {
   handlePosition,
   hitShape,
   layoutLabels,
+  overviewLabels,
+  type LabelCluster,
   leaderLine,
   normalizeRect,
   rectContains,
@@ -260,7 +262,7 @@ interface Props {
 
 type Gesture =
   | { kind: 'none' }
-  | { kind: 'pan'; start: Point; view: View; moved: boolean; tapTarget: string | null; navOnly?: boolean; exit?: boolean }
+  | { kind: 'pan'; start: Point; view: View; moved: boolean; tapTarget: string | null; navOnly?: boolean; exit?: boolean; cluster?: Rect | null }
   | { kind: 'pinch'; dist: number; mid: Point; view: View }
   | { kind: 'draw'; tool: DrawGestureTool; start: Point; current: Point; points: Point[]; aim?: boolean; mouse?: boolean }
   | { kind: 'move'; id: string; start: Point; orig: Shape; moved: boolean; ref: Point }
@@ -754,13 +756,13 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   // Verschieben bleibt sie unverändert, beim Zoomen wird nicht bei jedem Bild neu gerechnet.
   const qScale = view ? Math.pow(2, Math.round(Math.log2(view.scale) * 6) / 6) : 1;
   /** Übersicht (bis doppelt so groß wie „ganzer Plan“): Nummer direkt auf der Messung, etwas kleiner, ohne
-   *  Verbindungslinie; läge sie auf einer anderen Nummer → ausgeblendet, beim Vergrößern erscheinen alle wieder.
-   *  Die ausgewählte Messung zeigt ihre Nummer immer. */
+   *  Verbindungslinie; wo sich Nummern verdecken würden, eine Sammelblase („14–17“, antippen zoomt hinein).
+   *  Die ausgewählte Messung zeigt ihre Nummer immer. Gilt für alle Pläne – nur Anzeige, die Daten bleiben gleich. */
   const overview = qScale < fitScale * 2;
   const labelFont = overview ? 9.5 : Math.max(10, Math.min(14, 11 * Math.pow(qScale / fitScale, 0.2)));
   const keepLabel = overview ? selectedId : null;
   /** zuletzt vollständig berechnete Anordnung (Grundlage, solange ein Objekt gezogen wird) */
-  const layoutBase = useRef<{ map: Map<string, Rect>; damages: ViewerItem[]; key: string } | null>(null);
+  const layoutBase = useRef<{ map: Map<string, Rect>; damages: ViewerItem[]; key: string; clusters: LabelCluster[] } | null>(null);
   const labelLayout = useMemo(() => {
     // ohne Beschriftungen (Zeichenmodus) nichts anordnen – die Anordnung ist aufwendig und liefe sonst bei jedem Zugschritt
     if (!showLabels) return new Map<string, Rect>();
@@ -782,19 +784,20 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       }
     }
     const k = 1.08 / qScale; // Bildschirmpixel → Seiteneinheiten, mit Reserve für Zwischenstufen
-    const map = layoutLabels(
-      damages.map((d) => ({
-        id: d.id,
-        bounds: shapeAABB(d.shape),
-        shape: d.shape,
-        w: (noOf(d).length * labelFont * 0.62 + labelFont * 0.8) * k,
-        h: labelFont * 1.5 * k,
-        offset: d.labelOffset,
-      })),
-      3 / qScale,
-      { area: region, overview: overview ? { keep: keepLabel } : undefined },
-    );
-    layoutBase.current = { map, damages, key };
+    const items = damages.map((d) => ({
+      id: d.id,
+      bounds: shapeAABB(d.shape),
+      shape: d.shape,
+      w: (noOf(d).length * labelFont * 0.62 + labelFont * 0.8) * k,
+      h: labelFont * 1.5 * k,
+      offset: d.labelOffset,
+      text: noOf(d),
+    }));
+    let map: Map<string, Rect>;
+    let clusters: LabelCluster[] = [];
+    if (overview) ({ labels: map, clusters } = overviewLabels(items, 3 / qScale, keepLabel, { perChar: 7 * k, extra: 20 * k, h: 24 * k }));
+    else map = layoutLabels(items, 3 / qScale, { area: region });
+    layoutBase.current = { map, damages, key, clusters };
     return map;
   }, [damages, qScale, labelFont, region, showLabels, overview, keepLabel]);
   const labels = useMemo(() => {
@@ -810,6 +813,26 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     }
     return out;
   }, [labelLayout, damages, view, labelFont, showLabels]);
+  /** Sammelblasen in Bildschirmkoordinaten (nur Übersicht) */
+  const clusters = useMemo(() => {
+    if (!view || !showLabels || !overview) return [];
+    return (layoutBase.current?.clusters ?? []).map((c) => {
+      const p = toScreen(view, c);
+      const w = c.text.length * 7 + 20;
+      return { ...c, rect: { x: p.x - w / 2, y: p.y - 12, w, h: 24 } };
+    });
+  }, [labelLayout, view, showLabels, overview]);
+  const hitCluster = (p: Point) => clusters.find((c) => rectContains(c.rect, p, isCoarse() ? 8 : 3)) ?? null;
+  /** in eine Sammelblase hineinzoomen: alle ihre Messungen groß genug, dass jede Nummer einzeln steht */
+  const zoomToCluster = (b: Rect) => {
+    const cur = viewRef.current;
+    if (!cur || !size) return;
+    pushHistory();
+    const { min, max } = limits();
+    const fit = Math.min((size.w * 0.45) / Math.max(b.w, 1e-6), (size.h * 0.45) / Math.max(b.h, 1e-6));
+    const scale = Math.min(max, Math.max(min, fitScale * 2.2, fit));
+    setView({ scale, tx: size.w / 2 - (b.x + b.w / 2) * scale, ty: size.h / 2 - (b.y + b.h / 2) * scale });
+  };
 
   // ---------------------------------------------------------------------------
   // Zeigerereignisse
@@ -989,6 +1012,12 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
           const pp = toPage(v, p);
           gesture.current = { kind: 'rotate', id: sel.id, orig: sel.shape, startAngle: (Math.atan2(pp.y - c.y, pp.x - c.x) * 180) / Math.PI };
         } else gesture.current = { kind: 'resize', id: sel.id, handle, orig: sel.shape };
+        return;
+      }
+      // Sammelblase antippen: hineinzoomen (Ziehen verschiebt wie sonst den Plan)
+      const cl = hitCluster(p);
+      if (cl) {
+        gesture.current = { kind: 'pan', start: p, view: v, moved: false, tapTarget: null, cluster: cl.bounds };
         return;
       }
       const labelId = hitLabel(p);
@@ -1243,6 +1272,10 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         if (g.navOnly) return;
         if (g.exit) {
           if (!g.moved && !cancelled) propsRef.current.onExitTool?.();
+          return;
+        }
+        if (!g.moved && !cancelled && g.cluster) {
+          zoomToCluster(g.cluster);
           return;
         }
         if (!g.moved && !cancelled) {
@@ -1767,6 +1800,15 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
               />
             ) : null;
           })}
+          {clusters.map((c) => (
+            <g key={`cl-${c.ids[0]}`} className="label-cluster" data-testid="label-cluster" data-cluster={c.text} data-count={c.ids.length}>
+              <title>{`${c.ids.length} Messungen – antippen zum Vergrößern`}</title>
+              <rect x={c.rect.x} y={c.rect.y} width={c.rect.w} height={c.rect.h} rx={12} fill="#1c1c1e" stroke="#fff" strokeWidth={1.5} />
+              <text x={c.rect.x + c.rect.w / 2} y={c.rect.y + c.rect.h / 2 + 0.5} fontSize={12} fontWeight={700} fill="#fff" textAnchor="middle" dominantBaseline="central">
+                {c.text}
+              </text>
+            </g>
+          ))}
           {damages.map((d) => {
             const r = labels.get(d.id);
             if (!r) return null;

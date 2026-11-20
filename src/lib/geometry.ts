@@ -737,6 +737,131 @@ export function layoutLabels(items: LabelInput[], gap: number, opts: LabelOption
   return result;
 }
 
+/** Sammelblase der Übersicht: mehrere Messungen, deren Nummern sich gegenseitig verdecken würden */
+export interface LabelCluster {
+  ids: string[];
+  /** Mitte der Blase (Mittel der Nummernpositionen) */
+  x: number;
+  y: number;
+  /** alle Messungen der Gruppe zusammen (zum Hineinzoomen) */
+  bounds: Rect;
+  /** „14–17“, „3, 5–7“ oder „12 Messungen“ */
+  text: string;
+}
+
+/** Nummern kurz zusammenfassen: fortlaufende als „von–bis“, höchstens zwei Teile, sonst die Anzahl */
+export function clusterText(labels: string[]): string {
+  const nums = labels.map((l) => (/^\d+$/.test(l.trim()) ? Number(l) : NaN));
+  if (nums.some((n) => Number.isNaN(n))) return `${labels.length} Messungen`;
+  const sorted = [...new Set(nums)].sort((a, b) => a - b);
+  const parts: string[] = [];
+  for (let i = 0; i < sorted.length; ) {
+    let j = i;
+    while (j + 1 < sorted.length && sorted[j + 1] === sorted[j] + 1) j++;
+    parts.push(j > i ? `${sorted[i]}–${sorted[j]}` : String(sorted[i]));
+    i = j + 1;
+  }
+  return parts.length <= 2 ? parts.join(', ') : `${labels.length} Messungen`;
+}
+
+/**
+ * Übersicht (Plan verkleinert): jede Nummer direkt auf ihrer Messung (Mitte der Fläche, auf der Linie), ohne Linien.
+ * Wo sich Nummern gegenseitig verdecken würden, steht statt ihrer eine Sammelblase („14–17“) – so verschwindet keine
+ * Nummer unbemerkt. `keep` (die ausgewählte Messung) zeigt ihre Nummer immer einzeln.
+ */
+export function overviewLabels(
+  items: (LabelInput & { text: string })[],
+  gap: number,
+  keep?: string | null,
+  /** Größe einer Blase in denselben Einheiten wie die Nummern (Breite je Zeichen, Rand, Höhe) */
+  bubble: { perChar: number; extra: number; h: number } = { perChar: 7, extra: 20, h: 24 },
+): { labels: Map<string, Rect>; clusters: LabelCluster[] } {
+  const pad = gap / 2;
+  const placed = items.map((it) => {
+    const b = it.bounds;
+    let at = { x: b.x + b.w / 2, y: b.y + b.h / 2 };
+    if (it.shape && isOpenShape(it.shape)) at = outlinePointToward(it.shape, at);
+    return { it, at, r: { x: at.x - it.w / 2, y: at.y - it.h / 2, w: it.w, h: it.h } };
+  });
+  const parent = placed.map((_, i) => i);
+  const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i])));
+  // nach x sortiert vergleichen: nur Nachbarn in Reichweite (schnell auch bei vielen Messungen)
+  const order = placed.map((_, i) => i).sort((a, b) => placed[a].r.x - placed[b].r.x);
+  for (let oi = 0; oi < order.length; oi++) {
+    const i = order[oi];
+    const a = placed[i];
+    if (a.it.id === keep) continue;
+    const g = { x: a.r.x - pad, y: a.r.y - pad, w: a.r.w + 2 * pad, h: a.r.h + 2 * pad };
+    for (let oj = oi + 1; oj < order.length; oj++) {
+      const j = order[oj];
+      const b = placed[j];
+      if (b.r.x > g.x + g.w) break;
+      if (b.it.id === keep) continue;
+      if (overlapArea(g, b.r) > 0) parent[find(i)] = find(j);
+    }
+  }
+  // Blasen wachsen zusammen: berührt eine Blase eine andere oder eine einzelne Nummer, gehört beides in eine Blase –
+  // so gibt es je enger Stelle genau eine Blase, und keine Blase verdeckt eine Nummer
+  const bubbleOf = (m: typeof placed): Rect => {
+    const text = clusterText(m.map((q) => q.it.text));
+    const w = text.length * bubble.perChar + bubble.extra;
+    const cx = m.reduce((t, q) => t + q.at.x, 0) / m.length;
+    const cy = m.reduce((t, q) => t + q.at.y, 0) / m.length;
+    return { x: cx - w / 2, y: cy - bubble.h / 2, w, h: bubble.h };
+  };
+  for (let round = 0; round < placed.length; round++) {
+    const groups = new Map<number, number[]>();
+    placed.forEach((q, i) => {
+      if (q.it.id === keep) return;
+      const k = find(i);
+      groups.set(k, [...(groups.get(k) ?? []), i]);
+    });
+    const shapes = [...groups.entries()].map(([k, idx]) => ({ k, rect: idx.length > 1 ? bubbleOf(idx.map((i) => placed[i])) : placed[idx[0]].r, bubble: idx.length > 1 }));
+    // alle Berührungen dieser Runde zusammenlegen, dann neu messen (größere Blasen können wieder etwas berühren)
+    let merged = false;
+    shapes.sort((p1, p2) => p1.rect.x - p2.rect.x);
+    for (let a2 = 0; a2 < shapes.length; a2++) {
+      const r = shapes[a2].rect;
+      const g2 = { x: r.x - pad, y: r.y - pad, w: r.w + 2 * pad, h: r.h + 2 * pad };
+      for (let b2 = a2 + 1; b2 < shapes.length; b2++) {
+        if (shapes[b2].rect.x > g2.x + g2.w) break;
+        if (!shapes[a2].bubble && !shapes[b2].bubble) continue;
+        if (find(shapes[a2].k) === find(shapes[b2].k)) continue;
+        if (overlapArea(g2, shapes[b2].rect) > 0) {
+          parent[find(shapes[a2].k)] = find(shapes[b2].k);
+          merged = true;
+        }
+      }
+    }
+    if (!merged) break;
+  }
+  const groups = new Map<number, typeof placed>();
+  placed.forEach((q, i) => {
+    const k = q.it.id === keep ? -1 - i : find(i);
+    groups.set(k, [...(groups.get(k) ?? []), q]);
+  });
+  const labels = new Map<string, Rect>();
+  const clusters: LabelCluster[] = [];
+  for (const m of groups.values()) {
+    if (m.length === 1) {
+      labels.set(m[0].it.id, m[0].r);
+      continue;
+    }
+    const x0 = Math.min(...m.map((q) => q.it.bounds.x));
+    const y0 = Math.min(...m.map((q) => q.it.bounds.y));
+    const x1 = Math.max(...m.map((q) => q.it.bounds.x + q.it.bounds.w));
+    const y1 = Math.max(...m.map((q) => q.it.bounds.y + q.it.bounds.h));
+    clusters.push({
+      ids: m.map((q) => q.it.id),
+      x: m.reduce((s, q) => s + q.at.x, 0) / m.length,
+      y: m.reduce((s, q) => s + q.at.y, 0) / m.length,
+      bounds: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 },
+      text: clusterText(m.map((q) => q.it.text)),
+    });
+  }
+  return { labels, clusters };
+}
+
 /** Punkt auf dem Umriss einer Form, der dem Punkt `p` am nächsten liegt (Ellipse: Richtung zum Mittelpunkt). */
 export function outlinePointToward(shape: Shape, pWorld: Point): Point {
   return fromShapeLocal(shape, localOutlinePointToward(shape, toShapeLocal(shape, pWorld)));

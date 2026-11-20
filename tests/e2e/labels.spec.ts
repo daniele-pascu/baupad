@@ -35,6 +35,17 @@ test('Nummern dicht nebeneinander liegender Schadstellen überlappen nicht (Ansi
     const a = rects[i], b = rects[j];
     expect(a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom).toBe(false);
   }
+  // verkleinert: keine Nummer verschwindet – jede steht einzeln oder in einer Sammelblase („1–6“)
+  const counts = await page.getByTestId('label-cluster').evaluateAll((els) => els.map((e) => Number(e.getAttribute('data-count'))));
+  expect((await page.locator('.damage-label').count()) + counts.reduce((a, b) => a + b, 0)).toBe(9);
+  if (counts.length) {
+    // Blase antippen zoomt hinein: dort stehen alle Nummern einzeln
+    await page.getByTestId('label-cluster').first().click();
+    await expect(page.locator('.viewer[data-labels]')).toHaveAttribute('data-labels', 'detail');
+    await expect(page.getByTestId('label-cluster')).toHaveCount(0);
+    await expect(page.locator('.damage-label')).toHaveCount(9);
+    await page.getByRole('button', { name: 'Gesamten Plan anzeigen' }).click();
+  }
   // hineinzoomen
   await page.mouse.move(box.x + box.width * 0.38, box.y + box.height * 0.48);
   await page.mouse.wheel(0, -500);
