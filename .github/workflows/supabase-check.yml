@@ -18,10 +18,14 @@ jobs:
       ORIGIN: https://pad-software.at
     steps:
       - name: Voranfrage des Browsers (OPTIONS) – muss 200 und Access-Control-Allow-Origin liefern
-        run: curl -s -i -m 20 -X OPTIONS "$URL/functions/v1/storage" -H "Origin: $ORIGIN" -H 'Access-Control-Request-Method: POST' -H 'Access-Control-Request-Headers: authorization, apikey, content-type' | head -40
+        run: |
+          curl -s -i -m 20 -X OPTIONS "$URL/functions/v1/storage" -H "Origin: $ORIGIN" -H 'Access-Control-Request-Method: POST' -H 'Access-Control-Request-Headers: authorization, apikey, content-type' | head -40
       - name: POST wie die App, ohne Anmeldung – Antwort der Funktion selbst oder schon von Supabase?
-        run: curl -s -i -m 20 -X POST "$URL/functions/v1/storage" -H "Origin: $ORIGIN" -H "apikey: $APIKEY" -H 'content-type: application/json' -d '{"action":"usage"}' | head -40
+        run: |
+          curl -s -i -m 20 -X POST "$URL/functions/v1/storage" -H "Origin: $ORIGIN" -H "apikey: $APIKEY" -H 'content-type: application/json' -d '{"action":"usage"}' | head -40
       - name: POST mit ungültiger Anmeldung
-        run: curl -s -i -m 20 -X POST "$URL/functions/v1/storage" -H "Origin: $ORIGIN" -H "apikey: $APIKEY" -H 'Authorization: Bearer ungueltig' -H 'content-type: application/json' -d '{"action":"usage"}' | head -40
+        run: |
+          curl -s -i -m 20 -X POST "$URL/functions/v1/storage" -H "Origin: $ORIGIN" -H "apikey: $APIKEY" -H 'Authorization: Bearer ungueltig' -H 'content-type: application/json' -d '{"action":"usage"}' | head -40
       - name: Anmeldedienst erreichbar?
-        run: curl -s -i -m 20 "$URL/auth/v1/health" -H "apikey: $APIKEY" | head -20
+        run: |
+          curl -s -i -m 20 "$URL/auth/v1/health" -H "apikey: $APIKEY" | head -20
