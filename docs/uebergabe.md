@@ -42,10 +42,11 @@ Grundregeln stehen in `CLAUDE.md`, Grundsätze in `docs/entscheidungen.md`.
 
 ## Offen / wartet auf Daniele
 - **Marken-Zeile „BauPad by PAD Software“**: Variante wählen – Board K1 (V1–V4) und K2 (V5–V10, „andere Wege“).
-- **Plan-Export:** Schalter „BauPad-Logo an/aus“ (Vorschlag: Standard aus) – Antwort offen.
-- **Plan verkleinert:** Nummern stehen in der Übersicht auf der Messung, ohne Linien, ausgedünnt (eingebaut 19.11.2026) – Daniele schaut es sich an.
+- **Plan-Export / Kopfzeile:** Entwurf aus Board K3 wählen (P1–P4, nur hell); BauPad-Logo abschaltbar, Vorschlag Standard aus.
 - **Marke BauPad anmelden** (Empfehlung an Daniele, seine Sache). Website-Texte sind umgestellt: nur Nutzen, kein „Wie“.
 - Rote Tests behoben (19.11.2026): Fläche aus dem Plan rundet trotz PDF-Rauschen richtig (116,66 m²), messungen „Rückgängig … Verschieben“ und Datenbank-Version.
+
+- **Rote Tests, schon auf main (19.11.2026):** foto-bearbeiten (Farbe wird gemerkt), massstab-pruefen (Messen-Menü „tool-probe“), cad „Stutzen mit Zaun“, mobile-stift „Hand liegt auf“ (iPad quer). Nicht durch die letzten Änderungen – als Nächstes ansehen.
 
 ## Danieles Schritt
 - Funktion `storage` wird automatisch von GitHub veröffentlicht (Secret `SUPABASE_ACCESS_TOKEN` ist eingetragen, 19.11.2026).

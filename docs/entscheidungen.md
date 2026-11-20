@@ -264,3 +264,6 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - **Website-Startseite:** Handy-Bild neben/unter BauPad entfernt; am PC stehen die Tools in vier Spalten.
 - **Dunkelmodus:** „+“ bei „Neues Projekt anlegen“ und die Ansichtsleisten-Taste im Plan waren unsichtbar – behoben. Die Dunkel-Prüfung prüft jetzt auch Symbole und die installierte App (Fotos mit „Foto aufnehmen“).
 - **Marke:** Board K2 mit sechs weiteren Wegen (V5–V10) – Entscheidung offen.
+- **App-Leiste:** App-Seiten zeigen immer die App-Leiste – auch wenn die Anmeldung beim Start nicht bestätigt werden kann (kein Empfang, abgelaufene Sitzung). Dann rechts „Konto“ (Anmeldung gespeichert) bzw. „Anmelden“. Nur Anmelden/Passwort tragen die Website-Leiste.
+- **Kopfzeile (Board K3):** Plan und Blatt sind immer weiß → nur helles Design (Daniele). Entwürfe P1–P4 (PDF) und A1/A2 (App-Leiste) – Auswahl offen.
+- **Nummern:** Lösung A fest eingebaut (Daniele).
