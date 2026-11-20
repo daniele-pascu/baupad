@@ -1,4 +1,4 @@
-import { BrandV10 } from '../components/BrandV10';
+import { PadSignature } from '../components/PadSignature';
 import type { CSSProperties } from 'react';
 import { Icon } from '../components/Icon';
 import { ToolIcon, type ToolIconName } from '../components/ToolIcon';
@@ -103,7 +103,7 @@ export function ToolsPage() {
           })}
         </nav>
         <footer className="tools-brand">
-          <BrandV10 testId="tools-brand" />
+          <PadSignature testId="tools-brand" />
         </footer>
       </div>
     </>

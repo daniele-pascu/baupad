@@ -273,5 +273,5 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - Beim Plan-Export im Fenster „Pläne als PDF exportieren“ unter **Kennzeichnung**: „BauPad-Logo rechts in der Kopfzeile“. **Standard aus**, die Wahl wird je Gerät gemerkt.
 - Platz: rechts in der Kopfzeile (dort verdeckt der Plan nie etwas und jeder Drucker druckt es); Format/Maßstab rücken links daneben. Unten rechts hätte den Plan verkleinert.
 - Vektor im PDF (scharf beim Drucken). Dateieigenschaften bleiben neutral (kein „BauPad“ als Ersteller). Foto-PDF unverändert ohne Logo.
-- **V10 in der App (20.11.2026, Danieles Wahl 2b):** klein ganz unten auf der Tools-Seite („PAD SOFTWARE“ über feiner Linie, darunter „BauPad“). Nicht in der App-Leiste, nicht auf der Website.
+- **Tools-Seite unten (20.11.2026, Daniele):** über einer Linie nur klein „PAD SOFTWARE“ mit PAD-Zeichen – kein zweites „BauPad“ (steht schon oben in der Leiste), soll den Blick nicht von den Tools ablenken.
 - **Logo in der App-Leiste:** nur noch die weiße Schrift „BauPad“, ohne schwarzes Kästchen – dessen Rand war auf der dunklen Leiste zu sehen (hell und dunkel).
