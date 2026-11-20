@@ -435,7 +435,28 @@ test('11. Bearbeiteten Plan als PDF exportieren', async () => {
   expect(text).toMatch(/^A-101 Untergeschoss UG\s*$/m); // ohne Titel: Nummer, Planbezeichnung und Ebene (standardmäßig) im Kopf
   expect(text).not.toContain('Kostenstelle:'); // nur noch die Plannummer im Kopf
   expect(text).toContain('A-101 Untergeschoss'); // Original-Planinhalt (Vektor) erhalten
+  expect(text).not.toMatch(/BauPad/); // Standard: kein BauPad-Logo
   execFileSync('pdftoppm', ['-png', '-r', '60', file, join(OUT, 'export-a101')]);
+});
+
+test('Plan-Export mit BauPad-Logo (Option, gemerkt) – Dateieigenschaften bleiben neutral', async () => {
+  await page.getByTestId('export-pdf-plan').click();
+  await expect(page.getByTestId('pdf-brand')).not.toBeChecked(); // Standard aus
+  await page.getByTestId('pdf-brand').check();
+  const dl = await catchDownload(page, () => page.getByTestId('pdf-export-run').click());
+  const file = await saveDownload(dl, 'export-a101-logo.pdf');
+  const text = execFileSync('pdftotext', ['-layout', file, '-'], { encoding: 'utf8' });
+  expect(text).toMatch(/BauPad/);
+  expect(text).toMatch(/A-101 Untergeschoss UG/); // Kopfzeile links unverändert
+  expect(execFileSync('pdfinfo', [file], { encoding: 'utf8' })).not.toMatch(/BauPad|pdf-lib/i);
+  execFileSync('pdftoppm', ['-png', '-r', '110', '-singlefile', file, join(OUT, 'export-a101-logo')]);
+  // Wahl wird gemerkt – und lässt sich wieder ausschalten
+  await page.getByTestId('export-pdf-plan').click();
+  await expect(page.getByTestId('pdf-brand')).toBeChecked();
+  await page.getByTestId('pdf-brand').uncheck();
+  const dl2 = await catchDownload(page, () => page.getByTestId('pdf-export-run').click());
+  const text2 = execFileSync('pdftotext', [await saveDownload(dl2, 'export-a101-ohne.pdf'), '-'], { encoding: 'utf8' });
+  expect(text2).not.toMatch(/BauPad/);
 });
 
 test('Weitere Pläne: gedrehte Seite und Planbereich – PDF-Export mehrerer Pläne', async () => {

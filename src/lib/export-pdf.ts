@@ -66,6 +66,8 @@ interface Ctx {
   libDocs: Map<string, PDFDocument | null>;
   jsDocs: Map<string, PDFDocumentProxy>;
   overview: PdfExportOptions['overview'];
+  /** Marke V10 („PAD SOFTWARE“ / „BauPad“) rechts in der Kopfzeile – nur wenn beim Export eingeschaltet */
+  brand: boolean;
   projectName: string;
   /** alle Pläne des Projekts (Vorgaben der Legende) */
   plans: Plan[];
@@ -76,8 +78,9 @@ interface Ctx {
 }
 
 /**
- * Pläne und Foto-PDF tragen bewusst kein BauPad-Zeichen (kein Logo, kein „Erstellt mit“, nichts in den
+ * Pläne und Foto-PDF tragen von sich aus kein BauPad-Zeichen (kein Logo, kein „Erstellt mit“, nichts in den
  * Datei-Eigenschaften): Manche Baustellen dürfen nicht erkennen lassen, dass die Pläne mit einer App entstanden sind.
+ * Nur wer beim Plan-Export „BauPad-Logo“ einschaltet, bekommt die Marke rechts in der Kopfzeile (Dateieigenschaften bleiben neutral).
  */
 const neutralPdf = (out: PDFDocument, title: string) => {
   out.setTitle(title);
@@ -147,6 +150,8 @@ export interface PdfExportOptions {
   planIds: string[];
   /** Übersicht des Gesamtplans bei Planausschnitten (im freien Platz des Blatts, verdeckt nichts) */
   overview?: { enabled: boolean; corner: OverviewCorner };
+  /** BauPad-Logo (V10) rechts in der Kopfzeile; Standard aus – manche Baustellen wollen kein App-Zeichen */
+  brand?: boolean;
 }
 
 export async function exportPlansPdf(data: ProjectState, opts: PdfExportOptions): Promise<ExportFile> {
@@ -162,6 +167,7 @@ export async function exportPlansPdf(data: ProjectState, opts: PdfExportOptions)
     libDocs: new Map(),
     jsDocs: new Map(),
     overview: opts.overview,
+    brand: !!opts.brand,
     projectName: data.project.name,
     plans: Object.values(data.plans),
     data,
@@ -345,13 +351,60 @@ function drawSheetHeader(ctx: Ctx, page: PDFPage, pageH: number, header: Rect, p
   const size = 15;
   const rightText = clean(ctx, right.join(' · '));
   const rw = rightText ? ctx.font.widthOfTextAtSize(rightText, 10) : 0;
-  const maxW = header.w - Math.max(rw, reserveRight) - (rw || reserveRight ? 16 : 0);
+  // BauPad-Logo ganz rechts; Format/Maßstab rücken links daneben
+  const bw = ctx.brand ? drawBrand(ctx, page, header.x + header.w, pageH - header.y) + BRAND_GAP : 0;
+  const maxW = header.w - bw - Math.max(rw, reserveRight) - (rw || reserveRight ? 16 : 0);
   page.drawText(fitText(ctx.bold, clean(ctx, planHeading(plan)), size, maxW), { x: header.x, y: pageH - header.y - size, size, font: ctx.bold, color: rgb(0.1, 0.1, 0.12) });
   const note = plan.showNote ? plan.description.trim().replace(/\s+/g, ' ') : '';
   if (note) page.drawText(fitText(ctx.font, clean(ctx, note), 8, maxW), { x: header.x, y: pageH - header.y - size - 11, size: 8, font: ctx.font, color: rgb(0.3, 0.33, 0.38) });
-  if (rightText) page.drawText(rightText, { x: header.x + header.w - rw, y: pageH - header.y - 14, size: 10, font: ctx.font, color: rgb(0.3, 0.33, 0.38) });
+  if (rightText) page.drawText(rightText, { x: header.x + header.w - bw - rw, y: pageH - header.y - 14, size: 10, font: ctx.font, color: rgb(0.3, 0.33, 0.38) });
   const ly = pageH - (header.y + header.h) + 6;
   page.drawLine({ start: { x: header.x, y: ly }, end: { x: header.x + header.w, y: ly }, thickness: 0.5, color: rgb(0.8, 0.82, 0.85) });
+}
+
+// ---------------------------------------------------------------------------
+// Marke V10: kleine Zeile „PAD SOFTWARE“ mit PAD-Zeichen über einer feinen Linie, darunter „BauPad“
+
+const BRAND_GAP = 14;
+/** PAD-Zeichen (viewBox -4 0 859 830): zwei Flächen und der schattierte Keil */
+const PAD_MARK = [
+  'M242.85 0.63 L546.82 0.63 C710.14 0.63 854.78 131.35 854.78 311.97 L854.78 356.97 C854.78 539.70 711.66 701.02 541.2 701.02 L286.70 701.02 L363.07 529.84 L562.68 529.84 C610.05 529.84 690.17 455.80 690.17 372.06 L690.17 327.06 C690.17 212.94 600.07 165.81 527.98 165.81 L151.52 165.81 Z',
+  'M253.11 245.14 L480.25 245.14 L379.32 422.68 L185.01 829.9 L-3.54 829.9 Z',
+];
+const PAD_MARK_SHADE = 'M480.25 245.14 L626.37 499.85 C604.63 518.57 581.16 529.84 562.68 529.84 L436.83 529.84 L379.32 422.68 Z';
+
+/** zeichnet die Marke rechtsbündig an `right`, Oberkante `top` (PDF-Koordinaten); gibt die Breite zurück */
+function drawBrand(ctx: Ctx, page: PDFPage, right: number, top: number): number {
+  const word = 'BauPad';
+  const wordSize = 13;
+  const cap = 'PAD SOFTWARE';
+  const capSize = 3.9;
+  const track = capSize * 0.22;
+  const markH = 4.4;
+  const scale = markH / 830;
+  const markW = 859 * scale;
+  const capW = [...cap].reduce((w, ch) => w + ctx.bold.widthOfTextAtSize(ch, capSize) + track, -track);
+  const wordW = ctx.bold.widthOfTextAtSize(word, wordSize);
+  const w = Math.max(markW + 2.5 + capW, wordW);
+  const x0 = right - w;
+  for (const d of PAD_MARK) page.drawSvgPath(d, { x: x0 + 4 * scale, y: top, scale, color: rgb(0.17, 0.17, 0.18) });
+  page.drawSvgPath(PAD_MARK_SHADE, { x: x0 + 4 * scale, y: top, scale, color: rgb(0.5, 0.5, 0.52) });
+  let cx = x0 + markW + 2.5;
+  for (const ch of cap) {
+    page.drawText(ch, { x: cx, y: top - markH + 0.7, size: capSize, font: ctx.bold, color: rgb(0.38, 0.38, 0.4) });
+    cx += ctx.bold.widthOfTextAtSize(ch, capSize) + track;
+  }
+  const ry = top - markH - 2.4;
+  page.drawLine({ start: { x: x0, y: ry }, end: { x: x0 + w, y: ry }, thickness: 0.4, color: rgb(0.74, 0.74, 0.77) });
+  page.drawText(word, { x: x0 - 0.4, y: ry - 2.6 - wordSize * 0.72, size: wordSize, font: ctx.bold, color: rgb(0.07, 0.07, 0.08) });
+  return w;
+}
+/** Breite der Marke (für Platz in der Kopfzeile, ohne zu zeichnen) */
+function brandWidth(ctx: Ctx): number {
+  const capSize = 3.9;
+  const track = capSize * 0.22;
+  const capW = [...'PAD SOFTWARE'].reduce((w, ch) => w + ctx.bold.widthOfTextAtSize(ch, capSize) + track, -track);
+  return Math.max((859 / 830) * 4.4 + 2.5 + capW, ctx.bold.widthOfTextAtSize('BauPad', 13));
 }
 
 // ---------------------------------------------------------------------------
@@ -748,7 +801,7 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   // Maßstabsleiste rechts im Kopfbereich (nur wenn der Maßstab angezeigt werden soll)
   if (!showScale) return;
   const lblW = ctx.font.widthOfTextAtSize(`${String(barM).replace('.', ',')} m`, 6.5);
-  const bx = W - margin - barPt - lblW / 2;
+  const bx = W - margin - barPt - lblW / 2 - (ctx.brand ? brandWidth(ctx) + BRAND_GAP : 0);
   const by = H - margin - 28;
   const seg = 4;
   for (let i = 0; i < seg; i++)
