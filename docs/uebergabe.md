@@ -41,7 +41,7 @@ Grundregeln stehen in `CLAUDE.md`, Grundsätze in `docs/entscheidungen.md`.
   (`src/components/TrashButton.tsx`, Modell `src/lib/trash-items.ts`, Aufräumen `src/lib/trash-purge.ts`).
 
 ## Offen / wartet auf Daniele
-- **Marke:** V10 gewählt (Plan-Export eingebaut). Offen: ob V10 auch in App/Website kommt.
+- **Marke:** V10 gewählt – Plan-Export (Option) und klein unten auf der Tools-Seite eingebaut.
 - **Kopfzeile mit Firma:** Entwurf aus Board K3 wählen (P1–P4, nur hell). BauPad-Logo V10 im Plan-Export ist eingebaut (Option, Standard aus).
 - **Marke BauPad anmelden** (Empfehlung an Daniele, seine Sache). Website-Texte sind umgestellt: nur Nutzen, kein „Wie“.
 - Rote Tests behoben (19.11.2026): Fläche aus dem Plan rundet trotz PDF-Rauschen richtig (116,66 m²), messungen „Rückgängig … Verschieben“ und Datenbank-Version.

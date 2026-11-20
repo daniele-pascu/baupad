@@ -1,3 +1,4 @@
+import { BrandV10 } from '../components/BrandV10';
 import type { CSSProperties } from 'react';
 import { Icon } from '../components/Icon';
 import { ToolIcon, type ToolIconName } from '../components/ToolIcon';
@@ -101,6 +102,9 @@ export function ToolsPage() {
             );
           })}
         </nav>
+        <footer className="tools-brand">
+          <BrandV10 testId="tools-brand" />
+        </footer>
       </div>
     </>
   );
