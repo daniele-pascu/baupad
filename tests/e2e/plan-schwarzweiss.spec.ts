@@ -61,7 +61,7 @@ for (const file of ['farbplan.pdf', 'farbplan.png']) {
     await page.getByTestId('plan-color').check();
     await expect(world).not.toHaveClass(/plan-gray/);
     await waitSaved(page);
-    await page.locator('.side-head h2').click();
+    await page.getByTestId('layers-done').click(); // Fenster „Ebenen“ schließen
     const color = colorCounts(await exportPdf(page, `farbe-${file}.pdf`), `farbe-${file}.png`);
     expect(color.blue).toBeGreaterThan(500);
     // nach dem Neuladen erhalten

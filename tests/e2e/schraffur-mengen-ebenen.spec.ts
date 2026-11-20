@@ -316,7 +316,7 @@ test('Ebenen: Zeichnung, Bemaßung, Text und Messungen ein-/ausblenden – Ansic
   await expect(page.locator('[data-element]')).toHaveCount(0);
   await waitSaved(page);
   expect((await stored(page, 'plans'))[0].hiddenLayers).toEqual(['dims', 'drawing']);
-  await page.locator('.side-head h2').click(); // Menü schließen
+  await page.getByTestId('layers-done').click(); // Fenster „Ebenen“ schließen
   await expect(page.getByTestId('layers-pop')).toHaveCount(0);
   await pickTool(page, 'draw-select');
   await page.mouse.click(sb.x + 200, sb.y + 80);
@@ -328,6 +328,7 @@ test('Ebenen: Zeichnung, Bemaßung, Text und Messungen ein-/ausblenden – Ansic
   await page.getByTestId('layers-toggle').click();
   await page.getByTestId('layer-drawing').check();
   await page.getByTestId('layer-dims').check();
+  await page.getByTestId('layers-done').click();
   await expect(page.locator('[data-element]')).toHaveCount(2);
   await waitSaved(page);
   expect((await stored(page, 'plans'))[0].hiddenLayers).toBeUndefined();
@@ -344,6 +345,7 @@ test('Ebenen: Zeichnung, Bemaßung, Text und Messungen ein-/ausblenden – Ansic
   await expect(page.locator('path[data-damage]')).toHaveCount(0);
   await expect(page.getByTestId('aufmass-row')).toHaveCount(1); // Tabelle vollständig
   await page.getByTestId('layer-drawing').uncheck();
+  await page.getByTestId('layers-done').click();
   await waitSaved(page);
 
   // PDF: Hinweis im Dialog, ausgeblendete Ebenen nicht gedruckt

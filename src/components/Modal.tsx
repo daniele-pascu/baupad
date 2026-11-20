@@ -13,12 +13,14 @@ interface Props {
   persistent?: boolean;
   testId?: string;
   className?: string;
+  /** ganz oben an den Seitenkörper hängen – für Fenster, die aus einer Leiste mit eigener Ebene geöffnet werden */
+  portal?: boolean;
 }
 
 /** Fenster in einem Fenster (z. B. Positionsauswahl im Messdialog) – wird ganz oben angezeigt, nicht im äußeren Fenster */
 const InModal = createContext(false);
 
-export function Modal({ title, onClose, children, footer, wide, full, persistent, testId, className }: Props) {
+export function Modal({ title, onClose, children, footer, wide, full, persistent, testId, className, portal }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -76,5 +78,5 @@ export function Modal({ title, onClose, children, footer, wide, full, persistent
   );
   const content = <InModal.Provider value={true}>{node}</InModal.Provider>;
   // geschachtelt: an den Seitenkörper hängen, damit es über dem äußeren Fenster (samt dessen Tasten) liegt
-  return nested ? createPortal(content, document.body) : content;
+  return nested || portal ? createPortal(content, document.body) : content;
 }

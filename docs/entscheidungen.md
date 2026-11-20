@@ -281,8 +281,7 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - Leere Tool-Kacheln: Farben mit `color-mix()` (erst Chrome 111 / Safari 16.2). Für ältere Browser `@supports not (color-mix)`: reine Werkzeugfarbe mit leichtem Verlauf (App-Kacheln, Website-Toolkarten und Tool-Seite).
 - Regel: neue Browser-Funktionen nur mit Ersatz verwenden (compat.ts) – BauPad soll auch auf älteren Geräten der Baustelle laufen.
 
-## Nummern: Sammelblase nur an engen Stellen (20.11.2026, Daniele)
-- Verkleinert (Übersicht) bleibt Lösung A: Nummer direkt auf der Messung, ohne Linien.
-- Wo sich Nummern gegenseitig verdecken würden, steht statt ihrer **eine Sammelblase** („5–12“; nicht fortlaufend → „3, 5–7“ bzw. „12 Messungen“). Berührt eine Blase eine andere oder eine Nummer, wachsen sie zu einer Blase zusammen – je enger Stelle genau eine. Keine Nummer verschwindet mehr unbemerkt.
-- Blase antippen zoomt in diese Gruppe (alle Nummern einzeln). Die ausgewählte Messung zeigt ihre Nummer immer.
-- Nur Anzeige: gilt sofort für alle bestehenden Pläne, Daten und PDF unverändert (PDF immer alle Nummern).
+## Sammelblase zurückgenommen, Ebenen als Fenster (20.11.2026)
+- Sammelblasen (#92) bei einem echten Plan mit 114 Messungen zu grob („1–24“, „30 Messungen“) – auf Danieles Wunsch wieder raus. Es gilt wieder Lösung A: Nummer auf der Messung, eng → ausgedünnt.
+- „Ebenen“ (Taste in der Ansichtsleiste) ist jetzt ein eigenes Fenster wie bei der Messung (mit „Fertig“) – das Aufklappfeld ragte am Handy links aus dem Bildschirm. Fenster hängt ganz oben (über Leisten).
+- Dunkelmodus: aktive Taste in der Zeichen-Leiste mit weißer Schrift auf der Registerfarbe.

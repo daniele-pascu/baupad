@@ -14526,11 +14526,22 @@ html[data-theme='dark'] .auth-divider::after {
   flex: none;
 }
 
-/* Sammelblase im verkleinerten Plan: antippen zoomt hinein */
-.label-cluster {
-  cursor: zoom-in;
+/* Fenster „Ebenen“ (vorher Aufklappfeld an der Zoomleiste) */
+.layer-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
-.label-cluster text {
-  font-family: inherit;
-  letter-spacing: 0.01em;
+.layer-dialog .pop-title {
+  margin-top: 6px;
+  font-weight: 600;
+}
+.layer-dialog .pop-title:first-child {
+  margin-top: 0;
+}
+
+/* Dunkelmodus: aktive Taste in der Zeichen-Leiste hat die Farbe ihrer Registerkarte – Schrift weiß (nicht #111) */
+html[data-theme='dark'] .ribbon-row[data-tab] .tool-btn.active,
+html[data-theme='dark'] .ribbon-row[data-tab] .tool-btn.active svg {
+  color: #fff;
 }
