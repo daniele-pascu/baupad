@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { distToRect, layoutLabels, leaderLine, rectsOverlap, type LabelInput } from '../../src/lib/geometry';
+import { clusterText, distToRect, layoutLabels, leaderLine, overviewLabels, rectsOverlap, type LabelInput } from '../../src/lib/geometry';
 import type { Rect } from '../../src/lib/types';
 
 const L = (id: string, x: number, y: number, w: number, h: number): LabelInput => ({
@@ -139,5 +139,37 @@ describe('Übersicht (Plan verkleinert): Nummern dicht an der Messung, sonst aus
 
   it('vergrößert (ohne Übersicht) bekommt jede Messung eine Nummer', () => {
     expect(layoutLabels(crowd, 3).size).toBe(crowd.length);
+  });
+});
+
+describe('Sammelblase: nur wo sich Nummern verdecken würden', () => {
+  const T = (id: string, x: number, y: number, w = 6, h = 6) => ({ ...L(id, x, y, w, h), text: id });
+  it('dicht gedrängt → eine Blase „1–6“, einzelne Messungen behalten ihre Nummer', () => {
+    const items = [...Array.from({ length: 6 }, (_, i) => T(String(i + 1), 100 + i * 5, 100)), T('7', 400, 100), T('8', 100, 400)];
+    const { labels, clusters } = overviewLabels(items, 3);
+    expect(clusters).toHaveLength(1);
+    expect(clusters[0].text).toBe('1–6');
+    expect(clusters[0].ids.sort()).toEqual(['1', '2', '3', '4', '5', '6']);
+    expect([...labels.keys()].sort()).toEqual(['7', '8']);
+    // keine Nummer verschwindet: jede steht einzeln oder in einer Blase
+    expect(labels.size + clusters.reduce((n, c) => n + c.ids.length, 0)).toBe(items.length);
+  });
+  it('genug Platz → keine Blase', () => {
+    const items = Array.from({ length: 5 }, (_, i) => T(String(i + 1), 100 + i * 80, 100, 30, 30));
+    const { labels, clusters } = overviewLabels(items, 3);
+    expect(clusters).toHaveLength(0);
+    expect(labels.size).toBe(5);
+  });
+  it('ausgewählte Messung bleibt einzeln, auch mitten in einer Gruppe', () => {
+    const items = Array.from({ length: 4 }, (_, i) => T(String(i + 1), 100 + i * 5, 100));
+    const { labels, clusters } = overviewLabels(items, 3, '2');
+    expect(labels.has('2')).toBe(true);
+    expect(clusters[0].ids).not.toContain('2');
+  });
+  it('Text: fortlaufend „von–bis“, zwei Teile, sonst Anzahl', () => {
+    expect(clusterText(['3', '1', '2'])).toBe('1–3');
+    expect(clusterText(['1', '2', '5'])).toBe('1–2, 5');
+    expect(clusterText(['1', '3', '5'])).toBe('3 Messungen');
+    expect(clusterText(['A1', '2'])).toBe('2 Messungen');
   });
 });
