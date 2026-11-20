@@ -14502,44 +14502,26 @@ html[data-theme='dark'] .auth-divider::after {
   height: 21px;
 }
 
-/* Tools-Seite: ganz unten klein die Marke V10 („PAD SOFTWARE“ über feiner Linie, darunter „BauPad“) */
+/* Tools-Seite: ganz unten über einer Linie nur klein „PAD SOFTWARE“ – BauPad steht schon oben in der Leiste */
 .tools-brand {
   display: flex;
   justify-content: center;
   margin: 36px 0 calc(12px + var(--safe-bottom));
-  padding-top: 22px;
+  padding-top: 16px;
   border-top: 1px solid var(--border);
 }
-.brand-v10 {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 4px;
-  color: var(--text);
-  text-decoration: none;
-}
-.brand-v10-top {
+.pad-signature {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   color: var(--muted);
-  font-size: 7.5px;
+  font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.22em;
   white-space: nowrap;
 }
-.brand-v10-top svg {
-  width: 9px;
-  height: 9px;
+.pad-signature svg {
+  width: 10px;
+  height: 10px;
   flex: none;
-}
-.brand-v10-rule {
-  height: 1px;
-  background: var(--border-strong);
-}
-.brand-v10-word {
-  font-weight: 800;
-  font-size: 18px;
-  letter-spacing: -0.03em;
-  line-height: 0.95;
 }
