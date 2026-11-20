@@ -434,6 +434,14 @@ export function tastenTests() {
     await pruefe(page, 'Plan-Editor mit Messung', out);
     if (await page.getByTestId('tools-open').isVisible()) await page.getByTestId('tools-open').click();
     await pruefe(page, 'Plan-Editor Leiste offen', out);
+    // Ebenen: eigenes Fenster (vorher Aufklappfeld, das am Handy links aus dem Bild ragte)
+    if (await page.getByTestId('layers-toggle').isVisible()) {
+      await page.getByTestId('layers-toggle').click();
+      await expect(page.getByTestId('layers-pop')).toBeVisible();
+      await pruefe(page, 'Fenster Ebenen', out);
+      await page.getByTestId('layers-done').click();
+      await expect(page.getByTestId('layers-pop')).toHaveCount(0);
+    }
     // Plan als PDF: Planauswahl und Kennzeichnung (BauPad-Logo)
     if (await page.getByTestId('export-pdf-plan').isVisible()) {
       await page.getByTestId('export-pdf-plan').click();

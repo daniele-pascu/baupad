@@ -14525,3 +14525,23 @@ html[data-theme='dark'] .auth-divider::after {
   height: 10px;
   flex: none;
 }
+
+/* Fenster „Ebenen“ (vorher Aufklappfeld an der Zoomleiste) */
+.layer-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.layer-dialog .pop-title {
+  margin-top: 6px;
+  font-weight: 600;
+}
+.layer-dialog .pop-title:first-child {
+  margin-top: 0;
+}
+
+/* Dunkelmodus: aktive Taste in der Zeichen-Leiste hat die Farbe ihrer Registerkarte – Schrift weiß (nicht #111) */
+html[data-theme='dark'] .ribbon-row[data-tab] .tool-btn.active,
+html[data-theme='dark'] .ribbon-row[data-tab] .tool-btn.active svg {
+  color: #fff;
+}

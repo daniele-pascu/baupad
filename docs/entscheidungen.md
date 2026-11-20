@@ -280,3 +280,8 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - Ursache „Online-Fehler“: Die Verbindung zur Ablage nutzte `AbortSignal.timeout` (erst Chrome 103 / Safari 16) – ältere Browser scheiterten bei jedem Hochladen. Jetzt Ersatz in `src/lib/compat.ts` (`timeoutSignal`), ebenso `deepClone` statt `structuredClone` (Chrome 98 / Safari 15.4).
 - Leere Tool-Kacheln: Farben mit `color-mix()` (erst Chrome 111 / Safari 16.2). Für ältere Browser `@supports not (color-mix)`: reine Werkzeugfarbe mit leichtem Verlauf (App-Kacheln, Website-Toolkarten und Tool-Seite).
 - Regel: neue Browser-Funktionen nur mit Ersatz verwenden (compat.ts) – BauPad soll auch auf älteren Geräten der Baustelle laufen.
+
+## Sammelblase zurückgenommen, Ebenen als Fenster (20.11.2026)
+- Sammelblasen (#92) bei einem echten Plan mit 114 Messungen zu grob („1–24“, „30 Messungen“) – auf Danieles Wunsch wieder raus. Es gilt wieder Lösung A: Nummer auf der Messung, eng → ausgedünnt.
+- „Ebenen“ (Taste in der Ansichtsleiste) ist jetzt ein eigenes Fenster wie bei der Messung (mit „Fertig“) – das Aufklappfeld ragte am Handy links aus dem Bildschirm. Fenster hängt ganz oben (über Leisten).
+- Dunkelmodus: aktive Taste in der Zeichen-Leiste mit weißer Schrift auf der Registerfarbe.
