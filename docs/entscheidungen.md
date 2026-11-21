@@ -293,6 +293,6 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - Dann die **Tools**, darunter **„Zuletzt verwendet“**: oben klein das Tool (z. B. AUFMASS), darunter etwas größer das Projekt.
 - Danach wahlweise eingeteilte Arbeiter, Arbeitsstunden oder nichts.
 - **Ganz unten nach dem Scrollen:** Linie mit PAD-Zeichen und „PAD SOFTWARE“ (wie heute).
-- **Schwarz-Weiß gilt für die Tasten** (Daniele, 21.11.): im hellen Modus schwarz, im Dunkelmodus weiß – wie L2/M2, weil es helle und dunkle Einstellung gibt. Die übrige Seite (z. B. Tool-Symbole) darf Farbe haben, aber ruhig: keine grellen, zu satten Farben, nichts Altmodisches oder Pixeliges. Jeder Entwurf hell und dunkel zeigen.
+- **Schwarz-Weiß gilt für die Tasten** (Daniele, 21.11.): im hellen Modus schwarz, im Dunkelmodus weiß – wie L2/M2, weil es helle und dunkle Einstellung gibt. Die übrige Seite (z. B. Tool-Symbole) darf Farbe haben, aber ruhig: keine grellen, zu satten Farben, nichts Altmodisches oder Pixeliges. Entwürfe vorerst **nur hell** – das dunkle Design wird danach angepasst (Daniele: sonst zu viel Aufwand).
 - Wirkung: sehr modern und hochwertig, soll Spaß machen, angenehm wirken und Sicherheit geben.
 - Entwürfe: Board SW1–SW5 (40 Schwarz-Weiß-Entwürfe, Handy + PC) – Auswahl offen.
