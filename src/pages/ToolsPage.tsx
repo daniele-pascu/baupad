@@ -1,4 +1,6 @@
 import { PadSignature } from '../components/PadSignature';
+import { CrewTodayCard, useCrewToday } from '../components/CrewToday';
+import { QuickAccess } from '../components/QuickAccess';
 import type { CSSProperties } from 'react';
 import { Icon } from '../components/Icon';
 import { ToolIcon, type ToolIconName } from '../components/ToolIcon';
@@ -37,6 +39,10 @@ export function ToolsPage() {
   const tools = TOOLS.filter((t) => access.canTool((t.tool ?? t.id) as never));
   // Projektregister nur für Admin und Büro – die anderen übernehmen Projekte in den Tools („Projekt übernehmen“)
   const register = canEditSites(access.session);
+  // Heute auf der Baustelle: nur mit Team-Freigabe und sobald es Arbeiter gibt
+  const team = access.canTool('workers');
+  const today = useCrewToday(team);
+  const showToday = team && !!today && today.present.length + today.sick.length + today.vacation.length + today.open.length > 0;
   return (
     <>
       <SiteNav />
@@ -67,6 +73,8 @@ export function ToolsPage() {
             )}
           </div>
         )}
+        {/* zuletzt geöffnete und angeheftete Projekte: Tool klein, Projekt groß */}
+        <QuickAccess register={register} />
         <nav className="tools-grid" aria-label="Tools">
           {tools.map((t) => {
             const body = (
@@ -102,6 +110,12 @@ export function ToolsPage() {
             );
           })}
         </nav>
+        {showToday && today && (
+          <section className="today-block tools-today" aria-label="Heute auf der Baustelle">
+            <h2>Heute auf der Baustelle</h2>
+            <CrewTodayCard data={today} href={paths.workers()} />
+          </section>
+        )}
         <footer className="tools-brand">
           <PadSignature testId="tools-brand" />
         </footer>

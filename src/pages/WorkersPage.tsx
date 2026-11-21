@@ -61,6 +61,8 @@ import { naturalCompare } from '../lib/numbers';
 import { holidayOn } from '../lib/times';
 import type { ExportFile } from '../lib/aufmass';
 import { getCompanyLogo } from '../lib/company';
+import { CrewTodayCard, useCrewToday } from '../components/CrewToday';
+import { crewToday } from '../lib/crew-today';
 import { absenceDays, absenceOn, absenceRange, absenceSummary, cleanAbsences, clearAbsenceOn, withAbsence } from '../lib/crew-absence';
 import { exportCrewBackup, importCrewBackup } from '../lib/crew-backup';
 import { costCenterByProject, costCenterSearchByProject, linkSitesToProject, projectFromSite } from '../lib/crew-link';
@@ -249,6 +251,11 @@ export function WorkersPage() {
   /** einteilbar: aktive Arbeiter ohne Projektleiter (PL steht beim Projekt, nicht in der Wocheneinteilung) */
   const crew = useMemo(() => active.filter((w) => !isProjectLead(w)), [active]);
   const workTimes = times ?? DEFAULT_WORK_TIMES;
+  /** Heute auf der Baustelle: in der aktuellen Woche aus dem gezeigten Stand (auch vor dem Speichern), sonst geladen */
+  const todayIso = isoDate(new Date());
+  const isThisWeek = weekId === weekOf(todayIso);
+  const loadedToday = useCrewToday(!isThisWeek);
+  const crewNow = isThisWeek ? (workers && plan ? crewToday(plan, workers, absences, workTimes, todayIso) : null) : loadedToday;
   const nameOf = (id: string) => (byId.get(id) ? workerName(byId.get(id)!) : 'Unbekannt');
   /** Farbe des Kästchens nach Funktion (Polier, Vorarbeiter …) */
   const gradeClass = (id: string) => {
@@ -636,6 +643,13 @@ export function WorkersPage() {
             }}
           />
         </div>
+
+        {active.length > 0 && crewNow && (
+          <section className="today-block crew-today-block" aria-label="Heute auf der Baustelle">
+            <h2>Heute auf der Baustelle</h2>
+            <CrewTodayCard data={crewNow} testId="team-today" />
+          </section>
+        )}
 
         {active.length === 0 && (
           <div className="crew-setup" style={ACCENT} data-testid="crew-setup-workers">

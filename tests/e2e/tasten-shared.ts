@@ -186,6 +186,56 @@ export function tastenTests() {
     expect(out, out.join('\n')).toEqual([]);
   });
 
+  test('Tasten: Schnellzugriff, Projektregister (Reiter, Nadel, Suche) und Heute auf der Baustelle – nichts überlappt, verdeckt oder abgeschnitten', async ({ page }) => {
+    const out: string[] = [];
+    await page.clock.setFixedTime(new Date('2026-11-24T09:00:00')); // Dienstag: Arbeitstag
+    await freshStart(page);
+    await createProject(page, 'Tastentest Schnellzugriff mit einem recht langen Projektnamen');
+    await page.goto('./baupad/aufmass-und-abrechnung');
+    await createProject(page, 'Halle Nord');
+    await page.goto('./baupad/aufmass-und-abrechnung');
+    await createProject(page, 'Lindenstraße 8');
+    // Personal: zwei eingeteilt, einer noch frei
+    await page.goto('./baupad/arbeitereinteilung/personal');
+    const wd = page.getByTestId('staff-page');
+    for (const [first, last] of [
+      ['Anna', 'Huber'],
+      ['Tom', 'Maier'],
+      ['Lisa', 'Berger-Hohenstein'],
+    ]) {
+      await wd.getByTestId('staff-new').click();
+      await wd.getByTestId('worker-firstName').fill(first);
+      await wd.getByTestId('worker-lastName').fill(last);
+      await wd.getByTestId('worker-save').click();
+    }
+    await page.goto('./baupad/arbeitereinteilung');
+    await page.getByTestId('add-site').click();
+    await page.getByTestId('project-picker').getByTestId('picker-item').filter({ hasText: 'Halle Nord' }).click();
+    await page.locator('[data-testid="site-card"][data-site="Halle Nord"] [data-day="0"] [data-testid="day-add"]').click();
+    const dlg = page.getByTestId('assign-dialog');
+    for (const n of ['Huber Anna', 'Maier Tom']) await dlg.locator(`[data-testid="assign-worker"][data-worker="${n}"] input`).check();
+    await dlg.getByTestId('assign-save').click();
+    await expect(page.getByTestId('team-today')).toBeVisible();
+    await pruefe(page, 'Team mit Heute auf der Baustelle', out);
+    // Projektregister: Nadel, Reiter, Suche
+    await page.goto('./baupad/projektregister');
+    await page.getByTestId('register-pin').first().click();
+    await pruefe(page, 'Projektregister Alle', out);
+    await page.getByTestId('register-tab-angeheftet').click();
+    await pruefe(page, 'Projektregister Angeheftet', out);
+    await page.getByTestId('register-tab-zuletzt').click();
+    await pruefe(page, 'Projektregister Zuletzt', out);
+    await page.getByTestId('register-search').fill('halle');
+    await expect(page.getByTestId('register-search-all')).toBeVisible();
+    await pruefe(page, 'Projektregister Suche', out);
+    // Tools: Schnellzugriff oben, Heute auf der Baustelle unten
+    await page.goto('./baupad/tools');
+    await expect(page.getByTestId('quick-item').first()).toBeVisible();
+    await expect(page.getByTestId('crew-today')).toBeVisible();
+    await pruefe(page, 'Tools mit Schnellzugriff und Heute', out);
+    expect(out, out.join('\n')).toEqual([]);
+  });
+
   test('Tasten: Kamera-Modus (X links, Übertragung rechts, Zoom, Beschreibung, letztes Foto mit Zähler) – nichts überlappt, verdeckt oder abgeschnitten', async ({ page }) => {
     const out: string[] = [];
     await freshStart(page);
