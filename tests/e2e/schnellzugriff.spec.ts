@@ -100,7 +100,8 @@ test('Schnellzugriff, Projektregister mit Reitern und Nadel, Heute auf der Baust
   await page.goto('./baupad/tools');
   const today = page.getByTestId('crew-today');
   await expect(today.getByTestId('crew-today-count')).toHaveText('2 Mitarbeiter eingeteilt');
-  await expect(today).toContainText('17 Std. geplant · 07:00–16:00');
+  await expect(today).toContainText('Arbeitszeit 07:00–16:00');
+  await expect(today).not.toContainText('Std.');
   await expect(today.getByTestId('crew-today-open')).toContainText('1 noch frei');
   await today.click();
   await expect(page.getByTestId('workers-title')).toHaveText('Team');

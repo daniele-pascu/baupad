@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { initials, loadCrewToday, type CrewToday } from '../lib/crew-today';
 import { workerName } from '../lib/crew';
 import { useDataChanged } from '../lib/data-events';
-import { fmtH } from '../lib/times';
 import type { Worker } from '../lib/types';
 
 /** Namen kurz: „Huber, Maier und 2 weitere“ */
@@ -23,14 +22,14 @@ export function useCrewToday(enabled = true): CrewToday | null {
 }
 
 /**
- * Karte „Heute auf der Baustelle“: Köpfe der Eingeteilten, Anzahl und geplante Stunden; darunter, wer krank,
+ * Karte „Heute auf der Baustelle“: Köpfe der Eingeteilten, Anzahl und Arbeitszeit (keine Stunden); darunter, wer krank,
  * im Urlaub oder noch frei ist. Als Verweis (Tools-Seite → Team) oder als reine Anzeige (im Team).
  */
 export function CrewTodayCard({ data, href, testId = 'crew-today' }: { data: CrewToday; href?: string; testId?: string }) {
   const faces = data.present.slice(0, 3);
   const more = data.present.length - faces.length;
   const title = !data.workday ? (data.holiday ? `Feiertag: ${data.holiday}` : 'Heute kein Arbeitstag') : data.present.length === 1 ? '1 Mitarbeiter eingeteilt' : `${data.present.length} Mitarbeiter eingeteilt`;
-  const sub = !data.workday ? 'Keine Einteilung für heute' : data.present.length ? `${fmtH(data.hours)} Std. geplant · ${data.time}` : `Noch niemand eingeteilt · ${data.time}`;
+  const sub = !data.workday ? 'Keine Einteilung für heute' : data.present.length ? `Arbeitszeit ${data.time}` : `Noch niemand eingeteilt · ${data.time}`;
   const tags: { kind: string; label: string; who: Worker[] }[] = [
     { kind: 'sick', label: 'krank', who: data.sick },
     { kind: 'away', label: 'Urlaub', who: data.vacation },

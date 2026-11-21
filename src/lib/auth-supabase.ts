@@ -7,6 +7,7 @@
  * Testumgebung nicht erreichbar).
  */
 import type { AuthBackend, AuthProviderId, PackageId, Role, Session, SignUpResult, ToolId } from './auth';
+import { parseQuickPins } from './auth';
 
 /** Nur die Teile des Supabase-Clients, die hier gebraucht werden */
 export interface AuthClientLike {
@@ -187,6 +188,12 @@ export class SupabaseAuth implements AuthBackend {
     if (error) throw new AuthError(error.message);
   }
 
+  async saveQuickPins(ids: string[]) {
+    // in den Benutzerdaten des Dienstes: gehört zur Person, kommt auf jedes Gerät mit (keine Firmendaten)
+    const { error } = await this.client.auth.updateUser({ data: { quickPins: JSON.stringify(ids) } });
+    if (error) throw new AuthError(error.message);
+  }
+
   async refresh() {
     this.cache = null;
     const s = await this.session();
@@ -262,6 +269,7 @@ export class SupabaseAuth implements AuthBackend {
       toolSites: (ctx?.tool_sites ?? {}) as Session['toolSites'],
       providers: providers.length ? providers : raw.user.app_metadata?.provider ? [raw.user.app_metadata.provider] : [],
       contextLoaded: ctx !== null,
+      quickPins: parseQuickPins(meta.quickPins),
     };
     this.cache = { userId: raw.user.id, session, partial: ctx === null };
     return session;

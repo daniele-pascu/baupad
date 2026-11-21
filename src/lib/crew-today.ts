@@ -1,11 +1,11 @@
 import { absenceOn } from './crew-absence';
 import { carryOver, DEFAULT_WORK_TIMES, isProjectLead, isoDate, weekOf, workerName } from './crew';
 import { getMeta, getWeek, listWorkers, previousWeek } from './db';
-import { holidayOn, plannedHours, weekdayIdx } from './times';
+import { holidayOn, weekdayIdx } from './times';
 import type { Absence, WeekPlan, Worker, WorkTimes } from './types';
 
 /**
- * Heute auf der Baustelle (Tools-Seite und Team): wie viele Arbeiter heute eingeteilt sind, wer krank bzw. im
+ * Heute auf der Baustelle (Tools-Seite und Team): wie viele Arbeiter heute eingeteilt sind (ohne Stunden), wer krank bzw. im
  * Urlaub ist und wer noch frei ist – laut Wocheneinteilung und Urlaub/Krank. Projektleiter werden nicht
  * eingeteilt und zählen nie.
  */
@@ -20,8 +20,6 @@ export interface CrewToday {
   vacation: Worker[];
   /** aktiv, aber heute auf keiner Baustelle und nicht abwesend */
   open: Worker[];
-  /** geplante Stunden heute (Eingeteilte × Firmen-Arbeitszeit ohne Pause) */
-  hours: number;
   /** Arbeitszeit heute „07:00–16:00“ (leer an freien Tagen) */
   time: string;
 }
@@ -48,7 +46,6 @@ export function crewToday(week: WeekPlan | null, workers: Worker[], absences: Ab
     else if (assigned.has(w.id)) present.push(w);
     else if (w.active && workday) open.push(w);
   }
-  const hoursEach = workday ? plannedHours(times, date) : 0;
   return {
     date,
     workday,
@@ -57,7 +54,6 @@ export function crewToday(week: WeekPlan | null, workers: Worker[], absences: Ab
     sick: sick.sort(byName),
     vacation: vacation.sort(byName),
     open: open.sort(byName),
-    hours: present.length * hoursEach,
     time: workday && t ? `${t.from}–${t.to}` : '',
   };
 }

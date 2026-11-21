@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
+import { getAuth } from './auth';
 import type { Route } from './router';
 import { paths } from './router';
 import { useSession } from './use-session';
 
 /**
  * Schnellzugriff auf der Tools-Seite: zuletzt geöffnete Baustellen je Tool („AUFMASS · Rohbau Müller“) und
- * angeheftete Projekte (im Projektregister mit der Nadel). Je angemeldeter Person auf diesem Gerät gemerkt
- * (wie die Sortierung der Listen) – jede Person auf demselben Gerät hat ihren eigenen Schnellzugriff.
+ * angeheftete Projekte (im Projektregister mit der Nadel). Beides gehört der angemeldeten Person: zuletzt geöffnet
+ * merkt sich jedes Gerät, die angehefteten Projekte stehen zusätzlich im Konto (auf jedem Gerät der Person gleich;
+ * offline geändert → beim nächsten Online-Start nachgetragen).
  */
 
 /** Tools, die eine einzelne Baustelle öffnen (Team und Zeiten zeigen immer alle Baustellen) */
@@ -26,6 +28,8 @@ export const RECENT_MAX = 20;
 
 const recentKey = (user: string) => `quick:recent:${user}`;
 const pinKey = (user: string) => `quick:pins:${user}`;
+/** Zeitpunkt der letzten Änderung, die noch nicht im Konto steht (leer = alles gespeichert) */
+const dirtyKey = (user: string) => `quick:pins-dirty:${user}`;
 const EVT = 'baupad:quick';
 
 /** Tool und Baustelle einer Seite – nur Seiten, die eine Baustelle in einem Tool zeigen */
@@ -103,12 +107,73 @@ export function recordRecent(user: string, tool: QuickTool, key: string, at = Da
   writeList(recentKey(user), withRecent(list, { tool, key, at }));
 }
 
-/** Projekt anheften bzw. lösen; liefert true, wenn es jetzt angeheftet ist */
+const readDirty = (user: string) => {
+  try {
+    return localStorage.getItem(dirtyKey(user));
+  } catch {
+    return null;
+  }
+};
+const setDirty = (user: string, v: string | null) => {
+  try {
+    if (v) localStorage.setItem(dirtyKey(user), v);
+    else localStorage.removeItem(dirtyKey(user));
+  } catch {
+    /* privater Modus */
+  }
+};
+
+/** angeheftete Projekte ins Konto schreiben; klappt es (noch) nicht, bleibt die Änderung zum Nachtragen markiert */
+export async function pushPins(user: string): Promise<boolean> {
+  const stamp = readDirty(user);
+  if (!stamp || user === 'local') return true;
+  try {
+    await getAuth().saveQuickPins(readPins(user));
+    // inzwischen erneut geändert? Dann bleibt die neuere Änderung markiert
+    if (readDirty(user) === stamp) setDirty(user, null);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Projekt anheften bzw. lösen; liefert true, wenn es jetzt angeheftet ist (sofort hier, gleich danach im Konto) */
 export function togglePin(user: string, projectId: string): boolean {
   const pins = readPins(user);
   const on = !pins.includes(projectId);
   writeList(pinKey(user), on ? [...pins, projectId] : pins.filter((id) => id !== projectId));
+  setDirty(user, String(Date.now()));
+  void pushPins(user);
   return on;
+}
+
+/**
+ * Stand aus dem Konto übernehmen: Ist hier nichts offen, gilt die Liste aus dem Konto (anderes Gerät hat geändert);
+ * ist hier noch eine Änderung offen, wird sie ins Konto nachgetragen.
+ */
+export function applyAccountPins(user: string, fromAccount: string[] | undefined): 'push' | 'take' | 'same' {
+  if (readDirty(user)) return 'push';
+  if (!fromAccount) return 'same';
+  const here = readPins(user);
+  if (here.length === fromAccount.length && here.every((id, i) => id === fromAccount[i])) return 'same';
+  writeList(pinKey(user), fromAccount);
+  return 'take';
+}
+
+/** App: angeheftete Projekte mit dem Konto abgleichen (beim Start, nach jeder Kontoänderung und wieder online) */
+export function useSyncPins() {
+  const session = useSession();
+  const user = session?.userId;
+  const pins = session?.quickPins;
+  const key = pins ? pins.join(',') : '-';
+  useEffect(() => {
+    if (!user) return;
+    if (applyAccountPins(user, pins) === 'push') void pushPins(user);
+    const online = () => void pushPins(user);
+    window.addEventListener('online', online);
+    return () => window.removeEventListener('online', online);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, key]);
 }
 
 /** Kennung der angemeldeten Person für den Schnellzugriff (ohne Anmeldung: dieses Gerät) */
