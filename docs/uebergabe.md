@@ -6,6 +6,9 @@ Grundregeln stehen in `CLAUDE.md`, Grundsätze in `docs/entscheidungen.md`.
 ## Arbeitsweise mit Daniele
 - **Alles direkt online stellen:** nach den Tests einen Pull Request auf `main` und squash-mergen. Reine Design-Entwürfe nur als
   Vorschau (Artifact), nicht online.
+- **Design-Vorlage (Artifact „BauPad Tasten-Designs“):** jede neue Entwurfsrunde in eine **eigene Spalte**; Spalten nummeriert,
+  die neueste ganz links mit „NEU“ im Titel (ältere rücken nach rechts). Entwürfe zusätzlich als große Einzelbilder schicken –
+  am Handy lässt sich die Vorlage schlecht vergrößern.
 - **Tests vor dem Online-Stellen:** Website-Änderung → Website-Tests und Website-Teil des Tasten-Tests (4 Geräte);
   App-Änderung → kompletter Tasten-Test und die betroffenen Tests. `CHROMIUM_PATH=/opt/pw-browsers/chromium`, vorher `npx vite build`.
 - Neue Fenster/Seiten in `tests/e2e/tasten-shared.ts` ergänzen.
