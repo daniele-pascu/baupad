@@ -291,6 +291,7 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - Darunter (noch in der schwarzen Leiste) **Projektliste und „Foto aufnehmen“**; am PC nur die Projektliste.
 - Projektliste **nicht als Auswahl-Feld mit Name und Pfeil nach unten** (Daniele) – die Projekte sind direkt sichtbar (z. B. runde Projekt-Bilder, Chips, Karten, Reiter, Kacheln, kurze Liste oder Suchfeld mit Chips).
 - Dann die **Tools**, darunter **„Zuletzt verwendet“**: oben klein das Tool (z. B. AUFMASS), darunter etwas größer das Projekt.
+- **Projekt-Register** muss es geben (alle Projekte, Daniele 21.11.). Dazu **Schnellzugriff** auf zuletzt verwendete Tools + Projekte und ein Weg, Projekte selbst zum Schnellzugriff hinzuzufügen (anheften). Entwürfe: Board SZ1/SZ2.
 - Danach wahlweise eingeteilte Arbeiter, Arbeitsstunden oder nichts.
 - **Ganz unten nach dem Scrollen:** Linie mit PAD-Zeichen und „PAD SOFTWARE“ (wie heute).
 - **Schwarz-Weiß gilt für die Tasten** (Daniele, 21.11.): im hellen Modus schwarz, im Dunkelmodus weiß – wie L2/M2, weil es helle und dunkle Einstellung gibt. Die übrige Seite (z. B. Tool-Symbole) darf Farbe haben, aber ruhig: keine grellen, zu satten Farben, nichts Altmodisches oder Pixeliges. Entwürfe vorerst **nur hell** – das dunkle Design wird danach angepasst (Daniele: sonst zu viel Aufwand).
