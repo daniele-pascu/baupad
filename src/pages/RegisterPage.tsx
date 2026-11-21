@@ -1,6 +1,7 @@
 import { SortControl } from '../components/SortControl';
 import { sortList, useListSort, type ListSort } from '../lib/list-sort';
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { togglePin, useQuickAccess } from '../lib/quick-access';
 import { Icon } from '../components/Icon';
 import { TrashButton } from '../components/TrashButton';
 import { Modal } from '../components/Modal';
@@ -15,6 +16,17 @@ import { TOOLS, type ToolId } from '../lib/auth';
 import { adoptProject, costCenterByProject, projectTools } from '../lib/crew-link';
 
 type RegisterOrder = 'name' | 'cc' | 'number' | 'created';
+/** Reiter: zuletzt geöffnet (in irgendeinem Tool), angeheftet (Schnellzugriff), alle Projekte */
+type RegisterTab = 'zuletzt' | 'angeheftet' | 'alle';
+/** Reiter aus der Adresse (?t=angeheftet vom Schnellzugriff) */
+function tabFromUrl(): RegisterTab | null {
+  try {
+    const t = new URLSearchParams(location.search).get('t');
+    return t === 'zuletzt' || t === 'angeheftet' || t === 'alle' ? t : null;
+  } catch {
+    return null;
+  }
+}
 const ORDER_LABELS: Record<RegisterOrder, string> = {
   name: 'Name',
   cc: 'Kostenstelle',
@@ -71,6 +83,27 @@ export function RegisterPage() {
   const [adopt, setAdopt] = useState<Project | null>(null);
   const [editing, setEditing] = useState<Project | null>(null);
   const [creating, setCreating] = useState(false);
+  const { user, recent, pins } = useQuickAccess();
+  /** zuletzt geöffnete Projekte (neueste zuerst, je Projekt einmal) */
+  const recentIds = useMemo(() => [...new Set(recent.filter((e) => e.key.startsWith('p:')).map((e) => e.key.slice(2)))], [recent]);
+  // Reiter je Person gemerkt (Standard: alle Projekte); ?t=… aus dem Schnellzugriff geht vor
+  const tabKey = `registerTab:${user}`;
+  const [tab, setTabState] = useState<RegisterTab>(() => {
+    try {
+      const t = localStorage.getItem(tabKey);
+      return tabFromUrl() ?? (t === 'zuletzt' || t === 'angeheftet' ? t : 'alle');
+    } catch {
+      return tabFromUrl() ?? 'alle';
+    }
+  });
+  const setTab = (t: RegisterTab) => {
+    setTabState(t);
+    try {
+      localStorage.setItem(tabKey, t);
+    } catch {
+      /* privater Modus */
+    }
+  };
 
   const reload = () =>
     void Promise.all([listProjects(), costCenterByProject()])
@@ -82,14 +115,29 @@ export function RegisterPage() {
   useEffect(reload, []);
   useDataChanged(reload);
 
+  /** alle Projekte, die die Person sehen darf */
+  const visible = useMemo(() => (projects ?? []).filter((p) => access.canSite(`p:${p.id}`)), [projects, access.session]); // eslint-disable-line react-hooks/exhaustive-deps
+  const needle = q.trim().toLowerCase();
+  /** Suchen schaltet den Reiter aus: gesucht wird immer in allen Projekten */
+  const searching = needle.length > 0;
   const list = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    const hits = (projects ?? [])
-      .filter((p) => access.canSite(`p:${p.id}`))
-      .filter((p) => !needle || [p.name, p.site, p.number ?? '', ccs.get(p.id) ?? '', p.address, p.client, p.notes].join(' ').toLowerCase().includes(needle));
-    return sortList(hits, order, { name: (p) => p.site || p.name, cc: (p) => ccs.get(p.id) ?? '', number: (p) => p.number ?? '', created: (p) => p.createdAt }, (a, b) => (a.site || a.name).localeCompare(b.site || b.name, 'de'));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projects, ccs, q, order, access.session]);
+    const sorted = (xs: Project[]) => sortList(xs, order, { name: (p) => p.site || p.name, cc: (p) => ccs.get(p.id) ?? '', number: (p) => p.number ?? '', created: (p) => p.createdAt }, (a, b) => (a.site || a.name).localeCompare(b.site || b.name, 'de'));
+    if (searching) return sorted(visible.filter((p) => [p.name, p.site, p.number ?? '', ccs.get(p.id) ?? '', p.address, p.client, p.notes].join(' ').toLowerCase().includes(needle)));
+    if (tab === 'zuletzt') {
+      const byId = new Map(visible.map((p) => [p.id, p]));
+      return recentIds.map((id) => byId.get(id)).filter((p): p is Project => !!p);
+    }
+    if (tab === 'angeheftet') return sorted(visible.filter((p) => pins.includes(p.id)));
+    return sorted(visible);
+  }, [visible, ccs, needle, searching, order, tab, recentIds, pins]);
+  const pin = (p: Project) => {
+    const on = togglePin(user, p.id);
+    toast(on ? `„${p.site || p.name}“ angeheftet – steht jetzt im Schnellzugriff.` : `„${p.site || p.name}“ vom Schnellzugriff gelöst.`, 'success');
+  };
+  const chooseTab = (t: RegisterTab) => {
+    setTab(t);
+    setQ('');
+  };
   const usable = (t: ToolId) => access.canTool(t);
 
   /** Löschen: Projekt mit allem, was in den Tools daran hängt (Stunden der Zeitaufzeichnung bleiben) */
@@ -193,8 +241,34 @@ export function RegisterPage() {
               <span className="sr-only">Suchen</span>
               <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Baustelle, Nummer, Kostenstelle oder Auftraggeber suchen" data-testid="register-search" />
             </label>
-            <SortControl value={order} labels={ORDER_LABELS} onChange={changeOrder} newestFirst={['created']} testId="register-order" />
+            {(searching || tab !== 'zuletzt') && <SortControl value={order} labels={ORDER_LABELS} onChange={changeOrder} newestFirst={['created']} testId="register-order" />}
           </div>
+        )}
+        {projects && projects.length > 0 && (
+          <div className={`register-tabs${searching ? ' off' : ''}`} role="tablist" aria-label="Projekte zeigen" data-testid="register-tabs">
+            {(
+              [
+                ['zuletzt', 'Zuletzt'],
+                ['angeheftet', 'Angeheftet'],
+                ['alle', `Alle ${visible.length}`],
+              ] as [RegisterTab, string][]
+            ).map(([id, label]) => (
+              <button key={id} type="button" role="tab" aria-selected={!searching && tab === id} className={!searching && tab === id ? 'on' : ''} onClick={() => chooseTab(id)} data-testid={`register-tab-${id}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+        {searching && <p className="muted small register-hint" data-testid="register-search-all">Suche in allen Projekten</p>}
+        {projects && projects.length > 0 && !searching && list.length === 0 && tab === 'angeheftet' && (
+          <p className="muted register-hint" data-testid="register-pins-empty">
+            Noch kein Projekt angeheftet. Tippe bei einem Projekt auf die Nadel – es steht dann im Schnellzugriff auf der Tools-Seite.
+          </p>
+        )}
+        {projects && projects.length > 0 && !searching && list.length === 0 && tab === 'zuletzt' && (
+          <p className="muted register-hint" data-testid="register-recent-empty">
+            Noch kein Projekt geöffnet. Was du in einem Tool öffnest, steht hier ganz oben.
+          </p>
         )}
         {projects && projects.length === 0 && (
           <div className="crew-setup" data-testid="register-empty">
@@ -212,7 +286,7 @@ export function RegisterPage() {
             )}
           </div>
         )}
-        {projects && projects.length > 0 && list.length === 0 && <p className="muted">Kein Projekt gefunden.</p>}
+        {projects && projects.length > 0 && searching && list.length === 0 && <p className="muted">Kein Projekt gefunden.</p>}
 
         <ul className="register-list">
           {list.map((p) => {
@@ -249,6 +323,17 @@ export function RegisterPage() {
                   )}
                   {mayCreate && (
                     <span className="register-icons">
+                      <button
+                        type="button"
+                        className={`icon-link register-pin${pins.includes(p.id) ? ' is-pinned' : ''}`}
+                        onClick={() => pin(p)}
+                        aria-pressed={pins.includes(p.id)}
+                        aria-label={pins.includes(p.id) ? 'Vom Schnellzugriff lösen' : 'An den Schnellzugriff anheften'}
+                        title={pins.includes(p.id) ? 'Vom Schnellzugriff lösen' : 'An den Schnellzugriff anheften'}
+                        data-testid="register-pin"
+                      >
+                        <Icon name="pushpin" size={18} />
+                      </button>
                       <button type="button" className="icon-link" onClick={() => setEditing(p)} aria-label="Projekt bearbeiten" title="Projekt bearbeiten" data-testid="register-edit">
                         <Icon name="edit" size={18} />
                       </button>
@@ -297,6 +382,8 @@ export function RegisterPage() {
             try {
               await createRegisterProject({ name: f.name, number: f.number ?? '', address: f.address, client: f.client, date: f.date, notes: f.notes, siteManager: f.siteManager ?? null, costCenter: cc[0] ? [cc[0].number, cc[0].name].filter(Boolean).join(' – ') : '' });
               setCreating(false);
+              setTab('alle'); // neues Projekt sofort sichtbar
+              setQ('');
               toast(`Projekt „${f.name.trim()}“ angelegt.`, 'success');
               reload();
             } catch (e) {

@@ -31,6 +31,8 @@ const PATHS: Record<string, string> = {
   map: 'M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14',
   // Stecknadel (Pin im Mängelplan)
   pin: 'M12 21s-7-6.4-7-11.5A7 7 0 0119 9.5C19 14.6 12 21 12 21zM12 12a2.5 2.5 0 100-5 2.5 2.5 0 000 5z',
+  /* Nadel (Projekt anheften): Kopf, Teller, Spitze */
+  pushpin: 'M8 3h8M9 3v6.5L6 13h12l-3-3.5V3M12 13v8',
   check: 'M5 12l5 5L20 7',
   pause: 'M9 5v14M15 5v14',
   play: 'M7 5l12 7-12 7z',

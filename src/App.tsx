@@ -26,6 +26,7 @@ import { AppLockScreen } from './components/AppLock';
 import { notifyDataChanged, useDataChanged } from './lib/data-events';
 import { canTool, isLocked, ROUTE_TOOL } from './lib/access';
 import { hasStoredSession, initAuth } from './lib/auth-init';
+import { useRecordRecent, useSyncPins } from './lib/quick-access';
 
 /**
  * Seiten werden erst beim Öffnen geladen (eigene Dateien je Seite) – der Start lädt nur den Rahmen und die Tools-Übersicht.
@@ -368,6 +369,10 @@ export function App() {
   }, []);
   const path = usePath();
   const route = parseRoute(path);
+  // Schnellzugriff: geöffnete Baustelle eines Tools merken (Tools-Seite zeigt sie oben)
+  useRecordRecent(route);
+  // angeheftete Projekte gehören zur Person: mit dem Konto abgleichen (jedes Gerät gleich)
+  useSyncPins();
   // Darstellung (Größe, hell/dunkel) und feste Größe nur in der App, nicht auf der Website
   useAppearance(!SITE_ROUTES.has(route.name));
   // alte Adressen still auf die richtige umschreiben (/tools → /baupad/tools …); Abfrage wie ?reset=1 bleibt erhalten

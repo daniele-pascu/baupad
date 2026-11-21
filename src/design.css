@@ -328,6 +328,233 @@ html.app-fixed .tools-page .tile-go {
   }
 }
 
+/* ---------- Schnellzugriff (Tools-Seite oben): Tool klein darüber, Projekt groß darunter ---------- */
+.quick-access {
+  min-width: 0;
+}
+.quick-head,
+.today-block h2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 4px 4px 10px;
+}
+.quick-head h2,
+.today-block h2 {
+  margin: 0;
+  font-size: 1.12rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+.today-block h2 {
+  margin: 14px 4px 10px;
+}
+.crew-today-block h2 {
+  margin-top: 4px;
+}
+.crew-today-block {
+  margin-bottom: 14px;
+}
+.quick-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.86rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+/* eine Zeile zum Wischen (Handy, Tablet hochkant); breite Bildschirme brechen um */
+.quick-row {
+  display: flex;
+  gap: 10px;
+  margin: 0 -4px;
+  padding: 2px 4px 6px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.quick-row::-webkit-scrollbar {
+  display: none;
+}
+.quick-chip {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-height: 62px;
+  max-width: 260px;
+  padding: 10px 18px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+  scroll-snap-align: start;
+  transition: border-color 0.2s, transform 0.2s var(--ease, ease);
+}
+.quick-chip:hover {
+  border-color: var(--border-strong);
+}
+.quick-chip:active {
+  transform: scale(0.98);
+}
+.quick-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.quick-pin {
+  display: inline-flex;
+}
+.quick-pin svg path,
+.is-pinned svg path {
+  fill: currentColor;
+}
+.quick-chip strong {
+  overflow: hidden;
+  font-size: 1.06rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (min-width: 1000px) {
+  .quick-row {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+}
+
+/* ---------- Heute auf der Baustelle (Tools-Seite unten, Team oben) ---------- */
+.crew-today {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+  border: 1px solid var(--d-card-line, var(--border));
+  border-radius: 24px;
+  background: var(--d-card, var(--surface));
+  box-shadow: var(--d-card-shadow, none);
+  color: var(--text);
+  text-decoration: none;
+}
+a.crew-today:hover {
+  border-color: var(--border-strong);
+}
+.crew-today-main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+.crew-today-faces {
+  display: flex;
+  flex: none;
+}
+.crew-face {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin-left: -9px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: #1c1c1e;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.crew-face:first-child {
+  margin-left: 0;
+}
+.crew-face:nth-child(2) {
+  background: #48484d;
+}
+.crew-face:nth-child(3) {
+  background: #6e6e74;
+}
+.crew-face.more {
+  background: #a5a5ab;
+}
+.crew-today-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.crew-today-text strong {
+  font-size: 1.08rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.crew-today-text span {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+.crew-today-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.crew-today-tag {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  max-width: 100%;
+  padding: 6px 11px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  font-size: 0.86rem;
+}
+.crew-today-tag b {
+  flex: none;
+  font-weight: 700;
+}
+.crew-today-tag span {
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* ruhige Farbpunkte: krank (gedämpftes Rot), Urlaub (gedämpftes Blau), noch frei (Grau) */
+.crew-today-tag::before {
+  content: '';
+  flex: none;
+  align-self: center;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #a5a5ab;
+}
+.crew-today-tag.sick::before {
+  background: #b5654f;
+}
+.crew-today-tag.away::before {
+  background: #5f7a99;
+}
+html.app-fixed[data-theme='dark'] .crew-face {
+  border-color: var(--bg);
+}
+html.app-fixed[data-theme='dark'] .crew-face:first-child {
+  background: #e8eae4;
+  color: #101211;
+}
+
 /* Kacheln in der Farbe ihres Werkzeugs – matt: Farbe leicht entsättigt (mit Grau gemischt), sanfter Verlauf ohne Glanz,
    schlichter neutraler Schatten statt farbigem Leuchten; großes Symbol im Hintergrund, Symbol im Kreis, weiße Schrift */
 html.app-fixed .tools-page .tool-tile {
@@ -840,4 +1067,49 @@ html[data-theme='dark'] .btn.btn-ink:active {
   html.app-fixed .tools-page a.tool-tile:hover {
     background: linear-gradient(160deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.18) 100%), var(--tool);
   }
+}
+
+/* ---------- Projektregister: Reiter Zuletzt / Angeheftet / Alle (Suchen schaltet sie aus) ---------- */
+.register-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 3px;
+  margin: 4px 0 14px;
+  padding: 3px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.register-tabs button {
+  min-height: 40px;
+  padding: 0 8px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 560;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.register-tabs button.on {
+  background: var(--surface);
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+html.app-fixed[data-theme='dark'] .register-tabs button.on {
+  background: var(--primary-soft);
+}
+/* während der Suche: Reiter ausgeschaltet (antippen beendet die Suche) */
+.register-tabs.off button {
+  color: var(--muted);
+}
+.register-hint {
+  margin: -4px 4px 12px;
+}
+.register-pin:not(.is-pinned) {
+  color: var(--muted);
 }

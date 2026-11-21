@@ -108,6 +108,21 @@ export interface Session {
   providers: string[];
   /** Kontext der Datenbank wurde gelesen (online); fehlt offline – dann sind Firma und Rolle nur angenommen */
   contextLoaded?: boolean;
+  /** angeheftete Projekte (Schnellzugriff) – im Konto gespeichert, auf jedem Gerät der Person gleich; fehlt = noch nie gespeichert */
+  quickPins?: string[];
+}
+
+/** angeheftete Projekte aus den Benutzerdaten (gespeichert als JSON-Text) */
+export function parseQuickPins(v: unknown): string[] | undefined {
+  let x = v;
+  if (typeof x === 'string') {
+    try {
+      x = JSON.parse(x);
+    } catch {
+      return undefined;
+    }
+  }
+  return Array.isArray(x) ? x.filter((id): id is string => typeof id === 'string' && id.length > 0) : undefined;
 }
 
 /** Ergebnis einer Registrierung: entweder sofort angemeldet oder E-Mail-Bestätigung ausstehend */
@@ -133,6 +148,8 @@ export interface AuthBackend {
   updateEmail(email: string): Promise<void>;
   /** weitere Anmeldemethode verbinden (leitet zum Anbieter weiter) */
   linkProvider(provider: Exclude<AuthProviderId, 'email'>): Promise<void>;
+  /** angeheftete Projekte im Konto speichern (Schnellzugriff auf allen Geräten der Person) */
+  saveQuickPins(ids: string[]): Promise<void>;
   /** Sitzung neu aus dem Dienst lesen (nach Profiländerungen) und Beobachter benachrichtigen */
   refresh(): Promise<Session | null>;
   /** ruft cb bei jeder Änderung (Anmelden, Abmelden, Token erneuert); liefert Abmeldefunktion */
@@ -177,6 +194,9 @@ export class NotConnectedAuth implements AuthBackend {
   }
   async linkProvider() {
     throw new AuthNotConnected();
+  }
+  async saveQuickPins() {
+    /* ohne Anmeldedienst: nur auf diesem Gerät */
   }
   async refresh() {
     return null;
