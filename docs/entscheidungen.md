@@ -289,6 +289,7 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 ## Tools-Seite neu – feste Vorgaben für die Entwürfe (21.11.2026, Daniele)
 - **Leiste oben immer schwarz** mit BauPad, Speicher-Taste und Nachname des Nutzers – bei jedem Entwurf, hell wie dunkel.
 - Darunter (noch in der schwarzen Leiste) **Projektliste und „Foto aufnehmen“**; am PC nur die Projektliste.
+- Projektliste **nicht als Auswahl-Feld mit Name und Pfeil nach unten** (Daniele) – die Projekte sind direkt sichtbar (z. B. runde Projekt-Bilder, Chips, Karten, Reiter, Kacheln, kurze Liste oder Suchfeld mit Chips).
 - Dann die **Tools**, darunter **„Zuletzt verwendet“**: oben klein das Tool (z. B. AUFMASS), darunter etwas größer das Projekt.
 - Danach wahlweise eingeteilte Arbeiter, Arbeitsstunden oder nichts.
 - **Ganz unten nach dem Scrollen:** Linie mit PAD-Zeichen und „PAD SOFTWARE“ (wie heute).
