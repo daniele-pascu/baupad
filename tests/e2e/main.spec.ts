@@ -446,7 +446,8 @@ test('Plan-Export mit BauPad-Logo (Option, gemerkt) – Dateieigenschaften bleib
   const dl = await catchDownload(page, () => page.getByTestId('pdf-export-run').click());
   const file = await saveDownload(dl, 'export-a101-logo.pdf');
   const text = execFileSync('pdftotext', ['-layout', file, '-'], { encoding: 'utf8' });
-  expect(text).toMatch(/BauPad/);
+  // Marke rechts: „PAD SOFTWARE“ als Text, „BauPad“ als Schriftzug in der Markenschrift (Vektor, kein Text)
+  expect(text).toMatch(/P\s?A\s?D\s+S\s?O\s?F\s?T\s?W\s?A\s?R\s?E/);
   expect(text).toMatch(/A-101 Untergeschoss UG/); // Kopfzeile links unverändert
   expect(execFileSync('pdfinfo', [file], { encoding: 'utf8' })).not.toMatch(/BauPad|pdf-lib/i);
   execFileSync('pdftoppm', ['-png', '-r', '110', '-singlefile', file, join(OUT, 'export-a101-logo')]);
@@ -456,7 +457,7 @@ test('Plan-Export mit BauPad-Logo (Option, gemerkt) – Dateieigenschaften bleib
   await page.getByTestId('pdf-brand').uncheck();
   const dl2 = await catchDownload(page, () => page.getByTestId('pdf-export-run').click());
   const text2 = execFileSync('pdftotext', [await saveDownload(dl2, 'export-a101-ohne.pdf'), '-'], { encoding: 'utf8' });
-  expect(text2).not.toMatch(/BauPad/);
+  expect(text2).not.toMatch(/BauPad|S\s?O\s?F\s?T\s?W\s?A\s?R\s?E/);
 });
 
 test('Weitere Pläne: gedrehte Seite und Planbereich – PDF-Export mehrerer Pläne', async () => {

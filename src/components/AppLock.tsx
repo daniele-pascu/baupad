@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { BauPadWordmark } from './BauPadWordmark';
 import { createPortal } from 'react-dom';
 import { bioAvailable, checkPin, fails, lockConfig, MAX_FAILS, registerFail, unlock, unlockWithBio, WAIT_FROM } from '../lib/app-lock';
 import { wipeDeviceData } from '../lib/device-wipe';
@@ -74,7 +75,7 @@ export function AppLockScreen({ name }: { name: string }) {
   return createPortal(
     <div className="app-lock" role="dialog" aria-modal="true" aria-labelledby="app-lock-title" data-testid="app-lock">
       <div className="app-lock-card">
-        <img src="/icons/logo-header.png" alt="BauPad" height={30} className="app-lock-logo" />
+        <BauPadWordmark height={26} className="app-lock-logo" />
         <h1 id="app-lock-title" className="app-lock-title">
           BauPad ist gesperrt
         </h1>

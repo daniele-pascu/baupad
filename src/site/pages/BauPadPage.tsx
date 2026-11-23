@@ -1,4 +1,5 @@
 import { type CSSProperties } from 'react';
+import { BauPadWordmark } from '../../components/BauPadWordmark';
 import { InstallButton } from '../../components/InstallApp';
 import { ToolIcon } from '../../components/ToolIcon';
 import { paths } from '../../lib/router';
@@ -30,10 +31,12 @@ export function BauPadPage() {
     >
       <section className="bp-hero" aria-labelledby="ps-bp-title">
         <span className="ps-app-icon bp-icon" aria-hidden="true">
-          <span>BauPad</span>
+          <BauPadWordmark label={null} />
         </span>
         <h1 id="ps-bp-title" data-testid="product-title">
-          {t.product}
+          {/* Schriftzug in der Markenschrift (auf jedem Gerät gleich); der Text bleibt für Vorlesen und Suche */}
+          <span className="sr-only">{t.product}</span>
+          <BauPadWordmark label={null} className="bp-title-mark" />
         </h1>
         <p className="bp-tagline">{t.home.product.tagline}</p>
         <p className="bp-status">{b.hero.status}</p>

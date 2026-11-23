@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { BauPadWordmark } from '../../components/BauPadWordmark';
 import { langOf, LANGS, navigate, parseRoute, paths, sitePath, usePath, type Lang, type SiteRouteName, PRODUCT_SLUG_OF } from '../../lib/router';
 import { useSession } from '../../lib/use-session';
 import { contactData } from '../contact-data';
@@ -41,7 +42,7 @@ const NAV: {
 function AppIcon() {
   return (
     <span className="ps-app-icon" aria-hidden="true">
-      <span>BauPad</span>
+      <BauPadWordmark label={null} />
     </span>
   );
 }

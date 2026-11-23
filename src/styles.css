@@ -2468,10 +2468,18 @@ tr.lv-flagged td {
   align-items: center;
   justify-self: start;
 }
-.site-logo img {
+.site-logo img,
+.site-logo .baupad-wordmark {
   display: block;
   height: 30px;
   width: auto;
+}
+.site-logo .baupad-wordmark {
+  color: #fff;
+}
+.baupad-wordmark {
+  display: block;
+  flex: none;
 }
 .site-links {
   display: flex;
@@ -14755,7 +14763,7 @@ html[data-theme='dark'] .auth-divider::after {
 }
 
 /* App-Leiste: Logo nur als weiße Schrift (ohne schwarzes Kästchen – dessen Rand war auf der Leiste zu sehen) */
-.site-logo img.logo-word {
+.site-logo .logo-word {
   height: 21px;
 }
 

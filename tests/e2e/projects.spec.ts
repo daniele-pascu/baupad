@@ -29,7 +29,9 @@ test('Website: Startseite – Name, Motto, BauPad mit den sieben Werkzeugen, Arb
   // kein Bild (Handy-Bild entfernt, 19.11.2026), alles echter Text; Grafiken nur die sieben Werkzeug-Symbole
   await expect(page.locator('.ps-main img')).toHaveCount(0);
   await expect(page.locator('.ps-main canvas')).toHaveCount(0);
-  await expect(page.locator('.ps-main svg')).toHaveCount(7);
+  await expect(page.locator('.ps-main svg:not(.baupad-wordmark)')).toHaveCount(7);
+  // BauPad als Schriftzug in der Markenschrift: im App-Symbol und als Name
+  await expect(page.locator('.ps-main svg.baupad-wordmark')).toHaveCount(2);
   await expect(page.locator('.ph-win')).toHaveCount(1); // nur BauPad (mit den Werkzeugen) im Fenster
   await expect(page.locator('#entwicklung.ph-sec, #kontakt.ph-sec')).toHaveCount(2); // Arbeitsweise und Kontakt frei, ohne Fenster
   // Farbe: Akzent Violett über den Überschriften, die Linie der Arbeitsweise läuft von Violett in Petrol

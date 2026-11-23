@@ -41,6 +41,7 @@ import {
 import { canvasToBlob, closePdf, clampRenderScale, imageToCanvas, loadImageBitmap, openPdf, pageViewport, renderPdfRegion, renderPdfToCanvas } from './pdf';
 import type { ProjectState } from './store';
 import { exportPaper, layoutSheet, planHeading, planSubline, type OverviewCorner, type SheetLayout } from './sheet-layout';
+import { WORDMARK_PATH, WORDMARK_VIEWBOX } from './wordmark';
 import { DEFAULT_TRANSPARENCY, fillOf, fillPaths, outlinePoints, strokeGeometry } from './style';
 import type { Component, Damage, DrawElement, LegendPos, Plan, Rect, Shape, ShapeStyle, TextFont } from './types';
 import { alignFactor, pdfStandardFont } from './text-font';
@@ -424,6 +425,8 @@ function drawSheetHeader(ctx: Ctx, page: PDFPage, pageH: number, header: Rect, p
 // Marke V10: kleine Zeile „PAD SOFTWARE“ mit PAD-Zeichen über einer feinen Linie, darunter „BauPad“
 
 const BRAND_GAP = 14;
+/** Höhe des Schriftzugs „BauPad“ in der Marke (pt) */
+const WORDMARK_H_PT = 9.6;
 /** PAD-Zeichen (viewBox -4 0 859 830): zwei Flächen und der schattierte Keil */
 const PAD_MARK = [
   'M242.85 0.63 L546.82 0.63 C710.14 0.63 854.78 131.35 854.78 311.97 L854.78 356.97 C854.78 539.70 711.66 701.02 541.2 701.02 L286.70 701.02 L363.07 529.84 L562.68 529.84 C610.05 529.84 690.17 455.80 690.17 372.06 L690.17 327.06 C690.17 212.94 600.07 165.81 527.98 165.81 L151.52 165.81 Z',
@@ -433,8 +436,9 @@ const PAD_MARK_SHADE = 'M480.25 245.14 L626.37 499.85 C604.63 518.57 581.16 529.
 
 /** zeichnet die Marke rechtsbündig an `right`, Oberkante `top` (PDF-Koordinaten); gibt die Breite zurück */
 function drawBrand(ctx: Ctx, page: PDFPage, right: number, top: number): number {
-  const word = 'BauPad';
-  const wordSize = 13;
+  // „BauPad“ als Vektor-Schriftzug in der Markenschrift (wie in der App), Höhe wie zuvor die 13-pt-Schrift
+  const wordH = WORDMARK_H_PT;
+  const ws = wordH / WORDMARK_VIEWBOX.h;
   const cap = 'PAD SOFTWARE';
   const capSize = 3.9;
   const track = capSize * 0.22;
@@ -442,7 +446,7 @@ function drawBrand(ctx: Ctx, page: PDFPage, right: number, top: number): number 
   const scale = markH / 830;
   const markW = 859 * scale;
   const capW = capWidth(ctx, capSize, track);
-  const wordW = ctx.bold.widthOfTextAtSize(word, wordSize);
+  const wordW = WORDMARK_VIEWBOX.w * ws;
   const w = Math.max(markW + 2.5 + capW, wordW);
   const x0 = right - w;
   for (const d of PAD_MARK) page.drawSvgPath(d, { x: x0 + 4 * scale, y: top, scale, color: rgb(0.17, 0.17, 0.18) });
@@ -456,7 +460,8 @@ function drawBrand(ctx: Ctx, page: PDFPage, right: number, top: number): number 
   });
   const ry = top - markH - 2.4;
   page.drawLine({ start: { x: x0, y: ry }, end: { x: x0 + w, y: ry }, thickness: 0.4, color: rgb(0.74, 0.74, 0.77) });
-  page.drawText(word, { x: x0 - 0.4, y: ry - 2.6 - wordSize * 0.72, size: wordSize, font: ctx.bold, color: rgb(0.07, 0.07, 0.08) });
+  // Oberkante des Schriftzugs 2,6 pt unter der feinen Linie (Pfad: y nach unten, oberster Punkt bei WORDMARK_VIEWBOX.y)
+  page.drawSvgPath(WORDMARK_PATH, { x: x0 - WORDMARK_VIEWBOX.x * ws, y: ry - 2.6 + WORDMARK_VIEWBOX.y * ws, scale: ws, color: rgb(0.07, 0.07, 0.08) });
   return w;
 }
 /** Schrift je Buchstabe von „PAD SOFTWARE“: die ersten drei (PAD) fett, der Rest normal */
@@ -468,7 +473,7 @@ function brandWidth(ctx: Ctx): number {
   const capSize = 3.9;
   const track = capSize * 0.22;
   const capW = capWidth(ctx, capSize, track);
-  return Math.max((859 / 830) * 4.4 + 2.5 + capW, ctx.bold.widthOfTextAtSize('BauPad', 13));
+  return Math.max((859 / 830) * 4.4 + 2.5 + capW, (WORDMARK_VIEWBOX.w * WORDMARK_H_PT) / WORDMARK_VIEWBOX.h);
 }
 
 // ---------------------------------------------------------------------------
