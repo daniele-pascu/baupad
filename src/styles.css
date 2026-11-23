@@ -15073,3 +15073,52 @@ html[data-theme='dark'] .crew-ww-legend b.o {
   background: #362c12;
   color: #f2c94c;
 }
+
+/* Team, Ansicht „Arbeiter“ mit Sa/So am Handy: schmälere Felder und kleinere Schrift, die ganze Woche passt */
+@media (max-width: 759px) {
+  .crew-ww-grid.dense {
+    --ww-cell: 31px;
+  }
+  .crew-ww-grid.dense .crew-ww-head,
+  .crew-ww-grid.dense .crew-ww-row {
+    gap: 3px;
+  }
+  .crew-ww-grid.dense .crew-ww-row {
+    padding: 6px 7px;
+  }
+  .crew-ww-grid.dense .crew-ww-head {
+    padding: 0 8px;
+    font-size: 0.68rem;
+  }
+  .crew-ww-grid.dense .crew-ww-cell {
+    height: 30px;
+    padding: 0 2px;
+    border-radius: 7px;
+    font-size: 0.68rem;
+  }
+  .crew-ww-grid.dense .crew-ww-name {
+    gap: 6px;
+    font-size: 0.9rem;
+  }
+}
+/* Weiterführen: Liste der Baustellen mit ihrer Farbe */
+.crew-forward-list {
+  list-style: none;
+  margin: 8px 0 12px;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.crew-forward-row {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--crew, var(--border-strong));
+  border-radius: 10px;
+}
+.crew-forward-name {
+  display: grid;
+  min-width: 0;
+}
+.crew-forward-name strong {
+  overflow-wrap: anywhere;
+}

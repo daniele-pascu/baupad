@@ -73,3 +73,71 @@ test('Team: Arbeiter-Ansicht – Woche je Arbeiter, nach Funktion oder A–Z, An
   await expect(page.getByTestId('site-card')).toHaveCount(1);
   await expect(page.getByTestId('crew-worker-week')).toHaveCount(0);
 });
+
+test('Team: einzelne Baustellen mit ihrer Partie in die nächste Woche weiterführen; Samstag in der Arbeiter-Ansicht', async ({ page }) => {
+  await freshStart(page);
+  await page.goto('./#/arbeitereinteilung');
+  await page.getByTestId('week-date').fill('2026-11-02'); // KW 45
+  await page.getByTestId('crew-workers').click();
+  const sp = page.getByTestId('staff-page');
+  for (const [first, last] of [
+    ['Max', 'Muster'],
+    ['Anna', 'Berg'],
+  ]) {
+    await sp.getByTestId('staff-new').click();
+    await sp.getByTestId('worker-firstName').fill(first);
+    await sp.getByTestId('worker-lastName').fill(last);
+    await sp.getByTestId('worker-save').click();
+    await expect(sp.getByTestId('worker-row').filter({ hasText: last })).toHaveCount(1);
+  }
+  await page.goto('./baupad/arbeitereinteilung');
+  await page.getByTestId('week-date').fill('2026-11-02');
+  await expect(page.getByTestId('week-label')).toHaveText('KW 45');
+  for (const n of ['Dauerbaustelle', 'Kurzbaustelle']) {
+    await page.getByTestId('add-site').click();
+    await newWeekProject(page, n);
+  }
+  const add = async (siteName: string, day: number, who: string) => {
+    await page.locator(`[data-testid="site-card"][data-site="${siteName}"] [data-day="${day}"] [data-testid="day-add"]`).click();
+    const ad = page.getByTestId('assign-dialog');
+    await ad.locator(`[data-testid="assign-worker"][data-worker="${who}"] input`).check();
+    await ad.getByTestId('assign-save').click();
+    await expect(ad).toHaveCount(0);
+  };
+  await add('Dauerbaustelle', 0, 'Muster Max');
+  await add('Kurzbaustelle', 0, 'Berg Anna');
+  // Anna auch am Samstag (eigene Partie am Wochenende)
+  await add('Kurzbaustelle', 5, 'Berg Anna');
+  // Arbeiter-Ansicht zeigt den Samstag, am Handy kompakt
+  await page.getByTestId('crew-view-workers').click();
+  const anna = page.locator('[data-testid="crew-ww-row"][data-worker="Berg Anna"]');
+  await expect(anna.locator('[data-testid="crew-ww-cell"][data-day="5"]')).toHaveAttribute('data-kind', 'site');
+  await page.getByTestId('crew-view-sites').click();
+
+  // nur die Dauerbaustelle (mit Max) in KW 46 weiterführen
+  await page.getByTestId('crew-forward').click();
+  const fd = page.getByTestId('forward-dialog');
+  await expect(fd.getByTestId('forward-site')).toHaveCount(2);
+  await fd.locator('[data-testid="forward-site"][data-site="Kurzbaustelle"] input').uncheck();
+  await expect(fd.getByTestId('forward-workers')).toBeChecked();
+  await fd.getByTestId('forward-save').click();
+  await expect(fd).toHaveCount(0);
+  await expect(page.locator('.toast', { hasText: 'in KW 46 weitergeführt' })).toHaveCount(1);
+  // KW 46: nur die Dauerbaustelle, Max an denselben Tagen; die Kurzbaustelle fehlt
+  await page.getByTestId('week-next').click();
+  await expect(page.getByTestId('week-label')).toHaveText('KW 46');
+  await expect(page.getByTestId('site-card')).toHaveCount(1);
+  await expect(page.locator('[data-testid="site-card"][data-site="Dauerbaustelle"]')).toHaveCount(1);
+  await page.getByTestId('crew-view-workers').click();
+  const max = page.locator('[data-testid="crew-ww-row"][data-worker="Muster Max"]');
+  await expect(max.locator('[data-testid="crew-ww-cell"][data-kind="site"]')).toHaveCount(5);
+  // KW 46 ist jetzt geplant: noch einmal aus KW 45 weiterführen ergänzt nur (nichts geht verloren)
+  await page.getByTestId('crew-view-sites').click();
+  await page.getByTestId('week-prev').click();
+  await page.getByTestId('crew-forward').click();
+  await expect(fd).toContainText('schon geplant');
+  await fd.locator('[data-testid="forward-site"][data-site="Dauerbaustelle"] input').uncheck();
+  await fd.getByTestId('forward-save').click();
+  await page.getByTestId('week-next').click();
+  await expect(page.getByTestId('site-card')).toHaveCount(2);
+});

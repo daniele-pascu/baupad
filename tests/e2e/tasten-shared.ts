@@ -225,6 +225,12 @@ export function tastenTests() {
     await page.getByTestId('crew-ww-order-name').click();
     await pruefe(page, 'Team Ansicht Arbeiter A–Z', out);
     await page.getByTestId('crew-view-sites').click();
+    // Weiterführen: einzelne Baustellen in die nächste Woche
+    await page.getByTestId('crew-forward').click();
+    await expect(page.getByTestId('forward-dialog')).toBeVisible();
+    await pruefe(page, 'Team In nächste Woche weiterführen', out);
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('forward-dialog')).toHaveCount(0);
     // Projektregister: Nadel, Reiter, Suche
     await page.goto('./baupad/projektregister');
     await page.getByTestId('register-pin').first().click();
