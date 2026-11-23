@@ -161,7 +161,8 @@ html.app-fixed .page.tools-page {
   gap: 18px;
   align-content: start;
   max-width: 1240px;
-  padding-bottom: 56px;
+  /* die Seite endet mit der Unterschrift „PAD SOFTWARE“ – darunter kein leerer Platz zum Weiterscrollen */
+  padding-bottom: 0;
 }
 html.app-fixed .tools-page > * {
   grid-column: 1 / -1;
