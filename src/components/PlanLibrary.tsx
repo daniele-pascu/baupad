@@ -11,7 +11,7 @@ import type { Plan, PlanRotation, Rect, SourceFile } from '../lib/types';
 import { Icon } from './Icon';
 import { Modal } from './Modal';
 import { PlanFields, planNumberError, type PlanFieldValues } from './PlanFields';
-import { confirmDialog, showError, toast } from './ui';
+import { confirmDialog, promptDialog, showError, toast } from './ui';
 import { deepClone } from '../lib/compat';
 
 /** Planquelle für ein neues Aufmaß: Originaldatei, Seite und Ausschnitt (aus einem vorhandenen Aufmaß oder ganze Seite) */
@@ -96,6 +96,18 @@ export function PlanLibrary({ data, onClose, onReuse }: { data: ProjectState; on
     toast('Originalplan entfernt.');
   };
 
+  /** Plan umbenennen: nur die Bezeichnung in der Bibliothek – die Dateiendung (.pdf, .jpg …) bleibt erhalten */
+  const renameFile = async (file: SourceFile) => {
+    const ext = /\.[A-Za-z0-9]{2,5}$/.exec(file.name)?.[0] ?? '';
+    const input = await promptDialog({ title: 'Plan umbenennen', label: 'Bezeichnung', value: ext ? file.name.slice(0, -ext.length) : file.name });
+    const base = input?.trim();
+    if (!base) return;
+    const name = ext && !base.toLowerCase().endsWith(ext.toLowerCase()) ? `${base}${ext}` : base;
+    if (name === file.name) return;
+    putRecord('files', { ...file, name });
+    toast('Plan umbenannt.', 'success', 2000);
+  };
+
   // Pläne nur in die Bibliothek hochladen (ohne Aufmaß) – später mit „Neues Aufmaß“ auswählen
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -163,6 +175,9 @@ export function PlanLibrary({ data, onClose, onReuse }: { data: ProjectState; on
             <header className="lib-file-head">
               <Icon name={file.kind === 'pdf' ? 'pdf' : 'file'} size={18} />
               <strong className="lib-file-name">{file.name}</strong>
+              <button type="button" className="icon-btn icon-btn-sm" onClick={() => void renameFile(file)} aria-label={`„${file.name}“ umbenennen`} title="Umbenennen" data-testid="library-rename">
+                <Icon name="edit" size={16} />
+              </button>
               <span className="muted small">
                 {file.kind === 'pdf' ? `PDF · ${file.pageCount} ${file.pageCount === 1 ? 'Seite' : 'Seiten'}` : 'Bild'} · {kb(file.size)} · hochgeladen am{' '}
                 {new Date(file.createdAt).toLocaleDateString('de-DE')}

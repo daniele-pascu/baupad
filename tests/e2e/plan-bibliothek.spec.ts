@@ -241,6 +241,19 @@ test('Planbibliothek: Pläne nur hochladen (ohne Aufmaß), später als neues Auf
   // kein Aufmaß angelegt
   expect(live(await records(page, 'plans'))).toHaveLength(0);
   await waitSaved(page);
+  // Plan umbenennen: Bezeichnung ändern, Dateiendung bleibt; über die Suche zu finden
+  await lib.locator('[data-testid="library-file"][data-file="parkdeck.png"]').getByTestId('library-rename').click();
+  const prompt = page.getByTestId('prompt-dialog');
+  await expect(prompt.locator('input')).toHaveValue('parkdeck');
+  await prompt.locator('input').fill('Parkdeck Ebene 2');
+  await prompt.getByRole('button', { name: 'Speichern' }).click();
+  await expect(lib.locator('[data-testid="library-file"][data-file="Parkdeck Ebene 2.png"]')).toHaveCount(1);
+  await expect(lib.locator('[data-testid="library-file"][data-file="parkdeck.png"]')).toHaveCount(0);
+  await waitSaved(page);
+  expect((live(await records(page, 'files')) as unknown as { name: string }[]).map((f) => f.name).sort()).toEqual(['Parkdeck Ebene 2.png', 'plaene.pdf']);
+  await lib.getByTestId('library-search').fill('ebene 2');
+  await expect(lib.getByTestId('library-file')).toHaveCount(1);
+  await lib.getByTestId('library-search').fill('');
   // später: Seite des PDFs als neues Aufmaß wählen
   await lib.locator('[data-testid="library-file"][data-file="plaene.pdf"]').getByTestId('library-reuse').first().click();
   const dlg = page.getByTestId('reuse-plan');
