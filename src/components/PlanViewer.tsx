@@ -29,7 +29,7 @@ import {
   isOpenShape,
   moveVertex,
   polygonShape,
-  segmentsShape,
+  shapeParts,
   canEditVertexCount,
   insertVertex,
   nearestEdge,
@@ -77,9 +77,13 @@ export type Tool =
 /** Werkzeuge, die Punkt für Punkt gesetzt werden (Polygon = immer geschlossen, Polylinie = offen oder geschlossen) */
 const isPointTool = (t: Tool) => t === 'polygon' || t === 'polyline' || t === 'wall' || t === 'arc' || t === 'probe' || t === 'dimension';
 /** Bezugspunkt für Fang/90° beim nächsten Punkt – bei der Maßlinie ist der dritte Punkt (Abstand) frei */
-const snapFrom = (t: Tool, pts: Point[], segments = false) => (t === 'dimension' && pts.length >= 2 ? undefined : segments && pts.length % 2 === 0 ? undefined : pts[pts.length - 1]);
-/** Linien einzeln: fertige Linien der laufenden Messung (Fang an ihren Enden und Mitten) */
-const draftLines = (pts: Point[]): Shape[] => Array.from({ length: Math.floor(pts.length / 2) }, (_, i) => lineShape(pts[2 * i], pts[2 * i + 1]));
+const snapFrom = (t: Tool, pts: Point[], segments = false, newLine = false) => (t === 'dimension' && pts.length >= 2 ? undefined : segments && newLine ? undefined : pts[pts.length - 1]);
+/**
+ * Länge (Freie Form): jeder Punkt verbindet mit dem vorigen; „Neue Linie“ setzt eine Lücke – der nächste Punkt beginnt
+ * eine eigene Linie (Index in `breaks`). Fertige Linien der laufenden Messung (Fang an ihren Enden und Mitten).
+ */
+const draftLines = (pts: Point[], breaks: number[] = []): Shape[] =>
+  pts.slice(1).flatMap((q, i) => (breaks.includes(i + 1) ? [] : [lineShape(pts[i], q)]));
 
 /** Maßlinie aus Punkt A, Punkt B und dem Abstand (Punkt C): Lage der Maßlinie und Abstand zu den Punkten (Seiteneinheiten) */
 export function dimensionFrom(a: Point, b: Point, c: Point): { a2: Point; b2: Point; offset: number; len: number } {
@@ -142,6 +146,8 @@ export interface PlanViewerHandle {
   armClick(p: Point | null): void;
   /** Zuletzt gesetzten Punkt entfernen */
   undoPolygonPoint(): void;
+  /** Länge (Freie Form): nächster Punkt beginnt eine eigene Linie */
+  newSegmentLine(): void;
   /** Zuletzt entfernten Punkt wieder setzen (nach „Zurück“) */
   redoPolygonPoint(): void;
   /** Gibt es einen Punkt zum Wiederherstellen? */
@@ -350,6 +356,9 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   };
   /** Werkzeug „Fläche (Punkte)“: bisher gesetzte Punkte und Mauszeigerposition für die Vorschau */
   const poly = useRef<Point[]>([]);
+  /** Länge (Freie Form): hier beginnt eine neue Linie (Punktindex); = poly.length heißt „nächster Punkt beginnt neu“ */
+  const segBreaks = useRef<number[]>([]);
+  const segNewLine = () => segBreaks.current.includes(poly.current.length);
   /** mit „Zurück“ entfernte Punkte (für „Vor“); jeder neue Punkt leert die Liste */
   const redoPts = useRef<Point[]>([]);
   /** Freihand als Entwurf: gezeichnete Striche und mit „Zurück“ entfernte (für „Vor“) */
@@ -651,11 +660,26 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         forceRender((n) => n + 1);
         return;
       }
+      // Länge (Freie Form): zuerst eine eben gesetzte „Neue Linie“ zurücknehmen
+      if (segNewLine() && poly.current.length) {
+        segBreaks.current = segBreaks.current.filter((b) => b !== poly.current.length);
+        forceRender((n) => n + 1);
+        return;
+      }
       const last = poly.current[poly.current.length - 1];
       if (last) redoPts.current = [...redoPts.current, last];
       poly.current = poly.current.slice(0, -1);
+      segBreaks.current = segBreaks.current.filter((b) => b <= poly.current.length);
       propsRef.current.onPolygonChange?.(poly.current.length);
       forceRender((n) => n + 1);
+    },
+    /** Länge (Freie Form): der nächste Punkt beginnt eine eigene Linie (Lücke, z. B. Risse) */
+    newSegmentLine: () => {
+      const n = poly.current.length;
+      if (n < 2 || segBreaks.current.includes(n)) return;
+      segBreaks.current = [...segBreaks.current, n];
+      polyHover.current = null;
+      forceRender((x) => x + 1);
     },
     redoPolygonPoint: () => {
       if (fhDraft()) {
@@ -1050,8 +1074,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       if (e.pointerType !== 'touch' && propsRef.current.snap && t !== 'select' && viewRef.current) {
         const before = snapMark.current;
         const seg = !!propsRef.current.segments && t === 'polyline';
-        const last = snapFrom(t, poly.current, seg);
-        snapAt(clampP(toPage(viewRef.current, localPoint(e))), { tool: t, scale: viewRef.current.scale, from: last, ...(seg ? { draft: draftLines(poly.current) } : {}) });
+        const last = snapFrom(t, poly.current, seg, seg && segNewLine());
+        snapAt(clampP(toPage(viewRef.current, localPoint(e))), { tool: t, scale: viewRef.current.scale, from: last, ...(seg ? { draft: draftLines(poly.current, segBreaks.current) } : {}) });
         if (before?.kind !== snapMark.current?.kind || before?.p.x !== snapMark.current?.p.x || before?.p.y !== snapMark.current?.p.y) forceRender((n) => n + 1);
       }
       // Klick-Klick-Strich: Vorschau von Punkt A zur Maus (mit Fang wie der Klick)
@@ -1071,8 +1095,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       if (isPointTool(propsRef.current.tool) && (poly.current.length || propsRef.current.tool === 'probe') && viewRef.current) {
         const hp = clampP(toPage(viewRef.current, localPoint(e)));
         const seg = !!propsRef.current.segments && t === 'polyline';
-        const last = propsRef.current.tool === 'probe' ? (propsRef.current.probeFrom ?? undefined) : snapFrom(propsRef.current.tool, poly.current, seg);
-        polyHover.current = e.pointerType !== 'touch' && propsRef.current.snap ? clampP(snapAt(hp, { tool: t, scale: viewRef.current.scale, from: last, ...(seg ? { draft: draftLines(poly.current) } : {}) })) : hp;
+        const last = propsRef.current.tool === 'probe' ? (propsRef.current.probeFrom ?? undefined) : snapFrom(propsRef.current.tool, poly.current, seg, seg && segNewLine());
+        polyHover.current = e.pointerType !== 'touch' && propsRef.current.snap ? clampP(snapAt(hp, { tool: t, scale: viewRef.current.scale, from: last, ...(seg ? { draft: draftLines(poly.current, segBreaks.current) } : {}) })) : hp;
         forceRender((n) => n + 1);
       }
       return;
@@ -1374,7 +1398,9 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         const pts = poly.current;
         const probing = propsRef.current.tool === 'probe';
         const seg = !!propsRef.current.segments && propsRef.current.tool === 'polyline';
-        const pp = clampP(snap ? snapAt(raw, { scale: v.scale, tool: propsRef.current.tool, from: probing ? (propsRef.current.probeFrom ?? undefined) : snapFrom(propsRef.current.tool, pts, seg), ...(seg ? { draft: draftLines(pts) } : {}) }) : raw);
+        // neue Messung: alte Lücken verwerfen
+        if (seg && !pts.length) segBreaks.current = [];
+        const pp = clampP(snap ? snapAt(raw, { scale: v.scale, tool: propsRef.current.tool, from: probing ? (propsRef.current.probeFrom ?? undefined) : snapFrom(propsRef.current.tool, pts, seg, seg && segNewLine()), ...(seg ? { draft: draftLines(pts, segBreaks.current) } : {}) }) : raw);
         // Messung: Punkt nur melden – keine Form, keine Auswahl, nichts wird verändert
         if (probing) {
           propsRef.current.onProbePoint?.(pp, v.scale);
@@ -1494,9 +1520,13 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       return;
     }
     if (propsRef.current.segments && tool === 'polyline') {
-      // Linien einzeln: Punktpaare; ein angefangener letzter Punkt (ohne Ende) entfällt
-      const shape = segmentsShape(pts);
-      if (!shape) return;
+      // Länge (Freie Form): durchgehende Linie, Lücken nur über „Neue Linie“; Linien mit nur einem Punkt entfallen
+      const parts = shapeParts({ breaks: segBreaks.current }, pts).filter((x) => x.length >= 2);
+      if (!parts.length) return;
+      const all = parts.flat();
+      const br = parts.slice(0, -1).reduce<number[]>((acc, x) => [...acc, (acc[acc.length - 1] ?? 0) + x.length], []);
+      const shape: Shape = { ...polygonShape(all, false), ...(br.length ? { breaks: br } : {}) };
+      segBreaks.current = [];
       poly.current = [];
       redoPts.current = [];
       polyHover.current = null;
@@ -1709,18 +1739,19 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
             </g>
           )}
           {props.segments && tool === 'polyline' && poly.current.length > 0 && (() => {
-            // Linien einzeln: fertige Linien durchgezogen, die angefangene gestrichelt bis zum Zeiger
+            // Länge (Freie Form): Linien durchgezogen (Lücke nur nach „Neue Linie“), gestrichelt vom letzten Punkt bis zum Zeiger
             const pts = poly.current.map((q) => toScreen(view, q));
-            const open = pts.length % 2 === 1;
-            const hover = open && polyHover.current ? toScreen(view, polyHover.current) : null;
+            const br = segBreaks.current;
+            const hover = !br.includes(pts.length) && polyHover.current ? toScreen(view, polyHover.current) : null;
+            const lines = pts.slice(1).flatMap((q, i) => (br.includes(i + 1) ? [] : [[pts[i], q] as const]));
             return (
-              <g className="poly-preview" data-testid="polygon-preview" data-segments={Math.floor(pts.length / 2)}>
-                {Array.from({ length: Math.floor(pts.length / 2) }, (_, i) => (
-                  <line key={i} x1={pts[2 * i].x} y1={pts[2 * i].y} x2={pts[2 * i + 1].x} y2={pts[2 * i + 1].y} stroke={visibleStroke(color)} strokeWidth={2.5} strokeLinecap="round" />
+              <g className="poly-preview" data-testid="polygon-preview" data-segments={lines.length}>
+                {lines.map(([a, b], i) => (
+                  <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={visibleStroke(color)} strokeWidth={2.5} strokeLinecap="round" />
                 ))}
                 {hover && <line x1={pts[pts.length - 1].x} y1={pts[pts.length - 1].y} x2={hover.x} y2={hover.y} stroke={visibleStroke(color)} strokeWidth={2} strokeDasharray="6 4" />}
                 {pts.map((q, i) => (
-                  <circle key={i} cx={q.x} cy={q.y} r={i % 2 === 0 ? 5 : 4} className="poly-point" />
+                  <circle key={i} cx={q.x} cy={q.y} r={i === 0 || br.includes(i) ? 5 : 4} className="poly-point" />
                 ))}
               </g>
             );
