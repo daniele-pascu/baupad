@@ -14923,9 +14923,7 @@ html[data-theme='dark'] .ribbon-row[data-tab] .tool-btn.active svg {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.crew-ww-full {
-  display: none;
-}
+
 .crew-ww-dot {
   flex: none;
   width: 10px;
@@ -15051,12 +15049,6 @@ html[data-theme='dark'] .ribbon-row[data-tab] .tool-btn.active svg {
   .crew-ww-long {
     display: inline;
   }
-  .crew-ww-full {
-    display: inline;
-  }
-  .crew-ww-short {
-    display: none;
-  }
 }
 html[data-theme='dark'] .crew-ww-cell.ww-urlaub,
 html[data-theme='dark'] .crew-ww-legend b.u {
@@ -15074,31 +15066,30 @@ html[data-theme='dark'] .crew-ww-legend b.o {
   color: #f2c94c;
 }
 
-/* Team, Ansicht „Arbeiter“ mit Sa/So am Handy: schmälere Felder und kleinere Schrift, die ganze Woche passt */
+/* Team, Ansicht „Arbeiter“ am Handy: Name in einer eigenen Zeile über den Tagen (ganz lesbar), die Tage teilen sich
+   die volle Breite – mit Sa/So werden sie einfach schmäler */
 @media (max-width: 759px) {
-  .crew-ww-grid.dense {
-    --ww-cell: 31px;
+  .crew-ww-head,
+  .crew-ww-row {
+    grid-template-columns: repeat(var(--ww-days), minmax(0, 1fr));
+    column-gap: 4px;
   }
-  .crew-ww-grid.dense .crew-ww-head,
-  .crew-ww-grid.dense .crew-ww-row {
-    gap: 3px;
+  .crew-ww-head > span:first-child {
+    display: none;
   }
-  .crew-ww-grid.dense .crew-ww-row {
-    padding: 6px 7px;
+  .crew-ww-row {
+    row-gap: 6px;
+    padding: 8px 9px;
   }
-  .crew-ww-grid.dense .crew-ww-head {
-    padding: 0 8px;
-    font-size: 0.68rem;
+  .crew-ww-name {
+    grid-column: 1 / -1;
+  }
+  .crew-ww-head {
+    padding: 0 10px;
   }
   .crew-ww-grid.dense .crew-ww-cell {
-    height: 30px;
-    padding: 0 2px;
+    font-size: 0.7rem;
     border-radius: 7px;
-    font-size: 0.68rem;
-  }
-  .crew-ww-grid.dense .crew-ww-name {
-    gap: 6px;
-    font-size: 0.9rem;
   }
 }
 /* Weiterführen: Liste der Baustellen mit ihrer Farbe */

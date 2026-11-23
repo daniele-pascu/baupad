@@ -120,11 +120,8 @@ export function CrewWorkerWeek({
               <div key={w.id} className="crew-ww-row" role="row" data-testid="crew-ww-row" data-worker={workerName(w)}>
                 <span className="crew-ww-name" role="rowheader">
                   <i className={`crew-ww-dot${g ? ` grade-${g}` : ''}`} aria-hidden="true" />
+                  {/* am Handy steht der Name in einer eigenen Zeile über der Woche – immer ganz lesbar */}
                   <span className="crew-ww-full">{workerName(w)}</span>
-                  {/* am Handy: Nachname und erster Buchstabe des Vornamens (die Woche braucht die Breite) */}
-                  <span className="crew-ww-short" aria-hidden="true">
-                    {[w.lastName || w.firstName, w.lastName && w.firstName ? `${w.firstName.slice(0, 1)}.` : ''].filter(Boolean).join(' ')}
-                  </span>
                 </span>
                 {days.map((d) => {
                   const st = workerDay(plan, absences, weekId, w.id, d, !!workTimes[d], !!holidayOf(d));
