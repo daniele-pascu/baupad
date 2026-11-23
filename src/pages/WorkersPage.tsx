@@ -647,8 +647,8 @@ export function WorkersPage() {
           <a href={paths.staff()} className="btn" data-testid="crew-workers">
             <ToolIcon name="workers" size={18} /> Personal ({active.length})
           </a>
-          <button type="button" className="btn" onClick={() => setDialog({ kind: 'times' })} data-testid="crew-times">
-            <Icon name="settings" size={18} /> Einstellungen
+          <button type="button" className="btn crew-settings" onClick={() => setDialog({ kind: 'times' })} aria-label="Einstellungen" title="Einstellungen" data-testid="crew-times">
+            <Icon name="settings" size={18} /> <span className="lbl">Einstellungen</span>
           </button>
           <button type="button" className="btn" onClick={exportWeekPdf} disabled={!plan.sites.length} data-testid="crew-pdf">
             <Icon name="pdf" size={18} /> PDF
