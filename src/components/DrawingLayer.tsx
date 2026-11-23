@@ -147,7 +147,7 @@ export function renderElement(
           <g className="callout" data-testid="callout-arrow" data-end={e.leader?.end ?? 'arrow'}>
             <polyline points={callout.line.map((q) => `${q.x},${q.y}`).join(' ')} fill="none" stroke={stroke} strokeWidth={lw} strokeLinejoin="round" strokeLinecap="round" />
             {callout.head && <polygon points={callout.head.map((q) => `${q.x},${q.y}`).join(' ')} fill={stroke} stroke={stroke} strokeWidth={lw * 0.6} strokeLinejoin="round" data-testid="callout-head" />}
-            {callout.dot && <circle cx={callout.dot.c.x} cy={callout.dot.c.y} r={Math.max(2.5, callout.dot.r)} fill={stroke} data-testid="callout-dot" />}
+            {callout.dot && <circle cx={callout.dot.c.x} cy={callout.dot.c.y} r={Math.max(1.6, callout.dot.r)} fill={stroke} data-testid="callout-dot" />}
           </g>
         )}
         {selected && (

@@ -55,6 +55,7 @@ test('Plan zeichnen: Text mit Schriftart, fett, kursiv und Farbe; in der Leiste 
   const bar = page.getByTestId('element-bar');
   await bar.getByTestId('font-family').selectOption('mono');
   await bar.getByTestId('font-italic').click();
+  await bar.getByTestId('text-color-open').click(); // Schriftfarbe: Palette aufklappen
   await bar.getByTestId('text-color-Blau').click();
   await waitSaved(page);
   [el] = await texts(page);

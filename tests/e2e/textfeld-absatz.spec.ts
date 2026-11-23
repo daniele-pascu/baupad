@@ -104,6 +104,23 @@ test('Plan zeichnen: Absätze, Schriftgröße in pt, Seite ziehen bricht um, Eck
   const [small] = await texts(page);
   expect(fsOf(small.shape.h, Number(await t.getAttribute('data-lines')))).toBeCloseTo((12 * 0.352778 * 100) / 1000, 2);
 
+  // Leiste des markierten Textes: dieselbe Formatleiste wie im Text-Fenster – Schriftgrad in pt, vergrößern/verkleinern
+  await expect(bar.getByTestId('text-format-bar')).toBeVisible();
+  await expect(bar.getByTestId('element-textHeight')).toHaveCount(0);
+  await expect(bar.getByTestId('text-size')).toHaveValue('12');
+  await bar.getByTestId('text-bigger').click();
+  await expect(bar.getByTestId('text-size')).toHaveValue('14');
+  await waitSaved(page);
+  const [p14] = await texts(page);
+  expect(fsOf(p14.shape.h, Number(await t.getAttribute('data-lines')))).toBeCloseTo((14 * 0.352778 * 100) / 1000, 2);
+  await bar.getByTestId('text-size').fill('9');
+  await bar.getByTestId('text-size').press('Enter');
+  await waitSaved(page);
+  const [p9] = await texts(page);
+  expect(fsOf(p9.shape.h, Number(await t.getAttribute('data-lines')))).toBeCloseTo((9 * 0.352778 * 100) / 1000, 2);
+  await bar.getByTestId('font-underline').click(); // unterstrichen aus
+  await expect(t).not.toHaveAttribute('data-underline', '1');
+
   // PDF: alle Zeilen
   const dl = await catchDownload(page, async () => {
     await page.getByTestId('export-pdf-plan').click();
@@ -130,12 +147,17 @@ test('Aufmaß auf importiertem Plan: Text mit Absatz; Anfasser – Ecke skaliert
   await page.mouse.click(box.x + box.width * 0.3, box.y + box.height * 0.3);
   const td = page.getByTestId('text-dialog');
   await td.getByTestId('text-input').fill('Achse A\nNordseite');
-  await expect(td.getByTestId('text-size')).toBeVisible();
+  // Schriftgröße bezieht sich auf das Blatt: Vorgabe 10 pt
+  await expect(td.getByTestId('text-size')).toHaveValue('10');
   await td.getByRole('button', { name: 'Einfügen' }).click();
   const t = page.locator('[data-element="text"] text');
   await expect(t).toHaveAttribute('data-lines', '2');
   await waitSaved(page);
   const [a] = await texts(page);
+  // 10 pt auf dem Blatt (A3, der Plan füllt es): Schrifthöhe ≈ 3,5 mm von 297 mm Blatthöhe – also klein gegenüber dem Plan
+  const tbox = (await t.boundingBox())!;
+  expect(tbox.height / box.height).toBeLessThan(0.06);
+  expect(tbox.height / box.height).toBeGreaterThan(0.012);
   // antippen öffnet das Text-Fenster; danach zeigt der Text Rahmen und Anfasser
   await expect(page.getByTestId('note-handles')).toHaveCount(0);
   const tb = (await t.boundingBox())!;

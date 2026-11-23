@@ -275,3 +275,23 @@ describe('Textfeld: Absätze, feste Breite, Größe', async () => {
     expect(Math.hypot(tip2.x - tip.x, tip2.y - tip.y)).toBeLessThan(2e-4);
   });
 });
+
+describe('Schriftgröße bezogen auf das Blatt', async () => {
+  const { sheetUnitsPerPt, printSheetRect, aufmassPaper, PAPER, PRINT_MARGIN_MM } = await import('../../src/lib/drawing');
+  it('Bereich füllt das Blatt: 10 pt sind 10 pt auf dem Papier, egal wie groß der Bereich in m ist', () => {
+    const avail = PAPER['A3-quer'].w - 2 * PRINT_MARGIN_MM; // mm
+    for (const w of [30, 4200]) {
+      const region = { w, h: w * 0.5 };
+      const u = sheetUnitsPerPt(region, 'A3-quer');
+      // 10 pt = 3,53 mm; Anteil an der Blattbreite ist immer gleich
+      expect((10 * u) / w).toBeCloseTo(3.52778 / avail, 6);
+    }
+  });
+  it('kleines Detail im Aufmaß: das Blatt ist die eingepasste Zeichnung, nicht der Zeichenmaßstab', () => {
+    const plan = { pageWidth: 4200, pageHeight: 2970, drawing: { scale: 100, paper: 'A3-quer' as const } } as never;
+    const sheet = printSheetRect(plan, [{ shape: { type: 'rect', x: 10, y: 10, w: 0.3, h: 0.2 } }], [])!;
+    const u = sheetUnitsPerPt(sheet, aufmassPaper(plan, sheet));
+    // Zeichenblatt 1:100: 1 pt = 3,53 Einheiten (cm); eingepasstes Detail: viel weniger
+    expect(u).toBeLessThan(0.2);
+  });
+});

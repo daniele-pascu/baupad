@@ -77,8 +77,7 @@ test('Text mit Pfeil: einfügen, Spitze verschieben, gespeichert und im PDF', as
   const head0 = await headBox();
   await page.getByTestId('element-bar').getByTestId('element-text-edit').click();
   await expect(td.getByTestId('text-leader-arrow')).toHaveAttribute('aria-checked', 'true');
-  await td.getByTestId('text-bigger').click();
-  await td.getByTestId('text-bigger').click();
+  for (let i = 0; i < 4; i++) await td.getByTestId('text-bigger').click(); // 10 → 11 → 12 → 14 → 16 pt
   await td.getByTestId('text-save').click();
   await expect.poll(async () => (await callout.locator('text').boundingBox())!.height).toBeGreaterThan(tbA.height * 1.3);
   const tipC = await center(page, 'tip-handle');

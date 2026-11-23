@@ -4,7 +4,7 @@ import { arcRadius } from '../lib/cad';
 import { shapeVertices } from '../lib/geometry';
 import { checkMeasure, formatArea, formatMeasure, parseDecimal } from '../lib/numbers';
 import type { DrawElement, DrawElementType, ShapeStyle, TextFont } from '../lib/types';
-import { FontControls } from './TextDialog';
+import { FontControls, TextFormatBar } from './TextDialog';
 import { StylePanel } from './StylePanel';
 import { symbolDef } from '../lib/symbols';
 import { Icon } from './Icon';
@@ -218,6 +218,8 @@ export function ElementBar({
   onFlip,
   onRoom,
   onEditText,
+  textPt,
+  onTextPt,
   onWall,
   onSegment,
 }: {
@@ -244,6 +246,9 @@ export function ElementBar({
   onRoom?(): void;
   /** Text: im Text-Fenster bearbeiten (Absätze, Schriftgröße) */
   onEditText?(): void;
+  /** Text: Schriftgrad in pt auf dem Blatt (wie im Text-Fenster) */
+  textPt?: number;
+  onTextPt?(pt: number): void;
   /** Wand: Stärke bzw. Höhe ändern */
   onWall?(patch: { thickness?: number; height?: number }): void;
   /** Polylinie, Fläche, Wand: Länge eines Abschnitts (Knick zu Knick) ändern */
@@ -265,6 +270,8 @@ export function ElementBar({
     n === undefined ? '' : FIELDS[f].degrees ? String(Math.round(n * 100) / 100).replace('.', ',') : meterInput(n);
   const [values, setValues] = useState<Record<string, string>>({});
   const [text, setText] = useState(element.text ?? '');
+  /** Text (kein Raumstempel): Formatleiste wie im Text-Fenster – Schriftgrad in pt statt Schrifthöhe in m */
+  const wordBar = element.type === 'text' && !element.room && textPt !== undefined && !!onTextPt;
   /** Text mit Absätzen: wird im Text-Fenster bearbeitet */
   const multiline = element.type === 'text' && !element.room && (element.text ?? '').includes('\n') && !!onEditText;
   const [gap, setGap] = useState(String(element.extGap ?? 1).replace('.', ','));
@@ -398,8 +405,8 @@ export function ElementBar({
           </button>
         </span>
       )}
-      {element.type === 'text' && onFont && onColor && <FontControls font={element.font} color={element.color} onFont={onFont} onColor={onColor} compact />}
-      {fields.map((f) => (
+      {element.type === 'text' && onFont && onColor && (wordBar ? <TextFormatBar font={element.font} color={element.color} pt={textPt!} onFont={onFont} onColor={onColor} onPt={onTextPt!} compact live={false} /> : <FontControls font={element.font} color={element.color} onFont={onFont} onColor={onColor} compact />)}
+      {fields.filter((f) => !(wordBar && f === 'textHeight')).map((f) => (
         <label key={f} className="draw-field">
           <span>
             {isWindow && f === 'length' ? 'Breite' : isWindow && f === 'width' ? 'Tiefe' : FIELDS[f].label}
