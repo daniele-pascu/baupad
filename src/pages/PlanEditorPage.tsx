@@ -563,8 +563,11 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     }
   };
   const drawMode = drawingPlan && mode === 'draw';
-  /** Aufmaß, Messart Länge, Freie Form: Linien einzeln (je zwei Punkte eine Linie, z. B. Risse mit Lücken) */
-  const segMode = !drawMode && tool === 'polyline' && mtype === 'laenge';
+  /**
+   * Linien einzeln über Punkte: abgeschaltet (Daniele, 23.11.2026) – die Freie Form (Polylinie) ist wieder durchgehend,
+   * jeder Punkt verbindet mit dem vorigen. Mehrere einzelne Linien (Risse mit Lücken) gibt es nur noch mit Freihand.
+   */
+  const segMode = false as boolean;
   /**
    * Aufmaß: angefangene Messung mit mehreren Tipps bzw. Strichen (Freie Form, Vieleck, Wand, Stück, Freihand) –
    * unten statt der Leiste nur Abbrechen, Zurück, Vor, Fertig.
