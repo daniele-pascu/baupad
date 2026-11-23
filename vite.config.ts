@@ -19,12 +19,38 @@ function appVersion(): string {
   return `${sha} · ${date}`;
 }
 
+/**
+ * Schutz gegen eingeschleusten Code (nur im fertigen Build, der Entwicklungsserver braucht Inline-Skripte):
+ * Skripte nur von der eigenen Adresse, keine Plugins/Objekte, kein fremdes <base>, Formulare nur an die eigene Seite.
+ * Verbindungen (Supabase, Speicher, Anmeldung) bleiben über https/wss offen.
+ */
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'wasm-unsafe-eval'",
+  "worker-src 'self' blob:",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data: blob:",
+  "media-src 'self' data: blob:",
+  "connect-src 'self' https: wss: data: blob:",
+  "frame-src 'self' blob:",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+].join('; ');
+const cspPlugin = {
+  name: 'baupad-csp',
+  apply: 'build' as const,
+  transformIndexHtml: (html: string) => html.replace('<meta charset="UTF-8" />', `<meta charset="UTF-8" />\n    <meta http-equiv="Content-Security-Policy" content="${CSP}" />\n    <meta name="referrer" content="strict-origin-when-cross-origin" />`),
+};
+
 export default defineConfig({
   // Wurzel der Domain (pad-software.at); saubere Adressen wie /baupad und /en/baupad
   base: '/',
   define: { __APP_VERSION__: JSON.stringify(appVersion()) },
   plugins: [
     react(),
+    cspPlugin,
     VitePWA({
       registerType: 'prompt',
       injectRegister: false,

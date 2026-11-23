@@ -6,7 +6,7 @@ import { checkMeasure, formatArea, formatMeasure, parseDecimal } from '../lib/nu
 import type { DrawElement, DrawElementType, ShapeStyle, TextFont } from '../lib/types';
 import { FontControls, TextFormatBar } from './TextDialog';
 import { StylePanel } from './StylePanel';
-import { symbolDef } from '../lib/symbols';
+import { inWallGroup, symbolDef } from '../lib/symbols';
 import { Icon } from './Icon';
 
 /** Bezeichnungen der Zeichnungsobjekte */
@@ -284,7 +284,7 @@ export function ElementBar({
   const [segOpen, setSegOpen] = useState(false);
   const styled = element.type !== 'text' && element.type !== 'dimension' && !!onStyle && !!onColor && !!onToggleStyle;
   /** Fenster: Breite (entlang der Wand), Tiefe, dazu Höhe und Brüstung für die ÖNORM-Beschriftung */
-  const isWindow = element.type === 'symbol' && symbolDef(element.symbol?.id)?.group === 'window';
+  const isWindow = element.type === 'symbol' && inWallGroup(symbolDef(element.symbol?.id)?.group);
   // Werte neu übernehmen, wenn sich das Objekt ändert (Ziehen, Rückgängig …)
   const key = `${element.id}:${element.rev}`;
   useEffect(() => {

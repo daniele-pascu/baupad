@@ -27,7 +27,9 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'view', label: 'Ansicht', icon: 'fit' },
 ];
 
-const DRAW_IDS: DrawTool[] = ['select', 'line', 'polyline', 'polygon', 'rect', 'ellipse', 'arc', 'text', 'textArrow', 'dimension', 'breakline'];
+/** Zeichnen: Formen – dann Beschriftung (Text, Hinweistext, Maß, Bruchlinie) als eigene Gruppe */
+const DRAW_IDS: DrawTool[] = ['select', 'line', 'polyline', 'polygon', 'rect', 'ellipse', 'arc'];
+const LABEL_IDS: DrawTool[] = ['text', 'textArrow', 'dimension', 'breakline'];
 
 function readTab(): Tab {
   try {
@@ -182,10 +184,11 @@ export function DrawRibbon({
             <div className="tool-group" role="group" aria-label="Zeichnen">
               {DRAW_IDS.filter((id) => id !== 'select' || !isTouchDevice()).map(toolBtn)}
             </div>
-            <div className="tool-group" role="group" aria-label="Wand">
-              {toolBtn('wall')}
+            <div className="tool-group" role="group" aria-label="Beschriftung">
+              {LABEL_IDS.map(toolBtn)}
             </div>
-            <div className="tool-group" role="group" aria-label="Schraffur und Raum">
+            <div className="tool-group" role="group" aria-label="Wand, Raum und Schraffur">
+              {toolBtn('wall')}
               {toolBtn('room')}
               {btn('draw-hatch', 'hatch', 'Schraffur', () => void drawing.pickHatch(), { pressed: drawing.tool === 'hatch', title: 'Schraffur: Muster bzw. Baustoff und Farbe wählen, dann in eine geschlossene Fläche tippen' })}
             </div>
@@ -194,9 +197,12 @@ export function DrawRibbon({
         )}
         {tab === 'parts' && (
           <>
-            <div className="tool-group" role="group" aria-label="Bauteile">
+            <div className="tool-group" role="group" aria-label="Wandöffnungen">
               {btn('draw-door', 'door', 'Tür', () => void drawing.pickSymbol('door'), { pressed: drawing.tool === 'symbol' && symbolDef(drawing.symbolId)?.group === 'door', title: 'Tür einsetzen (Dreh-, Pendel-, Schiebe-, Falttür, Tore, Drehkreuz)' })}
               {btn('draw-window', 'window', 'Fenster', () => void drawing.pickSymbol('window'), { pressed: drawing.tool === 'symbol' && symbolDef(drawing.symbolId)?.group === 'window', title: 'Fenster einsetzen (ein-/zweiflügelig, Festverglasung, Schiebefenster)' })}
+              {btn('draw-opening', 'opening', 'Öffnung', () => void drawing.pickSymbol('opening'), { pressed: drawing.tool === 'symbol' && symbolDef(drawing.symbolId)?.group === 'opening', title: 'Wandöffnung ohne Tür oder Fenster (Durchgang, raumhoch, Durchreiche) – Länge und Tiefe frei' })}
+            </div>
+            <div className="tool-group" role="group" aria-label="Haustechnik und Durchbrüche">
               {btn('draw-electro', 'plug', 'Elektro', () => void drawing.pickSymbol('electro'), { pressed: drawing.tool === 'symbol' && symbolDef(drawing.symbolId)?.group === 'electro', title: 'Elektrosymbole (ÖNORM)' })}
               {btn('draw-shaft', 'shaft', 'Durchbruch', () => void drawing.pickSymbol('shaft'), { pressed: drawing.tool === 'symbol' && symbolDef(drawing.symbolId)?.group === 'shaft', title: 'Fänge (Rauch-, Abgas-, Luftfang), Durchbrüche und Aussparungen (ÖNORM)' })}
             </div>
@@ -218,16 +224,18 @@ export function DrawRibbon({
               {toolBtn('move')}
               {toolBtn('copy')}
               {toolBtn('trim')}
-              {toolBtn('mirror')}
-              {toolBtn('offset')}
-              {toolBtn('array')}
+              {toolBtn('extend')}
+              {toolBtn('stretch')}
+              {toolBtn('fillet')}
               {toolBtn('join')}
+              {toolBtn('offset')}
+            </div>
+            <div className="tool-group" role="group" aria-label="Anordnen">
               {toolBtn('rotate')}
+              {toolBtn('mirror')}
               {toolBtn('scale')}
               {toolBtn('align')}
-              {toolBtn('stretch')}
-              {toolBtn('extend')}
-              {toolBtn('fillet')}
+              {toolBtn('array')}
             </div>
             {editGroup}
           </>

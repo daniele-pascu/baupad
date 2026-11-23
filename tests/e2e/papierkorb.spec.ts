@@ -1,6 +1,9 @@
 import { expect, test, type Page } from './fixtures';
 import { createProject, freshStart } from './helpers';
 
+// Hilfen lesen/schreiben IndexedDB mit new Function – im Test die Content-Security-Policy der App umgehen
+test.use({ bypassCSP: true });
+
 /**
  * Papierkorb: Gelöschtes bleibt 15 Tage und wird danach endgültig gelöscht – auf dem Gerät und (über die
  * Warteschlange) in der Ablage. Ohne Online-Ablage räumt die App beim Start auf.

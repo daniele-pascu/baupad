@@ -3,7 +3,7 @@ import { distanceToPolyline, fromShapeLocal, freehandPoints, lineShape, outlineP
 import { formatMeasure } from './numbers';
 import type { Damage, DrawElement, DrawingInfo, Leader, LeaderEnd, PaperFormat, Plan, Rect, Shape, TextFont } from './types';
 import { charWidthFactor } from './text-font';
-import { symbolAnchor, symbolDef } from './symbols';
+import { inWallGroup, symbolAnchor, symbolDef } from './symbols';
 
 /**
  * Maßsystem selbst gezeichneter Pläne.
@@ -703,7 +703,7 @@ const cm = (m: number) => String(Math.round(m * 100));
  * die Rohbauparapethöhe „RPH 90“ darüber. Ohne eingegebene Höhe steht nur die Breite.
  */
 export function windowLabels(e: Pick<DrawElement, 'type' | 'shape' | 'showDims' | 'symbol' | 'opening'>): DimLabel[] {
-  if (e.type !== 'symbol' || e.showDims === false || symbolDef(e.symbol?.id)?.group !== 'window') return [];
+  if (e.type !== 'symbol' || e.showDims === false || !inWallGroup(symbolDef(e.symbol?.id)?.group)) return [];
   const s = e.shape;
   const rot = s.rotation ?? 0;
   const L = (p: Point) => fromShapeLocal(s, p);

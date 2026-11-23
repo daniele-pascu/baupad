@@ -78,6 +78,7 @@ const PATHS: Record<string, string> = {
   /** Bauteile: Tür (Flügel mit Schwenkbogen), Fenster, Elektro (Steckdose) */
   door: 'M3 21h18M5 21V5M5 5a16 16 0 0116 16',
   window: 'M3 9h18v6H3zM3 11.5h18M3 12.5h18',
+  opening: 'M2 9h5v6H2M22 9h-5v6h5M7 9v6M17 9v6M9 9h2M13 9h2M9 15h2M13 15h2',
   plug: 'M6 5a6 6 0 0012 0M4 10h16M12 10v10',
   shaft: 'M5 5h14v14H5zM5 19L19 5M5 5h14L5 19z',
   room: 'M3 4h18v16H3zM8 10h8M9.5 14h5',
