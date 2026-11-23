@@ -414,7 +414,7 @@ function drawSheetHeader(ctx: Ctx, page: PDFPage, pageH: number, header: Rect, p
   page.drawText(fitText(ctx.bold, clean(ctx, planHeading(plan)), size, maxW), { x: header.x, y: pageH - header.y - size, size, font: ctx.bold, color: rgb(0.1, 0.1, 0.12) });
   const note = plan.showNote ? plan.description.trim().replace(/\s+/g, ' ') : '';
   const sub = [planSubline(ctx.data.project, ctx.data.costCenters[plan.costCenterId]), note].filter(Boolean).join('  |  ');
-  if (sub) page.drawText(fitText(ctx.font, clean(ctx, sub), 8.5, maxW), { x: header.x, y: pageH - header.y - size - 10.5, size: 8.5, font: ctx.font, color: rgb(0.3, 0.31, 0.34) });
+  if (sub) page.drawText(fitText(ctx.font, clean(ctx, sub), 8.5, maxW), { x: header.x, y: pageH - header.y - size - 10.5, size: 8.5, font: ctx.font, color: rgb(0.36, 0.37, 0.4) });
   if (rightText) page.drawText(rightText, { x: header.x + header.w - bw - rw, y: pageH - header.y - 14, size: 10, font: ctx.font, color: rgb(0.3, 0.33, 0.38) });
   const ly = pageH - (header.y + header.h) + 6;
   page.drawLine({ start: { x: fx, y: ly }, end: { x: fx + fw, y: ly }, thickness: 0.6, color: rgb(0.1, 0.1, 0.12) });

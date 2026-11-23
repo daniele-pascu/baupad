@@ -51,18 +51,18 @@ export const planHeading = (plan: Pick<Plan, 'title' | 'planNumber'> & Partial<P
   [plan.title?.trim() || 'Plan', plan.planNumber.trim(), plan.showName !== false ? plan.planName?.trim() : '', plan.showFloor !== false ? plan.floor?.trim() : ''].filter(Boolean).join(' ');
 
 /**
- * Zweite Zeile im Plankopf (dünner, dunkelgrau unter „Plan Nummer“): wozu der Plan gehört – zuerst die Kostenstelle
- * (ohne Kostenstelle die Projektnummer), dann das Bauvorhaben, also die Adresse (ohne Adresse der Projektname).
- * Was fehlt, fällt weg; gleiche Angaben stehen nur einmal.
+ * Zweite Zeile im Plankopf (kleiner, dunkelgrau unter „Plan Nummer“), z. B. „90262 Gesundheitsplatz 6, 1017 Wien“:
+ * zuerst die Nummer – Kostenstellen-Nr., sonst Projektnummer, sonst die Bezeichnung der Kostenstelle –, dann das
+ * Bauvorhaben, also die Adresse (ohne Adresse der Projektname). Was fehlt, fällt weg; Gleiches steht nur einmal.
  */
 export function planSubline(project: Pick<Project, 'name'> & Partial<Pick<Project, 'number' | 'site' | 'address'>>, costCenter?: Pick<CostCenter, 'number' | 'name'>): string {
-  const cc = costCenter ? [costCenter.number?.trim(), costCenter.name.trim()].filter(Boolean).join(' – ') : '';
-  const parts = [
-    cc || project.number?.trim() || '',
-    // Bauvorhaben: Adresse (ältere Projekte: eigene Baustellen-Bezeichnung), sonst der Projektname
-    project.address?.trim() || project.site?.trim() || project.name.trim(),
-  ].filter(Boolean);
-  return parts.filter((x, i) => parts.findIndex((y) => y.toLowerCase() === x.toLowerCase()) === i).join('  |  ');
+  const no = costCenter?.number?.trim() || project.number?.trim() || '';
+  const first = no || costCenter?.name.trim() || '';
+  // Bauvorhaben: Adresse (ältere Projekte: eigene Baustellen-Bezeichnung), sonst der Projektname
+  const site = project.address?.trim() || project.site?.trim() || project.name.trim();
+  if (!first || first.toLowerCase() === site.toLowerCase()) return first || site;
+  // Nummer und Adresse nur mit Leerzeichen („90262 Gesundheitsplatz 6“), eine Bezeichnung mit Gedankenstrich
+  return `${first}${no ? ' ' : ' – '}${site}`;
 }
 
 const fit = (r: { w: number; h: number }, box: { w: number; h: number }) => Math.min(box.w / r.w, box.h / r.h);
