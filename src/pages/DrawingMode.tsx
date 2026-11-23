@@ -390,6 +390,13 @@ export function useDrawing(opts: {
     par: null,
     held: { h: null, v: null },
   });
+  // Werkzeug gewechselt oder beendet (Esc, Auswahl): Hilfsanzeigen der Spuren (grüne Richtungslinie, orange Bezugslinie)
+  // sofort weg – sonst bleiben sie stehen, bis die Maus das nächste Mal mit einem Zeichenwerkzeug bewegt wird
+  const trackTool = useRef(tool);
+  if (trackTool.current !== tool) {
+    trackTool.current = tool;
+    track.current = { acquired: [], lines: [], edge: null, par: null, held: { h: null, v: null } };
+  }
   /** Ende der zuletzt eingefügten Linie – die nächste Linie schließt dort an (Wände) */
   const [lastLineEnd, setLastLineEnd] = useState<Point | null>(null);
   /**
