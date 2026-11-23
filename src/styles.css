@@ -12288,13 +12288,20 @@ html[data-theme='dark'] .calc-result .calc-total.warn strong {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
   gap: 8px;
-  max-height: min(34vh, 300px);
+  max-height: min(42vh, 380px);
   overflow-y: auto;
   padding: 2px;
   margin-top: 8px;
 }
-.hatch-tabs {
-  margin-top: 4px;
+/* Gruppenüberschrift im Katalog (über die ganze Breite) */
+.hatch-group {
+  grid-column: 1 / -1;
+  margin-top: 6px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.hatch-group:first-child {
+  margin-top: 0;
 }
 .hatch-tile {
   display: flex;
@@ -12341,13 +12348,6 @@ html[data-theme='dark'] .calc-result .calc-total.warn strong {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.hatch-mode {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 8px;
-  margin-top: 8px;
 }
 
 /* Raumstempel: Fläche in der Objektleiste */

@@ -1,44 +1,35 @@
 import { useEffect, useState } from 'react';
-import { DASH_SCALES, dashArray, DEFAULT_HATCH, DEFAULT_TRANSPARENCY, HATCH_PATTERNS, LINE_TYPES, LINE_WIDTH_MAX, LINE_WIDTH_MIN, MATERIALS } from '../lib/style';
+import { DASH_SCALES, dashArray, DEFAULT_HATCH, DEFAULT_TRANSPARENCY, HATCH_PATTERNS, HATCH_SPACING_MAX, HATCH_SPACING_MIN, hatchName, isLegacyHatch, LINE_TYPES, LINE_WIDTH_MAX, LINE_WIDTH_MIN, NEW_HATCH } from '../lib/style';
+import { DIN_GROUPS } from '../lib/hatch-din';
 import { DRAW_COLORS, type HatchPattern, type LineType, type ShapeStyle } from '../lib/types';
 import { rememberCustomColorSoon, useCustomColors } from '../lib/custom-colors';
 import { Icon } from './Icon';
 import { HatchPreview, hatchLabel, hatchPicker, hatchStyle, settingFromStyle } from './HatchPicker';
 
-/** Muster-Auswahl: allgemeine Muster und Baustoffe nach ÖNORM A 6240 (übernimmt Muster, Farbe, Winkel, Abstand) */
-function PatternOptions() {
+/** Muster-Auswahl: Katalog nach DIN ISO 128-50, nach Stoffgruppen; ein früheres Muster bleibt als eigener Eintrag stehen */
+function PatternOptions({ current }: { current: HatchPattern }) {
   return (
     <>
-      <optgroup label="Muster">
-        {HATCH_PATTERNS.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.label}
-          </option>
-        ))}
-      </optgroup>
-      <optgroup label="Baustoffe (ÖNORM A 6240)">
-        {MATERIALS.map((m) => (
-          <option key={m.id} value={`mat:${m.id}`}>
-            {m.label}
-          </option>
-        ))}
-      </optgroup>
+      {isLegacyHatch(current) && <option value={current}>{hatchName(current)}</option>}
+      {DIN_GROUPS.map((g) => (
+        <optgroup key={g.id} label={g.label}>
+          {HATCH_PATTERNS.filter((p) => p.group === g.id).map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.label}
+            </option>
+          ))}
+        </optgroup>
+      ))}
     </>
   );
 }
-/** Auswahl eines Musters bzw. Baustoffs als Änderung */
+/** Auswahl eines Musters als Änderung; von einem früheren Muster kommend gelten die Vorgaben der Norm (Winkel 0) */
 function patternPatch(value: string, hatch: { pattern: HatchPattern; angle: number; spacing: number }): Partial<ShapeStyle> {
-  if (value.startsWith('mat:')) {
-    const m = MATERIALS.find((x) => `mat:${x.id}` === value);
-    if (m) return { fillType: 'hatch', noFill: false, fillColor: m.color, fillTransparency: 0, hatch: { pattern: m.pattern, angle: m.angle, spacing: m.spacing } };
-  }
-  return { hatch: { ...hatch, pattern: value as HatchPattern } };
+  const pattern = value as HatchPattern;
+  return { hatch: isLegacyHatch(hatch.pattern) && !isLegacyHatch(pattern) ? { ...NEW_HATCH, pattern } : { ...hatch, pattern } };
 }
-/** angezeigter Wert: Baustoff, wenn Muster/Winkel/Abstand/Farbe genau einem Baustoff entsprechen */
-function patternValue(style: ShapeStyle, hatch: { pattern: HatchPattern; angle: number; spacing: number }): string {
-  const m = MATERIALS.find((x) => x.pattern === hatch.pattern && x.angle === hatch.angle && x.spacing === hatch.spacing && x.color === (style.fillColor ?? '').toLowerCase());
-  return m ? `mat:${m.id}` : hatch.pattern;
-}
+/** Füllart gewählt: eine neue Schraffur beginnt mit der Grundschraffur der Norm */
+const fillTypePatch = (type: 'solid' | 'hatch', style: ShapeStyle): Partial<ShapeStyle> => (type === 'hatch' && !style.hatch ? { fillType: type, hatch: { ...NEW_HATCH } } : { fillType: type });
 
 /**
  * Darstellung einer Linie bzw. Form: Linientyp, Linienstärke, Linienfarbe und – nur bei
@@ -175,7 +166,7 @@ export function StylePanel({
                 value={fillMode}
                 onChange={(e) => {
                   const m = e.target.value;
-                  onStyle(m === 'none' ? { noFill: true } : { noFill: false, fillType: m as 'solid' | 'hatch' });
+                  onStyle(m === 'none' ? { noFill: true } : { noFill: false, ...fillTypePatch(m as 'solid' | 'hatch', style) });
                 }}
                 data-testid="style-fill-type"
               >
@@ -286,7 +277,7 @@ export function StylePanel({
             <>
               <label className="style-row">
                 <span>Füllart</span>
-                <select value={hatchOn ? 'hatch' : 'solid'} onChange={(e) => onStyle({ fillType: e.target.value as 'solid' | 'hatch' })} data-testid="style-fill-type">
+                <select value={hatchOn ? 'hatch' : 'solid'} onChange={(e) => onStyle(fillTypePatch(e.target.value as 'solid' | 'hatch', style))} data-testid="style-fill-type">
                   <option value="solid">Vollton</option>
                   <option value="hatch">Schraffur</option>
                 </select>
@@ -295,14 +286,14 @@ export function StylePanel({
                 <>
                   <label className="style-row">
                     <span>Muster</span>
-                    <select value={patternValue(style, hatch)} onChange={(e) => onStyle(patternPatch(e.target.value, hatch))} data-testid="style-hatch-pattern">
-                      <PatternOptions />
+                    <select value={hatch.pattern} onChange={(e) => onStyle(patternPatch(e.target.value, hatch))} data-testid="style-hatch-pattern">
+                      <PatternOptions current={hatch.pattern} />
                     </select>
                   </label>
                   <label className="style-row">
                     <span>Winkel</span>
                     <select value={hatch.angle} onChange={(e) => onStyle({ hatch: { ...hatch, angle: Number(e.target.value) } })} data-testid="style-hatch-angle">
-                      {[0, 15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165].map((a) => (
+                      {[...new Set([0, 15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165, hatch.angle])].sort((x, y) => x - y).map((a) => (
                         <option key={a} value={a}>
                           {a}°
                         </option>
@@ -313,9 +304,9 @@ export function StylePanel({
                     <span>Abstand</span>
                     <input
                       type="range"
-                      min={2}
-                      max={20}
-                      step={1}
+                      min={HATCH_SPACING_MIN}
+                      max={HATCH_SPACING_MAX}
+                      step={0.5}
                       value={sp}
                       onChange={(e) => setSp(Number(e.target.value))}
                       onPointerUp={commitSp}
@@ -323,7 +314,7 @@ export function StylePanel({
                       onBlur={commitSp}
                       data-testid="style-hatch-spacing"
                     />
-                    <output className="style-value">{sp} pt</output>
+                    <output className="style-value">{String(sp).replace('.', ',')} pt</output>
                   </label>
                 </>
               )}

@@ -447,7 +447,9 @@ export type HatchPattern =
   | 'plastic'
   | 'gypsum'
   | 'sealing'
-  | 'demolish';
+  | 'demolish'
+  // Schraffuren nach DIN ISO 128-50 (Kurzzeichen der Norm, z. B. „din-SN46“) – siehe lib/hatch-din.ts
+  | `din-${string}`;
 
 /** Bauteilkennzeichnung im Plan, z. B. „A – Wand“. */
 export interface Component extends SyncMeta {

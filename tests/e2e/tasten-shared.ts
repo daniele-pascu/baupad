@@ -820,16 +820,14 @@ export function tastenTests() {
     await page.getByTestId('ribbon-style').getByTestId('style-hatch-open').click();
     await expect(page.getByTestId('hatch-picker')).toBeVisible();
     await pruefe(page, 'Dialog Schraffur', out);
-    await page.getByTestId('hatch-tab-material').click();
-    await page.getByTestId('hatch-tile-mat:beton').click();
+    await page.getByTestId('hatch-tile-din-SN46').click();
     await page.getByTestId('hatch-ok').click();
     await pruefe(page, 'Eigenschaften Schraffur', out);
     // Werkzeug Schraffur: Auswahl, danach Befehlsleiste
     await page.locator('body').press('Escape');
     await pickTool(page, 'draw-hatch');
     await expect(page.getByTestId('hatch-picker')).toBeVisible();
-    await page.getByTestId('hatch-tab-material').click();
-    await page.getByTestId('hatch-tile-mat:stein').click();
+    await page.getByTestId('hatch-tile-din-SN3').click();
     await page.getByTestId('hatch-ok').click();
     await expect(page.getByTestId('hatch-prompt')).toBeVisible();
     await pruefe(page, 'Befehlsleiste Schraffur', out);
