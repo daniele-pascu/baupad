@@ -27,7 +27,7 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'view', label: 'Ansicht', icon: 'fit' },
 ];
 
-const DRAW_IDS: DrawTool[] = ['select', 'line', 'polyline', 'polygon', 'rect', 'ellipse', 'arc', 'text', 'textArrow', 'dimension'];
+const DRAW_IDS: DrawTool[] = ['select', 'line', 'polyline', 'polygon', 'rect', 'ellipse', 'arc', 'text', 'textArrow', 'dimension', 'breakline'];
 
 function readTab(): Tab {
   try {

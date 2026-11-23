@@ -1960,7 +1960,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
           {tool === 'select' && props.onTipChange && (props.notes ?? []).filter((n) => n.tip).map((n) => {
             // Text im Aufmaß mit Linie zum Plan: Ende der Linie ziehen
             const tp = toScreen(view, n.tip!);
-            return <circle key={`nt-${n.id}`} cx={tp.x} cy={tp.y} r={isCoarse() ? 8 : 4.5} className={`vertex-handle tip-handle${g.kind === 'tip' && g.id === n.id ? ' active' : ''}`} data-testid="note-tip" />;
+            return <circle key={`nt-${n.id}`} cx={tp.x} cy={tp.y} r={isCoarse() ? 8 : 4.5} className={`vertex-handle tip-handle${g.kind === 'tip' && g.id === n.id ? ' active' : ''}${noteSel.current === n.id || (g.kind === 'tip' && g.id === n.id) ? '' : ' quiet'}`} data-testid="note-tip" />;
           })}
           {tool === 'select' && (() => {
             // Text im Aufmaß: Rahmen mit Anfassern – Ecken ändern die Größe, die Seiten die Breite

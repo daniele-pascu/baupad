@@ -21,6 +21,7 @@ export const ELEMENT_LABELS: Record<DrawElementType, string> = {
   text: 'Text',
   symbol: 'Bauteil',
   wall: 'Wand',
+  break: 'Bruchlinie',
 };
 
 /** Bezeichnung eines Objekts (geschlossene Form = „Fläche“, offene = „Freie Form“) */
@@ -88,8 +89,9 @@ const INSERT_FIELDS: Partial<Record<DrawElementType, Field[]>> = {
   triangle: ['base', 'height'],
 };
 
-const HINTS: Partial<Record<DrawElementType | 'textArrow', string>> = {
-  textArrow: 'Text mit Pfeil: zuerst die Pfeilspitze antippen, dann die Stelle für den Text.',
+const HINTS: Partial<Record<DrawElementType | 'textArrow' | 'breakline', string>> = {
+  breakline: 'Bruchlinie: zwei Punkte setzen – die Zeichnung dahinter wird ausgeblendet. Die Seite lässt sich danach in der Leiste wechseln.',
+  textArrow: 'Hinweistext: zuerst das Ziel im Plan antippen (dort sitzt der Punkt bzw. die Pfeilspitze), dann die Stelle für den Text.',
   dimension: 'Maßlinie: Punkt A, Punkt B, dann den Abstand anklicken – die Länge wird automatisch angezeigt.',
   text: 'Text: Stelle im Plan antippen.',
 };
@@ -117,7 +119,7 @@ export function InsertBar({
   if (!fields.length) {
     return (
       <div className="draw-bar" data-testid="insert-bar">
-        <span className="muted small">{HINTS[tool as DrawElementType | 'textArrow'] ?? ''}</span>
+        <span className="muted small">{HINTS[tool as DrawElementType | 'textArrow' | 'breakline'] ?? ''}</span>
       </div>
     );
   }
@@ -218,6 +220,7 @@ export function ElementBar({
   onFlip,
   onRoom,
   onEditText,
+  onBreakSide,
   textPt,
   onTextPt,
   onWall,
@@ -246,6 +249,8 @@ export function ElementBar({
   onRoom?(): void;
   /** Text: im Text-Fenster bearbeiten (Absätze, Schriftgröße) */
   onEditText?(): void;
+  /** Bruchlinie: ausgeblendete Seite wechseln */
+  onBreakSide?(): void;
   /** Text: Schriftgrad in pt auf dem Blatt (wie im Text-Fenster) */
   textPt?: number;
   onTextPt?(pt: number): void;
@@ -393,6 +398,11 @@ export function ElementBar({
       {(element.type === 'freehand' || element.type === 'wall') && onSegment && shapeVertices(element.shape).length >= 2 && (
         <button type="button" className={`btn btn-sm${segOpen ? ' active' : ''}`} aria-expanded={segOpen} onClick={() => setSegOpen(!segOpen)} title="Länge jedes Abschnitts (von Knick zu Knick) ansehen und ändern" data-testid="segments-toggle">
           Abschnitte
+        </button>
+      )}
+      {element.type === 'break' && onBreakSide && (
+        <button type="button" className="btn btn-sm" onClick={onBreakSide} title="Die andere Seite der Bruchlinie ausblenden" data-testid="break-flip">
+          ⇄ Seite wechseln
         </button>
       )}
       {element.type === 'symbol' && onFlip && symbolDef(element.symbol?.id)?.flippable && (

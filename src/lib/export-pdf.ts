@@ -23,7 +23,7 @@ import {
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { componentsOf, costCenterLabel, damagesOf, elementsOf, findPosition, planTitle, safeFileName, type ExportFile } from './aufmass';
 import { areasBelow, dimsVisible, visibleDamages, visibleElements } from './layers';
-import { annotationsOf, calloutWorld, leaderSize, LEADER_WIDTH_PT, dimGeometry, dimLeader, isDrawingPlan, ROOM_LINE, textBoxWidth, textFontSize, textLines, lineEnds, PAPER, PRINT_HEADER_MM, PRINT_MARGIN_MM, fillRegion, aufmassPaper, shapeToPage, unitsPerMeter } from './drawing';
+import { annotationsOf, breakMask, breakPath, calloutWorld, DOT_HALO, elementPageBox, hiddenByBreak, inDrawOrder, leaderSize, LEADER_WIDTH_PT, dimGeometry, dimLeader, isDrawingPlan, ROOM_LINE, textBoxWidth, textFontSize, textLines, lineEnds, PAPER, PRINT_HEADER_MM, PRINT_MARGIN_MM, fillRegion, aufmassPaper, shapeToPage, unitsPerMeter } from './drawing';
 import { withRoomAreas } from './regions';
 const textBoxWidthOf = (e: DrawElement, h: number) => textBoxWidth(e, h, e.font);
 import { getBlob } from './db';
@@ -122,13 +122,15 @@ function drawTextElement(ctx: Ctx, page: PDFPage, e: DrawElement, shape: Shape, 
     const g = calloutWorld(shape, e.leader, k, leaderSize(e));
     const col = hexToRgb(visibleHex(e.color));
     const lw = LEADER_WIDTH_PT; // immer gleich dick
+    const dotR = g.dot ? Math.max(0.6, g.dot.r * ptPerUnit) : 0;
+    if (g.dot) page.drawCircle({ ...map(g.dot.c), size: dotR * DOT_HALO, color: rgb(1, 1, 1) });
     const pts = g.line.map(map);
     for (let i = 0; i + 1 < pts.length; i++) page.drawLine({ start: pts[i], end: pts[i + 1], thickness: lw, color: col, lineCap: LineCapStyle.Round });
     if (g.head) {
       const hd = g.head.map(map);
       page.drawSvgPath(`M${hd[0].x} ${-hd[0].y} L${hd[1].x} ${-hd[1].y} L${hd[2].x} ${-hd[2].y} Z`, { x: 0, y: 0, color: col, borderColor: col, borderWidth: lw * 0.6 });
     }
-    if (g.dot) page.drawCircle({ ...map(g.dot.c), size: Math.max(0.6, g.dot.r * ptPerUnit), color: col });
+    if (g.dot) page.drawCircle({ ...map(g.dot.c), size: dotR, color: col });
   }
   // Zeilen (Absätze, Textfeld mit fester Breite umbrochen) linksbündig untereinander, gedreht wie die Form
   const fs = textFontSize(e, shape.h);
@@ -695,9 +697,21 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   // Zeichnungsobjekte
   const dimColor = rgb(0.16, 0.3, 0.5);
   const openingsPage = wallOpenings(elements, k);
-  for (const e of elements) {
+  // Bruchlinien blenden die Zeichnung dahinter aus: zuerst die Zeichnung, dann die Bruchlinien, darüber Texte und Maße
+  const breakBoxes = elements.filter(hiddenByBreak).map((e) => elementPageBox(e, k));
+  for (const e of inDrawOrder(elements)) {
     const shape = shapeToPage(e.shape, k);
     const color = hexToRgb(visibleHex(e.color));
+    if (e.type === 'break') {
+      const mask = breakMask(shape, e.breakSide ?? 1, breakBoxes);
+      if (mask) {
+        const m = mask.map(map);
+        page.drawSvgPath(`M${m.map((q) => `${q.x} ${-q.y}`).join('L')}Z`, { x: 0, y: 0, color: rgb(1, 1, 1) });
+      }
+      const pts = breakPath(shape).map(map);
+      for (let i = 0; i + 1 < pts.length; i++) page.drawLine({ start: pts[i], end: pts[i + 1], thickness: e.style?.lineWidth ?? 0.7, color, lineCap: LineCapStyle.Round });
+      continue;
+    }
     if (e.type === 'text') {
       drawTextElement(ctx, page, e, shape, map, u);
       continue;

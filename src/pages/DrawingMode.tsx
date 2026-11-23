@@ -10,6 +10,11 @@ import { formatMeasure } from '../lib/numbers';
 import { hatchAnchor, isLegacyHatch } from '../lib/style';
 import {
   applyMeasures,
+  breakMask,
+  defaultBreakSide,
+  elementPageBox,
+  hiddenByBreak,
+  inDrawOrder,
   calloutTip,
   calloutWorld,
   leaderSize,
@@ -59,10 +64,10 @@ import type { Damage, DrawElement, DrawElementType, GuideLine, Leader, Plan, Rec
 export type ToolGroup = 'select' | 'draw' | 'annotate' | 'modify';
 
 /** Werkzeuge des Zeichenmodus: Zeichnen sowie Ändern (Kopieren, Verschieben, Strecken …) */
-export type DrawTool = Tool | 'copy' | 'move' | 'stretch' | 'join' | 'offset' | 'mirror' | 'array' | 'symbol' | 'rotate' | 'scale' | 'align' | 'guide' | 'fillet' | 'distance' | 'hatch' | 'room' | 'textArrow';
+export type DrawTool = Tool | 'copy' | 'move' | 'stretch' | 'join' | 'offset' | 'mirror' | 'array' | 'symbol' | 'rotate' | 'scale' | 'align' | 'guide' | 'fillet' | 'distance' | 'hatch' | 'room' | 'textArrow' | 'breakline';
 /** Hilfslinie, Abrunden, Abstand: Punkte bzw. Objekte antippen */
 /** Objektarten, die beim Ziehen von Ecken bzw. Anfassern nie zu einer freien Form werden */
-const KEEP_TYPE = new Set<DrawElementType>(['wall', 'text', 'symbol', 'dimension', 'arc']);
+const KEEP_TYPE = new Set<DrawElementType>(['wall', 'text', 'symbol', 'dimension', 'arc', 'break']);
 /** Text/Raumstempel: nur gleichmäßig um die Mitte vergrößern */
 const TEXT_ASPECT = { x: 0.5, y: 0.5 };
 export const PICK_TOOLS = new Set<DrawTool>(['guide', 'fillet', 'distance', 'hatch', 'room']);
@@ -103,7 +108,8 @@ export const DRAW_TOOLS: { id: DrawTool; label: string; short?: string; icon: st
   { id: 'polygon', label: 'Fläche: Eckpunkte nacheinander setzen, Startpunkt antippen schließt', short: 'Fläche', icon: 'polygon', key: 'p', group: 'draw' },
   { id: 'dimension', label: 'Maßlinie', short: 'Maß', icon: 'dimension', key: 'm', group: 'annotate' },
   { id: 'text', label: 'Text / Beschriftung', short: 'Text', icon: 'text', key: 't', group: 'annotate' },
-  { id: 'textArrow', label: 'Text mit Pfeil: zuerst die Pfeilspitze antippen, dann die Stelle für den Text – Text eingeben; die Spitze lässt sich danach mit „Auswahl“ verschieben', short: 'Text + Pfeil', icon: 'callout', key: '', group: 'annotate' },
+  { id: 'textArrow', label: 'Hinweistext wie im Detailplan: zuerst das Ziel im Plan antippen, dann die Stelle für den Text – der Text steht auf einer Linie, von dort führt die Hinweislinie zum Ziel (Punkt, Pfeil oder ohne); das Ende lässt sich danach mit „Auswahl“ verschieben', short: 'Hinweis', icon: 'callout', key: '', group: 'annotate' },
+  { id: 'breakline', label: 'Bruchlinie: zwei Punkte setzen – Linie mit Zickzack („hier geht es weiter“); die Zeichnung dahinter wird ausgeblendet, die Seite lässt sich wechseln', short: 'Bruch', icon: 'breakline', key: '', group: 'annotate' },
   { id: 'move', label: 'Verschieben: Basispunkt zum Zielpunkt ziehen (mit Fang)', short: 'Verschieben', icon: 'move', key: 'g', group: 'modify' },
   { id: 'copy', label: 'Kopieren: Basispunkt zum Zielpunkt ziehen (mit Fang)', short: 'Kopieren', icon: 'copy', key: 'c', group: 'modify' },
   { id: 'stretch', label: 'Strecken: Fenster über Eckpunkte ziehen, dann Verschiebung ziehen', short: 'Strecken', icon: 'stretch', key: 's', group: 'modify' },
@@ -428,7 +434,7 @@ export function useDrawing(opts: {
     if (!NEEDS_SELECTION.has(t) && t !== 'selwin') storePref('drawTool', t);
   };
   /** Werkzeug der Planansicht: Befehle nutzen Vektor (Basis → Ziel) bzw. Fenster */
-  const viewerTool: Tool = PICK_TOOLS.has(tool) || (TRANSFORM_TOOLS.has(tool) && !cmdSelecting) ? 'pick' : tool === 'symbol' ? 'pick' : tool === 'array' && arrayPolar ? 'pick' : SELECT_FIRST.has(tool) && cmdSelecting ? 'selwin' : VECTOR_COMMANDS.has(tool) ? 'vector' : tool === 'offset' ? 'pick' : tool === 'stretch' ? (stretchWin ? 'vector' : 'window') : tool === 'textArrow' ? 'line' : (tool as Tool);
+  const viewerTool: Tool = PICK_TOOLS.has(tool) || (TRANSFORM_TOOLS.has(tool) && !cmdSelecting) ? 'pick' : tool === 'symbol' ? 'pick' : tool === 'array' && arrayPolar ? 'pick' : SELECT_FIRST.has(tool) && cmdSelecting ? 'selwin' : VECTOR_COMMANDS.has(tool) ? 'vector' : tool === 'offset' ? 'pick' : tool === 'stretch' ? (stretchWin ? 'vector' : 'window') : tool === 'textArrow' || tool === 'breakline' ? 'line' : (tool as Tool);
   const setColor = (c: string) => {
     setColorState(c);
     storePref('drawColor', c);
@@ -475,9 +481,22 @@ export function useDrawing(opts: {
       .filter((c): c is { c: Point; r: number } => !!c);
   const showDims = dimsVisible(plan);
   const elements = useMemo(
-    () => stored.map((e) => (overrides[e.id] || leaderOverrides[e.id] ? { ...e, shape: overrides[e.id] ?? e.shape, ...(leaderOverrides[e.id] ?? {}) } : e)),
+    // in Zeichenreihenfolge: Zeichnung, darüber Bruchlinien (verdecken sie), darüber Texte und Maße
+    () => inDrawOrder(stored.map((e) => (overrides[e.id] || leaderOverrides[e.id] ? { ...e, shape: overrides[e.id] ?? e.shape, ...(leaderOverrides[e.id] ?? {}) } : e))),
     [stored, overrides, leaderOverrides],
   );
+  /** Bruchlinien: je Linie die Fläche (Seitenkoordinaten), die sie ausblendet – so weit dahinter Zeichnung liegt */
+  const breakMasks = useMemo(() => {
+    const out = new Map<string, Point[]>();
+    const breaks = elements.filter((e) => e.type === 'break');
+    if (!breaks.length) return out;
+    const boxes = elements.filter(hiddenByBreak).map((e) => elementPageBox(e, k));
+    for (const e of breaks) {
+      const m = breakMask(shapeToPage(e.shape, k), e.breakSide ?? 1, boxes);
+      if (m) out.set(e.id, m);
+    }
+    return out;
+  }, [elements, k]);
   const byId = useMemo(() => new Map(elements.map((e) => [e.id, e])), [elements]);
   const items: ViewerItem[] = useMemo(
     () =>
@@ -741,6 +760,12 @@ export function useDrawing(opts: {
     if (tool === 'textArrow') {
       const [tip, at] = lineEnds(shape);
       void createCallout(tip, at);
+      return;
+    }
+    if (tool === 'breakline') {
+      // ausgeblendet wird zunächst die Seite mit weniger Zeichnung (dort „geht es weiter“)
+      const boxes = stored.filter(hiddenByBreak).map((e) => shapeAABB(e.shape));
+      create('break', shape, { breakSide: defaultBreakSide(shape, boxes), style: undefined, showDims: undefined });
       return;
     }
     if (tool === 'selwin' || (SELECT_FIRST.has(tool) && cmdSelecting)) {
@@ -1679,6 +1704,12 @@ export function useDrawing(opts: {
     return true;
   };
 
+  /** Bruchlinie: die andere Seite ausblenden */
+  const flipBreak = (id: string) => {
+    const e = data.elements[id];
+    if (e?.type === 'break') putRecord('elements', { ...e, breakSide: (e.breakSide ?? 1) === 1 ? -1 : 1 });
+  };
+
   /** Pfeiltasten: ausgewählte Objekte um dx, dy (m) verschieben – liefert false ohne Auswahl */
   const nudge = (dx: number, dy: number) => {
     const list = selection.map((x) => data.elements[x.id]).filter((e): e is DrawElement => !!e);
@@ -1689,7 +1720,9 @@ export function useDrawing(opts: {
 
   /** Text mit Pfeil (Meter): Pfeilspitze `tip`, Text an der Stelle `at` – der Text liegt auf der vom Pfeil abgewandten Seite */
   const createCallout = async (tip: Point, at: Point) => {
-    const r = await askNewText(pref('textLeader', 'arrow') === 'dot' ? 'dot' : pref('textLeader', 'arrow') === 'none' ? 'none' : 'arrow');
+    // Vorgabe wie im Detailplan: Hinweislinie mit Punkt (zuletzt gewähltes Ende wird gemerkt)
+    const lastEnd = pref('textLeader', 'dot');
+    const r = await askNewText(lastEnd === 'arrow' ? 'arrow' : lastEnd === 'none' ? 'none' : 'dot');
     if (!r) return;
     const fs = r.fs;
     const box = textShape(at, r.text, fs, r.font);
@@ -1945,7 +1978,7 @@ export function useDrawing(opts: {
       {elements
         .filter((e) => e.type === 'text')
         .map((e) => (
-          <g key={e.id}>{renderElement(e, shapeToPage(e.shape, k), view, false, false, k, [], hatchUnit)}</g>
+          <g key={e.id}>{renderElement(e, shapeToPage(e.shape, k), view, false, false, k, [], hatchUnit, breakMasks.get(e.id))}</g>
         ))}
     </>
   );
@@ -2064,7 +2097,7 @@ export function useDrawing(opts: {
 
   const renderItem = (item: ViewerItem, view: View, sel: boolean): ReactNode => {
     const e = byId.get(item.id);
-    return e ? renderElement(e, item.shape, view, sel || selSet.has(e.id), false, k, openingsPage, hatchUnit) : null;
+    return e ? renderElement(e, item.shape, view, sel || selSet.has(e.id), false, k, openingsPage, hatchUnit, breakMasks.get(e.id)) : null;
   };
 
   /** Planbearbeitung: nur die Zeichenfläche mit Raster – Messungen gehören ins Aufmaß und werden hier nicht gezeigt */
@@ -2080,7 +2113,7 @@ export function useDrawing(opts: {
     <>
       {renderSheet(view, size, region, k, false, !sheet)}
       {elements.map((e) => (
-        <g key={e.id}>{renderElement(e, shapeToPage(e.shape, k), view, false, false, k, openingsPage, hatchUnit)}</g>
+        <g key={e.id}>{renderElement(e, shapeToPage(e.shape, k), view, false, false, k, openingsPage, hatchUnit, breakMasks.get(e.id))}</g>
       ))}
       {showDims && renderDims(view, elements, k, { color: '#5b6b80' })}
       {/* Hilfslinien auch im Aufmaß (dieselben wie beim Zeichnen; nicht im PDF) */}
@@ -2438,6 +2471,7 @@ export function useDrawing(opts: {
     onShapeChange,
     onTipChange,
     nudge,
+    flipBreak,
     repeatTool,
     copySelection,
     pasteCopy,

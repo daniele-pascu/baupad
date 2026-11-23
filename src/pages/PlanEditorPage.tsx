@@ -89,7 +89,7 @@ const TOOLS_BY_TYPE: Record<MeasureType, readonly Tool[]> = {
 };
 
 /** Werkzeuge mit Maßeingabe bzw. Hinweis vor dem Einfügen */
-const INSERT_TOOLS = new Set<DrawTool>(['line', 'rect', 'ellipse', 'triangle', 'dimension', 'text', 'textArrow']);
+const INSERT_TOOLS = new Set<DrawTool>(['line', 'rect', 'ellipse', 'triangle', 'dimension', 'text', 'textArrow', 'breakline']);
 
 /** Hinweise zu den Befehlen im Zeichenmodus */
 const OP_HINTS: Partial<Record<DrawTool, string>> = {
@@ -256,7 +256,7 @@ function CheckLine({ view, c }: { view: View; c: NonNullable<NonNullable<Plan['c
 }
 
 /** Zeichenwerkzeuge, die am Handy/Tablet nach Gebrauch mit dem nächsten Fingertipp enden (Ändern-Befehle nicht) */
-const DRAW_DONE_TOOLS = new Set<string>(['line', 'polyline', 'rect', 'ellipse', 'arc', 'polygon', 'dimension', 'text', 'textArrow']);
+const DRAW_DONE_TOOLS = new Set<string>(['line', 'polyline', 'rect', 'ellipse', 'arc', 'polygon', 'dimension', 'text', 'textArrow', 'breakline']);
 
 /** Zugeklappte Werkzeugleiste: ein Knopf mit dem aktuellen Werkzeug öffnet sie wieder */
 function ToolsOpenButton({ tool, onOpen }: { tool?: { icon: string; label: string; short?: string }; onOpen: () => void }) {
@@ -2417,6 +2417,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 onFlip={(axis) => drawing.flipSymbol(drawing.selected!.id, axis)}
                 onRoom={() => void drawing.editRoom(drawing.selected!.id)}
                 onEditText={() => void drawing.editText(drawing.selected!.id)}
+                onBreakSide={() => drawing.flipBreak(drawing.selected!.id)}
                 textPt={drawing.selected.type === 'text' ? drawing.textPt(drawing.selected) : undefined}
                 onTextPt={(pt) => drawing.setTextPt(drawing.selected!.id, pt)}
                 onWall={(patch) => drawing.setWall(drawing.selected!.id, patch)}

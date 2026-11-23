@@ -31,6 +31,9 @@ test('Text mit Pfeil: einfügen, Spitze verschieben, gespeichert und im PDF', as
   await page.mouse.click(at.x, at.y);
   const td = page.getByTestId('text-dialog');
   await td.getByTestId('text-input').fill('Riss prüfen');
+  // Vorgabe wie im Detailplan: Hinweislinie mit Punkt; hier mit Pfeilspitze
+  await expect(td.getByTestId('text-leader-dot')).toHaveAttribute('aria-checked', 'true');
+  await td.getByTestId('text-leader-arrow').click();
   await td.getByRole('button', { name: 'Einfügen' }).click();
   const callout = page.locator('[data-element="text"][data-callout="1"]');
   await expect(callout).toContainText('Riss prüfen');
