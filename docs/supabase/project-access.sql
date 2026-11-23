@@ -8,6 +8,7 @@ language sql stable security definer set search_path = public as $$
   select workspace_id from public.memberships where user_id = auth.uid() and active and role in ('admin', 'buero') order by created_at limit 1;
 $$;
 revoke all on function public.my_office_workspace() from public;
+revoke all on function public.my_office_workspace() from anon;
 grant execute on function public.my_office_workspace() to authenticated;
 
 -- Poliere und Arbeiter des Arbeitsbereichs (Mitglieder und Einladungen) mit dem Stand der Freigabe für ein Projekt
@@ -25,6 +26,7 @@ language sql stable security definer set search_path = public as $$
   ) x;
 $$;
 revoke all on function public.project_access(text) from public;
+revoke all on function public.project_access(text) from anon;
 grant execute on function public.project_access(text) to authenticated;
 
 -- Freigabe setzen: p_ids = alle Personen (id aus project_access), die das Projekt sehen dürfen; alle anderen verlieren es
@@ -44,4 +46,5 @@ begin
 end;
 $$;
 revoke all on function public.set_project_access(text, text[]) from public;
+revoke all on function public.set_project_access(text, text[]) from anon;
 grant execute on function public.set_project_access(text, text[]) to authenticated;
