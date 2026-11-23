@@ -562,8 +562,8 @@ export interface LabelOptions {
   /** Bereich, in dem die Beschriftungen liegen sollen (z. B. Planausschnitt) */
   area?: Rect;
   /**
-   * Übersicht (Plan verkleinert): jede Nummer steht direkt auf ihrer Messung (Mitte der Fläche, auf der Linie) – keine
-   * Verbindungslinien. Läge sie dort auf einer anderen Nummer, wird sie ausgeblendet; beim Vergrößern erscheint sie
+   * Übersicht (Plan verkleinert): jede Nummer steht direkt an ihrer Messung (Mitte der Fläche, wenn sie hineinpasst;
+   * bei Linien direkt daneben, nie auf der Linie) – ohne Verbindungslinien. Läge sie dort auf einer anderen Nummer, wird sie ausgeblendet; beim Vergrößern erscheint sie
    * wieder. Große Messungen zuerst, dann nach Nummer; `keep` (z. B. die ausgewählte Messung) wird immer gezeigt.
    */
   overview?: { keep?: string | null };
@@ -587,6 +587,114 @@ function rectGap(a: Rect, b: Rect): number {
   return Math.hypot(dx, dy);
 }
 
+/** Umriss einer Form als Linienzüge in Seitenkoordinaten (Kreis angenähert, geschlossene Formen mit Rückkehr zum Anfang). */
+export function outlineParts(s: Shape): Point[][] {
+  const c = shapeCenter(s);
+  const rot = s.rotation ?? 0;
+  const R = (p: Point) => (rot ? rotatePoint(p, c, rot) : p);
+  if (s.type === 'ellipse') {
+    const n = 36;
+    return [Array.from({ length: n + 1 }, (_, i) => {
+      const a = (i / n) * 2 * Math.PI;
+      return R({ x: c.x + (s.w / 2) * Math.cos(a), y: c.y + (s.h / 2) * Math.sin(a) });
+    })];
+  }
+  if (isPointShape(s)) {
+    const pts = freehandPoints(s).map(R);
+    if (isOpenShape(s)) return shapeParts(s, pts);
+    return pts.length ? [[...pts, pts[0]]] : [];
+  }
+  const k = [{ x: s.x, y: s.y }, { x: s.x + s.w, y: s.y }, { x: s.x + s.w, y: s.y + s.h }, { x: s.x, y: s.y + s.h }].map(R);
+  return [[...k, k[0]]];
+}
+
+/** Schneidet die Strecke a–b das Rechteck r? (Liang–Barsky) */
+function segmentHitsRect(a: Point, b: Point, r: Rect): boolean {
+  let t0 = 0;
+  let t1 = 1;
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const clip = (p: number, q: number) => {
+    if (p === 0) return q >= 0;
+    const t = q / p;
+    if (p < 0) {
+      if (t > t1) return false;
+      if (t > t0) t0 = t;
+    } else {
+      if (t < t0) return false;
+      if (t < t1) t1 = t;
+    }
+    return true;
+  };
+  return clip(-dx, a.x - r.x) && clip(dx, r.x + r.w - a.x) && clip(-dy, a.y - r.y) && clip(dy, r.y + r.h - a.y);
+}
+
+/** Kleinster Abstand zwischen einem Rechteck (Nummernfeld) und einem Umriss – 0, wenn das Feld auf der Linie liegt. */
+export function rectToOutline(r: Rect, parts: Point[][]): number {
+  let d = Infinity;
+  const corners = [{ x: r.x, y: r.y }, { x: r.x + r.w, y: r.y }, { x: r.x + r.w, y: r.y + r.h }, { x: r.x, y: r.y + r.h }];
+  for (const part of parts) {
+    if (part.length === 1) d = Math.min(d, distToRect(part[0], r));
+    for (let i = 0; i + 1 < part.length; i++) {
+      const a = part[i];
+      const b = part[i + 1];
+      if (segmentHitsRect(a, b, r)) return 0;
+      d = Math.min(d, distToRect(a, r), distToRect(b, r), ...corners.map((c) => distToSegment(c, a, b)));
+    }
+  }
+  return d;
+}
+
+const polyLength = (pts: Point[]) => pts.slice(1).reduce((acc, p, i) => acc + Math.hypot(p.x - pts[i].x, p.y - pts[i].y), 0);
+
+/** Punkt im Abstand t (entlang der Linie) vom Anfang – auf Anfang/Ende begrenzt. */
+function pointAlong(pts: Point[], t: number): Point {
+  if (t <= 0 || pts.length < 2) return pts[0];
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const len = Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y);
+    if (t <= len && len > 0) return { x: pts[i].x + ((pts[i + 1].x - pts[i].x) * t) / len, y: pts[i].y + ((pts[i + 1].y - pts[i].y) * t) / len };
+    t -= len;
+  }
+  return pts[pts.length - 1];
+}
+
+/**
+ * Plätze direkt neben einer Linie: senkrecht zur Linie im Abstand `gap` – nie auf der Linie. Polylinie: Mitte der
+ * längsten Teilstrecken zuerst; Freihand: entlang der Linie (Richtung über ein Stück gemittelt). Oben bzw. rechts bevorzugt.
+ */
+function besideLineCandidates(parts: Point[][], w: number, h: number, gap: number): { r: Rect; pref: number }[] {
+  const out: { r: Rect; pref: number }[] = [];
+  const put = (m: Point, ux: number, uy: number, pref: number) => {
+    const len = Math.hypot(ux, uy);
+    if (!(len > 1e-12)) return;
+    for (const sign of [1, -1]) {
+      const nx = (-uy / len) * sign;
+      const ny = (ux / len) * sign;
+      const d = gap + (w / 2) * Math.abs(nx) + (h / 2) * Math.abs(ny);
+      const side = ny < -1e-6 || (Math.abs(ny) <= 1e-6 && nx > 0) ? 0 : 0.3;
+      out.push({ r: { x: m.x + nx * d - w / 2, y: m.y + ny * d - h / 2, w, h }, pref: pref + side });
+    }
+  };
+  const segs = parts
+    .flatMap((p) => p.slice(0, -1).map((a, i) => ({ a, b: p[i + 1], len: Math.hypot(p[i + 1].x - a.x, p[i + 1].y - a.y) })))
+    .filter((q) => q.len > 1e-9);
+  if (!segs.length) return out;
+  const few = segs.length <= 12;
+  [...segs]
+    .sort((a, b) => b.len - a.len)
+    .slice(0, 6)
+    .forEach((q, k) => put({ x: (q.a.x + q.b.x) / 2, y: (q.a.y + q.b.y) / 2 }, q.b.x - q.a.x, q.b.y - q.a.y, (few ? 0 : 1) + k * 0.15));
+  const part = parts.reduce((best, p) => (polyLength(p) > polyLength(best) ? p : best), parts[0]);
+  const total = polyLength(part);
+  const delta = Math.min(total / 4, Math.max(w, h));
+  for (const [f, p] of [[0.5, 0], [0.3, 0.4], [0.7, 0.4], [0.12, 0.8], [0.88, 0.8]]) {
+    const a = pointAlong(part, total * f - delta);
+    const b = pointAlong(part, total * f + delta);
+    put(pointAlong(part, total * f), b.x - a.x, b.y - a.y, (few ? 0.5 : 0) + p);
+  }
+  return out;
+}
+
 /**
  * Ordnet die Schadstellennummern so an, dass
  * 1. keine Nummer eine andere verdeckt,
@@ -604,6 +712,20 @@ export function layoutLabels(items: LabelInput[], gap: number, opts: LabelOption
   if (!items.length) return result;
   const maxH = Math.max(...items.map((i) => i.h));
   const reach = maxH * 6 + gap * 4;
+  // Nummern nie auf einer Linie: Mindestabstand des Nummernfelds zum Umriss
+  const clear = gap * 0.5;
+  const shapeOf = (it: LabelInput): Shape => it.shape ?? { type: 'rect', ...it.bounds };
+  const open = (it: LabelInput) => !!it.shape && isOpenShape(it.shape);
+  const outlines = new Map(items.map((it) => [it.id, outlineParts(shapeOf(it))]));
+  /** Feld liegt auf der Linie bzw. dem Umriss der Messung */
+  const onStroke = (r: Rect, it: LabelInput) => rectGap(r, it.bounds) < clear && rectToOutline(r, outlines.get(it.id)!) < clear;
+  /** Abstand zur Messung: Linie → zur Linie selbst, Fläche → zum Rahmen */
+  const distTo = (p: Point, it: LabelInput, atMost = Infinity) => {
+    const box = distToRect(p, it.bounds);
+    if (!open(it) || box >= atMost) return box;
+    const d = Math.min(...outlines.get(it.id)!.map((part) => (part.length > 1 ? distanceToPolyline(p, part, false) : Math.hypot(p.x - part[0].x, p.y - part[0].y))));
+    return Number.isFinite(d) ? d : box;
+  };
 
   // Nachbarn je Schadstelle (nur diese können sich gegenseitig stören)
   const neighbours = items.map((a) =>
@@ -622,6 +744,8 @@ export function layoutLabels(items: LabelInput[], gap: number, opts: LabelOption
     const b = it.bounds;
     const { w, h } = it;
     const list: { r: Rect; pref: number; inside: boolean }[] = [];
+    // Linie: direkt daneben (ohne Bezugslinie) zuerst
+    if (open(it)) for (const c of besideLineCandidates(outlines.get(it.id)!, w, h, gap)) list.push({ r: c.r, pref: c.pref - 1, inside: false });
     const rings = [gap, gap + h * 0.9, gap + h * 2, gap + h * 3.5, gap + h * 5.5];
     rings.forEach((d, ring) => {
       const pos: [number, number, number][] = [
@@ -638,8 +762,8 @@ export function layoutLabels(items: LabelInput[], gap: number, opts: LabelOption
       ];
       for (const [x, y, p] of pos) list.push({ r: { x, y, w, h }, pref: p + ring * 4, inside: false });
     });
-    // Innerhalb großer Markierungen ist die Zuordnung eindeutig
-    if (b.w >= w * 1.8 && b.h >= h * 1.8) {
+    // Innerhalb großer Flächen ist die Zuordnung eindeutig (Linien haben keine Fläche – dort nie in die Mitte)
+    if (!open(it) && b.w >= w * 1.8 && b.h >= h * 1.8) {
       list.push({ r: { x: b.x + b.w / 2 - w / 2, y: b.y + b.h / 2 - h / 2, w, h }, pref: 2.5, inside: true });
     }
     return list;
@@ -658,20 +782,24 @@ export function layoutLabels(items: LabelInput[], gap: number, opts: LabelOption
         if (ov > 0) s += 10000 + (ov / la) * 10000;
       }
     }
-    // 2. fremde Schadstellen verdecken
+    // 2. fremde Schadstellen verdecken – auf einer Linie nie
     let nearestOther = Infinity;
     for (const o of others) {
-      const ov = overlapArea(r, o.bounds);
-      if (ov > 0) s += 600 + (ov / la) * 600;
-      nearestOther = Math.min(nearestOther, distToRect(center, o.bounds));
+      if (!open(o)) {
+        const ov = overlapArea(r, o.bounds);
+        if (ov > 0) s += 600 + (ov / la) * 600;
+      }
+      if (onStroke(r, o)) s += 3000;
+      nearestOther = Math.min(nearestOther, distTo(center, o, nearestOther));
     }
-    // eigene Schadstelle nicht verdecken (außer bewusst innerhalb)
-    if (!c.inside) {
+    // eigene Schadstelle nicht verdecken (außer bewusst innerhalb) – die eigene Linie nie
+    if (!c.inside && !open(it)) {
       const ov = overlapArea(r, it.bounds);
       if (ov > 0) s += 40 + (ov / la) * 200;
     }
+    if (onStroke(r, it)) s += 5000;
     // 3. Eindeutigkeit: Nummer muss deutlich näher an der eigenen Schadstelle stehen
-    const own = distToRect(center, it.bounds);
+    const own = distTo(center, it);
     if (nearestOther < Infinity) {
       if (nearestOther <= own) s += 400;
       else if (nearestOther < own + it.h) s += 80 * (1 - (nearestOther - own) / it.h);
@@ -687,23 +815,45 @@ export function layoutLabels(items: LabelInput[], gap: number, opts: LabelOption
 
   const auto = items.filter((i) => !i.offset);
   if (opts.overview) {
-    // Übersicht: Nummer auf der Messung; ausgewählte zuerst, dann große vor kleinen; kein freier Platz → ausgeblendet
+    // Übersicht: Nummer direkt an der Messung (Fläche: in der Mitte, wenn sie hineinpasst; Linie: direkt daneben, nie
+    // darauf); ausgewählte zuerst, dann große vor kleinen; kein freier Platz → ausgeblendet
     const keep = opts.overview.keep;
     const size = (it: LabelInput) => Math.max(it.bounds.w, it.bounds.h);
     const order = [...items].sort((a, b) => Number(b.id === keep) - Number(a.id === keep) || size(b) - size(a));
     result.clear(); // von Hand verschobene Nummern zählen hier nicht – sie gelten erst vergrößert
     const placed: Rect[] = [];
     const pad = gap / 2;
+    // nie auf einer Linie; fremde Messungen deutlich weiter weg als die eigene (eindeutige Zuordnung)
+    const near = (r: Rect, o: LabelInput, d: number) => rectGap(r, o.bounds) < d && rectToOutline(r, outlines.get(o.id)!) < d;
+    const clearOfLines = (r: Rect, it: LabelInput, d: number) => items.every((o) => (o === it ? !onStroke(r, o) : !near(r, o, d)));
     for (const it of order) {
       const b = it.bounds;
-      let at = { x: b.x + b.w / 2, y: b.y + b.h / 2 };
-      // Linie bzw. offene Form: auf die Linie, nicht in die leere Mitte
-      if (it.shape && isOpenShape(it.shape)) at = outlinePointToward(it.shape, at);
-      const r = { x: at.x - it.w / 2, y: at.y - it.h / 2, w: it.w, h: it.h };
-      const grown = { x: r.x - pad, y: r.y - pad, w: r.w + 2 * pad, h: r.h + 2 * pad };
-      if (it.id !== keep && placed.some((q) => overlapArea(grown, q) > 0)) continue;
-      placed.push(r);
-      result.set(it.id, r);
+      const { w, h } = it;
+      let cands: Rect[];
+      if (open(it)) {
+        cands = besideLineCandidates(outlines.get(it.id)!, w, h, gap)
+          .sort((p, q) => p.pref - q.pref)
+          .map((c) => c.r);
+      } else {
+        const mid = { x: b.x + b.w / 2 - w / 2, y: b.y + b.h / 2 - h / 2, w, h };
+        cands = [
+          ...(hitShape(shapeOf(it), { x: b.x + b.w / 2, y: b.y + b.h / 2 }, 0) ? [mid] : []),
+          { x: b.x + b.w + gap, y: b.y + b.h / 2 - h / 2, w, h }, // rechts daneben
+          { x: b.x + b.w / 2 - w / 2, y: b.y - h - gap, w, h }, // darüber
+          { x: b.x - w - gap, y: b.y + b.h / 2 - h / 2, w, h }, // links daneben
+          { x: b.x + b.w / 2 - w / 2, y: b.y + b.h + gap, w, h }, // darunter
+        ];
+      }
+      const free = (r: Rect) => {
+        const grown = { x: r.x - pad, y: r.y - pad, w: r.w + 2 * pad, h: r.h + 2 * pad };
+        return !placed.some((q) => overlapArea(grown, q) > 0);
+      };
+      // zuerst eindeutige Plätze, sonst wenigstens nicht auf einer fremden Linie
+      let pick = cands.find((r) => free(r) && clearOfLines(r, it, gap * 2.5)) ?? cands.find((r) => free(r) && clearOfLines(r, it, gap));
+      if (!pick && it.id === keep) pick = cands.find((r) => !onStroke(r, it)) ?? cands[0];
+      if (!pick) continue;
+      placed.push(pick);
+      result.set(it.id, pick);
     }
     return result;
   }
@@ -787,6 +937,8 @@ export function leaderLine(shape: Shape, label: Rect, minGap: number): { from: P
   const lc = { x: label.x + label.w / 2, y: label.y + label.h / 2 };
   // Nummer steht in der Fläche: keine Linie – sie gehört sichtbar dazu; nur außerhalb braucht es die Verbindung
   if (!isOpenShape(shape) && hitShape(shape, lc, 0)) return null;
+  // direkt daneben (auch schräg an einer Linie): keine Linie – gemessen wird der echte kleinste Abstand zum Umriss
+  if (rectToOutline(label, outlineParts(shape)) <= minGap) return null;
   const to = outlinePointToward(shape, lc);
   const from = nearestPointOnRect(label, to);
   if (Math.hypot(from.x - to.x, from.y - to.y) <= minGap) return null;

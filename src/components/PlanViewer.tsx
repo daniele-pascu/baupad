@@ -1780,11 +1780,12 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
           })()}
           {props.overlay?.(view, drawPreview, polyHover.current)}
           {/* Verbindungslinien zuerst, damit sie unter den Nummern liegen */}
-          {!overview && damages.map((d) => {
+          {damages.map((d) => {
             const r = labels.get(d.id);
             if (!r) return null;
             const screenShape = { ...d.shape, ...toScreen(view, d.shape), w: d.shape.w * view.scale, h: d.shape.h * view.scale };
-            const line = leaderLine(screenShape, r, 5);
+            // direkt neben der Messung keine Bezugslinie, weiter weg schon
+            const line = leaderLine(screenShape, r, 6);
             return line ? (
               <line
                 key={`ll-${d.id}`}
