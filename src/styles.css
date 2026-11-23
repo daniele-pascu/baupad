@@ -11993,6 +11993,23 @@ html[data-theme='dark'] .calc-result .calc-total.warn strong {
   padding-top: 6px;
   border-top: 1px solid var(--border);
 }
+/* in der Leiste eines ausgewählten Textes: eine Zeile, die bei wenig Platz umbricht; ohne eigenen Kasten */
+.wtb.wtb-compact {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.wtb.wtb-compact .wtb-font {
+  flex: 0 1 150px;
+}
+.wtb.wtb-compact .wtb-palette {
+  flex: 1 1 100%;
+  padding-top: 4px;
+}
 @media (pointer: coarse) {
   .wtb-btn {
     min-width: 40px;

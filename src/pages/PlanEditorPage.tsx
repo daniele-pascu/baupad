@@ -29,7 +29,7 @@ import { ExcelExportDialog } from '../components/ExcelExportDialog';
 import { calibrationFrom, detectScale, sourceText } from '../lib/scale-detect';
 import { areasBelow, visibleDamages } from '../lib/layers';
 import { LayerMenu } from '../components/LayerMenu';
-import { drawingRegion, printSheetRect, isDrawingPlan, lineEnds, paperLabel, shapeToMeters, shapeToPage, suggestMeasures, unitsPerMeter } from '../lib/drawing';
+import { aufmassPaper, drawingRegion, printSheetRect, sheetUnitsPerPt, isDrawingPlan, lineEnds, paperLabel, shapeToMeters, shapeToPage, suggestMeasures, unitsPerMeter } from '../lib/drawing';
 import { convertShape, isOpenShape, lineShape, moveVertex, polygonShape, removeVertex, rotatePoint, shapeVertices, toPage, toScreen, type Point, type View } from '../lib/geometry';
 import { probeTarget, type ProbeKind } from '../lib/probe';
 import { ProbeBar, ProbeMenu, ProbeOverlay, type ProbeState } from '../components/ProbeLayer';
@@ -805,7 +805,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const dmgSel = useSelection(damages.map((d) => d.id));
   const [bulkDmg, setBulkDmg] = useState(false);
   const selected = damages.find((d) => d.id === selectedId) ?? null;
-  const drawing = useDrawing({ plan, data, damages, viewer, onCreated: () => void (reopenTools() || setToolsOpen(false)) });
+  /** Seiteneinheiten je pt auf dem angezeigten Blatt – Schriftgrößen in pt beziehen sich darauf (weiter unten gesetzt) */
+  const ptUnit = useRef(0);
+  const drawing = useDrawing({ plan, data, damages, viewer, onCreated: () => void (reopenTools() || setToolsOpen(false)), ptUnit });
   // fertig (Messung gespeichert bzw. abgebrochen, Kalibrieren beendet) → zugeklappte Leiste wieder öffnen
   const hadDialog = useRef(false);
   useEffect(() => {
@@ -838,6 +840,28 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     [plan, drawingPlan, drawing.allElements],
   );
   const measureRegion = sheetRect ?? region;
+  // Bezug für Schriftgrößen: das Blatt, das die Zeichnung füllt – ohne die Texte selbst (sonst änderte sich der Bezug,
+  // sobald man einen Text vergrößert oder verschiebt)
+  const ptSheet = useMemo(() => {
+    if (!plan || !drawingPlan) return null;
+    const geo = drawing.allElements.filter((e) => e.type !== 'text' && e.type !== 'dimension');
+    return geo.length ? printSheetRect(plan, geo, []) : null;
+  }, [plan, drawingPlan, drawing.allElements]);
+  // Schriftgröße in pt wie auf dem Papier: Plan bearbeiten = Zeichenblatt im gewählten Maßstab; Aufmaß = die Zeichnung
+  // füllt das Blatt; importierter Plan = der Planausschnitt auf dem Papierformat (ohne Angabe A3)
+  ptUnit.current = !plan
+    ? 0
+    : drawingPlan
+      ? // gezeichneter Plan: in „Plan bearbeiten“ und im Aufmaß dasselbe Blatt – die Zeichnung füllt es (wie im PDF
+        // des Aufmaßes); so zeigt ein Text überall denselben Schriftgrad, auch bei einem kleinen Detail. Ohne
+        // Zeichnung gilt das Zeichenblatt im Maßstab (Vorgabe in useDrawing).
+        ptSheet
+        ? sheetUnitsPerPt(ptSheet, aufmassPaper(plan, ptSheet))
+        : 0
+      : (() => {
+          const r = plan.crop ?? { w: plan.pageWidth, h: plan.pageHeight };
+          return sheetUnitsPerPt(r, plan.paper ?? (r.w >= r.h ? 'A3-quer' : 'A3-hoch'));
+        })();
 
   /** Gültiger Bereich für neue Formen: gezeichnete Pläne unbegrenzt (wie der Modellbereich im CAD,
    *  der PDF-Export skaliert passend aufs Format), importierte Pläne der Planausschnitt */
@@ -2393,6 +2417,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 onFlip={(axis) => drawing.flipSymbol(drawing.selected!.id, axis)}
                 onRoom={() => void drawing.editRoom(drawing.selected!.id)}
                 onEditText={() => void drawing.editText(drawing.selected!.id)}
+                textPt={drawing.selected.type === 'text' ? drawing.textPt(drawing.selected) : undefined}
+                onTextPt={(pt) => drawing.setTextPt(drawing.selected!.id, pt)}
                 onWall={(patch) => drawing.setWall(drawing.selected!.id, patch)}
                 onSegment={(i, len) => drawing.setSegment(drawing.selected!.id, i, len)}
                 onDelete={() => void drawing.remove(drawing.selected!)}

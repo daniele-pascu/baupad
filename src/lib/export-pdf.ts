@@ -123,7 +123,7 @@ function drawTextElement(ctx: Ctx, page: PDFPage, e: DrawElement, shape: Shape, 
       const hd = g.head.map(map);
       page.drawSvgPath(`M${hd[0].x} ${-hd[0].y} L${hd[1].x} ${-hd[1].y} L${hd[2].x} ${-hd[2].y} Z`, { x: 0, y: 0, color: col, borderColor: col, borderWidth: lw * 0.6 });
     }
-    if (g.dot) page.drawCircle({ ...map(g.dot.c), size: Math.max(1, g.dot.r * ptPerUnit), color: col });
+    if (g.dot) page.drawCircle({ ...map(g.dot.c), size: Math.max(0.6, g.dot.r * ptPerUnit), color: col });
   }
   // Zeilen (Absätze, Textfeld mit fester Breite umbrochen) linksbündig untereinander, gedreht wie die Form
   const fs = textFontSize(e, shape.h);

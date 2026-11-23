@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { DRAW_COLORS, type LeaderEnd, type TextFont } from '../lib/types';
 import { rememberCustomColorSoon, useCustomColors } from '../lib/custom-colors';
 import { cleanFont, FONT_FAMILIES, fontProps } from '../lib/text-font';
@@ -101,32 +101,173 @@ function LeaderIcon({ end }: { end: LeaderChoice }) {
   );
 }
 
+/**
+ * Formatleiste wie die Gruppe „Schriftart“ der Textverarbeitung: oben Schriftart, Schriftgrad (eintippen oder aus der
+ * Liste) und Schriftgrad vergrößern/verkleinern; darunter Fett, Kursiv, Unterstrichen, Schriftfarbe (A mit
+ * Farbbalken, Palette klappt auf) und die Ausrichtung. Im Text-Fenster und in der Leiste eines ausgewählten Textes.
+ */
+export function TextFormatBar({ font, color, pt, onFont, onColor, onPt, compact = false, live = true }: { font: TextFont | undefined; color: string; /** Schriftgrad jetzt (pt auf dem Blatt) */ pt: number; onFont(f: TextFont | undefined): void; onColor(c: string): void; onPt(pt: number): void; /** in der Leiste: eine Zeile */ compact?: boolean; /** getippter Schriftgrad gilt sofort (Fenster) bzw. erst mit Enter/Verlassen des Felds (Leiste) */ live?: boolean }) {
+  const f = font ?? {};
+  const custom = useCustomColors();
+  const listId = useId();
+  /** Palette der Schriftfarbe aufgeklappt */
+  const [palette, setPalette] = useState(false);
+  // Eingabefeld des Schriftgrads: frei tippen (z. B. 13,5), Vorschläge wie in der Textverarbeitung
+  const [ptText, setPtText] = useState(fmtPt(pt));
+  const shown = useRef(pt);
+  useEffect(() => {
+    // Größe von außen geändert (z. B. Ecke im Plan gezogen): Feld nachführen
+    if (Math.abs(shown.current - pt) > 1e-6) {
+      shown.current = pt;
+      setPtText(fmtPt(pt));
+    }
+  }, [pt]);
+  const setPt = (n: number) => {
+    const v = Math.min(400, Math.max(2, n));
+    shown.current = v;
+    setPtText(fmtPt(v));
+    onPt(v);
+  };
+  const typePt = (v: string) => {
+    setPtText(v);
+    const n = Number(v.replace(',', '.'));
+    if (live && Number.isFinite(n) && n >= 2 && n <= 400) {
+      shown.current = n;
+      onPt(n);
+    }
+  };
+  /** Feld verlassen: getippten Wert übernehmen (Leiste) bzw. die Anzeige glätten */
+  const leavePt = () => {
+    const n = Number(ptText.replace(',', '.'));
+    if (!live && Number.isFinite(n) && n >= 2 && n <= 400 && Math.abs(n - pt) > 1e-6) setPt(n);
+    else setPtText(fmtPt(shown.current));
+  };
+  return (
+    <div className={`wtb${compact ? ' wtb-compact' : ''}`} role="toolbar" aria-label="Schriftart" data-testid="text-format-bar">
+      <div className="wtb-row">
+        <select className="wtb-font" value={f.family ?? 'sans'} onChange={(e) => onFont(cleanFont({ ...f, family: e.target.value as TextFont['family'] }))} aria-label="Schriftart" title="Schriftart" data-testid="font-family">
+          {FONT_FAMILIES.map((x) => (
+            <option key={x.id} value={x.id}>
+              {x.label}
+            </option>
+          ))}
+        </select>
+        <input
+          className="wtb-size"
+          value={ptText}
+          onChange={(e) => typePt(e.target.value)}
+          onBlur={leavePt}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              (e.currentTarget as HTMLInputElement).blur();
+            }
+          }}
+          inputMode="decimal"
+          list={listId}
+          autoComplete="off"
+          aria-label="Schriftgrad in Punkt"
+          title="Schriftgrad (pt) – eintippen oder aus der Liste wählen"
+          data-testid="text-size"
+        />
+        <datalist id={listId}>
+          {TEXT_SIZES.map((n) => (
+            <option key={n} value={String(n)} />
+          ))}
+        </datalist>
+        <button type="button" className="wtb-btn" onClick={() => setPt(nextSize(pt, 1))} title="Schriftgrad vergrößern" aria-label="Schriftgrad vergrößern" data-testid="text-bigger">
+          <svg width="22" height="20" viewBox="0 0 22 20" aria-hidden="true">
+            <text x="1" y="17" fontSize="17" fontFamily="Arial, Helvetica, sans-serif" fill="currentColor">A</text>
+            <path d="M14.5 6.5L17.5 3l3 3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+        <button type="button" className="wtb-btn" onClick={() => setPt(nextSize(pt, -1))} title="Schriftgrad verkleinern" aria-label="Schriftgrad verkleinern" data-testid="text-smaller">
+          <svg width="22" height="20" viewBox="0 0 22 20" aria-hidden="true">
+            <text x="3" y="17" fontSize="13" fontFamily="Arial, Helvetica, sans-serif" fill="currentColor">A</text>
+            <path d="M14.5 3.5L17.5 7l3-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      </div>
+      <div className="wtb-row">
+        <button type="button" className={`wtb-btn wtb-bold${f.bold ? ' active' : ''}`} aria-pressed={!!f.bold} onClick={() => onFont(cleanFont({ ...f, bold: !f.bold }))} title="Fett" aria-label="Fett" data-testid="font-bold">
+          F
+        </button>
+        <button type="button" className={`wtb-btn wtb-italic${f.italic ? ' active' : ''}`} aria-pressed={!!f.italic} onClick={() => onFont(cleanFont({ ...f, italic: !f.italic }))} title="Kursiv" aria-label="Kursiv" data-testid="font-italic">
+          K
+        </button>
+        <button type="button" className={`wtb-btn wtb-underline${f.underline ? ' active' : ''}`} aria-pressed={!!f.underline} onClick={() => onFont(cleanFont({ ...f, underline: !f.underline }))} title="Unterstrichen" aria-label="Unterstrichen" data-testid="font-underline">
+          U
+        </button>
+        <span className="wtb-sep" aria-hidden="true" />
+        <button type="button" className={`wtb-btn wtb-color${palette ? ' active' : ''}`} aria-expanded={palette} onClick={() => setPalette(!palette)} title="Schriftfarbe" aria-label="Schriftfarbe" data-testid="text-color-open">
+          <span className="wtb-color-a" aria-hidden="true">
+            A
+          </span>
+          <span className="wtb-color-bar" style={{ background: visibleStroke(color) }} aria-hidden="true" />
+          <svg className="wtb-caret" width="8" height="5" viewBox="0 0 8 5" aria-hidden="true">
+            <path d="M1 1l3 3 3-3" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+        <span className="wtb-sep" aria-hidden="true" />
+        {(['left', 'center', 'right'] as const).map((al) => {
+          const on = (f.align ?? 'left') === al;
+          return (
+            <button
+              key={al}
+              type="button"
+              className={`wtb-btn${on ? ' active' : ''}`}
+              aria-pressed={on}
+              onClick={() => onFont(cleanFont({ ...f, align: al === 'left' ? undefined : al }))}
+              title={al === 'left' ? 'Linksbündig' : al === 'center' ? 'Zentriert' : 'Rechtsbündig'}
+              aria-label={al === 'left' ? 'Linksbündig' : al === 'center' ? 'Zentriert' : 'Rechtsbündig'}
+              data-testid={`text-align-${al}`}
+            >
+              <svg width="18" height="16" viewBox="0 0 18 16" aria-hidden="true">
+                {[2, 6, 10, 14].map((y, i) => {
+                  const w = i % 2 ? 10 : 16;
+                  const x = al === 'left' ? 1 : al === 'center' ? (18 - w) / 2 : 17 - w;
+                  return <path key={y} d={`M${x} ${y}h${w}`} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />;
+                })}
+              </svg>
+            </button>
+          );
+        })}
+      </div>
+      {palette && (
+        <div className="wtb-row wtb-palette" role="radiogroup" aria-label="Schriftfarbe" data-testid="text-palette">
+          {[...DRAW_COLORS, ...custom.map((c) => ({ value: c, name: `Eigene Farbe ${c}` }))].map((c) => (
+            <button
+              key={c.value}
+              type="button"
+              role="radio"
+              aria-checked={color === c.value}
+              className={`swatch swatch-sm${color === c.value ? ' active' : ''}`}
+              style={{ background: c.value }}
+              onClick={() => onColor(c.value)}
+              title={c.name}
+              aria-label={c.name}
+              data-testid={`text-color-${c.name}`}
+            />
+          ))}
+          <input type="color" className="font-color-free" value={color} onChange={(e) => (onColor(e.target.value), rememberCustomColorSoon(e.target.value, DRAW_COLORS.map((c) => c.value)))} aria-label="Schriftfarbe frei wählen" title="Farbe frei wählen – wird als eigene Farbe gemerkt" data-testid="text-color-free" />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TextDialogView({ title, confirmLabel, init, canDelete, sizePt, close }: { title: string; confirmLabel: string; init: { text: string; color: string; font?: TextFont; leader: LeaderChoice }; canDelete: boolean; sizePt?: number; close(v: TextResult | null): void }) {
   const [text, setText] = useState(init.text);
   const [color, setColor] = useState(init.color);
   const [font, setFont] = useState<TextFont | undefined>(init.font);
   const [scale, setScaleState] = useState(1);
   const [leader, setLeader] = useState<LeaderChoice>(init.leader);
-  /** Palette der Schriftfarbe aufgeklappt */
-  const [palette, setPalette] = useState(false);
-  const custom = useCustomColors();
   const f = font ?? {};
   const ok = text.trim().length > 0;
   /** Schriftgröße in pt (bisherige Größe mal Faktor); ohne bekannte Größe zählt nur der Faktor */
   const base = sizePt ?? 12;
   const pt = base * scale;
-  // Eingabefeld der Größe: frei tippen (z. B. 13,5), Vorschläge wie in der Textverarbeitung
-  const [ptText, setPtText] = useState(fmtPt(pt));
-  const setScale = (f: number) => {
-    const next = Math.min(Math.max(f, 2 / base), 400 / base);
-    setScaleState(next);
-    setPtText(fmtPt(base * next));
-  };
-  const typePt = (v: string) => {
-    setPtText(v);
-    const n = Number(v.replace(',', '.'));
-    if (Number.isFinite(n) && n >= 2 && n <= 400) setScaleState(n / base);
-  };
+  const setScale = (f: number) => setScaleState(Math.min(Math.max(f, 2 / base), 400 / base));
   const result = (): TextResult => ({ text: text.trim(), color, font, scale, leader });
   return (
     <Modal
@@ -157,121 +298,7 @@ function TextDialogView({ title, confirmLabel, init, canDelete, sizePt, close }:
           if (ok) close(result());
         }}
       >
-        {/*
-          Formatleiste wie die Gruppe „Schriftart“ der Textverarbeitung: oben Schriftart, Schriftgrad (eintippen oder
-          aus der Liste) und Schriftgrad vergrößern/verkleinern; darunter Fett, Kursiv, Unterstrichen, Schriftfarbe
-          (A mit Farbbalken, Palette klappt auf) und die Ausrichtung des Absatzes.
-        */}
-        <div className="wtb" role="toolbar" aria-label="Schriftart">
-          <div className="wtb-row">
-            <select className="wtb-font" value={f.family ?? 'sans'} onChange={(e) => setFont(cleanFont({ ...f, family: e.target.value as TextFont['family'] }))} aria-label="Schriftart" title="Schriftart" data-testid="font-family">
-              {FONT_FAMILIES.map((x) => (
-                <option key={x.id} value={x.id}>
-                  {x.label}
-                </option>
-              ))}
-            </select>
-            <input
-              className="wtb-size"
-              value={ptText}
-              onChange={(e) => typePt(e.target.value)}
-              onBlur={() => setPtText(fmtPt(pt))}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  (e.currentTarget as HTMLInputElement).blur();
-                }
-              }}
-              inputMode="decimal"
-              list="text-size-list"
-              autoComplete="off"
-              aria-label="Schriftgrad in Punkt"
-              title="Schriftgrad (pt) – eintippen oder aus der Liste wählen"
-              data-testid="text-size"
-            />
-            <datalist id="text-size-list">
-              {TEXT_SIZES.map((n) => (
-                <option key={n} value={String(n)} />
-              ))}
-            </datalist>
-            <button type="button" className="wtb-btn" onClick={() => setScale(nextSize(pt, 1) / base)} title="Schriftgrad vergrößern" aria-label="Schriftgrad vergrößern" data-testid="text-bigger">
-              <svg width="22" height="20" viewBox="0 0 22 20" aria-hidden="true">
-                <text x="1" y="17" fontSize="17" fontFamily="Arial, Helvetica, sans-serif" fill="currentColor">A</text>
-                <path d="M14.5 6.5L17.5 3l3 3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-            <button type="button" className="wtb-btn" onClick={() => setScale(nextSize(pt, -1) / base)} title="Schriftgrad verkleinern" aria-label="Schriftgrad verkleinern" data-testid="text-smaller">
-              <svg width="22" height="20" viewBox="0 0 22 20" aria-hidden="true">
-                <text x="3" y="17" fontSize="13" fontFamily="Arial, Helvetica, sans-serif" fill="currentColor">A</text>
-                <path d="M14.5 3.5L17.5 7l3-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-          </div>
-          <div className="wtb-row">
-            <button type="button" className={`wtb-btn wtb-bold${f.bold ? ' active' : ''}`} aria-pressed={!!f.bold} onClick={() => setFont(cleanFont({ ...f, bold: !f.bold }))} title="Fett" aria-label="Fett" data-testid="font-bold">
-              F
-            </button>
-            <button type="button" className={`wtb-btn wtb-italic${f.italic ? ' active' : ''}`} aria-pressed={!!f.italic} onClick={() => setFont(cleanFont({ ...f, italic: !f.italic }))} title="Kursiv" aria-label="Kursiv" data-testid="font-italic">
-              K
-            </button>
-            <button type="button" className={`wtb-btn wtb-underline${f.underline ? ' active' : ''}`} aria-pressed={!!f.underline} onClick={() => setFont(cleanFont({ ...f, underline: !f.underline }))} title="Unterstrichen" aria-label="Unterstrichen" data-testid="font-underline">
-              U
-            </button>
-            <span className="wtb-sep" aria-hidden="true" />
-            <button type="button" className={`wtb-btn wtb-color${palette ? ' active' : ''}`} aria-expanded={palette} onClick={() => setPalette(!palette)} title="Schriftfarbe" aria-label="Schriftfarbe" data-testid="text-color-open">
-              <span className="wtb-color-a" aria-hidden="true">
-                A
-              </span>
-              <span className="wtb-color-bar" style={{ background: visibleStroke(color) }} aria-hidden="true" />
-              <svg className="wtb-caret" width="8" height="5" viewBox="0 0 8 5" aria-hidden="true">
-                <path d="M1 1l3 3 3-3" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-            <span className="wtb-sep" aria-hidden="true" />
-            {(['left', 'center', 'right'] as const).map((al) => {
-              const on = (f.align ?? 'left') === al;
-              return (
-                <button
-                  key={al}
-                  type="button"
-                  className={`wtb-btn${on ? ' active' : ''}`}
-                  aria-pressed={on}
-                  onClick={() => setFont(cleanFont({ ...f, align: al === 'left' ? undefined : al }))}
-                  title={al === 'left' ? 'Linksbündig' : al === 'center' ? 'Zentriert' : 'Rechtsbündig'}
-                  aria-label={al === 'left' ? 'Linksbündig' : al === 'center' ? 'Zentriert' : 'Rechtsbündig'}
-                  data-testid={`text-align-${al}`}
-                >
-                  <svg width="18" height="16" viewBox="0 0 18 16" aria-hidden="true">
-                    {[2, 6, 10, 14].map((y, i) => {
-                      const w = i % 2 ? 10 : 16;
-                      const x = al === 'left' ? 1 : al === 'center' ? (18 - w) / 2 : 17 - w;
-                      return <path key={y} d={`M${x} ${y}h${w}`} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />;
-                    })}
-                  </svg>
-                </button>
-              );
-            })}
-          </div>
-          {palette && (
-            <div className="wtb-row wtb-palette" role="radiogroup" aria-label="Schriftfarbe" data-testid="text-palette">
-              {[...DRAW_COLORS, ...custom.map((c) => ({ value: c, name: `Eigene Farbe ${c}` }))].map((c) => (
-                <button
-                  key={c.value}
-                  type="button"
-                  role="radio"
-                  aria-checked={color === c.value}
-                  className={`swatch swatch-sm${color === c.value ? ' active' : ''}`}
-                  style={{ background: c.value }}
-                  onClick={() => setColor(c.value)}
-                  title={c.name}
-                  aria-label={c.name}
-                  data-testid={`text-color-${c.name}`}
-                />
-              ))}
-              <input type="color" className="font-color-free" value={color} onChange={(e) => (setColor(e.target.value), rememberCustomColorSoon(e.target.value, DRAW_COLORS.map((c) => c.value)))} aria-label="Schriftfarbe frei wählen" title="Farbe frei wählen – wird als eigene Farbe gemerkt" data-testid="text-color-free" />
-            </div>
-          )}
-        </div>
+        <TextFormatBar font={font} color={color} pt={pt} onFont={setFont} onColor={setColor} onPt={(n) => setScale(n / base)} />
         <label className="field">
           <span className="sr-only">Text</span>
           <textarea

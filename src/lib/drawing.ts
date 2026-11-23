@@ -456,7 +456,7 @@ export function calloutGeometry(box: Rect, tip: Point, size: number, end: Leader
   return {
     line: [tip, base, ...(from === knee ? [knee] : []), attach].filter((p, i, a) => i === 0 || Math.hypot(p.x - a[i - 1].x, p.y - a[i - 1].y) > 1e-9),
     head: end === 'arrow' ? [tip, { x: base.x - uy * W, y: base.y + ux * W }, { x: base.x + uy * W, y: base.y - ux * W }] : null,
-    dot: end === 'dot' ? { c: tip, r: size * 0.16 } : null,
+    dot: end === 'dot' ? { c: tip, r: size * 0.11 } : null,
     width: size * 0.09,
   };
 }
@@ -847,6 +847,17 @@ export function fillRegion(plan: Pick<Plan, 'pageWidth' | 'pageHeight' | 'drawin
   const y2 = Math.max(...boxes.map((b) => b.y + b.h));
   const pad = Math.max(0.1 * k, 0.04 * Math.max(x2 - x1, y2 - y1));
   return { x: x1 - pad, y: y1 - pad, w: x2 - x1 + 2 * pad, h: y2 - y1 + 2 * pad };
+}
+
+/**
+ * Seiteneinheiten je Punkt (pt) auf dem Papier, wenn der Bereich `region` das Blatt `paper` füllt (Ränder und Kopf
+ * abgezogen) – damit ist eine Schriftgröße von 10 pt im Plan so groß wie 10 pt auf dem ausgedruckten Blatt.
+ */
+export function sheetUnitsPerPt(region: { w: number; h: number }, paper: PaperFormat): number {
+  const fmt = PAPER[paper];
+  const avail = { w: fmt.w - 2 * PRINT_MARGIN_MM, h: fmt.h - 2 * PRINT_MARGIN_MM - PRINT_HEADER_MM };
+  const mmPerUnit = Math.min(avail.w / region.w, avail.h / region.h);
+  return mmPerUnit > 0 && Number.isFinite(mmPerUnit) ? 0.352778 / mmPerUnit : 1;
 }
 
 /** Papierformat im Aufmaßplan: das gewählte, sonst A3 passend zur Zeichnung (quer/hoch) */

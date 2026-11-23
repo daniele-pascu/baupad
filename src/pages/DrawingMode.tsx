@@ -197,8 +197,10 @@ export function useDrawing(opts: {
   viewer: React.RefObject<PlanViewerHandle | null>;
   /** Objekt fertig gezeichnet bzw. eingefügt (z. B. Werkzeugleiste zuklappen) */
   onCreated?: () => void;
+  /** Seiteneinheiten je pt auf dem gerade angezeigten Blatt (für Schriftgrößen in pt); wird von der Seite gesetzt */
+  ptUnit?: React.RefObject<number>;
 }) {
-  const { plan, data, damages, viewer, onCreated } = opts;
+  const { plan, data, damages, viewer, onCreated, ptUnit } = opts;
   const k = plan ? unitsPerMeter(plan) : 100;
   const [tool, setToolState] = useState<DrawTool>(() => {
     const t = pref('drawTool', 'rect') as DrawTool;
@@ -1688,7 +1690,7 @@ export function useDrawing(opts: {
   const createCallout = async (tip: Point, at: Point) => {
     const r = await askNewText(pref('textLeader', 'arrow') === 'dot' ? 'dot' : pref('textLeader', 'arrow') === 'none' ? 'none' : 'arrow');
     if (!r) return;
-    const fs = roundM(textHeightNow() * r.scale);
+    const fs = r.fs;
     const box = textShape(at, r.text, fs, r.font);
     const shape = tip.x > at.x ? { ...box, x: roundM(at.x - box.w) } : box;
     // im Text-Fenster „Ohne“ gewählt: nur der Text
@@ -1766,16 +1768,30 @@ export function useDrawing(opts: {
     if (e && type && JSON.stringify(e.shape) !== JSON.stringify(fixed)) putRecord('elements', { ...e, type, shape: fixed });
   };
 
-  /** Schrifthöhe (m) als Schriftgröße in pt auf dem Papier: gezeichnete Pläne nach Maßstab, importierte nach Seitenmaß */
-  const ptOf = (fs: number) => (fs * k) / (plan?.drawing ? hatchAnchor(k, plan.drawing.scale ?? 100) : 1);
+  /**
+   * Seiteneinheiten je pt auf dem Blatt, wie es gerade angezeigt und gedruckt wird (Plan bearbeiten: Zeichenblatt im
+   * Maßstab; Aufmaß: die Zeichnung bzw. der Planausschnitt füllt das Blatt) – siehe PlanEditorPage
+   */
+  const unitsPerPt = () => ptUnit?.current || (plan?.drawing ? hatchAnchor(k, plan.drawing.scale ?? 100) : 1);
+  /** Schrifthöhe (m) als Schriftgröße in pt auf dem Blatt */
+  const ptOf = (fs: number) => (fs * k) / unitsPerPt();
+  /** Schriftgrad eines Textes in pt auf dem Blatt (für die Leiste) */
+  const textPt = (e: DrawElement) => Math.round(ptOf(textFontSize(e, e.shape.h)) * 10) / 10;
+  /** Schriftgrad eines Textes setzen (pt): Rahmen folgt, das Linienende bleibt stehen */
+  const setTextPt = (id: string, pt: number) => {
+    const e = data.elements[id];
+    if (!e || e.type !== 'text' || !(pt > 0)) return;
+    const shape = refitText(e, e, roundM((pt * unitsPerPt()) / k));
+    if (JSON.stringify(shape) !== JSON.stringify(e.shape)) putRecord('elements', { ...e, ...keepTip(e, shape), shape });
+  };
+  /** Schrifthöhe (m) eines neuen Textes: die zuletzt gewählte Schriftgröße in pt, sonst 10 pt – bezogen auf das Blatt */
+  const newTextHeight = () => {
+    const pt = Number(pref('textPt', '10'));
+    return ((pt >= 2 && pt <= 400 ? pt : 10) * unitsPerPt()) / k;
+  };
 
   /** Aufmaß: Textfeld mit den Anfassern geändert (Rahmen in Seitenkoordinaten) – wie im Zeichenmodus */
   const resizeText = (id: string, pageShape: Shape, commit: boolean) => onShapeChange(id, pageShape, commit);
-
-  const textHeightNow = () => {
-    const pxPerM = (viewer.current?.scale() ?? 1) * k;
-    return Math.max(0.05, Math.round(22 / pxPerM / 0.05) * 0.05);
-  };
 
   /** Werkzeug „Text“: Stelle angetippt */
   const onPlace = async (p: Point) => {
@@ -1826,13 +1842,14 @@ export function useDrawing(opts: {
     if (tool !== 'text') return;
     const r = await askNewText();
     if (!r) return;
-    const fs = roundM(textHeightNow() * r.scale);
+    const fs = r.fs;
     const shape = textShape({ x: p.x / k, y: p.y / k }, r.text, fs, r.font);
     create('text', shape, { text: r.text, color: r.color, font: r.font, ...leaderFromChoice(r.leader, shape, fs) });
   };
 
   /** Neuer Text: Dialog mit der zuletzt benutzten Schrift und Farbe (wird gemerkt) */
   const askNewText = async (leader: LeaderChoice = 'off') => {
+    const base = newTextHeight();
     const lastFont = (() => {
       try {
         return JSON.parse(pref('textFont', '{}')) as TextFont;
@@ -1840,12 +1857,15 @@ export function useDrawing(opts: {
         return {};
       }
     })();
-    const r = await textDialog({ title: 'Text einfügen', confirmLabel: 'Einfügen', color: pref('textColor', DRAW_DEFAULT_COLOR), font: cleanFont(lastFont), sizePt: ptOf(textHeightNow()), leader });
+    const r = await textDialog({ title: 'Text einfügen', confirmLabel: 'Einfügen', color: pref('textColor', DRAW_DEFAULT_COLOR), font: cleanFont(lastFont), sizePt: ptOf(base), leader });
     if (!r || !r.text.trim()) return null;
+    // Schrifthöhe (m) aus der gewählten Größe; diese Größe (pt) gilt als Vorgabe für den nächsten Text
+    const fs = roundM(base * r.scale);
+    storePref('textPt', String(Math.round(ptOf(base) * r.scale * 10) / 10));
     storePref('textFont', JSON.stringify(r.font ?? {}));
     storePref('textColor', r.color);
     if (r.leader !== 'off') storePref('textLeader', r.leader);
-    return { ...r, text: r.text.trim(), font: cleanFont(r.font) };
+    return { ...r, text: r.text.trim(), font: cleanFont(r.font), fs };
   };
 
   /** Aufmaß: Text an der angetippten Stelle (Seitenkoordinaten) einfügen – Werkzeug und Auswahl des Zeichenmodus bleiben */
@@ -1853,7 +1873,7 @@ export function useDrawing(opts: {
     if (!plan) return false;
     const r = await askNewText();
     if (!r) return false;
-    const fs = roundM(textHeightNow() * r.scale);
+    const fs = r.fs;
     const shape = roundShape(textShape({ x: p.x / k, y: p.y / k }, r.text, fs, r.font));
     const rec: DrawElement = {
       ...newMeta(),
@@ -2443,6 +2463,8 @@ export function useDrawing(opts: {
     textNotes,
     placeText,
     resizeText,
+    textPt,
+    setTextPt,
     editText,
     moveText,
     setFont,
