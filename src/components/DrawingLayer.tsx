@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { annotationsOf, dimGeometry, dimLeader, gridStep, majorStep, ROOM_LINE, shapeToMeters, textFontSize, textLines } from '../lib/drawing';
+import { annotationsOf, calloutGeometry, dimGeometry, dimLeader, gridStep, majorStep, ROOM_LINE, shapeToMeters, textFontSize, textLines } from '../lib/drawing';
 import { pathToSvg, polygonShape, shapeCenter, shapePath, shapeVertices, toPage, toScreen, type Point, type View } from '../lib/geometry';
 import { DEFAULT_TRANSPARENCY, fillOf, hatchAnchor, PX_PER_PT, strokeGeometry } from '../lib/style';
 import type { DrawElement, DrawElementType, Rect, Shape } from '../lib/types';
@@ -82,7 +82,7 @@ export function renderSheet(view: View, size: { w: number; h: number }, region: 
 
 /** Zeichnungsobjekt in Bildschirmkoordinaten (shape in Seitenkoordinaten). */
 export function renderElement(
-  e: Pick<DrawElement, 'id' | 'type' | 'color' | 'text' | 'style'> & { font?: DrawElement['font']; symbol?: DrawElement['symbol']; wall?: DrawElement['wall']; room?: DrawElement['room'] } & { offset?: number; extGap?: number },
+  e: Pick<DrawElement, 'id' | 'type' | 'color' | 'text' | 'style'> & { font?: DrawElement['font']; symbol?: DrawElement['symbol']; wall?: DrawElement['wall']; room?: DrawElement['room']; leader?: DrawElement['leader'] } & { offset?: number; extGap?: number },
   pageShape: Shape,
   view: View,
   selected: boolean,
@@ -128,8 +128,20 @@ export function renderElement(
     const c = toScreen(view, shapeCenter(pageShape));
     const p = toScreen(view, { x: pageShape.x, y: pageShape.y + pageShape.h * 0.82 });
     const rot = pageShape.rotation ?? 0;
+    // Text mit Pfeil: im Bezugssystem des Textes (die Gruppe dreht mit)
+    const tl0 = toScreen(view, pageShape);
+    const callout = e.leader
+      ? calloutGeometry({ x: tl0.x, y: tl0.y, w: pageShape.w * view.scale, h: pageShape.h * view.scale }, { x: c.x + e.leader.dx * k * view.scale, y: c.y + e.leader.dy * k * view.scale })
+      : null;
+    const lw = Math.max(1, Math.min(2.2, fs * 0.09));
     return (
-      <g data-element="text" data-element-id={e.id} opacity={faded ? 0.55 : 1} transform={rot ? `rotate(${rot} ${c.x} ${c.y})` : undefined}>
+      <g data-element="text" data-element-id={e.id} data-callout={callout ? '1' : undefined} opacity={faded ? 0.55 : 1} transform={rot ? `rotate(${rot} ${c.x} ${c.y})` : undefined}>
+        {callout && (
+          <g className="callout" data-testid="callout-arrow">
+            <polyline points={callout.line.map((q) => `${q.x},${q.y}`).join(' ')} fill="none" stroke={stroke} strokeWidth={lw} strokeLinejoin="round" strokeLinecap="round" />
+            <polygon points={callout.head.map((q) => `${q.x},${q.y}`).join(' ')} fill={stroke} stroke={stroke} strokeWidth={lw * 0.6} strokeLinejoin="round" />
+          </g>
+        )}
         {selected && (
           <rect
             x={toScreen(view, pageShape).x - 2}

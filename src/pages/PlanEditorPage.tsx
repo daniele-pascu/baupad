@@ -35,7 +35,7 @@ import { probeTarget, type ProbeKind } from '../lib/probe';
 import { ProbeBar, ProbeMenu, ProbeOverlay, type ProbeState } from '../components/ProbeLayer';
 import { choiceIcon, choiceLabel, MEASURE_CHOICES, MeasureTypeMenu, type MeasureChoice } from '../components/MeasureTypeMenu';
 import { calcPath, defaultTypeFor, DEFAULT_WORK_AREAS, measureTypeForUnit, quantityOfMeasure, typeInfo, typeOf } from '../lib/measure-types';
-import { circleThrough } from '../lib/cad';
+import { circleThrough, translateShape } from '../lib/cad';
 import { countKind, deductionText, grossArea, hasArea, isWall, kindOf, measureLabel, netArea, netLength, sumLengths } from '../lib/measure';
 import { round2, checkMeasure, computeArea, formatArea, formatMeasure, toInputValue } from '../lib/numbers';
 import { compactNumbers, damageNo, duplicateIds, nextNumber, planNumberStart, shiftNumbers, suggestNext, swapNumbers } from '../lib/numbering';
@@ -89,7 +89,7 @@ const TOOLS_BY_TYPE: Record<MeasureType, readonly Tool[]> = {
 };
 
 /** Werkzeuge mit Maßeingabe bzw. Hinweis vor dem Einfügen */
-const INSERT_TOOLS = new Set<DrawTool>(['line', 'rect', 'ellipse', 'triangle', 'dimension', 'text']);
+const INSERT_TOOLS = new Set<DrawTool>(['line', 'rect', 'ellipse', 'triangle', 'dimension', 'text', 'textArrow']);
 
 /** Hinweise zu den Befehlen im Zeichenmodus */
 const OP_HINTS: Partial<Record<DrawTool, string>> = {
@@ -256,7 +256,7 @@ function CheckLine({ view, c }: { view: View; c: NonNullable<NonNullable<Plan['c
 }
 
 /** Zeichenwerkzeuge, die am Handy/Tablet nach Gebrauch mit dem nächsten Fingertipp enden (Ändern-Befehle nicht) */
-const DRAW_DONE_TOOLS = new Set<string>(['line', 'polyline', 'rect', 'ellipse', 'arc', 'polygon', 'dimension', 'text']);
+const DRAW_DONE_TOOLS = new Set<string>(['line', 'polyline', 'rect', 'ellipse', 'arc', 'polygon', 'dimension', 'text', 'textArrow']);
 
 /** Zugeklappte Werkzeugleiste: ein Knopf mit dem aktuellen Werkzeug öffnet sie wieder */
 function ToolsOpenButton({ tool, onOpen }: { tool?: { icon: string; label: string; short?: string }; onOpen: () => void }) {
@@ -1078,6 +1078,22 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         return;
       }
       if (e.ctrlKey || e.metaKey || e.altKey) return;
+      // Pfeiltasten: Ausgewähltes in diese Richtung verschieben – 1 cm, mit Umschalt 10 cm
+      const arrow = ({ ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] } as Record<string, [number, number]>)[e.key];
+      if (arrow && !polyCount && !probe) {
+        const step = e.shiftKey ? 0.1 : 0.01;
+        if (drawMode) {
+          if (drawing.nudge(arrow[0] * step, arrow[1] * step)) e.preventDefault();
+          return;
+        }
+        const d = selectedId ? data.damages[selectedId] : null;
+        if (d && k) {
+          e.preventDefault();
+          const shape = translateShape(d.shape, arrow[0] * step * k, arrow[1] * step * k);
+          putRecord('damages', withShapeMeasures({ ...d, shape }, shape, k));
+        }
+        return;
+      }
       // F11 wie in CAD-Programmen: Spurlinien ein/aus
       if (e.key === 'F11' && drawMode) {
         e.preventDefault();
@@ -1833,6 +1849,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               onDimension={drawing.onDimension}
               formatLength={drawing.formatLength}
               onShapeChange={drawing.onShapeChange}
+              onTipChange={drawing.onTipChange}
               onLabelChange={() => {}}
               onHistoryChange={() => setHistoryTick((n) => n + 1)}
               components={[]}
@@ -1851,7 +1868,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               )}
               onProbePoint={probePoint}
               probeFrom={probe && !probe.done && probe.points.length ? probe.points[probe.points.length - 1] : null}
-              snap={drawing.snap /* auch ohne Fang/Raster: freie Punkte in ganzen Zentimetern */}
+              snap={drawing.snap /* auch ohne Fang/Raster: freie Punkte in ganzen Millimetern */}
               onLupeChange={setLupeOn}
               infinite
               vertexEdit

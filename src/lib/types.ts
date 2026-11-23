@@ -502,6 +502,11 @@ export interface DrawElement extends SyncMeta {
    * Die Form umfasst alle Zeilen (shape.h = Gesamthöhe).
    */
   room?: { area: number | null; note?: string };
+  /**
+   * Text mit Pfeil (Textobjekt): Pfeilspitze relativ zur Textmitte in m, im Bezugssystem des Textes (dreht und
+   * verschiebt sich mit). Der Pfeil führt von der Spitze zur näheren Seite des Textes.
+   */
+  leader?: { dx: number; dy: number };
   /** Wand: Form ist die Achse (Linie/Polylinie); Stärke und Höhe in m */
   wall?: { thickness: number; height?: number };
   /** Bauteil/Symbol (Tür, Fenster, Elektro …) – Form ist das Begrenzungsrechteck */

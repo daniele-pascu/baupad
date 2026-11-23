@@ -18,10 +18,10 @@ const elements = (page: Page) =>
         };
       }),
   );
-/** ganzes Vielfaches von 1 cm (Rundungsrest der Gleitkommazahl erlaubt) */
-const isCm = (v: number) => Math.abs(v * 100 - Math.round(v * 100)) < 1e-6;
+/** ganzes Vielfaches von 1 mm (Rundungsrest der Gleitkommazahl erlaubt) */
+const isMm = (v: number) => Math.abs(v * 1000 - Math.round(v * 1000)) < 1e-6;
 
-test('Plan zeichnen: gezogene Formen und Linien sind immer zentimetergenau – auch von einem Punkt mit Millimeterwert aus', async ({ page }) => {
+test('Plan zeichnen: gezogene Formen und Linien sind immer millimetergenau (Anzeige 2 Nachkommastellen) – auch von einem Punkt mit Millimeterwert aus', async ({ page }) => {
   await freshStart(page);
   await createProject(page, 'Zentimeter', {}, ['EG']);
   await page.getByTestId('draw-plan').click();
@@ -38,6 +38,7 @@ test('Plan zeichnen: gezogene Formen und Linien sind immer zentimetergenau – a
   await waitSaved(page);
   const first = (await elements(page))[0].shape;
   expect([first.w, first.h]).toEqual([8.385, 5.005]); // getippte Maße bleiben millimetergenau
+  const isCm = (v: number) => Math.abs(v * 100 - Math.round(v * 100)) < 1e-6;
   expect(isCm(first.x + first.w) && isCm(first.y + first.h)).toBe(false); // Ecke unten rechts: Millimeterwert
   const b = (await page.locator('[data-element="rect"] path:last-child').first().boundingBox())!;
   // neues Rechteck: an der Ecke unten rechts des ersten ansetzen (rastet dort ein) und schräg ins Freie ziehen
@@ -53,17 +54,19 @@ test('Plan zeichnen: gezogene Formen und Linien sind immer zentimetergenau – a
   const second = (await elements(page))[1].shape;
   expect(Math.abs(second.x - (first.x + first.w))).toBeLessThan(1e-6); // an der Ecke eingerastet
   expect(second.w).toBeGreaterThan(0.5);
-  expect([isCm(second.w), isCm(second.h)]).toEqual([true, true]); // Breite und Höhe in ganzen Zentimetern
+  expect([isMm(second.w), isMm(second.h)]).toEqual([true, true]); // Breite und Höhe in ganzen Millimetern
   await page.keyboard.press('Escape');
-  // Linie: Klick – Klick von derselben Ecke aus ins Freie → Länge in ganzen Zentimetern
+  // Linie: Klick – Klick von derselben Ecke aus ins Freie → Länge in ganzen Millimetern
   await pickTool(page, 'draw-line');
   await page.mouse.click(sx, sy);
   await page.mouse.click(sx - 61.3, sy + 47.9);
   await expect(page.locator('[data-element="line"]')).toHaveCount(1);
   await waitSaved(page);
   const line = (await elements(page)).find((e) => e.type === 'line')!.shape;
-  // Länge aus den auf 0,1 mm gespeicherten Koordinaten: bis auf diese Rundung ein ganzer Zentimeterwert
+  // Länge aus den auf 0,1 mm gespeicherten Koordinaten: bis auf diese Rundung ein ganzer Millimeterwert
   const len = Math.hypot(line.w, line.h);
   expect(len).toBeGreaterThan(0.5);
-  expect(Math.abs(len - Math.round(len * 100) / 100)).toBeLessThan(2e-4);
+  expect(Math.abs(len - Math.round(len * 1000) / 1000)).toBeLessThan(2e-4);
+  // angezeigt wird die Länge mit 2 Nachkommastellen
+  await expect(page.getByTestId('element-length')).toHaveValue(/^\d+,\d\d$/);
 });

@@ -27,7 +27,7 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'view', label: 'Ansicht', icon: 'fit' },
 ];
 
-const DRAW_IDS: DrawTool[] = ['select', 'line', 'polyline', 'polygon', 'rect', 'ellipse', 'arc', 'text', 'dimension'];
+const DRAW_IDS: DrawTool[] = ['select', 'line', 'polyline', 'polygon', 'rect', 'ellipse', 'arc', 'text', 'textArrow', 'dimension'];
 
 function readTab(): Tab {
   try {
@@ -217,6 +217,7 @@ export function DrawRibbon({
             <div className="tool-group" role="group" aria-label="Ändern">
               {toolBtn('move')}
               {toolBtn('copy')}
+              {toolBtn('trim')}
               {toolBtn('mirror')}
               {toolBtn('offset')}
               {toolBtn('array')}
@@ -225,7 +226,6 @@ export function DrawRibbon({
               {toolBtn('scale')}
               {toolBtn('align')}
               {toolBtn('stretch')}
-              {toolBtn('trim')}
               {toolBtn('extend')}
               {toolBtn('fillet')}
             </div>
