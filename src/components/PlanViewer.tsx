@@ -101,6 +101,9 @@ export function dimensionFrom(a: Point, b: Point, c: Point): { a2: Point; b2: Po
 /** Strecken auch per Klick, Klick (Punkt A, Punkt B) – dazwischen z. B. mit X zoomen */
 const CLICK_LINE = new Set<string>(['line', 'calibrate', 'vector']);
 
+/** Anfasser eines Textes im Aufmaß: vier Ecken (Größe) und die beiden Seiten (Breite) */
+const NOTE_HANDLES = ['nw', 'ne', 'se', 'sw', 'e', 'w'] as const;
+
 /** Werkzeuge, die eine Stelle antippen statt eine Form zu zeichnen */
 const PLACE_TOOLS = new Set<Tool>(['component', 'text', 'trim', 'extend', 'pick', 'points']);
 
@@ -113,6 +116,8 @@ export type ViewerItem = Pick<Damage, 'id' | 'number' | 'shape' | 'color' | 'lab
     keepAspect?: AspectAnchor | null;
     /** nur als Rahmen bearbeiten (Text, Raumstempel, Bauteil): keine Eckpunkte ziehen/einfügen */
     boxOnly?: boolean;
+    /** Textfeld: die Seitenanfasser ändern nur die Breite (Text bricht um), die Ecken skalieren gleichmäßig */
+    freeWidth?: boolean;
     /** Text mit Pfeil: Pfeilspitze (Seitenkoordinaten) – eigener Anfasser, Antippen des Pfeils wählt den Text */
     tip?: Point;
     /** Linienzug des Pfeils (Seitenkoordinaten) – Antippen wählt den Text */
@@ -214,10 +219,12 @@ interface Props {
   /** false: immer mit dem ganzen Bereich beginnen (keine zuletzt verwendete Ansicht) */
   restoreView?: boolean;
   /** Texte im Aufmaß (Seitenkoordinaten): mit „Auswählen“ antippen = bearbeiten, ziehen = verschieben */
-  notes?: { id: string; shape: Shape }[];
+  notes?: { id: string; shape: Shape; /** Ende der Linie zum Plan (eigener Anfasser) */ tip?: Point; /** Linienzug – Antippen wählt den Text */ tipPath?: Point[] }[];
   onNoteTap?(id: string): void;
   /** Verschiebung in Seitenkoordinaten; commit = loslassen */
   onNoteMove?(id: string, dx: number, dy: number, commit: boolean): void;
+  /** Text mit den Anfassern geändert (neuer Rahmen in Seitenkoordinaten): Ecke = Größe, Seite = Breite */
+  onNoteResize?(id: string, shape: Shape, commit: boolean): void;
   /** Stutzen: über Linien gezogener Zaun (Seitenkoordinaten); fehlt = Ziehen verschiebt den Plan */
   onFence?(path: Point[]): void;
   /** Nummernschilder der Objekte anzeigen (Standard: ja) */
@@ -290,6 +297,7 @@ type Gesture =
   | { kind: 'label'; id: string; start: Point; orig: Rect; moved: boolean }
   | { kind: 'component'; id: string; start: Point; orig: Point; moved: boolean }
   | { kind: 'note'; id: string; start: Point; moved: boolean; d: Point }
+  | { kind: 'noteResize'; id: string; handle: string; orig: Shape; last: Shape; moved: boolean }
   | { kind: 'place'; start: Point; view: View; moved: boolean; fence?: Point[] }
   | { kind: 'ignore' };
 
@@ -880,6 +888,32 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     return best;
   };
 
+  /** zuletzt angetippter bzw. verschobener Text: zeigt Rahmen und Anfasser (Ecke = Größe, Seite = Breite) */
+  const noteSel = useRef<string | null>(null);
+  const selectedNote = () => (propsRef.current.onNoteResize ? ((propsRef.current.notes ?? []).find((n) => n.id === noteSel.current) ?? null) : null);
+  /** Anfasser des gewählten Textes (Bildschirmkoordinaten) */
+  const noteHandles = (shape: Shape, v: View) => {
+    const b = shapeBounds(shape);
+    const c = shapeCenter(b);
+    const rot = shape.rotation ?? 0;
+    return NOTE_HANDLES.map((h) => ({ h, p: toScreen(v, rotatePoint(handlePosition(b, h), c, rot)) }));
+  };
+  const hitNoteHandle = (p: Point): string | null => {
+    const n = selectedNote();
+    if (!n) return null;
+    const tol = isCoarse() ? 22 : 9;
+    let best: string | null = null;
+    let bestD = Infinity;
+    for (const { h, p: hp } of noteHandles(n.shape, viewRef.current!)) {
+      const d = Math.max(Math.abs(hp.x - p.x), Math.abs(hp.y - p.y));
+      if (d <= tol && d < bestD) {
+        bestD = d;
+        best = h;
+      }
+    }
+    return best;
+  };
+
   /** Text unter dem Finger (Begrenzungsrechteck mit etwas Zugabe) */
   const hitNote = (p: Point): string | null => {
     const v = viewRef.current!;
@@ -889,6 +923,20 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     for (let i = list.length - 1; i >= 0; i--) {
       const b = shapeAABB(list[i].shape);
       if (q.x >= b.x - pad && q.x <= b.x + b.w + pad && q.y >= b.y - pad && q.y <= b.y + b.h + pad) return list[i].id;
+      const path = list[i].tipPath;
+      if (path && path.length > 1 && distanceToPolyline(q, path, false) <= pad) return list[i].id;
+    }
+    return null;
+  };
+  /** Ende einer Linie zum Plan (Text im Aufmaß) unter dem Finger */
+  const hitNoteTip = (p: Point): { id: string; tip: Point } | null => {
+    if (!propsRef.current.onTipChange) return null;
+    const v = viewRef.current!;
+    const tol = isCoarse() ? 22 : 9;
+    for (const n of propsRef.current.notes ?? []) {
+      if (!n.tip) continue;
+      const tp = toScreen(v, n.tip);
+      if (Math.max(Math.abs(tp.x - p.x), Math.abs(tp.y - p.y)) <= tol) return { id: n.id, tip: n.tip };
     }
     return null;
   };
@@ -957,6 +1005,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     }
     if (g.kind === 'component') propsRef.current.onComponentMove(g.id, g.orig.x, g.orig.y, false);
     if (g.kind === 'note') propsRef.current.onNoteMove?.(g.id, 0, 0, true);
+    if (g.kind === 'noteResize' && g.moved) propsRef.current.onNoteResize?.(g.id, g.orig, true);
     gesture.current = { kind: 'none' };
   };
 
@@ -1028,10 +1077,26 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         gesture.current = { kind: 'component', id: comp.id, start: toPage(v, p), orig: { x: comp.x, y: comp.y }, moved: false };
         return;
       }
+      const nt = hitNoteTip(p);
+      if (nt) {
+        gesture.current = { kind: 'tip', id: nt.id, orig: nt.tip, last: nt.tip, start: p, moved: false };
+        return;
+      }
+      const nh = hitNoteHandle(p);
+      if (nh) {
+        const n = selectedNote()!;
+        gesture.current = { kind: 'noteResize', id: n.id, handle: nh, orig: n.shape, last: n.shape, moved: false };
+        return;
+      }
       const note = hitNote(p);
       if (note) {
         gesture.current = { kind: 'note', id: note, start: toPage(v, p), moved: false, d: { x: 0, y: 0 } };
         return;
+      }
+      // woanders getippt: Anfasser des Textes ausblenden
+      if (noteSel.current) {
+        noteSel.current = null;
+        forceRender((n) => n + 1);
       }
       const handle = hitHandle(p);
       if (handle) {
@@ -1197,6 +1262,13 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         propsRef.current.onComponentMove(g.id, g.orig.x + dx, g.orig.y + dy, false);
         return;
       }
+      case 'noteResize': {
+        // Seite: nur die Breite (Text bricht um); Ecke: gleichmäßig größer bzw. kleiner
+        g.moved = true;
+        g.last = resizeRotatedShape(g.orig, g.handle, toPage(v, p), 8 / v.scale, g.handle.length === 1 ? null : { x: 0.5, y: 0.5 });
+        propsRef.current.onNoteResize?.(g.id, g.last, false);
+        return;
+      }
       case 'draw': {
         const raw = clampP(toPage(v, p));
         const snap = propsRef.current.snap;
@@ -1261,7 +1333,9 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       case 'resize': {
         const raw = clampP(toPage(v, p));
         const pp = propsRef.current.snap ? snapAt(raw, { scale: v.scale, movingId: g.id }) : raw;
-        const keep = propsRef.current.damages.find((d) => d.id === g.id)?.keepAspect;
+        const item = propsRef.current.damages.find((d) => d.id === g.id);
+        // Textfeld: Seitenanfasser ändern nur die Breite, die Ecken skalieren gleichmäßig
+        const keep = item?.freeWidth && (g.handle === 'e' || g.handle === 'w') ? null : item?.keepAspect;
         propsRef.current.onShapeChange(g.id, resizeRotatedShape(g.orig, g.handle, pp, 6 / v.scale, keep), false);
         return;
       }
@@ -1343,11 +1417,18 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         }
         return;
       case 'note': {
+        // angetippter bzw. verschobener Text bleibt gewählt: Rahmen und Anfasser (Größe, Breite)
+        if (!cancelled && propsRef.current.onNoteResize) noteSel.current = g.id;
+        forceRender((n) => n + 1);
         if (!g.moved) {
           if (!cancelled) propsRef.current.onNoteTap?.(g.id);
           return;
         }
         propsRef.current.onNoteMove?.(g.id, cancelled ? 0 : g.d.x, cancelled ? 0 : g.d.y, true);
+        return;
+      }
+      case 'noteResize': {
+        if (g.moved) propsRef.current.onNoteResize?.(g.id, cancelled ? g.orig : g.last, true);
         return;
       }
       case 'component': {
@@ -1876,6 +1957,34 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
               </g>
             );
           })}
+          {tool === 'select' && props.onTipChange && (props.notes ?? []).filter((n) => n.tip).map((n) => {
+            // Text im Aufmaß mit Linie zum Plan: Ende der Linie ziehen
+            const tp = toScreen(view, n.tip!);
+            return <circle key={`nt-${n.id}`} cx={tp.x} cy={tp.y} r={isCoarse() ? 8 : 4.5} className={`vertex-handle tip-handle${g.kind === 'tip' && g.id === n.id ? ' active' : ''}`} data-testid="note-tip" />;
+          })}
+          {tool === 'select' && (() => {
+            // Text im Aufmaß: Rahmen mit Anfassern – Ecken ändern die Größe, die Seiten die Breite
+            const n = selectedNote();
+            if (!n) return null;
+            const b = shapeBounds(n.shape);
+            const c = shapeCenter(b);
+            const rot = n.shape.rotation ?? 0;
+            const corners = [
+              { x: b.x, y: b.y },
+              { x: b.x + b.w, y: b.y },
+              { x: b.x + b.w, y: b.y + b.h },
+              { x: b.x, y: b.y + b.h },
+            ].map((q) => toScreen(view, rotatePoint(q, c, rot)));
+            const hs = isCoarse() ? 14 : 9;
+            return (
+              <g className="handles note-handles" data-testid="note-handles">
+                <polygon points={corners.map((q) => `${q.x},${q.y}`).join(' ')} className="note-frame" fill="none" stroke="#1f5fbf" strokeDasharray="4 3" />
+                {noteHandles(n.shape, view).map(({ h, p }) => (
+                  <rect key={h} x={p.x - hs / 2} y={p.y - hs / 2} width={hs} height={hs} className="handle" data-testid={`note-handle-${h}`} />
+                ))}
+              </g>
+            );
+          })()}
           {selected && tool === 'select' && (
             <g className="handles">
               {selected.tip && props.onTipChange && (() => {

@@ -717,6 +717,10 @@ export function tastenTests() {
     await expect(page.getByTestId('text-dialog')).toBeVisible();
     await page.getByTestId('text-input').fill('Stiege 1');
     await pruefe(page, 'Text-Dialog (Zeichnen)', out);
+    // Schriftfarbe: Palette aufgeklappt
+    await page.getByTestId('text-color-open').click();
+    await expect(page.getByTestId('text-palette')).toBeVisible();
+    await pruefe(page, 'Text-Dialog mit Farbpalette', out);
     await page.getByTestId('text-save').click();
     await expect(page.getByTestId('element-bar')).toBeVisible();
     await pruefe(page, 'Text-Leiste', out);

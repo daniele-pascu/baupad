@@ -37,6 +37,7 @@ test('Plan zeichnen: Text mit Schriftart, fett, kursiv und Farbe; in der Leiste 
   await td.getByTestId('font-family').selectOption('serif');
   await td.getByTestId('font-bold').click();
   await td.getByTestId('font-italic').click();
+  await td.getByTestId('text-color-open').click(); // Schriftfarbe: Palette aufklappen
   await td.getByTestId('text-color-Rot').click();
   await expect(td.getByTestId('text-preview')).toHaveCSS('font-style', 'italic');
   await td.getByRole('button', { name: 'Einfügen' }).click();
@@ -120,7 +121,7 @@ test('Aufmaß auf importiertem Plan: Text einfügen, verschieben, bearbeiten, im
   await expect(t).toHaveText('Achse B');
   await waitSaved(page);
   const [c] = await texts(page);
-  expect(c.shape.h).toBeCloseTo(b.shape.h * 1.25, 3);
+  expect(c.shape.h).toBeGreaterThan(b.shape.h * 1.05); // nächster Schriftgrad der Liste
 
   // PDF: Text mit Times fett kursiv
   const dl = await catchDownload(page, async () => {

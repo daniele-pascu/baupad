@@ -3,7 +3,7 @@ import { elementLabel } from '../components/DrawPanel';
 import { renderDims, renderElement, renderPreviewDims, renderSheet } from '../components/DrawingLayer';
 import type { PlanViewerHandle, SnapFn, Tool, ViewerItem } from '../components/PlanViewer';
 import { toast } from '../components/ui';
-import { textDialog } from '../components/TextDialog';
+import { textDialog, type LeaderChoice } from '../components/TextDialog';
 import { cleanFont } from '../lib/text-font';
 import { elementsOf } from '../lib/aufmass';
 import { formatMeasure } from '../lib/numbers';
@@ -12,6 +12,7 @@ import {
   applyMeasures,
   calloutTip,
   calloutWorld,
+  leaderSize,
   leaderFor,
   attachedAt,
   circleFromMeasures,
@@ -25,6 +26,9 @@ import {
   shapeToPage,
   snapAngle,
   snapToGrid,
+  fitTextResize,
+  keepTip,
+  refitText,
   textBoxHeight,
   textBoxWidth,
   textFontSize,
@@ -48,7 +52,7 @@ import { wallOpenings, wallGeometry } from '../lib/walls';
 import { dimsVisible, visibleElements } from '../lib/layers';
 import { distToSegment, isOpenShape, lineShape, pathToSvg, rectsOverlap, removeVertex, setPolylineClosed, shapeAABB, pointInPolygon, polygonArea, shapeFromVertices, shapePath, shapeVertices, toScreen, type Point, type View } from '../lib/geometry';
 import { newMeta, putRecord, putRecords, softDelete, type ProjectState } from '../lib/store';
-import type { Damage, DrawElement, DrawElementType, GuideLine, Plan, Rect, Shape, ShapeStyle, TextFont } from '../lib/types';
+import type { Damage, DrawElement, DrawElementType, GuideLine, Leader, Plan, Rect, Shape, ShapeStyle, TextFont } from '../lib/types';
 
 /** Werkzeuge der Planbearbeitung (selbst gezeichnete Pläne) */
 /** Gruppen der Werkzeugleiste (wie in CAD-Programmen) */
@@ -332,8 +336,10 @@ export function useDrawing(opts: {
     if (id !== selectedId) setVertex(null);
   };
   const [overrides, setOverrides] = useState<Record<string, Shape>>({});
-  /** Text mit Pfeil: Pfeilspitze während des Ziehens (noch nicht gespeichert) */
-  const [leaderOverrides, setLeaderOverrides] = useState<Record<string, { dx: number; dy: number }>>({});
+  /** Textfeld während des Ziehens: zuletzt angepasster Rahmen je Objekt (siehe onShapeChange) */
+  const textFit = useRef<Record<string, { shape: Shape; wrap?: number; extra: { wrap?: number; leader?: Leader } }>>({});
+  /** Text: Pfeilspitze bzw. feste Breite während des Ziehens (noch nicht gespeichert) */
+  const [leaderOverrides, setLeaderOverrides] = useState<Record<string, { leader?: Leader; wrap?: number }>>({});
   const [snapOn, setSnapOnState] = useState(() => pref('snap', '1') !== '0');
   /** Raster-Einrasten (Standard: aus – Formen folgen genau der Bewegung, Maße frei wählbar) */
   const [gridOn, setGridOnState] = useState(() => pref('gridSnap', '0') === '1');
@@ -466,7 +472,7 @@ export function useDrawing(opts: {
       .filter((c): c is { c: Point; r: number } => !!c);
   const showDims = dimsVisible(plan);
   const elements = useMemo(
-    () => stored.map((e) => (overrides[e.id] || leaderOverrides[e.id] ? { ...e, shape: overrides[e.id] ?? e.shape, ...(leaderOverrides[e.id] ? { leader: leaderOverrides[e.id] } : {}) } : e)),
+    () => stored.map((e) => (overrides[e.id] || leaderOverrides[e.id] ? { ...e, shape: overrides[e.id] ?? e.shape, ...(leaderOverrides[e.id] ?? {}) } : e)),
     [stored, overrides, leaderOverrides],
   );
   const byId = useMemo(() => new Map(elements.map((e) => [e.id, e])), [elements]);
@@ -474,7 +480,7 @@ export function useDrawing(opts: {
     () =>
       elements.map((e) => {
         const shape = shapeToPage(e.shape, k);
-        return { id: e.id, number: 0, shape, color: e.color, labelOffset: null, noVertexEdit: e.type === 'arc', boxOnly: e.type === 'text' || e.type === 'symbol', keepAspect: e.type === 'symbol' ? symbolAnchor(e.symbol) : e.type === 'text' ? TEXT_ASPECT : null, ...(e.type === 'text' && e.leader ? { tip: calloutTip(shape, e.leader, k), tipPath: calloutWorld(shape, e.leader, k).line } : {}) };
+        return { id: e.id, number: 0, shape, color: e.color, labelOffset: null, noVertexEdit: e.type === 'arc', boxOnly: e.type === 'text' || e.type === 'symbol', freeWidth: e.type === 'text' && !e.room, keepAspect: e.type === 'symbol' ? symbolAnchor(e.symbol) : e.type === 'text' ? TEXT_ASPECT : null, ...(e.type === 'text' && e.leader ? { tip: calloutTip(shape, e.leader, k), tipPath: calloutWorld(shape, e.leader, k, leaderSize(e)).line } : {}) };
       }),
     [elements, k],
   );
@@ -1680,34 +1686,74 @@ export function useDrawing(opts: {
 
   /** Text mit Pfeil (Meter): Pfeilspitze `tip`, Text an der Stelle `at` – der Text liegt auf der vom Pfeil abgewandten Seite */
   const createCallout = async (tip: Point, at: Point) => {
-    const r = await askNewText();
+    const r = await askNewText(pref('textLeader', 'arrow') === 'dot' ? 'dot' : pref('textLeader', 'arrow') === 'none' ? 'none' : 'arrow');
     if (!r) return;
-    const box = textShape(at, r.text, textHeightNow() * r.scale, r.font);
+    const fs = roundM(textHeightNow() * r.scale);
+    const box = textShape(at, r.text, fs, r.font);
     const shape = tip.x > at.x ? { ...box, x: roundM(at.x - box.w) } : box;
-    create('text', shape, { text: r.text, color: r.color, font: r.font, leader: leaderFor(shape, tip) });
+    // im Text-Fenster „Ohne“ gewählt: nur der Text
+    create('text', shape, { text: r.text, color: r.color, font: r.font, ...(r.leader !== 'off' ? { leader: { ...leaderFor(shape, tip), size: fs, ...(r.leader !== 'arrow' ? { end: r.leader } : {}) } } : {}) });
+  };
+
+  /**
+   * Linie zum Plan im Text-Fenster ein- bzw. umgeschaltet: neue Linie zeigt zunächst schräg nach links unten (das Ende
+   * wird danach im Plan an die richtige Stelle gezogen); eine vorhandene behält ihr Ende.
+   */
+  const leaderFromChoice = (choice: LeaderChoice, shape: Shape, fs: number, prev?: Leader): { leader?: Leader } => {
+    if (choice === 'off') return {};
+    const { end: _e, ...base } = prev ?? { dx: roundM(-(shape.w / 2 + 3 * fs)), dy: roundM(shape.h / 2 + 2 * fs), size: fs };
+    return { leader: { ...base, ...(choice !== 'arrow' ? { end: choice } : {}) } };
   };
 
   /** Pfeilspitze eines Textes gezogen (Seitenkoordinaten) */
   const onTipChange = (id: string, tipPage: Point, commit: boolean) => {
     const e = data.elements[id];
     if (!e) return;
-    const leader = leaderFor(e.shape, { x: tipPage.x / k, y: tipPage.y / k });
+    if (!e.leader) return;
+    const leader: Leader = { ...e.leader, ...leaderFor(e.shape, { x: tipPage.x / k, y: tipPage.y / k }) };
     if (!commit) {
-      setLeaderOverrides((o) => ({ ...o, [id]: leader }));
+      setLeaderOverrides((o) => ({ ...o, [id]: { ...o[id], leader } }));
       return;
     }
     setLeaderOverrides(({ [id]: _, ...rest }) => rest);
-    if (!e.leader || e.leader.dx !== leader.dx || e.leader.dy !== leader.dy) putRecord('elements', { ...e, leader });
+    if (e.leader.dx !== leader.dx || e.leader.dy !== leader.dy) putRecord('elements', { ...e, leader });
   };
 
   const onShapeChange = (id: string, pageShape: Shape, commit: boolean) => {
     const shape = roundShape(shapeToMeters(pageShape, k));
+    const e = data.elements[id];
+    if (e?.type === 'text' && !e.room) {
+      // Textfeld: Seite gezogen = feste Breite (bricht um), Ecke gezogen = gleichmäßig größer/kleiner; Pfeilspitze bleibt
+      // Beim Loslassen kommt der schon angepasste Rahmen des letzten Zugs zurück: dessen Ergebnis gilt (nicht noch
+      // einmal auswerten – der Rahmen ist dann schon höher und sähe wie „Ecke gezogen“ aus)
+      const live = textFit.current[id];
+      const res =
+        commit && live && JSON.stringify(live.shape) === JSON.stringify(shape)
+          ? live
+          : (() => {
+              const fit = fitTextResize(e, shape);
+              const next = roundShape(fit.shape);
+              // das Ende der Linie bleibt auf dem Plan stehen – auch beim Verschieben und Drehen des Textes
+              return { shape: next, wrap: fit.wrap, extra: { ...(fit.wrap ? { wrap: fit.wrap } : {}), ...keepTip(e, next) } };
+            })();
+      if (!commit) {
+        textFit.current[id] = res;
+        setOverrides((o) => ({ ...o, [id]: res.shape }));
+        setLeaderOverrides((o) => ({ ...o, [id]: res.extra }));
+        return;
+      }
+      delete textFit.current[id];
+      setOverrides(({ [id]: _, ...rest }) => rest);
+      setLeaderOverrides(({ [id]: _, ...rest }) => rest);
+      if (JSON.stringify(e.shape) !== JSON.stringify(res.shape) || e.wrap !== res.wrap) putRecord('elements', { ...e, ...res.extra, shape: res.shape });
+      return;
+      return;
+    }
     if (!commit) {
       setOverrides((o) => ({ ...o, [id]: shape }));
       return;
     }
     setOverrides(({ [id]: _, ...rest }) => rest);
-    const e = data.elements[id];
     // Rechteck/Dreieck mit verschobener, eingefügter oder entfernter Ecke ist danach eine Polylinie
     // (geschlossen = Fläche); eine Linie mit eingefügtem Punkt eine offene Polylinie.
     // Wand, Text/Raumstempel, Bauteil, Maß und Bogen bleiben immer, was sie sind.
@@ -1719,6 +1765,12 @@ export function useDrawing(opts: {
     })() : shape;
     if (e && type && JSON.stringify(e.shape) !== JSON.stringify(fixed)) putRecord('elements', { ...e, type, shape: fixed });
   };
+
+  /** Schrifthöhe (m) als Schriftgröße in pt auf dem Papier: gezeichnete Pläne nach Maßstab, importierte nach Seitenmaß */
+  const ptOf = (fs: number) => (fs * k) / (plan?.drawing ? hatchAnchor(k, plan.drawing.scale ?? 100) : 1);
+
+  /** Aufmaß: Textfeld mit den Anfassern geändert (Rahmen in Seitenkoordinaten) – wie im Zeichenmodus */
+  const resizeText = (id: string, pageShape: Shape, commit: boolean) => onShapeChange(id, pageShape, commit);
 
   const textHeightNow = () => {
     const pxPerM = (viewer.current?.scale() ?? 1) * k;
@@ -1774,11 +1826,13 @@ export function useDrawing(opts: {
     if (tool !== 'text') return;
     const r = await askNewText();
     if (!r) return;
-    create('text', textShape({ x: p.x / k, y: p.y / k }, r.text, textHeightNow() * r.scale, r.font), { text: r.text, color: r.color, font: r.font });
+    const fs = roundM(textHeightNow() * r.scale);
+    const shape = textShape({ x: p.x / k, y: p.y / k }, r.text, fs, r.font);
+    create('text', shape, { text: r.text, color: r.color, font: r.font, ...leaderFromChoice(r.leader, shape, fs) });
   };
 
   /** Neuer Text: Dialog mit der zuletzt benutzten Schrift und Farbe (wird gemerkt) */
-  const askNewText = async () => {
+  const askNewText = async (leader: LeaderChoice = 'off') => {
     const lastFont = (() => {
       try {
         return JSON.parse(pref('textFont', '{}')) as TextFont;
@@ -1786,10 +1840,11 @@ export function useDrawing(opts: {
         return {};
       }
     })();
-    const r = await textDialog({ title: 'Text einfügen', confirmLabel: 'Einfügen', color: pref('textColor', DRAW_DEFAULT_COLOR), font: cleanFont(lastFont) });
+    const r = await textDialog({ title: 'Text einfügen', confirmLabel: 'Einfügen', color: pref('textColor', DRAW_DEFAULT_COLOR), font: cleanFont(lastFont), sizePt: ptOf(textHeightNow()), leader });
     if (!r || !r.text.trim()) return null;
     storePref('textFont', JSON.stringify(r.font ?? {}));
     storePref('textColor', r.color);
+    if (r.leader !== 'off') storePref('textLeader', r.leader);
     return { ...r, text: r.text.trim(), font: cleanFont(r.font) };
   };
 
@@ -1798,15 +1853,18 @@ export function useDrawing(opts: {
     if (!plan) return false;
     const r = await askNewText();
     if (!r) return false;
+    const fs = roundM(textHeightNow() * r.scale);
+    const shape = roundShape(textShape({ x: p.x / k, y: p.y / k }, r.text, fs, r.font));
     const rec: DrawElement = {
       ...newMeta(),
       projectId: plan.projectId,
       planId: plan.id,
       type: 'text',
-      shape: roundShape(textShape({ x: p.x / k, y: p.y / k }, r.text, textHeightNow() * r.scale, r.font)),
+      shape,
       color: r.color,
       text: r.text,
       ...(r.font ? { font: r.font } : {}),
+      ...leaderFromChoice(r.leader, shape, fs),
     };
     putRecord('elements', rec);
     return true;
@@ -1816,16 +1874,19 @@ export function useDrawing(opts: {
   const editText = async (id: string) => {
     const e = data.elements[id];
     if (!e || e.type !== 'text') return;
-    const r = await textDialog({ title: 'Text bearbeiten', text: e.text, color: e.color, font: e.font, canDelete: true, canResize: true });
+    const fs0 = textFontSize(e, e.shape.h);
+    const r = await textDialog({ title: 'Text bearbeiten', text: e.text, color: e.color, font: e.font, canDelete: true, canResize: true, sizePt: ptOf(fs0), leader: e.leader ? (e.leader.end ?? 'arrow') : 'off' });
     if (!r) return;
     if (r.remove) {
       softDelete({ elements: [e] });
       return;
     }
     const font = cleanFont(r.font);
-    const h = roundM(e.shape.h * r.scale);
-    const { font: _f, ...rest } = e;
-    putRecord('elements', { ...rest, ...(font ? { font } : {}), text: r.text.trim(), color: r.color, shape: { ...e.shape, h, w: textBoxWidth({ ...e, text: r.text.trim() }, h, font) } });
+    const { font: _f, leader: _l, ...rest } = e;
+    const next = { ...rest, ...(font ? { font } : {}), text: r.text.trim(), color: r.color };
+    const shape = refitText(e, next, roundM(fs0 * r.scale));
+    // Linie zum Plan: Ende bleibt, wo es war (Rahmen kann gewachsen sein); Art bzw. ein/aus aus dem Text-Fenster
+    putRecord('elements', { ...next, ...leaderFromChoice(r.leader, shape, fs0, keepTip(e, shape).leader), shape });
   };
 
   /** Aufmaß: Text verschieben (Verschiebung in Seitenkoordinaten); commit speichert */
@@ -1833,16 +1894,29 @@ export function useDrawing(opts: {
     const e = data.elements[id];
     if (!e) return;
     const shape = { ...e.shape, x: roundM(e.shape.x + dx / k), y: roundM(e.shape.y + dy / k) };
+    // das Ende der Linie zum Plan bleibt stehen
+    const tip = keepTip(e, shape);
     if (!commit) {
       setOverrides((o) => ({ ...o, [id]: shape }));
+      if (tip.leader) setLeaderOverrides((o) => ({ ...o, [id]: { ...o[id], ...tip } }));
       return;
     }
     setOverrides(({ [id]: _, ...rest }) => rest);
-    if (dx || dy) putRecord('elements', { ...e, shape });
+    setLeaderOverrides(({ [id]: _, ...rest }) => rest);
+    if (dx || dy) putRecord('elements', { ...e, ...tip, shape });
   };
 
   /** Aufmaß: Texte zum Antippen/Verschieben (Seitenkoordinaten) */
-  const textNotes = useMemo(() => elements.filter((e) => e.type === 'text').map((e) => ({ id: e.id, shape: shapeToPage(e.shape, k) })), [elements, k]);
+  const textNotes = useMemo(
+    () =>
+      elements
+        .filter((e) => e.type === 'text')
+        .map((e) => {
+          const shape = shapeToPage(e.shape, k);
+          return { id: e.id, shape, ...(e.leader ? { tip: calloutTip(shape, e.leader, k), tipPath: calloutWorld(shape, e.leader, k, leaderSize(e)).line } : {}) };
+        }),
+    [elements, k],
+  );
 
   /** Aufmaß auf importierten Plänen: nur die Texte über dem Plan */
   const textUnderlay = (view: View) => (
@@ -1886,9 +1960,9 @@ export function useDrawing(opts: {
   const setText = (id: string, text: string) => {
     const e = data.elements[id];
     if (!e) return;
-    const w = textBoxWidth({ ...e, text }, e.shape.h, e.font);
-    // Raumstempel bleibt mittig stehen, Text wächst nach rechts
-    putRecord('elements', { ...e, text, shape: { ...e.shape, w, ...(e.room ? { x: roundM(e.shape.x + (e.shape.w - w) / 2) } : {}) } });
+    // Raumstempel bleibt mittig stehen, Text wächst nach rechts bzw. (Absätze, feste Breite) nach unten
+    const shape = refitText(e, { ...e, text });
+    putRecord('elements', { ...e, text, ...keepTip(e, shape), shape });
   };
 
   /** Schrift eines Textes ändern (Breite folgt) */
@@ -1898,8 +1972,8 @@ export function useDrawing(opts: {
     const { font: _f, ...rest } = e;
     const f = cleanFont(font);
     if (f) storePref('textFont', JSON.stringify(f));
-    const w = textBoxWidth(e, e.shape.h, f);
-    putRecord('elements', { ...rest, ...(f ? { font: f } : {}), shape: { ...e.shape, w, ...(e.room ? { x: roundM(e.shape.x + (e.shape.w - w) / 2) } : {}) } });
+    const shape = refitText(e, { ...rest, font: f });
+    putRecord('elements', { ...rest, ...(f ? { font: f } : {}), ...keepTip(e, shape), shape });
   };
 
   /** Ausgewählten Eckpunkt entfernen bzw. Polylinie öffnen/schließen */
@@ -2368,6 +2442,7 @@ export function useDrawing(opts: {
     textUnderlay,
     textNotes,
     placeText,
+    resizeText,
     editText,
     moveText,
     setFont,

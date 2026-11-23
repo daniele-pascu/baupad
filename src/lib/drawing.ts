@@ -1,7 +1,7 @@
 import { round2 } from './numbers';
 import { distanceToPolyline, fromShapeLocal, freehandPoints, lineShape, outlineParts, polygonArea, shapeAABB, shapeCenter, shapeVertices, toShapeLocal, type Point } from './geometry';
 import { formatMeasure } from './numbers';
-import type { Damage, DrawElement, DrawingInfo, PaperFormat, Plan, Rect, Shape, TextFont } from './types';
+import type { Damage, DrawElement, DrawingInfo, Leader, LeaderEnd, PaperFormat, Plan, Rect, Shape, TextFont } from './types';
 import { charWidthFactor } from './text-font';
 import { symbolAnchor, symbolDef } from './symbols';
 
@@ -310,65 +310,159 @@ export function textWidth(text: string, h: number, font?: TextFont): number {
 
 /** Raumstempel: Zeilenabstand in Schrifthöhen */
 export const ROOM_LINE = 1.35;
-/** Zeilen eines Textobjekts (Raumstempel: Name, Fläche, Zusatz) */
-export function textLines(e: { text?: string; room?: { area: number | null; note?: string } }): string[] {
-  if (!e.room) return [e.text ?? ''];
+/** Angaben eines Textobjekts, aus denen sich seine Zeilen ergeben */
+type TextLike = { text?: string; room?: { area: number | null; note?: string }; wrap?: number; font?: TextFont };
+
+/**
+ * Text in Zeilen: Absätze an den Zeilenumbrüchen; mit `wrapEm` (Breite in Schrifthöhen) bricht jede Zeile an
+ * Wortgrenzen um – gerechnet mit der geschätzten Zeichenbreite, damit Ansicht und PDF gleich umbrechen.
+ */
+export function wrapText(text: string, wrapEm?: number, font?: TextFont): string[] {
+  const paras = text.split('\n');
+  if (!wrapEm || !(wrapEm > 0)) return paras;
+  const max = Math.max(1, Math.floor(wrapEm / charWidthFactor(font) + 1e-6));
+  const out: string[] = [];
+  for (const para of paras) {
+    let line = '';
+    for (let word of para.split(' ')) {
+      // überlanges Wort: hart trennen
+      while (word.length > max) {
+        if (line) {
+          out.push(line);
+          line = '';
+        }
+        out.push(word.slice(0, max));
+        word = word.slice(max);
+      }
+      if (!line) line = word;
+      else if (line.length + 1 + word.length <= max) line += ` ${word}`;
+      else {
+        out.push(line);
+        line = word;
+      }
+    }
+    out.push(line);
+  }
+  return out;
+}
+
+/** Zeilen eines Textobjekts (Raumstempel: Name, Fläche, Zusatz; Text: Absätze, mit fester Breite umbrochen) */
+export function textLines(e: TextLike): string[] {
+  if (!e.room) return wrapText(e.text ?? '', e.wrap, e.font);
   return [e.text ?? '', e.room.area === null ? '– m²' : `${formatMeasure(roundM(e.room.area))} m²`, ...(e.room.note ? [e.room.note] : [])];
 }
 /** Schrifthöhe eines Textobjekts mit Gesamthöhe h */
-export function textFontSize(e: { text?: string; room?: { area: number | null; note?: string } }, h: number): number {
+export function textFontSize(e: TextLike, h: number): number {
   const n = textLines(e).length;
   return h / (1 + (n - 1) * ROOM_LINE);
 }
 /** Gesamthöhe aus Schrifthöhe */
-export const textBoxHeight = (e: { text?: string; room?: { area: number | null; note?: string } }, fs: number) => roundM(fs * (1 + (textLines(e).length - 1) * ROOM_LINE));
-/** Breite eines Textobjekts mit Gesamthöhe h (längste Zeile) */
-export function textBoxWidth(e: { text?: string; room?: { area: number | null; note?: string } }, h: number, font?: TextFont): number {
+export const textBoxHeight = (e: TextLike, fs: number) => roundM(fs * (1 + (textLines(e).length - 1) * ROOM_LINE));
+/** Breite eines Textobjekts mit Gesamthöhe h (längste Zeile bzw. die feste Breite des Textfelds) */
+export function textBoxWidth(e: TextLike, h: number, font?: TextFont): number {
   const fs = textFontSize(e, h);
+  if (e.wrap && !e.room) return roundM(e.wrap * fs);
   // Raumstempel: Name fett
   return Math.max(...textLines(e).map((l, i) => textWidth(l, fs, e.room && i === 0 ? { ...font, bold: true } : font)));
 }
 
+/** Rahmen eines neuen Textes: Schrifthöhe h, die erste Zeile liegt mittig auf der angetippten Stelle */
 export function textShape(at: Point, text: string, h: number, font?: TextFont): Shape {
-  return { type: 'rect', x: roundM(at.x), y: roundM(at.y - h / 2), w: textWidth(text, h, font), h: roundM(h) };
+  const e = { text, font };
+  const total = textBoxHeight(e, h);
+  return { type: 'rect', x: roundM(at.x), y: roundM(at.y - h / 2), w: textBoxWidth(e, total, font), h: total };
+}
+
+/**
+ * Text, Schrift oder Schriftgröße geändert: Rahmen neu (Zeilenzahl und Breite folgen), die linke obere Ecke bleibt –
+ * beim Raumstempel die Mitte. `fs` = neue Schrifthöhe (fehlt: wie bisher).
+ */
+export function refitText(e: Pick<DrawElement, 'shape' | 'text' | 'font'> & Partial<Pick<DrawElement, 'room' | 'wrap'>>, next: TextLike, fs = textFontSize(e, e.shape.h)): Shape {
+  const h = textBoxHeight(next, fs);
+  const w = textBoxWidth(next, h, next.font);
+  return { ...e.shape, w, h, ...(e.room ? { x: roundM(e.shape.x + (e.shape.w - w) / 2) } : {}) };
+}
+
+/** Text mit Pfeil: Rahmen geändert – die Pfeilspitze bleibt auf dem Plan, wo sie war */
+export function keepTip(e: Pick<DrawElement, 'shape'> & Partial<Pick<DrawElement, 'leader'>>, next: Shape): { leader?: Leader } {
+  return e.leader ? { leader: { ...e.leader, ...leaderFor(next, calloutTip(e.shape, e.leader)) } } : {};
+}
+
+/** schmalstes Textfeld: Breite in Schrifthöhen */
+export const TEXT_MIN_WRAP = 2;
+
+/**
+ * Textfeld mit der Maus bzw. dem Finger geändert (`raw` = neuer Rahmen aus dem Anfasser):
+ * - nur die Breite geändert (Seitenanfasser): feste Breite – der Text bricht neu um, die Höhe folgt, Schrift bleibt
+ * - Höhe geändert (Ecke): alles wird gleichmäßig größer bzw. kleiner, auch die Schrift
+ * - sonst (verschoben, gedreht): unverändert übernommen
+ */
+export function fitTextResize(e: Pick<DrawElement, 'shape' | 'text' | 'font'> & Partial<Pick<DrawElement, 'room' | 'wrap'>>, raw: Shape): { shape: Shape; wrap?: number } {
+  const s0 = e.shape;
+  const eps = 1e-6;
+  const dw = Math.abs(raw.w - s0.w);
+  const dh = Math.abs(raw.h - s0.h);
+  if (e.room || (dw < eps && dh < eps)) return { shape: raw, wrap: e.wrap };
+  if (dh < eps) {
+    const fs = textFontSize(e, s0.h);
+    const wrap = Math.round(Math.max(TEXT_MIN_WRAP, raw.w / fs) * 1000) / 1000;
+    const next = { ...e, wrap };
+    const h = textBoxHeight(next, fs);
+    const w = roundM(wrap * fs);
+    // linke Kante gezogen: die rechte bleibt stehen
+    const leftMoved = Math.abs(raw.x - s0.x) > eps;
+    return { shape: { ...raw, x: roundM(leftMoved ? raw.x + raw.w - w : raw.x), y: s0.y, w, h }, wrap };
+  }
+  // gleichmäßig: Breite folgt der Schrifthöhe (Mitte bleibt)
+  const w = textBoxWidth(e, raw.h, e.font);
+  return { shape: { ...raw, x: roundM(raw.x + (raw.w - w) / 2), w }, wrap: e.wrap };
 }
 
 // ---------------------------------------------------------------------------
 // Text mit Pfeil
 
-/** Pfeil eines Textes im Bezugssystem des Textes (nicht gedreht): Linienzug Spitze → Knick → Text und Pfeilspitze. */
+/** Bezugslinie eines Textes im Bezugssystem des Textes (nicht gedreht): Linienzug Spitze → Knick → Text und ihr Ende. */
 export interface CalloutGeometry {
   /** Spitze, Knick, Ansatz am Text */
   line: Point[];
-  /** gefüllte Pfeilspitze (Spitze, links, rechts) */
-  head: [Point, Point, Point];
+  /** gefüllte Pfeilspitze (Spitze, links, rechts) – nur beim Ende „Pfeil“ */
+  head: [Point, Point, Point] | null;
+  /** gefüllter Punkt an der Spitze – nur beim Ende „Punkt“ */
+  dot: { c: Point; r: number } | null;
+  /** Strichstärke in derselben Einheit */
+  width: number;
 }
 
 /**
- * Pfeil zum Text: kurzer waagrechter Anschluss an der näheren Seite (links bzw. rechts mittig), dann schräg zur Spitze
- * mit gefüllter Pfeilspitze. Alles in derselben Einheit wie `box` (Bezugssystem des Textes, ungedreht).
+ * Bezugslinie zum Text: kurzer waagrechter Anschluss an der näheren Seite (links bzw. rechts mittig), dann schräg zur
+ * Spitze. `size` (wie `box`, z. B. die Schrifthöhe beim Einfügen) bestimmt Pfeilspitze, Punkt, Anschluss und
+ * Strichstärke – unabhängig von der jetzigen Schrift- bzw. Rahmengröße. Alles im Bezugssystem des Textes (ungedreht).
  */
-export function calloutGeometry(box: Rect, tip: Point): CalloutGeometry {
-  const h = box.h;
+export function calloutGeometry(box: Rect, tip: Point, size: number, end: LeaderEnd = 'arrow'): CalloutGeometry {
   const cx = box.x + box.w / 2;
   const cy = box.y + box.h / 2;
   const left = tip.x < cx;
-  const gap = h * 0.25;
+  const gap = size * 0.25;
   const attach = { x: left ? box.x - gap : box.x + box.w + gap, y: cy };
-  const land = Math.min(h * 0.8, Math.max(0, left ? attach.x - tip.x : tip.x - attach.x));
+  const land = Math.min(size * 0.8, Math.max(0, left ? attach.x - tip.x : tip.x - attach.x));
   const knee = { x: attach.x + (left ? -land : land), y: cy };
   const from = Math.hypot(tip.x - knee.x, tip.y - knee.y) > 1e-9 ? knee : attach;
   const d = Math.hypot(tip.x - from.x, tip.y - from.y) || 1;
   const ux = (tip.x - from.x) / d;
   const uy = (tip.y - from.y) / d;
-  const L = Math.min(h * 0.7, d * 0.6);
+  const L = end === 'arrow' ? Math.min(size * 0.7, d * 0.6) : 0;
   const W = L * 0.34;
   const base = { x: tip.x - ux * L, y: tip.y - uy * L };
   return {
     line: [tip, base, ...(from === knee ? [knee] : []), attach].filter((p, i, a) => i === 0 || Math.hypot(p.x - a[i - 1].x, p.y - a[i - 1].y) > 1e-9),
-    head: [tip, { x: base.x - uy * W, y: base.y + ux * W }, { x: base.x + uy * W, y: base.y - ux * W }],
+    head: end === 'arrow' ? [tip, { x: base.x - uy * W, y: base.y + ux * W }, { x: base.x + uy * W, y: base.y - ux * W }] : null,
+    dot: end === 'dot' ? { c: tip, r: size * 0.16 } : null,
+    width: size * 0.09,
   };
 }
+
+/** Maß der Bezugslinie in m: beim Einfügen gemerkt, sonst (ältere Texte) die jetzige Schrifthöhe */
+export const leaderSize = (e: Pick<DrawElement, 'shape' | 'text'> & Partial<Pick<DrawElement, 'leader' | 'wrap' | 'font' | 'room'>>) => e.leader?.size ?? textFontSize(e, e.shape.h);
 
 /** Pfeilspitze eines Textes in Plankoordinaten (wie `s`; `scale` = Einheiten je m, z. B. k für Seitenkoordinaten). */
 export function calloutTip(s: Shape, leader: { dx: number; dy: number }, scale = 1): Point {
@@ -383,12 +477,15 @@ export function leaderFor(s: Shape, tip: Point, scale = 1): { dx: number; dy: nu
   return { dx: roundM((l.x - c.x) / scale), dy: roundM((l.y - c.y) / scale) };
 }
 
-/** Text mit Pfeil: Pfeil in Plankoordinaten (gedreht wie der Text) – für Ansicht und PDF. */
-export function calloutWorld(s: Shape, leader: { dx: number; dy: number }, scale = 1): CalloutGeometry {
+/**
+ * Text mit Bezugslinie in Plankoordinaten (gedreht wie der Text) – für Ansicht, Antippen und PDF. `s` = Rahmen in
+ * diesen Koordinaten, `scale` = Einheiten je m, `sizeM` = Maß der Linie in m (siehe leaderSize).
+ */
+export function calloutWorld(s: Shape, leader: Leader, scale: number, sizeM: number): CalloutGeometry {
   const c = shapeCenter(s);
-  const g = calloutGeometry({ x: s.x, y: s.y, w: s.w, h: s.h }, { x: c.x + leader.dx * scale, y: c.y + leader.dy * scale });
+  const g = calloutGeometry({ x: s.x, y: s.y, w: s.w, h: s.h }, { x: c.x + leader.dx * scale, y: c.y + leader.dy * scale }, sizeM * scale, leader.end);
   const R = (p: Point) => fromShapeLocal(s, p);
-  return { line: g.line.map(R), head: g.head.map(R) as [Point, Point, Point] };
+  return { line: g.line.map(R), head: g.head ? (g.head.map(R) as [Point, Point, Point]) : null, dot: g.dot ? { c: R(g.dot.c), r: g.dot.r } : null, width: g.width };
 }
 
 // ---------------------------------------------------------------------------

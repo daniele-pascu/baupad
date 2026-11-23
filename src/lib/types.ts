@@ -469,6 +469,9 @@ export interface TextFont {
   family?: FontFamily;
   bold?: boolean;
   italic?: boolean;
+  underline?: boolean;
+  /** Ausrichtung der Zeilen im Textfeld; fehlt = linksbündig */
+  align?: 'center' | 'right';
 }
 
 /** Objektart eines gezeichneten Plans */
@@ -503,10 +506,17 @@ export interface DrawElement extends SyncMeta {
    */
   room?: { area: number | null; note?: string };
   /**
-   * Text mit Pfeil (Textobjekt): Pfeilspitze relativ zur Textmitte in m, im Bezugssystem des Textes (dreht und
-   * verschiebt sich mit). Der Pfeil führt von der Spitze zur näheren Seite des Textes.
+   * Textfeld mit fester Breite (Textobjekt): Breite in Schrifthöhen – der Text bricht an dieser Breite um, die Höhe
+   * folgt den Zeilen. Fehlt: so breit wie die längste Zeile (Absätze über Zeilenumbrüche im Text).
    */
-  leader?: { dx: number; dy: number };
+  wrap?: number;
+  /**
+   * Text mit Pfeil (Textobjekt): Pfeilspitze relativ zur Textmitte in m, im Bezugssystem des Textes. Die Linie führt
+   * von der Spitze zur näheren Seite des Textes. `end` = Ende an der Spitze (fehlt = Pfeil); `size` = Maß für
+   * Pfeilspitze, Punkt und Strichstärke in m (Schrifthöhe beim Einfügen) – bleibt gleich, wenn die Schrift später
+   * größer oder kleiner wird.
+   */
+  leader?: Leader;
   /** Wand: Form ist die Achse (Linie/Polylinie); Stärke und Höhe in m */
   wall?: { thickness: number; height?: number };
   /** Bauteil/Symbol (Tür, Fenster, Elektro …) – Form ist das Begrenzungsrechteck */
@@ -524,6 +534,15 @@ export interface DrawElement extends SyncMeta {
   extGap?: number;
   /** Darstellung (Linientyp, -stärke, Füllung); fehlt = Standarddarstellung */
   style?: ShapeStyle;
+}
+
+/** Ende der Bezugslinie eines Textes: Pfeilspitze, Punkt oder nur die Linie */
+export type LeaderEnd = 'arrow' | 'dot' | 'none';
+export interface Leader {
+  dx: number;
+  dy: number;
+  end?: LeaderEnd;
+  size?: number;
 }
 
 /** Leistungsposition eines LV bzw. einer MFK */

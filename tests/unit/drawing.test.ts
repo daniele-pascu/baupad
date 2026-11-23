@@ -212,3 +212,66 @@ describe('Linie: Maß eingeben – der richtige Punkt wandert', async () => {
     expect(shapeArea({ type: 'ellipse', x: 0, y: 0, w: 2, h: 2 })).toBeCloseTo(Math.PI, 9);
   });
 });
+
+describe('Textfeld: Absätze, feste Breite, Größe', async () => {
+  const { wrapText, textLines, textFontSize, textBoxHeight, textBoxWidth, textShape, fitTextResize, refitText, keepTip, calloutTip, ROOM_LINE } = await import('../../src/lib/drawing');
+  it('Absätze an Zeilenumbrüchen; ohne feste Breite kein Umbruch', () => {
+    expect(wrapText('Eins\nZwei drei')).toEqual(['Eins', 'Zwei drei']);
+    expect(wrapText('Eins\n\nDrei')).toEqual(['Eins', '', 'Drei']);
+  });
+  it('feste Breite: Umbruch an Wortgrenzen, überlange Wörter werden getrennt', () => {
+    // 0,56 je Zeichen → 5,6 Schrifthöhen = 10 Zeichen je Zeile
+    expect(wrapText('Riss prüfen und melden', 5.6)).toEqual(['Riss', 'prüfen und', 'melden']);
+    expect(wrapText('Abdichtungsbahn', 5.6)).toEqual(['Abdichtung', 'sbahn']);
+  });
+  it('einzeiliger Text wie bisher: Höhe = Schrifthöhe', () => {
+    const s = textShape({ x: 1, y: 1 }, 'Hallo', 0.2);
+    expect(s.h).toBe(0.2);
+    expect(textFontSize({ text: 'Hallo' }, s.h)).toBe(0.2);
+  });
+  it('zwei Absätze: Höhe wächst um den Zeilenabstand, Breite = längste Zeile, Schrifthöhe bleibt', () => {
+    const s = textShape({ x: 1, y: 1 }, 'Kurz\nEine lange Zeile', 0.2);
+    expect(s.h).toBeCloseTo(0.2 * (1 + ROOM_LINE), 6);
+    expect(s.w).toBeCloseTo(16 * 0.2 * 0.56, 6);
+    expect(textFontSize({ text: 'Kurz\nEine lange Zeile' }, s.h)).toBeCloseTo(0.2, 9);
+    expect(s.y).toBeCloseTo(0.9, 9); // erste Zeile mittig auf der angetippten Stelle
+  });
+  const e = { text: 'Riss prüfen und melden', shape: textShape({ x: 2, y: 2 }, 'Riss prüfen und melden', 0.2), font: undefined };
+  it('Seite gezogen: feste Breite, Text bricht um, Schrift bleibt, oben links bleibt', () => {
+    const r = fitTextResize(e, { ...e.shape, w: 1.12 }); // 5,6 Schrifthöhen
+    expect(r.wrap).toBeCloseTo(5.6, 6);
+    const next = { ...e, wrap: r.wrap, shape: r.shape };
+    expect(textLines(next)).toEqual(['Riss', 'prüfen und', 'melden']);
+    expect(textFontSize(next, r.shape.h)).toBeCloseTo(0.2, 6);
+    expect([r.shape.x, r.shape.y, r.shape.w]).toEqual([e.shape.x, e.shape.y, 1.12]);
+    // linke Seite gezogen: die rechte Kante bleibt
+    const l = fitTextResize(e, { ...e.shape, x: e.shape.x + (e.shape.w - 1.12), w: 1.12 });
+    expect(l.shape.x + l.shape.w).toBeCloseTo(e.shape.x + e.shape.w, 6);
+  });
+  it('Ecke gezogen: alles gleichmäßig – Schrift doppelt so groß, Umbruch unverändert', () => {
+    const w = fitTextResize(e, { ...e.shape, w: 1.12 });
+    const boxed = { ...e, wrap: w.wrap, shape: w.shape };
+    const r = fitTextResize(boxed, { ...boxed.shape, w: boxed.shape.w * 2, h: boxed.shape.h * 2 });
+    const next = { ...boxed, shape: r.shape };
+    expect(textFontSize(next, r.shape.h)).toBeCloseTo(0.4, 6);
+    expect(textLines(next)).toEqual(['Riss', 'prüfen und', 'melden']);
+    expect(r.shape.w).toBeCloseTo(2.24, 6);
+  });
+  it('Text geändert bzw. Schriftgröße: Rahmen folgt, feste Breite bleibt', () => {
+    const boxed = { ...e, wrap: 5.6, shape: { ...e.shape, w: 1.12, h: textBoxHeight({ text: e.text, wrap: 5.6 }, 0.2) } };
+    const longer = refitText(boxed, { ...boxed, text: `${e.text} bis Freitag` });
+    expect(longer.w).toBe(1.12);
+    expect(longer.h).toBeGreaterThan(boxed.shape.h);
+    const bigger = refitText(boxed, boxed, 0.3);
+    expect(textFontSize(boxed, bigger.h)).toBeCloseTo(0.3, 6);
+    expect(bigger.w).toBeCloseTo(textBoxWidth(boxed, bigger.h), 9);
+  });
+  it('Text mit Pfeil: Rahmen wächst – die Spitze bleibt auf dem Plan', () => {
+    const c = { ...e, leader: { dx: -1.5, dy: 1 } };
+    const tip = calloutTip(c.shape, c.leader);
+    const next = refitText(c, { ...c, text: 'Riss\nprüfen\nund melden' });
+    const kept = keepTip(c, next).leader!;
+    const tip2 = calloutTip(next, kept);
+    expect(Math.hypot(tip2.x - tip.x, tip2.y - tip.y)).toBeLessThan(2e-4);
+  });
+});
