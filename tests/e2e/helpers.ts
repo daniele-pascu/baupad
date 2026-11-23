@@ -274,6 +274,8 @@ export async function pickTool(page: Page, testId: string, how: 'click' | 'tap' 
     // die Leiste kann sich gerade selbst wieder öffnen (z. B. nach dem Speichern) – dann ist die Taste schon weg
     if (await open.isVisible()) await (how === 'tap' ? open.tap({ timeout: 3000 }) : open.click({ timeout: 3000 })).catch(() => {});
   }
+  // Aufmaß: offene Text-Leiste verdeckt die Mess-Tools – „Zurück“
+  if (!(await btn.isVisible()) && (await page.getByTestId('text-bar-back').isVisible())) await press(page.getByTestId('text-bar-back'));
   // Aufmaß: Werkzeuge erscheinen erst nach der Messart (je Messart nur die passenden) – passende Messart wählen
   const mtypeFor: Record<string, string> = { 'tool-line': 'laenge', 'tool-polyline': 'laenge', 'tool-freehand': 'laenge', 'tool-rect': 'flaeche', 'tool-ellipse': 'flaeche', 'tool-polygon': 'flaeche', 'tool-wall': 'wand', 'tool-points': 'stueck', 'tool-text': 'frei' };
   if (!(await btn.isVisible()) && mtypeFor[testId] && (await page.getByTestId('tool-mtype').isVisible())) await chooseMeasureType(page, mtypeFor[testId], how);

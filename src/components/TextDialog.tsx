@@ -78,7 +78,7 @@ export interface TextResult {
 /** Schriftgrößen wie in der Textverarbeitung (pt auf dem Papier) */
 const fmtPt = (n: number) => String(roundPt(n)).replace('.', ',');
 /** Zeile einer Bezugslinie als kleines Bild (Vorschau der Auswahl) */
-function LeaderIcon({ end }: { end: LeaderChoice }) {
+export function LeaderIcon({ end }: { end: LeaderChoice }) {
   return (
     <svg width="34" height="16" viewBox="0 0 34 16" aria-hidden="true">
       {end === 'off' ? (

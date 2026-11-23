@@ -414,6 +414,7 @@ test('Projekt übernehmen: Pläne aus der Planbibliothek (Aufmaß & Abrechnung) 
   // Bibliothek: ein mehrseitiges PDF hochladen
   await page.getByTestId('open-plan-library').click();
   await page.getByTestId('library-file-input').setInputFiles(join(FIXTURES, 'plaene.pdf'));
+  await page.getByTestId('library-pending-ok').click();
   await expect(page.locator('.toast', { hasText: 'Planbibliothek hochgeladen' })).toHaveCount(1);
   await page.keyboard.press('Escape');
   await waitSaved(page);

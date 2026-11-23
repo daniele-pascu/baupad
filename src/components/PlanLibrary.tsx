@@ -111,17 +111,30 @@ export function PlanLibrary({ data, onClose, onReuse }: { data: ProjectState; on
   // Pläne nur in die Bibliothek hochladen (ohne Aufmaß) – später mit „Neues Aufmaß“ auswählen
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
-  const upload = async (list: FileList | null) => {
-    if (!list?.length) return;
+  // nach der Auswahl: Bezeichnung je Plan prüfen bzw. ändern, erst dann hochladen (Dateiendung bleibt)
+  const [pending, setPending] = useState<{ file: File; kind: NonNullable<ReturnType<typeof detectKind>>; base: string; ext: string }[] | null>(null);
+  const choose = (list: FileList | null) => {
+    const picked: NonNullable<typeof pending> = [];
+    for (const f of Array.from(list ?? [])) {
+      const kind = detectKind(f);
+      if (!kind) {
+        toast(`„${f.name}“: nur PDF, JPG oder PNG.`, 'error');
+        continue;
+      }
+      const ext = /\.[A-Za-z0-9]{2,5}$/.exec(f.name)?.[0] ?? '';
+      picked.push({ file: f, kind, base: ext ? f.name.slice(0, -ext.length) : f.name, ext });
+    }
+    if (inputRef.current) inputRef.current.value = '';
+    setPending(picked.length ? picked : null);
+  };
+  const upload = async () => {
+    if (!pending?.length) return;
     setUploading(true);
     let n = 0;
     try {
-      for (const f of Array.from(list)) {
-        const kind = detectKind(f);
-        if (!kind) {
-          toast(`„${f.name}“: nur PDF, JPG oder PNG.`, 'error');
-          continue;
-        }
+      for (const { file: f, kind, base, ext } of pending) {
+        // leere Bezeichnung: der Dateiname bleibt
+        const name = base.trim() ? `${base.trim()}${ext}` : f.name;
         const buf = await f.arrayBuffer();
         let pageCount = 1;
         if (kind === 'pdf') {
@@ -131,7 +144,7 @@ export function PlanLibrary({ data, onClose, onReuse }: { data: ProjectState; on
         }
         const id = uuid();
         await putBlob(id, data.project.id, buf);
-        putRecord('files', { ...newMeta(), id, projectId: data.project.id, name: f.name, mimeType: mimeOf(f, kind), size: f.size, kind, pageCount });
+        putRecord('files', { ...newMeta(), id, projectId: data.project.id, name, mimeType: mimeOf(f, kind), size: f.size, kind, pageCount });
         n++;
       }
       if (n) toast(n === 1 ? 'Plan in die Planbibliothek hochgeladen.' : `${n} Pläne in die Planbibliothek hochgeladen.`, 'success');
@@ -139,7 +152,7 @@ export function PlanLibrary({ data, onClose, onReuse }: { data: ProjectState; on
       showError(e, 'Hochladen fehlgeschlagen');
     } finally {
       setUploading(false);
-      if (inputRef.current) inputRef.current.value = '';
+      setPending(null);
     }
   };
 
@@ -150,7 +163,7 @@ export function PlanLibrary({ data, onClose, onReuse }: { data: ProjectState; on
         hier. Pläne lassen sich auch nur hier hochladen und später mit „Neues Aufmaß“ auswählen.
       </p>
       <div className="row gap wrap lib-upload-row">
-        <button type="button" className="btn btn-primary" onClick={() => inputRef.current?.click()} disabled={uploading} data-testid="library-upload">
+        <button type="button" className="btn btn-primary" onClick={() => inputRef.current?.click()} disabled={uploading || !!pending} data-testid="library-upload">
           <Icon name="upload" size={18} /> {uploading ? 'Wird hochgeladen …' : 'Pläne hochladen'}
         </button>
         <input
@@ -159,10 +172,49 @@ export function PlanLibrary({ data, onClose, onReuse }: { data: ProjectState; on
           accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png"
           multiple
           hidden
-          onChange={(e) => void upload(e.target.files)}
+          onChange={(e) => choose(e.target.files)}
           data-testid="library-file-input"
         />
       </div>
+      {pending && (
+        <form
+          className="lib-pending"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void upload();
+          }}
+          data-testid="library-pending"
+        >
+          <strong>{pending.length === 1 ? 'Bezeichnung des Plans' : 'Bezeichnungen der Pläne'}</strong>
+          <p className="muted small">So {pending.length === 1 ? 'steht der Plan' : 'stehen die Pläne'} in der Planbibliothek – jetzt ändern oder so lassen.</p>
+          {pending.map((p, i) => (
+            <label key={i} className="field lib-pending-row">
+              <span className="muted small lib-pending-file">{p.file.name}</span>
+              <span className="lib-pending-input">
+                <input
+                  type="text"
+                  value={p.base}
+                  onChange={(e) => setPending(pending.map((x, j) => (j === i ? { ...x, base: e.target.value } : x)))}
+                  disabled={uploading}
+                  autoFocus={i === 0}
+                  autoComplete="off"
+                  aria-label={`Bezeichnung für „${p.file.name}“`}
+                  data-testid="library-pending-name"
+                />
+                {p.ext && <span className="muted small">{p.ext}</span>}
+              </span>
+            </label>
+          ))}
+          <div className="row gap wrap lib-pending-actions">
+            <button type="button" className="btn" onClick={() => setPending(null)} disabled={uploading} data-testid="library-pending-cancel">
+              Abbrechen
+            </button>
+            <button type="submit" className="btn btn-primary" disabled={uploading} data-testid="library-pending-ok">
+              <Icon name="upload" size={18} /> {uploading ? 'Wird hochgeladen …' : 'Hochladen'}
+            </button>
+          </div>
+        </form>
+      )}
       <label className="field">
         <span className="sr-only">Suchen</span>
         <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Suchen: Plannummer, Bezeichnung oder Dateiname" data-testid="library-search" autoComplete="off" />
@@ -175,8 +227,8 @@ export function PlanLibrary({ data, onClose, onReuse }: { data: ProjectState; on
             <header className="lib-file-head">
               <Icon name={file.kind === 'pdf' ? 'pdf' : 'file'} size={18} />
               <strong className="lib-file-name">{file.name}</strong>
-              <button type="button" className="icon-btn icon-btn-sm" onClick={() => void renameFile(file)} aria-label={`„${file.name}“ umbenennen`} title="Umbenennen" data-testid="library-rename">
-                <Icon name="edit" size={16} />
+              <button type="button" className="btn btn-sm lib-rename" onClick={() => void renameFile(file)} aria-label={`„${file.name}“ umbenennen`} title="Bezeichnung des Plans ändern" data-testid="library-rename">
+                <Icon name="edit" size={16} /> Umbenennen
               </button>
               <span className="muted small">
                 {file.kind === 'pdf' ? `PDF · ${file.pageCount} ${file.pageCount === 1 ? 'Seite' : 'Seiten'}` : 'Bild'} · {kb(file.size)} · hochgeladen am{' '}

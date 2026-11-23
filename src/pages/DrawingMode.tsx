@@ -57,7 +57,7 @@ import { wallOpenings, wallGeometry } from '../lib/walls';
 import { dimsVisible, visibleElements } from '../lib/layers';
 import { distToSegment, isOpenShape, lineShape, pathToSvg, rectsOverlap, removeVertex, setPolylineClosed, shapeAABB, pointInPolygon, polygonArea, shapeFromVertices, shapePath, shapeVertices, toScreen, type Point, type View } from '../lib/geometry';
 import { newMeta, putRecord, putRecords, softDelete, type ProjectState } from '../lib/store';
-import type { Damage, DrawElement, DrawElementType, GuideLine, Leader, Plan, Rect, Shape, ShapeStyle, TextFont } from '../lib/types';
+import type { Damage, DrawElement, DrawElementType, GuideLine, Leader, LeaderEnd, Plan, Rect, Shape, ShapeStyle, TextFont } from '../lib/types';
 
 /** Werkzeuge der Planbearbeitung (selbst gezeichnete Pläne) */
 /** Gruppen der Werkzeugleiste (wie in CAD-Programmen) */
@@ -1924,6 +1924,34 @@ export function useDrawing(opts: {
     return true;
   };
 
+  /**
+   * Aufmaß, Text-Leiste: Hinweistext – Linie vom Ziel (Anfang) zur Stelle des Textes (Ende) gezogen, Seitenkoordinaten.
+   * Der Text steht auf der vom Ziel abgewandten Seite; Ende der Linie: Punkt, Pfeil oder nur Linie.
+   */
+  const placeCallout = async (pageShape: Shape, end: LeaderEnd) => {
+    if (!plan) return false;
+    const [tip, at] = lineEnds(shapeToMeters(pageShape, k));
+    const r = await askNewText(end);
+    if (!r) return false;
+    const fs = r.fs;
+    const box = textShape(at, r.text, fs, r.font);
+    const shape = roundShape(tip.x > at.x ? { ...box, x: roundM(at.x - box.w) } : box);
+    const rec: DrawElement = {
+      ...newMeta(),
+      projectId: plan.projectId,
+      planId: plan.id,
+      type: 'text',
+      shape,
+      color: r.color,
+      text: r.text,
+      ...(r.font ? { font: r.font } : {}),
+      // im Text-Fenster „Ohne“ gewählt: nur der Text
+      ...(r.leader !== 'off' ? { leader: { ...leaderFor(shape, tip), size: fs, ...(r.leader !== 'arrow' ? { end: r.leader } : {}) } } : {}),
+    };
+    putRecord('elements', rec);
+    return true;
+  };
+
   /** Aufmaß: angetippten Text bearbeiten (Text, Schrift, Farbe, Größe) oder löschen */
   const editText = async (id: string) => {
     const e = data.elements[id];
@@ -2497,6 +2525,7 @@ export function useDrawing(opts: {
     textUnderlay,
     textNotes,
     placeText,
+    placeCallout,
     resizeText,
     textPt,
     setTextPt,

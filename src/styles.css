@@ -1545,6 +1545,12 @@ input[type='range'] {
   touch-action: manipulation;
   transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
 }
+/* Text-Leiste im Aufmaß: Bild der Hinweislinie (Punkt, Pfeil, Linie) in der Höhe der übrigen Symbole */
+.text-tool-icon {
+  display: flex;
+  align-items: center;
+  height: 24px;
+}
 .tool-btn:hover:not(:disabled):not(.active) {
   background: rgba(0, 0, 0, 0.05);
 }
@@ -3334,6 +3340,18 @@ tr.lv-flagged td {
   .toolbar:not(.draw-toolbar) > .tool-group.color-pick .tool-btn {
     flex: none;
     min-width: 46px;
+  }
+}
+/* Text-Leiste im Aufmaß am Handy: wenige Tasten – eine Zeile, Schließen rechts daneben */
+@media (max-width: 600px) {
+  .toolbar.toolbar-text:not(.draw-toolbar):not(.toolbar-collapsed) {
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+  .toolbar.toolbar-text:not(.draw-toolbar) > .tool-group.text-tools {
+    width: auto;
+    flex: 1 1 auto;
+    flex-wrap: nowrap;
   }
 }
 
@@ -10057,6 +10075,37 @@ html[data-theme='dark'] .crew-search {
 .lib-upload-row {
   margin: 4px 0 14px;
 }
+/* Planbibliothek: Bezeichnung nach der Auswahl, vor dem Hochladen */
+.lib-pending {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.lib-pending p {
+  margin: 0;
+}
+.lib-pending-row {
+  margin: 0;
+}
+.lib-pending-file {
+  overflow-wrap: anywhere;
+}
+.lib-pending-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.lib-pending-input input {
+  flex: 1;
+  min-width: 0;
+}
+.lib-pending-actions {
+  justify-content: flex-end;
+}
 .deduction-no {
   width: 9.5em;
   min-height: 36px;
@@ -11288,6 +11337,20 @@ html[data-theme='dark'] .crew-search {
 .plan-legend.pos-br {
   left: auto;
   right: 12px;
+}
+/* schmale Planfläche (Handy): die Werkzeugleiste reicht über die ganze Breite – die Legende unten sitzt darüber
+   statt auf den Tasten; solange darüber die Leiste einer Auswahl steht, weicht sie ganz */
+@container (max-width: 700px) {
+  .plan-legend.pos-bl,
+  .plan-legend.pos-br {
+    bottom: calc(var(--toolbar-h, 72px) + 10px);
+  }
+  .editor-plan:has(.selection-bar) .plan-legend.pos-bl,
+  .editor-plan:has(.selection-bar) .plan-legend.pos-br,
+  .editor-plan:has(.draw-bar) .plan-legend.pos-bl,
+  .editor-plan:has(.draw-bar) .plan-legend.pos-br {
+    display: none;
+  }
 }
 .legend-pos {
   display: grid;

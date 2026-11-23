@@ -551,6 +551,13 @@ export function tastenTests() {
     await pruefe(page, 'Text-Dialog', out);
     await page.getByTestId('text-save').click();
     await expect(page.getByTestId('text-dialog')).toHaveCount(0);
+    // eigene Leiste für Texte (Text, mit Punkt, mit Pfeil, mit Linie)
+    if (await page.getByTestId('tools-open').isVisible()) await page.getByTestId('tools-open').click();
+    await expect(page.getByTestId('text-bar')).toBeVisible();
+    await page.getByTestId('text-tool-dot').click();
+    await pruefe(page, 'Text-Leiste (Aufmaß)', out);
+    await page.getByTestId('text-bar-back').click();
+    await expect(page.getByTestId('text-bar')).toHaveCount(0);
     if (await page.getByTestId('mobile-tab-table').isVisible()) {
       await page.getByTestId('mobile-tab-table').click();
       await pruefe(page, 'Plan-Editor Tabelle', out);
@@ -598,6 +605,11 @@ export function tastenTests() {
     await expect(page.getByRole('dialog', { name: 'Plan umbenennen' })).toBeVisible();
     await pruefe(page, 'Plan umbenennen (Planbibliothek)', out);
     await page.getByRole('dialog', { name: 'Plan umbenennen' }).getByRole('button', { name: 'Abbrechen' }).click();
+    // Pläne gewählt: Bezeichnung vor dem Hochladen
+    await page.getByTestId('library-file-input').setInputFiles([join(FIXTURES, 'plaene.pdf'), join(FIXTURES, 'parkdeck.png')]);
+    await expect(page.getByTestId('library-pending-name')).toHaveCount(2);
+    await pruefe(page, 'Bezeichnung vor dem Hochladen (Planbibliothek)', out);
+    await page.getByTestId('library-pending-cancel').click();
     expect(out, out.join('\n')).toEqual([]);
   });
 

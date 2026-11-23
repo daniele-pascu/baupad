@@ -233,8 +233,29 @@ test('Planbibliothek: Pläne nur hochladen (ohne Aufmaß), später als neues Auf
   await expect(open).toHaveClass(/btn-ink/); // schwarz, beim Antippen weiß
   await open.click();
   const lib = page.getByTestId('plan-library');
+  // nach der Auswahl: Bezeichnung je Plan (ohne Dateiendung) – erst „Hochladen“ legt die Pläne ab
   await lib.getByTestId('library-file-input').setInputFiles([join(FIXTURES, 'plaene.pdf'), join(FIXTURES, 'parkdeck.png')]);
+  const names = lib.getByTestId('library-pending-name');
+  await expect(names).toHaveCount(2);
+  await expect(names.nth(0)).toHaveValue('plaene');
+  await expect(names.nth(1)).toHaveValue('parkdeck');
+  await expect(lib.getByTestId('library-file')).toHaveCount(0);
+  // abbrechen: nichts hochgeladen
+  await lib.getByTestId('library-pending-cancel').click();
+  await expect(lib.getByTestId('library-pending')).toHaveCount(0);
+  await expect(lib.getByTestId('library-file')).toHaveCount(0);
+  // noch einmal wählen, einen Plan gleich umbenennen (Endung bleibt), hochladen
+  await lib.getByTestId('library-file-input').setInputFiles([join(FIXTURES, 'plaene.pdf'), join(FIXTURES, 'parkdeck.png')]);
+  await names.nth(0).fill('Grundrisse Halle');
+  await lib.getByTestId('library-pending-ok').click();
+  await expect(lib.getByTestId('library-pending')).toHaveCount(0);
   await expect(lib.getByTestId('library-file')).toHaveCount(2);
+  await expect(lib.locator('[data-testid="library-file"][data-file="Grundrisse Halle.pdf"]')).toHaveCount(1);
+  // in der Bibliothek wieder zurück umbenennen
+  await lib.locator('[data-testid="library-file"][data-file="Grundrisse Halle.pdf"]').getByTestId('library-rename').click();
+  await page.getByTestId('prompt-dialog').locator('input').fill('plaene');
+  await page.getByTestId('prompt-dialog').getByRole('button', { name: 'Speichern' }).click();
+  await expect(lib.locator('[data-testid="library-file"][data-file="plaene.pdf"]')).toHaveCount(1);
   // je PDF-Seite ein Plan
   await expect(lib.locator('[data-testid="library-file"][data-file="plaene.pdf"]').getByTestId('library-page')).toHaveCount(4);
   await expect(lib.locator('[data-testid="library-file"][data-file="parkdeck.png"]').getByTestId('library-page')).toHaveCount(1);
