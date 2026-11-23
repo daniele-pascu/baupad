@@ -202,6 +202,12 @@ test('Wand: Stärke und Höhe, Länge/Fläche, Tür und Fenster schneiden die Ö
   await waitSaved(page);
   wall = (await elements()).find((e) => e.id === wall.id)!;
   expect((wall as unknown as { wall: { thickness: number; height: number } }).wall).toEqual({ thickness: 0.2, height: 2.8 });
+  // Fenster und Öffnung wachsen mit der Wandstärke mit, die Tür bleibt
+  const after = await elements();
+  const sym = (id: string) => after.find((e) => (e as unknown as { symbol?: { id: string } }).symbol?.id === id)!;
+  near(sym('wall-opening').shape.h, 0.2);
+  near(sym('win1').shape.h, 0.2);
+  near(sym('door1').shape.h, 0.9);
   // PDF
   const dl = await catchDownload(page, async () => {
     await page.getByTestId('export-pdf-plan').click();
