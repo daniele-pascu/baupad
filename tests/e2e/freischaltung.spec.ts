@@ -87,10 +87,10 @@ test('Betreiber: Konto zeigt registrierte Firmen, Preis je Benutzer und Freischa
   await detail.getByTestId('operator-price').fill('12,50');
   await detail.getByTestId('operator-note').fill('Angebot 3.11.');
   await detail.getByTestId('operator-save').click();
-  expect(calls).toEqual([{ p_id: 'w9', p_price: 12.5, p_note: 'Angebot 3.11.' }]);
+  await expect.poll(() => calls).toEqual([{ p_id: 'w9', p_price: 12.5, p_note: 'Angebot 3.11.' }]);
   await expect(detail).toContainText('1 × 12,50 €');
   await detail.getByTestId('operator-toggle').click();
-  expect(calls[1]).toEqual({ p_id: 'w9', p_active: true });
+  await expect.poll(() => calls[1]).toEqual({ p_id: 'w9', p_active: true });
   await expect(detail).toContainText('freigeschaltet');
   await detail.getByTestId('operator-back').click();
   await expect(box).toContainText('2 Firmen registriert.');

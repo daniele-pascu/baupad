@@ -883,6 +883,8 @@ export function tastenTests() {
     await pruefe(page, 'Dialog Bauteile Elektro', out);
     await page.getByTestId('symbol-group-shaft').click();
     await pruefe(page, 'Dialog Bauteile Fänge/Durchbrüche', out);
+    await page.getByTestId('symbol-group-opening').click();
+    await pruefe(page, 'Dialog Bauteile Wandöffnungen', out);
     await page.getByTestId('symbol-group-electro').click();
     await page.getByTestId('symbol-socket').click();
     await expect(page.getByTestId('command-bar')).toBeVisible();

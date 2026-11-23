@@ -2,6 +2,9 @@ import { expect, test, type Page } from './fixtures';
 import { createProject, freshStart, saveDownload } from './helpers';
 import { readFileSync } from 'node:fs';
 
+// Hilfen lesen/schreiben IndexedDB mit new Function – im Test die Content-Security-Policy der App umgehen
+test.use({ bypassCSP: true });
+
 /**
  * Zeitaufzeichnung: Der Polier tippt für seine Arbeiter je Tag Baustelle und Stunden (Vorschlag aus der
  * Einteilung), Wegzeit optional; Monatszettel je Person mit zweiter Baustelle; Excel; Freigabe sperrt für den Polier.
