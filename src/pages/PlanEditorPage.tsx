@@ -2435,7 +2435,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           )}
           {segMode && polyCount === 0 && !probe && !dialog && !mtypeMenu && !probeMenu && !stylePopOpen && !selected && (
             <div className="draw-bar" data-testid="segments-hint">
-              <span className="muted small">Länge, Linie für Linie: Anfang und Ende antippen – die nächste Linie beginnt frei, z. B. mit Abstand oder an der Mitte einer Linie (Risse). Häkchen übernimmt die Summe.</span>
+              <span className="muted small">Länge: Punkte antippen – jeder Punkt verbindet mit dem vorigen. „+“ beginnt eine neue Linie mit Lücke (z. B. Risse). Häkchen übernimmt die Summe.</span>
             </div>
           )}
           {!segMode && !probe && !(!drawMode && (mtypeMenu || probeMenu || stylePopOpen)) && (drawMode ? isPointTool(drawing.viewerTool) && (polyCount > 0 || (!drawing.selected && drawing.tool !== 'wall')) : isPointTool(tool) && polyCount === 0 && !selected) && !dialog && (
@@ -2628,6 +2628,12 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               <button type="button" className="tool-btn seg-btn" onClick={draftRedo} disabled={!draftCanRedo} title="Vor – wiederherstellen" aria-label="Vor" data-testid="seg-redo">
                 <Icon name="redo" />
               </button>
+              {/* Länge: jeder Punkt verbindet mit dem vorigen – „Neue Linie“ für eine Lücke (z. B. Risse) */}
+              {segMode && (
+                <button type="button" className="tool-btn seg-btn seg-newline" onClick={() => viewer.current?.newSegmentLine()} disabled={draftCount < 2} title="Neue Linie – der nächste Punkt beginnt eine eigene Linie (Lücke)" aria-label="Neue Linie" data-testid="seg-newline">
+                  <Icon name="plus" />
+                </button>
+              )}
               {/* Stück: laufende Anzahl neben dem Häkchen */}
               {pointsDraft && (
                 <span className="seg-count" data-testid="points-count">

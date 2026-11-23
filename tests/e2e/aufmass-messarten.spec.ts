@@ -158,21 +158,24 @@ test('Messart wählen, dann mit beliebigem Werkzeug messen: Wand, Stück, Frei, 
   expect(d.area).toBe(9);
 
   // 6) Länge (Linie, Freie Form, Freihand): geschlossene Freie Form 2 × 1 m → Umfang
-  // Länge mit Freier Form: Linie für Linie (z. B. ein Riss mit Lücken) – eine Messung, Länge = Summe
+  // Länge mit Freier Form: jeder Punkt verbindet mit dem vorigen, „+“ (Neue Linie) setzt eine Lücke (z. B. Riss) – eine Messung, Länge = Summe
   await chooseType('laenge');
   await expect(page.getByTestId('tool-rect')).toHaveCount(0);
   await pickTool(page, 'tool-polyline');
   await expect(page.getByTestId('segments-hint')).toBeVisible();
   // A–B 2 m; C–D 1 m mit 0,5 m Abstand; E–F 1 m ab der Mitte von A–B
   for (const [dx, dy] of [[8, 5], [10, 5]]) await page.mouse.click(x + px(dx), y + px(dy));
-  // unten statt der Leiste nur vier Tasten: Abbrechen, Zurück, Vor, Fertig
+  // unten statt der Leiste nur fünf Tasten: Abbrechen, Zurück, Vor, Neue Linie, Fertig
   const bar = page.getByTestId('segments-bar');
   await expect(bar).toBeVisible();
-  await expect(bar.locator('button')).toHaveCount(4);
-  expect(await bar.locator('button').evaluateAll((b) => b.map((x) => x.getAttribute('data-testid')))).toEqual(['seg-cancel', 'seg-undo', 'seg-redo', 'seg-done']);
+  await expect(bar.locator('button')).toHaveCount(5);
+  expect(await bar.locator('button').evaluateAll((b) => b.map((x) => x.getAttribute('data-testid')))).toEqual(['seg-cancel', 'seg-undo', 'seg-redo', 'seg-newline', 'seg-done']);
   await expect(page.getByTestId('tool-mtype')).toHaveCount(0);
   await expect(bar.getByTestId('seg-redo')).toBeDisabled();
-  for (const [dx, dy] of [[10.5, 5], [10.5, 6], [9, 5], [9, 6]]) await page.mouse.click(x + px(dx), y + px(dy));
+  await bar.getByTestId('seg-newline').click();
+  for (const [dx, dy] of [[10.5, 5], [10.5, 6]]) await page.mouse.click(x + px(dx), y + px(dy));
+  await bar.getByTestId('seg-newline').click();
+  for (const [dx, dy] of [[9, 5], [9, 6]]) await page.mouse.click(x + px(dx), y + px(dy));
   await expect(page.getByTestId('polygon-preview')).toHaveAttribute('data-segments', '3');
   // Zurück nimmt den letzten Punkt, Vor setzt ihn wieder
   await bar.getByTestId('seg-undo').click();
