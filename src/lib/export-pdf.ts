@@ -399,7 +399,13 @@ async function finishSheet(ctx: Ctx, page: PDFPage, plan: Plan, L: SheetLayout, 
  * ausdrücklich eingeschalteten Angaben (Format, Maßstab) und das BauPad-Zeichen. Trennlinie darunter.
  */
 function drawSheetHeader(ctx: Ctx, page: PDFPage, pageH: number, header: Rect, plan: Plan, right: string[], reserveRight = 0) {
-  const size = 15;
+  // dünner Rahmen um das ganze Blatt (3 mm außerhalb des Inhalts); der Plankopf ist oben durch eine Linie abgeteilt
+  const pad = 3 * MM;
+  const fx = header.x - pad;
+  const fy = header.y - pad;
+  const fw = page.getWidth() - 2 * fx;
+  page.drawRectangle({ x: fx, y: fy, width: fw, height: pageH - 2 * fy, borderColor: rgb(0.1, 0.1, 0.12), borderWidth: 0.6 });
+  const size = 17;
   const rightText = clean(ctx, right.join(' · '));
   const rw = rightText ? ctx.font.widthOfTextAtSize(rightText, 10) : 0;
   // BauPad-Logo ganz rechts; Format/Maßstab rücken links daneben
@@ -408,10 +414,10 @@ function drawSheetHeader(ctx: Ctx, page: PDFPage, pageH: number, header: Rect, p
   page.drawText(fitText(ctx.bold, clean(ctx, planHeading(plan)), size, maxW), { x: header.x, y: pageH - header.y - size, size, font: ctx.bold, color: rgb(0.1, 0.1, 0.12) });
   const note = plan.showNote ? plan.description.trim().replace(/\s+/g, ' ') : '';
   const sub = [planSubline(ctx.data.project, ctx.data.costCenters[plan.costCenterId]), note].filter(Boolean).join('  |  ');
-  if (sub) page.drawText(fitText(ctx.font, clean(ctx, sub), 9, maxW), { x: header.x, y: pageH - header.y - size - 11.5, size: 9, font: ctx.font, color: rgb(0.27, 0.28, 0.31) });
+  if (sub) page.drawText(fitText(ctx.font, clean(ctx, sub), 8.5, maxW), { x: header.x, y: pageH - header.y - size - 10.5, size: 8.5, font: ctx.font, color: rgb(0.3, 0.31, 0.34) });
   if (rightText) page.drawText(rightText, { x: header.x + header.w - bw - rw, y: pageH - header.y - 14, size: 10, font: ctx.font, color: rgb(0.3, 0.33, 0.38) });
   const ly = pageH - (header.y + header.h) + 6;
-  page.drawLine({ start: { x: header.x, y: ly }, end: { x: header.x + header.w, y: ly }, thickness: 0.5, color: rgb(0.8, 0.82, 0.85) });
+  page.drawLine({ start: { x: fx, y: ly }, end: { x: fx + fw, y: ly }, thickness: 0.6, color: rgb(0.1, 0.1, 0.12) });
 }
 
 // ---------------------------------------------------------------------------

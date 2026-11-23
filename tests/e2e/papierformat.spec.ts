@@ -27,7 +27,7 @@ async function exportPdf(page: Page, name: string) {
   };
 }
 
-/** Anteil nicht weißer Pixel im Randstreifen (1 cm ≈ 11,8 px bei 30 dpi; geprüft: 10 px) */
+/** Anteil nicht weißer Pixel im Randstreifen außerhalb des Blattrahmens (Rahmen 7 mm vom Papierrand ≈ 8,3 px bei 30 dpi; geprüft: 6 px) */
 function borderInk(png: string): number {
   return Number(
     execFileSync(
@@ -37,7 +37,7 @@ function borderInk(png: string): number {
         `
 import sys
 from PIL import Image
-im = Image.open(sys.argv[1]).convert('L'); w, h = im.size; b = 10
+im = Image.open(sys.argv[1]).convert('L'); w, h = im.size; b = 6
 n = ink = 0
 for y in range(h):
   for x in range(w):
@@ -88,7 +88,7 @@ test('Import: Format wählbar (Standard A4 passend), Überschrift, PDF genau A3 
   expect(r.text).toContain('Aufmaßplan Tiefgarage F-1');
   expect(r.text).toContain('A3 Hochformat');
   expect(r.text).toContain('Technik'); // Originalinhalt vektoriell erhalten
-  expect(borderInk(r.png)).toBe(0); // nichts im 1-cm-Rand
+  expect(borderInk(r.png)).toBe(0); // nichts außerhalb des Blattrahmens
   // Aufmaßwerte unverändert (18 m bleiben 18 m)
   expect(await tableRows(page)).toEqual(before);
   expect(before[0][1]).toBe('18,00');
