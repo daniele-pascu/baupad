@@ -23,6 +23,7 @@ import { activeRule, autoBookings, hasSurfaceRules, refMismatch } from '../lib/p
 import { NewMeasureDialog, type NewMeasureOption } from '../components/NewMeasureDialog';
 import { calibrationStatus, checkDeviation, checkError, formatCm, formatPercent, geometryMeasures, MAX_ERROR_M, planUnitsPerMeter } from '../lib/calibration';
 import { ViewMenu } from '../components/ViewMenu';
+import { LeaderIcon } from '../components/TextDialog';
 import { usePhone, isTouchDevice } from '../lib/platform';
 import { DimensionReview } from '../components/DimensionReview';
 import { ExcelExportDialog } from '../components/ExcelExportDialog';
@@ -45,7 +46,7 @@ import { HatchPreview, hatchLabel } from '../components/HatchPicker';
 import { hatchAnchor } from '../lib/style';
 import { SegIndex } from '../lib/pdf-snap';
 import { clearHistory, newMeta, putRecord, putRecords, redo, softDelete, undo, useAppState, type ProjectState } from '../lib/store';
-import { COLORS, SHAPE_LABELS, type Damage, type DrawElementType, type MeasureKind, type MeasureType, type Plan, type Shape, type ShapeStyle, type ShapeType } from '../lib/types';
+import { COLORS, SHAPE_LABELS, type Damage, type DrawElementType, type LeaderEnd, type MeasureKind, type MeasureType, type Plan, type Shape, type ShapeStyle, type ShapeType } from '../lib/types';
 import { DRAW_TOOLS, guideSeg, PICK_TOOLS, readStyle, SELECT_FIRST, TRACK_KINDS, useDrawing, VECTOR_COMMANDS, type DrawTool } from './DrawingMode';
 import { CommandBar } from '../components/CommandBar';
 import { symbolDef } from '../lib/symbols';
@@ -66,7 +67,7 @@ const TOOLS: { id: Tool; label: string; short?: string; icon: string; key: strin
   { id: 'wall', label: 'Wand: Verlauf mit Knicken setzen, Enter oder Doppelklick beendet – danach Wandhöhe eingeben', short: 'Wand', icon: 'wall', key: 'w' },
   // nur bei der Messart Stück: jeder angetippte Punkt zählt ein Stück
   { id: 'points', label: 'Punkte: jedes Stück im Plan antippen – jeder Punkt zählt, „Fertig“ übernimmt die Anzahl', short: 'Punkte', icon: 'pin', key: 'z' },
-  { id: 'text', label: 'Text: Stelle antippen und Text eingeben – Farbe, Schriftart, fett, kursiv; mit „Auswahl“ antippen zum Ändern, ziehen zum Verschieben', short: 'Text', icon: 'text', key: 't' },
+  { id: 'text', label: 'Text: eigene Leiste für Texte – Text allein oder Hinweistext mit Linie zum Plan (Punkt, Pfeil); mit „Auswahl“ antippen zum Ändern, ziehen zum Verschieben', short: 'Text', icon: 'text', key: 't' },
   // Kontrollmessung: Menü mit Länge, Fläche, Winkel, Radius, Abstand – verändert nichts
   { id: 'probe', label: 'Messung: Länge, Fläche, Winkel, Radius oder Abstand nachmessen – ändert nichts', short: 'Messung', icon: 'dimension', key: 'n' },
   // nur importierte Pläne (gezeichnete haben ihren Maßstab bereits)
@@ -87,6 +88,16 @@ const TOOLS_BY_TYPE: Record<MeasureType, readonly Tool[]> = {
   schadstelle: ['rect', 'line', 'ellipse', 'polyline', 'freehand'],
   frei: ['rect', 'line', 'ellipse', 'polygon', 'polyline', 'freehand', 'wall', 'points'],
 };
+
+/** Aufmaß, Text-Leiste: Text allein oder mit Hinweislinie zum Plan (Ende: Punkt, Pfeil oder nur Linie) */
+type TextKind = 'plain' | LeaderEnd;
+const CALLOUT_HINT = 'Hinweistext: zuerst das Ziel im Plan antippen, dann die Stelle für den Text.';
+const TEXT_TOOLS: { id: TextKind; label: string; short: string; hint: string }[] = [
+  { id: 'plain', label: 'Text: Stelle im Plan antippen und Text eingeben', short: 'Text', hint: 'Text: Stelle im Plan antippen.' },
+  { id: 'dot', label: 'Hinweistext mit Punkt: zuerst das Ziel im Plan antippen (dort sitzt der Punkt), dann die Stelle für den Text', short: 'Mit Punkt', hint: CALLOUT_HINT },
+  { id: 'arrow', label: 'Hinweistext mit Pfeil: zuerst das Ziel im Plan antippen (dort sitzt die Pfeilspitze), dann die Stelle für den Text', short: 'Mit Pfeil', hint: CALLOUT_HINT },
+  { id: 'none', label: 'Hinweistext mit Linie: zuerst das Ziel im Plan antippen (dort endet die Linie), dann die Stelle für den Text', short: 'Mit Linie', hint: CALLOUT_HINT },
+];
 
 /** Werkzeuge mit Maßeingabe bzw. Hinweis vor dem Einfügen */
 const INSERT_TOOLS = new Set<DrawTool>(['line', 'rect', 'ellipse', 'triangle', 'dimension', 'text', 'textArrow', 'breakline']);
@@ -408,6 +419,14 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const history = useAppState((s) => s.history);
   const plan = data.plans[planId];
   const [tool, setToolState] = useState<Tool>(() => loadPref('tool', TOOLS.map((t) => t.id).filter((t) => t !== 'probe'), 'ellipse'));
+  /** Aufmaß: eigene Leiste für Texte (statt der Mess-Tools) und die dort gewählte Art des Textes */
+  const [textBar, setTextBar] = useState(false);
+  const [textKind, setTextKind] = useState<TextKind>('plain');
+  useEffect(() => {
+    // Text gewählt (Taste, Kürzel T): Leiste auf; ein Mess-Tool schließt sie – „Auswahl“ lässt sie offen (Text verschieben, ändern)
+    if (tool === 'text') setTextBar(true);
+    else if (tool !== 'select') setTextBar(false);
+  }, [tool]);
   /** zuletzt benutzte Funktion im Aufmaß (Enter schaltet sie wieder ein) */
   const lastTool = useRef<Tool | null>(null);
   useEffect(() => {
@@ -434,9 +453,10 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   /** Werkzeuge je Messart; ohne gewählte Messart nur Auswahl und Kalibrieren (erst Messart wählen, dann öffnet sich die Leiste) */
   const toolVisible = (id: Tool, c: MeasureChoice = mtype) => {
     // Auswahl und Kalibrieren (Vorbereitung des Plans) immer; alles Messende erst nach der Messart
-    if (id === 'select' || id === 'calibrate') return true;
+    // Text misst nichts: die Text-Leiste gibt es auch ohne Messart
+    if (id === 'select' || id === 'calibrate' || id === 'text') return true;
     if (c === 'auto') return false;
-    if (id === 'text' || id === 'probe') return true;
+    if (id === 'probe') return true;
     return (TOOLS_BY_TYPE[c] as readonly Tool[]).includes(id);
   };
   /** erstes Werkzeug einer Messart (zum gleich Zeichnen) */
@@ -1963,7 +1983,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               freehandMulti={mtype === 'laenge'}
               damages={shownDamages}
               selectedId={selectedId}
-              tool={guideTool ? 'pick' : tool}
+              tool={guideTool ? 'pick' : tool === 'text' && textKind !== 'plain' ? 'line' : tool /* Hinweistext: Linie vom Ziel zum Text */}
               color={color}
               pending={dialog?.mode === 'new' ? { shape: dialog.shape, color } : null}
               onSelect={(id) => {
@@ -1972,7 +1992,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 select(id);
               }}
               onCreate={(shape) =>
-                dedDraw
+                tool === 'text'
+                  ? void (textKind !== 'plain' && drawing.placeCallout(shape, textKind))
+                  : dedDraw
                   ? finishDedDraw(shape)
                   : tool === 'calibrate'
                   ? void (checking ? runCheck(shape) : calibrate(shape))
@@ -2125,7 +2147,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               <Icon name="fit" />
             </button>
             {!drawMode && (
-              <button type="button" className={`icon-btn${legendInfo?.show ? ' active' : ''}`} onClick={() => setLegendOpen(true)} aria-label="Farblegende" title="Farblegende: Bezeichnung je Farbe (im Plan und im PDF)" data-testid="editor-legend">
+              <button type="button" className={`icon-btn${legendInfo?.show ? ' active-toggle' : ''}`} onClick={() => setLegendOpen(true)} aria-label="Farblegende" title="Farblegende: Bezeichnung je Farbe (im Plan und im PDF)" data-testid="editor-legend">
                 <Icon name="legend" />
               </button>
             )}
@@ -2726,9 +2748,60 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               </button>
             </div>
           ) : (
-          <div className={`toolbar liquid${toolbarAwake ? ' awake' : ''}${toolsOpen ? '' : ' toolbar-collapsed'}`} role="toolbar" aria-label="Tools" data-mtype={mtype} onPointerDown={wakeToolbar}>
+          <div className={`toolbar liquid${toolbarAwake ? ' awake' : ''}${toolsOpen ? (textBar ? ' toolbar-text' : '') : ' toolbar-collapsed'}`} role="toolbar" aria-label={textBar && toolsOpen ? 'Text-Tools' : 'Tools'} data-mtype={mtype} onPointerDown={wakeToolbar}>
             {!toolsOpen ? (
               <ToolsOpenButton tool={TOOLS.find((t) => t.id === tool)} onOpen={() => setToolsOpen(true)} />
+            ) : textBar ? (
+            <>
+              <div className="tool-group text-tools" role="group" aria-label="Text" data-testid="text-bar">
+                <button
+                  type="button"
+                  className="tool-btn"
+                  onClick={() => {
+                    setTextBar(false);
+                    setTool('select');
+                  }}
+                  title="Zurück zu den Mess-Tools"
+                  data-testid="text-bar-back"
+                >
+                  <Icon name="back" />
+                  <span>Zurück</span>
+                </button>
+                {!isTouchDevice() && (
+                  <button type="button" className={`tool-btn${tool === 'select' ? ' active' : ''}`} onClick={() => setTool('select')} aria-pressed={tool === 'select'} title="Auswählen: Text antippen zum Ändern, ziehen zum Verschieben" data-testid="tool-select">
+                    <Icon name="select" />
+                    <span>Auswahl</span>
+                  </button>
+                )}
+                {TEXT_TOOLS.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    className={`tool-btn${tool === 'text' && textKind === t.id ? ' active' : ''}`}
+                    onClick={() => {
+                      setSelectedId(null);
+                      setTextKind(t.id);
+                      setTool('text');
+                      toast(t.hint, 'info', 2600);
+                    }}
+                    aria-pressed={tool === 'text' && textKind === t.id}
+                    title={t.label}
+                    data-testid={t.id === 'plain' ? 'tool-text' : `text-tool-${t.id}`}
+                  >
+                    {t.id === 'plain' ? (
+                      <Icon name="text" />
+                    ) : (
+                      // kein <span>: die Beschriftung (span) wird in der schmalen Leiste ausgeblendet, das Bild nicht
+                      <i className="text-tool-icon">
+                        <LeaderIcon end={t.id} />
+                      </i>
+                    )}
+                    <span>{t.short}</span>
+                  </button>
+                ))}
+              </div>
+              <ToolsCloseButton onClose={() => setToolsOpen(false)} />
+            </>
             ) : (
             <>
             <div className="tool-group">

@@ -1,5 +1,5 @@
 import { PAPER, PRINT_HEADER_MM, PRINT_MARGIN_MM } from './drawing';
-import type { PaperFormat, Plan, Rect } from './types';
+import type { CostCenter, PaperFormat, Plan, Project, Rect } from './types';
 
 /**
  * Seitenlayout für den PDF-Export auf A4/A3 – getrennt von der Plangeometrie: Hier wird nur
@@ -49,6 +49,20 @@ export const defaultPaper = (r: { w: number; h: number }): PaperFormat => (r.w >
 /** Überschrift: Titel Nummer [Planbezeichnung] [Ebene] – z. B. „Aufmaßplan 009 BA. 4 UG2“ */
 export const planHeading = (plan: Pick<Plan, 'title' | 'planNumber'> & Partial<Pick<Plan, 'planName' | 'floor' | 'showName' | 'showFloor'>>) =>
   [plan.title?.trim(), plan.planNumber.trim(), plan.showName !== false ? plan.planName?.trim() : '', plan.showFloor !== false ? plan.floor?.trim() : ''].filter(Boolean).join(' ');
+
+/**
+ * Zweite Zeile im Plankopf (dünner, dunkelgrau unter Nummer und Titel): wozu der Plan gehört –
+ * Projektnummer und -name, Kostenstelle, Baustelle (Adresse); was fehlt, fällt weg. Gleiche Angaben stehen nur einmal.
+ */
+export function planSubline(project: Pick<Project, 'name'> & Partial<Pick<Project, 'number' | 'site' | 'address'>>, costCenter?: Pick<CostCenter, 'number' | 'name'>): string {
+  const parts = [
+    [project.number?.trim(), project.name.trim()].filter(Boolean).join(' · '),
+    costCenter ? [costCenter.number?.trim(), costCenter.name.trim()].filter(Boolean).join(' – ') : '',
+    // Baustelle: eigene Bezeichnung (ältere Projekte), sonst die Adresse
+    project.site?.trim() || project.address?.trim() || '',
+  ].filter(Boolean);
+  return parts.filter((x, i) => parts.findIndex((y) => y.toLowerCase() === x.toLowerCase()) === i).join('  |  ');
+}
 
 const fit = (r: { w: number; h: number }, box: { w: number; h: number }) => Math.min(box.w / r.w, box.h / r.h);
 

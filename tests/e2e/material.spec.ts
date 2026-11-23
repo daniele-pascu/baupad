@@ -121,13 +121,13 @@ test('Materialliste je Baustelle: aus dem Materialstamm, gleiches Material wird 
     await expect(d.getByTestId('item-name')).toHaveValue('Zementestrich CT-C25');
     await expect(d.getByTestId('item-price')).toHaveValue('18,9');
     await d.getByTestId('item-qty').fill(qty);
-    await d.getByTestId('item-date').fill('2026-11-20');
+    await d.getByTestId('item-date').fill('2031-11-20');
     await d.getByTestId('item-save').click();
   };
   await add('20');
   await expect(page.getByTestId('item-row')).toHaveCount(1);
   await expect(page.getByTestId('item-row')).toContainText('20 m² Zementestrich CT-C25');
-  await expect(page.getByTestId('item-row')).toContainText('Liefertermin 20.11.2026');
+  await expect(page.getByTestId('item-row')).toContainText('Liefertermin 20.11.2031');
   await expect(page.getByTestId('material-site-summary')).toContainText('1 offen · 0 bestellt · 0 geliefert · 378,00 € netto');
 
   // gleiches Material nochmal → Rückfrage, Menge wird dazugerechnet statt doppelt

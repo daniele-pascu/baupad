@@ -182,6 +182,9 @@ test('Trimmen und Verlängern von Linien an anderen Linien', async () => {
 
 test('Stutzen mit Zaun (mehrere Linien auf einmal) und an einem Rechteck', async () => {
   await deselect();
+  // Ansichtsleiste zuklappen: sie liegt rechts über dem Plan – ein Klick dort (Linienende bei x = 900) träfe sonst die Leiste
+  if (!(await page.getByTestId('zoom-controls').getAttribute('class'))?.includes('is-collapsed')) await page.getByTestId('zoom-toggle').click();
+  await expect(page.getByTestId('zoom-controls')).toHaveClass(/is-collapsed/);
   const sb = (await sheet().boundingBox())!;
   const line = async (x1: number, y1: number, x2: number, y2: number) => {
     await deselect();

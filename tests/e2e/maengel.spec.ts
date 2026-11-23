@@ -348,6 +348,24 @@ test('Plan farbig oder schwarz-weiß: Schalter oben, bleibt gespeichert', async 
   await page.getByTestId('dp-view-gray').click();
   await expect(page.getByTestId('dp-view-gray')).toHaveAttribute('aria-checked', 'true');
   await expect(stage).toHaveAttribute('data-gray', '');
+  // erst neu laden, wenn der Schalter auf dem Gerät gespeichert ist (das Schreiben läuft im Hintergrund)
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          new Promise<boolean>((resolve) => {
+            const req = indexedDB.open('schadstellen-aufmass');
+            req.onsuccess = () => {
+              const all = req.result.transaction('defectPlans').objectStore('defectPlans').getAll();
+              all.onsuccess = () => {
+                req.result.close();
+                resolve((all.result as { gray?: boolean }[]).some((p) => p.gray === true));
+              };
+            };
+          }),
+      ),
+    )
+    .toBe(true);
   await page.reload();
   await expect(page.locator('.dp-stage')).toHaveAttribute('data-gray', '');
   await page.getByTestId('dp-view').click();
@@ -414,6 +432,7 @@ test('Projekt übernehmen: Pläne aus der Planbibliothek (Aufmaß & Abrechnung) 
   // Bibliothek: ein mehrseitiges PDF hochladen
   await page.getByTestId('open-plan-library').click();
   await page.getByTestId('library-file-input').setInputFiles(join(FIXTURES, 'plaene.pdf'));
+  await page.getByTestId('library-pending-ok').click();
   await expect(page.locator('.toast', { hasText: 'Planbibliothek hochgeladen' })).toHaveCount(1);
   await page.keyboard.press('Escape');
   await waitSaved(page);

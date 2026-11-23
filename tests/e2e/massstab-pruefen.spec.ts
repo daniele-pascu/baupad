@@ -1,6 +1,6 @@
 import { expect, test, type Page } from './fixtures';
 import { join } from 'node:path';
-import { createProject, drawRect, FIXTURES, freshStart, OUT, pickTool, planBox, waitForPlan, waitSaved } from './helpers';
+import { chooseMeasureType, createProject, drawRect, FIXTURES, freshStart, OUT, pickTool, planBox, waitForPlan, waitSaved } from './helpers';
 
 /**
  * Kalibrierung prüfbar: klarer Status (nicht kalibriert / automatisch – prüfen / bestätigt /
@@ -41,6 +41,8 @@ test('PDF: Status automatisch → bestätigt, Prüfstrecke mit Abweichung, kein 
   await expect(status).toHaveAttribute('data-state', 'auto');
   await expect(status).toHaveClass(/warn/);
 
+  // „Messung“ (Kontrollmessung) gibt es erst mit gewählter Messart – ohne Messart nur Auswahl, Kalibrieren und Text
+  await chooseMeasureType(page, 'frei');
   // Prüfbericht: Maßketten passen zum erkannten Maßstab
   await status.click(); // öffnet das Kalibrieren
   await expect(page.getByTestId('calibrate-bar')).toBeVisible();
@@ -65,9 +67,9 @@ test('PDF: Status automatisch → bestätigt, Prüfstrecke mit Abweichung, kein 
   // kein Prüfbericht mehr im Kalibrieren
   await expect(page.getByTestId('calibration-report-open')).toHaveCount(0);
 
-  // Prüfstrecke genau getroffen → ±0,0 %
+  // Prüfstrecke getroffen (das Fenster zeigt den gemessenen Wert mit zwei Kommastellen – höchstens 0,5 cm daneben) → ±0,0 %
   await checkLine(page, 1);
-  await expect(page.getByTestId('calibration-info')).toContainText('Prüfung ±0,0 cm'); // Abweichung in cm
+  await expect(page.getByTestId('calibration-info')).toContainText(/Prüfung [±+−]0,[0-5] cm \(±0,0 %\)/); // Abweichung in cm
   await expect(page.getByTestId('check-line')).toBeVisible();
 
   // bestätigen → Status grün
