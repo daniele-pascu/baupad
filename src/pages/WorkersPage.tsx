@@ -67,6 +67,7 @@ import { absenceDays, absenceOn, absenceRange, absenceSummary, cleanAbsences, cl
 import { exportCrewBackup, importCrewBackup } from '../lib/crew-backup';
 import { costCenterByProject, costCenterSearchByProject, linkSitesToProject, projectFromSite } from '../lib/crew-link';
 import { ProjectHeading } from '../components/ProjectHeading';
+import { CrewWorkerWeek, type WorkerOrder } from '../components/CrewWorkerWeek';
 import { labelFromProject, projectPrefix, projectSubline, type ProjectLabelInfo } from '../lib/project-label';
 import { setProjectManager, useCanCreateProjects, useProjectIn } from '../lib/sites';
 import { crewDayPdf, crewWeekPdf } from '../lib/crew-pdf';
@@ -170,6 +171,36 @@ export function WorkersPage() {
   }, [gradeColors]);
   /** Urlaub / Krank von–bis (über Wochen hinweg) */
   const [absences, setAbsences] = useState<Absence[]>([]);
+  /** Ansicht: nach Baustellen (Einteilung je Projekt) oder nach Arbeitern (Woche je Arbeiter) – gemerkt */
+  const [view, setViewState] = useState<'sites' | 'workers'>(() => {
+    try {
+      return localStorage.getItem('crewView') === 'workers' ? 'workers' : 'sites';
+    } catch {
+      return 'sites';
+    }
+  });
+  const [workerOrder, setWorkerOrderState] = useState<WorkerOrder>(() => {
+    try {
+      return localStorage.getItem('crewWorkerOrder') === 'name' ? 'name' : 'grade';
+    } catch {
+      return 'grade';
+    }
+  });
+  const remember = (key: string, value: string) => {
+    try {
+      localStorage.setItem(key, value);
+    } catch {
+      /* egal */
+    }
+  };
+  const setView = (v: 'sites' | 'workers') => {
+    setViewState(v);
+    remember('crewView', v);
+  };
+  const setWorkerOrder = (o: WorkerOrder) => {
+    setWorkerOrderState(o);
+    remember('crewWorkerOrder', o);
+  };
   const [query, setQuery] = useState('');
   const [preview, setPreview] = useState<ExportFile | null>(null);
   const restoreRef = useRef<HTMLInputElement>(null);
@@ -691,6 +722,14 @@ export function WorkersPage() {
             <Icon name="copy" size={16} /> Vorwoche übernehmen
           </button>
         </div>
+        <div className="seg-toggle crew-view" role="radiogroup" aria-label="Ansicht">
+          <button type="button" role="radio" aria-checked={view === 'sites'} className={view === 'sites' ? 'on' : ''} onClick={() => setView('sites')} data-testid="crew-view-sites">
+            Baustellen
+          </button>
+          <button type="button" role="radio" aria-checked={view === 'workers'} className={view === 'workers' ? 'on' : ''} onClick={() => setView('workers')} data-testid="crew-view-workers">
+            Arbeiter
+          </button>
+        </div>
         {vacations.length > 0 && (
           <p className="crew-vacations" data-testid="crew-vacations">
             <strong>Urlaub:</strong>
@@ -725,7 +764,29 @@ export function WorkersPage() {
           </div>
         )}
 
-        {openWeek.length > 0 ? (
+        {view === 'workers' && (
+          <CrewWorkerWeek
+            plan={plan}
+            workers={crew}
+            absences={absences}
+            weekId={weekId}
+            workTimes={workTimes}
+            holidayOf={holidayOf}
+            siteStyle={crewColor}
+            siteName={(s) => siteInfo(s).name}
+            order={workerOrder}
+            onOrder={setWorkerOrder}
+            onPick={(workerId, day, st) => {
+              if (st.kind === 'site') setDialog({ kind: 'chip', siteId: st.site.id, day, workerId });
+              else if (st.kind === 'urlaub' || st.kind === 'krank') setDialog({ kind: 'absence', workerId, day });
+              else if (st.kind === 'open') {
+                if (plan.sites.some((x) => !x.paused)) setDialog({ kind: 'open', day, workerId });
+                else toast('Zuerst in der Ansicht „Baustellen“ ein Projekt anlegen.', 'info');
+              }
+            }}
+          />
+        )}
+        {view === 'sites' && (openWeek.length > 0 ? (
           <section className={`crew-open${showOpen ? ' expanded' : ''}`} data-testid="crew-open">
             <button type="button" className="crew-open-toggle" onClick={() => setShowOpen(!showOpen)} aria-expanded={showOpen} data-testid="crew-open-toggle">
               <Icon name="info" size={16} />
@@ -759,7 +820,8 @@ export function WorkersPage() {
               <Icon name="check" size={18} /> Alle Arbeiter sind eingeteilt.
             </p>
           )
-        )}
+        ))}
+        {view === 'sites' && (
         <section className="crew-sites">
           {plan.sites.length > 0 && (
             <div className="crew-sites-bar" data-testid="crew-sites-bar">
@@ -911,6 +973,7 @@ export function WorkersPage() {
             </div>
           )}
         </section>
+        )}
       </div>
 
       {dialog?.kind === 'times' && (
