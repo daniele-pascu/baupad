@@ -422,11 +422,9 @@ function drawSheetHeader(ctx: Ctx, page: PDFPage, pageH: number, header: Rect, p
 }
 
 // ---------------------------------------------------------------------------
-// Marke V10: kleine Zeile „PAD SOFTWARE“ mit PAD-Zeichen über einer feinen Linie, darunter „BauPad“
+// Marke V10: kleine Zeile „PAD SOFTWARE“ mit PAD-Zeichen über einer feinen Linie, darunter „BauPad“ – beide gleich breit
 
 const BRAND_GAP = 14;
-/** Höhe des Schriftzugs „BauPad“ in der Marke (pt) */
-const WORDMARK_H_PT = 9.6;
 /** PAD-Zeichen (viewBox -4 0 859 830): zwei Flächen und der schattierte Keil */
 const PAD_MARK = [
   'M242.85 0.63 L546.82 0.63 C710.14 0.63 854.78 131.35 854.78 311.97 L854.78 356.97 C854.78 539.70 711.66 701.02 541.2 701.02 L286.70 701.02 L363.07 529.84 L562.68 529.84 C610.05 529.84 690.17 455.80 690.17 372.06 L690.17 327.06 C690.17 212.94 600.07 165.81 527.98 165.81 L151.52 165.81 Z',
@@ -436,9 +434,6 @@ const PAD_MARK_SHADE = 'M480.25 245.14 L626.37 499.85 C604.63 518.57 581.16 529.
 
 /** zeichnet die Marke rechtsbündig an `right`, Oberkante `top` (PDF-Koordinaten); gibt die Breite zurück */
 function drawBrand(ctx: Ctx, page: PDFPage, right: number, top: number): number {
-  // „BauPad“ als Vektor-Schriftzug in der Markenschrift (wie in der App), Höhe wie zuvor die 13-pt-Schrift
-  const wordH = WORDMARK_H_PT;
-  const ws = wordH / WORDMARK_VIEWBOX.h;
   const cap = 'PAD SOFTWARE';
   const capSize = 3.9;
   const track = capSize * 0.22;
@@ -446,8 +441,9 @@ function drawBrand(ctx: Ctx, page: PDFPage, right: number, top: number): number 
   const scale = markH / 830;
   const markW = 859 * scale;
   const capW = capWidth(ctx, capSize, track);
-  const wordW = WORDMARK_VIEWBOX.w * ws;
-  const w = Math.max(markW + 2.5 + capW, wordW);
+  // beide Zeilen gleich breit: „BauPad“ (Vektor-Schriftzug in der Markenschrift) genau so breit wie „PAD SOFTWARE“
+  const w = markW + 2.5 + capW;
+  const ws = w / WORDMARK_VIEWBOX.w;
   const x0 = right - w;
   for (const d of PAD_MARK) page.drawSvgPath(d, { x: x0 + 4 * scale, y: top, scale, color: rgb(0.17, 0.17, 0.18) });
   page.drawSvgPath(PAD_MARK_SHADE, { x: x0 + 4 * scale, y: top, scale, color: rgb(0.5, 0.5, 0.52) });
@@ -473,7 +469,7 @@ function brandWidth(ctx: Ctx): number {
   const capSize = 3.9;
   const track = capSize * 0.22;
   const capW = capWidth(ctx, capSize, track);
-  return Math.max((859 / 830) * 4.4 + 2.5 + capW, (WORDMARK_VIEWBOX.w * WORDMARK_H_PT) / WORDMARK_VIEWBOX.h);
+  return (859 / 830) * 4.4 + 2.5 + capW;
 }
 
 // ---------------------------------------------------------------------------
