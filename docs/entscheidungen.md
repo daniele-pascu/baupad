@@ -315,3 +315,9 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
   **keine geplanten Stunden** (Daniele), darunter wer **krank**, im **Urlaub** oder **noch frei** ist (laut Einteilung und Urlaub/Krank;
   Projektleiter zählen nie, pausierte Baustellen nicht).
 - Die schwarze Leiste und die neue Darstellung der Tools sind noch offen (Auswahl aus MB1/DA2 folgt).
+
+## Aufmaß: eine Taste für LV und MFK, Preise als Kästchen (23.11.2026, Daniele)
+- Statt „LV importieren“ und „MFK importieren“ nur noch **eine Taste „LV / MFK hochladen (PDF)“** – ob LV oder MFK, wählt
+  man ohnehin im Fenster danach („Art“). Vorschlag: am Titel erkannte MFK bleibt MFK; sonst LV, solange das Projekt noch
+  kein LV hat, danach MFK.
+- Preise beim Übernehmen als **Kästchen mit Haken** „Mit Preisen übernehmen“ (Standard: angehakt) statt Auswahlliste.

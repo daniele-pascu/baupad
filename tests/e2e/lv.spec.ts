@@ -16,9 +16,13 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   await waitForPlan(page);
   await page.getByRole('link', { name: 'Zurück zur Planliste' }).click();
 
+  // eine Taste für LV und MFK (die Art wählt man im Fenster)
+  await expect(page.getByTestId('lv-import')).toHaveText('LV / MFK hochladen (PDF)');
+  await expect(page.getByTestId('mfk-import')).toHaveCount(0);
   // Import mit Prüfansicht
   await page.getByTestId('lv-file-input').setInputFiles(join(FIXTURES, 'lv-beispiel.pdf'));
   const review = page.getByTestId('lv-review');
+  await expect(review.getByTestId('lv-kind')).toHaveValue('lv'); // erstes Dokument: LV vorgeschlagen
   await expect(review.getByTestId('lv-review-summary')).toContainText('4 Positionen');
   await expect(review.getByTestId('lv-review-summary')).toContainText('6.010,00 €');
   await expect(review.getByTestId('lv-review-summary')).toContainText('alle 2 Gruppensummen stimmen');
@@ -451,8 +455,9 @@ test('LV/MFK-Import: wahlweise ohne Preise übernehmen – Positionen und Mengen
   await createProject(page, 'LV ohne Preise', {}, ['Garage']);
   await page.getByTestId('lv-file-input').setInputFiles(join(FIXTURES, 'kurz-lv.pdf'));
   const review = page.getByTestId('lv-review');
-  await expect(review.getByTestId('lv-prices')).toHaveValue('mit'); // Standard: mit Preisen
-  await review.getByTestId('lv-prices').selectOption('ohne');
+  // Preise als Kästchen mit Haken (Standard: mit Preisen); Haken weg = ohne Preise
+  await expect(review.getByTestId('lv-prices')).toBeChecked();
+  await review.getByTestId('lv-prices').uncheck();
   await expect(review.getByTestId('lv-no-prices')).toBeVisible();
   await review.getByTestId('lv-review-save').click();
   await page.getByTestId('lv-doc-tab').last().click();
