@@ -183,6 +183,8 @@ interface Props {
   region?: Rect;
   /** Unbegrenzte Zeichenfläche (gezeichnete Pläne): weit herauszoomen, außerhalb tippen beendet kein Werkzeug */
   infinite?: boolean;
+  /** größte Vergrößerung (Bildschirmpixel je Seiteneinheit) – z. B. damit das Raster bis 0,0001 m sichtbar wird */
+  maxScale?: number;
   damages: ViewerItem[];
   selectedId: string | null;
   tool: Tool;
@@ -422,9 +424,9 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   const limits = useCallback(
     () => {
       const f = size ? fitView(region, size.w, size.h).scale : 1;
-      return { min: f * (props.infinite ? 0.02 : 0.5), max: Math.max(f * 60, 12) };
+      return { min: f * (props.infinite ? 0.02 : 0.5), max: Math.max(f * 60, 12, props.maxScale ?? 0) };
     },
-    [region, size, props.infinite],
+    [region, size, props.infinite, props.maxScale],
   );
 
   // Werkzeugwechsel verwirft eine angefangene Fläche

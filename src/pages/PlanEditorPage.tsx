@@ -1864,6 +1864,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               onToolDone={DRAW_DONE_TOOLS.has(drawing.tool) ? () => drawing.setTool('select') : undefined}
               onExitTool={() => drawing.setTool('select')}
               exitOutside
+              maxScale={20 / (0.0001 * unitsPerMeter(plan))}
               damages={drawing.items}
               selectedId={drawing.selectedId}
               tool={probe ? 'probe' : drawing.viewerTool}
@@ -1914,6 +1915,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               file={file}
               region={drawingPlan ? measureRegion : region}
               infinite={drawingPlan && !sheetRect}
+              maxScale={drawingPlan ? 20 / (0.0001 * unitsPerMeter(plan)) : undefined}
               restoreView={!drawingPlan}
               onToolDone={tool !== 'select' && tool !== 'probe' && tool !== 'calibrate' ? () => setTool('select') : undefined}
               onExitTool={() => {

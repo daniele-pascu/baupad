@@ -70,3 +70,41 @@ test('Plan zeichnen: gezogene Formen und Linien sind immer millimetergenau (Anze
   // angezeigt wird die Länge mit 2 Nachkommastellen
   await expect(page.getByTestId('element-length')).toHaveValue(/^\d+,\d\d$/);
 });
+
+test('Raster: beim Hineinzoomen bis 0,0001 m – gezogene Maße bleiben bei 2 Nachkommastellen', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'Raster fein', {}, ['EG']);
+  await page.getByTestId('draw-plan').click();
+  await page.getByTestId('new-drawing').locator('[data-field="planNumber"]').fill('R-1');
+  await page.getByTestId('new-drawing-save').click();
+  const sheet = page.getByTestId('drawing-sheet');
+  await expect(sheet).toBeVisible();
+  await pickTool(page, 'view-grid');
+  const grid = page.locator('.drawing-grid');
+  await expect(grid).toHaveCount(1);
+  const step = async () => Number(await grid.getAttribute('data-grid-step'));
+  const first = await step();
+  expect(first).toBeGreaterThanOrEqual(0.05);
+  const vb = (await page.getByTestId('plan-viewer').boundingBox())!;
+  await page.mouse.move(vb.x + vb.width / 2, vb.y + vb.height / 2);
+  // weit hineinzoomen: das Raster wird feiner – cm, mm und schließlich 0,0001 m
+  const seen = new Set<number>();
+  for (let i = 0; i < 14; i++) {
+    await page.mouse.wheel(0, -600);
+    await page.waitForTimeout(60);
+    seen.add(await step());
+  }
+  expect(seen.has(0.001)).toBe(true);
+  await expect.poll(step).toBe(0.0001);
+  // Linie ziehen: gespeichert auf 0,0001 m genau, angezeigt mit 2 Nachkommastellen
+  await pickTool(page, 'draw-line');
+  await page.mouse.click(vb.x + vb.width / 2 - 83, vb.y + vb.height / 2 + 31);
+  await page.mouse.click(vb.x + vb.width / 2 + 121, vb.y + vb.height / 2 - 57);
+  await expect(page.locator('[data-element="line"]')).toHaveCount(1);
+  await expect(page.getByTestId('element-length')).toHaveValue(/^\d+,\d\d$/);
+  await waitSaved(page);
+  const line = (await elements(page)).find((e) => e.type === 'line')!.shape;
+  const tenth = (v: number) => Math.abs(v * 1e4 - Math.round(v * 1e4)) < 1e-6;
+  expect([tenth(line.x), tenth(line.y), tenth(line.w), tenth(line.h)]).toEqual([true, true, true, true]);
+  expect(Math.hypot(line.w, line.h)).toBeLessThan(0.05); // wenige Zentimeter lang – so weit ist hineingezoomt
+});

@@ -394,8 +394,8 @@ export function calloutWorld(s: Shape, leader: { dx: number; dy: number }, scale
 // ---------------------------------------------------------------------------
 // Raster und Einrasten
 
-/** Rasterweiten in m – bis zum Millimeter (stark vergrößert) */
-const GRID_STEPS = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10, 50, 100];
+/** Rasterweiten in m – stark vergrößert bis 0,0001 m (Zehntelmillimeter, so genau wird gespeichert) */
+const GRID_STEPS = [0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10, 50, 100];
 
 /** Rasterweite in m, sodass benachbarte Linien mindestens `minPx` Bildschirmpixel auseinanderliegen. */
 export function gridStep(pxPerMeter: number, minPx = 14): number {
