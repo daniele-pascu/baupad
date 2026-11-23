@@ -398,9 +398,14 @@ export function tastenTests() {
     await expect(page.getByTestId('bulk-plan-dialog')).toBeVisible();
     await pruefe(page, 'Pläne gemeinsam ändern (Fenster)', out);
     await page.getByTestId('bulk-plan-dialog').getByRole('button', { name: 'Abbrechen' }).click();
-    // LV: Dokumente und Positionen
+    // LV: Dokumente und Positionen – eine Taste „LV / MFK hochladen“, Prüffenster mit Art und Kästchen „Mit Preisen“
+    await expect(page.getByTestId('lv-import')).toBeVisible();
     for (const f of ['kurz-lv.pdf', 'lv-beispiel.pdf']) {
       await page.getByTestId('lv-file-input').setInputFiles(join(FIXTURES, f));
+      if (f === 'kurz-lv.pdf') {
+        await expect(page.getByTestId('lv-review').getByTestId('lv-prices')).toBeChecked();
+        await pruefe(page, 'LV / MFK prüfen (Fenster)', out);
+      }
       await page.getByTestId('lv-review').getByTestId('lv-review-save').click();
       await expect(page.getByTestId('lv-review')).toHaveCount(0);
     }
