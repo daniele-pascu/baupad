@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { distToRect, layoutLabels, leaderLine, rectsOverlap, type LabelInput } from '../../src/lib/geometry';
+import { distToRect, layoutLabels, leaderLine, outlineParts, rectToOutline, rectsOverlap, type LabelInput } from '../../src/lib/geometry';
 import type { Rect } from '../../src/lib/types';
 
 const L = (id: string, x: number, y: number, w: number, h: number): LabelInput => ({
@@ -113,10 +113,12 @@ describe('Übersicht (Plan verkleinert): Nummern dicht an der Messung, sonst aus
     expect(shown.length).toBeLessThan(crowd.length); // ausgedünnt
     for (let i = 0; i < shown.length; i++)
       for (let j = i + 1; j < shown.length; j++) expect(rectsOverlap(res.get(shown[i].id)!, res.get(shown[j].id)!)).toBe(false);
-    // jede Nummer steht direkt auf ihrer Messung (keine Linien quer über den Plan)
+    // jede Nummer steht direkt an ihrer Messung (keine Linien quer über den Plan), aber nie auf deren Rand
     for (const it of shown) {
       const r = res.get(it.id)!;
-      expect(distToRect({ x: r.x + r.w / 2, y: r.y + r.h / 2 }, it.bounds)).toBe(0);
+      const d = rectToOutline(r, outlineParts({ type: 'rect', ...it.bounds }));
+      expect(d).toBeGreaterThan(1);
+      expect(d).toBeLessThanOrEqual(3 + 1e-6);
     }
   });
 
@@ -130,14 +132,60 @@ describe('Übersicht (Plan verkleinert): Nummern dicht an der Messung, sonst aus
     expect(layoutLabels(spread, 3, { overview: {} }).size).toBe(6);
   });
 
-  it('offene Linie (Winkel): Nummer auf der Linie, nicht in der leeren Mitte', () => {
-    const line: LabelInput = { id: 'l', bounds: { x: 0, y: 0, w: 100, h: 100 }, shape: { type: 'freehand', closed: false, x: 0, y: 0, w: 100, h: 100, points: [[0, 0], [1, 0], [1, 1]] }, w: 16, h: 14, offset: null };
+  it('offene Linie (Winkel): Nummer direkt neben der Linie – nie darauf, nicht in der leeren Mitte', () => {
+    const shape = { type: 'freehand' as const, closed: false, x: 0, y: 0, w: 100, h: 100, points: [[0, 0], [1, 0], [1, 1]] as [number, number][] };
+    const line: LabelInput = { id: 'l', bounds: { x: 0, y: 0, w: 100, h: 100 }, shape, w: 16, h: 14, offset: null };
     const r = layoutLabels([line], 3, { overview: {} }).get('l')!;
-    const c = { x: r.x + r.w / 2, y: r.y + r.h / 2 };
-    expect(Math.min(Math.abs(c.y), Math.abs(c.x - 100))).toBeLessThan(1);
+    const d = rectToOutline(r, outlineParts(shape));
+    expect(d).toBeGreaterThan(1.5);
+    expect(d).toBeLessThanOrEqual(3 + 1e-6);
+    expect(leaderLine(shape, r, 5)).toBeNull(); // direkt daneben: keine Bezugslinie
   });
 
   it('vergrößert (ohne Übersicht) bekommt jede Messung eine Nummer', () => {
     expect(layoutLabels(crowd, 3).size).toBe(crowd.length);
+  });
+});
+
+describe('Nummern nie auf der Linie', () => {
+  const diag = { type: 'line' as const, x: 0, y: 0, w: 200, h: 150, points: [[0, 1], [1, 0]] as [number, number][] };
+  const poly = { type: 'freehand' as const, closed: false, x: 0, y: 0, w: 300, h: 200, points: [[0, 1], [0.3, 0], [0.6, 1], [1, 0.2]] as [number, number][] };
+  const item = (id: string, shape: typeof diag | typeof poly): LabelInput => ({ id, bounds: { x: shape.x, y: shape.y, w: shape.w, h: shape.h }, shape, w: 22, h: 15, offset: null });
+
+  for (const overview of [false, true]) {
+    it(`schräge Linie und Polylinie${overview ? ' (Übersicht)' : ''}: direkt daneben, keine Bezugslinie`, () => {
+      for (const shape of [diag, poly]) {
+        const r = layoutLabels([item('a', shape)], 3, overview ? { overview: {} } : {}).get('a')!;
+        const d = rectToOutline(r, outlineParts(shape));
+        expect(d, 'Nummer liegt auf der Linie').toBeGreaterThan(1.5);
+        expect(d, 'Nummer steht nicht direkt daneben').toBeLessThanOrEqual(3 + 1e-6);
+        expect(leaderLine(shape, r, 5)).toBeNull();
+      }
+    });
+  }
+
+  it('Nummer weiter weg: Bezugslinie; direkt daneben (auch schräg): keine', () => {
+    // Feld schräg neben der Diagonale, Ecke 2 Einheiten von der Linie entfernt
+    const nx = 150 / 250;
+    const ny = 200 / 250;
+    const d = 2 + 11 * nx + 7.5 * ny;
+    const near = { x: 100 + nx * d - 11, y: 75 + ny * d - 7.5, w: 22, h: 15 };
+    expect(rectToOutline(near, outlineParts(diag))).toBeCloseTo(2, 6);
+    expect(leaderLine(diag, near, 5)).toBeNull();
+    const far = { ...near, x: near.x + 40, y: near.y + 40 };
+    expect(leaderLine(diag, far, 5)).not.toBeNull();
+  });
+
+  it('fremde Linie: keine Nummer liegt auf einer anderen Linie', () => {
+    // zwei sich kreuzende Linien und eine Fläche dicht daneben
+    const a = item('a', diag);
+    const b = item('b', { ...diag, points: [[0, 0], [1, 1]] });
+    const c: LabelInput = { id: 'c', bounds: { x: 210, y: 60, w: 30, h: 30 }, w: 22, h: 15, offset: null };
+    const all = [a, b, c];
+    const res = layoutLabels(all, 3);
+    for (const it of all) {
+      const r = res.get(it.id)!;
+      for (const o of all) expect(rectToOutline(r, outlineParts(o.shape ?? { type: 'rect', ...o.bounds })), `${it.id} auf ${o.id}`).toBeGreaterThan(1.5);
+    }
   });
 });
