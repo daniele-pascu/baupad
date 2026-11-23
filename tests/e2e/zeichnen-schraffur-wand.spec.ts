@@ -117,8 +117,7 @@ test('Schraffur-Werkzeug: Muster wählen, Raum und Rechteck antippen; Schraffur 
   await pickTool(page, 'draw-hatch');
   const hp = page.getByTestId('hatch-picker');
   await expect(hp).toBeVisible();
-  await hp.getByTestId('hatch-tab-material').click();
-  await hp.getByTestId('hatch-tile-mat:beton').click();
+  await hp.getByTestId('hatch-tile-din-SN47').click();
   await expect(hp.getByTestId('hatch-current')).toContainText('Beton');
   await hp.getByTestId('hatch-ok').click();
   await expect(page.getByTestId('hatch-prompt')).toContainText('Beton');
@@ -130,7 +129,7 @@ test('Schraffur-Werkzeug: Muster wählen, Raum und Rechteck antippen; Schraffur 
   expect(els).toHaveLength(n0 + 1);
   const room = els.at(-1)!;
   expect(room.type).toBe('freehand');
-  expect(room.style?.hatch?.pattern).toBe('concrete');
+  expect(room.style?.hatch?.pattern).toBe('din-SN47');
   // Innenseite: 6 × 4 m Achse minus Wandstärke
   const wall = els.find((e) => e.type === 'wall')!;
   expect(room.shape.w).toBeLessThan(6);

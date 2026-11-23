@@ -90,17 +90,16 @@ test('Schraffur: Muster, Winkel und Abstand je Fläche, gespeichert und als Vekt
   await expect(hatch).toHaveCount(1);
   await expect(page.locator('[data-element="rect"] path[data-fill="solid"]')).toHaveCount(0);
   const d1 = (await hatch.getAttribute('d'))!;
-  // Kreuzschraffur 30° (im Schraffur-Fenster): mehr Linien als die einfache Schraffur
+  // Kreuzschraffur „SP“ um 30° gedreht (im Schraffur-Fenster): mehr Linien als die Grundschraffur
   const hp = page.getByTestId('hatch-picker');
   const pick = async (tile: string, more?: () => Promise<void>) => {
     await panel.getByTestId('style-hatch-open').click();
-    await hp.getByTestId('hatch-tab-pattern').click();
     await hp.getByTestId(`hatch-tile-${tile}`).click();
     if (more) await more();
     await hp.getByTestId('hatch-ok').click();
   };
-  await pick('cross', () => hp.getByTestId('hatch-angle').selectOption('30').then(() => {}));
-  await expect.poll(async () => ((await hatch.getAttribute('d')) ?? '').split('M').length).toBeGreaterThan(d1.split('M').length * 1.5);
+  await pick('din-SP', () => hp.getByTestId('hatch-angle').selectOption('30').then(() => {}));
+  await expect.poll(async () => ((await hatch.getAttribute('d')) ?? '').split('M').length).toBeGreaterThan(d1.split('M').length * 1.2); // Kreuzschraffur SP: zwei Richtungen, etwas weiter als die Grundschraffur
   // Abstand größer → weniger Linien
   const before = ((await hatch.getAttribute('d')) ?? '').split('M').length;
   await panel.getByTestId('style-hatch-open').click();
@@ -109,17 +108,17 @@ test('Schraffur: Muster, Winkel und Abstand je Fläche, gespeichert und als Vekt
   await expect.poll(async () => ((await hatch.getAttribute('d')) ?? '').split('M').length).toBeLessThan(before);
   await waitSaved(page);
   const el = (await stored(page, 'elements'))[0];
-  expect(el.style).toMatchObject({ fillType: 'hatch', hatch: { pattern: 'cross', angle: 30, spacing: 16 } });
+  expect(el.style).toMatchObject({ fillType: 'hatch', hatch: { pattern: 'din-SP', angle: 30, spacing: 16 } });
   expect(el.shape.type).toBe('rect'); // Geometrie unverändert
 
   // Punkte
-  await pick('dots');
+  await pick('din-SN45');
   await expect(hatch).toHaveCount(1);
   // Zurück auf Vollton: Fläche wieder flächig gefüllt
   await panel.getByTestId('style-fill-type').selectOption('solid');
   await expect(page.locator('[data-element="rect"] path[data-fill="solid"]')).toHaveCount(1);
   await panel.getByTestId('style-fill-type').selectOption('hatch');
-  await pick('lines');
+  await pick('din-U');
   await waitSaved(page);
 
   // Nach dem Neuladen erhalten

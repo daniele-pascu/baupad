@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { PDFPageProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import {
   HANDLES,
@@ -2073,11 +2073,22 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
 /** Füllung am Bildschirm: Vollton bzw. Schraffur (gleiche Berechnung wie im PDF) */
 export function FillPaths({ shape, map, fill, boost = false, anchor }: { shape: Shape; map: (p: Point) => Point; fill: Fill; boost?: boolean; anchor?: number }) {
   const f = fillPaths(shape, map, fill, PX_PER_PT, anchor);
+  const clipId = useId();
   if (f.solid) return <path d={f.solid} fill={fill.color} fillOpacity={boost ? Math.min(1, fill.opacity + 0.08) : fill.opacity} stroke="none" data-fill="solid" />;
   return (
     <>
       {f.bg && <path d={f.bg} fill={fill.bg} stroke="none" data-fill="hatch-bg" />}
+      {f.hatchFill && f.clip && (
+        // gefüllte Teile der Schraffur (z. B. Dichtstoff, Kohle): auf die Form beschnitten
+        <>
+          <clipPath id={clipId}>
+            <path d={f.clip} />
+          </clipPath>
+          <path d={f.hatchFill} fill={fill.color} fillOpacity={fill.opacity} stroke="none" clipPath={`url(#${clipId})`} data-fill="hatch-solid" />
+        </>
+      )}
       <path d={f.hatch} fill="none" stroke={fill.color} strokeOpacity={fill.opacity} strokeWidth={f.hatchWidth} strokeLinecap="round" data-fill="hatch" data-pattern={fill.hatch?.pattern} />
+      {f.hatchDots && <path d={f.hatchDots} fill="none" stroke={fill.color} strokeOpacity={fill.opacity} strokeWidth={f.dotWidth} strokeLinecap="round" data-fill="hatch-dots" />}
     </>
   );
 }

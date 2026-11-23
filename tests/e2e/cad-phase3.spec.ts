@@ -64,33 +64,43 @@ test('Eigenschaften: Linienart, Musterlänge, Deckkraft, Baustoff-Schraffur, Fl�
   let els = await elements();
   for (const e of els) expect(e.style).toMatchObject({ lineType: 'center', dashScale: 2, lineTransparency: 50 });
   await expect(page.locator('[data-element="rect"] path[data-line-type="center"]')).toHaveCount(2);
-  // Baustoff Beton (ÖNORM-Farbe) mit weißer Fläche dahinter
+  // Normschraffur „Beton, bewehrt“ (DIN ISO 128-50, schwarz) mit weißer Fläche dahinter
   await st.getByTestId('style-fill-type').selectOption('hatch');
   // Muster im eigenen Fenster (Kacheln) – die Leiste bleibt schmal
   await st.getByTestId('style-hatch-open').click();
   const hp = page.getByTestId('hatch-picker');
-  await hp.getByTestId('hatch-tab-material').click();
-  await hp.getByTestId('hatch-tile-mat:beton').click();
+  await hp.getByTestId('hatch-tile-din-SN46').click();
   await hp.getByTestId('hatch-bg-#ffffff').click();
   await hp.getByTestId('hatch-ok').click();
-  await expect(st.getByTestId('style-hatch-open')).toContainText('Beton');
+  await expect(st.getByTestId('style-hatch-open')).toContainText('SN46 · Beton, bewehrt');
   await waitSaved(page);
   els = await elements();
   for (const e of els) {
-    expect(e.style?.hatch?.pattern).toBe('concrete');
-    expect(e.style?.fillColor).toBe('#1c1c1e'); // ÖNORM „Graphisch“: schwarzes Muster (Fläche dahinter gewählt: weiß)
+    expect(e.style?.hatch?.pattern).toBe('din-SN46');
+    expect(e.style?.fillColor).toBe('#1c1c1e'); // schwarz-weiß: schwarzes Muster (Fläche dahinter gewählt: weiß)
     expect(e.style?.hatchBg).toBe('#ffffff');
   }
-  await expect(page.locator('[data-fill="hatch"][data-pattern="concrete"]')).toHaveCount(2);
+  await expect(page.locator('[data-fill="hatch"][data-pattern="din-SN46"]')).toHaveCount(2);
   await expect(page.locator('[data-fill="hatch-bg"]')).toHaveCount(2);
   // weitere Muster zeichnen ohne Fehler
-  for (const m of ['mat:stein', 'mat:erdreich', 'mat:daemm-weich', 'mat:holz', 'mat:abtrag', 'mat:glas', 'grid']) {
+  for (const m of ['din-SN3', 'din-SN1', 'din-SN55', 'din-SN21', 'din-SN51', 'din-L3', 'din-SP']) {
     await st.getByTestId('style-hatch-open').click();
-    await hp.getByTestId(m.startsWith('mat:') ? 'hatch-tab-material' : 'hatch-tab-pattern').click();
     await hp.getByTestId(`hatch-tile-${m}`).click();
     await hp.getByTestId('hatch-ok').click();
     await expect(page.locator('[data-fill="hatch"]').first()).toHaveAttribute('d', /M/);
   }
+  // Muster mit gefüllten Teilen (Kohle, Dichtstoff): schwarze Flächen, auf die Form beschnitten
+  for (const m of ['din-SN10', 'din-SN59']) {
+    await st.getByTestId('style-hatch-open').click();
+    await hp.getByTestId(`hatch-tile-${m}`).click();
+    await hp.getByTestId('hatch-ok').click();
+    await expect(page.locator('[data-fill="hatch-solid"]').first()).toHaveAttribute('clip-path', /url\(#/);
+  }
+  // Punkte der Normschraffuren (Gipsplatte): eigener, kräftigerer Pfad
+  await st.getByTestId('style-hatch-open').click();
+  await hp.getByTestId('hatch-tile-din-SN45').click();
+  await hp.getByTestId('hatch-ok').click();
+  await expect(page.locator('[data-fill="hatch-dots"]').first()).toHaveAttribute('d', /M/);
   await page.screenshot({ path: 'tests/output/cad-schraffuren.png' });
 });
 

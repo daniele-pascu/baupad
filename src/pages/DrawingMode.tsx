@@ -7,7 +7,7 @@ import { textDialog, type LeaderChoice } from '../components/TextDialog';
 import { cleanFont } from '../lib/text-font';
 import { elementsOf } from '../lib/aufmass';
 import { formatMeasure } from '../lib/numbers';
-import { hatchAnchor } from '../lib/style';
+import { hatchAnchor, isLegacyHatch } from '../lib/style';
 import {
   applyMeasures,
   calloutTip,
@@ -259,7 +259,8 @@ export function useDrawing(opts: {
   const [hatchSet, setHatchSetState] = useState<HatchSetting>(() => {
     try {
       const v = JSON.parse(pref('hatchSet', 'null')) as HatchSetting | null;
-      return v?.hatch?.pattern ? v : DEFAULT_HATCH_SETTING;
+      // gemerkte Auswahl mit einem früheren Muster (nicht mehr im Katalog): Grundschraffur der Norm
+      return v?.hatch?.pattern && !isLegacyHatch(v.hatch.pattern) ? v : DEFAULT_HATCH_SETTING;
     } catch {
       return DEFAULT_HATCH_SETTING;
     }

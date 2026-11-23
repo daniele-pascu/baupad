@@ -186,14 +186,137 @@ describe('Schraffur in schmalen Flächen dichter', async () => {
     const gross = [{ x: 0, y: 0 }, { x: 5, y: 0 }, { x: 5, y: 4 }, { x: 0, y: 4 }];
     expect(hatchSpacing(gross, 6, perPt)).toBeCloseTo(6 * perPt, 9);
   });
-  it('nie enger als 1,2 pt auf dem Papier', () => {
+  it('nie enger als 0,5 pt auf dem Papier – auch im Zentimeterbereich noch Linien', () => {
     const perPt = (200 * 0.352778) / 1000; // 1:200
-    expect(hatchSpacing([{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 0.05 }, { x: 0, y: 0.05 }], 6, perPt)).toBeCloseTo(1.2 * perPt, 9);
+    // 5 cm breit: 6 Linien wären 0,83 cm Abstand = 0,12 pt → begrenzt auf 0,5 pt
+    expect(hatchSpacing([{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 0.05 }, { x: 0, y: 0.05 }], 6, perPt)).toBeCloseTo(0.5 * perPt, 9);
+    // gewählter Abstand unter 2 pt wird übernommen (früher mindestens 1,5 pt)
+    const gross = [{ x: 0, y: 0 }, { x: 5, y: 0 }, { x: 5, y: 4 }, { x: 0, y: 4 }];
+    expect(hatchSpacing(gross, 0.5, perPt)).toBeCloseTo(0.5 * perPt, 9);
+    expect(hatchSpacing(gross, 1, perPt)).toBeCloseTo(1 * perPt, 9);
   });
   it('Ansicht: waagrechte Schraffur einer 0,30 m Wand hat mindestens 5 Linien', () => {
     const shape = { type: 'rect' as const, x: 0, y: 0, w: 2, h: 0.3 };
     const zoom = 2000; // px je m (stark vergrößert)
     const f = fillPaths(shape, (p) => ({ x: p.x * zoom, y: p.y * zoom }), { color: '#000', hatch: { pattern: 'lines', angle: 0, spacing: 6 } } as never, 1.6, (100 * 0.352778) / 1000);
     expect((f.hatch ?? '').split('M').length - 1).toBeGreaterThanOrEqual(5);
+  });
+});
+
+describe('Schraffuren nach DIN ISO 128-50', async () => {
+  const { hatchGeometry, HATCH_PATTERNS, hatchName, isLegacyHatch, stripSides, fillPaths, hatchSpacing } = await import('../../src/lib/style');
+  const { DIN_HATCHES, DIN_GROUPS, dinPattern } = await import('../../src/lib/hatch-din');
+  const sq = [{ x: 0, y: 0 }, { x: 120, y: 0 }, { x: 120, y: 80 }, { x: 0, y: 80 }];
+  const count = (g: { segments: unknown[]; dots: unknown[]; fills: unknown[] }) => g.segments.length + g.dots.length + g.fills.length;
+  const inside = (p: { x: number; y: number }, pad = 1e-6) => p.x >= -pad && p.x <= 120 + pad && p.y >= -pad && p.y <= 80 + pad;
+
+  it('Katalog: 55 Schraffuren, eindeutige Kurzzeichen, jede in einer Gruppe', () => {
+    expect(DIN_HATCHES).toHaveLength(55);
+    expect(new Set(DIN_HATCHES.map((h) => h.code)).size).toBe(55);
+    for (const h of DIN_HATCHES) expect(DIN_GROUPS.some((g) => g.id === h.group), h.code).toBe(true);
+    expect(HATCH_PATTERNS.map((p) => p.id)).toEqual(DIN_HATCHES.map((h) => `din-${h.code}`));
+    expect(hatchName(dinPattern('SN46'))).toBe('SN46 · Beton, bewehrt');
+    // frühere Muster stehen nicht mehr zur Auswahl, werden aber weiter benannt und gezeichnet
+    expect(isLegacyHatch('concrete')).toBe(true);
+    expect(hatchName('concrete')).toBe('Beton (bisher)');
+    expect(hatchGeometry(sq, 'concrete', 135, 6).segments.length).toBeGreaterThan(5);
+  });
+
+  it('jede Schraffur zeichnet etwas, Linien und Punkte bleiben in der Fläche', () => {
+    for (const h of DIN_HATCHES) {
+      const g = hatchGeometry(sq, dinPattern(h.code), 0, 5);
+      expect(count(g), h.code).toBeGreaterThan(0);
+      for (const [a, b] of g.segments) expect(inside(a, 1e-3) && inside(b, 1e-3), `${h.code}: Linie ragt aus der Fläche`).toBe(true);
+      for (const d of g.dots) expect(inside(d, 1e-3), `${h.code}: Punkt außerhalb`).toBe(true);
+    }
+  });
+
+  it('der Winkel dreht jedes Muster (außer Dichtstoff: richtet sich selbst aus)', () => {
+    const sig = (g: { segments: { x: number; y: number }[][]; dots: { x: number; y: number }[]; fills: { x: number; y: number }[][] }) =>
+      JSON.stringify([g.segments.slice(0, 6), g.dots.slice(0, 6), g.fills.slice(0, 3)].map((l) => JSON.stringify(l, (_k, v) => (typeof v === 'number' ? Math.round(v * 100) / 100 : v))));
+    for (const h of DIN_HATCHES) {
+      const a = sig(hatchGeometry(sq, dinPattern(h.code), 0, 5));
+      const b = sig(hatchGeometry(sq, dinPattern(h.code), 30, 5));
+      if (h.code === 'SN59') expect(b).toBe(a);
+      else expect(b, `${h.code}: Winkel ohne Wirkung`).not.toBe(a);
+    }
+  });
+
+  it('kleinerer Abstand → dichteres Muster', () => {
+    for (const code of ['U', 'SN41', 'SN46', 'SN3', 'L3', 'SN45']) {
+      const fine = count(hatchGeometry(sq, dinPattern(code), 0, 2));
+      const coarse = count(hatchGeometry(sq, dinPattern(code), 0, 6));
+      expect(fine, code).toBeGreaterThan(coarse * 1.5);
+    }
+  });
+
+  it('Dichtstoff: schmale Fuge (1 m × 0,01 m) – schwarze Felder über die ganze Breite, entlang der Fuge', () => {
+    const fuge = [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 1 }, { x: 0, y: 1 }];
+    const g = hatchGeometry(fuge, dinPattern('SN59'), 0, 0.3);
+    expect(g.fills.length).toBeGreaterThan(5);
+    for (const f of g.fills) {
+      const ys = f.map((p) => p.y);
+      expect(Math.min(...ys)).toBeCloseTo(0, 6);
+      expect(Math.max(...ys)).toBeCloseTo(1, 6);
+    }
+    // senkrechte Fuge: dieselbe Zahl Felder, über die ganze Breite in x
+    const senkrecht = fuge.map((p) => ({ x: p.y, y: p.x }));
+    const v = hatchGeometry(senkrecht, dinPattern('SN59'), 0, 0.3);
+    expect(v.fills.length).toBe(g.fills.length);
+    for (const f of v.fills) expect(Math.max(...f.map((p) => p.x)) - Math.min(...f.map((p) => p.x))).toBeCloseTo(1, 6);
+  });
+
+  it('Dichtstoff folgt einem Knick der Fuge (L-Form)', () => {
+    // 10 lang nach rechts, dann 10 nach unten, 1 breit
+    const L = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 9, y: 10 }, { x: 9, y: 1 }, { x: 0, y: 1 }];
+    const s = stripSides(L)!;
+    expect(s.A).toHaveLength(3);
+    expect(s.width).toBeCloseTo((1 + Math.SQRT2 + 1) / 3, 6);
+    const g = hatchGeometry(L, dinPattern('SN59'), 0, 0.3);
+    // Felder im waagrechten und im senkrechten Schenkel
+    const mid = g.fills.map((f) => ({ x: f.reduce((a, p) => a + p.x, 0) / f.length, y: f.reduce((a, p) => a + p.y, 0) / f.length }));
+    expect(mid.some((m) => m.x < 8 && m.y < 1.01)).toBe(true);
+    expect(mid.some((m) => m.x > 8.9 && m.y > 3)).toBe(true);
+    // Rechteck: Mittellinie entlang der langen Seite
+    const r = stripSides([{ x: 0, y: 0 }, { x: 8, y: 0 }, { x: 8, y: 2 }, { x: 0, y: 2 }])!;
+    expect(r.width).toBeCloseTo(2, 9);
+  });
+
+  it('Dämmstoff füllt die ganze Dicke der Schicht (quer zum Winkel)', () => {
+    const schicht = [{ x: 0, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 14 }, { x: 0, y: 14 }];
+    const g = hatchGeometry(schicht, dinPattern('SN55'), 0, 3);
+    const ys = g.segments.flatMap(([a, b]) => [a.y, b.y]);
+    expect(Math.min(...ys)).toBeLessThan(1);
+    expect(Math.max(...ys)).toBeGreaterThan(13);
+  });
+
+  it('Linienmuster werden in schmalen Flächen dichter, Bilder (z. B. Kies) behalten ihre Größe', () => {
+    const wand = [{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 0.3 }, { x: 0, y: 0.3 }];
+    const perPt = (100 * 0.352778) / 1000;
+    expect(hatchSpacing(wand, 6, perPt, dinPattern('U'))).toBeLessThan(6 * perPt * 0.5);
+    expect(hatchSpacing(wand, 6, perPt, dinPattern('SN4'))).toBeCloseTo(6 * perPt, 9);
+  });
+
+  it('sehr feines Muster auf großer Fläche: wird gröber gezeichnet statt mittendrin abzubrechen', () => {
+    const gross = [{ x: 0, y: 0 }, { x: 3000, y: 0 }, { x: 3000, y: 2000 }, { x: 0, y: 2000 }];
+    for (const code of ['SN45', 'SN4', 'U', 'SN10']) {
+      const g = hatchGeometry(gross, dinPattern(code), 0, 1);
+      const ys = [...g.dots.map((p) => p.y), ...g.segments.flatMap(([a, b]) => [a.y, b.y]), ...g.fills.flatMap((f) => f.map((p) => p.y))];
+      expect(ys.length, code).toBeGreaterThan(0);
+      // reicht von oben bis unten
+      expect(Math.min(...ys), code).toBeLessThan(200);
+      expect(Math.max(...ys), code).toBeGreaterThan(1800);
+    }
+  });
+
+  it('Ausgabe: gefüllte Teile mit Beschnitt, Punkte als eigener Pfad', () => {
+    const shape = { type: 'rect' as const, x: 0, y: 0, w: 100, h: 1 };
+    const seal = fillPaths(shape, (p) => p, { color: '#000', opacity: 1, hatch: { pattern: dinPattern('SN59'), angle: 0, spacing: 3 } }, 1);
+    expect(seal.hatchFill).toMatch(/^M.*Z$/);
+    expect(seal.clip).toBeTruthy();
+    const gips = fillPaths({ ...shape, h: 60 }, (p) => p, { color: '#000', opacity: 1, hatch: { pattern: dinPattern('SN45'), angle: 0, spacing: 3 } }, 1);
+    expect(gips.hatchDots).toMatch(/^M/);
+    expect(gips.dotWidth).toBeGreaterThan(gips.hatchWidth);
+    expect(gips.hatchFill).toBeUndefined();
   });
 });

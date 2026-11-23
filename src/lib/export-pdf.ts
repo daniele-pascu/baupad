@@ -1,4 +1,9 @@
 import {
+  clip,
+  closePath,
+  endPath,
+  lineTo,
+  moveTo,
   LineCapStyle,
   PDFDocument,
   PDFName,
@@ -36,7 +41,7 @@ import {
 import { canvasToBlob, closePdf, clampRenderScale, imageToCanvas, loadImageBitmap, openPdf, pageViewport, renderPdfRegion, renderPdfToCanvas } from './pdf';
 import type { ProjectState } from './store';
 import { exportPaper, layoutSheet, planHeading, type OverviewCorner, type SheetLayout } from './sheet-layout';
-import { DEFAULT_TRANSPARENCY, fillOf, fillPaths, strokeGeometry } from './style';
+import { DEFAULT_TRANSPARENCY, fillOf, fillPaths, outlinePoints, strokeGeometry } from './style';
 import type { Component, Damage, DrawElement, LegendPos, Plan, Rect, Shape, ShapeStyle, TextFont } from './types';
 import { alignFactor, pdfStandardFont } from './text-font';
 import { symbolGeometry } from './symbols';
@@ -145,6 +150,17 @@ function drawTextElement(ctx: Ctx, page: PDFPage, e: DrawElement, shape: Shape, 
     page.drawText(txt, { x: at.x, y: at.y, size: fs * ptPerUnit, font: f, color: col, rotate: degrees(-(shape.rotation ?? 0)) });
     if (e.font?.underline) page.drawLine({ start: world(lx, ly + fs * 0.12), end: world(lx + wPage, ly + fs * 0.12), thickness: Math.max(0.3, fs * ptPerUnit * 0.06), color: col });
   });
+}
+
+/**
+ * Gefüllte Teile einer Schraffur (SVG-Pfad, y nach unten wie bei drawSvgPath) – auf den Umriss `outline` (Papierkoordinaten)
+ * beschnitten, damit nichts über die Form hinausragt.
+ */
+function drawClippedFill(page: PDFPage, outline: Point[], d: string, color: ReturnType<typeof rgb>, opacity: number) {
+  if (outline.length < 3) return;
+  page.pushOperators(pushGraphicsState(), moveTo(outline[0].x, outline[0].y), ...outline.slice(1).map((p) => lineTo(p.x, p.y)), closePath(), clip(), endPath());
+  page.drawSvgPath(d, { x: 0, y: 0, color, opacity });
+  page.pushOperators(popGraphicsState());
 }
 
 function hexToRgb(hex: string) {
@@ -506,10 +522,13 @@ function drawStyledShape(
   if (fill && fill.opacity > 0) {
     const f = fillPaths(shape, svgMap, fill, 1);
     if (f.solid) page.drawSvgPath(f.solid, { x: 0, y: 0, color: hexToRgb(fill.color), opacity: fill.opacity });
-    else if (f.hatch) {
+    else {
+      // Schraffur: Linien, Punkte und gefüllte Teile (einzelne Muster haben nur Punkte bzw. nur Flächen)
       // Flächenfarbe hinter der Schraffur
       if (f.bg && fill.bg) page.drawSvgPath(f.bg, { x: 0, y: 0, color: hexToRgb(fill.bg) });
-      page.drawSvgPath(f.hatch, { x: 0, y: 0, borderColor: hexToRgb(fill.color), borderWidth: f.hatchWidth, borderOpacity: fill.opacity, borderLineCap: LineCapStyle.Round });
+      if (f.hatchFill) drawClippedFill(page, outlinePoints(shape).points.map(map), f.hatchFill, hexToRgb(fill.color), fill.opacity);
+      if (f.hatch) page.drawSvgPath(f.hatch, { x: 0, y: 0, borderColor: hexToRgb(fill.color), borderWidth: f.hatchWidth, borderOpacity: fill.opacity, borderLineCap: LineCapStyle.Round });
+      if (f.hatchDots) page.drawSvgPath(f.hatchDots, { x: 0, y: 0, borderColor: hexToRgb(fill.color), borderWidth: f.dotWidth, borderOpacity: fill.opacity, borderLineCap: LineCapStyle.Round });
     }
   }
   const line = strokeGeometry(shape, svgMap, style?.lineType, width, width, style?.dashScale);
@@ -721,9 +740,11 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
         };
         const fp = fillPaths(qs, svgMap, f, 1);
         if (fp.solid) page.drawSvgPath(fp.solid, { x: 0, y: 0, color: hexToRgb(f.color), opacity: f.opacity });
-        else if (fp.hatch) {
+        else {
           if (fp.bg && f.bg) page.drawSvgPath(fp.bg, { x: 0, y: 0, color: hexToRgb(f.bg) });
-          page.drawSvgPath(fp.hatch, { x: 0, y: 0, borderColor: hexToRgb(f.color), borderWidth: fp.hatchWidth, borderOpacity: f.opacity, borderLineCap: LineCapStyle.Round });
+          if (fp.hatchFill) drawClippedFill(page, q.map(map), fp.hatchFill, hexToRgb(f.color), f.opacity);
+          if (fp.hatch) page.drawSvgPath(fp.hatch, { x: 0, y: 0, borderColor: hexToRgb(f.color), borderWidth: fp.hatchWidth, borderOpacity: f.opacity, borderLineCap: LineCapStyle.Round });
+          if (fp.hatchDots) page.drawSvgPath(fp.hatchDots, { x: 0, y: 0, borderColor: hexToRgb(f.color), borderWidth: fp.dotWidth, borderOpacity: f.opacity, borderLineCap: LineCapStyle.Round });
         }
       }
       for (const [a, b] of geo.lines) page.drawLine({ start: map(a), end: map(b), thickness: e.style?.lineWidth ?? 0.9, color, lineCap: LineCapStyle.Round });
