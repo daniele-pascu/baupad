@@ -173,3 +173,42 @@ describe('Bemaßung und Planbereich', () => {
     expect(shapeAABB(shapeToPage(rectFromMeasures({ x: 1, y: 1 }, 2, 1)))).toEqual({ x: 100, y: 100, w: 200, h: 100 });
   });
 });
+
+describe('Linie: Maß eingeben – der richtige Punkt wandert', async () => {
+  const { lineWithMeasures, attachedAt, applyMeasures, lineEnds } = await import('../../src/lib/drawing');
+  const { lineShape, shapeArea } = await import('../../src/lib/geometry');
+  const A = { x: 1, y: 1 };
+  const B = { x: 4, y: 5 }; // Länge 5
+  const line = lineShape(A, B);
+  const near = (p: { x: number; y: number }, q: { x: number; y: number }) => expect(Math.hypot(p.x - q.x, p.y - q.y)).toBeLessThan(1e-4);
+
+  it('A bleibt (Standard), B wird verlängert', () => {
+    const [a, b] = lineEnds(lineWithMeasures(line, { length: 10 }, 0));
+    near(a, A);
+    near(b, { x: 1 + 6, y: 1 + 8 });
+  });
+  it('B bleibt, A wandert – Richtung A→B unverändert', () => {
+    const [a, b] = lineEnds(lineWithMeasures(line, { length: 10 }, 1));
+    near(b, B);
+    near(a, { x: 4 - 6, y: 5 - 8 });
+  });
+  it('applyMeasures: Punkt B fest, wenn verlangt', () => {
+    const [a, b] = lineEnds(applyMeasures({ type: 'line', shape: line }, { length: 2.5 }, { fixedEnd: 1 }));
+    near(b, B);
+    near(a, { x: 4 - 1.5, y: 5 - 2 });
+  });
+  it('angesetzt: Punkt auf einer anderen Linie bzw. in einer Wand', () => {
+    const wand = { type: 'wall' as const, shape: lineShape({ x: 0, y: 5 }, { x: 10, y: 5 }), wall: { thickness: 0.3 } };
+    expect(attachedAt(B, [wand])).toBe(true);
+    expect(attachedAt({ x: 4, y: 5.14 }, [wand])).toBe(true); // in der Wand (halbe Stärke)
+    expect(attachedAt(A, [wand])).toBe(false);
+    const andere = { type: 'line' as const, shape: lineShape({ x: 1, y: 0 }, { x: 1, y: 3 }) };
+    expect(attachedAt(A, [andere])).toBe(true);
+    expect(attachedAt(A, [{ type: 'text' as const, shape: { type: 'rect' as const, x: 0, y: 0, w: 3, h: 3 } }])).toBe(false);
+  });
+  it('Fläche einer Form (kleinere Form hat beim Antippen Vorrang)', () => {
+    expect(shapeArea({ type: 'rect', x: 0, y: 0, w: 2, h: 3 })).toBe(6);
+    expect(shapeArea(line)).toBe(0);
+    expect(shapeArea({ type: 'ellipse', x: 0, y: 0, w: 2, h: 2 })).toBeCloseTo(Math.PI, 9);
+  });
+});

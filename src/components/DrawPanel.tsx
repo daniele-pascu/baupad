@@ -67,8 +67,8 @@ function check(field: Field, input: string): { ok: true; value: number } | { ok:
   return checkMeasure(input, FIELDS[field].label, 3);
 }
 
-/** Meter für ein Eingabefeld: mindestens 2, höchstens 4 Nachkommastellen, ohne Tausenderpunkt */
-const meterInput = (n: number) => n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 4, useGrouping: false });
+/** Meter für ein Eingabefeld: immer 2 Nachkommastellen, ohne Tausenderpunkt (unverändert gelassen wird nichts gerundet) */
+const meterInput = (n: number) => n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false });
 
 /** Richtungstasten für Linien (Grad: 0 = rechts, 90 = unten) */
 const DIRECTIONS: { angle: number; label: string; icon: string }[] = [

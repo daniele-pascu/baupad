@@ -7,6 +7,7 @@ import {
   freehandShape,
   handlePosition,
   hitShape,
+  shapeArea,
   layoutLabels,
   leaderLine,
   normalizeRect,
@@ -850,11 +851,21 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     const pp = toPage(v, p);
     const tol = hitTol() / v.scale;
     const list = propsRef.current.damages;
-    // ausgewählte Schadstelle hat Vorrang, sonst oberste (zuletzt gezeichnete)
-    const sel = list.find((d) => d.id === propsRef.current.selectedId);
-    if (sel && hitShape(sel.shape, pp, tol)) return sel;
-    for (let i = list.length - 1; i >= 0; i--) if (hitShape(list[i].shape, pp, tol)) return list[i];
-    return null;
+    const selId = propsRef.current.selectedId;
+    // Liegen mehrere übereinander: die kleinste Form gewinnt (eine kleine Form in einer großen ist sonst nicht
+    // erreichbar), Linien zuerst; bei gleicher Größe die ausgewählte, dann die oberste (zuletzt gezeichnete)
+    let best: ViewerItem | null = null;
+    let bestArea = Infinity;
+    for (let i = list.length - 1; i >= 0; i--) {
+      const d = list[i];
+      if (!hitShape(d.shape, pp, tol)) continue;
+      const a = shapeArea(d.shape);
+      if (a < bestArea * (1 - 1e-9) || (best && a <= bestArea * (1 + 1e-9) && d.id === selId)) {
+        best = d;
+        bestArea = a;
+      }
+    }
+    return best;
   };
 
   /** Text unter dem Finger (Begrenzungsrechteck mit etwas Zugabe) */

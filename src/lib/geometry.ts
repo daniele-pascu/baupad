@@ -176,6 +176,14 @@ export function hitShape(s: Shape, pWorld: Point, tol: number): boolean {
   return pointInPolygon(p, pts) || distanceToPolyline(p, pts, true) <= tol;
 }
 
+/** Fläche einer Form in Seiteneinheiten² (offene Linie: 0) – z. B. damit beim Antippen die kleinere Form Vorrang hat. */
+export function shapeArea(s: Shape): number {
+  if (isOpenShape(s)) return 0;
+  if (s.type === 'ellipse') return (Math.PI * Math.abs(s.w * s.h)) / 4;
+  if (isPointShape(s)) return polygonArea(freehandPoints(s));
+  return Math.abs(s.w * s.h);
+}
+
 export function pointInPolygon(p: Point, pts: Point[]): boolean {
   let inside = false;
   for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {

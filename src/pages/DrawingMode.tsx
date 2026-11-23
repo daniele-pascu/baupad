@@ -10,6 +10,7 @@ import { formatMeasure } from '../lib/numbers';
 import { hatchAnchor } from '../lib/style';
 import {
   applyMeasures,
+  attachedAt,
   circleFromMeasures,
   formatM,
   gridStep,
@@ -1773,7 +1774,17 @@ export function useDrawing(opts: {
   const apply = (id: string, m: Measures) => {
     const e = data.elements[id];
     if (!e) return;
-    putRecord('elements', { ...e, shape: applyMeasures(e, m) });
+    // Linie: der markierte Punkt wandert; sonst bleibt der angesetzte Punkt liegen (an Wand, Linie … – im Zweifel A)
+    let fixedEnd: 0 | 1 | undefined;
+    if (e.type === 'line') {
+      if (id === selectedId && (vertex === 0 || vertex === 1)) fixedEnd = vertex === 0 ? 1 : 0;
+      else {
+        const [a, b] = lineEnds(e.shape);
+        const others = elements.filter((o) => o.id !== id);
+        fixedEnd = !attachedAt(a, others) && attachedAt(b, others) ? 1 : 0;
+      }
+    }
+    putRecord('elements', { ...e, shape: applyMeasures(e, m, { fixedEnd }) });
   };
 
   const setText = (id: string, text: string) => {
