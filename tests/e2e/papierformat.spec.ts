@@ -66,11 +66,11 @@ test('Import: Format wählbar (Standard A4 passend), Überschrift, PDF genau A3 
   await wiz.getByTestId('export-paper').selectOption('A3');
   await wiz.getByTestId('export-orient').selectOption('hoch');
   await wiz.locator('[data-field="planNumber"]').fill('F-1');
-  await expect(wiz.locator('[data-field="title"]')).toHaveAttribute('placeholder', 'z. B. Aufmaßplan');
-  // Standard: Nummer und Planbezeichnung (hier aus dem Dateinamen); ohne Titel
-  await expect(wiz.getByTestId('heading-preview')).toHaveText('Überschrift im PDF: F-1 plaene (Seite 2)');
+  await expect(wiz.locator('[data-field="title"]')).toHaveAttribute('placeholder', 'Plan (oder z. B. Aufmaßplan)');
+  // Standard: „Plan“, Nummer und Planbezeichnung (hier aus dem Dateinamen)
+  await expect(wiz.getByTestId('heading-preview')).toHaveText('Überschrift im PDF: Plan F-1 plaene (Seite 2)');
   await wiz.getByTestId('show-name').uncheck();
-  await expect(wiz.getByTestId('heading-preview')).toHaveText('Überschrift im PDF: F-1'); // ohne Titel nur die Nummer
+  await expect(wiz.getByTestId('heading-preview')).toHaveText('Überschrift im PDF: Plan F-1'); // ohne eigenen Titel „Plan“ und die Nummer
   await wiz.locator('[data-field="title"]').fill('Aufmaßplan Tiefgarage');
   await expect(wiz.getByTestId('heading-preview')).toHaveText('Überschrift im PDF: Aufmaßplan Tiefgarage F-1');
   await wiz.getByTestId('show-paper').check(); // Format ausdrücklich im Plan anzeigen

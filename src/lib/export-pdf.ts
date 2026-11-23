@@ -394,8 +394,8 @@ async function finishSheet(ctx: Ctx, page: PDFPage, plan: Plan, L: SheetLayout, 
 }
 
 /**
- * Plankopf aller Pläne: links Nummer und Titel (fett), darunter dünner und dunkelgrau, wozu der Plan gehört
- * (Projektnummer und -name, Kostenstelle, Baustelle) und – wenn eingeschaltet – die Bemerkung; rechts nur die
+ * Plankopf aller Pläne: links „Plan Nummer“ bzw. eigener Titel und Nummer (fett), darunter dünner und dunkelgrau,
+ * wozu der Plan gehört (Kostenstelle bzw. Projektnummer, dann Bauvorhaben/Adresse) und – wenn eingeschaltet – die Bemerkung; rechts nur die
  * ausdrücklich eingeschalteten Angaben (Format, Maßstab) und das BauPad-Zeichen. Trennlinie darunter.
  */
 function drawSheetHeader(ctx: Ctx, page: PDFPage, pageH: number, header: Rect, plan: Plan, right: string[], reserveRight = 0) {

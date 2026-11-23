@@ -432,7 +432,7 @@ test('11. Bearbeiteten Plan als PDF exportieren', async () => {
   const info = execFileSync('pdfinfo', [file], { encoding: 'utf8' });
   expect(info).toMatch(/Pages:\s+1/);
   const text = execFileSync('pdftotext', ['-layout', file, '-'], { encoding: 'utf8' });
-  expect(text).toMatch(/^A-101 Untergeschoss UG\s*$/m); // ohne Titel: Nummer, Planbezeichnung und Ebene (standardmäßig) im Kopf
+  expect(text).toMatch(/^Plan A-101 Untergeschoss UG\s*$/m); // ohne eigenen Titel: „Plan“, Nummer, Planbezeichnung und Ebene (standardmäßig) im Kopf
   expect(text).not.toContain('Kostenstelle:'); // nur noch die Plannummer im Kopf
   expect(text).toContain('A-101 Untergeschoss'); // Original-Planinhalt (Vektor) erhalten
   expect(text).not.toMatch(/BauPad/); // Standard: kein BauPad-Logo

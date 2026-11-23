@@ -17,7 +17,7 @@ export interface PlanFieldValues {
   floor: string;
   area: string;
   description: string;
-  /** Titel im PDF-Kopf neben der Plannummer (leer = „Aufmaßplan“) */
+  /** Titel im PDF-Kopf vor der Plannummer (leer = „Plan“) */
   title?: string;
   /** Bemerkung im PDF anzeigen */
   showNote?: boolean;
@@ -37,7 +37,7 @@ export function ShowInPlan({ checked, onChange, testId }: { checked: boolean; on
 }
 
 /**
- * Planangaben. Im PDF-Kopf stehen nur Plannummer und Titel („Plannummer 067 | Aufmaßplan“);
+ * Planangaben. Im PDF-Kopf stehen Titel und Plannummer („Plan 067“ bzw. „Aufmaßplan 067“);
  * die Bemerkung nur, wenn „Im Plan anzeigen“ gewählt ist. `simple`: nur diese Angaben.
  */
 export function PlanFields({
@@ -73,7 +73,7 @@ export function PlanFields({
         <input
           value={value.title ?? ''}
           onChange={(e) => onChange({ title: e.target.value })}
-          placeholder="z. B. Aufmaßplan"
+          placeholder="Plan (oder z. B. Aufmaßplan)"
           data-field="title"
           autoComplete="off"
           enterKeyHint="next"

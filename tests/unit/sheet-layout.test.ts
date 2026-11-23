@@ -88,32 +88,35 @@ describe('Format und Überschrift', () => {
     expect(exportPaper(plan({ paper: 'A3-quer', crop: { x: 0, y: 0, w: 100, h: 500 } }))).toBe('A3-quer');
     expect(exportPaper(plan({ paper: 'A3-quer', drawing: { unit: 'm', unitsPerMeter: 100, paper: 'A4-hoch', scale: 50 } }))).toBe('A4-hoch');
   });
-  it('Überschrift: optionaler Titel vor der Plannummer, sonst nur die Nummer', () => {
+  it('Überschrift: Titel vor der Plannummer, ohne eigenen Titel „Plan“', () => {
     const p = (x: Parameters<typeof plan>[0]) => plan({ showName: false, showFloor: false, ...x });
     expect(planHeading(p({ title: 'Aufmaßplan', planNumber: '067' }))).toBe('Aufmaßplan 067');
     expect(planHeading(p({ title: '  Bestand ', planNumber: '12' }))).toBe('Bestand 12');
-    expect(planHeading(p({ title: '', planNumber: '067' }))).toBe('067');
-    expect(planHeading(p({ planNumber: '067' }))).toBe('067');
+    expect(planHeading(p({ title: '', planNumber: '067' }))).toBe('Plan 067');
+    expect(planHeading(p({ planNumber: '067' }))).toBe('Plan 067');
   });
   it('Überschrift: Planbezeichnung und Ebene standardmäßig dahinter, je abwählbar', () => {
     expect(planHeading({ title: 'Aufmaßplan', planNumber: '009', planName: 'BA. 4', floor: 'UG2' })).toBe('Aufmaßplan 009 BA. 4 UG2');
     expect(planHeading({ title: 'Aufmaßplan', planNumber: '009', planName: 'BA. 4', floor: 'UG2', showFloor: false })).toBe('Aufmaßplan 009 BA. 4');
     expect(planHeading({ title: 'Aufmaßplan', planNumber: '009', planName: 'BA. 4', floor: 'UG2', showName: false, showFloor: false })).toBe('Aufmaßplan 009');
-    expect(planHeading({ planNumber: '009', planName: '', floor: 'UG2' })).toBe('009 UG2');
+    expect(planHeading({ planNumber: '009', planName: '', floor: 'UG2' })).toBe('Plan 009 UG2');
   });
 });
 
-describe('Plankopf: zweite Zeile (Projekt, Kostenstelle, Baustelle)', () => {
-  it('Projektnummer und -name, Kostenstelle, Baustelle – was fehlt, fällt weg', async () => {
+describe('Plankopf: zweite Zeile (Kostenstelle bzw. Projektnummer, dann Bauvorhaben/Adresse)', () => {
+  it('Kostenstelle, dann die Adresse', async () => {
     const { planSubline } = await import('../../src/lib/sheet-layout');
-    expect(planSubline({ number: '2026-04', name: 'Wohnanlage Sonnenhof', site: 'Musterstraße 12' }, { number: '10', name: 'Tiefgarage' })).toBe('2026-04 · Wohnanlage Sonnenhof  |  10 – Tiefgarage  |  Musterstraße 12');
-    expect(planSubline({ name: 'Halle Nord', site: '' }, { name: 'EG' })).toBe('Halle Nord  |  EG');
-    expect(planSubline({ name: 'Halle Nord' })).toBe('Halle Nord');
-    // ohne eigene Baustellen-Bezeichnung steht die Adresse
-    expect(planSubline({ name: 'Halle Nord', site: '', address: 'Hafenstraße 3' })).toBe('Halle Nord  |  Hafenstraße 3');
+    expect(planSubline({ number: '2026-04', name: 'Wohnanlage Sonnenhof', address: 'Musterstraße 12, Wien' }, { number: '10', name: 'Tiefgarage' })).toBe('10 – Tiefgarage  |  Musterstraße 12, Wien');
+    expect(planSubline({ name: 'Halle Nord', address: 'Hafenstraße 3' }, { name: 'EG' })).toBe('EG  |  Hafenstraße 3');
   });
-  it('gleiche Angaben stehen nur einmal (Baustelle heißt wie das Projekt)', async () => {
+  it('ohne Kostenstelle die Projektnummer; ohne Adresse der Projektname', async () => {
     const { planSubline } = await import('../../src/lib/sheet-layout');
-    expect(planSubline({ name: 'Halle Nord', site: 'halle nord' }, { name: 'Halle Nord' })).toBe('Halle Nord');
+    expect(planSubline({ number: '2026-04', name: 'Wohnanlage Sonnenhof', address: 'Musterstraße 12' })).toBe('2026-04  |  Musterstraße 12');
+    expect(planSubline({ number: '2026-04', name: 'Wohnanlage Sonnenhof', address: '' }, { name: 'EG' })).toBe('EG  |  Wohnanlage Sonnenhof');
+    expect(planSubline({ name: 'Halle Nord' })).toBe('Halle Nord');
+  });
+  it('gleiche Angaben stehen nur einmal (Kostenstelle heißt wie das Projekt)', async () => {
+    const { planSubline } = await import('../../src/lib/sheet-layout');
+    expect(planSubline({ name: 'Halle Nord' }, { name: 'halle nord' })).toBe('halle nord');
   });
 });
