@@ -1,5 +1,6 @@
 /**
- * Unterschrift ganz unten auf der Tools-Seite: über einer Linie nur klein „PAD SOFTWARE“ mit PAD-Zeichen.
+ * Unterschrift ganz unten auf der Tools-Seite: über einer Linie nur klein „PAD SOFTWARE“ mit PAD-Zeichen –
+ * „PAD“ immer kräftiger als „Software“ (wie im Logo der Website und im Plan-Export).
  * BauPad steht schon oben in der Leiste – unten soll nichts den Blick auf die Tools lenken.
  * (Im Plan-Export gibt es die volle Marke V10 mit „BauPad“, siehe export-pdf.ts.)
  */
@@ -11,7 +12,9 @@ export function PadSignature({ testId }: { testId?: string }) {
         <path d="M253.11 245.14 L480.25 245.14 L379.32 422.68 L185.01 829.9 L-3.54 829.9 Z" />
         <path d="M480.25 245.14 L626.37 499.85 C604.63 518.57 581.16 529.84 562.68 529.84 L436.83 529.84 L379.32 422.68 Z" opacity="0.55" />
       </svg>
-      <span aria-hidden="true">PAD SOFTWARE</span>
+      <span aria-hidden="true">
+        <b>PAD</b> SOFTWARE
+      </span>
     </span>
   );
 }

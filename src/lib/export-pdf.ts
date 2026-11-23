@@ -441,27 +441,33 @@ function drawBrand(ctx: Ctx, page: PDFPage, right: number, top: number): number 
   const markH = 4.4;
   const scale = markH / 830;
   const markW = 859 * scale;
-  const capW = [...cap].reduce((w, ch) => w + ctx.bold.widthOfTextAtSize(ch, capSize) + track, -track);
+  const capW = capWidth(ctx, capSize, track);
   const wordW = ctx.bold.widthOfTextAtSize(word, wordSize);
   const w = Math.max(markW + 2.5 + capW, wordW);
   const x0 = right - w;
   for (const d of PAD_MARK) page.drawSvgPath(d, { x: x0 + 4 * scale, y: top, scale, color: rgb(0.17, 0.17, 0.18) });
   page.drawSvgPath(PAD_MARK_SHADE, { x: x0 + 4 * scale, y: top, scale, color: rgb(0.5, 0.5, 0.52) });
   let cx = x0 + markW + 2.5;
-  for (const ch of cap) {
-    page.drawText(ch, { x: cx, y: top - markH + 0.7, size: capSize, font: ctx.bold, color: rgb(0.38, 0.38, 0.4) });
-    cx += ctx.bold.widthOfTextAtSize(ch, capSize) + track;
-  }
+  // „PAD“ fett und dunkler, „SOFTWARE“ normal – PAD immer kräftiger als Software
+  [...cap].forEach((ch, i) => {
+    const f = capFont(ctx, i);
+    page.drawText(ch, { x: cx, y: top - markH + 0.7, size: capSize, font: f, color: i < 3 ? rgb(0.17, 0.17, 0.18) : rgb(0.42, 0.42, 0.45) });
+    cx += f.widthOfTextAtSize(ch, capSize) + track;
+  });
   const ry = top - markH - 2.4;
   page.drawLine({ start: { x: x0, y: ry }, end: { x: x0 + w, y: ry }, thickness: 0.4, color: rgb(0.74, 0.74, 0.77) });
   page.drawText(word, { x: x0 - 0.4, y: ry - 2.6 - wordSize * 0.72, size: wordSize, font: ctx.bold, color: rgb(0.07, 0.07, 0.08) });
   return w;
 }
+/** Schrift je Buchstabe von „PAD SOFTWARE“: die ersten drei (PAD) fett, der Rest normal */
+const capFont = (ctx: Ctx, i: number) => (i < 3 ? ctx.bold : ctx.font);
+/** Breite von „PAD SOFTWARE“ mit Sperrung */
+const capWidth = (ctx: Ctx, size: number, track: number) => [...'PAD SOFTWARE'].reduce((w, ch, i) => w + capFont(ctx, i).widthOfTextAtSize(ch, size) + track, -track);
 /** Breite der Marke (für Platz in der Kopfzeile, ohne zu zeichnen) */
 function brandWidth(ctx: Ctx): number {
   const capSize = 3.9;
   const track = capSize * 0.22;
-  const capW = [...'PAD SOFTWARE'].reduce((w, ch) => w + ctx.bold.widthOfTextAtSize(ch, capSize) + track, -track);
+  const capW = capWidth(ctx, capSize, track);
   return Math.max((859 / 830) * 4.4 + 2.5 + capW, ctx.bold.widthOfTextAtSize('BauPad', 13));
 }
 
