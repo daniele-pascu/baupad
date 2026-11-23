@@ -1,5 +1,5 @@
 import { round2 } from './numbers';
-import { fromShapeLocal, freehandPoints, lineShape, polygonArea, shapeAABB, shapeCenter, shapeVertices, type Point } from './geometry';
+import { distanceToPolyline, fromShapeLocal, freehandPoints, lineShape, outlineParts, polygonArea, shapeAABB, shapeCenter, shapeVertices, type Point } from './geometry';
 import { formatMeasure } from './numbers';
 import type { Damage, DrawElement, DrawingInfo, PaperFormat, Plan, Rect, Shape, TextFont } from './types';
 import { charWidthFactor } from './text-font';
@@ -213,7 +213,12 @@ export function measuresOf(e: Pick<DrawElement, 'type' | 'shape'> & Partial<Pick
  * Ändert die Maße eines Objekts. Ein Bezugspunkt bleibt dabei fest:
  * Rechteck/Text links oben, Dreieck links unten, Linie Startpunkt, Kreis Mittelpunkt.
  */
-export function applyMeasures(e: Pick<DrawElement, 'type' | 'shape' | 'text' | 'font'> & Partial<Pick<DrawElement, 'symbol'>>, m: Measures): Shape {
+export function applyMeasures(
+  e: Pick<DrawElement, 'type' | 'shape' | 'text' | 'font'> & Partial<Pick<DrawElement, 'symbol'>>,
+  m: Measures,
+  /** Linie: dieser Punkt bleibt liegen (0 = A, 1 = B), der andere wandert */
+  opts: { fixedEnd?: 0 | 1 } = {},
+): Shape {
   const s = e.shape;
   switch (e.type) {
     case 'symbol': {
@@ -237,6 +242,7 @@ export function applyMeasures(e: Pick<DrawElement, 'type' | 'shape' | 'text' | '
       return withRotation(resizeKeeping(s, m.length ?? s.w, m.width ?? s.h, { x: 0.5, y: 0.5 }), m.rotation);
     }
     case 'line':
+      return lineWithMeasures(s, m, opts.fixedEnd ?? 0);
     case 'dimension': {
       const [a] = lineEnds(s);
       return lineFromMeasures(a, m.length ?? lineLength(s), m.angle ?? lineAngle(s), 'line');
@@ -249,6 +255,35 @@ export function applyMeasures(e: Pick<DrawElement, 'type' | 'shape' | 'text' | '
     default:
       return withRotation(s, m.rotation);
   }
+}
+
+/**
+ * Linie mit neuer Länge bzw. neuem Winkel (Winkel immer von A nach B): Punkt `fixed` bleibt liegen, der andere wandert.
+ */
+export function lineWithMeasures(s: Shape, m: Measures, fixed: 0 | 1): Shape {
+  const [a, b] = lineEnds(s);
+  const len = m.length ?? lineLength(s);
+  const ang = m.angle ?? lineAngle(s);
+  if (fixed === 0) return lineFromMeasures(a, len, ang, 'line');
+  const r = (ang * Math.PI) / 180;
+  const end = { x: roundM(b.x), y: roundM(b.y) };
+  return lineShape({ x: roundM(end.x - len * Math.cos(r)), y: roundM(end.y - len * Math.sin(r)) }, end);
+}
+
+/**
+ * Ist der Punkt an ein anderes Objekt angesetzt – liegt er auf dessen Umriss bzw. Eckpunkt (Wand: in der Wand)?
+ * Meter; Texte und Maßlinien zählen nicht.
+ */
+export function attachedAt(p: Point, others: Pick<DrawElement, 'type' | 'shape' | 'wall'>[], tol = 0.005): boolean {
+  return others.some((o) => {
+    if (o.type === 'text' || o.type === 'dimension') return false;
+    const reach = tol + (o.type === 'wall' ? (o.wall?.thickness ?? 0) / 2 : 0);
+    const b = shapeAABB(o.shape);
+    if (p.x < b.x - reach || p.x > b.x + b.w + reach || p.y < b.y - reach || p.y > b.y + b.h + reach) return false;
+    return outlineParts(o.shape).some((part) =>
+      part.length > 1 ? distanceToPolyline(p, part, false) <= reach : Math.hypot(p.x - part[0].x, p.y - part[0].y) <= reach,
+    );
+  });
 }
 
 function withRotation(s: Shape, rotation: number | undefined): Shape {
