@@ -1174,6 +1174,8 @@ export function WorkersPage() {
           plan={plan}
           worker={byId.get(dialog.workerId)!}
           day={dialog.day}
+          infoOf={siteInfo}
+          styleOf={crewColor}
           onClose={() => setDialog(null)}
           onAssign={(siteId, rest) => {
             setDialog(null);
@@ -1789,6 +1791,8 @@ function OpenDialog({
   plan,
   worker,
   day,
+  infoOf,
+  styleOf,
   onAssign,
   onAbsence,
   onClose,
@@ -1796,24 +1800,54 @@ function OpenDialog({
   plan: WeekPlan;
   worker: Worker;
   day: number;
+  infoOf(s: WeekSite): ProjectLabelInfo;
+  styleOf(s: WeekSite): CSSProperties;
   onAssign(siteId: string, rest: boolean): void;
   onAbsence(kind: Absence['kind']): void;
   onClose(): void;
 }) {
   const [rest, setRest] = useState(true);
+  // Projekt mit der Suchleiste finden (Kostenstelle, Nummer, Name, Adresse) und antippen – statt einer Reihe „+“-Tasten
+  const [q, setQ] = useState('');
+  const needle = q.trim().toLowerCase();
+  const list = plan.sites
+    .filter((s) => !s.paused)
+    .map((s) => ({ s, info: infoOf(s) }))
+    .filter(({ s, info }) => !needle || [projectPrefix(info), info.name, projectSubline(info), s.name, s.number ?? '', s.address ?? ''].join(' ').toLowerCase().includes(needle))
+    .sort((a, b) => naturalCompare(projectPrefix(a.info) || '~', projectPrefix(b.info) || '~') || a.info.name.localeCompare(b.info.name, 'de'));
   return (
     <Modal title={`${workerName(worker)} · ${DAY_NAMES[day]}`} onClose={onClose} testId="open-dialog">
-      <label className="check-row">
-        <input type="checkbox" checked={rest} onChange={(e) => setRest(e.target.checked)} data-testid="open-rest" />
-        Ab {DAY_NAMES[day]} für die restliche Woche
-      </label>
-      <div className="crew-chip-actions">
-        {plan.sites.filter((s) => !s.paused).map((s) => (
-          <button key={s.id} type="button" className="btn" onClick={() => onAssign(s.id, rest)} data-testid="open-site" data-site={s.name}>
-            <Icon name="plus" size={18} /> {s.name}
-          </button>
-        ))}
-        {!plan.sites.length && <p className="muted">Noch kein Projekt in dieser Woche.</p>}
+      <div className="picker">
+        <label className="check-row">
+          <input type="checkbox" checked={rest} onChange={(e) => setRest(e.target.checked)} data-testid="open-rest" />
+          Ab {DAY_NAMES[day]} für die restliche Woche
+        </label>
+        {plan.sites.some((x) => !x.paused) ? (
+          <>
+            <label className="crew-search picker-search">
+              <Icon name="select" size={18} />
+              <span className="sr-only">Projekt suchen</span>
+              <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Projekt suchen: Kostenstelle, Nummer, Name, Adresse …" autoComplete="off" data-testid="open-site-search" />
+            </label>
+            {list.length === 0 && (
+              <p className="muted small" data-testid="open-site-empty">
+                Kein Projekt gefunden.
+              </p>
+            )}
+            <ul className="picker-list">
+              {list.map(({ s, info }) => (
+                <li key={s.id}>
+                  <button type="button" className="picker-item pc-stripe" style={styleOf(s)} onClick={() => onAssign(s.id, rest)} data-testid="open-site" data-site={s.name}>
+                    <ProjectHeading info={info} />
+                    <Icon name="next" size={18} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p className="muted">Noch kein Projekt in dieser Woche.</p>
+        )}
         <div className="crew-chip-row">
           <button type="button" className="btn" onClick={() => onAbsence('urlaub')} data-testid="open-absence">
             <Icon name="calendar" size={18} /> Urlaub
