@@ -371,7 +371,7 @@ test('Messung: Fotos wie im Mängelplan (Galerie → Fotodokumentation), Taste F
   await expect(page.getByTestId('dp-photo-pick')).toHaveCount(3);
   await page.getByTestId('dp-photo-picker-done').click();
   await dlg.getByTestId('damage-cancel').click();
-  // Farblegende: erkannte Farbe mit eigener Bezeichnung, im Plan angezeigt
+  // Farblegende: erkannte Farbe mit eigener Bezeichnung – nur im PDF, nicht auf der Arbeitsfläche
   await page.getByTestId('editor-legend').click();
   const lg = page.getByTestId('legend-dialog');
   await expect(lg.getByTestId('legend-row')).toHaveCount(1);
@@ -381,8 +381,9 @@ test('Messung: Fotos wie im Mängelplan (Galerie → Fotodokumentation), Taste F
   await expect(lg.getByTestId('legend-pos-bl')).toHaveAttribute('aria-checked', 'true');
   await lg.getByTestId('legend-pos-tr').click();
   await lg.getByTestId('legend-save').click();
-  await expect(page.getByTestId('plan-legend')).toContainText('Betonsanierung');
-  await expect(page.getByTestId('plan-legend')).toHaveAttribute('data-pos', 'tr');
+  await expect(lg).toHaveCount(0);
+  await expect(page.getByTestId('plan-legend')).toHaveCount(0);
+  await expect(page.getByTestId('editor-legend')).toHaveClass(/active-toggle/);
   await waitSaved(page);
   // Plan-PDF mit Legende (ohne Fotos)
   const dl = await catchDownload(page, async () => {
@@ -534,22 +535,30 @@ test('Farblegende: in einem Plan eingeschaltet → in allen Plänen des Projekts
   await expect(lg.getByTestId('legend-all')).toBeChecked();
   await lg.getByTestId('legend-pos-tr').click();
   await lg.getByTestId('legend-save').click();
-  await expect(page.getByTestId('plan-legend')).toContainText('Betonsanierung');
+  await expect(lg).toHaveCount(0);
+  await expect(page.getByTestId('plan-legend')).toHaveCount(0); // nur im PDF
   await waitSaved(page);
   // Plan A: Legende ebenfalls an (oben rechts), Bezeichnung übernommen
   await page.getByRole('link', { name: 'Zurück zur Planliste' }).click();
   await page.getByTestId('plan-row').filter({ hasText: 'A-1' }).first().getByTestId('plan-open').click();
   await waitForPlan(page);
-  await expect(page.getByTestId('plan-legend')).toContainText('Betonsanierung');
-  await expect(page.getByTestId('plan-legend')).toHaveAttribute('data-pos', 'tr');
-  // eigene Bezeichnung in Plan A – Plan B behält seine
+  await expect(page.getByTestId('editor-legend')).toHaveClass(/active-toggle/);
   await page.getByTestId('editor-legend').click();
+  await expect(lg.getByTestId('legend-input')).toHaveValue('Betonsanierung');
+  await expect(lg.getByTestId('legend-show')).toBeChecked();
+  await expect(lg.getByTestId('legend-pos-tr')).toHaveAttribute('aria-checked', 'true');
+  // eigene Bezeichnung in Plan A – Plan B behält seine
   await lg.getByTestId('legend-input').fill('Spachteln');
   await lg.getByTestId('legend-save').click();
-  await expect(page.getByTestId('plan-legend')).toContainText('Spachteln');
+  await waitSaved(page);
+  await page.getByTestId('editor-legend').click();
+  await expect(lg.getByTestId('legend-input')).toHaveValue('Spachteln');
+  await lg.getByTestId('legend-save').click();
   await waitSaved(page);
   await page.getByRole('link', { name: 'Zurück zur Planliste' }).click();
   await page.getByTestId('plan-row').filter({ hasText: 'B-1' }).first().getByTestId('plan-open').click();
   await waitForPlan(page);
-  await expect(page.getByTestId('plan-legend')).toContainText('Betonsanierung');
+  await page.getByTestId('editor-legend').click();
+  await expect(lg.getByTestId('legend-input')).toHaveValue('Betonsanierung');
+  await lg.getByTestId('legend-save').click();
 });

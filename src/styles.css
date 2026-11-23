@@ -11338,20 +11338,6 @@ html[data-theme='dark'] .crew-search {
   left: auto;
   right: 12px;
 }
-/* schmale Planfläche (Handy): die Werkzeugleiste reicht über die ganze Breite – die Legende unten sitzt darüber
-   statt auf den Tasten; solange darüber die Leiste einer Auswahl steht, weicht sie ganz */
-@container (max-width: 700px) {
-  .plan-legend.pos-bl,
-  .plan-legend.pos-br {
-    bottom: calc(var(--toolbar-h, 72px) + 10px);
-  }
-  .editor-plan:has(.selection-bar) .plan-legend.pos-bl,
-  .editor-plan:has(.selection-bar) .plan-legend.pos-br,
-  .editor-plan:has(.draw-bar) .plan-legend.pos-bl,
-  .editor-plan:has(.draw-bar) .plan-legend.pos-br {
-    display: none;
-  }
-}
 .legend-pos {
   display: grid;
   grid-template-columns: 1fr 1fr;

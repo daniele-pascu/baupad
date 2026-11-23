@@ -16,7 +16,7 @@ import { confirmDialog, promptDialog, showError, toast } from '../components/ui'
 import { getPhotoStorage } from '../lib/photo-storage';
 import { photoNoteUpdates } from '../lib/photo-notes';
 import { legendEntries, resolveLegend } from '../lib/legend';
-import { LegendBox, LegendDialog } from '../components/LegendDialog';
+import { LegendDialog } from '../components/LegendDialog';
 import type { PhotoSite } from '../lib/types';
 import { positionGrouping, costCenterLabel, damagesOf, findPosition, lvDocLabel, lvDocsOf, plansOf, planTitle, positionRef, sumArea } from '../lib/aufmass';
 import { activeRule, autoBookings, hasSurfaceRules, refMismatch } from '../lib/pos-rules';
@@ -2104,7 +2104,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             </div>
           )}
 
-          {legendInfo?.show && !drawMode && <LegendBox entries={legend} pos={legendInfo.pos} onOpen={() => setLegendOpen(true)} />}
+          {/* Farblegende nur im PDF – auf der Arbeitsfläche würde sie Messungen verdecken (Taste „Farblegende“ rechts bearbeitet sie) */}
           <div className={`zoom-controls liquid${zoomAwake ? ' awake' : ''}${zoomOpen ? '' : ' is-collapsed'}`} onPointerDown={wakeZoom} data-testid="zoom-controls">
             <button
               type="button"
@@ -2147,7 +2147,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               <Icon name="fit" />
             </button>
             {!drawMode && (
-              <button type="button" className={`icon-btn${legendInfo?.show ? ' active-toggle' : ''}`} onClick={() => setLegendOpen(true)} aria-label="Farblegende" title="Farblegende: Bezeichnung je Farbe (im Plan und im PDF)" data-testid="editor-legend">
+              <button type="button" className={`icon-btn${legendInfo?.show ? ' active-toggle' : ''}`} onClick={() => setLegendOpen(true)} aria-label="Farblegende" title="Farblegende: Bezeichnung je Farbe (erscheint im PDF)" data-testid="editor-legend">
                 <Icon name="legend" />
               </button>
             )}
