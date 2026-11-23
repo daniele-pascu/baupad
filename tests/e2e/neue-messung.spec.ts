@@ -60,7 +60,7 @@ test('Planliste und Aufmaß zeigen die Mengen in ihrer Einheit (Längen in m, ni
   await pickTool(page, 'tool-polyline');
   const b = (await page.getByTestId('drawing-sheet').boundingBox())!;
   for (const [fx, fy] of [[0.1, 0.5], [0.5, 0.5]]) await page.mouse.click(b.x + b.width * fx, b.y + b.height * fy);
-  await page.getByTestId('seg-done').click();
+  await page.getByTestId('polyline-open').click();
   const dlg = page.getByTestId('damage-dialog');
   await dlg.getByTestId('damage-save').click();
   await expect(dlg).toBeHidden();

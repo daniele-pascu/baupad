@@ -158,47 +158,41 @@ test('Messart wählen, dann mit beliebigem Werkzeug messen: Wand, Stück, Frei, 
   expect(d.area).toBe(9);
 
   // 6) Länge (Linie, Freie Form, Freihand): geschlossene Freie Form 2 × 1 m → Umfang
-  // Länge mit Freier Form: jeder Punkt verbindet mit dem vorigen, „+“ (Neue Linie) setzt eine Lücke (z. B. Riss) – eine Messung, Länge = Summe
+  // Länge mit Freier Form: durchgehende Linie wie am Anfang – jeder Punkt verbindet mit dem vorigen
+  // (mehrere einzelne Linien, z. B. Risse mit Lücken, nur noch mit Freihand)
   await chooseType('laenge');
   await expect(page.getByTestId('tool-rect')).toHaveCount(0);
   await pickTool(page, 'tool-polyline');
-  await expect(page.getByTestId('segments-hint')).toBeVisible();
-  // A–B 2 m; C–D 1 m mit 0,5 m Abstand; E–F 1 m ab der Mitte von A–B
+  await expect(page.getByTestId('segments-hint')).toHaveCount(0);
+  // A–B 2 m, B–C 1 m (Knick)
   for (const [dx, dy] of [[8, 5], [10, 5]]) await page.mouse.click(x + px(dx), y + px(dy));
-  // unten statt der Leiste nur fünf Tasten: Abbrechen, Zurück, Vor, Neue Linie, Fertig
-  const bar = page.getByTestId('segments-bar');
+  // unten statt der Leiste nur vier Tasten: Abbrechen, Zurück, Vor, Fertig
+  const bar = page.getByTestId('draft-bar');
   await expect(bar).toBeVisible();
-  await expect(bar.locator('button')).toHaveCount(5);
-  expect(await bar.locator('button').evaluateAll((b) => b.map((x) => x.getAttribute('data-testid')))).toEqual(['seg-cancel', 'seg-undo', 'seg-redo', 'seg-newline', 'seg-done']);
+  expect(await bar.locator('button').evaluateAll((b) => b.map((x) => x.getAttribute('data-testid')))).toEqual(['polygon-cancel', 'polygon-undo-point', 'seg-redo', 'polyline-open']);
   await expect(page.getByTestId('tool-mtype')).toHaveCount(0);
   await expect(bar.getByTestId('seg-redo')).toBeDisabled();
-  await bar.getByTestId('seg-newline').click();
-  for (const [dx, dy] of [[10.5, 5], [10.5, 6]]) await page.mouse.click(x + px(dx), y + px(dy));
-  await bar.getByTestId('seg-newline').click();
-  for (const [dx, dy] of [[9, 5], [9, 6]]) await page.mouse.click(x + px(dx), y + px(dy));
-  await expect(page.getByTestId('polygon-preview')).toHaveAttribute('data-segments', '3');
+  await page.mouse.click(x + px(10), y + px(6));
   // Zurück nimmt den letzten Punkt, Vor setzt ihn wieder
-  await bar.getByTestId('seg-undo').click();
-  await expect(page.getByTestId('polygon-preview')).toHaveAttribute('data-segments', '2');
+  await bar.getByTestId('polygon-undo-point').click();
   await bar.getByTestId('seg-redo').click();
-  await expect(page.getByTestId('polygon-preview')).toHaveAttribute('data-segments', '3');
   await expect(bar.getByTestId('seg-redo')).toBeDisabled();
-  await bar.getByTestId('seg-done').click();
+  await bar.getByTestId('polyline-open').click();
   await expect(dlg()).toContainText('Neue Messung: Länge');
   const l2 = num(await dlg().getByTestId('geometry-length').inputValue());
-  expect(Math.abs(l2 - 4)).toBeLessThan(0.1);
+  expect(Math.abs(l2 - 3)).toBeLessThan(0.1);
   await dlg().getByTestId('damage-save').click();
   await expect(dlg()).toBeHidden();
   d = await lastDmg();
   expect(d.measureType).toBe('laenge');
   expect(d.kind).toBe('line');
-  expect((d as unknown as { shape: { breaks?: number[] } }).shape.breaks).toEqual([2, 4]);
-  await expect(page.getByTestId('segments-bar')).toHaveCount(0);
-  // Abbrechen verwirft angefangene Linien
+  expect((d as unknown as { shape: { breaks?: number[] } }).shape.breaks).toBeUndefined();
+  await expect(page.getByTestId('draft-bar')).toHaveCount(0);
+  // Abbrechen verwirft die angefangene Linie
   await pickTool(page, 'tool-polyline');
   for (const [dx, dy] of [[8, 7], [10, 7]]) await page.mouse.click(x + px(dx), y + px(dy));
-  await page.getByTestId('seg-cancel').click();
-  await expect(page.getByTestId('segments-bar')).toHaveCount(0);
+  await page.getByTestId('polygon-cancel').click();
+  await expect(page.getByTestId('draft-bar')).toHaveCount(0);
   await expect(page.getByTestId('tool-mtype')).toBeVisible();
   // Tipp ins Leere (Auswahl): die untere Leiste klappt zu
   await pickTool(page, 'tool-select');

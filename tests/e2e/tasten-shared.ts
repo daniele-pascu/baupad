@@ -654,15 +654,15 @@ export function tastenTests() {
     await pruefe(page, 'Messdialog Schadstelle mit Fläche', out);
     await dlg.getByTestId('damage-cancel').click();
     await expect(dlg).toBeHidden();
-    // Länge mit Freier Form: Linien einzeln – unten nur vier Tasten (Abbrechen, Zurück, Vor, Fertig)
+    // Länge mit Freier Form: durchgehende Linie – unten nur vier Tasten (Abbrechen, Zurück, Vor, Fertig)
     await chooseMeasureType(page, 'laenge');
     await pickTool(page, 'tool-polyline');
-    await pruefe(page, 'Länge Linien einzeln: Hinweis', out);
-    for (const [fx, fy] of [[0.3, 0.6], [0.45, 0.62], [0.5, 0.6], [0.6, 0.7]]) await page.mouse.click(b.x + b.width * fx, b.y + b.height * fy);
-    await expect(page.getByTestId('segments-bar')).toBeVisible();
-    await pruefe(page, 'Länge Linien einzeln: vier Tasten', out);
-    await page.getByTestId('seg-cancel').click();
-    await expect(page.getByTestId('segments-bar')).toHaveCount(0);
+    // Punkte weit genug auseinander (zwei schnelle Tipps nah beieinander beenden die Linie wie ein Doppeltipp)
+    for (const [fx, fy] of [[0.2, 0.6], [0.45, 0.62], [0.7, 0.6], [0.6, 0.78]]) await page.mouse.click(b.x + b.width * fx, b.y + b.height * fy);
+    await expect(page.getByTestId('draft-bar')).toBeVisible();
+    await pruefe(page, 'Länge Freie Form: vier Tasten', out);
+    await page.getByTestId('polygon-cancel').click();
+    await expect(page.getByTestId('draft-bar')).toHaveCount(0);
     // Neue Messung: Bereich wählen (Position oder frei) – in der Messleiste bzw. am Handy im Reiter Tabelle
     if (await page.getByTestId('mobile-tab-table').isVisible()) await page.getByTestId('mobile-tab-table').click();
     await page.getByTestId('new-measure').click();
