@@ -14819,3 +14819,249 @@ html[data-theme='dark'] .ribbon-row[data-tab] .tool-btn.active svg {
     padding-top: calc(8px + var(--safe-top));
   }
 }
+
+/* ---------- Team: Umschalter Baustellen | Arbeiter und Ansicht „Arbeiter“ (Woche je Arbeiter) ---------- */
+.seg-toggle {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.seg-toggle button {
+  min-height: 34px;
+  padding: 4px 14px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.seg-toggle button.on {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14);
+}
+.seg-toggle.crew-view {
+  display: flex;
+  width: 100%;
+  max-width: 420px;
+  margin: 8px auto 0;
+}
+.seg-toggle.crew-view button {
+  flex: 1;
+}
+.crew-ww {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+.crew-ww-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.crew-ww-grid {
+  display: grid;
+  gap: 6px;
+  --ww-cell: 40px;
+}
+.crew-ww-head,
+.crew-ww-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) repeat(var(--ww-days), var(--ww-cell));
+  align-items: center;
+  gap: 5px;
+}
+.crew-ww-head {
+  padding: 0 11px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.crew-ww-head span:not(:first-child) {
+  display: grid;
+  justify-items: center;
+  line-height: 1.15;
+}
+.crew-ww-head small {
+  font-weight: 400;
+  font-size: 0.68rem;
+}
+.crew-ww-head span.today {
+  color: var(--text);
+}
+.crew-ww-row {
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.crew-ww-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-weight: 600;
+}
+.crew-ww-name span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.crew-ww-full {
+  display: none;
+}
+.crew-ww-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--border-strong);
+}
+.crew-ww-dot.grade-polier {
+  background: var(--grade-polier, #6f9be8);
+}
+.crew-ww-dot.grade-vorarbeiter {
+  background: var(--grade-vorarbeiter, #5cb87a);
+}
+.crew-ww-dot.grade-facharbeiter {
+  background: var(--grade-facharbeiter, #e0a43a);
+}
+.crew-ww-dot.grade-hilfsarbeiter {
+  background: var(--grade-hilfsarbeiter, #a3a3ad);
+}
+.crew-ww-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+  height: 34px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 9px;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.crew-ww-cell.ww-site {
+  background: var(--crew, #3a7bd5);
+  color: #fff;
+}
+.crew-ww-cell.ww-site.ww-sick {
+  box-shadow: inset 0 0 0 2px #fff, 0 0 0 2px #d1242f;
+}
+.crew-ww-cell sup {
+  position: absolute;
+  top: -5px;
+  right: -4px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--text);
+  color: var(--surface);
+  font-size: 0.6rem;
+  line-height: 1.4;
+}
+.crew-ww-long {
+  display: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.crew-ww-cell.ww-urlaub,
+.crew-ww-legend b.u {
+  background: #ece8fb;
+  color: #5a46b8;
+}
+.crew-ww-cell.ww-krank,
+.crew-ww-legend b.k {
+  background: #fdeaea;
+  color: #b42323;
+}
+.crew-ww-cell.ww-open,
+.crew-ww-legend b.o {
+  background: #fff7e0;
+  color: #8a6100;
+  box-shadow: inset 0 0 0 1.5px #d9a520;
+  outline: none;
+}
+.crew-ww-cell.ww-open {
+  box-shadow: none;
+  border: 1.5px dashed #d9a520;
+}
+.crew-ww-cell.ww-off,
+.crew-ww-cell.ww-holiday {
+  background: transparent;
+  color: var(--muted);
+  cursor: default;
+}
+.crew-ww-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 0;
+}
+.crew-ww-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.crew-ww-legend b {
+  display: inline-grid;
+  place-items: center;
+  min-width: 26px;
+  height: 20px;
+  padding: 0 4px;
+  border-radius: 6px;
+  background: var(--crew, var(--surface-2));
+  color: #fff;
+  font-size: 0.68rem;
+}
+/* breite Fläche: Kürzel und Name der Baustelle im Feld */
+@media (min-width: 760px) {
+  .crew-ww-grid {
+    --ww-cell: minmax(0, 1fr);
+  }
+  .crew-ww-head,
+  .crew-ww-row {
+    grid-template-columns: minmax(150px, 220px) repeat(var(--ww-days), minmax(0, 1fr));
+  }
+  .crew-ww-cell.ww-site {
+    justify-content: flex-start;
+    padding: 0 8px;
+  }
+  .crew-ww-long {
+    display: inline;
+  }
+  .crew-ww-full {
+    display: inline;
+  }
+  .crew-ww-short {
+    display: none;
+  }
+}
+html[data-theme='dark'] .crew-ww-cell.ww-urlaub,
+html[data-theme='dark'] .crew-ww-legend b.u {
+  background: #2b2546;
+  color: #c4b8ff;
+}
+html[data-theme='dark'] .crew-ww-cell.ww-krank,
+html[data-theme='dark'] .crew-ww-legend b.k {
+  background: #3a1f1f;
+  color: #ff9d9d;
+}
+html[data-theme='dark'] .crew-ww-cell.ww-open,
+html[data-theme='dark'] .crew-ww-legend b.o {
+  background: #362c12;
+  color: #f2c94c;
+}

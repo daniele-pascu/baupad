@@ -218,6 +218,13 @@ export function tastenTests() {
     await dlg.getByTestId('assign-save').click();
     await expect(page.getByTestId('team-today')).toBeVisible();
     await pruefe(page, 'Team mit Heute auf der Baustelle', out);
+    // Ansicht „Arbeiter“: Woche je Arbeiter (Kürzel je Tag), Reihenfolge A–Z
+    await page.getByTestId('crew-view-workers').click();
+    await expect(page.getByTestId('crew-worker-week')).toBeVisible();
+    await pruefe(page, 'Team Ansicht Arbeiter', out);
+    await page.getByTestId('crew-ww-order-name').click();
+    await pruefe(page, 'Team Ansicht Arbeiter A–Z', out);
+    await page.getByTestId('crew-view-sites').click();
     // Projektregister: Nadel, Reiter, Suche
     await page.goto('./baupad/projektregister');
     await page.getByTestId('register-pin').first().click();
