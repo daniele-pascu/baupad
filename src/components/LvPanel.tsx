@@ -34,15 +34,14 @@ export function LvPanel({ data }: { data: ProjectState }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const active = docs.find((d) => d.id === activeId) ?? null;
   const fileRef = useRef<HTMLInputElement>(null);
-  const [importKind, setImportKind] = useState<'lv' | 'mfk'>('lv');
   const [review, setReview] = useState<{ parsed: ParsedLv; fileName: string; kind: 'lv' | 'mfk' } | null>(null);
   const [busy, setBusy] = useState(false);
   const [docDialog, setDocDialog] = useState<{ doc: LvDocument | null; kind: 'lv' | 'mfk' } | null>(null);
 
-  const startImport = (kind: 'lv' | 'mfk') => {
-    setImportKind(kind);
-    fileRef.current?.click();
-  };
+  /** eine Taste für LV und MFK: die Art wählt man im Fenster danach (MFK wird meist schon am Titel erkannt) */
+  const startImport = () => fileRef.current?.click();
+  /** Vorschlag, wenn das PDF die Art nicht verrät: gibt es schon ein LV, ist das nächste meist eine MFK */
+  const guessKind = (): 'lv' | 'mfk' => (docs.some((d) => d.kind === 'lv') ? 'mfk' : 'lv');
 
   const onFile = async (f: File) => {
     setBusy(true);
@@ -51,7 +50,7 @@ export function LvPanel({ data }: { data: ProjectState }) {
       try {
         const parsed = await readLvFromPdf(doc);
         if (!parsed.positions.length) throw new Error('Im PDF wurden keine Leistungspositionen erkannt. Bitte ein LV im ÖNORM-Format (Positionsnummer, Menge, Einheit) verwenden oder die Positionen manuell anlegen.');
-        setReview({ parsed, fileName: f.name, kind: importKind });
+        setReview({ parsed, fileName: f.name, kind: guessKind() });
       } finally {
         void closePdf(doc);
       }
@@ -121,11 +120,8 @@ export function LvPanel({ data }: { data: ProjectState }) {
       {prices && (
       <div className="lv-toolbar">
         <div className="row gap wrap">
-          <button type="button" className="btn btn-sm" onClick={() => startImport('lv')} disabled={busy} data-testid="lv-import">
-            <Icon name="upload" size={18} /> LV importieren (PDF)
-          </button>
-          <button type="button" className="btn btn-sm" onClick={() => startImport('mfk')} disabled={busy} data-testid="mfk-import">
-            <Icon name="upload" size={18} /> MFK importieren (PDF)
+          <button type="button" className="btn btn-sm" onClick={startImport} disabled={busy} title="PDF eines LV oder einer MFK – die Art wird im nächsten Fenster gewählt" data-testid="lv-import">
+            <Icon name="upload" size={18} /> LV / MFK hochladen (PDF)
           </button>
           <button type="button" className="btn btn-sm" onClick={() => setDocDialog({ doc: null, kind: docs.some((d) => d.kind === 'lv') ? 'mfk' : 'lv' })} data-testid="lv-new">
             <Icon name="plus" size={18} /> Manuell anlegen
@@ -152,7 +148,7 @@ export function LvPanel({ data }: { data: ProjectState }) {
           <p>Noch kein Leistungsverzeichnis.</p>
           <p className="muted">
             {prices
-              ? 'Importieren Sie ein LV oder eine MFK als PDF (ÖNORM-Ausdruck mit Positionsnummern) oder legen Sie eine MFK manuell an.'
+              ? 'Laden Sie ein LV oder eine MFK als PDF hoch (ÖNORM-Ausdruck mit Positionsnummern) – ob LV oder MFK, wählen Sie danach im Fenster – oder legen Sie es manuell an.'
               : 'LV und MFK legt das Büro an.'}
           </p>
         </div>
@@ -256,7 +252,7 @@ function LvReviewDialog({
   const totalOff = parsed.total != null && Math.abs(parsed.total - total) > Math.max(0.05, parsed.positions.length * 0.005);
   return (
     <Modal
-      title="LV prüfen und übernehmen"
+      title={kind === 'mfk' ? 'MFK prüfen und übernehmen' : 'LV prüfen und übernehmen'}
       onClose={onCancel}
       persistent
       wide
@@ -305,12 +301,11 @@ function LvReviewDialog({
           <span>Bezeichnung *</span>
           <input value={name} onChange={(e) => setName(e.target.value)} data-testid="lv-name" />
         </label>
-        <label className="field span-2">
-          <span>Preise</span>
-          <select value={withPrices ? 'mit' : 'ohne'} onChange={(e) => setWithPrices(e.target.value === 'mit')} data-testid="lv-prices">
-            <option value="mit">Mit Preisen übernehmen (Einheits- und Positionspreise)</option>
-            <option value="ohne">Ohne Preise übernehmen (nur Positionen, Texte und Mengen)</option>
-          </select>
+        <label className="check-row span-2 lv-prices-check">
+          <input type="checkbox" checked={withPrices} onChange={(e) => setWithPrices(e.target.checked)} data-testid="lv-prices" />
+          <span>
+            Mit Preisen übernehmen <span className="muted small">(Einheits- und Positionspreise)</span>
+          </span>
         </label>
       </div>
       <div className={`banner ${mismatches.length || flagged.length || totalOff ? 'banner-warn' : 'banner-info'}`} data-testid="lv-review-summary">
