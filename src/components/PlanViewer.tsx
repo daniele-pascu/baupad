@@ -1058,7 +1058,10 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     }
     // (nicht mitten in einer Linie bzw. Punktfolge – dort darf der nächste Punkt auch außerhalb liegen)
     const midAction = !!clickStart.current || poly.current.length > 0;
-    if (currentTool !== 'select' && propsRef.current.onExitTool && (!propsRef.current.infinite || (propsRef.current.exitOutside && !midAction)) && !rectContains(region, toPage(v, p), 0)) {
+    // Unbegrenzte Zeichenfläche: nur der Mausklick neben das Blatt beendet das Werkzeug (PC). Am Handy/Tablet ist das Blatt
+    // klein und Finger bzw. Stift zeichnen auch daneben – dort würde jeder Tipp neben das Blatt das Werkzeug abschalten.
+    const outsideEnds = !propsRef.current.infinite || (propsRef.current.exitOutside && !midAction && e.pointerType === 'mouse');
+    if (currentTool !== 'select' && propsRef.current.onExitTool && outsideEnds && !rectContains(region, toPage(v, p), 0)) {
       // außerhalb des Plans getippt: zurück auf Auswahl, alle Werkzeuge aus (Ziehen verschiebt nur)
       gesture.current = { kind: 'pan', start: p, view: v, moved: false, tapTarget: null, exit: true };
       return;

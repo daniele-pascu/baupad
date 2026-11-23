@@ -14799,8 +14799,11 @@ html[data-theme='dark'] .ribbon-row[data-tab] .tool-btn.active svg {
 
 /* Handy/Tablet: Tasten im Kopf des Planeditors etwas weiter unter der Statusleiste (außerhalb von Safaris weichem Rand) */
 @media (pointer: coarse) {
-  .editor-topbar,
-  .editor-topbar.one-row {
+  .editor-topbar {
     padding-top: calc(10px + var(--safe-top));
+  }
+  /* gezeichnete Pläne: Kopf in einer Zeile möglichst flach (mehr Zeichenfläche) */
+  .editor-topbar.one-row {
+    padding-top: calc(8px + var(--safe-top));
   }
 }
