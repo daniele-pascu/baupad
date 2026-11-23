@@ -1197,6 +1197,33 @@ input[type='range'] {
   position: relative;
   z-index: 6;
 }
+/*
+ * Kopf des Planeditors bis unter die Statusleiste: der Streifen der Statusleiste gehört zum (deckenden) Kopf, und die
+ * Tasten stehen ein Stück darunter – sonst legt Safari am iPhone seinen weichen Rand (Unschärfe) über Plannummer und Tasten.
+ */
+.editor {
+  padding-top: 0;
+}
+.editor-topbar {
+  position: sticky;
+  top: 0;
+  padding-top: calc(4px + var(--safe-top));
+}
+/* Plannummer, Speicherstand und Tasten im Kopf kräftig (am Handy sonst blass) */
+.editor-topbar .plan-switch select {
+  color: var(--text);
+  -webkit-text-fill-color: var(--text);
+  font-weight: 700;
+  opacity: 1;
+}
+.editor-topbar .topbar-actions .icon-btn,
+.editor-topbar .topbar-actions .btn,
+.editor-topbar > .icon-btn {
+  color: var(--text);
+}
+.editor-topbar .topbar-actions .btn {
+  border-color: var(--border-strong);
+}
 .editor > .banner {
   margin: 4px 8px;
 }
@@ -2845,7 +2872,7 @@ tr.lv-flagged td {
   .editor-topbar.one-row {
     flex-wrap: nowrap;
     min-height: 48px;
-    padding-top: 2px;
+    padding-top: calc(2px + var(--safe-top));
     padding-bottom: 2px;
   }
   .editor-topbar.one-row .topbar-actions {
@@ -14768,4 +14795,12 @@ html[data-theme='dark'] .auth-divider::after {
 html[data-theme='dark'] .ribbon-row[data-tab] .tool-btn.active,
 html[data-theme='dark'] .ribbon-row[data-tab] .tool-btn.active svg {
   color: #fff;
+}
+
+/* Handy/Tablet: Tasten im Kopf des Planeditors etwas weiter unter der Statusleiste (außerhalb von Safaris weichem Rand) */
+@media (pointer: coarse) {
+  .editor-topbar,
+  .editor-topbar.one-row {
+    padding-top: calc(10px + var(--safe-top));
+  }
 }
