@@ -321,3 +321,9 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
   man ohnehin im Fenster danach („Art“). Vorschlag: am Titel erkannte MFK bleibt MFK; sonst LV, solange das Projekt noch
   kein LV hat, danach MFK.
 - Preise beim Übernehmen als **Kästchen mit Haken** „Mit Preisen übernehmen“ (Standard: angehakt) statt Auswahlliste.
+
+## Speicheranzeige: Gerät und zentrale Ablage an einer Stelle (23.11.2026, Daniele)
+- Konto → App und Speicher zeigt beides untereinander: **„Auf diesem Gerät … MB“** (Browser-Speicher: App für offline +
+  Kopie der Daten) und **„Zentrale Ablage: Gesamt … MB · davon Fotos … MB“** (zwei Nachkommastellen, ab 1 GB in GB).
+- Vorher zählte die Ablage nur Fotos (ohne Fotos stand 0 KB, obwohl Pläne, PDFs und Daten dort liegen). Jetzt zählt die
+  Funktion `storage` alle Dateien im Bucket; die Datensätze kommen über `my_storage_usage` dazu (SQL im Editor ausführen).

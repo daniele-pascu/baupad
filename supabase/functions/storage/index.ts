@@ -13,7 +13,8 @@
 //   delete      { keys: [...] }                                                     → Dateien löschen (Server)
 //   Rechte: Admin, Büro und Betreiber alles; Polier und Arbeiter nur freigegebene Projekte, firmenweite Daten nur mit dem
 //           passenden Werkzeug, Preise nur mit „Preise und Summen“ (s. accessOf) – lesen, schreiben, Fotos und Dateien
-//   usage       {}                                                                  → Anzahl und Bytes
+//   usage       {}                                                                  → Belegung: total (alle Dateien im Bucket unter ws/<id>/
+//                                                                                   + Datensätze), photoBytes, fileBytes, dataBytes; photos = Anzahl
 //   status      {}  (nur Betreiber)  → prüft Zugangsdaten gegen den Bucket
 //   setup-cors  {}  (nur Betreiber)  → CORS-Regeln am Bucket setzen (Browser darf direkt hoch-/herunterladen)
 //
@@ -192,6 +193,33 @@ async function context(req: Request): Promise<Ctx | null> {
   if (!r.ok) return null;
   const ctx = (await r.json()) as { workspace_id: string | null; operator: boolean; role?: string; sites?: string[]; tool_sites?: Record<string, string[]>; tools?: string[] } | null;
   return { ws: ctx?.workspace_id ?? null, operator: Boolean(ctx?.operator), token, role: ctx?.role ?? '', email: tokenEmail(token), sites: ctx?.sites ?? [], toolSites: ctx?.tool_sites ?? {}, tools: ctx?.tools ?? [] };
+}
+
+/** Belegung der Ablage: Größe aller Dateien unter `prefix` (ListObjectsV2, 1000 je Seite), davon unter photos/ */
+export async function bucketBytes(cfg: S3Config, prefix: string): Promise<{ total: number; photos: number; count: number }> {
+  let token = '';
+  let total = 0;
+  let photos = 0;
+  let count = 0;
+  for (let page = 0; page < 200; page++) {
+    const q: Record<string, string> = { 'list-type': '2', prefix, 'max-keys': '1000' };
+    if (token) q['continuation-token'] = token;
+    const { url, headers } = await signHeaders(cfg, 'GET', '/', q);
+    const r = await fetch(url, { headers });
+    const xml = await r.text();
+    if (!r.ok) throw new Error(`list ${r.status} ${xml.slice(0, 200)}`);
+    for (const m of xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)) {
+      const key = /<Key>([\s\S]*?)<\/Key>/.exec(m[1])?.[1] ?? '';
+      const size = Number(/<Size>(\d+)<\/Size>/.exec(m[1])?.[1] ?? 0);
+      total += size;
+      count++;
+      if (key.startsWith(`${prefix}photos/`)) photos += size;
+    }
+    if (!/<IsTruncated>true<\/IsTruncated>/.test(xml)) break;
+    token = (/<NextContinuationToken>([\s\S]*?)<\/NextContinuationToken>/.exec(xml)?.[1] ?? '').replace(/&amp;/g, '&');
+    if (!token) break;
+  }
+  return { total, photos, count };
 }
 
 /** Datenbankzugriff mit der Anmeldung des Benutzers (Zugriffsregeln der Tabelle gelten) */
@@ -768,8 +796,16 @@ export async function handler(req: Request): Promise<Response> {
     }
 
     if (action === 'usage') {
-      const u = await rest(ctx.token, 'rpc/my_storage_usage', { method: 'POST', body: '{}' });
-      return json(200, u ?? { photos: 0, bytes: 0 }, origin);
+      const u = ((await rest(ctx.token, 'rpc/my_storage_usage', { method: 'POST', body: '{}' })) ?? { photos: 0, bytes: 0 }) as Record<string, number>;
+      // Dateien (Pläne, Planbilder, PDFs, Fotos) direkt aus dem Bucket zählen; Datensätze (Projekte, Aufmaße …) laut Datenbank
+      try {
+        const files = await bucketBytes(cfg, prefix);
+        const dataBytes = Number(u.data_bytes ?? 0) || 0;
+        return json(200, { ...u, total: files.total + dataBytes, photoBytes: files.photos, fileBytes: files.total - files.photos, dataBytes }, origin);
+      } catch (e) {
+        console.error('usage', e);
+        return json(200, u, origin);
+      }
     }
 
     return json(400, { error: 'action' }, origin);

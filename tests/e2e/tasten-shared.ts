@@ -65,6 +65,7 @@ const APP = [
   'materialverwaltung?t=lieferanten',
   'konto',
   'konto/sicherheit',
+  'konto/app',
 ];
 
 export function tastenTests() {
