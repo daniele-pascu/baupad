@@ -608,13 +608,69 @@ export function fillPaths(shape: Shape, map: (p: Point) => Point, fill: Fill, un
   const bg = fill.bg ? { bg: pathToSvg(shapePath(shape), map) } : {};
   const hatchWidth = (h.pattern === 'dots' ? 1.6 : 0.6) * unit;
   if (anchor && anchor > 0) {
-    const geo = hatchGeometry(outlinePoints(shape).points, h.pattern, h.angle, Math.max(1.5, h.spacing) * anchor);
+    const poly = outlinePoints(shape).points;
+    // Ausgabe-Einheiten je Einheit der Form (Bildschirm: Zoom) – stark verkleinert nicht zu einer Fläche verschwimmen lassen
+    const o = map({ x: 0, y: 0 });
+    const e = map({ x: 1, y: 0 });
+    const zoom = Math.hypot(e.x - o.x, e.y - o.y);
+    const minOut = zoom > 0 ? (HATCH_MIN_SCREEN_PT * unit) / zoom : 0;
+    const geo = hatchGeometry(poly, h.pattern, h.angle, Math.max(hatchSpacing(poly, h.spacing, anchor, h.pattern), minOut));
     const mapped = { segments: geo.segments.map(([a, b]) => [map(a), map(b)] as [Point, Point]), dots: geo.dots.map(map) };
     return { hatch: hatchSvg(mapped), hatchWidth, ...bg };
   }
   const poly = outlinePoints(shape).points.map(map);
-  const geo = hatchGeometry(poly, h.pattern, h.angle, Math.max(1.5, h.spacing) * unit);
+  const geo = hatchGeometry(poly, h.pattern, h.angle, hatchSpacing(poly, h.spacing, unit, h.pattern));
   return { hatch: hatchSvg(geo), hatchWidth, ...bg };
+}
+
+/** Schmale Flächen: mindestens so viele Schraffurlinien über die schmalste Breite (z. B. 0,30 m Wand → 6 Linien) */
+export const HATCH_MIN_LINES = 6;
+/** engster Abstand der Schraffurlinien auf dem Papier (pt ≈ 0,42 mm), damit sie nicht zu einer Fläche verlaufen */
+export const HATCH_MIN_PT = 1.2;
+const MOTIF_PATTERNS = new Set<HatchPattern>(['insulationSoft', 'insulationHard', 'wood', 'woodBased', 'stone', 'brick', 'earth', 'gravel', 'gypsum']);
+/** engster Abstand am Bildschirm (pt, mal PX_PER_PT) – nur wenn der Plan stark verkleinert ist */
+const HATCH_MIN_SCREEN_PT = 1.8;
+
+/**
+ * Schmalste Breite einer Fläche (Abstand zweier paralleler Geraden, zwischen denen sie liegt). Bei wenigen Ecken
+ * exakt (senkrecht zu einer Kante), sonst in 3°-Schritten.
+ */
+export function minWidth(poly: Point[]): number {
+  if (poly.length < 3) return 0;
+  const dirs: [number, number][] = [];
+  if (poly.length <= 64) {
+    for (let i = 0; i < poly.length; i++) {
+      const a = poly[i];
+      const b = poly[(i + 1) % poly.length];
+      const len = Math.hypot(b.x - a.x, b.y - a.y);
+      if (len > 1e-12) dirs.push([-(b.y - a.y) / len, (b.x - a.x) / len]);
+    }
+  } else for (let d = 0; d < 180; d += 3) dirs.push([Math.cos((d * Math.PI) / 180), Math.sin((d * Math.PI) / 180)]);
+  let best = Infinity;
+  for (const [nx, ny] of dirs) {
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (const p of poly) {
+      const v = p.x * nx + p.y * ny;
+      if (v < lo) lo = v;
+      if (v > hi) hi = v;
+    }
+    best = Math.min(best, hi - lo);
+  }
+  return Number.isFinite(best) ? best : 0;
+}
+
+/**
+ * Abstand der Schraffurlinien in Ausgabe-Einheiten: gewählter Abstand (pt, mal `perPt`), bei schmalen Flächen dichter –
+ * mindestens HATCH_MIN_LINES Linien über die schmalste Breite, aber nie enger als HATCH_MIN_PT auf dem Papier.
+ */
+export function hatchSpacing(poly: Point[], spacingPt: number, perPt: number, pattern: HatchPattern = 'lines'): number {
+  const base = Math.max(1.5, spacingPt) * perPt;
+  // Baustoff-Bilder (Dämmstoff, Holz, Ziegel …) behalten ihre Größe – nur Linien- und Punktmuster werden dichter
+  if (MOTIF_PATTERNS.has(pattern)) return base;
+  const w = minWidth(poly);
+  if (!(w > 0)) return base;
+  return Math.min(base, Math.max(HATCH_MIN_PT * perPt, w / HATCH_MIN_LINES));
 }
 
 /** Schraffur am Bildschirm: Seiteneinheiten je pt auf dem Papier – gezeichnete Pläne nach Maßstab (k Einheiten je m) */
