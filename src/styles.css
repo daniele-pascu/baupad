@@ -776,12 +776,16 @@ input[type='range'] {
   backdrop-filter: blur(6px);
   animation: backdrop-in 0.2s ease both;
 }
+/* Tablet mit Bildschirmtastatur: Fenster in der Fläche über der Tastatur */
+html.kb-open .modal-backdrop {
+  padding-bottom: calc(16px + var(--kb, 0px));
+}
 .modal {
   display: flex;
   flex-direction: column;
   width: 100%;
   max-width: 520px;
-  max-height: calc(100dvh - 32px);
+  max-height: calc(100dvh - 32px - var(--kb, 0px));
   background: var(--surface);
   border-radius: 22px;
   box-shadow: var(--shadow-lg);
@@ -808,7 +812,7 @@ input[type='range'] {
 }
 .modal-full {
   max-width: 1400px;
-  height: calc(100dvh - 32px);
+  height: calc(100dvh - 32px - var(--kb, 0px));
 }
 .modal-header {
   display: flex;
@@ -2334,15 +2338,17 @@ tr.lv-flagged td {
   .modal-backdrop {
     align-items: flex-end;
     padding: 0;
+    /* Bildschirmtastatur offen: das Fenster sitzt darüber (Eingabefeld nicht verdeckt) – --kb aus lib/appearance.ts */
+    padding-bottom: var(--kb, 0px);
   }
   .modal,
   .modal-full {
     max-width: none;
-    max-height: 94dvh;
+    max-height: calc(94dvh - var(--kb, 0px));
     border-radius: 16px 16px 0 0;
   }
   .modal-full {
-    height: 94dvh;
+    height: calc(94dvh - var(--kb, 0px));
   }
   .toolbar {
     left: 0;
