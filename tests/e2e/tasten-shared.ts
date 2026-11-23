@@ -718,6 +718,17 @@ export function tastenTests() {
     // Mehrfachauswahl und Befehlsleiste (Kopieren mit Eingabefeld): dazu ein Rechteck einfügen
     await page.locator('body').press('Escape');
     await expect(page.getByTestId('element-bar')).toHaveCount(0);
+    // Linien-Leiste: „Länge“ und „Richtung“ dürfen nicht zusammengequetscht werden – reicht der Platz nicht,
+    // rutschen „Maße anzeigen“, Darstellung, Löschen und X in die nächste Zeile (Fehler am iPhone, 23.11.2026)
+    await pickTool(page, 'draw-line');
+    await page.getByTestId('insert-length').fill('4');
+    await page.getByTestId('insert-submit').click();
+    await expect(page.getByTestId('element-bar')).toBeVisible();
+    for (const w of await page.locator('[data-testid="element-bar"] .draw-field').evaluateAll((els) => els.map((e) => e.getBoundingClientRect().width)))
+      if (w < 80) out.push(`Linien-Leiste: Eingabefeld nur ${Math.round(w)} px breit (zusammengequetscht)`);
+    await pruefe(page, 'Linien-Leiste', out);
+    await page.locator('body').press('Escape');
+    await expect(page.getByTestId('element-bar')).toHaveCount(0);
     await pickTool(page, 'draw-rect');
     await page.getByTestId('insert-length').fill('4');
     await page.getByTestId('insert-width').fill('3');

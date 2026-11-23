@@ -804,8 +804,10 @@ html.app-fixed .page.loading.with-nav::before {
   display: none;
 }
 .editor-plan:has(> .ribbon-float) .draw-bar > .draw-field {
-  flex: 1 1 0;
-  min-width: 0;
+  /* Mindestbreite: reicht der Platz nicht, rutschen Kästchen und Schluss-Tasten in die nächste Zeile
+     (sonst wurden die Felder am Handy auf wenige Pixel gequetscht und „Länge“/„Richtung“ lagen übereinander) */
+  flex: 1 1 96px;
+  min-width: 96px;
 }
 .editor-plan:has(> .ribbon-float) .draw-bar > .draw-field input {
   width: 100%;
