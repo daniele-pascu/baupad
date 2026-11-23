@@ -52,13 +52,14 @@ export const planHeading = (plan: Pick<Plan, 'title' | 'planNumber'> & Partial<P
 
 /**
  * Zweite Zeile im Plankopf (dünner, dunkelgrau unter Nummer und Titel): wozu der Plan gehört –
- * Projektnummer und -name, Kostenstelle, Baustelle; was fehlt, fällt weg. Gleiche Angaben stehen nur einmal.
+ * Projektnummer und -name, Kostenstelle, Baustelle (Adresse); was fehlt, fällt weg. Gleiche Angaben stehen nur einmal.
  */
-export function planSubline(project: Pick<Project, 'name'> & Partial<Pick<Project, 'number' | 'site'>>, costCenter?: Pick<CostCenter, 'number' | 'name'>): string {
+export function planSubline(project: Pick<Project, 'name'> & Partial<Pick<Project, 'number' | 'site' | 'address'>>, costCenter?: Pick<CostCenter, 'number' | 'name'>): string {
   const parts = [
     [project.number?.trim(), project.name.trim()].filter(Boolean).join(' · '),
     costCenter ? [costCenter.number?.trim(), costCenter.name.trim()].filter(Boolean).join(' – ') : '',
-    project.site?.trim() ?? '',
+    // Baustelle: eigene Bezeichnung (ältere Projekte), sonst die Adresse
+    project.site?.trim() || project.address?.trim() || '',
   ].filter(Boolean);
   return parts.filter((x, i) => parts.findIndex((y) => y.toLowerCase() === x.toLowerCase()) === i).join('  |  ');
 }

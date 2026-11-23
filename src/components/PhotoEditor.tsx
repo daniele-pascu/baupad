@@ -153,19 +153,28 @@ export function PhotoEditor({ src, width, height, title, onClose, onSave }: { sr
   }, [view]);
 
   // zuletzt benutzte Darstellung je Benutzer
+  /** schon geändert, bevor der Benutzer feststand (die Anmeldung antwortet manchmal erst nach Sekunden) */
+  const early = useRef<Style | null>(null);
   useEffect(() => {
     void deviceUserName().then((u) => {
       setUser(u);
       try {
-        const raw = localStorage.getItem(styleKey(u));
-        if (raw) setStyle({ ...DEFAULT_STYLE, ...(JSON.parse(raw) as Partial<Style>) });
+        // inzwischen gewählte Darstellung nicht verlieren und nicht mit der alten überschreiben
+        if (early.current) localStorage.setItem(styleKey(u), JSON.stringify(early.current));
+        else {
+          const raw = localStorage.getItem(styleKey(u));
+          if (raw) setStyle({ ...DEFAULT_STYLE, ...(JSON.parse(raw) as Partial<Style>) });
+        }
       } catch {
         /* egal */
       }
     });
   }, []);
   const remember = (s: Style) => {
-    if (user === null) return;
+    if (user === null) {
+      early.current = s;
+      return;
+    }
     try {
       localStorage.setItem(styleKey(user), JSON.stringify(s));
     } catch {

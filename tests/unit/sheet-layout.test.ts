@@ -109,6 +109,8 @@ describe('Plankopf: zweite Zeile (Projekt, Kostenstelle, Baustelle)', () => {
     expect(planSubline({ number: '2026-04', name: 'Wohnanlage Sonnenhof', site: 'Musterstraße 12' }, { number: '10', name: 'Tiefgarage' })).toBe('2026-04 · Wohnanlage Sonnenhof  |  10 – Tiefgarage  |  Musterstraße 12');
     expect(planSubline({ name: 'Halle Nord', site: '' }, { name: 'EG' })).toBe('Halle Nord  |  EG');
     expect(planSubline({ name: 'Halle Nord' })).toBe('Halle Nord');
+    // ohne eigene Baustellen-Bezeichnung steht die Adresse
+    expect(planSubline({ name: 'Halle Nord', site: '', address: 'Hafenstraße 3' })).toBe('Halle Nord  |  Hafenstraße 3');
   });
   it('gleiche Angaben stehen nur einmal (Baustelle heißt wie das Projekt)', async () => {
     const { planSubline } = await import('../../src/lib/sheet-layout');

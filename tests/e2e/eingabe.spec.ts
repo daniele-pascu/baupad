@@ -393,7 +393,9 @@ test('Messung: Fotos wie im Mängelplan (Galerie → Fotodokumentation), Taste F
   const text = execFileSync('pdftotext', [pdf, '-'], { encoding: 'utf8' });
   expect(text).toContain('Legende');
   expect(text).toContain('Betonsanierung');
-  expect(text).not.toContain('Fotos');
+  // Plankopf: unter Nummer und Titel steht das Projekt („Fotos Aufmaß“) – sonst kein Hinweis auf Fotos im Plan
+  expect(text).toContain('Fotos Aufmaß');
+  expect(text.replace('Fotos Aufmaß', '')).not.toContain('Fotos');
   // im PDF oben rechts
   const bbox = execFileSync('pdftotext', ['-bbox', pdf, '-'], { encoding: 'utf8' });
   const pageW = Number(/<page width="([\d.]+)"/.exec(bbox)![1]);
