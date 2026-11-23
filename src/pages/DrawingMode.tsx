@@ -545,8 +545,10 @@ export function useDrawing(opts: {
     track.current.lines = [];
     track.current.par = null;
     if (ctx.tool === 'selwin') return p;
-    // freie Punkte und Längen auf ganze Millimeter (angezeigt werden 2 Nachkommastellen)
-    const mm = (n: number) => Math.round(n * 1000) / 1000;
+    // freie Punkte und Längen auf ganze Millimeter – so weit vergrößert, dass das Raster feiner als 1 mm ist, auf
+    // 0,0001 m (angezeigt werden immer 2 Nachkommastellen)
+    const fine = gridStep(ctx.scale * k, 14) < 0.001 ? 1e4 : 1e3;
+    const mm = (n: number) => Math.round(n * fine) / fine;
     const pm = { x: p.x / k, y: p.y / k };
     const pxPerM = ctx.scale * k;
     const tol = (isCoarse() ? 16 : 9) / pxPerM;
@@ -598,7 +600,7 @@ export function useDrawing(opts: {
       }
       if (!hit) {
         // ohne Fangpunkt: Länge im Raster bzw. in ganzen Millimetern
-        const step = gridOn ? gridStep(pxPerM, 14) : 0.01;
+        const step = gridOn ? gridStep(pxPerM, 14) : 1 / fine;
         const len = o.x === from.x ? o.y - from.y : o.x - from.x;
         const L = roundM(Math.round(len / step) * step);
         q = o.x === from.x ? { x: from.x, y: from.y + L } : { x: from.x + L, y: from.y };
