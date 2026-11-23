@@ -103,20 +103,20 @@ describe('Format und Überschrift', () => {
   });
 });
 
-describe('Plankopf: zweite Zeile (Kostenstelle bzw. Projektnummer, dann Bauvorhaben/Adresse)', () => {
-  it('Kostenstelle, dann die Adresse', async () => {
+describe('Plankopf: zweite Zeile (Nummer und Bauvorhaben)', () => {
+  it('Kostenstellen-Nr. und Adresse – wie „90262 Gesundheitsplatz 6, 1017 Wien“', async () => {
     const { planSubline } = await import('../../src/lib/sheet-layout');
-    expect(planSubline({ number: '2026-04', name: 'Wohnanlage Sonnenhof', address: 'Musterstraße 12, Wien' }, { number: '10', name: 'Tiefgarage' })).toBe('10 – Tiefgarage  |  Musterstraße 12, Wien');
-    expect(planSubline({ name: 'Halle Nord', address: 'Hafenstraße 3' }, { name: 'EG' })).toBe('EG  |  Hafenstraße 3');
+    expect(planSubline({ number: '2026-04', name: 'Wohnanlage', address: 'Gesundheitsplatz 6, 1017 Wien' }, { number: '90262', name: 'Tiefgarage' })).toBe('90262 Gesundheitsplatz 6, 1017 Wien');
   });
-  it('ohne Kostenstelle die Projektnummer; ohne Adresse der Projektname', async () => {
+  it('ohne Kostenstellen-Nr. die Projektnummer, ohne beide die Bezeichnung der Kostenstelle', async () => {
     const { planSubline } = await import('../../src/lib/sheet-layout');
-    expect(planSubline({ number: '2026-04', name: 'Wohnanlage Sonnenhof', address: 'Musterstraße 12' })).toBe('2026-04  |  Musterstraße 12');
-    expect(planSubline({ number: '2026-04', name: 'Wohnanlage Sonnenhof', address: '' }, { name: 'EG' })).toBe('EG  |  Wohnanlage Sonnenhof');
+    expect(planSubline({ number: '2026-04', name: 'Wohnanlage', address: 'Musterstraße 12' }, { name: 'EG' })).toBe('2026-04 Musterstraße 12');
+    expect(planSubline({ name: 'Halle Nord', address: 'Hafenstraße 3' }, { name: 'EG' })).toBe('EG – Hafenstraße 3');
+  });
+  it('ohne Adresse der Projektname; Gleiches nur einmal', async () => {
+    const { planSubline } = await import('../../src/lib/sheet-layout');
+    expect(planSubline({ name: 'Halle Nord' }, { number: '7', name: 'EG' })).toBe('7 Halle Nord');
     expect(planSubline({ name: 'Halle Nord' })).toBe('Halle Nord');
-  });
-  it('gleiche Angaben stehen nur einmal (Kostenstelle heißt wie das Projekt)', async () => {
-    const { planSubline } = await import('../../src/lib/sheet-layout');
     expect(planSubline({ name: 'Halle Nord' }, { name: 'halle nord' })).toBe('halle nord');
   });
 });
