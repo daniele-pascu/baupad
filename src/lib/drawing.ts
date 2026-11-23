@@ -1,5 +1,5 @@
 import { round2 } from './numbers';
-import { distanceToPolyline, fromShapeLocal, freehandPoints, lineShape, outlineParts, polygonArea, shapeAABB, shapeCenter, shapeVertices, toShapeLocal, type Point } from './geometry';
+import { distanceToPolyline, fromShapeLocal, freehandPoints, lineShape, outlineParts, polygonArea, segmentHitsRect, shapeAABB, shapeCenter, shapeVertices, toShapeLocal, type Point } from './geometry';
 import { formatMeasure } from './numbers';
 import type { Damage, DrawElement, DrawingInfo, Leader, LeaderEnd, PaperFormat, Plan, Rect, Shape, TextFont } from './types';
 import { charWidthFactor } from './text-font';
@@ -421,22 +421,26 @@ export function fitTextResize(e: Pick<DrawElement, 'shape' | 'text' | 'font'> & 
 // ---------------------------------------------------------------------------
 // Text mit Pfeil
 
-/** Bezugslinie eines Textes im Bezugssystem des Textes (nicht gedreht): Linienzug Spitze → Knick → Text und ihr Ende. */
+/** Bezugslinie eines Textes im Bezugssystem des Textes (nicht gedreht): Linie vom Text zur Spitze und ihr Ende. */
 export interface CalloutGeometry {
-  /** Spitze, Knick, Ansatz am Text */
+  /** Spitze, (nur wenn nötig) kurzer Knick neben dem Text, Ansatz am Text */
   line: Point[];
   /** gefüllte Pfeilspitze (Spitze, links, rechts) – nur beim Ende „Pfeil“ */
   head: [Point, Point, Point] | null;
   /** gefüllter Punkt an der Spitze – nur beim Ende „Punkt“ */
   dot: { c: Point; r: number } | null;
-  /** Strichstärke in derselben Einheit */
-  width: number;
 }
 
+/** Strichstärke der Bezugslinie: immer gleich – am Bildschirm in Pixeln, im PDF in pt */
+export const LEADER_WIDTH_PX = 1.3;
+export const LEADER_WIDTH_PT = 0.5;
+
 /**
- * Bezugslinie zum Text: kurzer waagrechter Anschluss an der näheren Seite (links bzw. rechts mittig), dann schräg zur
- * Spitze. `size` (wie `box`, z. B. die Schrifthöhe beim Einfügen) bestimmt Pfeilspitze, Punkt, Anschluss und
- * Strichstärke – unabhängig von der jetzigen Schrift- bzw. Rahmengröße. Alles im Bezugssystem des Textes (ungedreht).
+ * Bezugslinie zum Text: gerade von der näheren Seite des Textes (links bzw. rechts mittig) zur Spitze. Nur wenn diese
+ * Gerade durch den Text liefe (Spitze über, unter bzw. hinter dem Text), führt zuerst ein kurzes waagrechtes Stück vom
+ * Text weg, dann geht es gerade zur Spitze. `size` (wie `box`, z. B. die Schrifthöhe beim Einfügen) bestimmt
+ * Pfeilspitze, Punkt, Abstand und Länge dieses Stücks – unabhängig von der jetzigen Schrift- bzw. Rahmengröße.
+ * Alles im Bezugssystem des Textes (ungedreht).
  */
 export function calloutGeometry(box: Rect, tip: Point, size: number, end: LeaderEnd = 'arrow'): CalloutGeometry {
   const cx = box.x + box.w / 2;
@@ -444,9 +448,11 @@ export function calloutGeometry(box: Rect, tip: Point, size: number, end: Leader
   const left = tip.x < cx;
   const gap = size * 0.25;
   const attach = { x: left ? box.x - gap : box.x + box.w + gap, y: cy };
-  const land = Math.min(size * 0.8, Math.max(0, left ? attach.x - tip.x : tip.x - attach.x));
-  const knee = { x: attach.x + (left ? -land : land), y: cy };
-  const from = Math.hypot(tip.x - knee.x, tip.y - knee.y) > 1e-9 ? knee : attach;
+  // Text mit etwas Rand: läuft die Gerade hindurch, kommt der kurze Knick neben den Text
+  const pad = gap * 0.6;
+  const body = { x: box.x - pad, y: box.y - pad, w: box.w + 2 * pad, h: box.h + 2 * pad };
+  const knee = { x: attach.x + (left ? -1 : 1) * size * 0.8, y: cy };
+  const from = segmentHitsRect(attach, tip, body) ? knee : attach;
   const d = Math.hypot(tip.x - from.x, tip.y - from.y) || 1;
   const ux = (tip.x - from.x) / d;
   const uy = (tip.y - from.y) / d;
@@ -454,10 +460,9 @@ export function calloutGeometry(box: Rect, tip: Point, size: number, end: Leader
   const W = L * 0.34;
   const base = { x: tip.x - ux * L, y: tip.y - uy * L };
   return {
-    line: [tip, base, ...(from === knee ? [knee] : []), attach].filter((p, i, a) => i === 0 || Math.hypot(p.x - a[i - 1].x, p.y - a[i - 1].y) > 1e-9),
+    line: from === knee ? [tip, knee, attach] : [tip, attach],
     head: end === 'arrow' ? [tip, { x: base.x - uy * W, y: base.y + ux * W }, { x: base.x + uy * W, y: base.y - ux * W }] : null,
     dot: end === 'dot' ? { c: tip, r: size * 0.11 } : null,
-    width: size * 0.09,
   };
 }
 
@@ -485,7 +490,7 @@ export function calloutWorld(s: Shape, leader: Leader, scale: number, sizeM: num
   const c = shapeCenter(s);
   const g = calloutGeometry({ x: s.x, y: s.y, w: s.w, h: s.h }, { x: c.x + leader.dx * scale, y: c.y + leader.dy * scale }, sizeM * scale, leader.end);
   const R = (p: Point) => fromShapeLocal(s, p);
-  return { line: g.line.map(R), head: g.head ? (g.head.map(R) as [Point, Point, Point]) : null, dot: g.dot ? { c: R(g.dot.c), r: g.dot.r } : null, width: g.width };
+  return { line: g.line.map(R), head: g.head ? (g.head.map(R) as [Point, Point, Point]) : null, dot: g.dot ? { c: R(g.dot.c), r: g.dot.r } : null };
 }
 
 // ---------------------------------------------------------------------------

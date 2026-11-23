@@ -18,7 +18,7 @@ import {
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { componentsOf, costCenterLabel, damagesOf, elementsOf, findPosition, planTitle, safeFileName, type ExportFile } from './aufmass';
 import { areasBelow, dimsVisible, visibleDamages, visibleElements } from './layers';
-import { annotationsOf, calloutWorld, leaderSize, dimGeometry, dimLeader, isDrawingPlan, ROOM_LINE, textBoxWidth, textFontSize, textLines, lineEnds, PAPER, PRINT_HEADER_MM, PRINT_MARGIN_MM, fillRegion, aufmassPaper, shapeToPage, unitsPerMeter } from './drawing';
+import { annotationsOf, calloutWorld, leaderSize, LEADER_WIDTH_PT, dimGeometry, dimLeader, isDrawingPlan, ROOM_LINE, textBoxWidth, textFontSize, textLines, lineEnds, PAPER, PRINT_HEADER_MM, PRINT_MARGIN_MM, fillRegion, aufmassPaper, shapeToPage, unitsPerMeter } from './drawing';
 import { withRoomAreas } from './regions';
 const textBoxWidthOf = (e: DrawElement, h: number) => textBoxWidth(e, h, e.font);
 import { getBlob } from './db';
@@ -116,7 +116,7 @@ function drawTextElement(ctx: Ctx, page: PDFPage, e: DrawElement, shape: Shape, 
     const k = shape.h / (e.shape.h || 1);
     const g = calloutWorld(shape, e.leader, k, leaderSize(e));
     const col = hexToRgb(visibleHex(e.color));
-    const lw = Math.max(0.35, Math.min(0.9, g.width * ptPerUnit));
+    const lw = LEADER_WIDTH_PT; // immer gleich dick
     const pts = g.line.map(map);
     for (let i = 0; i + 1 < pts.length; i++) page.drawLine({ start: pts[i], end: pts[i + 1], thickness: lw, color: col, lineCap: LineCapStyle.Round });
     if (g.head) {

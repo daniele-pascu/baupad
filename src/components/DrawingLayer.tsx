@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { annotationsOf, calloutGeometry, dimGeometry, dimLeader, gridStep, majorStep, ROOM_LINE, shapeToMeters, textFontSize, textLines } from '../lib/drawing';
+import { annotationsOf, calloutGeometry, LEADER_WIDTH_PX, dimGeometry, dimLeader, gridStep, majorStep, ROOM_LINE, shapeToMeters, textFontSize, textLines } from '../lib/drawing';
 import { pathToSvg, polygonShape, shapeCenter, shapePath, shapeVertices, toPage, toScreen, type Point, type View } from '../lib/geometry';
 import { DEFAULT_TRANSPARENCY, fillOf, hatchAnchor, PX_PER_PT, strokeGeometry } from '../lib/style';
 import type { DrawElement, DrawElementType, Rect, Shape } from '../lib/types';
@@ -140,7 +140,8 @@ export function renderElement(
     const callout = e.leader
       ? calloutGeometry({ x: tl0.x, y: tl0.y, w: pageShape.w * view.scale, h: pageShape.h * view.scale }, { x: c.x + e.leader.dx * k * view.scale, y: c.y + e.leader.dy * k * view.scale }, ls, e.leader.end)
       : null;
-    const lw = callout ? Math.max(1, Math.min(2.2, callout.width)) : 1;
+    // immer gleich dick, unabhängig von Schriftgrad und Vergrößerung
+    const lw = LEADER_WIDTH_PX;
     return (
       <g data-element="text" data-element-id={e.id} data-callout={callout ? '1' : undefined} opacity={faded ? 0.55 : 1} transform={rot ? `rotate(${rot} ${c.x} ${c.y})` : undefined}>
         {callout && (
