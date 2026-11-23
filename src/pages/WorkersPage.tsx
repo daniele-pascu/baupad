@@ -16,6 +16,7 @@ import {
   addSite,
   assign,
   carryOver,
+  carrySites,
   DAY_NAMES,
   DAY_SHORT,
   dayDate,
@@ -207,6 +208,7 @@ export function WorkersPage() {
   const [reloadKey, setReloadKey] = useState(0);
   const [dialog, setDialog] = useState<
     | { kind: 'times' }
+    | { kind: 'forward' }
     | { kind: 'site'; site?: WeekSite }
     | { kind: 'pick' }
     | { kind: 'assign'; siteId: string; days: number[] }
@@ -721,6 +723,17 @@ export function WorkersPage() {
           <button type="button" className="btn btn-sm crew-carry-btn" onClick={() => void carryAgain()} title="Projekte und Arbeiter der Vorwoche in diese Woche übernehmen" data-testid="crew-carry">
             <Icon name="copy" size={16} /> Vorwoche übernehmen
           </button>
+          {plan.sites.length > 0 && (
+            <button
+              type="button"
+              className="btn btn-sm crew-forward-btn"
+              onClick={() => setDialog({ kind: 'forward' })}
+              title="Einzelne Baustellen (mit ihrer Partie) in die nächste Woche weiterführen"
+              data-testid="crew-forward"
+            >
+              In KW {isoWeekNo(addDays(weekId, 7))} weiterführen <Icon name="next" size={16} />
+            </button>
+          )}
         </div>
         <div className="seg-toggle crew-view" role="radiogroup" aria-label="Ansicht">
           <button type="button" role="radio" aria-checked={view === 'sites'} className={view === 'sites' ? 'on' : ''} onClick={() => setView('sites')} data-testid="crew-view-sites">
@@ -1138,6 +1151,24 @@ export function WorkersPage() {
         />
       )}
       {preview && <PdfPreview file={preview} onBack={() => setPreview(null)} onClose={() => setPreview(null)} />}
+      {dialog?.kind === 'forward' && (
+        <ForwardDialog
+          plan={plan}
+          weekId={weekId}
+          infoOf={siteInfo}
+          styleOf={crewColor}
+          onClose={() => setDialog(null)}
+          onForward={(ids, withWorkers) =>
+            run(async () => {
+              const nextId = addDays(weekId, 7);
+              const target = (await getWeek(nextId)) ?? emptyWeek(nextId);
+              await saveWeek(carrySites(target, plan, ids, withWorkers));
+              setDialog(null);
+              toast(`${ids.length} ${ids.length === 1 ? 'Baustelle' : 'Baustellen'} in KW ${isoWeekNo(nextId)} weitergeführt${withWorkers ? ' – mit derselben Partie' : ''}.`, 'success');
+            })
+          }
+        />
+      )}
       {dialog?.kind === 'open' && (
         <OpenDialog
           plan={plan}
@@ -1797,6 +1828,92 @@ function OpenDialog({
 }
 
 /** Tagesliste: Tag wählen */
+/**
+ * Weiterführen: gewählte Baustellen (Standard: alle laufenden) mit ihrer Partie in die nächste Woche übernehmen –
+ * feste Partien laufen weiter, kurze Baustellen bleiben in dieser Woche. Ist die nächste Woche schon geplant,
+ * kommen die gewählten Baustellen dazu; sonst besteht sie nur aus den gewählten.
+ */
+function ForwardDialog({
+  plan,
+  weekId,
+  infoOf,
+  styleOf,
+  onForward,
+  onClose,
+}: {
+  plan: WeekPlan;
+  weekId: string;
+  infoOf(s: WeekSite): ProjectLabelInfo;
+  styleOf(s: WeekSite): CSSProperties;
+  onForward(siteIds: string[], withWorkers: boolean): void;
+  onClose(): void;
+}) {
+  const nextId = addDays(weekId, 7);
+  const [picked, setPicked] = useState<Set<string>>(() => new Set(plan.sites.filter((s) => !s.finished).map((s) => s.id)));
+  const [withWorkers, setWithWorkers] = useState(true);
+  const [planned, setPlanned] = useState<boolean | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void getWeek(nextId).then((w) => alive && setPlanned(!!w));
+    return () => {
+      alive = false;
+    };
+  }, [nextId]);
+  const toggle = (id: string) =>
+    setPicked((cur) => {
+      const next = new Set(cur);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const count = (s: WeekSite) => new Set(s.days.flat()).size;
+  return (
+    <Modal
+      title={`In KW ${isoWeekNo(nextId)} weiterführen`}
+      onClose={onClose}
+      testId="forward-dialog"
+      footer={
+        <>
+          <button type="button" className="btn" onClick={onClose}>
+            Abbrechen
+          </button>
+          <button type="button" className="btn btn-primary" disabled={!picked.size} onClick={() => onForward([...picked], withWorkers)} data-testid="forward-save">
+            {picked.size ? `${picked.size} weiterführen` : 'Weiterführen'}
+          </button>
+        </>
+      }
+    >
+      <p className="muted small">
+        {planned
+          ? `KW ${isoWeekNo(nextId)} ist schon geplant – die gewählten Baustellen kommen dazu, nichts wird gelöscht.`
+          : `KW ${isoWeekNo(nextId)} enthält danach nur die gewählten Baustellen. Kurze Baustellen einfach abwählen.`}
+      </p>
+      <ul className="crew-forward-list" data-testid="forward-list">
+        {plan.sites.map((s) => {
+          const info = infoOf(s);
+          return (
+            <li key={s.id}>
+              <label className="check-row crew-forward-row" style={styleOf(s)} data-testid="forward-site" data-site={s.name}>
+                <input type="checkbox" checked={picked.has(s.id)} onChange={() => toggle(s.id)} />
+                <span className="crew-forward-name">
+                  <strong>{[info.number, info.name].filter(Boolean).join(' ')}</strong>
+                  <span className="muted small">
+                    {s.paused ? 'pausiert' : s.finished ? 'abgeschlossen' : `${count(s)} ${count(s) === 1 ? 'Arbeiter' : 'Arbeiter'}`}
+                  </span>
+                </span>
+              </label>
+            </li>
+          );
+        })}
+      </ul>
+      <label className="check-row">
+        <input type="checkbox" checked={withWorkers} onChange={(e) => setWithWorkers(e.target.checked)} data-testid="forward-workers" />
+        <span>Mit derselben Partie (gleiche Arbeiter an denselben Tagen)</span>
+      </label>
+    </Modal>
+  );
+}
+
 function DayListDialog({ site, days, weekId, count, onPick, onClose }: { site: WeekSite; days: number[]; weekId: string; count(day: number): number; onPick(day: number): void; onClose(): void }) {
   return (
     <Modal title={`Tagesliste: ${site.name}`} onClose={onClose} testId="daylist-dialog">

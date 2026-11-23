@@ -70,6 +70,28 @@ export function carryOver(prev: WeekPlan, id: string): WeekPlan {
 }
 
 const touch = (w: WeekPlan, sites: WeekSite[], vacation = w.vacation): WeekPlan => ({ ...w, sites, vacation, updatedAt: Date.now() });
+
+/**
+ * Einzelne Baustellen in eine andere (meist die nächste) Woche weiterführen: nur die gewählten, wahlweise mit
+ * denselben Arbeitern an denselben Wochentagen. Steht die Baustelle dort schon, kommen die Arbeiter dazu (nichts
+ * geht verloren); sonst wird sie angelegt. Andere Baustellen der Zielwoche bleiben unverändert.
+ */
+export function carrySites(target: WeekPlan, from: WeekPlan, siteIds: string[], withWorkers: boolean): WeekPlan {
+  let sites = [...target.sites];
+  for (const src of from.sites.filter((x) => siteIds.includes(x.id))) {
+    const days = withWorkers && !src.paused ? src.days.map((d) => [...d]) : emptyDays();
+    const i = sites.findIndex((x) => isSameSite(x, src));
+    if (i >= 0) {
+      const t = sites[i];
+      sites[i] = { ...t, finished: false, days: t.days.map((d, k) => [...d, ...days[k].filter((id) => !d.includes(id))]) };
+    } else {
+      // Vertretung der Bauleitung gilt nur für ihre Woche
+      const { siteManager: _sm, ...rest } = src;
+      sites = [...sites, { ...rest, id: uuid(), finished: false, days }];
+    }
+  }
+  return touch({ ...target, showWeekend: target.showWeekend ?? from.showWeekend }, sites);
+}
 const mapSite = (w: WeekPlan, siteId: string, f: (s: WeekSite) => WeekSite) => touch(w, w.sites.map((s) => (s.id === siteId ? f(s) : s)));
 
 /** Baustelle hinzufügen (aus einem Projekt oder manuell) */

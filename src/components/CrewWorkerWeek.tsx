@@ -103,7 +103,8 @@ export function CrewWorkerWeek({
       {!list.length ? (
         <p className="muted">Noch keine Arbeiter in der Personalliste.</p>
       ) : (
-        <div className="crew-ww-grid" style={cols} role="table" aria-label="Woche je Arbeiter">
+        // mit Sa/So am Handy automatisch kompakter (schmälere Felder), damit die ganze Woche in die Breite passt
+        <div className={`crew-ww-grid${days.length > 5 ? ' dense' : ''}`} style={cols} role="table" aria-label="Woche je Arbeiter" data-days={days.length}>
           <div className="crew-ww-head" role="row">
             <span role="columnheader">Arbeiter</span>
             {days.map((d) => (
