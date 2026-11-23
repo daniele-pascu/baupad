@@ -1069,10 +1069,10 @@ html[data-theme='dark'] .btn.btn-ink:active {
   }
 }
 
-/* ---------- Projektregister: Reiter Zuletzt / Angeheftet / Alle (Suchen schaltet sie aus) ---------- */
+/* ---------- Projektregister: Reiter Alle / Angeheftet (Suchen schaltet sie aus) ---------- */
 .register-tabs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 3px;
   margin: 4px 0 14px;
   padding: 3px;
