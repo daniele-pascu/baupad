@@ -95,7 +95,7 @@ test('Offene Polylinie (Riss) bleibt offen; Schadstellen nachträglich drehen un
     await page.getByTestId('pdf-export-run').click();
   });
   const pdf = await saveDownload(dl, 'formen.pdf');
-  expect(execFileSync('pdftotext', [pdf, '-'], { encoding: 'utf8' })).toMatch(/^W-1( .+)?$/m); // Nummer (+ Planbezeichnung, standardmäßig)
+  expect(execFileSync('pdftotext', [pdf, '-'], { encoding: 'utf8' })).toMatch(/^Plan W-1( .+)?$/m); // „Plan“, Nummer (+ Planbezeichnung, standardmäßig)
   execFileSync('pdftoppm', ['-png', '-r', '50', pdf, join(OUT, 'formen')]);
   await page.screenshot({ path: join(OUT, 'formen-ansicht.png') });
 });

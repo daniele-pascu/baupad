@@ -43,23 +43,24 @@ export function exportPaper(plan: Plan): PaperFormat {
 export const defaultPaper = (r: { w: number; h: number }): PaperFormat => (r.w > r.h ? 'A4-quer' : 'A4-hoch');
 
 /**
- * Überschrift des Plans im PDF: optionaler Titel vor der (Pflicht-)Plannummer, sonst nichts –
- * z. B. „Aufmaßplan 067“ bzw. nur „067“.
+ * Überschrift des Plans im PDF: Titel vor der (Pflicht-)Plannummer – ohne eigenen Titel das Wort „Plan“,
+ * z. B. „Aufmaßplan 067“ bzw. „Plan 067“.
  */
 /** Überschrift: Titel Nummer [Planbezeichnung] [Ebene] – z. B. „Aufmaßplan 009 BA. 4 UG2“ */
 export const planHeading = (plan: Pick<Plan, 'title' | 'planNumber'> & Partial<Pick<Plan, 'planName' | 'floor' | 'showName' | 'showFloor'>>) =>
-  [plan.title?.trim(), plan.planNumber.trim(), plan.showName !== false ? plan.planName?.trim() : '', plan.showFloor !== false ? plan.floor?.trim() : ''].filter(Boolean).join(' ');
+  [plan.title?.trim() || 'Plan', plan.planNumber.trim(), plan.showName !== false ? plan.planName?.trim() : '', plan.showFloor !== false ? plan.floor?.trim() : ''].filter(Boolean).join(' ');
 
 /**
- * Zweite Zeile im Plankopf (dünner, dunkelgrau unter Nummer und Titel): wozu der Plan gehört –
- * Projektnummer und -name, Kostenstelle, Baustelle (Adresse); was fehlt, fällt weg. Gleiche Angaben stehen nur einmal.
+ * Zweite Zeile im Plankopf (dünner, dunkelgrau unter „Plan Nummer“): wozu der Plan gehört – zuerst die Kostenstelle
+ * (ohne Kostenstelle die Projektnummer), dann das Bauvorhaben, also die Adresse (ohne Adresse der Projektname).
+ * Was fehlt, fällt weg; gleiche Angaben stehen nur einmal.
  */
 export function planSubline(project: Pick<Project, 'name'> & Partial<Pick<Project, 'number' | 'site' | 'address'>>, costCenter?: Pick<CostCenter, 'number' | 'name'>): string {
+  const cc = costCenter ? [costCenter.number?.trim(), costCenter.name.trim()].filter(Boolean).join(' – ') : '';
   const parts = [
-    [project.number?.trim(), project.name.trim()].filter(Boolean).join(' · '),
-    costCenter ? [costCenter.number?.trim(), costCenter.name.trim()].filter(Boolean).join(' – ') : '',
-    // Baustelle: eigene Bezeichnung (ältere Projekte), sonst die Adresse
-    project.site?.trim() || project.address?.trim() || '',
+    cc || project.number?.trim() || '',
+    // Bauvorhaben: Adresse (ältere Projekte: eigene Baustellen-Bezeichnung), sonst der Projektname
+    project.address?.trim() || project.site?.trim() || project.name.trim(),
   ].filter(Boolean);
   return parts.filter((x, i) => parts.findIndex((y) => y.toLowerCase() === x.toLowerCase()) === i).join('  |  ');
 }
