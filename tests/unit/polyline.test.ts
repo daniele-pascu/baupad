@@ -168,3 +168,32 @@ describe('Schraffur (nur Darstellung)', async () => {
     expect(f.hatch).toMatchObject({ pattern: 'lines', angle: 45 });
   });
 });
+
+describe('Schraffur in schmalen Flächen dichter', async () => {
+  const { hatchSpacing, minWidth, fillPaths, HATCH_MIN_LINES } = await import('../../src/lib/style');
+  // 0,30 m × 2,00 m (Einheiten = m)
+  const wand = [{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 0.3 }, { x: 0, y: 0.3 }];
+  it('schmalste Breite: auch gedreht', () => {
+    expect(minWidth(wand)).toBeCloseTo(0.3, 9);
+    const a = (30 * Math.PI) / 180;
+    const rot = wand.map((p) => ({ x: p.x * Math.cos(a) - p.y * Math.sin(a), y: p.x * Math.sin(a) + p.y * Math.cos(a) }));
+    expect(minWidth(rot)).toBeCloseTo(0.3, 9);
+  });
+  it('0,30 m Objekt: mindestens 6 waagrechte Linien – große Flächen behalten den gewählten Abstand', () => {
+    const perPt = (100 * 0.352778) / 1000; // 1:100, m je pt → 1 pt = 0,0353 m
+    const sp = hatchSpacing(wand, 6, perPt);
+    expect(0.3 / sp).toBeGreaterThanOrEqual(HATCH_MIN_LINES - 1e-9);
+    const gross = [{ x: 0, y: 0 }, { x: 5, y: 0 }, { x: 5, y: 4 }, { x: 0, y: 4 }];
+    expect(hatchSpacing(gross, 6, perPt)).toBeCloseTo(6 * perPt, 9);
+  });
+  it('nie enger als 1,2 pt auf dem Papier', () => {
+    const perPt = (200 * 0.352778) / 1000; // 1:200
+    expect(hatchSpacing([{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 0.05 }, { x: 0, y: 0.05 }], 6, perPt)).toBeCloseTo(1.2 * perPt, 9);
+  });
+  it('Ansicht: waagrechte Schraffur einer 0,30 m Wand hat mindestens 5 Linien', () => {
+    const shape = { type: 'rect' as const, x: 0, y: 0, w: 2, h: 0.3 };
+    const zoom = 2000; // px je m (stark vergrößert)
+    const f = fillPaths(shape, (p) => ({ x: p.x * zoom, y: p.y * zoom }), { color: '#000', hatch: { pattern: 'lines', angle: 0, spacing: 6 } } as never, 1.6, (100 * 0.352778) / 1000);
+    expect((f.hatch ?? '').split('M').length - 1).toBeGreaterThanOrEqual(5);
+  });
+});
