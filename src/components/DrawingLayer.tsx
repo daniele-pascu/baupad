@@ -4,7 +4,7 @@ import { pathToSvg, polygonShape, shapeCenter, shapePath, shapeVertices, toPage,
 import { DEFAULT_TRANSPARENCY, fillOf, hatchAnchor, PX_PER_PT, strokeGeometry } from '../lib/style';
 import type { DrawElement, DrawElementType, Rect, Shape } from '../lib/types';
 import { FillPaths, visibleStroke } from './PlanViewer';
-import { fontProps } from '../lib/text-font';
+import { alignFactor, fontProps } from '../lib/text-font';
 import { symbolGeometry } from '../lib/symbols';
 import { wallGeometry, type WallOpening } from '../lib/walls';
 
@@ -82,7 +82,7 @@ export function renderSheet(view: View, size: { w: number; h: number }, region: 
 
 /** Zeichnungsobjekt in Bildschirmkoordinaten (shape in Seitenkoordinaten). */
 export function renderElement(
-  e: Pick<DrawElement, 'id' | 'type' | 'color' | 'text' | 'style'> & { font?: DrawElement['font']; symbol?: DrawElement['symbol']; wall?: DrawElement['wall']; room?: DrawElement['room']; leader?: DrawElement['leader'] } & { offset?: number; extGap?: number },
+  e: Pick<DrawElement, 'id' | 'type' | 'color' | 'text' | 'style'> & { font?: DrawElement['font']; symbol?: DrawElement['symbol']; wall?: DrawElement['wall']; room?: DrawElement['room']; leader?: DrawElement['leader']; wrap?: DrawElement['wrap'] } & { offset?: number; extGap?: number },
   pageShape: Shape,
   view: View,
   selected: boolean,
@@ -124,22 +124,30 @@ export function renderElement(
     );
   }
   if (e.type === 'text') {
-    const fs = pageShape.h * view.scale;
+    // Zeilen (Absätze, Textfeld mit fester Breite umbrochen); die Schrifthöhe ergibt sich aus Höhe und Zeilenzahl
+    const lines = textLines(e);
+    const fsPage = textFontSize(e, pageShape.h);
+    const fs = fsPage * view.scale;
     const c = toScreen(view, shapeCenter(pageShape));
-    const p = toScreen(view, { x: pageShape.x, y: pageShape.y + pageShape.h * 0.82 });
+    // Ausrichtung im Rahmen: links, mittig oder rechts
+    const af = e.room ? 0 : alignFactor(e.font);
+    const p = toScreen(view, { x: pageShape.x + af * pageShape.w, y: pageShape.y + fsPage * 0.82 });
     const rot = pageShape.rotation ?? 0;
     // Text mit Pfeil: im Bezugssystem des Textes (die Gruppe dreht mit)
     const tl0 = toScreen(view, pageShape);
+    // Maß der Linie (Pfeilspitze, Punkt, Strichstärke): beim Einfügen gemerkt – ändert sich nicht mit der Schriftgröße
+    const ls = e.leader ? (e.leader.size !== undefined ? e.leader.size * k * view.scale : fs) : 0;
     const callout = e.leader
-      ? calloutGeometry({ x: tl0.x, y: tl0.y, w: pageShape.w * view.scale, h: pageShape.h * view.scale }, { x: c.x + e.leader.dx * k * view.scale, y: c.y + e.leader.dy * k * view.scale })
+      ? calloutGeometry({ x: tl0.x, y: tl0.y, w: pageShape.w * view.scale, h: pageShape.h * view.scale }, { x: c.x + e.leader.dx * k * view.scale, y: c.y + e.leader.dy * k * view.scale }, ls, e.leader.end)
       : null;
-    const lw = Math.max(1, Math.min(2.2, fs * 0.09));
+    const lw = callout ? Math.max(1, Math.min(2.2, callout.width)) : 1;
     return (
       <g data-element="text" data-element-id={e.id} data-callout={callout ? '1' : undefined} opacity={faded ? 0.55 : 1} transform={rot ? `rotate(${rot} ${c.x} ${c.y})` : undefined}>
         {callout && (
-          <g className="callout" data-testid="callout-arrow">
+          <g className="callout" data-testid="callout-arrow" data-end={e.leader?.end ?? 'arrow'}>
             <polyline points={callout.line.map((q) => `${q.x},${q.y}`).join(' ')} fill="none" stroke={stroke} strokeWidth={lw} strokeLinejoin="round" strokeLinecap="round" />
-            <polygon points={callout.head.map((q) => `${q.x},${q.y}`).join(' ')} fill={stroke} stroke={stroke} strokeWidth={lw * 0.6} strokeLinejoin="round" />
+            {callout.head && <polygon points={callout.head.map((q) => `${q.x},${q.y}`).join(' ')} fill={stroke} stroke={stroke} strokeWidth={lw * 0.6} strokeLinejoin="round" data-testid="callout-head" />}
+            {callout.dot && <circle cx={callout.dot.c.x} cy={callout.dot.c.y} r={Math.max(2.5, callout.dot.r)} fill={stroke} data-testid="callout-dot" />}
           </g>
         )}
         {selected && (
@@ -153,8 +161,14 @@ export function renderElement(
             strokeDasharray="4 3"
           />
         )}
-        <text x={p.x} y={p.y} fontSize={fs} fill={stroke} className="drawing-text" style={fontProps(e.font)} data-font={e.font?.family ?? "sans"} data-bold={e.font?.bold ? "1" : undefined} data-italic={e.font?.italic ? "1" : undefined}>
-          {e.text}
+        <text x={p.x} y={p.y} fontSize={fs} fill={stroke} className="drawing-text" style={fontProps(e.font)} textAnchor={af === 0.5 ? 'middle' : af === 1 ? 'end' : undefined} data-align={e.font?.align} data-underline={e.font?.underline ? '1' : undefined} data-font={e.font?.family ?? "sans"} data-bold={e.font?.bold ? "1" : undefined} data-italic={e.font?.italic ? "1" : undefined} data-lines={lines.length}>
+          {lines.length === 1
+            ? lines[0]
+            : lines.map((l, i) => (
+                <tspan key={i} x={p.x} y={p.y + i * ROOM_LINE * fs}>
+                  {l || '\u00a0'}
+                </tspan>
+              ))}
         </text>
       </g>
     );

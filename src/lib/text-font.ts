@@ -6,9 +6,9 @@ import type { FontFamily, TextFont } from './types';
  * eingebettete Schriftdatei gibt (Standardschriften): Helvetica, Times, Courier – je normal, fett, kursiv.
  */
 export const FONT_FAMILIES: { id: FontFamily; label: string; css: string }[] = [
-  { id: 'sans', label: 'Standard', css: 'Helvetica, Arial, sans-serif' },
-  { id: 'serif', label: 'Serifen (Times)', css: '"Times New Roman", Times, serif' },
-  { id: 'mono', label: 'Schreibmaschine', css: '"Courier New", Courier, monospace' },
+  { id: 'sans', label: 'Arial (Standard)', css: 'Helvetica, Arial, sans-serif' },
+  { id: 'serif', label: 'Times New Roman', css: '"Times New Roman", Times, serif' },
+  { id: 'mono', label: 'Courier New', css: '"Courier New", Courier, monospace' },
 ];
 
 export const fontFamilyCss = (f?: TextFont) => (FONT_FAMILIES.find((x) => x.id === f?.family) ?? FONT_FAMILIES[0]).css;
@@ -18,7 +18,11 @@ export const fontProps = (f?: TextFont) => ({
   fontFamily: fontFamilyCss(f),
   fontWeight: f?.bold ? 700 : 400,
   fontStyle: f?.italic ? 'italic' : 'normal',
+  ...(f?.underline ? { textDecoration: 'underline' } : {}),
 });
+
+/** Ausrichtung als Anteil der Rahmenbreite: 0 = links, 0,5 = mittig, 1 = rechts */
+export const alignFactor = (f?: TextFont) => (f?.align === 'center' ? 0.5 : f?.align === 'right' ? 1 : 0);
 
 /** mittlere Zeichenbreite im Verhältnis zur Schrifthöhe (für Begrenzungsrechteck und Antippen) */
 export function charWidthFactor(f?: TextFont): number {
@@ -33,6 +37,8 @@ export function cleanFont(f: TextFont | undefined): TextFont | undefined {
   if (f.family && f.family !== 'sans') out.family = f.family;
   if (f.bold) out.bold = true;
   if (f.italic) out.italic = true;
+  if (f.underline) out.underline = true;
+  if (f.align === 'center' || f.align === 'right') out.align = f.align;
   return Object.keys(out).length ? out : undefined;
 }
 

@@ -60,6 +60,47 @@ test('Text mit Pfeil: einfügen, Spitze verschieben, gespeichert und im PDF', as
   await page.mouse.click(tip2.x + (tb.x - tip2.x) * 0.3, tip2.y + (tb.y + tb.height / 2 - tip2.y) * 0.3);
   await expect(page.getByTestId('tip-handle')).toBeVisible();
 
+  // Text ziehen: der Text wandert, das Ende der Linie bleibt stehen
+  const tipA = await center(page, 'tip-handle');
+  const tbA = (await callout.locator('text').boundingBox())!;
+  await page.mouse.move(tbA.x + tbA.width / 2, tbA.y + tbA.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(tbA.x + tbA.width / 2 + 70, tbA.y + tbA.height / 2 - 40, { steps: 6 });
+  await page.mouse.up();
+  await expect.poll(async () => (await callout.locator('text').boundingBox())!.x).toBeGreaterThan(tbA.x + 50);
+  const tipB = await center(page, 'tip-handle');
+  expect(Math.hypot(tipB.x - tipA.x, tipB.y - tipA.y)).toBeLessThan(2);
+  await waitSaved(page);
+
+  // Text-Fenster: Schrift größer – das Ende der Linie und die Pfeilspitze bleiben; Ende als Punkt bzw. nur Linie
+  const headBox = async () => (await page.getByTestId('callout-head').boundingBox())!;
+  const head0 = await headBox();
+  await page.getByTestId('element-bar').getByTestId('element-text-edit').click();
+  await expect(td.getByTestId('text-leader-arrow')).toHaveAttribute('aria-checked', 'true');
+  await td.getByTestId('text-bigger').click();
+  await td.getByTestId('text-bigger').click();
+  await td.getByTestId('text-save').click();
+  await expect.poll(async () => (await callout.locator('text').boundingBox())!.height).toBeGreaterThan(tbA.height * 1.3);
+  const tipC = await center(page, 'tip-handle');
+  expect(Math.hypot(tipC.x - tipB.x, tipC.y - tipB.y)).toBeLessThan(2);
+  const head1 = await headBox();
+  expect(Math.abs(head1.width - head0.width)).toBeLessThan(3); // Pfeilspitze wächst nicht mit der Schrift
+  await page.getByTestId('element-bar').getByTestId('element-text-edit').click();
+  await td.getByTestId('text-leader-dot').click();
+  await td.getByTestId('text-save').click();
+  await expect(page.getByTestId('callout-dot')).toHaveCount(1);
+  await expect(page.getByTestId('callout-head')).toHaveCount(0);
+  await page.getByTestId('element-bar').getByTestId('element-text-edit').click();
+  await td.getByTestId('text-leader-none').click();
+  await td.getByTestId('text-save').click();
+  await expect(page.getByTestId('callout-dot')).toHaveCount(0);
+  await expect(page.getByTestId('callout-arrow')).toHaveAttribute('data-end', 'none');
+  await page.getByTestId('element-bar').getByTestId('element-text-edit').click();
+  await td.getByTestId('text-leader-arrow').click();
+  await td.getByTestId('text-save').click();
+  await expect(page.getByTestId('callout-head')).toHaveCount(1);
+  await waitSaved(page);
+
   // nach dem Neuladen erhalten
   await page.reload();
   await expect(page.locator('[data-element="text"][data-callout="1"]')).toContainText('Riss prüfen');

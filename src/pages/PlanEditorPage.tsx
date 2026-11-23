@@ -1930,6 +1930,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               notes={tool === 'select' ? drawing.textNotes : undefined}
               onNoteTap={(id) => void drawing.editText(id)}
               onNoteMove={drawing.moveText}
+              onNoteResize={drawing.resizeText}
+              onTipChange={drawing.onTipChange}
               bounds={markerBounds}
               onPolygonChange={setPolyCount}
               segments={segMode}
@@ -2390,6 +2392,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 onFont={(f) => drawing.setFont(drawing.selected!.id, f)}
                 onFlip={(axis) => drawing.flipSymbol(drawing.selected!.id, axis)}
                 onRoom={() => void drawing.editRoom(drawing.selected!.id)}
+                onEditText={() => void drawing.editText(drawing.selected!.id)}
                 onWall={(patch) => drawing.setWall(drawing.selected!.id, patch)}
                 onSegment={(i, len) => drawing.setSegment(drawing.selected!.id, i, len)}
                 onDelete={() => void drawing.remove(drawing.selected!)}

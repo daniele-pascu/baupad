@@ -18,7 +18,7 @@ import {
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { componentsOf, costCenterLabel, damagesOf, elementsOf, findPosition, planTitle, safeFileName, type ExportFile } from './aufmass';
 import { areasBelow, dimsVisible, visibleDamages, visibleElements } from './layers';
-import { annotationsOf, calloutWorld, dimGeometry, dimLeader, isDrawingPlan, ROOM_LINE, textBoxWidth, textFontSize, textLines, lineEnds, PAPER, PRINT_HEADER_MM, PRINT_MARGIN_MM, fillRegion, aufmassPaper, shapeToPage, unitsPerMeter } from './drawing';
+import { annotationsOf, calloutWorld, leaderSize, dimGeometry, dimLeader, isDrawingPlan, ROOM_LINE, textBoxWidth, textFontSize, textLines, lineEnds, PAPER, PRINT_HEADER_MM, PRINT_MARGIN_MM, fillRegion, aufmassPaper, shapeToPage, unitsPerMeter } from './drawing';
 import { withRoomAreas } from './regions';
 const textBoxWidthOf = (e: DrawElement, h: number) => textBoxWidth(e, h, e.font);
 import { getBlob } from './db';
@@ -38,7 +38,7 @@ import type { ProjectState } from './store';
 import { exportPaper, layoutSheet, planHeading, type OverviewCorner, type SheetLayout } from './sheet-layout';
 import { DEFAULT_TRANSPARENCY, fillOf, fillPaths, strokeGeometry } from './style';
 import type { Component, Damage, DrawElement, LegendPos, Plan, Rect, Shape, ShapeStyle, TextFont } from './types';
-import { pdfStandardFont } from './text-font';
+import { alignFactor, pdfStandardFont } from './text-font';
 import { symbolGeometry } from './symbols';
 import { wallGeometry, wallOpenings } from './walls';
 import { deductionNumbers } from './numbering';
@@ -112,18 +112,39 @@ function drawTextElement(ctx: Ctx, page: PDFPage, e: DrawElement, shape: Shape, 
     return;
   }
   if (e.leader) {
-    // Text mit Pfeil: Linie und gefüllte Pfeilspitze (wie in der Ansicht, `shape` in Seitenkoordinaten)
+    // Text mit Bezugslinie: Linie und Ende (Pfeilspitze, Punkt oder nichts) wie in der Ansicht, `shape` in Seitenkoordinaten
     const k = shape.h / (e.shape.h || 1);
-    const g = calloutWorld(shape, e.leader, k);
+    const g = calloutWorld(shape, e.leader, k, leaderSize(e));
     const col = hexToRgb(visibleHex(e.color));
-    const lw = Math.max(0.35, Math.min(0.9, shape.h * ptPerUnit * 0.09));
+    const lw = Math.max(0.35, Math.min(0.9, g.width * ptPerUnit));
     const pts = g.line.map(map);
     for (let i = 0; i + 1 < pts.length; i++) page.drawLine({ start: pts[i], end: pts[i + 1], thickness: lw, color: col, lineCap: LineCapStyle.Round });
-    const hd = g.head.map(map);
-    page.drawSvgPath(`M${hd[0].x} ${-hd[0].y} L${hd[1].x} ${-hd[1].y} L${hd[2].x} ${-hd[2].y} Z`, { x: 0, y: 0, color: col, borderColor: col, borderWidth: lw * 0.6 });
+    if (g.head) {
+      const hd = g.head.map(map);
+      page.drawSvgPath(`M${hd[0].x} ${-hd[0].y} L${hd[1].x} ${-hd[1].y} L${hd[2].x} ${-hd[2].y} Z`, { x: 0, y: 0, color: col, borderColor: col, borderWidth: lw * 0.6 });
+    }
+    if (g.dot) page.drawCircle({ ...map(g.dot.c), size: Math.max(1, g.dot.r * ptPerUnit), color: col });
   }
-  const at = map({ x: shape.x, y: shape.y + shape.h * 0.82 });
-  page.drawText(clean(ctx, e.text ?? ''), { x: at.x, y: at.y, size: shape.h * ptPerUnit, font: textFont(ctx, e.font), color: hexToRgb(visibleHex(e.color)), rotate: degrees(-(shape.rotation ?? 0)) });
+  // Zeilen (Absätze, Textfeld mit fester Breite umbrochen) linksbündig untereinander, gedreht wie die Form
+  const fs = textFontSize(e, shape.h);
+  const r = ((shape.rotation ?? 0) * Math.PI) / 180;
+  const cx = shape.x + shape.w / 2;
+  const cy = shape.y + shape.h / 2;
+  const f = textFont(ctx, e.font);
+  const af = alignFactor(e.font);
+  const col = hexToRgb(visibleHex(e.color));
+  const world = (lx: number, ly: number) => map({ x: cx + lx * Math.cos(r) - ly * Math.sin(r), y: cy + lx * Math.sin(r) + ly * Math.cos(r) });
+  textLines(e).forEach((line, i) => {
+    if (!line) return;
+    const txt = clean(ctx, line);
+    // Zeilenbreite auf der Seite: für die Ausrichtung (mittig, rechts) und das Unterstreichen
+    const wPage = f.widthOfTextAtSize(txt, fs * ptPerUnit) / ptPerUnit;
+    const lx = -shape.w / 2 + af * (shape.w - wPage);
+    const ly = -shape.h / 2 + fs * 0.82 + i * ROOM_LINE * fs;
+    const at = world(lx, ly);
+    page.drawText(txt, { x: at.x, y: at.y, size: fs * ptPerUnit, font: f, color: col, rotate: degrees(-(shape.rotation ?? 0)) });
+    if (e.font?.underline) page.drawLine({ start: world(lx, ly + fs * 0.12), end: world(lx + wPage, ly + fs * 0.12), thickness: Math.max(0.3, fs * ptPerUnit * 0.06), color: col });
+  });
 }
 
 function hexToRgb(hex: string) {

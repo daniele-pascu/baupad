@@ -217,6 +217,7 @@ export function ElementBar({
   onFont,
   onFlip,
   onRoom,
+  onEditText,
   onWall,
   onSegment,
 }: {
@@ -241,6 +242,8 @@ export function ElementBar({
   onFlip?(axis: 'x' | 'y'): void;
   /** Raumstempel: Name und Zusatz bearbeiten */
   onRoom?(): void;
+  /** Text: im Text-Fenster bearbeiten (Absätze, Schriftgröße) */
+  onEditText?(): void;
   /** Wand: Stärke bzw. Höhe ändern */
   onWall?(patch: { thickness?: number; height?: number }): void;
   /** Polylinie, Fläche, Wand: Länge eines Abschnitts (Knick zu Knick) ändern */
@@ -262,6 +265,8 @@ export function ElementBar({
     n === undefined ? '' : FIELDS[f].degrees ? String(Math.round(n * 100) / 100).replace('.', ',') : meterInput(n);
   const [values, setValues] = useState<Record<string, string>>({});
   const [text, setText] = useState(element.text ?? '');
+  /** Text mit Absätzen: wird im Text-Fenster bearbeitet */
+  const multiline = element.type === 'text' && !element.room && (element.text ?? '').includes('\n') && !!onEditText;
   const [gap, setGap] = useState(String(element.extGap ?? 1).replace('.', ','));
   const [error, setError] = useState<string | null>(null);
   const [segOpen, setSegOpen] = useState(false);
@@ -340,20 +345,30 @@ export function ElementBar({
       {element.type === 'text' && (
         <label className="draw-field draw-field-wide">
           <span>{element.room ? 'Raumname' : 'Text'}</span>
-          <input
-            value={text}
-            onChange={(e) => {
-              textDirty.current = true;
-              setText(e.target.value);
-            }}
-            onBlur={() => {
-              textDirty.current = false;
-              if (text.trim() && text !== element.text) onText(text.trim());
-            }}
-            onKeyDown={(e) => e.key === 'Enter' && (e.currentTarget as HTMLInputElement).blur()}
-            data-testid="element-text"
-          />
+          {multiline ? (
+            // mehrere Absätze: im Text-Fenster bearbeiten (ein einzeiliges Feld würde die Absätze verlieren)
+            <input value={(element.text ?? '').replace(/\n/g, ' ⏎ ')} readOnly onClick={onEditText} title="Antippen: Text mit Absätzen bearbeiten" data-testid="element-text" />
+          ) : (
+            <input
+              value={text}
+              onChange={(e) => {
+                textDirty.current = true;
+                setText(e.target.value);
+              }}
+              onBlur={() => {
+                textDirty.current = false;
+                if (text.trim() && text !== element.text) onText(text.trim());
+              }}
+              onKeyDown={(e) => e.key === 'Enter' && (e.currentTarget as HTMLInputElement).blur()}
+              data-testid="element-text"
+            />
+          )}
         </label>
+      )}
+      {element.type === 'text' && !element.room && onEditText && (
+        <button type="button" className="btn btn-sm" onClick={onEditText} title="Text bearbeiten: Absätze, Schriftgröße (pt), Schrift, Farbe, Linie zum Plan (Pfeil, Punkt, nur Linie)" data-testid="element-text-edit">
+          <Icon name="edit" size={16} /> Bearbeiten
+        </button>
       )}
       {element.room && (
         <span className="row gap room-bar-info">

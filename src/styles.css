@@ -11869,6 +11869,157 @@ html[data-theme='dark'] .calc-result .calc-total.warn strong {
   border-color: var(--text);
   color: var(--surface);
 }
+/*
+  Text-Fenster: Formatleiste wie die Gruppe „Schriftart“ der Textverarbeitung – zwei Zeilen mit flachen, eckigen
+  Tasten: Schriftart, Schriftgrad, vergrößern/verkleinern; Fett, Kursiv, Unterstrichen, Schriftfarbe, Ausrichtung
+*/
+.wtb {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+.wtb-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.wtb .wtb-font,
+.wtb .wtb-size {
+  height: 36px;
+  min-height: 36px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+}
+.wtb .wtb-font {
+  flex: 1 1 150px;
+  min-width: 0;
+  max-width: 220px;
+  width: auto;
+}
+.wtb .wtb-size {
+  flex: 0 0 auto;
+  width: 78px;
+}
+.wtb .wtb-font:focus-visible,
+.wtb .wtb-size:focus-visible {
+  outline: 0;
+  box-shadow: var(--ring);
+}
+.wtb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+}
+.wtb-btn:hover {
+  background: rgba(127, 127, 127, 0.16);
+}
+.wtb-btn.active {
+  background: rgba(127, 127, 127, 0.3);
+  border-color: rgba(127, 127, 127, 0.55);
+}
+.wtb-btn:focus-visible {
+  outline: 0;
+  box-shadow: var(--ring);
+}
+.wtb-bold {
+  font-weight: 700;
+}
+.wtb-italic {
+  font-family: 'Times New Roman', Times, serif;
+  font-style: italic;
+  font-size: 19px;
+}
+.wtb-underline {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+/* Schriftfarbe: A mit Farbbalken darunter, daneben der Pfeil für die Palette */
+.wtb-color {
+  display: inline-grid;
+  grid-template-columns: auto auto;
+  grid-template-rows: auto 4px;
+  column-gap: 5px;
+  align-items: center;
+  justify-items: center;
+}
+.wtb-color-a {
+  grid-column: 1;
+  grid-row: 1;
+  font-size: 16px;
+  line-height: 18px;
+}
+.wtb-color-bar {
+  grid-column: 1;
+  grid-row: 2;
+  width: 18px;
+  height: 4px;
+  border-radius: 1px;
+}
+.wtb-caret {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+.wtb-sep {
+  flex: 0 0 auto;
+  width: 1px;
+  height: 22px;
+  margin: 0 4px;
+  background: var(--border);
+}
+.wtb-palette {
+  gap: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+@media (pointer: coarse) {
+  .wtb-btn {
+    min-width: 40px;
+    height: 40px;
+  }
+  .wtb .wtb-font,
+  .wtb .wtb-size {
+    height: 40px;
+  }
+}
+.field .text-area {
+  resize: vertical;
+  min-height: 104px;
+  line-height: 1.35;
+}
+/* Linie zum Plan: ohne, Pfeil, Punkt, nur Linie – gleiche flache Tasten wie die Formatleiste */
+.wtb.leader-choices {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.wtb-btn.leader-choice {
+  gap: 6px;
+  padding: 0 10px;
+  font-family: inherit;
+  font-size: 14px;
+}
 .text-preview {
   display: flex;
   align-items: center;
