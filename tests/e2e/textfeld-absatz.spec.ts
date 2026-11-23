@@ -108,13 +108,32 @@ test('Plan zeichnen: Absätze, Schriftgröße in pt, Seite ziehen bricht um, Eck
   await expect(bar.getByTestId('text-format-bar')).toBeVisible();
   await expect(bar.getByTestId('element-textHeight')).toHaveCount(0);
   await expect(bar.getByTestId('text-size')).toHaveValue('12');
+  // vergrößern: von 10 bis 16 in ganzen Punkten, bis 24 in 2er-, darüber in 4er-Schritten; ohne Kommastellen
   await bar.getByTestId('text-bigger').click();
-  await expect(bar.getByTestId('text-size')).toHaveValue('14');
+  await expect(bar.getByTestId('text-size')).toHaveValue('13');
   await waitSaved(page);
-  const [p14] = await texts(page);
-  expect(fsOf(p14.shape.h, Number(await t.getAttribute('data-lines')))).toBeCloseTo((14 * 0.352778 * 100) / 1000, 2);
-  await bar.getByTestId('text-size').fill('9');
-  await bar.getByTestId('text-size').press('Enter');
+  const [p13] = await texts(page);
+  expect(fsOf(p13.shape.h, Number(await t.getAttribute('data-lines')))).toBeCloseTo((13 * 0.352778 * 100) / 1000, 2);
+  for (const want of ['14', '15', '16', '18', '20', '22', '24', '28', '32']) {
+    await bar.getByTestId('text-bigger').click();
+    await expect(bar.getByTestId('text-size')).toHaveValue(want);
+  }
+  await bar.getByTestId('text-smaller').click();
+  await expect(bar.getByTestId('text-size')).toHaveValue('28');
+  // selbst eintippen: Feld anklicken (alles markiert), Zahl tippen, Enter – ab 10 pt ohne Kommastellen
+  await bar.getByTestId('text-size').click();
+  await page.keyboard.type('17,6');
+  await page.keyboard.press('Enter');
+  await expect(bar.getByTestId('text-size')).toHaveValue('18');
+  await bar.getByTestId('text-size').click();
+  await page.keyboard.type('9');
+  await page.keyboard.press('Enter');
+  await expect(bar.getByTestId('text-size')).toHaveValue('9');
+  // unter 10 pt in halben Punkten
+  await bar.getByTestId('text-smaller').click();
+  await expect(bar.getByTestId('text-size')).toHaveValue('8,5');
+  await bar.getByTestId('text-bigger').click();
+  await expect(bar.getByTestId('text-size')).toHaveValue('9');
   await waitSaved(page);
   const [p9] = await texts(page);
   expect(fsOf(p9.shape.h, Number(await t.getAttribute('data-lines')))).toBeCloseTo((9 * 0.352778 * 100) / 1000, 2);

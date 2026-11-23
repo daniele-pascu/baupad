@@ -295,3 +295,59 @@ describe('Schriftgröße bezogen auf das Blatt', async () => {
     expect(u).toBeLessThan(0.2);
   });
 });
+
+describe('Schriftgrad: Schritte und Rundung', async () => {
+  const { nextSize, roundPt } = await import('../../src/lib/text-font');
+  it('größer: 10–16 in 1er-, bis 24 in 2er-, darüber in 4er-Schritten', () => {
+    const seq = [10];
+    while (seq[seq.length - 1] < 40) seq.push(nextSize(seq[seq.length - 1], 1));
+    expect(seq).toEqual([10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24, 28, 32, 36, 40]);
+  });
+  it('kleiner: dieselben Stufen zurück, unter 10 in halben Punkten', () => {
+    const seq = [32];
+    while (seq[seq.length - 1] > 8.5) seq.push(nextSize(seq[seq.length - 1], -1));
+    expect(seq).toEqual([32, 28, 24, 22, 20, 18, 16, 15, 14, 13, 12, 11, 10, 9.5, 9, 8.5]);
+  });
+  it('Zwischenwerte rasten auf die nächste Stufe ein', () => {
+    expect(nextSize(25.5, 1)).toBe(28);
+    expect(nextSize(27, -1)).toBe(24);
+    expect(nextSize(17, 1)).toBe(18);
+    expect(nextSize(17, -1)).toBe(16);
+    expect(nextSize(9.5, 1)).toBe(10);
+  });
+  it('ab 10 pt keine Kommastellen, darunter halbe Punkte', () => {
+    expect(roundPt(12.4)).toBe(12);
+    expect(roundPt(17.6)).toBe(18);
+    expect(roundPt(8.3)).toBe(8.5);
+    expect(roundPt(9.8)).toBe(10);
+  });
+});
+
+describe('Linie zum Plan: gerade, ohne Knick', async () => {
+  const { calloutGeometry } = await import('../../src/lib/drawing');
+  const box = { x: 10, y: 10, w: 6, h: 1 };
+  it('gerade Linie von der näheren Textseite zur Spitze', () => {
+    for (const end of ['arrow', 'dot', 'none'] as const) {
+      const g = calloutGeometry(box, { x: 2, y: 15 }, 0.5, end);
+      expect(g.line).toHaveLength(2);
+      expect(g.line[0]).toEqual({ x: 2, y: 15 });
+      expect(g.line[1].y).toBeCloseTo(10.5, 9); // mittig an der linken Seite
+      expect(g.line[1].x).toBeLessThan(10);
+      expect(!!g.head).toBe(end === 'arrow');
+      expect(!!g.dot).toBe(end === 'dot');
+    }
+    // Spitze rechts vom Text: Ansatz an der rechten Seite
+    expect(calloutGeometry(box, { x: 30, y: 2 }, 0.5).line[1].x).toBeGreaterThan(16);
+  });
+  it('nur wenn die Gerade durch den Text liefe: kurzer Knick neben dem Text', () => {
+    // Spitze über dem Text (innerhalb seiner Breite): Gerade vom linken Ansatz liefe durch die Schrift
+    const g = calloutGeometry(box, { x: 12, y: 4 }, 0.5);
+    expect(g.line).toHaveLength(3);
+    const [tip, knee, attach] = g.line;
+    expect(tip).toEqual({ x: 12, y: 4 });
+    expect(knee.y).toBeCloseTo(attach.y, 9); // waagrechtes Stück
+    expect(attach.x - knee.x).toBeCloseTo(0.4, 9); // kurz: 0,8 × Maß
+    // Spitze schräg links darüber, klar neben dem Text: kein Knick
+    expect(calloutGeometry(box, { x: 5, y: 4 }, 0.5).line).toHaveLength(2);
+  });
+});

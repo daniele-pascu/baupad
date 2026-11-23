@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { DRAW_COLORS, type LeaderEnd, type TextFont } from '../lib/types';
 import { rememberCustomColorSoon, useCustomColors } from '../lib/custom-colors';
-import { cleanFont, FONT_FAMILIES, fontProps } from '../lib/text-font';
+import { cleanFont, FONT_FAMILIES, fontProps, nextSize, roundPt, TEXT_SIZES } from '../lib/text-font';
 import { visibleStroke } from './PlanViewer';
 import { Modal } from './Modal';
 import { customDialog } from './ui';
@@ -76,14 +76,7 @@ export interface TextResult {
 }
 
 /** Schriftgrößen wie in der Textverarbeitung (pt auf dem Papier) */
-export const TEXT_SIZES = [6, 7, 8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 36, 48, 72];
-const fmtPt = (n: number) => String(Math.round(n * 10) / 10).replace('.', ',');
-/** nächster Schriftgrad der Liste nach oben bzw. unten (wie „Schriftgrad vergrößern/verkleinern“); außerhalb der Liste ±10 % */
-function nextSize(pt: number, dir: 1 | -1): number {
-  const cur = Math.round(pt * 10) / 10;
-  const next = dir > 0 ? TEXT_SIZES.find((n) => n > cur + 1e-9) : [...TEXT_SIZES].reverse().find((n) => n < cur - 1e-9);
-  return next ?? Math.round(cur * (dir > 0 ? 1.1 : 0.9) * 10) / 10;
-}
+const fmtPt = (n: number) => String(roundPt(n)).replace('.', ',');
 /** Zeile einer Bezugslinie als kleines Bild (Vorschau der Auswahl) */
 function LeaderIcon({ end }: { end: LeaderChoice }) {
   return (
@@ -123,7 +116,7 @@ export function TextFormatBar({ font, color, pt, onFont, onColor, onPt, compact 
     }
   }, [pt]);
   const setPt = (n: number) => {
-    const v = Math.min(400, Math.max(2, n));
+    const v = roundPt(Math.min(400, Math.max(2, n)));
     shown.current = v;
     setPtText(fmtPt(v));
     onPt(v);
@@ -131,15 +124,17 @@ export function TextFormatBar({ font, color, pt, onFont, onColor, onPt, compact 
   const typePt = (v: string) => {
     setPtText(v);
     const n = Number(v.replace(',', '.'));
+    // getippt: ab 10 pt ganze Punkte (ohne Kommastellen), darunter halbe
     if (live && Number.isFinite(n) && n >= 2 && n <= 400) {
-      shown.current = n;
-      onPt(n);
+      shown.current = roundPt(n);
+      onPt(roundPt(n));
     }
   };
   /** Feld verlassen: getippten Wert übernehmen (Leiste) bzw. die Anzeige glätten */
   const leavePt = () => {
     const n = Number(ptText.replace(',', '.'));
-    if (!live && Number.isFinite(n) && n >= 2 && n <= 400 && Math.abs(n - pt) > 1e-6) setPt(n);
+    // nur wenn wirklich etwas anderes getippt wurde (die Anzeige ist gerundet – bloßes Verlassen ändert nichts)
+    if (!live && ptText.trim() !== fmtPt(shown.current) && Number.isFinite(n) && n >= 2 && n <= 400) setPt(n);
     else setPtText(fmtPt(shown.current));
   };
   return (
@@ -163,11 +158,12 @@ export function TextFormatBar({ font, color, pt, onFont, onColor, onPt, compact 
               (e.currentTarget as HTMLInputElement).blur();
             }
           }}
+          onFocus={(e) => e.currentTarget.select() /* gleich überschreibbar: einfach die neue Größe tippen */}
           inputMode="decimal"
           list={listId}
           autoComplete="off"
           aria-label="Schriftgrad in Punkt"
-          title="Schriftgrad (pt) – eintippen oder aus der Liste wählen"
+          title="Schriftgrad (pt) – Zahl eintippen (Enter übernimmt) oder aus der Liste wählen"
           data-testid="text-size"
         />
         <datalist id={listId}>

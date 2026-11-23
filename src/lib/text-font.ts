@@ -55,3 +55,26 @@ export function pdfStandardFont(f?: TextFont): StandardFonts {
       return b && i ? StandardFonts.HelveticaBoldOblique : b ? StandardFonts.HelveticaBold : i ? StandardFonts.HelveticaOblique : StandardFonts.Helvetica;
   }
 }
+
+/**
+ * Schriftgrade (pt auf dem Blatt): unter 10 in halben Punkten, von 10 bis 16 in ganzen, bis 24 in 2er- und darüber in
+ * 4er-Schritten – so zählen auch „vergrößern“ und „verkleinern“. Ab 10 pt gibt es keine Kommastellen.
+ */
+export const TEXT_SIZES = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24, 28, 32, 36, 40, 44, 48, 56, 64, 72];
+/** Schriftgrad runden: ab 10 pt ganze Punkte, darunter halbe */
+export const roundPt = (n: number) => (n >= 9.75 ? Math.round(n) : Math.round(n * 2) / 2);
+/** nächster Schriftgrad nach oben bzw. unten: < 10 → 0,5; 10–16 → 1; 16–24 → 2; darüber → 4 */
+export function nextSize(pt: number, dir: 1 | -1): number {
+  const v = roundPt(pt);
+  const e = 1e-9;
+  if (dir > 0) {
+    if (v < 10 - e) return Math.min(10, Math.floor(v * 2 + e) / 2 + 0.5);
+    if (v < 16 - e) return Math.floor(v + e) + 1;
+    if (v < 24 - e) return 16 + 2 * (Math.floor((v - 16) / 2 + e) + 1);
+    return Math.min(400, 24 + 4 * (Math.floor((v - 24) / 4 + e) + 1));
+  }
+  if (v > 24 + e) return 24 + 4 * (Math.ceil((v - 24) / 4 - e) - 1);
+  if (v > 16 + e) return 16 + 2 * (Math.ceil((v - 16) / 2 - e) - 1);
+  if (v > 10 + e) return Math.ceil(v - e) - 1;
+  return Math.max(2, Math.ceil(v * 2 - e) / 2 - 0.5);
+}

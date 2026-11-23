@@ -617,7 +617,7 @@ export function outlineParts(s: Shape): Point[][] {
 }
 
 /** Schneidet die Strecke a–b das Rechteck r? (Liang–Barsky) */
-function segmentHitsRect(a: Point, b: Point, r: Rect): boolean {
+export function segmentHitsRect(a: Point, b: Point, r: Rect): boolean {
   let t0 = 0;
   let t1 = 1;
   const dx = b.x - a.x;
