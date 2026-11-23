@@ -500,13 +500,6 @@ function drawStyledShape(
 
 /** Gut sichtbare Strichfarbe (Weiß wäre auf weißem Plan unsichtbar) */
 const visibleHex = (hex: string) => (hex.toLowerCase() === '#ffffff' ? '#8e8e93' : hex);
-/** Kontur: hell unter dunklen, dunkel unter hellen Farben */
-function haloRgb(hex: string) {
-  const n = parseInt(hex.replace('#', ''), 16);
-  const lum = 0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255);
-  return lum > 170 ? rgb(0.11, 0.11, 0.12) : rgb(1, 1, 1);
-}
-
 function drawDamages(ctx: Ctx, t: Target, region: Rect, damages: Damage[], components: Component[]) {
   const u = 1 / t.ptPerUnit;
   const fs = labelFontPt(region, t.ptPerUnit);
@@ -525,7 +518,8 @@ function drawDamages(ctx: Ctx, t: Target, region: Rect, damages: Damage[], compo
       continue;
     }
     const width = d.style?.lineWidth ?? stroke;
-    drawStyledShape(t.page, (p) => t.map(p), d.shape, d.color, d.style, width, DEFAULT_TRANSPARENCY.damage, haloRgb(d.color));
+    // ohne helle Kontur unter der Linie: im Ausdruck nur die Linie selbst (die Kontur wirkte wie ein weißer Rahmen)
+    drawStyledShape(t.page, (p) => t.map(p), d.shape, d.color, d.style, width, DEFAULT_TRANSPARENCY.damage, null);
   }
   // im Plan gezeichnete Abzüge: gestrichelt, schraffiert in ihrer Farbe, mit Nummer (z. B. „3-A1 Tür“)
   const dedStyle: ShapeStyle = { lineType: 'dashed', fillType: 'hatch', hatch: { pattern: 'lines', angle: 45, spacing: 4 }, fillTransparency: 35 };

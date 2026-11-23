@@ -270,6 +270,8 @@ interface Props {
   onToolDone?(): void;
   /** außerhalb des Plans getippt, während ein Werkzeug aktiv ist: zurück auf Auswahl (alle Werkzeuge aus) */
   onExitTool?(): void;
+  /** auch bei unbegrenzter Zeichenfläche (`infinite`): ein Tipp außerhalb von `region` beendet das Werkzeug */
+  exitOutside?: boolean;
 }
 
 type Gesture =
@@ -1003,7 +1005,9 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       propsRef.current.onToolDone();
       currentTool = 'select';
     }
-    if (currentTool !== 'select' && propsRef.current.onExitTool && !propsRef.current.infinite && !rectContains(region, toPage(v, p), 0)) {
+    // (nicht mitten in einer Linie bzw. Punktfolge – dort darf der nächste Punkt auch außerhalb liegen)
+    const midAction = !!clickStart.current || poly.current.length > 0;
+    if (currentTool !== 'select' && propsRef.current.onExitTool && (!propsRef.current.infinite || (propsRef.current.exitOutside && !midAction)) && !rectContains(region, toPage(v, p), 0)) {
       // außerhalb des Plans getippt: zurück auf Auswahl, alle Werkzeuge aus (Ziehen verschiebt nur)
       gesture.current = { kind: 'pan', start: p, view: v, moved: false, tapTarget: null, exit: true };
       return;
@@ -1874,7 +1878,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
             <g className="handles">
               {selected.tip && props.onTipChange && (() => {
                 const tp = toScreen(view, selected.tip);
-                const r = isCoarse() ? 8 : 6;
+                const r = isCoarse() ? 8 : 4.5;
                 return <circle cx={tp.x} cy={tp.y} r={r} className={`vertex-handle tip-handle${g.kind === 'tip' ? ' active' : ''}`} data-testid="tip-handle" />;
               })()}
               {selected.shape.type !== 'line' && (() => {
@@ -1901,6 +1905,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
                 // Touch: größere Griffe; Eckpunkte rund (○), Seiten-/Größengriffe eckig (□)
                 const s = isCoarse() ? 16 : 10;
                 const hover = hoverHandle === h;
+                // Eck-/Endpunkte: klein gezeichnet (die Tippfläche bleibt groß, siehe hitHandle)
+                const vr = isCoarse() ? (hover ? 10.5 : 8) : hover ? 6.5 : 4.5;
                 if (h.startsWith('v')) {
                   const active = props.selectedVertex === Number(h.slice(1));
                   return (
@@ -1908,7 +1914,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
                       key={h}
                       cx={p.x}
                       cy={p.y}
-                      r={s * (active || hover ? 0.85 : isCoarse() ? 0.7 : 0.55)}
+                      r={active && !hover ? vr * 1.2 : vr}
                       className={`vertex-handle${active ? ' active' : ''}${hover ? ' hover' : ''}`}
                       data-testid={`vertex-${h.slice(1)}`}
                     />

@@ -383,7 +383,10 @@ export function useDrawing(opts: {
    */
   const [trackDist, setTrackDist] = useState<{ ref: Point; dir: Point; text: string } | null>(null);
 
+  /** zuletzt benutzte Funktion (für „Enter wiederholt“) */
+  const lastTool = useRef<DrawTool | null>(tool !== 'select' ? tool : null);
   const setTool = (t: DrawTool) => {
+    if (t !== 'select') lastTool.current = t;
     setToolState(t);
     setStretchWin(null);
     setCmdBase(null);
@@ -1623,6 +1626,48 @@ export function useDrawing(opts: {
     toast(`${res.size} Objekt(e) gestutzt.`, 'success', 2000);
   };
 
+  /** Enter: die zuletzt benutzte Funktion wieder einschalten – liefert false, wenn es keine gibt */
+  const repeatTool = () => {
+    if (!lastTool.current || tool !== 'select') return false;
+    setTool(lastTool.current);
+    return true;
+  };
+
+  /** Zwischenablage (Strg+C): Kennungen der kopierten Objekte */
+  const clip = useRef<string[]>([]);
+  /** Strg+C: Auswahl merken und „Kopieren“ starten (Basispunkt antippen, die Kopie hängt dann am Mauszeiger) */
+  const copySelection = () => {
+    if (selIds.length) clip.current = [...selIds];
+    setTool('copy');
+  };
+  /** Strg+V: die zuletzt kopierten Objekte noch einmal kopieren (Basispunkt antippen) */
+  const pasteCopy = () => {
+    if (selIds.length) return setTool('copy');
+    const ids = clip.current.filter((id) => data.elements[id] && !data.elements[id].deletedAt);
+    if (!ids.length) {
+      toast('Zuerst Objekte auswählen und mit Strg+C kopieren.', 'info', 2500);
+      return;
+    }
+    setVertex(null);
+    setSelIds(ids);
+    lastTool.current = 'copy';
+    setToolState('copy');
+    setCmdBase(null);
+    setCopies(0);
+    setCmdSelecting(false);
+  };
+  /** Strg+D: Auswahl verdoppeln – leicht versetzt, die Kopien sind danach ausgewählt */
+  const duplicateSelection = () => {
+    const list = selection.map((x) => data.elements[x.id]).filter((e): e is DrawElement => !!e);
+    if (!list.length) return false;
+    const copies2 = list.map((e) => ({ ...e, ...newMeta(), shape: roundShape(translateShape(e.shape, 0.2, 0.2)) }));
+    putRecords({ elements: copies2 });
+    setVertex(null);
+    setSelIds(copies2.map((e) => e.id));
+    toast(copies2.length === 1 ? 'Verdoppelt.' : `${copies2.length} Objekte verdoppelt.`, 'success', 1500);
+    return true;
+  };
+
   /** Pfeiltasten: ausgewählte Objekte um dx, dy (m) verschieben – liefert false ohne Auswahl */
   const nudge = (dx: number, dy: number) => {
     const list = selection.map((x) => data.elements[x.id]).filter((e): e is DrawElement => !!e);
@@ -2296,6 +2341,10 @@ export function useDrawing(opts: {
     onShapeChange,
     onTipChange,
     nudge,
+    repeatTool,
+    copySelection,
+    pasteCopy,
+    duplicateSelection,
     onPlace: (p: Point) => void onPlace(p),
     insert,
     apply,

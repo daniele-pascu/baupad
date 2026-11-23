@@ -593,6 +593,11 @@ export function tastenTests() {
     await expect(page.getByTestId('library-viewer').getByTestId('plan-viewer')).toHaveAttribute('data-scale', /\d/);
     await pruefe(page, 'Plan ansehen (Planbibliothek)', out);
     await page.getByTestId('library-viewer-close').click();
+    // Plan umbenennen (Planbibliothek)
+    await page.getByTestId('library-rename').first().click();
+    await expect(page.getByRole('dialog', { name: 'Plan umbenennen' })).toBeVisible();
+    await pruefe(page, 'Plan umbenennen (Planbibliothek)', out);
+    await page.getByRole('dialog', { name: 'Plan umbenennen' }).getByRole('button', { name: 'Abbrechen' }).click();
     expect(out, out.join('\n')).toEqual([]);
   });
 

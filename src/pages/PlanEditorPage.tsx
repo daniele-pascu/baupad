@@ -408,6 +408,11 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const history = useAppState((s) => s.history);
   const plan = data.plans[planId];
   const [tool, setToolState] = useState<Tool>(() => loadPref('tool', TOOLS.map((t) => t.id).filter((t) => t !== 'probe'), 'ellipse'));
+  /** zuletzt benutzte Funktion im Aufmaß (Enter schaltet sie wieder ein) */
+  const lastTool = useRef<Tool | null>(null);
+  useEffect(() => {
+    if (tool !== 'select' && tool !== 'probe' && tool !== 'calibrate') lastTool.current = tool;
+  }, [tool]);
   const [color, setColorState] = useState(() => loadPref('color', COLORS.map((c) => c.value), DEFAULT_COLOR));
   const [selectedId, setSelectedId] = useState<string | null>(focusDamageId);
   /** Kontrollmessung (Werkzeug „Messung“) – wird nicht gespeichert */
@@ -1077,6 +1082,24 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         drawing.selectAll();
         return;
       }
+      // Strg + / − / 0: vergrößern, verkleinern, ganzer Plan (statt der Seite im Browser)
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && ['+', '=', '-', '0'].includes(e.key)) {
+        e.preventDefault();
+        if (e.key === '-') viewer.current?.zoomOut();
+        else if (e.key === '0') viewer.current?.fit();
+        else viewer.current?.zoomIn();
+        return;
+      }
+      // Plan bearbeiten: Strg+C kopieren (Basispunkt antippen, Kopie hängt am Mauszeiger), Strg+V nochmals kopieren,
+      // Strg+X verschieben, Strg+D verdoppeln
+      if (drawMode && !probe && !polyCount && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && ['c', 'v', 'x', 'd'].includes(key)) {
+        e.preventDefault();
+        if (key === 'c') drawing.copySelection();
+        else if (key === 'v') drawing.pasteCopy();
+        else if (key === 'x') drawing.setTool('move');
+        else drawing.duplicateSelection();
+        return;
+      }
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       // Pfeiltasten: Ausgewähltes in diese Richtung verschieben – 1 cm, mit Umschalt 10 cm
       const arrow = ({ ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] } as Record<string, [number, number]>)[e.key];
@@ -1118,7 +1141,11 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       if (drawMode) {
         const dt = DRAW_TOOLS.find((x) => x.key === key);
         if (dt) drawing.setTool(dt.id);
-        else if (e.key === 'Enter' && (SELECT_FIRST.has(drawing.tool) || drawing.tool === 'offset')) {
+        else if (e.key === 'Enter' && drawing.tool === 'select' && !probe) {
+          // Enter: die zuletzt benutzte Funktion wieder einschalten (wie im CAD)
+          if (drawing.repeatTool()) e.preventDefault();
+          return;
+        } else if (e.key === 'Enter' && (SELECT_FIRST.has(drawing.tool) || drawing.tool === 'offset')) {
           // Enter beendet Kopieren/Verschieben/Versetzen (bzw. „Weiter“ nach dem Wählen)
           if (drawing.cmdSelecting && drawing.selection.length) drawing.cmdNext();
           else drawing.finishCommand();
@@ -1146,6 +1173,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         // ausgewählter Eckpunkt zuerst, sonst die ganze Messung
         if (measureVertex === null || !removeMeasureVertex()) void removeDamage(selected);
       } else if (e.key === 'Enter' && selected) setDialog({ mode: 'edit', id: selected.id });
+      else if (e.key === 'Enter' && !drawMode && tool === 'select' && lastTool.current && toolVisible(lastTool.current)) setTool(lastTool.current);
       else return;
       e.preventDefault();
     };
@@ -1835,6 +1863,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               region={region}
               onToolDone={DRAW_DONE_TOOLS.has(drawing.tool) ? () => drawing.setTool('select') : undefined}
               onExitTool={() => drawing.setTool('select')}
+              exitOutside
               damages={drawing.items}
               selectedId={drawing.selectedId}
               tool={probe ? 'probe' : drawing.viewerTool}

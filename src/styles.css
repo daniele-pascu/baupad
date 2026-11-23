@@ -497,7 +497,7 @@ html[data-theme='dark'] .icon-btn.x-btn {
 .vertex-handle {
   fill: #fff;
   stroke: #1f5fbf;
-  stroke-width: 2;
+  stroke-width: 1.6;
 }
 /* gesetzte (bestätigte) Punkte: grün gefüllt, weißer Rand – auf hellen und dunklen Plänen sichtbar */
 .poly-point {
@@ -3029,7 +3029,7 @@ tr.lv-flagged td {
 /* Griff unter der Maus: kräftiger, damit klar ist, welcher Punkt gezogen wird */
 .vertex-handle.hover:not(.active) {
   fill: #dbe8fb;
-  stroke-width: 3;
+  stroke-width: 2.4;
 }
 .handle.hover {
   fill: #1f5fbf;
