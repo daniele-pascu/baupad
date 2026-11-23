@@ -40,7 +40,7 @@ import {
 } from './geometry';
 import { canvasToBlob, closePdf, clampRenderScale, imageToCanvas, loadImageBitmap, openPdf, pageViewport, renderPdfRegion, renderPdfToCanvas } from './pdf';
 import type { ProjectState } from './store';
-import { exportPaper, layoutSheet, planHeading, type OverviewCorner, type SheetLayout } from './sheet-layout';
+import { exportPaper, layoutSheet, planHeading, planSubline, type OverviewCorner, type SheetLayout } from './sheet-layout';
 import { DEFAULT_TRANSPARENCY, fillOf, fillPaths, outlinePoints, strokeGeometry } from './style';
 import type { Component, Damage, DrawElement, LegendPos, Plan, Rect, Shape, ShapeStyle, TextFont } from './types';
 import { alignFactor, pdfStandardFont } from './text-font';
@@ -394,8 +394,9 @@ async function finishSheet(ctx: Ctx, page: PDFPage, plan: Plan, L: SheetLayout, 
 }
 
 /**
- * Kopfzeile: links „Plannummer 067 | Aufmaßplan“, darunter optional die Bemerkung; rechts nur
- * die ausdrücklich eingeschalteten Angaben (Format, Maßstab). Trennlinie darunter.
+ * Plankopf aller Pläne: links Nummer und Titel (fett), darunter dünner und dunkelgrau, wozu der Plan gehört
+ * (Projektnummer und -name, Kostenstelle, Baustelle) und – wenn eingeschaltet – die Bemerkung; rechts nur die
+ * ausdrücklich eingeschalteten Angaben (Format, Maßstab) und das BauPad-Zeichen. Trennlinie darunter.
  */
 function drawSheetHeader(ctx: Ctx, page: PDFPage, pageH: number, header: Rect, plan: Plan, right: string[], reserveRight = 0) {
   const size = 15;
@@ -406,7 +407,8 @@ function drawSheetHeader(ctx: Ctx, page: PDFPage, pageH: number, header: Rect, p
   const maxW = header.w - bw - Math.max(rw, reserveRight) - (rw || reserveRight ? 16 : 0);
   page.drawText(fitText(ctx.bold, clean(ctx, planHeading(plan)), size, maxW), { x: header.x, y: pageH - header.y - size, size, font: ctx.bold, color: rgb(0.1, 0.1, 0.12) });
   const note = plan.showNote ? plan.description.trim().replace(/\s+/g, ' ') : '';
-  if (note) page.drawText(fitText(ctx.font, clean(ctx, note), 8, maxW), { x: header.x, y: pageH - header.y - size - 11, size: 8, font: ctx.font, color: rgb(0.3, 0.33, 0.38) });
+  const sub = [planSubline(ctx.data.project, ctx.data.costCenters[plan.costCenterId]), note].filter(Boolean).join('  |  ');
+  if (sub) page.drawText(fitText(ctx.font, clean(ctx, sub), 9, maxW), { x: header.x, y: pageH - header.y - size - 11.5, size: 9, font: ctx.font, color: rgb(0.27, 0.28, 0.31) });
   if (rightText) page.drawText(rightText, { x: header.x + header.w - bw - rw, y: pageH - header.y - 14, size: 10, font: ctx.font, color: rgb(0.3, 0.33, 0.38) });
   const ly = pageH - (header.y + header.h) + 6;
   page.drawLine({ start: { x: header.x, y: ly }, end: { x: header.x + header.w, y: ly }, thickness: 0.5, color: rgb(0.8, 0.82, 0.85) });

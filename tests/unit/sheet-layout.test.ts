@@ -102,3 +102,16 @@ describe('Format und Überschrift', () => {
     expect(planHeading({ planNumber: '009', planName: '', floor: 'UG2' })).toBe('009 UG2');
   });
 });
+
+describe('Plankopf: zweite Zeile (Projekt, Kostenstelle, Baustelle)', () => {
+  it('Projektnummer und -name, Kostenstelle, Baustelle – was fehlt, fällt weg', async () => {
+    const { planSubline } = await import('../../src/lib/sheet-layout');
+    expect(planSubline({ number: '2026-04', name: 'Wohnanlage Sonnenhof', site: 'Musterstraße 12' }, { number: '10', name: 'Tiefgarage' })).toBe('2026-04 · Wohnanlage Sonnenhof  |  10 – Tiefgarage  |  Musterstraße 12');
+    expect(planSubline({ name: 'Halle Nord', site: '' }, { name: 'EG' })).toBe('Halle Nord  |  EG');
+    expect(planSubline({ name: 'Halle Nord' })).toBe('Halle Nord');
+  });
+  it('gleiche Angaben stehen nur einmal (Baustelle heißt wie das Projekt)', async () => {
+    const { planSubline } = await import('../../src/lib/sheet-layout');
+    expect(planSubline({ name: 'Halle Nord', site: 'halle nord' }, { name: 'Halle Nord' })).toBe('Halle Nord');
+  });
+});
