@@ -52,7 +52,7 @@ import { arrayDialog } from '../components/ArrayDialog';
 import { roomDialog } from '../components/RoomDialog';
 import { boundarySegments, regionAt, withRoomAreas } from '../lib/regions';
 import { symbolPicker } from '../components/SymbolPicker';
-import { symbolAnchor, symbolDef, symbolGeometry, symbolWall, type SymbolGroup } from '../lib/symbols';
+import { inWallGroup, symbolAnchor, symbolDef, symbolGeometry, symbolWall, type SymbolGroup } from '../lib/symbols';
 import { wallOpenings, wallGeometry } from '../lib/walls';
 import { dimsVisible, visibleElements } from '../lib/layers';
 import { distToSegment, isOpenShape, lineShape, pathToSvg, rectsOverlap, removeVertex, setPolylineClosed, shapeAABB, pointInPolygon, polygonArea, shapeFromVertices, shapePath, shapeVertices, toScreen, type Point, type View } from '../lib/geometry';
@@ -314,7 +314,7 @@ export function useDrawing(opts: {
   };
   /** Bauteil einsetzen: gewähltes Symbol und Größe (null = Standardgröße) */
   const [symbolId, setSymbolId] = useState(() => pref('symbolId', 'door1'));
-  const [symbolSize, setSymbolSize] = useState<{ w: number; h: number } | null>(null);
+  const [symbolSize, setSymbolSize] = useState<{ w: number; h: number; depth?: boolean } | null>(null);
   /** Reihe (polar): Werte aus dem Dialog, Mittelpunkt wird noch angetippt */
   const [arrayPolar, setArrayPolar] = useState<Extract<ArrayParams, { kind: 'polar' }> | null>(null);
   /** Drehen/Skalieren/Ausrichten: angetippte Punkte (m) und Bezug-Modus */
@@ -906,10 +906,10 @@ export function useDrawing(opts: {
       if (!def || !d || d.kind === 'polar') return 'Bitte die Breite in m eingeben, z. B. 0,9 – oder Breite;Tiefe, z. B. 1,2;0,3.';
       if (d.kind === 'dist') {
         if (!(d.len > 0)) return 'Die Breite muss größer als 0 sein.';
-        setSymbolSize({ w: d.len, h: def.keepAspect ? (d.len * def.h) / def.w : (symbolSize?.h ?? def.h) });
+        setSymbolSize({ w: d.len, h: def.keepAspect ? (d.len * def.h) / def.w : (symbolSize?.h ?? def.h), depth: symbolSize?.depth });
       } else {
         if (!(Math.abs(d.dx) > 0 && Math.abs(d.dy) > 0)) return 'Breite und Tiefe müssen größer als 0 sein.';
-        setSymbolSize({ w: Math.abs(d.dx), h: Math.abs(d.dy) });
+        setSymbolSize({ w: Math.abs(d.dx), h: Math.abs(d.dy), depth: true });
       }
       return null;
     }
@@ -1504,7 +1504,7 @@ export function useDrawing(opts: {
     let center = pm;
     let rotation = 0;
     const wallV = symbolWall(def);
-    if (wallV !== null || def.group === 'window') {
+    if (wallV !== null || inWallGroup(def.group)) {
       const tol = (isCoarse() ? 22 : 14) / ((viewer.current?.scale() ?? 1) * k);
       let best: { q: Point; a: number; d: number; wallT?: number } | null = null;
       for (const e of stored) {
@@ -1520,8 +1520,8 @@ export function useDrawing(opts: {
         }
       }
       if (best) {
-        // Fenster in einer Wand: Tiefe = Wandstärke (wenn keine eigene Größe eingegeben)
-        if (def.group === 'window' && best.wallT && !symbolSize) h = best.wallT;
+        // Fenster/Öffnung in einer Wand: Tiefe = Wandstärke (außer die Tiefe wurde eingetippt)
+        if (inWallGroup(def.group) && best.wallT && !symbolSize?.depth) h = best.wallT;
         // Richtung so wählen, dass das Symbol „aufrecht“ bleibt (−90° … 90°)
         let a = best.a;
         if (a > 90) a -= 180;

@@ -9,10 +9,11 @@ import type { Shape } from './types';
  */
 
 /** 'appliance' (Küchengeräte): nicht mehr wählbar, nur noch für bestehende Zeichnungen */
-export type SymbolGroup = 'door' | 'window' | 'electro' | 'appliance' | 'shaft';
+export type SymbolGroup = 'door' | 'window' | 'opening' | 'electro' | 'appliance' | 'shaft';
 export const SYMBOL_GROUPS: { id: SymbolGroup; label: string }[] = [
   { id: 'door', label: 'Türen' },
   { id: 'window', label: 'Fenster' },
+  { id: 'opening', label: 'Öffnungen' },
   { id: 'electro', label: 'Elektro' },
   { id: 'shaft', label: 'Fänge, Durchbrüche' },
 ];
@@ -47,6 +48,9 @@ export interface SymbolDef {
   hinge?: number;
   parts: SymbolPart[];
 }
+
+/** Sitzt mittig in der Wand und schneidet sie auf (Fenster, Wandöffnungen); Tiefe = Wandstärke */
+export const inWallGroup = (g: SymbolGroup | undefined): boolean => g === 'window' || g === 'opening';
 
 /** Wandlinie eines Symbols (v): nur Türen liegen mit einer Linie auf der Wand */
 export const symbolWall = (def: SymbolDef | undefined): number | null => (!def ? null : def.wall ?? (def.group === 'door' ? 1 : null));
@@ -128,6 +132,11 @@ export const SYMBOLS: SymbolDef[] = [
   { id: 'win2', label: 'Fenster zweiflügelig', group: 'window', w: 1.6, h: 0.3, flippable: true, parts: [rect(0, 0, 1, 1), glass([0, 0.42], [1, 0.42]), glass([0, 0.58], [1, 0.58]), line([0.5, 0], [0.5, 1])] },
   { id: 'win-fixed', label: 'Festverglasung', group: 'window', w: 1.2, h: 0.3, parts: [rect(0, 0, 1, 1), glass([0, 0.5], [1, 0.5])] },
   { id: 'win-slide', label: 'Schiebefenster', group: 'window', w: 1.6, h: 0.3, flippable: true, parts: [rect(0, 0, 1, 1), glass([0, 0.38], [0.6, 0.38]), glass([0.4, 0.62], [1, 0.62])] },
+  // Wandöffnungen ohne Tür/Fenster (Grundriss): Lücke in der Wand mit Laibungen; was über der Schnittebene liegt
+  // (Sturz), ist gestrichelt, eine Brüstung darunter wird gesehen (Volllinie). Länge und Tiefe frei.
+  { id: 'wall-opening', label: 'Wandöffnung mit Sturz', group: 'opening', w: 1.0, h: 0.25, parts: [line([0, 0], [0, 1]), line([1, 0], [1, 1]), line([0, 0], [1, 0], { dashed: true }), line([0, 1], [1, 1], { dashed: true })] },
+  { id: 'wall-opening-full', label: 'Wandöffnung raumhoch', group: 'opening', w: 1.0, h: 0.25, parts: [line([0, 0], [0, 1]), line([1, 0], [1, 1])] },
+  { id: 'wall-opening-sill', label: 'Wandöffnung mit Brüstung (Durchreiche)', group: 'opening', w: 1.0, h: 0.25, parts: [line([0, 0], [0, 1]), line([1, 0], [1, 1]), line([0, 0.5], [1, 0.5]), line([0, 0], [1, 0], { dashed: true }), line([0, 1], [1, 1], { dashed: true })] },
   // Elektro (ÖNORM-Sinnbilder)
   { id: 'light-ceiling', label: 'Deckenleuchte', group: 'electro', w: 0.4, h: 0.4, keepAspect: true, parts: [line([0.1, 0.1], [0.9, 0.9]), line([0.9, 0.1], [0.1, 0.9])] },
   { id: 'light-wall', label: 'Wandleuchte', group: 'electro', w: 0.4, h: 0.4, keepAspect: true, flippable: true, parts: [line([0.1, 1], [0.9, 1]), line([0.5, 0.05], [0.5, 0.78]), line([0.28, 0.56], [0.72, 1]), line([0.72, 0.56], [0.28, 1])] },

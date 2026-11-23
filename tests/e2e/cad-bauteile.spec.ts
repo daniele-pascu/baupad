@@ -182,9 +182,17 @@ test('Wand: Stärke und Höhe, Länge/Fläche, Tür und Fenster schneiden die Ö
   await page.getByTestId('symbol-picker').getByTestId('symbol-group-window').click();
   await page.getByTestId('symbol-picker').getByTestId('symbol-win1').click();
   await page.mouse.click(x0 + m(5) + 2, y0 + m(2));
+  // Wandöffnung ohne Tür (Durchgang mit Sturz) – Tiefe übernimmt die Wandstärke
+  await page.getByTestId('symbol-change').click();
+  await page.getByTestId('symbol-picker').getByTestId('symbol-group-opening').click();
+  await page.getByTestId('symbol-picker').getByTestId('symbol-wall-opening').click();
+  await page.mouse.click(x0 + m(3.8), y0 + 2);
   await page.getByTestId('command-done').click();
   await waitSaved(page);
-  await expect(page.locator('[data-element="wall"]')).toHaveAttribute('data-openings', '2');
+  await expect(page.locator('[data-element="wall"]')).toHaveAttribute('data-openings', '3');
+  const opening = (await elements()).find((e) => (e as unknown as { symbol?: { id: string } }).symbol?.id === 'wall-opening')!;
+  expect(opening.shape.w).toBeCloseTo(1);
+  expect(opening.shape.h).toBeCloseTo(0.3);
   // Stärke nachträglich ändern
   await pickTool(page, 'draw-select');
   await page.mouse.click(x0 + m(4), y0);

@@ -87,7 +87,7 @@ export function axisLength(axis: Point[], closed: boolean): number {
 }
 
 import { fromShapeLocal, shapeCenter } from './geometry';
-import { symbolDef } from './symbols';
+import { inWallGroup, symbolDef } from './symbols';
 import type { DrawElement } from './types';
 
 /**
@@ -99,7 +99,7 @@ export function wallOpenings(elements: Pick<DrawElement, 'type' | 'shape' | 'sym
   for (const e of elements) {
     if (e.type !== 'symbol' || !e.symbol) continue;
     const g = symbolDef(e.symbol.id)?.group;
-    if (g !== 'door' && g !== 'window') continue;
+    if (g !== 'door' && !inWallGroup(g)) continue;
     const s = e.shape;
     const ref = g === 'door' ? fromShapeLocal(s, { x: s.x + s.w / 2, y: s.y + (e.symbol.flipY ? 0 : s.h) }) : shapeCenter(s);
     out.push({ c: { x: ref.x * k, y: ref.y * k }, w: s.w * k, angle: s.rotation ?? 0 });
