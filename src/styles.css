@@ -6356,6 +6356,22 @@ html:has(.crew-page) {
 .crew-actions .btn svg {
   flex: none;
 }
+/* Handy: Personal · Einstellungen · PDF · ⋮ in einer Zeile – etwas kleinere Tasten, Einstellungen nur als Symbol */
+@media (max-width: 520px) {
+  .crew-actions {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+  .crew-actions .btn {
+    min-height: 40px;
+    padding-inline: 12px;
+    font-size: 0.92rem;
+    gap: 6px;
+  }
+  .crew-actions .crew-settings .lbl {
+    display: none;
+  }
+}
 .crew-search {
   display: flex;
   align-items: center;
@@ -15112,4 +15128,11 @@ html[data-theme='dark'] .crew-ww-legend b.o {
 }
 .crew-forward-name strong {
   overflow-wrap: anywhere;
+}
+
+/* Berichte am Handy: Tasten stehen unter dem Titel – der Hinweis klebt nicht direkt an ihnen */
+@media (max-width: 700px) {
+  .reports-forms-hint {
+    margin-top: 10px;
+  }
 }
