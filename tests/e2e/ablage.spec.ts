@@ -78,7 +78,11 @@ function fakeCloud() {
       if (action === 'records-pull') return ok({ records: [] });
       if (action === 'usage') {
         const live = [...rows.values()].filter((x) => !x.deleted_at);
-        return ok({ photos: live.length, bytes: live.reduce((s, x) => s + x.size, 0) });
+        // wie der Server: alle Dateien im Bucket (Gesamt), davon unter photos/
+        const all = [...files.entries()];
+        const total = all.reduce((s, [, b]) => s + b.length, 0);
+        const photoBytes = all.filter(([k]) => k.startsWith('photos/')).reduce((s, [, b]) => s + b.length, 0);
+        return ok({ photos: live.length, bytes: live.reduce((s, x) => s + x.size, 0), total, photoBytes });
       }
       if (action === 'status') return ok({ ok: true, bucket: 'baupad-dateien', endpoint: 'https://nbg1.your-objectstorage.com', region: 'eu-central' });
       return r.fulfill({ status: 400, contentType: 'application/json', body: '{"error":"action"}' });
@@ -133,10 +137,11 @@ test('Fotos werden hochgeladen, abgeglichen und für alle Geräte gelöscht', as
   await expect(page.getByTestId('lightbox').getByTestId('lightbox-sync')).toHaveText('zentral gespeichert');
   await page.keyboard.press('Escape');
 
-  // Konto: Ablage verbunden, Belegung aus dem Verzeichnis
+  // Konto: Ablage verbunden; Speicher an einer Stelle – Gerät und Ablage „Gesamt … · davon Fotos …“
   await page.goto('./konto/app');
   await expect(page.getByTestId('cloud-status')).toHaveText('Verbunden');
-  await expect(page.getByTestId('cloud-usage')).toContainText('1 Foto');
+  await expect(page.getByTestId('storage-device')).toContainText('MB');
+  await expect(page.getByTestId('cloud-usage')).toContainText(/^Gesamt \d+,\d\d MB · davon Fotos \d+,\d\d MB$/);
   await page.getByTestId('cloud-check').click();
   await expect(page.locator('.toast', { hasText: 'Bucket baupad-dateien (eu-central)' })).toHaveCount(1);
 
@@ -147,7 +152,7 @@ test('Fotos werden hochgeladen, abgeglichen und für alle Geräte gelöscht', as
   cloud.files.set('photos/other-1/thumb.jpg', jpeg);
   await page.getByTestId('cloud-sync').click();
   await expect(page.locator('.toast', { hasText: 'Abgleich abgeschlossen' })).toHaveCount(1);
-  await expect(page.getByTestId('cloud-usage')).toContainText('2 Fotos');
+  await expect(page.getByTestId('cloud-usage')).toContainText('davon Fotos');
 
   await page.goto('./fotos');
   await expect(page.getByTestId('photo-site')).toContainText('2 Fotos');

@@ -41,12 +41,16 @@ create trigger photos_touch before insert or update on public.photos for each ro
 -- Speicherverbrauch je Arbeitsbereich (Anzeige unter Konto)
 create or replace function public.my_storage_usage() returns json
 language sql stable security definer set search_path = public as $$
-  select json_build_object(
-    'photos', count(*) filter (where p.deleted_at is null),
-    'bytes', coalesce(sum(p.size) filter (where p.deleted_at is null), 0)
+  -- Fotos (Anzahl, Bytes) und Größe der Datensätze aller Tools (Projekte, Pläne, Aufmaße, Berichte …) des Arbeitsbereichs;
+  -- die Dateien selbst (Pläne, PDFs, Fotos) zählt die Funktion „storage“ direkt im Bucket
+  with ws as (
+    select m.workspace_id from public.memberships m where m.user_id = auth.uid() and m.active order by m.created_at limit 1
   )
-  from public.photos p
-  where p.workspace_id = (select m.workspace_id from public.memberships m where m.user_id = auth.uid() and m.active order by m.created_at limit 1);
+  select json_build_object(
+    'photos', (select count(*) from public.photos p where p.workspace_id = (select workspace_id from ws) and p.deleted_at is null),
+    'bytes', (select coalesce(sum(p.size), 0) from public.photos p where p.workspace_id = (select workspace_id from ws) and p.deleted_at is null),
+    'data_bytes', (select coalesce(sum(pg_column_size(r.data)), 0) from public.records r where r.workspace_id = (select workspace_id from ws) and r.deleted_at is null)
+  );
 $$;
 revoke all on function public.my_storage_usage() from public;
 grant execute on function public.my_storage_usage() to authenticated;

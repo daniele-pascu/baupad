@@ -37,6 +37,11 @@ war ein Fehlversuch und wird nicht gebraucht (löschen).
 
 **05.11.2026 (Zeitaufzeichnung):** Funktion `storage` neu veröffentlichen (filtert Stunden für Polier/Arbeiter), **danach** `docs/supabase/time-access.sql` im SQL Editor ausführen. Andere Reihenfolge: Poliere könnten kurz keine Stunden hochladen.
 
+**23.11.2026 (Speicheranzeige):** Die Funktion `storage` zählt bei „usage“ jetzt alle Dateien im Bucket (Pläne, PDFs, Fotos)
+und zeigt unter Konto → App und Speicher „Gesamt … MB · davon Fotos … MB“. Sie wird automatisch veröffentlicht. Damit
+auch die Datensätze (Projekte, Aufmaße …) mitzählen: den Block `my_storage_usage` aus `docs/supabase/storage.sql` im SQL
+Editor ausführen. Ohne diesen Schritt fehlen nur die (kleinen) Datensätze in der Summe.
+
 ## Automatisch veröffentlichen (seit 19.11.2026)
 Die Funktion `storage` wird von GitHub selbst veröffentlicht, sobald sich ihr Code auf `main` ändert
 (`.github/workflows/supabase-storage.yml`, „Verify JWT“ aus). Per Hand: GitHub → Actions → „Supabase-Funktion storage
@@ -100,5 +105,5 @@ Secrets (Edge Functions → Secrets):
 
 ## Später
 - Aufräumen gelöschter Dateien (Originalpläne gelöschter Projekte bleiben vorerst bei Hetzner), Speicherübersicht je
-  Firma in der Betreiber-Ansicht (die Anzeige unter Konto zählt nur Fotos).
+  Firma in der Betreiber-Ansicht.
 - Vorab-Download aller Dateien eines Projekts fürs Arbeiten ohne Netz („Projekt aufs Gerät holen“).

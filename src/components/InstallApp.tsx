@@ -133,7 +133,6 @@ export function AppStorageSettings() {
       6000,
     );
   };
-  const mb = (n: number) => `${(n / 1024 / 1024).toLocaleString('de-DE', { maximumFractionDigits: 1 })} MB`;
   return (
     <section className="logo-settings" data-testid="app-settings">
       <div className="logo-settings-head">
@@ -151,8 +150,9 @@ export function AppStorageSettings() {
             {st.persisted ? 'Daten dauerhaft gespeichert' : 'Dauerhafte Speicherung nicht bestätigt'}
           </span>
         )}
-        {st && <span className="muted small">Belegt: {mb(st.usage)}</span>}
       </div>
+      {/* Speicher an einer Stelle: dieses Gerät und die zentrale Ablage der Firma */}
+      <StorageSummary device={st?.usage ?? null} />
       {st && !st.persisted && (
         <p className="small app-hint" data-testid="storage-hint">
           Ohne Bestätigung darf der Browser die Daten bei Speichermangel oder längerer Nichtnutzung löschen. Bitte dauerhafte Speicherung anfordern
@@ -172,6 +172,66 @@ export function AppStorageSettings() {
   );
 }
 
+/** Belegung der zentralen Ablage laut Server: total = alle Dateien + Datensätze; ältere Server liefern nur die Fotos */
+interface CloudUsage {
+  photos: number;
+  bytes: number;
+  total?: number;
+  photoBytes?: number;
+}
+
+/** Megabyte mit zwei Nachkommastellen („12,40 MB“), ab 1 GB in GB */
+export const fmtMb = (n: number) =>
+  n >= 1024 ** 3
+    ? `${(n / 1024 ** 3).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GB`
+    : `${(n / 1024 ** 2).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MB`;
+
+/** Belegung der Ablage (nur wenn verbunden); nach jedem Abgleich neu */
+function useCloudUsage(): CloudUsage | null {
+  const cloud = useCloudState();
+  const [usage, setUsage] = useState<CloudUsage | null>(null);
+  useEffect(() => {
+    if (cloud.status !== 'ready') {
+      setUsage(null);
+      return;
+    }
+    void cloudCall<CloudUsage>('usage')
+      .then(setUsage)
+      .catch(() => setUsage(null));
+  }, [cloud.status, cloud.lastSyncAt]);
+  return usage;
+}
+
+/** Speicher: „Auf diesem Gerät“ und „Zentrale Ablage: Gesamt … · davon Fotos …“ untereinander */
+function StorageSummary({ device }: { device: number | null }) {
+  const usage = useCloudUsage();
+  if (device == null && !usage) return null;
+  return (
+    <div className="storage-summary" data-testid="storage-summary">
+      {device != null && (
+        <div className="storage-line">
+          <span>Auf diesem Gerät</span>
+          <strong data-testid="storage-device">{fmtMb(device)}</strong>
+        </div>
+      )}
+      {usage && (
+        <div className="storage-line">
+          <span>Zentrale Ablage</span>
+          <strong data-testid="cloud-usage">
+            {usage.total != null ? (
+              <>
+                Gesamt {fmtMb(usage.total)} <span className="muted">· davon Fotos {fmtMb(usage.photoBytes ?? usage.bytes)}</span>
+              </>
+            ) : (
+              `${usage.photos} ${usage.photos === 1 ? 'Foto' : 'Fotos'}, ${fmtBytes(usage.bytes)}`
+            )}
+          </strong>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const CLOUD_LABELS = {
   off: 'Nur auf diesem Gerät',
   setup: 'Noch nicht eingerichtet',
@@ -186,13 +246,6 @@ function CloudSettings() {
   const cloud = useCloudState();
   const data = useDataSyncState();
   const [busy, setBusy] = useState(false);
-  const [usage, setUsage] = useState<{ photos: number; bytes: number } | null>(null);
-  useEffect(() => {
-    if (cloud.status !== 'ready') return;
-    void cloudCall<{ photos: number; bytes: number }>('usage')
-      .then(setUsage)
-      .catch(() => setUsage(null));
-  }, [cloud.status, cloud.lastSyncAt]);
   const run = async (label: string, fn: () => Promise<string>) => {
     setBusy(true);
     try {
@@ -247,11 +300,6 @@ function CloudSettings() {
           </span>
         )}
         {(data.lastSyncAt ?? cloud.lastSyncAt) && <span className="muted small">Abgleich {time(Math.max(data.lastSyncAt ?? 0, cloud.lastSyncAt ?? 0))}</span>}
-        {usage && (
-          <span className="muted small" data-testid="cloud-usage">
-            In der Ablage: {usage.photos} {usage.photos === 1 ? 'Foto' : 'Fotos'}, {fmtBytes(usage.bytes)}
-          </span>
-        )}
       </div>
       {data.status === 'error' && data.message && (
         <p className="small app-hint" data-testid="data-message">
