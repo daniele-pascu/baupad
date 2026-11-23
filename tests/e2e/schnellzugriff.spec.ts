@@ -3,7 +3,7 @@ import { createProject, freshStart, pickWeekProject } from './helpers';
 
 /**
  * Tools-Seite: Schnellzugriff (zuletzt geöffnet + angeheftet, Tool klein über dem Projekt) und „Heute auf der
- * Baustelle“ (eingeteilt, krank, Urlaub, noch frei); Projektregister mit Reitern Zuletzt / Angeheftet / Alle n –
+ * Baustelle“ (eingeteilt, krank, Urlaub, noch frei); Projektregister mit Reitern Alle n / Angeheftet (kein „Zuletzt“) –
  * Suchen schaltet die Reiter aus und sucht in allen Projekten.
  */
 
@@ -28,14 +28,12 @@ test('Schnellzugriff, Projektregister mit Reitern und Nadel, Heute auf der Baust
   await quick(page).nth(1).click();
   await expect(page.getByTestId('project-title')).toHaveText('Rohbau Müller');
 
-  // Projektregister: „Alle 2“ zuerst; Zuletzt = zuletzt geöffnet (neueste zuerst)
+  // Projektregister: nur zwei Reiter, „Alle 2“ an erster Stelle und gewählt; kein „Zuletzt“
   await page.goto('./baupad/projektregister');
-  await expect(page.getByTestId('register-tab-alle')).toHaveText('Alle 2');
+  await expect(page.getByTestId('register-tabs').getByRole('tab')).toHaveText(['Alle 2', 'Angeheftet']);
   await expect(page.getByTestId('register-tab-alle')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByTestId('register-tab-zuletzt')).toHaveCount(0);
   await expect(rows(page)).toHaveCount(2);
-  await page.getByTestId('register-tab-zuletzt').click();
-  await expect(rows(page).first()).toHaveAttribute('data-name', 'Rohbau Müller');
-  await expect(rows(page).nth(1)).toHaveAttribute('data-name', 'Halle Nord');
 
   // Angeheftet: leer → Nadel bei Halle Nord → nur Halle Nord
   await page.getByTestId('register-tab-angeheftet').click();

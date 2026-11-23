@@ -223,8 +223,6 @@ export function tastenTests() {
     await pruefe(page, 'Projektregister Alle', out);
     await page.getByTestId('register-tab-angeheftet').click();
     await pruefe(page, 'Projektregister Angeheftet', out);
-    await page.getByTestId('register-tab-zuletzt').click();
-    await pruefe(page, 'Projektregister Zuletzt', out);
     await page.getByTestId('register-search').fill('halle');
     await expect(page.getByTestId('register-search-all')).toBeVisible();
     await pruefe(page, 'Projektregister Suche', out);

@@ -306,9 +306,11 @@ Festgelegte Grundsätze für BauPad / PAD Software. Bitte hier ergänzen, wenn s
 - **Angeheftete Projekte je Nutzer** (Daniele): im Konto der Person gespeichert (Benutzerdaten der Anmeldung) – auf
   jedem Gerät derselben Person gleich, jede Person hat ihre eigenen; offline Geändertes wird beim nächsten Online-Start
   nachgetragen. „Zuletzt geöffnet“ merkt sich jedes Gerät selbst.
-- **Projektregister:** Reiter **Zuletzt / Angeheftet / Alle n** (n = Anzahl der Projekte). Nadel je Projekt heftet es an den
-  Schnellzugriff. **Suchen schaltet die Reiter aus** und sucht in allen Projekten; einen Reiter antippen beendet die Suche.
-  Das Register öffnet mit dem zuletzt gewählten Reiter (anfangs „Alle“), nach „Neues Projekt“ immer „Alle“.
+- **Projektregister:** Reiter **Alle n** (an erster Stelle, n = Anzahl der Projekte) und **Angeheftet** – **kein
+  „Zuletzt“** (Daniele, 23.11.: herausgenommen; zuletzt Geöffnetes steht nur im Schnellzugriff der Tools-Seite). Nadel je
+  Projekt heftet es an den Schnellzugriff. **Suchen schaltet die Reiter aus** und sucht in allen Projekten; einen Reiter
+  antippen beendet die Suche. Das Register öffnet mit dem zuletzt gewählten Reiter (anfangs „Alle“), nach „Neues Projekt“
+  immer „Alle“.
 - **Heute auf der Baustelle** unter den Tools und oben im Team: Köpfe und Anzahl der Eingeteilten und die Arbeitszeit –
   **keine geplanten Stunden** (Daniele), darunter wer **krank**, im **Urlaub** oder **noch frei** ist (laut Einteilung und Urlaub/Krank;
   Projektleiter zählen nie, pausierte Baustellen nicht).
