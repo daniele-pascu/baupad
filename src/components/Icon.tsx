@@ -58,6 +58,8 @@ const PATHS: Record<string, string> = {
   down: 'M12 5v14M5 12l7 7 7-7',
   dimension: 'M4 7v10M20 7v10M4 12h16M7.5 9.5L4 12l3.5 2.5M16.5 9.5L20 12l-3.5 2.5',
   text: 'M5 7V5h14v2M12 5v14M9 19h6',
+  // Bruchlinie: senkrechte Linie mit Zickzack in der Mitte
+  breakline: 'M12 3v6.5l-3.5 2 7 1-3.5 2V21',
   // Text mit Pfeil: kleines T oben rechts, Pfeil von links unten dorthin
   callout: 'M12 5V3.5h9V5M16.5 3.5v8M14.5 11.5h4M12 14l-7.5 6M4.5 20l1-3.6M4.5 20l3.6-.9',
   grid: 'M4 4h16v16H4zM4 9.33h16M4 14.67h16M9.33 4v16M14.67 4v16',

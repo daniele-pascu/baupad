@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { annotationsOf, calloutGeometry, LEADER_WIDTH_PX, dimGeometry, dimLeader, gridStep, majorStep, ROOM_LINE, shapeToMeters, textFontSize, textLines } from '../lib/drawing';
+import { annotationsOf, breakPath, calloutGeometry, DOT_HALO, LEADER_WIDTH_PX, dimGeometry, dimLeader, gridStep, majorStep, ROOM_LINE, shapeToMeters, textFontSize, textLines } from '../lib/drawing';
 import { pathToSvg, polygonShape, shapeCenter, shapePath, shapeVertices, toPage, toScreen, type Point, type View } from '../lib/geometry';
 import { DEFAULT_TRANSPARENCY, fillOf, hatchAnchor, PX_PER_PT, strokeGeometry } from '../lib/style';
 import type { DrawElement, DrawElementType, Rect, Shape } from '../lib/types';
@@ -91,6 +91,8 @@ export function renderElement(
   openings: WallOpening[] = [],
   /** Schraffur am Plan fixiert (Seiteneinheiten je pt auf dem Papier) */
   hatchUnit = hatchAnchor(k),
+  /** Bruchlinie: Fläche (Seitenkoordinaten), die sie ausblendet */
+  mask: Point[] | null = null,
 ): ReactNode {
   const stroke = visibleStroke(e.color);
   const w = e.style?.lineWidth && e.type !== 'dimension' ? Math.max(1, e.style.lineWidth * PX_PER_PT) : selected ? 3 : 2;
@@ -146,6 +148,7 @@ export function renderElement(
       <g data-element="text" data-element-id={e.id} data-callout={callout ? '1' : undefined} opacity={faded ? 0.55 : 1} transform={rot ? `rotate(${rot} ${c.x} ${c.y})` : undefined}>
         {callout && (
           <g className="callout" data-testid="callout-arrow" data-end={e.leader?.end ?? 'arrow'}>
+            {callout.dot && <circle cx={callout.dot.c.x} cy={callout.dot.c.y} r={Math.max(1.6, callout.dot.r) * DOT_HALO} fill="#fff" />}
             <polyline points={callout.line.map((q) => `${q.x},${q.y}`).join(' ')} fill="none" stroke={stroke} strokeWidth={lw} strokeLinejoin="round" strokeLinecap="round" />
             {callout.head && <polygon points={callout.head.map((q) => `${q.x},${q.y}`).join(' ')} fill={stroke} stroke={stroke} strokeWidth={lw * 0.6} strokeLinejoin="round" data-testid="callout-head" />}
             {callout.dot && <circle cx={callout.dot.c.x} cy={callout.dot.c.y} r={Math.max(1.6, callout.dot.r)} fill={stroke} data-testid="callout-dot" />}
@@ -171,6 +174,19 @@ export function renderElement(
                 </tspan>
               ))}
         </text>
+      </g>
+    );
+  }
+  if (e.type === 'break') {
+    // Bruchlinie: weiße Fläche über der Zeichnung dahinter, darauf die Linie mit Zickzack
+    const toS = (p: Point) => toScreen(view, p);
+    const pts = breakPath(pageShape).map(toS);
+    const d = pts.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join('');
+    return (
+      <g data-element="break" data-element-id={e.id} opacity={faded ? 0.55 : 1}>
+        {mask && <polygon points={mask.map(toS).map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')} fill="#fff" stroke="none" data-testid="break-mask" />}
+        {selected && <path d={d} fill="none" stroke="#9cc0f5" strokeWidth={5} strokeLinejoin="round" />}
+        <path d={d} fill="none" stroke={stroke} strokeWidth={e.style?.lineWidth ? Math.max(1, e.style.lineWidth * PX_PER_PT) : 1.6} strokeLinejoin="round" strokeLinecap="round" />
       </g>
     );
   }

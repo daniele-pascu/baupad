@@ -196,6 +196,7 @@ export function measuresOf(e: Pick<DrawElement, 'type' | 'shape'> & Partial<Pick
       return { length: s.w, width: s.h, rotation };
     case 'line':
     case 'dimension':
+    case 'break':
       return { length: roundM(lineLength(s)), angle: lineAngle(s) };
     case 'ellipse':
       return Math.abs(s.w - s.h) < 1e-6 ? { diameter: s.w } : { length: s.w, width: s.h, rotation };
@@ -242,6 +243,7 @@ export function applyMeasures(
       return withRotation(resizeKeeping(s, m.length ?? s.w, m.width ?? s.h, { x: 0.5, y: 0.5 }), m.rotation);
     }
     case 'line':
+    case 'break':
       return lineWithMeasures(s, m, opts.fixedEnd ?? 0);
     case 'dimension': {
       const [a] = lineEnds(s);
@@ -421,9 +423,9 @@ export function fitTextResize(e: Pick<DrawElement, 'shape' | 'text' | 'font'> & 
 // ---------------------------------------------------------------------------
 // Text mit Pfeil
 
-/** Bezugslinie eines Textes im Bezugssystem des Textes (nicht gedreht): Linie vom Text zur Spitze und ihr Ende. */
+/** Hinweislinie eines Textes im Bezugssystem des Textes (nicht gedreht): Linie unter dem Text, von dort zur Spitze, und ihr Ende. */
 export interface CalloutGeometry {
-  /** Spitze, (nur wenn nötig) kurzer Knick neben dem Text, Ansatz am Text */
+  /** Spitze, (nur wenn nötig) kurzes Stück neben dem Text, näheres Ende der Linie unter dem Text, anderes Ende */
   line: Point[];
   /** gefüllte Pfeilspitze (Spitze, links, rechts) – nur beim Ende „Pfeil“ */
   head: [Point, Point, Point] | null;
@@ -431,28 +433,31 @@ export interface CalloutGeometry {
   dot: { c: Point; r: number } | null;
 }
 
-/** Strichstärke der Bezugslinie: immer gleich – am Bildschirm in Pixeln, im PDF in pt */
+/** Strichstärke der Hinweislinie: immer gleich – am Bildschirm in Pixeln, im PDF in pt */
 export const LEADER_WIDTH_PX = 1.3;
-export const LEADER_WIDTH_PT = 0.5;
+export const LEADER_WIDTH_PT = 0.6;
+/** Weißer Rand um den Punkt am Linienende (Anteil am Radius): hebt ihn von Schraffur und Linien ab */
+export const DOT_HALO = 1.45;
 
 /**
- * Bezugslinie zum Text: gerade von der näheren Seite des Textes (links bzw. rechts mittig) zur Spitze. Nur wenn diese
- * Gerade durch den Text liefe (Spitze über, unter bzw. hinter dem Text), führt zuerst ein kurzes waagrechtes Stück vom
- * Text weg, dann geht es gerade zur Spitze. `size` (wie `box`, z. B. die Schrifthöhe beim Einfügen) bestimmt
- * Pfeilspitze, Punkt, Abstand und Länge dieses Stücks – unabhängig von der jetzigen Schrift- bzw. Rahmengröße.
- * Alles im Bezugssystem des Textes (ungedreht).
+ * Hinweislinie wie im Detailplan: Der Text steht auf einer waagrechten Linie in Textbreite; von deren näherem Ende
+ * führt eine gerade Linie zur Spitze (Pfeil, Punkt oder ohne). Liefe diese Gerade durch die Schrift (Spitze über
+ * dem Text), wird die Linie unter dem Text zuerst ein kurzes Stück verlängert. `size` (wie `box`, z. B. die
+ * Schrifthöhe beim Einfügen) bestimmt Pfeilspitze, Punkt und Abstände – unabhängig von der jetzigen Schrift- bzw.
+ * Rahmengröße. Alles im Bezugssystem des Textes (ungedreht).
  */
 export function calloutGeometry(box: Rect, tip: Point, size: number, end: LeaderEnd = 'arrow'): CalloutGeometry {
   const cx = box.x + box.w / 2;
-  const cy = box.y + box.h / 2;
   const left = tip.x < cx;
-  const gap = size * 0.25;
-  const attach = { x: left ? box.x - gap : box.x + box.w + gap, y: cy };
-  // Text mit etwas Rand: läuft die Gerade hindurch, kommt der kurze Knick neben den Text
-  const pad = gap * 0.6;
-  const body = { x: box.x - pad, y: box.y - pad, w: box.w + 2 * pad, h: box.h + 2 * pad };
-  const knee = { x: attach.x + (left ? -1 : 1) * size * 0.8, y: cy };
-  const from = segmentHitsRect(attach, tip, body) ? knee : attach;
+  // Linie unter dem Text (knapp unter der Schrift)
+  const y = box.y + box.h + size * 0.18;
+  const near = { x: left ? box.x : box.x + box.w, y };
+  const far = { x: left ? box.x + box.w : box.x, y };
+  // Schrift mit etwas Rand: läuft die Gerade hindurch, zuerst ein kurzes Stück waagrecht vom Text weg
+  const pad = size * 0.1;
+  const body = { x: box.x - pad, y: box.y - pad, w: box.w + 2 * pad, h: box.h + pad };
+  const out = { x: near.x + (left ? -1 : 1) * size * 0.8, y };
+  const from = segmentHitsRect(near, tip, body) ? out : near;
   const d = Math.hypot(tip.x - from.x, tip.y - from.y) || 1;
   const ux = (tip.x - from.x) / d;
   const uy = (tip.y - from.y) / d;
@@ -460,9 +465,9 @@ export function calloutGeometry(box: Rect, tip: Point, size: number, end: Leader
   const W = L * 0.34;
   const base = { x: tip.x - ux * L, y: tip.y - uy * L };
   return {
-    line: from === knee ? [tip, knee, attach] : [tip, attach],
+    line: from === out ? [tip, out, near, far] : [tip, near, far],
     head: end === 'arrow' ? [tip, { x: base.x - uy * W, y: base.y + ux * W }, { x: base.x + uy * W, y: base.y - ux * W }] : null,
-    dot: end === 'dot' ? { c: tip, r: size * 0.11 } : null,
+    dot: end === 'dot' ? { c: tip, r: size * 0.18 } : null,
   };
 }
 
@@ -491,6 +496,79 @@ export function calloutWorld(s: Shape, leader: Leader, scale: number, sizeM: num
   const g = calloutGeometry({ x: s.x, y: s.y, w: s.w, h: s.h }, { x: c.x + leader.dx * scale, y: c.y + leader.dy * scale }, sizeM * scale, leader.end);
   const R = (p: Point) => fromShapeLocal(s, p);
   return { line: g.line.map(R), head: g.head ? (g.head.map(R) as [Point, Point, Point]) : null, dot: g.dot ? { c: R(g.dot.c), r: g.dot.r } : null };
+}
+
+// ---------------------------------------------------------------------------
+// Bruchlinie
+
+/** Zeichnungsobjekte, die eine Bruchlinie ausblendet (Texte, Maßlinien und andere Bruchlinien bleiben sichtbar) */
+export const hiddenByBreak = (e: Pick<DrawElement, 'type'>) => e.type !== 'text' && e.type !== 'dimension' && e.type !== 'break';
+
+/** Reihenfolge beim Zeichnen: zuerst die Zeichnung, dann die Bruchlinien (verdecken sie), darüber Texte und Maße */
+export const drawRank = (e: Pick<DrawElement, 'type'>) => (e.type === 'text' || e.type === 'dimension' ? 2 : e.type === 'break' ? 1 : 0);
+export const inDrawOrder = <T extends Pick<DrawElement, 'type'>>(list: T[]): T[] => {
+  const ranked = list.map((e, i) => ({ e, i, r: drawRank(e) }));
+  ranked.sort((a, b) => a.r - b.r || a.i - b.i);
+  return ranked.map((x) => x.e);
+};
+
+/** Bruchlinie A–B als Linienzug mit Zickzack in der Mitte (Zeichen „hier geht es weiter“), Koordinaten wie `s` */
+export function breakPath(s: Shape): Point[] {
+  const [a, b] = lineEnds(s);
+  const len = dist(a, b);
+  if (!(len > 0)) return [a, b];
+  const ux = (b.x - a.x) / len;
+  const uy = (b.y - a.y) / len;
+  const nx = -uy;
+  const ny = ux;
+  const h = len * 0.05; // Höhe des Zickzacks entlang der Linie
+  const w = h * 0.5; // Ausschlag quer
+  const m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  const at = (t: number, q: number): Point => ({ x: m.x + ux * t + nx * q, y: m.y + uy * t + ny * q });
+  return [a, at(-h / 2, 0), at(-h / 6, w), at(h / 6, -w), at(h / 2, 0), b];
+}
+
+/**
+ * Fläche, die eine Bruchlinie ausblendet: der Streifen in Breite der Linie auf der Seite `side`, so weit wie dort
+ * Zeichnung liegt (`boxes` = Begrenzungsrechtecke der Zeichnungsobjekte, Koordinaten wie `s`). null = nichts dahinter.
+ */
+export function breakMask(s: Shape, side: 1 | -1, boxes: Rect[]): Point[] | null {
+  const [a, b] = lineEnds(s);
+  const len = dist(a, b);
+  if (!(len > 0)) return null;
+  const ux = (b.x - a.x) / len;
+  const uy = (b.y - a.y) / len;
+  // in Zeichenrichtung links (Bildschirm: y nach unten) = (uy, -ux)
+  const nx = uy * side;
+  const ny = -ux * side;
+  let far = 0;
+  for (const r of boxes) {
+    const cs = [
+      { x: r.x, y: r.y },
+      { x: r.x + r.w, y: r.y },
+      { x: r.x + r.w, y: r.y + r.h },
+      { x: r.x, y: r.y + r.h },
+    ];
+    const ts = cs.map((c) => (c.x - a.x) * ux + (c.y - a.y) * uy);
+    // liegt das Objekt (seitlich) im Streifen der Linie?
+    if (Math.max(...ts) <= 0 || Math.min(...ts) >= len) continue;
+    far = Math.max(far, ...cs.map((c) => (c.x - a.x) * nx + (c.y - a.y) * ny));
+  }
+  if (!(far > len * 1e-6)) return null;
+  const d = far + len * 0.03; // etwas Zugabe für die Strichstärke
+  return [a, b, { x: b.x + nx * d, y: b.y + ny * d }, { x: a.x + nx * d, y: a.y + ny * d }];
+}
+
+/** Vorgabe für die ausgeblendete Seite einer neuen Bruchlinie: die Seite mit weniger Zeichnung (dort „geht es weiter“) */
+export function defaultBreakSide(s: Shape, boxes: Rect[]): 1 | -1 {
+  const [a, b] = lineEnds(s);
+  const len = dist(a, b) || 1;
+  const nx = (b.y - a.y) / len;
+  const ny = -(b.x - a.x) / len;
+  let sum = 0;
+  for (const r of boxes) sum += ((r.x + r.w / 2 - a.x) * nx + (r.y + r.h / 2 - a.y) * ny) * Math.max(r.w * r.h, 1e-9);
+  // Schwerpunkt der Zeichnung links der Linie → rechts ausblenden
+  return sum > 0 ? -1 : 1;
 }
 
 // ---------------------------------------------------------------------------

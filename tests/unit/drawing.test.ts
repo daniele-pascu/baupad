@@ -323,31 +323,77 @@ describe('Schriftgrad: Schritte und Rundung', async () => {
   });
 });
 
-describe('Linie zum Plan: gerade, ohne Knick', async () => {
+describe('Hinweislinie wie im Detailplan: Text auf einer Linie, von deren Ende zum Ziel', async () => {
   const { calloutGeometry } = await import('../../src/lib/drawing');
   const box = { x: 10, y: 10, w: 6, h: 1 };
-  it('gerade Linie von der näheren Textseite zur Spitze', () => {
+  it('Linie unter dem Text in Textbreite; vom näheren Ende gerade zur Spitze', () => {
     for (const end of ['arrow', 'dot', 'none'] as const) {
       const g = calloutGeometry(box, { x: 2, y: 15 }, 0.5, end);
-      expect(g.line).toHaveLength(2);
-      expect(g.line[0]).toEqual({ x: 2, y: 15 });
-      expect(g.line[1].y).toBeCloseTo(10.5, 9); // mittig an der linken Seite
-      expect(g.line[1].x).toBeLessThan(10);
+      expect(g.line).toHaveLength(3);
+      const [tip, near, far] = g.line;
+      expect(tip).toEqual({ x: 2, y: 15 });
+      // Linie unter dem Text: knapp unter der Schrift, von der linken bis zur rechten Textkante
+      expect(near.y).toBeCloseTo(11.09, 9);
+      expect(far.y).toBeCloseTo(near.y, 9);
+      expect([near.x, far.x]).toEqual([10, 16]);
       expect(!!g.head).toBe(end === 'arrow');
       expect(!!g.dot).toBe(end === 'dot');
     }
-    // Spitze rechts vom Text: Ansatz an der rechten Seite
-    expect(calloutGeometry(box, { x: 30, y: 2 }, 0.5).line[1].x).toBeGreaterThan(16);
+    // Spitze rechts vom Text: Hinweislinie vom rechten Ende
+    const r = calloutGeometry(box, { x: 30, y: 20 }, 0.5).line;
+    expect([r[1].x, r[2].x]).toEqual([16, 10]);
   });
-  it('nur wenn die Gerade durch den Text liefe: kurzer Knick neben dem Text', () => {
-    // Spitze über dem Text (innerhalb seiner Breite): Gerade vom linken Ansatz liefe durch die Schrift
+  it('Spitze über dem Text: die Linie wird kurz verlängert, damit sie nicht durch die Schrift läuft', () => {
     const g = calloutGeometry(box, { x: 12, y: 4 }, 0.5);
-    expect(g.line).toHaveLength(3);
-    const [tip, knee, attach] = g.line;
+    expect(g.line).toHaveLength(4);
+    const [tip, out, near] = g.line;
     expect(tip).toEqual({ x: 12, y: 4 });
-    expect(knee.y).toBeCloseTo(attach.y, 9); // waagrechtes Stück
-    expect(attach.x - knee.x).toBeCloseTo(0.4, 9); // kurz: 0,8 × Maß
-    // Spitze schräg links darüber, klar neben dem Text: kein Knick
-    expect(calloutGeometry(box, { x: 5, y: 4 }, 0.5).line).toHaveLength(2);
+    expect(out.y).toBeCloseTo(near.y, 9); // waagrecht
+    expect(near.x - out.x).toBeCloseTo(0.4, 9); // kurz: 0,8 × Maß
+    // Spitze schräg links darunter: keine Verlängerung
+    expect(calloutGeometry(box, { x: 5, y: 16 }, 0.5).line).toHaveLength(3);
+  });
+});
+
+describe('Bruchlinie: Zickzack und ausgeblendete Seite', async () => {
+  const { breakPath, breakMask, defaultBreakSide, inDrawOrder, hiddenByBreak } = await import('../../src/lib/drawing');
+  const { lineShape } = await import('../../src/lib/geometry');
+  // senkrechte Linie von oben nach unten bei x = 10
+  const line = lineShape({ x: 10, y: 0 }, { x: 10, y: 20 });
+  it('Linienzug mit Zickzack in der Mitte, Enden bleiben', () => {
+    const p = breakPath(line);
+    expect(p).toHaveLength(6);
+    expect(p[0]).toEqual({ x: 10, y: 0 });
+    expect(p[5]).toEqual({ x: 10, y: 20 });
+    // Ausschlag zu beiden Seiten um die Mitte
+    expect(p[2].x).not.toBeCloseTo(10, 3);
+    expect(p[2].x - 10).toBeCloseTo(-(p[3].x - 10), 9);
+    expect((p[2].y + p[3].y) / 2).toBeCloseTo(10, 9);
+  });
+  it('blendet den Streifen dahinter aus – so weit, wie dort Zeichnung liegt', () => {
+    // Zeichnung von x = 2 bis 30 (reicht über die Linie hinaus nach links und rechts)
+    const boxes = [{ x: 2, y: 5, w: 28, h: 6 }];
+    // in Zeichenrichtung (nach unten) links = Bildschirm rechts (x > 10)
+    const right = breakMask(line, 1, boxes)!;
+    expect(Math.max(...right.map((p) => p.x))).toBeGreaterThanOrEqual(30);
+    expect(Math.min(...right.map((p) => p.x))).toBeCloseTo(10, 9);
+    const left = breakMask(line, -1, boxes)!;
+    expect(Math.min(...left.map((p) => p.x))).toBeLessThanOrEqual(2);
+    expect(Math.max(...left.map((p) => p.x))).toBeCloseTo(10, 9);
+    // nur in der Länge der Linie
+    expect([Math.min(...left.map((p) => p.y)), Math.max(...left.map((p) => p.y))]).toEqual([0, 20]);
+    // nichts dahinter bzw. Zeichnung neben dem Streifen: keine Fläche
+    expect(breakMask(line, -1, [{ x: 12, y: 5, w: 5, h: 5 }])).toBeNull();
+    expect(breakMask(line, 1, [{ x: 12, y: 30, w: 5, h: 5 }])).toBeNull();
+  });
+  it('Vorgabe: ausgeblendet wird die Seite mit weniger Zeichnung', () => {
+    // Zeichnung liegt überwiegend rechts (x > 10) → links ausblenden (-1)
+    expect(defaultBreakSide(line, [{ x: 8, y: 2, w: 30, h: 10 }])).toBe(-1);
+    expect(defaultBreakSide(line, [{ x: -20, y: 2, w: 32, h: 10 }])).toBe(1);
+  });
+  it('Zeichenreihenfolge: Zeichnung, dann Bruchlinien, darüber Texte und Maße', () => {
+    const list = [{ type: 'text' as const, n: 1 }, { type: 'break' as const, n: 2 }, { type: 'rect' as const, n: 3 }, { type: 'dimension' as const, n: 4 }, { type: 'wall' as const, n: 5 }];
+    expect(inDrawOrder(list).map((e) => e.n)).toEqual([3, 5, 2, 1, 4]);
+    expect(list.filter(hiddenByBreak).map((e) => e.n)).toEqual([3, 5]);
   });
 });

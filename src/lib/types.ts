@@ -478,7 +478,8 @@ export interface TextFont {
 
 /** Objektart eines gezeichneten Plans */
 /** 'arc': Bogen aus drei Punkten, gespeichert als fein unterteilte offene Polylinie */
-export type DrawElementType = ShapeType | 'dimension' | 'text' | 'arc' | 'symbol' | 'wall';
+/** 'break': Bruchlinie (Linie mit Zickzack) – blendet die Zeichnung auf einer Seite aus */
+export type DrawElementType = ShapeType | 'dimension' | 'text' | 'arc' | 'symbol' | 'wall' | 'break';
 
 /**
  * Zeichnungsobjekt eines selbst gezeichneten Plans (eigener Datensatz je Objekt).
@@ -519,6 +520,11 @@ export interface DrawElement extends SyncMeta {
    * größer oder kleiner wird.
    */
   leader?: Leader;
+  /**
+   * Bruchlinie: Seite, auf der die Zeichnung ausgeblendet wird – in Zeichenrichtung (A → B) gesehen links (1) bzw.
+   * rechts (-1). Die Form ist die Linie A–B.
+   */
+  breakSide?: 1 | -1;
   /** Wand: Form ist die Achse (Linie/Polylinie); Stärke und Höhe in m */
   wall?: { thickness: number; height?: number };
   /** Bauteil/Symbol (Tür, Fenster, Elektro …) – Form ist das Begrenzungsrechteck */

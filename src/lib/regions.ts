@@ -18,7 +18,7 @@ type Seg = [Point, Point];
 export function boundarySegments(elements: Pick<DrawElement, 'type' | 'shape' | 'wall'>[]): Seg[] {
   const out: Seg[] = [];
   for (const e of elements) {
-    if (e.type === 'text' || e.type === 'dimension' || e.type === 'symbol') continue;
+    if (e.type === 'text' || e.type === 'dimension' || e.type === 'symbol' || e.type === 'break') continue;
     if (e.type === 'wall') {
       const axis = shapeVertices(e.shape);
       if (axis.length < 2) continue;

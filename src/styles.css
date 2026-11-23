@@ -3027,6 +3027,13 @@ tr.lv-flagged td {
   stroke: #fff;
 }
 /* Griff unter der Maus: kräftiger, damit klar ist, welcher Punkt gezogen wird */
+/* Linienende eines Hinweistextes im Aufmaß: erst sichtbar, wenn der Text ausgewählt ist oder die Maus darauf steht */
+.tip-handle.quiet {
+  opacity: 0;
+}
+.tip-handle.quiet:hover {
+  opacity: 1;
+}
 .vertex-handle.hover:not(.active) {
   fill: #dbe8fb;
   stroke-width: 2.4;

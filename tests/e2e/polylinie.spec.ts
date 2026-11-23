@@ -60,7 +60,7 @@ test('Obere Werkzeugleiste: Registerkarten Zeichnen, √Ñndern, Eigenschaften, Pr√
   const bb = (await bar.boundingBox())!;
   expect(bb.y + bb.height).toBeLessThanOrEqual((await sheet().boundingBox())!.y + 1);
   for (const [tab, ids] of [
-    ['draw', ['draw-select', 'draw-line', 'draw-polyline', 'draw-rect', 'draw-ellipse', 'draw-arc', 'draw-polygon', 'draw-text', 'draw-textArrow', 'draw-dimension', 'draw-delete', 'draw-undo', 'draw-redo']],
+    ['draw', ['draw-select', 'draw-line', 'draw-polyline', 'draw-rect', 'draw-ellipse', 'draw-arc', 'draw-polygon', 'draw-text', 'draw-textArrow', 'draw-dimension', 'draw-breakline', 'draw-delete', 'draw-undo', 'draw-redo']],
     ['modify', ['draw-selwin', 'draw-multi', 'draw-select-all', 'draw-move', 'draw-copy', 'draw-rotate', 'draw-scale', 'draw-stretch', 'draw-trim', 'draw-extend']],
     ['style', ['ribbon-style']],
     ['precision', ['view-snap', 'view-track', 'view-ortho', 'view-grid', 'draw-dimension', 'ribbon-measure']],

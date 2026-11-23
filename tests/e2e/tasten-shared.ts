@@ -731,6 +731,10 @@ export function tastenTests() {
     await pickTool(page, 'draw-textArrow');
     await expect(page.getByTestId('insert-bar')).toContainText('Pfeilspitze');
     await pruefe(page, 'Text mit Pfeil (Hinweis)', out);
+    // Bruchlinie: Hinweisleiste des Werkzeugs
+    await pickTool(page, 'draw-breakline');
+    await expect(page.getByTestId('insert-bar')).toContainText('Bruchlinie');
+    await pruefe(page, 'Bruchlinie (Hinweis)', out);
     // Linien-Leiste: „Länge“ und „Richtung“ dürfen nicht zusammengequetscht werden – reicht der Platz nicht,
     // rutschen „Maße anzeigen“, Darstellung, Löschen und X in die nächste Zeile (Fehler am iPhone, 23.11.2026)
     await pickTool(page, 'draw-line');
