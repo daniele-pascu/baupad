@@ -371,6 +371,13 @@
   letter-spacing: -0.045em;
   white-space: nowrap;
 }
+/* Schriftzug „BauPad“ in der Markenschrift (wie das App-Symbol am Handy) */
+.ps-app-icon .baupad-wordmark {
+  display: block;
+  width: 80%;
+  height: auto;
+  color: #fff;
+}
 @media (prefers-reduced-motion: reduce) {
   .ps-products-panel {
     animation: none;
@@ -1234,6 +1241,21 @@ body:has(.ps-site) {
   font-weight: 800;
   line-height: 1;
   letter-spacing: -0.04em;
+}
+/* Produktname als Schriftzug: Höhe = Versalhöhe der bisherigen Schrift */
+.ps-baupad .bp-hero h1 .bp-title-mark {
+  display: block;
+  height: 0.73em;
+  width: auto;
+  margin: 0.14em 0 0.13em;
+  color: currentColor;
+}
+.ps-home .ph-prod-head h2 .ph-title-mark {
+  display: inline-block;
+  height: 0.72em;
+  width: auto;
+  vertical-align: baseline;
+  color: currentColor;
 }
 .ps-baupad .bp-tagline {
   margin: 0 0 12px;

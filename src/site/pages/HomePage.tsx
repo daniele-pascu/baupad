@@ -1,4 +1,5 @@
 import { useEffect, useRef, type CSSProperties } from 'react';
+import { BauPadWordmark } from '../../components/BauPadWordmark';
 import { ToolIcon } from '../../components/ToolIcon';
 import { paths } from '../../lib/router';
 import { contactData } from '../contact-data';
@@ -69,11 +70,12 @@ export function HomePage() {
           {/* App-Symbol, daneben Name und „Die Baustelle in einer App.“ */}
           <div className="ph-prod-head">
             <span className="ps-app-icon ph-app-icon" aria-hidden="true">
-              <span>BauPad</span>
+              <BauPadWordmark label={null} />
             </span>
             <div>
               <h2 id="ph-bp-title">
-                {h.product.name} <span className="ph-tag">{h.product.status}</span>
+                <span className="sr-only">{h.product.name}</span>
+                <BauPadWordmark label={null} className="ph-title-mark" /> <span className="ph-tag">{h.product.status}</span>
               </h2>
               <p className="ph-tagline">{h.product.tagline}</p>
             </div>
