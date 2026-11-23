@@ -18,7 +18,7 @@ import {
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { componentsOf, costCenterLabel, damagesOf, elementsOf, findPosition, planTitle, safeFileName, type ExportFile } from './aufmass';
 import { areasBelow, dimsVisible, visibleDamages, visibleElements } from './layers';
-import { annotationsOf, dimGeometry, dimLeader, isDrawingPlan, ROOM_LINE, textBoxWidth, textFontSize, textLines, lineEnds, PAPER, PRINT_HEADER_MM, PRINT_MARGIN_MM, fillRegion, aufmassPaper, shapeToPage, unitsPerMeter } from './drawing';
+import { annotationsOf, calloutWorld, dimGeometry, dimLeader, isDrawingPlan, ROOM_LINE, textBoxWidth, textFontSize, textLines, lineEnds, PAPER, PRINT_HEADER_MM, PRINT_MARGIN_MM, fillRegion, aufmassPaper, shapeToPage, unitsPerMeter } from './drawing';
 import { withRoomAreas } from './regions';
 const textBoxWidthOf = (e: DrawElement, h: number) => textBoxWidth(e, h, e.font);
 import { getBlob } from './db';
@@ -110,6 +110,17 @@ function drawTextElement(ctx: Ctx, page: PDFPage, e: DrawElement, shape: Shape, 
       page.drawText(txt, { x: at.x, y: at.y, size: fs * ptPerUnit, font: f, color: hexToRgb(visibleHex(e.color)), rotate: degrees(-(shape.rotation ?? 0)) });
     });
     return;
+  }
+  if (e.leader) {
+    // Text mit Pfeil: Linie und gefüllte Pfeilspitze (wie in der Ansicht, `shape` in Seitenkoordinaten)
+    const k = shape.h / (e.shape.h || 1);
+    const g = calloutWorld(shape, e.leader, k);
+    const col = hexToRgb(visibleHex(e.color));
+    const lw = Math.max(0.35, Math.min(0.9, shape.h * ptPerUnit * 0.09));
+    const pts = g.line.map(map);
+    for (let i = 0; i + 1 < pts.length; i++) page.drawLine({ start: pts[i], end: pts[i + 1], thickness: lw, color: col, lineCap: LineCapStyle.Round });
+    const hd = g.head.map(map);
+    page.drawSvgPath(`M${hd[0].x} ${-hd[0].y} L${hd[1].x} ${-hd[1].y} L${hd[2].x} ${-hd[2].y} Z`, { x: 0, y: 0, color: col, borderColor: col, borderWidth: lw * 0.6 });
   }
   const at = map({ x: shape.x, y: shape.y + shape.h * 0.82 });
   page.drawText(clean(ctx, e.text ?? ''), { x: at.x, y: at.y, size: shape.h * ptPerUnit, font: textFont(ctx, e.font), color: hexToRgb(visibleHex(e.color)), rotate: degrees(-(shape.rotation ?? 0)) });

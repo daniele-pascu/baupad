@@ -1,5 +1,5 @@
 import { round2 } from './numbers';
-import { distanceToPolyline, fromShapeLocal, freehandPoints, lineShape, outlineParts, polygonArea, shapeAABB, shapeCenter, shapeVertices, type Point } from './geometry';
+import { distanceToPolyline, fromShapeLocal, freehandPoints, lineShape, outlineParts, polygonArea, shapeAABB, shapeCenter, shapeVertices, toShapeLocal, type Point } from './geometry';
 import { formatMeasure } from './numbers';
 import type { Damage, DrawElement, DrawingInfo, PaperFormat, Plan, Rect, Shape, TextFont } from './types';
 import { charWidthFactor } from './text-font';
@@ -334,9 +334,68 @@ export function textShape(at: Point, text: string, h: number, font?: TextFont): 
 }
 
 // ---------------------------------------------------------------------------
+// Text mit Pfeil
+
+/** Pfeil eines Textes im Bezugssystem des Textes (nicht gedreht): Linienzug Spitze → Knick → Text und Pfeilspitze. */
+export interface CalloutGeometry {
+  /** Spitze, Knick, Ansatz am Text */
+  line: Point[];
+  /** gefüllte Pfeilspitze (Spitze, links, rechts) */
+  head: [Point, Point, Point];
+}
+
+/**
+ * Pfeil zum Text: kurzer waagrechter Anschluss an der näheren Seite (links bzw. rechts mittig), dann schräg zur Spitze
+ * mit gefüllter Pfeilspitze. Alles in derselben Einheit wie `box` (Bezugssystem des Textes, ungedreht).
+ */
+export function calloutGeometry(box: Rect, tip: Point): CalloutGeometry {
+  const h = box.h;
+  const cx = box.x + box.w / 2;
+  const cy = box.y + box.h / 2;
+  const left = tip.x < cx;
+  const gap = h * 0.25;
+  const attach = { x: left ? box.x - gap : box.x + box.w + gap, y: cy };
+  const land = Math.min(h * 0.8, Math.max(0, left ? attach.x - tip.x : tip.x - attach.x));
+  const knee = { x: attach.x + (left ? -land : land), y: cy };
+  const from = Math.hypot(tip.x - knee.x, tip.y - knee.y) > 1e-9 ? knee : attach;
+  const d = Math.hypot(tip.x - from.x, tip.y - from.y) || 1;
+  const ux = (tip.x - from.x) / d;
+  const uy = (tip.y - from.y) / d;
+  const L = Math.min(h * 0.7, d * 0.6);
+  const W = L * 0.34;
+  const base = { x: tip.x - ux * L, y: tip.y - uy * L };
+  return {
+    line: [tip, base, ...(from === knee ? [knee] : []), attach].filter((p, i, a) => i === 0 || Math.hypot(p.x - a[i - 1].x, p.y - a[i - 1].y) > 1e-9),
+    head: [tip, { x: base.x - uy * W, y: base.y + ux * W }, { x: base.x + uy * W, y: base.y - ux * W }],
+  };
+}
+
+/** Pfeilspitze eines Textes in Plankoordinaten (wie `s`; `scale` = Einheiten je m, z. B. k für Seitenkoordinaten). */
+export function calloutTip(s: Shape, leader: { dx: number; dy: number }, scale = 1): Point {
+  const c = shapeCenter(s);
+  return fromShapeLocal(s, { x: c.x + leader.dx * scale, y: c.y + leader.dy * scale });
+}
+
+/** Pfeilspitze (Plankoordinaten wie `s`) → gespeicherter Versatz zur Textmitte in m. */
+export function leaderFor(s: Shape, tip: Point, scale = 1): { dx: number; dy: number } {
+  const c = shapeCenter(s);
+  const l = toShapeLocal(s, tip);
+  return { dx: roundM((l.x - c.x) / scale), dy: roundM((l.y - c.y) / scale) };
+}
+
+/** Text mit Pfeil: Pfeil in Plankoordinaten (gedreht wie der Text) – für Ansicht und PDF. */
+export function calloutWorld(s: Shape, leader: { dx: number; dy: number }, scale = 1): CalloutGeometry {
+  const c = shapeCenter(s);
+  const g = calloutGeometry({ x: s.x, y: s.y, w: s.w, h: s.h }, { x: c.x + leader.dx * scale, y: c.y + leader.dy * scale });
+  const R = (p: Point) => fromShapeLocal(s, p);
+  return { line: g.line.map(R), head: g.head.map(R) as [Point, Point, Point] };
+}
+
+// ---------------------------------------------------------------------------
 // Raster und Einrasten
 
-const GRID_STEPS = [0.01, 0.05, 0.1, 0.5, 1, 5, 10, 50, 100];
+/** Rasterweiten in m – bis zum Millimeter (stark vergrößert) */
+const GRID_STEPS = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10, 50, 100];
 
 /** Rasterweite in m, sodass benachbarte Linien mindestens `minPx` Bildschirmpixel auseinanderliegen. */
 export function gridStep(pxPerMeter: number, minPx = 14): number {
@@ -583,7 +642,18 @@ export function drawingSheet(plan: Pick<Plan, 'pageWidth' | 'pageHeight' | 'draw
 }
 
 /** Darzustellender Bereich eines gezeichneten Plans in Seitenkoordinaten. */
-export function drawingRegion(plan: Pick<Plan, 'pageWidth' | 'pageHeight' | 'drawing'>, elements: Pick<DrawElement, 'shape'>[], damages: Pick<Damage, 'shape'>[] = []): Rect {
+/** Begrenzung eines Zeichnungsobjekts in Seitenkoordinaten – Text mit Pfeil samt Pfeilspitze */
+export function elementPageBox(e: Pick<DrawElement, 'shape'> & Partial<Pick<DrawElement, 'leader'>>, k: number): Rect {
+  const shape = shapeToPage(e.shape, k);
+  const b = shapeAABB(shape);
+  if (!e.leader) return b;
+  const t = calloutTip(shape, e.leader, k);
+  const x = Math.min(b.x, t.x);
+  const y = Math.min(b.y, t.y);
+  return { x, y, w: Math.max(b.x + b.w, t.x) - x, h: Math.max(b.y + b.h, t.y) - y };
+}
+
+export function drawingRegion(plan: Pick<Plan, 'pageWidth' | 'pageHeight' | 'drawing'>, elements: (Pick<DrawElement, 'shape'> & Partial<Pick<DrawElement, 'leader'>>)[], damages: Pick<Damage, 'shape'>[] = []): Rect {
   const k = unitsPerMeter(plan);
   let x1 = 0;
   let y1 = 0;
@@ -595,7 +665,7 @@ export function drawingRegion(plan: Pick<Plan, 'pageWidth' | 'pageHeight' | 'dra
     x2 = Math.max(x2, r.x + r.w);
     y2 = Math.max(y2, r.y + r.h);
   };
-  for (const e of elements) add(shapeAABB(shapeToPage(e.shape, k)));
+  for (const e of elements) add(elementPageBox(e, k));
   for (const d of damages) add(shapeAABB(d.shape));
   const pad = k; // 1 m Rand
   if (x1 < 0) x1 -= pad;
@@ -610,9 +680,9 @@ export function drawingRegion(plan: Pick<Plan, 'pageWidth' | 'pageHeight' | 'dra
  * Ausdruck, damit kleine Zeichnungen nicht verloren auf einer großen leeren Fläche stehen.
  * Ohne Inhalt: die ganze Zeichenfläche.
  */
-export function contentRegion(plan: Pick<Plan, 'pageWidth' | 'pageHeight' | 'drawing'>, elements: Pick<DrawElement, 'shape'>[], damages: Pick<Damage, 'shape'>[] = []): Rect {
+export function contentRegion(plan: Pick<Plan, 'pageWidth' | 'pageHeight' | 'drawing'>, elements: (Pick<DrawElement, 'shape'> & Partial<Pick<DrawElement, 'leader'>>)[], damages: Pick<Damage, 'shape'>[] = []): Rect {
   const k = unitsPerMeter(plan);
-  const boxes = [...elements.map((e) => shapeAABB(shapeToPage(e.shape, k))), ...damages.map((d) => shapeAABB(d.shape))];
+  const boxes = [...elements.map((e) => elementPageBox(e, k)), ...damages.map((d) => shapeAABB(d.shape))];
   if (!boxes.length) return { x: 0, y: 0, w: plan.pageWidth, h: plan.pageHeight };
   const x1 = Math.min(...boxes.map((b) => b.x)) - k;
   const y1 = Math.min(...boxes.map((b) => b.y)) - k;
@@ -648,7 +718,7 @@ export function printScale(regionM: { w: number; h: number }, paperMm: { w: numb
  */
 export function printFit(
   plan: Pick<Plan, 'pageWidth' | 'pageHeight' | 'drawing'>,
-  elements: Pick<DrawElement, 'shape'>[],
+  elements: (Pick<DrawElement, 'shape'> & Partial<Pick<DrawElement, 'leader'>>)[],
   damages: Pick<Damage, 'shape'>[],
   availMm: { w: number; h: number },
 ): { region: Rect; scale: number; fitted: boolean } {
@@ -656,7 +726,7 @@ export function printFit(
   const chosen = plan.drawing?.scale ?? 100;
   const sheet = { x: 0, y: 0, w: plan.pageWidth, h: plan.pageHeight };
   const tol = 0.5;
-  const onSheet = [...elements.map((e) => shapeAABB(shapeToPage(e.shape, k))), ...damages.map((d) => shapeAABB(d.shape))].every(
+  const onSheet = [...elements.map((e) => elementPageBox(e, k)), ...damages.map((d) => shapeAABB(d.shape))].every(
     (b) => b.x >= -tol && b.y >= -tol && b.x + b.w <= sheet.w + tol && b.y + b.h <= sheet.h + tol,
   );
   if (onSheet) return { region: sheet, scale: chosen, fitted: false };
@@ -670,9 +740,9 @@ export function printFit(
  * Inhalt (Zeichnung und Markierungen) mit kleinem Rand: 4 % der größeren Seite, mindestens 10 cm.
  * Im Aufmaßplan füllt dieser Bereich immer das Blatt – egal wie groß die Zeichnung ist.
  */
-export function fillRegion(plan: Pick<Plan, 'pageWidth' | 'pageHeight' | 'drawing'>, elements: Pick<DrawElement, 'shape'>[], damages: Pick<Damage, 'shape'>[] = []): Rect {
+export function fillRegion(plan: Pick<Plan, 'pageWidth' | 'pageHeight' | 'drawing'>, elements: (Pick<DrawElement, 'shape'> & Partial<Pick<DrawElement, 'leader'>>)[], damages: Pick<Damage, 'shape'>[] = []): Rect {
   const k = unitsPerMeter(plan);
-  const boxes = [...elements.map((e) => shapeAABB(shapeToPage(e.shape, k))), ...damages.map((d) => shapeAABB(d.shape))];
+  const boxes = [...elements.map((e) => elementPageBox(e, k)), ...damages.map((d) => shapeAABB(d.shape))];
   if (!boxes.length) return { x: 0, y: 0, w: plan.pageWidth, h: plan.pageHeight };
   const x1 = Math.min(...boxes.map((b) => b.x));
   const y1 = Math.min(...boxes.map((b) => b.y));

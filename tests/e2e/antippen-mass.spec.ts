@@ -84,3 +84,34 @@ test('Linie: Maß mit 2 Kommastellen; Länge eingeben verlängert B, markierter 
   expect(Math.hypot(b2.x - b1.x, b2.y - b1.y)).toBeLessThan(2);
   expect(scale).toBeGreaterThan(0);
 });
+
+test('Pfeiltasten verschieben das Ausgewählte: 1 cm, mit Umschalt 10 cm', async ({ page }) => {
+  const sb = await newDrawing(page);
+  await pickTool(page, 'draw-rect');
+  await page.getByTestId('insert-length').fill('2');
+  await page.getByTestId('insert-width').fill('1');
+  await page.getByTestId('insert-submit').click();
+  const rect = page.locator('[data-element="rect"]');
+  await expect(rect).toHaveCount(1);
+  await expect(page.getByTestId('element-bar')).toBeVisible();
+  const scale = async () => Number(await page.getByTestId('plan-viewer').getAttribute('data-scale'));
+  const box0 = (await rect.boundingBox())!;
+  await page.locator('body').click({ position: { x: 1, y: 1 }, force: true }).catch(() => {});
+  // Fokus aus dem Eingabefeld nehmen, Auswahl bleibt
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  if (!(await page.getByTestId('element-bar').isVisible())) await page.mouse.click(box0.x + box0.width / 2, box0.y + box0.height / 2);
+  await expect(page.getByTestId('element-bar')).toBeVisible();
+  const before = (await rect.boundingBox())!;
+  for (let i = 0; i < 5; i++) await page.keyboard.press('Shift+ArrowRight'); // 50 cm
+  await page.keyboard.press('ArrowDown'); // 1 cm
+  const s = await scale();
+  const k = s; // px je Seiteneinheit; gezeichnete Pläne: 100 Einheiten je m (geprüft über das Verhältnis)
+  await expect.poll(async () => (await rect.boundingBox())!.x - before.x).toBeGreaterThan(5);
+  const after = (await rect.boundingBox())!;
+  const dxPx = after.x - before.x;
+  const dyPx = after.y - before.y;
+  expect(dxPx / dyPx).toBeGreaterThan(45);
+  expect(dxPx / dyPx).toBeLessThan(55);
+  expect(k).toBeGreaterThan(0);
+  expect(sb.width).toBeGreaterThan(0);
+});

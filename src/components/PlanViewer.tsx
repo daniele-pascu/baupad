@@ -6,6 +6,7 @@ import {
   freehandPoints,
   freehandShape,
   handlePosition,
+  distanceToPolyline,
   hitShape,
   shapeArea,
   layoutLabels,
@@ -112,6 +113,10 @@ export type ViewerItem = Pick<Damage, 'id' | 'number' | 'shape' | 'color' | 'lab
     keepAspect?: AspectAnchor | null;
     /** nur als Rahmen bearbeiten (Text, Raumstempel, Bauteil): keine Eckpunkte ziehen/einfügen */
     boxOnly?: boolean;
+    /** Text mit Pfeil: Pfeilspitze (Seitenkoordinaten) – eigener Anfasser, Antippen des Pfeils wählt den Text */
+    tip?: Point;
+    /** Linienzug des Pfeils (Seitenkoordinaten) – Antippen wählt den Text */
+    tipPath?: Point[];
   };
 /** Angezeigte Nummer bzw. Kennzeichnung */
 const noOf = (d: ViewerItem) => d.label?.trim() || String(d.number);
@@ -187,6 +192,8 @@ interface Props {
   onSelect(id: string | null): void;
   onCreate(shape: Shape): void;
   onShapeChange(id: string, shape: Shape, commit: boolean): void;
+  /** Text mit Pfeil: Pfeilspitze verschoben (Seitenkoordinaten) */
+  onTipChange?(id: string, tip: Point, commit: boolean): void;
   onLabelChange(id: string, offset: { dx: number; dy: number }, commit: boolean): void;
   onHistoryChange?(): void;
   /** Bauteilkennzeichnungen (A, B, C …) dieses Plans */
@@ -273,6 +280,7 @@ type Gesture =
   | { kind: 'move'; id: string; start: Point; orig: Shape; moved: boolean; ref: Point }
   | { kind: 'resize'; id: string; handle: string; orig: Shape }
   | { kind: 'vertex'; id: string; index: number; orig: Shape; start: Point; moved: boolean }
+  | { kind: 'tip'; id: string; orig: Point; last: Point; start: Point; moved: boolean }
   | { kind: 'polytap'; start: Point; view: View; moved: boolean }
   | { kind: 'rotate'; id: string; orig: Shape; startAngle: number }
   | { kind: 'label'; id: string; start: Point; orig: Rect; moved: boolean }
@@ -858,7 +866,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     let bestArea = Infinity;
     for (let i = list.length - 1; i >= 0; i--) {
       const d = list[i];
-      if (!hitShape(d.shape, pp, tol)) continue;
+      if (!hitShape(d.shape, pp, tol) && !(d.tipPath && d.tipPath.length > 1 && distanceToPolyline(pp, d.tipPath, false) <= tol)) continue;
       const a = shapeArea(d.shape);
       if (a < bestArea * (1 - 1e-9) || (best && a <= bestArea * (1 + 1e-9) && d.id === selId)) {
         best = d;
@@ -914,6 +922,12 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         best = h;
       }
     }
+    // Pfeilspitze (Text mit Pfeil) – vor den Rahmen-Anfassern
+    if (sel.tip && propsRef.current.onTipChange) {
+      const tp = toScreen(viewRef.current!, sel.tip);
+      const d = Math.max(Math.abs(tp.x - p.x), Math.abs(tp.y - p.y));
+      if (d <= tol && d <= bestD) best = 'tip';
+    }
     return best;
   };
 
@@ -932,6 +946,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   const dropGesture = () => {
     const g = gesture.current;
     if (g.kind === 'move' || g.kind === 'resize') propsRef.current.onShapeChange(g.id, g.orig, false);
+    if (g.kind === 'tip' && g.moved) propsRef.current.onTipChange?.(g.id, g.orig, true);
     if (g.kind === 'label') {
       const d = propsRef.current.damages.find((x) => x.id === g.id);
       if (d) propsRef.current.onLabelChange(g.id, d.labelOffset ?? { dx: 0, dy: 0 }, false);
@@ -1015,6 +1030,10 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       const handle = hitHandle(p);
       if (handle) {
         const sel = propsRef.current.damages.find((d) => d.id === propsRef.current.selectedId)!;
+        if (handle === 'tip' && sel.tip) {
+          gesture.current = { kind: 'tip', id: sel.id, orig: sel.tip, last: sel.tip, start: p, moved: false };
+          return;
+        }
         if (handle.startsWith('v')) {
           gesture.current = { kind: 'vertex', id: sel.id, index: Number(handle.slice(1)), orig: sel.shape, start: p, moved: false };
           return;
@@ -1222,6 +1241,15 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         const snap = propsRef.current.snap;
         const pp = clampP(snap ? snapAt(raw, { scale: v.scale, movingId: g.id, from: other, tool: isLine ? 'line' : undefined }) : raw);
         propsRef.current.onShapeChange(g.id, moveVertex(g.orig, g.index, pp), false);
+        return;
+      }
+      case 'tip': {
+        if (!g.moved && Math.hypot(p.x - g.start.x, p.y - g.start.y) < 4) return;
+        g.moved = true;
+        const raw = clampP(toPage(v, p));
+        const pp = clampP(propsRef.current.snap ? snapAt(raw, { scale: v.scale, movingId: g.id }) : raw);
+        g.last = pp;
+        propsRef.current.onTipChange?.(g.id, pp, false);
         return;
       }
       case 'resize': {
@@ -1486,6 +1514,10 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       case 'rotate': {
         const d = propsRef.current.damages.find((x) => x.id === g.id);
         if (d) propsRef.current.onShapeChange(g.id, cancelled ? g.orig : d.shape, true);
+        return;
+      }
+      case 'tip': {
+        if (g.moved) propsRef.current.onTipChange?.(g.id, cancelled ? g.orig : g.last, true);
         return;
       }
       case 'label': {
@@ -1782,7 +1814,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
               })}
             </g>
           )}
-          {snapMark.current && props.snap && (tool !== 'select' || g.kind === 'vertex' || g.kind === 'move' || g.kind === 'resize') && (
+          {snapMark.current && props.snap && (tool !== 'select' || g.kind === 'vertex' || g.kind === 'tip' || g.kind === 'move' || g.kind === 'resize') && (
             <SnapMarker view={view} mark={snapMark.current} hold={!!lupe.current} />
           )}
           {g.kind === 'place' && g.fence && (() => {
@@ -1840,6 +1872,11 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
           })}
           {selected && tool === 'select' && (
             <g className="handles">
+              {selected.tip && props.onTipChange && (() => {
+                const tp = toScreen(view, selected.tip);
+                const r = isCoarse() ? 8 : 6;
+                return <circle cx={tp.x} cy={tp.y} r={r} className={`vertex-handle tip-handle${g.kind === 'tip' ? ' active' : ''}`} data-testid="tip-handle" />;
+              })()}
               {selected.shape.type !== 'line' && (() => {
                 const b = shapeBounds(selected.shape);
                 const c = shapeCenter(b);

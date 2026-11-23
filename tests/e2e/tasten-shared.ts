@@ -718,6 +718,10 @@ export function tastenTests() {
     // Mehrfachauswahl und Befehlsleiste (Kopieren mit Eingabefeld): dazu ein Rechteck einfügen
     await page.locator('body').press('Escape');
     await expect(page.getByTestId('element-bar')).toHaveCount(0);
+    // Text mit Pfeil: Hinweisleiste des Werkzeugs
+    await pickTool(page, 'draw-textArrow');
+    await expect(page.getByTestId('insert-bar')).toContainText('Pfeilspitze');
+    await pruefe(page, 'Text mit Pfeil (Hinweis)', out);
     // Linien-Leiste: „Länge“ und „Richtung“ dürfen nicht zusammengequetscht werden – reicht der Platz nicht,
     // rutschen „Maße anzeigen“, Darstellung, Löschen und X in die nächste Zeile (Fehler am iPhone, 23.11.2026)
     await pickTool(page, 'draw-line');

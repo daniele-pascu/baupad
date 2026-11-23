@@ -10,6 +10,9 @@ import { formatMeasure } from '../lib/numbers';
 import { hatchAnchor } from '../lib/style';
 import {
   applyMeasures,
+  calloutTip,
+  calloutWorld,
+  leaderFor,
   attachedAt,
   circleFromMeasures,
   formatM,
@@ -52,7 +55,7 @@ import type { Damage, DrawElement, DrawElementType, GuideLine, Plan, Rect, Shape
 export type ToolGroup = 'select' | 'draw' | 'annotate' | 'modify';
 
 /** Werkzeuge des Zeichenmodus: Zeichnen sowie Ändern (Kopieren, Verschieben, Strecken …) */
-export type DrawTool = Tool | 'copy' | 'move' | 'stretch' | 'join' | 'offset' | 'mirror' | 'array' | 'symbol' | 'rotate' | 'scale' | 'align' | 'guide' | 'fillet' | 'distance' | 'hatch' | 'room';
+export type DrawTool = Tool | 'copy' | 'move' | 'stretch' | 'join' | 'offset' | 'mirror' | 'array' | 'symbol' | 'rotate' | 'scale' | 'align' | 'guide' | 'fillet' | 'distance' | 'hatch' | 'room' | 'textArrow';
 /** Hilfslinie, Abrunden, Abstand: Punkte bzw. Objekte antippen */
 /** Objektarten, die beim Ziehen von Ecken bzw. Anfassern nie zu einer freien Form werden */
 const KEEP_TYPE = new Set<DrawElementType>(['wall', 'text', 'symbol', 'dimension', 'arc']);
@@ -96,6 +99,7 @@ export const DRAW_TOOLS: { id: DrawTool; label: string; short?: string; icon: st
   { id: 'polygon', label: 'Fläche: Eckpunkte nacheinander setzen, Startpunkt antippen schließt', short: 'Fläche', icon: 'polygon', key: 'p', group: 'draw' },
   { id: 'dimension', label: 'Maßlinie', short: 'Maß', icon: 'dimension', key: 'm', group: 'annotate' },
   { id: 'text', label: 'Text / Beschriftung', short: 'Text', icon: 'text', key: 't', group: 'annotate' },
+  { id: 'textArrow', label: 'Text mit Pfeil: zuerst die Pfeilspitze antippen, dann die Stelle für den Text – Text eingeben; die Spitze lässt sich danach mit „Auswahl“ verschieben', short: 'Text + Pfeil', icon: 'callout', key: '', group: 'annotate' },
   { id: 'move', label: 'Verschieben: Basispunkt zum Zielpunkt ziehen (mit Fang)', short: 'Verschieben', icon: 'move', key: 'g', group: 'modify' },
   { id: 'copy', label: 'Kopieren: Basispunkt zum Zielpunkt ziehen (mit Fang)', short: 'Kopieren', icon: 'copy', key: 'c', group: 'modify' },
   { id: 'stretch', label: 'Strecken: Fenster über Eckpunkte ziehen, dann Verschiebung ziehen', short: 'Strecken', icon: 'stretch', key: 's', group: 'modify' },
@@ -328,6 +332,8 @@ export function useDrawing(opts: {
     if (id !== selectedId) setVertex(null);
   };
   const [overrides, setOverrides] = useState<Record<string, Shape>>({});
+  /** Text mit Pfeil: Pfeilspitze während des Ziehens (noch nicht gespeichert) */
+  const [leaderOverrides, setLeaderOverrides] = useState<Record<string, { dx: number; dy: number }>>({});
   const [snapOn, setSnapOnState] = useState(() => pref('snap', '1') !== '0');
   /** Raster-Einrasten (Standard: aus – Formen folgen genau der Bewegung, Maße frei wählbar) */
   const [gridOn, setGridOnState] = useState(() => pref('gridSnap', '0') === '1');
@@ -410,7 +416,7 @@ export function useDrawing(opts: {
     if (!NEEDS_SELECTION.has(t) && t !== 'selwin') storePref('drawTool', t);
   };
   /** Werkzeug der Planansicht: Befehle nutzen Vektor (Basis → Ziel) bzw. Fenster */
-  const viewerTool: Tool = PICK_TOOLS.has(tool) || (TRANSFORM_TOOLS.has(tool) && !cmdSelecting) ? 'pick' : tool === 'symbol' ? 'pick' : tool === 'array' && arrayPolar ? 'pick' : SELECT_FIRST.has(tool) && cmdSelecting ? 'selwin' : VECTOR_COMMANDS.has(tool) ? 'vector' : tool === 'offset' ? 'pick' : tool === 'stretch' ? (stretchWin ? 'vector' : 'window') : (tool as Tool);
+  const viewerTool: Tool = PICK_TOOLS.has(tool) || (TRANSFORM_TOOLS.has(tool) && !cmdSelecting) ? 'pick' : tool === 'symbol' ? 'pick' : tool === 'array' && arrayPolar ? 'pick' : SELECT_FIRST.has(tool) && cmdSelecting ? 'selwin' : VECTOR_COMMANDS.has(tool) ? 'vector' : tool === 'offset' ? 'pick' : tool === 'stretch' ? (stretchWin ? 'vector' : 'window') : tool === 'textArrow' ? 'line' : (tool as Tool);
   const setColor = (c: string) => {
     setColorState(c);
     storePref('drawColor', c);
@@ -456,10 +462,17 @@ export function useDrawing(opts: {
       })
       .filter((c): c is { c: Point; r: number } => !!c);
   const showDims = dimsVisible(plan);
-  const elements = useMemo(() => stored.map((e) => (overrides[e.id] ? { ...e, shape: overrides[e.id] } : e)), [stored, overrides]);
+  const elements = useMemo(
+    () => stored.map((e) => (overrides[e.id] || leaderOverrides[e.id] ? { ...e, shape: overrides[e.id] ?? e.shape, ...(leaderOverrides[e.id] ? { leader: leaderOverrides[e.id] } : {}) } : e)),
+    [stored, overrides, leaderOverrides],
+  );
   const byId = useMemo(() => new Map(elements.map((e) => [e.id, e])), [elements]);
   const items: ViewerItem[] = useMemo(
-    () => elements.map((e) => ({ id: e.id, number: 0, shape: shapeToPage(e.shape, k), color: e.color, labelOffset: null, noVertexEdit: e.type === 'arc', boxOnly: e.type === 'text' || e.type === 'symbol', keepAspect: e.type === 'symbol' ? symbolAnchor(e.symbol) : e.type === 'text' ? TEXT_ASPECT : null })),
+    () =>
+      elements.map((e) => {
+        const shape = shapeToPage(e.shape, k);
+        return { id: e.id, number: 0, shape, color: e.color, labelOffset: null, noVertexEdit: e.type === 'arc', boxOnly: e.type === 'text' || e.type === 'symbol', keepAspect: e.type === 'symbol' ? symbolAnchor(e.symbol) : e.type === 'text' ? TEXT_ASPECT : null, ...(e.type === 'text' && e.leader ? { tip: calloutTip(shape, e.leader, k), tipPath: calloutWorld(shape, e.leader, k).line } : {}) };
+      }),
     [elements, k],
   );
   const selected = selectedId ? (byId.get(selectedId) ?? null) : null;
@@ -519,8 +532,8 @@ export function useDrawing(opts: {
 
   // -------------------------------------------------------------------------
   // Einrasten: Fangpunkte anderer Objekte und 15°-Richtungen (abschaltbar); Raster nur, wenn
-  // ausdrücklich eingeschaltet. Freie Punkte und Längen laufen in ganzen Zentimetern – gezogene Formen
-  // zeigen so 2,35 m statt 2,3478 m; wer Millimeter braucht, tippt das Maß danach ein.
+  // ausdrücklich eingeschaltet. Freie Punkte und Längen laufen in ganzen Millimetern – gezogene Formen
+  // speichern so 2,347 m statt 2,34781 m; angezeigt werden die Maße mit 2 Nachkommastellen.
 
   const snap: SnapFn = (p, ctx) => {
     // eingerastete Spurlinien des letzten Schritts (halten etwas weiter, damit sie nicht flackern)
@@ -529,7 +542,8 @@ export function useDrawing(opts: {
     track.current.lines = [];
     track.current.par = null;
     if (ctx.tool === 'selwin') return p;
-    const cm = (n: number) => Math.round(n * 100) / 100;
+    // freie Punkte und Längen auf ganze Millimeter (angezeigt werden 2 Nachkommastellen)
+    const mm = (n: number) => Math.round(n * 1000) / 1000;
     const pm = { x: p.x / k, y: p.y / k };
     const pxPerM = ctx.scale * k;
     const tol = (isCoarse() ? 16 : 9) / pxPerM;
@@ -580,7 +594,7 @@ export function useDrawing(opts: {
         }
       }
       if (!hit) {
-        // ohne Fangpunkt: Länge im Raster bzw. in ganzen Zentimetern
+        // ohne Fangpunkt: Länge im Raster bzw. in ganzen Millimetern
         const step = gridOn ? gridStep(pxPerM, 14) : 0.01;
         const len = o.x === from.x ? o.y - from.y : o.x - from.x;
         const L = roundM(Math.round(len / step) * step);
@@ -607,7 +621,7 @@ export function useDrawing(opts: {
           [ex, ey, 'parallel'],
           [-ey, ex, 'square'],
         ] as const) {
-          const t = cm((pm.x - from0.x) * dx + (pm.y - from0.y) * dy);
+          const t = mm((pm.x - from0.x) * dx + (pm.y - from0.y) * dy);
           const qx = from0.x + t * dx;
           const qy = from0.y + t * dy;
           if (Math.abs(t) > tol * 2 && Math.hypot(pm.x - qx, pm.y - qy) < tol) {
@@ -620,7 +634,7 @@ export function useDrawing(opts: {
     if (trackOn && snapOn && (!hit || hit.kind === 'nearest')) {
       const { h, v } = trackRefs(from0 ? [from0] : []);
       if (h || v) {
-        q = { x: v ? v.x : cm(pm.x), y: h ? h.y : cm(pm.y) };
+        q = { x: v ? v.x : mm(pm.x), y: h ? h.y : mm(pm.y) };
         // nur eine Spurlinie und eine Richtung vom letzten Punkt (15°-Schritte, z. B. waagrecht): im Schnittpunkt
         // von Richtung und Spurlinie einrasten – die Linie bleibt waagrecht, die Senkrechte bleibt sichtbar
         if (from0 && !(h && v) && ctx.tool && PARALLEL_TOOLS.has(ctx.tool)) {
@@ -646,20 +660,20 @@ export function useDrawing(opts: {
         const from = { x: ctx.from.x / k, y: ctx.from.y / k };
         const dir = snapOn ? snapAngle(from, pm) : pm;
         const len = Math.hypot(dir.x - from.x, dir.y - from.y);
-        const L = gridOn ? Math.round(len / step) * step : cm(len);
+        const L = gridOn ? Math.round(len / step) * step : mm(len);
         q = len > 1e-9 ? { x: from.x + ((dir.x - from.x) / len) * L, y: from.y + ((dir.y - from.y) / len) * L } : dir;
       } else if (gridOn) {
         q = snapToGrid(pm, step);
         kind = 'grid';
       } else if (from0 && ctx.tool && PARALLEL_TOOLS.has(ctx.tool)) {
-        // Abschnitt einer freien Form, Fläche oder Wand: Länge in ganzen Zentimetern, Richtung frei
+        // Abschnitt einer freien Form, Fläche oder Wand: Länge in ganzen Millimetern, Richtung frei
         const len = Math.hypot(pm.x - from0.x, pm.y - from0.y);
-        q = len > 1e-9 ? { x: from0.x + ((pm.x - from0.x) / len) * cm(len), y: from0.y + ((pm.y - from0.y) / len) * cm(len) } : pm;
+        q = len > 1e-9 ? { x: from0.x + ((pm.x - from0.x) / len) * mm(len), y: from0.y + ((pm.y - from0.y) / len) * mm(len) } : pm;
       } else if (from0) {
-        // gezogene Form (Rechteck, Kreis …): Breite und Höhe in ganzen Zentimetern vom Anfangspunkt aus –
+        // gezogene Form (Rechteck, Kreis …): Breite und Höhe in ganzen Millimetern vom Anfangspunkt aus –
         // auch wenn der Anfang an einem Punkt mit Millimeterwert eingerastet ist
-        q = { x: from0.x + cm(pm.x - from0.x), y: from0.y + cm(pm.y - from0.y) };
-      } else q = { x: cm(pm.x), y: cm(pm.y) };
+        q = { x: from0.x + mm(pm.x - from0.x), y: from0.y + mm(pm.y - from0.y) };
+      } else q = { x: mm(pm.x), y: mm(pm.y) };
     }
     return { x: q.x * k, y: q.y * k, kind };
   };
@@ -710,6 +724,11 @@ export function useDrawing(opts: {
   /** Im Plan gezogene Form übernehmen (Seitenkoordinaten → Meter) bzw. Befehl ausführen */
   const onCreate = (pageShape: Shape) => {
     const shape = shapeToMeters(pageShape, k);
+    if (tool === 'textArrow') {
+      const [tip, at] = lineEnds(shape);
+      void createCallout(tip, at);
+      return;
+    }
     if (tool === 'selwin' || (SELECT_FIRST.has(tool) && cmdSelecting)) {
       const [a, b] = lineEnds(shape);
       selectWindow(a, b);
@@ -1604,6 +1623,36 @@ export function useDrawing(opts: {
     toast(`${res.size} Objekt(e) gestutzt.`, 'success', 2000);
   };
 
+  /** Pfeiltasten: ausgewählte Objekte um dx, dy (m) verschieben – liefert false ohne Auswahl */
+  const nudge = (dx: number, dy: number) => {
+    const list = selection.map((x) => data.elements[x.id]).filter((e): e is DrawElement => !!e);
+    if (!list.length) return false;
+    putRecords({ elements: list.map((e) => ({ ...e, shape: roundShape(translateShape(e.shape, dx, dy)) })) });
+    return true;
+  };
+
+  /** Text mit Pfeil (Meter): Pfeilspitze `tip`, Text an der Stelle `at` – der Text liegt auf der vom Pfeil abgewandten Seite */
+  const createCallout = async (tip: Point, at: Point) => {
+    const r = await askNewText();
+    if (!r) return;
+    const box = textShape(at, r.text, textHeightNow() * r.scale, r.font);
+    const shape = tip.x > at.x ? { ...box, x: roundM(at.x - box.w) } : box;
+    create('text', shape, { text: r.text, color: r.color, font: r.font, leader: leaderFor(shape, tip) });
+  };
+
+  /** Pfeilspitze eines Textes gezogen (Seitenkoordinaten) */
+  const onTipChange = (id: string, tipPage: Point, commit: boolean) => {
+    const e = data.elements[id];
+    if (!e) return;
+    const leader = leaderFor(e.shape, { x: tipPage.x / k, y: tipPage.y / k });
+    if (!commit) {
+      setLeaderOverrides((o) => ({ ...o, [id]: leader }));
+      return;
+    }
+    setLeaderOverrides(({ [id]: _, ...rest }) => rest);
+    if (!e.leader || e.leader.dx !== leader.dx || e.leader.dy !== leader.dy) putRecord('elements', { ...e, leader });
+  };
+
   const onShapeChange = (id: string, pageShape: Shape, commit: boolean) => {
     const shape = roundShape(shapeToMeters(pageShape, k));
     if (!commit) {
@@ -2245,6 +2294,8 @@ export function useDrawing(opts: {
     snap,
     onCreate,
     onShapeChange,
+    onTipChange,
+    nudge,
     onPlace: (p: Point) => void onPlace(p),
     insert,
     apply,

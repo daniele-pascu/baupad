@@ -63,7 +63,7 @@ function check(field: Field, input: string): { ok: true; value: number } | { ok:
     if (n === null) return { ok: false, error: `${FIELDS[field].label}: bitte eine Zahl in Grad eingeben.` };
     return { ok: true, value: ((n % 360) + 360) % 360 };
   }
-  // getippte Maße millimetergenau (gezogen wird in ganzen Zentimetern – Millimeter gibt man ein)
+  // getippte Maße millimetergenau (gezogen wird ebenfalls in ganzen Millimetern)
   return checkMeasure(input, FIELDS[field].label, 3);
 }
 
@@ -88,7 +88,8 @@ const INSERT_FIELDS: Partial<Record<DrawElementType, Field[]>> = {
   triangle: ['base', 'height'],
 };
 
-const HINTS: Partial<Record<DrawElementType, string>> = {
+const HINTS: Partial<Record<DrawElementType | 'textArrow', string>> = {
+  textArrow: 'Text mit Pfeil: zuerst die Pfeilspitze antippen, dann die Stelle für den Text.',
   dimension: 'Maßlinie: Punkt A, Punkt B, dann den Abstand anklicken – die Länge wird automatisch angezeigt.',
   text: 'Text: Stelle im Plan antippen.',
 };
@@ -116,7 +117,7 @@ export function InsertBar({
   if (!fields.length) {
     return (
       <div className="draw-bar" data-testid="insert-bar">
-        <span className="muted small">{HINTS[tool] ?? ''}</span>
+        <span className="muted small">{HINTS[tool as DrawElementType | 'textArrow'] ?? ''}</span>
       </div>
     );
   }
