@@ -2488,7 +2488,24 @@ export function useDrawing(opts: {
     },
     setWall: (id: string, patch: Partial<NonNullable<DrawElement['wall']>>) => {
       const e = data.elements[id];
-      if (e?.wall) putRecord('elements', { ...e, wall: { ...e.wall, ...patch } });
+      if (!e?.wall) return;
+      const wall = { ...e, wall: { ...e.wall, ...patch } };
+      const t0 = e.wall.thickness;
+      const t1 = wall.wall.thickness;
+      if (!(t1 > 0) || Math.abs(t1 - t0) < 1e-9) return void putRecord('elements', wall);
+      // Fenster und Wandöffnungen in dieser Wand wachsen mit: Tiefe = neue Wandstärke (Mitte bleibt auf der Achse);
+      // eigene, abweichende Tiefen bleiben unverändert
+      const pts = shapeVertices(e.shape);
+      const segs = pts.map((p, i) => [p, pts[(i + 1) % pts.length]] as const).slice(0, isOpenShape(e.shape) ? -1 : undefined);
+      const resized = stored
+        .filter((x) => x.type === 'symbol' && inWallGroup(symbolDef(x.symbol?.id)?.group) && Math.abs(x.shape.h - t0) < 0.002)
+        .filter((x) => {
+          const c = { x: x.shape.x + x.shape.w / 2, y: x.shape.y + x.shape.h / 2 };
+          return segs.some(([u, v]) => distToSegment(c, u, v) < 0.01);
+        })
+        .map((x) => ({ ...x, shape: roundShape({ ...x.shape, y: x.shape.y + x.shape.h / 2 - t1 / 2, h: t1 }) }));
+      if (!resized.length) return void putRecord('elements', wall);
+      putRecords({ elements: [wall, ...resized] }); // ein Rückgängig-Schritt
     },
     pickSymbol,
     flipSymbol,
