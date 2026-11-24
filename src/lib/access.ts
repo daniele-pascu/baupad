@@ -3,7 +3,7 @@
  * Admin und Betreiber sehen alles; ohne Anmeldung oder ohne Arbeitsbereich wird nichts eingeschränkt
  * (die Zugangsschleuse verlangt die Anmeldung ohnehin).
  */
-import type { Session, ToolId } from './auth';
+import { OFFICE_ONLY_TOOLS, type Session, type ToolId } from './auth';
 import { parseRoute, usePath } from './router';
 import { useSession } from './use-session';
 
@@ -42,6 +42,8 @@ export const isLocked = (s: Session | null | undefined) => !!s && !!s.companyId 
 
 export function canTool(s: Session | null | undefined, tool: ToolId): boolean {
   if (unrestricted(s)) return true;
+  // Team: nur Admin und Büro (Polier und Arbeiter nie – auch nicht mit „alle Tools“)
+  if (OFFICE_ONLY_TOOLS.includes(tool)) return isOfficeUser(s);
   // Zeitaufzeichnung war früher Teil der Arbeitereinteilung – ältere Freigaben gelten weiter
   return s!.tools.length === 0 || s!.tools.includes(tool) || (tool === 'times' && s!.tools.includes('workers'));
 }
