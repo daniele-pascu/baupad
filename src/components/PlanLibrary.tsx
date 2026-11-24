@@ -6,7 +6,7 @@ import { uuid } from '../lib/ids';
 import { detectKind, mimeOf } from './ImportWizard';
 import { sameNumberScope } from '../lib/invoices';
 import { alive, newMeta, putRecord, softDelete, type ProjectState } from '../lib/store';
-import { renderSource } from '../lib/thumbs';
+import { sourceThumb } from '../lib/thumbs';
 import type { Plan, PlanRotation, Rect, SourceFile } from '../lib/types';
 import { Icon } from './Icon';
 import { Modal } from './Modal';
@@ -55,16 +55,75 @@ export function SourceThumb({
   size?: number;
 }) {
   const [url, setUrl] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const [visible, setVisible] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  const cropKey = crop ? JSON.stringify(crop) : '';
+  // erst erzeugen, wenn die Vorschau (fast) sichtbar ist – lange Bibliotheken laden nicht alles auf einmal
   useEffect(() => {
+    const el = box.current;
+    if (!el || visible) return;
+    if (typeof IntersectionObserver === 'undefined') return setVisible(true);
+    const io = new IntersectionObserver((e) => e.some((x) => x.isIntersecting) && setVisible(true), { rootMargin: '400px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [visible]);
+  useEffect(() => {
+    if (!visible) return;
     let live = true;
-    renderSource(file, pageIndex, size, crop, rotation)
-      .then((c) => live && setUrl(c.toDataURL('image/jpeg', size > 360 ? 0.85 : 0.75)))
-      .catch(() => live && setUrl(''));
+    let made: string | null = null;
+    setFailed(false);
+    sourceThumb(file, pageIndex, size, crop, rotation)
+      .then((blob) => {
+        if (!live) return;
+        made = URL.createObjectURL(blob);
+        setUrl(made);
+      })
+      .catch(() => {
+        if (!live) return;
+        setFailed(true);
+        // einmal von selbst neu versuchen (z. B. Datei wurde gerade erst aus der Cloud geladen)
+        if (attempt === 0) setTimeout(() => live && setAttempt(1), 2500);
+      });
     return () => {
       live = false;
+      if (made) URL.revokeObjectURL(made);
     };
-  }, [file, pageIndex, crop, rotation, size]);
-  return <div className="thumb lib-thumb">{url ? <img src={url} alt="" /> : <span className="muted small">{url === '' ? 'Keine Vorschau' : 'Vorschau …'}</span>}</div>;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, file.id, file.kind, pageIndex, cropKey, rotation, size, attempt]);
+  // wieder online: fehlgeschlagene Vorschau neu laden
+  useEffect(() => {
+    if (!failed) return;
+    const on = () => setAttempt((n) => n + 1);
+    window.addEventListener('online', on);
+    return () => window.removeEventListener('online', on);
+  }, [failed]);
+  return (
+    <div ref={box} className="thumb lib-thumb" data-testid="source-thumb" data-state={url ? 'ok' : failed ? 'failed' : 'loading'}>
+      {url ? (
+        <img src={url} alt="" />
+      ) : failed ? (
+        <span
+          role="button"
+          tabIndex={0}
+          className="muted small lib-thumb-retry"
+          onClick={(e) => {
+            e.stopPropagation();
+            setAttempt((n) => n + 1);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') setAttempt((n) => n + 1);
+          }}
+          data-testid="source-thumb-retry"
+        >
+          Vorschau neu laden
+        </span>
+      ) : (
+        <span className="muted small">Vorschau …</span>
+      )}
+    </div>
+  );
 }
 
 const kb = (n: number) => (n > 1024 * 1024 ? `${(n / 1024 / 1024).toLocaleString('de-DE', { maximumFractionDigits: 1 })} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);

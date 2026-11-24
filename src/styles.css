@@ -15136,3 +15136,13 @@ html[data-theme='dark'] .crew-ww-legend b.o {
     margin-top: 10px;
   }
 }
+
+/* Planbibliothek: Vorschau ließ sich nicht erzeugen – antippen lädt sie neu */
+.lib-thumb-retry {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+}
