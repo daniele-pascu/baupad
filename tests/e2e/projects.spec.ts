@@ -301,6 +301,15 @@ test('Website: Startseite, Produkte, BauPad, Unternehmen, Kontaktformular, Sprac
   await page.getByTestId('register-password2').fill('langes-passwort');
   await page.getByTestId('login-submit').click();
   await expect(page.getByTestId('auth-info')).toContainText('E-Mail an neu@example.com'); // Bestätigung ausstehend
+  // Bestätigungslink abgelaufen: neuen anfordern
+  let resent: unknown = null;
+  await page.route('**/auth/v1/resend**', (r) => {
+    resent = r.request().postDataJSON();
+    return r.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+  });
+  await page.getByTestId('login-resend').click();
+  await expect(page.getByTestId('auth-info')).toContainText('Neuer Bestätigungslink an neu@example.com');
+  expect(resent).toMatchObject({ type: 'signup', email: 'neu@example.com' });
   await page.getByTestId('auth-tab-login').click();
   await page.screenshot({ path: join(OUT, 'anmelden.png'), fullPage: true });
   // Ohne Anmeldung keine Werkzeuge: jede Werkzeug-Adresse führt zur Anmeldeseite

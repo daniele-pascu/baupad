@@ -12,6 +12,7 @@ function fakeClient(over: Partial<AuthClientLike['auth']> = {}, rpc?: AuthClient
       signUp: async () => ({ data: { user, session: null }, error: null }),
       signOut: async () => ({ error: null }),
       resetPasswordForEmail: async () => ({ error: null }),
+      resend: async () => ({ error: null }),
       updateUser: async () => ({ error: null }),
       linkIdentity: async () => ({ error: null }),
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
@@ -98,6 +99,10 @@ describe('SupabaseAuth', () => {
     const a = new SupabaseAuth(fakeClient({ resetPasswordForEmail, signOut }, rpc), 'https://pad-software.at/');
     await a.resetPassword('Max@Muster.at');
     expect(resetPasswordForEmail).toHaveBeenCalledWith('max@muster.at', { redirectTo: 'https://pad-software.at/?reset=1' });
+    const resend = vi.fn(async () => ({ error: null }));
+    await new SupabaseAuth(fakeClient({ resend }), 'https://pad-software.at/').resendConfirmation(' Max@Muster.at ');
+    expect(resend).toHaveBeenCalledWith({ type: 'signup', email: 'max@muster.at', options: { emailRedirectTo: 'https://pad-software.at/' } });
+    expect(translateAuthError('Email link is invalid or has expired')).toMatch(/abgelaufen/);
     await a.deleteAccount();
     expect(rpc).toHaveBeenCalledWith('delete_own_account');
     expect(signOut).toHaveBeenCalled();

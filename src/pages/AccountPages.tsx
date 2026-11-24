@@ -87,6 +87,15 @@ export function LoginPage({ register = false }: { register?: boolean }) {
       setInfo(`Wenn es ein Konto für ${email.trim()} gibt, ist der Link zum Zurücksetzen unterwegs. Bitte auch den Spam-Ordner prüfen.`);
     });
   };
+  /** E-Mail noch nicht bestätigt bzw. eben registriert: Bestätigungslink noch einmal schicken (der erste läuft ab) */
+  const unconfirmed = error.startsWith('Bitte zuerst die E-Mail-Adresse bestätigen') || error.startsWith('Der Link ist abgelaufen') || info.startsWith('Fast geschafft');
+  const resend = () => {
+    if (!isEmail(email)) return setError('Bitte oben deine E-Mail-Adresse eingeben, dann schicken wir den Bestätigungslink noch einmal.');
+    void attempt(async () => {
+      await getAuth().resendConfirmation(email);
+      setInfo(`Neuer Bestätigungslink an ${email.trim()} geschickt. Bitte die neueste E-Mail öffnen und auch den Spam-Ordner prüfen.`);
+    });
+  };
   const switchTab = (t: 'login' | 'register') => {
     setTab(t);
     setError('');
@@ -184,6 +193,13 @@ export function LoginPage({ register = false }: { register?: boolean }) {
                   <p className="auth-small muted small">
                     <button type="button" className="link-btn" onClick={forgot} disabled={busy} data-testid="login-forgot">
                       Passwort vergessen?
+                    </button>
+                  </p>
+                )}
+                {unconfirmed && (
+                  <p className="auth-small muted small">
+                    <button type="button" className="link-btn" onClick={resend} disabled={busy} data-testid="login-resend">
+                      Bestätigungs-Mail erneut senden
                     </button>
                   </p>
                 )}
