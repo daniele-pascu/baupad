@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mul, pathSegments, SegIndex, type PlanSeg } from '../../src/lib/pdf-snap';
+import { markPatterns, mul, pathSegments, SegIndex, type PlanSeg } from '../../src/lib/pdf-snap';
 import { findSnap } from '../../src/lib/snap';
 
 // Ansicht wie pdf.js: y nach unten, Seitenhöhe 842
@@ -54,5 +54,45 @@ describe('Punktfang auf Planlinien', () => {
     const near = index.near({ x: 102, y: 150 }, 5);
     expect(near).toHaveLength(1);
     expect(near[0].a).toEqual({ x: 100, y: 200 });
+  });
+});
+
+describe('Fang: Schraffur, Muster und dünne Linien stören die Ecken nicht', () => {
+  // Wand (kräftig, 0,7) als Rechteck 100..300 × 100..200, darin eine Schraffur aus 45°-Strichen (ein Pfad, dünn)
+  const build = () => {
+    const out: PlanSeg[] = [];
+    pathSegments([0, 100, 100, 1, 300, 100, 1, 300, 200, 1, 100, 200, 4], I, 0, out, null, { w: 0.7 });
+    const hatch: number[] = [];
+    for (let k = 0; k < 20; k++) hatch.push(0, 100 + k * 4, 100, 1, 100 + k * 4 + 3, 103); // kurze Striche ab der Wand
+    pathSegments(hatch, I, 1, out, null, { w: 0.1 });
+    // Maßlinie (dünn) knapp neben der Ecke, mit eigenem Endpunkt näher am Finger
+    pathSegments([0, 96, 103.5, 1, 60, 103.5], I, 2, out, null, { w: 0.1 });
+    markPatterns(out);
+    return out;
+  };
+  it('Schraffurstriche werden als Muster erkannt und liefern keine Fangpunkte', () => {
+    const out = build();
+    expect(out.filter((s) => s.path === 1).every((s) => s.pattern)).toBe(true);
+    expect(out.filter((s) => s.path === 0).some((s) => s.pattern)).toBe(false);
+    const index = new SegIndex(out);
+    // neben der Ecke, mitten zwischen Schraffur-Enden: die echte Wandecke greift
+    expect(findSnap({ x: 102, y: 102 }, [], 6, index.near({ x: 102, y: 102 }, 6))).toEqual({ point: { x: 100, y: 100 }, kind: 'end' });
+  });
+  it('dünne Maßlinie neben einer Wand: die Wandecke gewinnt, auch wenn der Maßstrich näher liegt', () => {
+    const out = build();
+    const index = new SegIndex(out);
+    const p = { x: 97, y: 103 };
+    expect(findSnap(p, [], 6, index.near(p, 6))).toEqual({ point: { x: 100, y: 100 }, kind: 'end' });
+    // ohne Wand in der Nähe zählt die dünne Linie normal
+    const q = { x: 62, y: 103 };
+    expect(findSnap(q, [], 6, index.near(q, 6))).toEqual({ point: { x: 60, y: 103.5 }, kind: 'end' });
+  });
+  it('Ecke als Schnittpunkt zweier Linien (eigene Pfade): der nähere Eckpunkt gewinnt, nicht ein entfernter Endpunkt', () => {
+    const out: PlanSeg[] = [];
+    pathSegments([0, 0, 50, 1, 200, 50], I, 0, out, null, { w: 0.5 }); // Wandlinie waagrecht, Ende bei x=0
+    pathSegments([0, 4, 0, 1, 4, 200], I, 1, out, null, { w: 0.5 }); // Wandlinie senkrecht bei x=4
+    const index = new SegIndex(out);
+    const p = { x: 4.5, y: 50.5 };
+    expect(findSnap(p, [], 6, index.near(p, 6))).toEqual({ point: { x: 4, y: 50 }, kind: 'intersection' });
   });
 });

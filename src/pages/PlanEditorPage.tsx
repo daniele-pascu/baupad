@@ -906,7 +906,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     // gezeichnete Pläne: auch an Hilfslinien (auf der Linie und an ihren Schnittpunkten)
     const upm = drawingPlan ? unitsPerMeter(plan!) : 0;
     const lines = drawingPlan && drawing.guidesOn ? drawing.guides.map((g) => guideSeg(g).map((q) => ({ x: q.x * upm, y: q.y * upm })) as [Point, Point]) : [];
-    const hit = findSnap(p, shapes, tol, planLines?.index.near(p, tol) ?? [], { lines, ...(coarse ? { free: { point: 10 / ctx.scale, line: 6 / ctx.scale } } : {}) });
+    const hit = findSnap(p, shapes, tol, planLines?.index.near(p, tol) ?? [], { lines, ...(coarse ? { free: { point: 13 / ctx.scale, line: 6 / ctx.scale } } : {}) });
     // Spurlinien wie beim Zeichnen (nur Maus/Stift – per Finger bleibt das Antippen wie bisher): angefahrene
     // Ecken, Mitten und Schnittpunkte merken; ohne Fangpunkt in ihrer Flucht (waagrecht/senkrecht) einrasten
     const t = measureTrack.current;
