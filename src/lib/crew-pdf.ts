@@ -237,7 +237,7 @@ export async function crewWeekPdf(plan: WeekPlan, workers: Worker[], times: Work
   };
 }
 
-/** Tagesliste einer Baustelle (A4 hoch): Arbeiter mit Tätigkeit und Telefon, Spalte für Bemerkung/Unterschrift */
+/** Tagesliste einer Baustelle (A4 hoch): Arbeiter (mit Qualifikation, wenn eingestellt) und Telefon, Spalte für Bemerkung/Unterschrift */
 export async function crewDayPdf(plan: WeekPlan, siteId: string, day: number, workers: Worker[], times: WorkTimes, opts: CrewPdfOptions = {}): Promise<ExportFile> {
   const ctx = await setup(opts);
   const W = 595.28;
@@ -295,7 +295,7 @@ export async function crewDayPdf(plan: WeekPlan, siteId: string, day: number, wo
       y = header(ctx, page, `${title} (Fortsetzung)`, s.name, opts.company ?? '');
       drawHead();
     }
-    // Funktion nur, wenn in den Einstellungen gewählt
+    // Qualifikation nur, wenn in den Einstellungen gewählt
     const cells = w ? [String(i + 1), (opts.showGrades ? workerWithGrade(w) : workerName(w)) + mark(opts, w.id, day), w.phone ?? '', ''] : ['', '', '', ''];
     let x = M;
     cells.forEach((c, k) => {
