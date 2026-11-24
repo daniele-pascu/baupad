@@ -672,6 +672,9 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     },
     lastPolygonPoint: () => poly.current[poly.current.length - 1] ?? null,
     undoPolygonPoint: () => {
+      // Fangmarke (z. B. „Endpunkt“) des zurückgenommenen Punkts nicht stehen lassen
+      snapMark.current = null;
+      polyHover.current = null;
       if (clickStart.current) return clearClickStart();
       if (fhDraft()) {
         const last = strokes.current[strokes.current.length - 1];
@@ -703,6 +706,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       forceRender((x) => x + 1);
     },
     redoPolygonPoint: () => {
+      snapMark.current = null;
       if (fhDraft()) {
         const st = redoStrokes.current[redoStrokes.current.length - 1];
         if (!st) return;
@@ -729,6 +733,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       forceRender((n) => n + 1);
     },
     cancelPolygon: () => {
+      snapMark.current = null;
       endLupe();
       clearClickStart();
       redoPts.current = [];
