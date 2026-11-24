@@ -792,7 +792,8 @@ export function WorkersPage() {
             onPick={(workerId, day, st) => {
               if (st.kind === 'site') setDialog({ kind: 'chip', siteId: st.site.id, day, workerId });
               else if (st.kind === 'urlaub' || st.kind === 'krank') setDialog({ kind: 'absence', workerId, day });
-              else if (st.kind === 'open') {
+              // auch an Nicht-Arbeitstagen (Sa/So, Feiertag) einteilbar – manchmal wird länger gearbeitet
+              else if (st.kind === 'open' || st.kind === 'off' || st.kind === 'holiday') {
                 if (plan.sites.some((x) => !x.paused)) setDialog({ kind: 'open', day, workerId });
                 else toast('Zuerst in der Ansicht „Baustellen“ ein Projekt anlegen.', 'info');
               }
