@@ -310,6 +310,12 @@ function useAuthReturn() {
     const clean = () => history.replaceState(null, '', location.pathname);
     if (err) {
       clean();
+      // abgelaufener bzw. schon benutzter Link (Bestätigung, Passwort): verständlich und mit dem Weg zum neuen Link
+      if (/expired|link is invalid/i.test(err)) {
+        toast('Der Link ist abgelaufen oder wurde schon benutzt. Bitte einen neuen anfordern – bei „Anmelden“ die Bestätigungs-Mail erneut senden bzw. „Passwort vergessen?“.', 'error');
+        navigate(paths.login(), true);
+        return;
+      }
       toast(`Anmeldung nicht möglich: ${err}`, 'error');
       return;
     }

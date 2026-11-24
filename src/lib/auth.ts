@@ -138,6 +138,8 @@ export interface AuthBackend {
   signOut(): Promise<void>;
   /** schickt den Link zum Zurücksetzen des Passworts */
   resetPassword(email: string): Promise<void>;
+  /** schickt den Bestätigungslink der Registrierung noch einmal (z. B. wenn der erste abgelaufen ist) */
+  resendConfirmation(email: string): Promise<void>;
   /** setzt das Passwort der angemeldeten Person (nach dem Link aus der E-Mail oder in den Einstellungen) */
   updatePassword(password: string): Promise<void>;
   /** löscht das eigene Konto samt Mitgliedschaften (Vorgabe der Stores) */
@@ -178,6 +180,9 @@ export class NotConnectedAuth implements AuthBackend {
     /* nichts angemeldet */
   }
   async resetPassword() {
+    throw new AuthNotConnected();
+  }
+  async resendConfirmation() {
     throw new AuthNotConnected();
   }
   async updatePassword() {

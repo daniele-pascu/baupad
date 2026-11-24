@@ -18,6 +18,7 @@ export interface AuthClientLike {
     signUp(c: { email: string; password: string; options?: { data?: Record<string, string>; emailRedirectTo?: string } }): Promise<AuthResult>;
     signOut(): Promise<{ error: { message: string } | null }>;
     resetPasswordForEmail(email: string, o?: { redirectTo?: string }): Promise<{ error: { message: string } | null }>;
+    resend(c: { type: 'signup'; email: string; options?: { emailRedirectTo?: string } }): Promise<{ error: { message: string } | null }>;
     updateUser(a: { email?: string; password?: string; data?: Record<string, string> }): Promise<{ error: { message: string } | null }>;
     linkIdentity(c: { provider: 'google' | 'apple' | 'azure'; options?: { redirectTo?: string; scopes?: string } }): Promise<{ error: { message: string } | null }>;
     onAuthStateChange(cb: (event: string, session: RawSession | null) => void): { data: { subscription: { unsubscribe(): void } } };
@@ -64,6 +65,8 @@ const PROVIDER_MAP: Record<Exclude<AuthProviderId, 'email'>, 'google' | 'apple' 
 export function translateAuthError(message: string): string {
   const m = message.toLowerCase();
   if (m.includes('invalid login credentials') || m.includes('invalid_credentials')) return 'E-Mail-Adresse oder Passwort ist falsch.';
+  if (m.includes('otp_expired') || m.includes('link is invalid or has expired') || m.includes('token has expired'))
+    return 'Der Link ist abgelaufen oder wurde schon benutzt. Bitte einen neuen anfordern: bei „Anmelden“ die Bestätigungs-Mail erneut senden bzw. „Passwort vergessen?“.';
   if (m.includes('email not confirmed')) return 'Bitte zuerst die E-Mail-Adresse bestätigen – der Link steht in der E-Mail, die du beim Registrieren bekommen hast.';
   if (m.includes('already registered') || m.includes('already been registered') || m.includes('user_already_exists')) return 'Für diese E-Mail-Adresse gibt es schon ein Konto. Bitte anmelden oder das Passwort zurücksetzen.';
   if (m.includes('password should be') || m.includes('weak_password') || m.includes('password is too short')) return 'Das Passwort braucht mindestens 8 Zeichen.';
@@ -152,6 +155,11 @@ export class SupabaseAuth implements AuthBackend {
 
   async resetPassword(email: string) {
     const { error } = await this.client.auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo: `${this.redirectBase}?reset=1` });
+    if (error) throw new AuthError(error.message);
+  }
+
+  async resendConfirmation(email: string) {
+    const { error } = await this.client.auth.resend({ type: 'signup', email: email.trim().toLowerCase(), options: { emailRedirectTo: this.redirectBase } });
     if (error) throw new AuthError(error.message);
   }
 
