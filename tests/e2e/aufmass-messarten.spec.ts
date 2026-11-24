@@ -180,17 +180,17 @@ test('Messart wählen, dann mit beliebigem Werkzeug messen: Wand, Stück, Frei, 
   expect(d.area).toBe(3);
   expect(d.depth).toBe(0.2);
 
-  // 5) Fläche mit Anzahl: 3 × (2 × 1,5)
+  // 5) Fläche: keine Anzahl – jede Fläche einzeln nummeriert; 2 × 4,5
   await chooseType('flaeche');
   await rect(x + px(4), y + px(5), px(2), px(1));
+  await expect(dlg().getByTestId('input-count')).toHaveCount(0);
   await dlg().getByTestId('input-length').fill('2');
-  await dlg().getByTestId('input-width').fill('1,5');
-  await dlg().getByTestId('input-count').fill('3');
+  await dlg().getByTestId('input-width').fill('4,5');
   await dlg().getByTestId('damage-save').click();
   await expect(dlg()).toBeHidden();
   d = await lastDmg();
   expect(d.measureType).toBe('flaeche');
-  expect(d.count).toBe(3);
+  expect(d.count ?? 1).toBe(1);
   expect(d.area).toBe(9);
 
   // 6) Länge (Linie, Freie Form, Freihand): geschlossene Freie Form 2 × 1 m → Umfang
