@@ -80,4 +80,14 @@ describe('Autospeichern', () => {
     expect(store.getState().save.status).toBe('conflict');
     expect(dbRevs.get('d1')).toBe(5); // nichts überschrieben
   });
+
+  it('Neuladen im Hintergrund (neue Daten aus der Cloud): die Seite bleibt stehen – nie ohne Daten oder „lädt“', async () => {
+    const seen: { data: boolean; loading: boolean }[] = [];
+    const off = store.subscribe(() => seen.push({ data: !!store.getState().data, loading: store.getState().loading }));
+    await store.reloadProject();
+    off();
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen.every((x) => x.data && !x.loading)).toBe(true);
+    expect(store.getState().projectId).toBe('p');
+  });
 });

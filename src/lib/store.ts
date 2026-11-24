@@ -193,13 +193,23 @@ export async function openProject(projectId: string): Promise<void> {
   if (state.projectId === projectId && state.data) return;
   await flush();
   setState({ projectId, loading: true, loadError: null, data: null });
+  await loadInto(projectId);
+}
+
+/**
+ * Projektdaten aus der Datenbank in den Zustand übernehmen. Beim Neuladen im Hintergrund (quiet) bleiben die alten
+ * Daten stehen, bis die neuen da sind – die Seite wird nicht abgebaut, offene Fenster (Planbibliothek, Planansicht,
+ * geöffneter Plan) bleiben offen.
+ */
+async function loadInto(projectId: string, quiet = false, unchanged: () => boolean = () => true): Promise<boolean> {
   try {
     const data = await loadProjectData(projectId);
-    if (state.projectId !== projectId) return;
+    if (state.projectId !== projectId) return true;
     if (!data) {
-      setState({ loading: false, loadError: 'Projekt nicht gefunden.' });
-      return;
+      setState({ loading: false, loadError: 'Projekt nicht gefunden.', ...(quiet ? { data: null } : {}) });
+      return true;
     }
+    if (!unchanged()) return false;
     baseRevs.clear();
     clearHistory();
     const toRecord = <T extends { id: string }>(arr: T[], store: EntityStore) =>
@@ -224,9 +234,12 @@ export async function openProject(projectId: string): Promise<void> {
       },
       save: { status: 'saved', error: null, lastSaved: null },
     });
+    return true;
   } catch (e) {
     console.error(e);
-    setState({ loading: false, loadError: `Projekt konnte nicht geladen werden: ${(e as Error).message}` });
+    // im Hintergrund: die bisherigen Daten bleiben stehen, beim nächsten Abgleich noch einmal
+    if (!quiet) setState({ loading: false, loadError: `Projekt konnte nicht geladen werden: ${(e as Error).message}` });
+    return true;
   }
 }
 
@@ -235,12 +248,26 @@ export async function closeProject(): Promise<void> {
   setState({ projectId: null, data: null, loadError: null });
 }
 
-/** Erzwingt das Neuladen aus der Datenbank (z. B. nach einem Konflikt). */
+/**
+ * Erzwingt das Neuladen aus der Datenbank (z. B. nach einem Konflikt oder neuen Daten aus der Cloud) – im
+ * Hintergrund: die geöffnete Seite bleibt stehen, bis die neuen Daten da sind.
+ */
 export async function reloadProject(): Promise<void> {
   const id = state.projectId;
   queue.clear();
-  setState({ projectId: null, data: null, save: { status: 'saved', error: null, lastSaved: null } });
-  if (id) await openProject(id);
+  if (!id || !state.data) {
+    setState({ projectId: null, data: null, save: { status: 'saved', error: null, lastSaved: null } });
+    if (id) await openProject(id);
+    return;
+  }
+  setState({ save: { status: 'saved', error: null, lastSaved: null } });
+  // wurde während des Ladens etwas geändert, zuerst speichern und noch einmal laden (nichts überschreiben)
+  for (let i = 0; i < 3; i++) {
+    const before = state.data;
+    const ok = await loadInto(id, true, () => state.data === before);
+    if (ok) return;
+    await flush();
+  }
 }
 
 // ---------------------------------------------------------------------------
