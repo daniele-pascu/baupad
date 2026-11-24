@@ -48,7 +48,7 @@ export interface DamageValues {
   rebarItems: RebarItem[];
   /** Fotos (Fotodokumentation) zur Messung */
   photoIds: string[];
-  /** Wand als Unterzug: Seite A, Unterseite, Seite B (width = Abwicklung); null = normale Wand */
+  /** Wand als Unterzug: Seite 1, Unterseite, Seite 2 (width = Abwicklung); null = normale Wand */
   beam: Beam | null;
   /** Messart (Fläche, Wand, Länge, Volumen, Stück, Schadstelle, Frei) */
   measureType: MeasureType;
@@ -222,7 +222,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const [surface, setSurface] = useState<Surface | ''>(damage.surface ?? (mode === 'new' && surfaces ? (lastSurface ?? '') : ''));
   const [formula, setFormula] = useState(damage.formula ?? (damage.qty !== null && damage.qty !== undefined ? toInputValue(damage.qty) : ''));
   const [unit, setUnit] = useState(damage.unit ?? '');
-  // Unterzug (bei der Messart Wand): Seitenfläche A, Unterseite, Seitenfläche B – je an/aus mit eigenem Maß
+  // Unterzug (bei der Messart Wand): Seitenfläche 1, Unterseite, Seitenfläche 2 – je an/aus mit eigenem Maß
   const [beamOn, setBeamOn] = useState(!!damage.beam);
   const [bm, setBm] = useState(() => {
     const b = damage.beam;
@@ -315,7 +315,9 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const nRaw = v.count.trim();
   const nVal = nRaw ? parseDecimal(nRaw) : 1;
   const countErr = nVal === null || !Number.isInteger(nVal) || nVal < 1 || nVal > 99999 ? 'Anzahl: ganze Zahl ab 1.' : null;
-  const n = countErr || free ? 1 : nVal!;
+  // Wand: keine Anzahl – jede Wand wird einzeln gemessen und nummeriert (ältere Wände mit Anzahl behalten das Feld)
+  const countHidden = type === 'wand' && !(damage.count && damage.count > 1);
+  const n = countErr || free || countHidden ? 1 : nVal!;
   // Frei: eigene Rechnung, z. B. 2*3,5+1,2
   const qty = free ? evalFormula(formula) : null;
   const freeErr = free && qty === null ? (formula.trim() ? 'Rechnung ungültig – erlaubt sind Zahlen, + − × / und Klammern.' : 'Bitte die Menge bzw. Rechnung eingeben, z. B. 2*3,5+1,2.') : null;
@@ -333,9 +335,9 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   // Unterzug: Abwicklung = Summe der gezählten Flächen; jede eingeschaltete Fläche braucht ein gültiges Maß
   const beamMode = type === 'wand' && beamOn && !counted && !free;
   const beamPart = (on: boolean, raw: string, name: string) => (!on || !raw.trim() ? null : checkMeasure(raw, name));
-  const bA = beamMode ? beamPart(bm.aOn, bm.a, 'Seite A') : null;
+  const bA = beamMode ? beamPart(bm.aOn, bm.a, 'Seite 1') : null;
   const bU = beamMode ? beamPart(bm.bottomOn, bm.bottom, 'Unterseite') : null;
-  const bB = beamMode ? beamPart(bm.bOn, bm.b, 'Seite B') : null;
+  const bB = beamMode ? beamPart(bm.bOn, bm.b, 'Seite 2') : null;
   const beamErr = beamMode ? ([bA, bU, bB].find((x) => x && !x.ok) as { ok: false; error: string } | undefined)?.error ?? null : null;
   const beam: Beam | null = beamMode && !beamErr ? { a: bA?.ok ? bA.value : null, bottom: bU?.ok ? bU.value : null, b: bB?.ok ? bB.value : null } : null;
   const beamDev = beam && (beam.a !== null || beam.bottom !== null || beam.b !== null) ? beamDeveloped(beam) : null;
@@ -405,9 +407,9 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
     length: L.ok ? null : L.error,
     width: B && !B.ok ? B.error : null,
     depth: T && !T.ok ? T.error : null,
-    count: free ? null : countErr,
+    count: free || countHidden ? null : countErr,
   };
-  const valid = fields.every((f) => !errors[f]) && (free || !countErr) && !freeErr && (counted || free || dedErrors.every((e) => !e)) && !rebarError && !beamErr;
+  const valid = fields.every((f) => !errors[f]) && (free || countHidden || !countErr) && !freeErr && (counted || free || dedErrors.every((e) => !e)) && !rebarError && !beamErr;
 
   const submit = (renumber: Renumber = 'none') => {
     setShowErrors(true);
@@ -615,16 +617,16 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
           <div className="beam-box" data-testid="beam-box">
             <label className="check-row">
               <input type="checkbox" checked={beamOn} onChange={(e) => setBeamOn(e.target.checked)} data-testid="beam-toggle" />
-              <span>Unterzug – Seite A, Unterseite und Seite B einzeln (Abwicklung)</span>
+              <span>Unterzug – Seite 1, Unterseite und Seite 2 einzeln (Abwicklung)</span>
             </label>
             {beamOn && (
               <>
                 <div className="beam-rows">
                   {(
                     [
-                      ['aOn', 'a', 'Seite A', 'Seitenfläche A – Höhe'],
+                      ['aOn', 'a', 'Seite 1', 'Seitenfläche 1 – Höhe'],
                       ['bottomOn', 'bottom', 'Unterseite', 'Unterseite – Breite'],
-                      ['bOn', 'b', 'Seite B', 'Seitenfläche B – Höhe'],
+                      ['bOn', 'b', 'Seite 2', 'Seitenfläche 2 – Höhe'],
                     ] as const
                   ).map(([on, key, short, label], i, all) => (
                     <div key={key} className={`beam-row${bm[on] ? '' : ' off'}`} data-testid={`beam-${key}`}>
@@ -668,7 +670,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
           </div>
         )}
         <div className="measure-extra">
-          {!counted && !free && (
+          {!counted && !free && !countHidden && (
             <label className="field measure-field measure-count">
               <span>Anzahl</span>
               <div className="input-unit">
@@ -792,7 +794,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
                 {beamMode
                   ? area !== null
                     ? `Unterzug (Länge × Abwicklung${deductions.length ? ', mit Abzügen' : ''})`
-                    : 'Unterzug: Maße von Seite A, Unterseite bzw. Seite B eingeben'
+                    : 'Unterzug: Maße von Seite 1, Unterseite bzw. Seite 2 eingeben'
                   : area !== null
                     ? deductions.length
                       ? 'Wandfläche netto (Länge × Höhe, mit Abzügen)'
