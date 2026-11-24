@@ -521,7 +521,8 @@ function WorkerDialog({ worker, others, onClose, onSave }: { worker: Worker | nu
             ))}
           </select>
         </label>
-        {field('role', 'Funktion', { placeholder: 'z. B. Maurer, Schalungszimmerer, Kranführer' })}
+        {field('role', 'Funktion', { placeholder: 'antippen oder selbst eingeben, z. B. Maurer' })}
+        <FunctionChips value={v.role} onChange={(role) => setV({ ...v, role })} used={others.map((o) => o.role ?? '')} />
         {field('staffNo', 'Personalnummer')}
         {office && field('svNumber', 'SV-Nummer (nur Admin und Büro)', { inputMode: 'numeric', placeholder: '10 Ziffern, z. B. 1234 010180', 'aria-invalid': show && sv === null ? true : undefined } as Partial<InputHTMLAttributes<HTMLInputElement>>)}
         {office && show && sv === null && <p className="error small" data-testid="worker-sv-error">Die SV-Nummer hat 10 Ziffern.</p>}
@@ -531,5 +532,35 @@ function WorkerDialog({ worker, others, onClose, onSave }: { worker: Worker | nu
         <button type="submit" hidden />
       </form>
     </Modal>
+  );
+}
+
+/** Vorschläge für die Funktion (Tätigkeit auf der Baustelle) – mehrere möglich, eigene einfach ins Feld tippen */
+export const FUNCTION_SUGGESTIONS = ['Maurer', 'Schalungszimmerer', 'Eisenbieger', 'Betonierer', 'Kranführer', 'Baggerfahrer', 'Maschinist', 'Zimmerer', 'Trockenbauer', 'Fliesenleger', 'Maler', 'Lehrling'];
+
+const splitFunctions = (s: string) =>
+  s
+    .split(/\s*[,;/]\s*/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+
+/**
+ * Funktion zum Antippen: Vorschläge und die im Personal schon benutzten eigenen Funktionen; antippen fügt hinzu bzw.
+ * nimmt wieder heraus (mehrere durch Komma, z. B. „Maurer, Kranführer“). Eigene Funktion: einfach ins Feld tippen.
+ */
+function FunctionChips({ value, onChange, used }: { value: string; onChange(v: string): void; used: string[] }) {
+  const current = splitFunctions(value);
+  const has = (f: string) => current.some((c) => c.toLowerCase() === f.toLowerCase());
+  const own = [...new Set(used.flatMap(splitFunctions))].filter((f) => !FUNCTION_SUGGESTIONS.some((x) => x.toLowerCase() === f.toLowerCase())).sort((a, b) => a.localeCompare(b, 'de'));
+  const all = [...FUNCTION_SUGGESTIONS, ...own];
+  const toggle = (f: string) => onChange((has(f) ? current.filter((c) => c.toLowerCase() !== f.toLowerCase()) : [...current, f]).join(', '));
+  return (
+    <div className="function-chips" role="group" aria-label="Funktion wählen" data-testid="function-chips">
+      {all.map((f) => (
+        <button key={f} type="button" className={`chip${has(f) ? ' active' : ''}`} aria-pressed={has(f)} onClick={() => toggle(f)} data-testid="function-chip" data-function={f}>
+          {f}
+        </button>
+      ))}
+    </div>
   );
 }
