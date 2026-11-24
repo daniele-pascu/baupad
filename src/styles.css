@@ -15146,3 +15146,40 @@ html[data-theme='dark'] .crew-ww-legend b.o {
   background: var(--surface);
   cursor: pointer;
 }
+
+/* Messdialog Wand: Unterzug mit Seite A, Unterseite, Seite B */
+.beam-box {
+  display: grid;
+  gap: 8px;
+  margin: 4px 0 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2, var(--surface));
+}
+.beam-rows {
+  display: grid;
+  gap: 8px;
+}
+.beam-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(110px, 150px);
+  align-items: center;
+  gap: 10px;
+}
+.beam-row.off .input-unit {
+  opacity: 0.45;
+}
+.beam-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.beam-check span {
+  display: grid;
+  line-height: 1.2;
+}
+.beam-check small {
+  font-size: 0.78rem;
+}

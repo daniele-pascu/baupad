@@ -1,4 +1,5 @@
 import { SelectBox, type Selection } from './Selection';
+import { noteWithBeam } from '../lib/beam';
 import { naturalCompare } from '../lib/numbers';
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { AufmassRow } from '../lib/aufmass';
@@ -224,7 +225,7 @@ export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, on
     // Symbol der Messart (wie in der Überschrift der Tabelle)
     const typeIcon = MEASURE_TYPES.find((t) => t.id === type)?.icon as IconName | undefined;
     // Spalte „Bemerkung“ nur, wenn eine Messung eine Notiz hat (am Handy als Zeile darunter)
-    const notes = list.some((d) => d.note?.trim());
+    const notes = list.some((d) => noteWithBeam(d));
     // Spalte „Bewehrung“ nur, wenn mindestens eine Messung eine Angabe hat
     const rebar = list.some((d) => (d.rebar ?? 0) > 0);
     const trail = 1 + (rebar ? 1 : 0) + (notes ? 1 : 0) + (actions ? 1 : 0); // Art, Bewehrung, Bemerkung, Aktionen
@@ -342,7 +343,7 @@ export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, on
                   )}
                   {notes && (
                     <td className="note-col" data-testid="row-note">
-                      {r.damage.note}
+                      {noteWithBeam(r.damage)}
                     </td>
                   )}
                   {actions && (
@@ -376,9 +377,9 @@ export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, on
                     </td>
                   )}
                 </tr>
-                {notes && r.damage.note?.trim() && (
+                {notes && noteWithBeam(r.damage) && (
                   <tr className={`note-subrow${sel ? ' selected' : ''}`} onClick={() => choose(r)} data-testid="row-note-sm">
-                    <td colSpan={all}>{r.damage.note}</td>
+                    <td colSpan={all}>{noteWithBeam(r.damage)}</td>
                   </tr>
                 )}
                 {deds && (

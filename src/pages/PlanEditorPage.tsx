@@ -1403,6 +1403,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       rebar: v.rebar,
       rebarItems: v.rebarItems.length ? v.rebarItems : null,
       photoIds: v.photoIds.length ? v.photoIds : undefined,
+      // Unterzug: Seite A, Unterseite, Seite B (Breite = Abwicklung); normale Wand bzw. andere Messart: keiner
+      beam: v.measureType === 'wand' && v.beam ? v.beam : null,
     };
     // Kennzeichnung (z. B. „A“): Die Nummer dient nur der Reihenfolge – bestehende bleibt, neue ans Ende
     const number = v.label
