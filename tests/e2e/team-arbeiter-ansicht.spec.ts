@@ -60,6 +60,20 @@ test('Team: Arbeiter-Ansicht – Woche je Arbeiter, nach Funktion oder A–Z, An
   await expect(od).toHaveCount(0);
   await expect(anna.locator('[data-testid="crew-ww-cell"][data-day="2"]')).toHaveAttribute('data-kind', 'site');
   await expect(anna.locator('[data-testid="crew-ww-cell"][data-day="0"]')).toHaveAttribute('data-kind', 'open');
+  // Wochenende einblenden (Taste Sa/So) und Samstag antippen → wie ein offener Tag einteilen
+  await expect(ww.locator('.crew-ww-grid')).toHaveAttribute('data-days', '5');
+  await ww.getByTestId('crew-ww-weekend').click();
+  await expect(ww.locator('.crew-ww-grid')).toHaveAttribute('data-days', '7');
+  const annaSa = anna.locator('[data-testid="crew-ww-cell"][data-day="5"]');
+  await expect(annaSa).toHaveAttribute('data-kind', 'off');
+  await expect(annaSa).toBeEnabled();
+  await annaSa.click();
+  await expect(od).toBeVisible();
+  await od.locator('[data-testid="open-site"][data-site="Gesundheitszentrum"]').click();
+  await expect(od).toHaveCount(0);
+  await expect(annaSa).toHaveAttribute('data-kind', 'site');
+  await ww.getByTestId('crew-ww-weekend').click(); // Sa/So bleiben sichtbar, weil Anna dort (restliche Woche) eingeteilt ist
+  await expect(ww.locator('.crew-ww-grid')).toHaveAttribute('data-days', '7');
   // eingeteiltes Feld antippen → Fenster des Arbeiters auf der Baustelle
   await max.locator('[data-testid="crew-ww-cell"][data-day="1"]').click();
   await expect(page.getByTestId('chip-dialog')).toBeVisible();

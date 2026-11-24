@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { absenceOn } from '../lib/crew-absence';
 import { addDays, DAY_NAMES, DAY_SHORT, dayDate, isoDate, knownGrade, sortByGrade, sortWorkers, workerName } from '../lib/crew';
 import type { Absence, WeekPlan, WeekSite, Worker, WorkTimes } from '../lib/types';
@@ -70,9 +70,25 @@ export function CrewWorkerWeek({
   onOrder(o: WorkerOrder): void;
   onPick(workerId: string, day: number, state: WorkerDay): void;
 }) {
+  // Sa/So auch ohne Einteilung zeigen (zum Einteilen bei Wochenendarbeit) – je Gerät gemerkt
+  const [weekend, setWeekendState] = useState(() => {
+    try {
+      return localStorage.getItem('crewWeekend') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const setWeekend = (on: boolean) => {
+    setWeekendState(on);
+    try {
+      localStorage.setItem('crewWeekend', on ? '1' : '0');
+    } catch {
+      /* optional */
+    }
+  };
   const list = order === 'name' ? sortWorkers(workers) : sortByGrade(workers);
   // Mo–Fr immer; Sa/So nur, wenn dort jemand eingeteilt ist oder sie Arbeitstage der Firma sind
-  const days = [0, 1, 2, 3, 4, 5, 6].filter((d) => d < 5 || workTimes[d] || plan.sites.some((s) => s.days[d]?.length));
+  const days = [0, 1, 2, 3, 4, 5, 6].filter((d) => d < 5 || weekend || workTimes[d] || plan.sites.some((s) => s.days[d]?.length));
   const today = isoDate(new Date());
   const shown = plan.sites.filter((s) => !s.paused && days.some((d) => s.days[d]?.some((id) => workers.some((w) => w.id === id))));
   // eindeutige Kürzel: bei gleichen Kürzeln eine Ziffer anhängen
@@ -91,6 +107,10 @@ export function CrewWorkerWeek({
         <strong>
           {list.length} {list.length === 1 ? 'Arbeiter' : 'Arbeiter'}
         </strong>
+        <div className="crew-ww-tools">
+        <button type="button" className={`btn btn-sm${weekend ? ' active-toggle' : ''}`} aria-pressed={weekend} onClick={() => setWeekend(!weekend)} title="Samstag und Sonntag anzeigen – zum Einteilen bei Wochenendarbeit" data-testid="crew-ww-weekend">
+          Sa/So
+        </button>
         <div className="seg-toggle" role="radiogroup" aria-label="Reihenfolge der Arbeiter">
           <button type="button" role="radio" aria-checked={order === 'grade'} className={order === 'grade' ? 'on' : ''} onClick={() => onOrder('grade')} data-testid="crew-ww-order-grade">
             Nach Qualifikation
@@ -98,6 +118,7 @@ export function CrewWorkerWeek({
           <button type="button" role="radio" aria-checked={order === 'name'} className={order === 'name' ? 'on' : ''} onClick={() => onOrder('name')} data-testid="crew-ww-order-name">
             A–Z
           </button>
+        </div>
         </div>
       </div>
       {!list.length ? (
@@ -133,9 +154,9 @@ export function CrewWorkerWeek({
                         : st.kind === 'krank'
                           ? 'Krank'
                           : st.kind === 'holiday'
-                            ? 'Feiertag'
+                            ? 'Feiertag – antippen zum Einteilen'
                             : st.kind === 'off'
-                              ? 'kein Arbeitstag'
+                              ? 'kein Arbeitstag – antippen zum Einteilen'
                               : 'noch nicht eingeteilt';
                   return (
                     <button
@@ -145,7 +166,6 @@ export function CrewWorkerWeek({
                       className={`crew-ww-cell ww-${st.kind}${st.kind === 'site' && st.sick ? ' ww-sick' : ''}`}
                       style={st.kind === 'site' ? siteStyle(st.site) : undefined}
                       onClick={() => onPick(w.id, d, st)}
-                      disabled={st.kind === 'off' || st.kind === 'holiday'}
                       aria-label={`${workerName(w)}, ${DAY_NAMES[d]}: ${label}`}
                       title={label}
                       data-testid="crew-ww-cell"
