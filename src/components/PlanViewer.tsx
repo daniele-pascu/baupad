@@ -522,8 +522,9 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     const unpin = fileKind === 'pdf' ? pinPdfDocument(fileId) : null;
     (async () => {
       const canvas = baseCanvasRef.current!;
-      // Grundbild so groß wie möglich (Zeichenflächen-Limit ~16 Mio. Pixel); beim Zoomen wird zusätzlich scharf nachgezeichnet
-      const maxSide = 4096;
+      // Grundbild so groß wie möglich (Zeichenflächen-Limit ~16 Mio. Pixel); beim Zoomen wird zusätzlich scharf nachgezeichnet.
+      // Handy/Tablet: etwas kleiner – der Speicher für Zeichenflächen ist dort knapp (sonst lädt Safari die Seite neu)
+      const maxSide = isCoarse() ? 3072 : 4096;
       const k = clampRenderScale(region.w, region.h, maxSide / Math.max(region.w, region.h));
       if (fileKind === 'pdf') {
         const doc = await getPdfDocument(fileId);
@@ -564,7 +565,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   // Detailebene nachrendern, wenn stark hineingezoomt ist
   useEffect(() => {
     if (status !== 'ready' || !view || !size || !fileId) return;
-    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    // Handy: höchstens 2,5-fache Pixeldichte nachzeichnen – kaum sichtbar, aber deutlich weniger Speicher und schneller
+    const dpr = Math.min(window.devicePixelRatio || 1, isCoarse() ? 2.5 : 3);
     const needed = view.scale * dpr;
     if (needed <= baseScale.current * 1.15) {
       setDetailRect(null);
@@ -614,7 +616,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         swapDetail(canvas, r);
         releaseCanvas(canvas);
       }
-    }, 90);
+      // Finger: erst nach einer kurzen Ruhe neu zeichnen (nicht bei jedem Zögern während des Zoomens)
+    }, isCoarse() ? 180 : 90);
     const swapDetail = (canvas: HTMLCanvasElement, r: Rect) => {
       const target = detailCanvasRef.current;
       if (!target) return;
