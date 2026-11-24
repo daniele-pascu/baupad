@@ -15189,3 +15189,16 @@ html[data-theme='dark'] .crew-ww-legend b.o {
 .beam-check small {
   font-size: 0.78rem;
 }
+
+/* Personal: Funktion zum Antippen (Maurer, Kranführer …) */
+.function-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: -4px 0 12px;
+}
+.function-chips .chip {
+  min-height: 36px;
+  padding: 4px 12px;
+  font-size: 0.9rem;
+}

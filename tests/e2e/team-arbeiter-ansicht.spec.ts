@@ -23,6 +23,21 @@ test('Team: Arbeiter-Ansicht – Woche je Arbeiter, nach Funktion oder A–Z, An
     await sp.getByTestId('worker-save').click();
     await expect(sp.getByTestId('worker-row').filter({ hasText: last })).toHaveCount(1);
   }
+  // Funktion zum Antippen: mehrere möglich, nochmal antippen nimmt heraus; eigene Funktion wird später vorgeschlagen
+  await sp.locator('[data-testid="worker-row"]').filter({ hasText: 'Muster' }).getByTestId('worker-open').click();
+  await sp.getByTestId('worker-edit').click();
+  const wdlg = page.getByTestId('worker-dialog');
+  await wdlg.locator('[data-testid="function-chip"][data-function="Maurer"]').click();
+  await wdlg.locator('[data-testid="function-chip"][data-function="Kranführer"]').click();
+  await expect(wdlg.getByTestId('worker-role')).toHaveValue('Maurer, Kranführer');
+  await wdlg.locator('[data-testid="function-chip"][data-function="Maurer"]').click();
+  await expect(wdlg.getByTestId('worker-role')).toHaveValue('Kranführer');
+  await wdlg.getByTestId('worker-role').fill('Kranführer, Vermesser');
+  await wdlg.getByTestId('worker-save').click();
+  await expect(wdlg).toHaveCount(0);
+  await sp.getByTestId('staff-new').click();
+  await expect(wdlg.locator('[data-testid="function-chip"][data-function="Vermesser"]')).toHaveCount(1);
+  await wdlg.getByTestId('worker-cancel').click();
   await page.goto('./baupad/arbeitereinteilung');
   await page.getByTestId('week-date').fill('2026-11-02');
   await expect(page.getByTestId('week-label')).toHaveText('KW 45');
