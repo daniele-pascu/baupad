@@ -56,6 +56,8 @@ export interface SnapHit {
   kind: SnapKind;
   /** „Auf Linie“: die getroffene Kante (für Parallel/Rechtwinklig) */
   seg?: Seg;
+  /** nur intern: stammt von einer dünnen Planlinie (Maß-, Hilfs-, Achslinie) neben kräftigeren Linien */
+  weak?: boolean;
 }
 
 export interface SnapOptions {
@@ -177,13 +179,20 @@ export function findSnap(p: Point, shapes: Shape[], tol: number, planSegs: PlanS
     }
   }
   // Kanten in der Nähe: Schnittpunkte (auch innerhalb einer Form) und nächster Punkt auf der Linie
-  const near: { seg: Seg; owner: number; index: number }[] = [];
+  const near: { seg: Seg; owner: number; index: number; weak?: boolean }[] = [];
   shapes.forEach((s, owner) => edgesOf(s).forEach((seg, index) => segNear(seg, p, tol) && near.push({ seg, owner, index })));
-  for (const s of planSegs) {
-    if (s.ends & 1) cands.push({ point: s.a, kind: 'end' });
-    if (s.ends & 2) cands.push({ point: s.b, kind: 'end' });
-    if (s.straight) cands.push({ point: { x: (s.a.x + s.b.x) / 2, y: (s.a.y + s.b.y) / 2 }, kind: 'mid' });
-    near.push({ seg: [s.a, s.b], owner: shapes.length + s.path, index: s.index });
+  // Planlinien gewichten: Schraffur/Muster fangen nie; dünne Linien (Maße, Achsen, Hilfslinien) nur, wenn keine
+  // kräftigere Linie (Wand, gefüllte Fläche) in der Nähe ist – so greift die echte Ecke statt eines Maßstrichs
+  const segs = planSegs.filter((s) => !s.pattern);
+  const strength = (s: PlanSeg) => (s.fill ? Infinity : (s.w ?? 0));
+  const strongest = Math.max(0, ...segs.map(strength));
+  const weakSeg = (s: PlanSeg) => strongest > 0 && strength(s) < strongest * 0.5;
+  for (const s of segs) {
+    const weak = weakSeg(s) || undefined;
+    if (s.ends & 1) cands.push({ point: s.a, kind: 'end', weak });
+    if (s.ends & 2) cands.push({ point: s.b, kind: 'end', weak });
+    if (s.straight) cands.push({ point: { x: (s.a.x + s.b.x) / 2, y: (s.a.y + s.b.y) / 2 }, kind: 'mid', weak });
+    near.push({ seg: [s.a, s.b], owner: shapes.length + s.path, index: s.index, weak });
   }
   (opts.lines ?? []).forEach((seg, i) => near.push({ seg, owner: -1 - i, index: 0 }));
   for (let i = 0; i < near.length; i++) {
@@ -195,9 +204,9 @@ export function findSnap(p: Point, shapes: Shape[], tol: number, planSegs: PlanS
       // PDF-Linien bleiben wie bisher – dort sind solche Ecken nur als Schnittpunkt fangbar.
       if (A.owner === B.owner && A.owner >= 0 && A.owner < shapes.length && sharesEnd(A.seg, B.seg)) continue;
       const x = segmentIntersection(A.seg, B.seg);
-      if (x) cands.push({ point: x, kind: 'intersection' });
+      if (x) cands.push({ point: x, kind: 'intersection', weak: A.weak && B.weak ? true : undefined });
     }
-    cands.push({ point: nearestOnSeg(p, near[i].seg), kind: 'nearest', seg: near[i].seg });
+    cands.push({ point: nearestOnSeg(p, near[i].seg), kind: 'nearest', seg: near[i].seg, weak: near[i].weak });
     // Lotpunkt vom letzten Punkt auf diese Kante (nur innerhalb der Kante)
     if (from) {
       const [a, b] = near[i].seg;
@@ -208,25 +217,40 @@ export function findSnap(p: Point, shapes: Shape[], tol: number, planSegs: PlanS
       if (t >= -1e-9 && t <= 1 + 1e-9) cands.push({ point: { x: a.x + t * dx, y: a.y + t * dy }, kind: 'perpendicular' });
     }
   }
+  // Ecke und Schnittpunkt sind beides „Ecken“ (im PDF ist eine Ecke oft nur als Schnittpunkt zweier Linien da):
+  // gleicher Rang, der nähere gewinnt
+  const corner = (k: SnapKind) => k === 'end' || k === 'intersection';
+  const level = (k: SnapKind) => (corner(k) && rank('end') >= 0 && rank('intersection') >= 0 ? Math.min(rank('end'), rank('intersection')) : rank(k));
+  // dünne Planlinien nur, wenn nichts Kräftigeres im Fangradius liegt
+  const inRange = cands.filter((c) => rank(c.kind) >= 0 && Math.hypot(c.point.x - p.x, c.point.y - p.y) <= tol);
+  const strongOnes = inRange.filter((c) => !c.weak);
+  const pool = strongOnes.length ? strongOnes : inRange;
   let best: SnapHit | null = null;
   let bestD = Infinity;
-  for (const c of cands) {
-    if (rank(c.kind) < 0) continue;
+  for (const c of pool) {
     const d = Math.hypot(c.point.x - p.x, c.point.y - p.y);
-    if (d > tol) continue;
-    if (!best || rank(c.kind) < rank(best.kind) || (rank(c.kind) === rank(best.kind) && d < bestD)) {
+    if (!best || level(c.kind) < level(best.kind) || (level(c.kind) === level(best.kind) && d < bestD)) {
       best = c;
       bestD = d;
     }
   }
+  if (best?.weak !== undefined) {
+    const { weak: _w, ...clean } = best;
+    void _w;
+    best = clean;
+  }
   if (best && best.kind !== 'nearest' && opts.free && bestD > opts.free.point && rank('nearest') >= 0) {
     let on: SnapHit | null = null;
     let onD = opts.free.line;
-    for (const c of cands) {
+    for (const c of pool) {
       const d = Math.hypot(c.point.x - p.x, c.point.y - p.y);
       if (c.kind === 'nearest' && d <= onD) [on, onD] = [c, d];
     }
-    if (on) return on;
+    if (on) {
+      const { weak: _w, ...clean } = on;
+      void _w;
+      return clean;
+    }
   }
   return best;
 }
