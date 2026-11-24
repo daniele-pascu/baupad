@@ -503,7 +503,7 @@ test('Foto einer Messung: Vermerk in der Fotodokumentation folgt beim Umnummerie
   await expect.poll(note).toEqual(['Aufmaß F-1 Nr. 2']);
 });
 
-test('Farblegende: in einem Plan eingeschaltet → in allen Plänen des Projekts, jeder Plan mit eigener Legende', async ({ page }) => {
+test('Farblegende: je Plan eigene Legende – nicht mit anderen Plänen verbunden', async ({ page }) => {
   await freshStart(page);
   await projectWithoutCostCenter(page, 'Legenden');
   const dlg = page.getByTestId('damage-dialog');
@@ -528,26 +528,26 @@ test('Farblegende: in einem Plan eingeschaltet → in allen Plänen des Projekts
   await page.getByRole('link', { name: 'Zurück zur Planliste' }).click();
   await importPlan('B-1');
   await measure();
-  // in Plan B einschalten, Bezeichnung vergeben, für alle Pläne
+  // in Plan B einschalten, Bezeichnung vergeben, Lage oben rechts – gilt nur für Plan B
   await page.getByTestId('editor-legend').click();
   const lg = page.getByTestId('legend-dialog');
   await lg.getByTestId('legend-input').fill('Betonsanierung');
-  await expect(lg.getByTestId('legend-all')).toBeChecked();
+  await expect(lg.getByTestId('legend-all')).toHaveCount(0); // keine Verbindung zu anderen Plänen
   await lg.getByTestId('legend-pos-tr').click();
   await lg.getByTestId('legend-save').click();
   await expect(lg).toHaveCount(0);
   await expect(page.getByTestId('plan-legend')).toHaveCount(0); // nur im PDF
+  await expect(page.getByTestId('editor-legend')).toHaveClass(/active-toggle/);
   await waitSaved(page);
-  // Plan A: Legende ebenfalls an (oben rechts), Bezeichnung übernommen
+  // Plan A: unverändert – keine Legende, keine übernommene Bezeichnung, Lage Standard
   await page.getByRole('link', { name: 'Zurück zur Planliste' }).click();
   await page.getByTestId('plan-row').filter({ hasText: 'A-1' }).first().getByTestId('plan-open').click();
   await waitForPlan(page);
-  await expect(page.getByTestId('editor-legend')).toHaveClass(/active-toggle/);
+  await expect(page.getByTestId('editor-legend')).not.toHaveClass(/active-toggle/);
   await page.getByTestId('editor-legend').click();
-  await expect(lg.getByTestId('legend-input')).toHaveValue('Betonsanierung');
-  await expect(lg.getByTestId('legend-show')).toBeChecked();
-  await expect(lg.getByTestId('legend-pos-tr')).toHaveAttribute('aria-checked', 'true');
-  // eigene Bezeichnung in Plan A – Plan B behält seine
+  await expect(lg.getByTestId('legend-input')).toHaveValue('');
+  await expect(lg.getByTestId('legend-pos-bl')).toHaveAttribute('aria-checked', 'true');
+  // eigene Legende in Plan A – Plan B behält seine
   await lg.getByTestId('legend-input').fill('Spachteln');
   await lg.getByTestId('legend-save').click();
   await waitSaved(page);
@@ -560,5 +560,6 @@ test('Farblegende: in einem Plan eingeschaltet → in allen Plänen des Projekts
   await waitForPlan(page);
   await page.getByTestId('editor-legend').click();
   await expect(lg.getByTestId('legend-input')).toHaveValue('Betonsanierung');
+  await expect(lg.getByTestId('legend-pos-tr')).toHaveAttribute('aria-checked', 'true');
   await lg.getByTestId('legend-save').click();
 });

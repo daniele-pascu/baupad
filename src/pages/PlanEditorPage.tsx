@@ -764,9 +764,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     })().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photoSig, photoPrefixText]);
-  const projectPlans = useMemo(() => Object.values(data.plans).filter((p) => !p.deletedAt), [data.plans]);
-  // Legende: je Plan eigene Farben; an/aus, Lage und Bezeichnungen mit Vorgaben aus den anderen Plänen des Projekts
-  const legendInfo = useMemo(() => (plan ? resolveLegend(plan, Object.values(data.plans)) : null), [plan, data.plans]);
+  // Legende: nur für diesen Plan – Farben, an/aus, Lage und Bezeichnungen (nicht mit anderen Plänen verbunden)
+  const legendInfo = useMemo(() => (plan ? resolveLegend(plan) : null), [plan]);
   const legend = useMemo(() => (legendInfo ? legendEntries({ legendLabels: legendInfo.labels }, stored) : []), [legendInfo, stored]);
   /** gespeicherte, im Plan gezeichnete Abzüge (schraffiert, Nummer „A1“ … je Messung) */
   const planDeds = useMemo(
@@ -3121,13 +3120,10 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           show={!!legendInfo?.show}
           labels={legendInfo?.labels ?? {}}
           pos={legendInfo?.pos ?? 'bl'}
-          planCount={projectPlans.length}
           onClose={() => setLegendOpen(false)}
-          onSave={(show, labels, pos, all) => {
-            // Bezeichnungen gehören zum Plan; an/aus und Lage auf Wunsch für alle Pläne des Projekts
-            const own = Object.fromEntries(Object.entries(labels).filter(([c, t]) => t !== (legendInfo?.labels[c] ?? '') || plan.legendLabels?.[c] !== undefined));
-            const others = all ? projectPlans.filter((p) => p.id !== plan.id).map((p) => ({ ...p, showLegend: show, legendPos: pos })) : [];
-            putRecords({ plans: [{ ...data.plans[plan.id], showLegend: show, legendLabels: own, legendPos: pos }, ...others] });
+          onSave={(show, labels, pos) => {
+            // nur dieser Plan
+            putRecords({ plans: [{ ...data.plans[plan.id], showLegend: show, legendLabels: labels, legendPos: pos }] });
             setLegendOpen(false);
           }}
         />

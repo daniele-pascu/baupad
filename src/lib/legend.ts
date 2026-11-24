@@ -22,23 +22,14 @@ export function legendEntries(plan: Pick<Plan, 'legendLabels'>, damages: Damage[
 }
 
 /**
- * Legende eines Plans mit Vorgaben aus den anderen Plänen des Projekts: Ist die Legende in einem Plan an, steht sie
- * auch in allen Plänen ohne eigene Einstellung (z. B. neu importierten) – jeder Plan mit seinen eigenen Farben.
- * Bezeichnungen: eigene des Plans, sonst die aus anderen Plänen (gleiche Farbe = gleiche Bedeutung).
+ * Legende eines Plans: gilt nur für diesen Plan – ein-/ausblenden, Lage und Bezeichnungen der Farben werden je Plan
+ * eingestellt und nicht mit anderen Plänen verbunden. `plans` bleibt für ältere Aufrufer, wird aber nicht mehr genutzt.
  */
-export function resolveLegend(plan: Plan, plans: Plan[]): { show: boolean; pos: LegendPos; labels: Record<string, string> } {
-  const others = plans.filter((p) => p.id !== plan.id && !p.deletedAt && p.projectId === plan.projectId);
-  const lead = others.find((p) => p.showLegend);
-  const labels: Record<string, string> = {};
-  for (const p of others) for (const [c, t] of Object.entries(p.legendLabels ?? {})) if (t.trim() && !(c in labels)) labels[c] = t;
-  return {
-    show: plan.showLegend ?? !!lead,
-    pos: plan.legendPos ?? lead?.legendPos ?? 'bl',
-    labels: { ...labels, ...(plan.legendLabels ?? {}) },
-  };
+export function resolveLegend(plan: Plan, _plans?: Plan[]): { show: boolean; pos: LegendPos; labels: Record<string, string> } {
+  return { show: !!plan.showLegend, pos: plan.legendPos ?? 'bl', labels: { ...(plan.legendLabels ?? {}) } };
 }
 
-/** Legende eines Plans (mit Vorgaben aus dem Projekt) */
+/** Legende eines Plans (nur aus den Einstellungen dieses Plans) */
 export function planLegend(plan: Plan, plans: Plan[], damages: Damage[]): { show: boolean; pos: LegendPos; entries: LegendEntry[] } {
   const r = resolveLegend(plan, plans);
   return { show: r.show, pos: r.pos, entries: legendEntries({ legendLabels: r.labels }, damages) };
