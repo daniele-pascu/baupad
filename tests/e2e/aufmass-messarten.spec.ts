@@ -100,6 +100,41 @@ test('Messart wählen, dann mit beliebigem Werkzeug messen: Wand, Stück, Frei, 
   expect(Math.abs(d.area! - len * 2.5)).toBeLessThan(0.02);
   await expect(page.locator('[data-testid="aufmass-row"]').last().getByTestId('row-kind')).toHaveAttribute('title', 'Wand');
 
+  // 1b) Wand als Unterzug: Länge 5 m, Seite A 0,50 + Unterseite 0,30 + Seite B 0,50 = Abwicklung 1,30 m
+  await chooseType('wand');
+  await page.mouse.click(x + px(0), y + px(5));
+  await page.mouse.click(x + px(5), y + px(5));
+  await page.keyboard.press('Enter');
+  await expect(dlg()).toContainText('Neue Messung: Wand');
+  const len2 = num(await dlg().getByTestId('geometry-length').inputValue());
+  await dlg().getByTestId('beam-toggle').check();
+  await expect(dlg().getByTestId('input-width')).toHaveCount(0); // statt Wandhöhe: Seite A, Unterseite, Seite B
+  await dlg().getByTestId('beam-a-input').fill('0,5');
+  await dlg().getByTestId('beam-bottom-input').fill('0,3');
+  await dlg().getByTestId('beam-b-input').fill('0,5');
+  await expect(dlg().getByTestId('beam-formula')).toContainText('0,50 + 0,30 + 0,50 = 1,30 m');
+  const beamArea = num((await dlg().getByTestId('wall-area').textContent())!.replace(/\s*m²/, ''));
+  expect(Math.abs(beamArea - len2 * 1.3)).toBeLessThan(0.02);
+  // Seite B liegt an einer Wand an: zählt nicht
+  await dlg().getByTestId('beam-b-on').uncheck();
+  await expect(dlg().getByTestId('beam-formula')).toContainText('0,50 + 0,30 = 0,80 m');
+  await dlg().getByTestId('damage-save').click();
+  await expect(dlg()).toBeHidden();
+  d = await lastDmg();
+  expect((d as unknown as { beam: unknown }).beam).toEqual({ a: 0.5, bottom: 0.3, b: null });
+  expect(d.width).toBeCloseTo(0.8);
+  expect(Math.abs(d.area! - len2 * 0.8)).toBeLessThan(0.02);
+  await expect(page.locator('[data-testid="aufmass-row"]').last()).toContainText('Unterzug: Seite A 0,50 + Unterseite 0,30');
+  // wieder öffnen: Unterzug-Angaben bleiben
+  await page.locator('[data-testid="aufmass-row"]').last().click();
+  const edit = page.getByTestId('damage-dialog');
+  if (await edit.isVisible().catch(() => false)) {
+    await expect(edit.getByTestId('beam-toggle')).toBeChecked();
+    await expect(edit.getByTestId('beam-b-on')).not.toBeChecked();
+    await expect(edit.getByTestId('beam-a-input')).toHaveValue('0,5');
+    await edit.getByTestId('damage-cancel').click();
+  }
+
   // 2) Stück (nur Punkte): einen Punkt setzen, „Fertig“ – Anzahl im Dialog änderbar
   await chooseType('stueck');
   await page.mouse.click(x + px(6), y);
@@ -294,7 +329,8 @@ test('Je Messart eine eigene Tabelle mit passenden Spalten und eigener Summe, da
   }
   // Spalten je Messart
   expect(await heads('flaeche')).toEqual(['Nr.', 'Länge (m)', 'Breite (m)', 'Fläche (m²)', 'Art', 'Aktionen']);
-  expect(await heads('wand')).toEqual(['Nr.', 'Länge (m)', 'Höhe (m)', 'Fläche (m²)', 'Art', 'Aktionen']);
+  // Wand: mit Unterzug steht dessen Rechenweg in der Bemerkung
+  expect(await heads('wand')).toEqual(['Nr.', 'Länge (m)', 'Höhe (m)', 'Fläche (m²)', 'Art', 'Bemerkung', 'Aktionen']);
   expect(await heads('laenge')).toEqual(['Nr.', 'Länge (m)', 'Gesamt (m)', 'Art', 'Aktionen']);
   expect(await heads('volumen')).toEqual(['Nr.', 'Länge (m)', 'Breite (m)', 'Tiefe (m)', 'Volumen (m³)', 'Art', 'Aktionen']);
   expect(await heads('stueck')).toEqual(['Nr.', 'Anzahl', 'Art', 'Aktionen']);

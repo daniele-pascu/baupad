@@ -277,6 +277,16 @@ export type MeasureKind = 'damage' | 'area' | 'line';
 export type MeasureType = 'flaeche' | 'wand' | 'laenge' | 'volumen' | 'stueck' | 'schadstelle' | 'frei';
 
 /** Messung bzw. Schadstelle (Name „Damage“ aus Version 1 beibehalten). */
+/** Unterzug: Seitenfläche A, Unterseite, Seitenfläche B – je zählt mit oder nicht, je mit eigenem Maß (m) */
+export interface Beam {
+  /** Höhe der Seitenfläche A; null = zählt nicht */
+  a: number | null;
+  /** Breite der Unterseite; null = zählt nicht */
+  bottom: number | null;
+  /** Höhe der Seitenfläche B; null = zählt nicht */
+  b: number | null;
+}
+
 export interface Damage extends SyncMeta {
   projectId: string;
   planId: string;
@@ -327,6 +337,11 @@ export interface Damage extends SyncMeta {
   rebar?: number | null;
   /** Bewehrung als Zeilen „Stück × Länge (m)“; fehlt bei älteren Einträgen (dann nur `rebar`) */
   rebarItems?: RebarItem[] | null;
+  /**
+   * Wand als Unterzug: gezählte Flächen Seite A, Unterseite, Seite B mit ihren Maßen. `width` der Messung ist dann
+   * die Abwicklung (Summe der gezählten Flächen), die Fläche wie immer Länge × width.
+   */
+  beam?: Beam | null;
   /** Fotos aus der Fotodokumentation (IDs) zu dieser Messung */
   photoIds?: string[];
   /** Messart; fehlt bei älteren Einträgen und wird dann aus `kind` (und der Form) abgeleitet */

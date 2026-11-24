@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { PhotoAttach } from './PhotoAttach';
 import type { PhotoSite } from '../lib/types';
 import { uuid } from '../lib/ids';
+import { beamDeveloped, beamFormula } from '../lib/beam';
 import { rebarLine, rebarTotal } from '../lib/rebar';
 import { deductionArea, deductionLength, hasArea, netArea } from '../lib/measure';
 import { DAMAGE_TYPES, DEFAULT_WORK_AREAS, evalFormula, FREE_UNITS, MEASURE_TYPES, typeInfo } from '../lib/measure-types';
@@ -11,7 +12,7 @@ import { round2, round3, checkMeasure, computeArea, formatArea, formatMeasure, p
 /** Maße im Eingabefeld: kaufmännisch auf 2 Stellen gerundet (ältere Werte mit 3 Stellen) */
 const up2 = (n: number | null | undefined) => (n === null || n === undefined ? n : round2(n));
 import { damageNo, findByNumber, parseDamageNumber } from '../lib/numbering';
-import { COLORS, SHAPE_LABELS, type Component, type Damage, type Deduction, type MeasureKind, type MeasureType, type RebarItem, type Shape, type ShapeType, type Surface } from '../lib/types';
+import { COLORS, SHAPE_LABELS, type Component, type Damage, type Deduction, type MeasureKind, type MeasureType, type RebarItem, type Shape, type ShapeType, type Surface, type Beam } from '../lib/types';
 import { Icon } from './Icon';
 import { Modal } from './Modal';
 
@@ -47,6 +48,8 @@ export interface DamageValues {
   rebarItems: RebarItem[];
   /** Fotos (Fotodokumentation) zur Messung */
   photoIds: string[];
+  /** Wand als Unterzug: Seite A, Unterseite, Seite B (width = Abwicklung); null = normale Wand */
+  beam: Beam | null;
   /** Messart (Fläche, Wand, Länge, Volumen, Stück, Schadstelle, Frei) */
   measureType: MeasureType;
   /** Anzahl gleicher Teile (Faktor), mindestens 1 */
@@ -102,7 +105,7 @@ let lastSurface: Surface | null = null;
 interface Props {
   mode: 'new' | 'edit';
   damage: Pick<Damage, 'id' | 'number' | 'color' | 'labelOffset'> &
-    Partial<Pick<Damage, 'length' | 'width' | 'depth' | 'componentId' | 'positionRef' | 'label' | 'areaFromShape' | 'deductions' | 'note' | 'rebar' | 'rebarItems' | 'photoIds' | 'autoOff' | 'measureType' | 'count' | 'workArea' | 'damageType' | 'surface' | 'formula' | 'unit' | 'qty'>> & { shapeType: ShapeType; kind: MeasureKind };
+    Partial<Pick<Damage, 'length' | 'width' | 'depth' | 'componentId' | 'positionRef' | 'label' | 'areaFromShape' | 'deductions' | 'note' | 'rebar' | 'rebarItems' | 'photoIds' | 'autoOff' | 'measureType' | 'count' | 'workArea' | 'damageType' | 'surface' | 'formula' | 'unit' | 'qty' | 'beam'>> & { shapeType: ShapeType; kind: MeasureKind };
   others: Pick<Damage, 'id' | 'number' | 'area' | 'label'>[];
   /** Bauteilkennzeichnungen des Plans für die optionale Zuordnung */
   components: Pick<Component, 'id' | 'letter' | 'name'>[];
@@ -219,6 +222,13 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const [surface, setSurface] = useState<Surface | ''>(damage.surface ?? (mode === 'new' && surfaces ? (lastSurface ?? '') : ''));
   const [formula, setFormula] = useState(damage.formula ?? (damage.qty !== null && damage.qty !== undefined ? toInputValue(damage.qty) : ''));
   const [unit, setUnit] = useState(damage.unit ?? '');
+  // Unterzug (bei der Messart Wand): Seitenfläche A, Unterseite, Seitenfläche B – je an/aus mit eigenem Maß
+  const [beamOn, setBeamOn] = useState(!!damage.beam);
+  const [bm, setBm] = useState(() => {
+    const b = damage.beam;
+    const val = (x: number | null | undefined) => (x === null || x === undefined ? '' : toInputValue(up2(x)));
+    return { aOn: !b || b.a !== null, a: val(b?.a), bottomOn: !b || b.bottom !== null, bottom: val(b?.bottom), bOn: !b || b.b !== null, b: val(b?.b) };
+  });
   /** Messart wechseln: bei neuen Messungen die Länge aus dem Plan gleich vorwählen */
   const setType = (t: MeasureType) => {
     setTypeState(t);
@@ -320,7 +330,22 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const L = counted || free ? ({ ok: true, value: 0 } as const) : geo ? ({ ok: true, value: geo.perimeter } as const) : lineGeo !== null ? ({ ok: true, value: lineGeo } as const) : checkMeasure(v.length, 'Länge');
   // Nur die Länge ist Pflicht. Breite/Höhe und Tiefe sind optional: leer bleibt leer (null,
   // nicht 0), eine Eingabe muss aber gültig sein
-  const B = !geo && !counted && !free && usesWidth && v.width.trim() ? checkMeasure(v.width, type === 'wand' ? 'Wandhöhe' : 'Breite') : null;
+  // Unterzug: Abwicklung = Summe der gezählten Flächen; jede eingeschaltete Fläche braucht ein gültiges Maß
+  const beamMode = type === 'wand' && beamOn && !counted && !free;
+  const beamPart = (on: boolean, raw: string, name: string) => (!on || !raw.trim() ? null : checkMeasure(raw, name));
+  const bA = beamMode ? beamPart(bm.aOn, bm.a, 'Seite A') : null;
+  const bU = beamMode ? beamPart(bm.bottomOn, bm.bottom, 'Unterseite') : null;
+  const bB = beamMode ? beamPart(bm.bOn, bm.b, 'Seite B') : null;
+  const beamErr = beamMode ? ([bA, bU, bB].find((x) => x && !x.ok) as { ok: false; error: string } | undefined)?.error ?? null : null;
+  const beam: Beam | null = beamMode && !beamErr ? { a: bA?.ok ? bA.value : null, bottom: bU?.ok ? bU.value : null, b: bB?.ok ? bB.value : null } : null;
+  const beamDev = beam && (beam.a !== null || beam.bottom !== null || beam.b !== null) ? beamDeveloped(beam) : null;
+  const B = beamMode
+    ? beamDev !== null
+      ? ({ ok: true, value: beamDev } as const)
+      : null
+    : !geo && !counted && !free && usesWidth && v.width.trim()
+      ? checkMeasure(v.width, type === 'wand' ? 'Wandhöhe' : 'Breite')
+      : null;
   // Volumen: Höhe bzw. Tiefe ist Pflicht
   const T = counted || free || !usesDepth ? null : v.depth.trim() ? checkMeasure(v.depth, 'Tiefe', 3) : type === 'volumen' ? ({ ok: false, error: 'Für das Volumen die Tiefe eingeben.' } as const) : null;
   const gross1 = geo ? geo.area : withArea && L.ok && B?.ok ? computeArea(L.value, B.value) : null;
@@ -382,7 +407,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
     depth: T && !T.ok ? T.error : null,
     count: free ? null : countErr,
   };
-  const valid = fields.every((f) => !errors[f]) && (free || !countErr) && !freeErr && (counted || free || dedErrors.every((e) => !e)) && !rebarError;
+  const valid = fields.every((f) => !errors[f]) && (free || !countErr) && !freeErr && (counted || free || dedErrors.every((e) => !e)) && !rebarError && !beamErr;
 
   const submit = (renumber: Renumber = 'none') => {
     setShowErrors(true);
@@ -422,6 +447,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
         rebar: rebarOn && rebarParsed.length && !rebarError ? rebarSum : null,
         rebarItems: !rebarOn || rebarError ? [] : rebarParsed.map(({ id, count, length }) => ({ id, count, length })),
         photoIds,
+        beam: beamMode ? beam : null,
       },
       renumber,
     );
@@ -582,9 +608,65 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
           ) : (
             field('length', 'Länge *', 'm')
           )}
-          {!counted && !free && !geo && usesWidth && field('width', type === 'wand' ? 'Wandhöhe' : 'Breite', 'm')}
+          {!counted && !free && !geo && usesWidth && !beamMode && field('width', type === 'wand' ? 'Wandhöhe' : 'Breite', 'm')}
           {!counted && !free && usesDepth && field('depth', type === 'volumen' ? 'Tiefe *' : 'Tiefe', 'm')}
         </div>
+        {type === 'wand' && !counted && !free && (
+          <div className="beam-box" data-testid="beam-box">
+            <label className="check-row">
+              <input type="checkbox" checked={beamOn} onChange={(e) => setBeamOn(e.target.checked)} data-testid="beam-toggle" />
+              <span>Unterzug – Seite A, Unterseite und Seite B einzeln (Abwicklung)</span>
+            </label>
+            {beamOn && (
+              <>
+                <div className="beam-rows">
+                  {(
+                    [
+                      ['aOn', 'a', 'Seite A', 'Seitenfläche A – Höhe'],
+                      ['bottomOn', 'bottom', 'Unterseite', 'Unterseite – Breite'],
+                      ['bOn', 'b', 'Seite B', 'Seitenfläche B – Höhe'],
+                    ] as const
+                  ).map(([on, key, short, label], i, all) => (
+                    <div key={key} className={`beam-row${bm[on] ? '' : ' off'}`} data-testid={`beam-${key}`}>
+                      <label className="beam-check">
+                        <input type="checkbox" checked={bm[on]} onChange={(e) => setBm({ ...bm, [on]: e.target.checked })} aria-label={`${short} zählt`} data-testid={`beam-${key}-on`} />
+                        <span>
+                          <b>{short}</b>
+                          <small className="muted">{label.split(' – ')[1]}</small>
+                        </span>
+                      </label>
+                      <div className="input-unit">
+                        <input
+                          value={bm[key]}
+                          disabled={!bm[on]}
+                          onChange={(e) => setBm({ ...bm, [key]: e.target.value })}
+                          onFocus={(e) => e.target.select()}
+                          onKeyDown={(e) => {
+                            if (e.key !== 'Enter') return;
+                            e.preventDefault();
+                            const next = all.slice(i + 1).find(([o]) => bm[o]);
+                            if (next) document.querySelector<HTMLInputElement>(`[data-testid="beam-${next[1]}-input"]`)?.focus();
+                            else submit();
+                          }}
+                          inputMode="decimal"
+                          enterKeyHint="next"
+                          autoComplete="off"
+                          aria-label={label}
+                          data-testid={`beam-${key}-input`}
+                        />
+                        <span className="unit">m</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {showErrors && beamErr && <small className="error">{beamErr}</small>}
+                <p className="muted small" data-testid="beam-formula">
+                  Abwicklung: {beam && beamDev !== null ? beamFormula(beam) : '–'}
+                </p>
+              </>
+            )}
+          </div>
+        )}
         <div className="measure-extra">
           {!counted && !free && (
             <label className="field measure-field measure-count">
@@ -706,7 +788,17 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             </>
           ) : wall ? (
             <>
-              <span>{area !== null ? (deductions.length ? 'Wandfläche netto (Länge × Höhe, mit Abzügen)' : 'Wandfläche (Länge × Höhe)') : 'Wandfläche erst mit Wandhöhe – Höhe kann später ergänzt werden'}</span>
+              <span>
+                {beamMode
+                  ? area !== null
+                    ? `Unterzug (Länge × Abwicklung${deductions.length ? ', mit Abzügen' : ''})`
+                    : 'Unterzug: Maße von Seite A, Unterseite bzw. Seite B eingeben'
+                  : area !== null
+                    ? deductions.length
+                      ? 'Wandfläche netto (Länge × Höhe, mit Abzügen)'
+                      : 'Wandfläche (Länge × Höhe)'
+                    : 'Wandfläche erst mit Wandhöhe – Höhe kann später ergänzt werden'}
+              </span>
               <strong data-testid="wall-area">{area !== null ? `${formatArea(area)} m²` : L.ok ? `L ${formatArea(L.value)} m` : '–'}</strong>
             </>
           ) : withArea ? (
