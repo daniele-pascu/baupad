@@ -102,6 +102,21 @@ describe('Verbindungslinie zum echten Umriss', () => {
   });
 });
 
+describe('Von Hand verschobene Nummer', () => {
+  it('bleibt, wo sie hingezogen wurde – außer sie liegt auf der eigenen Messung: dann rückt sie daneben', () => {
+    const shape = L('s', 100, 100, 13, 20);
+    // wie im Plan: Nummer nach links auf die kleine Fläche gezogen
+    const onTop: LabelInput = { ...shape, w: 30, h: 22, offset: { dx: -40, dy: 4 } };
+    const r = layoutLabels([onTop], 3).get('s')!;
+    expect(rectsOverlap(r, shape.bounds)).toBe(false);
+    expect(r.x + r.w).toBeCloseTo(100 - 3); // kürzester Weg: links direkt daneben
+    expect(r.y).toBeCloseTo(82); // Höhe wie gezogen
+    // frei daneben gezogen: bleibt genau dort
+    const beside: LabelInput = { ...shape, w: 30, h: 22, offset: { dx: 10, dy: 10 } };
+    expect(layoutLabels([beside], 3).get('s')).toEqual({ x: 123, y: 88, w: 30, h: 22 });
+  });
+});
+
 describe('Übersicht (Plan verkleinert): Nummern dicht an der Messung, sonst ausgeblendet', () => {
   // 30 winzige Messungen dicht gedrängt – wie ein ganzer Plan mit vielen Schadstellen von weitem
   const crowd = Array.from({ length: 30 }, (_, i) => L(String(i + 1), 100 + (i % 6) * 6, 100 + Math.floor(i / 6) * 6, 4 + (i % 3), 4));

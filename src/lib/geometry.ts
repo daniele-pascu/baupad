@@ -741,11 +741,23 @@ export function layoutLabels(items: LabelInput[], gap: number, opts: LabelOption
   );
   const indexOf = new Map(items.map((it, i) => [it, i]));
 
-  // Manuell verschobene Beschriftungen sind fest
+  // Manuell verschobene Beschriftungen sind fest – aber nie auf der eigenen Messung: liegt die Nummer darauf
+  // (z. B. aus Versehen beim Antippen verschoben), rückt sie auf dem kürzesten Weg daneben
   for (const it of items) {
     if (!it.offset) continue;
     const b = it.bounds;
-    result.set(it.id, { x: b.x + b.w + it.offset.dx, y: b.y + it.offset.dy - it.h, w: it.w, h: it.h });
+    let r: Rect = { x: b.x + b.w + it.offset.dx, y: b.y + it.offset.dy - it.h, w: it.w, h: it.h };
+    const covers = open(it) ? onStroke(r, it) : overlapArea(r, b) > 0;
+    if (covers) {
+      const moves: Rect[] = [
+        { ...r, x: b.x - r.w - gap }, // links daneben
+        { ...r, x: b.x + b.w + gap }, // rechts daneben
+        { ...r, y: b.y - r.h - gap }, // darüber
+        { ...r, y: b.y + b.h + gap }, // darunter
+      ];
+      r = moves.reduce((best, m) => (Math.hypot(m.x - r.x, m.y - r.y) < Math.hypot(best.x - r.x, best.y - r.y) ? m : best));
+    }
+    result.set(it.id, r);
   }
 
   const candidates = (it: LabelInput): { r: Rect; pref: number; inside: boolean }[] => {

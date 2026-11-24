@@ -1358,7 +1358,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       case 'label': {
         const dx = p.x - g.start.x;
         const dy = p.y - g.start.y;
-        if (!g.moved && Math.hypot(dx, dy) < 4) return;
+        // mit dem Finger erst ab einem deutlichen Zug verschieben – ein Antippen soll die Nummer nicht versetzen
+        if (!g.moved && Math.hypot(dx, dy) < (isCoarse() ? 12 : 4)) return;
         g.moved = true;
         const d = propsRef.current.damages.find((x) => x.id === g.id);
         if (!d) return;
