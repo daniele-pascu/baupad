@@ -315,8 +315,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const nRaw = v.count.trim();
   const nVal = nRaw ? parseDecimal(nRaw) : 1;
   const countErr = nVal === null || !Number.isInteger(nVal) || nVal < 1 || nVal > 99999 ? 'Anzahl: ganze Zahl ab 1.' : null;
-  // Wand: keine Anzahl – jede Wand wird einzeln gemessen und nummeriert (ältere Wände mit Anzahl behalten das Feld)
-  const countHidden = type === 'wand' && !(damage.count && damage.count > 1);
+  // Wand und Fläche: keine Anzahl – jede wird einzeln gemessen und nummeriert (ältere mit Anzahl behalten das Feld)
+  const countHidden = (type === 'wand' || type === 'flaeche') && !(damage.count && damage.count > 1);
   const n = countErr || free || countHidden ? 1 : nVal!;
   // Frei: eigene Rechnung, z. B. 2*3,5+1,2
   const qty = free ? evalFormula(formula) : null;
