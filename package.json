@@ -24,6 +24,7 @@
     "@supabase/supabase-js": "^2.118.0",
     "fflate": "^0.8.3",
     "idb": "^8.0.4",
+    "motion": "^14.14.0",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^6.4.299",
     "react": "^19.3.1",
