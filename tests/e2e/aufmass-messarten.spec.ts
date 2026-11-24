@@ -100,22 +100,23 @@ test('Messart wählen, dann mit beliebigem Werkzeug messen: Wand, Stück, Frei, 
   expect(Math.abs(d.area! - len * 2.5)).toBeLessThan(0.02);
   await expect(page.locator('[data-testid="aufmass-row"]').last().getByTestId('row-kind')).toHaveAttribute('title', 'Wand');
 
-  // 1b) Wand als Unterzug: Länge 5 m, Seite A 0,50 + Unterseite 0,30 + Seite B 0,50 = Abwicklung 1,30 m
+  // 1b) Wand als Unterzug: Länge 5 m, Seite 1 0,50 + Unterseite 0,30 + Seite 2 0,50 = Abwicklung 1,30 m
   await chooseType('wand');
   await page.mouse.click(x + px(0), y + px(5));
   await page.mouse.click(x + px(5), y + px(5));
   await page.keyboard.press('Enter');
   await expect(dlg()).toContainText('Neue Messung: Wand');
   const len2 = num(await dlg().getByTestId('geometry-length').inputValue());
+  await expect(dlg().getByTestId('input-count')).toHaveCount(0); // Wand: keine Anzahl – jede Wand einzeln nummeriert
   await dlg().getByTestId('beam-toggle').check();
-  await expect(dlg().getByTestId('input-width')).toHaveCount(0); // statt Wandhöhe: Seite A, Unterseite, Seite B
+  await expect(dlg().getByTestId('input-width')).toHaveCount(0); // statt Wandhöhe: Seite 1, Unterseite, Seite 2
   await dlg().getByTestId('beam-a-input').fill('0,5');
   await dlg().getByTestId('beam-bottom-input').fill('0,3');
   await dlg().getByTestId('beam-b-input').fill('0,5');
   await expect(dlg().getByTestId('beam-formula')).toContainText('0,50 + 0,30 + 0,50 = 1,30 m');
   const beamArea = num((await dlg().getByTestId('wall-area').textContent())!.replace(/\s*m²/, ''));
   expect(Math.abs(beamArea - len2 * 1.3)).toBeLessThan(0.02);
-  // Seite B liegt an einer Wand an: zählt nicht
+  // Seite 2 liegt an einer Wand an: zählt nicht
   await dlg().getByTestId('beam-b-on').uncheck();
   await expect(dlg().getByTestId('beam-formula')).toContainText('0,50 + 0,30 = 0,80 m');
   await dlg().getByTestId('damage-save').click();
@@ -124,7 +125,7 @@ test('Messart wählen, dann mit beliebigem Werkzeug messen: Wand, Stück, Frei, 
   expect((d as unknown as { beam: unknown }).beam).toEqual({ a: 0.5, bottom: 0.3, b: null });
   expect(d.width).toBeCloseTo(0.8);
   expect(Math.abs(d.area! - len2 * 0.8)).toBeLessThan(0.02);
-  await expect(page.locator('[data-testid="aufmass-row"]').last()).toContainText('Unterzug: Seite A 0,50 + Unterseite 0,30');
+  await expect(page.locator('[data-testid="aufmass-row"]').last()).toContainText('Unterzug: Seite 1 0,50 + Unterseite 0,30');
   // wieder öffnen: Unterzug-Angaben bleiben
   await page.locator('[data-testid="aufmass-row"]').last().click();
   const edit = page.getByTestId('damage-dialog');
