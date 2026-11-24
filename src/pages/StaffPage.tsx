@@ -68,7 +68,7 @@ export function StaffPage() {
     return sort === 'grade' ? sortByGrade(hit) : sortWorkers(hit);
   }, [workers, sort, query]);
   const activeCount = (workers ?? []).filter((w) => w.active).length;
-  /** Mehrfachauswahl: mehrere löschen oder gemeinsam ändern (Qualifikation, aktiv, Urlaub/Krank) */
+  /** Mehrfachauswahl: mehrere löschen oder gemeinsam ändern (Funktion, aktiv, Urlaub/Krank) */
   const sel = useSelection(list.map((w) => w.id));
   const [bulk, setBulk] = useState(false);
   const picked = () => list.filter((w) => sel.ids.includes(w.id));
@@ -85,7 +85,7 @@ export function StaffPage() {
   const setGrade = (w: Worker, grade: string) =>
     run(async () => {
       await persist({ ...w, grade: (grade || undefined) as WorkerGrade | undefined, updatedAt: Date.now() });
-      toast(`${workerName(w)}: ${grade ? gradeLabel(grade as WorkerGrade) : 'keine Qualifikation'}.`, 'success');
+      toast(`${workerName(w)}: ${grade ? gradeLabel(grade as WorkerGrade) : 'keine Funktion'}.`, 'success');
     }, 'Speichern fehlgeschlagen');
   const toggleActive = (w: Worker) => run(() => persist({ ...w, active: !w.active, updatedAt: Date.now() }), 'Speichern fehlgeschlagen');
   /** einen oder mehrere Mitarbeiter löschen – auch als Bauleitung/Projektleiter aus den Projekten */
@@ -120,7 +120,7 @@ export function StaffPage() {
     }, 'Löschen fehlgeschlagen');
   };
   const remove = (w: Worker) => removeMany([w]);
-  /** gemeinsam ändern: Qualifikation, aktiv/inaktiv, Urlaub bzw. Krank für alle gewählten */
+  /** gemeinsam ändern: Funktion, aktiv/inaktiv, Urlaub bzw. Krank für alle gewählten */
   const applyBulk = (list: Worker[], c: { grade?: string; active?: boolean; absence?: { kind: Absence['kind']; from: string; to: string } }) =>
     run(async () => {
       const now = Date.now();
@@ -155,7 +155,7 @@ export function StaffPage() {
     }, 'Löschen fehlgeschlagen');
 
   /** Gruppenüberschrift je Funktion (nur bei Sortierung nach Funktion) */
-  const groupOf = (w: Worker) => (sort === 'grade' ? (WORKER_GRADES[gradeRank(w)]?.label ?? 'Ohne Qualifikation') : '');
+  const groupOf = (w: Worker) => (sort === 'grade' ? (WORKER_GRADES[gradeRank(w)]?.label ?? 'Ohne Funktion') : '');
   const today = isoDate(new Date());
   const upcoming = (w: Worker) => absences.filter((a) => a.workerId === w.id && a.to >= today).sort((a, b) => a.from.localeCompare(b.from));
 
@@ -179,7 +179,7 @@ export function StaffPage() {
         <button type="button" className="account-tile staff-new" onClick={() => setDialog({ kind: 'new' })} data-testid="staff-new">
           <div>
             <strong>+ Neuer Mitarbeiter</strong>
-            <span className="muted">Vorname, Nachname, Qualifikation, Tätigkeit, Personalnummer, Telefon</span>
+            <span className="muted">Vorname, Nachname, Funktion, Qualifikation, Personalnummer, Telefon</span>
           </div>
           <Icon name="next" size={18} />
         </button>
@@ -188,7 +188,7 @@ export function StaffPage() {
           <label className="crew-search">
             <Icon name="select" size={18} />
             <span className="sr-only">Suchen</span>
-            <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Name, Qualifikation oder Personalnummer suchen" data-testid="staff-search" />
+            <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Name, Funktion, Qualifikation oder Nr. suchen" data-testid="staff-search" />
           </label>
           <SelectToggle sel={sel} testId="staff-select" onStart={() => setOpen(null)} />
           <div className="segmented" role="radiogroup" aria-label="Sortierung">
@@ -196,7 +196,7 @@ export function StaffPage() {
               A–Z
             </button>
             <button type="button" role="radio" aria-checked={sort === 'grade'} onClick={() => changeSort('grade')} data-testid="staff-sort-grade">
-              Nach Qualifikation
+              Nach Funktion
             </button>
           </div>
         </div>
@@ -239,7 +239,7 @@ export function StaffPage() {
                 {isOpen && !sel.active && (
                   <div className="staff-options" data-testid="worker-options">
                     <label className="field">
-                      <span>Qualifikation</span>
+                      <span>Funktion</span>
                       <select value={w.grade ?? ''} onChange={(e) => void setGrade(w, e.target.value)} data-testid="worker-grade-inline">
                         <option value="">– keine –</option>
                         {WORKER_GRADES.map((x) => (
@@ -324,7 +324,7 @@ export function StaffPage() {
   );
 }
 
-/** Mehrere Mitarbeiter gemeinsam ändern: Qualifikation, aktiv/inaktiv, Urlaub bzw. Krank von–bis */
+/** Mehrere Mitarbeiter gemeinsam ändern: Funktion, aktiv/inaktiv, Urlaub bzw. Krank von–bis */
 function BulkStaffDialog({ workers, today, onClose, onSave }: { workers: Worker[]; today: string; onClose(): void; onSave(c: { grade?: string; active?: boolean; absence?: { kind: Absence['kind']; from: string; to: string } }): void }) {
   const [grade, setGrade] = useState('=');
   const [active, setActive] = useState('=');
@@ -355,7 +355,7 @@ function BulkStaffDialog({ workers, today, onClose, onSave }: { workers: Worker[
       <div className="stack-fields">
         <p className="muted small">{workers.map(workerName).join(', ')}</p>
         <label className="field">
-          <span>Qualifikation</span>
+          <span>Funktion</span>
           <select value={grade} onChange={(e) => setGrade(e.target.value)} data-testid="staff-bulk-grade">
             <option value="=">– unverändert –</option>
             <option value="">keine</option>
@@ -511,7 +511,7 @@ function WorkerDialog({ worker, others, onClose, onSave }: { worker: Worker | nu
           </div>
         )}
         <label className="field">
-          <span>Qualifikation</span>
+          <span>Funktion</span>
           <select value={v.grade} onChange={(e) => setV({ ...v, grade: e.target.value })} data-testid="worker-grade">
             <option value="">– bitte wählen –</option>
             {WORKER_GRADES.map((g) => (
@@ -521,7 +521,7 @@ function WorkerDialog({ worker, others, onClose, onSave }: { worker: Worker | nu
             ))}
           </select>
         </label>
-        {field('role', 'Tätigkeit / Zusatz', { placeholder: 'z. B. Maurer, Kranführer' })}
+        {field('role', 'Qualifikation (Ausbildung)', { placeholder: 'z. B. Maurer, Schalungszimmerer, Kranführer' })}
         {field('staffNo', 'Personalnummer')}
         {office && field('svNumber', 'SV-Nummer (nur Admin und Büro)', { inputMode: 'numeric', placeholder: '10 Ziffern, z. B. 1234 010180', 'aria-invalid': show && sv === null ? true : undefined } as Partial<InputHTMLAttributes<HTMLInputElement>>)}
         {office && show && sv === null && <p className="error small" data-testid="worker-sv-error">Die SV-Nummer hat 10 Ziffern.</p>}
