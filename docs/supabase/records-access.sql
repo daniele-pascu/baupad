@@ -8,18 +8,8 @@
 -- Deploy), dann dieses SQL im SQL Editor ausführen. Andersherum können Polier und Arbeiter bis zum Veröffentlichen
 -- nichts abgleichen. Kann jederzeit erneut laufen.
 
--- is_office: Admin oder Büro im Arbeitsbereich, oder Betreiber (wie in time-access.sql – hier zur Sicherheit erneut)
-create or replace function public.is_office(ws uuid) returns boolean
-language sql stable security definer set search_path = public as $$
-  select exists (
-    select 1 from public.memberships m
-    where m.workspace_id = ws and m.user_id = auth.uid() and m.active and m.role in ('admin', 'buero')
-  ) or exists (
-    select 1 from public.operators o where lower(o.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
-  );
-$$;
-revoke all on function public.is_office(uuid) from public;
-grant execute on function public.is_office(uuid) to authenticated;
+-- is_office kommt aus security.sql (Betreiber nur mit bestätigter E-Mail) – hier bewusst nicht neu angelegt,
+-- sonst würde eine ältere Fassung die Prüfung wieder entfernen. Eingespielt am 24.11.2026.
 
 -- Datensätze: nur Mitglieder mit Büro-Rechten (Betreiber nur in einem Arbeitsbereich, in dem sie Mitglied sind)
 drop policy if exists "Mitglieder lesen Datensätze" on public.records;
