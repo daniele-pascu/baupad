@@ -807,7 +807,7 @@ export interface Worker {
   /** Sozialversicherungsnummer (10 Ziffern) – nur Admin und Büro sehen sie (am Server für alle anderen entfernt) */
   svNumber?: string;
   phone?: string;
-  /** Qualifikation bzw. Tätigkeit (frei, z. B. Maurer) */
+  /** Qualifikation = Ausbildung (frei, z. B. Maurer, Kranführer) – getrennt von der Funktion (grade) */
   role?: string;
   /** Funktion: Projektleiter, Polier, Vorarbeiter, Facharbeiter, Hilfsarbeiter (techniker/bautechniker nur noch aus alten Daten, gilt als keine Funktion) */
   grade?: WorkerGrade;
