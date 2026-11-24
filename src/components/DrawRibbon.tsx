@@ -184,13 +184,15 @@ export function DrawRibbon({
             <div className="tool-group" role="group" aria-label="Zeichnen">
               {DRAW_IDS.filter((id) => id !== 'select' || !isTouchDevice()).map(toolBtn)}
             </div>
+            <div className="tool-group" role="group" aria-label="Schraffur">
+              {btn('draw-hatch', 'hatch', 'Schraffur', () => void drawing.pickHatch(), { pressed: drawing.tool === 'hatch', title: 'Schraffur: Muster bzw. Baustoff und Farbe wählen, dann in eine geschlossene Fläche tippen' })}
+            </div>
             <div className="tool-group" role="group" aria-label="Beschriftung">
               {LABEL_IDS.map(toolBtn)}
             </div>
-            <div className="tool-group" role="group" aria-label="Wand, Raum und Schraffur">
+            <div className="tool-group" role="group" aria-label="Wand und Raum">
               {toolBtn('wall')}
               {toolBtn('room')}
-              {btn('draw-hatch', 'hatch', 'Schraffur', () => void drawing.pickHatch(), { pressed: drawing.tool === 'hatch', title: 'Schraffur: Muster bzw. Baustoff und Farbe wählen, dann in eine geschlossene Fläche tippen' })}
             </div>
             {editGroup}
           </>
