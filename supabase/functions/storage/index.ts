@@ -311,7 +311,10 @@ export function accessOf(c: Pick<Ctx, 'operator' | 'role' | 'email' | 'sites' | 
   return { office, role: c.role, email: (c.email ?? '').toLowerCase(), tools: c.tools ?? [], sites: c.sites ?? [], toolSites, prices: office || (toolSites[PRICES_PERM]?.length ?? 0) > 0 };
 }
 /** Werkzeug freigegeben (leere Liste = alle; Zeiten gehörten früher zur Einteilung) */
-export const hasTool = (a: Access, tool: string) => a.office || a.tools.length === 0 || a.tools.includes(tool) || (tool === 'times' && a.tools.includes('workers'));
+/** Tools nur für Admin und Büro (wie in der App: OFFICE_ONLY_TOOLS in src/lib/auth.ts) – derzeit Team */
+export const OFFICE_ONLY_TOOLS = ['workers'];
+export const hasTool = (a: Access, tool: string) =>
+  a.office || (!OFFICE_ONLY_TOOLS.includes(tool) && (a.tools.length === 0 || a.tools.includes(tool) || (tool === 'times' && a.tools.includes('workers'))));
 const anyTool = (a: Access, tools: string[]) => tools.some((t) => hasTool(a, t));
 /**
  * Projekt freigegeben: in der gemeinsamen Liste oder bei irgendeinem Werkzeug ausgewählt. Einträge ohne Projekt (frei

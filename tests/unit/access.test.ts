@@ -25,7 +25,11 @@ describe('Zugriff je Benutzer', () => {
     expect(canSite({ ...base, sites: [] }, 'p:9')).toBe(false);
     expect(canSite({ ...base, sites: [] }, 'n:garage')).toBe(true); // Baustelle ohne Projekt: wie bisher
     expect(canSite({ ...base, sites: [], role: 'buero' }, 'p:9')).toBe(true);
-    expect(canTool({ ...base, tools: [] }, 'workers')).toBe(true);
+    // Team: nur Admin und Büro – auch mit „alle Tools“ (leere Liste) nicht für Polier und Arbeiter
+    expect(canTool({ ...base, tools: [] }, 'workers')).toBe(false);
+    expect(canTool({ ...base, tools: ['workers'] }, 'workers')).toBe(false);
+    expect(canTool({ ...base, tools: ['workers'] }, 'times')).toBe(true); // ältere Freigabe Team → Zeiten bleibt
+    expect(canTool({ ...base, role: 'buero', tools: [] }, 'workers')).toBe(true);
     expect(canTool({ ...base, role: 'admin' }, 'workers')).toBe(true);
     expect(canSite({ ...base, operator: true }, 'p:9')).toBe(true);
     expect(canSite({ ...base, companyId: '' }, 'p:9')).toBe(true);

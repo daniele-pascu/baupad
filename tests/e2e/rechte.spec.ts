@@ -93,9 +93,10 @@ test('Polier: kein „Neues Projekt“ in Aufmaß, Fotos, Mängelplan, Einteilun
   await page.goto('./maengel');
   await expect(page.getByTestId('defect-new-site')).toHaveText(/Projekt übernehmen/);
 
+  // Team (Einteilung, Personal) ist nur für Admin und Büro: der Polier landet wieder bei den Tools
   await page.goto('./arbeitereinteilung');
-  // ohne Recht, Projekte hinzuzufügen: keine Taste „Neues Projekt“ in der Einteilung
-  await expect(page.getByTestId('workers-title')).toBeVisible();
+  await expect(page).toHaveURL(/tools/);
+  await expect(page.getByTestId('workers-title')).toHaveCount(0);
   await expect(page.getByTestId('add-site')).toHaveCount(0);
 });
 

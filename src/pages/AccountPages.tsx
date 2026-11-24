@@ -4,7 +4,7 @@ import { Icon } from '../components/Icon';
 import { SiteFooter, SiteNav } from '../components/SiteNav';
 import { getCompanyLogo, logoHeaderSize, removeCompanyLogo, saveCompanyLogo, type CompanyLogo } from '../lib/company';
 import { getMeta, setMeta } from '../lib/db';
-import { AuthNotConnected, getAuth, isEmail, PACKAGES, PROVIDERS, ROLES, TOOLS, defaultToolsForRole, type CompanyUser, type PackageId, type Role, type Session, type ToolId } from '../lib/auth';
+import { AuthNotConnected, getAuth, isEmail, OFFICE_ONLY_TOOLS, PACKAGES, PROVIDERS, ROLES, TOOLS, defaultToolsForRole, type CompanyUser, type PackageId, type Role, type Session, type ToolId } from '../lib/auth';
 import { useSession } from '../lib/use-session';
 import { siteKeyOf } from '../lib/access';
 import { getPhotoStorage } from '../lib/photo-storage';
@@ -1230,13 +1230,16 @@ function UserDialog({ value, session, onClose, onSaved }: { value: Omit<CompanyU
           <span>Tools und Projekte{u.role === 'admin' ? ' (Admin hat immer alle Tools und Projekte)' : ' – Projekte gibst du im Projekt über „Freigabe“ frei; hier zusätzlich nur für ein Tool'}</span>
           <div className="tool-access-list">
             {TOOLS.map((t) => {
-              const on = u.tools.includes(t.id);
+              // Team: nur Admin und Büro – bei Polier und Arbeiter nicht wählbar
+              const officeOnly = OFFICE_ONLY_TOOLS.includes(t.id) && u.role !== 'admin' && u.role !== 'buero';
+              const on = !officeOnly && u.tools.includes(t.id);
               const chosen = u.toolSites[t.id] ?? [];
               const some = chosen.length > 0;
               return (
                 <div key={t.id} className={`tool-access${on ? ' on' : ''}`} data-testid={`user-tool-row-${t.id}`}>
                   <label className="check">
-                    <input type="checkbox" checked={on} onChange={() => toggleTool(t.id)} data-testid={`user-tool-${t.id}`} /> <strong>{t.label}</strong>
+                    <input type="checkbox" checked={on} disabled={officeOnly} onChange={() => toggleTool(t.id)} data-testid={`user-tool-${t.id}`} /> <strong>{t.label}</strong>
+                    {officeOnly && <span className="muted small"> – nur Admin und Büro</span>}
                   </label>
                   {on && u.role !== 'admin' && u.role !== 'buero' && (
                     <div className="tool-access-sites">

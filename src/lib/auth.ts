@@ -39,6 +39,9 @@ export const TOOLS: { id: ToolId; label: string }[] = [
   { id: 'materials', label: 'Material' },
 ];
 
+/** Tools nur für Admin und Büro (derzeit: Team) – Polier und Arbeiter bekommen sie nie, auch nicht mit „alle Tools“ */
+export const OFFICE_ONLY_TOOLS: ToolId[] = ['workers'];
+
 /** Standard-Freigaben je Rolle (der Admin kann sie je Benutzer ändern) */
 export function defaultToolsForRole(role: Role): ToolId[] {
   switch (role) {

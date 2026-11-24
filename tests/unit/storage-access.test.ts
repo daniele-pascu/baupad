@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { accessOf, canProject, fileAllowed, fileKeyOwner, hasTool, keepPrices, photoAllowed, stripPrices, visiblePhoto, visibleRecord, writableRecord, type PlanSite } from '../../supabase/functions/storage/index';
+import { accessOf, canProject, fileAllowed, fileKeyOwner, hasTool, keepPrices, keepSv, photoAllowed, stripPrices, visiblePhoto, visibleRecord, writableRecord, type PlanSite } from '../../supabase/functions/storage/index';
 import { accessKey, needsFullPull, OFFICE_ACCESS } from '../../src/lib/sync-access';
 import type { Session } from '../../src/lib/auth';
 
@@ -132,10 +132,13 @@ describe('Rechte am Server: schreiben', () => {
     expect(writableRecord(polier, 'weeks', '2026-W47', { sites: [] }, false, null)).toEqual({ sites: [] });
   });
 
-  it('SV-Nummer: Polier mit Team ändert sie nicht, die gespeicherte bleibt', () => {
+  it('Team nur für Admin und Büro: Polier mit Team-Freigabe darf das Personal nicht speichern; SV-Nummer bleibt erhalten', () => {
     const team = accessOf({ ...base, role: 'polier', tools: ['workers'] });
-    expect(writableRecord(team, 'workers', 'w1', { firstName: 'Anna B.' }, false, { firstName: 'Anna', svNumber: '1234 010180' })).toEqual({ firstName: 'Anna B.', svNumber: '1234 010180' });
-    expect(writableRecord(team, 'workers', 'w1', { firstName: 'Anna', svNumber: '9999 999999' }, false, { firstName: 'Anna' })).toEqual({ firstName: 'Anna' });
+    expect(hasTool(team, 'workers')).toBe(false);
+    expect(hasTool(accessOf({ ...base, role: 'polier', tools: [] }), 'workers')).toBe(false);
+    expect(writableRecord(team, 'workers', 'w1', { firstName: 'Anna B.' }, false, { firstName: 'Anna', svNumber: '1234 010180' })).toBeNull();
+    expect(keepSv({ firstName: 'Anna B.' }, { firstName: 'Anna', svNumber: '1234 010180' })).toEqual({ firstName: 'Anna B.', svNumber: '1234 010180' });
+    expect(keepSv({ firstName: 'Anna', svNumber: '9999 999999' }, { firstName: 'Anna' })).toEqual({ firstName: 'Anna' });
     expect(writableRecord(buero, 'workers', 'w1', { firstName: 'Anna', svNumber: '9999 999999' }, false, { firstName: 'Anna', svNumber: '1234 010180' })).toEqual({ firstName: 'Anna', svNumber: '9999 999999' });
   });
 
