@@ -167,6 +167,7 @@ test('Messart wählen, dann mit beliebigem Werkzeug messen: Wand, Stück, Frei, 
   // 4) Volumen: Höhe/Tiefe ist Pflicht
   await chooseType('volumen');
   await rect(x, y + px(5), px(2), px(1));
+  await expect(dlg().getByTestId('input-count')).toHaveCount(0); // Anzahl nur bei Länge (und Stück)
   await dlg().getByTestId('input-length').fill('2');
   await dlg().getByTestId('input-width').fill('1,5');
   await dlg().getByTestId('damage-save').click();
@@ -215,6 +216,7 @@ test('Messart wählen, dann mit beliebigem Werkzeug messen: Wand, Stück, Frei, 
   await expect(bar.getByTestId('seg-redo')).toBeDisabled();
   await bar.getByTestId('polyline-open').click();
   await expect(dlg()).toContainText('Neue Messung: Länge');
+  await expect(dlg().getByTestId('input-count')).toBeVisible(); // Länge behält die Anzahl
   const l2 = num(await dlg().getByTestId('geometry-length').inputValue());
   expect(Math.abs(l2 - 3)).toBeLessThan(0.1);
   await dlg().getByTestId('damage-save').click();
