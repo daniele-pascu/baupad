@@ -61,3 +61,34 @@ const thumbKey = (plan: Plan) => JSON.stringify(plan.crop) + (plan.rotation ? `@
 function thumbMatches(plan: Plan): boolean {
   return localStorage.getItem(`thumbCrop:${plan.id}`) === thumbKey(plan);
 }
+
+const pendingSource = new Map<string, Promise<Blob>>();
+/**
+ * Vorschaubild einer Seite einer Originaldatei (Planbibliothek, Auswahl-Fenster): nacheinander erzeugt (wie die
+ * Planvorschauen – viele große PDFs zugleich bringen Handy und iPad an die Speichergrenze) und im Gerät
+ * zwischengespeichert, damit es beim nächsten Öffnen sofort da ist.
+ */
+export function sourceThumb(file: Pick<SourceFile, 'id' | 'kind' | 'mimeType' | 'projectId'>, pageIndex: number, maxSide: number, region: Rect | null = null, rot: PlanRotation = 0): Promise<Blob> {
+  const key = `src:${file.id}:${pageIndex}:${maxSide}:${rot}:${region ? JSON.stringify(region) : ''}`;
+  let p = pendingSource.get(key);
+  if (p) return p;
+  p = (async () => {
+    const cached = await getThumb(key).catch(() => undefined);
+    if (cached) return cached;
+    const blob = await enqueue(async () => {
+      const canvas = await renderSource(file, pageIndex, maxSide, region, rot);
+      try {
+        return await canvasToBlob(canvas, 'image/jpeg', maxSide > 360 ? 0.85 : 0.75);
+      } finally {
+        canvas.width = 0; // Safari: Zeichenfläche sofort freigeben
+        canvas.height = 0;
+      }
+    });
+    await putThumb(key, file.projectId, blob).catch(() => {});
+    return blob;
+  })();
+  const done = () => void pendingSource.delete(key);
+  p.then(done, done);
+  pendingSource.set(key, p);
+  return p;
+}

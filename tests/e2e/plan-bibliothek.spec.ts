@@ -58,6 +58,8 @@ test('Plan erneut verwenden: neues leeres Aufmaß, Original bleibt, Datei nur ei
   await expect(lib.getByTestId('library-file')).toHaveCount(1);
   await expect(lib.getByTestId('library-file')).toContainText('massketten.pdf');
   await expect(lib.getByTestId('library-page')).toHaveCount(1);
+  // jede Seite bekommt ihre Vorschau (nacheinander erzeugt, im Gerät zwischengespeichert)
+  await expect(lib.locator('[data-testid="source-thumb"][data-state="ok"]')).toHaveCount(await lib.getByTestId('source-thumb').count());
   await expect(lib.locator('.lib-thumb img')).toBeVisible();
   await expect(lib.getByTestId('library-file')).not.toContainText('K-1');
   await expect(lib.getByTestId('library-file')).not.toContainText('Messungen');
