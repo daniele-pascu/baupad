@@ -10,13 +10,12 @@ const POS: { id: LegendPos; label: string }[] = [
   { id: 'br', label: 'Unten rechts' },
 ];
 
-/** Farblegende des Plans: je erkannter Farbe eine eigene Bezeichnung; im Plan und im PDF anzeigen */
+/** Farblegende des Plans: je erkannter Farbe eine eigene Bezeichnung; im PDF anzeigen – nur für diesen Plan */
 export function LegendDialog({
   entries,
   show,
   labels,
   pos: initialPos,
-  planCount = 1,
   onClose,
   onSave,
 }: {
@@ -24,12 +23,9 @@ export function LegendDialog({
   show: boolean;
   labels: Record<string, string>;
   pos: LegendPos;
-  /** Pläne im Projekt – ab 2 Auswahl „in allen Plänen“ */
-  planCount?: number;
   onClose(): void;
-  onSave(show: boolean, labels: Record<string, string>, pos: LegendPos, allPlans: boolean): void;
+  onSave(show: boolean, labels: Record<string, string>, pos: LegendPos): void;
 }) {
-  const [all, setAll] = useState(true);
   const [pos, setPos] = useState<LegendPos>(initialPos);
   const [on, setOn] = useState(show || !entries.length ? show : true);
   const [txt, setTxt] = useState<Record<string, string>>(() => Object.fromEntries(entries.map((e) => [e.color, labels[e.color] ?? ''])));
@@ -53,7 +49,7 @@ export function LegendDialog({
                 if (t.trim()) next[c] = t.trim();
                 else delete next[c];
               }
-              onSave(on, next, pos, planCount > 1 && all);
+              onSave(on, next, pos);
             }}
             data-testid="legend-save"
           >
@@ -77,16 +73,11 @@ export function LegendDialog({
       )}
       <label className="check-row">
         <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} data-testid="legend-show" />
-        <span>Legende im Plan und im PDF anzeigen</span>
+        <span>Legende im PDF dieses Plans anzeigen</span>
       </label>
-      {planCount > 1 && (
-        <label className="check-row">
-          <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} data-testid="legend-all" />
-          <span>Anzeigen und Lage für alle {planCount} Pläne des Projekts (jeder Plan mit seinen eigenen Farben)</span>
-        </label>
-      )}
+      <p className="muted small">Gilt nur für diesen Plan – andere Pläne haben ihre eigene Legende.</p>
       <div className="field">
-        <span>Lage im Plan und im PDF</span>
+        <span>Lage im PDF</span>
         <div className="legend-pos" role="radiogroup" aria-label="Lage der Legende">
           {POS.map((p) => (
             <button key={p.id} type="button" role="radio" aria-checked={pos === p.id} className={`chip${pos === p.id ? ' active' : ''}`} onClick={() => setPos(p.id)} data-testid={`legend-pos-${p.id}`}>
