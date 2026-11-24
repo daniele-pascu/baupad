@@ -160,7 +160,7 @@ export function WorkersPage() {
   /** Einstellungen: Bezeichnung der Projekte, Funktion der Arbeiter im PDF */
   const [siteLabel, setSiteLabel] = useState<SiteLabel>('number-name');
   const [pdfGrades, setPdfGrades] = useState(false);
-  /** Farben der Kästchen je Funktion (Einstellungen) */
+  /** Farben der Kästchen je Qualifikation (Einstellungen) */
   const [gradeColors, setGradeColors] = useState<GradeColors>({});
   // als CSS-Variablen an der Seite (auch für Fenster, die außerhalb der Seite liegen)
   useEffect(() => {
@@ -841,7 +841,7 @@ export function WorkersPage() {
               <strong className="crew-sites-count" data-testid="crew-sites-count">
                 {plan.sites.length} {plan.sites.length === 1 ? 'Projekt' : 'Projekte'}
               </strong>
-              <span className="crew-grade-legend" data-testid="crew-grade-legend" aria-label="Farben nach Funktion">
+              <span className="crew-grade-legend" data-testid="crew-grade-legend" aria-label="Farben nach Qualifikation">
                 {WORKER_GRADES.filter((g) => g.id !== 'projektleiter').map((g) => (
                   <span key={g.id} className={`crew-grade-key grade-${g.id}`} title={g.label}>
                     {g.short}
@@ -1189,12 +1189,12 @@ export function WorkersPage() {
 }
 
 /** Arbeiterliste: anlegen, bearbeiten, aktiv/inaktiv */
-/** Farbvorschläge je Funktion (direkt antippen); daneben bleibt die freie Farbwahl */
+/** Farbvorschläge je Qualifikation (direkt antippen); daneben bleibt die freie Farbwahl */
 const GRADE_PALETTE = ['#6f9be8', '#5cb87a', '#e0a43a', '#a3a3ad', '#e5484d', '#9b6bdf', '#2bb3b3', '#e86fb5'];
 
 type CrewSettings = { siteLabel: SiteLabel; pdfGrades: boolean; gradeColors: GradeColors; siteSort: { key: SiteSort; desc: boolean } };
 
-/** Einstellungen der Arbeitereinteilung: Arbeitszeit, Projektbezeichnung, Reihenfolge, Farben je Funktion, PDF (Uhrzeiten, Funktion, Firmenname) */
+/** Einstellungen der Arbeitereinteilung: Arbeitszeit, Projektbezeichnung, Reihenfolge, Farben je Qualifikation, PDF (Uhrzeiten, Qualifikation, Firmenname) */
 function TimesDialog({
   times,
   company,
@@ -1267,7 +1267,7 @@ function TimesDialog({
           </select>
         </label>
       </div>
-      <h3 className="crew-set-title">Farben je Funktion</h3>
+      <h3 className="crew-set-title">Farben je Qualifikation</h3>
       <p className="muted small">Farbe der Namenskästchen in der Einteilung – nach Geschmack wählbar.</p>
       <div className="crew-grade-colors" data-testid="set-grade-colors">
         {COLORED_GRADES.map((g) => {
@@ -1315,7 +1315,7 @@ function TimesDialog({
       <h3 className="crew-set-title">PDF</h3>
       <label className="check-row">
         <input type="checkbox" checked={x.pdfGrades} onChange={(e) => setX({ ...x, pdfGrades: e.target.checked })} data-testid="set-pdf-grades" />
-        Funktion der Arbeiter anzeigen (z. B. „Max Muster · PO“)
+        Qualifikation der Arbeiter anzeigen (z. B. „Max Muster · PO“)
       </label>
       <h3 className="crew-set-title">Arbeitszeit der Firma</h3>
       <p className="muted small">Nur zur Info der Firma: erscheint in der Einteilung und – wenn angehakt – im PDF. Eingeteilt werden kann an allen 7 Tagen, auch Sa/So.</p>
@@ -1487,7 +1487,7 @@ function SiteDialog({
             )}
             {!leads.length && (
               <p className="muted small" data-testid="site-manager-none">
-                Noch niemand mit der Funktion „Projektleiter“ – im Personal bei der Person die Funktion Projektleiter wählen.
+                Noch niemand mit der Qualifikation „Projektleiter“ – im Personal bei der Person die Qualifikation Projektleiter wählen.
               </p>
             )}
             <p className="muted small">Gilt für das Projekt in jeder Woche (auch im PDF und im Bautagesbericht).</p>
@@ -1600,7 +1600,7 @@ function AssignDialog({
         <label className="crew-search crew-pick-search">
           <Icon name="select" size={18} />
           <span className="sr-only">Arbeiter suchen</span>
-          <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Arbeiter suchen: Name, Funktion, Nr." data-testid="assign-search" />
+          <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Arbeiter suchen: Name, Qualifikation, Nr." data-testid="assign-search" />
         </label>
       )}
       {needle && shown.length === 0 && <p className="muted small">Kein Arbeiter gefunden.</p>}
@@ -1951,7 +1951,7 @@ function ForwardDialog({
 function DayListDialog({ site, days, weekId, count, onPick, onClose }: { site: WeekSite; days: number[]; weekId: string; count(day: number): number; onPick(day: number): void; onClose(): void }) {
   return (
     <Modal title={`Tagesliste: ${site.name}`} onClose={onClose} testId="daylist-dialog">
-      <p className="muted small">Liste der Arbeiter dieses Tages mit Tätigkeit und Telefon – zum Ausdrucken für das Projekt.</p>
+      <p className="muted small">Liste der Arbeiter dieses Tages mit Telefon (auf Wunsch mit Qualifikation, siehe Einstellungen) – zum Ausdrucken für das Projekt.</p>
       <div className="crew-chip-actions">
         {days.map((d) => (
           <button key={d} type="button" className="btn" onClick={() => onPick(d)} data-testid={`daylist-${d}`}>

@@ -3,7 +3,7 @@ import { absenceOn } from '../lib/crew-absence';
 import { addDays, DAY_NAMES, DAY_SHORT, dayDate, isoDate, knownGrade, sortByGrade, sortWorkers, workerName } from '../lib/crew';
 import type { Absence, WeekPlan, WeekSite, Worker, WorkTimes } from '../lib/types';
 
-/** Reihenfolge der Arbeiter: nach Funktion (Polier zuerst) oder alphabetisch */
+/** Reihenfolge der Arbeiter: nach Qualifikation (Polier zuerst) oder alphabetisch */
 export type WorkerOrder = 'grade' | 'name';
 
 /** Was an einem Tag für einen Arbeiter gilt */
@@ -93,7 +93,7 @@ export function CrewWorkerWeek({
         </strong>
         <div className="seg-toggle" role="radiogroup" aria-label="Reihenfolge der Arbeiter">
           <button type="button" role="radio" aria-checked={order === 'grade'} className={order === 'grade' ? 'on' : ''} onClick={() => onOrder('grade')} data-testid="crew-ww-order-grade">
-            Nach Funktion
+            Nach Qualifikation
           </button>
           <button type="button" role="radio" aria-checked={order === 'name'} className={order === 'name' ? 'on' : ''} onClick={() => onOrder('name')} data-testid="crew-ww-order-name">
             A–Z
