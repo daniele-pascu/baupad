@@ -125,6 +125,13 @@ test('X gedrückt halten: vergrößert an der Maus, Fangpunkt blau markiert, Kli
     expect(Number(await viewer.getAttribute('data-scale'))).toBeCloseTo(scale0, 6); // zurück
     await expect(page.locator('.poly-preview circle')).toHaveCount(i + 1);
   }
+  // Zurück nimmt den letzten Punkt samt seiner Fangmarke („Endpunkt“) weg; Vor setzt ihn wieder
+  await expect(page.getByTestId('snap-marker')).toHaveCount(1);
+  await page.getByTestId('polygon-undo-point').click();
+  await expect(page.getByTestId('draft-bar')).toHaveAttribute('data-count', '3');
+  await expect(page.getByTestId('snap-marker')).toHaveCount(0);
+  await page.getByTestId('seg-redo').click();
+  await expect(page.getByTestId('draft-bar')).toHaveAttribute('data-count', '4');
   // Zusatzpunkt, dann Rücktaste bzw. Entf löscht den letzten Punkt
   const extra = scr(500, 450);
   await page.mouse.move(extra.x, extra.y);
