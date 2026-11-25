@@ -152,7 +152,7 @@ test('Verschieben ohne Auswahl fragt nach den Objekten; Strg+A, Löschen und Rü
   await page.keyboard.press('Delete');
   await waitSaved(page);
   expect(await elements()).toHaveLength(0);
-  await page.getByTestId('undo').click();
+  await page.getByTestId('draw-undo').click();
   await waitSaved(page);
   expect(await elements()).toHaveLength(9);
 });

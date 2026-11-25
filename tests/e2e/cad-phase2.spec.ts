@@ -88,10 +88,10 @@ test('Verbinden: vier Linien werden eine geschlossene Fläche', async () => {
   expect(els[0].shape.closed).toBe(true);
   near(area(verts(els[0])), 12, 0.001);
   // Rückgängig: ein Schritt holt die vier Linien zurück
-  await page.getByTestId('undo').click();
+  await page.getByTestId('draw-undo').click();
   await waitSaved(page);
   expect(await elements()).toHaveLength(4);
-  await page.getByTestId('redo').click();
+  await page.getByTestId('draw-redo').click();
   await waitSaved(page);
   [l1] = await elements();
   expect(l1.shape.closed).toBe(true);

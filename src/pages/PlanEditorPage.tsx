@@ -1668,6 +1668,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         </div>
         <SaveStatus compact />
         <div className="topbar-actions">
+          {/* Plan zeichnen: Zurück/Vor stehen in der Werkzeugleiste – nicht doppelt oben */}
+          {!drawMode && (
           <div className="history-btns">
             <button
               type="button"
@@ -1692,6 +1694,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               <Icon name="redo" size={20} />
             </button>
           </div>
+          )}
           {!drawingPlan &&
             (() => {
               const st = calibrationStatus(plan, file?.kind);

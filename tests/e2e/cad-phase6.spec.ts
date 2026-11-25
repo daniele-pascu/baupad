@@ -150,7 +150,7 @@ test('Hilfslinien: 0° und 90°, Fang am Schnittpunkt, ausblenden, löschen, Rü
   await click({ x: gx, y: gy + 3 });
   await waitSaved(page);
   expect(await guides()).toHaveLength(1);
-  await page.getByTestId('undo').click();
+  await page.getByTestId('draw-undo').click();
   await waitSaved(page);
   expect(await guides()).toHaveLength(2);
   // frei: zwei Punkte unter 45°
@@ -195,7 +195,7 @@ test('Abrunden: zwei Linien mit Radius, Radius 0 = Ecke, Ecke eines Rechtecks', 
   near(Math.max(h1[0].x, h1[1].x), X.x - 0.5, 1e-3);
   near(Math.max(v1[0].y, v1[1].y), X.y - 0.5, 1e-3);
   // Rückgängig in einem Schritt
-  await page.getByTestId('undo').click();
+  await page.getByTestId('draw-undo').click();
   await waitSaved(page);
   expect((await elements()).some((e) => e.type === 'arc')).toBe(false);
 
