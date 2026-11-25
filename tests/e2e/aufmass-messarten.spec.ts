@@ -100,8 +100,11 @@ test('Messart wählen, dann mit beliebigem Werkzeug messen: Wand, Stück, Frei, 
   expect(Math.abs(d.area! - len * 2.5)).toBeLessThan(0.02);
   await expect(page.locator('[data-testid="aufmass-row"]').last().getByTestId('row-kind')).toHaveAttribute('title', 'Wand');
 
-  // 1b) Unterzug (eigene Messart, gespeichert als Wand): Länge 5 m, Seite 1 0,50 + Unterseite 0,30 + Seite 2 0,50 = Abwicklung 1,30 m
-  await chooseType('unterzug');
+  // 1b) Werkzeug Unterzug (neben Wand, gespeichert als Wand): Länge 5 m, Seite 1 0,50 + Unterseite 0,30 + Seite 2 0,50 = Abwicklung 1,30 m
+  await chooseType('wand');
+  await page.getByTestId('tool-beam').click();
+  await expect(page.getByTestId('tool-beam')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('tool-wall')).toHaveAttribute('aria-pressed', 'false');
   await page.mouse.click(x + px(0), y + px(5));
   await page.mouse.click(x + px(5), y + px(5));
   await page.keyboard.press('Enter');

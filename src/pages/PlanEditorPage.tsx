@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { SelectionBar, SelectToggle, useSelection } from '../components/Selection';
 import { BulkDamageDialog, type DamagePatch } from '../components/BulkDamageDialog';
 import { AufmassTable } from '../components/AufmassTable';
@@ -34,7 +34,7 @@ import { aufmassPaper, drawingRegion, printSheetRect, sheetUnitsPerPt, isDrawing
 import { convertShape, isOpenShape, lineShape, moveVertex, polygonShape, removeVertex, rotatePoint, shapeVertices, toPage, toScreen, type Point, type View } from '../lib/geometry';
 import { probeTarget, type ProbeKind } from '../lib/probe';
 import { ProbeBar, ProbeMenu, ProbeOverlay, type ProbeState } from '../components/ProbeLayer';
-import { choiceIcon, choiceLabel, choiceType, MEASURE_CHOICES, MeasureTypeMenu, type MeasureChoice } from '../components/MeasureTypeMenu';
+import { choiceIcon, choiceLabel, MEASURE_CHOICES, MeasureTypeMenu, type MeasureChoice } from '../components/MeasureTypeMenu';
 import { calcPath, defaultTypeFor, DEFAULT_WORK_AREAS, measureTypeForUnit, quantityOfMeasure, typeInfo, typeOf } from '../lib/measure-types';
 import { circleThrough, translateShape } from '../lib/cad';
 import { countKind, deductionText, grossArea, hasArea, isWall, kindOf, measureLabel, netArea, netLength, sumLengths } from '../lib/measure';
@@ -462,10 +462,10 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     if (id === 'select' || id === 'calibrate' || id === 'text') return true;
     if (c === 'auto') return false;
     if (id === 'probe') return true;
-    return (TOOLS_BY_TYPE[choiceType(c)] as readonly Tool[]).includes(id);
+    return (TOOLS_BY_TYPE[c] as readonly Tool[]).includes(id);
   };
   /** erstes Werkzeug einer Messart (zum gleich Zeichnen) */
-  const firstTool = (c: MeasureChoice): Tool => (c === 'auto' ? 'select' : TOOLS_BY_TYPE[choiceType(c)][0]);
+  const firstTool = (c: MeasureChoice): Tool => (c === 'auto' ? 'select' : TOOLS_BY_TYPE[c][0]);
   /** Stück zählen: angetippte Punkte (Seitenkoordinaten), bis „Fertig“ */
   const [pointMarks, setPointMarks] = useState<Point[]>([]);
   /** Stück: mit „Zurück“ entfernte Punkte (für „Vor“) */
@@ -487,7 +487,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     setPointMarks([]);
   };
   /** Messart für eine neu gezeichnete Form */
-  const typeForNew = (shape: Shape): MeasureType => (tool === 'wall' ? 'wand' : mtype === 'auto' ? defaultTypeFor(shape) : choiceType(mtype));
+  const typeForNew = (shape: Shape): MeasureType => (tool === 'wall' ? 'wand' : mtype === 'auto' ? defaultTypeFor(shape) : mtype);
   /** Aufmaß: ausgewählter Eckpunkt der ausgewählten Messung (zum Entfernen) */
   const [measureVertex, setMeasureVertex] = useState<number | null>(null);
   useEffect(() => setMeasureVertex(null), [selectedId]);
@@ -702,8 +702,11 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
 
   /** Aufmaß (gezeichnete Pläne): Hilfslinien setzen – dieselben wie beim Zeichnen */
   const [guideTool, setGuideTool] = useState(false);
+  /** Werkzeug Unterzug: zeichnet wie die Wand, das Messfenster öffnet gleich mit Seite 1, Unterseite, Seite 2 */
+  const [beamTool, setBeamTool] = useState(false);
   const setTool = (t: Tool) => {
     setGuideTool(false);
+    setBeamTool(false);
     if (t !== 'calibrate') setChecking(false);
     // anderes Werkzeug: Stil-Menü schließen (wie beim Kalibrieren)
     setStylePopOpen(false);
@@ -1354,7 +1357,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     setTool('select');
     // nachgemessene Fläche → Fläche, Strecke → Länge; die gewählte Messart gilt nur, wenn sie dazu passt
     const fits = probe.kind === 'area' ? ['flaeche', 'volumen', 'schadstelle', 'frei'] : ['laenge', 'schadstelle', 'frei'];
-    const mt: MeasureType = mtype !== 'auto' && fits.includes(choiceType(mtype)) ? choiceType(mtype) : probe.kind === 'area' ? 'flaeche' : 'laenge';
+    const mt: MeasureType = mtype !== 'auto' && fits.includes(mtype) ? mtype : probe.kind === 'area' ? 'flaeche' : 'laenge';
     setDialog({ mode: 'new', shape, ...suggestNext(stored, planNumberStart(plan)), kind: typeInfo(mt).kind, measureType: mt, fromShape: true });
   };
 
@@ -2849,11 +2852,11 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               )}
             </span>
               {TOOLS.filter((t) => (t.id !== 'calibrate' || !drawingPlan) && (t.id !== 'select' || !isTouchDevice()) && toolVisible(t.id)).map((t) => (
+                <Fragment key={t.id}>
                 <button
-                  key={t.id}
                   type="button"
                   // nie zwei zugleich: bei offenem Menü (Messung, Stil) leuchtet nur dessen Knopf
-                  className={`tool-btn${(t.id === 'probe' ? probeMenu || (tool === 'probe' && !stylePopOpen) : tool === t.id && !probeMenu && !stylePopOpen) ? ' active' : ''}`}
+                  className={`tool-btn${(t.id === 'probe' ? probeMenu || (tool === 'probe' && !stylePopOpen) : tool === t.id && !(t.id === 'wall' && beamTool) && !probeMenu && !stylePopOpen) ? ' active' : ''}`}
                   onClick={() => {
                     setStylePopOpen(false);
                     if (t.id === 'probe') {
@@ -2868,7 +2871,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                     }
                   }}
                   data-probe-toggle={t.id === 'probe' ? '' : undefined}
-                  aria-pressed={tool === t.id}
+                  aria-pressed={tool === t.id && !(t.id === 'wall' && beamTool)}
                   aria-expanded={t.id === 'probe' ? probeMenu : undefined}
                   title={`${t.label} (${t.key.toUpperCase()})`}
                   data-testid={`tool-${t.id}`}
@@ -2876,6 +2879,27 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                   <Icon name={t.icon} />
                   <span>{t.short ?? t.label}</span>
                 </button>
+                {/* Unterzug: eigenes Werkzeug neben Wand (gespeichert als Wand mit Seite 1, Unterseite, Seite 2) */}
+                {t.id === 'wall' && (
+                  <button
+                    type="button"
+                    className={`tool-btn${tool === 'wall' && beamTool && !probeMenu && !stylePopOpen ? ' active' : ''}`}
+                    onClick={() => {
+                      setStylePopOpen(false);
+                      setProbeMenu(false);
+                      setProbe(null);
+                      setTool('wall');
+                      setBeamTool(true);
+                    }}
+                    aria-pressed={tool === 'wall' && beamTool}
+                    title="Unterzug: Verlauf wie bei der Wand setzen – danach Seite 1, Unterseite und Seite 2 eingeben"
+                    data-testid="tool-beam"
+                  >
+                    <Icon name="beam" />
+                    <span>Unterzug</span>
+                  </button>
+                )}
+                </Fragment>
               ))}
               {drawingPlan && (
                 <button
@@ -3056,7 +3080,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           suggestion={k ? suggestMeasures(dialog.shape, k) : null}
           geometry={geometryMeasures(dialog.shape, k)}
           wall={isWall({ kind: dialog.kind, shape: dialog.shape, measureType: dialog.measureType })}
-          startBeam={mtype === 'unterzug' && dialog.measureType === 'wand'}
+          startBeam={beamTool && dialog.measureType === 'wand'}
           openShape={isOpenShape(dialog.shape)}
           workAreas={workAreas}
           others={stored}
