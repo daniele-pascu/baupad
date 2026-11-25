@@ -226,7 +226,7 @@ test('Mengen aus der Geometrie: Fläche und Umfang aus dem Plan, nachgeführt be
 
   // Tabelle: Umfang gekennzeichnet, Summen und Volumen
   await expect(page.getByTestId('sum-volume')).toContainText((Math.round((r.area as number) * 0.1 * 100) / 100).toFixed(2).replace('.', ','));
-  await expect(page.getByTestId('aufmass-table')).toContainText('U ');
+  await expect(page.getByTestId('aufmass-table')).not.toContainText('U '); // kein Umfang – nur die Fläche
 
   // Zurück zur Handeingabe: Doppelklick in die Fläche aus dem Plan, Länge und Breite erscheinen wieder
   await page.getByRole('button', { name: /^\S+ 1 bearbeiten$/ }).click();

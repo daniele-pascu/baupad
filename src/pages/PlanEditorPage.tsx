@@ -355,7 +355,7 @@ function measureSummary(d: Pick<Damage, 'kind' | 'length' | 'width' | 'depth' | 
   // Abzüge/Zuschläge: Brutto ± Teilflächen = Netto
   const deds = d.area !== null && d.deductions?.length ? ` ${deductionText(d.deductions)} = ${formatArea(d.area)} m²` : '';
   // Wand: Länge (aus dem Plan) × Höhe – kein Umfang
-  if (d.areaFromShape && d.area !== null && !isWall(d)) return `${formatArea(grossArea(d))} m² aus Plan${deds} · U ${formatMeasure(d.length)} m${depth}`;
+  if (d.areaFromShape && d.area !== null && !isWall(d)) return `${formatArea(grossArea(d))} m² aus Plan${deds}${depth}`;
   // ohne Breite/Höhe: nur die Länge, keine Fläche
   if (d.width === null || d.area === null) return `L ${formatMeasure(d.length)} m${depth}`;
   return `${formatMeasure(d.length)} × ${formatMeasure(d.width)} m${depth} = ${formatArea(grossArea(d))} m²${deds}`;
