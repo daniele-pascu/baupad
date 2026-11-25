@@ -14,6 +14,7 @@ const up2 = (n: number | null | undefined) => (n === null || n === undefined ? n
 import { damageNo, findByNumber, parseDamageNumber } from '../lib/numbering';
 import { COLORS, SHAPE_LABELS, type Component, type Damage, type Deduction, type MeasureKind, type MeasureType, type RebarItem, type Shape, type ShapeType, type Surface, type Beam } from '../lib/types';
 import { shake } from '../lib/motion';
+import { isTouchDevice } from '../lib/platform';
 import { Icon } from './Icon';
 import { Modal } from './Modal';
 
@@ -224,6 +225,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
     lastFieldTap.current = dbl ? 0 : now;
     if (dbl) setFromShape(true);
   };
+  // Nr.: Zahlentastatur; Kennzeichnungen (A, Wand A) über „ABC“ – steht schon eine drin, gleich mit Buchstaben
+  const [letters, setLetters] = useState(!!damage.label && !/^\d+$/.test(damage.label));
   const [v, setV] = useState({
     number: damage.label ?? String(damage.number),
     length: rectFill ? toInputValue(rectFill.length) : toInputValue(up2(damage.length)),
@@ -502,8 +505,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
           onFocus={(e) => e.target.select()}
           onClick={name === 'length' && planAreaOk ? tapToPlan : undefined}
           title={name === 'length' && planAreaOk ? 'Doppelt antippen: Fläche aus dem Plan übernehmen' : undefined}
-          // Nummer: Zahlentastatur; steht schon eine Kennzeichnung (A, Wand A) drin, die Buchstaben-Tastatur
-          inputMode={name === 'number' && !/^\d*$/.test(v.number.trim()) ? 'text' : name === 'number' ? 'numeric' : 'decimal'}
+          inputMode={name === 'number' ? (letters ? 'text' : 'numeric') : 'decimal'}
           autoCapitalize={name === 'number' ? 'characters' : undefined}
           enterKeyHint={fields[fields.length - 1] === name ? 'done' : 'next'}
           autoComplete="off"
@@ -513,7 +515,27 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
           data-autofocus={mode === 'new' && name === (lineGeo !== null ? 'width' : 'length') ? '' : undefined}
           data-testid={`input-${name}`}
         />
-        <span className="unit">{unit}</span>
+        {name === 'number' && isTouchDevice() ? (
+          <button
+            type="button"
+            className="unit unit-toggle"
+            // Fokus bleibt im Feld; die Tastatur wechselt erst nach kurzem Neu-Fokussieren (iOS)
+            onPointerDown={(e) => e.preventDefault()}
+            onClick={() => {
+              setLetters(!letters);
+              const el = refs.current.number;
+              el?.blur();
+              window.setTimeout(() => el?.focus(), 0);
+            }}
+            aria-pressed={letters}
+            aria-label={letters ? 'Zahlentastatur' : 'Buchstaben eingeben (z. B. A, Wand A)'}
+            data-testid="number-letters"
+          >
+            {letters ? '123' : 'ABC'}
+          </button>
+        ) : (
+          <span className="unit">{unit}</span>
+        )}
       </div>
       {showErrors && errors[name] && <small className="error">{errors[name]}</small>}
     </label>

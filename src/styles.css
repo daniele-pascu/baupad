@@ -1686,6 +1686,23 @@ html.kb-open .modal-backdrop {
   color: var(--muted);
   font-weight: 600;
 }
+/* Nr.: Umschalter Zahlen ↔ Buchstaben (statt „Nr.“) – am Touch-Gerät */
+.unit-toggle {
+  justify-content: center;
+  min-width: 52px;
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.unit-toggle[aria-pressed='true'] {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--bg);
+}
 .area-result {
   display: flex;
   align-items: center;
