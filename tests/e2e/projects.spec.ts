@@ -83,10 +83,11 @@ test('Website: Startseite – Name, Motto, BauPad mit den sieben Werkzeugen, Arb
   await expect(nav.getByRole('button', { name: 'Produkte', exact: true })).toBeVisible();
   await expect(page.getByTestId('pad-mark')).toHaveText('PAD Software');
   await expect(page.getByTestId('nav-login')).toHaveText('Anmelden');
-  // schwebt mit Abstand zum Rand und bleibt beim Scrollen stehen; zartes weißes Glas auf dunklem Grund
+  // schwebt mit Abstand zum Rand und bleibt beim Scrollen stehen; schwarzes Glas, Glaslinse unter dem aktuellen Link
   const bar = nav.locator('.ps-bar');
   expect((await bar.boundingBox())!.y).toBeGreaterThanOrEqual(8);
-  await expect(bar).toHaveCSS('background-color', 'rgba(255, 255, 255, 0.1)');
+  await expect(bar).toHaveCSS('background-color', 'rgba(8, 8, 10, 0.72)');
+  await expect(nav.locator('.ps-lens')).toHaveClass(/\bon\b/);
   // Startseite: oben schwarzer Kopf mit der Firma, darunter heller Grund
   await expect(page.locator('.ph-top')).toHaveCSS('background-color', 'rgb(10, 10, 11)');
   await expect(page.locator('.ph-top').getByTestId('pad-mark-glass')).toBeVisible(); // PAD-Zeichen aus weißem Glas im Kopf

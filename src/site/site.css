@@ -235,15 +235,15 @@
 .ph-expanding .ps-site .ps-bar {
   opacity: 1 !important;
 }
-/* Website: Leiste aus zartem weißem Liquid Glass auf dem dunklen Grund – Logo, Links und Schrift bleiben weiß */
+/* Website: Leiste aus schwarzem Glas – feine helle Lichtkante oben, Logo, Links und Schrift weiß */
 .ps-site .ps-bar {
-  border-color: rgba(255, 255, 255, 0.28);
-  background-color: rgba(255, 255, 255, 0.1);
-  background-image: linear-gradient(rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0) 60%);
-  --ps-bar-blur: blur(6px) saturate(180%);
+  border-color: rgba(255, 255, 255, 0.16);
+  background-color: rgba(8, 8, 10, 0.72);
+  background-image: linear-gradient(rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0) 60%);
+  --ps-bar-blur: blur(10px) saturate(180%);
   box-shadow:
-    inset 0 1.5px rgba(255, 255, 255, 0.45),
-    inset 0 -1px rgba(255, 255, 255, 0.08),
+    inset 0 1px rgba(255, 255, 255, 0.28),
+    inset 0 -1px rgba(255, 255, 255, 0.05),
     0 16px 36px -18px rgba(0, 0, 0, 0.8);
 }
 .ps-site .ps-header.open .ps-bar {
@@ -256,6 +256,72 @@
 .ps-site .ps-nav-products button:hover,
 .ps-site .ps-nav-products.is-open button {
   background: rgba(255, 255, 255, 0.12);
+}
+
+/* Glaslinse unter den Links (lib: site/nav-lens.ts): schwarzes Glas, das die Schrift darunter vergrößert und am Rand
+   bricht; gleitet zum Link unter der Maus. Hover-Flächen der Links entfallen – die Linse ist die Markierung. */
+.ps-lens {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 2;
+  opacity: 0;
+  pointer-events: none;
+  border-radius: 999px;
+  transform-origin: 50% 50%;
+  will-change: transform;
+  transition: opacity 0.15s ease;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45));
+}
+.ps-lens.on {
+  opacity: 1;
+}
+.ps-lens-clip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  /* erst brechen, dann rund zuschneiden */
+  clip-path: inset(0 round 999px);
+  background: #0c0c0e;
+}
+.ps-lens-copy {
+  position: absolute;
+  display: flex;
+  gap: 8px;
+  white-space: nowrap;
+}
+.ps-lens-copy a,
+.ps-lens-copy button {
+  color: #fff !important;
+  background: transparent !important;
+}
+.ps-lens::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow:
+    inset 0 1.5px 0.5px rgba(255, 255, 255, 0.7),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.22),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.22),
+    inset 0 0 12px rgba(255, 255, 255, 0.1);
+  background:
+    radial-gradient(110% 70% at 30% 0%, rgba(255, 255, 255, 0.22), transparent 55%),
+    radial-gradient(90% 60% at 75% 115%, rgba(255, 255, 255, 0.1), transparent 60%);
+}
+@media (min-width: 801px) {
+  :is(.ps-site, .ps-chrome) .ps-nav a:hover,
+  .ps-site .ps-nav-products button:hover,
+  .ps-nav-products button:hover {
+    background: transparent;
+  }
+}
+@media (max-width: 800px) {
+  .ps-lens {
+    display: none;
+  }
 }
 
 /* Produkte: Taste wie die Links, mit kleinem Pfeil; darunter klappt das Fenster auf */
