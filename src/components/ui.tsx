@@ -78,10 +78,10 @@ export function customDialog<T>(render: (close: (v: T | null) => void) => ReactN
 }
 
 let toastId = 0;
-export function toast(message: string, kind: Toast['kind'] = 'info', ms = 3500) {
+export function toast(message: string, kind: Toast['kind'] = 'info', ms = 3000) {
   const t = { id: ++toastId, message, kind };
-  // höchstens 3 Hinweise gleichzeitig – ältere werden ersetzt
-  toasts = [...toasts.slice(-2), t];
+  // höchstens 2 Hinweise gleichzeitig – ältere werden ersetzt (lenkt weniger ab)
+  toasts = [...toasts.slice(-1), t];
   update();
   setTimeout(() => {
     toasts = toasts.filter((x) => x !== t);
@@ -119,7 +119,7 @@ export function DialogHost() {
       <div className="toasts" role="status" aria-live="polite">
         {ts.map((t) => (
           <div key={t.id} className={`toast toast-${t.kind}`}>
-            {t.message}
+            <span className="toast-text">{t.message}</span>
           </div>
         ))}
       </div>
