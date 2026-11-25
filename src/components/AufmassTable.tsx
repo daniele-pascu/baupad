@@ -3,6 +3,7 @@ import { noteWithBeam } from '../lib/beam';
 import { naturalCompare } from '../lib/numbers';
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { AufmassRow } from '../lib/aufmass';
+import { useListGlide } from '../lib/motion';
 import { linesByType, sumArea } from '../lib/aufmass';
 import { deductionText, grossArea, hasArea, hasVolume, isWall, kindOf, measureLabel, netLength, sumLengths, sumVolumes } from '../lib/measure';
 import { formatArea, formatDepth, formatMeasure } from '../lib/numbers';
@@ -162,6 +163,9 @@ const COLLAPSED_KEY = 'aufmassCollapsed';
 
 export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, onEdit, onDelete, duplicates, components, positionLabel, positionTitle, positionOrder, positionsOf, surfaceNeeded, sel: pick }: Props) {
   const picking = !!pick?.active;
+  // gelöschte Messung: die Zeilen darunter rutschen nach
+  const wrapRef = useRef<HTMLDivElement>(null);
+  useListGlide(wrapRef, rawRows.map((r) => r.damage.id).join());
   const choose = (r: AufmassRow) => (picking ? pick!.toggle(r.damage.id) : onSelect?.(r));
   // Gruppen auf- und zuklappen (je Messart bzw. Linienart und je Position) – wie in der Einteilung, auf dem Gerät gemerkt
   const [closed, setClosed] = useState<Set<string>>(() => {
@@ -293,6 +297,7 @@ export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, on
                   }}
                   data-selected={picking ? pick!.has(r.damage.id) : undefined}
                   data-testid="aufmass-row"
+                  data-flip={r.damage.id}
                   data-number={damageNo(r.damage)}
                   data-kind={kind}
                   data-type={type}
@@ -434,7 +439,7 @@ export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, on
   // „Summe Fläche“ steht auch bei leerer Tabelle; ohne Flächenmessung (nur Längen, Stück …) entfällt sie
   const areaAny = !damages.length || damages.some((d) => hasArea(kindOf(d)) && typeOf(d) !== 'volumen');
   return (
-    <div className="table-wrap aufmass-tables" data-testid="aufmass-table">
+    <div ref={wrapRef} className="table-wrap aufmass-tables" data-testid="aufmass-table">
       {tables.map((t) => {
         const key = `type:${t.label}`;
         const isClosed = closed.has(key);

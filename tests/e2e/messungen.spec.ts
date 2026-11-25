@@ -182,11 +182,11 @@ test('Messart aus der Form (Linie / Fläche), keine Auswahl beim Einfügen: Lini
   const lineHead = ws.findIndex((r) => r[0] === 'Länge');
   expect(areaHead).toBeGreaterThanOrEqual(0);
   expect(lineHead).toBeGreaterThan(areaHead);
-  // Menge immer in Spalte F: Summe Fläche ohne Linie (2,00 + 0,50), Summe Länge 3,50 m
+  // nur die gefragten Maße, Menge gleich danach: Fläche Länge|Breite|m² (Spalte E), Länge nur m (Spalte C)
   const sums = ws.filter((r) => r[0] === 'Summe');
-  expect(sums.map((r) => r[6])).toEqual(['m²', 'm']);
-  expect(String(sums[0][5])).toMatch(new RegExp(`^=SUM\\(F${areaHead + 3}:F${areaHead + 4}\\)$`));
-  expect(String(sums[1][5])).toMatch(new RegExp(`^=SUM\\(F${lineHead + 3}:F${lineHead + 3}\\)$`));
+  expect([sums[0][5], sums[1][3]]).toEqual(['m²', 'm']);
+  expect(String(sums[0][4])).toMatch(new RegExp(`^=SUM\\(E${areaHead + 3}:E${areaHead + 4}\\)$`));
+  expect(String(sums[1][2])).toMatch(new RegExp(`^=SUM\\(C${lineHead + 3}:C${lineHead + 3}\\)$`));
 });
 
 test('Rückgängig und Wiederholen: Anlegen, Verschieben, per Schaltfläche und Tastatur', async () => {

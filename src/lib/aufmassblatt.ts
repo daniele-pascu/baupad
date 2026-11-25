@@ -28,13 +28,11 @@ export interface BlattInfo {
 
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 /**
- * Spalten A–J, in allen Tabellen gleich belegt:
- * A Plan · B Nr. · C Länge · D Breite/Höhe · E Tiefe · F Menge · G Einheit · H Einheitspreis bzw. Bemerkung · I Positionspreis · J Rand
+ * Spalten A–J: A Plan · B Nr. · C–E nur die Maße, die die Messart braucht (Länge, Breite/Höhe, Tiefe), gleich danach
+ * die Menge · H Bemerkung. Positionsbalken: F Menge · G Einheit · H Einheitspreis · I Positionspreis · J Rand
  */
 const WIDTHS = [10, 7, 9.5, 9.5, 9.5, 11.5, 6.5, 12, 13.5, 1.5];
 const COLS = 'ABCDEFGHIJ';
-/** Spalte F: Menge (Ergebnis jeder Messzeile, Summe der Tabelle, Menge der Position) */
-const QTY = 5;
 
 /** `factor`: Schadstelle zählt über die Regel der Position mehrfach (Zulage: Zahl der Stufen) */
 type Item = { plan: Plan; d: Damage; factor?: number; /** Bewehrungsposition: zählt die bei der Schadstelle eingetragenen lfm */ rebar?: boolean };
@@ -61,6 +59,8 @@ const n = (v: number | null, ded = false): Cell => (v === null ? blank('amRowBla
 const dn = (v: number | null): Cell => (v === null ? blank('amRowBlank') : num(v, 'amRowDepth'));
 /** Menge (Ergebnis-Spalte der Messtabelle) – angezeigt mit zwei Nachkommastellen */
 const qn = (v: number | null): Cell => (v === null ? blank('amRowBlank') : num(v, 'amRowQty'));
+/** Messzeile: Plan, Nr., Maße und Menge lückenlos, Bemerkung in Spalte H */
+const measureRow = (lead: Cell[], rest: Cell[], note: Cell = null): Cell[] => [...lead, ...rest, ...Array(Math.max(0, 7 - lead.length - rest.length)).fill(null), note];
 /** Zeile über alle Spalten: fehlende Zellen bekommen das Format `style` (durchgehende Linie bzw. Fläche) */
 const fillRow = (cells: Cell[], style: Parameters<typeof blank>[0]): Cell[] => Array.from({ length: COLS.length }, (_, i) => cells[i] ?? blank(style));
 /** Zeilenhöhe für umbrochenen Text in verbundenen Zellen (ca. `perLine` Zeichen je Zeile) */
@@ -117,7 +117,6 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
 
   const rows: Cell[][] = [];
   /** Spalte E (Tiefe): nur zeigen, wenn im Blatt irgendwo eine Tiefe steht – sonst ausgeblendet (unnötiger Platz) */
-  let depthUsed = false;
   const heights: Record<number, number> = {};
   const merges: string[] = [];
   const add = (cells: Cell[] = [], height?: number) => {
@@ -207,17 +206,17 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
   const rebarItems = items.filter((x) => (x.d.rebar ?? 0) > 0);
   if (rebarItems.length) {
     band('Bewehrung');
-    add(fillRow([str('Plan', 'amHead'), str('Nr.', 'amHead'), null, null, null, str('lfm', 'amHeadR')], 'amHead'), 15);
+    add(fillRow([str('Plan', 'amHead'), str('Nr.', 'amHead'), str('lfm', 'amHeadR')], 'amHead'), 15);
     const first = rows.length + 1;
     let total = 0;
     rebarItems.forEach(({ plan, d }) => {
       const parts = rebarItemsOf(d);
       const v = rebarExact(parts);
       total += v;
-      add(fillRow([planCell(plan), nrCell(d), null, null, null, { t: 'formula', f: rebarFormula(parts), v, s: 'amRowQty' }], 'amRowBlank'));
+      add(fillRow([planCell(plan), nrCell(d), { t: 'formula', f: rebarFormula(parts), v, s: 'amRowQty' }], 'amRowBlank'));
     });
-    const col = COLS[QTY];
-    add(fillRow([str('Summe', 'amSumLabel'), null, null, null, null, { t: 'formula', f: `SUM(${col}${first}:${col}${rows.length})`, v: Math.round(total * 10000) / 10000, s: 'amSumQty' }, str('lfm', 'amSumUnit')], 'amSumBlank'));
+    const col = 'C';
+    add(fillRow([str('Summe', 'amSumLabel'), null, { t: 'formula', f: `SUM(${col}${first}:${col}${rows.length})`, v: Math.round(total * 10000) / 10000, s: 'amSumQty' }, str('lfm', 'amSumUnit')], 'amSumBlank'));
     add([], 10);
   }
 
@@ -303,15 +302,13 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
   }
 
   /**
-   * Messtabelle – in allen Tabellen dieselben Spalten: Plan | Nr. | Länge | Breite | Tiefe | Menge (Kopf = Einheit) |
-   * … | Bemerkung. Was zur Tabelle nicht gehört, bleibt leer (Stk./m/l: nur die Menge · m²: Länge, Breite ·
-   * m³: Länge, Breite, Tiefe). Spalte „Bemerkung“ nur, wenn es etwas zu bemerken gibt. Liefert die Summenzelle
+   * Messtabelle: Plan | Nr. | nur die Maße der Messart | Menge (Kopf = Einheit) | … | Bemerkung (Stk./m/l: nur die
+   * Menge · m²: Länge, Breite · m²/m³ mit Tiefe: Länge, Breite, Tiefe). Spalte „Bemerkung“ nur, wenn es etwas zu bemerken gibt. Liefert die Summenzelle
    * (für die Menge der Position).
    */
   function table(list: Item[], kind: Kind, unit = '', labels: { width?: string; depth?: string } = {}): { ref: string; value: number } | null {
     const areaTable = kind === 'area' || kind === 'areaDepth' || kind === 'volume';
     const withDepth = kind === 'areaDepth' || kind === 'volume';
-    if (kind === 'volume' || (withDepth && list.some((it) => it.d.depth !== null))) depthUsed = true;
     const unitHead =
       kind === 'area' || kind === 'areaDepth' ? 'm²' : kind === 'volume' ? 'm³' : kind === 'free' ? unit || 'Menge' : kind === 'other' ? unitText(unit) : unitText(kind === 'count' ? 'Stk' : kind === 'liter' ? 'l' : 'm');
     // Zeilen: je Messung eine Zeile, darunter ihre Abzüge/Zuschläge (Tür, Öffnung …) – Flächen-Tabellen
@@ -328,18 +325,17 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
             .filter(Boolean)
             .join(' · '),
     );
+    // nur die Maße dieser Messart (m²: Länge, Breite · m³: Länge, Breite, Tiefe · m/Stk./l: keine), Menge gleich danach
+    const keep = areaTable ? (withDepth ? [0, 1, 2] : [0, 1]) : [];
+    const compact = (c: Cell[]) => [...keep.map((k) => c[k]), c[3]];
+    const qtyCol = COLS[2 + keep.length];
     add(
       fillRow(
-        [
-          str('Plan', 'amHead'),
-          str('Nr.', 'amHead'),
-          areaTable ? str('Länge', 'amHeadR') : null,
-          areaTable ? str(labels.width ?? 'Breite', 'amHeadR') : null,
-          withDepth ? str(labels.depth ?? 'Tiefe', 'amHeadR') : null,
-          str(unitHead, 'amHeadR'),
-          null,
+        measureRow(
+          [str('Plan', 'amHead'), str('Nr.', 'amHead')],
+          compact([str('Länge', 'amHeadR'), str(labels.width ?? 'Breite', 'amHeadR'), str(labels.depth ?? 'Tiefe', 'amHeadR'), str(unitHead, 'amHeadR')]),
           notes.some(Boolean) ? str('Bemerkung', 'amHeadL') : null,
-        ],
+        ),
         'amHead',
       ),
       15,
@@ -371,7 +367,7 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
           cells = [n(ded.length, true), n(ded.width ?? null, true), null, q(a, `${sign}ROUND(C${r}*D${r},2)`)];
         }
         const dNo = deductionNumbers(d)[(d.deductions ?? []).indexOf(ded)] ?? '';
-        add(fillRow([null, dNo ? str(dNo, 'amDedCenter') : null, ...cells, null, noteCell], 'amRowBlank'));
+        add(fillRow(measureRow([null, dNo ? str(dNo, 'amDedCenter') : null], compact(cells), noteCell), 'amRowBlank'));
         return;
       }
       let cells: Cell[];
@@ -380,7 +376,7 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
         // Bewehrungsposition: Länge der Bewehrung, die bei der Schadstelle eingetragen ist
         const qty = d.rebar ?? null;
         total += qty ?? 0;
-        add(fillRow([planCell(plan), nrCell(d), null, null, null, qn(qty), null, noteCell], 'amRowBlank'));
+        add(fillRow(measureRow([planCell(plan), nrCell(d)], compact([null, null, null, qn(qty)]), noteCell), 'amRowBlank'));
         return;
       }
       if (steps(item) && baseUnit) {
@@ -390,7 +386,7 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
         total += v ?? 0;
         const qty = v === null ? qn(null) : q(v, `${item.factor}*${base}`);
         cells = areaTable ? [n(d.areaFromShape ? null : d.length), n(d.areaFromShape ? null : d.width), withDepth ? dn(d.depth) : null, qty] : [null, null, null, qty];
-        add(fillRow([planCell(plan), nrCell(d), ...cells, null, noteCell], 'amRowBlank'));
+        add(fillRow(measureRow([planCell(plan), nrCell(d)], compact(cells), noteCell), 'amRowBlank'));
         return;
       }
       // Bruttofläche (Länge × Breite bzw. aus dem Plan); die Abzüge folgen in eigenen Zeilen
@@ -420,13 +416,13 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
         total += qty ?? 0;
         cells = [null, null, null, qn(qty)];
       }
-      add(fillRow([planCell(plan), nrCell(d), ...cells, null, noteCell], 'amRowBlank'));
+      add(fillRow(measureRow([planCell(plan), nrCell(d)], compact(cells), noteCell), 'amRowBlank'));
     });
     const lastRow = rows.length;
     if (kind === 'other') return null;
-    const col = COLS[QTY];
+    const col = qtyCol;
     const value = Math.round(total * 10000) / 10000;
-    const sr = add(fillRow([str('Summe', 'amSumLabel'), null, null, null, null, { t: 'formula', f: `SUM(${col}${first}:${col}${lastRow})`, v: value, s: 'amSumQty' }, str(unitHead, 'amSumUnit')], 'amSumBlank'), 16);
+    const sr = add(fillRow([str('Summe', 'amSumLabel'), null, ...compact([null, null, null, { t: 'formula', f: `SUM(${col}${first}:${col}${lastRow})`, v: value, s: 'amSumQty' }]), str(unitHead, 'amSumUnit')], 'amSumBlank'), 16);
     return { ref: `${col}${sr}`, value };
   }
 
@@ -434,7 +430,6 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
     name: `Aufmaßblatt ${info.no}`.slice(0, 31),
     rows,
     widths: WIDTHS,
-    hiddenCols: depthUsed ? [] : [COLS.indexOf('E')],
     rowHeights: heights,
     merges,
     print: true,

@@ -963,10 +963,17 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   };
 
   const hitLabel = (p: Point): string | null => {
-    // Übersicht: die Nummer liegt auf der Messung – Antippen/Ziehen gilt der Messung selbst (Nummer nicht verschiebbar)
-    if (overview) return null;
-    for (const [id, r] of labels) if (rectContains(r, p, isCoarse() ? 6 : 2)) return id;
+    // Nummer in der eigenen Fläche gehört zur Fläche (Ziehen verschiebt die Fläche, kurz halten löst die Nummer);
+    // Übersicht: Nummern sind erst verschiebbar, wenn die Messung gewählt ist
+    for (const [id, r] of labels) {
+      if (!rectContains(r, p, isCoarse() ? 6 : 2) || labelInside(id, r)) continue;
+      if (!overview || id === propsRef.current.selectedId) return id;
+    }
     return null;
+  };
+  const labelInside = (id: string, r: Rect) => {
+    const d = propsRef.current.damages.find((x) => x.id === id);
+    return !!d && !isOpenShape(d.shape) && hitShape(d.shape, toPage(viewRef.current!, { x: r.x + r.w / 2, y: r.y + r.h / 2 }), 0);
   };
 
   const hitHandle = (p: Point): string | null => {
@@ -1137,7 +1144,17 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       const hit = hitDamage(p);
       if (hit && hit.id === propsRef.current.selectedId) {
         const b = shapeAABB(hit.shape);
-        gesture.current = { kind: 'move', id: hit.id, start: toPage(v, p), orig: hit.shape, moved: false, ref: { x: b.x, y: b.y } };
+        const g: Gesture = { kind: 'move', id: hit.id, start: toPage(v, p), orig: hit.shape, moved: false, ref: { x: b.x, y: b.y } };
+        gesture.current = g;
+        // auf der Nummer in der Fläche kurz halten (ohne Bewegung): jetzt wird die Nummer gezogen, nicht die Fläche
+        const lr = labels.get(hit.id);
+        if (lr && rectContains(lr, p, isCoarse() ? 6 : 2)) {
+          window.setTimeout(() => {
+            if (gesture.current !== g || g.moved) return;
+            gesture.current = { kind: 'label', id: hit.id, start: p, orig: lr, moved: false };
+            navigator.vibrate?.(10);
+          }, 450);
+        }
         return;
       }
       gesture.current = { kind: 'pan', start: p, view: v, moved: false, tapTarget: hit?.id ?? null };

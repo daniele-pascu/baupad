@@ -191,7 +191,7 @@ function infoSheet(data: ProjectState, costCenters: CostCenter[], plans: Plan[],
     ...(p.editor ? [[str('Bearbeiter', 'label'), str(p.editor)]] : []),
     [str('Exportiert am', 'label'), str(new Date().toLocaleString('de-DE'))],
     [],
-    ['Kostenstelle', 'Plannummer', 'Planname', 'Geschoss', 'Planbereich', 'Originaldatei', 'Seite', 'Anzahl Schadstellen', 'Fläche gesamt (m²)'].map(
+    ['Kostenstelle', 'Plannummer', 'Planname', 'Geschoss', 'Planbereich', 'Originaldatei', 'Seite', 'Anzahl Messungen', 'Fläche gesamt (m²)'].map(
       (h) => str(h, 'header'),
     ),
   ];

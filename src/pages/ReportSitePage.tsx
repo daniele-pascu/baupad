@@ -4,6 +4,7 @@ import { trashDocs } from '../lib/trash-items';
 import { useEffect, useMemo, useState } from 'react';
 import { ActionMenu } from '../components/ActionMenu';
 import { Icon } from '../components/Icon';
+import { Swap } from '../components/Motion';
 import { PdfPreview } from '../components/PdfPreview';
 import { SiteNav } from '../components/SiteNav';
 import { confirmDialog, offerFile, promptDialog, showError, toast } from '../components/ui';
@@ -285,10 +286,12 @@ export function ReportSitePage({ siteKey: key }: { siteKey: string }) {
               data-testid="report-sort"
               data-dir={asc ? 'asc' : 'desc'}
             >
-              Nr. {asc ? '↑' : '↓'}
+              Nr. <span className="sort-arrow">↑</span>
             </button>
             <button type="button" className={`btn btn-sm${selecting ? ' btn-primary' : ''}`} onClick={() => (selecting ? stop() : setSelecting(true))} disabled={!reports.length} data-testid="report-select">
-              <Icon name="check" size={16} /> {selecting ? 'Fertig' : 'Auswählen'}
+              <Swap k={selecting ? 'on' : 'off'}>
+                <Icon name="check" size={16} /> <span className="swap-text">{selecting ? 'Fertig' : 'Auswählen'}</span>
+              </Swap>
             </button>
             <button type="button" className="btn btn-sm" onClick={() => share(TYPE_ORDER.flatMap((t) => ascending(byType[t])))} disabled={!reports.length || busy} data-testid="report-share-all">
               <Icon name="share" size={16} /> <span className="lbl">Alle teilen</span>

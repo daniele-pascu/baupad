@@ -131,8 +131,6 @@ export interface Sheet {
   rows: Cell[][];
   /** Spaltenbreiten in Zeichen */
   widths: number[];
-  /** ausgeblendete Spalten (0 = A), z. B. eine Spalte, die im ganzen Blatt leer bliebe */
-  hiddenCols?: number[];
   /** Erste Zeile fixieren und als Drucktitel wiederholen */
   freezeHeader?: boolean;
   /** Autofilter-Bereich, z. B. "A1:F20" */
@@ -338,7 +336,7 @@ function sheetXml(sheet: Sheet, logo?: HeaderImage): string {
     ? `<pane ySplit="${frozen}" topLeftCell="A${frozen + 1}" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A${frozen + 1}" sqref="A${frozen + 1}"/>`
     : '';
   const cols = sheet.widths.length
-    ? `<cols>${sheet.widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"${sheet.hiddenCols?.includes(i) ? ' hidden="1"' : ''}/>`).join('')}</cols>`
+    ? `<cols>${sheet.widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('')}</cols>`
     : '';
   return (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +

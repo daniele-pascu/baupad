@@ -2687,7 +2687,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 {k && <MeasureCheck damage={selected} k={k} />}
               </div>
               {tool === 'select' ? (
-                <div className="selection-hint muted small">Ziehen = verschieben · ⟳ oben = drehen · Eckpunkte (○) einzeln ziehen · Seitengriffe (□) = Seite · Doppelklick auf Kante = Punkt einfügen</div>
+                <div className="selection-hint muted small">Ziehen = verschieben · Nummer kurz halten und ziehen = Nummer versetzen · ⟳ oben = drehen · Eckpunkte (○) einzeln ziehen · Seitengriffe (□) = Seite · Doppelklick auf Kante = Punkt einfügen</div>
               ) : null}
               <div className="row gap">
                 {tool !== 'select' && (

@@ -13,6 +13,7 @@ import { round2, round3, checkMeasure, computeArea, formatArea, formatMeasure, p
 const up2 = (n: number | null | undefined) => (n === null || n === undefined ? n : round2(n));
 import { damageNo, findByNumber, parseDamageNumber } from '../lib/numbering';
 import { COLORS, SHAPE_LABELS, type Component, type Damage, type Deduction, type MeasureKind, type MeasureType, type RebarItem, type Shape, type ShapeType, type Surface, type Beam } from '../lib/types';
+import { shake } from '../lib/motion';
 import { Icon } from './Icon';
 import { Modal } from './Modal';
 
@@ -431,7 +432,10 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
     setShowErrors(true);
     if (!valid || (num === null && !label) || !L.ok) {
       const first = fields.find((f) => errors[f]) ?? (errors.count ? 'count' : undefined);
-      if (first) refs.current[first]?.focus();
+      if (first) {
+        refs.current[first]?.focus();
+        shake(refs.current[first]?.closest('.field'));
+      }
       return;
     }
     if (conflict && renumber === 'none') return; // Hinweis wird angezeigt

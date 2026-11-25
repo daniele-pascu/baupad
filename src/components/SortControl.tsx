@@ -50,7 +50,8 @@ export function SortControl<K extends string>({
         data-testid={`${testId}-dir`}
         data-dir={value.dir}
       >
-        <Icon name={asc ? 'up' : 'down'} size={20} />
+        {/* Pfeil dreht sich (styles.css: .sort-dir[data-dir='desc']) statt umzuspringen */}
+        <Icon name="up" size={20} />
       </button>
     </span>
   );

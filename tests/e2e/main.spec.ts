@@ -364,6 +364,7 @@ test('Markierung verschieben, Größe ändern, Beschriftung verschieben, Farbe �
   const lb = (await label.boundingBox())!;
   await page.mouse.move(lb.x + lb.width / 2, lb.y + lb.height / 2);
   await page.mouse.down();
+  await page.waitForTimeout(600); // Nummer in der Fläche: kurz halten, dann ziehen (sonst verschiebt sich die Fläche)
   await page.mouse.move(lb.x + 80, lb.y + 60, { steps: 6 });
   await page.mouse.up();
   const lb2 = (await label.boundingBox())!;

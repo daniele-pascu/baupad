@@ -613,7 +613,8 @@ function drawDamages(ctx: Ctx, t: Target, region: Rect, damages: Damage[], compo
       offset: d.labelOffset,
     })),
     fs * 0.25 * u,
-    { area: region },
+    // wie die Planansicht: Nummer in der Mitte der Fläche bzw. direkt an der Linie – aber keine ausgeblendet
+    { area: region, overview: { all: true } },
   );
   // Verbindungslinien zuerst, damit sie unter den Nummern liegen
   for (const d of damages) {

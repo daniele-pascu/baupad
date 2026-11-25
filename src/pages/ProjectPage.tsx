@@ -4,6 +4,7 @@ import { SiteNav } from '../components/SiteNav';
 import { AreaEditor } from '../components/AreaEditor';
 import { AufmassTable } from '../components/AufmassTable';
 import { Icon } from '../components/Icon';
+import { TrashCount } from '../components/Motion';
 import { ProjectAccessButton } from '../components/ProjectAccess';
 import { ImportWizard } from '../components/ImportWizard';
 import { InvoiceBar } from '../components/InvoiceBar';
@@ -439,7 +440,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
         <button type="button" className="btn btn-sm trash-btn" onClick={() => setTrashOpen(true)} title="Papierkorb dieses Projekts" aria-label={`Papierkorb${trashCount ? ` (${trashCount})` : ''}`} data-testid="open-trash" data-count={trashCount}>
           <Icon name="trash" size={16} />
           <span className="lbl">Papierkorb</span>
-          {trashCount > 0 && <span className="trash-count">{trashCount}</span>}
+          <TrashCount n={trashCount} />
         </button>
       </header>
       <SaveErrorBanner />
@@ -1008,7 +1009,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
             // Papierformat bleibt erhalten (ältere Pläne: bisheriges automatisches Format festhalten)
             putRecord('plans', { ...plan, paper: plan.paper ?? exportPaper(plan), crop: areas[0] ?? null });
             setCropping(null);
-            toast('Planausschnitt geändert. Die Schadstellen behalten ihre Position auf der Seite.');
+            toast('Planausschnitt geändert. Die Messungen behalten ihre Position auf der Seite.');
           }}
         />
       )}

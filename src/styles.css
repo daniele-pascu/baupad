@@ -138,14 +138,14 @@ a {
   touch-action: manipulation;
   white-space: nowrap;
   box-shadow: 0 1px 1px rgba(0, 0, 0, 0.03);
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.15s cubic-bezier(0.32, 0.72, 0, 1);
 }
 .btn:hover {
   background: #f5f5f7;
   border-color: #c7c7cc;
 }
 .btn:active:not(:disabled) {
-  transform: scale(0.98);
+  transform: scale(0.96);
 }
 .btn:focus-visible {
   outline: none;
@@ -15288,4 +15288,93 @@ html[data-theme='dark'] .crew-ww-legend b.o {
   min-height: 36px;
   padding: 4px 12px;
   font-size: 0.9rem;
+}
+
+/* ── Tasten-Animationen (charles-ux-animation) ─────────────────────────────── */
+/* 1 · große Flächen (Listenzeilen) werden beim Antippen dunkler statt kleiner */
+.plan-row:not(.plan-head):active {
+  background: var(--surface-2, #ececf0);
+}
+/* 3 · Umschalter: Mitläufer der Markierung (lib/motion.ts) */
+.segmented.seg-gliding {
+  position: relative;
+}
+.segmented.seg-gliding > button {
+  position: relative;
+  z-index: 1;
+}
+.segmented.seg-gliding > button[aria-selected='true'],
+.segmented.seg-gliding > button[aria-checked='true'] {
+  background: transparent;
+  box-shadow: none;
+}
+.seg-ghost {
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+}
+/* 4 · Tasten mit wechselndem Symbol: Symbol blendet über (200 ms), Sortier-Pfeil dreht sich (250 ms) */
+.swap {
+  display: inline-flex;
+  align-items: center;
+  gap: inherit;
+}
+.swap.swapped > svg {
+  animation: icon-swap 200ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.swap.swapped > .swap-text {
+  animation: text-swap 200ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+@keyframes icon-swap {
+  from {
+    opacity: 0;
+    transform: scale(0.3);
+    filter: blur(3px);
+  }
+}
+@keyframes text-swap {
+  from {
+    opacity: 0;
+    filter: blur(2px);
+  }
+}
+.sort-dir svg,
+.sort-arrow {
+  display: inline-block;
+  transition: transform 250ms cubic-bezier(0.77, 0, 0.175, 1);
+}
+.sort-dir[data-dir='desc'] svg,
+[data-dir='desc'] > .sort-arrow {
+  transform: rotate(180deg);
+}
+/* 5 · Papierkorb: Zähler springt einmal an (300 ms) */
+.trash-count.bump-0 {
+  animation: bump-a 300ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.trash-count.bump-1 {
+  animation: bump-b 300ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+@keyframes bump-a {
+  40% {
+    transform: scale(1.25);
+  }
+}
+@keyframes bump-b {
+  40% {
+    transform: scale(1.25);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn:active:not(:disabled) {
+    transform: none;
+  }
+  .swap.swapped > svg,
+  .swap.swapped > .swap-text,
+  .trash-count {
+    animation: none;
+  }
+  .sort-dir svg,
+  .sort-arrow {
+    transition: none;
+  }
 }
