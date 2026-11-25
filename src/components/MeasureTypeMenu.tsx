@@ -7,12 +7,17 @@ import { Icon } from './Icon';
  * Gewählte Messart im Aufmaß: eine der sieben Messarten; 'auto' = noch keine gewählt (dann gibt es noch keine
  * Zeichenwerkzeuge – erst die Messart wählen, danach erscheinen die passenden Werkzeuge). „Automatisch“ gibt es nicht mehr.
  */
-export type MeasureChoice = MeasureType | 'auto';
-export const MEASURE_CHOICES: MeasureChoice[] = ['auto', ...MEASURE_TYPES.map((t) => t.id)];
-/** im Menü wählbar: nur die Messarten */
-const MENU_CHOICES: MeasureType[] = MEASURE_TYPES.map((t) => t.id);
-export const choiceLabel = (c: MeasureChoice) => (c === 'auto' ? 'wählen' : typeInfo(c).label);
-export const choiceIcon = (c: MeasureChoice) => (c === 'auto' ? 'mtype' : typeInfo(c).icon);
+export type MeasureChoice = MeasureType | 'auto' | 'unterzug';
+/** Unterzug: eigene Wahl im Menü, gespeichert als Wand mit Unterzug (Seite 1, Unterseite, Seite 2) */
+const UNTERZUG = { label: 'Unterzug', unit: 'm²', icon: 'wall', hint: 'Länge × Abwicklung · Seite 1 + Unterseite + Seite 2' };
+/** im Menü wählbar: die Messarten, Unterzug gleich nach Wand */
+const MENU_CHOICES: Exclude<MeasureChoice, 'auto'>[] = MEASURE_TYPES.flatMap((t) => (t.id === 'wand' ? (['wand', 'unterzug'] as const) : [t.id]));
+export const MEASURE_CHOICES: MeasureChoice[] = ['auto', ...MENU_CHOICES];
+/** gespeicherte Messart einer Wahl (Unterzug = Wand) */
+export const choiceType = (c: Exclude<MeasureChoice, 'auto'>): MeasureType => (c === 'unterzug' ? 'wand' : c);
+const info = (c: Exclude<MeasureChoice, 'auto'>) => (c === 'unterzug' ? UNTERZUG : typeInfo(c));
+export const choiceLabel = (c: MeasureChoice) => (c === 'auto' ? 'wählen' : info(c).label);
+export const choiceIcon = (c: MeasureChoice) => (c === 'auto' ? 'mtype' : info(c).icon);
 
 /**
  * Messart wählen (Aufmaß): zuerst festlegen, was gemessen wird – danach liefert jedes Werkzeug (Linie, Rechteck,
@@ -41,9 +46,9 @@ export function MeasureTypeMenu({ value, onPick, onClose }: { value: MeasureChoi
           <span className="probe-menu-text">
             <strong>
               {choiceLabel(c)}
-              {typeInfo(c).unit ? ` · ${typeInfo(c).unit}` : ''}
+              {info(c).unit ? ` · ${info(c).unit}` : ''}
             </strong>
-            <span className="muted small">{typeInfo(c).hint}</span>
+            <span className="muted small">{info(c).hint}</span>
           </span>
         </button>
       ))}

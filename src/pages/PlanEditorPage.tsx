@@ -34,7 +34,7 @@ import { aufmassPaper, drawingRegion, printSheetRect, sheetUnitsPerPt, isDrawing
 import { convertShape, isOpenShape, lineShape, moveVertex, polygonShape, removeVertex, rotatePoint, shapeVertices, toPage, toScreen, type Point, type View } from '../lib/geometry';
 import { probeTarget, type ProbeKind } from '../lib/probe';
 import { ProbeBar, ProbeMenu, ProbeOverlay, type ProbeState } from '../components/ProbeLayer';
-import { choiceIcon, choiceLabel, MEASURE_CHOICES, MeasureTypeMenu, type MeasureChoice } from '../components/MeasureTypeMenu';
+import { choiceIcon, choiceLabel, choiceType, MEASURE_CHOICES, MeasureTypeMenu, type MeasureChoice } from '../components/MeasureTypeMenu';
 import { calcPath, defaultTypeFor, DEFAULT_WORK_AREAS, measureTypeForUnit, quantityOfMeasure, typeInfo, typeOf } from '../lib/measure-types';
 import { circleThrough, translateShape } from '../lib/cad';
 import { countKind, deductionText, grossArea, hasArea, isWall, kindOf, measureLabel, netArea, netLength, sumLengths } from '../lib/measure';
@@ -319,7 +319,7 @@ function storePref(key: string, value: string) {
 function withShapeMeasures<T extends Pick<Damage, 'areaFromShape' | 'kind' | 'length' | 'area' | 'width' | 'deductions'> & Partial<Pick<Damage, 'measureType' | 'count'>>>(d: T, shape: Shape, k: number | null, prev?: Shape): T {
   // Rechteck an einer Ecke verzogen: Länge × Breite stimmt nicht mehr → Fläche aus dem Plan (mit Maßstab)
   const rectBent = prev?.type === 'rect' && shape.type !== 'rect';
-  if (!d.areaFromShape && rectBent && hasArea(kindOf(d)) && !isWall({ kind: d.kind, shape, measureType: d.measureType }) && d.measureType !== 'stueck' && d.measureType !== 'frei' && geometryMeasures(shape, k)) {
+  if (!d.areaFromShape && rectBent && d.measureType === 'flaeche' && geometryMeasures(shape, k)) {
     d = { ...d, areaFromShape: true };
   }
   if (!d.areaFromShape) return d;
@@ -437,7 +437,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   useEffect(() => {
     if (tool !== 'select' && tool !== 'probe' && tool !== 'calibrate') lastTool.current = tool;
   }, [tool]);
-  const [color, setColorState] = useState(() => loadPref('color', COLORS.map((c) => c.value), DEFAULT_COLOR));
+  const [color, setColorState] = useState(() => loadPref(`color:${planId}`, COLORS.map((c) => c.value), DEFAULT_COLOR));
   const [selectedId, setSelectedId] = useState<string | null>(focusDamageId);
   /** Kontrollmessung (Werkzeug „Messung“) – wird nicht gespeichert */
   const [probe, setProbe] = useState<ProbeState | null>(null);
@@ -462,10 +462,10 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     if (id === 'select' || id === 'calibrate' || id === 'text') return true;
     if (c === 'auto') return false;
     if (id === 'probe') return true;
-    return (TOOLS_BY_TYPE[c] as readonly Tool[]).includes(id);
+    return (TOOLS_BY_TYPE[choiceType(c)] as readonly Tool[]).includes(id);
   };
   /** erstes Werkzeug einer Messart (zum gleich Zeichnen) */
-  const firstTool = (c: MeasureChoice): Tool => (c === 'auto' ? 'select' : TOOLS_BY_TYPE[c][0]);
+  const firstTool = (c: MeasureChoice): Tool => (c === 'auto' ? 'select' : TOOLS_BY_TYPE[choiceType(c)][0]);
   /** Stück zählen: angetippte Punkte (Seitenkoordinaten), bis „Fertig“ */
   const [pointMarks, setPointMarks] = useState<Point[]>([]);
   /** Stück: mit „Zurück“ entfernte Punkte (für „Vor“) */
@@ -487,7 +487,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     setPointMarks([]);
   };
   /** Messart für eine neu gezeichnete Form */
-  const typeForNew = (shape: Shape): MeasureType => (tool === 'wall' ? 'wand' : mtype === 'auto' ? defaultTypeFor(shape) : mtype);
+  const typeForNew = (shape: Shape): MeasureType => (tool === 'wall' ? 'wand' : mtype === 'auto' ? defaultTypeFor(shape) : choiceType(mtype));
   /** Aufmaß: ausgewählter Eckpunkt der ausgewählten Messung (zum Entfernen) */
   const [measureVertex, setMeasureVertex] = useState<number | null>(null);
   useEffect(() => setMeasureVertex(null), [selectedId]);
@@ -652,11 +652,11 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     document.addEventListener('pointerdown', close, true);
     return () => document.removeEventListener('pointerdown', close, true);
   }, [stylePopOpen]);
-  const [measureStyle, setMeasureStyleState] = useState<ShapeStyle>(() => readStyle('measureStyle'));
+  const [measureStyle, setMeasureStyleState] = useState<ShapeStyle>(() => readStyle(`measureStyle:${planId}`));
   const setMeasureStyle = (patch: Partial<ShapeStyle>) => {
     const next = { ...measureStyle, ...patch };
     setMeasureStyleState(next);
-    storePref('measureStyle', JSON.stringify(next));
+    storePref(`measureStyle:${planId}`, JSON.stringify(next));
   };
   /** Werkzeugleiste aufgeklappt (klappt nach dem Zeichnen zu, damit der Plan frei bleibt) */
   const [toolsOpen, setToolsOpen] = useState(true);
@@ -714,7 +714,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   };
   const setColor = (c: string) => {
     setColorState(c);
-    storePref('color', c);
+    storePref(`color:${planId}`, c);
   };
   const startDedDraw = () => {
     setDedDraw({ prevTool: tool });
@@ -831,7 +831,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const selected = damages.find((d) => d.id === selectedId) ?? null;
   /** Seiteneinheiten je pt auf dem angezeigten Blatt – Schriftgrößen in pt beziehen sich darauf (weiter unten gesetzt) */
   const ptUnit = useRef(0);
-  const drawing = useDrawing({ plan, data, damages, viewer, onCreated: () => void (reopenTools() || setToolsOpen(false)), ptUnit });
+  const drawing = useDrawing({ plan, planId, data, damages, viewer, onCreated: () => void (reopenTools() || setToolsOpen(false)), ptUnit });
   // fertig (Messung gespeichert bzw. abgebrochen, Kalibrieren beendet) → zugeklappte Leiste wieder öffnen
   const hadDialog = useRef(false);
   useEffect(() => {
@@ -1354,7 +1354,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     setTool('select');
     // nachgemessene Fläche → Fläche, Strecke → Länge; die gewählte Messart gilt nur, wenn sie dazu passt
     const fits = probe.kind === 'area' ? ['flaeche', 'volumen', 'schadstelle', 'frei'] : ['laenge', 'schadstelle', 'frei'];
-    const mt: MeasureType = mtype !== 'auto' && fits.includes(mtype) ? mtype : probe.kind === 'area' ? 'flaeche' : 'laenge';
+    const mt: MeasureType = mtype !== 'auto' && fits.includes(choiceType(mtype)) ? choiceType(mtype) : probe.kind === 'area' ? 'flaeche' : 'laenge';
     setDialog({ mode: 'new', shape, ...suggestNext(stored, planNumberStart(plan)), kind: typeInfo(mt).kind, measureType: mt, fromShape: true });
   };
 
@@ -3056,6 +3056,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           suggestion={k ? suggestMeasures(dialog.shape, k) : null}
           geometry={geometryMeasures(dialog.shape, k)}
           wall={isWall({ kind: dialog.kind, shape: dialog.shape, measureType: dialog.measureType })}
+          startBeam={mtype === 'unterzug' && dialog.measureType === 'wand'}
           openShape={isOpenShape(dialog.shape)}
           workAreas={workAreas}
           others={stored}

@@ -127,6 +127,8 @@ interface Props {
   geometry?: { area: number; perimeter: number; formula: string } | null;
   /** Wand: offener Verlauf, Länge aus allen Abschnitten, dazu Wandhöhe → Wandfläche */
   wall?: boolean;
+  /** neue Messung mit gewählter Messart Unterzug: gleich Seite 1, Unterseite, Seite 2 */
+  startBeam?: boolean;
   /** Form ist offen (Linie, offene Polylinie): Länge aus dem Verlauf */
   openShape?: boolean;
   /** Arbeitsbereiche zur Auswahl (Vorgaben und im Projekt benutzte) */
@@ -156,7 +158,7 @@ type Field = 'number' | 'length' | 'width' | 'depth' | 'count';
  * Eingabe einer Messung bzw. Schadstelle. Öffnet sich automatisch nach dem Einzeichnen.
  * Enter/Weiter springt zum nächsten Feld; im letzten Feld wird gespeichert.
  */
-export function DamageDialog({ mode, damage, others, components, positions = [], autoPositions, positionMismatch, suggestion, geometry, wall: wallProp = false, openShape = wallProp, workAreas = DEFAULT_WORK_AREAS, surfaces = false, onSave, onCancel, onDelete, onDrawDeduction, drawnDeduction, hidden, dedFromPlan, photoSite, photoPrefix }: Props) {
+export function DamageDialog({ mode, damage, others, components, positions = [], autoPositions, positionMismatch, suggestion, geometry, wall: wallProp = false, startBeam = false, openShape = wallProp, workAreas = DEFAULT_WORK_AREAS, surfaces = false, onSave, onCancel, onDelete, onDrawDeduction, drawnDeduction, hidden, dedFromPlan, photoSite, photoPrefix }: Props) {
   // Messart: im Aufmaß vorgewählt (bzw. aus der Form), hier jederzeit umstellbar
   const [type, setTypeState] = useState<MeasureType>(
     damage.measureType ?? (damage.kind === 'damage' ? 'schadstelle' : damage.kind === 'line' ? 'laenge' : wallProp ? 'wand' : 'flaeche'),
@@ -179,12 +181,13 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const lineSuggest = lineSuggestFor(type);
   // Rechteck: Länge × Breite aus dem Plan; jede andere Form (verzogene Ecke, Vieleck, Kreis): Fläche aus dem Plan
   const isRect = damage.shapeType === 'rect';
-  const planAreaFor = (t: MeasureType) => !!geometry && !isRect && hasArea(typeInfo(t).kind) && t !== 'wand' && !openShape && t !== 'stueck' && t !== 'frei';
+  // nur Messart Fläche – Schadstellen-Markierungen sind oft nur grob gezeichnet, dort zählen die gemessenen Maße
+  const planAreaFor = (t: MeasureType) => t === 'flaeche' && !!geometry && !isRect && !openShape;
   const [fromShape, setFromShape] = useState(
     damage.areaFromShape ? !!geometry || lineSuggest !== null : mode === 'new' && ((lineSuggest !== null && lineSuggest > 0) || planAreaFor(type)),
   );
   // neues Rechteck auf einem Plan mit Maßstab: Länge und Breite gleich ausgefüllt
-  const rectFill = mode === 'new' && isRect && suggestion && suggestion.width !== null && hasArea(kind) && type !== 'wand' && damage.length == null ? suggestion : null;
+  const rectFill = mode === 'new' && isRect && suggestion && suggestion.width !== null && type === 'flaeche' && damage.length == null ? suggestion : null;
   /** „aus Plan“-Feld doppelt angetippt bzw. doppelt geklickt: Maße selbst eingeben (Klick zählt für Maus und Finger) */
   const lastFieldTap = useRef(0);
   const tapToEdit = (e: { currentTarget: HTMLElement }) => {
@@ -228,7 +231,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const [formula, setFormula] = useState(damage.formula ?? (damage.qty !== null && damage.qty !== undefined ? toInputValue(damage.qty) : ''));
   const [unit, setUnit] = useState(damage.unit ?? '');
   // Unterzug (bei der Messart Wand): Seitenfläche 1, Unterseite, Seitenfläche 2 – je an/aus mit eigenem Maß
-  const [beamOn, setBeamOn] = useState(!!damage.beam);
+  const [beamOn, setBeamOn] = useState(!!damage.beam || startBeam);
   const [bm, setBm] = useState(() => {
     const b = damage.beam;
     const val = (x: number | null | undefined) => (x === null || x === undefined ? '' : toInputValue(up2(x)));
@@ -505,7 +508,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
 
   return (
     <Modal
-      title={mode === 'new' ? `Neue Messung: ${typeInfo(type).label}` : `${typeInfo(type).label} ${damageNo(damage)} bearbeiten`}
+      title={`${mode === 'new' ? 'Neue Messung: ' : ''}${type === 'wand' && beamOn ? 'Unterzug' : typeInfo(type).label}${mode === 'new' ? '' : ` ${damageNo(damage)} bearbeiten`}`}
       onClose={onCancel}
       persistent
       testId="damage-dialog"
@@ -535,14 +538,28 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
       >
         <label className="field mtype-field">
           <span>Messart</span>
-          <select value={type} onChange={(e) => setType(e.target.value as MeasureType)} data-testid="measure-type-select">
-            {MEASURE_TYPES.map((t) => (
+          {/* Unterzug: eigene Wahl, gespeichert als Wand mit Seite 1, Unterseite, Seite 2 */}
+          <select
+            value={type === 'wand' && beamOn ? 'unterzug' : type}
+            onChange={(e) => {
+              const t = e.target.value;
+              setBeamOn(t === 'unterzug');
+              setType(t === 'unterzug' ? 'wand' : (t as MeasureType));
+            }}
+            data-testid="measure-type-select"
+          >
+            {MEASURE_TYPES.map((t) => [
               <option key={t.id} value={t.id}>
                 {t.label} {t.unit ? `(${t.unit})` : '(eigene Einheit)'}
-              </option>
-            ))}
+              </option>,
+              t.id === 'wand' && (
+                <option key="unterzug" value="unterzug">
+                  Unterzug (m²)
+                </option>
+              ),
+            ])}
           </select>
-          <small className="muted">{typeInfo(type).hint}</small>
+          <small className="muted">{type === 'wand' && beamOn ? 'Länge × Abwicklung · Seite 1 + Unterseite + Seite 2' : typeInfo(type).hint}</small>
         </label>
         {/* doppelte Nummer: direkt über der Nummernvergabe, damit man nicht nach unten scrollen muss */}
         {conflict && num !== null && (
@@ -629,60 +646,52 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
           {!counted && !free && !geo && usesWidth && !beamMode && field('width', type === 'wand' ? 'Wandhöhe' : 'Breite', 'm')}
           {!counted && !free && usesDepth && field('depth', type === 'volumen' ? 'Tiefe *' : 'Tiefe', 'm')}
         </div>
-        {type === 'wand' && !counted && !free && (
+        {beamMode && (
           <div className="beam-box" data-testid="beam-box">
-            <label className="check-row">
-              <input type="checkbox" checked={beamOn} onChange={(e) => setBeamOn(e.target.checked)} data-testid="beam-toggle" />
-              <span>Unterzug – Seite 1, Unterseite und Seite 2 einzeln (Abwicklung)</span>
-            </label>
-            {beamOn && (
-              <>
-                <div className="beam-rows">
-                  {(
-                    [
-                      ['aOn', 'a', 'Seite 1', 'Seitenfläche 1 – Höhe'],
-                      ['bottomOn', 'bottom', 'Unterseite', 'Unterseite – Breite'],
-                      ['bOn', 'b', 'Seite 2', 'Seitenfläche 2 – Höhe'],
-                    ] as const
-                  ).map(([on, key, short, label], i, all) => (
-                    <div key={key} className={`beam-row${bm[on] ? '' : ' off'}`} data-testid={`beam-${key}`}>
-                      <label className="beam-check">
-                        <input type="checkbox" checked={bm[on]} onChange={(e) => setBm({ ...bm, [on]: e.target.checked })} aria-label={`${short} zählt`} data-testid={`beam-${key}-on`} />
-                        <span>
-                          <b>{short}</b>
-                          <small className="muted">{label.split(' – ')[1]}</small>
-                        </span>
-                      </label>
-                      <div className="input-unit">
-                        <input
-                          value={bm[key]}
-                          disabled={!bm[on]}
-                          onChange={(e) => setBm({ ...bm, [key]: e.target.value })}
-                          onFocus={(e) => e.target.select()}
-                          onKeyDown={(e) => {
-                            if (e.key !== 'Enter') return;
-                            e.preventDefault();
-                            const next = all.slice(i + 1).find(([o]) => bm[o]);
-                            if (next) document.querySelector<HTMLInputElement>(`[data-testid="beam-${next[1]}-input"]`)?.focus();
-                            else submit();
-                          }}
-                          inputMode="decimal"
-                          enterKeyHint="next"
-                          autoComplete="off"
-                          aria-label={label}
-                          data-testid={`beam-${key}-input`}
-                        />
-                        <span className="unit">m</span>
-                      </div>
-                    </div>
-                  ))}
+            <div className="beam-rows">
+              {(
+                [
+                  ['aOn', 'a', 'Seite 1', 'Seitenfläche 1 – Höhe'],
+                  ['bottomOn', 'bottom', 'Unterseite', 'Unterseite – Breite'],
+                  ['bOn', 'b', 'Seite 2', 'Seitenfläche 2 – Höhe'],
+                ] as const
+              ).map(([on, key, short, label], i, all) => (
+                <div key={key} className={`beam-row${bm[on] ? '' : ' off'}`} data-testid={`beam-${key}`}>
+                  <label className="beam-check">
+                    <input type="checkbox" checked={bm[on]} onChange={(e) => setBm({ ...bm, [on]: e.target.checked })} aria-label={`${short} zählt`} data-testid={`beam-${key}-on`} />
+                    <span>
+                      <b>{short}</b>
+                      <small className="muted">{label.split(' – ')[1]}</small>
+                    </span>
+                  </label>
+                  <div className="input-unit">
+                    <input
+                      value={bm[key]}
+                      disabled={!bm[on]}
+                      onChange={(e) => setBm({ ...bm, [key]: e.target.value })}
+                      onFocus={(e) => e.target.select()}
+                      onKeyDown={(e) => {
+                        if (e.key !== 'Enter') return;
+                        e.preventDefault();
+                        const next = all.slice(i + 1).find(([o]) => bm[o]);
+                        if (next) document.querySelector<HTMLInputElement>(`[data-testid="beam-${next[1]}-input"]`)?.focus();
+                        else submit();
+                      }}
+                      inputMode="decimal"
+                      enterKeyHint="next"
+                      autoComplete="off"
+                      aria-label={label}
+                      data-testid={`beam-${key}-input`}
+                    />
+                    <span className="unit">m</span>
+                  </div>
                 </div>
-                {showErrors && beamErr && <small className="error">{beamErr}</small>}
-                <p className="muted small" data-testid="beam-formula">
-                  Abwicklung: {beam && beamDev !== null ? beamFormula(beam) : '–'}
-                </p>
-              </>
-            )}
+              ))}
+            </div>
+            {showErrors && beamErr && <small className="error">{beamErr}</small>}
+            <p className="muted small" data-testid="beam-formula">
+              Abwicklung: {beam && beamDev !== null ? beamFormula(beam) : '–'}
+            </p>
           </div>
         )}
         <div className="measure-extra">

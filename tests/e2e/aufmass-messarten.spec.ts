@@ -100,15 +100,16 @@ test('Messart wählen, dann mit beliebigem Werkzeug messen: Wand, Stück, Frei, 
   expect(Math.abs(d.area! - len * 2.5)).toBeLessThan(0.02);
   await expect(page.locator('[data-testid="aufmass-row"]').last().getByTestId('row-kind')).toHaveAttribute('title', 'Wand');
 
-  // 1b) Wand als Unterzug: Länge 5 m, Seite 1 0,50 + Unterseite 0,30 + Seite 2 0,50 = Abwicklung 1,30 m
-  await chooseType('wand');
+  // 1b) Unterzug (eigene Messart, gespeichert als Wand): Länge 5 m, Seite 1 0,50 + Unterseite 0,30 + Seite 2 0,50 = Abwicklung 1,30 m
+  await chooseType('unterzug');
   await page.mouse.click(x + px(0), y + px(5));
   await page.mouse.click(x + px(5), y + px(5));
   await page.keyboard.press('Enter');
-  await expect(dlg()).toContainText('Neue Messung: Wand');
+  await expect(dlg()).toContainText('Neue Messung: Unterzug');
   const len2 = num(await dlg().getByTestId('geometry-length').inputValue());
   await expect(dlg().getByTestId('input-count')).toHaveCount(0); // Wand: keine Anzahl – jede Wand einzeln nummeriert
-  await dlg().getByTestId('beam-toggle').check();
+  await expect(dlg().getByTestId('measure-type-select')).toHaveValue('unterzug');
+  await expect(dlg().getByTestId('beam-toggle')).toHaveCount(0); // kein Häkchen mehr
   await expect(dlg().getByTestId('input-width')).toHaveCount(0); // statt Wandhöhe: Seite 1, Unterseite, Seite 2
   await dlg().getByTestId('beam-a-input').fill('0,5');
   await dlg().getByTestId('beam-bottom-input').fill('0,3');
@@ -130,7 +131,7 @@ test('Messart wählen, dann mit beliebigem Werkzeug messen: Wand, Stück, Frei, 
   await page.locator('[data-testid="aufmass-row"]').last().click();
   const edit = page.getByTestId('damage-dialog');
   if (await edit.isVisible().catch(() => false)) {
-    await expect(edit.getByTestId('beam-toggle')).toBeChecked();
+    await expect(edit.getByTestId('measure-type-select')).toHaveValue('unterzug');
     await expect(edit.getByTestId('beam-b-on')).not.toBeChecked();
     await expect(edit.getByTestId('beam-a-input')).toHaveValue('0,5');
     await edit.getByTestId('damage-cancel').click();

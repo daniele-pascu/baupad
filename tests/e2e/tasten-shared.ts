@@ -562,12 +562,10 @@ export function tastenTests() {
     await pruefe(page, 'Messdialog Stück', out);
     await dlg.getByTestId('measure-type-select').selectOption('volumen');
     await pruefe(page, 'Messdialog Volumen', out);
-    // Wand als Unterzug: Seite A, Unterseite, Seite B
-    await dlg.getByTestId('measure-type-select').selectOption('wand');
-    await dlg.getByTestId('beam-toggle').check();
+    // Unterzug (eigene Messart): Seite 1, Unterseite, Seite 2
+    await dlg.getByTestId('measure-type-select').selectOption('unterzug');
     await dlg.getByTestId('beam-a-input').fill('0,5');
-    await pruefe(page, 'Messdialog Wand mit Unterzug', out);
-    await dlg.getByTestId('beam-toggle').uncheck();
+    await pruefe(page, 'Messdialog Unterzug', out);
     await dlg.getByTestId('measure-type-select').selectOption('schadstelle');
     await pruefe(page, 'Messdialog Schadstelle', out);
     await dlg.getByTestId('damage-cancel').click();
