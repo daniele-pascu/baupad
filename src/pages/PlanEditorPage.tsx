@@ -905,7 +905,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       ...(drawingPlan ? drawing.elements.filter((e) => e.type !== 'text').map((e) => shapeToPage(e.shape, unitsPerMeter(plan!))) : []),
     ];
     const coarse = matchMedia('(pointer: coarse)').matches;
-    const tol = (coarse ? 16 : 9) / ctx.scale;
+    // Fangradius in Bildschirmpunkten (Maus 12 wie in CAD-Programmen; Finger größer)
+    const tol = (coarse ? 16 : 12) / ctx.scale;
     // Vektor-PDF: auch Ecken, Mittel- und Schnittpunkte der Planlinien; per Finger: klar auf der Linie getippt = Punkt auf der Linie
     // gezeichnete Pläne: auch an Hilfslinien (auf der Linie und an ihren Schnittpunkten)
     const upm = drawingPlan ? unitsPerMeter(plan!) : 0;
