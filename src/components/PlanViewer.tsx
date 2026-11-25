@@ -754,8 +754,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       if (!v || !size) return;
       const fit = fitView(region, size.w, size.h).scale;
       const { min, max } = limits();
-      // immer dieselbe Detailstufe (8-fach der Gesamtansicht) – nur wenn schon so nah, nicht weiter
-      const target = Math.min(max, Math.max(min, fit * 8));
+      // immer dieselbe Detailstufe (12-fach der Gesamtansicht) – nur wenn schon so nah, nicht weiter
+      const target = Math.min(max, Math.max(min, fit * 12));
       if (v.scale >= target * 0.85) {
         lupe.current = { prev: null };
         forceRender((n) => n + 1);
@@ -1176,11 +1176,10 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
+    // Mausposition für X (Vergrößern) immer merken – auch beim Ziehen mit gedrückter Taste, sonst zoomt X an den Startpunkt
+    if (e.pointerType === 'mouse') lastHover.current = localPoint(e);
     if (!pointers.current.has(e.pointerId)) {
-      if (e.pointerType === 'mouse') {
-        hoverCursor(localPoint(e));
-        lastHover.current = localPoint(e);
-      }
+      if (e.pointerType === 'mouse') hoverCursor(localPoint(e));
       // Fangpunkt schon vor dem Klicken anzeigen (Zeichenwerkzeuge)
       const t = propsRef.current.tool;
       if (e.pointerType !== 'touch' && propsRef.current.snap && t !== 'select' && viewRef.current) {

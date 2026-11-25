@@ -1631,19 +1631,20 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           <small>
             {[data.project.name, costCenterLabel(cc)].filter(Boolean).join(' · ')}
           </small>
+          {/* Planwechsel ersetzt den Verlauf: „Zurück“ führt ins Tool, nicht zum vorigen Plan */}
           <div className="plan-switch">
             <button
               type="button"
               className="icon-btn icon-btn-sm"
               disabled={idx <= 0}
-              onClick={() => navigate(paths.plan(data.project.id, siblings[idx - 1].id))}
+              onClick={() => navigate(paths.plan(data.project.id, siblings[idx - 1].id), true)}
               aria-label="Vorheriger Plan"
             >
               <Icon name="back" size={18} />
             </button>
             <select
               value={plan.id}
-              onChange={(e) => navigate(paths.plan(data.project.id, e.target.value))}
+              onChange={(e) => navigate(paths.plan(data.project.id, e.target.value), true)}
               aria-label="Plan wechseln"
               data-testid="plan-select"
             >
@@ -1657,7 +1658,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               type="button"
               className="icon-btn icon-btn-sm"
               disabled={idx >= siblings.length - 1}
-              onClick={() => navigate(paths.plan(data.project.id, siblings[idx + 1].id))}
+              onClick={() => navigate(paths.plan(data.project.id, siblings[idx + 1].id), true)}
               aria-label="Nächster Plan"
             >
               <Icon name="next" size={18} />

@@ -146,7 +146,7 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   await expect(page.getByTestId('tool-select')).toHaveCount(0);
   // zuerst die Messart wählen – dann erscheinen die Werkzeuge
   await chooseMeasureType(page, 'flaeche', 'tap');
-  for (const id of ['tool-mtype', 'tool-ellipse', 'tool-rect', 'tool-polyline']) {
+  for (const id of ['tool-mtype', 'tool-ellipse', 'tool-rect', 'tool-polygon']) {
     const b = await page.getByTestId(id).boundingBox();
     expect(b!.height).toBeGreaterThanOrEqual(44);
     expect(b!.width).toBeGreaterThanOrEqual(44);

@@ -235,3 +235,35 @@ test('Kalibrieren und Linie per Klick, Klick: Punkt A, X halten, Punkt B – exa
   await expect(dd.getByTestId('geometry-length')).toHaveValue('7,70'); // Länge aus dem Plan (vorgewählt)
   await dd.getByTestId('damage-cancel').click();
 });
+
+test('X beim Ziehen eines Rechtecks: das zweite X vergrößert an der Maus, nicht am Startpunkt', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'Ziehen', {}, ['Keller']);
+  await page.getByTestId('plan-file-input').setInputFiles(join(FIXTURES, 'massketten.pdf'));
+  const wiz = page.getByTestId('import-wizard');
+  await wiz.getByTestId('areas-next').click();
+  await wiz.locator('[data-field="planNumber"]').fill('Z-1');
+  await wiz.getByTestId('import-save').click();
+  await waitForPlan(page);
+  await waitSaved(page);
+  await pickTool(page, 'tool-rect');
+  const box0 = await planBox(page);
+  const planAt = (b: { x: number; y: number; width: number }, m: { x: number; y: number }) => ({ x: ((m.x - b.x) / b.width) * 1191, y: ((m.y - b.y) / b.width) * 1191 });
+  // Punkt A: Maustaste drücken, X kurz drücken und loslassen
+  await page.mouse.move(box0.x + 200, box0.y + 200);
+  await page.mouse.down();
+  await page.keyboard.down('x');
+  await expect(page.getByTestId('lupe-hint')).toBeVisible();
+  await page.keyboard.up('x');
+  await expect(page.getByTestId('lupe-hint')).toHaveCount(0);
+  // mit gedrückter Taste woanders hin, wieder X: der Planpunkt unter der Maus bleibt stehen
+  const B = { x: box0.x + 520, y: box0.y + 360 };
+  await page.mouse.move(B.x, B.y, { steps: 6 });
+  const before = planAt(await planBox(page), B);
+  await page.keyboard.down('x');
+  await expect(page.getByTestId('lupe-hint')).toBeVisible();
+  const after = planAt(await planBox(page), B);
+  expect(Math.hypot(after.x - before.x, after.y - before.y)).toBeLessThan(2);
+  await page.keyboard.up('x');
+  await page.mouse.up();
+});
