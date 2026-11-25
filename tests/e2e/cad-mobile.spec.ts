@@ -1,5 +1,5 @@
 import { expect, test, type CDPSession, type Page } from './fixtures';
-import { createProject, freshStart, pickTool, waitSaved } from './helpers';
+import { createProject, freshStart, pickTool, ribbonGroup, waitSaved } from './helpers';
 
 /** CAD Phase 1 mit Finger (iPhone, iPad) und Stift (iPad): Mehrfachauswahl, Fenster, Kopieren per Antippen, Eingabe */
 
@@ -104,8 +104,8 @@ test('Finger: Mehrfach antippen, Kopieren per Basis- und Zielpunkt, Verschieben 
   const after = await elements(page);
   for (const b of before) expect(Math.abs(after.find((a) => a.id === b.id)!.shape.x - (b.shape.x + 1))).toBeLessThan(0.011);
 
-  // Fenster mit dem Finger: nur das obere Paar ganz enthalten (Mehrfach aus → ersetzt die Auswahl)
-  await pickTool(page, 'draw-multi', 'tap');
+  // Fenster mit dem Finger: nur das obere Paar ganz enthalten (Mehrfach ist nach dem Verschieben aus → ersetzt die Auswahl)
+  await ribbonGroup(page, 'modify', 'tap');
   await expect(page.getByTestId('draw-multi')).toHaveAttribute('aria-pressed', 'false');
   await pickTool(page, 'draw-selwin', 'tap');
   await touchDrag(cdp, at(0.05, 0.2), at(0.95, 0.5));

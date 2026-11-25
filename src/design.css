@@ -1153,11 +1153,16 @@ html.app-fixed[data-theme='dark'] .register-tabs button.on {
 .ribbon-float > .ribbon-history {
   display: flex;
   flex: none;
+  /* am Touch-Gerät sind Werkzeuggruppen sonst 100 % breit – hier nur so breit wie die zwei Tasten */
+  width: auto;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
   gap: 2px;
   padding-right: 4px;
   border-right: 1px solid var(--border);
 }
 .ribbon-float > .ribbon-history .tool-btn {
+  flex: none;
   min-width: 40px;
   width: 40px;
   height: 46px;
