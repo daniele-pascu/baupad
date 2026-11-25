@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
-import { chooseMeasureType, createProject, drawRect, FIXTURES, freshStart, pickTool, planBox, ribbonGroup, waitForPlan } from './helpers';
+import { chooseMeasureType, createProject, drawRect, FIXTURES, freshStart, pickTool, planBox, ribbonGroup, toDrawMode, toMeasureMode, waitForPlan } from './helpers';
 import { kontrastBefunde, tastenBefunde } from './tasten-check';
 
 /** TASTEN_DUNKEL=1: alles im Dunkelmodus öffnen und statt der Lage die Lesbarkeit (Kontrast) prüfen */
@@ -742,7 +742,8 @@ export function tastenTests() {
       await ribbonGroup(page, 'draw');
       await pruefe(page, 'Plan zeichnen: Werkzeuge', out);
     }
-    // Planangaben: Format (Größe + Ausrichtung) und Maßstab nebeneinander
+    // Planangaben (im Aufmaß – Plan zeichnen zeigt Angaben, Excel, PDF und Fotos nicht): Format und Maßstab nebeneinander
+    await toMeasureMode(page);
     await page.getByTitle('Planangaben').click();
     await expect(page.getByTestId('plan-details')).toBeVisible();
     await page.getByTestId('sheet-paper').scrollIntoViewIfNeeded();
@@ -757,6 +758,7 @@ export function tastenTests() {
     if (orient.need > orient.room) out.push(`Planangaben: „Querformat“ passt nicht ins Auswahlfeld (${Math.round(orient.need)} > ${Math.round(orient.room)} px)`);
     await page.getByTestId('plan-details').getByRole('button', { name: 'Abbrechen' }).click();
     await expect(page.getByTestId('plan-details')).toHaveCount(0);
+    await toDrawMode(page);
     await pickTool(page, 'draw-text');
     const sb = (await page.getByTestId('drawing-sheet').boundingBox())!;
     await page.mouse.click(sb.x + sb.width * 0.4, sb.y + sb.height * 0.3);

@@ -1,6 +1,6 @@
 import { expect, test, type Page } from './fixtures';
 import { execFileSync } from 'node:child_process';
-import { catchDownload, createProject, freshStart, saveDownload, waitSaved, pickTool } from './helpers';
+import { catchDownload, createProject, freshStart, saveDownload, waitSaved, pickTool, toMeasureMode } from './helpers';
 
 /**
  * Präzises Zeichnen (Paket B) und Papierformat/Maßstab (Paket C): freie Maße ohne Rastern,
@@ -226,6 +226,7 @@ test('Aufmaß: Fläche aus Punkten als Messung; Markierung bleibt auf dem Blatt'
 
 test('Format ändern und PDF im gewählten Format; Format/Maßstab nur auf Wunsch im Plan', async () => {
   let dl = await catchDownload(page, async () => {
+    await toMeasureMode(page);
     await page.getByTestId('export-pdf-plan').click();
     await page.getByTestId('pdf-export-run').click();
   });
@@ -254,6 +255,7 @@ test('Format ändern und PDF im gewählten Format; Format/Maßstab nur auf Wunsc
   await expect(page.getByTestId('sheet-label')).toHaveText('A3 Querformat · 1:100');
   await waitSaved(page);
   dl = await catchDownload(page, async () => {
+    await toMeasureMode(page);
     await page.getByTestId('export-pdf-plan').click();
     await page.getByTestId('pdf-export-run').click();
   });
@@ -274,6 +276,7 @@ test('Format ändern und PDF im gewählten Format; Format/Maßstab nur auf Wunsc
   await pd.getByRole('button', { name: 'Speichern' }).click();
   await waitSaved(page);
   dl = await catchDownload(page, async () => {
+    await toMeasureMode(page);
     await page.getByTestId('export-pdf-plan').click();
     await page.getByTestId('pdf-export-run').click();
   });
@@ -294,6 +297,7 @@ test('Format ändern und PDF im gewählten Format; Format/Maßstab nur auf Wunsc
   await expect(page.getByTestId('sheet-label')).toHaveText('A3 Querformat · ohne Maßstab');
   await waitSaved(page);
   dl = await catchDownload(page, async () => {
+    await toMeasureMode(page);
     await page.getByTestId('export-pdf-plan').click();
     await page.getByTestId('pdf-export-run').click();
   });

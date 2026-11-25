@@ -1,7 +1,7 @@
 import { expect, test, type Page } from './fixtures';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { catchDownload, createProject, freshStart, OUT, saveDownload, waitSaved, pickTool, chooseMeasureType } from './helpers';
+import { catchDownload, createProject, freshStart, OUT, saveDownload, waitSaved, pickTool, chooseMeasureType, toMeasureMode } from './helpers';
 
 /** Phase 3b: Pläne selbst zeichnen – maßhaltig, mit Maßeingabe, Bemaßung, Aufmaß und Export. */
 
@@ -270,6 +270,7 @@ test('Nach dem Neuladen ist alles da; PDF-Export mit Maßstab; Sicherung und Wie
   await expect(dim('6,20 m')).toBeVisible();
 
   const dl = await catchDownload(page, async () => {
+    await toMeasureMode(page);
     await page.getByTestId('export-pdf-plan').click();
     await page.getByTestId('pdf-export-run').click();
   });

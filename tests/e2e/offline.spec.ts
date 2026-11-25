@@ -15,8 +15,7 @@ import {
   tableRows,
   waitForPlan,
   waitSaved,
-  pickTool,
-} from './helpers';
+  pickTool, toMeasureMode } from './helpers';
 
 /**
  * Offline-Betrieb: Nach dem ersten Laden muss die App inklusive PDF-Darstellung (pdf.js-Worker,
@@ -79,6 +78,7 @@ test('Offline: Projekt anlegen, PDF importieren, Schadstellen erfassen, exportie
   expect(blattRows(wb, 'A-101').map((r) => [r.nr, r.values['Länge'], r.values['Breite'], r.values['Tiefe'], r.values['m²']])).toEqual([[1, 1.5, 0.8, 0.05, 1.2]]);
 
   const p = await catchDownload(page, async () => {
+    await toMeasureMode(page);
     await page.getByTestId('export-pdf-plan').click();
     await page.getByTestId('pdf-export-run').click();
   });

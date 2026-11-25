@@ -23,6 +23,8 @@ type DialogSpec =
       label: string;
       value: string;
       confirmLabel: string;
+      /** Zahl erwartet (z. B. Länge): Zahlentastatur am Handy/iPad */
+      inputMode?: 'decimal';
       resolve: (v: string | null) => void;
     }
   | { kind: 'file'; file: ExportFile; resolve: () => void }
@@ -64,7 +66,7 @@ export function confirmDialog(opts: { title: string; message: ReactNode; confirm
   );
 }
 
-export function promptDialog(opts: { title: string; label: string; value?: string; confirmLabel?: string }): Promise<string | null> {
+export function promptDialog(opts: { title: string; label: string; value?: string; confirmLabel?: string; inputMode?: 'decimal' }): Promise<string | null> {
   return new Promise((resolve) =>
     pushDialog({ kind: 'prompt', value: '', confirmLabel: 'Speichern', ...opts, resolve }),
   );
@@ -192,7 +194,7 @@ function DialogView({ d }: { d: DialogSpec }) {
         >
           <label className="field">
             <span>{d.label}</span>
-            <input value={value} onChange={(e) => setValue(e.target.value)} data-autofocus enterKeyHint="done" />
+            <input value={value} onChange={(e) => setValue(e.target.value)} inputMode={d.inputMode} data-autofocus enterKeyHint="done" />
           </label>
         </form>
       </Modal>

@@ -27,7 +27,7 @@ import { NewMeasureDialog, type NewMeasureOption } from '../components/NewMeasur
 import { calibrationStatus, checkDeviation, checkError, formatCm, formatPercent, geometryMeasures, MAX_ERROR_M, planUnitsPerMeter } from '../lib/calibration';
 import { ViewMenu } from '../components/ViewMenu';
 import { LeaderIcon } from '../components/TextDialog';
-import { usePhone, isTouchDevice } from '../lib/platform';
+import { usePhone } from '../lib/platform';
 import { DimensionReview } from '../components/DimensionReview';
 import { ExcelExportDialog } from '../components/ExcelExportDialog';
 import { calibrationFrom, detectScale, sourceText } from '../lib/scale-detect';
@@ -40,7 +40,7 @@ import { ProbeBar, ProbeMenu, ProbeOverlay, type ProbeState } from '../component
 import { choiceIcon, choiceLabel, MeasureTypeMenu, type MeasureChoice } from '../components/MeasureTypeMenu';
 import { calcPath, defaultTypeFor, measureTypeForUnit, quantityOfMeasure, typeInfo, typeOf } from '../lib/measure-types';
 import { circleThrough, translateShape } from '../lib/cad';
-import { countKind, deductionText, grossArea, hasArea, isWall, kindOf, measureLabel, netArea, netLength, sumLengths } from '../lib/measure';
+import { countKind, deductionText, grossArea, hasArea, isWall, kindOf, measureLabel, netArea, netLength, sumLengths, withoutLineFill } from '../lib/measure';
 import { round2, checkMeasure, computeArea, formatArea, formatMeasure, toInputValue } from '../lib/numbers';
 import { compactNumbers, damageNo, duplicateIds, nextNumber, planNumberStart, shiftNumbers, suggestNext, swapNumbers } from '../lib/numbering';
 import { navigate, paths } from '../lib/router';
@@ -48,7 +48,7 @@ import { findSnap } from '../lib/snap';
 import { HatchPreview, hatchLabel } from '../components/HatchPicker';
 import { hatchAnchor } from '../lib/style';
 import { SegIndex } from '../lib/pdf-snap';
-import { clearHistory, newMeta, putRecord, putRecords, redo, softDelete, undo, useAppState, type ProjectState } from '../lib/store';
+import { clearHistory, newMeta, putRecord, putRecords, redo, undo, useAppState, type ProjectState } from '../lib/store';
 import { COLORS, SHAPE_LABELS, type Damage, type DrawElementType, type LeaderEnd, type MeasureKind, type MeasureType, type Plan, type Shape, type ShapeStyle, type ShapeType } from '../lib/types';
 import { DRAW_TOOLS, guideSeg, PICK_TOOLS, readStyle, SELECT_FIRST, TRACK_KINDS, useDrawing, VECTOR_COMMANDS, type DrawTool } from './DrawingMode';
 import { CommandBar } from '../components/CommandBar';
@@ -376,14 +376,17 @@ function MeasureCheck({ damage, k }: { damage: Damage; k: number }) {
       </span>
     );
   }
-  const s = suggestMeasures(damage.shape, k);
+  const sugg = suggestMeasures(damage.shape, k);
+  // Länge einer geschlossenen Form (z. B. Raute als Linie gemessen): mit dem Umfang vergleichen, nicht mit der Seite
+  const ring = !hasArea(kindOf(damage)) && !isOpenShape(damage.shape) ? geometryMeasures(damage.shape, k) : null;
+  const s = ring ? { length: ring.perimeter, width: null } : sugg;
   const off = (a: number, b: number | null) => b !== null && b > 0 && Math.abs(a - b) / b > 0.05;
   // Reihenfolge von Länge und Breite ist frei – längere mit längerer Seite vergleichen
   const area = hasArea(kindOf(damage)) && damage.width !== null && s.width !== null;
   const bad = area
     ? off(Math.max(damage.length, damage.width!), s.length) || off(Math.min(damage.length, damage.width!), s.width)
     : off(damage.length, s.length);
-  const text = s.width !== null && hasArea(kindOf(damage)) ? `${formatMeasure(s.length)} × ${formatMeasure(s.width)} m` : `${formatMeasure(s.length)} m`;
+  const text = s.width !== null && hasArea(kindOf(damage)) ? `${formatMeasure(s.length)} × ${formatMeasure(s.width)} m` : `${ring ? 'Umfang ' : ''}${formatMeasure(s.length)} m`;
   return (
     <span className={`small ${bad ? 'warn-text' : 'muted'}`} data-testid="measure-check">
       Plan: {text}
@@ -451,6 +454,12 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const [mtypeMenu, setMtypeMenu] = useState(false);
   /** nach dem Wählen einer Messart: deren Werkzeuge gleiten nacheinander herein (nicht beim ersten Anzeigen der Seite) */
   const [toolsIn, setToolsIn] = useState(false);
+  // Einblenden nur direkt nach der Wahl der Messart – nicht jedes Mal, wenn die Leiste wieder aufgeht
+  useEffect(() => {
+    if (!toolsIn) return;
+    const t = window.setTimeout(() => setToolsIn(false), 500);
+    return () => window.clearTimeout(t);
+  }, [toolsIn, mtype]);
   const setMtype = (c: MeasureChoice) => {
     setMtypeState(c);
   };
@@ -824,7 +833,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   };
   const damages = useMemo(() => stored.map((d) => (overrides[d.id] ? { ...d, ...overrides[d.id] } : d)), [stored, overrides]);
   // Ebene „Messungen“ ausgeblendet: nicht im Plan (die Tabelle bleibt vollständig)
-  const shownDamages = useMemo(() => areasBelow(visibleDamages(plan, damages)), [plan, damages]);
+  const shownDamages = useMemo(() => areasBelow(visibleDamages(plan, damages)).map(withoutLineFill), [plan, damages]);
   /** Handy: gezeichnete Pläne bekommen die schwebende Leiste (Werkzeuge unten, ein Umschalter oben) */
   const phone = usePhone();
   const dupIds = useMemo(() => {
@@ -928,8 +937,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       let h: Point | null = null;
       let v: Point | null = null;
       for (const r of [...t.acquired, ...(ctx.from ? [ctx.from] : [])]) {
-        if (Math.abs(p.y - r.y) < tol && (!h || Math.abs(p.y - r.y) < Math.abs(p.y - h.y))) h = r;
-        if (Math.abs(p.x - r.x) < tol && (!v || Math.abs(p.x - r.x) < Math.abs(p.x - v.x))) v = r;
+        // bei gleicher Flucht (auch mit Rundungsrauschen) zählt der zuletzt angefahrene Punkt
+        if (Math.abs(p.y - r.y) < tol && (!h || Math.abs(p.y - r.y) <= Math.abs(p.y - h.y) + 1e-9)) h = r;
+        if (Math.abs(p.x - r.x) < tol && (!v || Math.abs(p.x - r.x) <= Math.abs(p.x - v.x) + 1e-9)) v = r;
       }
       if (h || v) {
         let q = { x: v ? v.x : p.x, y: h ? h.y : p.y };
@@ -966,6 +976,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       label: 'Reale Länge der gezogenen Strecke (m)',
       value: plan.calibration ? toInputValue(plan.calibration.meters) : '',
       confirmLabel: 'Kalibrieren',
+      inputMode: 'decimal',
     });
     if (input === null) return;
     const r = checkMeasure(input, 'Länge');
@@ -996,6 +1007,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       label: `Im Plan gemessen: ${formatMeasure(measured)} m – bekannte (bemaßte) Länge dieser Strecke (m)`,
       value: '',
       confirmLabel: 'Prüfen',
+      inputMode: 'decimal',
     });
     if (input === null) return;
     const r = checkMeasure(input, 'Länge');
@@ -1490,14 +1502,23 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     setDialog(null);
   };
 
+  /** löschen und lückenlos nachrücken (Kennzeichnungen bleiben) – ein Schritt, „Rückgängig“ holt beides zurück */
+  const deleteRenumbered = (list: Damage[]) => {
+    const gone = new Set(list.map((d) => d.id));
+    const changes = compactNumbers(stored.filter((d) => !d.label && !gone.has(d.id)), planNumberStart(plan));
+    const now = Date.now();
+    putRecords({ damages: [...list.map((d) => ({ ...data.damages[d.id], deletedAt: now })), ...[...changes].map(([id, n]) => ({ ...data.damages[id], number: n }))] });
+    return changes.size;
+  };
+
   const removeDamage = async (d: Damage) => {
     const label = `${measureLabel(d)} ${damageNo(d)}`;
     const ok = await confirmDialog({
       title: `${label} löschen?`,
       message: (
         <p>
-          {label} ({measureSummary(d)}) wird gelöscht. Die Nummern der übrigen Messungen bleiben unverändert. Mit „Rückgängig“ lässt sich
-          das Löschen zurücknehmen.
+          {label} ({measureSummary(d)}) wird gelöscht. Die folgenden Nummern rücken nach, damit keine Lücke bleibt. Mit „Rückgängig“ lässt
+          sich das Löschen zurücknehmen.
           {settledInvoice && <strong className="error" data-testid="settled-confirm"> Achtung: {invoiceLabel(settledInvoice)} ist bereits abgerechnet.</strong>}
         </p>
       ),
@@ -1505,14 +1526,14 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       danger: true,
     });
     if (!ok) return;
-    softDelete({ damages: [data.damages[d.id]] });
+    deleteRenumbered([data.damages[d.id]]);
     if (selectedId === d.id) setSelectedId(null);
     setDialog(null);
     toast(`${label} gelöscht.`);
   };
 
 
-  /** mehrere Messungen löschen (Nummern der übrigen bleiben; „Rückgängig“ holt sie zurück) */
+  /** mehrere Messungen löschen (die übrigen rücken lückenlos nach; „Rückgängig“ holt alles zurück) */
   const removeDamages = async (ids: string[]) => {
     const list = ids.map((id) => data.damages[id]).filter((d): d is Damage => !!d && !d.deletedAt);
     if (!list.length) return;
@@ -1520,8 +1541,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       title: `${list.length} ${list.length === 1 ? 'Messung' : 'Messungen'} löschen?`,
       message: (
         <p>
-          {list.map((d) => `${measureLabel(d)} ${damageNo(d)}`).join(', ')} {list.length === 1 ? 'wird' : 'werden'} gelöscht. Die Nummern der übrigen Messungen bleiben
-          unverändert. Mit „Rückgängig“ lässt sich das Löschen zurücknehmen.
+          {list.map((d) => `${measureLabel(d)} ${damageNo(d)}`).join(', ')} {list.length === 1 ? 'wird' : 'werden'} gelöscht. Die übrigen Nummern rücken nach, damit keine
+          Lücke bleibt. Mit „Rückgängig“ lässt sich das Löschen zurücknehmen.
           {settledInvoice && <strong className="error" data-testid="settled-confirm"> Achtung: {invoiceLabel(settledInvoice)} ist bereits abgerechnet.</strong>}
         </p>
       ),
@@ -1529,7 +1550,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       danger: true,
     });
     if (!ok) return;
-    softDelete({ damages: list });
+    deleteRenumbered(list);
     if (selectedId && ids.includes(selectedId)) setSelectedId(null);
     dmgSel.stop();
     toast(`${list.length} ${list.length === 1 ? 'Messung' : 'Messungen'} gelöscht.`);
@@ -1735,9 +1756,12 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               <Icon name="crop" size={18} /> <span className="hide-sm">Ausschnitt</span>
             </button>
           )}
+          {/* Plan zeichnen: Angaben, Excel, PDF und Fotos braucht es erst im Aufmaß */}
+          {!drawMode && (
           <button type="button" className="btn btn-sm" onClick={() => setDetailsOpen(true)} title="Planangaben">
             <Icon name="info" size={18} /> <span className="hide-sm">Angaben</span>
           </button>
+          )}
 
           {!drawingPlan && !drawMode && file && (
             <ViewMenu
@@ -1750,6 +1774,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               colorTestId="plan-view"
             />
           )}
+          {!drawMode && (
+          <>
           <button type="button" className="btn btn-sm" onClick={exportExcel} title="Aufmaß dieses Plans als Excel" data-testid="export-xlsx-plan">
             <Icon name="excel" size={18} /> <span className="hide-sm">Excel</span>
           </button>
@@ -1759,6 +1785,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           <button type="button" className="btn btn-sm" onClick={() => setPdfOpen('photos')} title="Fotos der Messungen exportieren (PDF, mit Nummer)" aria-label="Fotos exportieren" data-testid="export-photos-plan">
             <Icon name="camera" size={18} /> <span className="hide-sm">Fotos</span>
           </button>
+          </>
+          )}
         </div>
       </header>
       <SaveErrorBanner />
@@ -2054,7 +2082,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                     <g className="track-lines" data-testid="track-lines">
                       {measureTrack.current.acquired.map((a, i) => {
                         const q = toScreen(view, a);
-                        return <path key={`a${i}`} d={`M${q.x - 4} ${q.y}H${q.x + 4}M${q.x} ${q.y - 4}V${q.y + 4}`} className="track-acquired" />;
+                        return <path key={`a${i}`} d={`M${q.x - 7} ${q.y}H${q.x + 7}M${q.x} ${q.y - 7}V${q.y + 7}`} className="track-acquired" />;
                       })}
                       {measureTrack.current.lines.map((l, i) => {
                         const q = toScreen(view, l.from);
@@ -2725,7 +2753,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 <StylePanel
                   color={selected.color}
                   style={selected.style}
-                  open={isOpenShape(selected.shape)}
+                  open={isOpenShape(selected.shape) || !hasArea(kindOf(selected))}
                   defaultWidth={1}
                   kind="damage"
                   onColor={(c) => putRecord('damages', { ...data.damages[selected.id], color: c })}
@@ -2800,12 +2828,10 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                   <Icon name="back" />
                   <span>Zurück</span>
                 </button>
-                {!isTouchDevice() && (
-                  <button type="button" className={`tool-btn${tool === 'select' ? ' active' : ''}`} onClick={() => setTool('select')} aria-pressed={tool === 'select'} title="Auswählen: Text antippen zum Ändern, ziehen zum Verschieben" data-testid="tool-select">
-                    <Icon name="select" />
-                    <span>Auswahl</span>
-                  </button>
-                )}
+                <button type="button" className={`tool-btn${tool === 'select' ? ' active' : ''}`} onClick={() => setTool('select')} aria-pressed={tool === 'select'} title="Auswählen: Text antippen zum Ändern, ziehen zum Verschieben" data-testid="tool-select">
+                  <Icon name="select" />
+                  <span>Auswahl</span>
+                </button>
                 {TEXT_TOOLS.map((t) => (
                   <button
                     key={t.id}
@@ -2876,9 +2902,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 />
               )}
             </span>
-              {TOOLS.filter((t) => (t.id !== 'calibrate' || !drawingPlan) && (t.id !== 'select' || !isTouchDevice()) && toolVisible(t.id)).map((t, i) => (
+              {TOOLS.filter((t) => (t.id !== 'calibrate' || !drawingPlan) && toolVisible(t.id)).map((t, i) => (
                 // neue Messart: Schlüssel wechselt → die Werkzeuge erscheinen neu (gestaffelt, siehe .tool-in)
-                <Fragment key={`${t.id}-${toolsIn ? mtype : ''}`}>
+                <Fragment key={`${t.id}-${mtype}`}>
                 <button
                   type="button"
                   style={toolsIn ? ({ '--i': Math.min(i, 5) } as React.CSSProperties) : undefined}

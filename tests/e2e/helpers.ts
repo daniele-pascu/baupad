@@ -98,7 +98,23 @@ export async function saveDownload(dl: Download, name?: string): Promise<string>
 export type XlsxCell = { v: string | number; t: string; fmt: string } | null;
 
 /** Excel-Dialog öffnen und das Aufmaßblatt erstellen */
+/** Plan zeichnen zeigt Angaben, Excel, PDF und Fotos nicht – dafür erst ins Aufmaß wechseln (sonst nichts tun) */
+export async function toMeasureMode(page: Page, how: 'click' | 'tap' = 'click') {
+  if (!(await page.getByTestId('draw-toolbar').isVisible())) return;
+  const tab = page.getByTestId('mode-measure-tab');
+  await ((await tab.isVisible()) ? tab : page.getByTestId('mode-measure').first())[how]();
+  await expect(page.getByTestId('draw-toolbar')).toBeHidden();
+}
+
+/** zurück nach „Plan zeichnen“ (z. B. nach einem Export aus dem Aufmaß) */
+export async function toDrawMode(page: Page, how: 'click' | 'tap' = 'click') {
+  if (await page.getByTestId('draw-toolbar').isVisible()) return;
+  await page.getByTestId('mode-draw')[how]();
+  await expect(page.getByTestId('draw-toolbar')).toBeVisible();
+}
+
 export async function excelExport(page: Page, opener: string, how: 'click' | 'tap' = 'click') {
+  if (opener.endsWith('-plan')) await toMeasureMode(page, how);
   await page.getByTestId(opener)[how]();
   await page.getByTestId('excel-export').getByTestId('blatt-export')[how]();
 }

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from './fixtures';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { blattRows, catchDownload, createProject, readXlsx, drawRect, FIXTURES, fillMeasures, freshStart, OUT, planBox, saveDownload, tableRows, waitForPlan, waitSaved, pickTool } from './helpers';
+import { blattRows, catchDownload, createProject, readXlsx, drawRect, FIXTURES, fillMeasures, freshStart, OUT, planBox, saveDownload, tableRows, waitForPlan, waitSaved, pickTool, toMeasureMode } from './helpers';
 
 /**
  * Paket H/I: Jeder exportierte Plan hat A4 oder A3 (hoch/quer); der Plan wird proportional
@@ -15,6 +15,7 @@ const A3 = '841\\.89 x 1190\\.55';
 
 async function exportPdf(page: Page, name: string) {
   const dl = await catchDownload(page, async () => {
+    await toMeasureMode(page);
     await page.getByTestId('export-pdf-plan').click();
     await page.getByTestId('pdf-export-run').click();
   });
@@ -441,6 +442,7 @@ test('Plan zeichnen: alle A-Formate (A4 bis A0, hoch/quer); im Aufmaßplan füll
   expect(Math.abs(r.y + r.height / 2 - (s.y + s.height / 2))).toBeLessThan(3);
   // PDF: A2 quer, Raum füllt das Blatt
   const dl = await catchDownload(page, async () => {
+    await toMeasureMode(page);
     await page.getByTestId('export-pdf-plan').click();
     await page.getByTestId('pdf-export-run').click();
   });

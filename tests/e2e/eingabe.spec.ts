@@ -1,7 +1,7 @@
 import { expect, test, type Page } from './fixtures';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { excelExport, catchDownload, drawRect, FIXTURES, freshStart, OUT, pickTool, planBox, blattRows, blattRebar, readXlsx, saveDownload, waitForPlan, waitSaved } from './helpers';
+import { excelExport, catchDownload, drawRect, FIXTURES, freshStart, OUT, pickTool, planBox, blattRows, blattRebar, readXlsx, saveDownload, waitForPlan, waitSaved, toMeasureMode } from './helpers';
 
 /**
  * Paket J: Werkzeugleiste klappt nach dem Zeichnen zu (zurück zur Auswahl); nur die Länge ist
@@ -103,6 +103,7 @@ test('Projektinformationen: Reihenfolge, Baubeginn gespeichert und nur dort ange
   await wiz.getByTestId('import-save').click();
   await waitForPlan(page);
   const pdl = await catchDownload(page, async () => {
+    await toMeasureMode(page);
     await page.getByTestId('export-pdf-plan').click();
     await page.getByTestId('pdf-export-run').click();
   });
@@ -387,6 +388,7 @@ test('Messung: Fotos wie im Mängelplan (Galerie → Fotodokumentation), Taste F
   await waitSaved(page);
   // Plan-PDF mit Legende (ohne Fotos)
   const dl = await catchDownload(page, async () => {
+    await toMeasureMode(page);
     await page.getByTestId('export-pdf-plan').click();
     await page.getByTestId('pdf-export-run').click();
   });
@@ -407,10 +409,12 @@ test('Messung: Fotos wie im Mängelplan (Galerie → Fotodokumentation), Taste F
   expect(Number(/Pages:\s+(\d+)/.exec(execFileSync('pdfinfo', [pdf], { encoding: 'utf8' }))![1])).toBe(1);
   await page.keyboard.press('Escape');
   // Foto-PDF über die eigene Taste „Fotos“ neben „PDF“: jedes Foto mit Plan und Nummer
+  await toMeasureMode(page);
   await page.getByTestId('export-pdf-plan').click();
   await expect(page.getByTestId('pdf-photos-run')).toHaveCount(0); // im Plan-Export kein Foto-Knopf mehr
   await page.keyboard.press('Escape');
   const fdl = await catchDownload(page, async () => {
+    await toMeasureMode(page);
     await page.getByTestId('export-photos-plan').click();
     await expect(page.getByTestId('photos-export-dialog')).toBeVisible();
     await expect(page.getByTestId('pdf-photos-run')).toContainText('3 Fotos');

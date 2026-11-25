@@ -72,7 +72,14 @@ async function noHorizontalScroll(page: Page) {
  * Eingabefelder, Auswahllisten und Knöpfe dürfen sich nicht überlappen (z. B. Uhrzeitfelder, die über ihre Spalte
  * hinausragen). Schwebende Bedienelemente über dem Plan (Zoom, Werkzeugleisten) und Toasts zählen nicht.
  */
+/** kurze Ein-/Ausblend-Animationen abwarten (Dauer-Animationen wie Lade-Kreise zählen nicht) */
+async function animationsDone(page: Page) {
+  await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running' || a.effect?.getComputedTiming().iterations === Infinity));
+}
+
 async function noOverlap(page: Page) {
+  // Einblenden (z. B. Werkzeuge nach der Messart) erst abwarten – mittendrin sind Tasten kurz verschoben
+  await animationsDone(page);
   const hits = await page.evaluate(() => {
     // offenes Overlay (Dialog, Großansicht): nur dessen Inhalt prüfen – der Hintergrund ist verdeckt
     const overlays = [...document.querySelectorAll('.modal-backdrop, .lightbox, .cam-sheet-backdrop')].filter((o) => o.getBoundingClientRect().width > 0);
@@ -142,10 +149,12 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   await waitForPlan(page);
   await noHorizontalScroll(page);
 
-  // Bedienelemente groß genug für Touch; „Auswahl“ gibt es am Handy/Tablet nicht als Knopf (automatisch nach Gebrauch)
-  await expect(page.getByTestId('tool-select')).toHaveCount(0);
+  // Bedienelemente groß genug für Touch
+  await expect(page.getByTestId('tool-select')).toHaveCount(1); // „Auswahl“ auch am Handy/Tablet: Ausweg aus jedem Werkzeug
   // zuerst die Messart wählen – dann erscheinen die Werkzeuge
   await chooseMeasureType(page, 'flaeche', 'tap');
+  // Werkzeuge blenden kurz ein (leicht verkleinert) – erst danach messen
+  await animationsDone(page);
   for (const id of ['tool-mtype', 'tool-ellipse', 'tool-rect', 'tool-polygon']) {
     const b = await page.getByTestId(id).boundingBox();
     expect(b!.height).toBeGreaterThanOrEqual(44);
@@ -170,8 +179,8 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   // kein „Geisterklick“ vom Tippen auf den Plan in den eben geöffneten Dialog (z. B. auf „Abzug hinzufügen“)
   await expect(dlg.getByRole('button', { name: 'Zeile entfernen' })).toHaveCount(0);
   await expect(dlg.getByTestId('input-length')).toHaveAttribute('inputmode', 'decimal');
-  // Nr. erlaubt Zahlen und Buchstaben (z. B. 12a) – Texttastatur, Buchstaben groß
-  await expect(dlg.getByTestId('input-number')).toHaveAttribute('inputmode', 'text');
+  // Nr.: Zahlentastatur; steht eine Kennzeichnung mit Buchstaben drin (z. B. 12a), die Texttastatur
+  await expect(dlg.getByTestId('input-number')).toHaveAttribute('inputmode', 'numeric');
   // Tiefe gibt es nur bei Betoninstandsetzung und Volumen
   await dlg.getByTestId('measure-type-select').selectOption('schadstelle');
   await expect(dlg.getByTestId('input-depth')).toHaveAttribute('enterkeyhint', 'done');
@@ -251,6 +260,7 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   await expect(page.getByTestId('selection-bar')).toContainText('3,60 m²');
   // Alle Werkzeuge und Rückgängig/Wiederholen sind per Finger erreichbar, nichts ragt über den Rand (Leiste war zugeklappt)
   await openTools(page, 'tap');
+  await animationsDone(page);
   const vw = page.viewportSize()!.width;
   // Messart Fläche: Messart-Taste, Rechteck, Kreis, Fläche, Messung (Linie, Wand, Freie Form und Freihand gehören zu anderen Messarten)
   await expect(page.getByTestId('tool-line')).toHaveCount(0);
@@ -445,8 +455,8 @@ test('Plan zeichnen per Finger: Raum über Maßeingabe, Bemaßung sichtbar, Weit
     // Hilfen (Raster …): am Handy hinter der Gruppen-Taste der schwebenden Leiste
     if (id === 'grid-toggle' && (await page.getByTestId('ribbon-groups').isVisible())) await page.getByTestId('ribbon-groups').tap();
     const b = (await page.getByTestId(id).boundingBox())!;
-    expect(b.x).toBeGreaterThanOrEqual(-0.5);
-    expect(b.x + b.width).toBeLessThanOrEqual(vw + 0.5);
+    expect(b.x, id).toBeGreaterThanOrEqual(-0.5);
+    expect(b.x + b.width, id).toBeLessThanOrEqual(vw + 0.5);
   }
   // Registerkarten der oberen Leiste: jede Zeile per Finger wischbar, Knöpfe mindestens 44 px
   for (const [tab, ids] of [
@@ -462,7 +472,7 @@ test('Plan zeichnen per Finger: Raum über Maßeingabe, Bemaßung sichtbar, Weit
     }
   }
   await ribbonGroup(page, 'draw', 'tap');
-  await expect(page.getByTestId('draw-select')).toHaveCount(0); // kein Knopf „Auswahl“ am Handy/Tablet
+  await expect(page.getByTestId('draw-select')).toHaveCount(1); // „Auswahl“ auch am Handy/Tablet: Ausweg aus jedem Werkzeug
   await noHorizontalScroll(page);
   await page.screenshot({ path: join(OUT, `${info.project.name}-zeichnen.png`) });
   // Weiter zum Aufmaß: Zeichnung bleibt, Markierungswerkzeuge erscheinen
@@ -973,10 +983,8 @@ test('Plan zeichnen am Handy: Kopf in einer Zeile; die Maß-Leiste rückt über 
   await page.getByTestId('new-drawing').locator('[data-field="planNumber"]').fill('T-1');
   await page.getByTestId('new-drawing-save').click();
   await expect(page.getByTestId('drawing-sheet')).toBeVisible();
-  // Kopf: Zurück, Planwahl und Aktionen in einer Zeile (mehr Höhe für die Zeichenfläche)
-  const back = (await page.locator('.editor-topbar > .icon-btn').first().boundingBox())!;
-  const pdf = (await page.getByTestId('export-pdf-plan').boundingBox())!;
-  expect(Math.abs(back.y + back.height / 2 - (pdf.y + pdf.height / 2))).toBeLessThan(12);
+  // Kopf: Zurück und Planwahl in einer Zeile (mehr Höhe für die Zeichenfläche); Angaben, Excel, PDF, Fotos erst im Aufmaß
+  await expect(page.getByTestId('export-pdf-plan')).toHaveCount(0);
   expect((await page.locator('.editor-topbar').boundingBox())!.height).toBeLessThanOrEqual(56);
   await noHorizontalScroll(page);
   // beim Öffnen ist kein Werkzeug aktiv – Rechteck wählen, dann erscheinen die Maßfelder

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from './fixtures';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { catchDownload, createProject, FIXTURES, freshStart, pickTool, planBox, saveDownload, waitForPlan, waitSaved } from './helpers';
+import { catchDownload, createProject, FIXTURES, freshStart, pickTool, planBox, saveDownload, waitForPlan, waitSaved, toMeasureMode } from './helpers';
 
 /**
  * Textfeld wie in der Textverarbeitung: Absätze, Schriftgröße in pt, im Plan ziehen – Seite = Breite (Text bricht um),
@@ -142,6 +142,7 @@ test('Plan zeichnen: Absätze, Schriftgröße in pt, Seite ziehen bricht um, Eck
 
   // PDF: alle Zeilen
   const dl = await catchDownload(page, async () => {
+    await toMeasureMode(page);
     await page.getByTestId('export-pdf-plan').click();
     await page.getByTestId('pdf-export-run').click();
   });

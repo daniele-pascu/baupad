@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { expect, test, type Page } from './fixtures';
-import { catchDownload, createProject, freshStart, pickTool, saveDownload, waitSaved } from './helpers';
+import { catchDownload, createProject, freshStart, pickTool, saveDownload, waitSaved, toMeasureMode, toDrawMode } from './helpers';
 
 /**
  * Raumstempel (Name + m², Raum automatisch aus einzelnen Linien erkannt, Fläche passt sich an), Schraffur in einem
@@ -135,10 +135,12 @@ test('Raumstempel: Raum aus einzelnen Linien, Name + m², Fläche passt sich an,
   // PDF: Name, Fläche und Zusatz als Text
   await escape();
   const dl = await catchDownload(page, async () => {
+    await toMeasureMode(page);
     await page.getByTestId('export-pdf-plan').click();
     await page.getByTestId('pdf-export-run').click();
   });
   const pdf = await saveDownload(dl, 'raumstempel.pdf');
+  await toDrawMode(page); // nächste Schritte zeichnen weiter
   const txt = execFileSync('pdftotext', [pdf, '-'], { encoding: 'utf8' });
   expect(txt).toContain('Wohnküche');
   expect(txt).toContain('24,00 m²');
@@ -278,6 +280,7 @@ test('Fenster: ÖNORM-Beschriftung Breite/Höhe (cm) und RPH – nur mit „Maß
   // PDF: Breite, Höhe und RPH als Text
   await escape();
   const dl = await catchDownload(page, async () => {
+    await toMeasureMode(page);
     await page.getByTestId('export-pdf-plan').click();
     await page.getByTestId('pdf-export-run').click();
   });

@@ -647,6 +647,7 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
                           <span>Zeilen</span>
                           <input
                             type="number"
+                            inputMode="decimal"
                             min={1}
                             value={field.lines ?? ''}
                             placeholder={String(lineCapacity(field))}
@@ -715,7 +716,7 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
                     <div className="rp-grid">
                       <label className="field">
                         <span>Schriftgröße (pt)</span>
-                        <input type="number" min={5.5} max={14} step={0.5} value={field.fontSize ?? ''} placeholder={fontSizeOf(field).toFixed(1)} onChange={(e) => {
+                        <input type="number" inputMode="decimal" min={5.5} max={14} step={0.5} value={field.fontSize ?? ''} placeholder={fontSizeOf(field).toFixed(1)} onChange={(e) => {
                             const v = Number(e.target.value) > 0 ? Number(e.target.value) : undefined;
                             patch(field.id, { fontSize: v, box: withFontSize(field, v).box });
                           }}
@@ -791,7 +792,7 @@ export function FormTemplateEditorPage({ templateId }: { templateId: string }) {
                     {(['x', 'y', 'w', 'h'] as const).map((k) => (
                       <label key={k} className="field">
                         <span>{{ x: 'Links', y: 'Oben', w: 'Breite', h: 'Höhe' }[k]}</span>
-                        <input type="number" value={Math.round(field.box[k] * 10) / 10} onChange={(e) => patch(field.id, { box: { ...field.box, [k]: Math.max(k === 'w' ? 8 : k === 'h' ? 6 : 0, Number(e.target.value) || 0) } })} data-testid={`form-field-${k}`} />
+                        <input type="number" inputMode="decimal" value={Math.round(field.box[k] * 10) / 10} onChange={(e) => patch(field.id, { box: { ...field.box, [k]: Math.max(k === 'w' ? 8 : k === 'h' ? 6 : 0, Number(e.target.value) || 0) } })} data-testid={`form-field-${k}`} />
                       </label>
                     ))}
                   </div>

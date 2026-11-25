@@ -11798,18 +11798,22 @@ html[data-theme='dark'] .calc-result .calc-total.warn strong {
 }
 
 /* Plan zeichnen: Spurlinien (Objektfang-Spuren) und gemerkte Fangpunkte */
+/* kräftiger und mit hellem Saum: auf dunklen Planlinien gut zu sehen */
 .track-line {
   stroke: #12a150;
-  stroke-width: 1;
-  stroke-dasharray: 6 5;
+  stroke-width: 1.6;
+  stroke-dasharray: 8 5;
   fill: none;
   pointer-events: none;
+  filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff);
 }
 .track-acquired {
   stroke: #12a150;
-  stroke-width: 1.5;
+  stroke-width: 2.2;
+  stroke-linecap: round;
   fill: none;
   pointer-events: none;
+  filter: drop-shadow(0 0 1px #fff);
 }
 .track-dist-label {
   font-size: 13px;
@@ -14834,15 +14838,21 @@ html[data-theme='dark'] .auth-divider::after {
   padding-top: 16px;
   border-top: 1px solid var(--border);
 }
+/* ganz unten: das P mittig über „PAD SOFTWARE“ */
 .pad-signature {
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   color: var(--muted);
   font-size: 9px;
   font-weight: 500;
   letter-spacing: 0.22em;
   white-space: nowrap;
+}
+/* Sperrung hängt hinter dem letzten Buchstaben an – links gleich viel, damit der Name genau unter dem P steht */
+.pad-signature > span {
+  padding-left: 0.22em;
 }
 /* „PAD“ kräftiger und dunkler als „Software“ */
 .pad-signature b {
@@ -14851,8 +14861,8 @@ html[data-theme='dark'] .auth-divider::after {
 }
 
 .pad-signature svg {
-  width: 10px;
-  height: 10px;
+  width: 18px;
+  height: 18px;
   flex: none;
 }
 

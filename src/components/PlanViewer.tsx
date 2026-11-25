@@ -288,7 +288,7 @@ type Gesture =
   | { kind: 'pan'; start: Point; view: View; moved: boolean; tapTarget: string | null; navOnly?: boolean; exit?: boolean }
   | { kind: 'pinch'; dist: number; mid: Point; view: View }
   | { kind: 'draw'; tool: DrawGestureTool; start: Point; current: Point; points: Point[]; aim?: boolean; mouse?: boolean }
-  | { kind: 'move'; id: string; start: Point; orig: Shape; moved: boolean; ref: Point }
+  | { kind: 'move'; id: string; start: Point; orig: Shape; moved: boolean }
   | { kind: 'resize'; id: string; handle: string; orig: Shape }
   | { kind: 'vertex'; id: string; index: number; orig: Shape; start: Point; moved: boolean }
   | { kind: 'tip'; id: string; orig: Point; last: Point; start: Point; moved: boolean }
@@ -1143,8 +1143,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       }
       const hit = hitDamage(p);
       if (hit && hit.id === propsRef.current.selectedId) {
-        const b = shapeAABB(hit.shape);
-        const g: Gesture = { kind: 'move', id: hit.id, start: toPage(v, p), orig: hit.shape, moved: false, ref: { x: b.x, y: b.y } };
+        const g: Gesture = { kind: 'move', id: hit.id, start: toPage(v, p), orig: hit.shape, moved: false };
         gesture.current = g;
         // auf der Nummer in der Fläche kurz halten (ohne Bewegung): jetzt wird die Nummer gezogen, nicht die Fläche
         const lr = labels.get(hit.id);
@@ -1327,10 +1326,21 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         let my = dy;
         const snap = propsRef.current.snap;
         if (snap) {
-          // Bezugsecke einrasten, damit das Objekt am Raster bzw. an anderen Objekten anliegt
-          const t = snapAt({ x: g.ref.x + dx, y: g.ref.y + dy }, { scale: v.scale, movingId: g.id });
-          mx = t.x - g.ref.x;
-          my = t.y - g.ref.y;
+          // jede Ecke und jede Seitenmitte darf einrasten (an Ecken, Mitten, Linien) – der nächste Fangpunkt gewinnt;
+          // Ecke/Mitte vor „auf der Linie“
+          let best: { rank: number; d: number; x: number; y: number } | null = null;
+          for (const q of grabPoints(g.orig)) {
+            const at = { x: q.x + dx, y: q.y + dy };
+            const t = snapAt(at, { scale: v.scale, movingId: g.id });
+            if (!t.kind) continue;
+            const d = Math.hypot(t.x - at.x, t.y - at.y);
+            const rank = t.kind === 'nearest' ? 1 : 0;
+            if (!best || rank < best.rank || (rank === best.rank && d < best.d)) best = { rank, d, x: t.x - at.x, y: t.y - at.y };
+          }
+          if (best) {
+            mx = dx + best.x;
+            my = dy + best.y;
+          }
         }
         const bounds = propsRef.current.bounds;
         if (bounds) ({ dx: mx, dy: my } = clampDelta(shapeAABB(g.orig), mx, my, bounds));
@@ -2267,4 +2277,22 @@ const badgeRadius = () => (isCoarse() ? 15 : 13);
 /** Punkte ohne Doppelte (Stück mit einem Punkt wird als zwei gleiche Punkte gespeichert) */
 function uniquePoints(pts: Point[]): Point[] {
   return pts.filter((p, i) => pts.findIndex((q) => Math.abs(q.x - p.x) < 1e-9 && Math.abs(q.y - p.y) < 1e-9) === i);
+}
+
+/** Fangpunkte einer Form beim Verschieben: Ecken und Seitenmitten (Kreis/Ellipse: Rahmenecken und die vier Scheitel) */
+function grabPoints(shape: Shape): Point[] {
+  const b = shapeAABB(shape);
+  const box = [
+    { x: b.x, y: b.y },
+    { x: b.x + b.w, y: b.y },
+    { x: b.x + b.w, y: b.y + b.h },
+    { x: b.x, y: b.y + b.h },
+  ];
+  const vs = shape.type === 'ellipse' ? box : shapeVertices(shape);
+  const closed = !isOpenShape(shape);
+  const mids = vs.slice(0, closed ? vs.length : vs.length - 1).map((p, i) => {
+    const q = vs[(i + 1) % vs.length];
+    return { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 };
+  });
+  return [...vs, ...mids].slice(0, 40);
 }

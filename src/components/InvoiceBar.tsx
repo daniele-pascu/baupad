@@ -156,7 +156,7 @@ function InvoiceDialog({ project, invoice, onClose, onSave }: { project: Project
           </label>
           <label className="field">
             <span>Nummer (optional)</span>
-            <input value={number} onChange={(e) => setNumber(e.target.value)} placeholder={String(preview.no)} autoComplete="off" data-testid="invoice-number" />
+            <input value={number} onChange={(e) => setNumber(e.target.value)} placeholder={String(preview.no)} inputMode="numeric" autoComplete="off" data-testid="invoice-number" />
           </label>
         </div>
         <p className="muted small" data-testid="invoice-preview">
