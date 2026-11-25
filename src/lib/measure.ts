@@ -20,6 +20,8 @@ export const kindOf = (d: Pick<Damage, 'kind'>): MeasureKind => d.kind ?? 'damag
 
 /** Messarten mit Fläche (Länge × Breite) */
 export const hasArea = (k: MeasureKind) => k !== 'line';
+/** Länge: nie eine Füllung – auch geschlossen ist es ein Umfang, keine Fläche */
+export const withoutLineFill = <T extends Pick<Damage, 'kind' | 'style'>>(d: T): T => (kindOf(d) === 'line' ? { ...d, style: { ...d.style, noFill: true } } : d);
 
 /**
  * Wand: Flächenmessung mit offenem Verlauf (Linie mit Knicken). Länge = alle Abschnitte,

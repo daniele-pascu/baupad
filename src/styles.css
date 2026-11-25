@@ -11798,18 +11798,22 @@ html[data-theme='dark'] .calc-result .calc-total.warn strong {
 }
 
 /* Plan zeichnen: Spurlinien (Objektfang-Spuren) und gemerkte Fangpunkte */
+/* kräftiger und mit hellem Saum: auf dunklen Planlinien gut zu sehen */
 .track-line {
   stroke: #12a150;
-  stroke-width: 1;
-  stroke-dasharray: 6 5;
+  stroke-width: 1.6;
+  stroke-dasharray: 8 5;
   fill: none;
   pointer-events: none;
+  filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff);
 }
 .track-acquired {
   stroke: #12a150;
-  stroke-width: 1.5;
+  stroke-width: 2.2;
+  stroke-linecap: round;
   fill: none;
   pointer-events: none;
+  filter: drop-shadow(0 0 1px #fff);
 }
 .track-dist-label {
   font-size: 13px;

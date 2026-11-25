@@ -299,40 +299,40 @@ test('8./9. Schadstelle bearbeiten, Nummer ändern, löschen – Plan und Tabell
   await expect(page.getByTestId('selection-bar')).toContainText('Nr. 3');
   await expect(page.locator('.damage-label.selected text')).toHaveText('3');
 
-  // Löschen mit Sicherheitsabfrage – andere Nummern bleiben unverändert
+  // Löschen mit Sicherheitsabfrage – die folgenden Nummern rücken nach (keine Lücke)
   await page.locator('[data-testid="aufmass-row"][data-number="2"]').click();
   await page.getByTestId('damage-cancel').click();
   await page.getByTestId('delete-selected').click();
   const confirm = page.getByTestId('confirm-dialog');
-  await expect(confirm).toContainText('Die Nummern der übrigen Messungen bleiben unverändert');
+  await expect(confirm).toContainText('Die folgenden Nummern rücken nach');
   await confirm.getByRole('button', { name: 'Abbrechen' }).click();
   expect(await tableRows(page)).toHaveLength(4);
   await page.getByTestId('delete-selected').click();
   await confirm.getByRole('button', { name: 'Löschen' }).click();
-  expect(sorted(await tableRows(page)).map((r) => r[0])).toEqual(['1', '3', '4']);
+  expect(sorted(await tableRows(page)).map((r) => r[0])).toEqual(['1', '2', '3']);
   await expect(page.locator('.damage-label')).toHaveCount(3);
 
-  // Nächste neue Schadstelle erhält die nächsthöhere Nummer
+  // Nächste neue Messung erhält die nächste Nummer
   await pickTool(page, 'tool-ellipse');
   await drawRect(page, box.x + box.width * 0.8, box.y + box.height * 0.7, box.x + box.width * 0.86, box.y + box.height * 0.8);
-  await expect(dlg.getByTestId('input-number')).toHaveValue('5');
+  await expect(dlg.getByTestId('input-number')).toHaveValue('4');
   await fillMeasures(page, '0,5', '0,5', '0,04');
   expect(sorted(await tableRows(page)).map((r) => [r[0], r[4]])).toEqual([
     ['1', '0,24'],
-    ['3', '3,75'],
-    ['4', '1,20'],
-    ['5', '0,25'],
+    ['2', '3,75'],
+    ['3', '1,20'],
+    ['4', '0,25'],
   ]);
   await expect(page.getByTestId('sum-area')).toHaveText('5,44');
 });
 
 test('Markierung verschieben, Größe ändern, Beschriftung verschieben, Farbe ändern', async () => {
   await pickTool(page, 'tool-select');
-  await page.locator('[data-testid="aufmass-row"][data-number="4"]').click();
+  await page.locator('[data-testid="aufmass-row"][data-number="3"]').click();
   await page.getByTestId('damage-cancel').click();
-  const before = await markerRelPos(page, 4);
+  const before = await markerRelPos(page, 3);
   const path = page.locator('.viewer-overlay path[data-damage]').nth(
-    await page.locator('.damage-label').evaluateAll((ls) => ls.findIndex((l) => l.getAttribute('data-label') === '4')),
+    await page.locator('.damage-label').evaluateAll((ls) => ls.findIndex((l) => l.getAttribute('data-label') === '3')),
   );
   const pb = (await path.boundingBox())!;
   // verschieben
@@ -340,7 +340,7 @@ test('Markierung verschieben, Größe ändern, Beschriftung verschieben, Farbe �
   await page.mouse.down();
   await page.mouse.move(pb.x + pb.width / 2 + 60, pb.y + pb.height / 2 + 40, { steps: 6 });
   await page.mouse.up();
-  const moved = await markerRelPos(page, 4);
+  const moved = await markerRelPos(page, 3);
   expect(moved.x).toBeGreaterThan(before.x + 0.01);
   expect(Math.abs(moved.w - before.w)).toBeLessThan(0.002);
   // Größe über den rechten Seitengriff ändern (Ecken sind einzeln verschiebbare Eckpunkte)
@@ -349,7 +349,7 @@ test('Markierung verschieben, Größe ändern, Beschriftung verschieben, Farbe �
   await page.mouse.down();
   await page.mouse.move(se.x + 50, se.y + 30, { steps: 6 });
   await page.mouse.up();
-  const resized = await markerRelPos(page, 4);
+  const resized = await markerRelPos(page, 3);
   expect(resized.w).toBeGreaterThan(moved.w + 0.01);
   // ganzer Plan = Übersicht: Nummer steht auf der Messung, keine Verbindungslinien; Ziehen dort bewegt die Messung (oben)
   await expect(page.locator('.viewer[data-labels]')).toHaveAttribute('data-labels', 'overview');
@@ -357,10 +357,10 @@ test('Markierung verschieben, Größe ändern, Beschriftung verschieben, Farbe �
   // Beschriftung verschieben (vergrößert), ohne die Markierung zu verändern
   for (let i = 0; i < 6 && (await page.locator('.viewer[data-labels]').getAttribute('data-labels')) !== 'detail'; i++) await page.getByRole('button', { name: 'Vergrößern' }).click();
   await expect(page.locator('.viewer[data-labels]')).toHaveAttribute('data-labels', 'detail');
-  await page.locator('[data-testid="aufmass-row"][data-number="4"]').click(); // Messung 4 ins Bild holen
+  await page.locator('[data-testid="aufmass-row"][data-number="3"]').click(); // Messung 3 ins Bild holen
   await page.getByTestId('damage-cancel').click();
-  const resizedZoomed = await markerRelPos(page, 4);
-  const label = page.locator('.damage-label[data-label="4"] rect');
+  const resizedZoomed = await markerRelPos(page, 3);
+  const label = page.locator('.damage-label[data-label="3"] rect');
   const lb = (await label.boundingBox())!;
   await page.mouse.move(lb.x + lb.width / 2, lb.y + lb.height / 2);
   await page.mouse.down();
@@ -369,12 +369,12 @@ test('Markierung verschieben, Größe ändern, Beschriftung verschieben, Farbe �
   await page.mouse.up();
   const lb2 = (await label.boundingBox())!;
   expect(lb2.x).toBeGreaterThan(lb.x + 40);
-  const afterLabel = await markerRelPos(page, 4);
+  const afterLabel = await markerRelPos(page, 3);
   for (const k of ['x', 'y', 'w', 'h'] as const) expect(Math.abs(afterLabel[k] - resizedZoomed[k])).toBeLessThan(0.001);
   await page.getByRole('button', { name: 'Gesamten Plan anzeigen' }).click();
   // Farbe ändern
   await page.getByRole('button', { name: 'Farbe Blau' }).click();
-  await expect(page.locator('[data-testid="aufmass-row"][data-number="4"] .color-dot')).toHaveAttribute('style', /28, 126, 214|#1c7ed6/);
+  await expect(page.locator('[data-testid="aufmass-row"][data-number="3"] .color-dot')).toHaveAttribute('style', /28, 126, 214|#1c7ed6/);
   await waitSaved(page);
 });
 
@@ -393,9 +393,9 @@ test('10. Excel-Export (Plan): Aufmaßblatt mit echten Zahlenwerten auf einer Se
   const rows = blattRows(wb, 'A-101');
   expect(rows.map((r) => [r.nr, r.values['Länge'], r.values['Breite'], r.values['Tiefe'], r.values['m²']])).toEqual([
     [1, 0.6, 0.4, 0.03, 0.24],
-    [3, 3, 1.25, 0.1, 3.75],
-    [4, 1.5, 0.8, 0.05, 1.2],
-    [5, 0.5, 0.5, 0.04, 0.25],
+    [2, 3, 1.25, 0.1, 3.75],
+    [3, 1.5, 0.8, 0.05, 1.2],
+    [4, 0.5, 0.5, 0.04, 0.25],
   ]);
   // Zahlen sind numerisch (Typ „n“), nicht Text; Fläche als Formel Länge × Breite
   for (const r of rows) for (const i of [1, 2, 3, 4]) expect(r.cells[i]?.t).toBe('n');
@@ -518,7 +518,7 @@ test('12. Projekt speichern, schließen und vollständig wiederherstellen', asyn
   await selectCostCenter(page, 'Tiefgarage');
   await openPlan(page, 'A-101');
   await waitForPlan(page);
-  expect((await tableRows(page)).map((r) => r[0])).toEqual(['1', '3', '4', '5']);
+  expect((await tableRows(page)).map((r) => r[0])).toEqual(['1', '2', '3', '4']);
   await page.getByRole('link', { name: 'Zurück zur Planliste' }).click();
 
   // Sicherung exportieren
@@ -546,9 +546,9 @@ test('12. Projekt speichern, schließen und vollständig wiederherstellen', asyn
   await waitForPlan(page);
   expect(sorted(await tableRows(page))).toEqual([
     ['1', '0,60', '0,40', '0,03', '0,24'],
-    ['3', '3,00', '1,25', '0,10', '3,75'],
-    ['4', '1,50', '0,80', '0,05', '1,20'],
-    ['5', '0,50', '0,50', '0,04', '0,25'],
+    ['2', '3,00', '1,25', '0,10', '3,75'],
+    ['3', '1,50', '0,80', '0,05', '1,20'],
+    ['4', '0,50', '0,50', '0,04', '0,25'],
   ]);
   await expect(page.locator('.damage-label')).toHaveCount(4);
 

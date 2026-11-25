@@ -1148,3 +1148,25 @@ html.app-fixed[data-theme='dark'] .register-tabs button.on {
 .storage-line strong .muted {
   font-weight: 500;
 }
+
+/* Plan zeichnen am Handy: Zurück/Vor fest neben der Gruppen-Taste, nur Symbol; Werkzeuge etwas kompakter */
+.ribbon-float > .ribbon-history {
+  display: flex;
+  flex: none;
+  gap: 2px;
+  padding-right: 4px;
+  border-right: 1px solid var(--border);
+}
+.ribbon-float > .ribbon-history .tool-btn {
+  min-width: 40px;
+  width: 40px;
+  height: 46px;
+  padding: 0;
+}
+.ribbon-float > .ribbon-history .tool-btn > span {
+  display: none;
+}
+.ribbon-float .ribbon-row .tool-btn {
+  min-width: 48px;
+  height: 46px;
+}

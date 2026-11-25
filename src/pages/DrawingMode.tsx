@@ -409,6 +409,8 @@ export function useDrawing(opts: {
   const lastTool = useRef<DrawTool | null>(tool !== 'select' ? tool : null);
   const setTool = (t: DrawTool) => {
     if (t !== 'select') lastTool.current = t;
+    // „Auswahl“ ist der Ausweg aus allem: auch die Mehrfachauswahl endet (sonst markiert Antippen weiter mehrere)
+    else setMulti(false);
     setToolState(t);
     setStretchWin(null);
     setCmdBase(null);
@@ -600,8 +602,9 @@ export function useDrawing(opts: {
         const th = same(held.h, r) ? tol * 2 : tol;
         const tv = same(held.v, r) ? tol * 2 : tol;
         // bei gleicher Flucht zählt der zuletzt angefahrene Punkt (Bezug für einen eingetippten Abstand)
-        if (Math.abs(pm.y - r.y) < th && (!h || Math.abs(pm.y - r.y) <= Math.abs(pm.y - h.y))) h = r;
-        if (Math.abs(pm.x - r.x) < tv && (!v || Math.abs(pm.x - r.x) <= Math.abs(pm.x - v.x))) v = r;
+        // gleiche Flucht mit Rundungsrauschen (1e-15) zählt als gleich – sonst gewinnt zufällig der ältere Punkt
+        if (Math.abs(pm.y - r.y) < th && (!h || Math.abs(pm.y - r.y) <= Math.abs(pm.y - h.y) + 1e-9)) h = r;
+        if (Math.abs(pm.x - r.x) < tv && (!v || Math.abs(pm.x - r.x) <= Math.abs(pm.x - v.x) + 1e-9)) v = r;
       }
       return { h, v };
     };
@@ -2355,7 +2358,7 @@ export function useDrawing(opts: {
           <g className="track-lines" data-testid="track-lines">
             {track.current.acquired.map((a, i) => {
               const s2 = toScreen(view, { x: a.x * k, y: a.y * k });
-              return <path key={`a${i}`} d={`M${s2.x - 4} ${s2.y}H${s2.x + 4}M${s2.x} ${s2.y - 4}V${s2.y + 4}`} className="track-acquired" />;
+              return <path key={`a${i}`} d={`M${s2.x - 7} ${s2.y}H${s2.x + 7}M${s2.x} ${s2.y - 7}V${s2.y + 7}`} className="track-acquired" />;
             })}
             {track.current.lines.map((l, i) => {
               const s2 = toScreen(view, { x: l.from.x * k, y: l.from.y * k });

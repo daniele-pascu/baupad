@@ -3,7 +3,6 @@ import { symbolDef } from '../lib/symbols';
 import { DRAW_TOOLS, ORTHO_DIR_LABELS, type DrawTool, type useDrawing } from '../pages/DrawingMode';
 import { ORTHO_DIRS } from '../lib/cad';
 import { Icon } from './Icon';
-import { isTouchDevice } from '../lib/platform';
 import { ProbeMenu } from './ProbeLayer';
 import type { ProbeKind } from '../lib/probe';
 import type { PlanViewerHandle } from './PlanViewer';
@@ -141,6 +140,11 @@ export function DrawRibbon({
         disabled: !sel,
         title: drawing.vertex !== null ? 'Ausgewählten Eckpunkt löschen (Entf)' : 'Ausgewähltes Objekt löschen (Entf)',
       })}
+    </div>
+  );
+  // Zurück/Vor immer sichtbar: am Handy fest neben der Gruppen-Taste (scrollt nicht mit), am PC vorn in der Leiste
+  const history = (
+    <div className="tool-group ribbon-history" role="group" aria-label="Rückgängig und Wiederholen">
       {btn('draw-undo', 'undo', 'Zurück', onUndo, { disabled: !canUndo, title: 'Rückgängig (Strg+Z)' })}
       {btn('draw-redo', 'redo', 'Vor', onRedo, { disabled: !canRedo, title: 'Wiederholen (Strg+Umschalt+Z)' })}
     </div>
@@ -177,12 +181,14 @@ export function DrawRibbon({
           <OrthoButtons drawing={drawing} />
         </div>
       )}
+      {float && !groups && history}
       {(!float || !groups) && (
       <div className="ribbon-row" data-tab={tab}>
+        {!float && history}
         {tab === 'draw' && (
           <>
             <div className="tool-group" role="group" aria-label="Zeichnen">
-              {DRAW_IDS.filter((id) => id !== 'select' || !isTouchDevice()).map(toolBtn)}
+              {DRAW_IDS.map(toolBtn)}
             </div>
             <div className="tool-group" role="group" aria-label="Schraffur">
               {btn('draw-hatch', 'hatch', 'Schraffur', () => void drawing.pickHatch(), { pressed: drawing.tool === 'hatch', title: 'Schraffur: Muster bzw. Baustoff und Farbe wählen, dann in eine geschlossene Fläche tippen' })}
@@ -214,7 +220,7 @@ export function DrawRibbon({
         {tab === 'modify' && (
           <>
             <div className="tool-group" role="group" aria-label="Auswahl">
-              {!isTouchDevice() && toolBtn('select')}
+              {toolBtn('select')}
               {toolBtn('selwin')}
               {btn('draw-multi', 'plus', 'Mehrfach', () => drawing.setMulti(!drawing.multi), {
                 pressed: drawing.multi,
@@ -326,7 +332,7 @@ export function DrawRibbon({
           </div>
         )}
         {/* Zurück/Vor in jeder Registerkarte – oben in der Kopfleiste gibt es sie in „Plan zeichnen“ nicht mehr */}
-        {(tab === 'style' || tab === 'precision' || tab === 'view') && editGroup}
+        {tab === 'style' && editGroup}
       </div>
       )}
     </div>

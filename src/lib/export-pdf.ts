@@ -48,7 +48,7 @@ import { alignFactor, pdfStandardFont } from './text-font';
 import { symbolGeometry } from './symbols';
 import { wallGeometry, wallOpenings } from './walls';
 import { deductionNumbers } from './numbering';
-import { measureLabel } from './measure';
+import { measureLabel, withoutLineFill } from './measure';
 import { planLegend, type LegendEntry } from './legend';
 import { formatArea, formatMeasure } from './numbers';
 
@@ -558,7 +558,8 @@ function drawStyledShape(
 
 /** Gut sichtbare Strichfarbe (Weiß wäre auf weißem Plan unsichtbar) */
 const visibleHex = (hex: string) => (hex.toLowerCase() === '#ffffff' ? '#8e8e93' : hex);
-function drawDamages(ctx: Ctx, t: Target, region: Rect, damages: Damage[], components: Component[]) {
+function drawDamages(ctx: Ctx, t: Target, region: Rect, all: Damage[], components: Component[]) {
+  const damages = all.map(withoutLineFill);
   const u = 1 / t.ptPerUnit;
   const fs = labelFontPt(region, t.ptPerUnit);
   const stroke = Math.max(0.8, fs * 0.14);
