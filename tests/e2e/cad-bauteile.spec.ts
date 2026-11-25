@@ -1,6 +1,6 @@
 import { expect, test, type Page } from './fixtures';
 import { execFileSync } from 'node:child_process';
-import { catchDownload, createProject, freshStart, pickTool, saveDownload, waitSaved, toMeasureMode } from './helpers';
+import { catchDownload, createProject, freshStart, pickTool, saveDownload, waitSaved, toMeasureMode, toDrawMode } from './helpers';
 
 /** CAD Phase 4a (Maus): Bauteile – Türen, Fenster, Elektro (ÖNORM) einsetzen, an Linie ausrichten, Anschlag, Größe, PDF */
 
@@ -141,6 +141,7 @@ test('Fenster mittig in senkrechter Wand, Elektro frei, Geräte im PDF', async (
     await page.getByTestId('pdf-export-run').click();
   });
   const pdf = await saveDownload(dl, 'bauteile.pdf');
+  await toDrawMode(page); // nächste Schritte zeichnen weiter
   expect(execFileSync('pdftotext', [pdf, '-'], { encoding: 'utf8' })).toContain('TV');
   execFileSync('pdftoppm', ['-png', '-r', '60', pdf, 'tests/output/bauteile']);
   expect(dw.symbol?.id).toBe('socket-tv');

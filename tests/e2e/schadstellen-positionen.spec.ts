@@ -286,7 +286,7 @@ test('Beispiel-LV „Betoninstandsetzung“ (PDF): Klassen, Zulage, Folgeleistun
   for (const no of ['01.14.20.01B.', '01.14.20.02A.', '01.14.25.01B.', '01.14.25.02A.', '01.14.40.02A.']) expect(band(no), no).toBeGreaterThan(0);
   expect(band('01.14.20.01A.')).toBe(-1);
   const rb = band('01.14.40.02A.');
-  expect([ws[rb + 2][0], ws[rb + 2][1], ws[rb + 2][5]]).toEqual(['S-1', 1, 1.2]);
+  expect([ws[rb + 2][0], ws[rb + 2][1], ws[rb + 2][2]]).toEqual(['S-1', 1, 1.2]); // lfm: nur die Länge, gleich in Spalte C
   expect(String(ws[rb + 2][7])).toContain('Bewehrung der Schadstelle');
   expect(ws.some((r) => r[0] === 'Aufmaß ohne Leistungsposition')).toBe(false);
 

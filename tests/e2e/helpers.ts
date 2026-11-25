@@ -106,6 +106,13 @@ export async function toMeasureMode(page: Page, how: 'click' | 'tap' = 'click') 
   await expect(page.getByTestId('draw-toolbar')).toBeHidden();
 }
 
+/** zurück nach „Plan zeichnen“ (z. B. nach einem Export aus dem Aufmaß) */
+export async function toDrawMode(page: Page, how: 'click' | 'tap' = 'click') {
+  if (await page.getByTestId('draw-toolbar').isVisible()) return;
+  await page.getByTestId('mode-draw')[how]();
+  await expect(page.getByTestId('draw-toolbar')).toBeVisible();
+}
+
 export async function excelExport(page: Page, opener: string, how: 'click' | 'tap' = 'click') {
   if (opener.endsWith('-plan')) await toMeasureMode(page, how);
   await page.getByTestId(opener)[how]();
