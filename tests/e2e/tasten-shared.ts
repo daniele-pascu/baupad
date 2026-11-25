@@ -499,6 +499,23 @@ export function tastenTests() {
     await dlg.getByTestId('damage-save').click();
     await expect(dlg).toBeHidden();
     await pruefe(page, 'Plan-Editor mit Messung', out);
+    // Plan mit Maßstab: Fläche messen – Auswahl Länge × Breite oder Fläche aus Plan
+    await pickTool(page, 'tool-calibrate');
+    await drawRect(page, box.x + box.width * 0.55, box.y + box.height * 0.55, box.x + box.width * 0.75, box.y + box.height * 0.55);
+    const pd = page.getByTestId('prompt-dialog');
+    await pd.locator('input').fill('10');
+    await pd.getByRole('button', { name: 'Kalibrieren' }).click();
+    await pickTool(page, 'tool-rect');
+    await drawRect(page, box.x + box.width * 0.55, box.y + box.height * 0.3, box.x + box.width * 0.7, box.y + box.height * 0.45);
+    await expect(dlg.getByTestId('use-geometry')).toBeVisible();
+    await pruefe(page, 'Messdialog Fläche (Länge × Breite oder aus Plan)', out);
+    await dlg.getByTestId('use-geometry').click();
+    await expect(dlg.getByTestId('geometry-area')).toBeVisible();
+    await pruefe(page, 'Messdialog Fläche aus Plan', out);
+    await dlg.getByTestId('damage-cancel').click();
+    await expect(dlg).toBeHidden();
+    // nach dem Abbrechen bleibt Messung 1 ausgewählt – Auswahl aufheben, damit der Ablauf wie vorher weitergeht
+    if (await page.getByRole('button', { name: 'Auswahl aufheben' }).isVisible()) await page.getByRole('button', { name: 'Auswahl aufheben' }).click();
     if (await page.getByTestId('tools-open').isVisible()) await page.getByTestId('tools-open').click();
     await pruefe(page, 'Plan-Editor Leiste offen', out);
     // Ebenen: eigenes Fenster (vorher Aufklappfeld, das am Handy links aus dem Bild ragte)

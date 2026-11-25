@@ -556,6 +556,17 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             </div>
           </div>
         )}
+        {withArea && !wall && !counted && !free && geometry && (
+          <div className="segmented area-source" role="radiogroup" aria-label="Fläche messen">
+            <button type="button" role="radio" aria-checked={!geo} aria-selected={!geo} onClick={() => setFromShape(false)} data-testid="use-manual">
+              Länge × Breite
+            </button>
+            {/* Klick auf die gewählte Taste schaltet zurück auf Länge × Breite */}
+            <button type="button" role="radio" aria-checked={!!geo} aria-selected={!!geo} aria-pressed={!!geo} onClick={() => setFromShape(!geo)} data-testid="use-geometry">
+              Fläche aus Plan · {formatArea(geometry.area)} m²
+            </button>
+          </div>
+        )}
         <div className="measure-grid">
           {field('number', 'Nr. / Kennz.', 'Nr.')}
           {counted ? (
@@ -594,10 +605,10 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             </>
           ) : geo ? (
             <label className="field measure-field">
-              <span>Umfang (aus Plan)</span>
+              <span>Fläche (aus Plan)</span>
               <div className="input-unit">
-                <input value={formatArea(geo.perimeter)} readOnly tabIndex={-1} onClick={tapToEdit} title="Doppelt antippen, um die Maße selbst einzugeben" data-testid="geometry-perimeter" />
-                <span className="unit">m</span>
+                <input value={formatArea(geo.area)} readOnly tabIndex={-1} onClick={tapToEdit} title="Doppelt antippen, um Länge und Breite selbst einzugeben" data-testid="geometry-area" />
+                <span className="unit">m²</span>
               </div>
             </label>
           ) : lineGeo !== null ? (
@@ -732,17 +743,6 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             </div>
           )}
         </div>
-        {withArea && !wall && geometry && (
-          <button
-            type="button"
-            className={`btn btn-sm suggest-btn${geo ? ' active' : ''}`}
-            onClick={() => setFromShape(!geo)}
-            aria-pressed={!!geo}
-            data-testid="use-geometry"
-          >
-            {geo ? 'Maße selbst eingeben' : `Fläche aus Plan übernehmen: ${formatArea(geometry.area)} m²`}
-          </button>
-        )}
         {lineSuggest !== null && lineSuggest > 0 && (
           <button
             type="button"
@@ -786,7 +786,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             </>
           ) : geo ? (
             <>
-              <span>Fläche aus Plan ({geo.formula}){deductions.length ? ', netto mit Abzügen' : ''} – wird bei Formänderung nachgeführt</span>
+              <span>Fläche aus Plan{deductions.length ? ', netto mit Abzügen' : ''}</span>
               <strong>{formatArea(area)} m²</strong>
             </>
           ) : wall ? (
