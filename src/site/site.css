@@ -353,10 +353,11 @@
 .ps-nav-products.is-open button {
   background: rgba(255, 255, 255, 0.08);
 }
-.ps-nav-products svg {
+.ps-nav-products > button svg {
   transition: transform 0.2s ease;
 }
-.ps-nav-products.is-open svg {
+/* nur der Pfeil der Taste dreht sich – nicht die Grafiken im Fenster (sonst stünde das BauPad-Logo auf dem Kopf) */
+.ps-nav-products.is-open > button svg {
   transform: rotate(180deg);
 }
 /* Fenster: Glas wie die Leiste (die Seite scheint weich durch), genau so breit wie die Links; blendet sanft ein */
