@@ -1,0 +1,483 @@
+{
+ "start": "2026-11-25T20:43:13.912Z",
+ "round": 2,
+ "idle": 0,
+ "errors": 0,
+ "status": "pass",
+ "history": [
+  {
+   "at": "2026-11-25T20:50:04.945Z",
+   "mode": "manual",
+   "status": "error",
+   "fails": 0,
+   "round": 0,
+   "reused": false,
+   "stopHookActive": false
+  },
+  {
+   "at": "2026-11-25T20:51:45.459Z",
+   "mode": "manual",
+   "status": "fail",
+   "fails": 17,
+   "round": 1,
+   "reused": false,
+   "stopHookActive": false
+  },
+  {
+   "at": "2026-11-25T20:55:29.280Z",
+   "mode": "manual",
+   "status": "fail",
+   "fails": 5,
+   "round": 2,
+   "reused": false,
+   "stopHookActive": false
+  },
+  {
+   "at": "2026-11-25T21:00:17.295Z",
+   "mode": "manual",
+   "status": "pass",
+   "fails": 0,
+   "round": 2,
+   "reused": false,
+   "stopHookActive": false
+  },
+  {
+   "at": "2026-11-25T21:01:35.523Z",
+   "mode": "hook",
+   "host": "claude",
+   "decision": "allow",
+   "reason": "no build is active here",
+   "stopHookActive": false
+  }
+ ],
+ "max": 3,
+ "marker": {
+  "page": "index.html",
+  "url": null,
+  "root": null,
+  "kind": "software",
+  "category": "Software für Betriebe",
+  "primary": "BauPad kostenlos testen",
+  "rounds": 3,
+  "start": "2026-11-25T20:43:13.912Z",
+  "by": "gate.mjs --start"
+ },
+ "manual": true,
+ "fp": "62554798e8e7f098",
+ "page": "index.html",
+ "found": {
+  "fails": [
+   {
+    "check": "no-visual",
+    "where": "section#fragen \"Fragen zu PAD Software und BauPad\"",
+    "msg": "no picture, effect or mock in this section; a feature section needs a visual",
+    "fix": "give the section a visual: a UI fragment on a ground, real icons, or a photograph that fits",
+    "widths": [
+     1440,
+     390
+    ],
+    "from": "consistency",
+    "ids": [
+     "no-visual"
+    ],
+    "wheres": [
+     "section#fragen \"Fragen zu PAD Software und BauPad\""
+    ]
+   },
+   {
+    "check": "copy-headings",
+    "where": "div.wrap > div.grid > article.card.card--row:nth-of-type(1) > h3 \"Material je Projekt bestellen\"",
+    "msg": "\"Material je Projekt bestellen\" names no product, part, place or section (3 headings like it; at most one brand line per page) (and 2 more like it: \"Listen als Excel und PDF\", \"Ihre Daten bleiben in de\")",
+    "fix": "name the thing in every heading: the product, a part, the place or a section noun",
+    "widths": [
+     1440
+    ],
+    "from": "consistency",
+    "ids": [
+     "copy-headings"
+    ],
+    "wheres": [
+     "div.wrap > div.grid > article.card.card--row:nth-of-type(1) > h3 \"Material je Projekt bestellen\""
+    ]
+   }
+  ],
+  "warns": [
+   {
+    "check": "flush",
+    "where": "section#daten > div.mo-io__stage > div.mo-io__cover",
+    "msg": "its first line sits 17px under the top edge of section#daten, where the ground changes",
+    "fix": "give the section its padding at the edge where the ground changes (the closing call keeps a clear gap above the footer)",
+    "widths": [
+     1440
+    ],
+    "from": "consistency"
+   },
+   {
+    "check": "caption",
+    "where": "div.wrap > div.hero-text > div.hero__c > p.hero__lead \"Unser erstes Produkt BauPad vereint 7 To\"",
+    "msg": "a line of words sits right under a picture, like \"Unser erstes Produkt BauPad vereint 7 To\": the section's text says it, or the picture speaks for itself",
+    "fix": "no line under a picture: never how it was made, what it shows, what is missing or what will follow (credits: one footer line)",
+    "widths": [
+     1440
+    ],
+    "from": "consistency"
+   },
+   {
+    "check": "cut-text",
+    "where": "ul.ui-notify__list > li.ui-note:nth-of-type(3) > span.ui-note__text > span.ui-note__body \"3 Einträge warten auf Netz\"",
+    "msg": "cut 14px at the bottom by the overflow of div.group > div.grid > article.card.card--row:nth-of-type(2) > div.panel: a fragment run out through its panel's edge",
+    "fix": "give the text room: no overflow clipping a line, no line past its box",
+    "widths": [
+     1440,
+     390
+    ],
+    "from": "consistency"
+   },
+   {
+    "check": "no-visual",
+    "where": "section#baupad \"BauPad: Zeiten, Material und Listen in e\"",
+    "msg": "pictures, effects and mocks cover 23% of this section; a feature section needs a visual (about 25% or more)",
+    "fix": "give the section a visual: a UI fragment on a ground, real icons, or a photograph that fits",
+    "widths": [
+     1440
+    ],
+    "from": "consistency"
+   },
+   {
+    "check": "cta",
+    "where": "section#baupad \"BauPad: Zeiten, Material und Listen in e\"",
+    "msg": "a section over 1.5 screens long with no link or button in it",
+    "fix": "add the action: a button in the hero, one on every priced item, one in the closing section",
+    "widths": [
+     1440,
+     390
+    ],
+    "from": "consistency"
+   },
+   {
+    "check": "copy-buttons",
+    "where": "header.nav.nav--centre > div.wrap.nav__bar > div.nav__actions > a.btn.btn--primary \"BauPad testen\"",
+    "msg": "\"BauPad testen\" does not start with a verb (book, buy, try, start, get, see...) (and 1 more like it: \"BauPad kostenlos testen\")",
+    "fix": "label buttons with a verb and what the visitor gets (\"Book a room\", \"Start free trial\")",
+    "widths": [
+     1440
+    ],
+    "from": "consistency"
+   },
+   {
+    "check": "copy-actions",
+    "where": "header.nav.nav--centre > div.wrap.nav__bar > div.nav__actions > a.btn.btn--primary \"BauPad testen\"",
+    "msg": "2 labels for one target /index.html#contact: \"BauPad testen\", \"BauPad kostenlos testen\"",
+    "fix": "few actions, one wording: at most 2 in the hero, the main action word for word in nav, hero and close",
+    "widths": [
+     1440
+    ],
+    "from": "consistency"
+   },
+   {
+    "check": "text-contrast",
+    "where": "li.ui-note:nth-of-type(1) > span.ui-note__text > span.ui-note__title > time \"jetzt\"",
+    "msg": "3 lines of text in drawn mocks read under 4.5:1 (1 colour pair), the worst \"jetzt\" in #7d7d7e on #fffeff at 4.09:1",
+    "fix": "lift the mocks' muted text (labels, meta, initials) to 4.5:1 on their own panel, or set it larger",
+    "widths": [
+     1440,
+     390
+    ],
+    "from": "consistency"
+   },
+   {
+    "check": "section-gaps",
+    "where": "section#baupad / section#daten",
+    "msg": "89px between these sections, -53% against the median 188px of gaps at a change of ground",
+    "fix": "use one gap between sections (all within 25% of each other)",
+    "widths": [
+     1440
+    ],
+    "from": "consistency"
+   },
+   {
+    "check": "section-gaps",
+    "where": "section#fragen / footer#contact",
+    "msg": "239px between these sections, +27% against the median 188px of gaps at a change of ground",
+    "fix": "use one gap between sections (all within 25% of each other)",
+    "widths": [
+     1440
+    ],
+    "from": "consistency"
+   },
+   {
+    "check": "section-gaps",
+    "where": "section#daten / section#fragen",
+    "msg": "uneven space at the edge of a band: 116px outside its edge, 72px inside it (the space on either side of a change of ground reads as one gap only when the two match)",
+    "fix": "use one gap between sections (all within 25% of each other)",
+    "widths": [
+     1440,
+     390
+    ],
+    "from": "consistency"
+   },
+   {
+    "check": "hole",
+    "where": "section#daten > div.wrap > div.grid.fill > div.frame.frame--split \"Was das Team sehen darf 4 von 5 an Zeite\"",
+    "msg": "an empty band 270px tall across the card (38% of its height), with content above and below it",
+    "fix": "close the empty space: move the content together, or give the space the visual it lacks",
+    "widths": [
+     1440
+    ],
+    "from": "consistency"
+   },
+   {
+    "check": "links",
+    "where": "div.wrap.nav__bar > nav.nav__links > div.nav__item:nth-of-type(4) > a.nav__link \"Kontakt\"",
+    "msg": "\"Kontakt\" goes to #contact, in the footer",
+    "fix": "point every link at a real section, page or file",
+    "widths": [
+     1440
+    ],
+    "from": "consistency"
+   },
+   {
+    "check": "links",
+    "where": "header.nav.nav--centre > div.wrap.nav__bar > div.nav__actions > a.nav__link \"Anmelden\"",
+    "msg": "\"Anmelden\" goes to #contact, in the footer",
+    "fix": "point every link at a real section, page or file",
+    "widths": [
+     1440
+    ],
+    "from": "consistency"
+   },
+   {
+    "check": "links",
+    "where": "header.nav.nav--centre > div.wrap.nav__bar > div.nav__actions > a.btn.btn--primary \"BauPad testen\"",
+    "msg": "\"BauPad testen\" goes to #contact, in the footer",
+    "fix": "point every link at a real section, page or file",
+    "widths": [
+     1440
+    ],
+    "from": "consistency"
+   },
+   {
+    "check": "links",
+    "where": "div.hero-text > div.hero__c > div.btn-row > a.btn.btn--primary \"BauPad kostenlos testen\"",
+    "msg": "\"BauPad kostenlos testen\" goes to #contact, in the footer",
+    "fix": "point every link at a real section, page or file",
+    "widths": [
+     1440
+    ],
+    "from": "consistency"
+   },
+   {
+    "check": "links",
+    "where": "div.hero-text > div.hero__c > div.btn-row > a.btn.btn--secondary \"Kontakt aufnehmen\"",
+    "msg": "\"Kontakt aufnehmen\" goes to #contact, in the footer",
+    "fix": "point every link at a real section, page or file",
+    "widths": [
+     1440
+    ],
+    "from": "consistency"
+   },
+   {
+    "check": "links",
+    "where": "div.wrap > div.grid > div.span-5.stack-4 > a.link \"Frage stellen\"",
+    "msg": "\"Frage stellen\" goes to #contact, in the footer",
+    "fix": "point every link at a real section, page or file",
+    "widths": [
+     1440
+    ],
+    "from": "consistency"
+   },
+   {
+    "check": "links",
+    "where": "div.span-2.footer__col:nth-of-type(4) > ul > li:nth-of-type(2) > a \"Kontakt\"",
+    "msg": "\"Kontakt\" goes to #contact, the block it already sits in",
+    "fix": "point every link at a real section, page or file",
+    "widths": [
+     1440
+    ],
+    "from": "consistency"
+   },
+   {
+    "check": "nav-labels",
+    "where": "div.wrap.nav__bar > nav.nav__links > div.nav__item:nth-of-type(1) > a.nav__link \"Produkte\"",
+    "msg": "\"Produkte\" opens a section headed \"BauPad: Zeiten, Material und Listen in einer App\"",
+    "fix": "name each nav link after the heading of the section it opens",
+    "widths": [
+     1440
+    ],
+    "from": "consistency"
+   },
+   {
+    "check": "nav-labels",
+    "where": "div.nav__menu > div.wrap.grid > div.menu-col.span-3:nth-of-type(1) > a:nth-of-type(1) \"ZeitenStunden je Projekt erfassen\"",
+    "msg": "\"ZeitenStunden je Projekt erfassen\" opens a section headed \"BauPad: Zeiten, Material und Listen in einer App\"",
+    "fix": "name each nav link after the heading of the section it opens",
+    "widths": [
+     1440
+    ],
+    "from": "consistency"
+   },
+   {
+    "check": "nav-labels",
+    "where": "div.nav__menu > div.wrap.grid > div.menu-col.span-3:nth-of-type(2) > a:nth-of-type(1) \"Weitere ProdukteFür andere Branchen\"",
+    "msg": "\"Weitere ProdukteFür andere Branchen\" opens a section headed \"Fragen zu PAD Software und BauPad\"",
+    "fix": "name each nav link after the heading of the section it opens",
+    "widths": [
+     1440
+    ],
+    "from": "consistency"
+   },
+   {
+    "check": "nav-labels",
+    "where": "div.wrap.nav__bar > nav.nav__links > div.nav__item:nth-of-type(4) > a.nav__link \"Kontakt\"",
+    "msg": "\"Kontakt\" opens a section headed \"BauPad kostenlos testen\"",
+    "fix": "name each nav link after the heading of the section it opens",
+    "widths": [
+     1440
+    ],
+    "from": "consistency"
+   },
+   {
+    "check": "nav-labels",
+    "where": "header.nav.nav--centre > div.wrap.nav__bar > div.nav__actions > a.nav__link \"Anmelden\"",
+    "msg": "\"Anmelden\" opens a section headed \"BauPad kostenlos testen\"",
+    "fix": "name each nav link after the heading of the section it opens",
+    "widths": [
+     1440
+    ],
+    "from": "consistency"
+   },
+   {
+    "check": "nav-labels",
+    "where": "div.nav__menu > div.wrap.grid > div.menu-col.span-3:nth-of-type(1) > a:nth-of-type(1) \"ZeitenStunden je Projekt erfas\"",
+    "msg": "3 entries of one menu go to the same place (#baupad): \"ZeitenStunden je Projekt erfas\", \"MaterialBestellen und abhaken\", \"ListenExcel und PDF fürs Büro\"",
+    "fix": "give each menu entry its own target (its section, its tab, its page), or show fewer entries",
+    "widths": [
+     1440
+    ],
+    "from": "consistency"
+   },
+   {
+    "check": "fade-cut",
+    "where": "ul.ui-notify__list > li.ui-note:nth-of-type(3) > span.ui-note__text > span.ui-note__title \"Am Gerät gespeichert 40m\"",
+    "msg": "2 lines of div.ui.ui-notify fade out under its edge (\"Am Gerät gespeichert 4\", \"40m\"): drawn at a fraction of #16171a on #fffeff, half-erased",
+    "fix": "fit the mock's rows inside its panel (fewer rows, a taller panel), or end the fade below the last whole row: no row half-erased",
+    "widths": [
+     1440,
+     390
+    ],
+    "from": "consistency"
+   },
+   {
+    "check": "fade-cut",
+    "where": "ul.ui-toggles__list > li.ui-tg:nth-of-type(4) > span.ui-tg__text > span.ui-tg__label \"Material bestellen\"",
+    "msg": "2 lines of div.ui.ui-panel fade out under its edge (\"Material bestellen\", \"Das Büro gibt frei\"): drawn at a fraction of #16171a on #fffeff, half-erased (inside a held section or scroll scene, whose motion --quick does not check)",
+    "fix": "fit the mock's rows inside its panel (fewer rows, a taller panel), or end the fade below the last whole row: no row half-erased",
+    "widths": [
+     1440
+    ],
+    "from": "consistency"
+   },
+   {
+    "check": "copy-length",
+    "where": "section#fragen \"Fragen zu PAD Software und BauPad\"",
+    "msg": "1 section over 90 words a screen outside the UI mocks (\"Fragen zu PAD Software u\" 129); 60 words a screen across the page (298 words in 5 screens): a tech page says it in about 80 or fewer",
+    "fix": "cut every section to its heading, one line and the product UI: the UI says the rest; no second paragraph, no list of feature sentences",
+    "widths": [
+     1440
+    ],
+    "from": "consistency"
+   },
+   {
+    "check": "nav-current",
+    "where": "header.nav.nav--centre",
+    "msg": "the nav stays on screen with 5 links to the page's sections, but never marks the one you are in (no link changes as the page scrolls)",
+    "fix": "mark the link of the section on screen (a colour, a weight or a line under it) as the visitor scrolls",
+    "widths": [
+     1440
+    ],
+    "from": "consistency"
+   },
+   {
+    "check": "visual-caption",
+    "where": "div.ui.ui-panel > div.ui-stat__chart > div.ui-stat__axis > span:nth-of-type(1) \"11. Nov\"",
+    "msg": "a muted 13px line of 1 row sits 8px under the drawing (svg): it reads as a caption: \"11. Nov\"; no caption or description under any image, render or visual (house rule)",
+    "fix": "take the line away: no caption or description under, over or on any image, render or visual; a licence credit goes in one footer line",
+    "widths": [
+     1440,
+     390
+    ],
+    "from": "consistency"
+   },
+   {
+    "check": "cut-text",
+    "where": "ul.ui-toggles__list > li.ui-tg:nth-of-type(5) > span.ui-tg__text > span.ui-tg__sub \"Hofer und Wallner\"",
+    "msg": "cut 12px at the bottom by the overflow of section#daten > div.wrap > div.grid.fill > div.frame.frame--split: a fragment run out through its panel's edge (inside a held section or scroll scene, whose motion --quick does not check)",
+    "fix": "give the text room: no overflow clipping a line, no line past its box",
+    "widths": [
+     390
+    ],
+    "from": "consistency"
+   },
+   {
+    "check": "fade-cut",
+    "where": "div.ui.ui-panel > ul.ui-checks__list > li.ui-check:nth-of-type(3) > span.ui-check__label \"Kabel 3 × 1,5 mm², 50 m\"",
+    "msg": "a line of div.ui.ui-panel fades out under its edge (\"Kabel 3 × 1,5 mm², 50 \"): drawn at a fraction of #16171a on #fffeff, half-erased",
+    "fix": "fit the mock's rows inside its panel (fewer rows, a taller panel), or end the fade below the last whole row: no row half-erased",
+    "widths": [
+     390
+    ],
+    "from": "consistency"
+   }
+  ],
+  "crashed": [],
+  "seconds": {
+   "consistency": 86,
+   "layout": 4
+  }
+ },
+ "open": [],
+ "waived": [
+  {
+   "check": "no-visual",
+   "where": "section#fragen \"Fragen zu PAD Software und BauPad\"",
+   "msg": "no picture, effect or mock in this section; a feature section needs a visual",
+   "fix": "give the section a visual: a UI fragment on a ground, real icons, or a photograph that fits",
+   "widths": [
+    1440,
+    390
+   ],
+   "from": "consistency",
+   "ids": [
+    "no-visual"
+   ],
+   "wheres": [
+    "section#fragen \"Fragen zu PAD Software und BauPad\""
+   ],
+   "reason": "The FAQ recipe (sections-library.md, faq) is the h2 beside open answers and holds no picture by design."
+  },
+  {
+   "check": "copy-headings",
+   "where": "div.wrap > div.grid > article.card.card--row:nth-of-type(1) > h3 \"Material je Projekt bestellen\"",
+   "msg": "\"Material je Projekt bestellen\" names no product, part, place or section (3 headings like it; at most one brand line per page) (and 2 more like it: \"Listen als Excel und PDF\", \"Ihre Daten bleiben in de\")",
+   "fix": "name the thing in every heading: the product, a part, the place or a section noun",
+   "widths": [
+    1440
+   ],
+   "from": "consistency",
+   "ids": [
+    "copy-headings"
+   ],
+   "wheres": [
+    "div.wrap > div.grid > article.card.card--row:nth-of-type(1) > h3 \"Material je Projekt bestellen\""
+   ],
+   "reason": "German heading: 'Material' is the section noun; the checker's noun list is English only, so it cannot read German nouns."
+  }
+ ],
+ "warnCount": 32,
+ "note": "consistency.mjs gave no report (exit 1: Error: Chrome exited early (1)); check.mjs could not run (exit 2: check: Chrome did not start)",
+ "at": "2026-11-25T21:00:17.296Z",
+ "roundKey": "30a32c422c458399:0b91e7de",
+ "roundFree": false,
+ "idleFree": false,
+ "blockKey": null
+}

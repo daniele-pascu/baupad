@@ -1,0 +1,9 @@
+# Kit-Kopie: wird aus .claude/skills/taste-skill/assets kopiert (cp -r …/assets ./assets); nur das eigene Excel-Symbol bleibt
+assets/*
+!assets/icons/
+assets/icons/*
+!assets/icons/xlsx.svg
+# Prüf- und Browser-Ausgaben
+.taste-skill/chrome-*
+.taste-skill/consistency/
+.taste-skill/gate/

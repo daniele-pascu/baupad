@@ -1,0 +1,11 @@
+{
+ "page": "index.html",
+ "url": null,
+ "root": null,
+ "kind": "software",
+ "category": "Software für Betriebe",
+ "primary": "BauPad kostenlos testen",
+ "rounds": 3,
+ "start": "2026-11-25T20:43:13.912Z",
+ "by": "gate.mjs --start"
+}

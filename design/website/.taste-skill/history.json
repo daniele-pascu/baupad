@@ -1,0 +1,16 @@
+{
+ "palettes": [],
+ "types": [],
+ "dealt": [
+  "instrument",
+  "host",
+  "gabarito"
+ ],
+ "moments": [
+  {
+   "id": "iris-opens",
+   "at": "2026-11-25T20:43:34.320Z",
+   "seed": "098c794d"
+  }
+ ]
+}

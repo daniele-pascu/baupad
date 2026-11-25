@@ -1,0 +1,22 @@
+[
+ {
+  "check": "no-visual",
+  "target": "section#fragen",
+  "reason": "The FAQ recipe (sections-library.md, faq) is the h2 beside open answers and holds no picture by design."
+ },
+ {
+  "check": "copy-headings",
+  "target": "div.wrap > div.grid > article.card.card--row:nth-of-type(1) > h3 \"Material je Projekt bestellen\"",
+  "reason": "German heading: 'Material' is the section noun; the checker's noun list is English only, so it cannot read German nouns."
+ },
+ {
+  "check": "copy-headings",
+  "target": "Listen als Excel und PDF",
+  "reason": "German heading: 'Listen' is the section noun; the checker's noun list is English only, so it cannot read German nouns."
+ },
+ {
+  "check": "copy-headings",
+  "target": "Ihre Daten bleiben in der EU",
+  "reason": "German heading: 'Daten' is the section noun; the checker's noun list is English only, so it cannot read German nouns."
+ }
+]
