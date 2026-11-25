@@ -565,6 +565,19 @@ async function fileOwners(ws: string, a: Access, items: { key: string; method: M
   return out;
 }
 
+/**
+ * Hochladen: Dateiart fest je Endung – nie HTML, SVG oder Skripte, die der Speicher sonst als Seite ausliefern würde
+ * (die App lädt nur Fotos als JPEG, Pläne als PDF und sonstige Dateien als Binärdaten bzw. Excel hoch).
+ */
+const PUT_TYPES: Record<string, string[]> = {
+  jpg: ['image/jpeg'],
+  pdf: ['application/pdf'],
+  bin: ['application/octet-stream', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+};
+export function putTypeAllowed(key: string, contentType: string | undefined): boolean {
+  const ext = key.slice(key.lastIndexOf('.') + 1);
+  return (PUT_TYPES[ext] ?? []).includes(contentType ?? 'image/jpeg');
+}
 const KEY_RE = /^(photos\/[A-Za-z0-9_-]{4,64}\/(data|thumb|original)\.jpg|files\/[A-Za-z0-9_-]{4,64}\/(data\.bin|data\.jpg|thumb\.jpg|pdf\.pdf))$/;
 const STORES = ['projects', 'costCenters', 'files', 'plans', 'damages', 'components', 'elements', 'lvDocs', 'workers', 'weeks', 'reports', 'defectPlans', 'defectMarks', 'formTemplates', 'formEntries', 'timeDays', 'timeMonths', 'materials', 'suppliers', 'materialItems', 'materialUses', 'materialPlans', 'meta'];
 /** Kennung eines Datensatzes; „|“ für Zeitaufzeichnung (Arbeiter|Datum) */
@@ -619,6 +632,7 @@ export async function handler(req: Request): Promise<Response> {
       if (!items.length || items.length > 50) return json(422, { error: 'items' }, origin);
       const out: Record<string, string> = {};
       for (const it of items) if (!KEY_RE.test(String(it.key)) || !['GET', 'PUT', 'HEAD'].includes(it.method)) return json(422, { error: 'key' }, origin);
+      for (const it of items) if (it.method === 'PUT' && !putTypeAllowed(it.key, it.contentType)) return json(422, { error: 'type' }, origin);
       // Polier/Arbeiter: nur Dateien freigegebener Projekte; neue Dateien hochladen
       const owners = acc.office ? null : await fileOwners(ctx.ws, acc, items);
       const denied: string[] = [];
