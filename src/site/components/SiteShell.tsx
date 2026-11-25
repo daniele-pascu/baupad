@@ -6,6 +6,7 @@ import { contactData } from '../contact-data';
 import { useLang } from '../i18n';
 import { PRODUCTS } from '../products';
 import { usePageMeta, type PageMeta } from '../seo';
+import { attachNavLens } from '../nav-lens';
 
 /** Logo PAD Software (Zeichen, weiß) – Link zur Startseite */
 export function Wordmark({ lang }: { lang: Lang }) {
@@ -76,8 +77,7 @@ export function SiteHeader() {
   const [scrolled, setScrolled] = useState(false);
   const [awake, setAwake] = useState(false);
   useEffect(() => setOpen(false), [path]);
-  // über hellem Grund wird die Leiste schwarzes Glas (Logo und Schrift bleiben weiß); nur über dem schwarzen Kopf der
-  // Startseite bleibt sie weißes Glas. Seiten ohne schwarzen Kopf sind ganz hell.
+  // Leiste immer schwarzes Glas (Logo und Schrift weiß); `light` merkt, ob sie über hellem Grund liegt
   // vor dem ersten Bild prüfen (useLayoutEffect), damit die Leiste beim Seitenwechsel nicht kurz im falschen Modus aufblitzt
   const [light, setLight] = useState(true);
   useLayoutEffect(() => {
@@ -109,6 +109,10 @@ export function SiteHeader() {
   }, []);
   // Produkte: Fenster klappt unter der Leiste auf (so breit wie die Links); Klick daneben oder Esc schließt es
   const [products, setProducts] = useState(false);
+  // Glaslinse unter den Links (nur breite Bildschirme – am Handy stecken die Links im Menü)
+  const navRef = useRef<HTMLElement>(null);
+  const lensRef = useRef<HTMLSpanElement>(null);
+  useEffect(() => (navRef.current && lensRef.current ? attachNavLens(navRef.current, lensRef.current) : undefined), []);
   const headerRef = useRef<HTMLElement>(null);
   useEffect(() => setProducts(false), [path]);
   useEffect(() => {
@@ -141,7 +145,12 @@ export function SiteHeader() {
       </a>
       <div className="ps-bar">
         <Wordmark lang={lang} />
-        <nav id="ps-nav" className="ps-nav" aria-label={lang === 'de' ? 'Hauptnavigation' : 'Main navigation'}>
+        <nav ref={navRef} id="ps-nav" className="ps-nav" aria-label={lang === 'de' ? 'Hauptnavigation' : 'Main navigation'}>
+          <span ref={lensRef} className="ps-lens" aria-hidden="true">
+            <span className="ps-lens-clip">
+              <span className="ps-lens-copy" inert />
+            </span>
+          </span>
           {NAV.map((n) =>
             n.key === 'products' ? (
               <div key={n.key} className={`ps-nav-products${products ? ' is-open' : ''}`}>
