@@ -35,7 +35,7 @@ import { convertShape, isOpenShape, lineShape, moveVertex, polygonShape, removeV
 import { probeTarget, type ProbeKind } from '../lib/probe';
 import { ProbeBar, ProbeMenu, ProbeOverlay, type ProbeState } from '../components/ProbeLayer';
 import { choiceIcon, choiceLabel, MEASURE_CHOICES, MeasureTypeMenu, type MeasureChoice } from '../components/MeasureTypeMenu';
-import { calcPath, defaultTypeFor, DEFAULT_WORK_AREAS, measureTypeForUnit, quantityOfMeasure, typeInfo, typeOf } from '../lib/measure-types';
+import { calcPath, defaultTypeFor, measureTypeForUnit, quantityOfMeasure, typeInfo, typeOf } from '../lib/measure-types';
 import { circleThrough, translateShape } from '../lib/cad';
 import { countKind, deductionText, grossArea, hasArea, isWall, kindOf, measureLabel, netArea, netLength, sumLengths } from '../lib/measure';
 import { round2, checkMeasure, computeArea, formatArea, formatMeasure, toInputValue } from '../lib/numbers';
@@ -449,11 +449,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     setMtypeState(c);
     storePref('measureType', c);
   };
-  /** Arbeitsbereiche zur Auswahl: Vorgaben und alle im Projekt schon benutzten */
-  const workAreas = useMemo(
-    () => [...new Set([...DEFAULT_WORK_AREAS, ...Object.values(data.damages).filter((d) => d.projectId === plan?.projectId && !d.deletedAt && d.workArea).map((d) => d.workArea!)])],
-    [data.damages, plan?.projectId],
-  );
+
   /** Werkzeuge je Messart: Wand nur bei Wand (bzw. automatisch), Punkte nur bei Stück */
   /** Werkzeuge je Messart; ohne gewählte Messart nur Auswahl und Kalibrieren (erst Messart wählen, dann öffnet sich die Leiste) */
   const toolVisible = (id: Tool, c: MeasureChoice = mtype) => {
@@ -3082,7 +3078,6 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           wall={isWall({ kind: dialog.kind, shape: dialog.shape, measureType: dialog.measureType })}
           startBeam={beamTool && dialog.measureType === 'wand'}
           openShape={isOpenShape(dialog.shape)}
-          workAreas={workAreas}
           others={stored}
           components={[]}
           positions={positionOptions}
@@ -3109,7 +3104,6 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           geometry={geometryMeasures(dialogDamage.shape, k)}
           wall={isWall(dialogDamage)}
           openShape={isOpenShape(dialogDamage.shape)}
-          workAreas={workAreas}
           others={stored}
           components={[]}
           positions={positionOptions}

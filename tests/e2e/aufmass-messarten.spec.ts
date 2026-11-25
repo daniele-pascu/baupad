@@ -91,12 +91,12 @@ test('Messart wählen, dann mit beliebigem Werkzeug messen: Wand, Stück, Frei, 
   await dlg().getByTestId('input-width').fill('2,5');
   const wallArea = num((await dlg().getByTestId('wall-area').textContent())!.replace(/\s*m²/, ''));
   expect(Math.abs(wallArea - len * 2.5)).toBeLessThan(0.02);
-  await dlg().getByTestId('input-work-area').fill('Mauerwerk');
+  await expect(dlg().getByTestId('input-work-area')).toHaveCount(0); // kein Arbeitsbereich mehr in der Maßeingabe
   await dlg().getByTestId('damage-save').click();
   await expect(dlg()).toBeHidden();
   let d = await lastDmg();
   expect(d.measureType).toBe('wand');
-  expect(d.workArea).toBe('Mauerwerk');
+  expect(d.workArea ?? null).toBeNull();
   expect(Math.abs(d.area! - len * 2.5)).toBeLessThan(0.02);
   await expect(page.locator('[data-testid="aufmass-row"]').last().getByTestId('row-kind')).toHaveAttribute('title', 'Wand');
 

@@ -33,9 +33,6 @@ export const MEASURE_TYPES: MeasureTypeInfo[] = [
 export const MEASURE_TYPE_IDS = MEASURE_TYPES.map((t) => t.id);
 export const typeInfo = (t: MeasureType) => MEASURE_TYPES.find((x) => x.id === t)!;
 
-/** Arbeitsbereiche (Vorgabe); die Firma kann eigene ergänzen */
-export const DEFAULT_WORK_AREAS = ['Beton', 'Mauerwerk', 'Trockenbau', 'Fassade', 'Boden', 'Decke', 'Elektro', 'Sanitär', 'Abbruch', 'Sonstiges'];
-
 /** Schadensarten zur Auswahl (frei überschreibbar) */
 export const DAMAGE_TYPES = ['Abplatzung', 'Ausbruch', 'Bewehrung freiliegend', 'Durchfeuchtung', 'Hohlstelle', 'Kiesnest', 'Korrosion', 'Riss', 'Sonstiges'];
 
