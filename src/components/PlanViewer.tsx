@@ -810,7 +810,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
    *  Verbindungslinie; läge sie auf einer anderen Nummer → ausgeblendet, beim Vergrößern erscheinen alle wieder.
    *  Die ausgewählte Messung zeigt ihre Nummer immer. */
   const overview = qScale < fitScale * 2;
-  const labelFont = overview ? 9.5 : Math.max(10, Math.min(14, 11 * Math.pow(qScale / fitScale, 0.2)));
+  // am Bildschirm beim Arbeiten bewusst klein (verdeckt weniger vom Plan); im PDF sind die Nummern größer
+  const labelFont = overview ? 9 : Math.max(8.5, Math.min(12, 9.5 * Math.pow(qScale / fitScale, 0.2)));
   const keepLabel = overview ? selectedId : null;
   /** zuletzt vollständig berechnete Anordnung (Grundlage, solange ein Objekt gezogen wird) */
   const layoutBase = useRef<{ map: Map<string, Rect>; damages: ViewerItem[]; key: string } | null>(null);

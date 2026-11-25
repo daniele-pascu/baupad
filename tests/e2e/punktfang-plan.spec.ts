@@ -148,12 +148,12 @@ test('X gedrückt halten: vergrößert an der Maus, Fangpunkt blau markiert, Kli
   // Enter: fertig – Fläche exakt aus den Raumecken
   await page.keyboard.press('Enter');
   const dlg = page.getByTestId('damage-dialog');
-  await dlg.getByTestId('input-length').dblclick();
+  // Fläche aus Eckpunkten: gleich die Fläche aus dem Plan
   await expect(dlg.getByTestId('geometry-area')).toHaveValue('116,66');
   await dlg.getByTestId('damage-cancel').click();
 
-  // schon nah genug vergrößert: X zoomt nicht weiter, loslassen ändert nichts
-  for (let n = 0; n < 6; n++) await page.keyboard.press('+');
+  // schon nah genug vergrößert (über der X-Stufe): X zoomt nicht weiter, loslassen ändert nichts
+  for (let n = 0; n < 9; n++) await page.keyboard.press('+');
   await page.waitForTimeout(200);
   const near = Number(await viewer.getAttribute('data-scale'));
   await page.keyboard.down('x');
