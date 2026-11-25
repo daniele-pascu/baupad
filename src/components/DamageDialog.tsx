@@ -648,6 +648,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
         </div>
         {beamMode && (
           <div className="beam-box" data-testid="beam-box">
+            <BeamSketch a={bm.aOn ? bm.a : null} bottom={bm.bottomOn ? bm.bottom : null} b={bm.bOn ? bm.b : null} />
             <div className="beam-rows">
               {(
                 [
@@ -664,6 +665,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
                       <small className="muted">{label.split(' – ')[1]}</small>
                     </span>
                   </label>
+                  {/* .field: Eingabefeld im App-Stil (Rahmen, Breite) wie die anderen Maße */}
+                  <div className="field">
                   <div className="input-unit">
                     <input
                       value={bm[key]}
@@ -684,6 +687,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
                       data-testid={`beam-${key}-input`}
                     />
                     <span className="unit">m</span>
+                  </div>
                   </div>
                 </div>
               ))}
@@ -1276,5 +1280,27 @@ export function PositionPicker({
         {!shown.length && <p className="muted">Keine Position gefunden.</p>}
       </div>
     </Modal>
+  );
+}
+
+/** Skizze als Bezug: Decke mit Unterzug, Seite 1 links, Unterseite unten, Seite 2 rechts; ausgeschaltete Seiten gestrichelt */
+function BeamSketch({ a, bottom, b }: { a: string | null; bottom: string | null; b: string | null }) {
+  const side = (v: string | null) => (v === null ? { className: 'off', strokeDasharray: '4 4' } : { className: 'on' });
+  const val = (v: string | null) => (v === null ? 'zählt nicht' : v.trim() ? `${v.trim()} m` : '');
+  return (
+    <svg className="beam-sketch" viewBox="0 0 260 128" role="img" aria-label="Skizze Unterzug: Seite 1, Unterseite, Seite 2" data-testid="beam-sketch">
+      <rect className="slab" x="8" y="6" width="244" height="22" rx="2" />
+      <text className="cap" x="130" y="21">Decke</text>
+      <rect className="body" x="95" y="28" width="70" height="56" />
+      <line x1="95" y1="28" x2="95" y2="84" {...side(a)} />
+      <line x1="95" y1="84" x2="165" y2="84" {...side(bottom)} />
+      <line x1="165" y1="28" x2="165" y2="84" {...side(b)} />
+      <text x="86" y="54" textAnchor="end">Seite 1</text>
+      <text className="val" x="86" y="70" textAnchor="end">{val(a)}</text>
+      <text x="174" y="54">Seite 2</text>
+      <text className="val" x="174" y="70">{val(b)}</text>
+      <text x="130" y="104" textAnchor="middle">Unterseite</text>
+      <text className="val" x="130" y="120" textAnchor="middle">{val(bottom)}</text>
+    </svg>
   );
 }
