@@ -4,6 +4,9 @@ import { BulkDamageDialog, type DamagePatch } from '../components/BulkDamageDial
 import { AufmassTable } from '../components/AufmassTable';
 import { deductionNumbers } from '../lib/numbering';
 import { RotatePlanDialog } from '../components/RotatePlanDialog';
+import { AreaEditor } from '../components/AreaEditor';
+import { exportPaper } from '../lib/sheet-layout';
+import { renderSource } from '../lib/thumbs';
 import { DamageDialog, type DamageValues, type DrawnDeduction, type Renumber } from '../components/DamageDialog';
 import { ElementBar, InsertBar } from '../components/DrawPanel';
 import { Icon } from '../components/Icon';
@@ -34,7 +37,7 @@ import { aufmassPaper, drawingRegion, printSheetRect, sheetUnitsPerPt, isDrawing
 import { convertShape, isOpenShape, lineShape, moveVertex, polygonShape, removeVertex, rotatePoint, shapeVertices, toPage, toScreen, type Point, type View } from '../lib/geometry';
 import { probeTarget, type ProbeKind } from '../lib/probe';
 import { ProbeBar, ProbeMenu, ProbeOverlay, type ProbeState } from '../components/ProbeLayer';
-import { choiceIcon, choiceLabel, MEASURE_CHOICES, MeasureTypeMenu, type MeasureChoice } from '../components/MeasureTypeMenu';
+import { choiceIcon, choiceLabel, MeasureTypeMenu, type MeasureChoice } from '../components/MeasureTypeMenu';
 import { calcPath, defaultTypeFor, measureTypeForUnit, quantityOfMeasure, typeInfo, typeOf } from '../lib/measure-types';
 import { circleThrough, translateShape } from '../lib/cad';
 import { countKind, deductionText, grossArea, hasArea, isWall, kindOf, measureLabel, netArea, netLength, sumLengths } from '../lib/measure';
@@ -423,7 +426,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const data = useAppState((s) => s.data) as ProjectState;
   const history = useAppState((s) => s.history);
   const plan = data.plans[planId];
-  const [tool, setToolState] = useState<Tool>(() => loadPref('tool', TOOLS.map((t) => t.id).filter((t) => t !== 'probe'), 'ellipse'));
+  // Aufmaß startet mit „Auswahl“ und ohne Messart – erst die Messart wählen, dann erscheinen ihre Werkzeuge
+  const [tool, setToolState] = useState<Tool>('select');
   /** Aufmaß: eigene Leiste für Texte (statt der Mess-Tools) und die dort gewählte Art des Textes */
   const [textBar, setTextBar] = useState(false);
   const [textKind, setTextKind] = useState<TextKind>('plain');
@@ -443,11 +447,12 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const [probe, setProbe] = useState<ProbeState | null>(null);
   const [probeMenu, setProbeMenu] = useState(false);
   /** Messart neuer Messungen (zuerst wählen, dann mit jedem Werkzeug zeichnen); „auto“ = aus der Form */
-  const [mtype, setMtypeState] = useState<MeasureChoice>(() => loadPref('measureType', MEASURE_CHOICES, 'auto'));
+  const [mtype, setMtypeState] = useState<MeasureChoice>('auto');
   const [mtypeMenu, setMtypeMenu] = useState(false);
+  /** nach dem Wählen einer Messart: deren Werkzeuge gleiten nacheinander herein (nicht beim ersten Anzeigen der Seite) */
+  const [toolsIn, setToolsIn] = useState(false);
   const setMtype = (c: MeasureChoice) => {
     setMtypeState(c);
-    storePref('measureType', c);
   };
 
   /** Werkzeuge je Messart: Wand nur bei Wand (bzw. automatisch), Punkte nur bei Stück */
@@ -504,6 +509,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   /** Fenster „Neue Messung“ (Position bzw. frei wählen) */
   const [newMeasure, setNewMeasure] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  /** Planausschnitt direkt hier ändern (wie in der Planliste), ohne den Plan zu verlassen */
+  const [cropImage, setCropImage] = useState<HTMLCanvasElement | null>(null);
   const [rotateOpen, setRotateOpen] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
   /** Kalibrieren: Prüfstrecke statt Referenzstrecke ziehen; Prüfbericht */
@@ -709,7 +716,6 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     // Punktfang (blau) ist bei jedem Werkzeug an
     if (t !== 'select' && !drawing.snapOn) drawing.setSnapOn(true);
     setToolState(t);
-    storePref('tool', t);
   };
   const setColor = (c: string) => {
     setColorState(c);
@@ -1035,6 +1041,12 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     setToolsOpen(true);
     setSelectedId(null);
     drawing.setSelectedId(null);
+    // in „Plan zeichnen“ ohne aktives Werkzeug beginnen
+    if (m === 'draw') drawing.setTool('select');
+    else {
+      setMtypeState('auto');
+      setToolState('select');
+    }
   };
 
   // Schadstelle aus der Tabelle (andere Seite) anzeigen
@@ -1712,6 +1724,17 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 </button>
               );
             })()}
+          {!drawingPlan && file && (
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={() => void renderSource(file, plan.pageIndex, 1800, null, plan.rotation).then(setCropImage, (e) => showError(e))}
+              title="Planausschnitt ändern"
+              data-testid="editor-crop"
+            >
+              <Icon name="crop" size={18} /> <span className="hide-sm">Ausschnitt</span>
+            </button>
+          )}
           <button type="button" className="btn btn-sm" onClick={() => setDetailsOpen(true)} title="Planangaben">
             <Icon name="info" size={18} /> <span className="hide-sm">Angaben</span>
           </button>
@@ -2843,6 +2866,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                   value={mtype}
                   onPick={(c) => {
                     setMtype(c);
+                    setToolsIn(true);
                     setMtypeMenu(false);
                     // gleich zeichnen: ohne passendes Werkzeug → erstes Werkzeug der Messart
                     if (tool === 'select' || tool === 'calibrate' || tool === 'probe' || tool === 'text' || !toolVisible(tool, c)) setTool(firstTool(c));
@@ -2852,12 +2876,14 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 />
               )}
             </span>
-              {TOOLS.filter((t) => (t.id !== 'calibrate' || !drawingPlan) && (t.id !== 'select' || !isTouchDevice()) && toolVisible(t.id)).map((t) => (
-                <Fragment key={t.id}>
+              {TOOLS.filter((t) => (t.id !== 'calibrate' || !drawingPlan) && (t.id !== 'select' || !isTouchDevice()) && toolVisible(t.id)).map((t, i) => (
+                // neue Messart: Schlüssel wechselt → die Werkzeuge erscheinen neu (gestaffelt, siehe .tool-in)
+                <Fragment key={`${t.id}-${toolsIn ? mtype : ''}`}>
                 <button
                   type="button"
+                  style={toolsIn ? ({ '--i': Math.min(i, 5) } as React.CSSProperties) : undefined}
                   // nie zwei zugleich: bei offenem Menü (Messung, Stil) leuchtet nur dessen Knopf
-                  className={`tool-btn${(t.id === 'probe' ? probeMenu || (tool === 'probe' && !stylePopOpen) : tool === t.id && !(t.id === 'wall' && beamTool) && !probeMenu && !stylePopOpen) ? ' active' : ''}`}
+                  className={`tool-btn${toolsIn ? ' tool-in' : ''}${(t.id === 'probe' ? probeMenu || (tool === 'probe' && !stylePopOpen) : tool === t.id && !(t.id === 'wall' && beamTool) && !probeMenu && !stylePopOpen) ? ' active' : ''}`}
                   onClick={() => {
                     setStylePopOpen(false);
                     if (t.id === 'probe') {
@@ -3145,6 +3171,24 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       {excelOpen && plan && <ExcelExportDialog data={data} scope={{ kind: 'plan', planId: plan.id }} onClose={() => setExcelOpen(false)} />}
       {dimsOpen && plan && file && <DimensionReview data={data} plan={plan} file={file} onClose={() => setDimsOpen(false)} />}
       {detailsOpen && <PlanDetailsDialog plan={plan} data={data} onClose={() => setDetailsOpen(false)} />}
+      {cropImage && (
+        <AreaEditor
+          title="Planausschnitt festlegen"
+          image={cropImage}
+          pageWidth={plan.pageWidth}
+          pageHeight={plan.pageHeight}
+          initial={plan.crop ? [plan.crop] : []}
+          single
+          onClose={() => setCropImage(null)}
+          onDone={(areas) => {
+            const p = data.plans[plan.id];
+            // wie in der Planliste: Papierformat bleibt erhalten, Messungen behalten ihre Lage auf der Seite
+            putRecord('plans', { ...p, paper: p.paper ?? exportPaper(p), crop: areas[0] ?? null });
+            setCropImage(null);
+            toast('Planausschnitt geändert. Die Messungen behalten ihre Position auf der Seite.');
+          }}
+        />
+      )}
       {legendOpen && plan && (
         <LegendDialog
           entries={legend}

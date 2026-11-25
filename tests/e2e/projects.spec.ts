@@ -594,6 +594,11 @@ test('Bestehendes Projekt mit mehreren Kostenstellen: nichts geht verloren, Plan
   await waitForPlan(page);
   expect(await tableRows(page)).toEqual(before);
   await expect(page.locator('.viewer-overlay path[data-damage]').first()).toHaveAttribute('stroke', '#e03131');
+  // Ausschnitt auch direkt im Plan (Leiste oben rechts), ohne zurück zur Planliste
+  await page.getByTestId('editor-crop').click();
+  await expect(page.getByTestId('area-editor')).toBeVisible();
+  await page.getByTestId('area-editor').getByRole('button', { name: 'Abbrechen' }).click();
+  await expect(page.getByTestId('area-editor')).toHaveCount(0);
   await page.getByRole('link', { name: 'Zurück zur Planliste' }).click();
 
   // Ausschnitt-Aktion öffnet den bestehenden Ausschnitt-Editor

@@ -8,7 +8,6 @@ import { Icon } from './Icon';
  * Zeichenwerkzeuge – erst die Messart wählen, danach erscheinen die passenden Werkzeuge). „Automatisch“ gibt es nicht mehr.
  */
 export type MeasureChoice = MeasureType | 'auto';
-export const MEASURE_CHOICES: MeasureChoice[] = ['auto', ...MEASURE_TYPES.map((t) => t.id)];
 /** im Menü wählbar: nur die Messarten */
 const MENU_CHOICES: MeasureType[] = MEASURE_TYPES.map((t) => t.id);
 export const choiceLabel = (c: MeasureChoice) => (c === 'auto' ? 'wählen' : typeInfo(c).label);
