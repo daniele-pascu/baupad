@@ -65,6 +65,13 @@
       "computedHash": "f089f3663e197fb4e106249df70e815a96e3236520a2e1c0919d1694816baca8",
       "installMode": "copy"
     },
+    "charles-ux-animation": {
+      "source": "LemonFace0309/charles-skills",
+      "commit": "83de509dd10b77ebaf83c3f9986b538cdaf19b63",
+      "sourceType": "github",
+      "skillPath": "skills/drops/charles-ux-animation/SKILL.md",
+      "computedHash": "9e5075a8759ba1c232c7b1b1f46199deb6dd1f70fe10ce96bc1d964478ba33ad"
+    },
     "choreograph": {
       "source": "emilkowalski/skills",
       "commit": "64eb3deb9a5fbfa041faf783e0bc3fd635872e9c",
