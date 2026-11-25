@@ -1008,7 +1008,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
             // Papierformat bleibt erhalten (ältere Pläne: bisheriges automatisches Format festhalten)
             putRecord('plans', { ...plan, paper: plan.paper ?? exportPaper(plan), crop: areas[0] ?? null });
             setCropping(null);
-            toast('Planausschnitt geändert. Die Schadstellen behalten ihre Position auf der Seite.');
+            toast('Planausschnitt geändert. Die Messungen behalten ihre Position auf der Seite.');
           }}
         />
       )}

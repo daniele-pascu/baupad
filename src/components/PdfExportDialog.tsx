@@ -136,7 +136,7 @@ export function PdfExportDialog({ data, costCenterId, initial, mode = 'plans', o
                     <> · {photosOf(p.id)} {photosOf(p.id) === 1 ? 'Foto' : 'Fotos'}</>
                   ) : (
                     <>
-                      · {damagesOf(data, p.id).length} Schadstellen · <span data-testid="pdf-plan-paper">{PAPER[exportPaper(p)].label}</span>
+                      · {damagesOf(data, p.id).length} {damagesOf(data, p.id).length === 1 ? 'Messung' : 'Messungen'} · <span data-testid="pdf-plan-paper">{PAPER[exportPaper(p)].label}</span>
                     </>
                   )}
                   {!photos && hiddenLayerNames(p).length > 0 && (

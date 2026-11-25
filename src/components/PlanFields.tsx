@@ -218,7 +218,7 @@ export function PlanDetailsDialog({ plan, data, onClose }: { plan: Plan; data: P
         <span>Titel und „Im Plan anzeigen“ für alle Pläne dieses Projekts übernehmen ({alive(data.plans).filter((x) => x.projectId === plan.projectId).length} Pläne)</span>
       </label>
       <label className="field">
-        <span>Startnummer für neue Schadstellen</span>
+        <span>Startnummer für neue Messungen</span>
         <input value={start} onChange={(e) => setStart(e.target.value)} inputMode="numeric" pattern="[0-9]*" />
         <small className="muted">Standard: 1. Bestehende Nummern werden dadurch nicht verändert.</small>
         {show && !startOk && <small className="error">Bitte eine ganze Zahl ab 1 eingeben.</small>}
