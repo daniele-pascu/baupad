@@ -4,6 +4,7 @@ import { onPhotosChanged } from '../lib/photo-storage';
 import { loadTrash, type TrashItem, type TrashScope } from '../lib/trash-items';
 import { TRASH_DAYS } from '../lib/trash-purge';
 import { Icon } from './Icon';
+import { TrashCount } from './Motion';
 import { Modal } from './Modal';
 import { SelectBox, SelectionBar, SelectToggle, useSelection } from './Selection';
 import { confirmDialog, showError, toast } from './ui';
@@ -28,7 +29,7 @@ export function TrashButton({ scope }: { scope: TrashScope }) {
       <button type="button" className="btn btn-sm trash-btn" onClick={() => setOpen(true)} title={TRASH_INFO} aria-label={`Papierkorb${items.length ? ` (${items.length})` : ''}`} data-testid="trash-open" data-count={items.length}>
         <Icon name="trash" size={16} />
         <span className="lbl">Papierkorb</span>
-        {items.length > 0 && <span className="trash-count">{items.length}</span>}
+        <TrashCount n={items.length} />
       </button>
       {open && <TrashModal items={items} onRestored={load} onClose={() => setOpen(false)} />}
     </>

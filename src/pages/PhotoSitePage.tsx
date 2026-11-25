@@ -1,6 +1,7 @@
 import { zipSync } from 'fflate';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '../components/Icon';
+import { Swap } from '../components/Motion';
 import { TrashButton } from '../components/TrashButton';
 import { trashPhotos } from '../lib/trash-items';
 import { MovePhotosDialog } from '../components/MovePhotosDialog';
@@ -401,7 +402,9 @@ export function PhotoSitePage({ siteKey, week, photoId }: { siteKey: string; wee
             </div>
             <div className="row gap photo-actions">
               <button type="button" className={`btn btn-sm${selecting ? ' btn-primary' : ''}`} onClick={() => (selecting ? stopSelecting() : startSelecting(null))} aria-label={selecting ? 'Auswahl beenden' : 'Auswählen'} data-testid="photo-select">
-                <Icon name="check" size={16} /> <span className="lbl">{selecting ? 'Fertig' : 'Auswählen'}</span>
+                <Swap k={selecting ? 'on' : 'off'}>
+                  <Icon name="check" size={16} /> <span className="lbl swap-text">{selecting ? 'Fertig' : 'Auswählen'}</span>
+                </Swap>
               </button>
               {!selecting && (
                 <>

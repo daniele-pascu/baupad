@@ -61,12 +61,34 @@ describe('Platzierung der Schadstellennummern', () => {
       for (let j = i + 1; j < items.length; j++) expect(rectsOverlap(res.get(items[i].id)!, res.get(items[j].id)!)).toBe(false);
   });
 
-  it('frei stehende Schadstelle: Nummer direkt oben rechts, ohne Verbindungslinie', () => {
-    const it = L('a', 100, 100, 40, 30);
+  it('kleine Fläche: Nummer direkt oben rechts, ohne Verbindungslinie', () => {
+    const it = L('a', 100, 100, 20, 20);
     const r = layoutLabels([it], 3).get('a')!;
-    expect(r.x).toBe(143);
+    expect(r.x).toBe(123);
     expect(r.y).toBe(100 - 14 - 3);
-    expect(leaderLine({ type: 'rect', x: 100, y: 100, w: 40, h: 30 }, r, 5)).toBeNull(); // diagonal ≈ 4,2 px
+    expect(leaderLine({ type: 'rect', x: 100, y: 100, w: 20, h: 20 }, r, 5)).toBeNull(); // diagonal ≈ 4,2 px
+  });
+
+  it('Fläche groß genug: Nummer in der Mitte – auch in der Übersicht und im Export (all)', () => {
+    const it = L('a', 100, 100, 40, 30);
+    for (const opts of [{}, { overview: {} }, { overview: { all: true } }]) {
+      expect(layoutLabels([it], 3, opts).get('a')).toEqual({ x: 112, y: 108, w: 16, h: 14 });
+    }
+  });
+
+  it('Nummer von Hand in die Fläche gezogen: bleibt dort (nicht auf dem Umriss)', () => {
+    // Feld 16 × 14 mitten in 60 × 40: Offset relativ zur rechten oberen Ecke
+    const it = { ...L('a', 100, 100, 60, 40), offset: { dx: -38, dy: 27 } };
+    for (const opts of [{}, { overview: {} }]) expect(layoutLabels([it], 3, opts).get('a')).toEqual({ x: 122, y: 113, w: 16, h: 14 });
+  });
+
+  it('Nummern überlagern sich nie, auch wenn eine von Hand verschoben ist', () => {
+    const a = { ...L('a', 100, 100, 40, 30), offset: { dx: -28, dy: 22 } }; // in der Mitte von a
+    const b = L('b', 104, 104, 30, 20); // liegt in a – ihre Mitte wäre unter der Nummer von a
+    for (const opts of [{}, { overview: { all: true } }]) {
+      const res = layoutLabels([a, b], 3, opts);
+      expect(rectsOverlap(res.get('a')!, res.get('b')!)).toBe(false);
+    }
   });
 
   it('manuell verschobene Nummer bleibt fest, andere weichen aus', () => {

@@ -179,22 +179,22 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   expect(v(pb, 2)).toBe('Sperrflaeche');
   const th = pb + 1;
   // Spalten A–J: Menge F, EH G, Einheitspreis H, Positionspreis I
-  expect([v(pb, 5), v(pb, 6), v(pb, 7), v(pb, 8)]).toEqual([`=F${th + 3}`, 'm²', 25, `=H${pb + 1}*F${pb + 1}`]);
+  expect([v(pb, 5), v(pb, 6), v(pb, 7), v(pb, 8)]).toEqual([`=E${th + 3}`, 'm²', 25, `=H${pb + 1}*F${pb + 1}`]);
   // die Zusammenstellung verweist auf den Balken
   expect([v(sb, 2), v(sb, 5), v(sb, 6), v(sb, 7), v(sb, 8)]).toEqual(['Sperrflaeche', `=F${pb + 1}`, 'm²', `=H${pb + 1}`, `=I${pb + 1}`]);
-  // Messtabelle: immer dieselben Spalten (Plan, Nr., Länge, Breite, Tiefe, Menge); ohne Bemerkung keine Spalte „Bemerkung“
+  // Messtabelle: nur die gefragten Maße, Menge gleich danach (m²: Länge, Breite, m²); ohne Bemerkung keine Spalte „Bemerkung“
   expect(vals(th)).toEqual(['Plan', 'Nr.', 'Länge', 'Breite', 'm²']);
-  expect(ws[th + 1].slice(0, 6).map((c) => c?.v ?? null)).toEqual(['P-1', 1, 4, 2.5, null, `=ROUND(C${th + 2}*D${th + 2},2)`]);
-  expect([v(th + 2, 0), v(th + 2, 5), v(th + 2, 6)]).toEqual(['Summe', `=SUM(F${th + 2}:F${th + 2})`, 'm²']);
-  // Position A (m): Plan | Nr. | m – die Menge steht ebenfalls in Spalte F
+  expect(ws[th + 1].slice(0, 5).map((c) => c?.v ?? null)).toEqual(['P-1', 1, 4, 2.5, `=ROUND(C${th + 2}*D${th + 2},2)`]);
+  expect([v(th + 2, 0), v(th + 2, 4), v(th + 2, 5)]).toEqual(['Summe', `=SUM(E${th + 2}:E${th + 2})`, 'm²']);
+  // Position A (m): Plan | Nr. | m – nur die Länge, gleich in Spalte C
   const pa = rowsOf('92 01 01 A')[1];
   expect(vals(pa + 1)).toEqual(['Plan', 'Nr.', 'm']);
-  expect([v(pa + 2, 0), v(pa + 2, 1), v(pa + 2, 5)]).toEqual(['P-1', 2, 12]);
+  expect([v(pa + 2, 0), v(pa + 2, 1), v(pa + 2, 2)]).toEqual(['P-1', 2, 12]);
   // ohne Position: je Messart eine Tabelle, mit Plan und Nr.
   const free3 = rowOf('Aufmaß ohne Leistungsposition');
   expect(free3).toBeGreaterThan(pb);
   expect(ws.slice(free3).some((r) => r[0]?.v === 'P-1' && r[2]?.v === 3 && r[3]?.v === 2)).toBe(true);
-  expect(ws.slice(free3).some((r) => r[0]?.v === 'P-1' && r[5]?.v === 5.5)).toBe(true);
+  expect(ws.slice(free3).some((r) => r[0]?.v === 'P-1' && r[2]?.v === 5.5)).toBe(true);
   // Druck: Kopfzeile wie Vorlage (rechts „Seite von Seiten“), Seitenbreite
   // immer eine A4-Seite: an Seite angepasst, ohne feste Umbrüche
   const pr3 = readXlsxPrint(file3)['Aufmaßblatt 001'];

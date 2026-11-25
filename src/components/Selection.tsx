@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActionMenu, type MenuAction } from './ActionMenu';
 import { Icon } from './Icon';
+import { Swap } from './Motion';
 
 /**
  * Mehrfachauswahl für Listen (Pläne, LV, Mitarbeiter, Aufmaße …): „Auswählen“ schaltet Kästchen je Zeile ein,
@@ -74,7 +75,9 @@ export function SelectToggle({ sel, testId, label = 'Auswählen', onStart }: { s
       aria-pressed={sel.active}
       data-testid={testId}
     >
-      <Icon name={sel.active ? 'close' : 'check'} size={16} /> {sel.active ? 'Fertig' : label}
+      <Swap k={sel.active ? 'on' : 'off'}>
+        <Icon name={sel.active ? 'close' : 'check'} size={16} /> <span className="swap-text">{sel.active ? 'Fertig' : label}</span>
+      </Swap>
     </button>
   );
 }

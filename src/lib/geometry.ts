@@ -574,7 +574,7 @@ export interface LabelOptions {
    * bei Linien direkt daneben, nie auf der Linie) – ohne Verbindungslinien. Läge sie dort auf einer anderen Nummer, wird sie ausgeblendet; beim Vergrößern erscheint sie
    * wieder. Große Messungen zuerst, dann nach Nummer; `keep` (z. B. die ausgewählte Messung) wird immer gezeigt.
    */
-  overview?: { keep?: string | null };
+  overview?: { keep?: string | null; all?: boolean };
 }
 
 const overlapArea = (a: Rect, b: Rect) =>
@@ -741,13 +741,13 @@ export function layoutLabels(items: LabelInput[], gap: number, opts: LabelOption
   );
   const indexOf = new Map(items.map((it, i) => [it, i]));
 
-  // Manuell verschobene Beschriftungen sind fest – aber nie auf der eigenen Messung: liegt die Nummer darauf
-  // (z. B. aus Versehen beim Antippen verschoben), rückt sie auf dem kürzesten Weg daneben
+  // Manuell verschobene Beschriftungen sind fest – auch in der Fläche, aber nie auf der eigenen Linie bzw. dem Umriss:
+  // liegt die Nummer darauf (z. B. aus Versehen beim Antippen verschoben), rückt sie auf dem kürzesten Weg daneben
   for (const it of items) {
     if (!it.offset) continue;
     const b = it.bounds;
     let r: Rect = { x: b.x + b.w + it.offset.dx, y: b.y + it.offset.dy - it.h, w: it.w, h: it.h };
-    const covers = open(it) ? onStroke(r, it) : overlapArea(r, b) > 0;
+    const covers = onStroke(r, it);
     if (covers) {
       const moves: Rect[] = [
         { ...r, x: b.x - r.w - gap }, // links daneben
@@ -759,6 +759,10 @@ export function layoutLabels(items: LabelInput[], gap: number, opts: LabelOption
     }
     result.set(it.id, r);
   }
+
+  /** Fläche groß genug: Nummer passt mit Rand hinein und die Mitte liegt in der Fläche → Nummer in die Mitte */
+  const fitsInside = (it: LabelInput) =>
+    !open(it) && it.bounds.w >= it.w * 1.6 && it.bounds.h >= it.h * 1.8 && hitShape(shapeOf(it), { x: it.bounds.x + it.bounds.w / 2, y: it.bounds.y + it.bounds.h / 2 }, 0);
 
   const candidates = (it: LabelInput): { r: Rect; pref: number; inside: boolean }[] => {
     const b = it.bounds;
@@ -782,10 +786,8 @@ export function layoutLabels(items: LabelInput[], gap: number, opts: LabelOption
       ];
       for (const [x, y, p] of pos) list.push({ r: { x, y, w, h }, pref: p + ring * 4, inside: false });
     });
-    // Innerhalb großer Flächen ist die Zuordnung eindeutig (Linien haben keine Fläche – dort nie in die Mitte)
-    if (!open(it) && b.w >= w * 1.8 && b.h >= h * 1.8) {
-      list.push({ r: { x: b.x + b.w / 2 - w / 2, y: b.y + b.h / 2 - h / 2, w, h }, pref: 2.5, inside: true });
-    }
+    // Fläche groß genug: Nummer in die Mitte (vor allen Plätzen außen); Linien haben keine Fläche – dort nie
+    if (fitsInside(it)) list.push({ r: { x: b.x + b.w / 2 - w / 2, y: b.y + b.h / 2 - h / 2, w, h }, pref: -3, inside: true });
     return list;
   };
 
@@ -840,13 +842,14 @@ export function layoutLabels(items: LabelInput[], gap: number, opts: LabelOption
     const keep = opts.overview.keep;
     const size = (it: LabelInput) => Math.max(it.bounds.w, it.bounds.h);
     const order = [...items].sort((a, b) => Number(b.id === keep) - Number(a.id === keep) || size(b) - size(a));
-    result.clear(); // von Hand verschobene Nummern zählen hier nicht – sie gelten erst vergrößert
-    const placed: Rect[] = [];
+    // von Hand verschobene Nummern bleiben, wo sie hingezogen wurden
+    const placed: Rect[] = [...result.values()];
     const pad = gap / 2;
     // nie auf einer Linie; fremde Messungen deutlich weiter weg als die eigene (eindeutige Zuordnung)
     const near = (r: Rect, o: LabelInput, d: number) => rectGap(r, o.bounds) < d && rectToOutline(r, outlines.get(o.id)!) < d;
     const clearOfLines = (r: Rect, it: LabelInput, d: number) => items.every((o) => (o === it ? !onStroke(r, o) : !near(r, o, d)));
     for (const it of order) {
+      if (result.has(it.id)) continue;
       const b = it.bounds;
       const { w, h } = it;
       let cands: Rect[];
@@ -857,7 +860,7 @@ export function layoutLabels(items: LabelInput[], gap: number, opts: LabelOption
       } else {
         const mid = { x: b.x + b.w / 2 - w / 2, y: b.y + b.h / 2 - h / 2, w, h };
         cands = [
-          ...(hitShape(shapeOf(it), { x: b.x + b.w / 2, y: b.y + b.h / 2 }, 0) ? [mid] : []),
+          ...(fitsInside(it) ? [mid] : []),
           { x: b.x + b.w + gap, y: b.y + b.h / 2 - h / 2, w, h }, // rechts daneben
           { x: b.x + b.w / 2 - w / 2, y: b.y - h - gap, w, h }, // darüber
           { x: b.x - w - gap, y: b.y + b.h / 2 - h / 2, w, h }, // links daneben
@@ -871,6 +874,11 @@ export function layoutLabels(items: LabelInput[], gap: number, opts: LabelOption
       // zuerst eindeutige Plätze, sonst wenigstens nicht auf einer fremden Linie
       let pick = cands.find((r) => free(r) && clearOfLines(r, it, gap * 2.5)) ?? cands.find((r) => free(r) && clearOfLines(r, it, gap));
       if (!pick && it.id === keep) pick = cands.find((r) => !onStroke(r, it)) ?? cands[0];
+      // all (Export): keine Nummer ausblenden – ohne freien Platz wie in der Detailansicht platzieren
+      if (!pick && opts.overview.all) {
+        const others = items.filter((o) => o !== it);
+        pick = candidates(it).reduce((best, c) => (score(it, c, others) < score(it, best, others) ? c : best)).r;
+      }
       if (!pick) continue;
       placed.push(pick);
       result.set(it.id, pick);

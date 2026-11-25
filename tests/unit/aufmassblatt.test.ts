@@ -37,17 +37,19 @@ describe('Aufmaßblatt (Firmenvorlage)', () => {
   it('ohne LV: Kopf mit Nummer, Bauvorhaben, Kostenstelle, Leistungszeitraum; Flächen und Linien mit Plan und Nr.', () => {
     for (const t of ['Aufmaßblatt 007', 'Bauvorhaben X', '91092 – Ebene 1', '01.10.2026', 'Aufmaß', 'Betoninstandsetzung', 'Länge', 'Summe']) expect(sheet).toContain(`>${t}<`); // je Messart eine Tabelle
     expect(sheet).toMatch(/<f>ROUND\(C(\d+)\*D\1,2\)<\/f>/); // m² = Länge × Breite als Formel
-    expect(sheet.match(/<f>SUM\(F\d+:F\d+\)<\/f>/g)).toHaveLength(2); // Menge immer in Spalte F: Summe Fläche und Summe Länge
+    // je Messart nur die gefragten Maße, Menge gleich danach: Fläche Länge|Breite|m² (E), Länge nur m (C)
+    expect(sheet).toMatch(/<f>SUM\(E\d+:E\d+\)<\/f>/);
+    expect(sheet).toMatch(/<f>SUM\(C\d+:C\d+\)<\/f>/);
     // nichts zu bemerken → keine Spalte „Bemerkung“
     expect(sheet).not.toContain('>Bemerkung<');
   });
-  it('ohne gemessene Tiefe: Spalte E (Tiefe) ausgeblendet; mit Tiefe sichtbar', () => {
-    expect(sheet).toContain('<col min="5" max="5" width="9.5" customWidth="1" hidden="1"/>');
+  it('ohne gemessene Tiefe: keine Spalte Tiefe; mit Tiefe Länge|Breite|Tiefe|m²', () => {
+    expect(sheet).not.toContain('>Tiefe<');
     const withDepth = { ...data, damages: { ...data.damages, d1: dmg('d1', 1, { depth: 0.05 }) } } as unknown as ProjectState;
     const z = unzipSync(exportAufmassblatt(withDepth, { kind: 'costCenter', costCenterId: 'c1' }, { no: '008', period: '01.10.2026' }).data);
     const s2 = strFromU8(z['xl/worksheets/sheet1.xml']);
-    expect(s2).toContain('<col min="5" max="5" width="9.5" customWidth="1"/>');
     expect(s2).toContain('>Tiefe<');
+    expect(s2).toMatch(/<f>SUM\(F\d+:F\d+\)<\/f>/);
   });
   it('Spalte „Bemerkung“ nur mit Hinweis (z. B. Fläche aus dem Plan)', () => {
     const withNote = { ...data, damages: { ...data.damages, d1: dmg('d1', 1, { areaFromShape: true }) } } as unknown as ProjectState;
@@ -69,7 +71,7 @@ describe('Aufmaßblatt (Firmenvorlage)', () => {
     for (const t of ['Bewehrung', 'lfm']) expect(ws).toContain(`>${t}<`);
     expect(ws).toContain('<f>2*0.2+3*0.2+0.54+3*0.9</f><v>4.24</v>');
     expect(ws).toContain('<f>1.25</f><v>1.25</v>'); // ältere Messung: nur die Summe
-    expect(ws).toMatch(/<f>SUM\(F\d+:F\d+\)<\/f><v>5.49<\/v>/);
+    expect(ws).toMatch(/<f>SUM\(C\d+:C\d+\)<\/f><v>5.49<\/v>/);
   });
 
   it('Abzüge/Zuschläge: eigene Zeilen mit Formel und Bemerkung, Summe = netto; Position rechnet netto', () => {
@@ -93,7 +95,7 @@ describe('Aufmaßblatt (Firmenvorlage)', () => {
     expect(ws).toContain(`<f>-2*ROUND(C${r + 1}*D${r + 1},2)</f><v>-2.4</v>`);
     expect(ws).toContain(`<f>-ROUND(C${r + 2}*D${r + 2},2)</f><v>-2.1</v>`);
     expect(ws).toContain(`<f>ROUND(C${r + 3}*D${r + 3},2)</f><v>0.5</v>`);
-    expect(ws).toContain(`<f>SUM(F${r}:F${r + 3})</f><v>8.65</v>`); // 12,65 − 2,40 − 2,10 + 0,50
+    expect(ws).toContain(`<f>SUM(E${r}:E${r + 3})</f><v>8.65</v>`); // 12,65 − 2,40 − 2,10 + 0,50
   });
 
   it('Abzüge bei Linien: gemessene Länge, darunter Teillängen; Summe = netto', () => {
@@ -105,7 +107,7 @@ describe('Aufmaßblatt (Firmenvorlage)', () => {
     expect(ws).toContain('>Tür (2 × 1,00 m)<');
     expect(ws).toContain('<v>12.4</v>');
     expect(ws).toContain('<v>-2</v>');
-    expect(ws).toMatch(/<f>SUM\(F\d+:F\d+\)<\/f><v>10.4<\/v>/);
+    expect(ws).toMatch(/<f>SUM\(C\d+:C\d+\)<\/f><v>10.4<\/v>/);
   });
 
   it('mehrere LV/MFK und das Aufmaß ohne Position: immer eine A4-Seite, ohne feste Umbrüche oder festen Zoom', () => {
@@ -132,7 +134,7 @@ describe('Aufmaßblatt: Linien verschiedener Linienart nie zusammen', () => {
   const line = (id: string, n: number, length: number, lineType?: string) => dmg(id, n, { kind: 'line', width: null, area: null, length, ...(lineType ? { style: { lineType } } : {}) } as Partial<Damage>);
   const sheetOf = (...ls: Damage[]) =>
     strFromU8(unzipSync(exportAufmassblatt({ ...data, damages: Object.fromEntries(ls.map((d) => [d.id, d])) } as unknown as ProjectState, { kind: 'costCenter', costCenterId: 'c1' }, { no: '009', period: '' }, {}).data)['xl/worksheets/sheet1.xml']);
-  const sums = (ws: string) => [...ws.matchAll(/<f>SUM\(F\d+:F\d+\)<\/f><v>([\d.]+)<\/v>/g)].map((m) => Number(m[1]));
+  const sums = (ws: string) => [...ws.matchAll(/<f>SUM\(C\d+:C\d+\)<\/f><v>([\d.]+)<\/v>/g)].map((m) => Number(m[1]));
 
   it('gerade und wellige Linien: je eine eigene Tabelle mit eigener Summe', () => {
     const ws = sheetOf(line('a', 1, 4), line('b', 2, 2.5, 'wave'), line('c', 3, 1.5), line('d', 4, 3, 'wave'));
@@ -172,7 +174,7 @@ describe('Rechnungen', () => {
     const ws = strFromU8(unzipSync(f.data)['xl/worksheets/sheet1.xml']);
     expect(ws).toContain('>Aufmaßblatt 004 – 2. Teilrechnung<');
     expect(ws.match(/>01</g)).toHaveLength(2); // Position einmal (dazu in der Zusammenstellung) …
-    expect(ws).toMatch(/<f>SUM\(F(\d+):F(\d+)\)<\/f><v>3<\/v>/); // … mit 1 + 2 m² aus beiden Plänen, ohne TR 1 (6 m²)
+    expect(ws).toMatch(/<f>SUM\(E(\d+):E(\d+)\)<\/f><v>3<\/v>/); // … mit 1 + 2 m² aus beiden Plänen, ohne TR 1 (6 m²)
   });
 
   it('Leistungszeitraum der Rechnung als Vorschlag', () => {

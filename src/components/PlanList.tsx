@@ -4,6 +4,8 @@ import { quantityLines } from '../lib/measure-types';
 import { navigate, paths } from '../lib/router';
 import type { ProjectState } from '../lib/store';
 import type { Plan } from '../lib/types';
+import { useRef } from 'react';
+import { useListGlide } from '../lib/motion';
 import { ActionMenu } from './ActionMenu';
 import { SelectBox, type Selection } from './Selection';
 
@@ -33,8 +35,11 @@ interface Props {
  */
 export function PlanList({ data, plans, onEdit, onRename, onCrop, onReuse, onDuplicate, onRotate, onDelete, onPdf, sel }: Props) {
   const selecting = !!sel?.active;
+  // gelöschte Zeile: die Zeilen darunter rutschen nach
+  const listRef = useRef<HTMLDivElement>(null);
+  useListGlide(listRef, plans.map((p) => p.id).join());
   return (
-    <div className={`plan-list${selecting ? ' selecting' : ''}`} role="table" aria-label="Pläne" data-testid="plan-list">
+    <div ref={listRef} className={`plan-list${selecting ? ' selecting' : ''}`} role="table" aria-label="Pläne" data-testid="plan-list">
       <div className="plan-row plan-head" role="row">
         <span role="columnheader">Plannr.</span>
         <span role="columnheader">Bezeichnung / Ebene</span>
@@ -58,6 +63,7 @@ export function PlanList({ data, plans, onEdit, onRename, onCrop, onReuse, onDup
             className="plan-row"
             role="row"
             data-testid="plan-row"
+            data-flip={plan.id}
             data-plan={plan.planNumber}
             data-selected={selecting ? sel!.has(plan.id) : undefined}
             onClick={(e) => {
