@@ -454,6 +454,12 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const [mtypeMenu, setMtypeMenu] = useState(false);
   /** nach dem Wählen einer Messart: deren Werkzeuge gleiten nacheinander herein (nicht beim ersten Anzeigen der Seite) */
   const [toolsIn, setToolsIn] = useState(false);
+  // Einblenden nur direkt nach der Wahl der Messart – nicht jedes Mal, wenn die Leiste wieder aufgeht
+  useEffect(() => {
+    if (!toolsIn) return;
+    const t = window.setTimeout(() => setToolsIn(false), 500);
+    return () => window.clearTimeout(t);
+  }, [toolsIn, mtype]);
   const setMtype = (c: MeasureChoice) => {
     setMtypeState(c);
   };
@@ -2898,7 +2904,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             </span>
               {TOOLS.filter((t) => (t.id !== 'calibrate' || !drawingPlan) && toolVisible(t.id)).map((t, i) => (
                 // neue Messart: Schlüssel wechselt → die Werkzeuge erscheinen neu (gestaffelt, siehe .tool-in)
-                <Fragment key={`${t.id}-${toolsIn ? mtype : ''}`}>
+                <Fragment key={`${t.id}-${mtype}`}>
                 <button
                   type="button"
                   style={toolsIn ? ({ '--i': Math.min(i, 5) } as React.CSSProperties) : undefined}
