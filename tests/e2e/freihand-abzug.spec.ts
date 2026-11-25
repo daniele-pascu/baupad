@@ -80,8 +80,8 @@ test('Freihand: wellige Linie bleibt genau wie gezeichnet (Linie mit Länge); am
   expect(list[0].shape.points!.length).toBeGreaterThan(30); // alle Wellen bleiben erhalten
   expect(list[0].length).toBeGreaterThan(0);
 
-  // geschlossene Freihandform → Messart Fläche
-  await chooseMeasureType(page, 'flaeche');
+  // geschlossene Freihandform → Fläche der Betoninstandsetzung (bei der Messart Fläche gibt es keine Freihand mehr)
+  await chooseMeasureType(page, 'schadstelle');
   await pickTool(page, 'tool-freehand');
   const cx = sb.x + 300;
   const cy = sb.y + 420;
@@ -93,13 +93,13 @@ test('Freihand: wellige Linie bleibt genau wie gezeichnet (Linie mit Länge); am
   }
   await page.mouse.up();
   await page.getByTestId('freehand-done').click();
-  await expect(dlg).toContainText('Neue Messung: Fläche');
+  await expect(dlg).toContainText('Neue Messung: Betoninstandsetzung');
   await dlg.getByTestId('use-geometry').click();
   await dlg.getByTestId('damage-save').click();
   await waitSaved(page);
   await expect.poll(async () => (await damages()).length).toBe(2);
   list = await damages();
-  expect(list[1]).toMatchObject({ kind: 'area', shape: { type: 'freehand' } });
+  expect(list[1]).toMatchObject({ kind: 'damage', shape: { type: 'freehand' } });
   expect(list[1].shape.closed).not.toBe(false); // geschlossen (fehlt = geschlossen)
   expect(list[1].area).toBeGreaterThan(0);
   await waitSaved(page);

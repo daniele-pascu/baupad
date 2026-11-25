@@ -76,11 +76,11 @@ const TOOLS: { id: Tool; label: string; short?: string; icon: string; key: strin
 
 /**
  * Werkzeuge je Messart (Aufmaß). Dazu immer: Auswahl, Text, Messung (Kontrolle), Kalibrieren.
- * Fläche: alles außer Linie · Wand: nur Wand · Länge: Linie, Freie Form, Freihand · Volumen: Fläche, Kreis, Rechteck,
+ * Fläche: Rechteck, Kreis, Fläche (Freie Form und Freihand wären dasselbe) · Wand: nur Wand · Länge: Linie, Freie Form, Freihand · Volumen: Fläche, Kreis, Rechteck,
  * Freie Form · Stück: nur Punkte · Schadstelle: alles außer Wand und Fläche (geschlossene Freie Form ist eine Fläche) · Frei: alle.
  */
 const TOOLS_BY_TYPE: Record<MeasureType, readonly Tool[]> = {
-  flaeche: ['rect', 'ellipse', 'polygon', 'polyline', 'freehand'],
+  flaeche: ['rect', 'ellipse', 'polygon'],
   wand: ['wall'],
   laenge: ['line', 'polyline', 'freehand'],
   volumen: ['polygon', 'ellipse', 'rect', 'polyline'],

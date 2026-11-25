@@ -268,7 +268,7 @@ test('Werkzeuge je Messart: Wand nur bei Wand, Punkte bei Stück – Punkte anti
   // Werkzeuge je Messart (immer dazu: Auswahl/Text/Messung/Kalibrieren)
   const ALL = ['line', 'rect', 'ellipse', 'polygon', 'polyline', 'freehand', 'wall', 'points'];
   const EXPECT: Record<string, string[]> = {
-    flaeche: ['rect', 'ellipse', 'polygon', 'polyline', 'freehand'], // alles außer Linien
+    flaeche: ['rect', 'ellipse', 'polygon'], // Rechteck, Kreis, Fläche – Freie Form/Freihand wären dasselbe
     wand: ['wall'], // nur Wand
     laenge: ['line', 'polyline', 'freehand'], // Linie, Freie Form, Freihand
     volumen: ['rect', 'ellipse', 'polygon', 'polyline'], // Fläche, Kreis, Rechteck, beliebige Form
