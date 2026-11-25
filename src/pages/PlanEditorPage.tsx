@@ -316,7 +316,12 @@ function storePref(key: string, value: string) {
  * Messung mit Fläche aus der Plangeometrie: Fläche und Umfang aus der (geänderten) Form
  * neu berechnen. Ohne Ergebnis (z. B. offene Form, kein Maßstab) bleiben die Werte stehen.
  */
-function withShapeMeasures<T extends Pick<Damage, 'areaFromShape' | 'kind' | 'length' | 'area' | 'width' | 'deductions'> & Partial<Pick<Damage, 'measureType' | 'count'>>>(d: T, shape: Shape, k: number | null): T {
+function withShapeMeasures<T extends Pick<Damage, 'areaFromShape' | 'kind' | 'length' | 'area' | 'width' | 'deductions'> & Partial<Pick<Damage, 'measureType' | 'count'>>>(d: T, shape: Shape, k: number | null, prev?: Shape): T {
+  // Rechteck an einer Ecke verzogen: Länge × Breite stimmt nicht mehr → Fläche aus dem Plan (mit Maßstab)
+  const rectBent = prev?.type === 'rect' && shape.type !== 'rect';
+  if (!d.areaFromShape && rectBent && hasArea(kindOf(d)) && !isWall({ kind: d.kind, shape, measureType: d.measureType }) && d.measureType !== 'stueck' && d.measureType !== 'frei' && geometryMeasures(shape, k)) {
+    d = { ...d, areaFromShape: true };
+  }
   if (!d.areaFromShape) return d;
   if (d.measureType === 'stueck' || d.measureType === 'frei') return d;
   const n = d.count && d.count > 1 ? d.count : 1;
@@ -1358,7 +1363,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     const d = selectedId ? data.damages[selectedId] : null;
     const shape = d && measureVertex !== null ? removeVertex(d.shape, measureVertex) : null;
     if (!d || !shape) return false;
-    putRecord('damages', withShapeMeasures({ ...d, shape }, shape, k));
+    putRecord('damages', withShapeMeasures({ ...d, shape }, shape, k, d.shape));
     setMeasureVertex(null);
     return true;
   };
@@ -2051,7 +2056,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 if (commit) {
                   setOverrides(({ [id]: _, ...rest }) => rest);
                   const d = data.damages[id];
-                  if (JSON.stringify(d.shape) !== JSON.stringify(shape)) putRecord('damages', withShapeMeasures({ ...d, shape }, shape, k));
+                  if (JSON.stringify(d.shape) !== JSON.stringify(shape)) putRecord('damages', withShapeMeasures({ ...d, shape }, shape, k, d.shape));
                 } else setOverrides((o) => ({ ...o, [id]: { ...o[id], shape } }));
               }}
               onLabelChange={(id, offset, commit) => {

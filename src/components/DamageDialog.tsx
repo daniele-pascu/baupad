@@ -177,9 +177,14 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   /** Fläche und Umfang aus dem Plan übernehmen (nur bei Flächen-Messarten) */
   // Linie: Länge aus dem Plan (kalibriert) – bei neuen Linien vorgewählt, wird bei Formänderung nachgeführt
   const lineSuggest = lineSuggestFor(type);
+  // Rechteck: Länge × Breite aus dem Plan; jede andere Form (verzogene Ecke, Vieleck, Kreis): Fläche aus dem Plan
+  const isRect = damage.shapeType === 'rect';
+  const planAreaFor = (t: MeasureType) => !!geometry && !isRect && hasArea(typeInfo(t).kind) && t !== 'wand' && !openShape && t !== 'stueck' && t !== 'frei';
   const [fromShape, setFromShape] = useState(
-    damage.areaFromShape ? !!geometry || lineSuggest !== null : mode === 'new' && lineSuggest !== null && lineSuggest > 0,
+    damage.areaFromShape ? !!geometry || lineSuggest !== null : mode === 'new' && ((lineSuggest !== null && lineSuggest > 0) || planAreaFor(type)),
   );
+  // neues Rechteck auf einem Plan mit Maßstab: Länge und Breite gleich ausgefüllt
+  const rectFill = mode === 'new' && isRect && suggestion && suggestion.width !== null && hasArea(kind) && type !== 'wand' && damage.length == null ? suggestion : null;
   /** „aus Plan“-Feld doppelt angetippt bzw. doppelt geklickt: Maße selbst eingeben (Klick zählt für Maus und Finger) */
   const lastFieldTap = useRef(0);
   const tapToEdit = (e: { currentTarget: HTMLElement }) => {
@@ -211,8 +216,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   };
   const [v, setV] = useState({
     number: damage.label ?? String(damage.number),
-    length: toInputValue(up2(damage.length)),
-    width: toInputValue(up2(damage.width)),
+    length: rectFill ? toInputValue(rectFill.length) : toInputValue(up2(damage.length)),
+    width: rectFill ? toInputValue(rectFill.width) : toInputValue(up2(damage.width)),
     depth: toInputValue(damage.depth === null || damage.depth === undefined ? damage.depth : round3(damage.depth)),
     count: String(damage.count && damage.count > 0 ? damage.count : 1),
   });
@@ -235,7 +240,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
     if (mode !== 'new') return;
     const ls = lineSuggestFor(t);
     const k = typeInfo(t).kind;
-    setFromShape(ls !== null && ls > 0 ? true : hasArea(k) && !(t === 'wand' || openShape) ? !!damage.areaFromShape && !!geometry : false);
+    setFromShape(ls !== null && ls > 0 ? true : hasArea(k) && !(t === 'wand' || openShape) ? (!!damage.areaFromShape && !!geometry) || planAreaFor(t) : false);
   };
   const [color, setColor] = useState(damage.color);
   const [shapeType, setShapeType] = useState<ShapeType>(damage.shapeType);
@@ -561,8 +566,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             <button type="button" role="radio" aria-checked={!geo} aria-selected={!geo} onClick={() => setFromShape(false)} data-testid="use-manual">
               Länge × Breite
             </button>
-            {/* Klick auf die gewählte Taste schaltet zurück auf Länge × Breite */}
-            <button type="button" role="radio" aria-checked={!!geo} aria-selected={!!geo} aria-pressed={!!geo} onClick={() => setFromShape(!geo)} data-testid="use-geometry">
+            <button type="button" role="radio" aria-checked={!!geo} aria-selected={!!geo} aria-pressed={!!geo} onClick={() => setFromShape(true)} data-testid="use-geometry">
               Fläche aus Plan · {formatArea(geometry.area)} m²
             </button>
           </div>
@@ -754,7 +758,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             {lineGeo !== null ? 'Länge selbst eingeben' : `Länge aus Plan übernehmen: ${formatArea(lineSuggest)} m (${openShape ? 'alle Abschnitte' : 'Umfang'})`}
           </button>
         )}
-        {suggestion && !geo && withArea && !wall && !counted && !free && (
+        {/* Umriss-Maße nur beim Rechteck – bei anderen Formen wäre Länge × Breite des Rahmens falsch */}
+        {suggestion && isRect && !geo && withArea && !wall && !counted && !free && (
           <button
             type="button"
             className="btn btn-sm suggest-btn"

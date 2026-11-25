@@ -295,6 +295,12 @@ test('Aufmaß: offene Polylinie = Linienmessung mit Länge, geschlossene = Fläc
   for (const [dx, dy] of [[-260, -40], [-160, -40], [-160, 40], [-260, 40]]) await page.mouse.click(x + dx, y + dy);
   await page.getByTestId('polygon-finish').click();
   await expect(dlg).toContainText('Neue Messung: Fläche');
+  // freie Form auf einem Plan mit Maßstab: Fläche aus dem Plan vorgewählt, nur die Fläche im Feld
+  await expect(dlg.getByTestId('use-geometry')).toHaveAttribute('aria-checked', 'true');
+  await expect(dlg.getByTestId('geometry-area')).toBeVisible();
+  await expect(dlg.getByTestId('input-width')).toHaveCount(0);
+  // Doppelklick: Länge und Breite selbst eingeben
+  await dlg.getByTestId('geometry-area').dblclick();
   await expect(dlg.getByTestId('input-width')).toBeVisible(); // Fläche: Länge × Breite
   await dlg.getByTestId('damage-cancel').click();
 
@@ -305,7 +311,10 @@ test('Aufmaß: offene Polylinie = Linienmessung mit Länge, geschlossene = Fläc
   await page.mouse.move(x - 160, y - 180, { steps: 5 });
   await page.mouse.move(x - 60, y - 140, { steps: 5 });
   await page.mouse.up();
-  await dlg.getByTestId('use-geometry').click();
+  // Rechteck: Länge und Breite aus dem Plan ausgefüllt (keine Fläche aus Plan)
+  await expect(dlg.getByTestId('use-manual')).toHaveAttribute('aria-checked', 'true');
+  expect(Math.abs(num(await dlg.getByTestId('input-length').inputValue()) - 200 / (s * 100))).toBeLessThan(0.02);
+  expect(Math.abs(num(await dlg.getByTestId('input-width').inputValue()) - 100 / (s * 100))).toBeLessThan(0.02);
   const a0 = num((await dlg.getByTestId('area-result').locator('strong').textContent())!.replace(/\s*m²/, ''));
   expect(Math.abs(a0 - (200 * 100) / (s * 100) ** 2)).toBeLessThan(0.05);
   await dlg.getByTestId('damage-save').click();
@@ -320,8 +329,18 @@ test('Aufmaß: offene Polylinie = Linienmessung mit Länge, geschlossene = Fläc
   await page.mouse.up();
   const barArea = async () => num((await page.getByTestId('selection-bar').locator('.selection-info span').nth(1).textContent())!.match(/([\d.,]+) m² aus Plan/)![1]);
   // Trapez: (200 + 300) / 2 × 100 px
+  // Ecke verzogen: Messung rechnet jetzt mit der Fläche aus dem Plan
   await expect.poll(async () => Math.abs((await barArea()) - (250 * 100) / (s * 100) ** 2)).toBeLessThan(0.05);
   await waitSaved(page);
+  // im Fenster nur die Fläche; Doppelklick holt Länge und Breite zurück
+  await page.getByTestId('selection-bar').getByRole('button', { name: 'Bearbeiten' }).click();
+  await expect(dlg.getByTestId('geometry-area')).toBeVisible();
+  await expect(dlg.getByTestId('input-length')).toHaveCount(0);
+  await expect(dlg).not.toContainText('Umfang');
+  await dlg.getByTestId('geometry-area').dblclick();
+  await expect(dlg.getByTestId('input-length')).toBeVisible();
+  await expect(dlg.getByTestId('input-width')).toBeVisible();
+  await dlg.getByTestId('damage-cancel').click();
 });
 
 test('Wand: Verlauf mit Knicken, Länge aus allen Abschnitten, danach Höhe → Wandfläche; Knick verschieben aktualisiert', async () => {
