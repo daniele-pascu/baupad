@@ -1997,17 +1997,6 @@ html.kb-open .modal-backdrop {
   justify-content: center;
   margin-bottom: 8px;
 }
-/* Fläche messen: Länge × Breite oder aus dem Plan */
-.segmented.area-source {
-  display: flex;
-  width: 100%;
-  margin-bottom: 12px;
-}
-.segmented.area-source button {
-  flex: 1 1 0;
-  min-width: 0;
-  white-space: normal;
-}
 .row.center {
   justify-content: center;
 }
@@ -7233,6 +7222,10 @@ button.report-link {
   flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 14px;
+}
+/* eigene Tasten (z. B. im Messfenster): ohne eigenen Kasten, damit sie mit den Nachbartasten auf einer Linie stehen */
+.photo-capture.custom {
+  display: contents;
 }
 .photo-capture.big .photo-shoot {
   min-height: 56px;

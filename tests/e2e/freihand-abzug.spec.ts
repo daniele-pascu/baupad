@@ -94,7 +94,7 @@ test('Freihand: wellige Linie bleibt genau wie gezeichnet (Linie mit Länge); am
   await page.mouse.up();
   await page.getByTestId('freehand-done').click();
   await expect(dlg).toContainText('Neue Messung: Betoninstandsetzung');
-  await dlg.getByTestId('use-geometry').click();
+  await dlg.getByTestId('input-length').dblclick(); // Fläche aus dem Plan
   await dlg.getByTestId('damage-save').click();
   await waitSaved(page);
   await expect.poll(async () => (await damages()).length).toBe(2);

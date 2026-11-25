@@ -51,9 +51,8 @@ test('Vektor-PDF: Ecken des Grundrisses werden exakt gefangen, Fläche aus dem P
   await expect(page.getByTestId('snap-marker')).toBeVisible(); // Fangpunkt wird angezeigt
   await drawRect(page, a.x, a.y, b.x, b.y);
   const dlg = page.getByTestId('damage-dialog');
-  await expect(dlg.getByTestId('use-geometry')).toContainText('116,66 m²'); // 15,15 × 7,70 = 116,655 m²
-  await dlg.getByTestId('use-geometry').click();
-  await expect(dlg.getByTestId('geometry-area')).toHaveValue('116,66');
+  await dlg.getByTestId('input-length').dblclick();
+  await expect(dlg.getByTestId('geometry-area')).toHaveValue('116,66'); // 15,15 × 7,70 = 116,655 m²
   await dlg.getByTestId('damage-save').click();
   await waitSaved(page);
   const [d1] = await damages(page);
@@ -149,7 +148,8 @@ test('X gedrückt halten: vergrößert an der Maus, Fangpunkt blau markiert, Kli
   // Enter: fertig – Fläche exakt aus den Raumecken
   await page.keyboard.press('Enter');
   const dlg = page.getByTestId('damage-dialog');
-  await expect(dlg.getByTestId('use-geometry')).toContainText('116,66 m²');
+  await dlg.getByTestId('input-length').dblclick();
+  await expect(dlg.getByTestId('geometry-area')).toHaveValue('116,66');
   await dlg.getByTestId('damage-cancel').click();
 
   // schon nah genug vergrößert: X zoomt nicht weiter, loslassen ändert nichts
