@@ -979,6 +979,8 @@ test('Plan zeichnen am Handy: Kopf in einer Zeile; die Maß-Leiste rückt über 
   expect(Math.abs(back.y + back.height / 2 - (pdf.y + pdf.height / 2))).toBeLessThan(12);
   expect((await page.locator('.editor-topbar').boundingBox())!.height).toBeLessThanOrEqual(56);
   await noHorizontalScroll(page);
+  // beim Öffnen ist kein Werkzeug aktiv – Rechteck wählen, dann erscheinen die Maßfelder
+  await pickTool(page, 'draw-rect', 'tap');
   // Tastatur 336 px hoch: die Leiste mit den Maßfeldern liegt ganz darüber
   const bar = page.locator('.draw-bar');
   // Pfeile an den Maßfeldern: Länge waagrecht, Breite senkrecht
