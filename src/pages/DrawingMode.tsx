@@ -205,8 +205,11 @@ export function useDrawing(opts: {
   onCreated?: () => void;
   /** Seiteneinheiten je pt auf dem gerade angezeigten Blatt (für Schriftgrößen in pt); wird von der Seite gesetzt */
   ptUnit?: React.RefObject<number>;
+  /** Farben, Linien, Schraffur und Wandmaße werden je Plan gemerkt (nicht planübergreifend) */
+  planId: string;
 }) {
-  const { plan, data, damages, viewer, onCreated, ptUnit } = opts;
+  const { plan, data, damages, viewer, onCreated, ptUnit, planId } = opts;
+  const pk = (key: string) => `${key}:${planId}`;
   const k = plan ? unitsPerMeter(plan) : 100;
   const [tool, setToolState] = useState<DrawTool>(() => {
     const t = pref('drawTool', 'rect') as DrawTool;
@@ -214,15 +217,14 @@ export function useDrawing(opts: {
   });
   /** Strecken: zuerst Fenster (Meter), dann Verschiebung */
   const [stretchWin, setStretchWin] = useState<Rect | null>(null);
-  const [color, setColorState] = useState(() => pref('drawColor', DRAW_DEFAULT_COLOR));
+  const [color, setColorState] = useState(() => pref(pk('drawColor'), DRAW_DEFAULT_COLOR));
   /**
    * Darstellung für neue Objekte (Linientyp, -stärke, Füllung) – vor dem Zeichnen einstellbar.
    * Neue Formen sind ohne Füllung, solange die Füllung hier nicht ausdrücklich gewählt wurde
    * (eigene Einstellung „Keine Füllung“; eine früher gewählte Füllfarbe füllt nicht ungefragt).
    */
   const [defaultStyle, setDefaultStyleState] = useState<ShapeStyle>(() => {
-    // einmalige Übernahme der bisherigen Voreinstellung, dabei „Keine Füllung“ setzen
-    return pref('drawStyle2', '') ? readStyle('drawStyle2') : { ...readStyle('drawStyle'), noFill: true };
+    return pref(pk('drawStyle2'), '') ? readStyle(pk('drawStyle2')) : { noFill: true };
   });
   /** Auswahl: ein oder mehrere Objekte (ein Objekt = bisherige Einzelauswahl mit Griffen und Leiste) */
   const [selIds, setSelIds] = useState<string[]>([]);
@@ -261,10 +263,10 @@ export function useDrawing(opts: {
     setGuidesOnState(on);
     storePref('guides', on ? '1' : '0');
   };
-  /** Schraffur-Werkzeug: gewähltes Muster und Farben (je Gerät gemerkt) */
+  /** Schraffur-Werkzeug: gewähltes Muster und Farben (je Plan gemerkt) */
   const [hatchSet, setHatchSetState] = useState<HatchSetting>(() => {
     try {
-      const v = JSON.parse(pref('hatchSet', 'null')) as HatchSetting | null;
+      const v = JSON.parse(pref(pk('hatchSet'), 'null')) as HatchSetting | null;
       // gemerkte Auswahl mit einem früheren Muster (nicht mehr im Katalog): Grundschraffur der Norm
       return v?.hatch?.pattern && !isLegacyHatch(v.hatch.pattern) ? v : DEFAULT_HATCH_SETTING;
     } catch {
@@ -273,7 +275,7 @@ export function useDrawing(opts: {
   });
   const setHatchSet = (h: HatchSetting) => {
     setHatchSetState(h);
-    storePref('hatchSet', JSON.stringify(h));
+    storePref(pk('hatchSet'), JSON.stringify(h));
   };
   /** Abrunden: Radius (m, je Gerät) und erste angetippte Linie */
   const [filletR, setFilletRState] = useState(() => Math.max(0, Number(pref('filletR', '0')) || 0));
@@ -301,15 +303,15 @@ export function useDrawing(opts: {
     setMirrorKeepState(on);
     storePref('mirrorKeep', on ? '1' : '0');
   };
-  /** Wand: Stärke und Höhe (m) für neue Wände – je Gerät gemerkt */
-  const [wallThickness, setWallThicknessState] = useState(() => Number(pref('wallThickness', '0.25')) || 0.25);
-  const [wallHeight, setWallHeightState] = useState(() => Number(pref('wallHeight', '0')) || 0);
+  /** Wand: Stärke und Höhe (m) für neue Wände – je Plan gemerkt */
+  const [wallThickness, setWallThicknessState] = useState(() => Number(pref(pk('wallThickness'), '0.25')) || 0.25);
+  const [wallHeight, setWallHeightState] = useState(() => Number(pref(pk('wallHeight'), '0')) || 0);
   const setWallDefaults = (t: number, h?: number) => {
     setWallThicknessState(t);
-    storePref('wallThickness', String(t));
+    storePref(pk('wallThickness'), String(t));
     if (h !== undefined) {
       setWallHeightState(h);
-      storePref('wallHeight', String(h));
+      storePref(pk('wallHeight'), String(h));
     }
   };
   /** Bauteil einsetzen: gewähltes Symbol und Größe (null = Standardgröße) */
@@ -444,12 +446,12 @@ export function useDrawing(opts: {
   const viewerTool: Tool = PICK_TOOLS.has(tool) || (TRANSFORM_TOOLS.has(tool) && !cmdSelecting) ? 'pick' : tool === 'symbol' ? 'pick' : tool === 'array' && arrayPolar ? 'pick' : SELECT_FIRST.has(tool) && cmdSelecting ? 'selwin' : VECTOR_COMMANDS.has(tool) ? 'vector' : tool === 'offset' ? 'pick' : tool === 'stretch' ? (stretchWin ? 'vector' : 'window') : tool === 'textArrow' || tool === 'breakline' ? 'line' : (tool as Tool);
   const setColor = (c: string) => {
     setColorState(c);
-    storePref('drawColor', c);
+    storePref(pk('drawColor'), c);
   };
   const setDefaultStyle = (patch: Partial<ShapeStyle>) => {
     const next = { ...defaultStyle, ...patch };
     setDefaultStyleState(next);
-    storePref('drawStyle2', JSON.stringify(next));
+    storePref(pk('drawStyle2'), JSON.stringify(next));
   };
   const setSnapOn = (on: boolean) => {
     setSnapOnState(on);

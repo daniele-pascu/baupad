@@ -49,12 +49,12 @@ const withUnit = (label: string, unit: string) => (
   </>
 );
 
-/** Länge einer Messung: „U …“ bei aus dem Plan berechneten Flächen (Umfang), sonst „Anzahl × Länge“ */
+/** Länge einer Messung: „–“ bei aus dem Plan berechneten Flächen (nur die Fläche zählt), sonst „Anzahl × Länge“ */
 function lengthText(d: Damage): string {
-  if (d.areaFromShape && hasArea(kindOf(d)) && !isWall(d)) return `U ${formatMeasure(d.length)}`;
+  if (d.areaFromShape && hasArea(kindOf(d)) && !isWall(d)) return '–';
   return `${(d.count ?? 1) > 1 ? `${d.count} × ` : ''}${formatMeasure(d.length)}`;
 }
-const lengthTitle = (d: Damage) => (d.areaFromShape && hasArea(kindOf(d)) && !isWall(d) ? 'Umfang – Fläche aus dem Plan berechnet' : undefined);
+const lengthTitle = (d: Damage) => (d.areaFromShape && hasArea(kindOf(d)) && !isWall(d) ? 'Fläche aus dem Plan berechnet' : undefined);
 
 /** Spalten einer Messart: Köpfe, Zellen je Zeile und die Summe unter der Ergebnis-Spalte */
 interface TypeColumns {

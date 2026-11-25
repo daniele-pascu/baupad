@@ -127,6 +127,8 @@ interface Props {
   geometry?: { area: number; perimeter: number; formula: string } | null;
   /** Wand: offener Verlauf, Länge aus allen Abschnitten, dazu Wandhöhe → Wandfläche */
   wall?: boolean;
+  /** neue Messung mit gewählter Messart Unterzug: gleich Seite 1, Unterseite, Seite 2 */
+  startBeam?: boolean;
   /** Form ist offen (Linie, offene Polylinie): Länge aus dem Verlauf */
   openShape?: boolean;
   /** Arbeitsbereiche zur Auswahl (Vorgaben und im Projekt benutzte) */
@@ -156,7 +158,7 @@ type Field = 'number' | 'length' | 'width' | 'depth' | 'count';
  * Eingabe einer Messung bzw. Schadstelle. Öffnet sich automatisch nach dem Einzeichnen.
  * Enter/Weiter springt zum nächsten Feld; im letzten Feld wird gespeichert.
  */
-export function DamageDialog({ mode, damage, others, components, positions = [], autoPositions, positionMismatch, suggestion, geometry, wall: wallProp = false, openShape = wallProp, workAreas = DEFAULT_WORK_AREAS, surfaces = false, onSave, onCancel, onDelete, onDrawDeduction, drawnDeduction, hidden, dedFromPlan, photoSite, photoPrefix }: Props) {
+export function DamageDialog({ mode, damage, others, components, positions = [], autoPositions, positionMismatch, suggestion, geometry, wall: wallProp = false, startBeam = false, openShape = wallProp, workAreas = DEFAULT_WORK_AREAS, surfaces = false, onSave, onCancel, onDelete, onDrawDeduction, drawnDeduction, hidden, dedFromPlan, photoSite, photoPrefix }: Props) {
   // Messart: im Aufmaß vorgewählt (bzw. aus der Form), hier jederzeit umstellbar
   const [type, setTypeState] = useState<MeasureType>(
     damage.measureType ?? (damage.kind === 'damage' ? 'schadstelle' : damage.kind === 'line' ? 'laenge' : wallProp ? 'wand' : 'flaeche'),
@@ -177,9 +179,15 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   /** Fläche und Umfang aus dem Plan übernehmen (nur bei Flächen-Messarten) */
   // Linie: Länge aus dem Plan (kalibriert) – bei neuen Linien vorgewählt, wird bei Formänderung nachgeführt
   const lineSuggest = lineSuggestFor(type);
+  // Rechteck: Länge × Breite aus dem Plan; jede andere Form (verzogene Ecke, Vieleck, Kreis): Fläche aus dem Plan
+  const isRect = damage.shapeType === 'rect';
+  // nur Messart Fläche – Schadstellen-Markierungen sind oft nur grob gezeichnet, dort zählen die gemessenen Maße
+  const planAreaFor = (t: MeasureType) => t === 'flaeche' && !!geometry && !isRect && !openShape;
   const [fromShape, setFromShape] = useState(
-    damage.areaFromShape ? !!geometry || lineSuggest !== null : mode === 'new' && lineSuggest !== null && lineSuggest > 0,
+    damage.areaFromShape ? !!geometry || lineSuggest !== null : mode === 'new' && ((lineSuggest !== null && lineSuggest > 0) || planAreaFor(type)),
   );
+  // neues Rechteck auf einem Plan mit Maßstab: Länge und Breite gleich ausgefüllt
+  const rectFill = mode === 'new' && isRect && suggestion && suggestion.width !== null && type === 'flaeche' && damage.length == null ? suggestion : null;
   /** „aus Plan“-Feld doppelt angetippt bzw. doppelt geklickt: Maße selbst eingeben (Klick zählt für Maus und Finger) */
   const lastFieldTap = useRef(0);
   const tapToEdit = (e: { currentTarget: HTMLElement }) => {
@@ -211,8 +219,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   };
   const [v, setV] = useState({
     number: damage.label ?? String(damage.number),
-    length: toInputValue(up2(damage.length)),
-    width: toInputValue(up2(damage.width)),
+    length: rectFill ? toInputValue(rectFill.length) : toInputValue(up2(damage.length)),
+    width: rectFill ? toInputValue(rectFill.width) : toInputValue(up2(damage.width)),
     depth: toInputValue(damage.depth === null || damage.depth === undefined ? damage.depth : round3(damage.depth)),
     count: String(damage.count && damage.count > 0 ? damage.count : 1),
   });
@@ -223,7 +231,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const [formula, setFormula] = useState(damage.formula ?? (damage.qty !== null && damage.qty !== undefined ? toInputValue(damage.qty) : ''));
   const [unit, setUnit] = useState(damage.unit ?? '');
   // Unterzug (bei der Messart Wand): Seitenfläche 1, Unterseite, Seitenfläche 2 – je an/aus mit eigenem Maß
-  const [beamOn, setBeamOn] = useState(!!damage.beam);
+  const [beamOn, setBeamOn] = useState(!!damage.beam || startBeam);
   const [bm, setBm] = useState(() => {
     const b = damage.beam;
     const val = (x: number | null | undefined) => (x === null || x === undefined ? '' : toInputValue(up2(x)));
@@ -235,7 +243,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
     if (mode !== 'new') return;
     const ls = lineSuggestFor(t);
     const k = typeInfo(t).kind;
-    setFromShape(ls !== null && ls > 0 ? true : hasArea(k) && !(t === 'wand' || openShape) ? !!damage.areaFromShape && !!geometry : false);
+    setFromShape(ls !== null && ls > 0 ? true : hasArea(k) && !(t === 'wand' || openShape) ? (!!damage.areaFromShape && !!geometry) || planAreaFor(t) : false);
   };
   const [color, setColor] = useState(damage.color);
   const [shapeType, setShapeType] = useState<ShapeType>(damage.shapeType);
@@ -500,7 +508,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
 
   return (
     <Modal
-      title={mode === 'new' ? `Neue Messung: ${typeInfo(type).label}` : `${typeInfo(type).label} ${damageNo(damage)} bearbeiten`}
+      title={`${mode === 'new' ? 'Neue Messung: ' : ''}${type === 'wand' && beamOn ? 'Unterzug' : typeInfo(type).label}${mode === 'new' ? '' : ` ${damageNo(damage)} bearbeiten`}`}
       onClose={onCancel}
       persistent
       testId="damage-dialog"
@@ -530,14 +538,28 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
       >
         <label className="field mtype-field">
           <span>Messart</span>
-          <select value={type} onChange={(e) => setType(e.target.value as MeasureType)} data-testid="measure-type-select">
-            {MEASURE_TYPES.map((t) => (
+          {/* Unterzug: eigene Wahl, gespeichert als Wand mit Seite 1, Unterseite, Seite 2 */}
+          <select
+            value={type === 'wand' && beamOn ? 'unterzug' : type}
+            onChange={(e) => {
+              const t = e.target.value;
+              setBeamOn(t === 'unterzug');
+              setType(t === 'unterzug' ? 'wand' : (t as MeasureType));
+            }}
+            data-testid="measure-type-select"
+          >
+            {MEASURE_TYPES.map((t) => [
               <option key={t.id} value={t.id}>
                 {t.label} {t.unit ? `(${t.unit})` : '(eigene Einheit)'}
-              </option>
-            ))}
+              </option>,
+              t.id === 'wand' && (
+                <option key="unterzug" value="unterzug">
+                  Unterzug (m²)
+                </option>
+              ),
+            ])}
           </select>
-          <small className="muted">{typeInfo(type).hint}</small>
+          <small className="muted">{type === 'wand' && beamOn ? 'Länge × Abwicklung · Seite 1 + Unterseite + Seite 2' : typeInfo(type).hint}</small>
         </label>
         {/* doppelte Nummer: direkt über der Nummernvergabe, damit man nicht nach unten scrollen muss */}
         {conflict && num !== null && (
@@ -554,6 +576,16 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
                 Ab {num} alle um 1 erhöhen
               </button>
             </div>
+          </div>
+        )}
+        {withArea && !wall && !counted && !free && geometry && (
+          <div className="segmented area-source" role="radiogroup" aria-label="Fläche messen">
+            <button type="button" role="radio" aria-checked={!geo} aria-selected={!geo} onClick={() => setFromShape(false)} data-testid="use-manual">
+              Länge × Breite
+            </button>
+            <button type="button" role="radio" aria-checked={!!geo} aria-selected={!!geo} aria-pressed={!!geo} onClick={() => setFromShape(true)} data-testid="use-geometry">
+              Fläche aus Plan · {formatArea(geometry.area)} m²
+            </button>
           </div>
         )}
         <div className="measure-grid">
@@ -594,10 +626,10 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             </>
           ) : geo ? (
             <label className="field measure-field">
-              <span>Umfang (aus Plan)</span>
+              <span>Fläche (aus Plan)</span>
               <div className="input-unit">
-                <input value={formatArea(geo.perimeter)} readOnly tabIndex={-1} onClick={tapToEdit} title="Doppelt antippen, um die Maße selbst einzugeben" data-testid="geometry-perimeter" />
-                <span className="unit">m</span>
+                <input value={formatArea(geo.area)} readOnly tabIndex={-1} onClick={tapToEdit} title="Doppelt antippen, um Länge und Breite selbst einzugeben" data-testid="geometry-area" />
+                <span className="unit">m²</span>
               </div>
             </label>
           ) : lineGeo !== null ? (
@@ -614,60 +646,52 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
           {!counted && !free && !geo && usesWidth && !beamMode && field('width', type === 'wand' ? 'Wandhöhe' : 'Breite', 'm')}
           {!counted && !free && usesDepth && field('depth', type === 'volumen' ? 'Tiefe *' : 'Tiefe', 'm')}
         </div>
-        {type === 'wand' && !counted && !free && (
+        {beamMode && (
           <div className="beam-box" data-testid="beam-box">
-            <label className="check-row">
-              <input type="checkbox" checked={beamOn} onChange={(e) => setBeamOn(e.target.checked)} data-testid="beam-toggle" />
-              <span>Unterzug – Seite 1, Unterseite und Seite 2 einzeln (Abwicklung)</span>
-            </label>
-            {beamOn && (
-              <>
-                <div className="beam-rows">
-                  {(
-                    [
-                      ['aOn', 'a', 'Seite 1', 'Seitenfläche 1 – Höhe'],
-                      ['bottomOn', 'bottom', 'Unterseite', 'Unterseite – Breite'],
-                      ['bOn', 'b', 'Seite 2', 'Seitenfläche 2 – Höhe'],
-                    ] as const
-                  ).map(([on, key, short, label], i, all) => (
-                    <div key={key} className={`beam-row${bm[on] ? '' : ' off'}`} data-testid={`beam-${key}`}>
-                      <label className="beam-check">
-                        <input type="checkbox" checked={bm[on]} onChange={(e) => setBm({ ...bm, [on]: e.target.checked })} aria-label={`${short} zählt`} data-testid={`beam-${key}-on`} />
-                        <span>
-                          <b>{short}</b>
-                          <small className="muted">{label.split(' – ')[1]}</small>
-                        </span>
-                      </label>
-                      <div className="input-unit">
-                        <input
-                          value={bm[key]}
-                          disabled={!bm[on]}
-                          onChange={(e) => setBm({ ...bm, [key]: e.target.value })}
-                          onFocus={(e) => e.target.select()}
-                          onKeyDown={(e) => {
-                            if (e.key !== 'Enter') return;
-                            e.preventDefault();
-                            const next = all.slice(i + 1).find(([o]) => bm[o]);
-                            if (next) document.querySelector<HTMLInputElement>(`[data-testid="beam-${next[1]}-input"]`)?.focus();
-                            else submit();
-                          }}
-                          inputMode="decimal"
-                          enterKeyHint="next"
-                          autoComplete="off"
-                          aria-label={label}
-                          data-testid={`beam-${key}-input`}
-                        />
-                        <span className="unit">m</span>
-                      </div>
-                    </div>
-                  ))}
+            <div className="beam-rows">
+              {(
+                [
+                  ['aOn', 'a', 'Seite 1', 'Seitenfläche 1 – Höhe'],
+                  ['bottomOn', 'bottom', 'Unterseite', 'Unterseite – Breite'],
+                  ['bOn', 'b', 'Seite 2', 'Seitenfläche 2 – Höhe'],
+                ] as const
+              ).map(([on, key, short, label], i, all) => (
+                <div key={key} className={`beam-row${bm[on] ? '' : ' off'}`} data-testid={`beam-${key}`}>
+                  <label className="beam-check">
+                    <input type="checkbox" checked={bm[on]} onChange={(e) => setBm({ ...bm, [on]: e.target.checked })} aria-label={`${short} zählt`} data-testid={`beam-${key}-on`} />
+                    <span>
+                      <b>{short}</b>
+                      <small className="muted">{label.split(' – ')[1]}</small>
+                    </span>
+                  </label>
+                  <div className="input-unit">
+                    <input
+                      value={bm[key]}
+                      disabled={!bm[on]}
+                      onChange={(e) => setBm({ ...bm, [key]: e.target.value })}
+                      onFocus={(e) => e.target.select()}
+                      onKeyDown={(e) => {
+                        if (e.key !== 'Enter') return;
+                        e.preventDefault();
+                        const next = all.slice(i + 1).find(([o]) => bm[o]);
+                        if (next) document.querySelector<HTMLInputElement>(`[data-testid="beam-${next[1]}-input"]`)?.focus();
+                        else submit();
+                      }}
+                      inputMode="decimal"
+                      enterKeyHint="next"
+                      autoComplete="off"
+                      aria-label={label}
+                      data-testid={`beam-${key}-input`}
+                    />
+                    <span className="unit">m</span>
+                  </div>
                 </div>
-                {showErrors && beamErr && <small className="error">{beamErr}</small>}
-                <p className="muted small" data-testid="beam-formula">
-                  Abwicklung: {beam && beamDev !== null ? beamFormula(beam) : '–'}
-                </p>
-              </>
-            )}
+              ))}
+            </div>
+            {showErrors && beamErr && <small className="error">{beamErr}</small>}
+            <p className="muted small" data-testid="beam-formula">
+              Abwicklung: {beam && beamDev !== null ? beamFormula(beam) : '–'}
+            </p>
           </div>
         )}
         <div className="measure-extra">
@@ -732,17 +756,6 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             </div>
           )}
         </div>
-        {withArea && !wall && geometry && (
-          <button
-            type="button"
-            className={`btn btn-sm suggest-btn${geo ? ' active' : ''}`}
-            onClick={() => setFromShape(!geo)}
-            aria-pressed={!!geo}
-            data-testid="use-geometry"
-          >
-            {geo ? 'Maße selbst eingeben' : `Fläche aus Plan übernehmen: ${formatArea(geometry.area)} m²`}
-          </button>
-        )}
         {lineSuggest !== null && lineSuggest > 0 && (
           <button
             type="button"
@@ -754,7 +767,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             {lineGeo !== null ? 'Länge selbst eingeben' : `Länge aus Plan übernehmen: ${formatArea(lineSuggest)} m (${openShape ? 'alle Abschnitte' : 'Umfang'})`}
           </button>
         )}
-        {suggestion && !geo && withArea && !wall && !counted && !free && (
+        {/* Umriss-Maße nur beim Rechteck – bei anderen Formen wäre Länge × Breite des Rahmens falsch */}
+        {suggestion && isRect && !geo && withArea && !wall && !counted && !free && (
           <button
             type="button"
             className="btn btn-sm suggest-btn"
@@ -786,7 +800,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
             </>
           ) : geo ? (
             <>
-              <span>Fläche aus Plan ({geo.formula}){deductions.length ? ', netto mit Abzügen' : ''} – wird bei Formänderung nachgeführt</span>
+              <span>Fläche aus Plan{deductions.length ? ', netto mit Abzügen' : ''}</span>
               <strong>{formatArea(area)} m²</strong>
             </>
           ) : wall ? (

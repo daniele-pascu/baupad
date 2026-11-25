@@ -499,6 +499,23 @@ export function tastenTests() {
     await dlg.getByTestId('damage-save').click();
     await expect(dlg).toBeHidden();
     await pruefe(page, 'Plan-Editor mit Messung', out);
+    // Plan mit Maßstab: Fläche messen – Auswahl Länge × Breite oder Fläche aus Plan
+    await pickTool(page, 'tool-calibrate');
+    await drawRect(page, box.x + box.width * 0.55, box.y + box.height * 0.55, box.x + box.width * 0.75, box.y + box.height * 0.55);
+    const pd = page.getByTestId('prompt-dialog');
+    await pd.locator('input').fill('10');
+    await pd.getByRole('button', { name: 'Kalibrieren' }).click();
+    await pickTool(page, 'tool-rect');
+    await drawRect(page, box.x + box.width * 0.55, box.y + box.height * 0.3, box.x + box.width * 0.7, box.y + box.height * 0.45);
+    await expect(dlg.getByTestId('use-geometry')).toBeVisible();
+    await pruefe(page, 'Messdialog Fläche (Länge × Breite oder aus Plan)', out);
+    await dlg.getByTestId('use-geometry').click();
+    await expect(dlg.getByTestId('geometry-area')).toBeVisible();
+    await pruefe(page, 'Messdialog Fläche aus Plan', out);
+    await dlg.getByTestId('damage-cancel').click();
+    await expect(dlg).toBeHidden();
+    // nach dem Abbrechen bleibt Messung 1 ausgewählt – Auswahl aufheben, damit der Ablauf wie vorher weitergeht
+    if (await page.getByRole('button', { name: 'Auswahl aufheben' }).isVisible()) await page.getByRole('button', { name: 'Auswahl aufheben' }).click();
     if (await page.getByTestId('tools-open').isVisible()) await page.getByTestId('tools-open').click();
     await pruefe(page, 'Plan-Editor Leiste offen', out);
     // Ebenen: eigenes Fenster (vorher Aufklappfeld, das am Handy links aus dem Bild ragte)
@@ -545,12 +562,10 @@ export function tastenTests() {
     await pruefe(page, 'Messdialog Stück', out);
     await dlg.getByTestId('measure-type-select').selectOption('volumen');
     await pruefe(page, 'Messdialog Volumen', out);
-    // Wand als Unterzug: Seite A, Unterseite, Seite B
-    await dlg.getByTestId('measure-type-select').selectOption('wand');
-    await dlg.getByTestId('beam-toggle').check();
+    // Unterzug (eigene Messart): Seite 1, Unterseite, Seite 2
+    await dlg.getByTestId('measure-type-select').selectOption('unterzug');
     await dlg.getByTestId('beam-a-input').fill('0,5');
-    await pruefe(page, 'Messdialog Wand mit Unterzug', out);
-    await dlg.getByTestId('beam-toggle').uncheck();
+    await pruefe(page, 'Messdialog Unterzug', out);
     await dlg.getByTestId('measure-type-select').selectOption('schadstelle');
     await pruefe(page, 'Messdialog Schadstelle', out);
     await dlg.getByTestId('damage-cancel').click();

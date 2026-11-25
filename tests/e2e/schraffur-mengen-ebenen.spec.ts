@@ -175,11 +175,11 @@ test('Mengen aus der Geometrie: Fläche und Umfang aus dem Plan, nachgeführt be
   await expect(dlg).toBeVisible();
   await dlg.getByTestId('measure-type-select').selectOption('schadstelle'); // mit Tiefe: Betoninstandsetzung
   const geo = dlg.getByTestId('use-geometry');
-  await expect(geo).toContainText('Fläche aus Plan übernehmen');
+  await expect(geo).toContainText('Fläche aus Plan');
   await geo.click();
   await expect(dlg.getByTestId('input-width')).toHaveCount(0);
   await expect(dlg.getByTestId('input-length')).toHaveCount(0);
-  await expect(dlg.getByTestId('area-result')).toContainText('Länge × Breite');
+  await expect(dlg.getByTestId('area-result')).toContainText('Fläche aus Plan');
   await dlg.getByTestId('input-depth').fill('0,1');
   await dlg.getByTestId('damage-save').click();
   await waitSaved(page);
@@ -217,7 +217,7 @@ test('Mengen aus der Geometrie: Fläche und Umfang aus dem Plan, nachgeführt be
   await drag(page, sb.x + 320, sb.y + 120, sb.x + 420, sb.y + 220);
   await expect(dlg).toBeVisible();
   await dlg.getByTestId('use-geometry').click();
-  await expect(dlg.getByTestId('area-result')).toContainText(/π · (r²|a · b)/);
+  await expect(dlg.getByTestId('geometry-area')).toHaveValue(/,/);
   await dlg.getByTestId('damage-save').click();
   await waitSaved(page);
   const c = (await stored(page, 'damages'))[1];
@@ -226,12 +226,14 @@ test('Mengen aus der Geometrie: Fläche und Umfang aus dem Plan, nachgeführt be
 
   // Tabelle: Umfang gekennzeichnet, Summen und Volumen
   await expect(page.getByTestId('sum-volume')).toContainText((Math.round((r.area as number) * 0.1 * 100) / 100).toFixed(2).replace('.', ','));
-  await expect(page.getByTestId('aufmass-table')).toContainText('U ');
+  await expect(page.getByTestId('aufmass-table')).not.toContainText('U '); // kein Umfang – nur die Fläche
 
-  // Zurück zur Handeingabe: Breite wieder eingeben
+  // Zurück zur Handeingabe: Doppelklick in die Fläche aus dem Plan, Länge und Breite erscheinen wieder
   await page.getByRole('button', { name: /^\S+ 1 bearbeiten$/ }).click();
   await expect(dlg).toBeVisible();
-  await dlg.getByTestId('use-geometry').click();
+  await expect(dlg).not.toContainText('Umfang'); // nur die Fläche, kein Umfang
+  await dlg.getByTestId('geometry-area').dblclick();
+  await expect(dlg.getByTestId('use-manual')).toHaveAttribute('aria-checked', 'true');
   await dlg.getByTestId('input-length').fill('2');
   await dlg.getByTestId('input-width').fill('3');
   await dlg.getByTestId('damage-save').click();
@@ -267,7 +269,7 @@ test('Importierter Plan: Fläche aus Plan erst nach dem Kalibrieren', async ({ p
   await drawRect(page, box.x + 60, box.y + 60, box.x + 160, box.y + 110);
   await expect(dlg.getByTestId('use-geometry')).toContainText('12,50 m²');
   await dlg.getByTestId('use-geometry').click();
-  await expect(dlg.getByTestId('geometry-perimeter')).toHaveValue('15,00');
+  await expect(dlg.getByTestId('geometry-area')).toHaveValue('12,50');
   await dlg.getByTestId('damage-save').click();
   await waitSaved(page);
   const d = (await stored(page, 'damages'))[0];
@@ -279,7 +281,7 @@ test('Importierter Plan: Fläche aus Plan erst nach dem Kalibrieren', async ({ p
   await drawRect(page, box.x + 60, box.y + 160, box.x + 160, box.y + 160);
   await expect(dlg).toBeVisible();
   await expect(dlg.getByTestId('use-geometry')).toHaveText('Länge selbst eingeben');
-  await expect(dlg.getByTestId('geometry-perimeter')).toHaveCount(0);
+  await expect(dlg.getByTestId('geometry-area')).toHaveCount(0);
   await expect(dlg.getByTestId('area-result')).toContainText('Länge aus Plan');
   // Doppelklick bzw. Doppeltipp ins „aus Plan“-Feld: Länge selbst eingeben
   await dlg.getByTestId('geometry-length').dblclick();

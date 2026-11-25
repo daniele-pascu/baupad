@@ -53,7 +53,7 @@ test('Vektor-PDF: Ecken des Grundrisses werden exakt gefangen, Fläche aus dem P
   const dlg = page.getByTestId('damage-dialog');
   await expect(dlg.getByTestId('use-geometry')).toContainText('116,66 m²'); // 15,15 × 7,70 = 116,655 m²
   await dlg.getByTestId('use-geometry').click();
-  await expect(dlg.getByTestId('geometry-perimeter')).toHaveValue('45,70');
+  await expect(dlg.getByTestId('geometry-area')).toHaveValue('116,66');
   await dlg.getByTestId('damage-save').click();
   await waitSaved(page);
   const [d1] = await damages(page);
