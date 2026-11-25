@@ -179,7 +179,13 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   // kein „Geisterklick“ vom Tippen auf den Plan in den eben geöffneten Dialog (z. B. auf „Abzug hinzufügen“)
   await expect(dlg.getByRole('button', { name: 'Zeile entfernen' })).toHaveCount(0);
   await expect(dlg.getByTestId('input-length')).toHaveAttribute('inputmode', 'decimal');
-  // Nr.: Zahlentastatur; steht eine Kennzeichnung mit Buchstaben drin (z. B. 12a), die Texttastatur
+  // Nr.: Zahlentastatur
+  await expect(dlg.getByTestId('input-number')).toHaveAttribute('inputmode', 'numeric');
+  // Kennzeichnung (A, Wand A): „ABC“ schaltet auf Buchstaben, „123“ zurück
+  await dlg.getByTestId('number-letters').tap();
+  await expect(dlg.getByTestId('input-number')).toHaveAttribute('inputmode', 'text');
+  await expect(dlg.getByTestId('number-letters')).toHaveText('123');
+  await dlg.getByTestId('number-letters').tap();
   await expect(dlg.getByTestId('input-number')).toHaveAttribute('inputmode', 'numeric');
   // Tiefe gibt es nur bei Betoninstandsetzung und Volumen
   await dlg.getByTestId('measure-type-select').selectOption('schadstelle');
