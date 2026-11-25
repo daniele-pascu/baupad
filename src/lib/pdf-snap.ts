@@ -180,11 +180,14 @@ const near = (p: Point, q: Point) => Math.abs(p.x - q.x) < 1e-3 && Math.abs(p.y 
 /** Rasterindex für die Suche nach Strecken in der Nähe eines Punkts */
 export class SegIndex {
   private cells = new Map<number, number[]>();
+  /** halbe Strichstärke der dicksten Linie – so weit reicht die sichtbare Kante über die Mittellinie hinaus */
+  private maxHalf = 0;
   constructor(
     readonly segs: PlanSeg[],
     private size = 24,
   ) {
     segs.forEach((s, i) => {
+      this.maxHalf = Math.max(this.maxHalf, (s.w ?? 0) / 2);
       const x0 = Math.floor(Math.min(s.a.x, s.b.x) / size);
       const x1 = Math.floor(Math.max(s.a.x, s.b.x) / size);
       const y0 = Math.floor(Math.min(s.a.y, s.b.y) / size);
@@ -205,14 +208,16 @@ export class SegIndex {
     const s = this.size;
     const seen = new Set<number>();
     const found: { seg: PlanSeg; d: number }[] = [];
-    for (let x = Math.floor((p.x - tol) / s); x <= Math.floor((p.x + tol) / s); x++)
-      for (let y = Math.floor((p.y - tol) / s); y <= Math.floor((p.y + tol) / s); y++)
+    const r = tol + this.maxHalf;
+    for (let x = Math.floor((p.x - r) / s); x <= Math.floor((p.x + r) / s); x++)
+      for (let y = Math.floor((p.y - r) / s); y <= Math.floor((p.y + r) / s); y++)
         for (const i of this.cells.get(x * 100_003 + y) ?? []) {
           if (seen.has(i)) continue;
           seen.add(i);
           const seg = this.segs[i];
           if (seg.pattern) continue; // Schraffur/Muster: kein Fang
-          const d = distToSeg(p, seg.a, seg.b);
+          // dicke Linie: auf der sichtbaren Linie zählt, nicht erst an der Mittellinie
+          const d = distToSeg(p, seg.a, seg.b) - (seg.w ?? 0) / 2;
           if (d <= tol) found.push({ seg, d });
         }
     return found

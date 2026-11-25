@@ -754,8 +754,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       if (!v || !size) return;
       const fit = fitView(region, size.w, size.h).scale;
       const { min, max } = limits();
-      // immer dieselbe Detailstufe (8-fach der Gesamtansicht) – nur wenn schon so nah, nicht weiter
-      const target = Math.min(max, Math.max(min, fit * 8));
+      // immer dieselbe Detailstufe (12-fach der Gesamtansicht) – nur wenn schon so nah, nicht weiter
+      const target = Math.min(max, Math.max(min, fit * 12));
       if (v.scale >= target * 0.85) {
         lupe.current = { prev: null };
         forceRender((n) => n + 1);
@@ -810,7 +810,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
    *  Verbindungslinie; läge sie auf einer anderen Nummer → ausgeblendet, beim Vergrößern erscheinen alle wieder.
    *  Die ausgewählte Messung zeigt ihre Nummer immer. */
   const overview = qScale < fitScale * 2;
-  const labelFont = overview ? 9.5 : Math.max(10, Math.min(14, 11 * Math.pow(qScale / fitScale, 0.2)));
+  // am Bildschirm beim Arbeiten bewusst klein (verdeckt weniger vom Plan); im PDF sind die Nummern größer
+  const labelFont = overview ? 9 : Math.max(8.5, Math.min(12, 9.5 * Math.pow(qScale / fitScale, 0.2)));
   const keepLabel = overview ? selectedId : null;
   /** zuletzt vollständig berechnete Anordnung (Grundlage, solange ein Objekt gezogen wird) */
   const layoutBase = useRef<{ map: Map<string, Rect>; damages: ViewerItem[]; key: string } | null>(null);
@@ -1176,11 +1177,10 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
+    // Mausposition für X (Vergrößern) immer merken – auch beim Ziehen mit gedrückter Taste, sonst zoomt X an den Startpunkt
+    if (e.pointerType === 'mouse') lastHover.current = localPoint(e);
     if (!pointers.current.has(e.pointerId)) {
-      if (e.pointerType === 'mouse') {
-        hoverCursor(localPoint(e));
-        lastHover.current = localPoint(e);
-      }
+      if (e.pointerType === 'mouse') hoverCursor(localPoint(e));
       // Fangpunkt schon vor dem Klicken anzeigen (Zeichenwerkzeuge)
       const t = propsRef.current.tool;
       if (e.pointerType !== 'touch' && propsRef.current.snap && t !== 'select' && viewRef.current) {

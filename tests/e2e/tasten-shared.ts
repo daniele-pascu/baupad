@@ -507,9 +507,9 @@ export function tastenTests() {
     await pd.getByRole('button', { name: 'Kalibrieren' }).click();
     await pickTool(page, 'tool-rect');
     await drawRect(page, box.x + box.width * 0.55, box.y + box.height * 0.3, box.x + box.width * 0.7, box.y + box.height * 0.45);
-    await expect(dlg.getByTestId('use-geometry')).toBeVisible();
-    await pruefe(page, 'Messdialog Fläche (Länge × Breite oder aus Plan)', out);
-    await dlg.getByTestId('use-geometry').click();
+    await expect(dlg.getByTestId('input-length')).not.toHaveValue(''); // Rechteck: Länge × Breite aus dem Plan
+    await pruefe(page, 'Messdialog Fläche (Länge × Breite aus Plan)', out);
+    await dlg.getByTestId('input-length').dblclick(); // Doppeltipp: Fläche aus dem Plan
     await expect(dlg.getByTestId('geometry-area')).toBeVisible();
     await pruefe(page, 'Messdialog Fläche aus Plan', out);
     await dlg.getByTestId('damage-cancel').click();

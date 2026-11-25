@@ -493,7 +493,8 @@ async function drawOverview(ctx: Ctx, page: PDFPage, L: SheetLayout, plan: Plan,
 /** Schriftgröße der Nummern in PDF-Punkten, abhängig von der Plangröße auf dem Papier. */
 function labelFontPt(region: Rect, ptPerUnit: number): number {
   const minSide = Math.min(region.w, region.h) * ptPerUnit;
-  return Math.max(7, Math.min(16, minSide * 0.011));
+  // etwas größer als früher (7–16 pt, ×0,011): im Ausdruck gut lesbar
+  return Math.max(8, Math.min(20, minSide * 0.0138));
 }
 
 function drawRectMapped(t: Target, r: Rect, opts: { color?: ReturnType<typeof rgb>; borderColor?: ReturnType<typeof rgb>; borderWidth?: number; opacity?: number }) {

@@ -296,12 +296,15 @@ test('Aufmaß: offene Polylinie = Linienmessung mit Länge, geschlossene = Fläc
   await page.getByTestId('polygon-finish').click();
   await expect(dlg).toContainText('Neue Messung: Fläche');
   // freie Form auf einem Plan mit Maßstab: Fläche aus dem Plan vorgewählt, nur die Fläche im Feld
-  await expect(dlg.getByTestId('use-geometry')).toHaveAttribute('aria-checked', 'true');
   await expect(dlg.getByTestId('geometry-area')).toBeVisible();
   await expect(dlg.getByTestId('input-width')).toHaveCount(0);
   // Doppelklick: Länge und Breite selbst eingeben
   await dlg.getByTestId('geometry-area').dblclick();
   await expect(dlg.getByTestId('input-width')).toBeVisible(); // Fläche: Länge × Breite
+  // Doppeltipp ins Längenfeld: wieder die Fläche aus dem Plan
+  await dlg.getByTestId('input-length').dblclick();
+  await expect(dlg.getByTestId('geometry-area')).toBeVisible();
+  await expect(dlg.locator('.area-source')).toHaveCount(0); // keine Umschalt-Leiste
   await dlg.getByTestId('damage-cancel').click();
 
   // Rechteck mit Fläche aus dem Plan: Ecke einzeln verschieben (→ Trapez), Fläche wird nachgeführt
@@ -312,7 +315,7 @@ test('Aufmaß: offene Polylinie = Linienmessung mit Länge, geschlossene = Fläc
   await page.mouse.move(x - 60, y - 140, { steps: 5 });
   await page.mouse.up();
   // Rechteck: Länge und Breite aus dem Plan ausgefüllt (keine Fläche aus Plan)
-  await expect(dlg.getByTestId('use-manual')).toHaveAttribute('aria-checked', 'true');
+  await expect(dlg.getByTestId('geometry-area')).toHaveCount(0);
   expect(Math.abs(num(await dlg.getByTestId('input-length').inputValue()) - 200 / (s * 100))).toBeLessThan(0.02);
   expect(Math.abs(num(await dlg.getByTestId('input-width').inputValue()) - 100 / (s * 100))).toBeLessThan(0.02);
   const a0 = num((await dlg.getByTestId('area-result').locator('strong').textContent())!.replace(/\s*m²/, ''));
@@ -480,7 +483,7 @@ test('Messung: Menü mit fünf Messarten; Länge, Winkel, Radius, Abstand, Fläc
   await page.getByTestId('probe-adopt').click();
   const dlg = page.getByTestId('damage-dialog');
   await expect(dlg).toContainText('Neue Messung: Fläche');
-  await expect(dlg.getByTestId('use-geometry')).toHaveAttribute('aria-pressed', 'true'); // Fläche aus dem Plan
+  await expect(dlg.getByTestId('geometry-area')).toBeVisible(); // Fläche aus dem Plan
   await dlg.getByTestId('damage-save').click();
   await expect(rows).toHaveCount(before + 1);
   await expect(page.getByTestId('probe-bar')).toHaveCount(0);

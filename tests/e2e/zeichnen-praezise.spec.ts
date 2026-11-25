@@ -197,8 +197,8 @@ test('Aufmaß: Fläche aus Punkten als Messung; Markierung bleibt auf dem Blatt'
   const dlg = page.getByTestId('damage-dialog');
   await expect(dlg).toBeVisible();
   // freie Form auf dem gezeichneten Plan: Fläche aus Plan vorgewählt – hier Maße von Hand
-  await expect(dlg.getByTestId('use-geometry')).toHaveAttribute('aria-checked', 'true');
-  await dlg.getByTestId('use-manual').click();
+  await expect(dlg.getByTestId('geometry-area')).toBeVisible();
+  await dlg.getByTestId('geometry-area').dblclick();
   await dlg.getByTestId('input-length').fill('1,2');
   await dlg.getByTestId('input-width').fill('0,8');
   await dlg.getByTestId('damage-save').click();

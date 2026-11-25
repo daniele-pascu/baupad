@@ -1997,17 +1997,6 @@ html.kb-open .modal-backdrop {
   justify-content: center;
   margin-bottom: 8px;
 }
-/* Fläche messen: Länge × Breite oder aus dem Plan */
-.segmented.area-source {
-  display: flex;
-  width: 100%;
-  margin-bottom: 12px;
-}
-.segmented.area-source button {
-  flex: 1 1 0;
-  min-width: 0;
-  white-space: normal;
-}
 .row.center {
   justify-content: center;
 }
@@ -3046,6 +3035,15 @@ tr.lv-flagged td {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+/* Berichte einer Baustelle: viele Tasten – reicht der Platz neben dem Titel nicht (z. B. iPad), stehen sie darunter statt über dem Namen */
+.reports-page[data-testid='report-site-page'] .page-head-row {
+  flex-wrap: wrap;
+}
+.reports-page[data-testid='report-site-page'] .page-head-row > .row {
+  margin-left: auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 .icon-link {
   display: inline-flex;
@@ -7233,6 +7231,10 @@ button.report-link {
   flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 14px;
+}
+/* eigene Tasten (z. B. im Messfenster): ohne eigenen Kasten, damit sie mit den Nachbartasten auf einer Linie stehen */
+.photo-capture.custom {
+  display: contents;
 }
 .photo-capture.big .photo-shoot {
   min-height: 56px;

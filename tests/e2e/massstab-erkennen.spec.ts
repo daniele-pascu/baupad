@@ -47,7 +47,8 @@ test('PDF mit Maßketten: Maßstab 1:50 erkannt und sofort skaliert; bestätigen
   await drawRect(page, box.x + box.width * 0.3, box.y + box.height * 0.4, box.x + box.width * 0.5, box.y + box.height * 0.6);
   const dlg = page.getByTestId('damage-dialog');
   await expect(dlg.getByTestId('use-suggestion')).toBeVisible();
-  await expect(dlg.getByTestId('use-geometry')).toBeVisible();
+  await dlg.getByTestId('input-length').dblclick(); // Maßstab erkannt: Fläche aus dem Plan möglich
+  await expect(dlg.getByTestId('geometry-area')).toBeVisible();
   await dlg.getByTestId('damage-cancel').click();
 
   // bestätigen: Hinweis weg, Maßstab bleibt

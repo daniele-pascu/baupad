@@ -24,8 +24,8 @@ test('Abzug im Plan zeichnen: Maße werden aus dem Plan erkannt, nummeriert und 
   const dlg = page.getByTestId('damage-dialog');
   await expect(dlg).toBeVisible();
   // Fläche aus dem Plan übernehmen
-  const geo = dlg.getByTestId('use-geometry').first();
-  if ((await geo.getAttribute('aria-pressed')) !== 'true') await geo.click();
+  if (!(await dlg.getByTestId('geometry-area').count())) await dlg.getByTestId('input-length').dblclick();
+  await expect(dlg.getByTestId('geometry-area')).toBeVisible();
   // Abzug im Plan zeichnen: Fenster blendet sich aus, Hinweis oben
   await expect(dlg.getByTestId('deduction-draw')).toHaveText(/Im Plan zeichnen/);
   await dlg.getByTestId('deduction-draw').click();

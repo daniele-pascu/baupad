@@ -191,7 +191,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const tapToEdit = (e: { currentTarget: HTMLElement }) => {
     const now = Date.now();
     const dbl = now - lastFieldTap.current < 450;
-    lastFieldTap.current = now;
+    // nach dem Umschalten von vorn zählen – sonst gilt der nächste Tipp schon als zweiter und schaltet zurück
+    lastFieldTap.current = dbl ? 0 : now;
     if (!dbl) return;
     const dlg = e.currentTarget.closest('.modal');
     // Handy/Tablet: die Tastatur geht nur auf, wenn noch im selben Antippen ein Feld den Fokus bekommt – das echte
@@ -214,6 +215,13 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
       input?.select();
       proxy.remove();
     }, 30);
+  };
+  /** Längenfeld doppelt angetippt: zurück zur Fläche aus dem Plan (Klick zählt für Maus und Finger) */
+  const tapToPlan = () => {
+    const now = Date.now();
+    const dbl = now - lastFieldTap.current < 450;
+    lastFieldTap.current = dbl ? 0 : now;
+    if (dbl) setFromShape(true);
   };
   const [v, setV] = useState({
     number: damage.label ?? String(damage.number),
@@ -307,6 +315,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
 
   const withArea = hasArea(kind);
   // Aus der Geometrie: Fläche und Umfang kommen aus der Form, nur Nummer und Tiefe sind einzugeben
+  // Fläche aus dem Plan möglich (Maßstab, geschlossene Form) – umgeschaltet wird per Doppeltipp, ohne eigene Tasten
+  const planAreaOk = withArea && !wall && !counted && !free && !!geometry;
   const geo = withArea && !wall && !counted && !free && fromShape && geometry ? geometry : null;
   // Linie: Länge, dazu optional Höhe und Tiefe (getrennt, keine Fläche)
   const lineGeo = (!withArea || wall) && fromShape && lineSuggest !== null && lineSuggest > 0 ? lineSuggest : null;
@@ -486,6 +496,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
           onChange={(e) => setV({ ...v, [name]: e.target.value })}
           onKeyDown={onKeyDown(name)}
           onFocus={(e) => e.target.select()}
+          onClick={name === 'length' && planAreaOk ? tapToPlan : undefined}
+          title={name === 'length' && planAreaOk ? 'Doppelt antippen: Fläche aus dem Plan übernehmen' : undefined}
           inputMode={name === 'number' ? 'text' : 'decimal'}
           autoCapitalize={name === 'number' ? 'characters' : undefined}
           enterKeyHint={fields[fields.length - 1] === name ? 'done' : 'next'}
@@ -574,16 +586,6 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
                 Ab {num} alle um 1 erhöhen
               </button>
             </div>
-          </div>
-        )}
-        {withArea && !wall && !counted && !free && geometry && (
-          <div className="segmented area-source" role="radiogroup" aria-label="Fläche messen">
-            <button type="button" role="radio" aria-checked={!geo} aria-selected={!geo} onClick={() => setFromShape(false)} data-testid="use-manual">
-              Länge × Breite
-            </button>
-            <button type="button" role="radio" aria-checked={!!geo} aria-selected={!!geo} aria-pressed={!!geo} onClick={() => setFromShape(true)} data-testid="use-geometry">
-              Fläche aus Plan · {formatArea(geometry.area)} m²
-            </button>
           </div>
         )}
         <div className="measure-grid">

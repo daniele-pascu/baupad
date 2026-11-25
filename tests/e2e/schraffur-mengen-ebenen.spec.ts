@@ -174,9 +174,8 @@ test('Mengen aus der Geometrie: Fläche und Umfang aus dem Plan, nachgeführt be
   await drag(page, sb.x + 100, sb.y + 120, sb.x + 260, sb.y + 220);
   await expect(dlg).toBeVisible();
   await dlg.getByTestId('measure-type-select').selectOption('schadstelle'); // mit Tiefe: Betoninstandsetzung
-  const geo = dlg.getByTestId('use-geometry');
-  await expect(geo).toContainText('Fläche aus Plan');
-  await geo.click();
+  // Doppeltipp ins Längenfeld: Fläche aus dem Plan
+  await dlg.getByTestId('input-length').dblclick();
   await expect(dlg.getByTestId('input-width')).toHaveCount(0);
   await expect(dlg.getByTestId('input-length')).toHaveCount(0);
   await expect(dlg.getByTestId('area-result')).toContainText('Fläche aus Plan');
@@ -216,7 +215,8 @@ test('Mengen aus der Geometrie: Fläche und Umfang aus dem Plan, nachgeführt be
   await pickTool(page, 'tool-ellipse');
   await drag(page, sb.x + 320, sb.y + 120, sb.x + 420, sb.y + 220);
   await expect(dlg).toBeVisible();
-  await dlg.getByTestId('use-geometry').click();
+  // Kreis: Fläche aus dem Plan (bei der Messart Fläche gleich, sonst per Doppeltipp ins Längenfeld)
+  if (!(await dlg.getByTestId('geometry-area').count())) await dlg.getByTestId('input-length').dblclick();
   await expect(dlg.getByTestId('geometry-area')).toHaveValue(/,/);
   await dlg.getByTestId('damage-save').click();
   await waitSaved(page);
@@ -233,7 +233,7 @@ test('Mengen aus der Geometrie: Fläche und Umfang aus dem Plan, nachgeführt be
   await expect(dlg).toBeVisible();
   await expect(dlg).not.toContainText('Umfang'); // nur die Fläche, kein Umfang
   await dlg.getByTestId('geometry-area').dblclick();
-  await expect(dlg.getByTestId('use-manual')).toHaveAttribute('aria-checked', 'true');
+  await expect(dlg.getByTestId('input-length')).toBeVisible();
   await dlg.getByTestId('input-length').fill('2');
   await dlg.getByTestId('input-width').fill('3');
   await dlg.getByTestId('damage-save').click();
@@ -256,7 +256,9 @@ test('Importierter Plan: Fläche aus Plan erst nach dem Kalibrieren', async ({ p
   await pickTool(page, 'tool-rect');
   await drawRect(page, box.x + 60, box.y + 60, box.x + 160, box.y + 110);
   await expect(dlg).toBeVisible();
-  await expect(dlg.getByTestId('use-geometry')).toHaveCount(0);
+  // ohne Maßstab: Doppeltipp ins Längenfeld bleibt bei Länge × Breite
+  await dlg.getByTestId('input-length').dblclick();
+  await expect(dlg.getByTestId('geometry-area')).toHaveCount(0);
   await dlg.getByTestId('damage-cancel').click();
   // 200 px = 10 m → 100 × 50 px = 5 × 2,5 m
   await pickTool(page, 'tool-calibrate');
@@ -267,8 +269,8 @@ test('Importierter Plan: Fläche aus Plan erst nach dem Kalibrieren', async ({ p
   await waitSaved(page);
   await pickTool(page, 'tool-rect');
   await drawRect(page, box.x + 60, box.y + 60, box.x + 160, box.y + 110);
-  await expect(dlg.getByTestId('use-geometry')).toContainText('12,50 m²');
-  await dlg.getByTestId('use-geometry').click();
+  await expect(dlg.getByTestId('input-length')).not.toHaveValue(''); // Rechteck: Länge × Breite aus dem Plan
+  await dlg.getByTestId('input-length').dblclick();
   await expect(dlg.getByTestId('geometry-area')).toHaveValue('12,50');
   await dlg.getByTestId('damage-save').click();
   await waitSaved(page);

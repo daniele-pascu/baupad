@@ -146,7 +146,7 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   await expect(page.getByTestId('tool-select')).toHaveCount(0);
   // zuerst die Messart wählen – dann erscheinen die Werkzeuge
   await chooseMeasureType(page, 'flaeche', 'tap');
-  for (const id of ['tool-mtype', 'tool-ellipse', 'tool-rect', 'tool-polyline']) {
+  for (const id of ['tool-mtype', 'tool-ellipse', 'tool-rect', 'tool-polygon']) {
     const b = await page.getByTestId(id).boundingBox();
     expect(b!.height).toBeGreaterThanOrEqual(44);
     expect(b!.width).toBeGreaterThanOrEqual(44);
@@ -252,10 +252,10 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   // Alle Werkzeuge und Rückgängig/Wiederholen sind per Finger erreichbar, nichts ragt über den Rand (Leiste war zugeklappt)
   await openTools(page, 'tap');
   const vw = page.viewportSize()!.width;
-  // Messart Fläche: Messart-Taste, Rechteck, Kreis, Freie Form, Messung (Linie und Wand gehören zu anderen Messarten)
+  // Messart Fläche: Messart-Taste, Rechteck, Kreis, Fläche, Messung (Linie, Wand, Freie Form und Freihand gehören zu anderen Messarten)
   await expect(page.getByTestId('tool-line')).toHaveCount(0);
   await expect(page.getByTestId('tool-wall')).toHaveCount(0);
-  for (const t of ['mtype', 'rect', 'ellipse', 'polyline', 'probe']) {
+  for (const t of ['mtype', 'rect', 'ellipse', 'polygon', 'probe']) {
     const b = (await page.getByTestId(`tool-${t}`).boundingBox())!;
     expect(b.x).toBeGreaterThanOrEqual(0);
     expect(b.x + b.width).toBeLessThanOrEqual(vw + 0.5);

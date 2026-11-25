@@ -51,9 +51,8 @@ test('Vektor-PDF: Ecken des Grundrisses werden exakt gefangen, Fläche aus dem P
   await expect(page.getByTestId('snap-marker')).toBeVisible(); // Fangpunkt wird angezeigt
   await drawRect(page, a.x, a.y, b.x, b.y);
   const dlg = page.getByTestId('damage-dialog');
-  await expect(dlg.getByTestId('use-geometry')).toContainText('116,66 m²'); // 15,15 × 7,70 = 116,655 m²
-  await dlg.getByTestId('use-geometry').click();
-  await expect(dlg.getByTestId('geometry-area')).toHaveValue('116,66');
+  await dlg.getByTestId('input-length').dblclick();
+  await expect(dlg.getByTestId('geometry-area')).toHaveValue('116,66'); // 15,15 × 7,70 = 116,655 m²
   await dlg.getByTestId('damage-save').click();
   await waitSaved(page);
   const [d1] = await damages(page);
@@ -149,11 +148,12 @@ test('X gedrückt halten: vergrößert an der Maus, Fangpunkt blau markiert, Kli
   // Enter: fertig – Fläche exakt aus den Raumecken
   await page.keyboard.press('Enter');
   const dlg = page.getByTestId('damage-dialog');
-  await expect(dlg.getByTestId('use-geometry')).toContainText('116,66 m²');
+  // Fläche aus Eckpunkten: gleich die Fläche aus dem Plan
+  await expect(dlg.getByTestId('geometry-area')).toHaveValue('116,66');
   await dlg.getByTestId('damage-cancel').click();
 
-  // schon nah genug vergrößert: X zoomt nicht weiter, loslassen ändert nichts
-  for (let n = 0; n < 6; n++) await page.keyboard.press('+');
+  // schon nah genug vergrößert (über der X-Stufe): X zoomt nicht weiter, loslassen ändert nichts
+  for (let n = 0; n < 9; n++) await page.keyboard.press('+');
   await page.waitForTimeout(200);
   const near = Number(await viewer.getAttribute('data-scale'));
   await page.keyboard.down('x');
@@ -234,4 +234,36 @@ test('Kalibrieren und Linie per Klick, Klick: Punkt A, X halten, Punkt B – exa
   const dd = page.getByTestId('damage-dialog');
   await expect(dd.getByTestId('geometry-length')).toHaveValue('7,70'); // Länge aus dem Plan (vorgewählt)
   await dd.getByTestId('damage-cancel').click();
+});
+
+test('X beim Ziehen eines Rechtecks: das zweite X vergrößert an der Maus, nicht am Startpunkt', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'Ziehen', {}, ['Keller']);
+  await page.getByTestId('plan-file-input').setInputFiles(join(FIXTURES, 'massketten.pdf'));
+  const wiz = page.getByTestId('import-wizard');
+  await wiz.getByTestId('areas-next').click();
+  await wiz.locator('[data-field="planNumber"]').fill('Z-1');
+  await wiz.getByTestId('import-save').click();
+  await waitForPlan(page);
+  await waitSaved(page);
+  await pickTool(page, 'tool-rect');
+  const box0 = await planBox(page);
+  const planAt = (b: { x: number; y: number; width: number }, m: { x: number; y: number }) => ({ x: ((m.x - b.x) / b.width) * 1191, y: ((m.y - b.y) / b.width) * 1191 });
+  // Punkt A: Maustaste drücken, X kurz drücken und loslassen
+  await page.mouse.move(box0.x + 200, box0.y + 200);
+  await page.mouse.down();
+  await page.keyboard.down('x');
+  await expect(page.getByTestId('lupe-hint')).toBeVisible();
+  await page.keyboard.up('x');
+  await expect(page.getByTestId('lupe-hint')).toHaveCount(0);
+  // mit gedrückter Taste woanders hin, wieder X: der Planpunkt unter der Maus bleibt stehen
+  const B = { x: box0.x + 520, y: box0.y + 360 };
+  await page.mouse.move(B.x, B.y, { steps: 6 });
+  const before = planAt(await planBox(page), B);
+  await page.keyboard.down('x');
+  await expect(page.getByTestId('lupe-hint')).toBeVisible();
+  const after = planAt(await planBox(page), B);
+  expect(Math.hypot(after.x - before.x, after.y - before.y)).toBeLessThan(2);
+  await page.keyboard.up('x');
+  await page.mouse.up();
 });

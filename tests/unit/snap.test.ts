@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { planUnitsPerMeter } from '../../src/lib/calibration';
 import { lineShape, polygonShape } from '../../src/lib/geometry';
 import { findSnap, segmentIntersection } from '../../src/lib/snap';
+import { SegIndex } from '../../src/lib/pdf-snap';
 import type { Plan, Shape } from '../../src/lib/types';
 
 const P = (x: number, y: number) => ({ x, y });
@@ -74,5 +75,28 @@ describe('Kalibrierung', () => {
   });
   it('gezeichnete Pläne behalten ihren festen Maßstab', () => {
     expect(planUnitsPerMeter({ ...base, source: 'drawing', drawing: { unit: 'm', unitsPerMeter: 100 } })).toBe(100);
+  });
+});
+
+describe('Punktfang an dicken Planlinien', () => {
+  // senkrechte Wandlinie x = 100, Strichstärke 8 → sichtbar von x = 96 bis 104
+  const wall = (w?: number) => ({ a: P(100, 0), b: P(100, 200), ends: 3, straight: true, path: 1, index: 0, ...(w ? { w } : {}) });
+  it('auf der sichtbaren Kante einer dicken Linie: rastet auf der Linie ein', () => {
+    // 7 vom Mittelstrich, Fangradius 4: nur dank halber Strichstärke (4) in Reichweite
+    const hit = findSnap(P(107, 80), [], 4, [wall(8)])!;
+    expect(hit).toMatchObject({ kind: 'nearest', point: { x: 100, y: 80 } });
+    expect(hit).not.toHaveProperty('slack'); // interne Gewichtung bleibt intern
+  });
+  it('dünne Linie im selben Abstand: kein Fang', () => {
+    expect(findSnap(P(107, 80), [], 4, [wall()])).toBeNull();
+  });
+  it('Ecke und Mitte einer dicken Linie ebenso', () => {
+    expect(findSnap(P(106, 3), [], 4, [wall(8)])).toMatchObject({ kind: 'end', point: { x: 100, y: 0 } });
+    expect(findSnap(P(106, 101), [], 4, [wall(8)])).toMatchObject({ kind: 'mid', point: { x: 100, y: 100 } });
+  });
+  it('Suche im Raster findet dicke Linien auch neben der Mittellinie', () => {
+    const idx = new SegIndex([wall(8)]);
+    expect(idx.near(P(107, 80), 4)).toHaveLength(1);
+    expect(new SegIndex([wall()]).near(P(107, 80), 4)).toHaveLength(0);
   });
 });
