@@ -5,7 +5,7 @@ import { uuid } from '../lib/ids';
 import { beamDeveloped, beamFormula } from '../lib/beam';
 import { rebarLine, rebarTotal } from '../lib/rebar';
 import { deductionArea, deductionLength, hasArea, netArea } from '../lib/measure';
-import { DAMAGE_TYPES, DEFAULT_WORK_AREAS, evalFormula, FREE_UNITS, MEASURE_TYPES, typeInfo } from '../lib/measure-types';
+import { DAMAGE_TYPES, evalFormula, FREE_UNITS, MEASURE_TYPES, typeInfo } from '../lib/measure-types';
 import { SURFACES } from '../lib/pos-rules';
 import { round2, round3, checkMeasure, computeArea, formatArea, formatMeasure, parseDecimal, toInputValue } from '../lib/numbers';
 
@@ -131,8 +131,6 @@ interface Props {
   startBeam?: boolean;
   /** Form ist offen (Linie, offene Polylinie): Länge aus dem Verlauf */
   openShape?: boolean;
-  /** Arbeitsbereiche zur Auswahl (Vorgaben und im Projekt benutzte) */
-  workAreas?: string[];
   /** das LV hat Positionen, die nach Boden, Wand und Decke getrennt sind → Fläche der Schadstelle abfragen */
   surfaces?: boolean;
   onSave: (v: DamageValues, renumber: Renumber) => void;
@@ -158,7 +156,7 @@ type Field = 'number' | 'length' | 'width' | 'depth' | 'count';
  * Eingabe einer Messung bzw. Schadstelle. Öffnet sich automatisch nach dem Einzeichnen.
  * Enter/Weiter springt zum nächsten Feld; im letzten Feld wird gespeichert.
  */
-export function DamageDialog({ mode, damage, others, components, positions = [], autoPositions, positionMismatch, suggestion, geometry, wall: wallProp = false, startBeam = false, openShape = wallProp, workAreas = DEFAULT_WORK_AREAS, surfaces = false, onSave, onCancel, onDelete, onDrawDeduction, drawnDeduction, hidden, dedFromPlan, photoSite, photoPrefix }: Props) {
+export function DamageDialog({ mode, damage, others, components, positions = [], autoPositions, positionMismatch, suggestion, geometry, wall: wallProp = false, startBeam = false, openShape = wallProp, surfaces = false, onSave, onCancel, onDelete, onDrawDeduction, drawnDeduction, hidden, dedFromPlan, photoSite, photoPrefix }: Props) {
   // Messart: im Aufmaß vorgewählt (bzw. aus der Form), hier jederzeit umstellbar
   const [type, setTypeState] = useState<MeasureType>(
     damage.measureType ?? (damage.kind === 'damage' ? 'schadstelle' : damage.kind === 'line' ? 'laenge' : wallProp ? 'wand' : 'flaeche'),
@@ -224,7 +222,6 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
     depth: toInputValue(damage.depth === null || damage.depth === undefined ? damage.depth : round3(damage.depth)),
     count: String(damage.count && damage.count > 0 ? damage.count : 1),
   });
-  const [workArea, setWorkArea] = useState(damage.workArea ?? '');
   const [damageType, setDamageType] = useState(damage.damageType ?? '');
   // neue Schadstelle: zuletzt gewählte Fläche vorbelegt (meist folgen mehrere an derselben Fläche)
   const [surface, setSurface] = useState<Surface | ''>(damage.surface ?? (mode === 'new' && surfaces ? (lastSurface ?? '') : ''));
@@ -436,7 +433,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
         kind,
         measureType: type,
         count: n,
-        workArea: workArea.trim() || null,
+        // nicht mehr eingebbar – ein früher eingetragener Arbeitsbereich bleibt erhalten
+        workArea: damage.workArea ?? null,
         damageType: type === 'schadstelle' ? damageType.trim() || null : null,
         surface: type === 'schadstelle' ? surface || null : null,
         formula: free ? formula.trim() || null : null,
@@ -730,15 +728,6 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
               {showErrors && countErr && <small className="error">{countErr}</small>}
             </label>
           )}
-          <label className="field measure-field">
-            <span>Arbeitsbereich</span>
-            <input value={workArea} onChange={(e) => setWorkArea(e.target.value)} list="work-areas" autoComplete="off" placeholder="z. B. Beton" data-testid="input-work-area" />
-            <datalist id="work-areas">
-              {[...new Set([...workAreas, ...DEFAULT_WORK_AREAS])].map((w) => (
-                <option key={w} value={w} />
-              ))}
-            </datalist>
-          </label>
           {type === 'schadstelle' && (
             <label className="field measure-field">
               <span>Schadensart</span>
