@@ -41,6 +41,14 @@ describe('Aufmaßblatt (Firmenvorlage)', () => {
     // nichts zu bemerken → keine Spalte „Bemerkung“
     expect(sheet).not.toContain('>Bemerkung<');
   });
+  it('ohne gemessene Tiefe: Spalte E (Tiefe) ausgeblendet; mit Tiefe sichtbar', () => {
+    expect(sheet).toContain('<col min="5" max="5" width="9.5" customWidth="1" hidden="1"/>');
+    const withDepth = { ...data, damages: { ...data.damages, d1: dmg('d1', 1, { depth: 0.05 }) } } as unknown as ProjectState;
+    const z = unzipSync(exportAufmassblatt(withDepth, { kind: 'costCenter', costCenterId: 'c1' }, { no: '008', period: '01.10.2026' }).data);
+    const s2 = strFromU8(z['xl/worksheets/sheet1.xml']);
+    expect(s2).toContain('<col min="5" max="5" width="9.5" customWidth="1"/>');
+    expect(s2).toContain('>Tiefe<');
+  });
   it('Spalte „Bemerkung“ nur mit Hinweis (z. B. Fläche aus dem Plan)', () => {
     const withNote = { ...data, damages: { ...data.damages, d1: dmg('d1', 1, { areaFromShape: true }) } } as unknown as ProjectState;
     const ws = strFromU8(unzipSync(exportAufmassblatt(withNote, { kind: 'plan', planId: 'p1' }, { no: '010', period: '' }).data)['xl/worksheets/sheet1.xml']);

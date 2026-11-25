@@ -211,10 +211,8 @@ export function useDrawing(opts: {
   const { plan, data, damages, viewer, onCreated, ptUnit, planId } = opts;
   const pk = (key: string) => `${key}:${planId}`;
   const k = plan ? unitsPerMeter(plan) : 100;
-  const [tool, setToolState] = useState<DrawTool>(() => {
-    const t = pref('drawTool', 'rect') as DrawTool;
-    return DRAW_TOOLS.some((x) => x.id === t) && !NEEDS_SELECTION.has(t) && t !== 'stretch' ? t : 'rect';
-  });
+  // Plan zeichnen startet ohne aktives Werkzeug (Auswahl) – nichts vom letzten Mal oder von anderen Plänen gemerkt
+  const [tool, setToolState] = useState<DrawTool>('select');
   /** Strecken: zuerst Fenster (Meter), dann Verschiebung */
   const [stretchWin, setStretchWin] = useState<Rect | null>(null);
   const [color, setColorState] = useState(() => pref(pk('drawColor'), DRAW_DEFAULT_COLOR));
@@ -440,7 +438,6 @@ export function useDrawing(opts: {
     }
     // Verschieben/Kopieren/Spiegeln/Verbinden ohne Auswahl: zuerst Objekte wählen
     setCmdSelecting(SELECT_FIRST.has(t) && !selIds.length);
-    if (!NEEDS_SELECTION.has(t) && t !== 'selwin') storePref('drawTool', t);
   };
   /** Werkzeug der Planansicht: Befehle nutzen Vektor (Basis → Ziel) bzw. Fenster */
   const viewerTool: Tool = PICK_TOOLS.has(tool) || (TRANSFORM_TOOLS.has(tool) && !cmdSelecting) ? 'pick' : tool === 'symbol' ? 'pick' : tool === 'array' && arrayPolar ? 'pick' : SELECT_FIRST.has(tool) && cmdSelecting ? 'selwin' : VECTOR_COMMANDS.has(tool) ? 'vector' : tool === 'offset' ? 'pick' : tool === 'stretch' ? (stretchWin ? 'vector' : 'window') : tool === 'textArrow' || tool === 'breakline' ? 'line' : (tool as Tool);

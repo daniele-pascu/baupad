@@ -10773,13 +10773,23 @@ html[data-theme='dark'] .crew-search {
   padding: 8px 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: var(--surface);
+  /* immer am Bildschirmrand: leicht durchscheinend (Glas), damit sie als Anzeige über dem Plan erkennbar ist */
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+  -webkit-backdrop-filter: saturate(1.4) blur(10px);
+  backdrop-filter: saturate(1.4) blur(10px);
   color: var(--text);
   font: inherit;
   font-size: 0.82rem;
   text-align: left;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   cursor: pointer;
+}
+@media (prefers-reduced-transparency: reduce) {
+  .plan-legend {
+    background: var(--surface);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 .plan-legend-row {
   display: flex;
@@ -12514,6 +12524,26 @@ html[data-theme='dark'] .calc-result .calc-total.warn strong {
 .mtype-menu {
   max-height: min(70vh, 520px);
   overflow-y: auto;
+  /* wächst aus der Messart-Taste (unten links) heraus */
+  transform-origin: 24px 100%;
+  animation: menu-in 180ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+/* Werkzeuge nach der Wahl der Messart: nacheinander herein (40 ms Abstand, höchstens die ersten sechs gestaffelt) */
+.tool-btn.tool-in {
+  animation: tool-in 220ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+@keyframes tool-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mtype-menu,
+  .tool-btn.tool-in {
+    animation: none;
+  }
 }
 .mtype-menu button.active {
   background: var(--primary-soft);

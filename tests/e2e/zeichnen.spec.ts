@@ -200,9 +200,9 @@ test('Linien mit Länge und Richtung schließen aneinander an; Kreis, Dreieck, M
   await expect(page.locator('[data-element="text"]')).toContainText('Kellerraum 1');
 
   // Rückgängig / Wiederholen gilt auch für Zeichnungsobjekte
-  await page.getByTestId('undo').click();
+  await page.getByTestId('draw-undo').click();
   await expect(page.locator('[data-element="text"]')).toHaveCount(0);
-  await page.getByTestId('redo').click();
+  await page.getByTestId('draw-redo').click();
   await expect(page.locator('[data-element="text"]')).toHaveCount(1);
   await page.screenshot({ path: join(OUT, 'zeichnen-pc.png') });
 });
@@ -255,7 +255,7 @@ test('Weiter zum Aufmaß: Messung auf gezeichnetem Plan, Maßvorschlag; Planänd
   await expect(page.locator('[data-element="rect"]')).toHaveCount(0);
   await waitSaved(page);
   expect(JSON.stringify((await stored(page, 'damages'))[0])).toBe(damageBefore);
-  await page.getByTestId('undo').click();
+  await page.getByTestId('draw-undo').click();
   await expect(page.locator('[data-element="rect"]')).toHaveCount(1);
   await waitSaved(page);
   expect(JSON.stringify((await stored(page, 'damages'))[0])).toBe(damageBefore);

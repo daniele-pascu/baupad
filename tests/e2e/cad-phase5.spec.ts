@@ -109,10 +109,10 @@ test('Drehen: Drehpunkt antippen, Winkel eintippen bzw. mit der Maus in 45°-Sch
   near(top.y, a.y - 4, 1e-6);
   expect(await elements()).toHaveLength(1);
   // Auswahl bleibt – Rückgängig holt die waagrechte Linie zurück
-  await page.getByTestId('undo').click();
+  await page.getByTestId('draw-undo').click();
   await waitSaved(page);
   near(len((await elements())[0]), 4, 1e-6);
-  await page.getByTestId('redo').click();
+  await page.getByTestId('draw-redo').click();
   await waitSaved(page);
 
   // mit der Maus: 45°-Schritte – Zeiger bei ca. 50° → 45°
@@ -255,7 +255,7 @@ test('Ausrichten: Linie auf eine schräge Ziellinie legen (drehen + verschieben 
   expect(await elements()).toHaveLength(4); // Linie, Rechteck, Ziel, Quelle
 
   // nur drehen: Rückgängig, Haken weg, gleiche Punkte → Anfang bleibt am alten Ort
-  await page.getByTestId('undo').click();
+  await page.getByTestId('draw-undo').click();
   await waitSaved(page);
   src = (await elements()).find((e) => e.id === src.id)!;
   await selectLine(src);

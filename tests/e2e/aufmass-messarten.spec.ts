@@ -258,9 +258,10 @@ test('Messart wählen, dann mit beliebigem Werkzeug messen: Wand, Stück, Frei, 
   expect(d.damageType).toBe('Abplatzung');
   await waitSaved(page);
 
-  // Messart bleibt gemerkt (nach Neuladen)
+  // nach dem Neuladen: nichts gemerkt – erst wieder die Messart wählen, nur „Auswahl“ ist aktiv
   await page.reload();
-  await expect(page.getByTestId('tool-mtype')).toHaveAttribute('data-value', 'flaeche'); // zuletzt für das Rechteck gewählt
+  await expect(page.getByTestId('tool-mtype')).toHaveAttribute('data-value', 'auto');
+  await expect(page.getByTestId('tool-rect')).toHaveCount(0);
 });
 
 test('Werkzeuge je Messart: Wand nur bei Wand, Punkte bei Stück – Punkte antippen zählt die Stück', async () => {

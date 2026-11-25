@@ -116,6 +116,8 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
   const inv = invoiceOf(data, scope);
 
   const rows: Cell[][] = [];
+  /** Spalte E (Tiefe): nur zeigen, wenn im Blatt irgendwo eine Tiefe steht – sonst ausgeblendet (unnötiger Platz) */
+  let depthUsed = false;
   const heights: Record<number, number> = {};
   const merges: string[] = [];
   const add = (cells: Cell[] = [], height?: number) => {
@@ -309,6 +311,7 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
   function table(list: Item[], kind: Kind, unit = '', labels: { width?: string; depth?: string } = {}): { ref: string; value: number } | null {
     const areaTable = kind === 'area' || kind === 'areaDepth' || kind === 'volume';
     const withDepth = kind === 'areaDepth' || kind === 'volume';
+    if (kind === 'volume' || (withDepth && list.some((it) => it.d.depth !== null))) depthUsed = true;
     const unitHead =
       kind === 'area' || kind === 'areaDepth' ? 'm²' : kind === 'volume' ? 'm³' : kind === 'free' ? unit || 'Menge' : kind === 'other' ? unitText(unit) : unitText(kind === 'count' ? 'Stk' : kind === 'liter' ? 'l' : 'm');
     // Zeilen: je Messung eine Zeile, darunter ihre Abzüge/Zuschläge (Tür, Öffnung …) – Flächen-Tabellen
@@ -431,6 +434,7 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
     name: `Aufmaßblatt ${info.no}`.slice(0, 31),
     rows,
     widths: WIDTHS,
+    hiddenCols: depthUsed ? [] : [COLS.indexOf('E')],
     rowHeights: heights,
     merges,
     print: true,

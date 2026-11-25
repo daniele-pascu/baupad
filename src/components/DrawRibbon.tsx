@@ -325,6 +325,8 @@ export function DrawRibbon({
             {btn('view-back', 'undoView', 'Vorherige', () => viewer.current?.back(), { title: 'Zur vorherigen Ansicht' })}
           </div>
         )}
+        {/* Zurück/Vor in jeder Registerkarte – oben in der Kopfleiste gibt es sie in „Plan zeichnen“ nicht mehr */}
+        {(tab === 'style' || tab === 'precision' || tab === 'view') && editGroup}
       </div>
       )}
     </div>
