@@ -659,7 +659,11 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
               ).map(([on, key, short, label], i, all) => (
                 <div key={key} className={`beam-row${bm[on] ? '' : ' off'}`} data-testid={`beam-${key}`}>
                   <label className="beam-check">
-                    <input type="checkbox" checked={bm[on]} onChange={(e) => setBm({ ...bm, [on]: e.target.checked })} aria-label={`${short} zählt`} data-testid={`beam-${key}-on`} />
+                    <input type="checkbox" checked={bm[on]} onChange={(e) => {
+                        // ausschalten: Feld verlassen, sonst bleibt die Schreibmarke darin stehen
+                        if (!e.target.checked) document.querySelector<HTMLInputElement>(`[data-testid="beam-${key}-input"]`)?.blur();
+                        setBm({ ...bm, [on]: e.target.checked });
+                      }} aria-label={`${short} zählt`} data-testid={`beam-${key}-on`} />
                     <span>
                       <b>{short}</b>
                       <small className="muted">{label.split(' – ')[1]}</small>

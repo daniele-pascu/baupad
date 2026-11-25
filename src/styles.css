@@ -15225,6 +15225,11 @@ html[data-theme='dark'] .crew-ww-legend b.o {
 }
 .beam-row.off .input-unit {
   opacity: 0.45;
+  /* ausgeschaltete Seite: kein Antippen, keine Schreibmarke */
+  pointer-events: none;
+}
+.beam-row.off input {
+  caret-color: transparent;
 }
 .beam-check {
   display: flex;
