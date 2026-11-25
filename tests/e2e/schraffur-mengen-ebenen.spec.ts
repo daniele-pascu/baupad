@@ -1,7 +1,7 @@
 import { expect, test, type Page } from './fixtures';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { catchDownload, createProject, drawRect, FIXTURES, freshStart, pickTool, planBox, saveDownload, waitForPlan, waitSaved } from './helpers';
+import { catchDownload, createProject, drawRect, FIXTURES, freshStart, pickTool, planBox, saveDownload, waitForPlan, waitSaved, toMeasureMode } from './helpers';
 
 /**
  * Phase 3: Schraffuren (Linien, Kreuz, Punkte; Winkel und Abstand) in Ansicht und PDF, Mengen
@@ -72,6 +72,7 @@ async function drag(page: Page, x1: number, y1: number, x2: number, y2: number) 
 
 async function exportPdf(page: Page, name: string) {
   const dl = await catchDownload(page, async () => {
+    await toMeasureMode(page);
     await page.getByTestId('export-pdf-plan').click();
     await page.getByTestId('pdf-export-run').click();
   });
@@ -352,6 +353,7 @@ test('Ebenen: Zeichnung, Bemaßung, Text und Messungen ein-/ausblenden – Ansic
   await waitSaved(page);
 
   // PDF: Hinweis im Dialog, ausgeblendete Ebenen nicht gedruckt
+  await toMeasureMode(page);
   await page.getByTestId('export-pdf-plan').click();
   await expect(page.getByTestId('pdf-hidden-layers')).toContainText('Zeichnung, Messungen');
   const dl = await catchDownload(page, () => page.getByTestId('pdf-export-run').click());

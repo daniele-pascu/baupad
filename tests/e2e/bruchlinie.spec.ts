@@ -1,7 +1,7 @@
 import { expect, test, type Page } from './fixtures';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { catchDownload, createProject, freshStart, pickTool, saveDownload, waitSaved } from './helpers';
+import { catchDownload, createProject, freshStart, pickTool, saveDownload, waitSaved, toMeasureMode } from './helpers';
 
 /** Plan zeichnen: Bruchlinie – Linie mit Zickzack, blendet die Zeichnung dahinter aus; Seite wechselbar; im PDF. */
 
@@ -87,6 +87,7 @@ test('Bruchlinie: blendet die Zeichnung dahinter aus, Seite wechseln, Text bleib
   await page.reload();
   await expect(page.getByTestId('break-mask')).toHaveCount(1);
   const dl = await catchDownload(page, async () => {
+    await toMeasureMode(page);
     await page.getByTestId('export-pdf-plan').click();
     await page.getByTestId('pdf-export-run').click();
   });

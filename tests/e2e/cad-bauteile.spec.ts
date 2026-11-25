@@ -1,6 +1,6 @@
 import { expect, test, type Page } from './fixtures';
 import { execFileSync } from 'node:child_process';
-import { catchDownload, createProject, freshStart, pickTool, saveDownload, waitSaved } from './helpers';
+import { catchDownload, createProject, freshStart, pickTool, saveDownload, waitSaved, toMeasureMode } from './helpers';
 
 /** CAD Phase 4a (Maus): Bauteile – Türen, Fenster, Elektro (ÖNORM) einsetzen, an Linie ausrichten, Anschlag, Größe, PDF */
 
@@ -136,6 +136,7 @@ test('Fenster mittig in senkrechter Wand, Elektro frei, Geräte im PDF', async (
   const dw = (await elements()).at(-1)!;
   // PDF mit Symbolen (Vektor, Kurzzeichen als Text)
   const dl = await catchDownload(page, async () => {
+    await toMeasureMode(page);
     await page.getByTestId('export-pdf-plan').click();
     await page.getByTestId('pdf-export-run').click();
   });
@@ -210,6 +211,7 @@ test('Wand: Stärke und Höhe, Länge/Fläche, Tür und Fenster schneiden die Ö
   near(sym('door1').shape.h, 0.9);
   // PDF
   const dl = await catchDownload(page, async () => {
+    await toMeasureMode(page);
     await page.getByTestId('export-pdf-plan').click();
     await page.getByTestId('pdf-export-run').click();
   });

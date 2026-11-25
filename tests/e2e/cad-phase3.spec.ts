@@ -1,6 +1,6 @@
 import { expect, test, type Page } from './fixtures';
 import { execFileSync } from 'node:child_process';
-import { catchDownload, createProject, freshStart, pickTool, saveDownload, waitSaved } from './helpers';
+import { catchDownload, createProject, freshStart, pickTool, saveDownload, waitSaved, toMeasureMode } from './helpers';
 
 /** CAD Phase 3 (Maus): Linienarten, Musterlänge, Deckkraft, Baustoff-Schraffur (ÖNORM), Flächenfarbe, eigene Farben, Reihe */
 
@@ -170,6 +170,7 @@ test('Reihe: rechteckig 3 × 2 und polar 4 Stück um einen Punkt', async () => {
 
 test('PDF mit neuen Linienarten und Schraffuren', async () => {
   const dl = await catchDownload(page, async () => {
+    await toMeasureMode(page);
     await page.getByTestId('export-pdf-plan').click();
     await page.getByTestId('pdf-export-run').click();
   });

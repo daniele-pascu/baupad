@@ -1,7 +1,7 @@
 import { expect, test, type Page } from './fixtures';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { catchDownload, createProject, freshStart, pickTool, saveDownload, waitSaved } from './helpers';
+import { catchDownload, createProject, freshStart, pickTool, saveDownload, waitSaved, toMeasureMode } from './helpers';
 
 /**
  * Zeichnen kompakt und präzise: 90° / Orthogonal (F8, Richtung wählbar), neue Formen ohne
@@ -274,6 +274,7 @@ test('Linientypen fein: kleine Welle/Zickzack (zoomunabhängig), gleichmäßige 
 
   // PDF: Strichmuster als Vektor
   const dl = await catchDownload(page, async () => {
+    await toMeasureMode(page);
     await page.getByTestId('export-pdf-plan').click();
     await page.getByTestId('pdf-export-run').click();
   });

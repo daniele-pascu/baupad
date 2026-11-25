@@ -1,6 +1,6 @@
 import { expect, test, type Page } from './fixtures';
 import { execFileSync } from 'node:child_process';
-import { catchDownload, createProject, freshStart, pickTool, saveDownload, waitSaved } from './helpers';
+import { catchDownload, createProject, freshStart, pickTool, saveDownload, waitSaved, toMeasureMode } from './helpers';
 
 /** CAD Phase 7: PDF mit allen CAD-Objekten – Hilfslinien nie im PDF, Bögen/Drehungen/Maße drin */
 
@@ -148,6 +148,7 @@ test('PDF: abgerundete Linien, gedrehtes Rechteck, Maß aus Abstand, Hilfslinien
 
   // PDF: eine Seite, Maßtext drin, keine Hilfslinien-Farbe, Zeichnung vorhanden
   const dl = await catchDownload(page, async () => {
+    await toMeasureMode(page);
     await page.getByTestId('export-pdf-plan').click();
     await page.getByTestId('pdf-export-run').click();
   });

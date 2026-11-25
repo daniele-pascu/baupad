@@ -1,7 +1,7 @@
 import { expect, test, type Page } from './fixtures';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { catchDownload, createProject, FIXTURES, freshStart, pickTool, planBox, saveDownload, waitForPlan, waitSaved } from './helpers';
+import { catchDownload, createProject, FIXTURES, freshStart, pickTool, planBox, saveDownload, waitForPlan, waitSaved, toMeasureMode } from './helpers';
 
 /** Textfeld im Plan: Farbe, Schriftart, fett, kursiv – im Zeichenmodus und im Aufmaß (auch importierte Pläne), im PDF. */
 
@@ -126,6 +126,7 @@ test('Aufmaß auf importiertem Plan: Text einfügen, verschieben, bearbeiten, im
 
   // PDF: Text mit Times fett kursiv
   const dl = await catchDownload(page, async () => {
+    await toMeasureMode(page);
     await page.getByTestId('export-pdf-plan').click();
     await page.getByTestId('pdf-export-run').click();
   });

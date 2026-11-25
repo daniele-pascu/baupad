@@ -1,7 +1,7 @@
 import { expect, test, type Page } from './fixtures';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { catchDownload, createProject, freshStart, pickTool, saveDownload, waitSaved } from './helpers';
+import { catchDownload, createProject, freshStart, pickTool, saveDownload, waitSaved, toMeasureMode } from './helpers';
 
 /** Plan zeichnen: Text mit Pfeil – Pfeilspitze, dann Textstelle; Spitze verschiebbar; in Ansicht und PDF. */
 
@@ -109,6 +109,7 @@ test('Text mit Pfeil: einfügen, Spitze verschieben, gespeichert und im PDF', as
 
   // PDF: Pfeil als Linien und gefüllte Spitze
   const dl = await catchDownload(page, async () => {
+    await toMeasureMode(page);
     await page.getByTestId('export-pdf-plan').click();
     await page.getByTestId('pdf-export-run').click();
   });

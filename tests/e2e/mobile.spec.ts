@@ -983,10 +983,8 @@ test('Plan zeichnen am Handy: Kopf in einer Zeile; die Maß-Leiste rückt über 
   await page.getByTestId('new-drawing').locator('[data-field="planNumber"]').fill('T-1');
   await page.getByTestId('new-drawing-save').click();
   await expect(page.getByTestId('drawing-sheet')).toBeVisible();
-  // Kopf: Zurück, Planwahl und Aktionen in einer Zeile (mehr Höhe für die Zeichenfläche)
-  const back = (await page.locator('.editor-topbar > .icon-btn').first().boundingBox())!;
-  const pdf = (await page.getByTestId('export-pdf-plan').boundingBox())!;
-  expect(Math.abs(back.y + back.height / 2 - (pdf.y + pdf.height / 2))).toBeLessThan(12);
+  // Kopf: Zurück und Planwahl in einer Zeile (mehr Höhe für die Zeichenfläche); Angaben, Excel, PDF, Fotos erst im Aufmaß
+  await expect(page.getByTestId('export-pdf-plan')).toHaveCount(0);
   expect((await page.locator('.editor-topbar').boundingBox())!.height).toBeLessThanOrEqual(56);
   await noHorizontalScroll(page);
   // beim Öffnen ist kein Werkzeug aktiv – Rechteck wählen, dann erscheinen die Maßfelder

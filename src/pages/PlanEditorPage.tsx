@@ -1750,9 +1750,12 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               <Icon name="crop" size={18} /> <span className="hide-sm">Ausschnitt</span>
             </button>
           )}
+          {/* Plan zeichnen: Angaben, Excel, PDF und Fotos braucht es erst im Aufmaß */}
+          {!drawMode && (
           <button type="button" className="btn btn-sm" onClick={() => setDetailsOpen(true)} title="Planangaben">
             <Icon name="info" size={18} /> <span className="hide-sm">Angaben</span>
           </button>
+          )}
 
           {!drawingPlan && !drawMode && file && (
             <ViewMenu
@@ -1765,6 +1768,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               colorTestId="plan-view"
             />
           )}
+          {!drawMode && (
+          <>
           <button type="button" className="btn btn-sm" onClick={exportExcel} title="Aufmaß dieses Plans als Excel" data-testid="export-xlsx-plan">
             <Icon name="excel" size={18} /> <span className="hide-sm">Excel</span>
           </button>
@@ -1774,6 +1779,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           <button type="button" className="btn btn-sm" onClick={() => setPdfOpen('photos')} title="Fotos der Messungen exportieren (PDF, mit Nummer)" aria-label="Fotos exportieren" data-testid="export-photos-plan">
             <Icon name="camera" size={18} /> <span className="hide-sm">Fotos</span>
           </button>
+          </>
+          )}
         </div>
       </header>
       <SaveErrorBanner />
