@@ -14838,15 +14838,21 @@ html[data-theme='dark'] .auth-divider::after {
   padding-top: 16px;
   border-top: 1px solid var(--border);
 }
+/* ganz unten: das P mittig über „PAD SOFTWARE“ */
 .pad-signature {
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   color: var(--muted);
   font-size: 9px;
   font-weight: 500;
   letter-spacing: 0.22em;
   white-space: nowrap;
+}
+/* Sperrung hängt hinter dem letzten Buchstaben an – links gleich viel, damit der Name genau unter dem P steht */
+.pad-signature > span {
+  padding-left: 0.22em;
 }
 /* „PAD“ kräftiger und dunkler als „Software“ */
 .pad-signature b {
@@ -14855,8 +14861,8 @@ html[data-theme='dark'] .auth-divider::after {
 }
 
 .pad-signature svg {
-  width: 10px;
-  height: 10px;
+  width: 18px;
+  height: 18px;
   flex: none;
 }
 
