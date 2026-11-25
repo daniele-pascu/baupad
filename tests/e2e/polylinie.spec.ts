@@ -289,9 +289,9 @@ test('Aufmaß: offene Polylinie = Linienmessung mit Länge, geschlossene = Fläc
   await expect(page.locator('circle[data-testid^="vertex-"]')).toHaveCount(3);
   await waitSaved(page);
 
-  // Messart Fläche: Freie Form ergibt eine Fläche
+  // Messart Fläche: Werkzeug Fläche (Eckpunkte setzen) ergibt eine Fläche
   await chooseMeasureType(page, 'flaeche');
-  await pickTool(page, 'tool-polyline');
+  await pickTool(page, 'tool-polygon');
   for (const [dx, dy] of [[-260, -40], [-160, -40], [-160, 40], [-260, 40]]) await page.mouse.click(x + dx, y + dy);
   await page.getByTestId('polygon-finish').click();
   await expect(dlg).toContainText('Neue Messung: Fläche');

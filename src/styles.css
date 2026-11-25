@@ -15178,6 +15178,45 @@ html[data-theme='dark'] .crew-ww-legend b.o {
   display: grid;
   gap: 8px;
 }
+/* Skizze Unterzug: Bezug, welche Seite welches Maß ist */
+.beam-sketch {
+  justify-self: center;
+  width: 100%;
+  max-width: 300px;
+  height: auto;
+  font-size: 12px;
+}
+.beam-sketch .slab {
+  fill: var(--surface);
+  stroke: var(--border-strong);
+}
+.beam-sketch .body {
+  fill: var(--surface);
+  stroke: none;
+}
+.beam-sketch line {
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+.beam-sketch line.on {
+  stroke: var(--text);
+}
+.beam-sketch line.off {
+  stroke: var(--muted);
+  stroke-width: 2;
+}
+.beam-sketch text {
+  fill: var(--text);
+  font-weight: 600;
+}
+.beam-sketch text.val,
+.beam-sketch text.cap {
+  fill: var(--muted);
+  font-weight: 500;
+}
+.beam-sketch text.cap {
+  text-anchor: middle;
+}
 .beam-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(110px, 150px);
