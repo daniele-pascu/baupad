@@ -248,7 +248,7 @@ export function FormEntryPage({ entryId }: { entryId: string }) {
               <div className="rp-grid">
                 <label className="field">
                   <span>Nr.</span>
-                  <input value={e.no} onChange={(ev) => setNo(ev.target.value)} data-testid="form-entry-no" />
+                  <input value={e.no} onChange={(ev) => setNo(ev.target.value)} inputMode="numeric" data-testid="form-entry-no" />
                 </label>
               </div>
             </section>

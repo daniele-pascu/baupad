@@ -970,6 +970,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       label: 'Reale Länge der gezogenen Strecke (m)',
       value: plan.calibration ? toInputValue(plan.calibration.meters) : '',
       confirmLabel: 'Kalibrieren',
+      inputMode: 'decimal',
     });
     if (input === null) return;
     const r = checkMeasure(input, 'Länge');
@@ -1000,6 +1001,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       label: `Im Plan gemessen: ${formatMeasure(measured)} m – bekannte (bemaßte) Länge dieser Strecke (m)`,
       value: '',
       confirmLabel: 'Prüfen',
+      inputMode: 'decimal',
     });
     if (input === null) return;
     const r = checkMeasure(input, 'Länge');

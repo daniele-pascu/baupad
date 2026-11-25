@@ -68,6 +68,8 @@ export function CommandBar({
           <input
             ref={inputRef}
             value={value}
+            // Länge eintippen: Zahlentastatur (iPad: dort auch ; und < über die Zahlen-/Zeichenebene)
+            inputMode="decimal"
             onChange={(e) => {
               setValue(e.target.value);
               setError(null);

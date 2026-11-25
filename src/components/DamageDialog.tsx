@@ -502,7 +502,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
           onFocus={(e) => e.target.select()}
           onClick={name === 'length' && planAreaOk ? tapToPlan : undefined}
           title={name === 'length' && planAreaOk ? 'Doppelt antippen: Fläche aus dem Plan übernehmen' : undefined}
-          inputMode={name === 'number' ? 'text' : 'decimal'}
+          // Nummer: Zahlentastatur; steht schon eine Kennzeichnung (A, Wand A) drin, die Buchstaben-Tastatur
+          inputMode={name === 'number' && !/^\d*$/.test(v.number.trim()) ? 'text' : name === 'number' ? 'numeric' : 'decimal'}
           autoCapitalize={name === 'number' ? 'characters' : undefined}
           enterKeyHint={fields[fields.length - 1] === name ? 'done' : 'next'}
           autoComplete="off"
