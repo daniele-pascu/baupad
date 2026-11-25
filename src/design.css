@@ -1171,7 +1171,17 @@ html.app-fixed[data-theme='dark'] .register-tabs button.on {
 .ribbon-float > .ribbon-history .tool-btn > span {
   display: none;
 }
+/* Gruppen mit kleinem Innenrand: die aktive (farbige) Taste liegt im Rahmen, deckt ihn nicht ab */
+.ribbon-float .ribbon-row .tool-group {
+  padding: 3px;
+}
 .ribbon-float .ribbon-row .tool-btn {
   min-width: 48px;
-  height: 46px;
+  height: 48px;
+  padding: 4px 6px;
+  /* Rundung passend zum Rahmen der Gruppe (13 px − 3 px Innenrand) */
+  border-radius: 10px;
+}
+.ribbon-float .ribbon-row .tool-btn.active {
+  box-shadow: none;
 }
