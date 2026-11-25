@@ -183,6 +183,7 @@ test('Abzüge: Wand 5,50 × 2,30 abzüglich Tür und 2 Fenster, zuzüglich Nisch
 });
 
 test('Abzüge auch bei Linien: Sockelleiste 12,40 m abzüglich 2 Türöffnungen à 1,00 m → netto 10,40 m', async () => {
+  await chooseMeasureType(page, 'laenge'); // vorher war Betoninstandsetzung gewählt
   await pickTool(page, 'tool-line');
   const sb = (await sheet().boundingBox())!;
   await page.mouse.move(sb.x + 560, sb.y + 330);
@@ -209,7 +210,9 @@ test('Abzüge auch bei Linien: Sockelleiste 12,40 m abzüglich 2 Türöffnungen 
   await dlg.getByTestId('damage-save').click();
   await expect(dlg).toBeHidden();
   await expect(page.locator('.toast', { hasText: '10,40 m' })).toHaveCount(1);
-  const sub = page.getByTestId('row-deductions').last();
+  // Zeile der Sockelleiste (die Tabellen sind nach Messart sortiert – nicht unbedingt die letzte Zeile)
+  const sub = page.getByTestId('row-deductions').filter({ hasText: 'gemessen 12,40 m' });
+  await expect(sub).toHaveCount(1);
   await expect(sub).toContainText('gemessen 12,40 m − 2,00 m (2× Tür) = netto 10,40 m');
   await waitSaved(page);
   await expect.poll(async () => (await damages()).length).toBe(4);

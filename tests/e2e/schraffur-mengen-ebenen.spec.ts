@@ -215,8 +215,8 @@ test('Mengen aus der Geometrie: Fläche und Umfang aus dem Plan, nachgeführt be
   await pickTool(page, 'tool-ellipse');
   await drag(page, sb.x + 320, sb.y + 120, sb.x + 420, sb.y + 220);
   await expect(dlg).toBeVisible();
-  // Kreis bei der Betoninstandsetzung: Maße von Hand vorgewählt – Doppeltipp holt die Fläche aus dem Plan
-  await dlg.getByTestId('input-length').dblclick();
+  // Kreis: Fläche aus dem Plan (bei der Messart Fläche gleich, sonst per Doppeltipp ins Längenfeld)
+  if (!(await dlg.getByTestId('geometry-area').count())) await dlg.getByTestId('input-length').dblclick();
   await expect(dlg.getByTestId('geometry-area')).toHaveValue(/,/);
   await dlg.getByTestId('damage-save').click();
   await waitSaved(page);

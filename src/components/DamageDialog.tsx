@@ -191,7 +191,8 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const tapToEdit = (e: { currentTarget: HTMLElement }) => {
     const now = Date.now();
     const dbl = now - lastFieldTap.current < 450;
-    lastFieldTap.current = now;
+    // nach dem Umschalten von vorn zählen – sonst gilt der nächste Tipp schon als zweiter und schaltet zurück
+    lastFieldTap.current = dbl ? 0 : now;
     if (!dbl) return;
     const dlg = e.currentTarget.closest('.modal');
     // Handy/Tablet: die Tastatur geht nur auf, wenn noch im selben Antippen ein Feld den Fokus bekommt – das echte
@@ -219,7 +220,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const tapToPlan = () => {
     const now = Date.now();
     const dbl = now - lastFieldTap.current < 450;
-    lastFieldTap.current = now;
+    lastFieldTap.current = dbl ? 0 : now;
     if (dbl) setFromShape(true);
   };
   const [v, setV] = useState({

@@ -3036,6 +3036,15 @@ tr.lv-flagged td {
   justify-content: space-between;
   gap: 12px;
 }
+/* Berichte einer Baustelle: viele Tasten – reicht der Platz neben dem Titel nicht (z. B. iPad), stehen sie darunter statt über dem Namen */
+.reports-page[data-testid='report-site-page'] .page-head-row {
+  flex-wrap: wrap;
+}
+.reports-page[data-testid='report-site-page'] .page-head-row > .row {
+  margin-left: auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
 .icon-link {
   display: inline-flex;
   align-items: center;
