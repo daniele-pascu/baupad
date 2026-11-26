@@ -203,6 +203,8 @@ export interface PdfExportOptions {
   overview?: { enabled: boolean; corner: OverviewCorner };
   /** BauPad-Logo (V10) rechts in der Kopfzeile; Standard aus – manche Baustellen wollen kein App-Zeichen */
   brand?: boolean;
+  /** Fortschritt 0–1 (je fertigem Plan) – für die Anzeige beim Erstellen */
+  onProgress?: (done: number) => void;
 }
 
 export async function exportPlansPdf(data: ProjectState, opts: PdfExportOptions): Promise<ExportFile> {
@@ -233,10 +235,11 @@ export async function exportPlansPdf(data: ProjectState, opts: PdfExportOptions)
           if (!ctx.textFonts.has(name)) ctx.textFonts.set(name, name === StandardFonts.Helvetica ? font : name === StandardFonts.HelveticaBold ? bold : await out.embedFont(name));
         }
   try {
-    for (const planId of opts.planIds) {
+    for (const [i, planId] of opts.planIds.entries()) {
       const plan = data.plans[planId];
       if (!plan || plan.deletedAt) continue;
       await addPlanPage(ctx, data, plan);
+      opts.onProgress?.(((i + 1) / opts.planIds.length) * 0.9); // die letzten 10 %: Datei schreiben
     }
   } finally {
     for (const d of ctx.jsDocs.values()) void closePdf(d);
@@ -870,7 +873,7 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
  * Foto-PDF (eigene Datei): je Foto ein großes Bild, darüber klar beschriftet, zu welchem Plan, welcher
  * Nummer und welcher Leistungsposition es gehört (dazu Art, Menge, Bemerkung). Zwei Fotos je A4-Seite.
  */
-export async function exportPhotosPdf(data: ProjectState, planIds: string[]): Promise<ExportFile> {
+export async function exportPhotosPdf(data: ProjectState, planIds: string[], onProgress?: (done: number) => void): Promise<ExportFile> {
   const out = await PDFDocument.create();
   neutralPdf(out, 'Fotos Aufmaß');
   const font = await out.embedFont(StandardFonts.Helvetica);
@@ -902,11 +905,15 @@ export async function exportPhotosPdf(data: ProjectState, planIds: string[]): Pr
     page.drawText(pn, { x: W - M - font.widthOfTextAtSize(pn, 8), y: M - 16, size: 8, font, color: MUTED });
   };
   let count = 0;
+  // Fortschritt je Foto (das Einbetten der Bilder dauert am längsten)
+  const total = planIds.reduce((n, id) => n + damagesOf(data, id).reduce((k, d) => k + (d.photoIds?.length ?? 0), 0), 0) || 1;
+  let seen = 0;
   for (const planId of planIds) {
     const plan = data.plans[planId];
     if (!plan || plan.deletedAt) continue;
     for (const d of damagesOf(data, plan.id)) {
       for (const id of d.photoIds ?? []) {
+        onProgress?.((seen++ / total) * 0.9);
         let img: PDFImage;
         try {
           const b = await storage.blobs(id);

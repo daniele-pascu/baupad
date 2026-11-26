@@ -7,6 +7,7 @@ import type { OverviewCorner } from '../lib/export-pdf';
 import type { ProjectState } from '../lib/store';
 import { Modal } from './Modal';
 import { showError } from './ui';
+import { ProgressRing } from './ProgressRing';
 import { PdfPreview } from './PdfPreview';
 
 interface Props {
@@ -33,6 +34,8 @@ export function PdfExportDialog({ data, costCenterId, initial, mode = 'plans', o
   );
   const [selected, setSelected] = useState<Set<string>>(new Set(initial));
   const [busy, setBusy] = useState(false);
+  /** echter Fortschritt 0–1, solange das PDF entsteht */
+  const [progress, setProgress] = useState(0);
   const [preview, setPreview] = useState<ExportFile | null>(null);
   // Übersicht des Gesamtplans (nur bei Plänen mit Ausschnitt); Einstellung wird gemerkt
   const [overview, setOverview] = useState(() => readPref('pdfOverview', '1') === '1');
@@ -51,6 +54,7 @@ export function PdfExportDialog({ data, costCenterId, initial, mode = 'plans', o
   };
 
   const run = async () => {
+    setProgress(0);
     setBusy(true);
     try {
       const { exportPlansPdf } = await import('../lib/export-pdf');
@@ -59,7 +63,7 @@ export function PdfExportDialog({ data, costCenterId, initial, mode = 'plans', o
       writePref('pdfOverviewCorner', corner);
       writePref('pdfBrand', brand ? '1' : '0');
       // erst Vorschau, dort speichern (Ordner wählen, teilen oder herunterladen)
-      setPreview(await exportPlansPdf(data, { planIds: ordered, overview: { enabled: overview, corner }, brand }));
+      setPreview(await exportPlansPdf(data, { planIds: ordered, overview: { enabled: overview, corner }, brand, onProgress: setProgress }));
     } catch (e) {
       showError(e, 'PDF-Export fehlgeschlagen');
     } finally {
@@ -69,10 +73,11 @@ export function PdfExportDialog({ data, costCenterId, initial, mode = 'plans', o
 
   // Foto-PDF: eigene Datei, jedes Foto mit Plan, Nummer und Position beschriftet
   const runPhotos = async () => {
+    setProgress(0);
     setBusy(true);
     try {
       const { exportPhotosPdf } = await import('../lib/export-pdf');
-      setPreview(await exportPhotosPdf(data, allIds.filter((id) => selected.has(id))));
+      setPreview(await exportPhotosPdf(data, allIds.filter((id) => selected.has(id)), setProgress));
     } catch (e) {
       showError(e, 'Foto-PDF fehlgeschlagen');
     } finally {
@@ -91,13 +96,16 @@ export function PdfExportDialog({ data, costCenterId, initial, mode = 'plans', o
           <button type="button" className="btn" onClick={onClose}>
             Abbrechen
           </button>
-          {photos ? (
-            <button type="button" className="btn btn-primary" disabled={busy || !photoCount} onClick={() => void runPhotos()} data-testid="pdf-photos-run" title="Eigenes PDF: jedes Foto mit Plan, Nummer und Position">
-              {busy ? 'PDF wird erstellt …' : `${photoCount} ${photoCount === 1 ? 'Foto' : 'Fotos'} – Vorschau`}
+          {busy ? (
+            // statt des Knopfs: Fortschrittsring, solange das PDF entsteht
+            <ProgressRing value={progress} label="PDF wird erstellt" testId="pdf-progress" />
+          ) : photos ? (
+            <button type="button" className="btn btn-primary" disabled={!photoCount} onClick={() => void runPhotos()} data-testid="pdf-photos-run" title="Eigenes PDF: jedes Foto mit Plan, Nummer und Position">
+              {`${photoCount} ${photoCount === 1 ? 'Foto' : 'Fotos'} – Vorschau`}
             </button>
           ) : (
-            <button type="button" className="btn btn-primary" disabled={busy || !selected.size} onClick={() => void run()} data-testid="pdf-export-run">
-              {busy ? 'PDF wird erstellt …' : `${selected.size} Plan/Pläne – Vorschau`}
+            <button type="button" className="btn btn-primary" disabled={!selected.size} onClick={() => void run()} data-testid="pdf-export-run">
+              {`${selected.size} Plan/Pläne – Vorschau`}
             </button>
           )}
         </>
