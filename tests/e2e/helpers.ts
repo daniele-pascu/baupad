@@ -365,3 +365,22 @@ export async function pickFreeColor(page: Page, button: Locator, hex: string) {
   await cp.getByTestId('color-ok').click();
   await expect(cp).toHaveCount(0);
 }
+
+/** Gespeicherte, nicht gelöschte Datensätze eines Speichers (IndexedDB), älteste zuerst */
+export async function stored(page: Page, store: string): Promise<(Record<string, unknown> & { deletedAt: number | null; createdAt: number })[]> {
+  return page.evaluate(
+    (name) =>
+      new Promise((resolve) => {
+        const req = indexedDB.open('schadstellen-aufmass');
+        req.onsuccess = () => {
+          const all = req.result.transaction(name).objectStore(name).getAll();
+          all.onsuccess = () => {
+            req.result.close();
+            type R = Record<string, unknown> & { deletedAt: number | null; createdAt: number };
+            resolve((all.result as R[]).filter((d) => !d.deletedAt).sort((a, b) => a.createdAt - b.createdAt));
+          };
+        };
+      }),
+    store,
+  );
+}

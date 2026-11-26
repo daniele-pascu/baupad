@@ -395,6 +395,8 @@ export function tastenTests() {
         await page.getByTestId('damages-bulk-edit').click();
         await expect(page.getByTestId('bulk-damage-dialog')).toBeVisible();
         await pruefe(page, 'Messungen ändern (Fenster)', out);
+        await page.getByTestId('bulk-damage-dialog').getByTestId('bulk-damage-style').click();
+        await pruefe(page, 'Messungen ändern (Darstellung)', out);
         await page.getByTestId('bulk-damage-dialog').getByRole('button', { name: 'Abbrechen' }).click();
         await page.getByTestId('damages-select-bar').getByTestId('select-close').click();
       }
