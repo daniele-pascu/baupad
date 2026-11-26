@@ -1,3 +1,4 @@
+import { shapeAABB } from './geometry';
 import type { Damage } from './types';
 
 /**
@@ -81,6 +82,38 @@ export function compactNumbers<T extends Pick<Damage, 'id' | 'number'>>(
     .forEach((d, i) => {
       if (d.number !== start + i) changes.set(d.id, start + i);
     });
+  return changes;
+}
+
+/**
+ * Nummern nach Lage im Plan ordnen: von oben nach unten in Zeilen, je Zeile von links nach rechts (Mitte jeder
+ * Messung). Es werden nur die vorhandenen Nummern getauscht – dieselben Nummern, neue Reihenfolge. Eine Zeile ist so
+ * hoch wie die halbe mittlere Höhe der Messungen (mindestens 3 % der Planhöhe), damit leicht versetzte Messungen
+ * nebeneinander in einer Zeile landen.
+ */
+export function spatialNumbers<T extends Pick<Damage, 'id' | 'number' | 'shape'>>(damages: T[]): Map<string, number> {
+  const items = damages.map((d) => {
+    const b = shapeAABB(d.shape);
+    return { d, x: b.x + b.w / 2, y: b.y + b.h / 2, h: b.h };
+  });
+  if (items.length < 2) return new Map();
+  const ys = items.map((i) => i.y);
+  const span = Math.max(...ys) - Math.min(...ys) || 1;
+  const hs = items.map((i) => i.h).sort((a, b) => a - b);
+  const band = Math.max(hs[Math.floor(hs.length / 2)] / 2, span * 0.03);
+  const byY = [...items].sort((a, b) => a.y - b.y);
+  const rows: (typeof items)[] = [];
+  for (const it of byY) {
+    const row = rows[rows.length - 1];
+    if (row && it.y - row[0].y <= band) row.push(it);
+    else rows.push([it]);
+  }
+  const order = rows.flatMap((r) => r.sort((a, b) => a.x - b.x));
+  const numbers = items.map((i) => i.d.number).sort((a, b) => a - b);
+  const changes = new Map<string, number>();
+  order.forEach((it, i) => {
+    if (it.d.number !== numbers[i]) changes.set(it.d.id, numbers[i]);
+  });
   return changes;
 }
 

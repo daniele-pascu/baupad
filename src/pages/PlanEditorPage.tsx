@@ -42,7 +42,7 @@ import { calcPath, defaultTypeFor, measureTypeForUnit, quantityOfMeasure, typeIn
 import { circleThrough, translateShape } from '../lib/cad';
 import { countKind, deductionText, grossArea, hasArea, isWall, kindOf, measureLabel, netArea, netLength, sumLengths, withoutLineFill } from '../lib/measure';
 import { round2, checkMeasure, computeArea, formatArea, formatMeasure, toInputValue } from '../lib/numbers';
-import { compactNumbers, damageNo, duplicateIds, nextNumber, planNumberStart, shiftNumbers, suggestNext, swapNumbers } from '../lib/numbering';
+import { compactNumbers, damageNo, duplicateIds, nextNumber, planNumberStart, shiftNumbers, spatialNumbers, suggestNext, swapNumbers } from '../lib/numbering';
 import { navigate, paths } from '../lib/router';
 import { findSnap } from '../lib/snap';
 import { HatchPreview, hatchLabel } from '../components/HatchPicker';
@@ -1598,6 +1598,26 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     if (ok) applyRenumber(changes);
   };
 
+  // Nummern nach Lage im Plan ordnen (oben → unten, je Zeile links → rechts) – nur die Nummern werden getauscht
+  const orderByPlan = async () => {
+    const changes = spatialNumbers(stored.filter((d) => !d.label));
+    if (!changes.size) {
+      toast('Die Nummern stehen schon in Reihenfolge im Plan.');
+      return;
+    }
+    const ok = await confirmDialog({
+      title: 'Nummern im Plan ordnen?',
+      message: (
+        <p>
+          Die Messungen werden von oben nach unten, je Zeile von links nach rechts nummeriert – es werden nur die Nummern getauscht
+          ({changes.size} Messung(en) bekommen eine andere Nummer). Bereits ausgedruckte oder notierte Nummern stimmen danach nicht mehr überein.
+        </p>
+      ),
+      confirmLabel: 'Ordnen',
+    });
+    if (ok) applyRenumber(changes);
+  };
+
   const exportExcel = () => setExcelOpen(true);
 
   // Messleiste in der Breite verstellen (nur Anzeige – Plan- und Markierungskoordinaten bleiben unverändert)
@@ -3113,6 +3133,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           <div className="side-foot">
             <button type="button" className="btn btn-sm" onClick={() => void compact()}>
               <Icon name="hash" size={18} /> Lückenlos neu nummerieren
+            </button>
+            <button type="button" className="btn btn-sm" onClick={() => void orderByPlan()} title="Nummern nach Lage im Plan: von oben nach unten, je Zeile von links nach rechts" data-testid="order-by-plan">
+              <Icon name="down" size={18} /> Im Plan ordnen
             </button>
           </div>
         </aside>
