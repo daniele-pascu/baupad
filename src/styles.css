@@ -5100,6 +5100,56 @@ a.register-tool:hover {
   color: #6b4e00;
 }
 
+/* Fortschrittsring (z. B. „PDF wird erstellt“): Größe, Strichstärke und Farben hier einstellen */
+.progress-ring {
+  --pr-size: 44px;
+  --pr-color: var(--primary);
+  --pr-track: var(--border);
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: var(--pr-size);
+  height: var(--pr-size);
+  animation: pr-in 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+}
+.progress-ring svg {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+}
+.progress-ring circle {
+  fill: none;
+  stroke-width: 3.5;
+}
+.pr-track {
+  stroke: var(--pr-track);
+}
+.pr-bar {
+  stroke: var(--pr-color);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.2s linear;
+}
+.pr-num {
+  font: 600 0.72rem/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+@keyframes pr-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .progress-ring {
+    animation: none;
+  }
+  .pr-bar {
+    transition: none;
+  }
+}
+
 /* PDF-Vorschau */
 .preview-pages {
   display: flex;
