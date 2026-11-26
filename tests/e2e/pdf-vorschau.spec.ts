@@ -27,6 +27,7 @@ test('Vorschau mit allen Seiten, Dateiname änderbar, Zurück, Herunterladen mit
   await expect(page.getByTestId('pdf-export-dialog')).toBeVisible();
   await page.getByTestId('pdf-export-run').click();
   await expect(pv.getByTestId('preview-page')).toHaveCount(1);
+  await expect(pv.getByTestId('pdf-file-name')).toHaveValue('Plan_067_Hof_Vorschau'); // Titel_Nummer_Kostenstelle_Projekt
   await pv.getByTestId('pdf-file-name').fill('Aufmaß Hof 067');
   const [dl] = await Promise.all([page.waitForEvent('download'), pv.getByTestId('preview-download').click()]);
   expect(dl.suggestedFilename()).toBe('Aufmass_Hof_067.pdf'); // Umlaute umschrieben (sicher für alle Browser)
