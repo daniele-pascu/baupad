@@ -3856,6 +3856,10 @@ tr.lv-flagged td {
   gap: 2px 4px;
   align-content: center;
 }
+/* Farbfeld mit zwei Reihen: Beschriftung 1 px näher – die Registerkarte bleibt so hoch wie die anderen */
+.sc-field:has(.sc-colors) {
+  gap: 1px;
+}
 .sc-colors .swatch.swatch-xs,
 .sc-colors .color-more {
   width: 20px;
