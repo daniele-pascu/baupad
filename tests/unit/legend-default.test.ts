@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { legendEntries, resolveLegend } from '../../src/lib/legend';
-import type { Damage, Plan } from '../../src/lib/types';
+import type { Damage, Plan, Shape } from '../../src/lib/types';
 
-const rect = { type: 'rect', x: 0, y: 0, w: 1, h: 1 } as const;
-const line = { type: 'line', x: 0, y: 0, w: 1, h: 0, points: [[0, 0], [1, 0]] } as const;
+const rect: Shape = { type: 'rect', x: 0, y: 0, w: 1, h: 1 };
+const line: Shape = { type: 'line', x: 0, y: 0, w: 1, h: 0, points: [[0, 0], [1, 0]] };
 const d = (p: Partial<Damage>) => ({ color: '#E03131', shape: rect, ...p }) as Damage;
 
 describe('Farblegende im PDF', () => {
