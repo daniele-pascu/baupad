@@ -1985,6 +1985,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               tipText={drawing.tipText}
               onCreate={drawing.onCreate}
               onFence={drawing.onFence}
+              fenceFrom={drawing.trimFrom}
               onDimension={drawing.onDimension}
               formatLength={drawing.formatLength}
               onShapeChange={drawing.onShapeChange}

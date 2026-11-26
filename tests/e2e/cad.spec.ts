@@ -220,6 +220,23 @@ test('Stutzen mit Zaun (mehrere Linien auf einmal) und an einem Rechteck', async
   // je Linie bleiben 60 px links und 60 px rechts der Querwände
   near(pieces.reduce((sum, e) => sum + e.shape.w, 0), await m(240), 0.05);
 
+  // Zaun am PC auch mit Klick – Klick: neben die Linien klicken, zweiten Punkt klicken → alles Gekreuzte wird gestutzt
+  await line(650, 170, 900, 170);
+  await line(650, 210, 900, 210);
+  await line(710, 140, 710, 240);
+  await line(840, 140, 840, 240);
+  await waitSaved(page);
+  const nc = (await elements()).length;
+  await deselect();
+  await pickTool(page, 'draw-trim');
+  await page.mouse.click(sb.x + 775, sb.y + 150);
+  await page.mouse.move(sb.x + 775, sb.y + 190, { steps: 4 });
+  await expect(page.getByTestId('trim-fence-line')).toHaveCount(1);
+  await page.mouse.click(sb.x + 775, sb.y + 230);
+  await waitSaved(page);
+  expect(await elements()).toHaveLength(nc + 2);
+  await expect(page.getByTestId('trim-fence-line')).toHaveCount(0);
+
   // Rechteck mit einer Linie quer durch: nur die angeklickte rechte Seite (Ecke zu Ecke) verschwindet → offene Polylinie
   await deselect();
   await pickTool(page, 'draw-rect');
