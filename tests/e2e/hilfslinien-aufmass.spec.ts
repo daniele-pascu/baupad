@@ -43,7 +43,24 @@ test('Hilfslinien im Aufmaß: setzen, Messung rastet am Schnittpunkt ein, lösch
   await page.mouse.click(b.x + b.width * 0.7, b.y + b.height * 0.5);
   await expect(page.getByTestId('guide-line')).toHaveCount(1);
   await page.getByTestId('guide-done').click();
-  // im Zeichnen ist es dieselbe Linie
+  // parallel zu zwei Punkten mit Abstand: obere Raumkante als Bezug, 2 m darunter (Abstand im eigenen Feld)
+  await page.getByTestId('tool-guide').click();
+  await page.getByTestId('guide-angle-select').selectOption('par');
+  await expect(page.getByTestId('guide-hint')).toContainText('1. Bezugspunkt');
+  await expect(page.getByTestId('guide-dist-input')).toHaveCount(0);
+  await page.mouse.click(b.x + 1, b.y + 1);
+  await page.mouse.click(b.x + b.width * 0.6, b.y + 1); // zweiter Punkt auf der Oberkante (rechts oben liegt eine Leiste)
+  await expect(page.getByTestId('guide-hint')).toContainText('Abstand eintragen');
+  await page.mouse.move(b.x + b.width * 0.5, b.y + b.height * 0.6, { steps: 3 }); // Zeiger unter der Bezugslinie = diese Seite
+  await page.getByTestId('guide-dist-input').fill('2');
+  await page.getByTestId('guide-dist-input').press('Enter');
+  await expect(page.getByTestId('guide-line')).toHaveCount(2);
+  await expect(page.getByTestId('guide-dist-input')).toHaveValue(''); // bereit für den nächsten Abstand
+  // sie liegt 2 m unter der Oberkante (Raum 12 m hoch) – auf der Seite, auf der der Zeiger stand
+  const gy = (await page.locator('[data-testid="guide-line"][data-angle="0"]').boundingBox())!.y;
+  expect(Math.abs(gy - (b.y + (b.height * 2) / 12))).toBeLessThan(3);
+  await page.getByTestId('guide-done').click();
+  // im Zeichnen sind es dieselben Linien
   await page.getByTestId('mode-draw').click();
-  await expect(page.getByTestId('guide-line')).toHaveCount(1);
+  await expect(page.getByTestId('guide-line')).toHaveCount(2);
 });

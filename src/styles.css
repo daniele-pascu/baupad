@@ -12606,6 +12606,27 @@ html[data-theme='dark'] .calc-result .calc-total.warn strong {
 .guide-preview {
   opacity: 0.45;
 }
+/* Bezugslinie durch die zwei gewählten Punkte: durchgezogen, damit sie sich von der Hilfslinie abhebt */
+.guide-ref {
+  stroke-dasharray: none;
+  opacity: 0.35;
+}
+.guide-dist {
+  font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  fill: #d6336c;
+  paint-order: stroke;
+  stroke: #fff;
+  stroke-width: 3px;
+  pointer-events: none;
+}
+.guide-dist-form {
+  display: flex;
+  gap: 6px;
+}
+.guide-dist-form input {
+  width: 8.5em;
+  min-width: 0;
+}
 .parallel-edge {
   fill: none;
   stroke: #e8590c;

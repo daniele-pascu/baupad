@@ -319,3 +319,63 @@ test('Fangarten: Lotpunkt, Parallel; ausschalten und Vorrang (je Gerät gemerkt)
   await d.getByTestId('snap-kinds-save').click();
   await page.screenshot({ path: 'tests/output/cad-phase6.png' });
 });
+
+test('Hilfslinie aus zwei Bezugspunkten: Abstand eintippen – parallel bzw. senkrecht, Seite = wo der Zeiger steht', async () => {
+  await freshStart(page);
+  await createProject(page, 'Bezug', {}, ['EG']);
+  await page.getByTestId('draw-plan').click();
+  await page.getByTestId('new-drawing').locator('[data-field="planNumber"]').fill('B1');
+  await page.getByTestId('new-drawing-save').click();
+  await expect(sheet()).toBeVisible();
+  await tool('draw-guide');
+  await page.getByTestId('guide-angle').selectOption('par');
+  await expect(page.getByTestId('command-prompt')).toContainText('1. Bezugspunkt');
+  // Bezug wie im Beispiel, nur weiter in der Blattmitte: A (3 | 5), B (7 | 5) – waagrecht, 4 m lang
+  await click({ x: 3, y: 5 });
+  await expect(page.getByTestId('command-prompt')).toContainText('2. Bezugspunkt');
+  await click({ x: 7, y: 5 });
+  await expect(page.getByTestId('command-prompt')).toContainText('Abstand zur Bezugslinie');
+  // Zeiger unterhalb der Bezugslinie: Vorschau mit dem Abstand am Zeiger
+  const below = await screenOf({ x: 5, y: 6 });
+  await page.mouse.move(below.x, below.y, { steps: 3 });
+  await expect(page.getByTestId('guide-ref')).toHaveCount(1); // waagrecht: Höhe 0 – daher nicht toBeVisible
+  await expect(page.getByTestId('guide-dist')).toHaveText('1,00 m');
+  // 0,25 eintippen: parallele Hilfslinie genau 0,25 m unter der Bezugslinie
+  await type('0,25');
+  await waitSaved(page);
+  let g = await guides();
+  expect(g).toHaveLength(1);
+  near(g[0].y, 5.25, 0.03); // Klick auf ±1 px
+  near(Math.min(g[0].angle, 180 - g[0].angle), 0, 0.6);
+  // der Bezug bleibt: Zeiger oberhalb, 0,5 → zweite Linie 0,5 m darüber
+  const above = await screenOf({ x: 5, y: 4.2 });
+  await page.mouse.move(above.x, above.y, { steps: 3 });
+  await type('0,5');
+  await waitSaved(page);
+  g = await guides();
+  expect(g).toHaveLength(2);
+  near(g[1].y, 4.5, 0.03);
+  // beide Hilfslinien hängen am selben Bezug: ihr Abstand ist exakt 0,25 + 0,5 = 0,75 m (unabhängig vom Klick)
+  const rad = (g[0].angle * Math.PI) / 180;
+  near(Math.abs((g[1].x - g[0].x) * Math.sin(rad) + (g[1].y - g[0].y) * Math.cos(rad)), 0.75, 0.0002);
+  // senkrecht: neuer Bezug, 2,5 m vom ersten Punkt entlang der Bezugslinie
+  await page.getByTestId('guide-angle').selectOption('perp');
+  await click({ x: 3, y: 5 });
+  await click({ x: 7, y: 5 });
+  const right = await screenOf({ x: 6, y: 6 });
+  await page.mouse.move(right.x, right.y, { steps: 3 });
+  await type('2,5');
+  await waitSaved(page);
+  g = await guides();
+  expect(g).toHaveLength(3);
+  near(g[2].x, 5.5, 0.03);
+  near(g[2].angle, 90, 0.6);
+  // ohne Zahl: Stelle antippen – senkrechte Hilfslinie durch diesen Punkt
+  await click({ x: 6.2, y: 7 });
+  await waitSaved(page);
+  g = await guides();
+  expect(g).toHaveLength(4);
+  near(g[3].x, 6.2, 0.02);
+  await expect(page.getByTestId('guide-line')).toHaveCount(4);
+  await page.screenshot({ path: 'tests/output/hilfslinie-bezug.png' });
+});

@@ -2090,6 +2090,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               damages={shownDamages}
               selectedId={selectedId}
               tool={guideTool ? 'pick' : tool === 'text' && textKind !== 'plain' ? 'line' : tool /* Hinweistext: Linie vom Ziel zum Text */}
+              // Hilfslinie aus zwei Punkten: die Seite des Abstands ist dort, wo der Zeiger steht
+              onHover={guideTool ? drawing.onHover : undefined}
               color={color}
               pending={dialog?.mode === 'new' ? { shape: dialog.shape, color } : null}
               onSelect={(id) => {
@@ -2347,6 +2349,12 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 : t === 'guide'
                   ? drawing.guideErase
                     ? `Hilfslinie antippen, die gelöscht werden soll (${drawing.guides.length} vorhanden).`
+                    : drawing.guideAngle === 'par' || drawing.guideAngle === 'perp'
+                      ? drawing.pickPts.length < 2
+                        ? `${drawing.pickPts.length + 1}. Bezugspunkt antippen (Fang hilft) – die zwei Punkte geben die Richtung vor.`
+                        : drawing.guideAngle === 'par'
+                          ? 'Abstand zur Bezugslinie eintippen und Enter – die Hilfslinie entsteht parallel auf der Seite, auf der der Zeiger steht. Oder eine Stelle antippen. Weitere Abstände möglich.'
+                          : 'Abstand vom 1. Punkt entlang der Bezugslinie eintippen und Enter – die Hilfslinie steht senkrecht dazu, in der Richtung des Zeigers. Oder eine Stelle antippen.'
                     : drawing.guideAngle === 'free'
                       ? drawing.pickPts.length
                         ? '2. Punkt antippen – bestimmt die Richtung – oder Winkel eintippen.'
@@ -2415,7 +2423,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 prompt={prompt}
                 onInput={withInput ? drawing.applyInput : undefined}
                 onKey={drawing.trackKey}
-                placeholder={t === 'wall' ? 'Stärke, z. B. 0,25' : t === 'offset' ? 'Abstand, z. B. 0,25' : t === 'join' ? 'Lücke, z. B. 0,05' : t === 'symbol' ? 'Breite, z. B. 0,9' : t === 'rotate' || t === 'guide' ? 'Winkel, z. B. 90' : t === 'fillet' ? 'Radius, z. B. 0,5' : t === 'scale' ? (drawing.refMode ? 'Länge, z. B. 4,5' : 'Faktor, z. B. 2') : undefined}
+                placeholder={t === 'wall' ? 'Stärke, z. B. 0,25' : t === 'offset' ? 'Abstand, z. B. 0,25' : t === 'join' ? 'Lücke, z. B. 0,05' : t === 'symbol' ? 'Breite, z. B. 0,9' : t === 'rotate' || t === 'guide' ? (drawing.guideAngle === 'par' || drawing.guideAngle === 'perp' ? 'Abstand, z. B. 0,25' : 'Winkel, z. B. 90') : t === 'fillet' ? 'Radius, z. B. 0,5' : t === 'scale' ? (drawing.refMode ? 'Länge, z. B. 4,5' : 'Faktor, z. B. 2') : undefined}
               >
                 {SELECT_FIRST.has(t) && drawing.cmdSelecting && (
                   <button type="button" className="btn btn-sm btn-primary" disabled={!n} onClick={drawing.cmdNext} data-testid="command-next">
@@ -2435,13 +2443,15 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 )}
                 {t === 'guide' && (
                   <>
-                    <select value={['free', '0', '45', '90', '135'].includes(drawing.guideAngle) ? drawing.guideAngle : 'custom'} onChange={(e) => (drawing.setGuideAngle(e.target.value), drawing.setGuideErase(false))} aria-label="Winkel der Hilfslinie" data-testid="guide-angle">
+                    <select value={['free', 'par', 'perp', '0', '45', '90', '135'].includes(drawing.guideAngle) ? drawing.guideAngle : 'custom'} onChange={(e) => (drawing.setGuideAngle(e.target.value), drawing.setGuideErase(false))} aria-label="Winkel der Hilfslinie" data-testid="guide-angle">
                       <option value="0">0° waagrecht</option>
                       <option value="45">45°</option>
                       <option value="90">90° senkrecht</option>
                       <option value="135">135°</option>
                       <option value="free">frei (2 Punkte)</option>
-                      {!['free', '0', '45', '90', '135'].includes(drawing.guideAngle) && <option value="custom">{drawing.guideAngle.replace('.', ',')}°</option>}
+                      <option value="par">parallel zu 2 Punkten</option>
+                      <option value="perp">senkrecht zu 2 Punkten</option>
+                      {!['free', 'par', 'perp', '0', '45', '90', '135'].includes(drawing.guideAngle) && <option value="custom">{drawing.guideAngle.replace('.', ',')}°</option>}
                     </select>
                     <button type="button" className={`btn btn-sm${drawing.guideErase ? ' active-toggle' : ''}`} aria-pressed={drawing.guideErase} onClick={() => drawing.setGuideErase(!drawing.guideErase)} disabled={!drawing.guides.length} data-testid="guide-erase">
                       Löschen
@@ -2583,7 +2593,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             <div className="draw-bar guide-bar" data-testid="guide-bar">
               <strong className="draw-bar-title">Hilfslinie</strong>
               <select
-                value={['free', '0', '45', '90', '135'].includes(drawing.guideAngle) ? drawing.guideAngle : 'custom'}
+                value={['free', 'par', 'perp', '0', '45', '90', '135'].includes(drawing.guideAngle) ? drawing.guideAngle : 'custom'}
                 onChange={(e) => (drawing.setGuideAngle(e.target.value), drawing.setGuideErase(false))}
                 aria-label="Winkel der Hilfslinie"
                 data-testid="guide-angle-select"
@@ -2593,7 +2603,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 <option value="90">senkrecht</option>
                 <option value="135">135°</option>
                 <option value="free">frei (2 Punkte)</option>
-                {!['free', '0', '45', '90', '135'].includes(drawing.guideAngle) && <option value="custom">{drawing.guideAngle.replace('.', ',')}°</option>}
+                <option value="par">parallel zu 2 Punkten</option>
+                <option value="perp">senkrecht zu 2 Punkten</option>
+                {!['free', 'par', 'perp', '0', '45', '90', '135'].includes(drawing.guideAngle) && <option value="custom">{drawing.guideAngle.replace('.', ',')}°</option>}
               </select>
               <button type="button" className={`btn btn-sm${drawing.guideErase ? ' active-toggle' : ''}`} aria-pressed={drawing.guideErase} onClick={() => drawing.setGuideErase(!drawing.guideErase)} disabled={!drawing.guides.length} data-testid="guide-erase">
                 Löschen
@@ -2601,6 +2613,24 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               <button type="button" className="btn btn-sm" onClick={drawing.clearGuides} disabled={!drawing.guides.length} data-testid="guide-clear">
                 Alle löschen
               </button>
+              {(drawing.guideAngle === 'par' || drawing.guideAngle === 'perp') && drawing.pickPts.length === 2 && (
+                // im Aufmaß gibt es keine Befehlszeile: Abstand hier eintragen (Enter bzw. „Setzen“)
+                <form
+                  className="guide-dist-form"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const input = e.currentTarget.elements.namedItem('dist') as HTMLInputElement;
+                    const err = drawing.guideDistance(input.value);
+                    if (err) toast(err, 'info', 2500);
+                    else input.value = '';
+                  }}
+                >
+                  <input name="dist" inputMode="decimal" placeholder="Abstand in m" aria-label="Abstand in Metern" autoComplete="off" data-testid="guide-dist-input" />
+                  <button type="submit" className="btn btn-sm" data-testid="guide-dist-set">
+                    Setzen
+                  </button>
+                </form>
+              )}
               <button
                 type="button"
                 className="btn btn-sm btn-primary draw-bar-actions"
@@ -2615,6 +2645,10 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               <span className="muted small span-all" data-testid="guide-hint">
                 {drawing.guideErase
                   ? 'Hilfslinie antippen, die gelöscht werden soll.'
+                  : drawing.guideAngle === 'par' || drawing.guideAngle === 'perp'
+                    ? drawing.pickPts.length < 2
+                      ? `${drawing.pickPts.length + 1}. Bezugspunkt antippen – die zwei Punkte geben die Richtung vor.`
+                      : `Abstand eintragen oder eine Stelle antippen – die Hilfslinie entsteht ${drawing.guideAngle === 'par' ? 'parallel' : 'senkrecht'} zur Bezugslinie, auf der Seite des Zeigers (Minus davor = andere Seite).`
                   : drawing.guideAngle === 'free'
                     ? 'Zwei Punkte antippen – die Hilfslinie läuft durch beide.'
                     : 'Punkt im Plan antippen – die Hilfslinie läuft durch ihn. Messungen rasten an ihr ein.'}
