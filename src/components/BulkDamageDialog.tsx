@@ -125,7 +125,7 @@ export function BulkDamageDialog({ data, damages, onClose, onSave }: { data: Pro
               />
             ))}
             {/* weitere Farben: Farbfelder oder selbst wählen */}
-            <MoreColors value={shown === '=' ? '#e03131' : shown} onChange={setColor} label="Farbe frei wählen" testId="bulk-damage-color-more" />
+            <MoreColors className="color-more swatch-more" value={shown === '=' ? '#e03131' : shown} onChange={setColor} label="Farbe frei wählen" testId="bulk-damage-color-more" />
           </div>
         </div>
         <div className="field">

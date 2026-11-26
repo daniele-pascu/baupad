@@ -12,6 +12,7 @@ import { round2, round3, checkMeasure, computeArea, formatArea, formatMeasure, p
 /** Maße im Eingabefeld: kaufmännisch auf 2 Stellen gerundet (ältere Werte mit 3 Stellen) */
 const up2 = (n: number | null | undefined) => (n === null || n === undefined ? n : round2(n));
 import { damageNo, findByNumber, parseDamageNumber } from '../lib/numbering';
+import { MoreColors } from './ColorPicker';
 import { COLORS, type Component, type Damage, type Deduction, type MeasureKind, type MeasureType, type RebarItem, type Shape, type ShapeType, type Surface, type Beam } from '../lib/types';
 import { shake } from '../lib/motion';
 import { isTouchDevice } from '../lib/platform';
@@ -1195,6 +1196,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
               title={c.name}
             />
           ))}
+          <MoreColors className="color-more swatch-more" value={color} onChange={setColor} label="Weitere Farben" testId="damage-color-more" />
         </fieldset>
         {mode === 'edit' && damage.labelOffset && (
           <label className="check-row">

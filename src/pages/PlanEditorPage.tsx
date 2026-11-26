@@ -11,6 +11,7 @@ import { DamageDialog, type DamageValues, type DrawnDeduction, type Renumber } f
 import { ElementBar, InsertBar } from '../components/DrawPanel';
 import { Icon } from '../components/Icon';
 import { PdfExportDialog } from '../components/PdfExportDialog';
+import { MoreColors } from '../components/ColorPicker';
 import { PlanDetailsDialog } from '../components/PlanFields';
 import { PlanViewer, type PlanViewerHandle, type SnapFn, type Tool } from '../components/PlanViewer';
 import { SaveErrorBanner, SaveStatus } from '../components/SaveStatus';
@@ -3046,6 +3047,17 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                   }
                 />
               ))}
+              {/* weitere Farben: Farbfelder oder selbst wählen – wie die Farbpunkte auch für die markierte Messung */}
+              <MoreColors
+                className="color-more swatch-more"
+                value={color}
+                onChange={(c) => {
+                  setColor(c);
+                  if (selected) putRecord('damages', { ...data.damages[selected.id], color: c });
+                }}
+                label="Weitere Farben"
+                testId="color-more"
+              />
             </div>
             <div className="tool-group color-pick" ref={stylePopRef}>
               <button

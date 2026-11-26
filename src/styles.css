@@ -15665,6 +15665,12 @@ html[data-theme='dark'] .crew-ww-legend b.o {
     conic-gradient(#e03131, #f5b800, #2f9e44, #15aabf, #1c7ed6, #9c36b5, #e03131);
   cursor: pointer;
 }
+/* neben runden Farbpunkten: gleich groß und rund */
+.color-more.swatch-more {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
 .color-more:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
