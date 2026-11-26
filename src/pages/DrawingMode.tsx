@@ -46,7 +46,7 @@ import {
 import { type OrthoDir, arcShape, circleThrough, extendLine, ORTHO_DIRS, orthoPoint, rotateShapeBy, scaleShape, stretchShape, translateShape, trimByFence, trimShape } from '../lib/cad';
 import { edgesOf, findSnap, normalizeSnapKinds, segmentIntersection, type SnapKind, type SnapSeg } from '../lib/snap';
 import { inputVector, parseCadInput, vectorInfo } from '../lib/cad-input';
-import { angleBetween, angleCcw, arrayOffsets, canOffset, distanceToShape, filletCorner, filletLines, joinShapes, offsetPath, mirrorShape, offsetShape, pointLineDistance, polarAngles, rotateAround, scaleAbout, segSegDistance, setSegmentLength, type ArrayParams } from '../lib/cad-ops';
+import { refGuide, angleBetween, angleCcw, arrayOffsets, canOffset, distanceToShape, filletCorner, filletLines, joinShapes, offsetPath, mirrorShape, offsetShape, pointLineDistance, polarAngles, rotateAround, scaleAbout, segSegDistance, setSegmentLength, type ArrayParams } from '../lib/cad-ops';
 import { DEFAULT_HATCH_SETTING, hatchLabel, hatchPicker, hatchStyle, type HatchSetting } from '../components/HatchPicker';
 import { arrayDialog } from '../components/ArrayDialog';
 import { roomDialog } from '../components/RoomDialog';
@@ -254,7 +254,10 @@ export function useDrawing(opts: {
   const setGuideAngle = (v: string) => {
     setGuideAngleState(v);
     storePref('guideAngle', v);
+    setPickPts([]); // andere Art der Hilfslinie: angefangene Punkte verwerfen
   };
+  /** Hilfslinie aus zwei Bezugspunkten: parallel bzw. senkrecht dazu, im eingetippten Abstand oder durch einen Punkt */
+  const guideRef = guideAngle === 'par' || guideAngle === 'perp' ? guideAngle : null;
   const [guideErase, setGuideErase] = useState(false);
   const [guidesOn, setGuidesOnState] = useState(() => pref('guides', '1') !== '0');
   const setGuidesOn = (on: boolean) => {
@@ -878,6 +881,16 @@ export function useDrawing(opts: {
       setFilletR(d.len);
       return null;
     }
+    if (tool === 'guide' && guideRef) {
+      const d = parseCadInput(text);
+      if (!d || d.kind !== 'dist') return 'Bitte den Abstand in m eingeben, z. B. 0,25.';
+      if (pickPts.length < 2) return 'Zuerst die zwei Bezugspunkte antippen.';
+      // Seite bzw. Richtung: dort, wo der Zeiger steht
+      const at = hoverRef.current;
+      const g = refGuide(pickPts[0], pickPts[1], guideRef, at ? { x: at.x / k, y: at.y / k } : null, d.len);
+      addGuide(g, g.angle, true);
+      return null;
+    }
     if (tool === 'guide') {
       const d = parseCadInput(text);
       if (!d || d.kind !== 'dist') return 'Bitte den Winkel in Grad eingeben, z. B. 30.';
@@ -1328,11 +1341,11 @@ export function useDrawing(opts: {
     if (!list.length) delete drawingInfo.guides;
     putRecords({ plans: [{ ...pl, drawing: drawingInfo }] }, { history: true }); // Rückgängig wie bei Zeichnungsobjekten
   };
-  const addGuide = (at: Point, angle: number) => {
+  const addGuide = (at: Point, angle: number, keepPoints = false) => {
     const a = ((angle % 180) + 180) % 180;
     saveGuides([...guides, { id: newMeta().id, x: Math.round(at.x * 10000) / 10000, y: Math.round(at.y * 10000) / 10000, angle: Math.round(a * 10000) / 10000 }]);
     if (!guidesOn) setGuidesOn(true);
-    setPickPts([]);
+    if (!keepPoints) setPickPts([]);
   };
   const clearGuides = () => {
     if (!guides.length) return;
@@ -1349,6 +1362,12 @@ export function useDrawing(opts: {
       if (!best || best.d > pickTol()) return toast('Keine Hilfslinie an dieser Stelle.', 'info', 2000);
       saveGuides(guides.filter((g) => g.id !== best!.id));
       return;
+    }
+    if (guideRef) {
+      // zwei Bezugspunkte, danach beliebig viele Hilfslinien dazu (der Bezug bleibt, bis das Werkzeug gewechselt wird)
+      if (pickPts.length < 2) return pickPts.length && dist2(pickPts[0], pm) < 1e-9 ? undefined : setPickPts([...pickPts, pm]);
+      const g = refGuide(pickPts[0], pickPts[1], guideRef, pm, null);
+      return addGuide(g, g.angle, true);
     }
     if (guideAngle !== 'free') return addGuide(pm, Number(guideAngle) || 0);
     if (!pickPts.length) return setPickPts([pm]);
@@ -2435,6 +2454,27 @@ export function useDrawing(opts: {
         )}
         {tool === 'guide' && !guideErase && hover && (() => {
           const hm = { x: hover.x / k, y: hover.y / k };
+          if (guideRef) {
+            // Bezug aus zwei Punkten: die Bezugslinie selbst, dazu die Hilfslinie am Zeiger mit ihrem Abstand
+            const [a, b] = pickPts;
+            if (!a || dist2(a, b ?? hm) < 1e-9) return null;
+            const line = (g: { x: number; y: number; angle: number }) => guideSeg(g).map((q) => toScreen(view, { x: q.x * k, y: q.y * k }));
+            const [r1, r2] = line({ ...a, angle: angleCcw(a, b ?? hm) });
+            if (!b) return <path d={`M${r1.x} ${r1.y}L${r2.x} ${r2.y}`} className="guide-line guide-preview" data-testid="guide-preview" />;
+            const g = refGuide(a, b, guideRef, hm, null);
+            const [u, v] = line(g);
+            const len = Math.hypot(b.x - a.x, b.y - a.y);
+            const off = guideRef === 'par' ? ((hm.x - a.x) * (b.y - a.y) - (hm.y - a.y) * (b.x - a.x)) / len : ((hm.x - a.x) * (b.x - a.x) + (hm.y - a.y) * (b.y - a.y)) / len;
+            return (
+              <>
+                <path d={`M${r1.x} ${r1.y}L${r2.x} ${r2.y}`} className="guide-line guide-ref" data-testid="guide-ref" />
+                <path d={`M${u.x} ${u.y}L${v.x} ${v.y}`} className="guide-line guide-preview" data-testid="guide-preview" />
+                <text x={toScreen(view, hover).x + 14} y={toScreen(view, hover).y - 10} className="guide-dist" data-testid="guide-dist">
+                  {formatMeasure(Math.abs(off))} m
+                </text>
+              </>
+            );
+          }
           const g = guideAngle !== 'free' ? { x: hm.x, y: hm.y, angle: Number(guideAngle) || 0 } : pickPts[0] && dist2(pickPts[0], hm) > 1e-9 ? { ...pickPts[0], angle: angleCcw(pickPts[0], hm) } : null;
           if (!g) return null;
           const [u, v] = guideSeg(g).map((q) => toScreen(view, { x: q.x * k, y: q.y * k }));

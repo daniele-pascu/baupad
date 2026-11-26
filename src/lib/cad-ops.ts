@@ -339,6 +339,23 @@ export function scaleAbout(s: Shape, c: Point, sx: number, sy = sx): Shape | nul
 }
 
 /** Winkel der Richtung a→b in Grad, gegen den Uhrzeigersinn (y nach oben), 0…360 */
+/**
+ * Hilfslinie aus einem Bezug (zwei Punkte A → B): „par“ = parallel dazu, „perp“ = senkrecht dazu.
+ * Mit `dist`: parallel im senkrechten Abstand `dist` zur Bezugslinie bzw. senkrecht im Abstand `dist` von A entlang der
+ * Bezugslinie – auf der Seite bzw. in der Richtung, in der `side` liegt (ohne `side`: links von A → B bzw. Richtung B;
+ * negativer Abstand = andere Seite). Ohne `dist`: durch `side`.
+ */
+export function refGuide(a: Point, b: Point, mode: 'par' | 'perp', side: Point | null, dist: number | null): { x: number; y: number; angle: number } {
+  const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+  const d = { x: (b.x - a.x) / len, y: (b.y - a.y) / len };
+  const angle = (angleCcw(a, b) + (mode === 'perp' ? 90 : 0)) % 180;
+  if (dist === null) return { ...(side ?? a), angle };
+  // Richtung des Abstands: quer zur Bezugslinie (parallel) bzw. entlang (senkrecht)
+  const v = mode === 'par' ? { x: d.y, y: -d.x } : d;
+  const s = side && (side.x - a.x) * v.x + (side.y - a.y) * v.y < 0 ? -1 : 1;
+  return { x: a.x + v.x * s * dist, y: a.y + v.y * s * dist, angle };
+}
+
 export function angleCcw(a: Point, b: Point): number {
   const d = (Math.atan2(-(b.y - a.y), b.x - a.x) * 180) / Math.PI;
   return (d + 360) % 360;
