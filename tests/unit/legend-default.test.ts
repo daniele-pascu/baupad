@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { legendEntries, resolveLegend } from '../../src/lib/legend';
+import { legendEntries, legendLines, resolveLegend } from '../../src/lib/legend';
 import type { Damage, Plan, Shape } from '../../src/lib/types';
 
 const rect: Shape = { type: 'rect', x: 0, y: 0, w: 1, h: 1 };
@@ -30,5 +30,14 @@ describe('Farblegende im PDF', () => {
   it('nimmt die eigene Bezeichnung des Aussehens, sonst die der Farbe', () => {
     const e = legendEntries({ legendLabels: { '#e03131': 'Beton', '#e03131|line': 'Fuge' } }, [d({}), d({ kind: 'line', shape: line }), d({ kind: 'line', shape: line, style: { lineType: 'dashed' } })]);
     expect(e.map((x) => x.label)).toEqual(['Beton', 'Fuge', 'Beton']);
+  });
+
+  it('fasst verschiedene Farben mit gleicher Bezeichnung zu einer Zeile zusammen', () => {
+    const e = legendEntries({ legendLabels: { '#e03131': 'Beton', '#1c7ed6': 'beton ', '#2f9e44': 'Fuge' } }, [d({}), d({ color: '#2f9e44' }), d({ color: '#1C7ED6' })]);
+    const lines = legendLines(e);
+    expect(lines.map((l) => [l.label, l.looks.map((x) => x.color)])).toEqual([
+      ['Beton', ['#e03131', '#1c7ed6']],
+      ['Fuge', ['#2f9e44']],
+    ]);
   });
 });
