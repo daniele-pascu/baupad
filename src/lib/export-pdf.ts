@@ -49,7 +49,7 @@ import { symbolGeometry } from './symbols';
 import { wallGeometry, wallOpenings } from './walls';
 import { deductionNumbers } from './numbering';
 import { measureLabel, withoutLineFill } from './measure';
-import { planLegend, type LegendEntry } from './legend';
+import { legendLineWidth, legendSampleShape, planLegend, type LegendEntry } from './legend';
 import { formatArea, formatMeasure } from './numbers';
 
 /**
@@ -975,17 +975,28 @@ export async function exportPhotosPdf(data: ProjectState, planIds: string[]): Pr
 function drawLegend(ctx: Ctx, page: PDFPage, box: { x: number; y: number; w: number; h: number }, pos: LegendPos, entries: LegendEntry[]) {
   if (!entries.length) return;
   const size = 8;
-  const row = 11;
+  const row = 13;
+  // Muster je Eintrag wie im Plan: Linie mit Stärke und Strichart, Fläche mit Rand, Füllung bzw. Schraffur
+  const sw = 20;
+  const sh = 9;
   const labels = entries.map((e) => fitText(ctx.font, clean(ctx, e.label), size, 200));
-  const w = Math.max(ctx.bold.widthOfTextAtSize('Legende', size), ...labels.map((l) => ctx.font.widthOfTextAtSize(l, size) + 14)) + 12;
+  const w = Math.max(ctx.bold.widthOfTextAtSize('Legende', size), ...labels.map((l) => ctx.font.widthOfTextAtSize(l, size) + sw + 6)) + 12;
   const h = 14 + entries.length * row + 4;
   const x = pos[1] === 'l' ? box.x + 4 : box.x + box.w - w - 4;
   const y = pos[0] === 'b' ? box.y + 4 : box.y + box.h - h - 4;
   page.drawRectangle({ x, y, width: w, height: h, color: rgb(1, 1, 1), borderColor: rgb(0.55, 0.57, 0.6), borderWidth: 0.6 });
   page.drawText('Legende', { x: x + 6, y: y + h - 11, size, font: ctx.bold, color: rgb(0.1, 0.1, 0.12) });
   entries.forEach((e, i) => {
-    const ty = y + h - 14 - (i + 1) * row + 3;
-    page.drawRectangle({ x: x + 6, y: ty - 1, width: 9, height: 7, color: hexToRgb(e.color), borderColor: rgb(0.4, 0.4, 0.45), borderWidth: 0.4 });
-    page.drawText(labels[i], { x: x + 20, y: ty, size, font: ctx.font, color: rgb(0.1, 0.1, 0.12) });
+    const ty = y + h - 14 - (i + 1) * row + 4;
+    // Musterfeld: linke obere Ecke (PDF, y nach oben); die Musterform hat y nach unten
+    const ox = x + 6;
+    const oy = ty + sh - 1;
+    if (e.sample === 'points') {
+      for (const f of [0.2, 0.5, 0.8]) page.drawCircle({ x: ox + sw * f, y: oy - sh / 2, size: 2, color: hexToRgb(visibleHex(e.color)), borderColor: rgb(1, 1, 1), borderWidth: 0.4 });
+    } else {
+      const shape = legendSampleShape(e.sample, sw, sh);
+      drawStyledShape(page, (p) => ({ x: ox + p.x, y: oy - p.y }), shape, e.color, e.style, legendLineWidth(e), DEFAULT_TRANSPARENCY.damage, null);
+    }
+    page.drawText(labels[i], { x: x + sw + 12, y: ty, size, font: ctx.font, color: rgb(0.1, 0.1, 0.12) });
   });
 }
