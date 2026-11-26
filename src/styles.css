@@ -10561,10 +10561,32 @@ html[data-theme='dark'] .crew-search {
   border-top: 6px solid var(--bg);
 }
 .aufmass-type-head {
+  display: flex;
+  align-items: center;
   margin: 0;
   font-size: 0.95rem;
   font-weight: 700;
   background: var(--surface);
+}
+/* Titel der Tabelle ändern: Stift rechts neben dem Balken, Eingabe darunter */
+.aufmass-type-head > .group-toggle {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+}
+.table-rename {
+  flex: none;
+  color: var(--muted);
+}
+.table-rename-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 10px 10px;
+}
+.table-rename-form input {
+  flex: 1 1 140px;
+  min-width: 0;
 }
 /* Balken einer Gruppe (Messart bzw. Position): ganze Zeile antippen klappt auf/zu, Summe rechts */
 .group-toggle {

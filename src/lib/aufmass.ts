@@ -480,6 +480,19 @@ export function linesByType<T extends { d: Pick<Damage, 'style'> }>(items: T[]):
 }
 const lineTypeTitle = (title: string, label: string, only: boolean) => (only ? title : `${title} – ${label}`);
 
+/** Kennung einer neuen Messgruppe: beginnt mit der Zeit – so bleiben die Tabellen in der Reihenfolge, in der sie angelegt wurden */
+export const newGroupId = () => `${Date.now().toString(36).padStart(9, '0')}-${Math.random().toString(36).slice(2, 10)}`;
+
+/**
+ * Messungen je Messgruppe: zuerst die ohne Gruppe, dann jede „Neue Messung“ in der Reihenfolge, in der sie angelegt
+ * wurde (siehe `newGroupId`) – jede Gruppe wird eine eigene Tabelle (`title`: eigener Titel, sonst null).
+ */
+export function byGroup<T extends { d: Pick<Damage, 'group' | 'groupTitle'> }>(items: T[]): { id: string; title: string | null; items: T[] }[] {
+  const groups = new Map<string, T[]>();
+  for (const x of items) groups.set(x.d.group ?? '', [...(groups.get(x.d.group ?? '') ?? []), x]);
+  return [...groups].sort(([a], [b]) => (a < b ? -1 : 1)).map(([id, list]) => ({ id, title: list.find((x) => x.d.groupTitle)?.d.groupTitle ?? null, items: list }));
+}
+
 /**
  * Übersicht (erstes Blatt): Projektdaten, Zusammenfassung je Leistung (Mengen per Formel aus dem
  * Blatt „Aufmaß“, Einheits- und Gesamtpreise, Summe netto) und die exportierten Pläne.

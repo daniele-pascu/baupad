@@ -314,6 +314,12 @@ export interface Damage extends SyncMeta {
   /** Zugeordnete Leistungsposition „<LV-Dokument-ID>:<Positions-ID>“, optional */
   positionRef?: string | null;
   /**
+   * Messgruppe: jede „Neue Messung“ beginnt eine eigene Tabelle (auch bei gleicher Messart). Ohne Gruppe steht die
+   * Messung in der Tabelle ihrer Messart. `groupTitle`: eigener Titel der Tabelle (bei allen Messungen der Gruppe gleich).
+   */
+  group?: string;
+  groupTitle?: string;
+  /**
    * Positionen, bei denen diese Schadstelle nicht automatisch zählen soll (Verweise wie `positionRef`), obwohl
    * ihre Regel zu Fläche und Tiefe passt – siehe `pos-rules`.
    */

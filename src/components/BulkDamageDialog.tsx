@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { Icon } from './Icon';
 import { Modal } from './Modal';
 import { StylePanel } from './StylePanel';
-import { lvDocLabel, lvDocsOf, positionRef } from '../lib/aufmass';
+import { byGroup, lvDocLabel, lvDocsOf, positionRef } from '../lib/aufmass';
+import { typeInfo, typeOf } from '../lib/measure-types';
+import { damageNo } from '../lib/numbering';
 import { isOpenShape } from '../lib/geometry';
 import { kindOf } from '../lib/measure';
 import type { ProjectState } from '../lib/store';
@@ -14,6 +16,8 @@ const BULK_COLORS = COLORS.map((c) => (c.name === 'Weiß' ? DRAW_COLORS.find((d)
 export interface DamagePatch {
   /** undefined = unverändert, null = keine Leistungsposition */
   positionRef?: string | null;
+  /** in eine andere Tabelle verschieben: Messgruppe mit ihrem Titel; null = Tabelle der Messart */
+  group?: { id: string; title?: string } | null;
   color?: string;
   /** Darstellung: nur die geänderten Angaben (Linientyp, Stärke; bei Flächen Füllung bzw. Schraffur) */
   style?: Partial<ShapeStyle>;
@@ -27,12 +31,22 @@ export function BulkDamageDialog({ data, damages, onClose, onSave }: { data: Pro
   const docs = lvDocsOf(data);
   const [pos, setPos] = useState('=');
   const [color, setColor] = useState<string | null>(null);
+  // Tabellen (Messgruppen) dieses Plans: '=' unverändert, '' Tabelle der Messart
+  const [table, setTable] = useState('=');
+  const tables = byGroup(Object.values(data.damages).filter((d) => !d.deletedAt && d.planId === damages[0]?.planId && d.group).map((d) => ({ d })));
+  const target = tables.find((t) => t.id === table);
   // Darstellung: null = unverändert; sonst die geänderten Angaben (gelten für alle gewählten)
   const [style, setStyle] = useState<Partial<ShapeStyle> | null>(null);
   // nur Linien gewählt: keine Füllung anbieten
   const allLines = damages.every((d) => kindOf(d) === 'line' || isOpenShape(d.shape));
   const base = damages[0];
-  const save = () => onSave({ ...(pos !== '=' ? { positionRef: pos || null } : {}), ...(color ? { color } : {}), ...(style && Object.keys(style).length ? { style } : {}) });
+  const save = () =>
+    onSave({
+      ...(pos !== '=' ? { positionRef: pos || null } : {}),
+      ...(table !== '=' ? { group: target ? { id: target.id, title: target.title ?? undefined } : null } : {}),
+      ...(color ? { color } : {}),
+      ...(style && Object.keys(style).length ? { style } : {}),
+    });
   return (
     <Modal
       title={`${damages.length} Messungen ändern`}
@@ -43,7 +57,7 @@ export function BulkDamageDialog({ data, damages, onClose, onSave }: { data: Pro
           <button type="button" className="btn" onClick={onClose}>
             Abbrechen
           </button>
-          <button type="button" className="btn btn-primary" onClick={save} disabled={pos === '=' && !color && !(style && Object.keys(style).length)} data-testid="bulk-damage-save">
+          <button type="button" className="btn btn-primary" onClick={save} disabled={pos === '=' && table === '=' && !color && !(style && Object.keys(style).length)} data-testid="bulk-damage-save">
             <Icon name="check" size={18} /> Übernehmen
           </button>
         </>
@@ -69,6 +83,21 @@ export function BulkDamageDialog({ data, damages, onClose, onSave }: { data: Pro
           </select>
         </label>
         {!docs.length && <p className="muted small">Noch kein LV/MFK im Projekt – Positionen kommen aus „LV / MFK“ in der Projektseite.</p>}
+        {tables.length > 0 && (
+          <label className="field">
+            <span>Tabelle</span>
+            <select value={table} onChange={(e) => setTable(e.target.value)} data-testid="bulk-damage-table">
+              <option value="=">– unverändert –</option>
+              <option value="">Tabelle der Messart (ohne eigenen Titel)</option>
+              {tables.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.title ?? typeInfo(typeOf(t.items[0].d)).label} · Nr. {t.items.map((x) => damageNo(x.d)).slice(0, 3).join(', ')}
+                  {t.items.length > 3 ? ' …' : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <div className="field">
           <span>Farbe</span>
           <div className="color-row bulk-colors" role="radiogroup" aria-label="Farbe">
