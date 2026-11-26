@@ -403,7 +403,14 @@ export function useDrawing(opts: {
    * Abstand auf der Spurlinie eintippen, bevor der Anfangspunkt der Linie gesetzt ist (wie die Objektfang-Spur im
    * CAD): gemerkter Punkt, Richtung auf der Spurlinie (zur Seite des Zeigers) und der bisher getippte Text (Meter)
    */
-  const [trackDist, setTrackDist] = useState<{ ref: Point; dir: Point; text: string } | null>(null);
+  /**
+   * Eingabe am Zeiger (PC, Linie): Kasten mit Abstand und Winkel. Vor dem ersten Punkt auf einer Spurlinie (`dir` =
+   * Richtung der Spurlinie, `ref` = gemerkter Punkt), danach vom Anfangspunkt (`dir` = null). Tab bzw. „<“ wechselt
+   * zwischen Abstand und Winkel; Enter setzt den Punkt; nur ein Winkel + Enter hält die Richtung fest.
+   */
+  const [dyn, setDyn] = useState<{ ref: Point; dir: Point | null; dist: string; angle: string; field: 'dist' | 'angle' } | null>(null);
+  /** Richtung der Linie fest (Grad, 0° = rechts, gegen den Uhrzeigersinn) – die Länge zieht man mit der Maus */
+  const [angleLock, setAngleLock] = useState<number | null>(null);
 
   /** zuletzt benutzte Funktion (für „Enter wiederholt“) */
   const lastTool = useRef<DrawTool | null>(tool !== 'select' ? tool : null);
@@ -620,6 +627,16 @@ export function useDrawing(opts: {
     if (hit?.kind === 'nearest' && hit.seg) track.current.edge = hit.seg;
     let q: Point = pm;
     let kind: SnapKind | undefined;
+    // Richtung fest (nur Winkel eingegeben): der Endpunkt liegt auf dem Strahl – Maus bzw. Fangpunkt bestimmen nur die Länge
+    if (angleLock !== null && ctx.from && ctx.tool === 'line') {
+      const from = { x: ctx.from.x / k, y: ctx.from.y / k };
+      const r = (angleLock * Math.PI) / 180;
+      const u = { x: Math.cos(r), y: -Math.sin(r) };
+      const t0 = hit ? hit.point : pm;
+      const t = (t0.x - from.x) * u.x + (t0.y - from.y) * u.y;
+      const len = hit ? t : mm(t);
+      return { x: (from.x + u.x * len) * k, y: (from.y + u.y * len) * k };
+    }
     if (orthoOn && ctx.from && ctx.tool && ORTHO_TOOLS.has(ctx.tool)) {
       // 90°: vom letzten Punkt nur waagrecht oder senkrecht; ein Fangpunkt bestimmt nur die
       // Länge (Projektion auf die Achse) – der rechte Winkel bleibt immer exakt
@@ -1099,34 +1116,73 @@ export function useDrawing(opts: {
     const t = inp?.kind === 'dist' && inp.len > 0 ? trackTarget(inp.len, null) : null;
     return t && { x: t.x * k, y: t.y * k };
   };
+  /** Zahl aus der Eingabe (Komma oder Punkt); null = leer bzw. keine Zahl */
+  const dynNum = (s: string) => {
+    const v = Number(s.trim().replace(',', '.'));
+    return s.trim() && Number.isFinite(v) ? v : null;
+  };
+  /** Enter im Kasten: Punkt im Abstand (und Winkel) setzen bzw. nur die Richtung festhalten */
+  const commitDyn = (d: NonNullable<typeof dyn>) => {
+    const len = dynNum(d.dist);
+    const ang = dynNum(d.angle);
+    if (d.dir) {
+      // Anfangspunkt vom gemerkten Punkt aus: auf der Spurlinie bzw. im eingegebenen Winkel
+      if (!(len && len > 0)) return toast('Bitte einen Abstand größer als 0 eingeben, z. B. 1,25.', 'info');
+      const v = ang !== null ? inputVector({ kind: 'polar', len, angle: ang })! : { x: d.dir.x * len, y: d.dir.y * len };
+      viewer.current?.armClick({ x: (d.ref.x + v.x) * k, y: (d.ref.y + v.y) * k });
+      setDyn(null);
+      return;
+    }
+    if (len === null && ang !== null && !d.dist.includes(';')) {
+      setAngleLock(((ang % 360) + 360) % 360);
+      setDyn(null);
+      toast(`Richtung ${formatMeasure(ang)}° fest – Länge mit der Maus ziehen und klicken.`, 'info', 2500);
+      return;
+    }
+    const a = ang ?? angleLock;
+    const err = applyInput(d.dist.includes(';') || a === null ? d.dist : `${d.dist}<${a}`);
+    if (err) toast(err, 'info', 3500);
+    else setDyn(null);
+  };
   /**
-   * Tastatur beim Linienwerkzeug vor dem ersten Klick: steht der Zeiger auf einer Spurlinie, sammeln Ziffern den
-   * Abstand vom gemerkten Punkt, Enter setzt dort den Anfangspunkt. true = Taste verbraucht.
+   * Tastatur beim Linienwerkzeug (PC): Ziffern füllen den Kasten am Zeiger (Abstand), Tab bzw. „<“ wechselt zum Winkel,
+   * Enter setzt den Punkt, Esc bricht ab. Vor dem ersten Klick nur auf einer Spurlinie. true = Taste verbraucht.
    */
   const trackKey = (e: KeyboardEvent): boolean => {
-    if (tool !== 'line' || cmdBase) return false;
-    if (!trackDist) {
-      const ref = /^[0-9]$/.test(e.key) ? trackTarget(0, null) : null;
+    if (tool !== 'line') return false;
+    const num = /^[0-9.,]$/.test(e.key);
+    if (!dyn) {
+      if (!num && e.key !== 'Tab' && e.key !== '<') return false;
+      const field = num ? 'dist' : 'angle';
+      const text = num ? e.key : '';
+      if (cmdBase) {
+        setDyn({ ref: { x: cmdBase.x / k, y: cmdBase.y / k }, dir: null, dist: text, angle: '', field });
+        return true;
+      }
+      const ref = trackTarget(0, null);
       const one = ref && trackTarget(1, null);
       if (!ref || !one) return false;
-      setTrackDist({ ref, dir: { x: one.x - ref.x, y: one.y - ref.y }, text: e.key });
+      setDyn({ ref, dir: { x: one.x - ref.x, y: one.y - ref.y }, dist: text, angle: '', field });
       return true;
     }
-    if (e.key === 'Escape') setTrackDist(null);
-    else if (e.key === 'Backspace') setTrackDist(trackDist.text.length > 1 ? { ...trackDist, text: trackDist.text.slice(0, -1) } : null);
-    else if (/^[0-9.,]$/.test(e.key)) setTrackDist({ ...trackDist, text: trackDist.text + e.key });
-    else if (e.key === 'Enter') {
-      const d = Number(trackDist.text.replace(',', '.'));
-      if (!(d > 0)) toast('Bitte einen Abstand größer als 0 eingeben, z. B. 1,25.', 'info');
-      else {
-        viewer.current?.armClick({ x: (trackDist.ref.x + trackDist.dir.x * d) * k, y: (trackDist.ref.y + trackDist.dir.y * d) * k });
-        setTrackDist(null);
-      }
-    } else return false;
+    const f = dyn.field;
+    if (e.key === 'Escape') {
+      setDyn(null);
+      setAngleLock(null);
+    } else if (e.key === 'Tab' || e.key === '<') setDyn({ ...dyn, field: f === 'dist' ? 'angle' : 'dist' });
+    else if (e.key === 'Backspace') {
+      const next = { ...dyn, [f]: dyn[f].slice(0, -1) };
+      setDyn(next.dist || next.angle ? next : null);
+    } else if (num || (e.key === '-' && (f === 'angle' || dyn.dist.includes(';'))) || (e.key === ';' && f === 'dist' && !dyn.dir)) setDyn({ ...dyn, [f]: dyn[f] + e.key });
+    else if (e.key === 'Enter') commitDyn(dyn);
+    else return false;
     return true;
   };
-  // Werkzeug gewechselt bzw. Anfangspunkt gesetzt: angefangene Eingabe verwerfen
-  useEffect(() => setTrackDist(null), [tool, cmdBase]);
+  // Werkzeug gewechselt bzw. Anfangspunkt gesetzt: angefangene Eingabe und feste Richtung verwerfen
+  useEffect(() => {
+    setDyn(null);
+    setAngleLock(null);
+  }, [tool, cmdBase]);
 
   /**
    * Polylinie, Fläche, Wand: nächsten Knick aus einer Eingabe – Länge in Zeigerrichtung, ΔX;ΔY oder Länge<Winkel
@@ -1582,6 +1638,8 @@ export function useDrawing(opts: {
 
   /** Text am Cursor: Abstand, ΔX, ΔY (nach oben positiv) und Winkel – laufend beim Zeichnen bzw. Verschieben */
   const tipText = (a: Point, b: Point): string | null => {
+    // Linie nach dem Anfangspunkt: Abstand und Winkel stehen im Kasten am Zeiger (dynLayer)
+    if (tool === 'line' && cmdBase) return null;
     const i = vectorInfo((b.x - a.x) / k, (b.y - a.y) / k);
     if (i.len < 1e-9) return null;
     const n = (v: number) => (Math.abs(v) < 0.005 ? '0,00' : `${v < 0 ? '−' : ''}${formatMeasure(Math.abs(v))}`);
@@ -2178,6 +2236,65 @@ export function useDrawing(opts: {
     </>
   );
 
+  /**
+   * Eingabe am Zeiger (Linie, nach dem Anfangspunkt): Kasten mit Abstand und Winkel (live aus der Maus, getippte Werte
+   * fett); beim Winkel ein gestrichelter Halbkreis (Winkelmesser) mit dem Winkel vom Anfangspunkt aus.
+   */
+  const dynLayer = (view: View, hover: Point | null) => {
+    if (tool !== 'line' || !cmdBase || dyn?.dir) return null;
+    const base = { x: cmdBase.x / k, y: cmdBase.y / k };
+    const hv = hover ? { x: hover.x / k, y: hover.y / k } : null;
+    if (!hv && !dyn) return null;
+    const live = hv ? { d: Math.hypot(hv.x - base.x, hv.y - base.y), a: (((Math.atan2(-(hv.y - base.y), hv.x - base.x) * 180) / Math.PI) % 360 + 360) % 360 } : { d: 0, a: 0 };
+    const typedA = dyn ? dynNum(dyn.angle) : null;
+    const showA = typedA ?? angleLock ?? live.a;
+    const c = toScreen(view, cmdBase);
+    const at = hover ? toScreen(view, hover) : c;
+    const bx = at.x + 18;
+    const by = at.y + 16;
+    const fmtA = (a: number) => `${Math.round(a * 10) / 10}`.replace('.', ',');
+    const distText = dyn?.dist || formatMeasure(live.d);
+    const angText = dyn?.angle || fmtA(angleLock ?? live.a);
+    const arcOn = dyn?.field === 'angle' || !!dyn?.angle || angleLock !== null;
+    const R = 64;
+    const pt = (a: number, r: number) => ({ x: c.x + r * Math.cos((a * Math.PI) / 180), y: c.y - r * Math.sin((a * Math.PI) / 180) });
+    const e = pt(showA, R);
+    const ticks = Array.from({ length: 13 }, (_, i) => i * 15);
+    // getippte Werte: Vorschau der Linie, wie sie mit Enter entsteht (fehlender Wert aus der Maus)
+    const typedD = dyn ? dynNum(dyn.dist) : null;
+    const goal = dyn && (typedD !== null || typedA !== null) ? inputVector({ kind: 'polar', len: typedD ?? live.d, angle: showA }) : null;
+    const g = goal && toScreen(view, { x: (base.x + goal.x) * k, y: (base.y + goal.y) * k });
+    return (
+      <g className="dyn-input" data-testid="dyn-input">
+        {g && <path d={`M${c.x} ${c.y}L${g.x} ${g.y}M${g.x - 5} ${g.y - 5}l10 10m0 -10l-10 10`} className="dyn-goal" data-testid="dyn-goal" />}
+        {arcOn && (
+          <g className="dyn-arc" data-testid="dyn-arc">
+            <path d={`M${c.x} ${c.y}H${c.x + R + 30}`} className="dyn-arc-base" />
+            <path d={`M${c.x + R} ${c.y}A${R} ${R} 0 0 0 ${c.x - R} ${c.y}`} className="dyn-arc-half" />
+            {ticks.map((a) => {
+              const p1 = pt(a, R - 5);
+              const p2 = pt(a, R + 5);
+              return <path key={a} d={`M${p1.x} ${p1.y}L${p2.x} ${p2.y}`} className="dyn-arc-tick" />;
+            })}
+            <path d={`M${c.x + R} ${c.y}A${R} ${R} 0 ${showA > 180 ? 1 : 0} 0 ${e.x} ${e.y}`} className="dyn-arc-on" />
+            <path d={`M${c.x} ${c.y}L${pt(showA, R + 40).x} ${pt(showA, R + 40).y}`} className="dyn-arc-ray" />
+            <text x={pt(showA / 2, R + 16).x} y={pt(showA / 2, R + 16).y + 4} className="dyn-arc-label">
+              {fmtA(showA)}°
+            </text>
+          </g>
+        )}
+        <rect x={bx} y={by} width={82} height={24} rx={4} className={`dyn-cell${dyn?.field === 'dist' ? ' on' : ''}${dyn?.dist ? ' typed' : ''}`} />
+        <text x={bx + 8} y={by + 16} className="dyn-text" data-testid="dyn-dist">
+          {distText} m
+        </text>
+        <rect x={bx + 88} y={by} width={60} height={24} rx={4} className={`dyn-cell${dyn?.field === 'angle' ? ' on' : ''}${dyn?.angle || angleLock !== null ? ' typed' : ''}`} />
+        <text x={bx + 96} y={by + 16} className="dyn-text" data-testid="dyn-angle">
+          {angText}°{angleLock !== null && !dyn?.angle ? ' fest' : ''}
+        </text>
+      </g>
+    );
+  };
+
   const drawOverlay = (view: View, preview: Shape | null, hover: Point | null = null) => {
     const previewType: DrawElementType | null = DRAW_SHAPE_TOOLS.has(tool) ? (tool as DrawElementType) : null;
     // Kopieren/Verschieben/Strecken: Vorschau des Ergebnisses (gestrichelt)
@@ -2377,23 +2494,26 @@ export function useDrawing(opts: {
               const s2 = toScreen(view, { x: l.from.x * k, y: l.from.y * k });
               return <path key={`l${i}`} d={l.axis === 'h' ? `M-20000 ${s2.y}H20000` : `M${s2.x} -20000V20000`} className="track-line" data-testid="track-line" data-axis={l.axis} />;
             })}
-            {trackDist &&
+            {dyn?.dir &&
               (() => {
                 // getippter Abstand auf der Spurlinie: Strecke vom gemerkten Punkt zum neuen Anfangspunkt
-                const d = Number(trackDist.text.replace(',', '.')) || 0;
-                const a = toScreen(view, { x: trackDist.ref.x * k, y: trackDist.ref.y * k });
-                const b = toScreen(view, { x: (trackDist.ref.x + trackDist.dir.x * d) * k, y: (trackDist.ref.y + trackDist.dir.y * d) * k });
+                const d = dynNum(dyn.dist) ?? 0;
+                const ang = dynNum(dyn.angle);
+                const v = ang !== null ? inputVector({ kind: 'polar', len: d, angle: ang })! : { x: dyn.dir.x * d, y: dyn.dir.y * d };
+                const a = toScreen(view, { x: dyn.ref.x * k, y: dyn.ref.y * k });
+                const b = toScreen(view, { x: (dyn.ref.x + v.x) * k, y: (dyn.ref.y + v.y) * k });
                 return (
                   <g data-testid="track-dist">
                     <path d={`M${a.x} ${a.y}L${b.x} ${b.y}M${b.x - 5} ${b.y - 5}l10 10m0 -10l-10 10`} className="track-acquired" />
                     <text x={b.x + 10} y={b.y + 24} className="track-dist-label">
-                      {trackDist.text} m – Enter setzt den Punkt
+                      {dyn.dist || '…'} m{ang !== null ? ` · ${dyn.angle}°` : ''} – Enter setzt den Punkt
                     </text>
                   </g>
                 );
               })()}
           </g>
         )}
+        {dynLayer(view, hover)}
       </>
     );
   };

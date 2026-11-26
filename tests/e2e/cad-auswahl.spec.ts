@@ -165,8 +165,9 @@ test('Linie: Klick, dann Länge eintippen – exakt in Mausrichtung', async () =
   await page.mouse.move(sb.x + 200, sb.y + 420, { steps: 3 });
   await page.mouse.move(sb.x + 260, sb.y + 420, { steps: 3 });
   await expect(page.getByTestId('command-bar')).toContainText('Endpunkt');
-  await expect(page.getByTestId('cursor-tip')).toBeVisible();
+  await expect(page.getByTestId('dyn-input')).toBeVisible(); // Kasten am Zeiger statt Hinweis
   await page.keyboard.type('3,25');
+  await expect(page.getByTestId('dyn-dist')).toContainText('3,25 m');
   await page.keyboard.press('Enter');
   await waitSaved(page);
   const line = (await elements()).at(-1)!;
