@@ -6,8 +6,9 @@ import { cachedExcelLogo } from '../lib/company';
 import { updateProject, type ProjectState } from '../lib/store';
 import { Icon } from './Icon';
 import { uuid } from '../lib/ids';
+import { ExcelPreview } from './ExcelPreview';
 import { Modal } from './Modal';
-import { offerFile, showError } from './ui';
+import { showError } from './ui';
 
 /** nächste freie Aufmaßblatt-Nummer, dreistellig (001, 002 …) */
 export const nextSheetNo = (data: ProjectState) => String((data.project.sheetNo ?? 0) + 1).padStart(3, '0');
@@ -35,33 +36,34 @@ export function ExcelExportDialog({ data, scope, onClose, sheetId }: { data: Pro
     if (!periodEdited && next.size) setPeriod(defaultPeriod(data, { kind: 'plans', planIds: [...next] }));
   };
 
-  const run = (fn: () => void) => {
+  /** fertiges Blatt: erst Vorschau, dort speichern (Ordner wählen, teilen oder herunterladen) */
+  const [preview, setPreview] = useState<ReturnType<typeof exportAufmassblatt> | null>(null);
+  const logo = cachedExcelLogo(); // Firmenlogo (Konto → Einstellungen) kommt automatisch links in die Kopfzeile
+  const nr = no.trim() || nextSheetNo(data);
+  const blatt = () => {
     try {
-      fn();
-      onClose();
+      if (!sel.size && pickable) throw new Error('Bitte mindestens einen Plan wählen.');
+      setPreview(exportAufmassblatt(data, effective, { no: nr, period: period.trim() }, { logo, prices }));
     } catch (e) {
       showError(e, 'Excel-Export fehlgeschlagen');
     }
   };
-  const blatt = () =>
-    run(() => {
-      if (!sel.size && pickable) throw new Error('Bitte mindestens einen Plan wählen.');
-      const nr = no.trim() || nextSheetNo(data);
-      // Firmenlogo (Konto → Einstellungen) kommt automatisch links in die Kopfzeile
-      void offerFile(exportAufmassblatt(data, effective, { no: nr, period: period.trim() }, { logo: cachedExcelLogo(), prices }));
-      const n = Number(nr);
-      const patch: Partial<typeof data.project> = {};
-      if (Number.isInteger(n) && n > (data.project.sheetNo ?? 0)) patch.sheetNo = n;
-      // Aufmaß in der Liste anlegen bzw. dessen Pläne übernehmen (nicht bei Rechnungen – die haben ihr eigenes Aufmaß)
-      if (pickable) {
-        const planIds = plansIn(data, effective).map((p) => p.id);
-        const list = data.project.aufmassSheets ?? [];
-        const sameSet = (a: string[]) => a.length === planIds.length && a.every((id) => planIds.includes(id));
-        if (sheetId && list.some((x) => x.id === sheetId)) patch.aufmassSheets = list.map((x) => (x.id === sheetId ? { ...x, planIds } : x));
-        else if (!list.some((x) => sameSet(x.planIds))) patch.aufmassSheets = [...list, { id: uuid(), planIds, createdAt: Date.now() }];
-      }
-      if (Object.keys(patch).length) updateProject(patch);
-    });
+  /** gespeichert: Nummer hochzählen und das Aufmaß in der Liste anlegen */
+  const saved = () => {
+    const n = Number(nr);
+    const patch: Partial<typeof data.project> = {};
+    if (Number.isInteger(n) && n > (data.project.sheetNo ?? 0)) patch.sheetNo = n;
+    // Aufmaß in der Liste anlegen bzw. dessen Pläne übernehmen (nicht bei Rechnungen – die haben ihr eigenes Aufmaß)
+    if (pickable) {
+      const planIds = plansIn(data, effective).map((p) => p.id);
+      const list = data.project.aufmassSheets ?? [];
+      const sameSet = (a: string[]) => a.length === planIds.length && a.every((id) => planIds.includes(id));
+      if (sheetId && list.some((x) => x.id === sheetId)) patch.aufmassSheets = list.map((x) => (x.id === sheetId ? { ...x, planIds } : x));
+      else if (!list.some((x) => sameSet(x.planIds))) patch.aufmassSheets = [...list, { id: uuid(), planIds, createdAt: Date.now() }];
+    }
+    if (Object.keys(patch).length) updateProject(patch);
+  };
+  if (preview) return <ExcelPreview file={preview} logo={logo} onBack={() => setPreview(null)} onClose={onClose} onSaved={saved} />;
 
   return (
     <Modal
@@ -74,7 +76,7 @@ export function ExcelExportDialog({ data, scope, onClose, sheetId }: { data: Pro
             Abbrechen
           </button>
           <button type="button" className="btn btn-primary" onClick={blatt} data-testid="blatt-export">
-            <Icon name="excel" /> Aufmaßblatt erstellen
+            <Icon name="excel" /> Aufmaßblatt – Vorschau
           </button>
         </>
       }

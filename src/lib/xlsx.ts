@@ -375,6 +375,8 @@ function sheetXml(sheet: Sheet, logo?: HeaderImage): string {
     (sheet.merges?.length ? `<mergeCells count="${sheet.merges.length}">${sheet.merges.map((m) => `<mergeCell ref="${m}"/>`).join('')}</mergeCells>` : '') +
     (sheet.print && sheet.logoLeft
       ? // Firmenvorlage: Ränder wie dort, auf Seitenbreite; Kopfzeile Logo links, „1 von 2“ rechts
+        // waagrecht zentriert: links und rechts derselbe Rand, egal wie breit die Spalten gerade sind
+        '<printOptions horizontalCentered="1"/>' +
         `<pageMargins left="${BLATT_SIDE_IN}" right="${BLATT_SIDE_IN}" top="${blattTopMargin(logo).toFixed(3)}" bottom="${BLATT_BOTTOM_IN}" header="0.3" footer="0.3"/>` +
         (sheet.scale
           ? `<pageSetup paperSize="9" orientation="portrait" scale="${sheet.scale}"/>`

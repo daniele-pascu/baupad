@@ -5171,6 +5171,124 @@ a.register-tool:hover {
   }
 }
 
+/* Excel-Vorschau: das Aufmaßblatt als Blatt Papier – immer hell (wie die Datei), skaliert mit der Breite */
+.sheet-page {
+  container-type: inline-size;
+  width: min(100% - 24px, 860px);
+  background: #fff;
+  color: #111;
+  border-radius: 3px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.14);
+}
+.sheet-view {
+  /* links und rechts derselbe Rand – wie im Ausdruck (waagrecht zentriert) */
+  padding: 4cqw 6cqw 6cqw;
+  font: 1.75cqw/1.45 'Aptos Narrow', 'Arial Narrow', Calibri, Arial, sans-serif;
+}
+.sheet-head {
+  display: flex;
+  align-items: flex-end;
+  gap: 2em;
+  min-height: 1.5em;
+  margin-bottom: 2em;
+  font-size: 0.82em;
+  font-style: italic;
+}
+.sheet-head span {
+  position: absolute;
+  left: 0;
+  right: 0;
+  text-align: center;
+}
+.sheet-head {
+  position: relative;
+}
+.sheet-view table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+.sheet-view td {
+  height: 1.45em;
+  padding: 0 0.3em;
+  white-space: nowrap;
+  overflow: visible;
+  text-align: left;
+  vertical-align: bottom;
+  border: 0;
+}
+.sheet-view tr.page-break td {
+  border-top: 1px dashed #b9b9bf;
+}
+.sheet-view .x-amTitle {
+  font-size: 1.27em;
+  font-weight: 700;
+}
+.sheet-view .x-amLabel {
+  font-size: 0.91em;
+}
+.sheet-view .x-amDoc,
+.sheet-view .x-amTotal,
+.sheet-view .x-amTotalNum,
+.sheet-view .x-amBox {
+  font-size: 1.09em;
+  font-weight: 700;
+}
+.sheet-view .x-amPos,
+.sheet-view .x-amBold,
+.sheet-view .x-amNumBold,
+.sheet-view .x-amQtyBold {
+  font-weight: 700;
+}
+.sheet-view .x-amColHead,
+.sheet-view .x-amColHeadR {
+  font-size: 0.82em;
+  font-style: italic;
+  border-bottom: 1px solid #111;
+}
+.sheet-view .x-amColHeadR,
+.sheet-view .x-amNum,
+.sheet-view .x-amNumBold,
+.sheet-view .x-amQtyBold,
+.sheet-view .x-amTotalNum,
+.sheet-view .xt-N,
+.sheet-view .xt-Q,
+.sheet-view .xt-D,
+.sheet-view .xt-DQ {
+  text-align: right;
+}
+.sheet-view .x-amBox {
+  border: 1px solid #111;
+  text-align: center;
+}
+.sheet-view .x-amTHead {
+  background: #ececef;
+  font-weight: 700;
+  text-align: center;
+}
+.sheet-view .x-amThNote,
+.sheet-view .x-amNote {
+  font-style: italic;
+  padding-left: 0.9em;
+}
+.sheet-view .xt-C {
+  text-align: center;
+}
+.sheet-view .xt-D {
+  font-style: italic;
+  color: #555;
+}
+.sheet-view .xt-DQ {
+  font-style: italic;
+  color: #b4573a;
+}
+.sheet-view .xt.band {
+  background: #f6f6f8;
+}
+.sheet-view .xt.last {
+  border-bottom: 1px solid #111;
+}
+
 /* Planbibliothek: nur die Originalpläne des Projekts, je Seite groß */
 .lib-list {
   display: grid;

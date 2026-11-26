@@ -149,7 +149,7 @@ describe('Aufmaßblatt (Firmenvorlage)', () => {
     expect(ws).toMatch(/<f>SUM\(C\d+:C\d+\)<\/f><v>10.4<\/v>/);
   });
 
-  it('mehrere LV/MFK und das Aufmaß ohne Position: A4 in 100 %, ohne feste Umbrüche – nie auf eine Seite gequetscht', () => {
+  it('mehrere LV/MFK und das Aufmaß ohne Position: A4 in 100 % – nie auf eine Seite gequetscht; lange Tabelle beginnt auf der neuen Seite wieder mit ihrer Kopfzeile', () => {
     const pos = (id: string, number: string, unit: string) => ({ id, number, shortText: `Text ${number}`, longText: '', unit, quantity: null, unitPrice: 10, totalPrice: null, group: '', issues: [] });
     const doc = (id: string, kind: 'lv' | 'mfk', number: string, p: ReturnType<typeof pos>) => ({ ...meta, id, projectId: 'x', kind, name: `Dok ${number}`, number, fileName: '', groups: [], positions: [p] });
     const many = Object.fromEntries(Array.from({ length: 60 }, (_, i) => [`m${i}`, dmg(`m${i}`, 10 + i, { positionRef: 'm1:b', kind: 'line', width: null, area: null, length: 1 })]));
@@ -159,13 +159,48 @@ describe('Aufmaßblatt (Firmenvorlage)', () => {
       damages: { ...data.damages, d3: dmg('d3', 3, { positionRef: 'l1:a' }), ...many },
     } as unknown as ProjectState;
     const ws = strFromU8(unzipSync(exportAufmassblatt(two, { kind: 'costCenter', costCenterId: 'c1' }, { no: '008', period: '' }, { logo }).data)['xl/worksheets/sheet1.xml']);
-    expect(ws).not.toContain('<brk ');
+    // 60 Zeilen passen nicht auf eine Seite: Umbruch in der Tabelle, danach steht die Kopfzeile (Plan | Nr. | m) wieder oben
+    const breaks = [...ws.matchAll(/<brk id="(\d+)"[^>]*man="1"/g)].map((m) => Number(m[1]) + 1);
+    expect(breaks.length).toBeGreaterThan(0);
+    const rowXml = (r: number) => new RegExp(`<row r="${r}"[^>]*>(.*?)<\\/row>`).exec(ws)![1];
+    const repeated = breaks.filter((r) => />Plan<.*>Nr\.<.*>m</.test(rowXml(r)));
+    expect(repeated.length).toBeGreaterThan(0);
+    // die Zeile darunter ist eine Messzeile derselben Tabelle, die Summe zählt über den Umbruch hinweg alle 60
+    expect(rowXml(repeated[0] + 1)).toMatch(/<c r="C\d+"[^>]*><v>1<\/v>/);
+    expect(ws).toMatch(/<f>SUM\(C\d+:C\d+\)<\/f><v>60<\/v>/);
     expect(ws).toContain('scale="100"');
     expect(ws).not.toContain('fitToPage');
     expect(ws).not.toContain('fitToHeight');
     expect(ws).not.toContain('view="pageLayout"');
     // Zeilenhöhen frei (Excel passt sie selbst an): nur umbrochene Texte in verbundenen Zellen bekommen eine Höhe
     expect((ws.match(/customHeight="1"/g) ?? []).length).toBeLessThan(3);
+  });
+});
+
+describe('Aufmaßblatt: Spaltenbreiten passen zum Inhalt', () => {
+  const width = (ws: string, col: number) => Number(new RegExp(`<col min="${col}" max="${col}" width="([\\d.]+)"`).exec(ws)![1]);
+  const sum = (ws: string) => Array.from({ length: 10 }, (_, i) => width(ws, i + 1)).reduce((a, b) => a + b, 0);
+  const sheetOf = (damages: Record<string, Damage>, p: Partial<Plan> = {}) =>
+    strFromU8(unzipSync(exportAufmassblatt({ ...data, plans: { p1: { ...plan, ...p } }, damages } as unknown as ProjectState, { kind: 'plan', planId: 'p1' }, { no: '040', period: '' }).data)['xl/worksheets/sheet1.xml']);
+  it('übliche Werte: Standardbreiten, 100 %', () => {
+    const ws = sheetOf(data.damages);
+    expect(width(ws, 3)).toBe(9);
+    expect(sum(ws)).toBe(87);
+    expect(ws).toContain('scale="100"');
+  });
+  it('große Summe und lange Plannummer: Spalte wird breiter (kein „###“), das Blatt bleibt eine Seite breit', () => {
+    const big = Object.fromEntries([1, 2, 3].map((i) => [`l${i}`, dmg(`l${i}`, i, { kind: 'line', width: null, area: null, length: 123456.78 })]));
+    const ws = sheetOf(big, { planNumber: 'TG-Ebene-02' });
+    expect(width(ws, 3)).toBeGreaterThanOrEqual(13); // 370.370,34 fett
+    expect(width(ws, 1)).toBeGreaterThanOrEqual(12);
+    expect(sum(ws)).toBe(87); // die Füllspalten G und H geben den Platz ab
+    expect(ws).toContain('scale="100"');
+    // reicht auch das nicht: Ausdruck etwas kleiner – die Breite passt trotzdem auf eine Seite
+    const wide = sheetOf(big, { planNumber: 'Tiefgarage-Ebene-02-Nordseite' });
+    expect(sum(wide)).toBeGreaterThan(87);
+    const scale = Number(/scale="(\d+)"/.exec(wide)![1]);
+    expect(scale).toBeLessThan(100);
+    expect((sum(wide) * scale) / 100).toBeLessThanOrEqual(87);
   });
 });
 

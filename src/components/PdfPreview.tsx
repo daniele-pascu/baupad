@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { safeFileName, type ExportFile } from '../lib/aufmass';
 import { getMeta, setMeta } from '../lib/db';
 import { canSaveAs, canShareFile, downloadFile, isIOS, isTouchDevice, saveFileAs, shareFile } from '../lib/download';
@@ -9,16 +9,10 @@ import { showError, toast } from './ui';
 /** höchstens so viele Seiten in der Vorschau (Speicher auf iPhone/iPad) */
 const MAX_PREVIEW_PAGES = 30;
 
-/**
- * Vorschau des fertigen PDFs (alle Seiten) und Speichern: am PC „Speichern unter …“ mit
- * Ordnerwahl (Ordner wird gemerkt), auf iPhone/iPad/Android „Teilen / In Dateien sichern“,
- * überall „Herunterladen“. Der Dateiname lässt sich vorher ändern.
- */
+/** Vorschau des fertigen PDFs (alle Seiten) und Speichern – siehe `FilePreview` */
 export function PdfPreview({ file, onBack, onClose }: { file: ExportFile; onBack(): void; onClose(): void }) {
-  const [name, setName] = useState(file.name.replace(/\.pdf$/i, ''));
   const [pages, setPages] = useState<string[]>([]);
   const [count, setCount] = useState<number | null>(null);
-  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -47,13 +41,65 @@ export function PdfPreview({ file, onBack, onClose }: { file: ExportFile; onBack
     };
   }, [file]);
 
+  return (
+    <FilePreview file={file} title="PDF-Vorschau" testId="pdf-preview" onBack={onBack} onClose={onClose}>
+      <div className="preview-pages" data-testid="preview-pages">
+        {count === null && <p className="muted">Vorschau wird erstellt …</p>}
+        {pages.map((u, i) => (
+          <figure key={u} className="preview-page">
+            <img src={u} alt={`Seite ${i + 1}`} data-testid="preview-page" />
+            <figcaption className="muted small">
+              Seite {i + 1}
+              {count ? ` von ${count}` : ''}
+            </figcaption>
+          </figure>
+        ))}
+        {count !== null && count > MAX_PREVIEW_PAGES && (
+          <p className="muted small">Vorschau zeigt die ersten {MAX_PREVIEW_PAGES} Seiten – gespeichert werden alle {count}.</p>
+        )}
+      </div>
+    </FilePreview>
+  );
+}
+
+/**
+ * Rahmen jeder Vorschau (PDF, Excel): Inhalt oben, unten Dateiname und Speichern – am PC „Speichern unter …“ mit
+ * Ordnerwahl (Ordner wird gemerkt), auf iPhone/iPad/Android „Teilen / In Dateien sichern“, überall „Herunterladen“.
+ * Der Dateiname lässt sich vorher ändern. `onSaved` läuft nach dem Speichern (nicht beim bloßen Schließen).
+ */
+export function FilePreview({
+  file,
+  title,
+  testId,
+  onBack,
+  onClose,
+  onSaved,
+  children,
+}: {
+  file: ExportFile;
+  title: string;
+  testId: string;
+  onBack(): void;
+  onClose(): void;
+  onSaved?(): void;
+  children: ReactNode;
+}) {
+  const ext = file.name.split('.').pop() ?? '';
+  const pdf = ext.toLowerCase() === 'pdf';
+  const [name, setName] = useState(file.name.slice(0, file.name.length - ext.length - 1));
+  const [busy, setBusy] = useState(false);
+
   const clean = name.replace(/[\\/:*?"<>|\u0000-\u001F]/g, '-').trim() || 'BauPad';
   // „Speichern unter …“: Name genau so; Herunterladen/Teilen: ohne Umlaute (manche Browser verwerfen sonst den Namen)
-  const out: ExportFile = { ...file, name: `${clean}.pdf` };
-  const safe: ExportFile = { ...file, name: `${safeFileName(clean) || 'BauPad'}.pdf` };
+  const out: ExportFile = { ...file, name: `${clean}.${ext}` };
+  const safe: ExportFile = { ...file, name: `${safeFileName(clean) || 'BauPad'}.${ext}` };
   const touch = isTouchDevice();
   const share = touch && canShareFile(safe);
   const saveAs = canSaveAs();
+  const done = () => {
+    onSaved?.();
+    onClose();
+  };
 
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -72,40 +118,41 @@ export function PdfPreview({ file, onBack, onClose }: { file: ExportFile; onBack
       if (r.result === 'cancel') return;
       await setMeta('lastSaveDir', r.handle).catch(() => {});
       toast(`„${out.name}“ gespeichert.`, 'success');
-      onClose();
+      done();
     });
   const doShare = () =>
     run(async () => {
       await shareFile(safe);
-      onClose();
+      done();
     });
   const doDownload = () => {
     downloadFile(safe);
     toast(`„${safe.name}“ wurde heruntergeladen${isIOS() ? ' (App „Dateien“ → Downloads)' : ' (Ordner „Downloads“)'}.`, 'success', 4500);
-    onClose();
+    done();
   };
 
+  const what = pdf ? 'das PDF' : 'die Datei';
   const hint = saveAs
     ? '„Speichern unter …“: Ordner und Namen selbst wählen – der Ordner wird für das nächste Mal gemerkt.'
     : isIOS()
       ? '„Teilen / In Dateien sichern“ → „In Dateien sichern“ → Ordner wählen (iCloud Drive oder „Auf meinem iPhone“).'
       : touch
-        ? '„Teilen“: z. B. in Google Drive, „Dateien“ oder per E-Mail. „Herunterladen“ legt das PDF im Ordner „Downloads“ ab.'
-        : '„Herunterladen“ legt das PDF im Download-Ordner ab. Tipp: In den Browser-Einstellungen „Vor dem Herunterladen fragen“ einschalten, um den Ordner jedes Mal zu wählen.';
+        ? `„Teilen“: z. B. in Google Drive, „Dateien“ oder per E-Mail. „Herunterladen“ legt ${what} im Ordner „Downloads“ ab.`
+        : `„Herunterladen“ legt ${what} im Download-Ordner ab. Tipp: In den Browser-Einstellungen „Vor dem Herunterladen fragen“ einschalten, um den Ordner jedes Mal zu wählen.`;
 
   return (
     <Modal
-      title="PDF-Vorschau"
+      title={title}
       onClose={onClose}
       full
-      testId="pdf-preview"
+      testId={testId}
       footer={
         <div className="preview-footer">
           <label className="field preview-name">
             <span>Dateiname</span>
             <div className="input-unit">
-              <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" data-testid="pdf-file-name" />
-              <span className="unit">.pdf</span>
+              <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" data-testid={pdf ? 'pdf-file-name' : 'excel-file-name'} />
+              <span className="unit">.{ext}</span>
             </div>
           </label>
           <p className="muted small preview-hint" data-testid="save-hint">
@@ -132,21 +179,7 @@ export function PdfPreview({ file, onBack, onClose }: { file: ExportFile; onBack
         </div>
       }
     >
-      <div className="preview-pages" data-testid="preview-pages">
-        {count === null && <p className="muted">Vorschau wird erstellt …</p>}
-        {pages.map((u, i) => (
-          <figure key={u} className="preview-page">
-            <img src={u} alt={`Seite ${i + 1}`} data-testid="preview-page" />
-            <figcaption className="muted small">
-              Seite {i + 1}
-              {count ? ` von ${count}` : ''}
-            </figcaption>
-          </figure>
-        ))}
-        {count !== null && count > MAX_PREVIEW_PAGES && (
-          <p className="muted small">Vorschau zeigt die ersten {MAX_PREVIEW_PAGES} Seiten – gespeichert werden alle {count}.</p>
-        )}
-      </div>
+      {children}
     </Modal>
   );
 }
