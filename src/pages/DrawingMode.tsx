@@ -874,6 +874,17 @@ export function useDrawing(opts: {
    * für Verschieben/Kopieren und für den Endpunkt einer Linie (Klick, dann Länge eingeben).
    * Liefert eine Fehlermeldung oder null.
    */
+  /** Hilfslinie aus zwei Bezugspunkten im eingetippten Abstand (auch im Aufmaß – dort gibt es keine Befehlszeile) */
+  const guideDistance = (text: string): string | null => {
+    const d = parseCadInput(text);
+    if (!guideRef || !d || d.kind !== 'dist') return 'Bitte den Abstand in m eingeben, z. B. 0,25.';
+    if (pickPts.length < 2) return 'Zuerst die zwei Bezugspunkte antippen.';
+    // Seite bzw. Richtung: dort, wo der Zeiger steht
+    const at = hoverRef.current;
+    const g = refGuide(pickPts[0], pickPts[1], guideRef, at ? { x: at.x / k, y: at.y / k } : null, d.len);
+    addGuide(g, g.angle, true);
+    return null;
+  };
   const applyInput = (text: string): string | null => {
     if (tool === 'fillet') {
       const d = parseCadInput(text);
@@ -881,16 +892,7 @@ export function useDrawing(opts: {
       setFilletR(d.len);
       return null;
     }
-    if (tool === 'guide' && guideRef) {
-      const d = parseCadInput(text);
-      if (!d || d.kind !== 'dist') return 'Bitte den Abstand in m eingeben, z. B. 0,25.';
-      if (pickPts.length < 2) return 'Zuerst die zwei Bezugspunkte antippen.';
-      // Seite bzw. Richtung: dort, wo der Zeiger steht
-      const at = hoverRef.current;
-      const g = refGuide(pickPts[0], pickPts[1], guideRef, at ? { x: at.x / k, y: at.y / k } : null, d.len);
-      addGuide(g, g.angle, true);
-      return null;
-    }
+    if (tool === 'guide' && guideRef) return guideDistance(text);
     if (tool === 'guide') {
       const d = parseCadInput(text);
       if (!d || d.kind !== 'dist') return 'Bitte den Winkel in Grad eingeben, z. B. 30.';
@@ -2640,6 +2642,7 @@ export function useDrawing(opts: {
     clearGuides,
     /** Hilfslinie an diesem Punkt (m) setzen bzw. löschen – auch aus dem Aufmaß */
     guidePoint,
+    guideDistance,
     filletR,
     filletSrc,
     distPicks,

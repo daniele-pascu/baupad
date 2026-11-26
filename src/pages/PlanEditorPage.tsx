@@ -2090,6 +2090,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               damages={shownDamages}
               selectedId={selectedId}
               tool={guideTool ? 'pick' : tool === 'text' && textKind !== 'plain' ? 'line' : tool /* Hinweistext: Linie vom Ziel zum Text */}
+              // Hilfslinie aus zwei Punkten: die Seite des Abstands ist dort, wo der Zeiger steht
+              onHover={guideTool ? drawing.onHover : undefined}
               color={color}
               pending={dialog?.mode === 'new' ? { shape: dialog.shape, color } : null}
               onSelect={(id) => {
@@ -2618,7 +2620,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                   onSubmit={(e) => {
                     e.preventDefault();
                     const input = e.currentTarget.elements.namedItem('dist') as HTMLInputElement;
-                    const err = drawing.applyInput(input.value);
+                    const err = drawing.guideDistance(input.value);
                     if (err) toast(err, 'info', 2500);
                     else input.value = '';
                   }}
@@ -2646,7 +2648,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                   : drawing.guideAngle === 'par' || drawing.guideAngle === 'perp'
                     ? drawing.pickPts.length < 2
                       ? `${drawing.pickPts.length + 1}. Bezugspunkt antippen – die zwei Punkte geben die Richtung vor.`
-                      : `Abstand eintragen oder eine Stelle antippen – die Hilfslinie entsteht ${drawing.guideAngle === 'par' ? 'parallel' : 'senkrecht'} zur Bezugslinie.`
+                      : `Abstand eintragen oder eine Stelle antippen – die Hilfslinie entsteht ${drawing.guideAngle === 'par' ? 'parallel' : 'senkrecht'} zur Bezugslinie, auf der Seite des Zeigers (Minus davor = andere Seite).`
                   : drawing.guideAngle === 'free'
                     ? 'Zwei Punkte antippen – die Hilfslinie läuft durch beide.'
                     : 'Punkt im Plan antippen – die Hilfslinie läuft durch ihn. Messungen rasten an ihr ein.'}
