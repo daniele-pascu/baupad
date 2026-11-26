@@ -227,6 +227,8 @@ interface Props {
   onNoteResize?(id: string, shape: Shape, commit: boolean): void;
   /** Stutzen: über Linien gezogener Zaun (Seitenkoordinaten); fehlt = Ziehen verschiebt den Plan */
   onFence?(path: Point[]): void;
+  /** Stutzen mit Klick, Klick: erster Punkt der Zaunlinie (Vorschau zur Maus) */
+  fenceFrom?: Point | null;
   /** Nummernschilder der Objekte anzeigen (Standard: ja) */
   showLabels?: boolean;
   /** Schraffur am Plan fixiert: Seiteneinheiten je pt auf dem Papier (importierte Pläne: 1 = PDF-Punkte) */
@@ -1196,6 +1198,11 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         polyHover.current = e.pointerType !== 'touch' && propsRef.current.snap ? clampP(snapAt(hp, { tool: t, scale: viewRef.current.scale, from: clickStart.current })) : hp;
         forceRender((n) => n + 1);
       }
+      // Stutzen, Klick – Klick: Zaunlinie vom ersten Punkt zur Maus
+      if (t === 'trim' && propsRef.current.fenceFrom && viewRef.current) {
+        polyHover.current = clampP(toPage(viewRef.current, localPoint(e)));
+        forceRender((n) => n + 1);
+      }
       // Antippen-Werkzeug: Mausposition für die Vorschau (z. B. Versetzen)
       if (t === 'pick' && viewRef.current) {
         const hp = clampP(toPage(viewRef.current, localPoint(e)));
@@ -1930,6 +1937,11 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
           {g.kind === 'place' && g.fence && (() => {
             const pts = g.fence.map((q) => toScreen(view, toPage(g.view, q)));
             return <polyline className="trim-fence" data-testid="trim-fence" points={pts.map((q) => `${q.x},${q.y}`).join(' ')} fill="none" stroke="#e5484d" strokeWidth={2} strokeDasharray="6 4" strokeLinejoin="round" />;
+          })()}
+          {tool === 'trim' && props.fenceFrom && polyHover.current && (() => {
+            const a = toScreen(view, props.fenceFrom);
+            const b = toScreen(view, polyHover.current);
+            return <line className="trim-fence" data-testid="trim-fence-line" x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#e5484d" strokeWidth={2} strokeDasharray="6 4" />;
           })()}
           {props.overlay?.(view, drawPreview, polyHover.current)}
           {/* Verbindungslinien zuerst, damit sie unter den Nummern liegen */}

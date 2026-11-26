@@ -407,7 +407,10 @@ export function useDrawing(opts: {
 
   /** zuletzt benutzte Funktion (für „Enter wiederholt“) */
   const lastTool = useRef<DrawTool | null>(tool !== 'select' ? tool : null);
+  /** Stutzen mit Klick, Klick: erster Punkt der Zaunlinie (Seitenkoordinaten) */
+  const [trimFrom, setTrimFrom] = useState<Point | null>(null);
   const setTool = (t: DrawTool) => {
+    setTrimFrom(null);
     if (t !== 'select') lastTool.current = t;
     // „Auswahl“ ist der Ausweg aus allem: auch die Mehrfachauswahl endet (sonst markiert Antippen weiter mehrere)
     else setMulti(false);
@@ -1618,6 +1621,12 @@ export function useDrawing(opts: {
 
   /** Stutzen (Klick) bzw. Verlängern: angeklicktes Objekt gegen alle anderen Objekte */
   const trimOrExtend = (p: Point) => {
+    // Stutzen, Klick – Klick: der zweite Klick schließt die Zaunlinie; alles, was sie kreuzt, wird gestutzt
+    if (tool === 'trim' && trimFrom) {
+      setTrimFrom(null);
+      onFence([trimFrom, p]);
+      return;
+    }
     const pm = { x: p.x / k, y: p.y / k };
     const pxPerM = (viewer.current?.scale() ?? 1) * k;
     const tol = (isCoarse() ? 18 : 10) / pxPerM;
@@ -1628,7 +1637,11 @@ export function useDrawing(opts: {
       if (d <= tol && (!best || d < best.d)) best = { e, d };
     }
     if (!best) {
-      toast(tool === 'trim' ? 'Bitte eine Linie oder Kante anklicken – oder über mehrere Linien ziehen (Zaun).' : 'Bitte eine Linie nahe dem zu verlängernden Ende anklicken.', 'info');
+      if (tool === 'trim') {
+        // neben die Linien geklickt: Anfang einer Zaunlinie – der nächste Klick setzt ihr Ende
+        setTrimFrom(p);
+        toast('Zweiten Punkt klicken: alles, was die Linie kreuzt, wird gestutzt.', 'info', 2500);
+      } else toast('Bitte eine Linie nahe dem zu verlängernden Ende anklicken.', 'info');
       return;
     }
     const line = best.e;
@@ -2546,6 +2559,7 @@ export function useDrawing(opts: {
     remove,
     renderItem,
     onFence,
+    trimFrom,
     drawUnderlay,
     measureUnderlay,
     textUnderlay,
