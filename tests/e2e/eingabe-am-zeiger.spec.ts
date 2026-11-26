@@ -4,6 +4,7 @@ import { createProject, freshStart, pickTool, waitSaved } from './helpers';
 /**
  * Plan zeichnen am PC, Linie: Eingabe am Zeiger – Kasten mit Abstand und Winkel.
  * Zahl + Enter = Abstand in Mausrichtung; Zahl, Tab, Winkel, Enter = Abstand im Winkel; nur Winkel + Enter = Richtung fest.
+ * Rechteck/Kreis: Breite, Tab, Höhe; Verschieben: Abstand in Mausrichtung; Versetzen: Abstand.
  */
 
 test.describe.configure({ mode: 'serial' });
@@ -18,19 +19,20 @@ test.afterAll(async () => {
 });
 
 type El = { type: string; shape: { x: number; y: number; w: number; h: number; points?: number[][] }; createdAt: number };
-async function lines(): Promise<El[]> {
+async function lines(type = 'line'): Promise<El[]> {
   return page.evaluate(
-    () =>
+    (type) =>
       new Promise<El[]>((resolve) => {
         const req = indexedDB.open('schadstellen-aufmass');
         req.onsuccess = () => {
           const all = req.result.transaction('elements').objectStore('elements').getAll();
           all.onsuccess = () => {
             req.result.close();
-            resolve((all.result as (El & { deletedAt: number | null })[]).filter((d) => !d.deletedAt && d.type === 'line').sort((a, b) => a.createdAt - b.createdAt));
+            resolve((all.result as (El & { deletedAt: number | null })[]).filter((d) => !d.deletedAt && d.type === type).sort((a, b) => a.createdAt - b.createdAt));
           };
         };
       }),
+    type,
   );
 }
 /** Endpunkte einer Linie (Meter) */
@@ -101,4 +103,64 @@ test('Abstand und Winkel am Zeiger eintippen, Winkel allein hält die Richtung',
   const [e, f] = ends(ls[2]).sort((p, q) => p.x - q.x);
   expect(f.x - e.x).toBeGreaterThan(0.1);
   near(f.x - e.x, e.y - f.y, 1e-3); // 45°: genauso weit nach rechts wie nach oben
+});
+
+test('Rechteck, Kreis, Verschieben und Versetzen: Maße am Zeiger eintippen', async () => {
+  await page.keyboard.press('Escape');
+  const sb = (await page.getByTestId('drawing-sheet').boundingBox())!;
+
+  // Rechteck: erste Ecke, Breite, Tab, Höhe, Enter – nach rechts unten (dort steht die Maus)
+  await pickTool(page, 'draw-rect');
+  await page.mouse.click(sb.x + 200, sb.y + 150);
+  await page.mouse.move(sb.x + 260, sb.y + 190, { steps: 4 });
+  await expect(page.getByTestId('dyn-dist')).toContainText('B ');
+  await page.keyboard.type('3');
+  await page.keyboard.press('Tab');
+  await page.keyboard.type('1,5');
+  await expect(page.getByTestId('dyn-angle')).toContainText('H 1,5 m');
+  await expect(page.getByTestId('dyn-goal')).toHaveCount(1);
+  await page.screenshot({ path: 'tests/output/eingabe-am-zeiger-rechteck.png', clip: { x: sb.x + 120, y: sb.y + 90, width: 520, height: 260 } });
+  await page.keyboard.press('Enter');
+  await waitSaved(page);
+  const [r] = await lines('rect');
+  near(r.shape.w, 3);
+  near(r.shape.h, 1.5);
+
+  // Kreis: nur eine Zahl = Durchmesser
+  await page.keyboard.press('Escape');
+  await pickTool(page, 'draw-ellipse');
+  await page.mouse.click(sb.x + 700, sb.y + 150);
+  await page.mouse.move(sb.x + 740, sb.y + 170, { steps: 4 });
+  await page.keyboard.type('2');
+  await page.keyboard.press('Enter');
+  await waitSaved(page);
+  const [c] = await lines('ellipse');
+  near(c.shape.w, 2);
+  near(c.shape.h, 2);
+
+  // Verschieben: Rechteck wählen, Basispunkt, 1 m nach rechts
+  await page.keyboard.press('Escape');
+  await pickTool(page, 'draw-select');
+  await page.mouse.click(sb.x + 200, sb.y + 170); // linke Kante
+  await expect(page.getByTestId('element-bar')).toBeVisible();
+  await pickTool(page, 'draw-move');
+  await page.mouse.click(sb.x + 200, sb.y + 150);
+  await page.mouse.move(sb.x + 280, sb.y + 150, { steps: 4 });
+  await expect(page.getByTestId('dyn-input')).toBeVisible();
+  await page.keyboard.type('1');
+  await page.keyboard.press('Enter');
+  await waitSaved(page);
+  const [m] = await lines('rect');
+  near(m.shape.x, r.shape.x + 1);
+  near(m.shape.y, r.shape.y);
+
+  // Versetzen: Abstand am Zeiger eintippen
+  await page.keyboard.press('Escape');
+  await pickTool(page, 'draw-offset');
+  await page.mouse.move(sb.x + 500, sb.y + 400, { steps: 3 });
+  await page.keyboard.type('0,4');
+  await expect(page.getByTestId('dyn-dist')).toContainText('0,4 m');
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('command-prompt')).toContainText('0,40 m');
+  await expect(page.getByTestId('dyn-dist')).toContainText('0,40 m');
 });

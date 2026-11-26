@@ -100,6 +100,8 @@ export function dimensionFrom(a: Point, b: Point, c: Point): { a2: Point; b2: Po
 }
 /** Strecken auch per Klick, Klick (Punkt A, Punkt B) – dazwischen z. B. mit X zoomen */
 const CLICK_LINE = new Set<string>(['line', 'calibrate', 'vector']);
+/** Plan zeichnen am PC: Rechteck/Kreis auch mit Klick – Klick (erste Ecke, gegenüberliegende Ecke); Ziehen wie bisher */
+const CLICK_BOX = new Set<string>(['rect', 'ellipse']);
 
 /** Anfasser eines Textes im Aufmaß: vier Ecken (Größe) und die beiden Seiten (Breite) */
 const NOTE_HANDLES = ['nw', 'ne', 'se', 'sw', 'e', 'w'] as const;
@@ -1216,7 +1218,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       // Klick-Klick-Strich: Vorschau von Punkt A zur Maus (mit Fang wie der Klick)
       if (clickStart.current && viewRef.current) {
         const hp = clampP(toPage(viewRef.current, localPoint(e)));
-        polyHover.current = e.pointerType !== 'touch' && propsRef.current.snap ? clampP(snapAt(hp, { tool: t, scale: viewRef.current.scale, from: clickStart.current })) : hp;
+        polyHover.current = e.pointerType !== 'touch' && propsRef.current.snap ? clampP(snapAt(hp, { tool: t, scale: viewRef.current.scale, from: CLICK_BOX.has(t) ? undefined : clickStart.current })) : hp;
         forceRender((n) => n + 1);
       }
       // Stutzen, Klick – Klick: Zaunlinie vom ersten Punkt zur Maus
@@ -1515,7 +1517,8 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         }
         // Am PC (Maus): Linie nur mit Klick – Klick (Ziehen zählt wie ein Klick am Anfangspunkt)
         const clickOnly = g.mouse && g.tool === 'line' && !!propsRef.current.lineClickOnly;
-        if (CLICK_LINE.has(g.tool) && (clickOnly || Math.max(r0.w, r0.h) * v.scale < 8)) {
+        const clickBox = g.mouse && CLICK_BOX.has(g.tool) && !!propsRef.current.lineClickOnly && Math.max(r0.w, r0.h) * v.scale < 8;
+        if (clickBox || (CLICK_LINE.has(g.tool) && (clickOnly || Math.max(r0.w, r0.h) * v.scale < 8))) {
           const a = clickStart.current;
           if (!a) {
             clickStart.current = g.start;
@@ -1524,7 +1527,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
             return;
           }
           clearClickStart();
-          if (Math.hypot(a.x - g.start.x, a.y - g.start.y) * v.scale >= 4) create(lineShape(a, g.start));
+          if (Math.hypot(a.x - g.start.x, a.y - g.start.y) * v.scale >= 4) create(clickBox ? ({ ...normalizeRect(a, g.start), type: g.tool } as Shape) : lineShape(a, g.start));
           return;
         }
         clearClickStart(); // gezogen: wie bisher
@@ -1907,7 +1910,11 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
             const b = polyHover.current ? toScreen(view, polyHover.current) : a;
             return (
               <g className="poly-preview" data-testid="click-line-preview">
-                <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={visibleStroke(color)} strokeWidth={2} strokeDasharray="6 4" />
+                {CLICK_BOX.has(tool) ? (
+                  renderShape({ ...normalizeRect(clickStart.current, polyHover.current ?? clickStart.current), type: tool } as Shape, color, { dashed: true, key: 'box-preview' })
+                ) : (
+                  <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={visibleStroke(color)} strokeWidth={2} strokeDasharray="6 4" />
+                )}
                 <circle cx={a.x} cy={a.y} r={5} className="poly-point" />
               </g>
             );
