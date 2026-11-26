@@ -939,6 +939,7 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
                         data-testid="deduction-color"
                       />
                     ))}
+                    <MoreColors className="color-more swatch-more-sm" value={r.color ?? DEDUCTION_COLOR} onChange={(c) => setDed(r.id, { color: c })} label="Weitere Farben" testId="deduction-color-more" />
                   </span>
                 )}
                 <button type="button" className="icon-btn icon-btn-sm" onClick={() => setDeds((list) => list.filter((x) => x.id !== r.id))} aria-label="Zeile entfernen" data-testid="deduction-remove">
