@@ -140,8 +140,6 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
   const infoRow = (label: string, value: string) => add([str(label, 'amLabel'), null, str(value, 'amPos')]);
   infoRow('Bauvorhaben', [p.name, p.address].filter(Boolean).join(', '));
   infoRow('Kostenstelle', ccs.map((c) => costCenterLabel(c)).filter(Boolean).join(', ') || '–');
-  const planNames = plans.filter(Boolean).map(planNo);
-  if (planNames.length) infoRow(planNames.length === 1 ? 'Plan' : 'Pläne', planNames.length > 12 ? `${planNames.slice(0, 12).join(', ')} … (${planNames.length} Pläne)` : planNames.join(', '));
   // Leistungszeitraum nur, wenn einer eingetragen ist (keine leere Zeile im Kopf)
   if (info.period.trim()) infoRow('Leistungszeitraum', info.period);
   add([]);
@@ -464,12 +462,11 @@ function dedNote(x: Deduction, line = false): string {
   return [x.label?.trim() || (x.add ? 'Zuschlag' : 'Abzug'), size].filter(Boolean).join(' ');
 }
 
-/** Bemerkung: nur Hinweise (Fläche aus dem Plan, fehlende Werte) – sonst leer */
+/** Bemerkung: Notiz und Hinweise auf fehlende Werte – sonst leer (dass ein Maß aus dem Plan stammt, steht nicht da) */
 function remark(d: Damage, kind: Kind): string {
   const parts: string[] = [];
   if (d.beam) parts.push(beamText(d.beam));
   if (d.note?.trim()) parts.push(d.note.trim());
-  if (d.areaFromShape) parts.push(kind === 'length' ? 'Länge aus Plan' : 'Fläche aus Plan');
   if ((kind === 'volume' || kind === 'liter') && d.depth === null) parts.push('ohne Tiefe');
   if (kind === 'area' && d.area === null) parts.push('keine Fläche');
   if (kind === 'other') parts.push('Menge nicht aus Messung ableitbar');

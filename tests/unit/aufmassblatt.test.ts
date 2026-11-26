@@ -39,7 +39,10 @@ describe('Aufmaßblatt (Firmenvorlage)', () => {
   });
   it('ohne LV: Kopf mit Nummer, Bauvorhaben, Kostenstelle, Leistungszeitraum; Flächen und Linien mit Plan und Nr.', () => {
     for (const t of ['Aufmaßblatt 007', 'Bauvorhaben X', '91092 – Ebene 1', '01.10.2026', 'Aufmaß', 'Betoninstandsetzung', 'Länge']) expect(sheet).toContain(`>${t}<`); // je Messart eine Tabelle
-    expect(sheet).not.toContain('>Summe<'); // wie in der Vorlage: Summe unter der Mengenspalte, Einheit daneben – ohne Beschriftung
+    expect(sheet).not.toContain('>Summe<');
+    // Kopf: nur Bauvorhaben und Kostenstelle (und Leistungszeitraum) – keine Zeile „Plan“
+    expect(sheet).not.toContain('>Pläne<');
+    expect(sheet.match(/>Plan</g)).toHaveLength(2); // nur noch als Spaltenkopf der beiden Tabellen // wie in der Vorlage: Summe unter der Mengenspalte, Einheit daneben – ohne Beschriftung
     expect(sheet).toMatch(/<f>ROUND\(C(\d+)\*D\1,2\)<\/f>/); // m² = Länge × Breite als Formel
     // je Messart nur die gefragten Maße, Menge gleich danach: Fläche Länge|Breite|m² (E), Länge nur m (C)
     expect(sheet).toMatch(/<f>SUM\(E\d+:E\d+\)<\/f>/);
@@ -55,14 +58,14 @@ describe('Aufmaßblatt (Firmenvorlage)', () => {
     expect(s2).toContain('>Tiefe<');
     expect(s2).toMatch(/<f>SUM\(F\d+:F\d+\)<\/f>/);
   });
-  it('Spalte „Bemerkung“ nur mit Hinweis (z. B. Fläche aus dem Plan)', () => {
-    const withNote = { ...data, damages: { ...data.damages, d1: dmg('d1', 1, { areaFromShape: true }) } } as unknown as ProjectState;
+  it('Spalte „Bemerkung“ nur mit Notiz – gleich neben der Menge; „aus Plan“ steht nie da', () => {
+    const withNote = { ...data, damages: { ...data.damages, d1: dmg('d1', 1, { note: 'Sockel' }), d2: dmg('d2', 2, { kind: 'line', width: null, area: null, length: 4.5, areaFromShape: true }) } } as unknown as ProjectState;
     const ws = strFromU8(unzipSync(exportAufmassblatt(withNote, { kind: 'plan', planId: 'p1' }, { no: '010', period: '' }).data)['xl/worksheets/sheet1.xml']);
     expect(ws.match(/>Bemerkung</g)).toHaveLength(1); // nur in der Flächentabelle, nicht bei den Linien
-    expect(ws).toContain('>Fläche aus Plan<');
     // Tabelle Plan|Nr.|Länge|Breite|m² (A–E): die Bemerkung steht gleich daneben in F – nie mit leeren Spalten dazwischen
     expect(ws).toMatch(/<c r="F\d+"[^>]*>(<is>)?<t[^>]*>Bemerkung</);
-    expect(ws).toMatch(/<c r="F\d+"[^>]*>(<is>)?<t[^>]*>Fläche aus Plan</);
+    expect(ws).toMatch(/<c r="F\d+"[^>]*>(<is>)?<t[^>]*>Sockel</);
+    expect(ws).not.toContain('aus Plan');
   });
   it('Linien der Tabelle nur über ihre Spalten – nie über die Blattbreite', () => {
     // Längentabelle Plan|Nr.|m (A–C): rechts davon keine formatierten (linierten) Zellen in den Messzeilen
@@ -72,12 +75,6 @@ describe('Aufmaßblatt (Firmenvorlage)', () => {
     const next = new RegExp(`<row r="${Number(head[1]) + 1}"[^>]*>(?:(?!<\\/row>).)*<\\/row>`).exec(xml)!;
     expect(next[0]).toMatch(/<c r="C\d+"/);
     expect(next[0]).not.toMatch(/<c r="[D-J]\d+"/);
-  });
-  it('Länge direkt aus dem Plan: Bemerkung „Länge aus Plan“ (nicht „Fläche“)', () => {
-    const fromPlan = { ...data, damages: { d2: dmg('d2', 2, { kind: 'line', width: null, area: null, length: 4.5, areaFromShape: true }) } } as unknown as ProjectState;
-    const ws = strFromU8(unzipSync(exportAufmassblatt(fromPlan, { kind: 'plan', planId: 'p1' }, { no: '010', period: '' }).data)['xl/worksheets/sheet1.xml']);
-    expect(ws).toContain('>Länge aus Plan<');
-    expect(ws).not.toContain('Fläche aus Plan');
   });
 
   it('Bewehrung: eine Zeile je Nummer, lfm als Formel aus allen Längen (2*0.2+3*0.2+0.54+3*0.9), Summe', () => {
