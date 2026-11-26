@@ -115,11 +115,12 @@ test('Positionen nach Größe und Tiefe werden erkannt, bestätigt und Schadstel
   const dl = await catchDownload(page, () => excelExport(page, 'export-xlsx-plan'));
   const wb = readXlsx(await saveDownload(dl, 'schadstellen-positionen.xlsx'));
   const ws = wb[Object.keys(wb)[0]].map((r) => r.map((c) => c?.v ?? null));
-  const band = (no: string) => ws.findIndex((r, i) => r[0] === no && ws[i + 1]?.[0] === 'Plan');
+  // Position: Zeile mit Nr. und Text, Zeile mit Menge und Preis, Leerzeile, Tabellenkopf – `band` + 2 = erste Messzeile
+  const band = (no: string) => ((i) => (i < 0 ? -1 : i + 2))(ws.findIndex((r, i) => r[0] === no && ws[i + 3]?.[0] === 'Plan'));
   expect(band('B1')).toBe(-1); // keine Schadstelle in dieser Klasse
   const b4 = band('B4');
   expect(ws[b4 + 2].slice(0, 6)).toEqual(['S-1', 1, 0.4, 0.5, 0.061, '=3*0.2']); // Tiefe auf den Millimeter
-  expect(String(ws[b4 + 2][7])).toContain('3 Stufen');
+  expect(String(ws[b4 + 2][6])).toContain('3 Stufen'); // Bemerkung gleich neben der Menge
   expect(ws[band('B2') + 2].slice(0, 2)).toEqual(['S-1', 1]);
   expect(ws[band('B3') + 2].slice(0, 2)).toEqual(['S-1', 2]);
   // nichts bleibt „ohne Leistungsposition“
@@ -282,12 +283,13 @@ test('Beispiel-LV „Betoninstandsetzung“ (PDF): Klassen, Zulage, Folgeleistun
   const dl = await catchDownload(page, () => excelExport(page, 'export-xlsx-plan'));
   const wb = readXlsx(await saveDownload(dl, 'schadstelle-a-bis-z.xlsx'));
   const ws = wb[Object.keys(wb)[0]].map((r) => r.map((c) => c?.v ?? null));
-  const band = (no: string) => ws.findIndex((r, i) => r[0] === no && ws[i + 1]?.[0] === 'Plan');
+  // Position: Zeile mit Nr. und Text, Zeile mit Menge und Preis, Leerzeile, Tabellenkopf – `band` + 2 = erste Messzeile
+  const band = (no: string) => ((i) => (i < 0 ? -1 : i + 2))(ws.findIndex((r, i) => r[0] === no && ws[i + 3]?.[0] === 'Plan'));
   for (const no of ['01.14.20.01B.', '01.14.20.02A.', '01.14.25.01B.', '01.14.25.02A.', '01.14.40.02A.']) expect(band(no), no).toBeGreaterThan(0);
   expect(band('01.14.20.01A.')).toBe(-1);
   const rb = band('01.14.40.02A.');
   expect([ws[rb + 2][0], ws[rb + 2][1], ws[rb + 2][2]]).toEqual(['S-1', 1, 1.2]); // lfm: nur die Länge, gleich in Spalte C
-  expect(String(ws[rb + 2][7])).toContain('Bewehrung der Schadstelle');
+  expect(String(ws[rb + 2][3])).toContain('Bewehrung der Schadstelle'); // Bemerkung gleich neben der Menge
   expect(ws.some((r) => r[0] === 'Aufmaß ohne Leistungsposition')).toBe(false);
 
   // LV-Liste: Mengen ohne eine einzige Zuordnung von Hand

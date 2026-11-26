@@ -177,13 +177,13 @@ test('Messart aus der Form (Linie / Fläche), keine Auswahl beim Einfügen: Lini
   ]);
   for (const r of ml) expect(r.head).not.toContain('Bemerkung');
   const ws = wb[Object.keys(wb)[0]].map((r) => r.map((c) => c?.v ?? null));
-  // je Messart eine Tabelle unter einem hellen Balken: zuerst „Fläche“, dann „Länge“
+  // je Messart eine Tabelle mit Überschrift: zuerst „Fläche“, dann „Länge“
   const areaHead = ws.findIndex((r) => r[0] === 'Fläche');
   const lineHead = ws.findIndex((r) => r[0] === 'Länge');
   expect(areaHead).toBeGreaterThanOrEqual(0);
   expect(lineHead).toBeGreaterThan(areaHead);
   // nur die gefragten Maße, Menge gleich danach: Fläche Länge|Breite|m² (Spalte E), Länge nur m (Spalte C)
-  const sums = ws.filter((r) => r[0] === 'Summe');
+  const sums = ws.filter((r) => r.some((c) => typeof c === 'string' && c.startsWith('=SUM(')));
   expect([sums[0][5], sums[1][3]]).toEqual(['m²', 'm']);
   expect(String(sums[0][4])).toMatch(new RegExp(`^=SUM\\(E${areaHead + 3}:E${areaHead + 4}\\)$`));
   expect(String(sums[1][2])).toMatch(new RegExp(`^=SUM\\(C${lineHead + 3}:C${lineHead + 3}\\)$`));
