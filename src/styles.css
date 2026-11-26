@@ -51,6 +51,11 @@ body,
   min-height: 100%;
 }
 
+/* kein Gummiband: die Seite lässt sich oben nicht nach unten ziehen (die Kopfleiste bleibt fest). Safari auf dem
+   iPhone liest das vom Wurzelelement, andere Browser vom body – darum an beiden */
+html {
+  overscroll-behavior-y: none;
+}
 body {
   background: var(--bg);
   overscroll-behavior-y: none;
