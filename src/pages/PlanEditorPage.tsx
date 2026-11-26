@@ -1089,6 +1089,12 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   // Tastaturkürzel (PC)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // Strg+S (Mac: Cmd+S) = wie die Taste „PDF“: Plan als PDF exportieren statt die Webseite zu speichern
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        if (!dialog && !detailsOpen && !pdfOpen && !document.querySelector('.modal')) setPdfOpen('plans');
+        return;
+      }
       if (dialog || detailsOpen || pdfOpen) return;
       const target = e.target as HTMLElement;
       const key = e.key.toLowerCase();

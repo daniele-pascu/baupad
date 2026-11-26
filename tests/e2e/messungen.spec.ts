@@ -206,6 +206,11 @@ test('Rückgängig und Wiederholen: Anlegen, Verschieben, per Schaltfläche und 
   await expect.poll(rowCount).toBe(2);
   await page.keyboard.press('Control+Shift+Z');
   await expect.poll(rowCount).toBe(3);
+  // Strg+S öffnet den PDF-Export (wie die Taste „PDF“), nicht „Webseite speichern“
+  await page.keyboard.press('Control+s');
+  await expect(page.getByTestId('pdf-export-dialog')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('pdf-export-dialog')).toBeHidden();
 
   // Verschieben zurücknehmen (Tabelle antippen öffnet die Bearbeitung – schließen, die Auswahl bleibt)
   await pickTool(page, 'tool-select');
@@ -214,8 +219,9 @@ test('Rückgängig und Wiederholen: Anlegen, Verschieben, per Schaltfläche und 
   await expect(page.getByTestId('damage-dialog')).toBeHidden();
   const before = await markerRelPos(page, 3);
   const box = await planBox(page);
-  const cx = box.x + box.width * ((before.x + before.w / 2) * 1);
-  const cy = box.y + box.height * (before.y + before.h / 2);
+  // neben der Nummer anfassen (die Nummer in der Mitte zieht nur sich selbst)
+  const cx = box.x + box.width * (before.x + before.w * 0.2);
+  const cy = box.y + box.height * (before.y + before.h * 0.25);
   await page.mouse.move(cx, cy);
   await page.mouse.down();
   await page.mouse.move(cx + 120, cy + 30, { steps: 6 });

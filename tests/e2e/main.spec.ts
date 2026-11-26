@@ -335,10 +335,10 @@ test('Markierung verschieben, Größe ändern, Beschriftung verschieben, Farbe �
     await page.locator('.damage-label').evaluateAll((ls) => ls.findIndex((l) => l.getAttribute('data-label') === '3')),
   );
   const pb = (await path.boundingBox())!;
-  // verschieben
-  await page.mouse.move(pb.x + pb.width / 2, pb.y + pb.height / 2);
+  // verschieben: neben der Nummer anfassen (die Nummer in der Mitte zieht nur sich selbst)
+  await page.mouse.move(pb.x + pb.width * 0.2, pb.y + pb.height * 0.25);
   await page.mouse.down();
-  await page.mouse.move(pb.x + pb.width / 2 + 60, pb.y + pb.height / 2 + 40, { steps: 6 });
+  await page.mouse.move(pb.x + pb.width * 0.2 + 60, pb.y + pb.height * 0.25 + 40, { steps: 6 });
   await page.mouse.up();
   const moved = await markerRelPos(page, 3);
   expect(moved.x).toBeGreaterThan(before.x + 0.01);
@@ -351,7 +351,7 @@ test('Markierung verschieben, Größe ändern, Beschriftung verschieben, Farbe �
   await page.mouse.up();
   const resized = await markerRelPos(page, 3);
   expect(resized.w).toBeGreaterThan(moved.w + 0.01);
-  // ganzer Plan = Übersicht: Nummer steht auf der Messung, keine Verbindungslinien; Ziehen dort bewegt die Messung (oben)
+  // ganzer Plan = Übersicht: Nummer steht auf der Messung, keine Verbindungslinien
   await expect(page.locator('.viewer[data-labels]')).toHaveAttribute('data-labels', 'overview');
   await expect(page.locator('.viewer-overlay line.leader')).toHaveCount(0);
   // Beschriftung verschieben (vergrößert), ohne die Markierung zu verändern
@@ -363,8 +363,7 @@ test('Markierung verschieben, Größe ändern, Beschriftung verschieben, Farbe �
   const label = page.locator('.damage-label[data-label="3"] rect');
   const lb = (await label.boundingBox())!;
   await page.mouse.move(lb.x + lb.width / 2, lb.y + lb.height / 2);
-  await page.mouse.down();
-  await page.waitForTimeout(600); // Nummer in der Fläche: kurz halten, dann ziehen (sonst verschiebt sich die Fläche)
+  await page.mouse.down(); // Nummer in der Fläche: direkt ziehen, ohne Halten
   await page.mouse.move(lb.x + 80, lb.y + 60, { steps: 6 });
   await page.mouse.up();
   const lb2 = (await label.boundingBox())!;
