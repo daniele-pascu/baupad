@@ -6,7 +6,10 @@ import { lvDocLabel, lvDocsOf, positionRef } from '../lib/aufmass';
 import { isOpenShape } from '../lib/geometry';
 import { kindOf } from '../lib/measure';
 import type { ProjectState } from '../lib/store';
-import { COLORS, type Damage, type ShapeStyle } from '../lib/types';
+import { COLORS, DRAW_COLORS, type Damage, type ShapeStyle } from '../lib/types';
+
+/** Weiß ist auf dem Plan nicht zu sehen – hier steht stattdessen Grau */
+const BULK_COLORS = COLORS.map((c) => (c.name === 'Weiß' ? DRAW_COLORS.find((d) => d.name === 'Grau')! : c));
 
 export interface DamagePatch {
   /** undefined = unverändert, null = keine Leistungsposition */
@@ -72,7 +75,7 @@ export function BulkDamageDialog({ data, damages, onClose, onSave }: { data: Pro
             <button type="button" role="radio" aria-checked={color === null} className={`btn btn-sm${color === null ? ' on' : ''}`} onClick={() => setColor(null)} data-testid="bulk-damage-color-keep">
               unverändert
             </button>
-            {COLORS.map((c) => (
+            {BULK_COLORS.map((c) => (
               <button
                 key={c.value}
                 type="button"

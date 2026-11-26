@@ -1778,6 +1778,11 @@ html.kb-open .modal-backdrop {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
+/* flach wie der Reiter „Aufmaß“: ohne Glanz und Schatten (z. B. „Neue Messung“ über der Messliste) */
+.btn.btn-primary.btn-flat {
+  background-image: none;
+  box-shadow: none;
+}
 /* Umschalter: „Aufmaß“ schwarz hervorgehoben (der Weg zum Messen) */
 .mode-bar .segmented button.mode-measure,
 .mode-bar .segmented button.mode-measure:hover {
@@ -5149,8 +5154,28 @@ a.register-tool:hover {
   gap: 8px;
   width: 100%;
 }
+.preview-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 14px;
+}
 .preview-name {
+  flex: 1 1 260px;
   max-width: 520px;
+}
+.preview-format {
+  flex: none;
+}
+/* „Speichern als“: gewähltes Format schwarz wie der Reiter „Aufmaß“ */
+.preview-format .segmented button[aria-selected='true'] {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: none;
+}
+html[data-theme='dark'] .preview-format .segmented button[aria-selected='true'] {
+  background: var(--primary);
+  color: #111;
 }
 .preview-hint {
   margin: 0;

@@ -738,13 +738,13 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
               {split ? (
                 invoice && (
                   <button type="button" className="btn" onClick={() => setExcelScope({ kind: 'invoice', invoiceId: invoice.id })} data-testid="export-xlsx-invoice">
-                    <Icon name="excel" /> Excel – Aufmaßblatt {invoiceShort(invoice)}
+                    <Icon name="table" /> Aufmaßblatt {invoiceShort(invoice)}
                   </button>
                 )
               ) : (
                 <>
                   <button type="button" className="btn" onClick={() => setExcelScope({ kind: 'costCenter', costCenterId: active.id })} data-testid="export-xlsx-cc">
-                    <Icon name="excel" /> {ccs.length > 1 ? 'Excel – Aufmaßblatt Kostenstelle' : 'Excel – Aufmaßblatt'}
+                    <Icon name="table" /> {ccs.length > 1 ? 'Aufmaßblatt Kostenstelle' : 'Aufmaßblatt'}
                   </button>
                   {ccs.length > 1 && (
                     <button type="button" className="btn" onClick={() => setExcelScope({ kind: 'project' })} data-testid="export-xlsx-project">
@@ -799,7 +799,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
                           { label: 'Umbenennen', icon: 'edit', onSelect: () => void renameSheet(sheet.id, name), testId: 'aufmass-rename' },
                           ...(sheet.name ? [{ label: 'Wieder durchnummerieren', icon: 'undo', onSelect: () => patchSheet(sheet.id, { name: '' }), testId: 'aufmass-renumber' }] : []),
                           {
-                            label: 'Excel – Aufmaßblatt / Pläne ändern',
+                            label: 'Aufmaßblatt / Pläne ändern',
                             icon: 'excel',
                             onSelect: () => {
                               setExcelSheet(sheet.id);
@@ -831,7 +831,7 @@ export function ProjectPage({ costCenterId }: { costCenterId?: string }) {
                             }}
                             data-testid="aufmass-foot-excel"
                           >
-                            <Icon name="excel" size={16} /> Excel – Aufmaßblatt
+                            <Icon name="table" size={16} /> Aufmaßblatt
                           </button>
                           <button type="button" className="btn btn-sm btn-danger-text" onClick={() => void deleteSheet(sheet.id, name)} data-testid="aufmass-foot-delete">
                             <Icon name="trash" size={16} /> Aufmaß löschen

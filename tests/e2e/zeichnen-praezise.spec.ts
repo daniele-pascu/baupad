@@ -1,6 +1,6 @@
 import { expect, test, type Page } from './fixtures';
 import { execFileSync } from 'node:child_process';
-import { catchDownload, createProject, freshStart, saveDownload, waitSaved, pickTool, toMeasureMode } from './helpers';
+import { catchDownload, createProject, freshStart, saveDownload, waitSaved, pickTool, toDrawMode, toMeasureMode } from './helpers';
 
 /**
  * Präzises Zeichnen (Paket B) und Papierformat/Maßstab (Paket C): freie Maße ohne Rastern,
@@ -224,7 +224,7 @@ test('Aufmaß: Fläche aus Punkten als Messung; Markierung bleibt auf dem Blatt'
   expect(Math.max(...dm.map((d) => d.shape.x + d.shape.w))).toBeGreaterThan(950 + 10);
 });
 
-test('Format ändern und PDF im gewählten Format; Format/Maßstab nur auf Wunsch im Plan', async () => {
+test('Format ändern und PDF im gewählten Format; Format und Maßstab stehen nie im Plan', async () => {
   let dl = await catchDownload(page, async () => {
     await toMeasureMode(page);
     await page.getByTestId('export-pdf-plan').click();
@@ -240,17 +240,16 @@ test('Format ändern und PDF im gewählten Format; Format/Maßstab nur auf Wunsc
   expect(text).toContain('4,25 m'); // reale Maße, nicht Papiermaße
 
   // Format nachträglich ändern: A3 quer 1:100
+  await toDrawMode(page); // Maßstab gehört zum Zeichenblatt – im Aufmaß gibt es nur das Format
   await page.getByTestId('sheet-label').click();
   const pd = page.getByTestId('plan-details');
   await pd.getByTestId('sheet-paper').selectOption('A3');
   await pd.getByTestId('sheet-orient').selectOption('quer');
   await pd.getByTestId('sheet-scale').selectOption('100');
   await expect(pd.getByTestId('sheet-size')).toContainText('40,00 × 26,30 m');
-  // Format und Maßstab ausdrücklich im Plan anzeigen
-  await expect(pd.getByTestId('show-paper')).not.toBeChecked();
-  await expect(pd.getByTestId('show-scale')).not.toBeChecked();
-  await pd.getByTestId('show-paper').check();
-  await pd.getByTestId('show-scale').check();
+  // Format und Maßstab stehen nie im Plan – die Schalter dafür gibt es nicht mehr
+  await expect(pd.getByTestId('show-paper')).toHaveCount(0);
+  await expect(pd.getByTestId('show-scale')).toHaveCount(0);
   await pd.getByRole('button', { name: 'Speichern' }).click();
   await expect(page.getByTestId('sheet-label')).toHaveText('A3 Querformat · 1:100');
   await waitSaved(page);
@@ -260,14 +259,14 @@ test('Format ändern und PDF im gewählten Format; Format/Maßstab nur auf Wunsc
     await page.getByTestId('pdf-export-run').click();
   });
   pdf = await saveDownload(dl, 'format-a3.pdf');
-  expect(execFileSync('pdfinfo', [pdf], { encoding: 'utf8' })).toMatch(/Page size:\s+1190\.5\d* x 841\.8\d*/);
+  expect(execFileSync('pdfinfo', [pdf], { encoding: 'utf8' })).toMatch(/Page size:\s+841\.8\d* x 1190\.5\d*/); // A3; hoch/quer richtet sich nach der Zeichnung (hier höher als breit)
   text = execFileSync('pdftotext', [pdf, '-'], { encoding: 'utf8' });
-  // Zeichnung füllt das Blatt: angezeigt wird der tatsächliche Maßstab auf dem Blatt
-  expect(text).toMatch(/A3 Querformat · Maßstab 1:\d+/);
+  expect(text).not.toMatch(/A3 Querformat|Maßstab 1:/);
   expect(text).toContain('4,25 m');
   execFileSync('pdftoppm', ['-png', '-r', '50', pdf, 'tests/output/format-a3']);
 
   // Zeichnung größer als das Blatt (A4 hoch 1:20 = 3,80 × 5,26 m): steht trotzdem ganz, zentriert und blattfüllend
+  await toDrawMode(page); // Maßstab gehört zum Zeichenblatt – im Aufmaß gibt es nur das Format
   await page.getByTestId('sheet-label').click();
   await pd.getByTestId('sheet-paper').selectOption('A4');
   await pd.getByTestId('sheet-orient').selectOption('hoch');
@@ -283,10 +282,11 @@ test('Format ändern und PDF im gewählten Format; Format/Maßstab nur auf Wunsc
   pdf = await saveDownload(dl, 'format-a4-auto.pdf');
   expect(execFileSync('pdfinfo', [pdf], { encoding: 'utf8' })).toMatch(/Page size:\s+595\.2\d* x 841\.8\d*/);
   text = execFileSync('pdftotext', [pdf, '-'], { encoding: 'utf8' });
-  expect(text).toMatch(/Maßstab 1:\d+/);
+  expect(text).not.toMatch(/Maßstab 1:/);
   expect(text).toContain('4,25 m');
 
   // Ohne Maßstab: Zeichnung füllt das Blatt (zentriert), kein Maßstab im PDF – auch wenn „Maßstab anzeigen“ an ist
+  await toDrawMode(page); // Maßstab gehört zum Zeichenblatt – im Aufmaß gibt es nur das Format
   await page.getByTestId('sheet-label').click();
   await pd.getByTestId('sheet-paper').selectOption('A3');
   await pd.getByTestId('sheet-orient').selectOption('quer');
@@ -302,12 +302,12 @@ test('Format ändern und PDF im gewählten Format; Format/Maßstab nur auf Wunsc
     await page.getByTestId('pdf-export-run').click();
   });
   pdf = await saveDownload(dl, 'format-a3-fill.pdf');
-  expect(execFileSync('pdfinfo', [pdf], { encoding: 'utf8' })).toMatch(/Page size:\s+1190\.5\d* x 841\.8\d*/);
+  expect(execFileSync('pdfinfo', [pdf], { encoding: 'utf8' })).toMatch(/Page size:\s+841\.8\d* x 1190\.5\d*/); // A3; hoch/quer richtet sich nach der Zeichnung (hier höher als breit)
   text = execFileSync('pdftotext', [pdf, '-'], { encoding: 'utf8' });
-  expect(text).toContain('A3 Querformat');
-  expect(text).not.toMatch(/Maßstab 1:/);
+  expect(text).not.toMatch(/A3 Querformat|Maßstab 1:/);
   expect(text).toContain('4,25 m');
   // wieder mit Maßstab: Auswahl zeigt 1:100, „ohne Maßstab“ ist weg
+  await toDrawMode(page); // Maßstab gehört zum Zeichenblatt – im Aufmaß gibt es nur das Format
   await page.getByTestId('sheet-label').click();
   await expect(pd.getByTestId('sheet-scale')).toHaveValue('0');
   await pd.getByTestId('sheet-scale').selectOption('100');

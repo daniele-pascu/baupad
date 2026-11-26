@@ -460,8 +460,6 @@ export function ImportWizard({ file, data, costCenterId, invoiceId = null, onClo
               <ExportPaperField
                 value={d.paper}
                 onChange={(paper) => setDrafts(drafts.map((x, j) => (j === i ? { ...x, paper } : x)))}
-                show={d.showPaper}
-                onShow={(showPaper) => setDrafts(drafts.map((x, j) => (j === i ? { ...x, showPaper } : x)))}
               />
             </div>
           ))}

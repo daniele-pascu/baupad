@@ -385,7 +385,7 @@ async function addRasterSheet(ctx: Ctx, plan: Plan, L: SheetLayout, region: Rect
 async function finishSheet(ctx: Ctx, page: PDFPage, plan: Plan, L: SheetLayout, region: Rect, damages: Damage[], full: HTMLCanvasElement | null) {
   const map = (p: Point): Point => ({ x: L.plan.x + (p.x - region.x) * L.u, y: L.h - (L.plan.y + (p.y - region.y) * L.u) });
   const target: Target = { page, map, textRotation: 0, ptPerUnit: L.u };
-  drawSheetHeader(ctx, page, L.h, L.header, plan, plan.showPaper ? [PAPER[exportPaper(plan)].label] : []);
+  drawSheetHeader(ctx, page, L.h, L.header, plan, []); // Format steht nie im Plan
   drawDamages(ctx, target, region, damages, []);
   // Texte (Werkzeug „Text“ im Aufmaß)
   const k = unitsPerMeter(plan);
@@ -471,14 +471,6 @@ function drawBrand(ctx: Ctx, page: PDFPage, right: number, top: number): number 
 const capFont = (ctx: Ctx, i: number) => (i < 3 ? ctx.bold : ctx.font);
 /** Breite von „PAD SOFTWARE“ mit Sperrung */
 const capWidth = (ctx: Ctx, size: number, track: number) => [...'PAD SOFTWARE'].reduce((w, ch, i) => w + capFont(ctx, i).widthOfTextAtSize(ch, size) + track, -track);
-/** Breite der Marke (für Platz in der Kopfzeile, ohne zu zeichnen) */
-function brandWidth(ctx: Ctx): number {
-  const capSize = 3.9;
-  const track = capSize * 0.22;
-  const capW = capWidth(ctx, capSize, track);
-  return (859 / 830) * 4.4 + 2.5 + capW;
-}
-
 // ---------------------------------------------------------------------------
 // Übersicht des Gesamtplans bei Planausschnitten
 
@@ -699,22 +691,8 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   const map = (p: Point): Point => pdf(paper(p));
   const target: Target = { page, map, textRotation: 0, ptPerUnit: u };
 
-  // Kopf: Plannummer | Titel; Format und Maßstab nur, wenn ausdrücklich eingeschaltet
-  const fmtLabel = paperFmt.label;
-  // „ohne Maßstab“ gewählt: nie anzeigen
-  const showScale = !!plan.showScale && !plan.drawing?.fit;
-  const barM = [0.5, 1, 2, 5, 10, 20, 50, 100, 200].find((m) => (m * 1000) / scaleN >= 35) ?? 200;
-  const barPt = ((barM * 1000) / scaleN) * MM;
-  drawSheetHeader(
-    ctx,
-    page,
-    H,
-    { x: margin, y: margin, w: W - 2 * margin, h: headerPt },
-    plan,
-    // tatsächlicher Maßstab auf dem Blatt (Zeichnung füllt das Blatt, daher meist kein Normmaßstab)
-    [plan.showPaper ? fmtLabel : '', showScale ? `Maßstab 1:${Math.round(scaleN)}` : ''].filter(Boolean),
-    showScale ? barPt + 12 : 0,
-  );
+  // Kopf: Plannummer | Titel – Format und Maßstab stehen nie im Plan
+  drawSheetHeader(ctx, page, H, { x: margin, y: margin, w: W - 2 * margin, h: headerPt }, plan, []);
 
   // Zeichnungsobjekte
   const dimColor = rgb(0.16, 0.3, 0.5);
@@ -881,17 +859,6 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   drawDamages(ctx, target, region, damages, components);
   const lg = planLegend(plan, Object.values(data.plans), damages);
   if (lg.show) drawLegend(ctx, page, sheetFrame(page, H, { x: margin, y: margin, w: W - 2 * margin, h: headerPt }), lg.pos, lg.lines);
-  // Maßstabsleiste rechts im Kopfbereich (nur wenn der Maßstab angezeigt werden soll)
-  if (!showScale) return;
-  const lblW = ctx.font.widthOfTextAtSize(`${String(barM).replace('.', ',')} m`, 6.5);
-  const bx = W - margin - barPt - lblW / 2 - (ctx.brand ? brandWidth(ctx) + BRAND_GAP : 0);
-  const by = H - margin - 28;
-  const seg = 4;
-  for (let i = 0; i < seg; i++)
-    page.drawRectangle({ x: bx + (barPt / seg) * i, y: by, width: barPt / seg, height: 3, color: i % 2 ? rgb(1, 1, 1) : rgb(0.15, 0.15, 0.17), borderColor: rgb(0.15, 0.15, 0.17), borderWidth: 0.5 });
-  page.drawText('0', { x: bx - 2, y: by + 5, size: 6.5, font: ctx.font, color: rgb(0.3, 0.33, 0.38) });
-  const lbl = `${String(barM).replace('.', ',')} m`;
-  page.drawText(lbl, { x: bx + barPt - ctx.font.widthOfTextAtSize(lbl, 6.5) / 2, y: by + 5, size: 6.5, font: ctx.font, color: rgb(0.3, 0.33, 0.38) });
 }
 
 /**
