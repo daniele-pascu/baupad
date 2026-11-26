@@ -193,7 +193,7 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   expect(vals(pa + 3)).toEqual(['Plan', 'Nr.', 'm']);
   expect([v(pa + 4, 0), v(pa + 4, 1), v(pa + 4, 2)]).toEqual(['P-1', 2, 12]);
   // ohne Position: je Messart eine Tabelle, mit Plan und Nr.
-  const free3 = rowOf('Aufmaß ohne Leistungsposition');
+  const free3 = rowOf('Aufmaß');
   expect(free3).toBeGreaterThan(pb);
   expect(ws.slice(free3).some((r) => r[0]?.v === 'P-1' && r[2]?.v === 3 && r[3]?.v === 2)).toBe(true);
   expect(ws.slice(free3).some((r) => r[0]?.v === 'P-1' && r[2]?.v === 5.5)).toBe(true);
@@ -208,7 +208,7 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   expect(info3).toMatch(/Pages:\s+1\n/);
   expect(info3).toContain('(A4)');
   const page1 = execFileSync('pdftotext', ['-f', '1', '-l', '1', pdf3, '-'], { encoding: 'utf8' });
-  expect(page1).toContain('Aufmaß ohne Leistungsposition');
+  expect(page1).toMatch(/^Aufmaß$/m); // Abschnitt der Messungen ohne Position heißt nur „Aufmaß“
   expect(page1).toContain('LV - ');
   expect(readXlsxPrint(file3)['Aufmaßblatt 001'].header.right).toBe('&P von &N');
   // nächste Nummer wird hochgezählt

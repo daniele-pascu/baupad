@@ -67,6 +67,25 @@ describe('Aufmaßblatt (Firmenvorlage)', () => {
     expect(ws).toMatch(/<c r="F\d+"[^>]*>(<is>)?<t[^>]*>Sockel</);
     expect(ws).not.toContain('aus Plan');
   });
+  it('Tabelle mit grauem Kopf, jede zweite Zeile getönt – nur über die Spalten der Tabelle', () => {
+    const lines = Object.fromEntries([1, 2, 3].map((i) => [`l${i}`, dmg(`l${i}`, i, { kind: 'line', width: null, area: null, length: i })]));
+    const z = unzipSync(exportAufmassblatt({ ...data, damages: lines } as unknown as ProjectState, { kind: 'plan', planId: 'p1' }, { no: '013', period: '' }).data);
+    const ws = strFromU8(z['xl/worksheets/sheet1.xml']);
+    const styles = strFromU8(z['xl/styles.xml']);
+    const xfs = [.../<cellXfs[^>]*>(.*)<\/cellXfs>/.exec(styles)![1].matchAll(/<xf [^>]*?(?:\/>|>.*?<\/xf>)/g)].map((m) => m[0]);
+    expect(Number(/<cellXfs count="(\d+)"/.exec(styles)![1])).toBe(xfs.length);
+    const row = (text: string) => new RegExp(`<row r="\\d+"[^>]*>((?:(?!<\\/row>).)*>${text}<(?:(?!<\\/row>).)*)<\\/row>`).exec(ws)![1];
+    const stylesOf = (cells: string) => [...cells.matchAll(/<c r="([A-J])\d+" s="(\d+)"/g)].map((m) => [m[1], xfs[Number(m[2])]] as const);
+    // Kopf: Füllung (grau) in A–C, rechts davon nichts
+    const head = stylesOf(row('Plan'));
+    expect(head.map(([c]) => c)).toEqual(['A', 'B', 'C']);
+    for (const [, xf] of head) expect(xf).toContain('fillId="4"');
+    // Zeilen: 1. ohne Füllung, 2. getönt, 3. ohne Füllung mit Linie unten
+    const body = [10, 11, 12].map((r) => stylesOf(new RegExp(`<row r="${r}"[^>]*>(.*?)<\\/row>`).exec(ws)![1]));
+    expect(body.map((cells) => cells.map(([c]) => c).join(''))).toEqual(['ABC', 'ABC', 'ABC']);
+    expect(body.map((cells) => cells.every(([, xf]) => xf.includes('fillId="5"')))).toEqual([false, true, false]);
+    expect(body.map((cells) => cells.every(([, xf]) => xf.includes('borderId="1"')))).toEqual([false, false, true]);
+  });
   it('Linien der Tabelle nur über ihre Spalten – nie über die Blattbreite', () => {
     // Längentabelle Plan|Nr.|m (A–C): rechts davon keine formatierten (linierten) Zellen in den Messzeilen
     const xml = sheet.slice(sheet.indexOf('>Länge<'));
@@ -107,8 +126,9 @@ describe('Aufmaßblatt (Firmenvorlage)', () => {
       damages: { d1: dmg('d1', 1, { kind: 'area', length: 5.5, width: 2.3, area: 8.65, deductions, positionRef: 'l1:a' }) },
     } as unknown as ProjectState;
     const ws = strFromU8(unzipSync(exportAufmassblatt(withDeds, { kind: 'plan', planId: 'p1' }, { no: '011', period: '' }).data)['xl/worksheets/sheet1.xml']);
-    // Bemerkung = Bezeichnung, Spalte „Nr.“ = Nummer (1-A1, 1-A2, 1-Z1)
-    for (const t of ['Fenster (2×)', 'Tür', 'Nische', 'Bemerkung', '1-A1', '1-A2', '1-Z1']) expect(ws).toContain(`>${t}<`);
+    // Abzug/Zuschlag ohne eigene Nummer: was es ist, steht in der Bemerkung
+    for (const t of ['Abzug Fenster (2×)', 'Abzug Tür', 'Zuschlag Nische', 'Bemerkung']) expect(ws).toContain(`>${t}<`);
+    for (const t of ['1-A1', '1-A2', '1-Z1']) expect(ws).not.toContain(t);
     const main = /<f>ROUND\((C(\d+)\*D\2),2\)<\/f><v>12.65<\/v>/.exec(ws)!;
     const r = Number(main[2]);
     expect(ws).toContain(`<f>-2*ROUND(C${r + 1}*D${r + 1},2)</f><v>-2.4</v>`);
@@ -123,7 +143,7 @@ describe('Aufmaßblatt (Firmenvorlage)', () => {
       damages: { d2: dmg('d2', 2, { kind: 'line', width: null, area: null, length: 12.4, deductions: [{ id: 'a', label: 'Tür', count: 2, length: 1 }] }) },
     } as unknown as ProjectState;
     const ws = strFromU8(unzipSync(exportAufmassblatt(withDeds, { kind: 'plan', planId: 'p1' }, { no: '012', period: '' }).data)['xl/worksheets/sheet1.xml']);
-    expect(ws).toContain('>Tür (2 × 1,00 m)<');
+    expect(ws).toContain('>Abzug Tür (2 × 1,00 m)<');
     expect(ws).toContain('<v>12.4</v>');
     expect(ws).toContain('<v>-2</v>');
     expect(ws).toMatch(/<f>SUM\(C\d+:C\d+\)<\/f><v>10.4<\/v>/);

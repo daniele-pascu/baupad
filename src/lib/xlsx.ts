@@ -105,7 +105,28 @@ export type CellStyle =
   | 'amSumUnitC'
   | 'amSumMoney'
   | 'amTitleBig'
-  | 'amRowDepth';
+  | 'amRowDepth'
+  /** Kopf der Messtabelle: grau hinterlegt, fett, zentriert */
+  | 'amTHead'
+  | TableStyle;
+
+/**
+ * Zellen der Messtabelle mit abwechselnd getönten Zeilen: Art (C zentriert · N Maß · Q Menge · D/DQ Maß/Menge eines
+ * Abzugs, kursiv) + „b“ getönte Zeile + „l“ letzte Zeile (Linie unten)
+ */
+export type TableStyle = `amT${'C' | 'N' | 'Q' | 'D' | 'DQ'}${'' | 'b'}${'' | 'l'}`;
+/** Reihenfolge = Reihenfolge der Formate in styles.xml (ab TABLE_STYLE_START) */
+const TABLE_KINDS = [
+  ['C', 0, 4, 'center'],
+  ['N', 166, 4, ''],
+  ['Q', 167, 4, 'right'],
+  ['D', 166, 17, ''],
+  ['DQ', 167, 15, 'right'],
+] as const;
+const TABLE_STYLE_START = 91;
+const TABLE_STYLES = TABLE_KINDS.flatMap(([kind, numFmt, font, align]) =>
+  (['', 'b'] as const).flatMap((band) => (['', 'l'] as const).map((last) => ({ name: `amT${kind}${band}${last}` as TableStyle, numFmt, font, align, band, last }))),
+);
 
 export type Cell =
   | null
@@ -264,6 +285,8 @@ const STYLE_INDEX: Record<CellStyle, number> = {
   amSumMoney: 87,
   amTitleBig: 88,
   amRowDepth: 89,
+  amTHead: 90,
+  ...(Object.fromEntries(TABLE_STYLES.map((t, i) => [t.name, TABLE_STYLE_START + i])) as Record<TableStyle, number>),
 };
 
 export const str = (v: string, s: CellStyle = 'text'): Cell => ({ t: 'str', v, s });
@@ -381,7 +404,7 @@ const STYLES_XML =
   '<numFmt numFmtId="166" formatCode="_-* #,##0.00_-;\\-* #,##0.00_-;_-* &quot;-&quot;??_-;_-@_-"/>' +
   // dto. für die Mengen der Messtabellen – immer zwei Nachkommastellen (nicht drei)
   '<numFmt numFmtId="167" formatCode="_-* #,##0.00_-;\\-* #,##0.00_-;_-* &quot;-&quot;??_-;_-@_-"/></numFmts>' +
-  '<fonts count="17">' +
+  '<fonts count="18">' +
   '<font><sz val="11"/><color theme="1"/><name val="Calibri"/><family val="2"/><scheme val="minor"/></font>' +
   '<font><b/><sz val="11"/><color theme="1"/><name val="Calibri"/><family val="2"/><scheme val="minor"/></font>' +
   '<font><b/><sz val="14"/><color theme="1"/><name val="Calibri"/><family val="2"/><scheme val="minor"/></font>' +
@@ -401,6 +424,7 @@ const STYLES_XML =
   '<font><sz val="9"/><color rgb="FF6E6E73"/><name val="Aptos Narrow"/><family val="2"/></font>' +
   '<font><i/><sz val="11"/><color rgb="FFB4573A"/><name val="Aptos Narrow"/><family val="2"/></font>' +
   '<font><i/><sz val="9"/><color rgb="FFB4573A"/><name val="Aptos Narrow"/><family val="2"/></font>' +
+  '<font><i/><sz val="11"/><color rgb="FF555555"/><name val="Aptos Narrow"/><family val="2"/></font>' + // 17 Maße eines Abzugs
   '</fonts>' +
   '<fills count="6">' +
   '<fill><patternFill patternType="none"/></fill>' +
@@ -425,7 +449,7 @@ const STYLES_XML =
   '<border><left/><right/><top style="thin"><color rgb="FF8E8E93"/></top><bottom style="thin"><color rgb="FF8E8E93"/></bottom><diagonal/></border>' + // 11 Linien oben/unten (Gesamtzeile)
   '</borders>' +
   '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
-  '<cellXfs count="90">' +
+  `<cellXfs count="${TABLE_STYLE_START + TABLE_STYLES.length}">` +
   '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' + // 0 Standard
   '<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment wrapText="1" vertical="center"/></xf>' + // 1 Kopf
   '<xf numFmtId="49" fontId="0" fillId="0" borderId="3" xfId="0" applyNumberFormat="1" applyBorder="1"/>' + // 2 Text
@@ -518,6 +542,12 @@ const STYLES_XML =
   '<xf numFmtId="165" fontId="4" fillId="0" borderId="6" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"></xf>' + // 87 Zusammenstellung Betrag
   '<xf numFmtId="0" fontId="12" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>' + // 88 Titel 16 fett
   '<xf numFmtId="164" fontId="4" fillId="0" borderId="6" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1"/>' + // 89 Zeile Tiefe (0,10 · 0,061)
+  '<xf numFmtId="0" fontId="5" fillId="4" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center"/></xf>' + // 90 Kopf der Messtabelle
+  // ab 91: Zellen der Messtabelle (getönte Zeile = Füllung 5, letzte Zeile = Linie unten)
+  TABLE_STYLES.map(
+    (t) =>
+      `<xf numFmtId="${t.numFmt}" fontId="${t.font}" fillId="${t.band ? 5 : 0}" borderId="${t.last ? 1 : 0}" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"${t.align ? ` applyAlignment="1"><alignment horizontal="${t.align}"/></xf>` : '/>'}`,
+  ).join('') +
   '</cellXfs>' +
   '<cellStyles count="1"><cellStyle name="Standard" xfId="0" builtinId="0"/></cellStyles>' +
   '</styleSheet>';
