@@ -11867,6 +11867,62 @@ html[data-theme='dark'] .calc-result .calc-total.warn strong {
   pointer-events: none;
 }
 
+/* Plan zeichnen, Linie: Eingabe am Zeiger (Abstand | Winkel) und Winkelmesser am Anfangspunkt */
+.dyn-input {
+  pointer-events: none;
+}
+.dyn-cell {
+  fill: #fff;
+  stroke: #9a9aa0;
+  stroke-width: 1;
+}
+.dyn-cell.on {
+  stroke: #12a150;
+  stroke-width: 2;
+}
+.dyn-text {
+  font-size: 12px;
+  fill: #6b6b70;
+  font-variant-numeric: tabular-nums;
+}
+.dyn-cell.typed + .dyn-text {
+  fill: #111;
+  font-weight: 600;
+}
+.dyn-arc path {
+  fill: none;
+  stroke: #12a150;
+  filter: drop-shadow(0 0 1px #fff);
+}
+.dyn-arc-base,
+.dyn-arc-half,
+.dyn-arc-ray {
+  stroke-width: 1.2;
+  stroke-dasharray: 5 4;
+}
+.dyn-arc-tick {
+  stroke-width: 1;
+}
+.dyn-arc-on {
+  stroke-width: 2.4;
+}
+.dyn-goal {
+  fill: none;
+  stroke: #12a150;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 1px #fff);
+}
+.dyn-arc-label {
+  font-size: 12px;
+  font-weight: 600;
+  fill: #0b7a3b;
+  paint-order: stroke;
+  stroke: #fff;
+  stroke-width: 3px;
+  text-anchor: middle;
+}
+
 /* Einteilung: je Tag die Arbeiter untereinander (eine Zeile je Arbeiter) statt nebeneinander */
 .crew-days .crew-chips {
   flex: 1;

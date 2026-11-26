@@ -12,7 +12,10 @@ export function CommandBar({
   placeholder = 'z. B. 1,25 · 2,5;0 · 3<45',
   children,
   testId = 'command-bar',
+  onKey,
 }: {
+  /** Tasten zuerst hier anbieten (z. B. Eingabe am Zeiger beim Linienwerkzeug); true = verbraucht */
+  onKey?: (e: KeyboardEvent) => boolean;
   title: string;
   prompt: ReactNode;
   /** Eingabe übernehmen; liefert eine Fehlermeldung oder null */
@@ -25,6 +28,8 @@ export function CommandBar({
   const [value, setValue] = useState('');
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const onKeyRef = useRef(onKey);
+  onKeyRef.current = onKey;
 
   // Ziffern & Co. ohne vorheriges Antippen des Felds: direkt ins Feld (und nicht als Tastenkürzel, z. B. „-“ = Verkleinern)
   useEffect(() => {
@@ -33,6 +38,11 @@ export function CommandBar({
       const el = document.activeElement as HTMLElement | null;
       if (e.ctrlKey || e.metaKey || e.altKey || document.querySelector('.modal')) return;
       if (el && (['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName) || el.isContentEditable)) return;
+      if (onKeyRef.current?.(e)) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
       if (!/^[0-9@<,.;\-]$/.test(e.key)) return;
       e.preventDefault();
       e.stopPropagation();

@@ -2403,6 +2403,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 title={DRAW_TOOLS.find((x) => x.id === t)?.short ?? ''}
                 prompt={prompt}
                 onInput={withInput ? drawing.applyInput : undefined}
+                onKey={drawing.trackKey}
                 placeholder={t === 'wall' ? 'Stärke, z. B. 0,25' : t === 'offset' ? 'Abstand, z. B. 0,25' : t === 'join' ? 'Lücke, z. B. 0,05' : t === 'symbol' ? 'Breite, z. B. 0,9' : t === 'rotate' || t === 'guide' ? 'Winkel, z. B. 90' : t === 'fillet' ? 'Radius, z. B. 0,5' : t === 'scale' ? (drawing.refMode ? 'Länge, z. B. 4,5' : 'Faktor, z. B. 2') : undefined}
               >
                 {SELECT_FIRST.has(t) && drawing.cmdSelecting && (
