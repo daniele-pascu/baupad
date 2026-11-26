@@ -543,12 +543,13 @@ test('Farblegende: je Plan eigene Legende – nicht mit anderen Plänen verbunde
   await expect(page.getByTestId('plan-legend')).toHaveCount(0); // nur im PDF
   await expect(page.getByTestId('editor-legend')).toHaveClass(/active-toggle/);
   await waitSaved(page);
-  // Plan A: unverändert – keine Legende, keine übernommene Bezeichnung, Lage Standard
+  // Plan A: unverändert – Legende wie immer standardmäßig an, keine übernommene Bezeichnung, Lage Standard
   await page.getByRole('link', { name: 'Zurück zur Planliste' }).click();
   await page.getByTestId('plan-row').filter({ hasText: 'A-1' }).first().getByTestId('plan-open').click();
   await waitForPlan(page);
-  await expect(page.getByTestId('editor-legend')).not.toHaveClass(/active-toggle/);
+  await expect(page.getByTestId('editor-legend')).toHaveClass(/active-toggle/);
   await page.getByTestId('editor-legend').click();
+  await expect(lg.getByTestId('legend-show')).toBeChecked();
   await expect(lg.getByTestId('legend-input')).toHaveValue('');
   await expect(lg.getByTestId('legend-pos-bl')).toHaveAttribute('aria-checked', 'true');
   // eigene Legende in Plan A – Plan B behält seine

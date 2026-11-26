@@ -10840,13 +10840,17 @@ html[data-theme='dark'] .crew-search {
 }
 .legend-row {
   display: grid;
-  grid-template-columns: 22px minmax(0, 1fr) auto;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
 }
 .legend-row .legend-swatch {
   width: 22px;
   height: 22px;
+}
+.legend-sample {
+  flex: none;
+  display: block;
 }
 /* Serienkamera: Blitz Aus/Auto/An und Gerätekamera */
 .series-cam-top .series-cam-title {
