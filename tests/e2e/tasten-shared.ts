@@ -535,6 +535,17 @@ export function tastenTests() {
       await page.keyboard.press('Escape');
       await expect(page.getByTestId('pdf-export-dialog')).toHaveCount(0);
     }
+    // Excel: Fenster „Aufmaßblatt“ und die Vorschau mit Dateiname und Speichern
+    if (await page.getByTestId('export-xlsx-plan').isVisible()) {
+      await page.getByTestId('export-xlsx-plan').click();
+      await expect(page.getByTestId('excel-export')).toBeVisible();
+      await pruefe(page, 'Dialog Excel – Aufmaßblatt', out);
+      await page.getByTestId('blatt-export').click();
+      await expect(page.getByTestId('sheet-preview')).toBeVisible();
+      await pruefe(page, 'Excel-Vorschau', out);
+      await page.keyboard.press('Escape');
+      await expect(page.getByTestId('excel-preview')).toHaveCount(0);
+    }
     // Messart wählen: Menü und Messdialog je Messart (Stück, Frei, Volumen) – mit Wand-Werkzeug (Hinweisleiste darf nicht über dem Menü liegen)
     await pickTool(page, 'tool-wall');
     await pickTool(page, 'tool-mtype');

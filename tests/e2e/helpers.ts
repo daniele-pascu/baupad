@@ -74,8 +74,8 @@ export async function catchDownload(page: Page, trigger: () => Promise<unknown>)
   const isTouch = await page.evaluate(() => navigator.maxTouchPoints > 0 || 'ontouchstart' in window);
   const download = page.waitForEvent('download', { timeout: 120_000 });
   await trigger();
-  // PDF: erst Vorschau, dort „Herunterladen“; sonst (Touch) Dialog „Datei bereit“; am PC direkt
-  const preview = page.getByTestId('pdf-preview');
+  // PDF und Excel: erst Vorschau, dort „Herunterladen“; sonst (Touch) Dialog „Datei bereit“; am PC direkt
+  const preview = page.getByTestId('pdf-preview').or(page.getByTestId('excel-preview'));
   const fileDlg = page.getByTestId('file-dialog');
   const which = await Promise.race([
     download.then(() => 'download' as const),
@@ -83,7 +83,7 @@ export async function catchDownload(page: Page, trigger: () => Promise<unknown>)
     ...(isTouch ? [fileDlg.waitFor({ state: 'visible', timeout: 90_000 }).then(() => 'file' as const)] : []),
   ]);
   if (which === 'preview') {
-    await expect(preview.getByTestId('preview-page').first()).toBeVisible({ timeout: 60_000 });
+    await expect(preview.getByTestId('preview-page').or(preview.getByTestId('sheet-preview')).first()).toBeVisible({ timeout: 60_000 });
     await preview.getByTestId('preview-download').click();
   } else if (which === 'file') await fileDlg.getByRole('button', { name: 'Herunterladen' }).click();
   return download;

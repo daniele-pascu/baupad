@@ -8,7 +8,7 @@ import { MEASURE_TYPES, typeOf } from './measure-types';
 import { activeRule, bookingFactor } from './pos-rules';
 import type { ProjectState } from './store';
 import type { Damage, Deduction, LvDocument, LvPosition, Plan } from './types';
-import { blank, buildXlsx, num, str, type Cell, type HeaderImage, type Sheet, type TableStyle } from './xlsx';
+import { blank, BLATT_BOTTOM_IN, blattTopMargin, buildXlsx, num, str, type Cell, type HeaderImage, type Sheet, type TableStyle } from './xlsx';
 
 /**
  * Aufmaßblatt nach der Firmenvorlage (AMB): ein Blatt, Kopf mit Aufmaßblatt-Nummer,
@@ -34,6 +34,8 @@ const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.s
  */
 const WIDTHS = [9, 7, 9, 9, 9, 9, 9, 9, 14, 3];
 const COLS = 'ABCDEFGHIJ';
+/** Zeilenhöhe in Excel (11 pt Schrift) */
+const ROW_PT = 15;
 
 /** `factor`: Schadstelle zählt über die Regel der Position mehrfach (Zulage: Zahl der Stufen) */
 type Item = { plan: Plan; d: Damage; factor?: number; /** Bewehrungsposition: zählt die bei der Schadstelle eingetragenen lfm */ rebar?: boolean };
@@ -66,14 +68,17 @@ const fillRow = (cells: Cell[], style: Parameters<typeof blank>[0], count = COLS
  * Messzeilen einfärben: jede zweite Zeile getönt, unter der letzten eine Linie – nur über die Spalten der Tabelle
  * (`rows` = die Zeilen der Tabelle ohne Kopf)
  */
-const styleTable = (rows: Cell[][], count: number) =>
-  rows.forEach((row, k) => {
-    const suffix = `${k % 2 ? 'b' : ''}${k === rows.length - 1 ? 'l' : ''}`;
+const styleTable = (rows: Cell[][], count: number) => {
+  // wiederholte Kopfzeilen (neue Seite) bleiben, wie sie sind
+  const body = rows.filter((row) => row[0]?.s !== 'amTHead');
+  body.forEach((row, k) => {
+    const suffix = `${k % 2 ? 'b' : ''}${k === body.length - 1 ? 'l' : ''}`;
     for (let i = 0; i < count; i++) {
       const c = row[i];
       row[i] = c ? { ...c, s: `${c.s}${suffix}` as TableStyle } : blank(`amTC${suffix}` as TableStyle);
     }
   });
+};
 
 /** Leistungszeitraum aus den Messungen (erste bis letzte Erfassung) */
 /** Umfang des Aufmaßblatts: wie beim Excel-Export, zusätzlich eine Rechnung (alle ihre Pläne) */
@@ -110,7 +115,7 @@ export function plansIn(data: ProjectState, scope: BlattScope): Plan[] {
  * `opts.prices === false`: ohne Einheits-/Positionspreise und ohne Zusammenstellung (Benutzer ohne Freigabe
  * „Preise und Summen“) – Mengen und Messtabellen bleiben.
  */
-export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: BlattInfo, opts: { logo?: HeaderImage | null; prices?: boolean } = {}): ExportFile {
+export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: BlattInfo, opts: { logo?: HeaderImage | null; prices?: boolean } = {}): ExportFile & { /** das Blatt selbst – für die Vorschau */ sheet: Sheet } {
   const prices = opts.prices !== false;
   const plans = plansIn(data, scope);
   const items: Item[] = aufmassRows(data, plans).map(({ plan, damage }) => ({ plan, d: damage }));
@@ -126,15 +131,43 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
 
   const rows: Cell[][] = [];
   const merges: string[] = [];
-  // Zeilenhöhen bleiben frei (Excel passt sie selbst an), damit Schrift, Höhen und Spalten wie gewohnt änderbar sind
-  const add = (cells: Cell[] = []) => rows.push(cells); // liefert die Excel-Zeilennummer
+  // Seitenumbrüche setzt das Blatt selbst (A4 hoch, 100 %): nur so kann eine lange Tabelle auf jeder neuen Seite wieder
+  // mit ihrer Kopfzeile (Plan | Nr. | …) beginnen. Gerechnet wird mit der Zeilenhöhe von Excel (15 pt, größere Schrift
+  // etwas mehr) und einer Zeile Reserve – die Zeilenhöhen selbst bleiben frei.
+  const PAGE_PT = 841.89 - (blattTopMargin(opts.logo) + BLATT_BOTTOM_IN) * 72 - ROW_PT;
+  /** Seitenumbruch vor diesen Zeilen (1-basiert) */
+  const breaks: number[] = [];
+  /** belegte Höhe der laufenden Seite */
+  let used = 0;
+  let breakNext = false;
+  const heightOf = (cells: Cell[]) => (cells.some((c) => c?.s === 'amTitle') ? 21 : cells.some((c) => c?.s === 'amDoc' || c?.s === 'amBox' || c?.s === 'amTotal') ? 17.5 : ROW_PT);
+  /** passt die nächste Zeile nicht mehr auf die Seite? */
+  const pageFull = (h = ROW_PT) => breakNext || used + h > PAGE_PT;
+  /** die nächsten `n` Zeilen gehören zusammen (Überschrift, Tabellenkopf, erste Zeilen): passen sie nicht, neue Seite */
+  const keepTogether = (n: number) => {
+    if (used > 0 && used + n * ROW_PT > PAGE_PT) breakNext = true;
+  };
+  const add = (cells: Cell[] = []) => {
+    const h = heightOf(cells);
+    if (pageFull(h) && rows.length) {
+      breaks.push(rows.length + 1);
+      used = 0;
+    }
+    breakNext = false;
+    used += h;
+    return rows.push(cells); // Excel-Zeilennummer
+  };
   /** Abschnittstitel (LV/MFK bzw. Aufmaß ohne Position): fett, ohne Linie über das Blatt */
   const section = (title: string) => {
+    keepTogether(8);
     add([str(title, 'amDoc')]);
     add([]);
   };
   /** Titel einer Messtabelle ohne Position (Messart, z. B. „Länge“): fett – kein Balken über die Blattbreite */
-  const band = (label: string) => add([str(label, 'amPos')]);
+  const band = (label: string) => {
+    keepTogether(4); // Titel, Tabellenkopf und zwei Zeilen zusammen
+    return add([str(label, 'amPos')]);
+  };
 
   // Kopf: Titel, darunter die Angaben zum Blatt (Beschriftung in A, Wert ab C – ohne Kasten und ohne verbundene Zellen)
   add([str(`Aufmaßblatt ${info.no}${inv ? ` – ${invoiceLabel(inv)}` : ''}`, 'amTitle')]);
@@ -203,13 +236,15 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
   const rebarItems = items.filter((x) => (x.d.rebar ?? 0) > 0);
   if (rebarItems.length) {
     band('Bewehrung');
-    add([str('Plan', 'amTHead'), str('Nr.', 'amTHead'), str('lfm', 'amTHead')]);
+    const head = [str('Plan', 'amTHead'), str('Nr.', 'amTHead'), str('lfm', 'amTHead')];
+    add(head);
     const first = rows.length + 1;
     let total = 0;
     rebarItems.forEach(({ plan, d }) => {
       const parts = rebarItemsOf(d);
       const v = rebarExact(parts);
       total += v;
+      if (pageFull()) add(head); // neue Seite: Kopfzeile wiederholen
       add([planCell(plan), nrCell(d), { t: 'formula', f: rebarFormula(parts), v, s: 'amTQ' }]);
     });
     const col = 'C';
@@ -242,6 +277,7 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
     let total = 0;
     blocks.forEach(({ pos, list }) => {
       const text = pos.shortText || '';
+      keepTogether(6); // Position, Menge, Tabellenkopf und zwei Zeilen zusammen
       add([str(pos.number, 'amPos'), null, str(text, 'amText')]);
       const qr = add([]);
       priceRows.push(qr);
@@ -273,6 +309,7 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
     });
     if (!prices) return;
     // Zusammenstellung: Titel im Kasten über A–J, je Position der Positionspreis, darunter der Gesamtpreis
+    keepTogether(Math.min(40, 4 + blocks.length * 2)); // möglichst auf einer Seite
     const box = add(fillRow([str(title, 'amBox')], 'amBox'));
     merges.push(`A${box}:J${box}`);
     add([]);
@@ -325,18 +362,20 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
     const qtyCol = COLS[2 + keep.length];
     /** Spalten der Tabelle (Plan, Nr., Maße, Menge) – Kopf und Linien reichen nur so weit */
     const tableCols = 3 + keep.length;
-    // Kopf mit Rahmen je Spalte (wie in der Vorlage); „Bemerkung“ gleich daneben, ohne Rahmen
-    add(
-      measureRow(
-        [str('Plan', 'amTHead'), str('Nr.', 'amTHead')],
-        compact([str('Länge', 'amTHead'), str(labels.width ?? 'Breite', 'amTHead'), str(labels.depth ?? 'Tiefe', 'amTHead'), str(unitHead, 'amTHead')]),
-        notes.some(Boolean) ? str('Bemerkung', 'amThNote') : null,
-      ),
+    // Kopf grau hinterlegt; „Bemerkung“ gleich daneben. Läuft die Tabelle über die Seite, steht der Kopf auf jeder
+    // neuen Seite wieder oben.
+    const head = measureRow(
+      [str('Plan', 'amTHead'), str('Nr.', 'amTHead')],
+      compact([str('Länge', 'amTHead'), str(labels.width ?? 'Breite', 'amTHead'), str(labels.depth ?? 'Tiefe', 'amTHead'), str(unitHead, 'amTHead')]),
+      notes.some(Boolean) ? str('Bemerkung', 'amThNote') : null,
     );
+    keepTogether(3);
+    add(head);
     const first = rows.length + 1;
     let total = 0;
     lines.forEach(({ item, ded }, i) => {
       const { plan, d } = item;
+      if (pageFull()) add(head); // neue Seite: Kopfzeile wiederholen
       const r = rows.length + 1;
       const note = notes[i];
       const q = (v: number, f: string): Cell => ({ t: 'formula', f, v, s: ded ? 'amTDQ' : 'amTQ' });
@@ -422,16 +461,18 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
     return { ref: `${col}${sr}`, value };
   }
 
+  const { widths, scale } = fitColumns(rows);
   const sheet: Sheet = {
     name: `Aufmaßblatt ${info.no}`.slice(0, 31),
     rows,
-    widths: WIDTHS,
+    widths,
     merges,
     print: true,
     pageLayout: true,
     // wie die Vorlage: A4 hoch in 100 % – nie „an Seite anpassen“ (sonst rutscht eine lange Liste verkleinert auf ein Blatt,
-    // sobald man eine Spalte ändert); lange Listen laufen einfach auf die nächste Seite
-    scale: 100,
+    // sobald man eine Spalte ändert); lange Listen laufen auf die nächste Seite (Umbrüche siehe `add`)
+    scale,
+    rowBreaks: breaks,
     logoLeft: true,
     headerCenter: `Aufmaßblatt ${info.no}`,
   };
@@ -449,7 +490,38 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
     name: `${safeFileName(data.project.name, ...scopeName, `Aufmassblatt_${info.no}`)}.xlsx`,
     data: buildXlsx([sheet], { logo: opts.logo }),
     mimeType: XLSX_MIME,
+    sheet,
   };
+}
+
+/**
+ * Spaltenbreiten passend zum Inhalt: jede Zahl und jede Summe hat Platz (nie „###“), Plan und Nr. werden nicht
+ * abgeschnitten. Wird das Blatt dadurch breiter als die Seite, geben zuerst die Füllspalten G und H Platz ab; reicht
+ * auch das nicht, wird der Ausdruck so weit verkleinert, dass die Breite auf eine Seite passt.
+ */
+export function fitColumns(rows: Cell[][]): { widths: number[]; scale: number } {
+  const widths = [...WIDTHS];
+  const total = widths.reduce((a, b) => a + b, 0); // passt bei 100 % auf A4 hoch
+  for (const row of rows)
+    row.forEach((c, i) => {
+      if (!c || i >= widths.length || c.t === 'blank') return;
+      const s = c.s ?? '';
+      const bold = /Bold|Total|THead/.test(s) ? 1.12 : 1;
+      const big = /Total/.test(s) ? 1.1 : 1;
+      let need = 0;
+      // Zahl im Buchhaltungsformat: Tausenderpunkte, zwei Nachkommastellen, Platz für Vorzeichen und Rand
+      if (c.t !== 'str') need = (/^amTC/.test(s) ? String(c.v).length : c.v.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).length + 1.5) * bold * big + 1.5;
+      // Text, der nicht in die Nachbarzelle laufen kann (Tabellenkopf, Plan, Nr.)
+      else if (/^amT(C|Head)/.test(s)) need = c.v.length * bold + 1.5;
+      if (need > widths[i]) widths[i] = Math.ceil(need * 2) / 2;
+    });
+  let over = widths.reduce((a, b) => a + b, 0) - total;
+  for (const i of [7, 6]) {
+    const give = Math.max(0, Math.min(over, widths[i] - 3));
+    widths[i] -= give;
+    over -= give;
+  }
+  return { widths, scale: over > 0 ? Math.max(50, Math.floor((100 * total) / (total + over))) : 100 };
 }
 
 /** Liter aus Fläche × Tiefe (1 m³ = 1000 l); ohne Tiefe nicht berechenbar */
