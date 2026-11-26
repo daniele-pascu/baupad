@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { DASH_SCALES, dashArray, DEFAULT_HATCH, DEFAULT_TRANSPARENCY, HATCH_PATTERNS, HATCH_SPACING_MAX, HATCH_SPACING_MIN, hatchName, isLegacyHatch, LINE_TYPES, LINE_WIDTH_MAX, LINE_WIDTH_MIN, NEW_HATCH } from '../lib/style';
 import { DIN_GROUPS } from '../lib/hatch-din';
 import { DRAW_COLORS, type HatchPattern, type LineType, type ShapeStyle } from '../lib/types';
-import { rememberCustomColorSoon, useCustomColors } from '../lib/custom-colors';
+import { useCustomColors } from '../lib/custom-colors';
 import { Icon } from './Icon';
 import { HatchPreview, hatchLabel, hatchPicker, hatchStyle, settingFromStyle } from './HatchPicker';
+import { MoreColors } from './ColorPicker';
 
 /** Muster-Auswahl: Katalog nach DIN ISO 128-50, nach Stoffgruppen; ein früheres Muster bleibt als eigener Eintrag stehen */
 function PatternOptions({ current }: { current: HatchPattern }) {
@@ -361,7 +362,7 @@ function ColorRow({ label, value, onChange, testId }: { label: string; value: st
             aria-pressed={value.toLowerCase() === c.value}
           />
         ))}
-        <input type="color" value={value} onChange={(e) => (onChange(e.target.value), rememberCustomColorSoon(e.target.value, DRAW_COLORS.map((c) => c.value)))} aria-label={`${label} frei wählen`} title="Farbe frei wählen – wird als eigene Farbe gemerkt" data-testid={testId} />
+        <MoreColors value={value} onChange={onChange} label={`${label} frei wählen`} testId={testId} remember />
       </span>
     </div>
   );
@@ -386,7 +387,7 @@ function MiniColors({ label, name, value, onChange, testId }: { label: string; n
             title={`${name} ${c.name}`}
           />
         ))}
-        <input type="color" value={value} onChange={(e) => (onChange(e.target.value), rememberCustomColorSoon(e.target.value, DRAW_COLORS.map((c) => c.value)))} aria-label={`${name} frei wählen`} title="Farbe frei wählen – wird als eigene Farbe gemerkt" data-testid={testId} />
+        <MoreColors value={value} onChange={onChange} label={`${name} frei wählen`} testId={testId} remember />
       </span>
     </div>
   );

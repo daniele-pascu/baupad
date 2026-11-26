@@ -1,10 +1,11 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { DRAW_COLORS, type LeaderEnd, type TextFont } from '../lib/types';
-import { rememberCustomColorSoon, useCustomColors } from '../lib/custom-colors';
+import { useCustomColors } from '../lib/custom-colors';
 import { cleanFont, FONT_FAMILIES, fontProps, nextSize, roundPt, TEXT_SIZES } from '../lib/text-font';
 import { visibleStroke } from './PlanViewer';
 import { Modal } from './Modal';
 import { customDialog } from './ui';
+import { MoreColors } from './ColorPicker';
 
 /**
  * Textfeld im Plan (Plan zeichnen und Aufmaß): Text, Farbe, Schriftart, fett, kursiv.
@@ -48,7 +49,7 @@ export function FontControls({ font, color, onFont, onColor, compact = false }: 
             data-testid={`text-color-${c.name}`}
           />
         ))}
-        <input type="color" className="font-color-free" value={color} onChange={(e) => (onColor(e.target.value), rememberCustomColorSoon(e.target.value, DRAW_COLORS.map((c) => c.value)))} aria-label="Textfarbe frei wählen" title="Farbe frei wählen – wird als eigene Farbe gemerkt" data-testid="text-color-free" />
+        <MoreColors className="color-more font-color-free" value={color} onChange={onColor} label="Textfarbe frei wählen" testId="text-color-free" remember />
       </span>
     </div>
   );
@@ -245,7 +246,7 @@ export function TextFormatBar({ font, color, pt, onFont, onColor, onPt, compact 
               data-testid={`text-color-${c.name}`}
             />
           ))}
-          <input type="color" className="font-color-free" value={color} onChange={(e) => (onColor(e.target.value), rememberCustomColorSoon(e.target.value, DRAW_COLORS.map((c) => c.value)))} aria-label="Schriftfarbe frei wählen" title="Farbe frei wählen – wird als eigene Farbe gemerkt" data-testid="text-color-free" />
+          <MoreColors className="color-more font-color-free" value={color} onChange={onColor} label="Schriftfarbe frei wählen" testId="text-color-free" remember />
         </div>
       )}
     </div>

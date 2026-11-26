@@ -2,9 +2,10 @@ import { Fragment, useId, useState } from 'react';
 import { DEFAULT_HATCH, HATCH_PATTERNS, HATCH_SPACING_MAX, HATCH_SPACING_MIN, hatchDotsSvg, hatchFillSvg, hatchGeometry, hatchName, hatchSvg, isLegacyHatch, NEW_HATCH } from '../lib/style';
 import { DIN_GROUPS } from '../lib/hatch-din';
 import { DRAW_COLORS, type HatchPattern, type ShapeStyle } from '../lib/types';
-import { rememberCustomColorSoon, useCustomColors } from '../lib/custom-colors';
+import { useCustomColors } from '../lib/custom-colors';
 import { Modal } from './Modal';
 import { customDialog } from './ui';
+import { MoreColors } from './ColorPicker';
 
 /**
  * Schraffur wählen: Katalog nach DIN ISO 128-50 (schwarz-weiß) als Kacheln mit Vorschau, dazu Winkel (dreht das Muster),
@@ -146,7 +147,7 @@ function HatchPickerView({ init, title, allowNone, close }: { init: HatchSetting
           {[...DRAW_COLORS, ...custom.map((c) => ({ value: c, name: `Eigene Farbe ${c}` }))].map((c) => (
             <button key={c.value} type="button" className={`swatch${s.color.toLowerCase() === c.value ? ' active' : ''}`} style={{ background: c.value }} onClick={() => setS({ ...s, color: c.value })} aria-label={`Schraffurfarbe ${c.name}`} aria-pressed={s.color.toLowerCase() === c.value} data-testid={`hatch-color-${c.value}`} />
           ))}
-          <input type="color" value={s.color} onChange={(e) => (setS({ ...s, color: e.target.value }), rememberCustomColorSoon(e.target.value, DRAW_COLORS.map((c) => c.value)))} aria-label="Schraffurfarbe frei wählen" data-testid="hatch-color-free" />
+          <MoreColors value={s.color} onChange={(c) => setS({ ...s, color: c })} label="Schraffurfarbe frei wählen" testId="hatch-color-free" remember />
         </span>
       </div>
       <div className="field">
@@ -158,6 +159,7 @@ function HatchPickerView({ init, title, allowNone, close }: { init: HatchSetting
           {[...DRAW_COLORS, ...custom.map((c) => ({ value: c, name: `Eigene Farbe ${c}` }))].map((c) => (
             <button key={c.value} type="button" className={`swatch${s.bg?.toLowerCase() === c.value ? ' active' : ''}`} style={{ background: c.value }} onClick={() => setS({ ...s, bg: c.value })} aria-label={`Flächenfarbe ${c.name}`} aria-pressed={s.bg?.toLowerCase() === c.value} data-testid={`hatch-bg-${c.value}`} />
           ))}
+          <MoreColors value={s.bg ?? '#ffffff'} onChange={(c) => setS({ ...s, bg: c })} label="Flächenfarbe frei wählen" testId="hatch-bg-free" remember />
         </span>
       </div>
     </Modal>

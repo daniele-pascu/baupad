@@ -872,6 +872,14 @@ export function tastenTests() {
     await page.getByTestId('ribbon-style').getByTestId('style-hatch-open').click();
     await expect(page.getByTestId('hatch-picker')).toBeVisible();
     await pruefe(page, 'Dialog Schraffur', out);
+    // Farbwahl (weitere Farben): Farbfelder und selbst wählen
+    await page.getByTestId('hatch-picker').getByTestId('hatch-color-free').click();
+    await expect(page.getByTestId('color-picker')).toBeVisible();
+    await pruefe(page, 'Farbwahl Farbfelder', out);
+    await page.getByTestId('color-tab-custom').click();
+    await pruefe(page, 'Farbwahl selbst wählen', out);
+    await page.getByTestId('color-picker').getByRole('button', { name: 'Abbrechen' }).click();
+    await expect(page.getByTestId('color-picker')).toHaveCount(0);
     await page.getByTestId('hatch-tile-din-SN46').click();
     await page.getByTestId('hatch-ok').click();
     await pruefe(page, 'Eigenschaften Schraffur', out);

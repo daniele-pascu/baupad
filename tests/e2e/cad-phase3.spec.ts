@@ -1,6 +1,6 @@
 import { expect, test, type Page } from './fixtures';
 import { execFileSync } from 'node:child_process';
-import { catchDownload, createProject, freshStart, pickTool, saveDownload, waitSaved, toMeasureMode } from './helpers';
+import { catchDownload, createProject, freshStart, pickFreeColor, pickTool, saveDownload, waitSaved, toMeasureMode } from './helpers';
 
 /** CAD Phase 3 (Maus): Linienarten, Musterlänge, Deckkraft, Baustoff-Schraffur (ÖNORM), Flächenfarbe, eigene Farben, Reihe */
 
@@ -106,7 +106,7 @@ test('Eigenschaften: Linienart, Musterlänge, Deckkraft, Baustoff-Schraffur, Fl�
 
 test('Eigene Farbe wird je Gerät gemerkt (auch nach Neuladen)', async () => {
   const st = page.getByTestId('ribbon-style');
-  await st.getByTestId('style-line-color').fill('#123456');
+  await pickFreeColor(page, st.getByTestId('style-line-color'), '#123456');
   await expect(st.getByRole('button', { name: 'Farbe Eigene Farbe #123456', exact: true })).toBeVisible({ timeout: 4000 });
   await waitSaved(page);
   expect((await elements())[0].color).toBe('#123456');

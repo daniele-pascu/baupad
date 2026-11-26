@@ -390,7 +390,7 @@ async function finishSheet(ctx: Ctx, page: PDFPage, plan: Plan, L: SheetLayout, 
   const k = unitsPerMeter(plan);
   for (const e of visibleElements(plan, elementsOf(ctx.data, plan.id))) if (e.type === 'text') drawTextElement(ctx, page, e, shapeToPage(e.shape, k), map, L.u);
   const lg = planLegend(plan, ctx.plans, damages);
-  if (lg.show) drawLegend(ctx, page, { x: L.plan.x, y: L.h - (L.plan.y + L.plan.h), w: L.plan.w, h: L.plan.h }, lg.pos, lg.entries);
+  if (lg.show) drawLegend(ctx, page, sheetFrame(page, L.h, L.header), lg.pos, lg.entries);
   if (L.overview && full && plan.crop) await drawOverview(ctx, page, L, plan, L.overview, full);
 }
 
@@ -399,6 +399,12 @@ async function finishSheet(ctx: Ctx, page: PDFPage, plan: Plan, L: SheetLayout, 
  * wozu der Plan gehört (Kostenstelle bzw. Projektnummer, dann Bauvorhaben/Adresse) und – wenn eingeschaltet – die Bemerkung; rechts nur die
  * ausdrücklich eingeschalteten Angaben (Format, Maßstab) und das BauPad-Zeichen. Trennlinie darunter.
  */
+/** Rahmen des Blatts unter der Trennlinie des Plankopfs (PDF-Koordinaten, y nach oben) – dort sitzt die Legende in der Ecke */
+function sheetFrame(page: PDFPage, pageH: number, header: Rect): { x: number; y: number; w: number; h: number } {
+  const f = header.x - 3 * MM;
+  return { x: f, y: f, w: page.getWidth() - 2 * f, h: pageH - (header.y + header.h) + 6 - f };
+}
+
 function drawSheetHeader(ctx: Ctx, page: PDFPage, pageH: number, header: Rect, plan: Plan, right: string[], reserveRight = 0) {
   // dünner Rahmen um das ganze Blatt (3 mm außerhalb des Inhalts); der Plankopf ist oben durch eine Linie abgeteilt
   const pad = 3 * MM;
@@ -876,7 +882,7 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   // Messungen und Bauteilbuchstaben darüber
   drawDamages(ctx, target, region, damages, components);
   const lg = planLegend(plan, Object.values(data.plans), damages);
-  if (lg.show) drawLegend(ctx, page, { x: margin - 2, y: margin - 2, w: W - 2 * margin + 4, h: H - 2 * margin - headerPt + 4 }, lg.pos, lg.entries);
+  if (lg.show) drawLegend(ctx, page, sheetFrame(page, H, { x: margin, y: margin, w: W - 2 * margin, h: headerPt }), lg.pos, lg.entries);
   // Maßstabsleiste rechts im Kopfbereich (nur wenn der Maßstab angezeigt werden soll)
   if (!showScale) return;
   const lblW = ctx.font.widthOfTextAtSize(`${String(barM).replace('.', ',')} m`, 6.5);
@@ -982,9 +988,11 @@ function drawLegend(ctx: Ctx, page: PDFPage, box: { x: number; y: number; w: num
   const labels = entries.map((e) => fitText(ctx.font, clean(ctx, e.label), size, 200));
   const w = Math.max(ctx.bold.widthOfTextAtSize('Legende', size), ...labels.map((l) => ctx.font.widthOfTextAtSize(l, size) + sw + 6)) + 12;
   const h = 14 + entries.length * row + 4;
-  const x = pos[1] === 'l' ? box.x + 4 : box.x + box.w - w - 4;
-  const y = pos[0] === 'b' ? box.y + 4 : box.y + box.h - h - 4;
-  page.drawRectangle({ x, y, width: w, height: h, color: rgb(1, 1, 1), borderColor: rgb(0.55, 0.57, 0.6), borderWidth: 0.6 });
+  // in der Ecke des Blattrahmens, mit kleinem Abstand (2 mm) zum Rahmen
+  const gap = 2 * MM;
+  const x = pos[1] === 'l' ? box.x + gap : box.x + box.w - w - gap;
+  const y = pos[0] === 'b' ? box.y + gap : box.y + box.h - h - gap;
+  page.drawRectangle({ x, y, width: w, height: h, color: rgb(1, 1, 1), borderColor: rgb(0.1, 0.1, 0.12), borderWidth: 0.6 });
   page.drawText('Legende', { x: x + 6, y: y + h - 11, size, font: ctx.bold, color: rgb(0.1, 0.1, 0.12) });
   entries.forEach((e, i) => {
     const ty = y + h - 14 - (i + 1) * row + 4;

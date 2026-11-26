@@ -1,4 +1,4 @@
-import { expect, type Page, type Download } from '@playwright/test';
+import { expect, type Download, type Locator, type Page } from '@playwright/test';
 import { signInScript } from './fixtures';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
@@ -355,4 +355,14 @@ export async function pickWeekProject(page: Page, name: string, how: 'click' | '
   const item = page.getByTestId('project-picker').getByTestId('picker-item').filter({ hasText: name });
   await (how === 'tap' ? item.tap() : item.click());
   await expect(page.locator(`[data-testid="site-card"][data-site="${name}"]`)).toBeVisible();
+}
+
+/** Farbe über die Taste „weitere Farben“ selbst wählen (Reiter „Selbst wählen“, Hex eintippen, OK) */
+export async function pickFreeColor(page: Page, button: Locator, hex: string) {
+  await button.click();
+  const cp = page.getByTestId('color-picker');
+  await cp.getByTestId('color-tab-custom').click();
+  await cp.getByTestId('color-hex').fill(hex);
+  await cp.getByTestId('color-ok').click();
+  await expect(cp).toHaveCount(0);
 }
