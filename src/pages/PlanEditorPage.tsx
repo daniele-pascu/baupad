@@ -33,7 +33,7 @@ import { ExcelExportDialog } from '../components/ExcelExportDialog';
 import { calibrationFrom, detectScale, sourceText } from '../lib/scale-detect';
 import { areasBelow, visibleDamages } from '../lib/layers';
 import { LayerMenu } from '../components/LayerMenu';
-import { aufmassPaper, drawingRegion, printSheetRect, sheetUnitsPerPt, isDrawingPlan, lineEnds, paperLabel, shapeToMeters, shapeToPage, suggestMeasures, unitsPerMeter } from '../lib/drawing';
+import { PAPER, aufmassPaper, drawingRegion, printSheetRect, sheetUnitsPerPt, isDrawingPlan, lineEnds, paperLabel, shapeToMeters, shapeToPage, suggestMeasures, unitsPerMeter } from '../lib/drawing';
 import { convertShape, isOpenShape, lineShape, moveVertex, polygonShape, removeVertex, rotatePoint, shapeVertices, toPage, toScreen, type Point, type View } from '../lib/geometry';
 import { probeTarget, type ProbeKind } from '../lib/probe';
 import { ProbeBar, ProbeMenu, ProbeOverlay, type ProbeState } from '../components/ProbeLayer';
@@ -1879,8 +1879,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             </button>
           </div>
           {plan.drawing?.paper && (
-            <button type="button" className="btn btn-sm sheet-chip" onClick={() => setDetailsOpen(true)} title="Papierformat und Maßstab ändern" data-testid="sheet-label">
-              {paperLabel(plan.drawing)}
+            <button type="button" className="btn btn-sm sheet-chip" onClick={() => setDetailsOpen(true)} title={drawMode ? 'Papierformat und Maßstab ändern' : 'Papierformat ändern'} data-testid="sheet-label">
+              {/* im Aufmaß nur das Format – der Maßstab gilt für das Zeichenblatt */}
+              {drawMode ? paperLabel(plan.drawing) : PAPER[plan.drawing.paper].label}
             </button>
           )}
           {drawMode && (
@@ -3238,7 +3239,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       )}
       {excelOpen && plan && <ExcelExportDialog data={data} scope={{ kind: 'plan', planId: plan.id }} onClose={() => setExcelOpen(false)} />}
       {dimsOpen && plan && file && <DimensionReview data={data} plan={plan} file={file} onClose={() => setDimsOpen(false)} />}
-      {detailsOpen && <PlanDetailsDialog plan={plan} data={data} onClose={() => setDetailsOpen(false)} />}
+      {detailsOpen && <PlanDetailsDialog plan={plan} data={data} onClose={() => setDetailsOpen(false)} measure={!drawMode} />}
       {cropImage && (
         <AreaEditor
           title="Planausschnitt festlegen"

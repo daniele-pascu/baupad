@@ -1,7 +1,7 @@
 import { usePricesVisible } from '../lib/price-access';
 import { useMemo, useState } from 'react';
 import { costCenterName, costCentersOf, damagesOf, planTitle, plansOf } from '../lib/aufmass';
-import { defaultPeriod, exportAufmassblatt, plansIn, type BlattScope } from '../lib/aufmassblatt';
+import { exportAufmassblatt, plansIn, type BlattScope } from '../lib/aufmassblatt';
 import { cachedExcelLogo } from '../lib/company';
 import { updateProject, type ProjectState } from '../lib/store';
 import { Icon } from './Icon';
@@ -14,8 +14,7 @@ import { showError } from './ui';
 export const nextSheetNo = (data: ProjectState) => String((data.project.sheetNo ?? 0) + 1).padStart(3, '0');
 
 /**
- * Excel-Export: Aufmaßblatt nach Firmenvorlage (Nummer wird vergeben und hochgezählt,
- * Leistungszeitraum aus den Messungen vorgeschlagen).
+ * Excel-Export: Aufmaßblatt nach Firmenvorlage (Nummer wird vergeben und hochgezählt).
  */
 export function ExcelExportDialog({ data, scope, onClose, sheetId }: { data: ProjectState; scope: BlattScope; onClose: () => void; sheetId?: string }) {
   /** ohne Freigabe „Preise und Summen“: Aufmaßblatt ohne Preise und Zusammenstellung */
@@ -29,12 +28,7 @@ export function ExcelExportDialog({ data, scope, onClose, sheetId }: { data: Pro
   const allIds = groups.flatMap((g) => g.plans.map((p) => p.id));
   const same = sel.size === initial.length && initial.every((id) => sel.has(id));
   const effective: BlattScope = !pickable || same ? scope : { kind: 'plans', planIds: allIds.filter((id) => sel.has(id)) };
-  const [period, setPeriod] = useState(() => defaultPeriod(data, scope));
-  const [periodEdited, setPeriodEdited] = useState(false);
-  const choose = (next: Set<string>) => {
-    setSel(next);
-    if (!periodEdited && next.size) setPeriod(defaultPeriod(data, { kind: 'plans', planIds: [...next] }));
-  };
+  const choose = setSel;
 
   /** fertiges Blatt: erst Vorschau, dort speichern (Ordner wählen, teilen oder herunterladen) */
   const [preview, setPreview] = useState<ReturnType<typeof exportAufmassblatt> | null>(null);
@@ -43,7 +37,7 @@ export function ExcelExportDialog({ data, scope, onClose, sheetId }: { data: Pro
   const blatt = () => {
     try {
       if (!sel.size && pickable) throw new Error('Bitte mindestens einen Plan wählen.');
-      setPreview(exportAufmassblatt(data, effective, { no: nr, period: period.trim() }, { logo, prices }));
+      setPreview(exportAufmassblatt(data, effective, { no: nr, period: '' }, { logo, prices }));
     } catch (e) {
       showError(e, 'Excel-Export fehlgeschlagen');
     }
@@ -91,19 +85,6 @@ export function ExcelExportDialog({ data, scope, onClose, sheetId }: { data: Pro
           <label className="field">
             <span>Aufmaßblatt-Nr.</span>
             <input value={no} onChange={(e) => setNo(e.target.value)} inputMode="numeric" autoComplete="off" data-testid="blatt-no" />
-          </label>
-          <label className="field">
-            <span>Leistungszeitraum</span>
-            <input
-              value={period}
-              onChange={(e) => {
-                setPeriod(e.target.value);
-                setPeriodEdited(true);
-              }}
-              placeholder="z. B. 01.10.2026 – 26.10.2026"
-              autoComplete="off"
-              data-testid="blatt-period"
-            />
           </label>
         </div>
         {pickable && allIds.length > 1 && (

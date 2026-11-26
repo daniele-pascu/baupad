@@ -74,7 +74,7 @@ test('Import: Format wählbar (Standard A4 passend), Überschrift, PDF genau A3 
   await expect(wiz.getByTestId('heading-preview')).toHaveText('Überschrift im PDF: Plan F-1'); // ohne eigenen Titel „Plan“ und die Nummer
   await wiz.locator('[data-field="title"]').fill('Aufmaßplan Tiefgarage');
   await expect(wiz.getByTestId('heading-preview')).toHaveText('Überschrift im PDF: Aufmaßplan Tiefgarage F-1');
-  await wiz.getByTestId('show-paper').check(); // Format ausdrücklich im Plan anzeigen
+  await expect(wiz.getByTestId('show-paper')).toHaveCount(0); // das Format steht nie im Plan
   await wiz.getByTestId('import-save').click();
   await waitForPlan(page);
   const box = await planBox(page);
@@ -87,7 +87,7 @@ test('Import: Format wählbar (Standard A4 passend), Überschrift, PDF genau A3 
   const r = await exportPdf(page, 'format-a3-hoch');
   expect(r.info).toMatch(new RegExp(`Page size:\\s+${A3} pts`)); // Format nicht durch den Plan verändert
   expect(r.text).toContain('Aufmaßplan Tiefgarage F-1');
-  expect(r.text).toContain('A3 Hochformat');
+  expect(r.text).not.toContain('A3 Hochformat');
   expect(r.text).toContain('Technik'); // Originalinhalt vektoriell erhalten
   expect(borderInk(r.png)).toBe(0); // nichts außerhalb des Blattrahmens
   // Aufmaßwerte unverändert (18 m bleiben 18 m)
@@ -157,8 +157,8 @@ test('Gezeichneter Plan: Überschrift frei wählbar, Format des Zeichenblatts', 
   const nd = page.getByTestId('new-drawing');
   // Vereinfachte Eingabe: nur Plannummer, Titel, Bemerkung, Format, Maßstab
   await expect(nd.locator('[data-field="planName"], [data-field="floor"], [data-field="area"]')).toHaveCount(0);
-  await expect(nd.getByTestId('show-paper')).not.toBeChecked();
-  await expect(nd.getByTestId('show-scale')).not.toBeChecked();
+  await expect(nd.getByTestId('show-paper')).toHaveCount(0);
+  await expect(nd.getByTestId('show-scale')).toHaveCount(0);
   await expect(nd.getByTestId('show-note')).not.toBeChecked();
   await nd.locator('[data-field="planNumber"]').fill('Z-9');
   await nd.locator('[data-field="title"]').fill('Aufmaßplan');

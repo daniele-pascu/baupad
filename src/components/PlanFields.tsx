@@ -3,7 +3,6 @@ import { useId, useState } from 'react';
 import { isDrawingPlan, makePaper, PAPER, PAPER_SIZES, paperOrient, paperSize, PRINT_HEADER_MM, PRINT_MARGIN_MM, printFit, SCALES, sheetFields, sheetMeters } from '../lib/drawing';
 import { formatMeasure } from '../lib/numbers';
 import { elementsOf } from '../lib/aufmass';
-import { planNumberStart } from '../lib/numbering';
 import { sameNumberScope } from '../lib/invoices';
 import { alive, newMeta, putRecord, type ProjectState } from '../lib/store';
 import { exportPaper, planHeading } from '../lib/sheet-layout';
@@ -117,7 +116,8 @@ export function PlanFields({
 }
 
 /** Planangaben nachträglich bearbeiten. */
-export function PlanDetailsDialog({ plan, data, onClose }: { plan: Plan; data: ProjectState; onClose: () => void }) {
+/** `measure`: im Aufmaß geöffnet – dort gibt es nur das Format (der Maßstab gehört zum Zeichenblatt in „Plan bearbeiten“) */
+export function PlanDetailsDialog({ plan, data, onClose, measure }: { plan: Plan; data: ProjectState; onClose: () => void; measure?: boolean }) {
   const [v, setV] = useState<PlanFieldValues>({
     planNumber: plan.planNumber,
     planName: plan.planName,
@@ -129,21 +129,17 @@ export function PlanDetailsDialog({ plan, data, onClose }: { plan: Plan; data: P
     showName: plan.showName !== false,
     showFloor: plan.showFloor !== false,
   });
-  const [showPaper, setShowPaper] = useState(!!plan.showPaper);
-  const [showScale, setShowScale] = useState(!!plan.showScale);
   /** Importierte Pläne: Papierformat für den PDF-Export */
   const [exportFmt, setExportFmt] = useState<PaperFormat>(() => exportPaper(plan));
-  const [start, setStart] = useState(String(planNumberStart(plan)));
   const [paper, setPaper] = useState<PaperFormat | ''>(plan.drawing?.paper ?? '');
   const [scale, setScale] = useState(plan.drawing?.fit ? 0 : (plan.drawing?.scale ?? 100));
   const [show, setShow] = useState(false);
-  /** Anzeige im Plan (Titel, Bezeichnung, Ebene, Bemerkung, Format, Maßstab) auf alle Pläne des Projekts übertragen */
+  /** Anzeige im Plan (Titel, Bezeichnung, Ebene, Bemerkung) auf alle Pläne des Projekts übertragen */
   const [applyAll, setApplyAll] = useState(false);
   /** aufgeteilt nach Rechnungen: Plan in eine andere Rechnung verschieben */
   const invoices = data.project.splitByInvoice ? invoicesOf(data.project) : [];
   const [invoiceId, setInvoiceId] = useState(plan.invoiceId ?? invoices[0]?.id ?? '');
   const error = planNumberError(data, v.planNumber, plan.id, invoices.length ? invoiceId : plan.invoiceId);
-  const startOk = /^\d{1,6}$/.test(start.trim()) && Number(start.trim()) >= 1;
 
   return (
     <Modal
@@ -161,7 +157,7 @@ export function PlanDetailsDialog({ plan, data, onClose }: { plan: Plan; data: P
             className="btn btn-primary"
             onClick={() => {
               setShow(true);
-              if (error || !startOk) return;
+              if (error) return;
               putRecord('plans', {
                 ...plan,
                 planNumber: v.planNumber.trim(),
@@ -169,13 +165,13 @@ export function PlanDetailsDialog({ plan, data, onClose }: { plan: Plan; data: P
                 floor: v.floor.trim(),
                 area: v.area.trim(),
                 description: v.description.trim(),
-                numberStart: Number(start.trim()),
                 title: v.title?.trim() ?? '',
                 showNote: !!v.showNote,
                 showName: v.showName !== false,
                 showFloor: v.showFloor !== false,
-                showPaper,
-                showScale: isDrawingPlan(plan) ? showScale : false,
+                // Format und Maßstab stehen nicht mehr im Plan (die Schalter dafür gibt es nicht mehr)
+                showPaper: false,
+                showScale: false,
                 ...(isDrawingPlan(plan) ? (paper ? sheetFields(paper, scale) : {}) : { paper: exportFmt }),
                 ...(invoices.length && invoiceId ? { invoiceId } : {}),
               });
@@ -188,8 +184,6 @@ export function PlanDetailsDialog({ plan, data, onClose }: { plan: Plan; data: P
                     showNote: !!v.showNote,
                     showName: v.showName !== false,
                     showFloor: v.showFloor !== false,
-                    showPaper,
-                    showScale: isDrawingPlan(other) ? showScale : false,
                   });
                 }
               onClose();
@@ -217,12 +211,6 @@ export function PlanDetailsDialog({ plan, data, onClose }: { plan: Plan; data: P
         <input type="checkbox" checked={applyAll} onChange={(e) => setApplyAll(e.target.checked)} data-testid="apply-all-plans" />
         <span>Titel und „Im Plan anzeigen“ für alle Pläne dieses Projekts übernehmen ({alive(data.plans).filter((x) => x.projectId === plan.projectId).length} Pläne)</span>
       </label>
-      <label className="field">
-        <span>Startnummer für neue Messungen</span>
-        <input value={start} onChange={(e) => setStart(e.target.value)} inputMode="numeric" pattern="[0-9]*" />
-        <small className="muted">Standard: 1. Bestehende Nummern werden dadurch nicht verändert.</small>
-        {show && !startOk && <small className="error">Bitte eine ganze Zahl ab 1 eingeben.</small>}
-      </label>
       {isDrawingPlan(plan) ? (
         <>
           <SheetFields
@@ -230,16 +218,14 @@ export function PlanDetailsDialog({ plan, data, onClose }: { plan: Plan; data: P
             scale={scale}
             onChange={(p, s) => (setPaper(p), setScale(s))}
             allowNone={!plan.drawing?.paper}
-            showPaper={showPaper}
-            showScale={showScale}
-            onShow={(o) => (o.showPaper !== undefined && setShowPaper(o.showPaper), o.showScale !== undefined && setShowScale(o.showScale))}
+            noScale={measure}
           />
           {paper && scale > 0 && <OutsideHint plan={plan} data={data} paper={paper} scale={scale} />}
           <p className="muted small">Selbst gezeichneter Plan (Maße in Metern).</p>
         </>
       ) : (
         <>
-        <ExportPaperField value={exportFmt} onChange={setExportFmt} show={showPaper} onShow={setShowPaper} />
+        <ExportPaperField value={exportFmt} onChange={setExportFmt} />
         <p className="muted small">
           Originaldatei: {data.files[plan.fileId]?.name ?? '–'}
           {(data.files[plan.fileId]?.pageCount ?? 1) > 1 && `, Seite ${plan.pageIndex + 1}`}
@@ -284,8 +270,6 @@ export function NewDrawingDialog({
   const [v, setV] = useState<PlanFieldValues>({ planNumber: '', planName: '', floor: '', area: '', description: '', title: '', showNote: false });
   const [show, setShow] = useState(false);
   // Format und Maßstab erscheinen standardmäßig nicht auf dem Plan
-  const [showPaper, setShowPaper] = useState(false);
-  const [showScale, setShowScale] = useState(false);
   const [paper, setPaper] = useState<PaperFormat>(() => (localStorage.getItem('paper') as PaperFormat) || 'A3-quer');
   const [scale, setScale] = useState(() => Number(localStorage.getItem('paperScale')) || 100);
   const error = planNumberError(data, v.planNumber, undefined, invoiceId);
@@ -312,8 +296,6 @@ export function NewDrawingDialog({
       showNote: !!v.showNote,
       showName: v.showName !== false,
       showFloor: v.showFloor !== false,
-      showPaper,
-      showScale,
       numberStart: 1,
       sortIndex: siblings.length ? Math.max(...siblings.map((p) => p.sortIndex)) + 1 : 0,
     };
@@ -354,9 +336,6 @@ export function NewDrawingDialog({
           paper={paper}
           scale={scale}
           onChange={(p, s) => (setPaper((p || 'A3-quer') as PaperFormat), setScale(s))}
-          showPaper={showPaper}
-          showScale={showScale}
-          onShow={(o) => (o.showPaper !== undefined && setShowPaper(o.showPaper), o.showScale !== undefined && setShowScale(o.showScale))}
         />
         <p className="muted small">
           Sie zeichnen maßstäblich in Metern: z. B. Rechteck wählen, 5,00 × 3,65 m eingeben, einfügen. Danach geht es mit „Weiter“ zum
@@ -372,23 +351,12 @@ export function NewDrawingDialog({
  * Papierformat für den PDF-Export importierter Pläne. Der Plan bzw. Ausschnitt wird darin
  * proportional und zentriert eingepasst; das Format ändert sich dabei nie von selbst.
  */
-export function ExportPaperField({
-  value,
-  onChange,
-  show,
-  onShow,
-}: {
-  value: PaperFormat;
-  onChange: (p: PaperFormat) => void;
-  show?: boolean;
-  onShow?: (v: boolean) => void;
-}) {
+export function ExportPaperField({ value, onChange }: { value: PaperFormat; onChange: (p: PaperFormat) => void }) {
   const id = useId();
   return (
     <div className="field">
       <span className="field-head">
         <label htmlFor={id}>Format (PDF)</label>
-        {onShow && <ShowInPlan checked={!!show} onChange={onShow} testId="show-paper" />}
       </span>
       <span className="paper-pick">
         <select id={id} value={paperSize(value)} onChange={(e) => onChange(makePaper(e.target.value as PaperSize, paperOrient(value)))} data-testid="export-paper">
@@ -420,18 +388,14 @@ function SheetFields({
   scale,
   onChange,
   allowNone,
-  showPaper = false,
-  showScale = false,
-  onShow,
+  noScale,
 }: {
   paper: PaperFormat | '';
   scale: number;
   onChange: (paper: PaperFormat | '', scale: number) => void;
   allowNone?: boolean;
-  /** Format bzw. Maßstab im PDF anzeigen (Standard: nein) */
-  showPaper?: boolean;
-  showScale?: boolean;
-  onShow?: (o: { showPaper?: boolean; showScale?: boolean }) => void;
+  /** nur das Format (im Aufmaß) */
+  noScale?: boolean;
 }) {
   const m = paper ? sheetMeters(paper, scale || 100) : null;
   return (
@@ -439,7 +403,6 @@ function SheetFields({
       <div className="field">
         <span className="field-head">
           <label htmlFor="sheet-paper">Format</label>
-          {onShow && <ShowInPlan checked={showPaper} onChange={(v) => onShow({ showPaper: v })} testId="show-paper" />}
         </span>
         <span className={`paper-pick${paper ? '' : ' no-paper'}`}>
           <select
@@ -458,26 +421,27 @@ function SheetFields({
           <OrientSelect value={paper ? paperOrient(paper) : 'quer'} onChange={(o) => paper && onChange(makePaper(paperSize(paper), o), scale)} disabled={!paper} testId="sheet-orient" />
         </span>
       </div>
-      <div className="field">
-        <span className="field-head">
-          <label htmlFor="sheet-scale">Maßstab</label>
-          {onShow && <ShowInPlan checked={showScale} onChange={(v) => onShow({ showScale: v })} testId="show-scale" />}
-        </span>
-        <select id="sheet-scale" value={scale} onChange={(e) => onChange(paper, Number(e.target.value))} disabled={!paper} data-testid="sheet-scale">
-          <option value={0}>Ohne Maßstab – Blatt füllen</option>
-          {SCALES.map((n) => (
-            <option key={n} value={n}>
-              1:{n}
-            </option>
-          ))}
-        </select>
-      </div>
-      {m && scale === 0 && (
+      {!noScale && (
+        <div className="field">
+          <span className="field-head">
+            <label htmlFor="sheet-scale">Maßstab</label>
+          </span>
+          <select id="sheet-scale" value={scale} onChange={(e) => onChange(paper, Number(e.target.value))} disabled={!paper} data-testid="sheet-scale">
+            <option value={0}>Ohne Maßstab – Blatt füllen</option>
+            {SCALES.map((n) => (
+              <option key={n} value={n}>
+                1:{n}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      {m && !noScale && scale === 0 && (
         <p className="muted small span-2" data-testid="sheet-size">
           Ohne Maßstab: Im PDF wird die Zeichnung so groß wie möglich auf das Blatt gesetzt und zentriert.
         </p>
       )}
-      {m && scale > 0 && (
+      {m && !noScale && scale > 0 && (
         <p className="muted small span-2" data-testid="sheet-size">
           Zeichenblatt: {formatMeasure(m.w)} × {formatMeasure(m.h)} m (realer Bereich innerhalb der Druckränder)
         </p>

@@ -152,7 +152,7 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   await page.getByTestId('export-xlsx-cc').click();
   const ex = page.getByTestId('excel-export');
   await expect(ex.getByTestId('blatt-no')).toHaveValue('001');
-  await expect(ex.getByTestId('blatt-period')).toHaveValue(/\d{2}\.\d{2}\.\d{4}/);
+  await expect(ex.getByTestId('blatt-period')).toHaveCount(0); // kein Leistungszeitraum mehr
   const dl3 = await catchDownload(page, () => ex.getByTestId('blatt-export').click());
   expect(dl3.suggestedFilename()).toMatch(/Aufmassblatt_001\.xlsx$/);
   const file3 = await saveDownload(dl3, 'aufmassblatt.xlsx');
@@ -160,16 +160,15 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   const v = (r: number, c: number) => ws[r]?.[c]?.v ?? null;
   const rowOf = (text: string, col = 0) => ws.findIndex((r) => r[col]?.v === text);
   expect(v(0, 0)).toBe('Aufmaßblatt 001');
-  // Kopf: nur Bauvorhaben, Kostenstelle und Leistungszeitraum – keine Zeile „Plan“
+  // Kopf: nur Bauvorhaben und Kostenstelle – keine Zeile „Plan“, kein Leistungszeitraum
   expect([v(2, 0), v(2, 2)]).toEqual(['Bauvorhaben', 'LV-Test']);
   expect([v(3, 0), v(3, 2)]).toEqual(['Kostenstelle', 'Garage']);
-  expect(v(4, 0)).toBe('Leistungszeitraum');
-  expect(String(v(6, 0))).toMatch(/^LV - .*Sanierung Tiefgarage Musterstrasse/);
+  expect(String(v(5, 0))).toMatch(/^LV - .*Sanierung Tiefgarage Musterstrasse/);
   const vals = (r: number) => ws[r].map((c) => c?.v ?? null).filter((x) => x !== null);
   /** alle Zeilen mit diesem Text in Spalte A: zuerst die Position mit ihrer Tabelle, am Ende die Zusammenstellung */
   const rowsOf = (text: string) => ws.map((r, i) => (r[0]?.v === text ? i : -1)).filter((i) => i >= 0);
   // Spaltenkopf wie in der Vorlage
-  expect(vals(8)).toEqual(['Pos. / Positionstext', 'Menge', 'EH', 'Einheitspreis', 'Positionspreis']);
+  expect(vals(7)).toEqual(['Pos. / Positionstext', 'Menge', 'EH', 'Einheitspreis', 'Positionspreis']);
   // Zusammenstellung am Ende des LV: Gesamtpreis als Formel
   const total = ws.find((r) => r[5]?.v === 'Gesamtpreis in EUR')!;
   expect(String(total[8]?.v)).toMatch(/^=SUM\(I\d+:I\d+\)$/);

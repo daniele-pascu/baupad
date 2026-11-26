@@ -768,7 +768,7 @@ export function tastenTests() {
       await ribbonGroup(page, 'draw');
       await pruefe(page, 'Plan zeichnen: Werkzeuge', out);
     }
-    // Planangaben (im Aufmaß – Plan zeichnen zeigt Angaben, Excel, PDF und Fotos nicht): Format und Maßstab nebeneinander
+    // Planangaben (im Aufmaß – Plan zeichnen zeigt Angaben, Excel, PDF und Fotos nicht): nur das Format, ohne Maßstab
     await toMeasureMode(page);
     await page.getByTitle('Planangaben').click();
     await expect(page.getByTestId('plan-details')).toBeVisible();

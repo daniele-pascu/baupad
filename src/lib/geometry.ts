@@ -747,15 +747,26 @@ export function layoutLabels(items: LabelInput[], gap: number, opts: LabelOption
     if (!it.offset) continue;
     const b = it.bounds;
     let r: Rect = { x: b.x + b.w + it.offset.dx, y: b.y + it.offset.dy - it.h, w: it.w, h: it.h };
-    const covers = onStroke(r, it);
-    if (covers) {
-      const moves: Rect[] = [
-        { ...r, x: b.x - r.w - gap }, // links daneben
-        { ...r, x: b.x + b.w + gap }, // rechts daneben
-        { ...r, y: b.y - r.h - gap }, // darüber
-        { ...r, y: b.y + b.h + gap }, // darunter
-      ];
-      r = moves.reduce((best, m) => (Math.hypot(m.x - r.x, m.y - r.y) < Math.hypot(best.x - r.x, best.y - r.y) ? m : best));
+    if (onStroke(r, it)) {
+      if (open(it)) {
+        // Linie: quer zu ihr wegrücken, bis das Feld frei steht – so bleibt die Nummer auch an einer schrägen Linie dort,
+        // wo man sie hingezogen hat (z. B. in der Mitte), statt an den Rand des umgebenden Rechtecks (die Enden) zu springen
+        const c = { x: r.x + r.w / 2, y: r.y + r.h / 2 };
+        const near = outlinePointToward(shapeOf(it), c);
+        const len = Math.hypot(c.x - near.x, c.y - near.y);
+        const n = len > 1e-9 ? { x: (c.x - near.x) / len, y: (c.y - near.y) / len } : { x: 0, y: -1 };
+        const step = Math.max(it.h, gap) / 4;
+        const start = r;
+        for (let k = 1; k <= 60 && onStroke(r, it); k++) r = { ...start, x: start.x + n.x * step * k, y: start.y + n.y * step * k };
+      } else {
+        const moves: Rect[] = [
+          { ...r, x: b.x - r.w - gap }, // links daneben
+          { ...r, x: b.x + b.w + gap }, // rechts daneben
+          { ...r, y: b.y - r.h - gap }, // darüber
+          { ...r, y: b.y + b.h + gap }, // darunter
+        ];
+        r = moves.reduce((best, m) => (Math.hypot(m.x - r.x, m.y - r.y) < Math.hypot(best.x - r.x, best.y - r.y) ? m : best));
+      }
     }
     result.set(it.id, r);
   }

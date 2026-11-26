@@ -139,6 +139,18 @@ describe('Von Hand verschobene Nummer', () => {
   });
 });
 
+describe('Von Hand verschobene Nummer an einer schrägen Linie', () => {
+  it('auf die Mitte der Linie gezogen: rückt quer zur Linie daneben und bleibt in der Mitte – springt nicht zu den Enden', () => {
+    const shape = { type: 'line' as const, x: 0, y: 0, w: 400, h: 300, points: [[0, 1], [1, 0]] as [number, number][] };
+    // Feld (22 × 15) mit der Mitte fast genau auf der Linienmitte (200 | 150)
+    const it: LabelInput = { id: 'l', bounds: { x: 0, y: 0, w: 400, h: 300 }, shape, w: 22, h: 15, offset: { dx: -400 + 192, dy: 155 } };
+    const r = layoutLabels([it], 3).get('l')!;
+    expect(rectToOutline(r, outlineParts(shape))).toBeGreaterThanOrEqual(1.5); // nicht auf der Linie
+    const c = { x: r.x + r.w / 2, y: r.y + r.h / 2 };
+    expect(Math.hypot(c.x - 200, c.y - 150)).toBeLessThan(30); // gleich neben der Mitte, nicht am Linienende (250 entfernt)
+  });
+});
+
 describe('Übersicht (Plan verkleinert): Nummern dicht an der Messung, sonst ausgeblendet', () => {
   // 30 winzige Messungen dicht gedrängt – wie ein ganzer Plan mit vielen Schadstellen von weitem
   const crowd = Array.from({ length: 30 }, (_, i) => L(String(i + 1), 100 + (i % 6) * 6, 100 + Math.floor(i / 6) * 6, 4 + (i % 3), 4));
