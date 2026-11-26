@@ -3076,6 +3076,17 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               {damages.length > 1 && <SelectToggle sel={dmgSel} testId="damages-select" />}
             </div>
           </div>
+          <SelectionBar
+            inline
+            top
+            sel={dmgSel}
+            noun={['Messung', 'Messungen']}
+            testId="damages-select-bar"
+            actions={[
+              { label: 'Löschen', icon: 'trash', primary: true, danger: true, onSelect: () => void removeDamages(dmgSel.ids), testId: 'damages-bulk-delete' },
+              { label: 'Ändern', icon: 'edit', primary: true, onSelect: () => setBulkDmg(true), testId: 'damages-bulk-edit' },
+            ]}
+          />
           <AufmassTable
             rows={rows}
             selectedId={selectedId}
@@ -3090,16 +3101,6 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             onEdit={(r) => setDialog({ mode: 'edit', id: r.damage.id })}
             onDelete={(r) => void removeDamage(r.damage)}
             sel={dmgSel}
-          />
-          <SelectionBar
-            inline
-            sel={dmgSel}
-            noun={['Messung', 'Messungen']}
-            testId="damages-select-bar"
-            actions={[
-              { label: 'Löschen', icon: 'trash', primary: true, danger: true, onSelect: () => void removeDamages(dmgSel.ids), testId: 'damages-bulk-delete' },
-              { label: 'Ändern', icon: 'edit', primary: true, onSelect: () => setBulkDmg(true), testId: 'damages-bulk-edit' },
-            ]}
           />
           <div className="side-foot">
             <button type="button" className="btn btn-sm" onClick={() => void compact()}>

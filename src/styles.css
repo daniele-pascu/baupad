@@ -14224,6 +14224,11 @@ html[data-theme='dark'] .select-toggle.on {
   border-radius: 8px;
   animation: none;
 }
+/* Auswahl der Messungen: oben über der Liste, bleibt beim Scrollen oben stehen */
+.select-bar.inline.top {
+  top: 0;
+  bottom: auto;
+}
 /* Fenster „Neue Messung“: Bereich wählen (frei oder Position mit passender Messart) */
 .nm-row {
   display: flex;
