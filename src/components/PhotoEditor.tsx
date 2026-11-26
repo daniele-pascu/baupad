@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Icon } from './Icon';
 import { deviceUserName } from './PhotoCapture';
 import { showError } from './ui';
+import { MoreColors } from './ColorPicker';
 
 /**
  * Foto bearbeiten (Fotodokumentation): Freihand, Polylinie (offen/geschlossen), Rechteck, Kreis; Darstellung
@@ -707,10 +708,15 @@ export function PhotoEditor({ src, width, height, title, onClose, onSave }: { sr
                 data-color={c.value}
               />
             ))}
-            <label className={`swatch pe-custom${EDIT_COLORS.some((c) => c.value === shown.color) ? '' : ' active'}`} title="Eigene Farbe" style={EDIT_COLORS.some((c) => c.value === shown.color) ? undefined : { background: shown.color }}>
-              <input type="color" value={shown.color} onChange={(e) => changeStyle({ color: e.target.value })} aria-label="Eigene Farbe" data-testid="pe-color-custom" />
+            <MoreColors
+              className={`swatch pe-custom${EDIT_COLORS.some((c) => c.value === shown.color) ? '' : ' active'}`}
+              value={shown.color}
+              onChange={(c) => changeStyle({ color: c })}
+              label="Eigene Farbe"
+              testId="pe-color-custom"
+            >
               <span aria-hidden="true">+</span>
-            </label>
+            </MoreColors>
           </div>
           <div className="pe-style-row">
             <label>

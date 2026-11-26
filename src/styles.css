@@ -3261,7 +3261,7 @@ tr.lv-flagged td {
   height: 24px;
   border-width: 2px;
 }
-.style-colors input[type='color'] {
+.style-colors .color-more {
   width: 30px;
   height: 26px;
   padding: 0;
@@ -3845,7 +3845,7 @@ tr.lv-flagged td {
   align-content: center;
 }
 .sc-colors .swatch.swatch-xs,
-.sc-colors input[type='color'] {
+.sc-colors .color-more {
   width: 13px;
   height: 13px;
 }
@@ -3861,7 +3861,7 @@ tr.lv-flagged td {
 .swatch.swatch-xs:hover {
   transform: scale(1.15);
 }
-.sc-colors input[type='color'] {
+.sc-colors .color-more {
   width: 14px;
   height: 14px;
   padding: 0;
@@ -3879,7 +3879,7 @@ tr.lv-flagged td {
     height: auto;
   }
   .sc-colors .swatch.swatch-xs,
-  .sc-colors input[type='color'] {
+  .sc-colors .color-more {
     width: 28px;
     height: 28px;
   }
@@ -3889,7 +3889,7 @@ tr.lv-flagged td {
   .sc-colors .swatch.swatch-xs.active {
     box-shadow: 0 0 0 2.5px var(--text);
   }
-  .sc-colors input[type='color'] {
+  .sc-colors .color-more {
     border-radius: 8px;
   }
 }
@@ -12504,7 +12504,7 @@ html[data-theme='dark'] .calc-result .calc-total.warn strong {
   gap: 8px;
   align-items: center;
 }
-.hatch-colors input[type='color'] {
+.hatch-colors .color-more {
   width: 34px;
   height: 30px;
   padding: 0;
@@ -12824,7 +12824,7 @@ html[data-theme='dark'] .calc-result .calc-total.warn strong {
 .crew-grade-swatches {
   gap: 8px;
 }
-.crew-grade-color input[type='color'] {
+.crew-grade-color .color-more {
   flex: none;
   width: 44px;
   height: 36px;
@@ -15418,4 +15418,120 @@ html[data-theme='dark'] .crew-ww-legend b.o {
   .sort-arrow {
     transition: none;
   }
+}
+
+/* Taste „weitere Farben“: Farbkreis mit der aktuellen Farbe in der Mitte (öffnet Farbfelder und Selbst wählen) */
+.color-more {
+  flex: none;
+  width: 30px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background:
+    radial-gradient(circle, var(--c, #fff) 0 34%, #fff 35% 42%, transparent 43%),
+    conic-gradient(#e03131, #f5b800, #2f9e44, #15aabf, #1c7ed6, #9c36b5, #e03131);
+  cursor: pointer;
+}
+.color-more:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+/* Farbwahl: Reiter, Raster, eigenes Farbfeld */
+.color-picker .cp-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.cp-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 3px;
+}
+.cp-cell {
+  aspect-ratio: 1;
+  min-width: 0;
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.cp-cell.active,
+.cp-cell:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}
+.cp-custom {
+  display: grid;
+  gap: 12px;
+}
+.cp-field {
+  position: relative;
+  height: 180px;
+  border-radius: 8px;
+  background: linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, var(--hue));
+  cursor: crosshair;
+  touch-action: none;
+}
+.cp-dot {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+.cp-hue {
+  width: 100%;
+  height: 16px;
+  appearance: none;
+  border-radius: 8px;
+  background: linear-gradient(to right, red, #ff0, lime, cyan, blue, #f0f, red);
+}
+.cp-hue::-webkit-slider-thumb {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+.cp-hue::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+.cp-values {
+  display: grid;
+  grid-template-columns: 1.6fr repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.cp-values label {
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.cp-values input {
+  min-width: 0;
+  width: 100%;
+}
+.cp-compare {
+  display: grid;
+  grid-template-columns: auto 1fr 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.cp-compare i {
+  height: 28px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 6px;
 }

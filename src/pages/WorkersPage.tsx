@@ -79,6 +79,7 @@ import { usePageTitle } from '../lib/page-title';
 import { useDataChanged } from '../lib/data-events';
 import { useProjectColors } from '../lib/project-colors';
 import { photoSiteKey } from '../lib/photos';
+import { MoreColors } from '../components/ColorPicker';
 
 const WEEKDAYS = [0, 1, 2, 3, 4];
 const ACCENT = { '--tool': '#2f80ed' } as CSSProperties;
@@ -1277,7 +1278,7 @@ function TimesDialog({
           return (
             <div key={g} className="crew-grade-color" data-testid="set-grade-row" data-grade={g}>
               <label className="crew-grade-color-head">
-                <input type="color" value={value} onChange={(e) => setX({ ...x, gradeColors: { ...x.gradeColors, [g]: e.target.value } })} aria-label={`Farbe ${label.label} frei wählen`} title="Eigene Farbe" data-testid={`set-grade-color-${g}`} />
+                <MoreColors value={value} onChange={(c) => setX({ ...x, gradeColors: { ...x.gradeColors, [g]: c } })} label={`Farbe ${label.label} frei wählen`} testId={`set-grade-color-${g}`} />
                 <span className={`crew-grade-key grade-${g}`} style={{ '--grade': value } as CSSProperties}>
                   {label.short}
                 </span>

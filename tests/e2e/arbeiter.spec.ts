@@ -2,7 +2,7 @@ import { tastenBefunde } from './tasten-check';
 import { expect, test, type Page } from './fixtures';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { catchDownload, createProject, freshStart, newWeekProject, OUT, pickWeekProject, saveDownload } from './helpers';
+import { catchDownload, createProject, freshStart, newWeekProject, OUT, pickFreeColor, pickWeekProject, saveDownload } from './helpers';
 
 /**
  * Arbeitereinteilung: Arbeiter einmal anlegen, Arbeitszeit der Firma einmal eingeben, Baustellen aus
@@ -733,13 +733,13 @@ test('Personalliste: eigene Seite, alphabetisch oder nach Funktion; Einteilung u
   // Vorschlagsfarben direkt antippen: Vorarbeiter lila
   await td.locator('[data-testid="grade-swatch-vorarbeiter"][data-color="#9b6bdf"]').click();
   await expect(td.locator('[data-testid="grade-swatch-vorarbeiter"][data-color="#9b6bdf"]')).toHaveAttribute('aria-checked', 'true');
-  await expect(td.getByTestId('set-grade-color-vorarbeiter')).toHaveValue('#9b6bdf');
+  await expect(td.getByTestId('set-grade-color-vorarbeiter')).toHaveAttribute('data-value', '#9b6bdf');
   for (const [w, h] of [[390, 844], [1440, 900]]) {
     await page.setViewportSize({ width: w, height: h });
     expect(await tastenBefunde(page)).toEqual([]);
   }
   // eigene Farbe frei wählen
-  await td.getByTestId('set-grade-color-polier').fill('#ff0000');
+  await pickFreeColor(page, td.getByTestId('set-grade-color-polier'), '#ff0000');
   await expect.poll(() => border(td.locator('.crew-grade-key.grade-polier'))).toBe('rgb(255, 0, 0)'); // Vorschau im Fenster
   await td.getByTestId('times-save').click();
   await expect(td).toHaveCount(0);
@@ -753,9 +753,9 @@ test('Personalliste: eigene Seite, alphabetisch oder nach Funktion; Einteilung u
   await expandAll(page);
   await expect.poll(() => border(chips(page, 'Halle Nord', 0).nth(0))).toBe('rgb(255, 0, 0)');
   await page.getByTestId('crew-times').click();
-  await expect(td.getByTestId('set-grade-color-polier')).toHaveValue('#ff0000');
+  await expect(td.getByTestId('set-grade-color-polier')).toHaveAttribute('data-value', '#ff0000');
   await td.getByTestId('set-grade-colors-reset').click();
-  await expect(td.getByTestId('set-grade-color-polier')).toHaveValue('#6f9be8');
+  await expect(td.getByTestId('set-grade-color-polier')).toHaveAttribute('data-value', '#6f9be8');
   await td.getByTestId('times-save').click();
   await expect.poll(() => border(chips(page, 'Halle Nord', 0).nth(0))).toBe('rgb(111, 155, 232)');
 });
