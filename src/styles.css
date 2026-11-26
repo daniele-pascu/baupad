@@ -3852,7 +3852,8 @@ tr.lv-flagged td {
   grid-template-rows: repeat(2, 20px);
   grid-auto-flow: column;
   grid-auto-columns: 20px;
-  gap: 4px;
+  /* Reihenabstand knapp: die Registerkarte „Darstellung“ bleibt so hoch wie die anderen */
+  gap: 2px 4px;
   align-content: center;
 }
 .sc-colors .swatch.swatch-xs,
