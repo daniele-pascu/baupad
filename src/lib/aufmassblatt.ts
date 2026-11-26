@@ -1,7 +1,6 @@
 import { round2 } from './numbers';
 import { beamText } from './beam';
 import { rebarExact, rebarFormula, rebarItemsOf } from './rebar';
-import { deductionNumbers } from './numbering';
 import { aufmassRows, costCenterLabel, costCentersOf, linesByType, lvDocsOf, plansOf, positionRef, safeFileName, type ExportFile, type XlsxScope } from './aufmass';
 import { invoiceLabel, invoiceShort } from './invoices';
 import { deductionArea, deductionLength, grossArea, hasArea, kindOf, quantityBasis, quantityFor } from './measure';
@@ -9,7 +8,7 @@ import { MEASURE_TYPES, typeOf } from './measure-types';
 import { activeRule, bookingFactor } from './pos-rules';
 import type { ProjectState } from './store';
 import type { Damage, Deduction, LvDocument, LvPosition, Plan } from './types';
-import { blank, buildXlsx, num, str, type Cell, type HeaderImage, type Sheet } from './xlsx';
+import { blank, buildXlsx, num, str, type Cell, type HeaderImage, type Sheet, type TableStyle } from './xlsx';
 
 /**
  * Aufmaßblatt nach der Firmenvorlage (AMB): ein Blatt, Kopf mit Aufmaßblatt-Nummer,
@@ -54,23 +53,27 @@ function unitText(unit: string): string {
 }
 
 const planNo = (p: Plan) => p.planNumber || p.planName;
-const nrCell = (d: Damage): Cell => (d.label ? str(d.label, 'amCenter') : num(d.number, 'amCenter'));
+const nrCell = (d: Damage): Cell => (d.label ? str(d.label, 'amTC') : num(d.number, 'amTC'));
 /** Maß (Länge, Breite, Tiefe) */
-const n = (v: number | null): Cell => (v === null ? null : num(v, 'amNum'));
+const n = (v: number | null, ded = false): Cell => (v === null ? null : num(v, ded ? 'amTD' : 'amTN'));
 /** Menge (Ergebnis-Spalte der Messtabelle) – angezeigt mit zwei Nachkommastellen */
-const qn = (v: number | null): Cell => (v === null ? null : num(v, 'amQty'));
+const qn = (v: number | null): Cell => (v === null ? null : num(v, 'amTQ'));
 /** Messzeile: Plan, Nr., Maße und Menge lückenlos – die Bemerkung steht gleich in der nächsten Spalte */
 const measureRow = (lead: Cell[], rest: Cell[], note: Cell = null): Cell[] => [...lead, ...rest, note];
 /** Zeile über die ersten `count` Spalten: fehlende Zellen bekommen das Format `style` (z. B. Linie unten) */
 const fillRow = (cells: Cell[], style: Parameters<typeof blank>[0], count = COLS.length): Cell[] => Array.from({ length: Math.max(count, cells.length) }, (_, i) => cells[i] ?? (i < count ? blank(style) : null));
-/** letzte Zeile einer Messtabelle: Linie unten – nur über die Spalten der Tabelle */
-const LAST_ROW: Partial<Record<string, Parameters<typeof blank>[0]>> = { amCenter: 'amCenterLast', amNum: 'amNumLast', amQty: 'amQtyLast' };
-const closeTable = (row: Cell[], count: number) => {
-  for (let i = 0; i < count; i++) {
-    const c = row[i];
-    row[i] = c ? { ...c, s: LAST_ROW[c.s ?? ''] ?? c.s } : blank('amRule');
-  }
-};
+/**
+ * Messzeilen einfärben: jede zweite Zeile getönt, unter der letzten eine Linie – nur über die Spalten der Tabelle
+ * (`rows` = die Zeilen der Tabelle ohne Kopf)
+ */
+const styleTable = (rows: Cell[][], count: number) =>
+  rows.forEach((row, k) => {
+    const suffix = `${k % 2 ? 'b' : ''}${k === rows.length - 1 ? 'l' : ''}`;
+    for (let i = 0; i < count; i++) {
+      const c = row[i];
+      row[i] = c ? { ...c, s: `${c.s}${suffix}` as TableStyle } : blank(`amTC${suffix}` as TableStyle);
+    }
+  });
 
 /** Leistungszeitraum aus den Messungen (erste bis letzte Erfassung) */
 /** Umfang des Aufmaßblatts: wie beim Excel-Export, zusätzlich eine Rechnung (alle ihre Pläne) */
@@ -163,7 +166,7 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
   // Messungen ohne Position: je Messart eine Tabelle (wie in der App), Bezug zum Plan über Plan und Nr.
   const free = items.filter((x) => !assigned.has(x.d.id));
   if (free.length) {
-    section(assigned.size ? 'Aufmaß ohne Leistungsposition' : 'Aufmaß');
+    section('Aufmaß');
     // Flächenmessung ohne Fläche (nur die Länge erfasst, z. B. ein Riss): zählt wie bisher als Länge
     const onlyLength = (x: Item) => hasArea(kindOf(x.d)) && x.d.area === null && typeOf(x.d) !== 'volumen';
     for (const type of MEASURE_TYPES) {
@@ -200,24 +203,24 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
   const rebarItems = items.filter((x) => (x.d.rebar ?? 0) > 0);
   if (rebarItems.length) {
     band('Bewehrung');
-    add([str('Plan', 'amTh'), str('Nr.', 'amTh'), str('lfm', 'amTh')]);
+    add([str('Plan', 'amTHead'), str('Nr.', 'amTHead'), str('lfm', 'amTHead')]);
     const first = rows.length + 1;
     let total = 0;
     rebarItems.forEach(({ plan, d }) => {
       const parts = rebarItemsOf(d);
       const v = rebarExact(parts);
       total += v;
-      add([planCell(plan), nrCell(d), { t: 'formula', f: rebarFormula(parts), v, s: 'amQty' }]);
+      add([planCell(plan), nrCell(d), { t: 'formula', f: rebarFormula(parts), v, s: 'amTQ' }]);
     });
     const col = 'C';
-    closeTable(rows[rows.length - 1], 3);
+    styleTable(rows.slice(first - 1), 3);
     add([null, null, { t: 'formula', f: `SUM(${col}${first}:${col}${rows.length})`, v: Math.round(total * 10000) / 10000, s: 'amQtyBold' }, str('lfm', 'amBold')]);
     add([]);
   }
 
   function planCell(plan: Plan): Cell {
     const pn = planNo(plan);
-    return /^[1-9]\d{0,8}$/.test(pn) ? num(Number(pn), 'amCenter') : str(pn, 'amCenter');
+    return /^[1-9]\d{0,8}$/.test(pn) ? num(Number(pn), 'amTC') : str(pn, 'amTC');
   }
 
   /**
@@ -325,8 +328,8 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
     // Kopf mit Rahmen je Spalte (wie in der Vorlage); „Bemerkung“ gleich daneben, ohne Rahmen
     add(
       measureRow(
-        [str('Plan', 'amTh'), str('Nr.', 'amTh')],
-        compact([str('Länge', 'amTh'), str(labels.width ?? 'Breite', 'amTh'), str(labels.depth ?? 'Tiefe', 'amTh'), str(unitHead, 'amTh')]),
+        [str('Plan', 'amTHead'), str('Nr.', 'amTHead')],
+        compact([str('Länge', 'amTHead'), str(labels.width ?? 'Breite', 'amTHead'), str(labels.depth ?? 'Tiefe', 'amTHead'), str(unitHead, 'amTHead')]),
         notes.some(Boolean) ? str('Bemerkung', 'amThNote') : null,
       ),
     );
@@ -336,7 +339,7 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
       const { plan, d } = item;
       const r = rows.length + 1;
       const note = notes[i];
-      const q = (v: number, f: string): Cell => ({ t: 'formula', f, v, s: 'amQty' });
+      const q = (v: number, f: string): Cell => ({ t: 'formula', f, v, s: ded ? 'amTDQ' : 'amTQ' });
       const noteCell: Cell = note ? str(note, 'amNote') : null;
       if (ded) {
         // Teilfläche mit Vorzeichen: Abzug negativ, Zuschlag positiv (Anzahl als Faktor)
@@ -347,17 +350,17 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
           // Linie: Teillänge mit Vorzeichen (Anzahl × Länge steht in der Bemerkung)
           const v = deductionLength(ded);
           total += v;
-          cells = [null, null, null, num(v, 'amQty')];
+          cells = [null, null, null, num(v, 'amTDQ')];
         } else if (kind === 'volume') {
           const v = d.depth !== null ? (a < 0 ? -1 : 1) * round2(Math.abs(a) * d.depth) : null;
           total += v ?? 0;
-          cells = [n(ded.length), n(ded.width ?? null), n(d.depth), v === null ? qn(null) : q(v, `${sign}ROUND(ROUND(C${r}*D${r},2)*E${r},2)`)];
+          cells = [n(ded.length, true), n(ded.width ?? null, true), n(d.depth, true), v === null ? qn(null) : q(v, `${sign}ROUND(ROUND(C${r}*D${r},2)*E${r},2)`)];
         } else {
           total += a;
-          cells = [n(ded.length), n(ded.width ?? null), null, q(a, `${sign}ROUND(C${r}*D${r},2)`)];
+          cells = [n(ded.length, true), n(ded.width ?? null, true), null, q(a, `${sign}ROUND(C${r}*D${r},2)`)];
         }
-        const dNo = deductionNumbers(d)[(d.deductions ?? []).indexOf(ded)] ?? '';
-        add(measureRow([null, dNo ? str(dNo, 'amCenter') : null], compact(cells), noteCell));
+        // Abzug/Zuschlag: ohne Plan und Nr. – was es ist, steht in der Bemerkung („Abzug Tür“)
+        add(measureRow([null, null], compact(cells), noteCell));
         return;
       }
       let cells: Cell[];
@@ -409,8 +412,8 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
       add(measureRow([planCell(plan), nrCell(d)], compact(cells), noteCell));
     });
     const lastRow = rows.length;
-    // Linie unter der letzten Zeile – nur über die Spalten der Tabelle
-    if (lastRow >= first) closeTable(rows[lastRow - 1], tableCols);
+    // jede zweite Zeile getönt, Linie unter der letzten Zeile – nur über die Spalten der Tabelle
+    styleTable(rows.slice(first - 1), tableCols);
     if (kind === 'other') return null;
     const col = qtyCol;
     const value = Math.round(total * 10000) / 10000;
@@ -458,8 +461,8 @@ function liters(d: Damage): number | null {
 function dedNote(x: Deduction, line = false): string {
   const m = (v: number) => v.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const size = line ? `(${x.count > 1 ? `${x.count} × ` : ''}${m(x.length)} m)` : x.count > 1 ? `(${x.count}×)` : '';
-  // Bezeichnung in der Bemerkung (die Nummer steht in der Spalte „Nr.“)
-  return [x.label?.trim() || (x.add ? 'Zuschlag' : 'Abzug'), size].filter(Boolean).join(' ');
+  // „Abzug Tür (2×)“ – die Zeile hat keine eigene Nummer
+  return [x.add ? 'Zuschlag' : 'Abzug', x.label?.trim(), size].filter(Boolean).join(' ');
 }
 
 /** Bemerkung: Notiz und Hinweise auf fehlende Werte – sonst leer (dass ein Maß aus dem Plan stammt, steht nicht da) */

@@ -123,8 +123,8 @@ test('Positionen nach Größe und Tiefe werden erkannt, bestätigt und Schadstel
   expect(String(ws[b4 + 2][6])).toContain('3 Stufen'); // Bemerkung gleich neben der Menge
   expect(ws[band('B2') + 2].slice(0, 2)).toEqual(['S-1', 1]);
   expect(ws[band('B3') + 2].slice(0, 2)).toEqual(['S-1', 2]);
-  // nichts bleibt „ohne Leistungsposition“
-  expect(ws.some((r) => r[0] === 'Aufmaß ohne Leistungsposition')).toBe(false);
+  // nichts bleibt ohne Position (kein Abschnitt „Aufmaß“)
+  expect(ws.some((r) => r[0] === 'Aufmaß')).toBe(false);
 
 
   // LV-Liste: Mengen je Position ohne Zuordnung von Hand
@@ -290,7 +290,7 @@ test('Beispiel-LV „Betoninstandsetzung“ (PDF): Klassen, Zulage, Folgeleistun
   const rb = band('01.14.40.02A.');
   expect([ws[rb + 2][0], ws[rb + 2][1], ws[rb + 2][2]]).toEqual(['S-1', 1, 1.2]); // lfm: nur die Länge, gleich in Spalte C
   expect(String(ws[rb + 2][3])).toContain('Bewehrung der Schadstelle'); // Bemerkung gleich neben der Menge
-  expect(ws.some((r) => r[0] === 'Aufmaß ohne Leistungsposition')).toBe(false);
+  expect(ws.some((r) => r[0] === 'Aufmaß')).toBe(false);
 
   // LV-Liste: Mengen ohne eine einzige Zuordnung von Hand
   await page.goto(projectUrl);
