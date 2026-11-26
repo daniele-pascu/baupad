@@ -50,10 +50,30 @@ export function resolveLegend(plan: Plan, _plans?: Plan[]): { show: boolean; pos
   return { show: plan.showLegend ?? true, pos: plan.legendPos ?? 'bl', labels: { ...(plan.legendLabels ?? {}) } };
 }
 
+/** Zeile der Legende im PDF: eine Bezeichnung mit allen Mustern, die sie tragen */
+export interface LegendLine {
+  label: string;
+  looks: Pick<LegendEntry, 'color' | 'sample' | 'style'>[];
+}
+
+/** Gleiche Bezeichnung = eine Zeile: verschiedene Farben bzw. Linien und Flächen werden zusammengefasst (Reihenfolge bleibt) */
+export function legendLines(entries: LegendEntry[]): LegendLine[] {
+  const out = new Map<string, LegendLine>();
+  for (const e of entries) {
+    const k = e.label.trim().toLowerCase();
+    const look = { color: e.color, sample: e.sample, ...(e.style ? { style: e.style } : {}) };
+    const l = out.get(k);
+    if (l) l.looks.push(look);
+    else out.set(k, { label: e.label, looks: [look] });
+  }
+  return [...out.values()];
+}
+
 /** Legende eines Plans (nur aus den Einstellungen dieses Plans) */
-export function planLegend(plan: Plan, plans: Plan[], damages: Damage[]): { show: boolean; pos: LegendPos; entries: LegendEntry[] } {
+export function planLegend(plan: Plan, plans: Plan[], damages: Damage[]): { show: boolean; pos: LegendPos; entries: LegendEntry[]; lines: LegendLine[] } {
   const r = resolveLegend(plan, plans);
-  return { show: r.show, pos: r.pos, entries: legendEntries({ legendLabels: r.labels }, damages) };
+  const entries = legendEntries({ legendLabels: r.labels }, damages);
+  return { show: r.show, pos: r.pos, entries, lines: legendLines(entries) };
 }
 
 /** Musterform eines Eintrags in Punkten (y nach unten): Linie waagrecht in der Mitte, Fläche als Kasten */

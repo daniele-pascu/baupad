@@ -49,7 +49,7 @@ import { symbolGeometry } from './symbols';
 import { wallGeometry, wallOpenings } from './walls';
 import { deductionNumbers } from './numbering';
 import { measureLabel, withoutLineFill } from './measure';
-import { legendLineWidth, legendSampleShape, planLegend, type LegendEntry } from './legend';
+import { legendLineWidth, legendSampleShape, planLegend, type LegendLine } from './legend';
 import { formatArea, formatMeasure } from './numbers';
 
 /**
@@ -390,7 +390,7 @@ async function finishSheet(ctx: Ctx, page: PDFPage, plan: Plan, L: SheetLayout, 
   const k = unitsPerMeter(plan);
   for (const e of visibleElements(plan, elementsOf(ctx.data, plan.id))) if (e.type === 'text') drawTextElement(ctx, page, e, shapeToPage(e.shape, k), map, L.u);
   const lg = planLegend(plan, ctx.plans, damages);
-  if (lg.show) drawLegend(ctx, page, sheetFrame(page, L.h, L.header), lg.pos, lg.entries);
+  if (lg.show) drawLegend(ctx, page, sheetFrame(page, L.h, L.header), lg.pos, lg.lines);
   if (L.overview && full && plan.crop) await drawOverview(ctx, page, L, plan, L.overview, full);
 }
 
@@ -882,7 +882,7 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   // Messungen und Bauteilbuchstaben darüber
   drawDamages(ctx, target, region, damages, components);
   const lg = planLegend(plan, Object.values(data.plans), damages);
-  if (lg.show) drawLegend(ctx, page, sheetFrame(page, H, { x: margin, y: margin, w: W - 2 * margin, h: headerPt }), lg.pos, lg.entries);
+  if (lg.show) drawLegend(ctx, page, sheetFrame(page, H, { x: margin, y: margin, w: W - 2 * margin, h: headerPt }), lg.pos, lg.lines);
   // Maßstabsleiste rechts im Kopfbereich (nur wenn der Maßstab angezeigt werden soll)
   if (!showScale) return;
   const lblW = ctx.font.widthOfTextAtSize(`${String(barM).replace('.', ',')} m`, 6.5);
@@ -978,15 +978,19 @@ export async function exportPhotosPdf(data: ProjectState, planIds: string[]): Pr
 }
 
 /** Farblegende als weißer Kasten in der gewählten Ecke des Planbereichs (PDF-Koordinaten, y nach oben): je Farbe ein Feld und die Bezeichnung */
-function drawLegend(ctx: Ctx, page: PDFPage, box: { x: number; y: number; w: number; h: number }, pos: LegendPos, entries: LegendEntry[]) {
+function drawLegend(ctx: Ctx, page: PDFPage, box: { x: number; y: number; w: number; h: number }, pos: LegendPos, entries: LegendLine[]) {
   if (!entries.length) return;
   const size = 8;
   const row = 13;
-  // Muster je Eintrag wie im Plan: Linie mit Stärke und Strichart, Fläche mit Rand, Füllung bzw. Schraffur
+  // Muster je Eintrag wie im Plan: Linie mit Stärke und Strichart, Fläche mit Rand, Füllung bzw. Schraffur;
+  // gleiche Bezeichnung = eine Zeile mit allen Mustern nebeneinander
   const sw = 20;
   const sh = 9;
+  const step = sw + 3;
+  const most = Math.max(...entries.map((e) => e.looks.length));
+  const textX = most * step + 9;
   const labels = entries.map((e) => fitText(ctx.font, clean(ctx, e.label), size, 200));
-  const w = Math.max(ctx.bold.widthOfTextAtSize('Legende', size), ...labels.map((l) => ctx.font.widthOfTextAtSize(l, size) + sw + 6)) + 12;
+  const w = Math.max(ctx.bold.widthOfTextAtSize('Legende', size), ...labels.map((l) => ctx.font.widthOfTextAtSize(l, size) + textX - 6)) + 12;
   const h = 14 + entries.length * row + 4;
   // in der Ecke des Blattrahmens, mit kleinem Abstand (2 mm) zum Rahmen
   const gap = 2 * MM;
@@ -996,15 +1000,17 @@ function drawLegend(ctx: Ctx, page: PDFPage, box: { x: number; y: number; w: num
   page.drawText('Legende', { x: x + 6, y: y + h - 11, size, font: ctx.bold, color: rgb(0.1, 0.1, 0.12) });
   entries.forEach((e, i) => {
     const ty = y + h - 14 - (i + 1) * row + 4;
-    // Musterfeld: linke obere Ecke (PDF, y nach oben); die Musterform hat y nach unten
-    const ox = x + 6;
-    const oy = ty + sh - 1;
-    if (e.sample === 'points') {
-      for (const f of [0.2, 0.5, 0.8]) page.drawCircle({ x: ox + sw * f, y: oy - sh / 2, size: 2, color: hexToRgb(visibleHex(e.color)), borderColor: rgb(1, 1, 1), borderWidth: 0.4 });
-    } else {
-      const shape = legendSampleShape(e.sample, sw, sh);
-      drawStyledShape(page, (p) => ({ x: ox + p.x, y: oy - p.y }), shape, e.color, e.style, legendLineWidth(e), DEFAULT_TRANSPARENCY.damage, null);
-    }
-    page.drawText(labels[i], { x: x + sw + 12, y: ty, size, font: ctx.font, color: rgb(0.1, 0.1, 0.12) });
+    e.looks.forEach((look, j) => {
+      // Musterfeld: linke obere Ecke (PDF, y nach oben); die Musterform hat y nach unten
+      const ox = x + 6 + j * step;
+      const oy = ty + sh - 1;
+      if (look.sample === 'points') {
+        for (const f of [0.2, 0.5, 0.8]) page.drawCircle({ x: ox + sw * f, y: oy - sh / 2, size: 2, color: hexToRgb(visibleHex(look.color)), borderColor: rgb(1, 1, 1), borderWidth: 0.4 });
+      } else {
+        const shape = legendSampleShape(look.sample, sw, sh);
+        drawStyledShape(page, (p) => ({ x: ox + p.x, y: oy - p.y }), shape, look.color, look.style, legendLineWidth(look), DEFAULT_TRANSPARENCY.damage, null);
+      }
+    });
+    page.drawText(labels[i], { x: x + textX, y: ty, size, font: ctx.font, color: rgb(0.1, 0.1, 0.12) });
   });
 }

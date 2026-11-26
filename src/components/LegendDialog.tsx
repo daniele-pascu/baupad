@@ -114,7 +114,7 @@ export function LegendDialog({
         <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} data-testid="legend-show" />
         <span>Legende im PDF dieses Plans anzeigen</span>
       </label>
-      <p className="muted small">Gilt nur für diesen Plan – andere Pläne haben ihre eigene Legende.</p>
+      <p className="muted small">Gleiche Bezeichnung für mehrere Farben = eine Zeile in der Legende. Gilt nur für diesen Plan – andere Pläne haben ihre eigene Legende.</p>
       <div className="field">
         <span>Lage im PDF</span>
         <div className="legend-pos" role="radiogroup" aria-label="Lage der Legende">
