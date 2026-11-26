@@ -14,7 +14,9 @@ describe('Blatt im Aufmaßplan: Zeichnung immer zentriert und blattfüllend (Ma�
       const plan = sheetFields('A3-quer', 100);
       const r = printSheetRect(plan, [rect(1, 1, w, h)], [])!;
       const c = fillRegion(plan, [rect(1, 1, w, h)]);
-      expect(r.w / r.h).toBeCloseTo(plan.pageWidth / plan.pageHeight, 3); // Seitenverhältnis des Blatts
+      // Seitenverhältnis des Blatts – Hoch-/Querformat richtet sich nach der Zeichnung, nicht nach der Einstellung
+      if (w >= h) expect(r.w / r.h).toBeCloseTo(plan.pageWidth / plan.pageHeight, 3);
+      expect(r.h > r.w).toBe(h > w);
       near(r.x + r.w / 2, c.x + c.w / 2); // zentriert
       near(r.y + r.h / 2, c.y + c.h / 2);
       // füllt: an einer Seite genau so groß wie der Inhalt (mit kleinem Rand), sonst größer
