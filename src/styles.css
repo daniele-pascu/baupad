@@ -1406,6 +1406,9 @@ html.kb-open .modal-backdrop {
   scrollbar-gutter: stable;
 }
 .side-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   padding: 10px;
 }
 
