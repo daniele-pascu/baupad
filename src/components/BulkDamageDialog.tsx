@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { MoreColors } from './ColorPicker';
 import { Icon } from './Icon';
 import { Modal } from './Modal';
 import { StylePanel } from './StylePanel';
@@ -14,7 +15,7 @@ import { COLORS, DRAW_COLORS, type Damage, type ShapeStyle } from '../lib/types'
 const BULK_COLORS = COLORS.map((c) => (c.name === 'Weiß' ? DRAW_COLORS.find((d) => d.name === 'Grau')! : c));
 
 export interface DamagePatch {
-  /** undefined = unverändert, null = keine Leistungsposition */
+  /** undefined = bleibt, null = ohne Leistungsposition */
   positionRef?: string | null;
   /** in eine andere Tabelle verschieben: Messgruppe mit ihrem Titel; null = Tabelle der Messart */
   group?: { id: string; title?: string } | null;
@@ -29,10 +30,16 @@ export interface DamagePatch {
  */
 export function BulkDamageDialog({ data, damages, onClose, onSave }: { data: ProjectState; damages: Damage[]; onClose(): void; onSave(p: DamagePatch): void }) {
   const docs = lvDocsOf(data);
-  const [pos, setPos] = useState('=');
+  // gemeinsamer Wert aller gewählten Messungen steht schon da; '=' nur, wenn sie verschieden sind
+  const common = <T,>(of: (d: Damage) => T): T | '=' => (damages.every((d) => of(d) === of(damages[0])) ? of(damages[0]) : '=');
+  const pos0 = common((d) => d.positionRef ?? '');
+  const table0 = common((d) => d.group ?? '');
+  const color0 = common((d) => d.color.toLowerCase());
+  const [pos, setPos] = useState<string>(pos0);
+  /** null = keine Farbe angetippt (die bisherige bleibt) */
   const [color, setColor] = useState<string | null>(null);
-  // Tabellen (Messgruppen) dieses Plans: '=' unverändert, '' Tabelle der Messart
-  const [table, setTable] = useState('=');
+  // Tabellen (Messgruppen) dieses Plans; '' = ohne eigene Tabelle (Tabelle der Messart)
+  const [table, setTable] = useState<string>(table0);
   const tables = byGroup(Object.values(data.damages).filter((d) => !d.deletedAt && d.planId === damages[0]?.planId && d.group).map((d) => ({ d })));
   const target = tables.find((t) => t.id === table);
   // Darstellung: null = unverändert; sonst die geänderten Angaben (gelten für alle gewählten)
@@ -40,10 +47,12 @@ export function BulkDamageDialog({ data, damages, onClose, onSave }: { data: Pro
   // nur Linien gewählt: keine Füllung anbieten
   const allLines = damages.every((d) => kindOf(d) === 'line' || isOpenShape(d.shape));
   const base = damages[0];
+  /** angezeigte Farbe: die angetippte, sonst die gemeinsame der Auswahl ('=' = verschieden: keine markiert) */
+  const shown = color?.toLowerCase() ?? color0;
   const save = () =>
     onSave({
-      ...(pos !== '=' ? { positionRef: pos || null } : {}),
-      ...(table !== '=' ? { group: target ? { id: target.id, title: target.title ?? undefined } : null } : {}),
+      ...(pos !== pos0 ? { positionRef: pos || null } : {}),
+      ...(table !== table0 ? { group: target ? { id: target.id, title: target.title ?? undefined } : null } : {}),
       ...(color ? { color } : {}),
       ...(style && Object.keys(style).length ? { style } : {}),
     });
@@ -57,7 +66,7 @@ export function BulkDamageDialog({ data, damages, onClose, onSave }: { data: Pro
           <button type="button" className="btn" onClick={onClose}>
             Abbrechen
           </button>
-          <button type="button" className="btn btn-primary" onClick={save} disabled={pos === '=' && table === '=' && !color && !(style && Object.keys(style).length)} data-testid="bulk-damage-save">
+          <button type="button" className="btn btn-primary" onClick={save} disabled={pos === pos0 && table === table0 && !color && !(style && Object.keys(style).length)} data-testid="bulk-damage-save">
             <Icon name="check" size={18} /> Übernehmen
           </button>
         </>
@@ -68,8 +77,8 @@ export function BulkDamageDialog({ data, damages, onClose, onSave }: { data: Pro
         <label className="field">
           <span>Leistungsposition</span>
           <select value={pos} onChange={(e) => setPos(e.target.value)} data-testid="bulk-damage-position">
-            <option value="=">– unverändert –</option>
-            <option value="">ohne Leistungsposition</option>
+            {pos0 === '=' && <option value="=">– verschieden –</option>}
+            <option value="">ohne</option>
             {docs.map((doc) => (
               <optgroup key={doc.id} label={lvDocLabel(doc)}>
                 {doc.positions.map((p) => (
@@ -87,8 +96,8 @@ export function BulkDamageDialog({ data, damages, onClose, onSave }: { data: Pro
           <label className="field">
             <span>Tabelle</span>
             <select value={table} onChange={(e) => setTable(e.target.value)} data-testid="bulk-damage-table">
-              <option value="=">– unverändert –</option>
-              <option value="">Tabelle der Messart (ohne eigenen Titel)</option>
+              {table0 === '=' && <option value="=">– verschieden –</option>}
+              <option value="">ohne (Tabelle der Messart)</option>
               {tables.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.title ?? typeInfo(typeOf(t.items[0].d)).label} · Nr. {t.items.map((x) => damageNo(x.d)).slice(0, 3).join(', ')}
@@ -101,23 +110,22 @@ export function BulkDamageDialog({ data, damages, onClose, onSave }: { data: Pro
         <div className="field">
           <span>Farbe</span>
           <div className="color-row bulk-colors" role="radiogroup" aria-label="Farbe">
-            <button type="button" role="radio" aria-checked={color === null} className={`btn btn-sm${color === null ? ' on' : ''}`} onClick={() => setColor(null)} data-testid="bulk-damage-color-keep">
-              unverändert
-            </button>
             {BULK_COLORS.map((c) => (
               <button
                 key={c.value}
                 type="button"
                 role="radio"
-                aria-checked={color === c.value}
+                aria-checked={shown === c.value}
                 aria-label={c.name}
                 title={c.name}
-                className={`color-swatch${color === c.value ? ' active' : ''}`}
+                className={`color-swatch${shown === c.value ? ' active' : ''}`}
                 style={{ background: c.value }}
                 onClick={() => setColor(c.value)}
                 data-testid="bulk-damage-color"
               />
             ))}
+            {/* weitere Farben: Farbfelder oder selbst wählen */}
+            <MoreColors className="color-more swatch-more" value={shown === '=' ? '#e03131' : shown} onChange={setColor} label="Farbe frei wählen" testId="bulk-damage-color-more" />
           </div>
         </div>
         <div className="field">

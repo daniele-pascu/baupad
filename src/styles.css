@@ -3273,12 +3273,8 @@ tr.lv-flagged td {
   border-width: 2px;
 }
 .style-colors .color-more {
-  width: 30px;
-  height: 26px;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  background: #fff;
+  width: 24px;
+  height: 24px;
 }
 .color-pop.style-pop {
   display: block;
@@ -3848,22 +3844,21 @@ tr.lv-flagged td {
 .sc-colors {
   display: grid;
   /* zwei Reihen, beliebig viele Spalten (Standardfarben, Grau, eigene Farben, freie Wahl) */
-  grid-template-rows: repeat(2, 13px);
+  grid-template-rows: repeat(2, 20px);
   grid-auto-flow: column;
-  grid-auto-columns: 13px;
-  gap: 4px 3px;
-  height: 30px;
+  grid-auto-columns: 20px;
+  gap: 4px;
   align-content: center;
 }
 .sc-colors .swatch.swatch-xs,
 .sc-colors .color-more {
-  width: 13px;
-  height: 13px;
+  width: 20px;
+  height: 20px;
 }
 .swatch.swatch-xs {
-  width: 14px;
-  height: 14px;
-  border-width: 1.5px;
+  width: 20px;
+  height: 20px;
+  border-width: 2px;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.18);
 }
 .swatch.swatch-xs.active {
@@ -3871,15 +3866,6 @@ tr.lv-flagged td {
 }
 .swatch.swatch-xs:hover {
   transform: scale(1.15);
-}
-.sc-colors .color-more {
-  width: 14px;
-  height: 14px;
-  padding: 0;
-  border: 1px solid var(--border-strong);
-  border-radius: 3px;
-  background: none;
-  cursor: pointer;
 }
 /* Finger/Stift (iPad, Handy): Farbfelder so groß, dass man sie sicher trifft */
 @media (pointer: coarse) {
@@ -3899,9 +3885,6 @@ tr.lv-flagged td {
   }
   .sc-colors .swatch.swatch-xs.active {
     box-shadow: 0 0 0 2.5px var(--text);
-  }
-  .sc-colors .color-more {
-    border-radius: 4px;
   }
 }
 /* Objektleiste unten: kompakte Darstellung darf umbrechen */
@@ -12503,11 +12486,8 @@ html[data-theme='dark'] .calc-result .calc-total.warn strong {
   }
 }
 .font-color-free {
-  width: 30px;
-  height: 26px;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 3px;
+  width: 28px;
+  height: 28px;
 }
 .sc-hint {
   align-self: center;
@@ -12732,9 +12712,8 @@ html[data-theme='dark'] .calc-result .calc-total.warn strong {
   align-items: center;
 }
 .hatch-colors .color-more {
-  width: 34px;
+  width: 30px;
   height: 30px;
-  padding: 0;
 }
 .hatch-open {
   display: inline-flex;
@@ -15655,15 +15634,25 @@ html[data-theme='dark'] .crew-ww-legend b.o {
 /* Taste „weitere Farben“: Farbkreis mit der aktuellen Farbe in der Mitte (öffnet Farbfelder und Selbst wählen) */
 .color-more {
   flex: none;
-  width: 30px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   border: 1px solid var(--border-strong);
-  border-radius: 3px;
+  /* überall gleich: rundes Farbrad (kein weißer Kasten), in der Mitte die aktuelle Farbe */
+  border-radius: 50%;
   background:
     radial-gradient(circle, var(--c, #fff) 0 34%, #fff 35% 42%, transparent 43%),
     conic-gradient(#e03131, #f5b800, #2f9e44, #15aabf, #1c7ed6, #9c36b5, #e03131);
   cursor: pointer;
+}
+/* neben runden Farbpunkten: gleich groß */
+.color-more.swatch-more {
+  width: 32px;
+  height: 32px;
+}
+.color-more.swatch-more-sm {
+  width: 24px;
+  height: 24px;
 }
 .color-more:focus-visible {
   outline: 2px solid var(--accent);

@@ -82,10 +82,29 @@ function overviewSize(aspect: number, boxW: number, boxH: number, max: number): 
  * nutzen; reicht er nicht, wird der Plan nur so weit verkleinert, wie für eine kompakte
  * Übersicht nötig – je nachdem, ob seitlich oder oben/unten weniger Fläche verloren geht.
  */
+/**
+ * Platz für den Plan neben der Legende (alles in Punkt, y nach unten): Der Plan darf die Legende nie berühren. Passt er
+ * in voller Größe daneben (freier Rand), bleibt alles; sonst bekommt die Legende einen Streifen seitlich bzw. oben/unten –
+ * die Variante, bei der der Plan größer bleibt.
+ */
+export function areaBesideLegend(C: Rect, region: { w: number; h: number }, legend: Rect, gap = 2 * MM): Rect {
+  const u = fit(region, C);
+  const plan: Rect = { x: C.x + (C.w - region.w * u) / 2, y: C.y + (C.h - region.h * u) / 2, w: region.w * u, h: region.h * u };
+  const apart = plan.x >= legend.x + legend.w + gap || plan.x + plan.w <= legend.x - gap || plan.y >= legend.y + legend.h + gap || plan.y + plan.h <= legend.y - gap;
+  if (apart) return C;
+  const left = legend.x + legend.w / 2 < C.x + C.w / 2;
+  const top = legend.y + legend.h / 2 < C.y + C.h / 2;
+  const x0 = left ? legend.x + legend.w + gap : C.x;
+  const y0 = top ? legend.y + legend.h + gap : C.y;
+  const col: Rect = { x: x0, y: C.y, w: (left ? C.x + C.w : legend.x - gap) - x0, h: C.h };
+  const row: Rect = { x: C.x, y: y0, w: C.w, h: (top ? C.y + C.h : legend.y - gap) - y0 };
+  return fit(region, col) >= fit(region, row) ? col : row;
+}
+
 export function layoutSheet(
   paper: PaperFormat,
   region: { w: number; h: number },
-  opts: { overview?: { aspect: number; corner: OverviewCorner } | null } = {},
+  opts: { overview?: { aspect: number; corner: OverviewCorner } | null; /** Feld der Legende (pt, y nach unten): der Plan bleibt daneben */ legend?: Rect | null } = {},
 ): SheetLayout {
   const p = PAPER[paper];
   const w = p.w * MM;
@@ -93,7 +112,8 @@ export function layoutSheet(
   const margin = PRINT_MARGIN_MM * MM;
   const headerH = PRINT_HEADER_MM * MM;
   const header: Rect = { x: margin, y: margin, w: w - 2 * margin, h: headerH };
-  const C: Rect = { x: margin, y: margin + headerH, w: w - 2 * margin, h: h - 2 * margin - headerH };
+  const C0: Rect = { x: margin, y: margin + headerH, w: w - 2 * margin, h: h - 2 * margin - headerH };
+  const C = opts.legend ? areaBesideLegend(C0, region, opts.legend) : C0;
   const center = (box: Rect, u: number): Rect => {
     const pw = region.w * u;
     const ph = region.h * u;

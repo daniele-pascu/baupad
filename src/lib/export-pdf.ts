@@ -40,7 +40,7 @@ import {
 } from './geometry';
 import { canvasToBlob, closePdf, clampRenderScale, imageToCanvas, loadImageBitmap, openPdf, pageViewport, renderPdfRegion, renderPdfToCanvas } from './pdf';
 import type { ProjectState } from './store';
-import { exportPaper, layoutSheet, planHeading, planSubline, type OverviewCorner, type SheetLayout } from './sheet-layout';
+import { areaBesideLegend, exportPaper, layoutSheet, planHeading, planSubline, type OverviewCorner, type SheetLayout } from './sheet-layout';
 import { WORDMARK_PATH, WORDMARK_VIEWBOX } from './wordmark';
 import { DEFAULT_TRANSPARENCY, fillOf, fillPaths, outlinePoints, strokeGeometry } from './style';
 import type { Component, Damage, DrawElement, LegendPos, Plan, Rect, Shape, ShapeStyle, TextFont } from './types';
@@ -265,8 +265,11 @@ async function addPlanPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   const damages = visibleDamages(plan, damagesOf(data, plan.id));
   // Blatt A4/A3: Plan(ausschnitt) proportional und zentriert eingepasst, Übersicht im freien Platz
   const withOverview = !!(ctx.overview?.enabled && plan.crop);
+  // die Legende verdeckt nie etwas: der Plan steht neben ihrem Feld (Blattmaße zuerst ohne Legende ermittelt)
+  const sheet = layoutSheet(exportPaper(plan), region);
   const L = layoutSheet(exportPaper(plan), region, {
     overview: withOverview ? { aspect: plan.pageWidth / plan.pageHeight, corner: ctx.overview!.corner } : null,
+    legend: legendArea(ctx, sheet.w, sheet.h, sheet.header, planLegend(plan, ctx.plans, damages)),
   });
 
   if (file.kind === 'pdf') {
@@ -391,7 +394,7 @@ async function finishSheet(ctx: Ctx, page: PDFPage, plan: Plan, L: SheetLayout, 
   const k = unitsPerMeter(plan);
   for (const e of visibleElements(plan, elementsOf(ctx.data, plan.id))) if (e.type === 'text') drawTextElement(ctx, page, e, shapeToPage(e.shape, k), map, L.u);
   const lg = planLegend(plan, ctx.plans, damages);
-  if (lg.show) drawLegend(ctx, page, sheetFrame(page, L.h, L.header), lg.pos, lg.lines);
+  if (lg.show) drawLegend(ctx, page, sheetFrame(L.w, L.h, L.header), lg.pos, lg.lines);
   if (L.overview && full && plan.crop) await drawOverview(ctx, page, L, plan, L.overview, full);
 }
 
@@ -401,9 +404,9 @@ async function finishSheet(ctx: Ctx, page: PDFPage, plan: Plan, L: SheetLayout, 
  * ausdrücklich eingeschalteten Angaben (Format, Maßstab) und das BauPad-Zeichen. Trennlinie darunter.
  */
 /** Rahmen des Blatts unter der Trennlinie des Plankopfs (PDF-Koordinaten, y nach oben) – dort sitzt die Legende in der Ecke */
-function sheetFrame(page: PDFPage, pageH: number, header: Rect): { x: number; y: number; w: number; h: number } {
+function sheetFrame(pageW: number, pageH: number, header: Rect): { x: number; y: number; w: number; h: number } {
   const f = header.x - 3 * MM;
-  return { x: f, y: f, w: page.getWidth() - 2 * f, h: pageH - (header.y + header.h) + 6 - f };
+  return { x: f, y: f, w: pageW - 2 * f, h: pageH - (header.y + header.h) + 6 - f };
 }
 
 function drawSheetHeader(ctx: Ctx, page: PDFPage, pageH: number, header: Rect, plan: Plan, right: string[], reserveRight = 0) {
@@ -677,13 +680,16 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   const H = paperFmt.h * MM;
   const margin = PRINT_MARGIN_MM * MM;
   const headerPt = PRINT_HEADER_MM * MM;
-  const avail = { w: (W - 2 * margin) / MM, h: (H - 2 * margin - headerPt) / MM };
-  const fillU = Math.min((avail.w * MM) / region.w, (avail.h * MM) / region.h);
-  const scaleN = ((1000 / k) * MM) / fillU;
+  const header: Rect = { x: margin, y: margin, w: W - 2 * margin, h: headerPt };
+  const lg = planLegend(plan, Object.values(data.plans), damages);
+  // Druckbereich; mit Legende der Platz daneben – sie verdeckt nie die Zeichnung oder eine Messung
+  const full: Rect = { x: margin, y: margin + headerPt, w: W - 2 * margin, h: H - 2 * margin - headerPt };
+  const legend = legendArea(ctx, W, H, header, lg);
+  const area = legend ? areaBesideLegend(full, region, legend) : full;
   // Seiteneinheit (1/k m) → Punkte auf dem Papier
-  const u = (1000 / k / scaleN) * MM;
-  const ox = (W - region.w * u) / 2;
-  const oy = margin + headerPt + (H - 2 * margin - headerPt - region.h * u) / 2;
+  const u = Math.min(area.w / region.w, area.h / region.h);
+  const ox = area.x + (area.w - region.w * u) / 2;
+  const oy = area.y + (area.h - region.h * u) / 2;
   const page = ctx.out.addPage([W, H]);
   /** Papierkoordinaten (pt, y nach unten) → PDF */
   const pdf = (q: Point): Point => ({ x: q.x, y: H - q.y });
@@ -692,7 +698,7 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   const target: Target = { page, map, textRotation: 0, ptPerUnit: u };
 
   // Kopf: Plannummer | Titel – Format und Maßstab stehen nie im Plan
-  drawSheetHeader(ctx, page, H, { x: margin, y: margin, w: W - 2 * margin, h: headerPt }, plan, []);
+  drawSheetHeader(ctx, page, H, header, plan, []);
 
   // Zeichnungsobjekte
   const dimColor = rgb(0.16, 0.3, 0.5);
@@ -857,8 +863,7 @@ function addDrawingPage(ctx: Ctx, data: ProjectState, plan: Plan) {
   }
   // Messungen und Bauteilbuchstaben darüber
   drawDamages(ctx, target, region, damages, components);
-  const lg = planLegend(plan, Object.values(data.plans), damages);
-  if (lg.show) drawLegend(ctx, page, sheetFrame(page, H, { x: margin, y: margin, w: W - 2 * margin, h: headerPt }), lg.pos, lg.lines);
+  if (lg.show) drawLegend(ctx, page, sheetFrame(W, H, header), lg.pos, lg.lines);
 }
 
 /**
@@ -943,24 +948,29 @@ export async function exportPhotosPdf(data: ProjectState, planIds: string[]): Pr
 }
 
 /** Farblegende als weißer Kasten in der gewählten Ecke des Planbereichs (PDF-Koordinaten, y nach oben): je Farbe ein Feld und die Bezeichnung */
-function drawLegend(ctx: Ctx, page: PDFPage, box: { x: number; y: number; w: number; h: number }, pos: LegendPos, entries: LegendLine[]) {
-  if (!entries.length) return;
-  const size = 8;
-  const row = 13;
-  // Muster je Eintrag wie im Plan: Linie mit Stärke und Strichart, Fläche mit Rand, Füllung bzw. Schraffur;
-  // gleiche Bezeichnung = eine Zeile mit allen Mustern nebeneinander
-  const sw = 20;
-  const sh = 9;
-  const step = sw + 3;
-  const most = Math.max(...entries.map((e) => e.looks.length));
-  const textX = most * step + 9;
+/** Maße der Legende: Muster je Eintrag (gleiche Bezeichnung = eine Zeile mit allen Mustern nebeneinander) und Text */
+const LEGEND = { size: 8, row: 13, sw: 20, sh: 9, step: 23 };
+/** Feld der Legende (PDF-Koordinaten): in der Ecke des Blattrahmens, mit kleinem Abstand (2 mm) zum Rahmen */
+function legendBox(ctx: Ctx, box: { x: number; y: number; w: number; h: number }, pos: LegendPos, entries: LegendLine[]) {
+  const { size, row, step } = LEGEND;
+  const textX = Math.max(...entries.map((e) => e.looks.length)) * step + 9;
   const labels = entries.map((e) => fitText(ctx.font, clean(ctx, e.label), size, 200));
   const w = Math.max(ctx.bold.widthOfTextAtSize('Legende', size), ...labels.map((l) => ctx.font.widthOfTextAtSize(l, size) + textX - 6)) + 12;
   const h = 14 + entries.length * row + 4;
-  // in der Ecke des Blattrahmens, mit kleinem Abstand (2 mm) zum Rahmen
   const gap = 2 * MM;
-  const x = pos[1] === 'l' ? box.x + gap : box.x + box.w - w - gap;
-  const y = pos[0] === 'b' ? box.y + gap : box.y + box.h - h - gap;
+  return { x: pos[1] === 'l' ? box.x + gap : box.x + box.w - w - gap, y: pos[0] === 'b' ? box.y + gap : box.y + box.h - h - gap, w, h, textX, labels };
+}
+/** dasselbe Feld in Blattkoordinaten (y nach unten) – für die Anordnung des Plans daneben; ohne Legende null */
+function legendArea(ctx: Ctx, pageW: number, pageH: number, header: Rect, lg: ReturnType<typeof planLegend>): Rect | null {
+  if (!lg.show || !lg.lines.length) return null;
+  const b = legendBox(ctx, sheetFrame(pageW, pageH, header), lg.pos, lg.lines);
+  return { x: b.x, y: pageH - b.y - b.h, w: b.w, h: b.h };
+}
+
+function drawLegend(ctx: Ctx, page: PDFPage, box: { x: number; y: number; w: number; h: number }, pos: LegendPos, entries: LegendLine[]) {
+  if (!entries.length) return;
+  const { size, row, sw, sh, step } = LEGEND;
+  const { x, y, w, h, textX, labels } = legendBox(ctx, box, pos, entries);
   page.drawRectangle({ x, y, width: w, height: h, color: rgb(1, 1, 1), borderColor: rgb(0.1, 0.1, 0.12), borderWidth: 0.6 });
   page.drawText('Legende', { x: x + 6, y: y + h - 11, size, font: ctx.bold, color: rgb(0.1, 0.1, 0.12) });
   entries.forEach((e, i) => {
