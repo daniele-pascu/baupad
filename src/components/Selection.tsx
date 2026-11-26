@@ -106,7 +106,7 @@ export interface SelectionAction extends MenuAction {
  * Feste Leiste unten: „3 Pläne ausgewählt“, Alle/Keine, Aktionen, Schließen. Aktionen sind ohne Auswahl gesperrt.
  * `noun` = [Einzahl, Mehrzahl], z. B. ['Plan', 'Pläne'].
  */
-export function SelectionBar({ sel, noun, actions, testId, inline }: { sel: Selection; noun: [string, string]; actions: SelectionAction[]; testId: string; inline?: boolean }) {
+export function SelectionBar({ sel, noun, actions, testId, inline, top }: { sel: Selection; noun: [string, string]; actions: SelectionAction[]; testId: string; inline?: boolean; /** in der Liste oben statt unten (bleibt beim Scrollen oben stehen) */ top?: boolean }) {
   if (!sel.active) return null;
   const none = sel.count === 0;
   const primary = actions.filter((a) => a.primary);
@@ -115,7 +115,7 @@ export function SelectionBar({ sel, noun, actions, testId, inline }: { sel: Sele
     <>
       {/* Platz unter der Liste, damit die letzte Zeile nicht unter der Leiste verschwindet */}
       {!inline && <div className="select-bar-space" aria-hidden="true" />}
-      <div className={`select-bar${inline ? ' inline' : ''}`} role="toolbar" aria-label="Auswahl" data-testid={testId}>
+      <div className={`select-bar${inline ? ' inline' : ''}${top ? ' top' : ''}`} role="toolbar" aria-label="Auswahl" data-testid={testId}>
         <span className="select-count" data-testid="select-count">
           {sel.count} {sel.count === 1 ? noun[0] : noun[1]}
         </span>
