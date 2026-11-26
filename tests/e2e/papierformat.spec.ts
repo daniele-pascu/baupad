@@ -408,7 +408,7 @@ test('Gezeichneter Plan bleibt in „Plan bearbeiten“ – auch nach Neuladen; 
   // Aufmaß gewählt → beim nächsten Öffnen wieder Aufmaß
   await page.getByTestId('mode-measure').click();
   await page.reload();
-  await expect(page.getByTestId('mode-measure-tab')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByTestId('mode-measure')).toHaveAttribute('aria-selected', 'true');
 });
 
 test('Plan zeichnen: alle A-Formate (A4 bis A0, hoch/quer); im Aufmaßplan füllt die Zeichnung das Blatt zentriert – auch im PDF', async ({ page }) => {

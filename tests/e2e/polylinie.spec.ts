@@ -517,7 +517,7 @@ test('Messung unter „Plan bearbeiten“: Reiter Messen, Abstand und Fläche, i
   await expect(page.getByTestId('probe-result')).toContainText('m²');
   expect(JSON.stringify(await elements())).toBe(before); // Zeichnung unverändert
   await page.getByTestId('probe-adopt').click();
-  await expect(page.getByTestId('mode-measure-tab')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByTestId('mode-measure')).toHaveAttribute('aria-selected', 'true');
   const dlg = page.getByTestId('damage-dialog');
   await expect(dlg).toContainText('Neue Messung: Fläche');
   await dlg.getByTestId('damage-cancel').click();

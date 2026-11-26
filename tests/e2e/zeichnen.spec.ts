@@ -299,7 +299,7 @@ test('Nach dem Neuladen ist alles da; PDF-Export mit Maßstab; Sicherung und Wie
   await expect(dim('6,20 m')).toBeVisible();
   await expect(page.locator('[data-testid="aufmass-row"]')).toHaveCount(1);
   // der Plan hat schon ein Aufmaß → öffnet im Aufmaß, nicht in „Plan bearbeiten“
-  await expect(page.getByTestId('mode-measure-tab')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByTestId('mode-measure')).toHaveAttribute('aria-selected', 'true');
 });
 
 test('Maß einer Form: eintippen und auf den Plan tippen übernimmt sofort (ohne Enter)', async () => {

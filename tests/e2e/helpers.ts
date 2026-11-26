@@ -101,8 +101,7 @@ export type XlsxCell = { v: string | number; t: string; fmt: string } | null;
 /** Plan zeichnen zeigt Angaben, Excel, PDF und Fotos nicht – dafür erst ins Aufmaß wechseln (sonst nichts tun) */
 export async function toMeasureMode(page: Page, how: 'click' | 'tap' = 'click') {
   if (!(await page.getByTestId('draw-toolbar').isVisible())) return;
-  const tab = page.getByTestId('mode-measure-tab');
-  await ((await tab.isVisible()) ? tab : page.getByTestId('mode-measure').first())[how]();
+  await page.getByTestId('mode-measure').first()[how]();
   await expect(page.getByTestId('draw-toolbar')).toBeHidden();
 }
 
