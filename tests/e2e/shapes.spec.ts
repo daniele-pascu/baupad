@@ -46,11 +46,12 @@ test('Offene Polylinie (Riss) bleibt offen; Schadstellen nachträglich drehen un
   expect((crack.d.match(/L/g) ?? []).length).toBe(7); // jeder Punkt mit dem vorigen verbunden, keine Schlusskante
 
   // 2) Rechteck zeichnen
-  await pickTool(page, 'tool-rect');
+  await pickTool(page, 'tool-rect', 'click', 'schadstelle');
   await drawRect(page, box.x + box.width * 0.5, box.y + box.height * 0.6, box.x + box.width * 0.7, box.y + box.height * 0.65);
   await fillMeasures(page, '4', '1', '0,05');
-  // Nach dem Speichern ist wieder „Auswahl“ aktiv: Verschieben/Drehen direkt möglich
+  // Nach dem Speichern ist wieder „Auswahl“ aktiv und nichts markiert: antippen, dann Verschieben/Drehen
   await expect(page.getByTestId('tools-open')).toBeVisible(); // Leiste zugeklappt
+  await page.mouse.click(box.x + box.width * 0.52, box.y + box.height * 0.61);
   await expect(page.getByTestId('selection-bar')).toContainText('drehen');
 
   // 3) Über den Dreh-Anfasser um 90° drehen
@@ -72,10 +73,11 @@ test('Offene Polylinie (Riss) bleibt offen; Schadstellen nachträglich drehen un
   expect(Math.abs(rotated.x + rotated.w / 2 - c.x)).toBeLessThan(2); // um die Mitte gedreht
   expect(Math.abs(rotated.y + rotated.h / 2 - c.y)).toBeLessThan(2);
 
-  // 4) Verschieben
-  await page.mouse.move(c.x, c.y);
+  // 4) Verschieben: neben der Nummer anfassen (die Nummer in der Mitte zieht nur sich selbst)
+  const gy = c.y + rotated.h * 0.3;
+  await page.mouse.move(c.x, gy);
   await page.mouse.down();
-  await page.mouse.move(c.x - 80, c.y - 40, { steps: 6 });
+  await page.mouse.move(c.x - 80, gy - 40, { steps: 6 });
   await page.mouse.up();
   const moved = await pathOf(page, 2);
   expect(moved.x).toBeLessThan(rotated.x - 60);

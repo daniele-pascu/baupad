@@ -943,9 +943,12 @@ export function sheetUnitsPerPt(region: { w: number; h: number }, paper: PaperFo
   return mmPerUnit > 0 && Number.isFinite(mmPerUnit) ? 0.352778 / mmPerUnit : 1;
 }
 
-/** Papierformat im Aufmaßplan: das gewählte, sonst A3 passend zur Zeichnung (quer/hoch) */
+/**
+ * Papierformat im Aufmaßplan: Größe wie gewählt (sonst A3), Hoch- oder Querformat automatisch passend zur Zeichnung –
+ * eine breite Zeichnung kommt quer, eine hohe hoch aufs Blatt (so füllt sie es am besten)
+ */
 export function aufmassPaper(plan: Pick<Plan, 'drawing'>, region: { w: number; h: number }): PaperFormat {
-  return plan.drawing?.paper ?? (region.w >= region.h ? 'A3-quer' : 'A3-hoch');
+  return makePaper(plan.drawing?.paper ? paperSize(plan.drawing.paper) : 'A3', region.w >= region.h ? 'quer' : 'hoch');
 }
 
 /**

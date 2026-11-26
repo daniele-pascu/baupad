@@ -68,7 +68,7 @@ test('Offline: Projekt anlegen, PDF importieren, Schadstellen erfassen, exportie
   expect(inked).toBeGreaterThan(1000);
 
   const box = await planBox(page);
-  await pickTool(page, 'tool-rect');
+  await pickTool(page, 'tool-rect', 'click', 'schadstelle');
   await drawRect(page, box.x + box.width * 0.3, box.y + box.height * 0.3, box.x + box.width * 0.4, box.y + box.height * 0.4);
   await fillMeasures(page, '1,5', '0,8', '0,05');
   await waitSaved(page);

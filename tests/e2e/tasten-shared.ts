@@ -486,12 +486,11 @@ export function tastenTests() {
     await expect(page.getByTestId('editor-legend')).toBeVisible();
     if (await page.getByTestId('side-toggle').isVisible()) await expect(page.getByTestId('side-toggle')).toHaveCSS('background-color', 'rgb(17, 17, 17)');
     const box = await planBox(page);
-    await pickTool(page, 'tool-rect');
+    // Bewehrung gibt es nur bei der Betoninstandsetzung (Messart unten wählen)
+    await pickTool(page, 'tool-rect', 'click', 'schadstelle');
     await drawRect(page, box.x + box.width * 0.3, box.y + box.height * 0.3, box.x + box.width * 0.45, box.y + box.height * 0.45);
     const dlg = page.getByTestId('damage-dialog');
     await expect(dlg).toBeVisible();
-    // Bewehrung gibt es nur bei der Betoninstandsetzung
-    await dlg.getByTestId('measure-type-select').selectOption('schadstelle');
     await dlg.getByTestId('rebar-add').click();
     await pruefe(page, 'Messdialog', out);
     await dlg.getByTestId('input-length').fill('2');
@@ -507,7 +506,7 @@ export function tastenTests() {
     const pd = page.getByTestId('prompt-dialog');
     await pd.locator('input').fill('10');
     await pd.getByRole('button', { name: 'Kalibrieren' }).click();
-    await pickTool(page, 'tool-rect');
+    await pickTool(page, 'tool-rect', 'click', 'flaeche');
     await drawRect(page, box.x + box.width * 0.55, box.y + box.height * 0.3, box.x + box.width * 0.7, box.y + box.height * 0.45);
     await expect(dlg.getByTestId('input-length')).not.toHaveValue(''); // Rechteck: Länge × Breite aus dem Plan
     await pruefe(page, 'Messdialog Fläche (Länge × Breite aus Plan)', out);
@@ -560,16 +559,30 @@ export function tastenTests() {
     }
     await expect(dlg).toBeVisible();
     await pruefe(page, 'Messdialog Frei', out);
-    await dlg.getByTestId('measure-type-select').selectOption('stueck');
-    await pruefe(page, 'Messdialog Stück', out);
-    await dlg.getByTestId('measure-type-select').selectOption('volumen');
-    await pruefe(page, 'Messdialog Volumen', out);
-    // Unterzug (eigene Messart): Seite 1, Unterseite, Seite 2
-    await dlg.getByTestId('measure-type-select').selectOption('unterzug');
+    await dlg.getByTestId('damage-cancel').click();
+    await expect(dlg).toBeHidden();
+    // Messfenster je Messart (die Messart wird unten in der Leiste gewählt)
+    for (const [t, name] of [['volumen', 'Volumen'], ['schadstelle', 'Schadstelle']]) {
+      await pickTool(page, 'tool-rect', 'click', t);
+      const b = await planBox(page);
+      await drawRect(page, b.x + b.width * 0.55, b.y + b.height * 0.55, b.x + b.width * 0.65, b.y + b.height * 0.65);
+      await expect(dlg).toBeVisible();
+      await pruefe(page, `Messdialog ${name}`, out);
+      await dlg.getByTestId('damage-cancel').click();
+      await expect(dlg).toBeHidden();
+    }
+    // Unterzug: Messart Wand, Werkzeug Unterzug – Seite 1, Unterseite, Seite 2
+    await chooseMeasureType(page, 'wand');
+    await pickTool(page, 'tool-beam');
+    {
+      const b = await planBox(page);
+      await page.mouse.click(b.x + b.width * 0.55, b.y + b.height * 0.6);
+      await page.mouse.click(b.x + b.width * 0.7, b.y + b.height * 0.6);
+    }
+    await page.keyboard.press('Enter');
+    await expect(dlg).toBeVisible();
     await dlg.getByTestId('beam-a-input').fill('0,5');
     await pruefe(page, 'Messdialog Unterzug', out);
-    await dlg.getByTestId('measure-type-select').selectOption('schadstelle');
-    await pruefe(page, 'Messdialog Schadstelle', out);
     await dlg.getByTestId('damage-cancel').click();
     await expect(dlg).toBeHidden();
     await pickTool(page, 'tool-mtype');

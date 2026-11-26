@@ -5,14 +5,14 @@ import { uuid } from '../lib/ids';
 import { beamDeveloped, beamFormula } from '../lib/beam';
 import { rebarLine, rebarTotal } from '../lib/rebar';
 import { deductionArea, deductionLength, hasArea, netArea } from '../lib/measure';
-import { DAMAGE_TYPES, evalFormula, FREE_UNITS, MEASURE_TYPES, typeInfo } from '../lib/measure-types';
+import { DAMAGE_TYPES, evalFormula, FREE_UNITS, typeInfo } from '../lib/measure-types';
 import { SURFACES } from '../lib/pos-rules';
 import { round2, round3, checkMeasure, computeArea, formatArea, formatMeasure, parseDecimal, toInputValue } from '../lib/numbers';
 
 /** Maße im Eingabefeld: kaufmännisch auf 2 Stellen gerundet (ältere Werte mit 3 Stellen) */
 const up2 = (n: number | null | undefined) => (n === null || n === undefined ? n : round2(n));
 import { damageNo, findByNumber, parseDamageNumber } from '../lib/numbering';
-import { COLORS, SHAPE_LABELS, type Component, type Damage, type Deduction, type MeasureKind, type MeasureType, type RebarItem, type Shape, type ShapeType, type Surface, type Beam } from '../lib/types';
+import { COLORS, type Component, type Damage, type Deduction, type MeasureKind, type MeasureType, type RebarItem, type Shape, type ShapeType, type Surface, type Beam } from '../lib/types';
 import { shake } from '../lib/motion';
 import { isTouchDevice } from '../lib/platform';
 import { Icon } from './Icon';
@@ -159,8 +159,8 @@ type Field = 'number' | 'length' | 'width' | 'depth' | 'count';
  * Enter/Weiter springt zum nächsten Feld; im letzten Feld wird gespeichert.
  */
 export function DamageDialog({ mode, damage, others, components, positions = [], autoPositions, positionMismatch, suggestion, geometry, wall: wallProp = false, startBeam = false, openShape = wallProp, surfaces = false, onSave, onCancel, onDelete, onDrawDeduction, drawnDeduction, hidden, dedFromPlan, photoSite, photoPrefix }: Props) {
-  // Messart: im Aufmaß vorgewählt (bzw. aus der Form), hier jederzeit umstellbar
-  const [type, setTypeState] = useState<MeasureType>(
+  // Messart: unten in der Leiste vorgewählt (bzw. aus der Form) – im Fenster nicht mehr umstellbar
+  const [type] = useState<MeasureType>(
     damage.measureType ?? (damage.kind === 'damage' ? 'schadstelle' : damage.kind === 'line' ? 'laenge' : wallProp ? 'wand' : 'flaeche'),
   );
   const kind: MeasureKind = typeInfo(type).kind;
@@ -240,22 +240,15 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
   const [formula, setFormula] = useState(damage.formula ?? (damage.qty !== null && damage.qty !== undefined ? toInputValue(damage.qty) : ''));
   const [unit, setUnit] = useState(damage.unit ?? '');
   // Unterzug (bei der Messart Wand): Seitenfläche 1, Unterseite, Seitenfläche 2 – je an/aus mit eigenem Maß
-  const [beamOn, setBeamOn] = useState(!!damage.beam || startBeam);
+  const [beamOn] = useState(!!damage.beam || startBeam);
   const [bm, setBm] = useState(() => {
     const b = damage.beam;
     const val = (x: number | null | undefined) => (x === null || x === undefined ? '' : toInputValue(up2(x)));
     return { aOn: !b || b.a !== null, a: val(b?.a), bottomOn: !b || b.bottom !== null, bottom: val(b?.bottom), bOn: !b || b.b !== null, b: val(b?.b) };
   });
-  /** Messart wechseln: bei neuen Messungen die Länge aus dem Plan gleich vorwählen */
-  const setType = (t: MeasureType) => {
-    setTypeState(t);
-    if (mode !== 'new') return;
-    const ls = lineSuggestFor(t);
-    const k = typeInfo(t).kind;
-    setFromShape(ls !== null && ls > 0 ? true : hasArea(k) && !(t === 'wand' || openShape) ? (!!damage.areaFromShape && !!geometry) || planAreaFor(t) : false);
-  };
   const [color, setColor] = useState(damage.color);
-  const [shapeType, setShapeType] = useState<ShapeType>(damage.shapeType);
+  // Form kommt vom Werkzeug unten in der Leiste – im Fenster nicht umstellbar
+  const shapeType = damage.shapeType;
   const [componentId, setComponentId] = useState<string | null>(damage.componentId ?? null);
   const [positionRef, setPositionRef] = useState<string | null>(damage.positionRef ?? null);
   const [pickPos, setPickPos] = useState(false);
@@ -573,31 +566,6 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
           submit();
         }}
       >
-        <label className="field mtype-field">
-          <span>Messart</span>
-          {/* Unterzug: eigene Wahl, gespeichert als Wand mit Seite 1, Unterseite, Seite 2 */}
-          <select
-            value={type === 'wand' && beamOn ? 'unterzug' : type}
-            onChange={(e) => {
-              const t = e.target.value;
-              setBeamOn(t === 'unterzug');
-              setType(t === 'unterzug' ? 'wand' : (t as MeasureType));
-            }}
-            data-testid="measure-type-select"
-          >
-            {MEASURE_TYPES.map((t) => [
-              <option key={t.id} value={t.id}>
-                {t.label} {t.unit ? `(${t.unit})` : '(eigene Einheit)'}
-              </option>,
-              t.id === 'wand' && (
-                <option key="unterzug" value="unterzug">
-                  Unterzug (m²)
-                </option>
-              ),
-            ])}
-          </select>
-          <small className="muted">{type === 'wand' && beamOn ? 'Länge × Abwicklung · Seite 1 + Unterseite + Seite 2' : typeInfo(type).hint}</small>
-        </label>
         {/* doppelte Nummer: direkt über der Nummernvergabe, damit man nicht nach unten scrollen muss */}
         {conflict && num !== null && (
           <div className="banner banner-warn" data-testid="number-conflict">
@@ -1227,16 +1195,6 @@ export function DamageDialog({ mode, damage, others, components, positions = [],
               title={c.name}
             />
           ))}
-        </fieldset>
-        <fieldset className="option-row">
-          <legend>Form</legend>
-          {(Object.keys(SHAPE_LABELS) as ShapeType[])
-            .filter((t) => t !== 'freehand' || damage.shapeType === 'freehand')
-            .map((t) => (
-              <button key={t} type="button" className={`chip${shapeType === t ? ' active' : ''}`} onClick={() => setShapeType(t)} aria-pressed={shapeType === t}>
-                {SHAPE_LABELS[t]}
-              </button>
-            ))}
         </fieldset>
         {mode === 'edit' && damage.labelOffset && (
           <label className="check-row">

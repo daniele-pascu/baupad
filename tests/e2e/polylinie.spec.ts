@@ -374,10 +374,10 @@ test('Wand: Verlauf mit Knicken, Länge aus allen Abschnitten, danach Höhe → 
   await expect(dlg).toBeHidden();
   const row = page.locator('[data-testid="aufmass-row"][data-type="wand"]').last();
   await expect(row.getByTestId('row-kind')).toHaveAttribute('title', 'Wand');
-  await expect(page.getByTestId('selection-bar')).toContainText('Wand Nr.');
   // letzten Knick verschieben (100 px weiter nach rechts) → Länge und Wandfläche werden nachgeführt, Höhe bleibt
   await pickTool(page, 'tool-select');
   await page.mouse.click(x + 100, y);
+  await expect(page.getByTestId('selection-bar')).toContainText('Wand Nr.');
   await expect(page.locator('circle[data-testid^="vertex-"]')).toHaveCount(4);
   const v3 = (await page.getByTestId('vertex-3').boundingBox())!;
   await page.mouse.move(v3.x + v3.width / 2, v3.y + v3.height / 2);

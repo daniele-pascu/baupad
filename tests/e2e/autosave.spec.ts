@@ -17,7 +17,7 @@ test('Schnelle Folgeänderungen an derselben Schadstelle werden ohne Fehlkonflik
   await wiz.getByTestId('import-save').click();
   await waitForPlan(page);
   const box = await planBox(page);
-  await pickTool(page, 'tool-rect');
+  await pickTool(page, 'tool-rect', 'click', 'schadstelle');
   await drawRect(page, box.x + box.width * 0.3, box.y + box.height * 0.3, box.x + box.width * 0.45, box.y + box.height * 0.45);
   await fillMeasures(page, '1', '1', '0,02');
   await pickTool(page, 'tool-select');
