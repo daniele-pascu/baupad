@@ -1465,11 +1465,6 @@ html.kb-open .modal-backdrop {
   stroke-width: 1;
   stroke-dasharray: 4 3;
 }
-.rot-line {
-  stroke: #1c2129;
-  stroke-width: 1;
-  stroke-dasharray: 3 3;
-}
 .rot-handle circle {
   fill: #fff;
   stroke: #1c2129;

@@ -2048,26 +2048,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
                 const r = isCoarse() ? 8 : 4.5;
                 return <circle cx={tp.x} cy={tp.y} r={r} className={`vertex-handle tip-handle${g.kind === 'tip' ? ' active' : ''}`} data-testid="tip-handle" />;
               })()}
-              {selected.shape.type !== 'line' && (() => {
-                const b = shapeBounds(selected.shape);
-                const c = shapeCenter(b);
-                const rot = selected.shape.rotation ?? 0;
-                const corners = [
-                  { x: b.x, y: b.y },
-                  { x: b.x + b.w, y: b.y },
-                  { x: b.x + b.w, y: b.y + b.h },
-                  { x: b.x, y: b.y + b.h },
-                ].map((q) => toScreen(view, rotatePoint(q, c, rot)));
-                const hs = screenHandles(selected.shape, view);
-                const rh = hs.find((x) => x.h === 'rot')!;
-                const topMid = toScreen(view, rotatePoint({ x: c.x, y: b.y }, c, rot));
-                return (
-                  <>
-                    <polygon points={corners.map((q) => `${q.x},${q.y}`).join(' ')} className="sel-box" />
-                    <line x1={topMid.x} y1={topMid.y} x2={rh.p.x} y2={rh.p.y} className="rot-line" />
-                  </>
-                );
-              })()}
+              {/* kein Rahmen um die markierte Messung: Griffe und Eckpunkte zeigen die Auswahl */}
               {screenHandles(selected.shape, view, !!props.vertexEdit && !selected.noVertexEdit && !selected.boxOnly, !!selected.noVertexEdit, !!selected.boxOnly).map(({ h, p }) => {
                 // Touch: größere Griffe; Eckpunkte rund (○), Seiten-/Größengriffe eckig (□)
                 const s = isCoarse() ? 16 : 10;
