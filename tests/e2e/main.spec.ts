@@ -427,7 +427,7 @@ test('11. Bearbeiteten Plan als PDF exportieren', async () => {
     await page.getByTestId('export-pdf-plan').click();
     await page.getByTestId('pdf-export-run').click();
   });
-  expect(dl.suggestedFilename()).toBe('Wohnanlage_Sued_Tiefgarage_A-101_Plan.pdf');
+  expect(dl.suggestedFilename()).toBe('Plan_A-101_Tiefgarage_Wohnanlage_Sued.pdf');
   const file = await saveDownload(dl);
   const info = execFileSync('pdfinfo', [file], { encoding: 'utf8' });
   expect(info).toMatch(/Pages:\s+1/);

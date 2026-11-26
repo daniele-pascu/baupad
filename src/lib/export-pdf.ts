@@ -246,10 +246,11 @@ export async function exportPlansPdf(data: ProjectState, opts: PdfExportOptions)
   const plans = opts.planIds.map((id) => data.plans[id]).filter(Boolean);
   const cc = plans.length ? data.costCenters[plans[0].costCenterId] : undefined;
   const sameCc = plans.every((p) => p.costCenterId === plans[0]?.costCenterId);
+  // Dateiname: Titel_Nummer_Kostenstelle_Projekt (z. B. Aufmassplan_068_91092_Minoritenplatz)
   const name =
     plans.length === 1
-      ? safeFileName(data.project.name, costCenterLabel(cc), plans[0].planNumber || plans[0].planName, 'Plan')
-      : safeFileName(data.project.name, sameCc ? (costCenterLabel(cc)) : '', 'Plaene');
+      ? safeFileName(plans[0].title?.trim() || 'Plan', plans[0].planNumber || plans[0].planName, costCenterLabel(cc), data.project.name)
+      : safeFileName('Plaene', sameCc ? costCenterLabel(cc) : '', data.project.name);
   return { name: `${name}.pdf`, data: bytes, mimeType: 'application/pdf' };
 }
 
