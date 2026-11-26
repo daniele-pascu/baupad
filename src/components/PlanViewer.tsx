@@ -301,7 +301,7 @@ type Gesture =
   | { kind: 'tip'; id: string; orig: Point; last: Point; start: Point; moved: boolean }
   | { kind: 'polytap'; start: Point; view: View; moved: boolean }
   | { kind: 'rotate'; id: string; orig: Shape; startAngle: number }
-  | { kind: 'label'; id: string; start: Point; orig: Rect; moved: boolean }
+  | { kind: 'label'; id: string; start: Point; orig: Rect; /** Größe des Nummernfelds in der Anordnung (Seiteneinheiten) */ size: { w: number; h: number }; moved: boolean }
   | { kind: 'component'; id: string; start: Point; orig: Point; moved: boolean }
   | { kind: 'note'; id: string; start: Point; moved: boolean; d: Point }
   | { kind: 'noteResize'; id: string; handle: string; orig: Shape; last: Shape; moved: boolean }
@@ -1154,7 +1154,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       const labelId = hitLabel(p);
       if (labelId) {
         propsRef.current.onSelect(labelId);
-        gesture.current = { kind: 'label', id: labelId, start: p, orig: labels.get(labelId)!, moved: false };
+        gesture.current = { kind: 'label', id: labelId, start: p, orig: labels.get(labelId)!, size: labelLayout.get(labelId)!, moved: false };
         return;
       }
       const hit = hitDamage(p);
@@ -1405,7 +1405,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         g.moved = true;
         const d = propsRef.current.damages.find((x) => x.id === g.id);
         if (!d) return;
-        propsRef.current.onLabelChange(g.id, labelOffsetFor(d, { ...g.orig, x: g.orig.x + dx, y: g.orig.y + dy }, v), false);
+        propsRef.current.onLabelChange(g.id, labelOffsetFor(d, { ...g.orig, x: g.orig.x + dx, y: g.orig.y + dy }, v, g.size), false);
         return;
       }
     }
@@ -2241,10 +2241,15 @@ function screenHandles(shape: Shape, v: View, vertexEdit = false, fixedShape = f
 }
 
 /** Berechnet die gespeicherte Beschriftungsverschiebung (Seiteneinheiten) aus einer Bildschirmposition. */
-function labelOffsetFor(d: ViewerItem, r: Rect, v: View) {
+/**
+ * Berechnet die gespeicherte Beschriftungsverschiebung (Seiteneinheiten) aus einer Bildschirmposition. Die Nummer am
+ * Bildschirm sitzt mittig im Feld der Anordnung (`size`, vergrößert so groß wie im Export) – darum über die Mitte
+ * umrechnen, sonst läuft die Nummer beim Ziehen neben dem Zeiger her.
+ */
+function labelOffsetFor(d: ViewerItem, r: Rect, v: View, size: { w: number; h: number }) {
   const b = shapeAABB(d.shape);
-  const tr = toScreen(v, { x: b.x + b.w, y: b.y });
-  return { dx: (r.x - tr.x) / v.scale, dy: (r.y + r.h - tr.y) / v.scale };
+  const c = toPage(v, { x: r.x + r.w / 2, y: r.y + r.h / 2 });
+  return { dx: c.x - size.w / 2 - (b.x + b.w), dy: c.y + size.h / 2 - b.y };
 }
 
 function shapeFromDraw(g: Extract<Gesture, { kind: 'draw' }>, v: View, preview = false): Shape | null {

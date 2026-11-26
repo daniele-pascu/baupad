@@ -50,3 +50,46 @@ test('Nummern dicht nebeneinander liegender Schadstellen überlappen nicht (Ansi
   for (let n = 1; n <= 9; n++) expect(text).toMatch(new RegExp(`(^|\\s)${n}(\\s|$)`));
   execFileSync('pdftoppm', ['-png', '-r', '220', '-x', '700', '-y', '1150', '-W', '1100', '-H', '650', pdf, join(OUT, 'cluster-pdf')]);
 });
+
+test('Nummer ziehen (vergrößert): die Nummer bleibt genau unter dem Zeiger', async ({ page }) => {
+  await freshStart(page);
+  await createProject(page, 'Nummer ziehen', {}, ['TG']);
+  await page.getByTestId('plan-file-input').setInputFiles(join(FIXTURES, 'parkdeck.png'));
+  const wiz = page.getByTestId('import-wizard');
+  await wiz.getByTestId('areas-next').click();
+  await wiz.locator('[data-field="planNumber"]').fill('N-1');
+  await wiz.getByTestId('import-save').click();
+  await waitForPlan(page);
+  const box = await planBox(page);
+  // Linie in der Mitte, dann kräftig hineinzoomen: die Anordnung rechnet dann mit der Nummerngröße des Exports
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  await pickTool(page, 'tool-line', 'click', 'laenge');
+  await page.mouse.move(cx - 40, cy);
+  await page.mouse.down();
+  await page.mouse.move(cx + 40, cy, { steps: 4 });
+  await page.mouse.up();
+  const dlg = page.getByTestId('damage-dialog');
+  await dlg.getByTestId('input-length').fill('2');
+  await dlg.getByTestId('damage-save').click();
+  await expect(dlg).toBeHidden();
+  await page.mouse.move(cx, cy);
+  for (let i = 0; i < 2; i++) await page.mouse.wheel(0, -300);
+  const label = page.locator('.damage-label[data-label="1"]');
+  await expect(label).toBeVisible();
+  const mid = async () => ((b) => ({ x: b.x + b.width / 2, y: b.y + b.height / 2 }))((await label.boundingBox())!);
+  const a = await mid();
+  // Nummer in der Mitte anfassen und weit weg von der Linie ziehen: sie sitzt danach mittig unter dem Zeiger
+  const to = { x: a.x - 160, y: a.y + 170 };
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move(to.x, to.y, { steps: 8 });
+  const during = await mid();
+  expect(Math.abs(during.x - to.x)).toBeLessThan(2);
+  expect(Math.abs(during.y - to.y)).toBeLessThan(2);
+  await page.mouse.up();
+  const b = await mid();
+  expect(Math.abs(b.x - to.x)).toBeLessThan(2);
+  expect(Math.abs(b.y - to.y)).toBeLessThan(2);
+  await waitSaved(page);
+});
