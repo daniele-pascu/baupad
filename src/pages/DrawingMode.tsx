@@ -1136,10 +1136,37 @@ export function useDrawing(opts: {
     const v = Number(s.trim().replace(',', '.'));
     return s.trim() && Number.isFinite(v) ? v : null;
   };
+  /**
+   * Eingabe am Zeiger: 'polar' = Abstand + Winkel (Linie, Verschieben, Kopieren, Spiegeln nach dem Basispunkt),
+   * 'size' = Breite + Höhe (Rechteck, Kreis nach der ersten Ecke), 'one' = ein Abstand (Versetzen).
+   */
+  const dynKind = tool === 'offset' ? 'one' : !cmdBase ? null : tool === 'line' || (VECTOR_COMMANDS.has(tool) && !cmdSelecting) ? 'polar' : tool === 'rect' || tool === 'ellipse' ? 'size' : null;
+  /** Rechteck/Kreis aus dem Kasten (Meter): getippte Breite/Höhe, sonst aus der Maus; Kreis: nur die Breite getippt = Durchmesser */
+  const dynBox = (d: { ref: Point; dist: string; angle: string }, hv: Point | null) => {
+    const live = hv ? { x: hv.x / k - d.ref.x, y: hv.y / k - d.ref.y } : { x: 0, y: 0 };
+    const tw = dynNum(d.dist);
+    const w = tw ?? Math.abs(live.x);
+    const h = dynNum(d.angle) ?? (tool === 'ellipse' && tw !== null ? w : Math.abs(live.y));
+    return { x: live.x < 0 ? d.ref.x - w : d.ref.x, y: live.y < 0 ? d.ref.y - h : d.ref.y, w, h };
+  };
   /** Enter im Kasten: Punkt im Abstand (und Winkel) setzen bzw. nur die Richtung festhalten */
   const commitDyn = (d: NonNullable<typeof dyn>) => {
     const len = dynNum(d.dist);
     const ang = dynNum(d.angle);
+    if (dynKind === 'one') {
+      const err = applyInput(d.dist);
+      if (err) toast(err, 'info', 3500);
+      else setDyn(null);
+      return;
+    }
+    if (dynKind === 'size' && (tool === 'rect' || tool === 'ellipse')) {
+      const b = dynBox(d, hoverRef.current);
+      if (!(b.w > 0 && b.h > 0)) return toast('Breite und Höhe müssen größer als 0 sein.', 'info');
+      viewer.current?.armClick(null);
+      create(tool, { ...rectFromMeasures(b, b.w, b.h), type: tool });
+      setDyn(null);
+      return;
+    }
     if (d.dir) {
       // Anfangspunkt vom gemerkten Punkt aus: auf der Spurlinie bzw. im eingegebenen Winkel
       if (!(len && len > 0)) return toast('Bitte einen Abstand größer als 0 eingeben, z. B. 1,25.', 'info');
@@ -1148,7 +1175,7 @@ export function useDrawing(opts: {
       setDyn(null);
       return;
     }
-    if (len === null && ang !== null && !d.dist.includes(';')) {
+    if (tool === 'line' && len === null && ang !== null && !d.dist.includes(';')) {
       setAngleLock(((ang % 360) + 360) % 360);
       setDyn(null);
       toast(`Richtung ${formatMeasure(ang)}° fest – Länge mit der Maus ziehen und klicken.`, 'info', 2500);
@@ -1160,18 +1187,20 @@ export function useDrawing(opts: {
     else setDyn(null);
   };
   /**
-   * Tastatur beim Linienwerkzeug (PC): Ziffern füllen den Kasten am Zeiger (Abstand), Tab bzw. „<“ wechselt zum Winkel,
+   * Tastatur beim Zeichnen (PC; Linie, Rechteck, Kreis, Verschieben, Kopieren, Versetzen): Ziffern füllen den Kasten am Zeiger (Abstand), Tab bzw. „<“ wechselt zum Winkel,
    * Enter setzt den Punkt, Esc bricht ab. Vor dem ersten Klick nur auf einer Spurlinie. true = Taste verbraucht.
    */
   const trackKey = (e: KeyboardEvent): boolean => {
-    if (tool !== 'line') return false;
+    if (!dynKind && tool !== 'line') return false;
+    const kind = dynKind ?? 'polar';
     const num = /^[0-9.,]$/.test(e.key);
     if (!dyn) {
-      if (!num && e.key !== 'Tab' && e.key !== '<') return false;
+      // zweites Feld (Winkel bzw. Höhe): Tab, beim Winkel auch „<“
+      if (!num && (kind === 'one' || (e.key !== 'Tab' && (e.key !== '<' || kind === 'size')))) return false;
       const field = num ? 'dist' : 'angle';
       const text = num ? e.key : '';
-      if (cmdBase) {
-        setDyn({ ref: { x: cmdBase.x / k, y: cmdBase.y / k }, dir: null, dist: text, angle: '', field });
+      if (dynKind) {
+        setDyn({ ref: cmdBase ? { x: cmdBase.x / k, y: cmdBase.y / k } : { x: 0, y: 0 }, dir: null, dist: text, angle: '', field });
         return true;
       }
       const ref = trackTarget(0, null);
@@ -1184,11 +1213,13 @@ export function useDrawing(opts: {
     if (e.key === 'Escape') {
       setDyn(null);
       setAngleLock(null);
-    } else if (e.key === 'Tab' || e.key === '<') setDyn({ ...dyn, field: f === 'dist' ? 'angle' : 'dist' });
+    } else if (e.key === 'Tab' || (e.key === '<' && kind === 'polar')) {
+      if (kind !== 'one') setDyn({ ...dyn, field: f === 'dist' ? 'angle' : 'dist' });
+    }
     else if (e.key === 'Backspace') {
       const next = { ...dyn, [f]: dyn[f].slice(0, -1) };
       setDyn(next.dist || next.angle ? next : null);
-    } else if (num || (e.key === '-' && (f === 'angle' || dyn.dist.includes(';'))) || (e.key === ';' && f === 'dist' && !dyn.dir)) setDyn({ ...dyn, [f]: dyn[f] + e.key });
+    } else if (num || (kind === 'polar' && ((e.key === '-' && (f === 'angle' || dyn.dist.includes(';'))) || (e.key === ';' && f === 'dist' && !dyn.dir)))) setDyn({ ...dyn, [f]: dyn[f] + e.key });
     else if (e.key === 'Enter') commitDyn(dyn);
     else return false;
     return true;
@@ -1659,8 +1690,8 @@ export function useDrawing(opts: {
 
   /** Text am Cursor: Abstand, ΔX, ΔY (nach oben positiv) und Winkel – laufend beim Zeichnen bzw. Verschieben */
   const tipText = (a: Point, b: Point): string | null => {
-    // Linie nach dem Anfangspunkt: Abstand und Winkel stehen im Kasten am Zeiger (dynLayer)
-    if (tool === 'line' && cmdBase) return null;
+    // nach dem Anfangs- bzw. Basispunkt stehen die Werte im Kasten am Zeiger (dynLayer)
+    if (dynKind === 'polar' || dynKind === 'size') return null;
     const i = vectorInfo((b.x - a.x) / k, (b.y - a.y) / k);
     if (i.len < 1e-9) return null;
     const n = (v: number) => (Math.abs(v) < 0.005 ? '0,00' : `${v < 0 ? '−' : ''}${formatMeasure(Math.abs(v))}`);
@@ -2258,12 +2289,43 @@ export function useDrawing(opts: {
   );
 
   /**
-   * Eingabe am Zeiger (Linie, nach dem Anfangspunkt): Kasten mit Abstand und Winkel (live aus der Maus, getippte Werte
+   * Eingabe am Zeiger (siehe dynKind; Linie nach dem Anfangspunkt): Kasten mit Abstand und Winkel (live aus der Maus, getippte Werte
    * fett); beim Winkel ein gestrichelter Halbkreis (Winkelmesser) mit dem Winkel vom Anfangspunkt aus.
    */
   const dynLayer = (view: View, hover: Point | null) => {
-    if (tool !== 'line' || !cmdBase || dyn?.dir) return null;
+    if (dyn?.dir) return null;
+    const cell = (x: number, y: number, w: number, on: boolean, typed: boolean, text: string, testId: string) => (
+      <>
+        <rect x={x} y={y} width={w} height={24} rx={4} className={`dyn-cell${on ? ' on' : ''}${typed ? ' typed' : ''}`} />
+        <text x={x + 8} y={y + 16} className="dyn-text" data-testid={testId}>
+          {text}
+        </text>
+      </>
+    );
+    if (dynKind === 'one') {
+      // Versetzen: der Abstand steht am Zeiger; „durch Punkt“ braucht keinen
+      if (!hover || (offsetThrough && !dyn)) return null;
+      const p = toScreen(view, hover);
+      return (
+        <g className="dyn-input" data-testid="dyn-input">
+          {cell(p.x + 18, p.y + 16, 82, !!dyn, !!dyn, `${dyn?.dist || formatMeasure(offsetDist)} m`, 'dyn-dist')}
+        </g>
+      );
+    }
+    if (!dynKind || !cmdBase) return null;
     const base = { x: cmdBase.x / k, y: cmdBase.y / k };
+    if (dynKind === 'size' && (tool === 'rect' || tool === 'ellipse')) {
+      if (!hover && !dyn) return null;
+      const b = dynBox(dyn ?? { ref: base, dist: '', angle: '' }, hover);
+      const p = toScreen(view, hover ?? cmdBase);
+      return (
+        <g className="dyn-input" data-testid="dyn-input">
+          {dyn && b.w > 0 && b.h > 0 && <path d={pathToSvg(shapePath(shapeToPage({ ...rectFromMeasures(b, b.w, b.h), type: tool }, k)), (q) => toScreen(view, q))} className="dyn-goal" data-testid="dyn-goal" />}
+          {cell(p.x + 18, p.y + 16, 96, dyn?.field === 'dist', !!dyn?.dist, `B ${dyn?.dist || formatMeasure(b.w)} m`, 'dyn-dist')}
+          {cell(p.x + 120, p.y + 16, 96, dyn?.field === 'angle', !!dyn?.angle, `H ${dyn?.angle || formatMeasure(b.h)} m`, 'dyn-angle')}
+        </g>
+      );
+    }
     const hv = hover ? { x: hover.x / k, y: hover.y / k } : null;
     if (!hv && !dyn) return null;
     const live = hv ? { d: Math.hypot(hv.x - base.x, hv.y - base.y), a: (((Math.atan2(-(hv.y - base.y), hv.x - base.x) * 180) / Math.PI) % 360 + 360) % 360 } : { d: 0, a: 0 };

@@ -117,7 +117,7 @@ test('Verschieben per Klick: Basispunkt, Anzeige am Cursor, Abstand in Mausricht
   await expect(page.getByTestId('command-prompt')).toContainText('Zielpunkt');
   await page.mouse.move(sb.x + 160, sb.y + 120, { steps: 3 });
   await page.mouse.move(sb.x + 200, sb.y + 120, { steps: 3 });
-  await expect(page.getByTestId('cursor-tip')).toContainText(/m · ΔX [\d,]+ · ΔY 0,00 · 0°/);
+  await expect(page.getByTestId('dyn-angle')).toContainText('0°'); // Kasten am Zeiger statt Hinweis
   await expect(page.getByTestId('cad-ghost')).toBeVisible();
   await page.keyboard.type('1,5');
   await page.keyboard.press('Enter');
