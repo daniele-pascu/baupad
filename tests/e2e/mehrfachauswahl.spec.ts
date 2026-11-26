@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
-import { catchDownload, createProject, drawRect, FIXTURES, freshStart, pickTool, planBox, waitForPlan, waitSaved } from './helpers';
+import { catchDownload, createProject, drawRect, FIXTURES, freshStart, pickTool, planBox, stored, waitForPlan, waitSaved } from './helpers';
 
 /** Mehrfachauswahl: Pläne, Messungen, Aufmaße, LV (Dokumente und Positionen), Mitarbeiter */
 
@@ -54,6 +54,21 @@ test('Mehrfachauswahl: Messungen im Plan, Pläne gemeinsam ändern und löschen,
   expect(colors[0]).toBe('rgb(28, 126, 214)');
   expect(colors[1]).toBe(colors[0]);
   expect(colors[2]).not.toBe(colors[0]);
+
+  // Darstellung gemeinsam ändern: zwei Messungen → Wellenlinie und Schraffur (Flächen)
+  await page.getByTestId('damages-select').click();
+  await rows.nth(0).getByTestId('aufmass-row-select').check();
+  await rows.nth(1).getByTestId('aufmass-row-select').check();
+  await page.getByTestId('damages-bulk-edit').click();
+  await bd.getByTestId('bulk-damage-style').click();
+  await bd.getByTestId('style-line-type').selectOption('wave');
+  await bd.getByTestId('style-fill-type').selectOption('hatch');
+  await bd.getByTestId('bulk-damage-save').click();
+  await expect(bd).toHaveCount(0);
+  await waitSaved(page);
+  const styled = (await stored(page, 'damages')).filter((d) => !d.deletedAt && (d.style as { lineType?: string } | undefined)?.lineType === 'wave');
+  expect(styled).toHaveLength(2);
+  for (const d of styled) expect((d.style as { fillType?: string }).fillType).toBe('hatch');
 
   // zwei Messungen auf einmal löschen
   await page.getByTestId('damages-select').click();

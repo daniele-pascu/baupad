@@ -1563,7 +1563,16 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   };
   const patchDamages = (ids: string[], patch: DamagePatch) => {
     const list = ids.map((id) => data.damages[id]).filter((d): d is Damage => !!d && !d.deletedAt);
-    putRecords({ damages: list.map((d) => ({ ...d, ...(patch.positionRef !== undefined ? { positionRef: patch.positionRef } : {}), ...(patch.color ? { color: patch.color } : {}) })) });
+    // Darstellung: geänderte Angaben übernehmen (Linien bekommen keine Füllung); undefined = Angabe entfernen
+    const restyle = (d: Damage): Damage => {
+      if (!patch.style) return d;
+      const fill = ['fillColor', 'fillTransparency', 'noFill', 'fillType', 'hatch', 'hatchBg'];
+      const line = kindOf(d) === 'line' || isOpenShape(d.shape);
+      const next: Record<string, unknown> = { ...d.style, ...Object.fromEntries(Object.entries(patch.style).filter(([key]) => !line || !fill.includes(key))) };
+      for (const key of Object.keys(next)) if (next[key] === undefined) delete next[key];
+      return { ...d, style: next as ShapeStyle };
+    };
+    putRecords({ damages: list.map((d) => restyle({ ...d, ...(patch.positionRef !== undefined ? { positionRef: patch.positionRef } : {}), ...(patch.color ? { color: patch.color } : {}) })) });
     setBulkDmg(false);
     dmgSel.stop();
     toast(`${list.length} ${list.length === 1 ? 'Messung' : 'Messungen'} geändert.`, 'success');
