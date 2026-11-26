@@ -470,7 +470,7 @@ const STYLES_XML =
   '<xf numFmtId="166" fontId="5" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1"/>' + // 40 Zahl fett
   '<xf numFmtId="0" fontId="5" fillId="0" borderId="0" xfId="0" applyFont="1"/>' + // 41 fett (Einheit, €)
   '<xf numFmtId="0" fontId="4" fillId="0" borderId="4" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf>' + // 42 Tabellenkopf mit Rahmen
-  '<xf numFmtId="0" fontId="10" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center"/></xf>' + // 43 Kopf „Bemerkung“ kursiv
+  '<xf numFmtId="0" fontId="10" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="left" indent="1"/></xf>' + // 43 Kopf „Bemerkung“ kursiv, gleich neben der Tabelle
   '<xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center"/></xf>' + // 44 zentriert (Plan, Nr.)
   '<xf numFmtId="0" fontId="4" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf>' + // 45 zentriert, letzte Zeile
   '<xf numFmtId="166" fontId="4" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1"/>' + // 46 Zahl, letzte Zeile
@@ -478,7 +478,7 @@ const STYLES_XML =
   '<xf numFmtId="0" fontId="8" fillId="0" borderId="0" xfId="0" applyFont="1"/>' + // 48 Gesamt 12 fett
   '<xf numFmtId="4" fontId="8" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1"/>' + // 49 Gesamt Zahl (#.##0,00)
   '<xf numFmtId="0" fontId="4" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1"/>' + // 50 Linie unten
-  '<xf numFmtId="49" fontId="10" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1"/>' + // 51 Bemerkung kursiv
+  '<xf numFmtId="49" fontId="10" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyAlignment="1"><alignment horizontal="left" indent="1"/></xf>' + // 51 Bemerkung kursiv
   '<xf numFmtId="167" fontId="4" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyAlignment="1"><alignment horizontal="right"/></xf>' + // 52 Menge 0,000
   '<xf numFmtId="167" fontId="4" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right"/></xf>' + // 53 dto. letzte Zeile
   '<xf numFmtId="167" fontId="5" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyAlignment="1"><alignment horizontal="right"/></xf>' + // 54 Summe 0,000 fett

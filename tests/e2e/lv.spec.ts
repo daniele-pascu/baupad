@@ -167,38 +167,41 @@ test('LV importieren, Prüfansicht, Suche, Messungen zuordnen und Aufmaßmengen'
   expect(v(5, 0)).toBe('Leistungszeitraum');
   expect(String(v(7, 0))).toMatch(/^LV - .*Sanierung Tiefgarage Musterstrasse/);
   const vals = (r: number) => ws[r].map((c) => c?.v ?? null).filter((x) => x !== null);
-  /** alle Zeilen mit diesem Text in Spalte A: zuerst die Zusammenstellung, dann der Balken der Position */
+  /** alle Zeilen mit diesem Text in Spalte A: zuerst die Position mit ihrer Tabelle, am Ende die Zusammenstellung */
   const rowsOf = (text: string) => ws.map((r, i) => (r[0]?.v === text ? i : -1)).filter((i) => i >= 0);
-  // Zusammenstellung steht zuerst: Kopf, je Position eine Zeile, Gesamtpreis (Formeln)
-  expect(vals(9)).toEqual(['Pos.', 'Leistung', 'Menge', 'EH', 'Einheitspreis', 'Positionspreis']);
-  const total = ws.find((r) => r[0]?.v === 'Gesamtpreis in EUR')!;
+  // Spaltenkopf wie in der Vorlage
+  expect(vals(9)).toEqual(['Pos. / Positionstext', 'Menge', 'EH', 'Einheitspreis', 'Positionspreis']);
+  // Zusammenstellung am Ende des LV: Gesamtpreis als Formel
+  const total = ws.find((r) => r[5]?.v === 'Gesamtpreis in EUR')!;
   expect(String(total[8]?.v)).toMatch(/^=SUM\(I\d+:I\d+\)$/);
-  // Position B (m²): heller Balken mit Nr., Text, Menge (= Summe der Tabelle), EH, Einheitspreis, Positionspreis = EP × Menge
-  const [sb, pb] = rowsOf('92 01 01 B');
-  expect(pb).toBeGreaterThan(ws.indexOf(total));
+  // Position B (m²): Nr. und Text, darunter Menge (= Summe der Tabelle), EH, Einheitspreis, Positionspreis = EP × Menge
+  const [pb, sb] = rowsOf('92 01 01 B');
+  expect(sb).toBeLessThan(ws.indexOf(total));
   expect(v(pb, 2)).toBe('Sperrflaeche');
-  const th = pb + 1;
-  // Spalten A–J: Menge F, EH G, Einheitspreis H, Positionspreis I
-  expect([v(pb, 5), v(pb, 6), v(pb, 7), v(pb, 8)]).toEqual([`=E${th + 3}`, 'm²', 25, `=H${pb + 1}*F${pb + 1}`]);
-  // die Zusammenstellung verweist auf den Balken
-  expect([v(sb, 2), v(sb, 5), v(sb, 6), v(sb, 7), v(sb, 8)]).toEqual(['Sperrflaeche', `=F${pb + 1}`, 'm²', `=H${pb + 1}`, `=I${pb + 1}`]);
+  const th = pb + 3;
+  // Spalten wie in der Vorlage: Menge C, EH D, Einheitspreis F, €, Positionspreis I, €
+  expect([v(pb + 1, 2), v(pb + 1, 3), v(pb + 1, 5), v(pb + 1, 6), v(pb + 1, 8), v(pb + 1, 9)]).toEqual([`=E${th + 3}`, 'm²', 25, '€', `=F${pb + 2}*C${pb + 2}`, '€']);
+  // die Zusammenstellung verweist auf den Positionspreis
+  expect([v(sb, 2), v(sb, 8)]).toEqual(['Sperrflaeche', `=I${pb + 2}`]);
   // Messtabelle: nur die gefragten Maße, Menge gleich danach (m²: Länge, Breite, m²); ohne Bemerkung keine Spalte „Bemerkung“
   expect(vals(th)).toEqual(['Plan', 'Nr.', 'Länge', 'Breite', 'm²']);
   expect(ws[th + 1].slice(0, 5).map((c) => c?.v ?? null)).toEqual(['P-1', 1, 4, 2.5, `=ROUND(C${th + 2}*D${th + 2},2)`]);
-  expect([v(th + 2, 0), v(th + 2, 4), v(th + 2, 5)]).toEqual(['Summe', `=SUM(E${th + 2}:E${th + 2})`, 'm²']);
+  // Summe unter der Mengenspalte, Einheit daneben – die Tabelle ist nur so breit wie ihre Spalten (rechts davon nichts)
+  expect([v(th + 2, 0), v(th + 2, 4), v(th + 2, 5)]).toEqual([null, `=SUM(E${th + 2}:E${th + 2})`, 'm²']);
+  expect(ws[th + 1].slice(5).every((c) => (c?.v ?? null) === null)).toBe(true);
   // Position A (m): Plan | Nr. | m – nur die Länge, gleich in Spalte C
-  const pa = rowsOf('92 01 01 A')[1];
-  expect(vals(pa + 1)).toEqual(['Plan', 'Nr.', 'm']);
-  expect([v(pa + 2, 0), v(pa + 2, 1), v(pa + 2, 2)]).toEqual(['P-1', 2, 12]);
+  const pa = rowsOf('92 01 01 A')[0];
+  expect(vals(pa + 3)).toEqual(['Plan', 'Nr.', 'm']);
+  expect([v(pa + 4, 0), v(pa + 4, 1), v(pa + 4, 2)]).toEqual(['P-1', 2, 12]);
   // ohne Position: je Messart eine Tabelle, mit Plan und Nr.
   const free3 = rowOf('Aufmaß ohne Leistungsposition');
   expect(free3).toBeGreaterThan(pb);
   expect(ws.slice(free3).some((r) => r[0]?.v === 'P-1' && r[2]?.v === 3 && r[3]?.v === 2)).toBe(true);
   expect(ws.slice(free3).some((r) => r[0]?.v === 'P-1' && r[2]?.v === 5.5)).toBe(true);
   // Druck: Kopfzeile wie Vorlage (rechts „Seite von Seiten“), Seitenbreite
-  // immer eine A4-Seite: an Seite angepasst, ohne feste Umbrüche
+  // A4 hoch in 100 % – nie „an Seite anpassen“, ohne feste Umbrüche
   const pr3 = readXlsxPrint(file3)['Aufmaßblatt 001'];
-  expect(pr3).toMatchObject({ orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 1, rowBreaks: [] });
+  expect(pr3).toMatchObject({ orientation: 'portrait', fitToPage: false, scale: 100, rowBreaks: [] });
   execFileSync('soffice', ['--headless', '--convert-to', 'pdf', '--outdir', join(OUT, 'blatt-pdf'), file3], { timeout: 90_000 });
   const pdf3 = join(OUT, 'blatt-pdf', 'aufmassblatt.pdf');
   // gedruckt: alles auf einer A4-Seite – LV und Aufmaß ohne Position zusammen

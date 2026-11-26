@@ -24,18 +24,22 @@ const logo = { bytes: new Uint8Array([137, 80, 78, 71]), type: 'png' as const, w
 describe('Aufmaßblatt (Firmenvorlage)', () => {
   const zip = unzipSync(exportAufmassblatt(data, { kind: 'costCenter', costCenterId: 'c1' }, { no: '007', period: '01.10.2026' }, { logo }).data);
   const sheet = strFromU8(zip['xl/worksheets/sheet1.xml']);
-  it('Kopfzeile wie Vorlage: Logo links, „Seite von Seiten“ rechts; normale Ansicht, eine Seite', () => {
+  it('Kopfzeile wie Vorlage: Logo links, „Seite von Seiten“ rechts; normale Ansicht, A4 in 100 % (nie „an Seite anpassen“)', () => {
     // Mitte: Aufmaßblatt-Nummer kursiv 9 pt wie in der neuen Vorlage
     expect(sheet).toContain('<oddHeader>&amp;L&amp;G&amp;C&amp;&quot;-,Kursiv&quot;&amp;9Aufmaßblatt 007&amp;R&amp;P von &amp;N</oddHeader>');
     expect(sheet).toContain('<pageMargins left="0.61" right="0.61"');
     expect(strFromU8(zip['xl/drawings/vmlDrawingHF1.vml'])).toContain('id="LH"');
     expect(sheet).not.toContain('view="pageLayout"'); // normale Ansicht – wie jede andere Excel-Datei
     expect(sheet).not.toContain('<brk '); // keine festen Seitenumbrüche
-    expect(sheet).toContain('fitToWidth="1" fitToHeight="1"'); // immer eine Seite
+    // nie auf eine Seite gequetscht: fester Maßstab 100 %, lange Listen laufen auf die nächste Seite
+    expect(sheet).toContain('<pageSetup paperSize="9" orientation="portrait" scale="100"/>');
+    expect(sheet).not.toContain('fitToPage');
+    expect(sheet).not.toContain('fitToHeight');
     expect(strFromU8(zip['xl/styles.xml'])).toContain('Aptos Narrow');
   });
   it('ohne LV: Kopf mit Nummer, Bauvorhaben, Kostenstelle, Leistungszeitraum; Flächen und Linien mit Plan und Nr.', () => {
-    for (const t of ['Aufmaßblatt 007', 'Bauvorhaben X', '91092 – Ebene 1', '01.10.2026', 'Aufmaß', 'Betoninstandsetzung', 'Länge', 'Summe']) expect(sheet).toContain(`>${t}<`); // je Messart eine Tabelle
+    for (const t of ['Aufmaßblatt 007', 'Bauvorhaben X', '91092 – Ebene 1', '01.10.2026', 'Aufmaß', 'Betoninstandsetzung', 'Länge']) expect(sheet).toContain(`>${t}<`); // je Messart eine Tabelle
+    expect(sheet).not.toContain('>Summe<'); // wie in der Vorlage: Summe unter der Mengenspalte, Einheit daneben – ohne Beschriftung
     expect(sheet).toMatch(/<f>ROUND\(C(\d+)\*D\1,2\)<\/f>/); // m² = Länge × Breite als Formel
     // je Messart nur die gefragten Maße, Menge gleich danach: Fläche Länge|Breite|m² (E), Länge nur m (C)
     expect(sheet).toMatch(/<f>SUM\(E\d+:E\d+\)<\/f>/);
@@ -56,6 +60,24 @@ describe('Aufmaßblatt (Firmenvorlage)', () => {
     const ws = strFromU8(unzipSync(exportAufmassblatt(withNote, { kind: 'plan', planId: 'p1' }, { no: '010', period: '' }).data)['xl/worksheets/sheet1.xml']);
     expect(ws.match(/>Bemerkung</g)).toHaveLength(1); // nur in der Flächentabelle, nicht bei den Linien
     expect(ws).toContain('>Fläche aus Plan<');
+    // Tabelle Plan|Nr.|Länge|Breite|m² (A–E): die Bemerkung steht gleich daneben in F – nie mit leeren Spalten dazwischen
+    expect(ws).toMatch(/<c r="F\d+"[^>]*>(<is>)?<t[^>]*>Bemerkung</);
+    expect(ws).toMatch(/<c r="F\d+"[^>]*>(<is>)?<t[^>]*>Fläche aus Plan</);
+  });
+  it('Linien der Tabelle nur über ihre Spalten – nie über die Blattbreite', () => {
+    // Längentabelle Plan|Nr.|m (A–C): rechts davon keine formatierten (linierten) Zellen in den Messzeilen
+    const xml = sheet.slice(sheet.indexOf('>Länge<'));
+    const head = /<row r="(\d+)"[^>]*>(?:(?!<\/row>).)*>Plan<(?:(?!<\/row>).)*<\/row>/.exec(xml)!;
+    expect(head[0]).not.toMatch(/<c r="[D-J]\d+"/);
+    const next = new RegExp(`<row r="${Number(head[1]) + 1}"[^>]*>(?:(?!<\\/row>).)*<\\/row>`).exec(xml)!;
+    expect(next[0]).toMatch(/<c r="C\d+"/);
+    expect(next[0]).not.toMatch(/<c r="[D-J]\d+"/);
+  });
+  it('Länge direkt aus dem Plan: Bemerkung „Länge aus Plan“ (nicht „Fläche“)', () => {
+    const fromPlan = { ...data, damages: { d2: dmg('d2', 2, { kind: 'line', width: null, area: null, length: 4.5, areaFromShape: true }) } } as unknown as ProjectState;
+    const ws = strFromU8(unzipSync(exportAufmassblatt(fromPlan, { kind: 'plan', planId: 'p1' }, { no: '010', period: '' }).data)['xl/worksheets/sheet1.xml']);
+    expect(ws).toContain('>Länge aus Plan<');
+    expect(ws).not.toContain('Fläche aus Plan');
   });
 
   it('Bewehrung: eine Zeile je Nummer, lfm als Formel aus allen Längen (2*0.2+3*0.2+0.54+3*0.9), Summe', () => {
@@ -110,7 +132,7 @@ describe('Aufmaßblatt (Firmenvorlage)', () => {
     expect(ws).toMatch(/<f>SUM\(C\d+:C\d+\)<\/f><v>10.4<\/v>/);
   });
 
-  it('mehrere LV/MFK und das Aufmaß ohne Position: immer eine A4-Seite, ohne feste Umbrüche oder festen Zoom', () => {
+  it('mehrere LV/MFK und das Aufmaß ohne Position: A4 in 100 %, ohne feste Umbrüche – nie auf eine Seite gequetscht', () => {
     const pos = (id: string, number: string, unit: string) => ({ id, number, shortText: `Text ${number}`, longText: '', unit, quantity: null, unitPrice: 10, totalPrice: null, group: '', issues: [] });
     const doc = (id: string, kind: 'lv' | 'mfk', number: string, p: ReturnType<typeof pos>) => ({ ...meta, id, projectId: 'x', kind, name: `Dok ${number}`, number, fileName: '', groups: [], positions: [p] });
     const many = Object.fromEntries(Array.from({ length: 60 }, (_, i) => [`m${i}`, dmg(`m${i}`, 10 + i, { positionRef: 'm1:b', kind: 'line', width: null, area: null, length: 1 })]));
@@ -121,12 +143,38 @@ describe('Aufmaßblatt (Firmenvorlage)', () => {
     } as unknown as ProjectState;
     const ws = strFromU8(unzipSync(exportAufmassblatt(two, { kind: 'costCenter', costCenterId: 'c1' }, { no: '008', period: '' }, { logo }).data)['xl/worksheets/sheet1.xml']);
     expect(ws).not.toContain('<brk ');
-    expect(ws).not.toMatch(/scale="\d+"/);
-    expect(ws).toContain('<pageSetUpPr fitToPage="1"/>');
-    expect(ws).toContain('fitToWidth="1" fitToHeight="1"');
+    expect(ws).toContain('scale="100"');
+    expect(ws).not.toContain('fitToPage');
+    expect(ws).not.toContain('fitToHeight');
     expect(ws).not.toContain('view="pageLayout"');
     // Zeilenhöhen frei (Excel passt sie selbst an): nur umbrochene Texte in verbundenen Zellen bekommen eine Höhe
     expect((ws.match(/customHeight="1"/g) ?? []).length).toBeLessThan(3);
+  });
+});
+
+describe('Aufmaßblatt: immer nach Messart getrennt, Preise nur mit Position', () => {
+  const pos = { id: 'a', number: '01', shortText: 'Beschichten', longText: '', unit: 'm²', quantity: null, unitPrice: 10, totalPrice: null, group: '', issues: [] };
+  const lv = { l1: { ...meta, id: 'l1', projectId: 'x', kind: 'lv', name: 'LV', number: '', fileName: '', groups: [], positions: [pos] } };
+  const ws = (d: unknown) => strFromU8(unzipSync(exportAufmassblatt(d as ProjectState, { kind: 'plan', planId: 'p1' }, { no: '030', period: '' }).data)['xl/worksheets/sheet1.xml']);
+  it('eine Position mit Fläche und Wand: zwei Tabellen, Menge = Summe beider', () => {
+    const s = ws({
+      ...data,
+      lvDocs: lv,
+      damages: {
+        d1: dmg('d1', 1, { kind: 'area', measureType: 'flaeche', positionRef: 'l1:a' } as Partial<Damage>),
+        d2: dmg('d2', 2, { kind: 'area', measureType: 'wand', length: 4, width: 2.5, area: 10, positionRef: 'l1:a' } as Partial<Damage>),
+      },
+    });
+    expect(s).toContain('>Fläche<');
+    expect(s).toContain('>Wand<');
+    expect(s).toContain('>Höhe<');
+    expect([...s.matchAll(/<f>SUM\(E\d+:E\d+\)<\/f><v>([\d.]+)<\/v>/g)].map((m) => Number(m[1]))).toEqual([6, 10]);
+    expect(s).toMatch(/<f>E\d+\+E\d+<\/f><v>16<\/v>/); // Menge der Position
+    expect(s).toContain('Gesamtpreis in EUR');
+  });
+  it('keine Position gewählt: kein Teil mit Preisen', () => {
+    const s = ws({ ...data, lvDocs: lv });
+    for (const t of ['Gesamtpreis in EUR', 'Einheitspreis', 'Positionspreis', 'Beschichten']) expect(s).not.toContain(t);
   });
 });
 

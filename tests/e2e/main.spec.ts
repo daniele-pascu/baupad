@@ -399,9 +399,9 @@ test('10. Excel-Export (Plan): Aufmaßblatt mit echten Zahlenwerten auf einer Se
   expect(String(rows[0].cells[5]?.v)).toMatch(/^=ROUND\(C\d+\*D\d+,2\)$/);
   const sumRow = ws.find((r) => r[6]?.v === 'm²')!;
   expect(String(sumRow[5]?.v)).toMatch(/^=SUM\(F\d+:F\d+\)$/);
-  // Druck: Hochformat, immer auf eine Seite, Kopfzeile rechts „Seite von Seiten“
+  // Druck: Hochformat in 100 % (nie „an Seite anpassen“), Kopfzeile rechts „Seite von Seiten“
   const pr = readXlsxPrint(file)['Aufmaßblatt 001'];
-  expect(pr).toMatchObject({ orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 1 });
+  expect(pr).toMatchObject({ orientation: 'portrait', fitToPage: false, scale: 100 });
   expect(pr.header.right).toBe('&P von &N');
   // Datei lässt sich mit einem kompatiblen Tabellenprogramm (LibreOffice) öffnen, Formeln werden berechnet
   const csvDir = join(OUT, 'xlsx-csv');
@@ -414,7 +414,7 @@ test('10. Excel-Export (Plan): Aufmaßblatt mit echten Zahlenwerten auf einer Se
   // (Zahlenformat der Vorlage mit Leerraum links/rechts)
   // Mengen (m²) immer mit zwei Nachkommastellen (nicht drei)
   expect(csv).toMatch(/^A-101;1; *0[.,]60 *; *0[.,]40 *; *0[.,]03 *; *0[.,]24 *;*$/m);
-  expect(csv).toMatch(/^Summe;;;;; *5[.,]44 *;m²;*$/m); // Summenformel wird berechnet
+  expect(csv).toMatch(/^;;;;; *5[.,]44 *;m²;*$/m); // Summenformel wird berechnet (unter der Mengenspalte, Einheit daneben)
   // Ausdruck (LibreOffice → PDF): genau eine Seite
   execFileSync('soffice', ['--headless', '--convert-to', 'pdf', '--outdir', join(OUT, 'xlsx-pdf'), file], { timeout: 90_000 });
   expect(execFileSync('pdfinfo', [join(OUT, 'xlsx-pdf', 'Wohnanlage_Sued_Tiefgarage_A-101_Aufmassblatt_001.pdf')], { encoding: 'utf8' })).toMatch(/Pages:\s+1\n/);
@@ -496,7 +496,7 @@ test('10b. Excel-Export Kostenstelle und Gesamtprojekt', async () => {
   const sumRow = ws.find((r) => r[6]?.v === 'm²')!;
   const [, from, to] = /^=SUM\(F(\d+):F(\d+)\)$/.exec(String(sumRow[5]?.v))!.map(Number);
   expect(to - from + 1).toBe(6);
-  expect(readXlsxPrint(file1)['Aufmaßblatt 002']).toMatchObject({ fitToPage: true, fitToWidth: 1, fitToHeight: 1 }); // eine Seite
+  expect(readXlsxPrint(file1)['Aufmaßblatt 002']).toMatchObject({ fitToPage: false, scale: 100 }); // nie auf eine Seite gequetscht
 
   const dl2 = await catchDownload(page, () => excelExport(page, 'export-xlsx-project'));
   expect(dl2.suggestedFilename()).toBe('Wohnanlage_Sued_Aufmassblatt_003.xlsx');
@@ -506,7 +506,7 @@ test('10b. Excel-Export Kostenstelle und Gesamtprojekt', async () => {
   // Gesamtprojekt: alle Kostenstellen im Kopf
   expect(String(ws2[3][2]?.v)).toMatch(/Tiefgarage.*Stiege 1.*Fassade Nord/);
   expect(blattRows(wb2).length).toBeGreaterThanOrEqual(6);
-  expect(readXlsxPrint(f2)['Aufmaßblatt 003']).toMatchObject({ fitToPage: true, fitToWidth: 1, fitToHeight: 1 });
+  expect(readXlsxPrint(f2)['Aufmaßblatt 003']).toMatchObject({ fitToPage: false, scale: 100 });
 });
 
 test('12. Projekt speichern, schließen und vollständig wiederherstellen', async () => {

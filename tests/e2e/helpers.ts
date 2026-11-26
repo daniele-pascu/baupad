@@ -154,8 +154,8 @@ export function blattRows(wb: Record<string, XlsxCell[][]>, plan?: string | numb
       head = r.some((c) => c?.v === 'lfm') ? null : r.map((c) => String(c?.v ?? ''));
       continue;
     }
-    // Tabelle endet an der Summenzeile („Summe“ in Spalte A) bzw. an einer Zeile ohne Plan
-    if (!head || a === undefined || a === null || a === '' || a === 'Summe') {
+    // Tabelle endet an der Summenzeile bzw. an einer Zeile ohne Plan (Spalte A leer)
+    if (!head || a === undefined || a === null || a === '') {
       head = null;
       continue;
     }
