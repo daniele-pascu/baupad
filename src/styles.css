@@ -5174,6 +5174,7 @@ a.register-tool:hover {
   box-shadow: none;
 }
 html[data-theme='dark'] .preview-format .segmented button[aria-selected='true'] {
+  background: var(--primary);
   color: #111;
 }
 .preview-hint {
