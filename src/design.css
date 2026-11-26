@@ -16,8 +16,8 @@ html.app-fixed {
   --border-strong: rgba(0, 0, 0, 0.18);
   --text: #111111;
   --muted: #6b6b70;
-  --radius: 22px;
-  --radius-sm: 12px;
+  --radius: 11px;
+  --radius-sm: 6px;
   /* Karten weiß mit feinem Rand und Schatten; Fenster und Kacheln leicht durchscheinend (mit Unschärfe) */
   --d-card: #ffffff;
   --d-card-line: rgba(0, 0, 0, 0.08);
@@ -176,7 +176,7 @@ html.app-fixed .tools-page > * {
 }
 .tools-quick-row .tools-quick {
   margin: 0;
-  border-radius: 999px;
+  border-radius: 6px;
 }
 /* Handy: beide Tasten nebeneinander in einer Zeile (ohne Pfeil, etwas kleiner) */
 @media (max-width: 519px) {
@@ -245,7 +245,7 @@ html.app-fixed .tools-page .tool-tile {
   padding: 26px;
   overflow: hidden;
   border: 1px solid var(--d-card-line);
-  border-radius: 30px;
+  border-radius: 15px;
   background: var(--d-card);
   color: var(--text);
   box-shadow: var(--d-card-shadow);
@@ -303,7 +303,7 @@ html.app-fixed .tools-page .tile-go {
   html.app-fixed .tools-page .tool-tile {
     min-height: 196px;
     padding: 18px;
-    border-radius: 26px;
+    border-radius: 13px;
   }
   html.app-fixed .tools-page .tile-icon {
     width: 54px;
@@ -364,7 +364,7 @@ html.app-fixed .tools-page .tile-go {
   min-height: 34px;
   padding: 0 12px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: 6px;
   background: var(--surface);
   color: var(--text);
   font-size: 0.86rem;
@@ -396,7 +396,7 @@ html.app-fixed .tools-page .tile-go {
   max-width: 260px;
   padding: 10px 18px;
   border: 1px solid var(--border);
-  border-radius: 20px;
+  border-radius: 10px;
   background: var(--surface);
   color: var(--text);
   text-decoration: none;
@@ -448,7 +448,7 @@ html.app-fixed .tools-page .tile-go {
   gap: 12px;
   padding: 16px 18px;
   border: 1px solid var(--d-card-line, var(--border));
-  border-radius: 24px;
+  border-radius: 12px;
   background: var(--d-card, var(--surface));
   box-shadow: var(--d-card-shadow, none);
   color: var(--text);
@@ -518,7 +518,7 @@ a.crew-today:hover {
   gap: 6px;
   max-width: 100%;
   padding: 6px 11px;
-  border-radius: 12px;
+  border-radius: 6px;
   background: var(--surface-2);
   font-size: 0.86rem;
 }
@@ -713,7 +713,7 @@ html.app-fixed .page.loading.with-nav::before {
   gap: 4px;
   padding: 5px;
   border: 1px solid var(--d-card-line);
-  border-radius: 28px;
+  border-radius: 14px;
   background: color-mix(in srgb, var(--surface) 82%, transparent);
   -webkit-backdrop-filter: var(--d-blur);
   backdrop-filter: var(--d-blur);
@@ -724,7 +724,7 @@ html.app-fixed .page.loading.with-nav::before {
   flex-direction: column;
   align-items: stretch;
   gap: 0;
-  border-radius: 22px;
+  border-radius: 11px;
 }
 .ribbon-float > * {
   animation: ribbon-morph 0.22s var(--ease) both;
@@ -751,7 +751,7 @@ html.app-fixed .page.loading.with-nav::before {
   flex: 1;
   min-width: 0;
   padding: 0 2px;
-  border-radius: 22px;
+  border-radius: 11px;
   scrollbar-width: none;
 }
 .ribbon-float .ribbon-tabs {
@@ -887,13 +887,13 @@ html.app-fixed[data-glass='off'][data-theme='dark'] .editor-plan .liquid {
 }
 .zoom-controls:not(.is-collapsed) > .zoom-toggle {
   border-bottom: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
-  border-radius: 12px 12px 4px 4px;
+  border-radius: 6px 6px 3px 3px;
 }
 @media (max-width: 600px) {
   .zoom-controls:not(.is-collapsed) > .zoom-toggle {
     border-bottom: 0;
     border-right: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
-    border-radius: 12px 4px 4px 12px;
+    border-radius: 6px 3px 3px 6px;
   }
 }
 
@@ -948,7 +948,7 @@ html[data-theme='dark'] .btn.btn-ink:active {
   gap: 12px;
   padding: 12px 14px;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 7px;
   background: var(--surface);
 }
 .trash-row > svg {
@@ -982,7 +982,7 @@ html[data-theme='dark'] .btn.btn-ink:active {
   display: block;
   padding: 0;
   border: 0;
-  border-radius: 10px;
+  border-radius: 5px;
   background: none;
   cursor: zoom-in;
 }
@@ -1079,7 +1079,7 @@ html[data-theme='dark'] .btn.btn-ink:active {
   gap: 3px;
   margin: 4px 0 14px;
   padding: 3px;
-  border-radius: 14px;
+  border-radius: 7px;
   background: var(--surface-2);
   border: 1px solid var(--border);
 }
@@ -1088,7 +1088,7 @@ html[data-theme='dark'] .btn.btn-ink:active {
   padding: 0 8px;
   overflow: hidden;
   border: 0;
-  border-radius: 11px;
+  border-radius: 6px;
   background: transparent;
   color: var(--text);
   font: inherit;
@@ -1123,7 +1123,7 @@ html.app-fixed[data-theme='dark'] .register-tabs button.on {
   flex-direction: column;
   margin: 4px 0 14px;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 7px;
   background: var(--surface);
 }
 .storage-line {
@@ -1180,7 +1180,7 @@ html.app-fixed[data-theme='dark'] .register-tabs button.on {
   height: 48px;
   padding: 4px 6px;
   /* Rundung passend zum Rahmen der Gruppe (13 px − 3 px Innenrand) */
-  border-radius: 10px;
+  border-radius: 5px;
 }
 .ribbon-float .ribbon-row .tool-btn.active {
   box-shadow: none;
