@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { showError } from './ui';
 import type { ExportFile } from '../lib/aufmass';
 import type { Cell, HeaderImage, Sheet } from '../lib/xlsx';
 import { FilePreview } from './PdfPreview';
@@ -82,10 +83,55 @@ export function SheetView({ sheet, logo }: { sheet: Sheet; logo?: HeaderImage | 
   );
 }
 
-/** Vorschau des Aufmaßblatts vor dem Speichern – Speichern wie beim PDF (Ordner wählen, teilen, herunterladen) */
+/**
+ * Ansicht des Aufmaßblatts vor dem Speichern: als Excel oder als PDF, gespeichert wird wie beim Plan-PDF
+ * (Ordner wählen, teilen, herunterladen).
+ */
 export function ExcelPreview({ file, logo, onBack, onClose, onSaved }: { file: ExportFile & { sheet: Sheet }; logo?: HeaderImage | null; onBack(): void; onClose(): void; onSaved(): void }) {
+  const [format, setFormat] = useState<'xlsx' | 'pdf'>('xlsx');
+  /** das PDF entsteht beim Umschalten – so ist die Datei beim Antippen von „Speichern“ schon fertig (iPhone/iPad) */
+  const [pdf, setPdf] = useState<ExportFile | null>(null);
+  useEffect(() => {
+    if (format !== 'pdf' || pdf) return;
+    let off = false;
+    void import('../lib/aufmassblatt-pdf')
+      .then((m) => m.aufmassblattPdf(file.sheet, file.name, logo))
+      .then((f) => !off && setPdf(f))
+      .catch((e) => {
+        if (off) return;
+        showError(e, 'PDF konnte nicht erstellt werden');
+        setFormat('xlsx');
+      });
+    return () => {
+      off = true;
+    };
+  }, [format, pdf, file, logo]);
+  const formats = [
+    ['xlsx', 'Excel'],
+    ['pdf', 'PDF'],
+  ] as const;
   return (
-    <FilePreview file={file} title="Excel-Vorschau" testId="excel-preview" onBack={onBack} onClose={onClose} onSaved={onSaved}>
+    <FilePreview
+      file={format === 'pdf' && pdf ? pdf : file}
+      title="Aufmaßblatt"
+      testId="excel-preview"
+      onBack={onBack}
+      onClose={onClose}
+      onSaved={onSaved}
+      wait={format === 'pdf' && !pdf}
+      extra={
+        <div className="field preview-format">
+          <span>Speichern als</span>
+          <div className="segmented" role="tablist" aria-label="Dateiformat">
+            {formats.map(([id, label]) => (
+              <button key={id} type="button" role="tab" aria-selected={format === id} onClick={() => setFormat(id)} data-testid={`format-${id}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      }
+    >
       <div className="preview-pages">
         <SheetView sheet={file.sheet} logo={logo} />
       </div>

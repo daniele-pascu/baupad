@@ -1,8 +1,9 @@
 import { expect, test } from './fixtures';
+import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { FIXTURES, OUT, catchDownload, createProject, drawRect, fillMeasures, freshStart, pickTool, planBox, readXlsx, saveDownload, toMeasureMode, waitForPlan, waitSaved } from './helpers';
 
-test('Excel: erst Vorschau des Aufmaßblatts, dort Dateiname ändern und speichern; Zurück ändert nichts', async ({ page }) => {
+test('Aufmaßblatt: erst die Ansicht, dort Dateiname ändern und als Excel oder PDF speichern; Zurück ändert nichts', async ({ page }) => {
   await freshStart(page);
   await createProject(page, 'Vorschau', {}, ['TG']);
   await page.getByTestId('plan-file-input').setInputFiles(join(FIXTURES, 'parkdeck.png'));
@@ -45,6 +46,17 @@ test('Excel: erst Vorschau des Aufmaßblatts, dort Dateiname ändern und speiche
   expect(Object.keys(wb)).toEqual(['Aufmaßblatt 001']);
   await expect(prev).toHaveCount(0);
   // gespeichert: die nächste Nummer ist 002
+  await expect(page.getByTestId('export-xlsx-plan')).toContainText('Aufmaßblatt');
   await page.getByTestId('export-xlsx-plan').click();
-  await expect(page.getByTestId('excel-export').getByTestId('blatt-no')).toHaveValue('002');
+  await expect(dlg.getByTestId('blatt-no')).toHaveValue('002');
+  // dasselbe Blatt als PDF: Schalter „Speichern als“, Endung und Datei wechseln
+  await dlg.getByTestId('blatt-export').click();
+  await prev.getByTestId('format-pdf').click();
+  await expect(prev.locator('.preview-name .unit')).toHaveText('.pdf');
+  const dl2 = await catchDownload(page, () => prev.getByTestId('preview-download').click());
+  expect(dl2.suggestedFilename()).toMatch(/Aufmassblatt_002\.pdf$/);
+  const pdf = await saveDownload(dl2, 'excel-vorschau.pdf');
+  expect(execFileSync('pdfinfo', [pdf], { encoding: 'utf8' })).toMatch(/Pages:\s+1\n[\s\S]*\(A4\)/);
+  const text = execFileSync('pdftotext', ['-layout', pdf, '-'], { encoding: 'utf8' });
+  for (const t of ['Aufmaßblatt 002', 'Bauvorhaben', 'Betoninstandsetzung', 'Plan', 'Nr.', 'Länge', 'Breite', 'Tiefe', 'V-1', '3,00', '1 von 1']) expect(text).toContain(t);
 });

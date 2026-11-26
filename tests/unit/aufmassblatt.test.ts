@@ -177,6 +177,22 @@ describe('Aufmaßblatt (Firmenvorlage)', () => {
   });
 });
 
+describe('Aufmaßblatt als PDF', () => {
+  it('dieselben Seiten wie die Excel-Datei: A4 hoch, Umbrüche an denselben Stellen', async () => {
+    const { PDFDocument } = await import('pdf-lib');
+    const { aufmassblattPdf } = await import('../../src/lib/aufmassblatt-pdf');
+    const lines = Object.fromEntries(Array.from({ length: 111 }, (_, i) => [`l${i}`, dmg(`l${i}`, i + 1, { kind: 'line', width: null, area: null, length: 2.5 })]));
+    const f = exportAufmassblatt({ ...data, damages: lines } as unknown as ProjectState, { kind: 'plan', planId: 'p1' }, { no: '050', period: '' });
+    const pdf = await aufmassblattPdf(f.sheet, f.name);
+    expect(pdf.name).toBe(f.name.replace('.xlsx', '.pdf'));
+    expect(pdf.mimeType).toBe('application/pdf');
+    const doc = await PDFDocument.load(pdf.data);
+    expect(doc.getPageCount()).toBe((f.sheet.rowBreaks ?? []).length + 1);
+    expect(doc.getPageCount()).toBeGreaterThan(2);
+    expect(doc.getPage(0).getSize()).toEqual({ width: 595.28, height: 841.89 });
+  });
+});
+
 describe('Aufmaßblatt: Spaltenbreiten passen zum Inhalt', () => {
   const width = (ws: string, col: number) => Number(new RegExp(`<col min="${col}" max="${col}" width="([\\d.]+)"`).exec(ws)![1]);
   const sum = (ws: string) => Array.from({ length: 10 }, (_, i) => width(ws, i + 1)).reduce((a, b) => a + b, 0);

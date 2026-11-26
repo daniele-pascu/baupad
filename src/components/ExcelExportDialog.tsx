@@ -61,7 +61,7 @@ export function ExcelExportDialog({ data, scope, onClose, sheetId }: { data: Pro
 
   return (
     <Modal
-      title="Excel – Aufmaßblatt"
+      title="Aufmaßblatt"
       onClose={onClose}
       testId="excel-export"
       footer={
@@ -70,7 +70,7 @@ export function ExcelExportDialog({ data, scope, onClose, sheetId }: { data: Pro
             Abbrechen
           </button>
           <button type="button" className="btn btn-primary" onClick={blatt} data-testid="blatt-export">
-            <Icon name="excel" /> Aufmaßblatt – Vorschau
+            <Icon name="table" /> Ansicht
           </button>
         </>
       }

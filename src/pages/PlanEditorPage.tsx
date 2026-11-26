@@ -1813,11 +1813,11 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
           )}
           {!drawMode && (
           <>
-          <button type="button" className="btn btn-sm" onClick={exportExcel} title="Aufmaß dieses Plans als Excel" data-testid="export-xlsx-plan">
-            <Icon name="excel" size={18} /> <span className="hide-sm">Excel</span>
+          <button type="button" className="btn btn-sm" onClick={exportExcel} title="Aufmaßblatt ansehen und als Excel oder PDF speichern" data-testid="export-xlsx-plan">
+            <Icon name="table" size={18} /> <span className="hide-sm">Aufmaßblatt</span>
           </button>
-          <button type="button" className="btn btn-sm" onClick={() => setPdfOpen('plans')} title="Plan als PDF" data-testid="export-pdf-plan">
-            <Icon name="pdf" size={18} /> <span className="hide-sm">PDF</span>
+          <button type="button" className="btn btn-sm" onClick={() => setPdfOpen('plans')} title="Plan mit den Nummern als PDF" data-testid="export-pdf-plan">
+            <Icon name="pdf" size={18} /> <span className="hide-sm">Plan-PDF</span>
           </button>
           <button type="button" className="btn btn-sm" onClick={() => setPdfOpen('photos')} title="Fotos der Messungen exportieren (PDF, mit Nummer)" aria-label="Fotos exportieren" data-testid="export-photos-plan">
             <Icon name="camera" size={18} /> <span className="hide-sm">Fotos</span>
@@ -3103,7 +3103,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               {volumes.length > 0 && ` · ${formatArea(volumeSum)} m³`}
             </span>
             <div className="side-head-tools">
-              <button type="button" className="btn btn-sm btn-primary" onClick={openNewMeasure} title="Neue Messung: Position bzw. frei wählen, dann im Plan zeichnen" data-testid="new-measure">
+              <button type="button" className="btn btn-sm btn-primary btn-flat" onClick={openNewMeasure} title="Neue Messung: Position bzw. frei wählen, dann im Plan zeichnen" data-testid="new-measure">
                 <Icon name="plus" size={16} /> Neue Messung
               </button>
               {damages.length > 1 && <SelectToggle sel={dmgSel} testId="damages-select" />}

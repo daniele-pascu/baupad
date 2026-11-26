@@ -535,14 +535,18 @@ export function tastenTests() {
       await page.keyboard.press('Escape');
       await expect(page.getByTestId('pdf-export-dialog')).toHaveCount(0);
     }
-    // Excel: Fenster „Aufmaßblatt“ und die Vorschau mit Dateiname und Speichern
+    // Aufmaßblatt: Fenster und die Ansicht mit Dateiname, „Speichern als Excel | PDF“ und Speichern
     if (await page.getByTestId('export-xlsx-plan').isVisible()) {
       await page.getByTestId('export-xlsx-plan').click();
       await expect(page.getByTestId('excel-export')).toBeVisible();
-      await pruefe(page, 'Dialog Excel – Aufmaßblatt', out);
+      await pruefe(page, 'Dialog Aufmaßblatt', out);
       await page.getByTestId('blatt-export').click();
       await expect(page.getByTestId('sheet-preview')).toBeVisible();
-      await pruefe(page, 'Excel-Vorschau', out);
+      await pruefe(page, 'Ansicht Aufmaßblatt', out);
+      // „Speichern als PDF“: Schalter umgestellt, Tasten wieder bereit
+      await page.getByTestId('format-pdf').click();
+      await expect(page.getByTestId('preview-download')).toBeEnabled();
+      await pruefe(page, 'Ansicht Aufmaßblatt (PDF)', out);
       await page.keyboard.press('Escape');
       await expect(page.getByTestId('excel-preview')).toHaveCount(0);
     }

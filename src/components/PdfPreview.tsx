@@ -74,6 +74,8 @@ export function FilePreview({
   onBack,
   onClose,
   onSaved,
+  extra,
+  wait,
   children,
 }: {
   file: ExportFile;
@@ -82,12 +84,17 @@ export function FilePreview({
   onBack(): void;
   onClose(): void;
   onSaved?(): void;
+  /** weitere Angabe neben dem Dateinamen (z. B. Schalter „Excel | PDF“) */
+  extra?: ReactNode;
+  /** Datei wird gerade erstellt: Speichern erst danach */
+  wait?: boolean;
   children: ReactNode;
 }) {
   const ext = file.name.split('.').pop() ?? '';
   const pdf = ext.toLowerCase() === 'pdf';
   const [name, setName] = useState(file.name.slice(0, file.name.length - ext.length - 1));
-  const [busy, setBusy] = useState(false);
+  const [saving, setBusy] = useState(false);
+  const busy = saving || !!wait;
 
   const clean = name.replace(/[\\/:*?"<>|\u0000-\u001F]/g, '-').trim() || 'BauPad';
   // „Speichern unter …“: Name genau so; Herunterladen/Teilen: ohne Umlaute (manche Browser verwerfen sonst den Namen)
@@ -148,13 +155,16 @@ export function FilePreview({
       testId={testId}
       footer={
         <div className="preview-footer">
-          <label className="field preview-name">
-            <span>Dateiname</span>
-            <div className="input-unit">
-              <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" data-testid={pdf ? 'pdf-file-name' : 'excel-file-name'} />
-              <span className="unit">.{ext}</span>
-            </div>
-          </label>
+          <div className="preview-fields">
+            <label className="field preview-name">
+              <span>Dateiname</span>
+              <div className="input-unit">
+                <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" data-testid={extra ? 'excel-file-name' : pdf ? 'pdf-file-name' : 'excel-file-name'} />
+                <span className="unit">.{ext}</span>
+              </div>
+            </label>
+            {extra}
+          </div>
           <p className="muted small preview-hint" data-testid="save-hint">
             {hint}
           </p>
