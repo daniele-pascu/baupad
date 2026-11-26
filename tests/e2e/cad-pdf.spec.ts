@@ -143,7 +143,7 @@ test('PDF: abgerundete Linien, gedrehtes Rechteck, Maß aus Abstand, Hilfslinien
   await page.getByTestId('command-done').click();
 
   // im Aufmaß dieselben Hilfslinien (zum Anlegen und Fangen) – im PDF fehlen sie weiterhin (unten geprüft)
-  await page.getByTestId('mode-measure-tab').click();
+  await page.getByTestId('mode-measure').click();
   await expect(page.getByTestId('guide-line')).toHaveCount(2);
 
   // PDF: eine Seite, Maßtext drin, keine Hilfslinien-Farbe, Zeichnung vorhanden

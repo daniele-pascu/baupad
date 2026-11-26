@@ -1780,8 +1780,16 @@ html.kb-open .modal-backdrop {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
-.mode-bar .mode-next {
-  margin-left: auto;
+/* Umschalter: „Aufmaß“ schwarz hervorgehoben (der Weg zum Messen) */
+.mode-bar .segmented button.mode-measure,
+.mode-bar .segmented button.mode-measure:hover {
+  background: var(--primary);
+  color: #fff;
+}
+html[data-theme='dark'] .mode-bar .segmented button.mode-measure,
+html[data-theme='dark'] .mode-bar .segmented button.mode-measure[aria-selected='true'] {
+  background: var(--primary);
+  color: #111;
 }
 .btn.active-toggle {
   border-color: var(--primary);

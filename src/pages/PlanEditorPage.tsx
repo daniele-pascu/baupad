@@ -1842,7 +1842,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               <Icon name="drawPlan" size={18} /> <span className="hide-sm">Plan bearbeiten</span>
               <span className="show-sm mode-label">Zeichnen</span>
             </button>
-            <button type="button" role="tab" aria-selected={!drawMode} onClick={() => switchMode('measure')} data-testid="mode-measure-tab">
+            {/* Aufmaß schwarz hervorgehoben: der Weg zum Messen (ersetzt „Weiter zum Aufmaß“ rechts) */}
+            <button type="button" role="tab" className="mode-measure" aria-selected={!drawMode} onClick={() => switchMode('measure')} data-testid="mode-measure">
               <Icon name="table" size={18} /> <span className="mode-label">Aufmaß</span>
             </button>
           </div>
@@ -1887,9 +1888,6 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                 <Icon name="grid" size={18} /> <span className="hide-sm">Spuren {drawing.trackOn ? 'ein' : 'aus'}</span>
               </button>
               <OrthoButtons drawing={drawing} />
-              <button type="button" className="btn btn-sm btn-primary mode-next" onClick={() => switchMode('measure')} data-testid="mode-measure">
-                Weiter<span className="hide-sm"> zum Aufmaß</span> <Icon name="next" size={18} />
-              </button>
             </>
           )}
         </div>

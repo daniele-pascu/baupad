@@ -58,6 +58,6 @@ test('Gezeichneter Plan mit Messungen öffnet im Aufmaß, ohne Messungen in „P
   await page.goto(projectUrl);
   await page.getByTestId('plan-row').first().getByTestId('plan-open').click();
   await expect(page.getByTestId('drawing-sheet')).toBeVisible();
-  await expect(page.getByTestId('mode-measure-tab')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByTestId('mode-measure')).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByTestId('aufmass-row')).toHaveCount(1);
 });
