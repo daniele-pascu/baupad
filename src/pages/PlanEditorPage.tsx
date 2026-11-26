@@ -404,15 +404,6 @@ function loadLastPosition(planId: string): string {
   }
 }
 
-function loadPref<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
-  try {
-    const v = localStorage.getItem(key) as T | null;
-    return v && allowed.includes(v) ? v : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
 /** Glas-Leiste „wach“: nach dem Antippen kurz fest weiß, danach wieder Glas */
 function useAwake(): [boolean, () => void] {
   const [awake, setAwake] = useState(false);
@@ -445,7 +436,15 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   useEffect(() => {
     if (tool !== 'select' && tool !== 'probe' && tool !== 'calibrate') lastTool.current = tool;
   }, [tool]);
-  const [color, setColorState] = useState(() => loadPref(`color:${planId}`, COLORS.map((c) => c.value), DEFAULT_COLOR));
+  const [color, setColorState] = useState(() => {
+    // zuletzt gewählte Farbe je Plan – auch eine eigene aus „Weitere Farben“, nicht nur die Standardfarben
+    try {
+      const v = localStorage.getItem(`color:${planId}`);
+      return v && /^#[0-9a-f]{6}$/i.test(v) ? v : DEFAULT_COLOR;
+    } catch {
+      return DEFAULT_COLOR;
+    }
+  });
   const [selectedId, setSelectedId] = useState<string | null>(focusDamageId);
   /** Kontrollmessung (Werkzeug „Messung“) – wird nicht gespeichert */
   const [probe, setProbe] = useState<ProbeState | null>(null);
