@@ -4,7 +4,7 @@ import { naturalCompare } from '../lib/numbers';
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { AufmassRow } from '../lib/aufmass';
 import { useListGlide } from '../lib/motion';
-import { linesByType, sumArea } from '../lib/aufmass';
+import { byGroup, linesByType, sumArea } from '../lib/aufmass';
 import { deductionText, grossArea, hasArea, hasVolume, isWall, kindOf, measureLabel, netLength, sumLengths, sumVolumes } from '../lib/measure';
 import { formatArea, formatDepth, formatMeasure } from '../lib/numbers';
 import { calcPath, countOf, MEASURE_TYPES, totalsByUnit, typeOf } from '../lib/measure-types';
@@ -41,6 +41,8 @@ interface Props {
   surfaceNeeded?: boolean;
   /** Mehrfachauswahl: Zeile antippen wählt aus (statt zu öffnen), Kästchen vor der Nummer */
   sel?: Selection;
+  /** Titel einer Tabelle ändern (leer = wieder der Name der Messart) */
+  onRenameTable?: (rows: AufmassRow[], title: string) => void;
 }
 
 /** Spaltenkopf mit Einheit, z. B. „Länge (m)“ */
@@ -161,7 +163,9 @@ function columnsOf(type: MeasureType, list: Damage[]): TypeColumns {
  */
 const COLLAPSED_KEY = 'aufmassCollapsed';
 
-export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, onEdit, onDelete, duplicates, components, positionLabel, positionTitle, positionOrder, positionsOf, surfaceNeeded, sel: pick }: Props) {
+export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, onEdit, onDelete, duplicates, components, positionLabel, positionTitle, positionOrder, positionsOf, surfaceNeeded, sel: pick, onRenameTable }: Props) {
+  /** Tabelle, deren Titel gerade geändert wird */
+  const [renaming, setRenaming] = useState<string | null>(null);
   const picking = !!pick?.active;
   // gelöschte Messung: die Zeilen darunter rutschen nach
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -214,13 +218,16 @@ export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, on
   const actions = !!(onEdit || onDelete) && !picking;
   // je Messart eine Tabelle, in fester Reihenfolge; nur Messarten, die vorkommen
   // Längen je Linienart getrennt (durchgezogen, gestrichelt, Wellenlinie …) – verschiedene Arten nie in einer Tabelle bzw. Summe
-  const tables = MEASURE_TYPES.flatMap((info) => {
-    const rows = sorted.filter((r) => typeOf(r.damage) === info.id);
-    if (!rows.length) return [];
-    const groups = info.id === 'laenge' ? linesByType(rows.map((row) => ({ d: row.damage, row }))) : [];
-    if (!groups.length || groups[0].only) return [{ info, label: info.label, rows }];
-    return groups.map((g) => ({ info, label: `${info.label} – ${g.label}`, rows: g.items.map((x) => x.row) }));
-  });
+  // jede „Neue Messung“ (Messgruppe) ist eine eigene Tabelle darunter – nie mit einer anderen zusammen
+  const tables = MEASURE_TYPES.flatMap((info) =>
+    byGroup(sorted.filter((r) => typeOf(r.damage) === info.id).map((row) => ({ d: row.damage, row }))).flatMap((group) => {
+      const title = group.title ?? info.label;
+      const key = `type:${info.label}${group.id ? `:${group.id}` : ''}`;
+      const lines = info.id === 'laenge' ? linesByType(group.items) : [];
+      if (!lines.length || lines[0].only) return [{ info, key, title, label: title, rows: group.items.map((x) => x.row) }];
+      return lines.map((g) => ({ info, key: `${key} – ${g.label}`, title, label: `${title} – ${g.label}`, rows: g.items.map((x) => x.row) }));
+    }),
+  );
   const lead = (showPlan ? 1 : 0) + 1; // Plannr., Nr.
 
   const renderTable = (type: MeasureType, rows: AufmassRow[], withSum: boolean) => {
@@ -441,11 +448,11 @@ export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, on
   return (
     <div ref={wrapRef} className="table-wrap aufmass-tables" data-testid="aufmass-table">
       {tables.map((t) => {
-        const key = `type:${t.label}`;
+        const key = t.key;
         const isClosed = closed.has(key);
         const list = t.rows.map((r) => r.damage);
         return (
-          <section key={t.label} className={`aufmass-type${isClosed ? ' is-closed' : ''}`} data-testid="aufmass-type" data-type={t.info.id}>
+          <section key={key} className={`aufmass-type${isClosed ? ' is-closed' : ''}`} data-testid="aufmass-type" data-type={t.info.id}>
             <h3 className="aufmass-type-head">
               <button type="button" className="group-toggle" onClick={() => toggleGroup(key)} aria-expanded={!isClosed} data-testid="aufmass-type-toggle">
                 <Icon name="next" size={16} className="group-chevron" />
@@ -462,7 +469,30 @@ export function AufmassTable({ rows: rawRows, showPlan, selectedId, onSelect, on
                   {columnsOf(t.info.id, list).sum(list).text}
                 </strong>
               </button>
+              {onRenameTable && !picking && (
+                <button type="button" className="icon-btn table-rename" onClick={() => setRenaming(key)} title="Titel der Tabelle ändern" aria-label={`Titel „${t.title}“ ändern`} data-testid="table-rename">
+                  <Icon name="edit" size={16} />
+                </button>
+              )}
             </h3>
+            {renaming === key && (
+              <form
+                className="table-rename-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  onRenameTable!(t.rows, String(new FormData(e.currentTarget).get('title') ?? '').trim());
+                  setRenaming(null);
+                }}
+              >
+                <input name="title" defaultValue={t.title === t.info.label ? '' : t.title} placeholder={t.info.label} maxLength={60} autoFocus aria-label="Titel der Tabelle" data-testid="table-title" />
+                <button type="submit" className="btn btn-sm btn-primary btn-flat" data-testid="table-title-save">
+                  Speichern
+                </button>
+                <button type="button" className="btn btn-sm" onClick={() => setRenaming(null)}>
+                  Abbrechen
+                </button>
+              </form>
+            )}
             {!isClosed && renderTable(t.info.id, t.rows, false)}
           </section>
         );

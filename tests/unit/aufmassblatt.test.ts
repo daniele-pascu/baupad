@@ -177,6 +177,23 @@ describe('Aufmaßblatt (Firmenvorlage)', () => {
   });
 });
 
+describe('Messgruppen: jede „Neue Messung“ eine eigene Tabelle', () => {
+  const line = (id: string, n: number, length: number, o: Partial<Damage> = {}) => dmg(id, n, { kind: 'line', width: null, area: null, length, ...o });
+  it('gleiche Messart, andere Gruppe: getrennte Tabellen mit eigener Summe und eigenem Titel – nie zusammen', () => {
+    const damages = {
+      a: line('a', 1, 4),
+      b: line('b', 2, 1.5),
+      c: line('c', 3, 2, { group: 'g1' }),
+      d: line('d', 4, 3, { group: 'g1' }),
+      e: line('e', 5, 7, { group: 'g2', groupTitle: 'Fugen' }),
+    };
+    const ws = strFromU8(unzipSync(exportAufmassblatt({ ...data, damages } as unknown as ProjectState, { kind: 'plan', planId: 'p1' }, { no: '060', period: '' }).data)['xl/worksheets/sheet1.xml']);
+    expect(ws.match(/>Länge</g)).toHaveLength(2); // ohne Gruppe und g1 (ohne eigenen Titel)
+    expect(ws).toContain('>Fugen<');
+    expect([...ws.matchAll(/<f>SUM\(C\d+:C\d+\)<\/f><v>([\d.]+)<\/v>/g)].map((m) => Number(m[1]))).toEqual([5.5, 5, 7]);
+  });
+});
+
 describe('Aufmaßblatt als PDF', () => {
   it('dieselben Seiten wie die Excel-Datei: A4 hoch, Umbrüche an denselben Stellen', async () => {
     const { PDFDocument } = await import('pdf-lib');

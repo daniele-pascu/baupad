@@ -1,7 +1,7 @@
 import { round2 } from './numbers';
 import { beamText } from './beam';
 import { rebarExact, rebarFormula, rebarItemsOf } from './rebar';
-import { aufmassRows, costCenterLabel, costCentersOf, linesByType, lvDocsOf, plansOf, positionRef, safeFileName, type ExportFile, type XlsxScope } from './aufmass';
+import { aufmassRows, byGroup, costCenterLabel, costCentersOf, linesByType, lvDocsOf, plansOf, positionRef, safeFileName, type ExportFile, type XlsxScope } from './aufmass';
 import { invoiceLabel, invoiceShort } from './invoices';
 import { deductionArea, deductionLength, grossArea, hasArea, kindOf, quantityBasis, quantityFor } from './measure';
 import { MEASURE_TYPES, typeOf } from './measure-types';
@@ -203,31 +203,35 @@ export function exportAufmassblatt(data: ProjectState, scope: BlattScope, info: 
     // Flächenmessung ohne Fläche (nur die Länge erfasst, z. B. ein Riss): zählt wie bisher als Länge
     const onlyLength = (x: Item) => hasArea(kindOf(x.d)) && x.d.area === null && typeOf(x.d) !== 'volumen';
     for (const type of MEASURE_TYPES) {
-      const list = free.filter((x) => (type.id === 'laenge' ? typeOf(x.d) === 'laenge' || onlyLength(x) : typeOf(x.d) === type.id && !onlyLength(x)));
-      if (!list.length) continue;
-      if (type.id === 'frei') {
-        // freie Mengen: je Einheit eine Tabelle
-        const units = [...new Set(list.map((x) => (x.d.unit ?? '').trim()))];
-        for (const u of units) {
-          band(u ? `Frei (${u})` : 'Frei');
-          table(list.filter((x) => (x.d.unit ?? '').trim() === u), 'free', u);
-          add([]);
+      const all = free.filter((x) => (type.id === 'laenge' ? typeOf(x.d) === 'laenge' || onlyLength(x) : typeOf(x.d) === type.id && !onlyLength(x)));
+      // jede „Neue Messung“ (Messgruppe) ist eine eigene Tabelle – nie mit einer anderen zusammen, auch bei gleicher Messart
+      for (const group of byGroup(all)) {
+        const list = group.items;
+        const title = group.title ?? type.label;
+        if (type.id === 'frei') {
+          // freie Mengen: je Einheit eine Tabelle
+          const units = [...new Set(list.map((x) => (x.d.unit ?? '').trim()))];
+          for (const u of units) {
+            band(u ? `${title} (${u})` : title);
+            table(list.filter((x) => (x.d.unit ?? '').trim() === u), 'free', u);
+            add([]);
+          }
+          continue;
         }
-        continue;
-      }
-      if (type.id === 'laenge') {
-        // Linien je Linienart getrennt (durchgezogen, Wellenlinie, gestrichelt …) – verschiedene Arten nie in einer Summe
-        for (const g of linesByType(list)) {
-          band(g.only ? type.label : `${type.label} – ${g.label}`);
-          table(g.items, 'length');
-          add([]);
+        if (type.id === 'laenge') {
+          // Linien je Linienart getrennt (durchgezogen, Wellenlinie, gestrichelt …) – verschiedene Arten nie in einer Summe
+          for (const g of linesByType(list)) {
+            band(g.only ? title : `${title} – ${g.label}`);
+            table(g.items, 'length');
+            add([]);
+          }
+          continue;
         }
-        continue;
+        band(title);
+        const kind: Kind = type.id === 'stueck' ? 'count' : type.id === 'volumen' ? 'volume' : list.some((x) => x.d.depth !== null) ? 'areaDepth' : 'area';
+        table(list, kind, '', type.id === 'wand' ? { width: 'Höhe', depth: 'Stärke' } : undefined);
+        add([]);
       }
-      band(type.label);
-      const kind: Kind = type.id === 'stueck' ? 'count' : type.id === 'volumen' ? 'volume' : list.some((x) => x.d.depth !== null) ? 'areaDepth' : 'area';
-      table(list, kind, '', type.id === 'wand' ? { width: 'Höhe', depth: 'Stärke' } : undefined);
-      add([]);
     }
   }
   if (!items.length) add([str('Noch keine Messungen erfasst.', 'amNote')]);

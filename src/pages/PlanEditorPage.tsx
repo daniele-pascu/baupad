@@ -21,7 +21,7 @@ import { photoNoteUpdates } from '../lib/photo-notes';
 import { legendEntries, resolveLegend } from '../lib/legend';
 import { LegendDialog } from '../components/LegendDialog';
 import type { PhotoSite } from '../lib/types';
-import { positionGrouping, costCenterLabel, damagesOf, findPosition, lvDocLabel, lvDocsOf, plansOf, planTitle, positionRef, sumArea } from '../lib/aufmass';
+import { newGroupId, positionGrouping, costCenterLabel, damagesOf, findPosition, lvDocLabel, lvDocsOf, plansOf, planTitle, positionRef, sumArea } from '../lib/aufmass';
 import { activeRule, autoBookings, hasSurfaceRules, refMismatch } from '../lib/pos-rules';
 import { NewMeasureDialog, type NewMeasureOption } from '../components/NewMeasureDialog';
 import { calibrationStatus, checkDeviation, checkError, formatCm, formatPercent, geometryMeasures, MAX_ERROR_M, planUnitsPerMeter } from '../lib/calibration';
@@ -517,6 +517,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
   const [mobileTab, setMobileTab] = useState<'plan' | 'table'>('plan');
   /** Fenster „Neue Messung“ (Position bzw. frei wählen) */
   const [newMeasure, setNewMeasure] = useState(false);
+  /** Messgruppe der laufenden „Neuen Messung“: ihre Messungen stehen in einer eigenen Tabelle (ohne LV-Position) */
+  const [group, setGroup] = useState<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   /** Planausschnitt direkt hier ändern (wie in der Planliste), ohne den Plan zu verlassen */
   const [cropImage, setCropImage] = useState<HTMLCanvasElement | null>(null);
@@ -1468,6 +1470,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         shape: convertShape(dialog.shape, v.shapeType),
         color: v.color,
         labelOffset: null,
+        // „Neue Messung“ ohne Position: eigene Tabelle (Titel wie bei den bisherigen Messungen der Gruppe)
+        ...(group && !v.positionRef ? { group, groupTitle: stored.find((d) => d.group === group)?.groupTitle } : {}),
         ...(Object.keys(measureStyle).length || dialog.points ? { style: { ...measureStyle, ...(dialog.points ? { points: true } : {}) } } : {}),
         ...measures,
       };
@@ -1574,7 +1578,9 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
       for (const key of Object.keys(next)) if (next[key] === undefined) delete next[key];
       return { ...d, style: next as ShapeStyle };
     };
-    putRecords({ damages: list.map((d) => restyle({ ...d, ...(patch.positionRef !== undefined ? { positionRef: patch.positionRef } : {}), ...(patch.color ? { color: patch.color } : {}) })) });
+    // andere Tabelle: Gruppe und Titel der Zieltabelle übernehmen (null = zurück in die Tabelle der Messart)
+    const regroup = patch.group === undefined ? {} : { group: patch.group?.id, groupTitle: patch.group?.title };
+    putRecords({ damages: list.map((d) => restyle({ ...d, ...(patch.positionRef !== undefined ? { positionRef: patch.positionRef } : {}), ...(patch.color ? { color: patch.color } : {}), ...regroup })) });
     setBulkDmg(false);
     dmgSel.stop();
     toast(`${list.length} ${list.length === 1 ? 'Messung' : 'Messungen'} geändert.`, 'success');
@@ -1668,6 +1674,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
    */
   const startMeasure = (ref: string, type: MeasureType | null) => {
     setNewMeasure(false);
+    setGroup(ref ? null : newGroupId());
     setLastPosition(ref);
     setMobileTab('plan');
     setToolsOpen(true);
@@ -3134,6 +3141,11 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
             onEdit={(r) => setDialog({ mode: 'edit', id: r.damage.id })}
             onDelete={(r) => void removeDamage(r.damage)}
             sel={dmgSel}
+            onRenameTable={(list, title) => {
+              // Tabelle ohne Gruppe (nach Messart): wird beim Umbenennen eine eigene Gruppe
+              const id = list[0].damage.group ?? newGroupId();
+              putRecords({ damages: list.map((r) => ({ ...r.damage, group: id, groupTitle: title || undefined })) });
+            }}
           />
           <div className="side-foot">
             <button type="button" className="btn btn-sm" onClick={() => void compact()}>

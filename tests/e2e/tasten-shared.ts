@@ -535,6 +535,14 @@ export function tastenTests() {
       await page.keyboard.press('Escape');
       await expect(page.getByTestId('pdf-export-dialog')).toHaveCount(0);
     }
+    // Titel einer Tabelle ändern: Stift im Balken, Eingabe mit Speichern/Abbrechen darunter
+    if (await page.getByTestId('table-rename').first().isVisible()) {
+      await page.getByTestId('table-rename').first().click();
+      await expect(page.getByTestId('table-title')).toBeVisible();
+      await pruefe(page, 'Aufmaß: Titel der Tabelle ändern', out);
+      await page.getByRole('button', { name: 'Abbrechen' }).click();
+      await expect(page.getByTestId('table-title')).toHaveCount(0);
+    }
     // Aufmaßblatt: Fenster und die Ansicht mit Dateiname, „Speichern als Excel | PDF“ und Speichern
     if (await page.getByTestId('export-xlsx-plan').isVisible()) {
       await page.getByTestId('export-xlsx-plan').click();
