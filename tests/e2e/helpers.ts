@@ -234,8 +234,8 @@ export async function drawRect(page: Page, x1: number, y1: number, x2: number, y
 export async function fillMeasures(page: Page, l: string, b: string, t: string, viaEnter = true) {
   const dlg = page.getByTestId('damage-dialog');
   await expect(dlg).toBeVisible();
-  // Tiefe gibt es nur bei Volumen und Betoninstandsetzung – mit Tiefe also Betoninstandsetzung wählen
-  if (t && !(await dlg.getByTestId('input-depth').count())) await dlg.getByTestId('measure-type-select').selectOption('schadstelle');
+  // Tiefe gibt es nur bei Volumen und Betoninstandsetzung – die Messart wird vorher unten gewählt (pickTool(…, 'schadstelle'))
+  if (t) await expect(dlg.getByTestId('input-depth'), 'mit Tiefe: vorher Messart Betoninstandsetzung wählen').toHaveCount(1);
   await dlg.getByTestId('input-length').fill(l);
   if (viaEnter) {
     await dlg.getByTestId('input-length').press('Enter');
@@ -281,8 +281,10 @@ print(json.dumps(out))`;
 }
 
 /** Werkzeug wählen – die Werkzeugleiste klappt nach dem Zeichnen zu und wird bei Bedarf geöffnet. */
-export async function pickTool(page: Page, testId: string, how: 'click' | 'tap' = 'click') {
+export async function pickTool(page: Page, testId: string, how: 'click' | 'tap' = 'click', mtype?: string) {
   const btn = page.getByTestId(testId);
+  // Aufmaß: Messart vorher unten wählen (im Messfenster gibt es keine Messart-Auswahl)
+  if (mtype) await chooseMeasureType(page, mtype, how);
   const press = (l: ReturnType<Page['getByTestId']>) => (how === 'tap' ? l.tap() : l.click());
   if (!(await btn.isVisible())) {
     const open = page.getByTestId('tools-open');

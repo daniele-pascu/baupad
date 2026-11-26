@@ -70,6 +70,9 @@ test('Importierter Plan: kalibrieren, Maße aus dem Plan, unabhängig vom Zoom; 
   await dlg.getByTestId('use-suggestion').click();
   await expect(dlg.getByTestId('area-result')).toContainText('12,50 m²');
   await dlg.getByTestId('damage-save').click();
+  await expect(dlg).toBeHidden();
+  // nach dem Speichern ist nichts markiert – Messung antippen zeigt die Plan-Prüfung
+  await page.mouse.click(box.x + 75, box.y + 75);
   await expect(page.getByTestId('measure-check')).toContainText('5,00 × 2,50 m');
 
   // Vergrößert: 100 px sind jetzt nur noch halb so viel – der Vorschlag rechnet in Planeinheiten

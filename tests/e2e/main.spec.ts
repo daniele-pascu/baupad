@@ -165,7 +165,7 @@ test('5.–7. Schadstellen einzeichnen, automatisch nummerieren, Maße eingeben,
   await openPlan(page, 'A-101');
   await waitForPlan(page);
   const box = await planBox(page);
-  await pickTool(page, 'tool-rect');
+  await pickTool(page, 'tool-rect', 'click', 'schadstelle'); // Tiefe gibt es bei der Betoninstandsetzung
   await drawRect(page, box.x + box.width * 0.2, box.y + box.height * 0.3, box.x + box.width * 0.3, box.y + box.height * 0.42);
   const dlg = page.getByTestId('damage-dialog');
   await expect(dlg).toBeVisible();
@@ -186,7 +186,6 @@ test('5.–7. Schadstellen einzeichnen, automatisch nummerieren, Maße eingeben,
 
   await drawRect(page, box.x + box.width * 0.2, box.y + box.height * 0.3, box.x + box.width * 0.3, box.y + box.height * 0.42);
   await expect(dlg.getByTestId('input-number')).toHaveValue('1');
-  await dlg.getByTestId('measure-type-select').selectOption('schadstelle'); // Tiefe gibt es bei der Betoninstandsetzung
   await dlg.getByTestId('input-length').fill('1,5');
   await dlg.getByTestId('input-width').fill('0,8');
   await expect(dlg.getByTestId('area-result')).toContainText('1,20 m²'); // sofortige Aktualisierung
@@ -270,12 +269,11 @@ test('8./9. Schadstelle bearbeiten, Nummer ändern, löschen – Plan und Tabell
   ]);
 
   // Neue Schadstelle mit vergebener Nummer → nachfolgende verschieben
-  await pickTool(page, 'tool-rect');
+  await pickTool(page, 'tool-rect', 'click', 'schadstelle');
   const box = await planBox(page);
   await drawRect(page, box.x + box.width * 0.35, box.y + box.height * 0.56, box.x + box.width * 0.42, box.y + box.height * 0.64); // über der (ggf. zweizeiligen) Werkzeugleiste
   await expect(dlg.getByTestId('input-number')).toHaveValue('4');
   await dlg.getByTestId('input-number').fill('2');
-  if (!(await dlg.getByTestId('input-depth').count())) await dlg.getByTestId('measure-type-select').selectOption('schadstelle');
   await dlg.getByTestId('input-length').fill('1');
   await dlg.getByTestId('input-width').fill('1');
   await dlg.getByTestId('input-depth').fill('0,02');
@@ -313,7 +311,7 @@ test('8./9. Schadstelle bearbeiten, Nummer ändern, löschen – Plan und Tabell
   await expect(page.locator('.damage-label')).toHaveCount(3);
 
   // Nächste neue Messung erhält die nächste Nummer
-  await pickTool(page, 'tool-ellipse');
+  await pickTool(page, 'tool-ellipse', 'click', 'schadstelle');
   await drawRect(page, box.x + box.width * 0.8, box.y + box.height * 0.7, box.x + box.width * 0.86, box.y + box.height * 0.8);
   await expect(dlg.getByTestId('input-number')).toHaveValue('4');
   await fillMeasures(page, '0,5', '0,5', '0,04');
@@ -466,7 +464,7 @@ test('Weitere Pläne: gedrehte Seite und Planbereich – PDF-Export mehrerer Pl�
     await waitForPlan(page);
     await expect(page.locator('.damage-label')).toHaveCount(0);
     const box = await planBox(page);
-    await pickTool(page, 'tool-rect');
+    await pickTool(page, 'tool-rect', 'click', 'schadstelle');
     await drawRect(page, box.x + box.width * 0.1, box.y + box.height * 0.1, box.x + box.width * 0.25, box.y + box.height * 0.2);
     // Nummerierung beginnt je Plan wieder bei 0
     await expect(page.getByTestId('damage-dialog').getByTestId('input-number')).toHaveValue('1');

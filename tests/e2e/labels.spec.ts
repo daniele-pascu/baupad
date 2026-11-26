@@ -15,7 +15,7 @@ test('Nummern dicht nebeneinander liegender Schadstellen überlappen nicht (Ansi
   await wiz.getByTestId('import-save').click();
   await waitForPlan(page);
   const box = await planBox(page);
-  await pickTool(page, 'tool-ellipse');
+  await pickTool(page, 'tool-ellipse', 'click', 'schadstelle');
   const pts: [number, number][] = [];
   for (let i = 0; i < 6; i++) pts.push([0.30 + i * 0.035, 0.45]); // Reihe dicht nebeneinander
   pts.push([0.30, 0.52], [0.335, 0.52], [0.37, 0.52]); // zweite Reihe direkt darunter

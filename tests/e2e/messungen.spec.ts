@@ -124,8 +124,8 @@ test('Messart aus der Form (Linie / Fläche), keine Auswahl beim Einfügen: Lini
   await expect(flaecheHead).not.toContainText('Tiefe');
   await expect(row(2).getByTestId('row-area')).toHaveText('2,00');
 
-  // 3) Rechteck in Weiß als Fläche (Auswahl vorher aufheben – sonst würde Nr. 2 umgefärbt)
-  await page.getByRole('button', { name: 'Auswahl aufheben' }).click();
+  // 3) Rechteck in Weiß als Fläche (nach dem Speichern ist nichts markiert – Nr. 2 wird nicht umgefärbt)
+  await expect(page.getByTestId('selection-bar')).toHaveCount(0);
   await openTools(page);
   await page.getByRole('button', { name: 'Farbe Weiß' }).click();
   await pickTool(page, 'tool-rect');

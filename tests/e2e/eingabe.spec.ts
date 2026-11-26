@@ -139,12 +139,17 @@ test('Messung: nur Länge Pflicht, Breite/Höhe und Tiefe optional; Werkzeugleis
   await expect(dlg.getByTestId('area-result')).toContainText('Fläche erst mit Breite');
   await dlg.getByTestId('damage-save').click();
   await expect(dlg).toBeHidden();
-  // Leiste zu, Auswahl aktiv, neue Messung ausgewählt
+  // Leiste zu, Auswahl aktiv, nichts markiert (Enter öffnet die gespeicherte Messung nicht wieder)
   await expect(page.getByTestId('tools-open')).toBeVisible();
   await expect(page.getByTestId('tool-rect')).toBeHidden();
-  await expect(page.getByTestId('selection-bar')).toContainText('L 4,20 m');
+  await expect(page.getByTestId('selection-bar')).toHaveCount(0);
   await page.getByTestId('tools-open').click();
   await expect(page.getByTestId('tool-select')).toHaveAttribute('aria-pressed', 'true');
+  // Enter öffnet die gespeicherte Messung nicht wieder (es schaltet nur das zuletzt benutzte Werkzeug wieder ein)
+  await page.keyboard.press('Enter');
+  await expect(dlg).toBeHidden();
+  await page.keyboard.press('Escape');
+  if (await page.getByTestId('tools-open').isVisible()) await page.getByTestId('tools-open').click();
   // und manuell wieder ausblenden
   await page.getByTestId('tools-close').click();
   await expect(page.getByTestId('tools-open')).toBeVisible();
@@ -247,14 +252,15 @@ test('Messung: Bemerkung / Notiz im Dialog, in der Aufmaß-Tabelle und im Excel'
   // mit Notiz
   await pickTool(page, 'tool-rect');
   await drawRect(page, box.x + box.width * 0.4, box.y + box.height * 0.1, box.x + box.width * 0.5, box.y + box.height * 0.2);
+  // Bewehrung nur bei der Betoninstandsetzung (bei der Fläche gibt es das Feld nicht) – Messart unten wählen
+  await expect(dlg.getByTestId('rebar')).toHaveCount(0);
+  await dlg.getByTestId('damage-cancel').click();
+  await expect(dlg).toBeHidden();
+  await pickTool(page, 'tool-rect', 'click', 'schadstelle');
+  await drawRect(page, box.x + box.width * 0.4, box.y + box.height * 0.1, box.x + box.width * 0.5, box.y + box.height * 0.2);
   await dlg.getByTestId('input-length').fill('5');
   await dlg.getByTestId('input-width').fill('2');
   await dlg.getByTestId('input-note').fill('Ecke beschädigt');
-  // Bewehrung nur bei der Betoninstandsetzung (bei der Fläche gibt es das Feld nicht)
-  await expect(dlg.getByTestId('rebar')).toHaveCount(0);
-  await dlg.getByTestId('measure-type-select').selectOption('schadstelle');
-  await dlg.getByTestId('input-length').fill('5');
-  await dlg.getByTestId('input-width').fill('2');
   // Bewehrung: Zeilen Stück × Länge, Summe automatisch; ungültige Länge wird gemeldet
   await dlg.getByTestId('rebar-add').click();
   await dlg.getByTestId('rebar-count').nth(0).fill('4');

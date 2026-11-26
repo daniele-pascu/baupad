@@ -30,7 +30,9 @@ test('Aufmaß-Tabelle: Längen je Linienart getrennt, jede mit eigener Summe', a
   // beide durchgezogen: eine Tabelle ohne Zusatz
   await expect(types).toHaveCount(1);
   await expect(types.locator('h3')).toContainText('2 Messungen');
-  // zweite Linie gestrichelt → zwei Tabellen, jede mit eigener Summe
+  // zweite Linie gestrichelt → zwei Tabellen, jede mit eigener Summe (nach dem Speichern ist nichts markiert: antippen)
+  await pickTool(page, 'tool-select');
+  await page.mouse.click(box.x + 300, box.y + 300);
   await page.getByTestId('style-toggle').click();
   await page.getByTestId('style-panel').getByTestId('style-line-type').selectOption('dashed');
   await waitSaved(page);

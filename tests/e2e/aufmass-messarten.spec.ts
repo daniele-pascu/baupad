@@ -85,7 +85,6 @@ test('Messart wählen, dann mit beliebigem Werkzeug messen: Wand, Stück, Frei, 
   for (const [dx, dy] of [[0, 0], [4, 0], [4, 3], [0, 3], [0, 0.0001]]) await page.mouse.click(x + px(dx), y + px(dy));
   await page.keyboard.press('Enter');
   await expect(dlg()).toContainText('Neue Messung: Wand');
-  await expect(dlg().getByTestId('measure-type-select')).toHaveValue('wand');
   const len = num(await dlg().getByTestId('geometry-length').inputValue());
   expect(Math.abs(len - 14)).toBeLessThan(0.1); // Umfang 2 × (4 + 3)
   await dlg().getByTestId('input-width').fill('2,5');
@@ -111,7 +110,7 @@ test('Messart wählen, dann mit beliebigem Werkzeug messen: Wand, Stück, Frei, 
   await expect(dlg()).toContainText('Neue Messung: Unterzug');
   const len2 = num(await dlg().getByTestId('geometry-length').inputValue());
   await expect(dlg().getByTestId('input-count')).toHaveCount(0); // Wand: keine Anzahl – jede Wand einzeln nummeriert
-  await expect(dlg().getByTestId('measure-type-select')).toHaveValue('unterzug');
+  await expect(dlg().getByTestId('measure-type-select')).toHaveCount(0); // Messart nur unten in der Leiste
   await expect(dlg().getByTestId('beam-toggle')).toHaveCount(0); // kein Häkchen mehr
   await expect(dlg().getByTestId('input-width')).toHaveCount(0); // statt Wandhöhe: Seite 1, Unterseite, Seite 2
   await dlg().getByTestId('beam-a-input').fill('0,5');
@@ -134,7 +133,7 @@ test('Messart wählen, dann mit beliebigem Werkzeug messen: Wand, Stück, Frei, 
   await page.locator('[data-testid="aufmass-row"]').last().click();
   const edit = page.getByTestId('damage-dialog');
   if (await edit.isVisible().catch(() => false)) {
-    await expect(edit.getByTestId('measure-type-select')).toHaveValue('unterzug');
+    await expect(edit).toContainText('Unterzug');
     await expect(edit.getByTestId('beam-b-on')).not.toBeChecked();
     await expect(edit.getByTestId('beam-a-input')).toHaveValue('0,5');
     await edit.getByTestId('damage-cancel').click();
@@ -243,9 +242,9 @@ test('Messart wählen, dann mit beliebigem Werkzeug messen: Wand, Stück, Frei, 
   await expect(page.getByTestId('tools-open')).toBeVisible();
   await expect(page.getByTestId('tool-mtype')).toHaveCount(0);
 
-  // 7) Messart im Dialog umstellen: Betoninstandsetzung mit Schadensart
+  // 7) Betoninstandsetzung (Messart unten gewählt) mit Schadensart
+  await chooseType('schadstelle');
   await rect(x + px(11), y, px(1), px(1));
-  await dlg().getByTestId('measure-type-select').selectOption('schadstelle');
   await expect(dlg()).toContainText('Neue Messung: Betoninstandsetzung');
   await dlg().getByTestId('input-length').fill('1');
   await dlg().getByTestId('input-width').fill('1');

@@ -231,6 +231,11 @@ interface Props {
   fenceFrom?: Point | null;
   /** Nummernschilder der Objekte anzeigen (Standard: ja) */
   showLabels?: boolean;
+  /**
+   * Seiteneinheiten je pt auf dem Papier des Exports: gesetzt = vergrößert stehen die Nummern genau dort, wo sie im
+   * PDF stehen (Anordnung wie im Export, beim Zoomen fest); nur in der Übersicht (ganz verkleinert) wie bisher
+   */
+  labelUnitsPerPt?: number;
   /** Schraffur am Plan fixiert: Seiteneinheiten je pt auf dem Papier (importierte Pläne: 1 = PDF-Punkte) */
   hatchUnit?: number;
   /** Wand darf geschlossen werden (Plan zeichnen: Raum ringsum) – Antippen des Startpunkts bzw. „Schließen“ */
@@ -339,6 +344,7 @@ type DrawGestureTool = ShapeType | 'dimension' | 'calibrate' | 'window' | 'vecto
 export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewer(props, ref) {
   const { plan, file, damages, selectedId, tool, color, pending, components, selectedComponentId } = props;
   const showLabels = props.showLabels !== false;
+  const labelUnitsPerPt = props.labelUnitsPerPt && props.labelUnitsPerPt > 0 ? props.labelUnitsPerPt : 0;
   const regionProp = props.region;
   const region: Rect = useMemo(
     () => regionProp ?? plan.crop ?? { x: 0, y: 0, w: plan.pageWidth, h: plan.pageHeight },
@@ -820,7 +826,11 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
   const labelLayout = useMemo(() => {
     // ohne Beschriftungen (Zeichenmodus) nichts anordnen – die Anordnung ist aufwendig und liefe sonst bei jedem Zugschritt
     if (!showLabels) return new Map<string, Rect>();
-    const key = `${qScale}|${labelFont}|${region.x}|${region.y}|${region.w}|${region.h}|${overview ? `o${keepLabel ?? ''}` : ''}`;
+    // vergrößert mit bekanntem Papier: Anordnung wie im PDF (Nummerngröße in Seiteneinheiten) – unabhängig vom Zoom
+    const asExport = !overview && labelUnitsPerPt > 0;
+    const key = asExport
+      ? `pdf|${labelUnitsPerPt}|${region.x}|${region.y}|${region.w}|${region.h}`
+      : `${qScale}|${labelFont}|${region.x}|${region.y}|${region.w}|${region.h}|${overview ? `o${keepLabel ?? ''}` : ''}`;
     // Objekt wird gezogen (verschieben, Größe, Eckpunkt, drehen): nur seine Nummer wandert mit, die übrigen bleiben –
     // vollständig neu angeordnet wird beim Loslassen (sonst ruckelt das Ziehen bei vielen Messungen)
     const g = gesture.current;
@@ -837,6 +847,17 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
         return out;
       }
     }
+    if (asExport) {
+      // wie export-pdf drawDamages: 9 pt fett, Kästchen mit Rand, keine Nummer ausgeblendet
+      const fs = 9 * labelUnitsPerPt;
+      const map = layoutLabels(
+        damages.map((d) => ({ id: d.id, bounds: shapeAABB(d.shape), shape: d.shape, w: noOf(d).length * fs * 0.6 + fs * 0.7, h: fs * 1.35, offset: d.labelOffset })),
+        fs * 0.25,
+        { area: region, overview: { all: true } },
+      );
+      layoutBase.current = { map, damages, key };
+      return map;
+    }
     const k = 1.08 / qScale; // Bildschirmpixel → Seiteneinheiten, mit Reserve für Zwischenstufen
     const map = layoutLabels(
       damages.map((d) => ({
@@ -852,7 +873,7 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
     );
     layoutBase.current = { map, damages, key };
     return map;
-  }, [damages, qScale, labelFont, region, showLabels, overview, keepLabel]);
+  }, [damages, qScale, labelFont, region, showLabels, overview, keepLabel, labelUnitsPerPt]);
   const labels = useMemo(() => {
     const out = new Map<string, Rect>();
     if (!view || !showLabels) return out;

@@ -171,10 +171,9 @@ test('Mengen aus der Geometrie: Fläche und Umfang aus dem Plan, nachgeführt be
   const dlg = page.getByTestId('damage-dialog');
 
   // Rechteck: Fläche aus Plan übernehmen
-  await pickTool(page, 'tool-rect');
+  await pickTool(page, 'tool-rect', 'click', 'schadstelle'); // mit Tiefe: Betoninstandsetzung
   await drag(page, sb.x + 100, sb.y + 120, sb.x + 260, sb.y + 220);
   await expect(dlg).toBeVisible();
-  await dlg.getByTestId('measure-type-select').selectOption('schadstelle'); // mit Tiefe: Betoninstandsetzung
   // Doppeltipp ins Längenfeld: Fläche aus dem Plan
   await dlg.getByTestId('input-length').dblclick();
   await expect(dlg.getByTestId('input-width')).toHaveCount(0);

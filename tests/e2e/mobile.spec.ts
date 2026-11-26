@@ -171,7 +171,7 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   const box = await planBox(page);
 
   // 1) Antippen mit dem Kreis-Werkzeug erzeugt eine Markierung in Standardgröße
-  await pickTool(page, 'tool-ellipse', 'tap');
+  await pickTool(page, 'tool-ellipse', 'tap', 'schadstelle'); // mit Tiefe: Betoninstandsetzung
   await page.touchscreen.tap(box.x + box.width * 0.3, box.y + box.height * 0.4);
   const dlg = page.getByTestId('damage-dialog');
   await expect(dlg).toBeVisible();
@@ -187,8 +187,7 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   await expect(dlg.getByTestId('number-letters')).toHaveText('123');
   await dlg.getByTestId('number-letters').tap();
   await expect(dlg.getByTestId('input-number')).toHaveAttribute('inputmode', 'numeric');
-  // Tiefe gibt es nur bei Betoninstandsetzung und Volumen
-  await dlg.getByTestId('measure-type-select').selectOption('schadstelle');
+  // Tiefe gibt es nur bei Betoninstandsetzung und Volumen (Messart unten gewählt)
   await expect(dlg.getByTestId('input-depth')).toHaveAttribute('enterkeyhint', 'done');
   if (isPhone) {
     // Dialog erscheint als Bottom-Sheet am unteren Rand (Einhandbedienung)
@@ -212,7 +211,6 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   // Tippen auf den Plan mit gewähltem Werkzeug hat die Leiste unten zugeklappt
   await expect(page.getByTestId('tools-open')).toBeVisible();
   await expect(dlg.getByTestId('input-number')).toHaveValue('2');
-  await dlg.getByTestId('measure-type-select').selectOption('schadstelle'); // mit Tiefe: Betoninstandsetzung
   await dlg.getByTestId('input-length').fill('2,4');
   await dlg.getByTestId('input-width').fill('1,1');
   await dlg.getByTestId('input-depth').fill('0,06');
@@ -263,9 +261,10 @@ test('Mobile Bedienung: Bildimport, Einzeichnen per Touch, Pinch-Zoom, Tabelle, 
   await page.getByTestId('edit-selected').tap();
   await dlg.getByTestId('input-width').fill('1,5');
   await dlg.getByTestId('damage-save').tap();
-  await expect(page.getByTestId('selection-bar')).toContainText('3,60 m²');
+  await expect(page.getByTestId('selection-bar')).toHaveCount(0); // nach dem Speichern nichts markiert
   // Alle Werkzeuge und Rückgängig/Wiederholen sind per Finger erreichbar, nichts ragt über den Rand (Leiste war zugeklappt)
   await openTools(page, 'tap');
+  await chooseMeasureType(page, 'flaeche', 'tap'); // zuvor Betoninstandsetzung gemessen
   await animationsDone(page);
   const vw = page.viewportSize()!.width;
   // Messart Fläche: Messart-Taste, Rechteck, Kreis, Fläche, Messung (Linie, Wand, Freie Form und Freihand gehören zu anderen Messarten)
@@ -505,6 +504,9 @@ test('Darstellung einer Messung per Finger: Bedienfeld passt auf den Bildschirm'
   const dlg = page.getByTestId('damage-dialog');
   await dlg.getByTestId('input-length').fill('2');
   await dlg.getByTestId('damage-save').tap();
+  await expect(dlg).toBeHidden();
+  // nach dem Speichern ist nichts markiert: Messung antippen
+  await page.touchscreen.tap(box.x + box.width * 0.4, box.y + box.height * 0.3);
   await page.getByTestId('style-toggle').tap();
   const panel = page.getByTestId('style-panel');
   await panel.getByTestId('style-line-type').selectOption('dashdot');

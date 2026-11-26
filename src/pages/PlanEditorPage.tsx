@@ -1483,8 +1483,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         putRecord('damages', dmg);
       }
       if (v.color !== color) setColor(v.color);
-      setSelectedId(dmg.id);
-      // Fertig: zurück zur Auswahl (Messung bleibt ausgewählt und bearbeitbar), Leiste zuklappen
+      // Fertig: zurück zur Auswahl, nichts markiert (sonst öffnete Enter die gerade gespeicherte Messung wieder), Leiste zuklappen
+      setSelectedId(null);
       setTool('select');
       setToolsOpen(false);
       const q = quantityOfMeasure({ ...measures, shape: finalShape });
@@ -1504,6 +1504,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
         const changes = renumber === 'swap' ? swapNumbers([...plain.filter((x) => x.id !== d.id), d], d.id, v.number) : shiftNumbers([...plain.filter((x) => x.id !== d.id), d], d.id, v.number);
         applyRenumber(changes, patch);
       }
+      // gespeichert: Markierung aufheben (Enter öffnet sie sonst gleich wieder)
+      setSelectedId(null);
     }
     setDialog(null);
   };
@@ -2053,6 +2055,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               plan={plan}
               file={file}
               region={drawingPlan ? measureRegion : region}
+              labelUnitsPerPt={ptUnit.current}
               infinite={drawingPlan && !sheetRect}
               maxScale={drawingPlan ? 20 / (0.0001 * unitsPerMeter(plan)) : undefined}
               restoreView={!drawingPlan}
