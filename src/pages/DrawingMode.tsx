@@ -892,10 +892,9 @@ export function useDrawing(opts: {
       return;
     }
     if (tool === 'line' && pageShape.type === 'line' && !isCoarse()) {
-      // PC (Klick – Klick) wie im CAD: die Linie bleibt aktiv, die nächste beginnt am Endpunkt – Esc beendet
-      const end = lineEnds(shape)[1];
+      // PC (Klick – Klick): die Linie bleibt aktiv – der nächste Klick beginnt eine neue Linie (am Endpunkt fängt er),
+      // die gezeichnete bleibt markiert (Länge änderbar); Esc beendet
       create('line', shape, {}, true);
-      viewer.current?.armClick({ x: end.x * k, y: end.y * k });
       return;
     }
     const type: DrawElementType = tool === 'dimension' ? 'dimension' : tool === 'arc' ? 'arc' : pageShape.type;

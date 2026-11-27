@@ -1083,7 +1083,9 @@ export const PlanViewer = forwardRef<PlanViewerHandle, Props>(function PlanViewe
       return;
     }
     let currentTool = propsRef.current.tool;
-    if ((e.pointerType === 'touch' || propsRef.current.toolDoneAnyPointer) && usedRef.current && currentTool !== 'select' && propsRef.current.onToolDone && !clickStart.current && !poly.current.length && (e.pointerType !== 'mouse' || e.button === 0)) {
+    // Ausnahme PC, Linie (Klick – Klick): das Werkzeug bleibt – der nächste Klick beginnt die nächste Linie (Esc beendet)
+    const keepLine = e.pointerType === 'mouse' && currentTool === 'line' && !!propsRef.current.lineClickOnly;
+    if ((e.pointerType === 'touch' || propsRef.current.toolDoneAnyPointer) && !keepLine && usedRef.current && currentTool !== 'select' && propsRef.current.onToolDone && !clickStart.current && !poly.current.length && (e.pointerType !== 'mouse' || e.button === 0)) {
       // Handy/Tablet: Werkzeug wurde benutzt – dieser Fingerkontakt beendet es (Tipp = Auswahl, Ziehen = Plan verschieben).
       // Mit dem Stift bleibt das Werkzeug aktiv (mehrere Messungen hintereinander).
       usedRef.current = false;

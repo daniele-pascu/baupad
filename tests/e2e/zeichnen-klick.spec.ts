@@ -81,7 +81,7 @@ async function selectLine(e: El) {
 
 
 
-test('Linie am PC: Klick – Klick (Ziehen zeichnet keine Linie); danach Klick daneben → Auswahl, Ziehen verschiebt den Plan', async () => {
+test('Linie am PC: Klick – Klick (Ziehen zeichnet keine Linie); Linie bleibt aktiv für die nächste, Esc → Auswahl, Ziehen verschiebt den Plan', async () => {
   await freshStart(page);
   await createProject(page, 'Klick Klick', {}, ['EG']);
   await page.getByTestId('draw-plan').click();
@@ -104,11 +104,18 @@ test('Linie am PC: Klick – Klick (Ziehen zeichnet keine Linie); danach Klick d
   const [l] = await elements();
   const [p, q] = ends(l);
   near(Math.hypot(q.x - p.x, q.y - p.y), 5, 0.05);
-  // Klick ins Leere: Werkzeug fertig → Auswahl
+  // die Linie bleibt aktiv und markiert (Länge änderbar); Klick, Klick zeichnet gleich die nächste Linie
+  await expect(page.getByTestId('draw-line')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('element-length')).toBeVisible();
   const empty = await screenOf({ x: 15, y: 16 });
+  const c = await screenOf({ x: 15, y: 12 });
+  await page.mouse.click(c.x, c.y);
   await page.mouse.click(empty.x, empty.y);
+  await waitSaved(page);
+  expect(await elements()).toHaveLength(2);
+  // Esc beendet → Auswahl
+  await page.keyboard.press('Escape');
   await expect(page.getByTestId('draw-select')).toHaveAttribute('aria-pressed', 'true');
-  expect(await elements()).toHaveLength(1);
   // Ziehen im Leeren verschiebt jetzt den Plan (keine neue Linie)
   const sb0 = (await sheet().boundingBox())!;
   await page.mouse.move(empty.x, empty.y);
@@ -117,7 +124,7 @@ test('Linie am PC: Klick – Klick (Ziehen zeichnet keine Linie); danach Klick d
   await page.mouse.up();
   const sb1 = (await sheet().boundingBox())!;
   near(sb1.x - sb0.x, 60, 2);
-  expect(await elements()).toHaveLength(1);
+  expect(await elements()).toHaveLength(2);
 });
 
 test('Fenster-Auswahl: nur Rechteck, keine Diagonale', async () => {
