@@ -152,6 +152,9 @@ test('Importierter Plan: Schraffur einer Messung in Ansicht und PDF', async ({ p
   await dlg.getByTestId('input-width').fill('2');
   await dlg.getByTestId('damage-save').click();
   await waitSaved(page);
+  // nach dem Speichern ist nichts markiert – Messung antippen
+  await pickTool(page, 'tool-select');
+  await page.mouse.click(box.x + box.width * 0.3, box.y + box.height * 0.3);
   await page.getByTestId('style-toggle').click();
   const panel = page.getByTestId('style-panel');
   await panel.getByTestId('style-fill-type').selectOption('hatch');
@@ -191,6 +194,9 @@ test('Mengen aus der Geometrie: Fläche und Umfang aus dem Plan, nachgeführt be
   expect(r.length).toBeCloseTo(perimOf(r.shape), 2);
   expect(r.depth).toBe(0.1);
   const a0 = r.area as number;
+  // nach dem Speichern ist nichts markiert – Messung antippen
+  await pickTool(page, 'tool-select');
+  await page.mouse.click(sb.x + 180, sb.y + 170);
   await expect(page.getByTestId('measure-check')).toContainText('aus der Form');
 
   // Ecke ziehen → Fläche und Umfang werden nachgeführt (ein Rückgängig-Schritt)
@@ -277,8 +283,7 @@ test('Importierter Plan: Fläche aus Plan erst nach dem Kalibrieren', async ({ p
   const d = (await stored(page, 'damages'))[0];
   expect(d.area).toBeCloseTo(12.5, 2);
   expect(d.length).toBeCloseTo(15, 2);
-  // Linienmessung: keine Flächenübernahme, nur die Länge aus dem Plan
-  await page.getByRole('button', { name: 'Auswahl aufheben' }).click();
+  // Linienmessung: keine Flächenübernahme, nur die Länge aus dem Plan (nach dem Speichern ist nichts markiert)
   await pickTool(page, 'tool-line');
   await drawRect(page, box.x + 60, box.y + 160, box.x + 160, box.y + 160);
   await expect(dlg).toBeVisible();

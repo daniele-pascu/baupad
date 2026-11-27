@@ -395,6 +395,8 @@ export function useDrawing(opts: {
   });
   /** Fangpunkt, auf dem der Zeiger gerade steht – gemerkt wird er erst nach der Verweilzeit (wie im CAD) */
   const dwell = useRef<{ p: Point; timer: number } | null>(null);
+  /** gerade wird eine Form bearbeitet (Ecke, Seite, verschieben): Spurlinien auch im Auswahlwerkzeug zeigen */
+  const editTrack = useRef(false);
   // Werkzeug gewechselt oder beendet (Esc, Auswahl): Hilfsanzeigen der Spuren (grüne Richtungslinie, orange Bezugslinie)
   // sofort weg – sonst bleiben sie stehen, bis die Maus das nächste Mal mit einem Zeichenwerkzeug bewegt wird
   const trackTool = useRef(tool);
@@ -648,6 +650,7 @@ export function useDrawing(opts: {
     track.current.held = { h: null, v: null };
     track.current.lines = [];
     track.current.par = null;
+    editTrack.current = !!ctx.movingId;
     if (ctx.tool === 'selwin') return p;
     // freie Punkte und Längen auf ganze Millimeter – so weit vergrößert, dass das Raster feiner als 1 mm ist, auf
     // 0,0001 m (angezeigt werden immer 2 Nachkommastellen)
@@ -661,14 +664,16 @@ export function useDrawing(opts: {
      * Punkt). Eine schon eingerastete Spurlinie hält mit doppelter Toleranz – sie bleibt fix, solange man genau
      * darunter bleibt.
      */
-    const trackRefs = (extra: Point[] = []) => {
-      const refs = [...track.current.acquired, ...extra];
+    const trackRefs = (extra: Point[] = [], loose: Point[] = []) => {
+      const refs = [...track.current.acquired, ...extra, ...loose];
       let h: Point | null = null;
       let v: Point | null = null;
       const same = (a: Point | null, b: Point) => !!a && Math.abs(a.x - b.x) < 1e-9 && Math.abs(a.y - b.y) < 1e-9;
       for (const r of refs) {
-        const th = same(held.h, r) ? tol * 2 : tol;
-        const tv = same(held.v, r) ? tol * 2 : tol;
+        // lose Bezüge (Eckpunkte der Form, die gerade bearbeitet wird) halten nicht fester – sonst springen kleine Änderungen zurück
+        const firm = !loose.some((q) => same(q, r));
+        const th = firm && same(held.h, r) ? tol * 2 : tol;
+        const tv = firm && same(held.v, r) ? tol * 2 : tol;
         // bei gleicher Flucht zählt der zuletzt angefahrene Punkt (Bezug für einen eingetippten Abstand)
         // gleiche Flucht mit Rundungsrauschen (1e-15) zählt als gleich – sonst gewinnt zufällig der ältere Punkt
         if (Math.abs(pm.y - r.y) < th && (!h || Math.abs(pm.y - r.y) <= Math.abs(pm.y - h.y) + 1e-9)) h = r;
@@ -763,7 +768,9 @@ export function useDrawing(opts: {
       }
     }
     if (trackOn && snapOn && (!hit || hit.kind === 'nearest')) {
-      const { h, v } = trackRefs(from0 ? [from0] : []);
+      // Form bearbeiten: ihre ursprünglichen Eckpunkte sind Bezug – zurück in die alte Lage, Kante genau waagrecht/senkrecht
+      const moving = ctx.movingId ? data.elements[ctx.movingId] : undefined;
+      const { h, v } = trackRefs(from0 ? [from0] : [], moving ? shapeVertices(moving.shape) : []);
       if (h || v) {
         q = { x: v ? v.x : mm(pm.x), y: h ? h.y : mm(pm.y) };
         // nur eine Spurlinie und eine Richtung vom letzten Punkt (15°-Schritte, z. B. waagrecht): im Schnittpunkt
@@ -1993,6 +2000,11 @@ export function useDrawing(opts: {
   };
 
   const onShapeChange = (id: string, pageShape: Shape, commit: boolean) => {
+    if (commit) {
+      // Bearbeiten beendet: Spurlinien weg
+      editTrack.current = false;
+      track.current.lines = [];
+    }
     const shape = roundShape(shapeToMeters(pageShape, k));
     const e = data.elements[id];
     if (e?.type === 'text' && !e.room) {
@@ -2693,7 +2705,7 @@ export function useDrawing(opts: {
         )}
         {ghost}
         {transformLabel}
-        {trackOn && snapOn && tool !== 'select' && (
+        {trackOn && snapOn && (tool !== 'select' || editTrack.current) && (
           <g className="track-lines" data-testid="track-lines">
             {track.current.acquired.map((a, i) => {
               const s2 = toScreen(view, { x: a.x * k, y: a.y * k });

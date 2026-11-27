@@ -914,7 +914,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
    * End-/Eckpunkte, Schnittpunkte, Mittelpunkte, nächster Punkt auf Linien.
    */
   /** Aufmaß: gemerkte Fangpunkte (zuletzt bis zu 4) und aktuelle Spurlinien – nur für Fang und Anzeige */
-  const measureTrack = useRef<{ acquired: Point[]; lines: { from: Point; axis: 'h' | 'v' }[] }>({ acquired: [], lines: [] });
+  const measureTrack = useRef<{ acquired: Point[]; lines: { from: Point; axis: 'h' | 'v' }[]; editing?: boolean }>({ acquired: [], lines: [] });
   const measureSnap: SnapFn = (p, ctx) => {
     const shapes = [
       ...shownDamages.filter((d) => d.id !== ctx.movingId).map((d) => d.shape),
@@ -933,12 +933,15 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
     // Ecken, Mitten und Schnittpunkte merken; ohne Fangpunkt in ihrer Flucht (waagrecht/senkrecht) einrasten
     const t = measureTrack.current;
     t.lines = [];
-    if (coarse || !drawing.trackOn || ctx.movingId || ctx.tool === 'select') return hit ? { ...hit.point, kind: hit.kind } : p;
+    t.editing = !!ctx.movingId;
+    if (coarse || !drawing.trackOn || ctx.tool === 'select') return hit ? { ...hit.point, kind: hit.kind } : p;
+    // Messung bearbeiten (Ecke, Seite, verschieben): ihre ursprünglichen Eckpunkte sind Bezug
+    const moving = ctx.movingId ? data.damages[ctx.movingId] : undefined;
     if (hit && TRACK_KINDS.has(hit.kind)) t.acquired = [...t.acquired.filter((a) => Math.hypot(a.x - hit.point.x, a.y - hit.point.y) > 1e-6), hit.point].slice(-4);
     if (!hit || hit.kind === 'nearest') {
       let h: Point | null = null;
       let v: Point | null = null;
-      for (const r of [...t.acquired, ...(ctx.from ? [ctx.from] : [])]) {
+      for (const r of [...t.acquired, ...(ctx.from ? [ctx.from] : []), ...(moving ? shapeVertices(moving.shape) : [])]) {
         // bei gleicher Flucht (auch mit Rundungsrauschen) zählt der zuletzt angefahrene Punkt
         if (Math.abs(p.y - r.y) < tol && (!h || Math.abs(p.y - r.y) <= Math.abs(p.y - h.y) + 1e-9)) h = r;
         if (Math.abs(p.x - r.x) < tol && (!v || Math.abs(p.x - r.x) <= Math.abs(p.x - v.x) + 1e-9)) v = r;
@@ -1784,7 +1787,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                   data-testid="scale-status"
                   data-state={st.state}
                 >
-                  <span className="hide-sm">Maßstab </span>
+                  <span className="hide-sm hide-tab">Maßstab </span>
                   {st.short}
                 </button>
               );
@@ -1797,13 +1800,13 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               title="Planausschnitt ändern"
               data-testid="editor-crop"
             >
-              <Icon name="crop" size={18} /> <span className="hide-sm">Ausschnitt</span>
+              <Icon name="crop" size={18} /> <span className="hide-sm hide-tab">Ausschnitt</span>
             </button>
           )}
           {/* Plan zeichnen: Angaben, Excel, PDF und Fotos braucht es erst im Aufmaß */}
           {!drawMode && (
           <button type="button" className="btn btn-sm" onClick={() => setDetailsOpen(true)} title="Planangaben">
-            <Icon name="info" size={18} /> <span className="hide-sm">Angaben</span>
+            <Icon name="info" size={18} /> <span className="hide-sm hide-tab">Angaben</span>
           </button>
           )}
 
@@ -2125,7 +2128,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                     </>
                   )}
                   {tool === 'probe' && probe && <ProbeOverlay view={view} probe={probe} hover={hover ?? null} k={k} />}
-                  {drawing.snapOn && drawing.trackOn && tool !== 'select' && (
+                  {drawing.snapOn && drawing.trackOn && (tool !== 'select' || measureTrack.current.editing) && (
                     <g className="track-lines" data-testid="track-lines">
                       {measureTrack.current.acquired.map((a, i) => {
                         const q = toScreen(view, a);
@@ -2156,6 +2159,8 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               probeFrom={probe && !probe.done && probe.points.length ? probe.points[probe.points.length - 1] : null}
               onShapeChange={(id, shape, commit) => {
                 if (commit) {
+                  measureTrack.current.lines = [];
+                  measureTrack.current.editing = false;
                   setOverrides(({ [id]: _, ...rest }) => rest);
                   const d = data.damages[id];
                   if (JSON.stringify(d.shape) !== JSON.stringify(shape)) putRecord('damages', withShapeMeasures({ ...d, shape }, shape, k, d.shape));
