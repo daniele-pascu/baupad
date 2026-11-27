@@ -891,6 +891,13 @@ export function useDrawing(opts: {
       create('wall', shape, { wall: { thickness: wallThickness, ...(wallHeight > 0 ? { height: wallHeight } : {}) } });
       return;
     }
+    if (tool === 'line' && pageShape.type === 'line' && !isCoarse()) {
+      // PC (Klick – Klick) wie im CAD: die Linie bleibt aktiv, die nächste beginnt am Endpunkt – Esc beendet
+      const end = lineEnds(shape)[1];
+      create('line', shape, {}, true);
+      viewer.current?.armClick({ x: end.x * k, y: end.y * k });
+      return;
+    }
     const type: DrawElementType = tool === 'dimension' ? 'dimension' : tool === 'arc' ? 'arc' : pageShape.type;
     create(type, shape);
   };
