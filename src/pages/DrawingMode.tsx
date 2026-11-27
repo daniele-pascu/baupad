@@ -891,6 +891,12 @@ export function useDrawing(opts: {
       create('wall', shape, { wall: { thickness: wallThickness, ...(wallHeight > 0 ? { height: wallHeight } : {}) } });
       return;
     }
+    if (tool === 'line' && pageShape.type === 'line' && !isCoarse()) {
+      // PC (Klick – Klick): die Linie bleibt aktiv – der nächste Klick beginnt eine neue Linie (am Endpunkt fängt er),
+      // die gezeichnete bleibt markiert (Länge änderbar); Esc beendet
+      create('line', shape, {}, true);
+      return;
+    }
     const type: DrawElementType = tool === 'dimension' ? 'dimension' : tool === 'arc' ? 'arc' : pageShape.type;
     create(type, shape);
   };

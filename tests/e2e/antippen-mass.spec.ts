@@ -57,6 +57,9 @@ test('Linie: Maß mit 2 Kommastellen; Länge eingeben verlängert B, markierter 
   await page.mouse.click(A.x, A.y);
   await page.mouse.click(B.x, B.y);
   await expect(bar).toBeVisible();
+  // am PC bleibt die Linie aktiv – zum Bearbeiten der Eckpunkte auf Auswahl wechseln (die Linie bleibt markiert)
+  await pickTool(page, 'draw-select');
+  await expect(bar).toBeVisible();
   const len = bar.getByTestId('element-length');
   await expect(len).toHaveValue(/^\d+,\d\d$/);
   // Länge ändern: A bleibt, B wandert
