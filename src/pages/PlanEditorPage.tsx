@@ -1784,7 +1784,7 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
                   data-testid="scale-status"
                   data-state={st.state}
                 >
-                  <span className="hide-sm">Maßstab </span>
+                  <span className="hide-sm hide-tab">Maßstab </span>
                   {st.short}
                 </button>
               );
@@ -1797,13 +1797,13 @@ export function PlanEditorPage({ planId, focusDamageId }: { planId: string; focu
               title="Planausschnitt ändern"
               data-testid="editor-crop"
             >
-              <Icon name="crop" size={18} /> <span className="hide-sm">Ausschnitt</span>
+              <Icon name="crop" size={18} /> <span className="hide-sm hide-tab">Ausschnitt</span>
             </button>
           )}
           {/* Plan zeichnen: Angaben, Excel, PDF und Fotos braucht es erst im Aufmaß */}
           {!drawMode && (
           <button type="button" className="btn btn-sm" onClick={() => setDetailsOpen(true)} title="Planangaben">
-            <Icon name="info" size={18} /> <span className="hide-sm">Angaben</span>
+            <Icon name="info" size={18} /> <span className="hide-sm hide-tab">Angaben</span>
           </button>
           )}
 

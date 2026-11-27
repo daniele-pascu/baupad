@@ -2898,6 +2898,14 @@ tr.lv-flagged td {
   }
 }
 
+/* Tablet quer und kleine Laptops: Ausschnitt, Angaben und „Maßstab“ nur als Symbol – sonst drücken die Tasten
+   die Plannummer im Kopf auf wenige Pixel zusammen */
+@media (max-width: 1366px) {
+  .editor-topbar .hide-tab {
+    display: none;
+  }
+}
+
 /* Sehr schmale Displays (iPhone hochkant): Plannummer bleibt neben Rückgängig/Wiederholen lesbar */
 @media (max-width: 519px) {
   .plan-switch .icon-btn {
