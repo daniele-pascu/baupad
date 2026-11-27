@@ -664,14 +664,16 @@ export function useDrawing(opts: {
      * Punkt). Eine schon eingerastete Spurlinie hält mit doppelter Toleranz – sie bleibt fix, solange man genau
      * darunter bleibt.
      */
-    const trackRefs = (extra: Point[] = []) => {
-      const refs = [...track.current.acquired, ...extra];
+    const trackRefs = (extra: Point[] = [], loose: Point[] = []) => {
+      const refs = [...track.current.acquired, ...extra, ...loose];
       let h: Point | null = null;
       let v: Point | null = null;
       const same = (a: Point | null, b: Point) => !!a && Math.abs(a.x - b.x) < 1e-9 && Math.abs(a.y - b.y) < 1e-9;
       for (const r of refs) {
-        const th = same(held.h, r) ? tol * 2 : tol;
-        const tv = same(held.v, r) ? tol * 2 : tol;
+        // lose Bezüge (Eckpunkte der Form, die gerade bearbeitet wird) halten nicht fester – sonst springen kleine Änderungen zurück
+        const firm = !loose.some((q) => same(q, r));
+        const th = firm && same(held.h, r) ? tol * 2 : tol;
+        const tv = firm && same(held.v, r) ? tol * 2 : tol;
         // bei gleicher Flucht zählt der zuletzt angefahrene Punkt (Bezug für einen eingetippten Abstand)
         // gleiche Flucht mit Rundungsrauschen (1e-15) zählt als gleich – sonst gewinnt zufällig der ältere Punkt
         if (Math.abs(pm.y - r.y) < th && (!h || Math.abs(pm.y - r.y) <= Math.abs(pm.y - h.y) + 1e-9)) h = r;
@@ -768,7 +770,7 @@ export function useDrawing(opts: {
     if (trackOn && snapOn && (!hit || hit.kind === 'nearest')) {
       // Form bearbeiten: ihre ursprünglichen Eckpunkte sind Bezug – zurück in die alte Lage, Kante genau waagrecht/senkrecht
       const moving = ctx.movingId ? data.elements[ctx.movingId] : undefined;
-      const { h, v } = trackRefs([...(from0 ? [from0] : []), ...(moving ? shapeVertices(moving.shape) : [])]);
+      const { h, v } = trackRefs(from0 ? [from0] : [], moving ? shapeVertices(moving.shape) : []);
       if (h || v) {
         q = { x: v ? v.x : mm(pm.x), y: h ? h.y : mm(pm.y) };
         // nur eine Spurlinie und eine Richtung vom letzten Punkt (15°-Schritte, z. B. waagrecht): im Schnittpunkt
